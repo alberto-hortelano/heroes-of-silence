@@ -1,6 +1,6 @@
 /**
- * El equipo: tres huecos por individuo y por héroe —arma, armadura y accesorio—
- * con una pieza de `data/equipo.json` en cada uno, o nada.
+ * El equipo: cuatro huecos por individuo y por héroe —arma, armadura, accesorio
+ * y escudo— con una pieza de `data/equipo.json` en cada uno, o nada.
  *
  * Lo pide `NuevaJugabilidad.md` («Las tropas también ganan experiencia y equipo.
  * Cuando mueren se pierde pero dura toda la campaña»), y las cifras son
@@ -17,9 +17,10 @@
  * Este módulo es puro y no importa el estado: las acciones que equipan, compran
  * y reparten botín viven en `game.ts`, que es el único que escribe la crónica.
  */
-import { allCreatures, EQUIPO, type Pieza } from '../data.js';
+import { allCreatures, CALIDADES_DE_BOTIN, EQUIPO, type Pieza } from '../data.js';
+import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { Equipo, Hueco, Troop, UnitInfo, Veterania } from '../types.js';
-import { HUECOS, SPEED_TIERS } from '../types.js';
+import { esHueco, HUECOS, huecoDesconocido, SPEED_TIERS } from '../types.js';
 import type { Hero } from './hero.js';
 
 const porId = new Map(EQUIPO.map((p) => [p.id, p]));
@@ -45,6 +46,18 @@ export const NOMBRE_DE_CALIDAD: Readonly<Record<Pieza['calidad'], string>> = {
   comun: 'común',
   armeria: 'de armería',
   especial: 'especial',
+  arena: 'de la arena',
+};
+
+/**
+ * El nombre de cada hueco, para pintarlo: lo leen el panel del héroe y la ficha
+ * de la arena. Aquí y no en el cliente porque son dos pantallas y un mismo hueco.
+ */
+export const NOMBRE_DE_HUECO: Readonly<Record<Hueco, string>> = {
+  arma: 'Arma',
+  armadura: 'Armadura',
+  accesorio: 'Accesorio',
+  escudo: 'Escudo',
 };
 
 /**
@@ -63,10 +76,20 @@ export function seVende(p: Pieza): boolean {
 export const PIEZAS_DE_ARMERIA: readonly Pieza[] = EQUIPO.filter(seVende);
 
 /**
- * Lo que puede caer como botín: todo lo que no se vende —lo común y lo
- * especial—, en el orden del catálogo, que es el del sorteo.
+ * Lo que puede caer como botín: las piezas de `CALIDADES_DE_BOTIN`, en el orden
+ * del catálogo, que es el del sorteo: lo de la arena no está, y el sorteo de cada
+ * semilla ve la misma lista que antes de que lo hubiera.
  */
-export const PIEZAS_DE_BOTIN: readonly Pieza[] = EQUIPO.filter((p) => !seVende(p));
+export const PIEZAS_DE_BOTIN: readonly Pieza[] = EQUIPO.filter((p) =>
+  CALIDADES_DE_BOTIN.includes(p.calidad),
+);
+
+/**
+ * Lo que el juego conoce: todo menos lo de la arena. Es lo que se le describe al
+ * agente (`CATALOGO_DE_EQUIPO_EN_PROSA`): una pieza que no puede caerle ni
+ * comprar no es parte de su juego.
+ */
+export const PIEZAS_DEL_JUEGO: readonly Pieza[] = EQUIPO.filter((p) => p.calidad !== 'arena');
 
 /**
  * El equipo con el que nace todo héroe: la pieza de armería de cada hueco
@@ -98,6 +121,8 @@ export interface SumaDeEquipo {
   readonly defensa: number;
   readonly pv: number;
   readonly velocidad: number;
+  readonly danio: readonly [number, number];
+  readonly disparos: number;
 }
 
 /**
@@ -111,13 +136,19 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
   let defensa = 0;
   let pv = 0;
   let velocidad = 0;
+  let min = 0;
+  let max = 0;
+  let disparos = 0;
   for (const p of piezasPuestas(equipo)) {
     ataque += p.ataque;
     defensa += p.defensa;
     pv += p.pv;
     velocidad += p.velocidad;
+    min += p.danio?.[0] ?? 0;
+    max += p.danio?.[1] ?? 0;
+    disparos += p.disparos ?? 0;
   }
-  return { ataque, defensa, pv, velocidad };
+  return { ataque, defensa, pv, velocidad, danio: [min, max], disparos };
 }
 
 /**
@@ -128,36 +159,138 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
  * Sin piezas devuelve **la misma referencia**, no una copia: un novato sigue
  * pisando el tablero con la `Creature` del catálogo, que es lo que deja al
  * espectador rehacer sus cifras y al banco quedarse igual para quien no lleva
- * nada. La velocidad sube escalones de `SPEED_TIERS` y se queda en el último.
+ * nada. La velocidad sube o baja escalones de `SPEED_TIERS` y se queda entre el
+ * primero y el último. El daño suma `[+mín, +máx]` y los disparos se suman a los
+ * que tenga; `shots` solo aparece si da más de 0 (un arco hace tirador a quien no
+ * lo era), para que lo cuerpo a cuerpo siga sin el campo.
+ *
+ * Con piezas, deja en `sinEquipo` las cifras de antes de ponérselas —las del
+ * cuerpo, si `unit` ya llevaba equipo—: el nivel se mide sin equipo
+ * (`nivelDeUnidad`) y este es el único sitio que sabe qué suma la pieza. Es el
+ * **único escritor** de `sinEquipo` (`test/invariantes.test.ts`). Por eso el
+ * equipo va siempre lo último, después de la veteranía o el rango: lo que se
+ * sume después de `conEquipo` no llegaría a `sinEquipo`, y el nivel no lo vería.
  */
 export function conEquipo<U extends UnitInfo>(unit: U, equipo: Equipo | undefined): U {
   if (piezasPuestas(equipo).length === 0) return unit;
-  const { ataque, defensa, pv, velocidad } = sumaDeEquipo(equipo);
-  const escalon = Math.min(SPEED_TIERS.length - 1, SPEED_TIERS.indexOf(unit.speed) + velocidad);
+  const { ataque, defensa, pv, velocidad, danio, disparos } = sumaDeEquipo(equipo);
+  const escalon = Math.max(
+    0,
+    Math.min(SPEED_TIERS.length - 1, SPEED_TIERS.indexOf(unit.speed) + velocidad),
+  );
+  // Daño y disparos, solo si alguna pieza los suma: sin ellos el objeto sale con
+  // los mismos campos que antes de que las piezas pudieran sumarlos (el banco).
   return {
     ...unit,
     attack: unit.attack + ataque,
     defense: unit.defense + defensa,
+    ...(danio[1] > 0
+      ? { damage: [unit.damage[0] + danio[0], unit.damage[1] + danio[1]] as const }
+      : {}),
     hp: unit.hp + pv,
     speed: SPEED_TIERS[escalon] as UnitInfo['speed'],
+    ...(disparos > 0 ? { shots: (unit.shots ?? 0) + disparos } : {}),
+    sinEquipo: unit.sinEquipo ?? unit,
   };
+}
+
+/**
+ * Si `a` y `b` tienen las mismas cifras en todo lo que el equipo suma: ataque,
+ * defensa, daño, PV, velocidad y disparos. Junto a `conEquipo` porque es quien
+ * sabe qué campos toca: si mañana suma otro, esta comparación tiene que verlo.
+ * La lee la conversión de la arena (`migrarUnidadDeArena`) para comprobar al
+ * revés que un cuerpo con su equipo pelea como las cifras de antes.
+ */
+export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
+  return (
+    a.attack === b.attack &&
+    a.defense === b.defense &&
+    a.damage[0] === b.damage[0] &&
+    a.damage[1] === b.damage[1] &&
+    a.hp === b.hp &&
+    a.speed === b.speed &&
+    (a.shots ?? 0) === (b.shots ?? 0)
+  );
 }
 
 /**
  * Lo que vale una pieza para la IA: la suma de sus cifras, con la velocidad a
  * tres porque un escalón pesa más que un punto. **Heurística de la IA e
  * inventada**, no una regla del juego: la persona y el agente eligen ellos.
+ *
+ * En PV: un punto de ataque o de defensa pesa como `ESCALA_DE_CIFRAS` PV, lo que
+ * pesaba un PV en la escala de fheroes2. Sin redondear: lo que no es múltiplo de
+ * la escala también cuenta.
  */
 export function valorDePieza(p: Pieza): number {
-  return p.ataque + p.defensa + p.pv + 3 * p.velocidad;
+  return ESCALA_DE_CIFRAS * (p.ataque + p.defensa + 3 * p.velocidad) + p.pv;
 }
 
-/** El equipo con `id` puesto en su hueco, y lo que ocupaba ese hueco (o `null`). */
+/**
+ * La regla de las manos y del escudo dicha para quien juega: la leen la prosa del
+ * agente y la ficha de la arena. Junto a `manosBlocker`, que es quien la aplica
+ * (el escudo que no resta lo rechaza el cargador del catálogo, `validarEquipo`).
+ */
+export const REGLA_DEL_ESCUDO = 'un arma a dos manos no admite escudo, y el escudo resta velocidad';
+
+/**
+ * Por qué no se puede poner la pieza `id` sobre `equipo`, o `null` si sí: **un
+ * arma a dos manos no admite escudo** (decisión del usuario, 12-10-2026). Las dos
+ * direcciones: un escudo sobre un mandoble y un mandoble sobre un escudo. La pieza
+ * que ocupa el hueco de `id` no cuenta, porque se quita al ponerla. **La única
+ * lectura de `manos`**: la leen `equipBlocker` (el juego y el agente), la arena
+ * y `equipoBlocker`, y `ponerPieza` lanza con ella como última puerta.
+ */
+export function manosBlocker(equipo: Equipo | undefined, id: string): string | null {
+  const p = pieza(id);
+  const resto = { ...equipo, [p.hueco]: undefined };
+  const arma = resto.arma === undefined ? null : pieza(resto.arma);
+  const escudo = resto.escudo === undefined ? null : pieza(resto.escudo);
+  if (p.hueco === 'escudo' && arma?.manos === 2) {
+    return `${p.nombre} no se puede llevar con ${arma.nombre}: es un arma a dos manos y no deja mano para el escudo`;
+  }
+  if (p.manos === 2 && escudo !== null) {
+    return `${p.nombre} es un arma a dos manos y no se puede llevar con ${escudo.nombre}: quita antes el escudo`;
+  }
+  return null;
+}
+
+/**
+ * Por qué un equipo entero no vale, o `null`: que cada pieza exista, que vaya en
+ * su hueco y que las manos cuadren (`manosBlocker`). Lo lee la arena al validar
+ * una unidad: un equipo escrito a mano en el borrador no pasa por `ponerPieza`.
+ */
+export function equipoBlocker(equipo: Equipo): string | null {
+  for (const [hueco, id] of Object.entries(equipo)) {
+    if (!esHueco(hueco)) return huecoDesconocido(hueco, HUECOS);
+    if (id === undefined) continue;
+    const p = piezaSiExiste(id);
+    if (p === null) return `no existe ninguna pieza "${id}"`;
+    if (p.hueco !== hueco) {
+      return `${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, no en ${NOMBRE_DE_HUECO[hueco]}`;
+    }
+  }
+  if (equipo.arma !== undefined) return manosBlocker(equipo, equipo.arma);
+  return null;
+}
+
+/**
+ * El equipo con `id` puesto en su hueco, y lo que ocupaba ese hueco (o `null`).
+ * Lanza si las manos no cuadran (`manosBlocker`), diciendo a quién si se da
+ * `portador`. El juego ya lo preguntó (`equipBlocker`) y aquí está la última
+ * puerta; la arena no pregunta antes: esta es su pregunta.
+ */
 export function ponerPieza(
   equipo: Equipo | undefined,
   id: string,
+  portador?: string,
 ): { readonly equipo: Equipo; readonly quitada: string | null } {
   const p = pieza(id);
+  const motivo = manosBlocker(equipo, id);
+  if (motivo !== null) {
+    const a = portador === undefined ? '' : ` a ${portador}`;
+    throw new Error(`no se puede poner ${p.nombre}${a}: ${motivo}`);
+  }
   const quitada = equipo?.[p.hueco] ?? null;
   return { equipo: { ...equipo, [p.hueco]: id }, quitada };
 }
@@ -172,6 +305,16 @@ export function quitarPieza(
   return { equipo: resto, quitada };
 }
 
+/**
+ * Lo que se dice al quitar de un hueco vacío, con el hueco por su nombre
+ * (`NOMBRE_DE_HUECO`), no por su clave: «Aldo no lleva nada en Escudo» y no «en
+ * el hueco escudo», que al agente, que lo pidió como `shield`, no le decía nada.
+ * La leen `unequipBlocker` y la arena (`quitarEnArena`).
+ */
+export function nadaEnElHueco(quien: string, hueco: Hueco): string {
+  return `${quien} no lleva nada en ${NOMBRE_DE_HUECO[hueco]}`;
+}
+
 /** Los ids de lo que lleva puesto, en el orden de los huecos: lo que vuelve a una mochila. */
 export function idsPuestos(equipo: Equipo | undefined): string[] {
   return piezasPuestas(equipo).map((p) => p.id);
@@ -184,13 +327,20 @@ export function sacarDeLaMochila(mochila: readonly string[], id: string): string
   return [...mochila.slice(0, i), ...mochila.slice(i + 1)];
 }
 
-/** Lo que suma una pieza, en palabras: «+2 ataque, +1 PV». Lo leen el panel y la prosa del agente. */
+/**
+ * Lo que suma una pieza, en palabras: «+2 ataque, +10-30 daño, −1 velocidad, a
+ * dos manos». Lo leen el panel, la ficha de la arena y la prosa del agente.
+ */
 export function cifrasDePieza(p: Pieza): string {
   return [
     p.ataque > 0 ? `+${p.ataque} ataque` : null,
     p.defensa > 0 ? `+${p.defensa} defensa` : null,
+    p.danio !== undefined && p.danio[1] > 0 ? `+${p.danio[0]}-${p.danio[1]} daño` : null,
     p.pv > 0 ? `+${p.pv} PV` : null,
+    p.disparos !== undefined && p.disparos > 0 ? `+${p.disparos} disparos` : null,
     p.velocidad > 0 ? `+${p.velocidad} velocidad` : null,
+    p.velocidad < 0 ? `−${-p.velocidad} velocidad` : null,
+    p.manos === 2 ? 'a dos manos' : null,
   ]
     .filter((c) => c !== null)
     .join(', ');

@@ -70,10 +70,12 @@ import {
   LADOS,
   ladoDe,
   type UnidadDeArena,
+  unidadDeCombate,
   unidadPorDefecto,
 } from '../../src/core/arena.js';
 import { isAlive, mismoTurno, quedanCasillas, stackHexes } from '../../src/core/battle/battle.js';
 import { hexDistance, hexEquals } from '../../src/core/battle/board.js';
+import { poder } from '../../src/core/battle/poderes.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../../src/core/battle/reglas.js';
 import { allSpells } from '../../src/core/battle/spells.js';
 import type {
@@ -83,7 +85,9 @@ import type {
   BattleState,
 } from '../../src/core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
+import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
+import { nivelDeUnidad } from '../../src/core/nivel.js';
 import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
@@ -1498,7 +1502,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
 }
 
 /**
- * Los veteranos del héroe, en el panel: cada uno con «Veterano · nivel N · …»
+ * Los veteranos del héroe, en el panel: cada uno con «Veterano · rango N · nivel n · …»
  * —o «Nivel 1 · …» quien ya tiene experiencia y no llega al primer umbral—
  * tal y como lo deriva el espejo (`troopSummary`). Lanza si no hay ninguno de
  * nivel 2 o más: la pasada existe para enseñarlos, y una batalla ganada que no
@@ -1510,29 +1514,31 @@ async function veteranosEnElPanel(page: Page, espejo: Session, paso: string): Pr
   const filas = troopSummary(heroe.army, espejo.state.characters).filter(
     (g) => g.veterania !== undefined,
   );
-  if (!filas.some((g) => g.nivel >= 2)) {
+  if (!filas.some((g) => g.rango >= 2)) {
     throw new Error(
-      `${paso}: ningún individuo de ${heroe.name} pasa del nivel 1 (${filas.length} con experiencia): no hay veterano que enseñar`,
+      `${paso}: ningún individuo de ${heroe.name} pasa del rango 1 (${filas.length} con experiencia): no hay veterano que enseñar`,
     );
   }
   const panel = (await page.locator('#side').innerText()).replace(/\s+/g, ' ');
   for (const g of filas) {
-    const esperado = g.nivel >= 2 ? `Veterano · nivel ${g.nivel}` : 'Nivel 1 ·';
+    const nivel = nivelDeUnidad(g.unit);
+    const esperado =
+      g.rango >= 2 ? `Veterano · rango ${g.rango} · nivel ${nivel}` : `Rango 1 · nivel ${nivel}`;
     if (!panel.includes(esperado)) {
       throw new Error(
-        `${paso}: el espejo tiene un ${g.unit.name} de nivel ${g.nivel} y el panel no dice «${esperado}»`,
+        `${paso}: el espejo tiene un ${g.unit.name} de rango ${g.rango} y el panel no dice «${esperado}»`,
       );
     }
   }
   log(
     `${paso}: ${filas.length} veterano(s) en el panel — ${filas
-      .map((g) => `${g.unit.name} nivel ${g.nivel}, ${g.veterania?.experiencia} exp`)
+      .map((g) => `${g.unit.name} rango ${g.rango}, ${g.veterania?.experiencia} exp`)
       .join('; ')}`,
   );
 }
 
 /**
- * Un veterano en el campo: «· nivel N» en su fila de «En el campo», con el nivel
+ * Un veterano en el campo: «· rango N» en su fila de «En el campo», con el rango
  * que dice el espejo. Los galones del lienzo no se miran por píxel: van en la
  * captura, y su cuenta la prueba `galonesDe` en los tests.
  */
@@ -1540,9 +1546,9 @@ async function veteranoEnElCampo(page: Page, espejo: Session): Promise<void> {
   const battle = espejo.battle;
   if (battle === null) throw new Error('no hay batalla en el espejo');
   const vet = battle.stacks.find((s) => s.count > 0 && galonesDe(s) > 0);
-  if (vet === undefined) throw new Error('ningún veterano de nivel ≥ 2 pisa este tablero');
+  if (vet === undefined) throw new Error('ningún veterano de rango ≥ 2 pisa este tablero');
   // Con su distintivo, como lo nombra el panel (#198: dos arqueros, s2 con #224).
-  const esperado = `${nombreEnElCampo(battle, vet)} · nivel ${galonesDe(vet) + 1}`;
+  const esperado = `${nombreEnElCampo(battle, vet)} · rango ${galonesDe(vet) + 1}`;
   const panel = (await page.locator('#side').innerText()).replace(/\s+/g, ' ');
   if (!panel.includes(esperado)) throw new Error(`en «En el campo» falta «${esperado}»`);
   log(`batalla con veterano: «${esperado}» en el campo, ${galonesDe(vet)} galón(es) en la figura`);
@@ -1551,7 +1557,7 @@ async function veteranoEnElCampo(page: Page, espejo: Session): Promise<void> {
 /**
  * La tropa que crece, vista (ciclo «la tropa crece»): una guardia resuelta deja
  * un veterano, el panel lo cuenta con su nivel y lo que le falta, y en la
- * batalla del día siguiente pisa el tablero con galones y «· nivel N».
+ * batalla del día siguiente pisa el tablero con galones y «· rango N».
  *
  * Pasada propia y no dentro de la de escritorio: allí la primera batalla se
  * juega a clics esperando y defendiendo para enseñar la rendición, y nadie de la
@@ -1577,7 +1583,7 @@ async function veteranos(browser: Browser, url: string, problemas: Problemas): P
   await comprobar(page, espejo, 'resolver la primera batalla de los veteranos');
   await veteranosEnElPanel(page, espejo, 'tras la primera batalla');
   const cronica = await page.locator('#side').innerText();
-  if (!cronica.includes('sube a veterano de nivel')) {
+  if (!cronica.includes('sube a veterano de rango')) {
     throw new Error('la crónica de la página no cuenta el ascenso de la tropa');
   }
   await captura(page, 'veteranos-01-panel');
@@ -2435,7 +2441,7 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
     log(`espectador: semilla ${semilla}, ${buscada.como}`);
     servidor = await arrancarServidor(
       entornoDelArnes(semilla),
-      // Con un veterano de nivel 5 en la base del agente, como `pnpm qa`: el
+      // Con un veterano de rango 5 en la base del agente, como `pnpm qa`: el
       // héroe que nace de la tropa es lo que el espectador tiene que enseñar
       // con su tipo y su historia, y la partida sola casi nunca lo da.
       { entrada: 'tools/qa/partida-con-veterano.ts' },
@@ -2650,6 +2656,15 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
 
 /** El ataque que se le pone a mano al guerrero, distinto del de por defecto. */
 const ATAQUE_EDITADO = 9;
+/**
+ * El ataque con que pelea el guerrero con escudo si su cuerpo tiene `ataque`: el
+ * de su cuerpo con el equipo de su perfil encima, que lo suma `unidadDeCombate`
+ * (el perfil de arma es equipo). La tarjeta y el stack enseñan este; la ficha, el
+ * del cuerpo.
+ */
+function ataqueEnLaPelea(hojas: ReturnType<typeof hojasDeArena>, ataque: number): number {
+  return unidadDeCombate(deHoja(hojas, 'templario-escudo', { attack: ataque })).attack;
+}
 
 /** La unidad de arena de una hoja, con sus cifras por defecto y los cambios que se le pidan. */
 function deHoja(
@@ -2833,10 +2848,11 @@ async function sinElBorrador(quien: string, fn: (ruta: string) => Promise<void>)
 // ------------------------------------------------- poderes y edición en combate
 
 /**
- * La vida del monje en la pasada de los poderes: con sus 8 de salida el orco lo
+ * La vida del monje en la pasada de los poderes: con la de salida el orco lo
  * tumba de un golpe (lo prefiere: es lo más frágil) y no llega a curar a nadie.
+ * 30 en la escala de fheroes2, a la de las cifras como todo.
  */
-const VIDA_DEL_MONJE = 30;
+const VIDA_DEL_MONJE = 30 * ESCALA_DE_CIFRAS;
 
 /**
  * La pelea de los poderes en el espejo: el monje templario (Curar y Bendecir),
@@ -2957,14 +2973,16 @@ async function poderesEnLaArena(
     const semilla = buscarPoderes(hojas);
     log(`poderes: semilla ${semilla}, buscada en el espejo`);
     await abrirLaArena(page, url, `?seed=${semilla}`);
-    await page.locator('[data-hoja-catalogo="templario-monje"] [data-lado="izquierda"]').click();
-    await page.locator('[data-hoja-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+    await page.locator('[data-unidad-catalogo="templario-monje"] [data-lado="izquierda"]').click();
+    await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
     await page.locator('[data-arena="poner-heroe"][data-lado="izquierda"]').click();
-    await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+    await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
     // La ficha del monje en el montaje ya dice lo que hacen sus poderes.
-    await page.locator('#bando-izquierda button.nombre[data-hoja="templario-monje"]').click();
+    await page.locator('#bando-izquierda button.nombre[data-unidad="templario-monje"]').click();
     await page
-      .locator('#ficha [data-poder-de-la-ficha="curar"]', { hasText: 'cura 4 PV' })
+      .locator('#ficha [data-poder-de-la-ficha="curar"]', {
+        hasText: `cura ${poder('curar').lanzador.cantidad} PV`,
+      })
       .waitFor({ timeout: 2000 });
     const vida = page.locator('#ficha [data-campo="hp"]');
     await vida.fill(String(VIDA_DEL_MONJE));
@@ -3053,7 +3071,9 @@ async function poderesEnLaArena(
       .locator(`#side div.stack [data-arena="editar-en-combate"][data-stack="${orco.id}"]`)
       .click();
     const dialogo = page.locator('#editor-en-combate');
-    await dialogo.locator('[data-clave-de-ficha="hoja:orko-dos-armas"]').waitFor({ timeout: 2000 });
+    await dialogo
+      .locator('[data-clave-de-ficha="unidad:orko-dos-armas"]')
+      .waitFor({ timeout: 2000 });
     // Un daño mínimo por encima del máximo no entra y se dice en el diálogo.
     const minimo = dialogo.locator('[data-campo="damage-min"]');
     await minimo.fill('99');
@@ -3162,7 +3182,7 @@ async function todoIA(
 ): Promise<void> {
   // Tras recargar, el guerrero ya está a la izquierda en «Yo»: se pasa a la IA.
   await page.locator('#bando-izquierda [data-arena="manda"][data-ia="si"]').click();
-  await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+  await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   const espejo = new SesionDeArena(
     {
       izquierda: { unidades: [delBorrador(izquierda)], heroe: null, ia: true },
@@ -3216,6 +3236,7 @@ async function jugarArena(
   // `clipDelDisparo`, 04-10-2026).
   const hojas = hojasDeArena(process.cwd());
   for (const h of hojas) registrarUnidad(h.id, h);
+  const ATAQUE_EN_LA_PELEA = ataqueEnLaPelea(hojas, ATAQUE_EDITADO);
   const semillaDeLaPelea = buscarArena(hojas);
   log(`arena: semilla ${semillaDeLaPelea}, buscada en el espejo`);
   await abrirLaArena(page, url, `?seed=${semillaDeLaPelea}`);
@@ -3223,7 +3244,7 @@ async function jugarArena(
   // Con clics en el catálogo: el guerrero a la izquierda, que nace en «Yo», y dos
   // a la derecha, que nace en «IA».
   const añadir = async (hoja: string, lado: 'izquierda' | 'derecha'): Promise<void> => {
-    await page.locator(`[data-hoja-catalogo="${hoja}"] [data-lado="${lado}"]`).click();
+    await page.locator(`[data-unidad-catalogo="${hoja}"] [data-lado="${lado}"]`).click();
   };
   await añadir('templario-escudo', 'izquierda');
   await añadir('orko-dos-armas', 'derecha');
@@ -3231,13 +3252,13 @@ async function jugarArena(
 
   // El ataque del guerrero, por su ficha —abierta pulsando su FIGURA, que también
   // elige la unidad—: el cambio entra al salir del campo.
-  await page.locator('#bando-izquierda button.ver[data-hoja="templario-escudo"]').click();
+  await page.locator('#bando-izquierda button.ver[data-unidad="templario-escudo"]').click();
   const campo = page.locator('#ficha [data-campo="attack"]');
   await campo.fill(String(ATAQUE_EDITADO));
   await campo.press('Tab');
   const tarjeta = page.locator('#bando-izquierda .puesto').first();
   await tarjeta
-    .filter({ hasText: `A ${ATAQUE_EDITADO} ·` })
+    .filter({ hasText: `A ${ATAQUE_EN_LA_PELEA} ·` })
     .waitFor({ timeout: 2000 })
     .catch(async () => {
       throw new Error(
@@ -3290,7 +3311,7 @@ async function jugarArena(
   const mio = espejo.battle.stacks.find(
     (x) => x.side === 'attacker' && x.slot === 0,
   ) as BattleStack;
-  if (mio.unit.attack !== ATAQUE_EDITADO)
+  if (mio.unit.attack !== ATAQUE_EN_LA_PELEA)
     throw new Error('arena: el espejo no lleva el ataque cambiado');
 
   await page.locator('[data-arena="luchar"]').click();
@@ -3363,7 +3384,7 @@ async function jugarArena(
 
   // De vuelta al montaje, con todo conservado, y a guardar.
   await page.locator('[data-arena="otra-vez"]').click();
-  await tarjeta.filter({ hasText: `A ${ATAQUE_EDITADO} ·` }).waitFor({ timeout: 2000 });
+  await tarjeta.filter({ hasText: `A ${ATAQUE_EN_LA_PELEA} ·` }).waitFor({ timeout: 2000 });
   await page.locator('[data-arena="guardar"]').click();
   await page
     .waitForFunction(
@@ -3408,7 +3429,7 @@ async function jugarArena(
     });
   await añadir('templario-escudo', 'izquierda');
   await tarjeta
-    .filter({ hasText: `A ${ATAQUE_EDITADO} ·` })
+    .filter({ hasText: `A ${ATAQUE_EN_LA_PELEA} ·` })
     .waitFor({ timeout: 2000 })
     .catch(async () => {
       throw new Error(
@@ -3538,7 +3559,7 @@ async function esperarBarra(
 /** La arena con `query` (`?seed=…&reglas=…`), con la lista de unidades ya pintada. */
 async function abrirLaArena(page: Page, url: string, query: string): Promise<void> {
   await page.goto(`${url}/arena/${query}`, { waitUntil: 'networkidle' });
-  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+  await page.locator('[data-unidad-catalogo]').first().waitFor({ timeout: 5000 });
 }
 
 /**
@@ -3745,9 +3766,9 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
     await c.fill(valor);
     await c.press('Tab');
   };
-  await page.locator('[data-hoja-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+  await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
   await campo('[data-campo="attack"]', '11');
-  await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+  await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   await page.locator('[data-arena="filtro"][data-faccion="catalogo"]').click();
   await page.locator('[data-criatura-catalogo="pikeman"] [data-lado="izquierda"]').click();
   await campo('[data-catalogo-campo="attack"]', '8');
@@ -3993,8 +4014,8 @@ async function edicionDeLaArena(
   vigilarConsola(page, 'edicion', problemas);
   await abrirLaArena(page, url, `?seed=7&reglas=bendicion`);
   // El montaje que tiene que seguir igual: dos unidades y una muralla de ejemplo.
-  await page.locator('[data-hoja-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
-  await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+  await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+  await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   await page.locator('[data-arena="cargar-forma"]').first().click();
   const murosAntes = await page.locator('#muralla .hex.muro').count();
   if (murosAntes === 0) throw new Error('edición: la forma de ejemplo no ha puesto muros');
@@ -4018,9 +4039,9 @@ async function edicionDeLaArena(
   // más abajo.
   const abrir = async (que: string, paso: string): Promise<void> => {
     await page.locator(`#edicion [data-arena="abrir-ficha"]${que}`).click();
-    const [, kind, id] = /^\[data-(hoja|criatura)="([^"]+)"\]$/.exec(que) ?? [];
+    const [, kind, id] = /^\[data-(unidad|criatura)="([^"]+)"\]$/.exec(que) ?? [];
     if (id === undefined) throw new Error(`edición: «${que}» no dice qué ficha se abre`);
-    const clave = `${kind === 'hoja' ? 'hoja' : 'catalogo'}:${id}`;
+    const clave = `${kind === 'unidad' ? 'unidad' : 'catalogo'}:${id}`;
     await asentada(page);
     const donde = await page.evaluate((c) => {
       const t = document
@@ -4037,20 +4058,22 @@ async function edicionDeLaArena(
     if (donde !== null) throw new Error(`edición, ${paso}: ${donde}`);
     await edicionEntera(page, paso);
   };
-  await abrir('[data-hoja="templario-escudo"]', '1 abierta');
-  const otraVez = page.locator('#edicion [data-arena="abrir-ficha"][data-hoja="templario-escudo"]');
+  await abrir('[data-unidad="templario-escudo"]', '1 abierta');
+  const otraVez = page.locator(
+    '#edicion [data-arena="abrir-ficha"][data-unidad="templario-escudo"]',
+  );
   if (!(await otraVez.isDisabled()) || (await otraVez.innerText()) !== 'Abierta')
     throw new Error('edición: la ficha abierta se puede abrir otra vez');
   // El monje es la más alta (poderes y habilidades), y el caballero de la muerte
   // lleva el nombre largo que no se leía entero (H5).
-  await abrir('[data-hoja="templario-monje"]', '2 abiertas');
-  await abrir('[data-hoja="caballero-de-la-muerte"]', '3 abiertas');
+  await abrir('[data-unidad="templario-monje"]', '2 abiertas');
+  await abrir('[data-unidad="caballero-de-la-muerte"]', '3 abiertas');
   await page.locator('#edicion [data-arena="filtro"][data-faccion="catalogo"]').click();
   await abrir('[data-criatura="archer"]', '4 abiertas');
   // Sin tope: la quinta y la sexta entran, debajo de las tres primeras.
   await abrir('[data-criatura="skeleton"]', '5 abiertas');
   await page.locator('#edicion [data-arena="filtro"][data-faccion="todas"]').click();
-  await abrir('[data-hoja="zombi"]', '6 abiertas');
+  await abrir('[data-unidad="zombi"]', '6 abiertas');
   await esperarBarra(page, 'Zombie: ficha abierta.', 'edición: la sexta', { exacta: true });
   if ((await page.locator('#edicion .ficha-abierta').count()) !== 6)
     throw new Error('edición: no hay seis fichas abiertas');
@@ -4083,7 +4106,7 @@ async function edicionDeLaArena(
     page.evaluate(() =>
       performance.getEntriesByType('resource').map((e) => new URL(e.name).pathname),
     );
-  const ficha = (id: string): string => `#edicion article[data-clave-de-ficha="hoja:${id}"]`;
+  const ficha = (id: string): string => `#edicion article[data-clave-de-ficha="unidad:${id}"]`;
   const d2 = (id: string): string => `/unidades/${id}/d2/atlas.webp`;
   const girar = async (id: string): Promise<void> => {
     if ((await pedidas()).includes(d2(id)))
@@ -4123,7 +4146,7 @@ async function edicionDeLaArena(
     const a = document.activeElement;
     return `${a?.closest('[data-clave-de-ficha]')?.getAttribute('data-clave-de-ficha')} ${a?.getAttribute('data-campo')}`;
   });
-  if (foco !== 'hoja:templario-escudo defense')
+  if (foco !== 'unidad:templario-escudo defense')
     throw new Error(`edición: tras cambiar el ataque, el foco está en «${foco}»`);
   const trasElCambio = await lista.evaluate((e) => e.scrollTop);
   if (trasElCambio !== bajada)
@@ -4156,13 +4179,19 @@ async function edicionDeLaArena(
     throw new Error('edición: al volver, la muralla es otra');
   if (page.url() !== urlAntes) throw new Error(`edición: al volver, la URL es otra: ${page.url()}`);
   const bandosDespues = await bandosDichos(page);
-  // El templario va el primero: su «A n ·» es el primero de los bandos.
-  const bandosConElAtaque = bandosAntes.replace(`A ${ataqueAntes} ·`, `A ${nuevo} ·`);
+  // El templario va el primero: su «A n ·» es el primero de los bandos. La tarjeta
+  // dice el ataque con el que pelea, el de su cuerpo (el campo) más el de su espada.
+  const hojas = hojasDeArena(process.cwd());
+  const conLaEspada = (a: string): number => ataqueEnLaPelea(hojas, Number(a));
+  const bandosConElAtaque = bandosAntes.replace(
+    `A ${conLaEspada(ataqueAntes)} ·`,
+    `A ${conLaEspada(nuevo)} ·`,
+  );
   if (bandosDespues !== bandosConElAtaque)
     throw new Error(
       `edición: al volver, los bandos son otros:\n${bandosAntes}\n=====\n${bandosDespues}`,
     );
-  await page.locator('#bando-izquierda button.ver[data-hoja="templario-escudo"]').click();
+  await page.locator('#bando-izquierda button.ver[data-unidad="templario-escudo"]').click();
   if ((await page.locator('#ficha [data-campo="attack"]').inputValue()) !== nuevo)
     throw new Error('edición: la ficha del montaje no enseña el ataque cambiado');
   log('edición: de vuelta, el montaje sigue como estaba y lleva el ataque nuevo');
@@ -4175,18 +4204,18 @@ async function edicionDeLaArena(
       .evaluateAll((xs) => xs.map((x) => x.getAttribute('data-clave-de-ficha')));
   const abiertas = await orden();
   const esperadas = [
-    'hoja:templario-escudo',
-    'hoja:templario-monje',
-    'hoja:caballero-de-la-muerte',
+    'unidad:templario-escudo',
+    'unidad:templario-monje',
+    'unidad:caballero-de-la-muerte',
     'catalogo:archer',
     'catalogo:skeleton',
-    'hoja:zombi',
+    'unidad:zombi',
   ];
   if (abiertas.join() !== esperadas.join())
     throw new Error(`edición: al volver a entrar están abiertas ${abiertas.join(', ')}`);
   await page.locator(`${ficha('templario-monje')} [data-arena="cerrar-ficha"]`).click();
   const quedan = await orden();
-  if (quedan.join() !== esperadas.filter((x) => x !== 'hoja:templario-monje').join())
+  if (quedan.join() !== esperadas.filter((x) => x !== 'unidad:templario-monje').join())
     throw new Error(`edición: al cerrar el monje quedan ${quedan.join(', ')}`);
   if (
     (await page.locator('#edicion [data-arena="plegar-lista"][aria-expanded="false"]').count()) > 0
@@ -4262,12 +4291,12 @@ async function edicionDeLaArena(
   await page.locator(`${escudo} select[data-arena-rasgo]`).selectOption('no_retaliation');
   await conElTeclado(
     `${escudo} [data-arena="quitar-rasgo"][data-rasgo="flying"]`,
-    'hoja:templario-escudo quitar-rasgo no_retaliation',
+    'unidad:templario-escudo quitar-rasgo no_retaliation',
     '«vuela» (con otro detrás)',
   );
   await conElTeclado(
     `${escudo} [data-arena="quitar-rasgo"][data-rasgo="no_retaliation"]`,
-    'hoja:templario-escudo añadir-rasgo',
+    'unidad:templario-escudo añadir-rasgo',
     'el último rasgo',
   );
   const habilidad = await page
@@ -4279,7 +4308,7 @@ async function edicionDeLaArena(
   await page.locator(`${escudo} select[data-arena-habilidad]`).selectOption(habilidad);
   await conElTeclado(
     `${escudo} [data-arena="quitar-habilidad"][data-habilidad="${habilidad}"]`,
-    'hoja:templario-escudo añadir-habilidad',
+    'unidad:templario-escudo añadir-habilidad',
     `la habilidad «${habilidad}», la última de su grupo`,
   );
   // Y otra vez «vuela», que el montaje enseña más abajo.
@@ -4304,7 +4333,7 @@ async function edicionDeLaArena(
   // El bando lleva el nombre y «vuela» en el resumen (y la escalera dice que no la usa).
   const conNombre = await bandosDichos(page);
   const resumenConVuela = new RegExp(
-    `Escudo de prueba\\n[\\s\\S]*?A ${nuevo} · [^\\n]* casillas · vuela\\n`,
+    `Escudo de prueba\\n[\\s\\S]*?A ${conLaEspada(nuevo)} · [^\\n]* casillas · vuela · lleva [^\\n]*\\n`,
   );
   if (!conNombre.includes('Escudo de prueba') || !resumenConVuela.test(conNombre))
     throw new Error(`edición: el montaje no lleva el nombre y el rasgo:\n${conNombre}`);
@@ -4319,7 +4348,7 @@ async function edicionDeLaArena(
 
   // Y al recargar la página, las mismas (`localStorage`, de comodidad).
   await page.reload({ waitUntil: 'networkidle' });
-  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+  await page.locator('[data-unidad-catalogo]').first().waitFor({ timeout: 5000 });
   await page.locator('[data-arena="ir-a-edicion"]').click();
   const recargadas = await orden();
   if (recargadas.join() !== quedan.join())
@@ -4334,20 +4363,20 @@ async function edicionDeLaArena(
       const a = document.activeElement;
       if (a === null || a === document.body) return 'body';
       const ficha = a.closest('[data-clave-de-ficha]')?.getAttribute('data-clave-de-ficha');
-      const quien = a.getAttribute('data-hoja') ?? a.getAttribute('data-criatura');
+      const quien = a.getAttribute('data-unidad') ?? a.getAttribute('data-criatura');
       return `${a.getAttribute('data-arena')} ${ficha ?? quien}`;
     });
   await page.locator(`${ficha('templario-escudo')} [data-arena-habilidad]`).focus();
   await page.keyboard.press('Tab');
-  if ((await enfocado()) !== 'cerrar-ficha hoja:caballero-de-la-muerte')
+  if ((await enfocado()) !== 'cerrar-ficha unidad:caballero-de-la-muerte')
     throw new Error(
       `edición: el tabulador no llega al × de la ficha siguiente: ${await enfocado()}`,
     );
   const tras = [
     'cerrar-ficha catalogo:archer',
     'cerrar-ficha catalogo:skeleton',
-    'cerrar-ficha hoja:zombi',
-    'cerrar-ficha hoja:templario-escudo',
+    'cerrar-ficha unidad:zombi',
+    'cerrar-ficha unidad:templario-escudo',
     'abrir-ficha templario-escudo',
   ];
   for (const esperado of tras) {

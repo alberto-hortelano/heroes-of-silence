@@ -8,6 +8,7 @@
  * `multiplicadorFheroes2`. Las constantes viven aquí y no repartidas por el motor.
  */
 import { hasTrait, isShooter } from '../data.js';
+import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
 import { conComa } from '../types.js';
 import { efectoDeTirada, effectiveLuck, effectTotal, type StackEffect } from './effects.js';
@@ -501,7 +502,11 @@ export function trasElGolpe(
 
 /**
  * Hiere a `objetivo` con `damage` y le apunta la experiencia a `autor`:
- * **los PV quitados de verdad × el nivel del que los recibe**. Devuelve los
+ * **los PV quitados de verdad × el índice de poder del que los recibe**
+ * (`indiceDePoder`: el de sus cifras sin equipo, no su rango; el índice entero y
+ * no su primera cifra, para que un veterano o un héroe que sube cifras pague más
+ * aunque no cambie de nivel). Los umbrales de `data/experiencia.json` van en esa
+ * escala: nada se divide entre 100. Devuelve los
  * muertos, como `applyDamage`.
  *
  * Es la ÚNICA forma en que el motor quita vida —golpe, contraataque, disparo,
@@ -516,7 +521,7 @@ export function herir(objetivo: BattleStack, damage: number, autor: BattleStack 
   const antes = stackHp(objetivo);
   const muertos = applyDamage(objetivo, damage);
   if (autor !== null && autor.side !== objetivo.side) {
-    autor.ganado.experiencia += (antes - stackHp(objetivo)) * objetivo.unit.nivel;
+    autor.ganado.experiencia += (antes - stackHp(objetivo)) * indiceDePoder(objetivo.unit);
     autor.ganado.bajas += muertos;
     if (objetivo.origen.kind === 'heroe' && objetivo.count === 0) {
       autor.ganado.heroes.push(objetivo.unit.name);

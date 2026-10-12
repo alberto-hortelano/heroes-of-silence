@@ -50,6 +50,15 @@ export interface Unidad {
    */
   readonly perfil: Perfil | 'montado-lanza';
   /**
+   * El personaje del que es esta hoja, si el taller pinta el mismo con varios
+   * equipos («Guerrero con escudo» y «Guerrero con arma a dos manos»): todas sus
+   * hojas comparten cuerpo y velocidad en la arena (`VELOCIDAD_DEL_CUERPO`,
+   * `tools/arena/velocidades.ts`), y lo distinto lo pone el equipo (decisión del
+   * usuario, 12-10-2026). Sin él, el personaje es la propia hoja. Los jinetes no
+   * entran: el caballo o la hiena son otro cuerpo.
+   */
+  readonly personaje?: string;
+  /**
    * La lámina de referencia de `assets/art/`: fija el aspecto Y el estilo que
    * tienen que seguir la identidad y la animación (decisión del usuario). Los
    * héroes no la tienen: su aspecto sale de la descripción y su estilo, de la
@@ -121,6 +130,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'templarios',
     nombre: 'Guerrero con escudo',
     perfil: 'espada-escudo',
+    personaje: 'templario-guerrero',
     concepto: 'assets/art/templarios/guerrero-con-escudo.png',
     aspecto:
       'Un templario de infantería: armadura de placas sobre cota de malla, sobrevesta blanca con cruz roja, yelmo cerrado de cubo, escudo de cometa con cruz roja en el brazo izquierdo y espada de una mano en la derecha.',
@@ -130,6 +140,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'templarios',
     nombre: 'Guerrero con arma a dos manos',
     perfil: 'dos-manos',
+    personaje: 'templario-guerrero',
     concepto: 'assets/art/templarios/guerrero-con-arma-a-dos-manos.png',
     aspecto:
       'Un templario pesado: armadura de placas, sobrevesta blanca con cruz roja, capa corta roja, yelmo abierto de casquete y mandoble largo empuñado con las dos manos. Sin escudo.',
@@ -175,6 +186,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'no-muertos',
     nombre: 'Esqueleto guerrero',
     perfil: 'espada-escudo',
+    personaje: 'esqueleto',
     concepto: 'assets/art/no-muertos/esqueleto-guerrero.png',
     maniqui: {
       ...ESPADA_Y_ESCUDO,
@@ -189,6 +201,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'no-muertos',
     nombre: 'Esqueleto arquero',
     perfil: 'arco',
+    personaje: 'esqueleto',
     concepto: 'assets/art/no-muertos/esqueleto-arquero.png',
     aspecto:
       'Un esqueleto arquero: huesos amarillentos, capucha y harapos oscuros, carcaj a la espalda y arco largo en la mano izquierda.',
@@ -433,6 +446,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'orkos',
     nombre: 'Orko con hacha y escudo',
     perfil: 'espada-escudo',
+    personaje: 'orko',
     concepto: 'assets/art/orkos/orko-con-hacha-y-escudo.png',
     maniqui: {
       ...ESPADA_Y_ESCUDO,
@@ -447,6 +461,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'orkos',
     nombre: 'Orko con dos armas',
     perfil: 'dos-manos',
+    personaje: 'orko',
     concepto: 'assets/art/orkos/orko-con-dos-armas.png',
     maniqui: {
       ...ESPADA_Y_ESCUDO,
@@ -462,6 +477,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'orkos',
     nombre: 'Goblin lancero',
     perfil: 'espada-escudo',
+    personaje: 'goblin',
     concepto: 'assets/art/orkos/goblin-lancero.png',
     maniqui: {
       ...JUEGOS_DE_ARMAS.lanza.atrezo,
@@ -478,6 +494,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'orkos',
     nombre: 'Goblin arquero',
     perfil: 'arco',
+    personaje: 'goblin',
     concepto: 'assets/art/orkos/goblin-arquero.png',
     talla: 0.7,
     aspecto:
@@ -512,6 +529,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'orkos',
     nombre: 'Orko con armadura pesada',
     perfil: 'dos-manos',
+    personaje: 'orko',
     concepto: 'assets/art/orkos/orko-armadura-pesada.png',
     maniqui: {
       ...JUEGOS_DE_ARMAS['dos-manos'].atrezo,

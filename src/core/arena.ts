@@ -12,7 +12,14 @@
  * de los personajes de `createBattle` (`members`): el motor toma
  * `profile.unit` tal cual y no vuelve a llamar a `creature()`, así que ni el
  * catálogo ni ninguna partida cambian por tener una arena. El `body` del stack
- * es solo el id de la hoja, que es lo que el cliente pinta.
+ * es solo el id de su CUERPO —una hoja o una criatura del catálogo
+ * (`figuraDeLaUnidad`)—, que es lo que el cliente pinta.
+ *
+ * **Cuerpo y equipo**: una unidad son las cifras de su cuerpo más lo que lleva
+ * puesto (`unidadDeCombate` → `conEquipo`). El nivel mide el cuerpo, así que un
+ * templario con escudo y uno con mandoble son el mismo índice; lo que distingue un
+ * perfil de arma es su equipo (`KIT_DEL_PERFIL`). El porqué, en la entrada «Nueva
+ * unidad» de `docs/historia.md`.
  *
  * Los campos se llaman como en `data/creatures.json` —`attack`, `defense`,
  * `damage`…— y el tipo los toma de `Creature`, así que una cifra que cambie de
@@ -58,21 +65,38 @@ import type {
   TipoDeArena,
 } from './battle/types.js';
 import { allCreatures, CATALOGO_DE_HABILIDADES, creature, hexSize, LIDERAZGO } from './data.js';
-import { EQUIPO_BASE } from './hero/equipo.js';
+import { ESCALA_DE_CIFRAS } from './escala.js';
+import {
+  conEquipo,
+  EQUIPO_BASE,
+  equipoBlocker,
+  mismasCifras,
+  nadaEnElHueco,
+  pieza,
+  piezasPuestas,
+  ponerPieza,
+  quitarPieza,
+  sumaDeEquipo,
+} from './hero/equipo.js';
 import { cifrasDelIndividuo, EXPERIENCIA_INICIAL_DE_HEROE } from './hero/experiencia.js';
 import { CIFRAS_DEL_HEROE_INICIAL, HERO_BODY, heroUnit, maxMana } from './hero/hero.js';
+import { indiceDePoder, medidaBlocker, nivelDelIndice } from './nivel.js';
 import type { Rng } from './rng.js';
 import {
   CREATURE_TRAITS,
   type Creature,
   type CreatureTrait,
+  type Equipo,
+  type FactionId,
+  HUECOS,
+  type Hueco,
   SPEED_TIERS,
   SPEED_TO_HEXES,
   type SpeedTier,
   type Stack,
   type UnitInfo,
 } from './types.js';
-import { entero, lista, repetidoEn, texto } from './validar.js';
+import { entero, esIdDeArena, lista, repetidoEn, texto } from './validar.js';
 
 /**
  * Las cinco facciones de las hojas. Es la misma lista que la de
@@ -140,21 +164,24 @@ export type PerfilDeArena = (typeof PERFILES_DE_ARENA)[number];
 export interface UnidadDeArena
   extends Pick<
     Creature,
-    | 'id'
-    | 'name'
-    | 'level'
-    | 'leadership'
-    | 'attack'
-    | 'defense'
-    | 'damage'
-    | 'hp'
-    | 'shots'
-    | 'hexes'
+    'id' | 'name' | 'leadership' | 'attack' | 'defense' | 'damage' | 'hp' | 'shots' | 'hexes'
   > {
-  /** El id de su hoja en `assets/unidades/`. */
+  /**
+   * Su id en el borrador, único. El de una hoja por defecto es el de la hoja; el
+   * de una unidad nueva, `<cuerpo>-<n>` (`unidadNueva`). No dice con qué se
+   * pinta: eso es `cuerpo`.
+   */
   readonly id: string;
   /** Una de las cinco: no es la `faction` del juego, que solo sabe de dos. */
   readonly faction: FaccionDeArena;
+  /** Con qué figura se pinta: una hoja de `assets/unidades/` o una criatura del catálogo. */
+  readonly cuerpo: CuerpoDeArena;
+  /**
+   * Lo que lleva puesto (`data/equipo.json`), por hueco; vacío, `{}`. Las cifras
+   * de arriba son las del CUERPO: con esto encima se pelea (`unidadDeCombate`),
+   * y el nivel no lo mira.
+   */
+  readonly equipo: Equipo;
   /**
    * La velocidad, en **casillas** por turno (decisión del usuario, 02-10-2026:
    * «la velocidad debería ser el número de casillas que mueve»). El motor sigue
@@ -175,6 +202,14 @@ export interface UnidadDeArena
   readonly cost: { readonly gold: number };
 }
 
+/** El cuerpo de una unidad: la hoja con la que se pinta, o una criatura del catálogo. */
+export type CuerpoDeArena = { readonly hoja: string } | { readonly criatura: string };
+
+/** El id del arte con el que se pinta una unidad: el de su hoja o el de su criatura. */
+export function figuraDeLaUnidad(u: Pick<UnidadDeArena, 'cuerpo'>): string {
+  return 'hoja' in u.cuerpo ? u.cuerpo.hoja : u.cuerpo.criatura;
+}
+
 /**
  * Las habilidades que puede llevar una unidad de la arena: las del catálogo
  * (`data/habilidades.json`, sacado del cuaderno) y las que dan un poder
@@ -191,105 +226,91 @@ const CAMPOS_DE_UNIDAD: readonly string[] = [
   'id',
   'name',
   'faction',
-  'level',
+  'cuerpo',
   'leadership',
   'attack',
   'defense',
   'damage',
   'hp',
   'casillas',
-  // Solo para leer borradores de antes de las casillas: se convierte al leer y
-  // no se vuelve a escribir.
-  'speed',
   'shots',
   'hexes',
   'traits',
   'habilidades',
+  'equipo',
   'cost',
 ];
 
-/** Lo que una unidad recibe por defecto según su perfil: todo menos quién es. */
-type CifrasPorDefecto = Omit<UnidadDeArena, 'id' | 'name' | 'faction' | 'habilidades' | 'casillas'>;
+/**
+ * Las cifras del cuerpo común, con las que nace toda unidad: la de una hoja, con
+ * el equipo de su perfil encima (`KIT_DEL_PERFIL`), y la nueva, sin nada
+ * (`unidadNueva`). **Inventadas y provisionales**. El daño, 10-10: toda arma suma
+ * un mínimo que no pasa de su máximo, y los cuerpos de las hojas, de 2 a 7
+ * casillas, quedan todos en el nivel 1 (índice 171-194; lo vigila
+ * `test/arena.test.ts`). Las alternativas probadas, en `docs/historia.md`.
+ */
+export const CUERPO_COMUN = {
+  leadership: 3,
+  attack: 3,
+  defense: 3,
+  damage: [10, 10],
+  hp: 80,
+  cost: { gold: 150 },
+} as const satisfies Pick<
+  UnidadDeArena,
+  'leadership' | 'attack' | 'defense' | 'damage' | 'hp' | 'cost'
+>;
 
 /**
- * Las cifras con las que sale una hoja la primera vez, por su perfil de pose.
- *
- * **Inventadas y provisionales**, a ojo del catálogo de HoMM2 que ya hay: son un
- * punto de partida para ajustar en la arena, no una propuesta de equilibrio. El
- * arco y la ballesta tiran, las dos manos pegan más y defienden menos, el bastón
- * es frágil y el jinete carga. **La velocidad no va por perfil sino por unidad**
- * (`casillas` de cada hoja, `tools/arena/velocidades.ts`): con una por perfil
- * casi todas empataban y el empate lo gana siempre el atacante.
+ * Lo que trae cada perfil de arma sobre el cuerpo común: **su equipo** (piezas de
+ * calidad `arena`, `data/equipo.json`), más lo que no pelea —liderazgo y coste— y
+ * los rasgos. El cuerpo es el mismo para todos y lo distinto lo pone el equipo.
+ * Cada pieza es la diferencia entre lo que pelea su perfil y el cuerpo común, así
+ * que una hoja por defecto pelea con sus cifras de siempre, salvo la velocidad de
+ * los personajes de varias hojas (`tools/arena/velocidades.ts`; lo comprueba
+ * `test/arena.test.ts`). `charge` es del caballo, no de la lanza: por eso va en
+ * los rasgos del perfil y no en la pieza. **Inventado.**
  */
-const POR_PERFIL: Readonly<Record<PerfilDeArena, CifrasPorDefecto>> = {
+export const KIT_DEL_PERFIL: Readonly<
+  Record<
+    PerfilDeArena,
+    Pick<UnidadDeArena, 'equipo' | 'leadership' | 'cost'> & {
+      readonly traits: readonly CreatureTrait[];
+    }
+  >
+> = {
   'espada-escudo': {
-    level: 2,
+    equipo: { arma: 'espada', armadura: 'brigantina', escudo: 'escudo' },
     leadership: 3,
-    attack: 5,
-    defense: 7,
-    damage: [2, 4],
-    hp: 15,
-    traits: [],
     cost: { gold: 150 },
+    traits: [],
   },
   'dos-manos': {
-    level: 3,
+    equipo: { arma: 'mandoble', armadura: 'arnes_de_placas' },
     leadership: 4,
-    attack: 8,
-    defense: 4,
-    damage: [4, 7],
-    hp: 18,
-    traits: [],
     cost: { gold: 250 },
-  },
-  baston: {
-    level: 2,
-    leadership: 3,
-    attack: 3,
-    defense: 3,
-    damage: [1, 3],
-    hp: 8,
     traits: [],
-    cost: { gold: 150 },
   },
+  baston: { equipo: { arma: 'baston' }, leadership: 3, cost: { gold: 150 }, traits: [] },
   arco: {
-    level: 2,
+    equipo: { arma: 'arco', armadura: 'jubon_de_arquero' },
     leadership: 3,
-    attack: 5,
-    defense: 3,
-    damage: [2, 3],
-    hp: 10,
-    shots: 12,
-    traits: [],
     cost: { gold: 150 },
+    traits: [],
   },
   ballesta: {
-    level: 3,
+    equipo: { arma: 'ballesta', armadura: 'gambeson' },
     leadership: 4,
-    attack: 6,
-    defense: 4,
-    damage: [3, 5],
-    hp: 12,
-    shots: 8,
-    traits: [],
     cost: { gold: 200 },
+    traits: [],
   },
   'montado-lanza': {
-    level: 5,
+    equipo: { arma: 'lanza_de_jinete', armadura: 'barda' },
     leadership: 8,
-    attack: 10,
-    defense: 8,
-    damage: [5, 9],
-    hp: 30,
-    traits: ['charge'],
     cost: { gold: 300 },
+    traits: ['charge'],
   },
 };
-
-/** Las cifras por defecto de un perfil. El perfil ya viene validado (`validarHojasDeArena`). */
-export function cifrasPorDefecto(perfil: PerfilDeArena): CifrasPorDefecto {
-  return POR_PERFIL[perfil];
-}
 
 /**
  * Una hoja tal como la sirve el servidor de desarrollo: quién es, si es un
@@ -302,8 +323,19 @@ export interface HojaDeArena {
   readonly nombre: string;
   readonly faccion: FaccionDeArena;
   readonly perfil: PerfilDeArena;
+  /**
+   * El personaje del que es una hoja: el taller pinta a veces el mismo con varios
+   * equipos («Guerrero con escudo» y «con arma a dos manos»), y todas sus hojas
+   * comparten cuerpo y velocidad (`tools/arena/velocidades.ts`). Sin personaje
+   * declarado, el de la propia hoja.
+   */
+  readonly personaje: string;
   readonly heroe: boolean;
-  /** Las casillas con las que sale la unidad la primera vez. */
+  /**
+   * Las casillas del CUERPO de su personaje: sin el equipo, que las cambia (el
+   * escudo resta una). Con su perfil por defecto pelea con `casillas` más la
+   * velocidad de su equipo.
+   */
   readonly casillas: number;
   /**
    * El juego de armas de su Y Bot (`espada-escudo`, `baston`…): con él se pinta
@@ -351,6 +383,7 @@ export function validarHojasDeArena(valor: unknown): readonly HojaDeArena[] {
       nombre: texto(h.nombre, 'el nombre', quien),
       faccion: deLaLista(h.faccion, FACCIONES_DE_ARENA, 'la facción', quien),
       perfil: deLaLista(h.perfil, PERFILES_DE_ARENA, 'el perfil', quien),
+      personaje: texto(h.personaje, 'el personaje', quien),
       heroe: h.heroe,
       casillas: casillasValidas(h.casillas, quien),
       juego: texto(h.juego, 'el juego de armas', quien),
@@ -379,24 +412,148 @@ function direccionesValidas(valor: unknown, quien: string): readonly unknown[] |
 }
 
 /**
- * La unidad con la que sale una hoja que todavía no está en el borrador. Los no
- * muertos salen con `undead`: un esqueleto vivo, con moral, era raro (M7 de QA).
- * Las habilidades, las de sus poderes por defecto (`traen` de `data/poderes.json`:
- * el monje templario, Curar y Bendecir).
+ * La unidad con la que sale una hoja que todavía no está en el borrador: el
+ * cuerpo común con las casillas del cuerpo de su personaje y el equipo de su
+ * perfil (`KIT_DEL_PERFIL`). Los no muertos salen con `undead`: un esqueleto
+ * vivo, con moral, era raro (M7 de QA). Las habilidades, las de sus poderes por
+ * defecto (`traen` de `data/poderes.json`: el monje templario, Curar y Bendecir).
  */
 export function unidadPorDefecto(
   hoja: Pick<HojaDeArena, 'id' | 'nombre' | 'faccion' | 'perfil' | 'casillas'>,
 ): UnidadDeArena {
-  const cifras = cifrasPorDefecto(hoja.perfil);
+  const kit = KIT_DEL_PERFIL[hoja.perfil];
   return {
     id: hoja.id,
     name: hoja.nombre,
     faction: hoja.faccion,
+    cuerpo: { hoja: hoja.id },
+    ...CUERPO_COMUN,
+    leadership: kit.leadership,
+    cost: kit.cost,
     casillas: hoja.casillas,
+    traits: rasgosDelCuerpo(hoja.faccion, kit.traits),
     habilidades: habilidadesQueTrae(hoja.id),
-    ...cifras,
-    traits: hoja.faccion === 'no-muertos' ? [...cifras.traits, 'undead'] : cifras.traits,
+    equipo: kit.equipo,
   };
+}
+
+/** Los rasgos con los que nace un cuerpo: los suyos y `undead` si es de los no muertos. */
+function rasgosDelCuerpo(
+  faccion: FaccionDeArena,
+  suyos: readonly CreatureTrait[],
+): readonly CreatureTrait[] {
+  return faccion === 'no-muertos' && !suyos.includes('undead') ? [...suyos, 'undead'] : suyos;
+}
+
+/**
+ * La facción de la arena de una criatura del catálogo: el juego solo sabe de
+ * caballeros y nigromantes, que en la arena son templarios y no muertos.
+ */
+const FACCION_DE_LA_ARENA: Readonly<Record<FactionId, FaccionDeArena>> = {
+  knight: 'templarios',
+  necromancer: 'no-muertos',
+};
+
+/**
+ * Los ids que una unidad nueva no puede tomar, por separado para que nadie se
+ * deje un grupo. **También los del borrador que no validan** (H1 de QA): se
+ * conservan tal cual al guardar, pero mandar una válida con su id es arreglarla
+ * (`claveSinValidar`, `tools/arena/borrador.ts`), así que una nueva con ese id la
+ * sustituía sin aviso.
+ */
+export interface IdsOcupados {
+  /** Las unidades del borrador que valen, las nuevas incluidas. */
+  readonly validas: readonly string[];
+  /** Las del borrador que no validan y se conservan al guardar. */
+  readonly sinValidar: readonly string[];
+  /** Las hojas del taller: cada una es la unidad con su id. */
+  readonly hojas: readonly string[];
+}
+
+/**
+ * Una unidad NUEVA (decisión del usuario, 12-10-2026: «que el editor de
+ * personajes permita crear uno desde cero»): el cuerpo común sin equipo, con el
+ * arte de `cuerpo` (una hoja o una criatura del catálogo) y un id propio y único: `<cuerpo>-<n>`, con el primer `n` ≥ 2 que no esté en
+ * `ocupados` (los `_` del catálogo pasan a `-`, que es lo que admite un id). Su
+ * nivel no se escribe: nace donde caiga su índice (`indiceDePoder`). Desde una
+ * hoja es el 1; desde una criatura con doble ataque, el 2 (Paladín 217, Cruzado
+ * 225), y se acepta (decisión del usuario, 12-10-2026).
+ *
+ * Desde una hoja, la de por defecto (`unidadPorDefecto`: su facción, las casillas
+ * del cuerpo de su personaje y los rasgos de su perfil, `charge` el del caballo)
+ * sin su equipo, sus poderes ni lo que el perfil cobra. Desde una criatura, su
+ * facción en la arena, sus casillas, su tamaño (`hexes`) y todos sus rasgos del
+ * motor (vuela, no muerto, carga…): son de su cuerpo. Lo que no se monta (una
+ * hoja a medias) lo dice la página antes de llamarla.
+ */
+export function unidadNueva(
+  cuerpo:
+    | {
+        readonly hoja: Pick<HojaDeArena, 'id' | 'nombre' | 'faccion' | 'perfil' | 'casillas'>;
+      }
+    | { readonly criatura: string },
+  ocupados: IdsOcupados,
+): UnidadDeArena {
+  const todos = new Set([...ocupados.validas, ...ocupados.sinValidar, ...ocupados.hojas]);
+  const libre = (base: string): number => {
+    let n = 2;
+    while (todos.has(`${base}-${n}`)) n++;
+    return n;
+  };
+  if ('hoja' in cuerpo) {
+    const n = libre(cuerpo.hoja.id);
+    return validarUnidadDeArena({
+      ...unidadPorDefecto(cuerpo.hoja),
+      id: `${cuerpo.hoja.id}-${n}`,
+      name: `${cuerpo.hoja.nombre} ${n}`,
+      leadership: CUERPO_COMUN.leadership,
+      cost: CUERPO_COMUN.cost,
+      habilidades: [],
+      equipo: {},
+    });
+  }
+  const c = creature(cuerpo.criatura);
+  // Una facción que el catálogo estrene antes que esta tabla no se adivina.
+  const faction: FaccionDeArena | undefined = FACCION_DE_LA_ARENA[c.faction];
+  if (faction === undefined) {
+    throw new Error(`${c.name} no es de ninguna facción del juego: no sé en cuál de la arena va`);
+  }
+  const base = c.id.replace(/_/g, '-');
+  const n = libre(base);
+  return validarUnidadDeArena({
+    id: `${base}-${n}`,
+    name: `${c.name} ${n}`,
+    faction,
+    cuerpo: { criatura: c.id },
+    ...CUERPO_COMUN,
+    casillas: SPEED_TO_HEXES[c.speed],
+    // Su tamaño es de su cuerpo, como los rasgos: el dragón óseo ocupa dos
+    // casillas también de nuevo (decisión del usuario tras la re-verificación de
+    // QA). El índice no lo mira, ni aquí ni en el catálogo.
+    ...(c.hexes === undefined ? {} : { hexes: c.hexes }),
+    // Los rasgos del motor son del cuerpo, no del equipo (H4 de QA): el dragón
+    // óseo vuela y el vampiro chupa vida también de nueva. El índice los cuenta
+    // como en cualquier unidad (`indiceDePoder`).
+    traits: rasgosDelCuerpo(faction, c.traits ?? []),
+    habilidades: [],
+    equipo: {},
+  });
+}
+
+/**
+ * La unidad con la pieza `id` puesta en su hueco: lo que hubiera ahí se quita. Lanza
+ * con el motivo de `ponerPieza` (`manosBlocker`: un arma a dos manos no admite
+ * escudo) diciendo a quién.
+ */
+export function equiparEnArena(u: UnidadDeArena, id: string): UnidadDeArena {
+  return { ...u, equipo: ponerPieza(u.equipo, id, u.name).equipo };
+}
+
+/** La unidad sin lo que lleve en `hueco`; si no lleva nada ahí, se dice. */
+export function quitarEnArena(u: UnidadDeArena, hueco: Hueco): UnidadDeArena {
+  const { equipo, quitada } = quitarPieza(u.equipo, hueco);
+  if (quitada === null) throw new Error(nadaEnElHueco(u.name, hueco));
+  return { ...u, equipo };
 }
 
 // ------------------------------------------------------------- velocidad
@@ -455,16 +612,15 @@ function sinRepetir(lista: readonly string[], campo: string, quien: string): voi
  * página al cargar lo guardado y la sesión antes de pelear. Lo desconocido no
  * se cuela en silencio —una velocidad inventada caería a `undefined` en
  * `SPEED_TO_HEXES` y la unidad no se movería sin que nadie supiera por qué—.
+ * **Solo lee el formato de hoy**, con `cuerpo` y `equipo`: lo de antes (sin
+ * cuerpo, con `level` o `speed`) lo convierte `migrarUnidadDeArena`.
  */
 export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
   if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
     throw new Error('una unidad de la arena tiene que ser un objeto');
   }
   const u = valor as Record<string, unknown>;
-  const id = texto(u.id, 'el id', 'una unidad de la arena');
-  if (!/^[a-z0-9-]+$/.test(id)) {
-    throw new Error(`la unidad "${id}": el id es el de su hoja, en minúsculas y con guiones`);
-  }
+  const id = idValido(u.id);
   // Lo que no es un campo de la arena no se descarta callando: un `growth`
   // escrito a mano desaparecería en el siguiente «Guardar» (M14 de QA).
   const ajeno = Object.keys(u).find((k) => !CAMPOS_DE_UNIDAD.includes(k));
@@ -478,23 +634,13 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
   // («la unidad «Monje»»), no el id de su hoja (QA, vuelta 2).
   const quien = `la unidad «${name}»`;
   const faction = deLaLista(u.faction, FACCIONES_DE_ARENA, 'la facción', quien);
-  const level = entero(u.level, 'el nivel', quien, 1);
+  const cuerpo = cuerpoValido(u.cuerpo, quien);
   const leadership = entero(u.leadership, 'el liderazgo', quien, 1);
   const attack = entero(u.attack, 'el ataque', quien, 0);
   const defense = entero(u.defense, 'la defensa', quien, 0);
   const damage = danioValido(u.damage, quien);
   const hp = entero(u.hp, 'la vida', quien, 1);
-  // Un borrador de antes de las casillas trae `speed` como escalón: se lee
-  // convertido. Con los dos a la vez, cuál manda sería adivinar: se dice.
-  if (u.casillas !== undefined && u.speed !== undefined) {
-    throw new Error(
-      `${quien}: trae la velocidad dos veces, en casillas y como «speed»; deja solo las casillas`,
-    );
-  }
-  const casillas =
-    u.speed !== undefined
-      ? SPEED_TO_HEXES[deLaLista(u.speed, SPEED_TIERS, 'la velocidad', quien)]
-      : casillasValidas(u.casillas, quien);
+  const casillas = casillasValidas(u.casillas, quien);
   const traits = lista(u.traits, 'los rasgos', quien).map((t) =>
     deLaLista(t, CREATURE_TRAITS, 'el rasgo', quien),
   );
@@ -515,11 +661,12 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
   if (hexes !== undefined && hexes > 2) {
     throw new Error(`${quien}: una unidad ocupa 1 hex o 2, y esta dice ${hexes}`);
   }
-  return {
+  const equipo = equipoValido(u.equipo, quien);
+  const unidad: UnidadDeArena = {
     id,
     name,
     faction,
-    level,
+    cuerpo,
     leadership,
     attack,
     defense,
@@ -530,8 +677,242 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
     ...(hexes === undefined ? {} : { hexes }),
     traits,
     habilidades,
+    equipo,
     cost: { gold },
   };
+  // Lo que el índice no sabe medir no entra: si no, la ficha no se repinta y
+  // la pelea se cuelga en el primer golpe que recibe (QA, 12-10-2026).
+  const motivo = medidaBlocker(unidadDeCombate(unidad));
+  if (motivo !== null) throw new Error(`${quien}: ${motivo}`);
+  return unidad;
+}
+
+/** El id de una unidad: minúsculas, cifras y guiones, como el de una hoja. */
+function idValido(valor: unknown): string {
+  const id = texto(valor, 'el id', 'una unidad de la arena');
+  if (!esIdDeArena(id)) {
+    throw new Error(`la unidad "${id}": el id va en minúsculas, con cifras y guiones`);
+  }
+  return id;
+}
+
+/**
+ * El cuerpo, comprobado: `{ hoja }` con el id de una hoja (que tenga arte lo
+ * mira la página, que es quien tiene las hojas) o `{ criatura }` con una del
+ * catálogo (`creature` lanza si no existe).
+ */
+function cuerpoValido(valor: unknown, quien: string): CuerpoDeArena {
+  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+    throw new Error(`${quien}: el cuerpo tiene que ser { hoja } o { criatura }`);
+  }
+  const c = valor as Record<string, unknown>;
+  const claves = Object.keys(c);
+  if (claves.length === 1 && claves[0] === 'hoja') {
+    const hoja = texto(c.hoja, 'la hoja del cuerpo', quien);
+    if (!esIdDeArena(hoja)) {
+      throw new Error(`${quien}: «${hoja}» no es el id de una hoja`);
+    }
+    return { hoja };
+  }
+  if (claves.length === 1 && claves[0] === 'criatura') {
+    return { criatura: creature(texto(c.criatura, 'la criatura del cuerpo', quien)).id };
+  }
+  throw new Error(
+    `${quien}: el cuerpo tiene que ser { hoja } o { criatura }, y trae ${claves.join(', ') || 'nada'}`,
+  );
+}
+
+/** El equipo, comprobado con la regla del núcleo (`equipoBlocker`): las piezas, sus huecos y las manos. */
+function equipoValido(valor: unknown, quien: string): Equipo {
+  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+    throw new Error(`${quien}: el equipo tiene que ser un objeto por hueco ({} sin nada)`);
+  }
+  const e = valor as Record<string, unknown>;
+  for (const [hueco, id] of Object.entries(e)) {
+    if (typeof id !== 'string')
+      throw new Error(`${quien}: el hueco ${hueco} no trae el id de una pieza`);
+  }
+  const motivo = equipoBlocker(e as Equipo);
+  if (motivo !== null) throw new Error(`${quien}: ${motivo}`);
+  // En el orden de los huecos, el mismo cada vez: el texto del enlace no cambia.
+  return Object.fromEntries(
+    HUECOS.filter((h) => e[h] !== undefined).map((h) => [h, e[h] as string]),
+  ) as Equipo;
+}
+
+// ------------------------------------------------------------- lo de antes
+
+/**
+ * El nivel escrito a mano que llevaban las unidades antes de que el nivel saliera
+ * de las cifras, y con él PV y daño en la escala de fheroes2. Es lo que distingue
+ * un borrador o un enlace de entonces: sin migrarlo, la unidad pelearía con la
+ * décima parte de su vida y su daño sin que nadie lo dijera.
+ */
+const CAMPO_DE_LA_ESCALA_VIEJA = 'level';
+
+/** De qué perfil es una hoja, o `null` si no se conoce: lo dan las hojas del taller. */
+export type PerfilDe = (hoja: string) => PerfilDeArena | null;
+
+/**
+ * El `PerfilDe` de una lista de hojas. Un sitio para la página (sus hojas) y para
+ * el servidor de desarrollo (las del taller, sin leer su arte): el perfil es un
+ * dato de la hoja, no de su disco.
+ */
+export function perfilDeLasHojas(hojas: readonly Pick<HojaDeArena, 'id' | 'perfil'>[]): PerfilDe {
+  const porId = new Map(hojas.map((h) => [h.id, h.perfil]));
+  return (id) => porId.get(id) ?? null;
+}
+
+/**
+ * Una unidad leída, y si al leerla hubo que decir algo (`migrarUnidadDeArena`):
+ * una frase entera, con su mayúscula y su punto, que el borrador y el enlace
+ * juntan con las demás tal cual.
+ */
+export interface UnidadMigrada {
+  readonly unidad: UnidadDeArena;
+  readonly aviso: string | null;
+}
+
+/**
+ * Una unidad de un borrador o un enlace, del formato que sea. Con `cuerpo` es de
+ * hoy: se valida y nada más —por eso una ya convertida no se convierte dos
+ * veces—. Sin él es de antes de cuerpo + equipo (id = su hoja, las cifras de su
+ * perfil): primero la escala vieja (`level`: PV y daño ×10) y la velocidad en
+ * escalón (`speed`), y luego **sus cifras menos el equipo de su perfil**
+ * (`KIT_DEL_PERFIL`), la inversa exacta de `conEquipo`: pelea igual que antes y su
+ * nivel es el de su cuerpo. Si no cabe —una cifra por debajo de lo que suma el
+ * equipo, o la hoja sin perfil conocido—, se queda con sus cifras de antes, sin
+ * equipo, y el aviso lo dice.
+ */
+export function migrarUnidadDeArena(crudo: unknown, perfilDe: PerfilDe): UnidadMigrada {
+  if (typeof crudo !== 'object' || crudo === null || Array.isArray(crudo)) {
+    throw new Error('una unidad de la arena tiene que ser un objeto');
+  }
+  const u = crudo as Record<string, unknown>;
+  if ('cuerpo' in u) return { unidad: validarUnidadDeArena(u), aviso: null };
+  const id = idValido(u.id);
+  const nombre = typeof u.name === 'string' ? u.name : id;
+  const quien = `la unidad «${nombre}»`;
+  const { [CAMPO_DE_LA_ESCALA_VIEJA]: level, speed, ...resto } = u;
+  // Un borrador con `level` es de la escala de fheroes2: PV y daño, a la de hoy.
+  const escala = level === undefined ? 1 : ESCALA_DE_CIFRAS;
+  const [min, max] = danioValido(u.damage, quien);
+  // Un borrador de antes de las casillas trae `speed` como escalón: se lee
+  // convertido. Con los dos a la vez, cuál manda sería adivinar: se dice.
+  if (u.casillas !== undefined && speed !== undefined) {
+    throw new Error(
+      `${quien}: trae la velocidad dos veces, en casillas y como «speed»; deja solo las casillas`,
+    );
+  }
+  const viejo = {
+    ...resto,
+    damage: [min * escala, max * escala],
+    hp: entero(u.hp, 'la vida', quien, 1) * escala,
+    casillas:
+      speed !== undefined
+        ? SPEED_TO_HEXES[deLaLista(speed, SPEED_TIERS, 'la velocidad', quien)]
+        : u.casillas,
+  };
+  // Tal cual, sin equipo: lo que pelea hoy. Se valida aquí, que es lo que sale
+  // si el equipo no cabe.
+  const tal = validarUnidadDeArena({ ...viejo, cuerpo: { hoja: id }, equipo: {} });
+  const perfil = perfilDe(id);
+  if (perfil === null) {
+    return {
+      unidad: tal,
+      aviso: `La unidad «${nombre}» es de antes del equipo y no se sabe el perfil de su hoja: se queda con sus cifras, sin equipo.`,
+    };
+  }
+  const kit = KIT_DEL_PERFIL[perfil].equipo;
+  const motivo = cuerpoSinElKit(tal, kit, escala);
+  if ('motivo' in motivo) {
+    return {
+      unidad: tal,
+      aviso: `La unidad «${nombre}» es de antes del equipo y no cabe en el de su perfil: ${motivo.motivo}; se queda con sus cifras, sin equipo.`,
+    };
+  }
+  return { unidad: motivo.unidad, aviso: null };
+}
+
+/**
+ * `u` (sin equipo) como cuerpo + `kit`: sus cifras menos lo que suma el kit,
+ * comprobado al revés —con el kit puesto, las cifras de combate tienen que ser
+ * las de `u`—, o por qué no cabe.
+ *
+ * El motivo habla de **las cifras que escribió quien juega** y de qué pieza no
+ * cabe en ellas (H2 de QA del ciclo 2): antes salía la frase de validar el cuerpo
+ * calculado, «el daño mínimo (15) no puede pasar del máximo (10)», cifras que
+ * nadie había escrito, de un borrador que decía 45–70. `escala` es la que se
+ * aplicó a PV y daño al leerlo (`CAMPO_DE_LA_ESCALA_VIEJA`): el motivo los dice
+ * como estaban escritos.
+ */
+function cuerpoSinElKit(
+  u: UnidadDeArena,
+  kit: Equipo,
+  escala: number,
+): { readonly unidad: UnidadDeArena } | { readonly motivo: string } {
+  const suma = sumaDeEquipo(kit);
+  const piezas = piezasPuestas(kit);
+  /** Las piezas del kit que suman algo de esa cifra, por su nombre: «Espada y Brigantina». */
+  const de = (cuanto: (p: (typeof piezas)[number]) => number): string => {
+    const nombres = piezas.filter((p) => cuanto(p) !== 0).map((p) => p.nombre);
+    return nombres.length <= 1
+      ? (nombres[0] ?? 'su equipo')
+      : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
+  };
+  const conSigno = (n: number): string => (n < 0 ? `−${-n}` : `+${n}`);
+  const [min, max] = u.damage;
+  const [smin, smax] = suma.danio;
+  const disparos = (u.shots ?? 0) - suma.disparos;
+  const casillas = u.casillas - suma.velocidad;
+  // PV y daño como los escribió quien juega: en un borrador de la escala de
+  // fheroes2 (`escala` 10), «vida 9», no el 90 al que se ha pasado; y al lado, la
+  // de hoy, que es en la que suman las piezas (R3 de la re-verificación de QA).
+  const escrita = (n: number): string => (escala === 1 ? `${n}` : `${n / escala}`);
+  const deHoy = (texto: string): string =>
+    escala === 1 ? '' : ` (${texto} en la escala de hoy, ×${escala})`;
+  const vida = `su vida ${escrita(u.hp)}${deHoy(`${u.hp}`)}`;
+  const danio = `su daño ${escrita(min)}–${escrita(max)}${deHoy(`${min}–${max}`)}`;
+  const armas = `${de((p) => p.danio?.[1] ?? 0)} (${conSigno(smin)}–${conSigno(smax)})`;
+  // Todas las cifras que no caben, no solo la primera: quien arregle una a mano
+  // no tiene que recargar para descubrir la siguiente (R3).
+  const motivos = [
+    u.attack < suma.ataque
+      ? `su ataque ${u.attack} es menos de lo que suma ${de((p) => p.ataque)} (${conSigno(suma.ataque)})`
+      : null,
+    u.defense < suma.defensa
+      ? `su defensa ${u.defense} es menos de lo que suma ${de((p) => p.defensa)} (${conSigno(suma.defensa)})`
+      : null,
+    u.hp <= suma.pv
+      ? `${vida} no pasa de lo que suma ${de((p) => p.pv)} (${conSigno(suma.pv)})`
+      : null,
+    min <= smin || max <= smax
+      ? `${danio} no pasa de lo que suma ${armas}`
+      : max - min < smax - smin
+        ? `${danio} es más estrecho que el de ${armas}`
+        : null,
+    disparos < 0
+      ? `lleva ${u.shots ?? 0} tiros y ${de((p) => p.disparos ?? 0)} suma ${suma.disparos}`
+      : null,
+    casillas < CASILLAS_MIN || casillas > CASILLAS_MAX
+      ? `con sus ${u.casillas} casillas, sin lo que pone ${de((p) => p.velocidad)} (${conSigno(suma.velocidad)}), se saldría de ${CASILLAS_MIN} a ${CASILLAS_MAX}`
+      : null,
+  ].filter((m): m is string => m !== null);
+  if (motivos.length > 0) return { motivo: motivos.join('; ') };
+  const { shots: _s, ...sinTiros } = u;
+  const nueva = validarUnidadDeArena({
+    ...sinTiros,
+    attack: u.attack - suma.ataque,
+    defense: u.defense - suma.defensa,
+    damage: [min - smin, max - smax],
+    hp: u.hp - suma.pv,
+    casillas,
+    ...(disparos > 0 ? { shots: disparos } : {}),
+    equipo: kit,
+  });
+  return mismasCifras(unidadDeCombate(u), unidadDeCombate(nueva))
+    ? { unidad: nueva }
+    : { motivo: `con ${de((p) => p.velocidad)} puesto no se movería como se mueve` };
 }
 
 /**
@@ -542,7 +923,7 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
  * `experiencia.json`). Quien lea el archivo —una persona o un agente— se lo cree.
  */
 export const COMENTARIO_DEL_BORRADOR =
-  'BORRADOR de la arena (/arena/, pnpm arena): cifras de las unidades de las cinco facciones, INVENTADAS y provisionales, ajustadas a mano peleando. Lo escribe la página al pulsar «Guardar» y lo valida validarUnidadDeArena (src/core/arena.ts); una unidad que no valida se conserva tal cual. El juego NO lo lee. Los campos de cifras se llaman como en data/creatures.json, pero pasar una unidad al catálogo NO es copiarla; hay que añadir: (1) la faction del juego (hoy solo knight o necromancer; una facción nueva pide además su guarnición neutral en data/ciudades.json), (2) speed: el escalón de sus casillas (2 very_slow, 3 slow, 4 average, 5 fast, 6 very_fast, 7 ultra_fast), en lugar de casillas, (3) growth (crecimiento semanal de su morada), (4) upgradesTo si tiene mejora, (5) su fila en data/experiencia.json (una habilidad por nivel, del 2 al máximo: la lista habilidades de aquí es suelta y no dice a qué nivel va cada una), y quitar id de hoja, faction de la arena y habilidades. habilidades = nombres de data/habilidades.json, sin efecto todavía, salvo las que dan un poder de data/poderes.json (Curar (X), Bendecir), que en la arena se usan en la pelea; Bendecir no está en data/habilidades.json.';
+  'BORRADOR de la arena (/arena/, pnpm arena): cifras de las unidades de las cinco facciones, INVENTADAS y provisionales, ajustadas a mano peleando. Lo escribe la página al pulsar «Guardar» y lo valida validarUnidadDeArena (src/core/arena.ts); una unidad que no valida se conserva tal cual. El juego NO lo lee. Cada unidad es un CUERPO (cuerpo: { hoja } o { criatura }, el arte con que se pinta; las cifras de arriba son las suyas, y de ellas sale el nivel) más su EQUIPO (equipo: una pieza de data/equipo.json por hueco, arma, armadura, accesorio y escudo; un arma a dos manos no admite escudo), y pelea con las dos cosas sumadas. Una unidad sin cuerpo es de antes y se lee como sus cifras menos el equipo de su perfil (migrarUnidadDeArena). Los campos de cifras se llaman como en data/creatures.json, pero pasar una unidad al catálogo NO es copiarla; hay que añadir: (1) la faction del juego (hoy solo knight o necromancer; una facción nueva pide además su guarnición neutral en data/ciudades.json), (2) speed: el escalón de sus casillas (2 very_slow, 3 slow, 4 average, 5 fast, 6 very_fast, 7 ultra_fast), en lugar de casillas, (3) growth (crecimiento semanal de su morada), (4) upgradesTo si tiene mejora, (5) su fila en data/experiencia.json (una habilidad por rango, del 2 al máximo: la lista habilidades de aquí es suelta y no dice a qué rango va cada una), (6) morada: la de la morada que la produzca (1-6); el nivel NO se escribe, sale de las cifras (core/nivel.ts), y quitar id, cuerpo, equipo (sumado a las cifras, si se quiere que la criatura del catálogo pelee como aquí), faction de la arena y habilidades. PV y daño van en la escala del catálogo (×10 la de fheroes2); una unidad que aún traiga level es de la escala de fheroes2 y se lee con PV y daño ×10. habilidades = nombres de data/habilidades.json, sin efecto todavía, salvo las que dan un poder de data/poderes.json (Curar (X), Bendecir), que en la arena se usan en la pelea; Bendecir no está en data/habilidades.json.';
 
 /** Una unidad del archivo que no pasa la regla: se cuenta por qué y se guarda tal cual. */
 export interface UnidadSinValidar {
@@ -558,20 +939,41 @@ export interface UnidadSinValidar {
  * archivo entero no tiene la forma `{ unidades: [...] }`: ahí no hay nada que
  * salvar unidad a unidad.
  */
-export function revisarBorradorDeArena(valor: unknown): {
+export function revisarBorradorDeArena(
+  valor: unknown,
+  perfilDe: PerfilDe,
+): {
   readonly validas: readonly UnidadDeArena[];
   readonly invalidas: readonly UnidadSinValidar[];
+  /** Lo que hubo que decir al convertir unidades de antes (`migrarUnidadDeArena`). */
+  readonly avisos: readonly string[];
 } {
-  const { validas, invalidas } = revisarLista(listaDelBorrador(valor), validarUnidadDeArena, {
-    campo: 'id',
-    clave: (u) => u.id,
-    quien: (id) => `la unidad "${id}"`,
-  });
+  const avisos: string[] = [];
+  const { validas, invalidas } = revisarLista(
+    listaDelBorrador(valor),
+    (crudo) => {
+      const { unidad, aviso } = migrarUnidadDeArena(crudo, perfilDe);
+      if (aviso !== null) avisos.push(aviso);
+      return unidad;
+    },
+    CLAVE_DE_UNIDAD,
+  );
   return {
     validas,
     invalidas: invalidas.map(({ clave, motivo, crudo }) => ({ id: clave, motivo, crudo })),
+    avisos,
   };
 }
+
+/**
+ * La clave del borrador de unidades: su `id`, que no se repite. La comparten la
+ * lectura (`revisarBorradorDeArena`) y la escritura (`validarBorradorDeArena`).
+ */
+const CLAVE_DE_UNIDAD = {
+  campo: 'id',
+  clave: (u: UnidadDeArena) => u.id,
+  quien: (id: string) => `la unidad "${id}"`,
+} as const;
 
 function listaDelBorrador(valor: unknown): readonly unknown[] {
   if (typeof valor !== 'object' || valor === null || !('unidades' in valor)) {
@@ -581,12 +983,13 @@ function listaDelBorrador(valor: unknown): readonly unknown[] {
 }
 
 /**
- * El archivo entero: `{ _comment, unidades }`, con cada unidad validada y sin
- * dos veces la misma hoja —el borrador es por tipo, y dos fichas del mismo id
- * querrían decir dos cifras para una hoja—.
+ * El archivo entero que se va a ESCRIBIR: `{ _comment, unidades }`, con cada
+ * unidad en el formato de hoy (`validarUnidadDeArena`, sin convertir nada: lo que
+ * manda la página ya lo está) y sin dos veces el mismo id —el borrador es por
+ * tipo, y dos fichas del mismo id querrían decir dos cifras para una unidad—.
  */
 export function validarBorradorDeArena(valor: unknown): readonly UnidadDeArena[] {
-  return todasValidas(revisarBorradorDeArena(valor));
+  return todasValidas(revisarLista(listaDelBorrador(valor), validarUnidadDeArena, CLAVE_DE_UNIDAD));
 }
 
 /** Un elemento de un borrador que no pasa su regla: su clave si la trae, por qué, y él tal cual. */
@@ -650,20 +1053,23 @@ export function todasValidas<T>(r: {
 // ---------------------------------------------------------------- la pelea
 
 /**
- * Lo que el motor juega de una unidad de arena: sus cifras, sin economía, y los
- * poderes de sus habilidades (`poderDeHabilidad`); las demás habilidades no
- * pelean. Sin poderes no lleva el campo: así sus cifras son las de siempre.
+ * Lo que el motor juega de una unidad de arena: las cifras de su cuerpo, sin
+ * economía, con su equipo sumado (`conEquipo`, la única suma de las piezas, que
+ * deja el cuerpo en `sinEquipo` para el nivel) y los poderes de sus habilidades
+ * (`poderDeHabilidad`); las demás habilidades no pelean. Sin poderes no lleva el
+ * campo: así sus cifras son las de siempre.
  */
-function unidadDeCombate(u: UnidadDeArena): UnitInfo {
+export function unidadDeCombate(u: UnidadDeArena): UnitInfo {
   // Fuera lo que no pelea; el resto son ya los campos de `UnitInfo`.
   const {
     id: _id,
     faction: _f,
-    level,
+    cuerpo: _cu,
     leadership: _l,
     habilidades,
     cost: _c,
     casillas,
+    equipo,
     ...cifras
   } = u;
   const poderes = habilidades.flatMap((h) => {
@@ -672,13 +1078,25 @@ function unidadDeCombate(u: UnidadDeArena): UnitInfo {
   });
   // Sin facción del juego: las cinco no son `FactionId`, y así tampoco suman ni
   // restan a la moral por diversidad. Su moral es 0 y no la decide nadie.
-  return {
-    ...cifras,
-    speed: escalonDeCasillas(casillas),
-    faction: null,
-    nivel: level,
-    ...(poderes.length === 0 ? {} : { poderes }),
-  };
+  return conEquipo(
+    {
+      ...cifras,
+      speed: escalonDeCasillas(casillas),
+      faction: null,
+      ...(poderes.length === 0 ? {} : { poderes }),
+    },
+    equipo,
+  );
+}
+
+/**
+ * Lo que enseña la ficha del nivel de unas cifras: «Índice 340 · nivel 3». Lo
+ * calcula el núcleo (`indiceDePoder`, sin equipo) y la ficha solo lo pinta: el
+ * nivel no es un campo que se escribe.
+ */
+export function lecturaDelNivel(u: UnitInfo): string {
+  const indice = indiceDePoder(u);
+  return `Índice ${indice} · nivel ${nivelDelIndice(indice)}`;
 }
 
 /**
@@ -781,7 +1199,7 @@ export function cifrasDeCatalogoEnLaArena(id: string, cambios: CambiosDeCatalogo
       : cambios.traits.map((t) => deLaLista(t, CREATURE_TRAITS, 'el rasgo', quien));
   if (traits !== undefined) sinRepetir(traits, 'el rasgo', quien);
   const { shots: _s, traits: _t, ...resto } = base;
-  return {
+  const cifras: UnitInfo = {
     ...resto,
     attack,
     defense,
@@ -791,6 +1209,9 @@ export function cifrasDeCatalogoEnLaArena(id: string, cambios: CambiosDeCatalogo
     ...(shots === undefined || shots === 0 ? {} : { shots }),
     ...(traits === undefined ? {} : { traits }),
   };
+  const motivo = medidaBlocker(cifras);
+  if (motivo !== null) throw new Error(`${quien}: ${motivo}`);
+  return cifras;
 }
 
 // ------------------------------------------------------------- el héroe
@@ -836,7 +1257,7 @@ export function heroePorDefecto(lado: Lado): HeroeDeArena {
 export function validarHeroeDeArena(h: HeroeDeArena): HeroeDeArena {
   const quien = 'el héroe';
   const nombre = texto(h.nombre, 'el nombre', quien);
-  if (h.figura !== null && !/^[a-z0-9-]+$/.test(h.figura)) {
+  if (h.figura !== null && !esIdDeArena(h.figura)) {
     throw new Error(`${quien}: la figura «${h.figura}» no es el id de una hoja`);
   }
   const cifra = (v: number, campo: string, minimo: number): number => {
@@ -970,12 +1391,12 @@ function stackDeLaFuente(
       // la batalla es la última puerta y un objeto a mano (un test, el arnés)
       // no pasó por ninguna otra.
       const u = validarUnidadDeArena(fuente.unidad);
-      members.set(member, {
-        profile: { unit: unidadDeCombate(u), morale: 0, luck: 0 },
-        hp: u.hp,
-        escalera,
-      });
-      return { creature: u.id, member, count: 1 };
+      const unit = unidadDeCombate(u);
+      // Con los PV de su armadura: con `u.hp`, los del cuerpo, entraba herida.
+      members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp, escalera });
+      // El `body` es su cuerpo: el arte de su hoja o de su criatura, no su id
+      // (dos unidades nuevas del mismo cuerpo se pintan igual).
+      return { creature: figuraDeLaUnidad(u), member, count: 1 };
     }
     case 'catalogo': {
       // Sin tocar ni escalera, por la vía del juego: `resolveUnit` le pone las
@@ -1062,7 +1483,7 @@ export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
   };
 }
 
-/** El id del tipo de una fuente: el de la hoja del borrador o el de la criatura. */
+/** El id del tipo de una fuente: el de la unidad del borrador o el de la criatura. */
 export function idDeLaFuente(f: FuenteDeArena): string {
   return f.kind === 'borrador' ? f.unidad.id : f.id;
 }
@@ -1122,16 +1543,18 @@ function claveDeFicha(t: TipoDeArena | { readonly kind: 'heroe'; readonly lado: 
 }
 
 function tipoDeLaFuente(f: FuenteDeArena): TipoDeArena {
-  return { kind: f.kind === 'borrador' ? 'hoja' : 'catalogo', id: idDeLaFuente(f) };
+  return { kind: f.kind === 'borrador' ? 'unidad' : 'catalogo', id: idDeLaFuente(f) };
 }
 
 /**
  * La ficha de una fuente en palabras, campo a campo y en el orden de la ficha:
- * lo que escribe la persona. La de una hoja lleva también lo que no pelea
+ * lo que escribe la persona. La de una unidad lleva su equipo hueco a hueco
+ * («escudo: − Escudo») y también lo que no pelea
  * (liderazgo, coste, habilidades sin motor), porque también se edita a media
  * pelea y el parte tiene que decirlo (N1 de QA). La de una criatura del catálogo,
  * sus cifras con la prueba encima: lo que su ficha deja tocar. Lanza con lo que
- * no valida, como el montaje.
+ * no valida, como el montaje. El nivel no va: no lo escribe nadie, sale de las
+ * cifras (`lecturaDelNivel`), y el parte diría dos veces el mismo cambio.
  */
 function fichaEnPalabras(f: FuenteDeArena): FichaEnPalabras {
   const rasgos = (ts: readonly CreatureTrait[] | undefined) =>
@@ -1141,7 +1564,6 @@ function fichaEnPalabras(f: FuenteDeArena): FichaEnPalabras {
     return {
       nombre: u.name,
       facción: NOMBRE_DE_FACCION_DE_ARENA[u.faction],
-      nivel: `${u.level}`,
       liderazgo: `${u.leadership}`,
       ataque: `${u.attack}`,
       defensa: `${u.defense}`,
@@ -1151,6 +1573,10 @@ function fichaEnPalabras(f: FuenteDeArena): FichaEnPalabras {
       disparos: `${u.shots ?? 0}`,
       rasgos: rasgos(u.traits),
       habilidades: u.habilidades.map(nombreDeHabilidad),
+      // Un hueco, una lista de cero o una pieza: el parte dice «escudo: − Escudo».
+      ...Object.fromEntries(
+        HUECOS.map((h) => [h, u.equipo[h] === undefined ? [] : [pieza(u.equipo[h]).nombre]]),
+      ),
       'coste (oro)': `${u.cost.gold}`,
     };
   }
@@ -1448,12 +1874,13 @@ export function finalDeArena(battle: BattleState): {
 // ------------------------------------------------------------- el enlace de la pelea
 
 /**
- * Un puesto del montaje tal como va en el enlace: una hoja (sus cifras van en
- * `MontajeDelEnlace.unidades`) o una criatura del catálogo (su prueba, si la
- * tiene, en `pruebas`), y si lleva escalera.
+ * Un puesto del montaje tal como va en el enlace: una unidad del borrador (sus
+ * cifras van en `MontajeDelEnlace.unidades`; hasta la versión 4, `{ hoja }`) o
+ * una criatura del catálogo (su prueba, si la tiene, en `pruebas`), y si lleva
+ * escalera.
  */
 export type PuestoDelEnlace = (
-  | { readonly kind: 'hoja'; readonly hoja: string }
+  | { readonly kind: 'unidad'; readonly unidad: string }
   | { readonly kind: 'catalogo'; readonly id: string }
 ) & { readonly escalera: boolean };
 
@@ -1478,7 +1905,7 @@ export const IA_POR_DEFECTO: Readonly<Record<Lado, boolean>> = { izquierda: fals
  * TIPO, como las lleva la página: dos monjes son un monje en `unidades`.
  */
 export interface MontajeDelEnlace {
-  /** Las cifras de cada hoja montada, guardadas o no, en el orden en que salen. */
+  /** Las cifras de cada unidad montada, guardadas o no, en el orden en que salen. */
   readonly unidades: readonly UnidadDeArena[];
   /** La prueba de cada criatura del catálogo montada que la lleva. */
   readonly pruebas: Readonly<Record<string, CambiosDeCatalogo>>;
@@ -1506,13 +1933,23 @@ export function unaVezEnLaURL(valores: readonly string[], nombre: string): strin
 
 /**
  * La versión del formato: un enlace de otra versión se rechaza diciéndolo, no se
- * adivina. La 3 dice quién mueve cada bando, entero (`LadoDelEnlace.ia`). La 2
- * traía la muralla y la escalera de cada puesto, y quién movía cada puesto y el
- * héroe por separado; la 1, de antes de juntar la arena con la muralla, ni
- * muralla ni escaleras. Las dos se siguen leyendo: el bando va a la IA si iba
- * todo él, y si iba repartido se dice (`MontajeLeido.aviso`).
+ * adivina. Se leen todas desde la 1; lo que cambió en cada una es un umbral con
+ * nombre, y cada pregunta es «¿desde cuál?» (la historia de cada versión, en la
+ * entrada «Nueva unidad» de `docs/historia.md` y las de antes).
  */
-export const VERSION_DEL_ENLACE = 3;
+export const VERSION_DEL_ENLACE = 5;
+/** Desde la 2: la muralla y la escalera de cada puesto. */
+const CON_MURALLA = 2;
+/** Desde la 3: quién mueve es del bando entero (`LadoDelEnlace.ia`), no de cada puesto. */
+const BANDO_ENTERO = 3;
+/** Desde la 4: PV y daño en la escala del catálogo (`ESCALA_DE_CIFRAS`); antes, la de fheroes2. */
+const ESCALA_DE_HOY = 4;
+/**
+ * Desde la 5: unidades con cuerpo y equipo, puestas por su id (`{ unidad }`). Antes,
+ * por hoja (`{ hoja }`) con las cifras de su perfil, que se convierten al leerlas
+ * (`migrarUnidadDeArena`) y por eso piden saber el perfil de cada hoja.
+ */
+const CON_EQUIPO = 5;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'pruebas', 'izquierda', 'derecha', 'muralla'];
 const CAMPOS_DEL_ENLACE_1 = ['v', 'unidades', 'pruebas', 'izquierda', 'derecha'];
@@ -1529,8 +1966,9 @@ const CAMPOS_DEL_HEROE = [
 ];
 
 /**
- * Un enlace leído: su montaje y, si es de antes de la versión 3 y repartía algún
- * bando entre la persona y la IA, el aviso de cómo se ha leído.
+ * Un enlace leído: su montaje y, si hubo que decir algo al leerlo —un bando que
+ * un enlace de antes de la versión 3 repartía entre la persona y la IA, una
+ * unidad de antes de la 5 que no cupo en cuerpo y equipo—, el aviso.
  */
 export type MontajeLeido = MontajeDelEnlace & { readonly aviso?: string };
 
@@ -1561,9 +1999,10 @@ function siONo(valor: unknown, quien: string, campo = 'ia'): boolean {
  * Lee el montaje de `?montaje=` y lo comprueba entero antes de devolver nada:
  * un enlace mal formado, de otra versión o con una unidad, una criatura o un
  * hechizo que no existen lanza diciendo qué, y la página no monta nada a medias.
- * Que las hojas tengan arte lo mira la página, que es quien las tiene.
+ * Que las hojas tengan arte lo mira la página, que es quien las tiene; y por eso
+ * también da `perfilDe`, sin el que un enlace de antes de la 5 no se lee.
  */
-export function montajeDeLaURL(textoDelEnlace: string): MontajeLeido {
+export function montajeDeLaURL(textoDelEnlace: string, perfilDe?: PerfilDe): MontajeLeido {
   let crudo: unknown;
   try {
     crudo = JSON.parse(textoDelEnlace);
@@ -1572,24 +2011,41 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeLeido {
       `el montaje del enlace no se puede leer (${err instanceof Error ? err.message : String(err)}): puede que se cortara al copiarlo`,
     );
   }
-  const version =
+  const v =
     typeof crudo === 'object' && crudo !== null && 'v' in crudo
       ? (crudo as { v: unknown }).v
       : null;
-  if (version !== VERSION_DEL_ENLACE && version !== 1 && version !== 2) {
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > VERSION_DEL_ENLACE) {
     throw new Error(
-      `el montaje del enlace es de la versión ${JSON.stringify(version)} y esta arena lee de la 1 a la ${VERSION_DEL_ENLACE}`,
+      `el montaje del enlace es de la versión ${JSON.stringify(v)} y esta arena lee de la 1 a la ${VERSION_DEL_ENLACE}`,
     );
   }
-  const conMuralla = version !== 1;
+  const version = v;
+  const conMuralla = version >= CON_MURALLA;
   const o = objetoCon(
     crudo,
     conMuralla ? CAMPOS_DEL_ENLACE : CAMPOS_DEL_ENLACE_1,
     'el montaje del enlace',
   );
-  const unidades = lista(o.unidades, 'las unidades', 'el montaje del enlace').map(
-    validarUnidadDeArena,
-  );
+  // Hasta la 4, unidades de antes de cuerpo y equipo: se convierten, y para eso
+  // hace falta el perfil de cada hoja, que sabe quien tiene las hojas.
+  const avisos: string[] = [];
+  const crudas = lista(o.unidades, 'las unidades', 'el montaje del enlace');
+  let unidades: UnidadDeArena[];
+  if (version >= CON_EQUIPO) {
+    unidades = crudas.map(validarUnidadDeArena);
+  } else {
+    if (perfilDe === undefined) {
+      throw new Error(
+        `el montaje del enlace es de la versión ${version}, de antes del equipo, y para leerlo hace falta el perfil de cada hoja`,
+      );
+    }
+    unidades = crudas.map((c) => {
+      const { unidad, aviso } = migrarUnidadDeArena(c, perfilDe);
+      if (aviso !== null) avisos.push(aviso);
+      return unidad;
+    });
+  }
   sinRepetir(
     unidades.map((u) => u.id),
     'la unidad',
@@ -1606,7 +2062,11 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeLeido {
     // `creature` lanza con un id que no es del catálogo, y la prueba se comprueba
     // con la misma regla que la ficha.
     cifrasDeCatalogoEnLaArena(creature(id).id, cambios as CambiosDeCatalogo);
-    pruebas[id] = cambios as CambiosDeCatalogo;
+    // Hasta la 3, la escala de fheroes2; desde la 4, la de hoy.
+    pruebas[id] =
+      version >= ESCALA_DE_HOY
+        ? (cambios as CambiosDeCatalogo)
+        : pruebaALaEscala(cambios as CambiosDeCatalogo);
   }
   const leidos = {
     izquierda: ladoDelEnlace(o.izquierda, 'izquierda', version),
@@ -1628,12 +2088,12 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeLeido {
   // suyas: lo que sobra o falta no es un enlace que haya escrito la página.
   const puestos = [...izquierda.puestos, ...derecha.puestos];
   for (const p of puestos) {
-    if (p.kind === 'hoja' && !unidades.some((u) => u.id === p.hoja)) {
-      throw new Error(`el montaje del enlace pone «${p.hoja}» y no trae sus cifras`);
+    if (p.kind === 'unidad' && !unidades.some((u) => u.id === p.unidad)) {
+      throw new Error(`el montaje del enlace pone «${p.unidad}» y no trae sus cifras`);
     }
   }
   for (const u of unidades) {
-    if (!puestos.some((p) => p.kind === 'hoja' && p.hoja === u.id)) {
+    if (!puestos.some((p) => p.kind === 'unidad' && p.unidad === u.id)) {
       throw new Error(`el montaje del enlace trae las cifras de «${u.id}» y no la monta`);
     }
   }
@@ -1660,18 +2120,30 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeLeido {
       }
     });
   }
-  const repartidos = LADOS_EN_ORDEN.filter((l) => leidos[l].repartido);
-  if (repartidos.length === 0) return montaje;
-  const aviso = repartidos
-    .map(
-      (l) =>
-        `El enlace repartía el bando ${LADOS[l].adjetivo} entre tú y la IA: ahora lo mueves tú entero.`,
-    )
-    .join(' ');
-  return { ...montaje, aviso };
+  const repartidos = LADOS_EN_ORDEN.filter((l) => leidos[l].repartido).map(
+    (l) =>
+      `El enlace repartía el bando ${LADOS[l].adjetivo} entre tú y la IA: ahora lo mueves tú entero.`,
+  );
+  const dicho = [...repartidos, ...avisos];
+  return dicho.length === 0 ? montaje : { ...montaje, aviso: dicho.join(' ') };
 }
 
 const LADOS_EN_ORDEN = ['izquierda', 'derecha'] as const satisfies readonly Lado[];
+
+/**
+ * Una prueba del catálogo de un enlace de hasta la versión 3, con su vida y su
+ * daño en la escala de hoy. Ya validada: multiplicar enteros válidos los deja
+ * válidos.
+ */
+function pruebaALaEscala(c: CambiosDeCatalogo): CambiosDeCatalogo {
+  return {
+    ...c,
+    ...(c.hp === undefined ? {} : { hp: c.hp * ESCALA_DE_CIFRAS }),
+    ...(c.damage === undefined
+      ? {}
+      : { damage: [c.damage[0] * ESCALA_DE_CIFRAS, c.damage[1] * ESCALA_DE_CIFRAS] as const }),
+  };
+}
 
 /**
  * El montaje con el que pelea un enlace ya leído, con estas reglas: las fuentes
@@ -1684,10 +2156,10 @@ export function montajeDeArenaDelEnlace(
 ): MontajeDeArena {
   const lado = (l: LadoDelEnlace): LadoDeArena => ({
     unidades: l.puestos.map((p): FuenteDeArena => {
-      if (p.kind === 'hoja') {
-        const unidad = m.unidades.find((u) => u.id === p.hoja);
+      if (p.kind === 'unidad') {
+        const unidad = m.unidades.find((u) => u.id === p.unidad);
         if (unidad === undefined) {
-          throw new Error(`el montaje del enlace pone «${p.hoja}» y no trae sus cifras`);
+          throw new Error(`el montaje del enlace pone «${p.unidad}» y no trae sus cifras`);
         }
         return { kind: 'borrador', unidad, escalera: p.escalera };
       }
@@ -1711,23 +2183,26 @@ export function montajeDeArenaDelEnlace(
 function ladoDelEnlace(
   valor: unknown,
   lado: Lado,
-  version: 1 | 2 | 3,
+  version: number,
 ): { readonly lado: LadoDelEnlace; readonly repartido: boolean } {
   const quien = `el bando ${LADOS[lado].adjetivo} del enlace`;
   const delHeroe = `el héroe del bando ${LADOS[lado].adjetivo} del enlace`;
-  const antiguo = version < 3;
+  const antiguo = version < BANDO_ENTERO;
+  const conEscalera = version >= CON_MURALLA;
   const o = objetoCon(valor, antiguo ? CAMPOS_DEL_LADO_ANTIGUO : CAMPOS_DEL_LADO, quien);
   const quienMueve: boolean[] = [];
   const puestos = lista(o.puestos, 'los puestos', quien).map((crudo, i): PuestoDelEnlace => {
     const q = `${quien}, puesto ${i + 1}`;
-    const extra = [...(antiguo ? ['ia'] : []), ...(version === 1 ? [] : ['escalera'])];
+    const extra = [...(antiguo ? ['ia'] : []), ...(conEscalera ? ['escalera'] : [])];
     const leer = (p: Record<string, unknown>): { readonly escalera: boolean } => {
       if (antiguo) quienMueve.push(siONo(p.ia, q));
-      return { escalera: version === 1 ? false : siONo(p.escalera, q, 'escalera') };
+      return { escalera: conEscalera ? siONo(p.escalera, q, 'escalera') : false };
     };
-    if (typeof crudo === 'object' && crudo !== null && 'hoja' in crudo) {
-      const p = objetoCon(crudo, ['hoja', ...extra], q);
-      return { kind: 'hoja', hoja: texto(p.hoja, 'la hoja', q), ...leer(p) };
+    // Antes del equipo el puesto de una unidad decía su hoja, que era su id.
+    const campo = version >= CON_EQUIPO ? 'unidad' : 'hoja';
+    if (typeof crudo === 'object' && crudo !== null && campo in crudo) {
+      const p = objetoCon(crudo, [campo, ...extra], q);
+      return { kind: 'unidad', unidad: texto(p[campo], `la ${campo}`, q), ...leer(p) };
     }
     const p = objetoCon(crudo, ['criatura', ...extra], q);
     return { kind: 'catalogo', id: creature(texto(p.criatura, 'la criatura', q)).id, ...leer(p) };
@@ -1765,8 +2240,8 @@ function textoDelMontaje(m: MontajeDelEnlace): string {
   const lado = (l: LadoDelEnlace) => ({
     ia: l.ia,
     puestos: l.puestos.map((p) =>
-      p.kind === 'hoja'
-        ? { hoja: p.hoja, escalera: p.escalera }
+      p.kind === 'unidad'
+        ? { unidad: p.unidad, escalera: p.escalera }
         : { criatura: p.id, escalera: p.escalera },
     ),
     heroe: l.heroe,

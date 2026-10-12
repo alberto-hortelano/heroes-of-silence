@@ -8,9 +8,9 @@
  */
 
 import { allSpells } from '@core/battle/spells.js';
-import { COMO_SE_LEE_EL_MAPA } from '@core/contract/serialize.js';
+import { COMO_SE_LEE_EL_MAPA, fichaDeCriatura } from '@core/contract/serialize.js';
 import { allCreatures, creature, factionLineup } from '@core/data.js';
-import { NIVEL_MAXIMO_DE_TROPA } from '@core/hero/experiencia.js';
+import { RANGO_MAXIMO_DE_TROPA } from '@core/hero/experiencia.js';
 import { allBuildings } from '@core/town/buildings.js';
 import { FACTION_IDS } from '@core/types.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -253,7 +253,7 @@ Tipos de petición que puedes recibir:
   "yourSide" en cada petición y no des por hecho que atacas.
 - "map_generate"   → diseña un mapa. No dibujas nada: devuelves un plan
   declarativo y el motor lo construye y lo valida.
-- "hero_from_troop" → un veterano de nivel ${NIVEL_MAXIMO_DE_TROPA} está en tu base y se hace héroe:
+- "hero_from_troop" → un veterano de rango ${RANGO_MAXIMO_DE_TROPA} está en tu base y se hace héroe:
   le das nombre, historia y tipo. Llega antes de tu "adventure_turn".
 - "town_voices"    → pon voz a la gente de tus bases (una línea por persona y
   día) cuando empieza semana o se levanta un edificio en un sitio vacío. Es
@@ -497,16 +497,19 @@ server.tool(
 
 server.tool(
   'creature_stats',
-  'Ficha de una criatura, o el catálogo entero si no indicas ninguna.',
+  'Ficha de una criatura —sus cifras, "dwelling" (la morada que la produce) y su "level" y "powerIndex", derivados de las cifras—, o el catálogo entero si no indicas ninguna.',
   {
     creature: z.string().optional().describe('Id de criatura, p. ej. "paladin"'),
     faction: z.enum(FACTION_IDS).optional().describe('Alineación de una facción'),
   },
   ({ creature: id, faction }) => {
     if (id !== undefined) {
-      return { content: [{ type: 'text' as const, text: JSON.stringify(creature(id), null, 2) }] };
+      const ficha = fichaDeCriatura(creature(id));
+      return { content: [{ type: 'text' as const, text: JSON.stringify(ficha, null, 2) }] };
     }
-    const lista = faction === undefined ? allCreatures() : factionLineup(faction);
+    const lista = (faction === undefined ? allCreatures() : factionLineup(faction)).map(
+      fichaDeCriatura,
+    );
     return { content: [{ type: 'text' as const, text: JSON.stringify(lista, null, 2) }] };
   },
 );

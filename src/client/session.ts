@@ -93,7 +93,14 @@ import { newGame } from '@core/state/setup.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, sitiosConstruidos } from '@core/town/sitios.js';
 import { alcaideDe, vecinosDeLaBase, vozDe } from '@core/town/voces.js';
-import type { Hex, PlayerId, Point } from '@core/types.js';
+import {
+  esHueco,
+  type Hex,
+  HUECOS,
+  huecoDesconocido,
+  type PlayerId,
+  type Point,
+} from '@core/types.js';
 import { quienesDe } from './desenlace.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
 
@@ -1319,9 +1326,14 @@ export class Session implements ControlDeBatalla {
     this.tocar();
   }
 
-  /** Quitar la pieza del hueco `slot` al héroe o al individuo `veteran`, a la mochila. */
+  /**
+   * Quitar la pieza del hueco `slot` al héroe o al individuo `veteran`, a la
+   * mochila. El hueco llega del marcado como texto: esta es su puerta al núcleo,
+   * y uno que no lo es sale en la barra con su motivo.
+   */
   unequip(heroId: string, slot: string, veteran?: string): void {
-    this.run(() =>
+    this.run(() => {
+      if (!esHueco(slot)) throw new Error(huecoDesconocido(slot, HUECOS));
       applyAdventureAction(
         this.state,
         {
@@ -1332,8 +1344,8 @@ export class Session implements ControlDeBatalla {
         },
         this.ctx,
         this.viewer,
-      ),
-    );
+      );
+    });
   }
 
   hireHero(): void {

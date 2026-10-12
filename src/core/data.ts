@@ -9,6 +9,7 @@ import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
 import murallaJson from '../../data/muralla.json' with { type: 'json' };
+import poderJson from '../../data/poder.json' with { type: 'json' };
 import relieveJson from '../../data/relieve.json' with { type: 'json' };
 import tiposDeHeroeJson from '../../data/tipos-de-heroe.json' with { type: 'json' };
 import {
@@ -51,7 +52,7 @@ for (const raw of creaturesJson.creatures) {
   const creature: Creature = {
     id: raw.id,
     faction: faccionDelCatalogo(raw.id, raw.faction),
-    level: raw.level,
+    morada: raw.morada,
     leadership: raw.leadership,
     name: raw.name,
     attack: raw.attack,
@@ -59,9 +60,6 @@ for (const raw of creaturesJson.creatures) {
     damage: [raw.damage[0] as number, raw.damage[1] as number],
     hp: raw.hp,
     speed: raw.speed as SpeedTier,
-    // Quien recibe un golpe de una criatura del catálogo lo recibe con el nivel
-    // de su morada (`UnitInfo.nivel`).
-    nivel: raw.level,
     growth: raw.growth,
     cost: raw.cost,
     ...('shots' in raw ? { shots: raw.shots as number } : {}),
@@ -102,7 +100,7 @@ export function allCreatures(): readonly Creature[] {
   return [...byId.values()];
 }
 
-/** Las 6 criaturas base de una facción, de nivel 1 a 6 (sin mejoras). */
+/** Las 6 criaturas base de una facción, de la morada 1 a la 6 (sin mejoras). */
 export function factionLineup(faction: FactionId): readonly Creature[] {
   const upgrades = new Set(
     allCreatures()
@@ -111,7 +109,7 @@ export function factionLineup(faction: FactionId): readonly Creature[] {
   );
   return allCreatures()
     .filter((c) => c.faction === faction && !upgrades.has(c.id))
-    .sort((a, b) => a.level - b.level);
+    .sort((a, b) => a.morada - b.morada);
 }
 
 export function hasTrait(c: UnitInfo, trait: CreatureTrait): boolean {
@@ -132,8 +130,8 @@ export function hexSize(c: UnitInfo): number {
  * datos y no en el código.
  */
 export interface ReglasDeLiderazgo {
-  /** Tope de un héroe: `base + porNivel × (nivel − 1)`, sin pasar de `max`. */
-  readonly heroe: { readonly base: number; readonly porNivel: number; readonly max: number };
+  /** Tope de un héroe: `base + porRango × (rango − 5)`, sin pasar de `max`. */
+  readonly heroe: { readonly base: number; readonly porRango: number; readonly max: number };
   /** Tope de la tropa que guarda un castillo sin héroe. */
   readonly guarnicion: number;
   /** Lo que ocupa un personaje (`Troop.member`), que no está en el catálogo. */
@@ -159,10 +157,10 @@ export const LIDERAZGO: ReglasDeLiderazgo = {
  */
 export interface ReglasDelHeroe {
   readonly combate: {
-    readonly pv: { readonly base: number; readonly porNivel: number };
-    readonly ataquePorNivel: number;
-    readonly defensaPorNivel: number;
-    readonly danio: { readonly min: number; readonly max: number; readonly maxPorNivel: number };
+    readonly pv: { readonly base: number; readonly porRango: number };
+    readonly ataquePorRango: number;
+    readonly defensaPorRango: number;
+    readonly danio: { readonly min: number; readonly max: number; readonly maxPorRango: number };
     readonly velocidad: SpeedTier;
   };
   readonly rendicion: { readonly porcentajeDelOro: number };
@@ -182,8 +180,8 @@ function velocidadDelHeroe(v: string): SpeedTier {
 export const HEROE: ReglasDelHeroe = {
   combate: {
     pv: { ...heroeJson.combate.pv },
-    ataquePorNivel: heroeJson.combate.ataquePorNivel,
-    defensaPorNivel: heroeJson.combate.defensaPorNivel,
+    ataquePorRango: heroeJson.combate.ataquePorRango,
+    defensaPorRango: heroeJson.combate.defensaPorRango,
     danio: { ...heroeJson.combate.danio },
     velocidad: velocidadDelHeroe(heroeJson.combate.velocidad),
   },
@@ -420,16 +418,16 @@ export const ASALTANTES: ReglasDeAsaltantes = reglasDeAsaltantes();
  * solo las lee y las valida.
  */
 export interface ReglasDeExperiencia {
-  /** Lo que cuesta el primer nivel: subir del n al n+1 cuesta `base × incrementos[n−1]`. */
+  /** Lo que cuesta el primer rango: subir del n al n+1 cuesta `base × incrementos[n−1]`. */
   readonly base: number;
   /** Los primeros incrementos, Fibonacci; más allá se siguen por la recurrencia. */
   readonly incrementos: readonly number[];
   /** El tope de la tropa. El héroe no tiene. */
-  readonly nivelMaximoDeTropa: number;
-  /** Lo que suma a ataque y defensa cada nivel de veteranía por encima del 1. */
-  readonly porNivel: { readonly ataque: number; readonly defensa: number };
+  readonly rangoMaximoDeTropa: number;
+  /** Lo que suma a ataque y defensa cada rango por encima del 1. */
+  readonly porRango: { readonly ataque: number; readonly defensa: number };
   /**
-   * Qué habilidad gana cada criatura en los niveles 2…`nivelMaximoDeTropa`, por
+   * Qué habilidad gana cada criatura en los rangos 2…`rangoMaximoDeTropa`, por
    * id de criatura. **Inertes**: no hay motor de habilidades todavía.
    */
   readonly habilidades: Readonly<Record<string, readonly string[]>>;
@@ -457,9 +455,9 @@ export function validarExperiencia(
   const problemas: string[] = [];
   const j = (json ?? {}) as Record<string, unknown>;
   if (!enteroDesde(j.base, 1)) problemas.push(`base tiene que ser un entero ≥ 1 y es ${j.base}`);
-  const nivelMax = j.nivelMaximoDeTropa;
-  if (!enteroDesde(nivelMax, 2)) {
-    problemas.push(`nivelMaximoDeTropa tiene que ser un entero ≥ 2 y es ${nivelMax}`);
+  const rangoMax = j.rangoMaximoDeTropa;
+  if (!enteroDesde(rangoMax, 2)) {
+    problemas.push(`rangoMaximoDeTropa tiene que ser un entero ≥ 2 y es ${rangoMax}`);
   }
   const inc = j.incrementos;
   if (!Array.isArray(inc) || inc.length < 2 || !inc.every((x) => enteroDesde(x, 1))) {
@@ -478,15 +476,15 @@ export function validarExperiencia(
       }
     }
   }
-  const por = (j.porNivel ?? {}) as Record<string, unknown>;
+  const por = (j.porRango ?? {}) as Record<string, unknown>;
   for (const campo of ['ataque', 'defensa'] as const) {
     if (!enteroDesde(por[campo], 0)) {
-      problemas.push(`porNivel.${campo} tiene que ser un entero ≥ 0 y es ${por[campo]}`);
+      problemas.push(`porRango.${campo} tiene que ser un entero ≥ 0 y es ${por[campo]}`);
     }
   }
   const hab = (j.habilidades ?? {}) as Record<string, unknown>;
   const validas = new Set(catalogo);
-  const cuantas = enteroDesde(nivelMax, 2) ? nivelMax - 1 : null;
+  const cuantas = enteroDesde(rangoMax, 2) ? rangoMax - 1 : null;
   for (const id of criaturas) {
     if (!(id in hab)) problemas.push(`habilidades: falta la criatura "${id}"`);
   }
@@ -501,7 +499,7 @@ export function validarExperiencia(
     }
     if (cuantas !== null && lista.length !== cuantas) {
       problemas.push(
-        `habilidades.${id} trae ${lista.length} y son ${cuantas}: una por nivel, del 2 al ${nivelMax}`,
+        `habilidades.${id} trae ${lista.length} y son ${cuantas}: una por rango, del 2 al ${rangoMax}`,
       );
     }
     for (const nombre of lista) {
@@ -516,8 +514,8 @@ export function validarExperiencia(
   return {
     base: j.base as number,
     incrementos: [...(inc as number[])],
-    nivelMaximoDeTropa: nivelMax as number,
-    porNivel: { ataque: por.ataque as number, defensa: por.defensa as number },
+    rangoMaximoDeTropa: rangoMax as number,
+    porRango: { ataque: por.ataque as number, defensa: por.defensa as number },
     habilidades: hab as Record<string, readonly string[]>,
   };
 }
@@ -532,6 +530,59 @@ export const EXPERIENCIA: ReglasDeExperiencia = validarExperiencia(
   CATALOGO_DE_HABILIDADES,
   [...byId.keys()],
 );
+
+/**
+ * Las cifras del índice de poder, de `data/poder.json` (`core/nivel.ts`).
+ * **Inventadas y provisionales**, como dice su `_comment`: es la calibración que
+ * deja cada criatura del catálogo en el nivel de su morada o en el contiguo.
+ */
+export interface ReglasDelPoder {
+  /** El poder con el que empieza el nivel 2: por debajo, todo es el nivel 1. */
+  readonly umbralDelNivel2: number;
+  /** Cada umbral es el anterior × `razon[0]` / `razon[1]`: dos enteros, sin coma flotante. */
+  readonly razon: readonly [number, number];
+}
+
+/**
+ * Valida las reglas del índice de poder y las devuelve tipadas; lanza con todos
+ * los problemas a la vez. **Una razón ≤ 1 se rechaza**: con ella los umbrales no
+ * crecen y el bucle que los calcula no acabaría, o dos niveles empezarían en el
+ * mismo poder. Exportada con el JSON de argumento para que un test la vea morder.
+ */
+export function validarPoder(json: unknown, fichero = 'data/poder.json'): ReglasDelPoder {
+  const problemas: string[] = [];
+  const j = (json ?? {}) as Record<string, unknown>;
+  if (!enteroDesde(j.umbralDelNivel2, 1)) {
+    problemas.push(`umbralDelNivel2 tiene que ser un entero ≥ 1 y es ${j.umbralDelNivel2}`);
+  }
+  const r = j.razon;
+  if (!Array.isArray(r) || r.length !== 2 || !r.every((x) => enteroDesde(x, 1))) {
+    problemas.push(
+      `razon tiene que ser [numerador, denominador], dos enteros ≥ 1, y es ${JSON.stringify(r)}`,
+    );
+  } else if ((r[0] as number) <= (r[1] as number)) {
+    problemas.push(
+      `razon ${r[0]}/${r[1]} no pasa de 1: los umbrales de nivel tienen que crecer, o dos niveles empezarían en el mismo poder`,
+    );
+  } else if (
+    enteroDesde(j.umbralDelNivel2, 1) &&
+    Math.floor(((j.umbralDelNivel2 as number) * (r[0] as number)) / (r[1] as number)) <=
+      (j.umbralDelNivel2 as number)
+  ) {
+    // En enteros, ⌊u · n / d⌋ puede quedarse en u con un umbral pequeño y una
+    // razón cerca de 1; si el primer paso crece, crecen todos (n/d > 1).
+    problemas.push(
+      `con umbralDelNivel2 ${j.umbralDelNivel2} y razon ${r[0]}/${r[1]} el umbral del nivel 3 sale igual que el del 2, en enteros: sube el umbral o la razón`,
+    );
+  }
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return {
+    umbralDelNivel2: j.umbralDelNivel2 as number,
+    razon: [(r as number[])[0] as number, (r as number[])[1] as number],
+  };
+}
+
+export const PODER: ReglasDelPoder = validarPoder(poderJson);
 
 /**
  * Un tipo de héroe de `data/tipos-de-heroe.json`, sacado del cuaderno con una
@@ -635,15 +686,24 @@ export function nombreDeTipoDeHeroe(faction: FactionId, id: string): string {
 // ---------------------------------------------------------------- equipo
 
 /**
- * De dónde sale una pieza, que es lo que la calidad decide (decisión del usuario,
- * 02-10-2026): `comun` cae como botín; `armeria` la vende la armería y es lo que
- * todo héroe trae de serie —una por hueco, la mejor que se compra—; `especial`
- * cae como botín y trae otra clase de ventaja. Es una propiedad de la pieza y no
- * una lista aparte, para que «calidad de armería» se pueda preguntar a la pieza.
+ * De dónde sale una pieza, que es lo que la calidad decide: `comun` cae como
+ * botín; `armeria` la vende la armería y es lo que todo héroe trae de serie —una
+ * por hueco, la mejor que se compra—; `especial` cae como botín y trae otra clase
+ * de ventaja; `arena` es el equipo de los perfiles de arma de la arena y los
+ * escudos, y **el juego no la reparte** —ni botín, ni armería, ni equipo base—.
+ * Es una propiedad de la pieza y no una lista aparte, para que «calidad de
+ * armería» se pueda preguntar a la pieza.
  */
-export const CALIDADES = ['comun', 'armeria', 'especial'] as const;
+export const CALIDADES = ['comun', 'armeria', 'especial', 'arena'] as const;
 
 export type Calidad = (typeof CALIDADES)[number];
+
+/**
+ * Las calidades que caen como botín, **escritas** y no «lo que no se vende»: así
+ * lo de la arena no cae nunca. Lo leen el cargador (que haya alguna pieza de
+ * botín) y el sorteo (`PIEZAS_DE_BOTIN`).
+ */
+export const CALIDADES_DE_BOTIN: readonly Calidad[] = ['comun', 'especial'];
 
 /** Una pieza de `data/equipo.json`. **Inventada y provisional**, como dice su `_comment`. */
 export interface Pieza {
@@ -654,8 +714,21 @@ export interface Pieza {
   readonly ataque: number;
   readonly defensa: number;
   readonly pv: number;
-  /** Escalones de velocidad que sube a quien la lleva, sin pasar del último. */
+  /**
+   * Escalones de velocidad que suma a quien la lleva, sin pasar del último ni
+   * bajar del primero. Puede ser negativa: un escudo la resta, y tiene que
+   * restarla (`validarEquipo`).
+   */
   readonly velocidad: number;
+  /** `[+mínimo, +máximo]` de daño que suma; sin el campo, nada. */
+  readonly danio?: readonly [number, number];
+  /** Disparos que suma: un arco hace tirador a quien lo lleva. Sin el campo, ninguno. */
+  readonly disparos?: number;
+  /**
+   * `2` si es un arma a dos manos, que no admite escudo (`manosBlocker`, la única
+   * lectura). Solo en el hueco `arma`; sin el campo, una mano.
+   */
+  readonly manos?: 1 | 2;
   readonly precio: Partial<Resources>;
 }
 
@@ -699,9 +772,38 @@ export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): read
         `${quien} es de calidad "${p.calidad}", que no existe; valen ${CALIDADES.join(', ')}`,
       );
     }
-    for (const campo of ['ataque', 'defensa', 'pv', 'velocidad'] as const) {
+    for (const campo of ['ataque', 'defensa', 'pv'] as const) {
       if (!enteroDesde(p[campo], 0)) {
         problemas.push(`${quien}: ${campo} tiene que ser un entero ≥ 0 y es ${p[campo]}`);
+      }
+    }
+    // La velocidad puede restar: es lo que hace un escudo, y el escudo TIENE que
+    // restarla.
+    if (!enteroDesde(p.velocidad, Number.MIN_SAFE_INTEGER)) {
+      problemas.push(`${quien}: velocidad tiene que ser un entero y es ${p.velocidad}`);
+    } else if (p.hueco === 'escudo' && (p.velocidad as number) >= 0) {
+      problemas.push(
+        `${quien} es un escudo y tiene que restar velocidad (un número negativo), y es ${p.velocidad}`,
+      );
+    }
+    if (p.danio !== undefined) {
+      const d = p.danio;
+      if (!Array.isArray(d) || d.length !== 2 || !d.every((x) => enteroDesde(x, 0))) {
+        problemas.push(`${quien}: danio tiene que ser [+mínimo, +máximo], dos enteros ≥ 0`);
+      } else if ((d[0] as number) > (d[1] as number)) {
+        problemas.push(`${quien}: el daño mínimo que suma (${d[0]}) pasa del máximo (${d[1]})`);
+      }
+    }
+    if (p.disparos !== undefined && !enteroDesde(p.disparos, 0)) {
+      problemas.push(`${quien}: disparos tiene que ser un entero ≥ 0 y es ${p.disparos}`);
+    }
+    if (p.manos !== undefined) {
+      if (p.manos !== 1 && p.manos !== 2) {
+        problemas.push(`${quien}: manos es 1 o 2, y es ${p.manos}`);
+      } else if (p.hueco !== 'arma') {
+        problemas.push(
+          `${quien} va en el hueco ${p.hueco} y dice manos: solo un arma se lleva a dos manos`,
+        );
       }
     }
     const precio = (p.precio ?? null) as Record<string, unknown> | null;
@@ -722,18 +824,33 @@ export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): read
   }
   for (const hueco of HUECOS) {
     const deArmeria = piezas.filter((p) => p.hueco === hueco && p.calidad === 'armeria');
+    // El escudo no lleva ninguna: con una, todo héroe nacería con escudo, y el
+    // equipo base es espada sin escudo (12-10-2026).
+    if (hueco === HUECO_SIN_ARMERIA) {
+      if (deArmeria.length > 0) {
+        problemas.push(
+          `el hueco ${hueco} tiene ${deArmeria.length} piezas de armería y no puede tener ninguna: todo héroe nacería con ${hueco}`,
+        );
+      }
+      continue;
+    }
     if (deArmeria.length !== 1) {
       problemas.push(
         `el hueco ${hueco} tiene ${deArmeria.length} piezas de armería y tiene que tener exactamente una: es el equipo base del héroe y lo que vende la armería`,
       );
     }
   }
-  if (!piezas.some((p) => p.calidad !== 'armeria')) {
-    problemas.push('no hay ninguna pieza de botín (común o especial): el botín no tendría qué dar');
+  if (!piezas.some((p) => CALIDADES_DE_BOTIN.includes(p.calidad))) {
+    problemas.push(
+      `no hay ninguna pieza de botín (${CALIDADES_DE_BOTIN.join(' o ')}): el botín no tendría qué dar`,
+    );
   }
   if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
   return piezas;
 }
+
+/** El hueco que el equipo base deja vacío: ni armería ni héroe nacido con él. */
+const HUECO_SIN_ARMERIA = 'escudo' satisfies (typeof HUECOS)[number];
 
 /** El catálogo de equipo, en el orden del fichero: es el orden del sorteo del botín. */
 export const EQUIPO: readonly Pieza[] = validarEquipo(equipoJson);

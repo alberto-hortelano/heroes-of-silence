@@ -50,19 +50,19 @@ export interface NewGameOptions {
 const MAX_DAYS_POR_DEFECTO = 200;
 
 /**
- * Ejército de salida: unos cuantos individuos de nivel 1 y dos de nivel 2 de
+ * Ejército de salida: unos cuantos individuos de la morada 1 y dos de la 2 de
  * la facción. Con el liderazgo provisional (2 y 3) son 10 a 14 de los 20 de un
- * héroe de nivel 1, y 4 a 6 individuos de los 6 que lleva además de él: cabe
+ * héroe recién hecho, y 4 a 6 individuos de los 6 que lleva además de él: cabe
  * siempre y, salvo con 6, deja hueco para reclutar algo el primer día. Una sola
  * tirada del `rng`, como antes: solo cambia su rango.
  */
 export function startingArmy(faction: FactionId, rng: Rng): Hero['army'] {
   const lineup = factionLineup(faction);
-  const nivel1 = lineup.find((c) => c.level === 1);
-  const nivel2 = lineup.find((c) => c.level === 2);
+  const morada1 = lineup.find((c) => c.morada === 1);
+  const morada2 = lineup.find((c) => c.morada === 2);
   let army: Hero['army'] = [];
-  if (nivel1 !== undefined) army = withTroops(army, nivel1.id, rng.int(2, 4));
-  if (nivel2 !== undefined) army = withTroops(army, nivel2.id, 2);
+  if (morada1 !== undefined) army = withTroops(army, morada1.id, rng.int(2, 4));
+  if (morada2 !== undefined) army = withTroops(army, morada2.id, 2);
   return army;
 }
 

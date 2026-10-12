@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path';
 import {
   COMENTARIO_DEL_BORRADOR,
   type HojaDeArena,
+  perfilDeLasHojas,
   revisarBorradorDeArena,
   type UnidadDeArena,
   type UnidadSinValidar,
@@ -27,16 +28,28 @@ import {
 } from '../../src/core/arena-murallas.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import { arteEnOchoDirecciones, HEROES, juegoDelYBot, UNIDADES } from '../taller/unidades.js';
-import { VELOCIDAD_DE_SALIDA } from './velocidades.js';
+import { VELOCIDAD_DEL_CUERPO } from './velocidades.js';
 
-/** Las casillas de salida de una hoja: una hoja sin la suya es un olvido, y se dice. */
-function velocidadDeSalida(id: string): number {
-  const fila = VELOCIDAD_DE_SALIDA[id];
+/**
+ * Las casillas del cuerpo de un personaje: uno sin las suyas es un olvido, y se
+ * dice. Las del cuerpo, sin el equipo: con el escudo de su perfil pelea con una menos.
+ */
+function velocidadDelCuerpo(personaje: string): number {
+  const fila = VELOCIDAD_DEL_CUERPO[personaje];
   if (fila === undefined) {
-    throw new Error(`la hoja ${id} no tiene velocidad de salida en tools/arena/velocidades.ts`);
+    throw new Error(
+      `el personaje ${personaje} no tiene la velocidad de su cuerpo en tools/arena/velocidades.ts`,
+    );
   }
   return fila[0];
 }
+
+/**
+ * El perfil de cada hoja del taller, para convertir lo de antes del equipo
+ * (`migrarUnidadDeArena`): de la lista de `tools/taller/unidades.ts`, una vez y
+ * sin leer el arte de nadie (eran 408 `atlas.json` en cada lectura).
+ */
+const PERFIL_DE_LAS_HOJAS = perfilDeLasHojas([...UNIDADES, ...HEROES]);
 
 /** Dónde vive el borrador, relativo a la raíz del repo. */
 export const RUTA_DEL_BORRADOR = 'data/borradores/unidades.json';
@@ -83,8 +96,9 @@ export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
       nombre: u.nombre,
       faccion: u.faccion,
       perfil: u.perfil,
+      personaje: u.personaje ?? u.id,
       heroe,
-      casillas: velocidadDeSalida(u.id),
+      casillas: velocidadDelCuerpo(u.personaje ?? u.id),
       juego: juegoDelYBot(u),
       ...direccionesDe(raiz, u.id),
     })),
@@ -102,9 +116,11 @@ interface Borrador<T, I extends { readonly crudo: unknown }> {
   /** La lista del archivo: `{ _comment, [campo]: [...] }`. */
   readonly campo: string;
   readonly comentario: string;
+  /** Lo del archivo, elemento a elemento; `avisos`, lo que hubo que decir al convertir lo de antes. */
   readonly revisar: (valor: unknown) => {
     readonly validas: readonly T[];
     readonly invalidas: readonly I[];
+    readonly avisos: readonly string[];
   };
   readonly validar: (valor: unknown) => readonly T[];
   readonly clave: (t: T) => string;
@@ -116,7 +132,9 @@ const DE_UNIDADES: Borrador<UnidadDeArena, UnidadSinValidar> = {
   ruta: RUTA_DEL_BORRADOR,
   campo: 'unidades',
   comentario: COMENTARIO_DEL_BORRADOR,
-  revisar: revisarBorradorDeArena,
+  // Las unidades de antes de cuerpo y equipo se convierten al leerlas, con el
+  // perfil de su hoja (`migrarUnidadDeArena`).
+  revisar: (valor) => revisarBorradorDeArena(valor, PERFIL_DE_LAS_HOJAS),
   validar: validarBorradorDeArena,
   clave: (u) => u.id,
   claveSinValidar: (u) => u.id,
@@ -130,9 +148,13 @@ const DE_UNIDADES: Borrador<UnidadDeArena, UnidadSinValidar> = {
 function leer<T, I extends { readonly crudo: unknown }>(
   raiz: string,
   b: Borrador<T, I>,
-): { readonly validas: readonly T[]; readonly invalidas: readonly I[] } {
+): {
+  readonly validas: readonly T[];
+  readonly invalidas: readonly I[];
+  readonly avisos: readonly string[];
+} {
   const ruta = join(raiz, b.ruta);
-  if (!existsSync(ruta)) return { validas: [], invalidas: [] };
+  if (!existsSync(ruta)) return { validas: [], invalidas: [], avisos: [] };
   let json: unknown;
   try {
     json = JSON.parse(readFileSync(ruta, 'utf8')) as unknown;
@@ -191,13 +213,19 @@ function escribirAtomico(ruta: string, contenido: unknown): void {
   renameSync(temporal, ruta);
 }
 
-/** El borrador de cifras tal como está en disco: lo que vale, lo que no y por qué. */
+/**
+ * El borrador de cifras tal como está en disco: lo que vale (lo de antes, ya
+ * convertido a cuerpo y equipo), lo que no y por qué, y lo que hubo que decir al
+ * convertir (`avisos`). Lo convertido se escribe en el formato de hoy en el
+ * siguiente «Guardar», y no se vuelve a convertir.
+ */
 export function leerBorrador(raiz: string): {
   readonly unidades: readonly UnidadDeArena[];
   readonly invalidas: readonly UnidadSinValidar[];
+  readonly avisos: readonly string[];
 } {
-  const { validas, invalidas } = leer(raiz, DE_UNIDADES);
-  return { unidades: validas, invalidas };
+  const { validas, invalidas, avisos } = leer(raiz, DE_UNIDADES);
+  return { unidades: validas, invalidas, avisos };
 }
 
 /** Guarda el borrador de cifras con las garantías de `escribir`. */
@@ -218,7 +246,8 @@ const DE_MURALLAS: Borrador<FormaDeMuralla, FormaSinValidar> = {
   ruta: RUTA_DE_MURALLAS,
   campo: 'formas',
   comentario: COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
-  revisar: revisarBorradorDeMurallas,
+  // Las formas no tienen nada de antes que convertir.
+  revisar: (valor) => ({ ...revisarBorradorDeMurallas(valor), avisos: [] }),
   validar: validarBorradorDeMurallas,
   clave: (f) => f.nombre,
   claveSinValidar: (f) => f.nombre,

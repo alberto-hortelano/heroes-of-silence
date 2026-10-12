@@ -22,6 +22,7 @@
  */
 import { HERO_BODY } from '@core/hero/hero.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
+import { esIdDeArena } from '@core/validar.js';
 import atlasDePoses from '../../../assets/unidades/_poses/atlas-8d.json';
 import {
   type CLIPS_DE_FIGURA,
@@ -331,7 +332,7 @@ export function registrarUnidad(
   if (JUEGO_DEL_CUERPO[id] !== undefined) {
     throw new Error(`"${id}" es un cuerpo del juego: una hoja de unidad no lo sustituye`);
   }
-  if (!/^[a-z0-9-]+$/.test(id)) {
+  if (!esIdDeArena(id)) {
     throw new Error(`"${id}" no es el id de una carpeta de assets/unidades/: minúsculas y guiones`);
   }
   const arte =

@@ -135,6 +135,19 @@ const licenciasVistas = new Set<string>();
 const comprasVistas = new Set<string>();
 const equipo: { visto: string | null } = { visto: null };
 /**
+ * Los huecos en inglés (12-10-2026): el `equipment` de cada héroe trae
+ * exactamente estos cuatro, y un `unequip` con `slot: "shield"` cruza el puente,
+ * se traduce (`accionDelAgente`) y lo contesta el NÚCLEO —el héroe no lleva
+ * escudo, así que lo descarta `unequipBlocker` diciéndolo—. Si el `slot` no se
+ * tradujera, el motivo sería «no hay ningún hueco», no este.
+ */
+const SLOTS_DEL_CONTRATO = ['weapon', 'armor', 'accessory', 'shield'];
+const escudo: { requestId: string | null; heroe: string | null; visto: string | null } = {
+  requestId: null,
+  heroe: null,
+  visto: null,
+};
+/**
  * Cuánto de la ventana de `recentEvents` se llevan los hechos de asaltantes.
  * Era un riesgo del plan —la patrulla podía ahogar los 25 hechos que caben—;
  * la patrulla dejó de ser un hecho, y lo que queda se mide en vez de suponerse.
@@ -371,7 +384,7 @@ function avisaRendicion(): void {
 function exigeElAscenso(): void {
   if (ascenso.requestId === null) {
     throw new Error(
-      'no ha llegado ningún "hero_from_troop": el veterano de nivel 5 de la base no se ha ofrecido al narrador',
+      'no ha llegado ningún "hero_from_troop": el veterano de rango 5 de la base no se ha ofrecido al narrador',
     );
   }
   const v = veredictos.find((x) => x.requestId === ascenso.requestId);
@@ -429,7 +442,12 @@ async function cruzaElHeroeNacido(client: Client, turno: any): Promise<void> {
     );
   }
   const h = enElTurno;
-  ascenso.visto = `${h.name} (${h.id}), tipo ${h.type}, nivel ${h.level}, tropa: ${h.army.length}, «${h.story}»`;
+  if (h.rank !== 5 || typeof h.level !== 'number') {
+    throw new Error(
+      `el héroe nacido de la tropa no trae "rank" 5 y su "level" derivado: rank ${h.rank}, level ${h.level}`,
+    );
+  }
+  ascenso.visto = `${h.name} (${h.id}), tipo ${h.type}, rango ${h.rank}, nivel ${h.level}, tropa: ${h.army.length}, «${h.story}»`;
 }
 
 /**
@@ -443,6 +461,11 @@ async function cruzaElEquipo(client: Client, turno: any): Promise<void> {
     if (h.equipment === undefined || !Array.isArray(h.backpack)) {
       throw new Error(
         `el héroe ${h.id} llega sin "equipment" o sin "backpack": ${JSON.stringify(h)}`,
+      );
+    }
+    if (JSON.stringify(Object.keys(h.equipment)) !== JSON.stringify(SLOTS_DEL_CONTRATO)) {
+      throw new Error(
+        `el "equipment" del héroe ${h.id} no trae exactamente ${SLOTS_DEL_CONTRATO.join(', ')}: ${JSON.stringify(h.equipment)}`,
       );
     }
   }
@@ -469,6 +492,33 @@ async function cruzaElEquipo(client: Client, turno: any): Promise<void> {
     );
   }
   equipo.visto = `${primero.fila.creature} ${primero.fila.id} de ${primero.heroe} lleva ${JSON.stringify(primero.fila.equipment)} (cruzado con game_state)`;
+}
+
+/**
+ * Que el `unequip` con `slot: "shield"` llegara al núcleo: su veredicto trae el
+ * motivo de `unequipBlocker` («no lleva nada en Escudo»), que solo se escribe si
+ * el hueco se tradujo. Con el `slot` sin traducir sería «no hay ningún hueco», y
+ * con la acción perdida, nada. Y el hueco va por su nombre para la persona
+ * («Escudo»), nunca por la clave de dentro («escudo»), que el agente no escribió.
+ */
+function exigeElEscudo(): void {
+  if (escudo.requestId === null) {
+    throw new Error('ningún turno de mapa ha traído un héroe con "shield": null en su "equipment"');
+  }
+  const v = veredictos.find((x) => x.requestId === escudo.requestId);
+  const motivo = v?.problemas.find((p) => p.startsWith(`unequip shield de ${escudo.heroe}:`));
+  if (motivo === undefined || !/no lleva nada en Escudo/.test(motivo)) {
+    throw new Error(
+      `el "unequip" con "slot": "shield" de la petición ${escudo.requestId} no lo ha contestado el núcleo: ${motivo ?? `sin veredicto (${JSON.stringify(v)})`}`,
+    );
+  }
+  if (/\bescudo\b/.test(motivo)) {
+    throw new Error(
+      `el motivo del "unequip" con "slot": "shield" nombra el hueco por su clave de dentro («escudo»), no por su nombre: ${motivo}`,
+    );
+  }
+  escudo.visto = motivo;
+  log(`escudo: "slot": "shield" cruza el puente y lo contesta el núcleo — «${motivo}»`);
 }
 
 /**
@@ -566,6 +616,7 @@ async function terminarBien(
     );
   }
   log(`equipo: ${comprasVistas.size} compras en la crónica; ${equipo.visto}`);
+  exigeElEscudo();
   exigeElAscenso();
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
   log(
@@ -587,7 +638,7 @@ async function main(): Promise<void> {
   // Puertos que elige el sistema: el arnés convive con un `pnpm partida` abierto
   // (#61). El de verdad lo anuncia el servidor desde `listening`.
   servidor = await arrancarServidor(entornoDelArnes(semilla), {
-    // La misma partida con un veterano de nivel 5 en la base del agente: es
+    // La misma partida con un veterano de rango 5 en la base del agente: es
     // como se cruza el ascenso, que la partida sola casi nunca produce.
     entrada: 'tools/qa/partida-con-veterano.ts',
     eco: (trozo, deError) =>
@@ -662,11 +713,28 @@ async function main(): Promise<void> {
   // cuatro, que es contar mal justo en la línea que existe para contar.
   const ficha = (await consulta(client, 'creature_stats', { creature: 'paladin' })) as {
     name?: string;
+    dwelling?: number;
+    level?: number;
+    powerIndex?: number;
   };
   if (ficha.name !== 'Paladín') {
     throw new Error(`creature_stats no devuelve la ficha: ${JSON.stringify(ficha).slice(0, 200)}`);
   }
-  log('creature_stats responde correctamente');
+  // El nivel derivado de las cifras (12-10-2026): la morada viaja como
+  // `dwelling`, y `level` es la primera cifra de `powerIndex`, no la morada.
+  if (
+    ficha.dwelling !== 6 ||
+    typeof ficha.powerIndex !== 'number' ||
+    ficha.level !== Math.floor(ficha.powerIndex / 100) ||
+    'morada' in ficha
+  ) {
+    throw new Error(
+      `creature_stats no trae "dwelling", "level" y "powerIndex" como dice el contrato: ${JSON.stringify(ficha).slice(0, 300)}`,
+    );
+  }
+  log(
+    `creature_stats responde correctamente: paladín, morada ${ficha.dwelling}, índice ${ficha.powerIndex}, nivel ${ficha.level}`,
+  );
 
   // Los otros dos catálogos, por su CONTENIDO: antes solo se comprobaba que
   // estuvieran publicados, que es lo mismo que no comprobarlos.
@@ -826,7 +894,22 @@ async function main(): Promise<void> {
         );
       }
     }
-    const respuesta = decidir(kind, payload, semilla);
+    let respuesta = decidir(kind, payload, semilla);
+    // Una vez, el primer turno de mapa con un héroe: quitarle el escudo que no
+    // lleva, con el hueco en inglés. Lo cuenta `exigeElEscudo` con su veredicto.
+    const sinEscudo =
+      kind === 'adventure_turn' && escudo.requestId === null
+        ? (payload.heroes ?? []).find((h: any) => h.equipment?.shield === null)
+        : undefined;
+    if (sinEscudo !== undefined) {
+      escudo.requestId = RE_PETICION.exec(texto)?.[1] ?? null;
+      escudo.heroe = String(sinEscudo.id);
+      const { actions } = respuesta as { actions: unknown[] };
+      respuesta = {
+        ...(respuesta as object),
+        actions: [{ type: 'unequip', hero: sinEscudo.id, slot: 'shield' }, ...actions],
+      };
+    }
     // `map_generate` se cuenta aparte y NO como turno de mapa: mezclarlo movería
     // la cifra del informe y dejaría de ser comparable con los 3 turnos y 9
     // decisiones de las pasadas anteriores.

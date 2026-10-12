@@ -23,7 +23,7 @@ import {
   type BattleAction,
   type BattleStack,
   type BattleState,
-  nivelDeVeterania,
+  rangoDeVeterania,
   SIDES,
   type Side,
 } from '@core/battle/types.js';
@@ -32,12 +32,14 @@ import {
   cifrasDePieza,
   destinoDeEquipo,
   NOMBRE_DE_CALIDAD,
+  NOMBRE_DE_HUECO,
   PIEZAS_DE_ARMERIA,
   pieza,
 } from '@core/hero/equipo.js';
-import { nivelDe, nivelDeHeroe, umbral } from '@core/hero/experiencia.js';
+import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { HERO_BODY, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
+import { nivelDeUnidad } from '@core/nivel.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe } from '@core/state/desenlace.js';
@@ -52,8 +54,14 @@ import {
   tieneArmeria,
   townSpells,
 } from '@core/town/town.js';
-import type { Army, Hueco, Point } from '@core/types.js';
-import { describirCoste, HUECOS, NOMBRE_DE_RECURSO, RESOURCE_KINDS } from '@core/types.js';
+import type { Army, Point, UnitInfo } from '@core/types.js';
+import {
+  conMiles,
+  describirCoste,
+  HUECOS,
+  NOMBRE_DE_RECURSO,
+  RESOURCE_KINDS,
+} from '@core/types.js';
 import { disposicionDe } from '../../shared/base.js';
 import { quienesDe } from '../desenlace.js';
 import type { Abierto } from '../escenas/castillo.js';
@@ -267,14 +275,13 @@ function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number }): Ht
 
 /**
  * «3 (+3) / 3 (+3)»: con lo que el héroe pelea sin nada puesto —sus atributos más
- * lo que le da el nivel— y, entre paréntesis, lo que le suma el equipo. Las dos
- * cifras salen de `heroUnit`, la misma puerta con la que entra en batalla: sumar
- * aquí `hero.attack + sumaDeEquipo` se saltaba el nivel, y a un héroe de nivel 6
- * la ficha le enseñaba uno menos de lo que pegaba.
+ * lo que le da el rango— y, entre paréntesis, lo que le suma el equipo. `puesto`
+ * es su `heroUnit`, la misma puerta con la que entra en batalla, y lo de sin nada
+ * puesto, su `sinEquipo`: sumar aquí `hero.attack + sumaDeEquipo` se saltaba el
+ * rango, y a un héroe de rango 6 la ficha le enseñaba uno menos de lo que pegaba.
  */
-function ataqueYDefensa(hero: Hero): string {
-  const puesto = heroUnit(hero);
-  const desnudo = heroUnit({ ...hero, equipo: {} });
+function ataqueYDefensa(puesto: UnitInfo): string {
+  const desnudo = puesto.sinEquipo ?? puesto;
   const cifra = (base: number, total: number) =>
     total > base ? `${base} (+${total - base})` : `${base}`;
   return `${cifra(desnudo.attack, puesto.attack)} / ${cifra(desnudo.defense, puesto.defense)}`;
@@ -286,17 +293,19 @@ function renderAdventurePanel(session: Session): Html {
   const desenlace = session.desenlace;
   const fin = desenlace === null ? NADA : renderFinDePartida(desenlace, session.causaDelFinal);
 
+  // Sus cifras, una vez: de ellas salen el nivel y el ataque y la defensa.
+  const puesto = hero === null ? null : heroUnit(hero);
   const heroPanel =
-    hero === null
+    hero === null || puesto === null
       ? html`<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p>`
       : html`
-        <p class="eyebrow">HÉROE · NIVEL ${nivelDeHeroe(hero)} · ${nombreDeTipoDeHeroe(hero.faction, hero.tipo)}</p>
+        <p class="eyebrow">HÉROE · RANGO ${rangoDeHeroe(hero)} · NIVEL ${nivelDeUnidad(puesto)} · ${nombreDeTipoDeHeroe(hero.faction, hero.tipo)}</p>
         <h2>${hero.name}</h2>${historiaDelHeroe(hero.origen?.historia ?? null)}
         ${botonDeSueño(session, hero)}
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(hero)}</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(puesto)}</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>${hero.spellPower} / ${hero.knowledge}</span></div>
         <div class="row"><span class="label">Experiencia</span><span>${experienciaDeHeroe(hero.experience)}</span></div>
         <h3>Hechizos</h3>
@@ -358,14 +367,14 @@ export function historiaDelHeroe(historia: string | null): Html {
 }
 
 /**
- * La experiencia del héroe con el umbral del nivel siguiente: «220 / 380». El
+ * La experiencia del héroe con el umbral del rango siguiente: «176 000 / 304 000». El
  * héroe no tiene tope, así que siempre hay siguiente —y si la tabla se acabara,
  * `umbral` lo diría lanzando en vez de pintar un «null»—; el umbral lo da el
  * núcleo —una sola tabla para tropa y héroe— y el panel no sabe cuánto cuesta
- * un nivel.
+ * un rango.
  */
 function experienciaDeHeroe(experiencia: number): string {
-  return `${experiencia} / ${umbral(nivelDe(experiencia) + 1)}`;
+  return `${conMiles(experiencia)} / ${conMiles(umbral(rangoDe(experiencia) + 1))}`;
 }
 
 /**
@@ -393,26 +402,22 @@ function renderSpellbook(spells: readonly string[]): Html {
 }
 
 /**
- * El nivel de un veterano y lo que le falta para el siguiente, o nada si es una
- * fila de novatos. Las cifras salen de `troopSummary`, que es quien las deriva:
- * el panel no sabe qué umbral tiene cada nivel.
+ * El rango de un veterano, su nivel y lo que le falta para el rango siguiente, o
+ * nada si es una fila de novatos: «Rango 3 · nivel 4». Las cifras salen de
+ * `troopSummary` y el nivel de `nivelDeUnidad`: el panel no sabe qué umbral
+ * tiene cada rango ni cómo se mide un nivel.
  */
 function lineaDeVeterania(g: TroopGroup): Html {
   if (g.veterania === undefined) return NADA;
-  const exp = g.veterania.experiencia;
-  const falta = g.siguiente === null ? `${exp} exp · nivel máximo` : `${exp} / ${g.siguiente} exp`;
-  // «Veterano» desde el nivel 2: con 18 de los 20 del primer umbral todavía es
-  // un novato que ha empezado a aprender, y llamarlo veterano sería mentirle.
-  const quien = g.nivel >= 2 ? `Veterano · nivel ${g.nivel}` : 'Nivel 1';
+  const exp = conMiles(g.veterania.experiencia);
+  const falta =
+    g.siguiente === null ? `${exp} exp · rango máximo` : `${exp} / ${conMiles(g.siguiente)} exp`;
+  // «Veterano» desde el rango 2: a punto del primer umbral todavía es un novato
+  // que ha empezado a aprender, y llamarlo veterano sería mentirle.
+  const nivel = `nivel ${nivelDeUnidad(g.unit)}`;
+  const quien = g.rango >= 2 ? `Veterano · rango ${g.rango} · ${nivel}` : `Rango 1 · ${nivel}`;
   return html`<span class="veterania">${quien} · ${falta}</span>`;
 }
-
-/** El nombre de cada hueco, para pintarlo. */
-const NOMBRE_DE_HUECO: Readonly<Record<Hueco, string>> = {
-  arma: 'Arma',
-  armadura: 'Armadura',
-  accesorio: 'Accesorio',
-};
 
 /**
  * Lo que lleva puesto el individuo de una fila, en una línea, o nada. Solo la
@@ -459,7 +464,7 @@ function filaDeTropa(
 }
 
 /**
- * El equipo del héroe —los tres huecos, con «×» para quitar— y su mochila, donde
+ * El equipo del héroe —los cuatro huecos, con «×» para quitar— y su mochila, donde
  * cada pieza se pulsa para elegirla y ponérsela a alguien. Sin reglas: el motivo
  * de un rechazo lo escribe el núcleo y sale en la barra.
  */
@@ -870,14 +875,14 @@ export function marcaDeComandante(s: BattleStack): string {
 }
 
 /**
- * El nivel de un veterano detrás de su nombre en «En el campo», o nada: la fila
+ * El rango de un veterano detrás de su nombre en «En el campo», o nada: la fila
  * dice con palabras lo que la figura dice con galones (`galonesDe`, en
  * `render/batalla.ts`, que este módulo no importa: es puro y lo carga el
  * espectador sin lienzo).
  */
 export function marcaDeVeterano(s: BattleStack): string {
-  const nivel = nivelDeVeterania(s.origen);
-  return nivel > 1 ? ` · nivel ${nivel}` : '';
+  const rango = rangoDeVeterania(s.origen);
+  return rango > 1 ? ` · rango ${rango}` : '';
 }
 
 /**
@@ -1473,20 +1478,21 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
               ? 'Un héroe tuyo vuelve a la base'
               : `Un héroe ${deJugador(e.actor)} vuelve a su base`
           }${aqui}${e.surrendered ? ` tras rendirse por ${e.gold} de oro` : ''}</div>`;
-        case 'level_up':
-          // El nivel reparte cuerpo y liderazgo, pero eso no se ve en el mapa:
+        case 'rank_up':
+          // El rango reparte cuerpo y liderazgo, pero eso no se ve en el mapa:
           // si no se contara aquí, subir pasaría sin que nadie lo notara. Todo
           // héroe nace en el 5 (una sola escala con la tropa), así que la
-          // primera línea de estas que se lee es «sube a nivel 6».
-          return html`<div${clase(mio, false)}>Un héroe ${deJugador(e.actor)} sube a nivel ${
-            e.level
+          // primera línea de estas que se lee es «sube a rango 6». El nivel no
+          // va: es el de sus cifras de hoy, no el de entonces.
+          return html`<div${clase(mio, false)}>Un héroe ${deJugador(e.actor)} sube a rango ${
+            e.rank
           }${aqui}</div>`;
-        case 'troop_level_up':
+        case 'troop_rank_up':
           // La tropa también sube, y es lo que se pidió que se viera: un
           // veterano no se distingue en el mapa, así que el ascenso se cuenta.
           return html`<div${clase(mio, false)}>Un ${creature(e.creature).name} ${deJugador(
             e.actor,
-          )} sube a veterano de nivel ${e.level}${aqui}</div>`;
+          )} sube a veterano de rango ${e.rank}${aqui}</div>`;
         case 'game_over': {
           // El ganador es `actor`, y ya no hay un `winner` al lado diciendo lo
           // mismo: `visibleTo` enrutaba por uno y esta línea pintaba por el

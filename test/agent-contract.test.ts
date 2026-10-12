@@ -25,9 +25,11 @@ import {
   RESPONSE_FORMAT,
   responseSchemas,
 } from '../src/core/contract/agent.js';
+import { accionDelAgente, SLOT_DE_HUECO } from '../src/core/contract/huecos.js';
 import {
   CATALOGO_DE_EQUIPO_EN_PROSA,
   COMO_SE_LEE_EL_MAPA,
+  fichaDeCriatura,
   serializeAdventureTurn,
   serializeBattleTurn,
   serializeKnownMap,
@@ -35,7 +37,7 @@ import {
   serializeTownVoices,
 } from '../src/core/contract/serialize.js';
 import { ASALTANTES, allCreatures, creature, EQUIPO } from '../src/core/data.js';
-import { NOMBRE_DE_CALIDAD } from '../src/core/hero/equipo.js';
+import { NOMBRE_DE_CALIDAD, PIEZAS_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import {
   buildMap,
@@ -49,6 +51,7 @@ import {
 } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
@@ -110,34 +113,65 @@ describe('contrato con el agente', () => {
       { type: 'equip', hero: hero.id, item: 'garrote' },
       { type: 'equip', hero: hero.id, item: 'garrote', veteran: 'veterano-1' },
       { type: 'equip', hero: hero.id, item: 'garrote', creature: 'peasant' },
-      { type: 'unequip', hero: hero.id, slot: 'arma' },
-      { type: 'unequip', hero: hero.id, slot: 'accesorio', veteran: 'veterano-1' },
+      { type: 'unequip', hero: hero.id, slot: 'weapon' },
+      { type: 'unequip', hero: hero.id, slot: 'accessory', veteran: 'veterano-1' },
+      { type: 'unequip', hero: hero.id, slot: 'shield' },
     ];
     for (const accion of acciones) {
       const r = adventureActionSchema.safeParse(accion);
       expect(r.success, `rechazada: ${JSON.stringify(accion)}`).toBe(true);
     }
     // El hueco es texto en el esquema, como la pieza y la criatura: uno inventado
-    // lo rechaza el núcleo con su motivo (`unequipBlocker`), y así se descarta
-    // ESA acción y no el turno entero (M3).
+    // lo rechaza la traducción con su motivo (`huecoDelSlot`, dentro del `try` del
+    // director), y así se descarta ESA acción y no el turno entero (M3).
     expect(
       adventureActionSchema.safeParse({ type: 'unequip', hero: hero.id, slot: 'casco' }).success,
     ).toBe(true);
-    expect(unequipBlocker(state, 0, { type: 'unequip', hero: hero.id, slot: 'casco' })).toBe(
-      'no hay ningún hueco "casco": son arma, armadura, accesorio',
+    // Los huecos viajan en inglés (12-10-2026) y se traducen al entrar
+    // (`accionDelAgente`, dentro del `try` del director): el nombre de dentro,
+    // «arma», ya no es un hueco del contrato, y se dice con los cuatro que valen.
+    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'arma' })).toThrow(
+      'no hay ningún hueco "arma": son weapon, armor, accessory, shield',
     );
+    expect(accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'shield' })).toEqual({
+      type: 'unequip',
+      hero: hero.id,
+      slot: 'escudo',
+    });
+    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'casco' })).toThrow(
+      'no hay ningún hueco "casco": son weapon, armor, accessory, shield',
+    );
+    // Y el motivo del núcleo nombra el hueco para la persona, no por su clave: el
+    // agente lo pidió como `shield`, y «escudo» en minúscula no le decía nada.
+    expect(unequipBlocker(state, 0, { type: 'unequip', hero: hero.id, slot: 'escudo' })).toBe(
+      `${hero.name} no lleva nada en Escudo`,
+    );
+    // La prosa ofrece los cuatro en inglés y explica el escudo y las dos manos.
+    expect(RESPONSE_FORMAT.adventure_turn).toContain(
+      '"slot": "weapon" | "armor" | "accessory" | "shield"',
+    );
+    expect(RESPONSE_FORMAT.adventure_turn).not.toContain('"slot": "arma"');
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('"shield" es opcional');
+    // Lo que el héroe trae vacío de serie sale del equipo base, no de la prosa.
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('(y nada en "shield")');
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('un arma a dos manos no admite escudo');
     for (const tipo of ['buy_item', 'equip', 'unequip']) {
       expect(RESPONSE_FORMAT.adventure_turn).toContain(`"type": "${tipo}"`);
     }
   });
 
   it('el catálogo que se le anuncia al agente sale de `EQUIPO`, pieza a pieza y con sus cifras', () => {
-    for (const p of EQUIPO) {
+    // Lo de la arena no le puede caer ni lo puede comprar: no se le anuncia.
+    for (const p of EQUIPO.filter((x) => x.calidad === 'arena')) {
+      expect(CATALOGO_DE_EQUIPO_EN_PROSA, p.id).not.toMatch(new RegExp(`^ *${p.id} \\(`, 'm'));
+    }
+    expect(PIEZAS_DEL_JUEGO.length).toBeGreaterThan(0);
+    for (const p of PIEZAS_DEL_JUEGO) {
       const linea = CATALOGO_DE_EQUIPO_EN_PROSA.split('\n').find((l) =>
         l.trim().startsWith(`${p.id} (`),
       );
       expect(linea, p.id).toBeDefined();
-      expect(linea).toContain(`(${p.hueco}, ${NOMBRE_DE_CALIDAD[p.calidad]})`);
+      expect(linea).toContain(`(${SLOT_DE_HUECO[p.hueco]}, ${NOMBRE_DE_CALIDAD[p.calidad]})`);
       if (p.ataque > 0) expect(linea).toContain(`+${p.ataque} ataque`);
       if (p.pv > 0) expect(linea).toContain(`+${p.pv} PV`);
       expect(linea?.includes('se compra por'), p.id).toBe(p.calidad === 'armeria');
@@ -166,25 +200,27 @@ describe('contrato con el agente', () => {
     ];
     const turno = (): any => serializeAdventureTurn(state, 0);
     const h = turno().heroes[0];
+    // Los cuatro huecos, en inglés, y el escudo vacío: el héroe nace sin él.
     expect(h.equipment).toEqual({
-      arma: 'espada_de_armeria',
-      armadura: 'cota_de_malla',
-      accesorio: 'brazal_de_armeria',
+      weapon: 'espada_de_armeria',
+      armor: 'cota_de_malla',
+      accessory: 'brazal_de_armeria',
+      shield: null,
     });
     expect(h.backpack).toEqual(['garrote']);
     // La fila de un individuo lleva el equipo con la misma forma que el héroe.
     expect(h.army[0]).toMatchObject({
       id: 'veterano-4',
-      equipment: { arma: null, armadura: 'cota_de_malla', accesorio: null },
+      equipment: { weapon: null, armor: 'cota_de_malla', accessory: null, shield: null },
     });
     expect(h.army[1]).not.toHaveProperty('id');
     const pueblo = (): any => turno().towns.find((t: any) => t.id === base.id);
     expect(pueblo()).not.toHaveProperty('armory');
     base.buildings.push('armory');
-    expect(pueblo().armory.map((x: any) => x.item)).toEqual([
-      'espada_de_armeria',
-      'cota_de_malla',
-      'brazal_de_armeria',
+    expect(pueblo().armory.map((x: any) => [x.item, x.slot])).toEqual([
+      ['espada_de_armeria', 'weapon'],
+      ['cota_de_malla', 'armor'],
+      ['brazal_de_armeria', 'accessory'],
     ]);
   });
 
@@ -1358,13 +1394,13 @@ describe('lo que ve el agente', () => {
     expect(ciudad.options).toEqual([...FACTION_IDS]);
 
     // Cada criatura de guardia existe, es base —ninguna otra mejora a ella— y
-    // de nivel ≤ 4; y cada facción pone las suyas. Es la regla que la lista
+    // de morada ≤ 4; y cada facción pone las suyas. Es la regla que la lista
     // escrita a mano cumplía sin decirlo.
     const mejoras = new Set(allCreatures().flatMap((c) => c.upgradesTo ?? []));
     for (const id of palette.creaturesForGuards) {
       const c = creature(id);
       expect(mejoras.has(id), `${id} es una mejora`).toBe(false);
-      expect(c.level).toBeLessThanOrEqual(4);
+      expect(c.morada).toBeLessThanOrEqual(4);
     }
     for (const f of FACTION_IDS) {
       expect(palette.creaturesForGuards.some((id) => creature(id).faction === f)).toBe(true);
@@ -1472,6 +1508,32 @@ describe('respuestas del agente', () => {
       },
     });
     expect(r.success).toBe(false);
+  });
+});
+
+describe('el nivel en el contrato: derivado de las cifras (12-10-2026)', () => {
+  it('`creature_stats` da la morada como `dwelling` y el `level` y el `powerIndex` derivados', () => {
+    for (const c of allCreatures()) {
+      const ficha = fichaDeCriatura(c);
+      expect(ficha.dwelling, c.id).toBe(c.morada);
+      expect(ficha.powerIndex, c.id).toBe(indiceDePoder(c));
+      expect(ficha.level, c.id).toBe(Math.floor(ficha.powerIndex / 100));
+      expect(ficha.level, c.id).toBe(nivelDeUnidad(c));
+      expect('morada' in ficha, c.id).toBe(false);
+      // Las cifras van tal cual: el agente no recibe otra criatura que la del motor.
+      expect(ficha).toMatchObject({ attack: c.attack, damage: c.damage, hp: c.hp });
+    }
+    // El montaraz es de la morada 2 y sus cifras son de nivel 3: dos datos.
+    expect(fichaDeCriatura(creature('ranger'))).toMatchObject({ dwelling: 2, level: 3 });
+  });
+
+  it('la prosa nombra rango y nivel con las claves que viajan', () => {
+    const p = RESPONSE_FORMAT.adventure_turn;
+    for (const clave of ['"rank"', '"level"', '"powerIndex"', '"dwelling"', '"nextRankAt"']) {
+      expect(p, clave).toContain(clave);
+    }
+    expect(RESPONSE_FORMAT.battle_turn).toContain('"veteranRank"');
+    expect(`${p}${RESPONSE_FORMAT.battle_turn}`).not.toMatch(/nextLevelAt|veteranLevel/);
   });
 });
 

@@ -9,13 +9,25 @@
  * módulo no importa el estado: solo el catálogo y la tropa.
  */
 import type { GrupoDeTropa } from '../data.js';
+import { ESCALA_DE_CIFRAS } from '../escala.js';
 import { type Hero, heroUnit } from '../hero/hero.js';
 import { ejercitoDe, type Personajes, troopUnit } from '../hero/troop.js';
 import type { Army, UnitInfo } from '../types.js';
 
-/** Fuerza bruta de un individuo: lo que pega por lo que aguanta. */
+/**
+ * Fuerza bruta de un individuo: lo que pega por lo que aguanta.
+ *
+ * **Entre `ESCALA_DE_CIFRAS`²**: PV y daño van cada uno a esa escala y el
+ * producto crece con su cuadrado. Dividir aquí deja cada fuerza en la cifra de
+ * fheroes2 —exacta en coma flotante con 10: (10a + 10b)/2 · 10h / 100 = (a + b)/2
+ * · h—, así que ni `fuerzaMax` de los asaltantes ni los `VALOR_DE_*` de la
+ * estrategia, que son cifras medidas, dependen de la escala. No es el nivel
+ * (`nivelDeUnidad`): es la vara de la IA para comparar ejércitos.
+ */
 export function unitPower(info: UnitInfo): number {
-  return ((info.damage[0] + info.damage[1]) / 2) * info.hp;
+  return (
+    (((info.damage[0] + info.damage[1]) / 2) * info.hp) / (ESCALA_DE_CIFRAS * ESCALA_DE_CIFRAS)
+  );
 }
 
 /**

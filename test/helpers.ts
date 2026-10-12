@@ -392,6 +392,26 @@ export function agresiva(state: BattleState): BattleAction {
   return acciones.find((a) => a.type === 'defend') ?? acciones[0]!;
 }
 
+/**
+ * Un dado cargado: cada `int` sale en su mínimo o en su máximo, y la suerte y la
+ * moral no saltan nunca (`chance` es siempre `false`). Es para ver una punta de
+ * una horquilla sin buscarla entre semillas: con PV y daño a la escala de las
+ * cifras, una tirada tiene decenas o cientos de valores y cuarenta semillas no
+ * ven sus puntas. Lo demás (`next`, `pick`) lanza: un test que lo necesite no
+ * está midiendo lo que cree.
+ */
+export function dadoCargado(punta: 'minimo' | 'maximo'): Rng {
+  const noVale = (que: string) => (): never => {
+    throw new Error(`el dado cargado solo tira enteros y suerte; se le ha pedido ${que}`);
+  };
+  return {
+    next: noVale('next()'),
+    int: (min, max) => (punta === 'minimo' ? min : max),
+    chance: () => false,
+    pick: noVale('pick()'),
+  };
+}
+
 /** Juega la batalla hasta el final (o hasta `maxTurnos`). Devuelve los turnos usados. */
 export function simular(state: BattleState, rng: Rng, maxTurnos = 3000): number {
   let n = 0;

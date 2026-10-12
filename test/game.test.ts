@@ -1544,7 +1544,7 @@ describe('catálogo de edificios por facción', () => {
       const linea = factionLineup(faction);
       for (const b of buildingsOfFaction(faction)) {
         if (b.upgradesLevel === undefined) continue;
-        const base = linea.find((c) => c.level === b.upgradesLevel);
+        const base = linea.find((c) => c.morada === b.upgradesLevel);
         expect(
           base,
           `${b.id}: la facción no tiene criatura de nivel ${b.upgradesLevel}`,
@@ -1593,7 +1593,7 @@ describe('catálogo de edificios por facción', () => {
         `${faction}_dwelling_6`,
       ]);
       expect(dias, `${faction}`).toBe(6);
-      expect(dwellings(t).map((d) => d.level)).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(dwellings(t).map((d) => d.morada)).toEqual([1, 2, 3, 4, 5, 6]);
     }
   });
 
@@ -1828,7 +1828,7 @@ describe('los personajes y sus heridas', () => {
     const aren = state.characters!.aren!;
     expect(aren.hp).toBe(s.topHp);
     // El zombi contraatacó: sale herido, y con eso el test prueba algo.
-    expect(aren.hp).toBeLessThan(34);
+    expect(aren.hp).toBeLessThan(340);
     expect(aren.hp).toBeGreaterThan(0);
     // Y sigue en el ejército, con su `member`: no vuelve como un stack anónimo.
     // Y con la experiencia de lo que pegó: el personaje también es un individuo

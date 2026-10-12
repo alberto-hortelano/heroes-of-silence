@@ -8,12 +8,11 @@
  * mismas no se pintan aquí: el cuerpo de cada una lo da `main.ts` con
  * `renderFicha` / `renderFichaDeCatalogo`, las de siempre, sin copia.
  */
-import type { Lado } from '@core/arena.js';
 import { type Html, html, unir } from '../html.js';
 import type { Elegida } from './paneles.js';
 
-/** Lo que se abre en la vista de edición: una hoja o una criatura del catálogo (los héroes, no). */
-export type FichaEditable = Extract<Elegida, { readonly kind: 'hoja' | 'catalogo' }>;
+/** Lo que se abre en la vista de edición: una unidad o una criatura del catálogo (los héroes, no). */
+export type FichaEditable = Extract<Elegida, { readonly kind: 'unidad' | 'catalogo' }>;
 
 /** Lo que se dice cuando lo recordado no se entiende. */
 const NO_SE_LEEN = 'No se leen las fichas que estaban abiertas: se empieza sin ninguna.';
@@ -27,17 +26,30 @@ export function claveDeFicha(e: Elegida): string {
   return e.kind === 'heroe' ? `heroe:${e.lado}` : `${e.kind}:${e.id}`;
 }
 
-/** La inversa de `claveDeFicha`, para las tres: lo que no entiende lo dice. */
-export function fichaDeClave(clave: string): Elegida {
+/**
+ * Un `tipo:id` partido por sus primeros dos puntos (el id puede llevar más), o
+ * `null` si no los lleva. La forma de las claves de ficha y de los cuerpos de
+ * «Nueva unidad» (`hoja:<id>`, `criatura:<id>`).
+ */
+export function partirClave(clave: string): { readonly tipo: string; readonly id: string } | null {
   const dos = clave.indexOf(':');
-  const kind = clave.slice(0, dos);
-  const id = clave.slice(dos + 1);
-  if (dos >= 0 && id !== '' && (kind === 'hoja' || kind === 'catalogo')) return { kind, id };
-  if (dos >= 0 && kind === 'heroe' && (id === 'izquierda' || id === 'derecha')) {
-    return { kind, lado: id as Lado };
+  return dos < 0 ? null : { tipo: clave.slice(0, dos), id: clave.slice(dos + 1) };
+}
+
+/**
+ * La inversa de `claveDeFicha`, para las tres: lo que no entiende lo dice. Lee
+ * también `hoja:<id>`, la de antes de las unidades nuevas (lo recordado en
+ * `localStorage`): la unidad de una hoja tiene el id de su hoja.
+ */
+export function fichaDeClave(clave: string): Elegida {
+  const { tipo, id } = partirClave(clave) ?? { tipo: null, id: '' };
+  if (id !== '' && (tipo === 'unidad' || tipo === 'hoja')) return { kind: 'unidad', id };
+  if (id !== '' && tipo === 'catalogo') return { kind: tipo, id };
+  if (tipo === 'heroe' && (id === 'izquierda' || id === 'derecha')) {
+    return { kind: tipo, lado: id };
   }
   throw new Error(
-    `«${clave}» no es la clave de una ficha: se esperaba «hoja:<id>», «catalogo:<id>» o «heroe:<izquierda|derecha>»`,
+    `«${clave}» no es la clave de una ficha: se esperaba «unidad:<id>», «catalogo:<id>» o «heroe:<izquierda|derecha>»`,
   );
 }
 
@@ -47,7 +59,7 @@ export function estaAbierta(abiertas: readonly FichaEditable[], clave: string): 
 }
 
 /**
- * Por qué `f` no se abre, o `null` si se abre: la hoja está a medias en el
+ * Por qué `f` no se abre, o `null` si se abre: la hoja de su cuerpo está a medias en el
  * taller (`incompleta`, #140) o ya está abierta. No hay tope (12-10-2026: el
  * usuario quitó el de cuatro; las que no caben en la fila van debajo y la vista
  * se desplaza como una página). Un motivo, un texto: lo leen el botón (deshabilitado, en su `title`), el gesto y

@@ -897,11 +897,44 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 257 → 1 281, `node_captured` 1 204 → 1 252; ningún tipo nuevo ni ninguno
  *   que desaparezca. (Medido contra el árbol de antes con los ciclos de poderes y
  *   de la página de edición, que no cambian el banco: allí sale `24448339…`.)
+ * - `a49fab65…` (66 992 líneas): **un solo nivel, derivado de las cifras**
+ *   (12-10-2026, `docs/agents/2026-10-12-nivel-unico/`): PV y daño ×10 en todo
+ *   el juego, la experiencia da RANGOS y cobra `PV × nivelDeUnidad(receptor)`
+ *   (el de sus cifras sin equipo, no morada + rango − 1 ni el rango del héroe),
+ *   y `level_up` / `troop_level_up` pasan a `rank_up` / `troop_rank_up` con
+ *   `rank`. Comparado con `--dump` de HEAD `f1cbae7` con esos dos hechos
+ *   renombrados en el viejo: **14 de 200 idénticas**, y en las 186 que cambian
+ *   el primer hecho distinto viene **después** de una batalla (en 107 el propio
+ *   `battle_ended`, 27 `troop_rank_up`, 21 `rank_up`, 19 `hero_moved`, 7
+ *   `raider_dispersed`, 4 `town_captured`, 1 `raider_spawned`); ninguna cambia
+ *   antes de su primera batalla. 36 con otro ganador, j0 118 → **96**, **0 sin
+ *   terminar**, duración 8 / 15 / 19 → **8 / 14 / 25**. `troop_rank_up` 1 759 →
+ *   1 395 y `rank_up` 638 → 479: pegarle a un héroe da su nivel (3-4) y no su
+ *   rango (5 o más), y a un veterano el de sus cifras. Batallas 1 441 → 1 461,
+ *   `hero_defeated` 296 → 317, `recruited` 2 807 → 2 907, `item_bought` 12 →
+ *   24; ningún tipo nuevo ni ninguno que desaparezca. La escala sola no mueve
+ *   el ganador: con el multiplicador de antes sobre las cifras ×10, en 1-1000
+ *   j0 gana 544 (558 en HEAD) y los rangos 5 vuelven a 0,28 por partida (0,25);
+ *   con el nivel derivado, 515 y 0,05 (`tools/qa/veterania.ts 1000`).
+ * - `066767b4…` (67 596 líneas): **la experiencia cobra por el índice**
+ *   (12-10-2026, vuelta 2 de `docs/agents/2026-10-12-nivel-unico/`): `PV ×
+ *   indiceDePoder(receptor)` en vez de `× nivelDeUnidad`, con la `base` de
+ *   `data/experiencia.json` 200 → 16 000 (calibrada para volver a los 0,25 rangos
+ *   5 por partida de 1-1000). Comparado con `--dump` del ancla anterior: **4 de 200
+ *   idénticas**, y en las 196 que cambian el primer hecho distinto viene después
+ *   de una batalla: en 146 es el `town_captured` de la batalla, porque delante
+ *   entra un `troop_rank_up` que antes no salía (28 más son el propio
+ *   `troop_rank_up`, 3 `rank_up`, 8 `hero_defeated`, 8 `hero_moved`, 3
+ *   `hero_returned`); **ninguna cambia antes de su primera batalla**. 50 con otro
+ *   ganador, j0 96 → **110**, duración 8 / 14 / 25 → **8 / 14 / 23**, 0 sin
+ *   terminar. `troop_rank_up` 1 395 → 2 226 y `rank_up` 479 → 685 (más que los 1 759
+ *   y 638 de `a6811441…`: con el índice, un veterano vale lo que suben sus
+ *   cifras); batallas 1 461 → 1 451; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'c36381e0d519a460550373ca24044a1576981636e25974db647b01f963595483',
+  sha: '066767b4179e0f617e21107148184ce052fff9ae7f16bbb4881b12a3218af995',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

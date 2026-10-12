@@ -36,7 +36,7 @@ import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
 import { type BattleSide, createBattle } from '../../src/core/battle/battle.js';
 import type { GrupoDeTropa } from '../../src/core/data.js';
-import { nivelDeHeroe } from '../../src/core/hero/experiencia.js';
+import { rangoDeHeroe } from '../../src/core/hero/experiencia.js';
 import { type Hero, heroUnit, luckBonus, moraleBonus } from '../../src/core/hero/hero.js';
 import {
   characterOf,
@@ -134,7 +134,7 @@ interface Pieza {
 const piezas = (f: Foto): Pieza => ({
   tropa: armyPower(f.hero.army, f.characters),
   cuerpo: unitPower(heroUnit(f.hero)),
-  solo: f.hero.army.length === 0 && nivelDeHeroe(f.hero) >= NIVEL_DE_SUBIDO,
+  solo: f.hero.army.length === 0 && rangoDeHeroe(f.hero) >= NIVEL_DE_SUBIDO,
 });
 
 const fuerza = (p: Pieza, peso: number): number => p.tropa + peso * p.cuerpo;

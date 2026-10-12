@@ -21,14 +21,13 @@ import { effectiveLuck } from '../battle/effects.js';
 import {
   type BattleStack,
   type BattleState,
-  nivelDeVeterania,
   type OrigenDelStack,
+  rangoDeVeterania,
   type Side,
 } from '../battle/types.js';
 import {
   ASALTANTES,
   creature,
-  EQUIPO,
   factionLineup,
   isShooter,
   LIDERAZGO,
@@ -36,14 +35,21 @@ import {
   tiposDeHeroe,
 } from '../data.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
-import { cifrasDePieza, NOMBRE_DE_CALIDAD, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
 import {
-  NIVEL_MAXIMO_DE_TROPA,
-  nivelDeHeroe,
-  nivelDeTropa,
+  cifrasDePieza,
+  NOMBRE_DE_CALIDAD,
+  PIEZAS_DE_ARMERIA,
+  PIEZAS_DEL_JUEGO,
+  seVende,
+} from '../hero/equipo.js';
+import {
+  cifrasDeCatalogo,
+  RANGO_MAXIMO_DE_TROPA,
+  rangoDeHeroe,
+  rangoDeTropa,
   siguienteUmbral,
 } from '../hero/experiencia.js';
-import { maxMana, maxMovePoints } from '../hero/hero.js';
+import { heroUnit, maxMana, maxMovePoints } from '../hero/hero.js';
 import {
   armyLeadership,
   GARRISON_LEADERSHIP,
@@ -60,6 +66,7 @@ import {
   SUELOS_PISABLES,
   TERRAIN_KINDS,
 } from '../map/terrain.js';
+import { indiceDePoder, nivelDeUnidad } from '../nivel.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
 import { cronicaPara } from '../state/events.js';
 import {
@@ -90,8 +97,9 @@ import {
   townSpells,
 } from '../town/town.js';
 import { vecinosDeLaBase, vozDe } from '../town/voces.js';
-import type { Army, Equipo, PlayerId } from '../types.js';
+import type { Army, Creature, Equipo, PlayerId } from '../types.js';
 import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS } from '../types.js';
+import { SLOT_DE_HUECO } from './huecos.js';
 
 /**
  * El ejército tal como lo lee el agente: agrupado por criatura, con cuántos
@@ -100,8 +108,9 @@ import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS } from '../types.js
  * velocidad, que es la de su perfil y no la de ningún catálogo.
  *
  * Ya no lleva `slot`: con la tropa de individuos no hay huecos que numerar.
- * Un veterano va en su fila con `level`, `experience` y `nextLevelAt` (la
- * experiencia a la que sube; `null` en el tope).
+ * Un veterano va en su fila con `rank`, su `level` (el de sus cifras sin equipo,
+ * `nivelDeUnidad`), `experience` y `nextRankAt` (la experiencia a la que sube de
+ * rango; `null` en el tope).
  */
 function armyView(
   army: Army,
@@ -111,9 +120,10 @@ function armyView(
   member?: string;
   count: number;
   speed: string;
+  rank?: number;
   level?: number;
   experience?: number;
-  nextLevelAt?: number | null;
+  nextRankAt?: number | null;
   id?: string;
   equipment?: Record<string, string | null>;
 }[] {
@@ -123,42 +133,46 @@ function armyView(
     count: g.count,
     speed: g.unit.speed,
     // Solo en la fila de un veterano, que va sola (`troopSummary`): una fila de
-    // novatos no tiene experiencia que contar, y un `level: 1` en cada una
+    // novatos no tiene experiencia que contar, y un `rank: 1` en cada una
     // engordaría todos los turnos para no decir nada.
     //
     // Con su `id`, que es lo que el agente escribe en `equip.veteran` y
     // `unequip.veteran`, y su `equipment` con la misma forma que el del héroe
-    // —los tres huecos, `null` el vacío—: un novato equipado tiene hoja
+    // —los cuatro huecos, en inglés, `null` el vacío—: un novato equipado tiene hoja
     // (experiencia 0) y por eso va en su fila con las dos cosas.
     ...(g.veterania === undefined
       ? {}
       : {
           id: g.veterania.id,
-          level: g.nivel,
+          rank: g.rango,
+          level: nivelDeUnidad(g.unit),
           experience: g.veterania.experiencia,
-          nextLevelAt: g.siguiente,
+          nextRankAt: g.siguiente,
           equipment: equipoView(g.veterania.equipo),
         }),
   }));
 }
 
 /**
- * Lo que lleva puesto alguien, por hueco, con `null` en el vacío: los tres huecos
- * siempre. **Una sola forma** para el héroe y para la fila de un individuo.
+ * Lo que lleva puesto alguien, por hueco, con `null` en el vacío: los cuatro
+ * huecos siempre, con su nombre del contrato (`SLOT_DE_HUECO`: `weapon`,
+ * `armor`, `accessory`, `shield`). **Una sola forma** para el héroe y para la
+ * fila de un individuo.
  */
 function equipoView(equipo: Equipo | undefined): Record<string, string | null> {
-  return Object.fromEntries(HUECOS.map((h) => [h, equipo?.[h] ?? null]));
+  return Object.fromEntries(HUECOS.map((h) => [SLOT_DE_HUECO[h], equipo?.[h] ?? null]));
 }
 
 /**
- * El catálogo de equipo en prosa, **derivado de `EQUIPO`** y no escrito a mano,
+ * El catálogo de equipo en prosa, **derivado de `PIEZAS_DEL_JUEGO`** y no escrito
+ * a mano (lo de la arena no le puede caer ni lo puede comprar: no se le anuncia),
  * con las cifras ya resueltas como los costes del terreno: el agente no tiene
  * otra forma de saber lo que vale una pieza, y una cifra que se le anuncia y no
  * cuadra no la descubre nadie. Lo interpola `RESPONSE_FORMAT.adventure_turn`.
  */
-export const CATALOGO_DE_EQUIPO_EN_PROSA: string = EQUIPO.map((p) => {
+export const CATALOGO_DE_EQUIPO_EN_PROSA: string = PIEZAS_DEL_JUEGO.map((p) => {
   const venta = seVende(p) ? ` · se compra por ${describirCoste(p.precio)}` : '';
-  return `    ${p.id} (${p.hueco}, ${NOMBRE_DE_CALIDAD[p.calidad]}): ${cifrasDePieza(p)}${venta}`;
+  return `    ${p.id} (${SLOT_DE_HUECO[p.hueco]}, ${NOMBRE_DE_CALIDAD[p.calidad]}): ${cifrasDePieza(p)}${venta}`;
 }).join('\n');
 
 /**
@@ -333,10 +347,10 @@ const BARRERAS_EN_PROSA = BARRERAS.map((t) => `"${t}"`).join(', ');
 const COSTE_CON_CAMINO = `${costeDeEntrada('grass', true, false)} (${costeDeEntrada('grass', true, true)} en diagonal)`;
 
 /**
- * La línea que dice al agente que hay veteranos de nivel máximo en su base a
+ * La línea que dice al agente que hay veteranos de rango máximo en su base a
  * los que **no** se pregunta porque el tope de héroes está lleno, o nada si no
  * los hay. Antes eso iba solo a la consola del director (M4 de QA): el agente
- * tenía que deducirlo de un `level: 5` en la guarnición, su cuenta de héroes y
+ * tenía que deducirlo de un `rank: 5` en la guarnición, su cuenta de héroes y
  * la prosa. Se deriva de las dos mismas preguntas que hace el director para no
  * preguntar —`veteranosEnSuBase` y `hayHuecoDeHeroe`—, así que no puede decir
  * otra cosa que lo que pasó. Va solo cuando aplica, como `story`.
@@ -350,8 +364,8 @@ function veteranosEsperando(
   if (n === 0) return {};
   const quien =
     n === 1
-      ? `1 veterano de nivel ${NIVEL_MAXIMO_DE_TROPA} espera`
-      : `${n} veteranos de nivel ${NIVEL_MAXIMO_DE_TROPA} esperan`;
+      ? `1 veterano de rango ${RANGO_MAXIMO_DE_TROPA} espera`
+      : `${n} veteranos de rango ${RANGO_MAXIMO_DE_TROPA} esperan`;
   return {
     veteransWaiting: `${quien} en tu base para hacerse héroe, pero ya tienes ${MAX_HEROES_PER_PLAYER} de ${MAX_HEROES_PER_PLAYER} héroes: no se te preguntará hasta que haya sitio.`,
   };
@@ -473,15 +487,16 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       type: h.tipo,
       ...(h.origen === undefined ? {} : { story: h.origen.historia }),
       at: h.at,
-      // El nivel con su experiencia y el umbral del siguiente, como una fila de
+      // El rango con su experiencia y el umbral del siguiente, como una fila de
       // veterano de `army`: la escala es una sola (el héroe empieza en el 5,
-      // donde la tropa acaba), así que las dos se leen igual. Antes viajaba
-      // solo el nivel porque los puntos sueltos no tenían escala del lado del
-      // agente; con `nextLevelAt` la tienen. Va con su línea en
-      // `RESPONSE_FORMAT`: un dato que el contrato no nombra no lo mira nadie.
-      level: nivelDeHeroe(h),
+      // donde la tropa acaba), así que las dos se leen igual. Y su nivel, el de
+      // su cuerpo sin equipo (`nivelDeUnidad`), que es con el que recibe los
+      // golpes. Va con su línea en `RESPONSE_FORMAT`: un dato que el contrato no
+      // nombra no lo mira nadie.
+      rank: rangoDeHeroe(h),
+      level: nivelDeUnidad(heroUnit(h)),
       experience: h.experience,
-      nextLevelAt: siguienteUmbral(h.experience),
+      nextRankAt: siguienteUmbral(h.experience),
       movePoints: h.movePoints,
       maxMovePoints: maxMovePoints(h, state.characters),
       attack: h.attack,
@@ -493,7 +508,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       // batalla le ofrece los `cast` legales, pero para entonces ya ha elegido.
       spells: h.spells,
       army: armyView(h.army, state.characters),
-      // Lo que ocupa su ejército y su tope. El tope crece con el nivel y un
+      // Lo que ocupa su ejército y su tope. El tope crece con el rango y un
       // `recruit` que se pase se rechaza: sin las dos cifras delante, el agente
       // solo se enteraría al leer el veredicto.
       leadership: { used: armyLeadership(h.army), max: heroLeadership(h) },
@@ -533,7 +548,11 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       // pueblo sin armería engordaría el turno para no decir nada.
       ...(tieneArmeria(t)
         ? {
-            armory: PIEZAS_DE_ARMERIA.map((p) => ({ item: p.id, slot: p.hueco, cost: p.precio })),
+            armory: PIEZAS_DE_ARMERIA.map((p) => ({
+              item: p.id,
+              slot: SLOT_DE_HUECO[p.hueco],
+              cost: p.precio,
+            })),
           }
         : {}),
     })),
@@ -592,7 +611,8 @@ export function serializeHeroFromTroop(state: GameState, playerId: PlayerId, v: 
       id: v.veterania.id,
       creature: v.creature,
       creatureName: creature(v.creature).name,
-      level: nivelDeTropa(v.veterania),
+      rank: rangoDeTropa(v.veterania),
+      level: nivelDeUnidad(cifrasDeCatalogo(v.creature, v.veterania)),
       experience: v.veterania.experiencia,
       battles: v.veterania.batallas,
       kills: v.veterania.bajas,
@@ -670,7 +690,7 @@ export type VistaDeBatalla = 'propia' | 'ajena';
  * personaje se leen por sus cifras. Con un `switch` exhaustivo para que un
  * origen nuevo obligue a decidir aquí si el agente tiene que saberlo.
  */
-function marcaDelOrigen(origen: OrigenDelStack): { commander?: true; veteranLevel?: number } {
+function marcaDelOrigen(origen: OrigenDelStack): { commander?: true; veteranRank?: number } {
   switch (origen.kind) {
     case 'heroe':
       return { commander: true };
@@ -678,10 +698,10 @@ function marcaDelOrigen(origen: OrigenDelStack): { commander?: true; veteranLeve
     case 'personaje': {
       // La veteranía se ve en el tablero —los galones de la figura—, así que
       // es pública como la moral: sus cifras ya van en `attack`/`defense`.
-      // Desde el nivel 2, que es lo que promete la prosa y lo que pintan los
-      // galones: con 18 de los 20 del primer umbral todavía no es veterano.
-      const nivel = nivelDeVeterania(origen);
-      return nivel > 1 ? { veteranLevel: nivel } : {};
+      // Desde el rango 2, que es lo que promete la prosa y lo que pintan los
+      // galones: con 180 de los 200 del primer umbral todavía no es veterano.
+      const rango = rangoDeVeterania(origen);
+      return rango > 1 ? { veteranRank: rango } : {};
     }
   }
 }
@@ -890,12 +910,24 @@ function comoRepartenLosNiveles(): string {
 }
 
 /**
- * Hasta qué nivel de morada se sugieren criaturas para guardar el mapa
+ * La ficha de una criatura del catálogo tal como la lee el agente
+ * (`creature_stats`): sus cifras, su `dwelling` (la morada que la produce, el
+ * `morada` del catálogo) y lo que se deriva de las cifras, su `level` y su
+ * `powerIndex` (`core/nivel.ts`). Antes la tool mandaba el catálogo en crudo, y
+ * con el nivel derivado eso era mandar la morada con el nombre del nivel.
+ */
+export function fichaDeCriatura(c: Creature) {
+  const { morada, ...cifras } = c;
+  return { ...cifras, dwelling: morada, level: nivelDeUnidad(c), powerIndex: indiceDePoder(c) };
+}
+
+/**
+ * Hasta qué morada se sugieren criaturas para guardar el mapa
  * (`palette.creaturesForGuards`). Es la cifra que tenía la lista escrita a mano
  * cuando se derivó (#108): una sugerencia, no una regla —`validateMapPlan`
  * acepta cualquier criatura del catálogo—.
  */
-const NIVEL_MAXIMO_DE_GUARDIA = 4;
+const MORADA_MAXIMA_DE_GUARDIA = 4;
 
 export function serializeMapRequest(opts: MapRequestOptions) {
   return {
@@ -925,12 +957,12 @@ export function serializeMapRequest(opts: MapRequestOptions) {
         examples: ASALTANTES.composiciones,
       },
       // Derivada del catálogo y no escrita a mano (#108): las criaturas base
-      // —sin las mejoras— de nivel ≤ `NIVEL_MAXIMO_DE_GUARDIA` de cada facción.
+      // —sin las mejoras— de morada ≤ `MORADA_MAXIMA_DE_GUARDIA` de cada facción.
       // La prosa le dice al agente que use estas tal cual, así que una copia que
       // se quedara atrás le haría escribir un id que `validateMapPlan` rechaza.
       creaturesForGuards: FACTION_IDS.flatMap((f) =>
         factionLineup(f)
-          .filter((c) => c.level <= NIVEL_MAXIMO_DE_GUARDIA)
+          .filter((c) => c.morada <= MORADA_MAXIMA_DE_GUARDIA)
           .map((c) => c.id),
       ),
     },

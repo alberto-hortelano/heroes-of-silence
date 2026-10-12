@@ -24,7 +24,7 @@ import {
 import { autoResolve } from '../src/core/ai/tactics.js';
 import { type BattleSide, createBattle } from '../src/core/battle/battle.js';
 import { factionLineup } from '../src/core/data.js';
-import { NIVEL_MAXIMO_DE_TROPA, umbral } from '../src/core/hero/experiencia.js';
+import { RANGO_MAXIMO_DE_TROPA, umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroeRecienHecho, heroUnit } from '../src/core/hero/hero.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng, type Rng } from '../src/core/rng.js';
@@ -98,7 +98,7 @@ describe('la fuerza estimada sigue a la que se ve peleando (#182)', () => {
       return Array.from({ length: rng.int(0, 6) }, (_, i) => {
         const c = lineup[rng.int(0, lineup.length - 1)];
         if (c === undefined) throw new Error(`${faction} no tiene criaturas`);
-        const nivel = rng.int(1, NIVEL_MAXIMO_DE_TROPA);
+        const nivel = rng.int(1, RANGO_MAXIMO_DE_TROPA);
         if (nivel === 1) return { creature: c.id };
         const veterania = { id: `v-${faction}-${i}`, experiencia: umbral(nivel) };
         return { creature: c.id, veterania: { ...veterania, batallas: 1, bajas: 0, heroes: [] } };

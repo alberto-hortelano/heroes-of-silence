@@ -24,11 +24,11 @@ import { piezasPuestas } from './equipo.js';
 import {
   cifrasDeCatalogo,
   cifrasDelIndividuo,
-  NIVEL_MAXIMO_DE_TROPA,
-  nivelDeHeroe,
-  nivelDeTropa,
+  RANGO_MAXIMO_DE_TROPA,
+  rangoDeHeroe,
+  rangoDeTropa,
   siguienteUmbral,
-  subidasDeHeroe,
+  subidasDeRango,
 } from './experiencia.js';
 
 /** Los personajes de la partida, si los hay: `GameState.characters`. */
@@ -76,17 +76,17 @@ export function armyLeadership(army: Army): number {
 }
 
 /**
- * El tope de liderazgo de un héroe. **Derivado del nivel, no guardado**: un
+ * El tope de liderazgo de un héroe. **Derivado del rango, no guardado**: un
  * campo `leadership` en `Hero` sería un segundo dato que subir al subir de
- * nivel, y el día que alguien se olvidara de una de las dos escrituras el tope
+ * rango, y el día que alguien se olvidara de una de las dos escrituras el tope
  * mentiría. Provisional, como todas las cifras de `data/liderazgo.json`.
  *
- * `base` es el de un héroe recién hecho, que está en el nivel 5 de la escala
- * única (`subidasDeHeroe`): no el de un héroe de nivel 1, que ya no existe.
+ * `base` es el de un héroe recién hecho, que está en el rango 5 de la escala
+ * única (`subidasDeRango`): no el de un héroe de rango 1, que no existe.
  */
 export function heroLeadership(hero: { readonly experience: number }): number {
-  const { base, porNivel, max } = LIDERAZGO.heroe;
-  return Math.min(max, base + porNivel * subidasDeHeroe(nivelDeHeroe(hero)));
+  const { base, porRango, max } = LIDERAZGO.heroe;
+  return Math.min(max, base + porRango * subidasDeRango(rangoDeHeroe(hero)));
 }
 
 /**
@@ -265,10 +265,13 @@ export interface TroopGroup {
   readonly member?: string;
   readonly unit: UnitInfo;
   readonly count: number;
-  /** Un veterano va solo en su fila, con su hoja y su nivel. */
+  /** Un veterano va solo en su fila, con su hoja y su rango. */
   readonly veterania?: Veterania;
-  /** El nivel de veteranía: 1 en una fila de novatos. */
-  readonly nivel: number;
+  /**
+   * El rango (la experiencia): 1 en una fila de novatos. El NIVEL no va aquí: es
+   * el de `unit` (`nivelDeUnidad`), y quien lo pinta lo pide.
+   */
+  readonly rango: number;
   /** La experiencia con la que sube al siguiente; `null` en el tope o sin experiencia. */
   readonly siguiente: number | null;
 }
@@ -276,7 +279,7 @@ export interface TroopGroup {
 /**
  * El ejército agrupado por criatura, en orden de primera aparición; cada
  * personaje y cada veterano en su propia fila, porque es uno y tiene nombre o
- * historia: tres piqueros de nivel 1, 3 y 4 no son «3 × piquero».
+ * historia: tres piqueros de rango 1, 3 y 4 no son «3 × piquero».
  *
  * **Es el único sitio que agrupa.** Lo leen la vista del agente, el panel del
  * cliente y el resumen del servidor; si cada uno agrupara por su cuenta, el
@@ -288,18 +291,18 @@ export function troopSummary(army: Army, characters: Personajes): TroopGroup[] {
   const porCriatura = new Map<string, number>();
   for (const t of army) {
     if (t.member !== undefined || t.veterania !== undefined) {
-      const nivel = nivelDeTropa(t.veterania);
+      const rango = rangoDeTropa(t.veterania);
       grupos.push({
         creature: t.creature,
         ...(t.member === undefined ? {} : { member: t.member }),
         ...(t.veterania === undefined ? {} : { veterania: t.veterania }),
         unit: troopUnit(t, characters),
         count: 1,
-        nivel,
+        rango,
         siguiente:
           t.veterania === undefined
             ? null
-            : siguienteUmbral(t.veterania.experiencia, NIVEL_MAXIMO_DE_TROPA),
+            : siguienteUmbral(t.veterania.experiencia, RANGO_MAXIMO_DE_TROPA),
       });
       continue;
     }
@@ -310,7 +313,7 @@ export function troopSummary(army: Army, characters: Personajes): TroopGroup[] {
         creature: t.creature,
         unit: creature(t.creature),
         count: 1,
-        nivel: 1,
+        rango: 1,
         siguiente: null,
       });
     } else {

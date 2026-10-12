@@ -13,7 +13,7 @@
 import { creature } from '@core/data.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, SITIOS, type SitioId, siguienteDe, sitioDe } from '@core/town/sitios.js';
-import { buildBlocker, creatureOfLevel, recruitCost, type Town } from '@core/town/town.js';
+import { buildBlocker, creatureDeMorada, recruitCost, type Town } from '@core/town/town.js';
 import { describirCoste } from '@core/types.js';
 import type { Abierto } from '../escenas/castillo.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
@@ -59,8 +59,8 @@ function mejora(session: Session, town: Town, sitio: SitioId): Html {
 }
 
 /** Una morada: cuántos hay, cuánto cuesta y caben, y «+1» y «Todo» (lo que calcula el núcleo). */
-function morada(session: Session, town: Town, sitio: SitioId, nivel: number): Html {
-  const id = creatureOfLevel(town, nivel);
+function morada(session: Session, town: Town, sitio: SitioId, numero: number): Html {
+  const id = creatureDeMorada(town, numero);
   const info = creature(id);
   const hay = town.available[id] ?? 0;
   const plan = session.recruitPlan(id);

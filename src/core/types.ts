@@ -46,6 +46,23 @@ export function describirCoste(coste: Partial<Resources>): string {
 }
 
 /**
+ * Un entero con separador de miles, como se lee en castellano: «176 000», con un
+ * espacio que no se parte (U+00A0), no con punto ni coma, que en una barra con
+ * decimales a coma se confundirían. Los de cuatro cifras van juntos («2500»),
+ * como pide la RAE. El único formateador de miles: lo leen los paneles del
+ * cliente y del espectador; el contrato del agente sigue con números.
+ */
+export function conMiles(n: number): string {
+  if (!Number.isSafeInteger(n)) {
+    throw new Error(`conMiles: ${n} no es un entero que se pueda escribir con sus cifras`);
+  }
+  const cifras = Math.abs(n).toString();
+  if (cifras.length <= 4) return n.toString();
+  const agrupadas = cifras.replace(/\B(?=(\d{3})+$)/g, '\u00A0');
+  return n < 0 ? `-${agrupadas}` : agrupadas;
+}
+
+/**
  * Una cifra con, como mucho, `decimales` decimales y coma, como se lee en
  * castellano: `10,8`, no `10.8`. El único formateador de decimales: lo leen la
  * previsión del núcleo (`damage.ts`), la de la barra y la ficha de la arena, que
@@ -159,18 +176,16 @@ export interface UnitInfo {
   readonly hp: number;
   readonly speed: SpeedTier;
   /**
-   * El nivel de quien RECIBE un golpe, que multiplica la experiencia de quien
-   * se lo da (`herir`). Lo ponen los tres constructores: el catálogo —el nivel
-   * de su morada—, el personaje —su `level`— y el héroe —el suyo—; y
-   * `cifrasVeteranas` le suma la veteranía como suma ataque y defensa. Vive en
-   * las cifras y no al lado del stack porque es una cifra más del individuo:
-   * fuera de aquí había cuatro campos `nivel` que rellenar a mano en cada
-   * camino de entrada.
+   * Las cifras de esta unidad **sin su equipo**, si lleva alguno. Lo escribe solo
+   * `conEquipo` (`hero/equipo.ts`), que es la única suma de las piezas, y lo lee
+   * solo `core/nivel.ts`: el índice de poder y el nivel se miden sin equipo
+   * («el equipo va aparte»). Vive en la unidad y no se recalcula desde el origen
+   * del stack porque ese origen tiene cuatro caminos —catálogo, héroe, arena,
+   * personaje— y el que se olvidara uno mentiría. No viaja al espectador.
    *
-   * En una criatura del catálogo coincide con `Creature.level`, y no es el mismo
-   * dato: el de un veterano crece y su morada no.
+   * **No hay `nivel` en las cifras**: se deriva de ellas (`nivelDeUnidad`).
    */
-  readonly nivel: number;
+  readonly sinEquipo?: UnitInfo;
   /** Munición. > 0 = es tirador. */
   readonly shots?: number;
   /** Hexes que ocupa en la rejilla de batalla (1 o 2). */
@@ -195,8 +210,13 @@ export type PoderId = string;
 export interface Creature extends UnitInfo {
   readonly id: string;
   readonly faction: FactionId;
-  /** 1..6 — el nivel de la morada que la produce. */
-  readonly level: number;
+  /**
+   * 1..6 — la morada que la produce: un dato del edificio, no de las cifras. El
+   * **nivel** de la criatura no está aquí: se deriva de sus cifras
+   * (`nivelDeUnidad`, `core/nivel.ts`), y casi siempre coincide con su morada o
+   * con la contigua.
+   */
+  readonly morada: number;
   /**
    * Lo que ocupa UN individuo en el liderazgo de quien lo lleva
    * (`hero/troop.ts`). Provisional, en datos: lo define el usuario.
@@ -240,8 +260,8 @@ export interface Troop {
 
 /**
  * La hoja de servicios de un individuo con experiencia (`hero/experiencia.ts`).
- * El nivel **no se guarda**: se deriva de `experiencia` con `nivelDeTropa`, así
- * que no hay un segundo dato que subir al subir de nivel.
+ * El rango **no se guarda**: se deriva de `experiencia` con `rangoDeTropa`, así
+ * que no hay un segundo dato que subir al subir de rango.
  */
 export interface Veterania {
   /**
@@ -272,17 +292,31 @@ export interface Veterania {
 // ---------------------------------------------------------------- equipo
 
 /**
- * Los tres huecos de equipo de un individuo o de un héroe. Los nombró el
- * usuario: «arma, armadura y accesorio». Son ids que viajan al agente tal cual
- * (`unequip.slot`), así que van sin tilde y en minúscula.
+ * Los cuatro huecos de equipo de un individuo o de un héroe. Los tres primeros
+ * los nombró el usuario: «arma, armadura y accesorio»; el escudo es un hueco
+ * propio desde el 12-10-2026 («hueco propio, no hace falta llenar el hueco»),
+ * opcional y vacío en el equipo base. Van sin tilde y en minúscula; al agente
+ * viajan en inglés, traducidos en un solo sitio (`contract/huecos.ts`).
  */
-export const HUECOS = ['arma', 'armadura', 'accesorio'] as const;
+export const HUECOS = ['arma', 'armadura', 'accesorio', 'escudo'] as const;
 
 export type Hueco = (typeof HUECOS)[number];
 
-/** Si el texto `x` nombra un hueco. Lo lee `unequipBlocker`: el hueco llega del agente como texto. */
+/**
+ * Si el texto `x` nombra un hueco: la pregunta de las puertas por las que un hueco
+ * llega como texto (la sesión del cliente, `equipoBlocker` y el × de la arena).
+ */
 export function esHueco(x: string): x is Hueco {
   return (HUECOS as readonly string[]).includes(x);
+}
+
+/**
+ * Por qué `x` no es un hueco, dicho con los que valen en `lista`: los de dentro
+ * (`HUECOS`) o los del contrato del agente (`SLOTS`, en inglés). Una sola frase
+ * para las tres puertas: `equipoBlocker`, `huecoDelSlot` y la sesión.
+ */
+export function huecoDesconocido(x: string, lista: readonly string[]): string {
+  return `no hay ningún hueco "${x}": son ${lista.join(', ')}`;
 }
 
 /**

@@ -8,6 +8,7 @@ import { activeStack, applyAction, legalActions } from '../src/core/battle/battl
 import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
+import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
 import {
   generateMapPlan,
@@ -381,17 +382,19 @@ describe('enlace con el agente', () => {
       if (kind !== 'adventure_turn') return {};
       const town = payload.towns.find((t: any) => t.armory !== undefined);
       const hero = payload.heroes[0];
-      const pieza = town.armory.find((a: any) => a.slot === 'armadura').item;
+      const pieza = town.armory.find((a: any) => a.slot === 'armor').item;
       return {
         actions: [
           { type: 'buy_item', town: town.id, item: pieza },
           { type: 'equip', hero: hero.id, item: pieza, creature: hero.army[0].creature },
-          { type: 'unequip', hero: hero.id, slot: 'arma' },
-          // Y dos que no valen, que se descartan una a una con el motivo del
+          { type: 'unequip', hero: hero.id, slot: 'weapon' },
+          // Y tres que no valen, que se descartan una a una con el motivo del
           // núcleo. El hueco inventado tumbaba el turno ENTERO cuando `slot` era
           // un `z.enum`: ni la compra ni el equipo de arriba llegaban (M3).
           { type: 'equip', hero: hero.id, item: 'talisman_vital' },
           { type: 'unequip', hero: hero.id, slot: 'casco' },
+          // El nombre de dentro no es un hueco del contrato: van en inglés.
+          { type: 'unequip', hero: hero.id, slot: 'arma' },
         ],
       };
     });
@@ -406,10 +409,13 @@ describe('enlace con el agente', () => {
 
     expect(agent.seen[0]?.kind).toBe('adventure_turn');
     expect(informe.actions).toBe(3);
-    expect(informe.problems).toHaveLength(2);
+    expect(informe.problems).toHaveLength(3);
     expect(informe.problems[0]).toMatch(/no lleva Talismán vital en la mochila/);
     expect(informe.problems[1]).toMatch(
-      /no hay ningún hueco "casco": son arma, armadura, accesorio/,
+      /unequip casco de .*: no hay ningún hueco "casco": son weapon, armor, accessory, shield/,
+    );
+    expect(informe.problems[2]).toMatch(
+      /unequip arma de .*: no hay ningún hueco "arma": son weapon, armor, accessory, shield/,
     );
     const equipado = hero.army.find((t) => t.veterania?.equipo !== undefined);
     expect(equipado?.veterania?.equipo).toEqual({ armadura: 'cota_de_malla' });
@@ -2132,8 +2138,11 @@ describe('la tropa se hace héroe, por el cable', () => {
     const peticion = agent.seen[0]!.payload;
     expect(peticion.veteran).toMatchObject({
       id: veterano,
-      level: 5,
-      experience: 220,
+      rank: 5,
+      // Es el primero de la guarnición, un campesino: rango 5, y sus cifras
+      // (+4/+4) no le sacan del nivel 1. Rango y nivel son dos cosas.
+      level: 1,
+      experience: umbral(5),
       battles: 3,
       kills: 5,
       heroesDefeated: ['Sir Arnés'],
@@ -2151,7 +2160,7 @@ describe('la tropa se hace héroe, por el cable', () => {
     const turno = agent.seen[1]!.payload;
     expect(turno.heroes).toHaveLength(2);
     const nacido = turno.heroes.find((h: any) => h.name === `Héroe de ${veterano}`);
-    expect(nacido).toMatchObject({ type: 'monje', level: 5, movePoints: 0 });
+    expect(nacido).toMatchObject({ type: 'monje', rank: 5, level: 3, movePoints: 0 });
     // Nace en la casilla del castillo y se lleva la guarnición (I1): una base
     // defendida por un héroe sin tropa caía esa noche ante dos campesinos.
     expect(nacido.at).toEqual(turno.towns.find((t: any) => t.id === turno.yourBase).at);
@@ -2164,7 +2173,7 @@ describe('la tropa se hace héroe, por el cable', () => {
 
     const veredicto = agent.results.find((r) => r.requestId === agent.seen[0]!.requestId)!;
     expect(veredicto.ok).toBe(true);
-    expect(veredicto.note).toMatch(/es ya un héroe tuyo de tipo monje y nivel 5/);
+    expect(veredicto.note).toMatch(/es ya un héroe tuyo de tipo monje y rango 5/);
     // La nota dice la tropa con la que quedó, no la que se suponía.
     expect(veredicto.note).toMatch(/Se ha llevado \d+ individuos de la guarnición/);
     expect(veredicto.note).not.toMatch(/sin tropa/);
@@ -2234,18 +2243,31 @@ describe('la tropa se hace héroe, por el cable', () => {
   it('no se le vuelve a preguntar por el mismo mientras siga en la base, y sí cuando vuelve', async () => {
     const { link, agent } = await montar(narrador((p) => ({ ...bueno(p), heroType: 'lich' })));
     let veterano = '';
+    // Prueba el volver a preguntar, no el equilibrio: los dos jugadores son el
+    // agente, que no mueve a nadie (`actions: []`), y sin asaltantes nadie pelea.
+    // Así ninguna partida acaba antes de tiempo, con la semilla que sea.
     const director = new Director(link, {
-      seed: 504,
-      agentPlayers: [0],
+      seed: 507,
+      agentPlayers: [0, 1],
       preparar: (s) => {
         veterano = ponVeteranoEnLaBase(s, 0);
+        s.raiders = [];
       },
     });
     const ascensos = (): number => agent.seen.filter((p) => p.kind === 'hero_from_troop').length;
     // Los turnos del rival que toquen —dos o ninguno: el orden va en serpiente,
     // `ordenDelDia`— y después el del agente.
     const siguienteDelAgente = async (): Promise<void> => {
-      while (director.state.current !== 0) await director.playTurn();
+      // Una partida acabada no vuelve a dar el turno a nadie: sin esto el bucle no
+      // acabaría nunca.
+      while (director.state.current !== 0) {
+        if (director.state.finished !== null) {
+          throw new Error(
+            `la partida de la semilla terminó el día ${director.state.day}: elige otra`,
+          );
+        }
+        await director.playTurn();
+      }
       await director.playTurn();
     };
 
@@ -2288,7 +2310,7 @@ describe('la tropa se hace héroe, por el cable', () => {
     // la consola del director, y el agente tenía que deducirlo.
     const aviso = agent.seen[0]!.payload.veteransWaiting;
     expect(aviso).toBe(
-      `1 veterano de nivel 5 espera en tu base para hacerse héroe, pero ya tienes ${MAX_HEROES_PER_PLAYER} de ${MAX_HEROES_PER_PLAYER} héroes: no se te preguntará hasta que haya sitio.`,
+      `1 veterano de rango 5 espera en tu base para hacerse héroe, pero ya tienes ${MAX_HEROES_PER_PLAYER} de ${MAX_HEROES_PER_PLAYER} héroes: no se te preguntará hasta que haya sitio.`,
     );
   });
 

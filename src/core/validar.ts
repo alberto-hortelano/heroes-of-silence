@@ -43,3 +43,14 @@ export function lista(valor: unknown, campo: string, quien: string): readonly un
 export function repetidoEn<T>(lista: readonly T[]): T | undefined {
   return lista.find((x, i) => lista.indexOf(x) !== i);
 }
+
+/**
+ * Si `id` tiene la forma de un id de la arena: minúsculas, cifras y guiones, la
+ * de una carpeta de `assets/unidades/`. La leen el id de una unidad, el cuerpo de
+ * una hoja y la figura de un héroe (`core/arena.ts`) y el registro de una hoja
+ * para pintarla (`render/personajes.ts`). Aquí y no en `core/arena.ts` porque el
+ * cliente fuera de la arena no importa de allí (`invariantes.test.ts`).
+ */
+export function esIdDeArena(id: string): boolean {
+  return /^[a-z0-9-]+$/.test(id);
+}

@@ -32,6 +32,7 @@ import type { AdventureScene } from '../src/client/render/mapa.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { allCreatures } from '../src/core/data.js';
+import { umbral } from '../src/core/hero/experiencia.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { aPunto, pointKey, reachableFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
@@ -543,15 +544,22 @@ describe('la batalla en la vista', () => {
 
   /**
    * La batalla sin lo que el cable no manda (`stackAlCable`): lo ganado y la
-   * hoja de servicios vuelven vacíos de `adaptarBatalla`, y la ida y vuelta se
+   * hoja de servicios vuelven vacíos de `adaptarBatalla`, y las cifras que
+   * viajan (héroe y personaje) llegan sin `sinEquipo`; la ida y vuelta se
    * compara en todo lo demás. Se quita exactamente eso, campo a campo, y no se
-   * relaja la comparación entera.
+   * relaja la comparación entera. (Las del catálogo las rehace el espectador
+   * con `cifrasDeCatalogo`, y esas sí lo llevan.)
    */
+  const sinCuerpo = (u: UnitInfo): UnitInfo => {
+    const { sinEquipo: _cuerpo, ...cifras } = u;
+    return cifras;
+  };
   const sinLoQueNoViaja = (b: BattleState): BattleState => ({
     ...b,
     stacks: b.stacks.map(
       (s): BattleStack => ({
         ...s,
+        unit: s.origen.kind === 'catalogo' ? s.unit : sinCuerpo(s.unit),
         ganado: { experiencia: 0, bajas: 0, heroes: [] },
         origen:
           s.origen.kind === 'heroe' || s.origen.veterania === null
@@ -583,7 +591,11 @@ describe('la batalla en la vista', () => {
       expect('unit' in enCable, s.id).toBe(s.origen.kind !== 'catalogo');
     }
     for (const c of comandantes) {
-      expect(ida.battle!.estado.stacks.find((x) => x.id === c.id)!.unit).toEqual(c.unit);
+      const viaja = ida.battle!.estado.stacks.find((x) => x.id === c.id)!.unit!;
+      // Las cifras sin equipo solo sirven para medir el nivel, y no viajan.
+      expect(c.unit.sinEquipo, c.id).toBeDefined();
+      expect('sinEquipo' in viaja, c.id).toBe(false);
+      expect(viaja).toEqual(sinCuerpo(c.unit));
     }
     expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
   });
@@ -596,7 +608,7 @@ describe('la batalla en la vista', () => {
           {
             creature: 'pikeman',
             count: 1,
-            veterania: { id: 'v-1', experiencia: 130, batallas: 3, bajas: 4, heroes: [] },
+            veterania: { id: 'v-1', experiencia: umbral(4), batallas: 3, bajas: 4, heroes: [] },
           },
         ],
         hero: null,
@@ -613,13 +625,13 @@ describe('la batalla en la vista', () => {
     // precio ni de lo ganado: el espectador no pinta ninguna de las cuatro.
     expect(veterano!.origen).toEqual({
       kind: 'catalogo',
-      veterania: { id: 'v-1', experiencia: 130 },
+      veterania: { id: 'v-1', experiencia: umbral(4) },
     });
     expect('ganado' in veterano!).toBe(false);
     const vuelta = adaptarBatalla(ida.battle!);
     expect(vuelta).toEqual(sinLoQueNoViaja(batalla));
     // `sinLoQueNoViaja` deja el precio: no viaja y se rehace del catálogo, el mismo.
-    // Nivel 4: +3 de ataque sobre el piquero de catálogo. Si el espectador
+    // Rango 4: +3 de ataque sobre el piquero de catálogo. Si el espectador
     // rehiciera con `creature(body)` a secas, le pintaría cifras de novato.
     expect(vuelta.stacks[0]!.unit.attack).toBe(batalla.stacks[0]!.unit.attack);
     expect(vuelta.stacks[0]!.unit.attack).toBeGreaterThan(5);

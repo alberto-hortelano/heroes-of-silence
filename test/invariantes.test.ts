@@ -658,6 +658,7 @@ describe('invariantes del proyecto', () => {
         'jugarArena',
         'espejoDeLosPoderes',
         'poderesEnLaArena',
+        'ataqueEnLaPelea',
       ],
     };
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
@@ -1053,6 +1054,73 @@ describe('invariantes del proyecto', () => {
     );
     expect(infractoresDeCodigo(ni, escribePoderes)).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribePoderes)).not.toEqual([]);
+  });
+
+  it('el nivel de una unidad se deriva de sus cifras: nadie lo escribe, y el equipo lo aparta solo `conEquipo`', () => {
+    // Un solo nivel (12-10-2026): la primera cifra del índice de poder de las
+    // cifras sin equipo (`core/nivel.ts`). Había un `UnitInfo.nivel` que
+    // escribían cinco constructores y un `level` en el catálogo que era la
+    // morada con otro nombre: el mismo hecho, a mano, en seis sitios. Rotos a
+    // mano: un `"level": 1` en una criatura de `data/creatures.json`, un
+    // `readonly nivel: number;` en `UnitInfo`, un `{ ...u, sinEquipo: u }` en
+    // `arena.ts` y una `function nivelDeUnidad` en `strategy.ts` salen rojos.
+    const catalogo = JSON.parse(leer('data/creatures.json')) as {
+      creatures: { id: string; [campo: string]: unknown }[];
+    };
+    expect(catalogo.creatures.filter((c) => 'level' in c || 'nivel' in c).map((c) => c.id)).toEqual(
+      [],
+    );
+    const tipos = sinComentarios(leer('src/core/types.ts'));
+    const unitInfo = /export interface UnitInfo \{[\s\S]*?\n\}/.exec(tipos)?.[0];
+    if (unitInfo === undefined) throw new Error('no encuentro `interface UnitInfo` en types.ts');
+    expect(unitInfo).not.toMatch(/\b(?:nivel|level)\??\s*:/);
+    // Las cifras sin equipo las deja solo la suma de las piezas.
+    const PUERTA = 'src/core/hero/equipo.ts';
+    const escribeSinEquipo = /\bsinEquipo\s*:|\.sinEquipo\s*=(?!=)/;
+    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== PUERTA);
+    expect(infractoresDeCodigo(fuera, escribeSinEquipo)).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], escribeSinEquipo)).not.toEqual([]);
+    // Y el índice y el nivel los calcula `nivel.ts`, y nadie más.
+    const calcula = /\bfunction\s+(?:indiceDePoder|nivelDeUnidad|nivelDelIndice|poderBruto)\b/;
+    const otros = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/core/nivel.ts');
+    expect(infractoresDeCodigo(otros, calcula)).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/nivel.ts'], calcula)).not.toEqual([]);
+  });
+
+  it('los huecos del contrato se traducen en un sitio y la regla de las manos vive en otro', () => {
+    // El escudo (12-10-2026): los cuatro huecos van en inglés en el contrato del
+    // agente y en español por dentro, con la traducción en `contract/huecos.ts`;
+    // y «un arma a dos manos no admite escudo» es una regla, `manosBlocker`, que
+    // leen el juego, el agente y la arena. Rotos a mano: un `slot: 'shield'` en
+    // `serialize.ts`, un `p.manos === 2` en `arena.ts` y una `function
+    // manosBlocker` en `game.ts` salen rojos.
+    const TRADUCCION = 'src/core/contract/huecos.ts';
+    const enIngles = /['"`](?:weapon|armor|accessory|shield)['"`]/;
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== TRADUCCION),
+        enIngles,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([TRADUCCION], enIngles)).not.toEqual([]);
+    const MANOS = ['src/core/hero/equipo.ts', 'src/core/data.ts'];
+    const leeManos = /\.manos\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => !MANOS.includes(r)),
+        leeManos,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/hero/equipo.ts'], leeManos)).not.toEqual([]);
+    const define = /\bfunction\s+manosBlocker\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== MANOS[0]),
+        define,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([MANOS[0] as string], define)).not.toEqual([]);
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {

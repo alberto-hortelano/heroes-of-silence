@@ -37,6 +37,6 @@ export function ejercitoDe(faction: FactionId, rng: Rng): Stack[] {
  * aquellos ejércitos no diría nada de su efecto en una partida.
  */
 export function tropaDe(faction: FactionId, rng: Rng): Stack[] {
-  const lineup = factionLineup(faction).filter((c) => c.level <= 4);
+  const lineup = factionLineup(faction).filter((c) => c.morada <= 4);
   return Array.from({ length: rng.int(3, 6) }, () => ({ creature: rng.pick(lineup).id, count: 1 }));
 }

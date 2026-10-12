@@ -252,7 +252,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
     espejo.autoResolveBattle();
     const heroe = espejo.myHeroes()[0];
     if (heroe === undefined) continue;
-    if (!troopSummary(heroe.army, espejo.state.characters).some((g) => g.nivel >= 2)) continue;
+    if (!troopSummary(heroe.army, espejo.state.characters).some((g) => g.rango >= 2)) continue;
     await espejo.endTurn();
     if (espejo.state.finished !== null) continue;
     const segunda = guardiaEnElMarco(b, e, TILE_INICIAL, espejo, VETERANOS);
@@ -264,7 +264,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
   }
   throw new Error(
     `veteranos: en las semillas ${desde}–${desde + TOPE_DE_SEMILLAS - 1} ninguna guardia a la vista ` +
-      'del día 1 deja un veterano de nivel 2 con otra guardia a la vista el día 2 en cuyo tablero pise',
+      'del día 1 deja un veterano de rango 2 con otra guardia a la vista el día 2 en cuyo tablero pise',
   );
 }
 

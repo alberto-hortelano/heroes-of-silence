@@ -261,11 +261,12 @@ describe('la IA de batalla usa los poderes (A4)', () => {
 
   it('cura a quien puede caer si la pelea se gana; si no corre peligro, no gasta el turno en él', () => {
     // Sin héroe: con él, la IA lanza antes su hechizo, que no gasta el turno.
-    const { b, escudero, orco } = enElTurnoDelMonje(10, REGLAS_DEL_JUEGO, null);
-    orco.topHp = 3; // el bando del monje va ganando la carrera
-    // Lejos del orco, 5 PV no corren peligro: el monje no se queda curando.
+    // 100 de herida sobre los 150 del escudero.
+    const { b, escudero, orco } = enElTurnoDelMonje(100, REGLAS_DEL_JUEGO, null);
+    orco.topHp = 30; // el bando del monje va ganando la carrera
+    // Lejos del orco, 50 PV no corren peligro: el monje no se queda curando.
     expect(chooseBattleAction(b)).not.toMatchObject({ type: 'poder' });
-    // Con el orco pegado (dos golpes de 4-7), 5 PV caen: lo cura.
+    // Con el orco pegado (dos golpes de 40-70), 50 PV caen: lo cura.
     orcoJuntoAlEscudero(b, escudero, orco);
     expect(chooseBattleAction(b)).toEqual({ type: 'poder', poder: 'curar', target: escudero.id });
     // Y si la pelea se pierde, curar solo la alarga: pega o se mueve.
@@ -287,11 +288,11 @@ describe('la IA de batalla usa los poderes (A4)', () => {
         izquierda: {
           unidades: [
             unidad('templario-monje'),
-            unidad('templario-escudo', { damage: [40, 60] }),
+            unidad('templario-escudo', { damage: [400, 600] }),
           ].map((u) => delBorrador(u)),
           heroe: null,
         },
-        derecha: { unidades: [delBorrador(unidad('orko-dos-armas', { hp: 400 }))], heroe: null },
+        derecha: { unidades: [delBorrador(unidad('orko-dos-armas', { hp: 4000 }))], heroe: null },
         reglas: REGLAS_DEL_JUEGO,
       },
       rng,

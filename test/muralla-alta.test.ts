@@ -834,7 +834,7 @@ describe('tras QA', () => {
         'izquierda',
         unidades.map((_, i) => ({
           clave: i,
-          fuente: { kind: 'hoja' as const, hoja: String(i) },
+          fuente: { kind: 'unidad' as const, unidad: String(i) },
           escalera: true,
         })),
         (p) => {

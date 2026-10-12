@@ -14,6 +14,7 @@
  * esquemas de los PNG. Son de la narrativa y del taller de imágenes, que no son
  * de esta fase.
  */
+import { ESCALA_DE_CIFRAS } from '../escala.js';
 
 export const ATTRIBUTES = [
   'fuerza',
@@ -146,7 +147,9 @@ export function effectiveAttributes(c: Pick<Character, 'attributes' | 'professio
  * sano— y `stats.ts` ya importa este módulo: ponerla allí sería un ciclo.
  */
 export function maxHpFrom(effective: Attributes): number {
-  return 10 + 2 * effective.resistencia;
+  // A `ESCALA_DE_CIFRAS`, como los PV del catálogo. `Character.hp` se guarda en
+  // el personaje: uno creado en la escala de fheroes2 llevaría aquella vida.
+  return ESCALA_DE_CIFRAS * (10 + 2 * effective.resistencia);
 }
 
 /** Lanza con la frase de `characterBuildBlocker` si el reparto es ilegal. */

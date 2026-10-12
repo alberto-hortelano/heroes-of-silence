@@ -9,12 +9,13 @@ import { creature } from '../data.js';
 import {
   destinoDeEquipo,
   equipoDe,
+  manosBlocker,
   PIEZAS_DE_ARMERIA,
   type Portador,
   pieza,
   valorDePieza,
 } from '../hero/equipo.js';
-import { cifrasDeCatalogo, nivelDeTropa } from '../hero/experiencia.js';
+import { cifrasDeCatalogo, rangoDeTropa } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
 import {
   capacidadDe,
@@ -33,6 +34,7 @@ import {
   type Reachable,
 } from '../map/map.js';
 import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
+import { indiceDePoder } from '../nivel.js';
 import { grupoALaVistaDesde } from '../state/asaltantes.js';
 import {
   type AdventureAction,
@@ -605,7 +607,7 @@ function planCambio(
  *
  * Se ordena por **veteranía, luego oro, luego fuerza**, y el orden importa: lo
  * novato y barato se va antes que lo veterano, así que la IA no tira a un
- * piquero de nivel 3 mientras le quede un campesino que tirar. Sin esa primera
+ * piquero de rango 3 mientras le quede un campesino que tirar. Sin esa primera
  * clave, el veterano —que vale lo mismo en oro que un novato de su tipo— se iba
  * a la primera, y la experiencia no le servía de nada a quien la gana. A
  * igualdad de todo, el id menor, para que no decida el orden del ejército. Los
@@ -617,7 +619,7 @@ function laMasBarata(
 ): { readonly creature: string; readonly poder: number } | null {
   let mejor: {
     readonly creature: string;
-    readonly nivel: number;
+    readonly rango: number;
     readonly oro: number;
     readonly poder: number;
   } | null = null;
@@ -629,16 +631,16 @@ function laMasBarata(
     const t = elQueSeIria(army, id)!;
     const suyo = unitPower(troopUnit(t, undefined));
     if (suyo >= poder) continue;
-    const nivel = nivelDeTropa(t.veterania);
+    const rango = rangoDeTropa(t.veterania);
     const oro = creature(id).cost.gold ?? 0;
     const gana =
       mejor === null ||
-      nivel < mejor.nivel ||
-      (nivel === mejor.nivel &&
+      rango < mejor.rango ||
+      (rango === mejor.rango &&
         (oro < mejor.oro ||
           (oro === mejor.oro &&
             (suyo < mejor.poder || (suyo === mejor.poder && id < mejor.creature)))));
-    if (gana) mejor = { creature: id, nivel, oro, poder: suyo };
+    if (gana) mejor = { creature: id, rango, oro, poder: suyo };
   }
   return mejor === null ? null : { creature: mejor.creature, poder: mejor.poder };
 }
@@ -646,20 +648,26 @@ function laMasBarata(
 // ---------------------------------------------------------------- equipo
 
 /**
- * Quién lleva qué, en el orden en que la IA reparte: **el héroe primero** —está en
- * el nivel 5 o más, por encima de cualquier tropa— y después la tropa de **mayor
- * nivel** (catálogo + veteranía), y a igual nivel en su orden. Los personajes no
- * entran —su equipo es de la fase que los traiga— y se apartan **antes** de mirar
- * nada: su cuerpo es un perfil que no está en el catálogo. El nivel sale de
+ * Quién lleva qué, en el orden en que la IA reparte: **el héroe primero** —es quien
+ * más pelea y nunca se licencia— y después la tropa de **mayor índice de poder**
+ * (`indiceDePoder`: catálogo + rango, sin el equipo que ya lleve), y a igual
+ * índice en su orden. Por el índice y no por el nivel: es más fino, y dos
+ * criaturas del mismo nivel no empatan por eso. Los personajes no entran —su
+ * equipo es de la fase que los traiga— y se apartan **antes** de mirar nada: su
+ * cuerpo es un perfil que no está en el catálogo. Las cifras salen de
  * `cifrasDeCatalogo`, que para un novato devuelve el catálogo tal cual y para un
- * veterano las cifras que ya recuerda por su hoja: no se fabrica ninguna.
+ * veterano las que ya recuerda por su hoja: no se fabrica ninguna.
  */
 function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Equipo }[] {
   const tropa = hero.army
     .map((t, indice) => ({ t, indice }))
     .filter(({ t }) => t.member === undefined)
-    .map(({ t, indice }) => ({ t, indice, nivel: cifrasDeCatalogo(t.creature, t.veterania).nivel }))
-    .sort((a, b) => b.nivel - a.nivel || a.indice - b.indice)
+    .map(({ t, indice }) => ({
+      t,
+      indice,
+      poder: indiceDePoder(cifrasDeCatalogo(t.creature, t.veterania)),
+    }))
+    .sort((a, b) => b.poder - a.poder || a.indice - b.indice)
     .map(({ indice }) => {
       const quien: Portador = { indice };
       return { quien, equipo: equipoDe(hero, quien) };
@@ -711,14 +719,14 @@ export const COMPRAS_POR_HEROE_Y_DIA = 3;
 
 /**
  * El oro que tiene que quedarle a la IA tras pagar para comprarle una pieza a un
- * **novato** (nivel 1 de tropa): cuatro héroes. Un novato muere antes que nadie y
+ * **novato** (rango 1 de tropa): cuatro héroes. Un novato muere antes que nadie y
  * la pieza se va con él, así que solo se le compra lo que sobra de verdad; al
  * héroe y a los veteranos les basta con no tocar lo que cuesta un héroe. Inventado.
  */
 export const ORO_DE_SOBRA_PARA_NOVATOS = 4 * HERO_HIRE_COST;
 
 /**
- * Para quién compra la IA: el héroe y los veteranos de nivel 2 o más, que son
+ * Para quién compra la IA: el héroe y los veteranos de rango 2 o más, que son
  * los que sobreviven —han pasado al menos una batalla con vida— y llevan la
  * pieza más lejos; un novato, solo si `sobra`. Equipar lo que ya hay en la
  * mochila no pasa por aquí: eso no cuesta oro, y una pieza que nadie lleva no
@@ -726,7 +734,7 @@ export const ORO_DE_SOBRA_PARA_NOVATOS = 4 * HERO_HIRE_COST;
  */
 function paraQuienSeCompra(hero: Hero, quien: Portador, sobra: boolean): boolean {
   if ('heroe' in quien || sobra) return true;
-  return nivelDeTropa(hero.army[quien.indice]?.veterania) >= 2;
+  return rangoDeTropa(hero.army[quien.indice]?.veterania) >= 2;
 }
 
 /**
@@ -774,7 +782,10 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
         hero.mochila.indexOf(a) - hero.mochila.indexOf(b),
     );
     for (const id of enMochila) {
-      const quien = lista.find((p) => mejora(p.equipo, id) > 0 && leLlega(hero, p.quien));
+      const quien = lista.find(
+        (p) =>
+          mejora(p.equipo, id) > 0 && manosBlocker(p.equipo, id) === null && leLlega(hero, p.quien),
+      );
       if (quien !== undefined) {
         return { type: 'equip', hero: hero.id, item: id, ...nombrar(hero, quien.quien) };
       }

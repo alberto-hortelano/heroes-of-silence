@@ -1,5 +1,5 @@
 {
-  "_comment": "El equipo: las piezas que lleva un individuo de la tropa o un héroe, una por hueco (arma, armadura y accesorio). TODO INVENTADO y PROVISIONAL: lo pide NuevaJugabilidad.md («Las tropas también ganan experiencia y equipo»; «En las ciudades puedes construir armería y comprar equipo mejorado para la tropa, los héroes ya lo llevan») y HoMM2 no tiene equipo de tropa, así que no hay fila que copiar. Que nadie cite estas cifras como del original. Cada pieza suma sus cifras a las de quien la lleva: ataque, defensa, pv y velocidad (escalones de SPEED_TIERS, sin pasar de ultra_fast); todas enteras ≥ 0. La CALIDAD es lo que decide de dónde sale una pieza, y es una propiedad de la pieza y no una lista aparte (decisión del usuario, 02-10-2026): «comun» cae como botín; «armeria» es lo que vende la armería y lo que TODO héroe trae de serie al nacer —hay exactamente una por hueco, la mejor que se puede comprar, y el equipo base se deriva de aquí—; «especial» cae como botín y trae otro tipo de ventaja (velocidad, más PV): es lo único, con las armas mágicas que vendrán, con lo que un héroe mejora lo que ya lleva. El precio es lo que cuesta en la armería; solo se cobra el de las de armería, y las demás lo llevan por si un día se venden. Lo valida src/core/data.ts al cargar.",
+  "_comment": "El equipo: las piezas que lleva un individuo de la tropa o un héroe, una por hueco (arma, armadura y accesorio). TODO INVENTADO y PROVISIONAL: lo pide NuevaJugabilidad.md («Las tropas también ganan experiencia y equipo»; «En las ciudades puedes construir armería y comprar equipo mejorado para la tropa, los héroes ya lo llevan») y HoMM2 no tiene equipo de tropa, así que no hay fila que copiar. Que nadie cite estas cifras como del original. Cada pieza suma sus cifras a las de quien la lleva: ataque, defensa, pv (×10 desde el 12-10-2026, con los PV del catálogo) y velocidad (escalones de SPEED_TIERS, sin pasar de ultra_fast ni bajar de very_slow; puede ser negativa, y la de un escudo TIENE que serlo); todas las demás, enteras ≥ 0. Una pieza puede sumar además danio ([+mín, +máx]) y disparos, y un arma puede decir manos: 2 (a dos manos), que no admite escudo (manosBlocker). Hay cuatro huecos: arma, armadura, accesorio y escudo (12-10-2026: «hueco propio, no hace falta llenar el hueco»); el escudo no lleva pieza de armería, así que el equipo base es espada sin escudo. El equipo NO cuenta para el nivel (decisión del usuario, 12-10-2026): el índice de poder se mide sobre las cifras sin él. La CALIDAD es lo que decide de dónde sale una pieza, y es una propiedad de la pieza y no una lista aparte (decisión del usuario, 02-10-2026): «comun» cae como botín; «armeria» es lo que vende la armería y lo que TODO héroe trae de serie al nacer —hay exactamente una por hueco, la mejor que se puede comprar, y el equipo base se deriva de aquí—; «especial» cae como botín y trae otro tipo de ventaja (velocidad, más PV): es lo único, con las armas mágicas que vendrán, con lo que un héroe mejora lo que ya lleva; «arena» (12-10-2026) es el equipo de los perfiles de arma de la arena (lo que hacía distintas las cifras de un perfil, como la diferencia con el cuerpo común de core/arena.ts) y los escudos, y el juego NO la reparte: ni botín, ni armería, ni equipo base. Van al final del fichero para que el sorteo del botín vea el mismo orden de siempre; su precio es 0 porque no se venden. El precio es lo que cuesta en la armería; solo se cobra el de las de armería, y las demás lo llevan por si un día se venden. Lo valida src/core/data.ts al cargar.",
   "piezas": [
     {
       "id": "garrote",
@@ -19,7 +19,7 @@
       "calidad": "comun",
       "ataque": 1,
       "defensa": 0,
-      "pv": 1,
+      "pv": 10,
       "velocidad": 0,
       "precio": { "gold": 400 }
     },
@@ -63,7 +63,7 @@
       "calidad": "comun",
       "ataque": 0,
       "defensa": 1,
-      "pv": 1,
+      "pv": 10,
       "velocidad": 0,
       "precio": { "gold": 400 }
     },
@@ -85,7 +85,7 @@
       "calidad": "especial",
       "ataque": 0,
       "defensa": 2,
-      "pv": 4,
+      "pv": 40,
       "velocidad": 0,
       "precio": { "gold": 1500 }
     },
@@ -96,7 +96,7 @@
       "calidad": "comun",
       "ataque": 0,
       "defensa": 0,
-      "pv": 2,
+      "pv": 20,
       "velocidad": 0,
       "precio": { "gold": 300 }
     },
@@ -140,9 +140,176 @@
       "calidad": "especial",
       "ataque": 0,
       "defensa": 0,
-      "pv": 5,
+      "pv": 50,
       "velocidad": 0,
       "precio": { "gold": 1500 }
+    },
+    {
+      "id": "espada",
+      "nombre": "Espada",
+      "hueco": "arma",
+      "calidad": "arena",
+      "ataque": 2,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 0,
+      "danio": [10, 30],
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "mandoble",
+      "nombre": "Mandoble",
+      "hueco": "arma",
+      "calidad": "arena",
+      "ataque": 5,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 0,
+      "danio": [30, 60],
+      "manos": 2,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "baston",
+      "nombre": "Bastón",
+      "hueco": "arma",
+      "calidad": "arena",
+      "ataque": 0,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 0,
+      "danio": [0, 20],
+      "manos": 2,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "arco",
+      "nombre": "Arco",
+      "hueco": "arma",
+      "calidad": "arena",
+      "ataque": 2,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 0,
+      "danio": [10, 20],
+      "disparos": 12,
+      "manos": 2,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "ballesta",
+      "nombre": "Ballesta",
+      "hueco": "arma",
+      "calidad": "arena",
+      "ataque": 3,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 0,
+      "danio": [20, 40],
+      "disparos": 8,
+      "manos": 2,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "lanza_de_jinete",
+      "nombre": "Lanza de jinete",
+      "hueco": "arma",
+      "calidad": "arena",
+      "ataque": 7,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 0,
+      "danio": [40, 80],
+      "manos": 2,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "brigantina",
+      "nombre": "Brigantina",
+      "hueco": "armadura",
+      "calidad": "arena",
+      "ataque": 0,
+      "defensa": 0,
+      "pv": 70,
+      "velocidad": 0,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "arnes_de_placas",
+      "nombre": "Arnés de placas",
+      "hueco": "armadura",
+      "calidad": "arena",
+      "ataque": 0,
+      "defensa": 1,
+      "pv": 100,
+      "velocidad": 0,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "jubon_de_arquero",
+      "nombre": "Jubón de arquero",
+      "hueco": "armadura",
+      "calidad": "arena",
+      "ataque": 0,
+      "defensa": 0,
+      "pv": 20,
+      "velocidad": 0,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "gambeson",
+      "nombre": "Gambesón",
+      "hueco": "armadura",
+      "calidad": "arena",
+      "ataque": 0,
+      "defensa": 1,
+      "pv": 40,
+      "velocidad": 0,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "barda",
+      "nombre": "Barda",
+      "hueco": "armadura",
+      "calidad": "arena",
+      "ataque": 0,
+      "defensa": 5,
+      "pv": 220,
+      "velocidad": 0,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "rodela",
+      "nombre": "Rodela",
+      "hueco": "escudo",
+      "calidad": "arena",
+      "ataque": 0,
+      "defensa": 2,
+      "pv": 0,
+      "velocidad": -1,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "escudo",
+      "nombre": "Escudo",
+      "hueco": "escudo",
+      "calidad": "arena",
+      "ataque": 0,
+      "defensa": 4,
+      "pv": 0,
+      "velocidad": -1,
+      "precio": { "gold": 0 }
+    },
+    {
+      "id": "paves",
+      "nombre": "Pavés",
+      "hueco": "escudo",
+      "calidad": "arena",
+      "ataque": 0,
+      "defensa": 7,
+      "pv": 0,
+      "velocidad": -2,
+      "precio": { "gold": 0 }
     }
   ]
 }

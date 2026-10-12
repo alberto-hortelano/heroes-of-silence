@@ -1,7 +1,7 @@
 /**
- * Un veterano de nivel 5 puesto a mano en la guarnición de una base: el caso que
- * `pnpm qa` necesita cruzar y que la partida del arnés no da sola —0,06
- * veteranos de nivel 5 pisan su base por partida (`tools/qa/veterania.ts`)—.
+ * Un veterano de rango 5 puesto a mano en la guarnición de una base: el caso que
+ * `pnpm qa` necesita cruzar y que la partida del arnés no da sola —0,01
+ * veteranos de rango 5 pisan su base por partida (`tools/qa/veterania.ts`)—.
  *
  * Puro y aparte de `partida-con-veterano.ts`, que arranca el servidor al
  * importarse: así lo pueden usar también los tests. No es una puerta de trampas

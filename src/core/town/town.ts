@@ -150,9 +150,9 @@ export function buildBlocker(town: Town, buildingId: string, purse: Resources): 
   // arriba, que son O(1): `factionLineup` rehace dos veces el mapa de criaturas
   // y la pantalla de castillo pregunta esto hasta seis veces por fotograma.
   if (b.upgradesLevel !== undefined) {
-    const base = baseCreatureOfLevel(town, b.upgradesLevel);
+    const base = criaturaBaseDeMorada(town, b.upgradesLevel);
     if (creature(base).upgradesTo === undefined) {
-      return `las criaturas de nivel ${b.upgradesLevel} de esta facción no tienen mejora`;
+      return `las criaturas de la morada ${b.upgradesLevel} de esta facción no tienen mejora`;
     }
   }
 
@@ -183,12 +183,12 @@ export function build(town: Town, buildingId: string, purse: Resources): Resourc
 
   // Una morada recién construida trae ya su primera hornada.
   if (b.dwellingLevel !== undefined) {
-    const c = creatureOfLevel(town, b.dwellingLevel);
+    const c = creatureDeMorada(town, b.dwellingLevel);
     town.available[c] = (town.available[c] ?? 0) + creature(c).growth;
   }
   // Una mejora convierte lo disponible al tipo mejorado.
   if (b.upgradesLevel !== undefined) {
-    const base = baseCreatureOfLevel(town, b.upgradesLevel);
+    const base = criaturaBaseDeMorada(town, b.upgradesLevel);
     const upgraded = creature(base).upgradesTo;
     if (upgraded !== undefined) {
       const pending = town.available[base] ?? 0;
@@ -200,32 +200,35 @@ export function build(town: Town, buildingId: string, purse: Resources): Resourc
   return subtractResources(purse, b.cost);
 }
 
-function baseCreatureOfLevel(town: Town, level: number): string {
-  const found = factionLineup(town.faction).find((c) => c.level === level);
+function criaturaBaseDeMorada(town: Town, morada: number): string {
+  const found = factionLineup(town.faction).find((c) => c.morada === morada);
   if (found === undefined) {
-    throw new Error(`la facción ${town.faction} no tiene criatura de nivel ${level}`);
+    throw new Error(`la facción ${town.faction} no tiene criatura de la morada ${morada}`);
   }
   return found.id;
 }
 
-/** Qué criatura produce la morada de ese nivel, ya mejorada si procede. */
-export function creatureOfLevel(town: Town, level: number): string {
-  const base = baseCreatureOfLevel(town, level);
-  const upgradeBuilt = town.buildings.some((id) => building(id).upgradesLevel === level);
+/**
+ * Qué criatura produce la morada `morada` (1-6), ya mejorada si procede. Es la
+ * morada del edificio, no el nivel de la criatura, que sale de sus cifras.
+ */
+export function creatureDeMorada(town: Town, morada: number): string {
+  const base = criaturaBaseDeMorada(town, morada);
+  const upgradeBuilt = town.buildings.some((id) => building(id).upgradesLevel === morada);
   if (!upgradeBuilt) return base;
   return creature(base).upgradesTo ?? base;
 }
 
 /** Moradas construidas y la criatura que produce cada una. */
-export function dwellings(town: Town): { level: number; creature: string }[] {
+export function dwellings(town: Town): { morada: number; creature: string }[] {
   return town.buildings
     .map((id) => building(id))
     .filter((b) => b.dwellingLevel !== undefined)
     .map((b) => ({
-      level: b.dwellingLevel as number,
-      creature: creatureOfLevel(town, b.dwellingLevel as number),
+      morada: b.dwellingLevel as number,
+      creature: creatureDeMorada(town, b.dwellingLevel as number),
     }))
-    .sort((a, b) => a.level - b.level);
+    .sort((a, b) => a.morada - b.morada);
 }
 
 /** El lunes cada morada suelta su crecimiento semanal. */

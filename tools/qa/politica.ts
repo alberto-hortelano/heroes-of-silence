@@ -49,7 +49,7 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
         (r: any) =>
           r.available > 0 &&
           (nivelMejorado === undefined ||
-            allCreatures().find((c) => c.id === r.creature)?.level !== nivelMejorado),
+            allCreatures().find((c) => c.id === r.creature)?.morada !== nivelMejorado),
       );
       const dentro = payload.heroes?.find(
         (h: any) => town?.at !== undefined && h.at?.x === town.at.x && h.at?.y === town.at.y,

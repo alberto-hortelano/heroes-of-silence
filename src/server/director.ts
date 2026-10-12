@@ -16,6 +16,7 @@ import {
   pasosQueQuedan,
 } from '@core/battle/battle.js';
 import type { BattleAction, BattleState, TurnoDeUnidad } from '@core/battle/types.js';
+import { type AccionDelAgente, accionDelAgente } from '@core/contract/huecos.js';
 import {
   serializeAdventureTurn,
   serializeBattleTurn,
@@ -23,12 +24,11 @@ import {
   serializeTownVoices,
 } from '@core/contract/serialize.js';
 import { porPreguntar } from '@core/hero/ascenso.js';
-import { NIVEL_MAXIMO_DE_TROPA, nivelDeHeroe } from '@core/hero/experiencia.js';
+import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/experiencia.js';
 import type { MapPlan } from '@core/map/generate.js';
 import { pointKey } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
 import {
-  type AdventureAction,
   applyAdventureAction,
   ascenderVeterano,
   battleOwners,
@@ -111,7 +111,7 @@ export interface DirectorOptions {
    * Retoca la partida recién creada, antes del primer turno.
    *
    * Existe para el arnés de QA y para nada más: la partida del arnés produce un
-   * veterano de nivel 5 en 0,06 de cada partida, así que `pnpm qa` no cruzaría
+   * veterano de rango 5 en 0,06 de cada partida, así que `pnpm qa` no cruzaría
    * nunca el ascenso por sí solo. **No lo abre ninguna variable de entorno ni
    * ningún mensaje del cable**: solo un `import` desde `tools/`
    * (`tools/qa/partida-con-veterano.ts`), que es código que no se despliega.
@@ -243,7 +243,7 @@ export class Director {
   }
 
   /**
-   * Los veteranos de nivel máximo que `player` tiene en su base se hacen héroes, si
+   * Los veteranos de rango máximo que `player` tiene en su base se hacen héroes, si
    * el narrador quiere: uno a uno, un `hero_from_troop` por cada uno.
    *
    * Va al empezar el turno del agente, antes de `adventure_turn`, y no al llegar
@@ -282,7 +282,7 @@ export class Director {
       if (v === undefined) continue;
       if (!hayHuecoDeHeroe(this.state, player)) {
         this.note(
-          `Hay veteranos de nivel ${NIVEL_MAXIMO_DE_TROPA} esperando en la base del jugador ${player}, pero no le cabe otro héroe: no se pregunta.`,
+          `Hay veteranos de rango ${RANGO_MAXIMO_DE_TROPA} esperando en la base del jugador ${player}, pero no le cabe otro héroe: no se pregunta.`,
         );
         return;
       }
@@ -311,7 +311,7 @@ export class Director {
           respuesta.requestId,
           true,
           undefined,
-          notaAscenso(heroe, nivelDeHeroe(heroe), v.base.name, {
+          notaAscenso(heroe, rangoDeHeroe(heroe), v.base.name, {
             enElCastillo: pointKey(heroe.at) === pointKey(v.base.at),
             tropa: heroe.army.length,
           }),
@@ -407,7 +407,7 @@ export class Director {
 
     /** Lo que ya no se va a intentar, contado una por una y con su motivo. */
     const descartar = (resto: readonly unknown[], motivo: string): void => {
-      for (const a of resto) problems.push(`${describeAccion(a as AdventureAction)}: ${motivo}`);
+      for (const a of resto) problems.push(`${describeAccion(a as AccionDelAgente)}: ${motivo}`);
     };
 
     for (const [i, accion] of plan.actions.entries()) {
@@ -424,10 +424,12 @@ export class Director {
         break;
       }
 
-      const a = accion as AdventureAction;
+      const a = accion as AccionDelAgente;
       const desde = this.state.log.length;
       try {
-        applyAdventureAction(this.state, a, this.ctx, playerId);
+        // Dentro del `try`: un `slot` que no es un hueco del contrato descarta
+        // esta acción con su motivo (`huecoDelSlot`), no el turno.
+        applyAdventureAction(this.state, accionDelAgente(a), this.ctx, playerId);
         aplicadas++;
         this.frame();
       } catch (err) {

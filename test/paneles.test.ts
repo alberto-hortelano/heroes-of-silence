@@ -28,6 +28,7 @@ import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit, maxMana } from '../src/core/hero/hero.js';
 import { ascenderVeterano } from '../src/core/state/game.js';
+import { conMiles } from '../src/core/types.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import { meAtacan, volcado } from './escenas-paneles.js';
 
@@ -47,6 +48,21 @@ describe('el marcado de los paneles', () => {
       expect(mias[i], `línea ${i + 1} del volcado`).toBe(suyas[i]);
     }
     expect(salida).toBe(esperado);
+  });
+});
+
+describe('las cifras grandes se leen con separador de miles (QA, 12-10-2026)', () => {
+  it('«176000 / 304000» se pinta «176 000 / 304 000», con un espacio que no se parte', () => {
+    expect(conMiles(176_000)).toBe('176\u00A0000');
+    expect(conMiles(1_234_567)).toBe('1\u00A0234\u00A0567');
+    // Cuatro cifras, juntas (RAE); y lo pequeño, tal cual.
+    expect(conMiles(2500)).toBe('2500');
+    expect(conMiles(0)).toBe('0');
+    expect(conMiles(-12_000)).toBe('-12\u00A0000');
+    expect(() => conMiles(2.5)).toThrow('no es un entero');
+    expect(readFileSync(ANCLA, 'utf8')).toContain(
+      '<span class="label">Experiencia</span><span>176\u00A0000 / 304\u00A0000</span>',
+    );
   });
 });
 
@@ -86,7 +102,8 @@ describe('el héroe nacido de la tropa en el panel del cliente', () => {
     session.selectedHeroId = heroe.id;
     const salida = marcadoDe(renderSide(session));
     const tipo = tiposDeHeroe(heroe.faction)[2]!.nombre;
-    expect(salida).toContain(`HÉROE · NIVEL 5 · ${tipo}`);
+    // Rango 5, el de la tropa que acaba; nivel 3, el de su cuerpo de héroe.
+    expect(salida).toContain(`HÉROE · RANGO 5 · NIVEL 3 · ${tipo}`);
     expect(salida).toContain('Vio caer &lt;i&gt;tres&lt;/i&gt; murallas &amp; siguió.');
     expect(salida).not.toContain('<i>tres');
   });
@@ -112,9 +129,9 @@ describe('la ficha del héroe cuenta lo que lleva puesto (I4)', () => {
     );
   });
 
-  it('la cifra de fuera incluye lo que da el nivel: un héroe de nivel 6 pega uno más (A2)', () => {
-    // Sumar `hero.attack + equipo` en el panel se saltaba `ataquePorNivel`, y la
-    // ficha de un nivel 6 enseñaba uno menos de lo que pegaba.
+  it('la cifra de fuera incluye lo que da el rango: un héroe de rango 6 pega uno más (A2)', () => {
+    // Sumar `hero.attack + equipo` en el panel se saltaba `ataquePorRango`, y la
+    // ficha de un rango 6 enseñaba uno menos de lo que pegaba.
     const session = new Session(12);
     const heroe = session.myHeroes()[0]!;
     session.selectedHeroId = heroe.id;

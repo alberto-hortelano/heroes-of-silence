@@ -19,7 +19,8 @@ import { z } from 'zod';
 import { CARGA_MINIMA } from '../battle/battle.js';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../battle/damage.js';
-import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
+import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
+import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
 import {
@@ -33,6 +34,16 @@ import {
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { FACTION_IDS, HUECOS } from '../types.js';
+import { SLOT_DE_HUECO, SLOTS } from './huecos.js';
+
+/** Los huecos que el héroe trae puestos al nacer y los que trae vacíos, derivados del equipo base. */
+const HUECOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] !== undefined)
+  .map((h) => SLOT_DE_HUECO[h])
+  .join(', ');
+const VACIOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] === undefined).map(
+  (h) => `"${SLOT_DE_HUECO[h]}"`,
+);
+
 import { lineaLegible } from './linea.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js';
 
@@ -313,7 +324,7 @@ Acciones válidas (el turno termina solo, no hace falta enviar end_turn):
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>" }
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>", "veteran": "<id de veterano>" }
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>", "creature": "<id de criatura>" }
-  { "type": "unequip",   "hero": "<id>", "slot": "${HUECOS.join('" | "')}" }
+  { "type": "unequip",   "hero": "<id>", "slot": "${SLOTS.join('" | "')}" }
   { "type": "unequip",   "hero": "<id>", "slot": "<hueco>", "veteran": "<id de veterano>" }
   { "type": "hire_hero", "town": "<id>" }
   { "type": "end_turn" }
@@ -338,16 +349,23 @@ Notas:
   acciones que vengan detrás se siguen aplicando; con el grupo ya a la vista
   decides el turno que viene si sigues. Una emboscada antes del destino
   también sale en el veredicto como marcha parcial.
+- NIVEL y RANGO son dos cosas. El NIVEL de una unidad es la primera cifra de
+  su ÍNDICE DE PODER ("powerIndex": 340 es el nivel 3), que sale de sus cifras
+  SIN EQUIPO (ataque, defensa, PV, daño, velocidad, tiro y doble golpe): nadie
+  lo escribe y el equipo no lo mueve. "creature_stats" da de cada criatura su
+  "level", su "powerIndex" y su "dwelling" (la morada que la produce, 1-6), que
+  casi siempre es su nivel o el de al lado. El RANGO es la experiencia: la
+  TROPA va del 1 al 5, y todo HÉROE empieza en el 5 —el inicial y el
+  contratado— y sube sin tope (6, 7, 8…). Cada rango suma cifras (a la tropa,
+  ataque y defensa; al héroe, cuerpo y LIDERAZGO, el tope de su ejército), así
+  que su nivel sube cuando esas cifras lo suben.
 - La EXPERIENCIA se gana por daño: quien quita PV a un enemigo —criatura o
-  héroe, con golpes, disparos o hechizos— gana "PV quitados × nivel del que los
-  recibe", gane o pierda la batalla. La escala de niveles es UNA para tropa y
-  héroe: la TROPA va del 1 al 5, y todo HÉROE empieza en el 5 —el inicial y el
-  contratado— y sube sin tope (6, 7, 8…). "heroes[].level" lleva al lado su
-  "experience" y "nextLevelAt"; cada nivel por encima del 5 le da LIDERAZGO (el
-  tope de su ejército) y cuerpo. Pegarle a un héroe da mucho: recibe con su
-  nivel, 5 o más. Una fila de "army" con "level" es UN veterano, con su
-  "experience" y "nextLevelAt" (null en el 5); cada nivel le suma ataque y
-  defensa. Si muere, se pierde con lo que había ganado.
+  héroe, con golpes, disparos o hechizos— gana "PV quitados × powerIndex del
+  que los recibe" (el índice entero, 100 veces el nivel o algo más), gane o
+  pierda la batalla. "heroes[].rank" lleva al lado su "level",
+  su "experience" y "nextRankAt" (la experiencia del rango siguiente). Una fila
+  de "army" con "rank" es UN veterano, con su "level", su "experience" y
+  "nextRankAt" (null en el 5). Si muere, se pierde con lo que había ganado.
 - Un ejército son INDIVIDUOS, no stacks: "army[].count" dice cuántos lleva de
   cada criatura, y en batalla cada uno ocupa su hex. Dos límites deciden
   cuántos lleva: como mucho 6 individuos además del héroe, que pelea en el
@@ -370,13 +388,15 @@ Notas:
   los de MENOS experiencia: el veterano no se va mientras quede un novato de su
   tipo. Un personaje no se licencia, y fuera de un castillo tuyo se rechaza
   diciéndolo.
-- EQUIPO: todo héroe y todo individuo de la tropa tiene tres huecos
-  (${HUECOS.join(', ')}) y en cada uno lleva una pieza o nada; cada pieza suma
-  sus cifras a quien la lleva.
+- EQUIPO: todo héroe y todo individuo de la tropa tiene cuatro huecos
+  (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada; cada pieza suma
+  sus cifras a quien la lleva. "${SLOT_DE_HUECO.escudo}" es opcional: ${REGLA_DEL_ESCUDO}
+  (ponerle uno a quien lleva un arma a dos manos, o ponerle una a quien lleva
+  escudo, se rechaza diciéndolo).
   "heroes[].equipment" es lo que lleva puesto el héroe (por hueco, el id o null) y
   "heroes[].backpack" su MOCHILA, las piezas que lleva sin poner. Todo héroe nace
-  con el equipo de calidad de armería puesto en los tres huecos; solo mejora con
-  piezas especiales. De dónde salen las piezas:
+  con el equipo de calidad de armería puesto en ${HUECOS_DE_SERIE}${VACIOS_DE_SERIE.length === 0 ? '' : ` (y nada en ${VACIOS_DE_SERIE.join(', ')})`};
+  solo mejora con piezas especiales. De dónde salen las piezas:
   · BOTÍN: vencer a un grupo de asaltantes —atacándolo o repeliendo su
     emboscada— o tomar una ciudad NEUTRAL con guarnición deja una pieza común o
     especial, al azar, en la mochila del héroe que gana. Lo cuenta "recentEvents"
@@ -413,7 +433,7 @@ ${CATALOGO_DE_EQUIPO_EN_PROSA}
 - Cada héroe trae su "type", el TIPO de héroe (un id de los de su facción), y
   el que nació de la tropa trae además su "story". El tipo todavía NO da
   ninguna habilidad: se guarda y se ve.
-- Un VETERANO de nivel ${NIVEL_MAXIMO_DE_TROPA} —el tope de la tropa— que esté en tu base al empezar
+- Un VETERANO de rango ${RANGO_MAXIMO_DE_TROPA} —el tope de la tropa— que esté en tu base al empezar
   tu turno, en la guarnición o en la tropa de un héroe tuyo que esté allí, SE
   HACE HÉROE: antes de este turno se te pide con "hero_from_troop" que le des
   nombre, historia y tipo. Nace en la base, con su experiencia y sin movimiento
@@ -491,10 +511,10 @@ Notas:
   para el del rival: matarlo gana la batalla. Su magia ("cast") funciona
   mientras esté vivo. El héroe ya no suma ataque ni defensa a la tropa: sus
   cifras son las de su stack.
-- Un stack con "veteranLevel" es un VETERANO (nivel 2 a 5): su ataque y su
-  defensa ya traen lo que da su nivel. Cada PV que le quites a alguien te da
-  "PV × nivel de quien los recibe" de experiencia, así que pegar a un veterano o
-  a un héroe enseña más. La tropa que muere pierde lo que había ganado.
+- Un stack con "veteranRank" es un VETERANO (rango 2 a 5): su ataque y su
+  defensa ya traen lo que da su rango. Cada PV que le quites a alguien te da
+  "PV × índice de poder de quien los recibe" de experiencia (el de sus cifras
+  sin equipo; 100 × su nivel o algo más), así que pegar a lo fuerte enseña más. La tropa que muere pierde lo que había ganado.
 - "surrender" te rinde: pierdes la batalla, pagas el oro de la rendición y tu
   héroe vuelve a la base con la tropa que siga viva. El precio es proporcional
   a la tropa que salvas y viene en su "gold" dentro de "legalActions"; el oro
@@ -655,9 +675,9 @@ lista de problemas como aviso: no se te vuelve a pedir.`,
   "reasoning": "una línea opcional"
 }
 
-Un individuo de tu tropa ha llegado al nivel máximo y está en tu base: se hace
+Un individuo de tu tropa ha llegado al rango máximo y está en tu base: se hace
 HÉROE, y lo creas tú a partir de lo que fue. "veteran" es quién era —su
-criatura, su nivel, su experiencia, sus batallas, sus bajas y los héroes
+criatura, su rango y su nivel, su experiencia, sus batallas, sus bajas y los héroes
 rivales que derribó—, y "town" dónde está.
 
 - "name": una sola línea, sin saltos, caracteres de control ni marcas de
@@ -670,7 +690,7 @@ rivales que derribó—, y "town" dónde está.
   otra facción o uno inventado se rechaza diciendo los que valen. El tipo
   todavía NO da ninguna habilidad: se guarda, se ve y se usará cuando exista.
 
-El héroe nace en tu base con la experiencia del veterano (nivel ${NIVEL_MAXIMO_DE_TROPA} o más), las
+El héroe nace en tu base con la experiencia del veterano (rango ${RANGO_MAXIMO_DE_TROPA} o más), las
 cifras de un héroe contratado y SIN MOVIMIENTO hasta mañana. El veterano deja
 de estar donde estaba. Si nace en la casilla del castillo, se lleva la
 guarnición que le quepa, como uno contratado; si la casilla la ocupa otro

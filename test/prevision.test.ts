@@ -4,9 +4,10 @@
  * Por cada escenario —golpe, carga, disparo cerca y lejos, defensa, contraataque,
  * doble golpe, la momia, el dragón, Bendición y Maldición, héroes con ataque y
  * defensa, hechizos— se pide la previsión, se juega la acción y se mira el
- * registro: cada golpe cae en la horquilla de la rama de suerte que le tocó, las
- * bajas en las suyas, y entre todas las semillas se alcanzan el mínimo y el
- * máximo que la previsión dice (la horquilla no es más ancha de lo que pasa).
+ * registro: cada golpe cae en la horquilla de la rama de suerte que le tocó y
+ * las bajas en las suyas, semilla a semilla; y con el dado cargado en cada punta
+ * (`dadoCargado`) el primer golpe da justo el mínimo y el máximo que la previsión
+ * dice (la horquilla no es más ancha de lo que pasa).
  *
  * En `pnpm verify`, las reglas del juego, todas en fheroes2 y cada interruptor
  * solo; en `pnpm verify:lento`, las 64 combinaciones con 300 semillas.
@@ -43,6 +44,7 @@ import { creature, MURALLA } from '../src/core/data.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
 import { bando, mando as mandoDePrueba } from './batalla-de-prueba.js';
+import { dadoCargado } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
 /** Las reglas de una máscara de 6 bits: el bit `i` enciende `NOMBRES_DE_REGLA[i]`. */
@@ -355,9 +357,6 @@ describe('la previsión de daño cae en el daño real', () => {
       for (const mascara of MASCARAS) {
         const reglas = reglasDe(mascara);
         const que = `${e.nombre}, reglas ${mascara}`;
-        // Lo visto sin suerte en el primer golpe, contra lo previsto.
-        let menor = Number.POSITIVE_INFINITY;
-        let mayor = Number.NEGATIVE_INFINITY;
         let previsto: Prevision | null = null;
         for (const semilla of semillas) {
           const rng = createRng(semilla);
@@ -396,11 +395,6 @@ describe('la previsión de daño cae en el daño real', () => {
             const muertos = mios.reduce((n, g) => n + g.killed, 0);
             dentro(muertos, p.bajas, `${que}, bajas`);
           }
-          const primero = mios[0]!;
-          if (primero.suerte === undefined) {
-            menor = Math.min(menor, primero.damage);
-            mayor = Math.max(mayor, primero.damage);
-          }
           const devuelto = golpes.find((g) => g.retaliation);
           if (devuelto !== undefined) {
             if (p.contraataque === null) throw new Error(`${que}: contraatacó sin preverlo`);
@@ -414,13 +408,22 @@ describe('la previsión de daño cae en el daño real', () => {
           }
           vistos++;
         }
-        // La horquilla no es más ancha de lo que pasa: sus dos puntas se ven.
+        // La horquilla no es más ancha de lo que pasa: con el dado cargado en
+        // cada punta, el primer golpe (sin suerte) cae justo en ella.
         if (previsto !== null && previsto.kind !== 'hechizo') {
           const p = previsto as PrevisionDeGolpe;
-          expect([menor, mayor], `${que}: lo visto frente a lo previsto`).toEqual([
-            p.danio.min,
-            p.danio.max,
-          ]);
+          const enLaPunta = (punta: 'minimo' | 'maximo'): number => {
+            const { b, accion } = montar(e, reglas, createRng(SEMILLAS[0]!));
+            const desde = b.log.length;
+            applyAction(b, accion, dadoCargado(punta));
+            const primero = golpesDe(b.log.slice(desde)).find((g) => !g.retaliation);
+            if (primero === undefined) throw new Error(`${que}: con el dado cargado no golpeó`);
+            return primero.damage;
+          };
+          expect(
+            [enLaPunta('minimo'), enLaPunta('maximo')],
+            `${que}: lo visto frente a lo previsto`,
+          ).toEqual([p.danio.min, p.danio.max]);
         }
       }
       expect(vistos).toBe(MASCARAS.length * semillas.length);

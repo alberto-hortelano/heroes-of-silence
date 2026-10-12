@@ -502,8 +502,8 @@ document.addEventListener('click', (ev) => {
       break;
     }
     case 'unequip': {
-      // El hueco lo valida el núcleo (`unequipBlocker`), que es la puerta por la
-      // que entra también el agente: uno mal escrito sale en la barra con su motivo.
+      // El hueco lo valida la sesión (`esHueco`), su puerta al núcleo: uno mal
+      // escrito sale en la barra con su motivo.
       session.unequip(
         target.getAttribute('data-hero') as string,
         target.getAttribute('data-slot') as string,

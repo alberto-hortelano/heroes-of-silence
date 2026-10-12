@@ -133,7 +133,7 @@ type Cuerpo =
   /** Un héroe compra una pieza en la armería de un pueblo suyo. Equipar no es un hecho: es estado. */
   | { kind: 'item_bought'; hero: string; town: string; item: string }
   /**
-   * Un veterano de nivel máximo se hace héroe en su base (ciclo B de «la tropa
+   * Un veterano de rango máximo se hace héroe en su base (ciclo B de «la tropa
    * crece»): `hero` es el id del nuevo, `creature` lo que era y `name` el nombre
    * que le dio el narrador. Solo ocurre con agente —«solo con narrador»—, así
    * que en una partida sin él no sale nunca y el volcado del banco no lo ve.
@@ -210,15 +210,18 @@ type Cuerpo =
    */
   | { kind: 'hero_returned'; hero: string; town: string; surrendered: false }
   | { kind: 'hero_returned'; hero: string; town: string; surrendered: true; gold: number }
-  | { kind: 'level_up'; hero: string; level: number }
   /**
-   * Un individuo de la tropa sube de nivel de veteranía: uno por nivel, como
-   * `level_up`. `veterano` es su `Veterania.id` —la tropa que se hace héroe
+   * Un héroe sube de rango (su experiencia): uno por rango. Su NIVEL no va aquí:
+   * es el de sus cifras (`nivelDeUnidad`), que el rango sube o no.
+   */
+  | { kind: 'rank_up'; hero: string; rank: number }
+  /**
+   * Un individuo de la tropa sube de rango: uno por rango, como `rank_up`. `veterano` es su `Veterania.id` —la tropa que se hace héroe
    * (ciclo B) tiene que poder decir CUÁL—; `actor` es su dueño. No dice quién lo
    * llevaba: no lo leía nadie, y un campo que nadie lee en cada hecho es volcado
    * y payload de más.
    */
-  | { kind: 'troop_level_up'; creature: string; level: number; veterano: string }
+  | { kind: 'troop_rank_up'; creature: string; rank: number; veterano: string }
   /**
    * Un jugador queda eliminado, y **por qué**. Sin el motivo, el cliente
    * escribía la regla de antes del mapa de nodos —«no te quedan castillos ni
@@ -276,8 +279,8 @@ export const SE_VE_POR: Readonly<
   march_halted: 'casilla y grupo',
   hero_defeated: 'casilla',
   hero_returned: 'casilla',
-  level_up: 'casilla',
-  troop_level_up: 'casilla',
+  rank_up: 'casilla',
+  troop_rank_up: 'casilla',
   player_defeated: 'casilla',
   game_over: 'casilla',
 };
@@ -351,8 +354,8 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'battle_ended':
     case 'hero_defeated':
     case 'hero_returned':
-    case 'level_up':
-    case 'troop_level_up':
+    case 'rank_up':
+    case 'troop_rank_up':
     case 'raider_spawned':
     case 'raider_dispersed':
     case 'march_halted':

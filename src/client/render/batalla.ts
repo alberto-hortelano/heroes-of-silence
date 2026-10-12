@@ -26,7 +26,7 @@ import {
 import {
   type BattleStack,
   type BattleState,
-  nivelDeVeterania,
+  rangoDeVeterania,
   type Side,
 } from '@core/battle/types.js';
 import { hexSize, isShooter } from '@core/data.js';
@@ -1565,16 +1565,16 @@ export function pintarSobreLaCabeza(
 }
 
 /**
- * Cuántos galones lleva la figura: uno por nivel de veteranía por encima del 1,
+ * Cuántos galones lleva la figura: uno por rango por encima del 1,
  * así que un novato no lleva ninguno y uno de nivel 5, cuatro. Se lee del
  * origen —la hoja con la que entró—, la misma de la que salen sus cifras.
  */
 export function galonesDe(s: BattleStack): number {
-  return nivelDeVeterania(s.origen) - 1;
+  return rangoDeVeterania(s.origen) - 1;
 }
 
 /**
- * Los galones, encima de la barra y centrados: uves invertidas en fila, una por nivel de
+ * Los galones, encima de la barra y centrados: uves invertidas en fila, una por rango de
  * veteranía por encima del 1. Encima y no a un lado porque a la izquierda caía
  * la corona del comandante vecino y a la derecha van los tiros del tirador. Con
  * trazos y no con un glifo, porque un `︽` depende de la fuente que tenga quien

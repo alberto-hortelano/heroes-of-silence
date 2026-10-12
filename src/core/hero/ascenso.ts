@@ -18,7 +18,7 @@
 import { tipoDeHeroe, tiposDeHeroe } from '../data.js';
 import type { Town } from '../town/town.js';
 import type { FactionId, Veterania } from '../types.js';
-import { NIVEL_MAXIMO_DE_TROPA, nivelDeTropa } from './experiencia.js';
+import { RANGO_MAXIMO_DE_TROPA, rangoDeTropa } from './experiencia.js';
 import type { Hero } from './hero.js';
 
 /**
@@ -54,7 +54,7 @@ export function veteranosEn(base: Town, heroeDentro: Hero | undefined): Veterano
   const listo = (t: Hero['army'][number]): t is typeof t & { veterania: Veterania } =>
     t.member === undefined &&
     t.veterania !== undefined &&
-    nivelDeTropa(t.veterania) >= NIVEL_MAXIMO_DE_TROPA;
+    rangoDeTropa(t.veterania) >= RANGO_MAXIMO_DE_TROPA;
   for (const t of base.garrison) {
     if (listo(t)) out.push({ veterania: t.veterania, creature: t.creature, base, heroe: null });
   }

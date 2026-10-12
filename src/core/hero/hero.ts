@@ -4,7 +4,7 @@ import { marchaALaEscala } from '../escala.js';
 import type { Army, Equipo, FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
 import { conEquipo, EQUIPO_BASE } from './equipo.js';
-import { nivelDeHeroe, subidasDeHeroe } from './experiencia.js';
+import { rangoDeHeroe, subidasDeRango } from './experiencia.js';
 import { type Personajes, troopUnit } from './troop.js';
 
 /** Habilidades secundarias del slice. Cada una en básico/avanzado/experto. */
@@ -21,7 +21,7 @@ export interface Hero {
   spellPower: number;
   knowledge: number;
   mana: number;
-  /** El nivel se deriva de aquí (`nivelDeHeroe`): no hay un `level` que mantener al día. */
+  /** El rango se deriva de aquí (`rangoDeHeroe`): no hay un `level` que mantener al día. */
   experience: number;
   army: Army;
   at: Point;
@@ -134,8 +134,9 @@ export const HERO_BODY = 'hero';
  * puede caer). Cifras de `data/heroe.json`, **inventadas y provisionales**.
  *
  * Su ataque y su defensa son los de su cuerpo (`BattleHero` cuenta por qué ya
- * no son un bono a la tropa). Lo que crece con el nivel lo dice el JSON, contado
- * desde el nivel inicial del héroe (el 5: `subidasDeHeroe`). Entra
+ * no son un bono a la tropa). Lo que crece con el rango lo dice el JSON, contado
+ * desde el rango inicial del héroe (el 5: `subidasDeRango`). Su **nivel** no se
+ * escribe: es el de este cuerpo sin equipo (`nivelDeUnidad`). Entra
  * sano a cada batalla: no hay heridas que arrastrar, así que esto no mira nada
  * más que el héroe.
  *
@@ -149,27 +150,25 @@ export function heroUnit(
   hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience' | 'equipo'>,
 ): UnitInfo {
   const c = HEROE.combate;
-  const nivel = nivelDeHeroe(hero);
-  const subidas = subidasDeHeroe(nivel);
-  // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`).
-  return conEquipo(cuerpoDesnudo(hero, c, nivel, subidas), hero.equipo);
+  const subidas = subidasDeRango(rangoDeHeroe(hero));
+  // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`), que deja
+  // el cuerpo desnudo en `sinEquipo` para medir su nivel.
+  return conEquipo(cuerpoDesnudo(hero, c, subidas), hero.equipo);
 }
 
 function cuerpoDesnudo(
   hero: Pick<Hero, 'name' | 'attack' | 'defense'>,
   c: (typeof HEROE)['combate'],
-  nivel: number,
   subidas: number,
 ): UnitInfo {
   return {
     name: hero.name,
     faction: null,
-    attack: hero.attack + c.ataquePorNivel * subidas,
-    defense: hero.defense + c.defensaPorNivel * subidas,
-    damage: [c.danio.min, c.danio.max + c.danio.maxPorNivel * subidas],
-    hp: c.pv.base + c.pv.porNivel * subidas,
+    attack: hero.attack + c.ataquePorRango * subidas,
+    defense: hero.defense + c.defensaPorRango * subidas,
+    damage: [c.danio.min, c.danio.max + c.danio.maxPorRango * subidas],
+    hp: c.pv.base + c.pv.porRango * subidas,
     speed: c.velocidad,
-    nivel,
   };
 }
 

@@ -10,9 +10,9 @@
  *
  * | atributo    | efecto                      | fórmula                          |
  * |-------------|-----------------------------|----------------------------------|
- * | fuerza      | daño                        | [1 + ⌊a/4⌋, 2 + ⌊a/2⌋]           |
+ * | fuerza      | daño                        | 10 × [1 + ⌊a/4⌋, 2 + ⌊a/2⌋]      |
  * | destreza    | ataque, velocidad           | ⌊a/3⌋ + n + 1; <10 slow, <13 average, <16 fast, si no very_fast |
- * | resistencia | PV, defensa                 | 10 + 2a (`maxHpFrom`); ⌊a/4⌋ en la defensa |
+ * | resistencia | PV, defensa                 | 10 × (10 + 2a) (`maxHpFrom`); ⌊a/4⌋ en la defensa |
  * | intelecto   | defensa                     | ⌊a/4⌋ en la defensa, más n       |
  * | percepción  | suerte; munición del Guardabosques | ⌊(a − 8)/4⌋; a disparos   |
  * | voluntad    | moral                       | ⌊(a − 8)/4⌋                      |
@@ -23,12 +23,15 @@
  *
  * Moral y suerte salen 0 con 8..11, así que un personaje es neutro por defecto.
  * Las cifras quedan en el orden de una criatura de nivel 3-4 —el espadachín es
- * 7/9/[4,6]/25— para que un individuo aguante un duelo contra otro y no contra
- * un ejército.
+ * 7/9/[40,60]/250— para que un individuo aguante un duelo contra otro y no contra
+ * un ejército. PV y daño van a `ESCALA_DE_CIFRAS` (el 10 de la tabla), como el
+ * catálogo. Su nivel no se escribe: es el de estas cifras (`nivelDeUnidad`);
+ * `Character.level` es otra cosa, lo que suma a ataque y defensa.
  *
  * Solo `Math.floor`: `core` no ejecuta coma flotante que dependa de la
  * plataforma (`test/invariantes.test.ts`).
  */
+import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { SpeedTier, UnitInfo } from '../types.js';
 import { type Character, effectiveAttributes, maxHpFrom } from './character.js';
 
@@ -56,10 +59,12 @@ export function combatProfile(c: Character): CombatProfile {
     faction: null,
     attack: Math.floor(a.destreza / 3) + n + 1,
     defense: Math.floor(a.resistencia / 4) + Math.floor(a.intelecto / 4) + n,
-    damage: [1 + Math.floor(a.fuerza / 4), 2 + Math.floor(a.fuerza / 2)],
+    damage: [
+      ESCALA_DE_CIFRAS * (1 + Math.floor(a.fuerza / 4)),
+      ESCALA_DE_CIFRAS * (2 + Math.floor(a.fuerza / 2)),
+    ],
     hp: maxHpFrom(a),
     speed: speedFor(a.destreza),
-    nivel: n,
     // Mago y Sanador no tienen rasgo propio: la magia sigue siendo del héroe.
     ...(c.profession === 'Guardabosques' ? { shots: a.percepcion } : {}),
   };

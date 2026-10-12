@@ -40,7 +40,7 @@ interface OpcionesDeArranque {
   /**
    * El fichero que arranca la partida. Por defecto, el de siempre; `pnpm qa`
    * pasa `tools/qa/partida-con-veterano.ts`, que es la misma partida con un
-   * veterano de nivel 5 en la base del agente.
+   * veterano de rango 5 en la base del agente.
    */
   readonly entrada?: string;
 }

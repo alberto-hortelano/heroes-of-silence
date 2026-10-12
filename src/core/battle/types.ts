@@ -1,4 +1,4 @@
-import { nivelDeTropa } from '../hero/experiencia.js';
+import { rangoDeTropa } from '../hero/experiencia.js';
 import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { EffectKind, StackEffect } from './effects.js';
 import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
@@ -50,7 +50,7 @@ export type OrigenDelStack =
 
 /** Lo que un stack ha ganado en esta batalla: lo apunta `herir`, lo cobra `settleBattle`. */
 export interface Ganado {
-  /** `PV quitados × nivel del que los recibe`, sumado golpe a golpe. */
+  /** `PV quitados × índice de poder del que los recibe`, sumado golpe a golpe. */
   experiencia: number;
   /** Individuos enemigos que ha matado. */
   bajas: number;
@@ -74,19 +74,19 @@ export function personajeDe(origen: OrigenDelStack): string | null {
 }
 
 /**
- * El nivel de veteranía con el que entró este stack: 1 para un novato, un
- * monstruo y el héroe —que no es tropa: su nivel va en sus cifras—. Con un
- * `switch` que devuelve, como `personajeDe`.
+ * El rango con el que entró este stack: 1 para un novato, un monstruo y el
+ * héroe —que no es tropa: su rango va en sus cifras—. Con un `switch` que
+ * devuelve, como `personajeDe`.
  *
  * Tiene tres lectores —los galones de la figura, la fila de «En el campo» y el
- * `veteranLevel` del agente— y los tres preguntan lo mismo: el nivel, no la
+ * `veteranRank` del agente— y los tres preguntan lo mismo: el rango, no la
  * hoja. Antes cada uno sacaba la hoja y la convertía por su cuenta.
  */
-export function nivelDeVeterania(origen: OrigenDelStack): number {
+export function rangoDeVeterania(origen: OrigenDelStack): number {
   switch (origen.kind) {
     case 'catalogo':
     case 'personaje':
-      return nivelDeTropa(origen.veterania);
+      return rangoDeTropa(origen.veterania);
     case 'heroe':
       return 1;
   }
@@ -334,7 +334,7 @@ export type FichaEnPalabras = Readonly<Record<string, string | readonly string[]
 
 /** El tipo del montaje de la arena del que sale un stack (`BattleState.tiposDeArena`). */
 export interface TipoDeArena {
-  readonly kind: 'hoja' | 'catalogo';
+  readonly kind: 'unidad' | 'catalogo';
   readonly id: string;
 }
 
@@ -380,7 +380,7 @@ export interface BattleState {
    * De qué tipo del montaje sale cada stack de la tropa, por bando y en el orden
    * de su `slot`: una hoja del borrador o una criatura del catálogo. Solo la
    * arena lo pone (`batallaDeArena`) y lo lee (`tipoDelStack`): retocar un tipo a
-   * media pelea cambia los suyos, y el `body` no dice si es hoja o criatura.
+   * media pelea cambia los suyos, y el `body` (su cuerpo) no dice de qué unidad es.
    */
   readonly tiposDeArena?: Readonly<Record<Side, readonly TipoDeArena[]>>;
   /**

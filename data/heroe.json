@@ -1,10 +1,10 @@
 {
-  "_comment": "El héroe como figura del tablero (fase 1b de NuevaJugabilidad) y el precio de rendirse. TODO INVENTADO y PROVISIONAL: inspirado en el héroe de HoMM como comandante que pelea, pero NO verificado contra fheroes2 —allí el héroe no pisa el tablero y no hay fila de la que copiar—. Que nadie cite estas cifras como del original: es la lección de la tabla de experiencia. combate: el cuerpo del héroe en batalla; pv = base + porNivel × (nivel − 5); ataque y defensa = los del héroe + porNivel × (nivel − 5); daño = [min, max + maxPorNivel × (nivel − 5)]. El − 5 es porque todo héroe empieza en el nivel 5 de la escala única con la tropa (decisión del usuario, 02-10-2026; experiencia.ts, subidasDeHeroe): las cifras base son las de un héroe recién hecho. El héroe entra SANO a cada batalla (decisión del usuario): no hay heridas persistentes. rendicion.porcentajeDelOro = lo que cuesta rendirse, en % del oro de catálogo de la tropa viva que se salva (decisión del usuario, 01-10-2026: 50 %, provisional).",
+  "_comment": "El héroe como figura del tablero (fase 1b de NuevaJugabilidad) y el precio de rendirse. TODO INVENTADO y PROVISIONAL: inspirado en el héroe de HoMM como comandante que pelea, pero NO verificado contra fheroes2 —allí el héroe no pisa el tablero y no hay fila de la que copiar—. Que nadie cite estas cifras como del original: es la lección de la tabla de experiencia. combate: el cuerpo del héroe en batalla; pv = base + porRango × (rango − 5); ataque y defensa = los del héroe + porRango × (rango − 5); daño = [min, max + maxPorRango × (rango − 5)]. El − 5 es porque todo héroe empieza en el rango 5, donde acaba la tropa (decisión del usuario, 02-10-2026; experiencia.ts, subidasDeRango): las cifras base son las de un héroe recién hecho. El rango es la experiencia; el NIVEL del héroe no se escribe: es la primera cifra del índice de poder de este cuerpo sin equipo (core/nivel.ts, nivelDeUnidad). PV y daño van ×10 desde el 12-10-2026 (la escala del índice de poder: decisión del usuario), con todo el juego. El héroe entra SANO a cada batalla (decisión del usuario): no hay heridas persistentes. rendicion.porcentajeDelOro = lo que cuesta rendirse, en % del oro de catálogo de la tropa viva que se salva (decisión del usuario, 01-10-2026: 50 %, provisional).",
   "combate": {
-    "pv": { "base": 50, "porNivel": 10 },
-    "ataquePorNivel": 1,
-    "defensaPorNivel": 1,
-    "danio": { "min": 2, "max": 4, "maxPorNivel": 1 },
+    "pv": { "base": 500, "porRango": 100 },
+    "ataquePorRango": 1,
+    "defensaPorRango": 1,
+    "danio": { "min": 20, "max": 40, "maxPorRango": 10 },
     "velocidad": "average"
   },
   "rendicion": { "porcentajeDelOro": 50 }

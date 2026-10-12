@@ -1,5 +1,5 @@
 /**
- * La partida del servidor con un veterano de nivel 5 y una armería en la base del
+ * La partida del servidor con un veterano de rango 5 y una armería en la base del
  * jugador del agente (el 1) desde el día 1. La arranca `pnpm qa` en lugar de
  * `src/server/ws-server.ts`, para que el ascenso de la tropa a héroe cruce el
  * circuito entero —servidor, puente MCP, agente— en cada pasada, y con él la

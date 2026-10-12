@@ -22,6 +22,7 @@
 import { quedanCasillas } from '@core/battle/battle.js';
 import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
+import type { AccionDelAgente } from '@core/contract/huecos.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEvent } from '@core/state/events.js';
@@ -585,7 +586,7 @@ export function notaMapaAceptado(width: number, height: number, ciudades: number
  */
 export function notaAscenso(
   heroe: { readonly id: string; readonly name: string; readonly tipo: string },
-  nivel: number,
+  rango: number,
   base: string,
   donde: { readonly enElCastillo: boolean; readonly tropa: number },
 ): string {
@@ -595,7 +596,7 @@ export function notaAscenso(
       ? `Se ha llevado ${donde.tropa} ${donde.tropa === 1 ? 'individuo' : 'individuos'} de la guarnición.`
       : 'No había guarnición que recoger: nace sin tropa.';
   return (
-    `${heroe.name} (${heroe.id}) es ya un héroe tuyo de tipo ${heroe.tipo} y nivel ${nivel}, en ` +
+    `${heroe.name} (${heroe.id}) es ya un héroe tuyo de tipo ${heroe.tipo} y rango ${rango}, en ` +
     `${base}. ${tropa} Nace sin movimiento: lo moverás desde mañana.`
   );
 }
@@ -788,7 +789,7 @@ function recuento(state: GameState, id: PlayerId): string {
  * secas: el agente recibía `move_hero: no hay camino` con cuatro `move_hero` en
  * el mismo turno, y ya no se reintentan solos.
  */
-export function describeAccion(accion: BattleAction | AdventureAction): string {
+export function describeAccion(accion: BattleAction | AccionDelAgente): string {
   switch (accion.type) {
     case 'move':
       return `movimiento a (${accion.to.col},${accion.to.row})`;

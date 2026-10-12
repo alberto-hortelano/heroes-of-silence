@@ -33,6 +33,16 @@ export const AREA_POR_REGION = 450;
  */
 export const AREA_DE_REFERENCIA = 300;
 
+/**
+ * La escala de las cifras de combate: **PV y daño van ×10** respecto a las de
+ * fheroes2 (decisión del usuario con el nivel derivado, 12-10-2026), para que el
+ * índice de poder tenga cifras con las que distinguir; ataque, defensa y la
+ * fórmula de daño no cambian. Todo lo que mide en PV o en daño y se calibró en la
+ * escala de fheroes2 —la fuerza de la IA, el precio del maná, el valor de una
+ * pieza, el personaje, los borradores viejos de la arena— la lee de aquí.
+ */
+export const ESCALA_DE_CIFRAS = 10;
+
 /** ⌊√n⌋ de un entero ≥ 0, por bisección: `core` no usa `Math.sqrt` (`CLAUDE.md`, coma flotante). */
 export function raizEntera(n: number): number {
   if (!Number.isSafeInteger(n) || n < 0)

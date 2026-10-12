@@ -429,6 +429,22 @@ describe('sin camino, la barra dice qué lo cierra (M2 de la 2a)', () => {
   });
 });
 
+describe('el hueco que llega del marcado pasa por la sesión', () => {
+  it('uno que no es un hueco sale en la barra con los que valen, y nada cambia', () => {
+    const session = new Session(12);
+    const aldo = session.myHeroes()[0]!;
+    const antes = { ...aldo.equipo };
+    session.unequip(aldo.id, 'casco');
+    expect(session.status).toBe(
+      'no hay ningún hueco "casco": son arma, armadura, accesorio, escudo',
+    );
+    expect(aldo.equipo).toEqual(antes);
+    // Y el vacío, por su nombre: «Escudo», no la clave.
+    session.unequip(aldo.id, 'escudo');
+    expect(session.status).toBe(`no se puede desequipar: ${aldo.name} no lleva nada en Escudo`);
+  });
+});
+
 describe('la pieza elegida es de la mochila de un héroe (M1)', () => {
   it('se suelta al cambiar de héroe y al dejar de estar en su mochila', () => {
     const session = new Session(12);

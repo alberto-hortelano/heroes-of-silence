@@ -172,7 +172,7 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
 
   it('el cuerpo sale de `data/heroe.json` y crece con el nivel', () => {
     const c = HEROE.combate;
-    // Dos niveles por encima del inicial (el 5): dos `porNivel`.
+    // Dos niveles por encima del inicial (el 5): dos `porRango`.
     const nivel7 = heroUnit({
       name: 'X',
       attack: 2,
@@ -180,10 +180,10 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
       experience: umbral(7),
       equipo: {},
     });
-    expect(nivel7.hp).toBe(c.pv.base + 2 * c.pv.porNivel);
-    expect(nivel7.attack).toBe(2 + 2 * c.ataquePorNivel);
-    expect(nivel7.defense).toBe(3 + 2 * c.defensaPorNivel);
-    expect(nivel7.damage).toEqual([c.danio.min, c.danio.max + 2 * c.danio.maxPorNivel]);
+    expect(nivel7.hp).toBe(c.pv.base + 2 * c.pv.porRango);
+    expect(nivel7.attack).toBe(2 + 2 * c.ataquePorRango);
+    expect(nivel7.defense).toBe(3 + 2 * c.defensaPorRango);
+    expect(nivel7.damage).toEqual([c.danio.min, c.danio.max + 2 * c.danio.maxPorRango]);
     expect(nivel7.speed).toBe(c.velocidad);
     // Sin facción: no altera la moral por diversidad del ejército.
     expect(nivel7.faction).toBeNull();
@@ -591,7 +591,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const tras = state.log.slice(state.log.findIndex((e) => e.kind === 'battle_ended'));
     // Los ascensos van pegados al `battle_ended`, antes de cualquier
     // consecuencia: se cobran con los dos héroes todavía en el mapa.
-    const ascensos = (k: string) => k === 'level_up' || k === 'troop_level_up';
+    const ascensos = (k: string) => k === 'rank_up' || k === 'troop_rank_up';
     const kinds = tras.map((e) => e.kind);
     const primeraConsecuencia = kinds.findIndex((k, i) => i > 0 && !ascensos(k));
     expect(kinds.slice(1, primeraConsecuencia).every(ascensos)).toBe(true);

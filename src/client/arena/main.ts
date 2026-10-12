@@ -16,8 +16,10 @@ import {
   cifrasDeCatalogoEnLaArena,
   criaturasDelCatalogo,
   despliegueDeArenaBlocker,
+  equiparEnArena,
   escaleraDeArenaBlocker,
   type FuenteDeArena,
+  figuraDeLaUnidad,
   type HeroeDeArena,
   type HojaDeArena,
   heroePorDefecto,
@@ -29,10 +31,13 @@ import {
   montajeALaURL,
   montajeDeLaURL,
   type PuestoDelEnlace,
+  perfilDeLasHojas,
+  quitarEnArena,
   type RetoqueDeArena,
   tipoDelStack,
   type UnidadDeArena,
   unaVezEnLaURL,
+  unidadNueva,
   unidadPorDefecto,
   validarHeroeDeArena,
   validarHojasDeArena,
@@ -66,7 +71,7 @@ import { allSpells } from '@core/battle/spells.js';
 import type { BattleAction, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import { creature, LIDERAZGO } from '@core/data.js';
 import { parseSeed } from '@core/rng.js';
-import type { CreatureTrait, Hex, UnitInfo } from '@core/types.js';
+import { type CreatureTrait, esHueco, type Hex, type UnitInfo } from '@core/types.js';
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
@@ -108,9 +113,12 @@ import {
   interiorDeFichaAbierta,
   leerAbiertas,
   listaPlegadaTras,
+  partirClave,
   renderEdicion,
 } from './edicion.js';
 import {
+  avisoDelBorradorLeido,
+  avisoDeNuevaUnidad,
   type ComoDeLaFicha,
   type DatosDePuesto,
   type Elegida,
@@ -120,6 +128,7 @@ import {
   type FuenteDePuesto,
   focoTrasQuitar,
   type HerramientaDeMuralla,
+  type ListaDeUnidades,
   type Puesto,
   renderBando,
   renderCatalogo,
@@ -132,6 +141,7 @@ import {
   renderReglas,
   resumenDeCifras,
   resumenDeUnidad,
+  type TarjetaDeUnidad,
 } from './paneles.js';
 
 const app = document.getElementById('app') as HTMLElement;
@@ -162,12 +172,20 @@ const elBando: Record<Lado, HTMLElement> = {
 // ---------------------------------------------------------------- estado
 
 let hojas: readonly HojaDeArena[] = [];
+/** Las mismas, por su id: se hace al cargarlas y lo leen todas las preguntas por una hoja. */
+let hojasPorId: ReadonlyMap<string, HojaDeArena> = new Map();
 /**
- * Las cifras por TIPO de hoja: cambiar el monje cambia todos los monjes. Lleva
- * también las del borrador que no tienen hoja —no se pueden montar—, para que
+ * Las cifras por TIPO de unidad, por su id: cambiar el monje cambia todos los
+ * monjes. Las de las hojas (id = la hoja) y las nuevas (`unidadNueva`). Lleva
+ * también las del borrador cuya hoja no está —no se pueden montar—, para que
  * «Guardar» no las tire (H2 de QA).
  */
 const borrador = new Map<string, UnidadDeArena>();
+/**
+ * Los ids de las unidades del borrador que no validan: se conservan al guardar y
+ * una unidad nueva no los toma (`IdsOcupados`, H1 de QA del ciclo 2).
+ */
+let idsSinValidar: readonly string[] = [];
 const montaje: Record<Lado, Puesto[]> = { izquierda: [], derecha: [] };
 /** El héroe de cada lado, si lleva. */
 const heroes: Record<Lado, HeroeDeArena | null> = { izquierda: null, derecha: null };
@@ -375,8 +393,8 @@ function cifrasDelCatalogo(id: string): UnitInfo {
  * criatura con su prueba, y su escalera.
  */
 function fuenteDeArena(p: Puesto): FuenteDeArena {
-  return p.fuente.kind === 'hoja'
-    ? { kind: 'borrador', unidad: unidadDe(p.fuente.hoja), escalera: p.escalera }
+  return p.fuente.kind === 'unidad'
+    ? { kind: 'borrador', unidad: unidadDe(p.fuente.unidad), escalera: p.escalera }
     : {
         kind: 'catalogo',
         id: p.fuente.id,
@@ -397,12 +415,12 @@ function montajeDeArena(): MontajeDeArena {
 /** Lo que la tarjeta de un puesto de `lado` enseña, salga de donde salga. */
 function describir(p: Puesto, lado: Lado): DatosDePuesto {
   const noEscala = escaleraDeArenaBlocker(fuenteDeArena(p), lado);
-  if (p.fuente.kind === 'hoja') {
-    const u = unidadDe(p.fuente.hoja);
+  if (p.fuente.kind === 'unidad') {
+    const u = unidadDe(p.fuente.unidad);
     return {
       nombre: u.name,
       resumen: resumenDeCifras(u),
-      figura: p.fuente.hoja,
+      figura: figuraDeLaUnidad(u),
       sello: 'borrador',
       noEscala,
     };
@@ -420,9 +438,7 @@ function describir(p: Puesto, lado: Lado): DatosDePuesto {
 /** El nombre de quien se pinta en una miniatura: una hoja, una criatura o el héroe genérico. */
 function nombreDeFigura(id: string): string {
   if (id === FIGURA_GENERICA) return 'Héroe';
-  return nombreDeFicha(
-    hojas.some((h) => h.id === id) ? { kind: 'hoja', id } : { kind: 'catalogo', id },
-  );
+  return hojasPorId.get(id)?.nombre ?? creature(id).name;
 }
 
 /** Las hojas de héroe completas, para elegir la figura del héroe. */
@@ -444,13 +460,88 @@ function laFichaDe(el: Element, que: string): Elegida {
 }
 
 function hojaPorId(id: string): HojaDeArena {
-  const h = hojas.find((x) => x.id === id);
+  const h = hojasPorId.get(id);
   if (h === undefined) throw new Error(`no hay ninguna hoja «${id}» en assets/unidades/`);
   return h;
 }
 
 function unidadDe(id: string): UnidadDeArena {
   return borrador.get(id) ?? unidadPorDefecto(hojaPorId(id));
+}
+
+/**
+ * Por qué la unidad `u` no se monta, o `null` si se monta: la hoja de su cuerpo
+ * no está o está a medias en el taller (#140). Una criatura del catálogo se
+ * monta siempre. Nunca se pinta con el Y Bot en su lugar.
+ */
+function porQueNoSeMonta(u: UnidadDeArena): string | null {
+  if (!('hoja' in u.cuerpo)) return null;
+  const hoja = u.cuerpo.hoja;
+  const h = hojasPorId.get(hoja);
+  if (h === undefined) return `su hoja «${hoja}» no está en assets/unidades/`;
+  return h.incompleta;
+}
+
+/**
+ * Lo que la lista enseña además de las hojas, en el montaje y en la edición: las
+ * unidades nuevas del borrador (las que no son la de una hoja), con el retrato de
+ * su hoja o la figura de su criatura, y los cuerpos que ofrece «Nueva unidad»
+ * (las hojas con su arte entero y el catálogo).
+ */
+function listaDeUnidades(): ListaDeUnidades {
+  const nuevas = [...borrador.values()]
+    .filter((u) => !hojasPorId.has(u.id))
+    .map(
+      (u): TarjetaDeUnidad => ({
+        id: u.id,
+        nombre: u.name,
+        faccion: u.faction,
+        figura: 'hoja' in u.cuerpo ? { retrato: u.cuerpo.hoja } : { figura: figuraDeLaUnidad(u) },
+        sello: 'nueva',
+        incompleta: porQueNoSeMonta(u),
+      }),
+    );
+  return {
+    nuevas,
+    cuerpos: {
+      hojas: hojas
+        .filter((h) => h.incompleta === null)
+        .map((h) => ({ id: h.id, nombre: h.nombre })),
+      criaturas: criaturasDelCatalogo(),
+    },
+  };
+}
+
+/**
+ * Crea una unidad nueva con el cuerpo elegido (`hoja:<id>` o `criatura:<id>`), la
+ * mete en el borrador y la deja elegida; en la edición, además, abre su ficha.
+ */
+function crearUnidad(valor: string): string | null {
+  if (valor === '') {
+    aviso = 'Elige primero un cuerpo para la unidad nueva.';
+    return null;
+  }
+  const partido = partirClave(valor);
+  let cuerpo: Parameters<typeof unidadNueva>[0];
+  if (partido?.tipo === 'hoja') {
+    const h = hojaPorId(partido.id);
+    if (h.incompleta !== null) throw new Error(`${h.nombre} no se monta: ${h.incompleta}`);
+    cuerpo = { hoja: h };
+  } else if (partido?.tipo === 'criatura') {
+    cuerpo = { criatura: creature(partido.id).id };
+  } else {
+    throw new Error(`«${valor}» no es un cuerpo: se esperaba hoja:<id> o criatura:<id>`);
+  }
+  const u = unidadNueva(cuerpo, {
+    validas: [...borrador.keys()],
+    sinValidar: idsSinValidar,
+    hojas: [...hojasPorId.keys()],
+  });
+  borrador.set(u.id, u);
+  cambiosSinGuardar = true;
+  elegida = { kind: 'unidad', id: u.id };
+  aviso = avisoDeNuevaUnidad(u, escena === 'edicion' ? 'edicion' : 'montaje');
+  return u.id;
 }
 
 // ---------------------------------------------------------------- arranque
@@ -471,6 +562,8 @@ interface RespuestaDeBorrador {
     readonly motivo: string;
   }[];
   readonly ilegible?: string;
+  /** Lo que hubo que decir al convertir unidades de antes del equipo (`migrarUnidadDeArena`). */
+  readonly avisos?: readonly string[];
 }
 
 /**
@@ -536,6 +629,7 @@ async function arrancar(): Promise<void> {
   const r = await fetch('/__arena/hojas');
   if (!r.ok) throw new Error(`no se ha podido leer la lista de hojas (${r.status})`);
   hojas = validarHojasDeArena(await r.json());
+  hojasPorId = new Map(hojas.map((h) => [h.id, h]));
   // Una hoja incompleta no se registra: `arteDe` la pintaría con el Y Bot por
   // defecto, que es justo lo que no puede pasar en silencio (#140).
   for (const h of hojas) if (h.incompleta === null) registrarUnidad(h.id, h);
@@ -558,21 +652,27 @@ async function arrancar(): Promise<void> {
     aviso = `No se puede leer ${cuerpo.ruta}: ${cuerpo.ilegible}. Se empieza con las cifras por defecto, y no se guarda hasta que se arregle.`;
     return;
   }
+  // Llegan ya convertidas al formato de hoy (cuerpo y equipo): las de antes las
+  // convierte el servidor al leerlas, con el perfil de su hoja.
   const unidades = Array.isArray(cuerpo.unidades) ? cuerpo.unidades : [];
   const sinHoja: string[] = [];
   for (const crudo of unidades) {
     const u = validarUnidadDeArena(crudo);
     borrador.set(u.id, u);
-    if (!hojas.some((h) => h.id === u.id)) sinHoja.push(u.id);
+    const motivo = porQueNoSeMonta(u);
+    if (motivo !== null) sinHoja.push(`${u.id} (${motivo})`);
   }
-  aviso =
-    borrador.size === 0
-      ? `Sin borrador guardado todavía (${cuerpo.ruta}): las unidades salen con cifras por defecto, inventadas.`
-      : `Cargado ${cuerpo.ruta}: ${borrador.size} ${borrador.size === 1 ? 'unidad' : 'unidades'}.`;
+  const invalidas = cuerpo.invalidas ?? [];
+  aviso = avisoDelBorradorLeido(cuerpo.ruta ?? 'el borrador', borrador.size, invalidas.length);
   // Las que no tienen hoja se quedan en el borrador y se vuelven a guardar; solo
   // no se pueden montar.
-  if (sinHoja.length > 0) aviso += ` Sin hoja (no se pueden montar): ${sinHoja.join(', ')}.`;
-  const invalidas = cuerpo.invalidas ?? [];
+  if (sinHoja.length > 0) aviso += ` No se pueden montar: ${sinHoja.join(', ')}.`;
+  const avisos = cuerpo.avisos ?? [];
+  if (avisos.length > 0) {
+    aviso += ` Convertidas a cuerpo y equipo al leerlas (se guardan así al pulsar Guardar). ${avisos.join(' ')}`;
+    cambiosSinGuardar = true;
+  }
+  idsSinValidar = invalidas.flatMap((i) => (typeof i.id === 'string' ? [i.id] : []));
   if (invalidas.length > 0) {
     aviso += ` No valen y se conservan tal cual al guardar: ${invalidas
       .map((i) => `${i.id ?? '(sin id)'} (${i.motivo})`)
@@ -785,7 +885,13 @@ function repintarMontaje(): void {
     const criaturas = filtro === 'catalogo' ? criaturasDeLaLista() : [];
     pintar(
       elCatalogo,
-      html`${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(hojas, filtro, criaturas)}`,
+      html`${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(
+        hojas,
+        filtro,
+        criaturas,
+        { kind: 'montaje' },
+        listaDeUnidades(),
+      )}`,
     );
     pintarMuralla();
   });
@@ -811,11 +917,13 @@ function fichaAbierta(f: FichaEditable): FichaAbierta {
 function repintarEdicion(): void {
   pintarVista(elEdicion, () => {
     const criaturas = filtro === 'catalogo' ? criaturasDeLaLista() : [];
-    const lista = renderCatalogo(hojas, filtro, criaturas, {
-      kind: 'edicion',
-      abiertas,
-      plegada: listaPlegada,
-    });
+    const lista = renderCatalogo(
+      hojas,
+      filtro,
+      criaturas,
+      { kind: 'edicion', abiertas, plegada: listaPlegada },
+      listaDeUnidades(),
+    );
     pintar(elEdicion, renderEdicion({ lista, fichas: abiertas.map(fichaAbierta) }));
   });
 }
@@ -845,7 +953,7 @@ function enfocar(foco: FocoTrasCerrar): void {
   const quien =
     foco.kind === 'cerrar'
       ? `article[data-clave-de-ficha="${CSS.escape(foco.clave)}"] [data-arena="cerrar-ficha"]`
-      : `[data-arena="abrir-ficha"][${foco.ficha.kind === 'hoja' ? 'data-hoja' : 'data-criatura'}="${CSS.escape(foco.ficha.id)}"]`;
+      : `[data-arena="abrir-ficha"][${foco.ficha.kind === 'unidad' ? 'data-unidad' : 'data-criatura'}="${CSS.escape(foco.ficha.id)}"]`;
   const destino =
     elEdicion.querySelector<HTMLElement>(quien) ??
     elEdicion.querySelector<HTMLElement>('[data-arena="filtro"].primary');
@@ -855,11 +963,11 @@ function enfocar(foco: FocoTrasCerrar): void {
 }
 
 /**
- * El nombre de lo que enseña una ficha o una figura: el de su hoja (del
- * borrador, con el nombre que se le haya puesto) o el de su criatura.
+ * El nombre de lo que enseña una ficha: el de su unidad (del borrador, con el
+ * nombre que se le haya puesto) o el de su criatura.
  */
 function nombreDeFicha(f: FichaEditable): string {
-  return f.kind === 'hoja' ? unidadDe(f.id).name : creature(f.id).name;
+  return f.kind === 'unidad' ? unidadDe(f.id).name : creature(f.id).name;
 }
 
 /**
@@ -946,16 +1054,18 @@ function fichaElegida(enCombate = false): Html {
  * nombre en su título.
  */
 function fichaDe(e: Elegida | null, como0: ComoDeLaFicha): Html {
-  if (e === null) return renderFicha(null, null, false);
+  if (e === null) return renderFicha(null, false);
   const como = renombrando.has(claveDeFicha(e)) ? { ...como0, renombrando: true } : como0;
   switch (e.kind) {
-    case 'hoja':
-      return renderFicha(unidadDe(e.id), hojaPorId(e.id), arteDe(e.id).dispara, como);
+    case 'unidad': {
+      const u = unidadDe(e.id);
+      return renderFicha(u, arteDe(figuraDeLaUnidad(u)).dispara, como);
+    }
     case 'catalogo':
       return renderFichaDeCatalogo(e.id, cifrasDelCatalogo(e.id), pruebas.has(e.id), como);
     case 'heroe': {
       const h = heroes[e.lado];
-      if (h === null) return renderFicha(null, null, false);
+      if (h === null) return renderFicha(null, false);
       return renderFichaDeHeroe(e.lado, h, como, hojasDeHeroe());
     }
   }
@@ -979,6 +1089,10 @@ function noSeCambia(motivo: string): void {
   // el validador empieza en minúscula (M3 de QA: salían de las dos maneras).
   aviso = `No se cambia: ${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}`;
   rechazado = aviso;
+  // En plena pelea la barra de abajo es la de la sesión: se quedaba con el
+  // «Cambiado: vale ya en esta pelea.» del cambio anterior, justo lo contrario
+  // de lo que decía el editor (H5 de QA del ciclo 2).
+  if (sesion !== null) sesion.status = aviso;
 }
 /** El último aviso de un cambio rechazado (`noSeCambia`). */
 let rechazado: string | null = null;
@@ -1048,19 +1162,19 @@ function añadir(lado: Lado, fuente: FuenteDePuesto, escalera = false): void {
     aviso = `El bando ${adjetivo} ya lleva ${caben}: no cabe ninguna más.`;
     return;
   }
-  if (fuente.kind === 'hoja') {
-    const hoja = fuente.hoja;
-    const h = hojaPorId(hoja);
-    if (h.incompleta !== null) {
-      aviso = `${h.nombre} no se monta: ${h.incompleta}.`;
+  if (fuente.kind === 'unidad') {
+    const u = unidadDe(fuente.unidad);
+    const motivo = porQueNoSeMonta(u);
+    if (motivo !== null) {
+      aviso = `${u.name} no se monta: ${motivo}.`;
       return;
     }
     // La unidad entra en el borrador al montarla: es lo que se probó y lo que se guarda.
-    if (!borrador.has(hoja)) {
-      borrador.set(hoja, unidadPorDefecto(h));
+    if (!borrador.has(u.id)) {
+      borrador.set(u.id, u);
       cambiosSinGuardar = true;
     }
-    elegida = { kind: 'hoja', id: hoja };
+    elegida = { kind: 'unidad', id: u.id };
   } else {
     elegida = { kind: 'catalogo', id: creature(fuente.id).id };
   }
@@ -1150,7 +1264,6 @@ function conCampo(u: UnidadDeArena, campo: string, valor: string): unknown {
     case 'attack':
     case 'defense':
     case 'hp':
-    case 'level':
     case 'leadership':
       return { ...u, [campo]: n };
     default:
@@ -1171,7 +1284,8 @@ function marcadoDe(el: Element): boolean {
 
 async function guardar(): Promise<void> {
   const orden = hojas.map((h) => h.id);
-  // Las que no tienen hoja (`indexOf` −1) van al final, en el orden en que llegaron.
+  // Las nuevas y las que no tienen hoja (`indexOf` −1) van al final, en el orden
+  // en que llegaron.
   const puesto = (id: string): number => {
     const i = orden.indexOf(id);
     return i < 0 ? orden.length : i;
@@ -1208,8 +1322,8 @@ window.addEventListener('beforeunload', (ev) => {
  */
 function montajeDelEnlace(): MontajeDelEnlace {
   const todos = [...montaje.izquierda, ...montaje.derecha];
-  const hojasMontadas = [
-    ...new Set(todos.flatMap((p) => (p.fuente.kind === 'hoja' ? [p.fuente.hoja] : []))),
+  const unidadesMontadas = [
+    ...new Set(todos.flatMap((p) => (p.fuente.kind === 'unidad' ? [p.fuente.unidad] : []))),
   ];
   const pruebasMontadas: Record<string, CambiosDeCatalogo> = {};
   for (const p of todos) {
@@ -1222,14 +1336,14 @@ function montajeDelEnlace(): MontajeDelEnlace {
     ia: iaDelBando[l],
     puestos: montaje[l].map(
       (p): PuestoDelEnlace =>
-        p.fuente.kind === 'hoja'
-          ? { kind: 'hoja', hoja: p.fuente.hoja, escalera: p.escalera }
+        p.fuente.kind === 'unidad'
+          ? { kind: 'unidad', unidad: p.fuente.unidad, escalera: p.escalera }
           : { kind: 'catalogo', id: p.fuente.id, escalera: p.escalera },
     ),
     heroe: heroes[l],
   });
   return {
-    unidades: hojasMontadas.map(unidadDe),
+    unidades: unidadesMontadas.map(unidadDe),
     pruebas: pruebasMontadas,
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
@@ -1298,10 +1412,12 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
   try {
     // Con la semilla o las reglas mal, el montaje pelearía otra pelea.
     if (avisoDeSemilla !== '') throw new Error('la semilla o las reglas del enlace no valen');
-    const m = montajeDeLaURL(texto);
+    // Con el perfil de cada hoja: un enlace de antes de la versión 5 trae las
+    // cifras de su perfil y se convierte a cuerpo y equipo al leerlo.
+    const m = montajeDeLaURL(texto, perfilDeLasHojas(hojas));
     for (const u of m.unidades) {
-      const h = hojaPorId(u.id);
-      if (h.incompleta !== null) throw new Error(`${h.nombre} no se monta: ${h.incompleta}`);
+      const motivo = porQueNoSeMonta(u);
+      if (motivo !== null) throw new Error(`${u.name} no se monta: ${motivo}`);
     }
     for (const l of ['izquierda', 'derecha'] as const) {
       const figura = m[l].heroe?.figura ?? null;
@@ -1320,7 +1436,10 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     for (const l of ['izquierda', 'derecha'] as const) {
       montaje[l] = m[l].puestos.map((p) => ({
         clave: siguienteClave++,
-        fuente: p.kind === 'hoja' ? { kind: 'hoja', hoja: p.hoja } : { kind: 'catalogo', id: p.id },
+        fuente:
+          p.kind === 'unidad'
+            ? { kind: 'unidad', unidad: p.unidad }
+            : { kind: 'catalogo', id: p.id },
         escalera: p.escalera,
       }));
       heroes[l] = m[l].heroe;
@@ -1336,7 +1455,8 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
       distintas.length === 0
         ? ''
         : ` Las cifras de ${distintas.map((u) => u.name).join(', ')} son las del enlace, sin guardar.`;
-    // Un enlace de antes de la versión 3 que repartía un bando lo dice (`montajeDeLaURL`).
+    // Un enlace de antes de la versión 3 que repartía un bando, o una unidad de
+    // antes de la 5 que no cupo en cuerpo y equipo, lo dice (`montajeDeLaURL`).
     const mezcla = m.aviso === undefined ? '' : ` ${m.aviso}`;
     return {
       montado: true,
@@ -1750,7 +1870,7 @@ document.addEventListener('click', (ev) => {
   if (el === null) return;
   const que = el.getAttribute('data-arena');
   const clave = Number(el.getAttribute('data-clave'));
-  const hoja = el.getAttribute('data-hoja');
+  const unidad = el.getAttribute('data-unidad');
   // Un gesto dentro de una ficha repinta solo esa (en la edición; `repintarFicha`).
   let soloLaFicha: string | null = null;
   let focoTrasElGesto: FocoTrasCerrar | null = null;
@@ -1767,7 +1887,7 @@ document.addEventListener('click', (ev) => {
         break;
       case 'añadir': {
         const lado = el.getAttribute('data-lado') as Lado;
-        añadir(lado, { kind: 'hoja', hoja: hoja as string });
+        añadir(lado, { kind: 'unidad', unidad: unidad as string });
         break;
       }
       case 'añadir-catalogo': {
@@ -1777,9 +1897,33 @@ document.addEventListener('click', (ev) => {
         break;
       }
       case 'editar':
-        elegida = { kind: 'hoja', id: hoja as string };
+        elegida = { kind: 'unidad', id: unidad as string };
         aviso = '';
         break;
+      case 'crear-unidad': {
+        const select = el.closest('[data-nueva-unidad]')?.querySelector('[data-arena-nueva]');
+        if (select === null || select === undefined) {
+          throw new Error('el botón «Crear» no está junto a su selector de cuerpo');
+        }
+        const id = crearUnidad(valorDe(select));
+        if (id !== null && escena === 'edicion') {
+          const f: FichaEditable = { kind: 'unidad', id };
+          const r = abrirFicha(abiertas, f, nombreDeFicha(f));
+          if (r.abiertas !== abiertas) abiertaTrasElGesto = claveDeFicha(f);
+          abiertas = r.abiertas;
+          recordarAbiertas();
+        }
+        break;
+      }
+      case 'quitar-pieza': {
+        const hueco = el.getAttribute('data-hueco') ?? '';
+        if (!esHueco(hueco)) throw new Error(`el × del equipo trae «${hueco}», que no es un hueco`);
+        const f = laFichaDe(el, 'quitar una pieza');
+        if (f.kind !== 'unidad') throw new Error('solo las unidades llevan equipo que quitar');
+        cambiarUnidad(f.id, (u) => quitarEnArena(u, hueco));
+        soloLaFicha = claveDeFicha(f);
+        break;
+      }
       case 'editar-catalogo':
         elegida = { kind: 'catalogo', id: el.getAttribute('data-criatura') as string };
         aviso = '';
@@ -1886,7 +2030,7 @@ document.addEventListener('click', (ev) => {
       case 'quitar-habilidad': {
         const h = el.getAttribute('data-habilidad') as string;
         const f = laFichaDe(el, 'quitar una habilidad');
-        if (f.kind !== 'hoja') throw new Error('solo las hojas llevan habilidades que quitar');
+        if (f.kind !== 'unidad') throw new Error('solo las unidades llevan habilidades que quitar');
         quitadaConElTeclado = quitadaDe(el, 'habilidad', h, claveDeFicha(f));
         cambiarUnidad(f.id, (u) => ({
           ...u,
@@ -1910,10 +2054,10 @@ document.addEventListener('click', (ev) => {
       case 'abrir-ficha': {
         const criatura = el.getAttribute('data-criatura');
         const f: FichaEditable =
-          hoja !== null
-            ? { kind: 'hoja', id: hojaPorId(hoja).id }
+          unidad !== null
+            ? { kind: 'unidad', id: unidadDe(unidad).id }
             : { kind: 'catalogo', id: creature(criatura as string).id };
-        const incompleta = f.kind === 'hoja' ? hojaPorId(f.id).incompleta : null;
+        const incompleta = f.kind === 'unidad' ? porQueNoSeMonta(unidadDe(f.id)) : null;
         const r = abrirFicha(abiertas, f, nombreDeFicha(f), incompleta);
         if (r.abiertas !== abiertas) {
           listaPlegada = listaPlegadaTras('abrir', listaPlegada, r.abiertas.length);
@@ -2193,8 +2337,8 @@ document.addEventListener('change', (ev) => {
 /** Un campo, un rasgo o una habilidad de la ficha `ficha`, y su repintado. */
 function cambiarEnFicha(ficha: Elegida, el: Element): void {
   switch (ficha.kind) {
-    case 'hoja':
-      cambiarDeLaHoja(ficha.id, el);
+    case 'unidad':
+      cambiarDeLaUnidad(ficha.id, el);
       break;
     case 'catalogo':
       cambiarDelCatalogo(ficha.id, el);
@@ -2221,7 +2365,7 @@ function cambiarRasgos(
   cambio: (ts: readonly CreatureTrait[]) => readonly CreatureTrait[],
 ): void {
   switch (f.kind) {
-    case 'hoja':
+    case 'unidad':
       cambiarUnidad(f.id, (u) => ({ ...u, traits: cambio(u.traits) }));
       return;
     case 'catalogo': {
@@ -2240,13 +2384,19 @@ function añadirRasgo(f: Elegida, el: Element): void {
   if (t !== '') cambiarRasgos(f, (ts) => [...ts, t as CreatureTrait]);
 }
 
-/** Un campo de la ficha de una hoja: su tipo en el borrador. */
-function cambiarDeLaHoja(id: string, el: Element): void {
+/** Un campo de la ficha de una unidad: su tipo en el borrador. */
+function cambiarDeLaUnidad(id: string, el: Element): void {
   const campo = el.getAttribute('data-campo');
+  const hueco = el.getAttribute('data-arena-pieza');
   if (campo !== null) {
     cambiarUnidad(id, (u) => conCampo(u, campo, valorDe(el)));
+  } else if (hueco !== null) {
+    // Ponerle una pieza: lo que no se puede (un escudo con un arma a dos manos)
+    // lo dice el núcleo (`manosBlocker`) y sale en la barra.
+    const pieza = valorDe(el);
+    if (pieza !== '') cambiarUnidad(id, (u) => equiparEnArena(u, pieza));
   } else if (el.getAttribute('data-arena-rasgo') !== null) {
-    añadirRasgo({ kind: 'hoja', id }, el);
+    añadirRasgo({ kind: 'unidad', id }, el);
   } else if (el.getAttribute('data-arena-habilidad') !== null) {
     const h = valorDe(el);
     if (h !== '') cambiarUnidad(id, (u) => ({ ...u, habilidades: [...u.habilidades, h] }));
@@ -2351,8 +2501,8 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
     // Las fichas abiertas la última vez: solo las que aún se abren (la hoja está
     // y está entera, la criatura sigue en el catálogo).
     const recordadas = leerAbiertas(leerDelNavegador(CLAVE_DE_ABIERTAS, QUE_ABIERTAS), (f) =>
-      f.kind === 'hoja'
-        ? hojas.some((h) => h.id === f.id && h.incompleta === null)
+      f.kind === 'unidad'
+        ? (borrador.has(f.id) || hojasPorId.has(f.id)) && porQueNoSeMonta(unidadDe(f.id)) === null
         : criaturasDelCatalogo().some((c) => c.id === f.id),
     );
     abiertas = recordadas.abiertas;

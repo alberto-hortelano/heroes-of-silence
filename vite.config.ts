@@ -137,9 +137,11 @@ function arena(): Plugin {
             return {
               unidades: leido.unidades,
               invalidas: leido.invalidas.map(({ id, motivo }) => ({ id, motivo })),
+              // Lo que hubo que decir al convertir unidades de antes del equipo.
+              avisos: leido.avisos,
             };
           },
-          vacio: { unidades: [], invalidas: [] },
+          vacio: { unidades: [], invalidas: [], avisos: [] },
           escribir: (cuerpo) => escribirBorrador(raiz, cuerpo),
         }),
       );

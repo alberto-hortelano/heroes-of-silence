@@ -16,7 +16,7 @@ import { allHexes, BOARD_HEIGHT, bandoDeSalida } from '../src/core/battle/board.
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { allCreatures, creature, LIDERAZGO } from '../src/core/data.js';
 import { marchaALaEscala } from '../src/core/escala.js';
-import { NIVEL_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
+import { RANGO_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
 import { maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import {
   armyLeadership,
@@ -112,11 +112,11 @@ describe('el ejército es una lista de individuos', () => {
 
 describe('liderazgo', () => {
   it('el tope del héroe crece con el nivel y se para en el máximo', () => {
-    const { base, porNivel, max } = LIDERAZGO.heroe;
+    const { base, porRango, max } = LIDERAZGO.heroe;
     // La escala es una sola: un héroe recién hecho está en el 5, y es ahí
     // donde tiene la base.
     expect(heroLeadership({ experience: umbral(5) })).toBe(base);
-    expect(heroLeadership({ experience: umbral(6) })).toBe(base + porNivel);
+    expect(heroLeadership({ experience: umbral(6) })).toBe(base + porRango);
     expect(heroLeadership({ experience: umbral(40) })).toBe(max);
   });
 
@@ -256,7 +256,7 @@ describe('liderazgo', () => {
       for (const faction of ['knight', 'necromancer'] as const) {
         const army = startingArmy(faction, createRng(seed));
         expect(armyLeadership(army)).toBeLessThanOrEqual(
-          heroLeadership({ experience: umbral(NIVEL_INICIAL_DE_HEROE) }),
+          heroLeadership({ experience: umbral(RANGO_INICIAL_DE_HEROE) }),
         );
         expect(army.length).toBeGreaterThan(0);
         // Y en el cupo: el héroe ocupa el séptimo puesto de su bando.

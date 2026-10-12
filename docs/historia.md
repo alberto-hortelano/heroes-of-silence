@@ -4022,3 +4022,251 @@ cae en 5,5 en todas.
   50,40 ± 0,46 % → 50,90 ± 0,43 %. El paso del combate baja un 4 % cuando manda
   el ancho (12,6 pasos en vez de 12,1), también en la base (`pasoDeLaBase`): un
   adulto sigue midiendo lo mismo en las dos.
+
+## Un solo nivel, derivado de las cifras (12-10-2026)
+
+Petición del usuario: «unificar los niveles de forma que el editor de personajes
+[…] asigne un nivel de forma automática […] y que el nivel sea la primera cifra».
+Había cinco «niveles» de unidad: la morada del catálogo (`Creature.level`), el
+`level` de la arena, el del personaje, el del héroe y la veteranía sumada encima en
+`UnitInfo.nivel`, que escribían cinco constructores. Ahora hay **uno**, y no lo
+escribe nadie (ciclo 1 de `docs/agents/2026-10-12-nivel-unico/`; la «Nueva unidad» y
+los perfiles de arma de la arena como equipo son el ciclo 2).
+
+- **El nivel es la primera cifra del índice de poder** (`core/nivel.ts`): `poder =
+  isqrt(ofensa · aguante) · (10 + casillas) / 10`, con `ofensa = (mín + máx) · (10 +
+  ataque)` —×2 con doble golpe, ×3/2 si tira— y `aguante = PV · (10 + defensa)`. Todo
+  en enteros: la raíz era `isqrt` por Newton con `Math.floor` (en /simplify, la
+  `raizEntera` de `core/escala.ts`, que ya estaba), y lanza si el producto no cabe en
+  un entero seguro en vez de redondear distinto en otra máquina. Por debajo del umbral
+  del nivel 2 todo es el 1 (100-199): así la primera cifra es SIEMPRE el nivel.
+- **La calibración** (`data/poder.json`): umbral del nivel 2 en 940 y cada uno ×2. El
+  diseño del coordinador decía ×1,6; con esta fórmula (la √ ya aplana) 8/5 dejaba 15
+  criaturas fuera de su morada y 2/1 solo 2 (el montaraz sube al 3, la caballería
+  baja al 4). Cualquier umbral de 700 a 1300 deja todas a ±1 de su morada. El liche
+  queda en 500 justo: retocarlo lo baja al 4, y el test lo diría.
+- **Sin equipo** (corrección del usuario: «el equipo va aparte»). `conEquipo` deja en
+  `UnitInfo.sinEquipo` las cifras de antes de las piezas y `nivelDeUnidad` mide eso.
+  Recalcular el cuerpo desde el origen del stack (catálogo, héroe, arena, personaje)
+  eran cuatro caminos; guardar el índice al construir, volver a escribir el nivel a
+  mano. Lo vigila `invariantes.test.ts`: `sinEquipo` solo lo escribe `equipo.ts`,
+  `UnitInfo` no tiene `nivel` ni el catálogo `level`, y el índice solo se calcula en
+  `nivel.ts` (rotos a mano los cuatro, rojos).
+- **PV y daño ×10** en todo el juego (catálogo, equipo, héroe, flecha, rayo, curación,
+  `curar`, la arena y el personaje), y la experiencia con ellos (base 20 → 200; la
+  vuelta 2 lo deja atrás: cobra por el índice y la base pasa a 16 000). La IA
+  no cambia de cifras: `unitPower` divide entre 100, que en coma flotante es exacto
+  ((10a + 10b)/2 · 10h / 100), así que `fuerzaMax`, los `VALOR_DE_*` y el 1,1 de la
+  estrategia siguen siendo los medidos. Solo `VALOR_MINIMO_POR_MANA` (que está en PV)
+  pasa de 4 a 40, y `valorDePieza` cuenta los PV de una pieza por decenas.
+- **La experiencia da rangos**: `rangoDe`, `rangoDeTropa`, `rangoDeHeroe`,
+  `subidasDeRango`, `RANGO_*`, `porRango`; los hechos, `rank_up` y `troop_rank_up`
+  con `rank`. Quien recibe un golpe cobra con su nivel, el de sus cifras (en la vuelta
+  1; desde la vuelta 2, con su índice): un veterano
+  de rango 4 de piquero sigue en el 3 (índice 328 → 352), y el héroe recién hecho
+  (2/2, 500 PV, 20-40) es del nivel 3, no del «5».
+- **El contrato** (claves en inglés, como el resto): `creature_stats` pasa por
+  `fichaDeCriatura` (`dwelling`, `level`, `powerIndex`; antes mandaba el catálogo en
+  crudo); el héroe y la fila de un veterano llevan `rank`, `level` y `nextRankAt`; el
+  stack, `veteranRank`. `pnpm qa` lo comprueba por el MCP de verdad.
+- **Lo que movió**, y es la regla, no la escala: pegarle a un héroe daba ×5 o más y
+  ahora ×3-4, y a un veterano lo que valen sus cifras. En 1-1000
+  (`tools/qa/veterania.ts`): rangos 2/3/4/5 por partida 5,50 / 2,05 / 0,80 / 0,25 →
+  4,67 / 1,27 / 0,32 / 0,05, partidas con algún rango 5 121 → 37, subidas de héroe
+  2,93 → 2,19; j0 558 → 515; duración 8 / 14 / 43 → 8 / 14 / 27; 0 sin terminar. Con
+  el multiplicador de antes sobre las cifras ×10 sale 544 y 0,28: la escala sola no
+  lo mueve. El orden en que la IA reparte el equipo (`portadores`, ahora por índice)
+  tampoco: con el de antes, 516. En 100 semillas (barrido): 0 sin terminar, 8 / 14 /
+  19 antes y después; j0 53 → 42. Que lleguen menos tropas al rango 5 deja
+  `hero_from_troop` casi sin pasar solo (12 → 3 veteranos de rango 5 en su base en
+  1 000 partidas): era el riesgo que el plan apuntó, y se reporta, no se compensa.
+- **La previsión** (`test/prevision.test.ts`) pedía ver las dos puntas de cada
+  horquilla entre 40 semillas: con ×10 una tirada tiene diez veces más valores (la
+  caballería 51, el dragón 201) y eso pasaba a ser una lotería. Las primeras cinco
+  semillas se jugaban además con la tirada del atacante clavada en su mínimo y su
+  máximo (`conLaTiradaEn`); en /simplify, las dos puntas se miran con un dado cargado
+  (`dadoCargado`, `test/helpers.ts`: cada `int` en su mínimo o su máximo, sin suerte
+  ni moral) y las semillas quedan solo para «cae dentro».
+- **Vuelta 2: la experiencia cobra por el índice** (decisión del usuario tras ver los
+  0,05 rangos 5 por partida): `herir` apunta `PV quitados × indiceDePoder(receptor)`
+  y no `× nivelDeUnidad`. El índice es el nivel en centésimas; en vez de guardar la
+  experiencia en centésimas o dividir entre 100, los umbrales van en esa escala, así
+  que todo sigue siendo un producto de enteros y la cuenta vive en un solo sitio
+  (`herir`). Un veterano o un héroe que sube cifras paga más aunque no cambie de
+  nivel. La `base` se calibró en 1-1000 (`tools/qa/veterania.ts`): 20 000 da 0,09
+  rangos 5 por partida, 17 000 0,18, **16 000 0,25** y 15 000 0,28. Con 16 000, en
+  1-1000 (12-10-2026), antes del ciclo (HEAD `f1cbae7`) → con `× nivel` → con `×
+  índice`: rangos 2/3/4/5 por partida 5,50 / 2,05 / 0,80 / 0,25 → 4,67 / 1,27 /
+  0,32 / 0,05 → **6,56 / 2,53 / 0,92 / 0,25**; partidas con algún rango 5 121 → 37 →
+  **129**; subidas de héroe 2,93 → 2,19 → **3,13**; veteranos de rango 5 en su base
+  12 → 3 → **8**; j0 558 → 515 → **520**; duración 8 / 14 / 43 → 8 / 14 / 27 → **7 /
+  14 / 26**; 0 sin terminar. Lo de abajo (rangos 2-4, subidas de héroe) queda algo por
+  encima de antes del ciclo: el índice paga también el +1/+1 de cada rango del que
+  recibe. **j0 no vuelve**: 520 frente a 558; el multiplicador viejo sobre las cifras
+  ×10 daba 544, y el resto de la diferencia queda sin explicar (no se compensa). Banco
+  re-anclado (`066767b4…`, la forma en `tools/qa/banco.ts`); barrido de 100: 0 sin
+  terminar, 8 / 14 / 21. Las cifras de experiencia que se ven son grandes («176000 /
+  304000» en el panel del héroe recién hecho).
+- **/simplify (vuelta 3)**: seis cifras sueltas sabían que PV y daño van ×10 (la
+  fuerza de la IA, el valor de una pieza, el maná, el personaje, dos tests); ahora
+  todas leen `ESCALA_DE_CIFRAS` (`core/escala.ts`). `valorDePieza` dejó de redondear
+  los PV por decenas (pesa los puntos ×escala, y con las piezas de hoy da el mismo
+  orden). Los umbrales del nivel ya no son una tabla hasta 2⁵³ con una rama «más allá
+  del último» que no se alcanzaba: un bucle, y `validarPoder` rechaza la razón cuyo
+  primer paso no crece en enteros. **Un borrador o un enlace de antes pelearía a un
+  décimo de su fuerza sin avisar**: la arena escribía `level` hasta este ciclo, así
+  que `level` es la marca de la escala de fheroes2 y una unidad que lo trae se lee con
+  PV y daño ×10; `?montaje=` pasa a la versión 4 y las pruebas del catálogo de la 1 a
+  la 3 se escalan al leer. `UnitInfo.sinEquipo` no viaja al espectador (no mide
+  niveles). El test del volver a preguntar por un veterano dependía de quién ganaba
+  la semilla: ahora los dos jugadores son el agente, que no mueve, y no hay
+  asaltantes. Nada cambia el juego: el banco sigue en `066767b4…`.
+
+## Nueva unidad: el perfil de arma es equipo y el escudo, un hueco (12-10-2026)
+
+Ciclo 2 del nivel único (`docs/agents/2026-10-12-nueva-unidad/`). Corrección del
+usuario sobre el ciclo 1: «hay que desligar armas, escudo, armadura, etc del cálculo
+del nivel; un templario con escudo y uno con arma a dos manos serían iguales, solo se
+diferencian en equipo». Y sobre el escudo: «hueco propio, no hace falta llenar el
+hueco, de hecho solo espada tiene sentido ya que el escudo quitará velocidad».
+
+- **El cuerpo común** (`CUERPO_COMUN`, `core/arena.ts`): ataque 3, defensa 3, daño
+  10-10, 80 PV, el mínimo de cada cifra entre los seis perfiles de antes. El daño va
+  a 10-10 y no 10-30 porque así toda arma suma un mínimo que no pasa de su máximo (con
+  10-30 el arco sería +10/+0, y sobre un campesino 20-10) y los 51 cuerpos de hoja
+  caen en el nivel 1 en todas sus casillas (índice 171-194; con 10-20, los de 5
+  casillas o más pasaban al 2).
+- **Lo que distinguía un perfil es su equipo** (`KIT_DEL_PERFIL`, piezas de calidad
+  `arena` en `data/equipo.json`, inventadas). Antes eran cifras de combate por perfil
+  (`POR_PERFIL`) y dos templarios con distinto arma tenían distinto nivel. Cada pieza es la diferencia entre las
+  cifras de antes del perfil y el cuerpo común, así que una hoja por defecto pelea
+  igual que antes. Espada +2 / +10-30 y brigantina +70 PV con escudo +4 def −1 vel;
+  mandoble (2 manos) +5 / +30-60 y arnés de placas +1 def +100 PV; bastón (2 manos)
+  +0-20; arco (2 manos) +2 / +10-20 / 12 tiros y jubón +20 PV; ballesta (2 manos)
+  +3 / +20-40 / 8 tiros y gambesón +1 def +40 PV; lanza de jinete (2 manos) +7 /
+  +40-80 y barda +5 def +220 PV. Sueltos: rodela +2 def −1 vel y pavés +7 def −2
+  vel. `charge` es del caballo, no de la lanza: va en los rasgos del perfil.
+- **Las piezas suman más** (`conEquipo`, que sigue siendo la única suma): daño
+  `[+mín, +máx]`, disparos (un arco hace tirador) y una velocidad que puede restar,
+  sin bajar del primer escalón. Sin daño ni disparos que sumar, el objeto sale con los
+  mismos campos que antes: el banco y el espectador no ven la diferencia.
+- **El escudo, un cuarto hueco** (`HUECOS`), opcional; la armería no lleva ninguno
+  (`validarEquipo` lo exige), así que el héroe nace igual: espada, cota y brazal. Un
+  escudo tiene que restar velocidad (también lo exige el cargador). **Un arma a dos
+  manos no admite escudo**: `manosBlocker`, la única lectura de `Pieza.manos`; la leen
+  `equipBlocker` (juego y agente), la arena y `equipoBlocker`, y `ponerPieza` lanza
+  con ella. Lo vigila `invariantes.test.ts` (rotos a mano un `p.manos` en `arena.ts` y
+  una `function manosBlocker` en `game.ts`: rojos).
+- **El juego no cambia**: `PIEZAS_DE_BOTIN` pasa a ser «común y especial», escrito, y
+  no «lo que no se vende» (si no, las piezas de arena caerían como botín y el sorteo
+  de cada semilla vería otra lista); las de arena van al final del fichero. Banco
+  idéntico, `066767b4…`.
+- **Los huecos del contrato, en inglés** (punto de control del plan): `weapon`,
+  `armor`, `accessory`, `shield` en `equipment`, `armory[].slot`, la prosa y
+  `unequip.slot`. Por dentro siguen en español, con la traducción en un sitio
+  (`contract/huecos.ts`: `SLOT_DE_HUECO`, `huecoDelSlot`, `accionDelAgente`, que el
+  director aplica dentro de su `try`: un `"slot": "arma"` se descarta solo, diciendo
+  los cuatro que valen). El catálogo en prosa sale de `PIEZAS_DEL_JUEGO`: lo de la
+  arena no se le anuncia. `invariantes.test.ts` vigila que los cuatro literales no se
+  escriban fuera de `huecos.ts` (roto a mano un `slot: 'shield'` en `serialize.ts`:
+  rojo). `pnpm qa` manda un `unequip` con `"slot": "shield"` y exige que lo conteste el
+  núcleo («no lleva nada en Escudo»; ver la vuelta de /simplify, abajo).
+- **Personajes** (`Unidad.personaje` en `tools/taller/unidades.ts`): el guerrero
+  templario (escudo y mandoble), el esqueleto (guerrero y arquero), el orko (hacha y
+  escudo, dos armas, armadura pesada) y el goblin (lancero y arquero) comparten
+  cuerpo y velocidad (`VELOCIDAD_DEL_CUERPO`, por personaje: humano y orko 4,
+  esqueleto 3), y el escudo resta una. **6 de 51 hojas pelean con ±1 casilla**:
+  templario con escudo 4 → 3, con mandoble 3 → 4, esqueleto guerrero 3 → 2, orko de
+  hacha y escudo 4 → 3, orko de armadura pesada 3 → 4, goblin lancero 4 → 3. Los
+  personajes de una hoja con escudo llevan su cuerpo una casilla por encima de antes,
+  y pelean con las de siempre. El juego no lee esta tabla. El templario con escudo y
+  el del mandoble, por defecto: índice 177 los dos.
+- **«Nueva unidad»** (`unidadNueva`): un cuerpo (hoja con su arte entero o criatura del
+  catálogo), el cuerpo común sin equipo, id `<cuerpo>-<n>` y nombre «Nombre n». El
+  `body` del stack es su cuerpo (`figuraDeLaUnidad`): con el id, una unidad nueva
+  habría salido con el Y Bot por defecto (`arteDe`) sin decirlo. Y el stack entra con
+  los PV de su armadura: con `u.hp`, los del cuerpo, entraba herido.
+- **Lo de antes se convierte** (`migrarUnidadDeArena`): sin `cuerpo`, la escala vieja
+  (`level`) y la velocidad en escalón (`speed`), y luego sus cifras menos el equipo de
+  su perfil, comprobado al revés con `conEquipo` (pelea igual). Si no cabe —una cifra
+  por debajo de lo que suma el equipo, o la hoja sin perfil— se queda con sus cifras y
+  sin equipo, con el aviso en la barra. Con `cuerpo`, no se toca: no se convierte dos
+  veces. `?montaje=` pasa a la versión 5 (puestos `{ unidad }`); de la 1 a la 4 se
+  leen con el perfil de cada hoja (`PerfilDe`), que tiene la página; sin él, se dice.
+  **Un fallo que la migración destapó y se arregló**: las pruebas del catálogo de un
+  enlace de la 4 se escalaban ×10 en cuanto la 4 dejó de ser la versión de ahora
+  (`version !== VERSION_DEL_ENLACE`); ahora escalan solo hasta la 3.
+- **Las versiones del enlace**, para quien lea uno viejo: la 1, de antes de juntar la
+  arena con la muralla, sin muralla ni escaleras; la 2 trae la muralla y la escalera de
+  cada puesto, y quién movía cada puesto y el héroe por separado (se lee: el bando va a
+  la IA si iba todo él, y si iba repartido se dice); la 3, quién mueve es del bando
+  entero; la 4, PV y daño en la escala del catálogo (hasta la 3, la de fheroes2: las
+  pruebas del catálogo se leen escaladas y las hojas traen `level`, que las migra); la 5,
+  cuerpo y equipo, con los puestos por id de unidad. En el código cada una es un umbral
+  con nombre (`CON_MURALLA`, `BANDO_ENTERO`, `ESCALA_DE_HOY`, `CON_EQUIPO`) y cada
+  pregunta, «¿desde cuál?» con `>=`; la versión se lee como un entero de la 1 a la de hoy.
+- **La velocidad, por cuerpo y no por hoja** (`tools/arena/velocidades.ts`): es la del
+  cuerpo de cada personaje, que decidió el usuario. Se descartó guardar en la tabla las
+  casillas con que pelea cada hoja y derivar el cuerpo: el hecho es la del cuerpo. Las
+  filas decían «con el escudo de su perfil pelea con N», que es derivado: se quitó en la
+  vuelta de /simplify y lo comprueba `test/arena.test.ts` hoja a hoja (`CASILLAS_DE_ANTES`).
+- **Vuelta de /simplify** (12-10-2026, misma tarea, `hallazgos-simplify.md`; banco
+  idéntico):
+  - El hueco llega al núcleo tipado: `unequip.slot` es un `Hueco`, y el texto lo
+    traducen sus dos puertas, `accionDelAgente` (del inglés del contrato) y la sesión del
+    cliente (`esHueco`). «No hay ningún hueco …» es una frase (`huecoDesconocido`, con la
+    lista de dentro o la del contrato), y los motivos para la persona nombran el hueco
+    por su nombre: «no lleva nada en Escudo» (`nadaEnElHueco`) y no «en el hueco
+    escudo», que al agente que escribió `shield` no le decía nada. `pnpm qa` exige
+    «Escudo» y que la clave en minúscula no salga.
+  - `ponerPieza` es la única pregunta por las dos manos al equipar en la arena (acepta
+    el nombre de quien la lleva); la arena ya no pregunta antes a `manosBlocker`. La
+    frase de la regla (`REGLA_DEL_ESCUDO`) la leen la prosa del agente y la ficha; lo
+    que el héroe trae vacío de serie sale de `EQUIPO_BASE`.
+  - El perfil de una hoja, `perfilDeLasHojas` (`core/arena.ts`): el servidor de
+    desarrollo lo sacaba de `hojasDeArena`, que lee 408 `atlas.json`, en cada lectura
+    del borrador; ahora, de la lista del taller, una vez.
+  - La conversión compara con `mismasCifras`, junto a `conEquipo`, que es quien sabe
+    qué campos suma; los avisos son frases enteras; `CALIDADES_DE_BOTIN`, `esIdDeArena` (en `core/validar.ts`: el cliente fuera de la arena no importa de `core/arena.ts`)
+    y la tarjeta de la lista (`tarjetaDeUnidad`, `data-unidad-catalogo` para hojas y
+    nuevas) son un sitio cada uno. `lecturaDelNivelDeLaHoja` se fue: la ficha calcula
+    el combate una vez.
+- **Vuelta de QA** (12-10-2026, misma tarea, `hallazgos-qa.md`; banco idéntico):
+  - **Una nueva no pisa una que no vale** (H1): el id libre se buscaba entre las unidades
+    que validan y las hojas; una del borrador que no validaba —que se conserva al guardar—
+    perdía su id ante la nueva, y mandar una válida con su id es arreglarla
+    (`claveSinValidar`): la sustituía sin aviso. `unidadNueva` recibe ahora `IdsOcupados`,
+    con las tres listas por separado (`validas`, `sinValidar`, `hojas`) para que nadie se
+    deje una.
+  - **El aviso de una conversión que no cabe** (H2) habla de lo que escribió quien juega y
+    de qué pieza no cabe: «su daño 45–70 es más estrecho que el de Mandoble (+30–+60)»,
+    no «el daño mínimo (15) no puede pasar del máximo (10)», que eran cifras del cuerpo
+    calculado. La regla no cambia.
+  - **Los rasgos del motor son del cuerpo** (H4): una nueva desde una criatura los lleva
+    todos (el dragón óseo vuela y asusta); antes, solo `charge` y `undead`. Su tamaño
+    (`hexes`) no: sigue ocupando un hex.
+  - En la pelea, un cambio rechazado deja su motivo también en la barra de abajo (H5),
+    que se quedaba con el «Cambiado» del anterior; en la vista de edición, crear no dice
+    «añádela a un bando»; y el grupo de criaturas del selector dice que salen con el
+    maniquí (H3: ninguna tiene arte propio; cómo se pintan no cambia).
+- **Segunda vuelta de QA** (12-10-2026, misma tarea, `hallazgos-qa.md` «Segunda vuelta»;
+  banco idéntico, la tabla del catálogo de `test/nivel.test.ts` igual):
+  - **Una nueva nace donde cae su índice** (decisión del usuario). Con los rasgos de su
+    criatura, el Paladín nuevo (doble golpe) da 217 y el Cruzado 225: nivel 2. La barra
+    decía «nivel 1» escrito a mano y la ficha de al lado «Índice 217 · nivel 2»; ahora la
+    barra lo lee del índice (`avisoDeNuevaUnidad`) y ningún texto escribe el nivel.
+  - **Un rasgo de tiro sin tiros no pesa** (R2, `core/nivel.ts`): el doble disparo dobla la
+    ofensa solo si el cuerpo tira. El Montaraz nuevo, con el cuerpo común (0 tiros), subía
+    de 177 a 209 por un rasgo que no usa. Se mide el cuerpo sin equipo: los tiros de un
+    arco son equipo y no lo hacen pesar. En el catálogo toda criatura con `double_shot`
+    dispara, así que ni la tabla ni el banco se mueven.
+  - **El tamaño es del cuerpo**, como los rasgos: el dragón óseo nuevo ocupa dos casillas en
+    el montaje y en la pelea. El índice no lo mira, ni aquí ni en el catálogo.
+  - **El aviso de una conversión dice todas las cifras que no caben** (R3), no la primera,
+    que obligaba a recargar para descubrir la siguiente; y en un borrador con `level` (la
+    escala de fheroes2) PV y daño van como se escribieron, con los de hoy al lado: «su vida
+    9 (90 en la escala de hoy, ×10) no pasa de lo que suma Arnés de placas (+100)». Decía
+    «su vida 90», una cifra que nadie escribió.
+  - **Un borrador con solo unidades que no valen se dice leído** (R4,
+    `avisoDelBorradorLeido`): empezaba por «Sin borrador guardado todavía» y, en la misma
+    barra, listaba las que no valen.

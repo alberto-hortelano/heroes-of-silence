@@ -115,6 +115,24 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .etiqueta { background: #33302a; border: 1px dashed #a68b4d88; padding: 0.1rem 0.3rem; font-size: 0.9rem; }
 .etiqueta button { min-height: 0; padding: 0 0.3rem; background: none; border: 0; }
 
+/* «Nueva unidad» (12-10-2026): el cuerpo y su botón, encima de los filtros. */
+.nueva-unidad { display: flex; flex-wrap: wrap; align-items: end; gap: 0.3rem; margin-bottom: 0.5rem; }
+.nueva-unidad .campo { flex: 1 1 12em; min-width: 0; display: grid; }
+/* Un desplegable mide su opción más larga: sin ancho, en un teléfono el de las piezas
+   («Lanza de jinete · +7 ataque, +40-80 daño, a dos manos») sacaba la vista de lado. */
+.nueva-unidad select, .equipo-de-la-ficha select { width: 100%; min-width: 0; max-width: 100%; }
+.hoja canvas.figura { grid-row: span 3; width: 48px; height: 48px; background: #0b0f0b; }
+/* Con retrato o figura, todo lo demás va en la segunda columna: con el sello hay una
+   fila más que las que el retrato ocupa, y los botones caían debajo de él. */
+.hoja > img ~ .sello, .hoja > canvas ~ .sello,
+.hoja > img ~ .botones, .hoja > canvas ~ .botones { grid-column: 2; }
+/* El equipo de la ficha: un hueco por fila, la pieza puesta y el desplegable para ponerle otra. */
+.equipo-de-la-ficha { display: grid; gap: 0.3rem; }
+.equipo-de-la-ficha .hueco { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); align-items: center; gap: 0.2rem 0.5rem; }
+.equipo-de-la-ficha .hueco > .label { color: var(--gold); }
+.equipo-de-la-ficha .hueco .campo { grid-column: 1 / -1; display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 0.5rem; align-items: center; }
+.en-la-pelea span:last-child { font-weight: 600; }
+
 /*
  * La ficha, la misma en el montaje, la vista de edición y el editor de la
  * batalla (12-10-2026, el usuario: letra más grande; arriba, compacta, la

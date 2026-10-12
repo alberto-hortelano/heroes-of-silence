@@ -45,6 +45,7 @@ import { curaDe, delHeroe, efectoDe, type Lanzador, type Spell, spell } from '..
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
 import { hasTrait, isShooter } from '../data.js';
+import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
 
@@ -142,9 +143,10 @@ function distanceTo(state: BattleState, s: BattleStack, from: Hex, target: Battl
  * Cuánto tiene que rendir un hechizo, en PV equivalentes por punto de maná,
  * para que valga la pena lanzarlo.
  *
- * No es un número inventado: se calibra contra dos comportamientos observables.
- * Con 4, la Flecha mágica del héroe inicial (≈20 de daño por 3 de maná) se
- * dispara, y una Prisa sobre tres campesinos (≈1,5 de valor por 3 de maná) no.
+ * No es un número inventado: se calibra contra dos comportamientos observables,
+ * en la escala de fheroes2. Con 4, la Flecha mágica del héroe inicial (≈20 de
+ * daño por 3 de maná) se dispara, y una Prisa sobre tres campesinos (≈1,5 de
+ * valor por 3 de maná) no. Los PV van a `ESCALA_DE_CIFRAS`, y el 4 con ellos.
  * Subirlo hace tacaña a la IA; bajarlo la deja gastando el maná en buffos que
  * no cambian nada.
  *
@@ -156,7 +158,7 @@ function distanceTo(state: BattleState, s: BattleStack, from: Hex, target: Battl
  * la siguiente sin él: quitarlo es una pregunta de partida, no de este banco
  * (#92).
  */
-const VALOR_MINIMO_POR_MANA = 4;
+const VALOR_MINIMO_POR_MANA = 4 * ESCALA_DE_CIFRAS;
 
 /**
  * Lo que vale una ronda FUTURA de Prisa o Lentitud, como fracción del mejor

@@ -13,6 +13,7 @@ import {
   CIFRA_MAXIMA_DE_HEROE,
   FACCIONES_DE_ARENA,
   fichaDeHeroeDeArena,
+  figuraDeLaUnidad,
   finalDeArena,
   HABILIDADES_DE_LA_ARENA,
   type HeroeDeArena,
@@ -20,10 +21,12 @@ import {
   LADOS,
   type Lado,
   ladoDe,
+  lecturaDelNivel,
   NOMBRE_DE_FACCION_DE_ARENA,
   NOMBRE_DE_RASGO,
   nombreDeHabilidad,
   type UnidadDeArena,
+  unidadDeCombate,
 } from '@core/arena.js';
 import {
   type FormaDeMuralla,
@@ -61,11 +64,19 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '@core/battle/types.js';
-import { isShooter } from '@core/data.js';
+import { EQUIPO, isShooter } from '@core/data.js';
+import {
+  cifrasDePieza,
+  NOMBRE_DE_HUECO,
+  pieza,
+  piezasPuestas,
+  REGLA_DEL_ESCUDO,
+} from '@core/hero/equipo.js';
 import {
   CREATURE_TRAITS,
   type CreatureTrait,
   conComa,
+  HUECOS,
   SPEED_TO_HEXES,
   type UnitInfo,
 } from '@core/types.js';
@@ -84,11 +95,12 @@ import { curaOEfecto, textoDePrevision } from '../views/prevision.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
- * De dónde sale un puesto del montaje: una hoja de las cinco facciones (sus
- * cifras, las del borrador) o una criatura del catálogo del juego.
+ * De dónde sale un puesto del montaje: una unidad del borrador (por su id: la
+ * de una hoja de las cinco facciones o una nueva) o una criatura del catálogo
+ * del juego.
  */
 export type FuenteDePuesto =
-  | { readonly kind: 'hoja'; readonly hoja: string }
+  | { readonly kind: 'unidad'; readonly unidad: string }
   | { readonly kind: 'catalogo'; readonly id: string };
 
 /** Un puesto del montaje: de dónde sale. `clave` distingue dos iguales; quién lo mueve es del bando. */
@@ -99,9 +111,9 @@ export interface Puesto {
   readonly escalera: boolean;
 }
 
-/** Lo que tiene la ficha delante: una hoja, una criatura del catálogo o el héroe de un lado. */
+/** Lo que tiene la ficha delante: una unidad, una criatura del catálogo o el héroe de un lado. */
 export type Elegida =
-  | { readonly kind: 'hoja'; readonly id: string }
+  | { readonly kind: 'unidad'; readonly id: string }
   | { readonly kind: 'catalogo'; readonly id: string }
   | { readonly kind: 'heroe'; readonly lado: Lado };
 
@@ -123,8 +135,8 @@ export interface DatosDePuesto {
 /** ¿Es esta la elegida? */
 function esLaElegida(e: Elegida | null, f: FuenteDePuesto): boolean {
   if (e === null) return false;
-  return f.kind === 'hoja'
-    ? e.kind === 'hoja' && e.id === f.hoja
+  return f.kind === 'unidad'
+    ? e.kind === 'unidad' && e.id === f.unidad
     : e.kind === 'catalogo' && e.id === f.id;
 }
 
@@ -139,15 +151,14 @@ function rasgosDichos(traits: readonly CreatureTrait[] | undefined): string {
 }
 
 /**
- * Una línea con las cifras de una unidad, para la tarjeta del bando: también los
- * hexes y los rasgos, que antes no salían y un guerrero que vuela y ocupa dos
- * se veía igual que uno normal (M9 de QA).
+ * Una línea con las cifras con las que pelea una unidad, su equipo sumado
+ * (`unidadDeCombate`), para la tarjeta del bando: también los hexes y los rasgos,
+ * que antes no salían y un guerrero que vuela y ocupa dos se veía igual que uno
+ * normal (M9 de QA). Y lo que lleva puesto, que es de donde salen.
  */
 export function resumenDeCifras(u: UnidadDeArena): string {
-  const tiro = u.shots === undefined ? '' : ` · ${u.shots} tiros`;
-  const grande = (u.hexes ?? 1) > 1 ? ` · ${u.hexes} hexes` : '';
-  const rasgos = u.traits.length === 0 ? '' : ` · ${rasgosDichos(u.traits)}`;
-  return `A ${u.attack} · D ${u.defense} · ${u.damage[0]}–${u.damage[1]} daño · ${u.hp} PV · ${u.casillas} casillas${tiro}${grande}${rasgos}`;
+  const lleva = piezasPuestas(u.equipo).map((p) => p.nombre);
+  return `${resumenDeUnidad(unidadDeCombate(u))}${lleva.length === 0 ? '' : ` · lleva ${lleva.join(', ')}`}`;
 }
 
 /** Lo mismo para las cifras del motor: las de una criatura del catálogo. */
@@ -162,6 +173,80 @@ export function resumenDeUnidad(u: UnitInfo): string {
 
 /** Qué enseña la lista: todas las hojas, las de una facción o el catálogo del juego. */
 export type FiltroDeArena = HojaDeArena['faccion'] | 'todas' | 'catalogo';
+
+/**
+ * Una unidad en la lista: la de una hoja o una nueva (`unidadNueva`). Su id, su
+ * nombre, su facción y con qué se pinta: el retrato de identidad de su hoja o, si
+ * su cuerpo es una criatura del catálogo (que no tiene retrato), su figura.
+ * `sello`, lo que la distingue en la lista («nueva»); `incompleta`, por qué no se
+ * monta (#140).
+ */
+export interface TarjetaDeUnidad {
+  readonly id: string;
+  readonly nombre: string;
+  readonly faccion: HojaDeArena['faccion'];
+  readonly figura: { readonly retrato: string } | { readonly figura: string };
+  readonly sello?: string;
+  readonly incompleta: string | null;
+}
+
+/** La tarjeta de una unidad en la lista. Una incompleta se ve con su motivo y sin botones que la monten. */
+function tarjetaDeUnidad(t: TarjetaDeUnidad, modo: ModoDelCatalogo): Html {
+  const figura =
+    'retrato' in t.figura
+      ? html`<img${srcDeImagen(rutaDeIdentidad(t.figura.retrato))} alt="${t.nombre}" loading="lazy" width="64" height="64">`
+      : html`<canvas class="figura" data-figura="${t.figura.figura}" width="64" height="64"></canvas>`;
+  return html`<div class="hoja${t.incompleta === null ? '' : ' incompleta'}" data-unidad-catalogo="${t.id}">
+        ${figura}
+        ${t.sello === undefined ? NADA : html`<span class="sello">${t.sello}</span>`}
+        <span class="nombre">${t.nombre}</span>
+        <span class="cost">${NOMBRE_DE_FACCION_DE_ARENA[t.faccion]}</span>
+        ${t.incompleta === null ? NADA : html`<span class="cost" data-incompleta title="${t.incompleta}">Incompleta: ${t.incompleta}</span>`}
+        <span class="botones">${botonesDeTarjeta(modo, { kind: 'unidad', id: t.id }, t.incompleta)}</span>
+      </div>`;
+}
+
+/**
+ * Los cuerpos con los que se crea una «Nueva unidad»: las hojas con su arte
+ * entero y las criaturas del catálogo. Una hoja a medias no se ofrece (#140).
+ */
+export interface CuerposDeLaNueva {
+  readonly hojas: readonly { readonly id: string; readonly nombre: string }[];
+  readonly criaturas: readonly { readonly id: string; readonly name: string }[];
+}
+
+/** Lo que la lista enseña además de las hojas: las unidades nuevas y los cuerpos de «Nueva unidad». */
+export interface ListaDeUnidades {
+  readonly nuevas?: readonly TarjetaDeUnidad[];
+  readonly cuerpos?: CuerposDeLaNueva;
+}
+
+/**
+ * El grupo de las criaturas en el selector de «Nueva unidad». Ninguna tiene arte
+ * propio y salen con el maniquí (el Y Bot teñido), igual que en el catálogo de la
+ * arena; con la hoja «Esqueleto guerrero», que sí lo tiene, a un clic, nada lo
+ * decía (H3 de QA del ciclo 2). Cómo se pintan no cambia.
+ */
+const ROTULO_DEL_CATALOGO_EN_LA_NUEVA = 'Catálogo del juego (con el maniquí)';
+
+/**
+ * El selector de «Nueva unidad»: un desplegable con los cuerpos (`hoja:<id>` o
+ * `criatura:<id>`) y el botón que la crea. Lo que se crea lo decide el núcleo
+ * (`unidadNueva`); aquí solo se elige.
+ */
+function renderNuevaUnidad(c: CuerposDeLaNueva): Html {
+  const opcion = (valor: string, nombre: string): Html =>
+    html`<option value="${valor}">${nombre}</option>`;
+  return html`<div class="nueva-unidad" data-nueva-unidad="si">
+      <label class="campo"><span class="label">Nueva unidad</span>
+        <select data-arena-nueva="si" title="Su cuerpo: con qué figura se pinta. Nace con las cifras mínimas y sin equipo; su nivel sale de sus cifras y sus rasgos">
+          <option value="">— elige un cuerpo —</option>
+          <optgroup label="Hojas">${unir(c.hojas.map((h) => opcion(`hoja:${h.id}`, h.nombre)))}</optgroup>
+          <optgroup label="${ROTULO_DEL_CATALOGO_EN_LA_NUEVA}">${unir(c.criaturas.map((x) => opcion(`criatura:${x.id}`, x.name)))}</optgroup>
+        </select></label>
+      <button data-arena="crear-unidad" title="Crea una unidad nueva con ese cuerpo, las cifras mínimas y sin equipo">Crear</button>
+    </div>`;
+}
 
 /**
  * Para qué se enseña la lista: en el montaje, cada tarjeta se añade a un bando;
@@ -200,19 +285,24 @@ function botonesDeTarjeta(
   f: FichaEditable,
   incompleta: string | null,
 ): Html {
-  const quien = f.kind === 'hoja' ? html`data-hoja="${f.id}"` : html`data-criatura="${f.id}"`;
+  const quien = f.kind === 'unidad' ? html`data-unidad="${f.id}"` : html`data-criatura="${f.id}"`;
   if (modo.kind === 'edicion') {
     const motivo = abrirFichaBlocker(modo.abiertas, f, incompleta);
     const abierta = estaAbierta(modo.abiertas, claveDeFicha(f));
     return html`<button data-arena="abrir-ficha" ${quien} title="${motivo ?? 'Abre su ficha junto a las demás'}" ${motivo === null ? NADA : DESHABILITADO}>${abierta ? 'Abierta' : 'Abrir'}</button>`;
   }
-  const accion = f.kind === 'hoja' ? 'añadir' : 'añadir-catalogo';
+  const accion = f.kind === 'unidad' ? 'añadir' : 'añadir-catalogo';
   const montable = incompleta === null ? NADA : DESHABILITADO;
   return html`
           <button data-arena="${accion}" data-lado="izquierda" ${quien} title="Añadir al bando izquierdo" ${montable}>+ izq.</button>
           <button data-arena="${accion}" data-lado="derecha" ${quien} title="Añadir al bando derecho" ${montable}>+ der.</button>`;
 }
 
+/**
+ * La lista de unidades: las hojas y, detrás, las unidades nuevas (`nuevas`), por
+ * facción, o el catálogo del juego. Con `cuerpos`, arriba el selector de «Nueva
+ * unidad».
+ */
 export function renderCatalogo(
   hojas: readonly HojaDeArena[],
   filtro: FiltroDeArena,
@@ -222,9 +312,11 @@ export function renderCatalogo(
     readonly resumen: string;
   }[] = [],
   modo: ModoDelCatalogo = { kind: 'montaje' },
+  extra: ListaDeUnidades = {},
 ): Html {
   const cabecera = cabeceraDeLaLista(modo);
   if (modo.kind === 'edicion' && modo.plegada) return cabecera;
+  const nueva = extra.cuerpos === undefined ? NADA : renderNuevaUnidad(extra.cuerpos);
   const botones = unir(
     (['todas', ...FACCIONES_DE_ARENA, 'catalogo'] as const).map((f) => {
       const nombre =
@@ -248,24 +340,29 @@ export function renderCatalogo(
       ),
     );
     return html`${cabecera}
+    ${nueva}
     <div class="filtros">${botones}</div>
     <p class="cost">Las criaturas de data/creatures.json, con sus cifras y sus rasgos de verdad.</p>
     <div class="catalogo">${tarjetas}</div>`;
   }
-  const visibles = hojas.filter((h) => filtro === 'todas' || h.faccion === filtro);
+  // Las hojas y, detrás, las nuevas.
+  const todas: readonly TarjetaDeUnidad[] = [
+    ...hojas.map((h) => ({
+      id: h.id,
+      nombre: h.nombre,
+      faccion: h.faccion,
+      figura: { retrato: h.id },
+      incompleta: h.incompleta,
+    })),
+    ...(extra.nuevas ?? []),
+  ];
   const tarjetas = unir(
-    visibles.map((h) => {
-      // Una incompleta (#140) se ve con su motivo y sin botones que la monten.
-      return html`<div class="hoja${h.incompleta === null ? '' : ' incompleta'}" data-hoja-catalogo="${h.id}">
-        <img${srcDeImagen(rutaDeIdentidad(h.id))} alt="${h.nombre}" loading="lazy" width="64" height="64">
-        <span class="nombre">${h.nombre}</span>
-        <span class="cost">${NOMBRE_DE_FACCION_DE_ARENA[h.faccion]}</span>
-        ${h.incompleta === null ? NADA : html`<span class="cost" data-incompleta title="${h.incompleta}">Incompleta: ${h.incompleta}</span>`}
-        <span class="botones">${botonesDeTarjeta(modo, { kind: 'hoja', id: h.id }, h.incompleta)}</span>
-      </div>`;
-    }),
+    todas
+      .filter((t) => filtro === 'todas' || t.faccion === filtro)
+      .map((t) => tarjetaDeUnidad(t, modo)),
   );
   return html`${cabecera}
+    ${nueva}
     <div class="filtros">${botones}</div>
     <div class="catalogo">${tarjetas}</div>`;
 }
@@ -291,8 +388,8 @@ export function renderBando(
           puestos.map((p) => {
             const d = describir(p);
             const quien =
-              p.fuente.kind === 'hoja'
-                ? html`data-arena="editar" data-hoja="${p.fuente.hoja}"`
+              p.fuente.kind === 'unidad'
+                ? html`data-arena="editar" data-unidad="${p.fuente.unidad}"`
                 : html`data-arena="editar-catalogo" data-criatura="${p.fuente.id}"`;
             return html`<div class="puesto${esLaElegida(elegida, p.fuente) ? ' elegida' : ''}" data-puesto="${p.clave}">
               <button class="ver" ${quien} title="Ver y editar sus cifras">
@@ -646,6 +743,15 @@ function pieDeLaFicha(como: ComoDeLaFicha, enElMontaje: string | null): Html {
   return texto === null ? NADA : html`<p class="cost">${texto}</p>`;
 }
 
+/**
+ * El nivel de la ficha, que no se escribe: «Índice 340 · nivel 3», calculado por
+ * el núcleo de las cifras sin equipo (`lecturaDelNivel`). Va encima de las cifras
+ * y se repinta con la ficha, así que cambia al tocar cualquiera de ellas.
+ */
+function filaDelNivel(lectura: string, rotulo = 'Nivel'): Html {
+  return html`<div class="row nivel-de-la-ficha" data-nivel-de-la-ficha="si"><span class="label">${rotulo}</span><span>${lectura}</span></div>`;
+}
+
 /** Un campo numérico de la ficha. `data-campo` es lo que lee `main.ts` al cambiarlo. */
 function numero(campo: string, rotulo: string, valor: number, minimo: number): Html {
   return html`<label class="campo"><span class="label">${rotulo}</span>
@@ -653,19 +759,88 @@ function numero(campo: string, rotulo: string, valor: number, minimo: number): H
 }
 
 /**
+ * El equipo de la ficha: una fila por hueco (`HUECOS`), con la pieza puesta, lo
+ * que suma y su × o «—», y un desplegable con las piezas de ese hueco
+ * (`data/equipo.json`, en su orden) para ponerle otra. Sin reglas: lo que no se
+ * puede poner —un escudo con un arma a dos manos— lo rechaza el núcleo
+ * (`manosBlocker`) y sale en la barra.
+ */
+function equipoDeLaFicha(u: UnidadDeArena): Html {
+  const filas = unir(
+    HUECOS.map((hueco) => {
+      const id = u.equipo[hueco];
+      const p = id === undefined ? null : pieza(id);
+      const puesta =
+        p === null
+          ? html`<span class="cost">—</span>`
+          : etiquetaConQuitar(
+              `${p.nombre} (${cifrasDePieza(p)})`,
+              html`data-arena="quitar-pieza" data-hueco="${hueco}"`,
+            );
+      const opciones = unir(
+        EQUIPO.filter((x) => x.hueco === hueco && x.id !== id).map(
+          (x) => html`<option value="${x.id}">${x.nombre} · ${cifrasDePieza(x)}</option>`,
+        ),
+      );
+      return html`<div class="hueco" data-hueco-de-la-ficha="${hueco}">
+        <span class="label">${NOMBRE_DE_HUECO[hueco]}</span> ${puesta}
+        <label class="campo"><span class="label">Poner</span>
+          <select data-arena-pieza="${hueco}"><option value="">— elige —</option>${opciones}</select></label>
+      </div>`;
+    }),
+  );
+  return html`<h3>Equipo</h3>
+      <p class="cost">Suma a las cifras del cuerpo y no cambia el nivel: ${REGLA_DEL_ESCUDO}.</p>
+      <div class="equipo-de-la-ficha">${filas}</div>`;
+}
+
+/**
+ * Lo que dice la barra al crear una unidad nueva (`unidadNueva`). El nivel se
+ * **lee** del índice, el mismo de su ficha (`lecturaDelNivel` de lo que pelea):
+ * decía «nivel 1» escrito a mano y la ficha de al lado, «Índice 217 · nivel 2»,
+ * con un Paladín (R1 de la re-verificación de QA, 12-10-2026). En la edición no
+ * hay bandos y su ficha ya está abierta.
+ */
+export function avisoDeNuevaUnidad(u: UnidadDeArena, escena: 'montaje' | 'edicion'): string {
+  const como = `Nueva unidad «${u.name}», sin equipo (${lecturaDelNivel(unidadDeCombate(u))})`;
+  return escena === 'edicion'
+    ? `${como}: su ficha está abierta.`
+    : `${como}: añádela a un bando o cambia su ficha.`;
+}
+
+/**
+ * La primera frase de la barra al leer el borrador de unidades: cuántas valen. Un
+ * archivo con solo unidades que no valen **sí** es un borrador guardado: decía
+ * «Sin borrador guardado todavía» y, en la misma barra, la lista de las que no
+ * valen (R4 de la re-verificación de QA). Lo que no vale lo cuenta la página
+ * después, con sus motivos.
+ */
+export function avisoDelBorradorLeido(ruta: string, validas: number, sinValidar: number): string {
+  if (validas > 0) return `Cargado ${ruta}: ${validas} ${validas === 1 ? 'unidad' : 'unidades'}.`;
+  if (sinValidar > 0) {
+    return `Cargado ${ruta}: ninguna unidad vale, y ${sinValidar === 1 ? 'la que trae se conserva' : `las ${sinValidar} que trae se conservan`} tal cual al guardar; mientras, las unidades salen con cifras por defecto, inventadas.`;
+  }
+  return `Sin borrador guardado todavía (${ruta}): las unidades salen con cifras por defecto, inventadas.`;
+}
+
+/**
  * La ficha de la unidad elegida. `dispara`: si su figura trae el clip del
  * disparo (`ArteDeFigura.dispara`); solo entonces lleva su botón, porque a
- * quien no lo trae no hay disparo que enseñarle.
+ * quien no lo trae no hay disparo que enseñarle. Las cifras que se escriben son
+ * las del CUERPO, de las que sale el nivel; con el equipo encima se pelea, y la
+ * fila «En la pelea» lo dice.
  */
 export function renderFicha(
   u: UnidadDeArena | null,
-  hoja: HojaDeArena | null,
   dispara: boolean,
   como: ComoDeLaFicha = enElMontaje(),
 ): Html {
-  if (u === null || hoja === null) {
+  if (u === null) {
     return html`<h3>Ficha</h3><p class="cost">Pulsa el nombre de una unidad de un bando para ver y cambiar sus cifras.</p>`;
   }
+  // Con lo que pelea, una vez: el nivel lo mide sin el equipo (`sinEquipo`) y la
+  // fila «En la pelea» lo enseña con él.
+  const combate = unidadDeCombate(u);
   // Las habilidades que dan un poder actúan en la pelea; las demás, todavía no.
   const etiqueta = (h: string): Html =>
     etiquetaConQuitar(
@@ -695,10 +870,10 @@ export function renderFicha(
       (h) => html`<option value="${h}">${nombreDeHabilidad(h)}</option>`,
     ),
   );
-  return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'hoja', id: u.id })}">
+  return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'unidad', id: u.id })}">
       ${tituloDeFicha(u.name, `Ficha · ${NOMBRE_DE_FACCION_DE_ARENA[u.faction]}`, como, html`data-campo="name"`)}
       ${cabezaDeFicha({
-        figura: u.id,
+        figura: figuraDeLaUnidad(u),
         como,
         clips: html`<button data-arena="clip" data-clip="idle">Reposo</button>
           <button data-arena="clip" data-clip="walk">Marcha</button>
@@ -707,7 +882,10 @@ export function renderFicha(
           ${dispara ? html`<button data-arena="clip" data-clip="shoot">Disparo</button>` : NADA}
           <button data-arena="clip" data-clip="hurt">Daño</button>
           <button data-arena="clip" data-clip="death">Muerte</button>`,
-        cifras: html`${numero('attack', 'Ataque', u.attack, 0)}
+        cifras: html`${filaDelNivel(lecturaDelNivel(combate))}
+      <div class="row en-la-pelea" data-en-la-pelea="si"><span class="label">En la pelea (con el equipo)</span><span>${resumenDeUnidad(combate)}</span></div>
+      <p class="cost">Cifras del cuerpo, sin el equipo: de ellas sale el nivel.</p>
+      ${numero('attack', 'Ataque', u.attack, 0)}
       ${numero('defense', 'Defensa', u.defense, 0)}
       ${numero('damage-min', 'Daño mínimo', u.damage[0], 1)}
       ${numero('damage-max', 'Daño máximo', u.damage[1], 1)}
@@ -715,10 +893,10 @@ export function renderFicha(
       ${numero('casillas', `Velocidad (casillas, ${CASILLAS_MIN} a ${CASILLAS_MAX})`, u.casillas, CASILLAS_MIN)}
       ${numero('shots', 'Disparos (0 = cuerpo a cuerpo)', u.shots ?? 0, 0)}
       ${numero('hexes', 'Hexes (1 o 2)', u.hexes ?? 1, 1)}
-      ${numero('level', 'Nivel', u.level, 1)}
       ${numero('leadership', 'Liderazgo', u.leadership, 1)}
       ${numero('gold', 'Coste (oro)', u.cost.gold, 0)}`,
       })}
+      ${equipoDeLaFicha(u)}
       ${rasgosDeLaFicha(u.traits)}
       <h3>Poderes · actúan en la pelea</h3>
       <p class="cost">Se usan en su turno en vez de golpear, al principio, sin haberse movido: el turno entero.</p>
@@ -758,7 +936,8 @@ export function renderFichaDeCatalogo(
         como,
         clips: NADA,
         siempre: deshacer,
-        cifras: html`${campo('attack', 'Ataque', u.attack, 0)}
+        cifras: html`${filaDelNivel(lecturaDelNivel(u))}
+      ${campo('attack', 'Ataque', u.attack, 0)}
       ${campo('defense', 'Defensa', u.defense, 0)}
       ${campo('damage-min', 'Daño mínimo', u.damage[0], 1)}
       ${campo('damage-max', 'Daño máximo', u.damage[1], 1)}
@@ -830,6 +1009,7 @@ export function renderFichaDeHeroe(
       <div class="rasgos">${libro}</div>
       <h3>En la pelea</h3>
       <div class="efectivos">
+        ${filaDelNivel(lecturaDelNivel(c), 'Nivel (sin el equipo)')}
         <div class="row"><span class="label">Cuerpo (con el equipo base)</span><span>A ${c.attack} · D ${c.defense} · ${c.damage[0]}–${c.damage[1]} daño · ${c.hp} PV · ${SPEED_TO_HEXES[c.speed]} casillas</span></div>
         <div class="row"><span class="label">A la tropa</span><span>${reglas.heroe === 'fheroes2' ? `+${h.ataque} de ataque y +${h.defensa} de defensa (fheroes2)` : 'nada: su ataque y su defensa son de su cuerpo'}</span></div>
         <div class="row"><span class="label">Maná</span><span>${ficha.mana} (10 × Conocimiento)</span></div>

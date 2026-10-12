@@ -18,7 +18,9 @@ import {
   destinoDeEquipo,
   equipoDe,
   idsPuestos,
+  manosBlocker,
   NOMBRE_DE_CALIDAD,
+  nadaEnElHueco,
   PIEZAS_DE_BOTIN,
   type Portador,
   piezaSiExiste,
@@ -29,9 +31,9 @@ import {
 } from '../hero/equipo.js';
 import {
   EXPERIENCIA_INICIAL_DE_HEROE,
-  NIVEL_MAXIMO_DE_TROPA,
-  nivelDeHeroe,
-  nivelDeTropa,
+  RANGO_MAXIMO_DE_TROPA,
+  rangoDeHeroe,
+  rangoDeTropa,
 } from '../hero/experiencia.js';
 import {
   type Hero,
@@ -109,8 +111,6 @@ import {
   canAfford,
   describirCoste,
   EMPTY_RESOURCES,
-  esHueco,
-  HUECOS,
   type Hueco,
   subtractResources,
 } from '../types.js';
@@ -414,14 +414,14 @@ export type AdventureAction =
     }
   /**
    * Quitarle a alguien la pieza de `slot` y devolverla a la mochila
-   * (`unequipBlocker`). `slot` es texto y no `Hueco` a propósito: llega del
-   * agente, y un hueco mal escrito tiene que descartar ESTA acción con su motivo,
-   * no tumbar el turno entero en el esquema como hacía un `z.enum`.
+   * (`unequipBlocker`). El hueco llega ya comprobado: lo traducen las dos
+   * puertas por las que entra como texto, `accionDelAgente` (el inglés del
+   * contrato) y la sesión del cliente (`esHueco`).
    */
   | {
       readonly type: 'unequip';
       readonly hero: string;
-      readonly slot: string;
+      readonly slot: Hueco;
       readonly veteran?: string;
     }
   | { readonly type: 'end_turn' };
@@ -1469,9 +1469,9 @@ function aplicar(
       const hero = heroById(state, action.hero);
       const noSe = unequipBlocker(state, currentPlayer(state).id, action);
       if (noSe !== null) throw new Error(`no se puede desequipar: ${noSe}`);
-      // Los dos `as` los respalda `unequipBlocker`, que acaba de decir que sí.
+      // El `as` lo respalda `unequipBlocker`, que acaba de decir que sí.
       const quien = destinoDeEquipo(hero, action) as Portador;
-      const { equipo, quitada } = quitarPieza(equipoDe(hero, quien), action.slot as Hueco);
+      const { equipo, quitada } = quitarPieza(equipoDe(hero, quien), action.slot);
       vestir(hero, conEquipoDe(hero, quien, equipo));
       aLaMochila(hero, quitada);
       return;
@@ -1576,7 +1576,9 @@ export function equipBlocker(
     return `${hero.name} no lleva ${pieza.nombre} en la mochila`;
   }
   const quien = destinoDeEquipo(hero, action);
-  return 'motivo' in quien ? quien.motivo : null;
+  if ('motivo' in quien) return quien.motivo;
+  // Un arma a dos manos no admite escudo, y al revés (`manosBlocker`, la única regla).
+  return manosBlocker(equipoDe(hero, quien), pieza.id);
 }
 
 /** Por qué no se puede hacer ese `unequip`, o `null`. */
@@ -1587,9 +1589,6 @@ export function unequipBlocker(
 ): string | null {
   const hero = heroeSuyo(state, player, action.hero);
   if ('motivo' in hero) return hero.motivo;
-  if (!esHueco(action.slot)) {
-    return `no hay ningún hueco "${action.slot}": son ${HUECOS.join(', ')}`;
-  }
   const quien = destinoDeEquipo(hero, action);
   if ('motivo' in quien) return quien.motivo;
   if (equipoDe(hero, quien)[action.slot] !== undefined) return null;
@@ -1600,7 +1599,7 @@ export function unequipBlocker(
       : t.member === undefined
         ? `esa unidad de ${creature(t.creature).name}`
         : 'ese personaje';
-  return `${nombre} no lleva nada en el hueco ${action.slot}`;
+  return nadaEnElHueco(nombre, action.slot);
 }
 
 /**
@@ -1697,7 +1696,7 @@ function hireHero(state: GameState, townId: string): void {
 }
 
 /**
- * Los veteranos de nivel máximo que `player` tiene en su base ahora mismo: en la
+ * Los veteranos de rango máximo que `player` tiene en su base ahora mismo: en la
  * guarnición y en la tropa de su héroe que está allí (`veteranosEn`). Sin base,
  * ninguno: no hay dónde hacerse héroe.
  */
@@ -1728,7 +1727,7 @@ function ascensoPosible(
   const v = veteranosEnSuBase(state, player).find((x) => x.veterania.id === veteranoId);
   if (v === undefined) {
     return {
-      motivo: `el veterano "${veteranoId}" no está en tu base con nivel ${NIVEL_MAXIMO_DE_TROPA}: solo se hace héroe quien llega al tope y está allí`,
+      motivo: `el veterano "${veteranoId}" no está en tu base con rango ${RANGO_MAXIMO_DE_TROPA}: solo se hace héroe quien llega al tope y está allí`,
     };
   }
   if (!hayHuecoDeHeroe(state, player)) {
@@ -2747,9 +2746,9 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   }
   for (const a of ascensos) {
     emit(state, {
-      kind: 'troop_level_up',
+      kind: 'troop_rank_up',
       creature: a.creature,
-      level: a.level,
+      rank: a.rank,
       veterano: a.veterano,
       actor: a.dueño,
       at,
@@ -2940,10 +2939,10 @@ function woundsFromBattle(state: GameState, battle: BattleState): void {
   }
 }
 
-/** Un individuo que cruza un nivel en esta batalla: un `troop_level_up` por nivel. */
+/** Un individuo que cruza un rango en esta batalla: un `troop_rank_up` por rango. */
 interface Ascenso {
   readonly creature: string;
-  readonly level: number;
+  readonly rank: number;
   readonly veterano: string;
   readonly dueño: PlayerId;
 }
@@ -2986,32 +2985,32 @@ function conVeterania({ state, dueño, ascensos }: Cobro, base: Troop, s: Battle
     bajas: hoja.bajas + s.ganado.bajas,
     heroes: [...hoja.heroes, ...s.ganado.heroes],
   };
-  const antes = nivelDeTropa(previa);
-  const despues = nivelDeTropa(veterania);
+  const antes = rangoDeTropa(previa);
+  const despues = rangoDeTropa(veterania);
   for (let n = antes + 1; n <= despues; n++) {
-    ascensos.push({ creature: base.creature, level: n, veterano: veterania.id, dueño });
+    ascensos.push({ creature: base.creature, rank: n, veterano: veterania.id, dueño });
   }
   return { ...base, veterania };
 }
 
 /**
- * Le da la experiencia al héroe y le cobra los niveles que salgan, uno a uno:
- * **un `level_up` por nivel ganado** y no uno por batalla. Es el sitio en el
- * que el día que subir de nivel REPARTA algo —habilidades— se reparte.
+ * Le da la experiencia al héroe y le cobra los rangos que salgan, uno a uno:
+ * **un `rank_up` por rango ganado** y no uno por batalla. Es el sitio en el
+ * que el día que subir de rango REPARTA algo —habilidades— se reparte.
  *
  * El héroe no tiene tope (decisión del usuario: el 5 es solo de la tropa), así
- * que `nivelDe` va sin él y sigue la misma tabla Fibonacci de la tropa. Y
- * empieza donde la tropa acaba, en el 5 con su experiencia (`NIVEL_INICIAL_DE_HEROE`):
- * una sola escala, así que su primer ascenso es al 6 y cuesta 160. Lo que
- * le da cada nivel está en datos: su cuerpo (`data/heroe.json`) y su liderazgo
- * (`data/liderazgo.json`).
+ * que `rangoDe` va sin él y sigue la misma tabla Fibonacci de la tropa. Y
+ * empieza donde la tropa acaba, en el 5 con su experiencia (`RANGO_INICIAL_DE_HEROE`):
+ * una sola escala, así que su primer ascenso es al 6 y cuesta 128 000 (base × 8). Lo que
+ * le da cada rango está en datos: su cuerpo (`data/heroe.json`) y su liderazgo
+ * (`data/liderazgo.json`); su nivel, el de ese cuerpo (`nivelDeUnidad`).
  */
 function ganarExperiencia(state: GameState, hero: Hero, exp: number, at: Point): void {
   if (exp <= 0) return;
-  const antes = nivelDeHeroe(hero);
+  const antes = rangoDeHeroe(hero);
   hero.experience += exp;
-  for (let level = antes + 1; level <= nivelDeHeroe(hero); level++) {
-    emit(state, { kind: 'level_up', hero: hero.id, level, actor: hero.owner, at });
+  for (let rank = antes + 1; rank <= rangoDeHeroe(hero); rank++) {
+    emit(state, { kind: 'rank_up', hero: hero.id, rank, actor: hero.owner, at });
   }
 }
 

@@ -154,19 +154,19 @@ describe('fórmula de daño', () => {
 
 describe('aplicación de daño a un stack', () => {
   it('mata efectivos enteros y deja al de arriba herido', () => {
-    const s = stackOf('swordsman', 10); // 25 hp cada uno
-    expect(stackHp(s)).toBe(250);
-    const killed = herir(s, 60, null);
+    const s = stackOf('swordsman', 10); // 250 PV cada uno
+    expect(stackHp(s)).toBe(2500);
+    const killed = herir(s, 600, null);
     expect(killed).toBe(2);
     expect(s.count).toBe(8);
-    expect(stackHp(s)).toBe(190);
+    expect(stackHp(s)).toBe(1900);
   });
 
   it('un daño menor que un efectivo no mata a nadie', () => {
     const s = stackOf('swordsman', 3);
-    expect(herir(s, 5, null)).toBe(0);
+    expect(herir(s, 50, null)).toBe(0);
     expect(s.count).toBe(3);
-    expect(s.topHp).toBe(20);
+    expect(s.topHp).toBe(200);
   });
 
   it('el exceso de daño no resucita ni deja restos', () => {

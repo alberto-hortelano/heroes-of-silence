@@ -543,17 +543,16 @@ describe('la crónica de la pantalla deja de mentir', () => {
     );
   });
 
-  it('subir de nivel se cuenta, y se distingue el tuyo del suyo', () => {
-    // La única consecuencia visible de subir de nivel hoy: el nivel no reparte
-    // atributos todavía (#6, #15), así que sin esta línea la persona no se
-    // enteraría de que su héroe ha progresado.
-    const mio = linea({ kind: 'level_up', hero: 'h', level: 2, actor: 0 });
+  it('subir de rango se cuenta, y se distingue el tuyo del suyo', () => {
+    // Subir de rango reparte cuerpo y liderazgo, que no se ven en el mapa: sin
+    // esta línea la persona no se enteraría de que su héroe ha progresado.
+    const mio = linea({ kind: 'rank_up', hero: 'h', rank: 6, actor: 0 });
     expect(mio).toContain(
-      '<div class="win">Un héroe tuyo sube a nivel 2 en\u00a0(0,\u00a00)</div>',
+      '<div class="win">Un héroe tuyo sube a rango 6 en\u00a0(0,\u00a00)</div>',
     );
 
-    const suyo = linea({ kind: 'level_up', hero: 'h', level: 3, actor: 1 });
-    expect(suyo).toContain('<div>Un héroe del jugador 1 sube a nivel 3 en\u00a0(0,\u00a00)</div>');
+    const suyo = linea({ kind: 'rank_up', hero: 'h', rank: 7, actor: 1 });
+    expect(suyo).toContain('<div>Un héroe del jugador 1 sube a rango 7 en\u00a0(0,\u00a00)</div>');
     expect(suyo).not.toContain('win');
   });
 
@@ -710,8 +709,8 @@ describe('la crónica de la pantalla deja de mentir', () => {
           evento({ kind: 'hero_defeated', hero: 'h', actor: 1 }),
           evento({ kind: 'node_captured', node: 'n', actor: 1, from: 0 }),
           evento({ kind: 'node_captured', node: 'n', actor: 0, from: 1 }),
-          evento({ kind: 'level_up', hero: 'h', level: 2, actor: 1 }),
-          evento({ kind: 'level_up', hero: 'h', level: 2, actor: 0 }),
+          evento({ kind: 'rank_up', hero: 'h', rank: 6, actor: 1 }),
+          evento({ kind: 'rank_up', hero: 'h', rank: 6, actor: 0 }),
         ],
         0,
       ),

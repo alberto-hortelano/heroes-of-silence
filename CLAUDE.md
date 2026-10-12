@@ -133,10 +133,14 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Recortar un edificio de la base de su cuadro | `recortarLaBase`, `derivarRecorte` (`tools/taller/recorte-base.ts`) |
 | Escala del tablero de combate (también la de la base) | `escalaDelCombate` (`render/proyeccion.ts`), que leen `tableroPara` y `pasoDeLaBase` |
 | Quién hay en una base y qué dice (narrado o de respaldo) | `vecinosDeLaBase`, `vozDe`; las voces del narrador las escribe solo `ponerVoces` (`town/voces.ts`) |
-| Reindexar el nivel de héroe | `subidasDeHeroe` (lanza por debajo del 5) |
+| Nivel de una unidad (índice de poder, sin equipo) | `nivelDeUnidad`, `indiceDePoder`, `nivelDelIndice` (`core/nivel.ts`, `data/poder.json`); el cuerpo sin equipo, `UnitInfo.sinEquipo`, lo escribe solo `conEquipo` (lo vigila `invariantes.test.ts`); qué cifras se pueden medir, `medidaBlocker` (lo leen `poderBruto`, la arena y la carga del catálogo) |
+| Reindexar el rango de héroe | `subidasDeRango` (lanza por debajo del 5) |
 | Añadir a la mochila | `aLaMochila` |
 | A quién va una pieza | `destinoDeEquipo` |
-| Formatear un precio | `describirCoste` |
+| Lo que admite una mano y dos (un arma a dos manos no admite escudo) | `manosBlocker` (`hero/equipo.ts`, la única lectura de `Pieza.manos`); la leen `equipBlocker` y `equipoBlocker`, y `ponerPieza` lanza con ella, que es la pregunta de la arena (`equiparEnArena`, con el nombre de quien la lleva; lo vigila `invariantes.test.ts`); dicha para la persona, `REGLA_DEL_ESCUDO` |
+| Los huecos en el contrato (`weapon`, `armor`, `accessory`, `shield`) | `SLOT_DE_HUECO`, `huecoDelSlot`, `accionDelAgente` (`contract/huecos.ts`; lo que escribe el agente, `AccionDelAgente`); por dentro, `HUECOS` en español (lo vigila `invariantes.test.ts`) y el núcleo recibe un `Hueco` (`unequip.slot`): el texto lo traducen `accionDelAgente` y la sesión (`esHueco`). Uno que no existe, `huecoDesconocido`; para la persona, por su nombre (`NOMBRE_DE_HUECO`; quitar de uno vacío, `nadaEnElHueco`) |
+| Unidad nueva de la arena | `unidadNueva` (`core/arena.ts`); cuerpo + equipo con que pelea, `unidadDeCombate`; lo de antes del equipo, `migrarUnidadDeArena`, con el perfil de cada hoja (`perfilDeLasHojas`) y comprobado al revés con `mismasCifras` (`hero/equipo.ts`, junto a `conEquipo`); la forma de un id, `esIdDeArena` (`core/validar.ts`: la lee también el cliente fuera de la arena) |
+| Formatear un precio | `describirCoste`; un entero con miles («176 000»), `conMiles` |
 | Camino de un héroe (con lo hostil) | `alcanceDelHeroe`, `caminoHasta`; nadie fuera de `game.ts` llama a `findPath`/`reachableFrom` |
 | Territorio y renta | `territorio(state)`, `dueñoComun` |
 | Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed` |
@@ -203,12 +207,35 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 - **Economía**: costes de `buildinginfo.cpp` y renta de `ProfitConditions`,
   copiados de la fuente. No se ajustan cifras a ojo: se inventa solo lo
   declarado como inventado.
-- **Experiencia (regla nuestra)**: quien quita PV cobra `PV quitados × nivel del
-  que los recibe`, gane o pierda. Tabla en `data/experiencia.json` (Fibonacci,
-  base 20). La tropa va del 1 al 5; todo héroe empieza en el 5 y sube sin tope.
-  La experiencia vive en el individuo (`Troop.veterania`); el nivel se deriva.
-  Las habilidades por nivel están en datos e inertes.
-- **La tropa se hace héroe** (solo con agente): un veterano de nivel 5 en su base
+- **Un solo nivel, derivado de las cifras (regla nuestra, 12-10-2026)**: el nivel de
+  toda unidad —criatura, veterano, héroe, personaje, unidad de la arena— es la primera
+  cifra de su **índice de poder** (`indiceDePoder`, 340 = nivel 3), calculado en enteros
+  de sus cifras **sin equipo** (`raizEntera` de ofensa × aguante, por lo que corre; el doble
+  golpe dobla la ofensa, y el doble disparo solo si el cuerpo tira; umbral del
+  nivel 2 en 940 y ×2 cada nivel, `data/poder.json`). Nadie lo escribe: el catálogo
+  guarda la **morada** (`Creature.morada`, la del edificio) y el contrato la manda como
+  `dwelling`. Con 940 y 2/1 cada criatura queda en su morada o la contigua (el montaraz
+  en el 3, la caballería en el 4) y el campesino en el 1 (`test/nivel.test.ts`). **PV y
+  daño van ×10** (`ESCALA_DE_CIFRAS`, `core/escala.ts`: catálogo, equipo, héroe, hechizos
+  de PV, `curar`, la arena y el personaje); ataque, defensa y la fórmula de daño no
+  cambian. Lo calibrado en la escala de fheroes2 la lee de ahí: la fuerza de la IA divide
+  entre su cuadrado (`unitPower`), el maná vale 4 × escala y `valorDePieza` pesa un punto
+  como escala PV.
+- **Experiencia (regla nuestra)**: quien quita PV cobra `PV quitados × índice de poder
+  del que los recibe` (`indiceDePoder`, sin equipo: el nivel en centésimas), gane o
+  pierda; en enteros, con los umbrales en esa escala en vez de dividir entre 100. La
+  experiencia da **rangos**: tabla en `data/experiencia.json`
+  (Fibonacci, base 16 000, calibrada para 0,25 rangos 5 por partida en 1-1000,
+  12-10-2026).
+  La tropa va del rango 1 al 5; todo héroe empieza en el 5 y sube sin tope. Cada
+  rango suma cifras (`porRango`; al héroe, cuerpo y liderazgo), y su nivel sube solo
+  si ellas lo suben: un héroe recién hecho (2/2) es del nivel 3. La experiencia vive en
+  el individuo (`Troop.veterania`); el rango se deriva. Las habilidades por rango están
+  en datos e inertes. Medido en 1-1000 (12-10-2026, `tools/qa/veterania.ts`), antes del
+  nivel derivado → con `× índice`: rangos 2/3/4/5 por partida 5,50 / 2,05 / 0,80 / 0,25
+  → 6,56 / 2,53 / 0,92 / 0,25, subidas de héroe 2,93 → 3,13, j0 558 → 520, duración
+  8 / 14 / 43 → 7 / 14 / 26, 0 sin terminar (por qué no `× nivel`, en `docs/historia.md`).
+- **La tropa se hace héroe** (solo con agente): un veterano de rango 5 en su base
   dispara `hero_from_troop` al empezar el turno del agente
   (`ascensoBlocker`, `ascenderVeterano`).
 - **Las voces de la base** (solo con agente): `town_voices` pide, antes del turno y en una
@@ -216,9 +243,15 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   levantado por primera vez, `firmaDeVoces`). Cada voz y cada línea se juzga sola
   (`ponerVoces`); sin agente, respaldo determinista de `data/vecinos.json` con su propio
   `createRng`. Es presentación: `Town.voces` no escribe en la crónica y el banco no lo ve.
-- **Equipo (inventado)**: arma, armadura y accesorio por individuo y por héroe;
+- **Equipo (inventado)**: arma, armadura, accesorio y escudo por individuo y por héroe;
   botín de asaltantes y ciudades neutrales con su propia corriente de azar;
-  la armería vende la calidad `armeria`, que es el equipo base del héroe.
+  la armería vende la calidad `armeria`, que es el equipo base del héroe (sin escudo: el
+  hueco `escudo` no lleva pieza de armería). Una pieza suma ataque, defensa, PV, daño
+  (`danio`) y disparos, y su velocidad puede restar (la de un escudo, siempre); `conEquipo`
+  es la única suma y el nivel no la ve. **Un arma a dos manos (`manos: 2`) no admite escudo**
+  (`manosBlocker`, 12-10-2026). La calidad `arena` (armas por perfil y escudos) **el juego no
+  la reparte**: ni botín (`PIEZAS_DE_BOTIN` sale de `CALIDADES_DE_BOTIN`, común y especial, escrito), ni armería, ni
+  equipo base, ni la prosa del agente (`PIEZAS_DEL_JUEGO`); el banco no se mueve.
 - **El mapa es una red de nodos**: regiones cerradas por barrera
   (`mountain`, `water`, `forest`, `cliff`, `wall`), pasos de una casilla entre
   ellas. Una ciudad es un nodo; un nodo se toma pisándolo. Una mina produce solo
@@ -449,8 +482,10 @@ antes del destino (`battle_started` con `faltan`).
   `hero_from_troop`, `town_voices`. Un test compara los `case` de `decidir` con `REQUEST_KINDS`
   en las dos direcciones; lo que se juega en su lugar es `EN_SU_LUGAR`
   (`Record<RequestKind, string>`).
-- Consultas: `game_state`, `battle_state`, `map`, `creature_stats`,
-  `spell_list`, `building_list`. Solo por los jugadores del agente, y **todo
+- Consultas: `game_state`, `battle_state`, `map`, `creature_stats` (con `dwelling`,
+  `level` y `powerIndex` derivados: `fichaDeCriatura`), `spell_list`, `building_list`.
+  La tropa veterana y el héroe llevan `rank` y `level`; el stack, `veteranRank`.
+  Solo por los jugadores del agente, y **todo
   pasa por la niebla**: crónica, mapa (`serializeKnownMap`, la misma llamada para
   el turno y la tool) y batallas ajenas.
 - El agente **defiende** sus batallas (`BattleTakeover`: si te la quedas, la
@@ -613,14 +648,34 @@ antes del destino (`battle_started` con `faltan`).
   es una prueba que no se guarda), un héroe por lado con libro (`heroeDeArena`) y
   seis interruptores de reglas por pelea (`battle/reglas.ts`, `?reglas=` con la
   semilla); con todos en «nuestra» pelea como el juego. «Copiar enlace de la
-  pelea» escribe el montaje entero (`?montaje=`, versión 2: con la muralla y las escaleras; la 1 se
-  sigue leyendo); abrirlo lo monta sin luchar. **La muralla de la arena** (`battle/muralla.ts`,
+  pelea» escribe el montaje entero (`?montaje=`, versión 5: unidades con cuerpo y equipo y
+  puestos `{ unidad }`; de la 1 a la 4 se leen, con `{ hoja }`, y piden el perfil de cada hoja,
+  `PerfilDe`, que sale de `perfilDeLasHojas`, para convertirse; cada versión es un umbral con
+  nombre, `CON_EQUIPO`…); abrirlo lo monta sin luchar. **Cuerpo y equipo** (12-10-2026,
+  ciclo 2 del nivel único): una unidad es un cuerpo (`cuerpo: { hoja } | { criatura }`, el arte con
+  que se pinta; las cifras de la ficha son las suyas y de ellas sale el nivel) más su equipo (cuatro
+  huecos, `data/equipo.json`), y pelea con las dos cosas (`unidadDeCombate` → `conEquipo`). Toda hoja
+  nace del cuerpo común (`CUERPO_COMUN`, nivel 1, índice 171-194) con el equipo de su perfil
+  (`KIT_DEL_PERFIL`): pelea como antes y el templario con escudo y el del mandoble son el mismo índice
+  (177). Las hojas de un personaje (`Unidad.personaje`) comparten cuerpo y velocidad
+  (`VELOCIDAD_DEL_CUERPO`, `tools/arena/velocidades.ts`): 6 de 51 cambian ±1 casilla. «Nueva unidad»
+  (`unidadNueva`) crea desde una hoja entera o una criatura una unidad `<cuerpo>-<n>`, con el
+  cuerpo común y sin equipo, con el `n` libre también entre las del borrador que no valen
+  (`IdsOcupados`) y, de una criatura, su tamaño (el dragón óseo, dos casillas) y sus rasgos del
+  motor; nace en el nivel que dé su índice (de una hoja, el 1; el Paladín, con doble golpe, en el 2)
+  y la barra lo lee de él (`avisoDeNuevaUnidad`); su arte es el de su cuerpo (`figuraDeLaUnidad`,
+  nunca el Y Bot en lugar del arte). Un
+  borrador o un enlace de antes se convierte al leerlo (`migrarUnidadDeArena`: sus cifras menos el
+  equipo de su perfil, comprobado al revés) y, si no cabe, se queda con sus cifras y sin equipo,
+  diciendo todas las que no caben, con PV y daño como estaban escritos (los de un borrador con
+  `level`, en la escala de fheroes2, y al lado los de hoy). Un borrador con solo unidades que no
+  valen se dice leído (`avisoDelBorradorLeido`). **La muralla de la arena** (`battle/muralla.ts`,
   formas en `data/borradores/murallas.json`, `arena-murallas.ts`): muros altos donde suben los de
   dentro y los atacantes con escalera o el rasgo `escalar`, puertas entre dos casillas que abre y
   cierra quien defiende, sin tiro a través en el suelo; un tirador en lo alto suma
   `defensaEnLoAlto` (`data/muralla.json`, inventado), que pone `opcionesDeDanio` y por eso lo
   cuentan igual el golpe, la IA, la ficha y la previsión. Funciona con los seis interruptores.
-  Las batallas del mapa van sin muralla (`SIN_MURALLA`). **Poderes** (solo la arena, 11-10-2026): una unidad con Curar o Bendecir los usa en su turno (jugada `poder`, cierra el turno, no tras moverse); quién mueve es del **bando entero** (Yo / IA en su cabecera; `?montaje=` versión 3, la 1 y la 2 se leen). En la batalla, «Editar» del panel abre la ficha del tipo o del héroe y el cambio vale en la pelea y en el borrador. Velocidad en casillas (`escalonDeCasillas`). `SesionDeArena`
+  Las batallas del mapa van sin muralla (`SIN_MURALLA`). **Poderes** (solo la arena, 11-10-2026): una unidad con Curar o Bendecir los usa en su turno (jugada `poder`, cierra el turno, no tras moverse); quién mueve es del **bando entero** (Yo / IA en su cabecera; `?montaje=` versión 3, la 1 y la 2 se leen). En la batalla, «Editar» del panel abre la ficha del tipo o del héroe y el cambio vale en la pelea y en el borrador. Velocidad en casillas (`escalonDeCasillas`). **El nivel no se escribe** (12-10-2026): la ficha enseña «Índice N · nivel n» (`lecturaDelNivel`), que se recalcula al tocar cualquier cifra; un borrador con `level` es de la escala de fheroes2 y se lee con PV y daño ×10 (`CAMPO_DE_LA_ESCALA_VIEJA`); las pruebas del catálogo de los enlaces de la 1 a la 3 se escalan igual. `SesionDeArena`
   vive en `session.ts`. **La vista de edición** («Editar fichas», `arena/edicion.ts`): las
   fichas que se quieran, sin tope (12-10-2026), las mismas del montaje (`fichaDe`), recordadas en
   `localStorage`, en tres columnas como mucho y las demás debajo; la vista se desplaza entera, como

@@ -33,6 +33,7 @@ import {
   reglasDeLaURL,
 } from '../src/core/battle/reglas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import { ESCALA_DE_CIFRAS } from '../src/core/escala.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { bando, con, mando } from './batalla-de-prueba.js';
 
@@ -172,7 +173,8 @@ describe('(b) ataque contra defensa', () => {
       );
       const a = stackById(b, 'attacker-0');
       const d = stackById(b, 'defender-0');
-      return expectedDamage(a, d, opcionesDeDanio(b, a, d)) / (1 * 10);
+      // 10 campesinos de daño [1, 1] en la escala de fheroes2: 10 × ESCALA de base.
+      return expectedDamage(a, d, opcionesDeDanio(b, a, d)) / (10 * ESCALA_DE_CIFRAS);
     };
     expect(ratio(REGLAS_DEL_JUEGO)).toBeCloseTo(1 - 8 * 0.025);
     expect(ratio(con('ataqueDefensa'))).toBeCloseTo(1 - 8 * 0.05);
@@ -270,8 +272,8 @@ describe('(e) Bendición y Maldición', () => {
     const c = contando(createRng(9));
     const r = computeDamage(yo, otro, c.rng, opcionesDeDanio(b, yo, otro));
     expect(c.ints()).toBe(0);
-    // 5 espadachines × 6 (su máximo) contra A 7 / D 9: ×0,95.
-    expect(r.damage).toBe(Math.round(5 * 6 * damageMultiplier(7, 9)));
+    // 5 espadachines × 60 (su máximo) contra A 7 / D 9: ×0,95.
+    expect(r.damage).toBe(Math.round(5 * 60 * damageMultiplier(7, 9)));
   });
 
   it('nuestra: la Bendición es suerte +1 y la tirada se tira', () => {
@@ -345,7 +347,7 @@ describe('(f) el ataque y la defensa del héroe', () => {
     const o = opcionesDeDanio(b, a, d);
     expect([o.ataqueDelMando, o.defensaDelMando]).toEqual([4, 3]);
     // 7 + 4 contra 9 + 3: r = −1.
-    expect(expectedDamage(a, d, o)).toBeCloseTo(5 * 5 * damageMultiplier(11, 12));
+    expect(expectedDamage(a, d, o)).toBeCloseTo(5 * 50 * damageMultiplier(11, 12));
   });
 
   it('nuestra: no cuentan, y el héroe no se los suma a sí mismo en ninguna', () => {
@@ -354,7 +356,7 @@ describe('(f) el ataque y la defensa del héroe', () => {
     const d = stackById(b, 'defender-0');
     const o = opcionesDeDanio(b, a, d);
     expect(o.ataqueDelMando).toBeUndefined();
-    expect(expectedDamage(a, d, o)).toBeCloseTo(5 * 5 * damageMultiplier(7, 9));
+    expect(expectedDamage(a, d, o)).toBeCloseTo(5 * 50 * damageMultiplier(7, 9));
     const f2 = conHeroes(con('heroe')).b;
     const heroe = stackById(f2, 'attacker-heroe');
     expect(opcionesDeDanio(f2, heroe, stackById(f2, 'defender-0')).ataqueDelMando).toBe(0);

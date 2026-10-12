@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { tipoDeHeroePorDefecto, tiposDeHeroe, validarTiposDeHeroe } from '../src/core/data.js';
 import { porPreguntar, problemaDeTipo } from '../src/core/hero/ascenso.js';
-import { nivelDeHeroe, umbral } from '../src/core/hero/experiencia.js';
+import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
@@ -108,7 +108,7 @@ describe('la tropa se hace héroe: el ascenso', () => {
     expect(heroe.name).toBe('Ana la Paciente');
     // La experiencia del individuo, que es nivel 5 o más: una sola escala.
     expect(heroe.experience).toBe(umbral(5));
-    expect(nivelDeHeroe(heroe)).toBeGreaterThanOrEqual(5);
+    expect(rangoDeHeroe(heroe)).toBeGreaterThanOrEqual(5);
     expect(heroe.army).toEqual([]);
     expect(heroe.movePoints).toBe(0);
     expect(heroe.tipo).toBe('vampiro');
@@ -336,10 +336,10 @@ describe('la tropa se hace héroe: las negativas no tocan nada', () => {
     expect(state.heroes).toHaveLength(cuantos);
   });
 
-  it('el de nivel 4 no se asciende aunque esté en la base', () => {
+  it('el de rango 4 no se asciende aunque esté en la base', () => {
     const { state } = conVeteranos();
     expect(ascensoBlocker(state, 1, 'veterano-de-4', 'vampiro')).toMatch(
-      /no está en tu base con nivel 5/,
+      /no está en tu base con rango 5/,
     );
   });
 });
