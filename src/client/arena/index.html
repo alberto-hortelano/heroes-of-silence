@@ -18,7 +18,9 @@
         <span id="acciones-arena">
           <button data-arena="luchar" class="primary">Luchar</button>
           <button data-arena="enlace" title="Copia una dirección que monta esta misma pelea: unidades, cifras, héroes, quién mueve, semilla y reglas">Copiar enlace de la pelea</button>
+          <button data-arena="ir-a-edicion" title="Abre las fichas de las unidades que quieras, en columnas; las que no caben van debajo">Editar fichas</button>
           <button data-arena="guardar">Guardar</button>
+          <button data-arena="volver-de-edicion" class="primary">Volver al montaje</button>
         </span>
       </header>
 
@@ -30,10 +32,21 @@
         <section id="muralla"></section>
       </main>
 
+      <main id="edicion"></main>
+
       <main id="stage">
         <div id="lienzo" class="map-wrap"><canvas id="canvas" tabindex="0"></canvas></div>
         <aside id="lateral"><div id="side"></div></aside>
       </main>
+
+      <dialog id="editor-en-combate" aria-labelledby="titulo-del-editor">
+        <header class="cabecera-del-editor">
+          <h2 id="titulo-del-editor">Editar en plena pelea</h2>
+          <button data-arena="cerrar-editor" class="primary">Volver a la pelea</button>
+        </header>
+        <p id="aviso-del-editor" class="aviso-del-editor" role="status"></p>
+        <div id="ficha-del-editor"></div>
+      </dialog>
 
       <footer id="statusbar">
         <span id="status">Cargando las hojas…</span>

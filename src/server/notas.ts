@@ -804,6 +804,8 @@ export function describeAccion(accion: BattleAction | AdventureAction): string {
       return `hechizo ${accion.spell}${accion.target === undefined ? '' : ` sobre ${accion.target}`}`;
     case 'surrender':
       return 'rendición';
+    case 'poder':
+      return `poder ${accion.poder} sobre ${accion.target}`;
     case 'move_hero':
       return `move_hero ${accion.hero} → (${accion.to.x},${accion.to.y})`;
     case 'hire_hero':

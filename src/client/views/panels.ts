@@ -17,6 +17,7 @@
 import { activeStack, quedanCasillas } from '@core/battle/battle.js';
 import { DEFEND_BONUS } from '@core/battle/damage.js';
 import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
+import { poder } from '@core/battle/poderes.js';
 import { enOrdenDelLibro, type Spell, spell } from '@core/battle/spells.js';
 import {
   type BattleAction,
@@ -749,8 +750,9 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
           hechizos: renderSpells(session.hechizos.selectedSpell, session.spellOptions()),
-          // Las batallas del mapa no tienen muralla.
+          // Las batallas del mapa no tienen muralla, y su tropa no tiene poderes.
           muralla: NADA,
+          poderes: NADA,
         }),
       )
     : html`<p>Turno del enemigo…</p>`;
@@ -803,6 +805,8 @@ export function accionesDeLaUnidad(o: {
   readonly pasos: number | null;
   readonly rendicion: Html;
   readonly hechizos: Html;
+  /** Los botones de los poderes de la unidad (la arena: Curar, Bendecir); si no, `NADA`. */
+  readonly poderes: Html;
   /**
    * Los botones de la muralla —«Abrir puerta» y «Cerrar puerta», «Poner
    * escalera» y «Subir»—, donde la hay (la arena); si no, `NADA`.
@@ -817,7 +821,7 @@ export function accionesDeLaUnidad(o: {
          <button data-action="battle-end-turn">Terminar turno</button>
          <button data-action="battle-defend" ${puede('defend') ? NADA : DESHABILITADO}>Defender</button>
          <button data-action="battle-wait" ${puede('wait') ? NADA : DESHABILITADO}>Esperar</button>
-         ${o.rendicion}${o.muralla}
+         ${o.rendicion}${o.muralla}${o.poderes}
        </div>
        ${o.hechizos}
        <p class="cost" style="margin-top:.5rem">
@@ -839,6 +843,8 @@ export function listaDelCampo(
     readonly flecha: string;
     readonly nombre: string;
     readonly cuenta: string | number;
+    /** Un botón al final de la fila (la arena: «Editar»); sin él, nada. */
+    readonly boton?: Html;
   },
 ): Html {
   return unir(
@@ -848,7 +854,7 @@ export function listaDelCampo(
         const f = fila(x);
         return html`<div class="stack${x.id === battle.turno?.stack ? '' : ' empty'}">
           <span>${f.flecha} ${f.nombre}</span>
-          <span class="count">${f.cuenta}</span>
+          <span class="count">${f.cuenta}</span>${f.boton ?? NADA}
         </div>`;
       }),
   );
@@ -1138,6 +1144,19 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           const efecto = e.damage ? `: ${e.damage} de daño, ${bajas(e.killed ?? 0)}` : '';
           return html`<div>${lanza} ${spell(e.spell).name}${sobre}${efecto}</div>`;
         }
+        case 'power': {
+          // Lo que deja Bendecir va detrás en su propia línea (`effect`); aquí,
+          // quién a quién y, si cura, cuánto.
+          const p = poder(e.poder);
+          const cura = e.cura === undefined ? '' : `: cura ${e.cura} PV`;
+          return html`<div${paraQuienLee(e.target, true)}>${quienEs(e.stack)}, usa ${p.nombre} sobre ${quien(e.target)}${cura}</div>`;
+        }
+        // La arena cambió unas cifras a media pelea (el editor): no es una
+        // jugada, pero desde aquí la pelea se juega con las nuevas. Entre
+        // paréntesis y con «;», porque un cambio de lista ya lleva sus dos
+        // puntos y sus comas («habilidades: + Salto, − Bendecir»).
+        case 'retoque':
+          return html`<div>Cambian las cifras de ${e.nombre} a media pelea${e.cambios.length === 0 ? '' : ` (${e.cambios.join('; ')})`}</div>`;
         // La moral, la suerte y los efectos dicen de quién: con el color puesto
         // desde quien lee, una línea verde sin nombre no deja saber si es la
         // moral de los tuyos o la mala suerte del rival.

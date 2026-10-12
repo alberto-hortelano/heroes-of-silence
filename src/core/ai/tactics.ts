@@ -40,7 +40,8 @@ import {
   mismaPuerta,
   type PuertaDeMuralla,
 } from '../battle/muralla.js';
-import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
+import { esDeCura, poder } from '../battle/poderes.js';
+import { curaDe, delHeroe, efectoDe, type Lanzador, type Spell, spell } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
 import { hasTrait, isShooter } from '../data.js';
@@ -166,6 +167,8 @@ const VALOR_MINIMO_POR_MANA = 4;
  *
  * Hoy no lo lee ninguna partida: el efecto dura el Poder del lanzador y nada
  * sube el Poder de 1, así que todo temporal se lanza para la ronda en curso.
+ * En la arena lo lee también lo que vale acercarse frente a usar un poder
+ * (`sinElPoder`).
  */
 const FRACCION_TEMPO = 0.5;
 
@@ -263,10 +266,15 @@ function rindeTemporal(
   sp: Spell,
   efecto: StackEffect,
   objetivo: BattleStack,
+  quedan = rondasQueQuedan(state, objetivo.side),
+  gastaSuTurno: BattleStack | null = null,
 ): Rinde {
   const amount = sp.amount ?? 0;
   const yaCubre = roundsLeftOf(objetivo, efecto);
-  const pasos = pasosDeEstaRonda(state, objetivo);
+  // Quien se lo echa con su turno (un poder sobre sí mismo) ya no golpea hoy: el
+  // efecto no le compra la ronda en curso. Contarla daba al monje que se bendecía
+  // el golpe que la propia Bendición le quitaba.
+  const pasos = objetivo === gastaSuTurno ? null : pasosDeEstaRonda(state, objetivo);
 
   let hoy = NADA;
   if (pasos !== null && yaCubre === 0) {
@@ -284,7 +292,7 @@ function rindeTemporal(
 
   // Las siguientes: un efecto de N rondas cubre la en curso y N − 1 más, y la
   // batalla no da más que las que le quedan.
-  const tope = rondasQueQuedan(state, objetivo.side) - 1;
+  const tope = quedan - 1;
   const cubre = (n: number): number => Math.max(0, Math.min(n - 1, tope));
   const despues = cubre(efecto.roundsLeft) - cubre(yaCubre);
   if (despues <= 0) return hoy;
@@ -301,7 +309,11 @@ function rindeTemporal(
 
 /**
  * Lo que rinde lanzar este hechizo sobre este objetivo, para poder comparar un
- * buffo con un daño en la misma escala.
+ * buffo con un daño en la misma escala. Lo lance el héroe (`spellRinde`) o una
+ * unidad con su poder (`mejorPoder`): es el mismo hechizo con otro lanzador, y
+ * se valora igual. `quedan`, las rondas que le quedan a la batalla para su bando
+ * (`rondasQueQuedan`), si quien llama ya las tiene; `gastaSuTurno`, la unidad que
+ * lo usa con su turno (el poder), que no se cuenta el golpe de hoy.
  *
  * #92: los temporales valían una fracción de la amenaza del objetivo, sin
  * mirar si aún actuaba ni a quién alcanzaba. Con la tropa de individuos esa
@@ -309,33 +321,139 @@ function rindeTemporal(
  * 12 del umbral: en 30 partidas se ofrecieron 4 516 Prisas y 3 476 Lentitudes
  * y no pasó ninguna.
  */
+function rindeDe(
+  state: BattleState,
+  sp: Spell,
+  l: Lanzador,
+  objetivo: BattleStack,
+  quedan?: number,
+  gastaSuTurno: BattleStack | null = null,
+): Rinde {
+  switch (sp.kind) {
+    case 'damage':
+      // El tope es la vida que queda: sin él, un Rayo sobre tres campesinos
+      // puntuaba como si matara a cincuenta.
+      return rindeContra(state, objetivo, l.cantidad);
+    case 'speed':
+    case 'luck': {
+      // `efectoDe` es la misma función que el motor consulta para saber qué
+      // colgaría, así que la duración no se recalcula aquí. Solo devuelve
+      // `null` fuera de estas dos ramas: no rinde y no lanza, porque esto es
+      // una heurística, no una regla.
+      const efecto = efectoDe(sp, l, state.reglas);
+      return efecto === null
+        ? NADA
+        : rindeTemporal(state, sp, efecto, objetivo, quedan, gastaSuTurno);
+    }
+    case 'heal': {
+      // Sale ≈0 salvo con un stack tocado, y está bien: la Curación no se lanza
+      // por lanzarla. No necesita caso especial para quedar fuera del umbral.
+      const pv = curaDe(sp, l, objetivo);
+      return { pv, amenaza: (threat(state, objetivo) * pv) / Math.max(1, stackHp(objetivo)) };
+    }
+  }
+}
+
+/** Lo que rinde que el héroe lance `sp` sobre `objetivo` (`rindeDe` con su poder). */
 function spellRinde(
   state: BattleState,
   caster: BattleHero,
   sp: Spell,
   objetivo: BattleStack,
 ): Rinde {
-  switch (sp.kind) {
-    case 'damage':
-      // El tope es la vida que queda: sin él, un Rayo sobre tres campesinos
-      // puntuaba como si matara a cincuenta.
-      return rindeContra(state, objetivo, spellAmount(sp, caster));
-    case 'speed':
-    case 'luck': {
-      // `effectOfSpell` es la misma función que el motor consulta para saber
-      // qué colgaría, así que la duración no se recalcula aquí. Solo devuelve
-      // `null` fuera de estas dos ramas: no rinde y no lanza, porque esto es
-      // una heurística, no una regla.
-      const efecto = effectOfSpell(sp, caster, state.reglas);
-      return efecto === null ? NADA : rindeTemporal(state, sp, efecto, objetivo);
-    }
-    case 'heal': {
-      // Sale ≈0 salvo con un stack tocado, y está bien: la Curación no se lanza
-      // por lanzarla. No necesita caso especial para quedar fuera del umbral.
-      const pv = Math.min(spellAmount(sp, caster), objetivo.unit.hp - objetivo.topHp);
-      return { pv, amenaza: (threat(state, objetivo) * pv) / Math.max(1, stackHp(objetivo)) };
+  return rindeDe(state, sp, delHeroe(sp, caster), objetivo);
+}
+
+/**
+ * El mejor poder de la lista legal, o `null` si ninguno rinde más que lo que la
+ * unidad haría sin él (`sinElPoder`): a diferencia del hechizo, el poder SÍ gasta
+ * el turno, así que compite con pegar y con acercarse. Gana el poder con más PV; a
+ * igualdad de PV, la amenaza. Sin acciones `poder` —todo el juego— no se calcula
+ * nada.
+ *
+ * Un temporal que el objetivo aún lleva no se refresca con el turno (H1 de QA,
+ * vuelta 1): `rindeTemporal` le da las rondas que alarga, y eso es justo para el
+ * hechizo, que no cuesta el turno, pero con el poder era bendecirse cada turno
+ * en vez de andar —monje contra monje llegaba al tope de 100 rondas en 40 de 40—.
+ */
+function mejorPoder(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+): BattleAction | null {
+  const mas = (a: Rinde, b: Rinde): boolean =>
+    a.pv > b.pv || (a.pv === b.pv && a.amenaza > b.amenaza);
+  let mejor: BattleAction | null = null;
+  let suRinde = NADA;
+  // Todos sus objetivos son de su bando: las rondas que le quedan, una vez.
+  let quedan: number | undefined;
+  for (const a of acciones) {
+    if (a.type !== 'poder') continue;
+    const p = poder(a.poder);
+    const objetivo = stackById(state, a.target);
+    const efecto = efectoDe(p.hechizo, p.lanzador, state.reglas);
+    if (efecto !== null && roundsLeftOf(objetivo, efecto) > 0) continue;
+    if (esDeCura(p) && !(enPeligro(state, objetivo) && vaGanando(state, s.side))) continue;
+    quedan ??= rondasQueQuedan(state, s.side);
+    const r = rindeDe(state, p.hechizo, p.lanzador, objetivo, quedan, s);
+    if (mas(r, suRinde)) {
+      mejor = a;
+      suRinde = r;
     }
   }
+  if (mejor === null) return null;
+  return mas(suRinde, sinElPoder(state, s)) ? mejor : null;
+}
+
+/**
+ * ¿Puede caer `aliado` antes de que vuelva a tocarle a quien lo cura? Lo que
+ * le pegarían los enemigos que le llegan en su próximo turno (su velocidad, o el
+ * tiro de quien aún dispara), sumado, contra la vida que le queda.
+ *
+ * Es la vara de la cura con el turno: curar 4 PV a quien no corre peligro solo
+ * aplaza la pelea, y con la cura por encima de lo que pega un monje (1-3), monje
+ * contra monje se curaban por turnos sin acabar nunca. Curar de urgencia sí
+ * compensa: lo que salva es la unidad entera, no sus PV.
+ */
+function enPeligro(state: BattleState, aliado: BattleStack): boolean {
+  let pegan = 0;
+  for (const e of enemiesOf(state, aliado)) {
+    const tira = isShooter(e.unit) && e.shotsLeft > 0 && !isEngaged(state, e);
+    if (!tira && distanceTo(state, e, e.hex, aliado) > stackSpeed(e) + 1) continue;
+    const golpes = hasTrait(e.unit, 'double_attack') ? 2 : 1;
+    pegan += golpes * expectedDamage(e, aliado, opcionesDeDanio(state, e, aliado));
+  }
+  return aliado.topHp <= pegan;
+}
+
+/**
+ * ¿Cae antes el otro bando que `side`, a lo que pega cada uno por ronda? La misma
+ * carrera que `rondasQueQuedan`, mirada por quién la gana; un empate cuenta como
+ * ir ganando.
+ *
+ * La otra mitad de la vara de la cura: quien pierde la carrera y cura solo alarga
+ * la pelea. Con la urgencia sola (`enPeligro`), dos monjes contra dos se curaban
+ * por turnos —cada bando salvaba a su herido con una jugada y pegaba con la
+ * otra— y en 40 semillas la mediana era de 19 rondas, con 5 sin poderes.
+ */
+function vaGanando(state: BattleState, side: Side): boolean {
+  const vida = (b: Side): number => sumaDelBando(state, b, (o) => stackHp(o));
+  const pega = (b: Side): number => Math.max(1, sumaDelBando(state, b, amenazaPropia));
+  const rival = otroBando(side);
+  return vida(side) * pega(side) >= vida(rival) * pega(rival);
+}
+
+/**
+ * Lo que rinde el turno de `s` sin usar un poder: el mejor golpe que tiene a mano,
+ * o, si acercarse le pone delante uno mejor, acercarse. Acercarse se cuenta como
+ * una ronda de tempo, `FRACCION_TEMPO` del mejor golpe sin mirar el alcance —el
+ * mismo proxy que una ronda futura de Prisa—: sin él, quien no tenía a nadie a
+ * mano comparaba el poder con un 0 y siempre lo usaba.
+ */
+function sinElPoder(state: BattleState, s: BattleStack): Rinde {
+  const aMano = mejorGolpe(state, s, pasosQueQuedan(state, s));
+  const acercarse = escalar(mejorGolpe(state, s, Number.POSITIVE_INFINITY), FRACCION_TEMPO);
+  return acercarse.pv > aMano.pv ? acercarse : aMano;
 }
 
 /**
@@ -710,6 +828,10 @@ function decideAccion(
   // Con muralla, el tirador que defiende sube a ella antes que nada.
   const alMuro = tiradorAlMuro(state, s, acciones, costes);
   if (alMuro !== null) return alMuro;
+
+  // Un poder (arena: curar, bendecir), si rinde más que el golpe que tiene a mano.
+  const conPoder = mejorPoder(state, s, acciones);
+  if (conPoder !== null) return conPoder;
 
   // Un tirador con línea libre dispara al mejor objetivo: a quien la lista deja
   // disparar, que ya ha mirado munición, trabado, tramo y muro (`tiroBlocker`).

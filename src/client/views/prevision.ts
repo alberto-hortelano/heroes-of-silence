@@ -1,6 +1,6 @@
 /**
  * La previsión de daño dicha para la barra: lo que daría el golpe, el disparo o
- * el hechizo que se señala. Las cifras son del núcleo (`previsionDe`, la misma
+ * el hechizo o el poder que se señala. Las cifras son del núcleo (`previsionDe`, la misma
  * cuenta que aplica el daño); aquí solo se escriben. Lo comparten la partida y
  * la arena a través de la escena de batalla, que es una.
  */
@@ -8,9 +8,11 @@ import type {
   Prevision,
   PrevisionDeContraataque,
   PrevisionDeGolpe,
-  PrevisionDeHechizo,
+  PrevisionDeLanzar,
 } from '@core/battle/battle.js';
 import type { Horquilla, Modificador, RamaDeSuerte } from '@core/battle/damage.js';
+import type { StackEffect } from '@core/battle/effects.js';
+import { poder } from '@core/battle/poderes.js';
 import { DESCRIPCION_DE_REGLA } from '@core/battle/reglas.js';
 import { spell } from '@core/battle/spells.js';
 import { conComa } from '@core/types.js';
@@ -45,7 +47,7 @@ function modificadores(ms: readonly Modificador[]): string {
   return ` Cuenta: ${dichos.join('; ')}.`;
 }
 
-function reglas(p: Prevision): string {
+function reglas(p: Pick<Prevision, 'reglas'>): string {
   if (p.reglas.length === 0) return '';
   return ` Reglas de fheroes2: ${p.reglas.map((r) => DESCRIPCION_DE_REGLA[r].nombre.toLowerCase()).join(', ')}.`;
 }
@@ -74,27 +76,48 @@ function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
   );
 }
 
-function deHechizo(p: PrevisionDeHechizo): string {
-  const s = spell(p.hechizo);
+/**
+ * Lo que hace un hechizo que no hiere, en pocas palabras: «cura 4 PV», «suerte +1
+ * durante 3 rondas»; `null` si no cura ni deja nada. Una sola redacción para la
+ * previsión del hechizo, la del poder y lo que la ficha de la arena dice del
+ * poder (`queHaceElPoder`).
+ */
+export function curaOEfecto(cura: number | null, efecto: StackEffect | null): string | null {
+  if (cura !== null) return `cura ${cura} PV`;
+  if (efecto !== null) {
+    return `${cifraDeEfecto(efecto.kind, efecto.amount)} durante ${enRondas(efecto.roundsLeft)}`;
+  }
+  return null;
+}
+
+/**
+ * Un hechizo (del héroe o de un poder) en una frase: «Bendición: suerte +1
+ * durante 3 rondas.», «Curar a Escudero: cura 4 PV.». `quien` es lo que va
+ * delante de los dos puntos.
+ */
+function deLanzar(quien: string, p: PrevisionDeLanzar): string {
   if (p.danio !== null) {
     const bajas =
       p.bajas === 0 ? 'no caería ninguno' : p.bajas === 1 ? 'caería 1' : `caerían ${p.bajas}`;
     const leQuedan = p.leQuedan === 0 ? 'no le quedaría nada' : `le quedarían ${p.leQuedan} PV`;
-    return `${s.name}: ${p.danio} de daño, ${bajas} y ${leQuedan}.${reglas(p)}`;
+    return `${quien}: ${p.danio} de daño, ${bajas} y ${leQuedan}.${reglas(p)}`;
   }
-  if (p.cura !== null) return `${s.name}: cura ${p.cura} PV.${reglas(p)}`;
-  if (p.efecto !== null) {
-    const e = p.efecto;
-    const que = cifraDeEfecto(e.kind, e.amount);
-    return `${s.name}: ${que} durante ${enRondas(e.roundsLeft)}.${reglas(p)}`;
-  }
-  return `${s.name}.${reglas(p)}`;
+  const hace = curaOEfecto(p.cura, p.efecto);
+  return `${quien}${hace === null ? '' : `: ${hace}`}.${reglas(p)}`;
 }
 
 /**
  * La previsión en una frase para la barra. `nombre` dice cómo se llama en el
- * campo cada stack (`nombreEnElCampo`), para la salpicadura.
+ * campo cada stack (`nombreEnElCampo`), para la salpicadura y el poder.
  */
 export function textoDePrevision(p: Prevision, nombre: (id: string) => string): string {
-  return p.kind === 'hechizo' ? deHechizo(p) : deGolpe(p, nombre);
+  switch (p.kind) {
+    case 'hechizo':
+      return deLanzar(spell(p.hechizo).name, p);
+    case 'poder':
+      return deLanzar(`${poder(p.poder).nombre} a ${nombre(p.objetivo)}`, p);
+    case 'golpe':
+    case 'disparo':
+      return deGolpe(p, nombre);
+  }
 }

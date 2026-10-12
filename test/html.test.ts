@@ -264,9 +264,14 @@ describe('la puerta de escapar: los comentarios', () => {
   });
 });
 
+/** Un destino de `pintar` sin foco dentro, para los tests que solo miran el marcado. */
+function destinoSinFoco(): Element {
+  return { innerHTML: '', ownerDocument: { activeElement: null } } as unknown as Element;
+}
+
 describe('la puerta de escapar: pintar', () => {
   it('`pintar` escribe el marcado en el elemento', () => {
-    const destino = { innerHTML: '' } as unknown as Element;
+    const destino = destinoSinFoco();
     pintar(destino, html`<p>${MALO}</p>`);
     expect(destino.innerHTML).toBe('<p>&lt;img src=x onerror=alert(1)&gt;</p>');
   });
@@ -274,10 +279,133 @@ describe('la puerta de escapar: pintar', () => {
   it('`pintar` rechaza una cadena por mucho que parezca marcado', () => {
     // En TypeScript esto no compila, que es el primer cerrojo. El segundo es
     // este: en ejecución tampoco, porque el símbolo no lo lleva.
-    const destino = { innerHTML: '' } as unknown as Element;
+    const destino = destinoSinFoco();
     const impostor = { toString: () => '<p>x</p>' } as unknown as Html;
     expect(() => pintar(destino, impostor)).toThrow(/solo pinta marcado/);
     expect(destino.innerHTML).toBe('');
+  });
+});
+
+/**
+ * Un DOM de juguete con lo justo que mira `pintar` para el foco: atributos,
+ * padres, `contains`, `matches(':focus-visible')`, el cursor y `focus`. Lo que
+ * repinta no lo analiza: el test dice qué encuentra cada selector después, y
+ * comprueba con qué selector se buscó. En el navegador lo ejerce `pnpm capturas`
+ * (la pasada «edicion»: tras cambiar el ataque y tabular, el foco en la defensa
+ * de la MISMA ficha).
+ */
+class Nodo {
+  readonly attributes: { name: string; value: string }[];
+  parentElement: Nodo | null = null;
+  enfocado: { preventScroll?: boolean } | null = null;
+  seleccion: [number, number, string] | null = null;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  selectionDirection: string | null = 'forward';
+  visible = true;
+  constructor(
+    readonly tagName: string,
+    atributos: Record<string, string> = {},
+    readonly hijos: Nodo[] = [],
+    cursor: [number, number] | null = null,
+  ) {
+    this.attributes = Object.entries(atributos).map(([name, value]) => ({ name, value }));
+    for (const h of hijos) h.parentElement = this;
+    this.selectionStart = cursor?.[0] ?? null;
+    this.selectionEnd = cursor?.[1] ?? null;
+  }
+  contains(otro: Nodo): boolean {
+    for (let n: Nodo | null = otro; n !== null; n = n.parentElement) if (n === this) return true;
+    return false;
+  }
+  matches(s: string): boolean {
+    if (s !== ':focus-visible') throw new Error(`el juguete no sabe de ${s}`);
+    return this.visible;
+  }
+  focus(o: { preventScroll?: boolean }): void {
+    this.enfocado = o;
+  }
+  setSelectionRange(a: number, b: number, s: string): void {
+    this.seleccion = [a, b, s];
+  }
+}
+
+/** Pinta en un destino cuyo foco es `activo` y cuyo repintado deja `despues` para cada selector. */
+function pintarConFoco(
+  destino: Nodo,
+  activo: Nodo | null,
+  despues: Record<string, Nodo[]>,
+): string[] {
+  const buscados: string[] = [];
+  const doc = { activeElement: activo };
+  const falso = Object.assign(destino, {
+    ownerDocument: doc,
+    innerHTML: '',
+    querySelectorAll(s: string): Nodo[] {
+      buscados.push(s);
+      return despues[s] ?? [];
+    },
+  });
+  pintar(falso as unknown as Element, html`<p>x</p>`);
+  return buscados;
+}
+
+describe('pintar conserva el foco', () => {
+  const SELECTOR = '[data-clave-de-ficha="hoja:templario"] input[data-campo="attack"][id="a\\"b"]';
+  const campo = (): Nodo =>
+    new Nodo('INPUT', { class: 'x', 'data-campo': 'attack', id: 'a"b' }, [], [2, 4]);
+  const enUnaFicha = (activo: Nodo): Nodo =>
+    new Nodo('DIV', {}, [new Nodo('DIV', { 'data-clave-de-ficha': 'hoja:templario' }, [activo])]);
+
+  it('lo devuelve al de la misma identidad, sin desplazar la vista y con su cursor', () => {
+    const activo = campo();
+    const destino = enUnaFicha(activo);
+    const nuevo = campo();
+    const buscados = pintarConFoco(destino, activo, { [SELECTOR]: [nuevo] });
+    // La identidad es la del campo Y la de su ficha: con cuatro, cada «Ataque» es otro.
+    expect(buscados).toEqual([SELECTOR]);
+    expect(nuevo.enfocado).toEqual({ preventScroll: true });
+    expect(nuevo.seleccion).toEqual([2, 4, 'forward']);
+  });
+
+  it('un campo sin cursor (un número) recibe el foco sin selección', () => {
+    const activo = new Nodo('INPUT', { 'data-campo': 'hp' });
+    const nuevo = new Nodo('INPUT', { 'data-campo': 'hp' }, [], [0, 0]);
+    const destino = new Nodo('DIV', {}, [activo]);
+    pintarConFoco(destino, activo, { 'input[data-campo="hp"]': [nuevo] });
+    expect(nuevo.enfocado).not.toBeNull();
+    expect(nuevo.seleccion).toBeNull();
+  });
+
+  it('no adivina: dos iguales, ninguno, o un foco sin identidad se quedan sin devolver', () => {
+    const activo = new Nodo('INPUT', { 'data-campo': 'hp' });
+    const a = new Nodo('INPUT');
+    const b = new Nodo('INPUT');
+    pintarConFoco(new Nodo('DIV', {}, [activo]), activo, { 'input[data-campo="hp"]': [a, b] });
+    expect(a.enfocado).toBeNull();
+    expect(b.enfocado).toBeNull();
+    const anonimo = new Nodo('INPUT', { class: 'x' });
+    const ficha = new Nodo('DIV', { 'data-clave-de-ficha': 'hoja:x' }, [anonimo]);
+    expect(pintarConFoco(new Nodo('DIV', {}, [ficha]), anonimo, {})).toEqual([]);
+  });
+
+  it('el foco de fuera del destino no se toca', () => {
+    const fuera = new Nodo('INPUT', { 'data-campo': 'hp' });
+    expect(pintarConFoco(new Nodo('DIV'), fuera, {})).toEqual([]);
+    expect(pintarConFoco(new Nodo('DIV'), null, {})).toEqual([]);
+  });
+
+  it('un botón pulsado con el ratón no lo conserva; con el teclado, sí', () => {
+    // Conservárselo haría que el Espacio volviera a pulsar «Esperar» en vez de cerrar el turno.
+    const conRaton = new Nodo('BUTTON', { 'data-action': 'wait' });
+    conRaton.visible = false;
+    expect(pintarConFoco(new Nodo('DIV', {}, [conRaton]), conRaton, {})).toEqual([]);
+    const conTeclado = new Nodo('BUTTON', { 'data-action': 'wait' });
+    const nuevo = new Nodo('BUTTON', { 'data-action': 'wait' });
+    pintarConFoco(new Nodo('DIV', {}, [conTeclado]), conTeclado, {
+      'button[data-action="wait"]': [nuevo],
+    });
+    expect(nuevo.enfocado).not.toBeNull();
   });
 });
 

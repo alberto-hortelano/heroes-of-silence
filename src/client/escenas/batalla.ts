@@ -10,7 +10,7 @@
  * el teclado: con una por sitio, «Resolver sola» y Escape se colaban.
  */
 import { type CasillaDeCarga, isAlive, SIN_CARGAS, stackHexes } from '@core/battle/battle.js';
-import { BOARD_HEIGHT, hexEquals, hexKey } from '@core/battle/board.js';
+import { hexEquals, hexKey, ULTIMA_FILA } from '@core/battle/board.js';
 import { CHARGE_BONUS_PER_HEX } from '@core/battle/damage.js';
 import { mismaPuerta, nivelDe } from '@core/battle/muralla.js';
 import type {
@@ -41,7 +41,7 @@ import {
   tableroPara,
   verticesHex,
 } from '../render/proyeccion.js';
-import type { ControlDeBatalla } from '../session.js';
+import { type Apuntado, type ControlDeBatalla, esDeLoApuntado } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
 import { textoDePrevision } from '../views/prevision.js';
@@ -98,10 +98,14 @@ export function cargaContra(
   return cargas.find((c) => c.target === angulo.objetivo && hexEquals(c.at, angulo.elegida));
 }
 
-/** El hechizo elegido, o `null` también donde no hay magia (la arena). */
-function hechizoElegido(s: ControlDeBatalla): string | null {
-  return s.hechizos?.selectedSpell ?? null;
-}
+/**
+ * Lo que dice la barra con un clic fuera de toda unidad mientras se apunta
+ * (`ControlDeBatalla.apuntado`): el hechizo del libro o el poder que espera aliado.
+ */
+const SIN_OBJETIVO: Readonly<Record<Apuntado['kind'], string>> = {
+  hechizo: 'Elige una unidad sobre la que lanzarlo, o pulsa Escape para cancelar.',
+  poder: 'Elige un aliado sobre el que usarlo, o pulsa Escape para cancelar.',
+};
 
 export class EscenaBatalla {
   private readonly animador = new BattleAnimator();
@@ -211,7 +215,8 @@ export class EscenaBatalla {
     const atacables = new Set<string>();
     const escalables = new Set<string>();
     const puertasPorElegir = new Set<string>();
-    if (turno !== null && hechizoElegido(s) === null) {
+    const apunta = s.apuntado;
+    if (turno !== null && apunta === null) {
       for (const a of s.battleLegalActions()) {
         if (a.type === 'attack' || a.type === 'shoot') atacables.add(a.target);
         if (esEscala(a) && (s.muroPorElegir === null || s.muroPorElegir === a.type)) {
@@ -227,14 +232,14 @@ export class EscenaBatalla {
       tablero: this.tablero,
       ancho,
       alto,
-      movibles: quieta || hechizoElegido(s) !== null ? [] : s.battleMovable(),
-      cargas: quieta || hechizoElegido(s) !== null ? SIN_CARGAS : s.battleCharges(),
+      movibles: quieta || apunta !== null ? [] : s.battleMovable(),
+      cargas: quieta || apunta !== null ? SIN_CARGAS : s.battleCharges(),
       angulo: quieta ? null : this.anguloActual(),
       atacables,
       escalables,
       puertasPorElegir,
       objetivosHechizo:
-        hechizoElegido(s) === null ? SIN_NADA : new Set(s.hechizos?.castTargets() ?? []),
+        apunta === null ? SIN_NADA : this.objetivosDe(apunta, s.battleLegalActions()),
       hoverHex: this.hoverHex,
       hoverStack: this.hoverStack,
       puntero: this.puntero,
@@ -270,7 +275,7 @@ export class EscenaBatalla {
    */
   pieDelTablero(): number {
     const t = this.tablero;
-    const v = verticesHex(t, { col: 0, row: BOARD_HEIGHT - 1 })[3] as { y: number };
+    const v = verticesHex(t, { col: 0, row: ULTIMA_FILA })[3] as { y: number };
     return v.y + t.paso * 0.12;
   }
 
@@ -373,7 +378,7 @@ export class EscenaBatalla {
   ): { acciones: readonly BattleAction[]; objetivo: string; hexActual: Hex } | undefined {
     const s = this.sesion();
     const turno = s.turnoPropio;
-    if (turno === null || hechizoElegido(s) !== null) return undefined;
+    if (turno === null || s.apuntado !== null) return undefined;
     if (this.movimientoEn(px, py) !== undefined) return undefined;
     const objetivo = this.unidadEn(px, py);
     if (objetivo === undefined || objetivo.side === s.miBando) return undefined;
@@ -386,8 +391,8 @@ export class EscenaBatalla {
     if (this.animador.busy) return null;
     // Sobre una casilla a la que ir no se promete carga: el clic ahí solo mueve.
     if (movimiento !== undefined) return null;
-    const hechizo = this.previsionDelHechizo();
-    if (hechizo !== null) return hechizo;
+    const apuntada = this.previsionDeLoApuntado();
+    if (apuntada !== null) return apuntada;
     const angulo = this.anguloActual();
     if (angulo !== null) {
       const accion =
@@ -427,21 +432,42 @@ export class EscenaBatalla {
   private readonly previsiones = new WeakMap<BattleAction, string | null>();
 
   /**
-   * Con un hechizo elegido y el puntero sobre una unidad sobre la que se puede
-   * lanzar, lo que haría; `null` si no hay hechizo, ni objetivo válido.
+   * Con un hechizo o un poder apuntando y el puntero sobre una unidad sobre la
+   * que se puede, lo que haría; `null` si no se apunta nada, ni a nadie válido.
    */
-  private previsionDelHechizo(): string | null {
+  private previsionDeLoApuntado(): string | null {
     const s = this.sesion();
-    const hechizo = hechizoElegido(s);
-    if (hechizo === null || this.puntero === null) return null;
+    const apunta = s.apuntado;
+    if (apunta === null || this.puntero === null) return null;
     const objetivo = this.unidadEn(this.puntero.x, this.puntero.y);
     if (objetivo === undefined) return null;
-    const accion = s
-      .battleLegalActions()
-      .find((a) => a.type === 'cast' && a.spell === hechizo && a.target === objetivo.id);
+    const accion = s.battleLegalActions().find((a) => esDeLoApuntado(apunta, a, objetivo.id));
     if (accion === undefined) return null;
     return this.previsionDicha(accion);
   }
+
+  /**
+   * Los stacks sobre los que cae lo apuntado, para marcarlos: los de sus jugadas
+   * de la lista legal. Se guardan mientras la lista y lo apuntado sean los mismos
+   * (la lista la guarda la sesión por jugada): la escena los pide en cada fotograma.
+   */
+  private objetivosDe(a: Apuntado, acciones: readonly BattleAction[]): ReadonlySet<string> {
+    const m = this.objetivosApuntados;
+    if (m !== null && m.acciones === acciones && m.kind === a.kind && m.id === a.id) return m.set;
+    const set = new Set(
+      acciones.flatMap((x) =>
+        esDeLoApuntado(a, x) && 'target' in x && x.target !== undefined ? [x.target] : [],
+      ),
+    );
+    this.objetivosApuntados = { acciones, kind: a.kind, id: a.id, set };
+    return set;
+  }
+  private objetivosApuntados: {
+    readonly acciones: readonly BattleAction[];
+    readonly kind: Apuntado['kind'];
+    readonly id: string;
+    readonly set: ReadonlySet<string>;
+  } | null = null;
 
   /** Cómo se llama cada stack en el campo, para la previsión. */
   private nombre(): (id: string) => string {
@@ -496,7 +522,7 @@ export class EscenaBatalla {
    */
   private movimientoEn(px: number, py: number): BattleAction | undefined {
     const s = this.sesion();
-    if (hechizoElegido(s) !== null) return undefined;
+    if (s.apuntado !== null) return undefined;
     // Lo alto de una columna primero, que es lo que se ve; y si ahí no se va,
     // el suelo de debajo: la columna tapa medio hex de la fila de detrás, y su
     // centro quedaba sin clic (visto en el navegador, 09-10-2026).
@@ -522,7 +548,8 @@ export class EscenaBatalla {
   /** El muro cuya columna tiene lo alto bajo el puntero, o `null`. */
   private muroBajo(px: number, py: number): Hex | null {
     const battle = this.sesion().battle;
-    if (battle === null) return null;
+    // Sin muros no hay columna que buscar: se pregunta en cada movimiento del ratón.
+    if (battle === null || battle.muralla.muros.length === 0) return null;
     const h = hexEnPixel(tableroA(this.tablero, 1), px, py);
     return h !== null && nivelDe(battle.muralla, h) === 1 ? h : null;
   }
@@ -637,7 +664,8 @@ export class EscenaBatalla {
 
     const acciones = session.battleLegalActions();
     // La puerta antes que nada: su portada tapa casillas que también se mueven.
-    if (hechizoElegido(session) === null && this.pulsarPuerta(px, py, acciones)) return;
+    const apunta = session.apuntado;
+    if (apunta === null && this.pulsarPuerta(px, py, acciones)) return;
     const directo = this.movimientoEn(px, py);
     if (directo !== undefined) {
       session.muroPorElegir = null;
@@ -645,26 +673,23 @@ export class EscenaBatalla {
       return;
     }
     const hex = this.hexBajo(px, py);
-    if (hechizoElegido(session) === null && this.pulsarEscala(hex, acciones)) return;
+    if (apunta === null && this.pulsarEscala(hex, acciones)) return;
     const objetivo = this.unidadEn(px, py);
 
-    // Con un hechizo elegido, el clic apunta: va ANTES que atacar y moverse.
-    const hechizos = session.hechizos;
-    const hechizo = hechizos?.selectedSpell ?? null;
-    if (hechizos !== null && hechizo !== null) {
+    // Con un hechizo elegido o un poder esperando, el clic apunta: va ANTES que
+    // atacar y moverse.
+    if (apunta !== null) {
       if (objetivo === undefined) {
-        session.status = 'Elige una unidad sobre la que lanzarlo, o pulsa Escape para cancelar.';
+        session.status = SIN_OBJETIVO[apunta.kind];
         return;
       }
-      const conjuro = acciones.find(
-        (a) => a.type === 'cast' && a.spell === hechizo && a.target === objetivo.id,
-      );
-      if (conjuro !== undefined) {
-        session.playBattleAction(conjuro);
+      const jugada = acciones.find((a) => esDeLoApuntado(apunta, a, objetivo.id));
+      if (jugada !== undefined) {
+        session.playBattleAction(jugada);
         return;
       }
       // La selección se mantiene: quien apuntó mal vuelve a apuntar.
-      session.status = hechizos.castRejection(objetivo.id);
+      session.status = session.rechazoDeLoApuntado(objetivo.id);
       return;
     }
 

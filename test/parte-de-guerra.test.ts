@@ -191,6 +191,8 @@ describe('el parte sigue al final salvo que se haya subido a leer (#198)', () =>
     let cajas: { nombre: string; scrollTop: number; scrollHeight: number; clientHeight: number }[] =
       [];
     const destino = {
+      // Sin foco dentro: `pintar` lo mira antes de repintar.
+      ownerDocument: { activeElement: null },
       set innerHTML(marcado: string) {
         cajas = [...marcado.matchAll(/data-al-final="(\w+)">((?:<div>[^<]*<\/div>)*)/g)].map(
           (m) => ({

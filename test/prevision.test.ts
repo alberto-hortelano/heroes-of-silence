@@ -32,7 +32,7 @@ import type { Horquilla, RamaDeSuerte } from '../src/core/battle/damage.js';
 import { applyEffect } from '../src/core/battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { NOMBRES_DE_REGLA, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
-import { effectOfSpell, spell } from '../src/core/battle/spells.js';
+import { delHeroe, efectoDe, spell } from '../src/core/battle/spells.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -118,8 +118,9 @@ function bendecirYMaldecir(b: BattleState): void {
   const h = mando();
   const a = stackById(b, 'attacker-0');
   const d = stackById(b, 'defender-0');
-  applyEffect(a, effectOfSpell(spell('bless'), h, b.reglas)!);
-  applyEffect(d, effectOfSpell(spell('curse'), h, b.reglas)!);
+  const efecto = (id: string) => efectoDe(spell(id), delHeroe(spell(id), h), b.reglas)!;
+  applyEffect(a, efecto('bless'));
+  applyEffect(d, efecto('curse'));
 }
 
 /** La línea recta de la arena (la columna 7 entera) y una casilla de lo alto. */
@@ -385,6 +386,7 @@ describe('la previsión de daño cae en el daño real', () => {
             vistos++;
             continue;
           }
+          if (p.kind === 'poder') throw new Error(`${que}: este barrido no monta poderes`);
           const golpes = golpesDe(nuevo);
           const mios = golpes.filter((g) => !g.retaliation);
           expect(mios.length, que).toBeGreaterThan(0);

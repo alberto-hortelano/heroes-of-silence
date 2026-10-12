@@ -58,18 +58,15 @@ import {
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
-import {
-  type ControlDeBatalla,
-  type PuestoDeArena,
-  SesionDeArena,
-  Session,
-} from '../../src/client/session.js';
+import { type ControlDeBatalla, SesionDeArena, Session } from '../../src/client/session.js';
 import { nombreEnElCampo } from '../../src/client/views/distintivo.js';
 import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { textoDePrevision } from '../../src/client/views/prevision.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import {
+  type FuenteDeArena,
   type HeroeDeArena,
+  heroePorDefecto,
   LADOS,
   ladoDe,
   type UnidadDeArena,
@@ -2665,32 +2662,33 @@ function deHoja(
   return { ...unidadPorDefecto(h), ...cambios };
 }
 
+/** Una unidad del borrador como fuente del montaje del espejo. */
+function delBorrador(unidad: UnidadDeArena): FuenteDeArena {
+  return { kind: 'borrador', unidad };
+}
+
 /**
  * La pelea de la pasada en el espejo: el guerrero con escudo —con el ataque
- * cambiado— lo mueve la persona, el monje va en IA, y enfrente el orco y el
- * goblin arquero. Ya empezada, como la página, que mira el tablero de salida y
+ * cambiado— solo en el bando de la persona, y enfrente el orco y el goblin
+ * arquero, en IA. Quién mueve es del bando entero: el monje que iba en IA junto
+ * al guerrero ya no cabe en el bando de la persona. Ya empezada, como la página, que mira el tablero de salida y
  * DESPUÉS deja jugar a la IA.
  */
 function espejoDeLaArena(hojas: ReturnType<typeof hojasDeArena>, semilla: number): SesionDeArena {
-  const puesto = (unidad: UnidadDeArena, ia: boolean): PuestoDeArena => ({
-    fuente: { kind: 'borrador', unidad },
-    ia,
-  });
   const espejo = new SesionDeArena(
     {
       izquierda: {
-        puestos: [
-          puesto(deHoja(hojas, 'templario-escudo', { attack: ATAQUE_EDITADO }), false),
-          puesto(deHoja(hojas, 'templario-monje'), true),
-        ],
+        unidades: [delBorrador(deHoja(hojas, 'templario-escudo', { attack: ATAQUE_EDITADO }))],
         heroe: null,
+        ia: false,
       },
       derecha: {
-        puestos: [
-          puesto(deHoja(hojas, 'orko-dos-armas'), true),
-          puesto(deHoja(hojas, 'goblin-arquero'), true),
+        unidades: [
+          delBorrador(deHoja(hojas, 'orko-dos-armas')),
+          delBorrador(deHoja(hojas, 'goblin-arquero')),
         ],
         heroe: null,
+        ia: true,
       },
       reglas: REGLAS_DEL_JUEGO,
     },
@@ -2805,22 +2803,347 @@ async function mismaPelea(page: Page, espejo: SesionDeArena, paso: string): Prom
  * prueba no puede dejar en el repo un archivo que nadie ha pedido.
  */
 async function arena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  await sinElBorrador('arena', (ruta) => jugarArena(browser, url, problemas, ruta));
+}
+
+/**
+ * Juega `fn` con el borrador de la arena apartado y lo deja como estaba al salir,
+ * pase lo que pase: la página arrancaría con él, el espejo no lo sabría, y la
+ * prueba no puede dejar en el repo un archivo que nadie ha pedido.
+ */
+async function sinElBorrador(quien: string, fn: (ruta: string) => Promise<void>): Promise<void> {
   const ruta = join(process.cwd(), RUTA_DEL_BORRADOR);
   const carpeta = join(process.cwd(), 'data/borradores');
   const habiaCarpeta = existsSync(carpeta);
   const antes = existsSync(ruta) ? readFileSync(ruta, 'utf8') : null;
   if (antes !== null) rmSync(ruta);
   try {
-    await jugarArena(browser, url, problemas, ruta);
+    await fn(ruta);
   } finally {
     if (antes !== null) writeFileSync(ruta, antes);
     else if (existsSync(ruta)) rmSync(ruta);
     if (!habiaCarpeta && existsSync(carpeta) && readdirSync(carpeta).length === 0)
       rmdirSync(carpeta);
     log(
-      `arena: borrador ${antes === null ? 'retirado: no había ninguno' : 'devuelto como estaba'}`,
+      `${quien}: borrador ${antes === null ? 'retirado: no había ninguno' : 'devuelto como estaba'}`,
     );
   }
+}
+
+// ------------------------------------------------- poderes y edición en combate
+
+/**
+ * La vida del monje en la pasada de los poderes: con sus 8 de salida el orco lo
+ * tumba de un golpe (lo prefiere: es lo más frágil) y no llega a curar a nadie.
+ */
+const VIDA_DEL_MONJE = 30;
+
+/**
+ * La pelea de los poderes en el espejo: el monje templario (Curar y Bendecir),
+ * el guerrero con escudo y el héroe por defecto a la izquierda, de la persona;
+ * el orco a la derecha, de la IA. Ya empezada, como la página.
+ */
+function espejoDeLosPoderes(
+  hojas: ReturnType<typeof hojasDeArena>,
+  semilla: number,
+): SesionDeArena {
+  const espejo = new SesionDeArena(
+    {
+      izquierda: {
+        unidades: [
+          delBorrador(deHoja(hojas, 'templario-monje', { hp: VIDA_DEL_MONJE })),
+          delBorrador(deHoja(hojas, 'templario-escudo')),
+        ],
+        heroe: heroePorDefecto('izquierda'),
+        ia: false,
+      },
+      derecha: {
+        unidades: [delBorrador(deHoja(hojas, 'orko-dos-armas'))],
+        heroe: null,
+        ia: true,
+      },
+      reglas: REGLAS_DEL_JUEGO,
+    },
+    semilla,
+  );
+  espejo.empezar();
+  return espejo;
+}
+
+/**
+ * Lo que la persona hace en su turno de la pelea de los poderes: con el monje,
+ * la primera vez Bendecir sobre el guerrero (con más de un aliado posible, se
+ * apunta), y después Curar en cuanto se pueda; con lo demás, «Terminar turno».
+ */
+type PasoDeLosPoderes =
+  | { readonly tipo: 'bendecir'; readonly sobre: BattleStack }
+  | { readonly tipo: 'curar'; readonly accion: BattleAction }
+  | { readonly tipo: 'terminar' };
+
+function pasoDeLosPoderes(espejo: SesionDeArena, bendecido: boolean): PasoDeLosPoderes {
+  const turno = espejo.turnoPropio;
+  if (turno === null) throw new Error('poderes: el espejo devuelve el control sin turno propio');
+  if (turno.stack.body !== 'templario-monje') return { tipo: 'terminar' };
+  const legales = espejo.battleLegalActions();
+  if (!bendecido) {
+    const escudo = espejo.battle.stacks.find((x) => x.body === 'templario-escudo' && isAlive(x));
+    if (escudo !== undefined) return { tipo: 'bendecir', sobre: escudo };
+  }
+  const curas = legales.filter((a) => a.type === 'poder' && a.poder === 'curar');
+  // Con un solo herido el botón cura ya; con dos habría que apuntar.
+  if (bendecido && curas.length === 1) return { tipo: 'curar', accion: curas[0] as BattleAction };
+  return { tipo: 'terminar' };
+}
+
+/**
+ * La semilla de la pelea de los poderes: la primera en la que, jugando la pauta,
+ * el monje bendice al guerrero, cura luego a un solo herido y la pelea sigue con
+ * un turno de la persona después, para editar en plena pelea.
+ */
+function buscarPoderes(hojas: ReturnType<typeof hojasDeArena>): number {
+  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
+    const espejo = espejoDeLosPoderes(hojas, semilla);
+    let bendecido = false;
+    for (let jugadas = 0; jugadas < 300 && espejo.battle.finished === null; jugadas++) {
+      const paso = pasoDeLosPoderes(espejo, bendecido);
+      if (paso.tipo === 'curar') {
+        espejo.playBattleAction(paso.accion);
+        if (espejo.turnoPropio !== null) return semilla;
+        break;
+      }
+      if (paso.tipo === 'bendecir') {
+        espejo.playBattleAction({ type: 'poder', poder: 'bendecir', target: paso.sobre.id });
+        bendecido = true;
+      } else espejo.playBattleAction({ type: 'end_turn' });
+    }
+  }
+  throw new Error(
+    `poderes: en las semillas 1–${TOPE_DE_SEMILLAS} el monje no bendice y cura antes de que acabe la pelea`,
+  );
+}
+
+/** Espera a que el parte de guerra del panel diga `linea`. */
+async function parteDice(page: Page, linea: string): Promise<void> {
+  await page
+    .locator('#side .log', { hasText: linea })
+    .waitFor({ timeout: 4000 })
+    .catch(async () => {
+      throw new Error(
+        `poderes: el parte no dice «${linea}»: «${await page.locator('#side .log').innerText()}»`,
+      );
+    });
+}
+
+/**
+ * Los poderes del monje y la edición en plena pelea, con clics de verdad
+ * (docs/agents/2026-10-11-poderes-y-edicion-en-combate/): Curar sale apagado
+ * mientras nadie tiene herida; Bendecir se apunta sobre el guerrero, con su
+ * previsión en la barra; Curar cura al herido; «Editar» en la fila del orco abre
+ * su ficha en un diálogo, un daño imposible no entra y lo dice, un ataque +5 sí
+ * entra; el héroe, con más Conocimiento, tiene más maná; cerrar devuelve la
+ * misma ronda y la misma activa, y lo que se juega después es lo del espejo, que
+ * recibe los mismos cambios.
+ */
+async function poderesEnLaArena(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+): Promise<void> {
+  await sinElBorrador('poderes', async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    vigilarConsola(page, 'poderes', problemas);
+    const hojas = hojasDeArena(process.cwd());
+    for (const h of hojas) registrarUnidad(h.id, h);
+    const semilla = buscarPoderes(hojas);
+    log(`poderes: semilla ${semilla}, buscada en el espejo`);
+    await abrirLaArena(page, url, `?seed=${semilla}`);
+    await page.locator('[data-hoja-catalogo="templario-monje"] [data-lado="izquierda"]').click();
+    await page.locator('[data-hoja-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+    await page.locator('[data-arena="poner-heroe"][data-lado="izquierda"]').click();
+    await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+    // La ficha del monje en el montaje ya dice lo que hacen sus poderes.
+    await page.locator('#bando-izquierda button.nombre[data-hoja="templario-monje"]').click();
+    await page
+      .locator('#ficha [data-poder-de-la-ficha="curar"]', { hasText: 'cura 4 PV' })
+      .waitFor({ timeout: 2000 });
+    const vida = page.locator('#ficha [data-campo="hp"]');
+    await vida.fill(String(VIDA_DEL_MONJE));
+    await vida.press('Tab');
+    await page
+      .locator('#bando-izquierda .puesto', { hasText: `${VIDA_DEL_MONJE} PV` })
+      .waitFor({ timeout: 2000 });
+
+    const espejo = espejoDeLosPoderes(hojas, semilla);
+    const nombre = (id: string): string => {
+      const st = espejo.battle.stacks.find((x) => x.id === id);
+      return st === undefined ? id : nombreEnElCampo(espejo.battle, st);
+    };
+    await page.locator('[data-arena="luchar"]').click();
+    await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
+    await esperarCola(espejo.battle, espejo.battle.log);
+    await mismaPelea(page, espejo, 'empezar la pelea de los poderes');
+
+    let bendecido = false;
+    let curado = false;
+    for (let jugadas = 0; !curado; jugadas++) {
+      if (jugadas > 300 || espejo.battle.finished !== null) {
+        throw new Error('poderes: la pelea se acaba sin que el monje bendiga y cure');
+      }
+      const antes = espejo.battle.log.length;
+      const paso = pasoDeLosPoderes(espejo, bendecido);
+      if (paso.tipo === 'bendecir') {
+        // Curar, apagado y diciendo por qué: aún no hay heridos.
+        const curar = page.locator('#side [data-action="battle-poder"][data-poder="curar"]');
+        const motivo = espejo.motivoDePoder('curar');
+        if (motivo === null || (await curar.getAttribute('title')) !== motivo) {
+          throw new Error(
+            `poderes: «Curar» debía salir apagado con «${motivo}» y dice «${await curar.getAttribute('title')}»`,
+          );
+        }
+        await captura(page, 'poderes-01-turno-del-monje');
+        await page.locator('#side [data-action="battle-poder"][data-poder="bendecir"]').click();
+        await esperarBarra(
+          page,
+          'Elige el aliado sobre el que usarlo: pulsa en uno de los marcados, o Escape para cancelar.',
+          'poderes: Bendecir espera un aliado',
+          { exacta: true },
+        );
+        espejo.apuntarPoder('bendecir');
+        const accion: BattleAction = { type: 'poder', poder: 'bendecir', target: paso.sobre.id };
+        const prevista = espejo.prevision(accion);
+        if (prevista === null) throw new Error('poderes: Bendecir sin previsión en el espejo');
+        const px = await pixelDeUnidad(page, espejo, paso.sobre);
+        await page.mouse.move(px.x - 6, px.y);
+        await page.mouse.move(px.x, px.y);
+        await esperarBarra(
+          page,
+          textoDePrevision(prevista, nombre),
+          'poderes: la previsión de Bendecir',
+          { exacta: true },
+        );
+        await captura(page, 'poderes-02-bendecir-apuntando');
+        await page.mouse.click(px.x, px.y);
+        espejo.playBattleAction(accion);
+        bendecido = true;
+        await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+        await parteDice(page, `usa Bendecir sobre ${nombre(paso.sobre.id)}`);
+      } else if (paso.tipo === 'curar') {
+        await page.locator('#side [data-action="battle-poder"][data-poder="curar"]').click();
+        espejo.playBattleAction(paso.accion);
+        curado = true;
+      } else {
+        await page.getByRole('button', { name: 'Terminar turno' }).click();
+        espejo.playBattleAction({ type: 'end_turn' });
+      }
+      await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+      await mismaPelea(page, espejo, `la jugada ${jugadas} de los poderes`);
+    }
+    const cura = espejo.battle.log.find((e) => e.kind === 'power' && e.cura !== undefined);
+    if (cura?.kind !== 'power') throw new Error('poderes: el espejo no cuenta la cura');
+    await parteDice(page, `usa Curar sobre ${nombre(cura.target)}: cura ${cura.cura} PV`);
+    await captura(page, 'poderes-03-curado');
+    log(`poderes: bendice y cura ${cura.cura} PV a ${nombre(cura.target)}`);
+
+    // «Editar» en la fila del orco: su ficha, en el diálogo.
+    const ronda = espejo.battle.round;
+    const turno = espejo.battle.turno?.n;
+    const activa = await page.locator('#side h2').first().innerText();
+    const orco = espejo.battle.stacks.find((x) => x.body === 'orko-dos-armas') as BattleStack;
+    await page
+      .locator(`#side div.stack [data-arena="editar-en-combate"][data-stack="${orco.id}"]`)
+      .click();
+    const dialogo = page.locator('#editor-en-combate');
+    await dialogo.locator('[data-clave-de-ficha="hoja:orko-dos-armas"]').waitFor({ timeout: 2000 });
+    // Un daño mínimo por encima del máximo no entra y se dice en el diálogo.
+    const minimo = dialogo.locator('[data-campo="damage-min"]');
+    await minimo.fill('99');
+    await minimo.press('Tab');
+    await dialogo
+      .locator('#aviso-del-editor', { hasText: 'No se cambia:' })
+      .waitFor({ timeout: 2000 })
+      .catch(async () => {
+        throw new Error(
+          `poderes: el daño imposible no se dice: «${await dialogo.locator('#aviso-del-editor').innerText()}»`,
+        );
+      });
+    await captura(page, 'poderes-04-editor-rechaza');
+    const ataque = orco.unit.attack + 5;
+    const campo = dialogo.locator('[data-campo="attack"]');
+    await campo.fill(String(ataque));
+    await campo.press('Tab');
+    await dialogo
+      .locator('#aviso-del-editor', { hasText: 'Cambiado: vale ya en esta pelea.' })
+      .waitFor({ timeout: 2000 });
+    const motivoDelOrco = espejo.retocar({
+      kind: 'tipo',
+      fuente: { kind: 'borrador', unidad: deHoja(hojas, 'orko-dos-armas', { attack: ataque }) },
+    });
+    if (motivoDelOrco !== null)
+      throw new Error(`poderes: el espejo no retoca el orco: ${motivoDelOrco}`);
+    await captura(page, 'poderes-05-editor');
+    await page.locator('[data-arena="cerrar-editor"]').click();
+    if (await dialogo.isVisible()) throw new Error('poderes: el diálogo no se cierra');
+
+    // El héroe: con dos de Conocimiento más, diez de maná máximo más por punto.
+    const heroe = espejo.battle.stacks.find((x) => x.origen.kind === 'heroe') as BattleStack;
+    await page
+      .locator(`#side div.stack [data-arena="editar-en-combate"][data-stack="${heroe.id}"]`)
+      .click();
+    const datos = heroePorDefecto('izquierda');
+    const conocimiento = dialogo.locator('[data-heroe-campo="conocimiento"]');
+    await conocimiento.fill(String(datos.conocimiento + 2));
+    await conocimiento.press('Tab');
+    await dialogo
+      .locator('#aviso-del-editor', { hasText: 'Cambiado: vale ya en esta pelea.' })
+      .waitFor({ timeout: 2000 });
+    const motivoDelHeroe = espejo.retocar({
+      kind: 'heroe',
+      lado: 'izquierda',
+      datos: { ...datos, conocimiento: datos.conocimiento + 2 },
+    });
+    if (motivoDelHeroe !== null)
+      throw new Error(`poderes: el espejo no retoca el héroe: ${motivoDelHeroe}`);
+    // Escape cierra el diálogo y no suelta nada de la pelea.
+    await page.keyboard.press('Escape');
+    if (await dialogo.isVisible()) throw new Error('poderes: Escape no cierra el diálogo');
+
+    const mando = espejo.heroeEnJuego;
+    if (mando !== null) {
+      const texto = `${mando.mando.mana} / ${mando.manaMaximo}`;
+      await page
+        .locator('#side .row', { hasText: `Maná de ${mando.mando.name}` })
+        .filter({ hasText: texto })
+        .waitFor({ timeout: 2000 })
+        .catch(async () => {
+          throw new Error(
+            `poderes: el maná del héroe debía decir ${texto}: «${await page.locator('#side').innerText()}»`,
+          );
+        });
+    }
+    if (espejo.battle.round !== ronda || espejo.battle.turno?.n !== turno) {
+      throw new Error('poderes: retocar ha movido la ronda o el turno del espejo');
+    }
+    const activaDespues = await page.locator('#side h2').first().innerText();
+    if (activaDespues !== activa) {
+      throw new Error(`poderes: tras editar la activa era «${activa}» y ahora «${activaDespues}»`);
+    }
+    await captura(page, 'poderes-06-tras-editar');
+
+    // Y lo que se juega después es lo mismo en la página y en el espejo: el orco
+    // pega con el ataque nuevo en los dos.
+    for (let i = 0; i < 4 && espejo.battle.finished === null; i++) {
+      const antes = espejo.battle.log.length;
+      await page.getByRole('button', { name: 'Terminar turno' }).click();
+      espejo.playBattleAction({ type: 'end_turn' });
+      await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+      if (espejo.battle.finished === null)
+        await mismaPelea(page, espejo, `el turno ${i} tras editar`);
+    }
+    log(
+      `poderes: orco con ataque ${ataque} y héroe con ${datos.conocimiento + 2} de Conocimiento, en la misma pelea`,
+    );
+    await page.close();
+  });
 }
 
 /**
@@ -2838,18 +3161,12 @@ async function todoIA(
   derecha: UnidadDeArena,
 ): Promise<void> {
   // Tras recargar, el guerrero ya está a la izquierda en «Yo»: se pasa a la IA.
-  await page.locator('#bando-izquierda .puesto').first().locator('[data-ia="si"]').click();
+  await page.locator('#bando-izquierda [data-arena="manda"][data-ia="si"]').click();
   await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   const espejo = new SesionDeArena(
     {
-      izquierda: {
-        puestos: [{ fuente: { kind: 'borrador', unidad: izquierda }, ia: true }],
-        heroe: null,
-      },
-      derecha: {
-        puestos: [{ fuente: { kind: 'borrador', unidad: derecha }, ia: true }],
-        heroe: null,
-      },
+      izquierda: { unidades: [delBorrador(izquierda)], heroe: null, ia: true },
+      derecha: { unidades: [delBorrador(derecha)], heroe: null, ia: true },
       reglas: REGLAS_DEL_JUEGO,
     },
     semilla,
@@ -2901,19 +3218,16 @@ async function jugarArena(
   for (const h of hojas) registrarUnidad(h.id, h);
   const semillaDeLaPelea = buscarArena(hojas);
   log(`arena: semilla ${semillaDeLaPelea}, buscada en el espejo`);
-  await page.goto(`${url}/arena/?seed=${semillaDeLaPelea}`, { waitUntil: 'networkidle' });
-  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+  await abrirLaArena(page, url, `?seed=${semillaDeLaPelea}`);
 
-  // Dos por bando, con clics en el catálogo. La izquierda nace en «Yo» y la
-  // derecha en «IA»; el monje se pasa a la IA, así que la persona lleva una.
+  // Con clics en el catálogo: el guerrero a la izquierda, que nace en «Yo», y dos
+  // a la derecha, que nace en «IA».
   const añadir = async (hoja: string, lado: 'izquierda' | 'derecha'): Promise<void> => {
     await page.locator(`[data-hoja-catalogo="${hoja}"] [data-lado="${lado}"]`).click();
   };
   await añadir('templario-escudo', 'izquierda');
-  await añadir('templario-monje', 'izquierda');
   await añadir('orko-dos-armas', 'derecha');
   await añadir('goblin-arquero', 'derecha');
-  await page.locator('#bando-izquierda .puesto').nth(1).locator('[data-ia="si"]').click();
 
   // El ataque del guerrero, por su ficha —abierta pulsando su FIGURA, que también
   // elige la unidad—: el cambio entra al salir del campo.
@@ -3070,9 +3384,9 @@ async function jugarArena(
       `arena: ${RUTA_DEL_BORRADOR} no lleva el ataque cambiado: ${JSON.stringify(escudo)}`,
     );
   }
-  if (guardado.length !== 4) {
+  if (guardado.length !== 3) {
     throw new Error(
-      `arena: se guardan las cuatro unidades montadas y el archivo lleva ${guardado.length}`,
+      `arena: se guardan las tres unidades montadas y el archivo lleva ${guardado.length}`,
     );
   }
   log(`arena: guardado ${RUTA_DEL_BORRADOR} con el ataque ${escudo.attack} del guerrero`);
@@ -3082,7 +3396,7 @@ async function jugarArena(
   await page
     .waitForFunction(
       (r) =>
-        document.getElementById('status')?.textContent?.startsWith(`Cargado ${r}: 4 unidades.`) ===
+        document.getElementById('status')?.textContent?.startsWith(`Cargado ${r}: 3 unidades.`) ===
         true,
       RUTA_DEL_BORRADOR,
       { timeout: 4000 },
@@ -3142,15 +3456,17 @@ function espejoDelBanco(semilla: number): SesionDeArena {
   const espejo = new SesionDeArena(
     {
       izquierda: {
-        puestos: [{ fuente: { kind: 'catalogo', id: 'cavalry', cambios: null }, ia: false }],
-        heroe: { datos: HEROE_DEL_BANCO, ia: false },
+        unidades: [{ kind: 'catalogo', id: 'cavalry', cambios: null }],
+        heroe: HEROE_DEL_BANCO,
+        ia: false,
       },
       derecha: {
-        puestos: [
-          { fuente: { kind: 'catalogo', id: 'skeleton', cambios: null }, ia: true },
-          { fuente: { kind: 'catalogo', id: 'archer', cambios: null }, ia: true },
+        unidades: [
+          { kind: 'catalogo', id: 'skeleton', cambios: null },
+          { kind: 'catalogo', id: 'archer', cambios: null },
         ],
         heroe: null,
+        ia: true,
       },
       reglas: REGLAS_DEL_BANCO,
     },
@@ -3192,17 +3508,49 @@ function buscarBanco(): number {
   throw new Error(`banco: en las semillas 1–${TOPE_DE_SEMILLAS} el héroe no lanza o nadie golpea`);
 }
 
-/** Espera a que la barra diga exactamente `texto`. */
-async function barraDice(page: Page, texto: string, que: string): Promise<void> {
+/**
+ * Espera a que la barra diga `texto`: exactamente (`exacta`, sin los blancos de
+ * los lados) o en alguna parte. `que` dice la pasada y lo que se esperaba, para
+ * el error.
+ */
+async function esperarBarra(
+  page: Page,
+  texto: string,
+  que: string,
+  { exacta }: { readonly exacta: boolean },
+): Promise<void> {
   await page
-    .waitForFunction((r) => document.getElementById('status')?.textContent?.trim() === r, texto, {
-      timeout: 3000,
-    })
+    .waitForFunction(
+      ([t, e]) => {
+        const barra = document.getElementById('status')?.textContent?.trim() ?? '';
+        return e ? barra === t : barra.includes(t as string);
+      },
+      [texto, exacta] as const,
+      { timeout: 3000 },
+    )
     .catch(async () => {
       throw new Error(
-        `banco: ${que}: la barra debía decir «${texto}» y dice «${await page.locator('#status').innerText()}»`,
+        `${que}: la barra debía decir «${texto}» y dice «${await page.locator('#status').innerText()}»`,
       );
     });
+}
+
+/** La arena con `query` (`?seed=…&reglas=…`), con la lista de unidades ya pintada. */
+async function abrirLaArena(page: Page, url: string, query: string): Promise<void> {
+  await page.goto(`${url}/arena/${query}`, { waitUntil: 'networkidle' });
+  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+}
+
+/**
+ * Hasta que la página ha pintado lo último que se le pidió: las fuentes cargadas
+ * y dos fotogramas (el del repintado pendiente y el siguiente, ya con él).
+ */
+async function asentada(page: Page): Promise<void> {
+  await page.evaluate(() =>
+    document.fonts.ready.then(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    ),
+  );
 }
 
 /**
@@ -3217,8 +3565,7 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   vigilarConsola(page, 'banco', problemas);
   const semilla = buscarBanco();
   log(`banco: semilla ${semilla}, buscada en el espejo`);
-  await page.goto(`${url}/arena/?seed=${semilla}&reglas=tirador`, { waitUntil: 'networkidle' });
-  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+  await abrirLaArena(page, url, `?seed=${semilla}&reglas=tirador`);
   const cabecera = await page.locator('#catalogo h3').first().innerText();
   if (!/1 de fheroes2/i.test(cabecera)) {
     throw new Error(`banco: la URL pide el tirador de fheroes2 y el montaje dice «${cabecera}»`);
@@ -3274,7 +3621,14 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
     nombreEnElCampo(espejo.battle, espejo.battle.stacks.find((x) => x.id === id) as BattleStack);
   const prevista = espejo.prevision(flecha);
   if (prevista === null) throw new Error('banco: la Flecha mágica no tiene previsión');
-  await barraDice(page, textoDePrevision(prevista, nombre), 'la previsión de la Flecha mágica');
+  await esperarBarra(
+    page,
+    textoDePrevision(prevista, nombre),
+    'banco: la previsión de la Flecha mágica',
+    {
+      exacta: true,
+    },
+  );
   await captura(page, 'arena-06-prevision-hechizo');
   const antes = espejo.battle.log.length;
   await page.mouse.click(px.x, px.y);
@@ -3323,7 +3677,7 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
               }),
               texto,
             );
-      await barraDice(page, esperado, 'la previsión del golpe');
+      await esperarBarra(page, esperado, 'banco: la previsión del golpe', { exacta: true });
       await captura(page, 'arena-07-prevision-golpe');
       log(`banco: previsión del golpe — «${esperado}»`);
       await page.mouse.click(g.x, g.y);
@@ -3385,8 +3739,7 @@ async function bandosDichos(page: Page): Promise<string> {
 async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   vigilarConsola(page, 'enlace', problemas);
-  await page.goto(`${url}/arena/?seed=11&reglas=tirador,bendicion`, { waitUntil: 'networkidle' });
-  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+  await abrirLaArena(page, url, `?seed=11&reglas=tirador,bendicion`);
   const campo = async (selector: string, valor: string): Promise<void> => {
     const c = page.locator(`#ficha ${selector}`);
     await c.fill(valor);
@@ -3411,10 +3764,7 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
     // QA, que no se toca) y el parte que se compara sería de tres líneas. Quitarlo
     // ejerce además el libro del enlace.
     await page.locator('#ficha [data-heroe-hechizo="lightning_bolt"]').uncheck();
-    await page.locator(`[data-arena="manda-heroe"][data-lado="${lado}"][data-ia="si"]`).click();
-  }
-  for (const boton of await page.locator('#bando-izquierda .puesto [data-ia="si"]').all()) {
-    await boton.click();
+    await page.locator(`[data-arena="manda"][data-lado="${lado}"][data-ia="si"]`).click();
   }
   const montado = await bandosDichos(page);
   if (!/6 hechizos/.test(montado)) {
@@ -3483,6 +3833,536 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   await otra.close();
 }
 
+// --------------------------------------------------------------- edición
+
+/**
+ * Los tamaños en los que cada ficha abierta tiene que verse sin desplazarse por
+ * dentro ni recortarse, en tres columnas como mucho y las demás debajo (ciclo
+ * 2026-10-12, fichas sin tope). Que se vean enteras a la vista ya no se pide: la
+ * vista se desplaza como una página.
+ */
+const PANTALLAS_DE_EDICION = [
+  { width: 1280, height: 720 },
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+] as const;
+
+/** Como mucho tres columnas: lo pidió el usuario a cambio de la letra más grande. */
+const COLUMNAS_DE_EDICION = 3;
+
+/**
+ * Lo que no vale en la vista de edición, medido en la página: una ficha con
+ * desplazamiento propio (su `overflow` o su contenido más alto o más ancho que
+ * ella), algo dentro de ella que se sale de su caja, un campo que se desplaza
+ * por dentro, el nombre que no se lee entero (H5), una región de dentro de la
+ * vista con desplazamiento propio (la vista se desplaza entera, como una
+ * página: H2, H3), o la vista o la página desplazándose en horizontal. Devuelve
+ * los fallos, en cuántas columnas y filas van las fichas y si la vista se
+ * desplaza en vertical (`desplaza`).
+ */
+async function medirLaEdicion(page: Page): Promise<{
+  fallos: string[];
+  columnas: number;
+  filas: number;
+  n: number;
+  desplaza: boolean;
+}> {
+  return page.evaluate(() => {
+    const fallos: string[] = [];
+    const raiz = document.documentElement;
+    const vista = document.querySelector('#edicion') as HTMLElement;
+    vista.scrollTop = 0;
+    if (vista.scrollWidth > vista.clientWidth + 1)
+      fallos.push(
+        `la vista se desplaza en horizontal (${vista.scrollWidth} > ${vista.clientWidth})`,
+      );
+    for (const d of vista.querySelectorAll<HTMLElement>('*')) {
+      if (d.tagName === 'SELECT' || d.tagName === 'OPTION') continue;
+      const ds = getComputedStyle(d);
+      if (
+        ['auto', 'scroll'].includes(ds.overflowY) &&
+        d.scrollHeight > d.clientHeight + 1 &&
+        d.closest('.ficha-abierta') === null
+      )
+        fallos.push(`${d.className || d.tagName} se desplaza por su cuenta dentro de la vista`);
+    }
+    if (raiz.scrollWidth > raiz.clientWidth + 1)
+      fallos.push(
+        `la página se desplaza en horizontal (${raiz.scrollWidth} > ${raiz.clientWidth})`,
+      );
+    const fichas = [...document.querySelectorAll<HTMLElement>('#edicion .ficha-abierta')];
+    const izquierdas = new Set<number>();
+    const arribas = new Set<number>();
+    for (const f of fichas) {
+      const quien = f.getAttribute('data-clave-de-ficha');
+      const cs = getComputedStyle(f);
+      for (const eje of ['overflowX', 'overflowY'] as const) {
+        if (cs[eje] === 'auto' || cs[eje] === 'scroll' || cs[eje] === 'hidden')
+          fallos.push(`${quien}: ${eje} es ${cs[eje]}`);
+      }
+      if (f.scrollHeight > f.clientHeight + 1)
+        fallos.push(`${quien}: más alta por dentro (${f.scrollHeight} > ${f.clientHeight})`);
+      if (f.scrollWidth > f.clientWidth + 1)
+        fallos.push(`${quien}: más ancha por dentro (${f.scrollWidth} > ${f.clientWidth})`);
+      const caja = f.getBoundingClientRect();
+      izquierdas.add(Math.round(caja.left));
+      arribas.add(Math.round(caja.top));
+      for (const n of f.querySelectorAll<HTMLInputElement>('input[type="text"]')) {
+        if (n.scrollWidth > n.clientWidth + 1)
+          fallos.push(`${quien}: «${n.value}» no se lee entero en su campo`);
+      }
+      for (const d of f.querySelectorAll<HTMLElement>('*')) {
+        if (d.tagName === 'OPTION') continue;
+        const r = d.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        const nombre = `${d.tagName.toLowerCase()}${d.className === '' ? '' : `.${String(d.className).replace(/ /g, '.')}`}`;
+        if (r.left < caja.left - 1 || r.right > caja.right + 1 || r.bottom > caja.bottom + 1)
+          fallos.push(
+            `${quien}: ${nombre} se sale de la ficha (${Math.round(r.left)}-${Math.round(r.right)} en ${Math.round(caja.left)}-${Math.round(caja.right)})`,
+          );
+        const ds = getComputedStyle(d);
+        // Sin funciones con nombre aquí dentro: tsx les pone `__name`, que en la página no existe.
+        const desplaza = ['auto', 'scroll'];
+        if (
+          d.tagName !== 'SELECT' &&
+          ((desplaza.includes(ds.overflowY) && d.scrollHeight > d.clientHeight + 1) ||
+            (desplaza.includes(ds.overflowX) && d.scrollWidth > d.clientWidth + 1))
+        )
+          fallos.push(`${quien}: ${nombre} se desplaza por dentro`);
+      }
+    }
+    return {
+      fallos,
+      columnas: izquierdas.size,
+      filas: arribas.size,
+      n: fichas.length,
+      desplaza: vista.scrollHeight > vista.clientHeight + 1,
+    };
+  });
+}
+
+/**
+ * Mide la edición en los tres tamaños de escritorio: cada ficha sin desplazarse
+ * por dentro ni recortarse, en `COLUMNAS_DE_EDICION` columnas como mucho (con
+ * menos, una por ficha) y las demás en filas debajo. La lista sigue desplegada:
+ * abrir una ficha no la pliega (12-10-2026).
+ */
+async function edicionEntera(page: Page, paso: string): Promise<void> {
+  if (
+    (await page.locator('#edicion [data-arena="plegar-lista"][aria-expanded="false"]').count()) > 0
+  )
+    throw new Error(`edición, ${paso}: la lista se ha plegado sola`);
+  const dichas: string[] = [];
+  for (const v of PANTALLAS_DE_EDICION) {
+    await page.setViewportSize(v);
+    await asentada(page);
+    const m = await medirLaEdicion(page);
+    const donde = `${v.width}×${v.height}`;
+    if (m.fallos.length > 0)
+      throw new Error(`edición, ${paso} a ${donde}:\n  ${m.fallos.join('\n  ')}`);
+    const columnas = Math.min(m.n, COLUMNAS_DE_EDICION);
+    const filas = Math.ceil(m.n / COLUMNAS_DE_EDICION);
+    if (m.columnas !== columnas || m.filas !== filas)
+      throw new Error(
+        `edición, ${paso} a ${donde}: ${m.n} fichas en ${m.columnas} columnas y ${m.filas} filas, no en ${columnas} y ${filas}`,
+      );
+    dichas.push(`${v.width} ${m.columnas}×${m.filas}${m.desplaza ? ', se desplaza' : ''}`);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await asentada(page);
+  log(`edición: ${paso}, ${dichas.join('; ')}`);
+}
+
+/**
+ * La vista de edición de la arena (ciclos 2026-10-11, página de edición, y
+ * 2026-10-12, fichas sin tope): se entra desde el montaje y se abren seis fichas
+ * —cuatro hojas y dos criaturas del catálogo— sin tope y sin que la lista se
+ * pliegue; con 1 a 6, como mucho tres columnas y las demás debajo, sin
+ * desplazarse ni recortarse ninguna, y a 390 de ancho una columna; girar una no
+ * gira otra, un campo cambia SU ficha, lo ilegal no entra, y al volver el
+ * montaje sigue como estaba con la cifra nueva. «✎» cambia el nombre (Intro lo
+ * guarda, Escape no) y un rasgo se pone y se quita por su etiqueta, hasta el
+ * montaje. Al ir y volver otra vez, las mismas abiertas.
+ */
+async function edicionDeLaArena(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+): Promise<void> {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(page, 'edicion', problemas);
+  await abrirLaArena(page, url, `?seed=7&reglas=bendicion`);
+  // El montaje que tiene que seguir igual: dos unidades y una muralla de ejemplo.
+  await page.locator('[data-hoja-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+  await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+  await page.locator('[data-arena="cargar-forma"]').first().click();
+  const murosAntes = await page.locator('#muralla .hex.muro').count();
+  if (murosAntes === 0) throw new Error('edición: la forma de ejemplo no ha puesto muros');
+  const bandosAntes = await bandosDichos(page);
+  const urlAntes = page.url();
+
+  await page.locator('[data-arena="ir-a-edicion"]').click();
+  await page.locator('#app[data-escena="edicion"]').waitFor({ timeout: 2000 });
+  if (await page.locator('#montaje').isVisible()) throw new Error('edición: se ve el montaje');
+  if (await page.locator('[data-arena="luchar"]').isVisible())
+    throw new Error('edición: «Luchar» se ve en la edición');
+
+  /** La lista plegada con su botón (la captura) se despliega para elegir. */
+  const desplegar = async (): Promise<void> => {
+    const plegada = page.locator('#edicion [data-arena="plegar-lista"][aria-expanded="false"]');
+    if ((await plegada.count()) === 1) await plegada.click();
+  };
+  // Abrir una trae su ficha a la vista sin plegar la lista (M3 de QA): su
+  // cabecera, entera en la vista y por encima de la barra de estado. Antes la
+  // primera caía en y=853 de 900, bajo la barra, y desde la cuarta, pantallas
+  // más abajo.
+  const abrir = async (que: string, paso: string): Promise<void> => {
+    await page.locator(`#edicion [data-arena="abrir-ficha"]${que}`).click();
+    const [, kind, id] = /^\[data-(hoja|criatura)="([^"]+)"\]$/.exec(que) ?? [];
+    if (id === undefined) throw new Error(`edición: «${que}» no dice qué ficha se abre`);
+    const clave = `${kind === 'hoja' ? 'hoja' : 'catalogo'}:${id}`;
+    await asentada(page);
+    const donde = await page.evaluate((c) => {
+      const t = document
+        .querySelector(`#edicion article[data-clave-de-ficha="${c}"] .titulo-de-ficha`)
+        ?.getBoundingClientRect();
+      const v = (document.querySelector('#edicion') as HTMLElement).getBoundingClientRect();
+      const barra = (document.querySelector('#statusbar') as HTMLElement).getBoundingClientRect();
+      if (t === undefined) return `${c} no tiene título`;
+      const abajo = Math.min(v.bottom, barra.top);
+      return t.top >= v.top - 1 && t.bottom <= abajo + 1
+        ? null
+        : `la cabecera de ${c} va de ${Math.round(t.top)} a ${Math.round(t.bottom)}, fuera de la vista (${Math.round(v.top)}-${Math.round(abajo)})`;
+    }, clave);
+    if (donde !== null) throw new Error(`edición, ${paso}: ${donde}`);
+    await edicionEntera(page, paso);
+  };
+  await abrir('[data-hoja="templario-escudo"]', '1 abierta');
+  const otraVez = page.locator('#edicion [data-arena="abrir-ficha"][data-hoja="templario-escudo"]');
+  if (!(await otraVez.isDisabled()) || (await otraVez.innerText()) !== 'Abierta')
+    throw new Error('edición: la ficha abierta se puede abrir otra vez');
+  // El monje es la más alta (poderes y habilidades), y el caballero de la muerte
+  // lleva el nombre largo que no se leía entero (H5).
+  await abrir('[data-hoja="templario-monje"]', '2 abiertas');
+  await abrir('[data-hoja="caballero-de-la-muerte"]', '3 abiertas');
+  await page.locator('#edicion [data-arena="filtro"][data-faccion="catalogo"]').click();
+  await abrir('[data-criatura="archer"]', '4 abiertas');
+  // Sin tope: la quinta y la sexta entran, debajo de las tres primeras.
+  await abrir('[data-criatura="skeleton"]', '5 abiertas');
+  await page.locator('#edicion [data-arena="filtro"][data-faccion="todas"]').click();
+  await abrir('[data-hoja="zombi"]', '6 abiertas');
+  await esperarBarra(page, 'Zombie: ficha abierta.', 'edición: la sexta', { exacta: true });
+  if ((await page.locator('#edicion .ficha-abierta').count()) !== 6)
+    throw new Error('edición: no hay seis fichas abiertas');
+  if (!(await medirLaEdicion(page)).desplaza)
+    throw new Error('edición: con seis abiertas a 1440×900 la vista no se desplaza');
+
+  // La captura, con la lista plegada por su botón: las fichas, desde arriba.
+  await page.locator('#edicion [data-arena="plegar-lista"]').click();
+  await asentada(page);
+  await captura(page, 'arena-10-edicion-6');
+  await desplegar();
+
+  // A 390 de ancho: una debajo de otra y sin desplazarse en horizontal.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await asentada(page);
+  const movil = await medirLaEdicion(page);
+  if (movil.fallos.length > 0)
+    throw new Error(`edición a 390×844:\n  ${movil.fallos.join('\n  ')}`);
+  if (movil.columnas !== 1) throw new Error(`edición a 390×844: en ${movil.columnas} columnas`);
+  await page.locator('#edicion .fichas-abiertas').evaluate((e) => e.scrollIntoView());
+  await captura(page, 'arena-11-edicion-movil');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await asentada(page);
+  log('edición: a 390×844, una columna y sin desplazarse en horizontal');
+
+  // Girar la ficha del templario carga su siguiente dirección (d2; ver «Las 8
+  // direcciones» en `jugarArena`), y la del monje no: cada ficha gira la suya.
+  // Se espera a la respuesta de esa hoja, que es la señal de que se ha pintado.
+  const pedidas = (): Promise<string[]> =>
+    page.evaluate(() =>
+      performance.getEntriesByType('resource').map((e) => new URL(e.name).pathname),
+    );
+  const ficha = (id: string): string => `#edicion article[data-clave-de-ficha="hoja:${id}"]`;
+  const d2 = (id: string): string => `/unidades/${id}/d2/atlas.webp`;
+  const girar = async (id: string): Promise<void> => {
+    if ((await pedidas()).includes(d2(id)))
+      throw new Error(`edición: ${d2(id)} ya estaba pedida antes de girar: no prueba nada`);
+    await Promise.all([
+      page.waitForResponse((r) => new URL(r.url()).pathname === d2(id), { timeout: 5000 }),
+      page.locator(`${ficha(id)} [data-arena="girar"]`).click(),
+    ]).catch((err: unknown) => {
+      throw new Error(`edición: girar la ficha de ${id} no la ha girado: ${String(err)}`);
+    });
+  };
+  await girar('templario-escudo');
+  if ((await pedidas()).includes(d2('templario-monje')))
+    throw new Error('edición: girar la ficha del templario ha girado también la del monje');
+  await girar('templario-monje');
+  log('edición: girar una ficha gira la suya y no la de al lado');
+
+  // Un campo cambia SU ficha, el foco sigue en la misma ficha tras repintar, y
+  // la vista no vuelve arriba: un cambio repinta solo su ficha. La lista va
+  // desplegada encima, así que escribir en el campo ya desplaza la vista hasta
+  // él: se mide desde ahí.
+  const lista = page.locator('#edicion');
+  const monjeAntes = await page
+    .locator(`${ficha('templario-monje')} [data-campo="attack"]`)
+    .inputValue();
+  const ataque = page.locator(`${ficha('templario-escudo')} [data-campo="attack"]`);
+  const ataqueAntes = await ataque.inputValue();
+  const nuevo = String(Number(ataqueAntes) + 3);
+  await ataque.fill(nuevo);
+  const bajada = await lista.evaluate((e) => e.scrollTop);
+  if (bajada === 0) throw new Error('edición: la vista no se desplaza: no se puede probar');
+  await ataque.press('Tab');
+  // Un cambio que entra deja la barra vacía; uno rechazado diría «No se cambia: …».
+  await esperarBarra(page, '', 'edición: cambiar el ataque del templario', { exacta: true });
+  await asentada(page);
+  const foco = await page.evaluate(() => {
+    const a = document.activeElement;
+    return `${a?.closest('[data-clave-de-ficha]')?.getAttribute('data-clave-de-ficha')} ${a?.getAttribute('data-campo')}`;
+  });
+  if (foco !== 'hoja:templario-escudo defense')
+    throw new Error(`edición: tras cambiar el ataque, el foco está en «${foco}»`);
+  const trasElCambio = await lista.evaluate((e) => e.scrollTop);
+  if (trasElCambio !== bajada)
+    throw new Error(`edición: un cambio ha movido la vista de ${bajada} a ${trasElCambio}`);
+  if (
+    (await page.locator(`${ficha('templario-escudo')} [data-campo="attack"]`).inputValue()) !==
+    nuevo
+  )
+    throw new Error('edición: el ataque del templario no se ha quedado en el nuevo');
+  if (
+    (await page.locator(`${ficha('templario-monje')} [data-campo="attack"]`).inputValue()) !==
+    monjeAntes
+  )
+    throw new Error('edición: cambiar el templario ha cambiado el monje');
+  // Lo ilegal no entra, y se dice.
+  const vida = page.locator(`${ficha('templario-monje')} [data-campo="hp"]`);
+  const vidaAntes = await vida.inputValue();
+  await vida.fill('0');
+  await vida.press('Tab');
+  await esperarBarra(page, 'No se cambia:', 'edición: una vida de 0', { exacta: false });
+  await asentada(page);
+  if ((await vida.inputValue()) !== vidaAntes)
+    throw new Error('edición: una vida de 0 se ha quedado en la ficha');
+  log('edición: un campo cambia su ficha (y solo ella se repinta) y lo ilegal no entra');
+
+  // De vuelta: el montaje como estaba, con el ataque nuevo.
+  await page.locator('[data-arena="volver-de-edicion"]').click();
+  await page.locator('#app[data-escena="montaje"]').waitFor({ timeout: 2000 });
+  if ((await page.locator('#muralla .hex.muro').count()) !== murosAntes)
+    throw new Error('edición: al volver, la muralla es otra');
+  if (page.url() !== urlAntes) throw new Error(`edición: al volver, la URL es otra: ${page.url()}`);
+  const bandosDespues = await bandosDichos(page);
+  // El templario va el primero: su «A n ·» es el primero de los bandos.
+  const bandosConElAtaque = bandosAntes.replace(`A ${ataqueAntes} ·`, `A ${nuevo} ·`);
+  if (bandosDespues !== bandosConElAtaque)
+    throw new Error(
+      `edición: al volver, los bandos son otros:\n${bandosAntes}\n=====\n${bandosDespues}`,
+    );
+  await page.locator('#bando-izquierda button.ver[data-hoja="templario-escudo"]').click();
+  if ((await page.locator('#ficha [data-campo="attack"]').inputValue()) !== nuevo)
+    throw new Error('edición: la ficha del montaje no enseña el ataque cambiado');
+  log('edición: de vuelta, el montaje sigue como estaba y lleva el ataque nuevo');
+
+  // Otra vez a la edición: las mismas, en su orden; y cerrar una deja las demás.
+  await page.locator('[data-arena="ir-a-edicion"]').click();
+  const orden = (): Promise<(string | null)[]> =>
+    page
+      .locator('#edicion .ficha-abierta')
+      .evaluateAll((xs) => xs.map((x) => x.getAttribute('data-clave-de-ficha')));
+  const abiertas = await orden();
+  const esperadas = [
+    'hoja:templario-escudo',
+    'hoja:templario-monje',
+    'hoja:caballero-de-la-muerte',
+    'catalogo:archer',
+    'catalogo:skeleton',
+    'hoja:zombi',
+  ];
+  if (abiertas.join() !== esperadas.join())
+    throw new Error(`edición: al volver a entrar están abiertas ${abiertas.join(', ')}`);
+  await page.locator(`${ficha('templario-monje')} [data-arena="cerrar-ficha"]`).click();
+  const quedan = await orden();
+  if (quedan.join() !== esperadas.filter((x) => x !== 'hoja:templario-monje').join())
+    throw new Error(`edición: al cerrar el monje quedan ${quedan.join(', ')}`);
+  if (
+    (await page.locator('#edicion [data-arena="plegar-lista"][aria-expanded="false"]').count()) > 0
+  )
+    throw new Error('edición: cerrar una ficha ha plegado la lista');
+  log('edición: al volver, las mismas abiertas; cerrar una deja las demás y la lista como estaba');
+
+  // El nombre, por su «✎» en el título: Intro lo guarda —en la ficha y en el
+  // montaje—, Escape deja el de antes. Entre las cifras ya no hay campo de nombre.
+  const escudo = ficha('templario-escudo');
+  if ((await page.locator(`${escudo} .cifras [data-campo="name"]`).count()) > 0)
+    throw new Error('edición: el nombre sigue entre las cifras');
+  const nombreAntes = await page.locator(`${escudo} .titulo-de-ficha .nombre`).innerText();
+  await page.locator(`${escudo} [data-arena="renombrar"]`).click();
+  const campoDelNombre = page.locator(`${escudo} input.renombrar`);
+  const listo = await campoDelNombre.evaluate(
+    (e: HTMLInputElement) =>
+      document.activeElement === e && e.selectionStart === 0 && e.selectionEnd === e.value.length,
+  );
+  if (!listo) throw new Error('edición: «✎» no deja el nombre enfocado y seleccionado');
+  /** El título vuelve a ser el nombre, y es `texto`. */
+  const tituloEs = async (texto: string, tras: string): Promise<void> => {
+    const titulo = page.locator(`${escudo} .titulo-de-ficha .nombre`);
+    await page
+      .waitForFunction(
+        ([sel, t]) => document.querySelector(sel as string)?.textContent === t,
+        [`${escudo} .titulo-de-ficha .nombre`, texto] as const,
+        { timeout: 2000 },
+      )
+      .catch(async () => {
+        const hay = (await titulo.count()) === 0 ? 'el campo, aún' : await titulo.innerText();
+        throw new Error(`edición: tras ${tras}, el título dice «${hay}», no «${texto}»`);
+      });
+  };
+  await campoDelNombre.fill('Escudo de prueba');
+  await campoDelNombre.press('Enter');
+  await tituloEs('Escudo de prueba', 'Intro');
+  await page.locator(`${escudo} [data-arena="renombrar"]`).click();
+  await page.locator(`${escudo} input.renombrar`).fill('No se queda');
+  await page.locator(`${escudo} input.renombrar`).press('Escape');
+  await tituloEs('Escudo de prueba', 'Escape');
+  // Un rasgo por su desplegable y su etiqueta: se pone «vuela» y se quita «no-muerto»
+  // del esqueleto del catálogo (su prueba).
+  await page.locator(`${escudo} select[data-arena-rasgo]`).selectOption('flying');
+  await page
+    .locator(`${escudo} [data-arena="quitar-rasgo"][data-rasgo="flying"]`)
+    .waitFor({ timeout: 2000 });
+  if ((await page.locator(`${escudo} select[data-arena-rasgo] option[value="flying"]`).count()) > 0)
+    throw new Error('edición: «vuela» sigue en el desplegable tras ponerlo');
+  // Quitar con el teclado (M2 de QA): el foco sigue en la ficha, en el × de la
+  // etiqueta siguiente y, sin ninguna detrás, en su «Añadir». Antes caía al `body`.
+  const focoEn = (): Promise<string> =>
+    page.evaluate(() => {
+      const a = document.activeElement;
+      if (a === null || a === document.body) return 'body';
+      const f = a.closest('[data-clave-de-ficha]')?.getAttribute('data-clave-de-ficha');
+      const que =
+        a.getAttribute('data-arena') ??
+        (a.hasAttribute('data-arena-rasgo') ? 'añadir-rasgo' : null) ??
+        (a.hasAttribute('data-arena-habilidad') ? 'añadir-habilidad' : a.tagName);
+      return `${f} ${que} ${a.getAttribute('data-rasgo') ?? a.getAttribute('data-habilidad') ?? ''}`.trim();
+    });
+  const conElTeclado = async (sel: string, esperado: string, que: string): Promise<void> => {
+    await page.locator(sel).focus();
+    await page.keyboard.press('Enter');
+    await asentada(page);
+    const ahora = await focoEn();
+    if (ahora !== esperado)
+      throw new Error(
+        `edición: tras quitar ${que} con Intro el foco está en «${ahora}», no en «${esperado}»`,
+      );
+  };
+  await page.locator(`${escudo} select[data-arena-rasgo]`).selectOption('no_retaliation');
+  await conElTeclado(
+    `${escudo} [data-arena="quitar-rasgo"][data-rasgo="flying"]`,
+    'hoja:templario-escudo quitar-rasgo no_retaliation',
+    '«vuela» (con otro detrás)',
+  );
+  await conElTeclado(
+    `${escudo} [data-arena="quitar-rasgo"][data-rasgo="no_retaliation"]`,
+    'hoja:templario-escudo añadir-rasgo',
+    'el último rasgo',
+  );
+  const habilidad = await page
+    .locator(`${escudo} select[data-arena-habilidad] option`)
+    .last()
+    .getAttribute('value');
+  if (habilidad === null || habilidad === '')
+    throw new Error('edición: no hay habilidad que poner');
+  await page.locator(`${escudo} select[data-arena-habilidad]`).selectOption(habilidad);
+  await conElTeclado(
+    `${escudo} [data-arena="quitar-habilidad"][data-habilidad="${habilidad}"]`,
+    'hoja:templario-escudo añadir-habilidad',
+    `la habilidad «${habilidad}», la última de su grupo`,
+  );
+  // Y otra vez «vuela», que el montaje enseña más abajo.
+  await page.locator(`${escudo} select[data-arena-rasgo]`).selectOption('flying');
+  await page
+    .locator(`${escudo} [data-arena="quitar-rasgo"][data-rasgo="flying"]`)
+    .waitFor({ timeout: 2000 });
+  log(
+    'edición: quitar un rasgo o una habilidad con Intro deja el foco en la siguiente o en «Añadir»',
+  );
+  // Con el ratón, el foco no se lleva a ningún sitio (como `pintar`).
+  const esqueleto = '#edicion article[data-clave-de-ficha="catalogo:skeleton"]';
+  await page.locator(`${esqueleto} [data-arena="quitar-rasgo"][data-rasgo="undead"]`).click();
+  await esperarBarra(page, 'prueba que no se guarda', 'edición: quitar no-muerto al esqueleto', {
+    exacta: false,
+  });
+  if ((await page.locator(`${esqueleto} [data-arena="quitar-rasgo"]`).count()) > 0)
+    throw new Error('edición: el esqueleto sigue con su rasgo tras quitarlo');
+  if ((await focoEn()) !== 'body')
+    throw new Error(`edición: quitar con el ratón ha llevado el foco a «${await focoEn()}»`);
+  await page.locator('[data-arena="volver-de-edicion"]').click();
+  // El bando lleva el nombre y «vuela» en el resumen (y la escalera dice que no la usa).
+  const conNombre = await bandosDichos(page);
+  const resumenConVuela = new RegExp(
+    `Escudo de prueba\\n[\\s\\S]*?A ${nuevo} · [^\\n]* casillas · vuela\\n`,
+  );
+  if (!conNombre.includes('Escudo de prueba') || !resumenConVuela.test(conNombre))
+    throw new Error(`edición: el montaje no lleva el nombre y el rasgo:\n${conNombre}`);
+  // Y se quita por su etiqueta, también en la ficha del montaje.
+  await page.locator('#ficha [data-arena="quitar-rasgo"][data-rasgo="flying"]').click();
+  if ((await bandosDichos(page)) !== bandosConElAtaque.replace(nombreAntes, 'Escudo de prueba'))
+    throw new Error('edición: quitar «vuela» en el montaje no lo quita del bando');
+  await page.locator('[data-arena="ir-a-edicion"]').click();
+  log(
+    'edición: «✎» + Intro cambia el nombre (Escape no) y un rasgo se pone y se quita por su etiqueta, hasta el montaje',
+  );
+
+  // Y al recargar la página, las mismas (`localStorage`, de comodidad).
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+  await page.locator('[data-arena="ir-a-edicion"]').click();
+  const recargadas = await orden();
+  if (recargadas.join() !== quedan.join())
+    throw new Error(`edición: al recargar están abiertas ${recargadas.join(', ')}`);
+  log('edición: al recargar, las mismas abiertas');
+
+  // Cerrar con el teclado (H4): el foco pasa al × de la de al lado —la
+  // siguiente, o la anterior si era la última— y, sin ninguna, al «Abrir» de la
+  // que se cerró. Se llega al primer × con el tabulador, como quien no usa ratón.
+  const enfocado = (): Promise<string> =>
+    page.evaluate(() => {
+      const a = document.activeElement;
+      if (a === null || a === document.body) return 'body';
+      const ficha = a.closest('[data-clave-de-ficha]')?.getAttribute('data-clave-de-ficha');
+      const quien = a.getAttribute('data-hoja') ?? a.getAttribute('data-criatura');
+      return `${a.getAttribute('data-arena')} ${ficha ?? quien}`;
+    });
+  await page.locator(`${ficha('templario-escudo')} [data-arena-habilidad]`).focus();
+  await page.keyboard.press('Tab');
+  if ((await enfocado()) !== 'cerrar-ficha hoja:caballero-de-la-muerte')
+    throw new Error(
+      `edición: el tabulador no llega al × de la ficha siguiente: ${await enfocado()}`,
+    );
+  const tras = [
+    'cerrar-ficha catalogo:archer',
+    'cerrar-ficha catalogo:skeleton',
+    'cerrar-ficha hoja:zombi',
+    'cerrar-ficha hoja:templario-escudo',
+    'abrir-ficha templario-escudo',
+  ];
+  for (const esperado of tras) {
+    await page.keyboard.press('Enter');
+    await asentada(page);
+    const ahora = await enfocado();
+    if (ahora !== esperado)
+      throw new Error(
+        `edición: tras cerrar con Intro el foco está en «${ahora}», no en «${esperado}»`,
+      );
+  }
+  log('edición: cerrar con el teclado deja el foco en la de al lado y, sin ninguna, en su «Abrir»');
+  await page.close();
+}
+
 // ------------------------------------------------------------------------ main
 
 type Paso = (browser: Browser, url: string, problemas: Problemas) => Promise<void>;
@@ -3498,6 +4378,8 @@ const PASADAS: readonly (readonly [string, Paso])[] = [
   ['sin-arte', sinArte],
   ['espectador', espectador],
   ['arena', arena],
+  ['edicion', (b, u, p) => sinElBorrador('edicion', () => edicionDeLaArena(b, u, p))],
+  ['poderes', poderesEnLaArena],
 ];
 
 /**

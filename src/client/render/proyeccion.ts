@@ -2,8 +2,8 @@
  * El tablero de batalla proyectado sobre el suelo a 25°.
  *
  * Nace de `aventura/combat-layout.ts` de la rama `archivo/gpt-rpg`, que dibujaba
- * un tablero fijo de 7×5 en un lienzo de 1800×800. Aquí se generaliza al 11×9 del
- * núcleo y al tamaño real del lienzo, y gana lo que allí no hacía falta porque
+ * un tablero fijo de 7×5 en un lienzo de 1800×800. Aquí se generaliza al tablero del
+ * núcleo (filas de 12 y 11, simétrico) y al tamaño real del lienzo, y gana lo que allí no hacía falta porque
  * cada hex era un botón del DOM: la inversa, de píxel a hex.
  *
  * Hay dos espacios y conviene no mezclarlos:
@@ -15,7 +15,7 @@
  *  - la **pantalla**, que es el plano escalado por `paso` y con el eje vertical
  *    aplastado por `sin 25°`.
  */
-import { BOARD_HEIGHT, BOARD_WIDTH } from '@core/battle/board.js';
+import { desplazamientoDeFila, EXTENSION_HORIZONTAL, isInside } from '@core/battle/board.js';
 import type { Hex } from '@core/types.js';
 import {
   ALTO_DE_FILA,
@@ -58,7 +58,13 @@ const RADIO = 1 / Math.sqrt(3);
 const ALTO_FIGURA = 1.55;
 /** Lo que el tablero pide en vertical y no depende de la elevación. */
 const ALTO_FIJO = ALTO_FIGURA + 2 * RADIO + MARGEN_ABAJO;
-const ANCHO_TABLERO = BOARD_WIDTH + 0.5 + 0.6;
+/**
+ * Lo que ocupan las casillas en horizontal, en pasos: de un centro extremo al
+ * otro (`EXTENSION_HORIZONTAL`, del núcleo) y medio hex a cada lado.
+ */
+const ANCHO_DE_LAS_CASILLAS = EXTENSION_HORIZONTAL.hasta - EXTENSION_HORIZONTAL.desde + 1;
+/** Lo que el tablero pide en horizontal, en pasos: las casillas y 0,6 de margen. */
+const ANCHO_TABLERO = ANCHO_DE_LAS_CASILLAS + 0.6;
 
 /**
  * Hasta dónde se levanta la cámara cuando sobra alto: 35°.
@@ -130,7 +136,7 @@ export function tableroPara(ancho: number, alto: number, alzado = 0): Tablero {
   const sobraY = Math.max(0, alto - (ALTO_FIJO + alzado + FONDO_DEL_COMBATE * compresion) * paso);
   return {
     paso,
-    origenX: (ancho - (BOARD_WIDTH + 0.5) * paso) / 2 + paso / 2,
+    origenX: (ancho - ANCHO_DE_LAS_CASILLAS * paso) / 2 + (0.5 - EXTENSION_HORIZONTAL.desde) * paso,
     origenY: sobraY / 2 + (ALTO_FIGURA + alzado + RADIO) * paso,
     compresion,
   };
@@ -150,7 +156,7 @@ export function altoConAlzado(ancho: number, alto: number, alzado: number): numb
 
 /** El centro de un hex en el plano. */
 export function planoDeHex(h: Hex): Plano {
-  return { x: h.col + (h.row % 2) * 0.5, y: h.row * ALTO_DE_FILA };
+  return { x: h.col + desplazamientoDeFila(h.row) * 0.5, y: h.row * ALTO_DE_FILA };
 }
 
 /**
@@ -201,25 +207,31 @@ export function verticesHex(t: Tablero, h: Hex): { x: number; y: number }[] {
  *
  * Se deshace la compresión para volver al plano y se busca el centro más
  * cercano: en una rejilla de hexágonos la celda de Voronoi de cada centro ES su
- * hexágono, así que el más cercano es exacto dentro del tablero. Fuera no: el
- * más cercano a un punto lejano es un hex del borde, y por eso se comprueba al
- * final que el punto caiga de verdad dentro de ese hex.
+ * hexágono. Sin recorrer el tablero: el más cercano de la rejilla está en la
+ * fila más cercana o en una de sus dos vecinas (la de dos filas más allá queda
+ * a 1,5 filas, más lejos que cualquier punto de su propio hex), y en cada fila
+ * es la columna redondeada. Si ese hex no existe —fuera del tablero o en el
+ * hueco de una fila impar— el punto no es de nadie; y como el más cercano de un
+ * punto lejano es igual un hex del borde, se comprueba al final que caiga de
+ * verdad dentro.
  */
 export function hexEnPixel(t: Tablero, px: number, py: number): Hex | null {
   const { x: u, y: v } = planoDePixel(t, px, py);
+  const cerca = Math.round(v / ALTO_DE_FILA);
   let mejor: Hex | null = null;
   let mejorD = Infinity;
-  for (let row = 0; row < BOARD_HEIGHT; row++) {
-    for (let col = 0; col < BOARD_WIDTH; col++) {
-      const c = planoDeHex({ col, row });
-      const d = (c.x - u) * (c.x - u) + (c.y - v) * (c.y - v);
-      if (d < mejorD) {
-        mejorD = d;
-        mejor = { col, row };
-      }
+  for (let row = cerca - 1; row <= cerca + 1; row++) {
+    // `+ 0`: un poco a la izquierda del centro de la columna 0 redondea a −0, y
+    // `{ col: −0 }` no es la casilla `{ col: 0 }` para quien compara a fondo.
+    const h = { col: Math.round(u - desplazamientoDeFila(row) * 0.5) + 0, row };
+    const c = planoDeHex(h);
+    const d = (c.x - u) * (c.x - u) + (c.y - v) * (c.y - v);
+    if (d < mejorD) {
+      mejorD = d;
+      mejor = h;
     }
   }
-  if (mejor === null) return null;
+  if (mejor === null || !isInside(mejor)) return null;
   const c = planoDeHex(mejor);
   const dx = Math.abs(u - c.x);
   const dy = Math.abs(v - c.y);

@@ -9,10 +9,10 @@ import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
 import {
   batallaDeArena,
-  type FuenteDeArena,
-  type HeroeDeArena,
   LADOS,
-  type Lado,
+  type LadoDeArena,
+  type RetoqueDeArena,
+  retocarEnBatalla,
 } from '@core/arena.js';
 import {
   activeStack,
@@ -27,13 +27,16 @@ import {
   movimientoBlocker,
   type Prevision,
   pasosQueQuedan,
+  poderBlocker,
   previsionDe,
   puertasBlocker,
   quienNoEscala,
   SIN_CARGAS,
+  stackById,
   surrenderBlocker,
 } from '@core/battle/battle.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
+import { type PoderId, poder } from '@core/battle/poderes.js';
 import type { ReglasDeBatalla } from '@core/battle/reglas.js';
 import { enOrdenDelLibro, spell } from '@core/battle/spells.js';
 import type {
@@ -231,8 +234,39 @@ export interface ControlDeBatalla {
    * cerrar). En la partida, siempre `null`.
    */
   puertaPorElegir: TipoDePuerta | null;
+  /**
+   * Lo que apunta el siguiente clic en una unidad, o `null`: el hechizo elegido
+   * del libro o, en la arena, el poder de la activa que espera un aliado. Es uno
+   * solo: elegir uno suelta el otro.
+   */
+  readonly apuntado: Apuntado | null;
+  /** Por qué lo apuntado no vale sobre ese stack, con la frase del núcleo (`castBlocker`, `poderBlocker`). */
+  rechazoDeLoApuntado(targetId: string): string;
   playBattleAction(action: BattleAction): void;
 }
+
+/**
+ * Lo que apunta el siguiente clic en una unidad (`ControlDeBatalla.apuntado`):
+ * un hechizo del libro del héroe o un poder de la unidad activa. Los dos se
+ * apuntan igual: la jugada sobre ese objetivo sale de la lista legal
+ * (`esDeLoApuntado`) y el rechazo lo escribe el núcleo.
+ */
+export interface Apuntado {
+  readonly kind: 'hechizo' | 'poder';
+  readonly id: string;
+}
+
+/** ¿Es `a` una jugada de lo apuntado (sobre `objetivo`, si se dice)? */
+export function esDeLoApuntado(apuntado: Apuntado, a: BattleAction, objetivo?: string): boolean {
+  const suya =
+    apuntado.kind === 'hechizo'
+      ? a.type === 'cast' && a.spell === apuntado.id
+      : a.type === 'poder' && a.poder === apuntado.id;
+  return suya && (objetivo === undefined || ('target' in a && a.target === objetivo));
+}
+
+/** Lo que dice la barra a quien pide algo a la unidad activa cuando no es suya. */
+const NINGUNA_TUYA = 'Ahora no mueve ninguna unidad tuya.';
 
 type TurnoPropio = { battle: BattleState; stack: BattleStack; side: Side };
 
@@ -292,12 +326,44 @@ function claveConMagia(b: BattleState): string {
  * dar motivo.
  */
 function motivoContra(turno: TurnoPropio | null, targetId: string): string {
-  if (turno === null) return '';
-  const motivo = ataqueBlocker(turno.battle, targetId);
-  if (motivo === null) {
-    throw new Error(`no se ofrece ninguna acción contra ${targetId} y el núcleo no dice por qué`);
-  }
+  return motivoExigido(
+    turno,
+    (b) => ataqueBlocker(b, targetId),
+    `ninguna acción contra ${targetId}`,
+    '',
+  );
+}
+
+/**
+ * El motivo del núcleo de algo que la lista legal no ofrece, como frase de la
+ * barra. Quien lo pide ya ha visto que no está en la lista, así que el núcleo
+ * TIENE que dar motivo: si no lo da, se lanza diciendo qué no se ofrecía (`que`).
+ * Sin unidad tuya activa, `sinTurno`.
+ */
+function motivoExigido(
+  turno: TurnoPropio | null,
+  pregunta: (battle: BattleState) => string | null,
+  que: string,
+  sinTurno = NINGUNA_TUYA,
+): string {
+  if (turno === null) return sinTurno;
+  const motivo = pregunta(turno.battle);
+  if (motivo === null) throw new Error(`no se ofrece ${que} y el núcleo no dice por qué`);
   return comoFrase(motivo);
+}
+
+/**
+ * Por qué la unidad activa —tuya— no puede hacer algo que pinta un botón
+ * deshabilitado (`escalaBlocker`, `puertasBlocker`, `poderBlocker`), como frase;
+ * `null` si puede.
+ */
+function motivoDeLaActiva(
+  turno: TurnoPropio | null,
+  pregunta: (battle: BattleState) => string | null,
+): string | null {
+  if (turno === null) return NINGUNA_TUYA;
+  const motivo = pregunta(turno.battle);
+  return motivo === null ? null : comoFrase(motivo);
 }
 
 /**
@@ -309,12 +375,11 @@ function motivoContra(turno: TurnoPropio | null, targetId: string): string {
  * motivo.
  */
 function motivoDeMovimiento(turno: TurnoPropio | null, hex: Hex): string {
-  if (turno === null) return 'Ahora no mueve ninguna unidad tuya.';
-  const motivo = movimientoBlocker(turno.battle, hex);
-  if (motivo === null) {
-    throw new Error(`no se ofrece moverse a (${hex.col},${hex.row}) y el núcleo no dice por qué`);
-  }
-  return comoFrase(motivo);
+  return motivoExigido(
+    turno,
+    (b) => movimientoBlocker(b, hex),
+    `moverse a (${hex.col},${hex.row})`,
+  );
 }
 
 /**
@@ -567,6 +632,11 @@ export class Session implements ControlDeBatalla {
   muroPorElegir: TipoDeEscala | null = null;
   /** Ni puerta (`ControlDeBatalla`). */
   puertaPorElegir: TipoDePuerta | null = null;
+  /** Lo apuntado, en la partida, solo puede ser un hechizo: la tropa del juego no tiene poderes. */
+  get apuntado(): Apuntado | null {
+    const id = this.hechizos.selectedSpell;
+    return id === null ? null : { kind: 'hechizo', id };
+  }
 
   /**
    * Mientras juegan los rivales no se acepta nada de la persona.
@@ -1410,6 +1480,10 @@ export class Session implements ControlDeBatalla {
     return motivoDeMovimiento(this.turnoPropio, hex);
   }
 
+  rechazoDeLoApuntado(targetId: string): string {
+    return this.hechizos.castRejection(targetId);
+  }
+
   /**
    * La rendición tal y como se pinta: cuánto costaría y, si no se puede, por
    * qué. Las dos cosas las da el núcleo en una llamada (`surrenderBlocker`),
@@ -1525,19 +1599,10 @@ export class Session implements ControlDeBatalla {
 }
 
 /**
- * Una unidad del montaje de la arena: de dónde sale (con su escalera, casilla
- * «Lleva escalera») y quién la mueve.
+ * Un lado del montaje para la sesión: sus unidades y su héroe (`LadoDeArena`) y
+ * quién lo mueve, entero: la persona o la IA.
  */
-export interface PuestoDeArena {
-  readonly fuente: FuenteDeArena;
-  readonly ia: boolean;
-}
-
-/** Un lado del montaje para la sesión: sus puestos y su héroe, con quién lo mueve. */
-export interface LadoDeSesion {
-  readonly puestos: readonly PuestoDeArena[];
-  readonly heroe: { readonly datos: HeroeDeArena; readonly ia: boolean } | null;
-}
+export type LadoDeSesion = LadoDeArena & { readonly ia: boolean };
 
 /**
  * La batalla de la arena (`/arena/`): dos bandos de unidades del borrador o del
@@ -1547,9 +1612,9 @@ export interface LadoDeSesion {
  *
  * Vive aquí porque `session.ts` es la única puerta del cliente al núcleo —lo
  * vigila `invariantes.test.ts`—, y la arena aplica reglas igual que la partida.
- * Qué unidades lleva la IA se decide al montar y no cambia: es un conjunto de
- * ids de stack. Cuál es el «bando de la persona» se deriva de la unidad activa,
- * porque la persona puede llevar unidades de los dos lados.
+ * Qué bandos lleva la IA se decide al montar y no cambia. Cuál es el «bando de
+ * la persona» se deriva de la unidad activa, porque la persona puede llevar los
+ * dos lados.
  *
  * **Montar no es empezar.** El constructor deja la batalla en su primera
  * jugada, y la IA no mueve hasta `empezar()`. Así quien la pinta puede mirar el
@@ -1564,11 +1629,15 @@ export class SesionDeArena implements ControlDeBatalla {
   readonly battle: BattleState;
   readonly semilla: number;
   readonly reglas: ReglasDeBatalla;
-  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this);
+  /** Elegir un hechizo suelta el poder apuntado: el clic apunta una sola cosa (`apuntado`). */
+  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => {
+    if (this.hechizos.selectedSpell !== null) this.poderApuntado = null;
+  });
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
   readonly dueños = null;
   private readonly rng: Rng;
-  private readonly manejaIA: ReadonlySet<string>;
+  /** Qué bandos mueve la IA, enteros: sus unidades y su héroe. */
+  private readonly iaDelBando: Readonly<Record<Side, boolean>>;
   private empezada = false;
 
   /**
@@ -1577,7 +1646,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * pueda desacompasar.
    */
   get version(): string {
-    return `${claveDeBatalla(this.battle)}|${this.hechizos.selectedSpell}`;
+    return `${claveDeBatalla(this.battle)}|${this.hechizos.selectedSpell}|${this.poderApuntado}`;
   }
 
   /** No es parte de la versión, por lo mismo que en `Session`: la reescribe el puntero. */
@@ -1587,6 +1656,35 @@ export class SesionDeArena implements ControlDeBatalla {
   muroPorElegir: TipoDeEscala | null = null;
   /** El botón de la puerta esperando el clic en una portada (`ControlDeBatalla`). */
   puertaPorElegir: TipoDePuerta | null = null;
+  /**
+   * El poder de la activa que espera el clic en un aliado (lo pone su botón
+   * cuando hay más de uno). Con el hechizo elegido del libro, es lo apuntado
+   * (`apuntado`): elegir uno suelta el otro (`apuntarPoder` y el libro).
+   */
+  private poderApuntado: PoderId | null = null;
+
+  get apuntado(): Apuntado | null {
+    const hechizo = this.hechizos.selectedSpell;
+    if (hechizo !== null) return { kind: 'hechizo', id: hechizo };
+    return this.poderApuntado === null ? null : { kind: 'poder', id: this.poderApuntado };
+  }
+
+  /** Deja el poder `id` esperando aliado (o lo suelta con `null`), soltando el hechizo. */
+  apuntarPoder(id: PoderId | null): void {
+    if (id !== null) this.hechizos.selectedSpell = null;
+    this.poderApuntado = id;
+  }
+
+  rechazoDeLoApuntado(targetId: string): string {
+    const a = this.apuntado;
+    if (a === null) return '';
+    if (a.kind === 'hechizo') return this.hechizos.castRejection(targetId);
+    return motivoExigido(
+      this.turnoPropio,
+      (b) => poderBlocker(b, a.id, targetId),
+      `«${a.id}» sobre ${targetId}`,
+    );
+  }
 
   constructor(
     montaje: {
@@ -1601,43 +1699,19 @@ export class SesionDeArena implements ControlDeBatalla {
     this.semilla = semilla;
     this.reglas = montaje.reglas;
     this.rng = createRng(semilla);
-    const lado = (l: LadoDeSesion) => ({
-      unidades: l.puestos.map((p) => p.fuente),
-      heroe: l.heroe?.datos ?? null,
-    });
     this.battle = batallaDeArena(
       {
-        izquierda: lado(montaje.izquierda),
-        derecha: lado(montaje.derecha),
+        izquierda: montaje.izquierda,
+        derecha: montaje.derecha,
         reglas: montaje.reglas,
         muralla: montaje.muralla ?? SIN_MURALLA,
       },
       this.rng,
     );
-    // El stack de cada puesto, por bando y `slot`, que es como lo monta el motor;
-    // no por el formato del id, que es cosa suya. El héroe, por su origen.
-    const ia = new Set<string>();
-    for (const l of ['izquierda', 'derecha'] as const satisfies readonly Lado[]) {
-      const bando = LADOS[l].bando;
-      const { puestos, heroe } = montaje[l];
-      puestos.forEach((p, slot) => {
-        const st = this.battle.stacks.find(
-          (s) => s.side === bando && s.slot === slot && s.origen.kind !== 'heroe',
-        );
-        if (st === undefined)
-          throw new Error(
-            `el puesto ${slot + 1} del bando ${LADOS[l].adjetivo} no ha salido al campo`,
-          );
-        if (p.ia) ia.add(st.id);
-      });
-      if (heroe !== null) {
-        const st = this.battle.stacks.find((s) => s.side === bando && s.origen.kind === 'heroe');
-        if (st === undefined)
-          throw new Error(`el héroe del bando ${LADOS[l].adjetivo} no ha salido al campo`);
-        if (heroe.ia) ia.add(st.id);
-      }
-    }
-    this.manejaIA = ia;
+    this.iaDelBando = {
+      [LADOS.izquierda.bando]: montaje.izquierda.ia,
+      [LADOS.derecha.bando]: montaje.derecha.ia,
+    } as Record<Side, boolean>;
   }
 
   /**
@@ -1651,16 +1725,16 @@ export class SesionDeArena implements ControlDeBatalla {
     this.avanzarIA();
   }
 
-  /** ¿Esta unidad la mueve la IA? */
+  /** ¿Esta unidad la mueve la IA? La de un bando de la IA. */
   laLlevaLaIA(stackId: string): boolean {
-    return this.manejaIA.has(stackId);
+    return this.iaDelBando[stackById(this.battle, stackId).side];
   }
 
   get turnoPropio(): TurnoPropio | null {
     const battle = this.battle;
     if (!this.empezada || battle.finished !== null) return null;
     const stack = activeStack(battle);
-    if (stack === null || this.manejaIA.has(stack.id)) return null;
+    if (stack === null || this.iaDelBando[stack.side]) return null;
     return { battle, stack, side: stack.side };
   }
 
@@ -1731,10 +1805,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * pinta el botón deshabilitado.
    */
   motivoDeEscala(tipo: TipoDeEscala): string | null {
-    const turno = this.turnoPropio;
-    if (turno === null) return 'Ahora no mueve ninguna unidad tuya.';
-    const motivo = escalaBlocker(turno.battle, tipo);
-    return motivo === null ? null : comoFrase(motivo);
+    return motivoDeLaActiva(this.turnoPropio, (b) => escalaBlocker(b, tipo));
   }
 
   /**
@@ -1743,10 +1814,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * deshabilitado.
    */
   motivoDePuerta(tipo: TipoDePuerta): string | null {
-    const turno = this.turnoPropio;
-    if (turno === null) return 'Ahora no mueve ninguna unidad tuya.';
-    const motivo = puertasBlocker(turno.battle, tipo);
-    return motivo === null ? null : comoFrase(motivo);
+    return motivoDeLaActiva(this.turnoPropio, (b) => puertasBlocker(b, tipo));
   }
 
   /**
@@ -1763,10 +1831,55 @@ export class SesionDeArena implements ControlDeBatalla {
     return bonoEnLoAlto(this.battle, s);
   }
 
+  /**
+   * Por qué la unidad activa —tuya— no puede usar ese poder sobre nadie
+   * (`poderBlocker`), como frase; `null` si puede. Lo pinta el botón deshabilitado.
+   */
+  motivoDePoder(p: PoderId): string | null {
+    return motivoDeLaActiva(this.turnoPropio, (b) => poderBlocker(b, p));
+  }
+
+  /**
+   * Cambia las cifras de un tipo, o del héroe de un lado, en la pelea en curso
+   * (`retocarEnBatalla`): devuelve el motivo si no entra, sin tocar nada, o `null`
+   * si ha entrado. El turno y lo elegido se conservan; lo elegido que con las
+   * cifras nuevas ya no se puede jugar se suelta y la barra lo dice.
+   */
+  retocar(r: RetoqueDeArena): string | null {
+    const largo = this.battle.log.length;
+    const motivo = retocarEnBatalla(this.battle, r);
+    if (motivo !== null) return comoFrase(motivo);
+    // Lo que entra y cambia algo deja su `retoque` en el registro; lo que deja la
+    // ficha como estaba no escribe nada, y no se dice «Cambiado» (N1 de QA).
+    if (this.battle.log.length === largo) {
+      this.status = 'Sin cambios: la ficha ya decía eso.';
+      return null;
+    }
+    const suelto = this.soltarLoQueNoVale();
+    this.status =
+      suelto === null
+        ? 'Cambiado: vale ya en esta pelea.'
+        : `Cambiado: vale ya en esta pelea. Con las cifras nuevas no se puede usar ${suelto}: suelto.`;
+    return null;
+  }
+
+  /**
+   * Suelta lo apuntado si la lista legal ya no trae ninguna jugada suya, y dice
+   * qué soltó (su nombre), o `null` si nada. Lo apuntado es uno solo, así que se
+   * suelta como mucho una cosa.
+   */
+  private soltarLoQueNoVale(): string | null {
+    const a = this.apuntado;
+    if (a === null || this.battleLegalActions().some((x) => esDeLoApuntado(a, x))) return null;
+    this.hechizos.selectedSpell = null;
+    this.poderApuntado = null;
+    return a.kind === 'hechizo' ? spell(a.id).name : poder(a.id).nombre;
+  }
+
   /** Aplica la jugada de la persona y deja a la IA mover las suyas hasta la siguiente. */
   playBattleAction(action: BattleAction): void {
     if (this.turnoPropio === null) {
-      this.status = 'Ahora no mueve ninguna unidad tuya.';
+      this.status = NINGUNA_TUYA;
       return;
     }
     try {
@@ -1776,15 +1889,16 @@ export class SesionDeArena implements ControlDeBatalla {
       this.status = mensaje(err);
       return;
     }
-    // Como en la partida: lanzado el hechizo, o con otra unidad activa, el
-    // elegido ya no tiene sentido.
+    // Como en la partida: lanzado el hechizo, o con otra unidad activa, lo
+    // apuntado ya no tiene sentido, se pueda aún o no.
     this.hechizos.selectedSpell = null;
+    this.poderApuntado = null;
     this.avanzarIA();
   }
 
   /** Con todas en IA la batalla se juega entera aquí, de una vez: el animador la cuenta después. */
   private avanzarIA(): void {
-    jugarIAMientras(this.battle, this.rng, (s) => this.manejaIA.has(s.id));
+    jugarIAMientras(this.battle, this.rng, (s) => this.iaDelBando[s.side]);
     if (this.battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
 }

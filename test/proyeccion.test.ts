@@ -17,7 +17,7 @@ import {
   tableroPara,
   verticesHex,
 } from '../src/client/render/proyeccion.js';
-import { BOARD_HEIGHT, BOARD_WIDTH } from '../src/core/battle/board.js';
+import { allHexes, BOARD_HEIGHT, espejo } from '../src/core/battle/board.js';
 import { COMPRESION_SUELO } from '../src/shared/arte.js';
 
 const TAMANOS = [
@@ -31,19 +31,33 @@ const TAMANOS = [
 
 describe('el tablero proyectado', () => {
   for (const [ancho, alto] of TAMANOS) {
-    it(`los 99 hexes hacen ida y vuelta en ${ancho}×${alto}`, () => {
+    it(`los 104 hexes hacen ida y vuelta en ${ancho}×${alto}`, () => {
       const t = tableroPara(ancho, alto);
-      for (let row = 0; row < BOARD_HEIGHT; row++) {
-        for (let col = 0; col < BOARD_WIDTH; col++) {
-          const c = centroHex(t, { col, row });
-          expect(hexEnPixel(t, c.x, c.y)).toEqual({ col, row });
-          // Y cerca del borde, sin salirse: un 80 % del camino hacia cada vértice.
-          for (const v of verticesHex(t, { col, row })) {
-            const px = c.x + (v.x - c.x) * 0.8;
-            const py = c.y + (v.y - c.y) * 0.8;
-            expect(hexEnPixel(t, px, py)).toEqual({ col, row });
-          }
+      for (const h of allHexes()) {
+        const c = centroHex(t, h);
+        expect(hexEnPixel(t, c.x, c.y)).toEqual(h);
+        // Y cerca del borde, sin salirse: un 80 % del camino hacia cada vértice.
+        for (const v of verticesHex(t, h)) {
+          const px = c.x + (v.x - c.x) * 0.8;
+          const py = c.y + (v.y - c.y) * 0.8;
+          expect(hexEnPixel(t, px, py)).toEqual(h);
         }
+      }
+    });
+
+    it(`el hueco del final de las filas impares no es de nadie en ${ancho}×${alto}`, () => {
+      const t = tableroPara(ancho, alto);
+      for (let row = 1; row < BOARD_HEIGHT; row += 2) {
+        // Donde estaría el centro de (11, impar): entre (11, par) de arriba y de abajo.
+        const c = centroHex(t, { col: 11, row });
+        expect(hexEnPixel(t, c.x, c.y), `(11,${row})`).toBeNull();
+      }
+    });
+
+    it(`el tablero es simétrico en pantalla en ${ancho}×${alto}`, () => {
+      const t = tableroPara(ancho, alto);
+      for (const h of allHexes()) {
+        expect(centroHex(t, espejo(h)).x).toBeCloseTo(ancho - centroHex(t, h).x, 6);
       }
     });
 
@@ -62,8 +76,9 @@ describe('el tablero proyectado', () => {
       const t = tableroPara(ancho, alto);
       for (const h of [
         { col: 0, row: 0 },
-        { col: BOARD_WIDTH - 1, row: BOARD_HEIGHT - 1 },
-        { col: BOARD_WIDTH - 1, row: 1 },
+        { col: 11, row: BOARD_HEIGHT - 1 },
+        { col: 10, row: 1 },
+        { col: 11, row: 0 },
       ]) {
         for (const v of verticesHex(t, h)) {
           expect(v.x).toBeGreaterThanOrEqual(0);
@@ -78,8 +93,9 @@ describe('el tablero proyectado', () => {
   it('si sobra alto la cámara se levanta, sin pasar de su tope; si no, el suelo sigue a 25°', () => {
     // Escritorio: antes el tablero ocupaba la franja de abajo y dejaba cielo.
     expect(tableroPara(1086, 778).compresion).toBeCloseTo(COMPRESION_MAXIMA, 10);
-    // 1280×720 está entre los dos: ni el tope ni los 25°.
-    const medio = tableroPara(1280, 720).compresion;
+    // 1280×640 está entre los dos: ni el tope ni los 25°. (Era 1280×720; con
+    // el tablero de filas de 12 el paso baja un 4 % y ahí ya llega al tope.)
+    const medio = tableroPara(1280, 640).compresion;
     expect(medio).toBeGreaterThan(COMPRESION_SUELO);
     expect(medio).toBeLessThan(COMPRESION_MAXIMA);
     // Móvil: el alto manda, y levantar la cámara no cabría.

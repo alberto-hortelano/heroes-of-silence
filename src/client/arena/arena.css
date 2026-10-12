@@ -5,6 +5,15 @@
 #app[data-escena='montaje'] #stage { display: none; }
 #app[data-escena='battle'] #montaje { display: none; }
 #app[data-escena='battle'] #acciones-arena { display: none; }
+/* La vista de edición (`edicion.ts`): ni el montaje ni el tablero; arriba, «Guardar»
+   y «Volver al montaje», sin «Luchar» ni el enlace, que son del montaje. */
+#app:not([data-escena='edicion']) #edicion { display: none; }
+#app[data-escena='edicion'] #montaje,
+#app[data-escena='edicion'] #stage,
+#app[data-escena='edicion'] [data-arena='luchar'],
+#app[data-escena='edicion'] [data-arena='enlace'],
+#app[data-escena='edicion'] [data-arena='ir-a-edicion'],
+#app:not([data-escena='edicion']) [data-arena='volver-de-edicion'] { display: none; }
 #acciones-arena { display: flex; gap: 0.4rem; }
 
 /* Cuatro columnas que se desplazan cada una por su cuenta: la lista de hojas es
@@ -19,7 +28,7 @@
 }
 #montaje > section { min-height: 0; overflow-y: auto; padding-right: 4px; }
 #catalogo { grid-column: 1; grid-row: 1; }
-#montaje h3 {
+#montaje h3, #edicion h3 {
   margin: 0 0 0.4rem;
   font: 10px system-ui, sans-serif;
   letter-spacing: 2px;
@@ -90,11 +99,7 @@
 .puesto button.ver:hover canvas.figura,
 .puesto button.ver:focus-visible canvas.figura { border-color: #e0c589; }
 canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
-canvas.figura.grande { width: 200px; height: 230px; }
 
-.ficha { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 0.8rem; }
-.ficha .retrato, .ficha h3, .ficha p, .ficha .rasgos, .ficha .etiquetas { grid-column: 1 / -1; }
-.ficha .retrato { display: flex; gap: 0.6rem; align-items: flex-end; }
 .campo { display: grid; gap: 0.1rem; }
 .campo .label { color: var(--ink-dim); font-size: 0.75rem; }
 .campo input, .campo select {
@@ -105,10 +110,66 @@ canvas.figura.grande { width: 200px; height: 230px; }
   padding: 0.25rem 0.35rem;
 }
 .rasgos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.15rem 0.6rem; }
-.rasgo { font-size: 0.8rem; }
+.rasgo { font-size: 0.9rem; }
 .etiquetas { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-.etiqueta { background: #33302a; border: 1px dashed #a68b4d88; padding: 0.1rem 0.3rem; font-size: 0.8rem; }
+.etiqueta { background: #33302a; border: 1px dashed #a68b4d88; padding: 0.1rem 0.3rem; font-size: 0.9rem; }
 .etiqueta button { min-height: 0; padding: 0 0.3rem; background: none; border: 0; }
+
+/*
+ * La ficha, la misma en el montaje, la vista de edición y el editor de la
+ * batalla (12-10-2026, el usuario: letra más grande; arriba, compacta, la
+ * figura grande a la izquierda con sus clips en columna y las cifras a la
+ * derecha; el nombre, en el título con su «✎ Editar»). Una sola columna: el
+ * título, la cabeza y debajo, a todo el ancho, rasgos, poderes y habilidades.
+ */
+.ficha { container-type: inline-size; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.3rem; font-size: 1rem; }
+#montaje .ficha h3, #edicion .ficha h3 { font-size: 0.75rem; }
+.ficha p { margin: 0.1rem 0; line-height: 1.3; }
+.ficha .cost { font-size: 0.85rem; }
+.titulo-de-ficha { display: grid; gap: 0.05rem; }
+.nombre-de-ficha { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; min-width: 0; }
+.nombre-de-ficha .nombre { color: #f2deac; font: 1.2rem Georgia, serif; min-width: 0; overflow-wrap: anywhere; }
+.nombre-de-ficha .boton-de-cabecera { min-height: 24px; font-size: 0.8rem; letter-spacing: 0; }
+.nombre-de-ficha input.renombrar {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font: 1.1rem Georgia, serif;
+  background: #16201a;
+  color: #f2deac;
+  border: 1px solid #e0c589;
+  padding: 0.1rem 0.35rem;
+}
+.titulo-de-ficha .subtitulo { color: var(--gold); font-size: 0.72rem; letter-spacing: 1.5px; text-transform: uppercase; }
+/*
+ * La cabeza: figura y clips a la izquierda, cifras a la derecha. La ficha mide
+ * su ancho (`container-type`: una consulta no puede cambiar al que mide, por eso
+ * no es la cabeza) y, estrecha —la columna del montaje a 1280, el móvil—, la
+ * cabeza baja las cifras debajo de la figura en vez de apretarlas.
+ */
+.cabeza {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem 0.9rem;
+  align-items: start;
+}
+.cabeza.sin-retrato { grid-template-columns: minmax(0, 1fr); }
+.cabeza .retrato { display: flex; gap: 0.5rem; align-items: flex-start; min-width: 0; }
+.cabeza canvas.figura.grande { flex: none; width: clamp(120px, 34cqw, 200px); height: auto; aspect-ratio: 200 / 230; }
+.cabeza .clips { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.cabeza .clips button, .cabeza > .botones button { min-height: 28px; padding: 0.1rem 0.55rem; font-size: 0.9rem; text-align: left; }
+.cabeza .cifras { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr)); gap: 0.3rem 0.8rem; align-content: start; min-width: 0; }
+.cifras .campo { grid-template-columns: minmax(0, 1fr) 4.4rem; align-items: center; gap: 0.4rem; }
+.cifras .campo .label { font-size: 0.9rem; line-height: 1.2; }
+.ficha .campo input, .ficha .campo select { font-size: 15px; padding: 0.15rem 0.35rem; }
+/* La figura del héroe, a todo el ancho: el desplegable lleva nombres de hoja largos. */
+.cifras .campo:has(> select) { grid-column: 1 / -1; grid-template-columns: auto minmax(0, 1fr); }
+/* El «Añadir» de rasgos y habilidades, en una fila con su rótulo. */
+.ficha > .campo { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.5rem; }
+.ficha > .campo .label { font-size: 0.9rem; }
+@container (max-width: 26rem) {
+  .cabeza { grid-template-columns: minmax(0, 1fr); }
+  .cabeza canvas.figura.grande { width: min(200px, 55cqw); }
+}
 
 /* La muralla: una franja bajo los bandos y la ficha, con la rejilla de batalla
    en botones hexagonales (odd-r: las filas impares, media casilla a la derecha). */
@@ -152,9 +213,13 @@ canvas.figura.grande { width: 200px; height: 230px; }
 .muralla .mandos p { margin: 0; }
 .muralla .aviso-despliegue, #muralla > .aviso-despliegue { color: #f0a070; font-weight: bold; margin: 0; }
 .muralla .aviso-guardado { color: #f0a070; }
+/* La cabecera del bando lleva su Yo / IA: quién mueve el bando entero. */
+#montaje h3.cabecera-bando { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.cabecera-bando .botones { display: flex; gap: 0.2rem; }
 /* La cabecera lleva el botón de plegar: plegado, el editor es esta línea (QA, M7). */
 #montaje h3.cabecera-muralla { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
-.cabecera-muralla button { min-height: 0; padding: 0.05rem 0.5rem; font: 10px system-ui, sans-serif; letter-spacing: 1px; }
+/* Los botones de una cabecera (bando, muralla, ficha abierta): de la letra del rótulo. */
+.boton-de-cabecera { min-height: 0; padding: 0.05rem 0.5rem; font: 10px system-ui, sans-serif; letter-spacing: 1px; }
 .muralla .formas { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.25rem; }
 .muralla .forma { display: grid; gap: 0.1rem; padding: 0.25rem; background: var(--panel-alt); border: 1px solid #6e71413d; }
 .muralla .forma .botones { display: flex; gap: 0.2rem; }
@@ -197,3 +262,89 @@ canvas.figura.grande { width: 200px; height: 230px; }
    desplaza en vertical, y con el hueco de la barra siempre puesto, para que su
    ancho —y con él el tablero— no cambie al aparecer. */
 #app[data-muralla] #lienzo { overflow-y: auto; scrollbar-gutter: stable; }
+
+/* El editor de la batalla: la ficha de lo elegido en un diálogo encima de la
+   pelea, que vale ya para todo su tipo. Sin figura animada: la del tablero ya
+   se ve. */
+#editor-en-combate {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  padding: 0.8rem 1rem 1rem;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--brass);
+  border-radius: 4px;
+  box-shadow: 0 12px 40px #000a;
+}
+#editor-en-combate::backdrop { background: #0008; }
+#editor-en-combate .cabecera-del-editor {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.8rem;
+}
+#editor-en-combate h2 { margin: 0; font-size: 1.1rem; color: var(--gold); }
+#editor-en-combate h3 { font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); }
+#editor-en-combate .aviso-del-editor { margin: 0.5rem 0; color: var(--accent); min-height: 1.2em; }
+#editor-en-combate .aviso-del-editor:empty { display: none; }
+#side h2 .editar-en-combate, #side .stack .editar-en-combate {
+  font-size: 0.75rem; padding: 0.1rem 0.45rem; margin-left: 0.4rem; vertical-align: middle;
+}
+.ficha .poderes, .ficha .poder { grid-column: 1 / -1; }
+.ficha .poder { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
+#editor-en-combate .aviso-del-editor.rechazo { color: var(--danger); }
+
+/*
+ * La vista de edición: la lista arriba y las fichas abiertas debajo, en columnas.
+ * Lo que se desplaza es la vista entera, como una página, y nada dentro de ella:
+ * ni la lista (dos barras, y la rueda hacía cosas distintas según dónde estaba
+ * el ratón: H2 y H3 de QA) ni una ficha. La lista solo se pliega con su botón.
+ */
+#edicion {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px 14px;
+  font-size: 0.86rem;
+}
+#edicion > section { min-width: 0; }
+#edicion h3.cabecera-lista, #edicion h3.cabecera-abiertas { margin-bottom: 0.25rem; }
+/* La lista no va de columna: les robaría a las fichas el ancho que necesitan. */
+.edicion-lista .catalogo { grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+#edicion h3.cabecera-lista { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+/*
+ * Las fichas, sin tope (12-10-2026): como mucho tres columnas del mismo ancho y
+ * las demás en filas debajo. La columna mide al menos 24rem y un tercio de la
+ * fila: sale 3, 2 o 1 según el ancho, nunca 4; y nunca más ancha que la vista,
+ * que en un móvil desbordaría.
+ */
+.fichas-abiertas {
+  --hueco: 12px;
+  display: grid;
+  gap: var(--hueco);
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, max(24rem, calc((100% - 2 * var(--hueco)) / 3))), 1fr)
+  );
+  align-items: start;
+}
+.ficha-abierta {
+  position: relative;
+  min-width: 0;
+  overflow: visible;
+  padding: 0.45rem 0.6rem 0.55rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+  /* Al traerla a la vista tras abrirla (M3), con el margen de arriba de la vista. */
+  scroll-margin-top: 8px;
+}
+/* El × va en la línea del título de la ficha, a la derecha; el título le deja su sitio. */
+.ficha-abierta > .cerrar-ficha { position: absolute; top: 0.4rem; right: 0.5rem; min-height: 26px; font-size: 15px; letter-spacing: 0; }
+.ficha-abierta .titulo-de-ficha { padding-right: 2.2rem; }
+.ficha-abierta .ficha h3 { margin: 0.45rem 0 0.1rem !important; padding-bottom: 0.15rem !important; }
+
+@media (max-width: 760px) {
+  .edicion-lista .catalogo { grid-template-columns: minmax(0, 1fr); }
+}

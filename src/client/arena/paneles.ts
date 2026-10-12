@@ -14,12 +14,15 @@ import {
   FACCIONES_DE_ARENA,
   fichaDeHeroeDeArena,
   finalDeArena,
+  HABILIDADES_DE_LA_ARENA,
   type HeroeDeArena,
   type HojaDeArena,
   LADOS,
   type Lado,
   ladoDe,
   NOMBRE_DE_FACCION_DE_ARENA,
+  NOMBRE_DE_RASGO,
+  nombreDeHabilidad,
   type UnidadDeArena,
 } from '@core/arena.js';
 import {
@@ -35,22 +38,30 @@ import {
   isAlive,
   MAX_ROUNDS,
 } from '@core/battle/battle.js';
-import { BOARD_HEIGHT, BOARD_WIDTH } from '@core/battle/board.js';
+import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
 import {
   esMuro,
   ladoDeLaMuralla,
   type MurallaDeBatalla,
   type PiezaDeMuralla,
 } from '@core/battle/muralla.js';
+import { esDeCura, type Poder, poder, poderDeHabilidad } from '@core/battle/poderes.js';
 import {
   DESCRIPCION_DE_REGLA,
   NOMBRES_DE_REGLA,
+  REGLAS_DEL_JUEGO,
   type ReglasDeBatalla,
   reglasEncendidas,
 } from '@core/battle/reglas.js';
-import { allSpells } from '@core/battle/spells.js';
-import type { BattleState, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
-import { CATALOGO_DE_HABILIDADES, isShooter } from '@core/data.js';
+import { allSpells, delHeroe, efectoDe } from '@core/battle/spells.js';
+import type {
+  BattleAction,
+  BattleStack,
+  BattleState,
+  TipoDeEscala,
+  TipoDePuerta,
+} from '@core/battle/types.js';
+import { isShooter } from '@core/data.js';
 import {
   CREATURE_TRAITS,
   type CreatureTrait,
@@ -69,6 +80,8 @@ import {
   renderBattleLog,
   renderSpells,
 } from '../views/panels.js';
+import { curaOEfecto, textoDePrevision } from '../views/prevision.js';
+import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
  * De dónde sale un puesto del montaje: una hoja de las cinco facciones (sus
@@ -78,19 +91,12 @@ export type FuenteDePuesto =
   | { readonly kind: 'hoja'; readonly hoja: string }
   | { readonly kind: 'catalogo'; readonly id: string };
 
-/** Un puesto del montaje: de dónde sale y quién lo mueve. `clave` distingue dos iguales. */
+/** Un puesto del montaje: de dónde sale. `clave` distingue dos iguales; quién lo mueve es del bando. */
 export interface Puesto {
   readonly clave: number;
   readonly fuente: FuenteDePuesto;
-  readonly ia: boolean;
   /** Lleva escalera para subir a la muralla: es del montaje, no de la unidad. */
   readonly escalera: boolean;
-}
-
-/** El héroe de un lado del montaje y quién lo mueve. */
-export interface HeroeDelMontaje {
-  readonly datos: HeroeDeArena;
-  readonly ia: boolean;
 }
 
 /** Lo que tiene la ficha delante: una hoja, una criatura del catálogo o el héroe de un lado. */
@@ -125,22 +131,6 @@ function esLaElegida(e: Elegida | null, f: FuenteDePuesto): boolean {
 const DESHABILITADO: Html = html`disabled`;
 const MARCADO: Html = html`checked`;
 
-/** Qué hace cada rasgo del motor, dicho en corto para la casilla. */
-const NOMBRE_DE_RASGO: Readonly<Record<(typeof CREATURE_TRAITS)[number], string>> = {
-  undead: 'no-muerto',
-  flying: 'vuela',
-  no_retaliation: 'sin contraataque',
-  double_attack: 'ataque doble',
-  double_shot: 'disparo doble',
-  life_drain: 'drena vida',
-  splash_shot: 'disparo con salpicadura',
-  charge: 'carga',
-  curse_on_hit: 'maldice al golpear',
-  bane_undead: 'azote de no-muertos',
-  fear: 'terror',
-  escalar: 'escala murallas',
-};
-
 const rutaDeIdentidad = (id: string): string => `/unidades/${id}/identidad.webp`;
 
 /** Los rasgos dichos con palabras, o nada. */
@@ -173,6 +163,56 @@ export function resumenDeUnidad(u: UnitInfo): string {
 /** Qué enseña la lista: todas las hojas, las de una facción o el catálogo del juego. */
 export type FiltroDeArena = HojaDeArena['faccion'] | 'todas' | 'catalogo';
 
+/**
+ * Para qué se enseña la lista: en el montaje, cada tarjeta se añade a un bando;
+ * en la vista de edición, abre su ficha (`abiertas`: las que ya lo están).
+ */
+export type ModoDelCatalogo =
+  | { readonly kind: 'montaje' }
+  | {
+      readonly kind: 'edicion';
+      readonly abiertas: readonly FichaEditable[];
+      /** Plegada, la lista es solo su cabecera (`listaPlegadaTras`). */
+      readonly plegada: boolean;
+    };
+
+/**
+ * La cabecera de la lista. En la edición, con alguna ficha abierta, lleva el
+ * botón que la pliega a esta línea o la despliega para elegir otra.
+ */
+function cabeceraDeLaLista(modo: ModoDelCatalogo): Html {
+  if (modo.kind === 'montaje' || modo.abiertas.length === 0) {
+    if (modo.kind === 'edicion' && modo.plegada)
+      throw new Error('la lista de la edición no se pliega sin ninguna ficha abierta');
+    return html`<h3>Unidades</h3>`;
+  }
+  return html`<h3 class="cabecera-lista"><span>Unidades</span>
+    <button class="boton-de-cabecera" data-arena="plegar-lista" aria-expanded="${modo.plegada ? 'false' : 'true'}" title="${modo.plegada ? 'Despliega la lista para abrir otra ficha' : 'Pliega la lista: las fichas abiertas ganan su alto'}">${modo.plegada ? 'Desplegar' : 'Plegar'}</button></h3>`;
+}
+
+/**
+ * Los botones de una tarjeta de la lista. En el montaje, «+ izq.» y «+ der.»
+ * (deshabilitados si la hoja está a medias). En la edición, «Abrir», con el
+ * motivo de `abrirFichaBlocker` en su `title` y deshabilitado si no se abre.
+ */
+function botonesDeTarjeta(
+  modo: ModoDelCatalogo,
+  f: FichaEditable,
+  incompleta: string | null,
+): Html {
+  const quien = f.kind === 'hoja' ? html`data-hoja="${f.id}"` : html`data-criatura="${f.id}"`;
+  if (modo.kind === 'edicion') {
+    const motivo = abrirFichaBlocker(modo.abiertas, f, incompleta);
+    const abierta = estaAbierta(modo.abiertas, claveDeFicha(f));
+    return html`<button data-arena="abrir-ficha" ${quien} title="${motivo ?? 'Abre su ficha junto a las demás'}" ${motivo === null ? NADA : DESHABILITADO}>${abierta ? 'Abierta' : 'Abrir'}</button>`;
+  }
+  const accion = f.kind === 'hoja' ? 'añadir' : 'añadir-catalogo';
+  const montable = incompleta === null ? NADA : DESHABILITADO;
+  return html`
+          <button data-arena="${accion}" data-lado="izquierda" ${quien} title="Añadir al bando izquierdo" ${montable}>+ izq.</button>
+          <button data-arena="${accion}" data-lado="derecha" ${quien} title="Añadir al bando derecho" ${montable}>+ der.</button>`;
+}
+
 export function renderCatalogo(
   hojas: readonly HojaDeArena[],
   filtro: FiltroDeArena,
@@ -181,7 +221,10 @@ export function renderCatalogo(
     readonly name: string;
     readonly resumen: string;
   }[] = [],
+  modo: ModoDelCatalogo = { kind: 'montaje' },
 ): Html {
+  const cabecera = cabeceraDeLaLista(modo);
+  if (modo.kind === 'edicion' && modo.plegada) return cabecera;
   const botones = unir(
     (['todas', ...FACCIONES_DE_ARENA, 'catalogo'] as const).map((f) => {
       const nombre =
@@ -200,14 +243,11 @@ export function renderCatalogo(
         <span class="sello">catálogo</span>
         <span class="nombre">${c.name}</span>
         <span class="cost">${c.resumen}</span>
-        <span class="botones">
-          <button data-arena="añadir-catalogo" data-lado="izquierda" data-criatura="${c.id}" title="Añadir al bando izquierdo">+ izq.</button>
-          <button data-arena="añadir-catalogo" data-lado="derecha" data-criatura="${c.id}" title="Añadir al bando derecho">+ der.</button>
-        </span>
+        <span class="botones">${botonesDeTarjeta(modo, { kind: 'catalogo', id: c.id }, null)}</span>
       </div>`,
       ),
     );
-    return html`<h3>Unidades</h3>
+    return html`${cabecera}
     <div class="filtros">${botones}</div>
     <p class="cost">Las criaturas de data/creatures.json, con sus cifras y sus rasgos de verdad.</p>
     <div class="catalogo">${tarjetas}</div>`;
@@ -216,20 +256,16 @@ export function renderCatalogo(
   const tarjetas = unir(
     visibles.map((h) => {
       // Una incompleta (#140) se ve con su motivo y sin botones que la monten.
-      const montable = h.incompleta === null ? NADA : DESHABILITADO;
       return html`<div class="hoja${h.incompleta === null ? '' : ' incompleta'}" data-hoja-catalogo="${h.id}">
         <img${srcDeImagen(rutaDeIdentidad(h.id))} alt="${h.nombre}" loading="lazy" width="64" height="64">
         <span class="nombre">${h.nombre}</span>
         <span class="cost">${NOMBRE_DE_FACCION_DE_ARENA[h.faccion]}</span>
         ${h.incompleta === null ? NADA : html`<span class="cost" data-incompleta title="${h.incompleta}">Incompleta: ${h.incompleta}</span>`}
-        <span class="botones">
-          <button data-arena="añadir" data-lado="izquierda" data-hoja="${h.id}" title="Añadir al bando izquierdo" ${montable}>+ izq.</button>
-          <button data-arena="añadir" data-lado="derecha" data-hoja="${h.id}" title="Añadir al bando derecho" ${montable}>+ der.</button>
-        </span>
+        <span class="botones">${botonesDeTarjeta(modo, { kind: 'hoja', id: h.id }, h.incompleta)}</span>
       </div>`;
     }),
   );
-  return html`<h3>Unidades</h3>
+  return html`${cabecera}
     <div class="filtros">${botones}</div>
     <div class="catalogo">${tarjetas}</div>`;
 }
@@ -242,8 +278,9 @@ export function renderBando(
   describir: (p: Puesto) => DatosDePuesto,
   elegida: Elegida | null,
   caben: number,
-  heroe: HeroeDelMontaje | null,
+  heroe: HeroeDeArena | null,
   ocupados: number,
+  ia: boolean,
 ): Html {
   const titulo = `Bando ${LADOS[lado].adjetivo}`;
   const lleno = ocupados >= caben;
@@ -266,8 +303,6 @@ export function renderBando(
                 <span class="sello">${d.sello}</span>
                 <span class="cost">${d.resumen}</span>
                 <span class="botones">
-                  <button data-arena="manda" data-clave="${p.clave}" data-ia="no" class="${p.ia ? '' : 'primary'}">Yo</button>
-                  <button data-arena="manda" data-clave="${p.clave}" data-ia="si" class="${p.ia ? 'primary' : ''}">IA</button>
                   <button data-arena="duplicar" data-clave="${p.clave}" ${lleno ? DESHABILITADO : NADA}>Duplicar</button>
                   <button data-arena="quitar" data-clave="${p.clave}">Quitar</button>
                 </span>
@@ -276,7 +311,13 @@ export function renderBando(
             </div>`;
           }),
         );
-  return html`<h3>${titulo} · ${ocupados} de ${caben}</h3>
+  // Quién lo mueve es del bando entero: sus unidades y su héroe.
+  return html`<h3 class="cabecera-bando">${titulo} · ${ocupados} de ${caben}
+      <span class="botones" title="Quién mueve el bando">
+        <button data-arena="manda" data-lado="${lado}" data-ia="no" class="boton-de-cabecera${ia ? '' : ' primary'}">Yo</button>
+        <button data-arena="manda" data-lado="${lado}" data-ia="si" class="boton-de-cabecera${ia ? ' primary' : ''}">IA</button>
+      </span>
+    </h3>
     ${renderHeroeDelBando(lado, heroe, elegida, lleno)}
     <div class="stack-list">${fichas}</div>`;
 }
@@ -284,14 +325,13 @@ export function renderBando(
 /** La tarjeta del héroe de un lado, o el botón para ponerle uno. */
 function renderHeroeDelBando(
   lado: Lado,
-  heroe: HeroeDelMontaje | null,
+  h: HeroeDeArena | null,
   elegida: Elegida | null,
   lleno: boolean,
 ): Html {
-  if (heroe === null) {
+  if (h === null) {
     return html`<div class="stack-list heroe-del-bando"><button data-arena="poner-heroe" data-lado="${lado}" ${lleno ? DESHABILITADO : NADA} title="Un héroe con ataque, defensa, poder, conocimiento y libro de hechizos">+ Héroe</button></div>`;
   }
-  const h = heroe.datos;
   const es = elegida?.kind === 'heroe' && elegida.lado === lado;
   return html`<div class="puesto heroe-del-bando${es ? ' elegida' : ''}" data-heroe-del-bando="${lado}">
     <button class="ver" data-arena="editar-heroe" data-lado="${lado}" title="Ver y editar el héroe">
@@ -302,8 +342,6 @@ function renderHeroeDelBando(
       <span class="sello">héroe</span>
       <span class="cost">A ${h.ataque} · D ${h.defensa} · Poder ${h.poder} · Conocimiento ${h.conocimiento} · ${h.hechizos.length} hechizos</span>
       <span class="botones">
-        <button data-arena="manda-heroe" data-lado="${lado}" data-ia="no" class="${heroe.ia ? '' : 'primary'}">Yo</button>
-        <button data-arena="manda-heroe" data-lado="${lado}" data-ia="si" class="${heroe.ia ? 'primary' : ''}">IA</button>
         <button data-arena="quitar-heroe" data-lado="${lado}">Quitar</button>
       </span>
     </div>
@@ -360,15 +398,44 @@ export function renderEnlace(enlace: string | null): Html {
  * Al pulsarlos con más de un muro al pie, el clic en la columna elige cuál.
  */
 function botonesDeEscala(s: VistaDeArena): Html {
-  const boton = (tipo: TipoDeEscala, rotulo: string): Html => {
-    const motivo = s.motivoDeEscala(tipo);
-    const clase = motivo === null && s.muroPorElegir === tipo ? 'escala primary' : 'escala';
-    const estado = motivo === null ? NADA : html`disabled title="${motivo}"`;
-    return html`<button data-action="battle-escala" data-escala="${tipo}" class="${clase}" ${estado}>${rotulo}</button>`;
-  };
+  const boton = (tipo: TipoDeEscala, rotulo: string): Html =>
+    botonDeElegir({
+      accion: 'battle-escala',
+      dato: html`data-escala="${tipo}"`,
+      clase: 'escala',
+      rotulo,
+      motivo: s.motivoDeEscala(tipo),
+      esperando: s.muroPorElegir === tipo,
+    });
   return html`
          ${boton('poner_escalera', 'Poner escalera')}
          ${boton('subir', 'Subir')}`;
+}
+
+/**
+ * El botón de algo que, con más de una jugada posible, se elige con un clic en el
+ * tablero —escala, puerta, poder—: habilitado si se puede, y marcado mientras
+ * espera ese clic (`esperando`); si no, deshabilitado con el motivo del núcleo en
+ * el `title`. `ayuda`, el `title` cuando se puede. `dato`, el atributo que dice
+ * cuál (`data-escala="subir"`), que lee `main.ts`.
+ */
+function botonDeElegir(o: {
+  readonly accion: string;
+  readonly dato: Html;
+  readonly clase: string;
+  readonly rotulo: string;
+  readonly motivo: string | null;
+  readonly esperando: boolean;
+  readonly ayuda?: string;
+}): Html {
+  const clase = o.motivo === null && o.esperando ? `${o.clase} primary` : o.clase;
+  const estado =
+    o.motivo !== null
+      ? html`disabled title="${o.motivo}"`
+      : o.ayuda === undefined
+        ? NADA
+        : html`title="${o.ayuda}"`;
+  return html`<button data-action="${o.accion}" ${o.dato} class="${clase}" ${estado}>${o.rotulo}</button>`;
 }
 
 /**
@@ -379,12 +446,15 @@ function botonesDeEscala(s: VistaDeArena): Html {
  * elige cuál.
  */
 function botonesDePuerta(s: VistaDeArena): Html {
-  const boton = (tipo: TipoDePuerta, rotulo: string): Html => {
-    const motivo = s.motivoDePuerta(tipo);
-    const clase = motivo === null && s.puertaPorElegir === tipo ? 'puerta primary' : 'puerta';
-    const estado = motivo === null ? NADA : html`disabled title="${motivo}"`;
-    return html`<button data-action="battle-puerta" data-puerta="${tipo}" class="${clase}" ${estado}>${rotulo}</button>`;
-  };
+  const boton = (tipo: TipoDePuerta, rotulo: string): Html =>
+    botonDeElegir({
+      accion: 'battle-puerta',
+      dato: html`data-puerta="${tipo}"`,
+      clase: 'puerta',
+      rotulo,
+      motivo: s.motivoDePuerta(tipo),
+      esperando: s.puertaPorElegir === tipo,
+    });
   return html`
          ${boton('abrir_puerta', 'Abrir puerta')}
          ${boton('cerrar_puerta', 'Cerrar puerta')}`;
@@ -412,6 +482,170 @@ function casillaDeEscalera(p: Puesto, noLaUsa: string | null): Html {
 
 // ---------------------------------------------------------------- ficha
 
+/**
+ * Dónde se enseña una ficha: en el montaje, con su figura animada y valiendo para
+ * la pelea siguiente; o en el editor de la batalla (`enCombate`), sin figura
+ * —la del tablero ya se ve— y valiendo ya. `reglas`, las del montaje o las de la
+ * pelea: con ellas se dice qué deja Bendecir.
+ */
+export interface ComoDeLaFicha {
+  readonly enCombate: boolean;
+  readonly reglas: ReglasDeBatalla;
+  /**
+   * Si su título es el campo del nombre (tras pulsar «✎ Editar»): lo pone
+   * `main.ts` por la clave de la ficha, y sin él el nombre se lee y no se escribe.
+   */
+  readonly renombrando?: boolean;
+}
+
+/** La ficha del montaje, con las reglas que tiene puestas. */
+export function enElMontaje(reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO): ComoDeLaFicha {
+  return { enCombate: false, reglas };
+}
+
+/**
+ * Lo que dice la ficha al pie en el editor de la batalla: a quién alcanza el
+ * cambio y qué pasa con lo gastado (`retocarEnBatalla`).
+ */
+export const CAMBIO_EN_COMBATE =
+  'En plena pelea: el cambio vale ya para todas las de este tipo en el campo, de los dos bandos, y para la pelea siguiente. Lo gastado sigue gastado: la herida, los disparos y el maná que ya se fueron se restan de las cifras nuevas (subir la vida no cura). La velocidad nueva cuenta en el orden desde la ronda siguiente y la moral no cambia. Las casillas que ocupa y la figura del héroe solo se cambian en el montaje.';
+
+/**
+ * Lo que hace un poder, en una frase para la ficha y el botón. Que no se suma al
+ * hechizo del héroe se dice porque los dos dejan un efecto del mismo origen, que
+ * refresca y no se apila (`applyEffect`): se compara, no se da por hecho.
+ */
+export function queHaceElPoder(p: Poder, reglas: ReglasDeBatalla): string {
+  const s = p.hechizo;
+  const e = efectoDe(s, p.lanzador, reglas);
+  const hace = curaOEfecto(esDeCura(p) ? p.lanzador.cantidad : null, e) ?? '';
+  if (esDeCura(p)) return `${hace} a un aliado herido, incluida la propia unidad`;
+  const elDelHeroe = efectoDe(s, delHeroe(s, { spellPower: 1 }), reglas);
+  const unoSolo = e !== null && elDelHeroe !== null && elDelHeroe.source === e.source;
+  return `${hace} a un aliado${unoSolo ? `; es la ${s.name} del héroe: las dos no se suman` : ''}`;
+}
+
+/**
+ * El título de una ficha: el nombre de lo que enseña y, debajo, qué es. Si el
+ * nombre se cambia (`campo`: el atributo con el que lo lee `main.ts`), lleva su
+ * botón «✎ Editar» (`renombrar`), y renombrando (`como.renombrando`) el nombre
+ * es ese campo. Es el único sitio donde se escribe el nombre: entre las cifras
+ * no va (12-10-2026, el usuario: «quita el nombre de las características y pon
+ * un botón de editar en el nombre de arriba»).
+ */
+function tituloDeFicha(
+  nombre: string,
+  subtitulo: string,
+  como: ComoDeLaFicha,
+  campo: Html | null,
+): Html {
+  const nombreDicho =
+    campo !== null && como.renombrando === true
+      ? html`<input type="text" class="renombrar" ${campo} value="${nombre}" aria-label="Nombre" title="Intro lo guarda; Escape deja el de antes">`
+      : html`<span class="nombre">${nombre}</span>${
+          campo === null
+            ? NADA
+            : html`<button class="boton-de-cabecera" data-arena="renombrar" title="Cambiar el nombre" aria-label="Cambiar el nombre de ${nombre}">✎ Editar</button>`
+        }`;
+  return html`<header class="titulo-de-ficha">
+      <div class="nombre-de-ficha">${nombreDicho}</div>
+      <span class="subtitulo">${subtitulo}</span>
+    </header>`;
+}
+
+/**
+ * La parte de arriba de una ficha. En el montaje y en la edición, a la izquierda
+ * la figura animada, a su lado sus clips en columna (`clips`, más «Girar» y
+ * `siempre`) y a la derecha las cifras (`cifras`); si la columna es estrecha, las
+ * cifras bajan (`arena.css`). En el editor de la batalla, sin figura —la del
+ * tablero ya se ve—: las cifras a todo el ancho y, encima, `siempre` (volver a
+ * las del catálogo), lo único de la columna que vale también allí.
+ */
+function cabezaDeFicha(o: {
+  readonly figura: string;
+  readonly como: ComoDeLaFicha;
+  readonly clips: Html;
+  readonly siempre?: Html;
+  readonly cifras: Html;
+}): Html {
+  const siempre = o.siempre ?? NADA;
+  if (o.como.enCombate) {
+    return html`<div class="cabeza sin-retrato">
+      ${siempre === NADA ? NADA : html`<div class="botones">${siempre}</div>`}
+      <div class="cifras">${o.cifras}</div>
+    </div>`;
+  }
+  return html`<div class="cabeza">
+      <div class="retrato">
+        <canvas class="figura grande" data-figura="${o.figura}" data-ficha-clip="si" width="200" height="230"></canvas>
+        <div class="clips">
+          ${o.clips}
+          <button data-arena="girar" title="Pasa la figura por sus ocho direcciones">Girar</button>
+          ${siempre}
+        </div>
+      </div>
+      <div class="cifras">${o.cifras}</div>
+    </div>`;
+}
+
+/**
+ * Una etiqueta con su ×: una habilidad o un rasgo puesto. `quitar`, los
+ * atributos del botón que lo quita.
+ */
+function etiquetaConQuitar(texto: string, quitar: Html): Html {
+  return html`<span class="etiqueta">${texto} <button ${quitar} title="Quitar" aria-label="Quitar ${texto}">×</button></span>`;
+}
+
+/**
+ * Adónde va el foco al quitar con el teclado la etiqueta `quitado` (M2 de QA,
+ * 12-10-2026): al × de la siguiente de su grupo (`enSuGrupo`, en el orden en que
+ * se pintan), y si era la última, `null`: el desplegable «Añadir» de su ficha.
+ * Sin esto el foco caía al `body`, porque el botón pulsado ya no existe tras
+ * repintar. Lo mismo para rasgos y habilidades.
+ */
+export function focoTrasQuitar(enSuGrupo: readonly string[], quitado: string): string | null {
+  const i = enSuGrupo.indexOf(quitado);
+  if (i < 0) throw new Error(`no hay ninguna etiqueta «${quitado}» que quitar en su grupo`);
+  return enSuGrupo[i + 1] ?? null;
+}
+
+/**
+ * Los rasgos del motor de una ficha, como las habilidades: los puestos, en
+ * etiquetas con su ×, y los demás de `CREATURE_TRAITS` en un desplegable para
+ * añadir (12-10-2026: antes eran trece casillas, que ocupaban media ficha para
+ * decir uno o dos). Lo que no se puede poner lo dice el validador al añadirlo.
+ */
+function rasgosDeLaFicha(puestos: readonly CreatureTrait[]): Html {
+  const etiquetas =
+    puestos.length === 0
+      ? html`<span class="cost">Ninguno.</span>`
+      : unir(
+          puestos.map((t) =>
+            etiquetaConQuitar(
+              NOMBRE_DE_RASGO[t],
+              html`data-arena="quitar-rasgo" data-rasgo="${t}"`,
+            ),
+          ),
+        );
+  const libres = CREATURE_TRAITS.filter((t) => !puestos.includes(t));
+  const añadir =
+    libres.length === 0
+      ? NADA
+      : html`<label class="campo"><span class="label">Añadir</span>
+        <select data-arena-rasgo="si"><option value="">— elige —</option>${unir(
+          libres.map((t) => html`<option value="${t}">${NOMBRE_DE_RASGO[t]}</option>`),
+        )}</select></label>`;
+  return html`<h3>Rasgos del motor</h3>
+      <div class="etiquetas rasgos-puestos">${etiquetas}</div>
+      ${añadir}`;
+}
+
+/** El pie de una ficha: a quién alcanza el cambio. En el montaje, `enElMontaje` si dice algo. */
+function pieDeLaFicha(como: ComoDeLaFicha, enElMontaje: string | null): Html {
+  const texto = como.enCombate ? CAMBIO_EN_COMBATE : enElMontaje;
+  return texto === null ? NADA : html`<p class="cost">${texto}</p>`;
+}
+
 /** Un campo numérico de la ficha. `data-campo` es lo que lee `main.ts` al cambiarlo. */
 function numero(campo: string, rotulo: string, valor: number, minimo: number): Html {
   return html`<label class="campo"><span class="label">${rotulo}</span>
@@ -427,48 +661,53 @@ export function renderFicha(
   u: UnidadDeArena | null,
   hoja: HojaDeArena | null,
   dispara: boolean,
+  como: ComoDeLaFicha = enElMontaje(),
 ): Html {
   if (u === null || hoja === null) {
     return html`<h3>Ficha</h3><p class="cost">Pulsa el nombre de una unidad de un bando para ver y cambiar sus cifras.</p>`;
   }
-  const rasgos = unir(
-    CREATURE_TRAITS.map(
-      (t) =>
-        html`<label class="rasgo"><input type="checkbox" data-rasgo="${t}" ${u.traits.includes(t) ? MARCADO : NADA}> ${NOMBRE_DE_RASGO[t]}</label>`,
-    ),
-  );
-  const puestas =
-    u.habilidades.length === 0
-      ? html`<span class="cost">Ninguna.</span>`
+  // Las habilidades que dan un poder actúan en la pelea; las demás, todavía no.
+  const etiqueta = (h: string): Html =>
+    etiquetaConQuitar(
+      nombreDeHabilidad(h),
+      html`data-arena="quitar-habilidad" data-habilidad="${h}"`,
+    );
+  const conPoder: { readonly h: string; readonly p: Poder }[] = [];
+  const inertes: string[] = [];
+  for (const h of u.habilidades) {
+    const id = poderDeHabilidad(h);
+    if (id === null) inertes.push(h);
+    else conPoder.push({ h, p: poder(id) });
+  }
+  const poderes =
+    conPoder.length === 0
+      ? html`<span class="cost">Ninguno.</span>`
       : unir(
-          u.habilidades.map(
-            (h) =>
-              html`<span class="etiqueta">${h} <button data-arena="quitar-habilidad" data-habilidad="${h}" title="Quitar">×</button></span>`,
+          conPoder.map(
+            ({ h, p }) =>
+              html`<div class="poder" data-poder-de-la-ficha="${p.id}">${etiqueta(h)} <span class="cost">${queHaceElPoder(p, como.reglas)}.</span></div>`,
           ),
         );
+  const puestas =
+    inertes.length === 0 ? html`<span class="cost">Ninguna.</span>` : unir(inertes.map(etiqueta));
   const libres = unir(
-    CATALOGO_DE_HABILIDADES.filter((h) => !u.habilidades.includes(h)).map(
-      (h) => html`<option value="${h}">${h}</option>`,
+    HABILIDADES_DE_LA_ARENA.filter((h) => !u.habilidades.includes(h)).map(
+      (h) => html`<option value="${h}">${nombreDeHabilidad(h)}</option>`,
     ),
   );
-  return html`<h3>Ficha · ${NOMBRE_DE_FACCION_DE_ARENA[u.faction]}</h3>
-    <div class="ficha" data-ficha="${u.id}">
-      <div class="retrato">
-        <canvas class="figura grande" data-figura="${u.id}" data-ficha-clip="si" width="200" height="230"></canvas>
-        <div class="botones">
-          <button data-arena="clip" data-clip="idle">Reposo</button>
+  return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'hoja', id: u.id })}">
+      ${tituloDeFicha(u.name, `Ficha · ${NOMBRE_DE_FACCION_DE_ARENA[u.faction]}`, como, html`data-campo="name"`)}
+      ${cabezaDeFicha({
+        figura: u.id,
+        como,
+        clips: html`<button data-arena="clip" data-clip="idle">Reposo</button>
           <button data-arena="clip" data-clip="walk">Marcha</button>
           <button data-arena="clip" data-clip="charge">Carga</button>
           <button data-arena="clip" data-clip="attack">Ataque</button>
           ${dispara ? html`<button data-arena="clip" data-clip="shoot">Disparo</button>` : NADA}
           <button data-arena="clip" data-clip="hurt">Daño</button>
-          <button data-arena="clip" data-clip="death">Muerte</button>
-          <button data-arena="girar" title="Pasa la figura por sus ocho direcciones">Girar</button>
-        </div>
-      </div>
-      <label class="campo"><span class="label">Nombre</span>
-        <input type="text" data-campo="name" value="${u.name}"></label>
-      ${numero('attack', 'Ataque', u.attack, 0)}
+          <button data-arena="clip" data-clip="death">Muerte</button>`,
+        cifras: html`${numero('attack', 'Ataque', u.attack, 0)}
       ${numero('defense', 'Defensa', u.defense, 0)}
       ${numero('damage-min', 'Daño mínimo', u.damage[0], 1)}
       ${numero('damage-max', 'Daño máximo', u.damage[1], 1)}
@@ -478,15 +717,18 @@ export function renderFicha(
       ${numero('hexes', 'Hexes (1 o 2)', u.hexes ?? 1, 1)}
       ${numero('level', 'Nivel', u.level, 1)}
       ${numero('leadership', 'Liderazgo', u.leadership, 1)}
-      ${numero('gold', 'Coste (oro)', u.cost.gold, 0)}
-      <h3>Rasgos del motor</h3>
-      <div class="rasgos">${rasgos}</div>
+      ${numero('gold', 'Coste (oro)', u.cost.gold, 0)}`,
+      })}
+      ${rasgosDeLaFicha(u.traits)}
+      <h3>Poderes · actúan en la pelea</h3>
+      <p class="cost">Se usan en su turno en vez de golpear, al principio, sin haberse movido: el turno entero.</p>
+      <div class="etiquetas poderes">${poderes}</div>
       <h3>Habilidades · sin efecto todavía</h3>
-      <p class="cost">Se guardan con la unidad, pero no hay motor de habilidades: en la pelea solo cuentan los rasgos.</p>
+      <p class="cost">Se guardan con la unidad, pero solo Curar y Bendecir tienen motor: en la pelea, de lo demás, solo cuentan los rasgos.</p>
       <div class="etiquetas">${puestas}</div>
       <label class="campo"><span class="label">Añadir</span>
         <select data-arena-habilidad="si"><option value="">— elige —</option>${libres}</select></label>
-      <p class="cost">El cambio vale para todas las unidades de este tipo, en la batalla siguiente.</p>
+      ${pieDeLaFicha(como, 'El cambio vale para todas las unidades de este tipo, en la batalla siguiente.')}
     </div>`;
 }
 
@@ -495,35 +737,38 @@ export function renderFicha(
  * que es una prueba: nada de esto se escribe en `data/creatures.json` ni en el
  * borrador, y vale para todas las de su tipo en la pelea siguiente.
  */
-export function renderFichaDeCatalogo(id: string, u: UnitInfo, probada: boolean): Html {
-  const rasgos = unir(
-    CREATURE_TRAITS.map(
-      (t) =>
-        html`<label class="rasgo"><input type="checkbox" data-catalogo-rasgo="${t}" ${(u.traits ?? []).includes(t) ? MARCADO : NADA}> ${NOMBRE_DE_RASGO[t]}</label>`,
-    ),
-  );
+export function renderFichaDeCatalogo(
+  id: string,
+  u: UnitInfo,
+  probada: boolean,
+  como: ComoDeLaFicha = enElMontaje(),
+): Html {
   const campo = (c: string, rotulo: string, valor: number, minimo: number): Html =>
     html`<label class="campo"><span class="label">${rotulo}</span>
     <input type="number" data-catalogo-campo="${c}" value="${valor}" min="${minimo}" step="1"></label>`;
-  return html`<h3>Ficha · catálogo del juego</h3>
-    <div class="ficha" data-ficha-catalogo="${id}">
-      <div class="retrato">
-        <canvas class="figura grande" data-figura="${id}" data-ficha-clip="si" width="200" height="230"></canvas>
-        <div class="botones">
-          <button data-arena="girar" title="Pasa la figura por sus ocho direcciones">Girar</button>
-          ${probada ? html`<button data-arena="deshacer-prueba" data-criatura="${id}">Volver a las del catálogo</button>` : NADA}
-        </div>
-      </div>
-      <p class="aviso-prueba">${u.name}: ${probada ? 'con cambios de prueba' : 'las cifras del catálogo'}. Lo que cambies aquí es una prueba: no se guarda en data/creatures.json ni en el borrador, y vale para todas las de su tipo en la pelea siguiente.</p>
-      ${campo('attack', 'Ataque', u.attack, 0)}
+  const deshacer = probada
+    ? html`<button data-arena="deshacer-prueba" data-criatura="${id}">Volver a las del catálogo</button>`
+    : NADA;
+  const cuando = como.enCombate ? 'ya, en esta pelea y la siguiente' : 'en la pelea siguiente';
+  // El nombre del catálogo no se cambia (no hay campo para eso): su título va sin «✎».
+  return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'catalogo', id })}">
+      ${tituloDeFicha(u.name, 'Ficha · catálogo del juego', como, null)}
+      ${cabezaDeFicha({
+        figura: id,
+        como,
+        clips: NADA,
+        siempre: deshacer,
+        cifras: html`${campo('attack', 'Ataque', u.attack, 0)}
       ${campo('defense', 'Defensa', u.defense, 0)}
       ${campo('damage-min', 'Daño mínimo', u.damage[0], 1)}
       ${campo('damage-max', 'Daño máximo', u.damage[1], 1)}
       ${campo('hp', 'Vida', u.hp, 1)}
       ${campo('casillas', `Velocidad (casillas, ${CASILLAS_MIN} a ${CASILLAS_MAX})`, SPEED_TO_HEXES[u.speed], CASILLAS_MIN)}
-      ${campo('shots', 'Disparos (0 = cuerpo a cuerpo)', u.shots ?? 0, 0)}
-      <h3>Rasgos del motor</h3>
-      <div class="rasgos">${rasgos}</div>
+      ${campo('shots', 'Disparos (0 = cuerpo a cuerpo)', u.shots ?? 0, 0)}`,
+      })}
+      <p class="aviso-prueba">${u.name}: ${probada ? 'con cambios de prueba' : 'las cifras del catálogo'}. Lo que cambies aquí es una prueba: no se guarda en data/creatures.json ni en el borrador, y vale para todas las de su tipo ${cuando}.</p>
+      ${rasgosDeLaFicha(u.traits ?? [])}
+      ${pieDeLaFicha(como, null)}
     </div>`;
 }
 
@@ -535,9 +780,10 @@ export function renderFichaDeCatalogo(id: string, u: UnitInfo, probada: boolean)
 export function renderFichaDeHeroe(
   lado: Lado,
   h: HeroeDeArena,
-  reglas: ReglasDeBatalla,
+  como: ComoDeLaFicha,
   hojasDeHeroe: readonly { readonly id: string; readonly nombre: string }[],
 ): Html {
+  const { reglas } = como;
   const ficha = fichaDeHeroeDeArena(h, reglas);
   const c = ficha.cuerpo;
   const figuras = unir([
@@ -567,22 +813,19 @@ export function renderFichaDeHeroe(
       return html`<div class="row"><span class="label">${x.nombre} (${x.coste})</span><span>${que}</span></div>`;
     }),
   );
-  return html`<h3>Ficha · héroe del bando ${LADOS[lado].adjetivo}</h3>
-    <div class="ficha" data-ficha-heroe="${lado}">
-      <div class="retrato">
-        <canvas class="figura grande" data-figura="${h.figura ?? FIGURA_GENERICA}" data-ficha-clip="si" width="200" height="230"></canvas>
-        <div class="botones">
-          <button data-arena="girar" title="Pasa la figura por sus ocho direcciones">Girar</button>
-        </div>
-      </div>
-      <label class="campo"><span class="label">Nombre</span>
-        <input type="text" data-heroe-campo="nombre" value="${h.nombre}"></label>
-      <label class="campo"><span class="label">Figura</span>
+  return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'heroe', lado })}">
+      ${tituloDeFicha(h.nombre, `Ficha · héroe del bando ${LADOS[lado].adjetivo}`, como, html`data-heroe-campo="nombre"`)}
+      ${cabezaDeFicha({
+        figura: h.figura ?? FIGURA_GENERICA,
+        como,
+        clips: NADA,
+        cifras: html`<label class="campo figura-del-heroe"><span class="label">Figura</span>
         <select data-heroe-campo="figura">${figuras}</select></label>
       ${cifra('ataque', 'Ataque', h.ataque, 0)}
       ${cifra('defensa', 'Defensa', h.defensa, 0)}
       ${cifra('poder', 'Poder', h.poder, 1)}
-      ${cifra('conocimiento', 'Conocimiento', h.conocimiento, 0)}
+      ${cifra('conocimiento', 'Conocimiento', h.conocimiento, 0)}`,
+      })}
       <h3>Libro de hechizos</h3>
       <div class="rasgos">${libro}</div>
       <h3>En la pelea</h3>
@@ -593,6 +836,7 @@ export function renderFichaDeHeroe(
         <div class="row"><span class="label">Duración de lo que lanza</span><span>${enRondas(ficha.duracion)} (su Poder)</span></div>
         ${rinde}
       </div>
+      ${pieDeLaFicha(como, null)}
     </div>`;
 }
 
@@ -616,7 +860,68 @@ export type VistaDeArena = Pick<
   | 'defensaEnLoAlto'
   | 'muroPorElegir'
   | 'puertaPorElegir'
+  | 'motivoDePoder'
+  | 'apuntado'
+  | 'prevision'
 >;
+
+/**
+ * Un botón por poder de la unidad activa —tuya—: habilitado si hay algún aliado
+ * sobre el que usarlo, y si no con el motivo del núcleo en el `title`. Con un
+ * solo aliado posible se usa ya; con varios, el clic en el tablero elige (el
+ * botón queda marcado mientras espera).
+ */
+function botonesDePoder(s: VistaDeArena, activa: BattleStack): Html {
+  const apuntado = s.apuntado;
+  const legales = s.battleLegalActions();
+  return unir(
+    (activa.unit.poderes ?? []).map((id) => {
+      const p = poder(id);
+      // Se puede si la lista legal lo trae; el motivo, al núcleo solo si no.
+      const suyas = legales.filter((a) => a.type === 'poder' && a.poder === id);
+      return html`
+         ${botonDeElegir({
+           accion: 'battle-poder',
+           dato: html`data-poder="${id}"`,
+           clase: 'poder',
+           rotulo: p.nombre,
+           motivo: suyas.length > 0 ? null : s.motivoDePoder(id),
+           esperando: apuntado?.kind === 'poder' && apuntado.id === id,
+           ayuda:
+             suyas.length === 1
+               ? previsionDelUnico(s, suyas[0])
+               : queHaceElPoder(p, s.battle.reglas),
+         })}`;
+    }),
+  );
+}
+
+/**
+ * Con un solo aliado posible el clic en el botón ya juega, sin pasar por el
+ * tablero ni por su previsión: la ayuda del botón es esa previsión, con a quién y
+ * cuánto de verdad («Curar a Guerrero con escudo: cura 2 PV.», con el tope de la
+ * herida; M1 de QA: decía «cura 4 PV» aunque la herida fuera menor). Lanza si la
+ * sesión no la da: el botón solo sale en un turno propio, y una jugada de la
+ * lista legal siempre tiene previsión.
+ */
+function previsionDelUnico(s: VistaDeArena, accion: BattleAction | undefined): string {
+  if (accion === undefined) throw new Error('el poder no tiene jugada que prever');
+  const p = s.prevision(accion);
+  if (p === null) throw new Error('la jugada del poder no tiene previsión: no es un turno propio');
+  const b = s.battle;
+  return textoDePrevision(p, (id) => {
+    const x = b.stacks.find((st) => st.id === id);
+    return x === undefined ? id : nombreEnElCampo(b, x);
+  });
+}
+
+/**
+ * El botón «Editar» de una unidad del campo (o del héroe): abre su ficha en el
+ * editor de la batalla. Lo que se cambia vale para todo su tipo, ya.
+ */
+function botonDeEditar(x: BattleStack, nombre: string): Html {
+  return html`<button class="editar-en-combate" data-arena="editar-en-combate" data-stack="${x.id}" title="Cambiar las cifras de ${nombre}: todo su tipo, ya en esta pelea">Editar</button>`;
+}
 
 /**
  * El ataque y la defensa con que pelea ahora: los suyos y, si cambian —un
@@ -705,7 +1010,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
   const ficha =
     activa === null
       ? NADA
-      : html`<h2>${nombreEnElCampo(b, activa)}</h2>
+      : html`<h2>${nombreEnElCampo(b, activa)} ${botonDeEditar(activa, nombreEnElCampo(b, activa))}</h2>
         <div class="row"><span class="label">Bando</span><span>${LADOS[ladoDe(activa.side)].rotulo}</span></div>
         <div class="row"><span class="label">La mueve</span><span>${s.laLlevaLaIA(activa.id) ? 'la IA' : 'tú'}</span></div>
         <div class="row"><span class="label">Vida</span><span>${isAlive(activa) ? activa.topHp : 0} / ${activa.unit.hp}</span></div>
@@ -723,6 +1028,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
           legales: s.battleLegalActions(),
           pasos: s.battleStepsLeft(),
           rendicion: NADA,
+          poderes: botonesDePoder(s, activa),
           hechizos:
             heroe === null ? NADA : renderSpells(s.hechizos.selectedSpell, s.spellOptions()),
           // La puerta, solo a quien defiende: es quien la abre y la cierra. La
@@ -744,11 +1050,15 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     encendidas.length === 0
       ? NADA
       : html`<div class="row"><span class="label">Reglas de fheroes2</span><span>${encendidas.map((r) => DESCRIPCION_DE_REGLA[r].nombre).join(', ')}</span></div>`;
-  const campo = listaDelCampo(b, (x) => ({
-    flecha: x.side === LADOS.izquierda.bando ? '▶' : '◀',
-    nombre: nombreEnElCampo(b, x),
-    cuenta: `${x.topHp} PV · ${s.laLlevaLaIA(x.id) ? 'IA' : 'tú'}`,
-  }));
+  const campo = listaDelCampo(b, (x) => {
+    const nombre = nombreEnElCampo(b, x);
+    return {
+      flecha: x.side === LADOS.izquierda.bando ? '▶' : '◀',
+      nombre,
+      cuenta: `${x.topHp} PV · ${s.laLlevaLaIA(x.id) ? 'IA' : 'tú'}`,
+      boton: botonDeEditar(x, nombre),
+    };
+  });
   return html`${ficha}
     <div class="row"><span class="label">Ronda</span><span>${b.round}</span></div>
     ${mana}
@@ -802,8 +1112,8 @@ function claseDeSalida(col: number, row: number): string {
 }
 
 /**
- * El editor de la muralla: la rejilla de batalla (11 × 9, odd-r: las filas
- * impares van media casilla a la derecha, como en el tablero) donde un clic pone
+ * El editor de la muralla: la rejilla de batalla (`FORMA_DEL_TABLERO`: filas de
+ * 12 y 11, las impares media casilla a la derecha, como en el tablero) donde un clic pone
  * o quita la pieza de la herramienta, y las formas con nombre. Las columnas de
  * salida van sombreadas: se puede dibujar en ellas, y el despliegue esquiva la
  * muralla; si así no caben todos, se dice aquí mientras se dibuja.
@@ -814,7 +1124,7 @@ export function renderMuralla(e: EditorDeMuralla): Html {
       ? NADA
       : html`<p class="aviso-despliegue" role="alert">No se puede luchar: ${e.despliegue}.</p>`;
   const cabecera = html`<h3 class="cabecera-muralla"><span>Muralla · ${piezas(e.muralla, ' y ')}</span>
-    <button data-arena="plegar-muralla" aria-expanded="${e.plegado ? 'false' : 'true'}">${e.plegado ? 'Desplegar' : 'Plegar'}</button></h3>`;
+    <button class="boton-de-cabecera" data-arena="plegar-muralla" aria-expanded="${e.plegado ? 'false' : 'true'}">${e.plegado ? 'Desplegar' : 'Plegar'}</button></h3>`;
   if (e.plegado) return html`${cabecera}${despliegue}`;
   // Un botón deshabilitado sin decir por qué es un misterio (QA, M4): el motivo
   // va en su `title` y, mientras dure, en el propio editor, donde no lo borra
@@ -822,9 +1132,9 @@ export function renderMuralla(e: EditorDeMuralla): Html {
   const sinGuardar =
     e.sinGuardado === null ? NADA : html`disabled title="No se puede guardar: ${e.sinGuardado}."`;
   const filas = unir(
-    Array.from({ length: BOARD_HEIGHT }, (_, row) => {
+    filasDelTablero().map(({ row, desplazada, hexes: casillas }) => {
       const hexes = unir(
-        Array.from({ length: BOARD_WIDTH }, (_, col) => {
+        casillas.map(({ col }) => {
           const muro = esMuro(e.muralla, { col, row });
           const fuera = !muro && ladoDeLaMuralla(e.muralla, { col, row }) === 'fuera';
           // La puerta va en el lado: se marca en las dos casillas, a cada una por su borde.
@@ -838,7 +1148,7 @@ export function renderMuralla(e: EditorDeMuralla): Html {
           return html`<button class="hex${muro ? ' muro' : ''}${alEste ? ' puerta-este' : ''}${alOeste ? ' puerta-oeste' : ''}${fuera ? ' fuera' : ''}${claseDeSalida(col, row)}" data-arena="hex-muralla" data-col="${col}" data-row="${row}" title="(${col},${row}) ${que}" aria-label="hex ${col},${row}: ${que}"></button>`;
         }),
       );
-      return html`<div class="fila${row % 2 === 1 ? ' impar' : ''}">${hexes}</div>`;
+      return html`<div class="fila${desplazada ? ' impar' : ''}">${hexes}</div>`;
     }),
   );
   const herramientas = unir(
@@ -862,7 +1172,7 @@ export function renderMuralla(e: EditorDeMuralla): Html {
       <div class="mandos">
         <div class="botones">${herramientas}<button data-arena="vaciar-muralla">Vaciar</button></div>
         ${despliegue}
-        <p class="cost">Un clic pone la pieza o la quita si ya está; la puerta, entre la casilla y la de su este, que se resaltan juntas. ${REGLA_DE_LA_MURALLA} Sombreadas, las columnas de salida.</p>
+        <p class="cost">Un clic pone la pieza o la quita si ya está; la puerta, entre la casilla y la de su este, que se resaltan juntas. La rejilla es la de la batalla: ${FORMA_DEL_TABLERO}. ${REGLA_DE_LA_MURALLA} Sombreadas, las columnas de salida.</p>
         <p class="cost lados-de-la-forma">${ladosDeLaForma(e.muralla)}</p>
         <label class="campo"><span class="label">Nombre de la forma</span>
           <input type="text" data-muralla-nombre="si" value="${e.nombre}" maxlength="${NOMBRE_MAXIMO_DE_FORMA}"></label>

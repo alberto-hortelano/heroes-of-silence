@@ -77,6 +77,28 @@ describe('el animador de batalla', () => {
     expect(a.figura(s2).en).toEqual(planoDeHex(destino2));
   });
 
+  it('el poder de una unidad se cuenta como un hechizo con quien lo lanza, que ataca sin dolerse nadie', () => {
+    let t = 0;
+    const a = new BattleAnimator();
+    const b = batalla();
+    a.observe(b);
+    a.tick(t);
+    const [monje, aliado] = b.stacks as BattleState['stacks'];
+    b.log.push({ kind: 'power', stack: monje!.id, poder: 'curar', target: aliado!.id, cura: 2 });
+    a.observe(b);
+    a.tick(t);
+    expect(a.busy).toBe(true);
+    // Quien lo usa, con su ataque; el destello del hechizo sobre el aliado.
+    expect(a.figura(monje!).clip).toBe('attack');
+    expect(a.efectos(b).map((e) => e.tipo)).toEqual(['hechizo']);
+    t = DURACION.cast * 0.8;
+    a.tick(t);
+    expect(a.figura(aliado!).clip).not.toBe('hurt');
+    expect(a.efectos(b).some((e) => e.tipo === 'danio')).toBe(false);
+    a.tick(DURACION.cast + 1);
+    expect(a.busy).toBe(false);
+  });
+
   it('una unidad que cae se sigue viendo hasta que su caída se ha contado', () => {
     let t = 0;
     const a = new BattleAnimator();

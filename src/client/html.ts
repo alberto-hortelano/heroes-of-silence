@@ -421,6 +421,12 @@ export function unir(partes: readonly Html[]): Html {
  * Que solo acepte `Html` es el cerrojo que hace que olvidarse no compile: en
  * cuanto los paneles devuelven `Html`, cualquiera nuevo que devuelva `string`
  * lo caza `tsc` en esta línea sin que nadie tenga que acordarse de nada.
+ *
+ * **Y conserva el foco**: repintar sustituye cada nodo, y el que tenía el foco se
+ * iba con él al `body`. Quien edita una ficha con el tabulador lo perdía a cada
+ * cambio, y cada panel que repinta había escrito su propio parche (dos copias en
+ * la arena, que solo conocían tres atributos de campo). Aquí se hace una vez para
+ * todo el cliente: ver `focoDentro`.
  */
 export function pintar(destino: Element, contenido: Html): void {
   if (!esHtml(contenido)) {
@@ -428,7 +434,93 @@ export function pintar(destino: Element, contenido: Html): void {
       `pintar() solo pinta marcado construido con \`html\`, y llegó ${describir(contenido)}`,
     );
   }
+  const foco = focoDentro(destino);
   destino.innerHTML = contenido[MARCA];
+  if (foco !== null) devolverFoco(destino, foco);
+}
+
+/** Lo que hace falta para devolver el foco tras repintar: a quién y por dónde iba el cursor. */
+interface FocoApuntado {
+  readonly selector: string;
+  readonly seleccion: {
+    readonly inicio: number;
+    readonly fin: number;
+    readonly sentido: 'forward' | 'backward' | 'none';
+  } | null;
+}
+
+/**
+ * El foco, si está DENTRO de `destino`, apuntado por su identidad: su etiqueta,
+ * sus `data-*` e `id`, y los de sus antepasados hasta `destino` (la ficha a la
+ * que pertenece un campo es un antepasado: con cuatro fichas abiertas, el
+ * «Ataque» de cada una solo se distingue por ella). Sin identidad propia no se
+ * apunta: devolverlo «al primer input» sería devolverlo a otro.
+ *
+ * Un botón pulsado con el ratón no se apunta (`:focus-visible` dice que no): el
+ * navegador lo enfoca al pulsarlo, y conservárselo haría que el Espacio, que en
+ * batalla cierra el turno, volviera a pulsar «Esperar». Antes del foco
+ * conservado ese botón lo perdía al repintar, y quien juega con ratón cuenta con
+ * ello. Con el teclado (`:focus-visible`) sí: es quien navega por los botones.
+ */
+function focoDentro(destino: Element): FocoApuntado | null {
+  const activo = destino.ownerDocument.activeElement;
+  if (activo === null || activo === destino || !destino.contains(activo)) return null;
+  if (activo.tagName === 'BUTTON' && !activo.matches(':focus-visible')) return null;
+  const propio = identidadDe(activo);
+  if (propio === '') return null;
+  const partes = [`${activo.tagName.toLowerCase()}${propio}`];
+  for (let el = activo.parentElement; el !== null && el !== destino; el = el.parentElement) {
+    const suyo = identidadDe(el);
+    if (suyo !== '') partes.unshift(suyo);
+  }
+  const campo = activo as Element & {
+    selectionStart?: number | null;
+    selectionEnd?: number | null;
+    selectionDirection?: 'forward' | 'backward' | 'none' | null;
+  };
+  // Solo los campos de texto tienen cursor: en un `type=number` es `null`.
+  const seleccion =
+    typeof campo.selectionStart === 'number' && typeof campo.selectionEnd === 'number'
+      ? {
+          inicio: campo.selectionStart,
+          fin: campo.selectionEnd,
+          sentido: campo.selectionDirection ?? 'none',
+        }
+      : null;
+  return { selector: partes.join(' '), seleccion };
+}
+
+/** `[data-x="…"][id="…"]` de un elemento, o '' si no lleva ninguno. */
+function identidadDe(el: Element): string {
+  let s = '';
+  for (const { name, value } of Array.from(el.attributes)) {
+    if (name === 'id' || name.startsWith('data-')) s += `[${name}=${cadenaCss(value)}]`;
+  }
+  return s;
+}
+
+/** Un valor de atributo como cadena CSS: entre comillas, con `\`, `"` y los saltos escapados. */
+function cadenaCss(v: string): string {
+  return `"${v.replace(/[\\"]/g, '\\$&').replace(/\n/g, '\\a ').replace(/\r/g, '\\d ')}"`;
+}
+
+/**
+ * Devuelve el foco al elemento repintado con la misma identidad, y su cursor. Si
+ * hay más de uno igual no se adivina cuál era: el foco se queda donde lo dejó el
+ * navegador. `preventScroll`: repintar no debe mover la vista.
+ */
+function devolverFoco(destino: Element, foco: FocoApuntado): void {
+  const iguales = destino.querySelectorAll(foco.selector);
+  const nuevo = iguales.length === 1 ? iguales[0] : undefined;
+  if (nuevo === undefined) return;
+  (nuevo as HTMLElement).focus({ preventScroll: true });
+  const campo = nuevo as Element & {
+    selectionStart?: number | null;
+    setSelectionRange?: (a: number, b: number, s: 'forward' | 'backward' | 'none') => void;
+  };
+  if (foco.seleccion !== null && typeof campo.selectionStart === 'number') {
+    campo.setSelectionRange?.(foco.seleccion.inicio, foco.seleccion.fin, foco.seleccion.sentido);
+  }
 }
 
 /**

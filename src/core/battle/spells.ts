@@ -68,6 +68,8 @@ export function enOrdenDelLibro(ids: readonly string[]): Spell[] {
 export interface SpellResult {
   readonly damage: number;
   readonly killed: number;
+  /** PV que repuso, si cura (`curaDe`). */
+  readonly cura: number;
   /** Lo que dura unas rondas. Lo cuelga del stack el motor, no el hechizo. */
   readonly effect?: StackEffect;
 }
@@ -84,20 +86,21 @@ export function spellAmount(s: Spell, caster: Pick<BattleHero, 'spellPower'>): n
 }
 
 /**
- * Dura el poder mágico del lanzador en rondas, que es lo del original. Con el
- * interruptor (e) en fheroes2, la Bendición y la Maldición fijan la tirada
- * (`efectoConReglas`).
+ * Quien lanza un hechizo, en lo que el hechizo necesita de él: cuánto hiere o
+ * cura (`cantidad`) y cuántas rondas dura lo que deja (`rondas`). El héroe es un
+ * caso (`delHeroe`: su poder mágico); el poder de una unidad de la arena, otro
+ * (`battle/poderes.ts`: las cifras de `data/poderes.json`). Así la Curación del
+ * héroe y el «Curar» del monje son la misma cura, con el mismo tope, y las dos
+ * Bendiciones el mismo efecto, del mismo origen.
  */
-function temporalEffect(
-  kind: 'speed' | 'luck',
-  s: Spell,
-  caster: BattleHero,
-  reglas: ReglasDeBatalla,
-): StackEffect {
-  return efectoConReglas(
-    { kind, amount: s.amount ?? 0, source: s.id, roundsLeft: duracionDeLoQueLanza(caster) },
-    reglas,
-  );
+export interface Lanzador {
+  readonly cantidad: number;
+  readonly rondas: number;
+}
+
+/** El héroe como lanzador de `s`: su poder da lo que rinde y lo que dura. */
+export function delHeroe(s: Spell, caster: Pick<BattleHero, 'spellPower'>): Lanzador {
+  return { cantidad: spellAmount(s, caster), rondas: duracionDeLoQueLanza(caster) };
 }
 
 /**
@@ -109,60 +112,69 @@ export function duracionDeLoQueLanza(caster: Pick<BattleHero, 'spellPower'>): nu
 }
 
 /**
- * El efecto temporal que dejaría este hechizo, o `null` si no deja ninguno.
+ * El efecto temporal que dejaría este hechizo lanzado por `l`, o `null` si no deja
+ * ninguno. El único constructor del efecto de un hechizo: dura las rondas del
+ * lanzador y, con el interruptor (e) en fheroes2, la Bendición y la Maldición
+ * fijan la tirada (`efectoConReglas`).
  *
  * Se calcula aparte de aplicarlo porque `legalActions` necesita saber si el
  * objetivo sería inmune ANTES de ofrecer el lanzamiento: así no se le propone
  * al agente una Maldición sobre un esqueleto que después va a rebotar.
  */
-export function effectOfSpell(
-  s: Spell,
-  caster: BattleHero,
-  reglas: ReglasDeBatalla,
-): StackEffect | null {
+export function efectoDe(s: Spell, l: Lanzador, reglas: ReglasDeBatalla): StackEffect | null {
   if (s.kind !== 'speed' && s.kind !== 'luck') return null;
-  return temporalEffect(s.kind, s, caster, reglas);
+  return temporal(s.kind, s, l, reglas);
+}
+
+/** `efectoDe` con el tipo ya acotado: dentro del `case` de `castSpell`, sin rama `null`. */
+function temporal(
+  kind: 'speed' | 'luck',
+  s: Spell,
+  l: Lanzador,
+  reglas: ReglasDeBatalla,
+): StackEffect {
+  return efectoConReglas(
+    { kind, amount: s.amount ?? 0, source: s.id, roundsLeft: l.rondas },
+    reglas,
+  );
 }
 
 /**
- * Aplica el hechizo al objetivo. El coste de maná lo descuenta el motor.
+ * Los PV que repondría `s` lanzado por `l` sobre `target`: su cantidad, sin pasar
+ * de la vida de un individuo; 0 si no cura. La regla del tope, una vez: la aplica
+ * `castSpell` y la enseñan la previsión, el bloqueador del poder y la IA.
+ */
+export function curaDe(s: Spell, l: Lanzador, target: Pick<BattleStack, 'topHp' | 'unit'>): number {
+  return s.kind === 'heal' ? Math.min(l.cantidad, target.unit.hp - target.topHp) : 0;
+}
+
+/**
+ * Aplica el hechizo al objetivo: el daño y la cura, aquí; el efecto que dura lo
+ * devuelve para que lo cuelgue el motor, que es quien sabe anotarlo. El coste de
+ * maná, si lo hay, también es del motor.
  *
- * `autor` es el stack del héroe que lo lanza: el daño de un hechizo es suyo y
- * le da experiencia como un golpe (`herir`). `null` si no hay cuerpo que cobre.
+ * `autor` es el stack que cobra el daño (el cuerpo del héroe): un hechizo le da
+ * experiencia como un golpe (`herir`). `null` si no hay cuerpo que cobre.
  */
 export function castSpell(
   s: Spell,
-  caster: BattleHero,
+  l: Lanzador,
   target: BattleStack,
   autor: BattleStack | null,
   reglas: ReglasDeBatalla,
 ): SpellResult {
   switch (s.kind) {
     case 'damage': {
-      const power = spellAmount(s, caster);
-      const killed = herir(target, power, autor);
-      return { damage: power, killed };
+      const killed = herir(target, l.cantidad, autor);
+      return { damage: l.cantidad, killed, cura: 0 };
     }
     case 'speed':
     case 'luck':
-      // Dentro del `case` el tipo ya está acotado: aquí el efecto existe
-      // siempre, así que no hay rama `null` que fingir que puede pasar.
-      return { damage: 0, killed: 0, effect: temporalEffect(s.kind, s, caster, reglas) };
+      return { damage: 0, killed: 0, cura: 0, effect: temporal(s.kind, s, l, reglas) };
     case 'heal': {
-      target.topHp += curaDe(s, caster, target);
-      return { damage: 0, killed: 0 };
+      const cura = curaDe(s, l, target);
+      target.topHp += cura;
+      return { damage: 0, killed: 0, cura };
     }
   }
-}
-
-/**
- * Los PV que repondría una Curación sobre `target`: su cantidad, sin pasar de la
- * vida de un individuo. La aplica `castSpell` y la enseña la previsión.
- */
-export function curaDe(
-  s: Spell,
-  caster: Pick<BattleHero, 'spellPower'>,
-  target: Pick<BattleStack, 'topHp' | 'unit'>,
-): number {
-  return Math.min(spellAmount(s, caster), target.unit.hp - target.topHp);
 }

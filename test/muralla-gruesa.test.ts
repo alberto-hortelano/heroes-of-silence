@@ -34,7 +34,7 @@ import {
   movimientoBlocker,
   stackById,
 } from '../src/core/battle/battle.js';
-import { BOARD_HEIGHT, BOARD_WIDTH, hexKey, neighbours } from '../src/core/battle/board.js';
+import { allHexes, anchoDeFila, hexKey, neighbours } from '../src/core/battle/board.js';
 import {
   cierra,
   esMuro,
@@ -124,20 +124,19 @@ const movibles = (state: BattleState, id: string): Set<string> =>
 /**
  * Dentro y fuera contados aquí aparte, sin `ladoDeLaMuralla`: los pasos andando
  * a cada salida con muros y puertas cerrados; fuera, lo que queda más cerca de
- * la del atacante (columnas 0-2) que de la del defensor (8-10).
+ * la del atacante (columnas 0-2) que de la del defensor (las tres últimas de
+ * cada fila: 9-11 en las pares, 8-10 en las impares).
  */
 function fueraAMano(m: MurallaDeBatalla): Set<string> {
   const maciza = new Set(m.muros.map(hexKey));
   const cortes = ladosDePuertas(m);
-  const pasos = (salida: (col: number) => boolean): Map<string, number> => {
+  const pasos = (salida: (x: Hex) => boolean): Map<string, number> => {
     const d = new Map<string, number>();
     let frente: Hex[] = [];
-    for (let col = 0; col < BOARD_WIDTH; col++) {
-      for (let row = 0; row < BOARD_HEIGHT; row++) {
-        if (salida(col) && !maciza.has(hexKey(h(col, row)))) {
-          d.set(hexKey(h(col, row)), 0);
-          frente.push(h(col, row));
-        }
+    for (const x of allHexes()) {
+      if (salida(x) && !maciza.has(hexKey(x))) {
+        d.set(hexKey(x), 0);
+        frente.push(x);
       }
     }
     for (let n = 1; frente.length > 0; n++) {
@@ -154,8 +153,8 @@ function fueraAMano(m: MurallaDeBatalla): Set<string> {
     }
     return d;
   };
-  const alAtacante = pasos((c) => c < 3);
-  const alDefensor = pasos((c) => c >= BOARD_WIDTH - 3);
+  const alAtacante = pasos((x) => x.col < 3);
+  const alDefensor = pasos((x) => x.col >= anchoDeFila(x.row) - 3);
   const fuera = new Set<string>();
   for (const [k, n] of alAtacante) if (n < (alDefensor.get(k) ?? Infinity)) fuera.add(k);
   return fuera;
@@ -173,10 +172,14 @@ describe('dentro y fuera por cercanía andando (C15)', () => {
   });
 
   it('el empate es dentro: a la misma distancia de las dos salidas', () => {
-    // Un muro en una esquina que no estorba: la columna 5 queda a 3 de cada salida.
+    // Un muro en una esquina que no estorba. El eje del tablero cae en 5,5: en
+    // una fila impar, (5, impar) queda a 3 de cada salida, un empate; en una
+    // par no hay empate, (5, par) está a 3 de la izquierda y a 4 de la derecha.
     const esquina = validarMuralla({ muros: [h(0, 0)], puertas: [] });
-    expect(ladoDeLaMuralla(esquina, h(5, 4))).toBe('dentro');
-    expect(ladoDeLaMuralla(esquina, h(4, 4))).toBe('fuera');
+    expect(ladoDeLaMuralla(esquina, h(5, 3))).toBe('dentro');
+    expect(ladoDeLaMuralla(esquina, h(4, 3))).toBe('fuera');
+    expect(ladoDeLaMuralla(esquina, h(6, 3))).toBe('dentro');
+    expect(ladoDeLaMuralla(esquina, h(5, 4))).toBe('fuera');
     expect(ladoDeLaMuralla(esquina, h(6, 4))).toBe('dentro');
   });
 
@@ -191,12 +194,9 @@ describe('dentro y fuera por cercanía andando (C15)', () => {
     ];
     for (const m of formas) {
       const fuera = fueraAMano(m);
-      for (let col = 0; col < BOARD_WIDTH; col++) {
-        for (let row = 0; row < BOARD_HEIGHT; row++) {
-          const k = h(col, row);
-          const esperado = esMuro(m, k) ? 'muralla' : fuera.has(hexKey(k)) ? 'fuera' : 'dentro';
-          expect(ladoDeLaMuralla(m, k), hexKey(k)).toBe(esperado);
-        }
+      for (const k of allHexes()) {
+        const esperado = esMuro(m, k) ? 'muralla' : fuera.has(hexKey(k)) ? 'fuera' : 'dentro';
+        expect(ladoDeLaMuralla(m, k), hexKey(k)).toBe(esperado);
       }
     }
   });
@@ -208,10 +208,8 @@ describe('dentro y fuera por cercanía andando (C15)', () => {
       const cortes = ladosDePuertas(m);
       const unido = new Set<string>();
       const pila: Hex[] = [];
-      for (let row = 0; row < BOARD_HEIGHT; row++) {
-        for (let col = BOARD_WIDTH - 3; col < BOARD_WIDTH; col++) {
-          if (!maciza.has(hexKey(h(col, row)))) pila.push(h(col, row));
-        }
+      for (const x of allHexes()) {
+        if (x.col >= anchoDeFila(x.row) - 3 && !maciza.has(hexKey(x))) pila.push(x);
       }
       for (let x = pila.pop(); x !== undefined; x = pila.pop()) {
         if (unido.has(hexKey(x))) continue;
@@ -220,13 +218,9 @@ describe('dentro y fuera por cercanía andando (C15)', () => {
           if (!maciza.has(hexKey(y)) && !cortes.has(`${hexKey(x)}|${hexKey(y)}`)) pila.push(y);
         }
       }
-      for (let col = 0; col < BOARD_WIDTH; col++) {
-        for (let row = 0; row < BOARD_HEIGHT; row++) {
-          if (maciza.has(hexKey(h(col, row)))) continue;
-          expect(ladoDeLaMuralla(m, h(col, row)), hexKey(h(col, row))).toBe(
-            unido.has(hexKey(h(col, row))) ? 'dentro' : 'fuera',
-          );
-        }
+      for (const x of allHexes()) {
+        if (maciza.has(hexKey(x))) continue;
+        expect(ladoDeLaMuralla(m, x), hexKey(x)).toBe(unido.has(hexKey(x)) ? 'dentro' : 'fuera');
       }
     }
   });

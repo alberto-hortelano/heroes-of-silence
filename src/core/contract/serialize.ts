@@ -15,6 +15,7 @@ import {
   stackHexes,
   stackSpeed,
 } from '../battle/battle.js';
+import { tableroDelContrato } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
 import {
@@ -776,7 +777,7 @@ export function serializeBattleTurn(
     // MISMO turno de la misma unidad o uno nuevo (la moral extra), que mirando
     // solo `activeStack` no se distingue.
     turnId: battle.turno?.n ?? null,
-    board: { width: 11, height: 9, layout: 'offset odd-r; el atacante entra por la columna 0' },
+    board: tableroDelContrato(),
     stacks: battle.stacks.filter((s) => s.count > 0).map(stackView),
     hero:
       hero === null

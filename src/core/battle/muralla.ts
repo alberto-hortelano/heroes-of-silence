@@ -39,10 +39,11 @@
 import { isShooter, MURALLA } from '../data.js';
 import type { Hex } from '../types.js';
 import {
-  BOARD_HEIGHT,
+  allHexes,
   BOARD_SIZE,
-  BOARD_WIDTH,
   bandoDeSalida,
+  codigoDeLado,
+  FORMA_DEL_TABLERO,
   hexKey,
   indiceDe,
   isInside,
@@ -225,7 +226,7 @@ export function hayLinea(
 ): boolean {
   const c = conjuntosDe(m);
   const v = vigenteDe(m, puertas);
-  const i = indiceDe(desde) * BOARD_SIZE + indiceDe(hasta);
+  const i = codigoDeLado(indiceDe(desde), indiceDe(hasta));
   let l = v.lineas[i] as number;
   if (l === 0) {
     l = lineaLibre(desde, hasta, c.muros, v.cortes) ? 1 : 2;
@@ -388,19 +389,14 @@ const SIN_CIERRE: CierreDeLaMuralla = {
   paso: undefined,
 };
 
-/** El código de un lado entre dos casillas por índice, en un sentido. */
-function lado(i: number, j: number): number {
-  return i * BOARD_SIZE + j;
-}
-
 /** Los lados de las puertas de `lista`, en los dos sentidos. */
 function ladosDe(lista: readonly PuertaDeMuralla[]): Set<number> {
   const cortes = new Set<number>();
   for (const { a, b } of lista) {
     const i = indiceDe(a);
     const j = indiceDe(b);
-    cortes.add(lado(i, j));
-    cortes.add(lado(j, i));
+    cortes.add(codigoDeLado(i, j));
+    cortes.add(codigoDeLado(j, i));
   }
   return cortes;
 }
@@ -456,11 +452,11 @@ function vigenteDe(m: MurallaDeBatalla, puertas: readonly EstadoDePuerta[]): Vig
     if (hecho !== undefined) return hecho;
     const out = new Set<string>();
     if (cortes !== undefined) {
-      for (const { hex } of TODAS) {
+      for (const hex of allHexes()) {
         const cuerpo = occupiedHexes(hex, size, side === 'attacker').filter(isInside);
         const partida = cuerpo.some((x, n) => {
           const y = cuerpo[n + 1];
-          return y !== undefined && cortes.has(lado(indiceDe(x), indiceDe(y)));
+          return y !== undefined && cortes.has(codigoDeLado(indiceDe(x), indiceDe(y)));
         });
         if (partida) out.add(hexKey(hex));
       }
@@ -471,7 +467,7 @@ function vigenteDe(m: MurallaDeBatalla, puertas: readonly EstadoDePuerta[]): Vig
   const v: Vigente = {
     cortes,
     pasoPorPuertas:
-      cortes === undefined ? undefined : (desde, hasta) => !cortes.has(lado(desde, hasta)),
+      cortes === undefined ? undefined : (desde, hasta) => !cortes.has(codigoDeLado(desde, hasta)),
     lineas: new Uint8Array(BOARD_SIZE * BOARD_SIZE),
     cierres: new Map(),
     pasos: new Map(),
@@ -481,7 +477,7 @@ function vigenteDe(m: MurallaDeBatalla, puertas: readonly EstadoDePuerta[]): Vig
       const hecho = porCabeza.get(k);
       if (hecho !== undefined) return hecho;
       const cabezas = new Set(partidas(side, size));
-      for (const { hex } of TODAS) {
+      for (const hex of allHexes()) {
         const cuerpo = occupiedHexes(hex, size, side === 'attacker');
         if (cuerpo.some((h) => c.muros.has(hexKey(h)))) cabezas.add(hexKey(hex));
       }
@@ -519,15 +515,6 @@ interface Conjuntos {
  */
 const CACHE = new WeakMap<MurallaDeBatalla, Conjuntos>();
 
-/** Las 99 casillas con su índice, para recorrer el tablero entero. */
-const TODAS: readonly { readonly hex: Hex; readonly i: number }[] = Array.from(
-  { length: BOARD_SIZE },
-  (_, i) => {
-    const hex = { col: i % BOARD_WIDTH, row: Math.floor(i / BOARD_WIDTH) };
-    return { hex, i: indiceDe(hex) };
-  },
-);
-
 function conjuntosDe(m: MurallaDeBatalla): Conjuntos {
   const hecho = CACHE.get(m);
   if (hecho !== undefined) return hecho;
@@ -536,7 +523,8 @@ function conjuntosDe(m: MurallaDeBatalla): Conjuntos {
   for (const h of m.muros) murosPorIndice[indiceDe(h)] = 1;
   const { fuera, cierra } = dentroYFuera(muros, ladosDe(m.puertas));
   const dentro = new Uint8Array(BOARD_SIZE);
-  for (const { hex, i } of TODAS) dentro[i] = muros.has(hexKey(hex)) || fuera[i] === 1 ? 0 : 1;
+  for (const [i, hex] of allHexes().entries())
+    dentro[i] = muros.has(hexKey(hex)) || fuera[i] === 1 ? 0 : 1;
   const c: Conjuntos = {
     muros,
     murosPorIndice,
@@ -567,7 +555,7 @@ function dentroYFuera(
   const alAtacante = distanciasDesde('attacker', muros, cortes);
   const fuera = new Uint8Array(BOARD_SIZE);
   let cierra = true;
-  for (const { hex, i } of TODAS) {
+  for (const [i, hex] of allHexes().entries()) {
     if (muros.has(hexKey(hex))) continue;
     // Sin llegar, la distancia es `Infinity`: un empate o un hueco cerrado es dentro.
     if ((alAtacante[i] as number) < (alDefensor[i] as number)) fuera[i] = 1;
@@ -584,7 +572,7 @@ function distanciasDesde(
 ): Float64Array {
   const dist = new Float64Array(BOARD_SIZE).fill(Infinity);
   let frente: Hex[] = [];
-  for (const { hex, i } of TODAS) {
+  for (const [i, hex] of allHexes().entries()) {
     if (bandoDeSalida(hex) !== side || muros.has(hexKey(hex))) continue;
     dist[i] = 0;
     frente.push(hex);
@@ -595,7 +583,8 @@ function distanciasDesde(
       const desde = indiceDe(h);
       for (const n of neighbours(h)) {
         const i = indiceDe(n);
-        if (dist[i] !== Infinity || muros.has(hexKey(n)) || cortes.has(lado(desde, i))) continue;
+        if (dist[i] !== Infinity || muros.has(hexKey(n)) || cortes.has(codigoDeLado(desde, i)))
+          continue;
         dist[i] = d;
         siguiente.push(n);
       }
@@ -693,7 +682,7 @@ function hexDeLaMuralla(h: unknown, cual: string): Hex {
   const r = row as number;
   if (!isInside({ col: c, row: r })) {
     throw new Error(
-      `la muralla: el ${cual} cae en (${c},${r}), fuera del tablero de ${BOARD_WIDTH}×${BOARD_HEIGHT}`,
+      `la muralla: el ${cual} cae en (${c},${r}), fuera del tablero (${FORMA_DEL_TABLERO})`,
     );
   }
   return Object.freeze({ col: c, row: r });

@@ -17,7 +17,9 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BattleAnimator } from '../src/client/anim.js';
 import {
+  CAMBIO_EN_COMBATE,
   type DatosDePuesto,
+  enElMontaje,
   FIGURA_GENERICA,
   renderBando,
   renderCatalogo,
@@ -30,7 +32,9 @@ import {
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
-import { type PuestoDeArena, SesionDeArena } from '../src/client/session.js';
+import { type LadoDeSesion, SesionDeArena } from '../src/client/session.js';
+import { nombreEnElCampo } from '../src/client/views/distintivo.js';
+import { renderBattleLog } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   batallaDeArena,
@@ -43,13 +47,17 @@ import {
   type FuenteDeArena,
   fichaDeHeroeDeArena,
   finalDeArena,
+  HABILIDADES_DE_LA_ARENA,
   type HeroeDeArena,
   heroeDeArena,
   heroePorDefecto,
   type MontajeDelEnlace,
   montajeALaURL,
+  montajeDeArenaDelEnlace,
   montajeDeLaURL,
   PERFILES_DE_ARENA,
+  retocarEnBatalla,
+  tipoDelStack,
   type UnidadDeArena,
   unaVezEnLaURL,
   unidadPorDefecto,
@@ -59,7 +67,7 @@ import {
   validarHojasDeArena,
   validarUnidadDeArena,
 } from '../src/core/arena.js';
-import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
+import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena-murallas.js';
 import {
   activeStack,
   applyAction,
@@ -68,12 +76,12 @@ import {
   MAX_ROUNDS,
 } from '../src/core/battle/battle.js';
 import { REGLAS_DEL_JUEGO, reglasDeLaURL } from '../src/core/battle/reglas.js';
-import { allSpells } from '../src/core/battle/spells.js';
-import type { BattleState } from '../src/core/battle/types.js';
-import { allCreatures, creature, LIDERAZGO } from '../src/core/data.js';
+import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
+import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import { allCreatures, CATALOGO_DE_HABILIDADES, creature, LIDERAZGO } from '../src/core/data.js';
 import { HERO_BODY } from '../src/core/hero/hero.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import { SPEED_TIERS, SPEED_TO_HEXES } from '../src/core/types.js';
+import { CREATURE_TRAITS, SPEED_TIERS, SPEED_TO_HEXES } from '../src/core/types.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import {
   escribirBorrador,
@@ -92,14 +100,18 @@ import {
   UNIDADES,
   unidad as unidadDelTaller,
 } from '../tools/taller/unidades.js';
-import { hojasDeLaArena, unidadDeArena } from './helpers.js';
+import { delBorrador, hojasDeLaArena, unidadDeArena } from './helpers.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const HOJAS = hojasDeLaArena();
 const unidad = unidadDeArena;
 
-const delBorrador = (u: UnidadDeArena): FuenteDeArena => ({ kind: 'borrador', unidad: u });
-const ia = (u: UnidadDeArena): PuestoDeArena => ({ fuente: delBorrador(u), ia: true });
+/** Un bando de la sesión con unidades del borrador y sin héroe, que mueve la IA. */
+const ia = (...us: UnidadDeArena[]): LadoDeSesion => ({
+  unidades: us.map((u) => delBorrador(u)),
+  heroe: null,
+  ia: true,
+});
 
 /** Una pelea solo con unidades del borrador, sin héroes y con las reglas del juego. */
 function pelea(
@@ -109,28 +121,17 @@ function pelea(
 ): BattleState {
   return batallaDeArena(
     {
-      izquierda: { unidades: izquierda.map(delBorrador), heroe: null },
-      derecha: { unidades: derecha.map(delBorrador), heroe: null },
+      izquierda: { unidades: izquierda.map((u) => delBorrador(u)), heroe: null },
+      derecha: { unidades: derecha.map((u) => delBorrador(u)), heroe: null },
       reglas: REGLAS_DEL_JUEGO,
     },
     rng,
   );
 }
 
-/** Una sesión solo con puestos, sin héroes y con las reglas del juego, sin empezar. */
-function sesion(
-  izquierda: readonly PuestoDeArena[],
-  derecha: readonly PuestoDeArena[],
-  semilla: number,
-): SesionDeArena {
-  return new SesionDeArena(
-    {
-      izquierda: { puestos: izquierda, heroe: null },
-      derecha: { puestos: derecha, heroe: null },
-      reglas: REGLAS_DEL_JUEGO,
-    },
-    semilla,
-  );
+/** Una sesión con las reglas del juego, sin empezar. */
+function sesion(izquierda: LadoDeSesion, derecha: LadoDeSesion, semilla: number): SesionDeArena {
+  return new SesionDeArena({ izquierda, derecha, reglas: REGLAS_DEL_JUEGO }, semilla);
 }
 
 /** La tarjeta de una unidad del borrador, como la da `main.ts`. */
@@ -149,16 +150,13 @@ function aLaAntigua(u: UnidadDeArena): Omit<UnidadDeArena, 'casillas'> {
 }
 
 /** Una sesión montada y empezada: lo que hace la página al pulsar «Luchar». */
-function montada(
-  izquierda: readonly PuestoDeArena[],
-  derecha: readonly PuestoDeArena[],
-  semilla: number,
-): SesionDeArena {
+function montada(izquierda: LadoDeSesion, derecha: LadoDeSesion, semilla: number): SesionDeArena {
   const s = sesion(izquierda, derecha, semilla);
   s.empezar();
   return s;
 }
-const yo = (u: UnidadDeArena): PuestoDeArena => ({ fuente: delBorrador(u), ia: false });
+/** Un bando de la sesión que mueve la persona. */
+const yo = (...us: UnidadDeArena[]): LadoDeSesion => ({ ...ia(...us), ia: false });
 
 describe('la arena pelea con las cifras del borrador', () => {
   it('las cifras editadas llegan al stack tal cual, sin pasar por el catálogo', () => {
@@ -201,8 +199,8 @@ describe('la arena pelea con las cifras del borrador', () => {
   it('con todas en IA la batalla se juega entera al montarla', () => {
     for (const semilla of [1, 2, 3, 4, 5]) {
       const s = montada(
-        [ia(unidad('templario-escudo')), ia(unidad('templario-hermano-de-carga'))],
-        [ia(unidad('orko-dos-armas')), ia(unidad('goblin-arquero'))],
+        ia(unidad('templario-escudo'), unidad('templario-hermano-de-carga')),
+        ia(unidad('orko-dos-armas'), unidad('goblin-arquero')),
         semilla,
       );
       expect(s.battle.finished, `semilla ${semilla}`).not.toBeNull();
@@ -210,38 +208,39 @@ describe('la arena pelea con las cifras del borrador', () => {
     }
   });
 
-  it('con una unidad «Yo», la sesión se para en su turno y solo en el suyo', () => {
+  it('con el bando «Yo», la sesión se para en los turnos de los suyos y solo en ellos', () => {
     for (const semilla of [1, 7, 12]) {
       const s = montada(
-        [yo(unidad('templario-escudo')), ia(unidad('templario-mandoble'))],
-        [ia(unidad('orko-dos-armas')), ia(unidad('goblin-arquero'))],
+        yo(unidad('templario-escudo'), unidad('templario-mandoble')),
+        ia(unidad('orko-dos-armas'), unidad('goblin-arquero')),
         semilla,
       );
-      const mio = s.battle.stacks.find((x) => x.side === 'attacker' && x.slot === 0);
-      expect(s.laLlevaLaIA(mio?.id ?? '')).toBe(false);
+      const mios = s.battle.stacks.filter((x) => x.side === 'attacker').map((x) => x.id);
+      const suyos = s.battle.stacks.filter((x) => x.side === 'defender').map((x) => x.id);
+      expect(mios.map((id) => s.laLlevaLaIA(id))).toEqual([false, false]);
+      expect(suyos.map((id) => s.laLlevaLaIA(id))).toEqual([true, true]);
       let turnos = 0;
       let movioLaIA = false;
       while (s.battle.finished === null) {
-        // Cada vez que la sesión devuelve el control, la activa es la mía.
+        // Cada vez que la sesión devuelve el control, la activa es de las mías.
         const activa = activeStack(s.battle);
-        expect(activa?.id).toBe(mio?.id);
-        expect(s.turnoPropio?.stack.id).toBe(mio?.id);
+        expect(mios).toContain(activa?.id);
+        expect(s.turnoPropio?.stack.id).toBe(activa?.id);
         expect(s.miBando).toBe('attacker');
         const antes = s.battle.log.length;
         s.playBattleAction(chooseBattleAction(s.battle));
         movioLaIA ||= s.battle.log
           .slice(antes)
-          .some((e) => 'stack' in e && e.stack !== mio?.id && e.kind !== 'perished');
+          .some((e) => 'stack' in e && suyos.includes(e.stack) && e.kind !== 'perished');
         if (++turnos > 500) throw new Error('la batalla no termina');
       }
       expect(turnos).toBeGreaterThan(0);
-      // Si la mía cayó, la IA la acabó sola; y entre medias movió las suyas.
-      expect(movioLaIA || !isAlive(mio as NonNullable<typeof mio>)).toBe(true);
+      expect(movioLaIA).toBe(true);
     }
   });
 
   it('las dos manos de la persona: lleva unidades de los dos bandos', () => {
-    const s = montada([yo(unidad('zombi'))], [yo(unidad('esqueleto-guerrero'))], 3);
+    const s = montada(yo(unidad('zombi')), yo(unidad('esqueleto-guerrero')), 3);
     const vistos = new Set<string>();
     for (let i = 0; i < 6 && s.battle.finished === null; i++) {
       const t = s.turnoPropio;
@@ -253,7 +252,7 @@ describe('la arena pelea con las cifras del borrador', () => {
   });
 
   it('fuera de su turno la persona no mueve: se le dice', () => {
-    const s = montada([ia(unidad('zombi'))], [ia(unidad('zombi'))], 1);
+    const s = montada(ia(unidad('zombi')), ia(unidad('zombi')), 1);
     const largo = s.battle.log.length;
     s.playBattleAction({ type: 'end_turn' });
     expect(s.status).toBe('Ahora no mueve ninguna unidad tuya.');
@@ -272,13 +271,13 @@ describe('el borrador se valida antes de escribirse', () => {
 
   it('rechaza diciéndolo: velocidad inventada, rasgo inexistente, daño al revés', () => {
     expect(() => validarUnidadDeArena({ ...aLaAntigua(base()), speed: 'rapidisima' })).toThrow(
-      'la unidad "templario-monje": la velocidad "rapidisima" no existe; valen very_slow, slow, average, fast, very_fast, ultra_fast',
+      'la unidad «Monje»: la velocidad "rapidisima" no existe; valen very_slow, slow, average, fast, very_fast, ultra_fast',
     );
     expect(() => validarUnidadDeArena({ ...base(), traits: ['volar'] })).toThrow(
-      'la unidad "templario-monje": el rasgo "volar" no existe',
+      'la unidad «Monje»: el rasgo "volar" no existe',
     );
     expect(() => validarUnidadDeArena({ ...base(), damage: [5, 2] })).toThrow(
-      'la unidad "templario-monje": el daño mínimo (5) no puede pasar del máximo (2)',
+      'la unidad «Monje»: el daño mínimo (5) no puede pasar del máximo (2)',
     );
     expect(() => validarUnidadDeArena({ ...base(), habilidades: ['Volar'] })).toThrow(
       'la habilidad "Volar" no existe',
@@ -290,7 +289,7 @@ describe('el borrador se valida antes de escribirse', () => {
       'el ataque tiene que ser un número entero, y es 2.5',
     );
     expect(() => validarUnidadDeArena({ ...base(), attack: Number.NaN })).toThrow(
-      'la unidad "templario-monje": el ataque no tiene valor, el campo está vacío',
+      'la unidad «Monje»: el ataque no tiene valor, el campo está vacío',
     );
     expect(() => validarUnidadDeArena({ ...base(), traits: ['charge', 'charge'] })).toThrow(
       'el rasgo "charge" está dos veces',
@@ -299,6 +298,15 @@ describe('el borrador se valida antes de escribirse', () => {
     expect(() => validarUnidadDeArena({ ...base(), faction: 'knight' })).toThrow(
       'la facción "knight" no existe',
     );
+  });
+
+  it('0 disparos es cuerpo a cuerpo, y lo negativo pide «0 o más» (M3 de QA)', () => {
+    // El campo de la ficha dice «0 = cuerpo a cuerpo»: con −1, «1 o más» mentía.
+    expect(() => validarUnidadDeArena({ ...base(), shots: -1 })).toThrow(
+      'la munición tiene que ser 0 o más, y es -1',
+    );
+    expect(validarUnidadDeArena({ ...base(), shots: 0 })).not.toHaveProperty('shots');
+    expect(validarUnidadDeArena({ ...base(), shots: 3 })).toMatchObject({ shots: 3 });
   });
 
   it('el archivo no trae dos veces la misma hoja', () => {
@@ -505,11 +513,115 @@ describe('el marcado de la arena', () => {
     expect(marcadoDe(renderFicha(u, hoja, true))).toContain('data-clip="shoot"');
   });
 
-  it('el bando lleva el Yo / IA de cada puesto y no deja duplicar con el bando lleno', () => {
+  it('la ficha lleva el nombre en su título con «✎ Editar», y no entre las cifras', () => {
+    const hoja = HOJAS.find((h) => h.id === 'templario-monje') ?? null;
+    const u = { ...unidad('templario-monje'), name: 'Hermano <Monje>' };
+    const m = marcadoDe(renderFicha(u, hoja, false));
+    const titulo = m.slice(m.indexOf('<header class="titulo-de-ficha">'), m.indexOf('</header>'));
+    expect(titulo).toContain('<span class="nombre">Hermano &lt;Monje&gt;</span>');
+    expect(titulo).toContain('data-arena="renombrar"');
+    expect(titulo).toContain('Ficha · ');
+    // El campo de texto del nombre ya no está en el cuerpo; sin renombrar, en ninguna parte.
+    expect(m).not.toContain('data-campo="name"');
+    expect(m).not.toContain('>Nombre</span>');
+    // Tras «✎»: el título es el campo, con el mismo `data-campo` que lee `main.ts`.
+    const renombrando = marcadoDe(
+      renderFicha(u, hoja, false, { ...enElMontaje(REGLAS_DEL_JUEGO), renombrando: true }),
+    );
+    expect(renombrando).toContain(
+      '<input type="text" class="renombrar" data-campo="name" value="Hermano &lt;Monje&gt;"',
+    );
+    expect(renombrando).not.toContain('data-arena="renombrar"');
+    // El héroe, igual, con su campo; la criatura del catálogo no cambia de nombre: sin «✎».
+    const heroe = marcadoDe(
+      renderFichaDeHeroe('izquierda', heroePorDefecto('izquierda'), enElMontaje(), []),
+    );
+    expect(heroe).toContain('data-arena="renombrar"');
+    expect(heroe).not.toContain('data-heroe-campo="nombre"');
+    expect(
+      marcadoDe(
+        renderFichaDeHeroe(
+          'izquierda',
+          heroePorDefecto('izquierda'),
+          { ...enElMontaje(), renombrando: true },
+          [],
+        ),
+      ),
+    ).toContain('class="renombrar" data-heroe-campo="nombre"');
+    const pica = marcadoDe(renderFichaDeCatalogo('pikeman', creature('pikeman'), false));
+    expect(pica).toContain(`<span class="nombre">${creature('pikeman').name}</span>`);
+    expect(pica).not.toContain('renombrar');
+  });
+
+  it('los rasgos del motor van como las habilidades: etiquetas con × y el resto en «Añadir»', () => {
+    const hoja = HOJAS.find((h) => h.id === 'zombi') ?? null;
+    const u = unidad('zombi', { traits: ['undead', 'charge'] });
+    const m = marcadoDe(renderFicha(u, hoja, false));
+    expect(m).not.toContain('type="checkbox"');
+    expect(m).toContain('data-arena="quitar-rasgo" data-rasgo="undead"');
+    expect(m).toContain('data-arena="quitar-rasgo" data-rasgo="charge"');
+    const select = m.slice(m.indexOf('<select data-arena-rasgo="si">'));
+    const opciones = select.slice(0, select.indexOf('</select>'));
+    for (const t of CREATURE_TRAITS) {
+      const puesto = u.traits.includes(t);
+      expect(opciones.includes(`<option value="${t}">`), t).toBe(!puesto);
+    }
+    // Sin ninguno, «Ninguno.»; en el catálogo, lo mismo con sus rasgos de verdad.
+    const sinRasgos = marcadoDe(renderFicha(unidad('zombi', { traits: [] }), hoja, false));
+    expect(sinRasgos).toContain(
+      '<div class="etiquetas rasgos-puestos"><span class="cost">Ninguno.</span>',
+    );
+    const esqueleto = marcadoDe(renderFichaDeCatalogo('skeleton', creature('skeleton'), false));
+    expect(esqueleto).toContain('data-arena="quitar-rasgo" data-rasgo="undead"');
+    expect(esqueleto).toContain('<select data-arena-rasgo="si">');
+    expect(esqueleto).not.toContain('<option value="undead">');
+  });
+
+  it('la cabeza de la ficha: figura y clips en columna a la izquierda, cifras a la derecha; en combate, sin figura', () => {
+    const hoja = HOJAS.find((h) => h.id === 'templario-escudo') ?? null;
+    const u = unidad('templario-escudo');
+    const m = marcadoDe(renderFicha(u, hoja, false));
+    const cabeza = m.slice(
+      m.indexOf('<div class="cabeza">'),
+      m.indexOf('<h3>Rasgos del motor</h3>'),
+    );
+    expect(cabeza).toContain('<div class="retrato">');
+    expect(cabeza).toContain('<canvas class="figura grande"');
+    const clips = cabeza.slice(
+      cabeza.indexOf('<div class="clips">'),
+      cabeza.indexOf('<div class="cifras">'),
+    );
+    for (const clip of ['idle', 'walk', 'charge', 'attack', 'hurt', 'death']) {
+      expect(clips).toContain(`data-clip="${clip}"`);
+    }
+    expect(clips).toContain('data-arena="girar"');
+    // Las cifras, a su lado y no en los clips.
+    const cifras = cabeza.slice(cabeza.indexOf('<div class="cifras">'));
+    expect(cifras).toContain('data-campo="attack"');
+    expect(cifras).toContain('data-campo="gold"');
+    expect(clips).not.toContain('data-campo');
+    // En el editor de la batalla: sin figura ni clips, las cifras a todo el ancho.
+    const enCombate = marcadoDe(
+      renderFicha(u, hoja, false, { enCombate: true, reglas: REGLAS_DEL_JUEGO }),
+    );
+    expect(enCombate).toContain('<div class="cabeza sin-retrato">');
+    expect(enCombate).not.toContain('class="clips"');
+    expect(enCombate).not.toContain('<canvas');
+    expect(enCombate).toContain('data-arena="renombrar"');
+    // El catálogo, en combate, conserva «Volver a las del catálogo» en la cabeza.
+    const pica = marcadoDe(
+      renderFichaDeCatalogo('pikeman', creature('pikeman'), true, {
+        enCombate: true,
+        reglas: REGLAS_DEL_JUEGO,
+      }),
+    );
+    expect(pica).toContain('<div class="botones"><button data-arena="deshacer-prueba"');
+  });
+
+  it('el bando lleva un solo Yo / IA, en su cabecera, y no deja duplicar con el bando lleno', () => {
     const puestos = Array.from({ length: LIDERAZGO.maxPorBando }, (_, i) => ({
       clave: i + 1,
       fuente: { kind: 'hoja', hoja: 'zombi' } as const,
-      ia: i > 0,
       escalera: false,
     }));
     const m = marcadoDe(
@@ -521,14 +633,20 @@ describe('el marcado de la arena', () => {
         LIDERAZGO.maxPorBando,
         null,
         puestos.length,
+        true,
       ),
     );
     expect(m).toContain(`Bando derecho · ${LIDERAZGO.maxPorBando} de ${LIDERAZGO.maxPorBando}`);
+    // Un Yo y un IA para todo el bando, no uno por puesto; marcado el que manda.
+    expect(m.match(/data-arena="manda"/g)?.length).toBe(2);
+    expect(m).toMatch(/<h3[^>]*>[\s\S]*data-arena="manda"[\s\S]*<\/h3>/);
+    expect(m).toMatch(/data-ia="si" class="boton-de-cabecera primary"/);
+    expect(m).not.toMatch(/data-ia="no" class="boton-de-cabecera primary"/);
     expect(m.match(/data-arena="duplicar"[^>]*disabled/g)?.length).toBe(LIDERAZGO.maxPorBando);
   });
 
   it('el resultado se calla mientras el tablero aún cuenta la jugada', () => {
-    const s = montada([ia(unidad('zombi'))], [ia(unidad('templario-mandoble'))], 2);
+    const s = montada(ia(unidad('zombi')), ia(unidad('templario-mandoble')), 2);
     expect(s.battle.finished).not.toBeNull();
     const contando = marcadoDe(renderPanelDeBatalla(s, true));
     expect(contando).not.toContain('Gana el bando');
@@ -542,7 +660,7 @@ describe('el marcado de la arena', () => {
 
 describe('corrección de hallazgos de QA', () => {
   it('H1: montar no juega; la IA mueve al empezar, y una sola vez', () => {
-    const s = sesion([ia(unidad('templario-escudo'))], [ia(unidad('orko-dos-armas'))], 5);
+    const s = sesion(ia(unidad('templario-escudo')), ia(unidad('orko-dos-armas')), 5);
     // Recién montada, la batalla está en su salida: nadie ha movido ni pegado.
     expect(s.battle.finished).toBeNull();
     expect(
@@ -558,7 +676,7 @@ describe('corrección de hallazgos de QA', () => {
   });
 
   it('H1: el animador que mira la salida cuenta luego todo lo que juega la IA', () => {
-    const s = sesion([ia(unidad('templario-escudo'))], [ia(unidad('orko-dos-armas'))], 5);
+    const s = sesion(ia(unidad('templario-escudo')), ia(unidad('orko-dos-armas')), 5);
     const a = new BattleAnimator();
     a.observe(s.battle);
     a.tick(0);
@@ -589,7 +707,7 @@ describe('corrección de hallazgos de QA', () => {
       expect(leido.invalidas).toEqual([
         {
           id: 'zombi',
-          motivo: 'la unidad "zombi": la vida tiene que ser 1 o más, y es -1',
+          motivo: 'la unidad «Zombie»: la vida tiene que ser 1 o más, y es -1',
           crudo: mala,
         },
       ]);
@@ -661,8 +779,8 @@ describe('corrección de hallazgos de QA', () => {
   it('H4: un final por tope de rondas se dice por tiempo, y uno de verdad no', () => {
     const muro = { hp: 100_000, defense: 500, attack: 0 };
     const eterna = montada(
-      [ia(unidad('templario-monje', muro))],
-      [ia(unidad('orko-dos-armas', muro))],
+      ia(unidad('templario-monje', muro)),
+      ia(unidad('orko-dos-armas', muro)),
       11,
     );
     expect(eterna.battle.round).toBe(MAX_ROUNDS);
@@ -675,7 +793,7 @@ describe('corrección de hallazgos de QA', () => {
     expect(texto).toContain(
       `Sin vencedor en ${MAX_ROUNDS} rondas: por tiempo, con las mismas unidades en pie, gana quien defiende. Gana el bando derecho.`,
     );
-    const corta = montada([ia(unidad('zombi'))], [ia(unidad('templario-mandoble'))], 2);
+    const corta = montada(ia(unidad('zombi')), ia(unidad('templario-mandoble')), 2);
     expect(finalDeArena(corta.battle)?.causa).toBe('sin_tropa');
     expect(marcadoDe(renderPanelDeBatalla(corta, false))).not.toContain('por tiempo');
   });
@@ -684,9 +802,10 @@ describe('corrección de hallazgos de QA', () => {
     // La receta de QA: `/arena/?seed=11`, un piquero del catálogo y el héroe por
     // defecto en cada lado, todo en IA. El héroe izquierdo lanza el Rayo sobre el
     // derecho en la ronda 1 y la pelea acaba con los dos piqueros en pie.
-    const lado = (l: 'izquierda' | 'derecha') => ({
-      puestos: [{ fuente: { kind: 'catalogo', id: 'pikeman', cambios: null } as const, ia: true }],
-      heroe: { datos: heroePorDefecto(l), ia: true },
+    const lado = (l: 'izquierda' | 'derecha'): LadoDeSesion => ({
+      unidades: [{ kind: 'catalogo', id: 'pikeman', cambios: null }],
+      heroe: heroePorDefecto(l),
+      ia: true,
     });
     const s = new SesionDeArena(
       { izquierda: lado('izquierda'), derecha: lado('derecha'), reglas: REGLAS_DEL_JUEGO },
@@ -723,12 +842,13 @@ describe('corrección de hallazgos de QA', () => {
     const m = marcadoDe(
       renderBando(
         'izquierda',
-        [{ clave: 1, fuente: { kind: 'hoja', hoja: grande.id }, ia: false, escalera: false }],
+        [{ clave: 1, fuente: { kind: 'hoja', hoja: grande.id }, escalera: false }],
         () => tarjeta(grande),
         null,
         7,
         null,
         1,
+        false,
       ),
     );
     expect(m).toContain('2 hexes');
@@ -801,7 +921,7 @@ describe('la velocidad son casillas', () => {
     for (const t of SPEED_TIERS) expect(escalonDeCasillas(SPEED_TO_HEXES[t])).toBe(t);
     expect(() => escalonDeCasillas(8)).toThrow('la velocidad es de 2 a 7 casillas, y es 8');
     expect(() => validarUnidadDeArena({ ...unidad('zombi'), casillas: 9 })).toThrow(
-      'la unidad "zombi": la velocidad es de 2 a 7 casillas, y es 9',
+      'la unidad «Zombie»: la velocidad es de 2 a 7 casillas, y es 9',
     );
     expect(() => validarUnidadDeArena({ ...unidad('zombi'), casillas: 1 })).toThrow(
       'la velocidad tiene que ser 2 o más, y es 1',
@@ -820,8 +940,12 @@ describe('la velocidad son casillas', () => {
 
   it('con las velocidades de salida ya no juega un ejército entero y luego el otro', () => {
     const s = sesion(
-      ['templario-escudo', 'templario-mandoble', 'templario-escudero'].map((id) => ia(unidad(id))),
-      ['elfo-arquero', 'troll-maza', 'heroe-elfo-danzante-de-espadas'].map((id) => ia(unidad(id))),
+      ia(
+        ...['templario-escudo', 'templario-mandoble', 'templario-escudero'].map((id) => unidad(id)),
+      ),
+      ia(
+        ...['elfo-arquero', 'troll-maza', 'heroe-elfo-danzante-de-espadas'].map((id) => unidad(id)),
+      ),
       1,
     );
     const lados = s.battle.queue.map((id) => s.battle.stacks.find((x) => x.id === id)?.side);
@@ -1020,8 +1144,8 @@ describe('la arena como banco de combate', () => {
   it('C2: el héroe sale con 10 × Conocimiento de maná, y lo que lanza dura su Poder', () => {
     const s = new SesionDeArena(
       {
-        izquierda: { puestos: [yo(unidad('templario-escudo'))], heroe: { datos: MAGO, ia: false } },
-        derecha: { puestos: [ia(unidad('zombi'))], heroe: null },
+        izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
+        derecha: ia(unidad('zombi')),
         reglas: REGLAS_DEL_JUEGO,
       },
       1,
@@ -1096,11 +1220,8 @@ describe('la arena como banco de combate', () => {
   it('C3: un lanzamiento sin maná se rechaza con el motivo de castBlocker', () => {
     const s = new SesionDeArena(
       {
-        izquierda: {
-          puestos: [yo(unidad('templario-escudo'))],
-          heroe: { datos: { ...MAGO, conocimiento: 0 }, ia: false },
-        },
-        derecha: { puestos: [ia(unidad('zombi'))], heroe: null },
+        izquierda: { ...yo(unidad('templario-escudo')), heroe: { ...MAGO, conocimiento: 0 } },
+        derecha: ia(unidad('zombi')),
         reglas: REGLAS_DEL_JUEGO,
       },
       2,
@@ -1121,11 +1242,8 @@ describe('la arena como banco de combate', () => {
     for (const semilla of [1, 2, 3]) {
       const s = new SesionDeArena(
         {
-          izquierda: {
-            puestos: [ia(unidad('templario-escudo'))],
-            heroe: { datos: MAGO, ia: true },
-          },
-          derecha: { puestos: [ia(unidad('orko-dos-armas'))], heroe: null },
+          izquierda: { ...ia(unidad('templario-escudo')), heroe: MAGO },
+          derecha: ia(unidad('orko-dos-armas')),
           reglas: REGLAS_DEL_JUEGO,
         },
         semilla,
@@ -1140,8 +1258,8 @@ describe('la arena como banco de combate', () => {
   it('la previsión sale en la sesión para la acción de la persona, y nada para la IA', () => {
     const s = new SesionDeArena(
       {
-        izquierda: { puestos: [yo(unidad('elfo-arquero'))], heroe: null },
-        derecha: { puestos: [ia(unidad('zombi'))], heroe: null },
+        izquierda: yo(unidad('elfo-arquero')),
+        derecha: ia(unidad('zombi')),
         reglas: reglasDeLaURL('tirador'),
       },
       1,
@@ -1190,20 +1308,27 @@ describe('el montaje del banco de combate', () => {
 
   it('la ficha del héroe enseña los valores con los que pelea, de las reglas en curso', () => {
     const hojas = [{ id: 'heroe-elfo-druida', nombre: 'Druida' }];
-    const m = marcadoDe(renderFichaDeHeroe('izquierda', MAGO, REGLAS_DEL_JUEGO, hojas));
+    const m = marcadoDe(
+      renderFichaDeHeroe('izquierda', MAGO, enElMontaje(REGLAS_DEL_JUEGO), hojas),
+    );
     expect(m).toContain('<span>40 (10 × Conocimiento)</span>');
     expect(m).toContain('3 rondas (su Poder)');
     expect(m).toContain('Flecha mágica (3)</span><span>40 de daño');
     expect(m).toContain('nada: su ataque y su defensa son de su cuerpo');
     expect(m).toContain('<option value="heroe-elfo-druida" >Druida</option>');
     const f2 = marcadoDe(
-      renderFichaDeHeroe('izquierda', MAGO, reglasDeLaURL('heroe,bendicion'), hojas),
+      renderFichaDeHeroe('izquierda', MAGO, enElMontaje(reglasDeLaURL('heroe,bendicion')), hojas),
     );
     expect(f2).toContain('+2 de ataque y +1 de defensa (fheroes2)');
     expect(f2).toContain('Bendición (3)</span><span>daño máximo, 3 rondas');
     // H5 del banco: con Poder 1 decía «1 rondas».
     const poder1 = marcadoDe(
-      renderFichaDeHeroe('izquierda', heroePorDefecto('izquierda'), REGLAS_DEL_JUEGO, hojas),
+      renderFichaDeHeroe(
+        'izquierda',
+        heroePorDefecto('izquierda'),
+        enElMontaje(REGLAS_DEL_JUEGO),
+        hojas,
+      ),
     );
     expect(poder1).toContain('1 ronda (su Poder)');
     expect(poder1).toContain('Bendición (3)</span><span>suerte +1, 1 ronda<');
@@ -1213,8 +1338,8 @@ describe('el montaje del banco de combate', () => {
   it('el panel de la pelea lleva el maná, las reglas y el libro de la persona', () => {
     const s = new SesionDeArena(
       {
-        izquierda: { puestos: [yo(unidad('templario-escudo'))], heroe: { datos: MAGO, ia: false } },
-        derecha: { puestos: [ia(unidad('zombi'))], heroe: null },
+        izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
+        derecha: ia(unidad('zombi')),
         reglas: reglasDeLaURL('tirador'),
       },
       1,
@@ -1237,19 +1362,21 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     unidades: [unidad('templario-escudo', { attack: 11 }), unidad('zombi')],
     pruebas: { pikeman: { attack: 8, damage: [2, 4] } },
     izquierda: {
+      ia: false,
       puestos: [
-        { kind: 'hoja', hoja: 'templario-escudo', ia: false, escalera: true },
-        { kind: 'catalogo', id: 'pikeman', ia: true, escalera: true },
-        { kind: 'hoja', hoja: 'templario-escudo', ia: true, escalera: false },
+        { kind: 'hoja', hoja: 'templario-escudo', escalera: true },
+        { kind: 'catalogo', id: 'pikeman', escalera: true },
+        { kind: 'hoja', hoja: 'templario-escudo', escalera: false },
       ],
-      heroe: { datos: { ...MAGO, figura: 'heroe-elfo-druida', poder: 5 }, ia: false },
+      heroe: { ...MAGO, figura: 'heroe-elfo-druida', poder: 5 },
     },
     derecha: {
+      ia: true,
       puestos: [
-        { kind: 'hoja', hoja: 'zombi', ia: true, escalera: false },
-        { kind: 'catalogo', id: 'archer', ia: true, escalera: false },
+        { kind: 'hoja', hoja: 'zombi', escalera: false },
+        { kind: 'catalogo', id: 'archer', escalera: false },
       ],
-      heroe: { datos: heroePorDefecto('derecha'), ia: true },
+      heroe: heroePorDefecto('derecha'),
     },
     // La muralla viaja también (la integración del banco con la muralla): con
     // puerta, para que vaya y vuelva entera.
@@ -1272,28 +1399,13 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     const url = new URLSearchParams({ montaje: texto }).toString();
     expect(montajeDeLaURL(new URLSearchParams(url).get('montaje') as string)).toEqual(MONTAJE);
     const sesionDe = (m: MontajeDelEnlace): SesionDeArena => {
-      const lado = (l: 'izquierda' | 'derecha') => ({
-        puestos: m[l].puestos.map(
-          (p): PuestoDeArena => ({
-            fuente:
-              p.kind === 'hoja'
-                ? {
-                    ...delBorrador(m.unidades.find((u) => u.id === p.hoja) as UnidadDeArena),
-                    escalera: p.escalera,
-                  }
-                : { ...catalogo(p.id, m.pruebas[p.id] ?? null), escalera: p.escalera },
-            ia: true,
-          }),
-        ),
-        heroe:
-          m[l].heroe === null ? null : { ...(m[l].heroe as { datos: HeroeDeArena }), ia: true },
-      });
+      // Todo en IA, para que la pelea se juegue entera al empezar.
+      const montado = montajeDeArenaDelEnlace(m, reglasDeLaURL('tirador'));
       const s = new SesionDeArena(
         {
-          izquierda: lado('izquierda'),
-          derecha: lado('derecha'),
-          reglas: reglasDeLaURL('tirador'),
-          ...(m.muralla === null ? {} : { muralla: m.muralla }),
+          ...montado,
+          izquierda: { ...montado.izquierda, ia: true },
+          derecha: { ...montado.derecha, ia: true },
         },
         7,
       );
@@ -1313,19 +1425,72 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     expect(sesionDe(leido).battle.log).toEqual(a.battle.log);
   });
 
+  /**
+   * `MONTAJE` escrito como lo escribía la versión 2: quién mueve en cada puesto y
+   * en el héroe, sin `ia` en el lado. `repartir` pone a la persona el primer puesto.
+   */
+  const enLaVersion2 = (repartir: boolean): Record<string, any> => {
+    const o = JSON.parse(montajeALaURL(MONTAJE));
+    o.v = 2;
+    for (const l of ['izquierda', 'derecha'] as const) {
+      const { ia } = o[l];
+      delete o[l].ia;
+      for (const p of o[l].puestos) p.ia = ia;
+      if (o[l].heroe !== null) o[l].heroe.ia = ia;
+    }
+    if (repartir) o.derecha.puestos[0].ia = false;
+    return o;
+  };
+
+  it('un enlace de la versión 2 (quién mueve, por puesto) se sigue leyendo', () => {
+    const leido = montajeDeLaURL(JSON.stringify(enLaVersion2(false)));
+    expect(leido).toEqual(MONTAJE);
+    expect(leido.aviso).toBeUndefined();
+    // Repartido entre tú y la IA: el bando lo mueves tú entero, y se dice.
+    const repartido = montajeDeLaURL(JSON.stringify(enLaVersion2(true)));
+    expect(repartido.derecha.ia).toBe(false);
+    expect(repartido.izquierda.ia).toBe(false);
+    expect(repartido.aviso).toBe(
+      'El enlace repartía el bando derecho entre tú y la IA: ahora lo mueves tú entero.',
+    );
+    // Y se reescribe en la versión de ahora, sin el aviso.
+    const reescrito = JSON.parse(montajeALaURL(repartido));
+    expect(reescrito.v).toBe(VERSION_DEL_ENLACE);
+    expect(reescrito.derecha.ia).toBe(false);
+    expect(reescrito.aviso).toBeUndefined();
+  });
+
+  it('una muralla dibujada en la rejilla de antes (11 en todas las filas) se sigue leyendo', () => {
+    // Tablero simétrico (11-10-2026): las filas pares ganan la columna 11 y
+    // ninguna casilla de la rejilla de antes desaparece, así que una muralla de
+    // entonces —aquí, su última columna entera con una puerta— se lee tal cual,
+    // en el enlace de la versión 2 y como forma del borrador.
+    const deAntes = {
+      muros: Array.from({ length: 9 }, (_, row) => ({ col: 10, row })).filter((h) => h.row !== 4),
+      puertas: [{ a: { col: 9, row: 4 }, b: { col: 10, row: 4 } }],
+    };
+    const o = enLaVersion2(false);
+    o.muralla = deAntes;
+    const leido = montajeDeLaURL(JSON.stringify(o));
+    expect(leido.muralla).toEqual(deAntes);
+    expect(validarFormaDeMuralla({ nombre: 'De antes', muralla: deAntes }).muralla).toEqual(
+      deAntes,
+    );
+  });
+
   it('un enlace de la versión 1 (sin muralla ni escaleras) se sigue leyendo', () => {
-    const v1 = tocado((o) => {
-      o.v = 1;
-      delete o.muralla;
-      for (const l of ['izquierda', 'derecha']) {
-        for (const p of o[l].puestos) delete p.escalera;
-      }
-    });
-    const leido = montajeDeLaURL(v1);
+    const o = enLaVersion2(false);
+    o.v = 1;
+    delete o.muralla;
+    for (const l of ['izquierda', 'derecha']) {
+      for (const p of o[l].puestos) delete p.escalera;
+    }
+    const leido = montajeDeLaURL(JSON.stringify(o));
     expect(leido.muralla).toBeNull();
     expect([...leido.izquierda.puestos, ...leido.derecha.puestos].every((p) => !p.escalera)).toBe(
       true,
     );
+    expect([leido.izquierda.ia, leido.derecha.ia]).toEqual([false, true]);
     // Y se reescribe en la versión de ahora.
     expect(JSON.parse(montajeALaURL(leido)).v).toBe(VERSION_DEL_ENLACE);
   });
@@ -1333,7 +1498,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('un enlace mal formado o con lo que no existe se rechaza diciendo qué', () => {
     const casos: [string, string][] = [
       ['{"v":1,', 'el montaje del enlace no se puede leer'],
-      [tocado((o) => (o.v = 3)), 'es de la versión 3 y esta arena lee la 1 y la 2'],
+      [tocado((o) => (o.v = 4)), 'es de la versión 4 y esta arena lee de la 1 a la 3'],
       [tocado((o) => delete o.muralla), 'falta «muralla»'],
       [tocado((o) => o.muralla.muros.push({ col: 99, row: 0 })), 'la muralla del enlace no vale'],
       [
@@ -1359,7 +1524,9 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
         tocado((o) => (o.izquierda.puestos[1].criatura = 'dragon_rojo')),
         'criatura desconocida: "dragon_rojo"',
       ],
-      [tocado((o) => (o.izquierda.puestos[0].ia = 'si')), '«ia» tiene que ser true o false'],
+      [tocado((o) => (o.izquierda.ia = 'si')), '«ia» tiene que ser true o false'],
+      [tocado((o) => (o.izquierda.puestos[0].ia = true)), '«ia» no es un campo del enlace'],
+      [tocado((o) => delete o.derecha.ia), 'el bando derecho del enlace: falta «ia»'],
       [
         tocado((o) => (o.izquierda.puestos[0].hoja = 'monje-inventado')),
         'pone «monje-inventado» y no trae sus cifras',
@@ -1384,7 +1551,6 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
         tocado((o) => {
           o.derecha.puestos = Array.from({ length: LIDERAZGO.maxPorBando }, () => ({
             criatura: 'archer',
-            ia: true,
             escalera: false,
           }));
         }),
@@ -1403,5 +1569,483 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     );
     expect(unaVezEnLaURL(repetido.getAll('seed'), 'seed')).toBe('5');
     expect(unaVezEnLaURL(repetido.getAll('montaje'), 'montaje')).toBeNull();
+  });
+});
+
+// ------------------------------------------------------------------ poderes y edición en combate
+
+describe('los poderes del monje en la arena (A3)', () => {
+  it('el monje templario sale con Curar y Bendecir; otro bastón, con ninguno', () => {
+    expect(unidad('templario-monje').habilidades).toEqual(['Curar (X)', 'Bendecir']);
+    const otroBaston = HOJAS.find((h) => h.perfil === 'baston' && h.id !== 'templario-monje');
+    if (otroBaston === undefined) throw new Error('no hay otra hoja de bastón');
+    expect(unidadPorDefecto(otroBaston).habilidades).toEqual([]);
+    // Y en la pelea son poderes del motor; las demás habilidades no pelean.
+    const b = pelea(
+      [unidad('templario-monje', { habilidades: ['Bendecir', 'Salto', 'Curar (X)'] })],
+      [unidad('zombi')],
+      createRng(1),
+    );
+    expect(b.stacks[0]?.unit.poderes).toEqual(['bendecir', 'curar']);
+    expect(b.stacks[1]?.unit.poderes).toBeUndefined();
+  });
+
+  it('«Bendecir» se valida aunque no esté en el cuaderno, y lo que no existe no', () => {
+    expect(CATALOGO_DE_HABILIDADES).toContain('Curar (X)');
+    expect(CATALOGO_DE_HABILIDADES).not.toContain('Bendecir');
+    expect(HABILIDADES_DE_LA_ARENA).toContain('Bendecir');
+    expect(
+      validarUnidadDeArena(unidad('zombi', { habilidades: ['Bendecir'] })).habilidades,
+    ).toEqual(['Bendecir']);
+    expect(() => validarUnidadDeArena(unidad('zombi', { habilidades: ['Bendecirr'] }))).toThrow(
+      'la habilidad "Bendecirr" no existe',
+    );
+  });
+
+  it('la ficha separa los poderes, que actúan, de las habilidades sin efecto', () => {
+    const hoja = HOJAS.find((h) => h.id === 'templario-monje') ?? null;
+    const u = unidad('templario-monje', {
+      habilidades: ['Curar (X)', 'Bendecir', 'Salto'],
+    });
+    const m = marcadoDe(renderFicha(u, hoja, false));
+    expect(m).toContain('Poderes · actúan en la pelea');
+    expect(m).toContain('cura 4 PV a un aliado herido, incluida la propia unidad');
+    // El chip dice lo que cura, no la X del cuaderno; el valor sigue siendo el nombre (M3).
+    expect(m).toContain(
+      'Curar (4 PV) <button data-arena="quitar-habilidad" data-habilidad="Curar (X)"',
+    );
+    expect(m).not.toContain('sí misma');
+    expect(m).toContain(
+      'suerte +1 durante 3 rondas a un aliado; es la Bendición del héroe: las dos no se suman',
+    );
+    expect(m).toContain('data-poder-de-la-ficha="curar"');
+    expect(m).toContain('sin efecto todavía');
+    // «Salto» va con las inertes; los poderes, no.
+    const inertes = m.slice(m.indexOf('sin efecto todavía'));
+    expect(inertes).toContain('data-habilidad="Salto"');
+    expect(inertes).not.toContain('data-habilidad="Bendecir"');
+    // En el editor de la batalla: sin figura animada y diciendo que vale ya.
+    const enCombate = marcadoDe(
+      renderFicha(u, hoja, false, { enCombate: true, reglas: REGLAS_DEL_JUEGO }),
+    );
+    expect(enCombate).not.toContain('<canvas');
+    expect(enCombate).toContain(CAMBIO_EN_COMBATE);
+  });
+
+  it('el panel de la pelea lleva un botón por poder, apagado con su motivo, y «Editar» en cada fila', () => {
+    /** La pelea en el turno del monje, sin haberla pintado aún. */
+    const enSuTurno = () => {
+      const s = new SesionDeArena(
+        {
+          izquierda: { ...yo(unidad('templario-monje'), unidad('templario-escudo')), heroe: MAGO },
+          derecha: ia(unidad('orko-dos-armas')),
+          reglas: REGLAS_DEL_JUEGO,
+        },
+        1,
+      );
+      s.empezar();
+      while (s.turnoPropio?.stack.body !== 'templario-monje' && s.battle.finished === null)
+        s.playBattleAction({ type: 'end_turn' });
+      return s;
+    };
+    const s = enSuTurno();
+    const m = marcadoDe(renderPanelDeBatalla(s, false));
+    expect(m).toContain(
+      'data-action="battle-poder" data-poder="curar" class="poder" disabled title="Nadie de su bando tiene ninguna herida."',
+    );
+    expect(m).toMatch(
+      /data-action="battle-poder" data-poder="bendecir" class="poder" title="suerte \+1/,
+    );
+    // Con un solo herido, el clic ya juega: el botón dice a quién y cuánto de
+    // verdad, con el tope de la herida (M1 de QA: decía «cura 4 PV» con 2 de herida).
+    // (Otra pelea igual: la lista legal de la sesión se guarda hasta la siguiente jugada.)
+    const herido = enSuTurno();
+    const escudero = herido.battle.stacks.find((x) => x.body === 'templario-escudo');
+    if (escudero === undefined) throw new Error('sin escudero');
+    escudero.topHp = escudero.unit.hp - 2;
+    expect(marcadoDe(renderPanelDeBatalla(herido, false))).toContain(
+      `data-action="battle-poder" data-poder="curar" class="poder" title="Curar a ${nombreEnElCampo(herido.battle, escudero)}: cura 2 PV."`,
+    );
+    // «Editar» en la activa y en cada fila del campo, héroe incluido.
+    const editar = m.match(/data-arena="editar-en-combate"/g) ?? [];
+    expect(editar.length).toBe(1 + s.battle.stacks.filter((x) => x.count > 0).length);
+    expect(m).toContain(
+      `data-stack="${s.battle.stacks.find((x) => x.origen.kind === 'heroe')?.id}"`,
+    );
+  });
+});
+
+describe('retocar en plena pelea (B10-B14)', () => {
+  /** Monje y arquero a la izquierda, con héroe; monje a la derecha. */
+  function conMonjes(): BattleState {
+    return batallaDeArena(
+      {
+        izquierda: {
+          unidades: [delBorrador(unidad('templario-monje')), delBorrador(unidad('goblin-arquero'))],
+          heroe: MAGO,
+        },
+        derecha: { unidades: [delBorrador(unidad('templario-monje'))], heroe: null },
+        reglas: REGLAS_DEL_JUEGO,
+      },
+      createRng(4),
+    );
+  }
+  const monjes = (b: BattleState) => b.stacks.filter((x) => x.body === 'templario-monje');
+
+  it('cambia el tipo entero, en los dos bandos, y nada más; y lo dice el registro', () => {
+    const b = conMonjes();
+    const arquero = b.stacks.find((x) => x.body === 'goblin-arquero');
+    const desde = b.log.length;
+    expect(
+      retocarEnBatalla(b, {
+        kind: 'tipo',
+        fuente: delBorrador(unidad('templario-monje', { attack: 19 })),
+      }),
+    ).toBeNull();
+    expect(monjes(b).map((x) => [x.side, x.unit.attack])).toEqual([
+      ['attacker', 19],
+      ['defender', 19],
+    ]);
+    // El arquero ni se toca: el mismo objeto.
+    expect(b.stacks.find((x) => x.body === 'goblin-arquero')).toBe(arquero);
+    expect(b.log.slice(desde)).toEqual([
+      {
+        kind: 'retoque',
+        nombre: unidad('templario-monje').name,
+        stacks: monjes(b).map((x) => x.id),
+        cambios: ['ataque 3 → 19'],
+      },
+    ]);
+    // Y el parte dice qué cambió (M3 de QA: cuatro retoques eran cuatro líneas iguales).
+    expect(marcadoDe(renderBattleLog(b, null))).toContain(
+      `Cambian las cifras de ${unidad('templario-monje').name} a media pelea (ataque 3 → 19)`,
+    );
+    // La misma fuente sin cambios deja las cifras de una pelea recién montada.
+    retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador(unidad('templario-monje')) });
+    expect(monjes(b)[0]?.unit).toEqual(monjes(conMonjes())[0]?.unit);
+  });
+
+  it('el tipo de cada stack lo anota el montaje: hoja, criatura o héroe', () => {
+    const b = batallaDeArena(
+      {
+        izquierda: {
+          unidades: [
+            delBorrador(unidad('zombi')),
+            { kind: 'catalogo', id: 'zombie', cambios: null },
+          ],
+          heroe: MAGO,
+        },
+        derecha: { unidades: [delBorrador(unidad('zombi'))], heroe: null },
+        reglas: REGLAS_DEL_JUEGO,
+      },
+      createRng(1),
+    );
+    expect(b.stacks.map((x) => tipoDelStack(b, x))).toEqual([
+      { kind: 'hoja', id: 'zombi' },
+      { kind: 'catalogo', id: 'zombie' },
+      { kind: 'heroe', lado: 'izquierda' },
+      { kind: 'hoja', id: 'zombi' },
+    ]);
+    // Retocar la criatura del catálogo no toca la hoja que se llama casi igual.
+    retocarEnBatalla(b, {
+      kind: 'tipo',
+      fuente: { kind: 'catalogo', id: 'zombie', cambios: { attack: 9 } },
+    });
+    expect(b.stacks.map((x) => x.unit.attack)).toEqual([
+      unidad('zombi').attack,
+      9,
+      b.stacks[2]?.unit.attack,
+      unidad('zombi').attack,
+    ]);
+    // Una pelea que no es de la arena no sabe de tipos: se dice.
+    const delJuego = createBattle(
+      { army: [{ creature: 'zombie', count: 1 }], hero: null },
+      { army: [{ creature: 'zombie', count: 1 }], hero: null },
+      createRng(1),
+    );
+    expect(() => tipoDelStack(delJuego, delJuego.stacks[0] as BattleStack)).toThrow(
+      'no es una pelea de la arena',
+    );
+  });
+
+  it('lo gastado sigue gastado: la herida, los disparos y el maná', () => {
+    const b = conMonjes();
+    const elMonje = () => monjes(b)[0] as BattleStack;
+    const elArquero = () => b.stacks.find((x) => x.body === 'goblin-arquero') as BattleStack;
+    const hp = elMonje().unit.hp;
+    elMonje().topHp = hp - 3;
+    retocarEnBatalla(b, {
+      kind: 'tipo',
+      fuente: delBorrador(unidad('templario-monje', { hp: hp + 10 })),
+    });
+    expect(elMonje().topHp).toBe(hp + 10 - 3);
+    // Bajar la vida por debajo de la herida no mata: queda en 1.
+    retocarEnBatalla(b, {
+      kind: 'tipo',
+      fuente: delBorrador(unidad('templario-monje', { hp: 2 })),
+    });
+    expect(elMonje().topHp).toBe(1);
+    const tiros = elArquero().unit.shots ?? 0;
+    elArquero().shotsLeft = tiros - 2;
+    retocarEnBatalla(b, {
+      kind: 'tipo',
+      fuente: delBorrador(unidad('goblin-arquero', { shots: tiros + 5 })),
+    });
+    expect(elArquero().shotsLeft).toBe(tiros + 3);
+    const mando = b.heroes.attacker;
+    if (mando === null) throw new Error('sin héroe');
+    mando.mana -= 7;
+    mando.castThisRound = true;
+    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, conocimiento: 6 } });
+    expect(b.heroes.attacker).toMatchObject({ mana: 60 - 7, knowledge: 6, castThisRound: true });
+    expect(b.log.at(-1)).toMatchObject({
+      kind: 'retoque',
+      nombre: MAGO.nombre,
+      cambios: [`conocimiento ${MAGO.conocimiento} → 6`],
+    });
+  });
+
+  it('ir y volver no devuelve lo gastado: munición, herida y maná (N3 de QA)', () => {
+    // Lo que no cupo al bajar se debe: con lo gastado calculado desde las cifras
+    // de ese momento, 0 disparos o la vida bajo la herida lo perdían.
+    const b = batallaDeArena(
+      {
+        izquierda: {
+          unidades: [
+            delBorrador(unidad('goblin-arquero', { shots: 12 })),
+            delBorrador(unidad('templario-escudo', { hp: 15 })),
+          ],
+          heroe: MAGO,
+        },
+        derecha: { unidades: [delBorrador(unidad('zombi'))], heroe: null },
+        reglas: REGLAS_DEL_JUEGO,
+      },
+      createRng(4),
+    );
+    const de = (body: string) => b.stacks.find((x) => x.body === body) as BattleStack;
+    const arquero = (shots: number) =>
+      retocarEnBatalla(b, {
+        kind: 'tipo',
+        fuente: delBorrador(unidad('goblin-arquero', { shots })),
+      });
+    const escudero = (hp: number) =>
+      retocarEnBatalla(b, {
+        kind: 'tipo',
+        fuente: delBorrador(unidad('templario-escudo', { hp })),
+      });
+    de('goblin-arquero').shotsLeft = 9;
+    expect(arquero(0)).toBeNull();
+    expect(de('goblin-arquero').shotsLeft).toBe(0);
+    expect(arquero(12)).toBeNull();
+    expect(de('goblin-arquero').shotsLeft).toBe(9);
+    // Y por pasos: 12 → 2 → 0 → 5 → 12, siempre 9 al volver.
+    for (const n of [2, 0, 5, 12]) arquero(n);
+    expect(de('goblin-arquero').shotsLeft).toBe(9);
+    expect(de('goblin-arquero').gastadoDeMas).toBeUndefined();
+    de('templario-escudo').topHp = 5;
+    escudero(3);
+    expect(de('templario-escudo').topHp).toBe(1);
+    escudero(15);
+    expect([de('templario-escudo').topHp, de('templario-escudo').unit.hp]).toEqual([5, 15]);
+    // Curar mientras se debe cura la herida de verdad: 10 de herida, cura 2, quedan 8.
+    escudero(3);
+    de('templario-escudo').topHp = 3;
+    escudero(15);
+    expect(de('templario-escudo').topHp).toBe(7);
+    // El maná: Conocimiento 4 (40) con 7 gastados → 0 → 4 vuelve a 33.
+    const mando = () => b.heroes.attacker as NonNullable<typeof b.heroes.attacker>;
+    mando().mana -= 7;
+    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, conocimiento: 0 } });
+    expect(mando().mana).toBe(0);
+    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: MAGO });
+    expect(mando().mana).toBe(10 * MAGO.conocimiento - 7);
+  });
+
+  it('el parte dice qué campo de la ficha cambió, y lo que no cambia nada no escribe (N1 de QA)', () => {
+    const b = conMonjes();
+    const monje = unidad('templario-monje');
+    // Una habilidad sin motor: no cambia ninguna cifra de la pelea.
+    const inerte = 'Salto';
+    expect(HABILIDADES_DE_LA_ARENA).toContain(inerte);
+    expect(monje.habilidades).not.toContain(inerte);
+    const desde = b.log.length;
+    const retoca = (cambios: Partial<UnidadDeArena>) =>
+      retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador({ ...monje, ...cambios }) });
+    retoca({ leadership: 9 });
+    retoca({ leadership: 9, cost: { gold: 999 } });
+    retoca({ leadership: 9, cost: { gold: 999 }, habilidades: [...monje.habilidades, inerte] });
+    expect(b.log.slice(desde).map((e) => (e.kind === 'retoque' ? e.cambios : e.kind))).toEqual([
+      [`liderazgo ${monje.leadership} → 9`],
+      [`coste (oro) ${monje.cost.gold} → 999`],
+      [`habilidades: + ${inerte}`],
+    ]);
+    // El mismo valor (ataque 3 → 3): ni línea ni stacks nuevos.
+    const antes = [...b.stacks];
+    const largo = b.log.length;
+    expect(
+      retoca({ leadership: 9, cost: { gold: 999 }, habilidades: [...monje.habilidades, inerte] }),
+    ).toBeNull();
+    expect(b.log.length).toBe(largo);
+    expect(b.stacks).toEqual(antes);
+    expect(b.stacks.every((s, i) => s === antes[i])).toBe(true);
+    // La sesión no dice «Cambiado» de lo que no cambia.
+    const s = new SesionDeArena(
+      {
+        izquierda: { ...yo(unidad('templario-monje')), heroe: MAGO },
+        derecha: ia(unidad('zombi')),
+        reglas: REGLAS_DEL_JUEGO,
+      },
+      1,
+    );
+    s.empezar();
+    expect(s.retocar({ kind: 'tipo', fuente: delBorrador(unidad('templario-monje')) })).toBeNull();
+    expect(s.status).not.toContain('Cambiado');
+    expect(s.retocar({ kind: 'heroe', lado: 'izquierda', datos: MAGO })).toBeNull();
+    expect(s.status).not.toContain('Cambiado');
+    expect(
+      s.retocar({ kind: 'tipo', fuente: delBorrador(unidad('templario-monje', { attack: 9 })) }),
+    ).toBeNull();
+    expect(s.status).toContain('Cambiado');
+  });
+
+  it('el parte del héroe dice las cifras de su ficha y los hechizos por su nombre (N2 de QA)', () => {
+    const b = conMonjes();
+    const desde = b.log.length;
+    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, ataque: 9 } });
+    retocarEnBatalla(b, {
+      kind: 'heroe',
+      lado: 'izquierda',
+      datos: { ...MAGO, ataque: 9, hechizos: MAGO.hechizos.filter((h) => h !== 'haste') },
+    });
+    retocarEnBatalla(b, {
+      kind: 'heroe',
+      lado: 'izquierda',
+      datos: { ...MAGO, ataque: 9, hechizos: ['magic_arrow', 'haste'] },
+    });
+    expect(b.log.slice(desde).map((e) => (e.kind === 'retoque' ? e.cambios : e.kind))).toEqual([
+      [`ataque ${MAGO.ataque} → 9`],
+      ['hechizos: − Prisa'],
+      ['hechizos: + Prisa, − Lentitud, − Bendición, − Maldición, − Curación, − Rayo'],
+    ]);
+  });
+
+  it('el héroe retocado lanza con su poder nuevo (B13)', () => {
+    const b = conMonjes();
+    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, poder: 9 } });
+    const objetivo = b.stacks.find((x) => x.side === 'defender');
+    if (objetivo === undefined) throw new Error('sin objetivo');
+    applyAction(b, { type: 'cast', spell: 'magic_arrow', target: objetivo.id }, createRng(1));
+    const lanzado = [...b.log].reverse().find((e) => e.kind === 'cast');
+    expect(lanzado).toMatchObject({ damage: spellAmount(spell('magic_arrow'), { spellPower: 9 }) });
+  });
+
+  it('rechaza diciéndolo y sin tocar nada: las casillas, la figura del héroe, lo que no valida y la pelea acabada', () => {
+    const b = conMonjes();
+    const antes = JSON.stringify(b);
+    expect(
+      retocarEnBatalla(b, {
+        kind: 'tipo',
+        fuente: delBorrador(unidad('templario-monje', { hexes: 2 })),
+      }),
+    ).toContain('las casillas que ocupa');
+    expect(
+      retocarEnBatalla(b, {
+        kind: 'heroe',
+        lado: 'izquierda',
+        datos: { ...MAGO, figura: 'heroe-lich' },
+      }),
+    ).toContain('la figura del héroe no se cambia a media pelea');
+    expect(
+      retocarEnBatalla(b, {
+        kind: 'tipo',
+        fuente: delBorrador(unidad('templario-monje', { damage: [5, 2] })),
+      }),
+    ).toContain('el daño mínimo (5) no puede pasar del máximo (2)');
+    expect(retocarEnBatalla(b, { kind: 'heroe', lado: 'derecha', datos: MAGO })).toBe(
+      'el bando derecho no lleva héroe en esta pelea',
+    );
+    expect(
+      retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador(unidad('zombi', { attack: 3 })) }),
+    ).toBe('Zombie no está en esta pelea');
+    expect(JSON.stringify(b)).toBe(antes);
+    b.finished = { winner: 'attacker' };
+    expect(
+      retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador(unidad('templario-monje')) }),
+    ).toBe('la batalla ya ha terminado; el cambio vale para la pelea siguiente');
+  });
+
+  it('lo apuntado es uno solo, y retocar suelta lo que con las cifras nuevas ya no vale', () => {
+    const s = new SesionDeArena(
+      {
+        izquierda: { ...yo(unidad('templario-monje'), unidad('templario-escudo')), heroe: MAGO },
+        derecha: ia(unidad('orko-dos-armas')),
+        reglas: REGLAS_DEL_JUEGO,
+      },
+      1,
+    );
+    s.empezar();
+    while (s.turnoPropio?.stack.body !== 'templario-monje' && s.battle.finished === null)
+      s.playBattleAction({ type: 'end_turn' });
+    s.hechizos.selectSpell('bless');
+    expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'bless' });
+    // Apuntar el poder suelta el hechizo, y elegir el hechizo suelta el poder.
+    s.apuntarPoder('bendecir');
+    expect(s.apuntado).toEqual({ kind: 'poder', id: 'bendecir' });
+    expect(s.hechizos.selectedSpell).toBeNull();
+    s.hechizos.selectSpell('bless');
+    expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'bless' });
+    // El rechazo de lo apuntado es el del núcleo: el de Bendecir sobre el orco.
+    s.apuntarPoder('bendecir');
+    const orco = s.battle.stacks.find((x) => x.side === 'defender')?.id as string;
+    expect(s.rechazoDeLoApuntado(orco)).toBe('«Bendecir» va dirigido a un aliado.');
+    // Sin Bendecir en sus habilidades, el poder apuntado ya no vale: se suelta y se dice.
+    expect(
+      s.retocar({
+        kind: 'tipo',
+        fuente: delBorrador(unidad('templario-monje', { habilidades: ['Curar (X)'] })),
+      }),
+    ).toBeNull();
+    expect(s.apuntado).toBeNull();
+    expect(s.status).toBe(
+      'Cambiado: vale ya en esta pelea. Con las cifras nuevas no se puede usar Bendecir: suelto.',
+    );
+    // El parte cuenta el retoque.
+    expect(marcadoDe(renderBattleLog(s.battle, null))).toContain(
+      `Cambian las cifras de ${unidad('templario-monje').name} a media pelea (habilidades: − Bendecir)`,
+    );
+  });
+
+  it('la sesión: lo malo no entra ni mueve nada; lo bueno entra ya y conserva el turno (B11, B12, B14)', () => {
+    const s = new SesionDeArena(
+      {
+        izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
+        derecha: ia(unidad('zombi')),
+        reglas: REGLAS_DEL_JUEGO,
+      },
+      1,
+    );
+    s.empezar();
+    while (s.turnoPropio === null && s.battle.finished === null)
+      s.playBattleAction({ type: 'end_turn' });
+    s.hechizos.selectSpell('magic_arrow');
+    const version = s.version;
+    const turno = s.battle.turno?.n;
+    expect(
+      s.retocar({
+        kind: 'tipo',
+        fuente: delBorrador(unidad('templario-escudo', { damage: [5, 2] })),
+      }),
+    ).toBe('La unidad «Guerrero con escudo»: el daño mínimo (5) no puede pasar del máximo (2).');
+    expect(s.version).toBe(version);
+    // El escudero no dispara; con munición, sí, y ya.
+    expect(s.battleLegalActions().some((a) => a.type === 'shoot')).toBe(false);
+    expect(
+      s.retocar({ kind: 'tipo', fuente: delBorrador(unidad('templario-escudo', { shots: 4 })) }),
+    ).toBeNull();
+    expect(s.battleLegalActions().some((a) => a.type === 'shoot')).toBe(true);
+    expect(s.version).not.toBe(version);
+    expect(s.battle.turno?.n).toBe(turno);
+    expect(s.hechizos.selectedSpell).toBe('magic_arrow');
+    expect(s.status).toBe('Cambiado: vale ya en esta pelea.');
   });
 });

@@ -15,7 +15,7 @@ import {
   surrenderBlocker,
 } from '../src/core/battle/battle.js';
 import { herir, stackHp } from '../src/core/battle/damage.js';
-import { castSpell, spell } from '../src/core/battle/spells.js';
+import { castSpell, delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleHero, BattleState } from '../src/core/battle/types.js';
 import { serializeAdventureTurn, serializeBattleTurn } from '../src/core/contract/serialize.js';
 import {
@@ -212,7 +212,8 @@ describe('la experiencia se gana por daño × nivel del que lo recibe (C1)', () 
       { army: [{ creature: 'zombie', count: 1 }], hero: null },
       createRng(4),
     );
-    castSpell(spell('magic_arrow'), mando(), stackById(otra, 'defender-0'), null, otra.reglas);
+    const flecha = spell('magic_arrow');
+    castSpell(flecha, delHeroe(flecha, mando()), stackById(otra, 'defender-0'), null, otra.reglas);
     expect(stackById(otra, 'defender-0').count).toBe(0);
   });
 

@@ -882,11 +882,26 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `node_captured` 1 240 → 1 204, `town_captured` 1 300 → 1 257,
  *   `troop_level_up` 1 778 → 1 584; ningún tipo nuevo ni ninguno que
  *   desaparezca.
+ * - `c36381e0…` (67 003 líneas): **el tablero de batalla simétrico** (12-10-2026):
+ *   filas de 12 y 11 (104 casillas), el defensor sale en el espejo exacto del
+ *   atacante y el tiro pasa si pasa con el empujón de siempre o con su espejo.
+ *   Solo cambian las batallas: **13 de 200 idénticas**, y en las 187 que
+ *   cambian el primer hecho distinto viene **después** de una batalla —en 116
+ *   es el propio `battle_ended` (su resumen), en las demás lo que dejó (43
+ *   `troop_level_up`, 11 `hero_moved`, 7 `raider_dispersed`, 6
+ *   `town_captured`, 2 `hero_defeated`, 1 `hero_returned`, 1 `level_up`)—;
+ *   ninguna cambia antes de su primera batalla (`--dump` de HEAD `63bb1f0` y del
+ *   árbol, comparados semilla a semilla). 25 con otro ganador, j0 117 → 118, **0 sin
+ *   terminar**, duración 8 / 14 / 20 → **8 / 15 / 19**. Batallas 1 405 → 1 441,
+ *   `hero_defeated` 277 → 296, `troop_level_up` 1 584 → 1 759, `town_captured`
+ *   1 257 → 1 281, `node_captured` 1 204 → 1 252; ningún tipo nuevo ni ninguno
+ *   que desaparezca. (Medido contra el árbol de antes con los ciclos de poderes y
+ *   de la página de edición, que no cambian el banco: allí sale `24448339…`.)
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '244483394b041f87873666d936b63dbe83ff6645b6ab4422e636d740993ec46d',
+  sha: 'c36381e0d519a460550373ca24044a1576981636e25974db647b01f963595483',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

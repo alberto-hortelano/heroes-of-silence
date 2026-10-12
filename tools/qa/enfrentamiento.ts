@@ -132,12 +132,13 @@ import {
 import { allSpells } from '../../src/core/battle/spells.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { otroBando } from '../../src/core/battle/types.js';
-import { factionLineup, hasTrait } from '../../src/core/data.js';
+import { hasTrait } from '../../src/core/data.js';
 import { EQUIPO_BASE } from '../../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
 import { heroUnit } from '../../src/core/hero/hero.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
-import type { FactionId, Stack, UnitInfo } from '../../src/core/types.js';
+import type { Stack, UnitInfo } from '../../src/core/types.js';
+import { ejercitoDe, tropaDe } from './ejercitos.js';
 
 const args = process.argv.slice(2);
 const ESPEJO = args.includes('--espejo');
@@ -163,9 +164,6 @@ const PAREJAS = Number(
  */
 const PRIMO_DE_EJERCITOS = 15_485_863;
 const PRIMO_DE_DESPLIEGUE = 32_452_843;
-
-/** Efectivos por stack. Ancho a propósito: un banco de batallas clavadas no mide. */
-const EFECTIVOS = [5, 25] as const;
 
 type Tactica = (state: BattleState) => BattleAction;
 
@@ -233,19 +231,6 @@ const sinPasoParaCargar: Tactica = (state) => {
   }
 };
 
-/**
- * Cinco stacks sacados del catálogo de la facción. Siguen siendo stacks de N y
- * no individuos a propósito: este banco mide la TÁCTICA sobre el motor, y sus
- * cifras de referencia están tomadas con estos ejércitos.
- */
-function ejercitoDe(faction: FactionId, rng: Rng): Stack[] {
-  const lineup = factionLineup(faction);
-  return Array.from({ length: 5 }, () => ({
-    creature: rng.pick(lineup).id,
-    count: rng.int(EFECTIVOS[0], EFECTIVOS[1]),
-  }));
-}
-
 interface Resultado {
   readonly winner: Side;
   readonly rounds: number;
@@ -287,23 +272,6 @@ function jugar(state: BattleState, rng: Rng, tacticas: Record<Side, Tactica>): R
     applyAction(state, accion, rng);
   }
   throw new Error(`una batalla no ha terminado en ${MAX_JUGADAS} jugadas (ronda ${state.round})`);
-}
-
-/**
- * Con `--magia`, la tropa de una partida: individuos (`troopsAsStacks`, un
- * stack de 1 por cabeza), de 3 a 6 —con el héroe, los 7 que caben en un bando
- * (`createBattle`)—, sacados al azar de los niveles 1 a 4 de la facción. Así es
- * la tropa de los héroes de la IA en partida: muestreada turno a turno en 30
- * semillas (08-10-2026), 5 399 de 5 448 individuos son de nivel 1 a 4 y el
- * tamaño más común es 6.
- *
- * Con stacks de 5 a 25 una Flecha de 20 PV no se nota y una Prisa vale lo que
- * pegan veinte; en partida es al revés, y la cifra de un hechizo medida con
- * aquellos ejércitos no diría nada de su efecto en una partida.
- */
-function tropaDe(faction: FactionId, rng: Rng): Stack[] {
-  const lineup = factionLineup(faction).filter((c) => c.level <= 4);
-  return Array.from({ length: rng.int(3, 6) }, () => ({ creature: rng.pick(lineup).id, count: 1 }));
 }
 
 /** Los dos ejércitos de una pareja: el mismo par para las dos batallas. */

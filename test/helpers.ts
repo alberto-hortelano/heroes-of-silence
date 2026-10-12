@@ -13,6 +13,7 @@ import type { Senda } from '../src/client/render/escenario/sendas.js';
 import { SesionDeArena } from '../src/client/session.js';
 import {
   batallaDeArena,
+  type FuenteDeArena,
   type HojaDeArena,
   type MontajeDeArena,
   type UnidadDeArena,
@@ -1051,22 +1052,33 @@ export function peleaDeArena(
   return batallaDeArena(montajeDePrueba(izquierda, derecha, muralla), rng);
 }
 
-/** Una sesión de la arena con unidades del borrador, sin héroes, sin empezar. */
+/**
+ * Una sesión de la arena con unidades del borrador, sin héroes, sin empezar. Quién
+ * mueve va en cada puesto por comodidad, pero la sesión mueve cada bando entero:
+ * un bando con puestos de los dos es un error del test.
+ */
 export function sesionDeArena(
   izquierda: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   derecha: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   semilla: number,
   muralla: MurallaDeBatalla = SIN_MURALLA,
 ): SesionDeArena {
-  const lado = (puestos: readonly (PuestoDeLaPelea & { readonly ia: boolean })[]) => ({
-    puestos: puestos.map(({ unidad, escalera, ia }) => ({
-      fuente: { kind: 'borrador' as const, unidad, escalera: escalera === true },
+  const lado = (puestos: readonly (PuestoDeLaPelea & { readonly ia: boolean })[]) => {
+    const ia = puestos.every((p) => p.ia);
+    if (puestos.some((p) => p.ia !== ia)) throw new Error('la sesión mueve cada bando entero');
+    return {
+      unidades: puestos.map(({ unidad, escalera }) => delBorrador(unidad, escalera === true)),
+      heroe: null,
       ia,
-    })),
-    heroe: null,
-  });
+    };
+  };
   return new SesionDeArena(
     { izquierda: lado(izquierda), derecha: lado(derecha), reglas: REGLAS_DEL_JUEGO, muralla },
     semilla,
   );
+}
+
+/** Una unidad del borrador como fuente del montaje de la arena. */
+export function delBorrador(unidad: UnidadDeArena, escalera = false): FuenteDeArena {
+  return escalera ? { kind: 'borrador', unidad, escalera } : { kind: 'borrador', unidad };
 }

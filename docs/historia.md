@@ -3942,3 +3942,83 @@ un tramo corto con su puerta entre dos apoyos naturales. Trabajo en
   cambian. La cordillera sin cresta (×1,35), 6 de 34 → 4 de 35 en 1-40. Banco
   `24448339…`.
 
+
+## El tablero de batalla, simétrico (12-10-2026)
+
+«Haz el tablero de la pelea simétrico con una columna más.» El de fheroes2 es
+11 × 9 = 99 en odd-r, y con 11 en todas las filas no es su propio espejo: los
+centros de las pares van de 0 a 10 y los de las impares de 0,5 a 10,5, así que
+el eje de unas cae en 5 y el de otras en 5,5, y el despliegue del defensor
+(`BOARD_WIDTH − 1 − col`, el mismo en todas las filas) no era el del atacante
+dado la vuelta. **Regla nuestra**: 9 filas, las pares de 12 y las impares de 11
+= 104 casillas; es el mismo odd-r sin la casilla 12.ª de las impares, y el eje
+cae en 5,5 en todas.
+
+- **Un hecho, en `board.ts`**: `anchoDeFila`, `isInside`, `allHexes`, `espejo`,
+  `FORMA_DEL_TABLERO` (la frase que leen el contrato, el error de la muralla, el
+  borrador y el editor) y `tableroDelContrato` (lo que viaja en `board`, en vez
+  del `width: 11` escrito a mano). `BOARD_WIDTH` desaparece y el compilador
+  señaló cada uso. El índice es compacto (la posición en `allHexes`) y lanza
+  fuera del tablero: con el rectángulo, `(−1, 1)` daba el índice de `(10, 0)` y
+  la línea de tiro lo leía sin enterarse. Un guardia de `invariantes.test.ts`
+  no deja comparar una columna con 8 o más, y desde /simplify (12-10-2026) va
+  **por importación**: fuera de `board.ts` nadie importa `anchoDeFila`,
+  `ANCHO_DE_FILA_*` ni `BOARD_HEIGHT` (antes, una lista de lectores permitidos
+  —el editor, la proyección, la prosa del contrato— que podían volver a
+  escribir el doble bucle). El editor recorre `filasDelTablero()`, la proyección
+  centra con `EXTENSION_HORIZONTAL` y `desplazamientoDeFila`, el pie es
+  `ULTIMA_FILA`, y la prosa del contrato ya no repite «la columna 11 solo en las
+  pares»: lo dice `FORMA_DEL_TABLERO`. Visto morder con un `BOARD_HEIGHT` en una
+  importación de varias líneas y un `import * as`.
+- **El tiro**: el empujón `+1, +2, −3` que desempata el rayo elige un lado en
+  cada borde, y el espejo elige el otro, así que un tiro y su espejo podían
+  salir distintos. Ahora pasa si pasa con el empujón o con su espejo: generoso
+  con el tirador, decisión del usuario. Una casilla del rayo fuera del tablero
+  se salta. **Corregido en /simplify (12-10-2026)**: con `+1, +2, −3` y su
+  espejo `−3, +2, +1` solo era generoso en una de las tres familias de empate.
+  El empate entre dos vecinas lo decide el signo del empujón en el par de ejes
+  en que difieren (`q−s`, el borde vertical; `q−r` y `r−s`, los diagonales); el
+  espejo cambia `q` por `s`, así que da la vuelta siempre al de `q−s` y a los
+  otros dos solo si `r` queda entre `q` y `s`. Con el de antes los dos rayos
+  pisaban la misma casilla en los bordes diagonales, y en el tablero 4 264
+  tiros (las 2 132 + 2 132 casillas empatadas de esas dos familias) se tapaban
+  con una sola. Ahora el empujón es `+3, −1, −2` (espejo `−2, −1, +3`,
+  derivado), y un test busca los empates sin `board.ts` (distancia euclídea en
+  cúbicas: 1 188, 2 132 y 2 132) y comprueba que ninguno lo tape una sola
+  casilla; con el de antes, rojo en esos 4 264. Solo lo lee la muralla de la
+  arena (`hayLinea`): el banco no cambia.
+- **Fuera del tablero cuenta como tapado** (QA I1, decisión del usuario,
+  12-10-2026). «Se salta» dejaba disparar a través de un muro que cerraba
+  contra el marco: en un empate de borde con una casilla fuera (la (11, impar)
+  o la columna −1), el rayo que iba por fuera pasaba siempre, aunque la de
+  dentro fuera muro. Un fuerte en la esquina de abajo a la derecha —muros en
+  (5..10, 5) y (5, 6..8), al que andando no se entra desde (11,4)— se tiraba
+  de (11,4) a (11,6) y a (11,8), y una fila impar entera de muro la cruzaban
+  8 tiros (la 1) y 12 (la 3); en el tablero de 11 × 9, 0. Ahora la casilla de
+  fuera tapa ese rayo y decide la de dentro; dentro, sigue generoso. Solo cae
+  fuera en un empate (el tablero no tiene entrantes), y los 80 empates con una
+  casilla fuera son todos del borde vertical; sin nada en medio, los 10 816
+  tiros pasan igual.
+- **Murallas y enlaces de antes se leen tal cual**: ninguna casilla de 11 × 9
+  desaparece. Cambia el entorno: la salida de la derecha en las filas pares es
+  una columna más allá, y una muralla horizontal hasta la columna 10 deja
+  rendija en las pares; el editor lo dice (`ladosDeLaForma`). El `_comment`
+  del borrador (`COMENTARIO_DEL_BORRADOR_DE_MURALLAS`) lo contó un ciclo
+  («una forma dibujada en la rejilla de antes, de 11 en todas las filas, se lee
+  tal cual») y en /simplify salió de ahí: es historia, no formato del fichero.
+- **El asiento** (`tools/qa/asiento.ts`: el mismo ejército en los dos lados,
+  puesto en espejo, la misma IA, 2 000 batallas con `createRng`), medido sobre
+  HEAD `63bb1f0` y sobre el árbol nuevo: stacks de 5 a 25, gana el atacante
+  35,30 ± 2,09 % → **38,50 ± 2,13 %**; tropa de individuos de nivel 1-4,
+  44,95 ± 2,18 % → 44,10 ± 2,18 %. La geometría ya no inclina, pero el asiento
+  sigue valiendo: el defensor gana más, y no es el tablero (el orden de las
+  vecinas E, SE, SW, W, NW, NE desempata la IA hacia el este; el empate de
+  iniciativa). Se dice, no se arregla aquí. Desde /simplify la población sale
+  de `tools/qa/ejercitos.ts` (la de `enfrentamiento.ts`) y la batalla se juega
+  con `autoResolve`: las mismas cifras al dígito (770 y 882 de 2 000).
+- **Lo que movió**: banco `24448339…` → `c36381e0…`, 187 de 200 semillas
+  distintas, todas después de su primera batalla, 25 con otro ganador, 0 sin
+  terminar, duración 8 / 14 / 20 → 8 / 15 / 19. `enfrentamiento.ts`
+  50,40 ± 0,46 % → 50,90 ± 0,43 %. El paso del combate baja un 4 % cuando manda
+  el ancho (12,6 pasos en vez de 12,1), también en la base (`pasoDeLaBase`): un
+  adulto sigue midiendo lo mismo en las dos.

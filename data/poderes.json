@@ -1,0 +1,10 @@
+{
+  "_comment": "Poderes de unidad: lo que una unidad de la ARENA usa ella misma en su turno, en vez de golpear (docs/agents/2026-10-11-poderes-y-edicion-en-combate/). Solo la arena: las habilidades del juego siguen inertes. INVENTADO y PROVISIONAL: la cura de 4 PV y las 3 rondas de Bendecir son nuestras, no salen de ninguna fuente. habilidad = el nombre que lleva la unidad en su lista de habilidades: «Curar (X)» es la del catálogo (data/habilidades.json, sacado de NuevaJugabilidad.md); «Bendecir» NO está en el cuaderno, es nuestra (allí solo está «Bendecido», pasiva). hechizo = el hechizo de data/spells.json cuyo efecto aplica: con heal, el poder lleva cura (PV que repone, sin pasar de la vida del objetivo); con luck o speed, rondas (lo que dura; el mismo origen que el hechizo del héroe, así que se refrescan, no se suman). traen = los poderes con los que sale una hoja la primera vez.",
+  "poderes": [
+    { "id": "curar", "nombre": "Curar", "habilidad": "Curar (X)", "hechizo": "cure", "cura": 4 },
+    { "id": "bendecir", "nombre": "Bendecir", "habilidad": "Bendecir", "hechizo": "bless", "rondas": 3 }
+  ],
+  "traen": {
+    "templario-monje": ["curar", "bendecir"]
+  }
+}

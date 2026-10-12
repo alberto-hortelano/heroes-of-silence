@@ -33,20 +33,34 @@ import {
 } from './battle/battle.js';
 import type { StackEffect } from './battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
+import {
+  esDeCura,
+  HABILIDADES_CON_PODER,
+  habilidadesQueTrae,
+  poder,
+  poderDeHabilidad,
+} from './battle/poderes.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from './battle/reglas.js';
 import {
   allSpells,
+  delHeroe,
   duracionDeLoQueLanza,
-  effectOfSpell,
+  efectoDe,
   ordenDelLibro,
   spell,
   spellAmount,
 } from './battle/spells.js';
-import type { BattleState, Side } from './battle/types.js';
-import { allCreatures, CATALOGO_DE_HABILIDADES, creature, LIDERAZGO } from './data.js';
+import type {
+  BattleStack,
+  BattleState,
+  FichaEnPalabras,
+  Side,
+  TipoDeArena,
+} from './battle/types.js';
+import { allCreatures, CATALOGO_DE_HABILIDADES, creature, hexSize, LIDERAZGO } from './data.js';
 import { EQUIPO_BASE } from './hero/equipo.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from './hero/experiencia.js';
-import { CIFRAS_DEL_HEROE_INICIAL, heroUnit, maxMana } from './hero/hero.js';
+import { cifrasDelIndividuo, EXPERIENCIA_INICIAL_DE_HEROE } from './hero/experiencia.js';
+import { CIFRAS_DEL_HEROE_INICIAL, HERO_BODY, heroUnit, maxMana } from './hero/hero.js';
 import type { Rng } from './rng.js';
 import {
   CREATURE_TRAITS,
@@ -58,6 +72,7 @@ import {
   type Stack,
   type UnitInfo,
 } from './types.js';
+import { entero, lista, repetidoEn, texto } from './validar.js';
 
 /**
  * Las cinco facciones de las hojas. Es la misma lista que la de
@@ -150,13 +165,26 @@ export interface UnidadDeArena
   /** Rasgos del motor: estos SÍ actúan en la pelea. Siempre presente, aunque vacía. */
   readonly traits: readonly CreatureTrait[];
   /**
-   * Nombres de `data/habilidades.json`. **Inertes**: se guardan y la ficha dice
-   * «sin efecto todavía», porque no hay motor de habilidades.
+   * Nombres de `HABILIDADES_DE_LA_ARENA`: las de `data/habilidades.json` y las que
+   * dan un poder (`data/poderes.json`). Solo las de poder actúan en la pelea
+   * («Curar (X)», «Bendecir»: `unidadDeCombate` las pasa a `UnitInfo.poderes`);
+   * las demás son **inertes**, se guardan y la ficha dice «sin efecto todavía».
    */
   readonly habilidades: readonly string[];
   /** Precio en oro. No pelea; el juego lo necesitará. */
   readonly cost: { readonly gold: number };
 }
+
+/**
+ * Las habilidades que puede llevar una unidad de la arena: las del catálogo
+ * (`data/habilidades.json`, sacado del cuaderno) y las que dan un poder
+ * (`data/poderes.json`), sin repetir. «Bendecir» no está en el cuaderno: es de
+ * los poderes, y por eso no se escribe en el catálogo generado.
+ */
+export const HABILIDADES_DE_LA_ARENA: readonly string[] = [
+  ...CATALOGO_DE_HABILIDADES,
+  ...HABILIDADES_CON_PODER.filter((h) => !CATALOGO_DE_HABILIDADES.includes(h)),
+];
 
 /** Los campos que puede llevar una unidad del archivo: lo demás se rechaza diciéndolo. */
 const CAMPOS_DE_UNIDAD: readonly string[] = [
@@ -353,6 +381,8 @@ function direccionesValidas(valor: unknown, quien: string): readonly unknown[] |
 /**
  * La unidad con la que sale una hoja que todavía no está en el borrador. Los no
  * muertos salen con `undead`: un esqueleto vivo, con moral, era raro (M7 de QA).
+ * Las habilidades, las de sus poderes por defecto (`traen` de `data/poderes.json`:
+ * el monje templario, Curar y Bendecir).
  */
 export function unidadPorDefecto(
   hoja: Pick<HojaDeArena, 'id' | 'nombre' | 'faccion' | 'perfil' | 'casillas'>,
@@ -363,7 +393,7 @@ export function unidadPorDefecto(
     name: hoja.nombre,
     faction: hoja.faccion,
     casillas: hoja.casillas,
-    habilidades: [],
+    habilidades: habilidadesQueTrae(hoja.id),
     ...cifras,
     traits: hoja.faccion === 'no-muertos' ? [...cifras.traits, 'undead'] : cifras.traits,
   };
@@ -400,30 +430,6 @@ function casillasValidas(valor: unknown, quien: string): number {
 
 // ------------------------------------------------------------- validación
 
-function entero(valor: unknown, campo: string, quien: string, minimo: number): number {
-  // `NaN` es lo que da un campo vacío en la página, y `JSON.stringify(NaN)` diría
-  // «null», que nadie ha escrito (M2 de QA).
-  if (typeof valor === 'number' && Number.isNaN(valor)) {
-    throw new Error(`${quien}: ${campo} no tiene valor, el campo está vacío`);
-  }
-  if (typeof valor !== 'number' || !Number.isSafeInteger(valor)) {
-    throw new Error(
-      `${quien}: ${campo} tiene que ser un número entero, y es ${typeof valor === 'number' ? valor : JSON.stringify(valor)}`,
-    );
-  }
-  if (valor < minimo) {
-    throw new Error(`${quien}: ${campo} tiene que ser ${minimo} o más, y es ${valor}`);
-  }
-  return valor;
-}
-
-export function texto(valor: unknown, campo: string, quien: string): string {
-  if (typeof valor !== 'string' || valor.trim() === '') {
-    throw new Error(`${quien}: ${campo} tiene que ser un texto no vacío`);
-  }
-  return valor;
-}
-
 function deLaLista<T extends string>(
   valor: unknown,
   lista: readonly T[],
@@ -438,13 +444,8 @@ function deLaLista<T extends string>(
 }
 
 function sinRepetir(lista: readonly string[], campo: string, quien: string): void {
-  const repetido = lista.find((x, i) => lista.indexOf(x) !== i);
+  const repetido = repetidoEn(lista);
   if (repetido !== undefined) throw new Error(`${quien}: ${campo} "${repetido}" está dos veces`);
-}
-
-export function lista(valor: unknown, campo: string, quien: string): readonly unknown[] {
-  if (!Array.isArray(valor)) throw new Error(`${quien}: ${campo} tiene que ser una lista`);
-  return valor;
 }
 
 /**
@@ -464,16 +465,18 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
   if (!/^[a-z0-9-]+$/.test(id)) {
     throw new Error(`la unidad "${id}": el id es el de su hoja, en minúsculas y con guiones`);
   }
-  const quien = `la unidad "${id}"`;
   // Lo que no es un campo de la arena no se descarta callando: un `growth`
   // escrito a mano desaparecería en el siguiente «Guardar» (M14 de QA).
   const ajeno = Object.keys(u).find((k) => !CAMPOS_DE_UNIDAD.includes(k));
   if (ajeno !== undefined) {
     throw new Error(
-      `${quien}: «${ajeno}» no es un campo de la arena; valen ${CAMPOS_DE_UNIDAD.join(', ')}`,
+      `la unidad "${id}": «${ajeno}» no es un campo de la arena; valen ${CAMPOS_DE_UNIDAD.join(', ')}`,
     );
   }
-  const name = texto(u.name, 'el nombre', quien);
+  const name = texto(u.name, 'el nombre', `la unidad "${id}"`);
+  // Con el nombre ya leído, cada motivo dice el que ve la persona en la ficha
+  // («la unidad «Monje»»), no el id de su hoja (QA, vuelta 2).
+  const quien = `la unidad «${name}»`;
   const faction = deLaLista(u.faction, FACCIONES_DE_ARENA, 'la facción', quien);
   const level = entero(u.level, 'el nivel', quien, 1);
   const leadership = entero(u.leadership, 'el liderazgo', quien, 1);
@@ -496,7 +499,7 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
     deLaLista(t, CREATURE_TRAITS, 'el rasgo', quien),
   );
   const habilidades = lista(u.habilidades, 'las habilidades', quien).map((h) =>
-    deLaLista(h, CATALOGO_DE_HABILIDADES, 'la habilidad', quien),
+    deLaLista(h, HABILIDADES_DE_LA_ARENA, 'la habilidad', quien),
   );
   sinRepetir(traits, 'el rasgo', quien);
   sinRepetir(habilidades, 'la habilidad', quien);
@@ -504,7 +507,10 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
     throw new Error(`${quien}: el coste tiene que ser { gold }`);
   }
   const gold = entero((u.cost as Record<string, unknown>).gold, 'el coste en oro', quien, 0);
-  const shots = u.shots === undefined ? undefined : entero(u.shots, 'la munición', quien, 1);
+  // 0 disparos es cuerpo a cuerpo, como el campo de la ficha («0 = cuerpo a
+  // cuerpo»): se lee como sin munición, y lo negativo dice «0 o más» (M3 de QA).
+  const shots =
+    u.shots === undefined ? undefined : entero(u.shots, 'la munición', quien, 0) || undefined;
   const hexes = u.hexes === undefined ? undefined : entero(u.hexes, 'los hexes', quien, 1);
   if (hexes !== undefined && hexes > 2) {
     throw new Error(`${quien}: una unidad ocupa 1 hex o 2, y esta dice ${hexes}`);
@@ -536,7 +542,7 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
  * `experiencia.json`). Quien lea el archivo —una persona o un agente— se lo cree.
  */
 export const COMENTARIO_DEL_BORRADOR =
-  'BORRADOR de la arena (/arena/, pnpm arena): cifras de las unidades de las cinco facciones, INVENTADAS y provisionales, ajustadas a mano peleando. Lo escribe la página al pulsar «Guardar» y lo valida validarUnidadDeArena (src/core/arena.ts); una unidad que no valida se conserva tal cual. El juego NO lo lee. Los campos de cifras se llaman como en data/creatures.json, pero pasar una unidad al catálogo NO es copiarla; hay que añadir: (1) la faction del juego (hoy solo knight o necromancer; una facción nueva pide además su guarnición neutral en data/ciudades.json), (2) speed: el escalón de sus casillas (2 very_slow, 3 slow, 4 average, 5 fast, 6 very_fast, 7 ultra_fast), en lugar de casillas, (3) growth (crecimiento semanal de su morada), (4) upgradesTo si tiene mejora, (5) su fila en data/experiencia.json (una habilidad por nivel, del 2 al máximo: la lista habilidades de aquí es suelta y no dice a qué nivel va cada una), y quitar id de hoja, faction de la arena y habilidades. habilidades = nombres de data/habilidades.json, sin efecto todavía.';
+  'BORRADOR de la arena (/arena/, pnpm arena): cifras de las unidades de las cinco facciones, INVENTADAS y provisionales, ajustadas a mano peleando. Lo escribe la página al pulsar «Guardar» y lo valida validarUnidadDeArena (src/core/arena.ts); una unidad que no valida se conserva tal cual. El juego NO lo lee. Los campos de cifras se llaman como en data/creatures.json, pero pasar una unidad al catálogo NO es copiarla; hay que añadir: (1) la faction del juego (hoy solo knight o necromancer; una facción nueva pide además su guarnición neutral en data/ciudades.json), (2) speed: el escalón de sus casillas (2 very_slow, 3 slow, 4 average, 5 fast, 6 very_fast, 7 ultra_fast), en lugar de casillas, (3) growth (crecimiento semanal de su morada), (4) upgradesTo si tiene mejora, (5) su fila en data/experiencia.json (una habilidad por nivel, del 2 al máximo: la lista habilidades de aquí es suelta y no dice a qué nivel va cada una), y quitar id de hoja, faction de la arena y habilidades. habilidades = nombres de data/habilidades.json, sin efecto todavía, salvo las que dan un poder de data/poderes.json (Curar (X), Bendecir), que en la arena se usan en la pelea; Bendecir no está en data/habilidades.json.';
 
 /** Una unidad del archivo que no pasa la regla: se cuenta por qué y se guarda tal cual. */
 export interface UnidadSinValidar {
@@ -643,7 +649,11 @@ export function todasValidas<T>(r: {
 
 // ---------------------------------------------------------------- la pelea
 
-/** Lo que el motor juega de una unidad de arena: sus cifras, sin economía. */
+/**
+ * Lo que el motor juega de una unidad de arena: sus cifras, sin economía, y los
+ * poderes de sus habilidades (`poderDeHabilidad`); las demás habilidades no
+ * pelean. Sin poderes no lleva el campo: así sus cifras son las de siempre.
+ */
 function unidadDeCombate(u: UnidadDeArena): UnitInfo {
   // Fuera lo que no pelea; el resto son ya los campos de `UnitInfo`.
   const {
@@ -651,14 +661,24 @@ function unidadDeCombate(u: UnidadDeArena): UnitInfo {
     faction: _f,
     level,
     leadership: _l,
-    habilidades: _h,
+    habilidades,
     cost: _c,
     casillas,
     ...cifras
   } = u;
+  const poderes = habilidades.flatMap((h) => {
+    const p = poderDeHabilidad(h);
+    return p === null ? [] : [p];
+  });
   // Sin facción del juego: las cinco no son `FactionId`, y así tampoco suman ni
   // restan a la moral por diversidad. Su moral es 0 y no la decide nadie.
-  return { ...cifras, speed: escalonDeCasillas(casillas), faction: null, nivel: level };
+  return {
+    ...cifras,
+    speed: escalonDeCasillas(casillas),
+    faction: null,
+    nivel: level,
+    ...(poderes.length === 0 ? {} : { poderes }),
+  };
 }
 
 /**
@@ -876,7 +896,7 @@ export function heroeDeArena(datos: HeroeDeArena): HeroeDelBando {
 /**
  * Lo que la ficha del héroe enseña, ya con las reglas del motor: su cuerpo en el
  * tablero, el maná, cuántas rondas dura lo que lanza y lo que rinde cada hechizo
- * con su poder (`spellAmount`, `effectOfSpell`, las mismas que lanzan).
+ * con su poder (`spellAmount`, `efectoDe`, las mismas que lanzan).
  */
 export function fichaDeHeroeDeArena(
   datos: HeroeDeArena,
@@ -907,7 +927,7 @@ export function fichaDeHeroeDeArena(
         nombre: s.name,
         coste: s.cost,
         rinde: s.kind === 'damage' || s.kind === 'heal' ? spellAmount(s, mando) : null,
-        efecto: effectOfSpell(s, mando, reglas),
+        efecto: efectoDe(s, delHeroe(s, mando), reglas),
       })),
   };
 }
@@ -1014,13 +1034,359 @@ function bandoDeArena(lado: LadoDeArena, nombre: string): BattleSide {
  * hay, es del tablero (`battle/muralla.ts`).
  */
 export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
-  return crearBatallaConReglas(
+  const batalla = crearBatallaConReglas(
     bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo),
     bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo),
     rng,
     montaje.reglas,
     montaje.muralla ?? SIN_MURALLA,
   );
+  // De qué tipo sale cada puesto, en el orden de su `slot` (`tipoDelStack`).
+  const tipos = (l: LadoDeArena): readonly TipoDeArena[] => l.unidades.map(tipoDeLaFuente);
+  // Y la ficha de cada tipo y de cada héroe, con la que el retoque compara.
+  const fichas: Record<string, FichaEnPalabras> = {};
+  for (const lado of ['izquierda', 'derecha'] as const) {
+    for (const f of montaje[lado].unidades) {
+      fichas[claveDeFicha(tipoDeLaFuente(f))] = fichaEnPalabras(f);
+    }
+    const heroe = montaje[lado].heroe;
+    if (heroe !== null) fichas[claveDeFicha({ kind: 'heroe', lado })] = fichaDelHeroe(heroe);
+  }
+  return {
+    ...batalla,
+    tiposDeArena: {
+      [LADOS.izquierda.bando]: tipos(montaje.izquierda),
+      [LADOS.derecha.bando]: tipos(montaje.derecha),
+    } as Record<Side, readonly TipoDeArena[]>,
+    fichasDeArena: fichas,
+  };
+}
+
+/** El id del tipo de una fuente: el de la hoja del borrador o el de la criatura. */
+export function idDeLaFuente(f: FuenteDeArena): string {
+  return f.kind === 'borrador' ? f.unidad.id : f.id;
+}
+
+/**
+ * De qué sale un stack de una pelea de la arena: una hoja o una criatura del
+ * catálogo (lo que anotó `batallaDeArena`), o el héroe de un lado. Es lo que se
+ * edita al pulsar «Editar» en su fila, y lo que cambia `retocarEnBatalla`. Lanza
+ * con un stack que no sale del montaje: no es una pelea de la arena.
+ */
+export function tipoDelStack(
+  state: BattleState,
+  s: BattleStack,
+): TipoDeArena | { readonly kind: 'heroe'; readonly lado: Lado } {
+  if (s.origen.kind === 'heroe') return { kind: 'heroe', lado: ladoDe(s.side) };
+  const tipo = state.tiposDeArena?.[s.side][s.slot];
+  if (tipo === undefined) {
+    throw new Error(`${s.id} no sale de ningún puesto del montaje: no es una pelea de la arena`);
+  }
+  return tipo;
+}
+
+// ------------------------------------------------------------- la ficha en palabras
+
+/** Qué hace cada rasgo del motor, dicho en corto: la casilla de la ficha y el parte. */
+export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
+  undead: 'no-muerto',
+  flying: 'vuela',
+  no_retaliation: 'sin contraataque',
+  double_attack: 'ataque doble',
+  double_shot: 'disparo doble',
+  life_drain: 'drena vida',
+  splash_shot: 'disparo con salpicadura',
+  charge: 'carga',
+  curse_on_hit: 'maldice al golpear',
+  bane_undead: 'azote de no-muertos',
+  fear: 'terror',
+  escalar: 'escala murallas',
+};
+
+/**
+ * Cómo se dice una habilidad: la que da un poder de cura, con lo que cura en vez
+ * de la X del cuaderno («Curar (4 PV)»; M3 de QA: el chip decía «Curar (X)»); la
+ * de otro poder, por su nombre; las demás, tal cual. El valor guardado sigue
+ * siendo el nombre del cuaderno.
+ */
+export function nombreDeHabilidad(h: string): string {
+  const id = poderDeHabilidad(h);
+  if (id === null) return h;
+  const p = poder(id);
+  return esDeCura(p) ? `${p.nombre} (${p.lanzador.cantidad} PV)` : p.nombre;
+}
+
+/** La clave de una ficha en `BattleState.fichasDeArena`: un tipo del montaje o el héroe de un lado. */
+function claveDeFicha(t: TipoDeArena | { readonly kind: 'heroe'; readonly lado: Lado }): string {
+  return t.kind === 'heroe' ? `heroe:${t.lado}` : `${t.kind}:${t.id}`;
+}
+
+function tipoDeLaFuente(f: FuenteDeArena): TipoDeArena {
+  return { kind: f.kind === 'borrador' ? 'hoja' : 'catalogo', id: idDeLaFuente(f) };
+}
+
+/**
+ * La ficha de una fuente en palabras, campo a campo y en el orden de la ficha:
+ * lo que escribe la persona. La de una hoja lleva también lo que no pelea
+ * (liderazgo, coste, habilidades sin motor), porque también se edita a media
+ * pelea y el parte tiene que decirlo (N1 de QA). La de una criatura del catálogo,
+ * sus cifras con la prueba encima: lo que su ficha deja tocar. Lanza con lo que
+ * no valida, como el montaje.
+ */
+function fichaEnPalabras(f: FuenteDeArena): FichaEnPalabras {
+  const rasgos = (ts: readonly CreatureTrait[] | undefined) =>
+    (ts ?? []).map((t) => NOMBRE_DE_RASGO[t]);
+  if (f.kind === 'borrador') {
+    const u = validarUnidadDeArena(f.unidad);
+    return {
+      nombre: u.name,
+      facción: NOMBRE_DE_FACCION_DE_ARENA[u.faction],
+      nivel: `${u.level}`,
+      liderazgo: `${u.leadership}`,
+      ataque: `${u.attack}`,
+      defensa: `${u.defense}`,
+      daño: u.damage.join('-'),
+      vida: `${u.hp}`,
+      casillas: `${u.casillas}`,
+      disparos: `${u.shots ?? 0}`,
+      rasgos: rasgos(u.traits),
+      habilidades: u.habilidades.map(nombreDeHabilidad),
+      'coste (oro)': `${u.cost.gold}`,
+    };
+  }
+  const c = unidadDeLaFuente(f);
+  return {
+    ataque: `${c.attack}`,
+    defensa: `${c.defense}`,
+    daño: c.damage.join('-'),
+    vida: `${c.hp}`,
+    casillas: `${SPEED_TO_HEXES[c.speed]}`,
+    disparos: `${c.shots ?? 0}`,
+    rasgos: rasgos(c.traits),
+  };
+}
+
+/**
+ * La ficha de un héroe en palabras: las cifras que se escriben en ella, no las de
+ * su cuerpo, que llevan el equipo base (N2 de QA: «ataque 2 → 9» salía «5 → 12»),
+ * y el libro por los nombres que enseña la página («Prisa», no `haste`).
+ */
+function fichaDelHeroe(datos: HeroeDeArena): FichaEnPalabras {
+  const h = validarHeroeDeArena(datos);
+  return {
+    nombre: h.nombre,
+    ataque: `${h.ataque}`,
+    defensa: `${h.defensa}`,
+    poder: `${h.poder}`,
+    conocimiento: `${h.conocimiento}`,
+    hechizos: h.hechizos
+      .map(spell)
+      .sort(ordenDelLibro)
+      .map((x) => x.name),
+  };
+}
+
+/**
+ * Qué cambia de una ficha a otra, una entrada por campo y en palabras: una cifra,
+ * «ataque 3 → 10»; una lista, solo lo que entra y lo que sale, «hechizos: −
+ * Prisa» (N2 de QA: salía la lista entera, dos veces y con los ids). Vacío si no
+ * cambia nada: ese retoque no escribe nada (N1 de QA).
+ */
+export function cambiosDeLaFicha(antes: FichaEnPalabras, despues: FichaEnPalabras): string[] {
+  const c: string[] = [];
+  for (const campo of new Set([...Object.keys(antes), ...Object.keys(despues)])) {
+    const a = antes[campo] ?? '';
+    const b = despues[campo] ?? '';
+    if (typeof a === 'string' && typeof b === 'string') {
+      if (a !== b) c.push(`${campo} ${a} → ${b}`);
+      continue;
+    }
+    const xs = typeof a === 'string' ? [] : a;
+    const ys = typeof b === 'string' ? [] : b;
+    const entra = ys.filter((y) => !xs.includes(y)).map((y) => `+ ${y}`);
+    const sale = xs.filter((x) => !ys.includes(x)).map((x) => `− ${x}`);
+    if (entra.length + sale.length > 0) c.push(`${campo}: ${[...entra, ...sale].join(', ')}`);
+  }
+  return c;
+}
+
+// ------------------------------------------------------------- retocar en la pelea
+
+/**
+ * Un cambio de cifras a media pelea (decisión del usuario, 11-10-2026: «que
+ * pueda modificar los personajes durante el combate»): las de un TIPO —una hoja
+ * del borrador o una criatura del catálogo con su prueba, como en la ficha del
+ * montaje— o las del héroe de un lado.
+ */
+export type RetoqueDeArena =
+  | { readonly kind: 'tipo'; readonly fuente: FuenteDeArena }
+  | { readonly kind: 'heroe'; readonly lado: Lado; readonly datos: HeroeDeArena };
+
+/**
+ * Aplica el retoque a la batalla en curso y devuelve `null`, o devuelve por qué
+ * no entra sin haber tocado nada. La ÚNICA redacción: la sesión de la arena la
+ * enseña en el editor y, si no entra, no cambia el borrador.
+ *
+ * Un tipo cambia en TODOS sus stacks, vivos o muertos y de los dos bandos —es lo
+ * que hace la ficha del montaje con la pelea siguiente—, y nunca el héroe aunque
+ * su figura sea la misma hoja. Cada stack se sustituye entero en `state.stacks`
+ * con las cifras nuevas, sin tocar nunca el objeto de `unit`, que puede ser el del
+ * catálogo. **Lo gastado sigue gastado**: la herida, los disparos y el maná que
+ * ya se fueron se restan de las cifras nuevas (`topHp = máx(1, PV nuevos −
+ * herida)`): subir la vida no cura, y bajarla no mata. La moral no se recalcula y
+ * la velocidad nueva cuenta en la cola desde la ronda siguiente, como la Prisa a
+ * media ronda. Lo que no se cambia a media pelea son las casillas que ocupa y la
+ * figura del héroe: eso, en el montaje. Lo que entra deja un `retoque` en el
+ * registro.
+ */
+export function retocarEnBatalla(state: BattleState, r: RetoqueDeArena): string | null {
+  if (state.finished !== null) {
+    return 'la batalla ya ha terminado; el cambio vale para la pelea siguiente';
+  }
+  // Las cifras nuevas salen de la misma validación que el montaje: lo que no
+  // valida es el motivo.
+  switch (r.kind) {
+    case 'tipo': {
+      const nuevo = oElMotivo(() => ({
+        unit: unidadDeLaFuente(r.fuente),
+        ficha: fichaEnPalabras(r.fuente),
+      }));
+      return 'motivo' in nuevo
+        ? nuevo.motivo
+        : retocarElTipo(state, r.fuente, nuevo.valor.unit, nuevo.valor.ficha);
+    }
+    case 'heroe': {
+      const nuevo = oElMotivo(() => ({
+        heroe: heroeDeArena(r.datos),
+        ficha: fichaDelHeroe(r.datos),
+      }));
+      return 'motivo' in nuevo
+        ? nuevo.motivo
+        : retocarElHeroe(state, r.lado, nuevo.valor.heroe, nuevo.valor.ficha);
+    }
+  }
+}
+
+/** Lo que da `f`, o el mensaje con el que lanza. */
+function oElMotivo<T>(f: () => T): { readonly valor: T } | { readonly motivo: string } {
+  try {
+    return { valor: f() };
+  } catch (err) {
+    return { motivo: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * La ficha de antes de `clave`, que puso el montaje. Sin ella la batalla no la
+ * montó `batallaDeArena`: el parte no sabría qué cambió, y se dice.
+ */
+function fichaDeAntes(state: BattleState, clave: string): FichaEnPalabras {
+  const ficha = state.fichasDeArena?.[clave];
+  if (ficha === undefined) {
+    throw new Error(`la pelea no trae la ficha de ${clave}: no la montó la arena`);
+  }
+  return ficha;
+}
+
+function retocarElTipo(
+  state: BattleState,
+  fuente: FuenteDeArena,
+  unit: UnitInfo,
+  ficha: FichaEnPalabras,
+): string | null {
+  const tipo = tipoDeLaFuente(fuente);
+  const suyos = state.stacks.filter((s) => {
+    const t = tipoDelStack(state, s);
+    return t.kind === tipo.kind && t.id === tipo.id;
+  });
+  if (suyos.length === 0) return `${unit.name} no está en esta pelea`;
+  if (suyos.some((s) => hexSize(s.unit) !== hexSize(unit))) {
+    return `las casillas que ocupa ${unit.name} no se cambian a media pelea: eso, en el montaje`;
+  }
+  const clave = claveDeFicha(tipo);
+  const cambios = cambiosDeLaFicha(fichaDeAntes(state, clave), ficha);
+  // La ficha manda: si no cambia, tampoco cambia ninguna cifra de la pelea, y
+  // no se escribe nada (N1 de QA: «ataque 3 → 3» dejaba una línea y «Cambiado»).
+  if (cambios.length === 0) return null;
+  for (const s of suyos) {
+    const veterania = s.origen.kind === 'heroe' ? null : s.origen.veterania;
+    conCifrasNuevas(state, s, cifrasDelIndividuo(unit, veterania));
+  }
+  (state.fichasDeArena as Record<string, FichaEnPalabras>)[clave] = ficha;
+  state.log.push({ kind: 'retoque', nombre: unit.name, stacks: suyos.map((s) => s.id), cambios });
+  return null;
+}
+
+function retocarElHeroe(
+  state: BattleState,
+  lado: Lado,
+  nuevo: HeroeDelBando,
+  ficha: FichaEnPalabras,
+): string | null {
+  const bando = LADOS[lado].bando;
+  const antes = state.heroes[bando];
+  const cuerpo = state.stacks.find((s) => s.side === bando && s.origen.kind === 'heroe');
+  if (antes === null || cuerpo === undefined) {
+    return `el bando ${LADOS[lado].adjetivo} no lleva héroe en esta pelea`;
+  }
+  if ((nuevo.figura ?? HERO_BODY) !== cuerpo.body) {
+    return 'la figura del héroe no se cambia a media pelea: eso, en el montaje';
+  }
+  const clave = claveDeFicha({ kind: 'heroe', lado });
+  const cambios = cambiosDeLaFicha(fichaDeAntes(state, clave), ficha);
+  if (cambios.length === 0) return null;
+  conCifrasNuevas(state, cuerpo, nuevo.cuerpo);
+  // El maná, como la herida: lo que el Conocimiento nuevo no deja restar se debe.
+  const gastado = maxMana(antes) - antes.mana + (antes.manaGastadoDeMas ?? 0);
+  const mana = Math.max(0, nuevo.mando.mana - gastado);
+  const deMas = gastado - (nuevo.mando.mana - mana);
+  state.heroes[bando] = {
+    ...nuevo.mando,
+    mana,
+    castThisRound: antes.castThisRound,
+    ...(deMas === 0 ? {} : { manaGastadoDeMas: deMas }),
+  };
+  (state.fichasDeArena as Record<string, FichaEnPalabras>)[clave] = ficha;
+  state.log.push({ kind: 'retoque', nombre: nuevo.mando.name, stacks: [cuerpo.id], cambios });
+  return null;
+}
+
+/**
+ * Sustituye `s` en la batalla por el mismo stack con las cifras `unit`, con lo
+ * gastado restado (`retocarEnBatalla`). Un stack nuevo, no el viejo retocado:
+ * `unit` es de solo lectura, y nadie guarda un stack de una jugada a otra (se
+ * buscan por id).
+ *
+ * Lo gastado es lo que se ve (`hp − topHp`, `shots − shotsLeft`) más lo que se
+ * debía de un retoque anterior (`gastadoDeMas`); lo que las cifras nuevas no
+ * dejan restar —la vida no baja de 1, la munición no baja de 0— se vuelve a
+ * deber. Calculado solo desde las cifras de ese momento, un arquero a 9 de 12
+ * puesto a 0 y vuelto a 12 volvía con 12 (N3 de QA). Curar mientras se debe cura
+ * la herida de verdad: lo curado sube `topHp` y la deuda se queda.
+ */
+function conCifrasNuevas(state: BattleState, s: BattleStack, unit: UnitInfo): void {
+  const i = state.stacks.indexOf(s);
+  if (i < 0) throw new Error(`${s.id} no está en esta batalla`);
+  const { gastadoDeMas: debe, ...resto } = s;
+  if (s.count === 0) {
+    state.stacks[i] = { ...s, unit };
+    return;
+  }
+  const herida = s.unit.hp - s.topHp + (debe?.herida ?? 0);
+  const disparados = (s.unit.shots ?? 0) - s.shotsLeft + (debe?.disparos ?? 0);
+  const topHp = Math.max(1, unit.hp - herida);
+  const shotsLeft = Math.max(0, (unit.shots ?? 0) - disparados);
+  const deMas = {
+    herida: herida - (unit.hp - topHp),
+    disparos: disparados - ((unit.shots ?? 0) - shotsLeft),
+  };
+  state.stacks[i] = {
+    ...resto,
+    unit,
+    topHp,
+    shotsLeft,
+    ...(deMas.herida === 0 && deMas.disparos === 0 ? {} : { gastadoDeMas: deMas }),
+  };
 }
 
 /**
@@ -1084,17 +1450,26 @@ export function finalDeArena(battle: BattleState): {
 /**
  * Un puesto del montaje tal como va en el enlace: una hoja (sus cifras van en
  * `MontajeDelEnlace.unidades`) o una criatura del catálogo (su prueba, si la
- * tiene, en `pruebas`), quién la mueve y si lleva escalera.
+ * tiene, en `pruebas`), y si lleva escalera.
  */
 export type PuestoDelEnlace = (
   | { readonly kind: 'hoja'; readonly hoja: string }
   | { readonly kind: 'catalogo'; readonly id: string }
-) & { readonly ia: boolean; readonly escalera: boolean };
+) & { readonly escalera: boolean };
 
+/** Un lado del enlace: quién lo mueve, entero —la persona o la IA—, sus puestos y su héroe. */
 export interface LadoDelEnlace {
+  readonly ia: boolean;
   readonly puestos: readonly PuestoDelEnlace[];
-  readonly heroe: { readonly datos: HeroeDeArena; readonly ia: boolean } | null;
+  readonly heroe: HeroeDeArena | null;
 }
+
+/**
+ * Quién mueve cada bando si nada lo dice: la izquierda, la persona; la derecha,
+ * la IA. Lo leen la página al abrirse y un enlace de antes de la versión 3 con un
+ * bando sin nadie.
+ */
+export const IA_POR_DEFECTO: Readonly<Record<Lado, boolean>> = { izquierda: false, derecha: true };
 
 /**
  * El montaje entero que viaja en la URL de la arena (`?montaje=`), con la
@@ -1131,15 +1506,18 @@ export function unaVezEnLaURL(valores: readonly string[], nombre: string): strin
 
 /**
  * La versión del formato: un enlace de otra versión se rechaza diciéndolo, no se
- * adivina. La 2 trae la muralla y la escalera de cada puesto; la 1, de antes de
- * juntar la arena con la muralla, se sigue leyendo como lo que era: sin muralla
- * y sin escaleras.
+ * adivina. La 3 dice quién mueve cada bando, entero (`LadoDelEnlace.ia`). La 2
+ * traía la muralla y la escalera de cada puesto, y quién movía cada puesto y el
+ * héroe por separado; la 1, de antes de juntar la arena con la muralla, ni
+ * muralla ni escaleras. Las dos se siguen leyendo: el bando va a la IA si iba
+ * todo él, y si iba repartido se dice (`MontajeLeido.aviso`).
  */
-export const VERSION_DEL_ENLACE = 2;
+export const VERSION_DEL_ENLACE = 3;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'pruebas', 'izquierda', 'derecha', 'muralla'];
 const CAMPOS_DEL_ENLACE_1 = ['v', 'unidades', 'pruebas', 'izquierda', 'derecha'];
-const CAMPOS_DEL_LADO = ['puestos', 'heroe'];
+const CAMPOS_DEL_LADO = ['ia', 'puestos', 'heroe'];
+const CAMPOS_DEL_LADO_ANTIGUO = ['puestos', 'heroe'];
 const CAMPOS_DEL_HEROE = [
   'nombre',
   'figura',
@@ -1148,8 +1526,13 @@ const CAMPOS_DEL_HEROE = [
   'poder',
   'conocimiento',
   'hechizos',
-  'ia',
 ];
+
+/**
+ * Un enlace leído: su montaje y, si es de antes de la versión 3 y repartía algún
+ * bando entre la persona y la IA, el aviso de cómo se ha leído.
+ */
+export type MontajeLeido = MontajeDelEnlace & { readonly aviso?: string };
 
 /** Un objeto con solo esos campos, o se lanza diciendo cuál sobra o falta. */
 function objetoCon(
@@ -1180,7 +1563,7 @@ function siONo(valor: unknown, quien: string, campo = 'ia'): boolean {
  * hechizo que no existen lanza diciendo qué, y la página no monta nada a medias.
  * Que las hojas tengan arte lo mira la página, que es quien las tiene.
  */
-export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
+export function montajeDeLaURL(textoDelEnlace: string): MontajeLeido {
   let crudo: unknown;
   try {
     crudo = JSON.parse(textoDelEnlace);
@@ -1193,12 +1576,12 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
     typeof crudo === 'object' && crudo !== null && 'v' in crudo
       ? (crudo as { v: unknown }).v
       : null;
-  if (version !== VERSION_DEL_ENLACE && version !== 1) {
+  if (version !== VERSION_DEL_ENLACE && version !== 1 && version !== 2) {
     throw new Error(
-      `el montaje del enlace es de la versión ${JSON.stringify(version)} y esta arena lee la 1 y la ${VERSION_DEL_ENLACE}`,
+      `el montaje del enlace es de la versión ${JSON.stringify(version)} y esta arena lee de la 1 a la ${VERSION_DEL_ENLACE}`,
     );
   }
-  const conMuralla = version === VERSION_DEL_ENLACE;
+  const conMuralla = version !== 1;
   const o = objetoCon(
     crudo,
     conMuralla ? CAMPOS_DEL_ENLACE : CAMPOS_DEL_ENLACE_1,
@@ -1225,8 +1608,12 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
     cifrasDeCatalogoEnLaArena(creature(id).id, cambios as CambiosDeCatalogo);
     pruebas[id] = cambios as CambiosDeCatalogo;
   }
-  const izquierda = ladoDelEnlace(o.izquierda, 'izquierda', conMuralla);
-  const derecha = ladoDelEnlace(o.derecha, 'derecha', conMuralla);
+  const leidos = {
+    izquierda: ladoDelEnlace(o.izquierda, 'izquierda', version),
+    derecha: ladoDelEnlace(o.derecha, 'derecha', version),
+  };
+  const { lado: izquierda } = leidos.izquierda;
+  const { lado: derecha } = leidos.derecha;
   let muralla: MurallaDeBatalla | null = null;
   if (conMuralla && o.muralla !== null) {
     try {
@@ -1273,8 +1660,18 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
       }
     });
   }
-  return montaje;
+  const repartidos = LADOS_EN_ORDEN.filter((l) => leidos[l].repartido);
+  if (repartidos.length === 0) return montaje;
+  const aviso = repartidos
+    .map(
+      (l) =>
+        `El enlace repartía el bando ${LADOS[l].adjetivo} entre tú y la IA: ahora lo mueves tú entero.`,
+    )
+    .join(' ');
+  return { ...montaje, aviso };
 }
+
+const LADOS_EN_ORDEN = ['izquierda', 'derecha'] as const satisfies readonly Lado[];
 
 /**
  * El montaje con el que pelea un enlace ya leído, con estas reglas: las fuentes
@@ -1296,7 +1693,7 @@ export function montajeDeArenaDelEnlace(
       }
       return { kind: 'catalogo', id: p.id, cambios: m.pruebas[p.id] ?? null, escalera: p.escalera };
     }),
-    heroe: l.heroe?.datos ?? null,
+    heroe: l.heroe,
   });
   return {
     izquierda: lado(m.izquierda),
@@ -1306,49 +1703,52 @@ export function montajeDeArenaDelEnlace(
   };
 }
 
-function ladoDelEnlace(valor: unknown, lado: Lado, conEscalera: boolean): LadoDelEnlace {
+/**
+ * Un lado del enlace, comprobado. Hasta la versión 2 quién movía iba en cada
+ * puesto y en el héroe: el lado va a la IA si iba todo él a la IA (sin nadie, el
+ * de por defecto), y `repartido` dice si iba mezclado.
+ */
+function ladoDelEnlace(
+  valor: unknown,
+  lado: Lado,
+  version: 1 | 2 | 3,
+): { readonly lado: LadoDelEnlace; readonly repartido: boolean } {
   const quien = `el bando ${LADOS[lado].adjetivo} del enlace`;
   const delHeroe = `el héroe del bando ${LADOS[lado].adjetivo} del enlace`;
-  const o = objetoCon(valor, CAMPOS_DEL_LADO, quien);
+  const antiguo = version < 3;
+  const o = objetoCon(valor, antiguo ? CAMPOS_DEL_LADO_ANTIGUO : CAMPOS_DEL_LADO, quien);
+  const quienMueve: boolean[] = [];
   const puestos = lista(o.puestos, 'los puestos', quien).map((crudo, i): PuestoDelEnlace => {
     const q = `${quien}, puesto ${i + 1}`;
-    const extra = conEscalera ? ['ia', 'escalera'] : ['ia'];
-    const escalera = (p: Record<string, unknown>): boolean =>
-      conEscalera ? siONo(p.escalera, q, 'escalera') : false;
+    const extra = [...(antiguo ? ['ia'] : []), ...(version === 1 ? [] : ['escalera'])];
+    const leer = (p: Record<string, unknown>): { readonly escalera: boolean } => {
+      if (antiguo) quienMueve.push(siONo(p.ia, q));
+      return { escalera: version === 1 ? false : siONo(p.escalera, q, 'escalera') };
+    };
     if (typeof crudo === 'object' && crudo !== null && 'hoja' in crudo) {
       const p = objetoCon(crudo, ['hoja', ...extra], q);
-      return {
-        kind: 'hoja',
-        hoja: texto(p.hoja, 'la hoja', q),
-        ia: siONo(p.ia, q),
-        escalera: escalera(p),
-      };
+      return { kind: 'hoja', hoja: texto(p.hoja, 'la hoja', q), ...leer(p) };
     }
     const p = objetoCon(crudo, ['criatura', ...extra], q);
-    return {
-      kind: 'catalogo',
-      id: creature(texto(p.criatura, 'la criatura', q)).id,
-      ia: siONo(p.ia, q),
-      escalera: escalera(p),
-    };
+    return { kind: 'catalogo', id: creature(texto(p.criatura, 'la criatura', q)).id, ...leer(p) };
   });
-  let heroe: LadoDelEnlace['heroe'] = null;
+  let heroe: HeroeDeArena | null = null;
   if (o.heroe !== null) {
-    const h = objetoCon(o.heroe, CAMPOS_DEL_HEROE, delHeroe);
+    const h = objetoCon(o.heroe, [...CAMPOS_DEL_HEROE, ...(antiguo ? ['ia'] : [])], delHeroe);
     if (h.figura !== null && typeof h.figura !== 'string') {
       throw new Error(`${delHeroe}: la figura tiene que ser el id de una hoja o null`);
     }
     const { ia, ...datos } = h;
-    heroe = {
-      datos: validarHeroeDeArena(datos as unknown as HeroeDeArena),
-      ia: siONo(ia, delHeroe),
-    };
+    if (antiguo) quienMueve.push(siONo(ia, delHeroe));
+    heroe = validarHeroeDeArena(datos as unknown as HeroeDeArena);
   }
   const cuantos = puestos.length + (heroe === null ? 0 : 1);
   if (cuantos > LIDERAZGO.maxPorBando) {
     throw new Error(`${quien} lleva ${cuantos} y caben ${LIDERAZGO.maxPorBando}`);
   }
-  return { puestos, heroe };
+  if (!antiguo) return { lado: { ia: siONo(o.ia, quien), puestos, heroe }, repartido: false };
+  const ia = quienMueve.length === 0 ? IA_POR_DEFECTO[lado] : quienMueve.every((x) => x);
+  return { lado: { ia, puestos, heroe }, repartido: new Set(quienMueve).size > 1 };
 }
 
 /**
@@ -1357,17 +1757,19 @@ function ladoDelEnlace(valor: unknown, lado: Lado, conEscalera: boolean): LadoDe
  * el texto sale con el orden de campos de los validadores, el mismo cada vez.
  */
 export function montajeALaURL(m: MontajeDelEnlace): string {
-  return textoDelMontaje(montajeDeLaURL(textoDelMontaje(m)));
+  const { aviso: _dicho, ...leido } = montajeDeLaURL(textoDelMontaje(m));
+  return textoDelMontaje(leido);
 }
 
 function textoDelMontaje(m: MontajeDelEnlace): string {
   const lado = (l: LadoDelEnlace) => ({
+    ia: l.ia,
     puestos: l.puestos.map((p) =>
       p.kind === 'hoja'
-        ? { hoja: p.hoja, ia: p.ia, escalera: p.escalera }
-        : { criatura: p.id, ia: p.ia, escalera: p.escalera },
+        ? { hoja: p.hoja, escalera: p.escalera }
+        : { criatura: p.id, escalera: p.escalera },
     ),
-    heroe: l.heroe === null ? null : { ...l.heroe.datos, ia: l.heroe.ia },
+    heroe: l.heroe,
   });
   return JSON.stringify({
     v: VERSION_DEL_ENLACE,

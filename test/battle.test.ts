@@ -42,6 +42,7 @@ import {
   effectTotal,
   tickEffects,
 } from '../src/core/battle/effects.js';
+import { validarMuralla } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type {
   BattleAction,
@@ -49,6 +50,7 @@ import type {
   BattleHero,
   BattleStack,
   BattleState,
+  Side,
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
@@ -316,8 +318,9 @@ describe('despliegue inicial', () => {
       createRng(1),
     );
     expect(stackById(state, 'attacker-0').hex.col).toBe(0);
-    // El dragón óseo ocupa 2 hexes: arranca en la 9 para que su cola quepa.
-    expect(stackById(state, 'defender-0').hex.col).toBe(9);
+    // El dragón óseo ocupa 2 hexes: sale en la fila del medio (la 4, par) con
+    // la cabeza en la 10 y la cola en la 11, el espejo de un grande atacante.
+    expect(stackById(state, 'defender-0').hex).toEqual({ col: 10, row: 4 });
   });
 
   it('empieza en la ronda 1 con un stack activo', () => {
@@ -625,12 +628,18 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // centro hacia fuera— en vez de 0, 2, 4, 6 de las filas de HoMM2. Cambian
     // las casillas libres y los ataques posibles; el orden en que se listan es
     // la misma regla de antes, y por eso este test sigue diciendo algo.
+    //
+    // Y otra vez con el tablero de filas de 12 y 11 (11-10-2026): los
+    // defensores de las filas pares salen en la columna 11 —(11,4) y (11,2)— y
+    // los de las impares en la 10, así que (10,4), (10,2) y (10,1) quedan libres.
     expect(legalActions(batallaDeCuatroEnemigos())).toEqual([
       { type: 'defend' },
       { type: 'wait' },
       { type: 'move', to: { col: 9, row: 4 } },
+      { type: 'move', to: { col: 10, row: 4 } },
       { type: 'move', to: { col: 8, row: 3 } },
       { type: 'move', to: { col: 9, row: 2 } },
+      { type: 'move', to: { col: 10, row: 2 } },
       { type: 'move', to: { col: 8, row: 5 } },
       { type: 'move', to: { col: 9, row: 5 } },
       { type: 'move', to: { col: 8, row: 4 } },
@@ -638,14 +647,15 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
       { type: 'move', to: { col: 8, row: 2 } },
       { type: 'move', to: { col: 8, row: 1 } },
       { type: 'move', to: { col: 9, row: 1 } },
-      { type: 'attack', target: 'defender-0' },
-      { type: 'attack', target: 'defender-0', from: { col: 9, row: 4 } },
-      { type: 'attack', target: 'defender-0', from: { col: 9, row: 5 } },
+      { type: 'move', to: { col: 10, row: 1 } },
+      { type: 'attack', target: 'defender-0', from: { col: 10, row: 4 } },
       { type: 'attack', target: 'defender-1' },
+      { type: 'attack', target: 'defender-1', from: { col: 10, row: 4 } },
+      { type: 'attack', target: 'defender-1', from: { col: 10, row: 2 } },
+      { type: 'attack', target: 'defender-2', from: { col: 10, row: 4 } },
       { type: 'attack', target: 'defender-2', from: { col: 9, row: 5 } },
-      { type: 'attack', target: 'defender-3' },
-      { type: 'attack', target: 'defender-3', from: { col: 9, row: 2 } },
-      { type: 'attack', target: 'defender-3', from: { col: 9, row: 1 } },
+      { type: 'attack', target: 'defender-3', from: { col: 10, row: 2 } },
+      { type: 'attack', target: 'defender-3', from: { col: 10, row: 1 } },
       // Al final, siempre: con el turno en tramos (2026-10-02) cerrar a mano es
       // una acción más, y al final no mueve lo que encuentra un `find` de la IA.
       { type: 'end_turn' },
@@ -2575,7 +2585,64 @@ describe('despliegue de una tropa de individuos', () => {
     );
     const atacantes = state.stacks.filter((s) => s.side === 'attacker');
     expect(atacantes.map((s) => s.hex)).toEqual([4, 3, 5, 2, 6].map((row) => ({ col: 0, row })));
-    expect(stackById(state, 'defender-0').hex).toEqual({ col: 9, row: 4 });
+    expect(stackById(state, 'defender-0').hex).toEqual({ col: 10, row: 4 });
+  });
+
+  it('con el mismo ejército en los dos lados, el defensor sale en el espejo exacto del atacante', () => {
+    // El tablero de filas de 12 y 11 es su propio espejo (11-10-2026): con 11
+    // en todas las filas, el defensor de una fila impar salía media casilla más
+    // cerca del centro que el atacante de la suya.
+    const ejercitos: Stack[][] = [
+      individuos('peasant', 7),
+      [...individuos('bone_dragon', 3), ...individuos('skeleton', 4)],
+      individuos('bone_dragon', 7),
+      [
+        { creature: 'cavalry', count: 4 },
+        { creature: 'archer', count: 9 },
+      ],
+    ];
+    // Las casillas de un stack dadas la vuelta, en el orden de las claves.
+    const huellaEspejada = (s: BattleStack) =>
+      stackHexes(s)
+        .map((h) => board.hexKey(board.espejo(h)))
+        .sort();
+    const huella = (s: BattleStack) => stackHexes(s).map(board.hexKey).sort();
+    for (const ejercito of ejercitos) {
+      const state = createBattle(side(ejercito), side(ejercito), createRng(5));
+      const del = (lado: Side) => state.stacks.filter((s) => s.side === lado);
+      const atacantes = del('attacker');
+      const defensores = del('defender');
+      expect(defensores).toHaveLength(atacantes.length);
+      atacantes.forEach((a, i) => {
+        const d = defensores[i] as BattleStack;
+        expect(d.hex).toEqual(board.espejo(a.hex));
+        expect(huella(d)).toEqual(huellaEspejada(a));
+      });
+    }
+    // Y con una muralla que es su propio espejo: muros en la salida de los dos
+    // lados y la puerta entre la cabeza y la cola de las grandes de la fila 3
+    // —impar: en el defensor, entre la 9 y la 10, no la 10 y la 11 de las
+    // pares—, que las manda a otra fila en los dos bandos por igual.
+    const muros = [
+      { col: 2, row: 3 },
+      { col: 0, row: 6 },
+      { col: 1, row: 2 },
+    ];
+    const muralla = validarMuralla({
+      muros: [...muros, ...muros.map(board.espejo)],
+      puertas: [
+        { a: { col: 0, row: 3 }, b: { col: 1, row: 3 } },
+        { a: board.espejo({ col: 1, row: 3 }), b: board.espejo({ col: 0, row: 3 }) },
+      ],
+    });
+    const ejercito = [...individuos('bone_dragon', 3), ...individuos('skeleton', 4)];
+    const state = createBattle(side(ejercito), side(ejercito), createRng(5), muralla);
+    const atacantes = state.stacks.filter((s) => s.side === 'attacker');
+    const defensores = state.stacks.filter((s) => s.side === 'defender');
+    expect(atacantes.some((s) => s.hex.row === 3 && stackHexes(s).length > 1)).toBe(false);
+    atacantes.forEach((a, i) => {
+      expect(huella(defensores[i] as BattleStack)).toEqual(huellaEspejada(a));
+    });
   });
 
   it('una batalla de muchos individuos se juega hasta el final', () => {

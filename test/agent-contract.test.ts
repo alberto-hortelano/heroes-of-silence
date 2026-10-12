@@ -15,6 +15,7 @@ import {
   createBattle,
   legalActions,
 } from '../src/core/battle/battle.js';
+import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
 import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../src/core/battle/damage.js';
 import {
   adventureActionSchema,
@@ -204,6 +205,18 @@ describe('contrato con el agente', () => {
       expect(battleActionSchema.safeParse(accion).success).toBe(true);
     }
     expect(battleActionSchema.safeParse(chooseBattleAction(battle)).success).toBe(true);
+  });
+
+  it('la prosa de battle_turn dice la forma del tablero, la misma frase que el dato', () => {
+    // Prosa y dato salen de la misma constante (`FORMA_DEL_TABLERO`): si uno
+    // cambia, el otro con él.
+    expect(RESPONSE_FORMAT.battle_turn).toContain(FORMA_DEL_TABLERO);
+    expect(tableroDelContrato().layout).toContain(FORMA_DEL_TABLERO);
+    // Sin repetir la forma con otro número escrito: el descarte se dice sin él.
+    expect(RESPONSE_FORMAT.battle_turn).toContain(
+      'Una acción a una casilla\nque no existe se descarta',
+    );
+    expect(RESPONSE_FORMAT.battle_turn).not.toMatch(/\(11, fila impar\)/);
   });
 
   it('el agente no puede encender un interruptor de reglas: el esquema no los lleva', () => {

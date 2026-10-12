@@ -1,27 +1,165 @@
 /**
- * Rejilla de batalla: 11 × 9 = 99 hexes (verificado en `battle_board.h` de
- * fheroes2). Coordenadas offset **odd-r**: filas horizontales, y las filas
- * impares van desplazadas media celda a la derecha.
+ * Rejilla de batalla: 9 filas de hexes punta arriba, las pares (0, 2… 8) de 12
+ * casillas y las impares de 11, media casilla a la derecha: 104 casillas.
+ * **Regla nuestra** (decisión del usuario, 11-10-2026: «haz el tablero de la
+ * pelea simétrico con una columna más»): fheroes2 tiene 11 × 9 = 99
+ * (`battle_board.h`), y con 11 en todas las filas el tablero no era su propio
+ * espejo —el eje de las pares caía en 5 y el de las impares en 5,5—, así que el
+ * despliegue del defensor tampoco era el del atacante dado la vuelta.
+ *
+ * Coordenadas offset **odd-r** (las de siempre): la casilla 12.ª de una fila
+ * impar NO EXISTE —no se pisa, no se apunta, no se pinta— y `isInside` es quien
+ * lo dice. El índice plano (`indiceDe`) es compacto, la posición en `allHexes`:
+ * así cualquier lista hecha en ese orden casa con él, sin huecos.
  */
 import type { Hex } from '../types.js';
 import type { Side } from './types.js';
 
-export const BOARD_WIDTH = 11;
+export const ANCHO_DE_FILA_PAR = 12;
+export const ANCHO_DE_FILA_IMPAR = 11;
 export const BOARD_HEIGHT = 9;
-export const BOARD_SIZE = BOARD_WIDTH * BOARD_HEIGHT;
+
+/** Cuántas casillas tiene la fila `row`: 12 las pares, 11 las impares. */
+export function anchoDeFila(row: number): number {
+  return row % 2 === 0 ? ANCHO_DE_FILA_PAR : ANCHO_DE_FILA_IMPAR;
+}
+
+/** La última fila: el pie del tablero, que miden quien lo pinta y las formas de la muralla. */
+export const ULTIMA_FILA = BOARD_HEIGHT - 1;
+
+/**
+ * Cuánto va corrida la fila `row`, en medias casillas: 1 las impares (media
+ * casilla a la derecha, offset odd-r), 0 las pares. Con `& 1` y no `% 2`: una
+ * fila de fuera del tablero (`−1`) también es impar. Es el único sitio que lo
+ * dice; lo leen las cúbicas, las vecinas y la proyección del cliente.
+ */
+export function desplazamientoDeFila(row: number): 0 | 1 {
+  return (row & 1) as 0 | 1;
+}
+
+/**
+ * Dónde empieza cada fila en el índice plano: la suma de los anchos de las de
+ * encima. Tiene una entrada más que filas, y esa última es el total.
+ */
+const INICIO_DE_FILA: readonly number[] = (() => {
+  const out = [0];
+  for (let row = 0; row < BOARD_HEIGHT; row++) out.push((out[row] as number) + anchoDeFila(row));
+  return out;
+})();
+
+/** Cuántas casillas hay: 104. Derivado, no escrito. */
+export const BOARD_SIZE = INICIO_DE_FILA[BOARD_HEIGHT] as number;
+
+/**
+ * Todas las casillas, de arriba abajo y de izquierda a derecha: el único
+ * recorrido de la forma. Congeladas y hechas una vez —`allHexes()` creaba 104
+ * objetos en cada llamada—; la posición de cada una es su `indiceDe`.
+ */
+const TODAS_LAS_CASILLAS: readonly Hex[] = Object.freeze(
+  Array.from({ length: BOARD_HEIGHT }, (_, row) =>
+    Array.from({ length: anchoDeFila(row) }, (_, col) => Object.freeze({ col, row })),
+  ).flat(),
+);
+
+/** Una fila del tablero tal como se pinta: sus casillas y si va corrida media casilla. */
+export interface FilaDelTablero {
+  readonly row: number;
+  readonly desplazada: boolean;
+  readonly hexes: readonly Hex[];
+}
+
+const FILAS: readonly FilaDelTablero[] = Object.freeze(
+  Array.from({ length: BOARD_HEIGHT }, (_, row) =>
+    Object.freeze({
+      row,
+      desplazada: desplazamientoDeFila(row) === 1,
+      hexes: TODAS_LAS_CASILLAS.slice(
+        INICIO_DE_FILA[row] as number,
+        INICIO_DE_FILA[row + 1] as number,
+      ),
+    }),
+  ),
+);
+
+/** Las filas del tablero, de arriba abajo: lo que recorre quien pinta la rejilla fila a fila (el editor de la muralla). */
+export function filasDelTablero(): readonly FilaDelTablero[] {
+  return FILAS;
+}
+
+/**
+ * De dónde a dónde van los centros de las casillas en horizontal, en columnas
+ * (las impares cuentan media más): de 0 a 11. Derivado de las casillas; lo lee
+ * la proyección para centrar el tablero en el lienzo.
+ */
+export const EXTENSION_HORIZONTAL: { readonly desde: number; readonly hasta: number } = (() => {
+  const xs = TODAS_LAS_CASILLAS.map((h) => h.col + desplazamientoDeFila(h.row) / 2);
+  return { desde: Math.min(...xs), hasta: Math.max(...xs) };
+})();
+
+/**
+ * La forma del tablero en una frase, la única: la leen el contrato del agente
+ * (`tableroDelContrato`, y la prosa de `battle_turn`), el error de la muralla,
+ * el comentario del borrador de murallas y el editor de la arena.
+ */
+export const FORMA_DEL_TABLERO = `${BOARD_HEIGHT} filas de hexes punta arriba; las pares (0, 2… ${BOARD_HEIGHT - 1}) de ${ANCHO_DE_FILA_PAR} casillas (col 0-${ANCHO_DE_FILA_PAR - 1}) y las impares de ${ANCHO_DE_FILA_IMPAR} (col 0-${ANCHO_DE_FILA_IMPAR - 1}), media casilla a la derecha (offset odd-r): ${BOARD_SIZE} casillas, simétrico de izquierda a derecha`;
+
+/** El tablero tal como lo recibe el agente: la forma derivada, no un 11 escrito a mano. */
+export function tableroDelContrato(): {
+  readonly rows: number;
+  readonly evenRowWidth: number;
+  readonly oddRowWidth: number;
+  readonly cells: number;
+  readonly layout: string;
+} {
+  return {
+    rows: BOARD_HEIGHT,
+    evenRowWidth: ANCHO_DE_FILA_PAR,
+    oddRowWidth: ANCHO_DE_FILA_IMPAR,
+    cells: BOARD_SIZE,
+    layout: `${FORMA_DEL_TABLERO}; el atacante entra por la columna 0`,
+  };
+}
 
 /** Columnas de salida de cada bando, contando desde su borde. */
 export const COLUMNAS_DE_SALIDA = 3;
 
-/** De qué bando es la zona de salida en la que cae `hex`, o `null` si no es de ninguno. */
+/**
+ * La casilla del otro lado del eje del tablero, en su misma fila. Es su propia
+ * inversa y lleva cada casilla a otra que existe: el tablero es su espejo. La
+ * leen el despliegue (el del defensor es el del atacante dado la vuelta) y las
+ * salidas.
+ */
+export function espejo(h: Hex): Hex {
+  if (!isInside(h)) throw new Error(`(${h.col},${h.row}) está fuera del tablero: no tiene espejo`);
+  return { col: anchoDeFila(h.row) - 1 - h.col, row: h.row };
+}
+
+/**
+ * De qué bando es la zona de salida en la que cae `hex`, o `null` si no es de
+ * ninguno. Contando desde cada borde de su fila: es la cuenta de `espejo` sin
+ * construir la casilla, porque se pregunta por cada casilla de cada recorrido
+ * de la muralla.
+ */
 export function bandoDeSalida(hex: Hex): Side | null {
+  // Sin esto, el hueco (11, impar) contaría −1 desde el borde y sería del defensor.
+  if (!isInside(hex))
+    throw new Error(`(${hex.col},${hex.row}) está fuera del tablero: no es salida de nadie`);
   if (hex.col < COLUMNAS_DE_SALIDA) return 'attacker';
-  if (hex.col >= BOARD_WIDTH - COLUMNAS_DE_SALIDA) return 'defender';
+  if (anchoDeFila(hex.row) - 1 - hex.col < COLUMNAS_DE_SALIDA) return 'defender';
   return null;
 }
 
+/**
+ * El código de un paso entre dos casillas por su índice, en un sentido: `i`
+ * hacia `j`. Lo leen los cortes de las puertas de la muralla, la línea de tiro
+ * y la caché de líneas, que tienen que contar lo mismo.
+ */
+export function codigoDeLado(i: number, j: number): number {
+  return i * BOARD_SIZE + j;
+}
+
 export function isInside(h: Hex): boolean {
-  return h.col >= 0 && h.col < BOARD_WIDTH && h.row >= 0 && h.row < BOARD_HEIGHT;
+  return h.row >= 0 && h.row < BOARD_HEIGHT && h.col >= 0 && h.col < anchoDeFila(h.row);
 }
 
 export function hexKey(h: Hex): string {
@@ -58,7 +196,7 @@ function vecinasCalculadas(h: Hex): Hex[] {
  * eso no se puede sumar un vector fijo a `(col, row)` — se recalcula en cada paso.
  */
 function vecinaEnDireccion(h: Hex, dir: number): Hex {
-  const shift = h.row % 2 === 1 ? 1 : 0;
+  const shift = desplazamientoDeFila(h.row);
   switch (dir) {
     case 0:
       return { col: h.col + 1, row: h.row };
@@ -104,8 +242,10 @@ const DIRECCIONES_CUBICAS: readonly (readonly [number, number])[] = [
  *
  * Alineadas son las que comparten una coordenada cúbica, así que la recta se
  * sabe sin andar; luego se recorre solo esa dirección, para mirar lo de en
- * medio. Entre dos casillas del tablero lo de en medio también lo es: el
- * rectángulo odd-r no tiene entrantes.
+ * medio. Entre dos casillas del tablero lo de en medio también lo es: las
+ * casillas que faltan (la 12.ª de las filas impares) están en el borde, y toda
+ * recta que pasa por una sale del tablero por ese mismo lado (lo comprueba
+ * `board.test.ts` con todos los pares).
  */
 export function rectaLibre(
   desde: Hex,
@@ -154,9 +294,35 @@ export type PasoPermitido = (desde: number, hasta: number) => boolean;
  * casilla con el redondeo cúbico de siempre —redondear las tres y corregir la
  * que más se desvió—. Para que un segmento que va justo por el borde de dos
  * casillas no dependa del orden de las cuentas, los tres ejes llevan un empujón
- * de `+1, +2, −3` en unidades de `1/(N·EMPUJON)`: suma cero, así que el punto
+ * de `+3, −1, −2` en unidades de `1/(N·EMPUJON)`: suma cero, así que el punto
  * sigue en el plano, y con él nunca hay empate (un medio exacto pediría que
- * `N·EMPUJON/2 ≡ 1, 2 o 3` módulo `EMPUJON`, y con 1 000 nunca pasa).
+ * `N·EMPUJON/2 ≡ 3, 1 o 2` módulo `EMPUJON`, y con 1 000 nunca pasa; y como los
+ * tres son distintos en valor absoluto, tampoco empatan los desvíos al
+ * corregir).
+ *
+ * **Simétrica y generosa** (tablero simétrico, 11-10-2026, decisión del
+ * usuario): un empujón cualquiera elige un lado en cada borde, y el espejo del
+ * tablero elige el otro, así que el mismo tiro dado la vuelta podía pasar en un
+ * lado y no en el otro. Se prueba con el empujón y con su espejo (el espejo
+ * cambia `q` por `s`), y pasa si pasa con cualquiera de los dos. Para que eso
+ * sea generoso de verdad —que en todo empate de borde un rayo vaya por cada una
+ * de las dos casillas— los dos empujones tienen que caer a lados opuestos en
+ * los tres: el empate entre dos casillas vecinas lo decide el signo del empujón
+ * en el par de ejes en que difieren (`q−s`, `q−r` o `r−s`), y el espejo cambia
+ * siempre el de `q−s`, pero los otros dos solo si el eje `r` queda ENTRE `q` y
+ * `s`. Con el `+1, +2, −3` de antes (`r` fuera) solo salía generosa la familia
+ * de los bordes verticales: en las otras dos los dos rayos pisaban la misma
+ * casilla y una sola tapaba el tiro (QA de /simplify, 12-10-2026).
+ *
+ * **Fuera del tablero cuenta como tapado** (QA I1, decisión del usuario,
+ * 12-10-2026): el rayo que roza el borde por la casilla que falta de una fila
+ * impar o por la columna −1 no pasa. Solo cae fuera en un empate de borde (el
+ * tablero no tiene entrantes: fuera de un empate, el punto más cercano a un
+ * segmento entre dos casillas es de dentro), así que el otro rayo va por la
+ * casilla de dentro y decide ella. Cuando la de fuera «se saltaba», ese rayo
+ * pasaba siempre, y con la de dentro tapada el tiro atravesaba un muro que
+ * cerraba contra el marco: el fuerte de la esquina, (11,4)→(11,6) por el hueco
+ * (11,5), o una fila impar entera de muro, con 8 y 12 tiros que la cruzaban.
  */
 export function lineaLibre(
   desde: Hex,
@@ -166,23 +332,57 @@ export function lineaLibre(
 ): boolean {
   const n = hexDistance(desde, hasta);
   if (cortes === undefined && n <= 1) return true;
-  const a = toCube(desde);
-  const b = toCube(hasta);
+  const rayo: Rayo = {
+    a: toCube(desde),
+    b: toCube(hasta),
+    n,
+    desde: indiceDe(desde),
+    hasta: indiceDe(hasta),
+  };
+  return (
+    rayoLibre(rayo, EMPUJON_DEL_RAYO, bloqueadas, cortes) ||
+    rayoLibre(rayo, ESPEJO_DEL_EMPUJON, bloqueadas, cortes)
+  );
+}
+
+type Empujon = readonly [number, number, number];
+
+/** El empujón de `lineaLibre`, en `(q, r, s)`: `r` entre los otros dos (ver arriba). */
+const EMPUJON_DEL_RAYO: Empujon = [3, -1, -2];
+/** Su espejo: el espejo del tablero cambia `q` por `s`. */
+const ESPEJO_DEL_EMPUJON: Empujon = [EMPUJON_DEL_RAYO[2], EMPUJON_DEL_RAYO[1], EMPUJON_DEL_RAYO[0]];
+
+/** Lo que comparten los dos rayos de un tiro: los extremos en cúbicas y por índice, y la distancia. */
+interface Rayo {
+  readonly a: Cube;
+  readonly b: Cube;
+  readonly n: number;
+  readonly desde: number;
+  readonly hasta: number;
+}
+
+/** Un rayo de `lineaLibre` con un empujón: ¿pasa? */
+function rayoLibre(
+  { a, b, n, desde, hasta }: Rayo,
+  [eq, er, es]: Empujon,
+  bloqueadas: ReadonlySet<string>,
+  cortes: ReadonlySet<number> | undefined,
+): boolean {
   const d = n * EMPUJON;
-  let antes = indiceDe(desde);
+  let antes = desde;
   for (let i = 1; i < n; i++) {
-    const q = (a.q * n + (b.q - a.q) * i) * EMPUJON + 1;
-    const r = (a.r * n + (b.r - a.r) * i) * EMPUJON + 2;
-    const sx = (a.s * n + (b.s - a.s) * i) * EMPUJON - 3;
+    const q = (a.q * n + (b.q - a.q) * i) * EMPUJON + eq;
+    const r = (a.r * n + (b.r - a.r) * i) * EMPUJON + er;
+    const sx = (a.s * n + (b.s - a.s) * i) * EMPUJON + es;
     const h = deCubo(redondeoCubico(q, r, sx, d));
-    if (bloqueadas.has(hexKey(h))) return false;
+    if (!isInside(h) || bloqueadas.has(hexKey(h))) return false;
     if (cortes !== undefined) {
       const ahora = indiceDe(h);
-      if (cortes.has(antes * BOARD_SIZE + ahora)) return false;
+      if (cortes.has(codigoDeLado(antes, ahora))) return false;
       antes = ahora;
     }
   }
-  return cortes === undefined || !cortes.has(antes * BOARD_SIZE + indiceDe(hasta));
+  return cortes === undefined || !cortes.has(codigoDeLado(antes, hasta));
 }
 
 /** El empujón de `lineaLibre`, en milésimas de casilla por paso. */
@@ -209,7 +409,7 @@ function redondeoCubico(q: number, r: number, s: number, d: number): Cube {
 
 /** La inversa de `toCube`: de cúbicas a odd-r. */
 function deCubo(c: Cube): Hex {
-  return { col: c.q + (c.r - (c.r & 1)) / 2, row: c.r };
+  return { col: c.q + (c.r - desplazamientoDeFila(c.r)) / 2, row: c.r };
 }
 
 /**
@@ -245,13 +445,19 @@ function rectaEntre(desde: Hex, hasta: Hex): { readonly dir: number; readonly d:
   return { dir: DIRECCIONES_CUBICAS.findIndex(([q, r]) => q === dq && r === dr), d };
 }
 
-/** Índice plano de una casilla del tablero: `row * BOARD_WIDTH + col`. */
+/**
+ * Índice plano de una casilla del tablero: su posición en `allHexes()`, de 0 a
+ * `BOARD_SIZE − 1`, sin huecos (las filas van de 12, 11, 12…). Fuera del
+ * tablero lanza: con el rectángulo de antes, `(−1, 1)` daba el índice de
+ * `(10, 0)`, y la línea de tiro lo leía sin enterarse.
+ */
 export function indiceDe(h: Hex): number {
-  return h.row * BOARD_WIDTH + h.col;
+  if (!isInside(h)) throw new Error(`(${h.col},${h.row}) está fuera del tablero: no tiene índice`);
+  return (INICIO_DE_FILA[h.row] as number) + h.col;
 }
 
 /**
- * Las 99 casillas con su clave y sus vecinas, calculadas UNA vez.
+ * Las 104 casillas con su clave y sus vecinas, calculadas UNA vez.
  *
  * El tablero no cambia nunca, y con individuos una batalla pasó de ~10 a ~100
  * decisiones: `neighbours` y el BFS de `reachable` reconstruían los mismos seis
@@ -267,17 +473,10 @@ interface Casilla {
   readonly indicesVecinas: readonly number[];
 }
 
-const CASILLAS: readonly Casilla[] = (() => {
-  const out: Casilla[] = [];
-  for (let row = 0; row < BOARD_HEIGHT; row++) {
-    for (let col = 0; col < BOARD_WIDTH; col++) {
-      const hex = { col, row };
-      const vecinas = vecinasCalculadas(hex);
-      out.push({ hex, key: hexKey(hex), vecinas, indicesVecinas: vecinas.map(indiceDe) });
-    }
-  }
-  return out;
-})();
+const CASILLAS: readonly Casilla[] = TODAS_LAS_CASILLAS.map((hex) => {
+  const vecinas = vecinasCalculadas(hex);
+  return { hex, key: hexKey(hex), vecinas, indicesVecinas: vecinas.map(indiceDe) };
+});
 
 /**
  * Los 6 vecinos, en orden E, SE, SW, W, NW, NE. Filtrados al tablero.
@@ -298,7 +497,7 @@ interface Cube {
 }
 
 function toCube(h: Hex): Cube {
-  const q = h.col - (h.row - (h.row % 2)) / 2;
+  const q = h.col - (h.row - desplazamientoDeFila(h.row)) / 2;
   const r = h.row;
   return { q, r, s: -q - r };
 }
@@ -364,7 +563,7 @@ export function caminoDe(paso: Paso): Hex[] {
 
 /**
  * Hexes alcanzables desde `from` con `maxSteps` pasos, esquivando `blocked`.
- * BFS sobre la tabla de `CASILLAS`: con 99 casillas el algoritmo no tiene nada
+ * BFS sobre la tabla de `CASILLAS`: con 104 casillas el algoritmo no tiene nada
  * que optimizar, pero se llama en cada decisión y cada sondeo, y con individuos
  * eso son decenas de miles de llamadas por partida.
  * Devuelve un mapa hexKey → paso (incluye `from` con 0 pasos), en orden de
@@ -496,11 +695,10 @@ export function findPath(from: Hex, to: Hex, blocked: ReadonlySet<string>): Hex[
   return null;
 }
 
-/** Todos los hexes del tablero, de arriba abajo y de izquierda a derecha. */
-export function allHexes(): Hex[] {
-  const out: Hex[] = [];
-  for (let row = 0; row < BOARD_HEIGHT; row++) {
-    for (let col = 0; col < BOARD_WIDTH; col++) out.push({ col, row });
-  }
-  return out;
+/**
+ * Todos los hexes del tablero, de arriba abajo y de izquierda a derecha: la
+ * lista congelada y compartida (la posición de cada uno es su `indiceDe`).
+ */
+export function allHexes(): readonly Hex[] {
+  return TODAS_LAS_CASILLAS;
 }

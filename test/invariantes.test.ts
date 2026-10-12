@@ -656,6 +656,8 @@ describe('invariantes del proyecto', () => {
         'espejoDelBanco',
         'deHoja',
         'jugarArena',
+        'espejoDeLosPoderes',
+        'poderesEnLaArena',
       ],
     };
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
@@ -750,7 +752,7 @@ describe('invariantes del proyecto', () => {
     // una llamada a `newGame` en `desenlace.ts` sale roja; un comentario que la
     // nombra, no.
     const puertas =
-      /\b(applyAdventureAction|applyAction|resolvePendingBattle|settleBattle|playAiTurn|chooseBattleAction|newGame)\b/;
+      /\b(applyAdventureAction|applyAction|resolvePendingBattle|settleBattle|playAiTurn|chooseBattleAction|newGame|retocarEnBatalla)\b/;
     const fuera = CLIENTE.filter((r) => r !== 'src/client/session.ts');
     expect(infractoresDeCodigo(fuera, puertas)).toEqual([]);
   });
@@ -1022,6 +1024,37 @@ describe('invariantes del proyecto', () => {
     expect(fugas).toEqual([]);
   });
 
+  it('un stack lo sustituye a media pelea solo la arena, y los poderes solo los pone ella', () => {
+    // La arena retoca un tipo a media pelea (`retocarEnBatalla`) sustituyendo sus
+    // stacks enteros en `state.stacks`: `BattleStack.unit` sigue siendo de solo
+    // lectura, y nadie más cambia un stack por otro (el motor los muta por campo,
+    // y quien busca uno lo busca por id). De qué tipo sale cada stack
+    // (`tiposDeArena`) lo escribe solo ella al montar. Y los poderes
+    // (`UnitInfo.poderes`) solo los escribe ella (`unidadDeCombate`): el catálogo
+    // no los tiene, y por eso la jugada `poder` no sale en el juego ni llega al
+    // agente, que no la conoce (`battleActionSchema`). Roto a mano: un
+    // `state.stacks[0] = s` en `battle.ts`, un `tiposDeArena: {}` en `state/game.ts`
+    // y un `{ ...c, poderes }` en `data.ts` salen rojos con su línea.
+    const PUERTA = 'src/core/arena.ts';
+    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== PUERTA);
+    const sustituyeUnStack = /\bstacks\[[^\]]+\]\s*=(?!=)/;
+    expect(infractoresDeCodigo(fuera, sustituyeUnStack)).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], sustituyeUnStack)).not.toEqual([]);
+    // Las fichas de la arena (`fichasDeArena`), con las que el retoque dice qué
+    // cambió, también: las pone ella al montar y al retocar.
+    const escribeTipos =
+      /\b(?:tiposDeArena|fichasDeArena)\s*[:=](?!\s*readonly)|\.fichasDeArena\b(?:\s+as\b[^;]*)?\)?\[[^\]]+\]\s*=(?!=)/;
+    const sinElTipo = fuera.filter((r) => r !== 'src/core/battle/types.ts');
+    expect(infractoresDeCodigo(sinElTipo, escribeTipos)).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], escribeTipos)).not.toEqual([]);
+    const escribePoderes = /\bpoderes\s*:(?!\s*readonly)|\{\s*poderes\s*\}|\.poderes\s*=(?!=)/;
+    const ni = [...CORE, ...SERVIDOR].filter(
+      (r) => r !== PUERTA && r !== 'src/core/battle/poderes.ts',
+    );
+    expect(infractoresDeCodigo(ni, escribePoderes)).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], escribePoderes)).not.toEqual([]);
+  });
+
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {
     // Una ruta absoluta en un fichero que se consume es un fichero que solo
     // vale aquí. Y no es teórico: `.mcp.json` es lo que enchufa el MCP
@@ -1268,6 +1301,78 @@ describe('invariantes del proyecto', () => {
     // opción de `alcanceDelHeroe` (`evitarEmboscadas`): el mismo Dijkstra con
     // una marca más no es una segunda puerta.
     expect(llamadas.filter((e) => e.startsWith('src/core/state/game.ts:'))).toHaveLength(2);
+  });
+
+  it('la forma del tablero de batalla la dice `board.ts`: nadie más importa el ancho de una fila ni compara una columna con un número', () => {
+    // Tablero simétrico (11-10-2026): filas de 12 y 11. Antes el tablero era un
+    // rectángulo de `BOARD_WIDTH`, y cada recorrido se escribía con dos bucles
+    // `col < BOARD_WIDTH`; con las filas de distinto ancho, uno de esos que se
+    // quedara pintaba o recorría la casilla que no existe. Se recorre con
+    // `allHexes()` o `filasDelTablero()` y se pregunta con `isInside`/`espejo`;
+    // el pie, con `ULTIMA_FILA`, y el ancho que pide el lienzo, con
+    // `EXTENSION_HORIZONTAL`. Por IMPORTACIÓN y no por el nombre en el texto
+    // (/simplify, 12-10-2026): con una lista de lectores permitidos, cualquiera
+    // de ellos podía volver a escribir el doble bucle.
+    const MEDIDAS_DE_FILA = new Set([
+      'anchoDeFila',
+      'ANCHO_DE_FILA_PAR',
+      'ANCHO_DE_FILA_IMPAR',
+      'BOARD_HEIGHT',
+      'BOARD_WIDTH',
+    ]);
+    const deBoard =
+      /import\s*(?:type\s*)?(\{[^}]*\}|\*\s*as\s+\w+)\s*from\s*['"]([^'"]*\/board\.js)['"]/g;
+    const importadores: string[] = [];
+    const conMedidas: string[] = [];
+    for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('src/shared')]) {
+      if (ruta === 'src/core/battle/board.ts') continue;
+      for (const [, nombres, desde] of leer(ruta).matchAll(deBoard)) {
+        // Solo el `board.ts` de la batalla: `./board.js` lo es desde `battle/`.
+        const esElDeLaBatalla =
+          (desde as string).endsWith('battle/board.js') ||
+          (desde === './board.js' && ruta.startsWith('src/core/battle/'));
+        if (!esElDeLaBatalla) continue;
+        importadores.push(ruta);
+        const importados = (nombres as string).startsWith('*')
+          ? ['* (todo el módulo)']
+          : (nombres as string)
+              .slice(1, -1)
+              .split(',')
+              .map(
+                (n) =>
+                  n
+                    .trim()
+                    .replace(/^type\s+/, '')
+                    .split(/\s+as\s+/)[0] as string,
+              )
+              .filter((n) => n !== '');
+        for (const n of importados) {
+          if (MEDIDAS_DE_FILA.has(n) || n.startsWith('*')) conMedidas.push(`${ruta} → ${n}`);
+        }
+      }
+    }
+    expect(conMedidas).toEqual([]);
+    // Y que mire algo: la proyección, el editor y el despliegue importan de `board.ts`.
+    for (const r of [
+      'src/client/render/proyeccion.ts',
+      'src/client/arena/paneles.ts',
+      'src/core/battle/battle.ts',
+    ]) {
+      expect(importadores, r).toContain(r);
+    }
+    // Una columna comparada con un número de 8 para arriba es el borde derecho
+    // escrito a mano: el de las pares no es el de las impares.
+    const bordes = infractoresDeCodigo(
+      [
+        ...CORE.filter(
+          (r) => /^src\/core\/(?:battle|ai|contract)\//.test(r) || r === 'src/core/arena.ts',
+        ),
+        ...CLIENTE,
+        ...SERVIDOR,
+      ],
+      /\.col\s*(?:[<>]=?|[!=]==)\s*(?:[89]|1\d)\b/,
+    );
+    expect(bordes).toEqual([]);
   });
 
   it('qué grupo de asaltantes se ve lo decide `asaltantesALaVista`, nadie más', () => {

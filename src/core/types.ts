@@ -176,7 +176,21 @@ export interface UnitInfo {
   /** Hexes que ocupa en la rejilla de batalla (1 o 2). */
   readonly hexes?: number;
   readonly traits?: readonly CreatureTrait[];
+  /**
+   * Los poderes que usa en su turno (`battle/poderes.ts`): Curar, Bendecir. **Solo
+   * la arena** los pone (`unidadDeCombate`, por sus habilidades); el catálogo no los
+   * tiene nunca, y por eso la jugada `poder` no sale en el juego ni llega al agente
+   * (lo vigila `test/invariantes.test.ts`).
+   */
+  readonly poderes?: readonly PoderId[];
 }
+
+/**
+ * El id de un poder de unidad de `data/poderes.json` (`curar`, `bendecir`). Vive
+ * aquí y no en `battle/poderes.ts` porque lo nombran `UnitInfo` y la jugada
+ * `poder`, y este fichero no importa de nadie.
+ */
+export type PoderId = string;
 
 export interface Creature extends UnitInfo {
   readonly id: string;

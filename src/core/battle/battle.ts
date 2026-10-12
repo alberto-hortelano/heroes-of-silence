@@ -15,10 +15,10 @@ import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo } from '../types.js
 import { SPEED_TO_HEXES } from '../types.js';
 import {
   areAdjacent,
-  BOARD_WIDTH,
   COLUMNAS_DE_SALIDA,
   caminoDe,
   distanciasDesde,
+  espejo,
   hexDistance,
   hexEquals,
   hexKey,
@@ -77,6 +77,7 @@ import {
   SIN_MURALLA,
   validarMuralla,
 } from './muralla.js';
+import { esDeCura, type Poder, type PoderId, poder, poderSiExiste } from './poderes.js';
 import {
   efectoConReglas,
   type NombreDeRegla,
@@ -84,7 +85,16 @@ import {
   type ReglasDeBatalla,
   reglasEncendidas,
 } from './reglas.js';
-import { castSpell, curaDe, effectOfSpell, type Spell, spell, spellAmount } from './spells.js';
+import {
+  castSpell,
+  curaDe,
+  delHeroe,
+  efectoDe,
+  type Lanzador,
+  type Spell,
+  type SpellResult,
+  spell,
+} from './spells.js';
 import type {
   BattleAction,
   BattleHero,
@@ -252,9 +262,9 @@ export function despliegueBlocker(
   return salidaDe(units, side, muralla).motivo;
 }
 
-/** Del marco del atacante, en el que se calcula la salida, al del tablero; es su propia inversa. */
+/** Del marco del atacante, en el que se calcula la salida, al del tablero (el del defensor es `espejo`). */
 function enElMarco(side: Side, h: Hex): Hex {
-  return side === 'attacker' ? h : { col: BOARD_WIDTH - 1 - h.col, row: h.row };
+  return side === 'attacker' ? h : espejo(h);
 }
 
 /**
@@ -275,13 +285,11 @@ function salidaDe(
   const cerradas = casillasDeMuro(muralla);
   const cerrada = (h: Hex): boolean => cerradas.has(hexKey(enElMarco(side, h)));
   const lado = side === 'attacker' ? 'la izquierda' : 'la derecha';
-  // La grande no empieza con una puerta entre la cabeza y la cola: empiezan cerradas.
-  const oeste = Math.min(
-    enElMarco(side, { col: 0, row: 0 }).col,
-    enElMarco(side, { col: 1, row: 0 }).col,
-  );
+  // La grande no empieza con una puerta entre la cabeza y la cola (empiezan
+  // cerradas): la misma pregunta que al andar, con su cabeza en la columna 1.
+  const cerradasAlEmpezar = puertasAlEmpezar(muralla);
   const partida = (row: number): boolean =>
-    muralla.puertas.some((p) => p.a.row === row && p.a.col === oeste);
+    partidaPorUnaPuerta(muralla, cerradasAlEmpezar, enElMarco(side, { col: 1, row }), 2, side);
 
   const filas = DEL_CENTRO_A_FUERA.filter(
     (row) => !cerrada({ col: 0, row }) && !cerrada({ col: 1, row }) && !partida(row),
@@ -1691,6 +1699,27 @@ export function applyAction(
       return;
     }
 
+    case 'poder': {
+      const motivo = poderBlocker(state, action.poder, action.target);
+      if (motivo !== null) {
+        throw new Error(`${s.unit.name} no puede usar ese poder: ${motivo}`);
+      }
+      const p = poder(action.poder);
+      // El hechizo del poder con la unidad de lanzador: la misma aplicación que
+      // la del héroe, así que la Bendición del monje refresca la suya.
+      lanzarSobre(state, p.hechizo, p.lanzador, stackById(state, action.target), null, (r) =>
+        state.log.push({
+          kind: 'power',
+          stack: s.id,
+          poder: p.id,
+          target: action.target,
+          ...(esDeCura(p) ? { cura: r.cura } : {}),
+        }),
+      );
+      endTurn(state, s, rng);
+      return;
+    }
+
     case 'surrender': {
       const { coste, motivo } = surrenderBlocker(state, s.side);
       if (motivo !== null) throw new Error(`no se puede rendir: ${motivo}`);
@@ -1938,6 +1967,26 @@ function applyStackEffect(state: BattleState, target: BattleStack, effect: Stack
     source: vivo.source,
     rounds: vivo.roundsLeft,
   });
+}
+
+/**
+ * Aplica un hechizo al objetivo con su lanzador —el héroe (`delHeroe`) o la
+ * unidad que usa un poder (`Poder.lanzador`)—: el daño o la cura los pone
+ * `castSpell`, `anotar` escribe la línea de quien lanza y el efecto que dura lo
+ * cuelga el motor detrás (refresca el del mismo origen y lo anota). Una sola
+ * aplicación para los dos: la Bendición del monje y la del héroe son una.
+ */
+function lanzarSobre(
+  state: BattleState,
+  s: Spell,
+  l: Lanzador,
+  target: BattleStack,
+  autor: BattleStack | null,
+  anotar: (r: SpellResult) => void,
+): void {
+  const r = castSpell(s, l, target, autor, state.reglas);
+  anotar(r);
+  if (r.effect !== undefined) applyStackEffect(state, target, r.effect);
 }
 
 /**
@@ -2359,17 +2408,37 @@ function targetBlocker(
   side: Side,
   target: BattleStack,
 ): string | null {
+  return objetivoBlocker(
+    target,
+    side,
+    s,
+    efectoDe(s, delHeroe(s, hero), state.reglas),
+    `"${s.name}"`,
+  );
+}
+
+/**
+ * Por qué `target` no vale para el hechizo `s` lanzado desde el bando `side`,
+ * dejando `efecto`: lo común al héroe (`targetBlocker`) y al poder de una unidad
+ * (`objetivoDelPoderBlocker`). `citado` es el nombre tal como lo dice cada uno.
+ */
+function objetivoBlocker(
+  target: BattleStack,
+  side: Side,
+  s: Spell,
+  efecto: StackEffect | null,
+  citado: string,
+): string | null {
   if (!isAlive(target)) return 'el objetivo ya está destruido';
   const wantsEnemy = s.target === 'enemy';
   if (wantsEnemy === (target.side === side)) {
-    return `"${s.name}" va dirigido a ${wantsEnemy ? 'un enemigo' : 'un aliado'}`;
+    return `${citado} va dirigido a ${wantsEnemy ? 'un enemigo' : 'un aliado'}`;
   }
   // La inmunidad se pregunta a la misma función que decide al aplicar el efecto,
   // no a una copia de la regla: nada de ofrecer una Maldición sobre un no-muerto
   // para que después rebote.
-  const efecto = effectOfSpell(s, hero, state.reglas);
   if (efecto !== null && isImmuneTo(target, efecto)) {
-    return `${target.unit.name} es inmune a "${s.name}"`;
+    return `${target.unit.name} es inmune a ${citado}`;
   }
   return null;
 }
@@ -2397,24 +2466,96 @@ function castHeroSpell(
   // El cuerpo del héroe es quien cobra la experiencia del hechizo. Está vivo
   // seguro: si cae, su bando pierde (`checkFinished`) y aquí no se llega.
   const cuerpo = state.stacks.find((x) => x.side === side && x.origen.kind === 'heroe') ?? null;
-  const result = castSpell(s, hero, target, cuerpo, state.reglas);
-
-  state.log.push({
-    kind: 'cast',
-    side,
-    spell: spellId,
-    target: targetId,
-    damage: result.damage,
-    killed: result.killed,
-  });
-
-  // El hechizo no muta el stack: devuelve el efecto y lo cuelga el motor, que
-  // es quien sabe anotarlo en el registro. Aquí no puede rebotar —`castBlocker`
-  // rechaza al objetivo inmune antes de cobrar el maná—, pero `applyStackEffect`
-  // sigue comprobándolo porque el mismo camino lo usan los golpes con rasgo.
-  if (result.effect !== undefined) applyStackEffect(state, target, result.effect);
+  // El efecto no puede rebotar aquí —`castBlocker` rechaza al objetivo inmune
+  // antes de cobrar el maná—, pero `applyStackEffect` sigue comprobándolo porque
+  // el mismo camino lo usan los golpes con rasgo.
+  lanzarSobre(state, s, delHeroe(s, hero), target, cuerpo, (r) =>
+    state.log.push({
+      kind: 'cast',
+      side,
+      spell: spellId,
+      target: targetId,
+      damage: r.damage,
+      killed: r.killed,
+    }),
+  );
   if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
   checkFinished(state);
+}
+
+// ---------------------------------------------------------------- poderes
+
+/**
+ * Por qué la unidad activa no puede usar el poder `poderId` —sobre `targetId` si
+ * se apunta a alguien—, o `null` si puede. La ÚNICA redacción de estas reglas,
+ * como `castBlocker` para el héroe: la leen `applyAction`, `legalActions` (y con
+ * ella la IA), la previsión y los botones de la arena.
+ *
+ * Reglas nuestras (`data/poderes.json`, solo la arena): a un aliado vivo, también
+ * a sí misma, esté donde esté y aunque esté trabada (es un bastón, no un arco); y
+ * al principio del turno, sin haberse movido, como disparar. Usarlo es el turno
+ * entero. Sin objetivo la pregunta es «¿puede usarlo sobre alguien?»; con
+ * objetivo, «¿sobre ese?».
+ */
+export function poderBlocker(
+  state: BattleState,
+  poderId: PoderId,
+  targetId?: string,
+): string | null {
+  const previo = previoDelPoder(state, poderId);
+  if ('motivo' in previo) return previo.motivo;
+  const { s, p, efecto } = previo;
+  if (targetId !== undefined) {
+    const target = state.stacks.find((t) => t.id === targetId);
+    if (target === undefined) return `no hay ninguna unidad "${targetId}"`;
+    return objetivoDelPoderBlocker(s, p, efecto, target);
+  }
+  if (state.stacks.some((t) => objetivoDelPoderBlocker(s, p, efecto, t) === null)) return null;
+  // Lo que dice el botón deshabilitado: si nadie de su bando tiene una herida,
+  // eso, que es lo que se le pregunta a «Curar»; si no, lo general.
+  return esDeCura(p)
+    ? 'nadie de su bando tiene ninguna herida'
+    : 'no hay ningún aliado sobre el que usarlo';
+}
+
+/**
+ * Lo que no depende del objetivo, una vez: que le toque a alguien, que el poder
+ * exista, que la activa lo sepa y que no se haya movido; y el efecto que dejaría,
+ * que tampoco depende de a quién. Lo leen `poderBlocker` y `legalActions`.
+ */
+function previoDelPoder(
+  state: BattleState,
+  poderId: PoderId,
+):
+  | { readonly motivo: string }
+  | { readonly s: BattleStack; readonly p: Poder; readonly efecto: StackEffect | null } {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) return { motivo: 'no le toca a ninguna unidad' };
+  // Un id inventado se dice, no revienta: llega de fuera (un test, el arnés).
+  const p = poderSiExiste(poderId);
+  if (p === null) return { motivo: `no hay ningún poder «${poderId}»` };
+  if (!(s.unit.poderes ?? []).includes(poderId)) {
+    return { motivo: `${s.unit.name} no sabe ${p.nombre}` };
+  }
+  if (seHaMovido(state, s)) {
+    return { motivo: `ya se ha movido este turno: «${p.nombre}» se usa al principio del turno` };
+  }
+  return { s, p, efecto: efectoDe(p.hechizo, p.lanzador, state.reglas) };
+}
+
+/** Por qué este stack no vale como objetivo de este poder de `s`, que deja `efecto`. */
+function objetivoDelPoderBlocker(
+  s: BattleStack,
+  p: Poder,
+  efecto: StackEffect | null,
+  target: BattleStack,
+): string | null {
+  const comun = objetivoBlocker(target, s.side, p.hechizo, efecto, `«${p.nombre}»`);
+  if (comun !== null) return comun;
+  if (esDeCura(p) && curaDe(p.hechizo, p.lanzador, target) <= 0) {
+    return `${target.unit.name} no tiene ninguna herida`;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- previsión
@@ -2455,10 +2596,11 @@ export interface PrevisionDeContraataque {
   readonly modificadores: readonly Modificador[];
 }
 
-/** Lo que haría un hechizo sobre su objetivo. */
-export interface PrevisionDeHechizo {
-  readonly kind: 'hechizo';
-  readonly hechizo: string;
+/**
+ * Lo que haría un hechizo sobre su objetivo, lo lance el héroe o una unidad con
+ * su poder (`previsionDeLanzar`): la misma cuenta para los dos.
+ */
+export interface PrevisionDeLanzar {
   readonly objetivo: string;
   /** El daño de un hechizo de daño, que no tira dado. */
   readonly danio: number | null;
@@ -2471,7 +2613,19 @@ export interface PrevisionDeHechizo {
   readonly reglas: readonly NombreDeRegla[];
 }
 
-export type Prevision = PrevisionDeGolpe | PrevisionDeHechizo;
+/** Lo que haría un hechizo del héroe sobre su objetivo. */
+export interface PrevisionDeHechizo extends PrevisionDeLanzar {
+  readonly kind: 'hechizo';
+  readonly hechizo: string;
+}
+
+/** Lo que haría el poder de la unidad activa (`poderes.ts`) sobre su objetivo. */
+export interface PrevisionDePoder extends PrevisionDeLanzar {
+  readonly kind: 'poder';
+  readonly poder: PoderId;
+}
+
+export type Prevision = PrevisionDeGolpe | PrevisionDeHechizo | PrevisionDePoder;
 
 /**
  * La previsión de una acción del stack activo: un golpe (`attack`, con su carga
@@ -2516,6 +2670,16 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
       const motivo = castBlocker(state, s.side, accion.spell, accion.target);
       if (motivo !== null) throw new Error(`no se puede lanzar: ${motivo}`);
       return previsionDeHechizo(state, s.side, accion.spell, stackById(state, accion.target));
+    }
+    case 'poder': {
+      const motivo = poderBlocker(state, accion.poder, accion.target);
+      if (motivo !== null) throw new Error(`${s.unit.name} no puede usar ese poder: ${motivo}`);
+      const p = poder(accion.poder);
+      return {
+        kind: 'poder',
+        poder: p.id,
+        ...previsionDeLanzar(state, p.hechizo, p.lanzador, stackById(state, accion.target)),
+      };
     }
     case 'move':
     case 'wait':
@@ -2625,9 +2789,21 @@ function previsionDeHechizo(
   const hero = state.heroes[side];
   if (hero === null) throw new Error(`no se puede lanzar: ${SIN_HEROE}`);
   const s = spell(spellId);
-  const base = {
+  return {
     kind: 'hechizo',
     hechizo: spellId,
+    ...previsionDeLanzar(state, s, delHeroe(s, hero), t),
+  };
+}
+
+/** Lo que haría `s` lanzado por `l` sobre `t`, con las cuentas que lo aplican (`castSpell`). */
+function previsionDeLanzar(
+  state: BattleState,
+  s: Spell,
+  l: Lanzador,
+  t: BattleStack,
+): PrevisionDeLanzar {
+  const base = {
     objetivo: t.id,
     reglas: reglasEncendidas(state.reglas),
     danio: null,
@@ -2638,20 +2814,19 @@ function previsionDeHechizo(
   } as const;
   switch (s.kind) {
     case 'damage': {
-      const danio = spellAmount(s, hero);
-      const quedan = trasElGolpe(t, danio);
+      const quedan = trasElGolpe(t, l.cantidad);
       return {
         ...base,
-        danio,
+        danio: l.cantidad,
         bajas: t.count - quedan.count,
         leQuedan: stackHp({ ...t, ...quedan }),
       };
     }
     case 'speed':
     case 'luck':
-      return { ...base, efecto: effectOfSpell(s, hero, state.reglas) };
+      return { ...base, efecto: efectoDe(s, l, state.reglas) };
     case 'heal':
-      return { ...base, cura: curaDe(s, hero, t) };
+      return { ...base, cura: curaDe(s, l, t) };
   }
 }
 
@@ -2970,6 +3145,20 @@ export function legalActionsAndCosts(state: BattleState): {
         if (castBlocker(state, s.side, spellId, t.id) === null) {
           out.push({ type: 'cast', spell: spellId, target: t.id });
         }
+      }
+    }
+  }
+
+  // Los poderes, solo con alguno (la arena): sin ellos ni se mira, y la lista
+  // del juego no cambia ni de contenido ni de orden. Los pares que deja pasar
+  // `poderBlocker` —sus mismas dos piezas—: lo que no depende del objetivo (y el
+  // efecto) una vez por poder, y luego cada objetivo.
+  for (const id of s.unit.poderes ?? []) {
+    const previo = previoDelPoder(state, id);
+    if ('motivo' in previo) continue;
+    for (const t of state.stacks) {
+      if (objetivoDelPoderBlocker(previo.s, previo.p, previo.efecto, t) === null) {
+        out.push({ type: 'poder', poder: id, target: t.id });
       }
     }
   }

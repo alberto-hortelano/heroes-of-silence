@@ -147,7 +147,7 @@ export function conRegla(
  * interruptor (e) en fheroes2, la suerte de la Bendición y la Maldición —del
  * hechizo o de la momia— no mueve la suerte: fija la tirada al máximo o al mínimo
  * (`tirada`, con su signo). La duración y el origen no cambian. Con la nuestra, el
- * mismo efecto. La única redacción de la regla (e): la leen `temporalEffect`
+ * mismo efecto. La única redacción de la regla (e): la leen `efectoDe`
  * (`spells.ts`) y los efectos al golpear (`battle.ts`).
  */
 export function efectoConReglas(

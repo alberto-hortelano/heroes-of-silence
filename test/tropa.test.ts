@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { armyPower, fuerzaDe, unitPower } from '../src/core/ai/fuerza.js';
 import { planRecruits } from '../src/core/ai/strategy.js';
 import { playAiGame } from '../src/core/ai/turn.js';
-import { BOARD_HEIGHT } from '../src/core/battle/board.js';
+import { allHexes, BOARD_HEIGHT, bandoDeSalida } from '../src/core/battle/board.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { allCreatures, creature, LIDERAZGO } from '../src/core/data.js';
 import { marchaALaEscala } from '../src/core/escala.js';
@@ -274,7 +274,13 @@ describe('los datos garantizan que lo que cabe en un bando cabe en el tablero', 
   // hexes cada una— no pasa de los 27 de su lado (tres columnas de nueve), y
   // como cada grande ocupa una fila, no hay más grandes que filas.
   it('un bando lleno de grandes cabe en sus 27 hexes, y no hay más grandes que filas', () => {
-    expect(2 * LIDERAZGO.maxPorBando).toBeLessThanOrEqual(3 * BOARD_HEIGHT);
+    // Las casillas de salida de cada lado, contadas en el tablero (filas de 12
+    // y 11: las tres del borde de cada fila, 27 por lado).
+    for (const lado of ['attacker', 'defender'] as const) {
+      const salida = allHexes().filter((h) => bandoDeSalida(h) === lado).length;
+      expect(salida).toBe(3 * BOARD_HEIGHT);
+      expect(2 * LIDERAZGO.maxPorBando).toBeLessThanOrEqual(salida);
+    }
     expect(LIDERAZGO.maxPorBando).toBeLessThanOrEqual(BOARD_HEIGHT);
     expect(Number.isInteger(LIDERAZGO.maxPorBando)).toBe(true);
     // Y un héroe deja sitio para algo de tropa: si no, el cupo sería 0.

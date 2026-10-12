@@ -54,7 +54,7 @@ pasan todas por el mismo parser y fallan diciéndolo.
 ```
 src/core/          TypeScript puro: las reglas. Sin DOM y sin node:*
   arena.ts         unidades de la arena: formato, validación y batalla
-  battle/          rejilla 11×9, iniciativa, daño, hechizos, efectos
+  battle/          rejilla de 12 y 11 (board.ts), iniciativa, daño, hechizos, efectos
   map/             mapa, pathfinding (frontera.ts), niebla, generación (generate.ts,
                    vestir.ts) y red de nodos (regiones.ts)
   town/ hero/      castillos, edificios, reclutamiento; héroes, tropa, experiencia, equipo
@@ -93,6 +93,8 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
   `innerHTML`. La plantilla escapa según dónde cae el hueco, reconoce lo ya
   escapado por un símbolo privado y lanza con lo que no entiende;
   `href`/`src`/`style` se validan (`srcDeImagen`, `fondoDeColor`…), no se escapan.
+  `pintar` conserva el foco de dentro por su identidad (`data-*` e `id` suyos y de sus
+  antepasados; un botón pulsado con el ratón, no): nadie repinta con su propio parche.
 - **Fail-loud.** Una acción ilegal lanza con un mensaje para la persona. La
   excepción son las acciones del agente: se descartan una a una con su motivo.
   El motivo de un rechazo lo escribe un `*Blocker` del núcleo y lo leen
@@ -146,6 +148,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Reglas de la batalla (nuestra / fheroes2) | `BattleState.reglas`; el juego entra por `createBattle` (`REGLAS_DEL_JUEGO`) y solo la arena por `crearBatallaConReglas`, `batallaDeArena`, `SesionDeArena`, `reglasDeLaURL`, `conRegla` o un `'fheroes2'` escrito (lo vigila `invariantes.test.ts`) |
 | Por qué acabó una batalla (arena) | `causaDelFinal` (`battle.ts`, con `bandoVencido`) → `finalDeArena` |
 | Enlace de una pelea de la arena | `montajeALaURL` / `montajeDeLaURL` (`?montaje=`, con `?seed=` y `?reglas=`); un parámetro repetido, `unaVezEnLaURL` |
+| Forma del tablero de batalla (qué casillas existen, su espejo, la frase del contrato) | `board.ts`: `isInside`, `allHexes` (la lista congelada; su posición es `indiceDe`), `filasDelTablero`, `espejo`, `desplazamientoDeFila`, `EXTENSION_HORIZONTAL`, `ULTIMA_FILA`, `codigoDeLado`, `FORMA_DEL_TABLERO`, `tableroDelContrato`; fuera de `board.ts` nadie importa `anchoDeFila`, `ANCHO_DE_FILA_*` ni `BOARD_HEIGHT` (lo vigila `invariantes.test.ts`, por importación) |
 | Muros, puertas, niveles y tiro tapado de la batalla | `battle/muralla.ts` (`pasoPermitido`, `hayLinea`, `bonoEnLoAlto`, `validarMuralla`); al montarla, `crearBatallaConReglas(…, muralla)` |
 | Previsión de daño (barra de la partida y de la arena) | `previsionDe` → `horquillaDeDanio`, `trasElGolpe`; opciones del golpe, `opcionesDeDanio` |
 | Desenlace y causa del final (barra, crónica y nota del agente) | `finDePartida`, `desenlaceDe` (`state/desenlace.ts`) |
@@ -163,6 +166,9 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Nivel de cada casilla de la escena | `nivelesDelRelieve` (`core`, de `MapRegion.nivel`; nada lo inventa), que aplican `relieve` y el generador (`quitarEspigas`) |
 | Qué muro se queda: la muralla, el cierre de un paso (generador, guardia y medida) | `lineaDeLaPuerta`, `muroDeLaLinea`, `murallasDeLaRejilla` / `murallasDelMapa`, `juntoACiudad` (`core/map/murallas.ts`) |
 | Muralla de una franja de muro (línea, torres, guardia) | `trazaDeMuralla`, `torresDe`, `murallaSinLeer` (`muralla.ts`); torres apiladas, `seApilan`; lo de alrededor, `alrededorDeMurallas`; en la escena, `meterEnLaMuralla` |
+| Lanzar sobre un objetivo (hechizo del héroe y poder de una unidad) | `Lanzador` (`delHeroe`, el del poder), `efectoDe`, `curaDe` (`battle/spells.ts`); en la batalla, `lanzarSobre`; el objetivo, `objetivoBlocker` |
+| Poderes activos de unidad (solo la arena) | `poderBlocker` (`battle.ts`), cifras en `data/poderes.json` (inventadas); `UnitInfo.poderes` lo pone solo `core/arena.ts` |
+| Cambiar cifras a media pelea (arena) | `retocarEnBatalla` (`core/arena.ts`, lo gastado se conserva con `gastadoDeMas`); el tipo de un stack, `tipoDelStack`; el parte, el evento `retoque` |
 
 `test/invariantes.test.ts` vigila las fronteras de esta sección. Todos nacen en
 verde.
@@ -173,7 +179,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 
 | Dato | Valor |
 |---|---|
-| Rejilla de batalla | 11 × 9 = 99 hexes, offset odd-r |
+| Rejilla de batalla | **regla nuestra** (fheroes2: 11 × 9 = 99): 9 filas, las pares de 12 y las impares de 11 = 104 hexes, offset odd-r, simétrica de izquierda a derecha (`FORMA_DEL_TABLERO`, `espejo`; el índice es compacto, la posición en `allHexes`). El defensor sale en el espejo del atacante y el tiro pasa si pasa con el empujón (`+3, −1, −2`) o con su espejo (`lineaLibre`): generoso, en todo empate de borde un rayo va por cada casilla; una casilla fuera del tablero tapa su rayo (nunca se tira por el marco a través de un muro) |
 | Tropa | individuos, uno por hex, acotados por el liderazgo (`data/liderazgo.json`, provisional) |
 | Recursos | madera, mercurio, mineral, azufre, cristal, gemas, oro |
 | Movimiento diario | lo marca la criatura más lenta; se fija al empezar el día. **Regla nuestra** (#226): la tabla de fheroes2 (1000-1500) ×√(`AREA_POR_REGION` / `AREA_DE_REFERENCIA`) = ×√1,5 → 1224-1837 (`marchaALaEscala`, `core/escala.ts`) |
@@ -614,8 +620,19 @@ antes del destino (`battle_started` con `faltan`).
   cierra quien defiende, sin tiro a través en el suelo; un tirador en lo alto suma
   `defensaEnLoAlto` (`data/muralla.json`, inventado), que pone `opcionesDeDanio` y por eso lo
   cuentan igual el golpe, la IA, la ficha y la previsión. Funciona con los seis interruptores.
-  Las batallas del mapa van sin muralla (`SIN_MURALLA`). Velocidad en casillas (`escalonDeCasillas`). `SesionDeArena`
-  vive en `session.ts`. Una unidad con el arte a medias (el taller generándola)
+  Las batallas del mapa van sin muralla (`SIN_MURALLA`). **Poderes** (solo la arena, 11-10-2026): una unidad con Curar o Bendecir los usa en su turno (jugada `poder`, cierra el turno, no tras moverse); quién mueve es del **bando entero** (Yo / IA en su cabecera; `?montaje=` versión 3, la 1 y la 2 se leen). En la batalla, «Editar» del panel abre la ficha del tipo o del héroe y el cambio vale en la pelea y en el borrador. Velocidad en casillas (`escalonDeCasillas`). `SesionDeArena`
+  vive en `session.ts`. **La vista de edición** («Editar fichas», `arena/edicion.ts`): las
+  fichas que se quieran, sin tope (12-10-2026), las mismas del montaje (`fichaDe`), recordadas en
+  `localStorage`, en tres columnas como mucho y las demás debajo; la vista se desplaza entera, como
+  una página, sin regiones ni fichas con scroll propio. Un gesto de ficha escribe en la ficha que lo
+  contiene (`fichaDelElemento`, por `data-clave-de-ficha`), qué se abre lo dice `abrirFichaBlocker`,
+  un cambio repinta solo su ficha, nunca en `elegida`, y cada retrato anima y gira el suyo
+  (`animDeFicha`). La lista solo se pliega con su botón (`listaPlegadaTras`). **La ficha**, una sola
+  disposición en el montaje, la edición y el combate: el título es el nombre con «✎ Editar»
+  (`renombrar`; Intro guarda, Escape no; sin campo «Nombre» entre las cifras), arriba la figura con
+  sus clips en columna y las cifras a la derecha (en una columna estrecha, debajo: `@container`;
+  en combate, sin figura), y los rasgos del motor como las habilidades: etiquetas con × y el resto
+  en un desplegable. Una unidad con el arte a medias (el taller generándola)
   se lista como incompleta con su motivo y no se monta —nunca el Y Bot en su
   lugar—; `vite build` lo avisa y no falla (`arteEnOchoDirecciones`, #140).
 

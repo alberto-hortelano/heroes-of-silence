@@ -19,7 +19,7 @@ import {
   validarFormaDeMuralla,
 } from '../src/core/arena-murallas.js';
 import { stackHexes } from '../src/core/battle/battle.js';
-import { hexKey } from '../src/core/battle/board.js';
+import { FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
 import { validarMuralla } from '../src/core/battle/muralla.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
@@ -113,7 +113,10 @@ describe('el borrador de murallas', () => {
     const { validas, invalidas } = revisarBorradorDeMurallas({ formas: [buena, mala, repetida] });
     expect(validas).toEqual([buena]);
     expect(invalidas.map((i) => [i.nombre, i.motivo])).toEqual([
-      ['Rota', 'la forma «Rota»: la muralla: el muro 1 cae en (99,0), fuera del tablero de 11×9'],
+      [
+        'Rota',
+        `la forma «Rota»: la muralla: el muro 1 cae en (99,0), fuera del tablero (${FORMA_DEL_TABLERO})`,
+      ],
       ['Torreón', 'la forma «Torreón» está dos veces en el borrador'],
     ]);
     expect(invalidas[0]?.crudo).toBe(mala);
@@ -274,7 +277,10 @@ describe('la arena pelea con la muralla', () => {
     expect(marcado).toContain('title="(7,4) vacío, fuera, puerta al este"');
     expect(marcado).toContain('title="(8,4) vacío, puerta al oeste"');
     expect(marcado).toContain('class="rejilla herramienta-puerta"');
-    expect(marcado.match(/data-arena="hex-muralla"/g)?.length).toBe(99);
+    // Una casilla por hex del tablero: filas de 12 y 11, 104.
+    expect(marcado.match(/data-arena="hex-muralla"/g)?.length).toBe(104);
+    expect(marcado).not.toContain('title="(11,1)');
+    expect(marcado).toContain('title="(11,0) vacío"');
     expect(marcado.match(/data-arena="borrar-forma"/g)?.length).toBe(1);
     expect(marcado).toContain('Torreón &lt;1&gt;');
     expect(marcado).toContain('8 muros y 1 puerta');

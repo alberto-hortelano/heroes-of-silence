@@ -128,7 +128,17 @@ type Paso =
       readonly target: string;
       readonly damage: number;
     } & Reloj)
-  | ({ readonly tipo: 'cast'; readonly target: string | null; readonly damage: number } & Reloj)
+  /**
+   * Un hechizo. `lanza`, la unidad que lo lanza con su poder (la arena: Curar,
+   * Bendecir), que lo hace con su clip de ataque —no hay arte de lanzar—; el del
+   * héroe, `null`: su libro no mueve la figura.
+   */
+  | ({
+      readonly tipo: 'cast';
+      readonly lanza: string | null;
+      readonly target: string | null;
+      readonly damage: number;
+    } & Reloj)
   | { readonly tipo: 'perished'; readonly stack: string; readonly dura: number };
 
 /** Lo que el lienzo necesita de una figura en este instante. */
@@ -288,10 +298,13 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
       };
     }
     case 'cast':
+    case 'power':
+      // El poder de una unidad es un hechizo con otra mano: el mismo paso.
       return {
         tipo: 'cast',
+        lanza: e.kind === 'power' ? e.stack : null,
         target: e.target ?? null,
-        damage: e.damage ?? 0,
+        damage: e.kind === 'cast' ? (e.damage ?? 0) : 0,
         dura: DURACION.cast,
         impacto: IMPACTO,
         suelta: null,
@@ -538,6 +551,9 @@ export class BattleAnimator {
     if (p.tipo === 'attack' || p.tipo === 'shoot') {
       this.mirada.set(p.stack, this.miradaAlObjetivo(p.stack, p.target));
     }
+    if (p.tipo === 'cast' && p.lanza !== null && p.target !== null && p.target !== p.lanza) {
+      this.mirada.set(p.lanza, this.miradaAlObjetivo(p.lanza, p.target));
+    }
     if (p.tipo === 'move') {
       this.vista.set(p.stack, p.hasta);
       this.altura.set(p.stack, p.alturas.at(-1) as number);
@@ -618,6 +634,14 @@ export class BattleAnimator {
         // en quien no lo pinta es su ataque (`figuraDe`).
         clip = paso.tipo;
         mirada = this.miradaAlObjetivo(s.id, paso.target);
+        tiempo = desdeInicio;
+      } else if (paso.tipo === 'cast' && paso.lanza === s.id) {
+        // Quien lanza con su poder, con el ataque: es la acción que hay. Sobre sí
+        // misma no se gira.
+        clip = 'attack';
+        if (paso.target !== null && paso.target !== s.id) {
+          mirada = this.miradaAlObjetivo(s.id, paso.target);
+        }
         tiempo = desdeInicio;
       } else if (
         // Lo recibe igual un golpe, un disparo o un hechizo: una sola rama.

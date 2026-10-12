@@ -27,7 +27,14 @@ import {
   stackHexes,
   stackSpeed,
 } from '../src/core/battle/battle.js';
-import { caminoDe, hexDistance, hexKey, neighbours } from '../src/core/battle/board.js';
+import {
+  allHexes,
+  caminoDe,
+  FORMA_DEL_TABLERO,
+  hexDistance,
+  hexKey,
+  neighbours,
+} from '../src/core/battle/board.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
@@ -92,9 +99,19 @@ describe('validarMuralla', () => {
     expect(() => validarMuralla({ muros: [], puertas: [], torres: [] })).toThrow(
       'la muralla no entiende «torres»',
     );
-    expect(() => validarMuralla({ muros: [{ col: 11, row: 0 }], puertas: [] })).toThrow(
-      'cae en (11,0), fuera del tablero de 11×9',
+    // La columna 11 existe en las filas pares y no en las impares.
+    expect(() => validarMuralla({ muros: [{ col: 11, row: 1 }], puertas: [] })).toThrow(
+      `cae en (11,1), fuera del tablero (${FORMA_DEL_TABLERO})`,
     );
+    expect(validarMuralla({ muros: [{ col: 11, row: 0 }], puertas: [] }).muros).toHaveLength(1);
+    // La puerta va entre una casilla y la de su este: (10,1) no tiene este.
+    expect(() =>
+      validarMuralla({ muros: [], puertas: [{ a: { col: 10, row: 1 }, b: { col: 11, row: 1 } }] }),
+    ).toThrow('cae en (11,1), fuera del tablero');
+    expect(
+      validarMuralla({ muros: [], puertas: [{ a: { col: 10, row: 0 }, b: { col: 11, row: 0 } }] })
+        .puertas,
+    ).toHaveLength(1);
     expect(() => validarMuralla({ muros: [{ col: -1, row: 0 }], puertas: [] })).toThrow(
       'fuera del tablero',
     );
@@ -129,8 +146,8 @@ describe('validarMuralla', () => {
     expect(() => validarMuralla(puerta({ col: 5, row: 2 }, { col: 4, row: 2 }))).toThrow(
       'b justo al este de a',
     );
-    expect(() => validarMuralla(puerta({ col: 10, row: 2 }, { col: 11, row: 2 }))).toThrow(
-      'el lado b de la puerta 1 cae en (11,2), fuera del tablero',
+    expect(() => validarMuralla(puerta({ col: 10, row: 3 }, { col: 11, row: 3 }))).toThrow(
+      'el lado b de la puerta 1 cae en (11,3), fuera del tablero',
     );
     expect(() =>
       validarMuralla({
@@ -483,12 +500,14 @@ describe('el despliegue esquiva la muralla', () => {
       '0,1',
       '0,7',
     ]);
+    // El espejo del atacante: la cabeza en la segunda columna desde la derecha,
+    // la 10 en las filas pares (cola en la 11) y la 9 en las impares (cola en la 10).
     expect(sin.stacks.filter((s) => s.side === 'defender').map((s) => hexKey(s.hex))).toEqual([
-      '9,4',
+      '10,4',
       '9,3',
       '9,5',
-      '9,2',
-      '9,6',
+      '10,2',
+      '10,6',
       '9,1',
       '9,7',
     ]);
@@ -500,29 +519,37 @@ describe('el despliegue esquiva la muralla', () => {
     const cerradas = claves(m.muros);
     for (const s of b.stacks)
       for (const h of stackHexes(s)) expect(cerradas.has(hexKey(h))).toBe(false);
-    // Con una puerta (cerrada) entre (9,4) y (10,4), la grande salta esa fila.
+    // Con una puerta (cerrada) entre (10,4) y (11,4) —la cabeza y la cola de la
+    // grande en la fila 4, que es par—, la grande salta esa fila.
     const conPuerta = createBattle(
+      siete('peasant'),
+      lado([{ creature: 'bone_dragon', count: 1 }]),
+      createRng(1),
+      validarMuralla({ muros: [], puertas: [{ a: { col: 10, row: 4 }, b: { col: 11, row: 4 } }] }),
+    );
+    expect(stackHexes(stackById(conPuerta, 'defender-0')).map(hexKey)).toEqual(['9,3', '10,3']);
+    // Entre (9,4) y (10,4) ya no la parte: es el lado de delante de su cabeza.
+    const delante = createBattle(
       siete('peasant'),
       lado([{ creature: 'bone_dragon', count: 1 }]),
       createRng(1),
       validarMuralla({ muros: [], puertas: [{ a: { col: 9, row: 4 }, b: { col: 10, row: 4 } }] }),
     );
-    expect(stackHexes(stackById(conPuerta, 'defender-0')).map(hexKey)).toEqual(['9,3', '10,3']);
+    expect(stackHexes(stackById(delante, 'defender-0')).map(hexKey)).toEqual(['10,4', '11,4']);
     // La grande salta la fila cuya cola caería en el muro.
     const g = createBattle(
       siete('peasant'),
       lado([{ creature: 'bone_dragon', count: 1 }]),
       createRng(1),
-      validarMuralla({ muros: [{ col: 10, row: 4 }], puertas: [] }),
+      validarMuralla({ muros: [{ col: 11, row: 4 }], puertas: [] }),
     );
     expect(stackHexes(stackById(g, 'defender-0')).map(hexKey)).toEqual(['9,3', '10,3']);
   });
 
   it('si no caben, lo dice', () => {
-    const tapia = validarMuralla({
-      muros: [...columna(8), ...columna(9), ...columna(10)],
-      puertas: [],
-    });
+    // Toda la salida de la derecha: las tres últimas casillas de cada fila.
+    const salidaDerecha = allHexes().filter((h) => bandoDeSalida(h) === 'defender');
+    const tapia = validarMuralla({ muros: salidaDerecha, puertas: [] });
     // La misma frase antes de montar la batalla, que es la que lee el editor.
     const peones = Array.from({ length: 7 }, () => creature('peasant'));
     expect(despliegueBlocker(peones, 'defender', tapia)).toBe(
@@ -565,7 +592,9 @@ describe('las frases del despliegue, con su plural (QA, M6)', () => {
       ),
     ).toBe('la muralla deja 0 filas de salida para unidades grandes a la izquierda y hace falta 1');
     const casiTapia = validarMuralla({
-      muros: [...columna(8), ...columna(9), ...columna(10).filter((h) => h.row !== 4)],
+      muros: allHexes().filter(
+        (h) => bandoDeSalida(h) === 'defender' && !(h.col === 11 && h.row === 4),
+      ),
       puertas: [],
     });
     expect(despliegueBlocker(peones(2), 'defender', casiTapia)).toBe(
@@ -576,7 +605,17 @@ describe('las frases del despliegue, con su plural (QA, M6)', () => {
 
 describe('la zona de salida', () => {
   it('tres columnas de cada borde, y nada en medio', () => {
-    expect([0, 2, 3, 7, 8, 10].map((col) => bandoDeSalida({ col, row: 4 }))).toEqual([
+    // Fila par, de 12: la derecha es 9-11.
+    expect([0, 2, 3, 8, 9, 11].map((col) => bandoDeSalida({ col, row: 4 }))).toEqual([
+      'attacker',
+      'attacker',
+      null,
+      null,
+      'defender',
+      'defender',
+    ]);
+    // Fila impar, de 11: la derecha es 8-10.
+    expect([0, 2, 3, 7, 8, 10].map((col) => bandoDeSalida({ col, row: 3 }))).toEqual([
       'attacker',
       'attacker',
       null,

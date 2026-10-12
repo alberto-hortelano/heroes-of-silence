@@ -10,7 +10,7 @@
  * Vive en `shared` y no en `core` porque no es una regla del juego: el motor no
  * sabe a qué ángulo se mira el tablero, y no tiene por qué.
  */
-import { BOARD_HEIGHT } from '../core/battle/board.js';
+import { ULTIMA_FILA } from '../core/battle/board.js';
 export const ARTE = {
   /** Proyección ortográfica, 25° hacia abajo: las figuras de Y Bot se renderizaron así. */
   camara: { elevacionGrados: 25 },
@@ -78,7 +78,7 @@ export const ALTO_DE_FILA = Math.sqrt(3) / 2;
 /** Lo que queda el suelo bajo la última fila hasta el borde del lienzo, en pasos de pantalla. */
 export const MARGEN_ABAJO = 0.35;
 /** El fondo de la rejilla de combate, en pasos: las ocho separaciones entre sus nueve filas. */
-export const FONDO_DEL_COMBATE = (BOARD_HEIGHT - 1) * ALTO_DE_FILA;
+export const FONDO_DEL_COMBATE = ULTIMA_FILA * ALTO_DE_FILA;
 
 /** Un punto del plano del suelo (el tablero de combate o el escenario de la base), en pasos. */
 export interface Plano {

@@ -146,8 +146,10 @@ describe('dentro y fuera, derivados de la forma (C10)', () => {
     // Las siete columnas de la izquierda, fuera: 63 casillas rayadas.
     expect(linea.match(/class="hex fuera/g)?.length).toBe(63);
     expect(linea).toContain('title="(2,4) vacío, fuera"');
-    // En la L, delante del palo (7 × 5), a la izquierda del pie (3) y bajo él (5 × 3).
-    expect(editor(EN_L).match(/class="hex fuera/g)?.length).toBe(53);
+    // En la L, delante del palo (7 × 5), a la izquierda del pie (3) y bajo él
+    // (6, 5 y 6: con filas de 12 y 11 el eje está en 5,5, y la columna 5 de
+    // una fila par queda más cerca de la izquierda).
+    expect(editor(EN_L).match(/class="hex fuera/g)?.length).toBe(55);
   });
 });
 

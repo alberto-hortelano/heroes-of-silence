@@ -1,5 +1,5 @@
 import { nivelDeTropa } from '../hero/experiencia.js';
-import type { Hex, UnitInfo, Veterania } from '../types.js';
+import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { EffectKind, StackEffect } from './effects.js';
 import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
 import type { ReglasDeBatalla } from './reglas.js';
@@ -110,6 +110,9 @@ export interface BattleStack {
    * fuente: para una criatura es la misma referencia del catálogo, para un
    * personaje las de su perfil. Ninguna lectura de batalla vuelve a
    * `creature(...)`, y lo vigila `test/invariantes.test.ts`.
+   *
+   * La arena cambia las cifras de un tipo a media pelea (`retocarEnBatalla`)
+   * sustituyendo el stack entero en `BattleState.stacks`, no escribiendo aquí.
    */
   readonly unit: UnitInfo;
   /**
@@ -162,6 +165,14 @@ export interface BattleStack {
   /** Lo temporal: prisa, lentitud, maldición, miedo. Caduca en `beginRound`. */
   effects: StackEffect[];
   ganado: Ganado;
+  /**
+   * Lo gastado que las cifras de ahora no dejan restar: solo la arena, al
+   * retocar a media pelea (`retocarEnBatalla`). Bajar la vida por debajo de la
+   * herida deja el stack a 1 PV y la munición a 0 por debajo de lo disparado; lo
+   * que no cupo se apunta aquí para que volver a subirla no lo devuelva (N3 de QA:
+   * un arquero a 9 de 12, a 0 y otra vez a 12 volvía con 12). Sin él, nada que deber.
+   */
+  readonly gastadoDeMas?: { readonly herida: number; readonly disparos: number };
 }
 
 /**
@@ -200,6 +211,8 @@ export interface BattleHero {
   /** Ya lanzó su hechizo de esta ronda. */
   castThisRound: boolean;
   readonly spells: readonly string[];
+  /** El maná gastado que el Conocimiento de ahora no deja restar (`BattleStack.gastadoDeMas`). */
+  readonly manaGastadoDeMas?: number;
 }
 
 export type BattleEvent =
@@ -231,6 +244,22 @@ export type BattleEvent =
   | { kind: 'wait'; stack: string }
   | { kind: 'defend'; stack: string }
   | { kind: 'cast'; side: Side; spell: string; target?: string; damage?: number; killed?: number }
+  /**
+   * Una unidad usa un poder sobre `target` (`poderes.ts`, solo la arena). `cura`,
+   * los PV que repuso, si cura; lo que deja un poder de efecto va detrás, en su
+   * propio `effect`, como el del hechizo.
+   */
+  | { kind: 'power'; stack: string; poder: PoderId; target: string; cura?: number }
+  /**
+   * La arena cambió a media pelea las cifras de `nombre` —un tipo entero o el
+   * héroe de un lado— en estos `stacks` (`retocarEnBatalla`). No es una jugada:
+   * ni gasta turno ni lo mueve; queda en el registro para que el parte lo cuente
+   * y para que quien guarda por el registro se entere. `cambios`, qué campo de la
+   * ficha cambió, ya en palabras («ataque 3 → 10», «hechizos: − Prisa»;
+   * `cambiosDeLaFicha`, `arena.ts`). Nunca vacío: un retoque que deja la ficha
+   * como estaba no escribe ninguno.
+   */
+  | { kind: 'retoque'; nombre: string; stacks: readonly string[]; cambios: readonly string[] }
   | { kind: 'morale'; stack: string; good: boolean }
   | { kind: 'luck'; stack: string; good: boolean }
   | {
@@ -296,6 +325,19 @@ export interface TurnoDeUnidad {
   gastado: number;
 }
 
+/**
+ * Una ficha de la arena en palabras: cada campo, su valor como se lee en la
+ * ficha («3», «1-5», «Monje»), y las listas (rasgos, habilidades, hechizos) por
+ * sus nombres, para decir lo que entra y lo que sale.
+ */
+export type FichaEnPalabras = Readonly<Record<string, string | readonly string[]>>;
+
+/** El tipo del montaje de la arena del que sale un stack (`BattleState.tiposDeArena`). */
+export interface TipoDeArena {
+  readonly kind: 'hoja' | 'catalogo';
+  readonly id: string;
+}
+
 export interface BattleState {
   round: number;
   stacks: BattleStack[];
@@ -335,6 +377,22 @@ export interface BattleState {
    */
   readonly muralla: MurallaDeBatalla;
   /**
+   * De qué tipo del montaje sale cada stack de la tropa, por bando y en el orden
+   * de su `slot`: una hoja del borrador o una criatura del catálogo. Solo la
+   * arena lo pone (`batallaDeArena`) y lo lee (`tipoDelStack`): retocar un tipo a
+   * media pelea cambia los suyos, y el `body` no dice si es hoja o criatura.
+   */
+  readonly tiposDeArena?: Readonly<Record<Side, readonly TipoDeArena[]>>;
+  /**
+   * La ficha de cada tipo y de cada héroe tal como pelea ahora, dicha en
+   * palabras campo a campo (`fichaEnPalabras`, `arena.ts`): lo que escribe la
+   * persona, no las cifras del cuerpo. Solo la arena la pone al montar y la pone
+   * al día al retocar: el parte del retoque dice qué campo cambió comparando la
+   * de antes con la nueva (N1 y N2 de QA), y un retoque que no cambia nada no
+   * escribe nada. La clave, `claveDeFicha`.
+   */
+  readonly fichasDeArena?: Record<string, FichaEnPalabras>;
+  /**
    * Las escaleras apoyadas en la muralla, con su pie y su muro. Crece con cada
    * `poner_escalera` y no se quita: va fuera de `muralla`, que no cambia en toda
    * la batalla y se guarda en cachés por objeto.
@@ -363,6 +421,13 @@ export type BattleAction =
   | { type: 'wait' }
   | { type: 'defend' }
   | { type: 'cast'; spell: string; target?: string }
+  /**
+   * La unidad activa usa uno de sus poderes (`UnitInfo.poderes`) sobre el aliado
+   * `target`, sin haberse movido: es el turno entero (`poderBlocker`). Solo sale
+   * en la arena: el catálogo no tiene poderes, y por eso no está en el contrato
+   * del agente, como la escalera.
+   */
+  | { type: 'poder'; poder: PoderId; target: string }
   /**
    * El bando de la unidad activa se rinde (`surrenderBlocker` dice si puede).
    * `gold` es el precio: `legalActions` lo trae puesto, para que quien decide

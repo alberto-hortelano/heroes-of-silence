@@ -43,7 +43,9 @@ import {
   bonoEnLoAlto,
   enLoAlto,
   esMuro,
+  hayLinea,
   type MurallaDeBatalla,
+  puertasAlEmpezar,
   validarMuralla,
 } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
@@ -173,6 +175,30 @@ describe('la línea de tiro', () => {
     expect(lineaLibre({ col: 4, row: 4 }, { col: 5, row: 4 }, muro)).toBe(true);
     // Una diagonal que pasa por (5,4): de (3,0) a (7,8) en odd-r.
     expect(lineaLibre({ col: 3, row: 0 }, { col: 7, row: 8 }, new Set(['5,4']))).toBe(false);
+  });
+
+  it('un fuerte contra el borde no se dispara por la casilla que falta (QA I1, 12-10-2026)', () => {
+    // El fuerte de la esquina de abajo a la derecha, dibujable en el editor:
+    // fila 5 de la columna 5 a la 10 y la columna 5 abajo. Andando, desde
+    // (11,4) no se entra: sus vecinas de abajo son (10,5), muro, y el hueco
+    // (11,5). Con la casilla de fuera «saltada», el rayo que rozaba el marco
+    // por el hueco pasaba y (11,4)→(11,6) y (11,4)→(11,8) daban tiro; fuera
+    // cuenta como tapado (decisión del usuario), así que decide (10,5).
+    const fuerte = validarMuralla({
+      muros: [
+        ...[5, 6, 7, 8, 9, 10].map((col) => ({ col, row: 5 })),
+        { col: 5, row: 6 },
+        { col: 5, row: 7 },
+        { col: 5, row: 8 },
+      ],
+      puertas: [],
+    });
+    const p = puertasAlEmpezar(fuerte);
+    expect(hayLinea(fuerte, p, { col: 11, row: 4 }, { col: 11, row: 6 })).toBe(false);
+    expect(hayLinea(fuerte, p, { col: 11, row: 4 }, { col: 11, row: 8 })).toBe(false);
+    expect(hayLinea(fuerte, p, { col: 10, row: 4 }, { col: 10, row: 6 })).toBe(false);
+    // Dentro del fuerte, sí: entre dos casillas del suelo sin muro en medio.
+    expect(hayLinea(fuerte, p, { col: 11, row: 6 }, { col: 11, row: 8 })).toBe(true);
   });
 
   it('sin muralla, siempre hay tiro', () => {
@@ -809,7 +835,6 @@ describe('tras QA', () => {
         unidades.map((_, i) => ({
           clave: i,
           fuente: { kind: 'hoja' as const, hoja: String(i) },
-          ia: false,
           escalera: true,
         })),
         (p) => {
@@ -826,6 +851,7 @@ describe('tras QA', () => {
         LIDERAZGO.maxPorBando,
         null,
         unidades.length,
+        false,
       ),
     );
     const casillas = marcado.match(/<input type="checkbox" data-arena="escalera"[^>]*>/g) ?? [];

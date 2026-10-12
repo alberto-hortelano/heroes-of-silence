@@ -1,5 +1,5 @@
 /**
- * La batalla a 25°: el tablero de 11×9 proyectado sobre el suelo y las figuras
+ * La batalla a 25°: el tablero (filas de 12 y 11) proyectado sobre el suelo y las figuras
  * ordenadas por profundidad.
  *
  * Toma las ideas de `aventura/tactical-scene.ts` de la rama `archivo/gpt-rpg`
@@ -13,7 +13,7 @@
  * instante, del animador.
  */
 import { activeStack, type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/battle.js';
-import { BOARD_HEIGHT, BOARD_WIDTH, hexKey, indiceDe } from '@core/battle/board.js';
+import { allHexes, hexKey, indiceDe } from '@core/battle/board.js';
 import { CHARGE_BONUS_PER_HEX, stackHp } from '@core/battle/damage.js';
 import {
   type EstadoDePuerta,
@@ -142,7 +142,7 @@ export interface VistaBatalla {
 }
 
 /**
- * Los 99 hexes ya trazados, para el tablero de este tamaño. Cada uno eran seis
+ * Los 104 hexes ya trazados, para el tablero de este tamaño. Cada uno eran seis
  * senos y cosenos por fotograma para dibujar siempre lo mismo; ahora se trazan
  * al cambiar el tamaño del lienzo y nada más.
  */
@@ -158,18 +158,16 @@ interface CasillaPintada {
 function hexesDe(t: Tablero): CasillaPintada[] {
   const clave = `${t.paso}|${t.origenX}|${t.origenY}|${t.compresion}`;
   if (geometria !== null && geometria.clave === clave) return geometria.hexes;
-  const hexes: CasillaPintada[] = [];
-  for (let row = 0; row < BOARD_HEIGHT; row++) {
-    for (let col = 0; col < BOARD_WIDTH; col++) {
-      const camino = new Path2D();
-      for (const [i, p] of verticesHex(t, { col, row }).entries()) {
-        if (i === 0) camino.moveTo(p.x, p.y);
-        else camino.lineTo(p.x, p.y);
-      }
-      camino.closePath();
-      hexes.push({ hex: { col, row }, k: hexKey({ col, row }), camino });
+  // En el orden de `allHexes`, que es el de `indiceDe`: la lista se lee por índice.
+  const hexes: CasillaPintada[] = allHexes().map((hex) => {
+    const camino = new Path2D();
+    for (const [i, p] of verticesHex(t, hex).entries()) {
+      if (i === 0) camino.moveTo(p.x, p.y);
+      else camino.lineTo(p.x, p.y);
     }
-  }
+    camino.closePath();
+    return { hex, k: hexKey(hex), camino };
+  });
   geometria = { clave, hexes };
   return hexes;
 }

@@ -7,10 +7,11 @@
  * los ejemplos que trae la arena de salida.
  */
 
-import { lista, revisarLista, texto, todasValidas } from './arena.js';
-import { BOARD_HEIGHT } from './battle/board.js';
+import { revisarLista, todasValidas } from './arena.js';
+import { FORMA_DEL_TABLERO, isInside, ULTIMA_FILA } from './battle/board.js';
 import { cierra, hayMuralla, type MurallaDeBatalla, validarMuralla } from './battle/muralla.js';
 import type { Hex } from './types.js';
+import { lista, texto } from './validar.js';
 
 export interface FormaDeMuralla {
   readonly nombre: string;
@@ -20,12 +21,15 @@ export interface FormaDeMuralla {
 /** Lo más largo que se acepta de un nombre: es una etiqueta de botón, no una nota. */
 export const NOMBRE_MAXIMO_DE_FORMA = 40;
 
-/** Los hexes de la columna `col`, de la fila `desde` a la `hasta` (por defecto, entera). */
-export function columna(col: number, desde = 0, hasta = BOARD_HEIGHT - 1): Hex[] {
+/**
+ * Los hexes de la columna `col`, de la fila `desde` a la `hasta` (por defecto,
+ * entera), los que existen: la 11 solo está en las filas pares.
+ */
+export function columna(col: number, desde = 0, hasta = ULTIMA_FILA): Hex[] {
   return Array.from({ length: hasta - desde + 1 }, (_, i) => ({
     col,
     row: desde + i,
-  }));
+  })).filter(isInside);
 }
 
 /** La columna del arco del semicírculo, fila a fila: la 4 es la del hueco de la puerta. */
@@ -169,7 +173,7 @@ export function ladosDeLaForma(m: MurallaDeBatalla): string {
     : `Esta forma no cierra: la izquierda puede rodearla andando${m.puertas.length > 0 ? ', aun con las puertas cerradas' : ''}. ${lados}`;
 }
 
-export const COMENTARIO_DEL_BORRADOR_DE_MURALLAS = `BORRADOR de la arena (/arena/, pnpm arena): formas de muralla para probar en la batalla. Lo escribe la página al guardar o borrar una forma y lo valida validarFormaDeMuralla (src/core/arena-murallas.ts); una forma que no valida se conserva tal cual. El juego NO lo lee. Cada muro es un hex {col, row} en la rejilla de 11×9 (odd-r: las filas impares van media casilla a la derecha); cada puerta, {a, b}: dos hexes vecinos de la misma fila, b justo al este de a. ${REGLA_DE_LA_MURALLA}`;
+export const COMENTARIO_DEL_BORRADOR_DE_MURALLAS = `BORRADOR de la arena (/arena/, pnpm arena): formas de muralla para probar en la batalla. Lo escribe la página al guardar o borrar una forma y lo valida validarFormaDeMuralla (src/core/arena-murallas.ts); una forma que no valida se conserva tal cual. El juego NO lo lee. Cada muro es un hex {col, row} en la rejilla de batalla (${FORMA_DEL_TABLERO}); cada puerta, {a, b}: dos hexes vecinos de la misma fila, b justo al este de a. ${REGLA_DE_LA_MURALLA}`;
 
 /** Una forma del archivo que no pasa la regla: se cuenta por qué y se guarda tal cual. */
 export interface FormaSinValidar {

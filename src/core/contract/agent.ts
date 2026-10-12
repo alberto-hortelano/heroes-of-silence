@@ -17,6 +17,7 @@
  */
 import { z } from 'zod';
 import { CARGA_MINIMA } from '../battle/battle.js';
+import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../battle/damage.js';
 import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
@@ -460,6 +461,9 @@ cuando el rival te ataca un héroe o un castillo, y también cuando unos
 ASALTANTES emboscan a un héroe tuyo que ha pisado su región: entonces el
 atacante es su grupo, sin héroe, y no se rinde. "stacks" con tu "side" son
 los tuyos.
+
+El tablero viene en "board": ${FORMA_DEL_TABLERO}. Una acción a una casilla
+que no existe se descarta.
 
 Acciones válidas para la unidad activa:
   { "type": "move",   "to": { "col": N, "row": N } }

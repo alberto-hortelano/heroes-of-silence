@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
+import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -589,6 +590,52 @@ describe('enlace con el agente', () => {
     expect(peticionesDeBatalla).toBeGreaterThan(0);
     expect(director.state.pendingBattle).toBeNull();
     expect(director.state.log.some((e) => e.kind === 'battle_ended')).toBe(true);
+  });
+
+  it('recibe la forma del tablero, y un move a la casilla que falta de una fila impar se descarta', async () => {
+    // Tablero simétrico (11-10-2026): filas de 12 y 11. La columna 11 existe en
+    // las pares y no en las impares; el agente lo lee en "board" y, si manda
+    // (11,1), se le dice que está fuera del tablero.
+    let primera = true;
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind === 'adventure_turn') {
+        const hero = payload.heroes[0];
+        const monstruo = payload.knownMap.objects.find(
+          (o: any) => o.kind === 'monster' && !o.defeated,
+        );
+        if (monstruo === undefined) return { actions: [] };
+        return { actions: [{ type: 'move_hero', hero: hero.id, to: monstruo.at }] };
+      }
+      if (kind === 'battle_turn') {
+        if (primera) {
+          primera = false;
+          return { action: { type: 'move', to: { col: 11, row: 1 } } };
+        }
+        const acciones = payload.legalActions as any[];
+        return { action: acciones.find((a) => a.type === 'attack') ?? acciones[0] };
+      }
+      return {};
+    });
+
+    const director = new Director(link, { seed: 110, agentPlayers: [0] });
+    revealEverything(director.state, 0);
+    director.state.heroes[0]!.army = ejercito({ creature: 'paladin', count: 6 });
+    director.state.heroes[0]!.movePoints = 20000;
+    await director.playTurn();
+    await respira();
+
+    const batallas = agent.seen.filter((p) => p.kind === 'battle_turn');
+    expect(batallas.length).toBeGreaterThan(1);
+    for (const b of batallas) expect(b.payload.board).toEqual(tableroDelContrato());
+    // Ninguna acción legal va a la casilla que no existe.
+    for (const b of batallas) {
+      for (const a of b.payload.legalActions as any[]) {
+        for (const h of [a.to, a.from]) if (h !== undefined) expect(isInside(h)).toBe(true);
+      }
+    }
+    const acuse = agent.results.find((r) => r.requestId === batallas[0]!.requestId);
+    expect(acuse?.ok).toBe(false);
+    expect(acuse?.note).toContain('(11,1) está fuera del tablero');
   });
 });
 
