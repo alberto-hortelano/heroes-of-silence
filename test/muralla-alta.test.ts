@@ -56,6 +56,7 @@ import type { Hex, Stack } from '../src/core/types.js';
 import {
   abrirPuertas,
   aPelear,
+  DEL_JUEGO,
   forzarTurno,
   peleaDeArena,
   sesionDeArena,
@@ -821,13 +822,15 @@ describe('tras QA', () => {
     const anda = unidadDeArena('zombi');
     const grande = unidadDeArena('zombi', { hexes: 2 });
     const vuela = unidadDeArena('zombi', { traits: ['flying'] });
-    expect(escaleraDeArenaBlocker({ kind: 'borrador', unidad: anda }, 'izquierda')).toBeNull();
-    expect(escaleraDeArenaBlocker({ kind: 'borrador', unidad: grande }, 'izquierda')).toBe(
-      'una unidad de dos casillas no sube a la muralla',
-    );
-    expect(escaleraDeArenaBlocker({ kind: 'borrador', unidad: vuela }, 'izquierda')).toBe(
-      'vuela: se posa en la muralla sin escalera',
-    );
+    expect(
+      escaleraDeArenaBlocker({ kind: 'borrador', unidad: anda }, 'izquierda', DEL_JUEGO),
+    ).toBeNull();
+    expect(
+      escaleraDeArenaBlocker({ kind: 'borrador', unidad: grande }, 'izquierda', DEL_JUEGO),
+    ).toBe('una unidad de dos casillas no sube a la muralla');
+    expect(
+      escaleraDeArenaBlocker({ kind: 'borrador', unidad: vuela }, 'izquierda', DEL_JUEGO),
+    ).toBe('vuela: se posa en la muralla sin escalera');
     const unidades = [anda, grande, vuela];
     const marcado = marcadoDe(
       renderBando(
@@ -844,7 +847,11 @@ describe('tras QA', () => {
             resumen: '',
             figura: u.id,
             sello: 'borrador',
-            noEscala: escaleraDeArenaBlocker({ kind: 'borrador', unidad: u }, 'izquierda'),
+            noEscala: escaleraDeArenaBlocker(
+              { kind: 'borrador', unidad: u },
+              'izquierda',
+              DEL_JUEGO,
+            ),
           };
         },
         null,

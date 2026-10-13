@@ -27,14 +27,15 @@ import {
   SIDES,
   type Side,
 } from '@core/battle/types.js';
-import { creature, hasTrait, isShooter, nombreDeTipoDeHeroe } from '@core/data.js';
+import { creature, hasTrait, isShooter, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
 import {
-  cifrasDePieza,
   destinoDeEquipo,
+  modificadoresDePieza,
   NOMBRE_DE_CALIDAD,
   NOMBRE_DE_HUECO,
   PIEZAS_DE_ARMERIA,
   pieza,
+  textoDeModificador,
 } from '@core/hero/equipo.js';
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { HERO_BODY, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
@@ -476,7 +477,7 @@ function renderEquipoDelHeroe(hero: Hero, elegida: string | null): Html {
         return html`<div class="stack empty"><span>${NOMBRE_DE_HUECO[hueco]}: —</span></div>`;
       }
       const p = pieza(id);
-      return html`<div class="stack"><span>${NOMBRE_DE_HUECO[hueco]}: ${p.nombre}<span class="veterania">${cifrasDePieza(p)}</span></span><span class="count"><button data-action="unequip" data-hero="${hero.id}" data-slot="${hueco}" title="Quitársela y guardarla en la mochila">×</button></span></div>`;
+      return html`<div class="stack"><span>${NOMBRE_DE_HUECO[hueco]}: ${p.nombre}<span class="veterania">${modificadoresEnPantalla(p)}</span></span><span class="count"><button data-action="unequip" data-hero="${hero.id}" data-slot="${hueco}" title="Quitársela y guardarla en la mochila">×</button></span></div>`;
     }),
   );
   const mochila =
@@ -487,7 +488,7 @@ function renderEquipoDelHeroe(hero: Hero, elegida: string | null): Html {
             const p = pieza(id);
             const marca = id === elegida ? ' ◆' : '';
             return html`<button data-action="select-item" data-item="${id}" class="stack" title="Elegirla para ponérsela a alguien">
-              <span>${p.nombre}${marca}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} ${NOMBRE_DE_CALIDAD[p.calidad]} · ${cifrasDePieza(p)}</span></span>
+              <span>${p.nombre}${marca}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} ${NOMBRE_DE_CALIDAD[p.calidad]} · ${modificadoresEnPantalla(p)}</span></span>
             </button>`;
           }),
         );
@@ -582,7 +583,7 @@ function renderArmeria(session: Session, town: Town): Html {
   const filas = unir(
     PIEZAS_DE_ARMERIA.map((p) => {
       const motivo = buyBlocker(session.state, town, p.id, session.viewer);
-      return html`<div class="stack"><span>${p.nombre}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} · ${cifrasDePieza(p)}</span></span><span class="count">${describirCoste(p.precio)} <button data-action="buy-item" data-item="${p.id}" title="${motivo ?? 'Comprarla para la mochila del héroe que está dentro'}">Comprar</button></span></div>`;
+      return html`<div class="stack"><span>${p.nombre}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} · ${modificadoresEnPantalla(p)}</span></span><span class="count">${describirCoste(p.precio)} <button data-action="buy-item" data-item="${p.id}" title="${motivo ?? 'Comprarla para la mochila del héroe que está dentro'}">Comprar</button></span></div>`;
     }),
   );
   return html`<h3>Armería</h3><div class="stack-list">${filas}</div>
@@ -972,6 +973,40 @@ const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
  */
 export function enRondas(n: number): string {
   return `${n} ${n === 1 ? 'ronda' : 'rondas'}`;
+}
+
+/**
+ * Lo que suma una pieza, pintado: un `.modificador` por cosa de
+ * `modificadoresDePieza`, con su texto de `textoDeModificador` y la cifra en
+ * `data-cifra` (la marca, en `data-marca`). La misma forma en la ficha de la
+ * arena, el editor de equipo y los paneles del juego; donde no cabe marcado (un
+ * `<option>`), `cifrasDePieza`, que es este mismo texto separado por comas.
+ * `vacio`, lo que se dice si no suma nada.
+ */
+export function modificadoresEnPantalla(p: Pieza, vacio = 'no suma nada'): Html {
+  const mods = modificadoresDePieza(p);
+  if (mods.length === 0) return html`<span class="modificadores sin-modificadores">${vacio}</span>`;
+  return html`<span class="modificadores">${unir(
+    mods.map((m) =>
+      m.kind === 'cifra'
+        ? html`<span class="modificador" data-cifra="${m.cifra}">${textoDeModificador(m)}</span>`
+        : html`<span class="modificador" data-marca="${m.marca}">${textoDeModificador(m)}</span>`,
+    ),
+  )}</span>`;
+}
+
+/**
+ * Una nota de la ficha: la forma única de toda aclaración (13-10-2026, el
+ * usuario: «cualquier aclaración o nota debe ir como tooltip»). Un «ⓘ» con su
+ * texto en `aria-label`; `style.css` lo enseña en un bocadillo junto al «ⓘ» al
+ * pasar el ratón, al tocarlo o con el foco del teclado en él. Sin `title`: el
+ * navegador pintaba su tooltip encima del bocadillo. Se alcanza con el tabulador
+ * salvo la de una fila de cifras (`enfocable: false`): entre casilla y casilla,
+ * el tabulador caía en el «ⓘ» de la fila siguiente; esa la lleva su casilla en
+ * `aria-description`, y con el ratón o el dedo se abre como las demás.
+ */
+export function nota(texto: string, enfocable = true): Html {
+  return html`<span class="nota" tabindex="${enfocable ? '0' : '-1'}" role="note" aria-label="${texto}" data-nota="si">ⓘ</span>`;
 }
 
 /**

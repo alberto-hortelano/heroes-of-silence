@@ -186,6 +186,12 @@ export interface UnitInfo {
    * **No hay `nivel` en las cifras**: se deriva de ellas (`nivelDeUnidad`).
    */
   readonly sinEquipo?: UnitInfo;
+  /**
+   * Lo que lleva puesto, con `sinEquipo` (lo escribe `conEquipo`): cambiar una
+   * pieza a media pelea en la arena lo vuelve a sumar a su cuerpo desde el stack.
+   * No viaja al espectador.
+   */
+  readonly equipo?: Equipo;
   /** Munición. > 0 = es tirador. */
   readonly shots?: number;
   /** Hexes que ocupa en la rejilla de batalla (1 o 2). */

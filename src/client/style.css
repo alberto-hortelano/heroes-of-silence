@@ -333,3 +333,81 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .abierto-en-la-base { border-bottom: 1px solid #4a3c2a; padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
 .abierto-en-la-base .motivo { color: #d08a6a; }
 .abierto-en-la-base .reclutar { grid-template-columns: 1fr 1fr; margin: 0.4rem 0; }
+
+/*
+ * Lo que suma una pieza (`modificadoresEnPantalla`): una pastilla por cifra, la
+ * misma en los paneles del juego, la ficha de la arena y el editor de equipo.
+ */
+.modificadores { display: inline-flex; flex-wrap: wrap; gap: 0.2em 0.3em; vertical-align: baseline; }
+/* Tamaño y letra fijos: heredados, medía 13 px en Georgia en la ficha, 10,8 en
+   system-ui en el editor de equipo y 9,7 en los paneles del juego (H3 de QA,
+   13-10-2026). */
+.modificador {
+  display: inline-block;
+  padding: 0 0.35em;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font: normal 12px/1.45 system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.modificador[data-marca] { font-style: italic; }
+.sin-modificadores { color: var(--ink-dim); font-style: italic; }
+
+/*
+ * Una nota (`nota`): la forma única de toda aclaración de la ficha. Un «ⓘ» con el
+ * texto en `aria-label`; al pasar el ratón por él (o tocarlo) o con el foco del
+ * teclado en él, un bocadillo junto a él, debajo o, si no cabe, encima o al otro
+ * lado (`position-try-fallbacks`). Nunca con el foco de una casilla: fijo al pie
+ * de la ventana tapaba la casilla que se escribía cuando quedaba abajo (H2 de QA,
+ * 13-10-2026: «Coste» a 390 px). Sin `title`, que el navegador pintaba otro encima.
+ */
+.nota {
+  display: inline-block;
+  cursor: help;
+  color: var(--gold);
+  font: normal 0.9em system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1;
+  border-radius: 50%;
+  anchor-name: --nota;
+  anchor-scope: --nota;
+}
+.nota:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.nota:hover::after,
+.nota:focus-visible::after {
+  content: attr(aria-label);
+  position: fixed;
+  position-anchor: --nota;
+  position-area: bottom span-right;
+  position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+  margin: 4px;
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 32px));
+  z-index: 50;
+  padding: 0.5rem 0.7rem;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--gold);
+  font: 0.9rem/1.35 Georgia, serif;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+}
+/* Sin anclaje (un navegador de antes de 2024): debajo del «ⓘ», a su izquierda. */
+@supports not (position-area: bottom) {
+  .nota { position: relative; }
+  .nota:hover::after,
+  .nota:focus-visible::after { position: absolute; top: 100%; left: 0; }
+}
+.solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

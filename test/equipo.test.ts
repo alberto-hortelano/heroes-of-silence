@@ -16,20 +16,31 @@ import {
 } from '../src/core/ai/strategy.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
-import { creature, EQUIPO, validarEquipo } from '../src/core/data.js';
 import {
+  creature,
+  EQUIPO,
+  piezaBlocker,
+  problemasDePieza,
+  validarEquipo,
+} from '../src/core/data.js';
+import {
+  CIFRAS_DE_PIEZA,
   cifrasDePieza,
   conEquipo,
   EQUIPO_BASE,
   equipoBlocker,
+  equipoCon,
   manosBlocker,
   mismasCifras,
+  modificadoresDePieza,
   PIEZAS_DE_ARMERIA,
   PIEZAS_DE_BOTIN,
+  PIEZAS_DEL_CATALOGO,
   PIEZAS_DEL_JUEGO,
   pieza,
   ponerPieza,
   sumaDeEquipo,
+  textoDeModificador,
 } from '../src/core/hero/equipo.js';
 import { cifrasDeCatalogo, umbral } from '../src/core/hero/experiencia.js';
 import { heroeRecienHecho, heroUnit } from '../src/core/hero/hero.js';
@@ -90,12 +101,7 @@ describe('el catálogo de equipo, en datos (C2)', () => {
       expect(deArmeria).toHaveLength(1);
       expect(EQUIPO_BASE[hueco]).toBe(deArmeria[0]!.id);
     }
-    // El héroe nace como antes: espada, cota y brazal de armería, sin escudo.
-    expect(EQUIPO_BASE).toEqual({
-      arma: 'espada_de_armeria',
-      armadura: 'cota_de_malla',
-      accesorio: 'brazal_de_armeria',
-    });
+    expect(EQUIPO_BASE.escudo).toBeUndefined();
     // Lo que vende la armería, lo que cae como botín y lo de la arena no se
     // pisan, y entre los tres son el catálogo entero. Lo de la arena no cae nunca:
     // el sorteo del botín ve la misma lista de siempre, y el banco no se mueve.
@@ -144,6 +150,51 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(con((ps) => (id(ps, 'barda').velocidad = -1))).not.toThrow();
     expect(con((ps) => (id(ps, 'barda').velocidad = -0.5))).toThrow(
       /velocidad tiene que ser un entero/,
+    );
+  });
+
+  it('la regla de una pieza vive en un sitio: `problemasDePieza`, que lee el cargador y la arena', () => {
+    // Editor de equipo (12-10-2026): extraída del bucle de `validarEquipo`, con el
+    // mismo texto, para que la arena pregunte por una pieza suelta.
+    const escudo = { ...pieza('escudo') };
+    expect(problemasDePieza(escudo)).toEqual([]);
+    expect(piezaBlocker(escudo)).toBeNull();
+    expect(piezaBlocker({ ...escudo, velocidad: 0 })).toBe(
+      '"escudo" es un escudo y tiene que restar velocidad (un número negativo), y es 0',
+    );
+    expect(problemasDePieza({ ...pieza('brigantina'), manos: 2, ataque: -1 })).toEqual([
+      '"brigantina": ataque tiene que ser un entero ≥ 0 y es -1',
+      '"brigantina" va en el hueco armadura y dice manos: solo un arma se lleva a dos manos',
+    ]);
+    expect(piezaBlocker({ ...pieza('espada'), danio: [30, 10] })).toBe(
+      '"espada": el daño mínimo que suma (30) pasa del máximo (10)',
+    );
+    expect(piezaBlocker(7)).toBe('la pieza no es un objeto');
+    // Repetida es del catálogo entero: la dice el cargador, no la pieza.
+    const dos = { piezas: [...EQUIPO, { ...pieza('garrote') }] };
+    expect(() => validarEquipo(dos)).toThrow('"garrote" está repetida');
+  });
+
+  it('cada lectura atada resuelve de su catálogo; las sueltas, del juego', () => {
+    const otra = new Map(PIEZAS_DEL_CATALOGO);
+    otra.set('espada', { ...pieza('espada'), ataque: 50 });
+    otra.set('garfio', { ...pieza('garrote'), id: 'garfio', nombre: 'Garfio', calidad: 'arena' });
+    const eq = equipoCon(otra);
+    expect(eq.pieza('espada').ataque).toBe(50);
+    expect(pieza('espada').ataque).toBe(PIEZAS_DEL_CATALOGO.get('espada')?.ataque);
+    expect(() => pieza('garfio')).toThrow('pieza de equipo desconocida: "garfio"');
+    expect(eq.piezasPuestas({ arma: 'garfio' }).map((p) => p.nombre)).toEqual(['Garfio']);
+    expect(eq.sumaDeEquipo({ arma: 'espada' }).ataque).toBe(50);
+    expect(eq.conEquipo(creature('peasant'), { arma: 'espada' }).attack).toBe(
+      creature('peasant').attack + 50,
+    );
+    expect(equipoBlocker({ arma: 'garfio' })).toBe('no existe ninguna pieza "garfio"');
+    expect(eq.equipoBlocker({ arma: 'garfio' })).toBeNull();
+    otra.set('espada', { ...pieza('espada'), manos: 2 });
+    expect(eq.manosBlocker({ escudo: 'escudo' }, 'espada')).toMatch(/dos manos/);
+    expect(manosBlocker({ escudo: 'escudo' }, 'espada')).toBeNull();
+    expect(() => eq.ponerPieza({ escudo: 'escudo' }, 'espada', 'Aldo')).toThrow(
+      'no se puede poner Espada a Aldo',
     );
   });
 
@@ -212,8 +263,48 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     const lento = { ...piquero, speed: SPEED_TIERS[0] };
     expect(conEquipo(lento, { escudo: 'paves' }).speed).toBe(SPEED_TIERS[0]);
     expect(conEquipo(piquero, { escudo: 'escudo' }).defense).toBe(piquero.defense + 4);
-    expect(cifrasDePieza(pieza('escudo'))).toBe('+4 defensa, −1 velocidad');
-    expect(cifrasDePieza(pieza('mandoble'))).toBe('+5 ataque, +30-60 daño, a dos manos');
+    expect(cifrasDePieza(pieza('escudo'))).toBe('+4 Defensa, −1 Velocidad');
+    expect(cifrasDePieza(pieza('mandoble'))).toBe('+5 Ataque, +30–60 Daño, a dos manos');
+  });
+
+  // 13-10-2026, el usuario: «estandariza la forma de mostrar los modificadores del
+  // equipo, que no sea un texto libre».
+  it('`modificadoresDePieza`: lista estructurada, en el orden de las cifras, sin ceros y con la marca detrás', () => {
+    expect(modificadoresDePieza(pieza('arco'))).toEqual([
+      { kind: 'cifra', cifra: 'ataque', valor: 2 },
+      { kind: 'cifra', cifra: 'danio', valor: 10, hasta: 20 },
+      { kind: 'cifra', cifra: 'disparos', valor: 12 },
+      { kind: 'marca', marca: 'dosManos' },
+    ]);
+    expect(modificadoresDePieza(pieza('escudo'))).toEqual([
+      { kind: 'cifra', cifra: 'defensa', valor: 4 },
+      { kind: 'cifra', cifra: 'velocidad', valor: -1 },
+    ]);
+    // El orden de toda pieza del catálogo es el de `CIFRAS_DE_PIEZA`, sin repetir ni ceros.
+    for (const p of PIEZAS_DEL_CATALOGO.values()) {
+      const cifras = modificadoresDePieza(p).flatMap((m) => (m.kind === 'cifra' ? [m] : []));
+      const orden = cifras.map((m) => CIFRAS_DE_PIEZA.indexOf(m.cifra));
+      expect(orden, p.id).toEqual([...orden].sort((a, b) => a - b));
+      expect(new Set(orden).size, p.id).toBe(orden.length);
+      for (const m of cifras) expect(m.hasta ?? m.valor, p.id).not.toBe(0);
+    }
+    const nada = { ...pieza('garrote'), ataque: 0 };
+    expect(modificadoresDePieza(nada)).toEqual([]);
+    expect(cifrasDePieza(nada)).toBe('');
+  });
+
+  it('`textoDeModificador`: signo siempre (el menos tipográfico) y el daño como horquilla', () => {
+    expect(textoDeModificador({ kind: 'cifra', cifra: 'ataque', valor: 2 })).toBe('+2 Ataque');
+    expect(textoDeModificador({ kind: 'cifra', cifra: 'velocidad', valor: -2 })).toBe(
+      '−2 Velocidad',
+    );
+    expect(textoDeModificador({ kind: 'cifra', cifra: 'danio', valor: 0, hasta: 20 })).toBe(
+      '+0–20 Daño',
+    );
+    expect(textoDeModificador({ kind: 'cifra', cifra: 'danio', valor: 5, hasta: 5 })).toBe(
+      '+5 Daño',
+    );
+    expect(textoDeModificador({ kind: 'marca', marca: 'dosManos' })).toBe('a dos manos');
   });
 
   it('`manosBlocker`: un escudo sobre un arma a dos manos y un arma a dos manos sobre un escudo', () => {

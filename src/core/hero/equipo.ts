@@ -23,11 +23,61 @@ import type { Equipo, Hueco, Troop, UnitInfo, Veterania } from '../types.js';
 import { esHueco, HUECOS, huecoDesconocido, SPEED_TIERS } from '../types.js';
 import type { Hero } from './hero.js';
 
-const porId = new Map(EQUIPO.map((p) => [p.id, p]));
+/** Las piezas que se pueden llevar, por su id. */
+export type CatalogoDePiezas = ReadonlyMap<string, Pieza>;
+
+/** El catálogo del juego: `data/equipo.json` por id. El único que ve el juego. */
+export const PIEZAS_DEL_CATALOGO: CatalogoDePiezas = new Map(EQUIPO.map((p) => [p.id, p]));
+
+/**
+ * Las lecturas de las piezas atadas a UN catálogo (`equipoCon`). El juego usa las
+ * sueltas de este módulo, que leen siempre el suyo (`PIEZAS_DEL_CATALOGO`); la
+ * arena pelea con el del juego con su borrador encima (`catalogoDeLaArena`) y
+ * solo entra por aquí: así no hay lectura que se olvide de su catálogo y
+ * resuelva en silencio con la pieza del juego. Que la arena no importe las
+ * sueltas lo vigila `test/invariantes.test.ts`.
+ */
+export interface EquipoAtado {
+  readonly piezas: CatalogoDePiezas;
+  readonly pieza: (id: string) => Pieza;
+  readonly piezaSiExiste: (id: string) => Pieza | null;
+  readonly piezasPuestas: (equipo: Equipo | undefined) => Pieza[];
+  readonly sumaDeEquipo: (equipo: Equipo | undefined) => SumaDeEquipo;
+  readonly conEquipo: <U extends UnitInfo>(unit: U, equipo: Equipo | undefined) => U;
+  readonly manosBlocker: (equipo: Equipo | undefined, id: string) => string | null;
+  readonly equipoBlocker: (equipo: Equipo) => string | null;
+  readonly ponerPieza: (
+    equipo: Equipo | undefined,
+    id: string,
+    portador?: string,
+  ) => { readonly equipo: Equipo; readonly quitada: string | null };
+}
+
+/** Las lecturas de las piezas con el catálogo `piezas` (`EquipoAtado`). */
+export function equipoCon(piezas: CatalogoDePiezas): EquipoAtado {
+  return {
+    piezas,
+    pieza: (id) => piezaDe(piezas, id),
+    piezaSiExiste: (id) => piezas.get(id) ?? null,
+    piezasPuestas: (equipo) => puestasDe(piezas, equipo),
+    sumaDeEquipo: (equipo) => sumaDe(piezas, equipo),
+    conEquipo: (unit, equipo) => vestir(piezas, unit, equipo),
+    manosBlocker: (equipo, id) => manosDe(piezas, equipo, id),
+    equipoBlocker: (equipo) => equipoBlockerDe(piezas, equipo),
+    ponerPieza: (equipo, id, portador) => poner(piezas, equipo, id, portador),
+  };
+}
+
+/** Las lecturas atadas al catálogo del juego: lo que leen las sueltas, para quien pide un `EquipoAtado`. */
+export const EQUIPO_DEL_JUEGO: EquipoAtado = equipoCon(PIEZAS_DEL_CATALOGO);
 
 /** La pieza `id`. Lanza si no existe: un id inventado en un estado es un bug, no un vacío. */
 export function pieza(id: string): Pieza {
-  const p = porId.get(id);
+  return piezaDe(PIEZAS_DEL_CATALOGO, id);
+}
+
+function piezaDe(piezas: CatalogoDePiezas, id: string): Pieza {
+  const p = piezas.get(id);
   if (p === undefined) throw new Error(`pieza de equipo desconocida: "${id}"`);
   return p;
 }
@@ -38,7 +88,7 @@ export function pieza(id: string): Pieza {
  * texto—, igual que `buildingIfExists`.
  */
 export function piezaSiExiste(id: string): Pieza | null {
-  return porId.get(id) ?? null;
+  return PIEZAS_DEL_CATALOGO.get(id) ?? null;
 }
 
 /** El nombre de cada calidad, para pintarlo. */
@@ -106,13 +156,11 @@ export const EQUIPO_BASE: Equipo = Object.freeze(
 
 /** Las piezas puestas, en el orden de los huecos. */
 export function piezasPuestas(equipo: Equipo | undefined): Pieza[] {
-  if (equipo === undefined) return [];
-  const out: Pieza[] = [];
-  for (const hueco of HUECOS) {
-    const id = equipo[hueco];
-    if (id !== undefined) out.push(pieza(id));
-  }
-  return out;
+  return puestasDe(PIEZAS_DEL_CATALOGO, equipo);
+}
+
+function puestasDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): Pieza[] {
+  return idsPuestos(equipo).map((id) => piezaDe(piezas, id));
 }
 
 /** Lo que suman las piezas de un equipo, hueco a hueco. */
@@ -132,6 +180,10 @@ export interface SumaDeEquipo {
  * héroe que peleaba con 5 / 5—.
  */
 export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
+  return sumaDe(PIEZAS_DEL_CATALOGO, equipo);
+}
+
+function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEquipo {
   let ataque = 0;
   let defensa = 0;
   let pv = 0;
@@ -139,7 +191,7 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
   let min = 0;
   let max = 0;
   let disparos = 0;
-  for (const p of piezasPuestas(equipo)) {
+  for (const p of puestasDe(piezas, equipo)) {
     ataque += p.ataque;
     defensa += p.defensa;
     pv += p.pv;
@@ -170,10 +222,28 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
  * **único escritor** de `sinEquipo` (`test/invariantes.test.ts`). Por eso el
  * equipo va siempre lo último, después de la veteranía o el rango: lo que se
  * sume después de `conEquipo` no llegaría a `sinEquipo`, y el nivel no lo vería.
+ * Y deja en `equipo` lo puesto: cambiar una pieza a media pelea (la arena) lo
+ * vuelve a sumar a `sinEquipo` desde el propio stack.
  */
 export function conEquipo<U extends UnitInfo>(unit: U, equipo: Equipo | undefined): U {
-  if (piezasPuestas(equipo).length === 0) return unit;
-  const { ataque, defensa, pv, velocidad, danio, disparos } = sumaDeEquipo(equipo);
+  return vestir(PIEZAS_DEL_CATALOGO, unit, equipo);
+}
+
+function vestir<U extends UnitInfo>(
+  piezas: CatalogoDePiezas,
+  unit: U,
+  equipo: Equipo | undefined,
+): U {
+  if (idsPuestos(equipo).length === 0) return unit;
+  const { ataque, defensa, pv, velocidad, danio, disparos } = sumaDe(piezas, equipo);
+  // Lo que ya llevaba y lo de ahora, juntos: la misma pieza en un hueco dos veces
+  // se sumaría dos veces y el registro diría una.
+  const yaPuesto = HUECOS.find((h) => unit.equipo?.[h] !== undefined && equipo?.[h] !== undefined);
+  if (yaPuesto !== undefined) {
+    throw new Error(
+      `${unit.name} ya lleva algo en ${NOMBRE_DE_HUECO[yaPuesto]}: no se suma otra pieza encima`,
+    );
+  }
   const escalon = Math.max(
     0,
     Math.min(SPEED_TIERS.length - 1, SPEED_TIERS.indexOf(unit.speed) + velocidad),
@@ -191,6 +261,7 @@ export function conEquipo<U extends UnitInfo>(unit: U, equipo: Equipo | undefine
     speed: SPEED_TIERS[escalon] as UnitInfo['speed'],
     ...(disparos > 0 ? { shots: (unit.shots ?? 0) + disparos } : {}),
     sinEquipo: unit.sinEquipo ?? unit,
+    equipo: { ...unit.equipo, ...equipo },
   };
 }
 
@@ -234,6 +305,15 @@ export function valorDePieza(p: Pieza): number {
 export const REGLA_DEL_ESCUDO = 'un arma a dos manos no admite escudo, y el escudo resta velocidad';
 
 /**
+ * Si `p` es un arma a dos manos. Junto a `manosBlocker`, que aplica la regla: es
+ * la lectura de `manos` para quien solo la enseña o la escribe (la vista y el
+ * enlace de la arena), sin una segunda comparación con el número.
+ */
+export function aDosManos(p: Pick<Pieza, 'manos'>): boolean {
+  return p.manos === 2;
+}
+
+/**
  * Por qué no se puede poner la pieza `id` sobre `equipo`, o `null` si sí: **un
  * arma a dos manos no admite escudo** (decisión del usuario, 12-10-2026). Las dos
  * direcciones: un escudo sobre un mandoble y un mandoble sobre un escudo. La pieza
@@ -242,14 +322,18 @@ export const REGLA_DEL_ESCUDO = 'un arma a dos manos no admite escudo, y el escu
  * y `equipoBlocker`, y `ponerPieza` lanza con ella como última puerta.
  */
 export function manosBlocker(equipo: Equipo | undefined, id: string): string | null {
-  const p = pieza(id);
+  return manosDe(PIEZAS_DEL_CATALOGO, equipo, id);
+}
+
+function manosDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined, id: string): string | null {
+  const p = piezaDe(piezas, id);
   const resto = { ...equipo, [p.hueco]: undefined };
-  const arma = resto.arma === undefined ? null : pieza(resto.arma);
-  const escudo = resto.escudo === undefined ? null : pieza(resto.escudo);
-  if (p.hueco === 'escudo' && arma?.manos === 2) {
+  const arma = resto.arma === undefined ? null : piezaDe(piezas, resto.arma);
+  const escudo = resto.escudo === undefined ? null : piezaDe(piezas, resto.escudo);
+  if (p.hueco === 'escudo' && arma !== null && aDosManos(arma)) {
     return `${p.nombre} no se puede llevar con ${arma.nombre}: es un arma a dos manos y no deja mano para el escudo`;
   }
-  if (p.manos === 2 && escudo !== null) {
+  if (aDosManos(p) && escudo !== null) {
     return `${p.nombre} es un arma a dos manos y no se puede llevar con ${escudo.nombre}: quita antes el escudo`;
   }
   return null;
@@ -261,16 +345,20 @@ export function manosBlocker(equipo: Equipo | undefined, id: string): string | n
  * una unidad: un equipo escrito a mano en el borrador no pasa por `ponerPieza`.
  */
 export function equipoBlocker(equipo: Equipo): string | null {
+  return equipoBlockerDe(PIEZAS_DEL_CATALOGO, equipo);
+}
+
+function equipoBlockerDe(piezas: CatalogoDePiezas, equipo: Equipo): string | null {
   for (const [hueco, id] of Object.entries(equipo)) {
     if (!esHueco(hueco)) return huecoDesconocido(hueco, HUECOS);
     if (id === undefined) continue;
-    const p = piezaSiExiste(id);
+    const p = piezas.get(id) ?? null;
     if (p === null) return `no existe ninguna pieza "${id}"`;
     if (p.hueco !== hueco) {
       return `${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, no en ${NOMBRE_DE_HUECO[hueco]}`;
     }
   }
-  if (equipo.arma !== undefined) return manosBlocker(equipo, equipo.arma);
+  if (equipo.arma !== undefined) return manosDe(piezas, equipo, equipo.arma);
   return null;
 }
 
@@ -285,8 +373,17 @@ export function ponerPieza(
   id: string,
   portador?: string,
 ): { readonly equipo: Equipo; readonly quitada: string | null } {
-  const p = pieza(id);
-  const motivo = manosBlocker(equipo, id);
+  return poner(PIEZAS_DEL_CATALOGO, equipo, id, portador);
+}
+
+function poner(
+  piezas: CatalogoDePiezas,
+  equipo: Equipo | undefined,
+  id: string,
+  portador?: string,
+): { readonly equipo: Equipo; readonly quitada: string | null } {
+  const p = piezaDe(piezas, id);
+  const motivo = manosDe(piezas, equipo, id);
   if (motivo !== null) {
     const a = portador === undefined ? '' : ` a ${portador}`;
     throw new Error(`no se puede poner ${p.nombre}${a}: ${motivo}`);
@@ -315,9 +412,12 @@ export function nadaEnElHueco(quien: string, hueco: Hueco): string {
   return `${quien} no lleva nada en ${NOMBRE_DE_HUECO[hueco]}`;
 }
 
-/** Los ids de lo que lleva puesto, en el orden de los huecos: lo que vuelve a una mochila. */
+/**
+ * Los ids de lo que lleva puesto, en el orden de los huecos: lo que vuelve a una
+ * mochila, y quién lleva una pieza. Sin catálogo: solo lee los huecos.
+ */
 export function idsPuestos(equipo: Equipo | undefined): string[] {
-  return piezasPuestas(equipo).map((p) => p.id);
+  return HUECOS.flatMap((h) => equipo?.[h] ?? []);
 }
 
 /** La mochila sin UNA copia de `id` (la primera). Lanza si no está. */
@@ -327,23 +427,96 @@ export function sacarDeLaMochila(mochila: readonly string[], id: string): string
   return [...mochila.slice(0, i), ...mochila.slice(i + 1)];
 }
 
+/** Las cifras que una pieza puede sumar, en el orden en que se dicen. */
+export const CIFRAS_DE_PIEZA = [
+  'ataque',
+  'defensa',
+  'danio',
+  'pv',
+  'disparos',
+  'velocidad',
+] as const;
+export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
+
 /**
- * Lo que suma una pieza, en palabras: «+2 ataque, +10-30 daño, −1 velocidad, a
- * dos manos». Lo leen el panel, la ficha de la arena y la prosa del agente.
+ * El nombre de cada cifra, el mismo en la tabla de la ficha de la arena (sus
+ * rótulos) y en lo que suma una pieza: «+2 Ataque» en la pieza y «Ataque» en la
+ * fila a la que suma (13-10-2026, el usuario: «estandariza la forma de mostrar
+ * los modificadores del equipo, que no sea un texto libre»).
+ */
+export const NOMBRE_DE_CIFRA: Readonly<Record<CifraDePieza, string>> = {
+  ataque: 'Ataque',
+  defensa: 'Defensa',
+  danio: 'Daño',
+  pv: 'PV',
+  disparos: 'Disparos',
+  velocidad: 'Velocidad',
+};
+
+/**
+ * Una cosa que suma una pieza: una cifra con su valor (el daño, con su máximo en
+ * `hasta`) o una marca que no es cifra (`dosManos`: no admite escudo).
+ */
+export type ModificadorDePieza =
+  | {
+      readonly kind: 'cifra';
+      readonly cifra: CifraDePieza;
+      readonly valor: number;
+      readonly hasta?: number;
+    }
+  | { readonly kind: 'marca'; readonly marca: 'dosManos' };
+
+/**
+ * Lo que suma una pieza, como lista: las cifras distintas de cero en el orden de
+ * `CIFRAS_DE_PIEZA` y, detrás, sus marcas. **La única lectura** de qué se enseña
+ * de una pieza: la pintan igual la ficha de la arena, el editor de equipo, los
+ * paneles del juego y la prosa del agente (`textoDeModificador`).
+ */
+export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
+  const valor: Readonly<Record<CifraDePieza, number>> = {
+    ataque: p.ataque,
+    defensa: p.defensa,
+    danio: p.danio?.[1] ?? 0,
+    pv: p.pv,
+    disparos: p.disparos ?? 0,
+    velocidad: p.velocidad,
+  };
+  const cifras: ModificadorDePieza[] = CIFRAS_DE_PIEZA.flatMap((cifra) => {
+    if (valor[cifra] === 0) return [];
+    if (cifra === 'danio' && p.danio !== undefined) {
+      return [{ kind: 'cifra' as const, cifra, valor: p.danio[0], hasta: p.danio[1] }];
+    }
+    return [{ kind: 'cifra' as const, cifra, valor: valor[cifra] }];
+  });
+  return aDosManos(p) ? [...cifras, { kind: 'marca', marca: 'dosManos' }] : cifras;
+}
+
+/** Un número con su signo siempre: «+2», «−1» (el menos tipográfico), «+0». */
+export function conSigno(n: number): string {
+  return n < 0 ? `−${-n}` : `+${n}`;
+}
+
+/**
+ * Un modificador en texto: «+2 Ataque», «−1 Velocidad», «+30–60 Daño», «a dos
+ * manos». **El único sitio que formatea** lo que suma una pieza: el marcado lo
+ * envuelve, un `<option>` y el agente lo leen tal cual.
+ */
+export function textoDeModificador(m: ModificadorDePieza): string {
+  if (m.kind === 'marca') return 'a dos manos';
+  const cuanto =
+    m.hasta === undefined || m.hasta === m.valor
+      ? conSigno(m.valor)
+      : `${conSigno(m.valor)}–${m.hasta}`;
+  return `${cuanto} ${NOMBRE_DE_CIFRA[m.cifra]}`;
+}
+
+/**
+ * Lo que suma una pieza, en texto plano: los modificadores separados por comas
+ * («+5 Ataque, +30–60 Daño, a dos manos»), o vacío si no suma nada. Para donde no
+ * cabe marcado (un `<option>`, la prosa del agente).
  */
 export function cifrasDePieza(p: Pieza): string {
-  return [
-    p.ataque > 0 ? `+${p.ataque} ataque` : null,
-    p.defensa > 0 ? `+${p.defensa} defensa` : null,
-    p.danio !== undefined && p.danio[1] > 0 ? `+${p.danio[0]}-${p.danio[1]} daño` : null,
-    p.pv > 0 ? `+${p.pv} PV` : null,
-    p.disparos !== undefined && p.disparos > 0 ? `+${p.disparos} disparos` : null,
-    p.velocidad > 0 ? `+${p.velocidad} velocidad` : null,
-    p.velocidad < 0 ? `−${-p.velocidad} velocidad` : null,
-    p.manos === 2 ? 'a dos manos' : null,
-  ]
-    .filter((c) => c !== null)
-    .join(', ');
+  return modificadoresDePieza(p).map(textoDeModificador).join(', ');
 }
 
 // ---------------------------------------------------------------- a quién

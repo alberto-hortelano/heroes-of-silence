@@ -29,7 +29,14 @@ import type {
   SpeedTier,
   UnitInfo,
 } from './types.js';
-import { FACTION_IDS, HUECOS, RESOURCE_KINDS, SPEED_TIERS } from './types.js';
+import {
+  FACTION_IDS,
+  HUECOS,
+  NOMBRE_DE_RECURSO,
+  RESOURCE_KINDS,
+  type ResourceKind,
+  SPEED_TIERS,
+} from './types.js';
 
 const byId = new Map<string, Creature>();
 
@@ -732,6 +739,107 @@ export interface Pieza {
   readonly precio: Partial<Resources>;
 }
 
+/** Cómo se nombra una pieza en un motivo: por su id si lo trae, si no `otro`. */
+function quienEsLaPieza(p: Record<string, unknown>, otro: string): string {
+  return typeof p.id === 'string' && p.id !== '' ? `"${p.id}"` : otro;
+}
+
+/**
+ * Lo que no vale de UNA pieza, cada cosa con su frase, o vacío si vale: los
+ * textos, el hueco y la calidad que existen, las cifras enteras ≥ 0, el escudo
+ * que resta velocidad, el daño `[mín, máx]`, las manos solo en un arma y el
+ * precio. **La regla de una pieza, en un sitio**: la leen el cargador del
+ * catálogo (`validarEquipo`, que añade las reglas de conjunto) y la arena, que
+ * edita piezas una a una (`validarPiezaDeArena`, `piezaBlocker`). Escrita en los
+ * dos, un escudo que no resta valdría en la arena y no en el juego.
+ */
+export function problemasDePieza(bruta: unknown, quien?: string): string[] {
+  const problemas: string[] = [];
+  if (typeof bruta !== 'object' || bruta === null || Array.isArray(bruta)) {
+    return [`${quien ?? 'la pieza'} no es un objeto`];
+  }
+  const p = bruta as Record<string, unknown>;
+  const q = quien ?? quienEsLaPieza(p, 'la pieza');
+  if (typeof p.id !== 'string' || p.id === '') problemas.push(`${q} no trae id como texto`);
+  if (typeof p.nombre !== 'string' || p.nombre.trim() === '') {
+    problemas.push(`${q} no tiene nombre: escribe uno`);
+  }
+  if (!(HUECOS as readonly unknown[]).includes(p.hueco)) {
+    problemas.push(`${q} va en el hueco "${p.hueco}", que no existe; valen ${HUECOS.join(', ')}`);
+  }
+  if (!(CALIDADES as readonly unknown[]).includes(p.calidad)) {
+    problemas.push(
+      `${q} es de calidad "${p.calidad}", que no existe; valen ${CALIDADES.join(', ')}`,
+    );
+  }
+  for (const campo of ['ataque', 'defensa', 'pv'] as const) {
+    if (!enteroDesde(p[campo], 0)) {
+      problemas.push(`${q}: ${campo} tiene que ser un entero ≥ 0 y ${comoSeLee(p[campo])}`);
+    }
+  }
+  // La velocidad puede restar: es lo que hace un escudo, y el escudo TIENE que
+  // restarla.
+  if (!enteroDesde(p.velocidad, Number.MIN_SAFE_INTEGER)) {
+    problemas.push(`${q}: velocidad tiene que ser un entero y ${comoSeLee(p.velocidad)}`);
+  } else if (p.hueco === 'escudo' && (p.velocidad as number) >= 0) {
+    problemas.push(
+      `${q} es un escudo y tiene que restar velocidad (un número negativo), y es ${p.velocidad}`,
+    );
+  }
+  if (p.danio !== undefined) {
+    const d = p.danio;
+    if (!Array.isArray(d) || d.length !== 2 || !d.every((x) => enteroDesde(x, 0))) {
+      problemas.push(`${q}: danio tiene que ser [+mínimo, +máximo], dos enteros ≥ 0`);
+    } else if ((d[0] as number) > (d[1] as number)) {
+      problemas.push(`${q}: el daño mínimo que suma (${d[0]}) pasa del máximo (${d[1]})`);
+    }
+  }
+  if (p.disparos !== undefined && !enteroDesde(p.disparos, 0)) {
+    problemas.push(`${q}: disparos tiene que ser un entero ≥ 0 y ${comoSeLee(p.disparos)}`);
+  }
+  if (p.manos !== undefined) {
+    if (p.manos !== 1 && p.manos !== 2) {
+      problemas.push(`${q}: manos es 1 o 2, y es ${p.manos}`);
+    } else if (p.hueco !== 'arma') {
+      problemas.push(
+        `${q} va en el hueco ${p.hueco} y dice manos: solo un arma se lleva a dos manos`,
+      );
+    }
+  }
+  const precio = (p.precio ?? null) as Record<string, unknown> | null;
+  if (precio === null || typeof precio !== 'object' || Object.keys(precio).length === 0) {
+    problemas.push(`${q} no trae precio`);
+  } else {
+    for (const [recurso, cifra] of Object.entries(precio)) {
+      if (!(RESOURCE_KINDS as readonly string[]).includes(recurso)) {
+        problemas.push(
+          `${q} cuesta "${recurso}", que no es un recurso; valen ${RESOURCE_KINDS.join(', ')}`,
+        );
+      } else if (!enteroDesde(cifra, 0)) {
+        problemas.push(
+          typeof cifra === 'number' && Number.isFinite(cifra)
+            ? `${q} cuesta ${cifra} de ${NOMBRE_DE_RECURSO[recurso as ResourceKind]}: tiene que ser un entero ≥ 0`
+            : `${q}: el precio en ${NOMBRE_DE_RECURSO[recurso as ResourceKind]} tiene que ser un entero ≥ 0 y ${comoSeLee(cifra)}`,
+        );
+      }
+    }
+  }
+  return problemas;
+}
+
+/**
+ * Cómo se dice lo que trae un campo que tenía que ser un número: «es 1.5», o que
+ * no es un número (un campo vacío llegaba como `NaN` y se leía «y es NaN»).
+ */
+function comoSeLee(x: unknown): string {
+  return typeof x === 'number' && Number.isFinite(x) ? `es ${x}` : 'no es un número';
+}
+
+/** Por qué una pieza no vale, la primera cosa (`problemasDePieza`), o `null` si vale. */
+export function piezaBlocker(bruta: unknown): string | null {
+  return problemasDePieza(bruta)[0] ?? null;
+}
+
 /**
  * Valida un catálogo de equipo y lo devuelve tipado. **Lanza con todos los
  * problemas a la vez**, escritos para quien edita el JSON. Exportada con el
@@ -751,76 +859,14 @@ export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): read
   }
   const piezas: Pieza[] = [];
   const vistos = new Set<string>();
-  for (const [i, bruta] of (lista as Record<string, unknown>[]).entries()) {
-    const p = bruta ?? {};
-    const quien = typeof p.id === 'string' && p.id !== '' ? `"${p.id}"` : `la pieza ${i}`;
-    const antes = problemas.length;
-    for (const campo of ['id', 'nombre'] as const) {
-      if (typeof p[campo] !== 'string' || p[campo] === '') {
-        problemas.push(`${quien} no trae ${campo} como texto`);
-      }
-    }
-    if (typeof p.id === 'string' && vistos.has(p.id)) problemas.push(`${quien} está repetida`);
+  for (const [i, bruta] of (lista as unknown[]).entries()) {
+    const p = (bruta ?? {}) as Record<string, unknown>;
+    const quien = quienEsLaPieza(p, `la pieza ${i}`);
+    const suyos = problemasDePieza(p, quien);
+    if (typeof p.id === 'string' && vistos.has(p.id)) suyos.push(`${quien} está repetida`);
     if (typeof p.id === 'string') vistos.add(p.id);
-    if (!(HUECOS as readonly unknown[]).includes(p.hueco)) {
-      problemas.push(
-        `${quien} va en el hueco "${p.hueco}", que no existe; valen ${HUECOS.join(', ')}`,
-      );
-    }
-    if (!(CALIDADES as readonly unknown[]).includes(p.calidad)) {
-      problemas.push(
-        `${quien} es de calidad "${p.calidad}", que no existe; valen ${CALIDADES.join(', ')}`,
-      );
-    }
-    for (const campo of ['ataque', 'defensa', 'pv'] as const) {
-      if (!enteroDesde(p[campo], 0)) {
-        problemas.push(`${quien}: ${campo} tiene que ser un entero ≥ 0 y es ${p[campo]}`);
-      }
-    }
-    // La velocidad puede restar: es lo que hace un escudo, y el escudo TIENE que
-    // restarla.
-    if (!enteroDesde(p.velocidad, Number.MIN_SAFE_INTEGER)) {
-      problemas.push(`${quien}: velocidad tiene que ser un entero y es ${p.velocidad}`);
-    } else if (p.hueco === 'escudo' && (p.velocidad as number) >= 0) {
-      problemas.push(
-        `${quien} es un escudo y tiene que restar velocidad (un número negativo), y es ${p.velocidad}`,
-      );
-    }
-    if (p.danio !== undefined) {
-      const d = p.danio;
-      if (!Array.isArray(d) || d.length !== 2 || !d.every((x) => enteroDesde(x, 0))) {
-        problemas.push(`${quien}: danio tiene que ser [+mínimo, +máximo], dos enteros ≥ 0`);
-      } else if ((d[0] as number) > (d[1] as number)) {
-        problemas.push(`${quien}: el daño mínimo que suma (${d[0]}) pasa del máximo (${d[1]})`);
-      }
-    }
-    if (p.disparos !== undefined && !enteroDesde(p.disparos, 0)) {
-      problemas.push(`${quien}: disparos tiene que ser un entero ≥ 0 y es ${p.disparos}`);
-    }
-    if (p.manos !== undefined) {
-      if (p.manos !== 1 && p.manos !== 2) {
-        problemas.push(`${quien}: manos es 1 o 2, y es ${p.manos}`);
-      } else if (p.hueco !== 'arma') {
-        problemas.push(
-          `${quien} va en el hueco ${p.hueco} y dice manos: solo un arma se lleva a dos manos`,
-        );
-      }
-    }
-    const precio = (p.precio ?? null) as Record<string, unknown> | null;
-    if (precio === null || typeof precio !== 'object' || Object.keys(precio).length === 0) {
-      problemas.push(`${quien} no trae precio`);
-    } else {
-      for (const [recurso, cifra] of Object.entries(precio)) {
-        if (!(RESOURCE_KINDS as readonly string[]).includes(recurso)) {
-          problemas.push(
-            `${quien} cuesta "${recurso}", que no es un recurso; valen ${RESOURCE_KINDS.join(', ')}`,
-          );
-        } else if (!enteroDesde(cifra, 0)) {
-          problemas.push(`${quien} cuesta ${cifra} de ${recurso}: tiene que ser un entero ≥ 0`);
-        }
-      }
-    }
-    if (problemas.length === antes) piezas.push(p as unknown as Pieza);
+    problemas.push(...suyos);
+    if (suyos.length === 0) piezas.push(p as unknown as Pieza);
   }
   for (const hueco of HUECOS) {
     const deArmeria = piezas.filter((p) => p.hueco === hueco && p.calidad === 'armeria');

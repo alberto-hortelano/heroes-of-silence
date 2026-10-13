@@ -14,6 +14,17 @@
 #app[data-escena='edicion'] [data-arena='enlace'],
 #app[data-escena='edicion'] [data-arena='ir-a-edicion'],
 #app:not([data-escena='edicion']) [data-arena='volver-de-edicion'] { display: none; }
+/* La vista «Editar equipo»: ni el montaje, ni la edición, ni el tablero (la pelea
+   sigue viva detrás); arriba, «Guardar» y su «Volver», que dice adónde. */
+#app:not([data-escena='equipo']) #equipo,
+#app:not([data-escena='equipo']) [data-arena='volver-de-equipo'] { display: none; }
+#app[data-escena='equipo'] #montaje,
+#app[data-escena='equipo'] #edicion,
+#app[data-escena='equipo'] #stage,
+#app[data-escena='equipo'] [data-arena='luchar'],
+#app[data-escena='equipo'] [data-arena='enlace'],
+#app[data-escena='equipo'] [data-arena='ir-a-edicion'],
+#app[data-escena='equipo'] [data-arena='ir-a-equipo'] { display: none; }
 #acciones-arena { display: flex; gap: 0.4rem; }
 
 /* Cuatro columnas que se desplazan cada una por su cuenta: la lista de hojas es
@@ -131,7 +142,6 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .equipo-de-la-ficha .hueco { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); align-items: center; gap: 0.2rem 0.5rem; }
 .equipo-de-la-ficha .hueco > .label { color: var(--gold); }
 .equipo-de-la-ficha .hueco .campo { grid-column: 1 / -1; display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 0.5rem; align-items: center; }
-.en-la-pelea span:last-child { font-weight: 600; }
 
 /*
  * La ficha, la misma en el montaje, la vista de edición y el editor de la
@@ -159,23 +169,53 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 }
 .titulo-de-ficha .subtitulo { color: var(--gold); font-size: 0.72rem; letter-spacing: 1.5px; text-transform: uppercase; }
 /*
- * La cabeza: figura y clips a la izquierda, cifras a la derecha. La ficha mide
- * su ancho (`container-type`: una consulta no puede cambiar al que mide, por eso
- * no es la cabeza) y, estrecha —la columna del montaje a 1280, el móvil—, la
- * cabeza baja las cifras debajo de la figura en vez de apretarlas.
+ * La cabeza: figura y clips a la izquierda, cifras a la derecha si caben enteras;
+ * si no —la columna de «Editar fichas» a 1440, la del montaje a 1280, el móvil—,
+ * las cifras bajan debajo de la figura en vez de apretarse. La ficha mide su
+ * ancho (`container-type`: una consulta no puede cambiar al que mide, por eso no
+ * es la cabeza) para el tamaño de la figura.
  */
 .cabeza {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem 0.9rem;
-  align-items: start;
+  align-items: flex-start;
 }
-.cabeza.sin-retrato { grid-template-columns: minmax(0, 1fr); }
-.cabeza .retrato { display: flex; gap: 0.5rem; align-items: flex-start; min-width: 0; }
+.cabeza .retrato { flex: 0 1 auto; display: flex; gap: 0.5rem; align-items: flex-start; min-width: 0; }
+.cabeza > .botones { flex: 1 1 100%; }
 .cabeza canvas.figura.grande { flex: none; width: clamp(120px, 34cqw, 200px); height: auto; aspect-ratio: 200 / 230; }
 .cabeza .clips { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
 .cabeza .clips button, .cabeza > .botones button { min-height: 28px; padding: 0.1rem 0.55rem; font-size: 0.9rem; text-align: left; }
-.cabeza .cifras { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr)); gap: 0.3rem 0.8rem; align-content: start; min-width: 0; }
+/* Las cifras bajan debajo de la figura cuando a su lado no caben enteras
+   (`flex-wrap`): en «Editar fichas» a 1440 px la ficha mide ~460 y, con la
+   figura al lado, la casilla se quedaba en 34 px y se leía «8» por 80 de PV
+   (H1 de QA, 13-10-2026). Lo que necesita la tabla lo dice ella (`min-content`:
+   rótulo, casilla de cinco cifras y final, sin partir nada). */
+.cabeza .cifras { flex: 1 1 min-content; display: grid; grid-template-columns: minmax(min-content, 1fr); gap: 0.3rem; align-content: start; min-width: min-content; max-width: 100%; }
+/*
+ * Las cifras en una tabla de una columna (13-10-2026): rótulo con su nota, la
+ * casilla que se escribe y el final, que no se escribe; si el equipo (o el rango
+ * del héroe) lo cambia, en otro tono.
+ */
+.tabla-de-cifras { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.tabla-de-cifras th, .tabla-de-cifras td { padding: 0.1rem 0.3rem; border-bottom: 1px solid var(--border); }
+.tabla-de-cifras thead th { color: var(--ink-dim); font: 0.75rem system-ui, sans-serif; text-align: right; white-space: nowrap; }
+.tabla-de-cifras tbody th { text-align: left; font-weight: normal; white-space: nowrap; }
+.tabla-de-cifras td.escrita { width: 1%; text-align: right; }
+/* Cinco cifras, su relleno y las flechas del `number` (~16 px en Chromium), sin
+   encogerse: el ancho va en `ch` de su propia letra, no en píxeles sueltos. */
+.tabla-de-cifras td.escrita input {
+  box-sizing: border-box;
+  width: calc(5ch + 0.7rem + 22px);
+  min-width: calc(5ch + 0.7rem + 22px);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  padding: 0.15rem 0.35rem;
+  text-align: right;
+}
+.tabla-de-cifras td.escrita .sin-casilla { color: var(--ink-dim); padding-right: 0.4rem; }
+.tabla-de-cifras td.final { width: 1%; min-width: 3.6rem; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tabla-de-cifras output.cambiada { color: var(--accent); font-weight: 600; }
 .cifras .campo { grid-template-columns: minmax(0, 1fr) 4.4rem; align-items: center; gap: 0.4rem; }
 .cifras .campo .label { font-size: 0.9rem; line-height: 1.2; }
 .ficha .campo input, .ficha .campo select { font-size: 15px; padding: 0.15rem 0.35rem; }
@@ -185,7 +225,6 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .ficha > .campo { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.5rem; }
 .ficha > .campo .label { font-size: 0.9rem; }
 @container (max-width: 26rem) {
-  .cabeza { grid-template-columns: minmax(0, 1fr); }
   .cabeza canvas.figura.grande { width: min(200px, 55cqw); }
 }
 
@@ -365,4 +404,69 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 
 @media (max-width: 760px) {
   .edicion-lista .catalogo { grid-template-columns: minmax(0, 1fr); }
+}
+
+/*
+ * La vista «Editar equipo»: a la izquierda las piezas por hueco y a
+ * la derecha la ficha de la elegida. Se desplaza la vista entera, como la de
+ * edición; estrecha, la ficha va debajo de la lista.
+ */
+#equipo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  align-content: start;
+  align-items: start;
+  gap: 14px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px 14px;
+  font-size: 0.86rem;
+}
+#equipo > section { min-width: 0; }
+#equipo h3 {
+  margin: 0 0 0.4rem;
+  font: 10px system-ui, sans-serif;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3rem;
+}
+#equipo h3.cabecera-hueco { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.7rem; }
+.lista-de-piezas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: 0.3rem; }
+.lista-de-piezas button.pieza {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.1rem 0.4rem;
+  min-width: 0;
+  padding: 0.3rem 0.4rem;
+  text-align: left;
+  background: var(--panel-alt);
+  border: 1px solid #6e71413d;
+  font-size: 0.85rem;
+  letter-spacing: 0;
+}
+.lista-de-piezas button.pieza .nombre { color: #f2deac; min-width: 0; overflow-wrap: anywhere; }
+.lista-de-piezas button.pieza .cost { grid-column: 1 / -1; font-size: 0.75rem; overflow-wrap: anywhere; }
+.lista-de-piezas button.pieza.elegida { border-color: #e0c589; }
+.sello.sello-de-la-arena { color: #9fd0a0; border-color: #6fa07088; }
+.sello.sello-del-enlace { color: #e0c27a; border-color: #b0904a88; }
+.lista-de-piezas button.pieza .sello-del-enlace { grid-column: 1 / -1; justify-self: start; }
+.ficha-de-pieza .botones { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.ficha-de-pieza .cifras { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); gap: 0.3rem 0.8rem; }
+.ficha-de-pieza .cifras .campo { grid-template-columns: minmax(0, 1fr) 5.5rem; align-items: center; gap: 0.4rem; }
+.ficha-de-pieza .cifras .campo.nombre-de-pieza,
+.ficha-de-pieza .cifras .campo:has(> select) { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 16rem); }
+.ficha-de-pieza .row > span:last-child { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.ficha-de-pieza .aviso-de-pieza.rechazo { color: var(--danger); margin: 0; }
+.botones-de-la-pelea { margin: 0.4rem 0; }
+
+/* Ancha, la ficha se queda a la vista mientras la lista se desplaza: sin eso, al
+   elegir una pieza de abajo su ficha quedaba arriba, fuera de la vista. */
+@media (min-width: 761px) {
+  #equipo .equipo-ficha { position: sticky; top: 0; }
+}
+@media (max-width: 760px) {
+  #equipo { grid-template-columns: minmax(0, 1fr); }
 }

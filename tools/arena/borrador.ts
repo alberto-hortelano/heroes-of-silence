@@ -1,6 +1,7 @@
 /**
- * El lado de disco de la arena (`/arena/`): qué hojas hay y el borrador de
- * cifras, `data/borradores/unidades.json`. Lo sirve el servidor de desarrollo
+ * El lado de disco de la arena (`/arena/`): qué hojas hay y sus borradores: las
+ * cifras (`data/borradores/unidades.json`), las piezas de equipo
+ * (`data/borradores/equipo.json`) y las formas de muralla. Lo sirve el servidor de desarrollo
  * (`vite.config.ts`) y nada más: el navegador no puede escribir en el repo, y
  * la partida no lee el borrador.
  *
@@ -11,12 +12,17 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 import {
   COMENTARIO_DEL_BORRADOR,
+  COMENTARIO_DEL_BORRADOR_DE_EQUIPO,
+  catalogoDeLaArena,
+  type ElementoSinValidar,
   type HojaDeArena,
   perfilDeLasHojas,
   revisarBorradorDeArena,
+  revisarBorradorDeEquipo,
   type UnidadDeArena,
   type UnidadSinValidar,
   validarBorradorDeArena,
+  validarBorradorDeEquipo,
   validarHojasDeArena,
 } from '../../src/core/arena.js';
 import {
@@ -26,6 +32,8 @@ import {
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
 } from '../../src/core/arena-murallas.js';
+import type { Pieza } from '../../src/core/data.js';
+import type { EquipoAtado } from '../../src/core/hero/equipo.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import { arteEnOchoDirecciones, HEROES, juegoDelYBot, UNIDADES } from '../taller/unidades.js';
 import { VELOCIDAD_DEL_CUERPO } from './velocidades.js';
@@ -128,17 +136,24 @@ interface Borrador<T, I extends { readonly crudo: unknown }> {
   readonly claveSinValidar: (i: I) => string | null;
 }
 
-const DE_UNIDADES: Borrador<UnidadDeArena, UnidadSinValidar> = {
-  ruta: RUTA_DEL_BORRADOR,
-  campo: 'unidades',
-  comentario: COMENTARIO_DEL_BORRADOR,
-  // Las unidades de antes de cuerpo y equipo se convierten al leerlas, con el
-  // perfil de su hoja (`migrarUnidadDeArena`).
-  revisar: (valor) => revisarBorradorDeArena(valor, PERFIL_DE_LAS_HOJAS),
-  validar: validarBorradorDeArena,
-  clave: (u) => u.id,
-  claveSinValidar: (u) => u.id,
-};
+/**
+ * El borrador de unidades leído y escrito con las piezas de la arena `eq`: una
+ * unidad puede llevar una pieza nueva. Una cuya pieza no está sale como «no vale»
+ * con su motivo y se conserva, como cualquier otra.
+ */
+function deUnidades(eq: EquipoAtado): Borrador<UnidadDeArena, UnidadSinValidar> {
+  return {
+    ruta: RUTA_DEL_BORRADOR,
+    campo: 'unidades',
+    comentario: COMENTARIO_DEL_BORRADOR,
+    // Las unidades de antes de cuerpo y equipo se convierten al leerlas, con el
+    // perfil de su hoja (`migrarUnidadDeArena`).
+    revisar: (valor) => revisarBorradorDeArena(valor, PERFIL_DE_LAS_HOJAS, eq),
+    validar: (valor) => validarBorradorDeArena(valor, eq),
+    clave: (u) => u.id,
+    claveSinValidar: (u) => u.id,
+  };
+}
 
 /**
  * Lo guardado, elemento a elemento (`revisar`); vacío si todavía no se ha
@@ -166,7 +181,29 @@ function leer<T, I extends { readonly crudo: unknown }>(
 
 /**
  * Escribe el borrador si es válido, y si no lanza con la frase de `validar` sin
- * tocar el fichero.
+ * tocar el fichero (`preparar`, `escribirAtomico`).
+ */
+function escribir<T, I extends { readonly crudo: unknown }>(
+  raiz: string,
+  b: Borrador<T, I>,
+  cuerpo: unknown,
+): { readonly escritas: number; readonly conservadas: number } {
+  const listo = preparar(raiz, b, b.validar(cuerpo));
+  escribirAtomico([listo]);
+  return listo;
+}
+
+/** Lo que se va a escribir en un borrador: dónde, qué, y cuántos de cada. */
+interface Preparado {
+  readonly ruta: string;
+  readonly contenido: unknown;
+  readonly escritas: number;
+  readonly conservadas: number;
+}
+
+/**
+ * El archivo entero con `validas` (ya validadas) y lo que hay que conservar del de
+ * ahora, sin escribir nada todavía.
  *
  * **Guardar no pierde nada que no se haya tocado** (H2 de QA): lo del archivo
  * que no valida se escribe otra vez tal cual —salvo que la página mande uno
@@ -178,12 +215,11 @@ function leer<T, I extends { readonly crudo: unknown }>(
  * siempre, no para arreglar la otra: la repetida se conserva, como promete el
  * aviso (QA, M3; antes se la comía la primera forma que se guardara).
  */
-function escribir<T, I extends { readonly crudo: unknown }>(
+function preparar<T, I extends { readonly crudo: unknown }>(
   raiz: string,
   b: Borrador<T, I>,
-  cuerpo: unknown,
-): { readonly escritas: number; readonly conservadas: number } {
-  const validas = b.validar(cuerpo);
+  validas: readonly T[],
+): Preparado {
   let antes: { readonly validas: readonly T[]; readonly invalidas: readonly I[] };
   try {
     antes = leer(raiz, b);
@@ -198,44 +234,120 @@ function escribir<T, I extends { readonly crudo: unknown }>(
     const clave = b.claveSinValidar(i);
     return clave === null || !nuevas.has(clave) || yaBuenas.has(clave);
   });
-  escribirAtomico(join(raiz, b.ruta), {
-    _comment: b.comentario,
-    [b.campo]: [...validas, ...conservadas.map((i) => i.crudo)],
-  });
-  return { escritas: validas.length, conservadas: conservadas.length };
-}
-
-/** Un temporal y `rename`: un guardado a medias dejaría un JSON roto. */
-function escribirAtomico(ruta: string, contenido: unknown): void {
-  mkdirSync(dirname(ruta), { recursive: true });
-  const temporal = `${ruta}.${process.pid}.tmp`;
-  writeFileSync(temporal, `${JSON.stringify(contenido, null, 2)}\n`);
-  renameSync(temporal, ruta);
+  return {
+    ruta: join(raiz, b.ruta),
+    contenido: {
+      _comment: b.comentario,
+      [b.campo]: [...validas, ...conservadas.map((i) => i.crudo)],
+    },
+    escritas: validas.length,
+    conservadas: conservadas.length,
+  };
 }
 
 /**
- * El borrador de cifras tal como está en disco: lo que vale (lo de antes, ya
- * convertido a cuerpo y equipo), lo que no y por qué, y lo que hubo que decir al
- * convertir (`avisos`). Lo convertido se escribe en el formato de hoy en el
- * siguiente «Guardar», y no se vuelve a convertir.
+ * Un temporal por archivo y luego los `rename`: un guardado a medias dejaría un
+ * JSON roto, y con dos archivos, todos los temporales se escriben antes de que
+ * ninguno pise al suyo.
+ */
+function escribirAtomico(listos: readonly Preparado[]): void {
+  const temporales = listos.map(({ ruta, contenido }) => {
+    mkdirSync(dirname(ruta), { recursive: true });
+    const temporal = `${ruta}.${process.pid}.tmp`;
+    writeFileSync(temporal, `${JSON.stringify(contenido, null, 2)}\n`);
+    return { temporal, ruta };
+  });
+  for (const { temporal, ruta } of temporales) renameSync(temporal, ruta);
+}
+
+/**
+ * Los borradores de cifras y de piezas tal como están en disco: lo que vale (lo de
+ * antes, ya convertido a cuerpo y equipo), lo que no y por qué, y lo que hubo que
+ * decir al convertir (`avisos`). Lo convertido se escribe en el formato de hoy en
+ * el siguiente «Guardar», y no se vuelve a convertir.
+ *
+ * Las unidades se leen con las piezas guardadas: una puede llevar una nueva. Un
+ * archivo de piezas ilegible no deja ilegible el de unidades: se leen con las
+ * piezas del juego y `equipoIlegible` dice por qué (las que llevan una pieza
+ * nueva salen como «no vale» y se conservan). Guardar, en cambio, no lo pisa.
  */
 export function leerBorrador(raiz: string): {
   readonly unidades: readonly UnidadDeArena[];
   readonly invalidas: readonly UnidadSinValidar[];
   readonly avisos: readonly string[];
+  readonly piezas: readonly Pieza[];
+  readonly piezasInvalidas: readonly ElementoSinValidar[];
+  readonly equipoIlegible?: string;
 } {
-  const { validas, invalidas, avisos } = leer(raiz, DE_UNIDADES);
-  return { unidades: validas, invalidas, avisos };
+  let equipo: {
+    readonly validas: readonly Pieza[];
+    readonly invalidas: readonly ElementoSinValidar[];
+  };
+  let equipoIlegible: string | null = null;
+  try {
+    equipo = leer(raiz, DE_EQUIPO);
+  } catch (err) {
+    equipo = { validas: [], invalidas: [] };
+    equipoIlegible = err instanceof Error ? err.message : String(err);
+  }
+  const { validas, invalidas, avisos } = leer(raiz, deUnidades(catalogoDeLaArena(equipo.validas)));
+  return {
+    unidades: validas,
+    invalidas,
+    avisos,
+    piezas: equipo.validas,
+    piezasInvalidas: equipo.invalidas,
+    ...(equipoIlegible === null ? {} : { equipoIlegible }),
+  };
 }
 
-/** Guarda el borrador de cifras con las garantías de `escribir`. */
+/**
+ * «Guardar» de la arena, **una sola operación**: las piezas y las unidades
+ * (`{ unidades, piezas }`), las unidades validadas con las piezas que llegan. Si
+ * todo vale se escriben los dos archivos, cada uno atómico (`escribirAtomico`);
+ * si algo no vale, o uno de los dos de ahora no se puede leer, no se escribe
+ * ninguno y se dice por qué. El de piezas no se crea si no hay nada que poner.
+ */
 export function escribirBorrador(
   raiz: string,
   cuerpo: unknown,
-): { readonly unidades: number; readonly conservadas: number } {
-  const { escritas, conservadas } = escribir(raiz, DE_UNIDADES, cuerpo);
-  return { unidades: escritas, conservadas };
+): {
+  readonly unidades: number;
+  readonly conservadas: number;
+  readonly rutaDePiezas: string;
+  readonly piezas: number;
+  readonly piezasConservadas: number;
+} {
+  const piezas = validarBorradorDeEquipo(cuerpo);
+  const eq = catalogoDeLaArena(piezas);
+  const deEquipo = preparar(raiz, DE_EQUIPO, piezas);
+  const deUnidadesListo = preparar(raiz, deUnidades(eq), validarBorradorDeArena(cuerpo, eq));
+  const sinNadaQuePoner = deEquipo.escritas + deEquipo.conservadas === 0;
+  escribirAtomico(
+    sinNadaQuePoner && !existsSync(deEquipo.ruta) ? [deUnidadesListo] : [deEquipo, deUnidadesListo],
+  );
+  return {
+    unidades: deUnidadesListo.escritas,
+    conservadas: deUnidadesListo.conservadas,
+    rutaDePiezas: RUTA_DE_EQUIPO,
+    piezas: deEquipo.escritas,
+    piezasConservadas: deEquipo.conservadas,
+  };
 }
+
+/** Dónde viven las piezas de la arena, relativo a la raíz del repo. */
+export const RUTA_DE_EQUIPO = 'data/borradores/equipo.json';
+
+const DE_EQUIPO: Borrador<Pieza, ElementoSinValidar> = {
+  ruta: RUTA_DE_EQUIPO,
+  campo: 'piezas',
+  comentario: COMENTARIO_DEL_BORRADOR_DE_EQUIPO,
+  // Las piezas no tienen nada de antes que convertir.
+  revisar: (valor) => ({ ...revisarBorradorDeEquipo(valor), avisos: [] }),
+  validar: validarBorradorDeEquipo,
+  clave: (p) => p.id,
+  claveSinValidar: (p) => p.clave,
+};
 
 // ---------------------------------------------------------------- murallas
 

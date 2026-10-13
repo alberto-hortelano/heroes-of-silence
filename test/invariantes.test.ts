@@ -1043,8 +1043,12 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], sustituyeUnStack)).not.toEqual([]);
     // Las fichas de la arena (`fichasDeArena`), con las que el retoque dice qué
     // cambió, también: las pone ella al montar y al retocar.
+    // Y las piezas con que pelea (`piezasDeArena`): solo ella, al montar y al
+    // retocar. Por escritura de la propiedad —la clave en un literal y
+    // `.piezasDeArena =`—, no por el nombre: una variable suelta que se llame así
+    // no escribe la batalla.
     const escribeTipos =
-      /\b(?:tiposDeArena|fichasDeArena)\s*[:=](?!\s*readonly)|\.fichasDeArena\b(?:\s+as\b[^;]*)?\)?\[[^\]]+\]\s*=(?!=)/;
+      /\b(?:tiposDeArena|fichasDeArena)\s*[:=](?!\s*readonly)|\bpiezasDeArena\s*:(?!\s*readonly)|\.piezasDeArena\s*=(?!=)|\.fichasDeArena\b(?:\s+as\b[^;]*)?\)?\[[^\]]+\]\s*=(?!=)/;
     const sinElTipo = fuera.filter((r) => r !== 'src/core/battle/types.ts');
     expect(infractoresDeCodigo(sinElTipo, escribeTipos)).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribeTipos)).not.toEqual([]);
@@ -1054,6 +1058,59 @@ describe('invariantes del proyecto', () => {
     );
     expect(infractoresDeCodigo(ni, escribePoderes)).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribePoderes)).not.toEqual([]);
+  });
+
+  it('el juego no ve el borrador de equipo, y la arena lee cada pieza con el suyo', () => {
+    // Editor de equipo (12-10-2026): las piezas de la arena van encima de las del
+    // juego (`catalogoDeLaArena`) y el juego no las ve. Dos partes:
+    //  (a) fuera de la arena (su núcleo, su página y su disco) nadie nombra en
+    //      código lo que trae el borrador: ni `catalogoDeLaArena`/`piezasDeLaArena`,
+    //      ni la ruta `data/borradores`, ni `tools/arena/`. Ni el juego, ni el
+    //      agente, ni el espectador, ni la sesión de la partida.
+    //  (b) la arena no importa las lecturas sueltas de las piezas (abajo).
+    // Roto a mano: un `import { catalogoDeLaArena }` y su llamada en
+    // `state/game.ts` sale rojo con su línea.
+    const ARENA = (r: string): boolean =>
+      r === 'src/core/arena.ts' ||
+      r === 'src/core/arena-murallas.ts' ||
+      r.startsWith('src/client/arena/');
+    const veElBorrador =
+      /\b(?:catalogoDeLaArena|piezasDeLaArena)\b|data\/borradores|tools\/arena\//;
+    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => !ARENA(r));
+    expect(infractoresDeCodigo(fuera, veElBorrador)).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/arena.ts'], veElBorrador)).not.toEqual([]);
+
+    // (b) La arena lee las piezas solo con su catálogo atado (`equipoCon`, que da
+    // `catalogoDeLaArena`): no importa las lecturas sueltas de `equipo.ts`, que
+    // leen siempre las del juego, ni `heroUnit`, que viste al héroe con ellas.
+    // Por IMPORTACIÓN: sin la suelta a mano, no hay llamada que se olvide de su
+    // catálogo. Roto a mano: `pieza` importada en `paneles.ts` sale rojo.
+    const SUELTAS = new Set([
+      'pieza',
+      'piezaSiExiste',
+      'piezasPuestas',
+      'sumaDeEquipo',
+      'conEquipo',
+      'manosBlocker',
+      'equipoBlocker',
+      'ponerPieza',
+      'heroUnit',
+    ]);
+    const deEquipoOHeroe =
+      /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"]([^'"]*\/hero\/(?:equipo|hero)\.js|\.\/(?:equipo|hero)\.js)['"]/g;
+    const sueltas: string[] = [];
+    for (const ruta of [...CORE, ...CLIENTE].filter(ARENA)) {
+      for (const [, nombres] of sinComentarios(leer(ruta)).matchAll(deEquipoOHeroe)) {
+        for (const n of (nombres as string).split(',')) {
+          const nombre = n
+            .trim()
+            .replace(/^type\s+/, '')
+            .split(/\s+as\s+/)[0] as string;
+          if (SUELTAS.has(nombre)) sueltas.push(`${ruta} → ${nombre}`);
+        }
+      }
+    }
+    expect(sueltas).toEqual([]);
   });
 
   it('el nivel de una unidad se deriva de sus cifras: nadie lo escribe, y el equipo lo aparta solo `conEquipo`', () => {

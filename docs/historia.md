@@ -4270,3 +4270,210 @@ hueco, de hecho solo espada tiene sentido ya que el escudo quitará velocidad».
   - **Un borrador con solo unidades que no valen se dice leído** (R4,
     `avisoDelBorradorLeido`): empezaba por «Sin borrador guardado todavía» y, en la misma
     barra, listaba las que no valen.
+
+## El editor de equipo de la arena (12-10-2026)
+
+Petición: «Crea un editor de equipo» (`docs/agents/2026-10-12-editor-de-equipo/`). El
+usuario, en el plan: «la unidad tiene unas estadísticas y las del arma se suman, no hay
+equipo integrado en la unidad»; se editan **las piezas**, en un **borrador de la arena**,
+en **una vista nueva**, **las 27 y nuevas**. En el punto de control: los enlaces de
+antes pelean con las piezas de la arena que los abre (y la barra lo avisa), y «Editar
+equipo» también a media pelea.
+
+- **El catálogo de piezas es un parámetro** (`CatalogoDePiezas`, `hero/equipo.ts`):
+  cada lectura de una pieza —`pieza`, `piezaSiExiste`, `piezasPuestas`,
+  `sumaDeEquipo`, `conEquipo`, `manosBlocker`, `equipoBlocker`, `ponerPieza`— y
+  `heroUnit` lo reciben al final, **opcional**, con el del juego por defecto
+  (`PIEZAS_DEL_CATALOGO`, el `porId` de antes). El juego no cambia ni una llamada y el
+  banco no se mueve (`066767b4…`). En la arena (`core/arena.ts`) es **obligatorio** en
+  toda su API. Se descartó pasarlo también en el juego (una veintena de sitios con un
+  parámetro que siempre es el mismo) y un registro global (estado mutable en `core`,
+  que el juego podría ver). El agujero de lo opcional —una llamada de la arena que se
+  lo olvida resuelve en silencio con la pieza del juego— lo cierra
+  `invariantes.test.ts`, que cuenta los argumentos de cada lectura en `core/arena.ts` y
+  `client/arena/` (roto a mano `conEquipo(…, equipo)` sin `piezas` en
+  `unidadDeCombate`: rojo con su línea).
+- **Las piezas de la arena van encima de las del juego** (`catalogoDeLaArena`): una con
+  el id de una del juego es esa pieza cambiada y vale solo aquí; una con otro id es
+  nueva y se añade detrás. **El juego no las ve**: `EQUIPO`, `PIEZAS_DEL_JUEGO`, el
+  botín, la armería, el equipo base y el contrato del agente leen `data/equipo.json`.
+  Lo vigila el mismo guardia: fuera de la arena nadie nombra en código
+  `catalogoDeLaArena`, `data/borradores` ni `tools/arena/` (roto a mano un `import` y
+  una llamada en `state/game.ts`: rojo).
+- **La regla de una pieza, en un sitio** (`problemasDePieza`, `data.ts`): sacada del
+  bucle de `validarEquipo`, con el mismo texto; el cargador añade lo de conjunto (una de
+  armería por hueco, alguna de botín, repetidas). La arena encima (`validarPiezaDeArena`):
+  id en minúsculas con `-` y `_`; una del juego **no cambia de hueco ni de calidad**
+  (de la calidad salen el botín, la armería y el equipo base); una nueva es de calidad
+  `arena`; un campo que no es de una pieza se rechaza. Escribe la pieza siempre igual
+  (sin `danio` [0, 0], ni 0 disparos, ni una mano; el precio sin ceros), y así una del
+  juego que vuelve a sus cifras deja de estar cambiada (`mismaPieza`, `conPieza`).
+- **Cambiar una pieza no deja sin valer a nadie del borrador** (`cambioDePiezaBlocker`):
+  pasar la espada a dos manos con un escudo puesto, o borrar una nueva que alguien
+  lleva, se rechaza nombrando la unidad. Es la pregunta de la vista; a media pelea se
+  pregunta además a la batalla, y solo con las dos se escribe.
+- **A media pelea** (`retocarEnBatalla`, `kind: 'piezas'`, con la lista entera de
+  después: cambiar, crear, borrar y volver a la del juego son lo mismo). La batalla
+  guarda sus piezas (`BattleState.piezasDeArena`, lista y no `Map`: el estado es dato
+  plano) y lo que lleva cada tipo y cada héroe (`equiposDeArena`). **Desviación del
+  plan**, que guardaba las unidades enteras: `BattleState` no puede nombrar los tipos
+  de `core/arena.ts` (el guardia de los imports de la arena), y lo único de un tipo que
+  una pieza toca es su equipo; el cuerpo ya está en `UnitInfo.sinEquipo`. En dos
+  tiempos y sin tocar nada si no entra: cada tipo se vuelve a sumar con las piezas
+  nuevas (`equipoBlocker` y `medidaBlocker`, la regla de siempre) y el primero que no
+  vale es el motivo («la lleva «Guerrero con escudo» en esta pelea: …»); después, a los
+  que cambian, sus cifras por `aplicarAlTipo`, **el mismo bucle** que cambiar un tipo a
+  mano (`conCifrasNuevas`, la única cuenta de lo gastado). Un `retoque` por pieza que
+  cambia a alguien, con todos los stacks que la llevan y lo que cambió de ella («PV 0 →
+  100»; volver, «vuelve a la del juego»). Un retoque de tipo pone al día su equipo (si
+  le quitas la espada, cambiar la espada ya no lo toca), y los tipos y el héroe se leen
+  siempre con las piezas de la pelea. La IA no juega mientras se edita: solo juega
+  tras una jugada de la persona, y la vista de equipo no juega ninguna; las teclas de la
+  pelea (Espacio cierra el turno) solo valen con el tablero a la vista.
+- **El héroe lleva el equipo base**, piezas del juego que la arena puede cambiar: su
+  cuerpo se lee con las piezas de la arena (`heroeDeArena(datos, piezas)`).
+- **Lo de antes** (`migrarUnidadDeArena`) resta el kit con las piezas **del juego**: las
+  cifras viejas se escribieron con ellas. La unidad convertida pelea con las de la arena.
+- **El borrador** (`data/borradores/equipo.json`, tercer `Borrador` de
+  `tools/arena/borrador.ts`, ruta `/__arena/equipo`): valida, escribe atómico y conserva
+  lo que no vale. El de unidades se lee y se escribe con las piezas que hay en disco
+  (`deUnidades(raiz)`), así que «Guardar» manda primero las piezas y, solo si entran,
+  las unidades; una unidad cuya pieza ya no está en disco sale como «no vale» con su
+  motivo y se conserva. Lo que no se ha guardado se cuenta por ids (unidades y piezas).
+- **El enlace pasa a la versión 6** (`CON_PIEZAS`): lleva las piezas de la arena que
+  lleva lo montado (`piezasDelMontaje`, el equipo base si hay héroe), cada una llevada
+  por alguien. Se abre en otra máquina con las del juego más las suyas, y al abrirlo
+  manda en lo que llevan sus unidades: sus piezas entran sin guardar, y una del juego
+  que aquí está cambiada vuelve a la del juego; si eso deja sin valer una unidad del
+  borrador que el enlace no trae, no se monta, diciéndolo. De la 1 a la 5 se leen y
+  pelean con las piezas de la arena que las abre (decisión del usuario), y si alguna de
+  las que llevan está cambiada la barra lo avisa: el resultado puede no coincidir.
+- **La vista** («Editar equipo», escena `equipo` de `irA`, también desde el panel de la
+  pelea): las piezas por hueco con su sello (del juego, cambiada, nueva), «+ Nueva
+  pieza» por hueco, y la ficha con todos los campos —el hueco, solo en una nueva; las
+  manos, solo en un arma; el precio en los siete recursos—, lo que suma, quién la lleva
+  y Duplicar, Borrar o Volver a la del juego. Ancha, la ficha se queda a la vista
+  mientras la lista se desplaza; a 390, una debajo de otra, sin desplazarse de lado.
+- **`Pieza.manos` sigue con una sola regla** (`manosBlocker`); para enseñarla o
+  escribirla, `aDosManos` junto a ella, y el guardia de las manos no se ensancha.
+- **Verificado** con `pnpm capturas` (pasada `equipo`): crear, cambiar, rechazar,
+  poner, guardar, recargar, a media pelea (140 / 150 → 240 / 250 con +100 PV, el parte
+  con su línea y nada más), el enlace de la 6 en un navegador sin borrador y el de la 5
+  con la espada cambiada.
+
+### Vuelta de /simplify del editor de equipo (12-10-2026)
+
+Cuatro revisores (`hallazgos-simplify.md`) y el recorte de pruebas de jugabilidad que pidió
+el usuario («se hacen demasiadas pruebas de jugabilidad… no tiene sentido porque va a
+cambiar mucho» → «hazlo», `recorte-de-pruebas.md`). Lo que cambió respecto a lo de arriba:
+
+- **El catálogo, un valor atado por el tipo** (`equipoCon`, `EquipoAtado`, `hero/equipo.ts`):
+  el parámetro opcional al final de cada lectura se fue. Las sueltas (`pieza`, `conEquipo`…)
+  leen siempre las del juego, sin tocar una llamada del juego; la arena lee por el
+  `EquipoAtado` que da `catalogoDeLaArena` y viste al héroe con `cuerpoDelHeroe`. El guardia
+  que contaba argumentos con un analizador de paréntesis (`ARIDAD`, `argumentos`) pasa a ser
+  una **regla de importación**: la arena no importa las sueltas ni `heroUnit` (roto a mano:
+  `pieza` importada en `arena/paneles.ts`, rojo con su nombre).
+- **Una forma en las fronteras**: el montaje, `BattleState.piezasDeArena`, el retoque y el
+  enlace llevan la lista del borrador; el `Map` se hace dentro, donde se resuelve.
+- **El equipo de cada stack, en el stack** (`UnitInfo.equipo`, junto a `sinEquipo`, lo
+  escribe `conEquipo`): cambiar una pieza a media pelea lo vuelve a sumar desde el propio
+  stack, y `BattleState.equiposDeArena` —y su puesta al día al retocar un tipo— desaparece.
+  No viaja al espectador; el banco no se movió (`066767b4…`).
+- **Guardar es una operación** (`escribirBorrador`, `{ unidades, piezas }`): valida las dos
+  cosas, las unidades con las piezas que llegan, y escribe los dos archivos (todos los
+  temporales antes de ningún `rename`) o ninguno. Fuera la ruta `/__arena/equipo` y el
+  orden «piezas → unidades». Un `equipo.json` ilegible ya no deja ilegible el de unidades:
+  se leen con las piezas del juego (`equipoIlegible`), y guardar no lo pisa.
+- **El enlace de la 6 no toca el borrador**: pelea con las del juego más las suyas
+  (`piezasDelEnlace`: para cada pieza que lleva lo montado, la del enlace o la del juego).
+  En la página van en una capa encima del borrador (`capaDelEnlace`), sin el bloqueo que
+  había sobre unidades del borrador que el enlace no monta; cambiar una pieza la saca de la
+  capa y «Guardar» guarda lo que se pelea.
+- **Cambiar el hueco rehace lo que el hueco exige** (`enElHueco`): un escudo resta al menos
+  1 y solo un arma lleva manos. Pasar una nueva a escudo ya no se rechazaba por la
+  velocidad 0 que traía: entra en un paso.
+- **«¿Sigue valiendo quien la lleva?», una vez** (`equipoQueNoVale`), con una sola
+  redacción: «la lleva «X»: …» también a media pelea (antes, «… en esta pelea: …»).
+- **Hechos sueltos en un sitio**: `idsPuestos` sin catálogo, `idsLlevados`, `selloDePieza`
+  en el núcleo, `mismaPieza` sobre formas normalizadas (las del juego, una vez,
+  `juegoEscrito`), `esIdDePieza` junto a `esIdDeArena`, `guardadoEnPalabras` junto a
+  `sinGuardarEnPalabras`; en la vista, dos gestos (`crear-pieza`, `retirar-pieza`; no
+  `quitar-pieza`, que ya era el de la ficha de una unidad) y un solo pintado del sello.
+- **Pruebas**: fuera las que fijaban que la pelea sale igual que antes (`POR_PERFIL_DE_ANTES`,
+  `CASILLAS_DE_ANTES`, el parte del enlace comparado carácter a carácter en la prueba y en
+  `pnpm capturas`, las 51 hojas migradas una a una, los lotes IA contra IA de los poderes,
+  las cinco semillas del montaje en IA); quedan las reglas, con un caso o dos. Las cifras de
+  los tests salen de las piezas (`ESPADA.ataque + 7`), no del JSON. La pasada `equipo` de
+  `pnpm capturas` es un recorrido (abrir, crear, guardar, verla en la ficha); lo demás, en
+  `test/arena-equipo.test.ts`.
+
+### Vuelta de QA del editor de equipo (12-10-2026)
+
+QA (`qa.md`, apto con reservas) y la decisión del coordinador (`hallazgos-qa.md`):
+
+- **«Guardar» nunca borra ni sustituye una pieza tuya por la de un enlace** (I1). Con la capa
+  de la vuelta anterior, «Guardar» escribía lo que se peleaba: un enlace de la 6 que llevaba la
+  brigantina del juego, abierto donde la tuya estaba cambiada a 90 PV, la borraba del disco al
+  guardar (reproducido: `[brigantina:pv90]` → `[]`), y la barra decía «sin tocar las tuyas». Ahora
+  escribe el borrador más solo las piezas **nuevas** de la capa (`piezasQueSeGuardan`), que llevan
+  las unidades del enlace que entran en el borrador; la que el enlace trae cambiada se queda en la
+  pelea y las unidades guardadas pelearán con las tuyas, como los enlaces de antes de la 6. Si con
+  las tuyas una unidad del enlace dejara de valer, no se guarda nada y se dice quién. La vista
+  enseña tu pieza, con la marca «en la pelea, la del enlace» y su aviso en la ficha; la barra lo
+  dice al abrir y al guardar.
+- **«Sin guardar» cuenta piezas distintas de lo que hay en disco** (M2), no gestos: cambiar una y
+  devolverla, o crear una y borrarla, no deja nada que guardar ni salta el `beforeunload`.
+- **Dos piezas no se llaman igual** (M3, `cambioDePiezaBlocker`): solo para lo que cambia, así que
+  un borrador escrito a mano con dos iguales se sigue leyendo; `piezaNueva` salta el nombre ocupado.
+- **El escudo que pasa a otro hueco deja de restar** (M5, `enElHueco`): la velocidad negativa que
+  exigía se va a 0.
+- **Mensajes**: el precio con el recurso en español («cuesta -5 de oro»), «no tiene nombre:
+  escribe uno», un campo vacío «no es un número» en vez de «es NaN» (M1); la barra a media pelea
+  recuerda qué pasa al cambiar también tras elegir una pieza (M4); un enlace abierto sin borrador
+  ya no dice que las unidades salen con cifras por defecto (M6). A 390 px, elegir o crear una pieza
+  trae su ficha arriba (I2).
+
+## La ficha de la arena en tabla, con las notas como tooltip (13-10-2026)
+
+Petición del usuario: «quita la parte superior donde se muestra lo que tendría en la pelea, y la
+aclaración de "Cifras del cuerpo, sin el equipo: de ellas sale el nivel" y las aclaraciones al lado
+de cada característica. Cualquier aclaración o nota debe ir como tooltip […] Las características en
+una sola columna con su valor y después otra casilla no editable con el valor final, aplicados todos
+los modificadores. Estandariza la forma de mostrar los modificadores del equipo, que no sea un texto
+libre» (`docs/agents/2026-10-13-ficha-en-tabla/`).
+
+- **Por qué la tabla**: la fila «En la pelea (con el equipo)» repetía en una línea de texto las
+  cifras que había debajo, con el equipo sumado, y había que comparar a ojo. Con la columna «Final»
+  al lado de cada casilla se ve qué cambia el equipo, cifra a cifra (en otro tono). Es el mismo
+  cálculo de siempre (`unidadDeCombate`): la ficha no suma nada por su cuenta.
+- **Por qué un tooltip con foco**: un `title` solo lo ve el ratón. La nota (`nota`) se alcanza con el
+  tabulador y lleva `aria-label`. Primero se enseñaba en un bocadillo **fijo al pie de la ventana**
+  (uno colgado del «ⓘ» se salía por la derecha a 390 px), también con el foco de su casilla; QA lo
+  vio tapar la casilla de «Coste» al escribir a 390 px (`elementFromPoint` daba la nota). Ahora va
+  **junto al «ⓘ»**, anclado (`anchor-name`, `position-area` y `position-try-fallbacks`, que lo
+  vuelven encima o al otro lado si no cabe), solo al pasar el ratón, tocarlo o con el foco del
+  teclado en él; sin `title`, que el navegador pintaba otro tooltip encima.
+- **La casilla que no dejaba leer su número** (QA, 13-10-2026): a 1440 px en «Editar fichas» la ficha
+  mide ~460 px y, con la figura al lado, la casilla se quedaba en 34 px: PV «8» por 80, Coste «1» por
+  150, y «Cuerp/o», «Fina/l» en dos líneas. La casilla mide ahora cinco cifras en `ch` (más relleno y
+  flechas) y no encoge, las cabeceras no se parten, y la cabeza es un `flex-wrap`: si la tabla no cabe
+  junto a la figura, baja debajo (`min-content` de la tabla; con `minmax(0, 1fr)` el mínimo de la
+  rejilla era 0 y no bajaba nunca). El recorrido de entonces medía cajas que se salen, no texto
+  cortado dentro de un `<input>`; ahora `cifrasCortadas` (`tools/qa/cifras-de-la-ficha.ts`) lo mide en
+  `pnpm capturas`, y con el CSS de antes daba 465 fallos en 4 anchos.
+- **La pastilla, del mismo tamaño en todas partes**: heredaba la letra de donde caía (13 px Georgia en
+  la ficha, 10,8 system-ui en el editor, 9,7 en los paneles del juego); ahora 12 px system-ui fijos.
+- **El editor de equipo, con la misma regla**: sus párrafos («Las del juego…», el del sello, «Regla:
+  …» y el de la pelea) pasaron a notas, y sus rótulos van sin paréntesis («Velocidad», «Daño
+  mínimo»). La fila «A la tropa» del héroe, con nuestra regla («nada: …»), se quitó: no decía nada que
+  no fuera una aclaración.
+- **Por qué los nombres enteros en los modificadores** («+2 Ataque», no «+2 Atq»): el requisito era
+  la misma abreviatura en la tabla y en la pieza, y la tabla pedía rótulos cortos pero legibles
+  («Velocidad», «Disparos»). Un solo diccionario (`NOMBRE_DE_CIFRA`) sirve a los dos. La vida se
+  llama «PV» en las dos (la ficha decía «Vida» y la pieza «PV»).
+- **El agente** lee el mismo texto (`cifrasDePieza`): su catálogo de equipo pasa de «+2 ataque,
+  +30-60 daño» a «+2 Ataque, +30–60 Daño». No cambia ninguna regla, y el banco no lo ve.
+- **El héroe**: sus cuatro cifras se escriben; daño, PV y velocidad de su cuerpo van en la misma
+  tabla sin casilla (se derivan); maná y duración siguen en «En la pelea», con su porqué en nota.
+

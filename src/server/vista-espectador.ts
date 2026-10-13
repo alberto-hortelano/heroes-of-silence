@@ -287,13 +287,13 @@ export function construirVista(state: GameState, directorLog: readonly string[])
  * Y no viaja lo que el espectador no lee: `ganado` —la contabilidad de la
  * batalla en curso, que cobra `settleBattle`—, el precio de rendición, la hoja
  * de servicios y las cifras sin equipo (`UnitInfo.sinEquipo`, de las que solo se
- * mide el nivel, y el espectador no mide niveles). Iban en cada fotograma por el
+ * mide el nivel, y el espectador no mide niveles) con lo puesto (`UnitInfo.equipo`). Iban en cada fotograma por el
  * solo hecho de estar en el objeto.
  */
 function stackAlCable(s: BattleStack): StackEnCable {
   const { unit: cifras, ganado: _ganado, origen, ...resto } = s;
   // Sin renombrarlo: `sinEquipo:` es como se escribe, y solo lo escribe `conEquipo`.
-  const { sinEquipo, ...unit } = cifras;
+  const { sinEquipo, equipo: _equipo, ...unit } = cifras;
   switch (origen.kind) {
     case 'catalogo':
       return { ...resto, origen: { kind: 'catalogo', veterania: hojaAlCable(origen.veterania) } };

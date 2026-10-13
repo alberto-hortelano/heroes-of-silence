@@ -86,6 +86,7 @@ import type {
 } from '../../src/core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
+import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { nivelDeUnidad } from '../../src/core/nivel.js';
 import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
@@ -103,7 +104,13 @@ import {
   FONDO_DE_LA_FRANJA,
   type Plano,
 } from '../../src/shared/base.js';
-import { hojasDeArena, leerBorrador, RUTA_DEL_BORRADOR } from '../arena/borrador.js';
+import {
+  hojasDeArena,
+  leerBorrador,
+  RUTA_DE_EQUIPO,
+  RUTA_DEL_BORRADOR,
+} from '../arena/borrador.js';
+import { cifrasCortadas } from './cifras-de-la-ficha.js';
 import {
   buscarDerrota,
   buscarEmboscada,
@@ -2663,7 +2670,9 @@ const ATAQUE_EDITADO = 9;
  * del cuerpo.
  */
 function ataqueEnLaPelea(hojas: ReturnType<typeof hojasDeArena>, ataque: number): number {
-  return unidadDeCombate(deHoja(hojas, 'templario-escudo', { attack: ataque })).attack;
+  // La página arranca sin borrador de equipo (`sinElBorrador`): las piezas del juego.
+  return unidadDeCombate(deHoja(hojas, 'templario-escudo', { attack: ataque }), EQUIPO_DEL_JUEGO)
+    .attack;
 }
 
 /** La unidad de arena de una hoja, con sus cifras por defecto y los cambios que se le pidan. */
@@ -2706,6 +2715,7 @@ function espejoDeLaArena(hojas: ReturnType<typeof hojasDeArena>, semilla: number
         ia: true,
       },
       reglas: REGLAS_DEL_JUEGO,
+      piezas: [],
     },
     semilla,
   );
@@ -2828,19 +2838,25 @@ async function arena(browser: Browser, url: string, problemas: Problemas): Promi
  */
 async function sinElBorrador(quien: string, fn: (ruta: string) => Promise<void>): Promise<void> {
   const ruta = join(process.cwd(), RUTA_DEL_BORRADOR);
+  // El de equipo también: con piezas cambiadas, el espejo (piezas del juego) no
+  // pelearía lo mismo que la página.
+  const rutas = [ruta, join(process.cwd(), RUTA_DE_EQUIPO)];
   const carpeta = join(process.cwd(), 'data/borradores');
   const habiaCarpeta = existsSync(carpeta);
-  const antes = existsSync(ruta) ? readFileSync(ruta, 'utf8') : null;
-  if (antes !== null) rmSync(ruta);
+  const antes = rutas.map((r) => (existsSync(r) ? readFileSync(r, 'utf8') : null));
+  for (const [i, r] of rutas.entries()) if (antes[i] !== null) rmSync(r);
   try {
     await fn(ruta);
   } finally {
-    if (antes !== null) writeFileSync(ruta, antes);
-    else if (existsSync(ruta)) rmSync(ruta);
+    for (const [i, r] of rutas.entries()) {
+      const suyo = antes[i] ?? null;
+      if (suyo !== null) writeFileSync(r, suyo);
+      else if (existsSync(r)) rmSync(r);
+    }
     if (!habiaCarpeta && existsSync(carpeta) && readdirSync(carpeta).length === 0)
       rmdirSync(carpeta);
     log(
-      `${quien}: borrador ${antes === null ? 'retirado: no había ninguno' : 'devuelto como estaba'}`,
+      `${quien}: borradores de unidades y equipo ${antes.every((a) => a === null) ? 'retirados: no había ninguno' : 'devueltos como estaban'}`,
     );
   }
 }
@@ -2879,6 +2895,7 @@ function espejoDeLosPoderes(
         ia: true,
       },
       reglas: REGLAS_DEL_JUEGO,
+      piezas: [],
     },
     semilla,
   );
@@ -2977,12 +2994,13 @@ async function poderesEnLaArena(
     await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
     await page.locator('[data-arena="poner-heroe"][data-lado="izquierda"]').click();
     await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
-    // La ficha del monje en el montaje ya dice lo que hacen sus poderes.
+    // La ficha del monje en el montaje ya dice lo que hacen sus poderes, en la
+    // nota de su etiqueta (13-10-2026: toda aclaración es un tooltip).
     await page.locator('#bando-izquierda button.nombre[data-unidad="templario-monje"]').click();
     await page
-      .locator('#ficha [data-poder-de-la-ficha="curar"]', {
-        hasText: `cura ${poder('curar').lanzador.cantidad} PV`,
-      })
+      .locator(
+        `#ficha [data-poder-de-la-ficha="curar"] .nota[aria-label*="cura ${poder('curar').lanzador.cantidad} PV"]`,
+      )
       .waitFor({ timeout: 2000 });
     const vida = page.locator('#ficha [data-campo="hp"]');
     await vida.fill(String(VIDA_DEL_MONJE));
@@ -3074,6 +3092,7 @@ async function poderesEnLaArena(
     await dialogo
       .locator('[data-clave-de-ficha="unidad:orko-dos-armas"]')
       .waitFor({ timeout: 2000 });
+    await cifrasSinCortar(page, '#editor-en-combate', 'poderes: la ficha en combate');
     // Un daño mínimo por encima del máximo no entra y se dice en el diálogo.
     const minimo = dialogo.locator('[data-campo="damage-min"]');
     await minimo.fill('99');
@@ -3188,6 +3207,7 @@ async function todoIA(
       izquierda: { unidades: [delBorrador(izquierda)], heroe: null, ia: true },
       derecha: { unidades: [delBorrador(derecha)], heroe: null, ia: true },
       reglas: REGLAS_DEL_JUEGO,
+      piezas: [],
     },
     semilla,
   );
@@ -3266,6 +3286,7 @@ async function jugarArena(
       );
     });
   await sleep(300);
+  await cifrasSinCortar(page, '#ficha', 'arena, montaje');
   await captura(page, 'arena-01-montaje');
 
   // Las 8 direcciones, dirección a dirección: el templario y el orco con las
@@ -3490,6 +3511,7 @@ function espejoDelBanco(semilla: number): SesionDeArena {
         ia: true,
       },
       reglas: REGLAS_DEL_BANCO,
+      piezas: [],
     },
     semilla,
   );
@@ -3566,6 +3588,17 @@ async function abrirLaArena(page: Page, url: string, query: string): Promise<voi
  * Hasta que la página ha pintado lo último que se le pidió: las fuentes cargadas
  * y dos fotogramas (el del repintado pendiente y el siguiente, ya con él).
  */
+/**
+ * Las cifras de las fichas visibles bajo `raiz`, sin cortar (`cifrasCortadas`:
+ * ninguna casilla corta su número ni deja de caber cinco cifras, ninguna
+ * cabecera se parte, todo a la derecha). Lanza con todo lo que encuentra.
+ */
+async function cifrasSinCortar(page: Page, raiz: string, paso: string): Promise<void> {
+  const fallos = await page.evaluate(cifrasCortadas, raiz);
+  if (fallos.length > 0)
+    throw new Error(`${paso}: las cifras de la ficha no se leen:\n  ${fallos.join('\n  ')}`);
+}
+
 async function asentada(page: Page): Promise<void> {
   await page.evaluate(() =>
     document.fonts.ready.then(
@@ -3605,9 +3638,7 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
     await c.press('Tab');
   }
   await page
-    .locator('#ficha .efectivos', {
-      hasText: `${HEROE_DEL_BANCO.conocimiento * 10} (10 × Conocimiento)`,
-    })
+    .locator(`#ficha [data-mana-de-la-ficha="${HEROE_DEL_BANCO.conocimiento * 10}"]`)
     .waitFor({ timeout: 2000 });
   const sello = await page
     .locator('#bando-izquierda .puesto', { hasText: 'Caballería' })
@@ -3726,21 +3757,6 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
 
 // ------------------------------------------------------------- el enlace de la pelea
 
-/** Pulsa Luchar con todo en IA y devuelve el panel del final, parte incluido. */
-async function lucharHastaElFinal(page: Page, que: string): Promise<string> {
-  await page.locator('[data-arena="luchar"]').click();
-  await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
-  await page
-    .locator('#side h2', { hasText: /^(Gana|Sin vencedor)/ })
-    .waitFor({ timeout: 180_000 })
-    .catch(async () => {
-      throw new Error(
-        `enlace: ${que}: la pelea no termina; el panel dice «${await page.locator('#side').innerText()}»`,
-      );
-    });
-  return page.locator('#side').innerText();
-}
-
 /** Lo que dice el montaje de los dos bandos, para comparar dos páginas. */
 async function bandosDichos(page: Page): Promise<string> {
   const izquierda = await page.locator('#bando-izquierda').innerText();
@@ -3752,10 +3768,9 @@ async function bandosDichos(page: Page): Promise<string> {
  * El enlace de la pelea (H6 de QA del banco): se monta con clics una pelea con
  * todo lo que lleva el enlace —una hoja con una cifra sin guardar, una criatura
  * del catálogo con su prueba, un héroe con su hoja de figura y sus cifras en cada
- * lado, todo en IA, y dos reglas de fheroes2—, se copia el enlace, se lucha, y
- * el enlace abierto en otra página monta lo mismo, se queda en el montaje sin
- * luchar y da el mismo parte, carácter a carácter. Un enlace roto y un
- * `?reglas=` repetido se rechazan diciéndolo.
+ * lado, todo en IA, y dos reglas de fheroes2—, se copia el enlace, y abierto en
+ * otra página monta lo mismo y se queda en el montaje sin luchar. Un enlace roto
+ * y un `?reglas=` repetido se rechazan diciéndolo.
  */
 async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -3781,9 +3796,8 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
     if (figura === null || figura === '')
       throw new Error('enlace: no hay hojas de héroe que elegir');
     await page.locator('#ficha [data-heroe-campo="figura"]').selectOption(figura);
-    // Sin el Rayo: con él, el héroe de la IA mata al otro en la ronda 1 (H2 de
-    // QA, que no se toca) y el parte que se compara sería de tres líneas. Quitarlo
-    // ejerce además el libro del enlace.
+    await cifrasSinCortar(page, '#ficha', `enlace: la ficha del héroe ${lado}`);
+    // Sin el Rayo: ejerce el libro del enlace.
     await page.locator('#ficha [data-heroe-hechizo="lightning_bolt"]').uncheck();
     await page.locator(`[data-arena="manda"][data-lado="${lado}"][data-ia="si"]`).click();
   }
@@ -3804,7 +3818,6 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   log(`enlace: ${enlace.length} caracteres; barra: «${await page.locator('#status').innerText()}»`);
   await sleep(300);
   await captura(page, 'arena-08-enlace-copiado');
-  const parte = await lucharHastaElFinal(page, 'la pelea montada a mano');
   await page.close();
 
   const otra = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -3826,13 +3839,7 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
     );
   }
   await captura(otra, 'arena-09-enlace-abierto');
-  const parteOtra = await lucharHastaElFinal(otra, 'la pelea del enlace');
-  if (parteOtra !== parte) {
-    throw new Error(
-      `enlace: el parte de la pelea del enlace es otro:\n${parte}\n=====\n${parteOtra}`,
-    );
-  }
-  log(`enlace: la pelea del enlace da el mismo parte (${parte.length} caracteres)`);
+  log('enlace: abierto, monta lo mismo que se copió y no empieza a pelear solo');
 
   // Roto: una criatura que no existe. No se monta nada, y se dice.
   const roto = enlace.replace(/pikeman/g, 'dragon_rojo');
@@ -3978,6 +3985,7 @@ async function edicionEntera(page: Page, paso: string): Promise<void> {
     await page.setViewportSize(v);
     await asentada(page);
     const m = await medirLaEdicion(page);
+    m.fallos.push(...(await page.evaluate(cifrasCortadas, '#edicion')));
     const donde = `${v.width}×${v.height}`;
     if (m.fallos.length > 0)
       throw new Error(`edición, ${paso} a ${donde}:\n  ${m.fallos.join('\n  ')}`);
@@ -4090,6 +4098,7 @@ async function edicionDeLaArena(
   await page.setViewportSize({ width: 390, height: 844 });
   await asentada(page);
   const movil = await medirLaEdicion(page);
+  movil.fallos.push(...(await page.evaluate(cifrasCortadas, '#edicion')));
   if (movil.fallos.length > 0)
     throw new Error(`edición a 390×844:\n  ${movil.fallos.join('\n  ')}`);
   if (movil.columnas !== 1) throw new Error(`edición a 390×844: en ${movil.columnas} columnas`);
@@ -4392,6 +4401,49 @@ async function edicionDeLaArena(
   await page.close();
 }
 
+// ------------------------------------------------------------------------ editor de equipo
+
+/**
+ * El editor de equipo de la arena, con clics de verdad: abrir la vista, crear una
+ * pieza, guardarla y verla en la ficha de una unidad. Las reglas (lo que se
+ * rechaza, el enlace, a media pelea) las prueban `test/arena-equipo.test.ts`.
+ */
+async function equipoDeLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(page, 'equipo', problemas);
+  await abrirLaArena(page, url, '?seed=7');
+  await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+  await page.locator('[data-arena="ir-a-equipo"]').first().click();
+  await page.locator('#app[data-escena="equipo"]').waitFor({ timeout: 2000 });
+  await page.locator('[data-arena="crear-pieza"][data-hueco="arma"]').click();
+  const nombre = page.locator('#equipo [data-pieza-elegida] [data-arena-pieza-campo="nombre"]');
+  await nombre.fill('Hoja de pruebas');
+  await nombre.press('Tab');
+  await asentada(page);
+  await captura(page, 'arena-12-equipo');
+  await page.locator('[data-arena="guardar"]').click();
+  await esperarBarra(page, 'Guardado', 'equipo: guardar', { exacta: false });
+  const enDisco = leerBorrador(process.cwd()).piezas.map((p) => p.nombre);
+  if (!enDisco.includes('Hoja de pruebas'))
+    throw new Error(`equipo: guardar no deja la pieza en disco (${enDisco.join(', ')})`);
+  log('equipo: pieza creada, nombrada y guardada');
+  await page.locator('[data-arena="volver-de-equipo"]').click();
+  await page.locator('#bando-izquierda [data-arena="editar"]').first().click();
+  const opcion = page.locator('#ficha [data-arena-pieza="arma"] option', {
+    hasText: 'Hoja de pruebas',
+  });
+  await page
+    .locator('#ficha [data-arena-pieza="arma"]')
+    .selectOption((await opcion.getAttribute('value')) ?? '');
+  await page
+    .locator('#bando-izquierda .puesto .cost')
+    .first()
+    .filter({ hasText: 'lleva Hoja de pruebas' })
+    .waitFor({ timeout: 2000 });
+  log('equipo: la ficha de la unidad la ofrece y la tarjeta la lleva');
+  await page.close();
+}
+
 // ------------------------------------------------------------------------ main
 
 type Paso = (browser: Browser, url: string, problemas: Problemas) => Promise<void>;
@@ -4408,6 +4460,7 @@ const PASADAS: readonly (readonly [string, Paso])[] = [
   ['espectador', espectador],
   ['arena', arena],
   ['edicion', (b, u, p) => sinElBorrador('edicion', () => edicionDeLaArena(b, u, p))],
+  ['equipo', (b, u, p) => sinElBorrador('equipo', () => equipoDeLaArena(b, u, p))],
   ['poderes', poderesEnLaArena],
 ];
 

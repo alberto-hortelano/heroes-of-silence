@@ -32,6 +32,7 @@ import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../src/core/battle/regla
 import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
 import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
+import { EQUIPO_DEL_JUEGO, type EquipoAtado } from '../src/core/hero/equipo.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
@@ -1022,12 +1023,26 @@ export function hojasDeLaArena(): readonly HojaDeArena[] {
   return hojasLeidas;
 }
 
-/** Una unidad de la arena con las cifras por defecto de su hoja y los cambios que diga el test. */
-export function unidadDeArena(id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena {
+/** La hoja `id` de la arena del repo; lanza si no está. */
+export function hojaDeLaArena(id: string): HojaDeArena {
   const hoja = hojasDeLaArena().find((h) => h.id === id);
   if (hoja === undefined) throw new Error(`no hay hoja ${id}`);
-  return { ...unidadPorDefecto(hoja), ...cambios };
+  return hoja;
 }
+
+/** Una unidad de la arena con las cifras por defecto de su hoja y los cambios que diga el test. */
+export function unidadDeArena(id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena {
+  return { ...unidadPorDefecto(hojaDeLaArena(id)), ...cambios };
+}
+
+/** Las piezas del juego, atadas (`EquipoAtado`): las de la arena sin borrador. */
+export const DEL_JUEGO: EquipoAtado = EQUIPO_DEL_JUEGO;
+
+/** Lo común de un montaje de prueba: las reglas del juego y ninguna pieza de la arena. */
+export const MONTAJE = { reglas: REGLAS_DEL_JUEGO, piezas: [] } as const satisfies Pick<
+  MontajeDeArena,
+  'reglas' | 'piezas'
+>;
 
 /** Una unidad del borrador a su puesto de la pelea, con su escalera o sin ella. */
 export interface PuestoDeLaPelea {
@@ -1059,7 +1074,13 @@ export function montajeDePrueba(
     })),
     heroe: null,
   });
-  return { izquierda: lado(izquierda), derecha: lado(derecha), reglas, muralla };
+  return {
+    izquierda: lado(izquierda),
+    derecha: lado(derecha),
+    reglas,
+    muralla,
+    piezas: [],
+  };
 }
 
 /** `batallaDeArena` con `montajeDePrueba`. */
@@ -1093,7 +1114,12 @@ export function sesionDeArena(
     };
   };
   return new SesionDeArena(
-    { izquierda: lado(izquierda), derecha: lado(derecha), reglas: REGLAS_DEL_JUEGO, muralla },
+    {
+      izquierda: lado(izquierda),
+      derecha: lado(derecha),
+      ...MONTAJE,
+      muralla,
+    },
     semilla,
   );
 }

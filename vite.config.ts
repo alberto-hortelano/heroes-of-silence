@@ -85,7 +85,8 @@ function servirBorrador(b: {
 }
 
 /**
- * La arena (`/arena/`): la lista de hojas y los borradores de cifras y de murallas.
+ * La arena (`/arena/`): la lista de hojas y los borradores de cifras con sus
+ * piezas de equipo, y de murallas.
  *
  * El guardado existe **solo en `pnpm dev`** (`configureServer`): un navegador no
  * puede escribir en el repo, y en `vite build` no hay quien escriba. El build
@@ -139,9 +140,19 @@ function arena(): Plugin {
               invalidas: leido.invalidas.map(({ id, motivo }) => ({ id, motivo })),
               // Lo que hubo que decir al convertir unidades de antes del equipo.
               avisos: leido.avisos,
+              // Y las piezas de la arena (vista «Editar equipo»), que el juego no lee:
+              // van con las unidades porque se guardan con ellas, en una operación.
+              piezas: leido.piezas,
+              piezasInvalidas: leido.piezasInvalidas.map(({ clave, motivo }) => ({
+                id: clave,
+                motivo,
+              })),
+              ...(leido.equipoIlegible === undefined
+                ? {}
+                : { equipoIlegible: leido.equipoIlegible }),
             };
           },
-          vacio: { unidades: [], invalidas: [], avisos: [] },
+          vacio: { unidades: [], invalidas: [], avisos: [], piezas: [], piezasInvalidas: [] },
           escribir: (cuerpo) => escribirBorrador(raiz, cuerpo),
         }),
       );

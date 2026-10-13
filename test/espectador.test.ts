@@ -545,13 +545,13 @@ describe('la batalla en la vista', () => {
   /**
    * La batalla sin lo que el cable no manda (`stackAlCable`): lo ganado y la
    * hoja de servicios vuelven vacíos de `adaptarBatalla`, y las cifras que
-   * viajan (héroe y personaje) llegan sin `sinEquipo`; la ida y vuelta se
+   * viajan (héroe y personaje) llegan sin `sinEquipo` ni `equipo`; la ida y vuelta se
    * compara en todo lo demás. Se quita exactamente eso, campo a campo, y no se
    * relaja la comparación entera. (Las del catálogo las rehace el espectador
    * con `cifrasDeCatalogo`, y esas sí lo llevan.)
    */
   const sinCuerpo = (u: UnitInfo): UnitInfo => {
-    const { sinEquipo: _cuerpo, ...cifras } = u;
+    const { sinEquipo: _cuerpo, equipo: _puesto, ...cifras } = u;
     return cifras;
   };
   const sinLoQueNoViaja = (b: BattleState): BattleState => ({
@@ -595,6 +595,7 @@ describe('la batalla en la vista', () => {
       // Las cifras sin equipo solo sirven para medir el nivel, y no viajan.
       expect(c.unit.sinEquipo, c.id).toBeDefined();
       expect('sinEquipo' in viaja, c.id).toBe(false);
+      expect('equipo' in viaja, c.id).toBe(false);
       expect(viaja).toEqual(sinCuerpo(c.unit));
     }
     expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));

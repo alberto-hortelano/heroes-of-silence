@@ -137,8 +137,10 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Reindexar el rango de héroe | `subidasDeRango` (lanza por debajo del 5) |
 | Añadir a la mochila | `aLaMochila` |
 | A quién va una pieza | `destinoDeEquipo` |
-| Lo que admite una mano y dos (un arma a dos manos no admite escudo) | `manosBlocker` (`hero/equipo.ts`, la única lectura de `Pieza.manos`); la leen `equipBlocker` y `equipoBlocker`, y `ponerPieza` lanza con ella, que es la pregunta de la arena (`equiparEnArena`, con el nombre de quien la lleva; lo vigila `invariantes.test.ts`); dicha para la persona, `REGLA_DEL_ESCUDO` |
+| Lo que admite una mano y dos (un arma a dos manos no admite escudo) | `manosBlocker` (`hero/equipo.ts`, la única lectura de `Pieza.manos`, con `aDosManos` al lado para enseñarla o escribirla); la leen `equipBlocker` y `equipoBlocker`, y `ponerPieza` lanza con ella, que es la pregunta de la arena (`equiparEnArena`, con el nombre de quien la lleva; lo vigila `invariantes.test.ts`); dicha para la persona, `REGLA_DEL_ESCUDO` |
 | Los huecos en el contrato (`weapon`, `armor`, `accessory`, `shield`) | `SLOT_DE_HUECO`, `huecoDelSlot`, `accionDelAgente` (`contract/huecos.ts`; lo que escribe el agente, `AccionDelAgente`); por dentro, `HUECOS` en español (lo vigila `invariantes.test.ts`) y el núcleo recibe un `Hueco` (`unequip.slot`): el texto lo traducen `accionDelAgente` y la sesión (`esHueco`). Uno que no existe, `huecoDesconocido`; para la persona, por su nombre (`NOMBRE_DE_HUECO`; quitar de uno vacío, `nadaEnElHueco`) |
+| La regla de una pieza (catálogo y arena) | `problemasDePieza`, `piezaBlocker` (`data.ts`); el cargador (`validarEquipo`) añade lo de conjunto (armería por hueco, botín, repetidas) |
+| Piezas de la arena (el juego no las ve) | `catalogoDeLaArena` (las del borrador encima de `data/equipo.json`; da un `EquipoAtado`), `validarPiezaDeArena` (todo lo que entra; una del juego no cambia de hueco ni de calidad; una nueva es `arena`), `selloDePieza` (del juego, cambiada o nueva), `enElHueco` (lo que exige el hueco, y lo que exigía el escudo se va con él), `piezaNueva` (ni id ni nombre de otra), `conPieza`/`sinPieza`, `cambioDePiezaBlocker` (nadie del borrador deja de valer, dos piezas no se llaman igual; con `retocarEnBatalla`, `kind: 'piezas'`, la pregunta es `equipoQueNoVale`), `idsLlevados`/`piezasDelMontaje`, `piezasDelEnlace`, `piezasQueSeGuardan` (`core/arena.ts`). Las lecturas de una pieza atadas a un catálogo, `equipoCon` (`hero/equipo.ts`): la arena no importa las sueltas (`pieza`, `piezasPuestas`, `sumaDeEquipo`, `conEquipo`, `manosBlocker`, `equipoBlocker`, `ponerPieza`, `heroUnit`), que leen las del juego; al héroe lo viste con `cuerpoDelHeroe`. Las fronteras (montaje, `BattleState.piezasDeArena`, retoque, enlace, disco) llevan la lista del borrador; el equipo puesto de cada stack, en `UnitInfo.equipo` (lo escribe `conEquipo`, no viaja al espectador). Lo vigila `invariantes.test.ts`, por importación |
 | Unidad nueva de la arena | `unidadNueva` (`core/arena.ts`); cuerpo + equipo con que pelea, `unidadDeCombate`; lo de antes del equipo, `migrarUnidadDeArena`, con el perfil de cada hoja (`perfilDeLasHojas`) y comprobado al revés con `mismasCifras` (`hero/equipo.ts`, junto a `conEquipo`); la forma de un id, `esIdDeArena` (`core/validar.ts`: la lee también el cliente fuera de la arena) |
 | Formatear un precio | `describirCoste`; un entero con miles («176 000»), `conMiles` |
 | Camino de un héroe (con lo hostil) | `alcanceDelHeroe`, `caminoHasta`; nadie fuera de `game.ts` llama a `findPath`/`reachableFrom` |
@@ -648,10 +650,14 @@ antes del destino (`battle_started` con `faltan`).
   es una prueba que no se guarda), un héroe por lado con libro (`heroeDeArena`) y
   seis interruptores de reglas por pelea (`battle/reglas.ts`, `?reglas=` con la
   semilla); con todos en «nuestra» pelea como el juego. «Copiar enlace de la
-  pelea» escribe el montaje entero (`?montaje=`, versión 5: unidades con cuerpo y equipo y
-  puestos `{ unidad }`; de la 1 a la 4 se leen, con `{ hoja }`, y piden el perfil de cada hoja,
-  `PerfilDe`, que sale de `perfilDeLasHojas`, para convertirse; cada versión es un umbral con
-  nombre, `CON_EQUIPO`…); abrirlo lo monta sin luchar. **Cuerpo y equipo** (12-10-2026,
+  pelea» escribe el montaje entero (`?montaje=`, versión 6: unidades con cuerpo y equipo,
+  puestos `{ unidad }` y las piezas de la arena que lleva lo montado, `piezasDelMontaje`; de la 1
+  a la 4 se leen, con `{ hoja }`, y piden el perfil de cada hoja, `PerfilDe`, que sale de
+  `perfilDeLasHojas`, para convertirse; de la 1 a la 5 pelean con las piezas de la arena que las
+  abre y la barra avisa si alguna de las suyas está cambiada; la 6 pelea con las del juego más
+  las suyas (`piezasDelEnlace`), encima del borrador sin tocarlo, y «Guardar» escribe de ellas solo
+  las nuevas (`piezasQueSeGuardan`: una pieza tuya no la sustituye ni la borra un enlace); cada versión es un umbral con
+  nombre, `CON_EQUIPO`, `CON_PIEZAS`…); abrirlo lo monta sin luchar. **Cuerpo y equipo** (12-10-2026,
   ciclo 2 del nivel único): una unidad es un cuerpo (`cuerpo: { hoja } | { criatura }`, el arte con
   que se pinta; las cifras de la ficha son las suyas y de ellas sale el nivel) más su equipo (cuatro
   huecos, `data/equipo.json`), y pelea con las dos cosas (`unidadDeCombate` → `conEquipo`). Toda hoja
@@ -687,9 +693,36 @@ antes del destino (`battle_started` con `faltan`).
   (`renombrar`; Intro guarda, Escape no; sin campo «Nombre» entre las cifras), arriba la figura con
   sus clips en columna y las cifras a la derecha (en una columna estrecha, debajo: `@container`;
   en combate, sin figura), y los rasgos del motor como las habilidades: etiquetas con × y el resto
-  en un desplegable. Una unidad con el arte a medias (el taller generándola)
+  en un desplegable. **Las cifras, en una tabla de una columna** (13-10-2026, `tablaDeCifras`): el
+  nivel arriba («Índice N · nivel n») y una fila por cifra con rótulo corto, la casilla que se
+  escribe (el cuerpo; en el héroe, sus cuatro, y las de su cuerpo sin casilla) y el **final**, un
+  `<output>` que no se escribe, con todo lo que suma (`unidadDeCombate`; en el héroe, su cuerpo con
+  rango y equipo base), en otro tono si cambia. Sin «En la pelea» ni párrafos de nota: **toda
+  aclaración es un tooltip** (`nota`, `views/panels.ts`: un «ⓘ» con `aria-label` y sin `title`,
+  que se enseña en un bocadillo junto a él al pasar el ratón, al tocarlo o con el foco del teclado en
+  él —nunca con el foco de una casilla: tapaba lo que se escribía—, anclado con `position-area`), en
+  la fila, en la cabecera de la columna, en el título de cada sección, en el de la ficha (lo que
+  decía su pie) y en cada poder; también en el editor de equipo. La casilla cabe cinco cifras (en
+  `ch`), las cabeceras van en una línea y, si a su lado no cabe la tabla entera, va debajo de la
+  figura (`flex-wrap`); lo vigila `cifrasCortadas` (`tools/qa/cifras-de-la-ficha.ts`) en
+  `pnpm capturas`. La pastilla de modificador tiene letra y tamaño propios (12 px) en todas partes. **Lo que suma una pieza tiene una forma**: `modificadoresDePieza` (`hero/equipo.ts`, una
+  lista en el orden de `CIFRAS_DE_PIEZA`, con `NOMBRE_DE_CIFRA`, los rótulos de la tabla) y
+  `textoDeModificador` (signo siempre, el único que formatea); en pantalla, `modificadoresEnPantalla`
+  (una pastilla por cifra, en la ficha, el editor de equipo y los paneles del juego), y donde no cabe
+  marcado (un `<option>`, el agente), `cifrasDePieza`, el mismo texto con comas. Una unidad con el arte a medias (el taller generándola)
   se lista como incompleta con su motivo y no se monta —nunca el Y Bot en su
-  lugar—; `vite build` lo avisa y no falla (`arteEnOchoDirecciones`, #140).
+  lugar—; `vite build` lo avisa y no falla (`arteEnOchoDirecciones`, #140). **El editor de
+  equipo** («Editar equipo», escena `equipo`, también desde el panel de la pelea):
+  las piezas por hueco, del juego, cambiadas o nuevas, y la ficha de la elegida con todos sus
+  campos. Una del juego se cambia **solo para la arena** (mismo id en
+  `data/borradores/equipo.json`; «Volver a la del juego»), una nueva es de calidad `arena`
+  («+ Nueva pieza», «Duplicar», «Borrar»; cambiar su hueco rehace lo que el hueco exige), y la
+  unidad suma la pieza que lleva sin que su nivel cambie. «Guardar» es una operación
+  (`escribirBorrador`, `{ unidades, piezas }`): si algo no vale no escribe ninguno de los dos; un
+  `equipo.json` ilegible no deja ilegibles las unidades (se leen con las piezas del juego). A media pelea, el
+  cambio vale ya para todos los que la llevan, de los dos bandos y el héroe, con lo gastado
+  restado, y queda en el parte; la IA espera. El juego, el botín, la armería y el agente leen
+  solo `data/equipo.json`.
 
 ## Generación de assets
 

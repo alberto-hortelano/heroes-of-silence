@@ -54,3 +54,11 @@ export function repetidoEn<T>(lista: readonly T[]): T | undefined {
 export function esIdDeArena(id: string): boolean {
   return /^[a-z0-9-]+$/.test(id);
 }
+
+/**
+ * Si `id` tiene la forma del id de una pieza de equipo: como uno de la arena, y
+ * además con `_`, que llevan las del juego (`espada_de_armeria`).
+ */
+export function esIdDePieza(id: string): boolean {
+  return /^[a-z0-9_-]+$/.test(id);
+}

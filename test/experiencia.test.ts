@@ -773,9 +773,8 @@ describe('una sola escala de rangos: el héroe empieza donde acaba la tropa', ()
     expect('level' in nuevo).toBe(false);
   });
 
-  it('las cifras se reindexan: uno de rango 5 tiene lo que antes uno de nivel 1', () => {
+  it('el rango 5 son las bases del JSON, y cada rango por encima suma `porRango`', () => {
     const c = HEROE.combate;
-    // Lo que daba la fórmula vieja con `level − 1 = 0`: las bases del JSON.
     expect(
       heroUnit({ name: 'X', attack: 2, defense: 2, experience: umbral(5), equipo: {} }),
     ).toMatchObject({
@@ -785,7 +784,6 @@ describe('una sola escala de rangos: el héroe empieza donde acaba la tropa', ()
       damage: [c.danio.min, c.danio.max],
     });
     expect(heroLeadership({ experience: umbral(5) })).toBe(LIDERAZGO.heroe.base);
-    // Y cada rango por encima suma lo de uno, como antes del 1 al 2.
     expect(
       heroUnit({ name: 'X', attack: 2, defense: 2, experience: umbral(6), equipo: {} }).hp,
     ).toBe(c.pv.base + c.pv.porRango);

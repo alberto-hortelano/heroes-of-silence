@@ -25,6 +25,8 @@ import {
   NOMBRE_DE_FACCION_DE_ARENA,
   NOMBRE_DE_RASGO,
   nombreDeHabilidad,
+  type SelloDePieza,
+  selloDePieza,
   type UnidadDeArena,
   unidadDeCombate,
 } from '@core/arena.js';
@@ -52,7 +54,6 @@ import { esDeCura, type Poder, poder, poderDeHabilidad } from '@core/battle/pode
 import {
   DESCRIPCION_DE_REGLA,
   NOMBRES_DE_REGLA,
-  REGLAS_DEL_JUEGO,
   type ReglasDeBatalla,
   reglasEncendidas,
 } from '@core/battle/reglas.js';
@@ -64,19 +65,25 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '@core/battle/types.js';
-import { EQUIPO, isShooter } from '@core/data.js';
+import { isShooter, type Pieza } from '@core/data.js';
 import {
+  aDosManos,
   cifrasDePieza,
+  type EquipoAtado,
+  NOMBRE_DE_CALIDAD,
+  NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
-  pieza,
-  piezasPuestas,
   REGLA_DEL_ESCUDO,
 } from '@core/hero/equipo.js';
 import {
   CREATURE_TRAITS,
   type CreatureTrait,
   conComa,
+  describirCoste,
   HUECOS,
+  type Hueco,
+  NOMBRE_DE_RECURSO,
+  RESOURCE_KINDS,
   SPEED_TO_HEXES,
   type UnitInfo,
 } from '@core/types.js';
@@ -88,6 +95,8 @@ import {
   cifraDeEfecto,
   enRondas,
   listaDelCampo,
+  modificadoresEnPantalla,
+  nota,
   renderBattleLog,
   renderSpells,
 } from '../views/panels.js';
@@ -156,9 +165,9 @@ function rasgosDichos(traits: readonly CreatureTrait[] | undefined): string {
  * que antes no salían y un guerrero que vuela y ocupa dos se veía igual que uno
  * normal (M9 de QA). Y lo que lleva puesto, que es de donde salen.
  */
-export function resumenDeCifras(u: UnidadDeArena): string {
-  const lleva = piezasPuestas(u.equipo).map((p) => p.nombre);
-  return `${resumenDeUnidad(unidadDeCombate(u))}${lleva.length === 0 ? '' : ` · lleva ${lleva.join(', ')}`}`;
+export function resumenDeCifras(u: UnidadDeArena, piezas: EquipoAtado): string {
+  const lleva = piezas.piezasPuestas(u.equipo).map((p) => p.nombre);
+  return `${resumenDeUnidad(unidadDeCombate(u, piezas))}${lleva.length === 0 ? '' : ` · lleva ${lleva.join(', ')}`}`;
 }
 
 /** Lo mismo para las cifras del motor: las de una criatura del catálogo. */
@@ -588,6 +597,8 @@ function casillaDeEscalera(p: Puesto, noLaUsa: string | null): Html {
 export interface ComoDeLaFicha {
   readonly enCombate: boolean;
   readonly reglas: ReglasDeBatalla;
+  /** Las piezas de la arena (`catalogoDeLaArena`): con ellas se suma el equipo y se ofrece. */
+  readonly piezas: EquipoAtado;
   /**
    * Si su título es el campo del nombre (tras pulsar «✎ Editar»): lo pone
    * `main.ts` por la clave de la ficha, y sin él el nombre se lee y no se escribe.
@@ -595,9 +606,9 @@ export interface ComoDeLaFicha {
   readonly renombrando?: boolean;
 }
 
-/** La ficha del montaje, con las reglas que tiene puestas. */
-export function enElMontaje(reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO): ComoDeLaFicha {
-  return { enCombate: false, reglas };
+/** La ficha del montaje, con las reglas y las piezas que tiene puestas. */
+export function enElMontaje(reglas: ReglasDeBatalla, piezas: EquipoAtado): ComoDeLaFicha {
+  return { enCombate: false, reglas, piezas };
 }
 
 /**
@@ -635,6 +646,7 @@ function tituloDeFicha(
   subtitulo: string,
   como: ComoDeLaFicha,
   campo: Html | null,
+  notaDelPie: string | null,
 ): Html {
   const nombreDicho =
     campo !== null && como.renombrando === true
@@ -646,7 +658,7 @@ function tituloDeFicha(
         }`;
   return html`<header class="titulo-de-ficha">
       <div class="nombre-de-ficha">${nombreDicho}</div>
-      <span class="subtitulo">${subtitulo}</span>
+      <span class="subtitulo">${subtitulo}${notaDelPie === null ? NADA : html` ${nota(notaDelPie)}`}</span>
     </header>`;
 }
 
@@ -689,8 +701,8 @@ function cabezaDeFicha(o: {
  * Una etiqueta con su ×: una habilidad o un rasgo puesto. `quitar`, los
  * atributos del botón que lo quita.
  */
-function etiquetaConQuitar(texto: string, quitar: Html): Html {
-  return html`<span class="etiqueta">${texto} <button ${quitar} title="Quitar" aria-label="Quitar ${texto}">×</button></span>`;
+function etiquetaConQuitar(texto: string, quitar: Html, detras: Html = NADA): Html {
+  return html`<span class="etiqueta">${texto}${detras === NADA ? NADA : html` ${detras}`} <button ${quitar} title="Quitar" aria-label="Quitar ${texto}">×</button></span>`;
 }
 
 /**
@@ -732,15 +744,21 @@ function rasgosDeLaFicha(puestos: readonly CreatureTrait[]): Html {
         <select data-arena-rasgo="si"><option value="">— elige —</option>${unir(
           libres.map((t) => html`<option value="${t}">${NOMBRE_DE_RASGO[t]}</option>`),
         )}</select></label>`;
-  return html`<h3>Rasgos del motor</h3>
+  return html`<h3>Rasgos del motor ${nota(NOTA_DE_LOS_RASGOS)}</h3>
       <div class="etiquetas rasgos-puestos">${etiquetas}</div>
       ${añadir}`;
 }
 
-/** El pie de una ficha: a quién alcanza el cambio. En el montaje, `enElMontaje` si dice algo. */
-function pieDeLaFicha(como: ComoDeLaFicha, enElMontaje: string | null): Html {
-  const texto = como.enCombate ? CAMBIO_EN_COMBATE : enElMontaje;
-  return texto === null ? NADA : html`<p class="cost">${texto}</p>`;
+/** Lo que dice la nota de los rasgos del motor. */
+const NOTA_DE_LOS_RASGOS =
+  'Lo que el motor sabe hacer en la pelea (volar, doble golpe, no-muerto…). Lo que no se puede poner a esta unidad lo dice la barra al añadirlo.';
+
+/**
+ * Lo que decía el pie de una ficha —a quién alcanza el cambio—, que ahora es la
+ * nota de su título (`tituloDeFicha`). En el montaje, `enElMontaje` si dice algo.
+ */
+function notaDelPie(como: ComoDeLaFicha, enElMontaje: string | null): string | null {
+  return como.enCombate ? CAMBIO_EN_COMBATE : enElMontaje;
 }
 
 /**
@@ -748,39 +766,166 @@ function pieDeLaFicha(como: ComoDeLaFicha, enElMontaje: string | null): Html {
  * el núcleo de las cifras sin equipo (`lecturaDelNivel`). Va encima de las cifras
  * y se repinta con la ficha, así que cambia al tocar cualquiera de ellas.
  */
-function filaDelNivel(lectura: string, rotulo = 'Nivel'): Html {
-  return html`<div class="row nivel-de-la-ficha" data-nivel-de-la-ficha="si"><span class="label">${rotulo}</span><span>${lectura}</span></div>`;
+function filaDelNivel(lectura: string): Html {
+  return html`<div class="row nivel-de-la-ficha" data-nivel-de-la-ficha="si"><span class="label">Nivel</span><span>${lectura}</span></div>`;
 }
 
-/** Un campo numérico de la ficha. `data-campo` es lo que lee `main.ts` al cambiarlo. */
-function numero(campo: string, rotulo: string, valor: number, minimo: number): Html {
-  return html`<label class="campo"><span class="label">${rotulo}</span>
-    <input type="number" data-campo="${campo}" value="${valor}" min="${minimo}" step="1"></label>`;
+/** «De 0 en adelante.», «De 2 a 7.»: el rango de una cifra, para su nota. */
+function rangoDicho(minimo: number, maximo: number | null): string {
+  return maximo === null ? `De ${minimo} en adelante.` : `De ${minimo} a ${maximo}.`;
+}
+
+/**
+ * Una fila de la tabla de cifras: su rótulo corto, su nota (lo que antes iba
+ * entre paréntesis en el rótulo, y su rango), la casilla que se escribe —o
+ * ninguna, una cifra que solo se lee— y el valor final con el que pelea.
+ */
+interface FilaDeCifra {
+  /** Lo que la distingue en el marcado (`data-cifra-de-la-ficha`, `data-final`). */
+  readonly clave: string;
+  readonly rotulo: string;
+  /** Qué es, si hace falta decirlo; la nota añade el rango de la casilla. */
+  readonly nota?: string;
+  /**
+   * La casilla que se escribe: el atributo con que la lee `main.ts`
+   * (`data-campo="attack"`…), su valor y su rango. Sin ella, la cifra solo se lee.
+   */
+  readonly casilla?: {
+    readonly atributo: Html;
+    readonly valor: number;
+    readonly minimo: number;
+    readonly maximo?: number;
+  };
+  /** Con todos los modificadores: lo que pelea. */
+  readonly final: number;
+}
+
+/**
+ * Las cifras de una ficha en una tabla de una columna (13-10-2026, el usuario:
+ * «las características en una sola columna con su valor y después otra casilla no
+ * editable con el valor final, aplicados todos los modificadores»): una fila por
+ * cifra con su rótulo y su nota, la casilla que se escribe y, a la derecha, el
+ * final, que no se escribe (un `<output>`) y va en otro tono si no es el escrito.
+ * `columna`, cómo se llama lo escrito («Cuerpo», «Catálogo», «Héroe»), con su
+ * nota; `notaDelFinal`, de dónde sale el final.
+ */
+function tablaDeCifras(
+  columna: { readonly nombre: string; readonly nota: string },
+  notaDelFinal: string,
+  filas: readonly FilaDeCifra[],
+): Html {
+  const cuerpo = unir(
+    filas.map((f) => {
+      const c = f.casilla;
+      const dicho = [
+        f.nota ?? null,
+        c === undefined ? 'Se deriva: no se escribe.' : rangoDicho(c.minimo, c.maximo ?? null),
+      ]
+        .filter((x) => x !== null)
+        .join(' ');
+      const escrita =
+        c === undefined
+          ? html`<span class="sin-casilla" aria-hidden="true">—</span>`
+          : html`<input type="number" ${c.atributo} value="${c.valor}" min="${c.minimo}" ${c.maximo === undefined ? NADA : html`max="${c.maximo}"`} step="1" aria-label="${f.rotulo}" aria-description="${dicho}">`;
+      const cambia = c !== undefined && f.final !== c.valor;
+      return html`<tr data-cifra-de-la-ficha="${f.clave}">
+        <th scope="row">${f.rotulo} ${nota(dicho, false)}</th>
+        <td class="escrita">${escrita}</td>
+        <td class="final"><output class="${cambia ? 'cambiada' : 'igual'}" data-final="${f.clave}" aria-label="${f.rotulo}, final">${f.final}</output></td>
+      </tr>`;
+    }),
+  );
+  return html`<table class="tabla-de-cifras">
+      <thead><tr><th scope="col"><span class="solo-lector">Cifra</span></th><th scope="col">${columna.nombre} ${nota(columna.nota)}</th><th scope="col">Final ${nota(notaDelFinal)}</th></tr></thead>
+      <tbody>${cuerpo}</tbody>
+    </table>`;
+}
+
+/**
+ * Las filas de las cifras de una unidad (de la arena o del catálogo): las de
+ * `UnitInfo` que se escriben (la velocidad, en casillas), cada una con lo que
+ * pelea (`final`). `atributo`,
+ * el nombre del atributo con que la lee `main.ts` (`data-campo`,
+ * `data-catalogo-campo`): el valor es el campo (`attack`, `damage-min`…).
+ */
+function filasDeUnidad(
+  escrito: Pick<UnitInfo, 'attack' | 'defense' | 'damage' | 'hp' | 'shots'> & {
+    readonly casillas: number;
+  },
+  final: UnitInfo,
+  atributo: (campo: string) => Html,
+): FilaDeCifra[] {
+  const fila = (
+    campo: string,
+    rotulo: string,
+    valor: number,
+    fin: number,
+    minimo: number,
+    extra: { readonly nota?: string; readonly maximo?: number } = {},
+  ): FilaDeCifra => ({
+    clave: campo,
+    rotulo,
+    ...(extra.nota === undefined ? {} : { nota: extra.nota }),
+    casilla: {
+      atributo: atributo(campo),
+      valor,
+      minimo,
+      ...(extra.maximo === undefined ? {} : { maximo: extra.maximo }),
+    },
+    final: fin,
+  });
+  return [
+    fila('attack', NOMBRE_DE_CIFRA.ataque, escrito.attack, final.attack, 0),
+    fila('defense', NOMBRE_DE_CIFRA.defensa, escrito.defense, final.defense, 0),
+    fila('damage-min', `${NOMBRE_DE_CIFRA.danio} mínimo`, escrito.damage[0], final.damage[0], 1, {
+      nota: 'No más que el máximo.',
+    }),
+    fila('damage-max', `${NOMBRE_DE_CIFRA.danio} máximo`, escrito.damage[1], final.damage[1], 1, {
+      nota: 'No menos que el mínimo.',
+    }),
+    fila('hp', NOMBRE_DE_CIFRA.pv, escrito.hp, final.hp, 1, { nota: 'La vida de cada uno.' }),
+    fila(
+      'casillas',
+      NOMBRE_DE_CIFRA.velocidad,
+      escrito.casillas,
+      SPEED_TO_HEXES[final.speed],
+      CASILLAS_MIN,
+      { nota: 'En casillas por turno.', maximo: CASILLAS_MAX },
+    ),
+    fila('shots', NOMBRE_DE_CIFRA.disparos, escrito.shots ?? 0, final.shots ?? 0, 0, {
+      nota: '0 = cuerpo a cuerpo.',
+    }),
+  ];
 }
 
 /**
  * El equipo de la ficha: una fila por hueco (`HUECOS`), con la pieza puesta, lo
- * que suma y su × o «—», y un desplegable con las piezas de ese hueco
- * (`data/equipo.json`, en su orden) para ponerle otra. Sin reglas: lo que no se
+ * que suma y su × o «—», y un desplegable con las piezas de ese hueco (las de la
+ * arena: las del juego en su orden, cambiadas si lo están, y las nuevas detrás)
+ * para ponerle otra. Sin reglas: lo que no se
  * puede poner —un escudo con un arma a dos manos— lo rechaza el núcleo
  * (`manosBlocker`) y sale en la barra.
  */
-function equipoDeLaFicha(u: UnidadDeArena): Html {
+function equipoDeLaFicha(u: UnidadDeArena, piezas: EquipoAtado): Html {
   const filas = unir(
     HUECOS.map((hueco) => {
       const id = u.equipo[hueco];
-      const p = id === undefined ? null : pieza(id);
+      const p = id === undefined ? null : piezas.pieza(id);
       const puesta =
         p === null
           ? html`<span class="cost">—</span>`
           : etiquetaConQuitar(
-              `${p.nombre} (${cifrasDePieza(p)})`,
+              p.nombre,
               html`data-arena="quitar-pieza" data-hueco="${hueco}"`,
+              modificadoresEnPantalla(p),
             );
       const opciones = unir(
-        EQUIPO.filter((x) => x.hueco === hueco && x.id !== id).map(
-          (x) => html`<option value="${x.id}">${x.nombre} · ${cifrasDePieza(x)}</option>`,
-        ),
+        [...piezas.piezas.values()]
+          .filter((x) => x.hueco === hueco && x.id !== id)
+          .map(
+            (x) =>
+              html`<option value="${x.id}">${x.nombre} · ${cifrasDePieza(x) || 'no suma nada'}</option>`,
+          ),
       );
       return html`<div class="hueco" data-hueco-de-la-ficha="${hueco}">
         <span class="label">${NOMBRE_DE_HUECO[hueco]}</span> ${puesta}
@@ -789,8 +934,7 @@ function equipoDeLaFicha(u: UnidadDeArena): Html {
       </div>`;
     }),
   );
-  return html`<h3>Equipo</h3>
-      <p class="cost">Suma a las cifras del cuerpo y no cambia el nivel: ${REGLA_DEL_ESCUDO}.</p>
+  return html`<h3>Equipo ${nota(`Suma a las cifras del cuerpo (la columna «Final») y no cambia el nivel: ${REGLA_DEL_ESCUDO}.`)}</h3>
       <div class="equipo-de-la-ficha">${filas}</div>`;
 }
 
@@ -801,8 +945,12 @@ function equipoDeLaFicha(u: UnidadDeArena): Html {
  * con un Paladín (R1 de la re-verificación de QA, 12-10-2026). En la edición no
  * hay bandos y su ficha ya está abierta.
  */
-export function avisoDeNuevaUnidad(u: UnidadDeArena, escena: 'montaje' | 'edicion'): string {
-  const como = `Nueva unidad «${u.name}», sin equipo (${lecturaDelNivel(unidadDeCombate(u))})`;
+export function avisoDeNuevaUnidad(
+  u: UnidadDeArena,
+  escena: 'montaje' | 'edicion',
+  piezas: EquipoAtado,
+): string {
+  const como = `Nueva unidad «${u.name}», sin equipo (${lecturaDelNivel(unidadDeCombate(u, piezas))})`;
   return escena === 'edicion'
     ? `${como}: su ficha está abierta.`
     : `${como}: añádela a un bando o cambia su ficha.`;
@@ -828,19 +976,15 @@ export function avisoDelBorradorLeido(ruta: string, validas: number, sinValidar:
  * disparo (`ArteDeFigura.dispara`); solo entonces lleva su botón, porque a
  * quien no lo trae no hay disparo que enseñarle. Las cifras que se escriben son
  * las del CUERPO, de las que sale el nivel; con el equipo encima se pelea, y la
- * fila «En la pelea» lo dice.
+ * columna «Final» de su tabla lo dice (`tablaDeCifras`).
  */
-export function renderFicha(
-  u: UnidadDeArena | null,
-  dispara: boolean,
-  como: ComoDeLaFicha = enElMontaje(),
-): Html {
+export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: ComoDeLaFicha): Html {
   if (u === null) {
     return html`<h3>Ficha</h3><p class="cost">Pulsa el nombre de una unidad de un bando para ver y cambiar sus cifras.</p>`;
   }
   // Con lo que pelea, una vez: el nivel lo mide sin el equipo (`sinEquipo`) y la
-  // fila «En la pelea» lo enseña con él.
-  const combate = unidadDeCombate(u);
+  // columna «Final» lo enseña con él.
+  const combate = unidadDeCombate(u, como.piezas);
   // Las habilidades que dan un poder actúan en la pelea; las demás, todavía no.
   const etiqueta = (h: string): Html =>
     etiquetaConQuitar(
@@ -860,7 +1004,7 @@ export function renderFicha(
       : unir(
           conPoder.map(
             ({ h, p }) =>
-              html`<div class="poder" data-poder-de-la-ficha="${p.id}">${etiqueta(h)} <span class="cost">${queHaceElPoder(p, como.reglas)}.</span></div>`,
+              html`<div class="poder" data-poder-de-la-ficha="${p.id}">${etiqueta(h)} ${nota(`${queHaceElPoder(p, como.reglas)}.`)}</div>`,
           ),
         );
   const puestas =
@@ -871,7 +1015,16 @@ export function renderFicha(
     ),
   );
   return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'unidad', id: u.id })}">
-      ${tituloDeFicha(u.name, `Ficha · ${NOMBRE_DE_FACCION_DE_ARENA[u.faction]}`, como, html`data-campo="name"`)}
+      ${tituloDeFicha(
+        u.name,
+        `Ficha · ${NOMBRE_DE_FACCION_DE_ARENA[u.faction]}`,
+        como,
+        html`data-campo="name"`,
+        notaDelPie(
+          como,
+          'El cambio vale para todas las unidades de este tipo, en la batalla siguiente.',
+        ),
+      )}
       ${cabezaDeFicha({
         figura: figuraDeLaUnidad(u),
         como,
@@ -883,30 +1036,51 @@ export function renderFicha(
           <button data-arena="clip" data-clip="hurt">Daño</button>
           <button data-arena="clip" data-clip="death">Muerte</button>`,
         cifras: html`${filaDelNivel(lecturaDelNivel(combate))}
-      <div class="row en-la-pelea" data-en-la-pelea="si"><span class="label">En la pelea (con el equipo)</span><span>${resumenDeUnidad(combate)}</span></div>
-      <p class="cost">Cifras del cuerpo, sin el equipo: de ellas sale el nivel.</p>
-      ${numero('attack', 'Ataque', u.attack, 0)}
-      ${numero('defense', 'Defensa', u.defense, 0)}
-      ${numero('damage-min', 'Daño mínimo', u.damage[0], 1)}
-      ${numero('damage-max', 'Daño máximo', u.damage[1], 1)}
-      ${numero('hp', 'Vida', u.hp, 1)}
-      ${numero('casillas', `Velocidad (casillas, ${CASILLAS_MIN} a ${CASILLAS_MAX})`, u.casillas, CASILLAS_MIN)}
-      ${numero('shots', 'Disparos (0 = cuerpo a cuerpo)', u.shots ?? 0, 0)}
-      ${numero('hexes', 'Hexes (1 o 2)', u.hexes ?? 1, 1)}
-      ${numero('leadership', 'Liderazgo', u.leadership, 1)}
-      ${numero('gold', 'Coste (oro)', u.cost.gold, 0)}`,
+      ${tablaDeCifras(
+        {
+          nombre: 'Cuerpo',
+          nota: 'Las cifras del cuerpo, sin el equipo: de ellas sale el nivel.',
+        },
+        'Con lo que pelea: el cuerpo con el equipo puesto. En otro tono, la que el equipo cambia.',
+        [
+          ...filasDeUnidad(u, combate, (c) => html`data-campo="${c}"`),
+          {
+            clave: 'hexes',
+            rotulo: 'Hexes',
+            nota: 'Las casillas que ocupa.',
+            casilla: {
+              atributo: html`data-campo="hexes"`,
+              valor: u.hexes ?? 1,
+              minimo: 1,
+              maximo: 2,
+            },
+            final: combate.hexes ?? 1,
+          },
+          {
+            clave: 'leadership',
+            rotulo: 'Liderazgo',
+            nota: 'Lo que cuenta cada uno en el liderazgo de su bando.',
+            casilla: { atributo: html`data-campo="leadership"`, valor: u.leadership, minimo: 1 },
+            final: u.leadership,
+          },
+          {
+            clave: 'gold',
+            rotulo: 'Coste',
+            nota: 'En oro.',
+            casilla: { atributo: html`data-campo="gold"`, valor: u.cost.gold, minimo: 0 },
+            final: u.cost.gold,
+          },
+        ],
+      )}`,
       })}
-      ${equipoDeLaFicha(u)}
+      ${equipoDeLaFicha(u, como.piezas)}
       ${rasgosDeLaFicha(u.traits)}
-      <h3>Poderes · actúan en la pelea</h3>
-      <p class="cost">Se usan en su turno en vez de golpear, al principio, sin haberse movido: el turno entero.</p>
+      <h3>Poderes · actúan en la pelea ${nota('Se usan en su turno en vez de golpear, al principio, sin haberse movido: el turno entero. Lo que hace cada uno, en la nota de su etiqueta.')}</h3>
       <div class="etiquetas poderes">${poderes}</div>
-      <h3>Habilidades · sin efecto todavía</h3>
-      <p class="cost">Se guardan con la unidad, pero solo Curar y Bendecir tienen motor: en la pelea, de lo demás, solo cuentan los rasgos.</p>
+      <h3>Habilidades · sin efecto todavía ${nota('Se guardan con la unidad, pero solo Curar y Bendecir tienen motor: en la pelea, de lo demás, solo cuentan los rasgos.')}</h3>
       <div class="etiquetas">${puestas}</div>
       <label class="campo"><span class="label">Añadir</span>
         <select data-arena-habilidad="si"><option value="">— elige —</option>${libres}</select></label>
-      ${pieDeLaFicha(como, 'El cambio vale para todas las unidades de este tipo, en la batalla siguiente.')}
     </div>`;
 }
 
@@ -919,35 +1093,39 @@ export function renderFichaDeCatalogo(
   id: string,
   u: UnitInfo,
   probada: boolean,
-  como: ComoDeLaFicha = enElMontaje(),
+  como: ComoDeLaFicha,
 ): Html {
-  const campo = (c: string, rotulo: string, valor: number, minimo: number): Html =>
-    html`<label class="campo"><span class="label">${rotulo}</span>
-    <input type="number" data-catalogo-campo="${c}" value="${valor}" min="${minimo}" step="1"></label>`;
   const deshacer = probada
     ? html`<button data-arena="deshacer-prueba" data-criatura="${id}">Volver a las del catálogo</button>`
     : NADA;
   const cuando = como.enCombate ? 'ya, en esta pelea y la siguiente' : 'en la pelea siguiente';
+  const prueba = `Lo que cambies aquí es una prueba: no se guarda en data/creatures.json ni en el borrador, y vale para todas las de su tipo ${cuando}.`;
   // El nombre del catálogo no se cambia (no hay campo para eso): su título va sin «✎».
   return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'catalogo', id })}">
-      ${tituloDeFicha(u.name, 'Ficha · catálogo del juego', como, null)}
+      ${tituloDeFicha(u.name, 'Ficha · catálogo del juego', como, null, como.enCombate ? `${prueba} ${CAMBIO_EN_COMBATE}` : prueba)}
       ${cabezaDeFicha({
         figura: id,
         como,
         clips: NADA,
         siempre: deshacer,
         cifras: html`${filaDelNivel(lecturaDelNivel(u))}
-      ${campo('attack', 'Ataque', u.attack, 0)}
-      ${campo('defense', 'Defensa', u.defense, 0)}
-      ${campo('damage-min', 'Daño mínimo', u.damage[0], 1)}
-      ${campo('damage-max', 'Daño máximo', u.damage[1], 1)}
-      ${campo('hp', 'Vida', u.hp, 1)}
-      ${campo('casillas', `Velocidad (casillas, ${CASILLAS_MIN} a ${CASILLAS_MAX})`, SPEED_TO_HEXES[u.speed], CASILLAS_MIN)}
-      ${campo('shots', 'Disparos (0 = cuerpo a cuerpo)', u.shots ?? 0, 0)}`,
+      ${tablaDeCifras(
+        {
+          nombre: probada ? 'Prueba' : 'Catálogo',
+          nota: probada
+            ? 'Las cifras de la prueba, encima de las del catálogo: de ellas sale el nivel.'
+            : 'Las cifras del catálogo del juego: de ellas sale el nivel.',
+        },
+        'Con lo que pelea: una criatura del catálogo no lleva equipo, así que son las mismas.',
+        filasDeUnidad(
+          { ...u, casillas: SPEED_TO_HEXES[u.speed] },
+          u,
+          (c) => html`data-catalogo-campo="${c}"`,
+        ),
+      )}`,
       })}
-      <p class="aviso-prueba">${u.name}: ${probada ? 'con cambios de prueba' : 'las cifras del catálogo'}. Lo que cambies aquí es una prueba: no se guarda en data/creatures.json ni en el borrador, y vale para todas las de su tipo ${cuando}.</p>
+      ${probada ? html`<p class="aviso-prueba" data-aviso-de-prueba="si">${u.name}: con cambios de prueba.</p>` : NADA}
       ${rasgosDeLaFicha(u.traits ?? [])}
-      ${pieDeLaFicha(como, null)}
     </div>`;
 }
 
@@ -963,7 +1141,7 @@ export function renderFichaDeHeroe(
   hojasDeHeroe: readonly { readonly id: string; readonly nombre: string }[],
 ): Html {
   const { reglas } = como;
-  const ficha = fichaDeHeroeDeArena(h, reglas);
+  const ficha = fichaDeHeroeDeArena(h, reglas, como.piezas);
   const c = ficha.cuerpo;
   const figuras = unir([
     html`<option value="" ${h.figura === null ? html`selected` : NADA}>Genérica del juego</option>`,
@@ -972,9 +1150,31 @@ export function renderFichaDeHeroe(
         html`<option value="${x.id}" ${h.figura === x.id ? html`selected` : NADA}>${x.nombre}</option>`,
     ),
   ]);
-  const cifra = (campo: string, rotulo: string, valor: number, minimo: number): Html =>
-    html`<label class="campo"><span class="label">${rotulo}</span>
-    <input type="number" data-heroe-campo="${campo}" value="${valor}" min="${minimo}" max="${CIFRA_MAXIMA_DE_HEROE}" step="1"></label>`;
+  const escrita = (
+    campo: string,
+    rotulo: string,
+    valor: number,
+    minimo: number,
+    final: number,
+    queEs?: string,
+  ): FilaDeCifra => ({
+    clave: campo,
+    rotulo,
+    ...(queEs === undefined ? {} : { nota: queEs }),
+    casilla: {
+      atributo: html`data-heroe-campo="${campo}"`,
+      valor,
+      minimo,
+      maximo: CIFRA_MAXIMA_DE_HEROE,
+    },
+    final,
+  });
+  const delCuerpo = (clave: string, rotulo: string, final: number): FilaDeCifra => ({
+    clave,
+    rotulo,
+    nota: 'De su cuerpo en el tablero, con su rango y el equipo base.',
+    final,
+  });
   const libro = unir(
     allSpells().map(
       (s) =>
@@ -993,30 +1193,273 @@ export function renderFichaDeHeroe(
     }),
   );
   return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'heroe', lado })}">
-      ${tituloDeFicha(h.nombre, `Ficha · héroe del bando ${LADOS[lado].adjetivo}`, como, html`data-heroe-campo="nombre"`)}
+      ${tituloDeFicha(
+        h.nombre,
+        `Ficha · héroe del bando ${LADOS[lado].adjetivo}`,
+        como,
+        html`data-heroe-campo="nombre"`,
+        notaDelPie(como, null),
+      )}
       ${cabezaDeFicha({
         figura: h.figura ?? FIGURA_GENERICA,
         como,
         clips: NADA,
         cifras: html`<label class="campo figura-del-heroe"><span class="label">Figura</span>
         <select data-heroe-campo="figura">${figuras}</select></label>
-      ${cifra('ataque', 'Ataque', h.ataque, 0)}
-      ${cifra('defensa', 'Defensa', h.defensa, 0)}
-      ${cifra('poder', 'Poder', h.poder, 1)}
-      ${cifra('conocimiento', 'Conocimiento', h.conocimiento, 0)}`,
+      ${filaDelNivel(lecturaDelNivel(c))}
+      ${tablaDeCifras(
+        { nombre: 'Héroe', nota: 'Las cifras del héroe, las que se escriben.' },
+        'Con lo que pelea: su cuerpo en el tablero suma a su ataque y su defensa los de su rango y su equipo base; las demás, de su cuerpo, no se escriben.',
+        [
+          escrita('ataque', NOMBRE_DE_CIFRA.ataque, h.ataque, 0, c.attack),
+          escrita('defensa', NOMBRE_DE_CIFRA.defensa, h.defensa, 0, c.defense),
+          escrita(
+            'poder',
+            'Poder',
+            h.poder,
+            1,
+            h.poder,
+            'Lo que rinden sus hechizos y cuántas rondas dura lo que lanza.',
+          ),
+          escrita(
+            'conocimiento',
+            'Conocimiento',
+            h.conocimiento,
+            0,
+            h.conocimiento,
+            'Su maná: 10 por punto.',
+          ),
+          delCuerpo('damage-min', `${NOMBRE_DE_CIFRA.danio} mínimo`, c.damage[0]),
+          delCuerpo('damage-max', `${NOMBRE_DE_CIFRA.danio} máximo`, c.damage[1]),
+          delCuerpo('hp', NOMBRE_DE_CIFRA.pv, c.hp),
+          delCuerpo('casillas', NOMBRE_DE_CIFRA.velocidad, SPEED_TO_HEXES[c.speed]),
+        ],
+      )}`,
       })}
       <h3>Libro de hechizos</h3>
       <div class="rasgos">${libro}</div>
       <h3>En la pelea</h3>
       <div class="efectivos">
-        ${filaDelNivel(lecturaDelNivel(c), 'Nivel (sin el equipo)')}
-        <div class="row"><span class="label">Cuerpo (con el equipo base)</span><span>A ${c.attack} · D ${c.defense} · ${c.damage[0]}–${c.damage[1]} daño · ${c.hp} PV · ${SPEED_TO_HEXES[c.speed]} casillas</span></div>
-        <div class="row"><span class="label">A la tropa</span><span>${reglas.heroe === 'fheroes2' ? `+${h.ataque} de ataque y +${h.defensa} de defensa (fheroes2)` : 'nada: su ataque y su defensa son de su cuerpo'}</span></div>
-        <div class="row"><span class="label">Maná</span><span>${ficha.mana} (10 × Conocimiento)</span></div>
-        <div class="row"><span class="label">Duración de lo que lanza</span><span>${enRondas(ficha.duracion)} (su Poder)</span></div>
+        ${
+          // Con nuestra regla el héroe no suma nada a su tropa: la fila no diría
+          // nada que no sea una aclaración (H4 de QA, 13-10-2026), y se quita.
+          reglas.heroe === 'fheroes2'
+            ? html`<div class="row" data-a-la-tropa="si"><span class="label">A la tropa ${nota('Regla de fheroes2: el héroe suma su ataque y su defensa a toda su tropa.')}</span><span>+${h.ataque} de ataque y +${h.defensa} de defensa</span></div>`
+            : NADA
+        }
+        <div class="row" data-mana-de-la-ficha="${ficha.mana}"><span class="label">Maná ${nota('10 × Conocimiento.')}</span><span>${ficha.mana}</span></div>
+        <div class="row"><span class="label">Duración de lo que lanza ${nota('Tantas rondas como su Poder.')}</span><span>${enRondas(ficha.duracion)}</span></div>
         ${rinde}
       </div>
-      ${pieDeLaFicha(como, null)}
+    </div>`;
+}
+
+// ---------------------------------------------------------------- equipo
+
+/** Lo que la vista «Editar equipo» enseña: lo da `main.ts`, que tiene las piezas y el borrador. */
+export interface VistaDeEquipo {
+  /** Las piezas de la arena (`catalogoDeLaArena`), en su orden. */
+  readonly piezas: EquipoAtado;
+  /** La pieza de la ficha, por su id, o `null`. */
+  readonly elegida: string | null;
+  /** Los nombres de las unidades del borrador que llevan la pieza `id`. */
+  readonly llevan: (id: string) => readonly string[];
+  /**
+   * La pieza de id `id` con que se pelea ahora si no es la que se enseña: la de un
+   * enlace abierto, que «Guardar» no escribe; `null` si es la misma.
+   */
+  readonly enLaPelea: (id: string) => Pieza | null;
+  /** El último rechazo, si sigue siendo el aviso: la ficha lo pinta en su color. */
+  readonly rechazo: string | null;
+  /** Si hay pelea en curso: el cambio vale ya en ella. */
+  readonly enCombate: boolean;
+  /** Lo que queda por guardar, en una frase, o vacío (`sinGuardarEnPalabras`). */
+  readonly sinGuardar: string;
+}
+
+/**
+ * Lo que queda por guardar dicho en una frase: «Sin guardar: 1 pieza y 2
+ * unidades.», o vacío si nada. Lo leen la vista «Editar equipo» y la barra.
+ */
+export function sinGuardarEnPalabras(piezas: number, unidades: number): string {
+  const partes = [
+    piezas === 0 ? null : `${piezas} ${piezas === 1 ? 'pieza' : 'piezas'}`,
+    unidades === 0 ? null : `${unidades} ${unidades === 1 ? 'unidad' : 'unidades'}`,
+  ].filter((x) => x !== null);
+  return partes.length === 0 ? '' : `Sin guardar: ${partes.join(' y ')}.`;
+}
+
+/** Lo que dice el servidor al guardar (`escribirBorrador`): dónde, cuántas de cada, y lo conservado. */
+export interface Guardado {
+  readonly ruta?: string;
+  readonly unidades?: number;
+  readonly conservadas?: number;
+  readonly rutaDePiezas?: string;
+  readonly piezas?: number;
+  readonly piezasConservadas?: number;
+}
+
+/**
+ * Lo guardado dicho en una frase: «Guardado en …: 3 unidades. Y en …: 1 pieza.»,
+ * con lo que no vale y se conserva tal cual. Junto a `sinGuardarEnPalabras`: son
+ * las dos caras de «Guardar».
+ */
+export function guardadoEnPalabras(g: Guardado): string {
+  const parte = (ruta: string | undefined, n: number, malas: number, una: string, varias: string) =>
+    `en ${ruta}: ${n} ${n === 1 ? una : varias}${malas === 0 ? '' : `, y ${malas} que ${malas === 1 ? 'no vale, tal como estaba' : 'no valen, tal como estaban'}`}.`;
+  const unidades = `Guardado ${parte(g.ruta, g.unidades ?? 0, g.conservadas ?? 0, 'unidad', 'unidades')}`;
+  const piezas = g.piezas ?? 0;
+  const piezasMalas = g.piezasConservadas ?? 0;
+  return piezas + piezasMalas === 0
+    ? unidades
+    : `${unidades} Y ${parte(g.rutaDePiezas, piezas, piezasMalas, 'pieza', 'piezas')}`;
+}
+
+/**
+ * La vista «Editar equipo»: a la izquierda las piezas por hueco, cada una con su
+ * sello (`selloDePieza`) y lo que suma, y un «+ Nueva pieza» por hueco; a la
+ * derecha, la ficha de la elegida. Sin reglas: lo
+ * que no vale lo dice el núcleo (`validarPiezaDeArena`, `cambioDePiezaBlocker`).
+ */
+export function renderEquipo(v: VistaDeEquipo): Html {
+  const huecos = unir(
+    HUECOS.map((h) => {
+      const suyas = [...v.piezas.piezas.values()].filter((p) => p.hueco === h);
+      return html`<div class="hueco-de-equipo" data-hueco-de-equipo="${h}">
+        <h3 class="cabecera-hueco"><span>${NOMBRE_DE_HUECO[h]}</span>
+          <button class="boton-de-cabecera" data-arena="crear-pieza" data-hueco="${h}" title="Crea una pieza nueva de ${NOMBRE_DE_HUECO[h]}: de la arena, sin nada que sumar">+ Nueva pieza</button></h3>
+        <div class="lista-de-piezas">${unir(suyas.map((p) => tarjetaDePieza(p, p.id === v.elegida, v.enLaPelea(p.id) !== null)))}</div>
+      </div>`;
+    }),
+  );
+  const p = v.elegida === null ? null : v.piezas.piezaSiExiste(v.elegida);
+  return html`<section class="equipo-lista">
+      <h3>Piezas de equipo ${nota('Las del juego (data/equipo.json) se cambian solo para la arena; las nuevas son de la arena. Una unidad suma a sus cifras las de la pieza que lleva, y su nivel no cambia. «Guardar» las escribe en data/borradores/equipo.json, que el juego no lee.')}</h3>
+      ${v.sinGuardar === '' ? NADA : html`<p class="aviso-prueba" role="status" data-sin-guardar="si">${v.sinGuardar}</p>`}
+      ${huecos}
+    </section>
+    <section class="equipo-ficha">${
+      p === null
+        ? html`<h3>Pieza</h3><p class="cost">Elige una pieza de la lista para ver y cambiar sus cifras.</p>`
+        : fichaDePieza(p, v)
+    }</section>`;
+}
+
+/** Una pieza en la lista: su nombre, su sello y lo que suma; pulsarla la abre en la ficha. */
+function tarjetaDePieza(p: Pieza, elegida: boolean, delEnlace: boolean): Html {
+  return html`<button class="pieza${elegida ? ' elegida' : ''}" data-arena="elegir-pieza" data-pieza="${p.id}" aria-pressed="${elegida ? 'true' : 'false'}">
+      <span class="nombre">${p.nombre}</span>
+      ${selloEnPantalla(selloDePieza(p))}${delEnlace ? html` <span class="sello sello-del-enlace" title="En esta pelea va la del enlace">en la pelea, la del enlace</span>` : NADA}
+      <span class="cost">${modificadoresEnPantalla(p)}</span>
+    </button>`;
+}
+
+/** El sello de una pieza como se pinta, en la lista y en su ficha. */
+function selloEnPantalla(sello: SelloDePieza): Html {
+  return html`<span class="sello${sello === 'del juego' ? '' : ' sello-de-la-arena'}">${sello}</span>`;
+}
+
+/** El gesto que deshace una pieza, según su sello: borrar una nueva o volver a la del juego. */
+const RETIRAR: Readonly<
+  Record<Exclude<SelloDePieza, 'del juego'>, { texto: string; titulo: string }>
+> = {
+  nueva: {
+    texto: 'Borrar',
+    titulo: 'La borra de la arena; si una unidad la lleva, quítasela antes',
+  },
+  cambiada: {
+    texto: 'Volver a la del juego',
+    titulo: 'Deja la pieza con las cifras de data/equipo.json',
+  },
+};
+
+/** Lo que dice la ficha de una pieza según de dónde sale. */
+const DICHO_DEL_SELLO: Readonly<Record<SelloDePieza, string>> = {
+  'del juego':
+    'Pieza del juego (data/equipo.json): lo que cambies vale solo en la arena; el juego sigue con la suya. Su hueco y su calidad no se cambian.',
+  cambiada:
+    'Cambiada: en la arena pelea con estas cifras; el juego, con las de data/equipo.json. Su hueco y su calidad no se cambian.',
+  nueva: 'Nueva, de la arena: el juego no la reparte (ni botín ni armería).',
+};
+
+/**
+ * Lo que dice la ficha de una pieza cuando en esta pelea va la de un enlace
+ * abierto: cuál va y que «Guardar» no la escribe.
+ */
+function avisoDelEnlace(delEnlace: Pieza | null): Html {
+  if (delEnlace === null) return NADA;
+  return html`<p class="aviso-prueba aviso-del-enlace" data-aviso-del-enlace="si">En esta pelea va la del enlace (${modificadoresEnPantalla(delEnlace)}): «Guardar» no la escribe y deja esta. Si cambias esta, la pelea pasa a usarla.</p>`;
+}
+
+/**
+ * La ficha de una pieza: todos sus campos, lo que suma (`modificadoresEnPantalla`), quién la
+ * lleva, y Duplicar, Borrar (una nueva) o Volver a la del juego (una cambiada).
+ * Cada campo lleva `data-arena-pieza-campo`, que lee `main.ts`.
+ */
+function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
+  const sello = selloDePieza(p);
+  const numero = (
+    campo: string,
+    rotulo: string,
+    valor: number,
+    limites: Html,
+    aclaracion?: string,
+  ): Html =>
+    html`<label class="campo"><span class="label">${rotulo}${aclaracion === undefined ? NADA : html` ${nota(aclaracion)}`}</span>
+      <input type="number" data-arena-pieza-campo="${campo}" value="${valor}" ${limites} step="1"></label>`;
+  const desdeCero: Html = html`min="0"`;
+  const hueco =
+    sello === 'nueva'
+      ? html`<label class="campo"><span class="label">Hueco</span>
+          <select data-arena-pieza-campo="hueco">${unir(
+            HUECOS.map(
+              (h: Hueco) =>
+                html`<option value="${h}" ${h === p.hueco ? html`selected` : NADA}>${NOMBRE_DE_HUECO[h]}</option>`,
+            ),
+          )}</select></label>`
+      : html`<div class="row"><span class="label">Hueco${p.hueco === 'escudo' ? html` ${nota(`Regla: ${REGLA_DEL_ESCUDO}.`)}` : NADA}</span><span>${NOMBRE_DE_HUECO[p.hueco]}</span></div>`;
+  const manos =
+    p.hueco === 'arma'
+      ? html`<label class="campo"><span class="label">Manos ${nota(`Regla: ${REGLA_DEL_ESCUDO}.`)}</span>
+          <select data-arena-pieza-campo="manos">
+            <option value="1" ${aDosManos(p) ? NADA : html`selected`}>Una mano</option>
+            <option value="2" ${aDosManos(p) ? html`selected` : NADA}>Dos manos</option>
+          </select></label>`
+      : NADA;
+  const precio = unir(
+    RESOURCE_KINDS.map((k) =>
+      numero(`precio-${k}`, `Precio: ${NOMBRE_DE_RECURSO[k]}`, p.precio[k] ?? 0, desdeCero),
+    ),
+  );
+  const llevan = v.llevan(p.id);
+  const botones = html`<button data-arena="crear-pieza" title="Crea una pieza nueva con estas cifras">Duplicar</button>
+      ${sello === 'del juego' ? NADA : html`<button data-arena="retirar-pieza" title="${RETIRAR[sello].titulo}">${RETIRAR[sello].texto}</button>`}`;
+  return html`<div class="ficha ficha-de-pieza" data-pieza-elegida="${p.id}">
+      <header class="titulo-de-ficha">
+        <div class="nombre-de-ficha"><span class="nombre">${p.nombre}</span> ${selloEnPantalla(sello)}</div>
+        <span class="subtitulo">Pieza · ${NOMBRE_DE_HUECO[p.hueco]} · ${NOMBRE_DE_CALIDAD[p.calidad]} ${nota(`${DICHO_DEL_SELLO[sello]}${v.enCombate ? ' En plena pelea: el cambio vale ya para todos los que la llevan, de los dos bandos, y lo gastado sigue gastado (subir los PV no cura).' : ''}`)}</span>
+      </header>
+      ${v.rechazo === null ? NADA : html`<p class="aviso-de-pieza rechazo" role="status">${v.rechazo}</p>`}
+      <div class="row resumen-de-pieza" data-resumen-de-pieza="si"><span class="label">Suma</span>${modificadoresEnPantalla(p, 'nada')}</div>
+      <div class="row"><span class="label">Precio</span><span>${describirCoste(p.precio)}</span></div>
+      <div class="row"><span class="label">La llevan</span><span>${llevan.length === 0 ? 'ninguna unidad del borrador' : llevan.join(', ')}</span></div>
+      ${avisoDelEnlace(v.enLaPelea(p.id))}
+      <div class="botones">${botones}</div>
+      <div class="cifras">
+        <label class="campo nombre-de-pieza"><span class="label">Nombre</span>
+          <input type="text" data-arena-pieza-campo="nombre" value="${p.nombre}"></label>
+        ${hueco}
+        <div class="row"><span class="label">Calidad</span><span>${NOMBRE_DE_CALIDAD[p.calidad]}</span></div>
+        ${numero('ataque', 'Ataque', p.ataque, desdeCero)}
+        ${numero('defensa', 'Defensa', p.defensa, desdeCero)}
+        ${numero('pv', 'PV', p.pv, desdeCero)}
+        ${numero('velocidad', 'Velocidad', p.velocidad, p.hueco === 'escudo' ? html`max="-1"` : NADA, p.hueco === 'escudo' ? 'Un escudo siempre resta: −1 escalón o más.' : 'En escalones de velocidad; puede restar.')}
+        ${numero('danio-min', 'Daño mínimo', p.danio?.[0] ?? 0, desdeCero, 'Lo que suma al daño mínimo de quien la lleva.')}
+        ${numero('danio-max', 'Daño máximo', p.danio?.[1] ?? 0, desdeCero, 'Lo que suma al daño máximo de quien la lleva.')}
+        ${numero('disparos', 'Disparos', p.disparos ?? 0, desdeCero)}
+        ${manos}
+        ${precio}
+      </div>
     </div>`;
 }
 
@@ -1243,6 +1686,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     <div class="row"><span class="label">Ronda</span><span>${b.round}</span></div>
     ${mana}
     ${reglas}
+    <div class="botones-de-la-pelea"><button data-arena="ir-a-equipo" title="Cambia una pieza de equipo: vale ya para todos los que la llevan, de los dos bandos">Editar equipo</button></div>
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${campo}</div>
     <h3>Parte de guerra</h3>${renderBattleLog(b, null)}`;

@@ -1,3 +1,4 @@
+import type { Pieza } from '../data.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
 import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { EffectKind, StackEffect } from './effects.js';
@@ -392,6 +393,14 @@ export interface BattleState {
    * escribe nada. La clave, `claveDeFicha`.
    */
   readonly fichasDeArena?: Record<string, FichaEnPalabras>;
+  /**
+   * Las piezas de la arena con que se pelea: las del borrador de equipo que
+   * cambian una del juego o son nuevas (`catalogoDeLaArena` las pone encima de
+   * `data/equipo.json`). Solo la arena las pone al montar y al cambiar una pieza a
+   * media pelea (`retocarEnBatalla`, `kind: 'piezas'`). La lista del borrador: la
+   * misma forma en el montaje, la batalla y el retoque.
+   */
+  piezasDeArena?: readonly Pieza[];
   /**
    * Las escaleras apoyadas en la muralla, con su pie y su muro. Crece con cada
    * `poner_escalera` y no se quita: va fuera de `muralla`, que no cambia en toda

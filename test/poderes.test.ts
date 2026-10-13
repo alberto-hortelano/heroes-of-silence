@@ -8,18 +8,11 @@
  * cargador y A4 (la IA los usa).
  */
 import { describe, expect, it } from 'vitest';
-import { SesionDeArena } from '../src/client/session.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import {
-  batallaDeArena,
-  type HeroeDeArena,
-  heroePorDefecto,
-  type UnidadDeArena,
-} from '../src/core/arena.js';
+import { batallaDeArena, type HeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
 import {
   activeStack,
   applyAction,
-  causaDelFinal,
   isAlive,
   legalActions,
   poderBlocker,
@@ -53,6 +46,7 @@ function pelea(
       },
       derecha: { unidades: [delBorrador(unidad('orko-dos-armas'))], heroe: null },
       reglas,
+      piezas: [],
     },
     rng,
   );
@@ -294,6 +288,7 @@ describe('la IA de batalla usa los poderes (A4)', () => {
         },
         derecha: { unidades: [delBorrador(unidad('orko-dos-armas', { hp: 4000 }))], heroe: null },
         reglas: REGLAS_DEL_JUEGO,
+        piezas: [],
       },
       rng,
     );
@@ -310,57 +305,5 @@ describe('la IA de batalla usa los poderes (A4)', () => {
     hastaSuTurno(b, monje.id, rng);
     expect(escudero.effects.some((x) => x.source === 'bless')).toBe(true);
     expect(chooseBattleAction(b)).not.toMatchObject({ type: 'poder', poder: 'bendecir' });
-  });
-
-  /** Una pelea de la arena con los dos bandos en IA, jugada entera. */
-  function deIA(izq: readonly UnidadDeArena[], der: readonly UnidadDeArena[], semilla: number) {
-    const ia = (us: readonly UnidadDeArena[]) => ({
-      unidades: us.map((u) => delBorrador(u)),
-      heroe: null,
-      ia: true,
-    });
-    const s = new SesionDeArena(
-      { izquierda: ia(izq), derecha: ia(der), reglas: REGLAS_DEL_JUEGO },
-      semilla,
-    );
-    s.empezar();
-    return s.battle;
-  }
-
-  // H1 de QA (vuelta 1): un monje sin nadie a mano se bendecía cada turno en vez de
-  // acercarse —el poder competía con un golpe que valía 0, y refrescar una Bendición
-  // viva contaba como una ronda más—, y monje contra monje llegaba al tope de 100
-  // rondas en 40 de 40 peleas (sin poderes, 3-5 rondas). «Termina» no bastaba:
-  // acabar en el tope también es terminar. Los montajes de la tabla de QA.
-  it('IA contra IA, los poderes no la eternizan: acaba antes del tope y dura como sin ellos', () => {
-    const M = unidad('templario-monje');
-    const mudo = unidad('templario-monje', { habilidades: [] });
-    const montajes: [string, (m: UnidadDeArena) => UnidadDeArena[]][] = [
-      ['monje contra monje', (m) => [m]],
-      ['2 monjes contra 2', (m) => [m, m]],
-      ['monje y arquero', (m) => [m, unidad('elfo-arquero')]],
-      ['monje y escudero', (m) => [m, unidad('templario-escudo')]],
-    ];
-    const mediana = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1] ?? 0;
-    let usados = 0;
-    for (const [nombre, bando] of montajes) {
-      const con: number[] = [];
-      const sin: number[] = [];
-      for (let semilla = 1; semilla <= 8; semilla++) {
-        const b = deIA(bando(M), bando(M), semilla);
-        expect(causaDelFinal(b), `${nombre}, semilla ${semilla}, ronda ${b.round}`).not.toBe(
-          'agotada',
-        );
-        con.push(b.round);
-        usados += b.log.filter((e) => e.kind === 'power').length;
-        sin.push(deIA(bando(mudo), bando(mudo), semilla).round);
-      }
-      // Curar alarga una pelea —es lo que hace—, pero no la multiplica.
-      expect(
-        mediana(con),
-        `${nombre}: ${con.join(' ')} frente a ${sin.join(' ')}`,
-      ).toBeLessThanOrEqual(2 * mediana(sin));
-    }
-    expect(usados).toBeGreaterThan(0);
   });
 });

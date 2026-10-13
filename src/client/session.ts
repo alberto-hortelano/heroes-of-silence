@@ -11,6 +11,7 @@ import {
   batallaDeArena,
   LADOS,
   type LadoDeArena,
+  type MontajeDeArena,
   type RetoqueDeArena,
   retocarEnBatalla,
 } from '@core/arena.js';
@@ -1705,6 +1706,8 @@ export class SesionDeArena implements ControlDeBatalla {
       readonly reglas: ReglasDeBatalla;
       /** La muralla del tablero; sin ella, ninguna (`SIN_MURALLA`). */
       readonly muralla?: MurallaDeBatalla;
+      /** Las piezas de la arena con que se pelea (`catalogoDeLaArena`). */
+      readonly piezas: MontajeDeArena['piezas'];
     },
     semilla: number,
   ) {
@@ -1717,6 +1720,7 @@ export class SesionDeArena implements ControlDeBatalla {
         derecha: montaje.derecha,
         reglas: montaje.reglas,
         muralla: montaje.muralla ?? SIN_MURALLA,
+        piezas: montaje.piezas,
       },
       this.rng,
     );
@@ -1864,7 +1868,12 @@ export class SesionDeArena implements ControlDeBatalla {
     // Lo que entra y cambia algo deja su `retoque` en el registro; lo que deja la
     // ficha como estaba no escribe nada, y no se dice «Cambiado» (N1 de QA).
     if (this.battle.log.length === largo) {
-      this.status = 'Sin cambios: la ficha ya decía eso.';
+      // Una pieza que nadie de esta pelea lleva, o un cambio que no mueve ninguna
+      // cifra (su nombre, su precio), entra igual y vale para la siguiente.
+      this.status =
+        r.kind === 'piezas'
+          ? 'Ninguna cifra de esta pelea cambia con eso: vale para la pelea siguiente.'
+          : 'Sin cambios: la ficha ya decía eso.';
       return null;
     }
     const suelto = this.soltarLoQueNoVale();

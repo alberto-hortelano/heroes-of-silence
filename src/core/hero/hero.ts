@@ -149,11 +149,20 @@ export const HERO_BODY = 'hero';
 export function heroUnit(
   hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience' | 'equipo'>,
 ): UnitInfo {
-  const c = HEROE.combate;
-  const subidas = subidasDeRango(rangoDeHeroe(hero));
   // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`), que deja
   // el cuerpo desnudo en `sinEquipo` para medir su nivel.
-  return conEquipo(cuerpoDesnudo(hero, c, subidas), hero.equipo);
+  return conEquipo(cuerpoDelHeroe(hero), hero.equipo);
+}
+
+/**
+ * El cuerpo del héroe SIN su equipo: lo de `heroUnit` antes de `conEquipo`. Solo
+ * para quien lo viste con otro catálogo de piezas —la arena, con
+ * `EquipoAtado.conEquipo`—; el juego entra por `heroUnit`.
+ */
+export function cuerpoDelHeroe(
+  hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience'>,
+): UnitInfo {
+  return cuerpoDesnudo(hero, HEROE.combate, subidasDeRango(rangoDeHeroe(hero)));
 }
 
 function cuerpoDesnudo(

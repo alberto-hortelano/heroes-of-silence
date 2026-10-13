@@ -172,7 +172,7 @@ describe('contrato con el agente', () => {
       );
       expect(linea, p.id).toBeDefined();
       expect(linea).toContain(`(${SLOT_DE_HUECO[p.hueco]}, ${NOMBRE_DE_CALIDAD[p.calidad]})`);
-      if (p.ataque > 0) expect(linea).toContain(`+${p.ataque} ataque`);
+      if (p.ataque > 0) expect(linea).toContain(`+${p.ataque} Ataque`);
       if (p.pv > 0) expect(linea).toContain(`+${p.pv} PV`);
       expect(linea?.includes('se compra por'), p.id).toBe(p.calidad === 'armeria');
     }
