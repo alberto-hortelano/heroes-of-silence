@@ -47,7 +47,10 @@ verde="$gitdir/claude-verde"
 # Backstop de bucle: si ya ha bloqueado tres veces por esta misma huella, deja
 # pasar con aviso. Sin esto, un fallo que no se sabe arreglar atasca la sesión.
 intentos="$gitdir/claude-verde-intentos"
-veces=$(( $(grep -c "^$huella\$" "$intentos" 2>/dev/null || echo 0) ))
+# `grep -c` escribe «0» Y sale con 1 cuando no hay coincidencias: con `|| echo 0`
+# salía «0\n0», la cuenta fallaba y el guardia moría antes de verificar nada.
+veces=$(grep -c "^$huella\$" "$intentos" 2>/dev/null)
+veces=${veces:-0}
 if [ "$veces" -ge 3 ]; then
   printf '{"systemMessage":"pnpm verify sigue en rojo, pero el guardia ya ha avisado %s veces por el mismo estado: deja de bloquear. Arréglalo o dilo explícitamente al usuario."}\n' "$veces"
   exit 0
