@@ -23,6 +23,7 @@ import {
   type CasillaDeCarga,
   casillasDeCarga,
   castBlocker,
+  contactoBlocker,
   escalaBlocker,
   legalActions,
   MAX_JUGADAS,
@@ -39,6 +40,7 @@ import {
   stackById,
   surrenderBlocker,
 } from '@core/battle/battle.js';
+import type { ModoDelContacto } from '@core/battle/contacto.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
 import { type PoderId, poder } from '@core/battle/poderes.js';
 import type { ReglasDeBatalla } from '@core/battle/reglas.js';
@@ -1749,6 +1751,8 @@ export class SesionDeArena implements ControlDeBatalla {
       readonly piezas: MontajeDeArena['piezas'];
       /** La tirada de siempre o la rueda del golpe; sin él, la tirada. */
       readonly golpe?: ModoDelGolpe;
+      /** Si salir de una casilla cuesta 1 + los enemigos en contacto; sin él, `libre`. */
+      readonly contacto?: ModoDelContacto;
     },
     semilla: number,
   ) {
@@ -1763,6 +1767,7 @@ export class SesionDeArena implements ControlDeBatalla {
         muralla: montaje.muralla ?? SIN_MURALLA,
         piezas: montaje.piezas,
         golpe: montaje.golpe ?? 'azar',
+        contacto: montaje.contacto ?? 'libre',
       },
       this.rng,
     );
@@ -1843,6 +1848,17 @@ export class SesionDeArena implements ControlDeBatalla {
   battleStepsLeft(): number | null {
     const turno = this.turnoPropio;
     return turno === null ? null : pasosQueQuedan(turno.battle, turno.stack);
+  }
+
+  /**
+   * Por qué la unidad activa de la persona no puede salir de su casilla
+   * (`contactoBlocker`: rodeada, lo que le queda no paga salir), como frase, o
+   * `null`. El panel lo dice sin que se señale ninguna casilla.
+   */
+  sinSalida(): string | null {
+    const turno = this.turnoPropio;
+    const motivo = turno === null ? null : contactoBlocker(turno.battle, turno.stack);
+    return motivo === null ? null : comoFrase(motivo);
   }
 
   attackRejection(targetId: string): string {

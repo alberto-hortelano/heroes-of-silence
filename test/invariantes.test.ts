@@ -684,6 +684,8 @@ describe('invariantes del proyecto', () => {
         'todoEnIAConLaRueda',
         'espejoDeLasArmas',
       ],
+      // La medida de salir del contacto (#259): la arena con la regla y sin ella.
+      'tools/qa/contacto.ts': ['medir'],
     };
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
     const colados: string[] = [];
@@ -762,6 +764,42 @@ describe('invariantes del proyecto', () => {
       }
     }
     expect([...new Set(fuera)]).toEqual([]);
+  });
+
+  it('solo la arena enciende salir del contacto (#259)', () => {
+    // Salir de una casilla cuesta 1 + los enemigos en contacto solo en la arena
+    // (`battle/contacto.ts`): el juego, el servidor, el agente y el banco andan
+    // `libre`, que es lo que pone `createBattle`. Montar la batalla con otro modo
+    // ya lo vigila el guardia de las reglas (`crearBatallaConReglas`,
+    // `batallaDeArena`, `SesionDeArena`); este cierra las puertas propias del
+    // contacto: leerlo de la URL (`modoDelContactoDeLaURL`), escribir el literal
+    // `'paga'` y escribir el campo (`modoDelContacto:` o `.modoDelContacto =`), que
+    // un spread de `createBattle` con el modo cambiado se saltaría lo demás.
+    // Con permiso, la sesión de la arena (la clase) y la medida de
+    // `tools/qa/contacto.ts`; sin permiso, el motor, la arena del núcleo y su
+    // página. Roto a mano: un `modoDelContacto: 'paga'` en un spread de
+    // `createBattle` en `state/game.ts` y un `modoDelContactoDeLaURL` en `Session`
+    // (fuera de `SesionDeArena`) salen rojos con su línea.
+    const puertas =
+      /\bmodoDelContactoDeLaURL\b|['"`]paga['"`]|\bmodoDelContacto\s*:|\.modoDelContacto\s*=(?!=)/;
+    const enTodoElFichero = (r: string): boolean =>
+      r.startsWith('src/core/battle/') ||
+      r === 'src/core/arena.ts' ||
+      r.startsWith('src/client/arena/');
+    const porDeclaracion: Readonly<Record<string, readonly string[]>> = {
+      'src/client/session.ts': ['SesionDeArena'],
+      'tools/qa/contacto.ts': ['medir'],
+    };
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
+    const colados: string[] = [];
+    for (const ruta of todos.filter((r) => !enTodoElFichero(r))) {
+      const conPermiso = lineasDeLasDeclaraciones(ruta, porDeclaracion[ruta] ?? []);
+      for (const [i, linea] of sinComentarios(leer(ruta)).split('\n').entries()) {
+        if (conPermiso.has(i + 1)) continue;
+        if (puertas.test(linea)) colados.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(colados).toEqual([]);
   });
 
   it('el cliente no aplica reglas: la única puerta al núcleo es session.ts', () => {

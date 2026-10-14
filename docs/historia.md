@@ -4564,3 +4564,35 @@ arena» (`docs/agents/2026-10-13-arena-sin-municion-ni-tamanos/`). Solo la arena
   una muralla de ejemplo y sin escaleras, 74 de 300 sin terminar con un tirador por bando (122 con la
   munición de antes) y 161 de 300 sin tiradores: lo que no termina es la muralla sin escalera, no el
   tiro.
+
+## Salir del contacto (#259, arena, 14-10-2026)
+
+Petición: «que al moverse, el coste de salir de una casilla sea el número de enemigos en contacto
+con esta». El usuario lo cerró así: **solo la arena, con un interruptor** (`?contacto=paga`, aparte
+de las seis reglas como el golpe: no es un par nuestra/fheroes2); **1 + N** (sin enemigos al lado,
+1, como siempre); **si no le llega, no sale** (rodear a alguien lo atrapa); el **volador paga al
+despegar**. Y tras el plan: «en contacto» es quien te puede golpear cuerpo a cuerpo desde donde está
+(`canReachMelee`, la regla del trabado), así que el de lo alto del muro de al lado no cuenta y el del
+otro lado de una puerta cerrada sí, porque hoy se golpea a través de ellas (eso es otra issue).
+
+- **El juego no cambia ni una línea de ejecución**: sin la regla, `movableFrom` llama al mismo
+  `reachable` de siempre (`recorrer`). La búsqueda con costes es aparte (`alcanceConCostes`, un
+  Dijkstra por cubos con FIFO dentro de cada uno) y un test fija que con coste 1 en todo da lo mismo
+  que `reachable`, casilla a casilla, en orden, pasos y camino (300 casos al azar). No se pasó el
+  juego por ella para no pagar los cubos en cada sondeo de la IA. `pnpm banco`, el mismo hash.
+- **Por qué la cuenta vive en `battle.ts` y no en `contacto.ts`**: necesita `canReachMelee`, y ningún
+  módulo de `battle/` importa `battle.ts`; `contacto.ts` lleva el modo, su lectura, la URL, el coste
+  de un paso y la frase, como `rueda.ts` con el golpe.
+- **La carga** cuenta casillas, como siempre; con la regla, además, la recta se paga, y lo que se anda
+  y se cobra es la recta (`carreraHasta` en `moveTo`), no el camino más barato a la misma casilla, que
+  puede costar menos. Si la recta no cabe, la casilla sigue a mano por otro camino, sin carga.
+- **Quien no sale lo dice** sin que se señale una casilla: «Rodeado: con 3 enemigos al lado, salir de
+  su casilla le cuesta 4 y le quedan 3.» en el panel de la arena (`sinSalida`, en la línea de lo que
+  le queda: sin él, el ancla de `paneles.txt` no cambia), y la misma frase si se pide ir a cualquier
+  casilla (`movimientoBlocker`). Si saliendo gratis llegaría y pagando no, «no llega: … y salir de
+  una casilla con enemigos al lado cuesta 1 más por cada uno».
+- **La IA no se tocó**: lee `movableFrom` y sus `steps`. Medido en 100 peleas de la arena, IA contra
+  IA, de 3 al máximo de unidades por bando de las cinco facciones (`tools/qa/contacto.ts`,
+  14-10-2026, máquina compartida, tres tandas): libre 152 / 175 / 197 ms (1,5-2,0 ms por pelea),
+  con la regla 176 / 189 / 227 ms (1,8-2,3): entre un 8 y un 16 % más; 0 sin terminar en los dos,
+  5,9 → 5,7 rondas de media, y la izquierda gana 46 de 100 en los dos.

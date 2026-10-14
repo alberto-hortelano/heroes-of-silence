@@ -833,11 +833,20 @@ export function accionesDeLaUnidad(o: {
    * escalera» y «Subir»—, donde la hay (la arena); si no, `NADA`.
    */
   readonly muralla: Html;
+  /**
+   * Por qué no puede salir de su casilla, como frase (`contactoBlocker`: rodeada,
+   * lo que le queda no paga salir del contacto; solo en la arena), o nada. Va en la misma
+   * línea del marcado que lo que le queda: sin él, el ancla de
+   * `test/fixtures/paneles.txt` no cambia.
+   */
+  readonly sinSalida?: string | null;
 }): Html {
   const puede = (tipo: BattleAction['type']): boolean => o.legales.some((a) => a.type === tipo);
   const quedan = o.pasos === null ? null : quedanCasillas(o.pasos);
+  const sinSalida =
+    o.sinSalida == null ? NADA : html`<p class="cost" data-sin-salida>${o.sinSalida}</p>`;
   return html`<h3>Acciones</h3>
-       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}
+       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}${sinSalida}
        <div class="stack-list">
          <button data-action="battle-end-turn">Terminar turno</button>
          <button data-action="battle-defend" ${puede('defend') ? NADA : DESHABILITADO}>Defender</button>
