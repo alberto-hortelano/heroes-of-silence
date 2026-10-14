@@ -8,6 +8,7 @@
  * por `srcDeImagen`.
  */
 import {
+  CARGA_A_PIE_EN_LA_ARENA,
   CASILLAS_MAX,
   CASILLAS_MIN,
   CIFRA_MAXIMA_DE_HEROE,
@@ -44,6 +45,7 @@ import {
   piezasDeLaPelea,
 } from '@core/battle/battle.js';
 import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
+import { dichoDeLasCifras } from '@core/battle/carga.js';
 import type { ModoDelContacto } from '@core/battle/contacto.js';
 import { armaduraDe, armasDe } from '@core/battle/damage.js';
 import {
@@ -962,18 +964,25 @@ function equipoDeLaFicha(u: UnidadDeArena, piezas: EquipoAtado): Html {
 function filasDeArmas(
   unidad: UnitInfo,
   piezas: EquipoAtado,
+  cargaAPie: boolean,
   ataqueEnLaPelea?: (uso: UsoDeArma) => number,
 ): Html {
   return unir(
-    armasDe(unidad, piezas).map((a) => {
+    armasDe(unidad, piezas, cargaAPie).map((a) => {
       const con = a.arma ?? SIN_ARMA;
       const ataque = ataqueEnLaPelea?.(a.uso) ?? a.attack;
       const cifras =
         a.sinUso !== null
           ? a.sinUso
           : `${NOMBRE_DE_CIFRA.ataque} ${conComa(ataque, 1)} · ${NOMBRE_DE_CIFRA.danio} ${a.damage[0]}–${a.damage[1]}`;
+      // Lo que cobra la carga, en su propio trozo sin cortes: con las cifras en uno
+      // solo, la fila pedía 398 px en un panel de 274.
+      const cobra =
+        a.carga === null || a.sinUso !== null
+          ? NADA
+          : html` <span class="cifras-del-arma">· ${dichoDeLasCifras(a.carga)}</span>`;
       const { rotulo, cuando } = DICHO_DEL_USO[a.uso];
-      return html`<div class="row" data-arma-de-la-ficha="${a.uso}"><span class="label">${rotulo} ${nota(cuando)}</span><span class="golpe-del-arma"><span>${con} ·</span> <span class="cifras-del-arma">${cifras}</span></span></div>`;
+      return html`<div class="row" data-arma-de-la-ficha="${a.uso}"><span class="label">${rotulo} ${nota(cuando)}</span><span class="golpe-del-arma"><span>${con} ·</span> <span class="cifras-del-arma">${cifras}</span>${cobra}</span></div>`;
     }),
   );
 }
@@ -981,7 +990,7 @@ function filasDeArmas(
 /** «Armas» en la ficha de una unidad del borrador: lo que pelea, golpe a golpe. */
 function armasDeLaFicha(combate: UnitInfo, piezas: EquipoAtado): Html {
   return html`<h3>Armas ${nota('Cada golpe va con las cifras de su arma: el ataque y el daño del cuerpo, con lo que suma todo el equipo y, del arma, solo la de ese golpe. La columna «Final» de arriba es la del cuerpo a cuerpo.')}</h3>
-      <div class="armas-de-la-ficha">${filasDeArmas(combate, piezas)}</div>`;
+      <div class="armas-de-la-ficha">${filasDeArmas(combate, piezas, CARGA_A_PIE_EN_LA_ARENA)}</div>`;
 }
 
 /**
@@ -1743,6 +1752,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
             : filasDeArmas(
                 activa.unit,
                 piezasDeLaPelea(b),
+                b.cargaAPie,
                 (uso) => ataqueYDefensaEnBatalla(b, activa, uso).ataque,
               )
         }
@@ -1757,6 +1767,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
       : mia && activa !== null
         ? accionesDeLaUnidad({
             activa,
+            cargaAPie: b.cargaAPie,
             legales: s.battleLegalActions(),
             pasos: s.battleStepsLeft(),
             sinSalida: s.sinSalida(),

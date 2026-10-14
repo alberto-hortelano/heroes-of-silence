@@ -401,6 +401,7 @@ describe('el interruptor', () => {
     const b = pelea('pikeman', h(5, 4), [h(6, 4), h(4, 3), h(5, 5), h(4, 4)]);
     const base = {
       activa: yo(b),
+      cargaAPie: false,
       legales: legalActions(b),
       pasos: 4,
       rendicion: NADA,

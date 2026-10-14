@@ -53,6 +53,13 @@ import {
   siguienteEnRecta,
 } from './board.js';
 import {
+  CARGA_MINIMA,
+  type CifrasDeCarga,
+  cargaEfectiva,
+  cifrasDeCarga,
+  porcientoDeLaCarga,
+} from './carga.js';
+import {
   costeDeSalirCon,
   fraseDelContacto,
   type ModoDelContacto,
@@ -62,7 +69,6 @@ import {
   armaduraDe,
   ataqueYDefensa,
   CHANCE_PER_POINT,
-  cargaEfectiva,
   computeDamage,
   type DamageOptions,
   type Horquilla,
@@ -445,6 +451,8 @@ export function createBattle(
  * rojo. `golpe`, el modo del golpe (`rueda.ts`): la tirada de siempre o la rueda.
  * `contacto`, si salir de una casilla cuesta 1 + los enemigos en contacto
  * (`contacto.ts`): el juego anda `libre`.
+ * `cargaAPie`, si carga todo el que pega cuerpo a cuerpo (#260; `cifrasDeCarga`):
+ * el juego no lo pasa y solo carga el rasgo `charge`.
  */
 export function crearBatallaConReglas(
   attacker: BattleSide,
@@ -454,6 +462,7 @@ export function crearBatallaConReglas(
   murallaPedida: MurallaDeBatalla = SIN_MURALLA,
   golpe: ModoDelGolpe = 'azar',
   contacto: ModoDelContacto = 'libre',
+  cargaAPie = false,
 ): BattleState {
   const stacks: BattleStack[] = [];
   const muralla = murallaPedida === SIN_MURALLA ? SIN_MURALLA : validarMuralla(murallaPedida);
@@ -540,6 +549,7 @@ export function crearBatallaConReglas(
     modoDelGolpe: golpe,
     modoDelContacto: contacto,
     golpeEnCurso: null,
+    cargaAPie,
     escaleras: [],
     puertas: puertasAlEmpezar(muralla),
     log: [],
@@ -2158,7 +2168,8 @@ export function soltarElGolpe(state: BattleState, rng: Rng): void {
 /**
  * La longitud de la recta de carga si `s` golpeara a `target` desde `from`; 0 si
  * no carga. ÚNICA regla de CUÁNDO hay carga (decisiones del usuario,
- * 02-10-2026): solo las criaturas con `charge`, solo si `from` está **en línea
+ * 02-10-2026): solo quien carga (`cargaDelStack`: el rasgo `charge` y, en la
+ * arena, todo el que pega cuerpo a cuerpo, #260), solo si `from` está **en línea
  * recta** desde donde está ahora —una de las 6 rectas del hexágono, sin giros—,
  * con la recta libre de unidades, a **`CARGA_MINIMA` casillas o más**, y con
  * **el enemigo en esa misma recta**: la casilla que sigue a `from` tiene que ser
@@ -2166,7 +2177,7 @@ export function soltarElGolpe(state: BattleState, rng: Rng): void {
  * un enemigo que esté al lado»: un golpe que llega a la recta y luego gira para
  * pegar al de al lado no carga, y uno pegado de salida tampoco —la recta mide 0—.
  * Con un enemigo de dos casillas basta con que una lo sea. Cuánto suma lo dice
- * `damage.ts`, que aplica el tope y el bono (`cargaEfectiva`): aquí no se
+ * `carga.ts`, que aplica el tope y el bono (`cargaEfectiva`): aquí no se
  * recorta nada.
  *
  * La primera redacción no miraba al enemigo, y la persona veía casillas
@@ -2184,7 +2195,7 @@ export function cargaDesde(
   target: BattleStack,
   bloqueadas?: ReadonlySet<string>,
 ): number {
-  if (!hasTrait(s.unit, 'charge')) return 0;
+  if (cargaDelStack(state, s) === null) return 0;
   // La recta es un recorrido: con muralla, la cola de la grande tampoco la cruza.
   const andando = alAndar(state, s, bloqueadas ?? cerradasPara(state, s));
   const d = rectaLibre(s.hex, from, andando.cerradas, andando.paso);
@@ -2201,8 +2212,17 @@ export function cargaDesde(
   return d;
 }
 
-/** Por debajo de esto no hay carga: hace falta arrancar (decisión del usuario). */
-export const CARGA_MINIMA = 3;
+/** La recta mínima vive con las cifras que valida (`carga.ts`); aquí sigue a mano. */
+export { CARGA_MINIMA };
+
+/**
+ * Con qué cifras carga `s` en esta batalla, o `null` si no carga: `cifrasDeCarga`
+ * con la regla de la pelea (`BattleState.cargaAPie`). La leen `cargaDesde`,
+ * `casillasDeCarga` y la IA.
+ */
+export function cargaDelStack(state: BattleState, s: BattleStack): CifrasDeCarga | null {
+  return cifrasDeCarga(s.unit, state.cargaAPie);
+}
 
 /**
  * Las cargas que `s` tiene a mano en este tramo: a qué enemigo, desde qué
@@ -2211,10 +2231,11 @@ export const CARGA_MINIMA = 3;
  * «»N» en el cliente, el `chargeFrom` del agente— y sale de `cargaDesde` y
  * `cargaEfectiva`, las mismas que cobran, así que el anuncio no puede discrepar
  * del golpe. Una casilla vacía de la recta sin enemigo detrás no sale: desde ahí
- * solo se mueve. Sin el rasgo, `SIN_CARGAS`.
+ * solo se mueve. Quien no carga (`cargaDelStack`), `SIN_CARGAS`.
  */
 export function casillasDeCarga(state: BattleState, s: BattleStack): readonly CasillaDeCarga[] {
-  if (!hasTrait(s.unit, 'charge')) return SIN_CARGAS;
+  const cifras = cargaDelStack(state, s);
+  if (cifras === null) return SIN_CARGAS;
   // Tras la Finta no hay golpe que cobrarla: solo se anda.
   if (state.turno?.stack === s.id && state.turno.finta !== undefined) return SIN_CARGAS;
   const bloqueadas = cerradasPara(state, s);
@@ -2223,7 +2244,15 @@ export function casillasDeCarga(state: BattleState, s: BattleStack): readonly Ca
   for (const paso of movableFrom(state, s).values()) {
     for (const e of enemigos) {
       const recta = cargaDesde(state, s, paso.at, e, bloqueadas);
-      if (recta > 0) out.push({ target: e.id, at: paso.at, hexes: cargaEfectiva(recta) });
+      if (recta > 0) {
+        const hexes = cargaEfectiva(recta, cifras);
+        out.push({
+          target: e.id,
+          at: paso.at,
+          hexes,
+          porciento: porcientoDeLaCarga(hexes, cifras),
+        });
+      }
     }
   }
   return out;
@@ -2234,6 +2263,11 @@ export interface CasillaDeCarga {
   readonly target: string;
   readonly at: Hex;
   readonly hexes: number;
+  /**
+   * Lo que suma al daño, en tanto por ciento entero (`porcientoDeLaCarga`): el
+   * tablero y la barra lo pintan sin hacer la cuenta, que depende de quién carga.
+   */
+  readonly porciento: number;
 }
 
 /**
@@ -2704,22 +2738,42 @@ function opcionesDelEstado(
     // La IA pide estas cientos de veces por decisión, casi siempre sin nada
     // más: un objeto por reglas, no uno por pareja.
     if (extra === SIN_EXTRA && alto === 0) return soloLasReglas(reglas);
-    return { reglas, ...extra, ...enLoAlto };
+    return { reglas, ...extra, ...enLoAlto, ...aPie(state, extra) };
   }
   return {
     reglas,
     ...extra,
     ...enLoAlto,
+    ...aPie(state, extra),
     ataqueDelMando: delMando(state, attacker)?.ataque ?? 0,
     defensaDelMando: delMando(state, target)?.defensa ?? 0,
   };
 }
 
 /**
+ * La carga a pie en las opciones, solo si la pelea la juega y el golpe trae
+ * recta: así el juego no lleva el campo ni en un golpe con carga.
+ */
+function aPie(
+  state: BattleState,
+  extra: Omit<DamageOptions, ExtraDelEstado>,
+): { readonly cargaAPie?: true } {
+  return state.cargaAPie && (extra.chargeHexes ?? 0) > 0 ? CON_CARGA_A_PIE : SIN_CARGA_A_PIE;
+}
+const CON_CARGA_A_PIE: { readonly cargaAPie?: true } = Object.freeze({ cargaAPie: true });
+const SIN_CARGA_A_PIE: { readonly cargaAPie?: true } = Object.freeze({});
+
+/**
  * Lo de `DamageOptions` que no se pide: lo pone `opcionesDeDanio` desde el estado
  * y, el `cruce`, desde el golpe de la rueda.
  */
-type ExtraDelEstado = 'reglas' | 'ataqueDelMando' | 'defensaDelMando' | 'bonoEnLoAlto' | 'cruce';
+type ExtraDelEstado =
+  | 'reglas'
+  | 'ataqueDelMando'
+  | 'defensaDelMando'
+  | 'bonoEnLoAlto'
+  | 'cruce'
+  | 'cargaAPie';
 
 const SIN_EXTRA: Omit<DamageOptions, ExtraDelEstado> = Object.freeze({});
 const OPCIONES_SOLO_REGLAS = new WeakMap<ReglasDeBatalla, DamageOptions>();
@@ -2806,6 +2860,8 @@ function strike(
     // vez aquí dejaba el parte contando 7 hexes mientras el bono se había
     // topado en los 5 que caben en +50 %.
     ...(result.charge > 0 ? { charge: result.charge } : {}),
+    // A pie, solo en la arena: el juego no lo escribe nunca y su registro no cambia.
+    ...(result.cargaAPie ? { cargaAPie: true as const } : {}),
     // Con la rueda, el punto en que cayó: el golpe que se da va en uno solo.
     ...(golpe === null ? {} : { punto: golpe.desde }),
   });

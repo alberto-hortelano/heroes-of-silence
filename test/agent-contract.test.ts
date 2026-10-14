@@ -16,7 +16,7 @@ import {
   legalActions,
 } from '../src/core/battle/battle.js';
 import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
-import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../src/core/battle/damage.js';
+import { CARGA } from '../src/core/battle/carga.js';
 import {
   adventureActionSchema,
   battleActionSchema,
@@ -1124,8 +1124,10 @@ describe('lo que ve el agente', () => {
     const prosa = RESPONSE_FORMAT.battle_turn;
     expect(prosa).toContain(`a ${CARGA_MINIMA} casillas o\n  más`);
     expect(prosa).toContain(
-      `suma un ${Math.round(CHARGE_BONUS_PER_HEX * 100)} % de daño, hasta ${MAX_CHARGE_HEXES}`,
+      `suma un ${CARGA.jinete.porciento} % de daño, hasta ${CARGA.jinete.tope}`,
     );
+    // El texto no cambia con #260: el juego no carga a pie.
+    expect(prosa).toContain('suma un 10 % de daño, hasta 5');
     expect(prosa).toContain('"turnId"');
   });
 

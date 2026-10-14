@@ -27,13 +27,12 @@ import {
   stackSpeed,
 } from '../src/core/battle/battle.js';
 import * as board from '../src/core/battle/board.js';
+import { CARGA, cargaEfectiva } from '../src/core/battle/carga.js';
 import {
-  cargaEfectiva,
   computeDamage,
   damageMultiplier,
   effectiveAttack,
   herir,
-  MAX_CHARGE_HEXES,
   stackHp,
 } from '../src/core/battle/damage.js';
 import {
@@ -2088,9 +2087,9 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     // viene recortado, para que un «»6» pintado no acabe cobrando 5.
     const jinete = stackById(seis, 'attacker-0');
     expect(cargaDesde(seis, jinete, { col: 6, row: 4 }, stackById(seis, 'defender-0'))).toBe(6);
-    expect(cargaEfectiva(6)).toBe(MAX_CHARGE_HEXES);
+    expect(cargaEfectiva(6, CARGA.jinete)).toBe(CARGA.jinete.tope);
     expect(casillasDeCarga(seis, jinete)).toEqual([
-      { target: 'defender-0', at: { col: 6, row: 4 }, hexes: MAX_CHARGE_HEXES },
+      { target: 'defender-0', at: { col: 6, row: 4 }, hexes: CARGA.jinete.tope, porciento: 50 },
     ]);
     applyAction(
       seis,
@@ -2229,7 +2228,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     // enemigo justo detrás.
     const state = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 5, row: 4 });
     expect(casillasDeCarga(state, stackById(state, 'attacker-0'))).toEqual([
-      { target: 'defender-0', at: { col: 4, row: 4 }, hexes: 4 },
+      { target: 'defender-0', at: { col: 4, row: 4 }, hexes: 4, porciento: 40 },
     ]);
   });
 
@@ -2248,6 +2247,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
       target: 'defender-0',
       at: { col: 5, row: 2 },
       hexes: 3,
+      porciento: 30,
     });
     applyAction(
       state,
@@ -2429,7 +2429,7 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     // «1 baja», no «1 bajas».
     expect(golpes).toContain('<div>Zombi\u00a0→ Campeón (contraataque): 4 de daño, 1 baja</div>');
     expect(golpes).toContain(
-      '<div>Campeón\u00a0→ Zombi (carga de 3 hexes): 20 de daño, 0 bajas</div>',
+      '<div>Campeón\u00a0→ Zombi (carga de 3 casillas, +30 %): 20 de daño, 0 bajas</div>',
     );
     expect(golpes).toContain('<div>Campeón\u00a0→ Zombi (disparo): 8 de daño, 1 baja</div>');
     expect(golpes).toContain('<div>Campeón\u00a0→ Zombi (salpicadura): 2 de daño, 0 bajas</div>');

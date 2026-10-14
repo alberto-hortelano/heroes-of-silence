@@ -37,6 +37,7 @@ import { renderBattleLog } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   batallaDeArena,
+  CARGA_A_PIE_EN_LA_ARENA,
   COMENTARIO_DEL_BORRADOR,
   catalogoDeLaArena,
   equiparEnArena,
@@ -1303,6 +1304,9 @@ describe('la arena como banco de combate', () => {
             piezas: [],
           },
           createRng(semilla),
+          // La carga a pie es de la arena y no tiene interruptor (#260): sin ella,
+          // la arena es el juego.
+          false,
         ),
         createRng(semilla + 100),
       );
@@ -2670,7 +2674,7 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
   /** Las cifras de cada golpe: arriba (cuerpo a cuerpo) y las de cada arma. */
   const golpes = (u: UnidadDeArena) => {
     const c = unidadDeCombate(u, DEL_JUEGO);
-    return { c, porArma: armasDe(c, DEL_JUEGO) };
+    return { c, porArma: armasDe(c, DEL_JUEGO, CARGA_A_PIE_EN_LA_ARENA) };
   };
   const delUso = (u: UnidadDeArena, uso: string) => {
     const fila = golpes(u).porArma.find((a) => a.uso === uso);

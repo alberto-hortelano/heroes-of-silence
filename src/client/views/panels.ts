@@ -15,6 +15,7 @@
  * escapaba de la puerta.
  */
 import { activeStack, quedanCasillas } from '@core/battle/battle.js';
+import { CARGA, cifrasDeCarga, dichoDeLaCarga } from '@core/battle/carga.js';
 import { DEFEND_BONUS } from '@core/battle/damage.js';
 import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
@@ -37,7 +38,6 @@ import {
 } from '@core/battle/types.js';
 import {
   creature,
-  hasTrait,
   isShooter,
   nombreDeTipoDeHeroe,
   type Pieza,
@@ -768,6 +768,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
         contandoAun,
         accionesDeLaUnidad({
           activa: s,
+          cargaAPie: battle.cargaAPie,
           legales: session.battleLegalActions(),
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
@@ -823,6 +824,8 @@ function filaManaDeBatalla(session: Session): Html {
  */
 export function accionesDeLaUnidad(o: {
   readonly activa: BattleStack;
+  /** Si la pelea juega la carga a pie (`BattleState.cargaAPie`, la arena). */
+  readonly cargaAPie: boolean;
   readonly legales: readonly BattleAction[];
   readonly pasos: number | null;
   readonly rendicion: Html;
@@ -858,7 +861,7 @@ export function accionesDeLaUnidad(o: {
        <p class="cost" style="margin-top:.5rem">
          Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
          o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
-         ${ayudaDeCarga(o.activa)}
+         ${ayudaDeCarga(o.activa, o.cargaAPie)}
          Espacio termina el turno de la unidad.
        </p>`;
 }
@@ -1078,14 +1081,15 @@ function clase(bueno: boolean, malo: boolean): Html {
 }
 
 /**
- * La línea de ayuda de la carga, solo si la unidad activa tiene el rasgo: con un
- * campesino o un arquero es ruido, y quien juega no tiene caballería hasta
- * varios días después (N2 de QA, 02-10-2026). Se pregunta por el rasgo y no por
- * si hay casillas de carga ahora: el texto explica cómo se ve, también el turno
- * en que no sale ninguna.
+ * La línea de ayuda de la carga, solo si la unidad activa carga (`cifrasDeCarga`:
+ * en el juego, el rasgo; en la arena, todos, #260): con un campesino o un arquero
+ * del juego es ruido, y quien juega no tiene caballería hasta varios días después
+ * (N2 de QA, 02-10-2026). Se pregunta por quién carga y no por si hay casillas de
+ * carga ahora: el texto explica cómo se ve, también el turno en que no sale
+ * ninguna.
  */
-function ayudaDeCarga(s: BattleStack | null): Html {
-  if (s === null || !hasTrait(s.unit, 'charge')) return NADA;
+function ayudaDeCarga(s: BattleStack | null, cargaAPie: boolean): Html {
+  if (s === null || cifrasDeCarga(s.unit, cargaAPie) === null) return NADA;
   return html`Al enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
          número («»3»).`;
 }
@@ -1219,7 +1223,9 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         // porque lo que se busca al leer es el nombre.
         case 'attack': {
           const modo = `${e.retaliation ? ' (contraataque)' : ''}${
-            e.charge === undefined ? '' : ` (carga de ${e.charge} hexes)`
+            e.charge === undefined
+              ? ''
+              : ` (${dichoDeLaCarga(e.charge, e.cargaAPie === true ? CARGA.aPie : CARGA.jinete)})`
           }`;
           return html`<div>${golpe(e.stack, e.target)}${modo}: ${danio(e.damage, e.killed, e.armadura)}</div>`;
         }

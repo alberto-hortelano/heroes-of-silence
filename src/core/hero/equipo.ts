@@ -19,6 +19,8 @@
  * Este módulo es puro y no importa el estado: las acciones que equipan, compran
  * y reparten botín viven en `game.ts`, que es el único que escribe la crónica.
  */
+
+import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
 import { allCreatures, CALIDADES_DE_BOTIN, EQUIPO, type Pieza } from '../data.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type {
@@ -154,8 +156,9 @@ interface ConSinUso {
  * con que lo dice la previsión («con Daga (cuerpo a cuerpo)», también la del
  * contraataque), `cuando` se usa, la nota de su fila y la del hueco en el editor
  * de equipo, y `sinUso`, lo que dice la fila de un arma puesta que no se usa (solo
- * la de carga, sin el rasgo: el cuerpo a cuerpo se usa siempre y el arma a
- * distancia ya es disparar). La regla la aplican `usoDelGolpe` y `armasDe`
+ * la de carga en quien no carga: el cuerpo a cuerpo se usa siempre y el arma a
+ * distancia ya es disparar). Las cifras de la carga salen de `data/carga.json`
+ * (`CARGA`), no se escriben aquí. La regla la aplican `usoDelGolpe` y `armasDe`
  * (`battle/damage.ts`); esto la cuenta.
  */
 export const DICHO_DEL_USO: {
@@ -176,8 +179,7 @@ export const DICHO_DEL_USO: {
   carga: {
     rotulo: 'Carga',
     golpe: 'en la carga',
-    cuando:
-      'Se usa al cargar: el golpe tras correr en línea recta 3 casillas o más hacia el objetivo, con el rasgo Carga.',
+    cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo. En la arena carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porciento} % de daño por casilla hasta ${CARGA.aPie.tope}; con el rasgo Carga (el jinete), +${CARGA.jinete.porciento} % hasta ${CARGA.jinete.tope}.`,
     sinUso: 'no carga: no se usa',
   },
 };

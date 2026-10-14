@@ -11,7 +11,6 @@
  */
 import { type CasillaDeCarga, isAlive, SIN_CARGAS, stackHexes } from '@core/battle/battle.js';
 import { hexEquals, hexKey, ULTIMA_FILA } from '@core/battle/board.js';
-import { CHARGE_BONUS_PER_HEX } from '@core/battle/damage.js';
 import { mismaPuerta, nivelDe } from '@core/battle/muralla.js';
 import type {
   BattleAction,
@@ -62,13 +61,13 @@ const NINGUN_BANDO: ReadonlySet<Side> = new Set();
 
 /**
  * La carga dicha para la barra: cuántas casillas y cuánto daño suma, con el
- * tanto por ciento de la constante del daño. Solo se dice sobre el ENEMIGO: una
+ * tanto por ciento que trae la carga (`CasillaDeCarga.porciento`: el del jinete o,
+ * en la arena, el de a pie). Solo se dice sobre el ENEMIGO: una
  * casilla vacía de la recta no promete nada, porque el clic ahí solo mueve
  * (decisión del usuario, 02-10-2026).
  */
 function rotuloDeCarga(carga: CasillaDeCarga): string {
-  const porciento = Math.round(carga.hexes * CHARGE_BONUS_PER_HEX * 100);
-  return `cargando ${carga.hexes} casillas (+${porciento} % de daño)`;
+  return `cargando ${carga.hexes} casillas (+${carga.porciento} % de daño)`;
 }
 
 /**

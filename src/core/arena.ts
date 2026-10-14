@@ -2179,13 +2179,27 @@ function bandoDeArena(lado: LadoDeArena, nombre: string, eq: EquipoAtado): Battl
 }
 
 /**
+ * En la arena carga todo el que pega cuerpo a cuerpo, y el jinete (el rasgo
+ * `charge`) cobra más (#260, 14-10-2026: «todos los que pegan cuerpo a cuerpo, y
+ * el jinete más»; las cifras, `data/carga.json`). Sin interruptor: lo leen
+ * `batallaDeArena` y la ficha del montaje, que enseña la fila de la carga.
+ */
+export const CARGA_A_PIE_EN_LA_ARENA = true;
+
+/**
  * Una batalla de arena: la izquierda ataca y la derecha defiende, con las reglas
  * del montaje. Los stacks de la tropa salen en el orden de cada lista (`slot` =
  * su puesto) y el héroe, si lo hay, el último (`<bando>-heroe`): es lo que deja a
  * quien llama saber qué puesto del montaje es cada stack. La muralla, si la
- * hay, es del tablero (`battle/muralla.ts`).
+ * hay, es del tablero (`battle/muralla.ts`). `cargaAPie`: en la arena carga todo
+ * el que pega cuerpo a cuerpo (`CARGA_A_PIE_EN_LA_ARENA`); `false` solo lo pasa el
+ * test que compara la arena con el juego.
  */
-export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
+export function batallaDeArena(
+  montaje: MontajeDeArena,
+  rng: Rng,
+  cargaAPie: boolean = CARGA_A_PIE_EN_LA_ARENA,
+): BattleState {
   const eq = catalogoDeLaArena(montaje.piezas);
   const batalla = crearBatallaConReglas(
     bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, eq),
@@ -2195,6 +2209,7 @@ export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
     montaje.muralla ?? SIN_MURALLA,
     montaje.golpe ?? 'azar',
     montaje.contacto ?? 'libre',
+    cargaAPie,
   );
   // De qué tipo sale cada puesto, en el orden de su `slot` (`tipoDelStack`).
   const tipos = (l: LadoDeArena): readonly TipoDeArena[] => l.unidades.map(tipoDeLaFuente);

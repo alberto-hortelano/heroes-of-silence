@@ -18,7 +18,7 @@
 import { z } from 'zod';
 import { CARGA_MINIMA } from '../battle/battle.js';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
-import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../battle/damage.js';
+import { CARGA } from '../battle/carga.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
@@ -300,8 +300,12 @@ export const responseSchemas = {
  */
 export type MapGenerateResponse = z.infer<typeof mapGenerateResponseSchema>;
 
-/** El bono de una casilla de carga en tanto por ciento, tal y como se le dice al agente. */
-const PORCIENTO_POR_CASILLA_DE_CARGA = Math.round(CHARGE_BONUS_PER_HEX * 100);
+/**
+ * El bono de una casilla de carga en tanto por ciento y su tope, tal y como se le
+ * dicen al agente: los del jinete (`data/carga.json`), que el juego no carga a pie.
+ */
+const PORCIENTO_POR_CASILLA_DE_CARGA = CARGA.jinete.porciento;
+const TOPE_DE_CARGA = CARGA.jinete.tope;
 
 /**
  * Descripción del formato de respuesta que viaja DENTRO de cada petición.
@@ -532,7 +536,7 @@ Notas:
   de las 6 rectas del hexágono, sin giros ni unidades en medio), a ${CARGA_MINIMA} casillas o
   más, y el "target" está EN ESA RECTA: la casilla que sigue a "from" es suya.
   Llegar a la recta y girar para pegar al de al lado no carga, ni pegar al que
-  ya tienes pegado. Cada casilla suma un ${PORCIENTO_POR_CASILLA_DE_CARGA} % de daño, hasta ${MAX_CHARGE_HEXES}. Lo andado en
+  ya tienes pegado. Cada casilla suma un ${PORCIENTO_POR_CASILLA_DE_CARGA} % de daño, hasta ${TOPE_DE_CARGA}. Lo andado en
   tramos anteriores no cuenta: cada tramo se vuelve a medir. "chargeFrom" te
   lista las cargas que tienes ahora mismo: contra qué "target", desde qué
   casilla ("col", "row") y con cuántas casillas cobrarías ("hexes"); solo viene

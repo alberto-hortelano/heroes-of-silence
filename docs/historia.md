@@ -4669,3 +4669,31 @@ Petición del usuario sobre la rueda de la arena (`docs/agents/2026-10-14-rueda-
 - **Las cifras**, en `data/rueda.json` por nivel de éxito (`minimo` … `maximo`), inventadas; las
   notas de Romper guardia y de la Finta las dicen enteras, sacadas de ahí.
 - El juego no cambia: `pnpm banco`, ancla igual (066767b4…, 200 partidas).
+
+## La carga para todos en la arena (#260, 14-10-2026)
+
+«En la arena no he podido hacer ninguna carga; he probado con el guerrero con escudo»: solo
+cargaba quien tenía el rasgo `charge`, y en la arena solo lo llevan los perfiles montados. Decisión
+del usuario: **«todos los que pegan cuerpo a cuerpo, y el jinete más»**, con la recta de siempre
+(`cargaDesde`) y solo en la arena.
+
+- **Las cifras, en `data/carga.json`** (`battle/carga.ts`, `validarCarga`): el jinete, +10 % por
+  casilla hasta 5 (la de antes: `porciento / 100` da el mismo double que el `0.1` escrito, y el banco
+  no se mueve); a pie, +5 % hasta 5 (inventado). El arquitecto proponía tope 3 a pie, que con la
+  recta mínima de 3 dejaba la carga a pie en «sí o no» (+15 % siempre); el usuario subió el tope a 5.
+- **Una regla de la pelea, no de la unidad**: `BattleState.cargaAPie`, que pone solo la arena
+  (`batallaDeArena(…, CARGA_A_PIE_EN_LA_ARENA)`). Un rasgo nuevo en cada unidad de la arena habría
+  llegado al catálogo, al agente y a la ficha como algo que se quita. Quién carga y cuánto lo dice
+  `cifrasDeCarga`, que leen la recta, el anuncio, el daño, la IA y la ficha. Sin interruptor: la
+  prueba C4 (arena = juego) pasa `false` a mano.
+- **El cliente ya no calcula el tanto por ciento**: `CasillaDeCarga.porciento` lo trae del núcleo
+  (antes, `hexes × CHARGE_BONUS_PER_HEX × 100` en el tablero y en la barra). El parte dice
+  «carga de 3 casillas a pie, +15 %» (`dichoDeLaCarga`; el `attack` lleva `cargaAPie` solo en la
+  arena), la previsión «carga de 3 casillas a pie ×1,15» y la ficha de la arena, en «Armas», una fila
+  de Carga para toda unidad con «+5 %/casilla, de 3 a 5 casillas (a pie)».
+- **La IA no se tocó**: `mejorCarga` ya elegía la casilla que más carga entre las que alcanzan al
+  objetivo, y ahora lo hace también a pie; `pasoParaCargar` (colocarse en recta) sigue solo para el
+  jinete. Medido IA contra IA en la arena, 100 semillas, cuatro unidades sorteadas de las cinco
+  facciones por bando y sin héroes (`docs/agents/2026-10-14-carga-para-todos/medir-cargas.ts`): a pie,
+  38 cargas en 1 105 golpes (3,4 %), con alguna a mano al empezar 210 de 2 772 turnos; el jinete, 71
+  en 389 (18,3 %), 90 de 711. Sin la carga a pie, el jinete hacía las mismas 71.
