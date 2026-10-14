@@ -16,7 +16,6 @@ import {
   catalogoDeLaArena,
   type ElementoSinValidar,
   type HojaDeArena,
-  perfilDeLasHojas,
   revisarBorradorDeArena,
   revisarBorradorDeEquipo,
   type UnidadDeArena,
@@ -57,15 +56,6 @@ function velocidadDelCuerpo(personaje: string): number {
   }
   return fila[0];
 }
-
-/**
- * El perfil de cada hoja del taller, para convertir lo de antes del equipo
- * (`migrarUnidadDeArena`): de la lista de `tools/taller/unidades.ts`, una vez y
- * sin leer el arte de nadie (eran 408 `atlas.json` en cada lectura).
- */
-const PERFIL_DE_LAS_HOJAS = perfilDeLasHojas(
-  [...UNIDADES, ...HEROES].map((u) => ({ id: u.id, perfil: perfilDeArena(u) })),
-);
 
 /** Dónde vive el borrador, relativo a la raíz del repo. */
 export const RUTA_DEL_BORRADOR = 'data/borradores/unidades.json';
@@ -132,10 +122,7 @@ interface Borrador<T, I extends { readonly crudo: unknown }> {
   /** La lista del archivo: `{ _comment, [campo]: [...] }`. */
   readonly campo: string;
   readonly comentario: string;
-  /**
-   * Lo del archivo, elemento a elemento; `avisos`, lo que hubo que decir al
-   * convertir lo de antes, y `seRetiran`, lo de lo que se retira (las unidades).
-   */
+  /** Lo del archivo, elemento a elemento: solo el formato de hoy. */
   readonly revisar: (valor: unknown) => Revisado<T, I>;
   readonly validar: (valor: unknown) => readonly T[];
   readonly clave: (t: T) => string;
@@ -143,12 +130,10 @@ interface Borrador<T, I extends { readonly crudo: unknown }> {
   readonly claveSinValidar: (i: I) => string | null;
 }
 
-/** Lo que da `revisar`: lo que vale, lo que no y lo que hubo que decir. */
+/** Lo que da `revisar`: lo que vale y lo que no. */
 interface Revisado<T, I> {
   readonly validas: readonly T[];
   readonly invalidas: readonly I[];
-  readonly avisos: readonly string[];
-  readonly seRetiran?: readonly string[];
 }
 
 /**
@@ -161,9 +146,7 @@ function deUnidades(eq: EquipoAtado): Borrador<UnidadDeArena, UnidadSinValidar> 
     ruta: RUTA_DEL_BORRADOR,
     campo: 'unidades',
     comentario: COMENTARIO_DEL_BORRADOR,
-    // Las unidades de antes de cuerpo y equipo se convierten al leerlas, con el
-    // perfil de su hoja (`migrarUnidadDeArena`).
-    revisar: (valor) => revisarBorradorDeArena(valor, PERFIL_DE_LAS_HOJAS, eq),
+    revisar: (valor) => revisarBorradorDeArena(valor, eq),
     validar: (valor) => validarBorradorDeArena(valor, eq),
     clave: (u) => u.id,
     claveSinValidar: (u) => u.id,
@@ -180,7 +163,7 @@ function leer<T, I extends { readonly crudo: unknown }>(
   b: Borrador<T, I>,
 ): Revisado<T, I> {
   const ruta = join(raiz, b.ruta);
-  if (!existsSync(ruta)) return { validas: [], invalidas: [], avisos: [] };
+  if (!existsSync(ruta)) return { validas: [], invalidas: [] };
   let json: unknown;
   try {
     json = JSON.parse(readFileSync(ruta, 'utf8')) as unknown;
@@ -272,10 +255,9 @@ function escribirAtomico(listos: readonly Preparado[]): void {
 }
 
 /**
- * Los borradores de cifras y de piezas tal como están en disco: lo que vale (lo de
- * antes, ya convertido a cuerpo y equipo), lo que no y por qué, y lo que hubo que
- * decir al convertir (`avisos`). Lo convertido se escribe en el formato de hoy en
- * el siguiente «Guardar», y no se vuelve a convertir.
+ * Los borradores de cifras y de piezas tal como están en disco: lo que vale y lo
+ * que no y por qué. Solo el formato de hoy: lo de antes no vale, y se conserva
+ * tal cual al guardar como cualquier otra cosa que no vale.
  *
  * Las unidades se leen con las piezas guardadas: una puede llevar una nueva. Un
  * archivo de piezas ilegible no deja ilegible el de unidades: se leen con las
@@ -285,9 +267,6 @@ function escribirAtomico(listos: readonly Preparado[]): void {
 export function leerBorrador(raiz: string): {
   readonly unidades: readonly UnidadDeArena[];
   readonly invalidas: readonly UnidadSinValidar[];
-  /** Las unidades que se retiran al leer (su cuerpo era una criatura): «Guardar» las pierde. */
-  readonly seRetiran: readonly string[];
-  readonly avisos: readonly string[];
   readonly piezas: readonly Pieza[];
   readonly piezasInvalidas: readonly ElementoSinValidar[];
   readonly equipoIlegible?: string;
@@ -297,20 +276,13 @@ export function leerBorrador(raiz: string): {
   try {
     equipo = leer(raiz, DE_EQUIPO);
   } catch (err) {
-    equipo = { validas: [], invalidas: [], avisos: [] };
+    equipo = { validas: [], invalidas: [] };
     equipoIlegible = err instanceof Error ? err.message : String(err);
   }
-  const { validas, invalidas, avisos, seRetiran } = leer(
-    raiz,
-    deUnidades(catalogoDeLaArena(equipo.validas)),
-  );
+  const { validas, invalidas } = leer(raiz, deUnidades(catalogoDeLaArena(equipo.validas)));
   return {
     unidades: validas,
     invalidas,
-    seRetiran: seRetiran ?? [],
-    // Primero lo de las piezas: una unidad convertida puede llevar una pieza que
-    // acaba de cambiar de hueco.
-    avisos: [...equipo.avisos, ...avisos],
     piezas: equipo.validas,
     piezasInvalidas: equipo.invalidas,
     ...(equipoIlegible === null ? {} : { equipoIlegible }),
@@ -358,7 +330,6 @@ const DE_EQUIPO: Borrador<Pieza, ElementoSinValidar> = {
   ruta: RUTA_DE_EQUIPO,
   campo: 'piezas',
   comentario: COMENTARIO_DEL_BORRADOR_DE_EQUIPO,
-  // Lo de antes de que cada arma fuera a lo suyo se convierte al leerlo.
   revisar: revisarBorradorDeEquipo,
   validar: validarBorradorDeEquipo,
   clave: (p) => p.id,
@@ -374,8 +345,7 @@ const DE_MURALLAS: Borrador<FormaDeMuralla, FormaSinValidar> = {
   ruta: RUTA_DE_MURALLAS,
   campo: 'formas',
   comentario: COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
-  // Las formas no tienen nada de antes que convertir.
-  revisar: (valor) => ({ ...revisarBorradorDeMurallas(valor), avisos: [] }),
+  revisar: revisarBorradorDeMurallas,
   validar: validarBorradorDeMurallas,
   clave: (f) => f.nombre,
   claveSinValidar: (f) => f.nombre,

@@ -322,22 +322,22 @@ describe('la IA cuenta con la armadura (`expectedDamage`)', () => {
   });
 });
 
-describe('lo de antes se lee con armadura (PV / 10, con aviso)', () => {
+describe('una pieza de la arena con PV no vale: ni se convierte ni se avisa (14-10-2026)', () => {
   /** Una pieza nueva de la arena para el hueco de armadura, como la escribía la arena de antes. */
   const peto = { ...piezaNueva('armadura', DEL_JUEGO), nombre: 'Peto' };
-  const AVISO =
-    'La pieza «Peto» daba 45 PV: ahora da 5 de armadura, que se resta del daño de cada golpe.';
+  const MOTIVO = '«Peto» es de la arena y suma 45 PV: en la arena se protege con armadura';
 
-  it('un borrador con una pieza de la arena con PV: 45 PV → 5 de armadura, redondeado', () => {
+  it('en el borrador sale como que no vale, con su motivo, y no se convierte', () => {
     const { pv: _, armadura: __, ...sinCifras } = peto;
-    const r = revisarBorradorDeEquipo({ piezas: [{ ...sinCifras, pv: 45 }] });
-    expect(r.invalidas).toEqual([]);
-    expect(r.validas).toEqual([validarPiezaDeArena({ ...peto, armadura: 5 })]);
-    expect(r.validas[0]).toMatchObject({ pv: 0, armadura: 5 });
-    expect(r.avisos).toEqual([AVISO]);
+    const crudo = { ...sinCifras, pv: 45 };
+    const r = revisarBorradorDeEquipo({ piezas: [crudo] });
+    expect(r.validas).toEqual([]);
+    expect(r.invalidas).toHaveLength(1);
+    expect(r.invalidas[0]?.crudo).toBe(crudo);
+    expect(r.invalidas[0]?.motivo).toContain(MOTIVO);
   });
 
-  it('un enlace de la versión 8 se convierte; uno de la 9 con PV en una pieza de la arena se rechaza', () => {
+  it('en un enlace de hoy se rechaza; uno de la versión 8 se rechaza por viejo', () => {
     const conArmadura = validarPiezaDeArena({ ...peto, armadura: 5 });
     const guerrero = equiparEnArena(
       unidadDeArena('templario-escudo'),
@@ -360,49 +360,10 @@ describe('lo de antes se lee con armadura (PV / 10, con aviso)', () => {
     expect(o.v).toBe(9);
     const { armadura: _, ...sinArmadura } = o.piezas[0];
     const conPV = { ...o, piezas: [{ ...sinArmadura, pv: 45 }] };
-    const v8 = montajeDeLaURL(JSON.stringify({ ...conPV, v: 8 }));
-    expect(v8.piezas).toEqual([conArmadura]);
-    // La pieza del enlace lo dice una vez (no otra con la unidad que la lleva); el
-    // jubón del goblin es del kit y lo dice el aviso de la armadura de antes (Q2).
-    expect(v8.avisos).toEqual([
-      AVISO,
-      'Desde la versión 9 las armaduras de la arena dan armadura y no PV: «Goblin arquero» tiene 80 PV y 2 de armadura (antes 100 PV).',
-    ]);
-    expect(() => montajeDeLaURL(JSON.stringify(conPV))).toThrow(
-      '«Peto» es de la arena y suma 45 PV: en la arena se protege con armadura',
+    expect(() => montajeDeLaURL(JSON.stringify(conPV))).toThrow(MOTIVO);
+    expect(() => montajeDeLaURL(JSON.stringify({ ...conPV, v: 8 }))).toThrow(
+      'este enlace es de una versión anterior de la arena (la 8; la de hoy es la 9): vuelve a copiarlo',
     );
-  });
-
-  it('un enlace de la 8 con las armaduras del kit avisa de lo que cambia; uno de la 9, no (QA, Q2)', () => {
-    const lado = (unidad: string, ia: boolean) => ({
-      ia,
-      puestos: [{ unidad, escalera: false }],
-      heroe: null,
-    });
-    const ENLACE: MontajeDelEnlace = {
-      unidades: [
-        unidadDeArena('templario-escudo'),
-        unidadDeArena('templario-hermano-de-carga'),
-        unidadDeArena('templario-monje'),
-      ],
-      piezas: [],
-      izquierda: {
-        ia: false,
-        puestos: [
-          { unidad: 'templario-escudo', escalera: false },
-          { unidad: 'templario-hermano-de-carga', escalera: false },
-        ],
-        heroe: null,
-      },
-      derecha: lado('templario-monje', true),
-      muralla: null,
-    };
-    const v9 = JSON.parse(montajeALaURL(ENLACE));
-    expect(montajeDeLaURL(JSON.stringify(v9)).avisos ?? []).toEqual([]);
-    // 80 PV del cuerpo; la brigantina daba 70 y la barda 220. El monje no lleva armadura.
-    expect(montajeDeLaURL(JSON.stringify({ ...v9, v: 8 })).avisos).toEqual([
-      'Desde la versión 9 las armaduras de la arena dan armadura y no PV: «Guerrero con escudo» tiene 80 PV y 7 de armadura (antes 150 PV); «Hermano de carga (montado; antes Caballero montado)» tiene 80 PV y 22 de armadura (antes 300 PV).',
-    ]);
   });
 
   it('una pieza del juego que suma PV, duplicada en la arena, protege con armadura', () => {
@@ -418,12 +379,7 @@ describe('lo de antes se lee con armadura (PV / 10, con aviso)', () => {
     expect(avisoDeLaCopia(espada, piezaNueva(espada, DEL_JUEGO))).toBeNull();
   });
 
-  it('una pieza que se queda en 0 dice que ya no protege, y la armadura tiene tope (A4 de QA)', () => {
-    const { pv: _, armadura: __, ...sinCifras } = peto;
-    const r = revisarBorradorDeEquipo({ piezas: [{ ...sinCifras, pv: 4 }] });
-    expect(r.avisos).toEqual([
-      'La pieza «Peto» daba 4 PV: no llegan a un punto de armadura, así que ya no protege.',
-    ]);
+  it('la armadura tiene tope (A4 de QA)', () => {
     expect(validarPiezaDeArena({ ...peto, armadura: 99 })).toMatchObject({ armadura: 99 });
     expect(() => validarPiezaDeArena({ ...peto, armadura: 1000 })).toThrow(
       '«Peto»: la armadura va de 0 a 99 y es 1000',

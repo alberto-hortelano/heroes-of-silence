@@ -14,13 +14,6 @@ import type { Elegida } from './paneles.js';
 /** Lo que se abre en la vista de edición: una unidad (los héroes, no). */
 export type FichaEditable = Extract<Elegida, { readonly kind: 'unidad' }>;
 
-/**
- * Los tipos de clave de las fichas de una criatura del catálogo del juego, que
- * ya no está en la arena (13-10-2026): recordadas, se descartan sin decir nada
- * (`leerAbiertas`), que lo de `localStorage` es comodidad de quien mira.
- */
-const CLAVES_DEL_CATALOGO: readonly string[] = ['catalogo', 'criatura'];
-
 /** Lo que se dice cuando lo recordado no se entiende. */
 const NO_SE_LEEN = 'No se leen las fichas que estaban abiertas: se empieza sin ninguna.';
 
@@ -42,14 +35,10 @@ function partirClave(clave: string): { readonly tipo: string; readonly id: strin
   return dos < 0 ? null : { tipo: clave.slice(0, dos), id: clave.slice(dos + 1) };
 }
 
-/**
- * La inversa de `claveDeFicha`, para las tres: lo que no entiende lo dice. Lee
- * también `hoja:<id>`, la de antes de las unidades nuevas (lo recordado en
- * `localStorage`): la unidad de una hoja tiene el id de su hoja.
- */
+/** La inversa de `claveDeFicha`: lo que no entiende lo dice. */
 export function fichaDeClave(clave: string): Elegida {
   const { tipo, id } = partirClave(clave) ?? { tipo: null, id: '' };
-  if (id !== '' && (tipo === 'unidad' || tipo === 'hoja')) return { kind: 'unidad', id };
+  if (id !== '' && tipo === 'unidad') return { kind: 'unidad', id };
   if (tipo === 'heroe' && (id === 'izquierda' || id === 'derecha')) {
     return { kind: tipo, lado: id };
   }
@@ -157,9 +146,10 @@ export function abiertasATexto(abiertas: readonly FichaEditable[]): string {
  * Lo que había abierto la última vez, leído de `localStorage` (`null` si no
  * había nada): se vuelve a abrir una a una con `abrirFicha`, la misma regla que
  * el gesto. Es una comodidad, no un dato: lo ilegible se dice y se empieza sin
- * ninguna; la ficha de una criatura del catálogo se descarta callando
- * (`CLAVES_DEL_CATALOGO`); lo que ya no se puede abrir (`sePuede` dice que no: la hoja se borró,
- * o quedó a medias en el taller) y lo repetido se quita diciéndolo.
+ * ninguna; lo que no es una clave de hoy (la de una criatura del catálogo o la
+ * `hoja:<id>` de antes de las unidades nuevas, 14-10-2026: sin compatibilidad
+ * hacia atrás), lo que ya no se puede abrir (`sePuede` dice que no: la hoja se
+ * borró, o quedó a medias en el taller) y lo repetido se quita diciéndolo.
  */
 export function leerAbiertas(
   texto: string | null,
@@ -178,7 +168,6 @@ export function leerAbiertas(
   }
   const fuera: string[] = [];
   const abiertas = (claves as string[]).reduce<readonly FichaEditable[]>((hasta, c) => {
-    if (CLAVES_DEL_CATALOGO.includes(partirClave(c)?.tipo ?? '')) return hasta;
     let f: Elegida;
     try {
       f = fichaDeClave(c);

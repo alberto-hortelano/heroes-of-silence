@@ -114,6 +114,8 @@ describe('la clave de una ficha', () => {
       'monje',
       ':x',
       'catalogo:pikeman',
+      // La de antes de las unidades nuevas (14-10-2026: sin compatibilidad).
+      'hoja:zombi',
     ]) {
       expect(() => fichaDeClave(basura), basura).toThrow('no es la clave de una ficha');
     }
@@ -151,15 +153,6 @@ describe('recordar las abiertas', () => {
     expect(leerAbiertas(abiertasATexto(SEIS), todas)).toEqual({ abiertas: SEIS, aviso: '' });
   });
 
-  it('lee la clave de antes de las unidades nuevas, «hoja:<id>», como la de su unidad', () => {
-    // La unidad de una hoja tiene el id de su hoja: lo recordado en el navegador
-    // antes del 12-10-2026 sigue abriendo su ficha.
-    expect(fichaDeClave('hoja:zombi')).toEqual({ kind: 'unidad', id: 'zombi' });
-    expect(leerAbiertas(JSON.stringify(['hoja:zombi']), () => true).abiertas).toEqual([
-      { kind: 'unidad', id: 'zombi' },
-    ]);
-  });
-
   it('quita las que ya no se abren y las repetidas, diciéndolo', () => {
     const texto = JSON.stringify([
       'unidad:borrada',
@@ -181,15 +174,18 @@ describe('recordar las abiertas', () => {
     expect(r.aviso.match(/«unidad:templario-escudo»/g)).toHaveLength(1);
   });
 
-  it('las fichas recordadas de una criatura del catálogo se descartan sin decirlo (13-10-2026)', () => {
+  it('las claves de antes —una criatura del catálogo, «hoja:<id>»— se quitan diciéndolo (14-10-2026)', () => {
     const texto = JSON.stringify([
       'catalogo:pikeman',
       'unidad:templario-escudo',
       'criatura:skeleton',
+      'hoja:zombi',
     ]);
     const r = leerAbiertas(texto, todas);
     expect(r.abiertas).toEqual([hoja('templario-escudo')]);
-    expect(r.aviso).toBe('');
+    for (const vieja of ['catalogo:pikeman', 'criatura:skeleton', 'hoja:zombi']) {
+      expect(r.aviso).toContain(`«${vieja}»`);
+    }
   });
 });
 
@@ -444,32 +440,31 @@ describe('la barra al crear y al leer el borrador (segunda vuelta de QA)', () =>
     expect(avisoDelBorradorLeido('b.json', 2, 1)).toBe('Cargado b.json: 2 unidades.');
   });
 
-  it('H1 de QA: los avisos de lo leído van enteros, lo que se retira primero, y la barra solo los resume', () => {
-    // En la barra, cortada a dos líneas, la frase de la unidad que se retiraba no
-    // se llegaba a leer, y «Guardar» la borraba del disco (14-10-2026).
-    const retira =
-      'La unidad «Dragón óseo 2» era una criatura del catálogo del juego («bone_dragon»): en la arena solo están las cinco facciones de las hojas, y se retira.';
-    const convertida = 'La unidad «Zombi grande» ocupaba 2 casillas: ahora una, como todas.';
-    const borrador = { de: 'Del borrador (b.json):', seRetiran: [retira], avisos: [convertida] };
-    const enlace = { de: 'Del enlace de la pelea:', seRetiran: [], avisos: ['Algo del enlace.'] };
-    const marcado = marcadoDe(renderAvisosDeLectura([enlace, borrador]));
-    // Cada frase, entera y en su punto de la lista; la que se retira antes que lo
-    // convertido, en su lista señalada, y un botón para quitar el recuadro.
-    expect(marcado).toContain(`<li>${retira}</li>`);
-    expect(marcado.indexOf(retira)).toBeLessThan(marcado.indexOf(convertida));
-    expect(marcado).toMatch(/<ul class="se-retiran"><li>La unidad «Dragón óseo 2»/);
-    expect(marcado).toContain('Al leer lo de antes · 3 avisos');
+  it('H1 de QA: lo que no vale al leer va entero, con su motivo, y la barra solo lo resume', () => {
+    // En la barra, cortada a dos líneas, el motivo de la segunda que no valía no
+    // se llegaba a leer (14-10-2026). Sin compatibilidad (14-10-2026), lo que
+    // queda que decir al leer es lo que no vale.
+    const motivo =
+      'monje: la unidad «Monje»: «level» no es un campo de la arena; valen id, name, faction';
+    const unidades = { de: 'Del borrador de unidades (b.json):', noValen: [motivo, 'zombi: otra'] };
+    const piezas = { de: 'De las piezas de la arena:', noValen: ['arco: su hueco no se cambia'] };
+    const marcado = marcadoDe(renderAvisosDeLectura([unidades, piezas]));
+    // Cada frase, entera y en su punto de la lista, y un botón para quitar el recuadro.
+    expect(marcado).toContain(`<li>${motivo}</li>`);
+    expect(marcado.indexOf('monje:')).toBeLessThan(marcado.indexOf('arco:'));
+    expect(marcado).toMatch(/<ul class="no-valen"><li>monje: /);
+    expect(marcado).toContain('Al leer el borrador · 3 no valen');
     expect(marcado).toContain('data-arena="cerrar-avisos"');
     // Sin nada que decir, nada.
     expect(marcadoDe(renderAvisosDeLectura([]))).toBe('');
-    expect(marcadoDe(renderAvisosDeLectura([{ ...enlace, avisos: [] }]))).toBe('');
+    expect(marcadoDe(renderAvisosDeLectura([{ ...unidades, noValen: [] }]))).toBe('');
     // La barra, solo el resumen y dónde leerlo.
-    expect(resumenDeLaLectura(borrador)).toBe(
-      ' Al leerlo, 1 unidad se retira y hay 1 aviso: se leen enteros con «Avisos al leer», en esta barra.',
+    expect(resumenDeLaLectura([unidades, piezas])).toBe(
+      ' 3 no valen y se conservan tal cual al guardar: sus motivos se leen enteros con «Avisos al leer», en esta barra.',
     );
-    expect(resumenDeLaLectura({ ...borrador, seRetiran: [] })).toBe(
-      ' Al leerlo, hay 1 aviso: se leen enteros con «Avisos al leer», en esta barra.',
+    expect(resumenDeLaLectura([piezas])).toBe(
+      ' Una no vale y se conserva tal cual al guardar: su motivo se lee entero con «Avisos al leer», en esta barra.',
     );
-    expect(resumenDeLaLectura({ ...borrador, seRetiran: [], avisos: [] })).toBe('');
+    expect(resumenDeLaLectura([{ ...unidades, noValen: [] }])).toBe('');
   });
 });

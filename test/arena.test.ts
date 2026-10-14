@@ -38,7 +38,6 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   batallaDeArena,
   COMENTARIO_DEL_BORRADOR,
-  catalogoDeLaArena,
   equiparEnArena,
   escalonDeCasillas,
   type FuenteDeArena,
@@ -49,14 +48,12 @@ import {
   heroeDeArena,
   heroePorDefecto,
   type IdsOcupados,
-  KIT_DEL_PERFIL,
   lecturaDelNivel,
   type MontajeDelEnlace,
-  migrarUnidadDeArena,
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
-  perfilDeLasHojas,
+  piezaNueva,
   quitarEnArena,
   retocarEnBatalla,
   revisarBorradorDeArena,
@@ -98,8 +95,6 @@ import {
   isShooter,
   LIDERAZGO,
 } from '../src/core/data.js';
-import { ESCALA_DE_CIFRAS } from '../src/core/escala.js';
-import { conLaArmaduraEnPV } from '../src/core/hero/equipo.js';
 import { HERO_BODY } from '../src/core/hero/hero.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { CREATURE_TRAITS, SPEED_TIERS, SPEED_TO_HEXES } from '../src/core/types.js';
@@ -178,43 +173,8 @@ function ocupados(...validas: string[]): IdsOcupados {
   return { validas, sinValidar: [], hojas: [] };
 }
 
-/**
- * Una unidad tal como la guardaba el borrador antes de cuerpo y equipo: id = su
- * hoja y unas cifras de combate cualesquiera, de sobra para quitarles el kit de
- * cualquier perfil (los tiradores, con tiros).
- */
-function deAntes(id: string, cambios: Record<string, unknown> = {}): Record<string, unknown> {
-  const h = hojaPorId(id);
-  const tira = h.perfil === 'arco' || h.perfil === 'ballesta';
-  return {
-    id,
-    name: h.nombre,
-    faction: h.faccion,
-    leadership: 3,
-    attack: 12,
-    defense: 12,
-    damage: [100, 200],
-    hp: 400,
-    ...(tira ? { shots: 30 } : {}),
-    casillas: 4,
-    traits: h.faccion === 'no-muertos' ? ['undead'] : [],
-    habilidades: [],
-    cost: { gold: 100 },
-    ...cambios,
-  };
-}
-
-/** De qué perfil es cada hoja, como lo da la página (`PerfilDe`). */
-const perfilDe = perfilDeLasHojas(HOJAS);
-
 /** Lo que la ficha enseña del nivel de una unidad: el de su cuerpo, aunque pelee con su equipo. */
 const nivelDeLaHoja = (u: UnidadDeArena): string => lecturaDelNivel(unidadDeCombate(u, DEL_JUEGO));
-
-/** Una unidad de antes de las casillas: sin ellas. */
-function aLaAntigua(u: Record<string, unknown>): Record<string, unknown> {
-  const { casillas: _fuera, ...resto } = u;
-  return resto;
-}
 
 /** Una sesión montada y empezada: lo que hace la página al pulsar «Luchar». */
 function montada(izquierda: LadoDeSesion, derecha: LadoDeSesion, semilla: number): SesionDeArena {
@@ -367,41 +327,21 @@ describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
     expect(indice(despues)).toBeGreaterThan(indice(antes));
   });
 
-  it('un borrador de antes con `level` es de la escala de fheroes2: se lee con PV y daño a la de hoy', () => {
-    // Una unidad de antes, escrita como lo escribía la arena antes del nivel
-    // derivado: con su nivel a mano y PV y daño a la décima parte.
-    const antes = deAntes('templario-monje');
-    const hoy = migrarUnidadDeArena(antes, perfilDe, DEL_JUEGO, 'borrador').unidad!;
-    const vieja = {
-      ...antes,
-      level: 9,
-      hp: (antes.hp as number) / ESCALA_DE_CIFRAS,
-      damage: (antes.damage as number[]).map((d) => d / ESCALA_DE_CIFRAS),
-    };
-    // Se lee migrada: la escala y, después, cuerpo + el equipo de su perfil.
-    const { unidad: leida, aviso } = migrarUnidadDeArena(vieja, perfilDe, DEL_JUEGO, 'borrador');
-    expect(aviso).toBeNull();
-    expect(leida).not.toHaveProperty('level');
-    expect(leida).toEqual(hoy);
-    expect(nivelDeLaHoja(leida!)).toBe(nivelDeLaHoja(hoy));
-    expect(revisarBorradorDeArena({ unidades: [vieja] }, perfilDe, DEL_JUEGO).validas).toEqual([
-      hoy,
+  it('un borrador de antes con `level` no vale: no se convierte, y se conserva con su motivo', () => {
+    // Sin compatibilidad hacia atrás (14-10-2026): la escala de fheroes2 ya no se lee.
+    const vieja = { ...unidad('templario-monje'), level: 9 };
+    const r = revisarBorradorDeArena({ unidades: [vieja] }, DEL_JUEGO);
+    expect(r.validas).toEqual([]);
+    expect(r.invalidas).toEqual([
+      {
+        id: 'templario-monje',
+        motivo: expect.stringContaining('«level» no es un campo de la arena'),
+        crudo: vieja,
+      },
     ]);
-    // La regla de hoy no la lee: lo de antes solo entra migrándolo.
-    expect(() => validarUnidadDeArena(vieja, DEL_JUEGO)).toThrow(
-      '«level» no es un campo de la arena',
-    );
-    // Sin la marca, las mismas cifras son de hoy: un monje de la décima parte.
-    const { level: _marca, ...sinMarca } = vieja;
-    expect(
-      unidadDeCombate(
-        migrarUnidadDeArena(sinMarca, perfilDe, DEL_JUEGO, 'borrador').unidad!,
-        DEL_JUEGO,
-      ).hp,
-    ).toBe((antes.hp as number) / ESCALA_DE_CIFRAS);
   });
 
-  it('`level` se lee, pero no se ofrece como campo de la arena', () => {
+  it('`level` no se ofrece como campo de la arena', () => {
     const motivo = ((): string => {
       try {
         validarUnidadDeArena({ ...unidad('templario-monje'), growth: 3 }, DEL_JUEGO);
@@ -455,15 +395,8 @@ describe('el borrador se valida antes de escribirse', () => {
   });
 
   it('rechaza diciéndolo: velocidad inventada, rasgo inexistente, daño al revés', () => {
-    expect(() =>
-      migrarUnidadDeArena(
-        { ...aLaAntigua(deAntes('templario-monje')), speed: 'rapidisima' },
-        perfilDe,
-        DEL_JUEGO,
-        'borrador',
-      ),
-    ).toThrow(
-      'la unidad «Monje»: la velocidad "rapidisima" no existe; valen very_slow, slow, average, fast, very_fast, ultra_fast',
+    expect(() => validarUnidadDeArena({ ...base(), casillas: 9 }, DEL_JUEGO)).toThrow(
+      'la unidad «Monje»: la velocidad es de 2 a 7 casillas, y es 9',
     );
     expect(() => validarUnidadDeArena({ ...base(), traits: ['volar'] }, DEL_JUEGO)).toThrow(
       'la unidad «Monje»: el rasgo "volar" no existe',
@@ -496,8 +429,7 @@ describe('el borrador se valida antes de escribirse', () => {
   });
 
   it('sin munición: `shots` no es un campo de la arena, y el motivo no lo ofrece (13-10-2026)', () => {
-    // Dispara quien lleva arma a distancia; lo de antes con tiros lo convierte
-    // `migrarUnidadDeArena`, no la regla de hoy.
+    // Dispara quien lleva arma a distancia; lo de antes con tiros no vale.
     expect(() => validarUnidadDeArena({ ...base(), shots: 3 }, DEL_JUEGO)).toThrow(
       '«shots» no es un campo de la arena',
     );
@@ -528,12 +460,12 @@ describe('el borrador se valida antes de escribirse', () => {
       // Lo que se escribe va en el formato de hoy: lo de antes no se escribe.
       expect(() =>
         escribirBorrador(dir as string, {
-          unidades: [{ ...aLaAntigua({ ...base() }), speed: 'x' }],
+          unidades: [{ ...base(), speed: 'x' }],
           piezas: [],
         }),
       ).toThrow('«speed» no es un campo de la arena');
       expect(existsSync(ruta)).toBe(false);
-      expect(leerBorrador(dir)).toMatchObject({ unidades: [], invalidas: [], avisos: [] });
+      expect(leerBorrador(dir)).toMatchObject({ unidades: [], invalidas: [] });
 
       const monje = { ...base(), attack: 9, habilidades: ['Salto'] };
       escribirBorrador(dir, { unidades: [monje], piezas: [] });
@@ -937,7 +869,6 @@ describe('corrección de hallazgos de QA', () => {
       expect(leerBorrador(dir)).toMatchObject({
         unidades: [buena, nueva, arreglada],
         invalidas: [],
-        avisos: [],
       });
     });
 
@@ -1150,18 +1081,6 @@ describe('la velocidad son casillas', () => {
     );
     const b = pelea([unidad('heroe-elfo-danzante-de-espadas')], [unidad('zombi')], createRng(1));
     expect(b.stacks.map((s) => s.unit.speed)).toEqual(['very_fast', 'very_slow']);
-  });
-
-  it('un borrador de antes, con la velocidad como escalón, se lee convertido', () => {
-    // `fast` es el escalón de 5 casillas: se lee como si trajera las 5.
-    const vieja = { ...aLaAntigua(deAntes('zombi')), speed: 'fast' };
-    expect(migrarUnidadDeArena(vieja, perfilDe, DEL_JUEGO, 'borrador').unidad).toEqual(
-      migrarUnidadDeArena(deAntes('zombi', { casillas: 5 }), perfilDe, DEL_JUEGO, 'borrador')
-        .unidad,
-    );
-    expect(() =>
-      migrarUnidadDeArena({ ...vieja, casillas: 5 }, perfilDe, DEL_JUEGO, 'borrador'),
-    ).toThrow('trae la velocidad dos veces');
   });
 
   it('con las velocidades de salida ya no juega un ejército entero y luego el otro', () => {
@@ -1605,14 +1524,11 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('va y vuelve igual, también por URLSearchParams, y monta su muralla y sus escaleras', () => {
     const texto = montajeALaURL(MONTAJE);
     const leido = montajeDeLaURL(texto);
-    expect(leido).toEqual({ ...MONTAJE, version: VERSION_DEL_ENLACE });
+    expect(leido).toEqual(MONTAJE);
     expect(montajeALaURL(leido)).toBe(texto);
     // A través de URLSearchParams, que es por donde viaja.
     const url = new URLSearchParams({ montaje: texto }).toString();
-    expect(montajeDeLaURL(new URLSearchParams(url).get('montaje') as string)).toEqual({
-      ...MONTAJE,
-      version: VERSION_DEL_ENLACE,
-    });
+    expect(montajeDeLaURL(new URLSearchParams(url).get('montaje') as string)).toEqual(MONTAJE);
     const b = batallaDeArena(montajeDeArenaDelEnlace(leido, REGLAS_DEL_JUEGO, []), createRng(7));
     expect(b.muralla).toEqual(MONTAJE.muralla);
     // Las escaleras del montaje llegan al tablero, con las cifras del enlace.
@@ -1621,248 +1537,50 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     expect(conEscalera[1]?.unit.sinEquipo?.attack).toBe(8);
   });
 
-  /**
-   * Lo que dice la conversión de las unidades de `MONTAJE` de antes del equipo: su
-   * vida contaba los PV de la armadura del kit, que hoy da puntos de armadura (#262).
-   */
-  const AVISOS_DE_LA_ARMADURA = [
-    ['Guerrero con escudo', 70, 7],
-    ['Piquero', 100, 10],
-    ['Zombie', 70, 7],
-    ['Orko con dos armas', 100, 10],
-  ].map(
-    ([nombre, pv, a]) =>
-      `La unidad «${nombre}» contaba en su vida ${pv} PV de su armadura: ahora lleva ${a} de armadura, que se resta del daño de cada golpe.`,
-  );
-
-  /**
-   * `MONTAJE` escrito como lo escribía la versión 4: cada unidad con el id de su
-   * hoja, sin cuerpo ni equipo y con las cifras con las que pelea (las de su
-   * perfil), y los puestos por `hoja`.
-   */
-  const enLaVersion4 = (): Record<string, any> => {
-    const o = JSON.parse(montajeALaURL(MONTAJE));
-    o.v = 4;
-    // Las piezas de la arena viajan desde la 6; hasta la 7, las pruebas del catálogo.
-    delete o.piezas;
-    o.pruebas = {};
-    o.unidades = MONTAJE.unidades.map((u) => {
-      const c = unidadDeCombate(u, DEL_JUEGO);
-      return {
-        id: u.id,
-        name: u.name,
-        faction: u.faction,
-        leadership: u.leadership,
-        attack: c.attack,
-        defense: c.defense,
-        damage: [...c.damage],
-        // Antes de la armadura (#262) la vida contaba sus PV: lo que escribía el
-        // enlace de entonces.
-        hp: conLaArmaduraEnPV(c).hp,
-        casillas: SPEED_TO_HEXES[c.speed],
-        traits: u.traits,
-        habilidades: u.habilidades,
-        cost: u.cost,
-      };
-    });
-    for (const l of ['izquierda', 'derecha'] as const) {
-      o[l].puestos = o[l].puestos.map((p: Record<string, any>) =>
-        'unidad' in p ? { hoja: p.unidad, escalera: p.escalera } : p,
+  it('un enlace de otra versión se rechaza diciendo que se vuelva a copiar, sin convertir nada', () => {
+    // Sin compatibilidad hacia atrás (14-10-2026): de la 1 a la 8, ninguna se lee.
+    for (let v = 1; v < VERSION_DEL_ENLACE; v++) {
+      expect(() => montajeDeLaURL(tocado((o) => (o.v = v))), `versión ${v}`).toThrow(
+        `este enlace es de una versión anterior de la arena (la ${v}; la de hoy es la ${VERSION_DEL_ENLACE}): vuelve a copiarlo`,
       );
     }
-    return o;
-  };
-
-  it('un enlace de la versión 4 (sin equipo) se lee como cuerpo + equipo y se reescribe en la de hoy', () => {
-    const v4 = JSON.stringify(enLaVersion4());
-    // Sin el perfil de cada hoja no se puede convertir: se dice.
-    expect(() => montajeDeLaURL(v4)).toThrow(
-      'el montaje del enlace es de la versión 4, de antes del equipo, y para leerlo hace falta el perfil de cada hoja',
-    );
-    const leido = montajeDeLaURL(v4, perfilDe);
-    expect(leido).toEqual({ ...MONTAJE, version: 4, avisos: AVISOS_DE_LA_ARMADURA });
-    expect(leido.unidades[0]?.equipo).toEqual({
-      arma: 'espada',
-      armadura: 'brigantina',
-      escudo: 'escudo',
-    });
-    // Y se reescribe en la de hoy, con los puestos por id de unidad.
-    const reescrito = JSON.parse(montajeALaURL(leido));
-    expect(reescrito.v).toBe(VERSION_DEL_ENLACE);
-    expect(reescrito.izquierda.puestos[0]).toEqual({ unidad: 'templario-escudo', escalera: true });
-    expect(reescrito.unidades[0].cuerpo).toEqual({ hoja: 'templario-escudo' });
-  });
-
-  /**
-   * `MONTAJE` escrito como lo escribía la versión 3: lo de la 4, con cada hoja
-   * con su `level` y, hojas y pruebas, con PV y daño en la escala de fheroes2.
-   */
-  const enLaVersion3 = (): Record<string, any> => {
-    const o = enLaVersion4();
-    o.v = 3;
-    const aLaVieja = (c: Record<string, any>): void => {
-      if (c.hp !== undefined) c.hp /= ESCALA_DE_CIFRAS;
-      if (c.damage !== undefined) c.damage = c.damage.map((d: number) => d / ESCALA_DE_CIFRAS);
-    };
-    for (const u of o.unidades) {
-      u.level = 3;
-      aLaVieja(u);
-    }
-    return o;
-  };
-
-  it('un enlace de la versión 3 (PV y daño de fheroes2) se lee a la escala de hoy', () => {
-    const o = enLaVersion3();
-    expect(o.unidades[0].hp).toBe(
-      conLaArmaduraEnPV(unidadDeCombate(MONTAJE.unidades[0]!, DEL_JUEGO)).hp / ESCALA_DE_CIFRAS,
-    );
-    const leido = montajeDeLaURL(JSON.stringify(o), perfilDe);
-    expect(leido).toEqual({ ...MONTAJE, version: 3, avisos: AVISOS_DE_LA_ARMADURA });
-    // Y se reescribe en la versión de ahora, que ya no se escala al leerla.
-    const reescrito = montajeALaURL(leido);
-    expect(JSON.parse(reescrito).v).toBe(VERSION_DEL_ENLACE);
-    expect(montajeDeLaURL(reescrito)).toEqual({ ...MONTAJE, version: VERSION_DEL_ENLACE });
-  });
-
-  /**
-   * `MONTAJE` escrito como lo escribía la versión 2: lo de la 3 y, además, quién
-   * mueve en cada puesto y en el héroe, sin `ia` en el lado. `repartir` pone a la
-   * persona el primer puesto.
-   */
-  const enLaVersion2 = (repartir: boolean): Record<string, any> => {
-    const o = enLaVersion3();
-    o.v = 2;
-    for (const l of ['izquierda', 'derecha'] as const) {
-      const { ia } = o[l];
-      delete o[l].ia;
-      for (const p of o[l].puestos) p.ia = ia;
-      if (o[l].heroe !== null) o[l].heroe.ia = ia;
-    }
-    if (repartir) o.derecha.puestos[0].ia = false;
-    return o;
-  };
-
-  it('un enlace de la versión 2 (quién mueve, por puesto) se sigue leyendo', () => {
-    const leido = montajeDeLaURL(JSON.stringify(enLaVersion2(false)), perfilDe);
-    expect(leido).toEqual({ ...MONTAJE, version: 2, avisos: AVISOS_DE_LA_ARMADURA });
-    // Repartido entre tú y la IA: el bando lo mueves tú entero, y se dice.
-    const repartido = montajeDeLaURL(JSON.stringify(enLaVersion2(true)), perfilDe);
-    expect(repartido.derecha.ia).toBe(false);
-    expect(repartido.izquierda.ia).toBe(false);
-    expect(repartido.avisos).toEqual([
-      'El enlace repartía el bando derecho entre tú y la IA: ahora lo mueves tú entero.',
-      ...AVISOS_DE_LA_ARMADURA,
-    ]);
-    // Y se reescribe en la versión de ahora, sin el aviso.
-    const reescrito = JSON.parse(montajeALaURL(repartido));
-    expect(reescrito.v).toBe(VERSION_DEL_ENLACE);
-    expect(reescrito.derecha.ia).toBe(false);
-    expect(reescrito.aviso).toBeUndefined();
+    // Aunque lleve lo de su versión: la 7, con una criatura del catálogo y sus pruebas.
+    expect(() =>
+      montajeDeLaURL(
+        tocado((o) => {
+          o.v = 7;
+          o.pruebas = { pikeman: { attack: 8 } };
+          o.izquierda.puestos.push({ criatura: 'pikeman', escalera: false });
+        }),
+      ),
+    ).toThrow('vuelve a copiarlo');
   });
 
   it('una muralla dibujada en la rejilla de antes (11 en todas las filas) se sigue leyendo', () => {
     // Tablero simétrico (11-10-2026): las filas pares ganan la columna 11 y
     // ninguna casilla de la rejilla de antes desaparece, así que una muralla de
-    // entonces —aquí, su última columna entera con una puerta— se lee tal cual,
-    // en el enlace de la versión 2 y como forma del borrador.
+    // entonces —aquí, su última columna entera con una puerta— vale tal cual, en
+    // el enlace y como forma del borrador. No es una conversión: es la regla de hoy.
     const deAntes = {
       muros: Array.from({ length: 9 }, (_, row) => ({ col: 10, row })).filter((h) => h.row !== 4),
       puertas: [{ a: { col: 9, row: 4 }, b: { col: 10, row: 4 } }],
     };
-    const o = enLaVersion2(false);
-    o.muralla = deAntes;
-    const leido = montajeDeLaURL(JSON.stringify(o), perfilDe);
+    const leido = montajeDeLaURL(tocado((o) => (o.muralla = deAntes)));
     expect(leido.muralla).toEqual(deAntes);
     expect(validarFormaDeMuralla({ nombre: 'De antes', muralla: deAntes }).muralla).toEqual(
       deAntes,
     );
   });
 
-  it('C1 y C4: un enlace de la versión 7 se abre sin el catálogo del juego, sin munición ni tamaño, y lo dice', () => {
-    const o = JSON.parse(montajeALaURL(MONTAJE));
-    o.v = 7;
-    // Lo que llevaba entonces: un puesto de una criatura con su prueba, una unidad
-    // con cuerpo de criatura, una de dos casillas y una con tiros sin arma a distancia.
-    o.pruebas = { pikeman: { attack: 8 } };
-    o.izquierda.puestos.push({ criatura: 'pikeman', escalera: false });
-    o.unidades.push({
-      ...unidad('zombi'),
-      id: 'skeleton-2',
-      name: 'Esqueleto 2',
-      cuerpo: { criatura: 'skeleton' },
-    });
-    o.derecha.puestos.push({ unidad: 'skeleton-2', escalera: false });
-    o.unidades[2].hexes = 2;
-    o.unidades[3].shots = 5;
-    const leido = montajeDeLaURL(JSON.stringify(o), perfilDe);
-    // Monta lo demás, como el enlace de hoy.
-    const { avisos, version, ...montaje } = leido;
-    expect(version).toBe(7);
-    expect(montaje).toEqual(MONTAJE);
-    // Una frase por aviso, y lo que se quita primero (H1 de QA, 14-10-2026): en
-    // el montaje se leen enteros, y lo que desaparece no se queda al final.
-    expect(avisos).toHaveLength(5);
-    // Y al final, lo que pelean distinto por la armadura del kit (QA de #262, Q2).
-    expect(avisos?.[4]).toMatch(
-      /^Desde la versión 9 las armaduras de la arena dan armadura y no PV: /,
-    );
-    expect(avisos?.[0]).toBe(
-      'El enlace montaba criaturas del catálogo del juego («pikeman»): en la arena solo están las cinco facciones de las hojas, y se quitan.',
-    );
-    expect(avisos?.[1]).toMatch(
-      /^La unidad «Esqueleto 2» era una criatura del catálogo del juego \(«skeleton»\)/,
-    );
-    expect(avisos?.slice(2).join(' ')).toContain(
-      `La unidad «${unidad('zombi').name}» ocupaba 2 casillas: ahora una, como todas.`,
-    );
-    expect(avisos?.slice(2).join(' ')).toContain(
-      `La unidad «${unidad('orko-dos-armas').name}» traía 5 tiros y ningún arma a distancia: ya no hay munición y no dispara`,
-    );
-    // Un bando que se queda vacío se monta vacío, y se dice.
-    const soloCriaturas = JSON.parse(JSON.stringify(o));
-    soloCriaturas.derecha = {
-      ia: true,
-      puestos: [{ criatura: 'archer', escalera: false }],
-      heroe: null,
-    };
-    soloCriaturas.unidades = soloCriaturas.unidades.filter(
-      (u: { id: string }) => u.id !== 'zombi' && u.id !== 'orko-dos-armas' && u.id !== 'skeleton-2',
-    );
-    const vacio = montajeDeLaURL(JSON.stringify(soloCriaturas), perfilDe);
-    expect(vacio.derecha.puestos).toEqual([]);
-    expect(vacio.avisos?.join(' ')).toContain('El bando derecho se queda vacío sin ellas');
-    // Y lo que se reescribe es de la 8, sin nada de eso.
-    const reescrito = JSON.parse(montajeALaURL(leido));
-    expect(reescrito.v).toBe(VERSION_DEL_ENLACE);
-    expect(reescrito).not.toHaveProperty('pruebas');
-    expect(JSON.stringify(reescrito)).not.toMatch(/criatura|shots|hexes/);
-  });
-
-  it('un enlace de la versión 1 (sin muralla ni escaleras) se sigue leyendo', () => {
-    const o = enLaVersion2(false);
-    o.v = 1;
-    delete o.muralla;
-    for (const l of ['izquierda', 'derecha']) {
-      for (const p of o[l].puestos) delete p.escalera;
-    }
-    const leido = montajeDeLaURL(JSON.stringify(o), perfilDe);
-    expect(leido.muralla).toBeNull();
-    expect([...leido.izquierda.puestos, ...leido.derecha.puestos].every((p) => !p.escalera)).toBe(
-      true,
-    );
-    expect([leido.izquierda.ia, leido.derecha.ia]).toEqual([false, true]);
-    // Y se reescribe en la versión de ahora.
-    expect(JSON.parse(montajeALaURL(leido)).v).toBe(VERSION_DEL_ENLACE);
-  });
-
   it('un enlace mal formado o con lo que no existe se rechaza diciendo qué', () => {
     const casos: [string, string][] = [
       ['{"v":1,', 'el montaje del enlace no se puede leer'],
-      [tocado((o) => (o.v = 10)), 'es de la versión 10 y esta arena lee de la 1 a la 9'],
-      // La versión es un entero de la 1 a la de hoy: ni 0, ni a medias, ni texto.
-      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena'],
-      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena'],
-      [tocado((o) => (o.v = '5')), 'es de la versión "5" y esta arena'],
+      [tocado((o) => (o.v = 10)), 'es de la versión 10 y esta arena lee la 9'],
+      // La versión es la de hoy: ni 0, ni a medias, ni texto.
+      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 9'],
+      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 9'],
+      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 9'],
+      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 9'],
       [tocado((o) => delete o.muralla), 'falta «muralla»'],
       [tocado((o) => o.muralla.muros.push({ col: 99, row: 0 })), 'la muralla del enlace no vale'],
       [
@@ -1884,7 +1602,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
       ],
       [tocado((o) => (o.sobra = 1)), '«sobra» no es un campo del enlace'],
       [tocado((o) => delete o.derecha), 'falta «derecha»'],
-      // Desde la 8, solo la arena: ni criaturas del catálogo ni sus pruebas.
+      // Solo la arena: ni criaturas del catálogo ni sus pruebas.
       [
         tocado((o) => (o.izquierda.puestos[1] = { criatura: 'pikeman', escalera: false })),
         'el bando izquierdo del enlace, puesto 2: «criatura» no es un campo del enlace',
@@ -1892,7 +1610,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
       [tocado((o) => (o.pruebas = {})), '«pruebas» no es un campo del enlace'],
       [
         tocado((o) => (o.unidades[0].cuerpo = { criatura: 'pikeman' })),
-        'su cuerpo es una criatura del catálogo del juego',
+        'el cuerpo tiene que ser { hoja }, y trae criatura',
       ],
       [tocado((o) => (o.unidades[0].shots = 12)), '«shots» no es un campo de la arena'],
       [tocado((o) => (o.unidades[0].hexes = 2)), '«hexes» no es un campo de la arena'],
@@ -2575,103 +2293,6 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
     // El dragón óseo sigue en el catálogo del juego, de dos casillas (C5).
     expect(creature('bone_dragon').hexes).toBe(2);
   });
-
-  it('un borrador de antes se convierte a cuerpo + el equipo de su perfil, una sola vez', () => {
-    const viejo = deAntes('templario-escudo');
-    const { unidad: leida, aviso } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO, 'borrador');
-    // Su vida contaba los 70 PV de la brigantina, que hoy da 7 de armadura (#262).
-    expect(aviso).toBe(
-      'La unidad «Guerrero con escudo» contaba en su vida 70 PV de su armadura: ahora lleva 7 de armadura, que se resta del daño de cada golpe.',
-    );
-    const u = leida!;
-    const kit = KIT_DEL_PERFIL['espada-escudo'].equipo;
-    expect(u.equipo).toEqual(kit);
-    // El cuerpo es lo de antes menos lo que suma el kit, con la armadura en PV
-    // (PV / 10 al revés: 7 puntos son 70 PV de antes).
-    const suma = DEL_JUEGO.sumaDeEquipo(kit);
-    expect(suma.armadura).toBe(7);
-    expect([u.attack, u.defense, u.hp]).toEqual([
-      (viejo.attack as number) - suma.ataque,
-      (viejo.defense as number) - suma.defensa,
-      (viejo.hp as number) - suma.pv - 70,
-    ]);
-    // Lo convertido ya es de hoy: no se convierte dos veces.
-    expect(migrarUnidadDeArena(u, perfilDe, DEL_JUEGO, 'borrador')).toEqual({
-      unidad: u,
-      aviso: null,
-      municion: null,
-      retirada: null,
-    });
-  });
-
-  it('si no cabe en cuerpo + equipo, se queda con sus cifras y sin equipo, y se dice', () => {
-    // Un ataque por debajo de lo que suma la espada (2): el cuerpo saldría negativo.
-    const flojo = deAntes('templario-escudo', { attack: 1 });
-    const r = migrarUnidadDeArena(flojo, perfilDe, DEL_JUEGO, 'borrador');
-    expect(r.unidad!.equipo).toEqual({});
-    expect(r.unidad!.attack).toBe(1);
-    // El aviso habla de lo que escribió quien juega y de qué pieza no cabe (H2 de
-    // QA): no de las cifras del cuerpo calculado, que nadie escribió.
-    expect(r.aviso).toBe(
-      'La unidad «Guerrero con escudo» es de antes del equipo y no cabe en el de su perfil: su ataque 1 es menos de lo que suma Espada (+2); se queda con sus cifras, sin equipo.',
-    );
-    // La reproducción de QA: el mandoble con 45–70, más estrecho que el del arma.
-    const estrecho = migrarUnidadDeArena(
-      deAntes('templario-mandoble', { damage: [45, 70] }),
-      perfilDe,
-      DEL_JUEGO,
-      'borrador',
-    );
-    expect(estrecho.unidad!.equipo).toEqual({});
-    expect(estrecho.unidad!.damage).toEqual([45, 70]);
-    expect(estrecho.aviso).toContain(
-      'no cabe en el de su perfil: su daño 45–70 es más estrecho que el de Mandoble (+30–+60); se queda con sus cifras, sin equipo.',
-    );
-    // R3: todas las cifras que no caben, no solo la primera.
-    const varias = migrarUnidadDeArena(
-      deAntes('templario-escudo', { attack: 1, defense: 0, hp: 5 }),
-      perfilDe,
-      DEL_JUEGO,
-      'borrador',
-    );
-    expect(varias.aviso).toContain('su ataque 1 es menos de lo que suma Espada (+2); ');
-    expect(varias.aviso).toMatch(/; su defensa 0 es menos de lo que suma [^;]+; su vida 5 no pasa/);
-    // R3: en un borrador de la escala de fheroes2, la vida como la escribió (9),
-    // y al lado la de hoy, en la que suman las piezas.
-    const vieja = migrarUnidadDeArena(
-      deAntes('templario-mandoble', { level: 1, hp: 9, damage: [2, 3] }),
-      perfilDe,
-      DEL_JUEGO,
-      'borrador',
-    );
-    expect(vieja.unidad!.hp).toBe(90);
-    expect(vieja.aviso).toContain(
-      'su vida 9 (90 en la escala de hoy, ×10) no pasa de lo que suma Arnés de placas (+100 PV, que hoy son 10 de armadura); su daño 2–3 (20–30 en la escala de hoy, ×10) no pasa de lo que suma Mandoble',
-    );
-    expect(vieja.aviso).not.toMatch(/su vida 90/);
-    // Los tiros ya no se restan (13-10-2026): un arquero con menos de los que
-    // daba el arco cabe igual, y sigue disparando sin munición.
-    const pocosTiros = migrarUnidadDeArena(
-      deAntes('esqueleto-arquero', { shots: 4 }),
-      perfilDe,
-      DEL_JUEGO,
-      'borrador',
-    );
-    expect(pocosTiros.unidad!.equipo).toMatchObject({ distancia: 'arco' });
-    expect(pocosTiros.municion).toBe(pocosTiros.unidad!.name);
-    // Una frase entera, que el borrador y el enlace juntan tal cual.
-    expect(r.aviso).toMatch(/^La unidad «.+\.$/);
-    // Sin el perfil de su hoja, igual, diciéndolo.
-    const sinPerfil = migrarUnidadDeArena(deAntes('zombi'), () => null, DEL_JUEGO, 'borrador');
-    expect(sinPerfil.unidad!.equipo).toEqual({});
-    expect(sinPerfil.aviso).toContain('no se sabe el perfil de su hoja');
-    // El borrador lo lee y cuenta el aviso.
-    const r2 = revisarBorradorDeArena({ unidades: [flojo, deAntes('zombi')] }, perfilDe, DEL_JUEGO);
-    expect(r2.validas.map((u) => u.id)).toEqual(['templario-escudo', 'zombi']);
-    // El de la que no cabe y el de la armadura del zombi, que cabe (#262).
-    expect(r2.avisos).toHaveLength(2);
-    expect(r2.avisos[1]).toMatch(/^La unidad «Zombie» contaba en su vida 70 PV de su armadura/);
-  });
 });
 
 describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertido', () => {
@@ -2753,159 +2374,31 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     });
   });
 
-  it('un borrador o un enlace de antes, con el arco en «arma», se lee convertido y lo dice', () => {
-    // Un arquero ya con cuerpo, del ciclo 2: el arco en `arma`.
+  it('lo de antes de cada arma en su hueco no vale: ni la unidad con el arco en «arma» ni la pieza', () => {
+    // Sin compatibilidad hacia atrás (14-10-2026): no se pasa a su hueco, se dice.
     const viejo = {
       ...unidad('elfo-arquero'),
       equipo: { arma: 'arco', armadura: 'jubon_de_arquero' },
     };
-    const { unidad: leida, aviso } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO, 'borrador');
-    const u = leida!;
-    expect(u.equipo).toEqual({ distancia: 'arco', armadura: 'jubon_de_arquero' });
-    expect(aviso).toBe(
-      'La unidad «Arquero» llevaba Arco en Arma: pasa a Arma a distancia, y cuerpo a cuerpo pega sin arma (ponle una en su ficha).',
-    );
-    // Dispara como antes; cuerpo a cuerpo, con el cuerpo.
-    expect(delUso(u, 'distancia')).toEqual(['Arco', 5, [20, 30]]);
-    expect(delUso(u, 'cuerpo')).toEqual([null, 3, [10, 10]]);
-    // Lo convertido es de hoy: no se convierte dos veces.
-    expect(migrarUnidadDeArena(u, perfilDe, DEL_JUEGO, 'borrador')).toEqual({
-      unidad: u,
-      aviso: null,
-      municion: null,
-      retirada: null,
-    });
-    // Con la lanza, igual: a la carga.
-    const jinete = {
-      ...unidad('templario-hermano-de-carga'),
-      equipo: { arma: 'lanza_de_jinete', armadura: 'barda' },
-    };
-    expect(migrarUnidadDeArena(jinete, perfilDe, DEL_JUEGO, 'borrador').unidad!.equipo).toEqual({
-      carga: 'lanza_de_jinete',
-      armadura: 'barda',
-    });
-    // Escrito a mano con la regla de hoy, no se lee: lo de antes solo entra convertido.
     expect(() => validarUnidadDeArena(viejo, DEL_JUEGO)).toThrow(
       'Arco va en Arma a distancia, no en Arma',
     );
-  });
-
-  it('un arquero de antes de cuerpo y equipo sale con el cuerpo de hoy, el arco en su hueco y el aviso', () => {
-    const viejo = deAntes('elfo-arquero');
-    const {
-      unidad: leida,
-      aviso,
-      municion,
-    } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO, 'borrador');
-    const u = leida!;
-    // El kit de entonces (arco en arma + jubón) se resta como sumaba: 12 − 2, 100–200 − 10–20…
-    expect([u.attack, u.defense, u.damage, u.hp]).toEqual([10, 12, [90, 180], 380]);
-    expect(u).not.toHaveProperty('shots');
-    expect(u.equipo).toEqual({ distancia: 'arco', armadura: 'jubon_de_arquero' });
-    expect(aviso).toContain('llevaba Arco en Arma: pasa a Arma a distancia');
-    // Sus 30 tiros se van: dispara siempre, y eso se dice una vez por borrador.
-    expect(municion).toBe(u.name);
-    expect(revisarBorradorDeArena({ unidades: [viejo] }, perfilDe, DEL_JUEGO).avisos).toContain(
-      `Ya no hay munición: «${u.name}» traía sus tiros y dispara siempre con su arma a distancia.`,
-    );
-    // Y dispara con lo de antes: 12, 100–200.
-    expect(delUso(u, 'distancia')).toEqual(['Arco', 12, [100, 200]]);
-    expect(isShooter(golpes(u).c)).toBe(true);
-    // El jinete élfico de antes era `montado-lanza`: su lanza pasa a la carga.
-    const elfico = migrarUnidadDeArena(deAntes('elfo-jinete'), perfilDe, DEL_JUEGO, 'borrador');
-    expect(elfico.unidad!.equipo).toEqual({ carga: 'lanza_de_jinete', armadura: 'barda' });
-    expect(delUso(elfico.unidad!, 'carga')).toEqual(['Lanza de jinete', 12, [100, 200]]);
-  });
-
-  it('las piezas de antes se leen en su hueco: el arco del juego cambiado y una nueva con tiros', () => {
+    const r = revisarBorradorDeArena({ unidades: [viejo] }, DEL_JUEGO);
+    expect(r.validas).toEqual([]);
+    expect(r.invalidas.map((i) => i.crudo)).toEqual([viejo]);
+    // Las piezas: el arco del juego en `arma` y una nueva con disparos.
     const arcoCambiado = { ...DEL_JUEGO.pieza('arco'), hueco: 'arma', manos: 2, ataque: 4 };
-    const nueva = {
-      id: 'honda',
+    const honda = {
+      ...piezaNueva('distancia', DEL_JUEGO),
       nombre: 'Honda',
-      hueco: 'arma',
-      calidad: 'arena',
-      ataque: 1,
-      defensa: 0,
-      pv: 0,
-      velocidad: 0,
-      danio: [5, 10],
       disparos: 20,
-      manos: 2,
-      precio: { gold: 0 },
     };
-    const { validas, invalidas, avisos } = revisarBorradorDeEquipo({
-      piezas: [arcoCambiado, nueva],
-    });
-    expect(invalidas).toEqual([]);
-    expect(validas.map((p) => [p.id, p.hueco, p.manos, p.ataque])).toEqual([
-      ['arco', 'distancia', undefined, 4],
-      ['honda', 'distancia', undefined, 1],
+    const p = revisarBorradorDeEquipo({ piezas: [arcoCambiado, honda] });
+    expect(p.validas).toEqual([]);
+    expect(p.invalidas.map((i) => [i.clave, i.motivo])).toEqual([
+      ['arco', expect.stringContaining('su hueco no se cambia en la arena')],
+      [honda.id, expect.stringContaining('disparos')],
     ]);
-    expect(avisos).toEqual([
-      'La pieza «Arco» iba en Arma: pasa a Arma a distancia, y ya no es a dos manos.',
-      'La pieza «Honda» iba en Arma: pasa a Arma a distancia, y ya no es a dos manos. La pieza «Honda» traía 20 disparos: ya no hay munición, quien la lleve dispara siempre.',
-    ]);
-    // Sin el campo: la regla de hoy no lo admite (13-10-2026).
-    expect(validas.every((p) => !('disparos' in p))).toBe(true);
-    // Una pieza de arma sin tiros se queda en arma.
-    const garrote = { ...DEL_JUEGO.pieza('espada'), ataque: 3 };
-    expect(revisarBorradorDeEquipo({ piezas: [garrote] }).avisos).toEqual([]);
-    // Con las convertidas, una unidad que llevaba la honda en `arma` dispara con ella.
-    const eq = catalogoDeLaArena(validas);
-    const hondero = migrarUnidadDeArena(
-      { ...unidad('templario-escudo'), equipo: { arma: 'honda' } },
-      perfilDe,
-      eq,
-      'borrador',
-    );
-    expect(hondero.unidad!.equipo).toEqual({ distancia: 'honda' });
-  });
-
-  it('un enlace de la 6 con el arco en «arma» se convierte con aviso; el mismo en la 7 se rechaza', () => {
-    const arquero = unidad('elfo-arquero');
-    const piquero = unidad('imperio-piquero');
-    const MONTADO: MontajeDelEnlace = {
-      unidades: [arquero, piquero],
-      piezas: [],
-      izquierda: {
-        ia: false,
-        puestos: [{ unidad: arquero.id, escalera: false }],
-        heroe: null,
-      },
-      derecha: {
-        ia: true,
-        puestos: [{ unidad: piquero.id, escalera: false }],
-        heroe: null,
-      },
-      muralla: null,
-    };
-    const texto = montajeALaURL(MONTADO);
-    expect(JSON.parse(texto).v).toBe(9);
-    const deAntesDeLasArmas = (v: number): string => {
-      const o = JSON.parse(texto);
-      o.v = v;
-      // Hasta la 7, con las pruebas del catálogo.
-      o.pruebas = {};
-      o.unidades[0].equipo = { arma: 'arco', armadura: 'jubon_de_arquero' };
-      o.piezas = [{ ...DEL_JUEGO.pieza('arco'), hueco: 'arma', manos: 2, ataque: 3 }];
-      return JSON.stringify(o);
-    };
-    const leido = montajeDeLaURL(deAntesDeLasArmas(6));
-    expect(leido.unidades[0]?.equipo).toEqual({ distancia: 'arco', armadura: 'jubon_de_arquero' });
-    expect(leido.piezas.map((p) => [p.id, p.hueco, p.ataque])).toEqual([['arco', 'distancia', 3]]);
-    expect(leido.avisos?.join(' ')).toContain(
-      'La pieza «Arco» iba en Arma: pasa a Arma a distancia',
-    );
-    expect(leido.avisos?.join(' ')).toContain('La unidad «Arquero» llevaba Arco en Arma');
-    // Y se reescribe en la de hoy, ya en su hueco.
-    expect(JSON.parse(montajeALaURL(leido)).unidades[0].equipo).toEqual({
-      distancia: 'arco',
-      armadura: 'jubon_de_arquero',
-    });
-    // En la 7 ya no se convierte: el arco del juego en `arma` no es de ese enlace.
-    expect(() => montajeDeLaURL(deAntesDeLasArmas(7))).toThrow(
-      'una pieza del enlace no vale: «Arco» es una pieza del juego y va en Arma a distancia: su hueco no se cambia',
-    );
   });
 });
 
@@ -2965,83 +2458,75 @@ describe('sin munición: dispara quien lleva arma a distancia (13-10-2026)', () 
 });
 
 describe('sin el catálogo del juego (13-10-2026)', () => {
-  it('un cuerpo de criatura no vale hoy, y un borrador de antes con una la retira diciéndolo', () => {
+  it('un cuerpo de criatura no vale: no se retira ni se convierte, se queda como cualquiera que no vale', () => {
     expect(() =>
       validarUnidadDeArena({ ...unidad('zombi'), cuerpo: { criatura: 'skeleton' } }, DEL_JUEGO),
-    ).toThrow(
-      'la unidad «Zombie»: su cuerpo es una criatura del catálogo del juego, y en la arena solo están las cinco facciones de las hojas',
-    );
-    const esqueleto = {
-      ...unidad('zombi'),
-      id: 'skeleton-2',
-      name: 'Esqueleto 2',
-      cuerpo: { criatura: 'skeleton' },
-      shots: 3,
-    };
+    ).toThrow('la unidad «Zombie»: el cuerpo tiene que ser { hoja }, y trae criatura');
     const dragon = {
       ...unidad('zombi'),
       id: 'bone-dragon-2',
       name: 'Dragón óseo 2',
       cuerpo: { criatura: 'bone_dragon' },
-      hexes: 2,
     };
-    const r = revisarBorradorDeArena(
-      { unidades: [unidad('zombi'), esqueleto, dragon] },
-      perfilDe,
-      DEL_JUEGO,
-    );
-    // Ni vale ni se conserva: se va, y se dice.
+    const r = revisarBorradorDeArena({ unidades: [unidad('zombi'), dragon] }, DEL_JUEGO);
     expect(r.validas.map((u) => u.id)).toEqual(['zombi']);
-    expect(r.invalidas).toEqual([]);
-    // Lo que se retira va aparte (`seRetiran`), para decirlo antes que nada: es
-    // lo que «Guardar» pierde (H1 de QA). El tamaño y los tiros que traían, ni se
-    // dicen: con la unidad se va todo.
-    expect(r.seRetiran).toEqual([
-      'La unidad «Esqueleto 2» era una criatura del catálogo del juego («skeleton»): en la arena solo están las cinco facciones de las hojas, y se retira.',
-      'La unidad «Dragón óseo 2» era una criatura del catálogo del juego («bone_dragon»): en la arena solo están las cinco facciones de las hojas, y se retira.',
-    ]);
-    expect(r.avisos).toEqual([]);
-    // Una a una, la retirada trae su id: con él el enlace quita también sus puestos.
-    expect(migrarUnidadDeArena(dragon, perfilDe, DEL_JUEGO, 'borrador')).toMatchObject({
-      unidad: null,
-      retirada: 'bone-dragon-2',
-    });
-    // Lo que «Guardar» escribe es lo que vale: la retirada no vuelve al disco.
-    expect(validarBorradorDeArena({ unidades: r.validas }, DEL_JUEGO)).toEqual(r.validas);
-    const { shots: _tiros, ...sinTiros } = esqueleto;
-    expect(() => validarBorradorDeArena({ unidades: [sinTiros] }, DEL_JUEGO)).toThrow(
-      'su cuerpo es una criatura del catálogo del juego',
-    );
+    expect(r.invalidas.map((i) => [i.id, i.crudo])).toEqual([['bone-dragon-2', dragon]]);
   });
+});
 
-  it('en disco: leer y guardar un borrador con una criatura la deja fuera', () => {
+describe('sin compatibilidad hacia atrás (14-10-2026)', () => {
+  it('en disco: lo de antes sale como que no vale, con su motivo, y «Guardar» lo conserva sin convertirlo', () => {
     const dir = mkdtempSync(join(tmpdir(), 'arena-'));
     try {
       mkdirSync(join(dir, 'data/borradores'), { recursive: true });
-      const criatura = {
-        ...unidad('zombi'),
-        id: 'peasant-2',
-        name: 'Campesino 2',
-        cuerpo: { criatura: 'peasant' },
-      };
+      // Uno de cada formato de antes: con `level`, con el arco en `arma`, sin
+      // cuerpo (antes del equipo), con un cuerpo de criatura y con tiros.
+      const { cuerpo: _c, equipo: _e, ...sinCuerpo } = unidad('templario-escudo');
+      const deAntes = [
+        { ...unidad('templario-monje'), level: 3 },
+        { ...unidad('elfo-arquero'), equipo: { arma: 'arco', armadura: 'jubon_de_arquero' } },
+        sinCuerpo,
+        {
+          ...unidad('zombi'),
+          id: 'peasant-2',
+          name: 'Campesino 2',
+          cuerpo: { criatura: 'peasant' },
+        },
+        { ...unidad('esqueleto-arquero'), shots: 12 },
+      ];
       writeFileSync(
         join(dir, RUTA_DEL_BORRADOR),
-        JSON.stringify({ unidades: [unidad('zombi'), criatura] }),
+        JSON.stringify({ unidades: [unidad('troll-maza'), ...deAntes] }),
       );
       const leido = leerBorrador(dir);
-      expect(leido.unidades.map((u) => u.id)).toEqual(['zombi']);
-      expect(leido.invalidas).toEqual([]);
-      expect(leido.seRetiran.join(' ')).toContain('«Campesino 2» era una criatura del catálogo');
-      escribirBorrador(dir, { unidades: leido.unidades, piezas: [] });
-      const json = readFileSync(join(dir, RUTA_DEL_BORRADOR), 'utf8');
-      expect(json).not.toContain('peasant');
-      expect(json).not.toContain('"criatura"');
+      expect(leido.unidades.map((u) => u.id)).toEqual(['troll-maza']);
+      expect(leido.invalidas.map((i) => i.crudo)).toEqual(deAntes);
+      expect(leido.invalidas.map((i) => i.motivo)).toEqual([
+        expect.stringContaining('«level» no es un campo de la arena'),
+        expect.stringContaining('Arco va en Arma a distancia, no en Arma'),
+        expect.stringContaining(
+          'la unidad «Guerrero con escudo»: el cuerpo tiene que ser { hoja }',
+        ),
+        expect.stringContaining('el cuerpo tiene que ser { hoja }, y trae criatura'),
+        expect.stringContaining('«shots» no es un campo de la arena'),
+      ]);
+      // «Guardar» escribe lo que manda la página y conserva lo de antes tal cual.
+      expect(escribirBorrador(dir, { unidades: leido.unidades, piezas: [] })).toMatchObject({
+        unidades: 1,
+        conservadas: deAntes.length,
+      });
+      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_BORRADOR), 'utf8')) as {
+        unidades: unknown[];
+      };
+      expect(json.unidades).toEqual([unidad('troll-maza'), ...deAntes]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it('el comentario del borrador lo dice: solo hojas, sin munición ni tamaño', () => {
+  it('el comentario del borrador lo dice: solo hojas, sin munición ni tamaño, y solo lo de hoy', () => {
+    expect(COMENTARIO_DEL_BORRADOR).toContain('Solo se lee el formato de hoy');
+    expect(COMENTARIO_DEL_BORRADOR).not.toContain('migrarUnidadDeArena');
     expect(COMENTARIO_DEL_BORRADOR).toContain('cuerpo: { hoja }');
     expect(COMENTARIO_DEL_BORRADOR).not.toContain('{ criatura }');
     expect(COMENTARIO_DEL_BORRADOR).toContain('sin munición');

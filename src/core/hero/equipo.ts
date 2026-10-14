@@ -296,11 +296,9 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
 
 /**
  * La suma, **clasificada por la clave del hueco en `equipo`**, no por el hueco
- * que dice la pieza: con un equipo válido es lo mismo, y así la conversión de la
- * arena puede sumar un kit de antes (el arco en `arma`) con la regla de antes
- * (`migrarUnidadDeArena`). El ataque y el daño de un arma por uso
- * (`esArmaPorUso`) no suman aquí, que son los de su golpe (`armasPorUso`); lo
- * demás de cualquier pieza —defensa, PV, velocidad—, siempre.
+ * que dice la pieza: con un equipo válido es lo mismo. El ataque y el daño de un
+ * arma por uso (`esArmaPorUso`) no suman aquí, que son los de su golpe
+ * (`armasPorUso`); lo demás de cualquier pieza —defensa, PV, velocidad—, siempre.
  */
 function sumaDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): SumaDeEquipo {
   let ataque = 0;
@@ -446,8 +444,8 @@ function armasPorUso(
  * Si `a` y `b` tienen las mismas cifras en todo lo que el equipo suma: ataque,
  * defensa, daño, PV, armadura y velocidad, y las de cada arma (`armas`). Junto a `conEquipo` porque es quien
  * sabe qué campos toca: si mañana suma otro, esta comparación tiene que verlo.
- * La lee la conversión de la arena (`migrarUnidadDeArena`) para comprobar al
- * revés que un cuerpo con su equipo pelea como las cifras de antes.
+ * La lee el cambio de una pieza a media pelea de la arena (`retocarEnBatalla`):
+ * solo cambia las cifras, y lo escribe en el parte, de quien de verdad cambia.
  */
 export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
   return (
@@ -463,10 +461,10 @@ export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
 }
 
 /**
- * Cuántos PV de antes vale un punto de armadura (#262): la conversión de lo de
- * antes —piezas de la arena con PV y unidades de antes del equipo, cuyas cifras
- * sumaban los PV del kit— y la de una pieza del juego duplicada en la arena.
- * **Inventado**, como las cifras de `data/equipo.json`, que salen de aquí.
+ * Cuántos PV vale un punto de armadura (#262): la conversión de una pieza del
+ * juego que suma PV duplicada en la arena, que protege con armadura
+ * (`piezaNueva`). **Inventado**, como las cifras de `data/equipo.json`, que
+ * salen de aquí.
  */
 export const PV_POR_PUNTO_DE_ARMADURA = 10;
 
@@ -477,29 +475,12 @@ export const PV_POR_PUNTO_DE_ARMADURA = 10;
  */
 export const ARMADURA_MAXIMA_DE_PIEZA = 99;
 
-/** Los PV de antes que valen `n` puntos de armadura (`PV_POR_PUNTO_DE_ARMADURA` cada uno). */
-export function pvDeLaArmadura(n: number): number {
-  return n * PV_POR_PUNTO_DE_ARMADURA;
-}
-
 /**
- * `pv` PV de antes en puntos de armadura: al entero más cercano (45 → 5). La
- * inversa de `pvDeLaArmadura`, que redondea porque los PV de antes no venían de
- * diez en diez.
+ * `pv` PV en puntos de armadura: al entero más cercano (45 → 5), que los PV de
+ * una pieza no van de diez en diez.
  */
 export function armaduraDePV(pv: number): number {
   return Math.round(pv / PV_POR_PUNTO_DE_ARMADURA);
-}
-
-/**
- * `u` con su armadura vuelta a PV (`pvDeLaArmadura`) y sin
- * ella: lo que pelearía con la regla de antes de la armadura. Lo lee la conversión
- * de la arena para comprobar al revés, con `mismasCifras`, que una unidad de antes
- * del equipo pelea como antes salvo por eso (`cuerpoSinElKit`).
- */
-export function conLaArmaduraEnPV(u: UnitInfo): UnitInfo {
-  const { puntosDeArmadura, ...sin } = u;
-  return { ...sin, hp: u.hp + pvDeLaArmadura(puntosDeArmadura ?? 0) };
 }
 
 function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefined): boolean {

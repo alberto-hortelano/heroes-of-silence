@@ -43,7 +43,6 @@ import {
   PIEZAS_DEL_JUEGO,
   pieza,
   ponerPieza,
-  sumaDeEquipo,
   textoDeModificador,
 } from '../src/core/hero/equipo.js';
 import { cifrasDeCatalogo, umbral } from '../src/core/hero/experiencia.js';
@@ -311,16 +310,7 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     expect(mismasCifras(enDos, arquero)).toBe(true);
     expect(enDos.sinEquipo).toBe(c);
     expect(enDos.equipo).toEqual(arquero.equipo);
-    // La suma por hueco: el arco en `arma` (un kit de antes) suma como sumaba.
-    expect(sumaDeEquipo({ arma: 'ballesta', armadura: 'gambeson' })).toEqual({
-      ataque: 3,
-      defensa: 1,
-      pv: 0,
-      armadura: 4,
-      velocidad: 0,
-      danio: [20, 40],
-    });
-    // Y con la ballesta en su hueco, su ataque y su daño son del disparo, no de arriba.
+    // Con la ballesta en su hueco, su ataque y su daño son del disparo, no de arriba.
     expect(
       arena.sumaDeEquipo({ arma: 'daga', distancia: 'ballesta', armadura: 'gambeson' }),
     ).toEqual({

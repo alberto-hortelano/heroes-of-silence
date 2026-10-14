@@ -3880,6 +3880,49 @@ async function bandosDichos(page: Page): Promise<string> {
 }
 
 /**
+ * Una unidad de antes en el borrador (con `level`, 14-10-2026: sin compatibilidad
+ * hacia atrás) no vale: la página la dice con su motivo entero en el recuadro que
+ * se despliega solo desde la barra, a 1440 y a 390 de ancho; «Entendido» lo cierra
+ * y el botón de la barra lo vuelve a abrir. El borrador se deja como estaba.
+ */
+async function loQueNoValeAlLeer(page: Page, url: string): Promise<void> {
+  const ruta = join(process.cwd(), RUTA_DEL_BORRADOR);
+  const guardado = readFileSync(ruta, 'utf8');
+  const json = JSON.parse(guardado) as { unidades: Record<string, unknown>[] };
+  // La primera guardada, con otro id y el `level` de la escala de fheroes2.
+  const viejo = { ...json.unidades[0], id: 'unidad-de-antes', level: 3 };
+  writeFileSync(ruta, JSON.stringify({ ...json, unidades: [...json.unidades, viejo] }, null, 2));
+  try {
+    const motivo = leerBorrador(process.cwd()).invalidas.find((i) => i.id === viejo.id)?.motivo;
+    if (motivo === undefined) throw new Error('no-vale: la unidad con «level» vale');
+    const frase = `${viejo.id}: ${motivo}`;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${url}/arena/`, { waitUntil: 'networkidle' });
+    await page.locator('#avisos-de-lectura li').first().waitFor({ timeout: 5000 });
+    if (!(await page.locator('#status').innerText()).includes('«Avisos al leer»')) {
+      throw new Error('no-vale: la barra no dice dónde leer lo que no vale');
+    }
+    await avisosEnteros(page, [frase], 'no-vale (1440)');
+    await captura(page, 'arena-09c-no-vale');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await avisosEnteros(page, [frase], 'no-vale (390)');
+    await captura(page, 'arena-09d-no-vale-movil');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.locator('[data-arena="cerrar-avisos"]').click();
+    if (await page.locator('#avisos-de-lectura').isVisible()) {
+      throw new Error('no-vale: «Entendido» no cierra el recuadro');
+    }
+    // Y se vuelve a abrir desde la barra.
+    await page.locator('#ver-avisos', { hasText: 'Avisos al leer (1)' }).click();
+    await avisosEnteros(page, [frase], 'no-vale (reabierto)');
+    await page.locator('[data-arena="cerrar-avisos"]').click();
+    log('no-vale: una unidad con «level» no vale y se dice entera, en el recuadro de la barra');
+  } finally {
+    writeFileSync(ruta, guardado);
+  }
+}
+
+/**
  * Que los avisos de lo leído (`#avisos-de-lectura`, desplegados desde la barra)
  * empiecen por `primeros`, en ese orden y enteros, y que cada uno se lea entero en
  * la pantalla: su punto de la lista sin recortar (ni por su caja ni por la del
@@ -3918,9 +3961,9 @@ async function avisosEnteros(page: Page, primeros: readonly string[], paso: stri
  * un héroe con su hoja de figura y sus cifras en cada lado, todo en IA, y dos
  * reglas de fheroes2—, se copia el enlace, y abierto en otra página monta lo
  * mismo y se queda en el montaje sin luchar. Un enlace de hoy con una criatura
- * del catálogo (que ya no está en la arena, 13-10-2026) y un `?reglas=` repetido
- * se rechazan diciéndolo; uno de la versión 7 con una criatura y un dragón óseo
- * se monta sin ellos y lo dice, entero (`avisosEnteros`).
+ * del catálogo (que ya no está en la arena, 13-10-2026), uno de la versión 8 y un
+ * `?reglas=` repetido se rechazan diciéndolo, y una unidad de antes en el borrador
+ * no vale y se dice entera (`loQueNoValeAlLeer`).
  */
 async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -4010,54 +4053,26 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   if ((await otra.locator('#bando-izquierda .puesto, #bando-derecha .puesto').count()) !== 0) {
     throw new Error('enlace: un enlace roto ha montado algo');
   }
-  // De antes: uno de la versión 7 con una criatura en un puesto y un dragón óseo
-  // de cuerpo de criatura monta lo demás y lo dice, entero, en el recuadro que se
-  // despliega solo desde la barra y lo que se quita primero (H1 de QA, 14-10-2026:
-  // en la barra, cortada a dos líneas, no se llegaba a leer).
+  // De otra versión: uno de la 8 no monta nada y dice que se vuelva a copiar
+  // (14-10-2026, el usuario: «no queremos mantener compatibilidad hacia atrás»).
   await otra.goto(
     conMontaje((m) => {
-      m.v = 7;
-      m.pruebas = { pikeman: { attack: 8 } };
-      m.izquierda.puestos.push({ criatura: 'pikeman', escalera: false });
-      m.unidades.push({
-        ...m.unidades[0],
-        id: 'bone-dragon-2',
-        name: 'Dragón óseo',
-        cuerpo: { criatura: 'bone_dragon' },
-        hexes: 2,
-      });
-      m.derecha.puestos.push({ unidad: 'bone-dragon-2', escalera: false });
+      m.v = 8;
     }),
     { waitUntil: 'networkidle' },
   );
-  const quitado = [
-    'El enlace montaba criaturas del catálogo del juego («pikeman»): en la arena solo están las cinco facciones de las hojas, y se quitan.',
-    'La unidad «Dragón óseo» era una criatura del catálogo del juego («bone_dragon»): en la arena solo están las cinco facciones de las hojas, y se retira.',
-  ];
-  await otra.locator('#avisos-de-lectura li').first().waitFor({ timeout: 5000 });
-  if ((await bandosDichos(otra)) !== montado) {
-    throw new Error('enlace: el de la versión 7 no monta lo demás tal cual');
+  await otra
+    .locator('#status', {
+      hasText:
+        'este enlace es de una versión anterior de la arena (la 8; la de hoy es la 9): vuelve a copiarlo',
+    })
+    .waitFor({ timeout: 5000 });
+  if ((await otra.locator('#bando-izquierda .puesto, #bando-derecha .puesto').count()) !== 0) {
+    throw new Error('enlace: uno de la versión 8 ha montado algo');
   }
-  if (!(await otra.locator('#status').innerText()).includes('«Avisos al leer»')) {
-    throw new Error('enlace: la barra no dice dónde leer los avisos del enlace de la 7');
-  }
-  await avisosEnteros(otra, quitado, 'enlace (1440)');
-  await captura(otra, 'arena-09b-enlace-de-la-7');
-  await otra.setViewportSize({ width: 390, height: 844 });
-  await avisosEnteros(otra, quitado, 'enlace (390)');
-  await captura(otra, 'arena-09c-enlace-de-la-7-movil');
-  await otra.setViewportSize({ width: 1440, height: 900 });
-  await otra.locator('[data-arena="cerrar-avisos"]').click();
-  if (await otra.locator('#avisos-de-lectura').isVisible()) {
-    throw new Error('enlace: «Entendido» no cierra los avisos');
-  }
-  // Y se vuelven a abrir desde la barra.
-  await otra.locator('#ver-avisos', { hasText: 'Avisos al leer (' }).click();
-  await avisosEnteros(otra, quitado, 'enlace (reabiertos)');
-  await otra.locator('[data-arena="cerrar-avisos"]').click();
-  log(
-    'enlace: uno de la 7 con una criatura y un dragón monta lo demás y lo dice entero, lo quitado primero',
-  );
+  await captura(otra, 'arena-09b-enlace-de-la-8');
+  log('enlace: uno de la versión 8 no se monta y dice que se vuelva a copiar');
+  await loQueNoValeAlLeer(otra, url);
   // Repetido: `reglas` dos veces se rechaza diciéndolo (H4 de QA del banco).
   await otra.goto(`${url}/arena/?seed=5&reglas=tirador&reglas=bendicion`, {
     waitUntil: 'networkidle',

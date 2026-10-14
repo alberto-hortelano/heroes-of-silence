@@ -13,7 +13,6 @@
 
 import {
   avisoDeLaCopia,
-  CON_PIEZAS,
   cambioDePiezaBlocker,
   catalogoDeLaArena,
   conPieza,
@@ -34,7 +33,6 @@ import {
   montajeALaURL,
   montajeDeLaURL,
   type PuestoDelEnlace,
-  perfilDeLasHojas,
   piezaNueva,
   piezasDelEnlace,
   piezasDelMontaje,
@@ -199,7 +197,7 @@ const elFicha = document.getElementById('ficha') as HTMLElement;
 const elCatalogo = document.getElementById('catalogo') as HTMLElement;
 const elMuralla = document.getElementById('muralla') as HTMLElement;
 const elMontaje = document.getElementById('montaje') as HTMLElement;
-/** Los avisos de lo que se lee convertido, enteros, desplegados desde la barra (`renderAvisosDeLectura`). */
+/** Lo que no vale de los borradores, entero, desplegado desde la barra (`renderAvisosDeLectura`). */
 const elAvisosDeLectura = document.getElementById('avisos-de-lectura') as HTMLElement;
 /** El botón de la barra que los despliega. */
 const botonVerAvisos = document.getElementById('ver-avisos') as HTMLElement;
@@ -427,8 +425,8 @@ let sinGuardado: string | null = null;
  */
 let sinBorradorDeUnidades: { readonly ruta: string; readonly dicho: string } | null = null;
 /**
- * Lo que se dijo al leer el borrador y el enlace, entero y con lo que se retira
- * primero (`pintarAvisosDeLectura`). La barra lleva el resumen.
+ * Lo que no vale de los borradores al leerlos, con su motivo entero
+ * (`pintarAvisosDeLectura`). La barra lleva el resumen.
  */
 let avisosDeLectura: readonly AvisosDeLectura[] = [];
 /** Si el recuadro de los avisos está desplegado: solo al arrancar, y luego con su botón. */
@@ -734,10 +732,6 @@ interface RespuestaDeBorrador {
   readonly piezasInvalidas?: readonly SinValidar[];
   /** El archivo de piezas no se puede leer: las unidades se leen con las del juego. */
   readonly equipoIlegible?: string;
-  /** Las unidades que se retiran al leerlas (su cuerpo era una criatura): «Guardar» las pierde. */
-  readonly seRetiran?: readonly string[];
-  /** Lo demás que hubo que decir al convertir lo de antes (`migrarUnidadDeArena`, `piezaDeAntes`). */
-  readonly avisos?: readonly string[];
 }
 
 /**
@@ -828,8 +822,6 @@ async function arrancar(): Promise<void> {
   }
   // Las piezas antes que las unidades: una unidad puede llevar una nueva.
   const avisoDeEquipo = cargarPiezas(cuerpo);
-  // Llegan ya convertidas al formato de hoy (cuerpo y equipo): las de antes las
-  // convierte el servidor al leerlas, con el perfil de su hoja.
   const unidades = Array.isArray(cuerpo.unidades) ? cuerpo.unidades : [];
   const sinHoja: string[] = [];
   for (const crudo of unidades) {
@@ -847,30 +839,29 @@ async function arrancar(): Promise<void> {
   // Las que no tienen hoja se quedan en el borrador y se vuelven a guardar; solo
   // no se pueden montar.
   if (sinHoja.length > 0) aviso += ` No se pueden montar: ${sinHoja.join(', ')}.`;
-  const lectura: AvisosDeLectura = {
-    de: `Del borrador (${cuerpo.ruta ?? 'el borrador'}), convertido al formato de hoy: se guarda así al pulsar «Guardar».`,
-    seRetiran: cuerpo.seRetiran ?? [],
-    avisos: cuerpo.avisos ?? [],
-  };
-  const resumen = resumenDeLaLectura(lectura);
-  if (resumen !== '') {
-    aviso += resumen;
-    avisosDeLectura = [...avisosDeLectura, lectura];
-    for (const id of borrador.keys()) unidadesSinGuardar.add(id);
-  }
   idsSinValidar = invalidas.flatMap((i) => (typeof i.id === 'string' ? [i.id] : []));
-  if (invalidas.length > 0) {
-    aviso += ` No valen y se conservan tal cual al guardar: ${invalidas
-      .map((i) => `${i.id ?? '(sin id)'} (${i.motivo})`)
-      .join('; ')}.`;
-  }
+  // Lo que no vale, con su motivo entero en el recuadro de la barra
+  // (`renderAvisosDeLectura`), y en ella el resumen: cortada a dos líneas, el
+  // motivo de la segunda no se llegaba a leer.
+  avisosDeLectura = [
+    ...avisosDeLectura,
+    lecturaDe(`Del borrador de unidades (${cuerpo.ruta ?? 'el borrador'}):`, invalidas),
+    lecturaDe('De las piezas de la arena:', cuerpo.piezasInvalidas ?? []),
+  ].filter((l) => l.noValen.length > 0);
   aviso += avisoDeEquipo;
+  aviso += resumenDeLaLectura(avisosDeLectura);
+}
+
+/** Lo que no vale de un borrador, una frase por elemento con su motivo. */
+function lecturaDe(de: string, invalidas: readonly SinValidar[]): AvisosDeLectura {
+  return { de, noValen: invalidas.map((i) => `${i.id ?? '(sin id)'}: ${i.motivo}`) };
 }
 
 /**
  * Las piezas de la arena guardadas (`data/borradores/equipo.json`), que llegan
- * con las unidades. Devuelve lo que hay que añadir a la barra: cuántas, las que no
- * valen (se conservan al guardar) o el archivo ilegible.
+ * con las unidades. Devuelve lo que hay que añadir a la barra: cuántas, o el
+ * archivo ilegible. Las que no valen (se conservan al guardar) van al recuadro de
+ * lo leído, con las unidades (`lecturaDe`).
  */
 function cargarPiezas(cuerpo: RespuestaDeBorrador): string {
   if (cuerpo.equipoIlegible !== undefined) {
@@ -881,15 +872,9 @@ function cargarPiezas(cuerpo: RespuestaDeBorrador): string {
   const invalidas = cuerpo.piezasInvalidas ?? [];
   idsDePiezasSinValidar = invalidas.flatMap((i) => (typeof i.id === 'string' ? [i.id] : []));
   const n = piezasDelBorrador.length;
-  const cargadas =
-    n === 0
-      ? ''
-      : ` Piezas de la arena: ${n} ${n === 1 ? 'cambiada o nueva' : 'cambiadas o nuevas'}.`;
-  return invalidas.length === 0
-    ? cargadas
-    : `${cargadas} Piezas que no valen y se conservan tal cual al guardar: ${invalidas
-        .map((i) => `${i.id ?? '(sin id)'} (${i.motivo})`)
-        .join('; ')}.`;
+  return n === 0
+    ? ''
+    : ` Piezas de la arena: ${n} ${n === 1 ? 'cambiada o nueva' : 'cambiadas o nuevas'}.`;
 }
 
 /**
@@ -1774,11 +1759,7 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
           : `${cuales} del enlace no valen`,
       );
     }
-    // Con el perfil de cada hoja: un enlace de antes de la versión 5 trae las
-    // cifras de su perfil y se convierte a cuerpo y equipo al leerlo.
-    // Las unidades de un enlace de antes de la 6 se leen y pelean con las piezas
-    // de esta arena; las de la 6, con las suyas.
-    const m = montajeDeLaURL(texto, perfilDeLasHojas(hojas), piezasEnUso());
+    const m = montajeDeLaURL(texto);
     for (const u of m.unidades) {
       const motivo = porQueNoSeMonta(u);
       if (motivo !== null) throw new Error(`${u.name} no se monta: ${motivo}`);
@@ -1817,18 +1798,9 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
       distintas.length === 0
         ? ''
         : ` Las cifras de ${distintas.map((u) => u.name).join(', ')} son las del enlace, sin guardar.`;
-    // Lo que se quita del enlace, un bando de antes de la versión 3 que repartía,
-    // una unidad de antes de la 5 que no cupo en cuerpo y equipo… (`montajeDeLaURL`):
-    // entero en el recuadro de la barra, y en ella el resumen.
-    const lectura: AvisosDeLectura = {
-      de: 'Del enlace de la pelea:',
-      seRetiran: [],
-      avisos: m.avisos ?? [],
-    };
-    if (lectura.avisos.length > 0) avisosDeLectura = [lectura, ...avisosDeLectura];
     return {
       montado: true,
-      aviso: `Montada la pelea del enlace${semillaPedida === null ? '' : ` (semilla ${semillaPedida})`}: pulsa Luchar.${cifras}${piezasDichas}${resumenDeLaLectura(lectura)} `,
+      aviso: `Montada la pelea del enlace${semillaPedida === null ? '' : ` (semilla ${semillaPedida})`}: pulsa Luchar.${cifras}${piezasDichas} `,
     };
   } catch (err) {
     return noSeMonta(err);
@@ -1837,27 +1809,14 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
 
 /**
  * La capa del enlace tras abrir `m`, sin tocar nada todavía, y lo que hay que
- * decir. Desde la versión 6 (`CON_PIEZAS`), lo que llevan sus unidades y sus
- * héroes pelea con las piezas del enlace o, si no las trae, con las del juego
- * (`piezasDelEnlace`): van en la capa, encima del borrador, que no cambia. Antes
- * de la 6 se pelea con las de aquí, y si alguna de las que lleva está cambiada la
- * barra avisa de que puede no coincidir con el enlace original.
+ * decir. Lo que llevan sus unidades y sus héroes pelea con las piezas del enlace
+ * o, si no las trae, con las del juego (`piezasDelEnlace`): van en la capa,
+ * encima del borrador, que no cambia.
  */
-function capaAlAbrir(m: ReturnType<typeof montajeDeLaURL>): {
+function capaAlAbrir(m: MontajeDelEnlace): {
   readonly capa: readonly Pieza[];
   readonly dicho: string;
 } {
-  if (m.version < CON_PIEZAS) {
-    const conHeroe = m.izquierda.heroe !== null || m.derecha.heroe !== null;
-    const cambiadas = piezasDelMontaje(m.unidades, conHeroe, piezasEnUso());
-    return {
-      capa: capaDelEnlace,
-      dicho:
-        cambiadas.length === 0
-          ? ''
-          : ` Es un enlace de antes de las piezas editables (versión ${m.version}): pelea con las piezas de esta arena, y ${cambiadas.map((p) => `«${p.nombre}»`).join(', ')} ${cambiadas.length === 1 ? 'está cambiada' : 'están cambiadas'}; el resultado puede no coincidir con el del enlace original.`,
-    };
-  }
   const suyas = piezasDelEnlace(m);
   // La capa de un enlace anterior se queda para lo que este no lleva: sus
   // unidades siguen en el borrador.
@@ -3193,7 +3152,7 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
     aviso = delEnlace?.montado
       ? `${delEnlace.aviso}${aviso}${avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
       : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas}${avisoDeMurallas} Añade unidades a los dos bandos y pulsa Luchar.${deAbiertas}`;
-    // Lo leído con avisos se despliega solo, para que se lea antes de «Guardar».
+    // Lo que no vale se despliega solo, para que se lea antes de «Guardar».
     avisosDesplegados = cuantosAvisos(avisosDeLectura) > 0;
     pintarAvisosDeLectura();
     repintarMontaje();

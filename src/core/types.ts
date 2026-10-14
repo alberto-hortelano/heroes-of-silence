@@ -408,9 +408,8 @@ export function esHuecoDeArena(x: string): x is HuecoDeArena {
 /**
  * Si `h` es el hueco de un arma por uso, la de un golpe que no es el de cuerpo a
  * cuerpo (`distancia`, `carga`): los que solo tiene la arena. **La única
- * pregunta**: su ataque y su daño no suman arriba (`conEquipo`), una pieza del
- * juego no va en ellos (`validarEquipo`) y lo de antes que iba en `arma` pasa a
- * ellos (`armasEnSuHueco`).
+ * pregunta**: su ataque y su daño no suman arriba (`conEquipo`) y una pieza del
+ * juego no va en ellos (`validarEquipo`).
  */
 export function esArmaPorUso(h: HuecoDeArena): h is Exclude<HuecoDeArena, Hueco> {
   return !esHueco(h);

@@ -19,7 +19,6 @@ import {
 import { marcadoDe } from '../src/client/html.js';
 import {
   batallaDeArena,
-  CON_PIEZAS,
   cambioDePiezaBlocker,
   catalogoDeLaArena,
   conPieza,
@@ -34,7 +33,6 @@ import {
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
-  perfilDeLasHojas,
   piezaNueva,
   piezasDeLaArena,
   piezasDelEnlace,
@@ -72,7 +70,6 @@ import {
   unidadDeArena,
 } from './helpers.js';
 
-const perfilDe = perfilDeLasHojas(hojasDeLaArena());
 const ESPADA = pieza('espada');
 const ARCO = pieza('arco');
 /** La espada cambiada para la arena: más ataque que la del juego. */
@@ -296,13 +293,10 @@ describe('el enlace de la pelea lleva las piezas de la arena', () => {
     muralla: null,
   };
 
-  it('desde la versión 6: va y vuelve con la pieza nueva, y monta con las del juego más las suyas', () => {
-    // La 7 (13-10-2026) fue la de cada arma en su hueco y la 8 la de solo la arena;
-    // las piezas viajan desde la 6.
-    expect(CON_PIEZAS).toBe(6);
+  it('va y vuelve con la pieza nueva, y monta con las del juego más las suyas', () => {
     expect(VERSION_DEL_ENLACE).toBe(9);
     const leido = montajeDeLaURL(montajeALaURL(ENLACE));
-    expect(leido).toEqual({ ...ENLACE, version: VERSION_DEL_ENLACE });
+    expect(leido).toEqual(ENLACE);
     const montado = montajeDeArenaDelEnlace(leido, MONTAJE.reglas, leido.piezas);
     expect(batallaDeArena(montado, createRng(3)).stacks[0]?.unit.attack).toBe(
       unidadDeCombate(conNueva, eq).attack,
@@ -334,28 +328,6 @@ describe('el enlace de la pelea lleva las piezas de la arena', () => {
     const falta = { ...o, piezas: [] };
     expect(() => montajeDeLaURL(JSON.stringify(falta))).toThrow(
       `no existe ninguna pieza "${nueva.id}"`,
-    );
-  });
-
-  it('un enlace de la versión 5 se lee con las piezas de la arena que lo abre', () => {
-    const o = JSON.parse(
-      montajeALaURL({
-        ...ENLACE,
-        unidades: [guerrero(), arquero()],
-        piezas: [],
-        izquierda: lado('templario-escudo', false),
-      }),
-    );
-    o.v = 5;
-    delete o.piezas;
-    // Hasta la 7, con las pruebas del catálogo (vacías: el enlace no montaba ninguna).
-    o.pruebas = {};
-    const leido = montajeDeLaURL(JSON.stringify(o), perfilDe, [ESPADA_MAS]);
-    expect(leido.version).toBe(5);
-    expect(leido.piezas).toEqual([]);
-    // Si con las de aquí una unidad del enlace no vale, no se monta y se dice por qué.
-    expect(() => montajeDeLaURL(JSON.stringify(o), perfilDe, [{ ...ESPADA, manos: 2 }])).toThrow(
-      'Espada es un arma a dos manos y no se puede llevar con Escudo',
     );
   });
 });

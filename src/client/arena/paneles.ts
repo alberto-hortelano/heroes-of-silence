@@ -1109,74 +1109,55 @@ export function avisoDelBorradorLeido(ruta: string, validas: number, sinValidar:
 }
 
 /**
- * Lo que se dijo al leer lo de antes de una fuente (el borrador o el enlace): `de`
- * la nombra; `seRetiran`, lo que se pierde al guardar (las unidades del catálogo
- * del juego), y `avisos`, lo demás, cada uno una frase entera.
+ * Lo que no vale de un borrador al leerlo: `de` lo nombra y `noValen` trae una
+ * frase por unidad o pieza, con su motivo. Se conservan tal cual al guardar.
  */
 export interface AvisosDeLectura {
   readonly de: string;
-  readonly seRetiran: readonly string[];
-  readonly avisos: readonly string[];
+  readonly noValen: readonly string[];
 }
 
-/** Cuántas frases trae una lectura. */
-function frasesDe(g: AvisosDeLectura): number {
-  return g.seRetiran.length + g.avisos.length;
-}
-
-/** Cuántos avisos traen las lecturas: lo que dice el botón de la barra. */
+/** Cuántas frases traen las lecturas: lo que dice el botón de la barra. */
 export function cuantosAvisos(grupos: readonly AvisosDeLectura[]): number {
-  return grupos.reduce((n, g) => n + frasesDe(g), 0);
+  return grupos.reduce((n, g) => n + g.noValen.length, 0);
 }
 
 /**
- * Los avisos de lo que se lee convertido, enteros, en un recuadro que se despliega
- * desde la barra (H1 de QA, 14-10-2026): en la barra, cortada a dos líneas, la
- * frase de una unidad que se retiraba se quedaba en la parte que no se ve, y
- * «Guardar» la borraba del disco sin que se hubiera podido leer. **Lo que se
- * retira, primero** y señalado. Se abre solo al arrancar si hay algo que decir y
- * se cierra con «Entendido»; la barra lleva el resumen (`resumenDeLaLectura`) y el
- * botón para volver a abrirlo.
+ * Lo que no vale de los borradores, entero, en un recuadro que se despliega desde
+ * la barra (H1 de QA, 14-10-2026): en la barra, cortada a dos líneas, el motivo se
+ * quedaba en la parte que no se ve. Se abre solo al arrancar si hay algo que decir
+ * y se cierra con «Entendido»; la barra lleva el resumen (`resumenDeLaLectura`) y
+ * el botón para volver a abrirlo.
  */
 export function renderAvisosDeLectura(grupos: readonly AvisosDeLectura[]): Html {
-  const conAlgo = grupos.filter((g) => frasesDe(g) > 0);
+  const conAlgo = grupos.filter((g) => g.noValen.length > 0);
   if (conAlgo.length === 0) return NADA;
   const total = cuantosAvisos(conAlgo);
-  const lista = (clase: string, que: string, frases: readonly string[]): Html =>
-    frases.length === 0
-      ? NADA
-      : html`<p class="que">${que}</p>
-        <ul class="${clase}">${unir(frases.map((f) => html`<li>${f}</li>`))}</ul>`;
   const bloques = unir(
     conAlgo.map(
       (g) => html`<div class="lectura">
         <p class="de">${g.de}</p>
-        ${lista('se-retiran', 'Se retiran, y «Guardar» las borra del disco:', g.seRetiran)}
-        ${lista('convertido', g.seRetiran.length === 0 ? 'Se lee así:' : 'Y lo demás:', g.avisos)}
+        <p class="que">No valen, y «Guardar» las conserva tal cual:</p>
+        <ul class="no-valen">${unir(g.noValen.map((f) => html`<li>${f}</li>`))}</ul>
       </div>`,
     ),
   );
-  return html`<h3 class="cabecera-avisos">Al leer lo de antes · ${total} ${total === 1 ? 'aviso' : 'avisos'}
+  return html`<h3 class="cabecera-avisos">Al leer el borrador · ${total} ${total === 1 ? 'no vale' : 'no valen'}
       <button data-arena="cerrar-avisos" title="Cierra el recuadro: se vuelve a abrir con «${ROTULO_DE_LOS_AVISOS}», en la barra">Entendido</button></h3>
     ${bloques}`;
 }
 
-/** El botón de la barra que despliega los avisos de lo leído. */
+/** El botón de la barra que despliega lo que no vale de lo leído. */
 export const ROTULO_DE_LOS_AVISOS = 'Avisos al leer';
 
 /**
- * Lo que dice la barra de una lectura con avisos: cuántos y dónde leerlos
- * enteros (`renderAvisosDeLectura`). Vacío si no hay ninguno.
+ * Lo que dice la barra de lo que no vale al leer: cuántos y dónde leerlos enteros
+ * (`renderAvisosDeLectura`). Vacío si todo vale.
  */
-export function resumenDeLaLectura(g: AvisosDeLectura): string {
-  if (frasesDe(g) === 0) return '';
-  const r = g.seRetiran.length;
-  const a = g.avisos.length;
-  const partes = [
-    r === 0 ? null : `${r} ${r === 1 ? 'unidad se retira' : 'unidades se retiran'}`,
-    a === 0 ? null : `hay ${a} ${a === 1 ? 'aviso' : 'avisos'}`,
-  ].filter((p): p is string => p !== null);
-  return ` Al leerlo, ${partes.join(' y ')}: se leen enteros con «${ROTULO_DE_LOS_AVISOS}», en esta barra.`;
+export function resumenDeLaLectura(grupos: readonly AvisosDeLectura[]): string {
+  const n = cuantosAvisos(grupos);
+  if (n === 0) return '';
+  return ` ${n === 1 ? 'Una no vale' : `${n} no valen`} y se ${n === 1 ? 'conserva' : 'conservan'} tal cual al guardar: ${n === 1 ? 'su motivo se lee entero' : 'sus motivos se leen enteros'} con «${ROTULO_DE_LOS_AVISOS}», en esta barra.`;
 }
 
 /**

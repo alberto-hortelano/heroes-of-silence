@@ -4750,3 +4750,41 @@ Tras juntar #259, #260, #262, #263 y #258/#261, una pasada de limpieza
   contacto se cobra), y Rápido pierde contra armadura (su nota lo dice). La IA no se toca.
 - **Las medidas de la IA contra la IA en la arena**, en un solo `tools/qa/arena-ia.ts` sobre
   `autoResolve`; las cifras de cada regla, medidas otra vez con él, en sus secciones de arriba.
+
+## La arena, sin compatibilidad hacia atrás (14-10-2026)
+
+El usuario, al cerrar las cinco de la arena (#258–#263): «No queremos mantener compatibilidad hacia
+atras, estamos en pleno desarrollo». Dos de los hallazgos pendientes del QA eran de leer enlaces
+viejos (el aviso de la armadura de antes y una pieza antigua con muchos PV): cada formato nuevo
+dejaba una conversión más, con sus avisos, sus umbrales y sus tests, y ya pesaba más que la regla.
+Los requisitos, en `docs/agents/2026-10-14-sin-compatibilidad/`.
+
+- **El borrador del usuario se convirtió una vez** (decisión suya) con las conversiones de entonces
+  y se guardó: 12 unidades válidas, sin avisos.
+- **El enlace (`?montaje=`) lee solo la versión de hoy** (la 9): uno de otra versión se rechaza con
+  «este enlace es de una versión anterior de la arena (la N; la de hoy es la 9): vuelve a copiarlo»,
+  sin montar nada. Fuera las versiones 1 a 8, sus umbrales con nombre (`CON_MURALLA`,
+  `BANDO_ENTERO`, `CON_EQUIPO`, `CON_PIEZAS`, `CON_ARMAS`, `SOLO_LA_ARENA`, `CON_ARMADURA`), sus
+  campos y lo que se leía con las piezas de la arena que lo abre (antes de la 6).
+- **Unidades y piezas, solo el formato de hoy**: fuera `migrarUnidadDeArena` y lo suyo (`loDeAntes`,
+  `cuerpoSinElKit` con `KIT_DEL_CICLO_2`, la escala de `level`, la velocidad en `speed`, la retirada
+  de los cuerpos de criatura con `seRetiran`), `piezaDeAntes` (el arco en `arma`, los `disparos`, los
+  PV de una pieza de la arena), `armasEnSuHueco`, el aviso de la armadura de antes,
+  `perfilDeLasHojas`, `pvDeLaArmadura` y `conLaArmaduraEnPV`. Lo de antes **no vale**: sale entre
+  las que no valen con su motivo y «Guardar» lo conserva tal cual, como cualquier otra.
+- **Se queda** lo que también usa la regla de hoy: `armaduraDePV` y `avisoDeLaCopia` (una pieza del
+  juego con PV duplicada en la arena protege con armadura), `mismasCifras` (el cambio de una pieza a
+  media pelea solo escribe a quien cambia), `piezasDelEnlace` y `piezasQueSeGuardan` (el enlace de
+  hoy pelea con sus piezas) e `IA_POR_DEFECTO` (la página al abrirse).
+- **El recuadro «Avisos al leer»** se queda, pero con lo único que queda que decir al leer: las
+  unidades y piezas que no valen, con su motivo entero (en la barra, cortada a dos líneas, no se
+  leía).
+- **Fuera de la arena, en el navegador**: las fichas abiertas recordadas en `localStorage` con la
+  clave de antes (`hoja:<id>`, y las de una criatura del catálogo, que se tiraban callando) se quitan
+  diciéndolo, como cualquier otra que ya no se abre.
+- **Lo que no se tocó**: las marcas del mapa (`docs/revision/marcas/`, del usuario) admiten campos
+  que las de antes de R4/R5 y de #159 no traen (`src/client/desarrollo/esquema.ts`); 3 de las 15
+  marcas guardadas son de entonces y dejarían de leerse. Es un dato del usuario que no se puede
+  regenerar: queda pendiente de su decisión.
+- Se van ~990 líneas netas de código (`src/core/arena.ts`, de 3 287 a 2 427) y ~600 de tests. El
+  juego no cambia: `pnpm banco` da el mismo hash.

@@ -281,12 +281,10 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .muralla .forma { display: grid; gap: 0.1rem; padding: 0.25rem; background: var(--panel-alt); border: 1px solid #6e71413d; }
 .muralla .forma .botones { display: flex; gap: 0.2rem; }
 
-/* Los avisos de lo que se lee convertido (el borrador y el enlace), enteros: un
-   recuadro que se despliega desde la barra, encima de lo que haya, y su botón en
-   ella (H1 de QA, 14-10-2026: en la barra, cortada a dos líneas, no se leían).
-   Va sobre la barra para no robar sitio al montaje, que a 1440×900 deja a los
-   bandos 208 px de alto. Lo que se retira, primero y en el color del peligro:
-   «Guardar» lo borra del disco. */
+/* Lo que no vale de los borradores, con su motivo entero: un recuadro que se
+   despliega desde la barra, encima de lo que haya, y su botón en ella (H1 de QA,
+   14-10-2026: en la barra, cortada a dos líneas, no se leía). Va sobre la barra
+   para no robar sitio al montaje, que a 1440×900 deja a los bandos 208 px de alto. */
 #statusbar { position: relative; }
 #ver-avisos { flex: none; }
 #avisos-de-lectura {
@@ -321,7 +319,6 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 #avisos-de-lectura .de { color: var(--gold); }
 #avisos-de-lectura .que { color: var(--ink-dim); }
 #avisos-de-lectura ul { margin: 0.1rem 0 0.3rem; padding-left: 1.2rem; line-height: 1.35; }
-#avisos-de-lectura ul.se-retiran { color: var(--danger); }
 
 @media (max-width: 760px) {
   #montaje { display: block; overflow-y: auto; }

@@ -1413,8 +1413,8 @@ describe('invariantes del proyecto', () => {
   it('la arena no lee el catálogo del juego: solo cuentan las cinco facciones de las hojas', () => {
     // 13-10-2026 (el usuario: «elimina los ejércitos antiguos, solo cuentan los 5
     // que hay en la arena»): ni `core/arena.ts` ni el cliente de la arena traen
-    // una criatura de `data/creatures.json`. Lo de antes con una lo retira
-    // `migrarUnidadDeArena` por su id, sin leerla. Roto a mano: un
+    // una criatura de `data/creatures.json`. Una unidad de antes con un cuerpo de
+    // criatura no vale, y se dice sin leerla (14-10-2026). Roto a mano: un
     // `import { creature } from '@core/data.js'` en `paneles.ts` sale rojo.
     const ARENA = [
       'src/core/arena.ts',

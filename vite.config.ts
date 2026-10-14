@@ -138,10 +138,6 @@ function arena(): Plugin {
             return {
               unidades: leido.unidades,
               invalidas: leido.invalidas.map(({ id, motivo }) => ({ id, motivo })),
-              // Lo que hubo que decir al leer lo de antes: primero las unidades que
-              // se retiran, que «Guardar» pierde, y luego lo convertido.
-              seRetiran: leido.seRetiran,
-              avisos: leido.avisos,
               // Y las piezas de la arena (vista «Editar equipo»), que el juego no lee:
               // van con las unidades porque se guardan con ellas, en una operación.
               piezas: leido.piezas,
@@ -157,8 +153,6 @@ function arena(): Plugin {
           vacio: {
             unidades: [],
             invalidas: [],
-            seRetiran: [],
-            avisos: [],
             piezas: [],
             piezasInvalidas: [],
           },
