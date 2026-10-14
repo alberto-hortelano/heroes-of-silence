@@ -125,6 +125,11 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     // Sin el escudo, la defensa vuelve a la del cuerpo y deja de resaltarse.
     const sin = marcadoDe(renderFicha({ ...CON_ESCUDO, equipo: {} }, false, MONTAJE));
     expect(finalDe(sin, 'defense')).toEqual({ valor: CON_ESCUDO.defense, cambiada: false });
+    // La armadura no tiene casilla y toda es del equipo: con la brigantina, en el
+    // otro tono; sin nada, en el de siempre (A5 de QA de #262).
+    const conKit = marcadoDe(renderFicha(unidadDeArena('templario-escudo'), false, MONTAJE));
+    expect(finalDe(conKit, 'armadura')).toEqual({ valor: 7, cambiada: true });
+    expect(finalDe(sin, 'armadura')).toEqual({ valor: 0, cambiada: false });
   });
 
   it('la del héroe: ataque y defensa de su cuerpo, y lo que no se escribe sin casilla', () => {

@@ -396,6 +396,23 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .ficha .poderes, .ficha .poder { grid-column: 1 / -1; }
 .ficha .poder { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
 #editor-en-combate .aviso-del-editor.rechazo { color: var(--danger); }
+/* La ficha abierta desde la rueda es de solo lectura (`<fieldset disabled>`):
+   sus controles se ven apagados (R4 de QA de #261). «✎ Editar», las «×» y los
+   desplegables, a medio tono y sin mano; las casillas de cifras, sin su caja,
+   como un valor más. Lo que dicen se sigue leyendo. */
+#editor-en-combate fieldset.solo-lectura { border: 0; margin: 0; padding: 0; min-width: 0; }
+#editor-en-combate fieldset.solo-lectura :is(button, select) {
+  opacity: 0.4;
+  cursor: default;
+  filter: grayscale(1);
+}
+#editor-en-combate fieldset.solo-lectura :is(input, textarea) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  cursor: default;
+}
 
 /*
  * La vista de edición: la lista arriba y las fichas abiertas debajo, en columnas.
@@ -679,6 +696,7 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .pie-de-rueda p { margin: 0.15rem 0; }
 .pie-de-rueda .guia { font: 0.88rem/1.35 Georgia, serif; color: var(--ink); }
 .pie-de-rueda .teclas { font: 0.75rem system-ui, sans-serif; color: var(--ink-dim); }
+.pie-de-rueda .carga-de-la-rueda { font: 0.82rem/1.3 system-ui, sans-serif; color: var(--gold); }
 .pie-de-rueda kbd {
   display: inline-block;
   min-width: 1.3em;
@@ -820,6 +838,13 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   font-size: calc(var(--plato) * 0.030);
   opacity: 0.75;
   pointer-events: auto;
+}
+/* Con ratón, el «ⓘ» no es un hueco en su sector (R1 de QA de #258): deja pasar el
+   puntero al botón de debajo, así que pasar por él enciende el sector y abre la
+   nota (`[data-abre-nota]`) y el clic elige. Tocando (sin `hover`), se queda como
+   estaba: tocarlo abre la nota. El foco del teclado no cambia. */
+@media (hover: hover) and (pointer: fine) {
+  .sector-de-rueda .nota { pointer-events: none; }
 }
 /* Con la rueda quieta, el `:hover` tampoco abre la nota (style.css la abre al
    pasar por el sector). */

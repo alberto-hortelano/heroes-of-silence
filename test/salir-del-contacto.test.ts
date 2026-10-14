@@ -33,6 +33,7 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
+import { CARGA, type CifrasDeCarga } from '../src/core/battle/carga.js';
 import { type ModoDelContacto, pagaElContacto } from '../src/core/battle/contacto.js';
 import { applyEffect } from '../src/core/battle/effects.js';
 import { CONTACTO, MODOS_DEL_JUEGO, modoALaURL, modoDeLaURL } from '../src/core/battle/modos.js';
@@ -430,9 +431,53 @@ describe('el interruptor', () => {
     };
     const con = marcadoDe(accionesDeLaUnidad({ ...base, sinSalida: 'Rodeado: no sale.' }));
     expect(con).toContain('<p class="cost" data-sin-salida>Rodeado: no sale.</p>');
+    // Rodeada no hay hexágonos verdes: la ayuda dice lo que puede hacer (C2 de QA).
+    expect(con).not.toContain('hexágono verde');
+    expect(con).toContain('Pasa el ratón por un enemigo a su lado para golpearlo.');
+    expect(marcadoDe(accionesDeLaUnidad(base))).toContain('Haz clic en un hexágono verde');
     expect(marcadoDe(accionesDeLaUnidad({ ...base, sinSalida: null }))).toBe(
       marcadoDe(accionesDeLaUnidad(base)),
     );
+  });
+
+  it('tras la Finta la ayuda dice el tramo y no invita a golpear (R2 de QA)', () => {
+    const b = pelea('pikeman', h(5, 4), [h(7, 4)]);
+    const tras = marcadoDe(
+      accionesDeLaUnidad({
+        activa: yo(b),
+        carga: CARGA.aPie,
+        legales: legalActions(b),
+        pasos: 4,
+        rendicion: NADA,
+        hechizos: NADA,
+        poderes: NADA,
+        muralla: NADA,
+        trasLaFinta: true,
+      }),
+    );
+    expect(tras).toContain('Finta: puede andar 4 casillas; andar termina el turno.');
+    expect(tras).not.toContain('golpearlo');
+    expect(tras).not.toContain('se le puede cargar');
+  });
+
+  it('la ayuda de la carga dice las cifras de quien carga, sin un «»3» fijo (C3 de QA)', () => {
+    const b = pelea('pikeman', h(5, 4), [h(7, 4)]);
+    const ayuda = (carga: CifrasDeCarga): string =>
+      marcadoDe(
+        accionesDeLaUnidad({
+          activa: yo(b),
+          carga,
+          legales: legalActions(b),
+          pasos: 4,
+          rendicion: NADA,
+          hechizos: NADA,
+          poderes: NADA,
+          muralla: NADA,
+        }),
+      );
+    expect(ayuda(CARGA.aPie)).toContain('(de 3 a 5, +5 % cada una)');
+    expect(ayuda(CARGA.jinete)).toContain('(de 3 a 5, +10 % cada una)');
+    expect(ayuda(CARGA.jinete)).not.toContain('»3');
   });
 });
 

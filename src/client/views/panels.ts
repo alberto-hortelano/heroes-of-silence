@@ -16,7 +16,7 @@
  */
 import { activeStack, cargaDelStack } from '@core/battle/battle.js';
 import { quedanCasillas } from '@core/battle/board.js';
-import { CARGA, type CifrasDeCarga, dichoDeLaCarga } from '@core/battle/carga.js';
+import { CARGA, CARGA_MINIMA, type CifrasDeCarga, dichoDeLaCarga } from '@core/battle/carga.js';
 import { DEFEND_BONUS } from '@core/battle/damage.js';
 import {
   type CuandoVence,
@@ -849,11 +849,26 @@ export function accionesDeLaUnidad(o: {
    * `test/fixtures/paneles.txt` no cambia.
    */
   readonly sinSalida?: string | null;
+  /**
+   * Si ha golpeado con Finta y le queda solo el tramo de andar (la rueda de la
+   * arena): la ayuda lo dice en vez de invitar a golpear (R2 de QA de #263).
+   */
+  readonly trasLaFinta?: boolean;
 }): Html {
   const puede = (tipo: BattleAction['type']): boolean => o.legales.some((a) => a.type === tipo);
   const quedan = o.pasos === null ? null : quedanCasillas(o.pasos);
   const sinSalida =
     o.sinSalida == null ? NADA : html`<p class="cost" data-sin-salida>${o.sinSalida}</p>`;
+  // La ayuda dice lo que se puede hacer: tras la Finta, solo andar un tramo; rodeada,
+  // solo golpear a quien tiene al lado (C2 de QA de #259: no hay hexágonos verdes).
+  const ayuda =
+    o.trasLaFinta === true
+      ? html`Finta: puede andar ${quedan === null ? 'lo que le queda' : quedan[1]}; andar termina el turno.`
+      : o.sinSalida != null
+        ? html`Pasa el ratón por un enemigo a su lado para golpearlo.`
+        : html`Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
+         ${ayudaDeCarga(o.carga)}`;
   return html`<h3>Acciones</h3>
        ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}${sinSalida}
        <div class="stack-list">
@@ -863,10 +878,8 @@ export function accionesDeLaUnidad(o: {
          ${o.rendicion}${o.muralla}${o.poderes}
        </div>
        ${o.hechizos}
-       <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
-         ${ayudaDeCarga(o.carga)}
+       <p class="cost" style="margin-top:.5rem"${o.trasLaFinta === true ? html` data-tras-la-finta` : NADA}>
+         ${ayuda}
          Espacio termina el turno de la unidad.
        </p>`;
 }
@@ -1105,8 +1118,10 @@ function clase(bueno: boolean, malo: boolean): Html {
  */
 function ayudaDeCarga(carga: CifrasDeCarga | null): Html {
   if (carga === null) return NADA;
-  return html`Al enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
-         número («»3»).`;
+  // El número que enseña la casilla son las casillas que corre: sin un ejemplo fijo,
+  // que con el jinete despistaba (C3 de QA de #260).
+  return html`Al enemigo en naranja se le puede cargar: pasa por él y elige la casilla con
+         «»» y las casillas que corre (de ${CARGA_MINIMA} a ${carga.tope}, +${carga.porcentaje} % cada una).`;
 }
 
 /**
@@ -1210,12 +1225,15 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
 
   /**
    * El daño de un hecho con lo que paró la armadura (la arena, #262): «12 de
-   * daño (−7 armadura), 1 baja», o «0 de daño: lo para la armadura (7)» si no
-   * llegó nada. Sin armadura, lo de siempre.
+   * daño (−7 armadura), 1 baja», o «0 de daño: la armadura para los 18» si no
+   * llegó nada. Sin armadura, lo de siempre. Con «lo para la armadura (18)» el 18
+   * se leía como la armadura, y es el golpe parado (A2 de QA de #262); la
+   * armadura no se escribe: un retoque a media pelea la cambiaría en las líneas
+   * de antes.
    */
   const danio = (d: number, muertos: number, parado: number | undefined): string => {
     if (parado === undefined) return `${d} de daño, ${bajas(muertos)}`;
-    if (d === 0) return `0 de daño: lo para la armadura (${parado})`;
+    if (d === 0) return `0 de daño: la armadura para los ${parado}`;
     return `${d} de daño (−${parado} armadura), ${bajas(muertos)}`;
   };
 

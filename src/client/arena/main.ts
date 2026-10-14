@@ -12,6 +12,7 @@
  */
 
 import {
+  avisoDeLaCopia,
   CON_PIEZAS,
   cambioDePiezaBlocker,
   catalogoDeLaArena,
@@ -501,10 +502,17 @@ const QUE_LISTA = 'si la lista de la edición va plegada';
 const parametros = new URLSearchParams(location.search);
 let semillaPedida: number | null = null;
 let avisoDeSemilla = '';
+/**
+ * Los parámetros de la URL que no valen (`seed`, `reglas`, `golpe`, `contacto`):
+ * un enlace de la pelea con alguno mal no se monta, y lo dice nombrándolos (C1
+ * de QA de #259: culpaba «a la semilla o las reglas» de un `?contacto=` mal).
+ */
+const parametrosQueNoValen: string[] = [];
 try {
   semillaPedida = parseSeed(unaVezEnLaURL(parametros.getAll('seed'), 'seed'));
 } catch (err) {
   avisoDeSemilla = `${mensaje(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
+  parametrosQueNoValen.push('seed');
 }
 
 /**
@@ -519,6 +527,7 @@ try {
   reglas = reglasDeLaURL(unaVezEnLaURL(parametros.getAll('reglas'), 'reglas'));
 } catch (err) {
   avisoDeSemilla += `${mensaje(err)} — se pelea con las reglas del juego. `;
+  parametrosQueNoValen.push('reglas');
 }
 
 /**
@@ -537,6 +546,7 @@ for (const d of INTERRUPTORES) {
     );
   } catch (err) {
     avisoDeSemilla += `${mensaje(err)} — ${modoDeSiempre(d)}. `;
+    parametrosQueNoValen.push(d.parametro);
   }
 }
 
@@ -1755,8 +1765,15 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
   }
   if (texto === null) return null;
   try {
-    // Con la semilla o las reglas mal, el montaje pelearía otra pelea.
-    if (avisoDeSemilla !== '') throw new Error('la semilla o las reglas del enlace no valen');
+    // Con la semilla, las reglas o un modo mal, el montaje pelearía otra pelea.
+    if (parametrosQueNoValen.length > 0) {
+      const cuales = parametrosQueNoValen.map((p) => `«?${p}=»`).join(', ');
+      throw new Error(
+        parametrosQueNoValen.length === 1
+          ? `${cuales} del enlace no vale`
+          : `${cuales} del enlace no valen`,
+      );
+    }
     // Con el perfil de cada hoja: un enlace de antes de la versión 5 trae las
     // cifras de su perfil y se convierte a cuerpo y equipo al leerlo.
     // Las unidades de un enlace de antes de la 6 se leen y pelean con las piezas
@@ -2674,7 +2691,12 @@ document.addEventListener('click', (ev) => {
         const dicho =
           typeof desde === 'string'
             ? `Nueva pieza «${p.nombre}», de la arena: cambia sus cifras en la ficha.`
-            : `«${p.nombre}», copia de «${desde.nombre}»: es nueva, de la arena.`;
+            : [
+                `«${p.nombre}», copia de «${desde.nombre}»: es nueva, de la arena.`,
+                avisoDeLaCopia(desde, p),
+              ]
+                .filter((t) => t !== null)
+                .join(' ');
         if (cambiarPiezas(p.id, p, dicho)) {
           piezaElegida = p.id;
           piezaTrasElGesto = p.id;

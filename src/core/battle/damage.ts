@@ -562,12 +562,39 @@ export function expectedDamage(
   // Con la Bendición o la Maldición de fheroes2 la tirada ya no es un medio: es
   // el extremo, como `getPotentialDamage` allí. En el juego no hay ninguna y
   // `[min, max]` son las de la criatura.
+  // La armadura (la arena), lo último y con la misma resta que el golpe: sin ella,
+  // el daño tal cual, que es lo que deja al juego con las mismas decisiones.
+  return trasLaArmadura(medioSinArmadura(attacker, defender, opts), defender).danio;
+}
+
+/** El daño medio de `expectedDamage` antes de la armadura: lo que se tira contra ella. */
+function medioSinArmadura(
+  attacker: BattleStack,
+  defender: BattleStack,
+  opts: DamageOptions,
+): number {
   const golpe = deUnGolpe(attacker, opts);
   const { min, max } = tiradasPosibles(attacker, opts.reglas, golpe.uso);
   const medio = ((min + max) / 2) * attacker.count;
-  // La armadura (la arena), lo último y con la misma resta que el golpe: sin ella,
-  // el daño tal cual, que es lo que deja al juego con las mismas decisiones.
-  return trasLaArmadura(applyModifiers(medio, attacker, defender, opts, golpe), defender).danio;
+  return applyModifiers(medio, attacker, defender, opts, golpe);
+}
+
+/**
+ * Qué parte del golpe medio de `attacker` le llega a `defender` tras su armadura
+ * (la arena, #262): de 0 (la para entera) a 1. **Sin armadura, 1 exacto y sin
+ * calcular nada**, que es lo que deja a la IA del juego con las mismas
+ * decisiones (multiplicar por 1 no mueve un bit): la lee `bestTarget` para no
+ * gastar flechas en una barda que las para todas (QA de #262, Q1).
+ */
+export function fraccionQueLlega(
+  attacker: BattleStack,
+  defender: BattleStack,
+  opts: DamageOptions,
+): number {
+  if (armaduraDe(defender.unit) === 0) return 1;
+  const bruto = medioSinArmadura(attacker, defender, opts);
+  if (bruto <= 0) return 0;
+  return trasLaArmadura(bruto, defender).danio / bruto;
 }
 
 /**

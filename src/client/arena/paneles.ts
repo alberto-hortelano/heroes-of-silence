@@ -76,6 +76,7 @@ import type {
 } from '@core/battle/types.js';
 import type { Pieza } from '@core/data.js';
 import {
+  ARMADURA_MAXIMA_DE_PIEZA,
   aDosManos,
   type CifraDePieza,
   cifrasDePieza,
@@ -873,6 +874,12 @@ interface FilaDeCifra {
   };
   /** Con todos los modificadores: lo que pelea. */
   readonly final: number;
+  /**
+   * Sin casilla, lo que valdría sin modificadores (la armadura: 0, el cuerpo no
+   * lleva): el final va en el otro tono si no es esto, como con la casilla (A5 de
+   * QA de #262). Sin casilla ni esto, el final no se compara con nada.
+   */
+  readonly sinModificar?: number;
 }
 
 /**
@@ -902,7 +909,8 @@ function tablaDeCifras(
         c === undefined
           ? html`<span class="sin-casilla" aria-hidden="true">—</span>`
           : html`<input type="number" ${c.atributo} value="${c.valor}" min="${c.minimo}" ${c.maximo === undefined ? NADA : html`max="${c.maximo}"`} step="1" aria-label="${f.rotulo}" aria-description="${dicho}">`;
-      const cambia = c !== undefined && f.final !== c.valor;
+      const escrito = c?.valor ?? f.sinModificar;
+      const cambia = escrito !== undefined && f.final !== escrito;
       return html`<tr data-cifra-de-la-ficha="${f.clave}">
         <th scope="row">${f.rotulo} ${nota(dicho, false)}</th>
         <td class="escrita">${escrita}</td>
@@ -982,6 +990,8 @@ function filaDeArmadura(final: UnitInfo): FilaDeCifra {
     rotulo: NOMBRE_DE_CIFRA.armadura,
     nota: 'La suma de la de sus piezas: se resta del daño de cada golpe, disparo o hechizo que recibe, y puede dejarlo en 0.',
     final: armaduraDe(final),
+    // Toda la armadura es del equipo: el cuerpo no lleva.
+    sinModificar: 0,
   };
 }
 
@@ -1603,8 +1613,8 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
                 'armadura',
                 NOMBRE_DE_CIFRA.armadura,
                 p.armadura ?? 0,
-                desdeCero,
-                'Puntos que se restan del daño de cada golpe, disparo o hechizo que recibe quien la lleva, con mínimo 0.',
+                html`min="0" max="${ARMADURA_MAXIMA_DE_PIEZA}"`,
+                `Puntos que se restan del daño de cada golpe, disparo o hechizo que recibe quien la lleva, con mínimo 0. De 0 a ${ARMADURA_MAXIMA_DE_PIEZA}.`,
               )
             : numero('pv', 'PV', p.pv, desdeCero)
         }
@@ -1639,6 +1649,7 @@ export type VistaDeArena = Pick<
   | 'battleLegalActions'
   | 'battleStepsLeft'
   | 'sinSalida'
+  | 'trasLaFinta'
   | 'spellOptions'
   | 'heroeEnJuego'
   | 'hechizos'
@@ -1915,6 +1926,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
             legales: s.battleLegalActions(),
             pasos: s.battleStepsLeft(),
             sinSalida: s.sinSalida(),
+            trasLaFinta: s.trasLaFinta(),
             rendicion: NADA,
             poderes: botonesDePoder(s, activa),
             hechizos:

@@ -41,7 +41,12 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
 import { DURACION, duracionDeLaJugada, IMPACTO } from '../../src/client/anim.js';
-import { anguloDe, MEDIDAS_DE_LA_RUEDA, teclaDe } from '../../src/client/arena/rueda.js';
+import {
+  anguloDe,
+  MEDIDAS_DE_LA_RUEDA,
+  sitioEnLaRueda,
+  teclaDe,
+} from '../../src/client/arena/rueda.js';
 import { EscenaAventura } from '../../src/client/escenas/aventura.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
@@ -5107,7 +5112,8 @@ async function jugarLaRueda(
           });
         espejo.cancelarGolpe();
         cancelado = true;
-        await esperarBarra(page, 'Golpe cancelado.', `rueda${sufijo}, Escape`, { exacta: true });
+        // «Golpe cancelado.», o con la carga que se pierde si venía cargando (R6).
+        await esperarBarra(page, espejo.status, `rueda${sufijo}, Escape`, { exacta: true });
         log(
           `rueda${sufijo}: ${await sigueTrasSoltar(page, espejo, plantado.stack, `rueda${sufijo}`)}`,
         );
@@ -5864,7 +5870,7 @@ async function golpeEnElPunto(page: Page, r: number, grados: number): Promise<st
  * junta) dan su sector, y Normal a r 39; fuera de la corona (r 103), en la junta
  * entre dos y en el hueco entre la corona y Normal (r 43), ninguno.
  */
-async function sectoresEnteros(page: Page, quien: string): Promise<string> {
+async function sectoresEnteros(page: Page, quien: string, conRaton: boolean): Promise<string> {
   const m = MEDIDAS_DE_LA_RUEDA;
   const fallos: string[] = [];
   let medidos = 0;
@@ -5874,6 +5880,15 @@ async function sectoresEnteros(page: Page, quien: string): Promise<string> {
     if (visto !== esperado) fallos.push(`${donde}: ${String(visto)} (debía ${String(esperado)})`);
   };
   for (const t of TIPOS_DE_GOLPE) {
+    // El «ⓘ» del sector (R1 de QA de #258): con ratón no es un hueco, el clic va
+    // a su sector; tocando, es la nota, y tocarlo la abre.
+    const { nota: n } = sitioEnLaRueda(t);
+    await debe(
+      Math.hypot(n.x, n.y),
+      (Math.atan2(n.y, n.x) * 180) / Math.PI,
+      conRaton ? t : null,
+      `${t}, sobre su «ⓘ»`,
+    );
     if (t === 'normal') {
       for (const g of [0, 90, 180, 270]) {
         await debe(m.radioDelCentro - 2, g, 'normal', `Normal a r ${m.radioDelCentro - 2}, ${g}°`);
@@ -6166,11 +6181,38 @@ async function contrincantesEnElEscritorio(
       throw new Error(`${quien}: cerrada la ficha, el editor sigue titulado «${titulo}»`);
     });
   // #258: la corona entera responde, y solo ella.
-  log(`${quien}: ${await sectoresEnteros(page, quien)}`);
+  log(`${quien}: ${await sectoresEnteros(page, quien, true)}`);
   // El clic real en la esquina de fuera de Fuerte: la enciende y la elige.
   const plato = await page.locator('#rueda .plato').boundingBox();
   if (plato === null) throw new Error(`${quien}: el plato no se ve`);
   const k = plato.width / MEDIDAS_DE_LA_RUEDA.lado;
+  // Antes, el ratón sobre el «ⓘ» de Fuerte: enciende su sector y abre su nota (R1).
+  const info = sitioEnLaRueda('fuerte').nota;
+  await page.mouse.move(
+    plato.x + plato.width / 2 + info.x * k - 8,
+    plato.y + plato.height / 2 + info.y * k,
+  );
+  await page.mouse.move(
+    plato.x + plato.width / 2 + info.x * k,
+    plato.y + plato.height / 2 + info.y * k,
+    {
+      steps: 3,
+    },
+  );
+  await sleep(150);
+  if ((await rellenoDelSector(page, 'fuerte')) === (await rellenoDelSector(page, 'rapido'))) {
+    throw new Error(`${quien}: con el ratón en el «ⓘ» de Fuerte, su sector no se enciende`);
+  }
+  const notaAbierta = await page.evaluate(
+    () =>
+      getComputedStyle(
+        document.querySelector('#rueda .sector-de-rueda[data-sector="fuerte"] > .nota') as Element,
+        '::after',
+      ).content,
+  );
+  if (notaAbierta === 'none' || notaAbierta === '') {
+    throw new Error(`${quien}: con el ratón en el «ⓘ» de Fuerte, su nota no se abre`);
+  }
   const g = ((anguloDe('fuerte') + MEDIDAS_DE_LA_RUEDA.medioSector - 2.5) * Math.PI) / 180;
   const r = MEDIDAS_DE_LA_RUEDA.fuera - 4;
   const esquina = {
@@ -6271,7 +6313,7 @@ async function contrincantesEnElMovil(
   if ((await page.locator('#editor-en-combate[open]').count()) > 0) {
     throw new Error(`${quien}: «Volver a la rueda» no cierra la ficha`);
   }
-  log(`${quien}: ${await sectoresEnteros(page, quien)}`);
+  log(`${quien}: ${await sectoresEnteros(page, quien, false)}`);
   // Elegir tocando Ofensivo cerca de su borde de fuera.
   const plato = await page.locator('#rueda .plato').boundingBox();
   if (plato === null) throw new Error(`${quien}: el plato no se ve`);

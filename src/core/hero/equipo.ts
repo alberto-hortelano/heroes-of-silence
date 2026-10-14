@@ -470,6 +470,13 @@ export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
  */
 export const PV_POR_PUNTO_DE_ARMADURA = 10;
 
+/**
+ * Lo más que da de armadura una pieza de la arena (A4 de QA de #262: sin tope,
+ * `1e3` entraba como 1000 y la pelea se agotaba en la ronda 100). **Inventado**:
+ * la barda, la que más, da 22; 99 deja probar de sobra sin que nada sea inmune.
+ */
+export const ARMADURA_MAXIMA_DE_PIEZA = 99;
+
 /** Los PV de antes que valen `n` puntos de armadura (`PV_POR_PUNTO_DE_ARMADURA` cada uno). */
 export function pvDeLaArmadura(n: number): number {
   return n * PV_POR_PUNTO_DE_ARMADURA;

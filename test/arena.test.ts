@@ -1801,7 +1801,11 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     expect(montaje).toEqual(MONTAJE);
     // Una frase por aviso, y lo que se quita primero (H1 de QA, 14-10-2026): en
     // el montaje se leen enteros, y lo que desaparece no se queda al final.
-    expect(avisos).toHaveLength(4);
+    expect(avisos).toHaveLength(5);
+    // Y al final, lo que pelean distinto por la armadura del kit (QA de #262, Q2).
+    expect(avisos?.[4]).toMatch(
+      /^Desde la versión 9 las armaduras de la arena dan armadura y no PV: /,
+    );
     expect(avisos?.[0]).toBe(
       'El enlace montaba criaturas del catálogo del juego («pikeman»): en la arena solo están las cinco facciones de las hojas, y se quitan.',
     );

@@ -39,6 +39,7 @@ import {
   mandoDe,
   quienNoEscala,
 } from './battle/battle.js';
+import { armaduraDe } from './battle/damage.js';
 import type { StackEffect } from './battle/effects.js';
 import { MODOS_DE_LA_ARENA, type ModosDeArena } from './battle/modos.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
@@ -69,6 +70,7 @@ import type {
 import { CATALOGO_DE_HABILIDADES, LIDERAZGO, type Pieza, problemasDePieza } from './data.js';
 import { ESCALA_DE_CIFRAS } from './escala.js';
 import {
+  ARMADURA_MAXIMA_DE_PIEZA,
   aDosManos,
   armaduraDePV,
   conLaArmaduraEnPV,
@@ -661,6 +663,11 @@ export function validarPiezaDeArena(valor: unknown): Pieza {
       `${quien} es una pieza nueva y su calidad es «arena», que el juego no reparte, no «${bruta.calidad}»`,
     );
   }
+  if ((bruta.armadura ?? 0) > ARMADURA_MAXIMA_DE_PIEZA) {
+    throw new Error(
+      `${quien}: la armadura va de 0 a ${ARMADURA_MAXIMA_DE_PIEZA} y es ${bruta.armadura}`,
+    );
+  }
   const danio = bruta.danio !== undefined && bruta.danio[1] > 0 ? bruta.danio : undefined;
   const precio = Object.fromEntries(
     RESOURCE_KINDS.filter((k) => (bruta.precio[k] ?? 0) > 0).map((k) => [k, bruta.precio[k]]),
@@ -1074,8 +1081,66 @@ function conArmaduraEnVezDePV(crudo: unknown): {
   const armadura = antes + armaduraDePV(p.pv);
   return {
     pieza: { ...p, pv: 0, armadura },
-    aviso: `La pieza «${nombreOId(p, 'nombre')}» daba ${p.pv} PV: ahora da ${armadura} de armadura, que se resta del daño de cada golpe.`,
+    aviso: `La pieza «${nombreOId(p, 'nombre')}» daba ${p.pv} PV: ${enArmadura(armadura)}.`,
   };
+}
+
+/**
+ * Lo que queda de unos PV pasados a armadura, dicho: «ahora da 5 de armadura, que
+ * se resta del daño de cada golpe», o, si no llegan a un punto, que ya no protege
+ * (A4 de QA de #262: «ahora da 0 de armadura» sonaba a que seguía protegiendo).
+ */
+function enArmadura(armadura: number): string {
+  return armadura === 0
+    ? 'no llegan a un punto de armadura, así que ya no protege'
+    : `ahora da ${armadura} de armadura, que se resta del daño de cada golpe`;
+}
+
+/**
+ * Lo que cambia al duplicar `original` como `copia` («Duplicar», `piezaNueva`): la
+ * copia es de la arena, que protege con armadura y no con PV, así que los PV de
+ * una del juego pasan a armadura (`conArmaduraEnVezDePV`). Sin decirlo, el
+ * Talismán vital de +50 PV salía con +5 de armadura en silencio (A3 de QA de #262).
+ * Una frase para la barra del editor, o `null` si no cambia nada.
+ */
+export function avisoDeLaCopia(original: Pieza, copia: Pieza): string | null {
+  if (original.pv <= 0 || copia.pv > 0) return null;
+  const armadura = copia.armadura ?? 0;
+  const queda =
+    armadura === 0
+      ? 'no llegan a un punto de armadura, así que la copia no protege'
+      : `pasan a ${armadura} de armadura, que se resta del daño de cada golpe`;
+  return `En la arena una pieza no suma PV: los ${original.pv} PV de «${original.nombre}» ${queda}.`;
+}
+
+/**
+ * Lo que cambia en un enlace de antes de `CON_ARMADURA` que lleva armaduras de la
+ * arena que el enlace no trae (el kit del juego, sobre todo): abrirlo monta otra
+ * pelea —el templario pasa de 150 PV a 80 y 7 de armadura— y hay que decirlo
+ * (QA de #262, Q2). Las piezas del propio enlace no cuentan: las convierte
+ * `piezaDeAntes` y su aviso ya lo dice. Una frase para todas las unidades, o
+ * `null` si ninguna cambia. El borrador no pasa por aquí: no lleva versión, y
+ * la ficha ya enseña la armadura.
+ */
+function avisoDeLaArmaduraDeAntes(
+  unidades: readonly UnidadDeArena[],
+  delEnlace: readonly Pieza[],
+  eq: EquipoAtado,
+): string | null {
+  const propias = new Set(delEnlace.map((p) => p.id));
+  const cambian = unidades.flatMap((u) => {
+    const deAntes = eq
+      .piezasPuestas(u.equipo)
+      .filter((p) => !propias.has(p.id))
+      .reduce((n, p) => n + (p.armadura ?? 0), 0);
+    if (deAntes === 0) return [];
+    const hoy = unidadDeCombate(u, eq);
+    return [
+      `«${u.name}» tiene ${hoy.hp} PV y ${armaduraDe(hoy)} de armadura (antes ${hoy.hp + pvDeLaArmadura(deAntes)} PV)`,
+    ];
+  });
+  if (cambian.length === 0) return null;
+  return `Desde la versión ${CON_ARMADURA} las armaduras de la arena dan armadura y no PV: ${cambian.join('; ')}.`;
 }
 
 /**
@@ -2965,6 +3030,12 @@ export function montajeDeLaURL(
     }),
   );
   avisos.push(...deLasUnidades);
+  // De la 5 a la 8, unidades de hoy que llevan una armadura de la arena: con la
+  // regla de entonces les daba PV (las de antes de la 5 lo dicen al convertirse).
+  if (version >= CON_EQUIPO && version < CON_ARMADURA) {
+    const kit = avisoDeLaArmaduraDeAntes(unidades, piezas, conLasPiezas);
+    if (kit !== null) avisos.push(kit);
+  }
   sinRepetir(
     unidades.map((u) => u.id),
     'la unidad',

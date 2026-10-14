@@ -216,10 +216,17 @@ export function tipoDeLaTecla(tecla: string): TipoDeGolpe | null {
   return TIPOS_DE_GOLPE.find((t) => teclaDe(t) === tecla) ?? null;
 }
 
-/** Lo que dice la barra de cada sector: el daño o, sin contraataque, nada. */
-function loQueDa(p: RuedaPendiente, tipo: TipoDeGolpe): string {
+/**
+ * Lo que dice cada sector: el daño o, sin contraataque, «—». Con carga y más de un
+ * golpe, el primero y los siguientes en dos líneas («48–91» y «+ 4–16»): en una
+ * sola, el de Rápido se salía del sector y se comía un dígito (R5 de QA de #260).
+ */
+function loQueDa(p: RuedaPendiente, tipo: TipoDeGolpe): Html {
   const s = p.prevision.porTipo?.[tipo];
-  return s === undefined ? '—' : conSusGolpes(s);
+  if (s === undefined) return html`<span class="da">—</span>`;
+  if (s.siguientes === null) return html`<span class="da">${conSusGolpes(s)}</span>`;
+  const resto = s.golpes - 1;
+  return html`<span class="da">${horquilla(s.danio)}</span><span class="da">+ ${resto > 1 ? `${resto} × ` : ''}${horquilla(s.siguientes)}</span>`;
 }
 
 function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): string {
@@ -237,7 +244,23 @@ function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): st
  * vale: el cruce. Todo lo demás de la respuesta va con el contraataque.
  */
 function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): string {
-  return efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, contacto);
+  return `${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, contacto)}${contraataqueRebajado(p, tipo)}`;
+}
+
+/**
+ * Al golpear con un tipo que rebaja el contraataque del rival (Romper guardia),
+ * en cuánto quedaría con cada éxito que lo cambia, frente al de Normal (R3 de QA
+ * de #263: antes de elegir no se veía). Sale de `previsionDeLaRueda`, la misma
+ * cuenta que el golpe; si no hay nada que decir, vacío.
+ */
+function contraataqueRebajado(p: RuedaPendiente, tipo: TipoDeGolpe): string {
+  const s = p.prevision.porTipo?.[tipo];
+  const ahora = p.prevision.contraataque;
+  if (s === undefined || ahora === null || s.contraataquePorExito.length === 0) return '';
+  const porExito = s.contraataquePorExito
+    .map(({ punto, danio }) => `${NOMBRE_DEL_PUNTO[punto]}, ${horquilla(danio)}`)
+    .join('; ');
+  return ` Su contraataque (con ${NOMBRE_DE_GOLPE.normal}, ${horquilla(ahora)}) queda, según el éxito, en: ${porExito}.`;
 }
 
 /** El círculo del color de un bando, para decir de quién se habla. */
@@ -355,7 +378,7 @@ export function renderEleccion(s: VistaDeArena, p: RuedaPendiente): Html {
     (
       t,
     ) => html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t, contacto)}" aria-keyshortcuts="${teclaDe(t)}">
-          <span class="rotulo-del-sector">${rotuloDe(t)}<span class="da">${loQueDa(p, t)}</span></span>
+          <span class="rotulo-del-sector">${rotuloDe(t)}${loQueDa(p, t)}</span>
         </button>${nota(notaDe(p, t, contacto))}`,
     () => html` data-abre-nota`,
   );
@@ -367,6 +390,12 @@ export function renderEleccion(s: VistaDeArena, p: RuedaPendiente): Html {
     </div>
     <footer class="pie-de-rueda">
       <p class="guia">${guia}</p>
+      ${
+        // Tras una carrera, las cifras ya llevan la carga, y Escape la pierde (R6 de QA de #260).
+        p.prevision.carga === null
+          ? NADA
+          : html`<p class="carga-de-la-rueda" data-carga>Las cifras llevan la ${p.prevision.carga}; con <kbd>Esc</kbd> se pierde.</p>`
+      }
       <p class="teclas"><kbd>1</kbd>–<kbd>7</kbd> o <kbd>←</kbd><kbd>→</kbd> e <kbd>Intro</kbd>${golpe ? html` · <kbd>Esc</kbd> cancela` : NADA}</p>
     </footer>
   </div>`;

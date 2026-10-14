@@ -106,6 +106,30 @@ describe('#258: el botón de cada sector se recorta a lo que se ve', () => {
   });
 });
 
+describe('R3 de QA (#263): R. guardia dice en cuánto deja el contraataque antes de elegir', () => {
+  it('su nota, y su etiqueta, llevan el contraataque con cada éxito frente al de Normal', () => {
+    const s = sesion();
+    hastaElGolpe(s);
+    const p = s.ruedaPendiente;
+    if (p === null) throw new Error('la rueda no pide el golpe');
+    const ahora = p.prevision.contraataque;
+    const porExito = p.prevision.porTipo?.romperGuardia.contraataquePorExito ?? [];
+    expect(ahora).not.toBeNull();
+    expect(porExito.map((x) => x.punto)).toEqual([4, 3, 2]);
+    const h = (x: { min: number; max: number }) =>
+      x.min === x.max ? `${x.min}` : `${x.min}–${x.max}`;
+    const frase = `Su contraataque (con Normal, ${h(ahora ?? { min: 0, max: 0 })}) queda, según el éxito, en: ${porExito
+      .map((x) => `${['mínimo', 'bajo', 'medio', 'alto', 'máximo'][x.punto]}, ${h(x.danio)}`)
+      .join('; ')}.`;
+    const m = marcadoDe(renderEleccion(s, p));
+    const rg = m.slice(m.indexOf('data-golpe="romperGuardia"'), m.indexOf('data-golpe="normal"'));
+    // Una vez en la etiqueta del botón y otra en su «ⓘ».
+    expect(rg.split(frase)).toHaveLength(3);
+    // Los demás tipos no lo dicen.
+    expect(m.split('Su contraataque (con Normal')).toHaveLength(3);
+  });
+});
+
 describe('#258: la colocación sale del ángulo del sector, no de su tipo', () => {
   it('haciaDe: hacia fuera, por cuartos', () => {
     expect([-90, -30, 30, 90, 150, 210, -150].map(haciaDe)).toEqual([

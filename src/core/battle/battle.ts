@@ -59,6 +59,7 @@ import {
   type CifrasDeCarga,
   cargaEfectiva,
   cifrasDeCarga,
+  dichoDeLaCarga,
   porcientoDeLaCarga,
 } from './carga.js';
 import { fraseDelContacto, pagaElContacto, salirCuesta } from './contacto.js';
@@ -3043,8 +3044,11 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
   }
 }
 
-/** Las casillas entre un tirador y su objetivo: lo que mira la regla de la distancia. */
-function distanciaDeDisparo(shooter: BattleStack, target: BattleStack): number {
+/**
+ * Las casillas entre un tirador y su objetivo: lo que mira la regla de la distancia.
+ * Exportada para que la IA elija blanco con las mismas opciones del disparo.
+ */
+export function distanciaDeDisparo(shooter: BattleStack, target: BattleStack): number {
   return Math.min(
     ...stackHexes(shooter).flatMap((sh) => stackHexes(target).map((th) => hexDistance(sh, th))),
   );
@@ -3357,6 +3361,11 @@ export interface PrevisionDeLanzar {
   readonly objetivo: string;
   /** El daño de un hechizo de daño, que no tira dado. */
   readonly danio: number | null;
+  /**
+   * Lo que para la armadura del objetivo de ese daño (`trasLaArmadura`, la arena);
+   * 0 sin armadura o sin daño. La barra lo dice como el golpe (A1 de QA de #262).
+   */
+  readonly parado: number;
   readonly bajas: number | null;
   readonly leQuedan: number | null;
   /** Lo que dejaría colgado: Prisa, Lentitud, Bendición, Maldición. */
@@ -3604,6 +3613,12 @@ export interface SectorDeLaRueda {
   readonly golpes: number;
   /** Con más de un golpe y carga, el de cada uno tras el primero, que no la cobra; si no, `null`. */
   readonly siguientes: Horquilla | null;
+  /**
+   * Al golpear con un tipo que deja algo al rival antes de su contraataque (Romper
+   * guardia), su contraataque de ahora con cada éxito que lo cambia, del mayor al
+   * menor (R3 de QA de #263); si no, o en la respuesta, o sin contraataque, `[]`.
+   */
+  readonly contraataquePorExito: readonly { readonly punto: Punto; readonly danio: Horquilla }[];
 }
 
 /**
@@ -3625,6 +3640,18 @@ export function previsionDeLaRueda(
 ): {
   readonly porTipo: Readonly<Record<TipoDeGolpe, SectorDeLaRueda>> | null;
   readonly sinContraataque: string | null;
+  /**
+   * Al golpear, el contraataque del rival si se golpea con Normal, que no le deja
+   * nada encima (con lo que comparar `contraataquePorExito`); en la respuesta o
+   * sin contraataque, `null`.
+   */
+  readonly contraataque: Horquilla | null;
+  /**
+   * Al golpear tras una carrera, la carga que ya llevan las cifras, dicha
+   * (`dichoDeLaCarga`: «carga de 3 casillas a pie, +15 %»; R6 de QA de #260); si
+   * no hay carga o en la respuesta, `null`.
+   */
+  readonly carga: string | null;
 } {
   if (!conRueda(state)) throw new Error('en esta pelea el golpe es de azar: no hay rueda');
   const s = activeStack(state);
@@ -3637,10 +3664,18 @@ export function previsionDeLaRueda(
   // Si el objetivo no devolverá el golpe, lo dicen las notas de las dos fases;
   // quien responde, además, no tiene daño que ver.
   const sinContraataque = contraataqueBlocker(state, desdeAhi, target);
-  if (papel === 'respuesta' && sinContraataque !== null) return { porTipo: null, sinContraataque };
+  if (papel === 'respuesta' && sinContraataque !== null) {
+    return { porTipo: null, sinContraataque, contraataque: null, carga: null };
+  }
   // Las opciones, una vez; cada tipo pone encima su sector.
   const opciones = opcionesDeDanio(state, quien, contra, extra);
   const piezas = piezasDeLaPelea(state);
+  // El contraataque que se le devolvería a quien pega, con el golpe `golpe` (la
+  // misma cuenta que la previsión del golpe, `previsionDelContraataque`).
+  const contraataqueCon = (golpe: GolpeEnLaRueda | null): Horquilla | null =>
+    previsionDeGolpe(state, desdeAhi, target, 'golpe', { chargeHexes: carga }, golpe).contraataque
+      ?.danio ?? null;
+  const conContraataque = papel === 'golpe' && sinContraataque === null;
   const porTipo = {} as Record<TipoDeGolpe, SectorDeLaRueda>;
   for (const tipo of TIPOS_DE_GOLPE) {
     const sector = delSector(tipo);
@@ -3648,10 +3683,28 @@ export function previsionDeLaRueda(
     const golpes = golpesDe(quien.unit, tipo, devuelve);
     const siguientes =
       golpes > 1 ? danioSinLaCarga(h.danio, quien, contra, extra, sector, piezas, state) : null;
-    porTipo[tipo] = { danio: h.danio, golpes, siguientes };
+    const contraataquePorExito = conContraataque
+      ? [...PUNTOS_DEL_MAYOR_AL_MENOR].flatMap((punto) => {
+          if (punto < sector.desde || punto > sector.hasta) return [];
+          if (efectoDeLaRueda(tipo, punto)?.a !== 'rival') return [];
+          const danio = contraataqueCon({ tipo, desde: punto, hasta: punto });
+          return danio === null ? [] : [{ punto, danio }];
+        })
+      : [];
+    porTipo[tipo] = { danio: h.danio, golpes, siguientes, contraataquePorExito };
   }
-  return { porTipo, sinContraataque };
+  const cifras = papel === 'golpe' ? cargaDelStack(state, desdeAhi) : null;
+  const cobrada = cifras === null ? 0 : cargaEfectiva(carga, cifras);
+  return {
+    porTipo,
+    sinContraataque,
+    contraataque: conContraataque ? contraataqueCon(delSector('normal')) : null,
+    carga: cifras !== null && cobrada > 0 ? dichoDeLaCarga(cobrada, cifras) : null,
+  };
 }
+
+/** Los cinco puntos del cruce, del máximo al mínimo: el orden en que se dice cada éxito. */
+const PUNTOS_DEL_MAYOR_AL_MENOR: readonly Punto[] = [4, 3, 2, 1, 0];
 
 function previsionDeHechizo(
   state: BattleState,
@@ -3680,6 +3733,7 @@ function previsionDeLanzar(
     objetivo: t.id,
     reglas: reglasEncendidas(state.reglas),
     danio: null,
+    parado: 0,
     bajas: null,
     leQuedan: null,
     efecto: null,
@@ -3688,11 +3742,12 @@ function previsionDeLanzar(
   switch (s.kind) {
     case 'damage': {
       // Con la resta del hechizo de verdad (`castSpell` → `herir`).
-      const { danio } = trasLaArmadura(l.cantidad, t);
+      const { danio, parado } = trasLaArmadura(l.cantidad, t);
       const quedan = trasElGolpe(t, danio);
       return {
         ...base,
         danio,
+        parado,
         bajas: t.count - quedan.count,
         leQuedan: stackHp({ ...t, ...quedan }),
       };

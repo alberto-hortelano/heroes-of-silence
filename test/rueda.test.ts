@@ -1082,9 +1082,19 @@ describe('la previsión de la rueda', () => {
     expect(p.sinContraataque).toBeNull();
     const t = p.porTipo;
     if (t === null) throw new Error('quien pega siempre tiene previsión');
-    expect(t.normal).toEqual({ danio: { min: 315, max: 315 }, golpes: 1, siguientes: null });
+    expect(t.normal).toEqual({
+      danio: { min: 315, max: 315 },
+      golpes: 1,
+      siguientes: null,
+      contraataquePorExito: [],
+    });
     // 30 × 10 × 0,9 × 0,6 = 162; 40 × … = 216.
-    expect(t.rapido).toEqual({ danio: { min: 162, max: 216 }, golpes: 2, siguientes: null });
+    expect(t.rapido).toEqual({
+      danio: { min: 162, max: 216 },
+      golpes: 2,
+      siguientes: null,
+      contraataquePorExito: [],
+    });
     expect(t.fuerte.danio).toEqual({ min: 338, max: 450 });
     // 30 × 10 × 0,925 = 277,5 → 278; 40 × … = 370.
     expect(t.ofensivo.danio).toEqual({ min: 278, max: 370 });
@@ -1097,7 +1107,11 @@ describe('la previsión de la rueda', () => {
       danio: { min: 315, max: 315 },
       golpes: 1,
       siguientes: null,
+      contraataquePorExito: [],
     });
+    // Quien responde no ve el contraataque que le devolverían a él ni la carga.
+    expect(p.contraataque).toBeNull();
+    expect(p.carga).toBeNull();
     stackById(b, 'defender-0').retaliated = true;
     const sin = previsionDeLaRueda(b, { type: 'attack', target: 'defender-0' }, 'respuesta');
     expect(sin.porTipo).toBeNull();
@@ -1109,7 +1123,28 @@ describe('la previsión de la rueda', () => {
       danio: { min: 315, max: 315 },
       golpes: 1,
       siguientes: null,
+      contraataquePorExito: [],
     });
+    // Sin contraataque, Romper guardia no tiene nada que rebajar.
+    expect(golpe.contraataque).toBeNull();
+    expect(golpe.porTipo?.romperGuardia.contraataquePorExito).toEqual([]);
+  });
+
+  it('al golpear, Romper guardia dice su contraataque con cada éxito que lo rebaja (R3 de QA)', () => {
+    // Quedan 8 piqueros tras el golpe; con Normal, 30–40 × 8 × 0,9 = 216–288. Con
+    // −3 (A 2 contra D 9, ×0,825) 198–264, con −2 (×0,85) 204–272, con −1 (×0,875) 210–280.
+    const { b } = enRueda(piqueros(10), piqueros(10));
+    const p = previsionDeLaRueda(b, { type: 'attack', target: 'defender-0' }, 'golpe');
+    expect(p.contraataque).toEqual({ min: 216, max: 288 });
+    expect(p.porTipo?.romperGuardia.contraataquePorExito).toEqual([
+      { punto: 4, danio: { min: 198, max: 264 } },
+      { punto: 3, danio: { min: 204, max: 272 } },
+      { punto: 2, danio: { min: 210, max: 280 } },
+    ]);
+    // Los demás no se lo tocan al rival (Defensivo es de quien pega).
+    expect(p.porTipo?.defensivo.contraataquePorExito).toEqual([]);
+    expect(p.porTipo?.fuerte.contraataquePorExito).toEqual([]);
+    expect(p.carga).toBeNull();
   });
 
   it('sin contraataque, las notas del golpe no lo prometen (H9)', () => {
@@ -1365,6 +1400,25 @@ function jineteALaCarga(): { s: SesionDeArena; ataque: BattleAction & { type: 'a
 }
 
 describe('la sesión de la arena con la rueda', () => {
+  it('tras la carrera la rueda dice la carga de sus cifras y Rápido va en dos líneas (R5, R6)', () => {
+    const { s, ataque } = jineteALaCarga();
+    s.playBattleAction(ataque);
+    const p = s.ruedaPendiente;
+    if (p === null) throw new Error('la rueda no se abre tras la carrera');
+    expect(p.prevision.carga).toBe('carga de 5 casillas, +50 %');
+    const m = marcadoDe(renderEleccion(s, p));
+    expect(m).toContain('Las cifras llevan la carga de 5 casillas, +50 %');
+    // Rápido: el primer golpe, con la carga, y el siguiente, sin ella, cada uno en su línea.
+    const desde = m.indexOf('data-golpe="rapido"');
+    const rapido = m.slice(desde, m.indexOf('</button>', desde));
+    expect(rapido.match(/class="da"/g)).toHaveLength(2);
+    expect(rapido).toMatch(/<span class="da">\+ \d+/);
+    // El piquero no aguanta el golpe de la carga: no hay contraataque que rebajar,
+    // y R. guardia no lo promete.
+    expect(p.prevision.contraataque).toBeNull();
+    expect(m).not.toContain('Su contraataque (con Normal');
+  });
+
   it('Yo contra IA: golpear abre la rueda; elegir da el golpe y la IA responde a ciegas', () => {
     const s = sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: true });
     hastaLaRueda(s, true, 'golpe');
@@ -1430,7 +1484,7 @@ describe('la sesión de la arena con la rueda', () => {
     const largo = s.battle.log.length;
     const n = s.battle.turno?.n;
     expect(s.cancelarGolpe()).toBe(true);
-    expect(s.status).toBe('Golpe cancelado.');
+    expect(s.status).toBe('Golpe cancelado: se pierde la carga.');
     expect(s.ruedaPendiente).toBeNull();
     expect(s.battle.golpeEnCurso).toBeNull();
     // Nada nuevo en el registro: ni vuelve atrás ni golpea.

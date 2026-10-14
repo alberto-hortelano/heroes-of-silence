@@ -14,6 +14,7 @@ import {
   cerradasPara,
   distanciaACaminar,
   distanciaAndando,
+  distanciaDeDisparo,
   distanciaHasta,
   enemiesOf,
   escalaDesde,
@@ -34,7 +35,15 @@ import {
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
 import { CARGA_MINIMA, cargaEfectiva, cifrasDeCarga } from '../battle/carga.js';
-import { expectedDamage, stackHp, trasLaArmadura, valorDeEfectoDeDanio } from '../battle/damage.js';
+import {
+  armaduraDe,
+  type DamageOptions,
+  expectedDamage,
+  fraccionQueLlega,
+  stackHp,
+  trasLaArmadura,
+  valorDeEfectoDeDanio,
+} from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
 import {
   claveDeAbiertas,
@@ -85,11 +94,41 @@ function threat(state: BattleState, s: BattleStack): number {
   }
 }
 
-/** El objetivo más apetecible: mucha amenaza y poca vida restante. */
-function bestTarget(state: BattleState, candidates: BattleStack[]): BattleStack | null {
-  if (candidates.length === 0) return null;
-  const valor = (s: BattleStack): number => threat(state, s) / Math.max(1, stackHp(s));
-  return candidates.reduce((best, s) => (valor(s) > valor(best) ? s : best));
+/**
+ * El objetivo más apetecible para `s`: mucha amenaza y poca vida restante, por la
+ * parte de su golpe que llega tras la armadura (`fraccionQueLlega`, con las
+ * opciones del disparo o del golpe, `opciones`).
+ *
+ * La armadura (la arena, #262) entra como factor y no cambiando la cuenta: sin
+ * ella el factor es 1 exacto y el juego elige lo mismo que antes (el banco no se
+ * mueve). Sin él, el jinete con barda (80 PV, 22 de armadura) era el blanco más
+ * rentable y un goblin le disparaba en 40 de 40 semillas, para 0 de daño, con un
+ * monje sin armadura a tiro (QA de #262, Q1).
+ */
+function bestTarget(
+  state: BattleState,
+  s: BattleStack,
+  candidates: BattleStack[],
+  opciones: (e: BattleStack) => DamageOptions,
+): BattleStack | null {
+  const valor = (e: BattleStack): number => {
+    const base = threat(state, e) / Math.max(1, stackHp(e));
+    // Las opciones solo se piden contra armadura: la IA del juego no paga nada.
+    return armaduraDe(e.unit) === 0 ? base : base * fraccionQueLlega(s, e, opciones(e));
+  };
+  const [primero, ...resto] = candidates;
+  if (primero === undefined) return null;
+  // `>`: con un empate se queda el primero, como el `reduce` de antes.
+  let mejor = primero;
+  let valorMejor = valor(primero);
+  for (const e of resto) {
+    const v = valor(e);
+    if (v > valorMejor) {
+      mejor = e;
+      valorMejor = v;
+    }
+  }
+  return mejor;
 }
 
 /**
@@ -876,7 +915,9 @@ function decideAccion(
       candidatos = coste.filter((c) => c.aliados === minimo).map((c) => c.enemigo);
     }
 
-    const objetivo = bestTarget(state, candidatos);
+    const objetivo = bestTarget(state, s, candidatos, (e) =>
+      opcionesDeDanio(state, s, e, { ranged: true, distance: distanciaDeDisparo(s, e) }),
+    );
     if (objetivo !== null) {
       const disparo = acciones.find((a) => a.type === 'shoot' && a.target === objetivo.id);
       if (disparo !== undefined) return disparo;
@@ -885,7 +926,7 @@ function decideAccion(
 
   // Golpear a quien ya se alcanza, priorizando el objetivo más valioso.
   const alcanzables = enemigos.filter((e) => canReachMelee(state, s, e));
-  const cercano = bestTarget(state, alcanzables);
+  const cercano = bestTarget(state, s, alcanzables, (e) => opcionesDeDanio(state, s, e));
   if (cercano !== null) {
     const ataque = acciones.find(
       (a) => a.type === 'attack' && a.target === cercano.id && a.from === undefined,

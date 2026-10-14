@@ -11,7 +11,11 @@
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
+import { textoDePrevision } from '../src/client/views/prevision.js';
+import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
+  avisoDeLaCopia,
+  batallaDeArena,
   CUERPO_COMUN,
   catalogoDeLaArena,
   equiparEnArena,
@@ -26,6 +30,7 @@ import {
   applyAction,
   crearBatallaConReglas,
   opcionesDeDanio,
+  previsionDe,
   stackById,
 } from '../src/core/battle/battle.js';
 import { armaduraDe, expectedDamage, herir, trasLaArmadura } from '../src/core/battle/damage.js';
@@ -38,7 +43,7 @@ import { cifrasDePieza, EQUIPO_DEL_JUEGO, pieza, sumaDeEquipo } from '../src/cor
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { EquipoDeArena, Hex, UnitInfo } from '../src/core/types.js';
 import { bando, bandoDe, mando } from './batalla-de-prueba.js';
-import { DEL_JUEGO, dadoCargado, unidadDeArena } from './helpers.js';
+import { DEL_JUEGO, dadoCargado, delBorrador, MONTAJE, unidadDeArena } from './helpers.js';
 
 /** El cuerpo común de la arena con lo que se cambie. */
 function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {
@@ -171,7 +176,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     expect([jinete.count, jinete.topHp]).toEqual([1, 80]);
     // Ni experiencia: no quitó nada.
     expect(stackById(b, 'attacker-0').ganado.experiencia).toBe(0);
-    expect(marcadoDe(renderBattleLog(b, null))).toContain('0 de daño: lo para la armadura (18)');
+    expect(marcadoDe(renderBattleLog(b, null))).toContain('0 de daño: la armadura para los 18');
   });
 
   it('`herir` resta lo último: lo que llega, lo que para y los muertos', () => {
@@ -235,6 +240,13 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
       REGLAS_DEL_JUEGO,
     );
     b.turno = { n: 1000, stack: 'attacker-0', gastado: 0 };
+    // La barra lo dice como el golpe (A1 de QA): el daño que llega y lo que para.
+    const prevista = previsionDe(b, { type: 'cast', spell: 'magic_arrow', target: 'defender-0' });
+    expect(prevista).toMatchObject({ danio: flecha - 7, parado: 7 });
+    if (prevista === null) throw new Error('la Flecha no se prevé');
+    expect(textoDePrevision(prevista, () => 'Muñeco')).toContain(
+      `${flecha - 7} de daño (−7 armadura),`,
+    );
     const desde = jugar(
       b,
       { type: 'cast', spell: 'magic_arrow', target: 'defender-0' },
@@ -270,6 +282,43 @@ describe('la IA cuenta con la armadura (`expectedDamage`)', () => {
     expect(daño(GOLPEADOR, TEMPLARIO)).toBe(43);
     // 20 × 0,875 = 17,5, y la barda para 22: 0, no −4,5.
     expect(daño(cuerpo('Flojo', { damage: [20, 20] }), JINETE)).toBe(0);
+  });
+
+  it('el goblin de la IA dispara al monje, no a la barda que le para la flecha (QA, Q1)', () => {
+    // El hermano de carga con barda (80 PV, 22 de armadura) parecía el blanco más
+    // rentable por amenaza / PV, y el goblin le tiraba en 40 de 40 semillas para 0.
+    const elegidos = new Set<string>();
+    const sinArmadura = new Set<string>();
+    for (let semilla = 1; semilla <= 10; semilla++) {
+      for (const [jinete, anota] of [
+        [unidadDeArena('templario-hermano-de-carga'), elegidos],
+        // El mismo jinete sin la barda: el factor no está y sigue mandando la vida.
+        [
+          unidadDeArena('templario-hermano-de-carga', {
+            equipo: { arma: 'espada', carga: 'lanza_de_jinete' },
+          }),
+          sinArmadura,
+        ],
+      ] as const) {
+        const b = batallaDeArena(
+          {
+            izquierda: { unidades: [delBorrador(unidadDeArena('goblin-arquero'))], heroe: null },
+            derecha: {
+              unidades: [delBorrador(jinete), delBorrador(unidadDeArena('templario-monje'))],
+              heroe: null,
+            },
+            ...MONTAJE,
+          },
+          createRng(semilla),
+        );
+        b.turno = { n: 1000, stack: 'attacker-0', gastado: 0 };
+        const accion = chooseBattleAction(b);
+        expect(accion.type).toBe('shoot');
+        if (accion.type === 'shoot') anota.add(stackById(b, accion.target).body ?? '');
+      }
+    }
+    expect([...elegidos]).toEqual(['templario-monje']);
+    expect([...sinArmadura]).toEqual(['templario-hermano-de-carga']);
   });
 });
 
@@ -313,15 +362,71 @@ describe('lo de antes se lee con armadura (PV / 10, con aviso)', () => {
     const conPV = { ...o, piezas: [{ ...sinArmadura, pv: 45 }] };
     const v8 = montajeDeLaURL(JSON.stringify({ ...conPV, v: 8 }));
     expect(v8.piezas).toEqual([conArmadura]);
-    expect(v8.avisos).toEqual([AVISO]);
+    // La pieza del enlace lo dice una vez (no otra con la unidad que la lleva); el
+    // jubón del goblin es del kit y lo dice el aviso de la armadura de antes (Q2).
+    expect(v8.avisos).toEqual([
+      AVISO,
+      'Desde la versión 9 las armaduras de la arena dan armadura y no PV: «Goblin arquero» tiene 80 PV y 2 de armadura (antes 100 PV).',
+    ]);
     expect(() => montajeDeLaURL(JSON.stringify(conPV))).toThrow(
       '«Peto» es de la arena y suma 45 PV: en la arena se protege con armadura',
     );
+  });
+
+  it('un enlace de la 8 con las armaduras del kit avisa de lo que cambia; uno de la 9, no (QA, Q2)', () => {
+    const lado = (unidad: string, ia: boolean) => ({
+      ia,
+      puestos: [{ unidad, escalera: false }],
+      heroe: null,
+    });
+    const ENLACE: MontajeDelEnlace = {
+      unidades: [
+        unidadDeArena('templario-escudo'),
+        unidadDeArena('templario-hermano-de-carga'),
+        unidadDeArena('templario-monje'),
+      ],
+      piezas: [],
+      izquierda: {
+        ia: false,
+        puestos: [
+          { unidad: 'templario-escudo', escalera: false },
+          { unidad: 'templario-hermano-de-carga', escalera: false },
+        ],
+        heroe: null,
+      },
+      derecha: lado('templario-monje', true),
+      muralla: null,
+    };
+    const v9 = JSON.parse(montajeALaURL(ENLACE));
+    expect(montajeDeLaURL(JSON.stringify(v9)).avisos ?? []).toEqual([]);
+    // 80 PV del cuerpo; la brigantina daba 70 y la barda 220. El monje no lleva armadura.
+    expect(montajeDeLaURL(JSON.stringify({ ...v9, v: 8 })).avisos).toEqual([
+      'Desde la versión 9 las armaduras de la arena dan armadura y no PV: «Guerrero con escudo» tiene 80 PV y 7 de armadura (antes 150 PV); «Hermano de carga (montado; antes Caballero montado)» tiene 80 PV y 22 de armadura (antes 300 PV).',
+    ]);
   });
 
   it('una pieza del juego que suma PV, duplicada en la arena, protege con armadura', () => {
     // El Cuero curtido (común, +10 PV) copiado como nuevo es de la arena: 1 de armadura.
     const copia = piezaNueva(pieza('cuero_curtido'), DEL_JUEGO);
     expect(copia).toMatchObject({ calidad: 'arena', pv: 0, armadura: 1 });
+    // Y el editor lo dice (A3 de QA): no es una copia de las mismas cifras.
+    expect(avisoDeLaCopia(pieza('cuero_curtido'), copia)).toBe(
+      'En la arena una pieza no suma PV: los 10 PV de «Cuero curtido» pasan a 1 de armadura, que se resta del daño de cada golpe.',
+    );
+    // Lo que no suma PV se copia sin aviso.
+    const espada = pieza('espada');
+    expect(avisoDeLaCopia(espada, piezaNueva(espada, DEL_JUEGO))).toBeNull();
+  });
+
+  it('una pieza que se queda en 0 dice que ya no protege, y la armadura tiene tope (A4 de QA)', () => {
+    const { pv: _, armadura: __, ...sinCifras } = peto;
+    const r = revisarBorradorDeEquipo({ piezas: [{ ...sinCifras, pv: 4 }] });
+    expect(r.avisos).toEqual([
+      'La pieza «Peto» daba 4 PV: no llegan a un punto de armadura, así que ya no protege.',
+    ]);
+    expect(validarPiezaDeArena({ ...peto, armadura: 99 })).toMatchObject({ armadura: 99 });
+    expect(() => validarPiezaDeArena({ ...peto, armadura: 1000 })).toThrow(
+      '«Peto»: la armadura va de 0 a 99 y es 1000',
+    );
   });
 });

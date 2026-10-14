@@ -25,6 +25,7 @@ import {
   castBlocker,
   contactoBlocker,
   escalaBlocker,
+  faseDelTurno,
   firmaDelTurno,
   legalActionsAndCosts,
   MAX_JUGADAS,
@@ -1867,6 +1868,16 @@ export class SesionDeArena implements ControlDeBatalla {
     return motivo === null ? null : comoFrase(motivo);
   }
 
+  /**
+   * Si la unidad activa de la persona ha golpeado con Finta y le queda solo el
+   * tramo de andar (`faseDelTurno`): el panel lo dice en vez de invitar a golpear
+   * (R2 de QA de #263).
+   */
+  trasLaFinta(): boolean {
+    const turno = this.turnoPropio;
+    return turno !== null && faseDelTurno(turno.battle) === 'trasLaFinta';
+  }
+
   attackRejection(targetId: string): string {
     return motivoContra(this.turnoPropio, targetId);
   }
@@ -2072,9 +2083,11 @@ export class SesionDeArena implements ControlDeBatalla {
           : 'El golpe ya viene: elige la respuesta en la rueda.';
       return false;
     }
+    // La carga de la carrera se pierde al soltar: se dice (R6 de QA de #260).
+    const conCarga = this.cruce.pendiente.prevision.carga !== null;
     this.cruce = null;
     soltarElGolpe(this.battle, this.rng);
-    this.status = 'Golpe cancelado.';
+    this.status = conCarga ? 'Golpe cancelado: se pierde la carga.' : 'Golpe cancelado.';
     this.avanzarIA();
     return true;
   }

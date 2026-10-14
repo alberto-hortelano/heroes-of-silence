@@ -113,7 +113,10 @@ function deLanzar(quien: string, p: PrevisionDeLanzar): string {
     const bajas =
       p.bajas === 0 ? 'no caería ninguno' : p.bajas === 1 ? 'caería 1' : `caerían ${p.bajas}`;
     const leQuedan = p.leQuedan === 0 ? 'no le quedaría nada' : `le quedarían ${p.leQuedan} PV`;
-    return `${quien}: ${p.danio} de daño, ${bajas} y ${leQuedan}.${reglas(p)}`;
+    // Lo que para la armadura, como en el parte («193 de daño (−7 armadura)»): sin
+    // ello se veía 193 donde se esperaba 200 (A1 de QA de #262).
+    const armadura = p.parado > 0 ? ` (−${p.parado} armadura)` : '';
+    return `${quien}: ${p.danio} de daño${armadura}, ${bajas} y ${leQuedan}.${reglas(p)}`;
   }
   const hace = curaOEfecto(p.cura, p.efecto);
   return `${quien}${hace === null ? '' : `: ${hace}`}.${reglas(p)}`;
