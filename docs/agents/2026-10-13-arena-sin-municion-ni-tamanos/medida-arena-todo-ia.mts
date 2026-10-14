@@ -45,7 +45,7 @@ function bando(rng: any, m: Montaje): any[] {
           : i === 0
             ? de(tiradores)
             : de(hojas);
-    out.push({ kind: 'borrador', unidad: unidadPorDefecto(h) });
+    out.push({ unidad: unidadPorDefecto(h) });
   }
   return out;
 }
