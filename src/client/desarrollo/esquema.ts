@@ -18,11 +18,6 @@ export const FORMA_DEL_ID = /^\d{8}-\d{6}-s\d+-\d+-\d+$/;
 const numero = z.number().finite();
 const punto = z.object({ x: numero, y: numero });
 const caja = z.tuple([numero, numero, numero, numero]).readonly();
-const tramo = z.object({
-  a: numero,
-  b: numero,
-  dentro: z.tuple([z.boolean(), z.boolean()]).readonly(),
-});
 const objeto = z.object({ id: z.string(), kind: z.string() }).nullable();
 
 /** Lo que hay en un punto y su casilla (`queHayEn`). */
@@ -67,43 +62,34 @@ export const esquemaDeQueHay = z.object({
       material: z.string(),
       banda: caja,
       /**
-       * Los tajos por donde bajaba una senda: las marcas de antes del relieve por
-       * celdas (R4/R5) los traen; ahora la bajada es una pieza (`celdas`, `bajadas`).
-       */
-      rampas: z.array(tramo).optional(),
-      /**
        * Los tramos en x que no se pintan, `[a, b]`: donde ninguna pared la tapa
-       * (`CaraDeEscena.pintada`). Las marcas de antes de #159 no lo traen.
+       * (`CaraDeEscena.pintada`).
        */
-      abierto: z.array(z.tuple([numero, numero]).readonly()).optional(),
+      abierto: z.array(z.tuple([numero, numero]).readonly()),
     }),
   ),
   /**
    * Las paredes del relieve por celdas cuya celda corta la casilla (R4), con su
-   * vértice, su tipo y su caída. Las marcas de antes no lo traen.
+   * vértice, su tipo y su caída.
    */
-  celdas: z
-    .array(
-      z.object({
-        vx: numero,
-        vy: numero,
-        tipo: z.string(),
-        caida: numero,
-        material: z.string(),
-      }),
-    )
-    .optional(),
-  /** Las bajadas cuyo `arriba` cae en la casilla (R5). Las marcas de antes no lo traen. */
-  bajadas: z
-    .array(
-      z.object({
-        rumbo: z.string(),
-        caida: numero,
-        material: z.string(),
-        arriba: z.tuple([numero, numero]).readonly(),
-      }),
-    )
-    .optional(),
+  celdas: z.array(
+    z.object({
+      vx: numero,
+      vy: numero,
+      tipo: z.string(),
+      caida: numero,
+      material: z.string(),
+    }),
+  ),
+  /** Las bajadas cuyo `arriba` cae en la casilla (R5). */
+  bajadas: z.array(
+    z.object({
+      rumbo: z.string(),
+      caida: numero,
+      material: z.string(),
+      arriba: z.tuple([numero, numero]).readonly(),
+    }),
+  ),
   puente: z
     .object({
       id: z.string(),
