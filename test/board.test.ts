@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  alcanceConCostes,
   allHexes,
   anchoDeFila,
   areAdjacent,
   BOARD_HEIGHT,
   BOARD_SIZE,
   bandoDeSalida,
+  caminoDe,
+  carreraConCostes,
   espejo,
   FORMA_DEL_TABLERO,
   findPath,
@@ -598,5 +601,73 @@ describe('lineaLibre: el tiro, simétrico y generoso (11-10-2026)', () => {
       }
       expect(pasan.slice(0, 8), `fila ${row}: ${pasan.length} tiros la cruzan`).toEqual([]);
     }
+  });
+});
+
+describe('alcanceConCostes: el recorrido con lo que cuesta salir de cada casilla (#259)', () => {
+  const enTexto = (m: ReadonlyMap<string, { steps: number; at: Hex }>) =>
+    [...m.entries()].map(
+      ([k, p]) =>
+        `${k}:${p.steps}:${caminoDe(p as never)
+          .map(hexKey)
+          .join('>')}`,
+    );
+
+  it('con coste 1 en todo da exactamente lo que `reachable`: casillas, orden, pasos y camino', () => {
+    // 300 casos al azar: origen, presupuesto de 0 a 8, ocupadas y, la mitad,
+    // un paso prohibido en un sentido (la muralla). El orden del `Map` es parte de
+    // la regla (lo leen los desempates de la IA), así que se compara entero.
+    const rng = createRng(259);
+    const casillas = allHexes();
+    for (let caso = 0; caso < 300; caso++) {
+      const desde = casillas[rng.int(0, BOARD_SIZE - 1)] as Hex;
+      const tope = rng.int(0, 8);
+      const ocupadas = new Set<string>();
+      for (let i = rng.int(0, 30); i > 0; i--) {
+        ocupadas.add(hexKey(casillas[rng.int(0, BOARD_SIZE - 1)] as Hex));
+      }
+      const cortes = new Set<number>();
+      for (let i = rng.int(0, 1) * 40; i > 0; i--) {
+        cortes.add(rng.int(0, BOARD_SIZE - 1) * BOARD_SIZE + rng.int(0, BOARD_SIZE - 1));
+      }
+      const paso =
+        cortes.size === 0 ? undefined : (a: number, b: number) => !cortes.has(a * BOARD_SIZE + b);
+      expect(enTexto(alcanceConCostes(desde, tope, ocupadas, () => 1, paso))).toEqual(
+        enTexto(reachable(desde, tope, ocupadas, paso)),
+      );
+    }
+  });
+
+  it('el camino es el más barato: rodea la casilla cara', () => {
+    // De (2,4) a (5,4): recto pasa por (3,4) y (4,4); si salir de (3,4) cuesta 5,
+    // sale más barato por la fila 3 o la 5, a 4. Empatan, y gana la que se
+    // descubrió antes: en el orden de `neighbours`, la fila 5 va antes que la 3.
+    const caro = indiceDe({ col: 3, row: 4 });
+    const m = alcanceConCostes({ col: 2, row: 4 }, 6, new Set(), (i) => (i === caro ? 5 : 1));
+    const p = m.get('5,4');
+    expect(p?.steps).toBe(4);
+    expect(caminoDe(p!).map(hexKey)).toEqual(['2,5', '3,5', '4,5', '5,4']);
+    // Entrar en la casilla cara cuesta 1; salir de ella, 5.
+    expect(m.get('3,4')?.steps).toBe(1);
+    expect(m.get('4,4')?.steps).toBe(3);
+  });
+
+  it('el origen que cuesta más que el presupuesto no deja salir', () => {
+    const m = alcanceConCostes({ col: 5, row: 4 }, 4, new Set(), () => 5);
+    expect([...m.keys()]).toEqual(['5,4']);
+  });
+
+  it('un coste que no es un entero de 1 o más se dice', () => {
+    expect(() => alcanceConCostes({ col: 5, row: 4 }, 4, new Set(), () => 0)).toThrow(
+      'salir de (5,4) no puede costar 0: un paso cuesta un entero de 1 o más',
+    );
+  });
+
+  it('la carrera en recta paga cada casilla de la que sale, y fuera de recta no hay', () => {
+    const caro = indiceDe({ col: 2, row: 4 });
+    const p = carreraConCostes({ col: 0, row: 4 }, { col: 4, row: 4 }, (i) => (i === caro ? 3 : 1));
+    expect(p?.steps).toBe(6);
+    expect(caminoDe(p!).map(hexKey)).toEqual(['1,4', '2,4', '3,4', '4,4']);
+    expect(carreraConCostes({ col: 0, row: 4 }, { col: 4, row: 2 }, () => 1)).toBeNull();
   });
 });

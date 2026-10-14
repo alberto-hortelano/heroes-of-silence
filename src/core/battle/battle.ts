@@ -29,14 +29,20 @@ import type { CombatProfile } from '../rpg/stats.js';
 import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo, UsoDeArma } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
 import {
+  alcanceConCostes,
+  allHexes,
   areAdjacent,
+  BOARD_SIZE,
   COLUMNAS_DE_SALIDA,
+  type CosteDeSalir,
   caminoDe,
+  carreraConCostes,
   distanciasDesde,
   espejo,
   hexDistance,
   hexEquals,
   hexKey,
+  indiceDe,
   isInside,
   neighbours,
   occupiedHexes,
@@ -46,6 +52,12 @@ import {
   rectaLibre,
   siguienteEnRecta,
 } from './board.js';
+import {
+  costeDeSalirCon,
+  fraseDelContacto,
+  type ModoDelContacto,
+  pagaElContacto,
+} from './contacto.js';
 import {
   ataqueYDefensa,
   CHANCE_PER_POINT,
@@ -427,6 +439,8 @@ export function createBattle(
  * vigila `test/invariantes.test.ts` («solo la arena cambia las reglas»): quien
  * la llame fuera de `battle/`, `arena.ts`, `session.ts` y `client/arena/` sale
  * rojo. `golpe`, el modo del golpe (`rueda.ts`): la tirada de siempre o la rueda.
+ * `contacto`, si salir de una casilla cuesta 1 + los enemigos en contacto
+ * (`contacto.ts`): el juego anda `libre`.
  */
 export function crearBatallaConReglas(
   attacker: BattleSide,
@@ -435,6 +449,7 @@ export function crearBatallaConReglas(
   reglas: ReglasDeBatalla,
   murallaPedida: MurallaDeBatalla = SIN_MURALLA,
   golpe: ModoDelGolpe = 'azar',
+  contacto: ModoDelContacto = 'libre',
 ): BattleState {
   const stacks: BattleStack[] = [];
   const muralla = murallaPedida === SIN_MURALLA ? SIN_MURALLA : validarMuralla(murallaPedida);
@@ -519,6 +534,7 @@ export function crearBatallaConReglas(
     reglas,
     muralla,
     modoDelGolpe: golpe,
+    modoDelContacto: contacto,
     golpeEnCurso: null,
     escaleras: [],
     puertas: puertasAlEmpezar(muralla),
@@ -847,6 +863,9 @@ export function movimientoBlocker(state: BattleState, hex: Hex): string | null {
   }
   const subida = subidaAndando(state, s, hex);
   if (subida !== null) return subida;
+  // Rodeado, no va a ninguna parte: lo que le cierra es su casilla, no el camino.
+  const rodeado = contactoBlocker(state, s);
+  if (rodeado !== null) return rodeado;
   // La puerta antes que el lado: si abierta llegaría, lo que se lo impide es ella.
   const puerta = porLaPuerta(state, s, hex);
   if (puerta !== null) return puerta;
@@ -855,6 +874,13 @@ export function movimientoBlocker(state: BattleState, hex: Hex): string | null {
   const quedan = pasosQueQuedan(state, s);
   if (quedan === 0) return 'ya no le quedan casillas este turno';
   const [verbo, casillas] = quedanCasillas(quedan);
+  // Si saliendo gratis llegaría, lo que no le deja es el contacto del camino.
+  if (
+    pagaElContacto(state) &&
+    movableFrom({ ...state, modoDelContacto: 'libre' }, s).has(hexKey(hex))
+  ) {
+    return `no llega: le ${verbo} ${casillas} y salir de una casilla con enemigos al lado cuesta 1 más por cada uno`;
+  }
   return hayMuralla(state.muralla) && !hasTrait(s.unit, 'flying')
     ? `no llega: le ${verbo} ${casillas} y la muralla o las unidades cortan el camino`
     : `no llega: le ${verbo} ${casillas}`;
@@ -890,8 +916,9 @@ function porElLado(state: BattleState, s: BattleStack, hex: Hex): string | null 
   const m = state.muralla;
   if (m.muros.length === 0 || hasTrait(s.unit, 'flying') || hexSize(s.unit) > 1) return null;
   const blocked = cerradasPara(state, s);
-  const sinLados = reachable(
-    s.hex,
+  const sinLados = recorrer(
+    state,
+    s,
     pasosQueQuedan(state, s),
     alAndar(state, s, blocked).cerradas,
     pasoAlAndar(m, state.puertas, s.side, false),
@@ -1278,15 +1305,16 @@ export function movableFrom(state: BattleState, s: BattleStack): Map<string, Pas
   // paso es lo que impide acabarla en un muro. El defensor sí sube andando. Las puertas cerradas sí se preguntan: van entre dos casillas, no en una (ampliación 4).
   const dist =
     andando === null
-      ? reachable(s.hex, pasos, new Set())
+      ? recorrer(state, s, pasos, new Set())
       : andando.paso !== undefined && s.side === 'attacker' && !enLoAlto(state, s)
-        ? reachable(
-            s.hex,
+        ? recorrer(
+            state,
+            s,
             pasos,
             new Set([...andando.cerradas, ...casillasDeMuro(state.muralla)]),
             pasoPorPuertas(state.muralla, state.puertas),
           )
-        : reachable(s.hex, pasos, andando.cerradas, andando.paso);
+        : recorrer(state, s, pasos, andando.cerradas, andando.paso);
 
   const out = new Map<string, Paso>();
   const tamaño = hexSize(info);
@@ -1300,6 +1328,110 @@ export function movableFrom(state: BattleState, s: BattleStack): Map<string, Pas
     out.set(key, paso);
   }
   return out;
+}
+
+/**
+ * El recorrido de `s` desde donde está con `pasos` de presupuesto: el BFS de
+ * siempre (`reachable`) o, si salir del contacto cuesta (`pagaElContacto`), el
+ * de costes (`alcanceConCostes`) con lo que cuesta salir de cada casilla
+ * (`costesDelPaso`). Lo leen `movableFrom` y `porElLado`, para que lo que se
+ * enseña, lo que se anda y lo que se explica salgan de la misma cuenta. Sin la
+ * regla, el código de siempre, la misma llamada: el banco no se mueve.
+ */
+function recorrer(
+  state: BattleState,
+  s: BattleStack,
+  pasos: number,
+  cerradas: ReadonlySet<string>,
+  paso?: PasoPermitido,
+): Map<string, Paso> {
+  return pagaElContacto(state)
+    ? alcanceConCostes(s.hex, pasos, cerradas, costesDelPaso(state, s), paso)
+    : reachable(s.hex, pasos, cerradas, paso);
+}
+
+// ---------------------------------------------------------- salir del contacto
+
+/**
+ * Los enemigos vivos que golpearían a `s` cuerpo a cuerpo si estuviera en `hex`:
+ * los que tiene en contacto ahí (`contacto.ts`). Es la regla del trabado,
+ * `canReachMelee` (decisión del usuario, 14-10-2026): el de lo alto del muro de
+ * al lado no cuenta, y el del otro lado de una puerta cerrada sí, porque hoy se
+ * golpea a través de ellas.
+ */
+export function enemigosEnContacto(state: BattleState, s: BattleStack, hex: Hex): BattleStack[] {
+  const ahi = hexEquals(hex, s.hex) ? s : { ...s, hex };
+  return enemiesOf(state, s).filter((e) => canReachMelee(state, ahi, e));
+}
+
+/**
+ * Lo que le cuesta a `s` dar un paso saliendo de `hex`: 1 + los enemigos en
+ * contacto si la pelea lo cobra (`pagaElContacto`), y 1 si no. Andando, en cada
+ * casilla del camino; volando, solo en la de la que despega (`costesDelPaso`).
+ */
+export function costeDeSalir(state: BattleState, s: BattleStack, hex: Hex): number {
+  return pagaElContacto(state) ? costeDeSalirCon(enemigosEnContacto(state, s, hex).length) : 1;
+}
+
+/**
+ * Por qué `s` no puede salir de su casilla, o `null` si puede o si la pelea no
+ * cobra el contacto: lo que le queda no paga salir de donde está (#259). Sin
+ * casillas no es esto: «ya no le quedan casillas» lo dice `movimientoBlocker`.
+ * La leen `movimientoBlocker`, para cualquier casilla a la que se le pida ir, y
+ * el panel de la arena, que lo dice sin que se señale ninguna.
+ */
+export function contactoBlocker(state: BattleState, s: BattleStack): string | null {
+  if (!pagaElContacto(state)) return null;
+  const quedan = pasosQueQuedan(state, s);
+  if (quedan === 0) return null;
+  const n = enemigosEnContacto(state, s, s.hex).length;
+  return costeDeSalirCon(n) > quedan ? fraseDelContacto(n, quedan) : null;
+}
+
+/**
+ * Lo que cuesta a `s` salir de cada casilla, por índice, para recorrer el
+ * tablero con costes. Andando, `1 + N` de cada casilla de la que sale; volando,
+ * `1 + N` de la casilla de la que despega y 1 por cada una de las demás: el
+ * volador no paga por lo que sobrevuela (decisión del usuario). Cada casilla se
+ * cuenta una vez, y solo si el recorrido sale de ella.
+ */
+function costesDelPaso(state: BattleState, s: BattleStack): CosteDeSalir {
+  const enemigos = enemiesOf(state, s);
+  const casillas = allHexes();
+  // −1: aún no contada. Un recorrido sale de cada casilla una vez como mucho,
+  // pero la carga pregunta por la misma recta desde muchas casillas.
+  const contados = new Int8Array(BOARD_SIZE).fill(-1);
+  // Para tocarse, las cabezas van a 1 más lo que alarguen las colas (una casilla
+  // cada una, `occupiedHexes`): lo de más lejos no se pregunta a `canReachMelee`.
+  const lejos = hexSize(s.unit) + 1;
+  const coste = (i: number): number => {
+    let n = contados[i] as number;
+    if (n === -1) {
+      const hex = casillas[i] as Hex;
+      const ahi = { ...s, hex };
+      n = 0;
+      for (const e of enemigos) {
+        if (hexDistance(hex, e.hex) > lejos) continue;
+        if (canReachMelee(state, ahi, e)) n++;
+      }
+      contados[i] = n;
+    }
+    return costeDeSalirCon(n);
+  };
+  if (!hasTrait(s.unit, 'flying')) return coste;
+  const despega = indiceDe(s.hex);
+  return (i) => (i === despega ? coste(i) : 1);
+}
+
+/**
+ * La carrera de la carga de `s` hasta `to` con costes: la recta, pagando lo que
+ * cuesta salir de cada casilla (`costesDelPaso`), o `null` si no está en recta.
+ * Solo cuando la pelea cobra el contacto: sin él, la recta cuesta su largo, que
+ * es lo que ya da el recorrido. La leen `cargaDesde`, para no cobrar una carrera
+ * que no se paga, y `moveTo`, que la anda y la cobra.
+ */
+function carreraHasta(state: BattleState, s: BattleStack, to: Hex): Paso | null {
+  return carreraConCostes(s.hex, to, costesDelPaso(state, s));
 }
 
 /** Hexes a los que el stack puede moverse este turno. */
@@ -2014,6 +2146,13 @@ export function cargaDesde(
   if (d === null || d < CARGA_MINIMA) return 0;
   const hacia = siguienteEnRecta(s.hex, from);
   if (hacia === null || !stackHexes(target).some((h) => hexEquals(h, hacia))) return 0;
+  // Si salir del contacto cuesta, la carrera se paga por la recta, que es lo que
+  // se anda (`moveTo`): si no cabe en lo que le queda, la casilla puede seguir a
+  // mano por otro camino más barato, pero sin carga. Cuenta casillas, no pasos.
+  if (pagaElContacto(state)) {
+    const carrera = carreraHasta(state, s, from);
+    if (carrera === null || carrera.steps > pasosQueQuedan(state, s)) return 0;
+  }
   return d;
 }
 
@@ -2069,7 +2208,15 @@ function moveTo(
   // enemigo cuesta más casillas del presupuesto. Sale del mismo recorrido que
   // decide si el destino es legal, así que no hay una segunda cuenta que pueda
   // discrepar de la primera — y si el llamante ya lo hizo, es literalmente ese.
-  const paso = (costes ?? movableFrom(state, s)).get(hexKey(to));
+  // Salvo la carga cuando salir del contacto cuesta: la carrera va por la recta
+  // y se paga la recta (`carreraHasta`, que `cargaDesde` ya vio que cabe), que
+  // puede costar más que el camino más barato. Sin esa regla, la recta libre es
+  // ya un camino más corto, y cuesta lo mismo.
+  const legal = (costes ?? movableFrom(state, s)).get(hexKey(to));
+  const paso =
+    legal !== undefined && carga && pagaElContacto(state)
+      ? (carreraHasta(state, s, to) ?? undefined)
+      : legal;
   if (paso === undefined) {
     const motivo = movimientoBlocker(state, to) ?? 'el recorrido que trae no es de este tramo';
     throw new Error(`${s.id} no puede moverse a (${to.col},${to.row}): ${motivo}`);

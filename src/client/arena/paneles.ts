@@ -44,6 +44,7 @@ import {
   piezasDeLaPelea,
 } from '@core/battle/battle.js';
 import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
+import type { ModoDelContacto } from '@core/battle/contacto.js';
 import { armasDe } from '@core/battle/damage.js';
 import {
   esMuro,
@@ -461,6 +462,28 @@ export function renderGolpe(modo: ModoDelGolpe): Html {
       <span class="nombre">Cuerpo a cuerpo</span>
       <span class="botones">${boton('azar', 'Azar')}${boton('rueda', 'Rueda')}</span>
       <span class="cost">${DESCRIPCION_DEL_GOLPE[modo]}</span>
+    </div></div>`;
+}
+
+/** Qué dice cada modo del contacto, en el montaje: el botón y su línea. */
+const DESCRIPCION_DEL_CONTACTO: Readonly<Record<ModoDelContacto, string>> = {
+  libre: 'salir de una casilla cuesta 1, como siempre',
+  paga: 'salir de una casilla cuesta 1 más por cada enemigo en contacto; si no le llega, no sale (el volador paga al despegar)',
+};
+
+/**
+ * El interruptor de salir del contacto (`battle/contacto.ts`): libre o pagando
+ * 1 + los enemigos en contacto. Por pelea y para los dos lados; va en la URL
+ * (`?contacto=paga`), aparte de las reglas, como el golpe.
+ */
+export function renderContacto(modo: ModoDelContacto): Html {
+  const boton = (m: ModoDelContacto, rotulo: string): Html =>
+    html`<button data-arena="contacto" data-modo="${m}" class="${modo === m ? 'primary' : ''}" title="${DESCRIPCION_DEL_CONTACTO[m]}">${rotulo}</button>`;
+  return html`<h3>Contacto · ${modo === 'paga' ? 'salir cuesta' : 'libre'}</h3>
+    <div class="reglas"><div class="regla" data-contacto-del-montaje="${modo}">
+      <span class="nombre">Salir del contacto</span>
+      <span class="botones">${boton('libre', 'Libre')}${boton('paga', 'Paga')}</span>
+      <span class="cost">${DESCRIPCION_DEL_CONTACTO[modo]}</span>
     </div></div>`;
 }
 
@@ -1505,6 +1528,7 @@ export type VistaDeArena = Pick<
   | 'turnoPropio'
   | 'battleLegalActions'
   | 'battleStepsLeft'
+  | 'sinSalida'
   | 'spellOptions'
   | 'heroeEnJuego'
   | 'hechizos'
@@ -1705,6 +1729,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
             activa,
             legales: s.battleLegalActions(),
             pasos: s.battleStepsLeft(),
+            sinSalida: s.sinSalida(),
             rendicion: NADA,
             poderes: botonesDePoder(s, activa),
             hechizos:

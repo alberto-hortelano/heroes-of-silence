@@ -1,6 +1,7 @@
 import type { Pieza } from '../data.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
 import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
+import type { ModoDelContacto } from './contacto.js';
 import type { EffectKind, StackEffect } from './effects.js';
 import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
 import type { ReglasDeBatalla } from './reglas.js';
@@ -418,6 +419,12 @@ export interface BattleState {
    * juego, siempre `azar`; solo la arena pelea con la rueda (`conRueda`).
    */
   readonly modoDelGolpe: ModoDelGolpe;
+  /**
+   * Si salir de una casilla cuesta 1 + los enemigos en contacto (`paga`) o 1 como
+   * siempre (`libre`; `contacto.ts`). Se pone al montarla y no cambia: en el
+   * juego, siempre `libre`; solo la arena lo enciende (`pagaElContacto`).
+   */
+  readonly modoDelContacto: ModoDelContacto;
   /**
    * Con la rueda, el golpe de quien se ha plantado ante su objetivo y espera la
    * rueda: quién, contra quién y la carga de la carrera con que llegó (medida

@@ -60,6 +60,11 @@ import {
 } from '@core/arena-murallas.js';
 import { hexEquals, isInside } from '@core/battle/board.js';
 import {
+  type ModoDelContacto,
+  modoDelContactoALaURL,
+  modoDelContactoDeLaURL,
+} from '@core/battle/contacto.js';
+import {
   esMuro,
   hayMuralla,
   type MurallaDeBatalla,
@@ -159,6 +164,7 @@ import {
   renderAvisosDeLectura,
   renderBando,
   renderCatalogo,
+  renderContacto,
   renderEnlace,
   renderEquipo,
   renderFicha,
@@ -534,6 +540,18 @@ try {
 let enlaceCopiado: string | null = null;
 
 /**
+ * Si salir de una casilla cuesta 1 + los enemigos en contacto: libre, salvo que la
+ * URL lo pida (`?contacto=paga`, `battle/contacto.ts`). Va con el golpe en la URL;
+ * lo que no es un modo se dice.
+ */
+let contacto: ModoDelContacto = 'libre';
+try {
+  contacto = modoDelContactoDeLaURL(unaVezEnLaURL(parametros.getAll('contacto'), 'contacto'));
+} catch (err) {
+  avisoDeSemilla += `${mensaje(err)} — se sale del contacto libre. `;
+}
+
+/**
  * Escribe en la barra la dirección de ahora con las reglas del montaje, para que
  * copiarla repita también las reglas; las comas de `?reglas=` van sin escapar, y
  * así se lee y se copia como se escribe (`?seed=7&reglas=tirador,bendicion`).
@@ -549,6 +567,10 @@ function reglasALaBarra(cambiar: (url: URL) => void = () => {}): void {
   const golpeEnURL = modoDelGolpeALaURL(golpe);
   if (golpeEnURL === '') url.searchParams.delete('golpe');
   else url.searchParams.set('golpe', golpeEnURL);
+  // Y el contacto: libre no se escribe.
+  const contactoEnURL = modoDelContactoALaURL(contacto);
+  if (contactoEnURL === '') url.searchParams.delete('contacto');
+  else url.searchParams.set('contacto', contactoEnURL);
   history.replaceState(null, '', `${url.pathname}${url.search.replace(/%2C/g, ',')}${url.hash}`);
 }
 
@@ -1070,7 +1092,7 @@ function repintarMontaje(): void {
     pintar(elFicha, fichaElegida());
     pintar(
       elCatalogo,
-      html`${renderGolpe(golpe)}${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(
+      html`${renderGolpe(golpe)}${renderContacto(contacto)}${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(
         hojas,
         filtro,
         { kind: 'montaje' },
@@ -1637,6 +1659,8 @@ function enlaceDe(semilla: number): string {
   if (enURL !== '') url.searchParams.set('reglas', enURL);
   const golpeEnURL = modoDelGolpeALaURL(golpe);
   if (golpeEnURL !== '') url.searchParams.set('golpe', golpeEnURL);
+  const contactoEnURL = modoDelContactoALaURL(contacto);
+  if (contactoEnURL !== '') url.searchParams.set('contacto', contactoEnURL);
   url.searchParams.set('montaje', montajeALaURL(montajeDelEnlace()));
   return url.href.replace(/%2C/g, ',');
 }
@@ -1837,6 +1861,7 @@ function luchar(): void {
         muralla,
         piezas: piezasEnUso(),
         golpe,
+        contacto,
       },
       semilla,
     );
@@ -2469,6 +2494,13 @@ document.addEventListener('click', (ev) => {
       case 'golpe': {
         // El modo, por la misma lectura que la URL: uno que no es se dice.
         golpe = modoDelGolpeDeLaURL(el.getAttribute('data-modo'));
+        reglasALaBarra();
+        aviso = '';
+        break;
+      }
+      case 'contacto': {
+        // Como el golpe: por la misma lectura que la URL.
+        contacto = modoDelContactoDeLaURL(el.getAttribute('data-modo'));
         reglasALaBarra();
         aviso = '';
         break;

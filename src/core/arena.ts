@@ -39,6 +39,7 @@ import {
   mandoDe,
   quienNoEscala,
 } from './battle/battle.js';
+import type { ModoDelContacto } from './battle/contacto.js';
 import type { StackEffect } from './battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
 import {
@@ -2035,6 +2036,12 @@ export interface MontajeDeArena {
    */
   readonly golpe?: ModoDelGolpe;
   /**
+   * Si salir de una casilla cuesta 1 + los enemigos en contacto (`paga`) o 1
+   * (`libre`, sin él; `battle/contacto.ts`). Va en el enlace aparte
+   * (`?contacto=`), como el golpe.
+   */
+  readonly contacto?: ModoDelContacto;
+  /**
    * Las piezas de la arena con que pelea (las del borrador: van encima de las del
    * juego, `catalogoDeLaArena`). Del montaje y no de cada fuente: dos unidades de
    * la misma pelea con dos espadas distintas no tendrían sentido, y cambiar una
@@ -2113,6 +2120,7 @@ export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
     montaje.reglas,
     montaje.muralla ?? SIN_MURALLA,
     montaje.golpe ?? 'azar',
+    montaje.contacto ?? 'libre',
   );
   // De qué tipo sale cada puesto, en el orden de su `slot` (`tipoDelStack`).
   const tipos = (l: LadoDeArena): readonly TipoDeArena[] => l.unidades.map(tipoDeLaFuente);
