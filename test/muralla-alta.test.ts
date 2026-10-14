@@ -637,7 +637,7 @@ describe('el cliente', () => {
       [{ unidad: trepa, ia: false, escalera: false }],
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],
       4,
-      LINEA,
+      { muralla: LINEA },
     );
     s.empezar();
     const yo = s.turnoPropio?.stack;
@@ -671,7 +671,7 @@ describe('el cliente', () => {
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],
       [{ unidad: unidadDeArena('imperio-rodelero'), ia: false, escalera: false }],
       4,
-      dos,
+      { muralla: dos },
     );
     s.empezar();
     const yo = s.turnoPropio?.stack;
@@ -707,7 +707,7 @@ describe('el cliente', () => {
       [{ unidad: unidadDeArena('zombi'), ia: false, escalera: true }],
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],
       4,
-      LINEA,
+      { muralla: LINEA },
     );
     s.empezar();
     const marcado = marcadoDe(renderPanelDeBatalla(s, false));
@@ -867,7 +867,7 @@ describe('tras QA', () => {
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: true }],
       [{ unidad: unidadDeArena('zombi'), ia: false, escalera: false }],
       4,
-      LINEA,
+      { muralla: LINEA },
     );
     s.empezar();
     expect(s.turnoPropio?.stack.side).toBe('defender');

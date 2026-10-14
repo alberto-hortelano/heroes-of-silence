@@ -8,7 +8,6 @@
  * por `srcDeImagen`.
  */
 import {
-  CARGA_A_PIE_EN_LA_ARENA,
   CASILLAS_MAX,
   CASILLAS_MIN,
   CIFRA_MAXIMA_DE_HEROE,
@@ -40,14 +39,20 @@ import {
   activeStack,
   ataqueYDefensaEnBatalla,
   bandoDeSalida,
+  cargaDelStack,
   isAlive,
   MAX_ROUNDS,
   piezasDeLaPelea,
 } from '@core/battle/battle.js';
 import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
 import { dichoDeLasCifras } from '@core/battle/carga.js';
-import type { ModoDelContacto } from '@core/battle/contacto.js';
 import { armaduraDe, armasDe } from '@core/battle/damage.js';
+import {
+  type ClaveConInterruptor,
+  type Interruptor,
+  MODOS_DE_LA_ARENA,
+  type ModosDeArena,
+} from '@core/battle/modos.js';
 import {
   esMuro,
   ladoDeLaMuralla,
@@ -61,7 +66,6 @@ import {
   type ReglasDeBatalla,
   reglasEncendidas,
 } from '@core/battle/reglas.js';
-import type { ModoDelGolpe } from '@core/battle/rueda.js';
 import { allSpells, delHeroe, efectoDe } from '@core/battle/spells.js';
 import type {
   BattleAction,
@@ -365,7 +369,7 @@ export function renderBando(
             const quien = html`data-arena="editar" data-unidad="${p.unidad}"`;
             return html`<div class="puesto${esLaElegida(elegida, p) ? ' elegida' : ''}" data-puesto="${p.clave}">
               <button class="ver" ${quien} title="Ver y editar sus cifras">
-                <canvas class="figura" data-figura="${d.figura}" data-lado="${lado}" width="72" height="88"></canvas>
+                ${figuraEnLienzo(d.figura, lado, 'puesto')}
               </button>
               <div class="datos">
                 <button class="nombre" ${quien} title="Editar sus cifras">${d.nombre}</button>
@@ -403,7 +407,7 @@ function renderHeroeDelBando(
   const es = elegida?.kind === 'heroe' && elegida.lado === lado;
   return html`<div class="puesto heroe-del-bando${es ? ' elegida' : ''}" data-heroe-del-bando="${lado}">
     <button class="ver" data-arena="editar-heroe" data-lado="${lado}" title="Ver y editar el héroe">
-      <canvas class="figura" data-figura="${h.figura ?? FIGURA_GENERICA}" data-lado="${lado}" width="72" height="88"></canvas>
+      ${figuraEnLienzo(h.figura ?? FIGURA_GENERICA, lado, 'puesto')}
     </button>
     <div class="datos">
       <button class="nombre" data-arena="editar-heroe" data-lado="${lado}" title="Editar el héroe">${h.nombre}</button>
@@ -450,48 +454,112 @@ export function renderReglas(reglas: ReglasDeBatalla): Html {
     <div class="reglas">${filas}</div>`;
 }
 
-/** Qué dice cada modo del golpe, en el montaje: el botón y su línea. */
-const DESCRIPCION_DEL_GOLPE: Readonly<Record<ModoDelGolpe, string>> = {
-  azar: 'la tirada de siempre, entre el mínimo y el máximo de la criatura',
-  rueda:
-    'cada uno elige un golpe a ciegas en la rueda: el cruce fija el daño y la respuesta es el contraataque',
-};
-
 /**
- * El interruptor del golpe cuerpo a cuerpo (la rueda del golpe, `battle/rueda.ts`):
- * al azar o con la rueda. Por pelea y para los dos lados; va en la URL
- * (`?golpe=rueda`), aparte de las reglas.
+ * Cómo se enseña cada modo con interruptor en el montaje: el título de su
+ * sección, el nombre de su fila y, por modo, el rótulo de su botón, lo que dice
+ * el título cuando está puesto y su descripción (la del botón y la de la fila).
+ * Qué modos hay y cómo van en la URL es del núcleo (`battle/modos.ts`).
  */
-export function renderGolpe(modo: ModoDelGolpe): Html {
-  const boton = (m: ModoDelGolpe, rotulo: string): Html =>
-    html`<button data-arena="golpe" data-modo="${m}" class="${modo === m ? 'primary' : ''}" title="${DESCRIPCION_DEL_GOLPE[m]}">${rotulo}</button>`;
-  return html`<h3>Golpe · ${modo === 'rueda' ? 'con la rueda' : 'al azar'}</h3>
-    <div class="reglas"><div class="regla" data-golpe-del-montaje="${modo}">
-      <span class="nombre">Cuerpo a cuerpo</span>
-      <span class="botones">${boton('azar', 'Azar')}${boton('rueda', 'Rueda')}</span>
-      <span class="cost">${DESCRIPCION_DEL_GOLPE[modo]}</span>
-    </div></div>`;
+interface PresentacionDelModo<K extends ClaveConInterruptor> {
+  readonly titulo: string;
+  readonly fila: string;
+  readonly modos: Readonly<
+    Record<
+      ModosDeArena[K],
+      { readonly rotulo: string; readonly puesto: string; readonly descripcion: string }
+    >
+  >;
 }
 
-/** Qué dice cada modo del contacto, en el montaje: el botón y su línea. */
-const DESCRIPCION_DEL_CONTACTO: Readonly<Record<ModoDelContacto, string>> = {
-  libre: 'salir de una casilla cuesta 1, como siempre',
-  paga: 'salir de una casilla cuesta 1 más por cada enemigo en contacto; si no le llega, no sale (el volador paga al despegar)',
+const PRESENTACION_DEL_MODO: {
+  readonly [K in ClaveConInterruptor]: PresentacionDelModo<K>;
+} = {
+  golpe: {
+    titulo: 'Golpe',
+    fila: 'Cuerpo a cuerpo',
+    modos: {
+      azar: {
+        rotulo: 'Azar',
+        puesto: 'al azar',
+        descripcion: 'la tirada de siempre, entre el mínimo y el máximo de la criatura',
+      },
+      rueda: {
+        rotulo: 'Rueda',
+        puesto: 'con la rueda',
+        descripcion:
+          'cada uno elige un golpe a ciegas en la rueda: el cruce fija el daño y la respuesta es el contraataque',
+      },
+    },
+  },
+  contacto: {
+    titulo: 'Contacto',
+    fila: 'Salir del contacto',
+    modos: {
+      libre: {
+        rotulo: 'Libre',
+        puesto: 'libre',
+        descripcion: 'salir de una casilla cuesta 1, como siempre',
+      },
+      paga: {
+        rotulo: 'Paga',
+        puesto: 'salir cuesta',
+        descripcion:
+          'salir de una casilla cuesta 1 más por cada enemigo en contacto; si no le llega, no sale (el volador paga al despegar)',
+      },
+    },
+  },
 };
 
+/** Lo que mide el lienzo de una figura en cada sitio: el puesto, la rueda y la ficha. */
+const TAMAÑO_DE_FIGURA = {
+  puesto: [72, 88],
+  rueda: [80, 96],
+  ficha: [200, 230],
+} as const satisfies Record<string, readonly [number, number]>;
+
 /**
- * El interruptor de salir del contacto (`battle/contacto.ts`): libre o pagando
- * 1 + los enemigos en contacto. Por pelea y para los dos lados; va en la URL
- * (`?contacto=paga`), aparte de las reglas, como el golpe.
+ * El lienzo de una figura (`canvas.figura`): lo anima `main.ts` y lo tiñe del
+ * color de su bando por `data-lado`; sin lado, la ficha, que es la grande y
+ * anima el clip que se elige (`data-ficha-clip`). Decorativo: el nombre va al
+ * lado. La única forma del marcado: el puesto, el héroe del bando, la ficha y la
+ * cabecera de la rueda.
  */
-export function renderContacto(modo: ModoDelContacto): Html {
-  const boton = (m: ModoDelContacto, rotulo: string): Html =>
-    html`<button data-arena="contacto" data-modo="${m}" class="${modo === m ? 'primary' : ''}" title="${DESCRIPCION_DEL_CONTACTO[m]}">${rotulo}</button>`;
-  return html`<h3>Contacto · ${modo === 'paga' ? 'salir cuesta' : 'libre'}</h3>
-    <div class="reglas"><div class="regla" data-contacto-del-montaje="${modo}">
-      <span class="nombre">Salir del contacto</span>
-      <span class="botones">${boton('libre', 'Libre')}${boton('paga', 'Paga')}</span>
-      <span class="cost">${DESCRIPCION_DEL_CONTACTO[modo]}</span>
+export function figuraEnLienzo(
+  figura: string,
+  lado: Lado | null,
+  tamaño: keyof typeof TAMAÑO_DE_FIGURA,
+): Html {
+  const [ancho, alto] = TAMAÑO_DE_FIGURA[tamaño];
+  const ficha = tamaño === 'ficha';
+  return html`<canvas class="figura${ficha ? ' grande' : ''}" data-figura="${figura}"${lado === null ? NADA : html` data-lado="${lado}"`}${ficha ? html` data-ficha-clip="si"` : NADA} width="${String(ancho)}" height="${String(alto)}" aria-hidden="true"></canvas>`;
+}
+
+/**
+ * Con qué se pelea si la URL trae un modo que no es: el de siempre, dicho («se
+ * pelea con el golpe al azar»). Lo escribe la página detrás del rechazo.
+ */
+export function modoDeSiempre<K extends ClaveConInterruptor>(d: Interruptor<K>): string {
+  const p: PresentacionDelModo<K> = PRESENTACION_DEL_MODO[d.clave];
+  return `se pelea con ${p.titulo.toLowerCase()} ${p.modos[d.porDefecto].puesto}`;
+}
+
+/**
+ * El interruptor de un modo de la arena (`battle/modos.ts`): la rueda del golpe
+ * o salir del contacto. Por pelea y para los dos lados; va en la URL
+ * (`?golpe=rueda`, `?contacto=paga`), aparte de las reglas.
+ */
+export function renderModo<K extends ClaveConInterruptor>(
+  d: Interruptor<K>,
+  modo: ModosDeArena[K],
+): Html {
+  const p: PresentacionDelModo<K> = PRESENTACION_DEL_MODO[d.clave];
+  const boton = (m: ModosDeArena[K]): Html =>
+    html`<button data-arena="modo" data-parametro="${d.parametro}" data-modo="${m}" class="${modo === m ? 'primary' : ''}" title="${p.modos[m].descripcion}">${p.modos[m].rotulo}</button>`;
+  return html`<h3>${p.titulo} · ${p.modos[modo].puesto}</h3>
+    <div class="reglas"><div class="regla" data-modo-del-montaje="${d.parametro}" data-modo="${modo}">
+      <span class="nombre">${p.fila}</span>
+      <span class="botones">${unir(d.modos.map(boton))}</span>
+      <span class="cost">${p.modos[modo].descripcion}</span>
     </div></div>`;
 }
 
@@ -693,7 +761,7 @@ function cabezaDeFicha(o: {
   }
   return html`<div class="cabeza">
       <div class="retrato">
-        <canvas class="figura grande" data-figura="${o.figura}" data-ficha-clip="si" width="200" height="230"></canvas>
+        ${figuraEnLienzo(o.figura, null, 'ficha')}
         <div class="clips">
           ${o.clips}
           <button data-arena="girar" title="Pasa la figura por sus ocho direcciones">Girar</button>
@@ -994,7 +1062,7 @@ function filasDeArmas(
 /** «Armas» en la ficha de una unidad del borrador: lo que pelea, golpe a golpe. */
 function armasDeLaFicha(combate: UnitInfo, piezas: EquipoAtado): Html {
   return html`<h3>Armas ${nota('Cada golpe va con las cifras de su arma: el ataque y el daño del cuerpo, con lo que suma todo el equipo y, del arma, solo la de ese golpe. La columna «Final» de arriba es la del cuerpo a cuerpo.')}</h3>
-      <div class="armas-de-la-ficha">${filasDeArmas(combate, piezas, CARGA_A_PIE_EN_LA_ARENA)}</div>`;
+      <div class="armas-de-la-ficha">${filasDeArmas(combate, piezas, MODOS_DE_LA_ARENA.cargaAPie)}</div>`;
 }
 
 /**
@@ -1661,9 +1729,11 @@ function botonDeEditar(x: BattleStack, nombre: string): Html {
  * Lo que suma el equipo a una `cifra` de `u`: lo de ahora menos lo de su cuerpo
  * (`UnitInfo.sinEquipo`, que escribe solo `conEquipo`), en la pastilla de toda
  * suma de equipo (`textoDeModificador`, como `modificadoresEnPantalla`), o nada
- * si no suma. La velocidad, en casillas, que es como se lee al lado.
+ * si no suma. La velocidad, en casillas, que es como se lee al lado. La armadura
+ * no pasa por aquí: el cuerpo no la lleva, toda es del equipo, y su fila la dice
+ * entera (`filasDelStack`).
  */
-function delEquipo(u: UnitInfo, cifra: CifraDePieza): Html {
+function delEquipo(u: UnitInfo, cifra: Exclude<CifraDePieza, 'armadura'>): Html {
   const cuerpo = u.sinEquipo;
   if (cuerpo === undefined) return NADA;
   let m: ModificadorDePieza;
@@ -1673,10 +1743,6 @@ function delEquipo(u: UnitInfo, cifra: CifraDePieza): Html {
       break;
     case 'defensa':
       m = { kind: 'cifra', cifra, valor: u.defense - cuerpo.defense };
-      break;
-    case 'armadura':
-      // El cuerpo no lleva armadura: toda la de la unidad es del equipo.
-      m = { kind: 'cifra', cifra, valor: armaduraDe(u) };
       break;
     case 'pv':
       m = { kind: 'cifra', cifra, valor: u.hp - cuerpo.hp };
@@ -1717,7 +1783,7 @@ export function filasDelStack(
       ? filasDeArmas(
           u,
           piezasDeLaPelea(b),
-          b.cargaAPie,
+          b.arena.cargaAPie,
           (uso) => ataqueYDefensaEnBatalla(b, x, uso).ataque,
         )
       : html`<div class="row"><span class="label">Daño</span><span>${u.damage[0]}–${u.damage[1]}${delEquipo(u, 'danio')}</span></div>`;
@@ -1845,7 +1911,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
       : mia && activa !== null
         ? accionesDeLaUnidad({
             activa,
-            cargaAPie: b.cargaAPie,
+            carga: cargaDelStack(b, activa),
             legales: s.battleLegalActions(),
             pasos: s.battleStepsLeft(),
             sinSalida: s.sinSalida(),

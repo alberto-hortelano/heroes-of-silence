@@ -4592,10 +4592,9 @@ otro lado de una puerta cerrada sí, porque hoy se golpea a través de ellas (es
   casilla (`movimientoBlocker`). Si saliendo gratis llegaría y pagando no, «no llega: … y salir de
   una casilla con enemigos al lado cuesta 1 más por cada uno».
 - **La IA no se tocó**: lee `movableFrom` y sus `steps`. Medido en 100 peleas de la arena, IA contra
-  IA, de 3 al máximo de unidades por bando de las cinco facciones (`tools/qa/contacto.ts`,
-  14-10-2026, máquina compartida, tres tandas): libre 152 / 175 / 197 ms (1,5-2,0 ms por pelea),
-  con la regla 176 / 189 / 227 ms (1,8-2,3): entre un 8 y un 16 % más; 0 sin terminar en los dos,
-  5,9 → 5,7 rondas de media, y la izquierda gana 46 de 100 en los dos.
+  IA, de 3 al máximo de unidades por bando de las cinco facciones (`tools/qa/arena-ia.ts`, tanda
+  «contacto», 14-10-2026, tras el /simplify): libre 1,5 ms por pelea y con la regla 1,6; 0 sin
+  terminar en los dos, mediana de 5 rondas (máximo 18 / 17), y la izquierda gana 46 de 100 en los dos.
 
 ## La armadura de la arena: puntos que se restan del daño (#262, 14-10-2026)
 
@@ -4623,12 +4622,14 @@ siguen con PV, el agente no ve la armadura y `pnpm banco` quedó en `066767b4…
   desde ella una pieza de la arena con PV se rechaza. Las unidades de antes del equipo (enlaces de la
   1 a la 4 y borradores sin cuerpo) contaban en su vida los PV de la armadura del kit: su cuerpo pierde
   esos PV y el aviso dice que ahora lleva la armadura (comprobado al revés con `conLaArmaduraEnPV`).
-- **El equilibrio, medido** (`docs/agents/2026-10-14-armadura/medida-armadura.mts`, 100 semillas, IA contra IA, sin héroes, reglas
-  del juego y golpe de azar): tres contra tres al azar, 1 de 100 peleas sin terminar con la barda, 0
-  sin ella (y 0 con los 220 PV de antes); un jinete contra tres de arco, ballesta o bastón gana 97 de
-  100 con la barda, 2 sin ella y 92 con los PV de antes, y la armadura para del todo el 46 % de los
-  golpes que recibe. La barda (22) casi iguala a la de antes en lo que gana; la pelea colgada
-  es una sola, y si molesta, se ajusta en el JSON, sin código.
+- **El equilibrio, medido** (`tools/qa/arena-ia.ts`, tandas «armadura», 100 semillas, IA contra IA
+  sobre `autoResolve`, sin héroes, reglas del juego y golpe de azar; medido otra vez tras el
+  /simplify del 14-10-2026, con el bucle común y la carga solo en el primer golpe): tres contra tres
+  al azar, 1 de 100 peleas sin terminar con la barda (s43), 0 sin ella y 0 con los 220 PV de antes;
+  un jinete contra tres de arco, ballesta o bastón gana 93 de 100 con la barda, 0 sin ella y 83 con
+  los PV de antes, y la armadura para del todo 1 246 de los 2 438 golpes de esa tanda (51 %). La
+  barda (22) gana algo más que la de antes; la pelea colgada es una sola, y si molesta, se ajusta en
+  el JSON, sin código. (La medida de la tarea, con su propio bucle, daba 97 / 2 / 92 y 46 %.)
 
 ## La rueda del golpe: el anillo nuevo, Romper guardia por éxito y la Finta que deja andar (#263, 14-10-2026)
 
@@ -4694,9 +4695,11 @@ del usuario: **«todos los que pegan cuerpo a cuerpo, y el jinete más»**, con 
 - **La IA no se tocó**: `mejorCarga` ya elegía la casilla que más carga entre las que alcanzan al
   objetivo, y ahora lo hace también a pie; `pasoParaCargar` (colocarse en recta) sigue solo para el
   jinete. Medido IA contra IA en la arena, 100 semillas, cuatro unidades sorteadas de las cinco
-  facciones por bando y sin héroes (`docs/agents/2026-10-14-carga-para-todos/medir-cargas.ts`): a pie,
-  38 cargas en 1 105 golpes (3,4 %), con alguna a mano al empezar 210 de 2 772 turnos; el jinete, 71
-  en 389 (18,3 %), 90 de 711. Sin la carga a pie, el jinete hacía las mismas 71.
+  facciones por bando y sin héroes (`tools/qa/arena-ia.ts`, tanda «carga», sobre `autoResolve`;
+  medido otra vez tras el /simplify del 14-10-2026): 36 cargas a pie y 69 del jinete; sin la carga a
+  pie, 0 y las mismas 69 del jinete. 2 de 100 peleas sin terminar en las dos variantes (s13, s43),
+  las mismas. (La medida de la tarea contaba además las ocasiones al empezar cada turno con
+  `casillasDeCarga`, que no da `autoResolve`: 38 a pie y 71 del jinete, con su propio bucle.)
 
 ## La rueda: todo el sector responde y los dos contrincantes a la vista (#258, #261, 14-10-2026)
 
@@ -4722,3 +4725,28 @@ del usuario: **«todos los que pegan cuerpo a cuerpo, y el jinete más»**, con 
   ciegas en la sesión, y la rueda de la respuesta sale idéntica tras dos golpes distintos.
 - **Una trampa del test**: el título del editor vuelve en el evento `close`, que llega en una tarea
   aparte tras `close()`; mirarlo justo al cerrarse daba a veces el de la ficha.
+
+## Las cinco de la arena, juntas: el /simplify (14-10-2026)
+
+Tras juntar #259, #260, #262, #263 y #258/#261, una pasada de limpieza
+(`docs/agents/2026-10-14-arena-cinco-juntas/`). El juego no cambia: `pnpm banco` da el mismo hash.
+
+- **Los modos de la arena, en un campo**: `BattleState.arena` (`ModosDeArena`: golpe, contacto y
+  carga a pie, `battle/modos.ts`), con `MODOS_DEL_JUEGO` y `MODOS_DE_LA_ARENA`, en vez de tres campos
+  sueltos; `crearBatallaConReglas(…, { muralla, modos })` en vez de ocho parámetros. El golpe y el
+  contacto tienen un descriptor cada uno y una sola lectura y escritura de la URL; la página los
+  recorre en un bucle y los pinta con un solo `renderModo`. Un solo guardia vigila que solo la arena
+  encienda un modo, con alias e imports (los dos de antes no los miraban).
+- **Las fases del turno** (`faseDelTurno`: libre, movido, plantado, tras la Finta) y lo que no vale en
+  cada una (`faseBlocker`), en vez de la Finta pegada a mano en nueve sitios. **Un fallo latente**: la
+  firma con que `applyAction` rechaza un recorrido viejo no llevaba la Finta, y un `move` con el
+  recorrido de antes de golpear con ella andaba de más; ahora `firmaDelTurno` la lleva.
+- **La carga es el paso que se anda** (un fallo con el contacto): plantarse para cargar pagaba la recta
+  aunque el camino barato costara menos, y soltar el golpe dejaba la recta pagada y sin carga. Ahora
+  el golpe plantado guarda la carrera y el coste barato, y soltarlo devuelve lo gastado al barato.
+- **Decisión del usuario**: la carga la cobra solo el primer golpe (Rápido y el doble golpe), en el
+  golpe y en la previsión. En el juego nadie carga y pega dos veces.
+- **Decisiones del usuario sin código**: la Finta y el contacto se apilan (su nota lo dice cuando el
+  contacto se cobra), y Rápido pierde contra armadura (su nota lo dice). La IA no se toca.
+- **Las medidas de la IA contra la IA en la arena**, en un solo `tools/qa/arena-ia.ts` sobre
+  `autoResolve`; las cifras de cada regla, medidas otra vez con él, en sus secciones de arriba.

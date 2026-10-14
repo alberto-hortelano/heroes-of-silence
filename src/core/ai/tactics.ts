@@ -8,7 +8,6 @@
 import {
   activeStack,
   applyAction,
-  CARGA_MINIMA,
   canReachMelee,
   cargaDelStack,
   cargaDesde,
@@ -18,10 +17,12 @@ import {
   distanciaHasta,
   enemiesOf,
   escalaDesde,
+  firmaDelTurno,
   isEngaged,
   legalActionsAndCosts,
   MAX_JUGADAS,
   type Movibles,
+  medirCargas,
   opcionesDeDanio,
   pasosQueQuedan,
   seHaMovido,
@@ -32,7 +33,7 @@ import {
   sumaDelBando,
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
-import { CARGA, cargaEfectiva } from '../battle/carga.js';
+import { CARGA_MINIMA, cargaEfectiva, cifrasDeCarga } from '../battle/carga.js';
 import { expectedDamage, stackHp, trasLaArmadura, valorDeEfectoDeDanio } from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
 import {
@@ -543,8 +544,9 @@ function mejorCarga(
   cargas: readonly CargaContra[],
   costes: ReadonlyMap<string, Paso>,
 ): BattleAction {
-  // Las ocupadas no cambian de una casilla candidata a otra: se piden una vez.
-  const bloqueadas = cerradasPara(state, s);
+  // Lo que no cambia de una casilla candidata a otra (las ocupadas, lo que cuesta
+  // salir de cada casilla) se cuenta una vez: `medirCargas`.
+  const medir = medirCargas(state, s);
   const cifras = cargaDelStack(state, s);
 
   let mejor = cargas[0] as CargaContra;
@@ -558,11 +560,11 @@ function mejorCarga(
     if (paso === undefined) {
       throw new Error(`${s.id} no alcanza (${a.from.col},${a.from.row}): la lista legal miente`);
     }
-    const coste = paso.steps;
-    const carga =
-      cifras === null
-        ? 0
-        : cargaEfectiva(cargaDesde(state, s, a.from, objetivo, bloqueadas), cifras);
+    const medida = cifras === null ? null : medir(a.from, objetivo);
+    // Lo que pagará: la carrera por la recta si salir del contacto cuesta, que
+    // puede costar más que el camino barato del recorrido.
+    const coste = medida?.carrera?.steps ?? paso.steps;
+    const carga = medida === null || cifras === null ? 0 : cargaEfectiva(medida.recta, cifras);
     if (carga > cargaMejor || (carga === cargaMejor && coste < mejorCoste)) {
       mejor = a;
       cargaMejor = carga;
@@ -618,8 +620,9 @@ function pasoParaCargar(
 ): Hex | null {
   // Solo el jinete se coloca para cargar: que la IA busque la recta también a pie
   // en la arena (#260) queda para después de medir cuántas cargas hace sin ello.
-  if (!hasTrait(s.unit, 'charge')) return null;
-  const cifras = CARGA.jinete;
+  // Por eso pregunta como el juego, sin la carga a pie: el rasgo, o nada.
+  const cifras = cifrasDeCarga(s.unit, false);
+  if (cifras === null) return null;
   const bloqueadas = cerradasPara(state, s);
   if (golpes.some((a) => cargaDesde(state, s, a.from, objetivo, bloqueadas) > 0)) return null;
 
@@ -793,8 +796,7 @@ export function chooseBattleActionAndCosts(
   return {
     action: decideAccion(state, s, actions, costs, noSeRinden),
     movibles: {
-      n: turno.n,
-      gastado: turno.gastado,
+      firma: firmaDelTurno(turno),
       puertas: claveDeAbiertas(state.puertas),
       costs,
     },

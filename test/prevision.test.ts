@@ -33,6 +33,7 @@ import {
 import { hexEquals } from '../src/core/battle/board.js';
 import type { Horquilla, RamaDeSuerte } from '../src/core/battle/damage.js';
 import { applyEffect } from '../src/core/battle/effects.js';
+import { MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { NOMBRES_DE_REGLA, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
 import { delHeroe, efectoDe, spell } from '../src/core/battle/spells.js';
@@ -364,13 +365,9 @@ const ESCENARIOS: readonly Escenario[] = [
 const ACCIONES = new Map<Escenario, BattleAction>();
 
 function montar(e: Escenario, reglas: ReglasDeBatalla, rng: Rng): Montado {
-  const b = crearBatallaConReglas(
-    e.izquierda(),
-    e.derecha(),
-    rng,
-    reglas,
-    e.muralla ?? SIN_MURALLA,
-  );
+  const b = crearBatallaConReglas(e.izquierda(), e.derecha(), rng, reglas, {
+    muralla: e.muralla ?? SIN_MURALLA,
+  });
   stackById(b, 'attacker-0').hex = e.en;
   stackById(b, 'defender-0').hex = e.contra;
   e.antes?.(b);
@@ -663,8 +660,7 @@ describe('con la rueda del golpe, cada sector prevé el daño que cae (la arena)
               bando([{ creature: defensor, count: m }]),
               rng,
               reglasDe(0),
-              SIN_MURALLA,
-              'rueda',
+              { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
             );
             stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
             stackById(b, 'defender-0').hex = { col: 6, row: 4 };

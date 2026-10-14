@@ -22,64 +22,32 @@ import {
 } from '../src/client/arena/rueda.js';
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { marcadoDe } from '../src/client/html.js';
-import { SesionDeArena } from '../src/client/session.js';
+import type { SesionDeArena } from '../src/client/session.js';
 import { efectoEnCurso } from '../src/client/views/panels.js';
-import { type FuenteDeArena, ladoDe } from '../src/core/arena.js';
+import { ladoDe } from '../src/core/arena.js';
 import { stackById } from '../src/core/battle/battle.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import {
   contraataqueDelCruce,
-  DURACION_DE_LA_RUEDA,
+  duracion,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
 } from '../src/core/battle/rueda.js';
 import { spell } from '../src/core/battle/spells.js';
-import { delBorrador, unidadDeArena } from './helpers.js';
+import { hastaLaRueda, sesionDeArena, unidadDeArena } from './helpers.js';
 
 /** Tres guerreros con escudo contra tres orkos, los dos bandos «Yo», con la rueda. */
 function sesion(semilla = 1): SesionDeArena {
-  const tres = (id: string): FuenteDeArena[] => [0, 1, 2].map(() => delBorrador(unidadDeArena(id)));
-  const s = new SesionDeArena(
-    {
-      izquierda: { unidades: tres('templario-escudo'), heroe: null, ia: false },
-      derecha: { unidades: tres('orko-dos-armas'), heroe: null, ia: false },
-      reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
-      golpe: 'rueda',
-    },
-    semilla,
-  );
+  const tres = (id: string) => [0, 1, 2].map(() => ({ unidad: unidadDeArena(id), ia: false }));
+  const s = sesionDeArena(tres('templario-escudo'), tres('orko-dos-armas'), semilla, {
+    golpe: 'rueda',
+  });
   s.empezar();
   return s;
 }
 
-/**
- * Juega hasta que la rueda pide el golpe: quien tiene turno golpea si alcanza,
- * si no anda hacia el enemigo y, si ya anduvo, termina. Siempre igual con la
- * misma semilla.
- */
+/** Juega hasta que la rueda pide el golpe (`hastaLaRueda`). */
 function hastaElGolpe(s: SesionDeArena): void {
-  for (let i = 0; i < 300 && s.battle.finished === null; i++) {
-    if (s.ruedaPendiente?.fase === 'golpe') return;
-    const legales = s.battleLegalActions();
-    const ataque = legales.find((a) => a.type === 'attack');
-    if (ataque !== undefined) {
-      s.playBattleAction(ataque);
-      continue;
-    }
-    const mover =
-      s.battle.turno?.gastado === 0 ? legales.find((a) => a.type === 'move') : undefined;
-    const turno = s.turnoPropio;
-    if (turno === null) throw new Error('la sesión devuelve el control sin turno ni rueda');
-    const enemigos = s.battle.stacks.filter((x) => x.side !== turno.side && x.count > 0);
-    const cerca = (h: { col: number; row: number }): number =>
-      Math.min(...enemigos.map((e) => Math.abs(e.hex.col - h.col) + Math.abs(e.hex.row - h.row)));
-    const mejor = legales
-      .flatMap((a) => (a.type === 'move' ? [a] : []))
-      .sort((a, b) => cerca(a.to) - cerca(b.to))[0];
-    s.playBattleAction(mover !== undefined && mejor !== undefined ? mejor : { type: 'end_turn' });
-  }
-  throw new Error('nadie llega a golpear');
+  hastaLaRueda(s, true, 'golpe');
 }
 
 /** El atributo `nombre` del elemento que empieza en `desde` dentro de `m`. */
@@ -160,7 +128,7 @@ describe('#258: la colocación sale del ángulo del sector, no de su tipo', () =
     if (p === null) throw new Error('la rueda no pide el golpe');
     const m = marcadoDe(renderEleccion(s, p));
     for (const t of TIPOS_DE_GOLPE) {
-      const sitio = m.indexOf(`<div class="sector-de-rueda en-${t}"`);
+      const sitio = m.indexOf(`<div class="sector-de-rueda" data-sector="${t}"`);
       expect(sitio, t).toBeGreaterThan(-1);
       expect(atributo(m, sitio, 'data-hacia'), t).toBe(
         t === 'normal' ? 'abajo' : haciaDe(anguloDe(t)),
@@ -303,7 +271,7 @@ describe('#261: la vista previa', () => {
       { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 },
     );
     const v = previa(s, x.id);
-    expect(v).toContain(`Defensivo: defensa +1 ${DURACION_DE_LA_RUEDA.empezar}`);
+    expect(v).toContain(`Defensivo: defensa +1 ${duracion('empezar', 'su')}`);
     expect(v).toContain(`${spell('slow').name}: velocidad -2 durante 3 rondas`);
     expect(v).not.toContain('ninguno');
     // La frase es la de `efectoEnCurso`, la única.

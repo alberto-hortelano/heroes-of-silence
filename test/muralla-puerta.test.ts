@@ -19,6 +19,7 @@ import {
   type BattleSide,
   createBattle,
   distanciaACaminar,
+  firmaDelTurno,
   legalActions,
   movableFrom,
   puertaBlocker,
@@ -168,8 +169,7 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
     const turno = state.turno;
     if (turno === null) throw new Error('sin turno');
     const viejo = {
-      n: turno.n,
-      gastado: 0,
+      firma: firmaDelTurno(turno),
       puertas: claveDeAbiertas(state.puertas),
       costs: movableFrom(state, stackById(state, 'defender-0')),
     };

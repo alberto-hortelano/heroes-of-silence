@@ -33,6 +33,7 @@ import {
 import { hexDistance } from '../src/core/battle/board.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
+import type { ModoDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
 import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
@@ -1143,13 +1144,14 @@ export function peleaDelMotor(
 /**
  * Una sesión de la arena con unidades del borrador, sin héroes, sin empezar. Quién
  * mueve va en cada puesto por comodidad, pero la sesión mueve cada bando entero:
- * un bando con puestos de los dos es un error del test.
+ * un bando con puestos de los dos es un error del test. En `o`, la muralla del
+ * tablero y cómo cae el golpe (la rueda, para las pruebas de la rueda).
  */
 export function sesionDeArena(
   izquierda: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   derecha: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   semilla: number,
-  muralla: MurallaDeBatalla = SIN_MURALLA,
+  o: { readonly muralla?: MurallaDeBatalla; readonly golpe?: ModoDelGolpe } = {},
 ): SesionDeArena {
   const lado = (puestos: readonly (PuestoDeLaPelea & { readonly ia: boolean })[]) => {
     const ia = puestos.every((p) => p.ia);
@@ -1165,10 +1167,50 @@ export function sesionDeArena(
       izquierda: lado(izquierda),
       derecha: lado(derecha),
       ...MONTAJE,
-      muralla,
+      muralla: o.muralla ?? SIN_MURALLA,
+      ...(o.golpe === undefined ? {} : { modos: { golpe: o.golpe } }),
     },
     semilla,
   );
+}
+
+/**
+ * Juega la sesión hasta que la rueda le pide algo a la persona (`fase`, si se
+ * dice; la otra se contesta con Normal y se sigue): si `golpea`, golpea en cuanto
+ * puede y si no se acerca al enemigo más cercano; si no, se defiende. Siempre
+ * igual con la misma semilla. Lo usan las pruebas de la rueda.
+ */
+export function hastaLaRueda(
+  s: SesionDeArena,
+  golpea: boolean,
+  fase?: 'golpe' | 'respuesta',
+): void {
+  for (let i = 0; i < 300 && s.battle.finished === null; i++) {
+    const pendiente = s.ruedaPendiente;
+    if (pendiente !== null && (fase === undefined || pendiente.fase === fase)) return;
+    if (pendiente !== null) {
+      s.elegirEnLaRueda('normal');
+      continue;
+    }
+    const turno = s.turnoPropio;
+    if (turno === null) throw new Error('la sesión devuelve el control sin turno ni rueda');
+    const legales = s.battleLegalActions();
+    const ataque = legales.find((a) => a.type === 'attack');
+    const enemigos = s.battle.stacks.filter((x) => x.side !== turno.side && x.count > 0);
+    const cerca = (h: { col: number; row: number }): number =>
+      Math.min(...enemigos.map((e) => hexDistance(h, e.hex)));
+    const acercarse = legales
+      .flatMap((a) => (a.type === 'move' ? [a] : []))
+      .sort((a, b) => cerca(a.to) - cerca(b.to))[0];
+    if (golpea && ataque !== undefined) s.playBattleAction(ataque);
+    else if (golpea && acercarse !== undefined && turno.battle.turno?.gastado === 0)
+      s.playBattleAction(acercarse);
+    else
+      s.playBattleAction(
+        legales.some((a) => a.type === 'defend') ? { type: 'defend' } : { type: 'end_turn' },
+      );
+  }
+  throw new Error('la rueda no pide nada');
 }
 
 /** Una unidad del borrador como fuente del montaje de la arena. */

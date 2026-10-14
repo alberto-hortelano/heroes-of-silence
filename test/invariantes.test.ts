@@ -366,6 +366,77 @@ function lineasDeImport(ruta: string): Set<number> {
   return out;
 }
 
+/**
+ * Lo que solo la arena puede hacer (las reglas de fheroes2, los modos de la
+ * arena): las rutas de fuera del motor, la arena del núcleo y su página
+ * (`enTodoElFichero`) que nombran una `puerta`. Con permiso por declaración
+ * (`porDeclaracion`), la sesión de la arena y las pasadas de la arena de las
+ * herramientas; en esos ficheros, el `import` de una puerta no cuenta, salvo con
+ * otro nombre (`conAlias`): con un alias, la llamada ya no se ve. En los demás,
+ * importarla ya es rojo. Lo comparten los guardias de las reglas y de los modos.
+ */
+function fueraDeLaArena(
+  puertas: RegExp,
+  conAlias: RegExp,
+  porDeclaracion: Readonly<Record<string, readonly string[]>>,
+): string[] {
+  const colados: string[] = [];
+  for (const ruta of RUTAS_DE_LA_ARENA.todas().filter(
+    (r) => !RUTAS_DE_LA_ARENA.enTodoElFichero(r),
+  )) {
+    const conPermiso = lineasDeLasDeclaraciones(ruta, porDeclaracion[ruta] ?? []);
+    const imports = ruta in porDeclaracion ? lineasDeImport(ruta) : new Set<number>();
+    for (const [i, linea] of sinComentarios(leer(ruta)).split('\n').entries()) {
+      if (conPermiso.has(i + 1)) continue;
+      if (imports.has(i + 1) && !conAlias.test(linea)) continue;
+      if (puertas.test(linea)) colados.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+    }
+  }
+  return colados;
+}
+
+/** Dónde se puede nombrar lo de la arena sin permiso, y todo lo que se mira. */
+const RUTAS_DE_LA_ARENA = {
+  enTodoElFichero: (r: string): boolean =>
+    r.startsWith('src/core/battle/') ||
+    r === 'src/core/arena.ts' ||
+    r.startsWith('src/client/arena/'),
+  todas: (): string[] => [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')],
+};
+
+/**
+ * Quién nombra lo de la arena fuera de ella, y en qué declaraciones: la sesión
+ * de la arena (la clase, no el resto de `session.ts`, que es la partida), las
+ * pasadas de la arena de `pnpm capturas`, que juegan su espejo, y la medida de la
+ * IA contra la IA en la arena (#259, #260, #262), que pelea con cada modo. Lo
+ * leen los guardias de las reglas y de los modos: un permiso, una vez.
+ */
+const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
+  'src/client/session.ts': ['SesionDeArena'],
+  'tools/qa/capturas.ts': [
+    'espejoDeLaArena',
+    'todoIA',
+    'REGLAS_DEL_BANCO',
+    'espejoDelBanco',
+    'deHoja',
+    'jugarArena',
+    'espejoDeLosPoderes',
+    'poderesEnLaArena',
+    'ataqueEnLaPelea',
+    'espejoDeLaRueda',
+    'jugarLaRueda',
+    // Nombra el `<dialog id="rueda">` de la página: su `'rueda'` no es un modo.
+    'yoContraYoEnLaRueda',
+    'todoEnIAConLaRueda',
+    'espejoDeLasArmas',
+    // Yo contra Yo con la rueda, de uno o de tres por bando (los contrincantes, #261).
+    'espejoYoContraYo',
+    'hastaLaRuedaYoContraYo',
+  ],
+  // La IA contra la IA en la arena (#259, #260, #262): sus tandas y la pelea.
+  'tools/qa/arena-ia.ts': ['TANDAS', 'medir'],
+};
+
 /** El número de línea, contando desde 1, del carácter `indice` de `texto`. */
 function lineaDe(texto: string, indice: number): number {
   let n = 1;
@@ -652,56 +723,14 @@ describe('invariantes del proyecto', () => {
     // `crearBatallaConReglas` en `state/game.ts`, un `'fheroes2'` en `Session`
     // (fuera de `SesionDeArena`) y otro en la pasada del juego de `capturas.ts`
     // salen rojos con su línea.
-    //
-    // La rueda del golpe (13-10-2026) es otra regla de la arena, por las mismas
-    // puertas: su modo se lee de la URL (`modoDelGolpeDeLaURL`) y se escribe con el
-    // literal `'rueda'`; quien lo lee, con `conRueda`. Roto a mano: un
-    // `modoDelGolpe: 'rueda'` en `state/game.ts` y un `modoDelGolpeDeLaURL` en
-    // `Session` salen rojos con su línea.
     const puertas =
-      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla|modoDelGolpeDeLaURL)\b|\bnew\s+SesionDeArena\b|['"`](?:fheroes2|rueda)['"`]/;
+      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla)\b|\bnew\s+SesionDeArena\b|['"`]fheroes2['"`]/;
     const conAlias =
-      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla|modoDelGolpeDeLaURL|SesionDeArena)\s+as\b/;
-    const enTodoElFichero = (r: string): boolean =>
-      r.startsWith('src/core/battle/') ||
-      r === 'src/core/arena.ts' ||
-      r.startsWith('src/client/arena/');
-    const porDeclaracion: Readonly<Record<string, readonly string[]>> = {
-      'src/client/session.ts': ['SesionDeArena'],
-      'tools/qa/capturas.ts': [
-        'espejoDeLaArena',
-        'todoIA',
-        'REGLAS_DEL_BANCO',
-        'espejoDelBanco',
-        'deHoja',
-        'jugarArena',
-        'espejoDeLosPoderes',
-        'poderesEnLaArena',
-        'ataqueEnLaPelea',
-        'espejoDeLaRueda',
-        'jugarLaRueda',
-        'yoContraYoEnLaRueda',
-        'todoEnIAConLaRueda',
-        'espejoDeLasArmas',
-        // Los contrincantes de la rueda (#261): su espejo y su montaje.
-        'espejoDeContrincantes',
-        'hastaLaRuedaDeTres',
-      ],
-      // La medida de salir del contacto (#259): la arena con la regla y sin ella.
-      'tools/qa/contacto.ts': ['medir'],
-    };
-    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
-    const colados: string[] = [];
-    for (const ruta of todos.filter((r) => !enTodoElFichero(r))) {
-      const conPermiso = lineasDeLasDeclaraciones(ruta, porDeclaracion[ruta] ?? []);
-      const imports = ruta in porDeclaracion ? lineasDeImport(ruta) : new Set<number>();
-      for (const [i, linea] of sinComentarios(leer(ruta)).split('\n').entries()) {
-        if (conPermiso.has(i + 1)) continue;
-        if (imports.has(i + 1) && !conAlias.test(linea)) continue;
-        if (puertas.test(linea)) colados.push(`${ruta}:${i + 1} → ${linea.trim()}`);
-      }
-    }
-    expect(colados).toEqual([]);
+      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla|SesionDeArena)\s+as\b/;
+    const { enTodoElFichero } = RUTAS_DE_LA_ARENA;
+    const porDeclaracion = PERMISOS_DE_LA_ARENA;
+    const todos = RUTAS_DE_LA_ARENA.todas();
+    expect(fueraDeLaArena(puertas, conAlias, porDeclaracion)).toEqual([]);
 
     // Los nombres no bastan (vuelta 2 de QA del banco): una función nueva en
     // `core/arena.ts` que llamase a `batallaDeArena` con otro nombre pasaba, y
@@ -769,60 +798,38 @@ describe('invariantes del proyecto', () => {
     expect([...new Set(fuera)]).toEqual([]);
   });
 
-  it('solo la arena enciende salir del contacto (#259)', () => {
-    // Salir de una casilla cuesta 1 + los enemigos en contacto solo en la arena
-    // (`battle/contacto.ts`): el juego, el servidor, el agente y el banco andan
-    // `libre`, que es lo que pone `createBattle`. Montar la batalla con otro modo
-    // ya lo vigila el guardia de las reglas (`crearBatallaConReglas`,
-    // `batallaDeArena`, `SesionDeArena`); este cierra las puertas propias del
-    // contacto: leerlo de la URL (`modoDelContactoDeLaURL`), escribir el literal
-    // `'paga'` y escribir el campo (`modoDelContacto:` o `.modoDelContacto =`), que
-    // un spread de `createBattle` con el modo cambiado se saltaría lo demás.
-    // Con permiso, la sesión de la arena (la clase) y la medida de
-    // `tools/qa/contacto.ts`; sin permiso, el motor, la arena del núcleo y su
-    // página. Roto a mano: un `modoDelContacto: 'paga'` en un spread de
-    // `createBattle` en `state/game.ts` y un `modoDelContactoDeLaURL` en `Session`
-    // (fuera de `SesionDeArena`) salen rojos con su línea.
+  it('solo la arena enciende un modo de la arena: la rueda, el contacto y la carga a pie', async () => {
+    // Los modos de la arena (`battle/modos.ts`, `BattleState.arena`) son reglas
+    // nuestras solo de la arena: el juego, el servidor, el agente y el banco
+    // pelean con `MODOS_DEL_JUEGO`, que pone `createBattle`. Montar la batalla con
+    // otros ya lo vigila el guardia de las reglas (`crearBatallaConReglas`,
+    // `batallaDeArena`, `SesionDeArena`); este cierra las puertas propias de los
+    // modos, por las mismas rutas y permisos: leerlos de la URL o de un botón
+    // (`modoDeLaURL`, `conModo`), los de la arena (`MODOS_DE_LA_ARENA`, que carga
+    // a pie), escribir un literal encendido (`'rueda'`, `'paga'`,
+    // `cargaAPie: true`) y escribir el campo (`arena:` o `.arena =`, y `modos:`),
+    // que un spread de `createBattle` con otro modo se saltaría lo demás. Con
+    // alias (`as`), también en un `import` con permiso. Sustituye a los dos de
+    // salir del contacto y la carga a pie (#259, #260), que no miraban los alias
+    // ni los imports. Roto a mano (14-10-2026): un `{ ...createBattle(…), arena:
+    // MODOS_DE_LA_ARENA }` en `state/game.ts`, un `modoDeLaURL as leer` importado
+    // en `session.ts` y un `golpe: 'rueda'` en la pasada del juego de
+    // `capturas.ts` salen rojos con su línea.
     const puertas =
-      /\bmodoDelContactoDeLaURL\b|['"`]paga['"`]|\bmodoDelContacto\s*:|\.modoDelContacto\s*=(?!=)/;
-    const enTodoElFichero = (r: string): boolean =>
-      r.startsWith('src/core/battle/') ||
-      r === 'src/core/arena.ts' ||
-      r.startsWith('src/client/arena/');
-    const porDeclaracion: Readonly<Record<string, readonly string[]>> = {
-      'src/client/session.ts': ['SesionDeArena'],
-      'tools/qa/contacto.ts': ['medir'],
-    };
-    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
-    const colados: string[] = [];
-    for (const ruta of todos.filter((r) => !enTodoElFichero(r))) {
-      const conPermiso = lineasDeLasDeclaraciones(ruta, porDeclaracion[ruta] ?? []);
-      for (const [i, linea] of sinComentarios(leer(ruta)).split('\n').entries()) {
-        if (conPermiso.has(i + 1)) continue;
-        if (puertas.test(linea)) colados.push(`${ruta}:${i + 1} → ${linea.trim()}`);
-      }
-    }
-    expect(colados).toEqual([]);
-  });
+      /\b(?:modoDeLaURL|conModo|MODOS_DE_LA_ARENA)\b|['"`](?:rueda|paga)['"`]|\bcargaAPie\s*:\s*true\b|(?:^\s*|[{,]\s*)arena\s*:(?!\s*['"`])|\.arena\s*=(?!=)|\bmodos\s*:/;
+    const conAlias = /\b(?:modoDeLaURL|conModo|MODOS_DE_LA_ARENA)\s+as\b/;
+    expect(fueraDeLaArena(puertas, conAlias, PERMISOS_DE_LA_ARENA)).toEqual([]);
 
-  it('solo la arena carga a pie (#260): el juego carga solo con el rasgo `charge`', async () => {
-    // La carga a pie es otra regla de la arena: la enciende `BattleState.cargaAPie`,
-    // que pone `crearBatallaConReglas` (ya vigilada arriba) con lo que le pasa
-    // `batallaDeArena` (`CARGA_A_PIE_EN_LA_ARENA`). Dos guardias:
-    //  1. Por conducta: la misma unidad sin el rasgo, en la misma recta, no carga
-    //     por `createBattle` y carga por la arena. Muerde con la puerta del juego
-    //     encendida por dentro de `battle/`, que el texto de arriba no mira.
-    //  2. Por escritura: fuera del motor, la arena del núcleo y su página, nadie
-    //     escribe `cargaAPie: true` ni nombra `CARGA_A_PIE_EN_LA_ARENA`.
-    // Roto a mano (14-10-2026): `cargaAPie: true` en el `BattleState` de
-    // `createBattle` sale rojo por (1), y un `cargaAPie: true` en `state/game.ts`
-    // y un `CARGA_A_PIE_EN_LA_ARENA` en `views/panels.ts`, por (2), con su línea.
+    // Y por conducta, que el texto no mira dentro de `battle/`: la misma unidad
+    // sin el rasgo, en la misma recta, no carga por `createBattle` y carga por la
+    // arena. Roto a mano: `cargaAPie: true` en `MODOS_DEL_JUEGO` sale rojo aquí.
     const { applyAction, cargaDesde, casillasDeCarga, createBattle, stackById } = await import(
       '../src/core/battle/battle.js'
     );
     const { batallaDeArena } = await import('../src/core/arena.js');
+    const { MODOS_DEL_JUEGO } = await import('../src/core/battle/modos.js');
     const { delBorrador, forzarTurno, MONTAJE, unidadDeArena } = await import('./helpers.js');
-    // Un piquero del juego y el guerrero con escudo de la arena, sin `charge`,
+    // Un espadachín del juego y el guerrero con escudo de la arena, sin `charge`,
     // con el rival a 4 casillas en recta.
     const enRecta = (b: ReturnType<typeof createBattle>): number => {
       stackById(b, 'attacker-0').hex = { col: 0, row: 4 };
@@ -845,7 +852,7 @@ describe('invariantes del proyecto', () => {
       { army: [{ creature: 'pikeman', count: 3 }], hero: null },
       createRng(1),
     );
-    expect(juego.cargaAPie).toBe(false);
+    expect(juego.arena).toBe(MODOS_DEL_JUEGO);
     expect(enRecta(juego)).toBe(0);
     const arena = batallaDeArena(
       {
@@ -858,22 +865,8 @@ describe('invariantes del proyecto', () => {
       },
       createRng(1),
     );
-    expect(arena.cargaAPie).toBe(true);
+    expect(arena.arena.cargaAPie).toBe(true);
     expect(enRecta(arena)).toBe(4);
-
-    const enciende = /\bcargaAPie\s*:\s*true\b|\bCARGA_A_PIE_EN_LA_ARENA\b/;
-    const puede = (r: string): boolean =>
-      r.startsWith('src/core/battle/') ||
-      r === 'src/core/arena.ts' ||
-      r.startsWith('src/client/arena/');
-    const colados: string[] = [];
-    for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')]) {
-      if (puede(ruta)) continue;
-      for (const [i, linea] of sinComentarios(leer(ruta)).split('\n').entries()) {
-        if (enciende.test(linea)) colados.push(`${ruta}:${i + 1} → ${linea.trim()}`);
-      }
-    }
-    expect(colados).toEqual([]);
   });
 
   it('el cliente no aplica reglas: la única puerta al núcleo es session.ts', () => {

@@ -794,7 +794,7 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   transition: transform 140ms;
 }
 .sector-de-rueda .icono path:first-child { fill: currentColor; fill-opacity: 0.22; }
-.sector-de-rueda.en-finta .icono path { fill: none; }
+.sector-de-rueda[data-sector="finta"] .icono path { fill: none; }
 .sector-de-rueda button:focus-visible .icono,
 #rueda:not([data-quieta]) .sector-de-rueda button:hover .icono { transform: scale(1.14); }
 .sector-de-rueda .nombre {

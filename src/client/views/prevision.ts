@@ -66,7 +66,13 @@ function contraataque(c: PrevisionDeContraataque | null): string {
 }
 
 function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
-  const golpes = p.golpes > 1 ? ` por golpe (${p.golpes} golpes)` : '';
+  // Con carga y más de un golpe, solo el primero la cobra (`intercambio`).
+  const golpes =
+    p.siguientes !== null
+      ? ` el primer golpe, con la carga, y ${horquilla(p.siguientes)} ${p.golpes === 2 ? 'el segundo' : `cada uno de los otros ${p.golpes - 1}`}`
+      : p.golpes > 1
+        ? ` por golpe (${p.golpes} golpes)`
+        : '';
   const bajas =
     p.bajas.max === 0
       ? 'no caería ninguno'

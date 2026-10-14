@@ -23,6 +23,8 @@
  */
 
 import { ladoDe } from '@core/arena.js';
+import type { SectorDeLaRueda } from '@core/battle/battle.js';
+import { pagaElContacto } from '@core/battle/contacto.js';
 import {
   ANILLO,
   efectoDeGolpe,
@@ -30,6 +32,7 @@ import {
   NOMBRE_DE_GOLPE,
   NOMBRE_DEL_PUNTO,
   type PapelEnLaRueda,
+  PUNTOS,
   type Punto,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
@@ -42,7 +45,7 @@ import type { RuedaPendiente } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { nota } from '../views/panels.js';
 import { horquilla } from '../views/prevision.js';
-import { type VistaDeArena, vistaPrevia } from './paneles.js';
+import { figuraEnLienzo, type VistaDeArena, vistaPrevia } from './paneles.js';
 
 /**
  * Los iconos, dibujados (sin arte generado): trazos en una caja de 24, con el
@@ -191,9 +194,16 @@ function disco(elige: Side | null): Html {
     </svg>`;
 }
 
-/** «7–12» (`horquilla`, la de la previsión), o «2 × 7–12» con más de un golpe. */
-function conSusGolpes(d: { readonly min: number; readonly max: number }, golpes: number): string {
-  return golpes > 1 ? `${golpes} × ${horquilla(d)}` : horquilla(d);
+/**
+ * «7–12» (`horquilla`, la de la previsión), o «2 × 7–12» con más de un golpe; con
+ * carga, el primero aparte, que es el único que la cobra: «9–15 + 7–12».
+ */
+function conSusGolpes(s: SectorDeLaRueda): string {
+  if (s.siguientes !== null) {
+    const resto = s.golpes - 1;
+    return `${horquilla(s.danio)} + ${resto > 1 ? `${resto} × ` : ''}${horquilla(s.siguientes)}`;
+  }
+  return s.golpes > 1 ? `${s.golpes} × ${horquilla(s.danio)}` : horquilla(s.danio);
 }
 
 /** La tecla de cada tipo: su puesto en `TIPOS_DE_GOLPE`, del 1 al 7. */
@@ -209,16 +219,16 @@ export function tipoDeLaTecla(tecla: string): TipoDeGolpe | null {
 /** Lo que dice la barra de cada sector: el daño o, sin contraataque, nada. */
 function loQueDa(p: RuedaPendiente, tipo: TipoDeGolpe): string {
   const s = p.prevision.porTipo?.[tipo];
-  return s === undefined ? '—' : conSusGolpes(s.danio, s.golpes);
+  return s === undefined ? '—' : conSusGolpes(s);
 }
 
-function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe): string {
+function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): string {
   const s = p.prevision.porTipo?.[tipo];
   const nombre = `${NOMBRE_DE_GOLPE[tipo]} (tecla ${teclaDe(tipo)})`;
   // Sin contraataque no hay daño que decir: la nota ya lo cuenta.
-  if (s === undefined) return `${nombre}. ${notaDe(p, tipo)}`;
-  const dano = `${conSusGolpes(s.danio, s.golpes)} de daño${p.fase === 'respuesta' ? ' al devolver el golpe' : ''}`;
-  return `${nombre}: ${dano}. ${notaDe(p, tipo)}`;
+  if (s === undefined) return `${nombre}. ${notaDe(p, tipo, contacto)}`;
+  const dano = `${conSusGolpes(s)} de daño${p.fase === 'respuesta' ? ' al devolver el golpe' : ''}`;
+  return `${nombre}: ${dano}. ${notaDe(p, tipo, contacto)}`;
 }
 
 /**
@@ -226,8 +236,8 @@ function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe): string {
  * (`efectoDeGolpe`), y en una respuesta que no devolverá el golpe, solo lo que
  * vale: el cruce. Todo lo demás de la respuesta va con el contraataque.
  */
-function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe): string {
-  return efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null);
+function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): string {
+  return efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, contacto);
 }
 
 /** El círculo del color de un bando, para decir de quién se habla. */
@@ -241,7 +251,7 @@ function chapa(side: Side): Html {
  * `data-lado`): con varias unidades iguales el nombre no dice cuál es (#261).
  */
 function figuraDe(x: BattleStack): Html {
-  return html`<canvas class="figura" data-figura="${x.body}" data-lado="${ladoDe(x.side)}" width="80" height="96" aria-hidden="true"></canvas>`;
+  return figuraEnLienzo(x.body, ladoDe(x.side), 'rueda');
 }
 
 /**
@@ -285,7 +295,7 @@ function cabecera(
 }
 
 /** Hacia dónde se abre el bocadillo de una nota de la rueda: hacia fuera de ella. */
-export type HaciaFuera = 'arriba' | 'derecha' | 'abajo' | 'izquierda';
+type HaciaFuera = 'arriba' | 'derecha' | 'abajo' | 'izquierda';
 
 /**
  * Hacia fuera de la rueda desde `grados` (0 a la derecha, 90 abajo): el lado más
@@ -311,7 +321,7 @@ function sitios(dentro: (t: TipoDeGolpe) => Html, atributos: (t: TipoDeGolpe) =>
   return unir(
     TIPOS_DE_GOLPE.map(
       (t) =>
-        html`<div class="sector-de-rueda en-${t}" data-sector="${t}"${atributos(t)} data-hacia="${t === 'normal' ? 'abajo' : haciaDe(anguloDe(t))}">${dentro(t)}</div>`,
+        html`<div class="sector-de-rueda" data-sector="${t}"${atributos(t)} data-hacia="${t === 'normal' ? 'abajo' : haciaDe(anguloDe(t))}">${dentro(t)}</div>`,
     ),
   );
 }
@@ -338,13 +348,15 @@ export function renderEleccion(s: VistaDeArena, p: RuedaPendiente): Html {
     : p.prevision.sinContraataque === null
       ? 'Elige tu respuesta sin ver su golpe: si lo aciertas recibes el mínimo y devuelves el máximo.'
       : `No devolverá el golpe (${p.prevision.sinContraataque}): la respuesta solo cuenta para el cruce.`;
+  // La nota de la Finta avisa de lo que cuesta salir del contacto, si se cobra.
+  const contacto = pagaElContacto(s.battle);
   // El sector abre su nota también al pasar por él (`[data-abre-nota]`, style.css).
   const sectores = sitios(
     (
       t,
-    ) => html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t)}" aria-keyshortcuts="${teclaDe(t)}">
+    ) => html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t, contacto)}" aria-keyshortcuts="${teclaDe(t)}">
           <span class="rotulo-del-sector">${rotuloDe(t)}<span class="da">${loQueDa(p, t)}</span></span>
-        </button>${nota(notaDe(p, t))}`,
+        </button>${nota(notaDe(p, t, contacto))}`,
     () => html` data-abre-nota`,
   );
   return html`<div class="rueda" data-fase="${p.fase}" data-bando="${p.bando}">
@@ -450,7 +462,7 @@ function medidor(
 ): Html {
   const x = (p: Punto): number => 20 + p * 50;
   const muescas = unir(
-    ([0, 1, 2, 3, 4] as const).map(
+    PUNTOS.map(
       (p) =>
         html`<g data-punto="${String(p)}" class="muesca${p === e.punto ? ' del-golpe' : ''}${p === contraataque ? ' del-contraataque' : ''}">
           <circle cx="${String(x(p))}" cy="22" r="5.5"/>

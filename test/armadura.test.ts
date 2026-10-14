@@ -29,7 +29,7 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { armaduraDe, expectedDamage, herir, trasLaArmadura } from '../src/core/battle/damage.js';
-import { SIN_MURALLA } from '../src/core/battle/muralla.js';
+import { MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import { delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
@@ -74,8 +74,7 @@ function frente(
     bandoDe(contra.map((unit, i) => ({ id: `contra-${i}`, unit }))),
     createRng(1),
     REGLAS_DEL_JUEGO,
-    SIN_MURALLA,
-    rueda ? 'rueda' : 'azar',
+    { modos: { ...MODOS_DEL_JUEGO, golpe: rueda ? 'rueda' : 'azar' } },
   );
   stackById(b, 'attacker-0').hex = en;
   donde.forEach((h, i) => {
@@ -145,7 +144,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
       stack: 'attacker-0',
       damage: 43,
       killed: 0,
-      armadura: 7,
+      parado: 7,
     });
     expect(stackById(b, 'defender-0').topHp).toBe(37);
     // Sin armadura, los 50 enteros y el hecho de siempre, sin el campo.
@@ -167,7 +166,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     const flojo = cuerpo('Flojo', { damage: [20, 20] });
     const b = frente(flojo, [JINETE], PEGADOS[0], PEGADOS[1]);
     const desde = jugar(b, { type: 'attack', target: 'defender-0' }, createRng(1));
-    expect(hechos(b, 'attack', desde)[0]).toMatchObject({ damage: 0, killed: 0, armadura: 18 });
+    expect(hechos(b, 'attack', desde)[0]).toMatchObject({ damage: 0, killed: 0, parado: 18 });
     const jinete = stackById(b, 'defender-0');
     expect([jinete.count, jinete.topHp]).toEqual([1, 80]);
     // Ni experiencia: no quitó nada.
@@ -191,7 +190,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
       createRng(1),
     );
     const mios = hechos(b, 'attack', desde).filter((a) => !a.retaliation);
-    expect(mios.map((a) => [a.damage, a.armadura])).toEqual([
+    expect(mios.map((a) => [a.damage, a.parado])).toEqual([
       [23, 7],
       [23, 7],
     ]);
@@ -203,7 +202,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     const tirador = vestido(cuerpo('Tirador', { traits: ['double_shot'] }), { distancia: 'arco' });
     const b = frente(tirador, [TEMPLARIO], { col: 1, row: 4 }, [{ col: 4, row: 4 }]);
     const desde = jugar(b, { type: 'shoot', target: 'defender-0' }, dadoCargado('maximo'));
-    expect(hechos(b, 'shoot', desde).map((s) => [s.damage, s.armadura])).toEqual([
+    expect(hechos(b, 'shoot', desde).map((s) => [s.damage, s.parado])).toEqual([
       [29, 7],
       [29, 7],
     ]);
@@ -219,9 +218,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
       { col: 5, row: 4 },
     ]);
     const desde = jugar(b, { type: 'shoot', target: 'defender-0' }, dadoCargado('maximo'));
-    expect(
-      hechos(b, 'shoot', desde).map((s) => [s.target, s.damage, s.armadura, s.splash]),
-    ).toEqual([
+    expect(hechos(b, 'shoot', desde).map((s) => [s.target, s.damage, s.parado, s.splash])).toEqual([
       ['defender-0', 29, 7, undefined],
       ['defender-1', 14, 22, true],
     ]);
@@ -243,7 +240,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
       { type: 'cast', spell: 'magic_arrow', target: 'defender-0' },
       createRng(1),
     );
-    expect(hechos(b, 'cast', desde)[0]).toMatchObject({ damage: flecha - 7, armadura: 7 });
+    expect(hechos(b, 'cast', desde)[0]).toMatchObject({ damage: flecha - 7, parado: 7 });
     expect(stackById(b, 'defender-0').topHp).toBe(5000 - (flecha - 7));
   });
 
@@ -255,7 +252,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     stackById(b, 'attacker-0').topHp = 30;
     const desde = jugar(b, { type: 'attack', target: 'defender-0' }, createRng(1));
     const [golpe, devuelto] = hechos(b, 'attack', desde);
-    expect(golpe).toMatchObject({ damage: 43, armadura: 7 });
+    expect(golpe).toMatchObject({ damage: 43, parado: 7 });
     expect(devuelto).toMatchObject({ retaliation: true, damage: 10 });
     expect(stackById(b, 'attacker-0').topHp).toBe(63);
   });

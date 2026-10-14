@@ -48,15 +48,22 @@ export interface StackEffect {
 
 /**
  * Hasta qué turno dura un efecto de la rueda del golpe: el `turno.n` en que se
- * colgó y si se va al **empezar** el siguiente turno del afectado (Defensivo:
- * `abrirTurno`, y el turno que la moral baja le quita, que también empieza) o al
- * **terminarlo** (Romper guardia: `endTurn`). El turno en que nace no cuenta: se
- * quita con otro `n`.
+ * colgó y cuándo vence (`al`). El turno en que nace no cuenta: se quita con otro
+ * `n`.
  */
 export interface HastaElTurno {
   readonly turno: number;
-  readonly al: 'empezar' | 'terminar';
+  readonly al: CuandoVence;
 }
+
+/**
+ * Cuándo vence un efecto de la rueda: al **empezar** el siguiente turno del
+ * afectado (Defensivo: `abrirTurno`, y el turno que la moral baja le quita, que
+ * también empieza) o al **terminarlo** (Romper guardia: `endTurn`). Decisión del
+ * usuario, 14-10-2026. El único nombre de esto: lo leen el efecto, el evento, la
+ * rueda y su nota.
+ */
+export type CuandoVence = 'empezar' | 'terminar';
 
 /** Moral y suerte se mueven entre −3 y +3 (`CLAUDE.md`, tabla de reglas). */
 const MIN_MORALE_LUCK = -3;

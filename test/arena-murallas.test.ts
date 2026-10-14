@@ -233,7 +233,7 @@ describe('la arena pelea con la muralla', () => {
       [{ unidad: zombi, ia: true, escalera: false }],
       [{ unidad: zombi, ia: true, escalera: false }],
       5,
-      linea,
+      { muralla: linea },
     );
     s.empezar();
     expect(s.battle.muralla).toEqual(linea);
@@ -247,7 +247,7 @@ describe('la arena pelea con la muralla', () => {
       [{ unidad: unidad('zombi'), ia: false, escalera: false }],
       [{ unidad: unidad('zombi'), ia: true, escalera: false }],
       5,
-      conPuerta,
+      { muralla: conPuerta },
     );
     s.empezar();
     expect(s.turnoPropio).not.toBeNull();

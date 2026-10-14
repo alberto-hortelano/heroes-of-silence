@@ -236,7 +236,7 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
           { unidad: unidadDeArena('zombi'), ia: true, escalera: false },
         ],
         11,
-        m,
+        { muralla: m },
       );
       // Dónde está cada uno: el `move` del registro trae el camino sin el origen.
       const donde = new Map(s.battle.stacks.map((st) => [st.id, st.hex]));
@@ -340,7 +340,7 @@ describe('columnas altas y lienzo que crece (C12)', () => {
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],
       4,
-      LINEA,
+      { muralla: LINEA },
     );
     const sin = sesionDeArena(
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],

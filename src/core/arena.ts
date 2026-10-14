@@ -39,8 +39,8 @@ import {
   mandoDe,
   quienNoEscala,
 } from './battle/battle.js';
-import type { ModoDelContacto } from './battle/contacto.js';
 import type { StackEffect } from './battle/effects.js';
+import { MODOS_DE_LA_ARENA, type ModosDeArena } from './battle/modos.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
 import {
   esDeCura,
@@ -50,7 +50,6 @@ import {
   poderDeHabilidad,
 } from './battle/poderes.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from './battle/reglas.js';
-import type { ModoDelGolpe } from './battle/rueda.js';
 import {
   allSpells,
   delHeroe,
@@ -71,6 +70,7 @@ import { CATALOGO_DE_HABILIDADES, LIDERAZGO, type Pieza, problemasDePieza } from
 import { ESCALA_DE_CIFRAS } from './escala.js';
 import {
   aDosManos,
+  armaduraDePV,
   conLaArmaduraEnPV,
   EQUIPO_BASE,
   EQUIPO_DEL_JUEGO,
@@ -81,7 +81,7 @@ import {
   NOMBRE_DE_HUECO,
   nadaEnElHueco,
   PIEZAS_DEL_CATALOGO,
-  PV_POR_PUNTO_DE_ARMADURA,
+  pvDeLaArmadura,
   quitarPieza,
 } from './hero/equipo.js';
 import { cifrasDelIndividuo, EXPERIENCIA_INICIAL_DE_HEROE } from './hero/experiencia.js';
@@ -1052,11 +1052,6 @@ function piezaDeAntesDeLaMunicion(
   return { pieza: sinDisparos, aviso: juntar(enSuHueco.aviso, sinMunicion) };
 }
 
-/** `pv` PV en puntos de armadura: PV / 10 al entero más cercano (45 → 5). */
-function armaduraDePV(pv: number): number {
-  return Math.round(pv / PV_POR_PUNTO_DE_ARMADURA);
-}
-
 /**
  * Una pieza de la arena con PV, como una de hoy: los PV pasan a armadura
  * (`armaduraDePV`) y el aviso lo dice con las dos cifras. Lo que no es una pieza
@@ -1605,7 +1600,7 @@ function sinLoDeAntes(
   const conArmadura =
     armadura === 0
       ? null
-      : `La unidad «${nombre}» contaba en su vida ${armadura * PV_POR_PUNTO_DE_ARMADURA} PV de su armadura: ahora lleva ${armadura} de armadura, que se resta del daño de cada golpe.`;
+      : `La unidad «${nombre}» contaba en su vida ${pvDeLaArmadura(armadura)} PV de su armadura: ahora lleva ${armadura} de armadura, que se resta del daño de cada golpe.`;
   return { unidad: validarUnidadDeArena(unidad, eq), aviso: juntar(aviso, conArmadura) };
 }
 
@@ -1648,7 +1643,7 @@ function cuerpoSinElKit(
   // Las cifras de antes llevaban los PV de la armadura del kit, que hoy da puntos
   // de armadura (#262): un punto sustituye a `PV_POR_PUNTO_DE_ARMADURA` PV del
   // cuerpo, la misma cuenta que convierte las piezas (`conArmaduraEnVezDePV`).
-  const pvDelKit = suma.pv + suma.armadura * PV_POR_PUNTO_DE_ARMADURA;
+  const pvDelKit = suma.pv + pvDeLaArmadura(suma.armadura);
   /** Las piezas del kit que suman algo de esa cifra, por su nombre: «Espada y Brigantina». */
   const de = (cuanto: (p: (typeof piezas)[number]) => number): string => {
     const nombres = piezas.filter((p) => cuanto(p) !== 0).map((p) => p.nombre);
@@ -2104,17 +2099,12 @@ export interface MontajeDeArena {
   readonly reglas: ReglasDeBatalla;
   readonly muralla?: MurallaDeBatalla;
   /**
-   * Cómo cae el daño de un golpe cuerpo a cuerpo: la tirada (`azar`, sin él) o la
-   * rueda del golpe (`battle/rueda.ts`). Va en el enlace aparte (`?golpe=`), como
-   * las reglas.
+   * Los modos de la arena que cambian sobre los de siempre (`MODOS_DE_LA_ARENA`,
+   * `battle/modos.ts`): la rueda del golpe y salir del contacto, que van en el
+   * enlace aparte (`?golpe=`, `?contacto=`) como las reglas, y la carga a pie,
+   * que la arena juega siempre y solo apaga la prueba que la compara con el juego.
    */
-  readonly golpe?: ModoDelGolpe;
-  /**
-   * Si salir de una casilla cuesta 1 + los enemigos en contacto (`paga`) o 1
-   * (`libre`, sin él; `battle/contacto.ts`). Va en el enlace aparte
-   * (`?contacto=`), como el golpe.
-   */
-  readonly contacto?: ModoDelContacto;
+  readonly modos?: Partial<ModosDeArena>;
   /**
    * Las piezas de la arena con que pelea (las del borrador: van encima de las del
    * juego, `catalogoDeLaArena`). Del montaje y no de cada fuente: dos unidades de
@@ -2179,37 +2169,25 @@ function bandoDeArena(lado: LadoDeArena, nombre: string, eq: EquipoAtado): Battl
 }
 
 /**
- * En la arena carga todo el que pega cuerpo a cuerpo, y el jinete (el rasgo
- * `charge`) cobra más (#260, 14-10-2026: «todos los que pegan cuerpo a cuerpo, y
- * el jinete más»; las cifras, `data/carga.json`). Sin interruptor: lo leen
- * `batallaDeArena` y la ficha del montaje, que enseña la fila de la carga.
- */
-export const CARGA_A_PIE_EN_LA_ARENA = true;
-
-/**
  * Una batalla de arena: la izquierda ataca y la derecha defiende, con las reglas
  * del montaje. Los stacks de la tropa salen en el orden de cada lista (`slot` =
  * su puesto) y el héroe, si lo hay, el último (`<bando>-heroe`): es lo que deja a
  * quien llama saber qué puesto del montaje es cada stack. La muralla, si la
- * hay, es del tablero (`battle/muralla.ts`). `cargaAPie`: en la arena carga todo
- * el que pega cuerpo a cuerpo (`CARGA_A_PIE_EN_LA_ARENA`); `false` solo lo pasa el
- * test que compara la arena con el juego.
+ * hay, es del tablero (`battle/muralla.ts`). Los modos, los de la arena
+ * (`MODOS_DE_LA_ARENA`: carga todo el que pega cuerpo a cuerpo, y el jinete más,
+ * #260) con lo que cambie el montaje.
  */
-export function batallaDeArena(
-  montaje: MontajeDeArena,
-  rng: Rng,
-  cargaAPie: boolean = CARGA_A_PIE_EN_LA_ARENA,
-): BattleState {
+export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
   const eq = catalogoDeLaArena(montaje.piezas);
   const batalla = crearBatallaConReglas(
     bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, eq),
     bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo, eq),
     rng,
     montaje.reglas,
-    montaje.muralla ?? SIN_MURALLA,
-    montaje.golpe ?? 'azar',
-    montaje.contacto ?? 'libre',
-    cargaAPie,
+    {
+      muralla: montaje.muralla ?? SIN_MURALLA,
+      modos: { ...MODOS_DE_LA_ARENA, ...montaje.modos },
+    },
   );
   // De qué tipo sale cada puesto, en el orden de su `slot` (`tipoDelStack`).
   const tipos = (l: LadoDeArena): readonly TipoDeArena[] => l.unidades.map(tipoDeLaFuente);

@@ -6,17 +6,19 @@
  * entrar; el volador paga una vez, al despegar. Si lo que le queda no paga salir
  * de su casilla, no se mueve: rodear a alguien lo atrapa.
  *
- * Aquí está el modo de la pelea (cómo se lee y se escribe en la URL, y su única
- * lectura, `pagaElContacto`), el coste de un paso y la frase de quien no puede
- * salir. Lo que cuenta los enemigos y recorre el tablero con costes vive en
- * `battle.ts` (`enemigosEnContacto`, `costeDeSalir`, `movableFrom`) y en
- * `board.ts` (`alcanceConCostes`): necesita `canReachMelee`, y ningún módulo de
- * `battle/` importa `battle.ts`.
+ * Aquí están el modo de la pelea y su única lectura (`pagaElContacto`; cómo va en
+ * la URL lo dice `modos.ts`), lo que cuesta salir con N enemigos al lado y la
+ * frase de quien no puede salir. Lo que cuenta los enemigos y recorre el tablero
+ * con costes vive en `battle.ts` (`enContactoEn`, `movableFrom`) y en `board.ts`
+ * (`alcanceConCostes`): necesita `canReachMelee`, y ningún módulo de `battle/`
+ * importa `battle.ts`.
  *
  * El juego, el agente y el banco andan con `libre`, el paso de siempre a 1: lo
- * pone `createBattle`, y solo la arena llega a `crearBatallaConReglas(…, contacto)`
- * (lo vigila `test/invariantes.test.ts`).
+ * pone `createBattle` (`MODOS_DEL_JUEGO`), y solo la arena lo enciende (lo vigila
+ * `test/invariantes.test.ts`).
  */
+import { quedanCasillas } from './board.js';
+import type { ModosDeArena } from './modos.js';
 
 /**
  * Los modos del contacto: `libre`, salir de una casilla cuesta 1 como siempre;
@@ -27,48 +29,28 @@ export const MODOS_DEL_CONTACTO = ['libre', 'paga'] as const;
 export type ModoDelContacto = (typeof MODOS_DEL_CONTACTO)[number];
 
 /**
- * El modo del contacto que pide la URL (`?contacto=paga`). Ausente o vacío,
- * `libre`; lo que no es un modo se rechaza diciendo cuáles valen, como
- * `modoDelGolpeDeLaURL`: un enlace copiado con una errata reproduciría otra pelea
- * sin decirlo.
- */
-export function modoDelContactoDeLaURL(texto: string | null): ModoDelContacto {
-  if (texto === null || texto.trim() === '') return 'libre';
-  const modo = MODOS_DEL_CONTACTO.find((m) => m === texto.trim());
-  if (modo === undefined) {
-    throw new Error(
-      `«${texto}» no es un modo del contacto; valen ${MODOS_DEL_CONTACTO.join(', ')}`,
-    );
-  }
-  return modo;
-}
-
-/** La inversa de `modoDelContactoDeLaURL`: lo que va en `?contacto=`, o `''` con `libre`, que no se escribe. */
-export function modoDelContactoALaURL(modo: ModoDelContacto): string {
-  return modo === 'libre' ? '' : modo;
-}
-
-/**
  * ¿Cuesta salir del contacto en esta pelea? La única lectura del modo: nadie
  * compara el literal fuera de aquí y de la arena (lo vigila
  * `test/invariantes.test.ts`). Con `libre`, el movimiento es el de siempre, con
  * el mismo código: así el banco no se mueve.
  */
-export function pagaElContacto(state: { readonly modoDelContacto: ModoDelContacto }): boolean {
-  return state.modoDelContacto === 'paga';
+export function pagaElContacto(state: { readonly arena: ModosDeArena }): boolean {
+  return state.arena.contacto === 'paga';
 }
 
 /** Lo que cuesta salir de una casilla con `enContacto` enemigos al lado: el paso y uno por cada uno. */
-export function costeDeSalirCon(enContacto: number): number {
+export function salirCuesta(enContacto: number): number {
   return 1 + enContacto;
 }
 
 /**
  * La frase de quien no puede salir de su casilla: cuántos la cierran, lo que
- * cuesta salir y lo que le queda. La escribe `contactoBlocker` (`battle.ts`) y
- * la leen `movimientoBlocker` y el panel de la arena.
+ * cuesta salir y lo que le queda, diciendo si fue la Finta la que se comió lo que
+ * falta (`trasLaFinta`). La escribe `contactoBlocker` (`battle.ts`) y la leen
+ * `movimientoBlocker` y el panel de la arena.
  */
-export function fraseDelContacto(enContacto: number, quedan: number): string {
+export function fraseDelContacto(enContacto: number, quedan: number, trasLaFinta: boolean): string {
   const quienes = enContacto === 1 ? '1 enemigo' : `${enContacto} enemigos`;
-  return `rodeado: con ${quienes} al lado, salir de su casilla le cuesta ${costeDeSalirCon(enContacto)} y le ${quedan === 1 ? 'queda 1' : `quedan ${quedan}`}`;
+  const [verbo, casillas] = quedanCasillas(quedan);
+  return `rodeado: con ${quienes} al lado, salir de su casilla le cuesta ${salirCuesta(enContacto)} y ${trasLaFinta ? 'tras la Finta ' : ''}le ${verbo} ${casillas}`;
 }

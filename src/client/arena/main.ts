@@ -60,10 +60,13 @@ import {
 } from '@core/arena-murallas.js';
 import { hexEquals, isInside } from '@core/battle/board.js';
 import {
-  type ModoDelContacto,
-  modoDelContactoALaURL,
-  modoDelContactoDeLaURL,
-} from '@core/battle/contacto.js';
+  conModo,
+  INTERRUPTORES,
+  MODOS_DE_LA_ARENA,
+  type ModosConInterruptor,
+  modoALaURL,
+  modoDeLaURL,
+} from '@core/battle/modos.js';
 import {
   esMuro,
   hayMuralla,
@@ -81,13 +84,7 @@ import {
   reglasALaURL,
   reglasDeLaURL,
 } from '@core/battle/reglas.js';
-import {
-  contraataqueDelCruce,
-  type HechoDelCruce,
-  type ModoDelGolpe,
-  modoDelGolpeALaURL,
-  modoDelGolpeDeLaURL,
-} from '@core/battle/rueda.js';
+import { contraataqueDelCruce, type HechoDelCruce } from '@core/battle/rueda.js';
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import { LIDERAZGO, type Pieza } from '@core/data.js';
@@ -103,7 +100,7 @@ import {
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
-import { type Html, html, NADA, pintar } from '../html.js';
+import { type Html, html, NADA, pintar, unir } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import type { CharacterClip } from '../render/character.js';
@@ -160,17 +157,17 @@ import {
   guardadoEnPalabras,
   type HerramientaDeMuralla,
   type ListaDeUnidades,
+  modoDeSiempre,
   type Puesto,
   ROTULO_DE_LOS_AVISOS,
   renderAvisosDeLectura,
   renderBando,
   renderCatalogo,
-  renderContacto,
   renderEnlace,
   renderEquipo,
   renderFicha,
   renderFichaDeHeroe,
-  renderGolpe,
+  renderModo,
   renderMuralla,
   renderPanelDeBatalla,
   renderReglas,
@@ -525,14 +522,22 @@ try {
 }
 
 /**
- * Cómo cae el golpe cuerpo a cuerpo: al azar, salvo que la URL pida la rueda
- * (`?golpe=rueda`). Va con las reglas en la URL; lo que no es un modo se dice.
+ * Los modos de la arena con interruptor (`battle/modos.ts`): cómo cae el golpe
+ * cuerpo a cuerpo (al azar, salvo `?golpe=rueda`) y si salir del contacto cuesta
+ * (libre, salvo `?contacto=paga`). Van con las reglas en la URL; lo que no es un
+ * modo se dice, y se pelea con el de siempre.
  */
-let golpe: ModoDelGolpe = 'azar';
-try {
-  golpe = modoDelGolpeDeLaURL(unaVezEnLaURL(parametros.getAll('golpe'), 'golpe'));
-} catch (err) {
-  avisoDeSemilla += `${mensaje(err)} — se pelea con el golpe al azar. `;
+let modos: ModosConInterruptor = MODOS_DE_LA_ARENA;
+for (const d of INTERRUPTORES) {
+  try {
+    modos = conModo(
+      modos,
+      d,
+      modoDeLaURL(d, unaVezEnLaURL(parametros.getAll(d.parametro), d.parametro)),
+    );
+  } catch (err) {
+    avisoDeSemilla += `${mensaje(err)} — ${modoDeSiempre(d)}. `;
+  }
 }
 
 /**
@@ -541,18 +546,6 @@ try {
  * algo cambia después, ya no lo es y se deja de enseñar.
  */
 let enlaceCopiado: string | null = null;
-
-/**
- * Si salir de una casilla cuesta 1 + los enemigos en contacto: libre, salvo que la
- * URL lo pida (`?contacto=paga`, `battle/contacto.ts`). Va con el golpe en la URL;
- * lo que no es un modo se dice.
- */
-let contacto: ModoDelContacto = 'libre';
-try {
-  contacto = modoDelContactoDeLaURL(unaVezEnLaURL(parametros.getAll('contacto'), 'contacto'));
-} catch (err) {
-  avisoDeSemilla += `${mensaje(err)} — se sale del contacto libre. `;
-}
 
 /**
  * Escribe en la barra la dirección de ahora con las reglas del montaje, para que
@@ -566,14 +559,12 @@ function reglasALaBarra(cambiar: (url: URL) => void = () => {}): void {
   const enURL = reglasALaURL(reglas);
   if (enURL === '') url.searchParams.delete('reglas');
   else url.searchParams.set('reglas', enURL);
-  // El golpe, igual: al azar no se escribe.
-  const golpeEnURL = modoDelGolpeALaURL(golpe);
-  if (golpeEnURL === '') url.searchParams.delete('golpe');
-  else url.searchParams.set('golpe', golpeEnURL);
-  // Y el contacto: libre no se escribe.
-  const contactoEnURL = modoDelContactoALaURL(contacto);
-  if (contactoEnURL === '') url.searchParams.delete('contacto');
-  else url.searchParams.set('contacto', contactoEnURL);
+  // Los modos, igual: el de siempre no se escribe.
+  for (const d of INTERRUPTORES) {
+    const enLaURL = modoALaURL(d, modos[d.clave]);
+    if (enLaURL === '') url.searchParams.delete(d.parametro);
+    else url.searchParams.set(d.parametro, enLaURL);
+  }
   history.replaceState(null, '', `${url.pathname}${url.search.replace(/%2C/g, ',')}${url.hash}`);
 }
 
@@ -1095,7 +1086,7 @@ function repintarMontaje(): void {
     pintar(elFicha, fichaElegida());
     pintar(
       elCatalogo,
-      html`${renderGolpe(golpe)}${renderContacto(contacto)}${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(
+      html`${unir(INTERRUPTORES.map((d) => renderModo(d, modos[d.clave])))}${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(
         hojas,
         filtro,
         { kind: 'montaje' },
@@ -1710,10 +1701,10 @@ function enlaceDe(semilla: number): string {
   url.searchParams.set('seed', String(semilla));
   const enURL = reglasALaURL(reglas);
   if (enURL !== '') url.searchParams.set('reglas', enURL);
-  const golpeEnURL = modoDelGolpeALaURL(golpe);
-  if (golpeEnURL !== '') url.searchParams.set('golpe', golpeEnURL);
-  const contactoEnURL = modoDelContactoALaURL(contacto);
-  if (contactoEnURL !== '') url.searchParams.set('contacto', contactoEnURL);
+  for (const d of INTERRUPTORES) {
+    const enLaURL = modoALaURL(d, modos[d.clave]);
+    if (enLaURL !== '') url.searchParams.set(d.parametro, enLaURL);
+  }
   url.searchParams.set('montaje', montajeALaURL(montajeDelEnlace()));
   return url.href.replace(/%2C/g, ',');
 }
@@ -1913,8 +1904,7 @@ function luchar(): void {
         reglas,
         muralla,
         piezas: piezasEnUso(),
-        golpe,
-        contacto,
+        modos,
       },
       semilla,
     );
@@ -2566,16 +2556,12 @@ document.addEventListener('click', (ev) => {
         if (elegida?.kind === 'heroe' && elegida.lado === lado) elegida = null;
         break;
       }
-      case 'golpe': {
+      case 'modo': {
         // El modo, por la misma lectura que la URL: uno que no es se dice.
-        golpe = modoDelGolpeDeLaURL(el.getAttribute('data-modo'));
-        reglasALaBarra();
-        aviso = '';
-        break;
-      }
-      case 'contacto': {
-        // Como el golpe: por la misma lectura que la URL.
-        contacto = modoDelContactoDeLaURL(el.getAttribute('data-modo'));
+        const parametro = el.getAttribute('data-parametro');
+        const d = INTERRUPTORES.find((i) => i.parametro === parametro);
+        if (d === undefined) throw new Error(`el botón de modo trae «${String(parametro)}»`);
+        modos = conModo(modos, d, modoDeLaURL(d, el.getAttribute('data-modo')));
         reglasALaBarra();
         aviso = '';
         break;

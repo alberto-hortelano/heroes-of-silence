@@ -12,7 +12,7 @@
  * es la que es.
  */
 import { describe, expect, it } from 'vitest';
-import { renderContacto } from '../src/client/arena/paneles.js';
+import { renderModo } from '../src/client/arena/paneles.js';
 import { marcadoDe, NADA } from '../src/client/html.js';
 import { accionesDeLaUnidad } from '../src/client/views/panels.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
@@ -22,10 +22,9 @@ import {
   applyAction,
   cargaDesde,
   contactoBlocker,
-  costeDeSalir,
   crearBatallaConReglas,
   createBattle,
-  enemigosEnContacto,
+  enContactoEn,
   legalActions,
   movableFrom,
   movimientoBlocker,
@@ -34,13 +33,9 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
-import {
-  type ModoDelContacto,
-  modoDelContactoALaURL,
-  modoDelContactoDeLaURL,
-  pagaElContacto,
-} from '../src/core/battle/contacto.js';
+import { type ModoDelContacto, pagaElContacto } from '../src/core/battle/contacto.js';
 import { applyEffect } from '../src/core/battle/effects.js';
+import { CONTACTO, MODOS_DEL_JUEGO, modoALaURL, modoDeLaURL } from '../src/core/battle/modos.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { ModoDelGolpe } from '../src/core/battle/rueda.js';
@@ -75,9 +70,10 @@ function pelea(
     bando(de(o.contra ?? 'skeleton', enemigos.length)),
     createRng(1),
     REGLAS_DEL_JUEGO,
-    o.muralla ?? SIN_MURALLA,
-    o.golpe ?? 'azar',
-    o.contacto ?? 'paga',
+    {
+      muralla: o.muralla ?? SIN_MURALLA,
+      modos: { ...MODOS_DEL_JUEGO, golpe: o.golpe ?? 'azar', contacto: o.contacto ?? 'paga' },
+    },
   );
   stackById(b, 'attacker-0').hex = en;
   enemigos.forEach((e, i) => {
@@ -101,18 +97,20 @@ const movimientos = (b: BattleState): Movimiento[] =>
 
 describe('el coste de salir de una casilla', () => {
   it('es 1 + los enemigos en contacto: 0, 1, 2 y 3 al lado cuestan 1, 2, 3 y 4', () => {
+    // (4,4) está libre con cualquiera de los tres vecinos puestos: el primer paso
+    // hasta ella es salir de (5,4).
     const vecinos = [h(6, 4), h(4, 3), h(5, 5)];
     for (let n = 0; n <= 3; n++) {
       const b = pelea('pikeman', h(5, 4), [...vecinos.slice(0, n), h(11, 0), h(11, 8)]);
-      expect(enemigosEnContacto(b, yo(b), h(5, 4))).toHaveLength(n);
-      expect(costeDeSalir(b, yo(b), h(5, 4))).toBe(1 + n);
+      expect(enContactoEn(b, yo(b), h(5, 4))).toBe(n);
+      expect(costes(b, h(4, 4))).toEqual([1 + n]);
     }
   });
 
   it('sin la regla, salir cuesta 1 con los enemigos que sea', () => {
     const b = pelea('pikeman', h(5, 4), [h(6, 4), h(4, 3), h(5, 5)], { contacto: 'libre' });
-    expect(enemigosEnContacto(b, yo(b), h(5, 4))).toHaveLength(3);
-    expect(costeDeSalir(b, yo(b), h(5, 4))).toBe(1);
+    expect(enContactoEn(b, yo(b), h(5, 4))).toBe(3);
+    expect(costes(b, h(4, 4))).toEqual([1]);
   });
 
   it('se paga al salir y no al entrar: el paso que deja el contacto cuesta 2, los demás 1', () => {
@@ -147,7 +145,8 @@ describe('quien no puede pagar salir de su casilla', () => {
   it('no tiene casillas a las que ir, y dice por qué', () => {
     const b = rodeado();
     expect(movableFrom(b, yo(b)).size).toBe(0);
-    const motivo = 'rodeado: con 4 enemigos al lado, salir de su casilla le cuesta 5 y le quedan 4';
+    const motivo =
+      'rodeado: con 4 enemigos al lado, salir de su casilla le cuesta 5 y le quedan 4 casillas';
     expect(contactoBlocker(b, yo(b))).toBe(motivo);
     // A cualquier casilla libre a la que se le pida ir.
     expect(movimientoBlocker(b, h(5, 3))).toBe(motivo);
@@ -195,7 +194,7 @@ describe('un tramo que empieza en contacto', () => {
     expect(activeStack(b)?.id).toBe('attacker-0');
     expect(movableFrom(b, yo(b)).size).toBe(0);
     expect(contactoBlocker(b, yo(b))).toBe(
-      'rodeado: con 1 enemigo al lado, salir de su casilla le cuesta 2 y le queda 1',
+      'rodeado: con 1 enemigo al lado, salir de su casilla le cuesta 2 y le queda 1 casilla',
     );
     // Golpear al que tiene al lado sí puede.
     expect(legalActions(b)).toContainEqual({ type: 'attack', target: 'defender-0' });
@@ -248,7 +247,7 @@ describe('el volador', () => {
     const b = pelea('vampire', h(5, 4), [h(6, 4), h(4, 3), h(5, 5), h(4, 4)]);
     expect(movableFrom(b, yo(b)).size).toBe(0);
     expect(contactoBlocker(b, yo(b))).toBe(
-      'rodeado: con 4 enemigos al lado, salir de su casilla le cuesta 5 y le quedan 4',
+      'rodeado: con 4 enemigos al lado, salir de su casilla le cuesta 5 y le quedan 4 casillas',
     );
   });
 });
@@ -270,8 +269,9 @@ describe('qué es «en contacto»: quien te puede golpear cuerpo a cuerpo', () =
     // El muro en (6,4): el esqueleto de arriba no alcanza al piquero del suelo.
     const muralla = validarMuralla({ muros: [h(6, 4)], puertas: [] });
     const b = pelea('pikeman', h(5, 4), [h(6, 4), h(4, 3)], { muralla });
-    expect(enemigosEnContacto(b, yo(b), h(5, 4)).map((e) => e.id)).toEqual(['defender-1']);
-    expect(costeDeSalir(b, yo(b), h(5, 4))).toBe(2);
+    expect(enContactoEn(b, yo(b), h(5, 4))).toBe(1);
+    // Salir de (5,4) cuesta 2: solo cuenta el del suelo.
+    expect(costes(b, h(4, 4))).toEqual([2]);
   });
 
   it('el del otro lado de una puerta cerrada sí cuenta: hoy se golpea a través de ella', () => {
@@ -281,7 +281,7 @@ describe('qué es «en contacto»: quien te puede golpear cuerpo a cuerpo', () =
     const muralla = validarMuralla({ muros, puertas: [{ a: h(7, 4), b: h(8, 4) }] });
     const b = pelea('pikeman', h(7, 4), [h(8, 4)], { muralla });
     expect(b.puertas[0]?.abierta).toBe(false);
-    expect(costeDeSalir(b, yo(b), h(7, 4))).toBe(2);
+    expect(enContactoEn(b, yo(b), h(7, 4))).toBe(1);
     expect(costes(b, h(6, 4), h(5, 4))).toEqual([2, 3]);
   });
 
@@ -330,6 +330,25 @@ describe('la carga', () => {
     expect(cargaDesde(prisa, yo(prisa), h(4, 4), stackById(prisa, 'defender-0'))).toBe(4);
   });
 
+  it('con la rueda, soltar el golpe devuelve lo gastado al camino barato: sin carga no hay recta que pagar', () => {
+    // La recta a (4,4) cuesta 6 y el camino barato, por la fila 3, 5. Plantarse
+    // anda la recta y la paga entera; Escape suelta la carga, y con ella la recta:
+    // le queda 1, como si hubiera ido por el barato (/simplify, C).
+    const b = pelea('cavalry', h(0, 4), [h(5, 4), h(2, 5)], { golpe: 'rueda' });
+    applyAction(b, { type: 'attack', target: 'defender-0', from: h(4, 4) }, createRng(1));
+    expect(b.golpeEnCurso).toMatchObject({ carga: 4, barato: 5, carrera: { steps: 6 } });
+    expect(b.turno?.gastado).toBe(6);
+    expect(enTexto(movimientos(b).at(-1)?.path ?? [])).toEqual(['1,4', '2,4', '3,4', '4,4']);
+    soltarElGolpe(b, createRng(1));
+    expect(b.turno?.gastado).toBe(5);
+    expect(pasosQueQuedan(b, yo(b))).toBe(1);
+    // Con 1 no paga salir del lado del esqueleto, pero lo tiene a mano: el turno sigue.
+    expect(activeStack(b)?.id).toBe('attacker-0');
+    expect(contactoBlocker(b, yo(b))).toBe(
+      'rodeado: con 1 enemigo al lado, salir de su casilla le cuesta 2 y le queda 1 casilla',
+    );
+  });
+
   it('sin la regla, la misma recta carga sin pagar el contacto', () => {
     const b = pelea('cavalry', h(0, 4), [h(5, 4), h(2, 5)], { contacto: 'libre' });
     applyEffect(yo(b), { kind: 'speed', amount: -1, source: 'slow', roundsLeft: 2 });
@@ -361,20 +380,20 @@ describe('el interruptor', () => {
       bando([{ creature: 'skeleton', count: 3 }]),
       createRng(1),
     );
-    expect(b.modoDelContacto).toBe('libre');
+    expect(b.arena.contacto).toBe('libre');
     expect(pagaElContacto(b)).toBe(false);
   });
 
   it('va en la URL aparte: `?contacto=paga`, y lo que no es un modo se dice', () => {
-    expect(modoDelContactoDeLaURL(null)).toBe('libre');
-    expect(modoDelContactoDeLaURL('')).toBe('libre');
-    expect(modoDelContactoDeLaURL('paga')).toBe('paga');
-    expect(modoDelContactoDeLaURL('libre')).toBe('libre');
-    expect(() => modoDelContactoDeLaURL('cobra')).toThrow(
+    expect(modoDeLaURL(CONTACTO, null)).toBe('libre');
+    expect(modoDeLaURL(CONTACTO, '')).toBe('libre');
+    expect(modoDeLaURL(CONTACTO, 'paga')).toBe('paga');
+    expect(modoDeLaURL(CONTACTO, 'libre')).toBe('libre');
+    expect(() => modoDeLaURL(CONTACTO, 'cobra')).toThrow(
       '«cobra» no es un modo del contacto; valen libre, paga',
     );
-    expect(modoDelContactoALaURL('libre')).toBe('');
-    expect(modoDelContactoALaURL('paga')).toBe('paga');
+    expect(modoALaURL(CONTACTO, 'libre')).toBe('');
+    expect(modoALaURL(CONTACTO, 'paga')).toBe('paga');
     // Repetido se rechaza, como el golpe.
     expect(() => unaVezEnLaURL(['paga', 'libre'], 'contacto')).toThrow();
   });
@@ -382,26 +401,26 @@ describe('el interruptor', () => {
   it('el montaje de la arena lo lleva a la batalla; sin él, libre', () => {
     const lado = aPelear([unidadDeArena('imperio-piquero')]);
     const sin = batallaDeArena(montajeDePrueba(lado, lado), createRng(1));
-    expect(sin.modoDelContacto).toBe('libre');
+    expect(sin.arena.contacto).toBe('libre');
     const con = batallaDeArena(
-      { ...montajeDePrueba(lado, lado), ...MONTAJE, contacto: 'paga' },
+      { ...montajeDePrueba(lado, lado), ...MONTAJE, modos: { contacto: 'paga' } },
       createRng(1),
     );
-    expect(con.modoDelContacto).toBe('paga');
+    expect(con.arena.contacto).toBe('paga');
   });
 
   it('el montaje enseña el interruptor con su modo', () => {
-    const libre = marcadoDe(renderContacto('libre'));
-    expect(libre).toContain('data-contacto-del-montaje="libre"');
-    expect(libre).toContain('data-arena="contacto" data-modo="paga"');
-    expect(marcadoDe(renderContacto('paga'))).toContain('Contacto · salir cuesta');
+    const libre = marcadoDe(renderModo(CONTACTO, 'libre'));
+    expect(libre).toContain('data-modo-del-montaje="contacto" data-modo="libre"');
+    expect(libre).toContain('data-arena="modo" data-parametro="contacto" data-modo="paga"');
+    expect(marcadoDe(renderModo(CONTACTO, 'paga'))).toContain('Contacto · salir cuesta');
   });
 
   it('el panel dice por qué no anda, y sin motivo no cambia', () => {
     const b = pelea('pikeman', h(5, 4), [h(6, 4), h(4, 3), h(5, 5), h(4, 4)]);
     const base = {
       activa: yo(b),
-      cargaAPie: false,
+      carga: null,
       legales: legalActions(b),
       pasos: 4,
       rendicion: NADA,
@@ -431,7 +450,10 @@ describe('la IA de la arena juega con la regla', () => {
     ]);
     const jugar = (): BattleState => {
       const rng = createRng(7);
-      const b = batallaDeArena({ ...montajeDePrueba(izquierda, derecha), contacto: 'paga' }, rng);
+      const b = batallaDeArena(
+        { ...montajeDePrueba(izquierda, derecha), modos: { contacto: 'paga' } },
+        rng,
+      );
       autoResolve(b, rng);
       return b;
     };

@@ -9,11 +9,11 @@ import {
   armyMorale,
   ataqueBlocker,
   type BattleSide,
-  CARGA_MINIMA,
   cargaDesde,
   casillasDeCarga,
   createBattle,
   enemiesOf,
+  firmaDelTurno,
   isAlive,
   legalActions,
   legalActionsAndCosts,
@@ -27,7 +27,7 @@ import {
   stackSpeed,
 } from '../src/core/battle/battle.js';
 import * as board from '../src/core/battle/board.js';
-import { CARGA, cargaEfectiva } from '../src/core/battle/carga.js';
+import { CARGA, CARGA_MINIMA, cargaEfectiva } from '../src/core/battle/carga.js';
 import {
   computeDamage,
   damageMultiplier,
@@ -797,7 +797,11 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const conPista = montar(createRng(51));
     const s = activeStack(conPista) as BattleStack;
     const turno = conPista.turno as TurnoDeUnidad;
-    const conRecorrido = { n: turno.n, gastado: 0, puertas: '', costs: movableFrom(conPista, s) };
+    const conRecorrido = {
+      firma: firmaDelTurno(turno),
+      puertas: '',
+      costs: movableFrom(conPista, s),
+    };
     applyAction(conPista, carga, createRng(51), conRecorrido);
 
     expect(conPista.log).toEqual(aPelo.log);
@@ -814,13 +818,13 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const state = batallaDeCuatroEnemigos();
     const s = activeStack(state) as BattleStack;
     const turno = state.turno as TurnoDeUnidad;
-    const suyo = { n: turno.n, gastado: 0, puertas: '', costs: movableFrom(state, s) };
+    const suyo = { firma: firmaDelTurno(turno), puertas: '', costs: movableFrom(state, s) };
     applyAction(state, { type: 'defend' }, createRng(1));
     const otro = activeStack(state) as BattleStack;
     expect(otro.id).not.toBe(s.id);
 
     expect(() => applyAction(state, { type: 'defend' }, createRng(1), suyo)).toThrow(
-      `el recorrido que traes es del turno ${turno.n} con 0 casillas gastadas, y ahora es el turno ${turno.n + 1} de ${otro.id} con 0`,
+      `el recorrido que traes es del turno ${turno.n} con 0 casillas gastadas, y ahora le toca a ${otro.id} en el turno ${turno.n + 1} con 0 casillas gastadas`,
     );
   });
 
@@ -2037,13 +2041,14 @@ describe('el turno en tramos (2026-10-02)', () => {
     // antes de moverse dejaría ir más lejos de lo que queda.
     const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
     const s = stackById(state, 'attacker-0');
-    const n = (state.turno as TurnoDeUnidad).n;
-    const viejo = { n, gastado: 0, puertas: '', costs: movableFrom(state, s) };
+    const turno = state.turno as TurnoDeUnidad;
+    const n = turno.n;
+    const viejo = { firma: firmaDelTurno(turno), puertas: '', costs: movableFrom(state, s) };
     applyAction(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(() =>
       applyAction(state, { type: 'move', to: { col: 5, row: 4 } }, createRng(1), viejo),
     ).toThrow(
-      `el recorrido que traes es del turno ${n} con 0 casillas gastadas, y ahora es el turno ${n} de attacker-0 con 1`,
+      `el recorrido que traes es del turno ${n} con 0 casillas gastadas, y ahora le toca a attacker-0 en el turno ${n} con 1 casilla gastada`,
     );
   });
 

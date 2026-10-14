@@ -37,7 +37,6 @@ import { renderBattleLog } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   batallaDeArena,
-  CARGA_A_PIE_EN_LA_ARENA,
   COMENTARIO_DEL_BORRADOR,
   catalogoDeLaArena,
   equiparEnArena,
@@ -87,6 +86,7 @@ import {
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { armaduraDe, armasDe } from '../src/core/battle/damage.js';
+import { MODOS_DE_LA_ARENA, MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO, reglasDeLaURL } from '../src/core/battle/reglas.js';
 import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
@@ -1302,11 +1302,11 @@ describe('la arena como banco de combate', () => {
             derecha: { unidades: derecha.map(deLaHoja), heroe: MAGO },
             reglas: REGLAS_DEL_JUEGO,
             piezas: [],
+            // La carga a pie es de la arena y no tiene interruptor (#260): sin
+            // ella, la arena es el juego.
+            modos: MODOS_DEL_JUEGO,
           },
           createRng(semilla),
-          // La carga a pie es de la arena y no tiene interruptor (#260): sin ella,
-          // la arena es el juego.
-          false,
         ),
         createRng(semilla + 100),
       );
@@ -2674,7 +2674,7 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
   /** Las cifras de cada golpe: arriba (cuerpo a cuerpo) y las de cada arma. */
   const golpes = (u: UnidadDeArena) => {
     const c = unidadDeCombate(u, DEL_JUEGO);
-    return { c, porArma: armasDe(c, DEL_JUEGO, CARGA_A_PIE_EN_LA_ARENA) };
+    return { c, porArma: armasDe(c, DEL_JUEGO, MODOS_DE_LA_ARENA.cargaAPie) };
   };
   const delUso = (u: UnidadDeArena, uso: string) => {
     const fila = golpes(u).porArma.find((a) => a.uso === uso);

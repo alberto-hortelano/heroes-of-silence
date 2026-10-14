@@ -19,7 +19,7 @@
  * anuncia **antes** lo que se puede hacer y esto informa **después** de lo que
  * pasó. Son papeles distintos, y además `core` no puede importar del servidor.
  */
-import { quedanCasillas } from '@core/battle/battle.js';
+import { quedanCasillas } from '@core/battle/board.js';
 import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
 import type { AccionDelAgente } from '@core/contract/huecos.js';

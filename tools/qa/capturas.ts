@@ -85,11 +85,10 @@ import {
   isAlive,
   mismoTurno,
   piezasDeLaPelea,
-  quedanCasillas,
   stackById,
   stackHexes,
 } from '../../src/core/battle/battle.js';
-import { hexDistance, hexEquals } from '../../src/core/battle/board.js';
+import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/board.js';
 import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
 import { poder } from '../../src/core/battle/poderes.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../../src/core/battle/reglas.js';
@@ -2785,6 +2784,29 @@ function jugadaDeLaPauta(espejo: SesionDeArena, tramos: number, golpes: number):
 }
 
 /**
+ * Juega en la página y en el espejo un paso de la pauta que no es golpear (el
+ * golpe depende del píxel que se pulsa, y cada pasada lo hace a su manera): el
+ * tramo, con un clic en su casilla, o «Terminar turno». Lo comparten las pasadas
+ * de la rueda.
+ */
+async function ejecutarPauta(
+  page: Page,
+  espejo: SesionDeArena,
+  j: Exclude<JugadaDeLaPauta, { tipo: 'golpe' }>,
+): Promise<void> {
+  if (j.tipo === 'tramo') {
+    const b0 = await caja(page);
+    const c = centroHex(tableroPara(b0.width, b0.height), j.mover.to);
+    const b = await alcanzar(page, c.x);
+    await page.mouse.click(b.x + c.x, b.y + c.y);
+    espejo.playBattleAction(j.mover);
+  } else {
+    await page.getByRole('button', { name: 'Terminar turno' }).click();
+    espejo.playBattleAction({ type: 'end_turn' });
+  }
+}
+
+/**
  * La semilla de la pelea de la arena: la primera en la que, jugando la pauta, el
  * guerrero anda al menos un tramo antes de alcanzar a nadie y llega a golpear
  * antes de que la pelea acabe, que es lo que la pasada exige. Se decide entero
@@ -4856,7 +4878,7 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
         const fila = armasDe(
           arquero.unit,
           piezasDeLaPelea(espejo.battle),
-          espejo.battle.cargaAPie,
+          espejo.battle.arena.cargaAPie,
         ).find((a) => a.uso === (j.tipo === 'disparo' ? 'distancia' : 'cuerpo'));
         if (hecho === undefined || fila === undefined)
           throw new Error(`armas: el ${j.tipo} no se ve en el parte`);
@@ -4908,7 +4930,7 @@ function espejoDeLaRueda(hojas: ReturnType<typeof hojasDeArena>, semilla: number
       },
       reglas: REGLAS_DEL_JUEGO,
       piezas: [],
-      golpe: 'rueda',
+      modos: { golpe: 'rueda' },
     },
     semilla,
   );
@@ -5029,8 +5051,10 @@ async function jugarLaRueda(
   await abrirLaArena(page, url, `?seed=${semilla}`);
   await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
   await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
-  await page.locator('[data-arena="golpe"][data-modo="rueda"]').click();
-  await page.locator('[data-golpe-del-montaje="rueda"]').waitFor({ timeout: 2000 });
+  await page.locator('[data-arena="modo"][data-parametro="golpe"][data-modo="rueda"]').click();
+  await page
+    .locator('[data-modo-del-montaje="golpe"][data-modo="rueda"]')
+    .waitFor({ timeout: 2000 });
   if (!page.url().includes('golpe=rueda')) {
     throw new Error(`rueda: la barra no lleva el golpe: ${page.url()}`);
   }
@@ -5141,16 +5165,9 @@ async function jugarLaRueda(
       await page.mouse.click(px.x, px.y);
       enElEspejo(espejo, j, px.accion);
       continue;
-    } else if (j.tipo === 'tramo') {
-      const b0 = await caja(page);
-      const c = centroHex(tableroPara(b0.width, b0.height), j.mover.to);
-      const b = await alcanzar(page, c.x);
-      await page.mouse.click(b.x + c.x, b.y + c.y);
-      enElEspejo(espejo, j);
-      tramos++;
     } else {
-      await page.getByRole('button', { name: 'Terminar turno' }).click();
-      enElEspejo(espejo, j);
+      await ejecutarPauta(page, espejo, j);
+      if (j.tipo === 'tramo') tramos++;
     }
     await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
     if (espejo.battle.finished === null)
@@ -5502,10 +5519,12 @@ async function aspectoDelBoton(page: Page, tipo: TipoDeGolpe): Promise<string> {
 
 /** ¿Está abierta la nota del sector `tipo`? La abre su `::after`. */
 async function notaAbierta(page: Page, tipo: TipoDeGolpe): Promise<boolean> {
-  return await page.locator(`#rueda .en-${tipo} > .nota`).evaluate((el) => {
-    const d = getComputedStyle(el, '::after');
-    return d.content !== 'none' && d.content !== 'normal' && d.display !== 'none';
-  });
+  return await page
+    .locator(`#rueda .sector-de-rueda[data-sector="${tipo}"] > .nota`)
+    .evaluate((el) => {
+      const d = getComputedStyle(el, '::after');
+      return d.content !== 'none' && d.content !== 'normal' && d.display !== 'none';
+    });
 }
 
 /**
@@ -5526,76 +5545,18 @@ async function yoContraYoEnLaRueda(
   problemas: Problemas,
   hojas: ReturnType<typeof hojasDeArena>,
 ): Promise<void> {
-  const espejoYoYo = (semilla: number): SesionDeArena => {
-    const espejo = new SesionDeArena(
-      {
-        izquierda: {
-          unidades: [delBorrador(deHoja(hojas, 'templario-escudo'))],
-          heroe: null,
-          ia: false,
-        },
-        derecha: {
-          unidades: [delBorrador(deHoja(hojas, 'orko-dos-armas'))],
-          heroe: null,
-          ia: false,
-        },
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
-        golpe: 'rueda',
-      },
-      semilla,
-    );
-    espejo.empezar();
-    return espejo;
-  };
-  // Cada uno anda un tramo hacia el otro al empezar su turno y, si no alcanza,
-  // termina; en cuanto alcanza, golpea.
-  const jugada = (espejo: SesionDeArena): JugadaDeLaPauta =>
-    jugadaDeLaPauta(espejo, espejo.battle.turno?.gastado === 0 ? 0 : 1, 0);
   const semilla = 1;
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   vigilarConsola(page, 'rueda-yo-contra-yo', problemas);
-  await abrirLaArena(page, url, `?seed=${semilla}&golpe=rueda`);
-  await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
-  await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
-  await page.locator('[data-arena="manda"][data-lado="derecha"][data-ia="no"]').click();
-  await page.locator('[data-golpe-del-montaje="rueda"]').waitFor({ timeout: 2000 });
-  await page.locator('[data-arena="luchar"]').click();
-  await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
-  const espejo = espejoYoYo(semilla);
-  await mismaPelea(page, espejo, 'empezar Yo contra Yo con la rueda');
-
   // Hasta que alguien golpea: la rueda se abre en la fase del golpe.
-  let contra: BattleStack | null = null;
-  for (let n = 0; contra === null; n++) {
-    if (espejo.battle.finished !== null || n > 60) {
-      throw new Error('rueda-yo-contra-yo: nadie llega a golpear');
-    }
-    const antes = espejo.battle.log.length;
-    const j = jugada(espejo);
-    if (j.tipo === 'golpe') {
-      const px = await pixelDeUnidad(page, espejo, j.contra);
-      if (px.accion === undefined)
-        throw new Error(`rueda-yo-contra-yo: el clic sobre ${j.contra.id} no da acción`);
-      await page.mouse.click(px.x, px.y);
-      espejo.playBattleAction(px.accion);
-      contra = j.contra;
-      break;
-    }
-    if (j.tipo === 'tramo') {
-      const b0 = await caja(page);
-      const c = centroHex(tableroPara(b0.width, b0.height), j.mover.to);
-      const b = await alcanzar(page, c.x);
-      await page.mouse.click(b.x + c.x, b.y + c.y);
-      espejo.playBattleAction(j.mover);
-    } else {
-      await page.getByRole('button', { name: 'Terminar turno' }).click();
-      espejo.playBattleAction({ type: 'end_turn' });
-    }
-    await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
-    await mismaPelea(page, espejo, `la jugada ${n} de Yo contra Yo`);
-  }
-  await page.locator('#rueda[open] .rueda[data-fase="golpe"]').waitFor({ timeout: 10_000 });
+  const { espejo, objetivo: contra } = await hastaLaRuedaYoContraYo(
+    page,
+    url,
+    hojas,
+    semilla,
+    'rueda-yo-contra-yo',
+    1,
+  );
   await sleep(300);
 
   // H1: el ratón por Fuerte lo enciende y abre su nota…
@@ -5702,7 +5663,7 @@ async function yoContraYoEnLaRueda(
   espejo.elegirEnLaRueda('defensivo');
   const tocado = stackById(espejo.battle, contra.id);
   // La vida de salida, de la misma pelea sin jugar: el registro pone lo demás.
-  const salida = espejoYoYo(semilla).battle;
+  const salida = espejoYoContraYo(hojas, semilla, 1).battle;
   const golpes = golpesDelCruce(espejo.battle, antes, (id) => {
     const x = stackById(salida, id);
     return { count: x.count, topHp: x.topHp };
@@ -5772,7 +5733,7 @@ async function todoEnIAConLaRueda(
       },
       reglas: REGLAS_DEL_JUEGO,
       piezas: [],
-      golpe: 'rueda',
+      modos: { golpe: 'rueda' },
     },
     semilla,
   );
@@ -5793,7 +5754,9 @@ async function todoEnIAConLaRueda(
   await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   await page.locator('[data-arena="manda"][data-lado="izquierda"][data-ia="si"]').click();
   await page.locator('[data-arena="manda"][data-lado="derecha"][data-ia="si"]').click();
-  await page.locator('[data-golpe-del-montaje="rueda"]').waitFor({ timeout: 2000 });
+  await page
+    .locator('[data-modo-del-montaje="golpe"][data-modo="rueda"]')
+    .waitFor({ timeout: 2000 });
   await page.locator('[data-arena="luchar"]').click();
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
 
@@ -6011,22 +5974,23 @@ async function figurasDeLaCabeceraAnimadas(page: Page): Promise<boolean[]> {
 }
 
 /**
- * La pelea de los contrincantes: tres guerreros con escudo contra tres orkos,
- * los dos bandos «Yo», con la rueda. Tres iguales por bando: por eso la cabecera
- * enseña la figura (#261).
+ * La pelea de Yo contra Yo con la rueda: `n` guerreros con escudo contra `n`
+ * orkos, los dos bandos «Yo». Con uno, la de «Yo contra Yo»; con tres iguales por
+ * bando, la de los contrincantes, en la que la cabecera enseña la figura (#261).
  */
-function espejoDeContrincantes(
+function espejoYoContraYo(
   hojas: ReturnType<typeof hojasDeArena>,
   semilla: number,
+  n: number,
 ): SesionDeArena {
-  const tres = (id: string) => [0, 1, 2].map(() => delBorrador(deHoja(hojas, id)));
+  const varios = (id: string) => Array.from({ length: n }, () => delBorrador(deHoja(hojas, id)));
   const espejo = new SesionDeArena(
     {
-      izquierda: { unidades: tres('templario-escudo'), heroe: null, ia: false },
-      derecha: { unidades: tres('orko-dos-armas'), heroe: null, ia: false },
+      izquierda: { unidades: varios('templario-escudo'), heroe: null, ia: false },
+      derecha: { unidades: varios('orko-dos-armas'), heroe: null, ia: false },
       reglas: REGLAS_DEL_JUEGO,
       piezas: [],
-      golpe: 'rueda',
+      modos: { golpe: 'rueda' },
     },
     semilla,
   );
@@ -6034,8 +5998,8 @@ function espejoDeContrincantes(
   return espejo;
 }
 
-/** La rueda de los tres contra tres, abierta en la fase del golpe. */
-interface RuedaDeTres {
+/** La rueda de Yo contra Yo, abierta en la fase del golpe. */
+interface RuedaYoContraYo {
   readonly espejo: SesionDeArena;
   readonly atacante: BattleStack;
   readonly objetivo: BattleStack;
@@ -6044,30 +6008,34 @@ interface RuedaDeTres {
 }
 
 /**
- * Monta los tres contra tres en la página, los dos bandos «Yo», y juega la pauta
- * (un tramo hacia el enemigo y, si no alcanza, terminar) hasta que alguien golpea:
- * la rueda se abre en la fase del golpe. Devuelve el espejo y el golpe.
+ * Monta los `n` contra `n` en la página (`espejoYoContraYo`), los dos bandos «Yo»,
+ * y juega la pauta (un tramo hacia el enemigo y, si no alcanza, terminar) hasta
+ * que alguien golpea: la rueda se abre en la fase del golpe. Devuelve el espejo y
+ * el golpe.
  */
-async function hastaLaRuedaDeTres(
+async function hastaLaRuedaYoContraYo(
   page: Page,
   url: string,
   hojas: ReturnType<typeof hojasDeArena>,
   semilla: number,
   quien: string,
-): Promise<RuedaDeTres> {
+  n: number,
+): Promise<RuedaYoContraYo> {
   await abrirLaArena(page, url, `?seed=${semilla}&golpe=rueda`);
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < n; i++) {
     await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
     await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   }
   await page.locator('[data-arena="manda"][data-lado="derecha"][data-ia="no"]').click();
-  await page.locator('[data-golpe-del-montaje="rueda"]').waitFor({ timeout: 2000 });
+  await page
+    .locator('[data-modo-del-montaje="golpe"][data-modo="rueda"]')
+    .waitFor({ timeout: 2000 });
   await page.locator('[data-arena="luchar"]').click();
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
-  const espejo = espejoDeContrincantes(hojas, semilla);
+  const espejo = espejoYoContraYo(hojas, semilla, n);
   await mismaPelea(page, espejo, `${quien}: empezar`);
-  for (let n = 0; ; n++) {
-    if (espejo.battle.finished !== null || n > 80)
+  for (let jugada = 0; ; jugada++) {
+    if (espejo.battle.finished !== null || jugada > 80)
       throw new Error(`${quien}: nadie llega a golpear`);
     const antes = espejo.battle.log.length;
     const turno = espejo.turnoPropio;
@@ -6084,18 +6052,9 @@ async function hastaLaRuedaDeTres(
       const debenSer = [turno.stack, j.contra].map((x) => `${x.body}/${ladoDe(x.side)}`);
       return { espejo, atacante: turno.stack, objetivo: j.contra, debenSer };
     }
-    if (j.tipo === 'tramo') {
-      const b0 = await caja(page);
-      const c = centroHex(tableroPara(b0.width, b0.height), j.mover.to);
-      const b = await alcanzar(page, c.x);
-      await page.mouse.click(b.x + c.x, b.y + c.y);
-      espejo.playBattleAction(j.mover);
-    } else {
-      await page.getByRole('button', { name: 'Terminar turno' }).click();
-      espejo.playBattleAction({ type: 'end_turn' });
-    }
+    await ejecutarPauta(page, espejo, j);
     await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
-    await mismaPelea(page, espejo, `${quien}: la jugada ${n}`);
+    await mismaPelea(page, espejo, `${quien}: la jugada ${jugada}`);
   }
 }
 
@@ -6125,12 +6084,13 @@ async function contrincantesEnElEscritorio(
   const quien = 'rueda-contrincantes';
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   vigilarConsola(page, quien, problemas);
-  const { espejo, atacante, objetivo, debenSer } = await hastaLaRuedaDeTres(
+  const { espejo, atacante, objetivo, debenSer } = await hastaLaRuedaYoContraYo(
     page,
     url,
     hojas,
     1,
     quien,
+    3,
   );
   await sleep(300);
   // Los dos, en orden: quien pega y quien recibe, con la figura de su hoja y su bando.
@@ -6281,7 +6241,7 @@ async function contrincantesEnElMovil(
   });
   const page = await contexto.newPage();
   vigilarConsola(page, quien, problemas);
-  const { espejo, objetivo } = await hastaLaRuedaDeTres(page, url, hojas, 1, quien);
+  const { espejo, objetivo } = await hastaLaRuedaYoContraYo(page, url, hojas, 1, quien, 3);
   await sleep(300);
   if (await page.evaluate(() => matchMedia('(hover: hover)').matches)) {
     throw new Error(`${quien}: el móvil emulado dice que tiene ratón: la prueba no prueba nada`);

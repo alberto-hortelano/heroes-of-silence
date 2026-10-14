@@ -179,7 +179,7 @@ export const DICHO_DEL_USO: {
   carga: {
     rotulo: 'Carga',
     golpe: 'en la carga',
-    cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo. En la arena carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porciento} % de daño por casilla hasta ${CARGA.aPie.tope}; con el rasgo Carga (el jinete), +${CARGA.jinete.porciento} % hasta ${CARGA.jinete.tope}.`,
+    cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo. En la arena carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porcentaje} % de daño por casilla hasta ${CARGA.aPie.tope}; con el rasgo Carga (el jinete), +${CARGA.jinete.porcentaje} % hasta ${CARGA.jinete.tope}.`,
     sinUso: 'no carga: no se usa',
   },
 };
@@ -470,15 +470,29 @@ export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
  */
 export const PV_POR_PUNTO_DE_ARMADURA = 10;
 
+/** Los PV de antes que valen `n` puntos de armadura (`PV_POR_PUNTO_DE_ARMADURA` cada uno). */
+export function pvDeLaArmadura(n: number): number {
+  return n * PV_POR_PUNTO_DE_ARMADURA;
+}
+
 /**
- * `u` con su armadura vuelta a PV (`PV_POR_PUNTO_DE_ARMADURA` por punto) y sin
+ * `pv` PV de antes en puntos de armadura: al entero más cercano (45 → 5). La
+ * inversa de `pvDeLaArmadura`, que redondea porque los PV de antes no venían de
+ * diez en diez.
+ */
+export function armaduraDePV(pv: number): number {
+  return Math.round(pv / PV_POR_PUNTO_DE_ARMADURA);
+}
+
+/**
+ * `u` con su armadura vuelta a PV (`pvDeLaArmadura`) y sin
  * ella: lo que pelearía con la regla de antes de la armadura. Lo lee la conversión
  * de la arena para comprobar al revés, con `mismasCifras`, que una unidad de antes
  * del equipo pelea como antes salvo por eso (`cuerpoSinElKit`).
  */
 export function conLaArmaduraEnPV(u: UnitInfo): UnitInfo {
   const { puntosDeArmadura, ...sin } = u;
-  return { ...sin, hp: u.hp + (puntosDeArmadura ?? 0) * PV_POR_PUNTO_DE_ARMADURA };
+  return { ...sin, hp: u.hp + pvDeLaArmadura(puntosDeArmadura ?? 0) };
 }
 
 function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefined): boolean {

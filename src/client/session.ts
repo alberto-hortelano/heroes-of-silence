@@ -25,7 +25,8 @@ import {
   castBlocker,
   contactoBlocker,
   escalaBlocker,
-  legalActions,
+  firmaDelTurno,
+  legalActionsAndCosts,
   MAX_JUGADAS,
   movimientoBlocker,
   type Prevision,
@@ -40,13 +41,11 @@ import {
   stackById,
   surrenderBlocker,
 } from '@core/battle/battle.js';
-import type { ModoDelContacto } from '@core/battle/contacto.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
 import { type PoderId, poder } from '@core/battle/poderes.js';
 import type { ReglasDeBatalla } from '@core/battle/reglas.js';
 import {
   esTipoDeGolpe,
-  type ModoDelGolpe,
   type PapelEnLaRueda,
   type TipoDeGolpe,
   tipoDeGolpeBlocker,
@@ -304,7 +303,8 @@ interface AccionesDeBatalla {
  * a quién cargar), solo si la unidad activa es tuya.
  */
 function accionesDeBatalla(battle: BattleState, turno: TurnoPropio | null): AccionesDeBatalla {
-  const acciones = battle.finished === null ? legalActions(battle) : [];
+  const { actions: acciones, costs } =
+    battle.finished === null ? legalActionsAndCosts(battle) : { actions: [], costs: new Map() };
   return {
     acciones,
     // Los hexes a los que ir son las entradas `move` de la misma lista: antes se
@@ -313,17 +313,26 @@ function accionesDeBatalla(battle: BattleState, turno: TurnoPropio | null): Acci
     movibles: turno === null ? [] : acciones.flatMap((a) => (a.type === 'move' ? [a.to] : [])),
     // Las cargas se enseñan con el movimiento posible (decisión del usuario):
     // salen de `casillasDeCarga`, la misma regla que las cobra.
-    cargas: turno === null ? SIN_CARGAS : casillasDeCarga(turno.battle, turno.stack),
+    // Con el recorrido que ya hizo la lista, si es el de la misma unidad.
+    cargas:
+      turno === null
+        ? SIN_CARGAS
+        : casillasDeCarga(
+            turno.battle,
+            turno.stack,
+            turno.battle === battle && activeStack(battle) === turno.stack ? costs : undefined,
+          ),
   };
 }
 
 /**
  * «¿Se ha movido la batalla?»: toda acción aplicada deja una línea en el
- * registro y mueve el turno —su ordinal, o lo gastado en él—. Es la clave de las
+ * registro y mueve el turno (`firmaDelTurno`: su ordinal, lo gastado en él o lo
+ * que le quitó la Finta). Es la clave de las
  * cachés de las dos sesiones y la versión de la arena.
  */
 function claveDeBatalla(b: BattleState): string {
-  return `${b.log.length}|${b.turno?.n}|${b.turno?.gastado}`;
+  return `${b.log.length}|${b.turno === null ? '' : firmaDelTurno(b.turno)}`;
 }
 
 /**
@@ -1749,10 +1758,8 @@ export class SesionDeArena implements ControlDeBatalla {
       readonly muralla?: MurallaDeBatalla;
       /** Las piezas de la arena con que se pelea (`catalogoDeLaArena`). */
       readonly piezas: MontajeDeArena['piezas'];
-      /** La tirada de siempre o la rueda del golpe; sin él, la tirada. */
-      readonly golpe?: ModoDelGolpe;
-      /** Si salir de una casilla cuesta 1 + los enemigos en contacto; sin él, `libre`. */
-      readonly contacto?: ModoDelContacto;
+      /** Los modos de la arena que pide el montaje (la rueda, el contacto); sin él, los de siempre. */
+      readonly modos?: MontajeDeArena['modos'];
     },
     semilla: number,
   ) {
@@ -1766,8 +1773,7 @@ export class SesionDeArena implements ControlDeBatalla {
         reglas: montaje.reglas,
         muralla: montaje.muralla ?? SIN_MURALLA,
         piezas: montaje.piezas,
-        golpe: montaje.golpe ?? 'azar',
-        contacto: montaje.contacto ?? 'libre',
+        ...(montaje.modos === undefined ? {} : { modos: montaje.modos }),
       },
       this.rng,
     );

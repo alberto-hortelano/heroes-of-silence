@@ -16,9 +16,8 @@
  * `attacker` o `defender`, no un jugador.
  */
 import { z } from 'zod';
-import { CARGA_MINIMA } from '../battle/battle.js';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
-import { CARGA } from '../battle/carga.js';
+import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
@@ -304,7 +303,7 @@ export type MapGenerateResponse = z.infer<typeof mapGenerateResponseSchema>;
  * El bono de una casilla de carga en tanto por ciento y su tope, tal y como se le
  * dicen al agente: los del jinete (`data/carga.json`), que el juego no carga a pie.
  */
-const PORCIENTO_POR_CASILLA_DE_CARGA = CARGA.jinete.porciento;
+const PORCIENTO_POR_CASILLA_DE_CARGA = CARGA.jinete.porcentaje;
 const TOPE_DE_CARGA = CARGA.jinete.tope;
 
 /**

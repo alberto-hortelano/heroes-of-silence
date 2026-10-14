@@ -12,7 +12,7 @@ import { DICHO_DEL_USO, type EquipoAtado, SIN_ARMA } from '../hero/equipo.js';
 import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
-import { type CifrasDeCarga, cargaEfectiva, causaDeLaCarga, cifrasDeCarga } from './carga.js';
+import { type CifrasDeCarga, cargaEfectiva, cifrasDeCarga, dichoDeLaCarga } from './carga.js';
 import { efectoDeTirada, effectiveLuck, effectTotal, type StackEffect } from './effects.js';
 import type { ReglasDeBatalla } from './reglas.js';
 import type { BattleStack } from './types.js';
@@ -275,8 +275,8 @@ export interface DamageResult {
    * había quedado en los 5 que caben en +50 %.
    */
   readonly charge: number;
-  /** Si esa carga fue a pie (`CifrasDeCarga.aPie`, solo la arena): el registro lo dice. */
-  readonly cargaAPie: boolean;
+  /** Con qué cifras se cobró esa carga (`cifrasDeCarga`); `null` sin carga. */
+  readonly cifrasDeCarga: CifrasDeCarga | null;
 }
 
 /**
@@ -292,7 +292,7 @@ export interface DamageOptions {
   readonly distance?: number;
   readonly chargeHexes?: number;
   /**
-   * La batalla juega la carga a pie (`BattleState.cargaAPie`, solo la arena): la
+   * La batalla juega la carga a pie (`BattleState.arena`, solo la arena): la
    * pone `opcionesDeDanio` desde el estado, como las reglas. Sin ella carga solo
    * quien tiene el rasgo (`cifrasDeCarga`).
    */
@@ -433,13 +433,14 @@ function applyModifiers(
   }
 
   // Carga. El contraataque pasa siempre 0 hexes: se contraataca desde el sitio.
-  // `1 + casillas × porCasilla`, la misma cuenta y en el mismo orden que con el
-  // 0.1 escrito: el jinete del juego cobra lo mismo hasta el último decimal.
+  // `1 + casillas × porcentaje / 100`, la misma cuenta y en el mismo orden que
+  // con el 0.1 escrito (10 / 100 es ese mismo double): el jinete del juego cobra
+  // lo mismo hasta el último decimal.
   const { charge, cifrasDeCarga: cifras } = golpe;
   if (cifras !== null) {
-    const f = 1 + charge * cifras.porCasilla;
+    const f = 1 + charge * (cifras.porcentaje / 100);
     base *= f;
-    anotar?.push({ causa: causaDeLaCarga(charge, cifras), factor: f });
+    anotar?.push({ causa: dichoDeLaCarga(charge, cifras, false), factor: f });
   }
 
   // La rueda, al final de todo: Fuerte y Rápido multiplican el golpe ya hecho.
@@ -564,11 +565,9 @@ export function expectedDamage(
   const golpe = deUnGolpe(attacker, opts);
   const { min, max } = tiradasPosibles(attacker, opts.reglas, golpe.uso);
   const medio = ((min + max) / 2) * attacker.count;
-  const x = applyModifiers(medio, attacker, defender, opts, golpe);
-  // La armadura (la arena), lo último, como en el golpe: sin ella, `x` tal cual,
-  // que es lo que deja al juego con las mismas decisiones (`pnpm banco`).
-  const a = armaduraDe(defender.unit);
-  return a > 0 ? Math.max(0, x - a) : x;
+  // La armadura (la arena), lo último y con la misma resta que el golpe: sin ella,
+  // el daño tal cual, que es lo que deja al juego con las mismas decisiones.
+  return trasLaArmadura(applyModifiers(medio, attacker, defender, opts, golpe), defender).danio;
 }
 
 /**
@@ -614,8 +613,7 @@ export function computeDamage(
   const golpe = deUnGolpe(attacker, opts);
   const roll = tiradaDe(attacker, opts, golpe.uso, rng);
   let base = applyModifiers(roll * attacker.count, attacker, defender, opts, golpe);
-  const { charge } = golpe;
-  const cargaAPie = golpe.cifrasDeCarga?.aPie === true;
+  const { charge, cifrasDeCarga } = golpe;
 
   const luck = effectiveLuck(attacker);
   let lucky = false;
@@ -628,7 +626,7 @@ export function computeDamage(
     base *= UNLUCKY_MULTIPLIER;
   }
 
-  return { damage: danioFinal(base), lucky, unlucky, charge, cargaAPie };
+  return { damage: danioFinal(base), lucky, unlucky, charge, cifrasDeCarga };
 }
 
 /** Una horquilla de daño: lo menos y lo más que puede quitar un golpe. */

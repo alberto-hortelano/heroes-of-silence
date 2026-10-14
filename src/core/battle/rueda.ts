@@ -30,9 +30,10 @@ import ruedaJson from '../../../data/rueda.json' with { type: 'json' };
 import { hasTrait } from '../data.js';
 import { conSigno } from '../hero/equipo.js';
 import { conComa, type UnitInfo } from '../types.js';
-import { entero, objetoCon } from '../validar.js';
+import { entero, objetoCon, porcentaje } from '../validar.js';
 import { type CruceDelGolpe, tiradaEnCuartos } from './damage.js';
-import type { HastaElTurno } from './effects.js';
+import type { CuandoVence } from './effects.js';
+import type { ModosDeArena } from './modos.js';
 import type { BattleAction, BattleEvent } from './types.js';
 
 /**
@@ -116,13 +117,6 @@ export function puntosDe(tipo: TipoDeGolpe): readonly [Punto, Punto] {
 }
 
 /**
- * Cuándo se va un efecto de la rueda: al **empezar** el próximo turno del
- * afectado (Defensivo: protege hasta que vuelve a actuar) o al **terminarlo**
- * (Romper guardia: es en ese turno cuando ataca). Decisión del usuario, 14-10-2026.
- */
-export type VenceLaRueda = HastaElTurno['al'];
-
-/**
  * El efecto que deja un golpe de la rueda: un efecto temporal de ataque o de
  * defensa. `a`, a quién: a quien pega (`propio`, antes de sus golpes: Defensivo
  * cubre ya el contraataque) o al atacado (`rival`, tras el golpe y antes de su
@@ -134,7 +128,7 @@ export interface EfectoDeLaRueda {
   readonly kind: 'attack' | 'defense';
   readonly amount: number;
   readonly a: 'propio' | 'rival';
-  readonly vence: VenceLaRueda;
+  readonly vence: CuandoVence;
 }
 
 /** Una cifra por éxito del golpe: el punto del cruce de quien pega, del mínimo al máximo. */
@@ -178,7 +172,8 @@ const CLAVE_DEL_PUNTO: Readonly<Record<Punto, string>> = {
   4: 'maximo',
 };
 
-const PUNTOS: readonly Punto[] = [0, 1, 2, 3, 4];
+/** Los cinco puntos, del mínimo al máximo: las muescas del medidor y las claves de un éxito. */
+export const PUNTOS: readonly Punto[] = [0, 1, 2, 3, 4];
 
 /**
  * Una cifra por éxito: las cinco claves (`CLAVE_DEL_PUNTO`), enteros, y del signo
@@ -233,7 +228,7 @@ export function validarRueda(json: unknown, fichero = 'data/rueda.json'): Cifras
   const pesos = campo('pesos', ['golpe', 'respuesta']);
   // En el JSON, en tanto por ciento y en enteros: se valida sin coma.
   const factor = (o: Record<string, unknown>, quien: string): number =>
-    entero(o.porcentaje, 'el porcentaje', `${fichero}: ${quien}`, 1) / 100;
+    porcentaje(o, `${fichero}: ${quien}`) / 100;
   return {
     fuerte: { factor: factor(fuerte, 'fuerte') },
     rapido: {
@@ -333,30 +328,12 @@ export function golpesDe(unit: UnitInfo, tipo: TipoDeGolpe | null, contraataque:
 }
 
 /**
- * El modo del golpe que pide la URL (`?golpe=rueda`). Ausente o vacío, el azar;
- * lo que no es un modo se rechaza diciendo cuáles valen, como `reglasDeLaURL`:
- * un enlace copiado con una errata reproduciría otra pelea sin decirlo.
+ * ¿Se pelea con la rueda? La única lectura del modo (`BattleState.arena`; cómo va
+ * en la URL lo dice `modos.ts`): nadie compara el literal fuera de aquí y de la
+ * arena (lo vigila `test/invariantes.test.ts`).
  */
-export function modoDelGolpeDeLaURL(texto: string | null): ModoDelGolpe {
-  if (texto === null || texto.trim() === '') return 'azar';
-  const modo = MODOS_DEL_GOLPE.find((m) => m === texto.trim());
-  if (modo === undefined) {
-    throw new Error(`«${texto}» no es un modo del golpe; valen ${MODOS_DEL_GOLPE.join(', ')}`);
-  }
-  return modo;
-}
-
-/** La inversa de `modoDelGolpeDeLaURL`: lo que va en `?golpe=`, o `''` con el azar, que no se escribe. */
-export function modoDelGolpeALaURL(modo: ModoDelGolpe): string {
-  return modo === 'azar' ? '' : modo;
-}
-
-/**
- * ¿Se pelea con la rueda? La única lectura del modo: nadie compara el literal
- * fuera de aquí y de la arena (lo vigila `test/invariantes.test.ts`).
- */
-export function conRueda(state: { readonly modoDelGolpe: ModoDelGolpe }): boolean {
-  return state.modoDelGolpe === 'rueda';
+export function conRueda(state: { readonly arena: ModosDeArena }): boolean {
+  return state.arena.golpe === 'rueda';
 }
 
 /**
@@ -367,7 +344,7 @@ export function conRueda(state: { readonly modoDelGolpe: ModoDelGolpe }): boolea
  * mentira callada. Lo leen `applyAction` antes de mover y la previsión.
  */
 export function cruceBlocker(
-  state: { readonly modoDelGolpe: ModoDelGolpe },
+  state: { readonly arena: ModosDeArena },
   accion: BattleAction & { type: 'attack' },
   completa: boolean,
 ): string | null {
@@ -417,13 +394,14 @@ function porciento(factor: number): string {
 }
 
 /**
- * Lo que dura un efecto de la rueda, dicho por cuándo vence: lo leen su nota y el
- * parte (`duracionDeEfecto`). Sus rondas son solo el tope.
+ * Lo que dura un efecto de la rueda, dicho por cuándo vence y a quién se le dice:
+ * «hasta que empiece su próximo turno» (`'su'`: el parte, la vista previa y las
+ * notas que hablan del rival) o «… tu próximo turno» (`'tu'`: la nota a quien lo
+ * lleva). Sus rondas son solo el tope. La única frase.
  */
-export const DURACION_DE_LA_RUEDA: Readonly<Record<VenceLaRueda, string>> = {
-  empezar: 'hasta que empiece su próximo turno',
-  terminar: 'hasta que termine su próximo turno',
-};
+export function duracion(vence: CuandoVence, de: 'su' | 'tu'): string {
+  return `hasta que ${vence === 'empezar' ? 'empiece' : 'termine'} ${de} próximo turno`;
+}
 
 /**
  * Una cifra por éxito, dicha del máximo al mínimo y juntando los éxitos seguidos
@@ -475,11 +453,17 @@ function fintaPorExito(): string {
  * falso) solo queda el cruce: la nota no promete un contraataque para retirarlo
  * en la frase siguiente. En el golpe, igual: sin contraataque, Defensivo no
  * promete cubrirlo, ni Romper guardia quitarle ataque en él (H9).
+ *
+ * Y lo que se apila con otras reglas (decisiones del usuario, 14-10-2026): la
+ * Finta, si la pelea cobra el contacto (`pagaContacto`), avisa de que su tramo
+ * lo paga como cualquier otro; y Rápido, de que cada golpe resta la armadura del
+ * que lo recibe, así que contra armadura pierde.
  */
 export function efectoDeGolpe(
   tipo: TipoDeGolpe,
   papel: PapelEnLaRueda,
   contraataca = true,
+  pagaContacto = false,
 ): string {
   const c = CIFRAS_DE_LA_RUEDA;
   if (papel === 'golpe') {
@@ -490,18 +474,18 @@ export function efectoDeGolpe(
         return `${conSigno(c.ofensivo.ataque)} ataque en este golpe.`;
       case 'defensivo':
         return contraataca
-          ? `${conSigno(c.defensivo.defensa)} defensa desde ya: cubre el contraataque de ahora y dura ${DE_TU_TURNO.empezar}.`
-          : `${conSigno(c.defensivo.defensa)} defensa desde ya ${DE_TU_TURNO.empezar} (esta vez no te devuelven el golpe).`;
+          ? `${conSigno(c.defensivo.defensa)} defensa desde ya: cubre el contraataque de ahora y dura ${duracion('empezar', 'tu')}.`
+          : `${conSigno(c.defensivo.defensa)} defensa desde ya ${duracion('empezar', 'tu')} (esta vez no te devuelven el golpe).`;
       case 'fuerte':
         return `Daño ${porciento(c.fuerte.factor)}.`;
       case 'rapido':
-        return `${c.rapido.golpes} golpes de daño ${porciento(c.rapido.factor)} cada uno (con doble golpe, el doble).`;
+        return `${c.rapido.golpes} golpes de daño ${porciento(c.rapido.factor)} cada uno (con doble golpe, el doble). ${CONTRA_ARMADURA}`;
       case 'romperGuardia':
         return contraataca
-          ? `Quita ataque al rival desde ya: en su contraataque de ahora y ${DURACION_DE_LA_RUEDA.terminar}; ${romperGuardiaPorExito()}.`
+          ? `Quita ataque al rival desde ya: en su contraataque de ahora y ${duracion('terminar', 'su')}; ${romperGuardiaPorExito()}.`
           : `Quita ataque al rival en su próximo turno (esta vez no te devuelve el golpe); ${romperGuardiaPorExito()}.`;
       case 'finta':
-        return `Después de golpear puedes andar las casillas que te queden menos ${fintaPorExito()}. Andar cierra el turno.`;
+        return `Después de golpear puedes andar las casillas que te queden menos ${fintaPorExito()}. Andar cierra el turno.${pagaContacto ? ' Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.' : ''}`;
     }
   }
   // La respuesta: lo que hace va con el contraataque, y solo si lo hay.
@@ -516,7 +500,7 @@ export function efectoDeGolpe(
     case 'fuerte':
       return `${NO_TOCA}: tu contraataque hace daño ${porciento(c.fuerte.factor)}.`;
     case 'rapido':
-      return `${NO_TOCA}: contraatacas con ${c.rapido.golpes} golpes de daño ${porciento(c.rapido.factor)} cada uno.`;
+      return `${NO_TOCA}: contraatacas con ${c.rapido.golpes} golpes de daño ${porciento(c.rapido.factor)} cada uno. ${CONTRA_ARMADURA}`;
     case 'ofensivo':
     case 'defensivo':
     case 'finta':
@@ -525,17 +509,17 @@ export function efectoDeGolpe(
   }
 }
 
-/** La duración de un efecto dicha a quien lo lleva: «hasta que empiece tu próximo turno». */
-const DE_TU_TURNO: Readonly<Record<VenceLaRueda, string>> = {
-  empezar: 'hasta que empiece tu próximo turno',
-  terminar: 'hasta que termine tu próximo turno',
-};
-
 /**
  * Cómo empieza la nota de una respuesta con contraataque que lo cambia (Fuerte,
  * Rápido): lo que elige no toca el golpe que le llega, pero el cruce, sí.
  */
 const NO_TOCA = 'Su efecto no toca el golpe que recibes (ese lo decide el cruce)';
+
+/**
+ * Lo que dice Rápido de la armadura: cada golpe resta la del rival (`herir`), y
+ * así lo enseña la previsión (decisión del usuario, 14-10-2026).
+ */
+const CONTRA_ARMADURA = 'Cada golpe resta la armadura del rival: contra armadura, pierde.';
 
 /** La nota de una respuesta sin efecto: Ofensivo, Defensivo, Finta y Romper guardia. */
 const SOLO_EL_CRUCE =

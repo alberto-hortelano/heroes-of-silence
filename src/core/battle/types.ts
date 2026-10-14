@@ -1,11 +1,12 @@
 import type { Pieza } from '../data.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
 import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
-import type { ModoDelContacto } from './contacto.js';
-import type { EffectKind, HastaElTurno, StackEffect } from './effects.js';
+import type { Paso } from './board.js';
+import type { CuandoVence, EffectKind, StackEffect } from './effects.js';
+import type { ModosDeArena } from './modos.js';
 import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
 import type { ReglasDeBatalla } from './reglas.js';
-import type { ModoDelGolpe, Punto, TipoDeGolpe } from './rueda.js';
+import type { Punto, TipoDeGolpe } from './rueda.js';
 
 export type Side = 'attacker' | 'defender';
 
@@ -256,15 +257,17 @@ export type BattleEvent =
       killed: number;
       retaliation: boolean;
       charge?: number;
-      /** La carga fue a pie (`CifrasDeCarga.aPie`): solo en la arena, que la juega. */
+      /** La carga fue a pie (con `CARGA.aPie`): solo en la arena, que la juega. */
       cargaAPie?: true;
       /** Con la rueda del golpe (la arena), el punto del cruce en que cayó. */
       punto?: Punto;
       /**
        * Lo que paró la armadura del objetivo (la arena, #262; `trasLaArmadura`):
-       * `damage` ya va restado. Sin el campo, nada: el juego no lo escribe.
+       * `damage` ya va restado. Sin el campo, nada: el juego no lo escribe. Se
+       * llama como en `Herida`, `TrasLaArmadura` y el lienzo: un nombre de punta a
+       * punta.
        */
-      armadura?: number;
+      parado?: number;
     }
   | {
       kind: 'shoot';
@@ -273,7 +276,7 @@ export type BattleEvent =
       damage: number;
       killed: number;
       /** Lo que paró la armadura del objetivo, como en `attack`. */
-      armadura?: number;
+      parado?: number;
       splash?: boolean;
     }
   | { kind: 'wait'; stack: string }
@@ -286,7 +289,7 @@ export type BattleEvent =
       damage?: number;
       killed?: number;
       /** Lo que paró la armadura del objetivo, como en `attack`. */
-      armadura?: number;
+      parado?: number;
     }
   /**
    * Una unidad usa un poder sobre `target` (`poderes.ts`, solo la arena). `cura`,
@@ -317,7 +320,7 @@ export type BattleEvent =
        * Dura hasta que empiece o termine el próximo turno del afectado (la rueda),
        * con `rounds` de tope.
        */
-      hastaSuTurno?: HastaElTurno['al'];
+      vence?: CuandoVence;
     }
   | { kind: 'effect_end'; stack: string; source: string }
   | { kind: 'immune'; stack: string; source: string }
@@ -375,7 +378,7 @@ export interface TurnoDeUnidad {
   /**
    * Tras golpear con Finta (la rueda del golpe, solo la arena): las casillas que
    * resta de lo que le queda por andar (`casillasQueQuitaLaFinta`). Puesto, el
-   * resto del turno es un tramo **solo de andar** (`fintaBlocker`): andar o
+   * resto del turno es un tramo **solo de andar** (`faseDelTurno`, `faseBlocker`): andar o
    * terminar. Lo pone solo `melee` (lo vigila `test/invariantes.test.ts`), y no
    * hay que quitarlo: el turno siguiente es otro objeto.
    */
@@ -402,6 +405,17 @@ export interface GolpeEnCurso {
   readonly target: string;
   /** Las casillas de la recta de carga con que llegó (`cargaDesde`); 0 si no carga. */
   readonly carga: number;
+  /**
+   * La carrera que anduvo por la recta para cobrar la carga cuando salir del
+   * contacto cuesta (`CargaMedida.carrera`); `null` si anduvo el camino del
+   * recorrido.
+   */
+  readonly carrera: Paso | null;
+  /**
+   * Lo que costaba el camino más barato hasta donde llegó: si se suelta el golpe
+   * (`soltarElGolpe`), sin carga, lo gastado vuelve a esto.
+   */
+  readonly barato: number;
 }
 
 export interface BattleState {
@@ -443,17 +457,13 @@ export interface BattleState {
    */
   readonly muralla: MurallaDeBatalla;
   /**
-   * Cómo cae el daño de un golpe cuerpo a cuerpo: la tirada de siempre (`azar`)
-   * o la rueda del golpe (`rueda.ts`). Se pone al montarla y no cambia: en el
-   * juego, siempre `azar`; solo la arena pelea con la rueda (`conRueda`).
+   * Los modos de la arena (`modos.ts`): cómo cae el golpe cuerpo a cuerpo (la
+   * rueda, `conRueda`), si salir del contacto cuesta (`pagaElContacto`) y si carga
+   * a pie todo el que pega cuerpo a cuerpo (`cargaDelStack`). Se ponen al montarla
+   * y no cambian: en el juego, siempre `MODOS_DEL_JUEGO`; solo la arena enciende
+   * alguno.
    */
-  readonly modoDelGolpe: ModoDelGolpe;
-  /**
-   * Si salir de una casilla cuesta 1 + los enemigos en contacto (`paga`) o 1 como
-   * siempre (`libre`; `contacto.ts`). Se pone al montarla y no cambia: en el
-   * juego, siempre `libre`; solo la arena lo enciende (`pagaElContacto`).
-   */
-  readonly modoDelContacto: ModoDelContacto;
+  readonly arena: ModosDeArena;
   /**
    * Con la rueda, el golpe de quien se ha plantado ante su objetivo y espera la
    * rueda: quién, contra quién y la carga de la carrera con que llegó (medida
@@ -464,12 +474,6 @@ export interface BattleState {
    * quien lo guarda (la sesión). Siempre `null` al azar y en el juego.
    */
   golpeEnCurso: GolpeEnCurso | null;
-  /**
-   * Si carga todo el que pega cuerpo a cuerpo, a pie, además del rasgo `charge`
-   * (#260, `cifrasDeCarga`). Se pone al montarla y no cambia: en el juego,
-   * siempre `false`; solo la arena carga a pie (`batallaDeArena`).
-   */
-  readonly cargaAPie: boolean;
   /**
    * De qué tipo del montaje sale cada stack de la tropa, por bando y en el orden
    * de su `slot`: una hoja del borrador o una criatura del catálogo. Solo la

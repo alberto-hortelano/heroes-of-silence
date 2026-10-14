@@ -57,10 +57,12 @@ function enRecta(
       izquierda: { unidades: [delBorrador(unidadDeArena(id, { casillas: 7 }))], heroe: null },
       derecha: { unidades: [delBorrador(unidadDeArena(RIVAL))], heroe: null },
       ...MONTAJE,
-      ...(o.golpe === undefined ? {} : { golpe: o.golpe }),
+      modos: {
+        ...(o.golpe === undefined ? {} : { golpe: o.golpe }),
+        ...(o.cargaAPie === undefined ? {} : { cargaAPie: o.cargaAPie }),
+      },
     },
     createRng(1),
-    o.cargaAPie,
   );
   colocar(b, 'attacker-0', recta);
   return { b, desde: { col: recta, row: 4 } };
@@ -93,25 +95,25 @@ function factorDeLaCarga(b: BattleState, desde: Hex): { causa: string; factor: n
 
 describe('las cifras de la carga (`data/carga.json`)', () => {
   it('a pie +5 % por casilla y el jinete +10 %, los dos hasta 5', () => {
-    expect(CARGA.aPie).toEqual({ porciento: 5, tope: 5, porCasilla: 0.05, aPie: true });
-    expect(CARGA.jinete).toEqual({ porciento: 10, tope: 5, porCasilla: 0.1, aPie: false });
+    expect(CARGA.aPie).toEqual({ porcentaje: 5, tope: 5 });
+    expect(CARGA.jinete).toEqual({ porcentaje: 10, tope: 5 });
     // El 0.1 del jinete, el mismo double que el escrito antes: el banco no se mueve.
-    expect(CARGA.jinete.porCasilla).toBe(0.1);
+    expect(CARGA.jinete.porcentaje / 100).toBe(0.1);
   });
 
   it('valida el fichero: enteros ≥ 1, el tope desde la recta mínima y sin campos ajenos', () => {
     const con = (cambio: object) => ({ ...cargaJson, ...cambio });
-    expect(() => validarCarga(con({ aPie: { porciento: 5, tope: 2 } }))).toThrow(
+    expect(() => validarCarga(con({ aPie: { porcentaje: 5, tope: 2 } }))).toThrow(
       `data/carga.json: aPie: tope tiene que ser ${CARGA_MINIMA} o más, y es 2`,
     );
-    expect(() => validarCarga(con({ jinete: { porciento: 0, tope: 5 } }))).toThrow(
-      'data/carga.json: jinete: porciento tiene que ser 1 o más, y es 0',
+    expect(() => validarCarga(con({ jinete: { porcentaje: 0, tope: 5 } }))).toThrow(
+      'data/carga.json: jinete: el porcentaje tiene que ser 1 o más, y es 0',
     );
-    expect(() => validarCarga(con({ jinete: { porciento: 7.5, tope: 5 } }))).toThrow(
-      'data/carga.json: jinete: porciento tiene que ser un número entero, y es 7.5',
+    expect(() => validarCarga(con({ jinete: { porcentaje: 7.5, tope: 5 } }))).toThrow(
+      'data/carga.json: jinete: el porcentaje tiene que ser un número entero, y es 7.5',
     );
-    expect(() => validarCarga(con({ aPie: { porciento: 5, tope: 5, maximo: 1 } }))).toThrow(
-      'data/carga.json: aPie: «maximo» no es un campo; valen porciento, tope',
+    expect(() => validarCarga(con({ aPie: { porcentaje: 5, tope: 5, maximo: 1 } }))).toThrow(
+      'data/carga.json: aPie: «maximo» no es un campo; valen porcentaje, tope',
     );
     expect(() => validarCarga(con({ caballo: {} }))).toThrow(
       'data/carga.json: «caballo» no es un campo',
@@ -258,7 +260,12 @@ describe('la rueda del golpe con una carga a pie', () => {
   it('anda, se planta con la carga, elige y la cobra', () => {
     const { b, desde } = enRecta(A_PIE, 4, { golpe: 'rueda' });
     applyAction(b, { type: 'attack', target: 'defender-0', from: desde }, createRng(2));
-    expect(b.golpeEnCurso).toEqual({ stack: 'attacker-0', target: 'defender-0', carga: 4 });
+    expect(b.golpeEnCurso).toMatchObject({
+      stack: 'attacker-0',
+      target: 'defender-0',
+      carga: 4,
+      carrera: null,
+    });
     const largo = b.log.length;
     applyAction(
       b,
@@ -297,7 +304,7 @@ describe('el juego no carga a pie', () => {
     ] as const) {
       // La arena sin carga a pie es el juego (la prueba C4 de `arena.test.ts`).
       const { b, desde } = enRecta(id, 4, { cargaAPie: false });
-      expect(b.cargaAPie).toBe(false);
+      expect(b.arena.cargaAPie).toBe(false);
       expect(casillasDeCarga(b, stackById(b, 'attacker-0')).length).toBe(cobra > 0 ? 1 : 0);
       applyAction(b, { type: 'attack', target: 'defender-0', from: desde }, createRng(2));
       expect(golpeDe(b).charge ?? 0).toBe(cobra);
@@ -311,6 +318,6 @@ describe('el juego no carga a pie', () => {
       { army: [{ creature: 'pikeman', count: 1 }], hero: null },
       createRng(1),
     );
-    expect(b.cargaAPie).toBe(false);
+    expect(b.arena.cargaAPie).toBe(false);
   });
 });

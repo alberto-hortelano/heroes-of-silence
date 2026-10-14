@@ -617,20 +617,32 @@ export function reachable(
 }
 
 /**
+ * Lo que queda de tramo, dicho: `['queda', '1 casilla']` o `['quedan', '3
+ * casillas']`. Lo escriben el panel («Le queda 1 casilla»), las notas del agente
+ * («le quedan 3 casillas») y las frases del motor (`movimientoBlocker`,
+ * `fraseDelContacto`); antes cada uno ponía su plural, y la del contacto decía
+ * «le queda 1» sin la casilla. Aquí y no en `battle.ts` para que la lea
+ * `contacto.ts`, que no importa el motor.
+ */
+export function quedanCasillas(n: number): readonly [verbo: string, casillas: string] {
+  return n === 1 ? ['queda', '1 casilla'] : ['quedan', `${n} casillas`];
+}
+
+/**
  * La recta de `desde` a `hasta` andada con costes: el `Paso` de `hasta`, con lo
- * que cuesta llegar saliendo de cada casilla de la recta (`costeDeSalir`) y su
+ * que cuesta llegar saliendo de cada casilla de la recta (`salirDe`) y su
  * cadena por cada una, o `null` si no están en recta. No mira lo que hay en
  * medio: eso es `rectaLibre`, y quien pregunta la llama antes. Es la carrera de
  * la carga cuando salir del contacto cuesta (`contacto.ts`): la carga se cobra
  * por la recta, así que la recta es lo que se paga y lo que se anda.
  */
-export function carreraConCostes(desde: Hex, hasta: Hex, costeDeSalir: CosteDeSalir): Paso | null {
+export function carreraConCostes(desde: Hex, hasta: Hex, salirDe: CosteDeSalir): Paso | null {
   const recta = rectaEntre(desde, hasta);
   if (recta === null) return null;
   let paso: Paso = { at: desde, steps: 0, previo: null };
   for (let i = 1; i <= recta.d; i++) {
     const siguiente = vecinaEnDireccion(paso.at, recta.dir);
-    paso = { at: siguiente, steps: paso.steps + costeDeSalir(indiceDe(paso.at)), previo: paso };
+    paso = { at: siguiente, steps: paso.steps + salirDe(indiceDe(paso.at)), previo: paso };
   }
   return paso;
 }
@@ -644,7 +656,7 @@ export type CosteDeSalir = (indice: number) => number;
 
 /**
  * Lo mismo que `reachable`, pero cada paso cuesta lo que cuesta salir de la
- * casilla de la que sale (`costeDeSalir`) y el tope es un presupuesto, no un
+ * casilla de la que sale (`salirDe`) y el tope es un presupuesto, no un
  * número de pasos: el camino es el más barato, no el más corto. `Paso.steps` es
  * el coste pagado hasta ahí.
  *
@@ -665,7 +677,7 @@ export function alcanceConCostes(
   from: Hex,
   presupuesto: number,
   blocked: ReadonlySet<string>,
-  costeDeSalir: CosteDeSalir,
+  salirDe: CosteDeSalir,
   pasoPermitido?: PasoPermitido,
 ): Map<string, Paso> {
   if (!isInside(from)) {
@@ -706,7 +718,7 @@ export function alcanceConCostes(
       // Ningún paso cuesta menos de 1: desde la última fila del presupuesto no
       // se sale, y no se pregunta lo que cuesta (contar enemigos no es gratis).
       if (coste + 1 > presupuesto) continue;
-      const salir = costeDeSalir(h);
+      const salir = salirDe(h);
       if (!Number.isInteger(salir) || salir < 1) {
         throw new Error(
           `salir de (${c.hex.col},${c.hex.row}) no puede costar ${salir}: un paso cuesta un entero de 1 o más`,
