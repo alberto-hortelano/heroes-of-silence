@@ -66,8 +66,11 @@ export function enOrdenDelLibro(ids: readonly string[]): Spell[] {
 }
 
 export interface SpellResult {
+  /** El daño que llegó, tras la armadura del objetivo (`herir`). */
   readonly damage: number;
   readonly killed: number;
+  /** Lo que paró la armadura del objetivo (la arena); 0 sin ella o si no hiere. */
+  readonly parado: number;
   /** PV que repuso, si cura (`curaDe`). */
   readonly cura: number;
   /** Lo que dura unas rondas. Lo cuelga del stack el motor, no el hechizo. */
@@ -165,16 +168,16 @@ export function castSpell(
 ): SpellResult {
   switch (s.kind) {
     case 'damage': {
-      const killed = herir(target, l.cantidad, autor);
-      return { damage: l.cantidad, killed, cura: 0 };
+      const h = herir(target, l.cantidad, autor);
+      return { damage: h.danio, killed: h.muertos, cura: 0, parado: h.parado };
     }
     case 'speed':
     case 'luck':
-      return { damage: 0, killed: 0, cura: 0, effect: temporal(s.kind, s, l, reglas) };
+      return { damage: 0, killed: 0, cura: 0, parado: 0, effect: temporal(s.kind, s, l, reglas) };
     case 'heal': {
       const cura = curaDe(s, l, target);
       target.topHp += cura;
-      return { damage: 0, killed: 0, cura };
+      return { damage: 0, killed: 0, cura, parado: 0 };
     }
   }
 }

@@ -50,6 +50,7 @@ import {
   VERSION_DEL_ENLACE,
   validarPiezaDeArena,
 } from '../src/core/arena.js';
+import { armaduraDe } from '../src/core/battle/damage.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { cuentaTiros, EQUIPO, isShooter, type Pieza } from '../src/core/data.js';
 import {
@@ -299,7 +300,7 @@ describe('el enlace de la pelea lleva las piezas de la arena', () => {
     // La 7 (13-10-2026) fue la de cada arma en su hueco y la 8 la de solo la arena;
     // las piezas viajan desde la 6.
     expect(CON_PIEZAS).toBe(6);
-    expect(VERSION_DEL_ENLACE).toBe(8);
+    expect(VERSION_DEL_ENLACE).toBe(9);
     const leido = montajeDeLaURL(montajeALaURL(ENLACE));
     expect(leido).toEqual({ ...ENLACE, version: VERSION_DEL_ENLACE });
     const montado = montajeDeArenaDelEnlace(leido, MONTAJE.reglas, leido.piezas);
@@ -410,7 +411,7 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
   it('tras abrir un enlace, «Guardar» no sustituye ni borra una pieza tuya; las nuevas del enlace, sí', () => {
     const d = carpeta();
     // Tu brigantina, cambiada y guardada.
-    const tuya = { ...pieza('brigantina'), pv: pieza('brigantina').pv + 20 };
+    const tuya = { ...pieza('brigantina'), armadura: (pieza('brigantina').armadura ?? 0) + 2 };
     escribirBorrador(d, { unidades: [], piezas: [tuya] });
     // El enlace lleva al guerrero con la brigantina del juego y al arquero con una nueva.
     const nueva = piezaNueva('accesorio', DEL_JUEGO);
@@ -432,8 +433,8 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
     const delDisco = leerBorrador(d).piezas;
     const capa = piezasDelEnlace(enlace);
     // En la pelea va la del juego…
-    expect(catalogoDeLaArena(capa.reduce(conPieza, delDisco)).pieza('brigantina').pv).toBe(
-      pieza('brigantina').pv,
+    expect(catalogoDeLaArena(capa.reduce(conPieza, delDisco)).pieza('brigantina').armadura).toBe(
+      pieza('brigantina').armadura,
     );
     // …y al guardar, la tuya se queda y la nueva entra con las unidades del enlace.
     escribirBorrador(d, {
@@ -484,10 +485,13 @@ describe('cambiar una pieza a media pelea', () => {
     a.topHp -= 30;
     const antes = { a: { ...a }, a2: { ...a2 } };
     const desde = b.log.length;
-    const mas = { ...ESPADA, pv: ESPADA.pv + 100 };
+    // En la arena una pieza protege con armadura, no con PV (#262): la espada,
+    // con 3 puntos, se los da a los dos que la llevan.
+    const mas = { ...ESPADA, armadura: 3 };
     expect(retocarEnBatalla(b, { kind: 'piezas', piezas: [mas] })).toBeNull();
-    expect(de(b, a2.id).unit.hp).toBe(antes.a2.unit.hp + 100);
-    // Subir los PV no cura: la herida se queda.
+    expect(armaduraDe(de(b, a2.id).unit)).toBe(armaduraDe(antes.a2.unit) + 3);
+    expect(de(b, a2.id).unit.hp).toBe(antes.a2.unit.hp);
+    // La armadura no cura: la herida se queda.
     expect(de(b, a.id).unit.hp - de(b, a.id).topHp).toBe(30);
     // El arquero no lleva espada: el mismo objeto.
     expect(b.stacks.find((s) => s.body === 'goblin-arquero')).toBe(arq);
@@ -496,7 +500,7 @@ describe('cambiar una pieza a media pelea', () => {
         kind: 'retoque',
         nombre: 'Espada',
         stacks: [a.id, a2.id],
-        cambios: [`PV ${ESPADA.pv} → ${mas.pv}`],
+        cambios: ['armadura 0 → 3'],
       },
     ]);
     // Volver a la del juego deja las cifras de antes, con la herida.
@@ -504,7 +508,7 @@ describe('cambiar una pieza a media pelea', () => {
     expect(de(b, a.id).unit).toEqual(antes.a.unit);
     expect(de(b, a.id).topHp).toBe(antes.a.topHp);
     expect(b.log.at(-1)).toMatchObject({
-      cambios: [`PV ${mas.pv} → ${ESPADA.pv}`, 'vuelve a la del juego'],
+      cambios: ['armadura 3 → 0', 'vuelve a la del juego'],
     });
     expect(b.piezasDeArena).toEqual([]);
   });

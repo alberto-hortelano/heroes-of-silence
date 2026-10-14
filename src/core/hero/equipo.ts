@@ -276,6 +276,8 @@ export interface SumaDeEquipo {
   readonly ataque: number;
   readonly defensa: number;
   readonly pv: number;
+  /** Los puntos de armadura (`Pieza.armadura`): solo las piezas de la arena la llevan. */
+  readonly armadura: number;
   readonly velocidad: number;
   readonly danio: readonly [number, number];
 }
@@ -302,6 +304,7 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): Su
   let ataque = 0;
   let defensa = 0;
   let pv = 0;
+  let armadura = 0;
   let velocidad = 0;
   let min = 0;
   let max = 0;
@@ -311,13 +314,14 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): Su
     const p = piezaDe(piezas, id);
     defensa += p.defensa;
     pv += p.pv;
+    armadura += p.armadura ?? 0;
     velocidad += p.velocidad;
     if (esArmaPorUso(hueco)) continue;
     ataque += p.ataque;
     min += p.danio?.[0] ?? 0;
     max += p.danio?.[1] ?? 0;
   }
-  return { ataque, defensa, pv, velocidad, danio: [min, max] };
+  return { ataque, defensa, pv, armadura, velocidad, danio: [min, max] };
 }
 
 /**
@@ -373,7 +377,8 @@ function vestir<U extends UnitInfo>(
       `${unit.name} tira con su munición (${unit.shots} tiros) y no puede llevar nada en ${NOMBRE_DE_HUECO.distancia}: el arma a distancia no cuenta tiros`,
     );
   }
-  const { ataque, defensa, pv, velocidad, danio } = sumaDe(piezas, equipo);
+  const { ataque, defensa, pv, armadura, velocidad, danio } = sumaDe(piezas, equipo);
+  const puntosDeArmadura = (unit.puntosDeArmadura ?? 0) + armadura;
   const escalon = Math.max(
     0,
     Math.min(SPEED_TIERS.length - 1, SPEED_TIERS.indexOf(unit.speed) + velocidad),
@@ -388,6 +393,9 @@ function vestir<U extends UnitInfo>(
       ? { damage: [unit.damage[0] + danio[0], unit.damage[1] + danio[1]] as const }
       : {}),
     hp: unit.hp + pv,
+    // La armadura, solo si la hay (la arena): como el daño, el juego sale con los
+    // mismos campos de siempre.
+    ...(puntosDeArmadura > 0 ? { puntosDeArmadura } : {}),
     speed: SPEED_TIERS[escalon] as UnitInfo['speed'],
     sinEquipo: unit.sinEquipo ?? unit,
     equipo: todo,
@@ -434,7 +442,7 @@ function armasPorUso(
 
 /**
  * Si `a` y `b` tienen las mismas cifras en todo lo que el equipo suma: ataque,
- * defensa, daño, PV y velocidad, y las de cada arma (`armas`). Junto a `conEquipo` porque es quien
+ * defensa, daño, PV, armadura y velocidad, y las de cada arma (`armas`). Junto a `conEquipo` porque es quien
  * sabe qué campos toca: si mañana suma otro, esta comparación tiene que verlo.
  * La lee la conversión de la arena (`migrarUnidadDeArena`) para comprobar al
  * revés que un cuerpo con su equipo pelea como las cifras de antes.
@@ -446,9 +454,29 @@ export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
     a.damage[0] === b.damage[0] &&
     a.damage[1] === b.damage[1] &&
     a.hp === b.hp &&
+    (a.puntosDeArmadura ?? 0) === (b.puntosDeArmadura ?? 0) &&
     a.speed === b.speed &&
     mismasArmas(a.armas, b.armas)
   );
+}
+
+/**
+ * Cuántos PV de antes vale un punto de armadura (#262): la conversión de lo de
+ * antes —piezas de la arena con PV y unidades de antes del equipo, cuyas cifras
+ * sumaban los PV del kit— y la de una pieza del juego duplicada en la arena.
+ * **Inventado**, como las cifras de `data/equipo.json`, que salen de aquí.
+ */
+export const PV_POR_PUNTO_DE_ARMADURA = 10;
+
+/**
+ * `u` con su armadura vuelta a PV (`PV_POR_PUNTO_DE_ARMADURA` por punto) y sin
+ * ella: lo que pelearía con la regla de antes de la armadura. Lo lee la conversión
+ * de la arena para comprobar al revés, con `mismasCifras`, que una unidad de antes
+ * del equipo pelea como antes salvo por eso (`cuerpoSinElKit`).
+ */
+export function conLaArmaduraEnPV(u: UnitInfo): UnitInfo {
+  const { puntosDeArmadura, ...sin } = u;
+  return { ...sin, hp: u.hp + (puntosDeArmadura ?? 0) * PV_POR_PUNTO_DE_ARMADURA };
 }
 
 function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefined): boolean {
@@ -473,7 +501,7 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
  * la escala también cuenta.
  */
 export function valorDePieza(p: Pieza): number {
-  return ESCALA_DE_CIFRAS * (p.ataque + p.defensa + 3 * p.velocidad) + p.pv;
+  return ESCALA_DE_CIFRAS * (p.ataque + p.defensa + (p.armadura ?? 0) + 3 * p.velocidad) + p.pv;
 }
 
 /**
@@ -615,7 +643,14 @@ export function sacarDeLaMochila(mochila: readonly string[], id: string): string
 }
 
 /** Las cifras que una pieza puede sumar, en el orden en que se dicen. */
-export const CIFRAS_DE_PIEZA = ['ataque', 'defensa', 'danio', 'pv', 'velocidad'] as const;
+export const CIFRAS_DE_PIEZA = [
+  'ataque',
+  'defensa',
+  'armadura',
+  'danio',
+  'pv',
+  'velocidad',
+] as const;
 export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
 
 /**
@@ -627,6 +662,7 @@ export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
 export const NOMBRE_DE_CIFRA: Readonly<Record<CifraDePieza, string>> = {
   ataque: 'Ataque',
   defensa: 'Defensa',
+  armadura: 'Armadura',
   danio: 'Daño',
   pv: 'PV',
   velocidad: 'Velocidad',
@@ -655,6 +691,7 @@ export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
   const valor: Readonly<Record<CifraDePieza, number>> = {
     ataque: p.ataque,
     defensa: p.defensa,
+    armadura: p.armadura ?? 0,
     danio: p.danio?.[1] ?? 0,
     pv: p.pv,
     velocidad: p.velocidad,

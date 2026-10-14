@@ -770,6 +770,15 @@ export interface Pieza {
   readonly defensa: number;
   readonly pv: number;
   /**
+   * Puntos de armadura (**solo la arena**, #262): se restan del daño de cada golpe,
+   * disparo, hechizo o poder que recibe quien la lleva, con mínimo 0
+   * (`trasLaArmadura`, `battle/damage.ts`). Es de la calidad `arena`, que no suma
+   * PV; las demás calidades suman PV y no la llevan (`problemasDePieza`). Sin el
+   * campo, 0: las piezas del juego no lo escriben, y así salen con los mismos
+   * campos que antes (el banco).
+   */
+  readonly armadura?: number;
+  /**
    * Escalones de velocidad que suma a quien la lleva, sin pasar del último ni
    * bajar del primero. Puede ser negativa: un escudo la resta, y tiene que
    * restarla (`validarEquipo`).
@@ -801,6 +810,7 @@ export const CAMPOS_DE_PIEZA: readonly string[] = [
   'ataque',
   'defensa',
   'pv',
+  'armadura',
   'velocidad',
   'danio',
   'manos',
@@ -853,6 +863,22 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
     if (!enteroDesde(p[campo], 0)) {
       problemas.push(`${q}: ${campo} tiene que ser un entero ≥ 0 y ${comoSeLee(p[campo])}`);
     }
+  }
+  // La armadura es de la arena y los PV del juego (#262, decisión del usuario:
+  // «por calidad»). Una pieza de la arena con PV volvería a sumar vida con la
+  // regla que la armadura sustituye; una del juego con armadura cambiaría el
+  // juego, que no la lee (`pnpm banco`).
+  if (p.armadura !== undefined && !enteroDesde(p.armadura, 0)) {
+    problemas.push(`${q}: armadura tiene que ser un entero ≥ 0 y ${comoSeLee(p.armadura)}`);
+  } else if (typeof p.armadura === 'number' && p.armadura > 0 && p.calidad !== 'arena') {
+    problemas.push(
+      `${q} es de calidad ${String(p.calidad)} y lleva armadura: la armadura es solo de la arena; fuera de ella, la pieza suma PV`,
+    );
+  }
+  if (p.calidad === 'arena' && typeof p.pv === 'number' && p.pv > 0) {
+    problemas.push(
+      `${q} es de la arena y suma ${p.pv} PV: en la arena se protege con armadura, que se resta de cada golpe, no con PV`,
+    );
   }
   // La velocidad puede restar: es lo que hace un escudo, y el escudo TIENE que
   // restarla.

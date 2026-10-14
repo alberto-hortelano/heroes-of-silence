@@ -549,7 +549,44 @@ export function expectedDamage(
   const golpe = deUnGolpe(attacker, opts);
   const { min, max } = tiradasPosibles(attacker, opts.reglas, golpe.uso);
   const medio = ((min + max) / 2) * attacker.count;
-  return applyModifiers(medio, attacker, defender, opts, golpe);
+  const x = applyModifiers(medio, attacker, defender, opts, golpe);
+  // La armadura (la arena), lo último, como en el golpe: sin ella, `x` tal cual,
+  // que es lo que deja al juego con las mismas decisiones (`pnpm banco`).
+  const a = armaduraDe(defender.unit);
+  return a > 0 ? Math.max(0, x - a) : x;
+}
+
+/**
+ * Los puntos de armadura de `u` (`UnitInfo.puntosDeArmadura`, la suma de las
+ * piezas de la arena que lleva; 0 sin ella, como toda unidad del juego). La única
+ * lectura del campo fuera de `hero/equipo.ts`: la leen la resta (`trasLaArmadura`),
+ * la IA y la ficha.
+ */
+export function armaduraDe(u: UnitInfo): number {
+  return u.puntosDeArmadura ?? 0;
+}
+
+/** El daño de un golpe que llega a quien lo recibe: lo que quita y lo que paró la armadura. */
+export interface TrasLaArmadura {
+  readonly danio: number;
+  /** Lo que se comió la armadura: `min(daño, armadura)`; 0 sin armadura. */
+  readonly parado: number;
+}
+
+/**
+ * El daño de UN golpe tras la armadura de `objetivo` (#262, solo la arena): se
+ * resta lo último —después de ataque contra defensa, los multiplicadores, la
+ * suerte y el redondeo— y nunca baja de 0 (decisión del usuario: «una armadura
+ * gruesa puede parar del todo un golpe flojo»). **La única resta**: la aplican
+ * `herir` (todo lo que quita vida pasa por ella: golpe, contraataque, cada golpe
+ * de Rápido o del doble golpe, cada disparo, la salpicadura, el hechizo y el
+ * poder) y la previsión (`horquillaDeDanio`, la del hechizo), y la IA (`expectedDamage`).
+ * Sin armadura devuelve `danio` tal cual.
+ */
+export function trasLaArmadura(danio: number, objetivo: Pick<BattleStack, 'unit'>): TrasLaArmadura {
+  const a = armaduraDe(objetivo.unit);
+  if (a === 0) return { danio, parado: 0 };
+  return { danio: Math.max(0, danio - a), parado: Math.min(danio, a) };
 }
 
 /** Daño que inflige `attacker` a `defender`, ya con suerte aplicada. */
@@ -647,14 +684,19 @@ export function horquillaDeDanio(
     modificadores,
   );
   const alto = applyModifiers(tMax * attacker.count, attacker, defender, opts, golpe);
+  const llega = (d: number): number => trasLaArmadura(d, defender).danio;
   const rama = (f: number, p: number): RamaDeSuerte => ({
     probabilidad: p,
-    min: danioFinal(bajo * f),
-    max: danioFinal(alto * f),
+    min: llega(danioFinal(bajo * f)),
+    max: llega(danioFinal(alto * f)),
   });
   const luck = effectiveLuck(attacker);
+  // La armadura, lo último y con la misma resta que el golpe (`herir`): es
+  // monótona, así que los extremos siguen siéndolo.
+  const a = armaduraDe(defender.unit);
+  if (a > 0) modificadores.push({ causa: `−${a} armadura`, factor: null });
   return {
-    danio: { min: danioFinal(bajo), max: danioFinal(alto) },
+    danio: { min: llega(danioFinal(bajo)), max: llega(danioFinal(alto)) },
     buena: luck > 0 ? rama(LUCKY_MULTIPLIER, luck * CHANCE_PER_POINT) : null,
     mala: luck < 0 ? rama(UNLUCKY_MULTIPLIER, -luck * CHANCE_PER_POINT) : null,
     modificadores,
@@ -721,6 +763,15 @@ export function trasElGolpe(
   return { count, topHp: remaining - (count - 1) * hp };
 }
 
+/** Lo que hizo una herida (`herir`): los muertos, el daño que llegó y lo que paró la armadura. */
+export interface Herida {
+  readonly muertos: number;
+  /** El daño que quitó, tras la armadura: lo que dice el parte y lo que drena un vampiro. */
+  readonly danio: number;
+  /** Lo que se comió la armadura del objetivo (`trasLaArmadura`); 0 sin ella. */
+  readonly parado: number;
+}
+
 /**
  * Hiere a `objetivo` con `damage` y le apunta la experiencia a `autor`:
  * **los PV quitados de verdad × el índice de poder del que los recibe**
@@ -728,7 +779,11 @@ export function trasElGolpe(
  * no su primera cifra, para que un veterano o un héroe que sube cifras pague más
  * aunque no cambie de nivel). Los umbrales de `data/experiencia.json` van en esa
  * escala: nada se divide entre 100. Devuelve los
- * muertos, como `applyDamage`.
+ * muertos, como `applyDamage`, y el daño que llegó.
+ *
+ * `damage` es el del golpe; **la armadura se resta aquí** (`trasLaArmadura`,
+ * #262), así que no hay manera de quitar vida saltándosela. Lo que dependa de lo
+ * quitado —el parte, el drenaje, la experiencia— lee `danio`, no `damage`.
  *
  * Es la ÚNICA forma en que el motor quita vida —golpe, contraataque, disparo,
  * salpicadura y hechizo—: `applyDamage` no sale de este módulo.
@@ -738,9 +793,10 @@ export function trasElGolpe(
  * - **Solo contra el bando de enfrente**: la salpicadura del liche sobre los
  *   suyos no enseña nada. `autor` es `null` cuando no hay quien cobre.
  */
-export function herir(objetivo: BattleStack, damage: number, autor: BattleStack | null): number {
+export function herir(objetivo: BattleStack, damage: number, autor: BattleStack | null): Herida {
+  const { danio, parado } = trasLaArmadura(damage, objetivo);
   const antes = stackHp(objetivo);
-  const muertos = applyDamage(objetivo, damage);
+  const muertos = applyDamage(objetivo, danio);
   if (autor !== null && autor.side !== objetivo.side) {
     autor.ganado.experiencia += (antes - stackHp(objetivo)) * indiceDePoder(objetivo.unit);
     autor.ganado.bajas += muertos;
@@ -748,7 +804,7 @@ export function herir(objetivo: BattleStack, damage: number, autor: BattleStack 
       autor.ganado.heroes.push(objetivo.unit.name);
     }
   }
-  return muertos;
+  return { muertos, danio, parado };
 }
 
 /** Puntos de vida totales que le quedan a un stack. Útil para la IA. */

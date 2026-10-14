@@ -1805,6 +1805,21 @@ function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): voi
       ctx.fillText(`−${e.cifra}`, p.x, y);
       break;
     }
+    case 'parado': {
+      // Lo que la armadura paró entero (#262): el mismo vuelo que la cifra, en el
+      // tono frío del metal, para que no se lea como un «−0».
+      const p = enPantalla(tableroA(t, e.alto), e.en);
+      ctx.globalAlpha = Math.min(1, (1 - e.t) * 3);
+      ctx.fillStyle = '#d6e2ee';
+      ctx.strokeStyle = '#10202e';
+      ctx.lineWidth = 3;
+      ctx.font = `bold ${Math.max(13, Math.round(t.paso * 0.24))}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      const y = p.y - alto - e.t * t.paso * 0.45;
+      ctx.strokeText('parado', p.x, y);
+      ctx.fillText('parado', p.x, y);
+      break;
+    }
   }
   ctx.restore();
 }

@@ -51,13 +51,13 @@ const vestido = (c: UnitInfo, equipo: EquipoDeArena, name: string): UnitInfo => 
   name,
 });
 
-/** Daga (+1, 0–10) para pegar, arco (+2, 10–20, 12 tiros) para disparar, jubón (+20 PV). */
+/** Daga (+1, 0–10) para pegar, arco (+2, 10–20, 12 tiros) para disparar, jubón (2 de armadura). */
 const ARQUERO = vestido(
   cuerpo(),
   { arma: 'daga', distancia: 'arco', armadura: 'jubon_de_arquero' },
   'Arquero',
 );
-/** Espada (+2, 10–30), lanza (+7, 40–80) y barda (+5 de defensa, +220 PV), con Carga. */
+/** Espada (+2, 10–30), lanza (+7, 40–80) y barda (+5 de defensa, 22 de armadura), con Carga. */
 const JINETE = vestido(
   cuerpo('very_fast', ['charge']),
   { arma: 'espada', carga: 'lanza_de_jinete', armadura: 'barda' },

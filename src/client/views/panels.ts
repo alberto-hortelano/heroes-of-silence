@@ -1186,6 +1186,17 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
   /** «1 baja», «3 bajas»: «1 bajas» salía en cada golpe que mataba a uno. */
   const bajas = (n: number): string => `${n} ${n === 1 ? 'baja' : 'bajas'}`;
 
+  /**
+   * El daño de un hecho con lo que paró la armadura (la arena, #262): «12 de
+   * daño (−7 armadura), 1 baja», o «0 de daño: lo para la armadura (7)» si no
+   * llegó nada. Sin armadura, lo de siempre.
+   */
+  const danio = (d: number, muertos: number, armadura: number | undefined): string => {
+    if (armadura === undefined) return `${d} de daño, ${bajas(muertos)}`;
+    if (d === 0) return `0 de daño: lo para la armadura (${armadura})`;
+    return `${d} de daño (−${armadura} armadura), ${bajas(muertos)}`;
+  };
+
   const paraQuienLee = (id: string, buenoParaSuBando: boolean): Html => {
     if (mio === null) return NADA;
     const bueno = (stackDe(id).side === mio) === buenoParaSuBando;
@@ -1207,10 +1218,10 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           const modo = `${e.retaliation ? ' (contraataque)' : ''}${
             e.charge === undefined ? '' : ` (carga de ${e.charge} hexes)`
           }`;
-          return html`<div>${golpe(e.stack, e.target)}${modo}: ${e.damage} de daño, ${bajas(e.killed)}</div>`;
+          return html`<div>${golpe(e.stack, e.target)}${modo}: ${danio(e.damage, e.killed, e.armadura)}</div>`;
         }
         case 'shoot':
-          return html`<div>${golpe(e.stack, e.target)} (${e.splash === true ? 'salpicadura' : 'disparo'}): ${e.damage} de daño, ${bajas(e.killed)}</div>`;
+          return html`<div>${golpe(e.stack, e.target)} (${e.splash === true ? 'salpicadura' : 'disparo'}): ${danio(e.damage, e.killed, e.armadura)}</div>`;
         case 'cast': {
           // El nombre, no el id: `spell()` ya lo tiene y quien lee el parte no
           // sabe qué es un "magic_arrow". Quien lanza es siempre el héroe de su
@@ -1222,7 +1233,10 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
                 ? 'Lanzas'
                 : 'El enemigo lanza';
           const sobre = e.target === undefined ? '' : ` sobre ${quien(e.target)}`;
-          const efecto = e.damage ? `: ${e.damage} de daño, ${bajas(e.killed ?? 0)}` : '';
+          const efecto =
+            e.damage || e.armadura !== undefined
+              ? `: ${danio(e.damage ?? 0, e.killed ?? 0, e.armadura)}`
+              : '';
           return html`<div>${lanza} ${spell(e.spell).name}${sobre}${efecto}</div>`;
         }
         case 'power': {

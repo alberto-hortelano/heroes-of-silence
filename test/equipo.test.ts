@@ -15,6 +15,7 @@ import {
   siguienteDeEquipo,
 } from '../src/core/ai/strategy.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
+import { armaduraDe } from '../src/core/battle/damage.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import {
   creature,
@@ -271,10 +272,12 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       distancia: 'arco',
       armadura: 'jubon_de_arquero',
     });
-    // Arriba, cuerpo + daga + jubón: lo que no es arma suma a todo golpe.
+    // Arriba, cuerpo + daga + jubón: lo que no es arma suma a todo golpe. El
+    // jubón, de la arena, da 2 de armadura y ningún PV (#262).
     expect(arquero.attack).toBe(c.attack + 1);
     expect(arquero.damage).toEqual([c.damage[0] + 0, c.damage[1] + 10]);
-    expect(arquero.hp).toBe(c.hp + 20);
+    expect(arquero.hp).toBe(c.hp);
+    expect(armaduraDe(arquero)).toBe(2);
     // Sin munición (13-10-2026): el arco no da tiros; llevarlo ya es disparar.
     expect(arquero).not.toHaveProperty('shots');
     expect(isShooter(arquero)).toBe(true);
@@ -312,7 +315,8 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     expect(sumaDeEquipo({ arma: 'ballesta', armadura: 'gambeson' })).toEqual({
       ataque: 3,
       defensa: 1,
-      pv: 40,
+      pv: 0,
+      armadura: 4,
       velocidad: 0,
       danio: [20, 40],
     });
@@ -322,7 +326,8 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     ).toEqual({
       ataque: 1,
       defensa: 1,
-      pv: 40,
+      pv: 0,
+      armadura: 4,
       velocidad: 0,
       danio: [0, 10],
     });

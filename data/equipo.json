@@ -1,5 +1,5 @@
 {
-  "_comment": "El equipo: las piezas que lleva un individuo de la tropa o un héroe, una por hueco (arma, armadura y accesorio). TODO INVENTADO y PROVISIONAL: lo pide NuevaJugabilidad.md («Las tropas también ganan experiencia y equipo»; «En las ciudades puedes construir armería y comprar equipo mejorado para la tropa, los héroes ya lo llevan») y HoMM2 no tiene equipo de tropa, así que no hay fila que copiar. Que nadie cite estas cifras como del original. Cada pieza suma sus cifras a las de quien la lleva: ataque, defensa, pv (×10 desde el 12-10-2026, con los PV del catálogo) y velocidad (escalones de SPEED_TIERS, sin pasar de ultra_fast ni bajar de very_slow; puede ser negativa, y la de un escudo TIENE que serlo); todas las demás, enteras ≥ 0. Una pieza puede sumar además danio ([+mín, +máx]), y un arma de cuerpo a cuerpo (hueco arma) puede decir manos: 2 (a dos manos), que no admite escudo (manosBlocker); el arco a la espalda sí lo admite. El juego tiene cuatro huecos: arma, armadura, accesorio y escudo (12-10-2026: «hueco propio, no hace falta llenar el hueco»); el escudo no lleva pieza de armería, así que el equipo base es espada sin escudo. La arena tiene dos más (13-10-2026, «cada arma para lo suyo»): distancia, el arma con que se dispara (llevarla ya es disparar, sin munición: 13-10-2026), y carga, la lanza con que se carga; arma es la de cuerpo a cuerpo, y cada golpe va con las cifras de su arma. En esos dos solo va calidad arena: el juego no los tiene. El equipo NO cuenta para el nivel (decisión del usuario, 12-10-2026): el índice de poder se mide sobre las cifras sin él. La CALIDAD es lo que decide de dónde sale una pieza, y es una propiedad de la pieza y no una lista aparte (decisión del usuario, 02-10-2026): «comun» cae como botín; «armeria» es lo que vende la armería y lo que TODO héroe trae de serie al nacer —hay exactamente una por hueco, la mejor que se puede comprar, y el equipo base se deriva de aquí—; «especial» cae como botín y trae otro tipo de ventaja (velocidad, más PV): es lo único, con las armas mágicas que vendrán, con lo que un héroe mejora lo que ya lleva; «arena» (12-10-2026) es el equipo de los perfiles de arma de la arena (lo que hacía distintas las cifras de un perfil, como la diferencia con el cuerpo común de core/arena.ts) y los escudos, y el juego NO la reparte: ni botín, ni armería, ni equipo base. Van al final del fichero para que el sorteo del botín vea el mismo orden de siempre; su precio es 0 porque no se venden. El precio es lo que cuesta en la armería; solo se cobra el de las de armería, y las demás lo llevan por si un día se venden. Lo valida src/core/data.ts al cargar.",
+  "_comment": "El equipo: las piezas que lleva un individuo de la tropa o un héroe, una por hueco (arma, armadura y accesorio). TODO INVENTADO y PROVISIONAL: lo pide NuevaJugabilidad.md («Las tropas también ganan experiencia y equipo»; «En las ciudades puedes construir armería y comprar equipo mejorado para la tropa, los héroes ya lo llevan») y HoMM2 no tiene equipo de tropa, así que no hay fila que copiar. Que nadie cite estas cifras como del original. Cada pieza suma sus cifras a las de quien la lleva: ataque, defensa, pv (×10 desde el 12-10-2026, con los PV del catálogo) y velocidad (escalones de SPEED_TIERS, sin pasar de ultra_fast ni bajar de very_slow; puede ser negativa, y la de un escudo TIENE que serlo); todas las demás, enteras ≥ 0. Una pieza puede sumar además danio ([+mín, +máx]), y un arma de cuerpo a cuerpo (hueco arma) puede decir manos: 2 (a dos manos), que no admite escudo (manosBlocker); el arco a la espalda sí lo admite. El juego tiene cuatro huecos: arma, armadura, accesorio y escudo (12-10-2026: «hueco propio, no hace falta llenar el hueco»); el escudo no lleva pieza de armería, así que el equipo base es espada sin escudo. La arena tiene dos más (13-10-2026, «cada arma para lo suyo»): distancia, el arma con que se dispara (llevarla ya es disparar, sin munición: 13-10-2026), y carga, la lanza con que se carga; arma es la de cuerpo a cuerpo, y cada golpe va con las cifras de su arma. En esos dos solo va calidad arena: el juego no los tiene. El equipo NO cuenta para el nivel (decisión del usuario, 12-10-2026): el índice de poder se mide sobre las cifras sin él. La CALIDAD es lo que decide de dónde sale una pieza, y es una propiedad de la pieza y no una lista aparte (decisión del usuario, 02-10-2026): «comun» cae como botín; «armeria» es lo que vende la armería y lo que TODO héroe trae de serie al nacer —hay exactamente una por hueco, la mejor que se puede comprar, y el equipo base se deriva de aquí—; «especial» cae como botín y trae otro tipo de ventaja (velocidad, más PV): es lo único, con las armas mágicas que vendrán, con lo que un héroe mejora lo que ya lleva; «arena» (12-10-2026) es el equipo de los perfiles de arma de la arena (lo que hacía distintas las cifras de un perfil, como la diferencia con el cuerpo común de core/arena.ts) y los escudos, y el juego NO la reparte: ni botín, ni armería, ni equipo base. Van al final del fichero para que el sorteo del botín vea el mismo orden de siempre; su precio es 0 porque no se venden. Las de la arena protegen con ARMADURA y no con PV (14-10-2026, #262): armadura = puntos que se restan del daño de cada golpe, disparo, hechizo o poder, con mínimo 0; una pieza de la arena no suma PV y una de otra calidad no lleva armadura (lo dice problemasDePieza). Las cifras son los PV de antes / 10, INVENTADAS y provisionales: se ajustan probando. El precio es lo que cuesta en la armería; solo se cobra el de las de armería, y las demás lo llevan por si un día se venden. Lo valida src/core/data.ts al cargar.",
   "piezas": [
     {
       "id": "garrote",
@@ -225,7 +225,8 @@
       "calidad": "arena",
       "ataque": 0,
       "defensa": 0,
-      "pv": 70,
+      "pv": 0,
+      "armadura": 7,
       "velocidad": 0,
       "precio": { "gold": 0 }
     },
@@ -236,7 +237,8 @@
       "calidad": "arena",
       "ataque": 0,
       "defensa": 1,
-      "pv": 100,
+      "pv": 0,
+      "armadura": 10,
       "velocidad": 0,
       "precio": { "gold": 0 }
     },
@@ -247,7 +249,8 @@
       "calidad": "arena",
       "ataque": 0,
       "defensa": 0,
-      "pv": 20,
+      "pv": 0,
+      "armadura": 2,
       "velocidad": 0,
       "precio": { "gold": 0 }
     },
@@ -258,7 +261,8 @@
       "calidad": "arena",
       "ataque": 0,
       "defensa": 1,
-      "pv": 40,
+      "pv": 0,
+      "armadura": 4,
       "velocidad": 0,
       "precio": { "gold": 0 }
     },
@@ -269,7 +273,8 @@
       "calidad": "arena",
       "ataque": 0,
       "defensa": 5,
-      "pv": 220,
+      "pv": 0,
+      "armadura": 22,
       "velocidad": 0,
       "precio": { "gold": 0 }
     },

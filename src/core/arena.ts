@@ -71,6 +71,7 @@ import { CATALOGO_DE_HABILIDADES, LIDERAZGO, type Pieza, problemasDePieza } from
 import { ESCALA_DE_CIFRAS } from './escala.js';
 import {
   aDosManos,
+  conLaArmaduraEnPV,
   EQUIPO_BASE,
   EQUIPO_DEL_JUEGO,
   type EquipoAtado,
@@ -80,6 +81,7 @@ import {
   NOMBRE_DE_HUECO,
   nadaEnElHueco,
   PIEZAS_DEL_CATALOGO,
+  PV_POR_PUNTO_DE_ARMADURA,
   quitarPieza,
 } from './hero/equipo.js';
 import { cifrasDelIndividuo, EXPERIENCIA_INICIAL_DE_HEROE } from './hero/experiencia.js';
@@ -275,10 +277,12 @@ type KitDelPerfil = Pick<UnidadDeArena, 'equipo' | 'leadership' | 'cost'> & {
  * Lo que trae cada perfil de arma sobre el cuerpo común: **su equipo** (piezas de
  * calidad `arena`, `data/equipo.json`), más lo que no pelea —liderazgo y coste— y
  * los rasgos. El cuerpo es el mismo para todos y lo distinto lo pone el equipo.
- * Cada pieza es la diferencia entre lo que pelea su perfil y el cuerpo común, así
- * que una hoja por defecto pelea con sus cifras de siempre, salvo la velocidad de
- * los personajes de varias hojas (`tools/arena/velocidades.ts`; lo comprueba
- * `test/arena.test.ts`). `charge` es del caballo, no de la lanza: por eso va en
+ * Cada pieza era la diferencia entre lo que pelea su perfil y el cuerpo común,
+ * salvo la velocidad de los personajes de varias hojas
+ * (`tools/arena/velocidades.ts`; lo comprueba `test/arena.test.ts`); desde el
+ * 14-10-2026 (#262) la armadura no suma PV sino puntos de armadura (PV / 10), así
+ * que los perfiles con armadura pelean con menos vida y restan esos puntos de
+ * cada golpe. `charge` es del caballo, no de la lanza: por eso va en
  * los rasgos del perfil y no en la pieza. **Inventado.**
  *
  * **Cada arma para lo suyo** (13-10-2026): el tirador dispara con su arco o su
@@ -669,6 +673,8 @@ export function validarPiezaDeArena(valor: unknown): Pieza {
     ataque: bruta.ataque,
     defensa: bruta.defensa,
     pv: bruta.pv,
+    // Como el daño: sin el campo si no suma nada (las del juego no lo escriben).
+    ...((bruta.armadura ?? 0) > 0 ? { armadura: bruta.armadura } : {}),
     velocidad: bruta.velocidad,
     ...(danio === undefined ? {} : { danio: [danio[0], danio[1]] as const }),
     ...(aDosManos(bruta) ? { manos: 2 as const } : {}),
@@ -695,6 +701,7 @@ export function piezaEnPalabras(p: Pieza): FichaEnPalabras {
     ataque: `${p.ataque}`,
     defensa: `${p.defensa}`,
     PV: `${p.pv}`,
+    armadura: `${p.armadura ?? 0}`,
     daño: `${p.danio?.[0] ?? 0}-${p.danio?.[1] ?? 0}`,
     velocidad: `${p.velocidad}`,
     manos: aDosManos(p) ? '2' : '1',
@@ -759,7 +766,11 @@ export function piezaNueva(
   }
   const id = `${base}-${n}`;
   if (typeof desde !== 'string') {
-    return validarPiezaDeArena({ ...desde, id, nombre: `${raiz} ${n}`, calidad: 'arena' });
+    // Una del juego que suma PV, duplicada en la arena, protege con armadura (#262):
+    // la calidad de la copia es `arena`, que no suma PV.
+    return validarPiezaDeArena(
+      conArmaduraEnVezDePV({ ...desde, id, nombre: `${raiz} ${n}`, calidad: 'arena' }).pieza,
+    );
   }
   const enBlanco: Pieza = {
     id,
@@ -992,8 +1003,10 @@ function piezaConvertida(crudo: unknown, avisos: string[], de: DeCuando): Pieza 
  * primero en su hueco (`piezaDeAntesDeLasArmas`, que la sitúa por sus disparos),
  * si es de antes de que cada arma fuera a lo suyo (`CON_ARMAS`), y luego sin los
  * disparos, que se fueron con la munición (13-10-2026: llevar un arma a distancia
- * ya es disparar). Desde `SOLO_LA_ARENA` se lee estricta: pasa tal cual. El aviso,
- * una frase entera para la barra, o `null` si no había nada que convertir.
+ * ya es disparar), hasta `SOLO_LA_ARENA`; y hasta `CON_ARMADURA`, los PV de una
+ * pieza de la arena pasan a armadura (`conArmaduraEnVezDePV`). Desde la 9 se lee
+ * estricta: pasa tal cual. El aviso, una frase entera para la barra, o `null` si
+ * no había nada que convertir.
  */
 function piezaDeAntes(
   crudo: unknown,
@@ -1002,7 +1015,25 @@ function piezaDeAntes(
   readonly pieza: unknown;
   readonly aviso: string | null;
 } {
-  if (!deAntesDe(de, SOLO_LA_ARENA)) return { pieza: crudo, aviso: null };
+  const sinMunicion = deAntesDe(de, SOLO_LA_ARENA)
+    ? piezaDeAntesDeLaMunicion(crudo, de)
+    : { pieza: crudo, aviso: null };
+  if (!deAntesDe(de, CON_ARMADURA)) return sinMunicion;
+  const conArmadura = conArmaduraEnVezDePV(sinMunicion.pieza);
+  return {
+    pieza: conArmadura.pieza,
+    aviso: juntar(sinMunicion.aviso, conArmadura.aviso),
+  };
+}
+
+/** Lo de antes de `SOLO_LA_ARENA`: cada arma en su hueco y sin disparos (`piezaDeAntes`). */
+function piezaDeAntesDeLaMunicion(
+  crudo: unknown,
+  de: DeCuando,
+): {
+  readonly pieza: unknown;
+  readonly aviso: string | null;
+} {
   const enSuHueco = deAntesDe(de, CON_ARMAS)
     ? piezaDeAntesDeLasArmas(crudo)
     : { pieza: crudo, aviso: null };
@@ -1019,6 +1050,37 @@ function piezaDeAntes(
       ? `La pieza «${nombre}» traía ${String(disparos)} disparos: ya no hay munición, quien la lleve dispara siempre.`
       : `La pieza «${nombre}» traía ${String(disparos)} disparos: ya no hay munición, y solo dispara quien lleva algo en ${NOMBRE_DE_HUECO.distancia}.`;
   return { pieza: sinDisparos, aviso: juntar(enSuHueco.aviso, sinMunicion) };
+}
+
+/** `pv` PV en puntos de armadura: PV / 10 al entero más cercano (45 → 5). */
+function armaduraDePV(pv: number): number {
+  return Math.round(pv / PV_POR_PUNTO_DE_ARMADURA);
+}
+
+/**
+ * Una pieza de la arena con PV, como una de hoy: los PV pasan a armadura
+ * (`armaduraDePV`) y el aviso lo dice con las dos cifras. Lo que no es una pieza
+ * de la arena con PV pasa tal cual (sin aviso), y lo que no cuadre lo dice después
+ * `validarPiezaDeArena`. Sobre el crudo: un borrador o un enlace de antes de la 9
+ * (`piezaDeAntes`) y la pieza del juego duplicada como nueva (`piezaNueva`).
+ */
+function conArmaduraEnVezDePV(crudo: unknown): {
+  readonly pieza: unknown;
+  readonly aviso: string | null;
+} {
+  if (typeof crudo !== 'object' || crudo === null || Array.isArray(crudo)) {
+    return { pieza: crudo, aviso: null };
+  }
+  const p = crudo as Record<string, unknown>;
+  if (p.calidad !== 'arena' || typeof p.pv !== 'number' || p.pv <= 0) {
+    return { pieza: crudo, aviso: null };
+  }
+  const antes = typeof p.armadura === 'number' ? p.armadura : 0;
+  const armadura = antes + armaduraDePV(p.pv);
+  return {
+    pieza: { ...p, pv: 0, armadura },
+    aviso: `La pieza «${nombreOId(p, 'nombre')}» daba ${p.pv} PV: ahora da ${armadura} de armadura, que se resta del daño de cada golpe.`,
+  };
 }
 
 /**
@@ -1537,7 +1599,14 @@ function sinLoDeAntes(
   }
   // El kit de entonces llevaba el arco o la lanza en `arma`: a su hueco de hoy.
   const { unidad, aviso } = armasEnSuHueco(motivo.unidad, EQUIPO_DEL_JUEGO);
-  return { unidad: validarUnidadDeArena(unidad, eq), aviso };
+  // Su vida de antes contaba los PV de la armadura del kit, que hoy da puntos de
+  // armadura (#262): pelea con menos vida y la armadura, y se dice.
+  const { armadura } = EQUIPO_DEL_JUEGO.sumaDeEquipo(kit);
+  const conArmadura =
+    armadura === 0
+      ? null
+      : `La unidad «${nombre}» contaba en su vida ${armadura * PV_POR_PUNTO_DE_ARMADURA} PV de su armadura: ahora lleva ${armadura} de armadura, que se resta del daño de cada golpe.`;
+  return { unidad: validarUnidadDeArena(unidad, eq), aviso: juntar(aviso, conArmadura) };
 }
 
 /**
@@ -1576,6 +1645,10 @@ function cuerpoSinElKit(
   // valida quien la recibe tras pasar cada arma a su hueco (`armasEnSuHueco`).
   const suma = EQUIPO_DEL_JUEGO.sumaDeEquipo(kit);
   const piezas = EQUIPO_DEL_JUEGO.piezasPuestas(kit);
+  // Las cifras de antes llevaban los PV de la armadura del kit, que hoy da puntos
+  // de armadura (#262): un punto sustituye a `PV_POR_PUNTO_DE_ARMADURA` PV del
+  // cuerpo, la misma cuenta que convierte las piezas (`conArmaduraEnVezDePV`).
+  const pvDelKit = suma.pv + suma.armadura * PV_POR_PUNTO_DE_ARMADURA;
   /** Las piezas del kit que suman algo de esa cifra, por su nombre: «Espada y Brigantina». */
   const de = (cuanto: (p: (typeof piezas)[number]) => number): string => {
     const nombres = piezas.filter((p) => cuanto(p) !== 0).map((p) => p.nombre);
@@ -1603,8 +1676,8 @@ function cuerpoSinElKit(
     u.defense < suma.defensa
       ? `su defensa ${u.defense} es menos de lo que suma ${de((p) => p.defensa)} (${conSigno(suma.defensa)})`
       : null,
-    u.hp <= suma.pv
-      ? `${vida} no pasa de lo que suma ${de((p) => p.pv)} (${conSigno(suma.pv)})`
+    u.hp <= pvDelKit
+      ? `${vida} no pasa de lo que suma ${de((p) => p.pv + (p.armadura ?? 0))} (${conSigno(pvDelKit)}${suma.armadura > 0 ? ` PV, que hoy son ${suma.armadura} de armadura` : ''})`
       : null,
     min <= smin || max <= smax
       ? `${danio} no pasa de lo que suma ${armas}`
@@ -1621,13 +1694,14 @@ function cuerpoSinElKit(
     attack: u.attack - suma.ataque,
     defense: u.defense - suma.defensa,
     damage: [min - smin, max - smax],
-    hp: u.hp - suma.pv,
+    hp: u.hp - pvDelKit,
     casillas,
     equipo: kit,
   };
+  // Al revés, con la armadura vuelta a PV: lo que pelea igual que antes salvo eso.
   return mismasCifras(
-    unidadDeCombate(u, EQUIPO_DEL_JUEGO),
-    unidadDeCombate(nueva, EQUIPO_DEL_JUEGO),
+    conLaArmaduraEnPV(unidadDeCombate(u, EQUIPO_DEL_JUEGO)),
+    conLaArmaduraEnPV(unidadDeCombate(nueva, EQUIPO_DEL_JUEGO)),
   )
     ? { unidad: nueva }
     : { motivo: `con ${de((p) => p.velocidad)} puesto no se movería como se mueve` };
@@ -2687,7 +2761,7 @@ export function unaVezEnLaURL(valores: readonly string[], nombre: string): strin
  * nombre, y cada pregunta es «¿desde cuál?» (la historia de cada versión, en la
  * entrada «Nueva unidad» de `docs/historia.md` y las de antes).
  */
-export const VERSION_DEL_ENLACE = 8;
+export const VERSION_DEL_ENLACE = 9;
 /** Desde la 2: la muralla y la escalera de cada puesto. */
 const CON_MURALLA = 2;
 /** Desde la 3: quién mueve es del bando entero (`LadoDelEnlace.ia`), no de cada puesto. */
@@ -2723,6 +2797,13 @@ const CON_ARMAS = 7;
  * quita al leerlo (`migrarUnidadDeArena`, `piezaDeAntes`) y el aviso lo dice.
  */
 const SOLO_LA_ARENA = 8;
+/**
+ * Desde la 9: las piezas de la arena protegen con armadura y no con PV (#262,
+ * 14-10-2026). Hasta la 8, una pieza de la arena con PV se lee con PV / 10 de
+ * armadura (`conArmaduraEnVezDePV`, `piezaDeAntes`) y el aviso lo dice; desde la
+ * 9 se rechaza (`problemasDePieza`).
+ */
+const CON_ARMADURA = 9;
 
 /**
  * De cuándo es lo que se lee: un borrador, que puede ser de cualquier fecha (lo

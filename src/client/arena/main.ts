@@ -1215,6 +1215,7 @@ function conCampoDePieza(p: Pieza, campo: string, valor: string): unknown {
     case 'ataque':
     case 'defensa':
     case 'pv':
+    case 'armadura':
     case 'velocidad':
       return { ...p, [campo]: n };
     default:

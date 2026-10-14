@@ -45,7 +45,7 @@ import {
 } from '@core/battle/battle.js';
 import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
 import type { ModoDelContacto } from '@core/battle/contacto.js';
-import { armasDe } from '@core/battle/damage.js';
+import { armaduraDe, armasDe } from '@core/battle/damage.js';
 import {
   esMuro,
   ladoDeLaMuralla,
@@ -169,13 +169,15 @@ export function resumenDeCifras(u: UnidadDeArena, piezas: EquipoAtado): string {
 }
 
 /**
- * Lo mismo para las cifras del motor: ataque, defensa, daño, PV, casillas y
- * rasgos. Sin tiros ni casillas que ocupa: en la arena no hay munición y toda
+ * Lo mismo para las cifras del motor: ataque, defensa, daño, PV, armadura,
+ * casillas y rasgos. Sin tiros ni casillas que ocupa: en la arena no hay munición y toda
  * unidad ocupa una (13-10-2026).
  */
 export function resumenDeUnidad(u: UnitInfo): string {
   const rasgos = (u.traits ?? []).length === 0 ? '' : ` · ${rasgosDichos(u.traits)}`;
-  return `A ${u.attack} · D ${u.defense} · ${u.damage[0]}–${u.damage[1]} daño · ${u.hp} PV · ${SPEED_TO_HEXES[u.speed]} casillas${rasgos}`;
+  // La armadura (#262), solo si la lleva: sin ella la línea es la de siempre.
+  const armadura = armaduraDe(u) === 0 ? '' : ` · ${armaduraDe(u)} armadura`;
+  return `A ${u.attack} · D ${u.defense} · ${u.damage[0]}–${u.damage[1]} daño · ${u.hp} PV${armadura} · ${SPEED_TO_HEXES[u.speed]} casillas${rasgos}`;
 }
 
 // ---------------------------------------------------------------- la lista
@@ -877,6 +879,7 @@ function filasDeUnidad(
   return [
     fila('attack', NOMBRE_DE_CIFRA.ataque, escrito.attack, final.attack, 0),
     fila('defense', NOMBRE_DE_CIFRA.defensa, escrito.defense, final.defense, 0),
+    filaDeArmadura(final),
     fila('damage-min', `${NOMBRE_DE_CIFRA.danio} mínimo`, escrito.damage[0], final.damage[0], 1, {
       nota: 'No más que el máximo.',
     }),
@@ -893,6 +896,19 @@ function filasDeUnidad(
       { nota: 'En casillas por turno.', maximo: CASILLAS_MAX },
     ),
   ];
+}
+
+/**
+ * La fila de la armadura (#262): sin casilla, porque el cuerpo no la tiene (la
+ * dan las piezas de la arena), y con su final, lo que se resta de cada golpe.
+ */
+function filaDeArmadura(final: UnitInfo): FilaDeCifra {
+  return {
+    clave: 'armadura',
+    rotulo: NOMBRE_DE_CIFRA.armadura,
+    nota: 'La suma de la de sus piezas: se resta del daño de cada golpe, disparo o hechizo que recibe, y puede dejarlo en 0.',
+    final: armaduraDe(final),
+  };
 }
 
 /**
@@ -1258,6 +1274,7 @@ export function renderFichaDeHeroe(
         [
           escrita('ataque', NOMBRE_DE_CIFRA.ataque, h.ataque, 0, c.attack),
           escrita('defensa', NOMBRE_DE_CIFRA.defensa, h.defensa, 0, c.defense),
+          filaDeArmadura(c),
           escrita(
             'poder',
             'Poder',
@@ -1497,7 +1514,19 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
         <div class="row"><span class="label">Calidad</span><span>${NOMBRE_DE_CALIDAD[p.calidad]}</span></div>
         ${numero('ataque', 'Ataque', p.ataque, desdeCero)}
         ${numero('defensa', 'Defensa', p.defensa, desdeCero)}
-        ${numero('pv', 'PV', p.pv, desdeCero)}
+        ${
+          // La arena protege con armadura y el juego con PV (#262): cada pieza, la
+          // suya según su calidad (`problemasDePieza`).
+          p.calidad === 'arena'
+            ? numero(
+                'armadura',
+                NOMBRE_DE_CIFRA.armadura,
+                p.armadura ?? 0,
+                desdeCero,
+                'Puntos que se restan del daño de cada golpe, disparo o hechizo que recibe quien la lleva, con mínimo 0.',
+              )
+            : numero('pv', 'PV', p.pv, desdeCero)
+        }
         ${numero('velocidad', 'Velocidad', p.velocidad, p.hueco === 'escudo' ? html`max="-1"` : NADA, p.hueco === 'escudo' ? 'Un escudo siempre resta: −1 escalón o más.' : 'En escalones de velocidad; puede restar.')}
         ${numero('danio-min', 'Daño mínimo', p.danio?.[0] ?? 0, desdeCero, 'Lo que suma al daño mínimo de quien la lleva.')}
         ${numero('danio-max', 'Daño máximo', p.danio?.[1] ?? 0, desdeCero, 'Lo que suma al daño máximo de quien la lleva.')}
@@ -1707,6 +1736,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
         <div class="row"><span class="label">La mueve</span><span>${s.laLlevaLaIA(activa.id) ? 'la IA' : 'tú'}</span></div>
         <div class="row"><span class="label">Vida</span><span>${isAlive(activa) ? activa.topHp : 0} / ${activa.unit.hp}</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, activa, enLoAlto)}</span></div>
+        ${armaduraDe(activa.unit) === 0 ? NADA : html`<div class="row"><span class="label">${NOMBRE_DE_CIFRA.armadura}</span><span>${armaduraDe(activa.unit)}</span></div>`}
         ${
           activa.unit.equipo === undefined
             ? html`<div class="row"><span class="label">Daño</span><span>${activa.unit.damage[0]}–${activa.unit.damage[1]}</span></div>`

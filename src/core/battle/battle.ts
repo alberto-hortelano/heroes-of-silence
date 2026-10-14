@@ -59,6 +59,7 @@ import {
   pagaElContacto,
 } from './contacto.js';
 import {
+  armaduraDe,
   ataqueYDefensa,
   CHANCE_PER_POINT,
   cargaEfectiva,
@@ -71,6 +72,7 @@ import {
   type RamaDeSuerte,
   stackHp,
   trasElGolpe,
+  trasLaArmadura,
 } from './damage.js';
 import {
   applyEffect,
@@ -2718,7 +2720,7 @@ function strike(
     rng,
     opcionesDeDanio(state, attacker, target, { chargeHexes: carga }, golpe),
   );
-  const killed = herir(target, result.damage, attacker);
+  const herida = herir(target, result.damage, attacker);
 
   if (result.lucky) state.log.push({ kind: 'luck', stack: attacker.id, good: true });
   if (result.unlucky) state.log.push({ kind: 'luck', stack: attacker.id, good: false });
@@ -2727,9 +2729,11 @@ function strike(
     kind: 'attack',
     stack: attacker.id,
     target: target.id,
-    damage: result.damage,
-    killed,
+    damage: herida.danio,
+    killed: herida.muertos,
     retaliation,
+    // Lo que paró la armadura (la arena): el parte y el lienzo dicen «parado».
+    ...conLoParado(herida),
     // La carga la dice `computeDamage`, que es quien la cobró: preguntarlo otra
     // vez aquí dejaba el parte contando 7 hexes mientras el bono se había
     // topado en los 5 que caben en +50 %.
@@ -2740,7 +2744,8 @@ function strike(
 
   // Los vampiros señores recuperan efectivos con lo que drenan.
   if (hasTrait(info, 'life_drain') && !retaliation) {
-    healFromDrain(attacker, result.damage);
+    // Lo que quitó de verdad, tras la armadura: no se drena lo que no llegó.
+    healFromDrain(attacker, herida.danio);
   }
 
   // Lo que el golpe deja pegado. Va ANTES del contraataque a propósito: al
@@ -2753,6 +2758,14 @@ function strike(
   }
 
   if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
+}
+
+/**
+ * El campo `armadura` de un hecho de daño: lo que paró, solo si paró algo. Sin
+ * armadura el hecho sale con los campos de siempre (el banco hashea el registro).
+ */
+function conLoParado(h: { readonly parado: number }): { armadura?: number } {
+  return h.parado > 0 ? { armadura: h.parado } : {};
 }
 
 function healFromDrain(s: BattleStack, damage: number): void {
@@ -2778,7 +2791,7 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
       rng,
       opcionesDeDanio(state, shooter, target, { ranged: true, distance }),
     );
-    const killed = herir(target, result.damage, shooter);
+    const herida = herir(target, result.damage, shooter);
 
     // La mala suerte también se anota, como en el golpe: sin ella, quien lee el
     // registro (la previsión y su test) no sabía qué rama había caído.
@@ -2788,11 +2801,14 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
       kind: 'shoot',
       stack: shooter.id,
       target: target.id,
-      damage: result.damage,
-      killed,
+      damage: herida.danio,
+      killed: herida.muertos,
+      ...conLoParado(herida),
     });
     if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
 
+    // La salpicadura reparte el daño del disparo, no el que llegó: cada salpicado
+    // resta su propia armadura (`herir`).
     if (hasTrait(info, 'splash_shot')) splash(state, shooter, target, result.damage);
   }
 }
@@ -2837,13 +2853,14 @@ function splash(
   damage: number,
 ): void {
   for (const otro of splashTargets(state, target)) {
-    const killed = herir(otro, damage, shooter);
+    const herida = herir(otro, damage, shooter);
     state.log.push({
       kind: 'shoot',
       stack: shooter.id,
       target: otro.id,
-      damage,
-      killed,
+      damage: herida.danio,
+      killed: herida.muertos,
+      ...conLoParado(herida),
       splash: true,
     });
     if (!isAlive(otro)) state.log.push({ kind: 'perished', stack: otro.id });
@@ -2970,6 +2987,7 @@ function castHeroSpell(
       target: targetId,
       damage: r.damage,
       killed: r.killed,
+      ...conLoParado(r),
     }),
   );
   if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
@@ -3316,6 +3334,12 @@ export function previsionDeLaRueda(
 ): {
   readonly porTipo: Readonly<Record<TipoDeGolpe, SectorDeLaRueda>> | null;
   readonly sinContraataque: string | null;
+  /**
+   * La armadura de quien recibe el daño que se enseña (`armaduraDe`): el objetivo
+   * en el golpe y quien ataca en la respuesta. Los sectores ya la llevan restada;
+   * esto es para decirlo (#262).
+   */
+  readonly armadura: number;
 } {
   if (!conRueda(state)) throw new Error('en esta pelea el golpe es de azar: no hay rueda');
   const s = activeStack(state);
@@ -3328,7 +3352,10 @@ export function previsionDeLaRueda(
   // Si el objetivo no devolverá el golpe, lo dicen las notas de las dos fases;
   // quien responde, además, no tiene daño que ver.
   const sinContraataque = contraataqueBlocker(state, desdeAhi, target);
-  if (papel === 'respuesta' && sinContraataque !== null) return { porTipo: null, sinContraataque };
+  const armadura = armaduraDe(contra.unit);
+  if (papel === 'respuesta' && sinContraataque !== null) {
+    return { porTipo: null, sinContraataque, armadura };
+  }
   // Las opciones, una vez; cada tipo pone encima su sector.
   const opciones = opcionesDeDanio(state, quien, contra, extra);
   const piezas = piezasDeLaPelea(state);
@@ -3337,7 +3364,7 @@ export function previsionDeLaRueda(
     const h = horquillaDeDanio(quien, contra, conElGolpe(opciones, delSector(tipo)), piezas);
     porTipo[tipo] = { danio: h.danio, golpes: golpesDe(quien.unit, tipo, devuelve) };
   }
-  return { porTipo, sinContraataque };
+  return { porTipo, sinContraataque, armadura };
 }
 
 function previsionDeHechizo(
@@ -3374,10 +3401,12 @@ function previsionDeLanzar(
   } as const;
   switch (s.kind) {
     case 'damage': {
-      const quedan = trasElGolpe(t, l.cantidad);
+      // Con la resta del hechizo de verdad (`castSpell` → `herir`).
+      const { danio } = trasLaArmadura(l.cantidad, t);
+      const quedan = trasElGolpe(t, danio);
       return {
         ...base,
-        danio: l.cantidad,
+        danio,
         bajas: t.count - quedan.count,
         leQuedan: stackHp({ ...t, ...quedan }),
       };
