@@ -88,7 +88,7 @@ const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
-/** El modo «marcar fallo» (`desarrollo/marcas.ts`): solo en `pnpm dev`. */
+/** El modo «marcar fallo» y la vista de regiones (`desarrollo/herramientas.ts`): solo en `pnpm dev`. */
 let desarrollo: Desarrollo | null = null;
 
 // ---------------------------------------------------------------- dibujo
@@ -610,7 +610,7 @@ session.status =
 pedirFotograma();
 
 if (HERRAMIENTAS_DE_DESARROLLO) {
-  void import('./desarrollo/marcas.js')
+  void import('./desarrollo/herramientas.js')
     .then((m) => {
       desarrollo = m.montar({
         sesion,
@@ -624,6 +624,6 @@ if (HERRAMIENTAS_DE_DESARROLLO) {
     })
     .catch((err: unknown) => {
       console.error('[cliente] no se han podido montar las herramientas de desarrollo', err);
-      elStatus.textContent = `No se ha podido montar «marcar fallo»: ${err instanceof Error ? err.message : String(err)}`;
+      elStatus.textContent = `No se han podido montar las herramientas de desarrollo: ${err instanceof Error ? err.message : String(err)}`;
     });
 }
