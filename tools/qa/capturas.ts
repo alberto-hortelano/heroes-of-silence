@@ -4642,11 +4642,11 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
  * —daga, arco y jubón— contra el orco con dos armas de la IA, que viene a por él.
  */
 /**
- * El orco de la pasada con una lanza de jinete en «Arma de carga»: sin el rasgo
- * Carga no la usa (pelea igual: el ataque y el daño de un arma solo suman a su
- * golpe), pero ya tiene armas por uso, y la barra del golpe del arquero tiene que
- * nombrar el arma con que le devuelve el golpe: el mandoble (H3 del QA,
- * 13-10-2026). Su ficha, de paso, dice que la lanza no se usa.
+ * El orco de la pasada con una lanza de jinete en «Arma de carga»: tiene armas por
+ * uso, y la barra del golpe del arquero tiene que nombrar el arma con que le
+ * devuelve el golpe: el mandoble (H3 del QA, 13-10-2026). Desde que en la arena
+ * carga todo el que pega cuerpo a cuerpo (#260), la lanza se usa al cargar a pie, y
+ * su ficha lo dice; la página se la pone igual, así que pelean lo mismo.
  */
 function orcoConLanza(hojas: ReturnType<typeof hojasDeArena>): UnidadDeArena {
   const orco = deHoja(hojas, 'orko-dos-armas');
@@ -4742,7 +4742,7 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     const esperadas = [
       'Cuerpo a cuerpo ⓘ Espada · Ataque 5 · Daño 20–40',
       'A distancia ⓘ Arco · Ataque 5 · Daño 20–30',
-      'Carga ⓘ Lanza de jinete · Ataque 10 · Daño 50–90',
+      'Carga ⓘ Lanza de jinete · Ataque 10 · Daño 50–90 · +10 %/casilla (3 a 5)',
     ];
     if (JSON.stringify(dichas) !== JSON.stringify(esperadas)) {
       throw new Error(`armas: la ficha del jinete élfico dice ${JSON.stringify(dichas)}`);
@@ -4788,7 +4788,11 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     const filaDeLaLanza = page.locator('#ficha [data-arma-de-la-ficha="carga"]');
     await filaDeLaLanza.waitFor({ timeout: 2000 });
     const dichaLanza = (await filaDeLaLanza.innerText()).replace(/\s+/g, ' ').trim();
-    if (dichaLanza !== 'Carga ⓘ Lanza de jinete · no carga: no se usa') {
+    // A pie también carga (#260): la lanza se usa, con lo que cobra a pie.
+    if (
+      !dichaLanza.startsWith('Carga ⓘ Lanza de jinete · Ataque ') ||
+      !dichaLanza.endsWith(' · +5 %/casilla (3 a 5), a pie')
+    ) {
       throw new Error(`armas: la ficha del orco con lanza dice «${dichaLanza}»`);
     }
     const espejo = espejoDeLasArmas(hojas, semilla);
@@ -4842,9 +4846,11 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
           .slice(antes)
           .find((e) => (e.kind === 'shoot' || e.kind === 'attack') && e.stack !== j.contra.id);
         const arquero = espejo.battle.stacks.find((x) => x.side !== j.contra.side) as BattleStack;
-        const fila = armasDe(arquero.unit, piezasDeLaPelea(espejo.battle)).find(
-          (a) => a.uso === (j.tipo === 'disparo' ? 'distancia' : 'cuerpo'),
-        );
+        const fila = armasDe(
+          arquero.unit,
+          piezasDeLaPelea(espejo.battle),
+          espejo.battle.cargaAPie,
+        ).find((a) => a.uso === (j.tipo === 'disparo' ? 'distancia' : 'cuerpo'));
         if (hecho === undefined || fila === undefined)
           throw new Error(`armas: el ${j.tipo} no se ve en el parte`);
         const debia = j.tipo === 'disparo' ? 'Arco' : 'Daga';
@@ -4884,7 +4890,14 @@ function espejoDeLaRueda(hojas: ReturnType<typeof hojasDeArena>, semilla: number
         heroe: null,
         ia: false,
       },
-      derecha: { unidades: [delBorrador(orcoConLanza(hojas))], heroe: null, ia: true },
+      // El orco de la lista, como el que pulsa la página: sin la lanza de
+      // `orcoConLanza`, que desde que todos cargan en la arena (#260) se usa al
+      // cargar y separaba el espejo de la página.
+      derecha: {
+        unidades: [delBorrador(deHoja(hojas, 'orko-dos-armas'))],
+        heroe: null,
+        ia: true,
+      },
       reglas: REGLAS_DEL_JUEGO,
       piezas: [],
       golpe: 'rueda',
@@ -5709,7 +5722,14 @@ async function todoEnIAConLaRueda(
         heroe: null,
         ia: true,
       },
-      derecha: { unidades: [delBorrador(orcoConLanza(hojas))], heroe: null, ia: true },
+      // El orco de la lista, como el que pulsa la página: sin la lanza de
+      // `orcoConLanza`, que desde que todos cargan en la arena (#260) se usa al
+      // cargar y separaba el espejo de la página.
+      derecha: {
+        unidades: [delBorrador(deHoja(hojas, 'orko-dos-armas'))],
+        heroe: null,
+        ia: true,
+      },
       reglas: REGLAS_DEL_JUEGO,
       piezas: [],
       golpe: 'rueda',

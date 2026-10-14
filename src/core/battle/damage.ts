@@ -12,6 +12,7 @@ import { DICHO_DEL_USO, type EquipoAtado, SIN_ARMA } from '../hero/equipo.js';
 import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
+import { type CifrasDeCarga, cargaEfectiva, causaDeLaCarga, cifrasDeCarga } from './carga.js';
 import { efectoDeTirada, effectiveLuck, effectTotal, type StackEffect } from './effects.js';
 import type { ReglasDeBatalla } from './reglas.js';
 import type { BattleStack } from './types.js';
@@ -34,32 +35,23 @@ export const UNLUCKY_MULTIPLIER = 0.5;
 export const CHANCE_PER_POINT = 1 / 24;
 
 /**
- * Carga: cada hex recorrido antes de golpear suma un 10 % de daño, con tope
- * en cinco hexes (+50 %). La caballería que arranca de lejos pega más que la
- * que ya estaba pegada al enemigo, que es de lo que va el rasgo.
+ * Las casillas de carga que cobra un golpe y con qué cifras: las de su recta
+ * (`chargeHexes`) con el tope, si quien pega carga (`cifrasDeCarga`: el rasgo
+ * Carga, o a pie en la arena, `cargaAPie`); 0 y `null` si no. El contraataque pasa
+ * 0: se contraataca desde el sitio. Se cuenta una vez por golpe (`deUnGolpe`), y
+ * de ella sale también con qué arma va (`usoDelGolpe`).
  */
-export const CHARGE_BONUS_PER_HEX = 0.1;
-export const MAX_CHARGE_HEXES = 5;
-
-/**
- * Las casillas de carga que se COBRAN de una recta de `casillas`: el tope, y
- * nada más. Cuándo hay recta lo dice `cargaDesde` (`battle.ts`); esto es lo que
- * vale, y lo leen el golpe y el anuncio (`casillasDeCarga`), así que un «»7»
- * pintado no puede acabar cobrando 5.
- */
-export function cargaEfectiva(casillas: number): number {
-  return Math.min(casillas, MAX_CHARGE_HEXES);
+function cargaCobrada(
+  unit: UnitInfo,
+  opts: Pick<DamageOptions, 'chargeHexes' | 'cargaAPie'>,
+): { readonly charge: number; readonly cifras: CifrasDeCarga | null } {
+  const cifras = cifrasDeCarga(unit, opts.cargaAPie === true);
+  if (cifras === null) return SIN_CARGA;
+  const charge = cargaEfectiva(opts.chargeHexes ?? 0, cifras);
+  return charge > 0 ? { charge, cifras } : SIN_CARGA;
 }
 
-/**
- * Las casillas de carga que cobra un golpe: las de su recta (`chargeHexes`) con
- * el tope, si quien pega tiene el rasgo Carga; 0 si no. El contraataque pasa 0:
- * se contraataca desde el sitio. Se cuenta una vez por golpe (`deUnGolpe`), y de
- * ella sale también con qué arma va (`usoDelGolpe`).
- */
-function cargaCobrada(unit: UnitInfo, opts: Pick<DamageOptions, 'chargeHexes'>): number {
-  return hasTrait(unit, 'charge') ? cargaEfectiva(opts.chargeHexes ?? 0) : 0;
-}
+const SIN_CARGA = Object.freeze({ charge: 0, cifras: null });
 
 /**
  * Con qué arma se da un golpe (13-10-2026, «cada arma para lo suyo»): el disparo,
@@ -70,9 +62,9 @@ function cargaCobrada(unit: UnitInfo, opts: Pick<DamageOptions, 'chargeHexes'>):
  */
 export function usoDelGolpe(
   unit: UnitInfo,
-  opts: Pick<DamageOptions, 'ranged' | 'chargeHexes'>,
+  opts: Pick<DamageOptions, 'ranged' | 'chargeHexes' | 'cargaAPie'>,
 ): UsoDeArma {
-  return usoConCarga(opts, cargaCobrada(unit, opts));
+  return usoConCarga(opts, cargaCobrada(unit, opts).charge);
 }
 
 /** `usoDelGolpe` con la carga ya cobrada: la cuenta del daño la tiene y no la repite. */
@@ -129,30 +121,44 @@ export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'arma'> {
   readonly arma: string | null;
   /**
    * Por qué ese golpe no se da nunca, dicho para quien juega (`DICHO_DEL_USO`), o
-   * `null` si se da: un arma de carga sin el rasgo Carga. La de distancia se usa
+   * `null` si se da: un arma de carga en quien no carga. La de distancia se usa
    * siempre: llevarla ya es disparar (sin munición, 13-10-2026).
    */
   readonly sinUso: string | null;
+  /** En la fila de la carga, lo que cobra (`cifrasDeCarga`); en las demás, `null`. */
+  readonly carga: CifrasDeCarga | null;
 }
 
 /**
  * Las armas de una unidad, una fila por uso (`golpeDe`), con el nombre de cada
  * arma en `piezas`: lo que enseña la ficha de la arena. El cuerpo a cuerpo,
  * siempre; el disparo, si dispara (`isShooter`: lleva arma a distancia o es un
- * tirador del catálogo); la carga, si lleva arma de carga o el rasgo. Un arma de
- * carga puesta sin el rasgo sale igual, con su motivo: callada, ocupaba su hueco y
- * la ficha no la nombraba (H1 del QA de las armas por uso, 13-10-2026).
+ * tirador del catálogo); la carga, si lleva arma de carga o carga
+ * (`cifrasDeCarga`: el rasgo, o a pie si la pelea lo juega, `cargaAPie`). Un arma
+ * de carga puesta en quien no carga sale igual, con su motivo: callada, ocupaba su
+ * hueco y la ficha no la nombraba (H1 del QA de las armas por uso, 13-10-2026).
  */
-export function armasDe(unit: UnitInfo, piezas: EquipoAtado): ArmaDeLaUnidad[] {
-  const fila = (uso: UsoDeArma, sinUso: string | null = null): ArmaDeLaUnidad => {
+export function armasDe(unit: UnitInfo, piezas: EquipoAtado, cargaAPie: boolean): ArmaDeLaUnidad[] {
+  const fila = (
+    uso: UsoDeArma,
+    sinUso: string | null = null,
+    carga: CifrasDeCarga | null = null,
+  ): ArmaDeLaUnidad => {
     const { arma, attack, damage } = golpeDe(unit, uso);
-    return { uso, arma: arma === null ? null : piezas.pieza(arma).nombre, attack, damage, sinUso };
+    return {
+      uso,
+      arma: arma === null ? null : piezas.pieza(arma).nombre,
+      attack,
+      damage,
+      sinUso,
+      carga,
+    };
   };
   const filas = [fila('cuerpo')];
   if (isShooter(unit)) filas.push(fila('distancia'));
-  const carga = hasTrait(unit, 'charge');
-  if (unit.armas?.carga !== undefined || carga) {
-    filas.push(fila('carga', carga ? null : DICHO_DEL_USO.carga.sinUso));
+  const carga = cifrasDeCarga(unit, cargaAPie);
+  if (unit.armas?.carga !== undefined || carga !== null) {
+    filas.push(fila('carga', carga === null ? DICHO_DEL_USO.carga.sinUso : null, carga));
   }
   return filas;
 }
@@ -269,6 +275,8 @@ export interface DamageResult {
    * había quedado en los 5 que caben en +50 %.
    */
   readonly charge: number;
+  /** Si esa carga fue a pie (`CifrasDeCarga.aPie`, solo la arena): el registro lo dice. */
+  readonly cargaAPie: boolean;
 }
 
 /**
@@ -283,6 +291,12 @@ export interface DamageOptions {
   readonly ranged?: boolean;
   readonly distance?: number;
   readonly chargeHexes?: number;
+  /**
+   * La batalla juega la carga a pie (`BattleState.cargaAPie`, solo la arena): la
+   * pone `opcionesDeDanio` desde el estado, como las reglas. Sin ella carga solo
+   * quien tiene el rasgo (`cifrasDeCarga`).
+   */
+  readonly cargaAPie?: true;
   /**
    * Lo que el héroe del que pega le suma al ataque y el del que recibe a la
    * defensa: el interruptor (f) en fheroes2. 0 en el juego.
@@ -419,14 +433,13 @@ function applyModifiers(
   }
 
   // Carga. El contraataque pasa siempre 0 hexes: se contraataca desde el sitio.
-  const { charge } = golpe;
-  if (charge > 0) {
-    const f = 1 + charge * CHARGE_BONUS_PER_HEX;
+  // `1 + casillas × porCasilla`, la misma cuenta y en el mismo orden que con el
+  // 0.1 escrito: el jinete del juego cobra lo mismo hasta el último decimal.
+  const { charge, cifrasDeCarga: cifras } = golpe;
+  if (cifras !== null) {
+    const f = 1 + charge * cifras.porCasilla;
     base *= f;
-    anotar?.push({
-      causa: `carga de ${charge} ${charge === 1 ? 'casilla' : 'casillas'}`,
-      factor: f,
-    });
+    anotar?.push({ causa: causaDeLaCarga(charge, cifras), factor: f });
   }
 
   // La rueda, al final de todo: Fuerte y Rápido multiplican el golpe ya hecho.
@@ -445,12 +458,14 @@ function applyModifiers(
  */
 interface DeUnGolpe {
   readonly charge: number;
+  /** Con qué cifras cobra la carga; `null` si no carga (y `charge` es 0). */
+  readonly cifrasDeCarga: CifrasDeCarga | null;
   readonly uso: UsoDeArma;
 }
 
 function deUnGolpe(attacker: BattleStack, opts: DamageOptions): DeUnGolpe {
-  const charge = cargaCobrada(attacker.unit, opts);
-  return { charge, uso: usoConCarga(opts, charge) };
+  const { charge, cifras } = cargaCobrada(attacker.unit, opts);
+  return { charge, cifrasDeCarga: cifras, uso: usoConCarga(opts, charge) };
 }
 
 /**
@@ -563,6 +578,7 @@ export function computeDamage(
   const roll = tiradaDe(attacker, opts, golpe.uso, rng);
   let base = applyModifiers(roll * attacker.count, attacker, defender, opts, golpe);
   const { charge } = golpe;
+  const cargaAPie = golpe.cifrasDeCarga?.aPie === true;
 
   const luck = effectiveLuck(attacker);
   let lucky = false;
@@ -575,7 +591,7 @@ export function computeDamage(
     base *= UNLUCKY_MULTIPLIER;
   }
 
-  return { damage: danioFinal(base), lucky, unlucky, charge };
+  return { damage: danioFinal(base), lucky, unlucky, charge, cargaAPie };
 }
 
 /** Una horquilla de daño: lo menos y lo más que puede quitar un golpe. */

@@ -255,6 +255,8 @@ export type BattleEvent =
       killed: number;
       retaliation: boolean;
       charge?: number;
+      /** La carga fue a pie (`CifrasDeCarga.aPie`): solo en la arena, que la juega. */
+      cargaAPie?: true;
       /** Con la rueda del golpe (la arena), el punto del cruce en que cayó. */
       punto?: Punto;
     }
@@ -428,6 +430,12 @@ export interface BattleState {
    * quien lo guarda (la sesión). Siempre `null` al azar y en el juego.
    */
   golpeEnCurso: GolpeEnCurso | null;
+  /**
+   * Si carga todo el que pega cuerpo a cuerpo, a pie, además del rasgo `charge`
+   * (#260, `cifrasDeCarga`). Se pone al montarla y no cambia: en el juego,
+   * siempre `false`; solo la arena carga a pie (`batallaDeArena`).
+   */
+  readonly cargaAPie: boolean;
   /**
    * De qué tipo del montaje sale cada stack de la tropa, por bando y en el orden
    * de su `slot`: una hoja del borrador o una criatura del catálogo. Solo la

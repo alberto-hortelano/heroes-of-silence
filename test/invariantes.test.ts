@@ -764,6 +764,77 @@ describe('invariantes del proyecto', () => {
     expect([...new Set(fuera)]).toEqual([]);
   });
 
+  it('solo la arena carga a pie (#260): el juego carga solo con el rasgo `charge`', async () => {
+    // La carga a pie es otra regla de la arena: la enciende `BattleState.cargaAPie`,
+    // que pone `crearBatallaConReglas` (ya vigilada arriba) con lo que le pasa
+    // `batallaDeArena` (`CARGA_A_PIE_EN_LA_ARENA`). Dos guardias:
+    //  1. Por conducta: la misma unidad sin el rasgo, en la misma recta, no carga
+    //     por `createBattle` y carga por la arena. Muerde con la puerta del juego
+    //     encendida por dentro de `battle/`, que el texto de arriba no mira.
+    //  2. Por escritura: fuera del motor, la arena del núcleo y su página, nadie
+    //     escribe `cargaAPie: true` ni nombra `CARGA_A_PIE_EN_LA_ARENA`.
+    // Roto a mano (14-10-2026): `cargaAPie: true` en el `BattleState` de
+    // `createBattle` sale rojo por (1), y un `cargaAPie: true` en `state/game.ts`
+    // y un `CARGA_A_PIE_EN_LA_ARENA` en `views/panels.ts`, por (2), con su línea.
+    const { applyAction, cargaDesde, casillasDeCarga, createBattle, stackById } = await import(
+      '../src/core/battle/battle.js'
+    );
+    const { batallaDeArena } = await import('../src/core/arena.js');
+    const { delBorrador, forzarTurno, MONTAJE, unidadDeArena } = await import('./helpers.js');
+    // Un piquero del juego y el guerrero con escudo de la arena, sin `charge`,
+    // con el rival a 4 casillas en recta.
+    const enRecta = (b: ReturnType<typeof createBattle>): number => {
+      stackById(b, 'attacker-0').hex = { col: 0, row: 4 };
+      stackById(b, 'defender-0').hex = { col: 5, row: 4 };
+      forzarTurno(b, 'attacker-0');
+      const s = stackById(b, 'attacker-0');
+      const recta = cargaDesde(b, s, { col: 4, row: 4 }, stackById(b, 'defender-0'));
+      expect(casillasDeCarga(b, s).length).toBe(recta > 0 ? 1 : 0);
+      applyAction(
+        b,
+        { type: 'attack', target: 'defender-0', from: { col: 4, row: 4 } },
+        createRng(1),
+      );
+      const golpe = b.log.find((e) => e.kind === 'attack' && !e.retaliation);
+      expect(golpe?.kind === 'attack' ? (golpe.charge ?? 0) : -1).toBe(recta > 0 ? 4 : 0);
+      return recta;
+    };
+    const juego = createBattle(
+      { army: [{ creature: 'swordsman', count: 3 }], hero: null },
+      { army: [{ creature: 'pikeman', count: 3 }], hero: null },
+      createRng(1),
+    );
+    expect(juego.cargaAPie).toBe(false);
+    expect(enRecta(juego)).toBe(0);
+    const arena = batallaDeArena(
+      {
+        izquierda: {
+          unidades: [delBorrador(unidadDeArena('templario-escudo', { casillas: 7 }))],
+          heroe: null,
+        },
+        derecha: { unidades: [delBorrador(unidadDeArena('zombi'))], heroe: null },
+        ...MONTAJE,
+      },
+      createRng(1),
+    );
+    expect(arena.cargaAPie).toBe(true);
+    expect(enRecta(arena)).toBe(4);
+
+    const enciende = /\bcargaAPie\s*:\s*true\b|\bCARGA_A_PIE_EN_LA_ARENA\b/;
+    const puede = (r: string): boolean =>
+      r.startsWith('src/core/battle/') ||
+      r === 'src/core/arena.ts' ||
+      r.startsWith('src/client/arena/');
+    const colados: string[] = [];
+    for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')]) {
+      if (puede(ruta)) continue;
+      for (const [i, linea] of sinComentarios(leer(ruta)).split('\n').entries()) {
+        if (enciende.test(linea)) colados.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(colados).toEqual([]);
+  });
+
   it('el cliente no aplica reglas: la única puerta al núcleo es session.ts', () => {
     // El cliente pinta y manda intenciones. Cuando la partida se juegue por
     // WebSocket, lo que cambia es esa capa y solo esa — pero solo si nadie más

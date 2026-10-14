@@ -932,7 +932,12 @@ function jineteALaCarga(): { s: SesionDeArena; ataque: BattleAction & { type: 'a
   stackById(s.battle, 'defender-0').hex = { col: 6, row: 4 };
   const ataque = { type: 'attack', target: 'defender-0', from: DESDE } as const;
   expect(s.battleLegalActions()).toContainEqual(ataque);
-  expect(s.battleCharges()).toContainEqual({ target: 'defender-0', at: DESDE, hexes: 5 });
+  expect(s.battleCharges()).toContainEqual({
+    target: 'defender-0',
+    at: DESDE,
+    hexes: 5,
+    porciento: 50,
+  });
   return { s, ataque };
 }
 

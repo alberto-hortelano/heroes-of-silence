@@ -10,6 +10,7 @@ import {
   applyAction,
   CARGA_MINIMA,
   canReachMelee,
+  cargaDelStack,
   cargaDesde,
   cerradasPara,
   distanciaACaminar,
@@ -31,7 +32,8 @@ import {
   sumaDelBando,
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
-import { cargaEfectiva, expectedDamage, stackHp, valorDeEfectoDeDanio } from '../battle/damage.js';
+import { CARGA, cargaEfectiva } from '../battle/carga.js';
+import { expectedDamage, stackHp, valorDeEfectoDeDanio } from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
 import {
   claveDeAbiertas,
@@ -508,12 +510,14 @@ type CargaContra = Extract<BattleAction, { type: 'attack' }> & { from: Hex };
  *
  * 1. **Máxima carga cobrada.** Es lo único que distingue una casilla de otra:
  *    `computeDamage` no mira el hex más que por la carga, y el daño crece
- *    estrictamente con ella —multiplica por `1 + carga × 10 %`—, así que
+ *    estrictamente con ella —multiplica por `1 + carga × su tanto por ciento`,
+ *    que es el mismo para todas las casillas de una unidad—, así que
  *    ordenar por la carga cobrada es ordenar por daño esperado sin calcularlo.
  *    La dicen `cargaDesde` y `cargaEfectiva`, las mismas que la cobran: en
  *    línea recta, a 3 casillas o más, con el objetivo en la recta y con el
- *    tope de 5 (02-10-2026). Sin el rasgo, `cargaDesde` da 0 en todas y no se
- *    calcula nada más.
+ *    tope de 5 (02-10-2026). Quien no carga (`cargaDelStack`: sin el rasgo, en
+ *    el juego) da 0 en todas y no se calcula nada más; en la arena carga todo
+ *    el que pega cuerpo a cuerpo (#260) y se mide la recta de cada casilla.
  * 2. **Coste mínimo**, que es lo que queda cuando la carga empata: sin `charge`
  *    empatan todas.
  * 3. **El primero en el orden de enumeración**, que hoy es el que decide de
@@ -540,6 +544,7 @@ function mejorCarga(
 ): BattleAction {
   // Las ocupadas no cambian de una casilla candidata a otra: se piden una vez.
   const bloqueadas = cerradasPara(state, s);
+  const cifras = cargaDelStack(state, s);
 
   let mejor = cargas[0] as CargaContra;
   let cargaMejor = -1;
@@ -553,7 +558,10 @@ function mejorCarga(
       throw new Error(`${s.id} no alcanza (${a.from.col},${a.from.row}): la lista legal miente`);
     }
     const coste = paso.steps;
-    const carga = cargaEfectiva(cargaDesde(state, s, a.from, objetivo, bloqueadas));
+    const carga =
+      cifras === null
+        ? 0
+        : cargaEfectiva(cargaDesde(state, s, a.from, objetivo, bloqueadas), cifras);
     if (carga > cargaMejor || (carga === cargaMejor && coste < mejorCoste)) {
       mejor = a;
       cargaMejor = carga;
@@ -607,7 +615,10 @@ function pasoParaCargar(
   acciones: readonly BattleAction[],
   costes: ReadonlyMap<string, Paso>,
 ): Hex | null {
+  // Solo el jinete se coloca para cargar: que la IA busque la recta también a pie
+  // en la arena (#260) queda para después de medir cuántas cargas hace sin ello.
   if (!hasTrait(s.unit, 'charge')) return null;
+  const cifras = CARGA.jinete;
   const bloqueadas = cerradasPara(state, s);
   if (golpes.some((a) => cargaDesde(state, s, a.from, objetivo, bloqueadas) > 0)) return null;
 
@@ -634,7 +645,7 @@ function pasoParaCargar(
     const puesta = { ...s, hex: a.to };
     for (const desde of desdes) {
       if (hexDistance(a.to, desde) > resto) continue;
-      const carga = cargaEfectiva(cargaDesde(state, puesta, desde, objetivo, bloqueadas));
+      const carga = cargaEfectiva(cargaDesde(state, puesta, desde, objetivo, bloqueadas), cifras);
       if (carga > cargaMejor) {
         mejor = a.to;
         cargaMejor = carga;

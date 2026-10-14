@@ -14,7 +14,6 @@
  */
 import { type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/battle.js';
 import { allHexes, hexKey, indiceDe } from '@core/battle/board.js';
-import { CHARGE_BONUS_PER_HEX } from '@core/battle/damage.js';
 import {
   type EstadoDePuerta,
   hayMuralla,
@@ -1303,12 +1302,9 @@ function pintarCargas(
   ctx.font = `bold ${Math.max(9, Math.round(t.paso * 0.22))}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (const { target, at, hexes } of cargas) {
+  for (const { target, at, hexes, porciento } of cargas) {
     const c = centroHex(t, at);
-    const texto =
-      angulo?.objetivo === target
-        ? `+${Math.round(hexes * CHARGE_BONUS_PER_HEX * 100)} %`
-        : `»${hexes}`;
+    const texto = angulo?.objetivo === target ? `+${porciento} %` : `»${hexes}`;
     ctx.lineWidth = 3;
     ctx.strokeStyle = '#2a1a0acc';
     ctx.strokeText(texto, c.x, c.y);

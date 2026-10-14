@@ -179,6 +179,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Lanzar sobre un objetivo (hechizo del héroe y poder de una unidad) | `Lanzador` (`delHeroe`, el del poder), `efectoDe`, `curaDe` (`battle/spells.ts`); en la batalla, `lanzarSobre`; el objetivo, `objetivoBlocker` |
 | Poderes activos de unidad (solo la arena) | `poderBlocker` (`battle.ts`), cifras en `data/poderes.json` (inventadas); `UnitInfo.poderes` lo pone solo `core/arena.ts` |
 | Cambiar cifras a media pelea (arena) | `retocarEnBatalla` (`core/arena.ts`, lo gastado se conserva con `gastadoDeMas`); el tipo de un stack, `tipoDelStack`; el parte, el evento `retoque` |
+| Quién carga y cuánto | `cifrasDeCarga` (`battle/carga.ts`, cifras en `data/carga.json`: el rasgo `charge`, la del jinete; sin él, a pie si `BattleState.cargaAPie`); en la batalla, `cargaDelStack`; lo que se pinta, `CasillaDeCarga.porciento`; la frase, `dichoDeLaCarga` (parte) y `causaDeLaCarga` (previsión). La carga a pie la enciende solo la arena (`CARGA_A_PIE_EN_LA_ARENA` → `batallaDeArena` → `crearBatallaConReglas`; lo vigila `invariantes.test.ts`) |
 
 `test/invariantes.test.ts` vigila las fronteras de esta sección. Todos nacen en
 verde.
@@ -205,6 +206,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Turno de una unidad | **regla nuestra**: se mueve en tramos hasta gastar su velocidad; atacar lo cierra; tras moverse no dispara, ni defiende, ni espera |
 | Esperar | **regla nuestra** (fheroes2 no tiene espera: su `SKIP` cierra el turno): vuelve al final de la ronda, y los que esperan salen por orden de llegada, no por velocidad (#81) |
 | Carga (`charge`) | **regla nuestra**: +10 %/casilla, tope 5, en línea recta de ≥ 3 sin unidades en medio y con el objetivo en la recta |
+| Carga a pie | **regla nuestra, solo la arena** (#260, 14-10-2026): todo el que pega cuerpo a cuerpo sin `charge` (también el tirador con la daga y el héroe) carga con la misma recta, +5 %/casilla, tope 5 (inventado, `data/carga.json`); el jinete sigue a +10 %. El juego no carga a pie (`pnpm banco` igual). La IA no busca la recta a pie: en 100 peleas IA contra IA, 38 cargas a pie en 1 105 golpes y 71 de jinete en 389 |
 | `fear` del dragón óseo | **divergencia deliberada**: ataque −2 durante 2 rondas (no aura de moral) |
 | Victoria | **regla nuestra**: perder la base elimina en el acto |
 | Rueda del golpe | **regla nuestra, solo la arena** (`?golpe=rueda`, 13-10-2026): al golpear cuerpo a cuerpo, quien pega y quien recibe eligen a ciegas un tipo en un anillo (rápido, defensivo, finta, fuerte, r.guardia, ofensivo; Normal en el centro); el cruce fija la tirada (`min + ⌊(max − min) · p / 4⌋`, por la distancia en el anillo: 0, 1, 3, 4; con Normal, 2) y la respuesta es el contraataque, en `4 − p`. Fuerte ×1,25, Rápido 2 golpes ×0,6, Ofensivo +1 ataque, Defensivo +1 defensa; Romper guardia −1 defensa y Finta −1 ataque al rival al acabar el intercambio. Los efectos duran hasta que el afectado termine su próximo turno (`StackEffect.hastaElTurno`, tope de 2 rondas). Cifras inventadas en `data/rueda.json`; el disparo, con su tirada |
