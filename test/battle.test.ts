@@ -156,7 +156,7 @@ describe('aplicación de daño a un stack', () => {
   it('mata efectivos enteros y deja al de arriba herido', () => {
     const s = stackOf('swordsman', 10); // 250 PV cada uno
     expect(stackHp(s)).toBe(2500);
-    const killed = herir(s, 600, null);
+    const killed = herir(s, 600, null).muertos;
     expect(killed).toBe(2);
     expect(s.count).toBe(8);
     expect(stackHp(s)).toBe(1900);
@@ -164,14 +164,14 @@ describe('aplicación de daño a un stack', () => {
 
   it('un daño menor que un efectivo no mata a nadie', () => {
     const s = stackOf('swordsman', 3);
-    expect(herir(s, 50, null)).toBe(0);
+    expect(herir(s, 50, null).muertos).toBe(0);
     expect(s.count).toBe(3);
     expect(s.topHp).toBe(200);
   });
 
   it('el exceso de daño no resucita ni deja restos', () => {
     const s = stackOf('peasant', 4);
-    expect(herir(s, 9999, null)).toBe(4);
+    expect(herir(s, 9999, null).muertos).toBe(4);
     expect(s.count).toBe(0);
     expect(stackHp(s)).toBe(0);
   });

@@ -4564,3 +4564,36 @@ arena» (`docs/agents/2026-10-13-arena-sin-municion-ni-tamanos/`). Solo la arena
   una muralla de ejemplo y sin escaleras, 74 de 300 sin terminar con un tirador por bando (122 con la
   munición de antes) y 161 de 300 sin tiradores: lo que no termina es la muralla sin escalera, no el
   tiro.
+
+## La armadura de la arena: puntos que se restan del daño (#262, 14-10-2026)
+
+Petición del usuario: «Que las armaduras den puntos de armadura, no de vida, los puntos de armadura
+se restan del daño final» (`docs/agents/2026-10-14-armadura/`). Solo la arena: las piezas del juego
+siguen con PV, el agente no ve la armadura y `pnpm banco` quedó en `066767b4…`.
+
+- **Dónde se resta: dentro de `herir`** (opción A del plan). `herir` ya era la única forma de quitar
+  vida, así que el golpe, el contraataque, cada golpe de Rápido o del doble golpe, cada tiro, la
+  salpicadura (con la armadura de cada salpicado, que reparte el daño del disparo y no el que llegó al
+  objetivo), el hechizo y el poder la pagan sin un sitio donde olvidarla. Se descartaron restarla en
+  `computeDamage` (tres sitios más: la salpicadura, `castSpell` y quien leyera el bruto) y como un
+  modificador de `applyModifiers` (quedaba antes de la suerte y del redondeo, en contra del orden
+  acordado con las hermanas de la carga y de R. guardia: ataque y defensa, multiplicadores y la
+  armadura al final). `herir` devuelve `{ muertos, danio, parado }` y el registro anota lo que llegó
+  y, si paró algo, `armadura` (solo entonces: el banco hashea el registro). La previsión y la IA
+  llaman a la misma resta (`trasLaArmadura`); es monótona, así que la horquilla sigue siendo justa.
+- **Por calidad, no por hueco** (decisión tras el plan): la calidad `arena` lleva armadura y no PV y
+  las demás PV y no armadura (`problemasDePieza`). Así el editor no reescribe nada al cambiar una pieza
+  de hueco, una del juego cambiada en el borrador no puede llevarla (su calidad no se cambia) y una del
+  juego duplicada como nueva pasa sus PV a armadura. `UnitInfo.puntosDeArmadura` (con otro nombre que
+  el hueco `armadura`, para que se encuentre buscándolo) lo escribe solo `conEquipo` y solo si es > 0.
+- **Lo de antes, PV / 10 al entero más cercano**: una pieza de la arena con PV de un borrador o de un
+  enlace hasta la versión 8 se lee con armadura y lo dice; el enlace sube a la 9 (`CON_ARMADURA`) y
+  desde ella una pieza de la arena con PV se rechaza. Las unidades de antes del equipo (enlaces de la
+  1 a la 4 y borradores sin cuerpo) contaban en su vida los PV de la armadura del kit: su cuerpo pierde
+  esos PV y el aviso dice que ahora lleva la armadura (comprobado al revés con `conLaArmaduraEnPV`).
+- **El equilibrio, medido** (`docs/agents/2026-10-14-armadura/medida-armadura.mts`, 100 semillas, IA contra IA, sin héroes, reglas
+  del juego y golpe de azar): tres contra tres al azar, 1 de 100 peleas sin terminar con la barda, 0
+  sin ella (y 0 con los 220 PV de antes); un jinete contra tres de arco, ballesta o bastón gana 97 de
+  100 con la barda, 2 sin ella y 92 con los PV de antes, y la armadura para del todo el 46 % de los
+  golpes que recibe. La barda (22) casi iguala a la de antes en lo que gana; la pelea colgada
+  es una sola, y si molesta, se ajusta en el JSON, sin código.

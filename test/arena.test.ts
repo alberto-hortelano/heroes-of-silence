@@ -85,7 +85,7 @@ import {
   stackById,
   stackHexes,
 } from '../src/core/battle/battle.js';
-import { armasDe } from '../src/core/battle/damage.js';
+import { armaduraDe, armasDe } from '../src/core/battle/damage.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO, reglasDeLaURL } from '../src/core/battle/reglas.js';
 import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
@@ -98,6 +98,7 @@ import {
   LIDERAZGO,
 } from '../src/core/data.js';
 import { ESCALA_DE_CIFRAS } from '../src/core/escala.js';
+import { conLaArmaduraEnPV } from '../src/core/hero/equipo.js';
 import { HERO_BODY } from '../src/core/hero/hero.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { CREATURE_TRAITS, SPEED_TIERS, SPEED_TO_HEXES } from '../src/core/types.js';
@@ -246,17 +247,19 @@ describe('la arena pelea con las cifras del borrador', () => {
     expect(s?.topHp).toBe(21);
   });
 
-  it('con equipo pelea con el cuerpo más las piezas, entra con los PV de su armadura y se pinta con su cuerpo', () => {
-    // El escudo resta un escalón, la brigantina suma 70 PV y la espada 2 de
-    // ataque y 10-30 de daño (`data/equipo.json`, calidad «arena»).
+  it('con equipo pelea con el cuerpo más las piezas, entra con los puntos de su armadura y se pinta con su cuerpo', () => {
+    // El escudo resta un escalón, la brigantina da 7 de armadura y ningún PV
+    // (#262) y la espada 2 de ataque y 10-30 de daño (`data/equipo.json`, calidad
+    // «arena»).
     const u = unidad('templario-escudo');
     expect(u.equipo).toEqual({ arma: 'espada', armadura: 'brigantina', escudo: 'escudo' });
     const b = pelea([u], [unidad('zombi')], createRng(1));
     const s = b.stacks.find((x) => x.side === 'attacker') as BattleStack;
     expect(s.body).toBe('templario-escudo');
-    expect(s.unit).toMatchObject({ attack: 5, defense: 7, damage: [20, 40], hp: 150 });
+    expect(s.unit).toMatchObject({ attack: 5, defense: 7, damage: [20, 40], hp: 80 });
+    expect(armaduraDe(s.unit)).toBe(7);
     expect(SPEED_TO_HEXES[s.unit.speed]).toBe(3);
-    expect(s.topHp).toBe(150);
+    expect(s.topHp).toBe(80);
     // El nivel, el del cuerpo: el equipo no cuenta.
     expect(s.unit.sinEquipo).toMatchObject({ attack: 3, defense: 3, damage: [10, 10], hp: 80 });
   });
@@ -1416,7 +1419,10 @@ describe('la arena como banco de combate', () => {
       const s = new SesionDeArena(
         {
           izquierda: { ...ia(unidad('templario-escudo')), heroe: MAGO },
-          derecha: ia(unidad('orko-dos-armas')),
+          // Con vida que quitar: desde que el arnés da armadura y no 100 PV (#262),
+          // el orko de 80 PV no paga los 3 de maná de la Flecha mágica
+          // (`VALOR_MINIMO_POR_MANA`: lo que quita, con el tope de su vida).
+          derecha: ia(unidad('orko-dos-armas', { hp: 200 })),
           reglas: REGLAS_DEL_JUEGO,
           piezas: [],
         },
@@ -1612,6 +1618,20 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   });
 
   /**
+   * Lo que dice la conversión de las unidades de `MONTAJE` de antes del equipo: su
+   * vida contaba los PV de la armadura del kit, que hoy da puntos de armadura (#262).
+   */
+  const AVISOS_DE_LA_ARMADURA = [
+    ['Guerrero con escudo', 70, 7],
+    ['Piquero', 100, 10],
+    ['Zombie', 70, 7],
+    ['Orko con dos armas', 100, 10],
+  ].map(
+    ([nombre, pv, a]) =>
+      `La unidad «${nombre}» contaba en su vida ${pv} PV de su armadura: ahora lleva ${a} de armadura, que se resta del daño de cada golpe.`,
+  );
+
+  /**
    * `MONTAJE` escrito como lo escribía la versión 4: cada unidad con el id de su
    * hoja, sin cuerpo ni equipo y con las cifras con las que pelea (las de su
    * perfil), y los puestos por `hoja`.
@@ -1632,7 +1652,9 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
         attack: c.attack,
         defense: c.defense,
         damage: [...c.damage],
-        hp: c.hp,
+        // Antes de la armadura (#262) la vida contaba sus PV: lo que escribía el
+        // enlace de entonces.
+        hp: conLaArmaduraEnPV(c).hp,
         casillas: SPEED_TO_HEXES[c.speed],
         traits: u.traits,
         habilidades: u.habilidades,
@@ -1654,7 +1676,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
       'el montaje del enlace es de la versión 4, de antes del equipo, y para leerlo hace falta el perfil de cada hoja',
     );
     const leido = montajeDeLaURL(v4, perfilDe);
-    expect(leido).toEqual({ ...MONTAJE, version: 4 });
+    expect(leido).toEqual({ ...MONTAJE, version: 4, avisos: AVISOS_DE_LA_ARMADURA });
     expect(leido.unidades[0]?.equipo).toEqual({
       arma: 'espada',
       armadura: 'brigantina',
@@ -1688,10 +1710,10 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('un enlace de la versión 3 (PV y daño de fheroes2) se lee a la escala de hoy', () => {
     const o = enLaVersion3();
     expect(o.unidades[0].hp).toBe(
-      unidadDeCombate(MONTAJE.unidades[0]!, DEL_JUEGO).hp / ESCALA_DE_CIFRAS,
+      conLaArmaduraEnPV(unidadDeCombate(MONTAJE.unidades[0]!, DEL_JUEGO)).hp / ESCALA_DE_CIFRAS,
     );
     const leido = montajeDeLaURL(JSON.stringify(o), perfilDe);
-    expect(leido).toEqual({ ...MONTAJE, version: 3 });
+    expect(leido).toEqual({ ...MONTAJE, version: 3, avisos: AVISOS_DE_LA_ARMADURA });
     // Y se reescribe en la versión de ahora, que ya no se escala al leerla.
     const reescrito = montajeALaURL(leido);
     expect(JSON.parse(reescrito).v).toBe(VERSION_DEL_ENLACE);
@@ -1718,14 +1740,14 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
 
   it('un enlace de la versión 2 (quién mueve, por puesto) se sigue leyendo', () => {
     const leido = montajeDeLaURL(JSON.stringify(enLaVersion2(false)), perfilDe);
-    expect(leido).toEqual({ ...MONTAJE, version: 2 });
-    expect(leido.avisos).toBeUndefined();
+    expect(leido).toEqual({ ...MONTAJE, version: 2, avisos: AVISOS_DE_LA_ARMADURA });
     // Repartido entre tú y la IA: el bando lo mueves tú entero, y se dice.
     const repartido = montajeDeLaURL(JSON.stringify(enLaVersion2(true)), perfilDe);
     expect(repartido.derecha.ia).toBe(false);
     expect(repartido.izquierda.ia).toBe(false);
     expect(repartido.avisos).toEqual([
       'El enlace repartía el bando derecho entre tú y la IA: ahora lo mueves tú entero.',
+      ...AVISOS_DE_LA_ARMADURA,
     ]);
     // Y se reescribe en la versión de ahora, sin el aviso.
     const reescrito = JSON.parse(montajeALaURL(repartido));
@@ -1828,7 +1850,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('un enlace mal formado o con lo que no existe se rechaza diciendo qué', () => {
     const casos: [string, string][] = [
       ['{"v":1,', 'el montaje del enlace no se puede leer'],
-      [tocado((o) => (o.v = 9)), 'es de la versión 9 y esta arena lee de la 1 a la 8'],
+      [tocado((o) => (o.v = 10)), 'es de la versión 10 y esta arena lee de la 1 a la 9'],
       // La versión es un entero de la 1 a la de hoy: ni 0, ni a medias, ni texto.
       [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena'],
       [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena'],
@@ -2549,16 +2571,21 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
   it('un borrador de antes se convierte a cuerpo + el equipo de su perfil, una sola vez', () => {
     const viejo = deAntes('templario-escudo');
     const { unidad: leida, aviso } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO, 'borrador');
-    expect(aviso).toBeNull();
+    // Su vida contaba los 70 PV de la brigantina, que hoy da 7 de armadura (#262).
+    expect(aviso).toBe(
+      'La unidad «Guerrero con escudo» contaba en su vida 70 PV de su armadura: ahora lleva 7 de armadura, que se resta del daño de cada golpe.',
+    );
     const u = leida!;
     const kit = KIT_DEL_PERFIL['espada-escudo'].equipo;
     expect(u.equipo).toEqual(kit);
-    // El cuerpo es lo de antes menos lo que suma el kit.
+    // El cuerpo es lo de antes menos lo que suma el kit, con la armadura en PV
+    // (PV / 10 al revés: 7 puntos son 70 PV de antes).
     const suma = DEL_JUEGO.sumaDeEquipo(kit);
+    expect(suma.armadura).toBe(7);
     expect([u.attack, u.defense, u.hp]).toEqual([
       (viejo.attack as number) - suma.ataque,
       (viejo.defense as number) - suma.defensa,
-      (viejo.hp as number) - suma.pv,
+      (viejo.hp as number) - suma.pv - 70,
     ]);
     // Lo convertido ya es de hoy: no se convierte dos veces.
     expect(migrarUnidadDeArena(u, perfilDe, DEL_JUEGO, 'borrador')).toEqual({
@@ -2611,7 +2638,7 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
     );
     expect(vieja.unidad!.hp).toBe(90);
     expect(vieja.aviso).toContain(
-      'su vida 9 (90 en la escala de hoy, ×10) no pasa de lo que suma Arnés de placas (+100); su daño 2–3 (20–30 en la escala de hoy, ×10) no pasa de lo que suma Mandoble',
+      'su vida 9 (90 en la escala de hoy, ×10) no pasa de lo que suma Arnés de placas (+100 PV, que hoy son 10 de armadura); su daño 2–3 (20–30 en la escala de hoy, ×10) no pasa de lo que suma Mandoble',
     );
     expect(vieja.aviso).not.toMatch(/su vida 90/);
     // Los tiros ya no se restan (13-10-2026): un arquero con menos de los que
@@ -2633,7 +2660,9 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
     // El borrador lo lee y cuenta el aviso.
     const r2 = revisarBorradorDeArena({ unidades: [flojo, deAntes('zombi')] }, perfilDe, DEL_JUEGO);
     expect(r2.validas.map((u) => u.id)).toEqual(['templario-escudo', 'zombi']);
-    expect(r2.avisos).toHaveLength(1);
+    // El de la que no cabe y el de la armadura del zombi, que cabe (#262).
+    expect(r2.avisos).toHaveLength(2);
+    expect(r2.avisos[1]).toMatch(/^La unidad «Zombie» contaba en su vida 70 PV de su armadura/);
   });
 });
 
@@ -2843,7 +2872,7 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       muralla: null,
     };
     const texto = montajeALaURL(MONTADO);
-    expect(JSON.parse(texto).v).toBe(8);
+    expect(JSON.parse(texto).v).toBe(9);
     const deAntesDeLasArmas = (v: number): string => {
       const o = JSON.parse(texto);
       o.v = v;

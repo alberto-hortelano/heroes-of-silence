@@ -257,6 +257,11 @@ export type BattleEvent =
       charge?: number;
       /** Con la rueda del golpe (la arena), el punto del cruce en que cayó. */
       punto?: Punto;
+      /**
+       * Lo que paró la armadura del objetivo (la arena, #262; `trasLaArmadura`):
+       * `damage` ya va restado. Sin el campo, nada: el juego no lo escribe.
+       */
+      armadura?: number;
     }
   | {
       kind: 'shoot';
@@ -264,11 +269,22 @@ export type BattleEvent =
       target: string;
       damage: number;
       killed: number;
+      /** Lo que paró la armadura del objetivo, como en `attack`. */
+      armadura?: number;
       splash?: boolean;
     }
   | { kind: 'wait'; stack: string }
   | { kind: 'defend'; stack: string }
-  | { kind: 'cast'; side: Side; spell: string; target?: string; damage?: number; killed?: number }
+  | {
+      kind: 'cast';
+      side: Side;
+      spell: string;
+      target?: string;
+      damage?: number;
+      killed?: number;
+      /** Lo que paró la armadura del objetivo, como en `attack`. */
+      armadura?: number;
+    }
   /**
    * Una unidad usa un poder sobre `target` (`poderes.ts`, solo la arena). `cura`,
    * los PV que repuso, si cura; lo que deja un poder de efecto va detrás, en su

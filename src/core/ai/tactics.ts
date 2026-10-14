@@ -31,7 +31,13 @@ import {
   sumaDelBando,
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
-import { cargaEfectiva, expectedDamage, stackHp, valorDeEfectoDeDanio } from '../battle/damage.js';
+import {
+  cargaEfectiva,
+  expectedDamage,
+  stackHp,
+  trasLaArmadura,
+  valorDeEfectoDeDanio,
+} from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
 import {
   claveDeAbiertas,
@@ -336,7 +342,8 @@ function rindeDe(
     case 'damage':
       // El tope es la vida que queda: sin él, un Rayo sobre tres campesinos
       // puntuaba como si matara a cincuenta.
-      return rindeContra(state, objetivo, l.cantidad);
+      // Lo que llega tras la armadura (la arena; en el juego, `cantidad` tal cual).
+      return rindeContra(state, objetivo, trasLaArmadura(l.cantidad, objetivo).danio);
     case 'speed':
     case 'luck': {
       // `efectoDe` es la misma función que el motor consulta para saber qué

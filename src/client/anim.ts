@@ -148,6 +148,8 @@ type Paso =
       readonly stack: string;
       readonly target: string;
       readonly damage: number;
+      /** Lo que paró la armadura del objetivo (la arena, #262); 0 sin ella. */
+      readonly parado: number;
       /** Es un contraataque: quien pega no es quien actúa (`activo`). */
       readonly devuelto: boolean;
     } & Reloj)
@@ -161,6 +163,8 @@ type Paso =
       readonly lanza: string | null;
       readonly target: string | null;
       readonly damage: number;
+      /** Lo que paró la armadura del objetivo, como en el golpe. */
+      readonly parado: number;
       /** Los PV que repuso, si cura: el poder lo dice (`power.cura`); el hechizo del héroe, no. */
       readonly cura: number;
     } & Reloj)
@@ -288,6 +292,8 @@ export type Efecto =
       readonly cifra: number;
       readonly t: number;
     }
+  /** Un golpe que la armadura paró entero (#262): en vez de «−0», «parado». */
+  | { readonly tipo: 'parado'; readonly en: Plano; readonly alto: number; readonly t: number }
   | { readonly tipo: 'hechizo'; readonly en: Plano; readonly alto: number; readonly t: number };
 
 /**
@@ -363,6 +369,7 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
         stack: e.stack,
         target: e.target,
         damage: e.damage,
+        parado: e.armadura ?? 0,
         devuelto: e.retaliation,
         dura: DURACION.attack,
         impacto: IMPACTO,
@@ -376,6 +383,7 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
         stack: e.stack,
         target: e.target,
         damage: e.damage,
+        parado: e.armadura ?? 0,
         devuelto: false,
         ...relojDelDisparo(body),
       };
@@ -388,6 +396,7 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
         lanza: e.kind === 'power' ? e.stack : null,
         target: e.target ?? null,
         damage: e.kind === 'cast' ? (e.damage ?? 0) : 0,
+        parado: e.kind === 'cast' ? (e.armadura ?? 0) : 0,
         cura: e.kind === 'power' ? (e.cura ?? 0) : 0,
         dura: DURACION.cast,
         impacto: IMPACTO,
@@ -912,15 +921,7 @@ export class BattleAnimator {
             altoHasta: alto(paso.target),
           });
         }
-        if (t >= impacto && paso.damage > 0) {
-          out.push({
-            tipo: 'danio',
-            en: b,
-            alto: alto(paso.target),
-            cifra: paso.damage,
-            t: trasImpacto(t, impacto),
-          });
-        }
+        if (t >= impacto) out.push(...cifraDelGolpe(paso, b, alto(paso.target), t, impacto));
       }
     }
     if (paso.tipo === 'cast' && paso.target !== null) {
@@ -928,17 +929,27 @@ export class BattleAnimator {
       if (b !== null) {
         const arriba = alto(paso.target);
         out.push({ tipo: 'hechizo', en: b, alto: arriba, t });
-        if (t >= paso.impacto && paso.damage > 0) {
-          out.push({
-            tipo: 'danio',
-            en: b,
-            alto: arriba,
-            cifra: paso.damage,
-            t: trasImpacto(t, paso.impacto),
-          });
-        }
+        if (t >= paso.impacto) out.push(...cifraDelGolpe(paso, b, arriba, t, paso.impacto));
       }
     }
     return out;
   }
+}
+
+/**
+ * La cifra que sale sobre quien recibe en el impacto: «−N» con daño, «parado» si
+ * la armadura se lo comió entero (#262) y nada si no hubo golpe que contar (una
+ * Bendición, una cura).
+ */
+function cifraDelGolpe(
+  paso: { readonly damage: number; readonly parado: number },
+  en: Plano,
+  alto: number,
+  t: number,
+  impacto: number,
+): Efecto[] {
+  const tras = trasImpacto(t, impacto);
+  if (paso.damage > 0) return [{ tipo: 'danio', en, alto, cifra: paso.damage, t: tras }];
+  if (paso.parado > 0) return [{ tipo: 'parado', en, alto, t: tras }];
+  return [];
 }

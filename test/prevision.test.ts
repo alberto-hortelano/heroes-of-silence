@@ -17,6 +17,7 @@
  * el golpe (`opcionesDeDanio`).
  */
 import { describe, expect, it } from 'vitest';
+import { textoDePrevision } from '../src/client/views/prevision.js';
 import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/arena.js';
 import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
 import {
@@ -300,6 +301,33 @@ const ESCENARIOS: readonly Escenario[] = [
     contra: { col: 7, row: 4 },
     accion: golpe({ col: 6, row: 4 }),
   },
+  // La armadura de la arena (#262): se resta lo último de cada golpe, y la
+  // previsión con la misma resta (`trasLaArmadura`).
+  {
+    nombre: 'armadura: el arco contra la brigantina y el escudo del templario',
+    izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
+    derecha: () => deLaArena('templario', KIT_DEL_PERFIL['espada-escudo'].equipo),
+    en: { col: 1, row: 4 },
+    contra: { col: 4, row: 4 },
+    accion: disparo,
+  },
+  {
+    nombre: 'armadura: la daga contra la barda del jinete, que la para entera',
+    izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
+    derecha: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 'very_fast', ['charge']),
+    en: { col: 5, row: 4 },
+    contra: { col: 6, row: 4 },
+    accion: golpe(),
+  },
+  {
+    nombre: 'armadura: Flecha mágica sobre el templario',
+    izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
+    derecha: () => deLaArena('templario', KIT_DEL_PERFIL['espada-escudo'].equipo),
+    en: { col: 5, row: 4 },
+    contra: { col: 8, row: 4 },
+    accion: lanza('magic_arrow'),
+    sinDado: true,
+  },
   {
     nombre: 'Flecha mágica',
     izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
@@ -553,6 +581,31 @@ describe('la previsión de daño cae en el daño real', () => {
     ]);
     // La tropa del catálogo no tiene armas por uso: ni una palabra de ellas.
     expect(carga.contraataque?.modificadores[0]?.causa).toMatch(/^ataque /);
+  });
+
+  it('con armadura (la arena), la cuenta lo dice lo último: «−7 armadura»', () => {
+    const prevista = (nombre: string): Prevision => {
+      const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
+      const { b, accion } = montar(e, reglasDe(0), createRng(1));
+      return previsionDe(b, accion)!;
+    };
+    // El arco (5 contra 7: ×0,95) da 20–30 → 19–29, menos los 7 de la brigantina.
+    const arco = prevista('armadura: el arco') as PrevisionDeGolpe;
+    expect(arco.danio).toEqual({ min: 12, max: 22 });
+    expect(arco.modificadores.at(-1)).toEqual({ causa: '−7 armadura', factor: null });
+    expect(textoDePrevision(arco, (id) => id)).toContain('; −7 armadura.');
+    // La daga (4 contra 8: ×0,9) da 10–20 → 9–18: la barda (22) lo para todo, y
+    // el contraataque del jinete (espada, 20–40) contra el jubón (2) sí llega.
+    const daga = prevista('armadura: la daga') as PrevisionDeGolpe;
+    expect(daga.danio).toEqual({ min: 0, max: 0 });
+    expect(daga.modificadores.at(-1)?.causa).toBe('−22 armadura');
+    expect(daga.contraataque?.modificadores.at(-1)?.causa).toBe('−2 armadura');
+    // El hechizo, con la misma resta: lo que llega, sin la cuenta.
+    const flecha = prevista('armadura: Flecha mágica');
+    if (flecha.kind !== 'hechizo') throw new Error('sin previsión de hechizo');
+    const sinArmadura = prevista('Flecha mágica');
+    if (sinArmadura.kind !== 'hechizo') throw new Error('sin previsión de hechizo');
+    expect(flecha.danio).toBe((sinArmadura.danio ?? 0) - 7);
   });
 
   it('la muralla tapa el disparo en el suelo, y la previsión lo dice con el motivo del núcleo', () => {

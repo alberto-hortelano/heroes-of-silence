@@ -83,7 +83,7 @@ import type { BattleStack } from '../src/core/battle/types.js';
 import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import { SLOT_DE_HUECO, SLOTS } from '../src/core/contract/huecos.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA } from '../src/core/contract/serialize.js';
-import { creature } from '../src/core/data.js';
+import { creature, EQUIPO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -1840,5 +1840,48 @@ describe('invariantes del proyecto', () => {
     // comentario no filtra ninguna clave. Las cadenas NO se blanquean, así que
     // un acceso indirecto escrito como texto sigue cayendo.
     expect(infractoresDeCodigo(CLIENTE, /FAL_KEY|process\.env/)).toEqual([]);
+  });
+});
+
+// ------------------------------------------------------------------ armadura (#262)
+
+describe('la armadura es solo de la arena (#262)', () => {
+  it('`puntosDeArmadura` lo escribe solo `conEquipo` y lo leen solo él y `damage.ts`; el agente no la conoce', () => {
+    // 14-10-2026: las piezas de la arena dan puntos de armadura, que se restan
+    // del daño de cada golpe. La suma es de `vestir` (`hero/equipo.ts`) y la resta
+    // de `trasLaArmadura` (`battle/damage.ts`), por donde pasa todo lo que quita
+    // vida (`herir`): una pantalla o una IA que leyera `unit.puntosDeArmadura` por
+    // su cuenta restaría con otra regla, y un `{ ...u, puntosDeArmadura: 3 }` fuera
+    // de la suma daría armadura que ninguna pieza pone. Rotos a mano: un
+    // `{ ...u, puntosDeArmadura: 3 }` en `arena.ts`, un `s.unit.puntosDeArmadura`
+    // en `paneles.ts` y un «+7 Armadura» en la prosa del agente salen rojos.
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    const ESCRITOR = 'src/core/hero/equipo.ts';
+    const LECTORES = [ESCRITOR, 'src/core/battle/damage.ts', 'src/core/types.ts'];
+    const menciona = /\bpuntosDeArmadura\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => !LECTORES.includes(r)),
+        menciona,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/battle/damage.ts'], menciona)).not.toEqual([]);
+    const escribe = /\bpuntosDeArmadura\s*:|\{\s*puntosDeArmadura\s*\}|\.puntosDeArmadura\s*=(?!=)/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== ESCRITOR),
+        escribe,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([ESCRITOR], escribe)).not.toEqual([]);
+    // El agente juega con las piezas del juego, que no la llevan: ni su formato
+    // ni la prosa del catálogo la nombran como cifra.
+    const dichoAlAgente = [...Object.values(RESPONSE_FORMAT), CATALOGO_DE_EQUIPO_EN_PROSA].join(
+      '\n',
+    );
+    expect(dichoAlAgente).not.toMatch(/[+−]\d+ Armadura|puntos de armadura|de armadura, que/);
+    const delJuego = EQUIPO.filter((p) => p.calidad !== 'arena');
+    expect(delJuego.length).toBeGreaterThan(0);
+    expect(delJuego.filter((p) => (p.armadura ?? 0) > 0).map((p) => p.id)).toEqual([]);
   });
 });

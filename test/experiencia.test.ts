@@ -154,7 +154,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     const piquero = stackById(b, 'defender-0');
     expect(indiceDePoder(piquero.unit)).toBe(328);
     piquero.topHp = 50;
-    expect(herir(piquero, 70, autor)).toBe(1);
+    expect(herir(piquero, 70, autor).muertos).toBe(1);
     // Lo quitado, no lo tirado: el sobrante no existe para nadie. Y por el
     // índice entero, no por su primera cifra: el nivel (3) daría 150.
     expect(autor.ganado.experiencia).toBe(50 * 328);

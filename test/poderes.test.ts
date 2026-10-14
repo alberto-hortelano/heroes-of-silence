@@ -255,15 +255,20 @@ describe('la IA de batalla usa los poderes (A4)', () => {
 
   it('cura a quien puede caer si la pelea se gana; si no corre peligro, no gasta el turno en él', () => {
     // Sin héroe: con él, la IA lanza antes su hechizo, que no gasta el turno.
-    // 100 de herida sobre los 150 del escudero.
-    const { b, escudero, orco } = enElTurnoDelMonje(100, REGLAS_DEL_JUEGO, null);
+    // 30 de herida sobre los 80 del escudero (la brigantina da armadura, no PV:
+    // #262), y le quedan 50.
+    const { b, escudero, orco } = enElTurnoDelMonje(30, REGLAS_DEL_JUEGO, null);
     orco.topHp = 30; // el bando del monje va ganando la carrera
     // Lejos del orco, 50 PV no corren peligro: el monje no se queda curando.
     expect(chooseBattleAction(b)).not.toMatchObject({ type: 'poder' });
-    // Con el orco pegado (dos golpes de 40-70), 50 PV caen: lo cura.
+    // Con el orco pegado (dos golpes de 40-70, menos los 7 de la brigantina),
+    // 50 PV caen: lo cura.
     orcoJuntoAlEscudero(b, escudero, orco);
     expect(chooseBattleAction(b)).toEqual({ type: 'poder', poder: 'curar', target: escudero.id });
-    // Y si la pelea se pierde, curar solo la alarga: pega o se mueve.
+    // Y si la pelea se pierde, curar solo la alarga: pega o se mueve. Con los 80
+    // PV del orco entero y sus 10 de armadura la pelea aún se gana: con la vida
+    // que tenía cuando el arnés daba 100 PV (180), se pierde.
+    Object.assign(orco, { unit: { ...orco.unit, hp: 180 } });
     orco.topHp = orco.unit.hp;
     expect(chooseBattleAction(b)).not.toMatchObject({ type: 'poder' });
   });

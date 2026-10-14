@@ -215,6 +215,16 @@ export interface UnitInfo {
    * espectador.
    */
   readonly armas?: ArmasDeLaUnidad;
+  /**
+   * Los puntos de armadura que lleva puesta (**solo la arena**, #262): se restan
+   * del daño de cada golpe que recibe, con mínimo 0. Lo escribe solo `conEquipo`
+   * (la suma de `Pieza.armadura`), y solo si es > 0: el juego no lo escribe nunca
+   * y su unidad sale con los mismos campos (`pnpm banco`). Fuera de `hero/equipo.ts`
+   * lo lee solo `battle/damage.ts` (`armaduraDe`, `trasLaArmadura`); lo vigila
+   * `test/invariantes.test.ts`. No es el hueco `armadura`: se llama de otro modo
+   * para que se encuentre buscándolo. No viaja al espectador.
+   */
+  readonly puntosDeArmadura?: number;
   /** Munición. > 0 = es tirador. */
   readonly shots?: number;
   /** Hexes que ocupa en la rejilla de batalla (1 o 2). */
