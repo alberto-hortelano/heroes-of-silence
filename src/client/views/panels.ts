@@ -36,11 +36,11 @@ import {
 } from '@core/battle/types.js';
 import {
   creature,
-  cuentaTiros,
   hasTrait,
   isShooter,
   nombreDeTipoDeHeroe,
   type Pieza,
+  tirosQueQuedan,
 } from '@core/data.js';
 import {
   destinoDeEquipo,
@@ -751,6 +751,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
   }
 
   const s = activeStack(battle);
+  const tiros = s === null ? null : tirosQueQuedan(s);
   const activo =
     s === null
       ? html`<p>Sin unidad activa.</p>`
@@ -758,7 +759,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
         <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>
-        ${isShooter(s.unit) && cuentaTiros(s.unit) ? html`<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : NADA}`;
+        ${tiros === null ? NADA : html`<div class="row"><span class="label">Munición</span><span>${tiros}</span></div>`}`;
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno

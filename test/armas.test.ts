@@ -361,4 +361,17 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
       ['cuerpo'],
     );
   });
+
+  it('la munición y el arma a distancia no se juntan: quien tiene `shots` no lleva nada en `distancia`', () => {
+    // La munición es de la criatura del catálogo y el arma a distancia no la cuenta
+    // (`cuentaTiros`): juntas, tiraría sin fin con unos tiros que bajan sin servir
+    // de nada. Lo dice `vestir`, la única suma de las piezas.
+    const piezas = catalogoDeLaArena([]);
+    const conTiros: UnitInfo = { ...cuerpo(), name: 'Arquero', shots: 12 };
+    expect(() => piezas.conEquipo(conTiros, { distancia: 'arco' })).toThrow(
+      'Arquero tira con su munición (12 tiros) y no puede llevar nada en Arma a distancia',
+    );
+    // Con un arma de cuerpo a cuerpo, sí: los tiros siguen siendo suyos.
+    expect(cuentaTiros(piezas.conEquipo(conTiros, { arma: 'daga' }))).toBe(true);
+  });
 });

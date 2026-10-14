@@ -145,13 +145,6 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(con((ps) => (id(ps, 'escudo').velocidad = 0))).toThrow(
       /"escudo" es un escudo y tiene que restar velocidad/,
     );
-    // Sin munición (13-10-2026): `disparos` ya no es un campo, en ningún hueco.
-    expect(con((ps) => (id(ps, 'arco').disparos = 12))).toThrow(
-      /"arco" trae disparos, y ya no es un campo: un arma a distancia dispara sin munición/,
-    );
-    expect(con((ps) => (id(ps, 'garrote').disparos = 3))).toThrow(
-      /"garrote" trae disparos, y ya no es un campo/,
-    );
     expect(con((ps) => (id(ps, 'arco').manos = 2))).toThrow(
       /"arco" va en el hueco distancia y dice manos/,
     );
@@ -163,6 +156,16 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     );
     expect(con((ps) => (id(ps, 'paves').calidad = 'armeria'))).toThrow(
       /el hueco escudo tiene 1 piezas de armería y no puede tener ninguna/,
+    );
+    // Un campo que no existe no se ignora callando (H2 de QA, 14-10-2026): un
+    // `disparos` de antes de quitar la munición y una errata tumban la carga, y el
+    // motivo nombra el fichero. Antes el juego los ignoraba y la arena lanzaba
+    // después sin decir de dónde venían.
+    expect(con((ps) => (id(ps, 'arco').disparos = 12))).toThrow(
+      /^data\/equipo\.json: "arco": «disparos» no es un campo de una pieza; valen id, nombre,/,
+    );
+    expect(con((ps) => (id(ps, 'garrote').danyo = [1, 2]))).toThrow(
+      /"garrote": «danyo» no es un campo de una pieza/,
     );
     // Una velocidad negativa fuera del escudo es legal (y entera).
     expect(con((ps) => (id(ps, 'barda').velocidad = -1))).not.toThrow();

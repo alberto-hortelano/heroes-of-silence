@@ -438,9 +438,16 @@ function esRellenoDelCable(codigo: string, inicio: number, argumento: string): b
   return rama !== null && rama[1] === cuerpo[1];
 }
 
-/** Si el fichero importa `creature` del catálogo (`data.js`) con su nombre. */
-function importaCreature(codigo: string): boolean {
-  return /import\s*\{[^}]*\bcreature\b[^}]*\}\s*from\s*['"][^'"]*\/data\.js['"]/.test(codigo);
+/**
+ * Si el fichero importa del catálogo (`data.js`), con su nombre y también como
+ * tipo, alguno de `nombres`: la misma pregunta para el guardia de `creature` como
+ * valor y para el de la arena sin el catálogo del juego.
+ */
+function importaCreature(codigo: string, nombres: readonly string[] = ['creature']): boolean {
+  const alguno = nombres.join('|');
+  return new RegExp(
+    `import\\s*(?:type\\s*)?\\{[^}]*\\b(?:${alguno})\\b[^}]*\\}\\s*from\\s*['"][^'"]*\\/data\\.js['"]`,
+  ).test(codigo);
 }
 
 /**
@@ -1291,27 +1298,30 @@ describe('invariantes del proyecto', () => {
       'src/core/arena.ts',
       ...CLIENTE.filter((r) => r.startsWith('src/client/arena/')),
     ];
-    const delCatalogo =
-      /import\s*(?:type\s*)?\{[^}]*\b(?:creature|allCreatures|criaturasDeFaccion|factionLineup)\b[^}]*\}\s*from\s*['"][^'"]*\/data\.js['"]/;
-    expect(ARENA.filter((r) => delCatalogo.test(leer(r)))).toEqual([]);
+    const delCatalogo = ['creature', 'allCreatures', 'criaturasDeFaccion', 'factionLineup'];
+    expect(ARENA.filter((r) => importaCreature(leer(r), delCatalogo))).toEqual([]);
   });
 
-  it('«le quedan tiros» se pregunta en un sitio: `quedanTiros`, en `data.ts`', () => {
+  it('los tiros que quedan se leen en un sitio: `shotsLeft`, solo en `data.ts` y el motor', () => {
     // 13-10-2026: la munición es de la criatura del catálogo (`cuentaTiros`) y la
     // arena no la cuenta. La pregunta `isShooter && shotsLeft > 0` iba copiada en
     // nueve sitios —el disparo, el castigo de fheroes2, la IA, el tablero—, y una
     // copia que se quedara con la vieja dejaba sin tiros a un arquero de la arena
-    // en ese sitio y no en los demás. Roto a mano: un `s.shotsLeft > 0` en
-    // `tactics.ts` sale rojo.
+    // en ese sitio y no en los demás; y el tablero y el panel combinaban cada uno
+    // sus predicados para enseñar el mismo número. Fuera del motor (`battle.ts`,
+    // que los inicia y los gasta) se lee por `tirosQueQuedan` o `quedanTiros`.
+    // Roto a mano: un `s.shotsLeft > 0` en `tactics.ts` y un `${s.shotsLeft}` en
+    // `views/panels.ts` salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    const pregunta = /shotsLeft\s*(?:>|<=|<|>=|===|!==)\s*0\b/;
+    const lectura = /\.shotsLeft\b/;
+    const dueños = ['src/core/data.ts', 'src/core/battle/battle.ts'];
     expect(
       infractoresDeCodigo(
-        todos.filter((r) => r !== 'src/core/data.ts'),
-        pregunta,
+        todos.filter((r) => !dueños.includes(r)),
+        lectura,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/data.ts'], pregunta)).not.toEqual([]);
+    for (const r of dueños) expect(infractoresDeCodigo([r], lectura), r).not.toEqual([]);
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {

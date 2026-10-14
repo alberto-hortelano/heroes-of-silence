@@ -21,7 +21,6 @@ import {
   equiparEnArena,
   escaleraDeArenaBlocker,
   type FuenteDeArena,
-  figuraDeLaUnidad,
   type HeroeDeArena,
   type HojaDeArena,
   heroePorDefecto,
@@ -99,7 +98,7 @@ import {
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
-import { type Html, html, pintar } from '../html.js';
+import { type Html, html, NADA, pintar } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import type { CharacterClip } from '../render/character.js';
@@ -140,21 +139,24 @@ import {
   renderEdicion,
 } from './edicion.js';
 import {
+  type AvisosDeLectura,
   avisoDelBorradorLeido,
   avisoDeNuevaUnidad,
   type ComoDeLaFicha,
+  cuantosAvisos,
   type DatosDePuesto,
   type Elegida,
   enElMontaje,
   FIGURA_GENERICA,
   type FiltroDeArena,
-  type FuenteDePuesto,
   focoTrasQuitar,
   type Guardado,
   guardadoEnPalabras,
   type HerramientaDeMuralla,
   type ListaDeUnidades,
   type Puesto,
+  ROTULO_DE_LOS_AVISOS,
+  renderAvisosDeLectura,
   renderBando,
   renderCatalogo,
   renderEnlace,
@@ -166,6 +168,7 @@ import {
   renderPanelDeBatalla,
   renderReglas,
   resumenDeCifras,
+  resumenDeLaLectura,
   rotuloDelTurno,
   sinGuardarEnPalabras,
   type TarjetaDeUnidad,
@@ -191,6 +194,10 @@ const elFicha = document.getElementById('ficha') as HTMLElement;
 const elCatalogo = document.getElementById('catalogo') as HTMLElement;
 const elMuralla = document.getElementById('muralla') as HTMLElement;
 const elMontaje = document.getElementById('montaje') as HTMLElement;
+/** Los avisos de lo que se lee convertido, enteros, desplegados desde la barra (`renderAvisosDeLectura`). */
+const elAvisosDeLectura = document.getElementById('avisos-de-lectura') as HTMLElement;
+/** El botón de la barra que los despliega. */
+const botonVerAvisos = document.getElementById('ver-avisos') as HTMLElement;
 /** La vista de edición: hasta cuatro fichas abiertas a la vez (`edicion.ts`). */
 const elEdicion = document.getElementById('edicion') as HTMLElement;
 /** La vista «Editar equipo»: las piezas por hueco y la ficha de la elegida. */
@@ -413,6 +420,13 @@ let sinGuardado: string | null = null;
  */
 let sinBorradorDeUnidades: { readonly ruta: string; readonly dicho: string } | null = null;
 /**
+ * Lo que se dijo al leer el borrador y el enlace, entero y con lo que se retira
+ * primero (`pintarAvisosDeLectura`). La barra lleva el resumen.
+ */
+let avisosDeLectura: readonly AvisosDeLectura[] = [];
+/** Si el recuadro de los avisos está desplegado: solo al arrancar, y luego con su botón. */
+let avisosDesplegados = false;
+/**
  * Lo que no se ha guardado, por id: unidades y piezas. Cerrar la página avisa, y
  * la vista de equipo lo cuenta (`sinGuardarEnPalabras`).
  */
@@ -540,7 +554,7 @@ function reglasALaBarra(cambiar: (url: URL) => void = () => {}): void {
 
 /** De dónde sale un puesto al pelear: la unidad con sus cifras del borrador, y su escalera. */
 function fuenteDeArena(p: Puesto): FuenteDeArena {
-  return { kind: 'borrador', unidad: unidadDe(p.fuente.unidad), escalera: p.escalera };
+  return { unidad: unidadDe(p.unidad), escalera: p.escalera };
 }
 
 /** El montaje de ahora, como lo pelearía el núcleo: lo leen «Luchar» y el aviso de la muralla. */
@@ -560,12 +574,11 @@ function montajeDeArena(): MontajeDeArena {
 
 /** Lo que la tarjeta de un puesto de `lado` enseña. */
 function describir(p: Puesto, lado: Lado): DatosDePuesto {
-  const u = unidadDe(p.fuente.unidad);
+  const u = unidadDe(p.unidad);
   return {
     nombre: u.name,
     resumen: resumenDeCifras(u, catalogo()),
-    figura: figuraDeLaUnidad(u),
-    sello: 'borrador',
+    figura: u.cuerpo.hoja,
     noEscala: escaleraDeArenaBlocker(fuenteDeArena(p), lado, catalogo()),
   };
 }
@@ -636,11 +649,9 @@ function listaDeUnidades(): ListaDeUnidades {
     );
   return {
     nuevas,
-    cuerpos: {
-      hojas: hojas
-        .filter((h) => h.incompleta === null)
-        .map((h) => ({ id: h.id, nombre: h.nombre })),
-    },
+    cuerpos: hojas
+      .filter((h) => h.incompleta === null)
+      .map((h) => ({ id: h.id, nombre: h.nombre })),
   };
 }
 
@@ -697,7 +708,9 @@ interface RespuestaDeBorrador {
   readonly piezasInvalidas?: readonly SinValidar[];
   /** El archivo de piezas no se puede leer: las unidades se leen con las del juego. */
   readonly equipoIlegible?: string;
-  /** Lo que hubo que decir al convertir unidades de antes del equipo (`migrarUnidadDeArena`). */
+  /** Las unidades que se retiran al leerlas (su cuerpo era una criatura): «Guardar» las pierde. */
+  readonly seRetiran?: readonly string[];
+  /** Lo demás que hubo que decir al convertir lo de antes (`migrarUnidadDeArena`, `piezaDeAntes`). */
   readonly avisos?: readonly string[];
 }
 
@@ -808,9 +821,15 @@ async function arrancar(): Promise<void> {
   // Las que no tienen hoja se quedan en el borrador y se vuelven a guardar; solo
   // no se pueden montar.
   if (sinHoja.length > 0) aviso += ` No se pueden montar: ${sinHoja.join(', ')}.`;
-  const avisos = cuerpo.avisos ?? [];
-  if (avisos.length > 0) {
-    aviso += ` Convertidas al formato de hoy al leerlas (se guardan así al pulsar Guardar). ${avisos.join(' ')}`;
+  const lectura: AvisosDeLectura = {
+    de: `Del borrador (${cuerpo.ruta ?? 'el borrador'}), convertido al formato de hoy: se guarda así al pulsar «Guardar».`,
+    seRetiran: cuerpo.seRetiran ?? [],
+    avisos: cuerpo.avisos ?? [],
+  };
+  const resumen = resumenDeLaLectura(lectura);
+  if (resumen !== '') {
+    aviso += resumen;
+    avisosDeLectura = [...avisosDeLectura, lectura];
     for (const id of borrador.keys()) unidadesSinGuardar.add(id);
   }
   idsSinValidar = invalidas.flatMap((i) => (typeof i.id === 'string' ? [i.id] : []));
@@ -1010,6 +1029,19 @@ function pintarMuralla(): void {
   );
   botonLuchar.toggleAttribute('disabled', despliegue !== null);
   botonLuchar.title = despliegue === null ? '' : `No se puede luchar: ${despliegue}.`;
+}
+
+/**
+ * Los avisos de lo leído (el borrador y el enlace): el recuadro sobre la barra,
+ * desplegado o no, y el botón que lo despliega, que solo está si hay alguno.
+ */
+function pintarAvisosDeLectura(): void {
+  const cuantos = cuantosAvisos(avisosDeLectura);
+  pintar(elAvisosDeLectura, avisosDesplegados ? renderAvisosDeLectura(avisosDeLectura) : NADA);
+  elAvisosDeLectura.hidden = !avisosDesplegados || cuantos === 0;
+  botonVerAvisos.hidden = cuantos === 0;
+  botonVerAvisos.textContent = `${ROTULO_DE_LOS_AVISOS} (${cuantos})`;
+  botonVerAvisos.ariaExpanded = String(avisosDesplegados);
 }
 
 /** Solo el editor de la muralla, y la barra de estado en el siguiente fotograma. */
@@ -1327,7 +1359,7 @@ function fichaDe(e: Elegida | null, como0: ComoDeLaFicha): Html {
   switch (e.kind) {
     case 'unidad': {
       const u = unidadDe(e.id);
-      return renderFicha(u, arteDe(figuraDeLaUnidad(u)).dispara, como);
+      return renderFicha(u, arteDe(u.cuerpo.hoja).dispara, como);
     }
     case 'heroe': {
       const h = heroes[e.lado];
@@ -1426,13 +1458,13 @@ function ocupados(lado: Lado): number {
   return montaje[lado].length + (heroes[lado] === null ? 0 : 1);
 }
 
-function añadir(lado: Lado, fuente: FuenteDePuesto, escalera = false): void {
+function añadir(lado: Lado, id: string, escalera = false): void {
   const adjetivo = LADOS[lado].adjetivo;
   if (ocupados(lado) >= caben) {
     aviso = `El bando ${adjetivo} ya lleva ${caben}: no cabe ninguna más.`;
     return;
   }
-  const u = unidadDe(fuente.unidad);
+  const u = unidadDe(id);
   const motivo = porQueNoSeMonta(u);
   if (motivo !== null) {
     aviso = `${u.name} no se monta: ${motivo}.`;
@@ -1444,8 +1476,8 @@ function añadir(lado: Lado, fuente: FuenteDePuesto, escalera = false): void {
     unidadesSinGuardar.add(u.id);
   }
   elegida = { kind: 'unidad', id: u.id };
-  montaje[lado].push({ clave: siguienteClave++, fuente, escalera });
-  aviso = `${describir({ clave: 0, fuente, escalera }, lado).nombre} entra en el bando ${adjetivo}.`;
+  montaje[lado].push({ clave: siguienteClave++, unidad: id, escalera });
+  aviso = `${describir({ clave: 0, unidad: id, escalera }, lado).nombre} entra en el bando ${adjetivo}.`;
 }
 
 /** Cambia el héroe de un lado, comprobado. */
@@ -1470,7 +1502,7 @@ function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): vo
 function cambiarUnidad(id: string, cambio: (u: UnidadDeArena) => unknown): void {
   try {
     const nueva = validarUnidadDeArena(cambio(unidadDe(id)), catalogo());
-    const motivo = retocarLaPelea({ kind: 'tipo', fuente: { kind: 'borrador', unidad: nueva } });
+    const motivo = retocarLaPelea({ kind: 'tipo', fuente: { unidad: nueva } });
     if (motivo !== null) {
       noSeCambia(motivo);
       return;
@@ -1577,12 +1609,10 @@ window.addEventListener('beforeunload', (ev) => {
  */
 function montajeDelEnlace(): MontajeDelEnlace {
   const todos = [...montaje.izquierda, ...montaje.derecha];
-  const unidadesMontadas = [...new Set(todos.map((p) => p.fuente.unidad))];
+  const unidadesMontadas = [...new Set(todos.map((p) => p.unidad))];
   const lado = (l: Lado) => ({
     ia: iaDelBando[l],
-    puestos: montaje[l].map(
-      (p): PuestoDelEnlace => ({ unidad: p.fuente.unidad, escalera: p.escalera }),
-    ),
+    puestos: montaje[l].map((p): PuestoDelEnlace => ({ unidad: p.unidad, escalera: p.escalera })),
     heroe: heroes[l],
   });
   const unidades = unidadesMontadas.map(unidadDe);
@@ -1686,7 +1716,7 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     for (const l of ['izquierda', 'derecha'] as const) {
       montaje[l] = m[l].puestos.map((p) => ({
         clave: siguienteClave++,
-        fuente: { kind: 'unidad', unidad: p.unidad },
+        unidad: p.unidad,
         escalera: p.escalera,
       }));
       heroes[l] = m[l].heroe;
@@ -1702,12 +1732,18 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
       distintas.length === 0
         ? ''
         : ` Las cifras de ${distintas.map((u) => u.name).join(', ')} son las del enlace, sin guardar.`;
-    // Un enlace de antes de la versión 3 que repartía un bando, o una unidad de
-    // antes de la 5 que no cupo en cuerpo y equipo, lo dice (`montajeDeLaURL`).
-    const mezcla = m.aviso === undefined ? '' : ` ${m.aviso}`;
+    // Lo que se quita del enlace, un bando de antes de la versión 3 que repartía,
+    // una unidad de antes de la 5 que no cupo en cuerpo y equipo… (`montajeDeLaURL`):
+    // entero en el recuadro de la barra, y en ella el resumen.
+    const lectura: AvisosDeLectura = {
+      de: 'Del enlace de la pelea:',
+      seRetiran: [],
+      avisos: m.avisos ?? [],
+    };
+    if (lectura.avisos.length > 0) avisosDeLectura = [lectura, ...avisosDeLectura];
     return {
       montado: true,
-      aviso: `Montada la pelea del enlace${semillaPedida === null ? '' : ` (semilla ${semillaPedida})`}: pulsa Luchar.${cifras}${piezasDichas}${mezcla} `,
+      aviso: `Montada la pelea del enlace${semillaPedida === null ? '' : ` (semilla ${semillaPedida})`}: pulsa Luchar.${cifras}${piezasDichas}${resumenDeLaLectura(lectura)} `,
     };
   } catch (err) {
     return noSeMonta(err);
@@ -2360,7 +2396,7 @@ document.addEventListener('click', (ev) => {
         break;
       case 'añadir': {
         const lado = el.getAttribute('data-lado') as Lado;
-        añadir(lado, { kind: 'unidad', unidad: unidad as string });
+        añadir(lado, unidad as string);
         break;
       }
       case 'editar':
@@ -2453,7 +2489,7 @@ document.addEventListener('click', (ev) => {
         break;
       case 'duplicar': {
         const { lado, p } = puestoPorClave(clave);
-        añadir(lado, p.fuente, p.escalera);
+        añadir(lado, p.unidad, p.escalera);
         break;
       }
       case 'escalera': {
@@ -2591,6 +2627,16 @@ document.addEventListener('click', (ev) => {
         recordarAbiertas();
         break;
       }
+      case 'ver-avisos':
+        avisosDesplegados = !avisosDesplegados;
+        pintarAvisosDeLectura();
+        return;
+      case 'cerrar-avisos':
+        avisosDesplegados = false;
+        pintarAvisosDeLectura();
+        // El botón que lo cerró ya no está: el foco, al que lo vuelve a abrir.
+        botonVerAvisos.focus();
+        return;
       case 'plegar-lista':
         listaPlegada = listaPlegadaTras('alternar', listaPlegada, abiertas.length);
         guardarEnElNavegador(CLAVE_DE_LISTA, listaPlegada ? '1' : '0', QUE_LISTA);
@@ -3023,6 +3069,9 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
     aviso = delEnlace?.montado
       ? `${delEnlace.aviso}${aviso}${avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
       : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas}${avisoDeMurallas} Añade unidades a los dos bandos y pulsa Luchar.${deAbiertas}`;
+    // Lo leído con avisos se despliega solo, para que se lea antes de «Guardar».
+    avisosDesplegados = cuantosAvisos(avisosDeLectura) > 0;
+    pintarAvisosDeLectura();
     repintarMontaje();
   },
   (err: unknown) => {

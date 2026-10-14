@@ -14,7 +14,7 @@
  * redondear distinto en otra máquina. La calibración y su porqué, en
  * `data/poder.json`.
  */
-import { allCreatures, hasTrait, isShooter, PODER } from './data.js';
+import { allCreatures, hasTrait, PODER } from './data.js';
 import { raizEntera } from './escala.js';
 import { SPEED_TO_HEXES, type UnitInfo } from './types.js';
 
@@ -43,8 +43,9 @@ function ofensaYAguante(u: UnitInfo): { readonly ofensa: number; readonly aguant
   // hecho «Nueva unidad» lleva el disparo doble de su criatura en el cuerpo
   // común, que no dispara, y subía de 177 a 209, al nivel 2, por un rasgo que
   // nunca usa (R2 de la re-verificación de QA, 12-10-2026). Se mide el cuerpo
-  // sin equipo: tiros que ponga un arco son equipo y no cuentan.
-  const tira = isShooter(u);
+  // sin equipo: tira el cuerpo si tiene munición (`shots`, la criatura del
+  // catálogo); un arma a distancia es equipo y no cuenta (`isShooter` la vería).
+  const tira = (u.shots ?? 0) > 0;
   if (hasTrait(u, 'double_attack') || (tira && hasTrait(u, 'double_shot'))) ofensa *= 2;
   if (tira) ofensa = Math.floor((ofensa * 3) / 2);
   return { ofensa, aguante: u.hp * (10 + u.defense) };

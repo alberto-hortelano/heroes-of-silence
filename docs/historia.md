@@ -4522,17 +4522,26 @@ dos disparos», y, preguntado, «elimina los ejércitos antiguos, solo cuentan l
 arena» (`docs/agents/2026-10-13-arena-sin-municion-ni-tamanos/`). Solo la arena: el catálogo del juego
 (el dragón óseo, de dos casillas, incluido), la partida, el agente y `pnpm banco` no cambian.
 
-- **La munición es de la criatura del catálogo** (opción A del plan): `isShooter` es «tiene
-  `shots` o lleva algo en `distancia`», `cuentaTiros` es «tiene `shots`», y `quedanTiros` une las
-  nueve copias de `isShooter && shotsLeft > 0` (el disparo, el castigo del tirador de fheroes2, seis
-  de la IA y el `↑N` del tablero). El juego no pone nada en `distancia`, así que para él cada
-  pregunta da lo de siempre: el banco quedó en `066767b4…` justo después del cambio. Se descartó un
+- **La munición es de la criatura del catálogo; con un arma a distancia no se cuenta** (opción A
+  del plan, a propósito y no por accidente): `isShooter` es «tiene `shots` o lleva algo en
+  `distancia`», `cuentaTiros` es «tiene `shots` > 0» (la misma lectura), `tirosQueQuedan` da los
+  tiros o `null` si no se cuentan, y `quedanTiros` une las nueve copias de `isShooter && shotsLeft >
+  0` (el disparo, el castigo del tirador de fheroes2, seis de la IA y el `↑N` del tablero). Fuera de
+  `data.ts` y del motor nadie lee `shotsLeft` (`invariantes.test.ts`), y nada lleva a la vez `shots`
+  y algo en `distancia` (`vestir` lanza). El juego no pone nada en `distancia`, así que para él cada
+  pregunta da lo de siempre: el banco quedó en `066767b4…` justo después del cambio. Se descartaron
+  un interruptor en `reglas` («munición: fheroes2 / sin munición»), que pondría la munición del juego
+  a merced de un montaje cuando lo que cambia es de quién son los tiros, no la regla; un
   `BattleState.sinMunicion` (más firmas en el motor del banco para lo mismo) y un `shots: 1` que no
   se gasta (munición falsa). `shotsLeft` de un stack de la arena vale 0 y nadie lo lee.
 - **El nivel no ve el arco**: el doble disparo pesa en el índice solo si el cuerpo tira, y en la
   arena el cuerpo no tira nunca (el equipo no cuenta). Se acepta.
 - **Ninguna pieza lleva `disparos`**: el cargador lo rechaza diciéndolo y lo de antes se lee sin el
-  campo (`piezaDeAntes`). «+ Nueva pieza» en «Arma a distancia» ya no nace con los 12 del arco: con
+  campo (`piezaDeAntes`). La pasada de simplify quitó la frase propia del campo y con ella el rechazo
+  en `data/equipo.json`, que no miraba campos ajenos: el juego ignoraba un `disparos` (o un `danyo`
+  mal escrito) y la arena lanzaba después sin nombrar el fichero (H2 de QA). Desde el 14-10-2026 la
+  lista de campos (`CAMPOS_DE_PIEZA`) vive en `data.ts` y la mira `problemasDePieza`: cualquier campo
+  ajeno tumba la carga diciendo `data/equipo.json: "arco": «disparos» no es un campo de una pieza`. «+ Nueva pieza» en «Arma a distancia» ya no nace con los 12 del arco: con
   la pieza puesta, dispara.
 - **Sin catálogo**: ni filtro, ni ficha de criatura con su «prueba», ni «Nueva unidad» desde una, ni
   cuerpo `{ criatura }`, ni `FuenteDeArena` `catalogo`. Una unidad de un borrador con cuerpo de
@@ -4540,7 +4549,12 @@ arena» (`docs/agents/2026-10-13-arena-sin-municion-ni-tamanos/`). Solo la arena
   (`SOLO_LA_ARENA`): sin `pruebas` ni puestos `{ criatura }`; de la 1 a la 7 se quitan, con un aviso
   que los nombra por su id (la arena no lee el catálogo ni para el nombre), y un bando que se queda
   vacío se monta vacío y se dice. Lo que llevaba tiros y sigue disparando se dice una vez por
-  borrador o enlace, no unidad a unidad. Las reglas de la grande con la muralla siguen en el motor
+  borrador o enlace, no unidad a unidad. **Los avisos se leen enteros** (H1 de QA, 14-10-2026): iban
+  a la barra, que corta a dos líneas, y la frase de una unidad que se retiraba quedaba en la parte
+  cortada mientras «Guardar» la borraba del disco. Ahora van en un recuadro que se despliega solo
+  desde la barra al arrancar («Avisos al leer», con su botón para volver a abrirlo), lo que se retira
+  primero y en el color del peligro. No va como franja en el montaje: a 1440×900 los bandos tienen
+  208 px de alto y una franja de avisos los dejaba en 0. Las reglas de la grande con la muralla siguen en el motor
   (el dragón del juego) y se prueban por `peleaDelMotor` (`test/helpers.ts`).
 - **La IA no se tocó** (decisión del usuario tras el plan): el riesgo era que con tiros infinitos se
   quedara atrás para siempre. Medido en 300 semillas por montaje, todo en IA, unidades sorteadas de

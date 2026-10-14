@@ -37,7 +37,7 @@ export function claveDeFicha(e: Elegida): string {
  * Un `tipo:id` partido por sus primeros dos puntos (el id puede llevar más), o
  * `null` si no los lleva. La forma de las claves de ficha.
  */
-export function partirClave(clave: string): { readonly tipo: string; readonly id: string } | null {
+function partirClave(clave: string): { readonly tipo: string; readonly id: string } | null {
   const dos = clave.indexOf(':');
   return dos < 0 ? null : { tipo: clave.slice(0, dos), id: clave.slice(dos + 1) };
 }

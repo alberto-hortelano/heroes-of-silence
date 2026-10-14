@@ -14,7 +14,7 @@ import {
   isShooter,
   LIDERAZGO,
   type Pieza,
-  quedanTiros,
+  tirosQueQuedan,
 } from '../data.js';
 import {
   EQUIPO_DEL_JUEGO,
@@ -1052,7 +1052,9 @@ export function canReachMelee(state: BattleState, s: BattleStack, target: Battle
  */
 function disparoBlocker(state: BattleState, s: BattleStack): string | null {
   if (!isShooter(s.unit)) return 'no es tirador';
-  if (!quedanTiros(s)) return 'se ha quedado sin munición';
+  // Sin munición solo se queda quien la cuenta (la criatura del catálogo).
+  const tiros = tirosQueQuedan(s);
+  if (tiros !== null && tiros <= 0) return 'se ha quedado sin munición';
   if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede disparar';
   if (isEngaged(state, s)) return 'tiene un enemigo encima';
   return null;

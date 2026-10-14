@@ -29,7 +29,7 @@ import {
   rangoDeVeterania,
   type Side,
 } from '@core/battle/types.js';
-import { cuentaTiros, hexSize, isShooter, quedanTiros } from '@core/data.js';
+import { hexSize, isShooter, tirosQueQuedan } from '@core/data.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { COMPRESION_SUELO } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
@@ -1709,12 +1709,13 @@ function pintarVida(
   ctx.fillRect(x - anchoBarra / 2, y, anchoBarra * vida, 4);
   // Los tiros que quedan, solo de quien los cuenta (la criatura del catálogo): el
   // arma a distancia de la arena no lleva munición.
-  if (cuentaTiros(s.unit) && quedanTiros(s)) {
+  const tiros = tirosQueQuedan(s);
+  if (tiros !== null && tiros > 0) {
     ctx.fillStyle = '#9fc49a';
     ctx.font = `bold ${Math.max(9, Math.round(v.tablero.paso * 0.14))}px system-ui, sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`↑${s.shotsLeft}`, x + anchoBarra / 2 + 3, y + 2);
+    ctx.fillText(`↑${tiros}`, x + anchoBarra / 2 + 3, y + 2);
   }
   ctx.restore();
 }

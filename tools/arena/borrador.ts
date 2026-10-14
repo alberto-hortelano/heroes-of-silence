@@ -132,16 +132,23 @@ interface Borrador<T, I extends { readonly crudo: unknown }> {
   /** La lista del archivo: `{ _comment, [campo]: [...] }`. */
   readonly campo: string;
   readonly comentario: string;
-  /** Lo del archivo, elemento a elemento; `avisos`, lo que hubo que decir al convertir lo de antes. */
-  readonly revisar: (valor: unknown) => {
-    readonly validas: readonly T[];
-    readonly invalidas: readonly I[];
-    readonly avisos: readonly string[];
-  };
+  /**
+   * Lo del archivo, elemento a elemento; `avisos`, lo que hubo que decir al
+   * convertir lo de antes, y `seRetiran`, lo de lo que se retira (las unidades).
+   */
+  readonly revisar: (valor: unknown) => Revisado<T, I>;
   readonly validar: (valor: unknown) => readonly T[];
   readonly clave: (t: T) => string;
   /** La clave de uno que no valida, si la trae: mandar uno válido con ella es arreglarlo. */
   readonly claveSinValidar: (i: I) => string | null;
+}
+
+/** Lo que da `revisar`: lo que vale, lo que no y lo que hubo que decir. */
+interface Revisado<T, I> {
+  readonly validas: readonly T[];
+  readonly invalidas: readonly I[];
+  readonly avisos: readonly string[];
+  readonly seRetiran?: readonly string[];
 }
 
 /**
@@ -171,11 +178,7 @@ function deUnidades(eq: EquipoAtado): Borrador<UnidadDeArena, UnidadSinValidar> 
 function leer<T, I extends { readonly crudo: unknown }>(
   raiz: string,
   b: Borrador<T, I>,
-): {
-  readonly validas: readonly T[];
-  readonly invalidas: readonly I[];
-  readonly avisos: readonly string[];
-} {
+): Revisado<T, I> {
   const ruta = join(raiz, b.ruta);
   if (!existsSync(ruta)) return { validas: [], invalidas: [], avisos: [] };
   let json: unknown;
@@ -282,16 +285,14 @@ function escribirAtomico(listos: readonly Preparado[]): void {
 export function leerBorrador(raiz: string): {
   readonly unidades: readonly UnidadDeArena[];
   readonly invalidas: readonly UnidadSinValidar[];
+  /** Las unidades que se retiran al leer (su cuerpo era una criatura): «Guardar» las pierde. */
+  readonly seRetiran: readonly string[];
   readonly avisos: readonly string[];
   readonly piezas: readonly Pieza[];
   readonly piezasInvalidas: readonly ElementoSinValidar[];
   readonly equipoIlegible?: string;
 } {
-  let equipo: {
-    readonly validas: readonly Pieza[];
-    readonly invalidas: readonly ElementoSinValidar[];
-    readonly avisos: readonly string[];
-  };
+  let equipo: Revisado<Pieza, ElementoSinValidar>;
   let equipoIlegible: string | null = null;
   try {
     equipo = leer(raiz, DE_EQUIPO);
@@ -299,10 +300,14 @@ export function leerBorrador(raiz: string): {
     equipo = { validas: [], invalidas: [], avisos: [] };
     equipoIlegible = err instanceof Error ? err.message : String(err);
   }
-  const { validas, invalidas, avisos } = leer(raiz, deUnidades(catalogoDeLaArena(equipo.validas)));
+  const { validas, invalidas, avisos, seRetiran } = leer(
+    raiz,
+    deUnidades(catalogoDeLaArena(equipo.validas)),
+  );
   return {
     unidades: validas,
     invalidas,
+    seRetiran: seRetiran ?? [],
     // Primero lo de las piezas: una unidad convertida puede llevar una pieza que
     // acaba de cambiar de hueco.
     avisos: [...equipo.avisos, ...avisos],

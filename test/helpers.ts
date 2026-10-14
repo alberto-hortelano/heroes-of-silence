@@ -1071,11 +1071,7 @@ export function montajeDePrueba(
   reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
 ): MontajeDeArena {
   const lado = (puestos: readonly PuestoDeLaPelea[]) => ({
-    unidades: puestos.map(({ unidad, escalera }) => ({
-      kind: 'borrador' as const,
-      unidad,
-      escalera: escalera === true,
-    })),
+    unidades: puestos.map(({ unidad, escalera }) => ({ unidad, escalera: escalera === true })),
     heroe: null,
   });
   return {
@@ -1108,15 +1104,20 @@ export interface PuestoDelMotor extends PuestoDeLaPelea {
  * se pide, de dos casillas. La arena ya no hace unidades grandes (13-10-2026:
  * «todo el mundo un hexe»), pero el motor sí las juega —el dragón óseo del
  * juego— y sus reglas con la muralla (la cola, la puerta, la escalera) se
- * prueban así. Con las reglas del juego (`createBattle`).
+ * prueban así. Con las reglas del juego (`createBattle`). Con `heroes`, el de cada
+ * bando: es la puerta con la que se compara la de la arena (`batallaDeArena`).
  */
 export function peleaDelMotor(
   izquierda: readonly PuestoDelMotor[],
   derecha: readonly PuestoDelMotor[],
   rng: Rng,
   muralla: MurallaDeBatalla = SIN_MURALLA,
+  heroes: { readonly izquierda: BattleSide['hero']; readonly derecha: BattleSide['hero'] } = {
+    izquierda: null,
+    derecha: null,
+  },
 ): BattleState {
-  const lado = (puestos: readonly PuestoDelMotor[]): BattleSide => {
+  const lado = (puestos: readonly PuestoDelMotor[], hero: BattleSide['hero']): BattleSide => {
     const members = new Map<string, BattleMember>();
     const army: Stack[] = puestos.map(({ unidad, escalera, grande }, i) => {
       const cifras = unidadDeCombate(unidad, DEL_JUEGO);
@@ -1129,9 +1130,14 @@ export function peleaDelMotor(
       });
       return { creature: unidad.cuerpo.hoja, member, count: 1 };
     });
-    return { army, hero: null, members };
+    return { army, hero, members };
   };
-  return createBattle(lado(izquierda), lado(derecha), rng, muralla);
+  return createBattle(
+    lado(izquierda, heroes.izquierda),
+    lado(derecha, heroes.derecha),
+    rng,
+    muralla,
+  );
 }
 
 /**
@@ -1167,5 +1173,5 @@ export function sesionDeArena(
 
 /** Una unidad del borrador como fuente del montaje de la arena. */
 export function delBorrador(unidad: UnidadDeArena, escalera = false): FuenteDeArena {
-  return escalera ? { kind: 'borrador', unidad, escalera } : { kind: 'borrador', unidad };
+  return escalera ? { unidad, escalera } : { unidad };
 }

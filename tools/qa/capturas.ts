@@ -99,7 +99,7 @@ import type {
   BattleStack,
   BattleState,
 } from '../../src/core/battle/types.js';
-import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
+import { allCreatures, nombreDeTipoDeHeroe } from '../../src/core/data.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
@@ -2709,7 +2709,7 @@ function deHoja(
 
 /** Una unidad del borrador como fuente del montaje del espejo. */
 function delBorrador(unidad: UnidadDeArena): FuenteDeArena {
-  return { kind: 'borrador', unidad };
+  return { unidad };
 }
 
 /**
@@ -3136,7 +3136,7 @@ async function poderesEnLaArena(
       .waitFor({ timeout: 2000 });
     const motivoDelOrco = espejo.retocar({
       kind: 'tipo',
-      fuente: { kind: 'borrador', unidad: deHoja(hojas, 'orko-dos-armas', { attack: ataque }) },
+      fuente: { unidad: deHoja(hojas, 'orko-dos-armas', { attack: ataque }) },
     });
     if (motivoDelOrco !== null)
       throw new Error(`poderes: el espejo no retoca el orco: ${motivoDelOrco}`);
@@ -3616,6 +3616,36 @@ async function abrirLaArena(page: Page, url: string, query: string): Promise<voi
 }
 
 /**
+ * Que la lista de la arena bajo `raiz` no ofrezca el catálogo del juego
+ * (13-10-2026): ni un botón u opción que lo nombre, ni una criatura suya entre las
+ * unidades de la lista o los cuerpos de «Nueva unidad». Mira lo que la página
+ * genera hoy: buscar el `data-faccion="catalogo"` de antes pasaba siempre, porque
+ * nadie lo escribe ya.
+ */
+async function sinElCatalogoDelJuego(page: Page, raiz: string, paso: string): Promise<void> {
+  const nombrado = await page
+    .locator(`${raiz} :is(button, option)`, { hasText: /cat[aá]logo del juego/i })
+    .count();
+  const ids = await page
+    .locator(`${raiz} [data-unidad-catalogo], ${raiz} [data-arena-nueva] option`)
+    .evaluateAll((els) =>
+      els.map((e) => e.getAttribute('data-unidad-catalogo') ?? e.getAttribute('value') ?? ''),
+    );
+  if (!ids.some((id) => id !== '')) {
+    throw new Error(
+      `${paso}: la lista de la arena no tiene unidades, y no hay catálogo que buscar`,
+    );
+  }
+  const delJuego = new Set(allCreatures().map((c) => c.id));
+  const criaturas = ids.filter((id) => delJuego.has(id));
+  if (nombrado > 0 || criaturas.length > 0) {
+    throw new Error(
+      `${paso}: la lista de la arena aún ofrece el catálogo del juego (${nombrado} botones u opciones que lo nombran; criaturas: ${criaturas.join(', ') || 'ninguna'})`,
+    );
+  }
+}
+
+/**
  * Hasta que la página ha pintado lo último que se le pidió: las fuentes cargadas
  * y dos fotogramas (el del repintado pendiente y el siguiente, ya con él).
  */
@@ -3660,10 +3690,7 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   if (!/1 de fheroes2/i.test(cabecera)) {
     throw new Error(`banco: la URL pide el tirador de fheroes2 y el montaje dice «${cabecera}»`);
   }
-  // Sin el catálogo del juego: ni su filtro ni una criatura en la lista (13-10-2026).
-  if ((await page.locator('[data-faccion="catalogo"], [data-criatura-catalogo]').count()) > 0) {
-    throw new Error('banco: la lista de la arena aún ofrece el catálogo del juego');
-  }
+  await sinElCatalogoDelJuego(page, '#catalogo', 'banco');
   await page
     .locator('[data-unidad-catalogo="templario-hermano-de-carga"] [data-lado="izquierda"]')
     .click();
@@ -3819,14 +3846,47 @@ async function bandosDichos(page: Page): Promise<string> {
 }
 
 /**
+ * Que los avisos de lo leído (`#avisos-de-lectura`, desplegados desde la barra)
+ * empiecen por `primeros`, en ese orden y enteros, y que cada uno se lea entero en
+ * la pantalla: su punto de la lista sin recortar (ni por su caja ni por la del
+ * recuadro) y, traído a la vista, dentro de ella. Es lo que la barra, cortada a dos líneas, no daba (H1 de QA,
+ * 14-10-2026).
+ */
+async function avisosEnteros(page: Page, primeros: readonly string[], paso: string): Promise<void> {
+  const puntos = page.locator('#avisos-de-lectura li');
+  const dichos = await puntos.allInnerTexts();
+  for (const [i, frase] of primeros.entries()) {
+    if (dichos[i]?.trim() !== frase) {
+      throw new Error(
+        `${paso}: el aviso ${i + 1} debía ser «${frase}» y es «${dichos[i] ?? '(ninguno)'}»`,
+      );
+    }
+    const punto = puntos.nth(i);
+    await punto.scrollIntoViewIfNeeded();
+    const fallo = await punto.evaluate((li) => {
+      const caja = li.getBoundingClientRect();
+      const recuadro = (li.closest('#avisos-de-lectura') as HTMLElement).getBoundingClientRect();
+      if (li.scrollHeight > li.clientHeight + 1 || li.scrollWidth > li.clientWidth + 1)
+        return `su punto está recortado (${li.scrollWidth}×${li.scrollHeight} en ${li.clientWidth}×${li.clientHeight})`;
+      if (caja.top < recuadro.top - 1 || caja.bottom > recuadro.bottom + 1)
+        return `se sale del recuadro (${Math.round(caja.top)}-${Math.round(caja.bottom)} en ${Math.round(recuadro.top)}-${Math.round(recuadro.bottom)})`;
+      if (caja.top < 0 || caja.bottom > window.innerHeight || caja.right > window.innerWidth)
+        return `no cabe en la pantalla (${Math.round(caja.left)},${Math.round(caja.top)}-${Math.round(caja.right)},${Math.round(caja.bottom)} en ${window.innerWidth}×${window.innerHeight})`;
+      return null;
+    });
+    if (fallo !== null) throw new Error(`${paso}: el aviso «${frase.slice(0, 40)}…» ${fallo}`);
+  }
+}
+
+/**
  * El enlace de la pelea (H6 de QA del banco): se monta con clics una pelea con
  * todo lo que lleva el enlace —dos hojas con una cifra sin guardar, un arquero,
  * un héroe con su hoja de figura y sus cifras en cada lado, todo en IA, y dos
  * reglas de fheroes2—, se copia el enlace, y abierto en otra página monta lo
  * mismo y se queda en el montaje sin luchar. Un enlace de hoy con una criatura
  * del catálogo (que ya no está en la arena, 13-10-2026) y un `?reglas=` repetido
- * se rechazan diciéndolo; uno de la versión 7 con una criatura se monta sin ella
- * y lo dice.
+ * se rechazan diciéndolo; uno de la versión 7 con una criatura y un dragón óseo
+ * se monta sin ellos y lo dice, entero (`avisosEnteros`).
  */
 async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -3916,24 +3976,54 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   if ((await otra.locator('#bando-izquierda .puesto, #bando-derecha .puesto').count()) !== 0) {
     throw new Error('enlace: un enlace roto ha montado algo');
   }
-  // De antes: uno de la versión 7 con una criatura monta lo demás y lo dice.
+  // De antes: uno de la versión 7 con una criatura en un puesto y un dragón óseo
+  // de cuerpo de criatura monta lo demás y lo dice, entero, en el recuadro que se
+  // despliega solo desde la barra y lo que se quita primero (H1 de QA, 14-10-2026:
+  // en la barra, cortada a dos líneas, no se llegaba a leer).
   await otra.goto(
     conMontaje((m) => {
       m.v = 7;
       m.pruebas = { pikeman: { attack: 8 } };
       m.izquierda.puestos.push({ criatura: 'pikeman', escalera: false });
+      m.unidades.push({
+        ...m.unidades[0],
+        id: 'bone-dragon-2',
+        name: 'Dragón óseo',
+        cuerpo: { criatura: 'bone_dragon' },
+        hexes: 2,
+      });
+      m.derecha.puestos.push({ unidad: 'bone-dragon-2', escalera: false });
     }),
     { waitUntil: 'networkidle' },
   );
-  await otra
-    .locator('#status', {
-      hasText: 'El enlace montaba criaturas del catálogo del juego («pikeman»)',
-    })
-    .waitFor({ timeout: 5000 });
+  const quitado = [
+    'El enlace montaba criaturas del catálogo del juego («pikeman»): en la arena solo están las cinco facciones de las hojas, y se quitan.',
+    'La unidad «Dragón óseo» era una criatura del catálogo del juego («bone_dragon»): en la arena solo están las cinco facciones de las hojas, y se retira.',
+  ];
+  await otra.locator('#avisos-de-lectura li').first().waitFor({ timeout: 5000 });
   if ((await bandosDichos(otra)) !== montado) {
     throw new Error('enlace: el de la versión 7 no monta lo demás tal cual');
   }
-  log('enlace: uno de la 7 con una criatura monta lo demás y lo dice');
+  if (!(await otra.locator('#status').innerText()).includes('«Avisos al leer»')) {
+    throw new Error('enlace: la barra no dice dónde leer los avisos del enlace de la 7');
+  }
+  await avisosEnteros(otra, quitado, 'enlace (1440)');
+  await captura(otra, 'arena-09b-enlace-de-la-7');
+  await otra.setViewportSize({ width: 390, height: 844 });
+  await avisosEnteros(otra, quitado, 'enlace (390)');
+  await captura(otra, 'arena-09c-enlace-de-la-7-movil');
+  await otra.setViewportSize({ width: 1440, height: 900 });
+  await otra.locator('[data-arena="cerrar-avisos"]').click();
+  if (await otra.locator('#avisos-de-lectura').isVisible()) {
+    throw new Error('enlace: «Entendido» no cierra los avisos');
+  }
+  // Y se vuelven a abrir desde la barra.
+  await otra.locator('#ver-avisos', { hasText: 'Avisos al leer (' }).click();
+  await avisosEnteros(otra, quitado, 'enlace (reabiertos)');
+  await otra.locator('[data-arena="cerrar-avisos"]').click();
+  log(
+    'enlace: uno de la 7 con una criatura y un dragón monta lo demás y lo dice entero, lo quitado primero',
+  );
   // Repetido: `reglas` dos veces se rechaza diciéndolo (H4 de QA del banco).
   await otra.goto(`${url}/arena/?seed=5&reglas=tirador&reglas=bendicion`, {
     waitUntil: 'networkidle',
@@ -4161,8 +4251,7 @@ async function edicionDeLaArena(
   await abrir('[data-unidad="templario-monje"]', '2 abiertas');
   await abrir('[data-unidad="caballero-de-la-muerte"]', '3 abiertas');
   // Por su facción, como se elige en la lista: sin el catálogo del juego (13-10-2026).
-  if ((await page.locator('#edicion [data-faccion="catalogo"]').count()) > 0)
-    throw new Error('edición: la lista aún ofrece el catálogo del juego');
+  await sinElCatalogoDelJuego(page, '#edicion', 'edición');
   await page.locator('#edicion [data-arena="filtro"][data-faccion="elfos"]').click();
   await abrir('[data-unidad="elfo-arquero"]', '4 abiertas');
   // Sin tope: la quinta y la sexta entran, debajo de las tres primeras.
@@ -4462,8 +4551,7 @@ async function edicionDeLaArena(
       const a = document.activeElement;
       if (a === null || a === document.body) return 'body';
       const ficha = a.closest('[data-clave-de-ficha]')?.getAttribute('data-clave-de-ficha');
-      const quien = a.getAttribute('data-unidad') ?? a.getAttribute('data-criatura');
-      return `${a.getAttribute('data-arena')} ${ficha ?? quien}`;
+      return `${a.getAttribute('data-arena')} ${ficha ?? a.getAttribute('data-unidad')}`;
     });
   await page.locator(`${ficha('templario-escudo')} [data-arena-habilidad]`).focus();
   await page.keyboard.press('Tab');

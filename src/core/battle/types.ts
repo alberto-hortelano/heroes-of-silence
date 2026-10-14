@@ -168,13 +168,14 @@ export interface BattleStack {
   effects: StackEffect[];
   ganado: Ganado;
   /**
-   * Lo gastado que las cifras de ahora no dejan restar: solo la arena, al
+   * La herida que las cifras de ahora no dejan restar, en PV: solo la arena, al
    * retocar a media pelea (`retocarEnBatalla`). Bajar la vida por debajo de la
    * herida deja el stack a 1 PV; lo que no cupo se apunta aquí para que volver a
    * subirla no lo devuelva (N3 de QA). Sin él, nada que deber. La arena no cuenta
-   * tiros (13-10-2026): no hay munición que deber.
+   * tiros (13-10-2026): no hay munición que deber, y por eso es un número, como
+   * `BattleHero.manaGastadoDeMas`.
    */
-  readonly gastadoDeMas?: { readonly herida: number };
+  readonly gastadoDeMas?: number;
 }
 
 /**

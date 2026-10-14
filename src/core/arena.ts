@@ -12,7 +12,7 @@
  * de los personajes de `createBattle` (`members`): el motor toma
  * `profile.unit` tal cual y no vuelve a llamar a `creature()`, así que ni el
  * catálogo ni ninguna partida cambian por tener una arena. El `body` del stack
- * es solo el id de su CUERPO —una hoja (`figuraDeLaUnidad`)—, que es lo que el
+ * es solo el id de su CUERPO —una hoja (`cuerpo.hoja`)—, que es lo que el
  * cliente pinta. Las criaturas del catálogo no entran en la arena (13-10-2026: «solo
  * cuentan los 5 que hay en la arena»).
  *
@@ -92,6 +92,7 @@ import {
   camposDelHueco,
   describirCoste,
   type EquipoDeArena,
+  enumerar,
   esArmaPorUso,
   HUECOS_DE_LA_ARENA,
   type HuecoDeArena,
@@ -214,11 +215,6 @@ export interface UnidadDeArena
  * del catálogo del juego no entran en la arena (13-10-2026).
  */
 export type CuerpoDeArena = { readonly hoja: string };
-
-/** El id del arte con el que se pinta una unidad: el de su hoja. */
-export function figuraDeLaUnidad(u: Pick<UnidadDeArena, 'cuerpo'>): string {
-  return u.cuerpo.hoja;
-}
 
 /**
  * Las habilidades que puede llevar una unidad de la arena: las del catálogo
@@ -606,7 +602,7 @@ let juegoEscritoHecho: ReadonlyMap<string, Pieza> | null = null;
 /**
  * Las piezas del juego escritas como las escribe la arena (`validarPiezaDeArena`):
  * así `mismaPieza` compara dos formas normalizadas sin volver a validar. Se hace
- * la primera vez que se pide: antes, `CAMPOS_DE_PIEZA` aún no existe.
+ * la primera vez que se pide, no al cargar el módulo.
  */
 function juegoEscrito(): ReadonlyMap<string, Pieza> {
   juegoEscritoHecho ??= new Map(
@@ -615,26 +611,11 @@ function juegoEscrito(): ReadonlyMap<string, Pieza> {
   return juegoEscritoHecho;
 }
 
-/** Los campos de una pieza, en el orden en que se escriben: lo demás se rechaza diciéndolo. */
-const CAMPOS_DE_PIEZA: readonly string[] = [
-  'id',
-  'nombre',
-  'hueco',
-  'calidad',
-  'ataque',
-  'defensa',
-  'pv',
-  'velocidad',
-  'danio',
-  'manos',
-  'precio',
-];
-
 /**
  * Una pieza de la arena, comprobada y escrita siempre igual; lanza diciendo qué
  * no cuadra. La regla de una pieza es la del catálogo del juego
- * (`problemasDePieza`: cifras, el escudo que resta, el daño, las manos solo en un
- * arma, el precio); encima, la de la arena:
+ * (`problemasDePieza`: los campos que existen, las cifras, el escudo que resta, el
+ * daño, las manos solo en un arma, el precio); encima, la de la arena:
  *
  * - el id, en minúsculas, cifras, `-` y `_` (`esIdDePieza`);
  * - una pieza con el id de una del juego es esa pieza cambiada, y **su hueco y su
@@ -651,12 +632,6 @@ export function validarPiezaDeArena(valor: unknown): Pieza {
   }
   const p = valor as Record<string, unknown>;
   const quien = typeof p.nombre === 'string' && p.nombre !== '' ? `«${p.nombre}»` : 'la pieza';
-  const ajeno = Object.keys(p).find((k) => !CAMPOS_DE_PIEZA.includes(k));
-  if (ajeno !== undefined) {
-    throw new Error(
-      `${quien}: «${ajeno}» no es un campo de una pieza; valen ${CAMPOS_DE_PIEZA.join(', ')}`,
-    );
-  }
   const problemas = problemasDePieza(p, quien);
   if (problemas.length > 0) throw new Error(problemas.join('; '));
   const id = p.id as string;
@@ -993,40 +968,43 @@ export function revisarBorradorDeEquipo(valor: unknown): {
   const avisos: string[] = [];
   const revisado = revisarLista(
     listaDelBorradorDeEquipo(valor),
-    (crudo) => piezaConvertida(crudo, avisos),
+    (crudo) => piezaConvertida(crudo, avisos, 'borrador'),
     CLAVE_DE_PIEZA,
   );
   return { ...revisado, avisos };
 }
 
 /**
- * Una pieza de un borrador o un enlace que puede ser de antes: convertida
+ * Una pieza de un borrador o un enlace que puede ser de antes (`de`): convertida
  * (`piezaDeAntes`) y validada (`validarPiezaDeArena`), y los avisos, si los hubo,
  * en `avisos`. Lanza si no vale.
  */
-function piezaConvertida(crudo: unknown, avisos: string[], armasEnArma = true): Pieza {
-  const { pieza, aviso } = piezaDeAntes(crudo, armasEnArma);
+function piezaConvertida(crudo: unknown, avisos: string[], de: DeCuando): Pieza {
+  const { pieza, aviso } = piezaDeAntes(crudo, de);
   const valida = validarPiezaDeArena(pieza);
   if (aviso !== null) avisos.push(aviso);
   return valida;
 }
 
 /**
- * Una pieza de un borrador o un enlace de antes, en la forma de hoy: primero en
- * su hueco (`piezaDeAntesDeLasArmas`, que la sitúa por sus disparos), si es de
- * antes de que cada arma fuera a lo suyo (`armasEnArma`; un enlace de la 7 ya no
- * lo es), y luego sin los disparos, que se fueron con la munición (13-10-2026:
- * llevar un arma a distancia ya es disparar). El aviso, una frase entera para la
- * barra, o `null` si no había nada que convertir.
+ * Una pieza de un borrador o un enlace de antes (`de`), en la forma de hoy:
+ * primero en su hueco (`piezaDeAntesDeLasArmas`, que la sitúa por sus disparos),
+ * si es de antes de que cada arma fuera a lo suyo (`CON_ARMAS`), y luego sin los
+ * disparos, que se fueron con la munición (13-10-2026: llevar un arma a distancia
+ * ya es disparar). Desde `SOLO_LA_ARENA` se lee estricta: pasa tal cual. El aviso,
+ * una frase entera para la barra, o `null` si no había nada que convertir.
  */
-export function piezaDeAntes(
+function piezaDeAntes(
   crudo: unknown,
-  armasEnArma = true,
+  de: DeCuando,
 ): {
   readonly pieza: unknown;
   readonly aviso: string | null;
 } {
-  const enSuHueco = armasEnArma ? piezaDeAntesDeLasArmas(crudo) : { pieza: crudo, aviso: null };
+  if (!deAntesDe(de, SOLO_LA_ARENA)) return { pieza: crudo, aviso: null };
+  const enSuHueco = deAntesDe(de, CON_ARMAS)
+    ? piezaDeAntesDeLasArmas(crudo)
+    : { pieza: crudo, aviso: null };
   const p = enSuHueco.pieza;
   if (typeof p !== 'object' || p === null || Array.isArray(p) || !('disparos' in p)) {
     return enSuHueco;
@@ -1034,16 +1012,12 @@ export function piezaDeAntes(
   const { disparos, ...sinDisparos } = p as Record<string, unknown>;
   // Con 0 no había munición que perder: se quita callando, como se escribía.
   if (disparos === 0) return { pieza: sinDisparos, aviso: enSuHueco.aviso };
-  const nombre =
-    typeof sinDisparos.nombre === 'string' ? sinDisparos.nombre : String(sinDisparos.id);
+  const nombre = nombreOId(sinDisparos, 'nombre');
   const sinMunicion =
     sinDisparos.hueco === 'distancia'
       ? `La pieza «${nombre}» traía ${String(disparos)} disparos: ya no hay munición, quien la lleve dispara siempre.`
       : `La pieza «${nombre}» traía ${String(disparos)} disparos: ya no hay munición, y solo dispara quien lleva algo en ${NOMBRE_DE_HUECO.distancia}.`;
-  return {
-    pieza: sinDisparos,
-    aviso: enSuHueco.aviso === null ? sinMunicion : `${enSuHueco.aviso} ${sinMunicion}`,
-  };
+  return { pieza: sinDisparos, aviso: juntar(enSuHueco.aviso, sinMunicion) };
 }
 
 /**
@@ -1074,7 +1048,7 @@ function piezaDeAntesDeLasArmas(crudo: unknown): {
         : null;
   if (destino === null) return { pieza: crudo, aviso: null };
   const { manos, ...sinManos } = p;
-  const nombre = typeof p.nombre === 'string' ? p.nombre : String(p.id);
+  const nombre = nombreOId(p, 'nombre');
   return {
     pieza: { ...sinManos, hueco: destino },
     aviso: `La pieza «${nombre}» iba en ${NOMBRE_DE_HUECO.arma}: pasa a ${NOMBRE_DE_HUECO[destino]}${manos === undefined ? '' : ', y ya no es a dos manos'}.`,
@@ -1104,7 +1078,7 @@ export function armasEnSuHueco(
   if (p === null || !esArmaPorUso(p.hueco)) return { unidad: crudo, aviso: null };
   // Con su hueco ya ocupado no hay sitio al que pasarla: lo dice la validación.
   if (resto[p.hueco] !== undefined) return { unidad: crudo, aviso: null };
-  const nombre = typeof u.name === 'string' ? u.name : String(u.id);
+  const nombre = nombreOId(u, 'name');
   return {
     unidad: { ...u, equipo: { ...resto, [p.hueco]: arma } },
     aviso: `La unidad «${nombre}» llevaba ${p.nombre} en ${NOMBRE_DE_HUECO.arma}: pasa a ${NOMBRE_DE_HUECO[p.hueco]}, y cuerpo a cuerpo pega sin arma (ponle una en su ficha).`,
@@ -1324,36 +1298,88 @@ export function perfilDeLasHojas(hojas: readonly Pick<HojaDeArena, 'id' | 'perfi
  * una frase entera, con su mayúscula y su punto, que el borrador y el enlace
  * juntan con las demás tal cual. `unidad` es `null` si se retira: su cuerpo era
  * una criatura del catálogo del juego, que ya no está en la arena (13-10-2026), y
- * el aviso lo dice. `municion` es su nombre si traía munición y sigue disparando
- * con su arma a distancia: eso se dice una vez por borrador o enlace
- * (`avisoDeLaMunicion`), que cada arquero de antes lo diría.
+ * el aviso lo dice; `retirada` es entonces su id, si lo traía. `municion` es su
+ * nombre si traía munición y sigue disparando con su arma a distancia: eso se
+ * dice una vez por borrador o enlace (`avisoDeLaMunicion`), que cada arquero de
+ * antes lo diría.
  */
 export interface UnidadMigrada {
   readonly unidad: UnidadDeArena | null;
   readonly aviso: string | null;
   readonly municion: string | null;
+  readonly retirada: string | null;
 }
 
 /**
  * Lo que se dice de las unidades de antes que traían munición y siguen
  * disparando: una frase para todas, o `null` si no hay ninguna.
  */
-export function avisoDeLaMunicion(nombres: readonly string[]): string | null {
+function avisoDeLaMunicion(nombres: readonly string[]): string | null {
   if (nombres.length === 0) return null;
-  const lista = nombres.map((n) => `«${n}»`);
-  const quienes =
-    lista.length === 1 ? lista[0] : `${lista.slice(0, -1).join(', ')} y ${lista[lista.length - 1]}`;
+  const quienes = enumerar(nombres.map((n) => `«${n}»`));
   return `Ya no hay munición: ${quienes} ${nombres.length === 1 ? 'traía sus tiros y dispara' : 'traían sus tiros y disparan'} siempre con su arma a distancia.`;
 }
 
-/** Las frases de un aviso de unidad, juntas: `null` si no hay ninguna. */
+/** Las frases de un aviso, juntas: `null` si no hay ninguna. */
 function juntar(...frases: readonly (string | null)[]): string | null {
   const hay = frases.filter((f): f is string => f !== null);
   return hay.length === 0 ? null : hay.join(' ');
 }
 
 /**
- * Una unidad de un borrador o un enlace, del formato que sea. Primero se le quita
+ * Cómo se nombra en un aviso algo de antes, sin validar: por su nombre (`name` la
+ * unidad, `nombre` la pieza) si lo trae, y si no por su id.
+ */
+function nombreOId(o: Record<string, unknown>, campo: 'name' | 'nombre'): string {
+  const nombre = o[campo];
+  return typeof nombre === 'string' ? nombre : String(o.id);
+}
+
+/**
+ * Las unidades de un borrador o un enlace, leídas una a una con
+ * `migrarUnidadDeArena` por `recorrer` —el borrador las revisa sin que una mala
+ * tire las demás (`revisarLista`); el enlace lanza con la primera—, con lo que
+ * hubo que decir junto: el aviso de cada una, en su orden, y la munición de
+ * todas en una frase al final (`avisoDeLaMunicion`). Lo de las que se retiran va
+ * aparte, en `seRetiran`, para decirlo **antes que nada** (H1 de QA, 14-10-2026):
+ * es lo único que «Guardar» pierde para siempre. `retiradas`, sus ids: el enlace
+ * quita también sus puestos.
+ */
+function migrarUnidades<R>(
+  crudas: readonly unknown[],
+  perfilDe: PerfilDe | undefined,
+  eq: EquipoAtado,
+  de: DeCuando,
+  recorrer: (crudas: readonly unknown[], leer: (crudo: unknown) => UnidadDeArena | null) => R,
+): {
+  readonly leidas: R;
+  readonly retiradas: ReadonlySet<string>;
+  readonly seRetiran: readonly string[];
+  readonly avisos: readonly string[];
+} {
+  const avisos: string[] = [];
+  const seRetiran: string[] = [];
+  const conMunicion: string[] = [];
+  const retiradas = new Set<string>();
+  const leidas = recorrer(crudas, (crudo) => {
+    const leida = migrarUnidadDeArena(crudo, perfilDe, eq, de);
+    if (leida.aviso !== null) (leida.unidad === null ? seRetiran : avisos).push(leida.aviso);
+    if (leida.municion !== null) conMunicion.push(leida.municion);
+    if (leida.retirada !== null) retiradas.add(leida.retirada);
+    return leida.unidad;
+  });
+  const municion = avisoDeLaMunicion(conMunicion);
+  return {
+    leidas,
+    retiradas,
+    seRetiran,
+    avisos: municion === null ? avisos : [...avisos, municion],
+  };
+}
+
+/**
+ * Una unidad de un borrador o un enlace, del formato que sea (`de`; desde
+ * `SOLO_LA_ARENA`, la de hoy y nada más: se valida tal cual). Primero se le quita
  * lo que ya no existe (`loDeAntes`): con un cuerpo de criatura del catálogo se
  * retira, y la munición y el tamaño se van. Con `cuerpo` es de
  * hoy: se valida y nada más —por eso una ya convertida no se convierte dos
@@ -1372,16 +1398,27 @@ function juntar(...frases: readonly (string | null)[]): string | null {
  */
 export function migrarUnidadDeArena(
   crudo: unknown,
-  perfilDe: PerfilDe | null,
+  perfilDe: PerfilDe | undefined,
   eq: EquipoAtado,
-  armasEnArma = true,
+  de: DeCuando,
 ): UnidadMigrada {
+  if (!deAntesDe(de, SOLO_LA_ARENA)) {
+    return { unidad: validarUnidadDeArena(crudo, eq), aviso: null, municion: null, retirada: null };
+  }
   if (typeof crudo !== 'object' || crudo === null || Array.isArray(crudo)) {
     throw new Error('una unidad de la arena tiene que ser un objeto');
   }
   const antes = loDeAntes(crudo as Record<string, unknown>);
-  if (antes.retirada !== null) return { unidad: null, aviso: antes.retirada, municion: null };
-  const { unidad, aviso } = sinLoDeAntes(antes.unidad, perfilDe, eq, armasEnArma);
+  if (antes.retirada !== null) {
+    const id = (crudo as Record<string, unknown>).id;
+    return {
+      unidad: null,
+      aviso: antes.retirada,
+      municion: null,
+      retirada: typeof id === 'string' ? id : null,
+    };
+  }
+  const { unidad, aviso } = sinLoDeAntes(antes.unidad, perfilDe, eq, de);
   // Los tiros que traía: si sigue disparando, lo dice la frase de todas
   // (`avisoDeLaMunicion`); si no, que ya no dispara, que eso sí lo cambia.
   const dispara = unidad.equipo.distancia !== undefined;
@@ -1393,6 +1430,7 @@ export function migrarUnidadDeArena(
     unidad,
     aviso: juntar(aviso, antes.tamaño, tiros),
     municion: antes.tiros !== null && dispara ? unidad.name : null,
+    retirada: null,
   };
 }
 
@@ -1409,7 +1447,7 @@ function loDeAntes(u: Record<string, unknown>): {
   readonly tiros: number | null;
   readonly tamaño: string | null;
 } {
-  const nombre = typeof u.name === 'string' ? u.name : String(u.id);
+  const nombre = nombreOId(u, 'name');
   const cuerpo = u.cuerpo;
   if (typeof cuerpo === 'object' && cuerpo !== null && 'criatura' in cuerpo) {
     return {
@@ -1438,20 +1476,25 @@ function loDeAntes(u: Record<string, unknown>): {
  */
 function sinLoDeAntes(
   u: Record<string, unknown>,
-  perfilDe: PerfilDe | null,
+  perfilDe: PerfilDe | undefined,
   eq: EquipoAtado,
-  armasEnArma: boolean,
+  de: DeCuando,
 ): { readonly unidad: UnidadDeArena; readonly aviso: string | null } {
-  // De hoy, o de antes de que cada arma fuera a lo suyo (`armasEnArma`): el arco
-  // en `arma`. Sin `perfilDe` (un enlace desde la 5) una sin cuerpo no es de ese
-  // formato, y lo dice la validación.
-  if ('cuerpo' in u || perfilDe === null) {
-    return armasEnArma
+  // De hoy, o de antes de que cada arma fuera a lo suyo (`CON_ARMAS`): el arco en
+  // `arma`. Lo que es de después del equipo (`CON_EQUIPO`) y no trae cuerpo no es
+  // de ese formato, y lo dice la validación.
+  if ('cuerpo' in u || !deAntesDe(de, CON_EQUIPO)) {
+    return deAntesDe(de, CON_ARMAS)
       ? unidadConCuerpo(u, eq)
       : { unidad: validarUnidadDeArena(u, eq), aviso: null };
   }
+  if (perfilDe === undefined) {
+    throw new Error(
+      'una unidad de antes del equipo se lee con las cifras de su perfil, y para eso hace falta el perfil de cada hoja',
+    );
+  }
   const id = idValido(u.id);
-  const nombre = typeof u.name === 'string' ? u.name : id;
+  const nombre = nombreOId(u, 'name');
   const quien = `la unidad «${nombre}»`;
   const { [CAMPO_DE_LA_ESCALA_VIEJA]: level, speed, ...resto } = u;
   // Un borrador con `level` es de la escala de fheroes2: PV y daño, a la de hoy.
@@ -1535,9 +1578,7 @@ function cuerpoSinElKit(
   /** Las piezas del kit que suman algo de esa cifra, por su nombre: «Espada y Brigantina». */
   const de = (cuanto: (p: (typeof piezas)[number]) => number): string => {
     const nombres = piezas.filter((p) => cuanto(p) !== 0).map((p) => p.nombre);
-    return nombres.length <= 1
-      ? (nombres[0] ?? 'su equipo')
-      : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
+    return nombres.length === 0 ? 'su equipo' : enumerar(nombres);
   };
   const conSigno = (n: number): string => (n < 0 ? `−${-n}` : `+${n}`);
   const [min, max] = u.damage;
@@ -1611,7 +1652,8 @@ export interface UnidadSinValidar {
 /**
  * El archivo leído unidad a unidad: las que valen y las que no, cada una con su
  * motivo. Las retiradas (un cuerpo de criatura del catálogo del juego) no son
- * ninguna de las dos: no se conservan al guardar, y `avisos` lo dice. Una unidad
+ * ninguna de las dos: no se conservan al guardar, y `seRetiran` lo dice, aparte
+ * de lo demás (`avisos`) para que se diga primero. Una unidad
  * mala no tira las buenas (H2 de QA: con una sola editada a
  * mano, la página arrancaba vacía y «Guardar» pisaba el resto). Lanza solo si el
  * archivo entero no tiene la forma `{ unidades: [...] }`: ahí no hay nada que
@@ -1624,26 +1666,23 @@ export function revisarBorradorDeArena(
 ): {
   readonly validas: readonly UnidadDeArena[];
   readonly invalidas: readonly UnidadSinValidar[];
-  /** Lo que hubo que decir al convertir unidades de antes (`migrarUnidadDeArena`). */
+  /** Lo que se dice de cada unidad que se retira: «Guardar» la pierde. */
+  readonly seRetiran: readonly string[];
+  /** Lo demás que hubo que decir al convertir unidades de antes (`migrarUnidadDeArena`). */
   readonly avisos: readonly string[];
 } {
-  const avisos: string[] = [];
-  const conMunicion: string[] = [];
-  const { validas, invalidas } = revisarLista(
-    listaDelBorrador(valor),
-    (crudo) => {
-      const { unidad, aviso, municion } = migrarUnidadDeArena(crudo, perfilDe, eq);
-      if (aviso !== null) avisos.push(aviso);
-      if (municion !== null) conMunicion.push(municion);
-      return unidad;
-    },
-    CLAVE_DE_UNIDAD,
+  const {
+    leidas: { validas, invalidas },
+    seRetiran,
+    avisos,
+  } = migrarUnidades(listaDelBorrador(valor), perfilDe, eq, 'borrador', (crudas, leer) =>
+    revisarLista(crudas, leer, CLAVE_DE_UNIDAD),
   );
-  const municion = avisoDeLaMunicion(conMunicion);
   return {
     validas,
     invalidas: invalidas.map(({ clave, motivo, crudo }) => ({ id: clave, motivo, crudo })),
-    avisos: municion === null ? avisos : [...avisos, municion],
+    seRetiran,
+    avisos,
   };
 }
 
@@ -1820,10 +1859,10 @@ function danioValido(par: unknown, quien: string): [number, number] {
  * escalera para la muralla: es del montaje, no de la unidad (la misma hoja puede
  * ir con ella o sin ella).
  */
-export type FuenteDeArena = {
-  readonly kind: 'borrador';
+export interface FuenteDeArena {
   readonly unidad: UnidadDeArena;
-} & { readonly escalera?: boolean };
+  readonly escalera?: boolean;
+}
 
 // ------------------------------------------------------------- el héroe
 
@@ -2021,12 +2060,12 @@ function stackDeLaFuente(
   // batalla es la última puerta y un objeto a mano (un test, el arnés) no pasó
   // por ninguna otra.
   const u = validarUnidadDeArena(fuente.unidad, eq);
-  const unit = unidadDeLaFuente(fuente, eq);
+  const unit = unidadDeCombate(u, eq);
   // Con los PV de su armadura: con `u.hp`, los del cuerpo, entraba herida.
   members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp, escalera });
   // El `body` es su cuerpo: el arte de su hoja, no su id (dos unidades nuevas
   // del mismo cuerpo se pintan igual).
-  return { creature: figuraDeLaUnidad(u), member, count: 1 };
+  return { creature: u.cuerpo.hoja, member, count: 1 };
 }
 
 /** Las cifras con las que pelea una unidad del montaje, comprobadas. */
@@ -2097,11 +2136,6 @@ export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
   };
 }
 
-/** El id del tipo de una fuente: el de la unidad del borrador. */
-export function idDeLaFuente(f: FuenteDeArena): string {
-  return f.unidad.id;
-}
-
 /**
  * De qué sale un stack de una pelea de la arena: una unidad del borrador (lo que
  * anotó `batallaDeArena`), o el héroe de un lado. Es lo que se
@@ -2157,7 +2191,7 @@ function claveDeFicha(t: TipoDeArena | { readonly kind: 'heroe'; readonly lado: 
 }
 
 function tipoDeLaFuente(f: FuenteDeArena): TipoDeArena {
-  return { kind: 'unidad', id: idDeLaFuente(f) };
+  return { kind: 'unidad', id: f.unidad.id };
 }
 
 /**
@@ -2503,14 +2537,14 @@ function conCifrasNuevas(state: BattleState, s: BattleStack, unit: UnitInfo): vo
     state.stacks[i] = { ...s, unit };
     return;
   }
-  const herida = s.unit.hp - s.topHp + (debe?.herida ?? 0);
+  const herida = s.unit.hp - s.topHp + (debe ?? 0);
   const topHp = Math.max(1, unit.hp - herida);
   const deMas = herida - (unit.hp - topHp);
   state.stacks[i] = {
     ...resto,
     unit,
     topHp,
-    ...(deMas === 0 ? {} : { gastadoDeMas: { herida: deMas } }),
+    ...(deMas === 0 ? {} : { gastadoDeMas: deMas }),
   };
 }
 
@@ -2682,16 +2716,27 @@ const CON_ARMAS = 7;
  */
 const SOLO_LA_ARENA = 8;
 
+/**
+ * De cuándo es lo que se lee: un borrador, que puede ser de cualquier fecha (lo
+ * escribió la página que hubiera entonces), o un enlace de esa versión. Lo leen
+ * la conversión de unidades y de piezas (`migrarUnidadDeArena`, `piezaDeAntes`).
+ */
+export type DeCuando = 'borrador' | number;
+
+/**
+ * Si lo leído puede ser de antes de la versión `umbral` (`CON_EQUIPO`,
+ * `CON_ARMAS`, `SOLO_LA_ARENA`): un borrador, siempre; un enlace, si es de una
+ * versión anterior. La única comparación de lo de antes con sus umbrales.
+ */
+function deAntesDe(de: DeCuando, umbral: number): boolean {
+  return de === 'borrador' || de < umbral;
+}
+
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla'];
-const CAMPOS_DEL_ENLACE_7 = [
-  'v',
-  'unidades',
-  'piezas',
-  'pruebas',
-  'izquierda',
-  'derecha',
-  'muralla',
-];
+/** Hasta la 7, además, las pruebas de las criaturas del catálogo, tras las piezas. */
+const CAMPOS_DEL_ENLACE_7 = CAMPOS_DEL_ENLACE.flatMap((c) =>
+  c === 'piezas' ? [c, 'pruebas'] : [c],
+);
 const CAMPOS_DEL_ENLACE_5 = ['v', 'unidades', 'pruebas', 'izquierda', 'derecha', 'muralla'];
 const CAMPOS_DEL_ENLACE_1 = ['v', 'unidades', 'pruebas', 'izquierda', 'derecha'];
 const CAMPOS_DEL_LADO = ['ia', 'puestos', 'heroe'];
@@ -2707,12 +2752,16 @@ const CAMPOS_DEL_HEROE = [
 ];
 
 /**
- * Un enlace leído: su montaje y, si hubo que decir algo al leerlo —un bando que
- * un enlace de antes de la versión 3 repartía entre la persona y la IA, una
- * unidad de antes de la 5 que no cupo en cuerpo y equipo—, el aviso.
+ * Un enlace leído: su montaje y, si hubo que decir algo al leerlo —lo que se
+ * quita porque ya no está en la arena, un bando que un enlace de antes de la
+ * versión 3 repartía entre la persona y la IA, una unidad de antes de la 5 que no
+ * cupo en cuerpo y equipo—, los avisos, una frase entera cada uno y **lo que se
+ * quita primero** (H1 de QA, 14-10-2026: en la barra, cortada a dos líneas, no
+ * se llegaba a leer; la página los pone enteros en un recuadro que se despliega
+ * desde ella).
  */
 export type MontajeLeido = MontajeDelEnlace & {
-  readonly aviso?: string;
+  readonly avisos?: readonly string[];
   /** La versión del enlace: uno de antes de la 6 pelea con las piezas de la arena que lo abre. */
   readonly version: number;
 };
@@ -2798,9 +2847,7 @@ export function montajeDeLaURL(
           try {
             // Hasta la 6, el arco, la ballesta y la lanza en `arma`; hasta la 7,
             // los disparos.
-            return soloLaArena
-              ? validarPiezaDeArena(crudo)
-              : piezaConvertida(crudo, avisos, version < CON_ARMAS);
+            return piezaConvertida(crudo, avisos, version);
           } catch (err) {
             throw new Error(
               `una pieza del enlace no vale: ${err instanceof Error ? err.message : String(err)}`,
@@ -2823,30 +2870,19 @@ export function montajeDeLaURL(
     );
   }
   // Las unidades retiradas (su cuerpo era una criatura del catálogo): sus
-  // puestos se quitan con ellas.
-  const retiradas = new Set<string>();
-  const conMunicion: string[] = [];
-  const unidades: UnidadDeArena[] = soloLaArena
-    ? crudas.map((c) => validarUnidadDeArena(c, conLasPiezas))
-    : crudas.flatMap((c) => {
-        // Desde la 5, con cuerpo: una sin él no es de ese formato y se rechaza.
-        const leida = migrarUnidadDeArena(
-          c,
-          version >= CON_EQUIPO ? null : (perfilDe ?? null),
-          conLasPiezas,
-          version < CON_ARMAS,
-        );
-        if (leida.aviso !== null) avisos.push(leida.aviso);
-        if (leida.municion !== null) conMunicion.push(leida.municion);
-        if (leida.unidad === null) {
-          const id = (c as Record<string, unknown>).id;
-          if (typeof id === 'string') retiradas.add(id);
-          return [];
-        }
-        return [leida.unidad];
-      });
-  const municion = avisoDeLaMunicion(conMunicion);
-  if (municion !== null) avisos.push(municion);
+  // puestos se quitan con ellas. La primera que no vale tumba el enlace.
+  const {
+    leidas: unidades,
+    retiradas,
+    seRetiran,
+    avisos: deLasUnidades,
+  } = migrarUnidades(crudas, perfilDe, conLasPiezas, version, (cs, leer) =>
+    cs.flatMap((c) => {
+      const u = leer(c);
+      return u === null ? [] : [u];
+    }),
+  );
+  avisos.push(...deLasUnidades);
   sinRepetir(
     unidades.map((u) => u.id),
     'la unidad',
@@ -2871,15 +2907,19 @@ export function montajeDeLaURL(
       ...(soloLaArena ? [] : Object.keys(o.pruebas as object)),
     ]),
   ];
+  // Lo que se quita, antes que nada: las criaturas, las unidades retiradas y el
+  // bando que se queda vacío sin ellas.
+  const quitado: string[] = [];
   if (criaturas.length > 0) {
-    avisos.push(
+    quitado.push(
       `El enlace montaba criaturas del catálogo del juego (${criaturas.map((c) => `«${c}»`).join(', ')}): en la arena solo están las cinco facciones de las hojas, y se quitan.`,
     );
   }
+  quitado.push(...seRetiran);
   for (const l of LADOS_EN_ORDEN) {
     const { lado, quitados } = leidos[l];
     if (quitados > 0 && lado.puestos.length === 0 && lado.heroe === null) {
-      avisos.push(
+      quitado.push(
         `El bando ${LADOS[l].adjetivo} se queda vacío sin ellas: pon al menos una unidad antes de luchar.`,
       );
     }
@@ -2944,10 +2984,8 @@ export function montajeDeLaURL(
     (l) =>
       `El enlace repartía el bando ${LADOS[l].adjetivo} entre tú y la IA: ahora lo mueves tú entero.`,
   );
-  const dicho = [...repartidos, ...avisos];
-  return dicho.length === 0
-    ? { ...montaje, version }
-    : { ...montaje, version, aviso: dicho.join(' ') };
+  const dicho = [...quitado, ...repartidos, ...avisos];
+  return dicho.length === 0 ? { ...montaje, version } : { ...montaje, version, avisos: dicho };
 }
 
 const LADOS_EN_ORDEN = ['izquierda', 'derecha'] as const satisfies readonly Lado[];
@@ -2969,7 +3007,7 @@ export function montajeDeArenaDelEnlace(
       if (unidad === undefined) {
         throw new Error(`el montaje del enlace pone «${p.unidad}» y no trae sus cifras`);
       }
-      return { kind: 'borrador', unidad, escalera: p.escalera };
+      return { unidad, escalera: p.escalera };
     }),
     heroe: l.heroe,
   });
@@ -3075,7 +3113,7 @@ function ladoDelEnlace(
  * el texto sale con el orden de campos de los validadores, el mismo cada vez.
  */
 export function montajeALaURL(m: MontajeDelEnlace): string {
-  const { aviso: _dicho, version: _v, ...leido } = montajeDeLaURL(textoDelMontaje(m));
+  const { avisos: _dicho, version: _v, ...leido } = montajeDeLaURL(textoDelMontaje(m));
   return textoDelMontaje(leido);
 }
 

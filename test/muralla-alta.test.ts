@@ -748,6 +748,9 @@ describe('tras QA', () => {
     for (const parte of ['sube andando', 'escalera', 'sabe escalar', 'se posan', 'a través']) {
       expect(REGLA_DE_LA_MURALLA).toContain(parte);
     }
+    // En la arena toda unidad ocupa una casilla (13-10-2026): la regla no habla de
+    // unidades grandes ni de las de dos casillas (H3 de QA).
+    expect(REGLA_DE_LA_MURALLA).not.toMatch(/unidad(es)? (grande|de dos casillas)/);
   });
 
   it('el motivo de «Subir» es el del muro de la escalera puesta, no el del primero (I2)', () => {
@@ -821,19 +824,17 @@ describe('tras QA', () => {
     // prueba el motor («la escalera del montaje solo llega a quien puede ponerla»).
     const anda = unidadDeArena('zombi');
     const vuela = unidadDeArena('zombi', { traits: ['flying'] });
-    expect(
-      escaleraDeArenaBlocker({ kind: 'borrador', unidad: anda }, 'izquierda', DEL_JUEGO),
-    ).toBeNull();
-    expect(
-      escaleraDeArenaBlocker({ kind: 'borrador', unidad: vuela }, 'izquierda', DEL_JUEGO),
-    ).toBe('vuela: se posa en la muralla sin escalera');
+    expect(escaleraDeArenaBlocker({ unidad: anda }, 'izquierda', DEL_JUEGO)).toBeNull();
+    expect(escaleraDeArenaBlocker({ unidad: vuela }, 'izquierda', DEL_JUEGO)).toBe(
+      'vuela: se posa en la muralla sin escalera',
+    );
     const unidades = [anda, vuela];
     const marcado = marcadoDe(
       renderBando(
         'izquierda',
         unidades.map((_, i) => ({
           clave: i,
-          fuente: { kind: 'unidad' as const, unidad: String(i) },
+          unidad: String(i),
           escalera: true,
         })),
         (p) => {
@@ -843,11 +844,7 @@ describe('tras QA', () => {
             resumen: '',
             figura: u.id,
             sello: 'borrador',
-            noEscala: escaleraDeArenaBlocker(
-              { kind: 'borrador', unidad: u },
-              'izquierda',
-              DEL_JUEGO,
-            ),
+            noEscala: escaleraDeArenaBlocker({ unidad: u }, 'izquierda', DEL_JUEGO),
           };
         },
         null,

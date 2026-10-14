@@ -46,6 +46,17 @@ export function describirCoste(coste: Partial<Resources>): string {
 }
 
 /**
+ * Una lista en prosa: «a», «a y b», «a, b y c». **El único enumerador** de los
+ * motivos y avisos del núcleo, que antes lo escribían cada uno. Lanza con la
+ * lista vacía: «nada» lo dice quien llama, que sabe de qué.
+ */
+export function enumerar(lista: readonly string[]): string {
+  const ultimo = lista.at(-1);
+  if (ultimo === undefined) throw new Error('enumerar: la lista está vacía');
+  return lista.length === 1 ? ultimo : `${lista.slice(0, -1).join(', ')} y ${ultimo}`;
+}
+
+/**
  * Un entero con separador de miles, como se lee en castellano: «176 000», con un
  * espacio que no se parte (U+00A0), no con punto ni coma, que en una barra con
  * decimales a coma se confundirían. Los de cuatro cifras van juntos («2500»),

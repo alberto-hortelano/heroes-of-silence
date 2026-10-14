@@ -198,7 +198,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
         }),
       );
       // Ningún párrafo de nota: ni la introducción, ni el sello, ni la regla.
-      expect(m, quien).not.toMatch(/<p class="(cost|aviso-prueba)"/);
+      expect(m, quien).not.toMatch(/<p class="(cost|aviso-sin-guardar|aviso-del-enlace)"/);
       for (const dicho of ['Las del juego (data/equipo.json)', 'Pieza del juego', 'Regla: '])
         expect(m, `${quien}: ${dicho}`).toMatch(
           new RegExp(`<span class="nota"[^>]*aria-label="[^"]*${dicho.replace(/[()]/g, '\\$&')}`),

@@ -25,8 +25,10 @@ import {
   avisoDeNuevaUnidad,
   enElMontaje,
   focoTrasQuitar,
+  renderAvisosDeLectura,
   renderCatalogo,
   renderFicha,
+  resumenDeLaLectura,
 } from '../src/client/arena/paneles.js';
 import { html, marcadoDe } from '../src/client/html.js';
 import { unidadNueva } from '../src/core/arena.js';
@@ -301,7 +303,7 @@ describe('la lista en la vista de edición', () => {
   it('«Nueva unidad» ofrece solo las hojas: el catálogo del juego no está en la arena (13-10-2026)', () => {
     const m = marcadoDe(
       renderCatalogo(HOJAS, 'todas', undefined, {
-        cuerpos: { hojas: [{ id: 'esqueleto-guerrero', nombre: 'Esqueleto guerrero' }] },
+        cuerpos: [{ id: 'esqueleto-guerrero', nombre: 'Esqueleto guerrero' }],
       }),
     );
     expect(m).toContain('<option value="esqueleto-guerrero">Esqueleto guerrero</option>');
@@ -440,5 +442,34 @@ describe('la barra al crear y al leer el borrador (segunda vuelta de QA)', () =>
       /^Sin borrador guardado todavía \(b\.json\)/,
     );
     expect(avisoDelBorradorLeido('b.json', 2, 1)).toBe('Cargado b.json: 2 unidades.');
+  });
+
+  it('H1 de QA: los avisos de lo leído van enteros, lo que se retira primero, y la barra solo los resume', () => {
+    // En la barra, cortada a dos líneas, la frase de la unidad que se retiraba no
+    // se llegaba a leer, y «Guardar» la borraba del disco (14-10-2026).
+    const retira =
+      'La unidad «Dragón óseo 2» era una criatura del catálogo del juego («bone_dragon»): en la arena solo están las cinco facciones de las hojas, y se retira.';
+    const convertida = 'La unidad «Zombi grande» ocupaba 2 casillas: ahora una, como todas.';
+    const borrador = { de: 'Del borrador (b.json):', seRetiran: [retira], avisos: [convertida] };
+    const enlace = { de: 'Del enlace de la pelea:', seRetiran: [], avisos: ['Algo del enlace.'] };
+    const marcado = marcadoDe(renderAvisosDeLectura([enlace, borrador]));
+    // Cada frase, entera y en su punto de la lista; la que se retira antes que lo
+    // convertido, en su lista señalada, y un botón para quitar el recuadro.
+    expect(marcado).toContain(`<li>${retira}</li>`);
+    expect(marcado.indexOf(retira)).toBeLessThan(marcado.indexOf(convertida));
+    expect(marcado).toMatch(/<ul class="se-retiran"><li>La unidad «Dragón óseo 2»/);
+    expect(marcado).toContain('Al leer lo de antes · 3 avisos');
+    expect(marcado).toContain('data-arena="cerrar-avisos"');
+    // Sin nada que decir, nada.
+    expect(marcadoDe(renderAvisosDeLectura([]))).toBe('');
+    expect(marcadoDe(renderAvisosDeLectura([{ ...enlace, avisos: [] }]))).toBe('');
+    // La barra, solo el resumen y dónde leerlo.
+    expect(resumenDeLaLectura(borrador)).toBe(
+      ' Al leerlo, 1 unidad se retira y hay 1 aviso: se leen enteros con «Avisos al leer», en esta barra.',
+    );
+    expect(resumenDeLaLectura({ ...borrador, seRetiran: [] })).toBe(
+      ' Al leerlo, hay 1 aviso: se leen enteros con «Avisos al leer», en esta barra.',
+    );
+    expect(resumenDeLaLectura({ ...borrador, seRetiran: [], avisos: [] })).toBe('');
   });
 });

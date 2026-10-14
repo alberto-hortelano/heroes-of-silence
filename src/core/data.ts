@@ -141,12 +141,26 @@ export function isShooter(c: UnitInfo): boolean {
 
 /**
  * Si los tiros de `c` se cuentan. **La munición es de la criatura del catálogo**
- * (`shots`); quien tira por su arma a distancia (la arena, 13-10-2026) no la tiene:
- * dispara siempre que el motor le deje. Lo leen `quedanTiros`, `shoot` (resta solo
- * entonces) y lo que pinta los tiros que quedan.
+ * (`shots`, la misma lectura que `isShooter`); quien tira por su arma a distancia
+ * (la arena, 13-10-2026) no la tiene: dispara siempre que el motor le deje. Las
+ * dos cosas no se juntan nunca (lo vigila `vestir`, `hero/equipo.ts`). Lo leen
+ * `tirosQueQuedan`, `quedanTiros` y `shoot` (resta solo entonces).
  */
 export function cuentaTiros(c: UnitInfo): boolean {
-  return c.shots !== undefined;
+  return (c.shots ?? 0) > 0;
+}
+
+/**
+ * Los tiros que le quedan a un stack, o `null` si no se cuentan (`cuentaTiros`):
+ * la ÚNICA lectura de `shotsLeft` fuera del motor, que la leen el `↑N` del
+ * tablero, la fila «Munición» del panel, el contrato y la frase de «sin munición»
+ * del disparo. Lo vigila `test/invariantes.test.ts`.
+ */
+export function tirosQueQuedan(s: {
+  readonly unit: UnitInfo;
+  readonly shotsLeft: number;
+}): number | null {
+  return cuentaTiros(s.unit) ? s.shotsLeft : null;
 }
 
 /**
@@ -156,7 +170,8 @@ export function cuentaTiros(c: UnitInfo): boolean {
  * `isShooter && shotsLeft > 0`; lo vigila `test/invariantes.test.ts`.
  */
 export function quedanTiros(s: { readonly unit: UnitInfo; readonly shotsLeft: number }): boolean {
-  return isShooter(s.unit) && (!cuentaTiros(s.unit) || s.shotsLeft > 0);
+  const tiros = tirosQueQuedan(s);
+  return tiros === null ? isShooter(s.unit) : tiros > 0;
 }
 
 export function hexSize(c: UnitInfo): number {
@@ -770,6 +785,28 @@ export interface Pieza {
   readonly precio: Partial<Resources>;
 }
 
+/**
+ * Los campos de una pieza, en el orden en que se escriben: lo demás se rechaza
+ * diciéndolo (`problemasDePieza`). Con la lista en la regla de una pieza, un campo
+ * ajeno en `data/equipo.json` —un `disparos` de antes de quitar la munición, un
+ * `danyo` mal escrito— tumba la carga nombrando el fichero; antes el juego lo
+ * ignoraba callando y la arena lanzaba después sin decir de dónde venía (H2 de QA,
+ * 14-10-2026).
+ */
+export const CAMPOS_DE_PIEZA: readonly string[] = [
+  'id',
+  'nombre',
+  'hueco',
+  'calidad',
+  'ataque',
+  'defensa',
+  'pv',
+  'velocidad',
+  'danio',
+  'manos',
+  'precio',
+];
+
 /** Cómo se nombra una pieza en un motivo: por su id si lo trae, si no `otro`. */
 function quienEsLaPieza(p: Record<string, unknown>, otro: string): string {
   return typeof p.id === 'string' && p.id !== '' ? `"${p.id}"` : otro;
@@ -777,7 +814,7 @@ function quienEsLaPieza(p: Record<string, unknown>, otro: string): string {
 
 /**
  * Lo que no vale de UNA pieza, cada cosa con su frase, o vacío si vale: los
- * textos, el hueco y la calidad que existen, las cifras enteras ≥ 0, el escudo
+ * campos que existen (`CAMPOS_DE_PIEZA`), los textos, el hueco y la calidad que existen, las cifras enteras ≥ 0, el escudo
  * que resta velocidad, el daño `[mín, máx]`, las manos solo en un arma y el
  * precio. **La regla de una pieza, en un sitio**: la leen el cargador del
  * catálogo (`validarEquipo`, que añade las reglas de conjunto) y la arena, que
@@ -791,6 +828,11 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   }
   const p = bruta as Record<string, unknown>;
   const q = quien ?? quienEsLaPieza(p, 'la pieza');
+  for (const ajeno of Object.keys(p).filter((k) => !CAMPOS_DE_PIEZA.includes(k))) {
+    problemas.push(
+      `${q}: «${ajeno}» no es un campo de una pieza; valen ${CAMPOS_DE_PIEZA.join(', ')}`,
+    );
+  }
   if (typeof p.id !== 'string' || p.id === '') problemas.push(`${q} no trae id como texto`);
   if (typeof p.nombre !== 'string' || p.nombre.trim() === '') {
     problemas.push(`${q} no tiene nombre: escribe uno`);
@@ -828,14 +870,6 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
     } else if ((d[0] as number) > (d[1] as number)) {
       problemas.push(`${q}: el daño mínimo que suma (${d[0]}) pasa del máximo (${d[1]})`);
     }
-  }
-  // Sin munición (13-10-2026): llevar un arma en el hueco `distancia` ya es
-  // disparar, sin cuenta de tiros. El borrador y el enlace de antes la quitan al
-  // leerse (`piezaDeAntes`, `core/arena.ts`); aquí, quien la escriba se entera.
-  if (p.disparos !== undefined) {
-    problemas.push(
-      `${q} trae disparos, y ya no es un campo: un arma a distancia dispara sin munición`,
-    );
   }
   if (p.manos !== undefined) {
     if (p.manos !== 1 && p.manos !== 2) {

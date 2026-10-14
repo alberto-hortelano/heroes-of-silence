@@ -331,7 +331,8 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): Su
  * nada. La velocidad sube o baja escalones de `SPEED_TIERS` y se queda entre el
  * primero y el último. El daño suma `[+mín, +máx]`. Ninguna pieza da munición:
  * un arma en `distancia` hace tirador a quien la lleva por sí misma (`isShooter`,
- * que mira `equipo`), y `shots` es solo de la criatura del catálogo.
+ * que mira `equipo`), y `shots` es solo de la criatura del catálogo; lanza si una
+ * unidad lleva las dos cosas.
  *
  * Con piezas, deja en `sinEquipo` las cifras de antes de ponérselas —las del
  * cuerpo, si `unit` ya llevaba equipo—: el nivel se mide sin equipo
@@ -363,6 +364,15 @@ function vestir<U extends UnitInfo>(
     );
   }
   const todo: EquipoDeArena = { ...unit.equipo, ...equipo };
+  // La munición es de la criatura del catálogo y el arma a distancia no la cuenta
+  // (`cuentaTiros`): juntas, quien la lleve tiraría sin fin con tiros que se gastan
+  // sin servir de nada. El juego no pone nada en `distancia` y la arena no tiene
+  // `shots`, así que esto no salta: es la regla escrita donde se juntan.
+  if ((unit.shots ?? 0) > 0 && todo.distancia !== undefined) {
+    throw new Error(
+      `${unit.name} tira con su munición (${unit.shots} tiros) y no puede llevar nada en ${NOMBRE_DE_HUECO.distancia}: el arma a distancia no cuenta tiros`,
+    );
+  }
   const { ataque, defensa, pv, velocidad, danio } = sumaDe(piezas, equipo);
   const escalon = Math.max(
     0,

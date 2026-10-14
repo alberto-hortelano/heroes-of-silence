@@ -78,8 +78,6 @@ import {
   activeStack,
   applyAction,
   ataqueBlocker,
-  type BattleMember,
-  type BattleSide,
   createBattle,
   isAlive,
   legalActions,
@@ -88,6 +86,7 @@ import {
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { armasDe } from '../src/core/battle/damage.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO, reglasDeLaURL } from '../src/core/battle/reglas.js';
 import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
@@ -126,6 +125,7 @@ import {
   forzarTurno,
   hojaDeLaArena,
   hojasDeLaArena,
+  peleaDelMotor,
   unidadDeArena,
 } from './helpers.js';
 
@@ -168,7 +168,6 @@ const tarjeta = (u: UnidadDeArena): DatosDePuesto => ({
   nombre: u.name,
   resumen: resumenDeCifras(u, DEL_JUEGO),
   figura: u.id,
-  sello: 'borrador',
   noEscala: null,
 });
 
@@ -368,7 +367,7 @@ describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
     // Una unidad de antes, escrita como lo escribía la arena antes del nivel
     // derivado: con su nivel a mano y PV y daño a la décima parte.
     const antes = deAntes('templario-monje');
-    const hoy = migrarUnidadDeArena(antes, perfilDe, DEL_JUEGO).unidad!;
+    const hoy = migrarUnidadDeArena(antes, perfilDe, DEL_JUEGO, 'borrador').unidad!;
     const vieja = {
       ...antes,
       level: 9,
@@ -376,7 +375,7 @@ describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
       damage: (antes.damage as number[]).map((d) => d / ESCALA_DE_CIFRAS),
     };
     // Se lee migrada: la escala y, después, cuerpo + el equipo de su perfil.
-    const { unidad: leida, aviso } = migrarUnidadDeArena(vieja, perfilDe, DEL_JUEGO);
+    const { unidad: leida, aviso } = migrarUnidadDeArena(vieja, perfilDe, DEL_JUEGO, 'borrador');
     expect(aviso).toBeNull();
     expect(leida).not.toHaveProperty('level');
     expect(leida).toEqual(hoy);
@@ -391,7 +390,10 @@ describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
     // Sin la marca, las mismas cifras son de hoy: un monje de la décima parte.
     const { level: _marca, ...sinMarca } = vieja;
     expect(
-      unidadDeCombate(migrarUnidadDeArena(sinMarca, perfilDe, DEL_JUEGO).unidad!, DEL_JUEGO).hp,
+      unidadDeCombate(
+        migrarUnidadDeArena(sinMarca, perfilDe, DEL_JUEGO, 'borrador').unidad!,
+        DEL_JUEGO,
+      ).hp,
     ).toBe((antes.hp as number) / ESCALA_DE_CIFRAS);
   });
 
@@ -454,6 +456,7 @@ describe('el borrador se valida antes de escribirse', () => {
         { ...aLaAntigua(deAntes('templario-monje')), speed: 'rapidisima' },
         perfilDe,
         DEL_JUEGO,
+        'borrador',
       ),
     ).toThrow(
       'la unidad «Monje»: la velocidad "rapidisima" no existe; valen very_slow, slow, average, fast, very_fast, ultra_fast',
@@ -822,7 +825,7 @@ describe('el marcado de la arena', () => {
   it('el bando lleva un solo Yo / IA, en su cabecera, y no deja duplicar con el bando lleno', () => {
     const puestos = Array.from({ length: LIDERAZGO.maxPorBando }, (_, i) => ({
       clave: i + 1,
-      fuente: { kind: 'unidad', unidad: 'zombi' } as const,
+      unidad: 'zombi',
       escalera: false,
     }));
     const m = marcadoDe(
@@ -1056,7 +1059,7 @@ describe('corrección de hallazgos de QA', () => {
     const m = marcadoDe(
       renderBando(
         'izquierda',
-        [{ clave: 1, fuente: { kind: 'unidad', unidad: grande.id }, escalera: false }],
+        [{ clave: 1, unidad: grande.id, escalera: false }],
         () => tarjeta(grande),
         null,
         7,
@@ -1148,12 +1151,13 @@ describe('la velocidad son casillas', () => {
   it('un borrador de antes, con la velocidad como escalón, se lee convertido', () => {
     // `fast` es el escalón de 5 casillas: se lee como si trajera las 5.
     const vieja = { ...aLaAntigua(deAntes('zombi')), speed: 'fast' };
-    expect(migrarUnidadDeArena(vieja, perfilDe, DEL_JUEGO).unidad).toEqual(
-      migrarUnidadDeArena(deAntes('zombi', { casillas: 5 }), perfilDe, DEL_JUEGO).unidad,
+    expect(migrarUnidadDeArena(vieja, perfilDe, DEL_JUEGO, 'borrador').unidad).toEqual(
+      migrarUnidadDeArena(deAntes('zombi', { casillas: 5 }), perfilDe, DEL_JUEGO, 'borrador')
+        .unidad,
     );
-    expect(() => migrarUnidadDeArena({ ...vieja, casillas: 5 }, perfilDe, DEL_JUEGO)).toThrow(
-      'trae la velocidad dos veces',
-    );
+    expect(() =>
+      migrarUnidadDeArena({ ...vieja, casillas: 5 }, perfilDe, DEL_JUEGO, 'borrador'),
+    ).toThrow('trae la velocidad dos veces');
   });
 
   it('con las velocidades de salida ya no juega un ejército entero y luego el otro', () => {
@@ -1272,24 +1276,19 @@ function aLaIA(b: BattleState, rng: Rng): BattleState {
 describe('la arena como banco de combate', () => {
   it('C4: con todas las reglas en «nuestra», la arena pelea exactamente como el juego', () => {
     // El mismo ejército por las dos puertas: la del juego (`createBattle`, con
-    // cada unidad como personaje: la vía por la que entra la arena) y la de la
-    // arena. Héroes con todo el libro, tiradores, jinetes que cargan y
+    // cada unidad como personaje: la vía por la que entra la arena, `peleaDelMotor`)
+    // y la de la arena. Héroes con todo el libro, tiradores, jinetes que cargan y
     // no-muertos: que se jueguen las reglas que tienen interruptor. Hasta el
     // 13-10-2026 eran criaturas del catálogo, que ya no entran en la arena.
     const izquierda = ['elfo-arquero', 'templario-hermano-de-carga', 'templario-escudo'];
     const derecha = ['esqueleto-guerrero', 'esqueleto-arquero', 'caballero-de-la-muerte'];
-    const delJuego = (ids: readonly string[]): BattleSide => {
-      const members = new Map<string, BattleMember>();
-      const army = ids.map((id, i) => {
-        const unit = unidadDeCombate(unidad(id), DEL_JUEGO);
-        members.set(`arena-${i}`, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp });
-        return { creature: id, member: `arena-${i}`, count: 1 };
-      });
-      return { army, hero: heroeDeArena(MAGO, DEL_JUEGO), members };
-    };
+    const delMotor = (ids: readonly string[]) => ids.map((id) => ({ unidad: unidad(id) }));
     for (const semilla of [1, 2, 3, 4, 5, 6]) {
       const juego = aLaIA(
-        createBattle(delJuego(izquierda), delJuego(derecha), createRng(semilla)),
+        peleaDelMotor(delMotor(izquierda), delMotor(derecha), createRng(semilla), SIN_MURALLA, {
+          izquierda: heroeDeArena(MAGO, DEL_JUEGO),
+          derecha: heroeDeArena(MAGO, DEL_JUEGO),
+        }),
         createRng(semilla + 100),
       );
       const arena = aLaIA(
@@ -1472,7 +1471,7 @@ describe('el montaje del banco de combate', () => {
         'todas',
         { kind: 'montaje' },
         {
-          cuerpos: { hojas: HOJAS.map((h) => ({ id: h.id, nombre: h.nombre })) },
+          cuerpos: HOJAS.map((h) => ({ id: h.id, nombre: h.nombre })),
         },
       ),
     );
@@ -1720,14 +1719,14 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('un enlace de la versión 2 (quién mueve, por puesto) se sigue leyendo', () => {
     const leido = montajeDeLaURL(JSON.stringify(enLaVersion2(false)), perfilDe);
     expect(leido).toEqual({ ...MONTAJE, version: 2 });
-    expect(leido.aviso).toBeUndefined();
+    expect(leido.avisos).toBeUndefined();
     // Repartido entre tú y la IA: el bando lo mueves tú entero, y se dice.
     const repartido = montajeDeLaURL(JSON.stringify(enLaVersion2(true)), perfilDe);
     expect(repartido.derecha.ia).toBe(false);
     expect(repartido.izquierda.ia).toBe(false);
-    expect(repartido.aviso).toBe(
+    expect(repartido.avisos).toEqual([
       'El enlace repartía el bando derecho entre tú y la IA: ahora lo mueves tú entero.',
-    );
+    ]);
     // Y se reescribe en la versión de ahora, sin el aviso.
     const reescrito = JSON.parse(montajeALaURL(repartido));
     expect(reescrito.v).toBe(VERSION_DEL_ENLACE);
@@ -1771,19 +1770,22 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     o.unidades[3].shots = 5;
     const leido = montajeDeLaURL(JSON.stringify(o), perfilDe);
     // Monta lo demás, como el enlace de hoy.
-    const { aviso, version, ...montaje } = leido;
+    const { avisos, version, ...montaje } = leido;
     expect(version).toBe(7);
     expect(montaje).toEqual(MONTAJE);
-    expect(aviso).toContain(
+    // Una frase por aviso, y lo que se quita primero (H1 de QA, 14-10-2026): en
+    // el montaje se leen enteros, y lo que desaparece no se queda al final.
+    expect(avisos).toHaveLength(4);
+    expect(avisos?.[0]).toBe(
       'El enlace montaba criaturas del catálogo del juego («pikeman»): en la arena solo están las cinco facciones de las hojas, y se quitan.',
     );
-    expect(aviso).toContain(
-      'La unidad «Esqueleto 2» era una criatura del catálogo del juego («skeleton»)',
+    expect(avisos?.[1]).toMatch(
+      /^La unidad «Esqueleto 2» era una criatura del catálogo del juego \(«skeleton»\)/,
     );
-    expect(aviso).toContain(
+    expect(avisos?.slice(2).join(' ')).toContain(
       `La unidad «${unidad('zombi').name}» ocupaba 2 casillas: ahora una, como todas.`,
     );
-    expect(aviso).toContain(
+    expect(avisos?.slice(2).join(' ')).toContain(
       `La unidad «${unidad('orko-dos-armas').name}» traía 5 tiros y ningún arma a distancia: ya no hay munición y no dispara`,
     );
     // Un bando que se queda vacío se monta vacío, y se dice.
@@ -1798,7 +1800,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     );
     const vacio = montajeDeLaURL(JSON.stringify(soloCriaturas), perfilDe);
     expect(vacio.derecha.puestos).toEqual([]);
-    expect(vacio.aviso).toContain('El bando derecho se queda vacío sin ellas');
+    expect(vacio.avisos?.join(' ')).toContain('El bando derecho se queda vacío sin ellas');
     // Y lo que se reescribe es de la 8, sin nada de eso.
     const reescrito = JSON.parse(montajeALaURL(leido));
     expect(reescrito.v).toBe(VERSION_DEL_ENLACE);
@@ -2546,7 +2548,7 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
 
   it('un borrador de antes se convierte a cuerpo + el equipo de su perfil, una sola vez', () => {
     const viejo = deAntes('templario-escudo');
-    const { unidad: leida, aviso } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO);
+    const { unidad: leida, aviso } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO, 'borrador');
     expect(aviso).toBeNull();
     const u = leida!;
     const kit = KIT_DEL_PERFIL['espada-escudo'].equipo;
@@ -2559,17 +2561,18 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
       (viejo.hp as number) - suma.pv,
     ]);
     // Lo convertido ya es de hoy: no se convierte dos veces.
-    expect(migrarUnidadDeArena(u, perfilDe, DEL_JUEGO)).toEqual({
+    expect(migrarUnidadDeArena(u, perfilDe, DEL_JUEGO, 'borrador')).toEqual({
       unidad: u,
       aviso: null,
       municion: null,
+      retirada: null,
     });
   });
 
   it('si no cabe en cuerpo + equipo, se queda con sus cifras y sin equipo, y se dice', () => {
     // Un ataque por debajo de lo que suma la espada (2): el cuerpo saldría negativo.
     const flojo = deAntes('templario-escudo', { attack: 1 });
-    const r = migrarUnidadDeArena(flojo, perfilDe, DEL_JUEGO);
+    const r = migrarUnidadDeArena(flojo, perfilDe, DEL_JUEGO, 'borrador');
     expect(r.unidad!.equipo).toEqual({});
     expect(r.unidad!.attack).toBe(1);
     // El aviso habla de lo que escribió quien juega y de qué pieza no cabe (H2 de
@@ -2582,6 +2585,7 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
       deAntes('templario-mandoble', { damage: [45, 70] }),
       perfilDe,
       DEL_JUEGO,
+      'borrador',
     );
     expect(estrecho.unidad!.equipo).toEqual({});
     expect(estrecho.unidad!.damage).toEqual([45, 70]);
@@ -2593,6 +2597,7 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
       deAntes('templario-escudo', { attack: 1, defense: 0, hp: 5 }),
       perfilDe,
       DEL_JUEGO,
+      'borrador',
     );
     expect(varias.aviso).toContain('su ataque 1 es menos de lo que suma Espada (+2); ');
     expect(varias.aviso).toMatch(/; su defensa 0 es menos de lo que suma [^;]+; su vida 5 no pasa/);
@@ -2602,6 +2607,7 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
       deAntes('templario-mandoble', { level: 1, hp: 9, damage: [2, 3] }),
       perfilDe,
       DEL_JUEGO,
+      'borrador',
     );
     expect(vieja.unidad!.hp).toBe(90);
     expect(vieja.aviso).toContain(
@@ -2614,13 +2620,14 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
       deAntes('esqueleto-arquero', { shots: 4 }),
       perfilDe,
       DEL_JUEGO,
+      'borrador',
     );
     expect(pocosTiros.unidad!.equipo).toMatchObject({ distancia: 'arco' });
     expect(pocosTiros.municion).toBe(pocosTiros.unidad!.name);
     // Una frase entera, que el borrador y el enlace juntan tal cual.
     expect(r.aviso).toMatch(/^La unidad «.+\.$/);
     // Sin el perfil de su hoja, igual, diciéndolo.
-    const sinPerfil = migrarUnidadDeArena(deAntes('zombi'), () => null, DEL_JUEGO);
+    const sinPerfil = migrarUnidadDeArena(deAntes('zombi'), () => null, DEL_JUEGO, 'borrador');
     expect(sinPerfil.unidad!.equipo).toEqual({});
     expect(sinPerfil.aviso).toContain('no se sabe el perfil de su hoja');
     // El borrador lo lee y cuenta el aviso.
@@ -2715,7 +2722,7 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       ...unidad('elfo-arquero'),
       equipo: { arma: 'arco', armadura: 'jubon_de_arquero' },
     };
-    const { unidad: leida, aviso } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO);
+    const { unidad: leida, aviso } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO, 'borrador');
     const u = leida!;
     expect(u.equipo).toEqual({ distancia: 'arco', armadura: 'jubon_de_arquero' });
     expect(aviso).toBe(
@@ -2725,17 +2732,18 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     expect(delUso(u, 'distancia')).toEqual(['Arco', 5, [20, 30]]);
     expect(delUso(u, 'cuerpo')).toEqual([null, 3, [10, 10]]);
     // Lo convertido es de hoy: no se convierte dos veces.
-    expect(migrarUnidadDeArena(u, perfilDe, DEL_JUEGO)).toEqual({
+    expect(migrarUnidadDeArena(u, perfilDe, DEL_JUEGO, 'borrador')).toEqual({
       unidad: u,
       aviso: null,
       municion: null,
+      retirada: null,
     });
     // Con la lanza, igual: a la carga.
     const jinete = {
       ...unidad('templario-hermano-de-carga'),
       equipo: { arma: 'lanza_de_jinete', armadura: 'barda' },
     };
-    expect(migrarUnidadDeArena(jinete, perfilDe, DEL_JUEGO).unidad!.equipo).toEqual({
+    expect(migrarUnidadDeArena(jinete, perfilDe, DEL_JUEGO, 'borrador').unidad!.equipo).toEqual({
       carga: 'lanza_de_jinete',
       armadura: 'barda',
     });
@@ -2747,7 +2755,11 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
 
   it('un arquero de antes de cuerpo y equipo sale con el cuerpo de hoy, el arco en su hueco y el aviso', () => {
     const viejo = deAntes('elfo-arquero');
-    const { unidad: leida, aviso, municion } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO);
+    const {
+      unidad: leida,
+      aviso,
+      municion,
+    } = migrarUnidadDeArena(viejo, perfilDe, DEL_JUEGO, 'borrador');
     const u = leida!;
     // El kit de entonces (arco en arma + jubón) se resta como sumaba: 12 − 2, 100–200 − 10–20…
     expect([u.attack, u.defense, u.damage, u.hp]).toEqual([10, 12, [90, 180], 380]);
@@ -2763,7 +2775,7 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     expect(delUso(u, 'distancia')).toEqual(['Arco', 12, [100, 200]]);
     expect(isShooter(golpes(u).c)).toBe(true);
     // El jinete élfico de antes era `montado-lanza`: su lanza pasa a la carga.
-    const elfico = migrarUnidadDeArena(deAntes('elfo-jinete'), perfilDe, DEL_JUEGO);
+    const elfico = migrarUnidadDeArena(deAntes('elfo-jinete'), perfilDe, DEL_JUEGO, 'borrador');
     expect(elfico.unidad!.equipo).toEqual({ carga: 'lanza_de_jinete', armadura: 'barda' });
     expect(delUso(elfico.unidad!, 'carga')).toEqual(['Lanza de jinete', 12, [100, 200]]);
   });
@@ -2807,6 +2819,7 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       { ...unidad('templario-escudo'), equipo: { arma: 'honda' } },
       perfilDe,
       eq,
+      'borrador',
     );
     expect(hondero.unidad!.equipo).toEqual({ distancia: 'honda' });
   });
@@ -2843,8 +2856,10 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     const leido = montajeDeLaURL(deAntesDeLasArmas(6));
     expect(leido.unidades[0]?.equipo).toEqual({ distancia: 'arco', armadura: 'jubon_de_arquero' });
     expect(leido.piezas.map((p) => [p.id, p.hueco, p.ataque])).toEqual([['arco', 'distancia', 3]]);
-    expect(leido.aviso).toContain('La pieza «Arco» iba en Arma: pasa a Arma a distancia');
-    expect(leido.aviso).toContain('La unidad «Arquero» llevaba Arco en Arma');
+    expect(leido.avisos?.join(' ')).toContain(
+      'La pieza «Arco» iba en Arma: pasa a Arma a distancia',
+    );
+    expect(leido.avisos?.join(' ')).toContain('La unidad «Arquero» llevaba Arco en Arma');
     // Y se reescribe en la de hoy, ya en su hueco.
     expect(JSON.parse(montajeALaURL(leido)).unidades[0].equipo).toEqual({
       distancia: 'arco',
@@ -2941,10 +2956,19 @@ describe('sin el catálogo del juego (13-10-2026)', () => {
     // Ni vale ni se conserva: se va, y se dice.
     expect(r.validas.map((u) => u.id)).toEqual(['zombi']);
     expect(r.invalidas).toEqual([]);
-    expect(r.avisos).toEqual([
+    // Lo que se retira va aparte (`seRetiran`), para decirlo antes que nada: es
+    // lo que «Guardar» pierde (H1 de QA). El tamaño y los tiros que traían, ni se
+    // dicen: con la unidad se va todo.
+    expect(r.seRetiran).toEqual([
       'La unidad «Esqueleto 2» era una criatura del catálogo del juego («skeleton»): en la arena solo están las cinco facciones de las hojas, y se retira.',
       'La unidad «Dragón óseo 2» era una criatura del catálogo del juego («bone_dragon»): en la arena solo están las cinco facciones de las hojas, y se retira.',
     ]);
+    expect(r.avisos).toEqual([]);
+    // Una a una, la retirada trae su id: con él el enlace quita también sus puestos.
+    expect(migrarUnidadDeArena(dragon, perfilDe, DEL_JUEGO, 'borrador')).toMatchObject({
+      unidad: null,
+      retirada: 'bone-dragon-2',
+    });
     // Lo que «Guardar» escribe es lo que vale: la retirada no vuelve al disco.
     expect(validarBorradorDeArena({ unidades: r.validas }, DEL_JUEGO)).toEqual(r.validas);
     const { shots: _tiros, ...sinTiros } = esqueleto;
@@ -2970,7 +2994,7 @@ describe('sin el catálogo del juego (13-10-2026)', () => {
       const leido = leerBorrador(dir);
       expect(leido.unidades.map((u) => u.id)).toEqual(['zombi']);
       expect(leido.invalidas).toEqual([]);
-      expect(leido.avisos.join(' ')).toContain('«Campesino 2» era una criatura del catálogo');
+      expect(leido.seRetiran.join(' ')).toContain('«Campesino 2» era una criatura del catálogo');
       escribirBorrador(dir, { unidades: leido.unidades, piezas: [] });
       const json = readFileSync(join(dir, RUTA_DEL_BORRADOR), 'utf8');
       expect(json).not.toContain('peasant');

@@ -13,7 +13,6 @@ import {
   CIFRA_MAXIMA_DE_HEROE,
   FACCIONES_DE_ARENA,
   fichaDeHeroeDeArena,
-  figuraDeLaUnidad,
   finalDeArena,
   HABILIDADES_DE_LA_ARENA,
   type HeroeDeArena,
@@ -113,19 +112,13 @@ import { curaOEfecto, textoDePrevision } from '../views/prevision.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
- * De dónde sale un puesto del montaje: una unidad del borrador, por su id (la de
- * una hoja de las cinco facciones o una nueva). El catálogo del juego no entra en
- * la arena (13-10-2026).
+ * Un puesto del montaje: la unidad del borrador que sale, por su id (la de una
+ * hoja de las cinco facciones o una nueva; el catálogo del juego no entra en la
+ * arena, 13-10-2026). `clave` distingue dos iguales; quién lo mueve es del bando.
  */
-export interface FuenteDePuesto {
-  readonly kind: 'unidad';
-  readonly unidad: string;
-}
-
-/** Un puesto del montaje: de dónde sale. `clave` distingue dos iguales; quién lo mueve es del bando. */
 export interface Puesto {
   readonly clave: number;
-  readonly fuente: FuenteDePuesto;
+  readonly unidad: string;
   /** Lleva escalera para subir a la muralla: es del montaje, no de la unidad. */
   readonly escalera: boolean;
 }
@@ -141,8 +134,6 @@ export interface DatosDePuesto {
   readonly resumen: string;
   /** El id del arte de su miniatura. */
   readonly figura: string;
-  /** «borrador», «sin guardar»…: de dónde salen sus cifras. */
-  readonly sello: string;
   /**
    * Por qué no usaría una escalera en su lado (`escaleraDeArenaBlocker`), o
    * `null` si la usaría: lo dice la casilla «Lleva escalera».
@@ -151,8 +142,8 @@ export interface DatosDePuesto {
 }
 
 /** ¿Es esta la elegida? */
-function esLaElegida(e: Elegida | null, f: FuenteDePuesto): boolean {
-  return e !== null && e.kind === 'unidad' && e.id === f.unidad;
+function esLaElegida(e: Elegida | null, p: Puesto): boolean {
+  return e !== null && e.kind === 'unidad' && e.id === p.unidad;
 }
 
 const DESHABILITADO: Html = html`disabled`;
@@ -220,18 +211,19 @@ function tarjetaDeUnidad(t: TarjetaDeUnidad, modo: ModoDelCatalogo): Html {
 }
 
 /**
- * Los cuerpos con los que se crea una «Nueva unidad»: las hojas con su arte
- * entero. Una hoja a medias no se ofrece (#140), y las criaturas del catálogo del
- * juego no entran en la arena (13-10-2026).
+ * Un cuerpo con el que se crea una «Nueva unidad»: una hoja con su arte entero.
+ * Una hoja a medias no se ofrece (#140), y las criaturas del catálogo del juego no
+ * entran en la arena (13-10-2026).
  */
-export interface CuerposDeLaNueva {
-  readonly hojas: readonly { readonly id: string; readonly nombre: string }[];
+export interface CuerpoDeLaNueva {
+  readonly id: string;
+  readonly nombre: string;
 }
 
 /** Lo que la lista enseña además de las hojas: las unidades nuevas y los cuerpos de «Nueva unidad». */
 export interface ListaDeUnidades {
   readonly nuevas?: readonly TarjetaDeUnidad[];
-  readonly cuerpos?: CuerposDeLaNueva;
+  readonly cuerpos?: readonly CuerpoDeLaNueva[];
 }
 
 /**
@@ -239,14 +231,12 @@ export interface ListaDeUnidades {
  * hoja) y el botón que la crea. Lo que se crea lo decide el núcleo
  * (`unidadNueva`); aquí solo se elige.
  */
-function renderNuevaUnidad(c: CuerposDeLaNueva): Html {
-  const opcion = (valor: string, nombre: string): Html =>
-    html`<option value="${valor}">${nombre}</option>`;
+function renderNuevaUnidad(cuerpos: readonly CuerpoDeLaNueva[]): Html {
   return html`<div class="nueva-unidad" data-nueva-unidad="si">
       <label class="campo"><span class="label">Nueva unidad</span>
         <select data-arena-nueva="si" title="Su cuerpo: con qué figura se pinta. Nace con las cifras mínimas y sin equipo; su nivel sale de sus cifras y sus rasgos">
           <option value="">— elige un cuerpo —</option>
-          ${unir(c.hojas.map((h) => opcion(h.id, h.nombre)))}
+          ${unir(cuerpos.map((h) => html`<option value="${h.id}">${h.nombre}</option>`))}
         </select></label>
       <button data-arena="crear-unidad" title="Crea una unidad nueva con ese cuerpo, las cifras mínimas y sin equipo">Crear</button>
     </div>`;
@@ -363,14 +353,13 @@ export function renderBando(
       : unir(
           puestos.map((p) => {
             const d = describir(p);
-            const quien = html`data-arena="editar" data-unidad="${p.fuente.unidad}"`;
-            return html`<div class="puesto${esLaElegida(elegida, p.fuente) ? ' elegida' : ''}" data-puesto="${p.clave}">
+            const quien = html`data-arena="editar" data-unidad="${p.unidad}"`;
+            return html`<div class="puesto${esLaElegida(elegida, p) ? ' elegida' : ''}" data-puesto="${p.clave}">
               <button class="ver" ${quien} title="Ver y editar sus cifras">
                 <canvas class="figura" data-figura="${d.figura}" data-lado="${lado}" width="72" height="88"></canvas>
               </button>
               <div class="datos">
                 <button class="nombre" ${quien} title="Editar sus cifras">${d.nombre}</button>
-                <span class="sello">${d.sello}</span>
                 <span class="cost">${d.resumen}</span>
                 <span class="botones">
                   <button data-arena="duplicar" data-clave="${p.clave}" ${lleno ? DESHABILITADO : NADA}>Duplicar</button>
@@ -556,7 +545,7 @@ function botonesDePuerta(s: VistaDeArena): Html {
 /**
  * «Lleva escalera», solo a la izquierda: es el bando que ataca, el único que la
  * usa (al defensor no le hace falta: sube a la muralla andando). A quien no la
- * usaría —dos casillas, vuela— le sale deshabilitada y sin marcar, con el motivo
+ * usaría —vuela— le sale deshabilitada y sin marcar, con el motivo
  * del núcleo (`escaleraDeArenaBlocker`); el puesto la conserva por si la ficha
  * cambia, y la batalla no se la da (`createBattle`).
  */
@@ -990,6 +979,77 @@ export function avisoDelBorradorLeido(ruta: string, validas: number, sinValidar:
 }
 
 /**
+ * Lo que se dijo al leer lo de antes de una fuente (el borrador o el enlace): `de`
+ * la nombra; `seRetiran`, lo que se pierde al guardar (las unidades del catálogo
+ * del juego), y `avisos`, lo demás, cada uno una frase entera.
+ */
+export interface AvisosDeLectura {
+  readonly de: string;
+  readonly seRetiran: readonly string[];
+  readonly avisos: readonly string[];
+}
+
+/** Cuántas frases trae una lectura. */
+function frasesDe(g: AvisosDeLectura): number {
+  return g.seRetiran.length + g.avisos.length;
+}
+
+/** Cuántos avisos traen las lecturas: lo que dice el botón de la barra. */
+export function cuantosAvisos(grupos: readonly AvisosDeLectura[]): number {
+  return grupos.reduce((n, g) => n + frasesDe(g), 0);
+}
+
+/**
+ * Los avisos de lo que se lee convertido, enteros, en un recuadro que se despliega
+ * desde la barra (H1 de QA, 14-10-2026): en la barra, cortada a dos líneas, la
+ * frase de una unidad que se retiraba se quedaba en la parte que no se ve, y
+ * «Guardar» la borraba del disco sin que se hubiera podido leer. **Lo que se
+ * retira, primero** y señalado. Se abre solo al arrancar si hay algo que decir y
+ * se cierra con «Entendido»; la barra lleva el resumen (`resumenDeLaLectura`) y el
+ * botón para volver a abrirlo.
+ */
+export function renderAvisosDeLectura(grupos: readonly AvisosDeLectura[]): Html {
+  const conAlgo = grupos.filter((g) => frasesDe(g) > 0);
+  if (conAlgo.length === 0) return NADA;
+  const total = cuantosAvisos(conAlgo);
+  const lista = (clase: string, que: string, frases: readonly string[]): Html =>
+    frases.length === 0
+      ? NADA
+      : html`<p class="que">${que}</p>
+        <ul class="${clase}">${unir(frases.map((f) => html`<li>${f}</li>`))}</ul>`;
+  const bloques = unir(
+    conAlgo.map(
+      (g) => html`<div class="lectura">
+        <p class="de">${g.de}</p>
+        ${lista('se-retiran', 'Se retiran, y «Guardar» las borra del disco:', g.seRetiran)}
+        ${lista('convertido', g.seRetiran.length === 0 ? 'Se lee así:' : 'Y lo demás:', g.avisos)}
+      </div>`,
+    ),
+  );
+  return html`<h3 class="cabecera-avisos">Al leer lo de antes · ${total} ${total === 1 ? 'aviso' : 'avisos'}
+      <button data-arena="cerrar-avisos" title="Cierra el recuadro: se vuelve a abrir con «${ROTULO_DE_LOS_AVISOS}», en la barra">Entendido</button></h3>
+    ${bloques}`;
+}
+
+/** El botón de la barra que despliega los avisos de lo leído. */
+export const ROTULO_DE_LOS_AVISOS = 'Avisos al leer';
+
+/**
+ * Lo que dice la barra de una lectura con avisos: cuántos y dónde leerlos
+ * enteros (`renderAvisosDeLectura`). Vacío si no hay ninguno.
+ */
+export function resumenDeLaLectura(g: AvisosDeLectura): string {
+  if (frasesDe(g) === 0) return '';
+  const r = g.seRetiran.length;
+  const a = g.avisos.length;
+  const partes = [
+    r === 0 ? null : `${r} ${r === 1 ? 'unidad se retira' : 'unidades se retiran'}`,
+    a === 0 ? null : `hay ${a} ${a === 1 ? 'aviso' : 'avisos'}`,
+  ].filter((p): p is string => p !== null);
+  return ` Al leerlo, ${partes.join(' y ')}: se leen enteros con «${ROTULO_DE_LOS_AVISOS}», en esta barra.`;
+}
+
+/**
  * La ficha de la unidad elegida. `dispara`: si su figura trae el clip del
  * disparo (`ArteDeFigura.dispara`); solo entonces lleva su botón, porque a
  * quien no lo trae no hay disparo que enseñarle. Las cifras que se escriben son
@@ -1044,7 +1104,7 @@ export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: Com
         ),
       )}
       ${cabezaDeFicha({
-        figura: figuraDeLaUnidad(u),
+        figura: u.cuerpo.hoja,
         como,
         clips: html`<button data-arena="clip" data-clip="idle">Reposo</button>
           <button data-arena="clip" data-clip="walk">Marcha</button>
@@ -1297,7 +1357,7 @@ export function renderEquipo(v: VistaDeEquipo): Html {
   const p = v.elegida === null ? null : v.piezas.piezaSiExiste(v.elegida);
   return html`<section class="equipo-lista">
       <h3>Piezas de equipo ${nota('Las del juego (data/equipo.json) se cambian solo para la arena; las nuevas son de la arena. Una unidad suma a sus cifras las de la pieza que lleva, y su nivel no cambia. «Guardar» las escribe en data/borradores/equipo.json, que el juego no lee.')}</h3>
-      ${v.sinGuardar === '' ? NADA : html`<p class="aviso-prueba" role="status" data-sin-guardar="si">${v.sinGuardar}</p>`}
+      ${v.sinGuardar === '' ? NADA : html`<p class="aviso-sin-guardar" role="status" data-sin-guardar="si">${v.sinGuardar}</p>`}
       ${huecos}
     </section>
     <section class="equipo-ficha">${
@@ -1350,7 +1410,7 @@ const DICHO_DEL_SELLO: Readonly<Record<SelloDePieza, string>> = {
  */
 function avisoDelEnlace(delEnlace: Pieza | null): Html {
   if (delEnlace === null) return NADA;
-  return html`<p class="aviso-prueba aviso-del-enlace" data-aviso-del-enlace="si">En esta pelea va la del enlace (${modificadoresEnPantalla(delEnlace)}): «Guardar» no la escribe y deja esta. Si cambias esta, la pelea pasa a usarla.</p>`;
+  return html`<p class="aviso-del-enlace" data-aviso-del-enlace="si">En esta pelea va la del enlace (${modificadoresEnPantalla(delEnlace)}): «Guardar» no la escribe y deja esta. Si cambias esta, la pelea pasa a usarla.</p>`;
 }
 
 /**
@@ -1650,8 +1710,8 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
             hechizos:
               heroe === null ? NADA : renderSpells(s.hechizos.selectedSpell, s.spellOptions()),
             // La puerta, solo a quien defiende: es quien la abre y la cierra. La
-            // escala, solo a quien puede llegar a escalar: al defensor, a la
-            // grande y a la voladora les saldrían siempre deshabilitados.
+            // escala, solo a quien puede llegar a escalar: al defensor y a la
+            // voladora les saldrían siempre deshabilitados.
             muralla: html`${b.puertas.length > 0 && activa.side === 'defender' ? botonesDePuerta(s) : NADA}${
               b.muralla.muros.length > 0 && s.noEscalaNunca(activa) === null
                 ? botonesDeEscala(s)
