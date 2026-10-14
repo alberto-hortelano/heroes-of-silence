@@ -115,6 +115,7 @@ import {
   reglasEncendidas,
 } from './reglas.js';
 import {
+  casillasQueQuitaLaFinta,
   conRueda,
   cruceBlocker,
   cruceDelGolpe,
@@ -130,6 +131,7 @@ import {
   puntosDe,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
+  type VenceLaRueda,
 } from './rueda.js';
 import {
   castSpell,
@@ -717,10 +719,13 @@ export function activeStack(state: BattleState): BattleStack | null {
  * Las casillas que le quedan a `s` en este turno: su velocidad menos lo que
  * lleva gastado si es quien está actuando, y la velocidad entera si no. La
  * velocidad se lee ahora y no al abrir el turno, así que una Lentitud a mitad
- * de turno recorta lo que queda —sin bajar de 0— en vez de llegar tarde.
+ * de turno recorta lo que queda —sin bajar de 0— en vez de llegar tarde. Tras
+ * golpear con Finta (la rueda), resta además lo que quita su éxito
+ * (`TurnoDeUnidad.finta`): «lo que le queda menos la penalización» (decisión del
+ * usuario, 14-10-2026). No va en `gastado`, que son las casillas recorridas.
  */
 export function pasosQueQuedan(state: BattleState, s: BattleStack): number {
-  return Math.max(0, stackSpeed(s) - gastadoEn(state, s));
+  return Math.max(0, stackSpeed(s) - gastadoEn(state, s) - fintaEn(state, s));
 }
 
 /**
@@ -736,6 +741,26 @@ export function quedanCasillas(n: number): readonly [verbo: string, casillas: st
 function gastadoEn(state: BattleState, s: BattleStack): number {
   return state.turno !== null && state.turno.stack === s.id ? state.turno.gastado : 0;
 }
+
+/** Lo que le resta la Finta a `s` en este turno: 0 si no golpeó con ella o no le toca. */
+function fintaEn(state: BattleState, s: BattleStack): number {
+  return state.turno !== null && state.turno.stack === s.id ? (state.turno.finta ?? 0) : 0;
+}
+
+/**
+ * Por qué la unidad activa no puede jugar `tipo` porque golpeó con Finta, o
+ * `null`. Tras la Finta el resto del turno es un tramo **solo de andar**: andar
+ * o terminar (decisión del usuario, 14-10-2026); ni volver a golpear, ni
+ * disparar, ni un poder, ni el hechizo del héroe, ni rendirse, ni esperar,
+ * defender, puertas o escaleras. La leen `applyAction`, la lista legal y los
+ * motivos que pinta la pantalla.
+ */
+export function fintaBlocker(state: BattleState, tipo: BattleAction['type']): string | null {
+  if (state.turno?.finta === undefined || tipo === 'move' || tipo === 'end_turn') return null;
+  return TRAS_LA_FINTA;
+}
+
+const TRAS_LA_FINTA = 'tras golpear con Finta solo puede andar o terminar el turno';
 
 /**
  * ¿Son `a` y `b` el MISMO turno? Por el ordinal, que es lo único que no se deja
@@ -1125,6 +1150,8 @@ export function tiroBlocker(
 export function ataqueBlocker(state: BattleState, targetId: string): string | null {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  const trasLaFinta = fintaBlocker(state, 'attack');
+  if (trasLaFinta !== null) return trasLaFinta;
   const target = stackById(state, targetId);
   const rival = rivalBlocker(s, target, 'atacar');
   if (rival !== null) return rival;
@@ -1612,6 +1639,10 @@ function advance(state: BattleState, rng: Rng): void {
     if (moral < 0 && rng.chance(-moral * probabilidadDeMoralBaja(state.reglas))) {
       s.acted = true;
       state.log.push({ kind: 'morale', stack: s.id, good: false });
+      // Su turno empieza y se pierde: lo que dura «hasta que empiece su próximo
+      // turno» (Defensivo) se va igual (decisión del usuario, 14-10-2026). Sin
+      // turno abierto no hay `n` nuevo: vale el siguiente al de ahora.
+      quitarLosQueVencen(state, s, 'empezar', (state.turno?.n ?? 0) + 1);
       continue;
     }
     abrirTurno(state, s);
@@ -1668,6 +1699,7 @@ function siguienteEnLaCola(state: BattleState): BattleStack | null {
 function abrirTurno(state: BattleState, s: BattleStack): void {
   state.ultimoBando = s.side;
   state.turno = { n: (state.turno?.n ?? 0) + 1, stack: s.id, gastado: 0 };
+  quitarLosQueVencen(state, s, 'empezar', state.turno.n);
 }
 
 /**
@@ -1694,7 +1726,8 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true):
     state.turno = null;
     return;
   }
-  quitarLosDeSuTurno(state, s);
+  const n = state.turno?.n;
+  if (n !== undefined) quitarLosQueVencen(state, s, 'terminar', n);
 
   // `defending` se borra al empezar la ronda y quien defiende cierra su turno
   // ahí mismo: si está puesto, este turno se cerró defendiendo.
@@ -1721,18 +1754,17 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true):
 }
 
 /**
- * Quita a `s`, al cerrar su turno, lo que duraba «hasta que termine su próximo
- * turno» (la rueda del golpe): lo colgado en un turno anterior a este. Lo que
- * nació en este mismo turno —el contraataque le deja una Finta a quien ataca, en
- * su turno— sigue hasta el siguiente. Antes de la moral: el turno extra es otro
- * turno, y lo de este ya se ha ido. `wait` no pasa por aquí (no cierra el turno),
- * y la moral baja tampoco: ahí lo quita el tope de `roundsLeft`. Sin rueda no hay
- * ninguno, y no se escribe nada.
+ * Quita a `s` lo que duraba hasta que `al` (empiece o termine) su próximo turno
+ * (la rueda del golpe): lo colgado en un turno anterior al `n`. Al **terminar**
+ * lo llama `endTurn`, antes de la moral: el turno extra es otro turno, y lo de
+ * este ya se ha ido; `wait` no cierra el turno y no pasa por ahí, y si la moral
+ * baja se lo salta, lo quita el tope de `roundsLeft`. Al **empezar**, `abrirTurno`
+ * (también el turno extra de la moral, y tras esperar) y la moral baja, cuyo
+ * turno empieza y se pierde. Sin rueda no hay ninguno, y no se escribe nada.
  */
-function quitarLosDeSuTurno(state: BattleState, s: BattleStack): void {
-  const n = state.turno?.n;
-  if (n === undefined) return;
-  const vencido = (e: StackEffect): boolean => e.hastaElTurno !== undefined && e.hastaElTurno < n;
+function quitarLosQueVencen(state: BattleState, s: BattleStack, al: VenceLaRueda, n: number): void {
+  const vencido = (e: StackEffect): boolean =>
+    e.hasta !== undefined && e.hasta.al === al && e.hasta.turno < n;
   // Cada cierre de turno pasa por aquí: sin nada que quitar, ni una lista nueva.
   if (!s.effects.some(vencido)) return;
   const vencidos = s.effects.filter(vencido);
@@ -1855,6 +1887,8 @@ export function applyAction(
   if (state.golpeEnCurso !== null && state.golpeEnCurso.stack !== s.id) {
     throw new Error(`el golpe plantado es de ${state.golpeEnCurso.stack}, y le toca a ${s.id}`);
   }
+  const trasLaFinta = fintaBlocker(state, action.type);
+  if (trasLaFinta !== null) throw new Error(`${s.id}: ${trasLaFinta}`);
 
   switch (action.type) {
     case 'wait': {
@@ -1892,7 +1926,8 @@ export function applyAction(
       // para que siga, golpee o termine. Solo se cierra solo cuando ya no le
       // queda nada que hacer, para no pedir un clic que no decide nada.
       moveTo(state, s, action.to, movibles?.costs);
-      if (!quedaAlgoQueHacer(state)) endTurn(state, s, rng);
+      // Tras la Finta, andar cierra el turno: es un solo tramo.
+      if (turno.finta !== undefined || !quedaAlgoQueHacer(state)) endTurn(state, s, rng);
       return;
     }
 
@@ -1922,6 +1957,12 @@ export function applyAction(
       state.golpeEnCurso = null;
       const cruce = cruceDeLaRueda(state, s, target, action);
       melee(state, s, target, rng, carga, cruce);
+      // Con la Finta el turno sigue, solo para andar, si le queda a dónde y la
+      // pelea no ha acabado con este golpe. Si no, se cierra como siempre.
+      if (turno.finta !== undefined) {
+        checkFinished(state);
+        if (state.finished === null && quedaAlgoQueHacer(state)) return;
+      }
       endTurn(state, s, rng);
       return;
     }
@@ -2075,6 +2116,8 @@ export function surrenderBlocker(
 
 function motivoParaNoRendirse(state: BattleState, side: Side, coste: number): string | null {
   if (state.finished !== null) return 'la batalla ya ha terminado';
+  const trasLaFinta = fintaBlocker(state, 'surrender');
+  if (trasLaFinta !== null) return trasLaFinta;
   const hero = state.heroes[side];
   if (hero === null) return SIN_HEROE;
   if ('blocked' in hero.retreat) return hero.retreat.blocked;
@@ -2172,6 +2215,8 @@ export const CARGA_MINIMA = 3;
  */
 export function casillasDeCarga(state: BattleState, s: BattleStack): readonly CasillaDeCarga[] {
   if (!hasTrait(s.unit, 'charge')) return SIN_CARGAS;
+  // Tras la Finta no hay golpe que cobrarla: solo se anda.
+  if (state.turno?.stack === s.id && state.turno.finta !== undefined) return SIN_CARGAS;
   const bloqueadas = cerradasPara(state, s);
   const enemigos = enemiesOf(state, s);
   const out: CasillaDeCarga[] = [];
@@ -2285,7 +2330,7 @@ function applyStackEffect(state: BattleState, target: BattleStack, effect: Stack
     amount: vivo.amount,
     source: vivo.source,
     rounds: vivo.roundsLeft,
-    ...(vivo.hastaElTurno === undefined ? {} : { hastaSuTurno: true as const }),
+    ...(vivo.hasta === undefined ? {} : { hastaSuTurno: vivo.hasta.al }),
   });
 }
 
@@ -2408,22 +2453,27 @@ function cruceDeLaRueda(
   return cruce;
 }
 
-/** Un golpe de la rueda para el daño: su tipo y los puntos del cruce en que puede caer. */
+/**
+ * Un golpe de la rueda para el daño: su tipo, los puntos del cruce en que puede
+ * caer y quién lo eligió (`papel`: el golpe, o la respuesta en el contraataque,
+ * que no da bonificadores).
+ */
 interface GolpeEnLaRueda {
   readonly tipo: TipoDeGolpe;
   readonly desde: Punto;
   readonly hasta: Punto;
+  readonly papel: PapelEnLaRueda;
 }
 
 /** El golpe que se da: cae en un solo punto, el del cruce. */
-function enElPunto(tipo: TipoDeGolpe, punto: Punto): GolpeEnLaRueda {
-  return { tipo, desde: punto, hasta: punto };
+function enElPunto(tipo: TipoDeGolpe, punto: Punto, papel: PapelEnLaRueda): GolpeEnLaRueda {
+  return { tipo, desde: punto, hasta: punto, papel };
 }
 
 /** Lo que puede dar un sector de la rueda sin saber el cruce: sus puntos posibles. */
-function delSector(tipo: TipoDeGolpe): GolpeEnLaRueda {
+function delSector(tipo: TipoDeGolpe, papel: PapelEnLaRueda): GolpeEnLaRueda {
   const [desde, hasta] = puntosDe(tipo);
-  return { tipo, desde, hasta };
+  return { tipo, desde, hasta, papel };
 }
 
 function melee(
@@ -2441,16 +2491,21 @@ function melee(
     rng,
     false,
     carga,
-    cruce === null ? null : enElPunto(cruce.golpe, cruce.punto),
+    cruce === null ? null : enElPunto(cruce.golpe, cruce.punto, 'golpe'),
   );
 
+  // Romper guardia, tras el golpe y antes del contraataque: quita ataque al
+  // atacado ya en él, y en su próximo turno (decisión del usuario, 14-10-2026).
+  if (cruce !== null && isAlive(target)) {
+    colgarDeLaRueda(state, target, cruce.golpe, cruce.punto, 'rival');
+  }
+
   // Contraataque: uno por ronda, y solo si el atacante lo permite.
-  let devuelto = false;
   if (isAlive(target) && isAlive(attacker) && devolveraElGolpe(state, attacker, target)) {
     // El contraataque no carga: se devuelve el golpe desde donde se está. Con la
-    // rueda, con el tipo de la respuesta y en el punto contrario.
+    // rueda, con el tipo de la respuesta y en el punto contrario, sin
+    // bonificadores: solo cuentan el Fuerte y el Rápido.
     target.retaliated = true;
-    devuelto = true;
     intercambio(
       state,
       target,
@@ -2458,23 +2513,24 @@ function melee(
       rng,
       true,
       0,
-      cruce === null ? null : enElPunto(cruce.respuesta, puntoDelContraataque(cruce.punto)),
+      cruce === null
+        ? null
+        : enElPunto(cruce.respuesta, puntoDelContraataque(cruce.punto), 'respuesta'),
     );
   }
 
-  // Romper guardia y Finta, al final del intercambio (decisión del usuario): no
-  // tocan ni el golpe ni el contraataque de esta jugada. La respuesta solo cuenta
-  // si de verdad se devolvió el golpe.
-  if (cruce === null) return;
-  if (isAlive(target)) colgarDeLaRueda(state, target, cruce.golpe, 'rival');
-  if (devuelto && isAlive(attacker)) colgarDeLaRueda(state, attacker, cruce.respuesta, 'rival');
+  // La Finta: el resto del turno, un tramo solo de andar con lo que le quede menos
+  // lo que quita su éxito. Si queda en algo lo decide `applyAction`.
+  if (cruce !== null && cruce.golpe === 'finta' && isAlive(attacker) && state.turno !== null) {
+    state.turno.finta = casillasQueQuitaLaFinta(cruce.punto);
+  }
 }
 
 /**
  * Los golpes de `quien` a `contra` en un intercambio: el golpe o, con
- * `retaliation`, el contraataque. Con la rueda, lo que su tipo deja a quien lo
- * usa (Defensivo) va antes: cubre ya lo que venga. Luego, `golpesDe` golpes
- * mientras `contra` siga en pie.
+ * `retaliation`, el contraataque. Con la rueda, lo que el golpe deja a quien pega
+ * (Defensivo) va antes: cubre ya lo que venga. La respuesta no deja nada. Luego,
+ * `golpesDe` golpes mientras `contra` siga en pie.
  */
 function intercambio(
   state: BattleState,
@@ -2485,7 +2541,9 @@ function intercambio(
   carga: number,
   golpe: GolpeEnLaRueda | null,
 ): void {
-  if (golpe !== null) colgarDeLaRueda(state, quien, golpe.tipo, 'propio');
+  if (golpe !== null && golpe.papel === 'golpe') {
+    colgarDeLaRueda(state, quien, golpe.tipo, golpe.desde, 'propio');
+  }
   const veces = golpesDe(quien.unit, golpe?.tipo ?? null, retaliation);
   for (let i = 0; i < veces && isAlive(contra); i++) {
     strike(state, quien, contra, rng, retaliation, carga, golpe);
@@ -2493,28 +2551,38 @@ function intercambio(
 }
 
 /**
- * Cuelga sobre `s` el efecto del tipo `tipo` de la rueda (`efectoDeLaRueda`) si
- * es para él (`a`: quien lo usa o el rival): dura hasta que `s` termine su
- * próximo turno (`hastaElTurno`, el de ahora) con dos rondas de tope, que cubren
- * siempre ese turno. Del mismo origen, refresca.
+ * Cuelga sobre `s` el efecto de un golpe de tipo `tipo` que cayó en el punto `p`
+ * (`efectoDeLaRueda`) si es para él (`a`: quien pega o el atacado): dura hasta que
+ * `s` empiece o termine su próximo turno (`StackEffect.hasta`, desde el de ahora)
+ * con dos rondas de tope, que cubren siempre ese turno. Del mismo origen,
+ * refresca: dos Romper guardia seguidos dejan el último, no la suma.
  */
 function colgarDeLaRueda(
   state: BattleState,
   s: BattleStack,
   tipo: TipoDeGolpe,
+  p: Punto,
   a: EfectoDeLaRueda['a'],
 ): void {
-  const efecto = efectoDeLaRueda(tipo);
-  if (efecto === null || efecto.a !== a || efecto.amount === 0) return;
+  const efecto = efectoDeLaRueda(tipo, p);
+  if (efecto === null || efecto.a !== a) return;
+  applyStackEffect(state, s, deLaRueda(state, tipo, efecto));
+}
+
+/**
+ * El `StackEffect` de un efecto de la rueda colgado ahora: lo leen el golpe
+ * (`colgarDeLaRueda`) y la previsión del contraataque, que lo cuelga en su copia.
+ */
+function deLaRueda(state: BattleState, tipo: TipoDeGolpe, efecto: EfectoDeLaRueda): StackEffect {
   const n = state.turno?.n;
   if (n === undefined) throw new Error('la rueda cuelga un efecto sin turno abierto');
-  applyStackEffect(state, s, {
+  return {
     kind: efecto.kind,
     amount: efecto.amount,
     source: tipo,
     roundsLeft: 2,
-    hastaElTurno: n,
-  });
+    hasta: { turno: n, al: efecto.vence },
+  };
 }
 
 /** El dragón óseo: ataque −2 durante 2 rondas. Ver la nota de la tabla. */
@@ -2618,7 +2686,7 @@ export function opcionesDeDanio(
  * opciones para cada tipo.
  */
 function conElGolpe(o: DamageOptions, golpe: GolpeEnLaRueda): DamageOptions {
-  return { ...o, cruce: cruceDelGolpe(golpe.tipo, golpe.desde, golpe.hasta) };
+  return { ...o, cruce: cruceDelGolpe(golpe.tipo, golpe.desde, golpe.hasta, golpe.papel) };
 }
 
 function opcionesDelEstado(
@@ -2893,6 +2961,8 @@ export function castBlocker(
 ): string | null {
   const hero = state.heroes[side];
   if (hero === null) return SIN_HEROE;
+  const trasLaFinta = fintaBlocker(state, 'cast');
+  if (trasLaFinta !== null) return trasLaFinta;
   if (hero.castThisRound) return 'el héroe ya lanzó un hechizo esta ronda';
   // El id se comprueba contra el libro ANTES de buscarlo en el catálogo: con un
   // id inventado, "no lo conoce" es más cierto y más útil que reventar.
@@ -3042,6 +3112,8 @@ function previoDelPoder(
   | { readonly s: BattleStack; readonly p: Poder; readonly efecto: StackEffect | null } {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return { motivo: 'no le toca a ninguna unidad' };
+  const trasLaFinta = fintaBlocker(state, 'poder');
+  if (trasLaFinta !== null) return { motivo: trasLaFinta };
   // Un id inventado se dice, no revienta: llega de fuera (un test, el arnés).
   const p = poderSiExiste(poderId);
   if (p === null) return { motivo: `no hay ningún poder «${poderId}»` };
@@ -3169,7 +3241,7 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
         target,
         'golpe',
         { chargeHexes: carga },
-        accion.golpe === undefined ? null : delSector(accion.golpe),
+        accion.golpe === undefined ? null : delSector(accion.golpe, 'golpe'),
       );
     }
     case 'shoot': {
@@ -3254,7 +3326,7 @@ function previsionDeGolpe(
     bajas: { min: t.count - conMenos.count, max: t.count - conMas.count },
     leQuedan: { min: vida(conMas), max: vida(conMenos) },
     modificadores: h.modificadores,
-    contraataque: kind === 'golpe' ? previsionDelContraataque(state, a, t, h, tras) : null,
+    contraataque: kind === 'golpe' ? previsionDelContraataque(state, a, t, h, tras, golpe) : null,
     salpica:
       kind === 'disparo' && hasTrait(a.unit, 'splash_shot')
         ? splashTargets(state, t).map((x) => x.id)
@@ -3269,6 +3341,13 @@ function previsionDeGolpe(
  * deja menos, el mejor más— y de lo que el golpe le haya dejado pegado (el miedo
  * del dragón, la Maldición de la momia), así que se cuenta sobre una copia del
  * objetivo con eso puesto, como lo tendría al devolverlo.
+ *
+ * Con la rueda y un golpe elegido (`golpe`), también lo que ese golpe deja antes
+ * del contraataque: Romper guardia quita al atacado lo de su éxito, y el éxito va
+ * con el daño —el golpe que más quita es el del punto más alto—, así que la copia
+ * con menos (`pocos`) lleva el de `golpe.hasta` y la de más (`muchos`), el de
+ * `golpe.desde`; Defensivo pone su defensa a quien pega. Sin la respuesta, el
+ * contraataque se prevé como al azar: entre los extremos de su horquilla.
  */
 function previsionDelContraataque(
   state: BattleState,
@@ -3276,6 +3355,7 @@ function previsionDelContraataque(
   t: BattleStack,
   h: ReturnType<typeof horquillaDeDanio>,
   tras: (d: number) => { count: number; topHp: number },
+  golpe: GolpeEnLaRueda | null,
 ): PrevisionDeContraataque | null {
   if (!devolveraElGolpe(state, a, t)) return null;
   // Con suerte el golpe puede quitar más, o menos, que sin ella.
@@ -3290,13 +3370,30 @@ function previsionDelContraataque(
   for (const { trait, effect } of efectosAlGolpear(state.reglas)) {
     if (hasTrait(a.unit, trait)) colgarEfecto(conLoDelGolpe, effect);
   }
-  const copia = (count: number): BattleStack => ({ ...conLoDelGolpe, count });
+  // Lo de la rueda que el golpe deja a `a` (quien pega o el atacado), en el punto
+  // `p` del cruce, sobre una copia.
+  const conLaRueda = (x: BattleStack, p: Punto, para: EfectoDeLaRueda['a']): BattleStack => {
+    const efecto = golpe === null ? null : efectoDeLaRueda(golpe.tipo, p);
+    if (golpe === null || efecto === null || efecto.a !== para) return x;
+    const y: BattleStack = { ...x, effects: [...x.effects] };
+    colgarEfecto(y, deLaRueda(state, golpe.tipo, efecto));
+    return y;
+  };
+  const copia = (count: number, p: Punto): BattleStack =>
+    conLaRueda({ ...conLoDelGolpe, count }, p, 'rival');
   // El que menos devuelve es el que más ha perdido; el que más, el que menos.
-  const pocos = copia(conMejor.count === 0 ? 1 : conMejor.count);
-  const muchos = copia(conPeor.count);
+  const pocos = copia(conMejor.count === 0 ? 1 : conMejor.count, golpe?.hasta ?? 0);
+  const muchos = copia(conPeor.count, golpe?.desde ?? 0);
+  // Defensivo, sobre quien pega: no depende del punto.
+  const quienPega = golpe === null ? a : conLaRueda(a, golpe.desde, 'propio');
   const piezas = piezasDeLaPelea(state);
-  const bajo = horquillaDeDanio(pocos, a, opcionesDeDanio(state, pocos, a), piezas);
-  const alto = horquillaDeDanio(muchos, a, opcionesDeDanio(state, muchos, a), piezas);
+  const bajo = horquillaDeDanio(pocos, quienPega, opcionesDeDanio(state, pocos, quienPega), piezas);
+  const alto = horquillaDeDanio(
+    muchos,
+    quienPega,
+    opcionesDeDanio(state, muchos, quienPega),
+    piezas,
+  );
   const une = (x: RamaDeSuerte | null, y: RamaDeSuerte | null): RamaDeSuerte | null =>
     x === null || y === null ? null : { probabilidad: x.probabilidad, min: x.min, max: y.max };
   return {
@@ -3361,7 +3458,7 @@ export function previsionDeLaRueda(
   const piezas = piezasDeLaPelea(state);
   const porTipo = {} as Record<TipoDeGolpe, SectorDeLaRueda>;
   for (const tipo of TIPOS_DE_GOLPE) {
-    const h = horquillaDeDanio(quien, contra, conElGolpe(opciones, delSector(tipo)), piezas);
+    const h = horquillaDeDanio(quien, contra, conElGolpe(opciones, delSector(tipo, papel)), piezas);
     porTipo[tipo] = { danio: h.danio, golpes: golpesDe(quien.unit, tipo, devuelve) };
   }
   return { porTipo, sinContraataque, armadura };
@@ -3447,6 +3544,8 @@ export function subirBlocker(state: BattleState, muro: Hex): string | null {
 export function escalaBlocker(state: BattleState, tipo: TipoDeEscala): string | null {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  const trasLaFinta = fintaBlocker(state, tipo);
+  if (trasLaFinta !== null) return trasLaFinta;
   if (!hayMuralla(state.muralla)) return 'no hay muralla';
   if (escalasA(state, s).some((a) => a.type === tipo)) return null;
   return escalaDesde(state, s, tipo, s.hex, muroQueMasDice(state, s.hex), seHaMovido(state, s));
@@ -3472,6 +3571,8 @@ function muroQueMasDice(state: BattleState, pie: Hex): Hex | null {
 function escalaDeLaActiva(state: BattleState, tipo: TipoDeEscala, muro: Hex): string | null {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  const trasLaFinta = fintaBlocker(state, tipo);
+  if (trasLaFinta !== null) return trasLaFinta;
   return escalaDesde(state, s, tipo, s.hex, muro, seHaMovido(state, s));
 }
 
@@ -3584,6 +3685,8 @@ export function puertaBlocker(
   const s = activeStack(state);
   const turno = state.turno;
   if (s === null || turno === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  const trasLaFinta = fintaBlocker(state, tipo);
+  if (trasLaFinta !== null) return trasLaFinta;
   const p = state.puertas.find((q) => mismaPuerta(q, puerta));
   if (p === undefined) return `entre ${nombreDePuerta(puerta)} no hay puerta`;
   if (s.side !== 'defender') return 'las puertas las abre y las cierra quien defiende';
@@ -3665,6 +3768,14 @@ export function legalActionsAndCosts(state: BattleState): {
   // lo elegido es de la rueda.
   if (state.golpeEnCurso !== null) {
     return { actions: [{ type: 'attack', target: state.golpeEnCurso.target }], costs: new Map() };
+  }
+  // Tras la Finta, el tramo solo de andar (`fintaBlocker`): las casillas del
+  // recorrido de siempre, que ya mide lo que le queda (`pasosQueQuedan`), y
+  // terminar.
+  if (state.turno?.finta !== undefined) {
+    const costs = movableFrom(state, s);
+    const andar: BattleAction[] = [...costs.values()].map((p) => ({ type: 'move', to: p.at }));
+    return { actions: [...andar, { type: 'end_turn' }], costs };
   }
 
   // Tras moverse solo queda moverse más, golpear o terminar: ni defender, ni

@@ -24,8 +24,8 @@ import type { BattleStack } from './types.js';
  * Los tipos de efecto que existen. Es una lista de valores y no solo un tipo
  * porque `test/invariantes.test.ts` la recorre para exigir que cada uno tenga
  * quien lo lea: un tipo que nadie suma se colgaría del stack sin hacer nada.
- * `'defense'` lo suma `effectiveDefense` (`damage.ts`); hoy solo lo ponen
- * Defensivo y Romper guardia de la rueda del golpe (la arena). Mismo patrón que
+ * `'defense'` lo suma `effectiveDefense` (`damage.ts`); hoy solo lo pone
+ * Defensivo de la rueda del golpe (la arena). Mismo patrón que
  * `CREATURE_TRAITS` en `types.ts`.
  */
 export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'tirada', 'defense'] as const;
@@ -40,12 +40,22 @@ export interface StackEffect {
   /** Rondas que le quedan. Baja una en cada `beginRound`. */
   roundsLeft: number;
   /**
-   * El `turno.n` en que se colgó, si dura «hasta que el afectado termine su
-   * próximo turno» (la rueda del golpe): `endTurn` lo quita al cerrar un turno
-   * del afectado con otro `n`, así que el turno en que nace no cuenta. `roundsLeft`
-   * sigue de tope, por si ese turno no llega (la moral baja lo salta).
+   * Si dura «hasta el próximo turno del afectado» (la rueda del golpe): hasta
+   * cuándo. `roundsLeft` sigue de tope, por si ese turno no llega.
    */
-  readonly hastaElTurno?: number;
+  readonly hasta?: HastaElTurno;
+}
+
+/**
+ * Hasta qué turno dura un efecto de la rueda del golpe: el `turno.n` en que se
+ * colgó y si se va al **empezar** el siguiente turno del afectado (Defensivo:
+ * `abrirTurno`, y el turno que la moral baja le quita, que también empieza) o al
+ * **terminarlo** (Romper guardia: `endTurn`). El turno en que nace no cuenta: se
+ * quita con otro `n`.
+ */
+export interface HastaElTurno {
+  readonly turno: number;
+  readonly al: 'empezar' | 'terminar';
 }
 
 /** Moral y suerte se mueven entre −3 y +3 (`CLAUDE.md`, tabla de reglas). */

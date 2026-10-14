@@ -500,7 +500,7 @@ const LECTORES_DE_EFECTO: Readonly<Record<string, (s: BattleStack) => number>> =
   luck: effectiveLuck,
   attack: (s) => effectiveAttack(s),
   tirada: efectoDeTirada,
-  // La rueda del golpe de la arena (Defensivo, Romper guardia), con las reglas del juego.
+  // La rueda del golpe de la arena (Defensivo), con las reglas del juego.
   defense: (s) => effectiveDefense(s, REGLAS_DEL_JUEGO),
 };
 
@@ -1125,6 +1125,23 @@ describe('invariantes del proyecto', () => {
     const suelta = /\bsoltarElGolpe\b/;
     const quienes = infractoresDeCodigo(todos, suelta).map((e) => e.split(':')[0]);
     expect([...new Set(quienes)].sort()).toEqual(['src/client/session.ts', PUERTA]);
+  });
+
+  it('el tramo de la Finta lo abre solo el golpe (`melee`, en battle.ts)', () => {
+    // `TurnoDeUnidad.finta` (la rueda, #263, 14-10-2026) convierte el resto del turno
+    // en un tramo solo de andar, con lo que le quede menos lo que resta su éxito.
+    // Lo escribe solo el golpe con Finta: otro que lo pusiera dejaría a una unidad
+    // sin poder golpear, o le quitaría casillas sin haber fintado. Roto a mano: un
+    // `turno.finta = 2` en `session.ts` sale rojo con su línea.
+    const PUERTA = 'src/core/battle/battle.ts';
+    const escribe = /\.finta\s*(?:\?\?|\|\||&&)?=(?!=)/;
+    expect(
+      infractoresDeCodigo(
+        [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== PUERTA),
+        escribe,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], escribe)).toHaveLength(1);
   });
 
   it('un stack lo sustituye a media pelea solo la arena, y los poderes solo los pone ella', () => {

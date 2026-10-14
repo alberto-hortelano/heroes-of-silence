@@ -91,7 +91,7 @@ import { hexDistance, hexEquals } from '../../src/core/battle/board.js';
 import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
 import { poder } from '../../src/core/battle/poderes.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../../src/core/battle/reglas.js';
-import { NOMBRE_DEL_PUNTO, type TipoDeGolpe } from '../../src/core/battle/rueda.js';
+import { NOMBRE_DEL_PUNTO, TIPOS_DE_GOLPE, type TipoDeGolpe } from '../../src/core/battle/rueda.js';
 import { allSpells } from '../../src/core/battle/spells.js';
 import type {
   BattleAction,
@@ -4868,7 +4868,8 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
 
 /**
  * Lo que elige la persona en la rueda de la pasada: Fuerte al golpear (con el
- * ratón) y Defensivo al responder (con su tecla, la 2).
+ * ratón) y Defensivo al responder (con su tecla, `teclaDe`: la 4 desde el anillo
+ * de #263).
  */
 const ELECCION_DE_LA_RUEDA = { golpe: 'fuerte', respuesta: 'defensivo' } as const;
 
@@ -4970,7 +4971,7 @@ function buscarRueda(hojas: ReturnType<typeof hojasDeArena>): number {
  * clic en el enemigo abre la rueda en su fase de golpe, Escape la cierra sin dar
  * el golpe, y elegir Fuerte da el desenlace —giro, marcadores, arco, medidor y
  * rótulo— con el punto que dice el espejo; cuando el orco golpea, la rueda se abre
- * para responder, sin nada del golpe a la vista, y se elige con la tecla 2. Cada
+ * para responder, sin nada del golpe a la vista, y se elige con su tecla. Cada
  * fase, con su captura.
  */
 async function ruedaEnLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
@@ -5607,14 +5608,19 @@ async function yoContraYoEnLaRueda(
   }
   await captura(page, 'rueda-06-yo-contra-yo-respuesta');
   // H1b: quien responde con el teclado no la despierta. El foco enciende su
-  // sector (Rápido, el primero, con →); Fuerte, bajo el ratón quieto, no.
+  // sector (el primero del anillo, con →); Fuerte, bajo el ratón quieto, no. Se
+  // compara con uno que no es ninguno de los dos (el orden del anillo cambió con
+  // #263: el primero era Rápido y ahora es Ofensivo).
+  const conElFoco = TIPOS_DE_GOLPE[0];
+  const otro = TIPOS_DE_GOLPE.find((t) => t !== conElFoco && t !== 'fuerte' && t !== 'normal');
+  if (otro === undefined) throw new Error('rueda-yo-contra-yo: la rueda no tiene otro sector');
   for (const tecla of ['ArrowRight', 'Tab', 'Shift']) {
     await page.keyboard.press(tecla);
     await sleep(150);
     const seVeConTecla = [
       (await rellenoDelSector(page, 'fuerte')) === encendido ? 'el sector encendido' : '',
       (await notaAbierta(page, 'fuerte')) ? 'su nota abierta' : '',
-      (await aspectoDelBoton(page, 'fuerte')) !== (await aspectoDelBoton(page, 'ofensivo'))
+      (await aspectoDelBoton(page, 'fuerte')) !== (await aspectoDelBoton(page, otro))
         ? 'su botón distinto de los demás'
         : '',
     ].filter((x) => x !== '');
@@ -5623,10 +5629,10 @@ async function yoContraYoEnLaRueda(
         `rueda-yo-contra-yo: tras pulsar ${tecla}, la respuesta deja ver lo que pulsó quien pega: ${seVeConTecla.join(' y ')} de Fuerte`,
       );
     }
-    // El teclado sí enciende lo suyo: con →, el foco en Rápido lo enciende en el disco.
+    // El teclado sí enciende lo suyo: con →, el foco en el primero lo enciende en el disco.
     if (tecla === 'ArrowRight') {
-      if ((await rellenoDelSector(page, 'rapido')) !== encendido) {
-        throw new Error('rueda-yo-contra-yo: con → el foco no enciende Rápido en el disco');
+      if ((await rellenoDelSector(page, conElFoco)) !== encendido) {
+        throw new Error(`rueda-yo-contra-yo: con → el foco no enciende ${conElFoco} en el disco`);
       }
       await captura(page, 'rueda-07-yo-contra-yo-teclado');
     }

@@ -2,7 +2,7 @@ import type { Pieza } from '../data.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
 import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { ModoDelContacto } from './contacto.js';
-import type { EffectKind, StackEffect } from './effects.js';
+import type { EffectKind, HastaElTurno, StackEffect } from './effects.js';
 import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
 import type { ReglasDeBatalla } from './reglas.js';
 import type { ModoDelGolpe, Punto, TipoDeGolpe } from './rueda.js';
@@ -311,8 +311,11 @@ export type BattleEvent =
       amount: number;
       source: string;
       rounds: number;
-      /** Dura hasta que termine el próximo turno del afectado (la rueda), con `rounds` de tope. */
-      hastaSuTurno?: true;
+      /**
+       * Dura hasta que empiece o termine el próximo turno del afectado (la rueda),
+       * con `rounds` de tope.
+       */
+      hastaSuTurno?: HastaElTurno['al'];
     }
   | { kind: 'effect_end'; stack: string; source: string }
   | { kind: 'immune'; stack: string; source: string }
@@ -367,6 +370,14 @@ export interface TurnoDeUnidad {
   readonly stack: string;
   /** Casillas recorridas en este turno: cada `move` suma lo que cuesta su camino. */
   gastado: number;
+  /**
+   * Tras golpear con Finta (la rueda del golpe, solo la arena): las casillas que
+   * resta de lo que le queda por andar (`casillasQueQuitaLaFinta`). Puesto, el
+   * resto del turno es un tramo **solo de andar** (`fintaBlocker`): andar o
+   * terminar. Lo pone solo `melee` (lo vigila `test/invariantes.test.ts`), y no
+   * hay que quitarlo: el turno siguiente es otro objeto.
+   */
+  finta?: number;
 }
 
 /**
