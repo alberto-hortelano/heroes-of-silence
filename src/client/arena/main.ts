@@ -89,7 +89,7 @@ import {
   modoDelGolpeDeLaURL,
 } from '@core/battle/rueda.js';
 import { allSpells } from '@core/battle/spells.js';
-import type { BattleAction, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
+import type { BattleAction, BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import { LIDERAZGO, type Pieza } from '@core/data.js';
 import { type EquipoAtado, idsPuestos } from '@core/hero/equipo.js';
 import { parseSeed } from '@core/rng.js';
@@ -128,6 +128,7 @@ import {
 import { semillaSorteada } from '../semilla.js';
 import { type LadoDeSesion, type RuedaPendiente, SesionDeArena } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
+import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   abiertasATexto,
   abrirFicha,
@@ -219,6 +220,8 @@ const editor = document.getElementById('editor-en-combate') as HTMLDialogElement
 const elRueda = document.getElementById('rueda') as HTMLDialogElement;
 const elFichaDelEditor = document.getElementById('ficha-del-editor') as HTMLElement;
 const elAvisoDelEditor = document.getElementById('aviso-del-editor') as HTMLElement;
+const elTituloDelEditor = document.getElementById('titulo-del-editor') as HTMLElement;
+const botonCerrarEditor = editor.querySelector('[data-arena="cerrar-editor"]') as HTMLElement;
 const elBando: Record<Lado, HTMLElement> = {
   izquierda: document.getElementById('bando-izquierda') as HTMLElement,
   derecha: document.getElementById('bando-derecha') as HTMLElement,
@@ -1298,9 +1301,7 @@ function nombreDeFicha(f: FichaEditable): string {
  * mitad quedan fuera al desplazar.
  */
 function recogerFiguras(raiz: Element): void {
-  figuras = [];
-  vigiaDeFiguras?.disconnect();
-  enPantalla.clear();
+  soltarFiguras();
   for (const lienzo of raiz.querySelectorAll('canvas[data-figura]')) {
     const ctx = lienzo instanceof HTMLCanvasElement ? lienzo.getContext('2d') : null;
     if (ctx === null || !(lienzo instanceof HTMLCanvasElement)) continue;
@@ -1316,6 +1317,13 @@ function recogerFiguras(raiz: Element): void {
     });
     vigiaDeFiguras?.observe(lienzo);
   }
+}
+
+/** Ninguna figura que animar (se ha cerrado lo que las tenía). */
+function soltarFiguras(): void {
+  figuras = [];
+  vigiaDeFiguras?.disconnect();
+  enPantalla.clear();
 }
 
 /**
@@ -1429,11 +1437,55 @@ function avisoTrasCambio(texto: string): void {
   aviso = [texto, sesion === null ? '' : sesion.status].filter((t) => t !== '').join(' ');
 }
 
-/** El editor de la batalla, con la ficha de lo elegido y lo último que pasó al cambiarla. */
+/**
+ * El editor de la batalla, con la ficha de lo elegido y lo último que pasó al
+ * cambiarla. Abierto desde la rueda (`fichaDeLaRueda`), la ficha va dentro de un
+ * `<fieldset disabled>`: se mira y no se cambia.
+ */
 function pintarEditor(): void {
-  pintar(elFichaDelEditor, fichaElegida(true));
+  const ficha = fichaElegida(true);
+  pintar(
+    elFichaDelEditor,
+    fichaDeLaRueda ? html`<fieldset disabled class="solo-lectura">${ficha}</fieldset>` : ficha,
+  );
   elAvisoDelEditor.textContent = aviso;
   elAvisoDelEditor.classList.toggle('rechazo', aviso === rechazado);
+}
+
+/**
+ * Lo que dicen el título y el botón del editor: los de `index.html` al cambiar
+ * cifras, y los de mirar una ficha desde la rueda.
+ */
+const TEXTOS_DEL_EDITOR = {
+  titulo: elTituloDelEditor.textContent,
+  cerrar: botonCerrarEditor.textContent,
+} as const;
+
+/**
+ * Si el editor enseña una ficha abierta desde la rueda del golpe. Con la rueda
+ * abierta no se cambia nada —la sesión tampoco lo deja, `retocar`—: la ficha es
+ * de solo lectura, y al cerrarla se vuelve a la rueda en la misma fase, sin
+ * cancelar la elección (#261).
+ */
+let fichaDeLaRueda = false;
+
+/**
+ * Abre el editor de la batalla con la ficha del tipo de `st` (`tipoDelStack`: la
+ * unidad de la que sale, o el héroe de su lado): para cambiarla, o desde la rueda
+ * (`soloLectura`), para mirarla. Encima de la rueda: `showModal` apila los dos en
+ * el orden en que se abren, y Escape cierra solo el de arriba.
+ */
+function abrirEditor(s: SesionDeArena, st: BattleStack, soloLectura: boolean): void {
+  elegida = tipoDelStack(s.battle, st);
+  const nombre = nombreEnElCampo(s.battle, st);
+  fichaDeLaRueda = soloLectura;
+  elTituloDelEditor.textContent = soloLectura ? `Ficha de ${nombre}` : TEXTOS_DEL_EDITOR.titulo;
+  botonCerrarEditor.textContent = soloLectura ? 'Volver a la rueda' : TEXTOS_DEL_EDITOR.cerrar;
+  aviso = soloLectura
+    ? 'Solo para mirar: con la rueda abierta no se cambian cifras. Para eso, «Editar» en el panel de la pelea.'
+    : 'Lo que cambies aquí vale ya, para todas las de su tipo en el campo.';
+  pintarEditor();
+  if (!editor.open) editor.showModal();
 }
 
 /** Repinta lo que se ve: el montaje o la edición, o en la batalla el editor y el panel. */
@@ -1953,10 +2005,14 @@ function render(ahora: number): void {
   let otraVez = false;
   try {
     // En la vista de equipo, también a media pelea, la barra es la de la página.
-    if (sesion === null || escena === 'equipo') otraVez = dibujarFiguras(ahora);
-    else {
+    if (sesion === null || escena === 'equipo') {
+      if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
+      otraVez = animarFiguras(ahora);
+    } else {
       dibujarBatalla(ahora, sesion);
-      otraVez = hayFigurasAnimadas() || batalla.ocupada;
+      // Las figuras de los dos de la rueda (su cabecera, `recogerFiguras`).
+      const enLaRueda = elRueda.open && animarFiguras(ahora);
+      otraVez = enLaRueda || hayFigurasAnimadas() || batalla.ocupada;
     }
   } catch (err) {
     console.error('[arena] fallo al pintar', err);
@@ -1966,11 +2022,6 @@ function render(ahora: number): void {
   }
 }
 
-/**
- * Las miniaturas animadas del montaje. Devuelve si ha pintado alguna: sin
- * ninguna —al arrancar, con los bandos vacíos y sin ficha— no hay nada que
- * repintar, y el bucle se para hasta el siguiente gesto o la siguiente imagen.
- */
 /** El instante dentro de un clip que no va en bucle, repetido con una pausa al final. */
 function repeticion(
   ahora: number,
@@ -1981,8 +2032,14 @@ function repeticion(
   return (ahora - inicio) % (dura + PAUSA_DE_LA_FICHA_MS);
 }
 
-function dibujarFiguras(ahora: number): boolean {
-  if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
+/**
+ * Las figuras animadas de lo que se ve: las miniaturas y las fichas del montaje,
+ * la edición o el equipo, o, en la batalla, las dos de la cabecera de la rueda
+ * (`recogerFiguras`). Devuelve si hay que seguir: sin ninguna —al arrancar, con
+ * los bandos vacíos y sin ficha— no hay nada que repintar, y el bucle se para
+ * hasta el siguiente gesto o la siguiente imagen.
+ */
+function animarFiguras(ahora: number): boolean {
   for (const [i, { lienzo, ctx, id, clave: deFicha, lado, rotulo }] of figuras.entries()) {
     if (vigiaDeFiguras !== null && !enPantalla.has(lienzo)) continue;
     const arte = arteDe(id);
@@ -2100,6 +2157,7 @@ function pintarLaRueda(s: SesionDeArena): void {
         renderDesenlace(s.battle, cruce.evento, contraataqueDelCruce(s.battle.log, i)),
       );
       ajustarLaRueda(elRueda);
+      recogerFiguras(elRueda);
       ruedaPintada = cruce.evento;
     }
     const tramos = tramosDelDesenlace(cruce.t);
@@ -2107,8 +2165,9 @@ function pintarLaRueda(s: SesionDeArena): void {
   } else if (pendiente !== null) {
     if (ruedaPintada !== pendiente) {
       delete elRueda.dataset.tramo;
-      pintar(elRueda, renderEleccion(s.battle, pendiente));
+      pintar(elRueda, renderEleccion(s, pendiente));
       ajustarLaRueda(elRueda);
+      recogerFiguras(elRueda);
       aquietarLaRueda();
       ruedaPintada = pendiente;
       enfocar = true;
@@ -2128,7 +2187,11 @@ function cerrarLaRueda(): void {
   ruedaPintada = null;
   delete elRueda.dataset.tramo;
   despertarLaRueda();
-  if (elRueda.open) elRueda.close();
+  if (!elRueda.open) return;
+  elRueda.close();
+  // Las figuras que se animaban eran las de su cabecera: al volver al montaje,
+  // `pintarVista` recoge las suyas.
+  soltarFiguras();
 }
 
 /**
@@ -2170,12 +2233,23 @@ function despertarLaRueda(): void {
   quietaEn = null;
 }
 
+/**
+ * Si el gesto cae en la cabecera de la rueda (las figuras de los dos, #261): ni
+ * pasar por ella ni pulsarla despierta los sectores. Al ir a mirar quién es
+ * quién, el puntero no ha pasado por la rueda.
+ */
+function enLaCabecera(ev: Event): boolean {
+  return ev.target instanceof Element && ev.target.closest('.cabecera-de-rueda') !== null;
+}
+
 elRueda.addEventListener('pointermove', (ev) => {
-  if (elRueda.dataset.quieta === undefined) return;
+  if (elRueda.dataset.quieta === undefined || enLaCabecera(ev)) return;
   if (quietaEn !== null && ev.clientX === quietaEn.x && ev.clientY === quietaEn.y) return;
   despertarLaRueda();
 });
-elRueda.addEventListener('pointerdown', despertarLaRueda);
+elRueda.addEventListener('pointerdown', (ev) => {
+  if (!enLaCabecera(ev)) despertarLaRueda();
+});
 
 /**
  * Elige en la rueda: el clic en un sector, su tecla o Intro con el foco en él. La
@@ -2454,18 +2528,18 @@ document.addEventListener('click', (ev) => {
         soloLaFicha = claveDeFicha(f);
         break;
       }
-      case 'editar-en-combate': {
+      case 'editar-en-combate':
+      case 'ficha-en-la-rueda': {
         if (sesion === null) return;
         const id = el.getAttribute('data-stack');
         const st = sesion.battle.stacks.find((x) => x.id === id);
-        if (st === undefined)
-          throw new Error(`el botón «Editar» trae «${String(id)}», que no está en la pelea`);
+        if (st === undefined) {
+          const boton = que === 'editar-en-combate' ? 'el botón «Editar»' : 'la figura de la rueda';
+          throw new Error(`${boton} trae «${String(id)}», que no está en la pelea`);
+        }
         // Lo que se edita es el TIPO: la unidad de la que sale, o el héroe de su
-        // lado (`tipoDelStack`, que anotó el montaje).
-        elegida = tipoDelStack(sesion.battle, st);
-        aviso = 'Lo que cambies aquí vale ya, para todas las de su tipo en el campo.';
-        pintarEditor();
-        if (!editor.open) editor.showModal();
+        // lado (`tipoDelStack`, que anotó el montaje). Desde la rueda, solo se mira.
+        abrirEditor(sesion, st, que === 'ficha-en-la-rueda');
         return;
       }
       case 'cerrar-editor':
@@ -3072,8 +3146,17 @@ document.addEventListener('keydown', (ev) => {
 });
 
 // Cerrar el editor (su botón o Escape) vuelve a la batalla tal como estaba: no
-// toca la sesión, solo repinta el panel con las cifras nuevas.
-editor.addEventListener('close', () => pedirFotograma());
+// toca la sesión, solo repinta el panel con las cifras nuevas. Abierto desde la
+// rueda, vuelve a ella (seguía abierta debajo, en su fase), y el editor recobra
+// su título y su botón de cambiar cifras.
+editor.addEventListener('close', () => {
+  if (fichaDeLaRueda) {
+    fichaDeLaRueda = false;
+    elTituloDelEditor.textContent = TEXTOS_DEL_EDITOR.titulo;
+    botonCerrarEditor.textContent = TEXTOS_DEL_EDITOR.cerrar;
+  }
+  pedirFotograma();
+});
 
 // Las dos lecturas no dependen una de otra: van a la vez.
 Promise.all([arrancar(), arrancarMurallas()]).then(

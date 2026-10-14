@@ -21,6 +21,8 @@
  * Solo pinta: elegir y cancelar lo hace la sesión (`SesionDeArena`), y quien
  * conecta los gestos es `main.ts`.
  */
+
+import { ladoDe } from '@core/arena.js';
 import {
   ANILLO,
   efectoDeGolpe,
@@ -40,6 +42,7 @@ import type { RuedaPendiente } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { nota } from '../views/panels.js';
 import { horquilla } from '../views/prevision.js';
+import { type VistaDeArena, vistaPrevia } from './paneles.js';
 
 /**
  * Los iconos, dibujados (sin arte generado): trazos en una caja de 24, con el
@@ -75,7 +78,7 @@ function icono(tipo: TipoDeGolpe): Html {
 }
 
 /** El ángulo del centro de cada sector del anillo, en grados (0 a la derecha, 90 abajo). */
-function anguloDe(tipo: TipoDeGolpe): number {
+export function anguloDe(tipo: TipoDeGolpe): number {
   const i = ANILLO.indexOf(tipo);
   if (i < 0) throw new Error(`«${tipo}» no está en el anillo de la rueda`);
   return -90 + i * (360 / ANILLO.length);
@@ -96,18 +99,71 @@ function xy(r: number, grados: number): string {
 const DENTRO = 45;
 const FUERA = 100;
 const BORDE = 104;
-/** Dónde va el centro del botón de cada sector del anillo. */
-const SITIO_DEL_BOTON = 73;
+/** El radio del círculo de Normal: el que se pinta, el que se tiñe y el que recibe el clic. */
+const RADIO_DEL_CENTRO = DENTRO - 4;
+/** Dónde va el centro del rótulo de cada sector del anillo. */
+const SITIO_DEL_ROTULO = 73;
+/**
+ * Dónde va el «ⓘ» de cada sector del anillo: cerca del borde de fuera y a un
+ * lado del centro, donde no pisa el rótulo. Sale del ángulo del sector, no de su
+ * tipo: el orden del anillo puede cambiar sin tocar la colocación.
+ */
+const SITIO_DE_LA_NOTA = { r: 88, desvio: 20 } as const;
+/** El «ⓘ» de Normal: arriba a la derecha, dentro de su círculo. */
+const NOTA_DEL_CENTRO = { r: 28, grados: -45 } as const;
 /** Lo que mide de lado la caja de la rueda, de −110 a 110. */
 const LADO_DE_LA_CAJA = 220;
 /** Medio sector, menos la junta entre dos. */
 const MEDIO_SECTOR = 360 / ANILLO.length / 2 - 1.2;
+
+/**
+ * Las medidas de la rueda en su plano (de −110 a 110), para quien mide desde
+ * fuera dónde responde cada sector (`pnpm capturas`, #258): las mismas que
+ * trazan `sector` y `formas`.
+ */
+export const MEDIDAS_DE_LA_RUEDA = {
+  dentro: DENTRO,
+  fuera: FUERA,
+  radioDelCentro: RADIO_DEL_CENTRO,
+  medioSector: MEDIO_SECTOR,
+  lado: LADO_DE_LA_CAJA,
+} as const;
 
 function sector(tipo: TipoDeGolpe): string {
   const c = anguloDe(tipo);
   const a = c - MEDIO_SECTOR;
   const b = c + MEDIO_SECTOR;
   return `M${xy(FUERA, a)}A${FUERA} ${FUERA} 0 0 1 ${xy(FUERA, b)}L${xy(DENTRO, b)}A${DENTRO} ${DENTRO} 0 0 0 ${xy(DENTRO, a)}Z`;
+}
+
+/** El id del `<clipPath>` del sector `tipo`, el que recorta su botón. */
+export function idDeLaForma(tipo: TipoDeGolpe): string {
+  return `forma-de-${tipo}`;
+}
+
+/**
+ * Un `<clipPath>` por tipo, para recortar cada botón (que mide el plato entero)
+ * a su sector: así responde al ratón toda la superficie que se ve y solo esa
+ * (#258; con una caja ovalada en el centro de cada sector, las esquinas de la
+ * corona no respondían). La forma es la misma que pinta el disco: `sector` o el
+ * círculo de `RADIO_DEL_CENTRO`. En `objectBoundingBox` la caja del botón va de 0
+ * a 1 y el plano de la rueda de −110 a 110; la transformación lleva el uno al
+ * otro. Cada `clip-path` lo pone `ajustarLaRueda`. Solo en la rueda para elegir:
+ * los ids son únicos en la página.
+ */
+function formas(): Html {
+  const medio = LADO_DE_LA_CAJA / 2;
+  const aLaCaja = `scale(${1 / LADO_DE_LA_CAJA}) translate(${medio} ${medio})`;
+  return html`<svg class="formas" width="0" height="0" aria-hidden="true" focusable="false"><defs>${unir(
+    TIPOS_DE_GOLPE.map(
+      (t) =>
+        html`<clipPath id="${idDeLaForma(t)}" clipPathUnits="objectBoundingBox">${
+          t === 'normal'
+            ? html`<circle transform="${aLaCaja}" r="${String(RADIO_DEL_CENTRO)}"/>`
+            : html`<path transform="${aLaCaja}" d="${sector(t)}"/>`
+        }</clipPath>`,
+    ),
+  )}</defs></svg>`;
 }
 
 /**
@@ -129,8 +185,8 @@ function disco(elige: Side | null): Html {
       <circle class="fondo" r="108"/>
       <circle class="aro" r="${BORDE}"/>
       ${sectores}${radios}
-      <circle class="sector centro" data-sector="normal" r="${DENTRO - 4}"/>
-      <circle class="aro-de-dentro" r="${DENTRO - 4}"/>
+      <circle class="sector centro" data-sector="normal" r="${String(RADIO_DEL_CENTRO)}"/>
+      <circle class="aro-de-dentro" r="${String(RADIO_DEL_CENTRO)}"/>
       ${elige === null ? NADA : html`<circle class="aro-del-bando" r="${String(BORDE + 2.5)}" stroke="${COLOR_BANDO[elige]}"/>`}
     </svg>`;
 }
@@ -179,51 +235,85 @@ function chapa(side: Side): Html {
   return html`<svg class="chapa" viewBox="-6 -6 12 12" aria-hidden="true" focusable="false"><circle r="5" fill="${COLOR_BANDO[side]}"/></svg>`;
 }
 
-/** «Templario» con la chapa de su bando delante. */
-function quien(battle: BattleState, s: BattleStack): Html {
-  return html`<span class="quien">${chapa(s.side)}${nombreEnElCampo(battle, s)}</span>`;
+/**
+ * La figura de quien se cruza, la misma del botón del puesto en el montaje
+ * (`canvas.figura`, que anima `main.ts` y tiñe del color de su bando por
+ * `data-lado`): con varias unidades iguales el nombre no dice cuál es (#261).
+ */
+function figuraDe(x: BattleStack): Html {
+  return html`<canvas class="figura" data-figura="${x.body}" data-lado="${ladoDe(x.side)}" width="80" height="96" aria-hidden="true"></canvas>`;
+}
+
+/**
+ * Uno de los dos: su figura, la chapa de su bando y su nombre en el campo. Con
+ * `vista` (la rueda para elegir), la figura es un botón que abre su ficha de solo
+ * lectura (`ficha-en-la-rueda`, `main.ts`) y, al pasar el ratón o con el foco del
+ * teclado, su vista previa (`vistaPrevia`: del estado, nunca lo elegido, que va
+ * a ciegas en la sesión). En el desenlace, solo la figura: la ficha abierta ahí
+ * quedaría debajo de la rueda de la fase siguiente.
+ */
+function contrincante(battle: BattleState, x: BattleStack, vista: VistaDeArena | null): Html {
+  const nombre = nombreEnElCampo(battle, x);
+  const previa = `previa-${x.id}`;
+  const icono =
+    vista === null
+      ? html`<span class="icono-de-contrincante">${figuraDe(x)}</span>`
+      : html`<button type="button" class="icono-de-contrincante" data-arena="ficha-en-la-rueda" data-stack="${x.id}" aria-label="${`Ficha de ${nombre}`}" aria-describedby="${previa}">${figuraDe(x)}</button><div class="vista-previa" id="${previa}" role="tooltip">${vistaPrevia(vista, x)}</div>`;
+  return html`<span class="contrincante" data-contrincante="${x.id}">${icono}<span class="quien">${chapa(x.side)}<span class="nombre-del-contrincante">${nombre}</span></span></span>`;
 }
 
 const LADO: Readonly<Record<Side, string>> = { attacker: 'izquierdo', defender: 'derecho' };
 
 /**
  * La cabecera de las dos caras: el título y quién pega a quién, siempre en ese
- * orden («Orco ataca a Templario»), también cuando elige quien recibe. «ataca a»
- * va pegado al objetivo: al partirse la línea en un móvil no queda suelto.
+ * orden («Orco ataca a Templario»), también cuando elige quien recibe, cada uno
+ * con su figura (`contrincante`). «ataca a» va pegado al objetivo: al partirse la
+ * línea en un móvil no queda suelto. Un `<div>` y no un `<p>`: la vista previa
+ * lleva filas en bloque, y dentro de un `<p>` el analizador lo cerraba antes.
  */
 function cabecera(
   battle: BattleState,
   titulo: Html,
   atacante: BattleStack,
   objetivo: BattleStack,
+  vista: VistaDeArena | null,
 ): Html {
   return html`<header class="cabecera-de-rueda">
       <h2 id="titulo-de-la-rueda">${titulo}</h2>
-      <p class="quienes">${quien(battle, atacante)}<span class="hacia"><span class="ataca">ataca a</span>${quien(battle, objetivo)}</span></p>
+      <div class="quienes">${contrincante(battle, atacante, vista)}<span class="hacia"><span class="ataca">ataca a</span>${contrincante(battle, objetivo, vista)}</span></div>
     </header>`;
 }
 
+/** Hacia dónde se abre el bocadillo de una nota de la rueda: hacia fuera de ella. */
+export type HaciaFuera = 'arriba' | 'derecha' | 'abajo' | 'izquierda';
+
 /**
- * Los siete sitios de la rueda, uno por tipo (`.en-<tipo>`, que coloca
- * `ajustarLaRueda`), con lo que ponga `dentro`. `atributos`, lo que lleva cada
- * sitio además de su tipo. Cada uno dice también su puesto en el anillo
- * (`data-puesto`, de 0 arriba a 5 en el sentido de las agujas del reloj; Normal,
- * `centro`): lo que depende de dónde cae —hacia dónde se abre su nota— lo lee el
- * CSS de ahí, y cambiar el orden del anillo no obliga a reescribirlo.
+ * Hacia fuera de la rueda desde `grados` (0 a la derecha, 90 abajo): el lado más
+ * cercano, para que el bocadillo no tape su sector. De −135 a −45, arriba, y así
+ * de cuarto en cuarto (los bordes, al siguiente en el sentido de las agujas).
+ */
+export function haciaDe(grados: number): HaciaFuera {
+  const g = (((grados + 45) % 360) + 360) % 360;
+  if (g < 90) return 'derecha';
+  if (g < 180) return 'abajo';
+  if (g < 270) return 'izquierda';
+  return 'arriba';
+}
+
+/**
+ * Los siete sitios de la rueda, uno por tipo: cada uno, una capa del plato entero
+ * con lo que ponga `dentro`. Lo coloca `ajustarLaRueda` desde el ángulo de su
+ * sector en el anillo (`sitioEnLaRueda`), y `data-hacia` dice hacia dónde abre su
+ * nota. Nada de la colocación va por tipo: si cambia el orden del anillo, todo
+ * sigue a su sector. `atributos`, lo que lleva cada sitio además de su tipo.
  */
 function sitios(dentro: (t: TipoDeGolpe) => Html, atributos: (t: TipoDeGolpe) => Html): Html {
   return unir(
     TIPOS_DE_GOLPE.map(
       (t) =>
-        html`<div class="sector-de-rueda en-${t}" data-puesto="${puestoDe(t)}" data-sector="${t}"${atributos(t)}>${dentro(t)}</div>`,
+        html`<div class="sector-de-rueda en-${t}" data-sector="${t}"${atributos(t)} data-hacia="${t === 'normal' ? 'abajo' : haciaDe(anguloDe(t))}">${dentro(t)}</div>`,
     ),
   );
-}
-
-/** El puesto de un tipo en el anillo: «0» a «5», o «centro» para Normal. */
-function puestoDe(t: TipoDeGolpe): string {
-  const i = ANILLO.indexOf(t);
-  return i < 0 ? 'centro' : String(i);
 }
 
 /** Lo que se ve de un tipo: su icono y su nombre. */
@@ -234,9 +324,11 @@ function rotuloDe(t: TipoDeGolpe): Html {
 /**
  * La rueda para elegir. En la fase `golpe` elige quien pega; en `respuesta`,
  * quien recibe, que no ve el golpe. Los sectores son botones (`data-golpe`, con
- * la tecla en su etiqueta) y su efecto, una nota al lado.
+ * la tecla en su etiqueta) del tamaño del plato, recortados a su sector
+ * (`formas`), y su efecto, una nota al lado. De `s`, la sesión, sale la vista
+ * previa de los dos.
  */
-export function renderEleccion(battle: BattleState, p: RuedaPendiente): Html {
+export function renderEleccion(s: VistaDeArena, p: RuedaPendiente): Html {
   const golpe = p.fase === 'golpe';
   const titulo = golpe
     ? html`Golpe del bando ${LADO[p.bando]}`
@@ -251,13 +343,14 @@ export function renderEleccion(battle: BattleState, p: RuedaPendiente): Html {
     (
       t,
     ) => html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t)}" aria-keyshortcuts="${teclaDe(t)}">
-          ${rotuloDe(t)}<span class="da">${loQueDa(p, t)}</span>
+          <span class="rotulo-del-sector">${rotuloDe(t)}<span class="da">${loQueDa(p, t)}</span></span>
         </button>${nota(notaDe(p, t))}`,
     () => html` data-abre-nota`,
   );
   return html`<div class="rueda" data-fase="${p.fase}" data-bando="${p.bando}">
-    ${cabecera(battle, titulo, p.atacante, p.objetivo)}
+    ${cabecera(s.battle, titulo, p.atacante, p.objetivo, s)}
     <div class="plato">
+      ${formas()}
       <div class="giro">${disco(p.bando)}${sectores}</div>
     </div>
     <footer class="pie-de-rueda">
@@ -293,7 +386,7 @@ function anguloDeLaMarca(tipo: TipoDeGolpe, papel: 'golpe' | 'respuesta'): numbe
 
 /** Dónde se posa el marcador de un papel: en el aro, o en el borde del centro si es Normal. */
 function dondeCae(tipo: TipoDeGolpe, papel: 'golpe' | 'respuesta'): { x: number; y: number } {
-  if (tipo === 'normal') return punto(DENTRO - 4, -90 + (papel === 'golpe' ? -42 : 42));
+  if (tipo === 'normal') return punto(RADIO_DEL_CENTRO, -90 + (papel === 'golpe' ? -42 : 42));
   return punto(BORDE, anguloDeLaMarca(tipo, papel));
 }
 
@@ -305,13 +398,13 @@ function dondeCae(tipo: TipoDeGolpe, papel: 'golpe' | 'respuesta'): { x: number;
 function arco(golpe: TipoDeGolpe, respuesta: TipoDeGolpe, p: Punto): Html {
   let d: string;
   if (golpe === 'normal' && respuesta === 'normal') {
-    const r = DENTRO - 4;
+    const r = RADIO_DEL_CENTRO;
     d = `M${xy(r, -90)}A${r} ${r} 0 0 1 ${xy(r, 90)}A${r} ${r} 0 0 1 ${xy(r, -90)}`;
   } else if (golpe === 'normal' || respuesta === 'normal') {
     const [otro, papel] =
       golpe === 'normal' ? [respuesta, 'respuesta' as const] : [golpe, 'golpe' as const];
     const g = anguloDeLaMarca(otro, papel);
-    d = `M${xy(DENTRO - 4, g)}L${xy(BORDE, g)}`;
+    d = `M${xy(RADIO_DEL_CENTRO, g)}L${xy(BORDE, g)}`;
   } else {
     const a = anguloDeLaMarca(golpe, 'golpe');
     const b = anguloDeLaMarca(respuesta, 'respuesta');
@@ -324,7 +417,7 @@ function arco(golpe: TipoDeGolpe, respuesta: TipoDeGolpe, p: Punto): Html {
 /** El sector elegido, teñido del color de quien lo eligió. */
 function tinte(tipo: TipoDeGolpe, side: Side): Html {
   return tipo === 'normal'
-    ? html`<circle class="tinte" r="${String(DENTRO - 4)}" fill="${COLOR_BANDO[side]}"/>`
+    ? html`<circle class="tinte" r="${String(RADIO_DEL_CENTRO)}" fill="${COLOR_BANDO[side]}"/>`
     : html`<path class="tinte" d="${sector(tipo)}" fill="${COLOR_BANDO[side]}"/>`;
 }
 
@@ -400,7 +493,7 @@ export function renderDesenlace(
   const elegido: Partial<Record<TipoDeGolpe, string>> = { [e.golpe]: 'golpe' };
   elegido[e.respuesta] = e.respuesta === e.golpe ? 'los-dos' : 'respuesta';
   const etiquetas = sitios(
-    (t) => html`<span class="boton">${rotuloDe(t)}</span>`,
+    (t) => html`<span class="rotulo-del-sector">${rotuloDe(t)}</span>`,
     (t) => html` data-elegido="${elegido[t] ?? ''}"`,
   );
   const contra =
@@ -409,7 +502,7 @@ export function renderDesenlace(
       : html`contraataque <strong data-punto="${String(contraataque)}">${NOMBRE_DEL_PUNTO[contraataque]}</strong>`;
   const titulo = html`<span class="mientras-gira">La rueda gira…</span><span class="cuando-para">${NOMBRE_DE_GOLPE[e.golpe]} contra ${NOMBRE_DE_GOLPE[e.respuesta]}</span>`;
   return html`<div class="rueda" data-fase="desenlace">
-    ${cabecera(battle, titulo, atacante, objetivo)}
+    ${cabecera(battle, titulo, atacante, objetivo, null)}
     <div class="plato">
       <div class="giro">${disco(null)}${etiquetas}</div>
       <svg class="marcas" viewBox="-110 -110 220 220" aria-hidden="true" focusable="false">
@@ -429,20 +522,49 @@ export function renderDesenlace(
 }
 
 /**
- * Lo que el marcado no lleva y se pone con `style.setProperty` tras pintar (un
- * hueco `style` no se escribe con `html.ts`): el reloj del desenlace (`--cruce`,
- * el de `DURACION.cruce`, del que el CSS saca cada animación en fracciones) y el
- * sitio de cada sector del anillo (`--x`, `--y`, desde su ángulo en `ANILLO`).
- * Normal va en el centro, por su clase.
+ * Dónde va lo de cada sector, en el plano de la rueda: el centro de su rótulo y
+ * su «ⓘ», desde el ángulo de su sector en `ANILLO` (Normal, en el centro).
+ */
+export function sitioEnLaRueda(tipo: TipoDeGolpe): {
+  readonly rotulo: { readonly x: number; readonly y: number };
+  readonly nota: { readonly x: number; readonly y: number };
+} {
+  if (tipo === 'normal') {
+    return { rotulo: { x: 0, y: 0 }, nota: punto(NOTA_DEL_CENTRO.r, NOTA_DEL_CENTRO.grados) };
+  }
+  const g = anguloDe(tipo);
+  return {
+    rotulo: punto(SITIO_DEL_ROTULO, g),
+    nota: punto(SITIO_DE_LA_NOTA.r, g + SITIO_DE_LA_NOTA.desvio),
+  };
+}
+
+/**
+ * Lo que el marcado no lleva y se pone con `style` tras pintar (un hueco `style`
+ * no se escribe con `html.ts`): el reloj del desenlace (`--cruce`, el de
+ * `DURACION.cruce`, del que el CSS saca cada animación en fracciones), el sitio
+ * de lo de cada sector (`sitioEnLaRueda`: `--x`, `--y` el rótulo; `--nx`, `--ny`
+ * el «ⓘ») y el recorte de cada botón a su sector (`clip-path`, al `<clipPath>`
+ * de `formas`). Un botón sin su forma recibiría el clic en el plato entero y se
+ * comería los de debajo: eso lanza.
  */
 export function ajustarLaRueda(dialogo: HTMLElement): void {
   dialogo.style.setProperty('--cruce', `${DURACION.cruce}ms`);
-  for (const t of ANILLO) {
-    const sitio = dialogo.querySelector<HTMLElement>(`.sector-de-rueda.en-${t}`);
+  const enPorcentaje = (v: number): string => `${50 + (v * 100) / LADO_DE_LA_CAJA}%`;
+  for (const t of TIPOS_DE_GOLPE) {
+    const sitio = dialogo.querySelector<HTMLElement>(`.sector-de-rueda[data-sector="${t}"]`);
     if (sitio === null) continue;
-    const p = punto(SITIO_DEL_BOTON, anguloDe(t));
-    const enPorcentaje = (v: number): string => `${50 + (v * 100) / LADO_DE_LA_CAJA}%`;
-    sitio.style.setProperty('--x', enPorcentaje(p.x));
-    sitio.style.setProperty('--y', enPorcentaje(p.y));
+    const { rotulo, nota: delInfo } = sitioEnLaRueda(t);
+    sitio.style.setProperty('--x', enPorcentaje(rotulo.x));
+    sitio.style.setProperty('--y', enPorcentaje(rotulo.y));
+    sitio.style.setProperty('--nx', enPorcentaje(delInfo.x));
+    sitio.style.setProperty('--ny', enPorcentaje(delInfo.y));
+    const boton = sitio.querySelector<HTMLElement>('button[data-golpe]');
+    if (boton === null) continue;
+    const id = idDeLaForma(t);
+    if (dialogo.querySelector(`clipPath[id="${id}"]`) === null) {
+      throw new Error(`el sector ${NOMBRE_DE_GOLPE[t]} de la rueda no tiene su forma (#${id})`);
+    }
+    boton.style.clipPath = `url(#${id})`;
   }
 }

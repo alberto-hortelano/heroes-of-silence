@@ -683,6 +683,9 @@ describe('invariantes del proyecto', () => {
         'yoContraYoEnLaRueda',
         'todoEnIAConLaRueda',
         'espejoDeLasArmas',
+        // Los contrincantes de la rueda (#261): su espejo y su montaje.
+        'espejoDeContrincantes',
+        'hastaLaRuedaDeTres',
       ],
       // La medida de salir del contacto (#259): la arena con la regla y sin ella.
       'tools/qa/contacto.ts': ['medir'],

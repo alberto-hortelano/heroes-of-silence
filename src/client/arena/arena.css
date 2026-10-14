@@ -582,6 +582,9 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   border: 3px ridge #71623e;
   box-shadow: 0 8px 22px #000b;
 }
+/* La cabecera, tan ancha como la rueda: con las dos figuras, «Orko con dos armas A
+   ataca a Guerrero con escudo A» cabe en una línea en el escritorio. */
+.cabecera-de-rueda { width: min(100%, 560px); }
 .cabecera-de-rueda h2 {
   margin: 0;
   font: 600 1.05rem Georgia, serif;
@@ -597,10 +600,82 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   gap: 0.2rem 0.5rem;
   font: 0.9rem system-ui, sans-serif;
 }
-.rueda .quien { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+.rueda .quien { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; min-width: 0; }
 .rueda .chapa { width: 0.8rem; height: 0.8rem; flex: none; }
-.rueda .hacia { display: inline-flex; align-items: center; gap: 0.5rem; }
+.rueda .hacia { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; max-width: 100%; }
 .rueda .ataca { color: var(--ink-dim); font-style: italic; white-space: nowrap; }
+/* Los dos que se cruzan (#261): la figura del puesto, animada y del color de su
+   bando, delante de su chapa y su nombre. Con la rueda para elegir, la figura es
+   un botón: el ratón encima (o el foco del teclado) abre su vista previa, y el
+   clic, su ficha. La vista previa va anclada a la figura como el bocadillo de una
+   nota (style.css), y solo donde hay ratón: en un móvil, tocar la figura abre la
+   ficha y nada más (decisión del usuario, 14-10-2026). */
+.rueda .contrincante {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  anchor-scope: --contrincante;
+}
+.rueda .icono-de-contrincante {
+  flex: none;
+  display: block;
+  min-height: 0;
+  padding: 0;
+  line-height: 0;
+  background: #120f0b;
+  border: 1px solid #71623e;
+  border-radius: 4px;
+  anchor-name: --contrincante;
+  -webkit-tap-highlight-color: transparent;
+}
+.rueda button.icono-de-contrincante { cursor: pointer; }
+.rueda button.icono-de-contrincante:hover:not(:disabled) { background: #2b2519; border-color: var(--gold); }
+.rueda button.icono-de-contrincante:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.rueda .icono-de-contrincante .figura { display: block; width: 40px; height: 48px; }
+.rueda .nombre-del-contrincante { overflow: hidden; text-overflow: ellipsis; }
+/* A un lado de su figura, hacia fuera (quien pega a la izquierda, quien recibe a
+   la derecha) y bajando: debajo de la cabecera está la rueda, y tapaba sus
+   sectores de arriba mientras se elegía. Si a ese lado no cabe, al otro, y si
+   no, debajo. */
+.vista-previa {
+  display: none;
+  position: fixed;
+  position-anchor: --contrincante;
+  position-area: left span-bottom;
+  position-try-fallbacks: flip-inline, bottom;
+  margin: 6px;
+  width: max-content;
+  max-width: min(19rem, calc(100vw - 24px));
+  z-index: 60;
+  padding: 0.45rem 0.65rem 0.5rem;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--gold);
+  box-shadow: 0 6px 16px #000c;
+  font: 0.82rem/1.3 system-ui, sans-serif;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+}
+.hacia > .contrincante > .vista-previa { position-area: right span-bottom; }
+.vista-previa .nombre-de-la-previa {
+  display: block;
+  margin-bottom: 0.2rem;
+  font: 600 0.95rem Georgia, serif;
+  color: var(--gold);
+}
+.vista-previa .row { gap: 0.8rem; }
+.vista-previa .efectos-en-curso { display: grid; justify-items: end; text-align: right; }
+.vista-previa .sin-efectos { color: var(--ink-dim); font-style: italic; }
+.rueda .contrincante:has(> button:focus-visible) > .vista-previa { display: block; }
+@media (hover: hover) {
+  .rueda .contrincante:has(> button:hover) > .vista-previa { display: block; }
+}
+@supports not (position-area: bottom) {
+  .rueda .contrincante { position: relative; }
+  .vista-previa { position: absolute; top: 100%; left: 0; }
+}
 .pie-de-rueda p { margin: 0.15rem 0; }
 .pie-de-rueda .guia { font: 0.88rem/1.35 Georgia, serif; color: var(--ink); }
 .pie-de-rueda .teclas { font: 0.75rem system-ui, sans-serif; color: var(--ink-dim); }
@@ -659,37 +734,46 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .disco .radio { stroke: #cbb78055; stroke-width: 1; }
 .disco .aro-de-dentro { fill: none; stroke: var(--gold); stroke-width: 2; }
 
-/* Los sectores: un botón encima de cada uno, en su sitio (`--x`, `--y`, que pone
-   `ajustarLaRueda` desde el ángulo de cada uno en el anillo). Centrado con
-   márgenes y no con `transform`, que haría de cada sector el bloque contenedor del
-   bocadillo de su nota; en porcentaje del ancho del plato, que es cuadrado. */
+/* Los sectores (#258): cada uno, una capa del plato entero que no recibe el ratón;
+   dentro, su botón, también del plato entero y recortado a la forma de su sector
+   (`clip-path`, que pone `ajustarLaRueda` con el `<clipPath>` de `formas`): toda
+   la corona que se ve responde, y solo ella. El rótulo y el «ⓘ» van en su sitio
+   (`--x`, `--y` y `--nx`, `--ny`, desde el ángulo del sector, en porcentaje del
+   plato, que es cuadrado). El «ⓘ» se centra con márgenes y no con `transform`,
+   que lo haría bloque contenedor de su propio bocadillo. */
+.plato .formas { position: absolute; width: 0; height: 0; overflow: hidden; }
 .sector-de-rueda {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sector-de-rueda button {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #e9dcbc;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.sector-de-rueda .rotulo-del-sector {
   position: absolute;
   left: var(--x, 50%);
   top: var(--y, 50%);
   width: 26%;
-  height: 24%;
-  margin: -12% 0 0 -13%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.en-normal { width: 30%; height: 30%; margin: -15% 0 0 -15%; }
-.sector-de-rueda button,
-.sector-de-rueda .boton {
+  transform: translate(-50%, -50%);
   display: grid;
   justify-items: center;
   gap: calc(var(--plato) * 0.006);
-  width: 100%;
-  padding: calc(var(--plato) * 0.012) calc(var(--plato) * 0.005);
-  background: transparent;
-  border: 0;
-  border-radius: 50%;
   color: #e9dcbc;
-  font: inherit;
-  cursor: pointer;
 }
-.sector-de-rueda .boton { cursor: default; }
+.sector-de-rueda button .rotulo-del-sector { color: inherit; }
 /* Con `data-quieta` (la rueda recién pintada, con el puntero aún donde estaba),
    el `:hover` no enciende nada: el sector de debajo es el que pulsó quien eligió
    antes, y con los dos bandos «Yo» se lo enseñaba al otro (H1 de QA). Lo quita el
@@ -728,27 +812,25 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 }
 .sector-de-rueda .nota {
   position: absolute;
-  top: calc(var(--plato) * -0.005);
-  right: 4%;
+  left: var(--nx, 50%);
+  top: var(--ny, 50%);
+  width: 1em;
+  margin: -0.5em 0 0 -0.5em;
+  text-align: center;
   font-size: calc(var(--plato) * 0.030);
   opacity: 0.75;
+  pointer-events: auto;
 }
-/* Por su puesto en el anillo (`data-puesto`, 0 arriba y en el sentido de las
-   agujas del reloj; `sitios` en rueda.ts), no por su tipo: el orden del anillo
-   vive en el núcleo y aquí no se repite. */
-[data-puesto="centro"] .nota { top: 0; right: 10%; }
-/* El «ⓘ», en el borde de fuera de su sector. */
-.sector-de-rueda[data-puesto="3"] .nota { top: auto; bottom: calc(var(--plato) * -0.005); }
-.sector-de-rueda:is([data-puesto="4"], [data-puesto="5"]) .nota { right: auto; left: 4%; }
 /* Con la rueda quieta, el `:hover` tampoco abre la nota (style.css la abre al
    pasar por el sector). */
 #rueda[data-quieta] [data-abre-nota]:hover > .nota::after,
 #rueda[data-quieta] .nota:hover::after { display: none; }
-/* La nota de un sector se abre hacia fuera de la rueda, sin tapar el sector. */
-#rueda [data-puesto="0"] > .nota::after { position-area: top; }
-#rueda :is([data-puesto="1"], [data-puesto="2"]) > .nota::after { position-area: right span-bottom; }
-#rueda :is([data-puesto="4"], [data-puesto="5"]) > .nota::after { position-area: left span-bottom; }
-#rueda :is([data-puesto="3"], [data-puesto="centro"]) > .nota::after { position-area: bottom; }
+/* La nota de un sector se abre hacia fuera de la rueda, sin tapar el sector:
+   hacia donde mira su ángulo (`data-hacia`, `haciaDe`), no por su tipo. */
+#rueda [data-hacia="arriba"] > .nota::after { position-area: top; }
+#rueda [data-hacia="derecha"] > .nota::after { position-area: right span-bottom; }
+#rueda [data-hacia="izquierda"] > .nota::after { position-area: left span-bottom; }
+#rueda [data-hacia="abajo"] > .nota::after { position-area: bottom; }
 /* El sector bajo el ratón (salvo con la rueda quieta) o con el foco del teclado
    se enciende en el disco. */
 #rueda:not([data-quieta]) .rueda:has([data-golpe="rapido"]:hover) .sector[data-sector="rapido"],
@@ -878,4 +960,8 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   #rueda::backdrop { background: #0b0f0bd9; }
   .cabecera-de-rueda,
   .pie-de-rueda { background: var(--panel); }
+  /* Las dos figuras y el texto, en dos líneas como mucho: quien pega en una y
+     «ataca a» con el objetivo en la otra; un nombre largo se corta. */
+  .rueda .icono-de-contrincante .figura { width: 32px; height: 38px; }
+  .cabecera-de-rueda .quienes { gap: 0.15rem 0.4rem; }
 }

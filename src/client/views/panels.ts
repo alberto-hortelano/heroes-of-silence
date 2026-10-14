@@ -17,7 +17,7 @@
 import { activeStack, quedanCasillas } from '@core/battle/battle.js';
 import { CARGA, cifrasDeCarga, dichoDeLaCarga } from '@core/battle/carga.js';
 import { DEFEND_BONUS } from '@core/battle/damage.js';
-import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
+import { type EffectKind, effectiveLuck, type StackEffect } from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
 import {
   contraataqueDelCruce,
@@ -1019,6 +1019,21 @@ export function duracionDeEfecto(e: {
   return e.hastaSuTurno === undefined
     ? `durante ${enRondas(e.rounds)}`
     : DURACION_DE_LA_RUEDA[e.hastaSuTurno];
+}
+
+/**
+ * Un efecto que lleva colgado un stack, dicho entero: quién lo puso, qué hace y
+ * lo que le queda («Defensivo: defensa +1 hasta que empiece su próximo turno»).
+ * Con las mismas tres piezas que el parte (`nombreFuente`, `cifraDeEfecto`,
+ * `duracionDeEfecto`), que lo dice al colgarse; esto lo dice mientras dura (la
+ * vista previa de la rueda, #261).
+ */
+export function efectoEnCurso(e: StackEffect): string {
+  const dura =
+    e.hasta === undefined
+      ? duracionDeEfecto({ rounds: e.roundsLeft })
+      : duracionDeEfecto({ rounds: e.roundsLeft, hastaSuTurno: e.hasta.al });
+  return `${nombreFuente(e.source)}: ${cifraDeEfecto(e.kind, e.amount)} ${dura}`;
 }
 
 /**
