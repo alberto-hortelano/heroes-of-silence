@@ -7,10 +7,11 @@
  * −80 %): la de fheroes2 se juega en la arena con el interruptor (b) y está en
  * `multiplicadorFheroes2`. Las constantes viven aquí y no repartidas por el motor.
  */
-import { hasTrait, isShooter } from '../data.js';
+import { hasTrait, isShooter, quedanTiros } from '../data.js';
+import { DICHO_DEL_USO, type EquipoAtado, SIN_ARMA } from '../hero/equipo.js';
 import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
-import { conComa } from '../types.js';
+import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
 import { efectoDeTirada, effectiveLuck, effectTotal, type StackEffect } from './effects.js';
 import type { ReglasDeBatalla } from './reglas.js';
 import type { BattleStack } from './types.js';
@@ -51,12 +52,119 @@ export function cargaEfectiva(casillas: number): number {
 }
 
 /**
- * El ataque con el que pega un stack: el suyo y sus efectos, sin héroe
+ * Las casillas de carga que cobra un golpe: las de su recta (`chargeHexes`) con
+ * el tope, si quien pega tiene el rasgo Carga; 0 si no. El contraataque pasa 0:
+ * se contraataca desde el sitio. Se cuenta una vez por golpe (`deUnGolpe`), y de
+ * ella sale también con qué arma va (`usoDelGolpe`).
+ */
+function cargaCobrada(unit: UnitInfo, opts: Pick<DamageOptions, 'chargeHexes'>): number {
+  return hasTrait(unit, 'charge') ? cargaEfectiva(opts.chargeHexes ?? 0) : 0;
+}
+
+/**
+ * Con qué arma se da un golpe (13-10-2026, «cada arma para lo suyo»): el disparo,
+ * con la de distancia; el golpe que cobra carga, con la de carga; todo lo demás
+ * —el golpe sin carga y el contraataque—, con la de cuerpo a cuerpo. **La única
+ * decisión**: se deduce de las opciones que ya trae todo golpe
+ * (`opcionesDeDanio`), así que el motor no la pasa por ningún sitio.
+ */
+export function usoDelGolpe(
+  unit: UnitInfo,
+  opts: Pick<DamageOptions, 'ranged' | 'chargeHexes'>,
+): UsoDeArma {
+  return usoConCarga(opts, cargaCobrada(unit, opts));
+}
+
+/** `usoDelGolpe` con la carga ya cobrada: la cuenta del daño la tiene y no la repite. */
+function usoConCarga(opts: Pick<DamageOptions, 'ranged'>, charge: number): UsoDeArma {
+  if (opts.ranged === true) return 'distancia';
+  return charge > 0 ? 'carga' : 'cuerpo';
+}
+
+/**
+ * Con qué arma y con qué cifras da `unit` un golpe de `uso`: el de su arma
+ * (`UnitInfo.armas`) o, si no la lleva, el de cuerpo a cuerpo, que son las cifras
+ * de arriba —la carga sin lanza va con la espada, y el disparo sin arma a
+ * distancia (quien tira por sí mismo), también—. Sin armas por uso, todo golpe va con las cifras de
+ * arriba y el arma de cuerpo a cuerpo de su equipo. **La única regla del
+ * respaldo**: de aquí leen las cifras del golpe (`cifrasDelGolpe`), la previsión
+ * y la ficha (`armasDe`).
+ */
+export function golpeDe(unit: UnitInfo, uso: UsoDeArma): GolpeConArma {
+  const { armas } = unit;
+  if (armas === undefined) {
+    return { arma: unit.equipo?.arma ?? null, attack: unit.attack, damage: unit.damage };
+  }
+  return armas[uso] ?? armas.cuerpo;
+}
+
+/**
+ * Las cifras con que se da un golpe de `uso` (`golpeDe`). **La única lectura de
+ * las cifras de un golpe**: la leen el ataque, la tirada, la IA, la previsión y
+ * la ficha. En el juego no hay `armas` y son las de arriba, sin más cuenta.
+ */
+export function cifrasDelGolpe(
+  unit: UnitInfo,
+  uso: UsoDeArma,
+): { readonly attack: number; readonly damage: readonly [number, number] } {
+  if (unit.armas === undefined) return unit;
+  return golpeDe(unit, uso);
+}
+
+/**
+ * Con qué arma va un golpe de `uso`, dicho para quien juega: «con Daga (cuerpo a
+ * cuerpo)» o «sin arma, con el cuerpo (cuerpo a cuerpo)» (`golpeDe`,
+ * `DICHO_DEL_USO`). Lo leen la previsión del golpe y la del contraataque.
+ */
+export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, piezas: EquipoAtado): string {
+  const { arma } = golpeDe(unit, uso);
+  const como = DICHO_DEL_USO[uso].golpe;
+  return arma === null ? `${SIN_ARMA} (${como})` : `con ${piezas.pieza(arma).nombre} (${como})`;
+}
+
+/** Una fila de `armasDe`: el golpe de un uso (`golpeDe`) con el nombre del arma y si se da. */
+export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'arma'> {
+  readonly uso: UsoDeArma;
+  /** El nombre del arma, o `null` si ese golpe va con el cuerpo. */
+  readonly arma: string | null;
+  /**
+   * Por qué ese golpe no se da nunca, dicho para quien juega (`DICHO_DEL_USO`), o
+   * `null` si se da: un arma de carga sin el rasgo Carga. La de distancia se usa
+   * siempre: llevarla ya es disparar (sin munición, 13-10-2026).
+   */
+  readonly sinUso: string | null;
+}
+
+/**
+ * Las armas de una unidad, una fila por uso (`golpeDe`), con el nombre de cada
+ * arma en `piezas`: lo que enseña la ficha de la arena. El cuerpo a cuerpo,
+ * siempre; el disparo, si dispara (`isShooter`: lleva arma a distancia o es un
+ * tirador del catálogo); la carga, si lleva arma de carga o el rasgo. Un arma de
+ * carga puesta sin el rasgo sale igual, con su motivo: callada, ocupaba su hueco y
+ * la ficha no la nombraba (H1 del QA de las armas por uso, 13-10-2026).
+ */
+export function armasDe(unit: UnitInfo, piezas: EquipoAtado): ArmaDeLaUnidad[] {
+  const fila = (uso: UsoDeArma, sinUso: string | null = null): ArmaDeLaUnidad => {
+    const { arma, attack, damage } = golpeDe(unit, uso);
+    return { uso, arma: arma === null ? null : piezas.pieza(arma).nombre, attack, damage, sinUso };
+  };
+  const filas = [fila('cuerpo')];
+  if (isShooter(unit)) filas.push(fila('distancia'));
+  const carga = hasTrait(unit, 'charge');
+  if (unit.armas?.carga !== undefined || carga) {
+    filas.push(fila('carga', carga ? null : DICHO_DEL_USO.carga.sinUso));
+  }
+  return filas;
+}
+
+/**
+ * El ataque con el que pega un stack un golpe de `uso` (el de cuerpo a cuerpo si
+ * no se dice): el de su arma (`cifrasDelGolpe`) y sus efectos, sin héroe
  * (`BattleHero` cuenta por qué). Los efectos de `attack` son los que mete el
  * miedo del dragón óseo.
  */
-export function effectiveAttack(stack: BattleStack): number {
-  return stack.unit.attack + effectTotal(stack, 'attack');
+export function effectiveAttack(stack: BattleStack, uso: UsoDeArma = 'cuerpo'): number {
+  return cifrasDelGolpe(stack.unit, uso).attack + effectTotal(stack, 'attack');
 }
 
 /**
@@ -77,7 +185,10 @@ export function effectiveAttack(stack: BattleStack): number {
  * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_action.cpp#L699-L700
  */
 export function effectiveDefense(stack: BattleStack, reglas: ReglasDeBatalla, extra = 0): number {
-  const base = stack.unit.defense + extra;
+  // Los efectos de defensa (Defensivo y Romper guardia de la rueda, solo en la
+  // arena) van en la base, antes del bono de defender. En el juego no hay
+  // ninguno y suman 0.
+  const base = stack.unit.defense + extra + effectTotal(stack, 'defense');
   return defiendeConBono(stack, reglas) ? base * (1 + DEFEND_BONUS) : base;
 }
 
@@ -100,9 +211,13 @@ export function ataqueYDefensa(
   attacker: BattleStack,
   defender: BattleStack,
   opts: DamageOptions,
+  uso: UsoDeArma = usoDelGolpe(attacker.unit, opts),
 ): { readonly ataque: number; readonly defensa: number } {
   return {
-    ataque: effectiveAttack(attacker) + (opts.ataqueDelMando ?? 0),
+    ataque:
+      effectiveAttack(attacker, uso) +
+      (opts.ataqueDelMando ?? 0) +
+      (opts.cruce === undefined ? 0 : opts.cruce.ataque),
     defensa: effectiveDefense(
       defender,
       opts.reglas,
@@ -176,6 +291,36 @@ export interface DamageOptions {
   readonly defensaDelMando?: number;
   /** Lo que suma a la defensa del que recibe estar en lo alto (`bonoEnLoAlto`). */
   readonly bonoEnLoAlto?: number;
+  /**
+   * La rueda del golpe (solo la arena), en números: la monta solo
+   * `opcionesDeDanio` (`cruceDelGolpe`, `rueda.ts`), y aquí no se sabe de tipos.
+   * Sin ella, la tirada de siempre.
+   */
+  readonly cruce?: CruceDelGolpe;
+}
+
+/**
+ * Lo que la rueda le dice al daño de un golpe (`DamageOptions.cruce`). La
+ * tirada cae del cuarto `desde` al `hasta` de la horquilla (0 el mínimo, 4 el
+ * máximo, `tiradaEnCuartos`): el golpe que se da va con los dos iguales y no
+ * gasta `rng.int`; la previsión, con los de un sector de la rueda.
+ */
+export interface CruceDelGolpe {
+  readonly desde: number;
+  readonly hasta: number;
+  /** Lo que multiplica el golpe ya hecho, al final de todo (1: nada). */
+  readonly factor: number;
+  /** Lo que suma al ataque del golpe que se da. */
+  readonly ataque: number;
+  /** Cómo anota la previsión el `factor` («golpe Fuerte»). */
+  readonly causa: string;
+  /** Cómo anota la previsión dónde cae la tirada («rueda: tirada en el medio»). */
+  readonly causaDeLaTirada: string;
+}
+
+/** La tirada en el cuarto `c` (de 0 a 4) de la horquilla `[min, max]`, en enteros. */
+export function tiradaEnCuartos(min: number, max: number, c: number): number {
+  return min + Math.floor(((max - min) * c) / 4);
 }
 
 /**
@@ -210,12 +355,13 @@ function applyModifiers(
   attacker: BattleStack,
   defender: BattleStack,
   opts: DamageOptions,
+  golpe: DeUnGolpe,
   anotar?: Modificador[],
-): { base: number; charge: number } {
+): number {
   const info = attacker.unit;
   const { reglas } = opts;
 
-  const { ataque, defensa } = ataqueYDefensa(attacker, defender, opts);
+  const { ataque, defensa } = ataqueYDefensa(attacker, defender, opts, golpe.uso);
   const mult =
     reglas.ataqueDefensa === 'fheroes2'
       ? multiplicadorFheroes2(ataque - defensa)
@@ -247,7 +393,7 @@ function applyModifiers(
       base *= 0.5;
       anotar?.push({ causa: `disparo a ${opts.distance} casillas, más de 5`, factor: 0.5 });
     }
-  } else if (opts.ranged !== true && isShooter(info) && attacker.shotsLeft > 0) {
+  } else if (opts.ranged !== true && quedanTiros(attacker)) {
     // fheroes2: el disparo no pierde con la distancia (fuera de una muralla: allí
     // tirar a través de ella pega la mitad; la nuestra, en el suelo, no deja
     // tirar a través, y desde lo alto o hacia lo alto no la cruza), y un tirador CON flechas que pega cuerpo a cuerpo —también al
@@ -273,7 +419,7 @@ function applyModifiers(
   }
 
   // Carga. El contraataque pasa siempre 0 hexes: se contraataca desde el sitio.
-  const charge = hasTrait(info, 'charge') ? cargaEfectiva(opts.chargeHexes ?? 0) : 0;
+  const { charge } = golpe;
   if (charge > 0) {
     const f = 1 + charge * CHARGE_BONUS_PER_HEX;
     base *= f;
@@ -283,7 +429,28 @@ function applyModifiers(
     });
   }
 
-  return { base, charge };
+  // La rueda, al final de todo: Fuerte y Rápido multiplican el golpe ya hecho.
+  // Sin rueda no se multiplica nada, ni por 1: el juego no cambia ni un decimal.
+  if (opts.cruce !== undefined && opts.cruce.factor !== 1) {
+    base *= opts.cruce.factor;
+    anotar?.push({ causa: opts.cruce.causa, factor: opts.cruce.factor });
+  }
+
+  return base;
+}
+
+/**
+ * Lo que un golpe decide una vez (`deUnGolpe`) y leen su tirada y sus
+ * modificadores: las casillas de carga que cobra y con qué arma va.
+ */
+interface DeUnGolpe {
+  readonly charge: number;
+  readonly uso: UsoDeArma;
+}
+
+function deUnGolpe(attacker: BattleStack, opts: DamageOptions): DeUnGolpe {
+  const charge = cargaCobrada(attacker.unit, opts);
+  return { charge, uso: usoConCarga(opts, charge) };
 }
 
 /**
@@ -295,13 +462,34 @@ function applyModifiers(
 function tiradasPosibles(
   attacker: BattleStack,
   reglas: ReglasDeBatalla,
-): { readonly min: number; readonly max: number; readonly tirada: -1 | 0 | 1 } {
-  const [min, max] = attacker.unit.damage;
+  uso: UsoDeArma,
+): TiradasPosibles {
+  const [min, max] = cifrasDelGolpe(attacker.unit, uso).damage;
   if (reglas.bendicion === 'nuestra') return { min, max, tirada: 0 };
   const tirada = efectoDeTirada(attacker);
   if (tirada > 0) return { min: max, max, tirada };
   if (tirada < 0) return { min, max: min, tirada };
   return { min, max, tirada };
+}
+
+interface TiradasPosibles {
+  readonly min: number;
+  readonly max: number;
+  readonly tirada: -1 | 0 | 1;
+}
+
+/**
+ * Las tiradas con la rueda: del cuarto `desde` al `hasta` de lo que dejan la
+ * Bendición y la Maldición (con ellas la horquilla es un punto y la rueda no la
+ * mueve). Sin rueda, las mismas, sin copiarlas: el juego no paga por ella.
+ */
+function enElCruce(t: TiradasPosibles, cruce: CruceDelGolpe | undefined): TiradasPosibles {
+  if (cruce === undefined) return t;
+  return {
+    min: tiradaEnCuartos(t.min, t.max, cruce.desde),
+    max: tiradaEnCuartos(t.min, t.max, cruce.hasta),
+    tirada: t.tirada,
+  };
 }
 
 /**
@@ -325,9 +513,12 @@ function tiradasPosibles(
  * ```
  * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_troop.cpp#L594-L602
  */
-function tiradaDe(attacker: BattleStack, reglas: ReglasDeBatalla, rng: Rng): number {
-  const t = tiradasPosibles(attacker, reglas);
-  return t.tirada !== 0 ? t.min : rng.int(t.min, t.max);
+function tiradaDe(attacker: BattleStack, opts: DamageOptions, uso: UsoDeArma, rng: Rng): number {
+  const { cruce } = opts;
+  const t = enElCruce(tiradasPosibles(attacker, opts.reglas, uso), cruce);
+  // Con la rueda en un solo punto (el golpe que se da), tampoco hay dado.
+  const fija = t.tirada !== 0 || (cruce !== undefined && cruce.desde === cruce.hasta);
+  return fija ? t.min : rng.int(t.min, t.max);
 }
 
 /**
@@ -355,9 +546,10 @@ export function expectedDamage(
   // Con la Bendición o la Maldición de fheroes2 la tirada ya no es un medio: es
   // el extremo, como `getPotentialDamage` allí. En el juego no hay ninguna y
   // `[min, max]` son las de la criatura.
-  const { min, max } = tiradasPosibles(attacker, opts.reglas);
+  const golpe = deUnGolpe(attacker, opts);
+  const { min, max } = tiradasPosibles(attacker, opts.reglas, golpe.uso);
   const medio = ((min + max) / 2) * attacker.count;
-  return applyModifiers(medio, attacker, defender, opts).base;
+  return applyModifiers(medio, attacker, defender, opts, golpe);
 }
 
 /** Daño que inflige `attacker` a `defender`, ya con suerte aplicada. */
@@ -367,10 +559,10 @@ export function computeDamage(
   rng: Rng,
   opts: DamageOptions,
 ): DamageResult {
-  const roll = tiradaDe(attacker, opts.reglas, rng);
-  const modificado = applyModifiers(roll * attacker.count, attacker, defender, opts);
-  let base = modificado.base;
-  const charge = modificado.charge;
+  const golpe = deUnGolpe(attacker, opts);
+  const roll = tiradaDe(attacker, opts, golpe.uso, rng);
+  let base = applyModifiers(roll * attacker.count, attacker, defender, opts, golpe);
+  const { charge } = golpe;
 
   const luck = effectiveLuck(attacker);
   let lucky = false;
@@ -406,28 +598,55 @@ export interface RamaDeSuerte extends Horquilla {
  * tirada mínima y la máxima de `tiradasPosibles`—, no de una copia: todo lo que
  * multiplica es positivo y el redondeo es monótono, así que los extremos de la
  * tirada dan los extremos del daño. `test/prevision.test.ts` lo compara con el
- * daño de verdad en cientos de semillas. No toca el `Rng`.
+ * daño de verdad en cientos de semillas. No toca el `Rng`. `piezas` son las de
+ * la pelea, con que se nombra el arma del golpe (`UnitInfo.armas`).
  */
 export function horquillaDeDanio(
   attacker: BattleStack,
   defender: BattleStack,
   opts: DamageOptions,
+  piezas: EquipoAtado,
 ): {
   readonly danio: Horquilla;
   readonly buena: RamaDeSuerte | null;
   readonly mala: RamaDeSuerte | null;
   readonly modificadores: readonly Modificador[];
+  /**
+   * Con qué arma va el golpe (`dichoDelGolpe`), o `null` sin armas por uso (el
+   * juego). Es también el primer modificador; aparte, para quien lo nombra sin
+   * la cuenta: la barra, en el contraataque.
+   */
+  readonly conArma: string | null;
 } {
-  const { min: tMin, max: tMax, tirada } = tiradasPosibles(attacker, opts.reglas);
+  const { cruce } = opts;
+  const golpe = deUnGolpe(attacker, opts);
+  const {
+    min: tMin,
+    max: tMax,
+    tirada,
+  } = enElCruce(tiradasPosibles(attacker, opts.reglas, golpe.uso), cruce);
   const modificadores: Modificador[] = [];
+  // Con armas por uso (la arena), lo primero es con cuál pega: la horquilla es
+  // la de esa arma, y la previsión y el contraataque lo dicen sin campos nuevos.
+  const conArma =
+    attacker.unit.armas === undefined ? null : dichoDelGolpe(attacker.unit, golpe.uso, piezas);
+  if (conArma !== null) modificadores.push({ causa: conArma, factor: null });
   if (tirada !== 0) {
     modificadores.push({
       causa: tirada > 0 ? 'Bendición: daño máximo (fheroes2)' : 'Maldición: daño mínimo (fheroes2)',
       factor: null,
     });
   }
-  const bajo = applyModifiers(tMin * attacker.count, attacker, defender, opts, modificadores).base;
-  const alto = applyModifiers(tMax * attacker.count, attacker, defender, opts).base;
+  if (cruce !== undefined) modificadores.push({ causa: cruce.causaDeLaTirada, factor: null });
+  const bajo = applyModifiers(
+    tMin * attacker.count,
+    attacker,
+    defender,
+    opts,
+    golpe,
+    modificadores,
+  );
+  const alto = applyModifiers(tMax * attacker.count, attacker, defender, opts, golpe);
   const rama = (f: number, p: number): RamaDeSuerte => ({
     probabilidad: p,
     min: danioFinal(bajo * f),
@@ -439,6 +658,7 @@ export function horquillaDeDanio(
     buena: luck > 0 ? rama(LUCKY_MULTIPLIER, luck * CHANCE_PER_POINT) : null,
     mala: luck < 0 ? rama(UNLUCKY_MULTIPLIER, -luck * CHANCE_PER_POINT) : null,
     modificadores,
+    conArma,
   };
 }
 
@@ -461,6 +681,7 @@ export function valorDeEfectoDeDanio(efecto: StackEffect, objetivo: BattleStack)
     }
     case 'speed':
     case 'attack':
+    case 'defense':
       throw new Error(`un efecto de ${efecto.kind} no cambia la tirada de daño`);
   }
 }

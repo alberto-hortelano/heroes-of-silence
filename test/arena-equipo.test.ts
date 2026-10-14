@@ -51,7 +51,7 @@ import {
   validarPiezaDeArena,
 } from '../src/core/arena.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { EQUIPO, type Pieza } from '../src/core/data.js';
+import { cuentaTiros, EQUIPO, isShooter, type Pieza } from '../src/core/data.js';
 import {
   EQUIPO_BASE,
   PIEZAS_DE_ARMERIA,
@@ -84,7 +84,7 @@ const arquero = (): UnidadDeArena => unidadDeArena('goblin-arquero');
 /** Una unidad nueva de otro tipo que también lleva la espada. */
 function otroConEspada(): UnidadDeArena {
   const ocupados = { validas: [], sinValidar: [], hojas: hojasDeLaArena().map((h) => h.id) };
-  const u = unidadNueva({ hoja: hojaDeLaArena('templario-escudo') }, ocupados, DEL_JUEGO);
+  const u = unidadNueva(hojaDeLaArena('templario-escudo'), ocupados, DEL_JUEGO);
   return equiparEnArena(u, 'espada', DEL_JUEGO);
 }
 
@@ -106,6 +106,19 @@ describe('las piezas de la arena', () => {
     expect([...PIEZAS_DE_BOTIN, ...PIEZAS_DE_ARMERIA, ...PIEZAS_DEL_JUEGO]).not.toContain(nueva);
     expect(Object.values(EQUIPO_BASE)).not.toContain(nueva.id);
     expect(() => catalogoDeLaArena([ESPADA_MAS, ESPADA_MAS])).toThrow('va dos veces');
+  });
+
+  it('un arma a distancia nueva, sin disparos, ya hace tirador a quien la lleva (13-10-2026)', () => {
+    // Sin munición: llevarla es disparar. Antes nacía con los 12 del arco (H1 del QA
+    // de las armas por uso), que con 0 no se usaba nunca.
+    const nueva = piezaNueva('distancia', DEL_JUEGO);
+    expect(nueva).not.toHaveProperty('disparos');
+    expect(DEL_JUEGO.pieza('arco')).not.toHaveProperty('disparos');
+    const eq = catalogoDeLaArena([nueva]);
+    const conElla = unidadDeCombate(equiparEnArena(guerrero(), nueva.id, eq), eq);
+    expect(isShooter(conElla)).toBe(true);
+    expect(cuentaTiros(conElla)).toBe(false);
+    expect(isShooter(unidadDeCombate(guerrero(), DEL_JUEGO))).toBe(false);
   });
 
   it('una del juego no cambia de hueco ni de calidad; una nueva es de la arena; lo ajeno se dice', () => {
@@ -146,8 +159,12 @@ describe('las piezas de la arena', () => {
     expect(() => validarPiezaDeArena({ ...ESPADA, ataque: Number.NaN })).toThrow(
       '«Espada»: ataque tiene que ser un entero ≥ 0 y no es un número',
     );
-    // Lo que no suma se escribe sin el campo: una mano, 0 disparos.
-    expect(validarPiezaDeArena({ ...ESPADA, manos: 1, disparos: 0 })).toEqual(ESPADA);
+    // Lo que no suma se escribe sin el campo: una mano.
+    expect(validarPiezaDeArena({ ...ESPADA, manos: 1 })).toEqual(ESPADA);
+    // Los disparos ya no son un campo (13-10-2026): sin munición.
+    expect(() => validarPiezaDeArena({ ...ARCO, disparos: 12 })).toThrow(
+      '«Arco»: «disparos» no es un campo de una pieza',
+    );
   });
 
   it('cambiar el hueco rehace lo que el hueco exige: el escudo resta y las manos son de un arma', () => {
@@ -267,20 +284,22 @@ describe('el enlace de la pelea lleva las piezas de la arena', () => {
   const conNueva = equiparEnArena(guerrero(), nueva.id, eq);
   const lado = (unidad: string, ia: boolean) => ({
     ia,
-    puestos: [{ kind: 'unidad' as const, unidad, escalera: false }],
+    puestos: [{ unidad, escalera: false }],
     heroe: null,
   });
   const ENLACE: MontajeDelEnlace = {
     unidades: [conNueva, arquero()],
     piezas: [nueva],
-    pruebas: {},
     izquierda: lado(conNueva.id, false),
     derecha: lado('goblin-arquero', true),
     muralla: null,
   };
 
-  it('versión 6: va y vuelve con la pieza nueva, y monta con las del juego más las suyas', () => {
-    expect(VERSION_DEL_ENLACE).toBe(CON_PIEZAS);
+  it('desde la versión 6: va y vuelve con la pieza nueva, y monta con las del juego más las suyas', () => {
+    // La 7 (13-10-2026) fue la de cada arma en su hueco y la 8 la de solo la arena;
+    // las piezas viajan desde la 6.
+    expect(CON_PIEZAS).toBe(6);
+    expect(VERSION_DEL_ENLACE).toBe(8);
     const leido = montajeDeLaURL(montajeALaURL(ENLACE));
     expect(leido).toEqual({ ...ENLACE, version: VERSION_DEL_ENLACE });
     const montado = montajeDeArenaDelEnlace(leido, MONTAJE.reglas, leido.piezas);
@@ -328,6 +347,8 @@ describe('el enlace de la pelea lleva las piezas de la arena', () => {
     );
     o.v = 5;
     delete o.piezas;
+    // Hasta la 7, con las pruebas del catálogo (vacías: el enlace no montaba ninguna).
+    o.pruebas = {};
     const leido = montajeDeLaURL(JSON.stringify(o), perfilDe, [ESPADA_MAS]);
     expect(leido.version).toBe(5);
     expect(leido.piezas).toEqual([]);
@@ -396,14 +417,13 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
     const conNueva = equiparEnArena(arquero(), nueva.id, catalogoDeLaArena([nueva]));
     const lado = (unidad: string) => ({
       ia: false,
-      puestos: [{ kind: 'unidad' as const, unidad, escalera: false }],
+      puestos: [{ unidad, escalera: false }],
       heroe: null,
     });
     const enlace = montajeDeLaURL(
       montajeALaURL({
         unidades: [guerrero(), conNueva],
         piezas: [nueva],
-        pruebas: {},
         izquierda: lado(guerrero().id),
         derecha: lado(conNueva.id),
         muralla: null,
@@ -487,21 +507,6 @@ describe('cambiar una pieza a media pelea', () => {
       cambios: [`PV ${mas.pv} → ${ESPADA.pv}`, 'vuelve a la del juego'],
     });
     expect(b.piezasDeArena).toEqual([]);
-  });
-
-  it('lo gastado de más se debe: bajar los disparos del arco y volver a subirlos no devuelve tiros', () => {
-    const b = pelea();
-    const arq = b.stacks.find((s) => s.body === 'goblin-arquero') as BattleStack;
-    const quedan = 2;
-    arq.shotsLeft = quedan;
-    // El arco con `quedan + 1` disparos menos: se queda sin ninguno y debe uno.
-    const menos = { ...ARCO, disparos: (ARCO.disparos ?? 0) - quedan - 1 };
-    expect(retocarEnBatalla(b, { kind: 'piezas', piezas: [menos] })).toBeNull();
-    expect(de(b, arq.id).shotsLeft).toBe(0);
-    expect(de(b, arq.id).gastadoDeMas?.disparos).toBe(1);
-    expect(retocarEnBatalla(b, { kind: 'piezas', piezas: [] })).toBeNull();
-    expect(de(b, arq.id).shotsLeft).toBe(quedan);
-    expect(de(b, arq.id).gastadoDeMas).toBeUndefined();
   });
 
   it('lo que deja sin valer a un stack se rechaza con su nombre y no toca nada', () => {

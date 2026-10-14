@@ -23,12 +23,12 @@ import type { BattleStack } from './types.js';
 /**
  * Los tipos de efecto que existen. Es una lista de valores y no solo un tipo
  * porque `test/invariantes.test.ts` la recorre para exigir que cada uno tenga
- * quien lo lea: `effectiveDefense` (`damage.ts`) NO llama a `effectTotal`, así
- * que el día que se añada un `'defense'` aquí el efecto se colgaría del stack y
- * no lo leería nadie. El guardia lo pilla en rojo antes de que llegue a
- * partida. Mismo patrón que `CREATURE_TRAITS` en `types.ts`.
+ * quien lo lea: un tipo que nadie suma se colgaría del stack sin hacer nada.
+ * `'defense'` lo suma `effectiveDefense` (`damage.ts`); hoy solo lo ponen
+ * Defensivo y Romper guardia de la rueda del golpe (la arena). Mismo patrón que
+ * `CREATURE_TRAITS` en `types.ts`.
  */
-export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'tirada'] as const;
+export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'tirada', 'defense'] as const;
 
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
@@ -39,6 +39,13 @@ export interface StackEffect {
   readonly source: string;
   /** Rondas que le quedan. Baja una en cada `beginRound`. */
   roundsLeft: number;
+  /**
+   * El `turno.n` en que se colgó, si dura «hasta que el afectado termine su
+   * próximo turno» (la rueda del golpe): `endTurn` lo quita al cerrar un turno
+   * del afectado con otro `n`, así que el turno en que nace no cuenta. `roundsLeft`
+   * sigue de tope, por si ese turno no llega (la moral baja lo salta).
+   */
+  readonly hastaElTurno?: number;
 }
 
 /** Moral y suerte se mueven entre −3 y +3 (`CLAUDE.md`, tabla de reglas). */

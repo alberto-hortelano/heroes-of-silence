@@ -23,7 +23,8 @@ function decimal(n: number): string {
   return conComa(n, 2);
 }
 
-function horquilla(h: Horquilla): string {
+/** «7–12», o «9» si las dos puntas son la misma: la horquilla de la previsión y de la rueda. */
+export function horquilla(h: Horquilla): string {
   return h.min === h.max ? `${h.min}` : `${h.min}–${h.max}`;
 }
 
@@ -52,10 +53,16 @@ function reglas(p: Pick<Prevision, 'reglas'>): string {
   return ` Reglas de fheroes2: ${p.reglas.map((r) => DESCRIPCION_DE_REGLA[r].nombre.toLowerCase()).join(', ')}.`;
 }
 
+/**
+ * «Contraataque con Daga (cuerpo a cuerpo), si sobrevive: 9–18.»: el arma con que
+ * lo devuelve, en la arena, es la de cuerpo a cuerpo y no la del golpe (un jinete
+ * carga con la lanza y devuelve con la espada), y la barra lo dice.
+ */
 function contraataque(c: PrevisionDeContraataque | null): string {
   if (c === null) return ' Sin contraataque.';
-  const si = c.seguro ? '' : ' si sobrevive';
-  return ` Contraataque${si}: ${horquilla(c.danio)}${suerte(c.buena, c.mala)}.`;
+  const con = c.conArma === null ? '' : ` ${c.conArma}`;
+  const si = c.seguro ? '' : `${con === '' ? '' : ','} si sobrevive`;
+  return ` Contraataque${con}${si}: ${horquilla(c.danio)}${suerte(c.buena, c.mala)}.`;
 }
 
 function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {

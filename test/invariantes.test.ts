@@ -70,7 +70,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { stackSpeed } from '../src/core/battle/battle.js';
-import { effectiveAttack } from '../src/core/battle/damage.js';
+import { effectiveAttack, effectiveDefense } from '../src/core/battle/damage.js';
 import {
   applyEffect,
   EFFECT_KINDS,
@@ -78,12 +78,16 @@ import {
   efectoDeTirada,
   effectiveLuck,
 } from '../src/core/battle/effects.js';
+import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleStack } from '../src/core/battle/types.js';
+import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
+import { SLOT_DE_HUECO, SLOTS } from '../src/core/contract/huecos.js';
+import { CATALOGO_DE_EQUIPO_EN_PROSA } from '../src/core/contract/serialize.js';
 import { creature } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { CREATURE_TRAITS } from '../src/core/types.js';
+import { CREATURE_TRAITS, HUECOS } from '../src/core/types.js';
 import { rango, segunPrisa } from './lento.js';
 
 // `new URL(...).pathname` devuelve la ruta PERCENT-ENCODED: en un checkout que
@@ -489,6 +493,8 @@ const LECTORES_DE_EFECTO: Readonly<Record<string, (s: BattleStack) => number>> =
   luck: effectiveLuck,
   attack: (s) => effectiveAttack(s),
   tirada: efectoDeTirada,
+  // La rueda del golpe de la arena (Defensivo, Romper guardia), con las reglas del juego.
+  defense: (s) => effectiveDefense(s, REGLAS_DEL_JUEGO),
 };
 
 /** Un stack limpio, fuera de tablero: solo se le cuelgan efectos y se lee. */
@@ -639,10 +645,16 @@ describe('invariantes del proyecto', () => {
     // `crearBatallaConReglas` en `state/game.ts`, un `'fheroes2'` en `Session`
     // (fuera de `SesionDeArena`) y otro en la pasada del juego de `capturas.ts`
     // salen rojos con su línea.
+    //
+    // La rueda del golpe (13-10-2026) es otra regla de la arena, por las mismas
+    // puertas: su modo se lee de la URL (`modoDelGolpeDeLaURL`) y se escribe con el
+    // literal `'rueda'`; quien lo lee, con `conRueda`. Roto a mano: un
+    // `modoDelGolpe: 'rueda'` en `state/game.ts` y un `modoDelGolpeDeLaURL` en
+    // `Session` salen rojos con su línea.
     const puertas =
-      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla)\b|\bnew\s+SesionDeArena\b|['"`]fheroes2['"`]/;
+      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla|modoDelGolpeDeLaURL)\b|\bnew\s+SesionDeArena\b|['"`](?:fheroes2|rueda)['"`]/;
     const conAlias =
-      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla|SesionDeArena)\s+as\b/;
+      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla|modoDelGolpeDeLaURL|SesionDeArena)\s+as\b/;
     const enTodoElFichero = (r: string): boolean =>
       r.startsWith('src/core/battle/') ||
       r === 'src/core/arena.ts' ||
@@ -659,6 +671,11 @@ describe('invariantes del proyecto', () => {
         'espejoDeLosPoderes',
         'poderesEnLaArena',
         'ataqueEnLaPelea',
+        'espejoDeLaRueda',
+        'jugarLaRueda',
+        'yoContraYoEnLaRueda',
+        'todoEnIAConLaRueda',
+        'espejoDeLasArmas',
       ],
     };
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
@@ -911,13 +928,12 @@ describe('invariantes del proyecto', () => {
 
   it('ningún tipo de efecto temporal está declarado y sin lector', () => {
     // Un efecto se cuelga del stack y solo existe si alguien suma su total al
-    // leer. `effectiveDefense` (`damage.ts`) NO llama a `effectTotal`: el día
-    // que #26 traiga un hechizo de defensa, el efecto quedaría colgado del
-    // stack y no lo leería nadie — misma promesa sin respaldo que un rasgo
-    // muerto.
+    // leer: uno que nadie suma sería una promesa sin respaldo, como un rasgo
+    // muerto. Así entró `'defense'` con la rueda del golpe (13-10-2026): rojo
+    // hasta declarar que lo lee `effectiveDefense`.
     //
     // Las dos mitades del guardia:
-    //  1. la tabla cubre `EFFECT_KINDS` EXACTAMENTE, así que añadir `'defense'`
+    //  1. la tabla cubre `EFFECT_KINDS` EXACTAMENTE, así que un tipo nuevo
     //     pone esto rojo hasta que alguien declare quién lo lee;
     //  2. cada lector se LLAMA de verdad y su salida tiene que moverse al
     //     colgar un efecto de ese tipo.
@@ -1025,6 +1041,47 @@ describe('invariantes del proyecto', () => {
     expect(fugas).toEqual([]);
   });
 
+  it('el agente no conoce la rueda del golpe: su esquema quita `golpe` y `respuesta`', () => {
+    // La rueda es solo de la arena (13-10-2026): un `attack` del agente con
+    // `golpe` y `respuesta` llega al motor sin ellos, y la batalla del juego, al
+    // azar, lo juega como siempre; su formato de respuesta no los nombra. Roto a
+    // mano: con `golpe: z.string().optional()` en el `attack` de
+    // `battleActionSchema`, rojo.
+    const accion = battleActionSchema.parse({
+      type: 'attack',
+      target: 'defender-0',
+      golpe: 'fuerte',
+      respuesta: 'finta',
+    });
+    expect(accion).toEqual({ type: 'attack', target: 'defender-0' });
+    const nombrados = Object.entries(RESPONSE_FORMAT).filter(([, texto]) =>
+      /"(?:golpe|respuesta)"/.test(texto),
+    );
+    expect(nombrados.map(([kind]) => kind)).toEqual([]);
+  });
+
+  it('el golpe plantado de la rueda lo escribe el motor y lo suelta solo la sesión', () => {
+    // `BattleState.golpeEnCurso` dice quién está plantado ante quién y con qué carga
+    // (primero se anda, luego la rueda; 13-10-2026). Lo pone y lo quita el motor
+    // (`applyAction`, `soltarElGolpe`): otro que lo escribiera se saltaría la carga
+    // medida antes de andar o dejaría un turno colgado. Y Escape lo suelta por la
+    // sesión de la arena, nadie más. Roto a mano: un `this.battle.golpeEnCurso = null` en
+    // `session.ts` y un `soltarElGolpe(` en `arena/main.ts` salen rojos con su línea.
+    const PUERTA = 'src/core/battle/battle.ts';
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    const escribe = /\.golpeEnCurso\s*=(?!=)|\bgolpeEnCurso\s*:(?!\s*GolpeEnCurso\b)/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        escribe,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], escribe)).not.toEqual([]);
+    const suelta = /\bsoltarElGolpe\b/;
+    const quienes = infractoresDeCodigo(todos, suelta).map((e) => e.split(':')[0]);
+    expect([...new Set(quienes)].sort()).toEqual(['src/client/session.ts', PUERTA]);
+  });
+
   it('un stack lo sustituye a media pelea solo la arena, y los poderes solo los pone ella', () => {
     // La arena retoca un tipo a media pelea (`retocarEnBatalla`) sustituyendo sus
     // stacks enteros en `state.stacks`: `BattleStack.unit` sigue siendo de solo
@@ -1087,6 +1144,7 @@ describe('invariantes del proyecto', () => {
     // catálogo. Roto a mano: `pieza` importada en `paneles.ts` sale rojo.
     const SUELTAS = new Set([
       'pieza',
+      'piezaDelJuego',
       'piezaSiExiste',
       'piezasPuestas',
       'sumaDeEquipo',
@@ -1178,6 +1236,82 @@ describe('invariantes del proyecto', () => {
       ),
     ).toEqual([]);
     expect(infractoresDeCodigo([MANOS[0] as string], define)).not.toEqual([]);
+  });
+
+  it('cada arma para lo suyo es solo de la arena: las armas por uso se escriben y se leen en dos sitios, y el juego sigue con cuatro huecos', () => {
+    // 13-10-2026: la arena tiene un arma a distancia y una de carga además de la
+    // de cuerpo a cuerpo, y cada golpe va con las cifras de la suya
+    // (`UnitInfo.armas`). Dos partes:
+    //  (a) `armas` lo escribe solo `conEquipo` (`hero/equipo.ts`) y lo leen solo
+    //      él y `battle/damage.ts` (`golpeDe`, `armasDe`): un golpe que leyera
+    //      `unit.armas` por su cuenta elegiría el arma con otra regla.
+    //  (b) el agente no los ve: cuatro `SLOTS` y ni una palabra de ellos en su
+    //      formato de respuesta ni en la prosa del catálogo.
+    // Que una pieza del juego no vaya en `distancia` ni en `carga` no se vigila
+    // aquí: lo rechaza el cargador (`validarEquipo`) y un `Equipo` del juego no
+    // tiene esos huecos (lo dice el compilador).
+    // Rotos a mano: un `{ ...u, armas: {...} }` en `arena.ts`, un
+    // `s.unit.armas?.distancia` en `paneles.ts` y `distancia: 'ranged'` en
+    // `SLOT_DE_HUECO` salen rojos.
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    const ESCRITOR = 'src/core/hero/equipo.ts';
+    const LECTORES = [ESCRITOR, 'src/core/battle/damage.ts'];
+    const escribe = /\barmas\s*:/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== ESCRITOR),
+        escribe,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([ESCRITOR], escribe)).not.toEqual([]);
+    const lee = /\.armas\b(?!-)|(?<!\$)\{\s*armas\s*[},]/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => !LECTORES.includes(r)),
+        lee,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/battle/damage.ts'], lee)).not.toEqual([]);
+
+    expect(SLOTS).toHaveLength(4);
+    expect(Object.keys(SLOT_DE_HUECO)).toEqual([...HUECOS]);
+    const dichoAlAgente = [...Object.values(RESPONSE_FORMAT), CATALOGO_DE_EQUIPO_EN_PROSA].join(
+      '\n',
+    );
+    expect(dichoAlAgente).not.toMatch(/\bdistancia\b|Arma de carga|\(carga,|\bdaga\b/i);
+  });
+
+  it('la arena no lee el catálogo del juego: solo cuentan las cinco facciones de las hojas', () => {
+    // 13-10-2026 (el usuario: «elimina los ejércitos antiguos, solo cuentan los 5
+    // que hay en la arena»): ni `core/arena.ts` ni el cliente de la arena traen
+    // una criatura de `data/creatures.json`. Lo de antes con una lo retira
+    // `migrarUnidadDeArena` por su id, sin leerla. Roto a mano: un
+    // `import { creature } from '@core/data.js'` en `paneles.ts` sale rojo.
+    const ARENA = [
+      'src/core/arena.ts',
+      ...CLIENTE.filter((r) => r.startsWith('src/client/arena/')),
+    ];
+    const delCatalogo =
+      /import\s*(?:type\s*)?\{[^}]*\b(?:creature|allCreatures|criaturasDeFaccion|factionLineup)\b[^}]*\}\s*from\s*['"][^'"]*\/data\.js['"]/;
+    expect(ARENA.filter((r) => delCatalogo.test(leer(r)))).toEqual([]);
+  });
+
+  it('«le quedan tiros» se pregunta en un sitio: `quedanTiros`, en `data.ts`', () => {
+    // 13-10-2026: la munición es de la criatura del catálogo (`cuentaTiros`) y la
+    // arena no la cuenta. La pregunta `isShooter && shotsLeft > 0` iba copiada en
+    // nueve sitios —el disparo, el castigo de fheroes2, la IA, el tablero—, y una
+    // copia que se quedara con la vieja dejaba sin tiros a un arquero de la arena
+    // en ese sitio y no en los demás. Roto a mano: un `s.shotsLeft > 0` en
+    // `tactics.ts` sale rojo.
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    const pregunta = /shotsLeft\s*(?:>|<=|<|>=|===|!==)\s*0\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== 'src/core/data.ts'),
+        pregunta,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/data.ts'], pregunta)).not.toEqual([]);
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {

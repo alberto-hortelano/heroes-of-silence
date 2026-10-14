@@ -16,7 +16,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import type { FaccionDeArena } from '../../src/core/arena.js';
+import type { FaccionDeArena, PerfilDeArena } from '../../src/core/arena.js';
 import {
   type ClipDeFigura,
   HOJAS_DE_FIGURA,
@@ -49,6 +49,12 @@ export interface Unidad {
    * `montado-lanza`, la del jinete que renderiza `tools/art/montura.ts`.
    */
   readonly perfil: Perfil | 'montado-lanza';
+  /**
+   * Con qué pelea en la arena (`KIT_DEL_PERFIL`), si no es el perfil de su hoja de
+   * pose: el jinete élfico posa con la lanza y lleva además arco y espada
+   * (`montado-arco`, 13-10-2026). Solo con qué pelea: la pose y el arte no cambian.
+   */
+  readonly perfilEnLaArena?: PerfilDeArena;
   /**
    * El personaje del que es esta hoja, si el taller pinta el mismo con varios
    * equipos («Guerrero con escudo» y «Guerrero con arma a dos manos»): todas sus
@@ -408,6 +414,7 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'elfos',
     nombre: 'Jinete (a caballo)',
     perfil: 'montado-lanza',
+    perfilEnLaArena: 'montado-arco',
     concepto: 'assets/art/elfos/jinete.png',
     aspecto:
       'Un jinete elfo A CABALLO, como el del concepto: caballo gris moteado esbelto con brida de hojas y gualdrapa verde musgo; el jinete con armadura ligera de escamas de hoja, capa verde al viento, lanza larga de hoja élfica para la carga, arco curvo y carcaj a la espalda y espada curva al cinto. Sin escudo. Jinete y caballo son UNA sola figura.',
@@ -924,6 +931,14 @@ export function juegoDelYBot(u: Unidad): JuegoEn8d {
       `${u.id} no tiene juego de armas del Y Bot: añade su fila a JUEGO_DEL_YBOT (tools/taller/unidades.ts) según el arma que lleva`,
     );
   return juego;
+}
+
+/**
+ * El perfil de arma con que la arena viste una unidad (`KIT_DEL_PERFIL`): el que
+ * declara (`perfilEnLaArena`) o, si no, el de su hoja de pose.
+ */
+export function perfilDeArena(u: Unidad): PerfilDeArena {
+  return u.perfilEnLaArena ?? u.perfil;
 }
 
 /**

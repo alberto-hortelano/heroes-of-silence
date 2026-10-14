@@ -15,14 +15,12 @@ import {
   enElMontaje,
   renderEquipo,
   renderFicha,
-  renderFichaDeCatalogo,
   renderFichaDeHeroe,
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import { modificadoresEnPantalla } from '../src/client/views/panels.js';
 import { fichaDeHeroeDeArena, heroePorDefecto, unidadDeCombate } from '../src/core/arena.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
-import { creature } from '../src/core/data.js';
 import { modificadoresDePieza, pieza, textoDeModificador } from '../src/core/hero/equipo.js';
 import { SPEED_TO_HEXES } from '../src/core/types.js';
 import { DEL_JUEGO, unidadDeArena } from './helpers.js';
@@ -33,16 +31,15 @@ const COMBATE: ComoDeLaFicha = { ...MONTAJE, enCombate: true };
 /** Un templario con escudo: la defensa sube y la velocidad baja; el ataque no cambia. */
 const CON_ESCUDO = unidadDeArena('templario-escudo', { equipo: { escudo: 'escudo' } });
 
-/** Las tres fichas, en el montaje y en el combate. */
-function lasTres(): readonly { readonly quien: string; readonly marcado: string }[] {
+/**
+ * Las dos fichas, en el montaje y en el combate: la de una unidad y la del héroe.
+ * La de una criatura del catálogo se fue con el catálogo (13-10-2026).
+ */
+function lasDos(): readonly { readonly quien: string; readonly marcado: string }[] {
   return [MONTAJE, COMBATE].flatMap((como) => [
     {
       quien: `unidad (${como.enCombate ? 'combate' : 'montaje'})`,
       marcado: marcadoDe(renderFicha(CON_ESCUDO, false, como)),
-    },
-    {
-      quien: `catálogo (${como.enCombate ? 'combate' : 'montaje'})`,
-      marcado: marcadoDe(renderFichaDeCatalogo('pikeman', creature('pikeman'), true, como)),
     },
     {
       quien: `héroe (${como.enCombate ? 'combate' : 'montaje'})`,
@@ -62,7 +59,7 @@ function finalDe(marcado: string, clave: string): { valor: number; cambiada: boo
 
 describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
   it('ni «En la pelea», ni la frase del cuerpo, ni aclaraciones en los rótulos, ni notas en párrafo', () => {
-    for (const { quien, marcado } of lasTres()) {
+    for (const { quien, marcado } of lasDos()) {
       expect(marcado, quien).not.toContain('data-en-la-pelea');
       expect(marcado, quien).not.toContain('En la pelea (con el equipo)');
       expect(marcado, quien).not.toContain('<p class="cost">');
@@ -83,7 +80,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
   });
 
   it('toda fila de la tabla lleva su nota, la casilla final no se escribe y el nivel va arriba sin nota', () => {
-    for (const { quien, marcado } of lasTres()) {
+    for (const { quien, marcado } of lasDos()) {
       expect(marcado, quien).toContain('<table class="tabla-de-cifras">');
       const filas = [...marcado.matchAll(/<tr data-cifra-de-la-ficha="([^"]+)">([\s\S]*?)<\/tr>/g)];
       expect(filas.length, quien).toBeGreaterThanOrEqual(7);
@@ -173,7 +170,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
   });
 
   it('ninguna nota lleva `title`: el bocadillo es el único tooltip (H2 de QA)', () => {
-    for (const { quien, marcado } of lasTres()) {
+    for (const { quien, marcado } of lasDos()) {
       const notas = [...marcado.matchAll(/<span class="nota"[^>]*>/g)].map((m) => m[0]);
       expect(notas.length, quien).toBeGreaterThan(0);
       for (const n of notas) {

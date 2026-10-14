@@ -17,11 +17,15 @@ import {
   type HojaDeArena,
   type MontajeDeArena,
   type UnidadDeArena,
+  unidadDeCombate,
   unidadPorDefecto,
 } from '../src/core/arena.js';
 import {
   activeStack,
   applyAction,
+  type BattleMember,
+  type BattleSide,
+  createBattle,
   enemiesOf,
   legalActions,
   stackHexes,
@@ -1091,6 +1095,43 @@ export function peleaDeArena(
   muralla: MurallaDeBatalla = SIN_MURALLA,
 ): BattleState {
   return batallaDeArena(montajeDePrueba(izquierda, derecha, muralla), rng);
+}
+
+/** Un puesto de `peleaDelMotor`: una unidad del borrador, con escalera y de dos casillas si se pide. */
+export interface PuestoDelMotor extends PuestoDeLaPelea {
+  readonly grande?: boolean;
+}
+
+/**
+ * La pelea de `peleaDeArena` por la vía del motor, sin la arena: cada unidad entra
+ * como personaje (`members`) con sus cifras de combate (`unidadDeCombate`) y, si
+ * se pide, de dos casillas. La arena ya no hace unidades grandes (13-10-2026:
+ * «todo el mundo un hexe»), pero el motor sí las juega —el dragón óseo del
+ * juego— y sus reglas con la muralla (la cola, la puerta, la escalera) se
+ * prueban así. Con las reglas del juego (`createBattle`).
+ */
+export function peleaDelMotor(
+  izquierda: readonly PuestoDelMotor[],
+  derecha: readonly PuestoDelMotor[],
+  rng: Rng,
+  muralla: MurallaDeBatalla = SIN_MURALLA,
+): BattleState {
+  const lado = (puestos: readonly PuestoDelMotor[]): BattleSide => {
+    const members = new Map<string, BattleMember>();
+    const army: Stack[] = puestos.map(({ unidad, escalera, grande }, i) => {
+      const cifras = unidadDeCombate(unidad, DEL_JUEGO);
+      const unit = grande === true ? { ...cifras, hexes: 2 } : cifras;
+      const member = `motor-${i}`;
+      members.set(member, {
+        profile: { unit, morale: 0, luck: 0 },
+        hp: unit.hp,
+        escalera: escalera === true,
+      });
+      return { creature: unidad.cuerpo.hoja, member, count: 1 };
+    });
+    return { army, hero: null, members };
+  };
+  return createBattle(lado(izquierda), lado(derecha), rng, muralla);
 }
 
 /**

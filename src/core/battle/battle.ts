@@ -6,12 +6,27 @@
  * pueden disparar con un enemigo encima, moral que da o quita turnos, suerte
  * que dobla o parte el daño, y un hechizo de héroe por ronda.
  */
-import { HEROE, hasTrait, hexSize, isShooter, LIDERAZGO } from '../data.js';
+import {
+  cuentaTiros,
+  HEROE,
+  hasTrait,
+  hexSize,
+  isShooter,
+  LIDERAZGO,
+  type Pieza,
+  quedanTiros,
+} from '../data.js';
+import {
+  EQUIPO_DEL_JUEGO,
+  type EquipoAtado,
+  equipoCon,
+  PIEZAS_DEL_CATALOGO,
+} from '../hero/equipo.js';
 import { cifrasDeCatalogo, cifrasDelIndividuo } from '../hero/experiencia.js';
 import { HERO_BODY, type Hero } from '../hero/hero.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
-import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo } from '../types.js';
+import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo, UsoDeArma } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
 import {
   areAdjacent,
@@ -85,6 +100,23 @@ import {
   type ReglasDeBatalla,
   reglasEncendidas,
 } from './reglas.js';
+import {
+  conRueda,
+  cruceBlocker,
+  cruceDelGolpe,
+  type EfectoDeLaRueda,
+  efectoDeLaRueda,
+  golpesDe,
+  type HechoDelCruce,
+  type ModoDelGolpe,
+  type PapelEnLaRueda,
+  type Punto,
+  puntoDelContraataque,
+  puntoDelCruce,
+  puntosDe,
+  TIPOS_DE_GOLPE,
+  type TipoDeGolpe,
+} from './rueda.js';
 import {
   castSpell,
   curaDe,
@@ -394,7 +426,7 @@ export function createBattle(
  * Monta una batalla con otras reglas: la puerta de la arena y solo de ella. Lo
  * vigila `test/invariantes.test.ts` («solo la arena cambia las reglas»): quien
  * la llame fuera de `battle/`, `arena.ts`, `session.ts` y `client/arena/` sale
- * rojo.
+ * rojo. `golpe`, el modo del golpe (`rueda.ts`): la tirada de siempre o la rueda.
  */
 export function crearBatallaConReglas(
   attacker: BattleSide,
@@ -402,6 +434,7 @@ export function crearBatallaConReglas(
   _rng: Rng,
   reglas: ReglasDeBatalla,
   murallaPedida: MurallaDeBatalla = SIN_MURALLA,
+  golpe: ModoDelGolpe = 'azar',
 ): BattleState {
   const stacks: BattleStack[] = [];
   const muralla = murallaPedida === SIN_MURALLA ? SIN_MURALLA : validarMuralla(murallaPedida);
@@ -485,6 +518,8 @@ export function crearBatallaConReglas(
     heroes: { attacker: attacker.hero?.mando ?? null, defender: defender.hero?.mando ?? null },
     reglas,
     muralla,
+    modoDelGolpe: golpe,
+    golpeEnCurso: null,
     escaleras: [],
     puertas: puertasAlEmpezar(muralla),
     log: [],
@@ -1017,7 +1052,7 @@ export function canReachMelee(state: BattleState, s: BattleStack, target: Battle
  */
 function disparoBlocker(state: BattleState, s: BattleStack): string | null {
   if (!isShooter(s.unit)) return 'no es tirador';
-  if (s.shotsLeft <= 0) return 'se ha quedado sin munición';
+  if (!quedanTiros(s)) return 'se ha quedado sin munición';
   if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede disparar';
   if (isEngaged(state, s)) return 'tiene un enemigo encima';
   return null;
@@ -1103,6 +1138,89 @@ function golpeBlocker(
   if (!canReachMelee(state, desdeAhi, target))
     return `${s.id} no alcanza a ${target.id} cuerpo a cuerpo`;
   return null;
+}
+
+/**
+ * Un golpe cuerpo a cuerpo de `s` listo para darse o preverse: el objetivo,
+ * `s` donde golpeará (una copia en `from`, que nadie mueve aquí) y la carga. Lanza
+ * con el motivo si no se puede (`golpeBlocker`, y lo de la rueda con
+ * `cruceBlocker`; `completa` para darlo, no para preverlo). La preparación de
+ * `applyAction`, `previsionDe` y `previsionDeLaRueda`, escrita una vez.
+ */
+function golpePreparado(
+  state: BattleState,
+  s: BattleStack,
+  accion: BattleAction & { type: 'attack' },
+  completa: boolean,
+  costes: () => ReadonlyMap<string, Paso> = () => movableFrom(state, s),
+): { readonly target: BattleStack; readonly desdeAhi: BattleStack; readonly carga: number } {
+  const enCurso = golpeEnCursoBlocker(state, accion, completa);
+  if (enCurso !== null) throw new Error(enCurso);
+  const target = stackById(state, accion.target);
+  const motivo = golpeBlocker(state, s, target, accion.from, costes);
+  if (motivo !== null) throw new Error(motivo);
+  const sinCruce = cruceBlocker(state, accion, completa);
+  if (sinCruce !== null) throw new Error(sinCruce);
+  const { from } = accion;
+  return {
+    target,
+    // Golpea desde `from`: desde ahí se mira si el objetivo le alcanza para
+    // devolverlo.
+    desdeAhi: from === undefined ? s : { ...s, hex: from },
+    // La carga se mide ANTES de mover, desde donde empieza este tramo: es la
+    // regla del usuario, «se puede mover un tramo y se vuelve a calcular». Lo
+    // recorrido en tramos anteriores no cuenta, y por eso no hace falta guardarlo
+    // en ningún sitio: viaja hasta el golpe como argumento. Y se mide contra ESTE
+    // objetivo: carga solo si está en la recta. Con la rueda, quien se plantó ya
+    // anduvo y desde donde está no hay recta que medir: la carrera la guardó
+    // `golpeEnCurso` al plantarse.
+    carga:
+      state.golpeEnCurso !== null
+        ? state.golpeEnCurso.carga
+        : from === undefined
+          ? 0
+          : cargaDesde(state, s, from, target),
+  };
+}
+
+/**
+ * Por qué `accion` no vale con un golpe plantado esperando la rueda
+ * (`BattleState.golpeEnCurso`), o `null` si vale o no hay ninguno. Con uno
+ * plantado, solo vale ese golpe: contra su objetivo, sin andar más y —para
+ * darlo, `completa`— con sus dos elecciones; preverlo no las pide. Lo leen
+ * `applyAction`, antes de nada, y `golpePreparado`; `legalActions` ofrece solo
+ * ese golpe.
+ */
+function golpeEnCursoBlocker(
+  state: BattleState,
+  accion: BattleAction,
+  completa = true,
+): string | null {
+  const g = state.golpeEnCurso;
+  if (g === null) return null;
+  const esEse =
+    accion.type === 'attack' &&
+    accion.target === g.target &&
+    accion.from === undefined &&
+    (!completa || (accion.golpe !== undefined && accion.respuesta !== undefined));
+  return esEse
+    ? null
+    : `${g.stack} está plantado ante ${g.target}: elige en la rueda o cancela el golpe`;
+}
+
+/**
+ * ¿Es este `attack` un «plantarse»? Con la rueda, el golpe que llega sin ninguna
+ * de las dos elecciones y sin otro plantado: anda hasta `from` y espera la rueda
+ * (`golpeEnCurso`), sin cerrar el turno. Primero se anda, luego se elige (decisión
+ * del usuario, 13-10-2026).
+ */
+function esPlantarse(state: BattleState, accion: BattleAction & { type: 'attack' }): boolean {
+  return (
+    conRueda(state) &&
+    state.golpeEnCurso === null &&
+    accion.golpe === undefined &&
+    accion.respuesta === undefined
+  );
 }
 
 /**
@@ -1440,6 +1558,7 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true):
     state.turno = null;
     return;
   }
+  quitarLosDeSuTurno(state, s);
 
   // `defending` se borra al empezar la ronda y quien defiende cierra su turno
   // ahí mismo: si está puesto, este turno se cerró defendiendo.
@@ -1463,6 +1582,26 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true):
   }
   s.acted = true;
   advance(state, rng);
+}
+
+/**
+ * Quita a `s`, al cerrar su turno, lo que duraba «hasta que termine su próximo
+ * turno» (la rueda del golpe): lo colgado en un turno anterior a este. Lo que
+ * nació en este mismo turno —el contraataque le deja una Finta a quien ataca, en
+ * su turno— sigue hasta el siguiente. Antes de la moral: el turno extra es otro
+ * turno, y lo de este ya se ha ido. `wait` no pasa por aquí (no cierra el turno),
+ * y la moral baja tampoco: ahí lo quita el tope de `roundsLeft`. Sin rueda no hay
+ * ninguno, y no se escribe nada.
+ */
+function quitarLosDeSuTurno(state: BattleState, s: BattleStack): void {
+  const n = state.turno?.n;
+  if (n === undefined) return;
+  const vencido = (e: StackEffect): boolean => e.hastaElTurno !== undefined && e.hastaElTurno < n;
+  // Cada cierre de turno pasa por aquí: sin nada que quitar, ni una lista nueva.
+  if (!s.effects.some(vencido)) return;
+  const vencidos = s.effects.filter(vencido);
+  s.effects = s.effects.filter((e) => !vencido(e));
+  for (const e of vencidos) state.log.push({ kind: 'effect_end', stack: s.id, source: e.source });
 }
 
 /**
@@ -1573,6 +1712,13 @@ export function applyAction(
       'el recorrido que traes es de antes de abrir o cerrar una puerta: el camino ha cambiado',
     );
   }
+  // Con un golpe plantado no se juega otra cosa: ni el hechizo del héroe, que no
+  // cierra el turno, ni una rendición.
+  const enCurso = golpeEnCursoBlocker(state, action);
+  if (enCurso !== null) throw new Error(enCurso);
+  if (state.golpeEnCurso !== null && state.golpeEnCurso.stack !== s.id) {
+    throw new Error(`el golpe plantado es de ${state.golpeEnCurso.stack}, y le toca a ${s.id}`);
+  }
 
   switch (action.type) {
     case 'wait': {
@@ -1620,23 +1766,26 @@ export function applyAction(
     }
 
     case 'attack': {
-      const target = stackById(state, action.target);
       // El recorrido, una vez: lo leen la comprobación y el movimiento.
       let costes: ReadonlyMap<string, Paso> | undefined = movibles?.costs;
       const recorrido = (): ReadonlyMap<string, Paso> => {
         costes ??= movableFrom(state, s);
         return costes;
       };
-      const motivo = golpeBlocker(state, s, target, action.from, recorrido);
-      if (motivo !== null) throw new Error(motivo);
-      // La carga se mide ANTES de mover, desde donde empieza este tramo: es la
-      // regla del usuario, «se puede mover un tramo y se vuelve a calcular».
-      // Lo recorrido en tramos anteriores no cuenta, y por eso no hace falta
-      // guardarlo en ningún sitio: viaja hasta el golpe como argumento. Y se
-      // mide contra ESTE objetivo: carga solo si está en la recta.
-      const carga = action.from === undefined ? 0 : cargaDesde(state, s, action.from, target);
-      if (action.from !== undefined) moveTo(state, s, action.from, recorrido());
-      melee(state, s, target, rng, carga);
+      const plantarse = esPlantarse(state, action);
+      const { target, carga } = golpePreparado(state, s, action, !plantarse, recorrido);
+      // Primero se anda (con la carga en su `move`), luego el cruce y el golpe:
+      // de una vez o en dos jugadas, el registro dice lo mismo en el mismo orden.
+      if (action.from !== undefined) moveTo(state, s, action.from, recorrido(), carga > 0);
+      if (plantarse) {
+        // Ni cierra el turno aunque haya gastado sus casillas, ni escribe aún
+        // ningún cruce: espera la rueda. Soltarlo es `soltarElGolpe`.
+        state.golpeEnCurso = { stack: s.id, target: target.id, carga };
+        return;
+      }
+      state.golpeEnCurso = null;
+      const cruce = cruceDeLaRueda(state, s, target, action);
+      melee(state, s, target, rng, carga, cruce);
       endTurn(state, s, rng);
       return;
     }
@@ -1810,6 +1959,24 @@ function quedaAlgoQueHacer(state: BattleState): boolean {
 }
 
 /**
+ * Suelta el golpe plantado (`golpeEnCurso`): Escape en la rueda después de andar
+ * (decisión del usuario, 13-10-2026). La unidad se queda donde llegó, como tras
+ * un tramo, y sigue su turno con lo que le quede; la carga de esa carrera se
+ * pierde. Si ya no le queda nada que hacer, el turno se cierra, como el `move`
+ * que agota. Solo la llama la sesión de la arena; sin golpe plantado lanza.
+ */
+export function soltarElGolpe(state: BattleState, rng: Rng): void {
+  const g = state.golpeEnCurso;
+  if (g === null) throw new Error('no hay ningún golpe plantado que soltar');
+  const s = activeStack(state);
+  if (s === null || s.id !== g.stack) {
+    throw new Error(`el golpe plantado es de ${g.stack}, y no le toca`);
+  }
+  state.golpeEnCurso = null;
+  if (!quedaAlgoQueHacer(state)) endTurn(state, s, rng);
+}
+
+/**
  * La longitud de la recta de carga si `s` golpeara a `target` desde `from`; 0 si
  * no carga. ÚNICA regla de CUÁNDO hay carga (decisiones del usuario,
  * 02-10-2026): solo las criaturas con `charge`, solo si `from` está **en línea
@@ -1894,6 +2061,7 @@ function moveTo(
   s: BattleStack,
   to: Hex,
   costes?: ReadonlyMap<string, Paso>,
+  carga = false,
 ): void {
   // El coste real del camino, no la distancia en línea recta: rodear a un
   // enemigo cuesta más casillas del presupuesto. Sale del mismo recorrido que
@@ -1915,7 +2083,7 @@ function moveTo(
   // Los voladores se buscan sin bloqueos —ignoran lo que hay en medio—, así que
   // su cadena de pasos podría cruzar casillas ocupadas: su camino es el aire.
   const path = hasTrait(s.unit, 'flying') ? [to] : caminoDe(paso);
-  state.log.push({ kind: 'move', stack: s.id, to, path });
+  state.log.push({ kind: 'move', stack: s.id, to, path, ...(carga ? { charge: true } : {}) });
 }
 
 /**
@@ -1966,6 +2134,7 @@ function applyStackEffect(state: BattleState, target: BattleStack, effect: Stack
     amount: vivo.amount,
     source: vivo.source,
     rounds: vivo.roundsLeft,
+    ...(vivo.hastaElTurno === undefined ? {} : { hastaSuTurno: true as const }),
   });
 }
 
@@ -2024,16 +2193,28 @@ function colgarEfecto(
 }
 
 /**
- * ¿Devolverá `target` el golpe de `attacker`, si sigue en pie? Uno por ronda, si
- * quien pega lo permite y si lo alcanza. La leen el golpe (`melee`) y la
- * previsión (`previsionDe`), que no puede prometer un contraataque que no llega.
+ * Por qué `target` no devolverá el golpe de `attacker`, o `null` si lo devolverá
+ * (si sigue en pie): uno por ronda, si quien pega lo permite y si lo alcanza. La
+ * leen el golpe (`melee`) y la previsión (`previsionDe`, la de la rueda), que no
+ * puede prometer un contraataque que no llega.
  */
+function contraataqueBlocker(
+  state: BattleState,
+  attacker: BattleStack,
+  target: BattleStack,
+): string | null {
+  if (target.retaliated) return `${target.unit.name} ya devolvió un golpe esta ronda`;
+  if (hasTrait(attacker.unit, 'no_retaliation')) {
+    return `a ${attacker.unit.name} no se le devuelve el golpe`;
+  }
+  if (!canReachMelee(state, target, attacker)) {
+    return `${target.unit.name} no alcanza a ${attacker.unit.name} desde donde está`;
+  }
+  return null;
+}
+
 function devolveraElGolpe(state: BattleState, attacker: BattleStack, target: BattleStack): boolean {
-  return (
-    !target.retaliated &&
-    !hasTrait(attacker.unit, 'no_retaliation') &&
-    canReachMelee(state, target, attacker)
-  );
+  return contraataqueBlocker(state, attacker, target) === null;
 }
 
 /**
@@ -2049,26 +2230,140 @@ function quitarLaContraria(target: BattleStack, effect: StackEffect): StackEffec
   return quitadas;
 }
 
+/**
+ * Con la rueda, el cruce del golpe de `s` a `target` (ya validado por
+ * `cruceBlocker`), escrito en el registro; sin ella, `null`.
+ */
+function cruceDeLaRueda(
+  state: BattleState,
+  s: BattleStack,
+  target: BattleStack,
+  action: BattleAction & { type: 'attack' },
+): HechoDelCruce | null {
+  if (!conRueda(state)) return null;
+  const { golpe, respuesta } = action;
+  if (golpe === undefined || respuesta === undefined) {
+    throw new Error('cruceBlocker dejó pasar un golpe con la rueda sin sus dos elecciones');
+  }
+  const cruce: HechoDelCruce = {
+    kind: 'cruce',
+    stack: s.id,
+    target: target.id,
+    golpe,
+    respuesta,
+    punto: puntoDelCruce(golpe, respuesta),
+  };
+  state.log.push(cruce);
+  return cruce;
+}
+
+/** Un golpe de la rueda para el daño: su tipo y los puntos del cruce en que puede caer. */
+interface GolpeEnLaRueda {
+  readonly tipo: TipoDeGolpe;
+  readonly desde: Punto;
+  readonly hasta: Punto;
+}
+
+/** El golpe que se da: cae en un solo punto, el del cruce. */
+function enElPunto(tipo: TipoDeGolpe, punto: Punto): GolpeEnLaRueda {
+  return { tipo, desde: punto, hasta: punto };
+}
+
+/** Lo que puede dar un sector de la rueda sin saber el cruce: sus puntos posibles. */
+function delSector(tipo: TipoDeGolpe): GolpeEnLaRueda {
+  const [desde, hasta] = puntosDe(tipo);
+  return { tipo, desde, hasta };
+}
+
 function melee(
   state: BattleState,
   attacker: BattleStack,
   target: BattleStack,
   rng: Rng,
   carga: number,
+  cruce: HechoDelCruce | null,
 ): void {
-  const info = attacker.unit;
-  const hits = hasTrait(info, 'double_attack') ? 2 : 1;
-
-  for (let i = 0; i < hits && isAlive(target); i++) {
-    strike(state, attacker, target, rng, false, carga);
-  }
+  intercambio(
+    state,
+    attacker,
+    target,
+    rng,
+    false,
+    carga,
+    cruce === null ? null : enElPunto(cruce.golpe, cruce.punto),
+  );
 
   // Contraataque: uno por ronda, y solo si el atacante lo permite.
+  let devuelto = false;
   if (isAlive(target) && isAlive(attacker) && devolveraElGolpe(state, attacker, target)) {
-    // El contraataque no carga: se devuelve el golpe desde donde se está.
+    // El contraataque no carga: se devuelve el golpe desde donde se está. Con la
+    // rueda, con el tipo de la respuesta y en el punto contrario.
     target.retaliated = true;
-    strike(state, target, attacker, rng, true, 0);
+    devuelto = true;
+    intercambio(
+      state,
+      target,
+      attacker,
+      rng,
+      true,
+      0,
+      cruce === null ? null : enElPunto(cruce.respuesta, puntoDelContraataque(cruce.punto)),
+    );
   }
+
+  // Romper guardia y Finta, al final del intercambio (decisión del usuario): no
+  // tocan ni el golpe ni el contraataque de esta jugada. La respuesta solo cuenta
+  // si de verdad se devolvió el golpe.
+  if (cruce === null) return;
+  if (isAlive(target)) colgarDeLaRueda(state, target, cruce.golpe, 'rival');
+  if (devuelto && isAlive(attacker)) colgarDeLaRueda(state, attacker, cruce.respuesta, 'rival');
+}
+
+/**
+ * Los golpes de `quien` a `contra` en un intercambio: el golpe o, con
+ * `retaliation`, el contraataque. Con la rueda, lo que su tipo deja a quien lo
+ * usa (Defensivo) va antes: cubre ya lo que venga. Luego, `golpesDe` golpes
+ * mientras `contra` siga en pie.
+ */
+function intercambio(
+  state: BattleState,
+  quien: BattleStack,
+  contra: BattleStack,
+  rng: Rng,
+  retaliation: boolean,
+  carga: number,
+  golpe: GolpeEnLaRueda | null,
+): void {
+  if (golpe !== null) colgarDeLaRueda(state, quien, golpe.tipo, 'propio');
+  const veces = golpesDe(quien.unit, golpe?.tipo ?? null, retaliation);
+  for (let i = 0; i < veces && isAlive(contra); i++) {
+    strike(state, quien, contra, rng, retaliation, carga, golpe);
+  }
+}
+
+/**
+ * Cuelga sobre `s` el efecto del tipo `tipo` de la rueda (`efectoDeLaRueda`) si
+ * es para él (`a`: quien lo usa o el rival): dura hasta que `s` termine su
+ * próximo turno (`hastaElTurno`, el de ahora) con dos rondas de tope, que cubren
+ * siempre ese turno. Del mismo origen, refresca.
+ */
+function colgarDeLaRueda(
+  state: BattleState,
+  s: BattleStack,
+  tipo: TipoDeGolpe,
+  a: EfectoDeLaRueda['a'],
+): void {
+  const efecto = efectoDeLaRueda(tipo);
+  if (efecto === null || efecto.a !== a || efecto.amount === 0) return;
+  const n = state.turno?.n;
+  if (n === undefined) throw new Error('la rueda cuelga un efecto sin turno abierto');
+  applyStackEffect(state, s, {
+    kind: efecto.kind,
+    amount: efecto.amount,
+    source: tipo,
+    roundsLeft: 2,
+    hastaElTurno: n,
+  });
 }
 
 /** El dragón óseo: ataque −2 durante 2 rondas. Ver la nota de la tabla. */
@@ -2160,6 +2455,26 @@ export function opcionesDeDanio(
   attacker: BattleStack,
   target: BattleStack,
   extra: Omit<DamageOptions, ExtraDelEstado> = SIN_EXTRA,
+  golpe: GolpeEnLaRueda | null = null,
+): DamageOptions {
+  const o = opcionesDelEstado(state, attacker, target, extra);
+  return golpe === null ? o : conElGolpe(o, golpe);
+}
+
+/**
+ * Las opciones con la rueda: la única traducción del golpe a los números del
+ * daño (`cruceDelGolpe`). La previsión de la rueda la pide sobre las mismas
+ * opciones para cada tipo.
+ */
+function conElGolpe(o: DamageOptions, golpe: GolpeEnLaRueda): DamageOptions {
+  return { ...o, cruce: cruceDelGolpe(golpe.tipo, golpe.desde, golpe.hasta) };
+}
+
+function opcionesDelEstado(
+  state: BattleState,
+  attacker: BattleStack,
+  target: BattleStack,
+  extra: Omit<DamageOptions, ExtraDelEstado>,
 ): DamageOptions {
   const reglas = state.reglas;
   // Lo alto de un muro (`bonoEnLoAlto`) también sale del estado: así lo cuentan
@@ -2181,8 +2496,11 @@ export function opcionesDeDanio(
   };
 }
 
-/** Lo de `DamageOptions` que no se pide: lo pone `opcionesDeDanio` desde el estado. */
-type ExtraDelEstado = 'reglas' | 'ataqueDelMando' | 'defensaDelMando' | 'bonoEnLoAlto';
+/**
+ * Lo de `DamageOptions` que no se pide: lo pone `opcionesDeDanio` desde el estado
+ * y, el `cruce`, desde el golpe de la rueda.
+ */
+type ExtraDelEstado = 'reglas' | 'ataqueDelMando' | 'defensaDelMando' | 'bonoEnLoAlto' | 'cruce';
 
 const SIN_EXTRA: Omit<DamageOptions, ExtraDelEstado> = Object.freeze({});
 const OPCIONES_SOLO_REGLAS = new WeakMap<ReglasDeBatalla, DamageOptions>();
@@ -2205,13 +2523,34 @@ function delMando(state: BattleState, s: BattleStack): BattleHero | null {
 /**
  * El ataque y la defensa con que pelea `s` ahora, para la ficha: los de
  * `ataqueYDefensa`, la cuenta del golpe, con `s` a los dos lados —su ataque al
- * pegar y su defensa al recibir—.
+ * pegar con el arma de `uso` (la de cuerpo a cuerpo si no se dice) y su defensa
+ * al recibir—.
  */
 export function ataqueYDefensaEnBatalla(
   state: BattleState,
   s: BattleStack,
+  uso: UsoDeArma = 'cuerpo',
 ): { readonly ataque: number; readonly defensa: number } {
-  return ataqueYDefensa(s, s, opcionesDeDanio(state, s, s));
+  return ataqueYDefensa(s, s, opcionesDeDanio(state, s, s), uso);
+}
+
+const PIEZAS_POR_PELEA = new WeakMap<readonly Pieza[], EquipoAtado>();
+
+/**
+ * Las piezas con que se pelea: las del juego y, en la arena, las suyas encima
+ * (`BattleState.piezasDeArena`, que validó al montarla `catalogoDeLaArena`: una
+ * con el id de una del juego la sustituye). Hechas una vez por cada lista: las
+ * leen la previsión, para nombrar el arma de cada golpe, y la ficha de la pelea.
+ */
+export function piezasDeLaPelea(state: BattleState): EquipoAtado {
+  const encima = state.piezasDeArena;
+  if (encima === undefined) return EQUIPO_DEL_JUEGO;
+  let eq = PIEZAS_POR_PELEA.get(encima);
+  if (eq === undefined) {
+    eq = equipoCon(new Map([...PIEZAS_DEL_CATALOGO, ...encima.map((p) => [p.id, p] as const)]));
+    PIEZAS_POR_PELEA.set(encima, eq);
+  }
+  return eq;
 }
 
 function strike(
@@ -2221,13 +2560,14 @@ function strike(
   rng: Rng,
   retaliation: boolean,
   carga: number,
+  golpe: GolpeEnLaRueda | null,
 ): void {
   const info = attacker.unit;
   const result = computeDamage(
     attacker,
     target,
     rng,
-    opcionesDeDanio(state, attacker, target, { chargeHexes: carga }),
+    opcionesDeDanio(state, attacker, target, { chargeHexes: carga }, golpe),
   );
   const killed = herir(target, result.damage, attacker);
 
@@ -2245,6 +2585,8 @@ function strike(
     // vez aquí dejaba el parte contando 7 hexes mientras el bono se había
     // topado en los 5 que caben en +50 %.
     ...(result.charge > 0 ? { charge: result.charge } : {}),
+    // Con la rueda, el punto en que cayó: el golpe que se da va en uno solo.
+    ...(golpe === null ? {} : { punto: golpe.desde }),
   });
 
   // Los vampiros señores recuperan efectivos con lo que drenan.
@@ -2274,7 +2616,9 @@ function healFromDrain(s: BattleStack, damage: number): void {
 
 function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rng: Rng): void {
   const info = shooter.unit;
-  shooter.shotsLeft -= 1;
+  // Solo gasta quien cuenta tiros (la criatura del catálogo): el arma a distancia
+  // de la arena no lleva munición.
+  if (cuentaTiros(info)) shooter.shotsLeft -= 1;
   const shots = hasTrait(info, 'double_shot') ? 2 : 1;
 
   for (let i = 0; i < shots && isAlive(target); i++) {
@@ -2594,6 +2938,8 @@ export interface PrevisionDeContraataque {
   readonly buena: RamaDeSuerte | null;
   readonly mala: RamaDeSuerte | null;
   readonly modificadores: readonly Modificador[];
+  /** Con qué arma lo devuelve (`dichoDelGolpe`), o `null` sin armas por uso (el juego). */
+  readonly conArma: string | null;
 }
 
 /**
@@ -2646,15 +2992,18 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
   if (s === null || state.finished !== null) throw new Error('no le toca a ninguna unidad');
   switch (accion.type) {
     case 'attack': {
-      // Las mismas comprobaciones que `applyAction` hace al golpear.
-      const target = stackById(state, accion.target);
-      const motivo = golpeBlocker(state, s, target, accion.from, () => movableFrom(state, s));
-      if (motivo !== null) throw new Error(motivo);
-      const desdeAhi = accion.from === undefined ? s : { ...s, hex: accion.from };
-      const carga = accion.from === undefined ? 0 : cargaDesde(state, s, accion.from, target);
-      // Golpea desde `from`: desde ahí se mira si el objetivo le alcanza para
-      // devolverlo. Una copia, que la previsión no mueve a nadie.
-      return previsionDeGolpe(state, desdeAhi, target, 'golpe', { chargeHexes: carga });
+      // Las mismas comprobaciones que `applyAction` hace al golpear. Con la rueda,
+      // el golpe sin elegir aún se prevé como siempre (el tablero lo pide al pasar
+      // el ratón); uno elegido, solo si la pelea es de rueda.
+      const { target, desdeAhi, carga } = golpePreparado(state, s, accion, false);
+      return previsionDeGolpe(
+        state,
+        desdeAhi,
+        target,
+        'golpe',
+        { chargeHexes: carga },
+        accion.golpe === undefined ? null : delSector(accion.golpe),
+      );
     }
     case 'shoot': {
       const target = stackById(state, accion.target);
@@ -2699,10 +3048,21 @@ function previsionDeGolpe(
   a: BattleStack,
   t: BattleStack,
   kind: 'golpe' | 'disparo',
-  extra: Omit<DamageOptions, 'reglas' | 'ataqueDelMando' | 'defensaDelMando'>,
+  extra: Omit<DamageOptions, ExtraDelEstado>,
+  golpe: GolpeEnLaRueda | null = null,
 ): PrevisionDeGolpe {
-  const h = horquillaDeDanio(a, t, opcionesDeDanio(state, a, t, extra));
-  const golpes = hasTrait(a.unit, kind === 'golpe' ? 'double_attack' : 'double_shot') ? 2 : 1;
+  const h = horquillaDeDanio(
+    a,
+    t,
+    opcionesDeDanio(state, a, t, extra, golpe),
+    piezasDeLaPelea(state),
+  );
+  const golpes =
+    kind === 'golpe'
+      ? golpesDe(a.unit, golpe?.tipo ?? null, false)
+      : hasTrait(a.unit, 'double_shot')
+        ? 2
+        : 1;
   // Cómo queda el objetivo con `golpes` golpes de `d` cada uno: el segundo solo
   // si el primero no lo tumba, como en `melee` y `shoot`.
   const tras = (d: number): { count: number; topHp: number } => {
@@ -2767,8 +3127,9 @@ function previsionDelContraataque(
   // El que menos devuelve es el que más ha perdido; el que más, el que menos.
   const pocos = copia(conMejor.count === 0 ? 1 : conMejor.count);
   const muchos = copia(conPeor.count);
-  const bajo = horquillaDeDanio(pocos, a, opcionesDeDanio(state, pocos, a));
-  const alto = horquillaDeDanio(muchos, a, opcionesDeDanio(state, muchos, a));
+  const piezas = piezasDeLaPelea(state);
+  const bajo = horquillaDeDanio(pocos, a, opcionesDeDanio(state, pocos, a), piezas);
+  const alto = horquillaDeDanio(muchos, a, opcionesDeDanio(state, muchos, a), piezas);
   const une = (x: RamaDeSuerte | null, y: RamaDeSuerte | null): RamaDeSuerte | null =>
     x === null || y === null ? null : { probabilidad: x.probabilidad, min: x.min, max: y.max };
   return {
@@ -2777,7 +3138,57 @@ function previsionDelContraataque(
     buena: une(bajo.buena, alto.buena),
     mala: une(bajo.mala, alto.mala),
     modificadores: alto.modificadores,
+    conArma: alto.conArma,
   };
+}
+
+/** Lo que daría un tipo de la rueda: el daño de un golpe y cuántos golpes. */
+export interface SectorDeLaRueda {
+  readonly danio: Horquilla;
+  readonly golpes: number;
+}
+
+/**
+ * Lo que enseña la rueda a quien elige (`papel`): por cada tipo, el daño de cada
+ * golpe en la horquilla de su sector (`puntosDe`) y cuántos golpes da. Quien pega
+ * ve su golpe contra el objetivo; quien responde, su contraataque contra quien le
+ * ataca, con los que tiene ahora (si sigue en pie). `sinContraataque` lleva, en
+ * las dos fases, el motivo si el objetivo no devolverá el golpe: quien responde
+ * no tiene entonces daño que ver y su elección solo cuenta para el cruce.
+ *
+ * Sale de las mismas cuentas que el golpe (`horquillaDeDanio`, `opcionesDeDanio`,
+ * `golpesDe`) y no toca el estado ni el `Rng`. Lanza si la pelea no es de rueda o
+ * el golpe no se puede dar, como `previsionDe`.
+ */
+export function previsionDeLaRueda(
+  state: BattleState,
+  accion: BattleAction & { type: 'attack' },
+  papel: PapelEnLaRueda,
+): {
+  readonly porTipo: Readonly<Record<TipoDeGolpe, SectorDeLaRueda>> | null;
+  readonly sinContraataque: string | null;
+} {
+  if (!conRueda(state)) throw new Error('en esta pelea el golpe es de azar: no hay rueda');
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) throw new Error('no le toca a ninguna unidad');
+  const { target, desdeAhi, carga } = golpePreparado(state, s, accion, false);
+  const [quien, contra, extra, devuelve] =
+    papel === 'golpe'
+      ? ([desdeAhi, target, { chargeHexes: carga }, false] as const)
+      : ([target, desdeAhi, SIN_EXTRA, true] as const);
+  // Si el objetivo no devolverá el golpe, lo dicen las notas de las dos fases;
+  // quien responde, además, no tiene daño que ver.
+  const sinContraataque = contraataqueBlocker(state, desdeAhi, target);
+  if (papel === 'respuesta' && sinContraataque !== null) return { porTipo: null, sinContraataque };
+  // Las opciones, una vez; cada tipo pone encima su sector.
+  const opciones = opcionesDeDanio(state, quien, contra, extra);
+  const piezas = piezasDeLaPelea(state);
+  const porTipo = {} as Record<TipoDeGolpe, SectorDeLaRueda>;
+  for (const tipo of TIPOS_DE_GOLPE) {
+    const h = horquillaDeDanio(quien, contra, conElGolpe(opciones, delSector(tipo)), piezas);
+    porTipo[tipo] = { danio: h.danio, golpes: golpesDe(quien.unit, tipo, devuelve) };
+  }
+  return { porTipo, sinContraataque };
 }
 
 function previsionDeHechizo(
@@ -3072,6 +3483,11 @@ export function legalActionsAndCosts(state: BattleState): {
 } {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return { actions: [], costs: new Map() };
+  // Con un golpe plantado, solo ese golpe (`golpeEnCursoBlocker`): sin elegir, que
+  // lo elegido es de la rueda.
+  if (state.golpeEnCurso !== null) {
+    return { actions: [{ type: 'attack', target: state.golpeEnCurso.target }], costs: new Map() };
+  }
 
   // Tras moverse solo queda moverse más, golpear o terminar: ni defender, ni
   // esperar, ni disparar (decisión del usuario). Sin moverse, la lista es la de

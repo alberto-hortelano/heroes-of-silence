@@ -4,6 +4,7 @@ import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { EffectKind, StackEffect } from './effects.js';
 import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
 import type { ReglasDeBatalla } from './reglas.js';
+import type { ModoDelGolpe, Punto, TipoDeGolpe } from './rueda.js';
 
 export type Side = 'attacker' | 'defender';
 
@@ -169,11 +170,11 @@ export interface BattleStack {
   /**
    * Lo gastado que las cifras de ahora no dejan restar: solo la arena, al
    * retocar a media pelea (`retocarEnBatalla`). Bajar la vida por debajo de la
-   * herida deja el stack a 1 PV y la munición a 0 por debajo de lo disparado; lo
-   * que no cupo se apunta aquí para que volver a subirla no lo devuelva (N3 de QA:
-   * un arquero a 9 de 12, a 0 y otra vez a 12 volvía con 12). Sin él, nada que deber.
+   * herida deja el stack a 1 PV; lo que no cupo se apunta aquí para que volver a
+   * subirla no lo devuelva (N3 de QA). Sin él, nada que deber. La arena no cuenta
+   * tiros (13-10-2026): no hay munición que deber.
    */
-  readonly gastadoDeMas?: { readonly herida: number; readonly disparos: number };
+  readonly gastadoDeMas?: { readonly herida: number };
 }
 
 /**
@@ -223,8 +224,28 @@ export type BattleEvent =
    * por ahí: con solo `to`, la figura iba en línea recta y se la veía cruzar por
    * encima de unidades que el camino real rodea (1 de cada 9 movimientos). Un
    * volador lleva solo `[to]`: va por el aire, en recta.
+   *
+   * `charge`: el tramo es la carrera de una carga (el golpe que lo cierra la
+   * cobra). Lo escribe el núcleo, que la mide antes de andar (`cargaDesde`): con
+   * la rueda, entre la carrera y el golpe va el `cruce`, y el animador ya no
+   * puede deducirla mirando el paso de al lado.
    */
-  | { kind: 'move'; stack: string; to: Hex; path: readonly Hex[] }
+  | { kind: 'move'; stack: string; to: Hex; path: readonly Hex[]; charge?: true }
+  /**
+   * La rueda del golpe (`rueda.ts`, solo la arena): lo que eligieron quien pega y
+   * quien recibe y dónde cae el golpe. Va DESPUÉS del `move` del golpe y justo
+   * antes de su `attack`: primero se anda, luego se elige, luego se golpea
+   * (decisión del usuario, 13-10-2026). El contraataque, si lo hubo, lleva su
+   * punto en su `attack` (`contraataqueDelCruce`).
+   */
+  | {
+      kind: 'cruce';
+      stack: string;
+      target: string;
+      golpe: TipoDeGolpe;
+      respuesta: TipoDeGolpe;
+      punto: Punto;
+    }
   | {
       kind: 'attack';
       stack: string;
@@ -233,6 +254,8 @@ export type BattleEvent =
       killed: number;
       retaliation: boolean;
       charge?: number;
+      /** Con la rueda del golpe (la arena), el punto del cruce en que cayó. */
+      punto?: Punto;
     }
   | {
       kind: 'shoot';
@@ -270,6 +293,8 @@ export type BattleEvent =
       amount: number;
       source: string;
       rounds: number;
+      /** Dura hasta que termine el próximo turno del afectado (la rueda), con `rounds` de tope. */
+      hastaSuTurno?: true;
     }
   | { kind: 'effect_end'; stack: string; source: string }
   | { kind: 'immune'; stack: string; source: string }
@@ -335,8 +360,17 @@ export type FichaEnPalabras = Readonly<Record<string, string | readonly string[]
 
 /** El tipo del montaje de la arena del que sale un stack (`BattleState.tiposDeArena`). */
 export interface TipoDeArena {
-  readonly kind: 'unidad' | 'catalogo';
+  /** Una unidad del borrador: el catálogo del juego no entra en la arena (13-10-2026). */
+  readonly kind: 'unidad';
   readonly id: string;
+}
+
+/** El golpe plantado que espera la rueda (`BattleState.golpeEnCurso`). */
+export interface GolpeEnCurso {
+  readonly stack: string;
+  readonly target: string;
+  /** Las casillas de la recta de carga con que llegó (`cargaDesde`); 0 si no carga. */
+  readonly carga: number;
 }
 
 export interface BattleState {
@@ -377,6 +411,22 @@ export interface BattleState {
    * las del mapa, hoy, `SIN_MURALLA`. Solo la arena la pone.
    */
   readonly muralla: MurallaDeBatalla;
+  /**
+   * Cómo cae el daño de un golpe cuerpo a cuerpo: la tirada de siempre (`azar`)
+   * o la rueda del golpe (`rueda.ts`). Se pone al montarla y no cambia: en el
+   * juego, siempre `azar`; solo la arena pelea con la rueda (`conRueda`).
+   */
+  readonly modoDelGolpe: ModoDelGolpe;
+  /**
+   * Con la rueda, el golpe de quien se ha plantado ante su objetivo y espera la
+   * rueda: quién, contra quién y la carga de la carrera con que llegó (medida
+   * antes de andar; al pegar ya no se puede medir). Lo pone el `attack` sin
+   * elecciones («plantarse», `applyAction`), lo quita el golpe o `soltarElGolpe`.
+   * Mientras está puesto, la única jugada que vale es ese golpe con sus dos
+   * elecciones (`golpeEnCursoBlocker`). Lo elegido no va aquí: va a ciegas en
+   * quien lo guarda (la sesión). Siempre `null` al azar y en el juego.
+   */
+  golpeEnCurso: GolpeEnCurso | null;
   /**
    * De qué tipo del montaje sale cada stack de la tropa, por bando y en el orden
    * de su `slot`: una hoja del borrador o una criatura del catálogo. Solo la
@@ -424,8 +474,13 @@ export type BattleAction =
    * atacar. Se cierra solo si ya no le queda nada que hacer (`quedaAlgoQueHacer`).
    */
   | { type: 'move'; to: Hex }
-  /** Mueve (si hace falta) hasta `from` y golpea a `target`. */
-  | { type: 'attack'; target: string; from?: Hex }
+  /**
+   * Mueve (si hace falta) hasta `from` y golpea a `target`. Con la rueda del golpe
+   * (solo la arena), `golpe` y `respuesta` son lo que eligieron quien pega y quien
+   * recibe, obligatorios; sin ella, no van (`cruceBlocker`). El agente no los
+   * conoce: su esquema los quita.
+   */
+  | { type: 'attack'; target: string; from?: Hex; golpe?: TipoDeGolpe; respuesta?: TipoDeGolpe }
   | { type: 'shoot'; target: string }
   | { type: 'wait' }
   | { type: 'defend' }

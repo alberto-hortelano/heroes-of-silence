@@ -4477,3 +4477,76 @@ libre» (`docs/agents/2026-10-13-ficha-en-tabla/`).
 - **El héroe**: sus cuatro cifras se escriben; daño, PV y velocidad de su cuerpo van en la misma
   tabla sin casilla (se derivan); maná y duración siguen en «En la pelea», con su porqué en nota.
 
+## Cada arma para lo suyo (arena, 13-10-2026)
+
+Petición del usuario: «Como le pongo dos armas a un personaje? Como le pongo arma secundaria a los
+arqueros? El jinete elfico tiene lanza, espada y arco» (`docs/agents/2026-10-13-armas-por-uso/`).
+Decisión: un arma de cuerpo a cuerpo, una a distancia y la lanza para la carga, y las cifras de cada
+golpe son las del arma de ese golpe. Solo la arena: el juego, el botín, la armería y el agente siguen
+con cuatro huecos (`pnpm banco` no se mueve).
+
+- **El hueco es el uso**: la arena tiene `distancia` y `carga` además de los cuatro del juego
+  (`HUECOS_DE_LA_ARENA`), y una pieza no dice para qué sirve con un campo propio: lo dice el hueco
+  (`USO_DEL_HUECO`). Con un `uso` en la pieza y varias en `arma`, «una pieza por hueco» dejaba de
+  valer en todo el juego. **La frontera la pone el compilador** (pasada de simplify): `Hueco` y
+  `Equipo` son los cuatro del juego —el héroe, la tropa, el agente— y `HuecoDeArena`/`EquipoDeArena`
+  los seis; con los seis en `Hueco`, la frontera eran un guardia de test y un `throw`.
+- **Quién elige el arma, `damage.ts`**: `usoDelGolpe` lo deduce de lo que ya trae todo golpe
+  (`ranged`, la carga cobrada), así que ni `battle.ts` ni el contrato de la batalla cambian. Las
+  cifras de cada arma las deja `conEquipo` en `UnitInfo.armas` (sin esos huecos, el objeto de
+  siempre, sin la clave): por uso, el id del arma y sus cifras, las de arriba con esa arma en lugar
+  de la de cuerpo a cuerpo. Una sola función, `golpeDe`, da el golpe de cada uso con su respaldo, y
+  de ella leen las cifras (`cifrasDelGolpe`), la previsión y la ficha. Los ids, no los nombres:
+  renombrar una pieza a media pelea no vuelve a vestir a nadie, y el nombre se lee de las piezas de
+  la pelea (`piezasDeLaPelea`).
+- **Lo que cambia a propósito**: tiradores y jinetes pegan y devuelven el golpe con la daga o la
+  espada, no con el arco ni la lanza (el contraataque del jinete baja de 10 / 50–90 a 5 / 20–40). El
+  disparo y la carga dan lo de antes. **La daga** (+1 de ataque, 0–10 de daño) es inventada. **El
+  arco a la espalda deja llevar escudo**: `manosBlocker` mira el arma de cuerpo a cuerpo y el escudo,
+  y el arco, la ballesta y la lanza dejaron de ser a dos manos.
+- **Lo de antes, convertido**: el kit del ciclo 2 queda congelado (`KIT_DEL_CICLO_2`) para restar el
+  equipo de un borrador de antes de cuerpo y equipo; la suma va por la clave del hueco, así que el
+  arco en `arma` suma lo que sumaba, y después pasa a su hueco (`armasEnSuHueco`) diciéndolo. Un
+  arquero convertido dispara igual y pega sin arma hasta que se le ponga una. El enlace pasa a la
+  versión 7.
+- **Fuera, a una issue**: la IA mide la fuerza de una unidad con las cifras de arriba (las del cuerpo
+  a cuerpo) e infravalora a los tiradores de la arena; el pistolero montado sigue con el kit de la
+  lanza. Con qué pelea una unidad del taller ya no se deduce del Y Bot: lo declara
+  (`perfilEnLaArena`, el jinete élfico `montado-arco`) y, si no, es el de su pose.
+
+## La arena, sin munición, sin tamaños y sin el catálogo del juego (13-10-2026)
+
+Petición del usuario: «Elimina las caracteristicas de disparos y hexes, todo el mundo un hexe, el
+dragon de hueso no deberia existir. Todo el mundo tiene un disparo a no ser que tengan la habilidad
+dos disparos», y, preguntado, «elimina los ejércitos antiguos, solo cuentan los 5 que hay en la
+arena» (`docs/agents/2026-10-13-arena-sin-municion-ni-tamanos/`). Solo la arena: el catálogo del juego
+(el dragón óseo, de dos casillas, incluido), la partida, el agente y `pnpm banco` no cambian.
+
+- **La munición es de la criatura del catálogo** (opción A del plan): `isShooter` es «tiene
+  `shots` o lleva algo en `distancia`», `cuentaTiros` es «tiene `shots`», y `quedanTiros` une las
+  nueve copias de `isShooter && shotsLeft > 0` (el disparo, el castigo del tirador de fheroes2, seis
+  de la IA y el `↑N` del tablero). El juego no pone nada en `distancia`, así que para él cada
+  pregunta da lo de siempre: el banco quedó en `066767b4…` justo después del cambio. Se descartó un
+  `BattleState.sinMunicion` (más firmas en el motor del banco para lo mismo) y un `shots: 1` que no
+  se gasta (munición falsa). `shotsLeft` de un stack de la arena vale 0 y nadie lo lee.
+- **El nivel no ve el arco**: el doble disparo pesa en el índice solo si el cuerpo tira, y en la
+  arena el cuerpo no tira nunca (el equipo no cuenta). Se acepta.
+- **Ninguna pieza lleva `disparos`**: el cargador lo rechaza diciéndolo y lo de antes se lee sin el
+  campo (`piezaDeAntes`). «+ Nueva pieza» en «Arma a distancia» ya no nace con los 12 del arco: con
+  la pieza puesta, dispara.
+- **Sin catálogo**: ni filtro, ni ficha de criatura con su «prueba», ni «Nueva unidad» desde una, ni
+  cuerpo `{ criatura }`, ni `FuenteDeArena` `catalogo`. Una unidad de un borrador con cuerpo de
+  criatura se **retira** (ni vale ni se conserva al guardar) y lo dice. El enlace sube a la versión 8
+  (`SOLO_LA_ARENA`): sin `pruebas` ni puestos `{ criatura }`; de la 1 a la 7 se quitan, con un aviso
+  que los nombra por su id (la arena no lee el catálogo ni para el nombre), y un bando que se queda
+  vacío se monta vacío y se dice. Lo que llevaba tiros y sigue disparando se dice una vez por
+  borrador o enlace, no unidad a unidad. Las reglas de la grande con la muralla siguen en el motor
+  (el dragón del juego) y se prueban por `peleaDelMotor` (`test/helpers.ts`).
+- **La IA no se tocó** (decisión del usuario tras el plan): el riesgo era que con tiros infinitos se
+  quedara atrás para siempre. Medido en 300 semillas por montaje, todo en IA, unidades sorteadas de
+  las cinco facciones (`docs/agents/…/medida-arena-todo-ia.mts`): en campo abierto, 0 de 300 sin
+  terminar, con tiradores o sin ellos y con la rueda o sin ella (antes, emulando la munición, también
+  0); los tiradores pasan de 12 tiros en 23 de 300 peleas mixtas y 75 de 300 de solo tiradores. Con
+  una muralla de ejemplo y sin escaleras, 74 de 300 sin terminar con un tirador por bando (122 con la
+  munición de antes) y 161 de 300 sin tiradores: lo que no termina es la muralla sin escalera, no el
+  tiro.

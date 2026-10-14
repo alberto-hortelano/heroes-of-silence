@@ -5,14 +5,22 @@
  * El reloj lo pone `tick`, una vez por fotograma; las lecturas no lo tocan.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { BattleAnimator, DURACION, relojDelDisparo, VUELO_MS } from '../src/client/anim.js';
+import {
+  BattleAnimator,
+  DURACION,
+  duracionDeLaJugada,
+  IMPACTO,
+  relojDelDisparo,
+  VUELO_MS,
+} from '../src/client/anim.js';
 import { msPorCasilla } from '../src/client/marcha.js';
 import { clipQueSePinta } from '../src/client/render/batalla.js';
 import { clipFrame } from '../src/client/render/character.js';
 import { arteDe, hojaDe, MIRADA_DE_PRESENTACION } from '../src/client/render/personajes.js';
 import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
 import { createBattle } from '../src/core/battle/battle.js';
-import type { BattleState } from '../src/core/battle/types.js';
+import { stackHp } from '../src/core/battle/damage.js';
+import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
 import { ejercito } from './helpers.js';
@@ -415,6 +423,103 @@ describe('el animador de batalla', () => {
     expect(() => msPorCasilla('peasant', 'attack', 1)).toThrow(/no anda/);
   });
 
+  it('la carga la marca el `move`: con el cruce en medio (la rueda) y sin él', () => {
+    // Lo que escribe el motor: el tramo con que carga (con `charge`), el cruce de la
+    // rueda si lo hay, y el golpe. Primero se anda, luego la rueda, luego el golpe.
+    for (const conCruce of [true, false]) {
+      const a = new BattleAnimator();
+      const b = batalla();
+      a.observe(b);
+      a.tick(0);
+      const [s1, s2] = b.stacks as [BattleState['stacks'][number], BattleState['stacks'][number]];
+      const destino = { col: s1.hex.col + 1, row: s1.hex.row };
+      s1.hex = destino;
+      const cruce = {
+        kind: 'cruce',
+        stack: s1.id,
+        target: s2.id,
+        golpe: 'fuerte',
+        respuesta: 'finta',
+        punto: 1,
+      } as const satisfies BattleEvent;
+      const nuevos: BattleEvent[] = [
+        { kind: 'move', stack: s1.id, to: destino, path: [destino], charge: true },
+        ...(conCruce ? [cruce] : []),
+        {
+          kind: 'attack',
+          stack: s1.id,
+          target: s2.id,
+          damage: 4,
+          killed: 0,
+          retaliation: false,
+          charge: 3,
+        },
+      ];
+      b.log.push(...nuevos);
+      const casilla = msPorCasilla('peasant', 'charge', ALTO_DE_FIGURA.normal);
+      expect(duracionDeLaJugada(b, nuevos), `con cruce: ${conCruce}`).toBe(
+        casilla + (conCruce ? DURACION.cruce : 0) + DURACION.attack,
+      );
+      a.observe(b);
+      a.tick(0);
+      // Primero el tramo, de una casilla, cargando.
+      a.tick(casilla / 2);
+      expect(a.figura(s1).clip).toBe('charge');
+      expect(a.cruceEnCurso()).toBeNull();
+      if (conCruce) {
+        // Llegado, la rueda lo cuenta y nadie se mueve.
+        a.tick(casilla + DURACION.cruce / 2);
+        expect(a.cruceEnCurso()).toEqual({ evento: cruce, t: 0.5 });
+        expect(a.figura(s1).clip).toBe('idle');
+      }
+    }
+  });
+
+  it('la carga se marca al leer el `move`, aunque el golpe llegue después, y solo desde él', () => {
+    // Plantarse: el tramo entra solo, y el golpe, en otra lectura tras la rueda.
+    const a = new BattleAnimator();
+    const b = batalla();
+    a.observe(b);
+    a.tick(0);
+    const [s1, s2] = b.stacks as [BattleState['stacks'][number], BattleState['stacks'][number]];
+    const destino = { col: s1.hex.col + 1, row: s1.hex.row };
+    s1.hex = destino;
+    b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino], charge: true });
+    a.observe(b);
+    a.tick(0);
+    a.tick(1);
+    expect(a.figura(s1).clip).toBe('charge');
+    // Un tramo sin la marca anda, aunque detrás venga un golpe que diga `charge`: la
+    // carga ya no se deduce del paso de al lado.
+    const otra = batalla();
+    const b1 = otra.stacks[0] as BattleState['stacks'][number];
+    const a2 = new BattleAnimator();
+    a2.observe(otra);
+    a2.tick(0);
+    const lejos = { col: b1.hex.col + 1, row: b1.hex.row };
+    b1.hex = lejos;
+    const sinMarca: BattleEvent[] = [
+      { kind: 'move', stack: b1.id, to: lejos, path: [lejos] },
+      {
+        kind: 'attack',
+        stack: b1.id,
+        target: s2.id,
+        damage: 4,
+        killed: 0,
+        retaliation: false,
+        charge: 3,
+      },
+    ];
+    otra.log.push(...sinMarca);
+    a2.observe(otra);
+    a2.tick(0);
+    a2.tick(1);
+    expect(a2.figura(b1).clip).toBe('walk');
+    expect(duracionDeLaJugada(otra, sinMarca)).toBe(
+      msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal) + DURACION.attack,
+    );
+  });
+
   it('a ritmo 2 un paso dura la mitad, y cambiar el ritmo a mitad no mueve el que ya va', () => {
     const a = new BattleAnimator();
     const b = batalla();
@@ -435,5 +540,145 @@ describe('el animador de batalla', () => {
     a.tick(casilla / 2 + 1);
     expect(a.busy).toBe(false);
     expect(a.figura(s1).en).toEqual(planoDeHex(destino));
+  });
+});
+
+/**
+ * La vida y quién actúa, al ritmo de la cola (H6 de la QA de la rueda,
+ * 13-10-2026): el estado ya trae el final de lo que se cuenta, y el tablero
+ * enseñaba quién moría antes que la animación. Las cifras se escriben a mano:
+ * el esqueleto tiene 40 PV y un individuo por stack.
+ */
+describe('la vida y quién actúa, al ritmo de la cola', () => {
+  type Stack = BattleState['stacks'][number];
+  /** La batalla de prueba ya observada, con el primer campesino, el segundo y el primer esqueleto. */
+  function enCola(): { a: BattleAnimator; b: BattleState; c1: Stack; c2: Stack; v: Stack } {
+    const a = new BattleAnimator();
+    const b = batalla();
+    a.observe(b);
+    a.tick(0);
+    const [c1, c2, v] = b.stacks as [Stack, Stack, Stack];
+    expect(stackHp(v)).toBe(40);
+    return { a, b, c1, c2, v };
+  }
+  const golpe = (de: Stack, a: Stack, damage: number, retaliation = false): BattleEvent => ({
+    kind: 'attack',
+    stack: de.id,
+    target: a.id,
+    damage,
+    killed: 0,
+    retaliation,
+  });
+  const impacto = DURACION.attack * IMPACTO;
+
+  it('la barra baja golpe a golpe en su impacto, no antes; contado todo, es la del estado', () => {
+    const { a, b, c1, c2, v } = enCola();
+    // Lo que haría el motor: los dos golpes ya hechos en el estado.
+    v.topHp = 40 - 10 - 15;
+    b.log.push(golpe(c1, v, 10), golpe(c2, v, 15));
+    a.observe(b);
+    a.tick(0);
+    expect(a.figura(v).pv).toBe(40);
+    a.tick(impacto - 1);
+    expect(a.figura(v).pv).toBe(40);
+    a.tick(impacto + 1);
+    expect(a.figura(v).pv).toBe(30);
+    // El segundo, igual: antes de su impacto, lo del primero.
+    a.tick(DURACION.attack + impacto - 1);
+    expect(a.figura(v).pv).toBe(30);
+    a.tick(DURACION.attack + impacto + 1);
+    expect(a.figura(v).pv).toBe(15);
+    a.tick(2 * DURACION.attack + 1);
+    expect(a.busy).toBe(false);
+    expect(a.figura(v).pv).toBe(stackHp(v));
+  });
+
+  it('un fotograma que llega tarde se salta el impacto, no la vida que quita; el sobrante no cuenta', () => {
+    const { a, b, c1, c2, v } = enCola();
+    v.count = 0;
+    v.topHp = 0;
+    b.log.push(golpe(c1, v, 25), golpe(c2, v, 999));
+    a.observe(b);
+    a.tick(0);
+    // De un salto al segundo paso, antes de su impacto: el primero ya quitó lo suyo.
+    a.tick(DURACION.attack + 10);
+    expect(a.figura(v).pv).toBe(15);
+    a.tick(DURACION.attack + impacto + 1);
+    expect(a.figura(v).pv).toBe(0);
+  });
+
+  it('la cura de un poder sube la barra en su impacto; lo que el registro no dice llega con el último', () => {
+    const { a, b, c1, c2, v } = enCola();
+    v.topHp = 20;
+    c2.topHp = 5;
+    a.observe(b);
+    a.tick(0);
+    // El monje cura 15 al esqueleto, el segundo campesino le pega 5 y drena 3
+    // (como el señor vampiro: el registro no lo apunta) y el esqueleto le
+    // devuelve 2. El estado: 30 y 6.
+    v.topHp = 30;
+    c2.topHp = 5 + 3 - 2;
+    b.log.push(
+      { kind: 'power', stack: c1.id, poder: 'curar', target: v.id, cura: 15 },
+      golpe(c2, v, 5),
+      golpe(v, c2, 2, true),
+    );
+    a.observe(b);
+    a.tick(0);
+    expect(a.figura(v).pv).toBe(20);
+    a.tick(DURACION.cast * IMPACTO + 1);
+    expect(a.figura(v).pv).toBe(35);
+    a.tick(DURACION.cast + impacto + 1);
+    expect(a.figura(v).pv).toBe(30);
+    // Al campesino aún le queda el contraataque: su drenaje no se ve todavía.
+    expect(a.figura(c2).pv).toBe(5);
+    // Con su último impacto, la del estado, drenaje incluido.
+    a.tick(DURACION.cast + DURACION.attack + impacto + 1);
+    expect(a.figura(c2).pv).toBe(6);
+  });
+
+  it('el aro y la casilla resaltada van con quien actúa en lo que se cuenta, no con el turno del estado', () => {
+    const { a, b, c1, v } = enCola();
+    const salida = { ...c1.hex };
+    const destino = { col: c1.hex.col + 1, row: c1.hex.row };
+    // El motor ya ha andado, golpeado, recibido el contraataque y pasado el turno.
+    c1.hex = destino;
+    const turno = b.turno;
+    if (turno === null) throw new Error('la batalla de prueba no tiene turno');
+    b.turno = { ...turno, stack: v.id };
+    const nuevos = [
+      {
+        kind: 'cruce',
+        stack: c1.id,
+        target: v.id,
+        golpe: 'fuerte',
+        respuesta: 'rapido',
+        punto: 3,
+      },
+      { kind: 'move', stack: c1.id, to: destino, path: [destino] },
+      golpe(c1, v, 4),
+      golpe(v, c1, 2, true),
+    ] as const satisfies readonly BattleEvent[];
+    b.log.push(...nuevos);
+    a.observe(b);
+    a.tick(0);
+    // Mientras gira la rueda: quien pega, en su casilla de salida.
+    a.tick(DURACION.cruce / 2);
+    expect(a.cruceEnCurso()).not.toBeNull();
+    expect(a.activo(b)).toBe(c1.id);
+    expect(a.figura(c1).casilla).toEqual(salida);
+    // Andando, en ninguna; llegado, en la de destino.
+    const anda = msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal);
+    a.tick(DURACION.cruce + anda / 2);
+    expect(a.figura(c1).casilla).toBeNull();
+    a.tick(DURACION.cruce + anda + 1);
+    expect(a.figura(c1).casilla).toEqual(destino);
+    // El contraataque no le quita el aro.
+    a.tick(DURACION.cruce + anda + DURACION.attack + 1);
+    expect(a.activo(b)).toBe(c1.id);
+    // Contado todo, manda el estado.
+    a.tick(DURACION.cruce + anda + 2 * DURACION.attack + 1);
+    expect(a.busy).toBe(false);
+    expect(a.activo(b)).toBe(v.id);
   });
 });

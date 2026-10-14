@@ -18,6 +18,13 @@ import { activeStack, quedanCasillas } from '@core/battle/battle.js';
 import { DEFEND_BONUS } from '@core/battle/damage.js';
 import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
+import {
+  contraataqueDelCruce,
+  esTipoDeGolpe,
+  HASTA_SU_TURNO,
+  NOMBRE_DE_GOLPE,
+  NOMBRE_DEL_PUNTO,
+} from '@core/battle/rueda.js';
 import { enOrdenDelLibro, type Spell, spell } from '@core/battle/spells.js';
 import {
   type BattleAction,
@@ -27,7 +34,14 @@ import {
   SIDES,
   type Side,
 } from '@core/battle/types.js';
-import { creature, hasTrait, isShooter, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
+import {
+  creature,
+  cuentaTiros,
+  hasTrait,
+  isShooter,
+  nombreDeTipoDeHeroe,
+  type Pieza,
+} from '@core/data.js';
 import {
   destinoDeEquipo,
   modificadoresDePieza,
@@ -744,7 +758,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
         <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>
-        ${isShooter(s.unit) ? html`<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : NADA}`;
+        ${isShooter(s.unit) && cuentaTiros(s.unit) ? html`<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : NADA}`;
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
@@ -950,6 +964,9 @@ const FUENTE_RASGO: Readonly<Record<string, string>> = {
  * es un fallo nuestro, no algo que disimular con el id crudo en pantalla.
  */
 function nombreFuente(source: string): string {
+  // Lo que deja un golpe de la rueda (Defensivo, Romper guardia, Finta), por el
+  // nombre de su tipo.
+  if (esTipoDeGolpe(source)) return NOMBRE_DE_GOLPE[source];
   return FUENTE_RASGO[source] ?? spell(source).name;
 }
 
@@ -965,6 +982,7 @@ const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
   luck: 'suerte',
   attack: 'ataque',
   tirada: 'tirada de daño',
+  defense: 'defensa',
 };
 
 /**
@@ -973,6 +991,18 @@ const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
  */
 export function enRondas(n: number): string {
   return `${n} ${n === 1 ? 'ronda' : 'rondas'}`;
+}
+
+/**
+ * Lo que dura un efecto colgado, dicho: «3 rondas», o, el de la rueda del golpe,
+ * «hasta que termine su próximo turno» (`hastaSuTurno`); sus rondas son solo el
+ * tope y contarlas sería mentir.
+ */
+export function duracionDeEfecto(e: {
+  readonly rounds: number;
+  readonly hastaSuTurno?: true;
+}): string {
+  return e.hastaSuTurno === true ? HASTA_SU_TURNO : `durante ${enRondas(e.rounds)}`;
 }
 
 /**
@@ -1152,9 +1182,10 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
     return clase(bueno, !bueno);
   };
 
-  const lineas = battle.log
-    .slice(-40)
-    .map((e): Html => {
+  const ultimos = battle.log.slice(-40);
+  const desde = battle.log.length - ultimos.length;
+  const lineas = ultimos
+    .map((e, i): Html => {
       switch (e.kind) {
         case 'round_start':
           return html`<div>— Ronda ${e.round} —</div>`;
@@ -1205,7 +1236,14 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         case 'luck':
           return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Golpe afortunado' : 'Golpe desafortunado'} de ${quienEs(e.stack)}</div>`;
         case 'effect':
-          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} durante ${enRondas(e.rounds)}</div>`;
+          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} ${duracionDeEfecto(e)}</div>`;
+        // La rueda del golpe (solo la arena): qué eligió cada uno y dónde cayó,
+        // antes de las líneas del golpe. El contraataque, solo si lo hubo.
+        case 'cruce': {
+          const devuelto = contraataqueDelCruce(battle.log, desde + i);
+          const contra = devuelto === null ? '' : `; contraataque ${NOMBRE_DEL_PUNTO[devuelto]}`;
+          return html`<div class="cruce">${golpe(e.stack, e.target)}, ${NOMBRE_DE_GOLPE[e.golpe]} contra ${NOMBRE_DE_GOLPE[e.respuesta]}: ${NOMBRE_DEL_PUNTO[e.punto]}${contra}</div>`;
+        }
         case 'effect_end':
           return html`<div>Se disipa ${nombreFuente(e.source)} de ${quienEs(e.stack)}</div>`;
         case 'immune':

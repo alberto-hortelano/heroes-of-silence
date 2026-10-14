@@ -68,6 +68,23 @@ export function createRng(seed: number): Rng {
 }
 
 /**
+ * Uno de `items` al azar, cada uno con la probabilidad de su `peso` (enteros ≥ 0,
+ * alguno mayor que 0): una sola tirada de `rng.int`, del 1 a la suma, que cae en
+ * el primero cuyo peso acumulado la alcanza. Lanza si no hay nada que sortear.
+ */
+export function sortearPorPesos<T>(rng: Rng, items: readonly T[], peso: (x: T) => number): T {
+  let total = 0;
+  for (const x of items) total += peso(x);
+  if (total <= 0) throw new Error(`no hay qué sortear: los pesos suman ${total}`);
+  let tirada = rng.int(1, total);
+  for (const x of items) {
+    tirada -= peso(x);
+    if (tirada <= 0) return x;
+  }
+  throw new Error(`los pesos no suman ${total}: alguno no es un entero`);
+}
+
+/**
  * Un entero de 32 bits de un texto, para sembrar una tirada que no es de la
  * partida (las frases de respaldo de la gente de la base). FNV-1a.
  */

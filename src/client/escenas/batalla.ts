@@ -205,6 +205,11 @@ export class EscenaBatalla {
     return this.animador.busy;
   }
 
+  /** El cruce de la rueda que se cuenta ahora, si lo hay (`BattleAnimator.cruceEnCurso`). */
+  cruceEnCurso(): ReturnType<BattleAnimator['cruceEnCurso']> {
+    return this.animador.cruceEnCurso();
+  }
+
   dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number): void {
     const s = this.sesion();
     const battle = s.battle;
@@ -244,6 +249,9 @@ export class EscenaBatalla {
       hoverStack: this.hoverStack,
       puntero: this.puntero,
       figura: (st) => this.animador.figura(st),
+      // La vida y quién actúa, al ritmo de la cola: mientras gira la rueda o se
+      // cuenta la jugada de la IA, los de antes de lo que aún no se ha visto.
+      activo: this.animador.activo(battle),
       efectos: this.animador.efectos(battle),
       sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
     });

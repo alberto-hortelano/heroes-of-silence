@@ -137,8 +137,11 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Reindexar el rango de héroe | `subidasDeRango` (lanza por debajo del 5) |
 | Añadir a la mochila | `aLaMochila` |
 | A quién va una pieza | `destinoDeEquipo` |
-| Lo que admite una mano y dos (un arma a dos manos no admite escudo) | `manosBlocker` (`hero/equipo.ts`, la única lectura de `Pieza.manos`, con `aDosManos` al lado para enseñarla o escribirla); la leen `equipBlocker` y `equipoBlocker`, y `ponerPieza` lanza con ella, que es la pregunta de la arena (`equiparEnArena`, con el nombre de quien la lleva; lo vigila `invariantes.test.ts`); dicha para la persona, `REGLA_DEL_ESCUDO` |
-| Los huecos en el contrato (`weapon`, `armor`, `accessory`, `shield`) | `SLOT_DE_HUECO`, `huecoDelSlot`, `accionDelAgente` (`contract/huecos.ts`; lo que escribe el agente, `AccionDelAgente`); por dentro, `HUECOS` en español (lo vigila `invariantes.test.ts`) y el núcleo recibe un `Hueco` (`unequip.slot`): el texto lo traducen `accionDelAgente` y la sesión (`esHueco`). Uno que no existe, `huecoDesconocido`; para la persona, por su nombre (`NOMBRE_DE_HUECO`; quitar de uno vacío, `nadaEnElHueco`) |
+| Lo que admite una mano y dos (un arma a dos manos no admite escudo) | `manosBlocker` (`hero/equipo.ts`, mira solo el arma de cuerpo a cuerpo y el escudo: el arco a la espalda deja llevar escudo; la única lectura de `Pieza.manos`, con `aDosManos` al lado para enseñarla o escribirla); la leen `equipBlocker` y `equipoBlocker`, y `ponerPieza` lanza con ella, que es la pregunta de la arena (`equiparEnArena`, con el nombre de quien la lleva; lo vigila `invariantes.test.ts`); dicha para la persona, `REGLA_DEL_ESCUDO` |
+| Los huecos en el contrato (`weapon`, `armor`, `accessory`, `shield`) | `SLOT_DE_HUECO` (solo `Hueco`: los de la arena no llegan al agente), `huecoDelSlot`, `accionDelAgente` (`contract/huecos.ts`; lo que escribe el agente, `AccionDelAgente`); por dentro, `HUECOS` en español (lo vigila `invariantes.test.ts`) y el núcleo recibe un `Hueco` (`unequip.slot`): el texto lo traducen `accionDelAgente` y la sesión (`esHueco`). Uno que no existe, `huecoDesconocido`; para la persona, por su nombre (`NOMBRE_DE_HUECO`; quitar de uno vacío, `nadaEnElHueco`) |
+| Con qué arma se da cada golpe (solo la arena: `distancia`, `carga`) | `usoDelGolpe` (el disparo, a distancia; el golpe que cobra carga, de carga; lo demás, cuerpo a cuerpo) y `golpeDe` (el arma y las cifras de cada uso, con su respaldo), de la que leen `cifrasDelGolpe`, la previsión y la ficha (`armasDe`, con las piezas de la pelea, `piezasDeLaPelea`) (`battle/damage.ts`); `UnitInfo.armas` (ids) lo escribe solo `conEquipo` (lo vigila `invariantes.test.ts`). Los huecos: `Hueco`/`Equipo` son los cuatro del juego y `HuecoDeArena`/`EquipoDeArena` los seis, así que el juego no puede nombrar los otros dos (lo dice el compilador); ¿es de arma por uso?, `esArmaPorUso`; qué campos admite cada hueco, `camposDelHueco`; cómo se dice cada uso, `DICHO_DEL_USO` |
+| Quién dispara y si le quedan tiros | `isShooter` (munición del catálogo o algo en `distancia`), `cuentaTiros` (la munición es de la criatura del catálogo: la arena no la cuenta), `quedanTiros` (la única pregunta «tirador con tiros», que leen el disparo, el castigo del tirador, la IA y el tablero; lo vigila `invariantes.test.ts`) (`data.ts`) |
+| Lo de antes de la arena (criaturas, munición, tamaño) | `migrarUnidadDeArena` → `loDeAntes` (retira un cuerpo `{ criatura }`, quita `shots` y `hexes` con aviso), `piezaDeAntes` (sin `disparos`), y el enlace hasta la 7 en `montajeDeLaURL` (`SOLO_LA_ARENA`) |
 | La regla de una pieza (catálogo y arena) | `problemasDePieza`, `piezaBlocker` (`data.ts`); el cargador (`validarEquipo`) añade lo de conjunto (armería por hueco, botín, repetidas) |
 | Piezas de la arena (el juego no las ve) | `catalogoDeLaArena` (las del borrador encima de `data/equipo.json`; da un `EquipoAtado`), `validarPiezaDeArena` (todo lo que entra; una del juego no cambia de hueco ni de calidad; una nueva es `arena`), `selloDePieza` (del juego, cambiada o nueva), `enElHueco` (lo que exige el hueco, y lo que exigía el escudo se va con él), `piezaNueva` (ni id ni nombre de otra), `conPieza`/`sinPieza`, `cambioDePiezaBlocker` (nadie del borrador deja de valer, dos piezas no se llaman igual; con `retocarEnBatalla`, `kind: 'piezas'`, la pregunta es `equipoQueNoVale`), `idsLlevados`/`piezasDelMontaje`, `piezasDelEnlace`, `piezasQueSeGuardan` (`core/arena.ts`). Las lecturas de una pieza atadas a un catálogo, `equipoCon` (`hero/equipo.ts`): la arena no importa las sueltas (`pieza`, `piezasPuestas`, `sumaDeEquipo`, `conEquipo`, `manosBlocker`, `equipoBlocker`, `ponerPieza`, `heroUnit`), que leen las del juego; al héroe lo viste con `cuerpoDelHeroe`. Las fronteras (montaje, `BattleState.piezasDeArena`, retoque, enlace, disco) llevan la lista del borrador; el equipo puesto de cada stack, en `UnitInfo.equipo` (lo escribe `conEquipo`, no viaja al espectador). Lo vigila `invariantes.test.ts`, por importación |
 | Unidad nueva de la arena | `unidadNueva` (`core/arena.ts`); cuerpo + equipo con que pelea, `unidadDeCombate`; lo de antes del equipo, `migrarUnidadDeArena`, con el perfil de cada hoja (`perfilDeLasHojas`) y comprobado al revés con `mismasCifras` (`hero/equipo.ts`, junto a `conEquipo`); la forma de un id, `esIdDeArena` (`core/validar.ts`: la lee también el cliente fuera de la arena) |
@@ -152,6 +155,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Turno de batalla | `BattleState.turno` (`n`, ordinal); `mismoTurno`; viaja como `turnId` |
 | Tope de jugadas | `MAX_JUGADAS` |
 | Reglas de la batalla (nuestra / fheroes2) | `BattleState.reglas`; el juego entra por `createBattle` (`REGLAS_DEL_JUEGO`) y solo la arena por `crearBatallaConReglas`, `batallaDeArena`, `SesionDeArena`, `reglasDeLaURL`, `conRegla` o un `'fheroes2'` escrito (lo vigila `invariantes.test.ts`) |
+| La rueda del golpe (solo la arena) | `battle/rueda.ts`: `puntoDelCruce`, `tiradaDelPunto`, `golpesDe` (la única cuenta de golpes de `melee` y la previsión), `conRueda` (la única lectura de `BattleState.modoDelGolpe`), `cruceBlocker`, `modoDelGolpeDeLaURL`/`modoDelGolpeALaURL`, `efectoDeLaRueda`, `contraataqueDelCruce` (el punto va en el `attack` devuelto); al daño, en números (`DamageOptions.cruce`: `damage.ts` no importa `rueda.ts`), solo por `cruceDelGolpe` desde `opcionesDeDanio`; la previsión, `previsionDeLaRueda`; la IA a ciegas, `elegirEnLaRueda`/`completarCruce` (`ai/rueda.ts`, el único sorteo, también el de la sesión); el golpe plantado que espera la rueda, `BattleState.golpeEnCurso` (lo pone el `attack` sin elecciones, lo quitan el golpe y `soltarElGolpe`, que solo llama la sesión; lo que no vale con él, `golpeEnCursoBlocker`). El modo lo pone solo la arena (`crearBatallaConReglas(…, golpe)`) y el agente no conoce `golpe`/`respuesta` (lo vigila `invariantes.test.ts`) |
 | Por qué acabó una batalla (arena) | `causaDelFinal` (`battle.ts`, con `bandoVencido`) → `finalDeArena` |
 | Enlace de una pelea de la arena | `montajeALaURL` / `montajeDeLaURL` (`?montaje=`, con `?seed=` y `?reglas=`); un parámetro repetido, `unaVezEnLaURL` |
 | Forma del tablero de batalla (qué casillas existen, su espejo, la frase del contrato) | `board.ts`: `isInside`, `allHexes` (la lista congelada; su posición es `indiceDe`), `filasDelTablero`, `espejo`, `desplazamientoDeFila`, `EXTENSION_HORIZONTAL`, `ULTIMA_FILA`, `codigoDeLado`, `FORMA_DEL_TABLERO`, `tableroDelContrato`; fuera de `board.ts` nadie importa `anchoDeFila`, `ANCHO_DE_FILA_*` ni `BOARD_HEIGHT` (lo vigila `invariantes.test.ts`, por importación) |
@@ -203,6 +207,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Carga (`charge`) | **regla nuestra**: +10 %/casilla, tope 5, en línea recta de ≥ 3 sin unidades en medio y con el objetivo en la recta |
 | `fear` del dragón óseo | **divergencia deliberada**: ataque −2 durante 2 rondas (no aura de moral) |
 | Victoria | **regla nuestra**: perder la base elimina en el acto |
+| Rueda del golpe | **regla nuestra, solo la arena** (`?golpe=rueda`, 13-10-2026): al golpear cuerpo a cuerpo, quien pega y quien recibe eligen a ciegas un tipo en un anillo (rápido, defensivo, finta, fuerte, r.guardia, ofensivo; Normal en el centro); el cruce fija la tirada (`min + ⌊(max − min) · p / 4⌋`, por la distancia en el anillo: 0, 1, 3, 4; con Normal, 2) y la respuesta es el contraataque, en `4 − p`. Fuerte ×1,25, Rápido 2 golpes ×0,6, Ofensivo +1 ataque, Defensivo +1 defensa; Romper guardia −1 defensa y Finta −1 ataque al rival al acabar el intercambio. Los efectos duran hasta que el afectado termine su próximo turno (`StackEffect.hastaElTurno`, tope de 2 rondas). Cifras inventadas en `data/rueda.json`; el disparo, con su tirada |
 | Orden de turnos | **regla nuestra** (fheroes2 lo tiene fijo): en serpiente, quien cierra un día abre el siguiente (día 1 j0, j1; día 2 j1, j0…; `ordenDelDia`, que leen el paso de turno y el `you.turnOrder` del agente). Con el fijo, j0 ganaba 603 de 1 000 y abrir el día valía +65; en serpiente, 534 y +2 (09-10-2026); con las fronteras onduladas de #229, 524 de 1 000 y duración 8 / 14 / 29 |
 
 - Lo temporal vive en `BattleStack.effects` y se suma al leer, nunca al stack.
@@ -248,12 +253,25 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 - **Equipo (inventado)**: arma, armadura, accesorio y escudo por individuo y por héroe;
   botín de asaltantes y ciudades neutrales con su propia corriente de azar;
   la armería vende la calidad `armeria`, que es el equipo base del héroe (sin escudo: el
-  hueco `escudo` no lleva pieza de armería). Una pieza suma ataque, defensa, PV, daño
-  (`danio`) y disparos, y su velocidad puede restar (la de un escudo, siempre); `conEquipo`
+  hueco `escudo` no lleva pieza de armería). Una pieza suma ataque, defensa, PV y daño
+  (`danio`), y su velocidad puede restar (la de un escudo, siempre); `conEquipo`
   es la única suma y el nivel no la ve. **Un arma a dos manos (`manos: 2`) no admite escudo**
   (`manosBlocker`, 12-10-2026). La calidad `arena` (armas por perfil y escudos) **el juego no
   la reparte**: ni botín (`PIEZAS_DE_BOTIN` sale de `CALIDADES_DE_BOTIN`, común y especial, escrito), ni armería, ni
   equipo base, ni la prosa del agente (`PIEZAS_DEL_JUEGO`); el banco no se mueve.
+  **Cada arma para lo suyo (solo la arena, 13-10-2026)**: dos huecos más, `distancia` (el
+  arma con que se dispara) y `carga` (la lanza), y `arma` es la de
+  cuerpo a cuerpo (`HUECOS_DE_LA_ARENA`; los del juego, `HUECOS`, y nada del juego va en los
+  otros dos, `validarEquipo`). Cada golpe va con el ataque y el daño de su arma más lo que no
+  es arma (`usoDelGolpe`, `cifrasDelGolpe`): el disparo con la de distancia, la carga con la
+  lanza (sin ella, con la de cuerpo a cuerpo), el golpe y el contraataque con la de cuerpo a
+  cuerpo (sin ella, con el cuerpo). El tirador pega con la daga (inventada, +1, 0–10) y todo
+  jinete con la espada; el jinete élfico es `montado-arco` (lanza, espada y arco).
+  **Sin munición en la arena (13-10-2026)**: llevar algo en `distancia` ya es disparar
+  (`isShooter` mira `equipo`), sin cuenta de tiros; un tiro por disparo y dos con
+  `double_shot`. La munición es de la criatura del catálogo (`shots`, `cuentaTiros`), y «le
+  quedan tiros» se pregunta solo con `quedanTiros` (`data.ts`; lo vigila `invariantes.test.ts`):
+  el juego no cambia (`pnpm banco`). Ninguna pieza lleva `disparos`.
 - **El mapa es una red de nodos**: regiones cerradas por barrera
   (`mountain`, `water`, `forest`, `cliff`, `wall`), pasos de una casilla entre
   ellas. Una ciudad es un nodo; un nodo se toma pisándolo. Una mina produce solo
@@ -507,6 +525,14 @@ antes del destino (`battle_started` con `faltan`).
   `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
 - Ritmo: `marcha.ts` (`PRISA_DE_LA_MARCHA`), compás propio por figura con hash
   del id (`compas.ts`), sombra por silueta, carga hoja a hoja con cachés LRU.
+- **La batalla se cuenta en cola** (`anim.ts`): el estado ya trae el final de lo que se cuenta,
+  así que la barra de vida (`EstadoFigura.pv`) baja en el impacto de cada golpe, disparo o
+  hechizo, con `trasElGolpe` y lo que dice el registro (la cura de un poder también); lo que el
+  registro no dice (el drenaje, la cura del héroe) llega con el último impacto de la unidad. El aro
+  y la casilla resaltada van con quien actúa en lo que se cuenta (`BattleAnimator.activo`,
+  `EstadoFigura.casilla`, ninguna mientras anda). Partida, arena y espectador (H6, 13-10-2026).
+  La carrera de una carga la marca el núcleo en su `move` (`charge: true`, 13-10-2026): el
+  animador no la deduce del golpe de al lado, que con la rueda llega después.
 - **Niebla de quien juega** (#64): los héroes se pintan si se miran AHORA, los
   objetos como se SABEN (castillos y nodos con su último dueño visto), los grupos
   por su región; terreno y volúmenes, por `fog`. La crónica pasa por `cronicaPara`.
@@ -646,11 +672,38 @@ antes del destino (`battle_started` con `faltan`).
   nigromante, con marcadores entero.
 - **Arena** (`pnpm arena`): cifras que no pasan por el catálogo, validadas por
   `validarUnidadDeArena`, guardadas en `data/borradores/unidades.json`, que el
-  juego no lee. Es también el banco de combate: criaturas del catálogo (editarlas
-  es una prueba que no se guarda), un héroe por lado con libro (`heroeDeArena`) y
+  juego no lee. **Solo las cinco facciones de las hojas** (13-10-2026: «solo cuentan los 5 que
+  hay en la arena»): ni criaturas del catálogo del juego (ni filtro, ni «Nueva unidad» desde una,
+  ni cuerpo `{ criatura }`, ni puestos del enlace; `core/arena.ts` y `client/arena/` no lo
+  importan, lo vigila `invariantes.test.ts`), ni munición (`shots`) ni tamaño (`hexes`): toda
+  unidad, una casilla. Lo de antes con ellos se lee sin ellos y lo dice (`migrarUnidadDeArena`,
+  `loDeAntes`; una unidad con cuerpo de criatura se retira y no vuelve al disco). Es también el
+  banco de combate: un héroe por lado con libro (`heroeDeArena`) y
   seis interruptores de reglas por pelea (`battle/reglas.ts`, `?reglas=` con la
-  semilla); con todos en «nuestra» pelea como el juego. «Copiar enlace de la
-  pelea» escribe el montaje entero (`?montaje=`, versión 6: unidades con cuerpo y equipo,
+  semilla); con todos en «nuestra» pelea como el juego. **La rueda del golpe** («Golpe: azar /
+  rueda», `?golpe=rueda`, aparte de `?reglas=` y sin subir la versión del `?montaje=`): un clic
+  en un enemigo cuerpo a cuerpo no golpea: **primero anda** (13-10-2026) —el `attack` sin
+  elecciones lo planta ante su objetivo, `BattleState.golpeEnCurso` con la carga de la carrera,
+  sin cerrar el turno; mientras, solo vale ese golpe con sus dos elecciones—, y al acabar la
+  marcha abre un `<dialog id="rueda">` modal y sin fondo (en un
+  móvil, con velo: pisa el panel; `arena/rueda.ts`) con los siete tipos, su daño (`previsionDeLaRueda`) y su efecto en nota;
+  clic, teclas 1-7 o flechas + Intro; Escape cancela solo antes de elegir y deja a quien pega
+  donde llegó, con su turno y sin la carga (`soltarElGolpe`). El golpe de una vez (`from` y las
+  dos elecciones: `autoResolve`, IA contra IA) escribe lo mismo: `move`, `cruce`, `attack`. Elige quien pega y
+  luego quien recibe (la IA, a ciegas; la persona, sin ver el golpe: `RuedaPendiente` no lo
+  lleva), y el desenlace —giro, marcadores del color de cada bando, arco, medidor de cinco
+  muescas, rótulo— lo cuenta el animador con el hecho `cruce` (`DURACION.cruce`, `data-tramo`),
+  con el tablero de antes del golpe detrás: la vida y quién actúa los retiene el animador hasta
+  cada impacto (`EstadoFigura.pv`, `BattleAnimator.activo`; también en la partida y el espectador).
+  Cada fase nace quieta (`data-quieta`: el `:hover` no enciende el sector bajo el puntero hasta
+  que se mueve; una tecla no la despierta), y la nota de cada tipo dice cuándo actúa en esa fase
+  (`efectoDeGolpe(tipo, papel, contraataca)`: en la respuesta, nada para el golpe que llega, que
+  decide el cruce; sin contraataque, solo el cruce). «Copiar enlace de la
+  pelea» escribe el montaje entero (`?montaje=`, versión 8: solo la arena, `SOLO_LA_ARENA`, sin
+  `pruebas` ni puestos `{ criatura }`, leída estricta; la 7 y antes se leen sin criaturas, sin
+  munición ni tamaño, con aviso, y un bando que se queda vacío se dice; la 7 con cada arma en su
+  hueco, `CON_ARMAS`; la 6 y antes, con el arco o la lanza en `arma`, se leen convertidas con aviso,
+  `piezaDeAntes` y `armasEnSuHueco`, como el borrador; unidades con cuerpo y equipo,
   puestos `{ unidad }` y las piezas de la arena que lleva lo montado, `piezasDelMontaje`; de la 1
   a la 4 se leen, con `{ hoja }`, y piden el perfil de cada hoja, `PerfilDe`, que sale de
   `perfilDeLasHojas`, para convertirse; de la 1 a la 5 pelean con las piezas de la arena que las
@@ -658,17 +711,16 @@ antes del destino (`battle_started` con `faltan`).
   las suyas (`piezasDelEnlace`), encima del borrador sin tocarlo, y «Guardar» escribe de ellas solo
   las nuevas (`piezasQueSeGuardan`: una pieza tuya no la sustituye ni la borra un enlace); cada versión es un umbral con
   nombre, `CON_EQUIPO`, `CON_PIEZAS`…); abrirlo lo monta sin luchar. **Cuerpo y equipo** (12-10-2026,
-  ciclo 2 del nivel único): una unidad es un cuerpo (`cuerpo: { hoja } | { criatura }`, el arte con
-  que se pinta; las cifras de la ficha son las suyas y de ellas sale el nivel) más su equipo (cuatro
+  ciclo 2 del nivel único): una unidad es un cuerpo (`cuerpo: { hoja }`, el arte con
+  que se pinta; las cifras de la ficha son las suyas y de ellas sale el nivel) más su equipo (seis
   huecos, `data/equipo.json`), y pelea con las dos cosas (`unidadDeCombate` → `conEquipo`). Toda hoja
   nace del cuerpo común (`CUERPO_COMUN`, nivel 1, índice 171-194) con el equipo de su perfil
   (`KIT_DEL_PERFIL`): pelea como antes y el templario con escudo y el del mandoble son el mismo índice
   (177). Las hojas de un personaje (`Unidad.personaje`) comparten cuerpo y velocidad
   (`VELOCIDAD_DEL_CUERPO`, `tools/arena/velocidades.ts`): 6 de 51 cambian ±1 casilla. «Nueva unidad»
-  (`unidadNueva`) crea desde una hoja entera o una criatura una unidad `<cuerpo>-<n>`, con el
+  (`unidadNueva`) crea desde una hoja entera una unidad `<hoja>-<n>`, con el
   cuerpo común y sin equipo, con el `n` libre también entre las del borrador que no valen
-  (`IdsOcupados`) y, de una criatura, su tamaño (el dragón óseo, dos casillas) y sus rasgos del
-  motor; nace en el nivel que dé su índice (de una hoja, el 1; el Paladín, con doble golpe, en el 2)
+  (`IdsOcupados`); nace en el nivel que dé su índice (de una hoja, el 1; con doble golpe, el 2)
   y la barra lo lee de él (`avisoDeNuevaUnidad`); su arte es el de su cuerpo (`figuraDeLaUnidad`,
   nunca el Y Bot en lugar del arte). Un
   borrador o un enlace de antes se convierte al leerlo (`migrarUnidadDeArena`: sus cifras menos el

@@ -40,7 +40,7 @@ import type { BattleState } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack } from '../src/core/types.js';
-import { abrirPuertas, aPelear, forzarTurno, peleaDeArena, unidadDeArena } from './helpers.js';
+import { abrirPuertas, aPelear, forzarTurno, peleaDelMotor, unidadDeArena } from './helpers.js';
 
 const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
 
@@ -304,13 +304,14 @@ describe('el muro (C3)', () => {
       ],
       puertas: [],
     });
-    const troll = unidadDeArena('troll-maza', { hexes: 2, casillas: 7 });
-    const lejos = unidadDeArena('troll-maza', { casillas: 7 });
+    // La arena ya no hace grandes (13-10-2026): el motor sí (`peleaDelMotor`).
+    const troll = { unidad: unidadDeArena('troll-maza', { casillas: 7 }), grande: true };
+    const lejos = { unidad: unidadDeArena('troll-maza', { casillas: 7 }) };
     for (const [izq, der, quien, en] of [
       [[lejos], [troll], 'defender-0', { col: 9, row: 3 }],
       [[troll], [lejos], 'attacker-0', { col: 6, row: 3 }],
     ] as const) {
-      const state = peleaDeArena(aPelear(izq), aPelear(der), createRng(1), muro);
+      const state = peleaDelMotor(izq, der, createRng(1), muro);
       const s = stackById(state, quien);
       s.hex = en;
       stackById(state, quien === 'attacker-0' ? 'defender-0' : 'attacker-0').hex = {
@@ -340,10 +341,15 @@ describe('el muro (C3)', () => {
     // La recta (3,2) → (4,5) pasa la cabeza por (3,3) y (4,4); el atacante lleva
     // la cola a la izquierda, así que con la cabeza en (4,4) la cola pisa (3,4),
     // que no está en la recta. Con el muro ahí, la cola lo cruzaría.
-    const jinete = unidadDeArena('troll-maza', { hexes: 2, casillas: 7, traits: ['charge'] });
+    const jinete = unidadDeArena('troll-maza', { casillas: 7, traits: ['charge'] });
     const blanco = unidadDeArena('troll-maza', { casillas: 7 });
     const carga = (m: MurallaDeBatalla): number => {
-      const state = peleaDeArena(aPelear([jinete]), aPelear([blanco]), createRng(1), m);
+      const state = peleaDelMotor(
+        [{ unidad: jinete, grande: true }],
+        aPelear([blanco]),
+        createRng(1),
+        m,
+      );
       const s = stackById(state, 'attacker-0');
       s.hex = { col: 3, row: 2 };
       const d = stackById(state, 'defender-0');
@@ -443,8 +449,8 @@ describe('la puerta (C4, C20 de la ampliación 3)', () => {
 
   it('a la grande no la parte una puerta cerrada; abierta, puede plantarse en ella (C28)', () => {
     // El atacante lleva la cola a la izquierda: con la cabeza en (8,4), en (7,4).
-    const andando = peleaDeArena(
-      aPelear([unidadDeArena('troll-maza', { hexes: 2, casillas: 7 })]),
+    const andando = peleaDelMotor(
+      [{ unidad: unidadDeArena('troll-maza', { casillas: 7 }), grande: true }],
       aPelear([unidadDeArena('troll-maza', { casillas: 7 })]),
       createRng(1),
       CON_PUERTA,
@@ -777,13 +783,8 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
 
   it('nadie llega a nadie: se acaba por rondas, sin colgarse', () => {
     // Dos de dos casillas: ninguna sube, y la línea no tiene hueco.
-    const troll = unidadDeArena('troll-maza', { hexes: 2, casillas: 4 });
-    const state = peleaDeArena(
-      aPelear([troll]),
-      aPelear([troll]),
-      createRng(7),
-      forma('Línea recta'),
-    );
+    const troll = { unidad: unidadDeArena('troll-maza', { casillas: 4 }), grande: true };
+    const state = peleaDelMotor([troll], [troll], createRng(7), forma('Línea recta'));
     autoResolve(state, createRng(7));
     expect(state.finished).not.toBeNull();
     expect(state.round).toBe(MAX_ROUNDS);

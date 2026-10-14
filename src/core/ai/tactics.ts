@@ -44,16 +44,17 @@ import { esDeCura, poder } from '../battle/poderes.js';
 import { curaDe, delHeroe, efectoDe, type Lanzador, type Spell, spell } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
-import { hasTrait, isShooter } from '../data.js';
+import { hasTrait, quedanTiros } from '../data.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
+import { completarCruce } from './rueda.js';
 
 /** Lo que pega un stack por sí solo, con el extra del tirador que aún dispara. */
 function amenazaPropia(s: BattleStack): number {
   const info = s.unit;
   const damage = ((info.damage[0] + info.damage[1]) / 2) * s.count;
-  const shooterBonus = isShooter(info) && s.shotsLeft > 0 ? 1.6 : 1;
+  const shooterBonus = quedanTiros(s) ? 1.6 : 1;
   return damage * shooterBonus;
 }
 
@@ -212,7 +213,7 @@ function escalar(r: Rinde, k: number): Rinde {
  * aquí para que la IA no le eche una Prisa a un arquero.
  */
 function mejorGolpe(state: BattleState, a: BattleStack, pasos: number): Rinde {
-  const tira = isShooter(a.unit) && a.shotsLeft > 0 && !isEngaged(state, a);
+  const tira = quedanTiros(a) && !isEngaged(state, a);
   const golpes = hasTrait(a.unit, 'double_attack') ? 2 : 1;
   let mejor = NADA;
   for (const e of enemiesOf(state, a)) {
@@ -301,7 +302,7 @@ function rindeTemporal(
   // Sin saber dónde estará nadie: el mejor golpe sin mirar el alcance. Al
   // tirador la velocidad no le compra nada, igual que en la ronda en curso.
   const golpe = mejorGolpe(state, objetivo, Number.POSITIVE_INFINITY);
-  const tira = isShooter(objetivo.unit) && objetivo.shotsLeft > 0;
+  const tira = quedanTiros(objetivo);
   const porRonda =
     sp.kind === 'speed'
       ? escalar(golpe, tira ? 0 : FRACCION_TEMPO)
@@ -420,7 +421,7 @@ function mejorPoder(
 function enPeligro(state: BattleState, aliado: BattleStack): boolean {
   let pegan = 0;
   for (const e of enemiesOf(state, aliado)) {
-    const tira = isShooter(e.unit) && e.shotsLeft > 0 && !isEngaged(state, e);
+    const tira = quedanTiros(e) && !isEngaged(state, e);
     if (!tira && distanceTo(state, e, e.hex, aliado) > stackSpeed(e) + 1) continue;
     const golpes = hasTrait(e.unit, 'double_attack') ? 2 : 1;
     pegan += golpes * expectedDamage(e, aliado, opcionesDeDanio(state, e, aliado));
@@ -970,7 +971,7 @@ function tiradorAlMuro(
   acciones: readonly BattleAction[],
   costes: ReadonlyMap<string, Paso>,
 ): BattleAction | null {
-  if (s.side !== 'defender' || !isShooter(s.unit) || s.shotsLeft <= 0) return null;
+  if (s.side !== 'defender' || !quedanTiros(s)) return null;
   if (enLoAlto(state, s)) {
     return seHaMovido(state, s) && !isEngaged(state, s) ? { type: 'end_turn' } : null;
   }
@@ -1040,7 +1041,7 @@ function enemigoEnLaPuerta(state: BattleState, s: BattleStack, puerta: PuertaDeM
  * suyo es la muralla. El volador no necesita puerta.
  */
 function quiereCruzar(state: BattleState, abierta: BattleState, s: BattleStack): boolean {
-  if (hasTrait(s.unit, 'flying') || (isShooter(s.unit) && s.shotsLeft > 0)) return false;
+  if (hasTrait(s.unit, 'flying') || quedanTiros(s)) return false;
   const masCerca = (st: BattleState): number =>
     Math.min(...enemiesOf(st, s).map((e) => distanciaACaminar(st, s, e)(s.hex)));
   return masCerca(abierta) < masCerca(state);
@@ -1125,7 +1126,9 @@ export function autoResolve(
     // El recorrido con el que se decidió viaja hasta el motor: `moveTo` lo
     // repetía entero para cobrar la carga.
     const { action, movibles } = chooseBattleActionAndCosts(state, noSeRinden);
-    applyAction(state, action, rng, movibles);
+    // Con la rueda (solo la arena), los dos eligen a ciegas, y aquí los dos son
+    // de la IA: no falta nunca nada. Sin rueda, la misma acción.
+    applyAction(state, completarCruce(state, action, rng).accion, rng, movibles);
     n++;
   }
   if (state.finished === null) {

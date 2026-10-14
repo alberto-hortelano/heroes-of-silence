@@ -53,7 +53,7 @@ import type {
   Side,
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
-import { creature } from '../src/core/data.js';
+import { creature, cuentaTiros } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import type { Rng } from '../src/core/rng.js';
@@ -520,6 +520,28 @@ describe('tiradores', () => {
     applyAction(state, disparo!, rng);
     expect(arquero.shotsLeft).toBe(municionInicial - 1);
     expect(state.log.some((e) => e.kind === 'shoot')).toBe(true);
+  });
+
+  it('sin munición no se le ofrece el disparo, y el motivo lo dice (la del catálogo se cuenta)', () => {
+    // La arena no cuenta tiros (13-10-2026), pero la criatura del catálogo sí:
+    // `cuentaTiros`. Lo que cambió es la regla, no el juego.
+    const rng = createRng(21);
+    const state = createBattle(
+      side([{ creature: 'archer', count: 10 }]),
+      side([{ creature: 'zombie', count: 10 }]),
+      rng,
+    );
+    const arquero = stackById(state, 'attacker-0');
+    expect(cuentaTiros(arquero.unit)).toBe(true);
+    arquero.shotsLeft = 0;
+    expect(legalActions(state).some((a) => a.type === 'shoot')).toBe(false);
+    expect(() => applyAction(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
+      'attacker-0 se ha quedado sin munición',
+    );
+  });
+
+  it('el dragón óseo sigue en el catálogo del juego, de dos casillas', () => {
+    expect(creature('bone_dragon').hexes).toBe(2);
   });
 });
 

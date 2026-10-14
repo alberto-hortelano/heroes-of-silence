@@ -619,6 +619,7 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
       figura: () => {
         throw new Error('no se usa');
       },
+      activo: null,
       efectos: [],
       sinDueño: new Set<Side>(),
     };

@@ -189,9 +189,21 @@ export interface UnitInfo {
   /**
    * Lo que lleva puesto, con `sinEquipo` (lo escribe `conEquipo`): cambiar una
    * pieza a media pelea en la arena lo vuelve a sumar a su cuerpo desde el stack.
-   * No viaja al espectador.
+   * No viaja al espectador. Del tipo de la arena: el juego escribe en él un
+   * `Equipo`, que cabe.
    */
-  readonly equipo?: Equipo;
+  readonly equipo?: EquipoDeArena;
+  /**
+   * Con qué arma se da cada golpe, cuando no todos son con las cifras de arriba:
+   * **solo la arena**, con algo en un hueco de arma por uso (`esArmaPorUso`). Lo escribe
+   * solo `conEquipo` y lo leen solo `battle/damage.ts` (`cifrasDelGolpe`, la única
+   * lectura de las cifras de un golpe) y su lista para la ficha (`armasDe`); lo
+   * vigila `test/invariantes.test.ts`. Arriba quedan las cifras del cuerpo a
+   * cuerpo. Sin el campo, todo golpe va con las de arriba: el juego no lo escribe
+   * nunca, y por eso su daño no cambia ni un decimal (`pnpm banco`). No viaja al
+   * espectador.
+   */
+  readonly armas?: ArmasDeLaUnidad;
   /** Munición. > 0 = es tirador. */
   readonly shots?: number;
   /** Hexes que ocupa en la rejilla de batalla (1 o 2). */
@@ -205,6 +217,33 @@ export interface UnitInfo {
    */
   readonly poderes?: readonly PoderId[];
 }
+
+/**
+ * Para qué se usa un arma: pegar cuerpo a cuerpo (y devolver el golpe), disparar
+ * o cargar. Cada uno tiene su hueco (`USO_DEL_HUECO`) y con cuál se da un golpe lo
+ * decide `usoDelGolpe` (`battle/damage.ts`).
+ */
+export type UsoDeArma = 'cuerpo' | 'distancia' | 'carga';
+
+/**
+ * Con qué arma se da un golpe y con qué cifras: la pieza por su id, o `null` si
+ * va con el cuerpo, y el ataque y el daño del cuerpo con todo su equipo salvo las
+ * armas de los otros golpes (`conEquipo`).
+ */
+export interface GolpeConArma {
+  readonly arma: string | null;
+  readonly attack: number;
+  readonly damage: readonly [number, number];
+}
+
+/**
+ * Las armas de una unidad de la arena (`UnitInfo.armas`), un golpe por uso: el de
+ * cuerpo a cuerpo siempre —sus cifras son las de arriba—, y el de distancia y el
+ * de carga si lleva su arma.
+ */
+export type ArmasDeLaUnidad = { readonly cuerpo: GolpeConArma } & Readonly<
+  Partial<Record<Exclude<UsoDeArma, 'cuerpo'>, GolpeConArma>>
+>;
 
 /**
  * El id de un poder de unidad de `data/poderes.json` (`curar`, `bendecir`). Vive
@@ -303,17 +342,80 @@ export interface Veterania {
  * propio desde el 12-10-2026 («hueco propio, no hace falta llenar el hueco»),
  * opcional y vacío en el equipo base. Van sin tilde y en minúscula; al agente
  * viajan en inglés, traducidos en un solo sitio (`contract/huecos.ts`).
+ *
+ * Son los del juego: el héroe, la tropa, el botín, la armería y el agente. La
+ * arena tiene dos más (`HUECOS_DE_LA_ARENA`), y que el juego no los nombre lo
+ * dice el compilador: `Equipo` no tiene dónde ponerlos.
  */
 export const HUECOS = ['arma', 'armadura', 'accesorio', 'escudo'] as const;
 
 export type Hueco = (typeof HUECOS)[number];
 
 /**
- * Si el texto `x` nombra un hueco: la pregunta de las puertas por las que un hueco
- * llega como texto (la sesión del cliente, `equipoBlocker` y el × de la arena).
+ * Los huecos de la arena (13-10-2026, «cada arma para lo suyo»): los del juego y
+ * dos de arma más, `distancia`, la que dispara, y `carga`, la lanza con que se
+ * carga; `arma` es la de cuerpo a cuerpo. El hueco dice para qué sirve el arma
+ * (`USO_DEL_HUECO`) y con cuál se da cada golpe lo elige `usoDelGolpe`
+ * (`battle/damage.ts`). Ninguna pieza del juego va en ellos (`validarEquipo`).
+ * En el orden de siempre con los dos nuevos detrás del arma.
  */
+export const HUECOS_DE_LA_ARENA = [
+  'arma',
+  'distancia',
+  'carga',
+  'armadura',
+  'accesorio',
+  'escudo',
+] as const satisfies readonly (Hueco | UsoDeArma)[];
+
+export type HuecoDeArena = (typeof HUECOS_DE_LA_ARENA)[number];
+
+/** Si el texto `x` nombra un hueco del juego: la pregunta de la sesión de la partida. */
 export function esHueco(x: string): x is Hueco {
   return (HUECOS as readonly string[]).includes(x);
+}
+
+/**
+ * Si el texto `x` nombra un hueco de la arena: la pregunta de las puertas por las
+ * que un hueco llega como texto a la arena (`equipoBlocker` y el × y el
+ * desplegable de su página).
+ */
+export function esHuecoDeArena(x: string): x is HuecoDeArena {
+  return (HUECOS_DE_LA_ARENA as readonly string[]).includes(x);
+}
+
+/**
+ * Si `h` es el hueco de un arma por uso, la de un golpe que no es el de cuerpo a
+ * cuerpo (`distancia`, `carga`): los que solo tiene la arena. **La única
+ * pregunta**: su ataque y su daño no suman arriba (`conEquipo`), una pieza del
+ * juego no va en ellos (`validarEquipo`) y lo de antes que iba en `arma` pasa a
+ * ellos (`armasEnSuHueco`).
+ */
+export function esArmaPorUso(h: HuecoDeArena): h is Exclude<HuecoDeArena, Hueco> {
+  return !esHueco(h);
+}
+
+/**
+ * Para qué sirve el arma de cada hueco de arma: el hueco lo dice, sin un campo en
+ * la pieza que lo repita. Los demás huecos no son de arma y suman a todo golpe.
+ */
+export const USO_DEL_HUECO = {
+  arma: 'cuerpo',
+  distancia: 'distancia',
+  carga: 'carga',
+} as const satisfies Readonly<Partial<Record<HuecoDeArena, UsoDeArma>>>;
+
+/**
+ * Qué campos de arma admite una pieza de cada hueco: las manos, solo el arma de
+ * cuerpo a cuerpo (la regla del escudo mira esa). **La regla, en un sitio**: la
+ * leen el cargador (`problemasDePieza`), el cambio de hueco de una pieza de la
+ * arena (`enElHueco`) y su editor. Los disparos se fueron con la munición
+ * (13-10-2026): dispara quien lleva algo en `distancia`.
+ */
+export function camposDelHueco(h: HuecoDeArena): {
+  readonly conManos: boolean;
+} {
+  return { conManos: h === 'arma' };
 }
 
 /**
@@ -331,6 +433,12 @@ export function huecoDesconocido(x: string, lista: readonly string[]): string {
  * eso las cifras de un veterano se pueden recordar por su hoja.
  */
 export type Equipo = Readonly<Partial<Record<Hueco, string>>>;
+
+/**
+ * Lo que lleva puesto una unidad de la arena: como `Equipo`, con sus dos huecos
+ * de arma más (`HUECOS_DE_LA_ARENA`). Un `Equipo` del juego cabe en él.
+ */
+export type EquipoDeArena = Readonly<Partial<Record<HuecoDeArena, string>>>;
 
 /**
  * La entrada del motor de batalla: un tipo y cuántos. El motor sigue sabiendo

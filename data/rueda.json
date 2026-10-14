@@ -1,0 +1,29 @@
+{
+  "_comment": "La rueda del golpe: el combate por decisión de la ARENA (docs/agents/2026-10-13-rueda-del-golpe/). Solo la arena, con «Golpe: rueda»; el juego, el agente y el banco no la ven. INVENTADO y PROVISIONAL (13-10-2026, decisión del usuario): ninguna cifra sale de una fuente. Porcentajes en enteros: el daño del golpe se multiplica por porcentaje/100 (Fuerte ×1,25; Rápido ×0,6 por golpe). rapido.golpes = por cuánto multiplica los golpes (con double_attack, 2 × 2). ofensivo.ataque, el ataque que suma en el golpe que se da; defensivo.defensa, la defensa que se pone quien lo usa; romperGuardia.defensa y finta.ataque, lo que le quitan a quien lo recibe, al final del intercambio. Los tres efectos duran hasta que el afectado termine su próximo turno. pesos = la mezcla de la IA al elegir (golpe, al atacar; respuesta, al defender): un entero ≥ 0 por tipo, con alguno > 0; la IA elige sin ver lo del otro.",
+  "fuerte": { "porcentaje": 125 },
+  "rapido": { "porcentaje": 60, "golpes": 2 },
+  "ofensivo": { "ataque": 1 },
+  "defensivo": { "defensa": 1 },
+  "romperGuardia": { "defensa": -1 },
+  "finta": { "ataque": -1 },
+  "pesos": {
+    "golpe": {
+      "rapido": 1,
+      "defensivo": 1,
+      "finta": 1,
+      "fuerte": 1,
+      "romperGuardia": 1,
+      "ofensivo": 1,
+      "normal": 1
+    },
+    "respuesta": {
+      "rapido": 1,
+      "defensivo": 1,
+      "finta": 1,
+      "fuerte": 1,
+      "romperGuardia": 1,
+      "ofensivo": 1,
+      "normal": 1
+    }
+  }
+}

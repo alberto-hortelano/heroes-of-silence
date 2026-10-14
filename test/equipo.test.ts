@@ -18,7 +18,9 @@ import { createBattle, stackById } from '../src/core/battle/battle.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import {
   creature,
+  cuentaTiros,
   EQUIPO,
+  isShooter,
   piezaBlocker,
   problemasDePieza,
   validarEquipo,
@@ -28,6 +30,7 @@ import {
   cifrasDePieza,
   conEquipo,
   EQUIPO_BASE,
+  EQUIPO_DEL_JUEGO,
   equipoBlocker,
   equipoCon,
   manosBlocker,
@@ -142,7 +145,22 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(con((ps) => (id(ps, 'escudo').velocidad = 0))).toThrow(
       /"escudo" es un escudo y tiene que restar velocidad/,
     );
-    expect(con((ps) => (id(ps, 'arco').disparos = -2))).toThrow(/disparos tiene que ser/);
+    // Sin munición (13-10-2026): `disparos` ya no es un campo, en ningún hueco.
+    expect(con((ps) => (id(ps, 'arco').disparos = 12))).toThrow(
+      /"arco" trae disparos, y ya no es un campo: un arma a distancia dispara sin munición/,
+    );
+    expect(con((ps) => (id(ps, 'garrote').disparos = 3))).toThrow(
+      /"garrote" trae disparos, y ya no es un campo/,
+    );
+    expect(con((ps) => (id(ps, 'arco').manos = 2))).toThrow(
+      /"arco" va en el hueco distancia y dice manos/,
+    );
+    expect(con((ps) => (id(ps, 'anillo_de_cobre').hueco = 'distancia'))).toThrow(
+      /"anillo_de_cobre" es de calidad comun y va en el hueco distancia, que es solo de la arena/,
+    );
+    expect(con((ps) => (id(ps, 'arco').calidad = 'especial'))).toThrow(
+      /"arco" es de calidad especial y va en el hueco distancia, que es solo de la arena/,
+    );
     expect(con((ps) => (id(ps, 'paves').calidad = 'armeria'))).toThrow(
       /el hueco escudo tiene 1 piezas de armería y no puede tener ninguna/,
     );
@@ -227,23 +245,102 @@ describe('el catálogo de equipo, en datos (C2)', () => {
 describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos manos no lo admiten (12-10-2026)', () => {
   it('`conEquipo` suma daño y tiros, y sin ellos no toca esos campos', () => {
     const campesino = creature('peasant');
-    const conArco = conEquipo(campesino, { arma: 'arco' });
-    expect(conArco.damage).toEqual([campesino.damage[0] + 10, campesino.damage[1] + 20]);
-    expect(conArco.shots).toBe(12);
-    expect(conArco.attack).toBe(campesino.attack + 2);
-    expect(conArco.sinEquipo).toBe(campesino);
+    const conEspada = conEquipo(campesino, { arma: 'espada' });
+    expect(conEspada.damage).toEqual([campesino.damage[0] + 10, campesino.damage[1] + 30]);
+    expect(conEspada.attack).toBe(campesino.attack + 2);
+    expect(conEspada.sinEquipo).toBe(campesino);
+    expect(conEspada).not.toHaveProperty('shots');
     // Sin daño ni tiros que sumar, el objeto no gana esos campos.
     const conCota = conEquipo(campesino, { armadura: 'cota_de_malla' });
     expect(conCota.damage).toBe(campesino.damage);
     expect(conCota).not.toHaveProperty('shots');
+    // Ni el de armas: solo la arena tiene algo en `distancia` o en `carga`.
+    expect(conCota).not.toHaveProperty('armas');
+    expect(conEspada).not.toHaveProperty('armas');
+  });
+
+  it('cada arma para lo suyo (13-10-2026): arriba, el cuerpo a cuerpo; en `armas`, el disparo y la carga', () => {
+    const c = creature('peasant');
+    // Los huecos de arma por uso son de la arena: se viste con sus lecturas atadas.
+    const arena = EQUIPO_DEL_JUEGO;
+    const arquero = arena.conEquipo(c, {
+      arma: 'daga',
+      distancia: 'arco',
+      armadura: 'jubon_de_arquero',
+    });
+    // Arriba, cuerpo + daga + jubón: lo que no es arma suma a todo golpe.
+    expect(arquero.attack).toBe(c.attack + 1);
+    expect(arquero.damage).toEqual([c.damage[0] + 0, c.damage[1] + 10]);
+    expect(arquero.hp).toBe(c.hp + 20);
+    // Sin munición (13-10-2026): el arco no da tiros; llevarlo ya es disparar.
+    expect(arquero).not.toHaveProperty('shots');
+    expect(isShooter(arquero)).toBe(true);
+    expect(cuentaTiros(arquero)).toBe(false);
+    // El golpe, el de arriba con la daga; el disparo, cuerpo + arco + jubón, sin la daga.
+    expect(arquero.armas).toEqual({
+      cuerpo: { arma: 'daga', attack: arquero.attack, damage: arquero.damage },
+      distancia: {
+        arma: 'arco',
+        attack: c.attack + 2,
+        damage: [c.damage[0] + 10, c.damage[1] + 20],
+      },
+    });
+    expect(arquero.sinEquipo).toBe(c);
+    // Sin arma de cuerpo a cuerpo, se pega con el cuerpo.
+    const jinete = arena.conEquipo(c, { carga: 'lanza_de_jinete', armadura: 'barda' });
+    expect(jinete.attack).toBe(c.attack);
+    expect(jinete.damage).toEqual(c.damage);
+    expect(jinete.armas).toEqual({
+      cuerpo: { arma: null, attack: c.attack, damage: c.damage },
+      carga: {
+        arma: 'lanza_de_jinete',
+        attack: c.attack + 7,
+        damage: [c.damage[0] + 40, c.damage[1] + 80],
+      },
+    });
+    // Vestir en dos veces da lo mismo que en una.
+    const enDos = arena.conEquipo(conEquipo(c, { arma: 'daga', armadura: 'jubon_de_arquero' }), {
+      distancia: 'arco',
+    });
+    expect(mismasCifras(enDos, arquero)).toBe(true);
+    expect(enDos.sinEquipo).toBe(c);
+    expect(enDos.equipo).toEqual(arquero.equipo);
+    // La suma por hueco: el arco en `arma` (un kit de antes) suma como sumaba.
     expect(sumaDeEquipo({ arma: 'ballesta', armadura: 'gambeson' })).toEqual({
       ataque: 3,
       defensa: 1,
       pv: 40,
       velocidad: 0,
       danio: [20, 40],
-      disparos: 8,
     });
+    // Y con la ballesta en su hueco, su ataque y su daño son del disparo, no de arriba.
+    expect(
+      arena.sumaDeEquipo({ arma: 'daga', distancia: 'ballesta', armadura: 'gambeson' }),
+    ).toEqual({
+      ataque: 1,
+      defensa: 1,
+      pv: 40,
+      velocidad: 0,
+      danio: [0, 10],
+    });
+  });
+
+  it('el equipo del juego suma lo de siempre, sin la clave de las armas', () => {
+    // Lo que el juego pone: el equipo base del héroe y cualquier pieza del juego.
+    const piquero = creature('pikeman');
+    const conBase = conEquipo(piquero, EQUIPO_BASE);
+    expect(conBase).toStrictEqual({
+      ...piquero,
+      attack: piquero.attack + 3,
+      defense: piquero.defense + 3,
+      hp: piquero.hp,
+      speed: piquero.speed,
+      sinEquipo: piquero,
+      equipo: EQUIPO_BASE,
+    });
+    for (const p of PIEZAS_DEL_JUEGO) {
+      expect(conEquipo(piquero, { [p.hueco]: p.id }), p.id).not.toHaveProperty('armas');
+    }
   });
 
   it('`mismasCifras` ve todo lo que suma una pieza: ninguna deja las cifras iguales', () => {
@@ -273,7 +370,10 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     expect(modificadoresDePieza(pieza('arco'))).toEqual([
       { kind: 'cifra', cifra: 'ataque', valor: 2 },
       { kind: 'cifra', cifra: 'danio', valor: 10, hasta: 20 },
-      { kind: 'cifra', cifra: 'disparos', valor: 12 },
+    ]);
+    expect(modificadoresDePieza(pieza('mandoble'))).toEqual([
+      { kind: 'cifra', cifra: 'ataque', valor: 5 },
+      { kind: 'cifra', cifra: 'danio', valor: 30, hasta: 60 },
       { kind: 'marca', marca: 'dosManos' },
     ]);
     expect(modificadoresDePieza(pieza('escudo'))).toEqual([
@@ -311,20 +411,30 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     expect(manosBlocker({ arma: 'mandoble' }, 'escudo')).toBe(
       'Escudo no se puede llevar con Mandoble: es un arma a dos manos y no deja mano para el escudo',
     );
-    expect(manosBlocker({ escudo: 'rodela' }, 'ballesta')).toBe(
-      'Ballesta es un arma a dos manos y no se puede llevar con Rodela: quita antes el escudo',
+    expect(manosBlocker({ escudo: 'rodela' }, 'baston')).toBe(
+      'Bastón es un arma a dos manos y no se puede llevar con Rodela: quita antes el escudo',
     );
     // Una mano con escudo, sí; y cambiar el arma a dos manos por otra no mira
     // lo que se quita.
     expect(manosBlocker({ arma: 'espada' }, 'escudo')).toBeNull();
-    expect(manosBlocker({ arma: 'mandoble' }, 'arco')).toBeNull();
+    expect(manosBlocker({ arma: 'mandoble' }, 'baston')).toBeNull();
     expect(manosBlocker({ arma: 'mandoble' }, 'espada_de_armeria')).toBeNull();
     // `ponerPieza` es la última puerta: lanza con el mismo motivo.
     expect(() => ponerPieza({ arma: 'mandoble' }, 'escudo')).toThrow(
       'no se puede poner Escudo: Escudo no se puede llevar con Mandoble',
     );
-    expect(equipoBlocker({ arma: 'arco', escudo: 'paves' })).toMatch(/Arco es un arma a dos manos/);
+    expect(equipoBlocker({ arma: 'mandoble', escudo: 'paves' })).toMatch(
+      /Mandoble es un arma a dos manos/,
+    );
     expect(equipoBlocker({ arma: 'espada', escudo: 'paves' })).toBeNull();
+    // Solo mira el arma de cuerpo a cuerpo (13-10-2026): el arco a la espalda y
+    // la lanza de la carga dejan llevar escudo.
+    const arena = EQUIPO_DEL_JUEGO;
+    expect(arena.manosBlocker({ distancia: 'arco' }, 'paves')).toBeNull();
+    expect(arena.manosBlocker({ escudo: 'paves' }, 'ballesta')).toBeNull();
+    expect(arena.equipoBlocker({ arma: 'daga', distancia: 'arco', escudo: 'paves' })).toBeNull();
+    expect(arena.equipoBlocker({ carga: 'lanza_de_jinete', escudo: 'escudo' })).toBeNull();
+    expect(arena.equipoBlocker({ arma: 'arco' })).toBe('Arco va en Arma a distancia, no en Arma');
   });
 
   it('el juego lo rechaza con su motivo: equipar un mandoble a quien lleva escudo y al revés', () => {

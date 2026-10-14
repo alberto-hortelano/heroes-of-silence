@@ -1,10 +1,12 @@
 /**
  * Las piezas con que se valida un JSON a mano en el núcleo: un entero con su
- * mínimo, un texto no vacío, una lista y lo repetido. Cada una lanza diciendo
- * de quién y qué campo (`quien`, `campo`), para la persona que editó el fichero.
+ * mínimo, un texto no vacío, un objeto con sus campos, una lista y lo repetido.
+ * Cada una lanza diciendo de quién y qué campo (`quien`, `campo`), para la
+ * persona que editó el fichero.
  *
- * Sin dependencias: las usan la arena (`arena.ts`, `arena-murallas.ts`) y los
- * poderes (`battle/poderes.ts`), que antes llevaban cada uno su copia.
+ * Sin dependencias: las usan la arena (`arena.ts`, `arena-murallas.ts`), los
+ * poderes (`battle/poderes.ts`) y la rueda del golpe (`battle/rueda.ts`), que
+ * antes llevaban cada uno su copia.
  */
 
 /** Un número entero de `minimo` en adelante. */
@@ -31,6 +33,23 @@ export function texto(valor: unknown, campo: string, quien: string): string {
     throw new Error(`${quien}: ${campo} tiene que ser un texto no vacío`);
   }
   return valor;
+}
+
+/** Un objeto con solo los campos `campos` (no mira si están todos), o lanza diciendo cuál sobra. */
+export function objetoCon(
+  valor: unknown,
+  campos: readonly string[],
+  quien: string,
+): Record<string, unknown> {
+  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+    throw new Error(`${quien}: tiene que ser un objeto`);
+  }
+  const o = valor as Record<string, unknown>;
+  const ajeno = Object.keys(o).find((k) => !campos.includes(k));
+  if (ajeno !== undefined) {
+    throw new Error(`${quien}: «${ajeno}» no es un campo; valen ${campos.join(', ')}`);
+  }
+  return o;
 }
 
 /** Una lista, sin mirar lo de dentro. */

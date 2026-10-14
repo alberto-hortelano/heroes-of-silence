@@ -59,6 +59,7 @@ import {
   DEL_JUEGO,
   forzarTurno,
   peleaDeArena,
+  peleaDelMotor,
   sesionDeArena,
   unidadDeArena,
 } from './helpers.js';
@@ -457,10 +458,11 @@ describe('la escalera', () => {
 
   it('la escalera del montaje solo llega a quien puede ponerla', () => {
     const conLaSuya = (unidad: ReturnType<typeof unidadDeArena>) => ({ unidad, escalera: true });
-    const state = peleaDeArena(
+    // La grande, por el motor: la arena ya no hace unidades de dos casillas.
+    const state = peleaDelMotor(
       [
         conLaSuya(unidadDeArena('zombi')),
-        conLaSuya(unidadDeArena('zombi', { hexes: 2 })),
+        { ...conLaSuya(unidadDeArena('zombi')), grande: true },
         conLaSuya(unidadDeArena('zombi', { traits: ['flying'] })),
       ],
       [conLaSuya(unidadDeArena('zombi'))],
@@ -519,14 +521,10 @@ describe('la IA con la muralla alta', () => {
 
   it('el que sabe escalar sube sin escalera', () => {
     const trepa = unidadDeArena('zombi', { traits: ['escalar'] });
-    // Defensores de dos casillas: no suben, así que no salen a buscarle por arriba.
-    const grande = unidadDeArena('zombi', { hexes: 2 });
-    const state = peleaDeArena(
-      aPelear([trepa, trepa]),
-      aPelear([grande, grande]),
-      createRng(2),
-      LINEA,
-    );
+    // Defensores de dos casillas (por el motor): no suben, así que no salen a
+    // buscarle por arriba.
+    const grande = { unidad: unidadDeArena('zombi'), grande: true };
+    const state = peleaDelMotor(aPelear([trepa, trepa]), [grande, grande], createRng(2), LINEA);
     autoResolve(state, createRng(2));
     expect(state.finished).not.toBeNull();
     const kinds = state.log.map((e) => e.kind);
@@ -535,8 +533,8 @@ describe('la IA con la muralla alta', () => {
   });
 
   it('la grande no va a por una escalera puesta: no podría subir por ella', () => {
-    const state = peleaDeArena(
-      aPelear([unidadDeArena('zombi', { hexes: 2 })]),
+    const state = peleaDelMotor(
+      [{ unidad: unidadDeArena('zombi'), grande: true }],
       aPelear([unidadDeArena('zombi')]),
       createRng(1),
       LINEA,
@@ -819,19 +817,17 @@ describe('tras QA', () => {
   });
 
   it('«Lleva escalera» sale deshabilitada, con su motivo, a quien no la usaría (M1)', () => {
+    // Sin la de dos casillas: la arena ya no las hace (13-10-2026); su regla la
+    // prueba el motor («la escalera del montaje solo llega a quien puede ponerla»).
     const anda = unidadDeArena('zombi');
-    const grande = unidadDeArena('zombi', { hexes: 2 });
     const vuela = unidadDeArena('zombi', { traits: ['flying'] });
     expect(
       escaleraDeArenaBlocker({ kind: 'borrador', unidad: anda }, 'izquierda', DEL_JUEGO),
     ).toBeNull();
     expect(
-      escaleraDeArenaBlocker({ kind: 'borrador', unidad: grande }, 'izquierda', DEL_JUEGO),
-    ).toBe('una unidad de dos casillas no sube a la muralla');
-    expect(
       escaleraDeArenaBlocker({ kind: 'borrador', unidad: vuela }, 'izquierda', DEL_JUEGO),
     ).toBe('vuela: se posa en la muralla sin escalera');
-    const unidades = [anda, grande, vuela];
+    const unidades = [anda, vuela];
     const marcado = marcadoDe(
       renderBando(
         'izquierda',
@@ -865,9 +861,7 @@ describe('tras QA', () => {
     expect(casillas).toEqual([
       '<input type="checkbox" data-arena="escalera" data-clave="0" checked>',
       '<input type="checkbox" data-arena="escalera" data-clave="1" disabled>',
-      '<input type="checkbox" data-arena="escalera" data-clave="2" disabled>',
     ]);
-    expect(marcado).toContain('No la usa: una unidad de dos casillas no sube a la muralla.');
     expect(marcado).toContain('No la usa: vuela: se posa en la muralla sin escalera.');
   });
 

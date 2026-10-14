@@ -12,13 +12,10 @@
  */
 
 import {
-  type CambiosDeCatalogo,
   CON_PIEZAS,
   cambioDePiezaBlocker,
   catalogoDeLaArena,
-  cifrasDeCatalogoEnLaArena,
   conPieza,
-  criaturasDelCatalogo,
   despliegueDeArenaBlocker,
   enElHueco,
   equiparEnArena,
@@ -80,18 +77,24 @@ import {
   reglasALaURL,
   reglasDeLaURL,
 } from '@core/battle/reglas.js';
+import {
+  contraataqueDelCruce,
+  type HechoDelCruce,
+  type ModoDelGolpe,
+  modoDelGolpeALaURL,
+  modoDelGolpeDeLaURL,
+} from '@core/battle/rueda.js';
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleAction, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
-import { creature, LIDERAZGO, type Pieza } from '@core/data.js';
+import { LIDERAZGO, type Pieza } from '@core/data.js';
 import { type EquipoAtado, idsPuestos } from '@core/hero/equipo.js';
 import { parseSeed } from '@core/rng.js';
 import {
   type CreatureTrait,
-  esHueco,
+  esHuecoDeArena,
   type Hex,
-  type Hueco,
+  type HuecoDeArena,
   RESOURCE_KINDS,
-  type UnitInfo,
 } from '@core/types.js';
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
@@ -119,7 +122,7 @@ import {
   registrarUnidad,
 } from '../render/personajes.js';
 import { semillaSorteada } from '../semilla.js';
-import { type LadoDeSesion, SesionDeArena } from '../session.js';
+import { type LadoDeSesion, type RuedaPendiente, SesionDeArena } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import {
   abiertasATexto,
@@ -134,7 +137,6 @@ import {
   interiorDeFichaAbierta,
   leerAbiertas,
   listaPlegadaTras,
-  partirClave,
   renderEdicion,
 } from './edicion.js';
 import {
@@ -158,16 +160,23 @@ import {
   renderEnlace,
   renderEquipo,
   renderFicha,
-  renderFichaDeCatalogo,
   renderFichaDeHeroe,
+  renderGolpe,
   renderMuralla,
   renderPanelDeBatalla,
   renderReglas,
   resumenDeCifras,
-  resumenDeUnidad,
+  rotuloDelTurno,
   sinGuardarEnPalabras,
   type TarjetaDeUnidad,
 } from './paneles.js';
+import {
+  ajustarLaRueda,
+  renderDesenlace,
+  renderEleccion,
+  tipoDeLaTecla,
+  tramosDelDesenlace,
+} from './rueda.js';
 
 const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -193,6 +202,8 @@ const botonVolverDeEquipo = document.querySelector(
 const botonLuchar = document.querySelector('[data-arena="luchar"]') as HTMLElement;
 /** El editor de la batalla: la ficha de lo elegido, que cambia todo su tipo ya en la pelea. */
 const editor = document.getElementById('editor-en-combate') as HTMLDialogElement;
+/** La rueda del golpe (`rueda.ts`): modal sobre el lienzo, mientras se elige y se cuenta un cruce. */
+const elRueda = document.getElementById('rueda') as HTMLDialogElement;
 const elFichaDelEditor = document.getElementById('ficha-del-editor') as HTMLElement;
 const elAvisoDelEditor = document.getElementById('aviso-del-editor') as HTMLElement;
 const elBando: Record<Lado, HTMLElement> = {
@@ -304,12 +315,6 @@ const heroes: Record<Lado, HeroeDeArena | null> = { izquierda: null, derecha: nu
  * izquierda la persona y la derecha la IA; se cambia con Yo / IA en su cabecera.
  */
 const iaDelBando: Record<Lado, boolean> = { ...IA_POR_DEFECTO };
-/**
- * Los cambios de prueba a las criaturas del catálogo, por tipo como el borrador.
- * **No se guardan**: ni en `data/creatures.json` ni en el borrador; se pierden al
- * cerrar la página, y la ficha lo dice.
- */
-const pruebas = new Map<string, CambiosDeCatalogo>();
 let filtro: FiltroDeArena = 'todas';
 /**
  * La ficha que enseñan el montaje y el editor de la batalla. Solo dice cuál se
@@ -497,6 +502,17 @@ try {
 }
 
 /**
+ * Cómo cae el golpe cuerpo a cuerpo: al azar, salvo que la URL pida la rueda
+ * (`?golpe=rueda`). Va con las reglas en la URL; lo que no es un modo se dice.
+ */
+let golpe: ModoDelGolpe = 'azar';
+try {
+  golpe = modoDelGolpeDeLaURL(unaVezEnLaURL(parametros.getAll('golpe'), 'golpe'));
+} catch (err) {
+  avisoDeSemilla += `${mensaje(err)} — se pelea con el golpe al azar. `;
+}
+
+/**
  * El enlace de la pelea que se copió por última vez (`?montaje=`, H6 de QA del
  * banco), para enseñarlo en su campo mientras siga siendo el del montaje: si
  * algo cambia después, ya no lo es y se deja de enseñar.
@@ -515,28 +531,16 @@ function reglasALaBarra(cambiar: (url: URL) => void = () => {}): void {
   const enURL = reglasALaURL(reglas);
   if (enURL === '') url.searchParams.delete('reglas');
   else url.searchParams.set('reglas', enURL);
+  // El golpe, igual: al azar no se escribe.
+  const golpeEnURL = modoDelGolpeALaURL(golpe);
+  if (golpeEnURL === '') url.searchParams.delete('golpe');
+  else url.searchParams.set('golpe', golpeEnURL);
   history.replaceState(null, '', `${url.pathname}${url.search.replace(/%2C/g, ',')}${url.hash}`);
 }
 
-/** Las cifras con las que pelearía una criatura del catálogo: las suyas o las de su prueba. */
-function cifrasDelCatalogo(id: string): UnitInfo {
-  const cambios = pruebas.get(id);
-  return cambios === undefined ? creature(id) : cifrasDeCatalogoEnLaArena(id, cambios);
-}
-
-/**
- * De dónde sale un puesto al pelear: la hoja con sus cifras del borrador o la
- * criatura con su prueba, y su escalera.
- */
+/** De dónde sale un puesto al pelear: la unidad con sus cifras del borrador, y su escalera. */
 function fuenteDeArena(p: Puesto): FuenteDeArena {
-  return p.fuente.kind === 'unidad'
-    ? { kind: 'borrador', unidad: unidadDe(p.fuente.unidad), escalera: p.escalera }
-    : {
-        kind: 'catalogo',
-        id: p.fuente.id,
-        cambios: pruebas.get(p.fuente.id) ?? null,
-        escalera: p.escalera,
-      };
+  return { kind: 'borrador', unidad: unidadDe(p.fuente.unidad), escalera: p.escalera };
 }
 
 /** El montaje de ahora, como lo pelearía el núcleo: lo leen «Luchar» y el aviso de la muralla. */
@@ -554,33 +558,22 @@ function montajeDeArena(): MontajeDeArena {
   };
 }
 
-/** Lo que la tarjeta de un puesto de `lado` enseña, salga de donde salga. */
+/** Lo que la tarjeta de un puesto de `lado` enseña. */
 function describir(p: Puesto, lado: Lado): DatosDePuesto {
-  const noEscala = escaleraDeArenaBlocker(fuenteDeArena(p), lado, catalogo());
-  if (p.fuente.kind === 'unidad') {
-    const u = unidadDe(p.fuente.unidad);
-    return {
-      nombre: u.name,
-      resumen: resumenDeCifras(u, catalogo()),
-      figura: figuraDeLaUnidad(u),
-      sello: 'borrador',
-      noEscala,
-    };
-  }
-  const u = cifrasDelCatalogo(p.fuente.id);
+  const u = unidadDe(p.fuente.unidad);
   return {
     nombre: u.name,
-    resumen: resumenDeUnidad(u),
-    figura: p.fuente.id,
-    sello: pruebas.has(p.fuente.id) ? 'catálogo · prueba que no se guarda' : 'catálogo',
-    noEscala,
+    resumen: resumenDeCifras(u, catalogo()),
+    figura: figuraDeLaUnidad(u),
+    sello: 'borrador',
+    noEscala: escaleraDeArenaBlocker(fuenteDeArena(p), lado, catalogo()),
   };
 }
 
-/** El nombre de quien se pinta en una miniatura: una hoja, una criatura o el héroe genérico. */
+/** El nombre de quien se pinta en una miniatura: una hoja o el héroe genérico. */
 function nombreDeFigura(id: string): string {
   if (id === FIGURA_GENERICA) return 'Héroe';
-  return hojasPorId.get(id)?.nombre ?? creature(id).name;
+  return hojaPorId(id).nombre;
 }
 
 /** Las hojas de héroe completas, para elegir la figura del héroe. */
@@ -613,11 +606,10 @@ function unidadDe(id: string): UnidadDeArena {
 
 /**
  * Por qué la unidad `u` no se monta, o `null` si se monta: la hoja de su cuerpo
- * no está o está a medias en el taller (#140). Una criatura del catálogo se
- * monta siempre. Nunca se pinta con el Y Bot en su lugar.
+ * no está o está a medias en el taller (#140). Nunca se pinta con el Y Bot en su
+ * lugar.
  */
 function porQueNoSeMonta(u: UnidadDeArena): string | null {
-  if (!('hoja' in u.cuerpo)) return null;
   const hoja = u.cuerpo.hoja;
   const h = hojasPorId.get(hoja);
   if (h === undefined) return `su hoja «${hoja}» no está en assets/unidades/`;
@@ -627,8 +619,7 @@ function porQueNoSeMonta(u: UnidadDeArena): string | null {
 /**
  * Lo que la lista enseña además de las hojas, en el montaje y en la edición: las
  * unidades nuevas del borrador (las que no son la de una hoja), con el retrato de
- * su hoja o la figura de su criatura, y los cuerpos que ofrece «Nueva unidad»
- * (las hojas con su arte entero y el catálogo).
+ * su hoja, y los cuerpos que ofrece «Nueva unidad» (las hojas con su arte entero).
  */
 function listaDeUnidades(): ListaDeUnidades {
   const nuevas = [...borrador.values()]
@@ -638,7 +629,7 @@ function listaDeUnidades(): ListaDeUnidades {
         id: u.id,
         nombre: u.name,
         faccion: u.faction,
-        figura: 'hoja' in u.cuerpo ? { retrato: u.cuerpo.hoja } : { figura: figuraDeLaUnidad(u) },
+        retrato: u.cuerpo.hoja,
         sello: 'nueva',
         incompleta: porQueNoSeMonta(u),
       }),
@@ -649,33 +640,23 @@ function listaDeUnidades(): ListaDeUnidades {
       hojas: hojas
         .filter((h) => h.incompleta === null)
         .map((h) => ({ id: h.id, nombre: h.nombre })),
-      criaturas: criaturasDelCatalogo(),
     },
   };
 }
 
 /**
- * Crea una unidad nueva con el cuerpo elegido (`hoja:<id>` o `criatura:<id>`), la
- * mete en el borrador y la deja elegida; en la edición, además, abre su ficha.
+ * Crea una unidad nueva con el cuerpo elegido (el id de su hoja), la mete en el
+ * borrador y la deja elegida; en la edición, además, abre su ficha.
  */
 function crearUnidad(valor: string): string | null {
   if (valor === '') {
     aviso = 'Elige primero un cuerpo para la unidad nueva.';
     return null;
   }
-  const partido = partirClave(valor);
-  let cuerpo: Parameters<typeof unidadNueva>[0];
-  if (partido?.tipo === 'hoja') {
-    const h = hojaPorId(partido.id);
-    if (h.incompleta !== null) throw new Error(`${h.nombre} no se monta: ${h.incompleta}`);
-    cuerpo = { hoja: h };
-  } else if (partido?.tipo === 'criatura') {
-    cuerpo = { criatura: creature(partido.id).id };
-  } else {
-    throw new Error(`«${valor}» no es un cuerpo: se esperaba hoja:<id> o criatura:<id>`);
-  }
+  const h = hojaPorId(valor);
+  if (h.incompleta !== null) throw new Error(`${h.nombre} no se monta: ${h.incompleta}`);
   const u = unidadNueva(
-    cuerpo,
+    h,
     {
       validas: [...borrador.keys()],
       sinValidar: idsSinValidar,
@@ -829,7 +810,7 @@ async function arrancar(): Promise<void> {
   if (sinHoja.length > 0) aviso += ` No se pueden montar: ${sinHoja.join(', ')}.`;
   const avisos = cuerpo.avisos ?? [];
   if (avisos.length > 0) {
-    aviso += ` Convertidas a cuerpo y equipo al leerlas (se guardan así al pulsar Guardar). ${avisos.join(' ')}`;
+    aviso += ` Convertidas al formato de hoy al leerlas (se guardan así al pulsar Guardar). ${avisos.join(' ')}`;
     for (const id of borrador.keys()) unidadesSinGuardar.add(id);
   }
   idsSinValidar = invalidas.flatMap((i) => (typeof i.id === 'string' ? [i.id] : []));
@@ -999,19 +980,6 @@ let figuras: {
 }[] = [];
 
 /**
- * La lista del catálogo del juego con el resumen de cada criatura: las cifras del
- * catálogo, que no cambian en la página. Se monta la primera vez que se enseña.
- */
-let listaDelCatalogo: readonly { id: string; name: string; resumen: string }[] | null = null;
-function criaturasDeLaLista(): readonly { id: string; name: string; resumen: string }[] {
-  listaDelCatalogo ??= criaturasDelCatalogo().map((c) => ({
-    ...c,
-    resumen: resumenDeUnidad(creature(c.id)),
-  }));
-  return listaDelCatalogo;
-}
-
-/**
  * Lo último que se pintó en cada miniatura: se repinta solo si cambia su
  * fotograma, su clip, su dirección o su hoja. Un reposo a 8 fps repintaba cada
  * miniatura sesenta veces por segundo para enseñar ocho fotogramas distintos.
@@ -1068,13 +1036,11 @@ function repintarMontaje(): void {
       );
     }
     pintar(elFicha, fichaElegida());
-    const criaturas = filtro === 'catalogo' ? criaturasDeLaLista() : [];
     pintar(
       elCatalogo,
-      html`${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(
+      html`${renderGolpe(golpe)}${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(
         hojas,
         filtro,
-        criaturas,
         { kind: 'montaje' },
         listaDeUnidades(),
       )}`,
@@ -1102,11 +1068,9 @@ function fichaAbierta(f: FichaEditable): FichaAbierta {
 /** La vista de edición: la lista con «Abrir» y las fichas abiertas. */
 function repintarEdicion(): void {
   pintarVista(elEdicion, () => {
-    const criaturas = filtro === 'catalogo' ? criaturasDeLaLista() : [];
     const lista = renderCatalogo(
       hojas,
       filtro,
-      criaturas,
       { kind: 'edicion', abiertas, plegada: listaPlegada },
       listaDeUnidades(),
     );
@@ -1186,7 +1150,7 @@ function conCampoDePieza(p: Pieza, campo: string, valor: string): unknown {
     case 'hueco':
       // Lo que el hueco exige va con él (`enElHueco`): una nueva pasada a escudo
       // resta velocidad sin pedirlo aparte.
-      if (!esHueco(valor)) throw new Error(`«${valor}» no es un hueco`);
+      if (!esHuecoDeArena(valor)) throw new Error(`«${valor}» no es un hueco`);
       return enElHueco(p, valor);
     case 'manos':
       return { ...p, manos: n };
@@ -1198,7 +1162,6 @@ function conCampoDePieza(p: Pieza, campo: string, valor: string): unknown {
     case 'defensa':
     case 'pv':
     case 'velocidad':
-    case 'disparos':
       return { ...p, [campo]: n };
     default:
       throw new Error(`la ficha de la pieza no tiene un campo «${campo}»`);
@@ -1260,7 +1223,7 @@ function enfocar(foco: FocoTrasCerrar): void {
   const quien =
     foco.kind === 'cerrar'
       ? `article[data-clave-de-ficha="${CSS.escape(foco.clave)}"] [data-arena="cerrar-ficha"]`
-      : `[data-arena="abrir-ficha"][${foco.ficha.kind === 'unidad' ? 'data-unidad' : 'data-criatura'}="${CSS.escape(foco.ficha.id)}"]`;
+      : `[data-arena="abrir-ficha"][data-unidad="${CSS.escape(foco.ficha.id)}"]`;
   const destino =
     elEdicion.querySelector<HTMLElement>(quien) ??
     elEdicion.querySelector<HTMLElement>('[data-arena="filtro"].primary');
@@ -1269,12 +1232,9 @@ function enfocar(foco: FocoTrasCerrar): void {
   destino.focus();
 }
 
-/**
- * El nombre de lo que enseña una ficha: el de su unidad (del borrador, con el
- * nombre que se le haya puesto) o el de su criatura.
- */
+/** El nombre de lo que enseña una ficha: el de su unidad, del borrador, con el que se le haya puesto. */
 function nombreDeFicha(f: FichaEditable): string {
-  return f.kind === 'unidad' ? unidadDe(f.id).name : creature(f.id).name;
+  return unidadDe(f.id).name;
 }
 
 /**
@@ -1345,8 +1305,7 @@ function puestoPorClave(clave: number): { lado: Lado; i: number; p: Puesto } {
 }
 
 /**
- * La ficha de lo elegido: una hoja, una criatura del catálogo o el héroe de un
- * lado. `enCombate`: la del editor de la batalla, sin figura animada (el bucle
+ * La ficha de lo elegido: una unidad o el héroe de un lado. `enCombate`: la del editor de la batalla, sin figura animada (el bucle
  * de las miniaturas no corre en la batalla) y diciendo que el cambio vale ya.
  */
 function fichaElegida(enCombate = false): Html {
@@ -1370,8 +1329,6 @@ function fichaDe(e: Elegida | null, como0: ComoDeLaFicha): Html {
       const u = unidadDe(e.id);
       return renderFicha(u, arteDe(figuraDeLaUnidad(u)).dispara, como);
     }
-    case 'catalogo':
-      return renderFichaDeCatalogo(e.id, cifrasDelCatalogo(e.id), pruebas.has(e.id), como);
     case 'heroe': {
       const h = heroes[e.lado];
       if (h === null) return renderFicha(null, false, como0);
@@ -1382,8 +1339,8 @@ function fichaDe(e: Elegida | null, como0: ComoDeLaFicha): Html {
 
 /**
  * En plena pelea, un cambio entra antes en la batalla (`SesionDeArena.retocar`):
- * devuelve por qué no entra, y entonces no se escribe nada —ni el borrador, ni la
- * prueba, ni el héroe—; `null` si ha entrado o si no hay pelea que retocar.
+ * devuelve por qué no entra, y entonces no se escribe nada —ni el borrador ni el
+ * héroe—; `null` si ha entrado o si no hay pelea que retocar.
  */
 function retocarLaPelea(r: RetoqueDeArena): string | null {
   return sesion === null ? null : sesion.retocar(r);
@@ -1475,44 +1432,20 @@ function añadir(lado: Lado, fuente: FuenteDePuesto, escalera = false): void {
     aviso = `El bando ${adjetivo} ya lleva ${caben}: no cabe ninguna más.`;
     return;
   }
-  if (fuente.kind === 'unidad') {
-    const u = unidadDe(fuente.unidad);
-    const motivo = porQueNoSeMonta(u);
-    if (motivo !== null) {
-      aviso = `${u.name} no se monta: ${motivo}.`;
-      return;
-    }
-    // La unidad entra en el borrador al montarla: es lo que se probó y lo que se guarda.
-    if (!borrador.has(u.id)) {
-      borrador.set(u.id, u);
-      unidadesSinGuardar.add(u.id);
-    }
-    elegida = { kind: 'unidad', id: u.id };
-  } else {
-    elegida = { kind: 'catalogo', id: creature(fuente.id).id };
+  const u = unidadDe(fuente.unidad);
+  const motivo = porQueNoSeMonta(u);
+  if (motivo !== null) {
+    aviso = `${u.name} no se monta: ${motivo}.`;
+    return;
   }
+  // La unidad entra en el borrador al montarla: es lo que se probó y lo que se guarda.
+  if (!borrador.has(u.id)) {
+    borrador.set(u.id, u);
+    unidadesSinGuardar.add(u.id);
+  }
+  elegida = { kind: 'unidad', id: u.id };
   montaje[lado].push({ clave: siguienteClave++, fuente, escalera });
   aviso = `${describir({ clave: 0, fuente, escalera }, lado).nombre} entra en el bando ${adjetivo}.`;
-}
-
-/** Cambia la prueba de una criatura del catálogo, comprobada: lo que no cuadra se dice y no entra. */
-function cambiarPrueba(id: string, cambio: (c: CambiosDeCatalogo) => CambiosDeCatalogo): void {
-  try {
-    const nuevos = cambio(pruebas.get(id) ?? {});
-    cifrasDeCatalogoEnLaArena(id, nuevos);
-    const motivo = retocarLaPelea({
-      kind: 'tipo',
-      fuente: { kind: 'catalogo', id, cambios: nuevos },
-    });
-    if (motivo !== null) {
-      noSeCambia(motivo);
-      return;
-    }
-    pruebas.set(id, nuevos);
-    avisoTrasCambio(`${creature(id).name}: prueba que no se guarda en data/creatures.json.`);
-  } catch (err) {
-    noSeCambia(`${mensaje(err)}.`);
-  }
 }
 
 /** Cambia el héroe de un lado, comprobado. */
@@ -1564,15 +1497,6 @@ function conCampo(u: UnidadDeArena, campo: string, valor: string): unknown {
       return { ...u, damage: [u.damage[0], n] };
     case 'gold':
       return { ...u, cost: { gold: n } };
-    case 'shots': {
-      // 0 disparos es cuerpo a cuerpo: el campo se va, como en el catálogo.
-      const { shots: _fuera, ...resto } = u;
-      return n === 0 ? resto : { ...u, shots: n };
-    }
-    case 'hexes': {
-      const { hexes: _fuera, ...resto } = u;
-      return n === 1 ? resto : { ...u, hexes: n };
-    }
     case 'casillas':
     case 'attack':
     case 'defense':
@@ -1649,28 +1573,15 @@ window.addEventListener('beforeunload', (ev) => {
 
 /**
  * El montaje de ahora tal como va en el enlace: los puestos y héroes de cada
- * lado, las cifras de cada hoja montada (guardadas o no) y la prueba de cada
- * criatura del catálogo montada que la lleve.
+ * lado y las cifras de cada unidad montada (guardadas o no).
  */
 function montajeDelEnlace(): MontajeDelEnlace {
   const todos = [...montaje.izquierda, ...montaje.derecha];
-  const unidadesMontadas = [
-    ...new Set(todos.flatMap((p) => (p.fuente.kind === 'unidad' ? [p.fuente.unidad] : []))),
-  ];
-  const pruebasMontadas: Record<string, CambiosDeCatalogo> = {};
-  for (const p of todos) {
-    const cambios = p.fuente.kind === 'catalogo' ? pruebas.get(p.fuente.id) : undefined;
-    if (p.fuente.kind === 'catalogo' && cambios !== undefined) {
-      pruebasMontadas[p.fuente.id] = cambios;
-    }
-  }
+  const unidadesMontadas = [...new Set(todos.map((p) => p.fuente.unidad))];
   const lado = (l: Lado) => ({
     ia: iaDelBando[l],
     puestos: montaje[l].map(
-      (p): PuestoDelEnlace =>
-        p.fuente.kind === 'unidad'
-          ? { kind: 'unidad', unidad: p.fuente.unidad, escalera: p.escalera }
-          : { kind: 'catalogo', id: p.fuente.id, escalera: p.escalera },
+      (p): PuestoDelEnlace => ({ unidad: p.fuente.unidad, escalera: p.escalera }),
     ),
     heroe: heroes[l],
   });
@@ -1679,7 +1590,6 @@ function montajeDelEnlace(): MontajeDelEnlace {
   return {
     unidades,
     piezas: piezasDelMontaje(unidades, conHeroe, piezasEnUso()),
-    pruebas: pruebasMontadas,
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
     muralla: hayMuralla(muralla) ? muralla : null,
@@ -1695,6 +1605,8 @@ function enlaceDe(semilla: number): string {
   url.searchParams.set('seed', String(semilla));
   const enURL = reglasALaURL(reglas);
   if (enURL !== '') url.searchParams.set('reglas', enURL);
+  const golpeEnURL = modoDelGolpeALaURL(golpe);
+  if (golpeEnURL !== '') url.searchParams.set('golpe', golpeEnURL);
   url.searchParams.set('montaje', montajeALaURL(montajeDelEnlace()));
   return url.href.replace(/%2C/g, ',');
 }
@@ -1771,14 +1683,10 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     capaDelEnlace = capa;
     for (const u of m.unidades) borrador.set(u.id, u);
     for (const u of distintas) unidadesSinGuardar.add(u.id);
-    for (const [id, cambios] of Object.entries(m.pruebas)) pruebas.set(id, cambios);
     for (const l of ['izquierda', 'derecha'] as const) {
       montaje[l] = m[l].puestos.map((p) => ({
         clave: siguienteClave++,
-        fuente:
-          p.kind === 'unidad'
-            ? { kind: 'unidad', unidad: p.unidad }
-            : { kind: 'catalogo', id: p.id },
+        fuente: { kind: 'unidad', unidad: p.unidad },
         escalera: p.escalera,
       }));
       heroes[l] = m[l].heroe;
@@ -1892,6 +1800,7 @@ function luchar(): void {
         reglas,
         muralla,
         piezas: piezasEnUso(),
+        golpe,
       },
       semilla,
     );
@@ -1913,6 +1822,7 @@ function luchar(): void {
 
 function volverAlMontaje(): void {
   if (editor.open) editor.close();
+  cerrarLaRueda();
   sesion = null;
   irA('montaje');
   aviso = 'De vuelta al montaje: todo sigue como estaba.';
@@ -2079,8 +1989,9 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
   batalla.dibujar(principal.ctx, rect.width, rect.height);
   colocarMarco();
   const ocupada = batalla.ocupada;
-  if (paneles === null || paneles.version !== s.version || paneles.ocupada !== ocupada) {
-    paneles = { version: s.version, ocupada };
+  const version = s.version;
+  if (paneles === null || paneles.version !== version || paneles.ocupada !== ocupada) {
+    paneles = { version, ocupada };
     // El parte se lee de arriba abajo y lo último queda al fondo: sigue ahí, o
     // al acabar no se veía lo que acababa de pasar (M11 de QA), salvo que la
     // persona haya subido a leer (#198).
@@ -2088,18 +1999,172 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
     // La barra de arriba, igual que el panel: mientras se cuenta no adelanta ni
     // la ronda ni el final.
     elDay.textContent = ocupada ? 'Batalla' : `Batalla · ronda ${s.battle.round}`;
-    elTurn.textContent = ocupada
-      ? 'Contando…'
-      : s.battle.finished !== null
-        ? 'Terminada'
-        : s.turnoPropio === null
-          ? 'Mueve la IA'
-          : 'Te toca';
+    elTurn.textContent = rotuloDelTurno(s, ocupada);
   }
   // «La batalla ha terminado» espera a que el tablero llegue al final.
   const estado = ocupada && s.battle.finished !== null ? '' : s.status;
   if (elStatus.textContent !== estado) elStatus.textContent = estado;
+  pintarLaRueda(s);
 }
+
+/**
+ * Lo que la rueda lleva pintado: el cruce que se cuenta (su hecho del registro) o
+ * la elección que espera la sesión (`ruedaPendiente`, el mismo objeto mientras
+ * dura su fase). Se repinta solo al cambiar, por identidad: repintar en cada
+ * fotograma reiniciaría las animaciones del desenlace.
+ */
+let ruedaPintada: HechoDelCruce | RuedaPendiente | null = null;
+
+/**
+ * La rueda del golpe, cada fotograma: mientras el animador cuenta un cruce, su
+ * desenlace al ritmo del paso (`data-tramo`); si no se cuenta nada y la sesión
+ * espera una elección, la rueda para elegir; si no, cerrada. Con algo en la
+ * cola, la elección espera a que acabe: el tablero no puede ir por detrás. Así
+ * la rueda se abre cuando quien pega ya ha llegado: la sesión lo planta ante su
+ * objetivo (su `move`) antes de pedir la elección, y esta espera a la marcha
+ * (decisión del usuario, 13-10-2026: primero se anda, luego se elige).
+ */
+function pintarLaRueda(s: SesionDeArena): void {
+  const cruce = batalla.cruceEnCurso();
+  const pendiente = cruce === null && !batalla.ocupada ? s.ruedaPendiente : null;
+  let enfocar = false;
+  if (cruce !== null) {
+    if (ruedaPintada !== cruce.evento) {
+      // El índice, solo al cambiar de cruce: el parte lo busca por él.
+      const i = s.battle.log.indexOf(cruce.evento);
+      if (i < 0) throw new Error('la rueda cuenta un cruce que no está en el registro');
+      pintar(
+        elRueda,
+        renderDesenlace(s.battle, cruce.evento, contraataqueDelCruce(s.battle.log, i)),
+      );
+      ajustarLaRueda(elRueda);
+      ruedaPintada = cruce.evento;
+    }
+    const tramos = tramosDelDesenlace(cruce.t);
+    if (elRueda.dataset.tramo !== tramos) elRueda.dataset.tramo = tramos;
+  } else if (pendiente !== null) {
+    if (ruedaPintada !== pendiente) {
+      delete elRueda.dataset.tramo;
+      pintar(elRueda, renderEleccion(s.battle, pendiente));
+      ajustarLaRueda(elRueda);
+      aquietarLaRueda();
+      ruedaPintada = pendiente;
+      enfocar = true;
+    }
+  } else {
+    cerrarLaRueda();
+    return;
+  }
+  if (!elRueda.open) elRueda.showModal();
+  // El foco, en el diálogo y en ningún sector: uno enfocado parecería preelegido
+  // (y abría su nota). Las flechas empiezan por el primero. El de la fase
+  // anterior no se conserva: lleva otra `data-fase`.
+  if (enfocar) elRueda.focus();
+}
+
+function cerrarLaRueda(): void {
+  ruedaPintada = null;
+  delete elRueda.dataset.tramo;
+  despertarLaRueda();
+  if (elRueda.open) elRueda.close();
+}
+
+/**
+ * Dónde estaba el puntero la última vez que se movió, en la ventana, y dónde
+ * estaba al pintarse la rueda de una fase nueva (`aquietarLaRueda`).
+ *
+ * La rueda de cada fase sale con el puntero donde lo dejó quien eligió antes, y
+ * el `:hover` encendía el sector de debajo y abría su nota: con los dos bandos
+ * «Yo», quien respondía veía qué había pulsado quien pegaba (H1 de QA,
+ * 13-10-2026). Así que la rueda nace quieta (`data-quieta`: el CSS no enciende
+ * nada por el `:hover`) hasta que el puntero se mueve DE VERDAD —un `pointermove`
+ * en el mismo píxel no cuenta: el navegador puede mandarlo al cambiar lo de
+ * debajo— o se pulsa.
+ *
+ * Una tecla NO la despierta: quien responde con el teclado no ha movido el
+ * ratón, que sigue encima de lo que pulsó el otro, y despertarla encendía ese
+ * sector y abría su nota junto al que tenía el foco (H1b, vuelta 2 de QA). El
+ * teclado no necesita el `:hover`: el foco enciende su sector por
+ * `:focus-visible`, que no mira `data-quieta`.
+ */
+let punteroEn: { readonly x: number; readonly y: number } | null = null;
+let quietaEn: { readonly x: number; readonly y: number } | null = null;
+
+window.addEventListener(
+  'pointermove',
+  (ev) => {
+    punteroEn = { x: ev.clientX, y: ev.clientY };
+  },
+  { capture: true, passive: true },
+);
+
+function aquietarLaRueda(): void {
+  elRueda.dataset.quieta = '';
+  quietaEn = punteroEn;
+}
+
+function despertarLaRueda(): void {
+  delete elRueda.dataset.quieta;
+  quietaEn = null;
+}
+
+elRueda.addEventListener('pointermove', (ev) => {
+  if (elRueda.dataset.quieta === undefined) return;
+  if (quietaEn !== null && ev.clientX === quietaEn.x && ev.clientY === quietaEn.y) return;
+  despertarLaRueda();
+});
+elRueda.addEventListener('pointerdown', despertarLaRueda);
+
+/**
+ * Elige en la rueda: el clic en un sector, su tecla o Intro con el foco en él. La
+ * sesión dice si no espera nada; mientras se cuenta un desenlace no se elige: la
+ * rueda de la siguiente fase aún no se ve.
+ */
+function elegirEnLaRueda(tipo: string): void {
+  if (sesion === null || batalla.ocupada) return;
+  sesion.elegirEnLaRueda(tipo);
+  pedirFotograma();
+}
+
+elRueda.addEventListener('click', (ev) => {
+  const boton = (ev.target as Element).closest('[data-golpe]');
+  if (boton === null || ev.detail > 1) return;
+  elegirEnLaRueda(boton.getAttribute('data-golpe') ?? '');
+});
+
+/**
+ * Las teclas de la rueda: del 1 al 7 elige el sector de su número
+ * (`tipoDeLaTecla`, la misma tabla que pinta las etiquetas), las flechas pasan el
+ * foco de uno a otro e Intro pulsa el que lo tiene (el botón, por sí mismo).
+ */
+elRueda.addEventListener('keydown', (ev) => {
+  if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
+  const tipo = tipoDeLaTecla(ev.key);
+  if (tipo !== null) {
+    ev.preventDefault();
+    elegirEnLaRueda(tipo);
+    return;
+  }
+  const paso = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
+  if (paso === undefined) return;
+  ev.preventDefault();
+  const botones = [...elRueda.querySelectorAll<HTMLElement>('button[data-golpe]')];
+  if (botones.length === 0) return;
+  const ahora = botones.indexOf(document.activeElement as HTMLElement);
+  const siguiente = ahora < 0 ? 0 : (ahora + paso + botones.length) % botones.length;
+  botones[siguiente]?.focus();
+});
+
+// Escape: cancela el golpe solo antes de elegirlo, y quien pega se queda donde
+// llegó, con su turno (`soltarElGolpe`); si no, la sesión dice por qué no (la
+// respuesta no se cancela: el golpe ya viene). El desenlace se cuenta entero: el
+// diálogo no se cierra solo.
+elRueda.addEventListener('cancel', (ev) => {
+  ev.preventDefault();
+  if (sesion === null || batalla.ocupada) return;
+  if (sesion.cancelarGolpe()) cerrarLaRueda();
+  pedirFotograma();
+});
 
 // ---------------------------------------------------------------- gestos
 
@@ -2298,12 +2363,6 @@ document.addEventListener('click', (ev) => {
         añadir(lado, { kind: 'unidad', unidad: unidad as string });
         break;
       }
-      case 'añadir-catalogo': {
-        const lado = el.getAttribute('data-lado') as Lado;
-        const id = el.getAttribute('data-criatura') as string;
-        añadir(lado, { kind: 'catalogo', id });
-        break;
-      }
       case 'editar':
         elegida = { kind: 'unidad', id: unidad as string };
         aviso = '';
@@ -2325,30 +2384,12 @@ document.addEventListener('click', (ev) => {
       }
       case 'quitar-pieza': {
         const hueco = el.getAttribute('data-hueco') ?? '';
-        if (!esHueco(hueco)) throw new Error(`el × del equipo trae «${hueco}», que no es un hueco`);
+        if (!esHuecoDeArena(hueco))
+          throw new Error(`el × del equipo trae «${hueco}», que no es un hueco`);
         const f = laFichaDe(el, 'quitar una pieza');
         if (f.kind !== 'unidad') throw new Error('solo las unidades llevan equipo que quitar');
         cambiarUnidad(f.id, (u) => quitarEnArena(u, hueco));
         soloLaFicha = claveDeFicha(f);
-        break;
-      }
-      case 'editar-catalogo':
-        elegida = { kind: 'catalogo', id: el.getAttribute('data-criatura') as string };
-        aviso = '';
-        break;
-      case 'deshacer-prueba': {
-        const id = el.getAttribute('data-criatura') as string;
-        const motivo = retocarLaPelea({
-          kind: 'tipo',
-          fuente: { kind: 'catalogo', id, cambios: null },
-        });
-        if (motivo !== null) {
-          noSeCambia(motivo);
-          break;
-        }
-        pruebas.delete(id);
-        avisoTrasCambio(`${creature(id).name}, con las cifras del catálogo.`);
-        soloLaFicha = claveDelElemento(el);
         break;
       }
       case 'editar-en-combate': {
@@ -2357,8 +2398,8 @@ document.addEventListener('click', (ev) => {
         const st = sesion.battle.stacks.find((x) => x.id === id);
         if (st === undefined)
           throw new Error(`el botón «Editar» trae «${String(id)}», que no está en la pelea`);
-        // Lo que se edita es el TIPO: la hoja o la criatura de la que sale, o el
-        // héroe de su lado (`tipoDelStack`, que anotó el montaje).
+        // Lo que se edita es el TIPO: la unidad de la que sale, o el héroe de su
+        // lado (`tipoDelStack`, que anotó el montaje).
         elegida = tipoDelStack(sesion.battle, st);
         aviso = 'Lo que cambies aquí vale ya, para todas las de su tipo en el campo.';
         pintarEditor();
@@ -2387,6 +2428,13 @@ document.addEventListener('click', (ev) => {
         const lado = el.getAttribute('data-lado') as Lado;
         heroes[lado] = null;
         if (elegida?.kind === 'heroe' && elegida.lado === lado) elegida = null;
+        break;
+      }
+      case 'golpe': {
+        // El modo, por la misma lectura que la URL: uno que no es se dice.
+        golpe = modoDelGolpeDeLaURL(el.getAttribute('data-modo'));
+        reglasALaBarra();
+        aviso = '';
         break;
       }
       case 'regla': {
@@ -2489,9 +2537,9 @@ document.addEventListener('click', (ev) => {
       case 'crear-pieza': {
         // En blanco en el hueco de su botón, o copia de la de la ficha («Duplicar»).
         const hueco = el.getAttribute('data-hueco');
-        let desde: Hueco | Pieza;
+        let desde: HuecoDeArena | Pieza;
         if (hueco === null) desde = piezaDeLaFicha();
-        else if (esHueco(hueco)) desde = hueco;
+        else if (esHuecoDeArena(hueco)) desde = hueco;
         else throw new Error(`«+ Nueva pieza» trae «${hueco}», que no es un hueco`);
         const p = piezaNueva(desde, catalogo(), idsDePiezasSinValidar);
         const dicho =
@@ -2515,12 +2563,9 @@ document.addEventListener('click', (ev) => {
         break;
       }
       case 'abrir-ficha': {
-        const criatura = el.getAttribute('data-criatura');
-        const f: FichaEditable =
-          unidad !== null
-            ? { kind: 'unidad', id: unidadDe(unidad).id }
-            : { kind: 'catalogo', id: creature(criatura as string).id };
-        const incompleta = f.kind === 'unidad' ? porQueNoSeMonta(unidadDe(f.id)) : null;
+        if (unidad === null) throw new Error('el botón «Abrir» no dice de qué unidad es');
+        const f: FichaEditable = { kind: 'unidad', id: unidadDe(unidad).id };
+        const incompleta = porQueNoSeMonta(unidadDe(f.id));
         const r = abrirFicha(abiertas, f, nombreDeFicha(f), incompleta);
         if (r.abiertas !== abiertas) {
           listaPlegada = listaPlegadaTras('abrir', listaPlegada, r.abiertas.length);
@@ -2830,9 +2875,6 @@ function cambiarEnFicha(ficha: Elegida, el: Element): void {
     case 'unidad':
       cambiarDeLaUnidad(ficha.id, el);
       break;
-    case 'catalogo':
-      cambiarDelCatalogo(ficha.id, el);
-      break;
     case 'heroe':
       cambiarDelHeroe(ficha.lado, el);
       break;
@@ -2846,9 +2888,8 @@ function cambiarEnFicha(ficha: Elegida, el: Element): void {
 
 /**
  * Los rasgos del motor de la ficha `f`, cambiados por `cambio` (añadir uno del
- * desplegable o quitar una etiqueta): en una hoja, su tipo en el borrador; en
- * una criatura del catálogo, su prueba. Lo que no vale lo dice el mismo
- * validador de siempre (`cambiarUnidad`, `cambiarPrueba`).
+ * desplegable o quitar una etiqueta): su tipo en el borrador. Lo que no vale lo
+ * dice el mismo validador de siempre (`cambiarUnidad`).
  */
 function cambiarRasgos(
   f: Elegida,
@@ -2858,11 +2899,6 @@ function cambiarRasgos(
     case 'unidad':
       cambiarUnidad(f.id, (u) => ({ ...u, traits: cambio(u.traits) }));
       return;
-    case 'catalogo': {
-      const antes = cifrasDelCatalogo(f.id).traits ?? [];
-      cambiarPrueba(f.id, (c) => ({ ...c, traits: cambio(antes) }));
-      return;
-    }
     case 'heroe':
       throw new Error('la ficha del héroe no lleva rasgos del motor');
   }
@@ -2890,34 +2926,6 @@ function cambiarDeLaUnidad(id: string, el: Element): void {
   } else if (el.getAttribute('data-arena-habilidad') !== null) {
     const h = valorDe(el);
     if (h !== '') cambiarUnidad(id, (u) => ({ ...u, habilidades: [...u.habilidades, h] }));
-  }
-}
-
-/** Un campo de la ficha de una criatura del catálogo: su prueba. */
-function cambiarDelCatalogo(id: string, el: Element): void {
-  const campo = el.getAttribute('data-catalogo-campo');
-  const actual = cifrasDelCatalogo(id);
-  if (campo !== null) {
-    const v = valorDe(el);
-    const n = v.trim() === '' ? Number.NaN : Number(v);
-    cambiarPrueba(id, (c) => {
-      switch (campo) {
-        case 'damage-min':
-          return { ...c, damage: [n, actual.damage[1]] };
-        case 'damage-max':
-          return { ...c, damage: [actual.damage[0], n] };
-        case 'attack':
-        case 'defense':
-        case 'hp':
-        case 'casillas':
-        case 'shots':
-          return { ...c, [campo]: n };
-        default:
-          throw new Error(`la ficha del catálogo no tiene un campo «${campo}»`);
-      }
-    });
-  } else if (el.getAttribute('data-arena-rasgo') !== null) {
-    añadirRasgo({ kind: 'catalogo', id }, el);
   }
 }
 
@@ -2957,8 +2965,9 @@ function cambiarDelHeroe(lado: Lado, el: Element): void {
 
 document.addEventListener('keydown', (ev) => {
   // Con el editor abierto, las teclas son suyas: Escape lo cierra (el `<dialog>`)
-  // sin soltar lo elegido, y un espacio en un campo no cierra el turno.
-  if (editor.open) return;
+  // sin soltar lo elegido, y un espacio en un campo no cierra el turno. Con la
+  // rueda, igual: son suyas.
+  if (editor.open || elRueda.open) return;
   // Fuera del tablero —la vista de equipo a media pelea— las teclas no juegan:
   // un espacio en un campo de pieza cerraba el turno de tu unidad.
   if (escena !== 'battle') return;
@@ -2992,11 +3001,11 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
   ([, avisoDeMurallas]) => {
     const delEnlace = montarDelEnlace();
     // Las fichas abiertas la última vez: solo las que aún se abren (la hoja está
-    // y está entera, la criatura sigue en el catálogo).
-    const recordadas = leerAbiertas(leerDelNavegador(CLAVE_DE_ABIERTAS, QUE_ABIERTAS), (f) =>
-      f.kind === 'unidad'
-        ? (borrador.has(f.id) || hojasPorId.has(f.id)) && porQueNoSeMonta(unidadDe(f.id)) === null
-        : criaturasDelCatalogo().some((c) => c.id === f.id),
+    // y está entera).
+    const recordadas = leerAbiertas(
+      leerDelNavegador(CLAVE_DE_ABIERTAS, QUE_ABIERTAS),
+      (f) =>
+        (borrador.has(f.id) || hojasPorId.has(f.id)) && porQueNoSeMonta(unidadDe(f.id)) === null,
     );
     abiertas = recordadas.abiertas;
     listaPlegada = listaPlegadaTras(

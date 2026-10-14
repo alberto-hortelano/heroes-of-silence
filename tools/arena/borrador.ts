@@ -35,7 +35,13 @@ import {
 import type { Pieza } from '../../src/core/data.js';
 import type { EquipoAtado } from '../../src/core/hero/equipo.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
-import { arteEnOchoDirecciones, HEROES, juegoDelYBot, UNIDADES } from '../taller/unidades.js';
+import {
+  arteEnOchoDirecciones,
+  HEROES,
+  juegoDelYBot,
+  perfilDeArena,
+  UNIDADES,
+} from '../taller/unidades.js';
 import { VELOCIDAD_DEL_CUERPO } from './velocidades.js';
 
 /**
@@ -57,7 +63,9 @@ function velocidadDelCuerpo(personaje: string): number {
  * (`migrarUnidadDeArena`): de la lista de `tools/taller/unidades.ts`, una vez y
  * sin leer el arte de nadie (eran 408 `atlas.json` en cada lectura).
  */
-const PERFIL_DE_LAS_HOJAS = perfilDeLasHojas([...UNIDADES, ...HEROES]);
+const PERFIL_DE_LAS_HOJAS = perfilDeLasHojas(
+  [...UNIDADES, ...HEROES].map((u) => ({ id: u.id, perfil: perfilDeArena(u) })),
+);
 
 /** Dónde vive el borrador, relativo a la raíz del repo. */
 export const RUTA_DEL_BORRADOR = 'data/borradores/unidades.json';
@@ -103,7 +111,7 @@ export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
       id: u.id,
       nombre: u.nombre,
       faccion: u.faccion,
-      perfil: u.perfil,
+      perfil: perfilDeArena(u),
       personaje: u.personaje ?? u.id,
       heroe,
       casillas: velocidadDelCuerpo(u.personaje ?? u.id),
@@ -282,19 +290,22 @@ export function leerBorrador(raiz: string): {
   let equipo: {
     readonly validas: readonly Pieza[];
     readonly invalidas: readonly ElementoSinValidar[];
+    readonly avisos: readonly string[];
   };
   let equipoIlegible: string | null = null;
   try {
     equipo = leer(raiz, DE_EQUIPO);
   } catch (err) {
-    equipo = { validas: [], invalidas: [] };
+    equipo = { validas: [], invalidas: [], avisos: [] };
     equipoIlegible = err instanceof Error ? err.message : String(err);
   }
   const { validas, invalidas, avisos } = leer(raiz, deUnidades(catalogoDeLaArena(equipo.validas)));
   return {
     unidades: validas,
     invalidas,
-    avisos,
+    // Primero lo de las piezas: una unidad convertida puede llevar una pieza que
+    // acaba de cambiar de hueco.
+    avisos: [...equipo.avisos, ...avisos],
     piezas: equipo.validas,
     piezasInvalidas: equipo.invalidas,
     ...(equipoIlegible === null ? {} : { equipoIlegible }),
@@ -342,8 +353,8 @@ const DE_EQUIPO: Borrador<Pieza, ElementoSinValidar> = {
   ruta: RUTA_DE_EQUIPO,
   campo: 'piezas',
   comentario: COMENTARIO_DEL_BORRADOR_DE_EQUIPO,
-  // Las piezas no tienen nada de antes que convertir.
-  revisar: (valor) => ({ ...revisarBorradorDeEquipo(valor), avisos: [] }),
+  // Lo de antes de que cada arma fuera a lo suyo se convierte al leerlo.
+  revisar: revisarBorradorDeEquipo,
   validar: validarBorradorDeEquipo,
   clave: (p) => p.id,
   claveSinValidar: (p) => p.clave,

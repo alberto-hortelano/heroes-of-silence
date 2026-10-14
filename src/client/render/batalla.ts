@@ -12,9 +12,9 @@
  * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
  * instante, del animador.
  */
-import { activeStack, type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/battle.js';
+import { type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/battle.js';
 import { allHexes, hexKey, indiceDe } from '@core/battle/board.js';
-import { CHARGE_BONUS_PER_HEX, stackHp } from '@core/battle/damage.js';
+import { CHARGE_BONUS_PER_HEX } from '@core/battle/damage.js';
 import {
   type EstadoDePuerta,
   hayMuralla,
@@ -29,7 +29,7 @@ import {
   rangoDeVeterania,
   type Side,
 } from '@core/battle/types.js';
-import { hexSize, isShooter } from '@core/data.js';
+import { cuentaTiros, hexSize, isShooter, quedanTiros } from '@core/data.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { COMPRESION_SUELO } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
@@ -136,6 +136,12 @@ export interface VistaBatalla {
   readonly puntero: Punto | null;
   /** Dónde y cómo está cada figura ahora: lo dice el animador. */
   readonly figura: (s: BattleStack) => EstadoFigura;
+  /**
+   * Quién actúa en el tablero (aro, nombre y casilla resaltada): lo dice el
+   * animador (`BattleAnimator.activo`), que con algo por contar no es el turno
+   * del estado sino el de lo que se cuenta.
+   */
+  readonly activo: string | null;
   readonly efectos: readonly Efecto[];
   /** Los bandos sin dueño, que se tiñen de gris (`bandosSinDueño`); en la arena, ninguno. */
   readonly sinDueño: ReadonlySet<Side>;
@@ -179,15 +185,25 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   pintarFondo(ctx, v);
 
   const movibles = new Set(v.movibles.map(hexKey));
-  const enTurno = activeStack(battle);
-  const activo = enTurno !== null && isAlive(enTurno) ? enTurno : null;
+  // La figura de cada uno, una vez por fotograma: de ella salen también la
+  // casilla y la vida que se ven, que con algo por contar no son las del estado.
+  const todas = battle.stacks
+    .map((s) => ({ s, f: v.figura(s) }))
+    .sort((a, b) => a.f.en.y - b.f.en.y);
+  const porId = new Map(todas.map((x) => [x.s.id, x]));
+  // Quien actúa, si se le ve en pie: el que cae en la cola aún se ve.
+  const enTurno = v.activo === null ? undefined : porId.get(v.activo);
+  const activo = enTurno?.f.visible ? enTurno.s : null;
   const hexDeActivo = new Set<string>();
+  // Su casilla, la de la figura: mientras anda, ninguna.
+  const casillaDelActivo = enTurno?.f.casilla ?? null;
+  if (activo !== null && casillaDelActivo !== null) {
+    for (const h of stackHexes({ ...activo, hex: casillaDelActivo })) hexDeActivo.add(hexKey(h));
+  }
   const hexAtacables = new Set<string>();
   for (const s of battle.stacks) {
-    if (!isAlive(s)) continue;
-    const marcas = s.id === activo?.id ? hexDeActivo : v.atacables.has(s.id) ? hexAtacables : null;
-    if (marcas === null) continue;
-    for (const h of stackHexes(s)) marcas.add(hexKey(h));
+    if (!isAlive(s) || !v.atacables.has(s.id)) continue;
+    for (const h of stackHexes(s)) hexAtacables.add(hexKey(h));
   }
 
   // Las casillas desde las que se cargaría y los enemigos a los que se cargaría.
@@ -274,9 +290,6 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
 
   // 2 · Los cadáveres del suelo, debajo de todo lo que sigue en pie: se quedan
   // en su casilla hasta el final de la batalla, sin aro, sin barra y sin nombre.
-  const todas = battle.stacks
-    .map((s) => ({ s, f: v.figura(s) }))
-    .sort((a, b) => a.f.en.y - b.f.en.y);
   for (const { s, f } of todas) {
     if (f.caida !== null && f.elevacion === 0) pintarCadaver(ctx, v, s, f);
   }
@@ -284,7 +297,6 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   // 3 · Lo que se levanta del suelo, de atrás adelante (`piezasEnOrden`).
   const figuras = todas.filter(({ f }) => f.visible);
   const casillas = hexesDe(tablero);
-  const porId = new Map(todas.map((x) => [x.s.id, x]));
   // La figura de cada uno, la ya pedida al animador: una vez por fotograma.
   const yaPedida = (s: BattleStack): EstadoFigura => (porId.get(s.id) as { f: EstadoFigura }).f;
   const translucidas = columnasTranslucidas(
@@ -1538,8 +1550,15 @@ function pintarUnidad(
   pintarFigura(ctx, figura);
 }
 
-/** Lo que va encima de la cabeza: dónde, y de qué ancho es la barra. */
-function cabezaDe(v: VistaBatalla, s: BattleStack, f: EstadoFigura) {
+/**
+ * Lo que va encima de la cabeza: dónde, y de qué ancho es la barra. Exportada
+ * para `pnpm capturas`, que mira en el lienzo la barra de vida que se pinta.
+ */
+export function cabezaDe(
+  v: Pick<VistaBatalla, 'tablero'>,
+  s: BattleStack,
+  f: Pick<EstadoFigura, 'en' | 'elevacion'>,
+) {
   const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
   const grande = hexSize(s.unit) > 1;
   return {
@@ -1679,14 +1698,18 @@ function pintarVida(
   f: EstadoFigura,
 ): void {
   const { x, y, anchoBarra } = cabezaDe(v, s, f);
-  const vida = Math.max(0, Math.min(1, stackHp(s) / Math.max(1, s.unit.hp * s.initialCount)));
+  // La vida que se ve (`EstadoFigura.pv`), no la del estado: con la cola llena,
+  // la del estado es la de después de todo lo que aún no se ha enseñado.
+  const vida = Math.max(0, Math.min(1, f.pv / Math.max(1, s.unit.hp * s.initialCount)));
   ctx.save();
   ctx.globalAlpha = f.alfaDelAro;
   ctx.fillStyle = 'rgba(12,10,6,0.85)';
   ctx.fillRect(x - anchoBarra / 2 - 1, y - 1, anchoBarra + 2, 6);
   ctx.fillStyle = vida > 0.5 ? '#9fc49a' : vida > 0.25 ? '#e0c060' : '#e3735a';
   ctx.fillRect(x - anchoBarra / 2, y, anchoBarra * vida, 4);
-  if (isShooter(s.unit) && s.shotsLeft > 0) {
+  // Los tiros que quedan, solo de quien los cuenta (la criatura del catálogo): el
+  // arma a distancia de la arena no lleva munición.
+  if (cuentaTiros(s.unit) && quedanTiros(s)) {
     ctx.fillStyle = '#9fc49a';
     ctx.font = `bold ${Math.max(9, Math.round(v.tablero.paso * 0.14))}px system-ui, sans-serif`;
     ctx.textAlign = 'left';
