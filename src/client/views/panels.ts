@@ -20,10 +20,11 @@ import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
 import {
   contraataqueDelCruce,
+  DURACION_DE_LA_RUEDA,
   esTipoDeGolpe,
-  HASTA_SU_TURNO,
   NOMBRE_DE_GOLPE,
   NOMBRE_DEL_PUNTO,
+  type VenceLaRueda,
 } from '@core/battle/rueda.js';
 import { enOrdenDelLibro, type Spell, spell } from '@core/battle/spells.js';
 import {
@@ -996,14 +997,16 @@ export function enRondas(n: number): string {
 
 /**
  * Lo que dura un efecto colgado, dicho: «3 rondas», o, el de la rueda del golpe,
- * «hasta que termine su próximo turno» (`hastaSuTurno`); sus rondas son solo el
- * tope y contarlas sería mentir.
+ * «hasta que empiece (o termine) su próximo turno» (`hastaSuTurno`); sus rondas
+ * son solo el tope y contarlas sería mentir.
  */
 export function duracionDeEfecto(e: {
   readonly rounds: number;
-  readonly hastaSuTurno?: true;
+  readonly hastaSuTurno?: VenceLaRueda;
 }): string {
-  return e.hastaSuTurno === true ? HASTA_SU_TURNO : `durante ${enRondas(e.rounds)}`;
+  return e.hastaSuTurno === undefined
+    ? `durante ${enRondas(e.rounds)}`
+    : DURACION_DE_LA_RUEDA[e.hastaSuTurno];
 }
 
 /**

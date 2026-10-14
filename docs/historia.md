@@ -4564,3 +4564,43 @@ arena» (`docs/agents/2026-10-13-arena-sin-municion-ni-tamanos/`). Solo la arena
   una muralla de ejemplo y sin escaleras, 74 de 300 sin terminar con un tirador por bando (122 con la
   munición de antes) y 161 de 300 sin tiradores: lo que no termina es la muralla sin escalera, no el
   tiro.
+
+## La rueda del golpe: el anillo nuevo, Romper guardia por éxito y la Finta que deja andar (#263, 14-10-2026)
+
+Petición del usuario sobre la rueda de la arena (`docs/agents/2026-10-14-rueda-anillo-y-efectos/`).
+
+- **El anillo**, desde arriba y en el sentido del reloj: Ofensivo, Fuerte, Finta, Defensivo,
+  Rápido, Romper guardia; Normal en el centro. Los opuestos: Ofensivo y Defensivo, Fuerte y Rápido,
+  Finta y Romper guardia. Cambia solo `TIPOS_DE_GOLPE` (y con él `ANILLO`, las teclas y los
+  ángulos); `puntoDelCruce` sale de ahí. Las notas de cada sector se colocan en el CSS por su
+  **puesto** (`data-puesto`), no por su tipo: con el orden escrito dos veces, cambiarlo en el núcleo
+  dejaba las notas abriéndose hacia dentro de la rueda. Un guardia de `pnpm capturas` (el foco con
+  → enciende «el primero», que era Rápido) dependía del orden y se cayó al cambiarlo: ahora lee el
+  primero de `TIPOS_DE_GOLPE`.
+- **La respuesta no da bonificadores** (decisión del usuario: «si no, alguien defendiendo que
+  hiciese varios ataques defensivos empezaría a sumar defensa cada vez que le ataquen»). Solo
+  Fuerte y Rápido cambian el contraataque; Ofensivo, Defensivo, Finta y Romper guardia, elegidos
+  por quien recibe, solo deciden el cruce. Lo dice `cruceDelGolpe(…, papel)` (el +1 de Ofensivo,
+  solo con `golpe`) y `intercambio`, que solo cuelga lo de quien pega.
+- **Defensivo** dura hasta que **empieza** el próximo turno de quien lo usó (antes, hasta que
+  terminaba): se quita en `abrirTurno`, también en el turno extra de la moral alta, y en el turno que
+  la moral baja le quita, que empieza y se pierde. `StackEffect.hastaElTurno` (un número) pasó a
+  `StackEffect.hasta` (`{ turno, al: 'empezar' | 'terminar' }`) y el parte dice cuál.
+- **Romper guardia** quita **ataque** (antes, defensa al acabar el intercambio) al atacado según el
+  éxito del golpe —el punto del cruce de quien pega: máximo −3, alto −2, medio −1, bajo y mínimo
+  nada—, ya en su contraataque (se cuelga entre el golpe y el contraataque) y hasta que termine su
+  próximo turno. Dos seguidos refrescan: queda el último. En piqueros 10 contra 10 (A 5, D 9), el
+  contraataque baja de 216 a 198 con éxito máximo; con éxito bajo, la respuesta Ofensivo ya no suma:
+  300 y no 308.
+- **La Finta** ya no quita nada: tras golpear con ella, el resto del turno es un tramo **solo de
+  andar** (`TurnoDeUnidad.finta`, que lo pone solo `melee`; `fintaBlocker`): lo que le quede menos
+  `5 − p` casillas (`pasosQueQuedan` lo resta; no va en `gastado`, que son las casillas
+  recorridas). Andar cierra el turno; con 0, se cierra solo, y si el golpe acaba la pelea, también.
+  Ni volver a golpear, ni disparar, ni poder, ni el hechizo del héroe, ni rendirse, ni esperar,
+  defender, puertas o escaleras (decisión del usuario tras el plan): lo dice cada motivo de la
+  pantalla. Las casillas salen solas porque la lista legal solo trae los `move` del recorrido de
+  siempre (`movableFrom`), que el cliente pinta al acabar el desenlace. La IA no cambia: elige de
+  esa lista; en 50 semillas de `autoResolve` todo termina y alguna anda tras fintar.
+- **Las cifras**, en `data/rueda.json` por nivel de éxito (`minimo` … `maximo`), inventadas; las
+  notas de Romper guardia y de la Finta las dicen enteras, sacadas de ahí.
+- El juego no cambia: `pnpm banco`, ancla igual (066767b4…, 200 partidas).

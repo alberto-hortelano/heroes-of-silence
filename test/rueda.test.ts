@@ -55,7 +55,12 @@ import {
   tiradaDelPunto,
   validarRueda,
 } from '../src/core/battle/rueda.js';
-import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
+import type {
+  BattleAction,
+  BattleEvent,
+  BattleState,
+  TurnoDeUnidad,
+} from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
 import type { Stack } from '../src/core/types.js';
@@ -116,22 +121,40 @@ const golpear = (golpe: TipoDeGolpe, respuesta: TipoDeGolpe): BattleAction => ({
   respuesta,
 });
 
-describe('el cruce: la rueda de la petición', () => {
-  it('rápido contra cada tipo: mínimo, bajo, alto, máximo, alto, bajo y medio', () => {
-    // El ejemplo literal de la petición: rápido → mínimo; ofensivo o defensivo →
-    // algo más; normal → medio; r.guardia o finta → alto; fuerte → máximo.
-    expect(TIPOS_DE_GOLPE.map((t) => puntoDelCruce('rapido', t))).toEqual([0, 1, 3, 4, 3, 1, 2]);
-    expect(ANILLO).toEqual(['rapido', 'defensivo', 'finta', 'fuerte', 'romperGuardia', 'ofensivo']);
+describe('el cruce: el anillo de la petición (#263, 14-10-2026)', () => {
+  it('el anillo nuevo: Ofensivo arriba, Fuerte, Finta, Defensivo, Rápido y R. guardia, y Normal en el centro', () => {
+    //           Ofensivo
+    // R. Guardia        Fuerte
+    //           Normal
+    // Rápido            Finta
+    //          Defensivo
+    expect(ANILLO).toEqual(['ofensivo', 'fuerte', 'finta', 'defensivo', 'rapido', 'romperGuardia']);
+    // Las teclas, del 1 al 7, en ese orden y Normal al final.
+    expect(TIPOS_DE_GOLPE).toEqual([...ANILLO, 'normal']);
   });
 
-  it('es simétrico, y Normal es el medio contra todos', () => {
+  it('la tabla entera: cada tipo contra cada uno (columnas en el orden de las teclas)', () => {
+    // Por la distancia en el anillo: igual 0, al lado 1, a dos 3, enfrente 4; con Normal, 2.
+    const tabla: Record<TipoDeGolpe, readonly number[]> = {
+      //              O  F  Fi D  R  RG N
+      ofensivo: /*  */ [0, 1, 3, 4, 3, 1, 2],
+      fuerte: /*    */ [1, 0, 1, 3, 4, 3, 2],
+      finta: /*     */ [3, 1, 0, 1, 3, 4, 2],
+      defensivo: /* */ [4, 3, 1, 0, 1, 3, 2],
+      rapido: /*    */ [3, 4, 3, 1, 0, 1, 2],
+      romperGuardia: [1, 3, 4, 3, 1, 0, 2],
+      normal: /*    */ [2, 2, 2, 2, 2, 2, 2],
+    };
     for (const a of TIPOS_DE_GOLPE) {
-      expect(puntoDelCruce('normal', a)).toBe(2);
-      for (const b of TIPOS_DE_GOLPE) expect(puntoDelCruce(a, b)).toBe(puntoDelCruce(b, a));
+      expect(
+        TIPOS_DE_GOLPE.map((b) => puntoDelCruce(a, b)),
+        a,
+      ).toEqual(tabla[a]);
     }
-    // Opuestos en el anillo, el máximo; al lado, el bajo.
-    expect(puntoDelCruce('ofensivo', 'finta')).toBe(4);
-    expect(puntoDelCruce('fuerte', 'romperGuardia')).toBe(1);
+    // Los opuestos de la petición, en el máximo.
+    expect(puntoDelCruce('ofensivo', 'defensivo')).toBe(4);
+    expect(puntoDelCruce('fuerte', 'rapido')).toBe(4);
+    expect(puntoDelCruce('finta', 'romperGuardia')).toBe(4);
   });
 
   it('el contraataque cae en el punto contrario', () => {
@@ -210,7 +233,7 @@ describe('el modo del golpe', () => {
         },
         r,
       ),
-    ).toThrow('«patada» no es un tipo de golpe; valen rapido');
+    ).toThrow('«patada» no es un tipo de golpe; valen ofensivo, fuerte, finta');
     // Rechazado antes de mover y de escribir nada.
     expect(b.log.length).toBe(largo);
   });
@@ -226,8 +249,35 @@ describe('el modo del golpe', () => {
     expect(con((j) => ((j.fuerte as { porcentaje: number }).porcentaje = 0))).toThrow(
       'data/rueda.json: fuerte: el porcentaje tiene que ser 1 o más, y es 0',
     );
-    expect(con((j) => ((j.finta as { ataque: number }).ataque = 1))).toThrow(
-      'data/rueda.json: finta: el ataque quita, así que es 0 o menos, y es 1',
+    // Romper guardia quita ataque, una cifra por éxito; la Finta resta casillas.
+    type PorExito = Record<string, number>;
+    const romper = (j: Record<string, unknown>): PorExito =>
+      (j.romperGuardia as { ataque: PorExito }).ataque;
+    const finta = (j: Record<string, unknown>): PorExito =>
+      (j.finta as { casillas: PorExito }).casillas;
+    expect(validarRueda(ruedaJson).romperGuardia.ataque).toEqual({
+      0: 0,
+      1: 0,
+      2: -1,
+      3: -2,
+      4: -3,
+    });
+    expect(validarRueda(ruedaJson).finta.casillas).toEqual({ 0: 5, 1: 4, 2: 3, 3: 2, 4: 1 });
+    expect(con((j) => (romper(j).alto = 1))).toThrow(
+      'data/rueda.json: romperGuardia.ataque: el éxito «alto» quita, así que es 0 o menos, y es 1',
+    );
+    expect(con((j) => delete romper(j).medio)).toThrow(
+      'data/rueda.json: romperGuardia.ataque: falta el éxito «medio»',
+    );
+    expect(con((j) => (finta(j).bajo = -1))).toThrow(
+      'data/rueda.json: finta.casillas: el éxito «bajo» tiene que ser 0 o más, y es -1',
+    );
+    expect(con((j) => (finta(j).enorme = 1))).toThrow(
+      'data/rueda.json: finta.casillas: «enorme» no es un campo; valen minimo, bajo, medio, alto, maximo',
+    );
+    // Lo de antes (Romper guardia quitaba defensa; Finta, ataque) ya no entra.
+    expect(con((j) => (j.romperGuardia = { defensa: -1 }))).toThrow(
+      'data/rueda.json: romperGuardia: «defensa» no es un campo; valen ataque',
     );
     expect(con((j) => delete (j.pesos as { golpe: Record<string, number> }).golpe.normal)).toThrow(
       'data/rueda.json: pesos.golpe: falta el peso de «normal»',
@@ -282,9 +332,9 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
   });
 
   it('Ofensivo suma un punto de ataque al golpe que se da: 37 × 10 × 0,925 = 342', () => {
-    // Ofensivo contra Defensivo, a dos en el anillo: alto (37).
+    // Ofensivo contra Finta, a dos en el anillo: alto (37).
     const { b, rng } = enRueda(piqueros(10), piqueros(10));
-    applyAction(b, golpear('ofensivo', 'defensivo'), rng);
+    applyAction(b, golpear('ofensivo', 'finta'), rng);
     expect(ataques(b)[0]?.damage).toBe(342);
     // Su ataque de verdad no cambia: es del golpe, no un efecto.
     expect(effectiveAttack(stackById(b, 'attacker-0'))).toBe(5);
@@ -316,8 +366,8 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
   });
 });
 
-describe('los efectos de cada tipo, hasta que el afectado termine su próximo turno', () => {
-  it('Defensivo cubre ya el contraataque: 35 × 8 × 0,875 = 245', () => {
+describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Romper guardia por éxito', () => {
+  it('Defensivo cubre ya el contraataque: 35 × 8 × 0,875 = 245, hasta que empiece su próximo turno', () => {
     const { b, rng } = enRueda(piqueros(10), piqueros(10));
     applyAction(b, golpear('defensivo', 'normal'), rng);
     const yo = stackById(b, 'attacker-0');
@@ -328,103 +378,360 @@ describe('los efectos de cada tipo, hasta que el afectado termine su próximo tu
     ]);
     expect(effectiveDefense(yo, REGLAS_DEL_JUEGO)).toBe(10);
     expect(b.log).toContainEqual(
-      expect.objectContaining({ kind: 'effect', source: 'defensivo', hastaSuTurno: true }),
+      expect.objectContaining({ kind: 'effect', source: 'defensivo', hastaSuTurno: 'empezar' }),
     );
-  });
-
-  it('Romper guardia y Finta se cuelgan al acabar el intercambio: no tocan ni el golpe ni el contraataque', () => {
-    const { b, rng } = enRueda(piqueros(10), piqueros(10));
-    // Romper guardia contra Finta: a dos en el anillo, alto (37 × 10 × 0,9 = 333); el
-    // contraataque en el bajo: quedan 1 167 PV, 8 piqueros; 32 × 8 × 0,9 = 230,4 → 230.
-    applyAction(b, golpear('romperGuardia', 'finta'), rng);
-    expect(ataques(b).map((a) => a.damage)).toEqual([333, 230]);
-    const yo = stackById(b, 'attacker-0');
-    const el = stackById(b, 'defender-0');
-    expect(effectiveDefense(el, REGLAS_DEL_JUEGO)).toBe(8);
-    expect(effectiveAttack(yo)).toBe(4);
-    // Los dos efectos, detrás del último golpe.
-    const ultimoGolpe = b.log.map((e) => e.kind).lastIndexOf('attack');
-    const efectos = b.log.flatMap((e, i) => (e.kind === 'effect' ? [i] : []));
-    expect(efectos).toHaveLength(2);
-    expect(efectos.every((i) => i > ultimoGolpe)).toBe(true);
-  });
-
-  it('sin contraataque, la respuesta solo cuenta para el cruce: ni Defensivo ni Finta', () => {
-    const { b, rng } = enRueda(piqueros(10), piqueros(10));
-    stackById(b, 'defender-0').retaliated = true;
-    applyAction(b, golpear('normal', 'finta'), rng);
-    expect(b.log.find((e) => e.kind === 'cruce')).toMatchObject({ punto: 2 });
-    expect(ataques(b).filter((a) => a.retaliation)).toEqual([]);
-    expect(stackById(b, 'attacker-0').effects).toEqual([]);
-    const { b: b2, rng: r2 } = enRueda(piqueros(10), piqueros(10));
-    stackById(b2, 'defender-0').retaliated = true;
-    applyAction(b2, golpear('normal', 'defensivo'), r2);
-    expect(stackById(b2, 'defender-0').effects).toEqual([]);
-  });
-
-  it('el que nace en el turno del afectado sigue al cerrarlo, y se va al cerrar el siguiente', () => {
-    const { b, rng } = enRueda(piqueros(10), piqueros(10));
-    // El contraataque le deja una Finta a quien ataca, en su propio turno.
-    applyAction(b, golpear('normal', 'finta'), rng);
-    const yo = stackById(b, 'attacker-0');
-    expect(yo.effects.map((e) => e.source)).toEqual(['finta']);
-    // Le toca al defensor: se defiende y cierra la ronda.
+    // Sigue en el turno del rival (le cubre si le golpea), y se va al empezar el
+    // suyo: antes de que juegue, y aunque luego espere.
     expect(activeStack(b)?.id).toBe('defender-0');
-    applyAction(b, { type: 'defend' }, rng);
-    expect(b.round).toBe(2);
-    // Ronda 2: la Finta sigue (el tope es de dos rondas). Esperar no la quita: no
-    // cierra el turno.
-    expect(activeStack(b)?.id).toBe('attacker-0');
-    expect(yo.effects.map((e) => e.source)).toEqual(['finta']);
-    applyAction(b, { type: 'wait' }, rng);
-    expect(yo.effects.map((e) => e.source)).toEqual(['finta']);
-    applyAction(b, { type: 'defend' }, rng);
-    // Su turno de después de esperar sí la quita, al cerrarlo, y lo dice.
-    expect(activeStack(b)?.id).toBe('attacker-0');
+    expect(effectiveDefense(yo, REGLAS_DEL_JUEGO)).toBe(10);
     const largo = b.log.length;
-    applyAction(b, { type: 'end_turn' }, rng);
+    applyAction(b, { type: 'defend' }, rng);
+    expect(activeStack(b)?.id).toBe('attacker-0');
     expect(yo.effects).toEqual([]);
     expect(b.log.slice(largo)).toContainEqual({
       kind: 'effect_end',
       stack: 'attacker-0',
-      source: 'finta',
+      source: 'defensivo',
     });
+    applyAction(b, { type: 'wait' }, rng);
+    expect(yo.effects).toEqual([]);
   });
 
-  it('Romper guardia en el defensor se va al cerrar su próximo turno', () => {
-    const { b, rng } = enRueda(piqueros(10), piqueros(10));
-    applyAction(b, golpear('romperGuardia', 'normal'), rng);
-    const el = stackById(b, 'defender-0');
-    expect(el.effects.map((e) => e.source)).toEqual(['romperGuardia']);
-    expect(activeStack(b)?.id).toBe('defender-0');
-    applyAction(b, { type: 'defend' }, rng);
-    expect(el.effects).toEqual([]);
+  it('Defensivo se va al empezar el turno extra de la moral alta', () => {
+    // La primera semilla en que la moral (+3) le regala otro turno tras el golpe.
+    for (let semilla = 1; semilla <= 200; semilla++) {
+      const { b, rng } = enRueda(piqueros(10), piqueros(10), { semilla });
+      const yo = stackById(b, 'attacker-0');
+      yo.morale = 3;
+      const largo = b.log.length;
+      applyAction(b, golpear('defensivo', 'normal'), rng);
+      const extra = b.log
+        .slice(largo)
+        .findIndex((e) => e.kind === 'morale' && e.stack === 'attacker-0' && e.good);
+      if (extra < 0) continue;
+      expect(activeStack(b)?.id).toBe('attacker-0');
+      expect(yo.effects).toEqual([]);
+      // Se dice detrás de la moral: al abrirse el turno extra.
+      expect(b.log.slice(largo + extra)).toContainEqual({
+        kind: 'effect_end',
+        stack: 'attacker-0',
+        source: 'defensivo',
+      });
+      return;
+    }
+    throw new Error('en 200 semillas la moral alta no regala nunca un turno');
   });
 
-  it('si su turno no llega (la moral baja lo salta), lo quita el tope de dos rondas', () => {
-    // La primera semilla en la que el atacante, con moral −3 y la regla de fheroes2
-    // (3/12), pierde su turno de la ronda 2: deterministas, cada una con su `Rng`.
+  it('Defensivo se va también si la moral baja le quita el turno: el turno empieza y se pierde', () => {
     for (let semilla = 1; semilla <= 200; semilla++) {
       const { b, rng } = enRueda(piqueros(10), piqueros(10), {
         semilla,
         reglas: reglasDeLaURL('moralBaja'),
       });
-      applyAction(b, golpear('normal', 'finta'), rng);
+      applyAction(b, golpear('defensivo', 'normal'), rng);
       const yo = stackById(b, 'attacker-0');
       yo.morale = -3;
+      const largo = b.log.length;
       applyAction(b, { type: 'defend' }, rng);
-      const paralizado = b.log.some(
-        (e) => e.kind === 'morale' && e.stack === 'attacker-0' && !e.good,
-      );
-      if (!paralizado || b.round !== 2 || activeStack(b)?.id !== 'defender-0') continue;
-      expect(yo.effects.map((e) => e.source)).toEqual(['finta']);
-      applyAction(b, { type: 'defend' }, rng);
-      // Ronda 3: caduca al empezar, antes de que el atacante juegue.
-      expect(b.round).toBe(3);
+      const paralizado = b.log
+        .slice(largo)
+        .findIndex((e) => e.kind === 'morale' && e.stack === 'attacker-0' && !e.good);
+      if (paralizado < 0) continue;
       expect(yo.effects).toEqual([]);
+      expect(b.log[largo + paralizado + 1]).toEqual({
+        kind: 'effect_end',
+        stack: 'attacker-0',
+        source: 'defensivo',
+      });
       return;
     }
     throw new Error('en 200 semillas la moral baja no salta nunca el turno del atacante');
+  });
+
+  /**
+   * Romper guardia en los cinco éxitos (piqueros: A 5, D 9; daño 30-40; 150 PV).
+   * El golpe en el punto p: 30/32/35/37/40 × 10 × 0,9 = 270/288/315/333/360. Le quita
+   * al atacado 0/0/1/2/3 de ataque ya en su contraataque, que cae en 4 − p:
+   * - p 4: 1 140 PV, 8 piqueros; 30 × 8 × (1 − 0,025 × 7 = 0,825) = 198;
+   * - p 3: 1 167 PV, 8; 32 × 8 × 0,85 = 217,6 → 218;
+   * - p 2: 1 185 PV, 8; 35 × 8 × 0,875 = 245;
+   * - p 1: 1 212 PV, 9; 37 × 9 × 0,9 = 299,7 → 300 (la respuesta Ofensivo no suma);
+   * - p 0: 1 230 PV, 9; 40 × 9 × 0,9 = 324.
+   * Las respuestas no cambian el contraataque (ni Fuerte ni Rápido).
+   */
+  const CINCO: readonly (readonly [TipoDeGolpe, number, number, number, number])[] = [
+    // respuesta, punto, ataque del atacado, golpe, contraataque
+    ['finta', 4, 2, 360, 198],
+    ['defensivo', 3, 3, 333, 218],
+    ['normal', 2, 4, 315, 245],
+    ['ofensivo', 1, 5, 288, 300],
+    ['romperGuardia', 0, 5, 270, 324],
+  ];
+
+  it('Romper guardia quita ataque según el éxito, ya en el contraataque: −3, −2, −1, 0 y 0', () => {
+    for (const [respuesta, punto, ataque, golpe, contra] of CINCO) {
+      const que = `Romper guardia contra ${respuesta}`;
+      const { b, rng } = enRueda(piqueros(10), piqueros(10));
+      applyAction(b, golpear('romperGuardia', respuesta), rng);
+      const el = stackById(b, 'defender-0');
+      expect(
+        b.log.find((e) => e.kind === 'cruce'),
+        que,
+      ).toMatchObject({ punto });
+      expect(effectiveAttack(el), que).toBe(ataque);
+      expect(
+        ataques(b).map((a) => [a.stack, a.damage]),
+        que,
+      ).toEqual([
+        ['attacker-0', golpe],
+        ['defender-0', contra],
+      ]);
+      // Con 0 no se cuelga nada; si no, entre el golpe y el contraataque, con su duración.
+      const efectos = b.log.flatMap((e, i) => (e.kind === 'effect' ? [{ e, i }] : []));
+      if (ataque === 5) {
+        expect(efectos, que).toEqual([]);
+        expect(el.effects, que).toEqual([]);
+        continue;
+      }
+      expect(
+        efectos.map((x) => x.e),
+        que,
+      ).toEqual([
+        {
+          kind: 'effect',
+          stack: 'defender-0',
+          effect: 'attack',
+          amount: ataque - 5,
+          source: 'romperGuardia',
+          rounds: 2,
+          hastaSuTurno: 'terminar',
+        },
+      ]);
+      const [golpeI, contraI] = b.log.flatMap((e, i) => (e.kind === 'attack' ? [i] : []));
+      const i = efectos[0]?.i ?? -1;
+      expect(golpeI !== undefined && i > golpeI && contraI !== undefined && i < contraI, que).toBe(
+        true,
+      );
+      // Quien pega, nada.
+      expect(stackById(b, 'attacker-0').effects, que).toEqual([]);
+    }
+  });
+
+  it('Romper guardia sigue en el próximo turno del atacado y se va al terminarlo', () => {
+    const { b, rng } = enRueda(piqueros(10), piqueros(10));
+    applyAction(b, golpear('romperGuardia', 'defensivo'), rng);
+    const el = stackById(b, 'defender-0');
+    // Su turno: con −2 (ataca con 3).
+    expect(activeStack(b)?.id).toBe('defender-0');
+    expect(effectiveAttack(el)).toBe(3);
+    // Esperar no lo quita (no cierra el turno).
+    applyAction(b, { type: 'wait' }, rng);
+    expect(effectiveAttack(el)).toBe(3);
+    // Esperó el último: vuelve a él, y al cerrar ese turno se va, y lo dice.
+    expect(activeStack(b)?.id).toBe('defender-0');
+    const largo = b.log.length;
+    applyAction(b, { type: 'end_turn' }, rng);
+    expect(el.effects).toEqual([]);
+    expect(effectiveAttack(el)).toBe(5);
+    expect(b.log.slice(largo)).toContainEqual({
+      kind: 'effect_end',
+      stack: 'defender-0',
+      source: 'romperGuardia',
+    });
+  });
+
+  it('dos Romper guardia seguidos refrescan, no se suman: queda el último', () => {
+    const { b, rng } = enRueda(piqueros(10), piqueros(10));
+    applyAction(b, golpear('romperGuardia', 'normal'), rng);
+    const el = stackById(b, 'defender-0');
+    expect(effectiveAttack(el)).toBe(4);
+    // Otro turno del atacante (a mano), y otro Romper guardia con éxito máximo.
+    b.turno = { n: 50, stack: 'attacker-0', gastado: 0 };
+    applyAction(b, golpear('romperGuardia', 'finta'), rng);
+    expect(el.effects).toEqual([
+      expect.objectContaining({
+        kind: 'attack',
+        amount: -3,
+        source: 'romperGuardia',
+        hasta: { turno: 50, al: 'terminar' },
+      }),
+    ]);
+    expect(effectiveAttack(el)).toBe(2);
+  });
+
+  it('sin contraataque, Romper guardia quita ataque igual: para su próximo turno', () => {
+    const { b, rng } = enRueda(piqueros(10), piqueros(10));
+    stackById(b, 'defender-0').retaliated = true;
+    applyAction(b, golpear('romperGuardia', 'finta'), rng);
+    expect(ataques(b).filter((a) => a.retaliation)).toEqual([]);
+    expect(effectiveAttack(stackById(b, 'defender-0'))).toBe(2);
+  });
+
+  it('si su turno no llega (la moral baja lo salta), lo quita el tope de dos rondas', () => {
+    // La primera semilla en la que el defensor, con moral −3 y la regla de fheroes2
+    // (3/12), pierde su turno: deterministas, cada una con su `Rng`.
+    for (let semilla = 1; semilla <= 200; semilla++) {
+      const { b, rng } = enRueda(piqueros(10), piqueros(10), {
+        semilla,
+        reglas: reglasDeLaURL('moralBaja'),
+      });
+      const el = stackById(b, 'defender-0');
+      el.morale = -3;
+      applyAction(b, golpear('romperGuardia', 'finta'), rng);
+      // Hasta la ronda 3 juega solo el atacante (se defiende): el defensor pierde
+      // por la moral todos sus turnos. Si alguno le llega, otra semilla.
+      let saltados = true;
+      while (b.finished === null && b.round < 3) {
+        if (activeStack(b)?.id !== 'attacker-0') {
+          saltados = false;
+          break;
+        }
+        expect(el.effects.map((e) => e.source)).toEqual(['romperGuardia']);
+        applyAction(b, { type: 'defend' }, rng);
+      }
+      if (!saltados || b.round !== 3) continue;
+      // Ronda 3: caduca al empezar, aunque su turno no haya llegado.
+      expect(el.effects).toEqual([]);
+      return;
+    }
+    throw new Error('en 200 semillas la moral baja no salta nunca dos turnos del defensor');
+  });
+});
+
+describe('la respuesta no da bonificadores (#263): solo Fuerte y Rápido cambian el contraataque', () => {
+  // Golpe Normal: 35 × 10 × 0,9 = 315; quedan 1 185 PV, 8 piqueros. El
+  // contraataque en el medio: 35 × 8 × 0,9 = 252.
+  it('Ofensivo, Defensivo, Finta y Romper guardia: 252, ni ataque ni defensa de más, ni un efecto', () => {
+    for (const respuesta of ['ofensivo', 'defensivo', 'finta', 'romperGuardia'] as const) {
+      const { b, rng } = enRueda(piqueros(10), piqueros(10));
+      applyAction(b, golpear('normal', respuesta), rng);
+      expect(
+        ataques(b).map((a) => a.damage),
+        respuesta,
+      ).toEqual([315, 252]);
+      expect(
+        b.log.filter((e) => e.kind === 'effect'),
+        respuesta,
+      ).toEqual([]);
+      for (const x of b.stacks) {
+        expect(x.effects, `${respuesta}: ${x.id}`).toEqual([]);
+        expect(effectiveAttack(x), `${respuesta}: ${x.id}`).toBe(5);
+        expect(effectiveDefense(x, REGLAS_DEL_JUEGO), `${respuesta}: ${x.id}`).toBe(9);
+      }
+      // La Finta de quien responde no le abre nada a nadie: el turno pasa.
+      expect(activeStack(b)?.id, respuesta).toBe('defender-0');
+      expect(b.turno?.finta, respuesta).toBeUndefined();
+    }
+  });
+
+  it('Fuerte: 35 × 8 × 0,9 × 1,25 = 315; Rápido: dos de 35 × 8 × 0,9 × 0,6 = 151,2 → 151', () => {
+    const fuerte = enRueda(piqueros(10), piqueros(10));
+    applyAction(fuerte.b, golpear('normal', 'fuerte'), fuerte.rng);
+    expect(ataques(fuerte.b).map((a) => a.damage)).toEqual([315, 315]);
+    const rapido = enRueda(piqueros(10), piqueros(10));
+    applyAction(rapido.b, golpear('normal', 'rapido'), rapido.rng);
+    expect(ataques(rapido.b).map((a) => [a.damage, a.retaliation])).toEqual([
+      [315, false],
+      [151, true],
+      [151, true],
+    ]);
+  });
+});
+
+describe('la Finta deja andar después de golpear (#263)', () => {
+  /**
+   * Golpea con Finta contra `respuesta` tras haber andado `andado` casillas (a
+   * mano). El piquero anda 4; con una Prisa de +2 puesta a mano, 6, el ejemplo
+   * del usuario. Devuelve el turno del golpe, que sigue diciendo lo que restó la
+   * Finta aunque se haya cerrado.
+   */
+  function conFinta(
+    respuesta: TipoDeGolpe,
+    andado = 0,
+  ): { b: BattleState; rng: Rng; turno: TurnoDeUnidad } {
+    const { b, rng } = enRueda(piqueros(10), piqueros(10));
+    const yo = stackById(b, 'attacker-0');
+    yo.effects = [{ kind: 'speed', amount: 2, source: 'haste', roundsLeft: 5 }];
+    expect(pasosQueQuedan(b, yo)).toBe(6);
+    const turno = b.turno;
+    if (turno === null) throw new Error('nadie tiene el turno');
+    turno.gastado = andado;
+    applyAction(b, golpear('finta', respuesta), rng);
+    return { b, rng, turno };
+  }
+
+  it('sin andar antes: le queda su velocidad menos lo del éxito, y solo puede andar o terminar', () => {
+    // Finta contra Ofensivo, a dos: alto, resta 2.
+    const { b, rng } = conFinta('ofensivo');
+    expect(b.log.find((e) => e.kind === 'cruce')).toMatchObject({ golpe: 'finta', punto: 3 });
+    const yo = stackById(b, 'attacker-0');
+    expect(activeStack(b)?.id).toBe('attacker-0');
+    expect(b.turno?.finta).toBe(2);
+    expect(b.turno?.gastado).toBe(0);
+    expect(pasosQueQuedan(b, yo)).toBe(6 - 2);
+    // La Finta ya no le quita nada a nadie.
+    expect(b.log.filter((e) => e.kind === 'effect')).toEqual([]);
+    const legales = legalActions(b);
+    expect(new Set(legales.map((a) => a.type))).toEqual(new Set(['move', 'end_turn']));
+    expect(legales.at(-1)).toEqual({ type: 'end_turn' });
+    // Lo demás lanza con el motivo, sin tocar nada.
+    const largo = b.log.length;
+    for (const otra of [
+      { type: 'attack', target: 'defender-0' },
+      { type: 'attack', target: 'defender-0', golpe: 'fuerte', respuesta: 'normal' },
+      { type: 'defend' },
+      { type: 'wait' },
+      { type: 'shoot', target: 'defender-0' },
+      { type: 'cast', spell: 'bless', target: 'attacker-0' },
+      { type: 'surrender' },
+    ] satisfies BattleAction[]) {
+      expect(() => applyAction(b, otra, rng), JSON.stringify(otra)).toThrow(
+        'attacker-0: tras golpear con Finta solo puede andar o terminar el turno',
+      );
+    }
+    expect(b.log.length).toBe(largo);
+    // Andar cierra el turno, aunque le quede.
+    const paso = legales.find((a) => a.type === 'move');
+    if (paso === undefined) throw new Error('tras la Finta no sale ninguna casilla');
+    applyAction(b, paso, rng);
+    expect(b.log.slice(largo)[0]).toMatchObject({ kind: 'move', stack: 'attacker-0' });
+    expect(b.log.slice(largo)[0]).not.toHaveProperty('charge');
+    expect(activeStack(b)?.id).toBe('defender-0');
+  });
+
+  it('después de andar: lo que le queda menos lo del éxito (el ejemplo: 6 − 2 − 2 = 2)', () => {
+    const { b } = conFinta('ofensivo', 2);
+    const yo = stackById(b, 'attacker-0');
+    expect(activeStack(b)?.id).toBe('attacker-0');
+    expect(pasosQueQuedan(b, yo)).toBe(2);
+    // Las casillas que salen son las de ese presupuesto: alguna a 2, ninguna a más.
+    const casillas = legalActions(b).flatMap((a) => (a.type === 'move' ? [a.to] : []));
+    expect(Math.max(...casillas.map((h) => hexDistance(h, yo.hex)))).toBe(2);
+  });
+
+  it('los cinco éxitos restan 1, 2, 3, 4 y 5', () => {
+    // Finta contra: R. guardia (máximo), Ofensivo (alto), Normal (medio), Fuerte (bajo), Finta (mínimo).
+    const resta = (['romperGuardia', 'ofensivo', 'normal', 'fuerte', 'finta'] as const).map(
+      (r) => conFinta(r).turno.finta,
+    );
+    expect(resta).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('sin casillas que andar, el turno se cierra solo y no sale nada', () => {
+    // Le quedan 3 y la Finta en el mínimo resta 5: max(0, 3 − 5) = 0.
+    const { b, turno } = conFinta('finta', 3);
+    expect(b.log.find((e) => e.kind === 'cruce')).toMatchObject({ punto: 0 });
+    expect(turno.finta).toBe(5);
+    expect(activeStack(b)?.id).toBe('defender-0');
+    expect(b.turno?.n).not.toBe(turno.n);
+    // Y si la pelea acaba con el golpe, se cierra: no hay tramo que andar.
+    const { b: fin } = (() => {
+      const r = enRueda(piqueros(10), piqueros(1));
+      applyAction(r.b, golpear('finta', 'ofensivo'), r.rng);
+      return r;
+    })();
+    expect(fin.finished).toEqual({ winner: 'attacker' });
+    expect(fin.turno).toBeNull();
   });
 });
 
@@ -639,11 +946,18 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
         autoResolve(b, rng);
         const log = b.log;
         // Entre la carrera y su golpe, al azar nada; con la rueda, su cruce y el
-        // Defensivo de quien pega, que se pone antes de sus golpes.
+        // Defensivo de quien pega, que se pone antes de sus golpes. Hacia atrás,
+        // también los golpes de antes de la misma jugada: cada golpe del Rápido
+        // cobra la carga.
         const enMedio = modo === 'azar' ? [] : ['cruce', 'effect'];
         const saltando = (desde: number, paso: 1 | -1): BattleEvent | undefined => {
+          const stack = log[desde]?.kind === 'attack' ? (log[desde] as Ataque).stack : null;
+          const deLaJugada = (e: BattleEvent | undefined): boolean =>
+            e !== undefined &&
+            (enMedio.includes(e.kind) ||
+              (paso === -1 && e.kind === 'attack' && e.stack === stack && !e.retaliation));
           let k = desde + paso;
-          while (enMedio.includes(log[k]?.kind ?? '')) k += paso;
+          while (deLaJugada(log[k])) k += paso;
           return log[k];
         };
         for (const [i, e] of log.entries()) {
@@ -700,10 +1014,47 @@ describe('la previsión de la rueda', () => {
   it('sin contraataque, las notas del golpe no lo prometen (H9)', () => {
     expect(efectoDeGolpe('defensivo', 'golpe', false)).not.toContain('contraataque');
     expect(efectoDeGolpe('defensivo', 'golpe', false)).toContain('no te devuelven el golpe');
-    for (const t of ['romperGuardia', 'finta'] as const) {
-      expect(efectoDeGolpe(t, 'golpe', false)).toContain('(no toca este golpe)');
-      expect(efectoDeGolpe(t, 'golpe', false)).not.toContain('contraataque');
+    expect(efectoDeGolpe('romperGuardia', 'golpe', false)).toBe(
+      'Quita ataque al rival en su próximo turno (esta vez no te devuelve el golpe); −3 con éxito máximo, −2 alto, −1 medio, nada bajo o mínimo.',
+    );
+    // La Finta no tiene que ver con el contraataque: la misma nota con él y sin él.
+    expect(efectoDeGolpe('finta', 'golpe', false)).toBe(efectoDeGolpe('finta', 'golpe', true));
+  });
+
+  it('con Romper guardia elegido, el contraataque previsto es menor y abarca el real', () => {
+    // Romper guardia y Finta dan la misma horquilla al golpear (del mínimo al
+    // máximo, sin factor ni ataque): el contraataque, no. En el máximo (−3),
+    // 30 × 8 × 0,825 = 198; sin nada, 30 × 8 × 0,9 = 216.
+    const { b } = enRueda(piqueros(10), piqueros(10));
+    const prevision = (golpe: TipoDeGolpe) => {
+      const p = previsionDe(b, { type: 'attack', target: 'defender-0', golpe });
+      if (p === null || p.kind !== 'golpe' || p.contraataque === null) {
+        throw new Error(`${golpe}: sin contraataque previsto`);
+      }
+      return p;
+    };
+    const romper = prevision('romperGuardia');
+    const finta = prevision('finta');
+    expect(romper.danio).toEqual(finta.danio);
+    expect(finta.contraataque?.danio.min).toBe(216);
+    expect(romper.contraataque?.danio.min).toBe(198);
+    expect(romper.contraataque?.danio.max).toBe(finta.contraataque?.danio.max);
+    // Y el contraataque de verdad cae dentro, en los cinco éxitos.
+    for (const respuesta of [
+      'finta',
+      'defensivo',
+      'normal',
+      'ofensivo',
+      'romperGuardia',
+    ] as const) {
+      const r = enRueda(piqueros(10), piqueros(10));
+      applyAction(r.b, golpear('romperGuardia', respuesta), r.rng);
+      const contra = ataques(r.b).find((a) => a.retaliation)?.damage ?? -1;
+      expect(contra, respuesta).toBeGreaterThanOrEqual(romper.contraataque?.danio.min ?? 0);
+      expect(contra, respuesta).toBeLessThanOrEqual(romper.contraataque?.danio.max ?? 0);
     }
+    // Defensivo: quien pega lleva +1 defensa al recibirlo (D 10: ×0,875).
+    expect(prevision('defensivo').contraataque?.danio.min).toBe(210);
   });
 
   it('la previsión de un golpe elegido usa su sector y sus golpes', () => {
@@ -805,24 +1156,41 @@ describe('la IA elige a ciegas', () => {
       autoResolve(b, rng);
       return b;
     };
-    for (const semilla of [1, 2, 3]) {
+    // Con la Finta la IA anda tras golpear (#263): sigue terminando, sin bucles.
+    let tramos = 0;
+    for (let semilla = 1; semilla <= 50; semilla++) {
       const a = pelea(semilla);
-      expect(a.finished).not.toBeNull();
+      expect(a.finished, `semilla ${semilla}`).not.toBeNull();
       expect(a.log.filter((e) => e.kind === 'cruce').length).toBeGreaterThan(0);
-      expect(JSON.stringify(pelea(semilla).log)).toBe(JSON.stringify(a.log));
+      expect(JSON.stringify(pelea(semilla).log), `semilla ${semilla}`).toBe(JSON.stringify(a.log));
+      // Un tramo de la Finta: el `move` de quien acaba de golpear, sin otro turno en medio.
+      for (const [i, e] of a.log.entries()) {
+        if (e.kind !== 'cruce' || e.golpe !== 'finta') continue;
+        const despues = a.log
+          .slice(i + 1)
+          .find((x) => !['attack', 'perished', 'luck', 'effect', 'immune'].includes(x.kind));
+        if (despues?.kind === 'move' && despues.stack === e.stack) tramos++;
+      }
     }
+    expect(tramos).toBeGreaterThan(0);
   });
 });
 
 describe('el parte cuenta el cruce', () => {
-  it('«Romper guardia contra Finta: alto; contraataque bajo», y sin contraataque, sin él', () => {
+  it('«Romper guardia contra Defensivo: alto; contraataque bajo», y sin contraataque, sin él', () => {
     const { b, rng } = enRueda(piqueros(10), piqueros(10));
-    applyAction(b, golpear('romperGuardia', 'finta'), rng);
+    applyAction(b, golpear('romperGuardia', 'defensivo'), rng);
     const parte = marcadoDe(renderBattleLog(b, null));
-    expect(parte).toContain('Romper guardia contra Finta: alto; contraataque bajo');
-    // La Finta del contraataque, con su duración de verdad.
+    expect(parte).toContain('Romper guardia contra Defensivo: alto; contraataque bajo');
+    // Romper guardia con éxito alto, con su duración de verdad.
     expect(parte).toContain(
-      'Finta sobre Piquero, del atacante: ataque -1 hasta que termine su próximo turno',
+      'Romper guardia sobre Piquero, del defensor: ataque -2 hasta que termine su próximo turno',
+    );
+    // Y Defensivo, hasta que empiece.
+    const d = enRueda(piqueros(10), piqueros(10));
+    applyAction(d.b, golpear('defensivo', 'normal'), d.rng);
+    expect(marcadoDe(renderBattleLog(d.b, null))).toContain(
+      'Defensivo sobre Piquero, del atacante: defensa +1 hasta que empiece su próximo turno',
     );
     expect(
       contraataqueDelCruce(
@@ -1200,6 +1568,51 @@ describe('la sesión de la arena con la rueda', () => {
     }
   });
 
+  it('Yo contra IA con Finta: tras el desenlace salen las casillas a las que andar, y andar pasa el turno (#263)', () => {
+    const s = sesion({ ids: [PIQUERO], ia: false }, { ids: [PIQUERO], ia: true });
+    expect(s.turnoPropio?.stack.id).toBe('attacker-0');
+    const yo = stackById(s.battle, 'attacker-0');
+    yo.hex = { col: 5, row: 4 };
+    stackById(s.battle, 'defender-0').hex = { col: 6, row: 4 };
+    // Con una Prisa de +5 puesta a mano le queda algo con cualquier éxito.
+    yo.effects = [{ kind: 'speed', amount: 5, source: 'haste', roundsLeft: 5 }];
+    const velocidad = pasosQueQuedan(s.battle, yo);
+    s.playBattleAction({ type: 'attack', target: 'defender-0' });
+    expect(s.ruedaPendiente?.fase).toBe('golpe');
+    const a = new BattleAnimator();
+    a.observe(s.battle);
+    a.tick(0);
+    const largo = s.battle.log.length;
+    s.elegirEnLaRueda('finta');
+    const cruce = s.battle.log.slice(largo).find((e) => e.kind === 'cruce');
+    if (cruce?.kind !== 'cruce') throw new Error('elegir no dio el golpe');
+    // Sigue su turno, solo para andar: las casillas salen solas, sin otro clic.
+    expect(s.ruedaPendiente).toBeNull();
+    expect(s.turnoPropio?.stack.id).toBe('attacker-0');
+    const resta = 5 - cruce.punto;
+    expect(pasosQueQuedan(s.battle, yo)).toBe(velocidad - resta);
+    const casillas = s.battleMovable();
+    expect(casillas.length).toBeGreaterThan(0);
+    expect(s.battleLegalActions().every((x) => x.type === 'move' || x.type === 'end_turn')).toBe(
+      true,
+    );
+    expect(s.battleCharges()).toEqual([]);
+    // El animador acaba con el aro en quien fintó: es su turno.
+    a.observe(s.battle);
+    for (let t = 0; a.busy; t += 16) a.tick(t);
+    expect(a.activo(s.battle)).toBe('attacker-0');
+    // Otra cosa no vale, y la barra lo dice.
+    s.playBattleAction({ type: 'defend' });
+    expect(s.status).toContain('tras golpear con Finta solo puede andar o terminar el turno');
+    // Clic en una casilla: anda y el turno pasa.
+    const n = s.battle.turno?.n;
+    const destino = casillas[0] as (typeof casillas)[number];
+    const antes = s.battle.log.length;
+    s.playBattleAction({ type: 'move', to: destino });
+    expect(s.battle.log[antes]).toMatchObject({ kind: 'move', stack: 'attacker-0', to: destino });
+    expect(s.battle.turno?.n).not.toBe(n);
+  });
+
   it('con todo en IA la pelea se juega entera, y es la misma con la misma semilla', () => {
     const todo = (semilla: number): BattleState =>
       sesion(
@@ -1231,34 +1644,54 @@ describe('la rueda pintada', () => {
     expect(m).not.toMatch(/data-elegido="(?:golpe|respuesta|los-dos)"/);
   });
 
-  it('cada nota dice cuándo actúa su efecto: en la respuesta, nada para el golpe que llega, que decide el cruce (H4 y H7 de QA)', () => {
-    // Quien responde elige su contraataque: ninguna nota promete cambiar el golpe
-    // que recibe, y cada una dice que ese golpe lo decide el cruce (H7: «No cambia
-    // este golpe» se leía como que daba igual qué elegir).
-    expect(efectoDeGolpe('defensivo', 'respuesta')).toBe(
-      'Su efecto no toca el golpe que recibes (ese lo decide el cruce): +1 defensa desde tu contraataque hasta que termine tu próximo turno.',
+  it('para elegir: cada sector dice su puesto en el anillo (las notas se colocan por él, no por el tipo)', () => {
+    const s = sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: false });
+    hastaLaRueda(s, true);
+    const p = s.ruedaPendiente;
+    if (p === null) throw new Error('la rueda no pide el golpe');
+    const m = marcadoDe(renderEleccion(s.battle, p));
+    for (const [i, t] of ANILLO.entries()) {
+      expect(m).toContain(`data-puesto="${i}" data-sector="${t}"`);
+    }
+    expect(m).toContain('data-puesto="centro" data-sector="normal"');
+  });
+
+  it('cada nota dice cuándo actúa su efecto y, en la respuesta, que solo Fuerte y Rápido cambian el contraataque (#263)', () => {
+    // Al pegar: Romper guardia y Finta, con lo que darían en cada éxito, desde las cifras.
+    expect(efectoDeGolpe('romperGuardia', 'golpe')).toBe(
+      'Quita ataque al rival desde ya: en su contraataque de ahora y hasta que termine su próximo turno; −3 con éxito máximo, −2 alto, −1 medio, nada bajo o mínimo.',
+    );
+    expect(efectoDeGolpe('finta', 'golpe')).toBe(
+      'Después de golpear puedes andar las casillas que te queden menos 1 con éxito máximo, 2 alto, 3 medio, 4 bajo, 5 mínimo. Andar cierra el turno.',
+    );
+    expect(efectoDeGolpe('defensivo', 'golpe')).toBe(
+      '+1 defensa desde ya: cubre el contraataque de ahora y dura hasta que empiece tu próximo turno.',
+    );
+    expect(efectoDeGolpe('ofensivo', 'golpe')).toBe('+1 ataque en este golpe.');
+    expect(efectoDeGolpe('fuerte', 'golpe')).toBe('Daño ×1,25.');
+    // En la respuesta: Ofensivo, Defensivo, Finta y Romper guardia solo cuentan para el
+    // cruce; Fuerte y Rápido dicen su contraataque.
+    for (const t of ['ofensivo', 'defensivo', 'finta', 'romperGuardia'] as const) {
+      expect(efectoDeGolpe(t, 'respuesta'), t).toBe(
+        'En la respuesta no tiene efecto: solo cuenta para el cruce, que decide cuánto te duele el golpe y dónde cae tu contraataque.',
+      );
+    }
+    expect(efectoDeGolpe('fuerte', 'respuesta')).toBe(
+      'Su efecto no toca el golpe que recibes (ese lo decide el cruce): tu contraataque hace daño ×1,25.',
+    );
+    expect(efectoDeGolpe('rapido', 'respuesta')).toBe(
+      'Su efecto no toca el golpe que recibes (ese lo decide el cruce): contraatacas con 2 golpes de daño ×0,6 cada uno.',
     );
     for (const t of TIPOS_DE_GOLPE) {
-      const nota = efectoDeGolpe(t, 'respuesta');
-      expect(nota, t).toMatch(
-        t === 'normal'
-          ? /el cruce cae en el medio, y tu contraataque también/
-          : /^Su efecto no toca el golpe que recibes \(ese lo decide el cruce\): /,
-      );
-      expect(nota, t).toMatch(/contraata/);
       // El doble golpe no dobla el contraataque (`golpesDe`): la respuesta no lo promete.
-      expect(nota, t).not.toContain('doble golpe');
+      expect(efectoDeGolpe(t, 'respuesta'), t).not.toContain('doble golpe');
     }
-    // Al pegar, Defensivo sí cubre ya el contraataque, y lo que se cuelga al rival
-    // dice que no toca este intercambio.
-    expect(efectoDeGolpe('defensivo', 'golpe')).toContain('cubre el contraataque de ahora');
-    for (const t of ['romperGuardia', 'finta'] as const) {
-      expect(efectoDeGolpe(t, 'golpe')).toContain('no toca este golpe ni su contraataque');
-      expect(efectoDeGolpe(t, 'golpe')).toContain('hasta que termine su próximo turno');
-    }
-    // Las cifras siguen saliendo del JSON: Fuerte en las dos fases.
-    expect(efectoDeGolpe('fuerte', 'golpe')).toBe('Daño ×1,25.');
-    expect(efectoDeGolpe('fuerte', 'respuesta')).toContain('daño ×1,25');
+    // Las notas salen de `data/rueda.json`: con otras cifras, otra frase.
+    const otras = validarRueda({
+      ...ruedaJson,
+      romperGuardia: { ataque: { minimo: -1, bajo: -1, medio: -1, alto: -1, maximo: -4 } },
+    });
+    expect(otras.romperGuardia.ataque[4]).toBe(-4);
     // Y la rueda pinta la de su fase: en la respuesta, la de la respuesta.
     const s = sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: false });
     hastaLaRueda(s, true);
@@ -1266,12 +1699,14 @@ describe('la rueda pintada', () => {
     if (golpe === null) throw new Error('la rueda no pide el golpe');
     const enElGolpe = marcadoDe(renderEleccion(s.battle, golpe));
     expect(enElGolpe).toContain('cubre el contraataque de ahora');
-    expect(enElGolpe).not.toContain('Su efecto no toca el golpe que recibes');
+    expect(enElGolpe).toContain('−3 con éxito máximo');
+    expect(enElGolpe).not.toContain('En la respuesta no tiene efecto');
     s.elegirEnLaRueda('fuerte');
     const respuesta = s.ruedaPendiente;
     if (respuesta === null) throw new Error('la rueda no pide la respuesta');
     const enLaRespuesta = marcadoDe(renderEleccion(s.battle, respuesta));
-    expect(enLaRespuesta).toContain('(ese lo decide el cruce): +1 defensa desde tu contraataque');
+    expect(enLaRespuesta).toContain('En la respuesta no tiene efecto: solo cuenta para el cruce');
+    expect(enLaRespuesta).toContain('tu contraataque hace daño ×1,25');
     expect(enLaRespuesta).not.toContain('cubre el contraataque de ahora');
   });
 
@@ -1298,14 +1733,14 @@ describe('la rueda pintada', () => {
 
   it('el desenlace: los dos elegidos, el rótulo, el medidor y los tramos en orden', () => {
     const { b, rng } = enRueda(piqueros(10), piqueros(10));
-    applyAction(b, golpear('romperGuardia', 'finta'), rng);
+    applyAction(b, golpear('romperGuardia', 'defensivo'), rng);
     const i = b.log.findIndex((e) => e.kind === 'cruce');
     const e = b.log[i];
     if (e?.kind !== 'cruce') throw new Error('sin cruce');
     const m = marcadoDe(renderDesenlace(b, e, contraataqueDelCruce(b.log, i)));
-    expect(m).toContain('Romper guardia contra Finta');
+    expect(m).toContain('Romper guardia contra Defensivo');
     expect(m).toContain('data-sector="romperGuardia" data-elegido="golpe"');
-    expect(m).toContain('data-sector="finta" data-elegido="respuesta"');
+    expect(m).toContain('data-sector="defensivo" data-elegido="respuesta"');
     expect(m).toContain('¡Alto!');
     expect(m).toContain('aria-label="Golpe en el alto, contraataque en el bajo"');
     expect([0, 0.4, 0.5, 0.99].map(tramosDelDesenlace)).toEqual([

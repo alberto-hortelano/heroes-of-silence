@@ -253,7 +253,7 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     const enUnCuarto = {
       reglas: REGLAS_DEL_JUEGO,
       chargeHexes: 3,
-      cruce: cruceDelGolpe('normal', 1, 1),
+      cruce: cruceDelGolpe('normal', 1, 1, 'golpe'),
     };
     expect(computeDamage(jinete, muneco, dadoCargado('maximo'), enUnCuarto).damage).toBe(125);
     // Del cuarto 0 al 2: 50–70 → 104–146; sin carga, los de la espada (20–40 → 22–33).
@@ -264,7 +264,7 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
         {
           reglas: REGLAS_DEL_JUEGO,
           chargeHexes,
-          cruce: cruceDelGolpe('normal', 0, 2),
+          cruce: cruceDelGolpe('normal', 0, 2, 'golpe'),
         },
         EQUIPO_DEL_JUEGO,
       ).danio;

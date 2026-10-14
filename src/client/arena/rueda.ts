@@ -206,15 +206,24 @@ function cabecera(
 /**
  * Los siete sitios de la rueda, uno por tipo (`.en-<tipo>`, que coloca
  * `ajustarLaRueda`), con lo que ponga `dentro`. `atributos`, lo que lleva cada
- * sitio además de su tipo.
+ * sitio además de su tipo. Cada uno dice también su puesto en el anillo
+ * (`data-puesto`, de 0 arriba a 5 en el sentido de las agujas del reloj; Normal,
+ * `centro`): lo que depende de dónde cae —hacia dónde se abre su nota— lo lee el
+ * CSS de ahí, y cambiar el orden del anillo no obliga a reescribirlo.
  */
 function sitios(dentro: (t: TipoDeGolpe) => Html, atributos: (t: TipoDeGolpe) => Html): Html {
   return unir(
     TIPOS_DE_GOLPE.map(
       (t) =>
-        html`<div class="sector-de-rueda en-${t}" data-sector="${t}"${atributos(t)}>${dentro(t)}</div>`,
+        html`<div class="sector-de-rueda en-${t}" data-puesto="${puestoDe(t)}" data-sector="${t}"${atributos(t)}>${dentro(t)}</div>`,
     ),
   );
+}
+
+/** El puesto de un tipo en el anillo: «0» a «5», o «centro» para Normal. */
+function puestoDe(t: TipoDeGolpe): string {
+  const i = ANILLO.indexOf(t);
+  return i < 0 ? 'centro' : String(i);
 }
 
 /** Lo que se ve de un tipo: su icono y su nombre. */
