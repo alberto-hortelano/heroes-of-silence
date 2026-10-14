@@ -70,14 +70,17 @@ import type {
 import type { Pieza } from '@core/data.js';
 import {
   aDosManos,
+  type CifraDePieza,
   cifrasDePieza,
   DICHO_DEL_USO,
   type EquipoAtado,
+  type ModificadorDePieza,
   NOMBRE_DE_CALIDAD,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
   REGLA_DEL_ESCUDO,
   SIN_ARMA,
+  textoDeModificador,
 } from '@core/hero/equipo.js';
 import {
   CREATURE_TRAITS,
@@ -101,6 +104,7 @@ import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   accionesDeLaUnidad,
   cifraDeEfecto,
+  efectoEnCurso,
   enRondas,
   listaDelCampo,
   modificadoresEnPantalla,
@@ -1592,6 +1596,84 @@ function botonDeEditar(x: BattleStack, nombre: string): Html {
 }
 
 /**
+ * Lo que suma el equipo a una `cifra` de `u`: lo de ahora menos lo de su cuerpo
+ * (`UnitInfo.sinEquipo`, que escribe solo `conEquipo`), en la pastilla de toda
+ * suma de equipo (`textoDeModificador`, como `modificadoresEnPantalla`), o nada
+ * si no suma. La velocidad, en casillas, que es como se lee al lado.
+ */
+function delEquipo(u: UnitInfo, cifra: CifraDePieza): Html {
+  const cuerpo = u.sinEquipo;
+  if (cuerpo === undefined) return NADA;
+  let m: ModificadorDePieza;
+  switch (cifra) {
+    case 'ataque':
+      m = { kind: 'cifra', cifra, valor: u.attack - cuerpo.attack };
+      break;
+    case 'defensa':
+      m = { kind: 'cifra', cifra, valor: u.defense - cuerpo.defense };
+      break;
+    case 'pv':
+      m = { kind: 'cifra', cifra, valor: u.hp - cuerpo.hp };
+      break;
+    case 'velocidad':
+      m = { kind: 'cifra', cifra, valor: SPEED_TO_HEXES[u.speed] - SPEED_TO_HEXES[cuerpo.speed] };
+      break;
+    case 'danio':
+      m = {
+        kind: 'cifra',
+        cifra,
+        valor: u.damage[0] - cuerpo.damage[0],
+        hasta: u.damage[1] - cuerpo.damage[1],
+      };
+      break;
+  }
+  if (m.valor === 0 && (m.hasta ?? 0) === 0) return NADA;
+  return html` <span class="modificador" data-cifra="${cifra}">${textoDeModificador(m)}</span>`;
+}
+
+/**
+ * Las cifras de un stack en la pelea, una fila cada una: vida, ataque y defensa
+ * (los de la pelea al lado, `ataqueYDefensa`), daño y velocidad, cada una con lo
+ * que le suma el equipo (`delEquipo`). Las leen el panel de la activa y la vista
+ * previa de la rueda (`vistaPrevia`). `conArmas`: el daño, golpe a golpe con su
+ * arma (`filasDeArmas`, el panel); si no, el del cuerpo a cuerpo, que es el de
+ * la rueda, en una fila y sin notas (el bocadillo no se puede señalar).
+ */
+export function filasDelStack(
+  s: Pick<VistaDeArena, 'battle' | 'defensaEnLoAlto'>,
+  x: BattleStack,
+  conArmas: boolean,
+): Html {
+  const b = s.battle;
+  const u = x.unit;
+  const danio =
+    conArmas && u.equipo !== undefined
+      ? filasDeArmas(u, piezasDeLaPelea(b), (uso) => ataqueYDefensaEnBatalla(b, x, uso).ataque)
+      : html`<div class="row"><span class="label">Daño</span><span>${u.damage[0]}–${u.damage[1]}${delEquipo(u, 'danio')}</span></div>`;
+  return html`<div class="row"><span class="label">Vida</span><span>${isAlive(x) ? x.topHp : 0} / ${u.hp} PV${delEquipo(u, 'pv')}</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, x, s.defensaEnLoAlto(x))}${delEquipo(u, 'ataque')}${delEquipo(u, 'defensa')}</span></div>
+        ${danio}
+        <div class="row"><span class="label">Velocidad</span><span>${SPEED_TO_HEXES[u.speed]} casillas${delEquipo(u, 'velocidad')}</span></div>`;
+}
+
+/**
+ * La vista previa de uno de los dos de la rueda (#261): su nombre, sus cifras
+ * (`filasDelStack`), lo que lleva colgado con lo que le queda (`efectoEnCurso`)
+ * y si ya devolvió un golpe esta ronda. Todo del estado de la batalla: lo que
+ * eligió el otro en la rueda no está ahí, va a ciegas en la sesión.
+ */
+export function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
+  const efectos =
+    x.effects.length === 0
+      ? html`<span class="sin-efectos">ninguno</span>`
+      : unir(x.effects.map((e) => html`<span class="efecto-en-curso">${efectoEnCurso(e)}</span>`));
+  return html`<strong class="nombre-de-la-previa">${nombreEnElCampo(s.battle, x)}</strong>
+    ${filasDelStack(s, x, false)}
+    <div class="row"><span class="label">Efectos</span><span class="efectos-en-curso">${efectos}</span></div>
+    <div class="row"><span class="label">Contraataque</span><span data-contraataco="${x.retaliated ? 'si' : 'no'}">${x.retaliated ? 'ya devolvió un golpe esta ronda' : 'aún puede devolver uno esta ronda'}</span></div>`;
+}
+
+/**
  * El ataque y la defensa con que pelea ahora: los suyos y, si cambian —un
  * efecto, defender, su héroe con la regla de fheroes2, lo alto de un muro—, los
  * de la pelea al lado. Salen del núcleo (`ataqueYDefensaEnBatalla`), las mismas
@@ -1674,25 +1756,13 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
   const activa = activeStack(b);
   const mia = s.turnoPropio !== null;
   const rasgos = activa === null ? '' : rasgosDichos(activa.unit.traits);
-  const enLoAlto = activa === null ? 0 : s.defensaEnLoAlto(activa);
   const ficha =
     activa === null
       ? NADA
       : html`<h2>${nombreEnElCampo(b, activa)} ${botonDeEditar(activa, nombreEnElCampo(b, activa))}</h2>
         <div class="row"><span class="label">Bando</span><span>${LADOS[ladoDe(activa.side)].rotulo}</span></div>
         <div class="row"><span class="label">La mueve</span><span>${s.laLlevaLaIA(activa.id) ? 'la IA' : 'tú'}</span></div>
-        <div class="row"><span class="label">Vida</span><span>${isAlive(activa) ? activa.topHp : 0} / ${activa.unit.hp}</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, activa, enLoAlto)}</span></div>
-        ${
-          activa.unit.equipo === undefined
-            ? html`<div class="row"><span class="label">Daño</span><span>${activa.unit.damage[0]}–${activa.unit.damage[1]}</span></div>`
-            : filasDeArmas(
-                activa.unit,
-                piezasDeLaPelea(b),
-                (uso) => ataqueYDefensaEnBatalla(b, activa, uso).ataque,
-              )
-        }
-        <div class="row"><span class="label">Velocidad</span><span>${SPEED_TO_HEXES[activa.unit.speed]} casillas</span></div>
+        ${filasDelStack(s, activa, true)}
         ${rasgos === '' ? NADA : html`<div class="row"><span class="label">Rasgos</span><span>${rasgos}</span></div>`}`;
   const heroe = s.heroeEnJuego;
   // Con la rueda en la respuesta, lo que se juega es eso (la activa es quien

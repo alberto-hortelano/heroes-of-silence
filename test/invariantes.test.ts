@@ -683,6 +683,9 @@ describe('invariantes del proyecto', () => {
         'yoContraYoEnLaRueda',
         'todoEnIAConLaRueda',
         'espejoDeLasArmas',
+        // Los contrincantes de la rueda (#261): su espejo y su montaje.
+        'espejoDeContrincantes',
+        'hastaLaRuedaDeTres',
       ],
     };
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];

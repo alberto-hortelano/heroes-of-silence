@@ -142,6 +142,13 @@ export interface VistaBatalla {
    * del estado sino el de lo que se cuenta.
    */
   readonly activo: string | null;
+  /**
+   * Los dos que se cruzan en la rueda del golpe mientras está abierta (solo la
+   * arena, `EscenaBatalla.enLaRueda`): cada uno lleva un aro de más del color de
+   * su bando, que une la figura de la cabecera de la rueda con la del tablero
+   * (#261). `null` sin rueda, y siempre en el espectador.
+   */
+  readonly enLaRueda: { readonly atacante: string; readonly objetivo: string } | null;
   readonly efectos: readonly Efecto[];
   /** Los bandos sin dueño, que se tiñen de gris (`bandosSinDueño`); en la arena, ninguno. */
   readonly sinDueño: ReadonlySet<Side>;
@@ -1499,6 +1506,13 @@ function pintarCadaver(
   });
 }
 
+/**
+ * Lo que mide el aro de quien se cruza en la rueda, por el de los pies: fuera del
+ * de su bando, del dorado de la activa y del de defender (×1,25), y dentro del
+ * del hechizo (×1,45).
+ */
+export const ARO_DE_LA_RUEDA = 1.3;
+
 function pintarUnidad(
   ctx: CanvasRenderingContext2D,
   v: VistaBatalla,
@@ -1529,6 +1543,13 @@ function pintarUnidad(
   ctx.beginPath();
   ctx.ellipse(x, suelo, rx, ry, 0, 0, Math.PI * 2);
   ctx.stroke();
+  if (v.enLaRueda !== null && (v.enLaRueda.atacante === s.id || v.enLaRueda.objetivo === s.id)) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(x, suelo, rx * ARO_DE_LA_RUEDA, ry * ARO_DE_LA_RUEDA, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   if (s.defending) {
     ctx.strokeStyle = '#9fc49a';
     ctx.lineWidth = 2;

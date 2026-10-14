@@ -179,6 +179,8 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Lanzar sobre un objetivo (hechizo del héroe y poder de una unidad) | `Lanzador` (`delHeroe`, el del poder), `efectoDe`, `curaDe` (`battle/spells.ts`); en la batalla, `lanzarSobre`; el objetivo, `objetivoBlocker` |
 | Poderes activos de unidad (solo la arena) | `poderBlocker` (`battle.ts`), cifras en `data/poderes.json` (inventadas); `UnitInfo.poderes` lo pone solo `core/arena.ts` |
 | Cambiar cifras a media pelea (arena) | `retocarEnBatalla` (`core/arena.ts`, lo gastado se conserva con `gastadoDeMas`); el tipo de un stack, `tipoDelStack`; el parte, el evento `retoque` |
+| Dónde responde cada sector de la rueda y dónde va lo suyo (arena) | `formas` (un `<clipPath>` por tipo con la forma de `sector`, la que pinta el disco) y `ajustarLaRueda`, que recorta a ella cada botón, del tamaño del plato (#258); el rótulo y el «ⓘ», por el ángulo del sector, `sitioEnLaRueda`, y hacia dónde abre su nota, `haciaDe` (`client/arena/rueda.ts`): nada se coloca por tipo |
+| Los dos que se cruzan en la rueda (arena) | `contrincante` (`rueda.ts`: la figura del puesto, botón de su ficha de solo lectura, `abrirEditor(…, true)` en `main.ts`); su vista previa, `vistaPrevia` y `filasDelStack` (`arena/paneles.ts`, las mismas filas del panel de la activa) con `efectoEnCurso` (`views/panels.ts`); en el tablero, `EscenaBatalla.enLaRueda` → `VistaBatalla.enLaRueda` (#261) |
 
 `test/invariantes.test.ts` vigila las fronteras de esta sección. Todos nacen en
 verde.

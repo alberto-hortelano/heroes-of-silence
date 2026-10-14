@@ -4564,3 +4564,28 @@ arena» (`docs/agents/2026-10-13-arena-sin-municion-ni-tamanos/`). Solo la arena
   una muralla de ejemplo y sin escaleras, 74 de 300 sin terminar con un tirador por bando (122 con la
   munición de antes) y 161 de 300 sin tiradores: lo que no termina es la muralla sin escalera, no el
   tiro.
+
+## La rueda: todo el sector responde y los dos contrincantes a la vista (#258, #261, 14-10-2026)
+
+- **El sector entero** (#258): lo que se veía era la corona del SVG y lo que recibía el ratón, una
+  caja ovalada de 26 × 24 % en su centro: las esquinas de fuera y los picos junto a los radios no
+  respondían. Ahora cada botón mide el plato entero y se recorta a su sector con `clip-path:
+  url(#forma-de-<tipo>)`, un `<clipPath>` con la misma forma que pinta el disco (`sector`, o el
+  círculo de Normal). Antes de nada se midió en Chromium sin pantalla que el recorte recorta el
+  clic, no solo lo que se pinta: con `elementFromPoint`, los picos, el borde de fuera y Normal dan su
+  botón y fuera de la corona, la junta y el hueco, ninguno. La opción de hacer del `<path>` el botón
+  obligaba a rehacer el teclado y las notas, que funcionaban. El rótulo y el «ⓘ» se colocan por el
+  ángulo del sector y la nota abre hacia fuera por `data-hacia` (`haciaDe`): nada va por tipo, y el
+  anillo puede cambiar de orden sin tocar la colocación. `pnpm capturas` mide 50 puntos de la rueda
+  (escritorio y móvil) y elige Fuerte por su esquina de fuera; sin el recorte, todos dan Normal.
+- **Los dos contrincantes** (#261): la cabecera lleva la figura de cada uno, la del botón del puesto,
+  animada y del color de su bando, también en el desenlace. Con el ratón encima (o el foco del
+  teclado), su vista previa a un lado —debajo tapaba los sectores de arriba mientras se elegía—; con
+  un clic, su ficha de solo lectura encima de la rueda (`<fieldset disabled>`), y al cerrarla, la
+  rueda en la misma fase. **En el móvil no hay vista previa**: tocar la figura abre la ficha
+  (decisión del usuario); la regla es `(hover: hover)`, no el ancho. Pasar por la cabecera no
+  despierta los sectores (`data-quieta`). Mientras la rueda está abierta, los dos llevan un aro de
+  más del color de su bando en el tablero (`ARO_DE_LA_RUEDA`). Nada de lo nuevo lee lo elegido: va a
+  ciegas en la sesión, y la rueda de la respuesta sale idéntica tras dos golpes distintos.
+- **Una trampa del test**: el título del editor vuelve en el evento `close`, que llega en una tarea
+  aparte tras `close()`; mirarlo justo al cerrarse daba a veces el de la ficha.

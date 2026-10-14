@@ -1221,7 +1221,7 @@ describe('la rueda pintada', () => {
     s.elegirEnLaRueda('fuerte');
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide la respuesta');
-    const m = marcadoDe(renderEleccion(s.battle, p));
+    const m = marcadoDe(renderEleccion(s, p));
     expect(m.match(/data-golpe="/g)).toHaveLength(7);
     for (const [i, t] of TIPOS_DE_GOLPE.entries()) {
       expect(m).toContain(`data-golpe="${t}" aria-label="`);
@@ -1264,13 +1264,13 @@ describe('la rueda pintada', () => {
     hastaLaRueda(s, true);
     const golpe = s.ruedaPendiente;
     if (golpe === null) throw new Error('la rueda no pide el golpe');
-    const enElGolpe = marcadoDe(renderEleccion(s.battle, golpe));
+    const enElGolpe = marcadoDe(renderEleccion(s, golpe));
     expect(enElGolpe).toContain('cubre el contraataque de ahora');
     expect(enElGolpe).not.toContain('Su efecto no toca el golpe que recibes');
     s.elegirEnLaRueda('fuerte');
     const respuesta = s.ruedaPendiente;
     if (respuesta === null) throw new Error('la rueda no pide la respuesta');
-    const enLaRespuesta = marcadoDe(renderEleccion(s.battle, respuesta));
+    const enLaRespuesta = marcadoDe(renderEleccion(s, respuesta));
     expect(enLaRespuesta).toContain('(ese lo decide el cruce): +1 defensa desde tu contraataque');
     expect(enLaRespuesta).not.toContain('cubre el contraataque de ahora');
   });
@@ -1290,7 +1290,7 @@ describe('la rueda pintada', () => {
       expect(nota, t).not.toMatch(/contraata|ataque al|defensa|daño ×/);
     }
     // La rueda pinta esas, en la nota y en la etiqueta de cada sector.
-    const m = marcadoDe(renderEleccion(s.battle, p));
+    const m = marcadoDe(renderEleccion(s, p));
     expect(m).not.toContain('contraatacas');
     expect(m).not.toContain('tu contraataque');
     expect(m.match(/Esta vez no devuelves el golpe/g)?.length).toBe(2 * TIPOS_DE_GOLPE.length);

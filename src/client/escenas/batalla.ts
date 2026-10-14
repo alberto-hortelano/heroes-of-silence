@@ -210,6 +210,21 @@ export class EscenaBatalla {
     return this.animador.cruceEnCurso();
   }
 
+  /**
+   * Los dos que se cruzan en la rueda que se ve (solo la arena): los del cruce
+   * que se cuenta o, con la cola vacía, los del golpe plantado que espera la
+   * elección (`BattleState.golpeEnCurso`, que solo se lee). Es cuando la arena
+   * enseña la rueda (`pintarLaRueda`, `main.ts`); si no, `null`. Lo elegido no
+   * sale de aquí: no está en el estado.
+   */
+  enLaRueda(): { readonly atacante: string; readonly objetivo: string } | null {
+    const cruce = this.animador.cruceEnCurso();
+    if (cruce !== null) return { atacante: cruce.evento.stack, objetivo: cruce.evento.target };
+    const g = this.sesion().battle?.golpeEnCurso ?? null;
+    if (g === null || this.animador.busy) return null;
+    return { atacante: g.stack, objetivo: g.target };
+  }
+
   dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number): void {
     const s = this.sesion();
     const battle = s.battle;
@@ -252,6 +267,7 @@ export class EscenaBatalla {
       // La vida y quién actúa, al ritmo de la cola: mientras gira la rueda o se
       // cuenta la jugada de la IA, los de antes de lo que aún no se ha visto.
       activo: this.animador.activo(battle),
+      enLaRueda: this.enLaRueda(),
       efectos: this.animador.efectos(battle),
       sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
     });
