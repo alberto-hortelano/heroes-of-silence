@@ -150,8 +150,8 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Territorio y renta | `territorio(state)`, `dueñoComun` |
 | Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed` |
 | Qué barrera cruza un nodo | `MapObject.barrera`, que pone `buildMap` con el muro que abre; el procedimental escribe ese muro con `queCruzaElNodo` |
-| Qué parejas llevan agua en el procedimental: el río y la regla de las charcas | `elegirRio`, `BrazosDeAgua`, `ponerLagos` (`core/map/rios.ts`); medido sobre el mapa, `riosDelMapa` (`tools/qa/rios.ts`) |
-| Qué línea deja dos regiones a dos pasos (el acantilado entre dos niveles; el agua a ras de la más baja, que se ve) | `lineasQueSeparan`, `separadasDeCerca`, `aguaALaVista` (`vestir.ts`): el paso 7d y todo lo que abre una barrera (`abrirLinea`, `quitarEspigas`, `puertasSinMuesca`, `abrirEsquinasTorcidas`); el agua entre dos niveles, solo el 7d y `adelgazarRios` (`aguaEntreNiveles`); en el mapa hecho, `auditarMapaDenso` (`test/helpers.ts`) |
+| El río del procedimental (antes que las regiones; nadie lo corta) | `trazarRio`, `regionesDelRio`, `nivelesDelRio`, `rioEntero`, `rioBajoLaCiudad` (`core/map/rio.ts`); la única escritura de la rejilla del vestido, `ponerTipo` (`vestir.ts`, que lanza si se toca el río; lo vigila `invariantes.test.ts`); medido sobre el mapa, `riosDelMapa` (`tools/qa/rios.ts`) |
+| Qué línea deja dos regiones a dos pasos (el acantilado entre dos niveles; el agua a ras de la más baja, que se ve) | `lineasQueSeparan`, `separadasDeCerca`, `aguaALaVista` (`vestir.ts`): el paso 7d y todo lo que abre una barrera (`abrirLinea`, `quitarEspigas`, `puertasSinMuesca`, `abrirEsquinasTorcidas`); el agua entre dos niveles, solo el 7d (`aguaEntreNiveles`); en el mapa hecho, `auditarMapaDenso` (`test/helpers.ts`) |
 | Caminos de un plan al mapa | `caminosDelPlan` |
 | Carga | `cargaDesde` (cuándo), `cargaEfectiva` (tope), `casillasDeCarga` (qué se enseña) |
 | Turno de batalla | `BattleState.turno` (`n`, ordinal); `mismoTurno`; viaja como `turnId` |
@@ -457,74 +457,43 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   puerta y sin sus dos apoyos 71 → 0, casillas de muro 8 884 → 1 451, largo medio 3,18 → 3,74
   (máximo 6); mapas con muralla 117 (con puerta; 199 con algún muro) → 112
   (`tools/qa/murallas.ts`, `test/murallas-de-paso.test.ts`). Los planes del agente no cambian.
-  **Los ríos** (#144, 16-10-2026, commit 1 de `docs/agents/2026-10-14-rios-entre-regiones/`): un
-  río es **un curso con boca**, varias fronteras de agua seguidas que salen por el borde del mapa,
-  no un largo. Antes del reparto de barreras, `elegirRio` (`core/map/rios.ts`) busca cadenas de 2 a
-  `PAREJAS_MAXIMAS_DEL_RIO` (7) parejas que admiten agua, una tras otra por un mismo punto triple
-  (`Cruces.trozos`), con una punta en el borde y la otra en el borde o en una pareja con sitio para
-  un **lago de cabecera**; planas (la orilla baja de todas al mismo nivel y ninguna región de sus
-  cruces por debajo: #210), sin volver a un cruce y, con su espejo, sin ningún cruce de tres brazos
-  ni otro brazo que solo admita agua; y que el resto del vestido aguante (las `TIPOS_POR_MAPA`, con
-  `repartirDistintas` sin `rng`). Se sortea por el cubo del muro fino, doble de borde a borde (con el
-  largo a secas salían ríos de dos parejas en una esquina). **La ciudad del cruce es su vado**
-  (decisión del usuario): el agua se corta en ella como en un puente. **Lagos en el curso**
-  (`LAGOS_POR_RIO` = 2, `ponerLagos`, paso 5b del engorde): un disco de `R_LAGO` (2) y un anillo
-  de uno más donde la moneda cae a favor, en la casilla del muro fino más lejos de todo nodo (a 4 o
-  más), sin pasillos, ni a dos de un nodo ni de otra región, y solo lo unido a su centro (un trozo
-  suelto del anillo era un obstáculo de más: s112); el que partiría una región no se pone, y si es
-  el de cabecera, el vestido se repite. Del lago a la ciudad de cabecera el muro lleva otra
-  barrera (`Rio.corte`): el río nace en el lago. **La regla de las charcas** (`BrazosDeAgua`): fuera
-  del río, una pareja no lleva agua si un cruce suyo ya tiene un brazo de agua, y lo que sobra de
-  una muralla junto a una ciudad no pasa a agua. Medido en 1-40 (`tools/qa/rios.ts`, sobre el mapa
-  hecho): mapas con río 32 → 37, todos con boca (ríos sin boca 6 → 0), de borde a borde 13 → 29, con
-  un lago atravesado 18 → 27, ciudades con tres brazos de agua 14 → 0, ríos con el agua a más de un
-  nivel 11 → 0, mediana del río más largo 22 → 30 casillas (el plan pedía 40: en 9 de 40 mapas no cabe
-  más de dos parejas); agua 7 556 → 9 198 casillas, acantilado 1 566 → 1 212. La nieve sube de 12,1 a
-  16,6 % de las regiones de 1-200 (los vestidos que se repiten). En 1-3000, tramos rectos ≥ 10 / caras
-  ≥ 10 / mapas con tramo ≥ 12: 164 / 0 / 14 → 95 / 0 / 4. En 1-100, duración 8 / 14 / 21 → 8 / 15 / 22
-  días, j0 51 → 58, 0 sin terminar. **El río de una casilla** (paso 2, 16-10-2026,
-  `adelgazarRios`, paso 7a del engorde con el acantilado): el agua del río (sus parejas y las de su
-  espejo) entre dos regiones al mismo nivel, y a ese nivel, se abre por vueltas a la región que se la
-  come (`abrirLinea` con `'water'`) hasta que queda la casilla que toca a las dos. Come primero el lado
-  de su trecho, el de la reparación del grosor visto desde su casilla de muro fino más cercana (las
-  dos orillas preguntan por el mismo; con el de la propia casilla, cada orilla esperaba a la otra y el
-  río se quedaba de tres), y donde dos trechos se encuentran, el de la pareja y luego el otro: así
-  serpentea. No se adelgazan los lagos del curso, ni lo que está a un paso de un nodo (el puente y la
-  ciudad del vado guardan su agua), ni a `RADIO_DEL_CRUCE` (1) de un cruce de tres regiones (delgadas,
-  las dos aguas quedaban a dos de la barrera de la tercera pareja y el río se partía: s5; sin él, 11
-  ciudades de río sin boca en 6 mapas de 1-160, y con 2, de una casilla el 80 % y no el 89 %), ni lo
-  que quedaría de espiga. **Entre dos niveles, a una casilla donde se ve** (paso 2b, decisión del
-  usuario, 16-10-2026): se la come siempre lo bajo, así que el borde de la meseta no se mueve y el
-  río queda a su pie; **con lo alto justo al norte, a dos** (`aguaALaVista`: la cara cuelga hacia la
-  cámara ~0,6 casillas y taparía uno de una). Lo alto solo se come la muesca que deja lo bajo (agua con
-  lo alto a los dos lados de un eje, un fondo de saco fuera del marco, en una vuelta aparte antes que
-  lo bajo); no se adelgaza a `CERCA_DE_UNA_ESPIGA` (2) de una espiga del relieve, cuya orilla
-  `quitarEspigas` pasa a montaña (con ella el río se cortaba); y el reflejo de una esquina de agua que
-  una senda corta (`sinAguaEnLasEsquinas`) no se pasa a montaña si parte el agua (s1 (19,24)). El
-  pintor no cambia: lo alto se adelanta sobre el río (`ORILLA`), pero cada casilla conserva más de
-  media casilla de agua (0,56-0,63 al este, al oeste y al norte de la meseta), la ladera de caída 1
-  tapa hasta 0,45 a su pie y el río se lee como un arroyo; capturas en
-  `docs/agents/2026-10-14-rios-entre-regiones/capturas/paso2b-*`. Antes, el agua que
-  el engorde derrama junto a una ciudad entre dos regiones cuya pareja no la lleva pasa a la barrera
-  de esa pareja (`sinAguaDerramada`, una vez por engorde): delgado el río, quedaba suelta, un tercer
-  brazo corto (s3). Las parejas de agua sueltas (lagos entre dos regiones) no se tocan. El pintor del
-  agua no cambia: en una casilla el agua es entera en tres cuartos, la espuma va en las dos orillas y
-  no hay centro hondo, que es solo de lo que tiene agua a los cuatro lados (`test/rios.test.ts`).
-  Medido en 1-40 (`tools/qa/rios.ts`, el agua de río entre iguales a dos o más de todo nodo y fuera de
-  sus lagos, por su ancho en ocho vecinas: la menor de sus cuatro tiradas, que una escalera mide uno):
-  de una / dos / tres casillas, 18 / 64 / 18 % → 89 / 8 / 3 % (en recta, 2 → 55 % de una); entre dos
-  niveles, 19 / 62 / 19 % → 16 / 62 / 21 %, como estaba, y es más de la mitad del agua de río (la
-  ciénaga va siempre a 0). En 1-200, ciudades con tres brazos / ríos con escalón / ciudades de río sin
-  boca 9 / 9 / 6 → 5 / 7 / 0. En 1-3000, tramos rectos ≥ 10 / caras ≥ 10 / mapas con tramo ≥ 12: 95 /
-  0 / 4 → 90 / 0 / 5. En 1-100, duración 8 / 15 / 22 → 8 / 13 / 19 días, j0 58 → 56, 0 sin terminar
-  (el banco, 8 / 14 / 24 → 7 / 12 / 20: lo que era agua se pisa). Con el paso 2b, en 1-40: entre dos
-  niveles sin lo alto al norte, de una / dos / tres 18 / 61 / 21 % → 78 / 16 / 6 %; con lo alto al
-  norte, por lo hondo de su columna (1 / 2 / 3 / ≥ 4), 1 / 17 / 29 / 53 % → 1 / 47 / 19 / 32 %; agua
-  de una casilla bajo la cara 5 → 6 (lo que deja el engorde junto a cruces y nodos); entre iguales
-  89 / 8 / 3 → 85 / 12 / 3 %; agua encajada 118 → 68. En 1-200, ciudades con tres brazos / ríos con
-  escalón / ciudades de río sin boca 5 / 7 / 0 → 8 / 7 / 3 (s21, s55, s146: el río al pie de la
-  meseta cortado junto a un vado o una esquina). En 1-3000, 90 / 0 / 5 → 102 / 0 / 5. En 1-100,
-  duración 8 / 13 / 19 → 7 / 12 / 21, j0 56 → 50, 0 sin terminar (el banco, 7 / 12 / 20 → 7 / 13 / 24).
+  **El río continuo** (#144, 16-10-2026, paso 1 del rediseño de
+  `docs/agents/2026-10-14-rios-entre-regiones/`; el río que encadenaba fronteras de agua se cortaba
+  en cada ciudad del cruce y en cada remiendo: «un río es algo continuo», el usuario). **El río va
+  primero** (`core/map/rio.ts`): tras las semillas y antes de repartir las regiones, `trazarRio`
+  traza una línea de agua de una casilla, 4-conexa, por un Dijkstra con estado (casilla, rumbo,
+  tirada) que no lleva tiradas rectas de más de `tramoMaximo` (4) pasos, va por los valles entre
+  semillas (más caro cuanto más cerca de una, más un ruido del `rng`), no pasa a dos de una semilla
+  ni por la caja de una casa ni por el `marco` (4) salvo el canal de su boca, y va en espejo exacto
+  sin tocarse ni tocar su espejo. Tres formas, una vez por mapa con los pesos de `data/rios.json`
+  (1:1:1, decisión del usuario; si con la sorteada no sale mapa, las otras): **frontera** (de un
+  borde a un lago del centro y al borde de enfrente: un río que separa las bases), **esquina** (de
+  un borde a otro por la esquina sin casa, y su espejo) y **lago** (de un borde a un lago de
+  dentro, y su espejo). Las regiones se reparten por lo que ven sin cruzar el río (la recta de la
+  casilla a la semilla no lo pisa; si no ve ninguna, la más cercana de su orilla), así que el río
+  separa regiones también donde nace en un lago. En él solo van **puentes** (río recto, una región
+  distinta a cada lado y dos casillas suyas de frente; si no, la pareja va sin puente) y
+  **ciudades-puente** (río recto donde toca tres regiones: la frontera de una orilla llega a él;
+  `rioBajoLaCiudad`). Niveles (`nivelesDelRio`, sin tirada): el río va al llano, la ciénaga que lo
+  toca sube al 1 y de una pareja que lo cruza con las dos orillas a 2 baja la de menor índice
+  (`regionesDelRio`, `ladosDelRio`). En el engorde el río es agua fija (`conElRio`): no engorda ni
+  se toca, salvo con lo alto justo al norte (paso 7e: la casilla del sur también es agua, se vea
+  la cara), y **la rejilla del vestido solo la escribe `ponerTipo`**, que lanza si se toca el río
+  (lo vigila `invariantes.test.ts`). Fuera del río solo hay agua de frontera donde la pareja no
+  admite otra barrera, y nunca si su muro toca el río; el río cuenta como el agua de las
+  `TIPOS_POR_MAPA`. Las sendas no cortan en diagonal una esquina del río salvo junto a una
+  ciudad-puente (un veto en la búsqueda, y si queda, el vestido no vale) y al puente del río se
+  llega de frente (`antesDelEstribo`). Al final del vestido `rioEntero` lanza si el río no sigue
+  entero: es un fallo del generador. Lo vigila `test/rio.test.ts` (`alTrazarElRio`). Medido en
+  1-40 (`tools/qa/rios.ts`, sobre el mapa hecho; 16-10-2026), antes → después: ríos enteros —
+  → 40 de 40; ríos (agua 4-conexa con boca) por mapa 5,9 → 1,7; el más largo, mediana 19 → 40
+  (frontera 60, esquina 39, lago 26); agua del río lejos de nodos y lagos de una casilla 78 → 100 %;
+  agua de frontera fuera del río 2 136 → 709 casillas; agua encajada en un río 26 → 0; ríos con
+  escalón 1 → 0; neutrales por mapa 4,8 → 3,6 (ciudades-puente 1,1); puentes 5,0 → 4,3. Los ramales
+  de mina que dan la vuelta a su mina en 1-200 suben de 24 a 31 (techo de `ramales-de-minas` 32): el
+  veto de las esquinas del río aparta los radios y los vestidos que se tiran por él dan otros mapas
+  (sin ninguno de los dos, 24; con el veto, 27; con los dos, 31). Lo que falta es de la escena (paso
+  2): la ciudad-puente aún se pinta sobre el río.
 - **Asaltantes**: grupos neutrales que patrullan regiones sin dueño y emboscan
   al pisar si les sacan `ventajaClara`. Son actores (`GameState.raiders`), no
   objetos del mapa. Un grupo se ve en cuanto se ve una casilla de su región

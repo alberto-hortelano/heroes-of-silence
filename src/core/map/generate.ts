@@ -12,6 +12,8 @@
 import {
   ASALTANTES,
   BARRERAS_DEL_MAPA,
+  FORMAS_DEL_RIO,
+  type FormaDelRio,
   guarnicionDeBase,
   guarnicionNeutral,
   NIVEL_POR_SUELO,
@@ -58,6 +60,16 @@ import {
   vecindad,
 } from './regiones.js';
 import {
+  ladosDelRio,
+  nivelesDelRio,
+  orillas,
+  regionesDelRio,
+  rioEntero,
+  sortearForma,
+  type TrazadoDelRio,
+  trazarRio,
+} from './rio.js';
+import {
   BARRERAS,
   type Barrera,
   esBarrera,
@@ -79,7 +91,9 @@ import {
   caidasLargas,
   conEjePleno,
   engordarFronteras,
+  esDelRio,
   espejoDe,
+  esquinasDeAgua,
   mesasDelRelieve,
   nivelesDeLoEngordado,
   parejaDe,
@@ -910,6 +924,12 @@ export interface ProceduralOptions {
    * nada del mapa.
    */
   readonly alTirarUnVestido?: (fase: string, motivo: string) => void;
+  /**
+   * Se le da el río del plan que sale (`trazarRio`): lo lee el guardia de su
+   * continuidad (`test/rio.test.ts`) y la medida (`tools/qa/rios.ts`), que
+   * comprueban sobre el mapa hecho que sigue entero. No cambia nada del mapa.
+   */
+  readonly alTrazarElRio?: (rio: TrazadoDelRio) => void;
 }
 
 /**
@@ -1034,19 +1054,31 @@ export function trazarYVestir(
   // si con eso no sale, otra tanda sin guardarla (`vestirRed`). Solo la usan
   // las semillas que con la primera se quedaban sin mapa (24×24: s150 y s171
   // de 1-200, #188), así que las que salían no cambian.
-  for (const guardarPuertas of [true, false]) {
-    for (let intento = 0; intento < INTENTOS_DE_RED; intento++) {
-      const red = intentarRed(rng, width, height);
-      if (red === null) {
-        redesMalas++;
-        continue;
-      }
-      for (let vestido = 0; vestido < INTENTOS_DE_VESTIDO; vestido++) {
-        const plan = vestirRed(rng, red, opts, guardarPuertas);
-        if (!('fase' in plan)) return validadoPorLaPuerta(plan);
-        fallos[plan.fase].veces++;
-        fallos[plan.fase].ultimo = plan.motivo;
-        opts.alTirarUnVestido?.(plan.fase, plan.motivo);
+  // La forma del río, una vez por mapa: así salen con los pesos de
+  // `data/rios.json`. Sorteada en cada red, ganaba la que menos falla al
+  // trazarse (la frontera, 24 de 40 mapas en vez de 13). Si con ella no sale
+  // mapa, las demás, en su orden: en un 24×24 la esquina no deja a veces dos
+  // ciudades neutrales en ninguna red (8 de 41 semillas de 1-120), y un mapa
+  // con otro río es mejor que ninguno.
+  const sorteada = sortearForma(rng);
+  for (const forma of [sorteada, ...FORMAS_DEL_RIO.filter((f) => f !== sorteada)]) {
+    for (const guardarPuertas of [true, false]) {
+      for (let intento = 0; intento < INTENTOS_DE_RED; intento++) {
+        const red = intentarRed(rng, width, height, forma);
+        if (red === null) {
+          redesMalas++;
+          continue;
+        }
+        for (let vestido = 0; vestido < INTENTOS_DE_VESTIDO; vestido++) {
+          const plan = vestirRed(rng, red, opts, guardarPuertas);
+          if (!('fase' in plan)) {
+            opts.alTrazarElRio?.(red.rio);
+            return validadoPorLaPuerta(plan);
+          }
+          fallos[plan.fase].veces++;
+          fallos[plan.fase].ultimo = plan.motivo;
+          opts.alTirarUnVestido?.(plan.fase, plan.motivo);
+        }
       }
     }
   }
@@ -1054,7 +1086,7 @@ export function trazarYVestir(
     (fase) => `${fallos[fase].veces} en ${fase} (la última: ${fallos[fase].ultimo})`,
   );
   throw new Error(
-    `no sale un mapa de nodos de ${width}×${height} en ${INTENTOS_DE_RED} redes, dos veces: ` +
+    `no sale un mapa de nodos de ${width}×${height} en ${INTENTOS_DE_RED} redes, dos veces, con cada forma de río (${FORMAS_DEL_RIO.join(', ')}): ` +
       `${redesMalas} no salieron equilibradas` +
       (vestidos.length > 0
         ? `, y las otras no se dejaron vestir en ${INTENTOS_DE_VESTIDO} intentos cada una: ${vestidos.join('; ')}`
@@ -1176,13 +1208,18 @@ function huellaDeSemillas(semillas: readonly Point[]): number {
   return h;
 }
 
-/** Las púas de una casilla de la ondulación, fuera (paso 2b de `intentarRed`). Una pasada, sobre una copia. */
-export function sinPuas(etiqueta: Int32Array, W: number, H: number): void {
+/**
+ * Las púas de una casilla de la ondulación, fuera (paso 2b de `intentarRed`).
+ * Una pasada, sobre una copia. Lo marcado en `fuera` (el río) ni cambia ni
+ * cuenta como vecina: no es de ninguna región.
+ */
+export function sinPuas(etiqueta: Int32Array, W: number, H: number, fuera?: Uint8Array): void {
   const antes = Int32Array.from(etiqueta);
   const cuenta = new Map<number, number>();
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
+      if (fuera?.[i] === 1) continue;
       const propia = antes[i] as number;
       cuenta.clear();
       let iguales = 0;
@@ -1190,7 +1227,7 @@ export function sinPuas(etiqueta: Int32Array, W: number, H: number): void {
       for (const [dx, dy] of VECINAS) {
         const nx = x + dx;
         const ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || fuera?.[ny * W + nx] === 1) continue;
         const e = antes[ny * W + nx] as number;
         vecinas++;
         if (e === propia) iguales++;
@@ -1203,6 +1240,99 @@ export function sinPuas(etiqueta: Int32Array, W: number, H: number): void {
       for (const [e, n] of cuenta)
         if (n > veces || (n === veces && e < mejor)) [mejor, veces] = [e, n];
       etiqueta[i] = mejor;
+    }
+  }
+}
+
+/** Cuántas vueltas se dan a los trozos sueltos de una celda (`trozosSueltosALaVecina`). */
+const VUELTAS_DE_TROZOS_SUELTOS = 4;
+
+/**
+ * Lo que el río deja suelto de una celda: con el reparto por orilla, la celda
+ * de una semilla puede quedar en dos trozos (el río la corta sin separar su
+ * orilla), y el que no tiene la semilla sería una casilla abierta sin región.
+ * Cada casilla de un trozo así pasa a la etiqueta que más se repite entre sus
+ * vecinas unidas ya a su semilla; por vueltas, del borde del trozo hacia
+ * dentro. Lo que quede suelto lo rechaza la red (`estructura`).
+ */
+function trozosSueltosALaVecina(
+  etiqueta: Int32Array,
+  W: number,
+  H: number,
+  rio: Uint8Array,
+  semillas: readonly Point[],
+): void {
+  const N = W * H;
+  const { desde, vecinas } = vecindad(W, H);
+  for (let vuelta = 0; vuelta < VUELTAS_DE_TROZOS_SUELTOS; vuelta++) {
+    const conSemilla = new Uint8Array(N);
+    for (const [k, s] of semillas.entries()) {
+      const origen = s.y * W + s.x;
+      if (rio[origen] === 1 || etiqueta[origen] !== k) continue;
+      conSemilla[origen] = 1;
+      const cola = [origen];
+      for (let q = 0; q < cola.length; q++) {
+        const a = cola[q] as number;
+        for (let v = desde[a]!; v < desde[a + 1]!; v++) {
+          const j = vecinas[v]!;
+          if (conSemilla[j] === 1 || rio[j] === 1 || etiqueta[j] !== k) continue;
+          conSemilla[j] = 1;
+          cola.push(j);
+        }
+      }
+    }
+    const cambios: [number, number][] = [];
+    const cuenta = new Map<number, number>();
+    for (let i = 0; i < N; i++) {
+      if (rio[i] === 1 || conSemilla[i] === 1) continue;
+      cuenta.clear();
+      for (let v = desde[i]!; v < desde[i + 1]!; v++) {
+        const j = vecinas[v]!;
+        if (conSemilla[j] === 1)
+          cuenta.set(etiqueta[j] as number, (cuenta.get(etiqueta[j] as number) ?? 0) + 1);
+      }
+      let mejor = -1;
+      let veces = 0;
+      for (const [e, n] of cuenta)
+        if (n > veces || (n === veces && e < mejor)) [mejor, veces] = [e, n];
+      if (mejor !== -1) cambios.push([i, mejor]);
+    }
+    if (cambios.length === 0) return;
+    for (const [i, e] of cambios) etiqueta[i] = e;
+  }
+}
+
+/**
+ * La etiqueta de cada casilla del río: la mayor de las de lo que toca de sus
+ * orillas, y por dentro de un lago, la de la casilla del río más cercana que ya
+ * la tenga. El río no es de ninguna región; esto solo da a cada casilla de muro
+ * una celda, como las demás.
+ */
+function etiquetaDelRio(etiqueta: Int32Array, W: number, H: number, rio: Uint8Array): void {
+  const N = W * H;
+  const { desde, vecinas } = vecindad(W, H);
+  const hecha = new Uint8Array(N);
+  const cola: number[] = [];
+  for (let i = 0; i < N; i++) {
+    if (rio[i] === 0) continue;
+    let mayor = -1;
+    for (let v = desde[i]!; v < desde[i + 1]!; v++) {
+      const j = vecinas[v]!;
+      if (rio[j] === 0) mayor = Math.max(mayor, etiqueta[j] as number);
+    }
+    if (mayor === -1) continue;
+    etiqueta[i] = mayor;
+    hecha[i] = 1;
+    cola.push(i);
+  }
+  for (let q = 0; q < cola.length; q++) {
+    const a = cola[q] as number;
+    for (let v = desde[a]!; v < desde[a + 1]!; v++) {
+      const j = vecinas[v]!;
+      if (rio[j] === 0 || hecha[j] === 1) continue;
+      etiqueta[j] = etiqueta[a] as number;
+      hecha[j] = 1;
+      cola.push(j);
     }
   }
 }
@@ -1328,10 +1458,14 @@ interface RedFina {
   readonly d1: ReadonlyMap<number, number>;
   /** Los nodos que llevan camino desde cada región (`crucesConCamino`). */
   readonly conCamino: readonly (readonly number[])[];
+  /** El río (`trazarRio`), que la red ya tiene por muro y el vestido escribe como agua. */
+  readonly rio: TrazadoDelRio;
+  /** La orilla de cada casilla (`orillas`), −1 en el río. */
+  readonly banco: Int32Array;
 }
 
 /** Un intento de red fina: la red si sale válida y equilibrada, `null` si no. */
-function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
+function intentarRed(rng: Rng, W: number, H: number, forma: FormaDelRio): RedFina | null {
   const cheb = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
   const espejo = (p: Point): Point => ({ x: W - 1 - p.x, y: H - 1 - p.y });
   const punto = (i: number): Point => aPunto(i, W);
@@ -1360,47 +1494,101 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
   // contando las regiones del plan. Fuera de él (el 12×12 del mensaje de
   // agotamiento) salen las que quepan.
 
+  // 1b. El río (#144, río continuo; `rio.ts`), antes que las regiones: una
+  //     línea de agua de una casilla entre las semillas, y las regiones se
+  //     reparten por orilla. Así nada lo parte, y donde toca tres regiones es
+  //     porque una frontera llega a él, no porque lo crucen.
+  const rio = trazarRio(rng, W, H, semillas, forma);
+  if (rio === null) return null;
+  const { mascara } = rio;
+  const banco = orillas(W, H, mascara);
+
   // 2. Cada casilla, de la semilla más cercana a su punto movido por la
-  //    ondulación (empate: la de índice menor). En enteros, a escala `u`.
+  //    ondulación (empate: la de índice menor) **que ve sin cruzar el río**: la
+  //    recta de la casilla a la semilla no pisa el río. Si no ve ninguna, la más
+  //    cercana de su orilla. Con solo la orilla, el río que nace en un lago
+  //    (que no parte el mapa) corría por dentro de una región, y río y lago
+  //    eran un obstáculo suyo del 21 % (s31). En enteros, a escala `u`.
   const etiqueta = new Int32Array(W * H);
   // Con su propia corriente, sacada de las semillas: no gasta tiradas de `rng`,
   // así que una semilla de partida conserva su reparto (las mismas semillas de
   // región) y solo se le ondulan las fronteras.
   const onda = ondulacion(createRng(huellaDeSemillas(semillas)), W, H);
   const u = PARTES_DE_CASILLA * ONDULACION.paso * ONDULACION.paso;
+  const bancoDeSemilla = semillas.map((s) => banco[s.y * W + s.x] as number);
+  /** Si la recta (Bresenham, 8-conexa) de (x, y) a la semilla `s` no pisa el río: uno 4-conexo no se cruza sin pisarlo. */
+  const ve = (x: number, y: number, s: Point): boolean => {
+    const dx = Math.abs(s.x - x);
+    const dy = -Math.abs(s.y - y);
+    const sx = x < s.x ? 1 : -1;
+    const sy = y < s.y ? 1 : -1;
+    let err = dx + dy;
+    let cx = x;
+    let cy = y;
+    for (;;) {
+      if (mascara[cy * W + cx] === 1) return false;
+      if (cx === s.x && cy === s.y) return true;
+      const e2 = 2 * err;
+      if (e2 >= dy) {
+        err += dy;
+        cx += sx;
+      }
+      if (e2 <= dx) {
+        err += dx;
+        cy += sy;
+      }
+    }
+  };
+  const porDistancia: { k: number; d: number }[] = semillas.map((_, k) => ({ k, d: 0 }));
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      let mejor = 0;
-      let mejorD = -1;
-      const px = x * u + (onda.dx[y * W + x] as number);
-      const py = y * u + (onda.dy[y * W + x] as number);
-      for (const [k, s] of semillas.entries()) {
-        const d = (s.x * u - px) * (s.x * u - px) + (s.y * u - py) * (s.y * u - py);
-        if (mejorD === -1 || d < mejorD) {
-          mejorD = d;
-          mejor = k;
-        }
+      const i = y * W + x;
+      if (mascara[i] === 1) continue;
+      const px = x * u + (onda.dx[i] as number);
+      const py = y * u + (onda.dy[i] as number);
+      for (const c of porDistancia) {
+        const s = semillas[c.k] as Point;
+        c.d = (s.x * u - px) * (s.x * u - px) + (s.y * u - py) * (s.y * u - py);
       }
-      etiqueta[y * W + x] = mejor;
+      porDistancia.sort((a, b) => a.d - b.d || a.k - b.k);
+      const deSuOrilla = porDistancia.filter((c) => bancoDeSemilla[c.k] === banco[i]);
+      // Una orilla sin semilla sería tierra de nadie.
+      if (deSuOrilla.length === 0) return null;
+      const vista = deSuOrilla.find((c) => ve(x, y, semillas[c.k] as Point));
+      etiqueta[i] = (vista ?? deSuOrilla[0])!.k;
     }
   }
 
   // 2b. Sin púas: la casilla que solo comparte etiqueta con dos vecinas o menos
   //     de sus ocho (un cuarto de las que tenga) toma la que más se repite alrededor (empate: la menor). La
-  //     ondulación es fina y deja dedos de una casilla que el engorde parte.
-  sinPuas(etiqueta, W, H);
+  //     ondulación es fina y deja dedos de una casilla que el engorde parte. El
+  //     río no cuenta: no es de nadie, y del otro lado es otra orilla.
+  sinPuas(etiqueta, W, H, mascara);
+  // 2c. Lo que el río deja suelto de una celda (un trozo de su orilla sin su
+  //     semilla), a la vecina con la que más se toca de las que llegan a la suya.
+  trozosSueltosALaVecina(etiqueta, W, H, mascara, semillas);
+  // 2d. La etiqueta de cada casilla del río: la mayor de las de su orilla que
+  //     toca (y por dentro de un lago, la de la que tenga más cerca). No es de
+  //     ninguna región; la leen quienes miran el muro fino por su celda.
+  etiquetaDelRio(etiqueta, W, H, mascara);
 
-  // 3. Muro: la casilla con alguna vecina de etiqueta menor. Así dos casillas
-  //    abiertas de regiones distintas no pueden ser vecinas —la de etiqueta
-  //    mayor sería muro—, que es justo lo que hace falta en 8-vecindad.
+  // 3. Muro: el río, y la casilla con alguna vecina de etiqueta menor de su
+  //    orilla. Así dos casillas abiertas de regiones distintas no pueden ser
+  //    vecinas —la de etiqueta mayor sería muro, o las separa el río, que es
+  //    4-conexo—, que es justo lo que hace falta en 8-vecindad.
   const muro = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) {
+    if (mascara[i] === 1) {
+      muro[i] = 1;
+      continue;
+    }
     const { x, y } = punto(i);
     for (const [dx, dy] of VECINAS) {
       const nx = x + dx;
       const ny = y + dy;
       if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-      if ((etiqueta[ny * W + nx] as number) < (etiqueta[i] as number)) {
+      const j = ny * W + nx;
+      if (mascara[j] === 0 && (etiqueta[j] as number) < (etiqueta[i] as number)) {
         muro[i] = 1;
         break;
       }
@@ -1425,20 +1613,46 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
     nivel: 1 as const,
   }));
   const sinNodos: GameMap = { ...createEmptyMap(W, H, 'grass'), regions };
-  for (let i = 0; i < W * H; i++) if (muro[i] === 1) sinNodos.terrain[i] = 'mountain';
+  for (let i = 0; i < W * H; i++)
+    if (muro[i] === 1) sinNodos.terrain[i] = mascara[i] === 1 ? 'water' : 'mountain';
   const regionDe = estructura(sinNodos).regionDe;
   for (let i = 0; i < W * H; i++) if (muro[i] === 0 && regionDe[i] === -1) return null;
   if (hayRegionRaquitica(regionDe, semillas.length)) return null;
 
   // 5. Candidatas a nodo: casillas de muro que tocan dos regiones abiertas o más.
+  //    En el río, solo donde va recto (agua delante y detrás, tierra a los
+  //    lados): un **puente**, con una región distinta a cada lado, o una
+  //    **ciudad-puente**, donde toca tres (la frontera de su orilla llega a él).
+  //    En un codo el río no se cruza: sus dos orillas no se miran.
   const cruces: number[] = [];
   const porPareja = new Map<string, number[]>();
+  const delRio = (x: number, y: number): boolean =>
+    x >= 0 && y >= 0 && x < W && y < H && mascara[y * W + x] === 1;
+  const deTravesDelRio = (i: number): [number, number] | null => {
+    const { x, y } = punto(i);
+    const ns = delRio(x, y - 1) && delRio(x, y + 1) && !delRio(x - 1, y) && !delRio(x + 1, y);
+    const eo = delRio(x - 1, y) && delRio(x + 1, y) && !delRio(x, y - 1) && !delRio(x, y + 1);
+    if (!ns && !eo) return null;
+    const [a, b] = ns ? [i - 1, i + 1] : [i - W, i + W];
+    if (a < 0 || b >= W * H) return null;
+    return [regionDe[a] as number, regionDe[b] as number];
+  };
   for (let i = 0; i < W * H; i++) {
     if (muro[i] === 0) continue;
     const r = regionesQueToca(W, H, regionDe, punto(i));
-    if (r.length >= 3) cruces.push(i);
-    if (r.length === 2) {
-      const clave = `${r[0]}-${r[1]}`;
+    let clave = r.length === 2 ? `${r[0]}-${r[1]}` : null;
+    if (mascara[i] === 1) {
+      const lados = deTravesDelRio(i);
+      if (lados === null) continue;
+      if (r.length >= 3) {
+        cruces.push(i);
+        continue;
+      }
+      const [a, b] = lados;
+      if (a < 0 || b < 0 || a === b) continue;
+      clave = `${Math.min(a, b)}-${Math.max(a, b)}`;
+    } else if (r.length >= 3) cruces.push(i);
+    if (clave !== null) {
       const lista = porPareja.get(clave) ?? [];
       lista.push(i);
       porPareja.set(clave, lista);
@@ -1470,15 +1684,49 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
   // ~1,4 pasos más por mapa (12 309 → 13 683 en 1-1000), y la densidad de
   // pasos no es cosa de #169 (decisión del coordinador). Si ninguno tiene eje,
   // el medio.
+  //
+  // En el río, el puente cruza de frente (`deFrente`): dos casillas de su
+  // región a cada lado, en la recta que atraviesa el río, y si no hay ninguna
+  // así, la pareja va sin puente. Con el eje pleno a secas valía una diagonal,
+  // y el engorde de la frontera de una orilla se comía la entrada de enfrente
+  // (s10 (27,11)).
+  const libreEn = (x: number, y: number): number =>
+    x >= 0 && y >= 0 && x < W && y < H && muro[y * W + x] === 0
+      ? (etiqueta[y * W + x] as number)
+      : -1;
+  const deFrente = (c: number): boolean => {
+    const { x, y } = punto(c);
+    const [dx, dy] = delRio(x - 1, y) ? [0, 1] : [1, 0];
+    const a = libreEn(x - dx, y - dy);
+    const b = libreEn(x + dx, y + dy);
+    return (
+      a >= 0 &&
+      b >= 0 &&
+      a !== b &&
+      libreEn(x - 2 * dx, y - 2 * dy) === a &&
+      libreEn(x + 2 * dx, y + 2 * dy) === b
+    );
+  };
   for (const lista of porPareja.values()) {
     const medio = Math.floor(lista.length / 2);
     if (cerca(lista[medio] as number, 2)) continue;
-    let elegido = -1;
-    for (const [k, c] of lista.entries()) {
-      if (elegido !== -1 && Math.abs(k - medio) >= Math.abs(elegido - medio)) continue;
-      if (cerca(c, 2) || !conEjePleno(W, H, c, etiqueta, muro)) continue;
-      elegido = k;
+    const elige = (vale: (c: number) => boolean): number => {
+      let elegido = -1;
+      for (const [k, c] of lista.entries()) {
+        if (elegido !== -1 && Math.abs(k - medio) >= Math.abs(elegido - medio)) continue;
+        if (cerca(c, 2) || !vale(c)) continue;
+        elegido = k;
+      }
+      return elegido;
+    };
+    // Sobre el río, de frente o nada: la pareja se queda sin puente, como la
+    // que tiene el medio junto a otro nodo.
+    if (mascara[lista[0] as number] === 1) {
+      const elegido = elige(deFrente);
+      if (elegido !== -1) nodos.push(lista[elegido] as number);
+      continue;
     }
+    const elegido = elige((c) => conEjePleno(W, H, c, etiqueta, muro));
     const n = lista[elegido === -1 ? medio : elegido] as number;
     if (cerca(n, 2)) continue;
     nodos.push(n);
@@ -1496,7 +1744,7 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
       id: `n${k}`,
       at: punto(n),
       owner: null,
-      barrera: 'mountain',
+      barrera: mascara[n] === 1 ? 'water' : 'mountain',
     })),
   };
   if (problemasDeRed(conNodos).length > 0) return null;
@@ -1574,6 +1822,8 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
     d0,
     d1,
     conCamino,
+    rio,
+    banco,
   };
 }
 
@@ -1709,15 +1959,20 @@ function vestirRed(
   //    niveles distintos solo los separa un acantilado, una montaña o el agua.
   //    Las de casa, al llano.
   const suelos: Suelo[] = [];
-  const niveles: Nivel[] = [];
+  const sorteados: Nivel[] = [];
   for (let k = 0; k < semillas.length; k += 2) {
     const suelo: Suelo = k === 0 ? 'dirt' : rng.pick(SUELOS);
     const nivel: Nivel = k === 0 ? 1 : sortearNivel(rng, suelo);
     suelos[k] = suelo;
     suelos[parejaDe(k)] = suelo;
-    niveles[k] = nivel;
-    niveles[parejaDe(k)] = nivel;
+    sorteados[k] = nivel;
+    sorteados[parejaDe(k)] = nivel;
   }
+  // Y con el río, sin tirada (`nivelesDelRio`): el agua va plana al llano, la
+  // ciénaga que lo toca sube a él y ninguna pareja lo encaja entre dos mesetas.
+  const { mascara } = fina.rio;
+  const delRio = regionesDelRio(W, H, mascara, etiqueta);
+  const niveles = nivelesDelRio(sorteados, delRio.tocan, delRio.cruzan);
 
   // 9. Las fronteras, gruesas y de su tipo. El mapa grueso se vuelve a validar
   //    entero: lo que se puede haber roto es una región partida o raquítica.
@@ -1734,6 +1989,8 @@ function vestirRed(
     suelos,
     niveles,
     rng,
+    rio: mascara,
+    lados: ladosDelRio(W, H, mascara),
   });
   if (typeof grueso === 'string') return fallo('fronteras', grueso);
   const { tipos, pasillo } = grueso;
@@ -2111,10 +2368,19 @@ function vestirRed(
       ocupadas,
       nivel,
       puentes: puentesDeLaRed,
+      vados,
     });
   const puentesDeLaRed = new Set(
     nodos.filter((_n, k) => !ciudadesEnNodo.has(k) && grueso.barreraDeNodo[k] === 'water'),
   );
+  // Los vados del río: sus ciudades-puente. Junto a ellas la senda corta la
+  // esquina del río: llegan a ellas dos regiones de su orilla, una a cada lado
+  // del muro de la T, y solo por la diagonal (sin el vado, 0,1 ciudades-puente
+  // por mapa en 1-40 y el triple de vestidos tirados). Que la senda no se pinte
+  // por el agua ahí es de la escena (paso 2: la ciudad, en su orilla, con su
+  // puente). Al puente se llega de frente: en diagonal, la senda pasaba por el
+  // agua junto a él (s8 (37,16)).
+  const vados = new Set(ciudades.filter((c) => mascara[c] === 1));
   let nivelDelTrazado = nivelAlTrazar();
   let trazado = trazar(nivelDelTrazado);
   // Lo que la búsqueda no pudo evitar —la región que toca un nodo o una ciudad
@@ -2161,6 +2427,15 @@ function vestirRed(
   // Y ninguna senda corta en diagonal la esquina de una casilla de agua, salvo
   // la que llega a un puente (#210): esas esquinas pasan a montaña.
   sinAguaEnLasEsquinas(W, H, tipos, trazado, puentesDeLaRed, nodosDeLaRed);
+  // La esquina del río no se pasa a montaña (`ponerTipo`): si una senda aún la
+  // corta, el vestido no vale. La búsqueda lo cobra como un veto, así que solo
+  // queda donde no había otro camino. Junto a un vado, sí.
+  const [esquinaDelRio] = esquinasDeAgua(W, (i) => esDelRio(tipos, i), trazado, vados);
+  if (esquinaDelRio !== undefined)
+    return fallo(
+      'obstáculos',
+      `una senda corta en diagonal la esquina del río en (${esquinaDelRio % W},${Math.floor(esquinaDelRio / W)})`,
+    );
   // Lo que queda torcido es de una región que toca el nodo solo por un vértice
   // y no se puede abrir, o la esquina de agua que acaba de pasar a montaña y
   // sube (s110 (16,1)). Una silla, o un paso al que se baja en diagonal o por
@@ -2363,6 +2638,11 @@ function vestirRed(
       `las esquinas que se abren o se cierran dejan la frontera con ${llenas(despues).length} barreras de ${casillasMinimasPorTipo} casillas, y cada mapa lleva ${TIPOS_POR_MAPA}; se quedan cortas ${cortas.join(', ')}`,
     );
   }
+
+  // Y el río, entero (`rioEntero`): nada lo escribe salvo como agua
+  // (`ponerTipo`), así que partido es un fallo del generador, no del vestido.
+  const roto = rioEntero(fina.rio, (i) => barreraDe(tipos, i) === 'water');
+  if (roto !== null) throw new Error(`el generador ha partido el río: ${roto}`);
 
   // Los muros, por tramos de fila del mismo tipo: frontera y obstáculos juntos.
   // Las casillas de nodo van dentro del tramo y `buildMap` las abre: es la

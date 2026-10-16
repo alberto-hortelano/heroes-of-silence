@@ -42,6 +42,17 @@ Qué cambia:
 - **No hay mar en el generador.** La boca es el borde del mapa. El mar va aparte, en la issue alberto-hortelano/heroes-of-silence#267.
 - **El plan aprobado es el revisado** (`plan.md`): dos commits, (1) ríos con boca y lagos en el curso, y (2) adelgazar a una casilla. Capturas entre los dos.
 
+**Veredicto del usuario sobre los pasos 2 y 2b (16-10-2026), literal:**
+
+> No se ve como rio, se ven zonas de agua dispersas pero un rio es algo continuo.
+
+Qué cambia:
+- **Un río es una línea de agua continua**, desde su nacimiento (dentro del mapa, en un lago o un manantial) o desde un borde, hasta su boca en un borde. No vale que el agua se corte en cada cruce de regiones aunque la ciudad haga de vado: la decisión «la ciudad del cruce hace de vado» **queda revocada por el resultado**. El agua solo se cruza por encima: un puente (nodo de agua) o, si hay ciudad, una ciudad en la orilla con su puente.
+- **Ni remiendos de montaña ni el engorde** pueden partir el río: si algo lo corta, no es un río.
+- **El ancho** sigue siendo de una casilla donde se vea (y dos bajo la cara de una meseta), pero la continuidad manda sobre el ancho.
+- **Los lagos** en el curso siguen siendo bienvenidos. El agua suelta que no es del río (lagos entre dos regiones, de obstáculo) no puede competir con él a la vista.
+- El código de los pasos 2 y 2b queda en un commit WIP (7086f012). Se reaprovecha lo que sirva.
+
 ## Criterios de aceptación
 
 Son provisionales: los cierra el plan y el usuario los aprueba.
@@ -73,3 +84,12 @@ Son provisionales: los cierra el plan y el usuario los aprueba.
 
 - **¿Todos los bordes de agua pasan a río, o una mezcla de ríos y lagos?** Por defecto, una mezcla: el lago sigue existiendo.
 - **¿El río tiene curso, de un manantial al borde o a un lago?** No: ni nivel por tramos ni cascadas.
+
+**Decisiones del usuario sobre el plan del río continuo (16-10-2026)**, opción (a) del arquitecto, «el río primero»:
+- **La ciudad del cruce que toca el río es una ciudad-puente**: va en la casilla de río recto junto a la T, une sus tres regiones como hoy y se pinta en la orilla con su puente. El río no se corta.
+- **Las tres formas por igual**: frontera (entre las dos bases), esquina y lago, a 1:1:1, con los pesos en datos.
+- **Aspecto, las tres cosas**: la ciénaga que toca el río va al nivel 1; fuera del río solo hay agua de frontera donde la pareja no admite otra barrera; el río es agua aunque sus suelos no la admitan.
+
+**Tras las capturas del paso 1 del río continuo (16-10-2026):**
+- El usuario da el río por leído y pide seguir con el paso 2: la ciudad-puente en su orilla, con su puente.
+- El techo de `ramales-de-minas` (31 > 25) se vuelve a medir sobre los mapas nuevos (lo medido + 1, como el anterior) y se apunta el porqué: el veto de las esquinas del río y los vestidos que se tiran por él.

@@ -28,7 +28,12 @@
  * mapas otra vez: en 1-200, 0 → 2 (s15 (9,16) y s80 (27,34), las
  * dos este; no se ha mirado aún por qué `puertasSinMuesca` no las cierra). Con
  * el río de una casilla al pie de la meseta (#144, paso 2b, 16-10-2026), 2 → 1:
- * la s15 ya no la da, y queda s80 (27,34).
+ * la s15 ya no la da, y queda s80 (27,34). Con el río continuo (#144, paso 1 del
+ * rediseño, 16-10-2026), otros mapas otra vez: la s80 ya no la da, y queda una
+ * en 1-200, s125 (1,9) oeste: la base de la casa en la segunda columna, con la
+ * meseta al sur, y su costado oeste en la primera; `puertasSinMuesca` no cierra
+ * nada a dos casillas de la ciudad fuera del marco (la casilla que cerraría la
+ * línea sería la columna −1).
  */
 import { describe, expect, it } from 'vitest';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
@@ -63,7 +68,7 @@ const mapaDe = (semilla: number): GameMap => buildMap(generateMapPlan(createRng(
 
 /** Lo que queda en 1-200, por semilla (arriba). */
 const QUEDAN: Readonly<Record<number, readonly string[]>> = {
-  80: ['(27,34) este'],
+  125: ['(1,9) oeste'],
 };
 
 describe('la puerta de una ciudad no muerde la línea del acantilado (#222)', () => {

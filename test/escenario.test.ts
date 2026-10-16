@@ -212,7 +212,10 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
   // Con las fronteras onduladas (#229) y #222 juntos, la 3 sigue valiendo (en
   // 1-12 tienen alguna: 2, 3, 4, 5, 6, 7 y 12; 09-10-2026). La 2 desde el río
   // de una casilla (#144, paso 2): en 1-12, la 2, la 5, la 6, la 9 y la 11.
-  const e = escenaDe(2);
+  // La 13 desde el río continuo (#144): en 1-12 ninguna tiene una cara con
+  // columnas sin pintar, y la 13 es la primera (de 1-40, también la 19, 22,
+  // 23, 25, 29, 31, 32, 37 y 39).
+  const e = escenaDe(13);
   const sep = separar(e);
   const sinImagenes = { tile: 8, imagen: () => undefined } as const;
 
@@ -407,9 +410,9 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
   });
 
   it('ninguna tablilla de la escena apunta de través a su paso, y salen todos los rumbos (§29)', () => {
-    // 3 y 35 llevan los cinco desde #144, los ríos (33 y 36 desde #230, las dos puertas de la mina; 3 y 22 desde #229, las fronteras onduladas; 2 y 7 desde #226, el mapa de 42×42; 3 y 5 hasta entonces; 20 y 24 hasta #224; 1 y 2 hasta #215; 8 y 10 hasta #210; 8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
+    // 1 y 7 llevan los cinco desde el río continuo (#144; 3 y 35 desde #144, los ríos; 33 y 36 desde #230, las dos puertas de la mina; 3 y 22 desde #229, las fronteras onduladas; 2 y 7 desde #226, el mapa de 42×42; 3 y 5 hasta entonces; 20 y 24 hasta #224; 1 y 2 hasta #215; 8 y 10 hasta #210; 8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
     const vistos = new Set<string>();
-    for (const semilla of segunPrisa([3, 35], rango(1, 40))) {
+    for (const semilla of segunPrisa([1, 7], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       for (const o of map.objects) {
         const pieza = escena.sprites
@@ -441,13 +444,13 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     }
   });
 
-  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s29 (§29)', () => {
+  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s6 (§29)', () => {
     // Un nodo neutral no lleva bandera: sin su hito, no se vería que ahí hay
     // algo que tomar. En 1-40 son 233 (119 de acantilado, nunca dos a menos de 5
     // casillas, y 114 de bosque, que acercan cuatro pares a 4,1-4,5; 08-10-2026):
     // muchos en un mapa es que el mapa tiene muchos pasos, y cada uno se toma.
     // Con la montaña (#203), 121 más en 1-40.
-    for (const semilla of segunPrisa([29], rango(1, 40))) {
+    for (const semilla of segunPrisa([6], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       const a = analizar(map);
       const nodos = map.objects.filter(
@@ -464,9 +467,11 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
       // 1-40 es la 3, con 9 y 1 de bosque (la 23, 4 y ninguno). Con las dos
       // puertas de la mina (#230, 09-10-2026), la 36, con 8 y 1 de bosque (la 5,
       // 6 y ninguno; la 3, 2 y 2). Con los ríos (#144, 16-10-2026), la 29, con
-      // 6 y 1 de bosque (la 36, 4 y 2).
-      if (semilla === 29) {
-        expect(nodos.filter((o) => a.pasos.get(o.id)?.barrera === 'cliff')).toHaveLength(6);
+      // 6 y 1 de bosque (la 36, 4 y 2). Con el río continuo (#144), la que
+      // más lleva de 1-40 es la 36, con 6 y ninguno de bosque; con bosque, la
+      // 6, con 4 y 3 (la 29, 4 y ninguno).
+      if (semilla === 6) {
+        expect(nodos.filter((o) => a.pasos.get(o.id)?.barrera === 'cliff')).toHaveLength(4);
         expect(nodos.some((o) => a.pasos.get(o.id)?.barrera === 'forest')).toBe(true);
       }
       for (const o of nodos) {

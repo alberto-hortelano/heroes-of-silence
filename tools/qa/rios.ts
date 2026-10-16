@@ -1,365 +1,176 @@
 /**
  * Los ríos de un mapa, medidos sobre el mapa hecho y no desde el generador
- * (#144): así la medida vale también para un mapa del agente.
+ * (#144, río continuo): así la medida vale también para un mapa del agente o
+ * para el de antes.
  *
  *   npx tsx tools/qa/rios.ts [desde] [hasta] [--lista]
  *
  * Las definiciones, las del plan de `docs/agents/2026-10-14-rios-entre-regiones/`:
  *
- * - **Agua de frontera**: las franjas de agua (`franjasDeBarrera`) que tocan dos
- *   regiones o más, o un puente. Lo que toca una sola región es un **lago de
- *   obstáculo** (`ponerObstaculos`: no toca la frontera).
- * - **Brazo de una ciudad**: una franja de agua de frontera con una casilla a
- *   Chebyshev ≤ 2 de la ciudad que toca una de sus regiones (las de lo que se
- *   pisa a ≤ 2 de ella). La ciudad del cruce corta el agua como un vado. Los
- *   brazos se cuentan por las regiones que separan: dos franjas de una misma
- *   pareja (partida por la base, que es un nodo de pareja) son uno.
- * - **Sistema**: el agua de frontera, los puentes y las ciudades con dos brazos
- *   o más, 8-conexo; la ciudad une sus brazos y el puente el agua a ≤ 2 (su
- *   pasillo, en diagonal, corta a veces el agua de un lado).
- * - **Río**: un sistema que une dos parejas de regiones o más: con una ciudad
- *   de dos brazos, o que toca tres regiones (pasa por un cruce de celdas sin
- *   ciudad; el plan suponía que todo cruce la tiene, y no: la red pone las
- *   ciudades donde se tocan tres regiones abiertas). **Boca**: agua en el marco
- *   del mapa. **De borde a borde**: con agua en el marco en dos sitios a ≥ 10
- *   casillas.
- * - **Charca suelta**: un sistema sin ciudad de río que toca tres regiones o
- *   más y no tiene boca: la charca de un cruce que no es de ningún río.
- * - **Ancho local** de una casilla de agua: la menor de sus dos tiradas de agua
- *   (o puente), la horizontal y la vertical. **Lago atravesado**: el agua de un
- *   río de ancho local ≥ 4, en grupos 8-conexos de ≥ 9 casillas.
- * - **Largo** de un río: su diámetro geodésico (8-conexo; los saltos de la
- *   ciudad y del puente cuentan su Chebyshev), por doble barrido.
- * - **Ancho del río entre iguales** (el criterio 2, paso 2): el agua de un río
- *   cuyas dos orillas de su tirada recta más corta son de regiones distintas al
- *   mismo nivel, a dos pasos o más de todo nodo y fuera de sus lagos
- *   atravesados (ni pegada a ellos), por su ancho en ocho vecinas: la menor de
- *   sus cuatro tiradas, las dos rectas y las dos diagonales. Un río de una
- *   casilla que baja en diagonal va en escalera (en ocho vecinas no se cruza) y
- *   cada peldaño mide dos en recta, pero uno en la diagonal que lo atraviesa.
- *   Es el agua que el paso 2 adelgaza a una casilla. La de entre dos niveles se
- *   mide igual, aparte la que tiene lo alto al norte (lo primero que no es agua
- *   subiendo por su columna, más alto que ella): el paso 2b adelgaza la otra a
- *   una casilla y esta a dos, porque la cara de la meseta la taparía.
- * - **Agua encajada**: una casilla de agua con las dos vecinas de un eje (que no
- *   son agua ni nodo) por encima de ella, con el nivel de `nivelesDelRelieve`.
- * - **Remiendo**: una franja de montaña de una o dos casillas pegada al agua de
- *   un río y rodeada solo de agua, nodos o lo que se pisa: lo que deja
- *   `sinAguaEnLasEsquinas`.
+ * - **Casilla de río**: agua, un nodo de agua (un puente) o una ciudad con agua
+ *   en dos vecinas opuestas en cruz (`rioBajoLaCiudad`: la ciudad-puente).
+ * - **Río**: una componente **4-conexa** de casillas de río que toca el marco
+ *   del mapa (con el trazado del generador, la que lleva sus casillas: el agua
+ *   de una ciénaga puede salir al marco). El puente y la ciudad-puente cuentan
+ *   como agua: se cruzan por encima y el río sigue debajo.
+ * - **Río entero** (solo con el trazado del generador, `alTrazarElRio`): cada
+ *   río del trazado es una sola componente de casillas de río, con boca.
+ * - **Largo** de un río: su diámetro geodésico en cruz, por doble barrido.
+ * - **Lago** de un río: el de su trazado; sin él, el agua del río de ancho ≥ 4
+ *   en las dos tiradas, en grupos de ≥ 9.
+ * - **Ancho** de una casilla de agua del río lejos de nodos (Chebyshev ≥ 2) y
+ *   de lagos (ni pegada a ellos): en ocho vecinas, la menor de sus cuatro
+ *   tiradas por el río (un río que baja en escalera mide uno en la diagonal que
+ *   lo atraviesa). **Bajo la cara**: lo primero que no es río subiendo por su
+ *   columna está más alto que ella; ahí va a dos, y se mide por lo hondo de su
+ *   columna. **De una bajo la cara**: con lo alto justo al norte y nada de agua
+ *   justo al sur.
+ * - **Agua de frontera fuera del río**: franjas de agua (`franjasDeBarrera`)
+ *   que tocan dos regiones o más y no son de ningún río. Las de una sola región
+ *   son **lagos de obstáculo**.
+ * - **Escalón**: un río con su agua a más de un nivel (`nivelesDelRelieve`).
+ *   **Agua encajada**: agua de un río con las dos vecinas de un eje (que no son
+ *   río) por encima de ella: un cañón.
  */
 import { resolve } from 'node:path';
 import { buildMap, generateMapPlan } from '../../src/core/map/generate.js';
 import type { GameMap } from '../../src/core/map/map.js';
 import { estructura, franjasDeBarrera, nivelesDelRelieve } from '../../src/core/map/regiones.js';
-import { isWalkable, type TerrainKind } from '../../src/core/map/terrain.js';
+import { rioBajoLaCiudad, rioEntero, type TrazadoDelRio } from '../../src/core/map/rio.js';
+import type { TerrainKind } from '../../src/core/map/terrain.js';
 import { createRng } from '../../src/core/rng.js';
 
 export interface RiosDelMapa {
-  readonly rios: number;
-  readonly riosConBoca: number;
-  readonly riosDeBordeABorde: number;
   /** Los largos de cada río, en el orden de su primera casilla. */
   readonly largos: readonly number[];
-  readonly lagosAtravesados: number;
-  readonly ciudadesConDosBrazos: number;
-  readonly ciudadesConTresBrazos: readonly string[];
-  /** Los ríos con agua a más de un nivel: uno de sus puntos y sus niveles. */
-  readonly riosConEscalon: readonly string[];
-  /** Las ciudades con dos brazos o más cuyo sistema no tiene boca. */
-  readonly ciudadesDeRioSinBoca: readonly string[];
-  readonly charcasSueltas: number;
-  /** Una casilla de cada charca suelta y las regiones que toca. */
-  readonly dondeCharcas: readonly string[];
+  /** Cuántas casillas de río hay en ríos (con boca). */
+  readonly casillasDeRio: number;
+  /** Con el trazado: por qué un río del trazado no está entero en el mapa, o `null`. */
+  readonly roto: string | null;
+  readonly puentes: number;
+  readonly ciudadesPuente: number;
+  /** Las ciudades que no son base. */
+  readonly neutrales: number;
+  /** Por ancho, de 1 a ≥ 4: el agua del río lejos de nodos y lagos que no está bajo la cara. */
+  readonly anchos: readonly [number, number, number, number];
+  /** Lo mismo bajo la cara, por lo hondo de su columna. */
+  readonly anchosBajoLaCara: readonly [number, number, number, number];
+  /** «x,y» del agua del río de una casilla bajo la cara de lo alto. */
+  readonly deUnaBajoLaCara: readonly string[];
+  readonly aguaFueraDelRio: number;
+  readonly franjasFueraDelRio: number;
   readonly lagosDeObstaculo: number;
   readonly casillasDeLagosDeObstaculo: number;
-  /** Casillas de agua de frontera por ancho local: 1, 2, 3, ≥ 4. */
-  readonly anchos: readonly [number, number, number, number];
-  /** Las del agua de río entre iguales, lejos de nodos y lagos, por ancho local: 1, 2, 3, ≥ 4. */
-  readonly anchosDelRio: readonly [number, number, number, number];
-  /**
-   * Lo mismo entre dos niveles sin lo alto al norte (paso 2b: se adelgaza a una
-   * casilla, como entre iguales).
-   */
-  readonly anchosEntreNiveles: readonly [number, number, number, number];
-  /**
-   * Y entre dos niveles con lo alto al norte: lo primero que no es agua subiendo
-   * por su columna está más alto que ella. Ahí la cara de la meseta taparía un
-   * río de una casilla y va a dos. Por lo hondo de su columna (la tirada
-   * vertical), no en ocho vecinas.
-   */
-  readonly anchosBajoLaCara: readonly [number, number, number, number];
-  /**
-   * El agua de río de esas medidas (lejos de nodos y lagos) que la cara de lo
-   * alto tapa: más alto justo al norte y nada de agua justo al sur. «x,y» de
-   * cada una. El paso 2b la deja en 0 salvo lo que ya traía el engorde.
-   */
-  readonly aguaBajoLaCara: readonly string[];
-  /** El agua de río entre iguales de `anchosDelRio`, por su ancho en recta (la menor de sus dos tiradas rectas). */
-  readonly anchosDelRioEnRecta: readonly [number, number, number, number];
-  readonly aguaEncajada: number;
-  /** «x,y» de cada casilla de agua encajada. */
-  readonly dondeEncajada: readonly string[];
-  readonly remiendos: number;
-  readonly casillasDeAguaDeFrontera: number;
+  /** Un punto de cada río con su agua a más de un nivel, y sus niveles. */
+  readonly riosConEscalon: readonly string[];
+  /** «x,y» de cada casilla de agua encajada de un río. */
+  readonly aguaEncajada: readonly string[];
 }
 
 const punto = (i: number, W: number): string => `(${i % W},${Math.floor(i / W)})`;
 
-export function riosDelMapa(map: GameMap): RiosDelMapa {
+export function riosDelMapa(map: GameMap, trazado?: TrazadoDelRio): RiosDelMapa {
   const W = map.width;
   const H = map.height;
   const N = W * H;
   const terreno = map.terrain as readonly TerrainKind[];
   const { regionDe } = estructura(map);
   const esNodo = new Uint8Array(N);
-  const puentes: number[] = [];
-  const ciudades: number[] = [];
+  const esDelRio = new Uint8Array(N);
+  let puentes = 0;
+  let ciudadesPuente = 0;
+  let ciudades = 0;
+  for (let i = 0; i < N; i++) if (terreno[i] === 'water') esDelRio[i] = 1;
   for (const o of map.objects) {
     const i = o.at.y * W + o.at.x;
     if (o.kind === 'town') {
+      ciudades++;
       esNodo[i] = 1;
-      ciudades.push(i);
+      if (rioBajoLaCiudad(map, o.at)) {
+        esDelRio[i] = 1;
+        ciudadesPuente++;
+      }
     }
     if (o.kind === 'node') {
       esNodo[i] = 1;
-      if (o.barrera === 'water') puentes.push(i);
-    }
-  }
-  const vecinasDe = (i: number, r: number): number[] => {
-    const x = i % W;
-    const y = (i - x) / W;
-    const fuera: number[] = [];
-    for (let dy = -r; dy <= r; dy++)
-      for (let dx = -r; dx <= r; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx >= 0 && ny >= 0 && nx < W && ny < H) fuera.push(ny * W + nx);
-      }
-    return fuera;
-  };
-  const franjas = franjasDeBarrera(W, H, terreno, regionDe);
-  const franjaDe = new Int32Array(N).fill(-1);
-  const deFrontera: boolean[] = [];
-  let lagosDeObstaculo = 0;
-  let casillasDeLagosDeObstaculo = 0;
-  for (const [f, franja] of franjas.entries()) {
-    for (const c of franja.casillas) franjaDe[c] = f;
-    if (franja.barrera !== 'water') {
-      deFrontera.push(false);
-      continue;
-    }
-    const conPuente = franja.casillas.some((c) => vecinasDe(c, 1).some((j) => puentes.includes(j)));
-    const frontera = franja.regiones.size >= 2 || conPuente;
-    deFrontera.push(frontera);
-    if (!frontera) {
-      lagosDeObstaculo++;
-      casillasDeLagosDeObstaculo += franja.casillas.length;
-    }
-  }
-  const esAguaDeFrontera = (i: number): boolean =>
-    franjaDe[i] !== -1 && deFrontera[franjaDe[i] as number] === true;
-
-  // Los brazos de cada ciudad: las franjas de agua que llegan a ella (`brazos`,
-  // lo que une) y las parejas de sus regiones que separan (`parejasDeAgua`, lo
-  // que se cuenta: la base, que es un nodo de pareja, parte el agua de esa
-  // pareja en dos franjas y no por eso tiene dos brazos).
-  const brazos = new Map<number, Set<number>>();
-  const parejasDeAgua = new Map<number, Set<string>>();
-  for (const c of ciudades) {
-    const suyas = new Set<number>();
-    for (const j of vecinasDe(c, 2))
-      if (isWalkable(terreno[j] as TerrainKind) && (regionDe[j] as number) >= 0)
-        suyas.add(regionDe[j] as number);
-    const de = new Set<number>();
-    const parejas = new Set<string>();
-    for (const j of vecinasDe(c, 2)) {
-      if (!esAguaDeFrontera(j)) continue;
-      const f = franjaDe[j] as number;
-      const toca = [...(franjas[f]?.regiones ?? [])].sort((a, b) => a - b);
-      if (!toca.some((r) => suyas.has(r))) continue;
-      de.add(f);
-      // La pareja que separa: las regiones de la ciudad que toca, o todas las
-      // suyas si solo toca una (el brazo de un cruce vecino).
-      const deLaCiudad = toca.filter((r) => suyas.has(r));
-      parejas.add((deLaCiudad.length >= 2 ? deLaCiudad : toca).join('-'));
-    }
-    brazos.set(c, de);
-    parejasDeAgua.set(c, parejas);
-  }
-  const deRio = ciudades.filter((c) => (brazos.get(c)?.size ?? 0) >= 2);
-
-  // Los sistemas: unión de lo de frontera, los puentes y las ciudades de río.
-  // Una ciudad que no es de río no une nada; la de río, solo sus brazos.
-  const esPuente = new Set(puentes);
-  const esDeRio = new Set(deRio);
-  const enSistema = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (esAguaDeFrontera(i)) enSistema[i] = 1;
-  for (const p of puentes) enSistema[p] = 1;
-  for (const c of deRio) enSistema[c] = 1;
-  const cheb = (a: number, b: number): number =>
-    Math.max(Math.abs((a % W) - (b % W)), Math.abs(Math.floor(a / W) - Math.floor(b / W)));
-  const vecinosEnSistema = (i: number): number[] => {
-    if (esDeRio.has(i)) {
-      const suyas = brazos.get(i) as Set<number>;
-      return vecinasDe(i, 2).filter((j) => suyas.has(franjaDe[j] as number));
-    }
-    // El puente une lo que tiene a dos o menos: su pasillo corta a veces el
-    // agua a un lado (la entrada en diagonal), y el agua sigue al otro.
-    if (esPuente.has(i)) return vecinasDe(i, 2).filter((j) => esAguaDeFrontera(j));
-    return [
-      ...vecinasDe(i, 1).filter((j) => enSistema[j] === 1 && !esDeRio.has(j)),
-      ...deRio.filter(
-        (c) => (brazos.get(c) as Set<number>).has(franjaDe[i] as number) && cheb(c, i) <= 2,
-      ),
-      ...puentes.filter((p) => cheb(p, i) <= 2),
-    ];
-  };
-  const grupos: number[][] = [];
-  {
-    const visto = new Uint8Array(N);
-    for (let i = 0; i < N; i++) {
-      if (enSistema[i] === 0 || visto[i] === 1) continue;
-      const g = [i];
-      visto[i] = 1;
-      for (let q = 0; q < g.length; q++)
-        for (const j of vecinosEnSistema(g[q] as number))
-          if (visto[j] === 0) {
-            visto[j] = 1;
-            g.push(j);
-          }
-      grupos.push(g);
-    }
-  }
-  /** La casilla del sistema más lejos de `desde` y a cuánto, cada salto por su Chebyshev. */
-  const lejano = (desde: number, dentro: Set<number>): [number, number] => {
-    const dist = new Map<number, number>([[desde, 0]]);
-    // Los saltos miden 1 o 2: una cola por distancia basta.
-    const colas: number[][] = [[desde]];
-    let ultimo = desde;
-    let lejos = 0;
-    for (let d = 0; d < colas.length; d++) {
-      for (const i of colas[d] ?? []) {
-        if (dist.get(i) !== d) continue;
-        if (d >= lejos) [ultimo, lejos] = [i, d];
-        for (const j of vecinosEnSistema(i)) {
-          if (!dentro.has(j)) continue;
-          const nd = d + cheb(i, j);
-          if ((dist.get(j) ?? Number.MAX_SAFE_INTEGER) <= nd) continue;
-          dist.set(j, nd);
-          const cola = colas[nd] ?? [];
-          cola.push(j);
-          colas[nd] = cola;
-        }
+      if (o.barrera === 'water') {
+        esDelRio[i] = 1;
+        puentes++;
       }
     }
-    return [ultimo, lejos];
-  };
+  }
   const enMarco = (i: number): boolean => {
     const x = i % W;
     const y = (i - x) / W;
     return x === 0 || y === 0 || x === W - 1 || y === H - 1;
   };
-
-  // El ancho local de cada casilla de agua de frontera.
-  const esAgua = (i: number): boolean => esAguaDeFrontera(i) || esPuente.has(i);
-  const ancho = new Int32Array(N);
-  // Las dos casillas de fuera de la tirada más corta (−1 fuera del mapa).
-  const orillas: [number, number][] = new Array(N);
-  for (let i = 0; i < N; i++) {
-    if (!esAguaDeFrontera(i)) continue;
+  const enCruz = (i: number): number[] => {
     const x = i % W;
     const y = (i - x) / W;
-    let h = 1;
-    let oeste = x - 1;
-    for (; oeste >= 0 && esAgua(y * W + oeste); oeste--) h++;
-    let este = x + 1;
-    for (; este < W && esAgua(y * W + este); este++) h++;
-    let v = 1;
-    let norte = y - 1;
-    for (; norte >= 0 && esAgua(norte * W + x); norte--) v++;
-    let sur = y + 1;
-    for (; sur < H && esAgua(sur * W + x); sur++) v++;
-    ancho[i] = Math.min(h, v);
-    orillas[i] =
-      h <= v
-        ? [oeste >= 0 ? y * W + oeste : -1, este < W ? y * W + este : -1]
-        : [norte >= 0 ? norte * W + x : -1, sur < H ? sur * W + x : -1];
-  }
-  const anchos: [number, number, number, number] = [0, 0, 0, 0];
-  let casillasDeAguaDeFrontera = 0;
+    const fuera: number[] = [];
+    if (x > 0) fuera.push(i - 1);
+    if (x < W - 1) fuera.push(i + 1);
+    if (y > 0) fuera.push(i - W);
+    if (y < H - 1) fuera.push(i + W);
+    return fuera;
+  };
+  const enOcho = (i: number, r = 1): number[] => {
+    const x = i % W;
+    const y = (i - x) / W;
+    const fuera: number[] = [];
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++)
+        if ((dx !== 0 || dy !== 0) && x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H)
+          fuera.push((y + dy) * W + x + dx);
+    return fuera;
+  };
+
+  // Los ríos: componentes en cruz de casillas de río que tocan el marco.
+  const comp = new Int32Array(N).fill(-1);
+  const rios: number[][] = [];
   for (let i = 0; i < N; i++) {
-    if (!esAguaDeFrontera(i)) continue;
-    casillasDeAguaDeFrontera++;
-    anchos[Math.min(4, ancho[i] as number) - 1]! += 1;
+    if (esDelRio[i] === 0 || comp[i] !== -1) continue;
+    const g = [i];
+    comp[i] = i;
+    for (let q = 0; q < g.length; q++)
+      for (const j of enCruz(g[q] as number))
+        if (esDelRio[j] === 1 && comp[j] === -1) {
+          comp[j] = i;
+          g.push(j);
+        }
+    // Con el trazado, los ríos son los suyos: el agua de una ciénaga que sale
+    // al marco no es un río.
+    if (trazado === undefined ? g.some(enMarco) : g.some((j) => trazado.mascara[j] === 1))
+      rios.push(g);
   }
+  const deRio = new Uint8Array(N);
+  for (const g of rios) for (const i of g) deRio[i] = 1;
 
-  let rios = 0;
-  let riosConBoca = 0;
-  let riosDeBordeABorde = 0;
-  let lagosAtravesados = 0;
-  let charcasSueltas = 0;
-  const dondeCharcas: string[] = [];
-  const largos: number[] = [];
-  // El nivel de cada casilla (el del agua, plano por franja: `nivelesDelRelieve`).
-  const niveles = map.regions.map((r) => r.nivel ?? 1);
-  const nivel = nivelesDelRelieve(W, H, terreno, regionDe, niveles, []);
-  const riosConEscalon: string[] = [];
-  const ciudadesDeRioSinBoca: string[] = [];
-  const aguaDeRio = new Uint8Array(N);
-  for (const g of grupos) {
-    const dentro = new Set(g);
-    const susCiudades = g.filter((i) => esDeRio.has(i));
-    const toca = new Set<number>();
-    for (const i of g)
-      if (franjaDe[i] !== -1) for (const r of franjas[franjaDe[i]!]!.regiones) toca.add(r);
-    const marco = g.filter(enMarco);
-    // Sin ciudad de río, el agua une dos parejas si toca tres regiones: un
-    // cruce sin ciudad (el de las celdas, no el de la red). Con boca, es un
-    // río que pasa por él; sin boca, una charca de cruce suelta.
-    if (susCiudades.length === 0) {
-      if (toca.size < 3) continue;
-      if (marco.length === 0) {
-        charcasSueltas++;
-        dondeCharcas.push(`${punto(g[0] as number, W)} [${[...toca].join(',')}]`);
-        continue;
-      }
+  /** La casilla más lejos de `desde` por el río en cruz, y a cuánto. */
+  const lejano = (desde: number): [number, number] => {
+    const dist = new Map<number, number>([[desde, 0]]);
+    const cola = [desde];
+    let ultimo = desde;
+    for (let q = 0; q < cola.length; q++) {
+      const a = cola[q] as number;
+      ultimo = a;
+      for (const j of enCruz(a))
+        if (deRio[j] === 1 && !dist.has(j)) {
+          dist.set(j, (dist.get(a) as number) + 1);
+          cola.push(j);
+        }
     }
-    rios++;
-    for (const i of g) aguaDeRio[i] = 1;
-    // Plano (#210): toda su agua a un nivel, sin escalones ni cascadas.
-    const suyos = new Set(g.filter((i) => terreno[i] === 'water').map((i) => nivel[i] as number));
-    if (suyos.size > 1)
-      riosConEscalon.push(`${punto(g[0] as number, W)} a ${[...suyos].join(' y ')}`);
-    if (marco.length > 0) riosConBoca++;
-    else for (const c of susCiudades) ciudadesDeRioSinBoca.push(punto(c, W));
-    if (marco.some((a) => marco.some((b) => cheb(a, b) >= 10))) riosDeBordeABorde++;
-    const [a] = lejano(g[0] as number, dentro);
-    largos.push(lejano(a, dentro)[1]);
-    // Los lagos atravesados de este río.
-    const ancha = new Set(g.filter((i) => (ancho[i] as number) >= 4));
-    const vistos = new Set<number>();
-    for (const i of ancha) {
-      if (vistos.has(i)) continue;
-      const cola = [i];
-      vistos.add(i);
-      for (let q = 0; q < cola.length; q++)
-        for (const j of vecinasDe(cola[q] as number, 1))
-          if (ancha.has(j) && !vistos.has(j)) {
-            vistos.add(j);
-            cola.push(j);
-          }
-      if (cola.length >= 9) lagosAtravesados++;
-    }
-  }
+    return [ultimo, dist.get(ultimo) as number];
+  };
+  const largos = rios.map((g) => lejano(lejano(g[0] as number)[0])[1]);
 
-  // El ancho en ocho vecinas: la menor de las cuatro tiradas.
-  const tirada = (i: number, dx: number, dy: number): number => {
+  // Los lagos del río.
+  const tiradaEnRecta = (i: number, dx: number, dy: number): number => {
     let n = 1;
     for (const s of [-1, 1]) {
       let x = (i % W) + s * dx;
       let y = Math.floor(i / W) + s * dy;
-      while (x >= 0 && y >= 0 && x < W && y < H && esAgua(y * W + x)) {
+      while (x >= 0 && y >= 0 && x < W && y < H && deRio[y * W + x] === 1) {
         n++;
         x += s * dx;
         y += s * dy;
@@ -367,116 +178,119 @@ export function riosDelMapa(map: GameMap): RiosDelMapa {
     }
     return n;
   };
-  const anchoEnOcho = (i: number): number =>
-    Math.min(tirada(i, 1, 0), tirada(i, 0, 1), tirada(i, 1, 1), tirada(i, 1, -1));
-  // El ancho del río entre iguales: lejos de nodos y fuera de sus lagos.
-  const anchosDelRio: [number, number, number, number] = [0, 0, 0, 0];
-  const anchosEntreNiveles: [number, number, number, number] = [0, 0, 0, 0];
-  const anchosBajoLaCara: [number, number, number, number] = [0, 0, 0, 0];
-  const aguaBajoLaCara: string[] = [];
-  const anchosDelRioEnRecta: [number, number, number, number] = [0, 0, 0, 0];
-  const enLago = new Uint8Array(N);
-  for (let i = 0; i < N; i++) {
-    if (aguaDeRio[i] === 0 || (ancho[i] as number) < 4 || enLago[i] === 1) continue;
-    const cola = [i];
-    const visto = new Set([i]);
-    for (let q = 0; q < cola.length; q++)
-      for (const j of vecinasDe(cola[q] as number, 1))
-        if (aguaDeRio[j] === 1 && (ancho[j] as number) >= 4 && !visto.has(j)) {
-          visto.add(j);
-          cola.push(j);
-        }
-    if (cola.length >= 9) for (const j of cola) enLago[j] = 1;
-  }
-  const nodos = [...ciudades, ...puentes];
-  const lejosDeNodos = (i: number): boolean => nodos.every((n) => cheb(n, i) >= 2);
-  // Un lago y lo que lo toca: su orilla de agua más estrecha no es el río.
-  const junto = (i: number): boolean => vecinasDe(i, 1).some((j) => enLago[j] === 1);
-  for (let i = 0; i < N; i++) {
-    if (aguaDeRio[i] === 0 || terreno[i] !== 'water' || enLago[i] === 1 || junto(i)) continue;
-    if (!lejosDeNodos(i)) continue;
-    const [a, b] = orillas[i] as [number, number];
-    if (a < 0 || b < 0) continue;
-    const ra = regionDe[a] as number;
-    const rb = regionDe[b] as number;
-    if (!isWalkable(terreno[a] as TerrainKind) || !isWalkable(terreno[b] as TerrainKind)) continue;
-    if (ra < 0 || rb < 0 || ra === rb) continue;
-    let norte = i - W;
-    while (norte >= 0 && terreno[norte] === 'water') norte -= W;
-    const bajoLaCara = norte >= 0 && (nivel[norte] as number) > (nivel[i] as number);
-    if (
-      i >= W &&
-      (nivel[i - W] as number) > (nivel[i] as number) &&
-      (i + W >= N || terreno[i + W] !== 'water')
-    )
-      aguaBajoLaCara.push(`${i % W},${Math.floor(i / W)}`);
-    // Bajo la cara cuenta lo hondo de su columna: es lo que la cara tapa, y en
-    // ocho vecinas un río de dos que baja en escalera mide uno en diagonal.
-    if (niveles[ra] === niveles[rb]) anchosDelRio[Math.min(4, anchoEnOcho(i)) - 1]! += 1;
-    else if (bajoLaCara) anchosBajoLaCara[Math.min(4, tirada(i, 0, 1)) - 1]! += 1;
-    else anchosEntreNiveles[Math.min(4, anchoEnOcho(i)) - 1]! += 1;
-    if (niveles[ra] === niveles[rb]) anchosDelRioEnRecta[Math.min(4, ancho[i] as number) - 1]! += 1;
-  }
-
-  // El agua encajada.
-  let aguaEncajada = 0;
-  const dondeEncajada: string[] = [];
-  for (let i = 0; i < N; i++) {
-    if (!esAguaDeFrontera(i)) continue;
-    const x = i % W;
-    const y = (i - x) / W;
-    const encima = (j: number): boolean =>
-      terreno[j] !== 'water' && esNodo[j] === 0 && (nivel[j] as number) > (nivel[i] as number);
-    if (
-      (x > 0 && x < W - 1 && encima(i - 1) && encima(i + 1)) ||
-      (y > 0 && y < H - 1 && encima(i - W) && encima(i + W))
-    ) {
-      aguaEncajada++;
-      dondeEncajada.push(`${x},${y}`);
+  const lago = new Uint8Array(N);
+  if (trazado !== undefined) lago.set(trazado.lago);
+  else {
+    const ancha = (i: number): boolean =>
+      deRio[i] === 1 && tiradaEnRecta(i, 1, 0) >= 4 && tiradaEnRecta(i, 0, 1) >= 4;
+    const visto = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (visto[i] === 1 || !ancha(i)) continue;
+      const g = [i];
+      visto[i] = 1;
+      for (let q = 0; q < g.length; q++)
+        for (const j of enOcho(g[q] as number))
+          if (visto[j] === 0 && ancha(j)) {
+            visto[j] = 1;
+            g.push(j);
+          }
+      if (g.length >= 9) for (const j of g) lago[j] = 1;
     }
   }
 
-  // Los remiendos de montaña sobre un río.
-  let remiendos = 0;
-  for (const franja of franjas) {
-    if (franja.barrera !== 'mountain' || franja.casillas.length > 2) continue;
-    // Una isla de montaña en el agua: lo que la rodea que no se pisa es agua o un nodo.
-    const enFranja = new Set(franja.casillas);
-    const alrededor = franja.casillas
-      .flatMap((c) => vecinasDe(c, 1))
-      .filter((j) => !enFranja.has(j));
-    const enElAgua = alrededor.every(
-      (j) => isWalkable(terreno[j] as TerrainKind) || terreno[j] === 'water' || esNodo[j] === 1,
+  // El nivel de cada casilla (el del agua, plano por franja).
+  const niveles = map.regions.map((r) => r.nivel ?? 1);
+  const nivel = nivelesDelRelieve(W, H, terreno, regionDe, niveles, []);
+
+  // El ancho.
+  const nodos: number[] = [];
+  for (let i = 0; i < N; i++) if (esNodo[i] === 1) nodos.push(i);
+  const lejosDeNodos = (i: number): boolean =>
+    nodos.every(
+      (n) =>
+        Math.max(Math.abs((n % W) - (i % W)), Math.abs(Math.floor(n / W) - Math.floor(i / W))) >= 2,
     );
-    if (enElAgua && alrededor.some((j) => aguaDeRio[j] === 1)) remiendos++;
+  const anchos: [number, number, number, number] = [0, 0, 0, 0];
+  const anchosBajoLaCara: [number, number, number, number] = [0, 0, 0, 0];
+  const deUnaBajoLaCara: string[] = [];
+  for (let i = 0; i < N; i++) {
+    if (deRio[i] === 0 || terreno[i] !== 'water' || lago[i] === 1) continue;
+    if (enOcho(i).some((j) => lago[j] === 1) || !lejosDeNodos(i)) continue;
+    let norte = i - W;
+    while (norte >= 0 && deRio[norte] === 1) norte -= W;
+    const bajoLaCara = norte >= 0 && (nivel[norte] as number) > (nivel[i] as number);
+    if (
+      i >= W &&
+      deRio[i - W] === 0 &&
+      (nivel[i - W] as number) > (nivel[i] as number) &&
+      (i + W >= N || deRio[i + W] === 0)
+    )
+      deUnaBajoLaCara.push(`${i % W},${Math.floor(i / W)}`);
+    if (bajoLaCara) anchosBajoLaCara[Math.min(4, tiradaEnRecta(i, 0, 1)) - 1]! += 1;
+    else {
+      const ancho = Math.min(
+        tiradaEnRecta(i, 1, 0),
+        tiradaEnRecta(i, 0, 1),
+        tiradaEnRecta(i, 1, 1),
+        tiradaEnRecta(i, 1, -1),
+      );
+      anchos[Math.min(4, ancho) - 1]! += 1;
+    }
+  }
+
+  // Lo que no es del río: agua de frontera y lagos de obstáculo.
+  let aguaFueraDelRio = 0;
+  let franjasFueraDelRio = 0;
+  let lagosDeObstaculo = 0;
+  let casillasDeLagosDeObstaculo = 0;
+  for (const f of franjasDeBarrera(W, H, terreno, regionDe)) {
+    if (f.barrera !== 'water' || f.casillas.some((c) => deRio[c] === 1)) continue;
+    if (f.regiones.size >= 2) {
+      franjasFueraDelRio++;
+      aguaFueraDelRio += f.casillas.length;
+    } else {
+      lagosDeObstaculo++;
+      casillasDeLagosDeObstaculo += f.casillas.length;
+    }
+  }
+
+  // Escalones y agua encajada.
+  const riosConEscalon: string[] = [];
+  for (const g of rios) {
+    const suyos = new Set(g.filter((i) => terreno[i] === 'water').map((i) => nivel[i] as number));
+    if (suyos.size > 1)
+      riosConEscalon.push(`${punto(g[0] as number, W)} a ${[...suyos].join(' y ')}`);
+  }
+  const aguaEncajada: string[] = [];
+  for (let i = 0; i < N; i++) {
+    if (deRio[i] === 0 || terreno[i] !== 'water') continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const encima = (j: number): boolean =>
+      esDelRio[j] === 0 && esNodo[j] === 0 && (nivel[j] as number) > (nivel[i] as number);
+    if (
+      (x > 0 && x < W - 1 && encima(i - 1) && encima(i + 1)) ||
+      (y > 0 && y < H - 1 && encima(i - W) && encima(i + W))
+    )
+      aguaEncajada.push(`${x},${y}`);
   }
 
   return {
-    rios,
-    riosConBoca,
-    riosDeBordeABorde,
     largos,
-    lagosAtravesados,
-    ciudadesConDosBrazos: deRio.length,
-    ciudadesConTresBrazos: ciudades
-      .filter((c) => (parejasDeAgua.get(c)?.size ?? 0) >= 3)
-      .map((c) => punto(c, W)),
-    ciudadesDeRioSinBoca,
-    riosConEscalon,
-    charcasSueltas,
-    dondeCharcas,
+    casillasDeRio: rios.reduce((s, g) => s + g.length, 0),
+    roto: trazado === undefined ? null : rioEntero(trazado, (i) => esDelRio[i] === 1),
+    puentes,
+    ciudadesPuente,
+    neutrales: ciudades - 2,
+    anchos,
+    anchosBajoLaCara,
+    deUnaBajoLaCara,
+    aguaFueraDelRio,
+    franjasFueraDelRio,
     lagosDeObstaculo,
     casillasDeLagosDeObstaculo,
-    anchos,
-    anchosDelRio,
-    anchosEntreNiveles,
-    anchosBajoLaCara,
-    aguaBajoLaCara,
-    anchosDelRioEnRecta,
+    riosConEscalon,
     aguaEncajada,
-    dondeEncajada,
-    remiendos,
-    casillasDeAguaDeFrontera,
   };
 }
 
@@ -490,110 +304,110 @@ function principal(): void {
   const desde = Number(args[0] ?? 1);
   const hasta = Number(args[1] ?? 40);
   const lista = process.argv.includes('--lista');
-  const suma = {
-    mapasConRio: 0,
-    mapasConRioConBoca: 0,
-    mapasDeBordeABorde: 0,
-    mapasConLago: 0,
-    rios: 0,
-    riosConBoca: 0,
-    tresBrazos: 0,
-    sinBoca: 0,
-    escalones: 0,
-    charcas: 0,
-    lagosDeObstaculo: 0,
-    casillasDeLagos: 0,
-    encajada: 0,
-    remiendos: 0,
-    aguaDeFrontera: 0,
+  type Suma = {
+    mapas: number;
+    conRio: number;
+    enteros: number;
+    rotos: string[];
+    largos: number[];
+    rios: number;
+    casillas: number;
+    puentes: number;
+    ciudadesPuente: number;
+    neutrales: number;
   };
+  const nueva = (): Suma => ({
+    mapas: 0,
+    conRio: 0,
+    enteros: 0,
+    rotos: [],
+    largos: [],
+    rios: 0,
+    casillas: 0,
+    puentes: 0,
+    ciudadesPuente: 0,
+    neutrales: 0,
+  });
+  const porForma = new Map<string, Suma>();
+  const total = nueva();
   const anchos = [0, 0, 0, 0];
-  const anchosDelRio = [0, 0, 0, 0];
-  const anchosEntreNiveles = [0, 0, 0, 0];
   const anchosBajoLaCara = [0, 0, 0, 0];
-  const bajoLaCara: string[] = [];
-  const anchosDelRioEnRecta = [0, 0, 0, 0];
-  const masLargos: number[] = [];
+  const deUnaBajoLaCara: string[] = [];
+  const escalones: string[] = [];
+  const encajada: string[] = [];
+  let aguaFuera = 0;
+  let franjasFuera = 0;
+  let lagos = 0;
+  let casillasDeLagos = 0;
   const tiempos: number[] = [];
   const tirados = new Map<string, number>();
   for (let s = desde; s <= hasta; s++) {
+    let trazado: TrazadoDelRio | undefined;
     const t0 = performance.now();
     const plan = generateMapPlan(createRng(s), {
       alTirarUnVestido: (fase) => tirados.set(fase, (tirados.get(fase) ?? 0) + 1),
+      alTrazarElRio: (t) => {
+        trazado = t;
+      },
     });
     tiempos.push(performance.now() - t0);
-    const r = riosDelMapa(buildMap(plan).map);
-    if (r.rios > 0) suma.mapasConRio++;
-    if (r.riosConBoca > 0) suma.mapasConRioConBoca++;
-    if (r.riosDeBordeABorde > 0) suma.mapasDeBordeABorde++;
-    if (r.lagosAtravesados > 0) suma.mapasConLago++;
-    suma.rios += r.rios;
-    suma.riosConBoca += r.riosConBoca;
-    suma.tresBrazos += r.ciudadesConTresBrazos.length;
-    suma.sinBoca += r.ciudadesDeRioSinBoca.length;
-    suma.escalones += r.riosConEscalon.length;
-    suma.charcas += r.charcasSueltas;
-    suma.lagosDeObstaculo += r.lagosDeObstaculo;
-    suma.casillasDeLagos += r.casillasDeLagosDeObstaculo;
-    suma.encajada += r.aguaEncajada;
-    suma.remiendos += r.remiendos;
-    suma.aguaDeFrontera += r.casillasDeAguaDeFrontera;
-    for (let k = 0; k < 4; k++) anchos[k]! += r.anchos[k]!;
-    for (let k = 0; k < 4; k++) anchosDelRio[k]! += r.anchosDelRio[k]!;
-    for (let k = 0; k < 4; k++) anchosEntreNiveles[k]! += r.anchosEntreNiveles[k]!;
-    for (let k = 0; k < 4; k++) anchosBajoLaCara[k]! += r.anchosBajoLaCara[k]!;
-    for (const p of r.aguaBajoLaCara) bajoLaCara.push(`s${s} (${p})`);
-    for (let k = 0; k < 4; k++) anchosDelRioEnRecta[k]! += r.anchosDelRioEnRecta[k]!;
-    if (r.largos.length > 0) masLargos.push(Math.max(...r.largos));
+    const r = riosDelMapa(buildMap(plan).map, trazado);
+    const forma = trazado?.forma ?? 'sin trazado';
+    const suma = porForma.get(forma) ?? nueva();
+    porForma.set(forma, suma);
+    for (const x of [suma, total]) {
+      x.mapas++;
+      if (r.largos.length > 0) x.conRio++;
+      if (trazado !== undefined && r.roto === null) x.enteros++;
+      if (r.roto !== null) x.rotos.push(`s${s}: ${r.roto}`);
+      if (r.largos.length > 0) x.largos.push(Math.max(...r.largos));
+      x.rios += r.largos.length;
+      x.casillas += r.casillasDeRio;
+      x.puentes += r.puentes;
+      x.ciudadesPuente += r.ciudadesPuente;
+      x.neutrales += r.neutrales;
+    }
+    for (let k = 0; k < 4; k++) {
+      anchos[k]! += r.anchos[k]!;
+      anchosBajoLaCara[k]! += r.anchosBajoLaCara[k]!;
+    }
+    for (const p of r.deUnaBajoLaCara) deUnaBajoLaCara.push(`s${s} (${p})`);
+    for (const p of r.riosConEscalon) escalones.push(`s${s} ${p}`);
+    for (const p of r.aguaEncajada) encajada.push(`s${s} (${p})`);
+    aguaFuera += r.aguaFueraDelRio;
+    franjasFuera += r.franjasFueraDelRio;
+    lagos += r.lagosDeObstaculo;
+    casillasDeLagos += r.casillasDeLagosDeObstaculo;
     if (lista)
       console.log(
-        `s${s}: ríos ${r.rios} (con boca ${r.riosConBoca}, de borde a borde ${r.riosDeBordeABorde}), largos ${r.largos.join('/') || '-'}, lagos atravesados ${r.lagosAtravesados}, charcas ${r.charcasSueltas}${r.dondeCharcas.length > 0 ? ` en ${r.dondeCharcas.join(' ')}` : ''}` +
-          (r.ciudadesConTresBrazos.length > 0
-            ? `, 3 brazos en ${r.ciudadesConTresBrazos.join(' ')}`
-            : '') +
-          (r.ciudadesDeRioSinBoca.length > 0
-            ? `, sin boca en ${r.ciudadesDeRioSinBoca.join(' ')}`
-            : ''),
+        `s${s} ${forma}: ríos ${r.largos.length} (largos ${r.largos.join('/') || '-'}), ${r.casillasDeRio} casillas, puentes ${r.puentes}, ciudades-puente ${r.ciudadesPuente}, neutrales ${r.neutrales}${r.roto === null ? '' : `, ROTO: ${r.roto}`}`,
       );
   }
-  const n = hasta - desde + 1;
-  const pct = (k: number): string =>
-    `${((100 * (anchos[k] as number)) / Math.max(1, suma.aguaDeFrontera)).toFixed(0)} %`;
+  const por = (x: Suma, n: number): string => (n / Math.max(1, x.mapas)).toFixed(1);
+  const fila = (nombre: string, x: Suma): string =>
+    `${nombre}: ${x.mapas} mapas, con río ${x.conRio}, ríos enteros ${x.enteros} de ${x.mapas}; ` +
+    `ríos ${por(x, x.rios)} por mapa; largo del más largo, mediana ${mediana(x.largos)}; casillas de río ${por(x, x.casillas)}, ` +
+    `puentes ${por(x, x.puentes)}, ciudades-puente ${por(x, x.ciudadesPuente)}, neutrales ${por(x, x.neutrales)} por mapa`;
   console.log(`semillas ${desde}-${hasta}`);
-  console.log(
-    `mapas con río: ${suma.mapasConRio} de ${n} (con boca ${suma.mapasConRioConBoca}, de borde a borde ${suma.mapasDeBordeABorde})`,
-  );
-  console.log(
-    `ríos: ${suma.rios}, con boca ${suma.riosConBoca}; ciudades de río sin boca ${suma.sinBoca}`,
-  );
-  console.log(`mapas con un lago atravesado: ${suma.mapasConLago}`);
-  console.log(`ciudades con 3 brazos de agua: ${suma.tresBrazos}`);
-  console.log(`ríos con el agua a más de un nivel: ${suma.escalones}`);
-  console.log(`charcas sueltas: ${suma.charcas}`);
-  console.log(
-    `mediana del largo del río más largo de cada mapa: ${mediana(masLargos)} (en ${masLargos.length} mapas)`,
-  );
-  console.log(`lagos de obstáculo: ${suma.lagosDeObstaculo} (${suma.casillasDeLagos} casillas)`);
-  console.log(
-    `agua de frontera: ${suma.aguaDeFrontera} casillas; ancho 1 ${pct(0)}, 2 ${pct(1)}, 3 ${pct(2)}, ≥ 4 ${pct(3)}`,
-  );
-  const porAncho = (xs: readonly number[]): string => {
-    const total = xs.reduce((a, b) => a + b, 0);
-    const pct = (k: number): string =>
-      `${((100 * (xs[k] as number)) / Math.max(1, total)).toFixed(0)} %`;
-    return `${total} casillas; ancho 1 ${pct(0)}, 2 ${pct(1)}, 3 ${pct(2)}, ≥ 4 ${pct(3)}`;
+  console.log(fila('todas', total));
+  for (const [f, x] of [...porForma].sort()) console.log(fila(`  ${f}`, x));
+  for (const r of total.rotos) console.log(`  roto: ${r}`);
+  const pct = (xs: readonly number[]): string => {
+    const t = xs.reduce((a, b) => a + b, 0);
+    return `${t} casillas; ancho 1 / 2 / 3 / ≥ 4: ${xs.map((v) => `${((100 * v) / Math.max(1, t)).toFixed(0)} %`).join(' / ')}`;
   };
-  console.log(`agua de río entre iguales, lejos de nodos y lagos: ${porAncho(anchosDelRio)}`);
-  console.log(`  la misma, por su ancho en recta: ${porAncho(anchosDelRioEnRecta)}`);
+  console.log(`agua del río lejos de nodos y lagos: ${pct(anchos)}`);
+  console.log(`  bajo la cara de lo alto, por lo hondo de su columna: ${pct(anchosBajoLaCara)}`);
   console.log(
-    `agua de río entre dos niveles, lejos de nodos y lagos, sin lo alto al norte: ${porAncho(anchosEntreNiveles)}`,
+    `  de una casilla bajo la cara: ${deUnaBajoLaCara.length}${deUnaBajoLaCara.length > 0 ? ` (${deUnaBajoLaCara.slice(0, 10).join(', ')}${deUnaBajoLaCara.length > 10 ? '…' : ''})` : ''}`,
   );
-  console.log(`  y con lo alto al norte (bajo la cara): ${porAncho(anchosBajoLaCara)}`);
+  console.log(`agua de frontera fuera del río: ${aguaFuera} casillas en ${franjasFuera} franjas`);
+  console.log(`lagos de obstáculo: ${lagos} (${casillasDeLagos} casillas)`);
   console.log(
-    `agua de río de una casilla bajo la cara de lo alto: ${bajoLaCara.length}${bajoLaCara.length > 0 ? ` (${bajoLaCara.slice(0, 12).join(', ')}${bajoLaCara.length > 12 ? '…' : ''})` : ''}`,
+    `ríos con escalón: ${escalones.length}${escalones.length > 0 ? ` (${escalones.slice(0, 6).join('; ')})` : ''}`,
   );
   console.log(
-    `agua encajada: ${suma.encajada}; remiendos de montaña sobre un río: ${suma.remiendos} (${(suma.remiendos / n).toFixed(2)} por mapa)`,
+    `agua encajada en un río: ${encajada.length}${encajada.length > 0 ? ` (${encajada.slice(0, 10).join(', ')})` : ''}`,
   );
   console.log(
     `generar: mediana ${mediana(tiempos).toFixed(0)} ms; vestidos tirados ${[...tirados].map(([f, k]) => `${f} ${k}`).join(', ') || 'ninguno'}`,

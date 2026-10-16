@@ -367,8 +367,10 @@ describe('las piezas en su sitio, con el arte del repo', () => {
     // con las fronteras onduladas (#229, 09-10-2026), otra vez la s1. Con el
     // río de una casilla (#144, paso 2) la s1 no tiene mesetas: la s8. Con el
     // río de una casilla al pie de la meseta (#144, paso 2b) la s8 ya no lleva
-    // basalto: otra vez la s1, con 18 laderas y 25 diagonales y bajadas.
-    const enS1 = componer(newGame({ seed: 1 }).map, 1, catalogo).sprites;
+    // basalto: otra vez la s1, con 18 laderas y 25 diagonales y bajadas. Con el
+    // río continuo (#144) la s1 no tiene mesetas: la s8, la primera con
+    // basalto, con 16 laderas y 25 diagonales y bajadas.
+    const enS1 = componer(newGame({ seed: 8 }).map, 8, catalogo).sprites;
     const deLadera = new Set(
       enS1.filter((s) => s.src?.includes('/laderas-basalto-') === true).map((s) => s.tono),
     );

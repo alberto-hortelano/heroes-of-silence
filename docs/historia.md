@@ -4825,3 +4825,63 @@ casillas y taparía un río de una; donde lo alto queda justo al norte del agua,
   - «más de la mitad de los mapas de 1-200 llevan muralla»: 112 / 112 / 111 / 99 antes de los ríos y en
     los pasos 1, 2 y 2b. Con las variantes del 2b que se probaron salía 104, 110 y 99: un recuento que
     se mueve ±7 cuando cambian todos los vestidos, con el suelo de 100 puesto sobre 112.
+
+## El río continuo, paso 1: el río va primero (#144, 16-10-2026)
+
+Veredicto del usuario sobre los pasos 2 y 2b: «No se ve como río, se ven zonas de agua dispersas pero
+un río es algo continuo». El río del commit 1 encadenaba fronteras de agua de una red ya hecha, y la
+red pone una ciudad en cada casilla de muro que toca tres regiones: el río pasaba por ellas y se
+cortaba en cada una («la ciudad hace de vado», revocado por el resultado). Detrás lo partían las
+esquinas de las sendas que pasaban a montaña, el agua derramada y las orillas de las espigas:
+diecisiete escrituras de la rejilla del vestido que no sabían que una casilla era del río. Con la red
+intacta, un río recto de borde a borde solo salía en 10 de 40 mapas (cada ciudad de cruce lo deja
+pasar solo por la barra de su T). Opción (a) del arquitecto, aprobada:
+
+- **El río se traza antes que las regiones** (`core/map/rio.ts`, `trazarRio`): un Dijkstra en cruz con
+  estado (casilla, rumbo, tirada), sin tiradas rectas de más de `tramoMaximo` (4) pasos —sin tope,
+  20 de 40 mapas tenían una de 10 o más—, por los valles entre semillas y con ruido del `rng`, lejos
+  de las semillas, de las casas y del marco salvo el canal de la boca, en espejo exacto y sin tocarse.
+  La boca se sortea entre las del marco cuyo canal no pasa junto a una semilla (sorteada a ciegas,
+  era el primer motivo de los trazados que no salían en 24×24: 736 de 1 531 en 1-60). Tres formas a 1:1:1 (`data/rios.json`), una vez por
+  mapa: sorteada en cada red ganaba la que menos falla (24 fronteras de 40). Si con la sorteada no
+  sale mapa, las otras: en 24×24 la esquina no dejaba dos ciudades neutrales en ninguna red en 8 de
+  41 semillas.
+- **Las regiones se reparten por lo que ven** (la recta de la casilla a la semilla no pisa el río).
+  Con solo la orilla, el río que nace en un lago, que no parte el mapa, corría por dentro de una
+  región, y río y lago contaban como obstáculo suyo (s31, la región 8 al 21 %, con el tope en 18).
+- **En el río, solo puentes de frente y ciudades-puente.** El puente con un eje pleno a secas cruzaba
+  en diagonal y el engorde de la orilla se comía su entrada (s10 (27,11)): o dos casillas de cada
+  región en la recta que cruza el río, o la pareja va sin puente.
+- **Niveles sin tirada** (`nivelesDelRio`): el río al llano, la ciénaga que lo toca al 1 (decisión del
+  usuario) y ninguna pareja que lo cruce con las dos orillas a 2. Qué parejas lo cruzan lo dicen los
+  lados del río en cada casilla (`ladosDelRio`), no las orillas: el río que nace en un lago no parte
+  el mapa en dos, y con las orillas salían dos ríos con escalón en s5.
+- **Una sola escritura** (`ponerTipo`, que lanza si se toca el río; lo vigila `invariantes.test.ts`).
+  El río no engorda salvo con lo alto justo al norte (7e: la casilla del sur también es agua, con el
+  nivel de la escena; con el de la celda, una montaña a 2 de una pareja a 1 no contaba). Fuera del
+  río, agua de frontera solo donde la pareja no admite otra cosa (decisión del usuario) y nunca si su
+  muro toca el río; lo que sobra de una muralla junto al río no pasa a agua.
+- **Las sendas**: no cortan en diagonal una esquina del río (un veto en la búsqueda; si queda, el
+  vestido no vale), salvo junto a una ciudad-puente, a la que dos de sus tres regiones solo llegan
+  por la diagonal (sin el vado, 0,1 ciudades-puente por mapa y el triple de vestidos tirados). Al
+  puente del río se llega de frente (`antesDelEstribo`): doblando en L junto al estribo, la escena
+  redondeaba la L sobre el agua (s8 (37,16)).
+- **Se borró**: `rios.ts` entero (`elegirRio`, `BrazosDeAgua`, `ponerLagos`, `Rio.corte`), los pasos
+  2a, 2b y 5b del engorde, `adelgazarRios`, `sinAguaDerramada`, `dosMasCercanas`, `RADIO_DEL_CRUCE`,
+  `CERCA_DE_UNA_ESPIGA` y la muesca. Se quedan `lineasQueSeparan`, `aguaALaVista` y
+  `separadasDeCerca`.
+
+Medido en 1-40 (`tools/qa/rios.ts` sobre el mapa hecho, con las mismas definiciones antes y después):
+ríos enteros 40 de 40; agua con boca por mapa (trozos) 5,9 → 1,7; el más largo, mediana 19 → 40
+(frontera 60, esquina 39, lago 26: el plan pedía 60, que solo da la frontera); agua del río lejos de
+nodos y lagos de una casilla 78 → 100 %; de una bajo la cara 16 → 8 (junto a los pasillos de un
+puente); agua de frontera fuera del río 2 136 → 709 casillas; agua encajada 26 → 0; ríos con escalón
+1 → 0; neutrales 4,8 → 3,6 por mapa (ciudades-puente 1,1), puentes 5,0 → 4,3. Barrido de 1-100: 0 sin
+terminar, duración 8 / 15 / 24, j0 48 (frontera 13 de 34, esquina 21 de 38, lago 14 de 28). Banco
+re-anclado (`59fb0286…`, ninguna partida igual: es el mapa). Rectitud en 1-3000: 102 / 0 / 5, como
+estaba. Suelos de 1-1000: 12,4-15,4 % (lo áspero, que da tres barreras sin agua, el más alto).
+Los ramales de mina que dan la vuelta a su mina (`test/ramales-de-minas.test.ts`) suben en 1-200 de 24
+a 31, y el techo pasa de 25 a 32 (lo medido + 1, decisión del usuario). No es el río a la vista: los que
+se añaden rodean lagos de obstáculo, el borde o la esquina de la casa de abajo. Es el veto de las
+esquinas del río, que aparta los radios, y los vestidos que se tiran cuando una senda aún la corta, que
+dan otros mapas: sin ninguno de los dos, 24; con el veto, 27; con los dos, 31.

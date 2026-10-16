@@ -168,9 +168,15 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 //
 // Con el río de una casilla al pie de la meseta (#144, paso 2b, 16-10-2026),
 // otros mapas: 1 (s1); la s7 ya no lo da. Sin mirar caso a caso.
-const QUEDAN: Readonly<Record<number, number>> = { 1: 1 };
+//
+// Con el río continuo (#144, 16-10-2026), otros mapas: de las 51 de la lista
+// lenta, 1 (s22, la cara nevada de una casilla de la fila 40, (26,5-27,5), que
+// acaba junto a la ciudad de (28,40)); la s1 ya no lo da. En 1-120, solo esa.
+// En la muestra rápida, la 57 en vez de la 3, que se quedó sin meseta: la de
+// más paredes que pasan por detrás de un objeto de 1-120 (17).
+const QUEDAN: Readonly<Record<number, number>> = { 22: 1 };
 const SEMILLAS = segunPrisa(
-  [3, 12, 22, 28],
+  [57, 12, 22, 28],
   [...rango(1, 40), 57, 61, 64, 68, 78, 89, 96, 121, 141, 190, 443],
 );
 

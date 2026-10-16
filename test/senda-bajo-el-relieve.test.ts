@@ -186,8 +186,10 @@ describe('la senda bajo el relieve (#189)', () => {
     // de una casilla (#144, paso 2), la 15 se queda sin mesetas: 28, 6, 9 y
     // 17, con 4, 6, 4 y 3 (media 4,25). Con el río de una casilla al pie de la
     // meseta (#144, paso 2b), la 9 se queda en 0: 28, 6, 30 y 4, con 4, 6, 4 y
-    // 3 (media 4,25).
-    const semillas = segunPrisa([28, 6, 30, 4], rango(1, 40));
+    // 3 (media 4,25). Con el río continuo (#144), la 28 y la 4 se quedan en 0:
+    // 17, 34, 12 y 21, con 8, 5, 4 y 4 (media 5,25; la 22 y la 39 también
+    // tienen 4).
+    const semillas = segunPrisa([17, 34, 12, 21], rango(1, 40));
     const cuentas = semillas.map((s) => escenaDe(s).informe.sendaBajoElRelieve);
     // Que mire algo: en ninguna semilla de la muestra rápida es 0. En 1-40,
     // con menos mesetas (#210), la mitad se queda en 0: 20 de 40 y 1,2 de
@@ -198,7 +200,7 @@ describe('la senda bajo el relieve (#189)', () => {
     // (#230), 17 en 0 y 1,45 (58 tramos). Con #232, 15 en 0 y 1,6 (64). Con
     // los ríos (#144, 16-10-2026), 19 en 0 y 1,18 (47). Con el río de una
     // casilla (#144, paso 2), 20 en 0 y 1,13 (45). Con el paso 2b, 19 en 0 y
-    // 1,1 (44).
+    // 1,1 (44). Con el río continuo (#144), 19 en 0 y 1,4 (56).
     expect(cuentas.filter((n) => n > 0).length).toBeGreaterThanOrEqual(segunPrisa(4, 15));
     expect(cuentas.reduce((a, b) => a + b, 0) / semillas.length).toBeLessThanOrEqual(
       TECHO_POR_MAPA,

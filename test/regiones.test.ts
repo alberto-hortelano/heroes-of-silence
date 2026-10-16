@@ -72,12 +72,17 @@ const densa = (plan: MapPlan): string[] => auditarMapaDenso(plan, buildMap(plan)
  * fichero. Pasaba de 60 s con la máquina cargada y vitest moría con «Timeout
  * calling onTaskUpdate» (#194). Ningún test toca lo que lee.
  */
-const hechos = new Map<number, { plan: MapPlan; map: GameMap }>();
-function delGenerador(semilla: number): { plan: MapPlan; map: GameMap } {
+const hechos = new Map<number, { plan: MapPlan; map: GameMap; rio: Uint8Array }>();
+function delGenerador(semilla: number): { plan: MapPlan; map: GameMap; rio: Uint8Array } {
   let hecho = hechos.get(semilla);
   if (hecho === undefined) {
-    const plan = generateMapPlan(createRng(semilla));
-    hecho = { plan, map: buildMap(plan).map };
+    let rio: Uint8Array = new Uint8Array(0);
+    const plan = generateMapPlan(createRng(semilla), {
+      alTrazarElRio: (t) => {
+        rio = t.mascara;
+      },
+    });
+    hecho = { plan, map: buildMap(plan).map, rio };
     hechos.set(semilla, hecho);
   }
   return hecho;
@@ -524,10 +529,14 @@ function horquillasNuevas(map: GameMap): string[] {
  * cae ahí (en 1-1000, s133, s401 y s947; 09-10-2026). El trazado de esa
  * esquina no se ha tocado: no hay ninguna esquina abierta cerca. Con los ríos
  * (#144, 16-10-2026) la s133 es otro mapa y el caso cae en la s52: un pueblo en
- * la segunda columna con la casilla de su puerta ocupada por otro objeto.
+ * la segunda columna con la casilla de su puerta ocupada por otro objeto. Con el
+ * río continuo (#144, paso 1 del rediseño, 16-10-2026) la s52 ya no lo da y cae
+ * en la s15: un pueblo en (13,38), en una tira de su región entre el río (al
+ * oeste y al norte) y una montaña, al que el radio llega por el noreste; su
+ * puerta, (13,39), está libre, pero se llega a ella rodeándolo.
  */
 const DE_LADO_POR_LA_ESQUINA: Readonly<Record<number, string>> = {
-  52: 'village (1,17): se entra desde (2,17) y no por su puerta',
+  15: 'village (13,38): se entra desde (14,37) y no por su puerta',
 };
 
 /** Los objetos con puerta: se entran por la casilla de debajo y no se cruzan (#188). */
@@ -763,7 +772,8 @@ describe('el generador hace redes como las pidió el usuario', () => {
   });
 
   it('la frontera se lee por lo que no es región: dentro es obstáculo; junto a la frontera o a un nodo, frontera (#132)', () => {
-    // Tres casillas de una región pasadas a montaña sobre la semilla 2 (la 1
+    // Tres casillas de una región pasadas a montaña sobre la semilla 4 (la 2
+    // hasta el río continuo, #144, que ya no tiene la pegada solo a un nodo; la 1
     // hasta el río de una casilla al pie de la meseta, #144 paso 2b, que ya no
     // tiene la pegada solo a un nodo; la 5
     // hasta el río de una casilla, #144 paso 2, que ya no tiene la pegada solo
@@ -775,7 +785,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // frontera; y pegada solo a un nodo —el trozo de un lado del paso que no
     // toca más que una región (la semilla 80 en 28×28)— también como frontera,
     // porque el nodo es un agujero de la frontera y la une a la otra región (#132).
-    const { map } = buildMap(generateMapPlan(createRng(2)));
+    const { map } = buildMap(generateMapPlan(createRng(4)));
     const red = estructura(map);
     const W = map.width;
     const { desde, vecinas } = vecindad(W, map.height);
@@ -937,10 +947,12 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // los intentos se piden sin esa comprobación para ver su mensaje. Desde la
     // ondulación de las fronteras (#229), en 12×12 ya no sale ni una red
     // equilibrada y el error se queda en las redes: la fase del vestido se ve
-    // en 13×13.
-    expect(() => trazarYVestir(createRng(1), 13, 13)).toThrow(
+    // en 13×13. Con el río continuo (#144), que se traza antes que las regiones
+    // y con cada forma si la sorteada no sale, hasta 16×16 no sale ni una red:
+    // la fase del vestido se ve en 18×18.
+    expect(() => trazarYVestir(createRng(1), 18, 18)).toThrow(
       new RegExp(
-        `no sale un mapa de nodos de 13×13 en ${INTENTOS_DE_RED} redes, dos veces: .*no se dejaron vestir en 10 intentos cada una: \\d+ en fronteras \\(la última: las fronteras de este mapa .* no admiten \\d barreras distintas con 15 casillas cada una\\)`,
+        `no sale un mapa de nodos de 18×18 en ${INTENTOS_DE_RED} redes, dos veces, con cada forma de río \\(frontera, esquina, lago\\): \\d+ no salieron equilibradas, y las otras no se dejaron vestir en 10 intentos cada una: \\d+ en fronteras \\(la última: .+\\)`,
       ),
     );
   });
@@ -1208,7 +1220,7 @@ describe('la barrera que cruza cada nodo del generador (#145, #187)', () => {
    * admiten. Devuelve lo que no cumple, con su sitio.
    */
   function malCruzados(semilla: number): string[] {
-    const { plan, map } = delGenerador(semilla);
+    const { plan, map, rio } = delGenerador(semilla);
     const red = estructura(map);
     const admiteRio = (r: number) => {
       const suelo = plan.regions[r]?.terrain as Suelo;
@@ -1235,7 +1247,11 @@ describe('la barrera que cruza cada nodo del generador (#145, #187)', () => {
       if (suya === 0) fallos.push(`${sitio} y no hay ${o.barrera} alrededor`);
       for (const [t, n] of cuenta)
         if (n > suya && !(t === 'water' && !conRio)) fallos.push(`${sitio} pero hay más ${t}`);
-      if (o.barrera === 'water' && !conRio) fallos.push(`${sitio} y sus suelos no la admiten`);
+      // Salvo el puente del río, que es agua aunque sus suelos no la admitan
+      // (decisión del usuario, #144: el río va primero).
+      const delRio = rio[o.at.y * map.width + o.at.x] === 1;
+      if (o.barrera === 'water' && !conRio && !delRio)
+        fallos.push(`${sitio} y sus suelos no la admiten`);
     }
     return fallos;
   }

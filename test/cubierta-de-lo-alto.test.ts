@@ -64,8 +64,9 @@ describe('cubiertaDeOtroNivel: el guardia muerde', () => {
  * fronteras onduladas (#229), la de s18 (27-31, 15-24), y desde las dos puertas
  * de la mina (#230, 09-10-2026), que dejan la s18 sin meseta, la de s36 (30-34, 0-8).
  * Desde el río de una casilla (#144, paso 2), que deja la s36 sin lava, la de s24.
+ * Desde el río continuo (#144), que deja la s24 sin meseta, la de s63.
  */
-const SEMILLAS = LENTO ? [...rango(1, 40), 57, 80] : [24, 80, 57];
+const SEMILLAS = LENTO ? [...rango(1, 40), 57, 63, 80] : [63, 80, 57];
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
@@ -75,14 +76,16 @@ describe('en los mapas reales', () => {
       expect(cubiertaDeOtroNivel(e.sprites, e.suelo, e.W)).toEqual([]);
     });
 
-  it('s24: lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
+  it('s63: lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
     // Era s13 (16-24, 4-7) en 34×34; desde #226, s51 (17-22, 8-9), y desde
     // las fronteras onduladas (#229), s18 (27-31, 15-24), y desde las dos
     // puertas de la mina (#230, 09-10-2026), s36 (30-34, 0-8). Con los ríos
     // (#144, 16-10-2026) se busca por lo que es: las casillas de acantilado con
     // la nieve como suelo más cercano y lava pintada (17 en s36; con el río de
-    // una casilla, #144 paso 2, 0 en s36 y 17 en s24).
-    const { map, escena: e } = partidaDe(24);
+    // una casilla, #144 paso 2, 0 en s36 y 17 en s24; con el río continuo,
+    // #144, 0 en s24, que no tiene meseta, y 20 en s63, la primera de 1-120
+    // con alguna; también s70 y s94).
+    const { map, escena: e } = partidaDe(63);
     const a = analizar(map);
     const casillas = new Set<number>();
     for (let i = 0; i < map.terrain.length; i++)
@@ -97,11 +100,12 @@ describe('en los mapas reales', () => {
 });
 
 describe('la frontal de basalto (#220, auditoría 7 §3)', () => {
-  it('s24: lleva tono, como sus laderas y diagonales', () => {
+  it('s63: lleva tono, como sus laderas y diagonales', () => {
     // La s13 desde #226 no lleva basalto; la s51 llevaba las tres piezas,
     // desde #229 la s18, desde #230 (09-10-2026) la s36, y desde el río de una
-    // casilla (#144, paso 2) la s24, la de la meseta de lava de arriba.
-    const basalto = partidaDe(24).escena.sprites.filter((s) =>
+    // casilla (#144, paso 2) la s24, y desde el río continuo (#144), que la
+    // dejó sin meseta, la s63, la de la meseta de lava de arriba.
+    const basalto = partidaDe(63).escena.sprites.filter((s) =>
       /^modulos\/(paredes|laderas|diagonales)-basalto/.test(s.src ?? ''),
     );
     expect(new Set(basalto.map((s) => s.src?.split('/')[1]?.split('-')[0]))).toEqual(

@@ -27,8 +27,14 @@ import { LENTO, rango, segunPrisa } from './lento.js';
 // noroeste y al oeste de la puerta de debajo hay bosque): va la s7, otra de las
 // de antes de #230.
 const SEMILLAS = segunPrisa([3, 7, 14], rango(1, 200));
-/** En 1-200: 99 antes de #230, 20 después; 21 con los ríos (#144); 24 con el paso 2b. */
-const TECHO_EN_LA_LENTA = 25;
+/**
+ * En 1-200: 99 antes de #230, 20 después; 21 con los ríos (#144); 24 con el paso 2b; 31 con el río
+ * continuo (#144, paso 1 del rediseño, 16-10-2026). No es el río a la vista: los que se añaden rodean
+ * lagos de obstáculo, el borde o la esquina de la casa de abajo (mine-3 y mine-5). Es el veto de las
+ * esquinas del río en la búsqueda, que aparta los radios, y los vestidos que se tiran cuando una
+ * senda aún la corta, que dan otros mapas: sin ninguno de los dos, 24; con el veto, 27; con los dos, 31.
+ */
+const TECHO_EN_LA_LENTA = 32;
 
 describe('la mina sale por la puerta menos forzada (#230)', () => {
   it('ningún ramal de mina da la vuelta a su mina donde antes la daba', () => {

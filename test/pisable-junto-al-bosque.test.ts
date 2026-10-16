@@ -548,27 +548,27 @@ describe('lo que vio QA en la semilla 1, por lo que era', () => {
   // ninguno; la s3 tenía cuatro (con su espejo) hasta el río de una casilla
   // (#144, paso 2), que la dejó sin ninguno: la s30, tres. Con el río de una
   // casilla al pie de la meseta (#144, paso 2b) la s30 no tiene ninguno: la
-  // s11, tres.
-  it('los pasos de una casilla entre dos bosques (s11): la copa de su sur deja su 0,6 de arriba', () => {
-    const { e: e11, a: a11, est: est11, bosque: bosque11 } = deLaSemilla(11);
-    const W11 = e11.W;
+  // s11, tres. Con el río continuo (#144) la s11 no tiene ninguno y la s1, dos.
+  it('los pasos de una casilla entre dos bosques (s1): la copa de su sur deja su 0,6 de arriba', () => {
+    const { e: e1, a: a1, est: est1, bosque: bosque1 } = deLaSemilla(1);
+    const W1 = e1.W;
     const pasos: [number, number][] = [];
-    for (let y = 1; y < e11.H - 1; y++)
-      for (let x = 0; x + 2 < W11; x++)
+    for (let y = 1; y < e1.H - 1; y++)
+      for (let x = 0; x + 2 < W1; x++)
         if (
           [0, 1, 2].every(
             (d) =>
-              est11[y * W11 + x + d] === 1 &&
-              a11.franjaDe[y * W11 + x + d] === -1 &&
-              bosque11(x + d, y - 1) &&
-              bosque11(x + d, y + 1),
+              est1[y * W1 + x + d] === 1 &&
+              a1.franjaDe[y * W1 + x + d] === -1 &&
+              bosque1(x + d, y - 1) &&
+              bosque1(x + d, y + 1),
           )
         )
           pasos.push([x, y]);
     expect(pasos.length).toBeGreaterThan(0);
     const M = MARGEN_SOBRE_LO_PISABLE;
     for (const [x, y] of pasos) {
-      const tapan = e11.sprites.filter((s) => {
+      const tapan = e1.sprites.filter((s) => {
         if (s.clase !== 'masa' || s.cumbre === true || Math.floor(s.y) <= y) return false;
         const [x0, y0, x1] = cajaDeSprite(s);
         return (
@@ -686,7 +686,9 @@ describe('la nieve que se pisa, sin sus peñascos grises (H9)', () => {
   // s5, 830 casillas de nieve que se pisa y 143 peñascos en lo alto. Con el río
   // de una casilla al pie de la meseta (#144, paso 2b) la s5 no tiene peñascos en
   // lo alto: la s56, 883 casillas de nieve que se pisa y 95 peñascos en lo alto.
-  const { map, escena: e } = partidaDe(56);
+  // Con el río continuo (#144) la s56 no tiene mesetas: la s79, la de más
+  // nieve que se pisa de 1-80 con peñascos en lo alto (870 casillas y 81).
+  const { map, escena: e } = partidaDe(79);
   const a = analizar(map);
   const rocas = e.sprites.filter((s) => s.clase === 'cubierta' && esPeñascoGris(s));
 

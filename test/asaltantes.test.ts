@@ -449,8 +449,10 @@ describe('la IA no entra en una emboscada que va a perder', () => {
     // días. Se buscan dos casillas así en la región del grupo más fuerte. La 1
     // desde el acantilado en línea (#215): en el mapa nuevo de la 5 el que
     // juega no se mueve con los dos encerrados (queda en el informe de #215).
+    // La 3 desde el río continuo (#144): en el mapa nuevo de la 1 le pasa lo
+    // que a la 5 (y a la 2, la 15 y la 44 de 1-60); la 3 es la primera que no.
     const montar = () => {
-      const { state, ctx, hero, grupo } = enSuRegion(1);
+      const { state, ctx, hero, grupo } = enSuRegion(3);
       // Los dos saben del grupo (#164): se prueba qué hacen con lo que saben.
       revealEverything(state, 0);
       revealEverything(state, 1);
@@ -461,7 +463,7 @@ describe('la IA no entra en una emboscada que va a perder', () => {
         hero.at = p;
         return alcanceDelHeroe(state, hero, { evitarEmboscadas: true }).descubiertas.length <= 1;
       });
-      if (encerradas.length < 2) throw new Error('la semilla 1 no deja dos casillas encerradas');
+      if (encerradas.length < 2) throw new Error('la semilla 3 no deja dos casillas encerradas');
       hero.at = encerradas[0]!;
       hero.movePoints = 1500;
       expect(currentPlayer(state).id).toBe(hero.owner);

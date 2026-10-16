@@ -1403,6 +1403,33 @@ describe('invariantes del proyecto', () => {
     expect(escrituras).toHaveLength(3);
   });
 
+  it('la rejilla de tipos del vestido la escribe `ponerTipo`, nadie más: así el río no se corta', () => {
+    // #144, río continuo: el río del paso 2 lo partían diecisiete escrituras de
+    // `tipos` en el vestido (las esquinas de las sendas, el agua derramada, las
+    // orillas de las espigas…), y ninguna sabía que una casilla era del río.
+    // `ponerTipo` lanza si se le pide cambiar una casilla del río; una
+    // escritura por corchetes en otro sitio se lo saltaría en silencio.
+    const escrituras = infractoresDeCodigo(
+      CORE,
+      /\btipos\s*\[[^\]]+\]\s*=(?!=)|\btipos\s*\.\s*(fill|set|copyWithin)\s*\(/,
+    );
+    const codigo = sinComentarios(leer('src/core/map/vestir.ts')).split('\n');
+    const funcionDe = (linea: number): string | null => {
+      for (let i = linea - 1; i >= 0; i--) {
+        const m = /^export function (\w+)/.exec(codigo[i] ?? '');
+        if (m !== null) return m[1] ?? null;
+      }
+      return null;
+    };
+    const ajenas = escrituras.filter((e) => {
+      const m = /^src\/core\/map\/vestir\.ts:(\d+) /.exec(e);
+      return m === null || funcionDe(Number(m[1])) !== 'ponerTipo';
+    });
+    expect(ajenas).toEqual([]);
+    // Que mire algo: la de `ponerTipo` sale.
+    expect(escrituras).toHaveLength(1);
+  });
+
   it('el camino de un héroe lleva lo hostil: fuera de game.ts nadie llama al Dijkstra del mapa', () => {
     // Lo hostil de la partida —héroe ajeno, castillo ajeno guarnecido— se
     // alcanza y no se cruza en el camino de TODOS (la IA, la persona y el

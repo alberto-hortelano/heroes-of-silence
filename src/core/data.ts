@@ -11,6 +11,7 @@ import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
 import murallaJson from '../../data/muralla.json' with { type: 'json' };
 import poderJson from '../../data/poder.json' with { type: 'json' };
 import relieveJson from '../../data/relieve.json' with { type: 'json' };
+import riosJson from '../../data/rios.json' with { type: 'json' };
 import tiposDeHeroeJson from '../../data/tipos-de-heroe.json' with { type: 'json' };
 import {
   BARRERAS,
@@ -1095,3 +1096,77 @@ export function validarRelieve(
 
 export const NIVEL_POR_SUELO: Readonly<Record<Suelo, readonly NivelConPeso[]>> =
   validarRelieve(relieveJson);
+
+/**
+ * Las formas del río del generador (#144, río continuo; `core/map/rio.ts`):
+ * **frontera**, de un borde a un lago central y al borde de enfrente, entre las
+ * dos bases; **esquina**, de un borde a otro por la esquina sin base, y su
+ * espejo; **lago**, de un borde a un lago de dentro, y su espejo.
+ */
+export const FORMAS_DEL_RIO = ['frontera', 'esquina', 'lago'] as const;
+export type FormaDelRio = (typeof FORMAS_DEL_RIO)[number];
+
+/** Lo que se lee de `data/rios.json`. */
+export interface ReglasDelRio {
+  /** El peso de cada forma en el sorteo, en el orden de `FORMAS_DEL_RIO`. */
+  readonly formas: readonly { readonly forma: FormaDelRio; readonly peso: number }[];
+  /** Cuántas casillas seguidas en recta lleva el río como mucho. */
+  readonly tramoMaximo: number;
+  /** Cuántas casillas del borde no pisa salvo en su boca. */
+  readonly marco: number;
+  /** El radio de sus lagos. */
+  readonly radioDelLago: number;
+}
+
+/**
+ * Valida `data/rios.json` (**inventado**, como dice su `_comment`). Lanza con
+ * todos los problemas a la vez; con el JSON de argumento para que el guardia
+ * se pueda ver morder con un fichero roto.
+ */
+export function validarRios(json: unknown, fichero = 'data/rios.json'): ReglasDelRio {
+  const problemas: string[] = [];
+  const j = (json ?? {}) as Record<string, unknown>;
+  for (const clave of Object.keys(j)) {
+    if (!['_comment', 'formas', 'tramoMaximo', 'marco', 'radioDelLago'].includes(clave))
+      problemas.push(`sobra la clave "${clave}"`);
+  }
+  const formas: { forma: FormaDelRio; peso: number }[] = [];
+  const bruta = j.formas;
+  if (bruta === null || typeof bruta !== 'object') {
+    problemas.push('no trae "formas"');
+  } else {
+    for (const f of Object.keys(bruta)) {
+      if (!(FORMAS_DEL_RIO as readonly string[]).includes(f))
+        problemas.push(
+          `"formas" trae "${f}", que no es una forma; valen ${FORMAS_DEL_RIO.join(', ')}`,
+        );
+    }
+    for (const forma of FORMAS_DEL_RIO) {
+      const peso = (bruta as Record<string, unknown>)[forma];
+      if (!enteroDesde(peso, 0))
+        problemas.push(
+          `"formas.${forma}" pesa ${JSON.stringify(peso)}: tiene que ser un entero ≥ 0`,
+        );
+      else formas.push({ forma, peso });
+    }
+    if (formas.length === FORMAS_DEL_RIO.length && formas.every((f) => f.peso === 0))
+      problemas.push('"formas" pesan todas 0: no habría río que sortear');
+  }
+  const entero = (clave: string, desde: number, hasta: number): number => {
+    const v = j[clave];
+    if (!enteroDesde(v, desde) || v > hasta) {
+      problemas.push(
+        `"${clave}" tiene que ser un entero de ${desde} a ${hasta}, y lleva ${JSON.stringify(v)}`,
+      );
+      return desde;
+    }
+    return v;
+  };
+  const tramoMaximo = entero('tramoMaximo', 2, 64);
+  const marco = entero('marco', 1, 8);
+  const radioDelLago = entero('radioDelLago', 1, 5);
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return { formas, tramoMaximo, marco, radioDelLago };
+}
+
+export const RIOS: ReglasDelRio = validarRios(riosJson);

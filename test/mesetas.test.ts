@@ -143,8 +143,10 @@ describe('en los mapas reales', () => {
     // huella no deja poner nada (como en `lisosDe`). Desde #226 (42×42) ni la
     // s1 ni la s34 llevan acantilado: iban las dos de 1-60 con más (s16 y s24,
     // 81 y 78 casillas); con las fronteras onduladas (#229, 09-10-2026), s5 y
-    // s32 (123 y 110); con los ríos (#144, 16-10-2026), s52 y s36 (113 y 86).
-    for (const semilla of [52, 36] as const) {
+    // s32 (123 y 110); con los ríos (#144, 16-10-2026), s52 y s36 (113 y 86);
+    // con el río continuo (#144), que deja la s52 sin acantilado, s14 y s31
+    // (111 y 92).
+    for (const semilla of [14, 31] as const) {
       const { map, escena: e } = partidaDe(semilla);
       const huella = huellaDeLosObjetos(semilla);
       const [x0, y0] = masAcantiladoEn3x3(map.terrain, e.W, e.H);
@@ -172,9 +174,10 @@ describe('en los mapas reales', () => {
 
   it('el informe muerde en un mapa real: quitar la roca de una casilla la cuenta', () => {
     // La 16 y no la 34 desde #226: en 42×42 la 34 no lleva acantilado; la 52
-    // desde los ríos (#144), que dejaron la 16 sin él.
-    const { map, escena: e } = partidaDe(52);
-    const i = map.terrain.findIndex((t, k) => t === 'cliff' && !huellaDeLosObjetos(52).has(k));
+    // desde los ríos (#144), que dejaron la 16 sin él; la 14 desde el río
+    // continuo (#144), que dejó la 52 sin él.
+    const { map, escena: e } = partidaDe(14);
+    const i = map.terrain.findIndex((t, k) => t === 'cliff' && !huellaDeLosObjetos(14).has(k));
     expect(i).toBeGreaterThanOrEqual(0);
     const sin = e.sprites.filter(
       (s) => Math.floor(s.y) * e.W + Math.floor(s.x) !== i || s.clase === 'cubierta',

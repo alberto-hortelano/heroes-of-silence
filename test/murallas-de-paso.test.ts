@@ -108,7 +108,9 @@ describe('la línea de una puerta (`lineaDeLaPuerta`)', () => {
 });
 
 describe('la muralla, el cierre de un paso (#232)', () => {
-  const semillas = segunPrisa([1, 12, 14, 69, 42644], rango(1, 200));
+  // La 3 en vez de la 12 desde el río continuo (#144), que dejó la 12 sin muro;
+  // y por lo mismo la 28 en vez de la 14, la de más casillas de muro de 1-60 (25).
+  const semillas = segunPrisa([1, 3, 28, 69, 42644], rango(1, 200));
 
   it('toda muralla tiene puerta y llega de ella a sus dos apoyos', () => {
     const malas = semillas.flatMap((s) => {
@@ -132,11 +134,12 @@ describe('la muralla, el cierre de un paso (#232)', () => {
     expect(largas).toEqual([]);
   });
 
-  it('el muro no desaparece: s1 y s12 llevan su fuerte', () => {
+  it('el muro no desaparece: s1 y s3 llevan su fuerte', () => {
     // Quitar el muro del generador pasaría el guardia de arriba sin hacer lo
     // que se pidió, que es que la muralla tenga sentido. La s1 desde el río de
     // una casilla al pie de la meseta (#144, paso 2b): la s5 se quedó sin muro.
-    for (const s of [1, 12]) {
+    // La s3 desde el río continuo (#144): la s12 se quedó sin muro.
+    for (const s of [1, 3]) {
       const conPuerta = murallasDelMapa(mapaDe(s)).filter((m) => m.puertas.length > 0);
       expect(conPuerta.length, `s${s}`).toBeGreaterThan(0);
     }

@@ -320,7 +320,8 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
     // Lava a 1, una montaña a 0, dos montañas a 1 sin nada a 1 unido a ellas
     // (las separa la de 0) y la ciénaga a 0. Las dos de 1 toman la lava de dos
     // casillas más allá, no la ciénaga de al lado (s9 (22-23, 28) con los ríos;
-    // s1037 (33, 32-33) con el río de una casilla).
+    // s1037 (33, 32-33) con el río de una casilla; s731 (24, 29) con el río
+    // continuo).
     expect(
       sueloDeLaMeseta(
         5,
@@ -332,7 +333,7 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
     ).toEqual(['lava', 'swamp', 'lava', 'lava', 'swamp']);
   });
 
-  it('s1037 (33, 32-33): la repisa de montaña a 1, aislada en su nivel, es de la tierra a 1 y no de la ciénaga de al lado', () => {
+  it('s731 (24, 29): la repisa de montaña a 1, aislada en su nivel, es de la ciénaga a 1 y no de la tierra de al lado', () => {
     // La muestra que muerde: con los ríos (#144, 16-10-2026) era la montaña de
     // s9 (22-23, 28), a 1 entre la ciénaga a 0 del norte y el áspero a 2 del
     // sur, y nada a 1 se unía a ella por su nivel. Con su propio suelo (la
@@ -341,10 +342,14 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
     // única isla de 1-2100: la de s1037, a 1 entre la ciénaga a 0, la montaña
     // nevada a 2 y el agua, con la tierra a 1 dos filas al sur, pasado el agua.
     // Las dos caras son de roca (`CARA_DE_SUELO`): aquí muerde el suelo, no el
-    // material.
-    const { map, escena: e } = partidaDe(1037);
+    // material. Con el río continuo (#144) es la única de 1-1400 (buscada como
+    // un grupo de barrera a un nivel sin nada que se pise a ese nivel en sus
+    // ocho vecinas y con la meseta de otro suelo que el suyo): la de s731, una
+    // casilla de montaña a 1 cuyo suelo más cercano es la tierra y el de su
+    // nivel, la ciénaga.
+    const { map, escena: e } = partidaDe(731);
     const a = analizar(map);
-    const repisa = [32 * a.W + 33, 33 * a.W + 33];
+    const repisa = [29 * a.W + 24];
     for (const i of repisa) {
       expect(a.terreno[i]).toBe('mountain');
       expect(e.nivel[i]).toBe(1);
@@ -356,8 +361,8 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
           const j = (y + dy) * a.W + x + dx;
           if (!repisa.includes(j)) expect(e.nivel[j], `${x + dx},${y + dy}`).not.toBe(1);
         }
-      expect(a.suelo[i]).toBe('swamp');
-      expect(e.suelo[i]).toBe('dirt');
+      expect(a.suelo[i]).toBe('dirt');
+      expect(e.suelo[i]).toBe('swamp');
     }
     expect(e.informe.caraDeOtroMaterial).toBe(0);
   });
@@ -394,24 +399,28 @@ describe('sueloQueSePinta: la barrera y el nodo pintan el suelo de su meseta', (
     ).toEqual(['grass', 'grass', 'grass', 'swamp']);
   });
 
-  it('s6 (34,6): el nodo sin camino que va a la meseta de nieve pinta nieve, no la ciénaga de abajo (#220)', () => {
+  it('s66 (12,30): el nodo sin camino que va a la meseta de nieve pinta nieve, no la ciénaga de abajo (#220)', () => {
     // Era s13 (18,7), con la nieve abajo; desde #226 (42×42), s40 (8,12), con
     // la ciénaga abajo. Con las fronteras onduladas (#229, 09-10-2026), s1
     // (11,34), con la hierba; con los ríos (#144, 16-10-2026), s6 (34,6), otra
-    // vez con la ciénaga.
-    const { map, escena: e } = partidaDe(6);
+    // vez con la ciénaga. Con el río continuo (#144), s66 (12,30), la primera
+    // de 1-80 con la nieve arriba y la ciénaga abajo.
+    const { map, escena: e } = partidaDe(66);
     const a = analizar(map);
-    const i = 6 * a.W + 34;
-    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 34 && o.at.y === 6)).toBe(true);
-    expect(map.caminos.tiene({ x: 34, y: 6 })).toBe(false);
+    const i = 30 * a.W + 12;
+    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 12 && o.at.y === 30)).toBe(true);
+    expect(map.caminos.tiene({ x: 12, y: 30 })).toBe(false);
     expect(e.nivel[i]).toBe(2);
     // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la ciénaga.
     expect(a.suelo[i]).toBe('swamp');
     expect(e.suelo[i]).toBe('snow');
   });
 
-  it('semilla 24: cada casilla de barrera de la escena lleva el suelo de su meseta, y antes no', () => {
-    const { map, escena: e } = partidaDe(24);
+  it('semilla 7: cada casilla de barrera de la escena lleva el suelo de su meseta, y antes no', () => {
+    // La 7 desde el río continuo (#144), que dejó la 24 sin meseta: 98 casillas
+    // de barrera con otro suelo más cercano que el de su meseta (nieve sobre
+    // hierba y arena, como los picos de s24).
+    const { map, escena: e } = partidaDe(7);
     const a = analizar(map);
     const meseta = sueloDeLaMeseta(a.W, a.H, a.region, a.suelo, e.nivel);
     let barreras = 0;
@@ -423,7 +432,7 @@ describe('sueloQueSePinta: la barrera y el nodo pintan el suelo de su meseta', (
       if (a.suelo[i] !== meseta[i]) distintasAntes++;
     }
     expect(barreras).toBeGreaterThan(0);
-    // Que el guardia no mire al vacío: con `Analisis.suelo`, la s24 tenía de las otras.
+    // Que el guardia no mire al vacío: con `Analisis.suelo`, la s7 tenía de las otras.
     expect(distintasAntes).toBeGreaterThan(0);
   });
 });
@@ -441,9 +450,10 @@ describe('caraDeOtroMaterial: el guardia muerde', () => {
   });
 
   it('en un mapa real: con la roca del suelo de cada casilla, como antes de #216, cuenta', () => {
-    // s3: la s5 dejó de tenerla con el acantilado en línea (#215), y la s2 se
-    // quedó sin meseta con las dos puertas de la mina (#230).
-    const { map, escena: e } = partidaDe(3);
+    // s12: la s5 dejó de tenerla con el acantilado en línea (#215), la s2 se
+    // quedó sin meseta con las dos puertas de la mina (#230) y la s3 con el río
+    // continuo (#144); la s12 da 21 caras de otro material con la roca de antes.
+    const { map, escena: e } = partidaDe(12);
     const a = analizar(map);
     const antes = celdasDe(e.nivel, e.W, e.H, a.suelo).filter((c) =>
       e.relieve.celdas.some((v) => v.vx === c.vx && v.vy === c.vy && v.tipo === c.tipo),
@@ -460,9 +470,10 @@ describe('caraDeOtroMaterial: el guardia muerde', () => {
 describe('paredesTapadasPorLaMasa: el guardia muerde, y la masa se aparta de la pared', () => {
   const catalogo = catalogoDelDisco();
   const perfilDe = perfilesDelCatalogo(catalogo);
-  // Una frontal de la escena de s3 (s5 hasta #215, s2 hasta #230, que la dejó
-  // sin meseta) y un pico, delante (más al sur) o detrás.
-  const { escena: e } = partidaDe(3);
+  // Una frontal de la escena de s12 (s5 hasta #215, s2 hasta #230, que la dejó
+  // sin meseta, s3 hasta el río continuo, #144, por lo mismo) y un pico,
+  // delante (más al sur) o detrás.
+  const { escena: e } = partidaDe(12);
   const pared = e.sprites.find(esPiezaDelRelieve) as Sprite;
   const pico = (dy: number): Sprite => ({
     src: 'modulos/picos-arenisca/2.webp',
@@ -497,10 +508,12 @@ describe('paredesTapadasPorLaMasa: el guardia muerde, y la masa se aparta de la 
 });
 
 /**
- * Las de la auditoría 6: los recortes de los defectos 2 y 3. Con la 3 en vez de
- * la 2 desde las dos puertas de la mina (#230), que dejan la 2 sin meseta.
+ * Las de la auditoría 6 eran los recortes de los defectos 2 y 3 (24, 3 y 5; la 3
+ * en vez de la 2 desde las dos puertas de la mina, #230). Con el río continuo
+ * (#144) ninguna de las tres tiene una montaña que caiga a lo bajo: van las de
+ * 1-60 con más casillas así (la 22, 41; la 17, 38; la 25, 31).
  */
-const SEMILLAS_DE_LA_AUDITORIA_6 = [24, 3, 5];
+const SEMILLAS_DE_LA_AUDITORIA_6 = [22, 17, 25];
 
 describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
   for (const semilla of SEMILLAS_DE_LA_AUDITORIA_6)
@@ -512,17 +525,20 @@ describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
       expect(informe.caraDeOtroMaterial).toBe(0);
     });
 
-  it('s53 (29-41, 3-7): la pared bajo la cordillera de arena es de arenisca', () => {
+  it('s60 (30-37, 0-6): la pared bajo la cordillera de arena es de arenisca', () => {
     // Era s5 (2-8, 27-31), de la auditoría; con el acantilado en línea (#215)
     // es otro mapa, y s2 (14-20, 0-5) hasta los vestidos que se repiten por una
     // silla (#224), s7 (23-29, 20-25) hasta el mapa de 42×42 (#226) y s29
     // (20-29, 7-14) hasta las fronteras onduladas (#229, 09-10-2026). En s53,
     // la montaña de (29-41, 3-7) es de la meseta de arena y 16 de sus 39
     // casillas tienen otro suelo más cercano de cualquier nivel: con la roca de
-    // ese suelo, como antes de #216, saldría de otra.
-    const { escena: e } = partidaDe(53);
+    // ese suelo, como antes de #216, saldría de otra. Con el río continuo (#144)
+    // la s53 no tiene cordillera en la arena: va la s60, la de más casillas
+    // así de 1-80, donde la montaña de (30-37, 0-6) es de la meseta de arena y
+    // 11 de sus 27 casillas tienen otro suelo más cercano de cualquier nivel.
+    const { escena: e } = partidaDe(60);
     const bajoLaArena = e.relieve.celdas.filter(
-      (c) => c.vx >= 29 && c.vx <= 41 && c.vy >= 3 && c.vy <= 7,
+      (c) => c.vx >= 30 && c.vx <= 37 && c.vy >= 0 && c.vy <= 6,
     );
     expect(bajoLaArena.length).toBeGreaterThan(0);
     expect(new Set(bajoLaArena.map((c) => c.material))).toEqual(new Set(['cara-arenisca']));

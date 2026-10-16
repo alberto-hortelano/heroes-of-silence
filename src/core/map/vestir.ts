@@ -41,7 +41,7 @@ import {
   rellenar,
   vecindad,
 } from './regiones.js';
-import { BrazosDeAgua, crucesDeLaRed, elegirRio, ponerLagos, type Rio } from './rios.js';
+import { alOtroLado } from './rio.js';
 import {
   admiteLosNiveles,
   BARRERAS,
@@ -66,6 +66,47 @@ export type Tipos = Int8Array;
 export function barreraDe(tipos: Tipos, i: number): Barrera | null {
   const t = tipos[i] as number;
   return t === ABIERTA ? null : (BARRERAS[t] as Barrera);
+}
+
+/**
+ * El río de cada rejilla de tipos (`conElRio`), con el ancho del mapa para
+ * decir dónde. Va aparte y no dentro de `Tipos`, que es una rejilla plana que
+ * leen y copian medio vestido y los tests.
+ */
+const RIO_DE_LOS_TIPOS = new WeakMap<Tipos, { readonly rio: Uint8Array; readonly W: number }>();
+
+/**
+ * Escribe el río (`core/map/rio.ts`) en `tipos`, como agua, y lo deja fijo: de
+ * aquí en adelante `ponerTipo` lanza si se le pide cambiar una casilla suya.
+ */
+export function conElRio(tipos: Tipos, rio: Uint8Array, W: number): void {
+  const AGUA = indiceDe('water');
+  for (let i = 0; i < rio.length; i++) if (rio[i] === 1) ponerTipo(tipos, i, AGUA);
+  RIO_DE_LOS_TIPOS.set(tipos, { rio, W });
+}
+
+/** Si la casilla `i` es del río de `tipos` (`conElRio`): agua que nadie cambia. */
+export function esDelRio(tipos: Tipos, i: number): boolean {
+  return RIO_DE_LOS_TIPOS.get(tipos)?.rio[i] === 1;
+}
+
+/**
+ * **La única escritura de `tipos`** (#144, río continuo). Lanza si `i` es del
+ * río: el río del paso 2 se cortaba porque diecisiete pasadas del vestido
+ * escribían en la rejilla sin saber que una casilla era suya (las esquinas de
+ * las sendas, el agua derramada, las orillas de las espigas…). La pasada que
+ * querría tocarlo salta esa casilla o elige otra; si ni así, su vestido no vale.
+ * Lo vigila `invariantes.test.ts`: nadie más escribe `tipos[…] =`.
+ */
+export function ponerTipo(tipos: Tipos, i: number, t: number): void {
+  const delRio = RIO_DE_LOS_TIPOS.get(tipos);
+  if (delRio !== undefined && delRio.rio[i] === 1 && t !== tipos[i]) {
+    const x = i % delRio.W;
+    throw new Error(
+      `la casilla (${x},${(i - x) / delRio.W}) es del río y se iba a volver ${t === ABIERTA ? 'tierra que se pisa' : BARRERAS[t]}: el río no se corta (#144)`,
+    );
+  }
+  tipos[i] = t;
 }
 
 /** La pareja de una región en el espejo: las regiones 2k y 2k+1 son espejo. */
@@ -224,6 +265,17 @@ export interface EntradaDeEngorde {
   /** El nivel de cada región, por índice de región: decide qué barreras admite cada pareja. */
   readonly niveles: readonly Nivel[];
   readonly rng: Rng;
+  /**
+   * El río (`trazarRio`, 1 en sus casillas), que ya es muro de la red: agua
+   * fija, que ni engorda ni se toca (`ponerTipo`). Sin él, no hay río.
+   */
+  readonly rio?: Uint8Array;
+  /**
+   * El lado del río de cada vecina de cada casilla suya (`ladosDelRio`): dos
+   * casillas a lados distintos las separa el río, que es la excepción a los
+   * tres pasos.
+   */
+  readonly lados?: Int8Array;
 }
 
 export interface Engordado {
@@ -298,12 +350,11 @@ export function aguaALaVista(
  * de la escena (`nivelesDeLoEngordado`) y `nivelI`, `nivelQ`, los de sus
  * regiones.
  *
- * El agua entre dos niveles (paso 2b) solo cuenta con `aguaEntreNiveles`: la
- * miran el 7d y quien adelgaza el río (`adelgazarRios`). Los demás que abren
- * casillas no se arriman a ella: abrir junto al río de una casilla al pie de la
- * meseta le comía la esquina de una ciudad o la orilla de un vado, y el río se
- * quedaba sin boca: con la excepción para todos, 3 ciudades de río sin boca en
- * 1-200 aun sin adelgazar nada entre dos niveles.
+ * El agua entre dos niveles solo cuenta con `aguaEntreNiveles`, que pide el
+ * 7d: el río de una casilla al pie de la meseta (#144) separa sus dos orillas.
+ * Los demás que abren casillas no se arriman a ella: abrir junto a un agua de
+ * una casilla entre dos niveles (con el río que se adelgazaba, 16-10-2026) le
+ * comía la esquina a una ciudad o la orilla a un vado.
  */
 export function separadasDeCerca(
   W: number,
@@ -395,6 +446,12 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   const tipos: Tipos = new Int8Array(N).fill(ABIERTA);
   const esNodo = new Uint8Array(N);
   for (const n of e.nodos) esNodo[n] = 1;
+  const rio = e.rio ?? new Uint8Array(N);
+  const hayRio = rio.includes(1);
+  const { lados } = e;
+  /** Si entre dos casillas que no son río pasa el río (`alOtroLado`). */
+  const otraOrilla = (i: number, q: number): boolean =>
+    lados !== undefined && alOtroLado(W, H, rio, lados, i, q);
 
   // 1. La pareja de cada casilla de muro fino —su celda y la menor de sus
   //    vecinas: de ella sale su tipo— y **todas las celdas que se asoman a
@@ -412,7 +469,9 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     clave(parejaDe(Math.floor(k / regiones)), parejaDe(k % regiones));
   const { desde, vecinas } = vecindad(W, H);
   for (let i = 0; i < N; i++) {
-    if (muro[i] === 0) continue;
+    // El río no es frontera de ninguna pareja: es agua, y lo que cruza lo
+    // cruza por un puente.
+    if (muro[i] === 0 || rio[i] === 1) continue;
     const propia = etiqueta[i] as number;
     const celdas = new Set([propia]);
     for (let v = desde[i]!; v < desde[i + 1]!; v++) celdas.add(etiqueta[vecinas[v]!] as number);
@@ -452,125 +511,77 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   const { casillasMinimasPorTipo } = BARRERAS_DEL_MAPA;
   const finoQueQueda = new Map<number, number>();
   for (let i = 0; i < N; i++) {
-    if (muro[i] === 0 || esNodo[i] === 1) continue;
+    if (muro[i] === 0 || esNodo[i] === 1 || rio[i] === 1) continue;
     const k = parejaDeMuro[i] as number;
     finoQueQueda.set(k, (finoQueQueda.get(k) ?? 0) + 1);
   }
   const fino = (k: number): number =>
     (finoQueQueda.get(k) ?? 0) +
     (claveEspejo(k) === k ? 0 : (finoQueQueda.get(claveEspejo(k)) ?? 0));
-  const hacenFalta = Math.min(TIPOS_POR_MAPA, canonicas.length);
+  // Con río, el agua es suya y cuenta como una de las `TIPOS_POR_MAPA`: las
+  // demás salen de las otras parejas, sin agua.
+  const delRio = hayRio ? 1 : 0;
+  const deFuera = Math.min(TIPOS_POR_MAPA - delRio, canonicas.length);
+  const hacenFalta = deFuera + delRio;
   const AGUA = indiceDe('water');
-  const admiteAgua = (k: number): boolean => candidatasDe(k).some((c) => c.barrera === 'water');
-  // 2a. El río (#144), antes que nada: qué parejas seguidas llevan agua, de una
-  //     boca en el borde a otra o a un lago (`elegirRio`).
-  const entradaDelRio = {
-    W,
-    H,
-    parejaDeMuro,
-    asomadas,
-    nodos: e.nodos,
-    ciudades: e.ciudades,
-    regiones,
-    niveles: e.niveles,
-    admiteAgua,
-    otraBarrera: (k: number): Barrera | null => {
-      const sinAgua = candidatasDe(k).filter((c) => c.barrera !== 'water');
-      return sinAgua.length === 0 ? null : laMasPesada(sinAgua);
-    },
-    fino,
-    claveEspejo,
+  // Las parejas cuyo muro fino toca el río: no llevan agua, que sería un brazo
+  // suyo (#144: el río es una línea, no una red de charcas).
+  const tocaElRio = new Set<number>();
+  for (let i = 0; i < N; i++) {
+    if (muro[i] === 0 || rio[i] === 1) continue;
+    for (let v = desde[i]!; v < desde[i + 1]!; v++)
+      if (rio[vecinas[v]!] === 1) tocaElRio.add(parejaDeMuro[i] as number);
+  }
+  /**
+   * Las barreras que puede llevar la pareja `k`. Con río, fuera de él solo
+   * lleva agua la pareja que no admite otra cosa (decisión del usuario), y si
+   * su muro toca el río ni así: montaña, que va entre cualquier par de niveles.
+   */
+  const susBarreras = (k: number): BarreraConPeso[] => {
+    const todas = candidatasDe(k);
+    if (!hayRio) return todas;
+    const sinAgua = todas.filter((c) => c.barrera !== 'water');
+    if (sinAgua.length > 0) return sinAgua;
+    return tocaElRio.has(k) || tocaElRio.has(claveEspejo(k))
+      ? [{ barrera: 'mountain', peso: 1 }]
+      : todas;
   };
-  // Con río, el agua de las barreras garantizadas es la suya: la pareja del río
-  // con más muro fino solo admite agua, el resto del río nada, y las demás
-  // parejas, lo suyo sin el agua. Un río con el que así no salen `hacenFalta`
-  // distintas no se sortea (`repartirDistintas` sin `rng`): con el agua en el río, las otras
-  // tres tienen que salir de fuera (s9, cuyo bosque y muro solo admitían las
-  // parejas del río).
-  const admitidas = (agua: ReadonlySet<number> | null): Barrera[][] => {
-    const primera =
-      agua === null
-        ? -1
-        : canonicas
-            .filter((k) => agua.has(k))
-            .reduce((m, k) => (m === -1 || fino(k) > fino(m) ? k : m), -1);
-    return canonicas.map((k) => {
-      if (fino(k) * 2 < casillasMinimasPorTipo) return [];
-      if (agua === null) return candidatasDe(k).map((c) => c.barrera);
-      if (k === primera) return ['water'];
-      if (agua.has(k)) return [];
-      return candidatasDe(k)
-        .map((c) => c.barrera)
-        .filter((b) => b !== 'water');
-    });
-  };
-  const cruces = crucesDeLaRed(entradaDelRio);
-  const rio: Rio | null = elegirRio(
-    entradaDelRio,
-    cruces,
-    rng,
-    (agua) => repartirDistintas(null, admitidas(agua), hacenFalta) !== null,
+  const admitidas = canonicas.map((k) =>
+    fino(k) * 2 < casillasMinimasPorTipo
+      ? []
+      : susBarreras(k)
+          .map((c) => c.barrera)
+          .filter((b) => !hayRio || b !== 'water'),
   );
-  const distintas = repartirDistintas(rng, admitidas(rio?.agua ?? null), hacenFalta);
+  const distintas = repartirDistintas(rng, admitidas, deFuera);
   if (distintas === null) {
-    return `las fronteras de este mapa (suelos ${[...new Set(suelos)].join(', ')}) no admiten ${hacenFalta} barreras distintas con ${casillasMinimasPorTipo} casillas cada una`;
+    return `las fronteras de este mapa (suelos ${[...new Set(suelos)].join(', ')}) no admiten ${deFuera} barreras distintas${hayRio ? ' sin agua, además del río,' : ''} con ${casillasMinimasPorTipo} casillas cada una`;
   }
   // Por clave de pareja: su barrera (índice en `BARRERAS`) y el lado que engorda
   // cuando hay que elegir (la reparación del paso 4b).
   const tipoDePareja = new Int8Array(regiones * regiones).fill(ABIERTA);
   const ladoGordo = new Int32Array(regiones * regiones).fill(-1);
-  // 2b. La regla de las charcas: fuera del río, el agua solo va donde ningún
-  //     cruce tiene ya un brazo de agua (`BrazosDeAgua`). Sin ella, dos o tres
-  //     fronteras de agua se juntaban en una ciudad: un río sin boca o una
-  //     charca de cruce (14 ciudades con tres brazos y 15 charcas en 1-40).
-  const brazos = new BrazosDeAgua(cruces, claveEspejo);
-  if (rio !== null) {
-    for (const k of rio.agua) {
-      tipoDePareja[k] = AGUA;
-      const cabecera = rio.cabeceras.find((c) => c.pareja === k);
-      brazos.poner(k, cabecera?.cruce);
-    }
-  }
   for (const [f, b] of distintas) {
     const k = canonicas[f] as number;
-    if (tipoDePareja[k] !== ABIERTA) continue;
     tipoDePareja[k] = indiceDe(b);
     tipoDePareja[claveEspejo(k)] = indiceDe(b);
-    if (b === 'water') {
-      brazos.poner(k);
-      if (claveEspejo(k) !== k) brazos.poner(claveEspejo(k));
-    }
   }
   for (const k of new Set(claves)) {
     if (ladoGordo[k] !== -1) continue;
     if (tipoDePareja[k] === ABIERTA) {
-      const todas = candidatasDe(k);
-      const sinAgua = todas.filter((c) => c.barrera !== 'water');
-      const tipo = indiceDe(
-        sortear(rng, brazos.admite(k) || sinAgua.length === 0 ? todas : sinAgua),
-      );
+      const tipo = indiceDe(sortear(rng, susBarreras(k)));
       tipoDePareja[k] = tipo;
-      const ke = claveEspejo(k);
-      if (tipo === AGUA) brazos.poner(k);
-      if (tipoDePareja[ke] === ABIERTA) {
-        tipoDePareja[ke] = tipo;
-        if (tipo === AGUA && ke !== k) brazos.poner(ke);
-      }
+      if (tipoDePareja[claveEspejo(k)] === ABIERTA) tipoDePareja[claveEspejo(k)] = tipo;
     }
     const lado = rng.chance(0.5) ? Math.floor(k / regiones) : k % regiones;
     ladoGordo[k] = lado;
     if (ladoGordo[claveEspejo(k)] === -1) ladoGordo[claveEspejo(k)] = parejaDe(lado);
   }
-  // La barrera de cada casilla de muro fino: la de su pareja, salvo el muro de
-  // la cabecera del río, del lago a su ciudad, que lleva otra (`Rio.corte`).
-  const corte = rio?.corte ?? new Map<number, Barrera>();
+  // La barrera de cada casilla de muro fino: la de su pareja; el río, agua.
+  conElRio(tipos, rio, W);
   for (let i = 0; i < N; i++) {
-    if (muro[i] !== 1) continue;
-    const cortada = corte.get(i);
-    tipos[i] =
-      cortada === undefined
-        ? (tipoDePareja[parejaDeMuro[i] as number] as number)
-        : indiceDe(cortada);
+    if (muro[i] !== 1 || rio[i] === 1) continue;
+    ponerTipo(tipos, i, tipoDePareja[parejaDeMuro[i] as number] as number);
   }
 
   // 3. El ruido: una tirada por casilla de la mitad de arriba, y la de abajo,
@@ -594,15 +605,14 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     let delGordo = false;
     for (let v = desde[i]!; v < desde[i + 1]! && !delGordo; v++) {
       const j = vecinas[v]!;
-      if (muro[j] === 0) continue;
+      // El río no engorda: lo que solo toca el río se queda como está.
+      if (muro[j] === 0 || rio[j] === 1) continue;
       if (tipo === ABIERTA) tipo = tipos[j] as number;
       for (const otra of asomadas[j] ?? []) {
         if (otra === propia) continue;
         const k = clave(propia, otra);
         if (ladoGordo[k] === propia) {
-          // Junto al muro cortado de la cabecera, su barrera y no el agua de
-          // la pareja: el río nace en el lago.
-          tipo = corte.has(j) ? (tipos[j] as number) : (tipoDePareja[k] as number);
+          tipo = tipoDePareja[k] as number;
           delGordo = true;
           break;
         }
@@ -653,6 +663,9 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
         if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
         const q = (y + dy) * W + x + dx;
         if (muro[q] === 1 || engorda[q] !== ABIERTA || etiqueta[q] === a) continue;
+        // Las dos orillas del río quedan a dos pasos: el río es su línea
+        // (`separadasDeCerca`), la excepción a los tres pasos.
+        if (otraOrilla(i, q)) continue;
         if (elQueEngorda(i, q) !== a && pegada[q] !== ABIERTA) {
           engorda[q] = pegada[q] as number;
           continue;
@@ -726,6 +739,7 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
         if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
         const q = (y + dy) * W + x + dx;
         if (muro[q] === 1 || cerca[q] === 1 || etiqueta[q] === etiqueta[i]) continue;
+        if (otraOrilla(i, q)) continue;
         if (pasillo[q] === 1) {
           return `los pasillos de dos regiones corren a dos casillas en (${x},${y}), lejos de cualquier nodo`;
         }
@@ -734,81 +748,8 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     }
   }
   for (let i = 0; i < N; i++) {
-    if (pasillo[i] === 0 && engorda[i] !== ABIERTA) tipos[i] = engorda[i] as number;
+    if (pasillo[i] === 0 && engorda[i] !== ABIERTA) ponerTipo(tipos, i, engorda[i] as number);
   }
-
-  // 5b. Los lagos del río (`ponerLagos`): un disco en su curso, donde no parta
-  //     una región. El de la cabecera es donde nace: sin él, el agua moriría en
-  //     medio del mapa, y el vestido no vale.
-  let lago: Uint8Array = new Uint8Array(N);
-  if (rio !== null && rio.lagos.length > 0) {
-    const puestos = ponerLagos(
-      {
-        W,
-        H,
-        etiqueta,
-        muro,
-        tipos,
-        pasillo,
-        nodos: e.nodos,
-        semillas: e.semillas,
-        regiones,
-        ruido,
-        agua: AGUA,
-        abierta: ABIERTA,
-      },
-      rio.lagos,
-    );
-    const { sinSitio } = puestos;
-    lago = puestos.lago;
-    const cabeceras = new Set(rio.cabeceras.map((c) => c.pareja));
-    const sinNacimiento = rio.lagos.find(
-      (l) => cabeceras.has(l.pareja) && sinSitio.includes(l.centro),
-    );
-    if (sinNacimiento !== undefined) {
-      const { x, y } = aPunto(sinNacimiento.centro, W);
-      return `el lago de cabecera del río en (${x},${y}) partiría una región`;
-    }
-  }
-
-  // Lo que está a `RADIO_DEL_CRUCE` de un cruce de tres regiones (las casillas
-  // de muro fino que se asoman a tres celdas) no se adelgaza: ahí el río pasa
-  // de una pareja a la siguiente por el punto triple, y la tercera pareja lleva
-  // su barrera hasta él. Delgadas, las dos aguas se quedaban a dos casillas de
-  // la barrera de en medio y el río se partía (s5 (17-19, 21-22)).
-  const juntoACruce = new Uint8Array(N);
-  for (let i = 0; i < N; i++) {
-    if (muro[i] === 0 || (asomadas[i]?.length ?? 0) < 3) continue;
-    const { x, y } = aPunto(i, W);
-    for (let dy = -RADIO_DEL_CRUCE; dy <= RADIO_DEL_CRUCE; dy++)
-      for (let dx = -RADIO_DEL_CRUCE; dx <= RADIO_DEL_CRUCE; dx++)
-        if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H)
-          juntoACruce[(y + dy) * W + x + dx] = 1;
-  }
-  // El río que se adelgaza (paso 7a, `adelgazarRios`): sus parejas, sus lagos
-  // y, en cada trecho de la frontera, el lado que se come el agua. Es el de la
-  // reparación del grosor (`elQueEngorda`, en espejo): a trechos de
-  // `TRECHO_DEL_LADO` el río queda pegado a una orilla o a la otra, que es lo
-  // que lo hace serpentear.
-  const delRio: RioQueSeAdelgaza = {
-    esDelRio: (a, b) => rio?.agua.has(clave(a, b)) === true,
-    barreraDeLaPareja: (a, b) => tipoDePareja[clave(a, b)] as number,
-    ciudades: e.ciudades,
-    hayRio: rio !== null,
-    lago,
-    juntoACruce,
-    ladoQueCome: (i, a, b, fase) => {
-      const gordo = ladoGordo[clave(a, b)] as number;
-      if (gordo === -1) return Math.min(a, b);
-      if (fase === 1) return gordo;
-      if (fase === 2) return gordo === a ? b : a;
-      const sx = 2 * (i % W);
-      const sy = 2 * Math.floor(i / W);
-      const vuelta = trechos[Math.min(trecho(sx, sy), trecho(2 * W - 2 - sx, 2 * H - 2 - sy))];
-      return vuelta ? (gordo === a ? b : a) : gordo;
-    },
-  };
-
   // La región de cada casilla que se pisa, de aquí en adelante. Hasta el paso 5
   // es la celda de Voronoi, pero el acantilado se adelgaza abriendo casillas de
   // la celda de enfrente a la meseta (`adelgazarAcantilados`, #215), y de ellas
@@ -851,7 +792,7 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
           return `la región ${r} queda partida al engordar, y el trozo suelto tiene la entrada de un nodo`;
         }
         const relleno = tipoVecino(W, H, t.casillas, tipos);
-        for (const c of t.casillas) tipos[c] = relleno;
+        for (const c of t.casillas) ponerTipo(tipos, c, relleno);
       }
       if (deLaSemilla === undefined) semillas[r] = aPunto(elegido.casillas[0] as number, W);
     }
@@ -865,10 +806,6 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   //     tocar la tercera (`desnivelEnLosCruces`). Antes de las murallas: no
   //     pone muro, y lo que el paso 7 pone en su lugar ya mira los niveles.
   desnivelEnLosCruces(W, H, tipos, region, esNodo, e.niveles);
-
-  // 6c. El agua derramada junto a las ciudades del río, a la barrera de su
-  //     pareja (`sinAguaDerramada`), antes de adelgazarlo en el paso 7a.
-  sinAguaDerramada(W, H, tipos, region, esNodo, delRio);
 
   // 7. La muralla, el cierre de un paso (#232): cada franja de muro se queda
   //    en la línea que va de su puerta a dos apoyos y lo demás pasa a otra
@@ -912,7 +849,6 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
         //     delgado, la puerta de una ciudad no muerde la línea (#222).
         if (
           !adelgazarAcantilados(W, H, tipos, region, esNodo, e.niveles, nivelAhora) &&
-          !adelgazarRios(W, H, tipos, region, muro, esNodo, e.niveles, nivelAhora, delRio) &&
           !puertasSinMuesca(
             W,
             H,
@@ -956,22 +892,13 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
         );
         // Lo que sobra de una muralla que se queda es su apoyo: montaña,
         // acantilado o agua, nunca bosque (`APOYOS_DE_MURALLA`).
-        // Ni agua junto a una ciudad (a `RADIO_DEL_PASO`): sería otro brazo
-        // de agua en su cruce, que la regla de las charcas no deja (#144; el
-        // muro de s14 junto al río se volvía agua y la ciudad de (11,9) se
-        // quedaba con tres brazos).
-        const cercaDeCiudad = franja.some((c) =>
-          e.ciudades.some(
-            (n) =>
-              Math.max(
-                Math.abs((n % W) - (c % W)),
-                Math.abs(Math.floor(n / W) - Math.floor(c / W)),
-              ) <= RADIO_DEL_PASO,
-          ),
-        );
-        const sinMuroNiAgua = cercaDeCiudad
-          ? sinMuro.filter((c) => c.barrera !== 'water')
-          : sinMuro;
+        // Ni agua si toca el río: sería un brazo suyo (#144), y lo que sobra
+        // sigue la barrera de al lado, que ahí es el río.
+        const junto = sobra.some((c) => {
+          for (let v = desde[c]!; v < desde[c + 1]!; v++) if (rio[vecinas[v]!] === 1) return true;
+          return false;
+        });
+        const sinMuroNiAgua = junto ? sinMuro.filter((c) => c.barrera !== 'water') : sinMuro;
         const posibles = sinMuroNiAgua.length > 0 ? sinMuroNiAgua : sinMuro;
         const deApoyo = posibles.filter((c) => APOYOS_DE_MURALLA.includes(c.barrera));
         const admitidas = apoya && deApoyo.length > 0 ? deApoyo : posibles;
@@ -1007,7 +934,7 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
         const otra = indiceDe(
           vecina?.barrera ?? laMasPesada(nuevas.length > 0 ? nuevas : admitidas),
         );
-        for (const c of sobra) tipos[c] = otra;
+        for (const c of sobra) ponerTipo(tipos, c, otra);
       }
       barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
     }
@@ -1053,6 +980,33 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     // un bosque tocando dos: se arregla con la regla de los cruces (6b).
     desnivelEnLosCruces(W, H, tipos, region, esNodo, e.niveles);
     barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+  }
+
+  // 7e. El río no engorda, salvo con lo alto justo al norte: la cara de la
+  //     meseta cuelga hacia la cámara unas 0,6 casillas y taparía un río de
+  //     una (`aguaALaVista`; decisión del usuario, 16-10-2026). Ahí la casilla
+  //     del sur también es agua, se pise o sea barrera (salvo el muro de una
+  //     muralla). Con el nivel de la escena y con la meseta ya en su sitio (7a
+  //     la mueve). No si es nodo o pasillo: lo que quede sin verse lo dice el
+  //     paso 7d. Lo que se rellena puede partir una región.
+  if (hayRio) {
+    const nivel = nivelAhora();
+    const MURO = indiceDe('wall');
+    let ensanchado = false;
+    for (let m = W; m < N - W; m++) {
+      const norte = m - W;
+      const sur = m + W;
+      if (rio[m] === 0 || tipos[norte] === AGUA || tipos[sur] === AGUA) continue;
+      if ((nivel[norte] as number) <= (nivel[m] as number)) continue;
+      if (esNodo[sur] === 1 || pasillo[sur] === 1 || tipos[sur] === MURO) continue;
+      ponerTipo(tipos, sur, AGUA);
+      ensanchado = true;
+    }
+    if (ensanchado) {
+      const partida = bolsillos();
+      if (partida !== null) return partida;
+      barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+    }
   }
 
   // 7b'. Y si tras `VUELTAS_SIN_ESPIGAS` aún queda una espiga, el vestido no
@@ -1329,312 +1283,23 @@ function quitarEspigas(
       if (pasillo[c] === 0) {
         const baja = lados.find((p) => tipos[p] !== ABIERTA && tipos[p] !== MURO);
         if (baja === undefined) continue;
-        tipos[c] = tipos[baja] as number;
+        ponerTipo(tipos, c, tipos[baja] as number);
         cambio = true;
         break;
       }
       for (const p of lados) {
-        if (abierta(p) || esNodo[p] === 1) continue;
+        // Ni el río (`ponerTipo`): la espiga se queda, y si nada más la quita,
+        // el vestido no vale (paso 7b').
+        if (abierta(p) || esNodo[p] === 1 || esDelRio(tipos, p)) continue;
         // El pasillo no se toca: se abre la orilla a su región o, si no se
         // puede, la orilla deja de ser agua y sube con él, de montaña, que
         // admite cualquier pareja de niveles.
-        tipos[p] = abrible(p, etiqueta[c] as number) ? ABIERTA : MONTAÑA;
+        ponerTipo(tipos, p, abrible(p, etiqueta[c] as number) ? ABIERTA : MONTAÑA);
         cambio = true;
       }
     }
   }
   return cambio;
-}
-
-/**
- * Hasta dónde no se adelgaza el agua alrededor de un cruce de tres regiones, en
- * Chebyshev desde sus casillas de muro fino (`adelgazarRios`).
- */
-const RADIO_DEL_CRUCE = 1;
-
-/**
- * Hasta dónde, en Chebyshev, no se adelgaza el agua entre dos niveles alrededor
- * de una espiga del relieve (`adelgazarRios`, paso 2b).
- */
-const CERCA_DE_UNA_ESPIGA = 2;
-
-/** Lo que `adelgazarRios` sabe del río de `engordarFronteras`. */
-interface RioQueSeAdelgaza {
-  /** Si la pareja de regiones `a`-`b` es del río (o de su espejo). */
-  readonly esDelRio: (a: number, b: number) => boolean;
-  /** Las casillas de sus lagos (`ponerLagos`): no se adelgazan. */
-  readonly lago: Uint8Array;
-  /** Lo que está a `RADIO_DEL_CRUCE` de un cruce de tres regiones: tampoco. */
-  readonly juntoACruce: Uint8Array;
-  /** La barrera de la pareja `a`-`b` (índice en `BARRERAS`). */
-  readonly barreraDeLaPareja: (a: number, b: number) => number;
-  /** Las casillas de las ciudades: el vado del río. */
-  readonly ciudades: readonly number[];
-  /** Si el mapa lleva río (`elegirRio`). */
-  readonly hayRio: boolean;
-  /**
-   * La región que se come el agua de la pareja `a`-`b` en la casilla `i`: en la
-   * fase 0, la de su trecho; en la 1, la de la pareja entera (`ladoGordo`), y
-   * en la 2, la otra.
-   */
-  readonly ladoQueCome: (i: number, a: number, b: number, fase: 0 | 1 | 2) => number;
-}
-
-/**
- * Las dos regiones más cercanas de cada casilla de la barrera `linea` (índice en
- * `BARRERAS`), por dentro de su franja: la primera que llega y la segunda
- * distinta, o −1. Lo que se pisa de alrededor siembra su región.
- */
-function dosMasCercanas(
-  W: number,
-  H: number,
-  tipos: Tipos,
-  region: Int32Array,
-  esNodo: Uint8Array,
-  linea: number,
-): [Int32Array, Int32Array] {
-  const N = W * H;
-  const { desde, vecinas } = vecindad(W, H);
-  const enLinea = (j: number): boolean => tipos[j] === linea && esNodo[j] === 0;
-  const r1 = new Int32Array(N).fill(-1);
-  const r2 = new Int32Array(N).fill(-1);
-  const cola: number[] = [];
-  const ofrecer = (j: number, r: number): void => {
-    if (r1[j] === r || r2[j] === r) return;
-    if (r1[j] === -1) r1[j] = r;
-    else if (r2[j] === -1) r2[j] = r;
-    else return;
-    cola.push(j, r);
-  };
-  for (let i = 0; i < N; i++) {
-    if (tipos[i] !== ABIERTA || esNodo[i] === 1) continue;
-    for (let v = desde[i]!; v < desde[i + 1]!; v++)
-      if (enLinea(vecinas[v]!)) ofrecer(vecinas[v]!, region[i] as number);
-  }
-  for (let q = 0; q < cola.length; q += 2) {
-    const j = cola[q] as number;
-    for (let v = desde[j]!; v < desde[j + 1]!; v++)
-      if (enLinea(vecinas[v]!)) ofrecer(vecinas[v]!, cola[q + 1] as number);
-  }
-  return [r1, r2];
-}
-
-/**
- * El agua que el engorde derrama junto a una ciudad del río entre dos regiones
- * cuya pareja no la lleva (#144, paso 2): la orilla de un brazo que dobla la
- * esquina de la ciudad hacia la tercera pareja. Con el río ancho era parte de la
- * charca del vado; delgado, se quedaba suelta, un tercer brazo corto (s3
- * (11-12, 21-22)). A dos pasos o menos de cada ciudad, pasa a la barrera de su
- * pareja, que llega así hasta la ciudad; si es muro (que va solo en el cierre de
- * un paso, #232) o no la hay, se queda. Una vez por engorde: el bosque o el
- * acantilado que deja lo puede cambiar la regla de los cruces
- * (`desnivelEnLosCruces`), y volver a mirarlo no acabaría.
- */
-function sinAguaDerramada(
-  W: number,
-  H: number,
-  tipos: Tipos,
-  region: Int32Array,
-  esNodo: Uint8Array,
-  rio: RioQueSeAdelgaza,
-): void {
-  if (!rio.hayRio) return;
-  const AGUA = indiceDe('water');
-  const MURO = indiceDe('wall');
-  const [r1, r2] = dosMasCercanas(W, H, tipos, region, esNodo, AGUA);
-  for (const t of rio.ciudades) {
-    const tx = t % W;
-    const ty = (t - tx) / W;
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        const x = tx + dx;
-        const y = ty + dy;
-        if (x < 0 || y < 0 || x >= W || y >= H) continue;
-        const i = y * W + x;
-        const a = r1[i] as number;
-        const b = r2[i] as number;
-        if (tipos[i] !== AGUA || esNodo[i] === 1 || a === -1 || b === -1) continue;
-        const suya = rio.barreraDeLaPareja(a, b);
-        if (suya === AGUA || suya === ABIERTA || suya === MURO) continue;
-        tipos[i] = suya;
-      }
-  }
-}
-
-/**
- * El río, una línea de una casilla donde quepa (#144, paso 2): el usuario lo
- * pidió «más estrecho», y con 2-3 casillas el agua de varias fronteras seguidas
- * se leía como lagos enlazados. Es la regla del acantilado (`adelgazarAcantilados`,
- * #215) con el agua: por vueltas (`abrirLinea`), cada casilla de agua del río se
- * abre a la región que se la come (`ladoQueCome`) hasta que solo queda la que
- * toca a las dos. Dos regiones quedan así a dos pasos, con el agua en medio, que
- * es la excepción a los tres pasos (`separadasDeCerca`).
- *
- * Solo el agua de las parejas del río y a ras de su orilla baja: un agua más
- * baja que sus dos orillas sería un cañón (#210). Entre dos niveles (paso 2b,
- * decisión del usuario, 16-10-2026) se la come siempre lo bajo: el borde de la
- * meseta no se mueve y el río queda a su pie, y donde lo alto queda justo al
- * norte del agua, a dos (`aguaALaVista`: la cara cuelga hacia la cámara y
- * taparía uno de una). Ni los lagos del curso (`ponerLagos`), ni lo que está a
- * un paso de un nodo (el puente y la ciudad del vado conservan su agua a los
- * lados) o a `RADIO_DEL_CRUCE` de un cruce de tres regiones, ni lo que quedaría
- * de espiga. Las demás parejas de agua (las sueltas, lagos entre dos regiones)
- * se quedan como están. Devuelve si cambió algo.
- */
-function adelgazarRios(
-  W: number,
-  H: number,
-  tipos: Tipos,
-  region: Int32Array,
-  muro: Uint8Array,
-  esNodo: Uint8Array,
-  niveles: readonly Nivel[],
-  nivelAhora: () => ArrayLike<number>,
-  rio: RioQueSeAdelgaza,
-): boolean {
-  const N = W * H;
-  const { desde, vecinas } = vecindad(W, H);
-  const AGUA = indiceDe('water');
-  const esAgua = (j: number): boolean => tipos[j] === AGUA && esNodo[j] === 0;
-  const juntoANodo = new Uint8Array(N);
-  for (let i = 0; i < N; i++) {
-    if (esNodo[i] === 0) continue;
-    juntoANodo[i] = 1;
-    for (let v = desde[i]!; v < desde[i + 1]!; v++) juntoANodo[vecinas[v]!] = 1;
-  }
-  // El trecho de cada casilla de agua es el de su casilla de muro fino más
-  // cercana, por el agua: las dos orillas de un mismo trozo del río preguntan
-  // por el mismo trecho. Con el de la propia casilla, un río que cruzaba la
-  // raya de un trecho tenía cada orilla esperando a que comiera la otra, y se
-  // quedaba de tres (s4 (18-20, 14)).
-  const centro = new Int32Array(N).fill(-1);
-  {
-    const cola: number[] = [];
-    for (let i = 0; i < N; i++)
-      if (muro[i] === 1 && esAgua(i)) {
-        centro[i] = i;
-        cola.push(i);
-      }
-    for (let q = 0; q < cola.length; q++) {
-      const j = cola[q] as number;
-      for (let v = desde[j]!; v < desde[j + 1]!; v++) {
-        const k = vecinas[v]!;
-        if (centro[k] !== -1 || !esAgua(k)) continue;
-        centro[k] = centro[j] as number;
-        cola.push(k);
-      }
-    }
-  }
-  // Si el agua de las ocho vecinas de `i` va de un solo trozo alrededor de ella:
-  // quitarla no parte el río. Una muesca que une dos trozos del agua (s21
-  // (13,16), donde el río dobla al pie de la meseta) no es un fondo de saco, y
-  // llenarla dejaba el río sin boca. En el marco del mapa, nunca: ahí está la
-  // boca.
-  const fondoDeSaco = (i: number): boolean => {
-    const x = i % W;
-    const y = (i - x) / W;
-    let cambios = 0;
-    let alguna = false;
-    const agua = ANILLO.map(([dx, dy]) => tipos[(y + dy) * W + x + dx] === AGUA);
-    for (let k = 0; k < 8; k++) {
-      if (agua[k]) alguna = true;
-      if (agua[k] !== agua[(k + 1) % 8]) cambios++;
-    }
-    return alguna && cambios <= 2;
-  };
-  const ladoQueCome = (i: number, a: number, b: number): number =>
-    rio.ladoQueCome(centro[i] === -1 ? i : (centro[i] as number), a, b, fase);
-  // Por fases: primero cada trecho por su lado, que serpentea; donde dos
-  // trechos se encuentran cada orilla espera a la otra, y ahí come el lado de
-  // la pareja y, si aún queda, el otro.
-  let fase: 0 | 1 | 2 = 0;
-  let cambio = false;
-  for (;;) {
-    // Las dos regiones más cercanas de cada casilla de agua, por dentro de su
-    // franja, como en el acantilado.
-    const [r1, r2] = dosMasCercanas(W, H, tipos, region, esNodo, AGUA);
-    const nivel = nivelAhora();
-    // Entre dos niveles, lo que está a `CERCA_DE_UNA_ESPIGA` de una espiga del
-    // relieve no se adelgaza: la espiga es lo alto que se pisa entre dos aguas
-    // (la esquina de la meseta junto a una ciudad del río, s21 (13,17)), y
-    // `quitarEspigas` le pasa la orilla a montaña; con el río de una casilla,
-    // esa orilla era el río entero y la ciudad se quedaba sin boca (ciudades de
-    // río sin boca en 1-200: 12 → 5).
-    const cercaDeEspiga = new Uint8Array(N);
-    for (const k of espigasDelRelieve(W, H, nivel)) {
-      const kx = k % W;
-      const ky = (k - kx) / W;
-      for (let dy = -CERCA_DE_UNA_ESPIGA; dy <= CERCA_DE_UNA_ESPIGA; dy++)
-        for (let dx = -CERCA_DE_UNA_ESPIGA; dx <= CERCA_DE_UNA_ESPIGA; dx++)
-          if (kx + dx >= 0 && ky + dy >= 0 && kx + dx < W && ky + dy < H)
-            cercaDeEspiga[(ky + dy) * W + kx + dx] = 1;
-    }
-    // Las muescas de lo alto van en una vuelta aparte, antes que lo bajo: a la
-    // vez, lo bajo se comía el agua del sur de una muesca que lo alto llenaba
-    // y dejaba la de en medio bajo su cara (s21 (4,32)).
-    const quiere =
-      (muescas: boolean) =>
-      (i: number, r: number): boolean => {
-        const a = r1[i] as number;
-        const b = r2[i] as number;
-        if (rio.lago[i] === 1 || rio.juntoACruce[i] === 1 || juntoANodo[i] === 1) return false;
-        if (a === -1 || b === -1 || !rio.esDelRio(a, b)) return false;
-        const n = Math.min(niveles[a] as number, niveles[b] as number);
-        if ((nivel[i] as number) !== n) return false;
-        const x = i % W;
-        const encima = (j: number): boolean => (nivel[j] as number) > n;
-        const deLoAlto = niveles[a] !== niveles[b] && r !== (niveles[a] === n ? a : b);
-        if (deLoAlto !== muescas) return false;
-        if (niveles[a] !== niveles[b] && cercaDeEspiga[i] === 1) return false;
-        if (niveles[a] === niveles[b]) {
-          if (ladoQueCome(i, a, b) !== r) return false;
-        } else if (deLoAlto) {
-          // Lo alto solo se come la muesca: el agua que lo bajo, al comerse su
-          // lado, deja metida en la meseta con lo alto a los dos lados de un eje
-          // (s4 (17,1), s2 (31,15)), un cañón de una casilla. Lo demás del borde
-          // de la meseta no se mueve.
-          const y = (i - x) / W;
-          if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return false;
-          const muesca = (encima(i - 1) && encima(i + 1)) || (encima(i - W) && encima(i + W));
-          if (!muesca || !fondoDeSaco(i)) return false;
-          // Y lo alto que se adelanta no deja bajo su cara el agua de su sur.
-          if (i + W < N && esAgua(i + W) && !(i + 2 * W < N && esAgua(i + 2 * W))) return false;
-        }
-        // Ni lo que dejaría el agua de su norte bajo la cara de lo alto: ahí el
-        // río va a dos (`aguaALaVista`).
-        if (i >= W && esAgua(i - W) && !aguaALaVista(W, H, tipos, nivel, i - W, (j) => j !== i))
-          return false;
-        // Ni lo que quedaría de espiga (#210), por encima de sus dos vecinas de
-        // un eje: el agua es lo más bajo, y la orilla de enfrente, a su nivel.
-        const nr = niveles[r] as number;
-        const bajo = (j: number): boolean => (nivel[j] as number) < nr;
-        return !(
-          (x > 0 && x < W - 1 && bajo(i - 1) && bajo(i + 1)) ||
-          (i >= W && i < N - W && bajo(i - W) && bajo(i + W))
-        );
-      };
-    if (abrirLinea(W, H, tipos, region, esNodo, niveles, nivel, 'water', quiere(true)).length > 0) {
-      cambio = true;
-      continue;
-    }
-    const abiertas = abrirLinea(
-      W,
-      H,
-      tipos,
-      region,
-      esNodo,
-      niveles,
-      nivel,
-      'water',
-      quiere(false),
-    );
-    if (abiertas.length === 0) {
-      if (fase === 2) return cambio;
-      fase = fase === 0 ? 1 : 2;
-      continue;
-    }
-    cambio = true;
-  }
 }
 
 /**
@@ -1829,7 +1494,10 @@ export function quebrarCaidas(
     if (esNodo[alto] === 1 || esNodo[bajo] === 1) return null;
     const t = tipos[alto] as number;
     if ((t === CORTADO || t === MONTAÑA) && libre(bajo) && hondo(bajo, W)) return [bajo, t, W];
-    if (tipos[bajo] === AGUA && libre(alto) && hondo(alto, -W)) return [alto, AGUA, -W];
+    // El río no se muerde: sería un río de tres bajo la cara (`ponerTipo` no lo toca, y
+    // este agua sí sería suya).
+    if (tipos[bajo] === AGUA && !esDelRio(tipos, bajo) && libre(alto) && hondo(alto, -W))
+      return [alto, AGUA, -W];
     return null;
   };
   const tocada = new Uint8Array(N);
@@ -1859,14 +1527,14 @@ export function quebrarCaidas(
         }
         if (cambios.length < 2) continue;
         for (const [j, t, d] of cambios) {
-          tipos[j] = t;
+          ponerTipo(tipos, j, t);
           tocada[j] = 1;
           // El reflejo, si en él se puede: el engorde no sale en espejo
           // casilla a casilla (la reparación del paso 4b va en orden), y
           // donde el reflejo ya es barrera no hay nada que correr.
           const m = espejoDe(j, N);
           if (libre(m) && hondo(m, -d)) {
-            tipos[m] = t;
+            ponerTipo(tipos, m, t);
             tocada[m] = 1;
           }
         }
@@ -1982,9 +1650,9 @@ export function puertasSinMuesca(
           if (!enMedio) vale = false;
         }
       if (!vale) continue;
-      tipos[c] = ABIERTA;
+      ponerTipo(tipos, c, ABIERTA);
       region[c] = baja;
-      if (abierta(cerrar)) tipos[cerrar] = CORTADO;
+      if (abierta(cerrar)) ponerTipo(tipos, cerrar, CORTADO);
       cambio = true;
     }
   }
@@ -2065,7 +1733,7 @@ function sinAcantiladoLlano(
         ? abrirLinea(W, H, tipos, region, esNodo, niveles, nivel, 'cliff', (i) => llanos.has(i))
         : [];
     if (abiertas.length > 0) continue;
-    for (const c of llanos) tipos[c] = indiceDe('mountain');
+    for (const c of llanos) ponerTipo(tipos, c, indiceDe('mountain'));
     return cambio;
   }
 }
@@ -2184,7 +1852,7 @@ function abrirLinea(
     if (!choca && !seAcerca(i, r)) abrir.push(i);
   }
   for (const i of abrir) {
-    tipos[i] = ABIERTA;
+    ponerTipo(tipos, i, ABIERTA);
     region[i] = aQuien[i] as number;
   }
   return abrir;
@@ -2205,6 +1873,8 @@ function barrerasDeLosNodos(
 ): Barrera[] {
   const { desde, vecinas } = vecindad(e.W, e.H);
   return e.nodos.map((n) => {
+    // El nodo del río cruza el río: es un puente (o la ciudad-puente).
+    if (e.rio?.[n] === 1) return 'water';
     const cuenta = new Int32Array(BARRERAS.length);
     const regionesDelNodo = new Set<number>();
     for (let v = desde[n]!; v < desde[n + 1]!; v++) {
@@ -2700,7 +2370,7 @@ function desnivelEnLosCruces(
       }
     }
   }
-  for (const [c, t] of cambios) tipos[c] = t;
+  for (const [c, t] of cambios) ponerTipo(tipos, c, t);
 
   // 2. Los acantilados que no separan dos niveles.
   for (const franja of franjasDe(ACANTILADO)) {
@@ -2708,7 +2378,7 @@ function desnivelEnLosCruces(
     for (const c of franja) bits |= toca(c);
     if (bits !== 0 && (bits & (bits - 1)) !== 0) continue;
     const t = laQueMasHay(franja, [MONTAÑA, indiceDe('water')]);
-    for (const c of franja) tipos[c] = t;
+    for (const c of franja) ponerTipo(tipos, c, t);
   }
 }
 
@@ -2877,7 +2547,7 @@ export function ponerObstaculos(e: EntradaDeObstaculos): boolean {
   };
 
   const poner = (r: number, celdas: readonly number[], tipo: number): void => {
-    for (const c of celdas) tipos[c] = tipo;
+    for (const c of celdas) ponerTipo(tipos, c, tipo);
     puestos[r]! += celdas.length;
   };
 
@@ -2959,6 +2629,11 @@ export interface EntradaDeCaminos {
    * por eje y su vado, y la escena no le pone bajada.
    */
   readonly puentes: ReadonlySet<number>;
+  /**
+   * Las ciudades-puente: junto a ellas (sus ocho vecinas) la senda puede cortar
+   * en diagonal una esquina del río, que es su vado. En ningún otro sitio.
+   */
+  readonly vados?: ReadonlySet<number>;
 }
 
 /**
@@ -3067,6 +2742,10 @@ class Busqueda {
   /** Más que cualquier camino sin monstruos dentro del mapa: lo que cuesta entrar de lado. */
   private readonly rodeo: number;
   private readonly pisarMonstruo: number;
+  /** De cada estribo de un puente del río, la casilla desde la que se le llega (−1 si no es estribo). */
+  private readonly antesDelEstribo: Int32Array;
+  /** Si una casilla es de una ciudad-puente o una de sus ocho vecinas: el vado del río. */
+  private readonly junto: (k: number) => boolean;
 
   constructor(
     private readonly e: EntradaDeCaminos,
@@ -3085,6 +2764,23 @@ class Busqueda {
       this.hoja[n] = 1;
     }
     this.espalda = new Uint8Array(N);
+    // El puente del río se entra de frente: a la casilla de cada estribo se
+    // llega desde la siguiente en su eje. Si no, la senda dobla en L junto al
+    // estribo, con el río en la esquina de dentro, y la escena, que redondea
+    // la L, la pintaba sobre el agua (s8 (37,16)).
+    this.antesDelEstribo = new Int32Array(N).fill(-1);
+    const rio = RIO_DE_LOS_TIPOS.get(e.tipos)?.rio;
+    for (const n of e.puentes) {
+      if (rio === undefined || rio[n] !== 1) continue;
+      const x = n % e.W;
+      const paso = x > 0 && x < e.W - 1 && rio[n - 1] === 1 && rio[n + 1] === 1 ? e.W : 1;
+      for (const s of [-1, 1]) {
+        const estribo = n + s * paso;
+        const antes = n + 2 * s * paso;
+        if (antes >= 0 && antes < N && Math.abs((antes % e.W) - x) <= 2)
+          this.antesDelEstribo[estribo] = antes;
+      }
+    }
     const { desde, vecinas } = vecindad(e.W, e.H);
     for (const { at: p, kind } of e.puertas) {
       this.hoja[p] = 1;
@@ -3107,6 +2803,7 @@ class Busqueda {
     // Más que cualquier camino sin monstruos: se rodean si se puede. Pero
     // menos que entrar en un objeto de lado (`porDonde`).
     this.pisarMonstruo = 2 * this.rodeo;
+    this.junto = juntoAUnPuente(e.W, e.vados ?? new Set());
   }
 
   /** Los rodeos de pasar entre el objeto con puerta `d` y su vecina `v` (`rodeosParaEntrar`). */
@@ -3167,6 +2864,7 @@ class Busqueda {
       puerta[k] !== 0 ? 4 : hoja[k] === 1 && (red?.[k] === 1 || objetivo[k] === 1) ? 2 : 0;
     const r = this.r;
     const AGUA = indiceDe('water');
+    const rio = RIO_DE_LOS_TIPOS.get(tipos)?.rio;
     coste.fill(-1);
     previo.fill(-1);
     const frontera = new Frontera(W * H);
@@ -3205,6 +2903,14 @@ class Busqueda {
         }
         paso += cruza;
         if (puerta[j] !== 0) paso += porDonde(j, a);
+        // El estribo de un puente del río, de frente (`antesDelEstribo`), en
+        // los dos sentidos: también se busca desde los objetivos.
+        const { antesDelEstribo } = this;
+        if (
+          (antesDelEstribo[j] !== -1 && a !== antesDelEstribo[j] && !this.e.puentes.has(a)) ||
+          (antesDelEstribo[a] !== -1 && j !== antesDelEstribo[a] && !this.e.puentes.has(j))
+        )
+          paso += 2 * this.recto;
         // Rodear por detrás o pegarse de lado cuesta dos rectos: por delante,
         // con el ramal ya trazado a mitad de precio, sale más barato.
         else if (espalda[j] === 1) paso += 2 * this.recto;
@@ -3229,6 +2935,18 @@ class Busqueda {
         if (enDiagonal && nodo[j] === 0 && nodo[a] === 0) {
           const jx = j % W;
           if (tipos[y * W + jx] === AGUA || tipos[j - jx + x] === AGUA) paso += 2 * this.recto;
+        }
+        // Y la esquina del río no se corta (#144, río continuo), tampoco al
+        // entrar en un nodo (al puente se llega de frente): no hay pasada que
+        // la pase a montaña (`ponerTipo`). Más que cualquier otro camino, como
+        // un veto; si aun así no hay otro, el vestido no vale. Junto a una
+        // ciudad-puente, sí: es su vado (`EntradaDeCaminos.vados`).
+        if (enDiagonal && rio !== undefined) {
+          const jx = j % W;
+          const k1 = y * W + jx;
+          const k2 = j - jx + x;
+          if ((rio[k1] === 1 && !this.junto(k1)) || (rio[k2] === 1 && !this.junto(k2)))
+            paso += 5 * this.rodeo;
         }
         const torcido =
           this.e.puentes.has(a) || this.e.puentes.has(j)
@@ -3433,9 +3151,11 @@ export function sinAguaEnLasEsquinas(
   };
   for (const k of esquinasDeAgua(W, (i) => tipos[i] === AGUA && !nodos.has(i), tramos, puentes))
     for (const c of [k, espejoDe(k, N)]) {
-      if (tipos[c] !== AGUA || nodos.has(c) || junto(c)) continue;
+      // El río no: la búsqueda no lo corta (`Busqueda`), y lo que quede lo
+      // rechaza el generador.
+      if (tipos[c] !== AGUA || nodos.has(c) || junto(c) || esDelRio(tipos, c)) continue;
       if (c !== k && parteElAgua(c)) continue;
-      tipos[c] = MONTAÑA;
+      ponerTipo(tipos, c, MONTAÑA);
     }
 }
 
@@ -3497,6 +3217,7 @@ export function abrirEsquinasTorcidas(e: {
   const { desde, vecinas } = vecindad(W, H);
   const abrible = (k: number, r: number): boolean => {
     if (tipos[k] === ABIERTA || nodos.has(k) || r < 0 || esquinaDeRegion(k, r) === k) return false;
+    if (esDelRio(tipos, k)) return false;
     if (!e.deFrontera(k) || !e.admiteUnaMas(r) || !guardaLosNodos(k) || muerdeUnaPuerta(k))
       return false;
     if (separaDosRegiones(k, r) || parteLoQueNoEsRegion(k)) return false;
@@ -3703,7 +3424,7 @@ export function abrirEsquinasTorcidas(e: {
       if (!admiten(abrir)) continue;
       for (const [c, rc] of abrir) {
         nivel[c] = nivel[esquinaDeRegion(c, rc)] as number;
-        tipos[c] = ABIERTA;
+        ponerTipo(tipos, c, ABIERTA);
         regionDe[c] = rc;
         terreno[c] = 'grass';
         region[c] = rc;

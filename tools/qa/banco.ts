@@ -968,11 +968,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   **7 / 13 / 24**, 0 sin terminar. Batallas 1 308 → 1 370, `hero_moved`
  *   36 684 → 38 818, `town_captured` 1 190 → 1 230, `troop_rank_up` 1 708 →
  *   1 794; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `59fb0286…` (67 057 líneas): **el río continuo** (16-10-2026, paso 1 del
+ *   rediseño de `docs/agents/2026-10-14-rios-entre-regiones/`, #144): el río se
+ *   traza antes que las regiones (`core/map/rio.ts`), una línea de una casilla
+ *   de borde a borde o de un lago al borde que nada corta; en él, solo puentes y
+ *   ciudades-puente. Los mapas cambian todos: contra `--dump` de `37cac0c8…`,
+ *   **0 de 200 idénticas**, y en las 200 el primer hecho distinto es el primer
+ *   `raider_spawned` (dónde nace el grupo: otro mapa), no las reglas. 89 con
+ *   otro ganador, j0 111 → **110**, duración 7 / 13 / 24 → **8 / 15 / 30**, 0 sin
+ *   terminar. Batallas 1 370 → 1 215,
+ *   `hero_moved` 38 818 → 41 216, `town_captured` 1 230 → 979 (3,6 ciudades
+ *   neutrales por mapa en 1-40, eran 4,8), `troop_rank_up` 1 794 → 1 885;
+ *   ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '37cac0c80eb4dcc8c3b90475d14543c66de2a08a71b3bd9e4d9cbf3ade761c8d',
+  sha: '59fb028647c879972d102f5088da1d56b2bbe9a9907d6fb0b6cd198aa41de92b',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

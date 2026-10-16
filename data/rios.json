@@ -1,0 +1,7 @@
+{
+  "_comment": "INVENTADO y PROVISIONAL (#144, río continuo, 16-10-2026). El río del generador procedimental (src/core/map/rio.ts): una línea de agua de una casilla que se traza ANTES de repartir las regiones, de modo que nada la corta. «formas»: con qué peso sale cada una (decisión del usuario: las tres por igual). «frontera», de un borde a un lago en el centro del mapa y, en espejo, al borde de enfrente: un solo río que separa las dos bases; «esquina», de un borde a otro por la esquina sin base, y su espejo; «lago», de un borde a un lago de dentro, y su espejo. «tramoMaximo»: cuántas casillas seguidas en recta lleva como mucho (con un Dijkstra sin tope, 20 de 40 mapas tenían una tirada de 10 o más). «marco»: cuántas casillas del borde del mapa no pisa salvo en su boca (ni una tira de región entre el río y el borde). «radioDelLago»: el radio de los lagos de su curso. El cargador (src/core/data.ts) lanza si falta una forma, si sobra una clave o si una cifra no es un entero en su rango.",
+  "formas": { "frontera": 1, "esquina": 1, "lago": 1 },
+  "tramoMaximo": 4,
+  "marco": 4,
+  "radioDelLago": 2
+}

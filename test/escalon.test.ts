@@ -179,9 +179,11 @@ describe('el canto de la espalda (#219)', () => {
  * el escalón). La 443 se quedó sin meseta con los ríos (#144, 16-10-2026): va
  * la 15, la de más rebordes de 1-20 (71; la 3, 25). La 15 se quedó sin meseta
  con el río de una casilla (#144, paso 2): va la 16, la de más rebordes de 1-20
- (65; la 3, 38).
+ (65; la 3, 38). Con el río continuo (#144) la 3 y la 16 se quedan sin meseta:
+ van la 17 y la 13, las de más rebordes de 1-20 (56 y 45; la 13 tiene 12 371
+ píxeles de agua en lo alto sin el escalón).
  */
-const SEMILLAS = LENTO ? rango(1, 40) : [3, 16];
+const SEMILLAS = LENTO ? rango(1, 40) : [13, 17];
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
@@ -195,7 +197,8 @@ describe('en los mapas reales', () => {
     });
 
   it('la muestra del bucle rápido tiene espaldas que mirar', () => {
-    for (const s of [3, 16]) expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
+    for (const s of [13, 17])
+      expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
   });
 
   for (const semilla of SEMILLAS)
@@ -203,8 +206,8 @@ describe('en los mapas reales', () => {
       expect(espaldasSinCanto(partidaDe(semilla).escena)).toEqual([]);
     });
 
-  it('el guardia del canto muerde: sin canto, la s3 tiene espaldas sin él', () => {
-    const e = partidaDe(3).escena;
+  it('el guardia del canto muerde: sin canto, la s13 tiene espaldas sin él', () => {
+    const e = partidaDe(13).escena;
     const np = nivelPintado(e);
     const vacio = {
       ancho: np.ancho,
@@ -215,8 +218,8 @@ describe('en los mapas reales', () => {
     expect(espaldasSinCanto(e, vacio).length).toBeGreaterThan(0);
   });
 
-  it('el guardia del labio muerde: sin labio, la s3 tiene espaldas sin él', () => {
-    const e = partidaDe(3).escena;
+  it('el guardia del labio muerde: sin labio, la s13 tiene espaldas sin él', () => {
+    const e = partidaDe(13).escena;
     const np = nivelPintado(e);
     const vacio = {
       ancho: np.ancho,
@@ -227,8 +230,8 @@ describe('en los mapas reales', () => {
     expect(espaldasSinLabio(e, vacio).length).toBeGreaterThan(0);
   });
 
-  it('el guardia muerde: sin el escalón, la s3 tenía agua en lo alto', () => {
-    expect(aguaEnLoAlto(partidaDe(3).escena, true)).toBeGreaterThan(0);
+  it('el guardia muerde: sin el escalón, la s13 tenía agua en lo alto', () => {
+    expect(aguaEnLoAlto(partidaDe(13).escena, true)).toBeGreaterThan(0);
   });
 });
 
@@ -236,9 +239,11 @@ describe('en los mapas reales', () => {
  * En la orden lenta, 1-40; en `verify`, la 16 (la 15 hasta el río de una
  * casilla, #144 paso 2, que la dejó sin meseta; la 55, la marca de #223, hasta
  * los ríos, #144; la 16 es la de más espaldas con oscuro de 1-20, 65) y la 3
- * (la 2 hasta #230, que la dejó sin meseta).
+ * (la 2 hasta #230, que la dejó sin meseta). Con el río continuo (#144) las dos
+ * se quedan sin meseta: la 17, la de más espaldas con oscuro de 1-20 (56), y
+ * la 13 (45).
  */
-const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [16, 3];
+const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [17, 13];
 
 describe('la espalda, una línea nítida (#223)', () => {
   for (const semilla of SEMILLAS_DEL_OSCURO)
@@ -252,13 +257,13 @@ describe('la espalda, una línea nítida (#223)', () => {
   it('la muestra del bucle rápido mide espaldas con oscuro', () => {
     // Si el guardia no encontrara ningún oscuro que medir, pasaría sin mirar.
     // Más de 10 por semilla: con los mapas de #224 una de las dos da 17.
-    for (const s of [16, 3])
+    for (const s of [17, 13])
       expect(
         oscuroAlNorteDeLasEspaldas(partidaDe(s).escena).filter((q) => q.ancho > 0).length,
       ).toBeGreaterThan(10);
   });
 
-  it('s41 (19,10): al norte, el hoyo del nodo de acantilado; al norte del hoyo, la sombra de la ladera de (18,8), que no es de la espalda', () => {
+  it('s26 (13,11): al norte, el hoyo del nodo de acantilado; al norte del hoyo, la sombra de la ladera de (12,9), que no es de la espalda', () => {
     // Con los ríos (#144, 16-10-2026) era s36 (10,33): el nodo de (10,32), con
     // camino, va a lo bajo (0) entre dos acantilados a 2, y lo alto se lo come
     // casi entero. La tirada de oscuro subía del canto, por el hoyo, a la
@@ -266,27 +271,30 @@ describe('la espalda, una línea nítida (#223)', () => {
     // se apartaban las columnas de las laderas de la casilla del norte, no de
     // la de su norte. Con el río de una casilla (#144, paso 2), s41 (19,10): el
     // nodo de acantilado de (19,9), con camino, a 1 entre dos acantilados a 2.
-    const e = partidaDe(41).escena;
+    // Con el río continuo (#144), s26 (13,11): el nodo de acantilado de (13,10),
+    // con camino, a 1 entre dos a 2 (el mismo dibujo, buscado en 1-120 con la
+    // sombra de su ladera en la fila del norte; s26 es la primera).
+    const e = partidaDe(26).escena;
     const n = (x: number, y: number) => e.nivel[y * e.W + x];
-    // Que el caso siga ahí: el hoyo y, al norte, la sombra de la ladera de (18,8).
-    expect([n(19, 10), n(19, 9), n(18, 9), n(20, 9), n(18, 8), n(19, 8)]).toEqual([
+    // Que el caso siga ahí: el hoyo y, al norte, la sombra de la ladera de (12,9).
+    expect([n(13, 11), n(13, 10), n(12, 10), n(14, 10), n(12, 9), n(13, 9)]).toEqual([
       2, 1, 2, 2, 2, 1,
     ]);
     const np = nivelPintado(e);
     const sombra = sombraAlPie(e, np);
     const enLaDelNorte = (px: number) =>
-      Array.from({ length: R }, (_, k) => sombra.alfa[(8 * R + k) * np.ancho + px] as number);
-    const columnas = Array.from({ length: R }, (_, k) => 19 * R + k).filter((px) =>
+      Array.from({ length: R }, (_, k) => sombra.alfa[(9 * R + k) * np.ancho + px] as number);
+    const columnas = Array.from({ length: R }, (_, k) => 13 * R + k).filter((px) =>
       enLaDelNorte(px).some((a) => a / 255 >= OSCURO_DE_LA_ESPALDA.umbral),
     );
     expect(columnas.length).toBeGreaterThan(0);
-    const espalda = oscuroAlNorteDeLasEspaldas(e).find((q) => q.x === 19 && q.y === 10);
+    const espalda = oscuroAlNorteDeLasEspaldas(e).find((q) => q.x === 13 && q.y === 11);
     expect(espalda?.ancho).toBeGreaterThan(0);
     expect(espalda?.ancho).toBeLessThanOrEqual(OSCURO_DE_LA_ESPALDA.ancho);
   });
 
-  it('el guardia muerde: con todo lo bajo oscuro, la s16 tiene espaldas que pasan', () => {
-    const e = partidaDe(16).escena;
+  it('el guardia muerde: con todo lo bajo oscuro, la s17 tiene espaldas que pasan', () => {
+    const e = partidaDe(17).escena;
     const np = nivelPintado(e);
     const negro = {
       ancho: np.ancho,
