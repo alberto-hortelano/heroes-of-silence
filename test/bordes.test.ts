@@ -321,7 +321,9 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
     // (las separa la de 0) y la ciénaga a 0. Las dos de 1 toman la lava de dos
     // casillas más allá, no la ciénaga de al lado (s9 (22-23, 28) con los ríos;
     // s1037 (33, 32-33) con el río de una casilla; s731 (24, 29) con el río
-    // continuo).
+    // continuo). Sin agua de frontera fuera del río (QA del río continuo, H3)
+    // ninguna semilla de 1-1600 tiene una isla así, y su test sobre el mapa se
+    // fue: queda esta rejilla.
     expect(
       sueloDeLaMeseta(
         5,
@@ -331,40 +333,6 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
         [1, 0, 1, 1, 0],
       ),
     ).toEqual(['lava', 'swamp', 'lava', 'lava', 'swamp']);
-  });
-
-  it('s731 (24, 29): la repisa de montaña a 1, aislada en su nivel, es de la ciénaga a 1 y no de la tierra de al lado', () => {
-    // La muestra que muerde: con los ríos (#144, 16-10-2026) era la montaña de
-    // s9 (22-23, 28), a 1 entre la ciénaga a 0 del norte y el áspero a 2 del
-    // sur, y nada a 1 se unía a ella por su nivel. Con su propio suelo (la
-    // ciénaga), sus tres paredes del norte eran de roca gris
-    // (`caraDeOtroMaterial` 3). Con el río de una casilla (#144, paso 2) es la
-    // única isla de 1-2100: la de s1037, a 1 entre la ciénaga a 0, la montaña
-    // nevada a 2 y el agua, con la tierra a 1 dos filas al sur, pasado el agua.
-    // Las dos caras son de roca (`CARA_DE_SUELO`): aquí muerde el suelo, no el
-    // material. Con el río continuo (#144) es la única de 1-1400 (buscada como
-    // un grupo de barrera a un nivel sin nada que se pise a ese nivel en sus
-    // ocho vecinas y con la meseta de otro suelo que el suyo): la de s731, una
-    // casilla de montaña a 1 cuyo suelo más cercano es la tierra y el de su
-    // nivel, la ciénaga.
-    const { map, escena: e } = partidaDe(731);
-    const a = analizar(map);
-    const repisa = [29 * a.W + 24];
-    for (const i of repisa) {
-      expect(a.terreno[i]).toBe('mountain');
-      expect(e.nivel[i]).toBe(1);
-      // Que el caso siga ahí: ninguna vecina a 1 fuera de la repisa.
-      const x = i % a.W;
-      const y = Math.floor(i / a.W);
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          const j = (y + dy) * a.W + x + dx;
-          if (!repisa.includes(j)) expect(e.nivel[j], `${x + dx},${y + dy}`).not.toBe(1);
-        }
-      expect(a.suelo[i]).toBe('dirt');
-      expect(e.suelo[i]).toBe('swamp');
-    }
-    expect(e.informe.caraDeOtroMaterial).toBe(0);
   });
 
   it('un nodo no es fuente: su suelo es el más cercano de cualquier nivel', () => {

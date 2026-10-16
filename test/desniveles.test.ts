@@ -63,7 +63,7 @@ describe('el desnivel lo explica una barrera (#143)', () => {
       expect(cuenta.get(k) ?? 0, k).toBeGreaterThan(0);
   });
   itLento(
-    'el reparto de suelos no cambia: cada suelo de fuera, entre el 11 y el 17 % de las regiones de 1-200',
+    'el reparto de suelos no cambia: cada suelo de fuera, entre el 10 y el 17 % de las regiones de 1-200',
     () => {
       // Un sorteo de barreras filtrado por niveles podía tirar más vestidos de
       // unas parejas de suelos que de otras y sesgar el mapa (los de arena roja de
@@ -74,7 +74,15 @@ describe('el desnivel lo explica una barrera (#143)', () => {
       // barreras sin agua (la ciénaga, una) pierden más vestidos por la variedad
       // garantizada; la nieve y el áspero (tres) salen más. En 1-1000, de 12,8-14,2
       // a 12,2-14,4 %; en 1-200 la nieve da 16,6, que es ese +1 y el azar de 200
-      // semillas (σ ≈ 1,05 por suelo). El porqué y las cifras, en docs/historia.md.
+      // semillas (σ ≈ 1,05 por suelo). Sin agua de frontera fuera del río (QA del
+      // río continuo, H3, decisión del usuario) el suelo pasa de 11 a 10: la
+      // ciénaga (agua 4, bosque 2, siempre al 0) pierde su barrera, sus
+      // fronteras con lo de arriba pasan a acantilado o montaña y sus vestidos
+      // se tiran más (la región partida al engordar, 354 → 406 en 1-300 con
+      // ciénaga, 357 → 361 sin ella): en 1-200, con ciénaga sale el 10,2 % de
+      // los vestidos y no el 13,4, y la ciénaga es el 10,7 % de las regiones y no
+      // el 13,2; en 1-1000, 12,7 → 11,2 %. El
+      // porqué y las cifras, en docs/historia.md.
       const cuenta = new Map<string, number>();
       for (const s of rango(1, 200))
         for (const r of generateMapPlan(createRng(s)).regions)
@@ -84,7 +92,7 @@ describe('el desnivel lo explica una barrera (#143)', () => {
         const parte = (100 * (cuenta.get(suelo) ?? 0)) / total;
         if (suelo === 'dirt') expect(parte, suelo).toBe(20);
         else {
-          expect(parte, suelo).toBeGreaterThanOrEqual(11);
+          expect(parte, suelo).toBeGreaterThanOrEqual(10);
           expect(parte, suelo).toBeLessThanOrEqual(17);
         }
       }

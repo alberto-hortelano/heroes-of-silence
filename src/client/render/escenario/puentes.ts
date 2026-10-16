@@ -9,6 +9,7 @@
  */
 import type { TramoDeCamino } from '@core/map/map.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
+import type { Point } from '@core/types.js';
 import { type Analisis, regionPisable } from './analizar.js';
 import type { Catalogo, MedidasDePuente } from './catalogo.js';
 import { pasaElCamino } from './nodos.js';
@@ -93,6 +94,12 @@ export interface Puente {
    * pisan pared, ladera ni nada que se aparte del camino.
    */
   readonly tablero: Senda;
+  /**
+   * El de una ciudad-puente (#144): el centro de la casilla de su orilla, donde
+   * se pinta la ciudad (`orillaDeLaCiudad`). Ahí cuelga su marca, y pulsarla
+   * lleva a la ciudad (`ciudadEnLaOrilla`). Los nodos no la llevan.
+   */
+  readonly orilla?: Punto;
 }
 
 /**
@@ -196,6 +203,54 @@ export function puenteDe(
       eje = paso.eje === 'ancho' ? 'ns' : 'eo';
     }
   }
+  return armarPuente(nodo, eje, centro, escala, sube, clase, catalogo);
+}
+
+/**
+ * La ciudad-puente (#144, paso 2): la ciudad se pinta en su orilla (`orilla`) y
+ * en su casilla va un puente de piedra que cruza el río de frente, de la orilla
+ * a la casilla de `enfrente`. Sube si la orilla de su lado alto es la del arte
+ * (al norte en N-S, al este en E-O), como el de un nodo.
+ */
+export function puenteDeLaCiudad(
+  ciudad: { readonly id: string; readonly at: { readonly x: number; readonly y: number } },
+  lados: { readonly orilla: Point; readonly enfrente: Point },
+  W: number,
+  nivel: ArrayLike<number>,
+  catalogo: Catalogo,
+): Puente {
+  const { x, y } = ciudad.at;
+  const { orilla, enfrente } = lados;
+  const eje: EjeDePuente = orilla.x === x ? 'ns' : 'eo';
+  // `p` es la del sur en N-S y la del este en E-O, como en `puenteDe`.
+  const [p, q] =
+    eje === 'ns'
+      ? orilla.y > y
+        ? [orilla, enfrente]
+        : [enfrente, orilla]
+      : orilla.x > x
+        ? [orilla, enfrente]
+        : [enfrente, orilla];
+  const np = nivel[p.y * W + p.x] as number;
+  const nq = nivel[q.y * W + q.x] as number;
+  const sube = (eje === 'ns' && nq > np) || (eje === 'eo' && np > nq);
+  return {
+    ...armarPuente(ciudad, eje, [x + 0.5, y + 0.5], 1, sube, 'piedra', catalogo),
+    orilla: [orilla.x + 0.5, orilla.y + 0.5],
+  };
+}
+
+/** El puente de `nodo` ya decididos su eje, su centro, su escala, si sube y su clase. */
+function armarPuente(
+  nodo: { readonly id: string; readonly at: { readonly x: number; readonly y: number } },
+  eje: EjeDePuente,
+  centro: Punto,
+  escala: number,
+  sube: boolean,
+  clase: ClaseDePuente,
+  catalogo: Catalogo,
+): Puente {
+  const { x, y } = nodo.at;
   const plana = `puente-${clase}-${eje}`;
   const pieza = sube && catalogo.piezas[`${plana}-sube`] !== undefined ? `${plana}-sube` : plana;
   const medidas = catalogo.piezas[pieza]?.puente ?? SIN_ARTE;
@@ -278,6 +333,26 @@ export function puenteBajo<P extends Pick<Puente, 'tablero' | 'centro' | 'escala
     if (mejor === null || alMedio < mejor.d) mejor = { p, d: alMedio };
   }
   return mejor?.p ?? null;
+}
+
+/**
+ * La ciudad-puente cuya orilla (`Puente.orilla`) cae en la casilla del punto
+ * `(x, y)`, en casillas: ahí se pinta la ciudad, y pulsarla lleva a ella como
+ * pulsar su puente, también si esa casilla se pisa (decisión del usuario, paso 2
+ * de #144: 14 de 121 en 1-100). A esa casilla se va pulsando a su lado.
+ */
+export function ciudadEnLaOrilla<P extends Pick<Puente, 'orilla' | 'nodo'>>(
+  puentes: readonly P[],
+  x: number,
+  y: number,
+): P | null {
+  const [cx, cy] = [Math.floor(x), Math.floor(y)];
+  return (
+    puentes.find(
+      (p) =>
+        p.orilla !== undefined && Math.floor(p.orilla[0]) === cx && Math.floor(p.orilla[1]) === cy,
+    ) ?? null
+  );
 }
 
 /**
@@ -484,13 +559,19 @@ const PASOS_HASTA_EL_ESTRIBO = 4;
  */
 export function tramosHastaLosEstribos(
   tramos: readonly Tramo[],
-  puentes: readonly Pick<Puente, 'nodo' | 'centro' | 'extremos'>[],
+  puentes: readonly Pick<Puente, 'nodo' | 'centro' | 'extremos' | 'orilla'>[],
 ): Tramo[] {
   const { puntos, vecinos, numero, arista } = grafoDeTramos(tramos);
   const punto = (k: number) => puntos[k] as Punto;
   const deUnNodo = new Set(puentes.flatMap((pu) => numero(...pu.nodo) ?? []));
   const quitadas = new Set<number>();
   const nuevas: Tramo[] = [];
+  /**
+   * Los de una ciudad-puente van en el sitio del que sustituyen y no al final:
+   * las sendas se suavizan con un solo azar, en orden (`sendas`), y uno al
+   * final movía el vaivén de todas las que vienen detrás.
+   */
+  const enSuSitio = new Map<number, Tramo>();
   const dist = (p: Punto, q: Punto) => Math.hypot(p[0] - q[0], p[1] - q[1]);
   for (const pu of puentes) {
     const n = numero(...pu.nodo);
@@ -498,7 +579,11 @@ export function tramosHastaLosEstribos(
     const salidas = vecinos[n] as readonly number[];
     const [e0, e1] = pu.extremos;
     let destinos = salidas.map((k) => (dist(punto(k), e0) <= dist(punto(k), e1) ? e0 : e1));
-    if (salidas.length === 2 && destinos[0] === destinos[1]) {
+    // Dos sendas al mismo estribo se reparten, una a cada lado: el puente de un
+    // nodo une sus dos orillas. El de una ciudad-puente (#144), no: a su orilla
+    // llegan las dos regiones de la T, y repartidas, una cruzaba el río en
+    // diagonal hasta el estribo de enfrente (s23 (28,15)).
+    if (salidas.length === 2 && destinos[0] === destinos[1] && pu.orilla === undefined) {
       const [p, q] = salidas.map(punto) as [Punto, Punto];
       destinos = dist(p, e0) + dist(q, e1) <= dist(p, e1) + dist(q, e0) ? [e0, e1] : [e1, e0];
     }
@@ -507,13 +592,24 @@ export function tramosHastaLosEstribos(
       const largo = dist(e, pu.centro);
       const ux = (e[0] - pu.centro[0]) / largo;
       const uy = (e[1] - pu.centro[1]) / largo;
-      /** Si `q` cae bajo el puente: por el eje, más cerca del centro que el extremo. */
+      /**
+       * Si `q` cae bajo el puente: por el eje, más cerca del centro que el
+       * extremo, y a lo ancho, dentro de su casilla. Sin lo ancho, la casilla
+       * de al lado del estribo también «caía bajo el puente», se saltaba, y la
+       * senda iba recta del estribo a la siguiente por encima de una charca
+       * (QA del río continuo, H4: s52 (10,14), s93, s100).
+       */
       const bajo = ([qx, qy]: Punto) =>
-        (qx - pu.centro[0]) * ux + (qy - pu.centro[1]) * uy < largo - 1e-6;
+        (qx - pu.centro[0]) * ux + (qy - pu.centro[1]) * uy < largo - 1e-6 &&
+        Math.abs((qx - pu.centro[0]) * uy - (qy - pu.centro[1]) * ux) < 0.5;
       let antes = n;
       let ahora = p;
       quitadas.add(arista(antes, ahora));
-      for (let paso = 0; paso < PASOS_HASTA_EL_ESTRIBO; paso++) {
+      // Al puente de una ciudad-puente (#144) llegan, junto a su orilla, las
+      // sendas de las dos regiones de la T, de lado: lo que «queda bajo el
+      // puente» por el eje está a un lado de él, y saltarlo tiraba la senda
+      // recta por la barrera de la T (s13 (21-24, 7)).
+      for (let paso = 0; pu.orilla === undefined && paso < PASOS_HASTA_EL_ESTRIBO; paso++) {
         const sigue = vecinos[ahora] as readonly number[];
         if (!bajo(punto(ahora)) || sigue.length !== 2) break;
         const siguiente = sigue.find((v) => v !== antes);
@@ -523,14 +619,17 @@ export function tramosHastaLosEstribos(
         ahora = siguiente;
       }
       const [ax, ay] = punto(ahora);
-      nuevas.push([e[0], e[1], ax, ay]);
+      if (pu.orilla === undefined) nuevas.push([e[0], e[1], ax, ay]);
+      else enSuSitio.set(arista(n, p), [e[0], e[1], ax, ay]);
     }
   }
   return [
-    ...tramos.filter(
-      ([x0, y0, x1, y1]) =>
-        !quitadas.has(arista(numero(x0, y0) as number, numero(x1, y1) as number)),
-    ),
+    ...tramos.flatMap((t) => {
+      const k = arista(numero(t[0], t[1]) as number, numero(t[2], t[3]) as number);
+      const nuevo = enSuSitio.get(k);
+      if (nuevo !== undefined) return [nuevo];
+      return quitadas.has(k) ? [] : [t];
+    }),
     ...nuevas,
   ];
 }

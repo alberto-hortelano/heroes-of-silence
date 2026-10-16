@@ -229,17 +229,20 @@ export function primeraSemillaCon<T>(
 }
 
 /**
- * Un puente cuyo tablero, hacia su extremo de la derecha (el 70 % del tablero,
- * de un estribo al otro), se ve sobre el agua de una casilla que no es la de su
- * nodo: el caso de H2 de #157, donde pulsar el tablero decía «No hay camino».
- * Era el de (16,1) en la semilla 15 hasta que #169 cambió los mapas. Con el
- * río continuo (#144) ninguna semilla de 1 a 80 lo tiene (los puentes del río
- * van rectos sobre un río de una casilla): en 1-120, la 83, la 96 y la 106. Se
- * busca desde la 81, que componer cada escena de 1 a 80 cuesta ~50 s.
+ * Un puente cuyo tablero, hacia uno de sus extremos (del 60 al 90 % del
+ * tablero, de un estribo al otro; `t` es ese punto en la medida de
+ * `enElTablero`, de −0,5 a 0,5), se ve sobre el agua de una casilla que no es
+ * la de su nodo: el caso de H2 de #157, donde pulsar el tablero decía «No hay
+ * camino». Era el de (16,1) en la semilla 15 hasta que #169 cambió los mapas,
+ * y en 81-120 hasta que fuera del río dejó de haber agua de frontera (QA del
+ * río continuo, H3): los puentes del río van de frente sobre un río de una
+ * casilla y su tablero no pasa de las orillas. En 1-300 solo queda el de la
+ * ciudad-puente de la 23 (town-3, al 90 %), que el clic lleva a la ciudad. Se
+ * busca desde la 20, que componer cada escena de 1 a 19 cuesta ~12 s.
  */
 export function puenteSobreElAgua(): {
   semilla: number;
-  caso: { puente: Puente; sobreElAgua: [number, number]; casilla: Point };
+  caso: { puente: Puente; sobreElAgua: [number, number]; casilla: Point; t: number };
 } {
   return primeraSemillaCon(
     'un puente con el tablero sobre el agua de otra casilla',
@@ -251,19 +254,21 @@ export function puenteSobreElAgua(): {
           [number, number],
           [number, number],
         ];
-        const sobreElAgua: [number, number] = [
-          a[0] + 0.7 * (b[0] - a[0]),
-          a[1] + 0.7 * (b[1] - a[1]),
-        ];
-        const [x, y] = sobreElAgua.map(Math.floor) as [number, number];
         const nodo = { x: Math.floor(puente.nodo[0]), y: Math.floor(puente.nodo[1]) };
-        if ((x !== nodo.x || y !== nodo.y) && agua.has(y * e.W + x))
-          return { puente, sobreElAgua, casilla: { x, y } };
+        for (const f of [0.7, 0.8, 0.9, 0.6]) {
+          const sobreElAgua: [number, number] = [
+            a[0] + f * (b[0] - a[0]),
+            a[1] + f * (b[1] - a[1]),
+          ];
+          const [x, y] = sobreElAgua.map(Math.floor) as [number, number];
+          if ((x !== nodo.x || y !== nodo.y) && agua.has(y * e.W + x))
+            return { puente, sobreElAgua, casilla: { x, y }, t: f - 0.5 };
+        }
       }
       return undefined;
     },
-    81,
-    120,
+    20,
+    300,
   );
 }
 

@@ -13,11 +13,13 @@
  * (`acantiladosLisos`): 2 en 1-40, dos casillas entre dos sendas.
  */
 import { describe, expect, it } from 'vitest';
+import { analizar } from '../src/client/render/escenario/analizar.js';
 import {
   ALTO_DE_LO_ALTO,
   acantiladosLisos,
   RADIO_DE_OBJETO,
   type Sprite,
+  sitioDe,
 } from '../src/client/render/escenario/colocar.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
 import { partidaDe } from './helpers.js';
@@ -64,14 +66,20 @@ describe('acantiladosLisos: el guardia muerde', () => {
 function huellaDeLosObjetos(semilla: number): Set<number> {
   const { map } = partidaDe(semilla);
   const W = map.width;
+  const a = analizar(map);
   const huella = new Set<number>();
   for (const o of map.objects) {
     if (o.kind !== 'town' && o.kind !== 'village' && o.kind !== 'node') continue;
     const r = RADIO_DE_OBJETO[o.kind] as number;
+    // La ciudad-puente (#144) se pinta en su orilla, y su puente tapa su casilla
+    // y la de enfrente.
+    const at = sitioDe(a, o);
+    const lados = a.ciudadesPuente.get(o.id);
+    if (lados !== undefined) for (const p of [o.at, lados.enfrente]) huella.add(p.y * W + p.x);
     for (let dy = -2; dy <= 2; dy++)
       for (let dx = -2; dx <= 2; dx++) {
-        const x = o.at.x + dx;
-        const y = o.at.y + dy;
+        const x = at.x + dx;
+        const y = at.y + dy;
         if (x >= 0 && y >= 0 && x < W && y < map.height && Math.hypot(dx, dy) < r)
           huella.add(y * W + x);
       }
@@ -133,7 +141,7 @@ describe('en los mapas reales', () => {
       expect(e.informe.acantiladosLisos).toBe(0);
     });
 
-  it('s52 y s36: su meseta más ancha, casilla a casilla', () => {
+  it('s14 y s7: su meseta más ancha, casilla a casilla', () => {
     // Las cajas de la auditoría —s443 (14-16, 9-11) y s34 (17-22, 5-7)— ya no
     // caen en un acantilado con los niveles del mapa (#143): se mira el
     // cuadrado de 3 × 3 con más acantilado de cada una, que es lo que más se lee
@@ -145,8 +153,9 @@ describe('en los mapas reales', () => {
     // 81 y 78 casillas); con las fronteras onduladas (#229, 09-10-2026), s5 y
     // s32 (123 y 110); con los ríos (#144, 16-10-2026), s52 y s36 (113 y 86);
     // con el río continuo (#144), que deja la s52 sin acantilado, s14 y s31
-    // (111 y 92).
-    for (const semilla of [14, 31] as const) {
+    // (111 y 92); sin agua de frontera fuera del río (QA del río continuo,
+    // H3), s14 y s7 (111 y 104): la s31 se quedó sin acantilado.
+    for (const semilla of [14, 7] as const) {
       const { map, escena: e } = partidaDe(semilla);
       const huella = huellaDeLosObjetos(semilla);
       const [x0, y0] = masAcantiladoEn3x3(map.terrain, e.W, e.H);

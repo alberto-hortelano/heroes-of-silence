@@ -241,7 +241,7 @@ describe('el río de los mapas del juego, entero (el guardia de continuidad)', (
   // En el bucle rápido, 1-40; en la orden lenta, 1-200. Muerde: con
   // `sinAguaEnLasEsquinas` escribiendo sin `ponerTipo` y sin el `rioEntero` del
   // generador, la esquina que pasa a montaña corta el río (implementacion.md).
-  it('cada río del trazado sigue entero en el mapa hecho, con su boca; en él, solo puentes y ciudades-puente', () => {
+  it('cada río del trazado sigue entero en el mapa hecho, con su boca; en él, solo puentes y ciudades-puente, ninguna base; y fuera, ni agua de frontera', () => {
     const malos: string[] = [];
     const formas = new Map<string, number>();
     for (const s of segunPrisa(rango(1, 40), rango(1, 200))) {
@@ -259,12 +259,19 @@ describe('el río de los mapas del juego, entero (el guardia de continuidad)', (
       const { map } = buildMap(plan);
       const r = riosDelMapa(map, trazado);
       if (r.roto !== null) malos.push(`s${s}: ${r.roto}`);
+      // Fuera del río no hay agua de frontera (QA, H3): solo las charcas.
+      if (r.aguaFueraDelRio > 0)
+        malos.push(`s${s}: ${r.aguaFueraDelRio} casillas de agua de frontera fuera del río`);
       if (r.largos.length !== trazado.rios.length)
         malos.push(
           `s${s}: ${r.largos.length} ríos en el mapa, y el trazado lleva ${trazado.rios.length}`,
         );
       for (const o of map.objects) {
         if (trazado.mascara[o.at.y * W + o.at.x] === 0) continue;
+        // Ni una base en el río (QA, H2): su héroe empezaba en la orilla donde
+        // se pinta y pulsarlo lo metía en el castillo (s7, s30).
+        if (o.kind === 'town' && o.owner !== null)
+          malos.push(`s${s}: la base ${o.id} de (${o.at.x},${o.at.y}) está en el río`);
         if (o.kind === 'town' && !rioBajoLaCiudad(map, o.at))
           malos.push(
             `s${s}: la ciudad de (${o.at.x},${o.at.y}) está en el río sin que pase por debajo`,

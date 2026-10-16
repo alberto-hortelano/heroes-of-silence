@@ -67,18 +67,29 @@ describe('la senda pintada no pasa por el agua (#210, la medida de #211)', () =>
   // corría con el vaivén hacia el agua en la casilla de su puerta; ahora acaba
   // en cada ciudad o nodo que atraviesa (`encadenar`) y llega recta. s37: la
   // rampa que baja en diagonal a la ciudad de (7,26) ponía el pie en el agua (#214).
-  it.each([1, 10, 19, 37])('semilla %i: ningún trozo de senda bajo el agua', (semilla) => {
-    expect(sendaSobreElAgua(escenaDe(semilla))).toBe(0);
-  });
+  // s52 (10,14) y (31,28), s93 (20,12-13), s97 y s100 (14,6) y (18,14) (QA del
+  // río continuo, H4): la senda que sale de un puente del río se daba por
+  // «bajo el puente» en cualquier punto antes del final de su eje, también a
+  // los lados, y se cambiaba por la recta del estribo, que pasaba por el agua
+  // de al lado (`tramosHastaLosEstribos`: bajo es sobre el tablero, a menos de
+  // media casilla de su línea).
+  it.each([1, 10, 19, 37, 52, 93, 97, 100])(
+    'semilla %i: ningún trozo de senda bajo el agua',
+    (semilla) => {
+      expect(sendaSobreElAgua(escenaDe(semilla))).toBe(0);
+    },
+  );
 
-  itLento('en 1-40, ninguna', () => {
+  itLento('en 1-100, ninguna', () => {
     // Medido el 08-10-2026: 8 en main (#211), 3 con el trazado sin esquinas de
     // agua, 2 al cortar la senda en las ciudades y 0 cuando la rampa de una
     // bajada dejó de poner el pie en el agua (#214): la de caída 2 que baja en
     // diagonal a la ciudad de s37 (7,26) y su reflejo pasaba de la ciudad y
     // caía en el agua de (6,27). En 1-200 queda s75, de otra causa: la senda
-    // que sale en diagonal del estribo del puente de (22,3).
-    const con = rango(1, 40).flatMap((s) => {
+    // que sale en diagonal del estribo del puente de (22,3). Con el río
+    // continuo (#144), en 1-100, s52, s93, s97 y s100 hasta H4 (QA del río
+    // continuo), y 0 después: se mira hasta la 100.
+    const con = rango(1, 100).flatMap((s) => {
       const n = sendaSobreElAgua(escenaDe(s));
       return n > 0 ? [`s${s}: ${n}`] : [];
     });

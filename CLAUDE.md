@@ -150,7 +150,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Territorio y renta | `territorio(state)`, `dueñoComun` |
 | Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed` |
 | Qué barrera cruza un nodo | `MapObject.barrera`, que pone `buildMap` con el muro que abre; el procedimental escribe ese muro con `queCruzaElNodo` |
-| El río del procedimental (antes que las regiones; nadie lo corta) | `trazarRio`, `regionesDelRio`, `nivelesDelRio`, `rioEntero`, `rioBajoLaCiudad` (`core/map/rio.ts`); la única escritura de la rejilla del vestido, `ponerTipo` (`vestir.ts`, que lanza si se toca el río; lo vigila `invariantes.test.ts`); medido sobre el mapa, `riosDelMapa` (`tools/qa/rios.ts`) |
+| El río del procedimental (antes que las regiones; nadie lo corta) | `trazarRio`, `regionesDelRio`, `nivelesDelRio`, `rioEntero`, `rioBajoLaCiudad`, `orillaDeLaCiudad` (`core/map/rio.ts`); la ciudad-puente en la escena, `puenteDeLaCiudad`, `ciudadEnLaOrilla` (`puentes.ts`) y `sitioDe` (`colocar.ts`); la única escritura de la rejilla del vestido, `ponerTipo` (`vestir.ts`, que lanza si se toca el río; lo vigila `invariantes.test.ts`); medido sobre el mapa, `riosDelMapa` (`tools/qa/rios.ts`) |
 | Qué línea deja dos regiones a dos pasos (el acantilado entre dos niveles; el agua a ras de la más baja, que se ve) | `lineasQueSeparan`, `separadasDeCerca`, `aguaALaVista` (`vestir.ts`): el paso 7d y todo lo que abre una barrera (`abrirLinea`, `quitarEspigas`, `puertasSinMuesca`, `abrirEsquinasTorcidas`); el agua entre dos niveles, solo el 7d (`aguaEntreNiveles`); en el mapa hecho, `auditarMapaDenso` (`test/helpers.ts`) |
 | Caminos de un plan al mapa | `caminosDelPlan` |
 | Carga | `cargaDesde` (cuándo), `cargaEfectiva` (tope), `casillasDeCarga` (qué se enseña) |
@@ -479,9 +479,13 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   (`regionesDelRio`, `ladosDelRio`). En el engorde el río es agua fija (`conElRio`): no engorda ni
   se toca, salvo con lo alto justo al norte (paso 7e: la casilla del sur también es agua, se vea
   la cara), y **la rejilla del vestido solo la escribe `ponerTipo`**, que lanza si se toca el río
-  (lo vigila `invariantes.test.ts`). Fuera del río solo hay agua de frontera donde la pareja no
-  admite otra barrera, y nunca si su muro toca el río; el río cuenta como el agua de las
-  `TIPOS_POR_MAPA`. Las sendas no cortan en diagonal una esquina del río salvo junto a una
+  (lo vigila `invariantes.test.ts`). **Fuera del río no hay agua de frontera** (vuelta de QA 1, H3,
+  decisión del usuario: del mismo azul que el río, sus 1 675 casillas en 1-100 se leían como lagos
+  dispersos): la pareja cuyos suelos solo dan agua lleva acantilado entre dos niveles y montaña a uno
+  (`susBarreras`), y lo que sobra de una muralla tampoco pasa a agua; solo quedan las charcas (lagos
+  de obstáculo, dentro de una región). El río cuenta como el agua de las `TIPOS_POR_MAPA`. **Ninguna
+  base en el río** (H2): la base ciudad-puente se pintaba en la casilla donde empieza su héroe y
+  pulsarlo lo metía en su castillo (s7, s30); `base` no elige un nodo del río. Las sendas no cortan en diagonal una esquina del río salvo junto a una
   ciudad-puente (un veto en la búsqueda, y si queda, el vestido no vale) y al puente del río se
   llega de frente (`antesDelEstribo`). Al final del vestido `rioEntero` lanza si el río no sigue
   entero: es un fallo del generador. Lo vigila `test/rio.test.ts` (`alTrazarElRio`). Medido en
@@ -490,10 +494,29 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   (frontera 60, esquina 39, lago 26); agua del río lejos de nodos y lagos de una casilla 78 → 100 %;
   agua de frontera fuera del río 2 136 → 709 casillas; agua encajada en un río 26 → 0; ríos con
   escalón 1 → 0; neutrales por mapa 4,8 → 3,6 (ciudades-puente 1,1); puentes 5,0 → 4,3. Los ramales
-  de mina que dan la vuelta a su mina en 1-200 suben de 24 a 31 (techo de `ramales-de-minas` 32): el
-  veto de las esquinas del río aparta los radios y los vestidos que se tiran por él dan otros mapas
-  (sin ninguno de los dos, 24; con el veto, 27; con los dos, 31). Lo que falta es de la escena (paso
-  2): la ciudad-puente aún se pinta sobre el río.
+  de mina que dan la vuelta a su mina en 1-200 suben de 24 a 31: el veto de las esquinas del río
+  aparta los radios y los vestidos que se tiran por él dan otros mapas (sin ninguno de los dos, 24;
+  con el veto, 27; con los dos, 31). Sin agua fuera del río (H3; 1-100): agua de frontera fuera del
+  río 1 675 → 0 casillas, ríos enteros 100 de 100, bases en el río 0, ramales que dan la vuelta en
+  1-200 31 → 26 (techo 27); la ciénaga (agua 4, bosque 2) pierde su barrera y sus vestidos se tiran
+  más: es el 10,7 % de las regiones de 1-200 y el 11,2 % de 1-1000 (eran 13,2 y 12,7; el suelo del
+  guardia de `desniveles`, de 11 a 10). Duración en 1-100 8 / 15 / 24 → 8 / 14 / 24, j0 48 → 45;
+  el banco, 8 / 15 / 30 → 8 / 14 / 30. **En la escena** (paso 2): la
+  ciudad-puente se pinta en su orilla (`orillaDeLaCiudad`, el lado de las dos regiones de la T: el
+  final de su frontera) y su casilla es agua con un puente de piedra que cruza de frente hasta la de
+  enfrente (`puenteDeLaCiudad`, `Puente.orilla`); su reserva, su huella, su resplandor y lo que no se
+  tapa van en la orilla (`sitioDe`), su marca cuelga de ella, y pulsarla (aunque se pise: a esa
+  casilla se va por su lado) o el tablero lleva a la ciudad (`ciudadEnLaOrilla`, `puenteBajo`); quien
+  está dentro se pinta en la orilla, como en una ciudad (`pisada`, H5). Las sendas de las dos regiones de la T llegan al
+  estribo de la orilla, sin repartirse ni saltar lo que «queda bajo el puente», cortadas en él y en su
+  sitio de la lista (las sendas se suavizan con un solo azar en orden); `test/ciudad-puente.test.ts`.
+  De la senda de un puente del río, «bajo el puente» es solo lo que va sobre el tablero, a menos de
+  media casilla de su línea (`tramosHastaLosEstribos`, H4): a los lados se cambiaba por la recta del
+  estribo, que pasaba por el agua de al lado (s52, s93, s97, s100) o dejaba una montaña sin pico
+  (s41); `sendaSobreElAgua` = 0 en 1-100.
+  **Las charcas** (`Escena.charcas`, el agua que toca una sola región: los lagos de obstáculo) se
+  pintan turbias (`COLOR_DE_LA_CHARCA`, `multiply`) para no competir con el río: 1 407 de 5 390
+  casillas de agua en 1-40.
 - **Asaltantes**: grupos neutrales que patrullan regiones sin dueño y emboscan
   al pisar si les sacan `ventajaClara`. Son actores (`GameState.raiders`), no
   objetos del mapa. Un grupo se ve en cuanto se ve una casilla de su región
@@ -856,7 +879,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
-| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
+| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
 - **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y

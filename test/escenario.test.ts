@@ -410,9 +410,9 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
   });
 
   it('ninguna tablilla de la escena apunta de través a su paso, y salen todos los rumbos (§29)', () => {
-    // 1 y 7 llevan los cinco desde el río continuo (#144; 3 y 35 desde #144, los ríos; 33 y 36 desde #230, las dos puertas de la mina; 3 y 22 desde #229, las fronteras onduladas; 2 y 7 desde #226, el mapa de 42×42; 3 y 5 hasta entonces; 20 y 24 hasta #224; 1 y 2 hasta #215; 8 y 10 hasta #210; 8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
+    // 4 y 16 llevan los cinco sin agua de frontera fuera del río (QA del río continuo, H3; 1 y 7 desde el río continuo, #144; 3 y 35 desde #144, los ríos; 33 y 36 desde #230, las dos puertas de la mina; 3 y 22 desde #229, las fronteras onduladas; 2 y 7 desde #226, el mapa de 42×42; 3 y 5 hasta entonces; 20 y 24 hasta #224; 1 y 2 hasta #215; 8 y 10 hasta #210; 8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
     const vistos = new Set<string>();
-    for (const semilla of segunPrisa([1, 7], rango(1, 40))) {
+    for (const semilla of segunPrisa([4, 16], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       for (const o of map.objects) {
         const pieza = escena.sprites
@@ -444,13 +444,13 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     }
   });
 
-  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s6 (§29)', () => {
+  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s4 (§29)', () => {
     // Un nodo neutral no lleva bandera: sin su hito, no se vería que ahí hay
     // algo que tomar. En 1-40 son 233 (119 de acantilado, nunca dos a menos de 5
     // casillas, y 114 de bosque, que acercan cuatro pares a 4,1-4,5; 08-10-2026):
     // muchos en un mapa es que el mapa tiene muchos pasos, y cada uno se toma.
     // Con la montaña (#203), 121 más en 1-40.
-    for (const semilla of segunPrisa([6], rango(1, 40))) {
+    for (const semilla of segunPrisa([4], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       const a = analizar(map);
       const nodos = map.objects.filter(
@@ -469,8 +469,10 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
       // 6 y ninguno; la 3, 2 y 2). Con los ríos (#144, 16-10-2026), la 29, con
       // 6 y 1 de bosque (la 36, 4 y 2). Con el río continuo (#144), la que
       // más lleva de 1-40 es la 36, con 6 y ninguno de bosque; con bosque, la
-      // 6, con 4 y 3 (la 29, 4 y ninguno).
-      if (semilla === 6) {
+      // 6, con 4 y 3 (la 29, 4 y ninguno). Sin agua de frontera fuera del río
+      // (QA del río continuo, H3), ninguna de 1-40 pasa de 4, y la 6 se quedó
+      // sin acantilado: va la 4, con 4 y 4 de bosque.
+      if (semilla === 4) {
         expect(nodos.filter((o) => a.pasos.get(o.id)?.barrera === 'cliff')).toHaveLength(4);
         expect(nodos.some((o) => a.pasos.get(o.id)?.barrera === 'forest')).toBe(true);
       }
@@ -566,8 +568,11 @@ describe('la casilla de barrera bajo una pared del desnivel no queda sin formaci
   // pie de la diagonal que dobla junto a un nodo se quedaba sin pico, tapada
   // por la pared y contada como desnuda. Eran las tres de 1-200 (s36 (23, 6),
   // s91 (13, 28), s105 (20, 11)), y con la pared que pasa por detrás de un
-  // objeto, s166 (26, 33).
-  for (const semilla of segunPrisa([36], [36, 91, 105, 166]))
+  // objeto, s166 (26, 33). Y s41 (25, 23) (QA del río continuo, H6): la
+  // senda que sale al sur del puente de (27,21) se daba por «bajo el puente» a
+  // un lado de él y se cambiaba por la recta del estribo, y la montaña junto a
+  // ella se quedaba sin pico (`tramosHastaLosEstribos`, como H4).
+  for (const semilla of segunPrisa([36, 41], [36, 41, 91, 105, 166]))
     it(`semilla ${semilla}: toda casilla de barrera queda bajo su formación, un objeto o una pared`, () => {
       expect(escenaDe(semilla).informe.casillasDeBarreraSinFormacion).toBe(0);
     });

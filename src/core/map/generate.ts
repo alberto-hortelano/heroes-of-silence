@@ -1751,11 +1751,15 @@ function intentarRed(rng: Rng, W: number, H: number, forma: FormaDelRio): RedFin
   const red = estructura(conNodos);
 
   // Las bases: el nodo de la región de casa más cercano a su esquina.
+  // Ni una en el río (#144, QA del río continuo, H2): la base sobre el río era
+  // una ciudad-puente con su casa a los dos lados, pintada en la casilla donde
+  // empieza su héroe (s7, s30), y pulsar al héroe lo metía en su castillo.
   const base = (casa: number, esquina: Point): number | null => {
     let mejor: number | null = null;
     let mejorD = -1;
     for (const n of red.regiones[casa]?.nodos ?? []) {
       const p = red.nodos[n]?.at as Point;
+      if (mascara[p.y * W + p.x] === 1) continue;
       const d = (p.x - esquina.x) * (p.x - esquina.x) + (p.y - esquina.y) * (p.y - esquina.y);
       if (mejorD === -1 || d < mejorD) {
         mejorD = d;

@@ -380,8 +380,10 @@ describe('la escena de un mapa real', () => {
   // quedaron sin desnivel (todas sus regiones al 1); la 15 en vez de la 4
   // desde los ríos (#144, 16-10-2026), que la dejaron sin desnivel; la 2 en
   // vez de la 15 desde el río de una casilla (#144, paso 2), por lo mismo; la
-  // 7 y la 9 en vez de la 3 y la 5 desde el río continuo (#144), por lo mismo.
-  for (const semilla of [7, 6, 2, 9]) {
+  // 7 y la 9 en vez de la 3 y la 5 desde el río continuo (#144), por lo mismo;
+  // la 5 en vez de la 6 sin agua de frontera fuera del río (QA del río
+  // continuo, H3), por lo mismo.
+  for (const semilla of [7, 5, 2, 9]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 

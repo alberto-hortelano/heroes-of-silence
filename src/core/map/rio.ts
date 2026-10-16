@@ -589,15 +589,79 @@ export function rioEntero(trazado: TrazadoDelRio, esDelRio: (i: number) => boole
   return null;
 }
 
+/** Lo que se lee de un mapa para saber de una ciudad-puente. */
+interface MapaDelRio {
+  readonly width: number;
+  readonly height: number;
+  readonly terrain: readonly GameMap['terrain'][number][];
+}
+
 /**
  * Si la ciudad de `at` es una ciudad-puente: con agua en dos vecinas opuestas en
  * cruz, el río pasa por debajo de ella. Es la regla, una vez: la leen la medida
- * del río (`tools/qa/rios.ts`) y, en la escena, quien la pinta en su orilla.
+ * del río (`tools/qa/rios.ts`) y la escena, que la pinta en su orilla
+ * (`orillaDeLaCiudad`).
  */
-export function rioBajoLaCiudad(map: GameMap, at: Point): boolean {
+export function rioBajoLaCiudad(map: MapaDelRio, at: Point): boolean {
+  return rumboDelRio(map, at) !== null;
+}
+
+/** Por dónde va el río bajo la ciudad de `at`: de este a oeste, de norte a sur, o `null` si no pasa. */
+function rumboDelRio(map: MapaDelRio, at: Point): 'eo' | 'ns' | null {
   const agua = (dx: number, dy: number): boolean => {
     const p = { x: at.x + dx, y: at.y + dy };
     return inBounds(map, p) && map.terrain[p.y * map.width + p.x] === 'water';
   };
-  return (agua(-1, 0) && agua(1, 0)) || (agua(0, -1) && agua(0, 1));
+  if (agua(-1, 0) && agua(1, 0)) return 'eo';
+  if (agua(0, -1) && agua(0, 1)) return 'ns';
+  return null;
+}
+
+/**
+ * La orilla de una ciudad-puente (#144, paso 2): la casilla de al lado, en cruz
+ * y de través al río, donde se pinta la ciudad, y la de enfrente, adonde cruza
+ * su puente. La ciudad va en el cruce de tres regiones: dos a un lado del río,
+ * separadas por la frontera que llega a él (la T), y la tercera enfrente. Su
+ * orilla es el lado de las dos: la casilla del final de esa frontera. Se elige
+ * el lado con más regiones en su fila de tres (`regionDe`, −1 lo que no es
+ * región); a la par, el que no se pisa en el medio (la barrera de la T); y si
+ * no, el de la región de menor índice (en una base, la de su casa). `null` si
+ * el río no pasa bajo la ciudad.
+ */
+export function orillaDeLaCiudad(
+  map: MapaDelRio,
+  at: Point,
+  regionDe: Int32Array,
+): { readonly orilla: Point; readonly enfrente: Point } | null {
+  const rumbo = rumboDelRio(map, at);
+  if (rumbo === null) return null;
+  const W = map.width;
+  const lado = (s: -1 | 1) => {
+    const medio = rumbo === 'eo' ? { x: at.x, y: at.y + s } : { x: at.x + s, y: at.y };
+    const regiones = new Set<number>();
+    for (const k of [-1, 0, 1]) {
+      const p = rumbo === 'eo' ? { x: at.x + k, y: at.y + s } : { x: at.x + s, y: at.y + k };
+      if (!inBounds(map, p)) continue;
+      const r = regionDe[p.y * W + p.x] as number;
+      if (r >= 0) regiones.add(r);
+    }
+    const dentro = inBounds(map, medio);
+    return {
+      medio,
+      regiones: regiones.size,
+      sePisa: dentro && (regionDe[medio.y * W + medio.x] as number) >= 0,
+      menor: regiones.size === 0 ? Number.MAX_SAFE_INTEGER : Math.min(...regiones),
+      dentro,
+    };
+  };
+  const a = lado(-1);
+  const b = lado(1);
+  if (!a.dentro || !b.dentro) return null;
+  const primero =
+    a.regiones !== b.regiones
+      ? a.regiones > b.regiones
+      : a.sePisa !== b.sePisa
+        ? !a.sePisa
+        : a.menor <= b.menor;
+  return primero ? { orilla: a.medio, enfrente: b.medio } : { orilla: b.medio, enfrente: a.medio };
 }

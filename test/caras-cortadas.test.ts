@@ -24,13 +24,14 @@
  * cuatro de la muestra.
  */
 import { describe, expect, it } from 'vitest';
+import { analizar } from '../src/client/render/escenario/analizar.js';
 import {
   CABO_SUELTO,
   CORTE_JUNTO_A_UN_OBJETO,
   carasCortadas,
 } from '../src/client/render/escenario/caras.js';
 import type { Modulo } from '../src/client/render/escenario/catalogo.js';
-import type { Sprite } from '../src/client/render/escenario/colocar.js';
+import { type Sprite, sitioDe } from '../src/client/render/escenario/colocar.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import { bandaDeCara, type Cara } from '../src/client/render/escenario/relieve.js';
@@ -174,7 +175,21 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 // acaba junto a la ciudad de (28,40)); la s1 ya no lo da. En 1-120, solo esa.
 // En la muestra rápida, la 57 en vez de la 3, que se quedó sin meseta: la de
 // más paredes que pasan por detrás de un objeto de 1-120 (17).
-const QUEDAN: Readonly<Record<number, number>> = { 22: 1 };
+//
+// Con la ciudad-puente en su orilla (#144, paso 2, 16-10-2026), 3, aceptadas por
+// el usuario: s22 sigue; s14 y s26, cada una con su porqué en `QUEDAN`. Sin
+// agua de frontera fuera del río (QA del río continuo, H3), 4: s28 es otro mapa
+// y su ciudad-puente recorta una cara como la de s14.
+const QUEDAN: Readonly<Record<number, number>> = {
+  // La frontal de una casilla de (14,40), junto a la orilla donde se pinta la ciudad de (13,40), que su reserva recorta.
+  14: 1,
+  // La cara nevada de una casilla de la fila 40, (26,5-27,5), que acaba junto a la ciudad de (28,40).
+  22: 1,
+  // (25,5-26,5, 31), lejos de toda ciudad-puente: la reserva de la ciudad en su orilla mueve el azar de la escena.
+  26: 1,
+  // La frontal de una casilla de (18,39), junto a la orilla (17,38) donde se pinta la ciudad-puente de (16,38), que su reserva recorta.
+  28: 1,
+};
 const SEMILLAS = segunPrisa(
   [57, 12, 22, 28],
   [...rango(1, 40), 57, 61, 64, 68, 78, 89, 96, 121, 141, 190, 443],
@@ -184,9 +199,11 @@ describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
     it(`semilla ${semilla}: ningún bloque de frontal suelto junto a un objeto, contado por fuera y por el informe`, () => {
       const { map, escena: e } = partidaDe(semilla);
+      // Donde se pinta cada objeto: la ciudad-puente (#144), en su orilla.
+      const a = analizar(map);
       const objetos = map.objects
         .filter((o) => ['town', 'village', 'mine', 'node'].includes(o.kind))
-        .map((o) => [o.at.x, o.at.y] as const);
+        .map((o) => [sitioDe(a, o).x, sitioDe(a, o).y] as const);
       const cortadas = carasCortadas(e.relieve.caras, e.sprites, objetos, e.W);
       expect(cortadas.length).toBe(QUEDAN[semilla] ?? 0);
       expect(e.informe.carasCortadas).toBe(cortadas.length);

@@ -980,11 +980,22 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `hero_moved` 38 818 → 41 216, `town_captured` 1 230 → 979 (3,6 ciudades
  *   neutrales por mapa en 1-40, eran 4,8), `troop_rank_up` 1 794 → 1 885;
  *   ningún tipo nuevo ni ninguno que desaparezca.
+ * - `777c65a4…` (65 327 líneas): **sin agua de frontera fuera del río y sin
+ *   base sobre él** (16-10-2026, vuelta de QA 1 del río continuo, H2 y H3): la
+ *   pareja fuera del río no lleva agua (la que solo la admitía, acantilado o
+ *   montaña) y la base no es una ciudad-puente. Contra `--dump` de `59fb0286…`,
+ *   **115 de 200 idénticas**; las 85 que cambian son todas de las 96 cuyo mapa
+ *   cambia (las otras 11 cambian el mapa lejos de donde se juega), y su primer
+ *   hecho distinto es el primer `raider_spawned` (74) o un `hero_moved` (11):
+ *   el mapa, no las reglas. 34 con otro ganador, j0 110 → **108**, duración
+ *   8 / 15 / 30 → **8 / 14 / 30**, 0 sin terminar. Batallas 1 215 → 1 185,
+ *   `hero_moved` 41 216 → 40 029, `town_captured` 979 → 969, `troop_rank_up`
+ *   1 885 → 1 843; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '59fb028647c879972d102f5088da1d56b2bbe9a9907d6fb0b6cd198aa41de92b',
+  sha: '777c65a45bf8d4830e1ff1b497a0b65768b3808b2fb8c07b4da62c170e73bc40',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

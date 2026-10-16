@@ -21,7 +21,7 @@ import {
   topeDe,
   zoom,
 } from '../render/camara-mapa.js';
-import { puenteEnElTerreno } from '../render/escenario/puentes.js';
+import { ciudadEnLaOrilla, puenteEnElTerreno } from '../render/escenario/puentes.js';
 import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { type Medida, pixelesDe } from '../render/lienzo.js';
 import { drawMapa, type PasoDeRuta, pasosAPintar, presupuestoConHolgura } from '../render/mapa.js';
@@ -238,6 +238,8 @@ export class EscenaAventura {
    * debajo era a menudo el agua de al lado: pulsar el puente decía «No hay
    * camino» (H2 del QA de #157). La tierra de otra casilla manda sobre el
    * puente aunque el tablero la tape: es la orilla, con quien espera en ella (H9).
+   * Salvo la orilla donde se pinta una ciudad-puente (#144): la ciudad manda,
+   * también si se pisa (decisión del usuario), y a esa casilla se va por su lado.
    */
   private casillaBajo(px: number, py: number): Point {
     const debajo = pixelACasilla(this.camara, px, py);
@@ -246,7 +248,10 @@ export class EscenaAventura {
     if (esc === null) return debajo;
     const { x, y } = pixelAMundo(this.camara, px, py);
     const { map } = s.state;
-    const puente = puenteEnElTerreno(esc.escena.puentes, map.terrain, map.width, x, y);
+    // La orilla donde se pinta una ciudad-puente (#144), aunque se pise, o un puente.
+    const puente =
+      ciudadEnLaOrilla(esc.escena.puentes, x, y) ??
+      puenteEnElTerreno(esc.escena.puentes, map.terrain, map.width, x, y);
     if (puente === null) return debajo;
     const nodo = { x: Math.floor(puente.nodo[0]), y: Math.floor(puente.nodo[1]) };
     // Bajo la niebla no se pinta, y pulsar ahí no puede decir que hay un puente.

@@ -93,3 +93,16 @@ Son provisionales: los cierra el plan y el usuario los aprueba.
 **Tras las capturas del paso 1 del río continuo (16-10-2026):**
 - El usuario da el río por leído y pide seguir con el paso 2: la ciudad-puente en su orilla, con su puente.
 - El techo de `ramales-de-minas` (31 > 25) se vuelve a medir sobre los mapas nuevos (lo medido + 1, como el anterior) y se apunta el porqué: el veto de las esquinas del río y los vestidos que se tiran por él.
+
+**Tras las capturas del paso 2 (16-10-2026):**
+- Una ciudad pintada en una casilla lleva a la ciudad al pulsarla, también cuando su orilla es una casilla que se pisa (14 de 121 en 1-100).
+- Se aceptan los dos casos nuevos de `caras-cortadas` (s14, junto a una ciudad-puente, y s26, por el azar desplazado), con su porqué en la lista.
+
+**Tras el QA del río continuo (16-10-2026, `qa.md`):**
+- **El río no pasa por debajo de una base**: el trazado aparta las bases como ya aparta la caja de casa. Arregla H1 (pulsar al propio héroe lo metía en su castillo en s7 y s30) por su causa.
+- **Fuera del río no queda agua azul de frontera**: donde una pareja que no es del río solo admite agua, el generador pone otra barrera aunque sus suelos no la pidan (o cambia el reparto). Fuera del río solo quedan las charcas turbias (H3, s83, s66).
+- Los menores (H4 sendas sobre charcas en s52/s93/s100, H5 héroe sobre los tejados en s13, H6 la casilla de barrera sin formación de s41) se arreglan.
+
+**Tras la vuelta de QA 1 (16-10-2026):**
+- Se acepta la ciénaga al 10 % de las regiones como suelo del guardia de `desniveles` (10,7 % en 1-200): sin agua fuera del río sus fronteras pasan a acantilado o montaña y se tiran más vestidos con ciénaga.
+- **El río de la forma lago mide al menos 20 casillas del lago al borde**; si no cabe, se coge otra forma (en s83 eran 7 y se leía como dos lagos; 9 de 28 en 1-100).

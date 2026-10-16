@@ -524,27 +524,22 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   const deFuera = Math.min(TIPOS_POR_MAPA - delRio, canonicas.length);
   const hacenFalta = deFuera + delRio;
   const AGUA = indiceDe('water');
-  // Las parejas cuyo muro fino toca el río: no llevan agua, que sería un brazo
-  // suyo (#144: el río es una línea, no una red de charcas).
-  const tocaElRio = new Set<number>();
-  for (let i = 0; i < N; i++) {
-    if (muro[i] === 0 || rio[i] === 1) continue;
-    for (let v = desde[i]!; v < desde[i + 1]!; v++)
-      if (rio[vecinas[v]!] === 1) tocaElRio.add(parejaDeMuro[i] as number);
-  }
   /**
-   * Las barreras que puede llevar la pareja `k`. Con río, fuera de él solo
-   * lleva agua la pareja que no admite otra cosa (decisión del usuario), y si
-   * su muro toca el río ni así: montaña, que va entre cualquier par de niveles.
+   * Las barreras que puede llevar la pareja `k`. Con río, fuera de él no hay
+   * agua de frontera (decisión del usuario tras el QA, H3: del mismo azul que
+   * el río, 1 675 casillas en 1-100 se leían como lagos dispersos). La pareja
+   * cuyos suelos solo dan agua lleva otra barrera aunque no la pidan: entre
+   * dos niveles, el acantilado (el borde de lo alto); a un mismo nivel, la
+   * montaña. Las dos las admiten sus niveles (`admiteLosNiveles`).
    */
   const susBarreras = (k: number): BarreraConPeso[] => {
     const todas = candidatasDe(k);
     if (!hayRio) return todas;
     const sinAgua = todas.filter((c) => c.barrera !== 'water');
     if (sinAgua.length > 0) return sinAgua;
-    return tocaElRio.has(k) || tocaElRio.has(claveEspejo(k))
-      ? [{ barrera: 'mountain', peso: 1 }]
-      : todas;
+    const a = Math.floor(k / regiones);
+    const b = k % regiones;
+    return [{ barrera: e.niveles[a] === e.niveles[b] ? 'mountain' : 'cliff', peso: 1 }];
   };
   const admitidas = canonicas.map((k) =>
     fino(k) * 2 < casillasMinimasPorTipo
@@ -891,14 +886,10 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
           [...lados].map((r) => e.niveles[r] as Nivel),
         );
         // Lo que sobra de una muralla que se queda es su apoyo: montaña,
-        // acantilado o agua, nunca bosque (`APOYOS_DE_MURALLA`).
-        // Ni agua si toca el río: sería un brazo suyo (#144), y lo que sobra
-        // sigue la barrera de al lado, que ahí es el río.
-        const junto = sobra.some((c) => {
-          for (let v = desde[c]!; v < desde[c + 1]!; v++) if (rio[vecinas[v]!] === 1) return true;
-          return false;
-        });
-        const sinMuroNiAgua = junto ? sinMuro.filter((c) => c.barrera !== 'water') : sinMuro;
+        // acantilado o agua, nunca bosque (`APOYOS_DE_MURALLA`). Con río, ni
+        // agua: fuera de él no hay agua de frontera (QA, H3), y junto a él
+        // sería un brazo suyo.
+        const sinMuroNiAgua = hayRio ? sinMuro.filter((c) => c.barrera !== 'water') : sinMuro;
         const posibles = sinMuroNiAgua.length > 0 ? sinMuroNiAgua : sinMuro;
         const deApoyo = posibles.filter((c) => APOYOS_DE_MURALLA.includes(c.barrera));
         const admitidas = apoya && deApoyo.length > 0 ? deApoyo : posibles;

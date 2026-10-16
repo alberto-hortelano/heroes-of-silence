@@ -8,7 +8,9 @@
  */
 import type { MapObject, MapRegion, TramoDeCamino } from '@core/map/map.js';
 import { type Estructura, estructura } from '@core/map/regiones.js';
+import { orillaDeLaCiudad } from '@core/map/rio.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
+import type { Point } from '@core/types.js';
 import { type PasoDeNodo, pasaElCamino, pasoDeNodo } from './nodos.js';
 
 /**
@@ -79,6 +81,16 @@ export interface Analisis {
    */
   readonly puentes: ReadonlySet<string>;
   /**
+   * Las ciudades-puente (#144: la ciudad del cruce que toca el río, con el río
+   * por debajo; `orillaDeLaCiudad`), por su id: la casilla de su orilla, donde
+   * se pinta la ciudad, y la de enfrente. Su casilla es agua en `terreno` y
+   * lleva un puente, como un nodo de `puentes`, que también la incluye.
+   */
+  readonly ciudadesPuente: ReadonlyMap<
+    string,
+    { readonly orilla: Point; readonly enfrente: Point }
+  >;
+  /**
    * Los nodos y ciudades a los que llega un camino, por su id: entre dos
    * niveles, el relieve los deja al bajo y el paso sin camino al alto.
    */
@@ -115,7 +127,7 @@ function pasosDe(map: MapaDeEscena): Map<string, PasoDeNodo> {
 
 /**
  * El terreno que se viste: el del mapa con la casilla de cada nodo de `puentes`
- * puesta a `water` (#157). `buildMap` la deja de tierra, y así cortaba el río en
+ * (y de cada ciudad-puente, #144) puesta a `water` (#157). `buildMap` la deja de tierra, y así cortaba el río en
  * dos, quedaba a la altura de una orilla y no a la del agua, y el puente se
  * posaba en un tapón de tierra. Siendo agua, la franja une el río, el relieve la
  * baja con él y no tiene caras propias; el puente lo pone `puentes.ts` encima.
@@ -152,7 +164,18 @@ export function analizar(map: MapaDeEscena): Analisis {
   const W = map.width;
   const H = map.height;
   const pasos = pasosDe(map);
-  const puentes = new Set([...pasos].flatMap(([id, p]) => (p.barrera === 'water' ? [id] : [])));
+  const red = estructura(map);
+  const ciudadesPuente = new Map(
+    map.objects.flatMap((o) => {
+      if (o.kind !== 'town') return [];
+      const orilla = orillaDeLaCiudad(map, o.at, red.regionDe);
+      return orilla === null ? [] : [[o.id, orilla] as const];
+    }),
+  );
+  const puentes = new Set([
+    ...[...pasos].flatMap(([id, p]) => (p.barrera === 'water' ? [id] : [])),
+    ...ciudadesPuente.keys(),
+  ]);
   const terreno = terrenoDeLaEscena(map, puentes);
   const ocupadas = new Set(map.objects.map((o) => o.at.y * W + o.at.x));
   const nodos = new Set(
@@ -301,10 +324,11 @@ export function analizar(map: MapaDeEscena): Analisis {
     ocupadas,
     pasos,
     puentes,
+    ciudadesPuente,
     conCamino: new Set(
       map.objects.filter((o) => pasaElCamino(map.caminos.tramos, o.at)).map((o) => o.id),
     ),
-    red: estructura(map),
+    red,
     niveles: map.regions.map((r) => r.nivel),
   };
 }

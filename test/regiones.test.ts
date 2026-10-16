@@ -533,11 +533,14 @@ function horquillasNuevas(map: GameMap): string[] {
  * río continuo (#144, paso 1 del rediseño, 16-10-2026) la s52 ya no lo da y cae
  * en la s15: un pueblo en (13,38), en una tira de su región entre el río (al
  * oeste y al norte) y una montaña, al que el radio llega por el noreste; su
- * puerta, (13,39), está libre, pero se llega a ella rodeándolo.
+ * puerta, (13,39), está libre, pero se llega a ella rodeándolo: por su espalda
+ * (13,37) y en diagonal a (12,38), cortando la esquina del río de (12,37), que
+ * la búsqueda cobra cinco rodeos (#144), más que los cuatro de entrar por
+ * detrás. Sin agua de frontera fuera del río (QA del río continuo, H3, que lo
+ * vio en el informe de la escena) la s15 es otro mapa y ninguna de 1-300 lo da:
+ * la lista se queda vacía, y el guardia de 1-200 vuelve a no admitir ninguno.
  */
-const DE_LADO_POR_LA_ESQUINA: Readonly<Record<number, string>> = {
-  15: 'village (13,38): se entra desde (14,37) y no por su puerta',
-};
+const DE_LADO_POR_LA_ESQUINA: Readonly<Record<number, string>> = {};
 
 /** Los objetos con puerta: se entran por la casilla de debajo y no se cruzan (#188). */
 const conPuerta = (kind: string): boolean =>

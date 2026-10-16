@@ -197,6 +197,14 @@ const VIVEZA: Readonly<Record<string, string>> = {
  */
 const FILTRO_DEL_AGUA = 'saturate(1.6) brightness(1.8)';
 const HONDO_DEL_AGUA = 'rgba(10,35,70,0.22)';
+/**
+ * Lo que enturbia una charca (#144, río continuo, paso 2), en `multiply`: un
+ * verde pardo de agua quieta. El río y el agua de frontera se quedan claros y
+ * azules (`FILTRO_DEL_AGUA`); los lagos de obstáculo, manchas de 3-6 casillas
+ * dentro de una región, eran del mismo azul y se leían como trozos de río
+ * sueltos («zonas de agua dispersas», el usuario).
+ */
+const COLOR_DE_LA_CHARCA = 'rgb(118,128,84)';
 const ESPUMA = 'rgba(225,235,235,0.5)';
 /** Lo que oscurece lo bajo (`tonoDeNivel`): casi negro, con un punto frío. */
 const COLOR_DE_LO_BAJO = 'rgb(12,16,22)';
@@ -753,6 +761,16 @@ export function pintarSuelo(
     gh.fillStyle = HONDO_DEL_AGUA;
     gh.fillRect(0, 0, hondo.width, hondo.height);
     c.drawImage(hondo, 0, 0);
+    // 4b · Las charcas, turbias: el agua suelta no compite con el río (#144).
+    if (e.charcas.length > 0)
+      encima(
+        escalon(
+          'charca',
+          () => aguasDeLaEscena({ ...e, agua: e.charcas }, delSuelo(), techo()).agua,
+        ),
+        COLOR_DE_LA_CHARCA,
+        'multiply',
+      );
     // 5 · La sombra del desnivel: al pie de cada caída que mira hacia donde
     //     la echa la luz (la ladera al este; la espalda al norte lleva el canto,
     //     #223), sobre lo bajo y también sobre el agua (#211). Es la única: los

@@ -59,8 +59,9 @@ import { itLento, LENTO, rango, segunPrisa } from './lento.js';
  * (las cifras de 1-40 y 1-80 de antes están en `medir-nodos.ts` y
  * `medir-orillas.ts` de la tarea 2026-10-07-orillas-del-puente). En
  * `pnpm verify`, dos con de todo (#167), **buscadas**: la primera con una senda
- * de estribo que sin vado pasaría por agua y la primera con un puente en
- * diagonal. Eran la 5 y la 8 escritas a mano, y #169 dejó la 5 sin puentes.
+ * de estribo que sin vado pasaría por agua y la primera con un puente de este
+ * a oeste (era en diagonal: el río continuo, #144, no los tiende). Eran la 5 y
+ * la 8 escritas a mano, y #169 dejó la 5 sin puentes.
  * En la lenta van también las buscadas: con #188 y la senda casi recta de
  * #191, ninguna senda de estribo de 1-10 pasaría ya por agua sin su vado.
  */
@@ -82,12 +83,16 @@ function dosConDeTodo(): number[] {
     14,
     300,
   ).semilla;
-  const diagonal = primeraSemillaCon('un puente en diagonal', (s) =>
-    partidaDe(s).escena.puentes.some((p) => p.eje === 'ne-so' || p.eje === 'no-se')
-      ? true
-      : undefined,
+  // El otro era el primero con un puente en diagonal. Desde el río continuo
+  // (#144) el procedimental solo tiende puentes de frente a un río que va en
+  // cruz (`deFrente`) y fuera del río no queda agua de frontera: no hay
+  // diagonales (lo dice «salen los cruces del diagnóstico»), y la diagonal la
+  // miran las rejillas a mano. Va el primero con un puente de este a oeste,
+  // el eje que menos sale.
+  const esteOeste = primeraSemillaCon('un puente de este a oeste', (s) =>
+    partidaDe(s).escena.puentes.some((p) => p.eje === 'eo') ? true : undefined,
   ).semilla;
-  return [...new Set([conVado, diagonal])];
+  return [...new Set([conVado, esteOeste])];
 }
 
 const SUELO: Readonly<Record<string, TerrainKind>> = {
@@ -310,6 +315,9 @@ describe('la pieza sale de las orillas, no de las vecinas', () => {
     // Cuántos de cada eje es del mapa y no de la regla: desde #169, 15 puentes
     // (6 N-S, 2 E-O y 7 NE-SO; 5 de piedra), antes 16.
     expect(quebrados).toBe(0);
+    // Ninguno en diagonal: el río va en cruz y su puente, de frente (#144).
+    expect(rectos['ne-so'] ?? 0).toBe(0);
+    expect(rectos['no-se'] ?? 0).toBe(0);
     expect(total).toBeGreaterThan(10);
     expect(Object.values(rectos).reduce((a, b) => a + b, 0)).toBe(total);
     expect(piedra).toBeGreaterThan(0);
@@ -324,7 +332,7 @@ describe('la pieza se apoya por el centro de su tablero', () => {
     for (const s of SEMILLAS) {
       const e = partidaDe(s).escena;
       for (const pu of e.puentes) {
-        const sp = e.sprites.find((x) => x.objeto?.id === pu.id);
+        const sp = e.sprites.find((x) => x.puente === pu.id);
         const p = cat.piezas[pu.pieza];
         expect(sp?.src, pu.pieza).toBe(`${pu.pieza}.webp`);
         if (sp === undefined || p?.puente === undefined) throw new Error(`${pu.pieza} sin medir`);
@@ -431,7 +439,11 @@ describe('nada que se pinte encima tapa un puente', () => {
       capa: 0,
       sombra: false,
     });
-    const delPuente: Sprite = { ...sprite(5, 'objeto', 1.5), objeto: { id: 'p', kind: 'node' } };
+    const delPuente: Sprite = {
+      ...sprite(5, 'objeto', 1.5),
+      objeto: { id: 'p', kind: 'node' },
+      puente: 'p',
+    };
     const tableros = new Obstaculos(formasDeLosTableros([puente]));
 
     it('la pared de detrás pisa el tablero y no lo tapa: la pinta antes el pintor y la puerta la deja', () => {
@@ -570,6 +582,10 @@ describe('los cruces quebrados se asientan con los dos estribos en tierra', () =
       const { map, escena: e } = partidaDe(s);
       const a = analizar(map);
       for (const pu of e.puentes) {
+        // El de una ciudad-puente (#144) cruza de frente de su orilla, que es el
+        // final de la barrera de la T, a la casilla de enfrente: lo mira
+        // `ciudad-puente.test.ts`.
+        if (pu.orilla !== undefined) continue;
         const regiones = pu.extremos.map(([x, y]) => regionPisable(a, x, y));
         expect(Math.min(...regiones), `s${s} ${pu.id}`).toBeGreaterThanOrEqual(0);
         expect(regiones[0], `s${s} ${pu.id}`).not.toBe(regiones[1]);
@@ -610,8 +626,14 @@ describe('el asiento de la marca es siempre un punto', () => {
         const a = esc.asientoDeObjeto.get(o.id);
         if (!esc.claveDeObjeto.has(o.id)) continue;
         const p = puentes.get(o.id);
+        // La ciudad-puente (#144), en su orilla: donde se pinta la ciudad.
+        const orilla = esc.escena.puentes.find((x) => x.id === o.id)?.orilla;
         expect(a, `s${s} ${o.id}`).toEqual(
-          p === undefined ? [o.at.x + 0.5, o.at.y + 0.5] : [p[0], p[1] - OVALO_BAJO_EL_ASIENTO],
+          orilla !== undefined
+            ? orilla
+            : p === undefined
+              ? [o.at.x + 0.5, o.at.y + 0.5]
+              : [p[0], p[1] - OVALO_BAJO_EL_ASIENTO],
         );
       }
     }
@@ -717,11 +739,18 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     // Sin grupos: la barra avisaría de la emboscada del camino antes que del paso.
     s.state.raiders.splice(0);
     // Hacia el extremo del tablero: se ve sobre el agua de otra casilla.
-    const punto = enElTablero(pu, 0.2);
+    const punto = enElTablero(pu, caso.t);
     expect(punto.map(Math.floor)).toEqual([caso.casilla.x, caso.casilla.y]);
+    // Lo señala: la barra dice lo mismo que sobre la casilla de su nodo (un
+    // paso; desde el río continuo, la ciudad-puente de la 23, la única de 1-300
+    // con el tablero sobre el agua de otra casilla).
+    const centro = mundoAPixel(camara, Math.floor(pu.nodo[0]) + 0.5, Math.floor(pu.nodo[1]) + 0.5);
+    escena.mover(centro.x, centro.y);
+    const sobreElNodo = s.status;
+    expect(sobreElNodo).not.toBe('');
     const p = mundoAPixel(camara, ...punto);
     escena.mover(p.x, p.y);
-    expect(s.status).toMatch(/^Paso sin dueño · /);
+    expect(s.status).toBe(sobreElNodo);
     const antes = { ...s.selectedHero!.at };
     escena.bajar(p.x, p.y);
     if (escena.soltar()) escena.pulsar(p.x, p.y, false);
@@ -825,7 +854,8 @@ describe('la bandera del dueño se planta en el tablero (H1 del QA de #157)', ()
           ? 0
           : (pu.eje === 'eo' ? 1 : -1) * 0.28 * 0.6 * pu.escala;
         expect(my, `s${s} ${pu.id}`).toBeCloseTo(py - subida, 9);
-        expect(esc.mastilDeNodo.get(pu.id)).toEqual(pu.mastil);
+        // La ciudad-puente no es un nodo: su bandera va por su asiento, en la orilla.
+        if (pu.orilla === undefined) expect(esc.mastilDeNodo.get(pu.id)).toEqual(pu.mastil);
       }
       // Los demás nodos, como siempre: sobre el centro de su casilla.
       for (const o of map.objects) {
@@ -847,6 +877,8 @@ describe('quien pisa un puente se pinta en su tablero (H3 del QA de #157)', () =
       for (const pu of esc.escena.puentes) {
         const at = { x: Math.floor(pu.nodo[0]), y: Math.floor(pu.nodo[1]) };
         const p = pisada(esc, at, PIES.heroe);
+        // En una ciudad-puente (#144), en su orilla: lo mira `ciudad-puente.test.ts`.
+        if (pu.orilla !== undefined) continue;
         expect([p.x, p.y], `s${s} ${pu.id}`).toEqual(pu.asiento);
         // A igual clave se pinta antes el volumen: la figura va encima del puente.
         expect(p.clave).toBeGreaterThanOrEqual(esc.claveDeObjeto.get(pu.id) as number);

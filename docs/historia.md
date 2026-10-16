@@ -4885,3 +4885,76 @@ a 31, y el techo pasa de 25 a 32 (lo medido + 1, decisión del usuario). No es e
 se añaden rodean lagos de obstáculo, el borde o la esquina de la casa de abajo. Es el veto de las
 esquinas del río, que aparta los radios, y los vestidos que se tiran cuando una senda aún la corta, que
 dan otros mapas: sin ninguno de los dos, 24; con el veto, 27; con los dos, 31.
+
+## El río continuo, paso 2: la ciudad-puente en su orilla y las charcas turbias (#144, 16-10-2026)
+
+Tras las capturas del paso 1 («se lee como río»), la escena. La ciudad del cruce que toca el río va,
+en el núcleo, en una casilla del río recto (`intentarRed`), y se pintaba encima del agua.
+
+- **La ciudad, en su orilla** (`orillaDeLaCiudad`, núcleo): de los dos lados de través al río, el de
+  más regiones en su fila de tres —las dos de la T, con el final de su frontera en medio—; a la par, el
+  que no se pisa en el medio; y si no, el de la región de menor índice (en una base, su casa). En 1-100,
+  de 121 ciudades-puente, 107 con la T de bosque, acantilado o montaña; 14 a la par (con la región de una casa a
+  un lado). La casilla de la ciudad es agua en la escena (`terrenoDeLaEscena`) y lleva un puente de
+  piedra de frente, de la orilla a enfrente (`puenteDeLaCiudad`), que sube como el de un nodo.
+- **Lo que va donde se pinta** (`sitioDe`): la reserva, la huella (y la casilla del puente y la de
+  enfrente, que a veces es el final de otra barrera: s18, s26, s36 y s37 en 1-40), el resplandor, las
+  caras que no se cortan junto a un objeto, el bosque con o sin árbol. La marca, de la orilla; la
+  bandera de un nodo no la lleva. Pulsar la orilla va a la ciudad (`ciudadEnLaOrilla`), también si se
+  pisa (decisión del usuario tras las capturas: 14 de 121 en 1-100, las bases con su casa a los dos
+  lados del río, cuya orilla es la casilla donde empieza su héroe); a esa casilla se va por su lado.
+- **Las sendas**: las dos de la T van al estribo de la orilla. El reparto de los puentes (una senda a
+  cada estribo) mandaba una por encima del río al de enfrente (s23 (28,15)); saltar lo que «queda bajo
+  el puente» por su eje la tiraba recta por el bosque de la T (s13 (21-24, 7)). Y se cortan en el
+  estribo y van en su sitio de la lista: las sendas se suavizan con un solo azar, en orden, y una senda
+  de más o al final movía el vaivén de todas las de detrás (s13 (21,20) se quedaba sin árbol). Aun así
+  el azar de la escena es una corriente y la reserva en otro sitio mueve lo que se coloca después:
+  `caras-cortadas` gana s14 (junto a la orilla de (13,40)) y s26 (lejos de toda ciudad-puente).
+- **Las charcas, turbias**: el agua que toca una sola región (los lagos de obstáculo; `Franja.uso` no
+  bastaba, el pegado al borde del mapa es de borde) se tiñe de verde pardo en `multiply`. El río y el
+  agua de frontera, claros y azules. 1 407 de 5 390 casillas de agua en 1-40.
+
+
+## El río continuo, vuelta de QA 1: sin agua fuera del río ni bases en él (#144, 16-10-2026)
+
+QA dio «no apto» al paso 2 (`docs/agents/2026-10-14-rios-entre-regiones/qa.md`). Lo que se arregló,
+por su causa:
+
+- **Ninguna base en el río** (H2, y con él H1): la base es el nodo de la casa más cercano a su
+  esquina, y a veces era una ciudad-puente: su orilla, donde se pinta, era la casilla donde empieza su
+  héroe, y pulsar al héroe lo metía en su castillo (`tools/qa/capturas.ts`, s7 y s30). `base` ya no
+  elige un nodo del río; 0 bases en el río en 1-100 (`test/rio.test.ts`, `test/ciudad-puente.test.ts`:
+  pulsar al héroe en s7 y s30 lo deja donde está). Con eso, en 1-300 ninguna orilla se pisa.
+- **Fuera del río, ni una casilla de agua de frontera** (H3, decisión del usuario): la regla del paso
+  1 («agua solo donde la pareja no admite otra») dejaba 1 675 casillas en 1-100, del mismo azul que
+  el río, que se leían como los lagos dispersos de la queja de partida (s83, s66). La pareja cuyos
+  suelos solo dan agua lleva acantilado entre dos niveles y montaña a uno, y lo que sobra de una
+  muralla no pasa a agua. 1 675 → 0 en 1-100; las `TIPOS_POR_MAPA` se siguen cumpliendo (el río es
+  el agua). **Lo que cuesta**: la ciénaga (agua 4, bosque 2 en `data/barreras.json`, siempre al 0)
+  pierde su barrera; sus fronteras con lo de arriba pasan a acantilado o montaña, y sus vestidos se
+  tiran más (la región partida al engordar, 354 → 406 en 1-300 con ciénaga y 357 → 361 sin ella). En
+  1-200 sale el 10,2 % de los vestidos con ciénaga (era el 13,4) y la ciénaga es el 10,7 % de las
+  regiones (era el 13,2); en 1-1000, 12,7 → 11,2 %. Con montaña también entre dos niveles, 11,0 %:
+  no es el acantilado. El suelo del guardia de `desniveles` baja de 11 a 10; si se quiere la
+  ciénaga como antes, la palanca es su fila de `data/barreras.json`.
+- **La senda de un puente del río** (H4, y H6 en s41): `tramosHastaLosEstribos` daba por «bajo el
+  puente» todo punto de la senda antes del final de su eje, también a los lados del tablero, y lo
+  cambiaba por la recta del estribo: pasaba por el agua de al lado (s52 (10,14) y (31,28), s93
+  (20,12-13), s97, s100 (14,6) y (18,14)) o por la montaña de s41 (25,23), que se quedaba sin pico.
+  Bajo el puente es ahora lo que va sobre el tablero, a menos de media casilla de su línea:
+  `sendaSobreElAgua` = 0 y `casillasDeBarreraSinFormacion` = 0 en 1-100, y los tests miran esas
+  semillas (vistos en rojo sin el arreglo).
+- **Quien está dentro de una ciudad-puente** (H5, s13 (25,5)) se pintaba en el agua del río, sobre
+  los tejados de la ciudad: va en la orilla, como dentro de cualquier ciudad (`pisada`).
+- **`sendasPorObjeto` en s15** (H6): lo daba el mapa del paso 1, no la escena. El pueblo de (13,38)
+  tenía montaña al este y el río al noroeste; su puerta, (13,39), estaba libre, pero llegar a ella
+  pedía rodearlo por su espalda y cortar en diagonal la esquina del río de (12,37), que la búsqueda
+  cobra cinco rodeos (#144), más que los cuatro de entrar por detrás. El guardia de `regiones.test.ts`
+  (1-200) lo tenía por caso conocido; con H3 la s15 es otro mapa, ninguna de 1-300 lo da y la lista
+  se queda vacía (en el mapa de antes, el guardia lo ve en rojo).
+
+Medidas: rectitud en 1-3000 102 / 0 / 5 → 118 / 0 / 10 (techos 176 / 3 / 15); barrido de 1-100, 0
+sin terminar, duración 8 / 15 / 24 → 8 / 14 / 24, j0 48 → 45 (esquina 45 %, frontera 38 %, lago 54 %);
+banco re-anclado (`777c65a4…`): 115 de 200 idénticas, las 85 que cambian son todas de mapa cambiado.
+Queda a la vista en s83: un río en forma de lago con su curso de 7 casillas hasta el borde se lee como
+un lago (en 1-100, 9 de los 28 ríos de lago miden menos de 20 casillas, como en el paso 1).

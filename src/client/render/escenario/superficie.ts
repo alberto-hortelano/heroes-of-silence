@@ -177,7 +177,10 @@ export interface Escenario {
    * el punto del tablero (`Puente.asiento`) y la clave del volumen del puente,
    * para pintarlo encima de él. Lo lee `pisada`.
    */
-  readonly tableros: ReadonlyMap<number, { readonly asiento: Punto; readonly clave: number }>;
+  readonly tableros: ReadonlyMap<
+    number,
+    { readonly asiento: Punto; readonly clave: number; readonly orilla?: Punto }
+  >;
   /** Las imágenes que pinta la escena: se piden una vez por partida. */
   readonly imagenes: readonly string[];
   /** De ellas, las que solo pinta el suelo: se sueltan en cuanto está pintado. */
@@ -221,12 +224,19 @@ function tablerosDe(
   map: MapaDeEscena,
   puentes: Escena['puentes'],
   claveDeObjeto: ReadonlyMap<string, number>,
-): Map<number, { readonly asiento: Punto; readonly clave: number }> {
+): Map<number, { readonly asiento: Punto; readonly clave: number; readonly orilla?: Punto }> {
   return new Map(
     puentes.map((p) => {
+      const [x, y] = p.nodo.map(Math.floor) as [number, number];
+      // Quien está en una ciudad-puente (#144) está en la ciudad, que se pinta
+      // en su orilla: ahí se le pinta, como en una ciudad (`pisada`).
+      if (p.orilla !== undefined)
+        return [
+          y * map.width + x,
+          { asiento: p.asiento, clave: p.centro[1], orilla: p.orilla },
+        ] as const;
       const clave = claveDeObjeto.get(p.id);
       if (clave === undefined) throw new Error(`el puente ${p.id} no tiene volumen en la escena`);
-      const [x, y] = p.nodo.map(Math.floor) as [number, number];
       return [y * map.width + x, { asiento: p.asiento, clave }] as const;
     }),
   );
@@ -245,8 +255,15 @@ export function pisada(
   at: { readonly x: number; readonly y: number },
   pies: number,
 ): { readonly x: number; readonly y: number; readonly clave: number } {
-  const clave = claveDeFigura(esc, at.x, at.y + pies);
   const t = esc.tableros.get(at.y * esc.escena.W + at.x);
+  // En una ciudad-puente, en su orilla, delante de la ciudad como en cualquier
+  // ciudad: en su puente se pintaba sobre los tejados del castillo de una
+  // orilla sur (QA, H5: s13 (25,5)).
+  if (t?.orilla !== undefined) {
+    const [ox, oy] = [Math.floor(t.orilla[0]), Math.floor(t.orilla[1])];
+    return { x: ox + 0.5, y: oy + pies, clave: claveDeFigura(esc, ox, oy + pies) };
+  }
+  const clave = claveDeFigura(esc, at.x, at.y + pies);
   if (t === undefined) return { x: at.x + 0.5, y: at.y + pies, clave };
   return { x: t.asiento[0], y: t.asiento[1], clave: Math.max(clave, t.clave) };
 }
@@ -257,13 +274,18 @@ function asientosDe(
   horneados: ReadonlyMap<string, number>,
   puentes: Escena['puentes'],
 ): Map<string, readonly [number, number]> {
-  const enUnPuente = new Map(puentes.map((p) => [p.id, p.asiento]));
+  const enUnPuente = new Map(puentes.map((p) => [p.id, p]));
   return new Map(
     map.objects.flatMap((o) => {
       if (!horneados.has(o.id)) return [];
-      const a = enUnPuente.get(o.id);
+      const p = enUnPuente.get(o.id);
+      // La ciudad-puente (#144), en su orilla: donde se pinta.
       const asiento: readonly [number, number] =
-        a === undefined ? [o.at.x + 0.5, o.at.y + 0.5] : [a[0], a[1] - OVALO_BAJO_EL_ASIENTO];
+        p === undefined
+          ? [o.at.x + 0.5, o.at.y + 0.5]
+          : p.orilla !== undefined
+            ? p.orilla
+            : [p.asiento[0], p.asiento[1] - OVALO_BAJO_EL_ASIENTO];
       return [[o.id, asiento] as const];
     }),
   );
