@@ -469,7 +469,12 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   (1:1:1, decisión del usuario; si con la sorteada no sale mapa, las otras): **frontera** (de un
   borde a un lago del centro y al borde de enfrente: un río que separa las bases), **esquina** (de
   un borde a otro por la esquina sin casa, y su espejo) y **lago** (de un borde a un lago de
-  dentro, y su espejo). Las regiones se reparten por lo que ven sin cruzar el río (la recta de la
+  dentro, y su espejo; **del lago al borde, al menos `cursoDelLago` = 20 casillas**, decisión del
+  usuario del 17-10-2026: el lago se sortea entre los sitios a esa distancia en cruz de la boca y el
+  cauce se mide; si no cabe, otra red, y si con ninguna sale, otra forma. En s83 eran 7 y se leía
+  como dos lagos; en 1-300 el curso de lago (trazado) iba de 5 a 42, mediana 18, 102 de 178 por debajo de 20, y
+  va de 20 a 33, mediana 23; las formas salen igual, 104 / 107 / 89 de esquina, frontera y lago, y
+  en 24×24 la de lago no cabe; el techo del áspero en el reparto de suelos de 1-200, de 17 a 18 por el azar de esos mapas). Las regiones se reparten por lo que ven sin cruzar el río (la recta de la
   casilla a la semilla no lo pisa; si no ve ninguna, la más cercana de su orilla), así que el río
   separa regiones también donde nace en un lago. En él solo van **puentes** (río recto, una región
   distinta a cada lado y dos casillas suyas de frente; si no, la pareja va sin puente) y
@@ -879,7 +884,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
-| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
+| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10, y con el río de lago de 20, 121 / 0 / 12; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
 - **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y

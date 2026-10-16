@@ -15,8 +15,9 @@ import { Session } from '../src/client/session.js';
 import { puenteSobreElAgua } from './helpers.js';
 
 describe('queHayEn', () => {
-  // La 2 (la 1 hasta el río de una casilla, #144 paso 2, que la dejó sin mesetas).
-  const s = new Session(2);
+  // La 7 (la 2 hasta el río de lago de 20 casillas, que la dejó sin mesetas;
+  // la 1 hasta el río de una casilla, #144 paso 2, por lo mismo).
+  const s = new Session(7);
   const esc = escenarioDe(s.state.map, s.state.seed);
 
   it('en el centro de un módulo de una hoja lo devuelve con su caja, su hoja y su módulo', () => {
@@ -48,7 +49,7 @@ describe('queHayEn', () => {
 
   it('en una casilla bajo una cara de acantilado da la cara, con su banda, y la pared de su celda', () => {
     const cara = esc.escena.relieve.caras[0];
-    if (cara === undefined) throw new Error('la semilla 2 no tiene caras');
+    if (cara === undefined) throw new Error('la semilla 7 no tiene caras');
     // Por celdas la cara va de junta a junta, en medias casillas (R4).
     const casilla = { x: Math.ceil(cara.x0), y: cara.y + 1 };
     const hay = queHayEn(esc, { x: casilla.x + 0.5, y: casilla.y + 0.1 }, casilla);

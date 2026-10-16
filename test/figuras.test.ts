@@ -132,23 +132,24 @@ describe('en los mapas reales', () => {
   // la 30 (54; la 8 se queda en 35); con el mapa de 42×42 (#226), la 21 (60;
   // la 30 se queda en 34); con las fronteras onduladas (#229, 09-10-2026), la
   // 5 (67; la 21 se queda en 17); con los ríos (#144, 16-10-2026), la 17 (65;
-  // la 5 se queda en 17).
-  it('s17: sin subir la clave, vuelven las tapadas de la auditoría, también donde hay un objeto', () => {
-    const { map, escena: e } = partidaDe(17);
+  // la 5 se queda en 17); con el río de lago de 20 casillas (17-10-2026),
+  // la 39 (64; la 17 se queda sin mesetas).
+  it('s39: sin subir la clave, vuelven las tapadas de la auditoría, también donde hay un objeto', () => {
+    const { map, escena: e } = partidaDe(39);
     const antes = pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false);
     expect(antes.length).toBeGreaterThan(50);
     const objetos = new Set(map.objects.map((o) => o.at.y * e.W + o.at.x));
     expect(antes.some((i) => objetos.has(i))).toBe(true);
   });
 
-  it('s17: cada figura que se taparía sin subir la clave se pinta después de toda pieza que la tapa con su silueta', () => {
+  it('s39: cada figura que se taparía sin subir la clave se pinta después de toda pieza que la tapa con su silueta', () => {
     // Era s8, que con las fronteras onduladas (#229) no tiene ninguna: el
     // test pasaba sin mirar nada, y ahora lo dice. La s5 tenía 67; con los
-    // ríos (#144), la s17 tiene 65.
-    const { map, escena: e } = partidaDe(17);
+    // ríos (#144), la s17 tiene 65; con el río de lago de 20 casillas, la s39, 64.
+    const { map, escena: e } = partidaDe(39);
     const antes = new Set(pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false));
     expect(antes.size).toBeGreaterThan(0);
-    const esc = escenarioDe(map, 17);
+    const esc = escenarioDe(map, 39);
     let vistas = 0;
     for (const v of esc.separada.volumenes) {
       if (v.s.clase !== 'pared' || v.s.filaAlta === undefined) continue;

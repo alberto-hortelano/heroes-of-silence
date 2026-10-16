@@ -179,7 +179,8 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 // Con la ciudad-puente en su orilla (#144, paso 2, 16-10-2026), 3, aceptadas por
 // el usuario: s22 sigue; s14 y s26, cada una con su porqué en `QUEDAN`. Sin
 // agua de frontera fuera del río (QA del río continuo, H3), 4: s28 es otro mapa
-// y su ciudad-puente recorta una cara como la de s14.
+// y su ciudad-puente recorta una cara como la de s14. Con el río de lago de 20
+// casillas (17-10-2026), 5: s36 es otro mapa (de lago).
 const QUEDAN: Readonly<Record<number, number>> = {
   // La frontal de una casilla de (14,40), junto a la orilla donde se pinta la ciudad de (13,40), que su reserva recorta.
   14: 1,
@@ -189,6 +190,8 @@ const QUEDAN: Readonly<Record<number, number>> = {
   26: 1,
   // La frontal de una casilla de (18,39), junto a la orilla (17,38) donde se pinta la ciudad-puente de (16,38), que su reserva recorta.
   28: 1,
+  // La frontal de una casilla de (38,24), entre la ciudad de (36,23) y el nodo de (40,24), sin sitio para más pared.
+  36: 1,
 };
 const SEMILLAS = segunPrisa(
   [57, 12, 22, 28],

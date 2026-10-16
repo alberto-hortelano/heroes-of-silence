@@ -63,7 +63,7 @@ describe('el desnivel lo explica una barrera (#143)', () => {
       expect(cuenta.get(k) ?? 0, k).toBeGreaterThan(0);
   });
   itLento(
-    'el reparto de suelos no cambia: cada suelo de fuera, entre el 10 y el 17 % de las regiones de 1-200',
+    'el reparto de suelos no cambia: cada suelo de fuera, entre el 10 y el 18 % de las regiones de 1-200',
     () => {
       // Un sorteo de barreras filtrado por niveles podía tirar más vestidos de
       // unas parejas de suelos que de otras y sesgar el mapa (los de arena roja de
@@ -81,7 +81,10 @@ describe('el desnivel lo explica una barrera (#143)', () => {
       // se tiran más (la región partida al engordar, 354 → 406 en 1-300 con
       // ciénaga, 357 → 361 sin ella): en 1-200, con ciénaga sale el 10,2 % de
       // los vestidos y no el 13,4, y la ciénaga es el 10,7 % de las regiones y no
-      // el 13,2; en 1-1000, 12,7 → 11,2 %. El
+      // el 13,2; en 1-1000, 12,7 → 11,2 %. Con el río de lago de 20 casillas
+      // (17-10-2026) se rehacen los 61 mapas de lago de 1-200 y el áspero da
+      // 17,9 en 1-200; en 1-1000 sigue en 16,2 (el mismo que antes del cambio:
+      // azar de las 200, no un sesgo), y el techo pasa de 17 a 18. El
       // porqué y las cifras, en docs/historia.md.
       const cuenta = new Map<string, number>();
       for (const s of rango(1, 200))
@@ -93,7 +96,7 @@ describe('el desnivel lo explica una barrera (#143)', () => {
         if (suelo === 'dirt') expect(parte, suelo).toBe(20);
         else {
           expect(parte, suelo).toBeGreaterThanOrEqual(10);
-          expect(parte, suelo).toBeLessThanOrEqual(17);
+          expect(parte, suelo).toBeLessThanOrEqual(18);
         }
       }
     },

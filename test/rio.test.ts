@@ -171,6 +171,7 @@ describe('el trazado del río (`trazarRio`)', () => {
         tramoMaximo: 4,
         marco: 4,
         radioDelLago: 2,
+        cursoDelLago: 20,
       }),
     ).toThrow(/"formas.lago" pesa undefined/);
     expect(() =>
@@ -181,6 +182,15 @@ describe('el trazado del río (`trazarRio`)', () => {
         radioDelLago: 2,
       }),
     ).toThrow(/"mar", que no es una forma.*"tramoMaximo" tiene que ser un entero de 2 a 64/);
+    expect(() =>
+      validarRios({
+        formas: { frontera: 1, esquina: 1, lago: 1 },
+        tramoMaximo: 4,
+        marco: 4,
+        radioDelLago: 2,
+        cursoDelLago: 0,
+      }),
+    ).toThrow(/"cursoDelLago" tiene que ser un entero de 1 a 64, y lleva 0/);
   });
 });
 
@@ -244,7 +254,8 @@ describe('el río de los mapas del juego, entero (el guardia de continuidad)', (
   it('cada río del trazado sigue entero en el mapa hecho, con su boca; en él, solo puentes y ciudades-puente, ninguna base; y fuera, ni agua de frontera', () => {
     const malos: string[] = [];
     const formas = new Map<string, number>();
-    for (const s of segunPrisa(rango(1, 40), rango(1, 200))) {
+    // La 83, en las dos: su río de lago medía 7 casillas del lago al borde.
+    for (const s of segunPrisa([...rango(1, 40), 83], rango(1, 200))) {
       let trazado: TrazadoDelRio | undefined;
       const plan = generateMapPlan(createRng(s), {
         alTrazarElRio: (t) => {
@@ -262,6 +273,20 @@ describe('el río de los mapas del juego, entero (el guardia de continuidad)', (
       // Fuera del río no hay agua de frontera (QA, H3): solo las charcas.
       if (r.aguaFueraDelRio > 0)
         malos.push(`s${s}: ${r.aguaFueraDelRio} casillas de agua de frontera fuera del río`);
+      // El río de la forma lago mide como poco 20 casillas del lago al borde
+      // (decisión del usuario, 17-10-2026; `cursoDelLago`): contadas en el mapa
+      // hecho, el agua del río fuera de su lago y sus puentes y ciudades-puente.
+      // Escrito aquí y no leído de los datos: con el dato a 1 el guardia
+      // también se callaría.
+      const conObjeto = new Set(map.objects.map((o) => o.at.y * W + o.at.x));
+      if (trazado.forma === 'lago')
+        for (const rio of trazado.rios) {
+          const curso = rio.filter(
+            (i) => trazado?.lago[i] === 0 && (map.terrain[i] === 'water' || conObjeto.has(i)),
+          ).length;
+          if (curso < 20)
+            malos.push(`s${s}: un río de lago mide ${curso} casillas del lago al borde`);
+        }
       if (r.largos.length !== trazado.rios.length)
         malos.push(
           `s${s}: ${r.largos.length} ríos en el mapa, y el trazado lleva ${trazado.rios.length}`,

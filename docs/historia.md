@@ -4958,3 +4958,35 @@ sin terminar, duración 8 / 15 / 24 → 8 / 14 / 24, j0 48 → 45 (esquina 45 %,
 banco re-anclado (`777c65a4…`): 115 de 200 idénticas, las 85 que cambian son todas de mapa cambiado.
 Queda a la vista en s83: un río en forma de lago con su curso de 7 casillas hasta el borde se lee como
 un lago (en 1-100, 9 de los 28 ríos de lago miden menos de 20 casillas, como en el paso 1).
+
+## El río de lago, de al menos 20 casillas (#144, 17-10-2026)
+
+Tras la vuelta de QA 1, la captura de s83 enseñaba un río de forma lago con 7 casillas (8 contadas
+en el mapa, con su puente) del lago al borde: se leía como dos lagos. Decisión del usuario: el río
+de lago mide al menos 20 casillas del lago al borde, y si no cabe, se coge otra forma.
+
+- **El dato**, `cursoDelLago` en `data/rios.json` (validado, entero de 1 a 64): 20.
+- **Dónde**: `trazarRio`, forma lago. El lago se sortea solo entre los sitios a esa distancia en
+  cruz de la boca, menos su radio (un cauce en cruz no es más corto), y el cauce trazado se mide
+  fuera de su lago; si no llega, la red no vale y se prueba otra, y si con ninguna sale, otra forma
+  (lo de siempre de `trazarYVestir`).
+- **Cuánto**, curso de lago trazado en 1-300: de 5 a 42 casillas, mediana 18, 102 de 178 ríos por
+  debajo de 20 → de 20 a 33, mediana 23. Las formas salen igual: 104 esquina, 107 frontera, 89 lago
+  (ninguna red de lago cae a otra forma en 42×42). En 30×30, 3 de 60 son de lago; en 24×24 no cabe
+  ninguna y salen esquina y frontera. Generar, mediana 39 ms. Largo del río de lago (diámetro, con el
+  lago), mediana 24 → 28 en 1-300; puentes por mapa de lago 2,5 → 3,3.
+- **El guardia** (`rio.test.ts`, el de continuidad): cada río de lago del mapa hecho mide ≥ 20 del lago
+  al borde, contando su agua y sus puentes; el 20 está escrito en el test (con el dato a 1 se callaría).
+  Con el dato a 1, rojo en s2 (13), s20 (9), s30 (19), s38 (14) y s83 (8).
+- Agua encajada en un río, en 1-300: 4 → 7 (s5, s106, s210, s235; no lo vigila ningún test, medida).
+- Banco `4ec21762…`: cambian exactamente las 61 partidas de lago de 1-200 (todas: el lago se sortea
+  entre otros sitios), duración 8 / 14 / 30 → 7 / 13 / 24, j0 108 → 111. Rectitud 118 / 0 / 10 →
+  121 / 0 / 12. Barrido 1-100: 0 sin terminar, 8 / 14 / 24, j0 45 → 49 (lago 15 → 19 de 28).
+- Lo que mueven los 61 mapas de lago nuevos en los guardias: `caras-cortadas` gana s36 (una frontal
+  de una casilla en (38,24), entre una ciudad y un nodo; 5 aceptadas), `puertas-sin-muesca` pierde
+  s125 (ninguna en 1-200) y el reparto de suelos da áspero 17,9 % en 1-200 con 16,2 % en 1-1000, el
+  mismo que antes: el techo pasa de 17 a 18 por el azar de las 200, no por un sesgo.
+- `pnpm capturas` busca sus escenas en el espejo: la de escritorio (era s82) y la batalla perdida (era
+  s44) eran mapas de lago. Ninguna de 1-200 las da ya: la de escritorio busca hasta la 300
+  (`TOPE_DEL_ESCRITORIO`, la 243) y la derrota empieza en la 201 (`DESDE_LA_DERROTA`, la 208; de 1 a 200
+  eran 65 s de buscar en vano).

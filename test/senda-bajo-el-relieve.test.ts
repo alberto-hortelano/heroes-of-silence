@@ -188,8 +188,9 @@ describe('la senda bajo el relieve (#189)', () => {
     // meseta (#144, paso 2b), la 9 se queda en 0: 28, 6, 30 y 4, con 4, 6, 4 y
     // 3 (media 4,25). Con el río continuo (#144), la 28 y la 4 se quedan en 0:
     // 17, 34, 12 y 21, con 8, 5, 4 y 4 (media 5,25; la 22 y la 39 también
-    // tienen 4).
-    const semillas = segunPrisa([17, 34, 12, 21], rango(1, 40));
+    // tienen 4). Con el río de lago de 20 casillas (17-10-2026) la 17 se queda
+    // sin mesetas: 22, 34, 12 y 21, con 4, 5, 3 y 4 (media 4).
+    const semillas = segunPrisa([22, 34, 12, 21], rango(1, 40));
     const cuentas = semillas.map((s) => escenaDe(s).informe.sendaBajoElRelieve);
     // Que mire algo: en ninguna semilla de la muestra rápida es 0. En 1-40,
     // con menos mesetas (#210), la mitad se queda en 0: 20 de 40 y 1,2 de

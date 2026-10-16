@@ -1116,6 +1116,8 @@ export interface ReglasDelRio {
   readonly marco: number;
   /** El radio de sus lagos. */
   readonly radioDelLago: number;
+  /** Cuántas casillas mide como poco el río de la forma lago, del lago al borde. */
+  readonly cursoDelLago: number;
 }
 
 /**
@@ -1127,7 +1129,11 @@ export function validarRios(json: unknown, fichero = 'data/rios.json'): ReglasDe
   const problemas: string[] = [];
   const j = (json ?? {}) as Record<string, unknown>;
   for (const clave of Object.keys(j)) {
-    if (!['_comment', 'formas', 'tramoMaximo', 'marco', 'radioDelLago'].includes(clave))
+    if (
+      !['_comment', 'formas', 'tramoMaximo', 'marco', 'radioDelLago', 'cursoDelLago'].includes(
+        clave,
+      )
+    )
       problemas.push(`sobra la clave "${clave}"`);
   }
   const formas: { forma: FormaDelRio; peso: number }[] = [];
@@ -1165,8 +1171,9 @@ export function validarRios(json: unknown, fichero = 'data/rios.json'): ReglasDe
   const tramoMaximo = entero('tramoMaximo', 2, 64);
   const marco = entero('marco', 1, 8);
   const radioDelLago = entero('radioDelLago', 1, 5);
+  const cursoDelLago = entero('cursoDelLago', 1, 64);
   if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
-  return { formas, tramoMaximo, marco, radioDelLago };
+  return { formas, tramoMaximo, marco, radioDelLago, cursoDelLago };
 }
 
 export const RIOS: ReglasDelRio = validarRios(riosJson);

@@ -33,7 +33,8 @@
  * en 1-200, s125 (1,9) oeste: la base de la casa en la segunda columna, con la
  * meseta al sur, y su costado oeste en la primera; `puertasSinMuesca` no cierra
  * nada a dos casillas de la ciudad fuera del marco (la casilla que cerraría la
- * línea sería la columna −1).
+ * línea sería la columna −1). Con el río de lago de 20 casillas (17-10-2026)
+ * la s125 es otro mapa (de lago) y no queda ninguna en 1-200.
  */
 import { describe, expect, it } from 'vitest';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
@@ -67,9 +68,7 @@ function muescasDe(map: GameMap): string[] {
 const mapaDe = (semilla: number): GameMap => buildMap(generateMapPlan(createRng(semilla))).map;
 
 /** Lo que queda en 1-200, por semilla (arriba). */
-const QUEDAN: Readonly<Record<number, readonly string[]>> = {
-  125: ['(1,9) oeste'],
-};
+const QUEDAN: Readonly<Record<number, readonly string[]>> = {};
 
 describe('la puerta de una ciudad no muerde la línea del acantilado (#222)', () => {
   // En el bucle rápido, las que lo daban en 34×34 (s57, s162, s263; en 42×42

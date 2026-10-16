@@ -106,3 +106,5 @@ Son provisionales: los cierra el plan y el usuario los aprueba.
 **Tras la vuelta de QA 1 (16-10-2026):**
 - Se acepta la ciénaga al 10 % de las regiones como suelo del guardia de `desniveles` (10,7 % en 1-200): sin agua fuera del río sus fronteras pasan a acantilado o montaña y se tiran más vestidos con ciénaga.
 - **El río de la forma lago mide al menos 20 casillas del lago al borde**; si no cabe, se coge otra forma (en s83 eran 7 y se leía como dos lagos; 9 de 28 en 1-100).
+
+**Al cerrar (17-10-2026):** el usuario acepta s36 en `QUEDAN` de `caras-cortadas` y el techo del suelo áspero en 1-200 a 18 % (17,9 %; 16,2 % en 1-1000, como antes). #144 se cierra apuntando a estos commits; `rios-lineas` queda sin fusionar.

@@ -108,7 +108,7 @@ export function trazarRio(
   datos: ReglasDelRio = RIOS,
 ): TrazadoDelRio | null {
   const N = W * H;
-  const { tramoMaximo, marco, radioDelLago } = datos;
+  const { tramoMaximo, marco, radioDelLago, cursoDelLago } = datos;
   const coste = new Int32Array(N);
   const veta = new Uint8Array(N);
   const cercania = new Int32Array(N);
@@ -208,20 +208,37 @@ export function trazarRio(
     cauce = cauceEntre(W, H, coste, veta, tramoMaximo, a, b);
   } else {
     // De arriba o de la derecha a un lago del cuadrante de arriba a la derecha,
-    // donde quepa sin pisar una semilla ni una casa.
+    // donde quepa sin pisar una semilla ni una casa, y lejos de la boca: el
+    // curso, del lago al borde, mide como poco `cursoDelLago` casillas (con un
+    // lago junto al borde, el río de s83 eran 7 y se leía como un lago). Un
+    // camino en cruz no es más corto que la distancia en cruz, que el lago
+    // acorta en su radio: los sitios más cerca no pueden darlo.
     const a =
       rng.int(0, 1) === 0
         ? boca(deArriba(Math.floor(W / 3), W - 6))
         : boca(deLaDerecha(5, Math.floor(H / 2)));
+    if (a === null) return null;
+    const lejos = (i: number): boolean =>
+      Math.abs((i % W) - (a % W)) +
+        Math.abs(Math.floor(i / W) - Math.floor(a / W)) +
+        1 -
+        radioDelLago >=
+      cursoDelLago;
     const sitios: number[] = [];
     for (let ly = 6; ly <= Math.floor(H / 2) - 2; ly++)
       for (let lx = Math.floor(W / 2); lx <= W - 8; lx++)
-        if (ponerLago(2 * lx, 2 * ly).every((c) => vetaDeDentro[c] === 0)) sitios.push(ly * W + lx);
-    if (a === null || sitios.length === 0) return null;
+        if (lejos(ly * W + lx) && ponerLago(2 * lx, 2 * ly).every((c) => vetaDeDentro[c] === 0))
+          sitios.push(ly * W + lx);
+    if (sitios.length === 0) return null;
     bocas.push(a);
     const centro = rng.pick(sitios);
     lagoDelCauce = ponerLago(2 * (centro % W), 2 * Math.floor(centro / W));
     cauce = cauceEntre(W, H, coste, veta, tramoMaximo, a, centro);
+    // Y medido: el cauce, fuera de su lago.
+    if (cauce !== null) {
+      const enElLago = new Set(lagoDelCauce);
+      if (cauce.filter((i) => !enElLago.has(i)).length < cursoDelLago) return null;
+    }
   }
   if (cauce === null || !sinTocarse(W, cauce)) return null;
 

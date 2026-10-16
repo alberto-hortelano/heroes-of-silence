@@ -54,8 +54,10 @@ describe('el relieve', () => {
   // La 3 desde #226: en el mapa de 42×42 la 2 no tiene agua encajada. La 5
   // desde las fronteras onduladas (#229, 09-10-2026): la 3 se quedó sin ella.
   // La 2 desde el río continuo (#144): la 5 se quedó sin desnivel (en 1-12,
-  // la 2 es la primera con agua encajada: 18 casillas).
-  const SEMILLA = 2;
+  // la 2 es la primera con agua encajada: 18 casillas). La 8 desde el río de
+  // lago de 20 casillas (17-10-2026), que dejó la 2 sin desnivel (en 1-12, la
+  // primera con agua encajada: 12 casillas).
+  const SEMILLA = 8;
   const a = analizar(newGame({ seed: SEMILLA }).map);
   const r = relieve(a);
 
@@ -382,8 +384,9 @@ describe('la escena de un mapa real', () => {
   // vez de la 15 desde el río de una casilla (#144, paso 2), por lo mismo; la
   // 7 y la 9 en vez de la 3 y la 5 desde el río continuo (#144), por lo mismo;
   // la 5 en vez de la 6 sin agua de frontera fuera del río (QA del río
-  // continuo, H3), por lo mismo.
-  for (const semilla of [7, 5, 2, 9]) {
+  // continuo, H3), por lo mismo; la 12 y la 14 en vez de la 5 y la 2 desde el
+  // río de lago de 20 casillas (17-10-2026), por lo mismo.
+  for (const semilla of [7, 12, 14, 9]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 

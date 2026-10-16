@@ -557,7 +557,7 @@ describe('en las partidas', () => {
       expect(tapan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
     });
 
-  it('el nodo de otra barrera es un apoyo; la puerta de la muralla, no (s82 (39,30))', () => {
+  it('el nodo de otra barrera es un apoyo; la puerta de la muralla, no (s704 (14,22))', () => {
     // Era s699 (15,2), de acantilado; con menos mesetas (#210) es raro: en 1-900,
     // solo s219 y s420 llevan un nodo de otra barrera pegado a una muralla. Desde
     // #226 (mapa de 42×42) hay 35 casos en 1-900, y era s356 (31,19); con las
@@ -574,16 +574,18 @@ describe('en las partidas', () => {
     // el río continuo (#144), s453 ya no lo lleva: en 1-1000 solo s853 (30,36),
     // de bosque, junto al muro de (29,37). Sin agua de frontera fuera del río
     // (QA del río continuo, H3), en 1-1000 s82 (39,30), de montaña, junto al
-    // muro de (38,29), y s704 (14,22), de agua.
-    const map = partidaDe(82).map;
+    // muro de (38,29), y s704 (14,22), de agua. Con el río de lago de 20
+    // casillas (17-10-2026) la s82 es otro mapa: en 1-1000 solo s704 (14,22),
+    // un puente del río, junto al muro de (13,23).
+    const map = partidaDe(704).map;
     const a = analizar(map);
     const al = alrededorDeMurallas(a, [], new Array<number>(a.W * a.H).fill(0));
-    const nodo = map.objects.find((o) => o.kind === 'node' && o.at.x === 39 && o.at.y === 30);
-    if (nodo?.kind !== 'node') throw new Error('s82 no tiene el nodo de (39,30)');
-    expect(nodo.barrera).toBe('mountain');
-    expect(al.apoyos(38, 29)).toContain(`nodo:${nodo.id}`);
+    const nodo = map.objects.find((o) => o.kind === 'node' && o.at.x === 14 && o.at.y === 22);
+    if (nodo?.kind !== 'node') throw new Error('s704 no tiene el nodo de (14,22)');
+    expect(nodo.barrera).toBe('water');
+    expect(al.apoyos(13, 23)).toContain(`nodo:${nodo.id}`);
     const puerta = map.objects.find((o) => o.kind === 'node' && o.barrera === 'wall');
-    if (puerta === undefined) throw new Error('s82 no tiene puertas de muralla');
+    if (puerta === undefined) throw new Error('s704 no tiene puertas de muralla');
     expect(al.apoyos(puerta.at.x, puerta.at.y)).not.toContain(`nodo:${puerta.id}`);
   });
 

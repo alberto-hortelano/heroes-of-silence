@@ -991,11 +991,20 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   8 / 15 / 30 → **8 / 14 / 30**, 0 sin terminar. Batallas 1 215 → 1 185,
  *   `hero_moved` 41 216 → 40 029, `town_captured` 979 → 969, `troop_rank_up`
  *   1 885 → 1 843; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `4ec21762…` (17-10-2026): **el río de la forma lago mide al menos 20
+ *   casillas del lago al borde** (`cursoDelLago`, decisión del usuario). Contra
+ *   `--dump` de `777c65a4…`, **139 de 200 idénticas**; las 61 que cambian son
+ *   exactamente las 61 de forma lago de 1-200 (el lago se sortea entre los
+ *   sitios lejos de la boca: cambian todas, también las que ya medían 20), y su
+ *   primer hecho distinto es el primer `raider_spawned` (61): el mapa. 33 con
+ *   otro ganador, j0 108 → **111**, duración 8 / 14 / 30 → **7 / 13 / 24**, 0
+ *   sin terminar. Batallas 1 185 → 1 135; ningún tipo nuevo ni ninguno que
+ *   desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '777c65a45bf8d4830e1ff1b497a0b65768b3808b2fb8c07b4da62c170e73bc40',
+  sha: '4ec21762894138dd5a71e8a6312efb111d741224279c2009526474ef5683867d',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

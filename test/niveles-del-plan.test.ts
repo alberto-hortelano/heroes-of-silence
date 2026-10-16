@@ -156,9 +156,10 @@ describe('el plan del procedimental, escrito como el del agente, conserva sus ni
   it('zod ya no los quita: el plan de `pnpm qa` llega con sus mesetas y valida', () => {
     // Antes de #209 el esquema no tenía `nivel` y zod lo quitaba sin decir
     // nada: el plan del procedimental que manda la política de `pnpm qa` se
-    // jugaba todo al llano, con sus acantilados sin cara. La 2 (la 1 hasta el
-    // río de una casilla, #144 paso 2, que la dejó con todas sus regiones al 1).
-    const plan = generateMapPlan(createRng(2));
+    // jugaba todo al llano, con sus acantilados sin cara. La 7 (la 2 hasta el
+    // río de lago de 20 casillas y la 1 hasta el río de una casilla, #144 paso
+    // 2: las dos se quedaron con todas sus regiones al 1).
+    const plan = generateMapPlan(createRng(7));
     const leido = mapPlanSchema.parse(planDelAgente(plan));
     expect(leido.regions.map((r) => r.nivel)).toEqual(plan.regions.map((r) => r.nivel));
     expect(new Set(leido.regions.map((r) => r.nivel)).size).toBeGreaterThan(1);

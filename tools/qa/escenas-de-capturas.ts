@@ -173,6 +173,13 @@ export function guardiasEnElMarco(
  */
 export const TOPE_DE_SEMILLAS = 200;
 
+/**
+ * Las de la pasada de escritorio, que pide más que las demás (una ruta de dos
+ * colores, el castillo y una guardia a salvo con su batalla): en 1-200 se
+ * quedó sin ninguna con el río de lago de 20 casillas (17-10-2026).
+ */
+export const TOPE_DEL_ESCRITORIO = 300;
+
 export interface EscenaDeEmboscada {
   readonly semilla: number;
   readonly destino: Point;
@@ -273,10 +280,13 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
  * 1 000 perdían la 315, 410 y 665; 08-10-2026). Con el de 42×42 (#226) la
  * primera es la 78, y de 301 a 500 no pierde ninguna; en cada tanda de 200 de
  * 1 a 2 600 hay al menos una (78, 220, 583, 728, 934…; 09-10-2026). Con la
- * vista a escala y las fronteras onduladas (#229), la primera es la 30. Es un
- * punto de partida, no una semilla escrita.
+ * vista a escala y las fronteras onduladas (#229), la primera es la 30. Con
+ * el río continuo (#144), la 44; con el río de lago de 20 casillas
+ * (17-10-2026) la 44 es otro mapa y en 1-200 no pierde ninguna (65 s de
+ * buscar): desde la 201, la primera es la 208. Es un punto de partida, no una
+ * semilla escrita.
  */
-export const DESDE_LA_DERROTA = 1;
+export const DESDE_LA_DERROTA = 201;
 
 /** La partida y la guardia de la batalla que se pierde (`buscarDerrota`). */
 export interface EscenaDeDerrota {
@@ -377,7 +387,7 @@ export const RUEDA_DEL_ESCRITORIO = 2;
  * la da, la pasada lo dice.
  */
 export function buscarEscritorio(b: Caja, desde = 1): number {
-  for (let semilla = desde; semilla < desde + TOPE_DE_SEMILLAS; semilla++) {
+  for (let semilla = desde; semilla < desde + TOPE_DEL_ESCRITORIO; semilla++) {
     const espejo = new Session(semilla);
     const e = encuadreDe(b, espejo);
     if (rutaDeDosColores(b, e, TILE_INICIAL, espejo) === null) continue;
@@ -391,13 +401,16 @@ export function buscarEscritorio(b: Caja, desde = 1): number {
     // de 42×42 (#226) y la vista de fheroes2 sin escalar (4 y 5) no la había en
     // 1-400 y se aceptaba la emboscada; con la vista a escala (#229, 5 y 6), la
     // primera es la 28, y con las fronteras onduladas, la 54 (09-10-2026).
+    // Con el río continuo y sin agua de frontera fuera de él (#144), la 82; con
+    // el río de lago de 20 casillas (17-10-2026) la 82 es otro mapa y ninguna
+    // de 1-200 lo da: la primera es la 243 (`TOPE_DEL_ESCRITORIO`).
     const guardia = guardiaEnElMarco(b, e, tileTrasRueda(e, RUEDA_DEL_ESCRITORIO), espejo);
     if (guardia === null) continue;
     espejo.clickTile(guardia);
     if (espejo.battle !== null && hayAnguloEnLaBatalla(espejo, b)) return semilla;
   }
   throw new Error(
-    `escritorio: en las semillas ${desde}–${desde + TOPE_DE_SEMILLAS - 1} ninguna tiene a la vez una ruta ` +
+    `escritorio: en las semillas ${desde}–${desde + TOPE_DEL_ESCRITORIO - 1} ninguna tiene a la vez una ruta ` +
       'de dos colores a la vista y, tras entrar al castillo, una guardia a la vista a la que se llegue hoy y cuya batalla dé ocasión de mover dos tramos y atacar',
   );
 }

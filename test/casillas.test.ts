@@ -67,8 +67,9 @@ describe('Casillas: la niebla por índice (#146)', () => {
   });
 
   it('en una partida jugada, lo que se mira está explorado y es lo que dice `visibleNowAt`', async () => {
-    const state = newGame({ seed: 3, maxDays: 8 });
-    await playAiGame(state, { rng: createRng(3) });
+    // La 1: en la 3, con el río de lago de 20 casillas, alguien pierde antes del día 8.
+    const state = newGame({ seed: 1, maxDays: 8 });
+    await playAiGame(state, { rng: createRng(1) });
     for (const p of state.players) {
       const mirando = visibleNow(state, p.id);
       // La premisa: hay algo mirado y algo sin mirar, o la igualdad sería vacía.
