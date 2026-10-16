@@ -30,6 +30,17 @@
  *   río de ancho local ≥ 4, en grupos 8-conexos de ≥ 9 casillas.
  * - **Largo** de un río: su diámetro geodésico (8-conexo; los saltos de la
  *   ciudad y del puente cuentan su Chebyshev), por doble barrido.
+ * - **Ancho del río entre iguales** (el criterio 2, paso 2): el agua de un río
+ *   cuyas dos orillas de su tirada recta más corta son de regiones distintas al
+ *   mismo nivel, a dos pasos o más de todo nodo y fuera de sus lagos
+ *   atravesados (ni pegada a ellos), por su ancho en ocho vecinas: la menor de
+ *   sus cuatro tiradas, las dos rectas y las dos diagonales. Un río de una
+ *   casilla que baja en diagonal va en escalera (en ocho vecinas no se cruza) y
+ *   cada peldaño mide dos en recta, pero uno en la diagonal que lo atraviesa.
+ *   Es el agua que el paso 2 adelgaza a una casilla. La de entre dos niveles se
+ *   mide igual, aparte la que tiene lo alto al norte (lo primero que no es agua
+ *   subiendo por su columna, más alto que ella): el paso 2b adelgaza la otra a
+ *   una casilla y esta a dos, porque la cara de la meseta la taparía.
  * - **Agua encajada**: una casilla de agua con las dos vecinas de un eje (que no
  *   son agua ni nodo) por encima de ella, con el nivel de `nivelesDelRelieve`.
  * - **Remiendo**: una franja de montaña de una o dos casillas pegada al agua de
@@ -63,7 +74,31 @@ export interface RiosDelMapa {
   readonly casillasDeLagosDeObstaculo: number;
   /** Casillas de agua de frontera por ancho local: 1, 2, 3, ≥ 4. */
   readonly anchos: readonly [number, number, number, number];
+  /** Las del agua de río entre iguales, lejos de nodos y lagos, por ancho local: 1, 2, 3, ≥ 4. */
+  readonly anchosDelRio: readonly [number, number, number, number];
+  /**
+   * Lo mismo entre dos niveles sin lo alto al norte (paso 2b: se adelgaza a una
+   * casilla, como entre iguales).
+   */
+  readonly anchosEntreNiveles: readonly [number, number, number, number];
+  /**
+   * Y entre dos niveles con lo alto al norte: lo primero que no es agua subiendo
+   * por su columna está más alto que ella. Ahí la cara de la meseta taparía un
+   * río de una casilla y va a dos. Por lo hondo de su columna (la tirada
+   * vertical), no en ocho vecinas.
+   */
+  readonly anchosBajoLaCara: readonly [number, number, number, number];
+  /**
+   * El agua de río de esas medidas (lejos de nodos y lagos) que la cara de lo
+   * alto tapa: más alto justo al norte y nada de agua justo al sur. «x,y» de
+   * cada una. El paso 2b la deja en 0 salvo lo que ya traía el engorde.
+   */
+  readonly aguaBajoLaCara: readonly string[];
+  /** El agua de río entre iguales de `anchosDelRio`, por su ancho en recta (la menor de sus dos tiradas rectas). */
+  readonly anchosDelRioEnRecta: readonly [number, number, number, number];
   readonly aguaEncajada: number;
+  /** «x,y» de cada casilla de agua encajada. */
+  readonly dondeEncajada: readonly string[];
   readonly remiendos: number;
   readonly casillasDeAguaDeFrontera: number;
 }
@@ -229,17 +264,27 @@ export function riosDelMapa(map: GameMap): RiosDelMapa {
   // El ancho local de cada casilla de agua de frontera.
   const esAgua = (i: number): boolean => esAguaDeFrontera(i) || esPuente.has(i);
   const ancho = new Int32Array(N);
+  // Las dos casillas de fuera de la tirada más corta (−1 fuera del mapa).
+  const orillas: [number, number][] = new Array(N);
   for (let i = 0; i < N; i++) {
     if (!esAguaDeFrontera(i)) continue;
     const x = i % W;
     const y = (i - x) / W;
     let h = 1;
-    for (let k = x - 1; k >= 0 && esAgua(y * W + k); k--) h++;
-    for (let k = x + 1; k < W && esAgua(y * W + k); k++) h++;
+    let oeste = x - 1;
+    for (; oeste >= 0 && esAgua(y * W + oeste); oeste--) h++;
+    let este = x + 1;
+    for (; este < W && esAgua(y * W + este); este++) h++;
     let v = 1;
-    for (let k = y - 1; k >= 0 && esAgua(k * W + x); k--) v++;
-    for (let k = y + 1; k < H && esAgua(k * W + x); k++) v++;
+    let norte = y - 1;
+    for (; norte >= 0 && esAgua(norte * W + x); norte--) v++;
+    let sur = y + 1;
+    for (; sur < H && esAgua(sur * W + x); sur++) v++;
     ancho[i] = Math.min(h, v);
+    orillas[i] =
+      h <= v
+        ? [oeste >= 0 ? y * W + oeste : -1, este < W ? y * W + este : -1]
+        : [norte >= 0 ? norte * W + x : -1, sur < H ? sur * W + x : -1];
   }
   const anchos: [number, number, number, number] = [0, 0, 0, 0];
   let casillasDeAguaDeFrontera = 0;
@@ -308,8 +353,74 @@ export function riosDelMapa(map: GameMap): RiosDelMapa {
     }
   }
 
+  // El ancho en ocho vecinas: la menor de las cuatro tiradas.
+  const tirada = (i: number, dx: number, dy: number): number => {
+    let n = 1;
+    for (const s of [-1, 1]) {
+      let x = (i % W) + s * dx;
+      let y = Math.floor(i / W) + s * dy;
+      while (x >= 0 && y >= 0 && x < W && y < H && esAgua(y * W + x)) {
+        n++;
+        x += s * dx;
+        y += s * dy;
+      }
+    }
+    return n;
+  };
+  const anchoEnOcho = (i: number): number =>
+    Math.min(tirada(i, 1, 0), tirada(i, 0, 1), tirada(i, 1, 1), tirada(i, 1, -1));
+  // El ancho del río entre iguales: lejos de nodos y fuera de sus lagos.
+  const anchosDelRio: [number, number, number, number] = [0, 0, 0, 0];
+  const anchosEntreNiveles: [number, number, number, number] = [0, 0, 0, 0];
+  const anchosBajoLaCara: [number, number, number, number] = [0, 0, 0, 0];
+  const aguaBajoLaCara: string[] = [];
+  const anchosDelRioEnRecta: [number, number, number, number] = [0, 0, 0, 0];
+  const enLago = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (aguaDeRio[i] === 0 || (ancho[i] as number) < 4 || enLago[i] === 1) continue;
+    const cola = [i];
+    const visto = new Set([i]);
+    for (let q = 0; q < cola.length; q++)
+      for (const j of vecinasDe(cola[q] as number, 1))
+        if (aguaDeRio[j] === 1 && (ancho[j] as number) >= 4 && !visto.has(j)) {
+          visto.add(j);
+          cola.push(j);
+        }
+    if (cola.length >= 9) for (const j of cola) enLago[j] = 1;
+  }
+  const nodos = [...ciudades, ...puentes];
+  const lejosDeNodos = (i: number): boolean => nodos.every((n) => cheb(n, i) >= 2);
+  // Un lago y lo que lo toca: su orilla de agua más estrecha no es el río.
+  const junto = (i: number): boolean => vecinasDe(i, 1).some((j) => enLago[j] === 1);
+  for (let i = 0; i < N; i++) {
+    if (aguaDeRio[i] === 0 || terreno[i] !== 'water' || enLago[i] === 1 || junto(i)) continue;
+    if (!lejosDeNodos(i)) continue;
+    const [a, b] = orillas[i] as [number, number];
+    if (a < 0 || b < 0) continue;
+    const ra = regionDe[a] as number;
+    const rb = regionDe[b] as number;
+    if (!isWalkable(terreno[a] as TerrainKind) || !isWalkable(terreno[b] as TerrainKind)) continue;
+    if (ra < 0 || rb < 0 || ra === rb) continue;
+    let norte = i - W;
+    while (norte >= 0 && terreno[norte] === 'water') norte -= W;
+    const bajoLaCara = norte >= 0 && (nivel[norte] as number) > (nivel[i] as number);
+    if (
+      i >= W &&
+      (nivel[i - W] as number) > (nivel[i] as number) &&
+      (i + W >= N || terreno[i + W] !== 'water')
+    )
+      aguaBajoLaCara.push(`${i % W},${Math.floor(i / W)}`);
+    // Bajo la cara cuenta lo hondo de su columna: es lo que la cara tapa, y en
+    // ocho vecinas un río de dos que baja en escalera mide uno en diagonal.
+    if (niveles[ra] === niveles[rb]) anchosDelRio[Math.min(4, anchoEnOcho(i)) - 1]! += 1;
+    else if (bajoLaCara) anchosBajoLaCara[Math.min(4, tirada(i, 0, 1)) - 1]! += 1;
+    else anchosEntreNiveles[Math.min(4, anchoEnOcho(i)) - 1]! += 1;
+    if (niveles[ra] === niveles[rb]) anchosDelRioEnRecta[Math.min(4, ancho[i] as number) - 1]! += 1;
+  }
+
   // El agua encajada.
   let aguaEncajada = 0;
+  const dondeEncajada: string[] = [];
   for (let i = 0; i < N; i++) {
     if (!esAguaDeFrontera(i)) continue;
     const x = i % W;
@@ -319,8 +430,10 @@ export function riosDelMapa(map: GameMap): RiosDelMapa {
     if (
       (x > 0 && x < W - 1 && encima(i - 1) && encima(i + 1)) ||
       (y > 0 && y < H - 1 && encima(i - W) && encima(i + W))
-    )
+    ) {
       aguaEncajada++;
+      dondeEncajada.push(`${x},${y}`);
+    }
   }
 
   // Los remiendos de montaña sobre un río.
@@ -355,7 +468,13 @@ export function riosDelMapa(map: GameMap): RiosDelMapa {
     lagosDeObstaculo,
     casillasDeLagosDeObstaculo,
     anchos,
+    anchosDelRio,
+    anchosEntreNiveles,
+    anchosBajoLaCara,
+    aguaBajoLaCara,
+    anchosDelRioEnRecta,
     aguaEncajada,
+    dondeEncajada,
     remiendos,
     casillasDeAguaDeFrontera,
   };
@@ -389,6 +508,11 @@ function principal(): void {
     aguaDeFrontera: 0,
   };
   const anchos = [0, 0, 0, 0];
+  const anchosDelRio = [0, 0, 0, 0];
+  const anchosEntreNiveles = [0, 0, 0, 0];
+  const anchosBajoLaCara = [0, 0, 0, 0];
+  const bajoLaCara: string[] = [];
+  const anchosDelRioEnRecta = [0, 0, 0, 0];
   const masLargos: number[] = [];
   const tiempos: number[] = [];
   const tirados = new Map<string, number>();
@@ -415,6 +539,11 @@ function principal(): void {
     suma.remiendos += r.remiendos;
     suma.aguaDeFrontera += r.casillasDeAguaDeFrontera;
     for (let k = 0; k < 4; k++) anchos[k]! += r.anchos[k]!;
+    for (let k = 0; k < 4; k++) anchosDelRio[k]! += r.anchosDelRio[k]!;
+    for (let k = 0; k < 4; k++) anchosEntreNiveles[k]! += r.anchosEntreNiveles[k]!;
+    for (let k = 0; k < 4; k++) anchosBajoLaCara[k]! += r.anchosBajoLaCara[k]!;
+    for (const p of r.aguaBajoLaCara) bajoLaCara.push(`s${s} (${p})`);
+    for (let k = 0; k < 4; k++) anchosDelRioEnRecta[k]! += r.anchosDelRioEnRecta[k]!;
     if (r.largos.length > 0) masLargos.push(Math.max(...r.largos));
     if (lista)
       console.log(
@@ -447,6 +576,21 @@ function principal(): void {
   console.log(`lagos de obstáculo: ${suma.lagosDeObstaculo} (${suma.casillasDeLagos} casillas)`);
   console.log(
     `agua de frontera: ${suma.aguaDeFrontera} casillas; ancho 1 ${pct(0)}, 2 ${pct(1)}, 3 ${pct(2)}, ≥ 4 ${pct(3)}`,
+  );
+  const porAncho = (xs: readonly number[]): string => {
+    const total = xs.reduce((a, b) => a + b, 0);
+    const pct = (k: number): string =>
+      `${((100 * (xs[k] as number)) / Math.max(1, total)).toFixed(0)} %`;
+    return `${total} casillas; ancho 1 ${pct(0)}, 2 ${pct(1)}, 3 ${pct(2)}, ≥ 4 ${pct(3)}`;
+  };
+  console.log(`agua de río entre iguales, lejos de nodos y lagos: ${porAncho(anchosDelRio)}`);
+  console.log(`  la misma, por su ancho en recta: ${porAncho(anchosDelRioEnRecta)}`);
+  console.log(
+    `agua de río entre dos niveles, lejos de nodos y lagos, sin lo alto al norte: ${porAncho(anchosEntreNiveles)}`,
+  );
+  console.log(`  y con lo alto al norte (bajo la cara): ${porAncho(anchosBajoLaCara)}`);
+  console.log(
+    `agua de río de una casilla bajo la cara de lo alto: ${bajoLaCara.length}${bajoLaCara.length > 0 ? ` (${bajoLaCara.slice(0, 12).join(', ')}${bajoLaCara.length > 12 ? '…' : ''})` : ''}`,
   );
   console.log(
     `agua encajada: ${suma.encajada}; remiendos de montaña sobre un río: ${suma.remiendos} (${(suma.remiendos / n).toFixed(2)} por mapa)`,

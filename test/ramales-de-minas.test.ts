@@ -19,9 +19,15 @@ import { ramalesDeMinas } from '../tools/qa/ramales.js';
 import { LENTO, rango, segunPrisa } from './lento.js';
 
 // Con los ríos (#144, 16-10-2026) la s19 es otro mapa y le queda una (como a
-// s23 y s29 de 1-30): va la s14, otra de las que la daban antes de #230.
-const SEMILLAS = segunPrisa([1, 4, 14], rango(1, 200));
-/** En 1-200: 99 antes de #230, 20 después; 21 con los ríos (#144). */
+// s23 y s29 de 1-30): va la s14, otra de las que la daban antes de #230. Con
+// el río de una casilla (#144, paso 2) le queda una a la s1 (como a s2, s19,
+// s27 y s29 de 1-30): va la s3, otra de las de antes de #230. Con el río de una
+// casilla al pie de la meseta (#144, paso 2b) le queda una a la s4 (como a s19,
+// s26 y s29 de 1-30; la de s4, (4,39), sin otro sitio: el radio pasa por el
+// noroeste y al oeste de la puerta de debajo hay bosque): va la s7, otra de las
+// de antes de #230.
+const SEMILLAS = segunPrisa([3, 7, 14], rango(1, 200));
+/** En 1-200: 99 antes de #230, 20 después; 21 con los ríos (#144); 24 con el paso 2b. */
 const TECHO_EN_LA_LENTA = 25;
 
 describe('la mina sale por la puerta menos forzada (#230)', () => {

@@ -319,7 +319,8 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
   it('una isla de barrera toma lo que se pisa a su nivel más cercano, pasando por otro nivel', () => {
     // Lava a 1, una montaña a 0, dos montañas a 1 sin nada a 1 unido a ellas
     // (las separa la de 0) y la ciénaga a 0. Las dos de 1 toman la lava de dos
-    // casillas más allá, no la ciénaga de al lado (s9 (22-23, 28) con los ríos).
+    // casillas más allá, no la ciénaga de al lado (s9 (22-23, 28) con los ríos;
+    // s1037 (33, 32-33) con el río de una casilla).
     expect(
       sueloDeLaMeseta(
         5,
@@ -331,26 +332,32 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
     ).toEqual(['lava', 'swamp', 'lava', 'lava', 'swamp']);
   });
 
-  it('s9 (22-23, 28): la repisa de montaña a 1, aislada en su nivel, es de la lava a 1 y su pared, de basalto', () => {
-    // La muestra que muerde: con los ríos (#144, 16-10-2026) la montaña de
-    // (22-23, 28) queda a 1 entre la ciénaga a 0 del norte y el áspero a 2 del
-    // sur, y nada a 1 se une a ella por su nivel. Con su propio suelo (la
-    // ciénaga), sus tres paredes del norte eran de roca gris (`caraDeOtroMaterial` 3).
-    const { map, escena: e } = partidaDe(9);
+  it('s1037 (33, 32-33): la repisa de montaña a 1, aislada en su nivel, es de la tierra a 1 y no de la ciénaga de al lado', () => {
+    // La muestra que muerde: con los ríos (#144, 16-10-2026) era la montaña de
+    // s9 (22-23, 28), a 1 entre la ciénaga a 0 del norte y el áspero a 2 del
+    // sur, y nada a 1 se unía a ella por su nivel. Con su propio suelo (la
+    // ciénaga), sus tres paredes del norte eran de roca gris
+    // (`caraDeOtroMaterial` 3). Con el río de una casilla (#144, paso 2) es la
+    // única isla de 1-2100: la de s1037, a 1 entre la ciénaga a 0, la montaña
+    // nevada a 2 y el agua, con la tierra a 1 dos filas al sur, pasado el agua.
+    // Las dos caras son de roca (`CARA_DE_SUELO`): aquí muerde el suelo, no el
+    // material.
+    const { map, escena: e } = partidaDe(1037);
     const a = analizar(map);
-    const repisa = [28 * a.W + 22, 28 * a.W + 23];
+    const repisa = [32 * a.W + 33, 33 * a.W + 33];
     for (const i of repisa) {
       expect(a.terreno[i]).toBe('mountain');
       expect(e.nivel[i]).toBe(1);
       // Que el caso siga ahí: ninguna vecina a 1 fuera de la repisa.
       const x = i % a.W;
+      const y = Math.floor(i / a.W);
       for (let dy = -1; dy <= 1; dy++)
         for (let dx = -1; dx <= 1; dx++) {
-          const j = (28 + dy) * a.W + x + dx;
-          if (!repisa.includes(j)) expect(e.nivel[j], `${x + dx},${28 + dy}`).not.toBe(1);
+          const j = (y + dy) * a.W + x + dx;
+          if (!repisa.includes(j)) expect(e.nivel[j], `${x + dx},${y + dy}`).not.toBe(1);
         }
       expect(a.suelo[i]).toBe('swamp');
-      expect(e.suelo[i]).toBe('lava');
+      expect(e.suelo[i]).toBe('dirt');
     }
     expect(e.informe.caraDeOtroMaterial).toBe(0);
   });

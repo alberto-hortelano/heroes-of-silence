@@ -4687,3 +4687,141 @@ por el borde del mapa), y puede, mejor, cruzar lagos. Dos commits: (1) los ríos
     rejilla, pasando por otros niveles (la lava a 1, dos casillas al oeste); solo lo que no tiene nada
     a su nivel en el mapa se queda con el suyo. Cambia la roca de la pared y lo que se pinta en esas
     casillas, que es el suelo de su meseta (#217).
+
+## Los ríos, paso 2: el río de una casilla (#144, 16-10-2026)
+
+Con el paso 1 en las capturas, el usuario seguía viendo «lagos enlazados»: el agua del río iba a 2-3
+casillas, como la de una pareja suelta. El paso 2 adelgaza a una casilla el agua del río donde cabe.
+
+- **Qué se adelgaza** (`adelgazarRios`, `vestir.ts`, paso 7a con el acantilado): el agua de las
+  parejas del río y de su espejo, entre dos regiones al mismo nivel y a ese nivel. Por vueltas, como
+  el acantilado de #215 (`abrirAcantilado` pasa a `abrirLinea`, con la barrera de la línea): cada
+  casilla de agua cuyo todo lo que se pisa alrededor es de una región se abre a ella si es la que se
+  la come, hasta que queda la casilla que toca a las dos.
+- **Quién se la come.** El lado de la reparación del grosor (`elQueEngorda`, a trechos de
+  `TRECHO_DEL_LADO`), para que el río serpentee. Medido desde la casilla del muro fino más cercana y
+  no desde la propia: en s4 (18-20, 14) el muro bajaba en escalera por la raya de un trecho y cada
+  orilla esperaba a que comiera la otra; el río se quedaba de tres. Y por fases: donde dos trechos
+  se encuentran, come el lado de la pareja y luego el otro.
+- **Lo que no se adelgaza**: los lagos del curso; lo que está a un paso de un nodo (el puente y la
+  ciudad guardan su agua a los lados); lo que está a `RADIO_DEL_CRUCE` (1) de un cruce de tres
+  regiones (s5 (17-19, 21-22): el río pasa de una pareja a otra por el punto triple, la tercera
+  pareja lleva su barrera hasta él, y delgadas las dos aguas quedaban a dos de esa barrera y el río
+  se partía; sin el radio, 11 ciudades de río sin boca en 6 mapas de 1-160; con 2, el 80 % de una
+  casilla en vez del 89 %); y lo que quedaría de espiga.
+- **Entre dos niveles, no.** La cara de lo alto cuelga sobre lo bajo (0,6 casillas por nivel): en un
+  río de una casilla al pie de una meseta del norte quedaría a la vista menos de media. Es la
+  decisión del plan, y pesa: más de la mitad del agua de río de 1-40 va entre dos niveles (la
+  ciénaga va siempre a 0 y es la que más agua lleva). Sortear los ríos con las parejas a un nivel
+  pesando el doble no cambió esa proporción (682 / 865 casillas entre iguales / entre niveles, frente
+  a 758 / 765 sin ello: es el azar de los vestidos) y se quitó.
+- **La línea que separa, un hecho en un sitio** (`lineaQueSepara`, `separadasDeCerca`): dos regiones
+  a dos pasos solo con el acantilado entre dos niveles o el agua a su nivel entre dos iguales. Había
+  cinco copias de «un acantilado en medio» (el 7d, `seAcerca` de la apertura del acantilado,
+  `quitarEspigas`, `puertasSinMuesca`, `abrirEsquinasTorcidas`), y algunas no aceptaban ninguna
+  línea (`quitarEspigas` no abría si había otra región a dos, con lo que fuera en medio). Solo el
+  cambio de las cinco movía 28 de 200 mapas, sin vestidos tirados de más. El agua más baja que sus
+  dos orillas no cuenta: sería un cañón (#210). La auditoría densa de los tests (`auditarMapaDenso`)
+  mira lo mismo en el mapa hecho.
+- **El agua derramada junto a una ciudad** (`sinAguaDerramada`): el engorde deja agua de un brazo
+  del río doblando la esquina de la ciudad, entre dos regiones cuya pareja lleva otra barrera. Con el
+  río ancho era la charca del vado; delgado, se quedaba suelta y la medida la contaba como tercer
+  brazo (s3 (11-12, 21-22)). Pasa a la barrera de esa pareja (no al muro). Una vez por engorde: si es
+  bosque, la regla de los cruces lo puede volver agua, y mirarlo en cada vuelta del paso 7 no
+  acababa.
+- **El pintor no cambia**: en una casilla el agua es entera en tres cuartos, la espuma va en las dos
+  orillas y el barro es una franja fina fuera; no hay centro hondo (lo hondo es lo que tiene agua a
+  los cuatro lados), y en los recortes a 96 px se lee como un río de agua clara.
+- **Medido en 1-40** (`tools/qa/rios.ts`). El agua de río entre iguales, a dos o más de todo nodo y
+  fuera de sus lagos, por su ancho en ocho vecinas (la menor de las tiradas recta y diagonales: el
+  río de una casilla que baja en diagonal va en escalera y mide dos en recta): de una / dos / tres,
+  18 / 64 / 18 % → 89 / 8 / 3 % (en recta, 2 → 55 % de una). Entre dos niveles, 19 / 62 / 19 → 16 /
+  62 / 21 %, como estaba. Mapas con río 37 → 38 (de borde a borde 29 → 29); ríos con boca 72 de 72 →
+  78 de 78; mediana del río más largo 30 → 30; agua de frontera 7 839 → 6 235 casillas; agua encajada
+  128 → 118; remiendos de montaña junto a un río 4,75 → 4,10 por mapa.
+- **Los guardias de los cruces.** En 1-200, ciudades con tres brazos / ríos con escalón / ciudades
+  de río sin boca: 9 / 9 / 6 en 12 mapas con el paso 1 → 5 / 7 / 0 en 8. En 1-40 el paso 1 no tenía
+  ninguno, y el guardia lento lo pedía; con el paso 2 quedan s9 (21,22), un río entre dos niveles que
+  pasa a dos de una ciudad, y s39 (12,21), un trozo de agua junto a un puente a la altura de su
+  orilla. El guardia de 1-40 admite uno de cada, con estas cifras en su comentario.
+- **Juego**: en 1-100, duración 8 / 15 / 22 → 8 / 13 / 19, j0 58 → 56, 0 sin terminar. Banco
+  re-anclado (`df3ce30f…`): 34 de 200 idénticas, y en las demás el primer hecho distinto es el primer
+  `raider_spawned`; duración 8 / 14 / 24 → 7 / 12 / 20 (lo que era agua se pisa). Rectitud en
+  1-3000: 95 / 0 / 4 → 90 / 0 / 5.
+
+## El río de una casilla también entre dos niveles (#144, paso 2b, 16-10-2026)
+
+Tras el paso 2 el agua del río entre dos niveles seguía de 2-3 casillas, más de la mitad del agua de
+río, y en las capturas de s8, s10 y s11 se leía como lagos. Decisión del usuario: **también a una
+casilla donde se vea**. La cara de la meseta cuelga hacia la cámara, de norte a sur, unas 0,6
+casillas y taparía un río de una; donde lo alto queda justo al norte del agua, a dos.
+
+- **La regla, en un sitio** (`aguaALaVista`): el agua de una casilla se ve si nada más alto le queda
+  justo al norte o, si lo hay, hay más agua justo al sur. `separadasDeCerca` la acepta como línea
+  entre dos niveles a ras de la más baja (`lineasQueSeparan`: el acantilado, o el agua) solo con
+  `aguaEntreNiveles`, que piden el 7d y `adelgazarRios`. Abierta a todos los que abren casillas
+  (`quitarEspigas`, `abrirEsquinasTorcidas`…), se arrimaban al río al pie de la meseta y le comían la
+  esquina de un vado: 3 ciudades de río sin boca en 1-200 aun sin adelgazar nada entre dos niveles.
+- **Se la come lo bajo** (`adelgazarRios`): el borde de la meseta no se mueve y el río queda a su pie.
+  Así no hay cañón: lo que se abre va a ras del agua. Lo alto solo se come **la muesca**: el agua que
+  lo bajo deja metida en la meseta con lo alto a los dos lados de un eje (s4 (17,1), s2 (31,15)), si
+  es un fondo de saco (el agua de su anillo de ocho vecinas, de un solo trozo; llenar la que unía dos
+  trozos en s21 (13,16) dejaba el río sin boca) y fuera del marco (la boca). Va en una vuelta aparte,
+  antes que lo bajo: a la vez, lo bajo se comía el agua del sur de una muesca que lo alto llenaba y la
+  de en medio quedaba bajo su cara (s21 (4,32)). Agua encajada en 1-40: 118 → 68.
+- **Lo que cortaba el río.** Delgado al pie de la meseta, el río se partía en tres sitios, y 12
+  ciudades de río de 1-200 se quedaban sin boca:
+  - las espigas: lo alto que se pisa entre dos aguas (la esquina de la meseta junto a una ciudad del
+    río, s21 (13,17)) lo arregla `quitarEspigas` pasando su orilla a montaña, y la orilla era todo el
+    río. No se adelgaza entre dos niveles a `CERCA_DE_UNA_ESPIGA` (2) de una espiga (12 → 5);
+  - el reflejo de una esquina de agua que corta una senda (`sinAguaEnLasEsquinas`): se pasaba a
+    montaña a ciegas, y en s1 (19,24) era el río entero y dejaba dos regiones a dos pasos con una
+    montaña de una casilla en medio (lo cazó la auditoría densa de 200 semillas). El reflejo que parte
+    el agua ya no se pasa: el mapa deja de ir en espejo en esa casilla, que es menos que perder el río
+    (5 → 3);
+  - quedan 3, en s21, s55 y s146: la esquina de agua que la propia senda corta (esa no se puede dejar)
+    o un vado donde el río dobla. Se probó tirar el vestido cuando la esquina parte el agua: los mapas
+    con río de 1-200 caían de 187 a 147 y generar subía de 63 a 397 ms de mediana. Descartado.
+  - Se probó también no adelgazar a tres de una ciudad del río: no movía las ciudades sin boca y
+    dejaba el río grueso en todos los vados. Descartado.
+- **El pintor no cambia.** Lo alto se adelanta sobre lo bajo (`ORILLA`, 0,06-0,3) y el agua se cierra
+  donde queda encima, así que el río al pie de la meseta pierde algo de su casilla, pero ninguna baja
+  de la mitad (0,56-0,63 al este, al oeste y al norte de la meseta, `test/rios.test.ts`; 0,88 entre
+  iguales). Encima, la ladera de caída 1 tapa hasta 0,45 a su pie: al este o al oeste de la meseta el
+  río se ve de 0,3-0,5 casillas, un arroyo (`capturas/paso2b-cerca-s20-meseta-al-oeste.png`,
+  `-s5-meseta-al-este.png`). Al norte de la meseta, el canto y el reborde de la espalda se leen como
+  la orilla (`-s11-meseta-al-sur.png`). Al sur, con dos filas, la cara de caída 1 tapa 0,6 y se ve el
+  resto; la de caída 2 cuelga 1,2 casillas y del río queda una franja de media casilla
+  (`-s4-meseta-al-norte.png`, s4 (14-21, 26-27)): se lee, pero justo. No salió ninguno de caída 2 al
+  este o al oeste en 1-40 con cuatro casillas seguidas.
+- **Medido en 1-40** (`tools/qa/rios.ts`, que ahora parte el agua entre dos niveles por si lo alto
+  queda al norte y mide esa por lo hondo de su columna). Entre dos niveles sin lo alto al norte, de una
+  / dos / tres 18 / 61 / 21 % → 78 / 16 / 6 %; con lo alto al norte, 1 / 17 / 29 / 53 % → 1 / 47 / 19 /
+  32 % (1 / 2 / 3 / ≥ 4); agua de una casilla bajo la cara 5 → 6 (la que deja el engorde junto a
+  cruces y nodos: 9 con el paso 1); entre iguales 89 / 8 / 3 → 85 / 12 / 3 %. Mapas con río 38 → 38;
+  mediana del río más largo 30 → 35.
+- **Los guardias de los cruces** en 1-200 (tres brazos / escalón / sin boca): paso 1, 9 / 9 / 6;
+  paso 2, 5 / 7 / 0; paso 2b, 8 / 7 / 3. El guardia lento de 1-40 admite 3 ciudades sin boca (las
+  de s21).
+- **Los niveles no se sesgan** (lo que hizo pensar que sí: al mudar los tests del paso 2, s1, s4, s7,
+  s12, s15, s23, s25, s31, s32 y s33 eran mapas sin meseta). En 1-200, regiones a 2 / mapas sin
+  meseta / del todo llanos: antes de los ríos 14,5 % / 86 / 33; paso 1, 16,3 % / 76 / 34; paso 2,
+  16,0 % / 81 / 41; paso 2b, 17,2 % / 68 / 31. Ya antes de los ríos el 43 % de los mapas no tenía
+  meseta; las semillas que la pierden son otras, no más. El 19 % de #210 era de un mapa anterior.
+- **Juego**: en 1-100, duración 8 / 13 / 19 → 7 / 12 / 21, j0 56 → 50, 0 sin terminar. Banco
+  re-anclado (`37cac0c8…`): 40 de 200 idénticas, y en las demás el primer hecho distinto es casi
+  siempre el primer `raider_spawned`. Rectitud en 1-3000: 90 / 0 / 5 → 102 / 0 / 5.
+- **El borde de s30** (de la tarea del bosque): el recuento a mano de los pasillos en
+  `test/pisable-junto-al-bosque.test.ts` daba por tapado el de s30 (0,11) y `informe.pasillosTapados`
+  no. Tenía razón el informe: la puerta encoge la masa hasta que su caja llega justo al margen, y al
+  medirla otra vez el borde sale a 1e-15 de él (un abeto de pie en x = −0,11 llegaba a 0,2000…004 con
+  margen 0,2). El recuento a mano no tenía tolerancia; ahora la tiene (`TOQUE`, 1e-9). No es cosa del
+  borde: con el paso 2b salen cajas así en s1, s3, s5 y s36.
+- **Lo que queda en rojo en la orden lenta** (decide el usuario):
+  - la auditoría densa de 200 semillas (`regiones.test.ts`): 8 mapas con dos regiones a dos pasos con
+    una montaña o agua tapada en medio, o una región con demasiado obstáculo. Ya fallaba con el paso 2
+    (5), que no corrió nunca el lento: el río de una casilla lo parte lo que el generador hace después
+    del engorde (la esquina de agua de una senda, la orilla de una espiga);
+  - «más de la mitad de los mapas de 1-200 llevan muralla»: 112 / 112 / 111 / 99 antes de los ríos y en
+    los pasos 1, 2 y 2b. Con las variantes del 2b que se probaron salía 104, 110 y 99: un recuento que
+    se mueve ±7 cuando cambian todos los vestidos, con el suelo de 100 puesto sobre 112.

@@ -48,8 +48,15 @@ import {
   type Reachable,
   RedDeCaminos,
 } from '../src/core/map/map.js';
-import { estructura, rellenar, VECINAS, vecindad } from '../src/core/map/regiones.js';
+import {
+  estructura,
+  nivelesDelRelieve,
+  rellenar,
+  VECINAS,
+  vecindad,
+} from '../src/core/map/regiones.js';
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
+import { lineasQueSeparan } from '../src/core/map/vestir.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import {
   alcanceDelHeroe,
@@ -706,12 +713,30 @@ export function auditarMapaDenso(
         if (x >= 0 && y >= 0 && x < W && y < H) cercaDeNodo[y * W + x] = 1;
       }
   }
-  /** Si alguna casilla vecina de las dos es acantilado: el borde de la meseta las separa. */
-  const acantiladoEntre = (i: number, j: number): boolean => {
+  /**
+   * Si alguna casilla vecina de las dos es su línea (`lineasQueSeparan`): el
+   * borde de la meseta entre dos niveles; o el río de una casilla a ras de la
+   * más baja de las dos (#144, paso 2), que se ve: sin nada más alto justo al
+   * norte, o con más agua justo al sur (paso 2b).
+   */
+  const niveles = map.regions.map((r) => r.nivel ?? 1);
+  const nivel = nivelesDelRelieve(W, H, map.terrain, red.regionDe, niveles, []);
+  const lineaEntre = (i: number, j: number): boolean => {
     const [ix, iy, jx, jy] = [i % W, Math.floor(i / W), j % W, Math.floor(j / W)];
+    const nivelI = niveles[red.regionDe[i]!] as number;
+    const nivelJ = niveles[red.regionDe[j]!] as number;
+    const lineas: readonly TerrainKind[] = lineasQueSeparan(nivelI, nivelJ);
     for (let y = Math.max(iy, jy) - 1; y <= Math.min(iy, jy) + 1; y++)
-      for (let x = Math.max(ix, jx) - 1; x <= Math.min(ix, jx) + 1; x++)
-        if (x >= 0 && y >= 0 && x < W && y < H && map.terrain[y * W + x] === 'cliff') return true;
+      for (let x = Math.max(ix, jx) - 1; x <= Math.min(ix, jx) + 1; x++) {
+        if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        const m = y * W + x;
+        const t = map.terrain[m]!;
+        if (!lineas.includes(t)) continue;
+        if (t === 'cliff') return true;
+        const aLaVista =
+          y === 0 || nivel[m - W]! <= nivel[m]! || (y + 1 < H && map.terrain[m + W] === 'water');
+        if (nivel[m] === Math.min(nivelI, nivelJ) && aLaVista) return true;
+      }
     return false;
   };
   let finas = 0;
@@ -728,7 +753,7 @@ export function auditarMapaDenso(
         if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
         const j = ny * W + nx;
         const s = red.regionDe[j]!;
-        if (s >= 0 && s !== r && cercaDeNodo[j] === 0 && !acantiladoEntre(i, j)) {
+        if (s >= 0 && s !== r && cercaDeNodo[j] === 0 && !lineaEntre(i, j)) {
           finas++;
           if (primera === '') primera = `${en(i)} y ${en(j)}`;
         }

@@ -177,9 +177,11 @@ describe('el canto de la espalda (#219)', () => {
  * auditoría 5) hasta que las dos puertas de la mina (#230) la dejaron sin meseta
  * (09-10-2026: 0 rebordes; la 3 tiene 50 y 33 671 píxeles de agua en lo alto sin
  * el escalón). La 443 se quedó sin meseta con los ríos (#144, 16-10-2026): va
- * la 15, la de más rebordes de 1-20 (71; la 3, 25).
+ * la 15, la de más rebordes de 1-20 (71; la 3, 25). La 15 se quedó sin meseta
+ con el río de una casilla (#144, paso 2): va la 16, la de más rebordes de 1-20
+ (65; la 3, 38).
  */
-const SEMILLAS = LENTO ? rango(1, 40) : [3, 15];
+const SEMILLAS = LENTO ? rango(1, 40) : [3, 16];
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
@@ -193,7 +195,7 @@ describe('en los mapas reales', () => {
     });
 
   it('la muestra del bucle rápido tiene espaldas que mirar', () => {
-    for (const s of [3, 15]) expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
+    for (const s of [3, 16]) expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
   });
 
   for (const semilla of SEMILLAS)
@@ -231,11 +233,12 @@ describe('en los mapas reales', () => {
 });
 
 /**
- * En la orden lenta, 1-40; en `verify`, la 15 (la 55, la marca de #223, hasta
- * los ríos, #144, que la dejaron sin meseta; la 15 es la de más espaldas con
- * oscuro, 69) y la 3 (la 2 hasta #230, que la dejó sin meseta).
+ * En la orden lenta, 1-40; en `verify`, la 16 (la 15 hasta el río de una
+ * casilla, #144 paso 2, que la dejó sin meseta; la 55, la marca de #223, hasta
+ * los ríos, #144; la 16 es la de más espaldas con oscuro de 1-20, 65) y la 3
+ * (la 2 hasta #230, que la dejó sin meseta).
  */
-const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [15, 3];
+const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [16, 3];
 
 describe('la espalda, una línea nítida (#223)', () => {
   for (const semilla of SEMILLAS_DEL_OSCURO)
@@ -249,31 +252,41 @@ describe('la espalda, una línea nítida (#223)', () => {
   it('la muestra del bucle rápido mide espaldas con oscuro', () => {
     // Si el guardia no encontrara ningún oscuro que medir, pasaría sin mirar.
     // Más de 10 por semilla: con los mapas de #224 una de las dos da 17.
-    for (const s of [15, 3])
+    for (const s of [16, 3])
       expect(
         oscuroAlNorteDeLasEspaldas(partidaDe(s).escena).filter((q) => q.ancho > 0).length,
       ).toBeGreaterThan(10);
   });
 
-  it('s36 (10,33): al norte, el hoyo del nodo de acantilado; al norte del hoyo, la sombra de la ladera de (9,31), que no es de la espalda', () => {
-    // Con los ríos (#144, 16-10-2026): el nodo de (10,32), con camino, va a lo
-    // bajo (0) entre dos acantilados a 2, y lo alto se lo come casi entero. La
-    // tirada de oscuro subía del canto, por el hoyo, a la sombra que la ladera
-    // de (9,31) echa sobre (10,31), y salía de 0,56: solo se apartaban las
-    // columnas de las laderas de la casilla del norte, no de la de su norte.
-    const e = partidaDe(36).escena;
+  it('s41 (19,10): al norte, el hoyo del nodo de acantilado; al norte del hoyo, la sombra de la ladera de (18,8), que no es de la espalda', () => {
+    // Con los ríos (#144, 16-10-2026) era s36 (10,33): el nodo de (10,32), con
+    // camino, va a lo bajo (0) entre dos acantilados a 2, y lo alto se lo come
+    // casi entero. La tirada de oscuro subía del canto, por el hoyo, a la
+    // sombra que la ladera de (9,31) echa sobre (10,31), y salía de 0,56: solo
+    // se apartaban las columnas de las laderas de la casilla del norte, no de
+    // la de su norte. Con el río de una casilla (#144, paso 2), s41 (19,10): el
+    // nodo de acantilado de (19,9), con camino, a 1 entre dos acantilados a 2.
+    const e = partidaDe(41).escena;
     const n = (x: number, y: number) => e.nivel[y * e.W + x];
-    // Que el caso siga ahí.
-    expect([n(10, 33), n(10, 32), n(9, 32), n(11, 32), n(9, 31), n(10, 31)]).toEqual([
-      2, 0, 2, 2, 2, 0,
+    // Que el caso siga ahí: el hoyo y, al norte, la sombra de la ladera de (18,8).
+    expect([n(19, 10), n(19, 9), n(18, 9), n(20, 9), n(18, 8), n(19, 8)]).toEqual([
+      2, 1, 2, 2, 2, 1,
     ]);
-    const espalda = oscuroAlNorteDeLasEspaldas(e).find((q) => q.x === 10 && q.y === 33);
+    const np = nivelPintado(e);
+    const sombra = sombraAlPie(e, np);
+    const enLaDelNorte = (px: number) =>
+      Array.from({ length: R }, (_, k) => sombra.alfa[(8 * R + k) * np.ancho + px] as number);
+    const columnas = Array.from({ length: R }, (_, k) => 19 * R + k).filter((px) =>
+      enLaDelNorte(px).some((a) => a / 255 >= OSCURO_DE_LA_ESPALDA.umbral),
+    );
+    expect(columnas.length).toBeGreaterThan(0);
+    const espalda = oscuroAlNorteDeLasEspaldas(e).find((q) => q.x === 19 && q.y === 10);
     expect(espalda?.ancho).toBeGreaterThan(0);
     expect(espalda?.ancho).toBeLessThanOrEqual(OSCURO_DE_LA_ESPALDA.ancho);
   });
 
-  it('el guardia muerde: con todo lo bajo oscuro, la s15 tiene espaldas que pasan', () => {
-    const e = partidaDe(15).escena;
+  it('el guardia muerde: con todo lo bajo oscuro, la s16 tiene espaldas que pasan', () => {
+    const e = partidaDe(16).escena;
     const np = nivelPintado(e);
     const negro = {
       ancho: np.ancho,

@@ -15,7 +15,8 @@ import { Session } from '../src/client/session.js';
 import { puenteSobreElAgua } from './helpers.js';
 
 describe('queHayEn', () => {
-  const s = new Session(1);
+  // La 2 (la 1 hasta el río de una casilla, #144 paso 2, que la dejó sin mesetas).
+  const s = new Session(2);
   const esc = escenarioDe(s.state.map, s.state.seed);
 
   it('en el centro de un módulo de una hoja lo devuelve con su caja, su hoja y su módulo', () => {
@@ -27,7 +28,7 @@ describe('queHayEn', () => {
       return cx >= 0 && cy >= 0 && cx < W && cy < H;
     });
     if (sprite === undefined)
-      throw new Error('la semilla 1 no tiene ninguna masa con arte dentro del mapa');
+      throw new Error('la semilla 2 no tiene ninguna masa con arte dentro del mapa');
     const caja = cajaDeSprite(sprite);
     const punto = { x: (caja[0] + caja[2]) / 2, y: (caja[1] + caja[3]) / 2 };
     const casilla = { x: Math.floor(punto.x), y: Math.floor(punto.y) };
@@ -47,7 +48,7 @@ describe('queHayEn', () => {
 
   it('en una casilla bajo una cara de acantilado da la cara, con su banda, y la pared de su celda', () => {
     const cara = esc.escena.relieve.caras[0];
-    if (cara === undefined) throw new Error('la semilla 1 no tiene caras');
+    if (cara === undefined) throw new Error('la semilla 2 no tiene caras');
     // Por celdas la cara va de junta a junta, en medias casillas (R4).
     const casilla = { x: Math.ceil(cara.x0), y: cara.y + 1 };
     const hay = queHayEn(esc, { x: casilla.x + 0.5, y: casilla.y + 0.1 }, casilla);

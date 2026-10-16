@@ -942,11 +942,37 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   → **8 / 14 / 24**, 0 sin terminar. Batallas 1 451 → 1 375, `town_captured`
  *   1 304 → 1 184, `hero_defeated` 323 → 262, `troop_rank_up` 2 226 → 2 049;
  *   ningún tipo nuevo ni ninguno que desaparezca.
+ * - `df3ce30f…` (61 123 líneas): **el río de una casilla** (16-10-2026, paso 2
+ *   de `docs/agents/2026-10-14-rios-entre-regiones/`, #144): el agua del río
+ *   entre dos regiones al mismo nivel se adelgaza a una casilla
+ *   (`adelgazarRios`) y esa agua a su nivel separa dos regiones a dos pasos
+ *   (`separadasDeCerca`, que sustituye a cinco copias de «acantilado en
+ *   medio»). Los mapas cambian: contra `--dump` de `b9d4b316…`, **34 de 200
+ *   idénticas** (los mapas sin río entre iguales que se vistan igual), y en las
+ *   166 que cambian el primer hecho distinto es el primer `raider_spawned`
+ *   (154), un `raider_spawned` posterior (7) o un `hero_moved` (5): es el mapa,
+ *   no las reglas. 77 con otro ganador, j0 107 → **114**, duración 8 / 14 / 24
+ *   → **7 / 12 / 20**, 0 sin terminar. Batallas 1 375 → 1 308, `hero_moved`
+ *   40 861 → 36 684, `town_captured` 1 184 → 1 190, `troop_rank_up` 2 049 →
+ *   1 708; ningún tipo nuevo ni ninguno que desaparezca. Las partidas se
+ *   acortan: con el río delgado, lo que era agua se pisa.
+ * - `37cac0c8…` (64 528 líneas): **el río de una casilla también entre dos
+ *   niveles** (16-10-2026, paso 2b de la misma tarea, decisión del usuario):
+ *   donde lo alto no queda justo al norte del agua, a una casilla; con lo alto
+ *   al norte, a dos (`aguaALaVista`). Los mapas cambian: contra `--dump` de
+ *   `df3ce30f…`, **40 de 200 idénticas**, y en las 160 que cambian el primer
+ *   hecho distinto es el primer `raider_spawned` (142), uno posterior (9), un
+ *   `hero_moved` (6), un `battle_ended` (2) o un `garrison_taken` (1): el mapa,
+ *   y con él cuántas tiradas gasta el generador antes de la partida, no las
+ *   reglas. 65 con otro ganador, j0 114 → **111**, duración 7 / 12 / 20 →
+ *   **7 / 13 / 24**, 0 sin terminar. Batallas 1 308 → 1 370, `hero_moved`
+ *   36 684 → 38 818, `town_captured` 1 190 → 1 230, `troop_rank_up` 1 708 →
+ *   1 794; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'b9d4b3164f99c51a013a21865043333d807448583a05d4c4370c084b430c53d6',
+  sha: '37cac0c80eb4dcc8c3b90475d14543c66de2a08a71b3bd9e4d9cbf3ade761c8d',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

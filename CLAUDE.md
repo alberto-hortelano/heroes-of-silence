@@ -151,6 +151,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed` |
 | Qué barrera cruza un nodo | `MapObject.barrera`, que pone `buildMap` con el muro que abre; el procedimental escribe ese muro con `queCruzaElNodo` |
 | Qué parejas llevan agua en el procedimental: el río y la regla de las charcas | `elegirRio`, `BrazosDeAgua`, `ponerLagos` (`core/map/rios.ts`); medido sobre el mapa, `riosDelMapa` (`tools/qa/rios.ts`) |
+| Qué línea deja dos regiones a dos pasos (el acantilado entre dos niveles; el agua a ras de la más baja, que se ve) | `lineasQueSeparan`, `separadasDeCerca`, `aguaALaVista` (`vestir.ts`): el paso 7d y todo lo que abre una barrera (`abrirLinea`, `quitarEspigas`, `puertasSinMuesca`, `abrirEsquinasTorcidas`); el agua entre dos niveles, solo el 7d y `adelgazarRios` (`aguaEntreNiveles`); en el mapa hecho, `auditarMapaDenso` (`test/helpers.ts`) |
 | Caminos de un plan al mapa | `caminosDelPlan` |
 | Carga | `cargaDesde` (cuándo), `cargaEfectiva` (tope), `casillasDeCarga` (qué se enseña) |
 | Turno de batalla | `BattleState.turno` (`n`, ordinal); `mismoTurno`; viaja como `turnId` |
@@ -301,7 +302,12 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   que toca lo bajo (`adelgazarAcantilados`, paso 7a; sin dejar otra región al mismo nivel a dos
   pasos ni un eje de la meseta a la meseta junto a un nodo); el que se queda sin caída se abre a
   su región o pasa a montaña (7a'), y el vestido con un acantilado sin caída o dos regiones a dos
-  pasos sin acantilado en medio no vale (7c, 7d; y tras los caminos, `acantiladoSinCaida`). Lo
+  pasos sin su línea en medio no vale (7c, 7d; y tras los caminos, `acantiladoSinCaida`). La línea
+  es el acantilado entre dos niveles y el agua del río a ras de la más baja de las dos, que se ve:
+  entre dos iguales (#144, paso 2) y, entre dos niveles, sin lo alto justo al norte o con otra fila
+  de agua al sur (paso 2b; `lineasQueSeparan`, `separadasDeCerca`, `aguaALaVista`, que leen el 7d,
+  `abrirLinea`, `quitarEspigas`, `puertasSinMuesca` y `abrirEsquinasTorcidas`; el agua entre dos
+  niveles, solo el 7d y quien adelgaza el río). Lo
   bajo va **en ocho vecinas** (`acantiladosSinCaida`): las regiones son 8-conexas y la línea en
   diagonal va en escalera, con el codo tocando lo bajo por la esquina. En 10 semillas, 447 de
   776 casillas sin caída en cruz → 0 de 414 en ocho (88 son codos). **La puerta de una ciudad no
@@ -375,7 +381,10 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   efecto en las reglas. El procedimental lo sortea por pareja en espejo justo después del suelo
   (`data/relieve.json`, inventado: ciénaga 0; nieve, lava y áspero 2 una vez de cada tres; el resto
   85/15; las de casa, al 1: **el alto es la excepción**, #210: el 19 % de las regiones y el 22 % de
-  las casillas de 1-200, mediana 22 % por mapa; eran 36 %, 39 % y 41 %, con s13 al 72 %) y **antes** que las barreras, que salen de las que admiten sus niveles
+  las casillas de 1-200, mediana 22 % por mapa; eran 36 %, 39 % y 41 %, con s13 al 72 %. Antes de
+  los ríos (#144) ya eran 14,5 % de las regiones, 16,1 % de lo que se pisa y 86 de 200 mapas sin
+  meseta; con ellos, 16,3 → 16,0 → 17,2 % y 76 → 81 → 68 mapas en los pasos 1, 2 y 2b: los ríos no
+  sesgan los niveles, 16-10-2026) y **antes** que las barreras, que salen de las que admiten sus niveles
   (`admiteLosNiveles`): el acantilado solo entre dos niveles distintos, dos niveles distintos solo
   por acantilado, montaña o agua, y bosque y muro solo a un mismo nivel. Ni el acantilado es
   obstáculo (el cargador lo rechaza en `obstaculos`). Junto a un cruce de tres regiones la barrera
@@ -473,8 +482,49 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   más de dos parejas); agua 7 556 → 9 198 casillas, acantilado 1 566 → 1 212. La nieve sube de 12,1 a
   16,6 % de las regiones de 1-200 (los vestidos que se repiten). En 1-3000, tramos rectos ≥ 10 / caras
   ≥ 10 / mapas con tramo ≥ 12: 164 / 0 / 14 → 95 / 0 / 4. En 1-100, duración 8 / 14 / 21 → 8 / 15 / 22
-  días, j0 51 → 58, 0 sin terminar. El agua sigue a
-  2-3 casillas: adelgazarla a una es el commit 2.
+  días, j0 51 → 58, 0 sin terminar. **El río de una casilla** (paso 2, 16-10-2026,
+  `adelgazarRios`, paso 7a del engorde con el acantilado): el agua del río (sus parejas y las de su
+  espejo) entre dos regiones al mismo nivel, y a ese nivel, se abre por vueltas a la región que se la
+  come (`abrirLinea` con `'water'`) hasta que queda la casilla que toca a las dos. Come primero el lado
+  de su trecho, el de la reparación del grosor visto desde su casilla de muro fino más cercana (las
+  dos orillas preguntan por el mismo; con el de la propia casilla, cada orilla esperaba a la otra y el
+  río se quedaba de tres), y donde dos trechos se encuentran, el de la pareja y luego el otro: así
+  serpentea. No se adelgazan los lagos del curso, ni lo que está a un paso de un nodo (el puente y la
+  ciudad del vado guardan su agua), ni a `RADIO_DEL_CRUCE` (1) de un cruce de tres regiones (delgadas,
+  las dos aguas quedaban a dos de la barrera de la tercera pareja y el río se partía: s5; sin él, 11
+  ciudades de río sin boca en 6 mapas de 1-160, y con 2, de una casilla el 80 % y no el 89 %), ni lo
+  que quedaría de espiga. **Entre dos niveles, a una casilla donde se ve** (paso 2b, decisión del
+  usuario, 16-10-2026): se la come siempre lo bajo, así que el borde de la meseta no se mueve y el
+  río queda a su pie; **con lo alto justo al norte, a dos** (`aguaALaVista`: la cara cuelga hacia la
+  cámara ~0,6 casillas y taparía uno de una). Lo alto solo se come la muesca que deja lo bajo (agua con
+  lo alto a los dos lados de un eje, un fondo de saco fuera del marco, en una vuelta aparte antes que
+  lo bajo); no se adelgaza a `CERCA_DE_UNA_ESPIGA` (2) de una espiga del relieve, cuya orilla
+  `quitarEspigas` pasa a montaña (con ella el río se cortaba); y el reflejo de una esquina de agua que
+  una senda corta (`sinAguaEnLasEsquinas`) no se pasa a montaña si parte el agua (s1 (19,24)). El
+  pintor no cambia: lo alto se adelanta sobre el río (`ORILLA`), pero cada casilla conserva más de
+  media casilla de agua (0,56-0,63 al este, al oeste y al norte de la meseta), la ladera de caída 1
+  tapa hasta 0,45 a su pie y el río se lee como un arroyo; capturas en
+  `docs/agents/2026-10-14-rios-entre-regiones/capturas/paso2b-*`. Antes, el agua que
+  el engorde derrama junto a una ciudad entre dos regiones cuya pareja no la lleva pasa a la barrera
+  de esa pareja (`sinAguaDerramada`, una vez por engorde): delgado el río, quedaba suelta, un tercer
+  brazo corto (s3). Las parejas de agua sueltas (lagos entre dos regiones) no se tocan. El pintor del
+  agua no cambia: en una casilla el agua es entera en tres cuartos, la espuma va en las dos orillas y
+  no hay centro hondo, que es solo de lo que tiene agua a los cuatro lados (`test/rios.test.ts`).
+  Medido en 1-40 (`tools/qa/rios.ts`, el agua de río entre iguales a dos o más de todo nodo y fuera de
+  sus lagos, por su ancho en ocho vecinas: la menor de sus cuatro tiradas, que una escalera mide uno):
+  de una / dos / tres casillas, 18 / 64 / 18 % → 89 / 8 / 3 % (en recta, 2 → 55 % de una); entre dos
+  niveles, 19 / 62 / 19 % → 16 / 62 / 21 %, como estaba, y es más de la mitad del agua de río (la
+  ciénaga va siempre a 0). En 1-200, ciudades con tres brazos / ríos con escalón / ciudades de río sin
+  boca 9 / 9 / 6 → 5 / 7 / 0. En 1-3000, tramos rectos ≥ 10 / caras ≥ 10 / mapas con tramo ≥ 12: 95 /
+  0 / 4 → 90 / 0 / 5. En 1-100, duración 8 / 15 / 22 → 8 / 13 / 19 días, j0 58 → 56, 0 sin terminar
+  (el banco, 8 / 14 / 24 → 7 / 12 / 20: lo que era agua se pisa). Con el paso 2b, en 1-40: entre dos
+  niveles sin lo alto al norte, de una / dos / tres 18 / 61 / 21 % → 78 / 16 / 6 %; con lo alto al
+  norte, por lo hondo de su columna (1 / 2 / 3 / ≥ 4), 1 / 17 / 29 / 53 % → 1 / 47 / 19 / 32 %; agua
+  de una casilla bajo la cara 5 → 6 (lo que deja el engorde junto a cruces y nodos); entre iguales
+  89 / 8 / 3 → 85 / 12 / 3 %; agua encajada 118 → 68. En 1-200, ciudades con tres brazos / ríos con
+  escalón / ciudades de río sin boca 5 / 7 / 0 → 8 / 7 / 3 (s21, s55, s146: el río al pie de la
+  meseta cortado junto a un vado o una esquina). En 1-3000, 90 / 0 / 5 → 102 / 0 / 5. En 1-100,
+  duración 8 / 13 / 19 → 7 / 12 / 21, j0 56 → 50, 0 sin terminar (el banco, 7 / 12 / 20 → 7 / 13 / 24).
 - **Asaltantes**: grupos neutrales que patrullan regiones sin dueño y emboscan
   al pisar si les sacan `ventajaClara`. Son actores (`GameState.raiders`), no
   objetos del mapa. Un grupo se ve en cuanto se ve una casilla de su región
@@ -837,7 +887,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
-| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
+| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
 - **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y

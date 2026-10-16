@@ -30,13 +30,14 @@ import { CARA_DE_SUELO } from './relieve.js';
  * pared de roca gris, la de la ciénaga de abajo.
  *
  * Lo que no llega por su nivel a nada que se pise —una isla de barrera, como la
- * repisa de montaña de s9 (22-23, 28) con los ríos (#144): a nivel 1 entre la
- * ciénaga de abajo y la meseta de áspero, sin nada a 1 unido a ella— toma lo
- * que se pisa a su nivel más cercano por la rejilla (Chebyshev, pasando por
- * otros niveles; a igual distancia, lo primero en el orden de la rejilla): la
- * lava a 1 de dos casillas más allá. Con el suyo, la ciénaga, su pared salía de
- * roca gris junto a las de basalto (`caraDeOtroMaterial` = 3). Lo que no tiene
- * nada a su nivel en el mapa entero se queda con el suyo.
+ * repisa de montaña de s1037 (33, 32-33): a nivel 1 entre la ciénaga a 0, la
+ * montaña nevada a 2 y el río, sin nada a 1 unido a ella— toma lo que se pisa a
+ * su nivel más cercano por la rejilla (Chebyshev, pasando por otros niveles; a
+ * igual distancia, lo primero en el orden de la rejilla): la tierra a 1 de dos
+ * filas al sur, pasado el agua. Con el suyo, la ciénaga, la de s9 (22-23, 28),
+ * la primera que salió con los ríos (#144), llevaba sus paredes de roca gris
+ * junto a las de basalto (`caraDeOtroMaterial` = 3). Lo que no tiene nada a su
+ * nivel en el mapa entero se queda con el suyo.
  */
 export function sueloDeLaMeseta(
   W: number,

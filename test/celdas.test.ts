@@ -364,7 +364,10 @@ describe('las piezas en su sitio, con el arte del repo', () => {
     // s36 la sigue trayendo con el mapa de #189. Desde #216 la cara es de la
     // roca de su meseta y la s36 ya no lleva laderas de basalto: la s1, sí. Con
     // el mapa de 42×42 (#226) la s1 no lleva basalto: la s4, laderas y diagonales;
-    // con las fronteras onduladas (#229, 09-10-2026), otra vez la s1.
+    // con las fronteras onduladas (#229, 09-10-2026), otra vez la s1. Con el
+    // río de una casilla (#144, paso 2) la s1 no tiene mesetas: la s8. Con el
+    // río de una casilla al pie de la meseta (#144, paso 2b) la s8 ya no lleva
+    // basalto: otra vez la s1, con 18 laderas y 25 diagonales y bajadas.
     const enS1 = componer(newGame({ seed: 1 }).map, 1, catalogo).sprites;
     const deLadera = new Set(
       enS1.filter((s) => s.src?.includes('/laderas-basalto-') === true).map((s) => s.tono),

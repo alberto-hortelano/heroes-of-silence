@@ -52,6 +52,18 @@ import { trozosConAlfa } from '../src/client/render/escenario/pintar.js';
 import { catalogoDelDisco, partidaDe } from './helpers.js';
 import { LENTO, rango } from './lento.js';
 
+/**
+ * Lo que una caja puede pasar del margen de una casilla sin entrar en ella: el
+ * redondeo. La puerta encoge la masa hasta que su caja llega justo al margen
+ * (`altoHastaLaColumna`), y al volver a medirla el borde sale a 1e-15 de él. Sin
+ * esto, el recuento a mano daba por tapado el pasillo de s30 (0,11) con un abeto
+ * de pie en x = −0,11 cuya caja llega a 0,2000…004 con margen 0,2, y el informe
+ * (`pasillosTapados`), que cuenta con 1e-6, no: tenía razón el informe. No es
+ * cosa del borde: con el paso 2b de los ríos salen 5 cajas así en s1, s3 (dos),
+ * s5 y s36, ninguna a más de 1e-14 del margen (16-10-2026).
+ */
+const TOQUE = 1e-9;
+
 /** Una pieza de la hoja `hoja` de `nw`×`nh`, con el ancla abajo en medio y el pie en `(x, y)`. */
 function pieza(
   hoja: string,
@@ -375,7 +387,7 @@ for (const { hondo, filas, sur } of [
       for (const s of e.sprites.filter((t) => t.clase === 'masa' && Math.floor(t.y) === sur)) {
         const [x0, y0, x1] = cajaDeSprite(s);
         const sobre = [...Array(e.W).keys()].some(
-          (c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M),
+          (c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M) + TOQUE,
         );
         if (sobre) expect(y0).toBeGreaterThanOrEqual(sur - TAPADO_DEL_PASILLO - 1e-9);
       }
@@ -489,57 +501,78 @@ describe('las dos marcas de la semilla 1, por lo que eran', () => {
 describe('lo que vio QA en la semilla 1, por lo que era', () => {
   const { map, escena: e } = partidaDe(1);
   const a = analizar(map);
-  const estrechas = pasillosEstrechos(a.franjaDe, e.W);
   const esBosque = (x: number, y: number): boolean => {
     const f = a.franjaDe[y * e.W + x] as number;
     return f !== -1 && a.franjas[f]?.barrera === BOSQUE;
   };
-  /** Si alguna masa del sur (sin cumbres) tapa la fila `y` de las columnas `xs` más de lo que deja. */
-  const tapanDesdeElSur = (xs: readonly number[], y: number): Sprite[] => {
+  /**
+   * Si alguna masa del sur (sin cumbres) tapa la fila `y` de las columnas `xs`
+   * más de lo que deja. La cuenta es cerrada, como la del informe
+   * (`altoSobreLosPasillos`): la caja que la puerta encoge hasta el margen lo
+   * toca y no entra (`TOQUE`).
+   */
+  const tapanDesdeElSur = (
+    sprites: readonly Sprite[],
+    xs: readonly number[],
+    y: number,
+  ): Sprite[] => {
     const M = MARGEN_SOBRE_LO_PISABLE;
-    return e.sprites.filter((s) => {
+    return sprites.filter((s) => {
       if (s.clase !== 'masa' || s.cumbre === true || Math.floor(s.y) <= y) return false;
       const [x0, y0, x1] = cajaDeSprite(s);
       return (
-        xs.some((c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M)) &&
+        xs.some((c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M) + TOQUE) &&
         y0 < y + 1 - TAPADO_DEL_PASILLO - 1e-9
       );
     });
   };
 
+  /** Lo de `semilla` que miran los pasos y los pasillos: su escena, sus pasillos estrechos y su bosque. */
+  const deLaSemilla = (semilla: number) => {
+    const p = partidaDe(semilla);
+    const an = analizar(p.map);
+    const W = p.escena.W;
+    return {
+      e: p.escena,
+      a: an,
+      est: pasillosEstrechos(an.franjaDe, W),
+      bosque: (x: number, y: number): boolean => {
+        const f = an.franjaDe[y * W + x] as number;
+        return f !== -1 && an.franjas[f]?.barrera === BOSQUE;
+      },
+    };
+  };
+
   // La marca de (29-31, 17): un paso de este a oeste de una casilla de hondo,
   // con bosque al norte y al sur, de tres casillas o más. La s1 de hoy no tiene
-  // ninguno; la s3, cuatro (con su espejo).
-  it('los pasos de una casilla entre dos bosques (s3): la copa de su sur deja su 0,6 de arriba', () => {
-    const p3 = partidaDe(3);
-    const a3 = analizar(p3.map);
-    const W3 = p3.escena.W;
-    const est3 = pasillosEstrechos(a3.franjaDe, W3);
-    const bosque3 = (x: number, y: number): boolean => {
-      const f = a3.franjaDe[y * W3 + x] as number;
-      return f !== -1 && a3.franjas[f]?.barrera === BOSQUE;
-    };
+  // ninguno; la s3 tenía cuatro (con su espejo) hasta el río de una casilla
+  // (#144, paso 2), que la dejó sin ninguno: la s30, tres. Con el río de una
+  // casilla al pie de la meseta (#144, paso 2b) la s30 no tiene ninguno: la
+  // s11, tres.
+  it('los pasos de una casilla entre dos bosques (s11): la copa de su sur deja su 0,6 de arriba', () => {
+    const { e: e11, a: a11, est: est11, bosque: bosque11 } = deLaSemilla(11);
+    const W11 = e11.W;
     const pasos: [number, number][] = [];
-    for (let y = 1; y < p3.escena.H - 1; y++)
-      for (let x = 0; x + 2 < W3; x++)
+    for (let y = 1; y < e11.H - 1; y++)
+      for (let x = 0; x + 2 < W11; x++)
         if (
           [0, 1, 2].every(
             (d) =>
-              est3[y * W3 + x + d] === 1 &&
-              a3.franjaDe[y * W3 + x + d] === -1 &&
-              bosque3(x + d, y - 1) &&
-              bosque3(x + d, y + 1),
+              est11[y * W11 + x + d] === 1 &&
+              a11.franjaDe[y * W11 + x + d] === -1 &&
+              bosque11(x + d, y - 1) &&
+              bosque11(x + d, y + 1),
           )
         )
           pasos.push([x, y]);
     expect(pasos.length).toBeGreaterThan(0);
     const M = MARGEN_SOBRE_LO_PISABLE;
     for (const [x, y] of pasos) {
-      const tapan = p3.escena.sprites.filter((s) => {
+      const tapan = e11.sprites.filter((s) => {
         if (s.clase !== 'masa' || s.cumbre === true || Math.floor(s.y) <= y) return false;
         const [x0, y0, x1] = cajaDeSprite(s);
         return (
-          [x, x + 1, x + 2].some((c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M)) &&
+          [x, x + 1, x + 2].some((c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M) + TOQUE) &&
           y0 < y + 1 - TAPADO_DEL_PASILLO - 1e-9
         );
       });
@@ -547,23 +580,29 @@ describe('lo que vio QA en la semilla 1, por lo que era', () => {
     }
   });
 
-  // La de (11-12, 8-9): un pasillo de dos de hondo y dos de ancho, con bosque al sur.
+  // La de (11-12, 8-9): un pasillo de dos de hondo y dos de ancho, con bosque
+  // al sur. La s1 no tiene ninguno desde el río de una casilla (#144, paso 2):
+  // la s36, seis. Con el río de una casilla al pie de la meseta (#144, paso 2b)
+  // la s36 no tiene ninguno: la s12, ocho, la que más de 1-60.
   const hondos: [number, number][] = [];
-  for (let y = 0; y + 2 < e.H; y++)
-    for (let x = 0; x + 1 < e.W; x++)
-      if (
-        [0, 1].every(
-          (dx) =>
-            [0, 1].every((dy) => estrechas[(y + dy) * e.W + x + dx] === 1) &&
-            esBosque(x + dx, y + 2),
+  const conHondos = deLaSemilla(12);
+  {
+    const { e: eh, est, bosque } = conHondos;
+    for (let y = 0; y + 2 < eh.H; y++)
+      for (let x = 0; x + 1 < eh.W; x++)
+        if (
+          [0, 1].every(
+            (dx) =>
+              [0, 1].every((dy) => est[(y + dy) * eh.W + x + dx] === 1) && bosque(x + dx, y + 2),
+          )
         )
-      )
-        hondos.push([x, y]);
+          hondos.push([x, y]);
+  }
 
-  it(`los pasillos de dos de hondo con bosque al sur (${hondos.length} en s1): la copa deja el 0,6 de arriba de su fila de abajo`, () => {
+  it(`los pasillos de dos de hondo con bosque al sur (${hondos.length} en s12): la copa deja el 0,6 de arriba de su fila de abajo`, () => {
     expect(hondos.length).toBeGreaterThan(0);
     for (const [x, y] of hondos)
-      expect(tapanDesdeElSur([x, x + 1], y + 1), `(${x}, ${y})`).toEqual([]);
+      expect(tapanDesdeElSur(conHondos.e.sprites, [x, x + 1], y + 1), `(${x}, ${y})`).toEqual([]);
   });
 
   // Las de (14,24) y (28,35): una casilla de bosque justo bajo una ciudad, en
@@ -643,7 +682,11 @@ function peñascoEnLoQueSePisa(s: Sprite, franjaDe: ArrayLike<number>, W: number
 describe('la nieve que se pisa, sin sus peñascos grises (H9)', () => {
   // s3: el Valle Hondo de QA, 547 casillas de nieve que se pisa. En 1-40 había
   // 13 230 peñascos en la nieve que se pisa: el 41 % de lo que cubría la de s1, 3 y 7.
-  const { map, escena: e } = partidaDe(3);
+  // Con el río de una casilla (#144, paso 2) la s3 no tiene mesetas nevadas: la
+  // s5, 830 casillas de nieve que se pisa y 143 peñascos en lo alto. Con el río
+  // de una casilla al pie de la meseta (#144, paso 2b) la s5 no tiene peñascos en
+  // lo alto: la s56, 883 casillas de nieve que se pisa y 95 peñascos en lo alto.
+  const { map, escena: e } = partidaDe(56);
   const a = analizar(map);
   const rocas = e.sprites.filter((s) => s.clase === 'cubierta' && esPeñascoGris(s));
 

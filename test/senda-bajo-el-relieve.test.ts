@@ -182,8 +182,12 @@ describe('la senda bajo el relieve (#189)', () => {
     // (mine-10 (19,37) y mine-18 (21,39)). Con la muralla como cierre de un
     // paso (#232, 10-10-2026), 8, 23, 3 y 6, con 6, 6, 4 y 3 (media 4,75; la
     // 13 se queda en 0); la que más, la 39, con 8. Con los ríos (#144,
-    // 16-10-2026), 28, 6, 15 y 17, con 6, 4, 4 y 3 (media 4,25).
-    const semillas = segunPrisa([28, 6, 15, 17], rango(1, 40));
+    // 16-10-2026), 28, 6, 15 y 17, con 6, 4, 4 y 3 (media 4,25). Con el río
+    // de una casilla (#144, paso 2), la 15 se queda sin mesetas: 28, 6, 9 y
+    // 17, con 4, 6, 4 y 3 (media 4,25). Con el río de una casilla al pie de la
+    // meseta (#144, paso 2b), la 9 se queda en 0: 28, 6, 30 y 4, con 4, 6, 4 y
+    // 3 (media 4,25).
+    const semillas = segunPrisa([28, 6, 30, 4], rango(1, 40));
     const cuentas = semillas.map((s) => escenaDe(s).informe.sendaBajoElRelieve);
     // Que mire algo: en ninguna semilla de la muestra rápida es 0. En 1-40,
     // con menos mesetas (#210), la mitad se queda en 0: 20 de 40 y 1,2 de
@@ -192,7 +196,9 @@ describe('la senda bajo el relieve (#189)', () => {
     // fronteras onduladas (#229), 16 de 40 en 0 y 1,55 de media (62 tramos; en
     // main, medido igual, 17 en 0 y 1,25). Con las dos puertas de la mina
     // (#230), 17 en 0 y 1,45 (58 tramos). Con #232, 15 en 0 y 1,6 (64). Con
-    // los ríos (#144, 16-10-2026), 19 en 0 y 1,18 (47).
+    // los ríos (#144, 16-10-2026), 19 en 0 y 1,18 (47). Con el río de una
+    // casilla (#144, paso 2), 20 en 0 y 1,13 (45). Con el paso 2b, 19 en 0 y
+    // 1,1 (44).
     expect(cuentas.filter((n) => n > 0).length).toBeGreaterThanOrEqual(segunPrisa(4, 15));
     expect(cuentas.reduce((a, b) => a + b, 0) / semillas.length).toBeLessThanOrEqual(
       TECHO_POR_MAPA,

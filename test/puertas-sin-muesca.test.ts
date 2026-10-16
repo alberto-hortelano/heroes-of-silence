@@ -26,7 +26,9 @@
  * 09-10-2026), otros mapas otra vez: 3 → 4 en 1-1000 (s343 y s803 este, s929
  * oeste, s936 este), y en 1-200 ninguno. Con los ríos (#144, 16-10-2026), otros
  * mapas otra vez: en 1-200, 0 → 2 (s15 (9,16) y s80 (27,34), las
- * dos este; no se ha mirado aún por qué `puertasSinMuesca` no las cierra).
+ * dos este; no se ha mirado aún por qué `puertasSinMuesca` no las cierra). Con
+ * el río de una casilla al pie de la meseta (#144, paso 2b, 16-10-2026), 2 → 1:
+ * la s15 ya no la da, y queda s80 (27,34).
  */
 import { describe, expect, it } from 'vitest';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
@@ -61,7 +63,6 @@ const mapaDe = (semilla: number): GameMap => buildMap(generateMapPlan(createRng(
 
 /** Lo que queda en 1-200, por semilla (arriba). */
 const QUEDAN: Readonly<Record<number, readonly string[]>> = {
-  15: ['(9,16) este'],
   80: ['(27,34) este'],
 };
 

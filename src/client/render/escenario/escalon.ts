@@ -871,9 +871,10 @@ export function oscuroAlNorteDeLasEspaldas(
     const [desdeX, hastaX] = libreDeLaderas(y - 1);
     // Y la de su norte, adonde también llega la tirada: ahí, la sombra de su
     // ladera la corta. Sin ella, un hoyo de una casilla al norte de la espalda
-    // (el nodo de acantilado de s36 (10,32) con los ríos, #144: lo alto se lo
-    // come casi entero) unía el canto con la sombra que la ladera de (9,31)
-    // echa sobre (10,31), y la tirada salía de 0,56.
+    // (el nodo de acantilado de s41 (19,9), con camino, a 1 entre dos
+    // acantilados a 2: lo alto se lo come casi entero) unía el canto de (19,10)
+    // con la sombra que la ladera de (18,8) echa sobre (19,8), y la tirada salía
+    // de 0,56 (así salió primero, en s36 (10,33), con los ríos, #144).
     const [desdeX2, hastaX2] = libreDeLaderas(y - 2);
     let mayor = 0;
     for (let px = px0; px <= px1; px++) {

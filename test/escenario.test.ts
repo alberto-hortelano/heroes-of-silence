@@ -210,8 +210,9 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
   // queda una cara con columnas sin pintar. La 3 desde #222: la frontal que
   // pasa por detrás de un objeto de su pie pinta las que le quedaban a la 6.
   // Con las fronteras onduladas (#229) y #222 juntos, la 3 sigue valiendo (en
-  // 1-12 tienen alguna: 2, 3, 4, 5, 6, 7 y 12; 09-10-2026).
-  const e = escenaDe(3);
+  // 1-12 tienen alguna: 2, 3, 4, 5, 6, 7 y 12; 09-10-2026). La 2 desde el río
+  // de una casilla (#144, paso 2): en 1-12, la 2, la 5, la 6, la 9 y la 11.
+  const e = escenaDe(2);
   const sep = separar(e);
   const sinImagenes = { tile: 8, imagen: () => undefined } as const;
 

@@ -30,9 +30,10 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
  * las dos puertas de la mina (#230); ni la 2 ni la 3 tampoco: la 4, hasta la
  * muralla como cierre de un paso (#232), y de la 1 a la 10 solo lanza la 7,
  * hasta los ríos (#144, 16-10-2026): de la 1 a la 10 lanzan, matan y no las ve
- * el rival la 2, la 3, la 5 y la 6.
+ * el rival la 2, la 3, la 5 y la 6. La 6 desde el río de una casilla (#144,
+ * paso 2): de la 1 a la 12, la 6, la 7, la 8, la 9 y la 11; la 2 ya no lanza.
  */
-const SEMILLA = 2;
+const SEMILLA = 6;
 
 /** Una batalla contra el primer monstruo, con un héroe que sabe Flecha mágica y tiene maná. */
 function batallaConMagia(seed: number): { state: ReturnType<typeof newGame>; battle: BattleState } {

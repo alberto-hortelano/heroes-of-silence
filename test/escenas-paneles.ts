@@ -118,15 +118,25 @@ export async function escenas(): Promise<readonly Escena[]> {
   batalla.advanceEnemyTurns();
   out.push({ nombre: 'batalla · en marcha', session: batalla });
 
-  // 6 · La misma batalla hasta el final: victoria o derrota y su parte.
-  const batallaFin = meAtacan(7);
-  const enCurso = batallaFin.battle;
-  if (enCurso === null) throw new Error('la batalla no se montó');
-  let vueltas = 0;
-  while (enCurso.finished === null && vueltas < 3000) {
-    applyAction(enCurso, agresiva(enCurso), batallaFin.ctx.rng);
-    vueltas++;
+  // 6 · Una batalla como la de la escena 5 hasta el final, ganada: el parte de
+  //     la victoria, con la fila del maná. La semilla la busca la escena, desde
+  //     la 7, como la 7: con la 7 fija, el río de una casilla al pie de la
+  //     meseta (#144, paso 2b) la volvió derrota y el ancla dejó de cubrir la
+  //     rama de la victoria sin decirlo.
+  let batallaFin: Session | undefined;
+  for (let semilla = 7; semilla < 47 && batallaFin === undefined; semilla++) {
+    const s = meAtacan(semilla);
+    const enCurso = s.battle;
+    if (enCurso === null) throw new Error('la batalla no se montó');
+    let vueltas = 0;
+    while (enCurso.finished === null && vueltas < 3000) {
+      applyAction(enCurso, agresiva(enCurso), s.ctx.rng);
+      vueltas++;
+    }
+    if (enCurso.finished?.winner === 'defender') batallaFin = s;
   }
+  if (batallaFin === undefined)
+    throw new Error('ninguna de cuarenta semillas da una batalla ganada');
   out.push({ nombre: 'batalla · terminada', session: batallaFin });
 
   // 7 · Partida terminada, ganada y perdida: el botón de partida nueva y el
