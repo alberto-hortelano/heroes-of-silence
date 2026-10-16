@@ -930,11 +930,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   terminar. `troop_rank_up` 1 395 → 2 226 y `rank_up` 479 → 685 (más que los 1 759
  *   y 638 de `a6811441…`: con el índice, un veterano vale lo que suben sus
  *   cifras); batallas 1 461 → 1 451; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `b9d4b316…` (67 517 líneas): **los ríos** (16-10-2026, commit 1 de
+ *   `docs/agents/2026-10-14-rios-entre-regiones/`, #144): el generador elige un
+ *   río de varias fronteras de agua con boca en el borde, le pone lagos y quita
+ *   el agua a las parejas que abrirían un segundo brazo en una ciudad. Los mapas
+ *   cambian: comparado con `--dump` del ancla anterior, **2 de 200 idénticas**
+ *   (s44 y s65), y en las 198 que cambian el primer hecho distinto es el segundo
+ *   del registro, el primer `raider_spawned` (dónde nace el grupo: otro mapa),
+ *   salvo 2 en un `raider_spawned` posterior y 1 en un `hero_moved`. Es el mapa,
+ *   no las reglas. 97 con otro ganador, j0 110 → **107**, duración 8 / 14 / 23
+ *   → **8 / 14 / 24**, 0 sin terminar. Batallas 1 451 → 1 375, `town_captured`
+ *   1 304 → 1 184, `hero_defeated` 323 → 262, `troop_rank_up` 2 226 → 2 049;
+ *   ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '066767b4179e0f617e21107148184ce052fff9ae7f16bbb4881b12a3218af995',
+  sha: 'b9d4b3164f99c51a013a21865043333d807448583a05d4c4370c084b430c53d6',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

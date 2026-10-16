@@ -173,12 +173,13 @@ describe('el canto de la espalda (#219)', () => {
 });
 
 /**
- * En la orden lenta, 1-40; en `verify`, la 3 y la 443. Era la 2 (el istmo de la
+ * En la orden lenta, 1-40; en `verify`, la 3 y la 15. Era la 2 (el istmo de la
  * auditoría 5) hasta que las dos puertas de la mina (#230) la dejaron sin meseta
  * (09-10-2026: 0 rebordes; la 3 tiene 50 y 33 671 píxeles de agua en lo alto sin
- * el escalón).
+ * el escalón). La 443 se quedó sin meseta con los ríos (#144, 16-10-2026): va
+ * la 15, la de más rebordes de 1-20 (71; la 3, 25).
  */
-const SEMILLAS = LENTO ? rango(1, 40) : [3, 443];
+const SEMILLAS = LENTO ? rango(1, 40) : [3, 15];
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
@@ -192,8 +193,7 @@ describe('en los mapas reales', () => {
     });
 
   it('la muestra del bucle rápido tiene espaldas que mirar', () => {
-    for (const s of [3, 443])
-      expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
+    for (const s of [3, 15]) expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
   });
 
   for (const semilla of SEMILLAS)
@@ -230,8 +230,12 @@ describe('en los mapas reales', () => {
   });
 });
 
-/** En la orden lenta, 1-40; en `verify`, la 55 (la marca de #223) y la 3 (la 2 hasta #230, que la dejó sin meseta). */
-const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [55, 3];
+/**
+ * En la orden lenta, 1-40; en `verify`, la 15 (la 55, la marca de #223, hasta
+ * los ríos, #144, que la dejaron sin meseta; la 15 es la de más espaldas con
+ * oscuro, 69) y la 3 (la 2 hasta #230, que la dejó sin meseta).
+ */
+const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [15, 3];
 
 describe('la espalda, una línea nítida (#223)', () => {
   for (const semilla of SEMILLAS_DEL_OSCURO)
@@ -245,14 +249,31 @@ describe('la espalda, una línea nítida (#223)', () => {
   it('la muestra del bucle rápido mide espaldas con oscuro', () => {
     // Si el guardia no encontrara ningún oscuro que medir, pasaría sin mirar.
     // Más de 10 por semilla: con los mapas de #224 una de las dos da 17.
-    for (const s of [55, 3])
+    for (const s of [15, 3])
       expect(
         oscuroAlNorteDeLasEspaldas(partidaDe(s).escena).filter((q) => q.ancho > 0).length,
       ).toBeGreaterThan(10);
   });
 
-  it('el guardia muerde: con todo lo bajo oscuro, la s55 tiene espaldas que pasan', () => {
-    const e = partidaDe(55).escena;
+  it('s36 (10,33): al norte, el hoyo del nodo de acantilado; al norte del hoyo, la sombra de la ladera de (9,31), que no es de la espalda', () => {
+    // Con los ríos (#144, 16-10-2026): el nodo de (10,32), con camino, va a lo
+    // bajo (0) entre dos acantilados a 2, y lo alto se lo come casi entero. La
+    // tirada de oscuro subía del canto, por el hoyo, a la sombra que la ladera
+    // de (9,31) echa sobre (10,31), y salía de 0,56: solo se apartaban las
+    // columnas de las laderas de la casilla del norte, no de la de su norte.
+    const e = partidaDe(36).escena;
+    const n = (x: number, y: number) => e.nivel[y * e.W + x];
+    // Que el caso siga ahí.
+    expect([n(10, 33), n(10, 32), n(9, 32), n(11, 32), n(9, 31), n(10, 31)]).toEqual([
+      2, 0, 2, 2, 2, 0,
+    ]);
+    const espalda = oscuroAlNorteDeLasEspaldas(e).find((q) => q.x === 10 && q.y === 33);
+    expect(espalda?.ancho).toBeGreaterThan(0);
+    expect(espalda?.ancho).toBeLessThanOrEqual(OSCURO_DE_LA_ESPALDA.ancho);
+  });
+
+  it('el guardia muerde: con todo lo bajo oscuro, la s15 tiene espaldas que pasan', () => {
+    const e = partidaDe(15).escena;
     const np = nivelPintado(e);
     const negro = {
       ancho: np.ancho,

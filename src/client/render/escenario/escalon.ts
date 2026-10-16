@@ -821,7 +821,8 @@ export const OSCURO_DE_LA_ESPALDA = { ancho: 0.25, umbral: 0.1 } as const;
  * desde el filo hacia el norte con un oscuro de `OSCURO_DE_LA_ESPALDA.umbral` o
  * más, el canto y la sombra al pie compuestos como se pintan. No mira las
  * columnas a las que llega la sombra de una ladera de la casilla del norte
- * (`franjaDeSombra`): esa es de la ladera. Con `mascaras`, se miden esas (para
+ * (`franjaDeSombra`): esa es de la ladera. Y en la casilla de su norte, la
+ * tirada acaba donde llega la sombra de una ladera de esa casilla. Con `mascaras`, se miden esas (para
  * ver que el guardia muerde).
  */
 export function oscuroAlNorteDeLasEspaldas(
@@ -846,31 +847,46 @@ export function oscuroAlNorteDeLasEspaldas(
     const px1 = Math.ceil((x + 0.85) * R) - 1;
     const alto = e.nivel[y * e.W + x] as number;
     if (!conFilo(np, y, px0, px1, alto)) continue;
-    // Las columnas que alcanza la sombra de una ladera vecina de la casilla del norte.
-    const norte = (y - 1) * e.W + x;
-    let desdeX = 0;
-    let hastaX = Number.POSITIVE_INFINITY;
-    for (const l of LADOS) {
-      if (l.dy !== 0) continue;
-      const vx = x - l.dx;
-      if (vx < 0 || vx >= e.W) continue;
-      const vecina = (y - 1) * e.W + vx;
-      if (sinSombra(vecina, norte)) continue;
-      const f = franjaDeSombra(e, vecina, norte, l);
-      if (f === null) continue;
-      if (l.dx === 1) desdeX = Math.max(desdeX, x + f.hasta);
-      else hastaX = Math.min(hastaX, x + 1 - f.hasta);
-    }
+    // Las columnas que alcanza la sombra de una ladera vecina de una casilla:
+    // `[desde, hasta]` en x, fuera de lo que esa sombra toca.
+    const libreDeLaderas = (fy: number): readonly [number, number] => {
+      let desdeX = 0;
+      let hastaX = Number.POSITIVE_INFINITY;
+      if (fy < 0) return [desdeX, hastaX];
+      const norte = fy * e.W + x;
+      for (const l of LADOS) {
+        if (l.dy !== 0) continue;
+        const vx = x - l.dx;
+        if (vx < 0 || vx >= e.W) continue;
+        const vecina = fy * e.W + vx;
+        if (sinSombra(vecina, norte)) continue;
+        const f = franjaDeSombra(e, vecina, norte, l);
+        if (f === null) continue;
+        if (l.dx === 1) desdeX = Math.max(desdeX, x + f.hasta);
+        else hastaX = Math.min(hastaX, x + 1 - f.hasta);
+      }
+      return [desdeX, hastaX];
+    };
+    // La casilla del norte: sus columnas en la sombra de una ladera no se miran.
+    const [desdeX, hastaX] = libreDeLaderas(y - 1);
+    // Y la de su norte, adonde también llega la tirada: ahí, la sombra de su
+    // ladera la corta. Sin ella, un hoyo de una casilla al norte de la espalda
+    // (el nodo de acantilado de s36 (10,32) con los ríos, #144: lo alto se lo
+    // come casi entero) unía el canto con la sombra que la ladera de (9,31)
+    // echa sobre (10,31), y la tirada salía de 0,56.
+    const [desdeX2, hastaX2] = libreDeLaderas(y - 2);
     let mayor = 0;
     for (let px = px0; px <= px1; px++) {
       const cx = (px + 0.5) / R;
       if (cx < desdeX || cx > hastaX) continue;
+      const cortaEnLaOtra = cx < desdeX2 || cx > hastaX2;
       let py = y * R - 1;
       const tope = Math.max(0, (y - 2) * R);
       // Lo alto que se adelanta sobre la casilla del norte, hasta el filo.
       while (py >= tope && (np.nivel[py * ancho + px] as number) >= alto) py--;
       let ultimo = -1;
       for (; py >= tope; py--) {
+        if (cortaEnLaOtra && py < (y - 1) * R) break;
         const p = py * ancho + px;
         if ((np.nivel[p] as number) >= alto) break;
         const oscuro =

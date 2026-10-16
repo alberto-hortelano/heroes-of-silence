@@ -316,6 +316,45 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
     expect(sueloDeLaMeseta(4, 1, region, suelo, [1, 2, 2, 0])).toEqual(suelo);
   });
 
+  it('una isla de barrera toma lo que se pisa a su nivel más cercano, pasando por otro nivel', () => {
+    // Lava a 1, una montaña a 0, dos montañas a 1 sin nada a 1 unido a ellas
+    // (las separa la de 0) y la ciénaga a 0. Las dos de 1 toman la lava de dos
+    // casillas más allá, no la ciénaga de al lado (s9 (22-23, 28) con los ríos).
+    expect(
+      sueloDeLaMeseta(
+        5,
+        1,
+        [0, -1, -1, -1, 1],
+        ['lava', 'swamp', 'swamp', 'swamp', 'swamp'],
+        [1, 0, 1, 1, 0],
+      ),
+    ).toEqual(['lava', 'swamp', 'lava', 'lava', 'swamp']);
+  });
+
+  it('s9 (22-23, 28): la repisa de montaña a 1, aislada en su nivel, es de la lava a 1 y su pared, de basalto', () => {
+    // La muestra que muerde: con los ríos (#144, 16-10-2026) la montaña de
+    // (22-23, 28) queda a 1 entre la ciénaga a 0 del norte y el áspero a 2 del
+    // sur, y nada a 1 se une a ella por su nivel. Con su propio suelo (la
+    // ciénaga), sus tres paredes del norte eran de roca gris (`caraDeOtroMaterial` 3).
+    const { map, escena: e } = partidaDe(9);
+    const a = analizar(map);
+    const repisa = [28 * a.W + 22, 28 * a.W + 23];
+    for (const i of repisa) {
+      expect(a.terreno[i]).toBe('mountain');
+      expect(e.nivel[i]).toBe(1);
+      // Que el caso siga ahí: ninguna vecina a 1 fuera de la repisa.
+      const x = i % a.W;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const j = (28 + dy) * a.W + x + dx;
+          if (!repisa.includes(j)) expect(e.nivel[j], `${x + dx},${28 + dy}`).not.toBe(1);
+        }
+      expect(a.suelo[i]).toBe('swamp');
+      expect(e.suelo[i]).toBe('lava');
+    }
+    expect(e.informe.caraDeOtroMaterial).toBe(0);
+  });
+
   it('un nodo no es fuente: su suelo es el más cercano de cualquier nivel', () => {
     // El nodo (región −1) de lava junto a la montaña nevada: la montaña sigue
     // con la nieve de su meseta, aunque el nodo esté antes en la rejilla.
@@ -348,19 +387,20 @@ describe('sueloQueSePinta: la barrera y el nodo pintan el suelo de su meseta', (
     ).toEqual(['grass', 'grass', 'grass', 'swamp']);
   });
 
-  it('s1 (11,34): el nodo sin camino que va a la meseta de lava pinta lava, no la hierba de abajo (#220)', () => {
+  it('s6 (34,6): el nodo sin camino que va a la meseta de nieve pinta nieve, no la ciénaga de abajo (#220)', () => {
     // Era s13 (18,7), con la nieve abajo; desde #226 (42×42), s40 (8,12), con
-    // la ciénaga abajo. Con las fronteras onduladas (#229, 09-10-2026) ningún
-    // nodo así de 1-40 tiene la ciénaga abajo: s1 (11,34) tiene la hierba.
-    const { map, escena: e } = partidaDe(1);
+    // la ciénaga abajo. Con las fronteras onduladas (#229, 09-10-2026), s1
+    // (11,34), con la hierba; con los ríos (#144, 16-10-2026), s6 (34,6), otra
+    // vez con la ciénaga.
+    const { map, escena: e } = partidaDe(6);
     const a = analizar(map);
-    const i = 34 * a.W + 11;
-    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 11 && o.at.y === 34)).toBe(true);
-    expect(map.caminos.tiene({ x: 11, y: 34 })).toBe(false);
+    const i = 6 * a.W + 34;
+    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 34 && o.at.y === 6)).toBe(true);
+    expect(map.caminos.tiene({ x: 34, y: 6 })).toBe(false);
     expect(e.nivel[i]).toBe(2);
-    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la hierba.
-    expect(a.suelo[i]).toBe('grass');
-    expect(e.suelo[i]).toBe('lava');
+    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la ciénaga.
+    expect(a.suelo[i]).toBe('swamp');
+    expect(e.suelo[i]).toBe('snow');
   });
 
   it('semilla 24: cada casilla de barrera de la escena lleva el suelo de su meseta, y antes no', () => {

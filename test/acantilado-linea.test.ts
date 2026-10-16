@@ -175,9 +175,10 @@ describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado 
     // 44 casillas sin caída antes de #215, en 34×34) y la 148. Desde #226 el
     // mapa es de 42×42 y la 1 y la 34 no llevan acantilado: van las tres de
     // 1-60 con más (16, 24 y 2: 81, 78 y 64 casillas, 09-10-2026); con las
-    // fronteras onduladas (#229), 5, 32 y 3 (123, 110 y 82).
+    // fronteras onduladas (#229), 5, 32 y 3 (123, 110 y 82); con los ríos
+    // (#144, 16-10-2026), 52, 36 y 53 (113, 86 y 86).
     let casillas = 0;
-    for (const semilla of segunPrisa([5, 32, 3], rango(1, 200))) {
+    for (const semilla of segunPrisa([52, 36, 53], rango(1, 200))) {
       const { map } = newGame({ seed: semilla });
       casillas += map.terrain.filter((t) => t === 'cliff').length;
       expect(sinCaidaEn(map), `s${semilla}`).toEqual([]);
@@ -203,9 +204,9 @@ describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado 
   }, 180_000);
 
   it('y muerde en un mapa real: una casilla de la meseta pegada a la línea, hecha acantilado, cuenta', () => {
-    // La 5 desde las fronteras onduladas (#229; la 2 desde #226, que en 42×42
-    // dejó la 1 sin acantilado): la 2 ya no tiene meseta detrás de la línea.
-    const { map } = newGame({ seed: 5 });
+    // La 52 desde los ríos (#144; la 5 desde las fronteras onduladas, #229; la
+    // 2 desde #226, que en 42×42 dejó la 1 sin acantilado): la de más acantilado.
+    const { map } = newGame({ seed: 52 });
     const { nivel } = relieve(analizar(map));
     const W = map.width;
     // Una casilla que se pisa junto a un acantilado sin nada más bajo en sus

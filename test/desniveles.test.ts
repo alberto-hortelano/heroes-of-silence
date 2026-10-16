@@ -63,12 +63,18 @@ describe('el desnivel lo explica una barrera (#143)', () => {
       expect(cuenta.get(k) ?? 0, k).toBeGreaterThan(0);
   });
   itLento(
-    'el reparto de suelos no cambia: cada suelo de fuera, entre el 11 y el 16 % de las regiones de 1-200',
+    'el reparto de suelos no cambia: cada suelo de fuera, entre el 11 y el 17 % de las regiones de 1-200',
     () => {
       // Un sorteo de barreras filtrado por niveles podía tirar más vestidos de
       // unas parejas de suelos que de otras y sesgar el mapa (los de arena roja de
       // s1 y s9 se miraron así: es azar). Medido el 08-10-2026, de la 1 a la 200:
       // antes (aebb1c7) 11,5-14,5 %, después 11,3-14,4 %; la tierra, 20 % (casa).
+      // Con los ríos (#144, 16-10-2026) el techo pasa de 16 a 17: el río se come
+      // de 2 a 7 parejas como agua, y los mapas cuyos otros suelos dan menos
+      // barreras sin agua (la ciénaga, una) pierden más vestidos por la variedad
+      // garantizada; la nieve y el áspero (tres) salen más. En 1-1000, de 12,8-14,2
+      // a 12,2-14,4 %; en 1-200 la nieve da 16,6, que es ese +1 y el azar de 200
+      // semillas (σ ≈ 1,05 por suelo). El porqué y las cifras, en docs/historia.md.
       const cuenta = new Map<string, number>();
       for (const s of rango(1, 200))
         for (const r of generateMapPlan(createRng(s)).regions)
@@ -79,7 +85,7 @@ describe('el desnivel lo explica una barrera (#143)', () => {
         if (suelo === 'dirt') expect(parte, suelo).toBe(20);
         else {
           expect(parte, suelo).toBeGreaterThanOrEqual(11);
-          expect(parte, suelo).toBeLessThanOrEqual(16);
+          expect(parte, suelo).toBeLessThanOrEqual(17);
         }
       }
     },

@@ -4594,3 +4594,96 @@ antes de cerrar:
   de bosque de debajo, 1,11 → 1,02 de mediana (p10 0,62 igual), y el pico de montaña, 0,67 → 0,63;
   `cumbresSobreLoPisable` 467 → 485; `pasillosTapados`, `casillasDeBarreraSinFormacion` y
   `bosqueSinArbol` siguen a 0.
+
+## Los ríos, commit 1: con boca, lagos en el curso y la ciudad como vado (#144, 16-10-2026)
+
+Petición del usuario (14-10-2026): «usa también ríos para separar regiones, que ahora solo hay
+lagos». La crítica midió que el agua de frontera ya era estrecha (2-3 casillas) y que lo que la
+hacía lago era el largo: cada frontera de agua era la de una sola pareja de regiones. Y el usuario
+corrigió el plan: **un río no vale por su largo, tiene que desembocar** (en el mar, que no hay, o
+por el borde del mapa), y puede, mejor, cruzar lagos. Dos commits: (1) los ríos, con el agua a 2-3;
+(2) adelgazarla a una casilla, con capturas entre los dos. Esto es el (1).
+
+- **El río se elige antes del reparto de barreras** (`elegirRio`, `core/map/rios.ts`): cadenas de
+  parejas que admiten agua, una tras otra por un mismo punto triple, con boca en el borde. La cadena
+  y su espejo no pueden dar a ningún cruce tres brazos de agua (ni dejar a su lado una pareja que
+  solo admite agua: s40 (3,11)), ni volver a un cruce, ni bajar de nivel (#210: la orilla baja de
+  todas al mismo nivel, y las regiones de sus cruces, a ese o más). La cabecera, si no sale por el
+  borde, es un lago, y la cabecera reflejada no puede ser del propio río (s22: una cadena que se
+  reflejaba en sí misma partía el río por el corte del espejo).
+- **Lo que no se vio venir.** (a) No todo cruce lleva ciudad: la red pone una donde se tocan tres
+  regiones abiertas, y las celdas se tocan en más sitios; ahí el agua sigue sin vado. Por eso la
+  medida cuenta como río también el agua que toca tres regiones y sale por el borde. (b) Dos puntos
+  triples junto a una misma ciudad son un cruce para los brazos, pero el agua no pasa de uno a otro
+  (s4: entre ellos quedaba el bosque de la tercera pareja): la cadena pasa solo por un mismo trozo
+  (`Cruces.trozos`). (c) Con el agua del río, las otras tres barreras garantizadas tienen que salir
+  de fuera; en s9 el bosque y el muro solo los admitían las parejas del río, y el reparto fallaba:
+  un río con el que no sale reparto no se sortea (`repartirDistintas` sin `rng`). (d) Lo que sobra
+  de una muralla junto a una ciudad se volvía agua y le daba a la ciudad un tercer brazo (s14): ahí
+  ya no pasa a agua. (e) Con el sorteo por el largo a secas salían ríos de dos parejas en una
+  esquina (mediana del río más largo, 25): va por el cubo del muro fino. (f) Un trozo del anillo del
+  lago con lo de dentro fuera (un pasillo, un nodo cerca) quedaba suelto en la región y contaba como
+  obstáculo: la región 6 de s112 al 19 % (el tope es 18). El lago solo pinta lo unido a su centro.
+- **Medido en 1-40 con `tools/qa/rios.ts`** (sobre el mapa hecho, también vale para el agente),
+  antes → después: mapas con río 32 → 37; ríos 70 → 72, con boca 64 → 72; de borde a borde 13 → 29;
+  con un lago atravesado 18 → 27; ciudades con tres brazos 14 → 0; ríos con el agua a más de un nivel
+  11 → 0; charcas sueltas (sin ciudad de río, tres regiones o más, sin boca) 2 → 3 (14 → 11 contando
+  también las que tienen boca); mediana del río más largo 22 → 30; lagos de obstáculo 285 / 1 261
+  casillas → 297 / 1 359; agua encajada 114 → 128 casillas (de 6 295 → 7 839 de agua de frontera);
+  remiendos de montaña junto a un río 4,70 → 4,75 por mapa. Agua 7 556 → 9 198 casillas, acantilado
+  1 566 → 1 212, montaña 10 754 → 9 717. Vestidos tirados en 1-40 318 → 389.
+- **Lo que no llega al plan.** La mediana del río más largo (objetivo 40) se queda en 30: en 9 de 40
+  mapas la cadena más larga es de dos parejas, y los pasillos de un nodo junto a un cruce sin ciudad
+  parten a veces el agua (s18). Los remiendos de `sinAguaEnLasEsquinas` (objetivo ≤ 1 por mapa) ya
+  eran 4,7 antes con esta medida: no los toca este cambio.
+- **El reparto de suelos se tuerce un punto, y el techo del guardia pasa de 16 a 17 %**
+  (`desniveles.test.ts`). En 1-200 la nieve sube de 12,1 a 16,6 % de las regiones (la hierba baja de
+  14,0 a 12,3, la ciénaga de 12,6 a 11,5). Medido en 1-1000, contando qué suelos tenía cada vestido
+  sorteado y si salió (`rng.pick(SUELOS)` envuelto y `alTirarUnVestido`):
+  - **Los suelos se sortean otra vez en cada vestido**, y se tira el 88 % (unos 8 por mapa): un
+    suelo con el que el vestido sale un poco más a menudo acaba más en los mapas. Antes de los ríos
+    la aceptación no dependía del agua (12,4 / 12,7 / 13,3 / 12,3 / 12,2 % con 0-4 parejas de suelos
+    sin agua); con ellos, 9,2 / 10,8 / 11,6 / 13,1 / 11,3 %.
+  - **La causa es la variedad garantizada** (`TIPOS_POR_MAPA`, paso 8 del engorde). El río se come
+    de 2 a 7 parejas como agua, y las otras tres barreras tienen que salir de las demás. El muro
+    desaparece en la mitad de los vestidos que lo reparten (47 %, igual que antes: sin apoyos ni
+    puerta pasa a otra barrera), y entonces hace falta una cuarta de fuera: con río no la hay en el
+    53 % de los casos (antes, 42). Al paso 8 se tira el 21,0 % de los vestidos con río, el 14,3 % de
+    los que no lo tienen y el 16,7 % antes. Pierden los mapas cuyos suelos dan pocas barreras sin
+    agua: la ciénaga (una, el bosque) baja de 12,9 a 12,2 % en 1-1000; la nieve y el áspero (tres)
+    suben de 12,8 a 14,2 y de 14,2 a 14,4. La regla de las charcas sola, sin río, ya lo inclina (χ²
+    de los seis suelos en 1-1000: antes 6,5, sin río 12,3, con río 13,7; con 5 grados de libertad,
+    el 95 % es 11,1).
+  - **Lo que se probó y no vale.** Que el río no deje el mapa colgado del muro (que el reparto sin
+    muro siga saliendo si salía sin río): χ² 24,5, la ciénaga a 11,8 y en 1-200 bajo el suelo
+    (10,7). Quitar el fallo del lago de cabecera: es el 3 % de los vestidos y casi no depende del
+    suelo. Lo que lo quitaría de raíz es sortear los suelos una vez por red y no por vestido, pero
+    cambia todos los mapas (el 88 % de las semillas no sale a la primera) y es otra tarea.
+  - **Por qué 17.** El sesgo de fondo es de un punto (en 1-1000, cada suelo entre 12,2 y 14,4 %; antes
+    12,8-14,2; lo esperado, 13,3), y 200 semillas dan σ ≈ 1,05 por suelo: el 16,6 de la nieve es ese
+    punto y 2,2 σ de azar. Ventanas de 200 en 1-1000: de 10,4 a 16,6 con ríos, de 11,4 a 15,3 antes.
+    El suelo de 11 se queda: en 1-200 la más baja es la ciénaga, a 11,5. No sobra margen: la ventana
+    601-800 deja la lava en 10,4, y antes la más baja era 11,4. Si otro cambio del generador lo
+    rompe por el suelo, la salida no es bajarlo sino sortear los suelos por red.
+- **Juego**, en 1-100: 0 sin terminar, duración 8 / 14 / 21 → 8 / 15 / 22, j0 51 → 58. Banco
+  re-anclado (`b9d4b316…`): 198 de 200 cambian en el primer `raider_spawned` (es otro mapa).
+  Rectitud en 1-3000: 164 / 0 / 14 → 95 / 0 / 4.
+- Los tests anclados a casillas de semillas concretas que el cambio movió se buscan ahora por lo que
+  vigilaban (las marcas de s1 de `pisable-junto-al-bosque`) o se mudan a la semilla que hoy tiene el
+  caso, con la de antes en su comentario.
+- **Dos guardias del escenógrafo que el mapa nuevo destapó** (la orden lenta, 1-40):
+  - **#223, s36 (10,33)**: una espalda con 0,56 casillas de oscuro al norte (techo 0,25). Al norte,
+    el nodo de acantilado de (10,32) con camino, a lo bajo entre dos acantilados a 2: un hoyo de una
+    casilla que lo alto se come casi entero. La tirada subía del canto, por el hoyo, hasta la sombra
+    que la ladera de (9,31) echa sobre (10,31), que es de la ladera y no de la espalda. La medida solo
+    apartaba las laderas de la casilla del norte; ahora en la de su norte la tirada acaba donde llega
+    la sombra de sus laderas (`oscuroAlNorteDeLasEspaldas`). Lo pintado no cambia: mirado a 96 px, lo
+    oscuro junto al filo es el canto (0,18) y lo de más allá, la sombra de la ladera. En 1-40, máximo
+    0,198 (1 314 espaldas medidas).
+  - **#216, s9 (22-24, 28)**: tres paredes de roca gris (`caraDeOtroMaterial` 3) junto a las de
+    basalto. La montaña de (22-23, 28) queda a 1 entre la ciénaga a 0 y el áspero a 2, sin nada a 1
+    unido a ella por su nivel: una isla, y `sueloDeLaMeseta` le dejaba su suelo, el más cercano de
+    cualquier nivel (la ciénaga). Ahora una isla toma lo que se pisa a su nivel más cercano por la
+    rejilla, pasando por otros niveles (la lava a 1, dos casillas al oeste); solo lo que no tiene nada
+    a su nivel en el mapa se queda con el suyo. Cambia la roca de la pared y lo que se pinta en esas
+    casillas, que es el suelo de su meseta (#217).

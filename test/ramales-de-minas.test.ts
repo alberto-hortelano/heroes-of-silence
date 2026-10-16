@@ -18,8 +18,10 @@ import { newGame } from '../src/core/state/setup.js';
 import { ramalesDeMinas } from '../tools/qa/ramales.js';
 import { LENTO, rango, segunPrisa } from './lento.js';
 
-const SEMILLAS = segunPrisa([1, 4, 19], rango(1, 200));
-/** En 1-200: 99 antes de #230, 20 después. */
+// Con los ríos (#144, 16-10-2026) la s19 es otro mapa y le queda una (como a
+// s23 y s29 de 1-30): va la s14, otra de las que la daban antes de #230.
+const SEMILLAS = segunPrisa([1, 4, 14], rango(1, 200));
+/** En 1-200: 99 antes de #230, 20 después; 21 con los ríos (#144). */
 const TECHO_EN_LA_LENTA = 25;
 
 describe('la mina sale por la puerta menos forzada (#230)', () => {

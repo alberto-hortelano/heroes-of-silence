@@ -273,9 +273,10 @@ describe('las piezas de la rampa, con el arte del repo', () => {
 // Desde #226 (el mapa de 42×42) la s12 es otro mapa y no lleva rampa. Con
 // arte salen 1 en 1-200 y 19 en 1-1000 (eran 5 y 27 en 34×34; 09-10-2026),
 // todas de caída 1. Con las fronteras onduladas (#229, 09-10-2026), 2 en
-// 1-200 (s106 (34, 19) y s139 (32, 32), las dos de roca).
-const SEMILLA = 106;
-const [RX, RY] = [34, 19];
+// 1-200 (s106 (34, 19) y s139 (32, 32), las dos de roca). Con los ríos (#144,
+// 16-10-2026), 3 en 1-300 (s117 (35, 21), de roca; s164 y s277, de arenisca).
+const SEMILLA = 117;
+const [RX, RY] = [35, 21];
 
 describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
   const map = newGame({ seed: SEMILLA }).map;
@@ -336,14 +337,17 @@ describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
   });
 });
 
-// Con las dos puertas de la mina (#230, 09-10-2026) el caso es s134 (32, 12), de
+// Con los ríos (#144, 16-10-2026) el caso es s10 (14, 14), de roca, la única
+// muesca de su mapa (14 en 1-300; de roca y solas en su mapa, s10, s41, s62,
+// s181, s257, s259, s270 y s300). Con las dos puertas de la mina (#230,
+// 09-10-2026) era s134 (32, 12), de
 // roca, la única muesca de su mapa (6 muescas en 1-200, todas de roca y caída 1,
 // una por mapa: s111, s131, s134, s153, s156 y s174). Era s126 (31, 33) desde las
 // fronteras onduladas (#229; 11 muescas en 1-200, 3 de arenisca; eran 27), cuando
 // en s88, s134 y s153 la pieza de la muesca quitaba caras cortadas (1-2 → 0), y el
 // test pide las mismas con y sin ella. Era s16 (30, 11) desde #226 (mapa de
 // 42×42) y s3 (4, 20) en 34×34.
-const [MS, MX, MY] = [134, 32, 12];
+const [MS, MX, MY] = [10, 14, 14];
 describe(`la rampa de muesca en un mapa real: s${MS}, (${MX}, ${MY}) (§36)`, () => {
   const map = newGame({ seed: MS }).map;
   const e = componer(map, MS, catalogo);

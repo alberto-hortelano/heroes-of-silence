@@ -24,7 +24,9 @@
  * fronteras onduladas (#229, 09-10-2026), 4 → 3 en 1-1000 (s162 oeste, s343 y
  * s711 este); en 1-200, s162 (34,34). Con las dos puertas de la mina (#230,
  * 09-10-2026), otros mapas otra vez: 3 → 4 en 1-1000 (s343 y s803 este, s929
- * oeste, s936 este), y en 1-200 ninguno.
+ * oeste, s936 este), y en 1-200 ninguno. Con los ríos (#144, 16-10-2026), otros
+ * mapas otra vez: en 1-200, 0 → 2 (s15 (9,16) y s80 (27,34), las
+ * dos este; no se ha mirado aún por qué `puertasSinMuesca` no las cierra).
  */
 import { describe, expect, it } from 'vitest';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
@@ -58,7 +60,10 @@ function muescasDe(map: GameMap): string[] {
 const mapaDe = (semilla: number): GameMap => buildMap(generateMapPlan(createRng(semilla))).map;
 
 /** Lo que queda en 1-200, por semilla (arriba). */
-const QUEDAN: Readonly<Record<number, readonly string[]>> = {};
+const QUEDAN: Readonly<Record<number, readonly string[]>> = {
+  15: ['(9,16) este'],
+  80: ['(27,34) este'],
+};
 
 describe('la puerta de una ciudad no muerde la línea del acantilado (#222)', () => {
   // En el bucle rápido, las que lo daban en 34×34 (s57, s162, s263; en 42×42

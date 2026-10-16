@@ -431,9 +431,11 @@ describe('el fotograma por acción', () => {
       desde = hasta;
     }
     // Y son fotogramas de verdad repartidos, no N copias del final: el registro
-    // crece en cada uno.
+    // crece en cada uno, salvo en los de las acciones que no dejan hecho (el
+    // `end_turn` de arriba), que son como mucho los fotogramas de más. Con los
+    // ríos (#144) esta semilla saca uno así en mitad de la batalla.
     expect(largos).toEqual([...largos].sort((a, b) => a - b));
-    expect(new Set(largos).size).toBe(largos.length);
+    expect(largos.length - new Set(largos).size).toBeLessThanOrEqual(enBatalla - (acciones + 1));
   });
 
   it('sin `onFrame` el director juega exactamente igual', async () => {

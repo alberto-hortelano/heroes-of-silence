@@ -412,86 +412,176 @@ describe('el pintor copia la máscara por trozos', () => {
   });
 });
 
-describe('las dos marcas de la semilla 1', () => {
+/*
+ * Las casillas de las marcas y de QA eran de la s1 de antes de los ríos (#144,
+ * 16-10-2026), que la vistió otra vez: se buscan por lo que eran, no por dónde.
+ */
+const BOSQUE = 'forest' as TerrainKind;
+
+/** Las casillas que se pisan con un bosque al oeste en la misma fila: las marcas (2,23) y (1,23). */
+function pisablesJuntoAlBosque(
+  a: ReturnType<typeof analizar>,
+  map: MapaDeEscena,
+): [number, number][] {
+  const fuera: [number, number][] = [];
+  for (let y = 0; y < map.height; y++)
+    for (let x = 1; x < map.width; x++) {
+      const i = y * map.width + x;
+      const izq = a.franjaDe[i - 1] as number;
+      if (a.franjaDe[i] !== -1 || izq === -1 || a.franjas[izq]?.barrera !== BOSQUE) continue;
+      if (map.objects.some((o) => o.at.x === x && o.at.y === y)) continue;
+      fuera.push([x, y]);
+    }
+  return fuera;
+}
+
+describe('las dos marcas de la semilla 1, por lo que eran', () => {
   const { map, escena: e } = partidaDe(1);
   const a = analizar(map);
+  const pares = pisablesJuntoAlBosque(a, map);
+  const estrechas = pasillosEstrechos(a.franjaDe, e.W);
+  // La marca (2,23) era hierba de lo ancho, sin pasillo: la copa la mira por los lados.
+  const anchas = pares.filter(([x, y]) => estrechas[y * e.W + x] === 0);
 
-  it('(2,23), hierba, sin árbol ni copa que la tape por los lados', () => {
-    expect(a.franjaDe[23 * e.W + 2]).toBe(-1);
-    expect(
-      e.sprites.filter(
-        (s) =>
-          ARBOLES.some((h) => s.src?.startsWith(`modulos/${h}/`) === true) &&
-          Math.floor(s.x) === 2 &&
-          Math.floor(s.y) === 23,
-      ),
-    ).toEqual([]);
-    const tapan = e.sprites.filter(
-      (s) =>
-        s.clase === 'masa' &&
-        Math.floor(s.y) === 23 &&
-        entraEn(s, 2) > MARGEN_SOBRE_LO_PISABLE + 1e-6,
-    );
-    expect(tapan).toEqual([]);
+  it(`hay casillas así en s1 (${pares.length}, ${anchas.length} fuera de un pasillo)`, () => {
+    expect(anchas.length).toBeGreaterThan(5);
   });
 
-  it('(1,23), bosque, con su masa y su sotobosque; (2,23) sin sotobosque', () => {
-    expect(a.franjas[a.franjaDe[23 * e.W + 1] as number]?.barrera).toBe('forest');
-    expect(
-      e.sprites.some((s) => s.clase === 'masa' && Math.floor(s.x) === 1 && Math.floor(s.y) === 23),
-    ).toBe(true);
+  it('la que se pisa, sin árbol ni copa que la tape por los lados', () => {
+    for (const [x, y] of anchas) {
+      expect(
+        e.sprites.filter(
+          (s) =>
+            ARBOLES.some((h) => s.src?.startsWith(`modulos/${h}/`) === true) &&
+            Math.floor(s.x) === x &&
+            Math.floor(s.y) === y,
+        ),
+        `(${x}, ${y})`,
+      ).toEqual([]);
+      const tapan = e.sprites.filter(
+        (s) =>
+          s.clase === 'masa' &&
+          s.cumbre !== true &&
+          Math.floor(s.y) === y &&
+          entraEn(s, x) > MARGEN_SOBRE_LO_PISABLE + 1e-6,
+      );
+      expect(tapan, `(${x}, ${y})`).toEqual([]);
+    }
+  });
+
+  it('el bosque, con su masa y su sotobosque; lo que se pisa, sin sotobosque', () => {
     const m = sotobosqueDe(e, nivelPintado(e));
-    expect(enElCentro(m, 1, 23)).toBeGreaterThanOrEqual(Math.round(255 * SOTOBOSQUE.alfa) - 1);
-    expect(enElCentro(m, 2, 23)).toBe(0);
+    for (const [x, y] of anchas) {
+      expect(
+        e.sprites.some(
+          (s) => s.clase === 'masa' && Math.floor(s.x) === x - 1 && Math.floor(s.y) === y,
+        ),
+        `(${x - 1}, ${y})`,
+      ).toBe(true);
+      expect(enElCentro(m, x - 1, y), `(${x - 1}, ${y})`).toBeGreaterThanOrEqual(
+        Math.round(255 * SOTOBOSQUE.alfa) - 1,
+      );
+      expect(enElCentro(m, x, y), `(${x}, ${y})`).toBe(0);
+    }
   });
 });
 
-describe('lo que vio QA en la semilla 1', () => {
+describe('lo que vio QA en la semilla 1, por lo que era', () => {
   const { map, escena: e } = partidaDe(1);
   const a = analizar(map);
-
-  it('el paso de la fila 17, columnas 29-31, entre dos bosques: la copa de su sur deja su 0,6 de arriba', () => {
-    const estrechas = pasillosEstrechos(a.franjaDe, e.W);
-    for (const x of [29, 30, 31]) expect(estrechas[17 * e.W + x], `(${x}, 17)`).toBe(1);
+  const estrechas = pasillosEstrechos(a.franjaDe, e.W);
+  const esBosque = (x: number, y: number): boolean => {
+    const f = a.franjaDe[y * e.W + x] as number;
+    return f !== -1 && a.franjas[f]?.barrera === BOSQUE;
+  };
+  /** Si alguna masa del sur (sin cumbres) tapa la fila `y` de las columnas `xs` más de lo que deja. */
+  const tapanDesdeElSur = (xs: readonly number[], y: number): Sprite[] => {
     const M = MARGEN_SOBRE_LO_PISABLE;
-    const tapan = e.sprites.filter((s) => {
-      if (s.clase !== 'masa' || s.cumbre === true || Math.floor(s.y) <= 17) return false;
+    return e.sprites.filter((s) => {
+      if (s.clase !== 'masa' || s.cumbre === true || Math.floor(s.y) <= y) return false;
       const [x0, y0, x1] = cajaDeSprite(s);
       return (
-        [29, 30, 31].some((c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M)) &&
-        y0 < 18 - TAPADO_DEL_PASILLO - 1e-9
+        xs.some((c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M)) &&
+        y0 < y + 1 - TAPADO_DEL_PASILLO - 1e-9
       );
     });
-    expect(tapan).toEqual([]);
-  });
+  };
 
-  it('el pasillo de dos de hondo de (11-12, 8-9): la copa de su sur deja el 0,6 de arriba de la fila 9', () => {
-    const estrechas = pasillosEstrechos(a.franjaDe, e.W);
-    for (const x of [11, 12])
-      for (const y of [8, 9]) expect(estrechas[y * e.W + x], `(${x}, ${y})`).toBe(1);
+  // La marca de (29-31, 17): un paso de este a oeste de una casilla de hondo,
+  // con bosque al norte y al sur, de tres casillas o más. La s1 de hoy no tiene
+  // ninguno; la s3, cuatro (con su espejo).
+  it('los pasos de una casilla entre dos bosques (s3): la copa de su sur deja su 0,6 de arriba', () => {
+    const p3 = partidaDe(3);
+    const a3 = analizar(p3.map);
+    const W3 = p3.escena.W;
+    const est3 = pasillosEstrechos(a3.franjaDe, W3);
+    const bosque3 = (x: number, y: number): boolean => {
+      const f = a3.franjaDe[y * W3 + x] as number;
+      return f !== -1 && a3.franjas[f]?.barrera === BOSQUE;
+    };
+    const pasos: [number, number][] = [];
+    for (let y = 1; y < p3.escena.H - 1; y++)
+      for (let x = 0; x + 2 < W3; x++)
+        if (
+          [0, 1, 2].every(
+            (d) =>
+              est3[y * W3 + x + d] === 1 &&
+              a3.franjaDe[y * W3 + x + d] === -1 &&
+              bosque3(x + d, y - 1) &&
+              bosque3(x + d, y + 1),
+          )
+        )
+          pasos.push([x, y]);
+    expect(pasos.length).toBeGreaterThan(0);
     const M = MARGEN_SOBRE_LO_PISABLE;
-    const tapan = e.sprites.filter((s) => {
-      if (s.clase !== 'masa' || s.cumbre === true || Math.floor(s.y) <= 9) return false;
-      const [x0, y0, x1] = cajaDeSprite(s);
-      return (
-        [11, 12].some((c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M)) &&
-        y0 < 10 - TAPADO_DEL_PASILLO - 1e-9
-      );
-    });
-    expect(tapan).toEqual([]);
+    for (const [x, y] of pasos) {
+      const tapan = p3.escena.sprites.filter((s) => {
+        if (s.clase !== 'masa' || s.cumbre === true || Math.floor(s.y) <= y) return false;
+        const [x0, y0, x1] = cajaDeSprite(s);
+        return (
+          [x, x + 1, x + 2].some((c) => Math.min(x1, c + 1 - M) > Math.max(x0, c + M)) &&
+          y0 < y + 1 - TAPADO_DEL_PASILLO - 1e-9
+        );
+      });
+      expect(tapan, `(${x}, ${y})`).toEqual([]);
+    }
   });
 
-  it('los bosques de una casilla bajo una ciudad, (14,24) y (28,35), llevan su árbol', () => {
-    for (const [x, y] of [
-      [14, 24],
-      [28, 35],
-    ] as const) {
-      expect(a.franjas[a.franjaDe[y * e.W + x] as number]?.barrera).toBe('forest');
+  // La de (11-12, 8-9): un pasillo de dos de hondo y dos de ancho, con bosque al sur.
+  const hondos: [number, number][] = [];
+  for (let y = 0; y + 2 < e.H; y++)
+    for (let x = 0; x + 1 < e.W; x++)
+      if (
+        [0, 1].every(
+          (dx) =>
+            [0, 1].every((dy) => estrechas[(y + dy) * e.W + x + dx] === 1) &&
+            esBosque(x + dx, y + 2),
+        )
+      )
+        hondos.push([x, y]);
+
+  it(`los pasillos de dos de hondo con bosque al sur (${hondos.length} en s1): la copa deja el 0,6 de arriba de su fila de abajo`, () => {
+    expect(hondos.length).toBeGreaterThan(0);
+    for (const [x, y] of hondos)
+      expect(tapanDesdeElSur([x, x + 1], y + 1), `(${x}, ${y})`).toEqual([]);
+  });
+
+  // Las de (14,24) y (28,35): una casilla de bosque justo bajo una ciudad, en
+  // su reserva, donde antes no cabía ni un pie.
+  const bajoCiudad: [number, number][] = [];
+  for (const o of map.objects)
+    if (o.kind === 'town')
+      for (const dx of [-1, 0, 1])
+        if (o.at.y + 1 < e.H && esBosque(o.at.x + dx, o.at.y + 1))
+          bajoCiudad.push([o.at.x + dx, o.at.y + 1]);
+
+  it(`los bosques justo bajo una ciudad (${bajoCiudad.length} en s1) llevan su árbol sin tapar la ciudad`, () => {
+    expect(bajoCiudad.length).toBeGreaterThan(0);
+    for (const [x, y] of bajoCiudad) {
       const arboles = e.sprites.filter(
         (s) => esArbol(s.src) && Math.floor(s.x) === x && Math.floor(s.y) === y,
       );
       expect(arboles.length, `(${x}, ${y})`).toBeGreaterThan(0);
-      // Sin tapar la ciudad: su caja no toca la de ningún objeto.
       for (const t of arboles) {
         const c = cajaDeSprite(t);
         for (const o of e.sprites.filter((o) => o.objeto !== undefined && o.src !== null)) {

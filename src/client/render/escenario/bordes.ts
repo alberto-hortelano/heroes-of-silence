@@ -27,8 +27,16 @@ import { CARA_DE_SUELO } from './relieve.js';
  * alto (`nivelesDelRelieve`) pero su suelo (`Analisis.suelo`) es el más
  * cercano de cualquier nivel, a menudo el del lado bajo, y la cara que cae de
  * ella tomaba su roca: la meseta de arena de s5 (2-8, 27-31) acababa en una
- * pared de roca gris, la de la ciénaga de abajo. Lo que no llega a nada de su
- * nivel se queda con el suyo.
+ * pared de roca gris, la de la ciénaga de abajo.
+ *
+ * Lo que no llega por su nivel a nada que se pise —una isla de barrera, como la
+ * repisa de montaña de s9 (22-23, 28) con los ríos (#144): a nivel 1 entre la
+ * ciénaga de abajo y la meseta de áspero, sin nada a 1 unido a ella— toma lo
+ * que se pisa a su nivel más cercano por la rejilla (Chebyshev, pasando por
+ * otros niveles; a igual distancia, lo primero en el orden de la rejilla): la
+ * lava a 1 de dos casillas más allá. Con el suyo, la ciénaga, su pared salía de
+ * roca gris junto a las de basalto (`caraDeOtroMaterial` = 3). Lo que no tiene
+ * nada a su nivel en el mapa entero se queda con el suyo.
  */
 export function sueloDeLaMeseta(
   W: number,
@@ -61,6 +69,38 @@ export function sueloDeLaMeseta(
         fuera[k] = fuera[j] as Suelo;
         cola.push(k);
       }
+  }
+  // Las islas: una búsqueda por nivel desde lo que se pisa a ese nivel, por
+  // toda la rejilla, que solo escribe en lo que la primera no vio.
+  const islas = new Set<number>();
+  for (let i = 0; i < W * H; i++) if (visto[i] === 0) islas.add(nivel[i] as number);
+  for (const n of islas) {
+    const dist = new Uint8Array(W * H);
+    const desde: number[] = [];
+    for (let i = 0; i < W * H; i++)
+      if ((region[i] as number) >= 0 && nivel[i] === n) {
+        dist[i] = 1;
+        desde.push(i);
+      }
+    const suyo = [...fuera];
+    for (let q = 0; q < desde.length; q++) {
+      const j = desde[q] as number;
+      const x = j % W;
+      const y = (j - x) / W;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const k = ny * W + nx;
+          if (dist[k] === 1) continue;
+          dist[k] = 1;
+          suyo[k] = suyo[j] as Suelo;
+          desde.push(k);
+        }
+    }
+    for (let i = 0; i < W * H; i++)
+      if (visto[i] === 0 && nivel[i] === n && dist[i] === 1) fuera[i] = suyo[i] as Suelo;
   }
   return fuera;
 }

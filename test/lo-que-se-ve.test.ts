@@ -183,12 +183,14 @@ describe('la sesión de quien juega: lienzo, minimapa y barra', () => {
 
     expect(barra(suyo.at)).not.toContain(suyo.name);
     expect(barra(suyo.at)).not.toContain('héroe enemigo');
-    expect(barra(nodo.at)).toMatch(/^Paso sin dueño/);
+    // Con los ríos (#144) el camino cruza la región de unos asaltantes y la
+    // barra lo avisa delante.
+    expect(barra(nodo.at)).toMatch(/(^|· )Paso sin dueño/);
 
     suyo.at = { x: mio.at.x + 1, y: mio.at.y };
     expect(barra(suyo.at)).toContain(`${suyo.name}, héroe enemigo`);
     s.revealAll = true;
-    expect(barra(nodo.at)).toMatch(/^Paso enemigo/);
+    expect(barra(nodo.at)).toMatch(/(^|· )Paso enemigo/);
   });
 
   it('la crónica cuenta lo que pasó a la vista, como la del agente; con «Ver mapa entero», todo', async () => {

@@ -904,6 +904,12 @@ export interface ProceduralOptions {
   readonly factions?: readonly [FactionId, FactionId];
   readonly monsterCount?: number;
   readonly resourceCount?: number;
+  /**
+   * Se le dice cada vestido que no vale, con su fase y su motivo: lo leen las
+   * medidas (`tools/qa/rios.ts`), que cuentan los vestidos tirados. No cambia
+   * nada del mapa.
+   */
+  readonly alTirarUnVestido?: (fase: string, motivo: string) => void;
 }
 
 /**
@@ -1040,6 +1046,7 @@ export function trazarYVestir(
         if (!('fase' in plan)) return validadoPorLaPuerta(plan);
         fallos[plan.fase].veces++;
         fallos[plan.fase].ultimo = plan.motivo;
+        opts.alTirarUnVestido?.(plan.fase, plan.motivo);
       }
     }
   }

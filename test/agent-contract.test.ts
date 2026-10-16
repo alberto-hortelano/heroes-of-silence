@@ -775,11 +775,14 @@ describe('lo que ve el agente', () => {
     // Con el mapa entero explorado: lo que se mira aquí es el presente, no la niebla.
     revealEverything(state, 0);
     const mio = heroesOf(state, 0)[0]!;
-    const grupo = state.raiders[0]!;
     const lejos = serializeAdventureTurn(state, 0) as {
       knownMap: { raiders: { id: string }[] };
     };
     const ids = (m: { raiders: { id: string }[] }) => m.raiders.map((r) => r.id);
+    // Uno que no se ve desde la salida (con los ríos de #144, el primero de s92
+    // ya se ve: su región asoma desde casa).
+    const grupo = state.raiders.find((r) => !ids(lejos.knownMap).includes(r.id))!;
+    expect(grupo).toBeDefined();
     // Que sea la regla del núcleo y no una copia lo prueba `asaltantes.test.ts`
     // en 20 semillas; aquí, que el turno y la tool dicen lo mismo.
     expect(ids(lejos.knownMap)).not.toContain(grupo.id);

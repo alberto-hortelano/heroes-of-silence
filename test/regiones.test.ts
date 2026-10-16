@@ -522,10 +522,12 @@ function horquillasNuevas(map: GameMap): string[] {
  * camino llega de lado. No es de la silla: antes de #224 pasaba en s401 y s739
  * de 1-1000; con los vestidos que se repiten por una silla, s133 es otro mapa y
  * cae ahí (en 1-1000, s133, s401 y s947; 09-10-2026). El trazado de esa
- * esquina no se ha tocado: no hay ninguna esquina abierta cerca.
+ * esquina no se ha tocado: no hay ninguna esquina abierta cerca. Con los ríos
+ * (#144, 16-10-2026) la s133 es otro mapa y el caso cae en la s52: un pueblo en
+ * la segunda columna con la casilla de su puerta ocupada por otro objeto.
  */
 const DE_LADO_POR_LA_ESQUINA: Readonly<Record<number, string>> = {
-  133: 'village (12,32): se entra desde (13,32) y no por su puerta',
+  52: 'village (1,17): se entra desde (2,17) y no por su puerta',
 };
 
 /** Los objetos con puerta: se entran por la casilla de debajo y no se cruzan (#188). */

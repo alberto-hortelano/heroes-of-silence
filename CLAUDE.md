@@ -150,6 +150,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Territorio y renta | `territorio(state)`, `dueñoComun` |
 | Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed` |
 | Qué barrera cruza un nodo | `MapObject.barrera`, que pone `buildMap` con el muro que abre; el procedimental escribe ese muro con `queCruzaElNodo` |
+| Qué parejas llevan agua en el procedimental: el río y la regla de las charcas | `elegirRio`, `BrazosDeAgua`, `ponerLagos` (`core/map/rios.ts`); medido sobre el mapa, `riosDelMapa` (`tools/qa/rios.ts`) |
 | Caminos de un plan al mapa | `caminosDelPlan` |
 | Carga | `cargaDesde` (cuándo), `cargaEfectiva` (tope), `casillasDeCarga` (qué se enseña) |
 | Turno de batalla | `BattleState.turno` (`n`, ordinal); `mismoTurno`; viaja como `turnId` |
@@ -447,6 +448,33 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   puerta y sin sus dos apoyos 71 → 0, casillas de muro 8 884 → 1 451, largo medio 3,18 → 3,74
   (máximo 6); mapas con muralla 117 (con puerta; 199 con algún muro) → 112
   (`tools/qa/murallas.ts`, `test/murallas-de-paso.test.ts`). Los planes del agente no cambian.
+  **Los ríos** (#144, 16-10-2026, commit 1 de `docs/agents/2026-10-14-rios-entre-regiones/`): un
+  río es **un curso con boca**, varias fronteras de agua seguidas que salen por el borde del mapa,
+  no un largo. Antes del reparto de barreras, `elegirRio` (`core/map/rios.ts`) busca cadenas de 2 a
+  `PAREJAS_MAXIMAS_DEL_RIO` (7) parejas que admiten agua, una tras otra por un mismo punto triple
+  (`Cruces.trozos`), con una punta en el borde y la otra en el borde o en una pareja con sitio para
+  un **lago de cabecera**; planas (la orilla baja de todas al mismo nivel y ninguna región de sus
+  cruces por debajo: #210), sin volver a un cruce y, con su espejo, sin ningún cruce de tres brazos
+  ni otro brazo que solo admita agua; y que el resto del vestido aguante (las `TIPOS_POR_MAPA`, con
+  `repartirDistintas` sin `rng`). Se sortea por el cubo del muro fino, doble de borde a borde (con el
+  largo a secas salían ríos de dos parejas en una esquina). **La ciudad del cruce es su vado**
+  (decisión del usuario): el agua se corta en ella como en un puente. **Lagos en el curso**
+  (`LAGOS_POR_RIO` = 2, `ponerLagos`, paso 5b del engorde): un disco de `R_LAGO` (2) y un anillo
+  de uno más donde la moneda cae a favor, en la casilla del muro fino más lejos de todo nodo (a 4 o
+  más), sin pasillos, ni a dos de un nodo ni de otra región, y solo lo unido a su centro (un trozo
+  suelto del anillo era un obstáculo de más: s112); el que partiría una región no se pone, y si es
+  el de cabecera, el vestido se repite. Del lago a la ciudad de cabecera el muro lleva otra
+  barrera (`Rio.corte`): el río nace en el lago. **La regla de las charcas** (`BrazosDeAgua`): fuera
+  del río, una pareja no lleva agua si un cruce suyo ya tiene un brazo de agua, y lo que sobra de
+  una muralla junto a una ciudad no pasa a agua. Medido en 1-40 (`tools/qa/rios.ts`, sobre el mapa
+  hecho): mapas con río 32 → 37, todos con boca (ríos sin boca 6 → 0), de borde a borde 13 → 29, con
+  un lago atravesado 18 → 27, ciudades con tres brazos de agua 14 → 0, ríos con el agua a más de un
+  nivel 11 → 0, mediana del río más largo 22 → 30 casillas (el plan pedía 40: en 9 de 40 mapas no cabe
+  más de dos parejas); agua 7 556 → 9 198 casillas, acantilado 1 566 → 1 212. La nieve sube de 12,1 a
+  16,6 % de las regiones de 1-200 (los vestidos que se repiten). En 1-3000, tramos rectos ≥ 10 / caras
+  ≥ 10 / mapas con tramo ≥ 12: 164 / 0 / 14 → 95 / 0 / 4. En 1-100, duración 8 / 14 / 21 → 8 / 15 / 22
+  días, j0 51 → 58, 0 sin terminar. El agua sigue a
+  2-3 casillas: adelgazarla a una es el commit 2.
 - **Asaltantes**: grupos neutrales que patrullan regiones sin dueño y emboscan
   al pisar si les sacan `ventajaClara`. Son actores (`GameState.raiders`), no
   objetos del mapa. Un grupo se ve en cuanto se ve una casilla de su región
@@ -809,7 +837,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
-| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
+| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
 - **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y

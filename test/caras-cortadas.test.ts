@@ -162,7 +162,10 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 // Con la muralla como cierre de un paso (#232, 10-10-2026), otros mapas donde
 // estaba el muro y en los que se visten otra vez: en 1-200, 4 (s16 con dos,
 // s61 y s121, que sigue igual); s8 y s78 ya no lo dan. Sin mirar caso a caso.
-const QUEDAN: Readonly<Record<number, number>> = { 16: 2, 61: 1, 121: 1 };
+//
+// Con los ríos (#144, 16-10-2026), otros mapas: de las 51 de la lista lenta,
+// 1 (s7); s16, s61 y s121 ya no lo dan. Sin mirar caso a caso.
+const QUEDAN: Readonly<Record<number, number>> = { 7: 1 };
 const SEMILLAS = segunPrisa(
   [3, 12, 22, 28],
   [...rango(1, 40), 57, 61, 64, 68, 78, 89, 96, 121, 141, 190, 443],

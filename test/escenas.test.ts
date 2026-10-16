@@ -256,8 +256,10 @@ describe('el mapa con el dedo', () => {
     });
     const p = casillaAPixel(camara, destino);
     escena.mover(p.x, p.y);
+    // Con los ríos (#144) el primer caso cruza la región de unos asaltantes y
+    // la barra lo avisa delante: lo de la niebla va al final, una vez.
     expect(s.status).toMatch(
-      /^Tierras desconocidas · hoy andas \d+ de los \d+ pasos? que se ven\.$/,
+      /(^|· )Tierras desconocidas · hoy andas \d+ de los \d+ pasos? que se ven\.$/,
     );
     expect(s.status.toLowerCase().split('tierras desconocidas')).toHaveLength(2);
   });

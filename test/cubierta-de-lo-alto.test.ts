@@ -74,25 +74,20 @@ describe('en los mapas reales', () => {
       expect(cubiertaDeOtroNivel(e.sprites, e.suelo, e.W)).toEqual([]);
     });
 
-  it('s36 (30-34, 0-8): lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
+  it('s36: lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
     // Era s13 (16-24, 4-7) en 34×34; desde #226, s51 (17-22, 8-9), y desde
     // las fronteras onduladas (#229), s18 (27-31, 15-24), y desde las dos
-    // puertas de la mina (#230, 09-10-2026), s36: 12 casillas de acantilado
-    // con la nieve como suelo más cercano y lava pintada.
+    // puertas de la mina (#230, 09-10-2026), s36 (30-34, 0-8). Con los ríos
+    // (#144, 16-10-2026) se busca por lo que es: las casillas de acantilado con
+    // la nieve como suelo más cercano y lava pintada (17 en s36).
     const { map, escena: e } = partidaDe(36);
     const a = analizar(map);
-    const enLoAlto = e.sprites.filter((s) => {
-      const i = Math.floor(s.y) * e.W + Math.floor(s.x);
-      return (
-        s.x >= 30 &&
-        s.x < 35 &&
-        s.y >= 0 &&
-        s.y < 9 &&
-        map.terrain[i] === 'cliff' &&
-        // Que el guardia no mire al vacío: ahí el suelo más cercano es la nieve.
-        a.suelo[i] === 'snow'
-      );
-    });
+    const casillas = new Set<number>();
+    for (let i = 0; i < map.terrain.length; i++)
+      if (map.terrain[i] === 'cliff' && a.suelo[i] === 'snow' && e.suelo[i] === 'lava')
+        casillas.add(i);
+    expect(casillas.size).toBeGreaterThan(10);
+    const enLoAlto = e.sprites.filter((s) => casillas.has(Math.floor(s.y) * e.W + Math.floor(s.x)));
     expect(enLoAlto.filter((s) => s.clase === 'roca').length).toBeGreaterThan(10);
     // La lava es `comoLaBarrera`: su cubierta de lo alto se cambia por roca (`rocaEnLoAlto`).
     expect(enLoAlto.filter((s) => /nevad|snow/.test(s.src ?? ''))).toEqual([]);

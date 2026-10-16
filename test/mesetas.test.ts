@@ -133,7 +133,7 @@ describe('en los mapas reales', () => {
       expect(e.informe.acantiladosLisos).toBe(0);
     });
 
-  it('s5 y s32: su meseta más ancha, casilla a casilla', () => {
+  it('s52 y s36: su meseta más ancha, casilla a casilla', () => {
     // Las cajas de la auditoría —s443 (14-16, 9-11) y s34 (17-22, 5-7)— ya no
     // caen en un acantilado con los niveles del mapa (#143): se mira el
     // cuadrado de 3 × 3 con más acantilado de cada una, que es lo que más se lee
@@ -143,8 +143,8 @@ describe('en los mapas reales', () => {
     // huella no deja poner nada (como en `lisosDe`). Desde #226 (42×42) ni la
     // s1 ni la s34 llevan acantilado: iban las dos de 1-60 con más (s16 y s24,
     // 81 y 78 casillas); con las fronteras onduladas (#229, 09-10-2026), s5 y
-    // s32 (123 y 110).
-    for (const semilla of [5, 32] as const) {
+    // s32 (123 y 110); con los ríos (#144, 16-10-2026), s52 y s36 (113 y 86).
+    for (const semilla of [52, 36] as const) {
       const { map, escena: e } = partidaDe(semilla);
       const huella = huellaDeLosObjetos(semilla);
       const [x0, y0] = masAcantiladoEn3x3(map.terrain, e.W, e.H);
@@ -171,9 +171,10 @@ describe('en los mapas reales', () => {
   });
 
   it('el informe muerde en un mapa real: quitar la roca de una casilla la cuenta', () => {
-    // La 16 y no la 34 desde #226: en 42×42 la 34 no lleva acantilado.
-    const { map, escena: e } = partidaDe(16);
-    const i = map.terrain.findIndex((t, k) => t === 'cliff' && !huellaDeLosObjetos(16).has(k));
+    // La 16 y no la 34 desde #226: en 42×42 la 34 no lleva acantilado; la 52
+    // desde los ríos (#144), que dejaron la 16 sin él.
+    const { map, escena: e } = partidaDe(52);
+    const i = map.terrain.findIndex((t, k) => t === 'cliff' && !huellaDeLosObjetos(52).has(k));
     expect(i).toBeGreaterThanOrEqual(0);
     const sin = e.sprites.filter(
       (s) => Math.floor(s.y) * e.W + Math.floor(s.x) !== i || s.clase === 'cubierta',

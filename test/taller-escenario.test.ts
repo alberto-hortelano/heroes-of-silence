@@ -375,8 +375,9 @@ describe('la escena de un mapa real', () => {
   // vez de la 9 y la 13 desde #226 (mapa de 42×42): la 13 se quedó sin
   // desnivel y la 9 sin el inicio de una ladera; la 4 y la 5 en vez de la 7 y
   // la 2 desde las dos puertas de la mina (#230, 09-10-2026): las dos se
-  // quedaron sin desnivel (todas sus regiones al 1).
-  for (const semilla of [3, 6, 4, 5]) {
+  // quedaron sin desnivel (todas sus regiones al 1); la 15 en vez de la 4
+  // desde los ríos (#144, 16-10-2026), que la dejaron sin desnivel.
+  for (const semilla of [3, 6, 15, 5]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 
