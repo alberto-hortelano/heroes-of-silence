@@ -298,6 +298,20 @@ describe('el índice de obstáculos (#151): cada forma mide a su manera', () => 
     expect(estrecha.altoLibre(mata(0.1, 0.5))).toBeLessThan(1);
   });
 
+  it('un tope manda como una forma: pisa por encima de su alto, y `altoLibre` da el menor', () => {
+    // Un tope de 0,5 solo para lo que está a la izquierda de x = 3; a la derecha, nada.
+    const conTope = new Obstaculos(
+      [reserva],
+      [(s, hasta) => (s.x < 3 ? Math.min(0.5, hasta) : hasta)],
+    );
+    expect(conTope.pisa(mata(1, 1, 0.5))).toBe(false);
+    expect(conTope.pisa(mata(1, 1, 0.6))).toBe(true);
+    expect(conTope.altoLibre(mata(1, 1))).toBe(0.5);
+    expect(conTope.altoLibre(mata(4, 1))).toBe(1);
+    // Con la reserva más estricta que el tope, manda la reserva.
+    expect(conTope.altoLibre(mata(5, 5.8))).toBeCloseTo(0.6, 2);
+  });
+
   it('`en` dice qué forma de las que se piden alcanza un punto', () => {
     expect(o.en(5.2, 5.2, (f) => f === reserva)).toBe(reserva);
     expect(o.en(5.6, 5, (f) => f === reserva)).toBeUndefined();
@@ -423,6 +437,14 @@ describe('la escena de un mapa real', () => {
         for (const v of volumenes) {
           if (v.y < o.y || (v.y === o.y && v.x <= o.x)) continue;
           const [x0, y0, x1, y1] = cajaDeSprite(v);
+          // El árbol de bosque que va en la reserva (`Sprite.enLaReserva`, vuelta
+          // de QA 1 de 2026-10-14-pisable-junto-al-bosque) no toca la caja del objeto.
+          if (v.enLaReserva === true) {
+            const [a0, b0, a1, b1] = cajaDeSprite(o);
+            if (x0 < a1 && x1 > a0 && y0 < b1 && y1 > b0)
+              tapan.push(`${v.src} en ${v.x},${v.y} tapa la imagen de ${mo.id}`);
+            continue;
+          }
           const dx = Math.max(x0 - cx, 0, cx - x1);
           const dy = Math.max(y0 - cy, 0, cy - y1);
           if (dx * dx + dy * dy < r * r) tapan.push(`${v.src} en ${v.x},${v.y} tapa ${mo.id}`);

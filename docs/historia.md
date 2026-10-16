@@ -4477,3 +4477,120 @@ libre» (`docs/agents/2026-10-13-ficha-en-tabla/`).
 - **El héroe**: sus cuatro cifras se escriben; daño, PV y velocidad de su cuerpo van en la misma
   tabla sin casilla (se derivan); maná y duración siguen en «En la pelea», con su porqué en nota.
 
+
+## Árbol = no se pasa: lo pisable junto al bosque (14-10-2026)
+
+Dos marcas de la semilla 1 casi iguales: (2,23), hierba, «por aquí se puede caminar», y (1,23),
+bosque, «por aquí no». En las dos había árboles de punta a punta. Tres causas, todas del
+escenógrafo (`docs/agents/2026-10-14-pisable-junto-al-bosque/`):
+
+- **`lindeDeBosque`**: toda casilla pisable a √5 o menos de un bosque, de frontera o de obstáculo,
+  iba en mancha con pinos y frondosos (p 0,75, alto 0,55-0,90), las hojas de la masa. Venía del
+  primer escenógrafo (`d0d97067`), para que el bosque «ocupe la región como en la referencia». Se
+  fue, y con él todo árbol de la cubierta: «árbol = no se pasa» en cualquier suelo (decisión del
+  usuario tras la crítica; el alto no separa el adorno de la masa, que mide desde 0,51 en su p10).
+  Junto al bosque, claro. En 1-40, árboles con el pie en lo que se pisa: 51 358 → 0.
+- **La copa de la masa**, no su ancla: el pie caía siempre en su franja (el «un poco fuera» del
+  dardo repetía `dentro.has(i)`, porque `round(x − ½)` es `floor(x)`), pero la imagen desbordaba
+  hasta 1,42 casillas. Ahora es un tope del índice (`topeDeLoPisable`), medido **en la fila del
+  pie** (`altoSobreLoPisable`, hoy `altoPorLosLados`): por los lados, no hacia el norte, que es perspectiva y
+  dejaría todo el borde de bosque encogido (312 casos de más de 0,25 en s1 solo por la silueta).
+  Margen 0,2. Las cumbres de #204 no la miran, ni el pico que sube `unoQueDomine` (con ella, en una
+  banda junto a la hierba ninguno podía ensancharse y s38 (24, 34) quedaba con 8 picos iguales): 357
+  en 1-40 desbordan, medida y no guardia (las marca `Sprite.cumbre`). El dardo de la masa caía
+  hasta 0,35 por debajo del mapa, y su copa tapaba la última fila desde fuera; ya no baja de él. Masas que
+  entraban más de 0,2: ~9 100 en 1-40 → 0. Picos por casilla de montaña, 1,324 antes y después (las
+  cordilleras van con su azar); el p10 del alto de la masa de bosque junto a lo que se pisa, 0,51 →
+  0,45 (`poner` encoge antes de probar el módulo estrecho: backlog).
+- **El mismo suelo bajo el bosque**: ahora el sotobosque (`sotobosqueDe`), una máscara del escalón
+  como lo mojado del agua, en `multiply` (`#5b6b3c`, 0,5). Copiarla sobre la superficie entera
+  costaba +3,3 % al pintor (mediana de 12 pinturas alternadas de s13, 2 y 9 a 120 px: 6 338 →
+  6 548 ms); copiada solo por los trozos con alfa (`trozosConAlfa`, de 4 casillas), +2,3 % (6 299 →
+  6 442 ms, mínimo 6 170 → 6 300). La máscara en sí, 40-90 ms por mapa en Node, una vez por escena.
+
+**La ronda de simplify** (14-10-2026). La primera versión metía la regla de lo pisable como una
+forma del índice: un tramo por casilla que se pisa junto a una masa, con un alcance inflado para que
+la caja que preselecciona viera la fila del pie, y el contador repetía la geometría a mano. Ahora es
+un tope (`Tope`, `pasillo.ts`): una función de la rejilla que da el alto libre en cuenta cerrada (el
+ancho crece en línea recta con el alto) y que lee también el contador; las cumbres se marcan en el
+sprite en vez de con una bandera y un `Set`; el sotobosque y el agua comparten la receta de lo mojado
+(`porNivelesBajoElTecho`, cada nivel en la caja de sus casillas, píxel a píxel lo mismo en 1-40); y
+toda máscara del escalón se copia por sus trozos con alfa. Al aplicarlo a todas salió un fallo de
+`trozosConAlfa`: el último trozo de una fila solo se cerraba si el ancho era múltiplo de 64 px, así
+que en un 42×42 (672 px) toda tirada que llegaba al borde derecho no se pintaba, y en s1 una banda
+de bosques entera se quedaba sin sotobosque. Con todas las máscaras por trozos, el pintor pasa de
+6 311 a 5 752 ms de mediana (s13, 2 y 9 a 120 px, 12 pinturas alternadas), menos de lo que costaba
+antes del sotobosque. `componer`, 305 → 293 ms de media en 1-40.
+
+**El suelo desnudo sube** (`pnpm taller escenario 1 3 7`, 48 px): 20,6 / 21,0 / 25,6 → 30,7 / 25,7 /
+29,4 %. En s1, de los 10 puntos, 4,3 son quitar los árboles y 5,8 la orilla del bosque en claro
+(medido dejando la orilla en mancha de matas: 24,9 %). Espesar las matas de la mancha (radio × 0,85
+→ × 0,7) solo lo bajaba a 29,7: el hueco era de árboles. Hay precedente de un rechazo del usuario
+por esto (13 → 33 %, arriba); aquí se le enseñó antes de cerrar y eligió la orilla del bosque en
+mancha de matas (bajas, nunca árboles): 23,3 / 23,7 / 27,7 % (14-10-2026).
+
+**Vuelta de QA 1** (14-10-2026). QA dio el ciclo por apto con reservas y tres hallazgos se
+arreglaron:
+
+- **H1, abetos en miniatura sobre la nieve.** Los módulos 1-4 de `cubierta-snow` son abetos, y
+  salían como matas: 9 451 sobre la nieve que se pisa de 1-40 (en el 68 % de sus casillas), que el
+  guardia no veía porque miraba el nombre de la hoja. Se miraron uno a uno los 112 módulos de las siete
+  hojas de cubierta: árboles son esos cuatro y el 5 de la arena (un árbol seco de tronco y copa, 358
+  sobre la arena); no lo son los tocones, las raíces caídas, el arbusto seco tumbado (arena 8) ni los
+  matojos. `ARBOLES_DE_LA_CUBIERTA` los apunta, `modulosDe` los quita de su hoja en todo sitio (también
+  de lo alto del acantilado: 394 en 1-40) y `esArbol` los cuenta. El test guarda una huella de cada hoja
+  de cubierta (sus líneas «imagen sha256»): arte nuevo, mirarlo otra vez. La nieve que se pisa de s1, 3
+  y 7 queda algo menos desnuda (36,9 → 34,2 %, contado con el alfa de las cajas): salen más peñascos y
+  montones, que son más anchos.
+- **H2, casillas de bosque sin un árbol.** 93 en 1-40, todas junto a una ciudad: 46 al sur, 22 al oeste,
+  14 al este y 11 al norte. Las del norte y la mayoría de las de los lados las tapa la imagen de la
+  ciudad; las del sur no (la caja de la ciudad acaba a 0,12 de su fila), y su reserva, que a lo de
+  delante le pide la caja entera fuera de 1,5 casillas, no dejaba ni un pino de 0,3. Se leían como un
+  parche de tierra junto al camino (s1 (14,24) y (28,35), s13 (17,22), s27 (25,18)). La decisión fue no
+  romper la reserva «de la puerta»: que la entrada se siga viendo. El árbol va como la pared de #221:
+  en la reserva, si no tapa el objeto (su caja no toca la de ninguno, ni por delante ni por detrás) ni
+  su camino (lo de siempre sin las reservas: senda, rampas, pasos, tableros y lo que se pisa), en el
+  sitio del relleno donde sale más alto. Con el primer sitio que entraba salían pinos de 0,34-0,41 que
+  no se veían; ahora, de 0,61 a 0,91 en esas cuatro. `bosqueSinArbol` (sin contar lo que tapa en su
+  mitad la imagen de un objeto o por su centro una pared): 59 → 0 en 1-40.
+- **H3, la copa tapa el pasillo de su norte.** La perspectiva hacia el norte se permitía (#185), pero
+  en un pasillo de este a oeste de una casilla o en un rincón la copa de la fila de su sur lo borraba
+  entero (s1 (29-31, 17), un paso de verdad; s2 (10, 18)). El usuario lo quiso arreglar solo ahí. Una
+  casilla que se pisa es estrecha si no tiene al norte nada que se pise, o no lo tiene ni al este ni al
+  oeste (`pasillosEstrechos`); la copa de una masa no le tapa más de `TAPADO_DEL_PASILLO` (0,4, por su
+  caja y desde abajo, en lo que no se tapa de su columna), otra cuenta cerrada del mismo tope
+  (`altoSobreLosPasillos`). Con 0,4 queda a la vista el 0,6 de arriba, lo mismo que por los lados. El
+  borde de la masa casi no se mueve con el umbral (de 0,3 a 0,5, el árbol más alto de cada casilla de
+  bosque bajo un pasillo, 0,98-1,01 de mediana; antes, 1,09): cada casilla lleva varios pies y solo se
+  encogen los del 0,4 de arriba de la fila (de 0,97 a 0,52 de mediana). En 1-40, masas que lo tapaban:
+  2 398 → 0; casillas así tapadas en un 80 % o más por las cajas, 203 de bosque y 79 de montaña → 0.
+  Quedan 65 de montaña, todas bajo una cumbre (s3 (4-5, 18)): las cumbres no lo miran, y
+  `cumbresSobreLoPisable` las cuenta ahora también (467 en 1-40, 288 sobre un pasillo; por los lados
+  solo eran 357). El borde de la montaña junto a
+  lo que se pisa, con picos por debajo de 0,5: 2 299 → 2 329 de 8 971 casillas (H5, a la vista igual).
+
+**Vuelta de QA 2** (16-10-2026). QA dio el ciclo por apto y el usuario pidió arreglar dos menores
+antes de cerrar:
+
+- **H9, la nieve al alejar se parecía a la montaña.** Sin los abetos de H1, lo que cubría la nieve
+  que se pisa eran los peñascos de roca gris con nieve de `cubierta-snow` (5-8): 13 230 de 37 187
+  piezas en 1-40 y el 40,5 % de lo cubierto en s1, 3 y 7 (alfa de las cajas a 16 px). Al tope de
+  alejar, el Valle Hondo de s3 y la sierra de su sur solo se distinguían por el tamaño y la densidad.
+  Había dos salidas: bajar su peso en la mezcla o quitarlos de lo que se pisa; se quitaron
+  (`FUERA_DE_LO_QUE_SE_PISA`, que lee `modulosDe` con `enLoQueSePisa`, también para el módulo más
+  estrecho de la reserva): la mezcla (`MEZCLA`) pesa hojas, no módulos, y un peso por módulo era
+  maquinaria nueva para lo mismo (el peso menor no se probó). Lo alto del acantilado y el pie de la muralla los siguen llevando: son roca. Lo gris de la
+  cubierta de la nieve que se pisa, 40,5 → 0,2 % (lo que asoma de lo alto); su suelo desnudo, 35,1 →
+  34,1 %; el del taller, 23,2 / 22,5 / 27,3 → 23,2 / 22,1 / 27,0 % en s1 / 3 / 7. La lava y la arena se
+  miraron al tope (s13, s2, s14, s3): su cubierta es la roca de su barrera, pero rala y tumbada (#184), y
+  la barrera se distingue por el alto, la densidad y, en la lava, el resplandor. s2 no tiene nieve que
+  se pise.
+- **H10, el pasillo de dos de hondo.** La casilla de abajo quedaba tapada en un 80 % o más por la copa
+  de su sur en 139 casos con bosque y 57 con montaña en 1-40; se leía porque la fila de arriba quedaba
+  libre (la desviación 3 de la vuelta 1). El usuario quiso extender la regla: la casilla que se pisa
+  con lo que se pisa al norte, pero no al norte de esa ni al sur de ella, también es estrecha
+  (`pasillosEstrechos`). De tres de hondo o más sigue siendo lo ancho (#185). Tapadas ≥ 80 % sin
+  cumbres: 139 / 57 → 0 / 0 (con las cumbres, exentas, 55 de montaña). El árbol más alto de la casilla
+  de bosque de debajo, 1,11 → 1,02 de mediana (p10 0,62 igual), y el pico de montaña, 0,67 → 0,63;
+  `cumbresSobreLoPisable` 467 → 485; `pasillosTapados`, `casillasDeBarreraSinFormacion` y
+  `bosqueSinArbol` siguen a 0.

@@ -36,7 +36,7 @@
  *                                        las rampas que abren la pared (§35, `rampas.ts`), con su guía
  *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts`, `bajadas.ts` y `rampas.ts`
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
- *   pnpm taller escenario [semilla…]     el escenógrafo: compone, pinta, captura y mide
+ *   pnpm taller escenario [semilla…] [--px=N]  el escenógrafo: compone, pinta, captura y mide
  *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
  *   pnpm taller encolar --base knight [--solo=maestro-t1,placa-t1,…]
@@ -1021,9 +1021,16 @@ switch (orden) {
     break;
   }
   case 'escenario': {
-    const semillas = resto.length === 0 ? [1] : resto.map(Number);
+    // pnpm taller escenario [semilla…] [--px=N]: a N px por casilla (48 si no se da),
+    // para medir el pintor a la resolución del juego (120) como en #217.
+    const opcion = resto.find((r) => r.startsWith('--px='));
+    const px = opcion === undefined ? 48 : Number(opcion.slice('--px='.length));
+    if (!Number.isSafeInteger(px) || px <= 0)
+      throw new Error(`«${opcion}» no vale: los píxeles por casilla son un entero positivo`);
+    const sueltas = resto.filter((r) => r !== opcion);
+    const semillas = sueltas.length === 0 ? [1] : sueltas.map(Number);
     if (semillas.some((n) => !Number.isSafeInteger(n))) throw new Error('las semillas son enteros');
-    for (const r of await escenario(semillas)) {
+    for (const r of await escenario(semillas, px)) {
       // El de `componer`, más lo que mide la página del taller.
       const i = r.informe as Escena['informe'] & {
         desnudo: number;
@@ -1032,10 +1039,11 @@ switch (orden) {
         espaldasSinLabio: number;
         espaldasSinCanto: number;
         sendaSobreElAgua: number;
+        msPintar: number;
       };
       console.log(`→ ${r.png}`);
       console.log(
-        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · muralla incoherente ${i.murallaIncoherente} · torres apiladas ${i.torresApiladas} · muralla sobre la senda ${i.murallaSobreSenda} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · celdas mal cubiertas ${i.celdasMalCubiertas} · bajadas sin pieza ${i.bajadasSinPieza} · bajadas tapadas ${i.bajadasTapadas} · pasos tapados ${i.pasosTapados} · pasos atravesados ${i.pasosAtravesados} · pisables tapadas ${i.pisablesTapadas} · rampas desviadas ${i.rampasDesviadas} · rampas sin sus piezas ${i.rampasSinSusPiezas} · sendas por objeto ${i.sendasPorObjeto} · acantilados lisos ${i.acantiladosLisos} · espaldas sin reborde ${i.espaldasSinReborde} · cima de otro material ${i.cimaDeOtroMaterial} · cubierta de otro nivel ${i.cubiertaDeOtroNivel} · cara de otro material ${i.caraDeOtroMaterial} · paredes tapadas ${i.paredesTapadas} · caras cortadas ${i.carasCortadas} · mesas en la cordillera ${i.mesasEnLaCordillera} · senda bajo el relieve ${i.sendaBajoElRelieve} (techo de media 5) · agua en lo alto ${i.aguaEnLoAlto} · espaldas sin labio ${i.espaldasSinLabio} · espaldas sin canto ${i.espaldasSinCanto} · senda sobre el agua ${i.sendaSobreElAgua}` +
+        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · pintar ${i.msPintar} ms · árboles sobre lo pisable ${i.arbolesSobreLoPisable} · masa sobre lo pisable ${i.masaSobreLoPisable} · pasillos tapados ${i.pasillosTapados} · cumbres sobre lo pisable ${i.cumbresSobreLoPisable} (medida) · bosque sin árbol ${i.bosqueSinArbol} · murallas partidas ${i.murallasPartidas} · muralla incoherente ${i.murallaIncoherente} · torres apiladas ${i.torresApiladas} · muralla sobre la senda ${i.murallaSobreSenda} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · celdas mal cubiertas ${i.celdasMalCubiertas} · bajadas sin pieza ${i.bajadasSinPieza} · bajadas tapadas ${i.bajadasTapadas} · pasos tapados ${i.pasosTapados} · pasos atravesados ${i.pasosAtravesados} · pisables tapadas ${i.pisablesTapadas} · rampas desviadas ${i.rampasDesviadas} · rampas sin sus piezas ${i.rampasSinSusPiezas} · sendas por objeto ${i.sendasPorObjeto} · acantilados lisos ${i.acantiladosLisos} · espaldas sin reborde ${i.espaldasSinReborde} · cima de otro material ${i.cimaDeOtroMaterial} · cubierta de otro nivel ${i.cubiertaDeOtroNivel} · cara de otro material ${i.caraDeOtroMaterial} · paredes tapadas ${i.paredesTapadas} · caras cortadas ${i.carasCortadas} · mesas en la cordillera ${i.mesasEnLaCordillera} · senda bajo el relieve ${i.sendaBajoElRelieve} (techo de media 5) · agua en lo alto ${i.aguaEnLoAlto} · espaldas sin labio ${i.espaldasSinLabio} · espaldas sin canto ${i.espaldasSinCanto} · senda sobre el agua ${i.sendaSobreElAgua}` +
           (i.modulosQueFaltan.length > 0 ? ` · faltan ${i.modulosQueFaltan.join(', ')}` : '') +
           (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
       );

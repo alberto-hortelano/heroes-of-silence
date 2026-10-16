@@ -5,6 +5,8 @@
  * sprite, el mismo que pinta `pintarSprite`, y no a su pie: una mata de labranza
  * de 1,6 casillas de ancho crece desde su pie hasta tapar la senda. Cada forma
  * dice con qué media anchura mira a quién, y si mira el rectángulo o solo el pie.
+ * Lo que no son trazos va como un tope (`Tope`): lo que se pisa junto a un
+ * bosque o una montaña, que la copa de la masa no tapa por los lados.
  *
  * Antes eran dos respuestas a «¿está libre?»: este pasillo y una rejilla de
  * cuartos de casilla con discos para las reservas, que solo miraba el pie (los
@@ -74,6 +76,14 @@ export interface Forma<S extends ConImagen = ConImagen> {
 }
 
 /**
+ * Un obstáculo que no es un trazo sino una regla sobre el ancho de `s`: el mayor
+ * alto, hasta `hasta`, con el que `s` no lo pisa (`hasta` si no lo mira). Como
+ * una forma, pisar crece con el alto. Lo pregunta primero quien pregunta al
+ * índice, así que tiene que descartar barato lo que no mira.
+ */
+export type Tope<S extends ConImagen = ConImagen> = (s: S, hasta: number) => number;
+
+/**
  * Un solo índice de obstáculos (#151): ¿está libre el sitio de un sprite, y
  * hasta qué alto? Lo preguntan todo lo que se aparta y la puerta de la pared;
  * cada forma dice con qué medida mira a quién.
@@ -106,7 +116,11 @@ export class Obstaculos<S extends ConImagen = ConImagen> {
   /** Los tramos cerca de la caja entera de la pregunta, que es la que más abarca. */
   private readonly candidatos: number[] = [];
 
-  constructor(readonly formas: readonly Forma<S>[]) {
+  constructor(
+    readonly formas: readonly Forma<S>[],
+    /** Lo que no son trazos (`Tope`): se preguntan antes que las formas. */
+    private readonly topes: readonly Tope<S>[] = [],
+  ) {
     const t: number[] = [];
     const de: number[] = [];
     const trozos: number[] = [];
@@ -275,8 +289,9 @@ export class Obstaculos<S extends ConImagen = ConImagen> {
     return false;
   }
 
-  /** Si `s`, con el alto `alto`, pisa alguna forma con la medida con que ella lo mira. */
+  /** Si `s`, con el alto `alto`, pisa algún tope o alguna forma con la medida con que ella lo mira. */
   pisa(s: S, alto = s.alto): boolean {
+    for (const t of this.topes) if (t(s, alto) < alto) return true;
     const [x0, y0, x1, y1] = cajaDeSprite(s, alto);
     return this.recorrer(x0, y0, x1, y1, undefined, s, alto);
   }
@@ -288,9 +303,17 @@ export class Obstaculos<S extends ConImagen = ConImagen> {
    * una bisección; y toda caja más baja cabe en la entera, así que la bisección
    * solo mira los tramos cerca de la entera.
    *
-   * Atajos: libre entero, su alto; pisando ya con el pie (alto 0), 0.
+   * Atajos: libre entero, su alto; pisando ya con el pie (alto 0), 0. Los
+   * topes dan su alto sin bisección, y manda el menor.
    */
   altoLibre(s: S): number {
+    let tope = s.alto;
+    for (const t of this.topes) tope = Math.min(tope, t(s, tope));
+    return Math.min(tope, this.altoLibreDeLasFormas(s));
+  }
+
+  /** `altoLibre` de las formas solas: la bisección. */
+  private altoLibreDeLasFormas(s: S): number {
     const [x0, y0, x1, y1] = cajaDeSprite(s);
     this.recorrer(x0, y0, x1, y1);
     if (this.candidatos.length === 0 || !this.algunCandidato(s, s.alto)) return s.alto;

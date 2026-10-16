@@ -48,6 +48,8 @@ import {
   PX_DEL_ESCALON,
   sinSombraEnLasRampas,
   sombraAlPie,
+  sotobosqueDe,
+  techoDelAgua,
   tonoDeLosNiveles,
 } from './escalon.js';
 import { type AlturaDeSuelo, fronterasDelSuelo, PX_DE_LAS_FRONTERAS } from './fronteras.js';
@@ -208,6 +210,13 @@ const COLOR_DE_LO_BAJO = 'rgb(12,16,22)';
 const COLOR_DE_LO_ALTO = 'rgb(255,236,198)';
 /** El labio de la espalda, en `soft-light`: la luz del sol en un canto (`labioDeLasEspaldas`); en `screen` era niebla (#219). */
 const COLOR_DEL_LABIO = 'rgb(255,240,210)';
+/**
+ * El sotobosque, en `multiply`: un verde pardo que oscurece el suelo bajo el
+ * bosque sin cambiar de textura. Así, al alejar, donde los árboles se aclaran
+ * por el presupuesto de píxeles, el bosque sigue siendo una mancha oscura y el
+ * pasillo de al lado, hierba.
+ */
+const COLOR_DEL_SOTOBOSQUE = '#5b6b3c';
 
 const COLOR_DE_LUZ: Readonly<Record<Luz['clase'], readonly [number, number, number, number]>> = {
   fuego: [255, 170, 80, 0.22],
@@ -436,6 +445,8 @@ export function pintarSuelo(
   const escalon = <T>(clave: string, hacer: () => T): T => delEscalon(e, clave, hacer);
   /** El nivel de cada punto del suelo (`nivelPintado`): lo leen las fronteras, el tono, el agua y la sombra. */
   const delSuelo = () => escalon('nivel', () => nivelPintado(e));
+  /** Lo más alto de cada píxel y su alrededor (`techoDelAgua`): lo leen el agua y el sotobosque. */
+  const techo = () => escalon('techo', () => techoDelAgua(delSuelo()));
   /** Una máscara del escalón (`escalon.ts`), negra con su alfa, ampliada a la superficie. */
   const ampliada = (m: Mascara): Lienzo => {
     const { lienzo: chico, c: g } = lienzoCon(m.ancho, m.alto, nuevo);
@@ -453,6 +464,13 @@ export function pintarSuelo(
    * `modo`, ampliada al copiarla. Se tiñe a su tamaño (16 px por casilla) y no
    * ampliada: el color es uno, así que da lo mismo, y no hace falta un lienzo
    * del tamaño del mapa por máscara (66 MB a 120 px en un 34×34).
+   *
+   * Se copian solo los trozos de la máscara con algo de alfa (`trozosConAlfa`):
+   * componer sobre la superficie entera es lo que cuesta (~0,2 s a 120 px en un
+   * 42×42 sin GPU), y una máscara rala como la del sotobosque la pagaba entera
+   * por un 15 % del mapa. Fuera de los trozos el alfa es 0, que no cambia nada
+   * en ningún modo; y en su borde la ampliación lee los píxeles de fuera del
+   * trozo, así que no hay costura.
    */
   const encima = (m: Mascara, color: string, modo: GlobalCompositeOperation) => {
     const { lienzo: chico, c: g } = lienzoCon(m.ancho, m.alto, nuevo);
@@ -464,7 +482,9 @@ export function pintarSuelo(
     c.globalCompositeOperation = modo;
     c.imageSmoothingEnabled = true;
     c.imageSmoothingQuality = 'medium';
-    c.drawImage(chico, 0, 0, e.W * T, e.H * T);
+    const k = T / m.R;
+    for (const [x0, y0, x1, y1] of trozosConAlfa(m))
+      c.drawImage(chico, x0, y0, x1 - x0, y1 - y0, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k);
     c.restore();
   };
   /** `capa`, una máscara, rellena de `color` donde tiene alfa. */
@@ -481,7 +501,7 @@ export function pintarSuelo(
    * desenfoque de `desenfoque` casillas, cerrada en lo que queda más alto que
    * ella y seca `seco` casillas por las sendas (`aguaDeLaEscena`).
    */
-  const aguas = () => escalon('agua', () => aguasDeLaEscena(e, delSuelo()));
+  const aguas = () => escalon('agua', () => aguasDeLaEscena(e, delSuelo(), techo()));
   /**
    * `capa` (una máscara) rellena de la textura `src` sin rejilla: el patrón y
    * encima los parches de su encaje (`parches.ts`), con `source-atop`, que deja
@@ -681,6 +701,13 @@ export function pintarSuelo(
       COLOR_DEL_LABIO,
       'soft-light',
     );
+    // 2c · El sotobosque: la huella del bosque, más oscura (14-10-2026). Antes
+    //      del arcén y la senda, que van encima.
+    encima(
+      escalon('sotobosque', () => sotobosqueDe(e, delSuelo(), techo())),
+      COLOR_DEL_SOTOBOSQUE,
+      'multiply',
+    );
     // 2b · El arcén: el pasillo despejado, con el color de su suelo encima y el
     //      borde difuminado, para que lo despejado no se lea como un claro.
     c.globalAlpha = ALFA_DEL_ARCEN;
@@ -812,6 +839,50 @@ if (PX_DE_LAS_FRONTERAS !== PX_DEL_ESCALON)
   throw new Error(
     'las fronteras del suelo y el escalón tienen que ir a los mismos píxeles por casilla',
   );
+
+/** El lado de un trozo de `trozosConAlfa`, en píxeles de la máscara: 4 casillas a 16 px. */
+const LADO_DEL_TROZO = 64;
+
+/** Los trozos de cada máscara: van con ella, que vive en la caché del escalón de su escena. */
+const trozosDe = new WeakMap<Mascara, readonly (readonly [number, number, number, number])[]>();
+
+/**
+ * Los trozos de `m` con algo de alfa, en píxeles de la máscara (`x0, y0, x1,
+ * y1`): una rejilla de `LADO_DEL_TROZO`, cada fila con sus trozos seguidos
+ * juntos en uno. Un trozo cuenta si hay alfa en él o a un píxel de él, el que
+ * lee la ampliación desde fuera. Se cuentan una vez por máscara (`trozosDe`):
+ * el esbozo y el bueno de una escena pintan las mismas.
+ */
+export function trozosConAlfa(m: Mascara): readonly (readonly [number, number, number, number])[] {
+  const hechos = trozosDe.get(m);
+  if (hechos !== undefined) return hechos;
+  const L = LADO_DEL_TROZO;
+  const trozos: (readonly [number, number, number, number])[] = [];
+  for (let y0 = 0; y0 < m.alto; y0 += L) {
+    const y1 = Math.min(m.alto, y0 + L);
+    let desde = -1;
+    // Una vuelta más allá del último trozo, que cierra lo que llega al borde. Con
+    // `x0 <= ancho` solo se cerraba si el ancho era múltiplo del trozo: en un
+    // 42×42 (672 px) lo que llegaba al borde derecho no se pintaba.
+    for (let x0 = 0; x0 < m.ancho + L; x0 += L) {
+      let hay = false;
+      if (x0 < m.ancho)
+        busca: for (let y = Math.max(0, y0 - 1); y < Math.min(m.alto, y1 + 1); y++)
+          for (let x = Math.max(0, x0 - 1); x < Math.min(m.ancho, x0 + L + 1); x++)
+            if ((m.alfa[y * m.ancho + x] as number) > 0) {
+              hay = true;
+              break busca;
+            }
+      if (hay && desde === -1) desde = x0;
+      if (!hay && desde !== -1) {
+        trozos.push([desde, y0, Math.min(m.ancho, x0), y1]);
+        desde = -1;
+      }
+    }
+  }
+  trozosDe.set(m, trozos);
+  return trozos;
+}
 
 /** Lo que se ve el arcén: más, y el pasillo se lee como una carretera ancha. */
 const ALFA_DEL_ARCEN = 0.4;

@@ -14,6 +14,7 @@
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { APOYOS_DE_MURALLA } from '@core/map/murallas.js';
 import { puertasDe } from '@core/map/puertas.js';
+import { vecindad } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
 import {
@@ -22,6 +23,7 @@ import {
   esPiezaDelRelieve,
   espaldaConReborde,
   espaldasSinReborde,
+  hojaDelSrc,
   materialDeLaCima,
   paredesTapadasPorLaMasa,
   sueloDeLaMeseta,
@@ -125,6 +127,7 @@ import {
   type Medida,
   Obstaculos,
   pasilloDe,
+  type Tope,
 } from './pasillo.js';
 import { claveDe, esVolumen, ordenDeVolumenes, separar } from './pintar.js';
 import {
@@ -222,6 +225,20 @@ export interface Sprite {
    * ancla, y por eso solo la diagonal, que se lee por sus filos, podía.
    */
   readonly clave?: number;
+  /**
+   * Una cumbre de #204 o el pico que sube `unoQueDomine`: la pieza grande de su
+   * cordillera, que no se encoge por lo que se pisa de al lado
+   * (`topeDeLoPisable`). Lo que tape por los lados es una medida
+   * (`informe.cumbresSobreLoPisable`).
+   */
+  readonly cumbre?: true;
+  /**
+   * El árbol de una casilla de bosque que va en la reserva de un objeto sin
+   * tapar su imagen ni su camino (`arbolEnLaReserva`): el único volumen con el
+   * pie ahí, como la pared de #221. Lo que vigila la reserva (#151) lo mide
+   * contra la caja del objeto y no contra su disco.
+   */
+  readonly enLaReserva?: true;
 }
 
 export interface Luz {
@@ -240,6 +257,11 @@ export interface Escena {
   readonly suelo: readonly Suelo[];
   readonly nivel: readonly number[];
   readonly agua: readonly number[];
+  /**
+   * Las casillas de bosque, de frontera y de obstáculo: lo que el pintor tiñe
+   * de sotobosque (`sotobosqueDe`), la huella de lo que no se pisa.
+   */
+  readonly bosque: readonly number[];
   readonly relieve: {
     /** Las caídas al sur con lo que se pinta de ellas (`pintada`): donde no hay pared, no se pinta. */
     readonly caras: readonly CaraDeEscena[];
@@ -478,6 +500,35 @@ export interface Escena {
      * un acantilado o en un nodo que va al alto. Tiene que ser 0.
      */
     readonly cubiertaDeOtroNivel: number;
+    /**
+     * Árboles con el pie en una casilla que se pisa (`sobreLoPisable`):
+     * «árbol = no se pasa» (14-10-2026). Tiene que ser 0.
+     */
+    readonly arbolesSobreLoPisable: number;
+    /**
+     * Masas de bosque o de montaña, sin las cumbres, cuya copa entra más de
+     * `MARGEN_SOBRE_LO_PISABLE` por los lados en una casilla que se pisa de la
+     * fila de su pie (`sobreLoPisable`). Tiene que ser 0.
+     */
+    readonly masaSobreLoPisable: number;
+    /**
+     * Masas de bosque o de montaña, sin las cumbres, cuya copa tapa más de
+     * `TAPADO_DEL_PASILLO` de una casilla estrecha que se pisa al norte de su
+     * fila (`pasillosEstrechos`, `sobreLoPisable`). Tiene que ser 0.
+     */
+    readonly pasillosTapados: number;
+    /**
+     * Las cumbres (`Sprite.cumbre`) que tapan lo que se pisa por los lados o un
+     * pasillo estrecho: no se encogen ni se quitan por eso (`topeDeLoPisable`
+     * no las mira). Es una medida, no un guardia.
+     */
+    readonly cumbresSobreLoPisable: number;
+    /**
+     * Casillas de bosque sin un árbol con el pie en ellas que no tapa la imagen
+     * de un objeto (`bosqueSinArbol`): se leían como un claro que se pisa.
+     * Tiene que ser 0.
+     */
+    readonly bosqueSinArbol: number;
     /**
      * Casillas de acantilado sin roca ni masa de `ALTO_DE_LO_ALTO` o más con el
      * pie en ellas (`acantiladosLisos`, #205): lo alto que se lee como suelo.
@@ -777,29 +828,52 @@ const CUBIERTA: Readonly<
   rough: { radio: 0.25, alto: 0.38, claro: CLARO_COMO_LA_BARRERA, comoLaBarrera: true },
 };
 
-/**
- * Los árboles que la cubierta de lo que se pisa siembra en la mancha de cada
- * suelo; el de tierra, solo junto a un bosque de frontera. Los demás suelos no
- * llevan: en uno `comoLaBarrera` eran el bosque de al lado.
- */
-const ARBOLES_DEL_SUELO = {
-  grass: ['pinos', 'frondosos'],
-  dirt: ['pinos', 'frondosos'],
-  snow: ['abetos-nevados'],
-} as const satisfies Partial<Record<Suelo, readonly string[]>>;
-
-/** Las hojas de la cubierta del suelo `s`: las de su mezcla (`MEZCLA`) y sus árboles. */
-function hojasDeLaCubierta(s: Suelo): ReadonlySet<string> {
-  return new Set([
-    ...MEZCLA[s].map(([otro]) => `cubierta-${otro}`),
-    ...((ARBOLES_DEL_SUELO as Partial<Record<Suelo, readonly string[]>>)[s] ?? []),
-  ]);
-}
+/** Las hojas de la cubierta de cada suelo: las de su mezcla (`MEZCLA`), sin árboles. */
+const HOJAS_DE_LA_CUBIERTA: Readonly<Record<Suelo, ReadonlySet<string>>> = Object.fromEntries(
+  Object.entries(MEZCLA).map(([s, mezcla]) => [s, new Set(mezcla.map(([o]) => `cubierta-${o}`))]),
+) as Partial<Record<Suelo, ReadonlySet<string>>> as Record<Suelo, ReadonlySet<string>>;
 
 /** La mata más baja, en veces el alto de la cubierta de su suelo; la más alta, 0,6 más. */
 const MATA_MAS_BAJA = 0.7;
 
-const ARBOLES = ['pinos', 'frondosos', 'muertos', 'abetos-nevados'];
+/** Las hojas de árbol: solo de la masa del bosque. Un árbol dice «aquí no se pasa». */
+export const ARBOLES: readonly string[] = ['pinos', 'frondosos', 'muertos', 'abetos-nevados'];
+
+/**
+ * Los módulos de la cubierta que son árboles, mirados uno a uno en las siete
+ * hojas (14-10-2026): los abetos en miniatura de la nieve (1-4) y el árbol seco
+ * de la arena (5), de tronco y copa. Lo demás son matas, rocas, montones de
+ * nieve, tocones, raíces caídas y setas: se leen como suelo. La cubierta no los
+ * pone (`modulosDe`, en `componer`, los quita de su hoja) y cuentan como árbol
+ * (`esArbol`): con solo el nombre de la hoja, el guardia no veía 9 455 abetos de
+ * 0,42 sobre la nieve que se pisa de 1-40, en el 68 % de sus casillas (QA). Un
+ * arte nuevo de estas hojas hay que volver a mirarlo: el test guarda su sha256.
+ */
+export const ARBOLES_DE_LA_CUBIERTA: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['cubierta-snow', new Set(['1', '2', '3', '4'])],
+  ['cubierta-sand', new Set(['5'])],
+]);
+
+/**
+ * Los módulos de la cubierta que no van en lo que se pisa, aunque no sean
+ * árboles: los peñascos de roca gris de la nieve (5-8). Sin los abetos, eran el
+ * 41 % de lo que cubría la nieve que se pisa de s1, 3 y 7, y al tope de alejar
+ * el Valle Hondo de s3 se leía como la sierra de su sur (QA, H9, 16-10-2026):
+ * en la nieve que se pisa mandan los montones blancos y las matas nevadas. Lo
+ * alto del acantilado y el pie de la muralla los siguen llevando: son roca.
+ */
+export const FUERA_DE_LO_QUE_SE_PISA: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['cubierta-snow', new Set(['5', '6', '7', '8'])],
+]);
+
+/** Si `src` es la imagen de un árbol: de una hoja de `ARBOLES` o de `ARBOLES_DE_LA_CUBIERTA`. */
+export function esArbol(src: string | null): boolean {
+  const hoja = hojaDelSrc(src);
+  if (hoja === undefined) return false;
+  if (ARBOLES.includes(hoja)) return true;
+  const nombre = (src as string).slice(`modulos/${hoja}/`.length).replace(/\.webp$/, '');
+  return ARBOLES_DE_LA_CUBIERTA.get(hoja)?.has(nombre) === true;
+}
 const PICOS = ['picos-roca', 'picos-afilados', 'picos-nevados', 'picos-volcan', 'picos-arenisca'];
 
 /** Cómo se aparta una clase del camino. */
@@ -831,7 +905,8 @@ export const APARTE: Readonly<Record<Sprite['clase'], Aparte | null>> = {
   cubierta: {
     semiancho: SEMIANCHO_DEL_PASILLO,
     minimo: (alto) => ENCOGER_HASTA * alto,
-    hojas: [...Object.keys(MEZCLA).map((s) => `cubierta-${s}`), ...ARBOLES],
+    // Sin `ARBOLES`: un árbol de cubierta lanza en `poner`.
+    hojas: Object.keys(MEZCLA).map((s) => `cubierta-${s}`),
   },
   roca: {
     semiancho: SEMIANCHO_DEL_PASILLO,
@@ -1127,8 +1202,25 @@ export function radioDeLaReserva(o: Pick<MapObject, 'kind'> & { barrera?: Barrer
 }
 
 export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo): Escena {
-  /** Los módulos de una hoja, de menor a mayor, o null si la hoja aún no está hecha. */
-  const modulosDe = (hoja: string): readonly Modulo[] | null => catalogo.hojas[hoja] ?? null;
+  const filtrados = new Map<string, readonly Modulo[]>();
+  /**
+   * Los módulos de una hoja, de menor a mayor, o null si la hoja aún no está
+   * hecha; de la cubierta, sin los que son árboles (`ARBOLES_DE_LA_CUBIERTA`)
+   * y, en lo que se pisa, sin los que no van ahí (`FUERA_DE_LO_QUE_SE_PISA`).
+   */
+  const modulosDe = (hoja: string, enLoQueSePisa = false): readonly Modulo[] | null => {
+    const ms = catalogo.hojas[hoja] ?? null;
+    const arboles = ARBOLES_DE_LA_CUBIERTA.get(hoja);
+    const fuera = enLoQueSePisa ? FUERA_DE_LO_QUE_SE_PISA.get(hoja) : undefined;
+    if (ms === null || (arboles === undefined && fuera === undefined)) return ms;
+    const clave = `${hoja}|${fuera === undefined ? '' : 'pisa'}`;
+    let sin = filtrados.get(clave);
+    if (sin === undefined) {
+      sin = ms.filter((m) => !arboles?.has(m.nombre) && !fuera?.has(m.nombre));
+      filtrados.set(clave, sin);
+    }
+    return sin;
+  };
   const pieza = (id: string): Pieza | null => catalogo.piezas[id] ?? null;
   const a = analizar(map);
   const { nivel } = relieve(a);
@@ -1160,14 +1252,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   let basesSobreReserva = 0;
 
   const estrechos = new Map<string, Modulo | undefined>();
-  /** El módulo más estrecho de una hoja (ancho entre alto), si la hoja está hecha. */
-  const masEstrecho = (hoja: string): Modulo | undefined => {
-    if (!estrechos.has(hoja))
+  /** El módulo más estrecho de una hoja (ancho entre alto), si la hoja está hecha; `enLoQueSePisa`, como `modulosDe`. */
+  const masEstrecho = (hoja: string, enLoQueSePisa = false): Modulo | undefined => {
+    const clave = `${hoja}|${enLoQueSePisa ? 'pisa' : ''}`;
+    if (!estrechos.has(clave))
       estrechos.set(
-        hoja,
-        [...(modulosDe(hoja) ?? [])].sort((p, q) => p.nw / p.nh - q.nw / q.nh)[0],
+        clave,
+        [...(modulosDe(hoja, enLoQueSePisa) ?? [])].sort((p, q) => p.nw / p.nh - q.nw / q.nh)[0],
       );
-    return estrechos.get(hoja);
+    return estrechos.get(clave);
   };
 
   /** Un sprite de una hoja: elige el módulo por tamaño relativo `t` (0 pequeño, 1 grande). */
@@ -1183,8 +1276,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     nombre?: string,
     porAncho?: number,
     elAzar: () => number = azar,
+    enLoQueSePisa = false,
   ): Sprite => {
-    const ms = modulosDe(hoja);
+    const ms = modulosDe(hoja, enLoQueSePisa);
     if (ms === null || ms.length === 0) {
       faltan.add(hoja);
       return {
@@ -2131,17 +2225,28 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * Lo que no se tapa (#151): la senda; la rampa de cada bajada, más ancha que
    * la senda y con sus ribazos (R5); el tablero de cada puente, del que se
    * apartan también la pared (con la de la cara de detrás encima, el puente
-   * quedaba tapado, #157); el eje de cada paso; y las paredes del desnivel, que
-   * la masa de delante no tapa (#216).
+   * quedaba tapado, #157); el eje de cada paso; las paredes del desnivel, que
+   * la masa de delante no tapa (#216); y, como tope, lo que se pisa, que la
+   * copa de la masa no tapa por los lados (`topeDeLoPisable`).
    */
-  const obstaculos = new Obstaculos<Medible>([
+  const caminosYPasos = [
     formaDeLaSenda(trazos),
     formaDeLaSenda(bajadas.map(rampaDe)),
     ...formasDeLosTableros(puentes),
     formaDeLosPasos(pasos),
-    ...reservas.keys(),
-    ...formasDeLasParedes(sprites, perfilDe),
-  ]);
+  ];
+  const paredes = formasDeLasParedes(sprites, perfilDe);
+  const topes = [topeDeLoPisable(a.franjaDe, W)];
+  const obstaculos = new Obstaculos<Medible>(
+    [...caminosYPasos, ...reservas.keys(), ...paredes],
+    topes,
+  );
+  /**
+   * Lo mismo sin las reservas de los objetos: lo que mira el árbol que se
+   * planta en una (`arbolEnLaReserva`), que en su lugar no tapa el objeto. Se
+   * hace la primera vez que se pide.
+   */
+  let sinLasReservas: Obstaculos<Medible> | undefined;
   const sendaDeLaMuralla = sendaParaLaMuralla(trazos);
   /** El sprite más estrecho de cada clase que se aparta: el que pregunta el dardo. */
   const moldes = new Map<Sprite['clase'], Pick<Sprite, 'nw' | 'nh' | 'ax' | 'ay'>>();
@@ -2185,7 +2290,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * Con `esbeltez`, el módulo que se ponga —el elegido o su reserva estrecha—
    * se encoge hasta no ser más esbelto que eso (`tumbado`): la cubierta de lo
    * que se pisa en un suelo `comoLaBarrera`. Va aquí y no en quien llama porque
-   * la reserva estrecha es justo la pieza más esbelta de la hoja.
+   * la reserva estrecha es justo la pieza más esbelta de la hoja. Con `cumbre`,
+   * la pieza es una cumbre (`Sprite.cumbre`). Con `enLoQueSePisa`, ni la elegida
+   * ni la reserva son de `FUERA_DE_LO_QUE_SE_PISA`.
    */
   const poner = (
     hoja: string,
@@ -2200,18 +2307,31 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     porAncho?: number,
     tono?: string,
     esbeltez?: number,
+    cumbre?: true,
+    enLoQueSePisa = false,
   ): boolean => {
-    const deLaHoja = deHoja(hoja, x, y, alto, t, clase, color, sombra, nombre, porAncho);
-    const s = tumbado(
-      tono === undefined || deLaHoja.src === null ? deLaHoja : { ...deLaHoja, tono },
-      esbeltez,
+    const deLaHoja = deHoja(
+      hoja,
+      x,
+      y,
+      alto,
+      t,
+      clase,
+      color,
+      sombra,
+      nombre,
+      porAncho,
+      azar,
+      enLoQueSePisa,
     );
+    const conTono = tono === undefined || deLaHoja.src === null ? deLaHoja : { ...deLaHoja, tono };
+    const s = tumbado(cumbre === undefined ? conTono : { ...conTono, cumbre }, esbeltez);
     const r = APARTE[clase];
     if (r === null) return meter(s);
     if (!r.hojas.includes(hoja))
       throw new Error(`la hoja «${hoja}» no está entre las de la clase ${clase} (APARTE)`);
     if (entra(s)) return meter(ajustado(s));
-    const e = masEstrecho(hoja);
+    const e = masEstrecho(hoja, enLoQueSePisa);
     if (e === undefined || e.src === s.src) return false;
     const estrecho = tumbado(
       { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay, alto: deLaHoja.alto },
@@ -2219,8 +2339,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     );
     return entra(estrecho) && meter(ajustado(estrecho));
   };
-  /** Una mata de la cubierta; `rala`, la de lo que se pisa en un suelo `comoLaBarrera`. */
-  const mata = (hoja: string, x: number, y: number, alto: number, rala = false) =>
+  /**
+   * Una mata de la cubierta. Con `sePisa`, la de lo que se pisa de ese suelo:
+   * rala si es `comoLaBarrera` y sin los módulos de `FUERA_DE_LO_QUE_SE_PISA`.
+   */
+  const mata = (hoja: string, x: number, y: number, alto: number, sePisa?: Suelo) =>
     poner(
       hoja,
       x,
@@ -2233,7 +2356,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       undefined,
       undefined,
       undefined,
-      rala ? ESBELTEZ_DE_LO_PISABLE : undefined,
+      sePisa !== undefined && CUBIERTA[sePisa].comoLaBarrera ? ESBELTEZ_DE_LO_PISABLE : undefined,
+      undefined,
+      sePisa !== undefined,
     );
   const altoDeMata = (s: Suelo) => CUBIERTA[s].alto * (MATA_MAS_BAJA + azar() * 0.6);
 
@@ -2377,7 +2502,18 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           undefined,
         );
         if (m === undefined) return true;
-        const s = { nw: m.nw, nh: m.nh, ax: m.ax, ay: m.ay, x, y, alto, clase: 'masa' as const };
+        // Una cumbre, como al ponerla: lo que se pisa no cambia cuántas hay ni dónde.
+        const s = {
+          nw: m.nw,
+          nh: m.nh,
+          ax: m.ax,
+          ay: m.ay,
+          x,
+          y,
+          alto,
+          clase: 'masa' as const,
+          cumbre: true as const,
+        };
         return reservaEn(x, y) === undefined && obstaculos.altoLibre(s) >= alto - 1e-9;
       },
       ruidoDeLosGrupos,
@@ -2574,9 +2710,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   }
 
   /**
-   * Una masa de bosque o de montaña: puntos densos, desbordando un poco la
-   * franja para que el borde no sea recto. Apunta en `puestos` las casillas que
-   * cubre.
+   * Una masa de bosque o de montaña: puntos densos con el pie en la franja. La
+   * copa pasa del borde, que así no es recto, pero no tapa por los lados más de
+   * `MARGEN_SOBRE_LO_PISABLE` de lo que se pisa (`topeDeLoPisable`). Apunta en
+   * `puestos` las casillas que cubre.
    */
   function vestirMasa(f: Franja, dentro: ReadonlySet<number>, puestos: Set<number>): void {
     const caja = cajaDe(f.casillas, W);
@@ -2601,6 +2738,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           c.nombre,
           undefined,
           c.tono,
+          undefined,
+          true,
         )
       ) {
         cumbres.push(c);
@@ -2608,17 +2747,20 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         for (const i of f.casillas)
           if (bajoLaCumbre(c, (i % W) + 0.5, Math.floor(i / W) + 0.5)) puestos.add(i);
       }
+    // Los dardos, hasta 0,35 por debajo de la franja, pero no del mapa: un pie
+    // fuera del mapa dejaba su copa sobre la última fila sin que fuera de
+    // ninguna (13-10-2026).
     const puntos = esparcir(
-      [caja[0] - 0.2, caja[1] - 0.2, caja[2] + 0.2, caja[3] + 0.35],
+      [caja[0] - 0.2, caja[1] - 0.2, caja[2] + 0.2, Math.min(caja[3] + 0.35, H)],
       forma.radio,
       (x, y) => {
+        // El pie, siempre dentro de la franja. Había un «un poco fuera, si la
+        // casilla de al lado es de la franja», pero `round(x − ½)` es `floor(x)`
+        // y repetía esta misma pregunta: lo que desbordaba era el ancho de la
+        // copa, y eso lo para el tope de lo que se pisa (`topeDeLoPisable`).
         const i = casillaDe(Math.min(Math.max(x, 0), W - 0.01), Math.min(Math.max(y, 0), H - 0.01));
-        // Un poco fuera, solo si la casilla de al lado es de la franja.
-        const cx = Math.round(x - 0.5);
-        const cy = Math.round(y - 0.5);
         return (
-          (dentro.has(i) ||
-            (dentro.has(cy * W + cx) && Math.hypot(x - (cx + 0.5), y - (cy + 0.5)) < 0.75)) &&
+          dentro.has(i) &&
           !cumbres.some((c) => bajoLaCumbre(c, x, y)) &&
           !forma.claro(x, y) &&
           entraria('masa', x, y, forma.altoMasBajo(x, y))
@@ -2685,6 +2827,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           marcar(x, y);
           break;
         }
+      if (!puestos.has(i) && f.barrera === 'forest' && arbolEnLaReserva(m, cx, cy)) puestos.add(i);
       // Un claro de la falda (#218): su pico bajo y, alrededor, pedregal de la
       // roca de su meseta. Es montaña y no se pisa: el suelo asoma, no se abre.
       if (forma.claro(cx + 0.5, cy + 0.5))
@@ -2727,6 +2870,70 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         }
     }
     if (f.barrera === 'mountain' && cumbres.length === 0) unoQueDomine(desdeLaMasa);
+  }
+
+  /**
+   * El árbol de una casilla de bosque en la que no entró ninguno porque cae en
+   * la reserva de un objeto: en 1-40, 93 casillas, todas junto a una ciudad y
+   * la mitad la de su sur, donde la reserva no deja ni un pie (QA, 14-10-2026).
+   * Sin un árbol, la casilla solo se distinguía de lo que se pisa por el
+   * sotobosque: s1 (14, 24) y (28, 35), s13 (17, 22) y s27 (25, 18) se leían
+   * como un parche de tierra junto al camino.
+   *
+   * Como la pared que pasa por la reserva (#221): va si no tapa el objeto ni su
+   * camino. No lo tapa porque su caja no toca la de ningún objeto (ni delante
+   * ni detrás, que escondido no se lee); de su camino lo aparta lo de siempre
+   * (`sinLasReservas`: la senda, las rampas, los pasos, los tableros y lo que se
+   * pisa). Un módulo, por los sitios del relleno, y se queda con el sitio donde
+   * sale más alto sin bajar de `ALTO_MINIMO_DE_MASA`: con el primero que
+   * entraba salían pinos de 0,34 a 0,41, al norte de la casilla, que no se
+   * veían. Va por `sprites.push`, como la pared: su pie está en la reserva a
+   * propósito, y `basesSobreReserva` es lo que cae ahí sin mirar el objeto.
+   */
+  function arbolEnLaReserva(
+    m: { hoja: string; alto: number; t: number; nombre?: string; tono?: string },
+    cx: number,
+    cy: number,
+  ): boolean {
+    sinLasReservas ??= new Obstaculos<Medible>([...caminosYPasos, ...paredes], topes);
+    const indice = sinLasReservas;
+    const objetos = sprites.filter((o) => o.objeto !== undefined && o.src !== null);
+    const tapaUnObjeto = (s: Sprite) => {
+      const c = cajaDeSprite(s);
+      return objetos.some((o) => {
+        const d = cajaDeSprite(o);
+        return c[0] < d[2] && c[2] > d[0] && c[1] < d[3] && c[3] > d[1];
+      });
+    };
+    const conAlto = (s: Sprite, alto: number): Sprite => (alto === s.alto ? s : { ...s, alto });
+    const deLaHoja = deHoja(m.hoja, cx, cy, m.alto, m.t, 'masa', MARCADOR.forest as string, true);
+    const modulo =
+      m.tono === undefined || deLaHoja.src === null ? deLaHoja : { ...deLaHoja, tono: m.tono };
+    let mejor: Sprite | undefined;
+    for (const [dx, dy] of SITIOS_DE_RELLENO) {
+      const x = cx + dx;
+      const y = cy + dy;
+      if (reservaEn(x, y) === undefined) continue;
+      const s = { ...modulo, x, y };
+      if (indice.pisa(s, ALTO_MINIMO_DE_MASA)) continue;
+      if (tapaUnObjeto(conAlto(s, ALTO_MINIMO_DE_MASA))) continue;
+      // El mayor alto que no pisa nada ni tapa un objeto: la caja crece con el
+      // alto, así que la bisección vale.
+      let bajo = ALTO_MINIMO_DE_MASA;
+      let alto = indice.altoLibre(s);
+      if (tapaUnObjeto(conAlto(s, alto)))
+        for (let k = 0; k < 10; k++) {
+          const medio = (bajo + alto) / 2;
+          if (tapaUnObjeto(conAlto(s, medio))) alto = medio;
+          else bajo = medio;
+        }
+      else bajo = alto;
+      if (mejor === undefined || bajo > mejor.alto)
+        mejor = { ...conAlto(s, bajo), enLaReserva: true };
+    }
+    if (mejor === undefined) return false;
+    sprites.push(mejor);
+    return true;
   }
 
   /**
@@ -3007,6 +3214,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * que pueda sube hasta dejarlos atrás, sin ampliarse de más
    * (`altoMaximoDe`) ni pisar nada (`altoLibre`). Sin azar: no mueve lo que se
    * viste después.
+   *
+   * El que sube hace de cumbre (`Sprite.cumbre`) y, como ella, no mira lo que
+   * se pisa: con el tope de lo pisable, en una banda junto a la hierba ninguno
+   * podía ensancharse, y s38 (24, 34) se quedaba con 8 picos iguales (el guardia
+   * de #204 pide 6 como mucho).
    */
   function unoQueDomine(desde: number): void {
     const picos = sprites
@@ -3018,9 +3230,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (picos.filter(({ s }) => s.alto >= 0.8 * mayor).length <= MAS_CUMBRES) return;
     const hace = mayor / 0.8 + 0.01;
     for (const { s, k } of [...picos].sort((p, q) => q.s.alto - p.s.alto || p.k - q.k)) {
-      const alto = obstaculos.altoLibre({ ...s, alto: Math.min(altoMaximoDe(s), hace) });
+      const cumbre = { ...s, alto: Math.min(altoMaximoDe(s), hace), cumbre: true as const };
+      const alto = obstaculos.altoLibre(cumbre);
       if (alto < hace) continue;
-      sprites[k] = { ...s, alto };
+      sprites[k] = { ...cumbre, alto };
       return;
     }
   }
@@ -3424,10 +3637,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (a.terreno[y * W + x] === 'cliff') cantoDeLaEspalda(x, y, azarDelCanto);
 
   // 5 · La cubierta, en manchas y no en motas: la referencia tiene formas
-  // grandes y calmadas (un bosquecillo, una hoja de campos, un claro de prado),
-  // y una cubierta igual de densa en todas partes hacía vibrar el mapa entero.
-  // Un ruido suave decide dónde hay mancha (densa, con arbolillos o campos) y
-  // dónde claro (pocas matas sobre la textura).
+  // grandes y calmadas (una hoja de campos, un claro de prado), y una cubierta
+  // igual de densa en todas partes hacía vibrar el mapa entero. Un ruido suave
+  // decide dónde hay mancha (densa, de matas o campos) y dónde claro (pocas
+  // matas sobre la textura).
   const ruido = ruidoSuave(semilla, 3.2);
   const cercaDePueblo = new Uint8Array(W * H);
   for (const o of a.objetos) {
@@ -3440,26 +3653,25 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           cercaDePueblo[y * W + x] = 1;
       }
   }
-  // Junto a un bosque de frontera el bosque sigue, más claro, sobre el suelo que
-  // se pisa: así la masa ocupa la región como en la referencia y no es una tira.
-  const lindeDeBosque = new Uint8Array(W * H);
-  for (const f of a.franjas) {
-    if (f.barrera !== 'forest') continue;
-    for (const k of f.casillas) {
-      const fx = k % W;
-      const fy = (k - fx) / W;
-      for (let dy = -2; dy <= 2; dy++)
-        for (let dx = -2; dx <= 2; dx++) {
-          const x = fx + dx;
-          const y = fy + dy;
-          if (x >= 0 && y >= 0 && x < W && y < H && dx * dx + dy * dy <= 5)
-            lindeDeBosque[y * W + x] = 1;
-        }
-    }
+  // Junto a un bosque, de frontera o de obstáculo, el suelo va en mancha de
+  // matas: tupido pero bajo, nunca árboles. Antes el bosque «seguía» sobre lo
+  // que se pisa a radio √5 (`lindeDeBosque`, del primer escenógrafo), con pinos y
+  // frondosos de la misma hoja y el mismo alto que la masa: el pasillo de una
+  // casilla de s1 (2,23) y el bosque de (1,23) se veían iguales (marcas del
+  // 14-10-2026). En claro, el suelo desnudo de s1 subía del 20,6 al 30,7 %; en
+  // mancha de matas, 23,2/23,7/28,1 % en s1/3/7 (decisión del usuario, 14-10-2026).
+  /** Las casillas de bosque: su orilla va en mancha, y el pintor les pone sotobosque (`Escena.bosque`). */
+  const bosque = a.franjas.filter((f) => f.barrera === 'forest').flatMap((f) => f.casillas);
+  const orillaDelBosque = new Uint8Array(W * H);
+  const { desde: vecinasDesde, vecinas } = vecindad(W, H);
+  for (const k of bosque) {
+    orillaDelBosque[k] = 1;
+    for (let j = vecinasDesde[k] as number; j < (vecinasDesde[k + 1] as number); j++)
+      orillaDelBosque[vecinas[j] as number] = 1;
   }
   const enMancha = (x: number, y: number) => {
     const i = Math.floor(y) * W + Math.floor(x);
-    return cercaDePueblo[i] === 1 || lindeDeBosque[i] === 1 || ruido(x, y) > 0.56;
+    return orillaDelBosque[i] === 1 || cercaDePueblo[i] === 1 || ruido(x, y) > 0.56;
   };
   const pisable = (x: number, y: number) => {
     if (x < 0 || y < 0 || x >= W || y >= H) return false;
@@ -3481,43 +3693,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     azar,
     30,
   );
+  // Sin árboles (decisión del usuario, 14-10-2026): «árbol = no se pasa». Un
+  // pino de 0,58 junto al bosque se leía como bosque igual que uno de 0,8, y un
+  // bosquecillo decorativo en medio del prado, como una mancha de obstáculo. Lo
+  // que se pisa lleva matas, hierba, flores y piedras; la mancha es más densa,
+  // no más alta. `APARTE.cubierta` ya no admite las hojas de árbol: `poner`
+  // lanza con una.
   for (const p of puntos) {
-    const i = Math.floor(p.y) * W + Math.floor(p.x);
-    const s = pintado[i] as Suelo;
-    const { comoLaBarrera } = CUBIERTA[s];
-    const mancha = !comoLaBarrera && enMancha(p.x, p.y);
-    // En la mancha de prado o nieve, arbolillos: así salen los bosquecillos. En un
-    // suelo `comoLaBarrera`, ninguno: los muertos de la ciénaga eran el bosque de
-    // al lado (s9 (17-18, 11-13)) y los pinos de lo áspero, el pinar.
-    const arbol =
-      mancha &&
-      cercaDePueblo[i] !== 1 &&
-      // Del camino y de los objetos que taparía se aparta solo, en `poner`.
-      azar() < (lindeDeBosque[i] === 1 ? 0.75 : 0.55)
-        ? (
-            {
-              grass: ARBOLES_DEL_SUELO.grass[azar() < 0.55 ? 0 : 1],
-              snow: ARBOLES_DEL_SUELO.snow[0],
-              ...(lindeDeBosque[i] === 1
-                ? { dirt: ARBOLES_DEL_SUELO.dirt[azar() < 0.6 ? 0 : 1] }
-                : {}),
-            } as Partial<Record<Suelo, string>>
-          )[s]
-        : undefined;
-    if (arbol !== undefined) {
-      poner(
-        arbol,
-        p.x,
-        p.y,
-        0.55 + azar() * 0.35,
-        azar() * 0.5,
-        'cubierta',
-        MARCADOR.forest as string,
-        true,
-      );
-      continue;
-    }
-    mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s), comoLaBarrera);
+    const s = pintado[Math.floor(p.y) * W + Math.floor(p.x)] as Suelo;
+    mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s), s);
   }
 
   // 6 · Nubes en el borde del mapa, como en la referencia.
@@ -3575,6 +3759,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     alrededorDeLaMuralla,
     huellas,
   );
+  const loPisable = sobreLoPisable(sprites, a.franjaDe, W);
   return {
     semilla,
     W,
@@ -3582,6 +3767,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     suelo: pintado,
     nivel: Array.from(nivel),
     agua,
+    bosque,
     relieve: {
       caras: carasDeEscena,
       cantos: cantosDe(nivel, W, H),
@@ -3654,6 +3840,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         cubiertaComoLaBarrera(sprites, a.suelo, a.region, W),
       ),
       cubiertaDeOtroNivel: cubiertaDeOtroNivel(sprites, pintado, W).length,
+      arbolesSobreLoPisable: loPisable.arboles.length,
+      masaSobreLoPisable: loPisable.masas.length,
+      pasillosTapados: loPisable.pasillos.length,
+      cumbresSobreLoPisable: loPisable.cumbres.length,
+      bosqueSinArbol: bosqueSinArbol(sprites, bosque, W, tapaLaPared).length,
       espaldasSinReborde: espaldasSinReborde(
         sprites,
         rebordes,
@@ -3781,17 +3972,15 @@ export function cubiertaDeOtroNivel(
   pintado: readonly Suelo[],
   W: number,
 ): Pick<Sprite, 'clase' | 'src' | 'x' | 'y'>[] {
-  const hojas = new Map<Suelo, ReadonlySet<string>>();
   return sprites.filter((s) => {
     if (s.clase !== 'cubierta' || s.src === null) return false;
     const suelo = pintado[Math.floor(s.y) * W + Math.floor(s.x)] as Suelo;
-    if (!hojas.has(suelo)) hojas.set(suelo, hojasDeLaCubierta(suelo));
-    return !(hojas.get(suelo) as ReadonlySet<string>).has(s.src.split('/')[1] as string);
+    return !HOJAS_DE_LA_CUBIERTA[suelo].has(hojaDelSrc(s.src) ?? '');
   });
 }
 
 /** Lo que el índice de obstáculos mira de un sprite: dónde cae su imagen y de qué clase es. */
-export type Medible = ConImagen & Pick<Sprite, 'clase' | 'clave'>;
+export type Medible = ConImagen & Pick<Sprite, 'clase' | 'clave' | 'cumbre'>;
 
 /** La medida con la que se aparta cada clase de lo que no tapa: su media anchura, por el rectángulo. */
 const MEDIDA_DE_CLASE: Readonly<Record<Sprite['clase'], Medida | null>> = Object.fromEntries(
@@ -4037,6 +4226,267 @@ export function reservaDe(
 export const SEMIANCHO_DEL_PASO = SEMIANCHO_DEL_PASILLO_DE_MASA;
 
 const MEDIDA_DEL_PASO: Medida = { radio: SEMIANCHO_DEL_PASO, soloElPie: false };
+
+/**
+ * Lo más que la copa de una masa de bosque o de montaña entra, por los lados,
+ * en una casilla que se pisa de su fila, en casillas. Con el borde de la masa
+ * así, en un pasillo de una casilla entre dos bosques quedan 0,6 a la vista. El
+ * medio de lo que se pidió (0,15-0,25): con más, el pasillo de s1 (2,23) seguía
+ * leyéndose como bosque; con menos, el borde de la masa salía recto.
+ */
+export const MARGEN_SOBRE_LO_PISABLE = 0.2;
+
+/**
+ * Lo que la copa de una masa puede tapar, desde abajo, de una casilla estrecha
+ * que se pisa al norte de su fila (`pasillosEstrechos`), en casillas: con 0,4,
+ * de un pasillo de este a oeste de una casilla entre dos bosques queda a la
+ * vista su 0,6 de arriba, lo mismo que deja `MARGEN_SOBRE_LO_PISABLE` de un
+ * pasillo de norte a sur. El borde de la masa casi no depende de él: de 0,3 a
+ * 0,5, en 1-40, la mediana del árbol más alto de cada casilla de bosque bajo
+ * un pasillo va de 0,98 a 1,01 (1,09 sin el tope) y la del pico de montaña, de
+ * 0,52 a 0,55 (0,57): cada casilla lleva varios pies, y solo se encogen los
+ * del 0,4 de arriba de la fila (con 0,4, de 0,97 a 0,52 de mediana; los de
+ * abajo siguen enteros, 14-10-2026). Se elige por lo que deja a la vista.
+ */
+export const TAPADO_DEL_PASILLO = 0.4;
+
+/**
+ * El alto con el que la caja de `s`, que se abre `izquierda` y `derecha` por
+ * casilla de alto, entra en lo que no se tapa de la columna `c` (de `c + M` a
+ * `c + 1 − M`, `MARGEN_SOBRE_LO_PISABLE`): 0 si su pie ya está ahí, `hasta` si
+ * no se abre hacia ella.
+ */
+function altoHastaLaColumna(
+  s: Pick<ConImagen, 'x'>,
+  c: number,
+  izquierda: number,
+  derecha: number,
+  hasta: number,
+): number {
+  const M = MARGEN_SOBRE_LO_PISABLE;
+  if (s.x <= c + M) return derecha > 0 ? (c + M - s.x) / derecha : hasta;
+  if (s.x >= c + 1 - M) return izquierda > 0 ? (s.x - (c + 1 - M)) / izquierda : hasta;
+  return 0;
+}
+
+/** Lo que la caja de `s` se abre por casilla de alto: a la izquierda y a la derecha del pie, y hacia arriba. */
+function aperturaDe(s: ConImagen): { izquierda: number; derecha: number; subida: number } {
+  const [u0, v0, u1] = cajaDeSprite(s, 1);
+  return { izquierda: s.x - u0, derecha: u1 - s.x, subida: s.y - v0 };
+}
+
+/**
+ * El mayor alto, hasta `hasta`, con el que la caja de `s` no entra más de
+ * `MARGEN_SOBRE_LO_PISABLE` en ninguna casilla que se pisa (`franjaDe` -1) de
+ * la fila de su pie: lo que su copa tapa por los lados. Lo que sube hacia el
+ * norte es perspectiva (una figura puede quedar detrás de un árbol, #185),
+ * salvo sobre un pasillo estrecho (`altoSobreLosPasillos`), y con el pie fuera
+ * del mapa no hay fila que tapar. Es la regla de la puerta (`topeDeLoPisable`)
+ * y la del contador (`sobreLoPisable`).
+ *
+ * Cuenta cerrada: el ancho crece en línea recta con el alto desde el pie, así
+ * que cada casilla da el alto con el que la caja llega a su margen. Antes era
+ * una forma más del índice, un tramo por casilla que se pisa (unas 9 por
+ * casilla de masa) con un alcance inflado para que la caja que preselecciona
+ * viera la fila del pie, y el contador repetía la geometría a mano.
+ */
+export function altoPorLosLados(
+  s: ConImagen,
+  franjaDe: ArrayLike<number>,
+  W: number,
+  hasta = s.alto,
+): number {
+  const fila = Math.floor(s.y);
+  if (fila < 0 || fila >= franjaDe.length / W) return hasta;
+  const { izquierda, derecha } = aperturaDe(s);
+  const [x0, , x1] = cajaDeSprite(s, hasta);
+  let libre = hasta;
+  for (let c = Math.max(0, Math.floor(x0)); c <= Math.min(W - 1, Math.floor(x1)); c++)
+    if (franjaDe[fila * W + c] === -1)
+      libre = Math.min(libre, altoHastaLaColumna(s, c, izquierda, derecha, hasta));
+  return libre;
+}
+
+/**
+ * Las casillas que se pisan estrechas (1) por las que la copa de la masa de su
+ * sur no pasa (`altoSobreLosPasillos`): las que no tienen al norte nada que se
+ * pise (otra barrera o el borde del mapa: un pasillo de este a oeste de una
+ * casilla o un rincón), o no lo tienen ni al este ni al oeste (la punta de un
+ * pasillo de norte a sur). Ahí la copa de la fila de abajo, que en lo ancho es
+ * perspectiva, tapaba lo que se pisa entero y nada detrás lo dejaba leer (QA,
+ * 14-10-2026: s1 (29-31, 17), un paso de verdad; s2 (10, 18); s3 (4-5, 18)).
+ *
+ * Y la de abajo de un pasillo de dos de hondo: con lo que se pisa al norte, pero
+ * no al norte de esa ni al sur de ella. La copa de su sur la tapaba en un 80 %
+ * o más en 139 casos con bosque y 57 con montaña en 1-40, y solo se leía la
+ * fila de arriba (QA, H10; decisión del usuario, 16-10-2026). De tres de hondo
+ * o más es lo ancho: una figura puede quedar detrás de un árbol (#185).
+ */
+export function pasillosEstrechos(franjaDe: ArrayLike<number>, W: number): Uint8Array {
+  const H = franjaDe.length / W;
+  const sePisa = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < W && y < H && franjaDe[y * W + x] === -1;
+  const estrechas = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      if (
+        sePisa(x, y) &&
+        (!sePisa(x, y - 1) ||
+          (!sePisa(x - 1, y) && !sePisa(x + 1, y)) ||
+          (!sePisa(x, y - 2) && !sePisa(x, y + 1)))
+      )
+        estrechas[y * W + x] = 1;
+  return estrechas;
+}
+
+/**
+ * El mayor alto, hasta `hasta`, con el que la caja de `s` no tapa más de
+ * `TAPADO_DEL_PASILLO`, desde abajo, de ninguna casilla estrecha que se pisa
+ * (`estrechas`, de `pasillosEstrechos`) al norte de la fila de su pie, en lo
+ * que no se tapa de su columna (lo mismo que por los lados). Se mide por la
+ * caja: la copa de un árbol la llena casi entera, y la cuenta queda cerrada
+ * como la de los lados.
+ */
+export function altoSobreLosPasillos(
+  s: ConImagen,
+  estrechas: ArrayLike<number>,
+  W: number,
+  hasta = s.alto,
+): number {
+  const fila = Math.floor(s.y);
+  if (fila < 1 || fila >= estrechas.length / W) return hasta;
+  const { izquierda, derecha, subida } = aperturaDe(s);
+  if (subida <= 0) return hasta;
+  const [x0, y0, x1] = cajaDeSprite(s, hasta);
+  let libre = hasta;
+  for (let r = fila - 1; r >= Math.max(0, Math.floor(y0)); r--) {
+    // El alto con el que lo alto de la caja llega a lo que no se tapa de la fila `r`.
+    const arriba = (s.y - (r + 1 - TAPADO_DEL_PASILLO)) / subida;
+    if (arriba >= libre) continue;
+    for (let c = Math.max(0, Math.floor(x0)); c <= Math.min(W - 1, Math.floor(x1)); c++)
+      if (estrechas[r * W + c] === 1)
+        libre = Math.min(
+          libre,
+          Math.max(arriba, altoHastaLaColumna(s, c, izquierda, derecha, hasta)),
+        );
+  }
+  return libre;
+}
+
+/**
+ * Lo que se pisa como tope del índice de obstáculos (`Tope`): la copa de una
+ * masa no lo tapa por los lados más de `MARGEN_SOBRE_LO_PISABLE`
+ * (`altoPorLosLados`) ni tapa más de `TAPADO_DEL_PASILLO` de un pasillo
+ * estrecho de su norte (`altoSobreLosPasillos`). La que se pasaría se encoge,
+ * cambia de módulo o se quita, por `poner`. Las cumbres (`Sprite.cumbre`) no lo
+ * miran: son la pieza grande de su cordillera, de 2,5 a 3 casillas por diseño,
+ * y encogerlas o quitarlas cambiaba cuántas hay y dónde.
+ *
+ * Antes no había nada: el ancla de la masa caía siempre en su franja, pero su
+ * copa desbordaba hasta 1,42 casillas sobre lo que se pisa (en s1, 248 piezas de
+ * bosque y 70 de montaña más de 0,25), y el frondoso de (1,95; 23,81) tapaba
+ * entero el pasillo de (2,23).
+ */
+export function topeDeLoPisable(franjaDe: ArrayLike<number>, W: number): Tope<Medible> {
+  const estrechas = pasillosEstrechos(franjaDe, W);
+  return (s, hasta) =>
+    s.clase !== 'masa' || s.cumbre === true
+      ? hasta
+      : altoSobreLosPasillos(s, estrechas, W, altoPorLosLados(s, franjaDe, W, hasta));
+}
+
+/**
+ * Lo que tapa lo que se pisa, contado desde lo puesto en una pasada (no le
+ * pregunta a `APARTE` ni al índice, que son la puerta):
+ *
+ * - `arboles`: los de cualquier clase con imagen de árbol (`esArbol`) con el
+ *   pie en una casilla que se pisa (`franjaDe` -1). «Árbol = no se pasa», sin
+ *   excepciones (decisión del usuario, 14-10-2026): el alto no separa el árbol
+ *   de adorno de la masa, que mide desde 0,51 en su p10. En s1 había 1 681 de
+ *   más de 0,6, 1 049 a una casilla de un bosque. `informe.arbolesSobreLoPisable`,
+ *   tiene que ser 0.
+ * - `masas`: las masas, sin las cumbres, cuya copa tapa por los lados más de lo
+ *   que deja `altoPorLosLados`. `informe.masaSobreLoPisable`, tiene que ser 0.
+ * - `pasillos`: las masas, sin las cumbres, cuya copa tapa un pasillo estrecho
+ *   de su norte más de lo que deja `altoSobreLosPasillos`.
+ *   `informe.pasillosTapados`, tiene que ser 0.
+ * - `cumbres`: las cumbres que hacen una de las dos cosas, que no se encogen
+ *   por eso. `informe.cumbresSobreLoPisable`, una medida.
+ */
+export function sobreLoPisable(
+  sprites: readonly Sprite[],
+  franjaDe: ArrayLike<number>,
+  W: number,
+): { arboles: Sprite[]; masas: Sprite[]; pasillos: Sprite[]; cumbres: Sprite[] } {
+  const H = franjaDe.length / W;
+  const estrechas = pasillosEstrechos(franjaDe, W);
+  const arboles: Sprite[] = [];
+  const masas: Sprite[] = [];
+  const pasillos: Sprite[] = [];
+  const cumbres: Sprite[] = [];
+  for (const s of sprites) {
+    const x = Math.floor(s.x);
+    const y = Math.floor(s.y);
+    // Primero el pie, que es barato; la imagen solo de lo que está en lo que se pisa.
+    if (x >= 0 && y >= 0 && x < W && y < H && franjaDe[y * W + x] === -1 && esArbol(s.src))
+      arboles.push(s);
+    if (s.clase !== 'masa') continue;
+    const lados = altoPorLosLados(s, franjaDe, W) < s.alto - 1e-6;
+    const pasillo = altoSobreLosPasillos(s, estrechas, W) < s.alto - 1e-6;
+    if (s.cumbre === true) {
+      if (lados || pasillo) cumbres.push(s);
+      continue;
+    }
+    if (lados) masas.push(s);
+    if (pasillo) pasillos.push(s);
+  }
+  return { arboles, masas, pasillos, cumbres };
+}
+
+/**
+ * Lo que de una casilla tiene que tapar la imagen de un objeto para que no
+ * cuente en `bosqueSinArbol`: ahí lo que se ve es el objeto, no un claro. Las
+ * de detrás de una ciudad las tapa del 88 al 100 %; las de sus lados, del 13 al
+ * 88 % (1-40, 14-10-2026).
+ */
+const TAPADA_POR_UN_OBJETO = 0.5;
+
+/**
+ * Las casillas de bosque (`bosque`) sin un árbol (`esArbol`) con el pie en
+ * ellas, salvo las que la imagen de un objeto tapa en `TAPADA_POR_UN_OBJETO` o
+ * más (por su caja) y las que tapa por su centro una pared del desnivel
+ * (`tapaLaPared`, de `loQueTapa`, como en `casillasDeBarreraSinFormacion`): ahí
+ * lo que se ve es el objeto o la roca, no un claro. Sin árbol, una casilla de
+ * bosque se lee como un claro que se pisa: `casillasDeBarreraSinFormacion` no
+ * lo ve, porque cuenta como formación la huella del objeto de al lado.
+ * `informe.bosqueSinArbol`, tiene que ser 0.
+ */
+export function bosqueSinArbol(
+  sprites: readonly Sprite[],
+  bosque: readonly number[],
+  W: number,
+  tapaLaPared: (x: number, y: number) => unknown = () => null,
+): number[] {
+  const conArbol = new Set<number>();
+  const objetos: Caja[] = [];
+  for (const s of sprites) {
+    if (s.objeto !== undefined && s.src !== null) objetos.push(cajaDeSprite(s));
+    else if (esArbol(s.src)) conArbol.add(Math.floor(s.y) * W + Math.floor(s.x));
+  }
+  return bosque.filter((i) => {
+    if (conArbol.has(i)) return false;
+    const x = i % W;
+    const y = (i - x) / W;
+    const tapado = objetos.reduce(
+      (n, c) =>
+        n +
+        Math.max(0, Math.min(c[2], x + 1) - Math.max(c[0], x)) *
+          Math.max(0, Math.min(c[3], y + 1) - Math.max(c[1], y)),
+      0,
+    );
+    return tapado < TAPADA_POR_UN_OBJETO && tapaLaPared(x + 0.5, y + 0.5) === null;
+  });
+}
 
 /**
  * Los ejes de los nodos de paso (`pasosALaVista`) como obstáculo: ningún

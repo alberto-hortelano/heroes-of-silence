@@ -206,7 +206,7 @@ const ROCA_DE_LOS_PICOS: Readonly<Record<string, string>> = {
 };
 
 /** La hoja de un sprite por su `src` (`modulos/<hoja>/<módulo>.webp`), o undefined. */
-const hojaDelSrc = (src: string | null): string | undefined =>
+export const hojaDelSrc = (src: string | null): string | undefined =>
   src === null ? undefined : /^modulos\/([^/]+)\//.exec(src)?.[1];
 
 /**

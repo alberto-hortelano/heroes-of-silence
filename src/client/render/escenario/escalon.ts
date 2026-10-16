@@ -252,9 +252,10 @@ export function nivelPintado(
  * El nivel más alto de cada píxel y los de su alrededor: el agua de nivel `L`
  * entra en un píxel solo si aquí no pasa de `L`. El píxel de margen es el que
  * lee la ampliación bilineal: sin él, el borde de lo alto salía con medio píxel
- * de agua.
+ * de agua. Lo leen también el sotobosque y el centro hondo del agua; el
+ * pintor lo hace una vez por escena y se lo pasa a los dos.
  */
-function techoDelAgua(np: NivelPintado): Int8Array {
+export function techoDelAgua(np: NivelPintado): Int8Array {
   const { ancho, alto, nivel } = np;
   const filas = new Int8Array(nivel.length);
   for (let y = 0; y < alto; y++)
@@ -303,6 +304,7 @@ function mascarasDelAgua(
   dentro: (i: number) => boolean,
   desenfoques: readonly number[],
   R = PX_DEL_ESCALON,
+  techo = np === null ? null : techoDelAgua(np),
 ): Mascara[] {
   const { W, H, nivel } = e;
   if (np !== null && np.R !== R)
@@ -312,7 +314,6 @@ function mascarasDelAgua(
   const alfas = desenfoques.map(() => new Uint8ClampedArray(ancho * alto));
   const niveles = new Set<number>();
   for (let i = 0; i < W * H; i++) if (dentro(i)) niveles.add(nivel[i] as number);
-  const techo = np === null ? null : techoDelAgua(np);
   for (const L of np === null ? [0] : [...niveles].sort((p, q) => p - q)) {
     const ind = new Float32Array(W * H);
     for (let i = 0; i < W * H; i++) if (dentro(i) && (np === null || nivel[i] === L)) ind[i] = 1;
@@ -425,23 +426,93 @@ const ESPUMA_EN_LA_ORILLA = 0.55;
 const ENTERA = 0.89;
 
 /**
+ * Lo nítido de cada nivel de `casillas`, la receta de lo mojado (#211) que
+ * comparten el agua y el sotobosque: por cada nivel `L`, sus casillas ampliadas
+ * con las esquinas redondeadas `esquinas` (en casillas) y cortadas a ½, menos
+ * donde el techo (`techoDelAgua`) pasa de `L`; y eso desenfocado `borde`
+ * casillas, que en el borde de lo nítido vale ½. Llama a `alPixel(p, v)` con
+ * cada píxel `p` de la máscara entera donde el campo `v` pasa de 0 y el techo
+ * no pasa de `L`: nada de lo de un nivel entra en lo cerrado. Quien llama toma
+ * la mayor de los niveles.
+ *
+ * Cada nivel se hace en la caja de sus casillas con una de margen: lo que pasa
+ * de ella es 0 (el campo bilineal muere a media casilla y los desenfoques no
+ * llegan a la otra media), y el desenfoque recorre la fila desde un 0 igual que
+ * en el mapa entero, así que sale lo mismo, píxel a píxel.
+ */
+function porNivelesBajoElTecho(
+  e: Rejilla,
+  casillas: readonly number[],
+  np: NivelPintado,
+  techo: Int8Array,
+  esquinas: number,
+  borde: number,
+  alPixel: (p: number, v: number) => void,
+): void {
+  const { W, H, nivel } = e;
+  const { R, ancho } = np;
+  const niveles = [...new Set(casillas.map((i) => nivel[i] as number))].sort((p, q) => p - q);
+  for (const L of niveles) {
+    const deL = casillas.filter((i) => nivel[i] === L);
+    let [cx0, cy0, cx1, cy1] = [W, H, -1, -1];
+    for (const i of deL) {
+      const x = i % W;
+      const y = (i - x) / W;
+      cx0 = Math.min(cx0, x);
+      cy0 = Math.min(cy0, y);
+      cx1 = Math.max(cx1, x);
+      cy1 = Math.max(cy1, y);
+    }
+    cx0 = Math.max(0, cx0 - 1);
+    cy0 = Math.max(0, cy0 - 1);
+    cx1 = Math.min(W - 1, cx1 + 1);
+    cy1 = Math.min(H - 1, cy1 + 1);
+    const w = cx1 - cx0 + 1;
+    const h = cy1 - cy0 + 1;
+    const ind = new Float32Array(w * h);
+    for (const i of deL) {
+      const x = i % W;
+      ind[((i - x) / W - cy0) * w + x - cx0] = 1;
+    }
+    const an = w * R;
+    const al = h * R;
+    /** El píxel de la máscara entera del píxel `q` de la caja. */
+    const delMapa = (q: number) => {
+      const qx = q % an;
+      return ((q - qx) / an + cy0 * R) * ancho + qx + cx0 * R;
+    };
+    const redondo = desenfocar(campoBilineal(w, h, ind, R), an, al, esquinas * R);
+    const nitido = new Float32Array(an * al);
+    for (let q = 0; q < nitido.length; q++)
+      if ((redondo[q] as number) > 0.5 && (techo[delMapa(q)] as number) <= L) nitido[q] = 1;
+    const campo = desenfocar(nitido, an, al, borde * R);
+    for (let q = 0; q < campo.length; q++) {
+      const v = campo[q] as number;
+      if (v <= 0) continue;
+      const p = delMapa(q);
+      if ((techo[p] as number) <= L) alPixel(p, v);
+    }
+  }
+}
+
+/**
  * Las máscaras del agua del pintor (paso 4), cada nivel de agua aparte y
- * tomando la mayor. Lo mojado de un nivel: sus casillas con las esquinas
- * redondeadas, menos donde el nivel pintado (o el píxel de al lado, que lee la
- * ampliación) queda por encima. Su campo desenfocado vale ½ en el borde: el
- * agua sube de nada en el borde a entera `entra` dentro; el barro es entero en
- * el borde y se funde `barro` hacia fuera; la espuma es un anillo justo dentro.
- * Nada de eso pasa a lo cerrado.
+ * tomando la mayor (`porNivelesBajoElTecho`). Lo mojado de un nivel: sus
+ * casillas con las esquinas redondeadas, menos donde el nivel pintado (o el
+ * píxel de al lado, que lee la ampliación) queda por encima. Su campo
+ * desenfocado vale ½ en el borde: el agua sube de nada en el borde a entera
+ * `entra` dentro; el barro es entero en el borde y se funde `barro` hacia
+ * fuera; la espuma es un anillo justo dentro. Nada de eso pasa a lo cerrado.
  */
 export function aguasDeLaEscena(
   e: Rejilla & { readonly agua: readonly number[] },
   np: NivelPintado,
+  techo = techoDelAgua(np),
 ): AguasDeLaEscena {
-  const { W, H, nivel } = e;
+  const { W } = e;
   const { R, ancho, alto } = np;
   const agua = new Set(e.agua);
   const honda = (i: number) => agua.has(i) && [1, -1, W, -W].every((d) => agua.has(i + d));
-  const techo = techoDelAgua(np);
   const barro = new Uint8ClampedArray(ancho * alto);
   const aguaSola = new Uint8ClampedArray(ancho * alto);
   const espuma = new Uint8ClampedArray(ancho * alto);
@@ -452,31 +523,50 @@ export function aguasDeLaEscena(
   const fuera = Math.max(0, 0.5 - (0.4 * O.barro) / sigma);
   const sube = (v: number, desde: number, hasta: number) =>
     Math.max(0, Math.min(1, (v - desde) / (hasta - desde)));
-  const niveles = [...new Set(e.agua.map((i) => nivel[i] as number))].sort((p, q) => p - q);
-  for (const L of niveles) {
-    const ind = new Float32Array(W * H);
-    for (const i of agua) if (nivel[i] === L) ind[i] = 1;
-    const redondo = desenfocar(campoBilineal(W, H, ind, R), ancho, alto, O.esquinas * R);
-    const mojado = new Float32Array(ancho * alto);
-    for (let p = 0; p < mojado.length; p++)
-      if ((redondo[p] as number) > 0.5 && (techo[p] as number) <= L) mojado[p] = 1;
-    const campo = desenfocar(mojado, ancho, alto, sigma * R);
-    for (let p = 0; p < campo.length; p++) {
-      const v = campo[p] as number;
-      if (v <= 0 || (techo[p] as number) > L) continue;
-      const a = Math.round(255 * sube(v, 0.5, ENTERA));
-      const b = Math.round(255 * sube(v, fuera, 0.5));
-      const f = Math.round(
-        255 * ESPUMA_EN_LA_ORILLA * Math.min(sube(v, 0.5, 0.62), 1 - sube(v, 0.75, ENTERA)),
-      );
-      if (a > (aguaSola[p] as number)) aguaSola[p] = a;
-      if (b > (barro[p] as number)) barro[p] = b;
-      if (f > (espuma[p] as number)) espuma[p] = f;
-    }
-  }
-  const [hondo] = mascarasDelAgua(e, np, honda, [O.hondo], R) as [Mascara];
+  porNivelesBajoElTecho(e, e.agua, np, techo, O.esquinas, sigma, (p, v) => {
+    const a = Math.round(255 * sube(v, 0.5, ENTERA));
+    const b = Math.round(255 * sube(v, fuera, 0.5));
+    const f = Math.round(
+      255 * ESPUMA_EN_LA_ORILLA * Math.min(sube(v, 0.5, 0.62), 1 - sube(v, 0.75, ENTERA)),
+    );
+    if (a > (aguaSola[p] as number)) aguaSola[p] = a;
+    if (b > (barro[p] as number)) barro[p] = b;
+    if (f > (espuma[p] as number)) espuma[p] = f;
+  });
+  const [hondo] = mascarasDelAgua(e, np, honda, [O.hondo], R, techo) as [Mascara];
   const m = (alfa: Uint8ClampedArray): Mascara => ({ ancho, alto, R, alfa });
   return { barro: m(barro), agua: m(aguaSola), espuma: m(espuma), hondo };
+}
+
+/**
+ * El sotobosque (14-10-2026): la huella del bosque en el suelo. Bajo el bosque
+ * se pintaba la misma hierba que fuera (`sueloQueSePinta`), y al alejar, donde
+ * el presupuesto de píxeles aclara los volúmenes, el tono del suelo es lo único
+ * que dice dónde no se pasa. `esquinas` redondea lo de cada casilla, como lo
+ * mojado del agua; `borde`, lo que se funde el borde, en casillas; `alfa`, lo
+ * que pesa dentro.
+ */
+export const SOTOBOSQUE = { esquinas: 0.15, borde: 0.06, alfa: 0.5 } as const;
+
+/**
+ * La máscara del sotobosque, a los píxeles por casilla de `np`: las casillas de
+ * `bosque` con la receta de lo mojado del agua (`porNivelesBajoElTecho`), cada
+ * nivel de bosque aparte y cerrada donde el nivel pintado queda por encima de
+ * él: lo alto que se adelanta sobre el bosque lleva su suelo. El nodo de un
+ * paso no es del bosque, así que su hueco queda abierto.
+ */
+export function sotobosqueDe(
+  e: Rejilla & { readonly bosque: readonly number[] },
+  np: NivelPintado,
+  techo = techoDelAgua(np),
+): Mascara {
+  const { R, ancho, alto } = np;
+  const alfa = new Uint8ClampedArray(ancho * alto);
+  porNivelesBajoElTecho(e, e.bosque, np, techo, SOTOBOSQUE.esquinas, SOTOBOSQUE.borde, (p, v) => {
+    const a = Math.round(255 * SOTOBOSQUE.alfa * v);
+    if (a > (alfa[p] as number)) alfa[p] = a;
+  });
+  return { ancho, alto, R, alfa };
 }
 
 /**

@@ -29,20 +29,16 @@ describe('cubiertaDeOtroNivel: el guardia muerde', () => {
   // Dos casillas: lava a la izquierda, nieve a la derecha.
   const pintado: Suelo[] = ['lava', 'snow'];
 
-  it('la nieve o un abeto nevado sobre la lava cuentan; en la nieve, no', () => {
+  it('la nieve sobre la lava cuenta; en la nieve, no', () => {
     const nieve = pieza('cubierta-snow', 0.5, 0.9);
+    expect(cubiertaDeOtroNivel([nieve], pintado, 2)).toEqual([nieve]);
+    expect(cubiertaDeOtroNivel([{ ...nieve, x: 1.5 }], pintado, 2)).toEqual([]);
+  });
+
+  it('un abeto nevado de cubierta cuenta en cualquier suelo: lo que se pisa no lleva árboles (14-10-2026)', () => {
     const abeto = pieza('abetos-nevados', 0.4, 0.8);
-    expect(cubiertaDeOtroNivel([nieve, abeto], pintado, 2)).toEqual([nieve, abeto]);
-    expect(
-      cubiertaDeOtroNivel(
-        [
-          { ...nieve, x: 1.5 },
-          { ...abeto, x: 1.4 },
-        ],
-        pintado,
-        2,
-      ),
-    ).toEqual([]);
+    const enLaNieve = { ...abeto, x: 1.4 };
+    expect(cubiertaDeOtroNivel([abeto, enLaNieve], pintado, 2)).toEqual([abeto, enLaNieve]);
   });
 
   it('la mezcla de su suelo (lo áspero en la lava) no cuenta, ni la roca, ni un marcador', () => {

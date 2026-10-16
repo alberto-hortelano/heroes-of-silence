@@ -8,7 +8,9 @@
  * de un acantilado, 0,75); el guardia de hoy daba 3 647 piezas más altas que su
  * esbeltez y 41 regiones densas. Ahora es baja (`tumbado`), rala y sin árboles
  * (huella 0,31; la región más densa de 1-40 y la 57, 0,43), y el informe lo
- * recuenta (`cubiertaComoLaBarrera`).
+ * recuenta (`cubiertaComoLaBarrera`). Que ningún suelo que se pisa lleve
+ * árboles (la ciénaga de s9 junto al bosque, entre ellos) lo vigila
+ * `test/pisable-junto-al-bosque.test.ts` (14-10-2026).
  */
 
 import type { Suelo } from '@core/map/terrain.js';
@@ -118,18 +120,4 @@ describe('en los mapas reales', () => {
         regionesDensas: [],
       });
     });
-
-  it('s9: la ciénaga de (17-18, 11-12), junto al bosque de (19, 12-13), no lleva árboles', () => {
-    const { escena: e } = partidaDe(9);
-    const arboles = e.sprites.filter(
-      (s) =>
-        s.clase === 'cubierta' &&
-        s.src?.startsWith('modulos/muertos/') === true &&
-        s.x >= 17 &&
-        s.x < 19 &&
-        s.y >= 11 &&
-        s.y < 13,
-    );
-    expect(arboles).toEqual([]);
-  });
 });
