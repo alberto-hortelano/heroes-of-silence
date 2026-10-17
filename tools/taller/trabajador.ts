@@ -16,7 +16,12 @@
  *   pnpm taller reprocesar <id>          rehace el post-proceso sobre el crudo ya generado
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
  *   pnpm taller derivar-poses            reescribe `_poses/atlas-8d.json`, las anclas del Y Bot
- *   pnpm taller maniqui <unidad>…        el maniquí propio de una unidad, en `_poses/unidades/<id>-8d/`
+ *   pnpm taller experimento <unidad> [--variantes=…] [--solo=d1]  las pruebas de profundidad (`experimento.ts`)
+ *   pnpm taller experimento <unidad> --motores=gpt-image-2,… [--solo=d1] [--go]  con modelos de fal.ai
+ *   pnpm taller experimento-medir <unidad>  las mide frente al maniquí
+ *   pnpm taller vista-versiones <unidad>  su maniquí, su arte y sus pruebas, juntos (`visor-8d-<id>.html`)
+ *   pnpm taller maniqui <unidad>… [--profundidad]  el maniquí propio de una unidad, en `_poses/unidades/<id>-8d/`;
+ *                                        con `--profundidad`, también sus hojas en profundidad y mezcla
  *   pnpm taller encolar --hitos          los hitos de los nodos sin pieza de paso (#176, `mapa.ts`)
  *   pnpm taller encolar --cofre          el cofre del mapa, pieza suelta (#147, `mapa.ts`)
  *   pnpm taller encolar --tablillas | --muralla-ns [--solo=…]
@@ -67,12 +72,15 @@ import {
 import type { Escena } from '../../src/client/render/escenario/colocar.js';
 import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
 import {
+  CANDIDATOS_DEL_MUESTRARIO,
   DIR_MANIQUIES,
   JUEGOS_DE_ARMAS,
   type JuegoDeArmas,
   OCHO_DIRECCIONES,
+  renderizarMuestrario,
   renderizarOchoDirecciones,
 } from '../art/poses.js';
+import { cutoutBackground } from '../gen/cutout.js';
 import {
   encargoDeBajadas,
   escribirBajadasDerivadas,
@@ -120,6 +128,24 @@ import {
   TEXTURAS_DE_RELIEVE,
 } from './escenario/modulos.js';
 import { evaluar } from './evaluar.js';
+import {
+  costeDe,
+  costePorHoja,
+  EDICIONES,
+  type Edicion,
+  encargosConMotor,
+  encargosSobreElManiqui,
+  MOTORES,
+  medirExperimento,
+  type NombreDeMotor,
+  prepararConMotor,
+  prepararEdicion,
+  prepararExperimento,
+  prepararSobreElManiqui,
+  VARIANTES,
+  type Variante,
+} from './experimento.js';
+import { generarConFal } from './fal.js';
 import { juntarDireccion } from './juntar.js';
 import { encargosDeLaderas, escribirGuiasDeLaderas, escribirLaderasDerivadas } from './laderas.js';
 import {
@@ -138,7 +164,12 @@ import {
   escribirPuenteDerivado,
   MATERIALES,
 } from './paredes-puentes.js';
-import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D, sueltaDeUnidad } from './poses-8d.js';
+import {
+  derivacionDeUnidad,
+  escribirAtlasDePoses,
+  hojaDelReposo,
+  RUTA_DEL_ATLAS_8D,
+} from './poses-8d.js';
 import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
 import { costura, hacerTeselable, LADO_DE_TEXTURA, UMBRAL_DE_COSTURA } from './textura.js';
@@ -150,8 +181,9 @@ import {
   unidad,
 } from './unidades.js';
 import { validar } from './validar.js';
+import { carpetaDeFotogramas, generarConVideo } from './video.js';
 import { vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
-import { vista8d } from './vista-8d.js';
+import { vista8d, vistaDeVersiones } from './vista-8d.js';
 import { vistaMapa } from './vista-mapa.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -192,10 +224,16 @@ async function procesar(
         const png = join(temporal, `ref-${i + 1}-${r.papel}.png`);
         // La pose va sobre verde y no transparente: el transparente le
         // llega a ChatGPT como negro, y ahí se pierden el atrezo negro (escudo,
-        // asta) y el lado en sombra del maniquí.
-        await (r.papel === 'pose'
+        // asta) y el lado en sombra del maniquí. La profundidad, sobre negro:
+        // es el fondo de un mapa de profundidad, lo más lejano.
+        await (r.papel === 'pose' || r.papel === 'editar' || r.papel === 'editar-silueta'
           ? sharp(bytes).flatten({ background: FONDO_DE_POSE })
-          : sharp(bytes)
+          : r.papel === 'profundidad' || r.papel === 'pose-profundidad'
+            ? sharp(bytes).flatten({ background: '#000000' })
+            : // El maniquí que se edita, sobre el gris liso que el motor conserva y el taller recorta.
+              r.papel === 'editar-maniqui'
+              ? sharp(bytes).flatten({ background: '#808080' })
+              : sharp(bytes)
         )
           .png()
           .toFile(png);
@@ -205,15 +243,19 @@ async function procesar(
     const prompt = promptDe(encargo);
     if (previa === undefined)
       console.log(
-        `  · Codex: ${encargo.referencias.map((r) => `${r.papel}=${r.ruta}`).join(', ') || 'sin referencias'}`,
+        `  · ${encargo.motor === undefined ? 'Codex' : `fal ${encargo.motor.endpoint}`}: ${encargo.referencias.map((r) => `${r.papel}=${r.ruta}`).join(', ') || 'sin referencias'}`,
       );
     const gen =
       previa ??
-      (await generar(
-        prompt,
-        referencias.map((r) => r.png),
-        encargo.reanudar?.hilo,
-      ));
+      (encargo.motor === undefined
+        ? await generar(
+            prompt,
+            referencias.map((r) => r.png),
+            encargo.reanudar?.hilo,
+          )
+        : encargo.motor.video === true
+          ? await generarConVideo(encargo)
+          : await generarConFal(encargo, prompt, referencias));
     try {
       return await postprocesar(encargo, gen, prompt, referencias);
     } catch (err) {
@@ -259,7 +301,14 @@ async function postprocesar(
     } else {
       // Un efecto es semitransparente a propósito (humo, resplandor): recorte suave.
       const r =
-        encargo.tipo === 'efecto' ? recorteSuave(await aRaster(crudo)) : await recortar(crudo);
+        encargo.tipo === 'efecto'
+          ? recorteSuave(await aRaster(crudo))
+          : await recortar(
+              // Un motor sin alfa pinta sobre un fondo liso: se quita antes del recorte.
+              encargo.motor?.fondo === 'liso' ? await cutoutBackground(crudo) : crudo,
+            );
+      if (encargo.motor?.fondo === 'liso')
+        pasos.push('fondo liso del motor quitado por relleno desde el borde (cutoutBackground)');
       pasos.push(
         encargo.tipo === 'efecto'
           ? 'recorte suave: solo se borra lo casi invisible (alfa < 24); el humo y los resplandores conservan su alfa'
@@ -402,14 +451,17 @@ async function postprocesar(
       encargo: encargo.id,
       tipo: encargo.tipo,
       fecha: new Date().toISOString(),
-      herramienta: {
-        nombre: 'codex exec (ChatGPT por la suscripción, imagegen integrado)',
-        version,
-      },
+      herramienta:
+        encargo.motor === undefined
+          ? { nombre: 'codex exec (ChatGPT por la suscripción, imagegen integrado)', version }
+          : { nombre: `fal.ai ${encargo.motor.endpoint}`, params: encargo.motor.params },
+      ...(gen.coste === undefined ? {} : { coste: gen.coste }),
       hilo: gen.hilo,
       ...(encargo.reanudar ? { reanuda: encargo.reanudar.hilo } : {}),
       prompt,
       referencias: referencias.map((r) => ({ ruta: r.ruta, papel: r.papel, sha256: r.sha256 })),
+      // La hoja del maniquí de una edición, que no es su primera referencia (`poseDeLaProcedencia`).
+      ...(encargo.ocho?.pose === undefined ? {} : { pose: encargo.ocho.pose }),
       crudo: {
         fichero: sinHome(gen.crudo),
         sha256: sha256(crudo),
@@ -472,8 +524,9 @@ async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
   };
   const clips: readonly ClipDeFigura[] | undefined =
     e.ocho === undefined ? undefined : HOJAS_DE_FIGURA[e.ocho.hoja];
-  const ruta = e.referencias[0]?.ruta as string;
-  const reposo = (await medir(ruta.replace(/-[bc]\.png$/, '-a.png')))[0]?.[0];
+  // La del maniquí: la primera referencia, o la que apunta una edición.
+  const ruta = e.ocho?.pose ?? (e.referencias[0]?.ruta as string);
+  const reposo = (await medir(hojaDelReposo(ruta)))[0]?.[0];
   if (reposo === undefined) throw new Error(`la pose ${ruta} no tiene reposo`);
   const celdas = await medir(ruta);
   return {
@@ -974,13 +1027,113 @@ switch (orden) {
     );
     break;
   }
+  case 'vista-versiones': {
+    // Todas las versiones de una unidad, una al lado de otra (`vistaDeVersiones`).
+    const [id] = resto;
+    if (id === undefined) throw new Error('pnpm taller vista-versiones <unidad>');
+    console.log(`→ ${await vistaDeVersiones(id)}`);
+    break;
+  }
   case 'vista-8d':
     // Un solo visor con todas: el argumento solo elige con cuál se abre.
     console.log(`→ ${await vista8d(resto[0])}`);
     break;
+  case 'experimento': {
+    // Las pruebas del mapa de profundidad (`experimento.ts`): la hoja A de una
+    // unidad en sus 8 direcciones por cada variante, fuera de `assets/`.
+    const [id] = resto.filter((r) => !r.startsWith('--'));
+    if (id === undefined)
+      throw new Error('pnpm taller experimento <unidad> [--variantes=…] [--solo=d1,d3]');
+    const pedidas = resto
+      .find((r) => r.startsWith('--variantes='))
+      ?.slice('--variantes='.length)
+      .split(',');
+    const solo = resto
+      .find((r) => r.startsWith('--solo='))
+      ?.slice('--solo='.length)
+      .split(',');
+    // Los modelos de fal (`MOTORES`): sin `--go` solo dice qué costaría.
+    const motores = resto
+      .find((r) => r.startsWith('--motores='))
+      ?.slice('--motores='.length)
+      .split(',');
+    if (motores !== undefined) {
+      let total = 0;
+      for (const m of motores) {
+        if (!(m in MOTORES))
+          throw new Error(`motor «${m}» desconocido; hay ${Object.keys(MOTORES).join(', ')}`);
+        // `--intento=2`: otra tirada (la caché de fal devolvería la misma imagen).
+        const intento =
+          Number(resto.find((r) => r.startsWith('--intento='))?.slice(10) ?? '') || undefined;
+        // `--sobre-maniqui`: el motor edita la hoja del maniquí en vez de pintar.
+        const sobreManiqui = resto.includes('--sobre-maniqui');
+        const encargos = (
+          sobreManiqui
+            ? resto.includes('--go')
+              ? await prepararSobreElManiqui(unidad(id), m as NombreDeMotor, intento)
+              : encargosSobreElManiqui(unidad(id), m as NombreDeMotor, intento)
+            : resto.includes('--go')
+              ? await prepararConMotor(unidad(id), m as NombreDeMotor, intento)
+              : encargosConMotor(unidad(id), m as NombreDeMotor, intento)
+        ).filter((e) => solo === undefined || solo.includes(`d${e.ocho?.direccion}`));
+        const porHoja = costePorHoja(m as NombreDeMotor);
+        const coste = encargos.length * porHoja;
+        total += coste;
+        console.log(
+          `${m.padEnd(14)} ${encargos.length} hojas × ${porHoja} $ = ${coste.toFixed(2)} $`,
+        );
+        if (!resto.includes('--go')) continue;
+        for (const e of encargos) {
+          if (resto.includes('--rehacer')) await COLA.olvidar(e.id);
+          console.log(`  encolado ${(await COLA.encolar(e)).id}`);
+        }
+      }
+      console.log(
+        `total ${total.toFixed(2)} $${resto.includes('--go') ? ' encolado' : ' (simulado: --go para encolar)'}`,
+      );
+      break;
+    }
+    // Las ediciones parten de una variante ya pintada: `--base=control` por defecto.
+    const base = (resto.find((r) => r.startsWith('--base='))?.slice('--base='.length) ??
+      'control') as Variante;
+    if (!(base in VARIANTES)) throw new Error(`la base «${base}» no es una variante`);
+    for (const v of pedidas ?? Object.keys(VARIANTES)) {
+      const encargos =
+        v in VARIANTES
+          ? await prepararExperimento(unidad(id), v as Variante)
+          : (EDICIONES as readonly string[]).includes(v)
+            ? await prepararEdicion(unidad(id), v as Edicion, base)
+            : undefined;
+      if (encargos === undefined)
+        throw new Error(
+          `prueba «${v}» desconocida; hay ${[...Object.keys(VARIANTES), ...EDICIONES].join(', ')}`,
+        );
+      for (const e of encargos) {
+        if (solo !== undefined && !solo.includes(`d${e.ocho?.direccion}`)) continue;
+        if (resto.includes('--rehacer')) await COLA.olvidar(e.id);
+        console.log(`encolado ${(await COLA.encolar(e)).id}`);
+      }
+    }
+    break;
+  }
+  case 'experimento-medir': {
+    const [id] = resto;
+    if (id === undefined) throw new Error('pnpm taller experimento-medir <unidad>');
+    const medidas = await medirExperimento(id);
+    for (const [variante, clips] of Object.entries(medidas)) {
+      const coste = costeDe(variante, id);
+      for (const [clip, { media }] of Object.entries(clips))
+        console.log(
+          `${variante.padEnd(18)} ${clip.padEnd(7)} faltan ${media.faltan.toFixed(3)}  movimiento ${media.movimiento.toFixed(2)}  ${coste === null ? 'suscripción' : `${coste.porHoja.toFixed(3)} $/hoja, ${coste.total.toFixed(2)} $ las 8`}`,
+        );
+    }
+    if (Object.keys(medidas).length === 0)
+      console.log('ninguna variante tiene aún sus 8 direcciones');
+    break;
+  }
   case 'maniqui':
     // El maniquí propio de cada unidad que lo declara (`maniqui` en unidades.ts).
-    for (const id of resto) {
+    for (const id of resto.filter((r) => !r.startsWith('--'))) {
       const u = unidad(id);
       const juego = juegoDelYBot(u);
       if (u.maniqui === undefined)
@@ -992,10 +1145,32 @@ switch (orden) {
       const carpeta = await renderizarOchoDirecciones(juego as JuegoDeArmas, DIR_MANIQUIES, {
         id,
         atrezo: u.maniqui,
+        ...(u.clipsDelManiqui === undefined ? {} : { clips: u.clipsDelManiqui }),
+        // Además, sus hojas en profundidad (la pose que se pinta) y en color sombreado.
+        profundidad: true,
+        // Y los fotogramas enteros de cada clip, para los vídeos del maniquí (`video.ts`).
+        ...(resto.includes('--fotogramas') ? { fotogramas: carpetaDeFotogramas(id) } : {}),
       });
       console.log(`→ ${relative(RAIZ, carpeta)}`);
     }
     break;
+  case 'muestrario': {
+    // Los clips candidatos de una unidad, con su atrezo, para elegir sus acciones.
+    const [id, ...clips] = resto.filter((r) => !r.startsWith('--'));
+    if (id === undefined) throw new Error('pnpm taller muestrario <unidad> [clip…]');
+    const u = unidad(id);
+    const juego = juegoDelYBot(u);
+    if (!(juego in JUEGOS_DE_ARMAS)) throw new Error(`${id}: el muestrario es de juegos a pie`);
+    const destino = join(RAIZ, '.cache/taller/muestrario', `${id}.png`);
+    await mkdir(dirname(destino), { recursive: true });
+    await renderizarMuestrario(
+      clips.length > 0 ? clips : CANDIDATOS_DEL_MUESTRARIO,
+      u.maniqui ?? JUEGOS_DE_ARMAS[juego as JuegoDeArmas].atrezo,
+      destino,
+    );
+    console.log(`→ ${relative(RAIZ, destino)}`);
+    break;
+  }
   case 'derivar-poses': {
     const { juegos } = await escribirAtlasDePoses();
     console.log(`→ ${relative(RAIZ, RUTA_DEL_ATLAS_8D)}: ${Object.keys(juegos).join(', ')}`);
@@ -1003,11 +1178,13 @@ switch (orden) {
   }
   case 'derivar':
     for (const r of resto) {
-      // Con la suelta del maniquí de su unidad, la carpeta de encima de `dN/`:
-      // `derivarAtlas` lanza si la hoja no tiene la fila del disparo que la unidad
-      // dispara, o al revés.
-      const suelta = await sueltaDeUnidad(basename(dirname(dirname(resolve(r)))));
-      const d = await escribirDerivado(r, suelta === null ? {} : { suelta });
+      // Con la suelta del maniquí y el ritmo de su unidad, la carpeta de encima
+      // de `dN/`: `derivarAtlas` lanza si la hoja no tiene la fila del disparo
+      // que la unidad dispara, o al revés.
+      const d = await escribirDerivado(
+        r,
+        await derivacionDeUnidad(basename(dirname(dirname(resolve(r))))),
+      );
       console.log(
         `${r}: altura ${d.altura}, fotogramas ${Object.values(d.clips)
           .map((c) => c.frames)
@@ -1017,6 +1194,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, maniqui, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, maniqui, experimento, experimento-medir, vista-versiones, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar`,
     );
 }

@@ -1,83 +1,83 @@
 {
   "imagen": "atlas.webp",
-  "sha256": "a9f7481e1eb318d912df9045b44a8c5bb602505fb685f857b01085e497cdf3ea",
+  "sha256": "c6b15c88fa237eb000e4539b93f2f29db8aae0b8dd29f709bc885fc3b921a72d",
   "cell": 384,
   "columns": 7,
-  "altura": 160,
+  "altura": 155,
   "cajaDeClic": [
     -54,
-    -162,
-    59,
+    -154,
+    45,
     0
   ],
   "clips": {
     "idle": {
       "row": 0,
       "frames": 7,
-      "fps": 8,
+      "fps": 5,
       "loop": true,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
     "walk": {
       "row": 1,
       "frames": 7,
-      "fps": 8,
+      "fps": 6.5,
       "loop": true,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
     "charge": {
       "row": 2,
       "frames": 7,
-      "fps": 8,
+      "fps": 10.5,
       "loop": true,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
     "attack": {
       "row": 3,
       "frames": 7,
-      "fps": 10,
+      "fps": 6.5,
       "loop": false,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
     "hurt": {
       "row": 4,
       "frames": 7,
-      "fps": 10,
+      "fps": 6.5,
       "loop": false,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
     "death": {
       "row": 5,
       "frames": 7,
-      "fps": 8,
+      "fps": 6,
       "loop": false,
       "anchor": [
-        191,
+        192,
         278
       ]
     },
     "shoot": {
       "row": 6,
       "frames": 7,
-      "fps": 10,
+      "fps": 6.5,
       "loop": false,
       "anchor": [
-        191,
+        192,
         342
       ],
       "suelta": 4

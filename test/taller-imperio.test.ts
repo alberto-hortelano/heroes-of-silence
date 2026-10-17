@@ -6,7 +6,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { clipDeDisparoDe, JUEGOS_DE_ARMAS, type JuegoEn8d } from '../tools/art/poses.js';
+import {
+  clipDeDisparoDe,
+  hojasDe,
+  indicesDeTramo,
+  JUEGOS_DE_ARMAS,
+  type JuegoEn8d,
+} from '../tools/art/poses.js';
 import {
   EN_OCHO_DIRECCIONES,
   encargosDeOchoDirecciones,
@@ -72,7 +78,7 @@ describe('el maniquí propio de una unidad', () => {
       if (u.id in EN_OCHO_DIRECCIONES)
         for (const e of encargosDeOchoDirecciones(u))
           expect(e.referencias[0]?.ruta, e.id).toBe(
-            `${carpeta}/d${e.ocho?.direccion}-${e.ocho?.hoja}.png`,
+            `${carpeta}/d${e.ocho?.direccion}-${e.ocho?.hoja}.profundidad.png`,
           );
       const dispara = clipDeDisparoDe(JUEGO_DEL_YBOT[u.id] as JuegoEn8d) !== null;
       for (let d = 0; d < 8; d++)
@@ -88,6 +94,54 @@ describe('el maniquí propio de una unidad', () => {
         dispara ? 'number' : 'undefined',
       );
     }
+  });
+
+  it('los clips de su maniquí, si los declara, son los que están renderizados', () => {
+    for (const u of [...UNIDADES, ...HEROES]) {
+      if (u.clipsDelManiqui === undefined) continue;
+      expect(u.maniqui, `${u.id}: clipsDelManiqui sin maniqui`).toBeDefined();
+      const juego = JUEGO_DEL_YBOT[u.id] as keyof typeof JUEGOS_DE_ARMAS;
+      const carpeta = `assets/unidades/_poses/unidades/${u.id}-8d`;
+      const poses = JSON.parse(readFileSync(join(RAIZ, carpeta, 'poses.json'), 'utf8'));
+      const esperadas = hojasDe(juego, u.clipsDelManiqui);
+      for (const [h, filas] of Object.entries(esperadas))
+        expect(
+          poses.sheets[h].map(
+            (f: { clip: string; anim: string; tramo?: number[]; vaiven?: true }) => ({
+              clip: f.clip,
+              anim: f.anim,
+              tramo: f.tramo,
+              vaiven: f.vaiven,
+            }),
+          ),
+          `${u.id} ${h}`,
+        ).toEqual(
+          filas.map((f) => ({ clip: f.clip, anim: f.anim, tramo: f.tramo, vaiven: f.vaiven })),
+        );
+      expect(poses.deathStartsFrom.at, u.id).toBe(u.clipsDelManiqui.tramos?.death?.[0] ?? 0);
+    }
+    // El vampiro: de pie y relajado, de ida y vuelta, y la muerte desde que
+    // empieza a caer.
+    const vampiro = hojasDe('espada-escudo', unidad('heroe-vampiro').clipsDelManiqui);
+    expect(vampiro.a?.[0]).toEqual({
+      clip: 'idle',
+      anim: 'idle_neutral',
+      enBucle: true,
+      tramo: [0, 1.5],
+      vaiven: true,
+    });
+    expect(vampiro.b?.[2]?.tramo).toEqual([1, 2]);
+  });
+
+  it('un tramo se muestrea en sus siete columnas, de su primer fotograma al último', () => {
+    // La muerte del vampiro: 28 fotogramas a 12 fps, del segundo 1 al 2.
+    expect(indicesDeTramo(28, 12, [1, 2], 7, false)).toEqual([12, 14, 16, 18, 20, 22, 24]);
+    expect(indicesDeTramo(28, 12, undefined, 7, false)).toEqual([0, 5, 9, 14, 18, 23, 27]);
+    expect(() => indicesDeTramo(28, 12, [1, 2.5], 7, false)).toThrow(/no cabe/);
+    expect(() => indicesDeTramo(28, 12, [1, 1], 7, false)).toThrow(/no cabe/);
+    // De ida y vuelta, la última columna enlaza con la primera; solo en un bucle.
+    expect(indicesDeTramo(44, 12, [0, 1.2], 7, true, true)).toEqual([0, 5, 9, 14, 14, 9, 5]);
+    expect(() => indicesDeTramo(28, 12, [1, 2], 7, false, true)).toThrow(/solo un bucle/);
   });
 
   it('el arcabucero lleva un arma de fuego sin arco; la ballesta del juego conserva el suyo', () => {

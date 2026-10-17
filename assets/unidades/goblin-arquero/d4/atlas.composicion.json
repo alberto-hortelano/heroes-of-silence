@@ -1,10 +1,10 @@
 {
   "atlas": "atlas.webp",
-  "sha256": "7336b3c89190496db987dc0cf87516f9acbb48ef6f2f45fd983a9cb5898b3336",
+  "sha256": "a7e6ec275b8eea5e9d4a436c7b5ae9806bc681b7478f49206af82b78011015dc",
   "hojas": [
     {
       "imagen": "hoja-a.webp",
-      "sha256": "0b29b8aa5c9774fd8529ef3d7b5645d0dc373529b847c4006664b44e01d99380",
+      "sha256": "c3ef78c4a43acf9e129f5a5115233f2589735edff47e2049f2915e9b6b46c5ca",
       "filas": [
         "idle",
         "walk",
@@ -13,7 +13,7 @@
     },
     {
       "imagen": "hoja-b.webp",
-      "sha256": "878db9dc5b8a3025f5a790ece0c1ea2af10b4ba76c6036e8c77a293a14537d39",
+      "sha256": "0b2a0c3f04016fd46d64a3b1654318016b52cfc2a5f17254a089efba97ff7bb5",
       "filas": [
         "attack",
         "hurt",
@@ -22,7 +22,7 @@
     },
     {
       "imagen": "hoja-c.webp",
-      "sha256": "6020c8f84b4809631b203af98c08a6edffa32f454d76da4ecbce3b56f3b9b698",
+      "sha256": "131ac07ddf2c6c381d07179fed065b7b4ebb78d325280610d1df17b710cee08a",
       "filas": [
         "shoot"
       ]

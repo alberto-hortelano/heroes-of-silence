@@ -25,6 +25,7 @@ import {
 } from '../../src/shared/arte.js';
 import {
   type Atrezo,
+  type ClipsDeManiqui,
   type CuerpoACuerpo,
   carpetaDeManiqui,
   carpetaDePoses,
@@ -34,8 +35,10 @@ import {
   JUEGOS_DE_ARMAS,
   type JuegoEn8d,
   type Perfil,
+  type Tramo,
   UNA_MANO,
 } from '../art/poses.js';
+import type { RitmoDeUnidad } from './derivar.js';
 import type { Encargo } from './encargo.js';
 
 export interface Unidad {
@@ -67,6 +70,17 @@ export interface Unidad {
    * cliente mientras no hay arte propio.
    */
   readonly maniqui?: Atrezo;
+  /**
+   * Los clips de su maniquí que no son los de su juego: otro reposo o solo un
+   * trozo de un clip (`ClipsDeManiqui`). Solo con `maniqui`.
+   */
+  readonly clipsDelManiqui?: ClipsDeManiqui;
+  /**
+   * Los fps de los clips que no van al reloj de todos (`RELOJ`, en
+   * `derivar.ts`), o `tiempoReal` para que vayan a la velocidad de su clip de
+   * Mixamo: van a su `atlas.json` al derivarlo (`ritmoDeUnidad`).
+   */
+  readonly ritmo?: RitmoDeUnidad;
   /**
    * Su altura frente a la de un adulto humano, que es 1: el goblin, «la mitad
    * de un humano» en sus láminas, y el troll, «más del doble que un orko». Las
@@ -112,12 +126,105 @@ const MARTILLO: CuerpoACuerpo = {
   },
 };
 
-const PINTURA =
+/**
+ * Cómo se mueve cada clase de personaje (decisión del usuario, 10-10-2026: cada
+ * uno con sus clips de Mixamo, no el mismo reposo para todos, y a tiempo real).
+ * Se esparcen en la unidad (`...PESADO`) con su `clipsDelManiqui` y su ritmo;
+ * el ataque lo pone el juego de armas salvo que la unidad diga otro. Los reposos
+ * largos van en un trozo de 1,5 s de ida y vuelta a 5 fps, como el del vampiro;
+ * las muertes, desde que empiezan a caer (la de Mixamo pasa su primer segundo de
+ * pie agitando el brazo).
+ */
+interface Temperamento {
+  readonly clipsDelManiqui: ClipsDeManiqui;
+  readonly ritmo: RitmoDeUnidad;
+}
+const temperamento = (
+  reposo: string,
+  acciones: NonNullable<ClipsDeManiqui['acciones']>,
+  tramoDelReposo?: Tramo,
+): Temperamento => ({
+  clipsDelManiqui: {
+    reposo,
+    acciones,
+    tramos: {
+      ...(tramoDelReposo === undefined ? {} : { idle: tramoDelReposo }),
+      death: acciones.death === 'death2' ? [1.0, 3.4] : [1.0, 2.0],
+    },
+    ...(tramoDelReposo === undefined ? {} : { vaiven: ['idle'] as const }),
+  },
+  ritmo: { tiempoReal: true, ...(tramoDelReposo === undefined ? {} : { fps: { idle: 5 } }) },
+});
+/** Infantería de espada y escudo en guardia: el arranque de la guardia de `idle`. */
+const EN_GUARDIA = temperamento(
+  'idle',
+  { walk: 'walk', charge: 'run', hurt: 'impact3', death: 'death' },
+  [0, 1.5],
+);
+/** Lanzas y alabardas en formación: la guardia quieta y la carrera erguida. */
+const EN_FORMACION = temperamento('idle4', {
+  walk: 'walk',
+  charge: 'run2',
+  hurt: 'impact3',
+  death: 'death',
+});
+/** Armaduras pesadas y brutos: guardia quieta, paso firme, el golpe le dobla y cae de rodillas. */
+const PESADO = temperamento('idle4', {
+  walk: 'walk2',
+  charge: 'run2',
+  hurt: 'impact2',
+  death: 'death2',
+});
+/** Ligeros y vigilantes: mira a los lados, corre agachado. */
+const AGIL = temperamento(
+  'idle_look_around',
+  { walk: 'walk', charge: 'run', hurt: 'impact3', death: 'death' },
+  [0, 1.5],
+);
+/** Magos, sanadores, tiradores y gente sin guardia: de pie y relajado, el paso de calle. */
+const SOSEGADO = temperamento(
+  'idle_neutral',
+  { walk: 'walking', charge: 'run2', hurt: 'impact2', death: 'death2' },
+  [0, 1.5],
+);
+/** Como `SOSEGADO`, pero respirando hondo: sacerdotes y druidas. */
+const EN_CALMA = temperamento(
+  'idle_breathing',
+  { walk: 'walking', charge: 'run2', hurt: 'impact2', death: 'death2' },
+  [0, 1.5],
+);
+/** Encorvados y renqueantes: zombis, penitentes, el chamán goblin. */
+const RENQUEANTE = temperamento(
+  'wounded_idle',
+  { walk: 'walk2', charge: 'run2', hurt: 'impact2', death: 'death2' },
+  [0, 1.5],
+);
+/** El mismo temperamento con otro ataque. */
+const conAtaque = (t: Temperamento, attack: string): Temperamento => ({
+  ...t,
+  clipsDelManiqui: { ...t.clipsDelManiqui, acciones: { ...t.clipsDelManiqui.acciones, attack } },
+});
+
+/** El mismo temperamento con otro golpe. */
+const conGolpe = (t: Temperamento, hurt: string): Temperamento => ({
+  ...t,
+  clipsDelManiqui: { ...t.clipsDelManiqui, acciones: { ...t.clipsDelManiqui.acciones, hurt } },
+});
+/**
+ * El golpe de `impact2` en vez del de su temperamento: así se renderizaron sus
+ * maniquíes y se pintaron sus hojas el 10-10-2026 (un fallo del render dejaba
+ * el `impact2` de una unidad en las siguientes; ya arreglado).
+ */
+const conImpact2 = (t: Temperamento): Temperamento => conGolpe(t, 'impact2');
+
+export const PINTURA =
   'Estilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.';
 
 export const UNIDADES: readonly Unidad[] = [
   {
     id: 'templario-escudo',
+    ...EN_GUARDIA,
+    maniqui: JUEGOS_DE_ARMAS['espada-escudo'].atrezo,
     faccion: 'templarios',
     nombre: 'Guerrero con escudo',
     perfil: 'espada-escudo',
@@ -127,6 +234,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'templario-mandoble',
+    ...PESADO,
+    maniqui: JUEGOS_DE_ARMAS['dos-manos'].atrezo,
     faccion: 'templarios',
     nombre: 'Guerrero con arma a dos manos',
     perfil: 'dos-manos',
@@ -136,6 +245,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'templario-monje',
+    ...SOSEGADO,
+    maniqui: JUEGOS_DE_ARMAS['baston'].atrezo,
     faccion: 'templarios',
     nombre: 'Monje',
     perfil: 'baston',
@@ -145,6 +256,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'templario-escudero',
+    ...AGIL,
+    maniqui: JUEGOS_DE_ARMAS['lanza'].atrezo,
     faccion: 'templarios',
     nombre: 'Escudero',
     perfil: 'espada-escudo',
@@ -163,6 +276,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'templario-penitente',
+    ...RENQUEANTE,
+    maniqui: JUEGOS_DE_ARMAS['mayal'].atrezo,
     faccion: 'templarios',
     nombre: 'Penitente',
     perfil: 'dos-manos',
@@ -172,6 +287,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'esqueleto-guerrero',
+    ...conImpact2(EN_GUARDIA),
     faccion: 'no-muertos',
     nombre: 'Esqueleto guerrero',
     perfil: 'espada-escudo',
@@ -186,6 +302,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'esqueleto-arquero',
+    ...AGIL,
+    maniqui: JUEGOS_DE_ARMAS['arco'].atrezo,
     faccion: 'no-muertos',
     nombre: 'Esqueleto arquero',
     perfil: 'arco',
@@ -195,6 +313,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'zombi',
+    ...conAtaque(RENQUEANTE, 'heavy'),
     faccion: 'no-muertos',
     nombre: 'Zombie',
     perfil: 'espada-escudo',
@@ -209,6 +328,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'espectro',
+    ...SOSEGADO,
     faccion: 'no-muertos',
     nombre: 'Espectro',
     perfil: 'espada-escudo',
@@ -223,6 +343,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'caballero-de-la-muerte',
+    ...PESADO,
+    maniqui: JUEGOS_DE_ARMAS['dos-manos'].atrezo,
     faccion: 'no-muertos',
     nombre: 'Caballero de la muerte',
     perfil: 'dos-manos',
@@ -241,6 +363,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'imperio-alabardero',
+    ...conImpact2(EN_FORMACION),
     faccion: 'imperio',
     nombre: 'Alabardero',
     perfil: 'dos-manos',
@@ -263,6 +386,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'imperio-piquero',
+    ...conImpact2(EN_FORMACION),
     faccion: 'imperio',
     nombre: 'Piquero',
     perfil: 'dos-manos',
@@ -277,6 +401,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'imperio-ballestero',
+    ...SOSEGADO,
+    maniqui: JUEGOS_DE_ARMAS['ballesta'].atrezo,
     faccion: 'imperio',
     nombre: 'Ballestero',
     perfil: 'ballesta',
@@ -286,6 +412,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'imperio-coracero',
+    ...conAtaque(PESADO, 'heavy'),
     faccion: 'imperio',
     nombre: 'Coracero',
     perfil: 'espada-escudo',
@@ -300,6 +427,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'imperio-arcabucero',
+    ...SOSEGADO,
     faccion: 'imperio',
     nombre: 'Arcabucero',
     perfil: 'ballesta',
@@ -310,6 +438,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'imperio-rodelero',
+    ...conImpact2(EN_GUARDIA),
     faccion: 'imperio',
     nombre: 'Rodelero',
     perfil: 'espada-escudo',
@@ -324,6 +453,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'imperio-artillero-culebrina',
+    ...SOSEGADO,
     faccion: 'imperio',
     nombre: 'Artillero con culebrina',
     perfil: 'ballesta',
@@ -344,6 +474,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'imperio-granadero',
+    ...conImpact2(AGIL),
+    maniqui: JUEGOS_DE_ARMAS['granada'].atrezo,
     faccion: 'imperio',
     nombre: 'Granadero',
     perfil: 'ballesta',
@@ -353,6 +485,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'elfo-arquero',
+    ...conImpact2(AGIL),
+    maniqui: JUEGOS_DE_ARMAS['arco'].atrezo,
     faccion: 'elfos',
     nombre: 'Arquero',
     perfil: 'arco',
@@ -362,6 +496,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'elfo-explorador',
+    ...conImpact2(conAtaque(AGIL, 'medium')),
     faccion: 'elfos',
     nombre: 'Explorador',
     perfil: 'espada-escudo',
@@ -377,6 +512,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'elfo-guardia-del-bosque',
+    ...conImpact2(EN_FORMACION),
     faccion: 'elfos',
     nombre: 'Guardia del bosque',
     perfil: 'espada-escudo',
@@ -401,6 +537,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'elfo-sacerdotisa',
+    ...EN_CALMA,
     faccion: 'elfos',
     nombre: 'Sacerdotisa',
     perfil: 'baston',
@@ -415,6 +552,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'elfo-asesino',
+    ...conImpact2(conAtaque(AGIL, 'medium')),
     faccion: 'elfos',
     nombre: 'Asesino',
     perfil: 'espada-escudo',
@@ -430,6 +568,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'orko-hacha-escudo',
+    ...conAtaque(PESADO, 'heavy'),
     faccion: 'orkos',
     nombre: 'Orko con hacha y escudo',
     perfil: 'espada-escudo',
@@ -444,6 +583,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'orko-dos-armas',
+    ...conImpact2(conAtaque(AGIL, 'slash4')),
     faccion: 'orkos',
     nombre: 'Orko con dos armas',
     perfil: 'dos-manos',
@@ -459,6 +599,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'goblin-lancero',
+    ...conImpact2(AGIL),
     faccion: 'orkos',
     nombre: 'Goblin lancero',
     perfil: 'espada-escudo',
@@ -475,6 +616,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'goblin-arquero',
+    ...conImpact2(AGIL),
+    maniqui: JUEGOS_DE_ARMAS['arco'].atrezo,
     faccion: 'orkos',
     nombre: 'Goblin arquero',
     perfil: 'arco',
@@ -485,6 +628,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'troll-maza',
+    ...conAtaque(PESADO, 'heavy'),
     faccion: 'orkos',
     nombre: 'Troll con maza',
     perfil: 'dos-manos',
@@ -509,6 +653,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'orko-armadura-pesada',
+    ...PESADO,
     faccion: 'orkos',
     nombre: 'Orko con armadura pesada',
     perfil: 'dos-manos',
@@ -530,6 +675,8 @@ export const UNIDADES: readonly Unidad[] = [
 export const HEROES: readonly Unidad[] = [
   {
     id: 'heroe-templario-caballero',
+    ...conImpact2(conAtaque(EN_GUARDIA, 'precise')),
+    maniqui: JUEGOS_DE_ARMAS['espada-escudo'].atrezo,
     faccion: 'templarios',
     nombre: 'Caballero (héroe)',
     perfil: 'espada-escudo',
@@ -538,6 +685,8 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-templario-abad',
+    ...conAtaque(EN_CALMA, 'power_up'),
+    maniqui: JUEGOS_DE_ARMAS['baston'].atrezo,
     faccion: 'templarios',
     nombre: 'Monje (Abad), héroe',
     perfil: 'baston',
@@ -546,6 +695,8 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-templario-inquisidor',
+    ...conImpact2(AGIL),
+    maniqui: JUEGOS_DE_ARMAS['maza'].atrezo,
     faccion: 'templarios',
     nombre: 'Inquisidor (héroe)',
     perfil: 'espada-escudo',
@@ -554,6 +705,8 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-templario-gran-maestre',
+    ...PESADO,
+    maniqui: JUEGOS_DE_ARMAS['dos-manos'].atrezo,
     faccion: 'templarios',
     nombre: 'Gran Maestre (héroe)',
     perfil: 'dos-manos',
@@ -562,6 +715,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-nigromante',
+    ...SOSEGADO,
     faccion: 'no-muertos',
     nombre: 'Nigromante (héroe)',
     perfil: 'baston',
@@ -585,11 +739,34 @@ export const HEROES: readonly Unidad[] = [
       espada: { largo: 0.95, guarda: 0.12, puño: 0.14, agarre: 0.07, grosor: 0.012 },
       escudo: false,
     },
+    clipsDelManiqui: {
+      // Un noble, no un soldado en guardia: de pie y relajado, con la ropera
+      // colgando (elegido por el usuario entre los ocho reposos, 10-10-2026).
+      // La guardia de `idle` saca la espada al costado y menea la cabeza; la de
+      // `idle (4)` solo respira y, pintada, era una estatua. De `idle_neutral`,
+      // su primer balanceo del peso (un ~20 % de la silueta cambia), de ida y
+      // vuelta: el clip dura 8,8 s y entero en siete columnas saltaría.
+      reposo: 'idle_neutral',
+      // El golpe de `impact2`, con el que se renderizó y pintó (`conImpact2`).
+      acciones: { hurt: 'impact2' },
+      tramos: {
+        idle: [0, 1.5],
+        // La muerte de Mixamo pasa su primer segundo de pie, agitando el brazo
+        // de la espada; cae entre 1,3 y 1,8 s y a los 2 s ya es cadáver.
+        death: [1.0, 2.0],
+      },
+      vaiven: ['idle'],
+    },
+    // Cada clip a la velocidad de Mixamo (decisión del usuario, 10-10-2026), salvo el balanceo de ida y vuelta, a 5 fps: una vuelta
+    // de 1,4 s. A tiempo real eran 2,3 fps y a los 8 de todos se leía con prisa
+    // (elegido por el usuario entre 8, 6, 5 y 4).
+    ritmo: { tiempoReal: true, fps: { idle: 5 } },
     aspecto:
       'Un señor vampiro: noble de piel muy pálida y pelo negro largo, jubón de terciopelo granate con bordados negros, coraza ligera negra, capa negra de cuello alto con forro rojo, ropera fina de una mano en la derecha y la mano izquierda libre con garras. Sin escudo.',
   },
   {
     id: 'heroe-lich',
+    ...conAtaque(SOSEGADO, 'power_up'),
     faccion: 'no-muertos',
     nombre: 'Lich (héroe)',
     perfil: 'baston',
@@ -604,6 +781,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-imperio-duelista',
+    ...conImpact2(conAtaque(AGIL, 'precise')),
     faccion: 'imperio',
     nombre: 'Duelista (héroe; sustituye al Noble)',
     perfil: 'espada-escudo',
@@ -619,6 +797,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-imperio-mago',
+    ...SOSEGADO,
     faccion: 'imperio',
     nombre: 'Mago de batalla (héroe)',
     perfil: 'baston',
@@ -633,6 +812,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-imperio-capitan-mercenario',
+    ...conImpact2(conAtaque(AGIL, 'heavy')),
     faccion: 'imperio',
     nombre: 'Capitán mercenario (héroe)',
     perfil: 'espada-escudo',
@@ -647,6 +827,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-imperio-ingeniero',
+    ...SOSEGADO,
     faccion: 'imperio',
     nombre: 'Ingeniero (héroe)',
     perfil: 'ballesta',
@@ -657,6 +838,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-elfo-danzante-de-espadas',
+    ...conImpact2(conAtaque(AGIL, 'slash4')),
     faccion: 'elfos',
     nombre: 'Danzante de espadas (héroe)',
     perfil: 'espada-escudo',
@@ -672,6 +854,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-elfo-druida',
+    ...conAtaque(EN_CALMA, 'casting2'),
     faccion: 'elfos',
     nombre: 'Druida (héroe)',
     perfil: 'baston',
@@ -686,6 +869,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-elfo-cantora',
+    ...conAtaque(SOSEGADO, 'casting2'),
     faccion: 'elfos',
     nombre: 'Cantora (héroe)',
     perfil: 'baston',
@@ -703,6 +887,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-orko-kaudillo',
+    ...PESADO,
     faccion: 'orkos',
     nombre: 'Kaudillo (héroe)',
     perfil: 'dos-manos',
@@ -716,6 +901,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-goblin-jefe',
+    ...conImpact2(AGIL),
     faccion: 'orkos',
     nombre: 'Jefe goblin (héroe)',
     perfil: 'espada-escudo',
@@ -731,6 +917,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-goblin-chaman',
+    ...RENQUEANTE,
     faccion: 'orkos',
     nombre: 'Chamán goblin (héroe)',
     perfil: 'baston',
@@ -1087,7 +1274,13 @@ export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
           PINTURA,
         ].join('\n'),
         referencias: [
-          { ruta: `${dirPoses8d(u)}/d${d}-${hoja}.png`, papel: 'pose' },
+          // La pose como mapa de profundidad (decisión del usuario, 10-10-2026,
+          // tras las pruebas del vampiro): el volumen del maniquí y no su color.
+          // Solo el maniquí propio tiene profundidad; los montados (la montura
+          // no la renderiza) siguen con la pose en color.
+          u.maniqui === undefined
+            ? { ruta: `${dirPoses8d(u)}/d${d}-${hoja}.png`, papel: 'pose' }
+            : { ruta: `${dirPoses8d(u)}/d${d}-${hoja}.profundidad.png`, papel: 'pose-profundidad' },
           { ruta: `${rutaGiro(u)}.webp`, papel: 'identidad' },
           ...(u.concepto === undefined ? [] : [{ ruta: u.concepto, papel: 'estilo' as const }]),
         ],

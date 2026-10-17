@@ -40,6 +40,8 @@ export interface Generacion {
   readonly crudo: string;
   /** Lo último que dijo el agente: sirve de motivo cuando no hay imagen. */
   readonly mensaje: string;
+  /** Lo que costó, en dólares, si se pagó aparte (fal.ai); por la suscripción, nada. */
+  readonly coste?: number;
 }
 
 /** Los eventos JSONL de Codex que importan aquí. */

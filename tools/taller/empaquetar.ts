@@ -118,6 +118,9 @@ function distanciaX(a: Caja, b: Caja): number {
   return Math.max(0, a.x0 - b.x1, b.x0 - a.x1);
 }
 
+/** Desde qué parte del área de la mayor figura de una fila un sobrante es una figura de más. */
+export const FIGURA_DE_MAS = 0.25;
+
 /**
  * Si una fila trae trozos de más —un jirón suelto, la punta de un arma que no
  * llega a tocar a su dueño—, el más pequeño se funde con la figura más cercana,
@@ -126,8 +129,13 @@ function distanciaX(a: Caja, b: Caja): number {
  * toca se fundían en una (5 de 12 atlas del primer lote).
  */
 export function fundirSobrantes(fila: Caja[], columnas: number): Caja[] {
+  const mayor = Math.max(0, ...fila.map((c) => c.area));
   while (fila.length > columnas) {
     fila.sort((a, b) => a.area - b.area);
+    // Lo que sobra es una figura entera, no un trozo: se deja, y la fila falla
+    // por figuras de más (un modelo que pinta 9 por fila; fundidas, la celda
+    // llevaba dos figuras encogidas).
+    if ((fila[0] as Caja).area >= FIGURA_DE_MAS * mayor) break;
     const menor = fila.shift() as Caja;
     let destino = fila[0] as Caja;
     for (const c of fila) if (distanciaX(menor, c) < distanciaX(menor, destino)) destino = c;
