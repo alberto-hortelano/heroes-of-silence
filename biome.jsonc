@@ -11,11 +11,12 @@
   // `assets/generated` es salida de fal.ai: un formateador no tiene nada que
   // decir ahí, y reordenarlo sería ruido en el diff de cada tanda de arte.
   //
-  // `!!**/.claude` porque los worktrees de las sesiones viven en `.claude/worktrees/`,
+  // `!!.claude` porque los worktrees de las sesiones viven en `.claude/worktrees/`,
   // cada uno con su `biome.jsonc`, y Biome los encuentra al recorrer el repo y sale
-  // con «Found a nested root configuration» antes de mirar nada.
+  // con «Found a nested root configuration» antes de mirar nada. Relativo a la raíz y
+  // no `**/.claude`: ese casa con la ruta absoluta del propio worktree y lo ignora todo.
   "files": {
-    "includes": ["src/**/*.ts", "test/**/*.ts", "tools/**/*.ts", "vite.config.ts", "!!**/.claude"]
+    "includes": ["src/**/*.ts", "test/**/*.ts", "tools/**/*.ts", "vite.config.ts", "!!.claude"]
   },
 
   // El estilo de hecho del repo, medido sobre los 61 ficheros, no uno nuevo:
