@@ -123,7 +123,7 @@ export function puntuar(
   return { faltan: nM === 0 ? 1 : faltan / nM, sobran: nP === 0 ? 1 : sobran / nP };
 }
 
-interface DeLaPose {
+export interface DeLaPose {
   readonly posicion?: boolean;
   readonly k: number;
   readonly origen: readonly [number, number];
@@ -131,7 +131,7 @@ interface DeLaPose {
   readonly elevaciones?: readonly number[];
 }
 
-async function alfa(ruta: string): Promise<{ data: Buffer; ancho: number }> {
+export async function alfa(ruta: string): Promise<{ data: Buffer; ancho: number }> {
   const { data, info } = await sharp(ruta)
     .ensureAlpha()
     .raw()
@@ -203,9 +203,77 @@ function cambio(a: Mascara, b: Mascara): number {
   return union === 0 ? 0 : distintos / union;
 }
 
-/** Puntúa las celdas de una dirección de una unidad: 42, o 49 con el disparo. */
-export async function evaluarDireccion(id: string, d: number): Promise<Celda[]> {
-  const dir = join(RAIZ, 'assets/unidades', id, `d${d}`);
+/**
+ * La hoja del maniquí contra la que se pintó una hoja, según su procedencia: la
+ * que apunta (`pose`, la de una edición, cuya primera referencia es la hoja que
+ * se edita) o su primera referencia.
+ */
+export function poseDeLaProcedencia(proc: {
+  readonly pose?: string;
+  readonly referencias: readonly { readonly ruta: string }[];
+}): string {
+  const ruta = proc.pose ?? proc.referencias[0]?.ruta;
+  if (ruta === undefined) throw new Error('una procedencia sin pose ni referencias');
+  return ruta;
+}
+
+/**
+ * Cómo se llevó la celda (`fila`, `col`) del maniquí a la del atlas (`filaAtlas`):
+ * la transformación que apunta la procedencia (`deLaPose`) o, si la posición la
+ * puso cada figura (los bucles, y las hojas de antes de apuntarla), la escala
+ * `k` con cada celda alineada por su propio apoyo, como se colocó.
+ */
+export function transformacionDeCelda(
+  atlas: { data: Buffer; ancho: number },
+  filaAtlas: number,
+  pose: { data: Buffer; ancho: number },
+  fila: number,
+  col: number,
+  lado: number,
+  apuntada: DeLaPose | undefined,
+  k: number,
+): DeLaPose {
+  // Sin `posicion` (las primeras hojas) la posición también la puso la pose.
+  if (apuntada !== undefined && apuntada.posicion !== false) return apuntada;
+  return {
+    k,
+    origen: apoyoDe(atlas, filaAtlas, col, lado, 64),
+    apoyoReposo: apoyoDe(pose, fila, col, lado, 40),
+  };
+}
+
+/** La silueta del maniquí de la celda (`fila`, `col`) llevada a la del atlas con `t`. */
+export function maniquiEnLaCelda(
+  pose: { data: Buffer; ancho: number },
+  fila: number,
+  col: number,
+  lado: number,
+  t: DeLaPose,
+): Uint8Array {
+  const maniqui = new Uint8Array(lado * lado);
+  const oy = t.origen[1] - (t.elevaciones?.[fila] ?? 0);
+  for (let y = 0; y < lado; y++)
+    for (let x = 0; x < lado; x++) {
+      // El píxel del maniquí que cae aquí: la transformación inversa.
+      const px = Math.round(t.apoyoReposo[0] + (x - t.origen[0]) / t.k);
+      const py = Math.round(t.apoyoReposo[1] + (y - oy) / t.k);
+      if (px < 0 || py < 0 || px >= lado || py >= lado) continue;
+      const b = pose.data[((fila * lado + py) * pose.ancho + col * lado + px) * 4 + 3];
+      maniqui[y * lado + x] = (b as number) >= 40 ? 1 : 0;
+    }
+  return maniqui;
+}
+
+/**
+ * Puntúa las celdas de una dirección de una unidad: 42, o 49 con el disparo.
+ * `dir`, la carpeta de la dirección si no es la de su arte (las pruebas de
+ * `experimento.ts`).
+ */
+export async function evaluarDireccion(
+  id: string,
+  d: number,
+  dir = join(RAIZ, 'assets/unidades', id, `d${d}`),
+): Promise<Celda[]> {
   const atlasJson = JSON.parse(await readFile(join(dir, 'atlas.json'), 'utf8')) as AtlasDerivado;
   const lado = atlasJson.cell;
   const atlas = await alfa(join(dir, 'atlas.webp'));
@@ -215,27 +283,21 @@ export async function evaluarDireccion(id: string, d: number): Promise<Celda[]> 
     const filasDeLaHoja = HOJAS_DE_FIGURA[hoja].length;
     const desde = primeraFilaDe(hoja);
     const proc = JSON.parse(await readFile(join(dir, `hoja-${hoja}.procedencia.json`), 'utf8'));
-    const rutaPose = join(RAIZ, proc.referencias[0].ruta as string);
+    const rutaPose = join(RAIZ, poseDeLaProcedencia(proc));
     if (!existsSync(rutaPose)) throw new Error(`no encuentro la pose ${rutaPose}`);
     const pose = await alfa(rutaPose);
     // Las hojas empaquetadas antes de que la pose mandara en la posición no
     // apuntan la transformación: cada celda se alinea por su propio apoyo, como
     // se colocó, con la escala del reposo.
     const apuntada = proc.deLaPose as DeLaPose | undefined;
-    // Sin `posicion` (las primeras hojas) la posición también la puso la pose.
-    const fija = apuntada !== undefined && apuntada.posicion !== false ? apuntada : undefined;
     const k = apuntada?.k ?? atlasJson.altura / (await altoDelReposo(rutaPose, lado));
     for (let fila = 0; fila < filasDeLaHoja; fila++) {
       const filaAtlas = desde + fila;
       let previa: { maniqui: Mascara; pintada: Mascara } | null = null;
       const clip = Object.entries(atlasJson.clips).find(([, c]) => c.row === filaAtlas)?.[0] ?? '?';
       for (let col = 0; col < FIGURA.columnas; col++) {
-        const t: DeLaPose = fija ?? {
-          k,
-          origen: apoyoDe(atlas, filaAtlas, col, lado, 64),
-          apoyoReposo: apoyoDe(pose, fila, col, lado, 40),
-        };
-        const maniqui = new Uint8Array(lado * lado);
+        const t = transformacionDeCelda(atlas, filaAtlas, pose, fila, col, lado, apuntada, k);
+        const maniqui = maniquiEnLaCelda(pose, fila, col, lado, t);
         const pintada = new Uint8Array(lado * lado);
         let azul = 0;
         for (let y = 0; y < lado; y++) {
@@ -252,13 +314,6 @@ export async function evaluarDireccion(id: string, d: number): Promise<Celda[]> 
               )
             )
               azul++;
-            // El píxel del maniquí que cae aquí: la transformación inversa.
-            const px = Math.round(t.apoyoReposo[0] + (x - t.origen[0]) / t.k);
-            const oy = t.origen[1] - (t.elevaciones?.[fila] ?? 0);
-            const py = Math.round(t.apoyoReposo[1] + (y - oy) / t.k);
-            if (px < 0 || py < 0 || px >= lado || py >= lado) continue;
-            const b = pose.data[((fila * lado + py) * pose.ancho + col * lado + px) * 4 + 3];
-            maniqui[y * lado + x] = (b as number) >= 40 ? 1 : 0;
           }
         }
         fuera.push({

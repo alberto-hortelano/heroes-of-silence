@@ -21,6 +21,7 @@ import {
   clipDeDisparoDe,
   columnaDeSuelta,
   cuerpoACuerpoDe,
+  fpsATiempoReal,
   hojasDe,
   indicesDeClip,
   JUEGOS_DE_ARMAS,
@@ -33,7 +34,9 @@ import { type Encargo, encargoSchema, promptDe } from '../tools/taller/encargo.j
 import { juntarDireccion } from '../tools/taller/juntar.js';
 import {
   type AtlasDePoses,
+  derivacionDeUnidad,
   derivarDireccionDePoses,
+  ritmoDeUnidad,
   sueltaDeUnidad,
 } from '../tools/taller/poses-8d.js';
 import {
@@ -153,6 +156,34 @@ describe('una dirección de 6 filas', () => {
     );
   });
 
+  it('el ritmo de una unidad cambia los fps de sus clips y nada más; fuera de 0-30 lanza', async () => {
+    const a = await derivarAtlas(await hoja());
+    const b = await derivarAtlas(await hoja(), {
+      ritmo: { idle: 5, death: 6 },
+    });
+    expect(b.clips.idle).toEqual({ ...a.clips.idle, fps: 5 });
+    expect(b.clips.death).toEqual({ ...a.clips.death, fps: 6 });
+    for (const c of ['walk', 'charge', 'attack', 'hurt'] as const)
+      expect(b.clips[c]).toEqual(a.clips[c]);
+    await expect(derivarAtlas(await hoja(), { ritmo: { idle: 0 } })).rejects.toThrow(
+      /de más de 0 a 30/,
+    );
+    // El vampiro, a tiempo real (lo que dura cada clip en su maniquí), salvo el
+    // reposo a 5; quien no elige sus clips (el montado), al reloj de todos.
+    expect(ritmoDeUnidad('heroe-vampiro')).toEqual({
+      idle: 5,
+      walk: 6.5,
+      charge: 10.5,
+      attack: 6.5,
+      hurt: 6.5,
+      death: 6,
+    });
+    expect(ritmoDeUnidad('templario-hermano-de-carga')).toBeNull();
+    // Y quien elige sus clips, sin recortar ninguno.
+    expect((await derivacionDeUnidad('heroe-vampiro')).enteros).toEqual([...FILAS_DEL_ATLAS]);
+    expect((await derivacionDeUnidad('templario-hermano-de-carga')).enteros).toBeUndefined();
+  });
+
   it('un ancla para todas, la del reposo, salvo la muerte: va ELEVACION_DEL_CADAVER más arriba', async () => {
     const a = await derivarAtlas(await hoja());
     const [x, y] = a.clips.idle?.anchor ?? [0, 0];
@@ -161,6 +192,29 @@ describe('una dirección de 6 filas', () => {
     // Sin subirla, el cadáver tendido hacia la cámara no cabía bajo los pies y
     // el empaquetado lo metía en la celda subiéndolo: flotaba sobre su sombra.
     expect(a.clips.death?.anchor).toEqual([x, y - ELEVACION_DEL_CADAVER]);
+  });
+
+  it('el reposo de ida y vuelta del maniquí del vampiro se queda con sus 7 columnas en las 8 direcciones', async () => {
+    // Su balanceo cambia poco el alfa y repite columnas a propósito: recortado
+    // como repetido, se quedaba en un fotograma en siete direcciones.
+    for (let d = 0; d < 8; d++) {
+      const a = await derivarDireccionDePoses('espada-escudo', d, undefined, 'heroe-vampiro');
+      expect(a.clips.idle.frames, `d${d}`).toBe(7);
+    }
+  });
+
+  it('a tiempo real, las columnas van a lo que duran en su clip', () => {
+    // Un bucle entero de 13 fotogramas a 12 fps: 7 columnas en 13/12 s.
+    expect(fpsATiempoReal({ indices: [0, 1, 3, 5, 7, 9, 11], enBucle: true }, 13, 12)).toBe(6.5);
+    // Un golpe de la columna 0 a la 11: 6 pasos en 11/12 s.
+    expect(fpsATiempoReal({ indices: [0, 2, 4, 6, 7, 9, 11], enBucle: false }, 12, 12)).toBe(6.5);
+    // De ida y vuelta de 0 a 18: 7 columnas en 36/12 s.
+    const ida = { indices: [0, 6, 12, 18, 18, 12, 6], enBucle: true, vaiven: true } as const;
+    expect(fpsATiempoReal(ida, 105, 12)).toBe(2.3);
+    // Un tramo en bucle: su vuelta es el tramo (0 a 13, 14 fotogramas), no el clip.
+    expect(
+      fpsATiempoReal({ indices: [0, 2, 4, 6, 8, 10, 12], enBucle: true, tramo: [0, 1.1] }, 44, 12),
+    ).toBe(6);
   });
 
   it('la muerte y el daño no son bucles: su última columna es su último fotograma', () => {
@@ -185,7 +239,7 @@ describe('los encargos de 8 direcciones', () => {
     expect(new Set(lista.map((e) => e.id)).size).toBe(16);
     for (const e of lista) {
       expect(e.referencias[0]?.ruta).toBe(
-        `assets/unidades/_poses/espada-escudo-8d/d${e.ocho?.direccion}-${e.ocho?.hoja}.png`,
+        `assets/unidades/_poses/unidades/templario-escudo-8d/d${e.ocho?.direccion}-${e.ocho?.hoja}.profundidad.png`,
       );
       expect(existsSync(join(RAIZ, e.referencias[0]?.ruta ?? ''))).toBe(true);
       expect(e.referencias[1]?.ruta).toBe('assets/unidades/templario-escudo/giro.webp');
@@ -198,19 +252,21 @@ describe('los encargos de 8 direcciones', () => {
 
   it('quien no dispara encarga exactamente lo mismo que antes de la hoja C', () => {
     // La huella de [encargo, prompt] de sus 16 hojas, tomada el 04-10-2026 antes
-    // de añadir el disparo: ni un byte de lo que se pide cambia.
+    // de añadir el disparo: ni un byte de lo que se pide cambia. Re-anclada el
+    // 10-10-2026 al pintar a pie sobre la profundidad del maniquí propio; el
+    // montado no cambia.
     const huella = (id: string): string =>
       createHash('sha256')
         .update(JSON.stringify(encargosDeOchoDirecciones(unidad(id)).map((e) => [e, promptDe(e)])))
         .digest('hex');
     expect(huella('templario-escudo')).toBe(
-      '60e285b57573c7036175be77e127d998feaa96bbfa8e08907202200bf952460e',
+      '228f3d5f99a3085ab9689b54f0506e9185a0f9756f102bb28eb0404968b77063',
     );
     expect(huella('templario-hermano-de-carga')).toBe(
       '9b4ca4ec10ef8f626a942f8cb27f1bede9f3513007f9a722059714f58206a1ca',
     );
     expect(huella('imperio-coracero')).toBe(
-      '8f21f16ffa522473170d73e5f90272d730ec89d01bc5081cdea0bade0f833ea3',
+      '216d89521c43ae4d5071baca2da508dc25484daf49fad842c1135505469af506',
     );
   });
 
@@ -225,7 +281,9 @@ describe('los encargos de 8 direcciones', () => {
     );
     for (const e of c) {
       const pose = e.referencias[0]?.ruta ?? '';
-      expect(pose).toBe(`assets/unidades/_poses/granada-8d/d${e.ocho?.direccion}-c.png`);
+      expect(pose).toBe(
+        `assets/unidades/_poses/unidades/imperio-granadero-8d/d${e.ocho?.direccion}-c.profundidad.png`,
+      );
       expect(existsSync(join(RAIZ, pose)), pose).toBe(true);
       expect(e.salida).toBe(`assets/unidades/imperio-granadero/d${e.ocho?.direccion}/hoja-c`);
       expect(promptDe(e)).toMatch(/7 columnas por 1 fila, 7 figuras/);
@@ -387,11 +445,11 @@ describe('las direcciones del arte', () => {
   });
 
   // Una vez por unidad, no por dirección: lee el `poses.json` de su maniquí.
-  const sueltas = new Map<string, Promise<number | null>>();
-  const sueltaDe = (id: string): Promise<number | null> => {
-    const s = sueltas.get(id) ?? sueltaDeUnidad(id);
-    sueltas.set(id, s);
-    return s;
+  const derivaciones = new Map<string, ReturnType<typeof derivacionDeUnidad>>();
+  const derivacionDe = (id: string): ReturnType<typeof derivacionDeUnidad> => {
+    const d = derivaciones.get(id) ?? derivacionDeUnidad(id);
+    derivaciones.set(id, d);
+    return d;
   };
 
   it.each(todas)('%s: el atlas es lo que mide la imagen y sale de sus hojas', async (dir) => {
@@ -399,11 +457,11 @@ describe('las direcciones del arte', () => {
     const json = leer(join(dir, 'atlas.json'));
     expect(json.sha256, 'el atlas cambió sin volver a derivar su JSON').toBe(sha(atlas));
     if (derivadas.has(dir)) {
-      // Con la fila del disparo, la suelta es la de su maniquí: la misma cuenta que al juntarlo.
-      const suelta =
-        json.clips.shoot === undefined ? undefined : await sueltaDe(basename(dirname(dir)));
+      // La suelta de su maniquí y el ritmo de su unidad: la misma cuenta que al juntarlo.
       expect(json).toEqual(
-        JSON.parse(JSON.stringify(await derivarAtlas(atlas, suelta == null ? {} : { suelta }))),
+        JSON.parse(
+          JSON.stringify(await derivarAtlas(atlas, await derivacionDe(basename(dirname(dir))))),
+        ),
       );
     }
     const c = leer(join(dir, 'atlas.composicion.json'));
@@ -415,7 +473,8 @@ describe('las direcciones del arte', () => {
       expect(p.salida.sha256, `${h.imagen} cambió sin registrar de dónde sale`).toBe(sha(ruta));
       expect(p.hilo).toMatch(/^[0-9a-f-]{36}$/);
       if (p.reanuda === undefined) {
-        expect(p.referencias[0]?.papel).toBe('pose');
+        // La pose del maniquí, en color o (desde el 10-10-2026) en profundidad.
+        expect(['pose', 'pose-profundidad']).toContain(p.referencias[0]?.papel);
         expect(p.referencias[1]?.papel).toBe('identidad');
       }
     }

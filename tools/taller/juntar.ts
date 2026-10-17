@@ -9,7 +9,7 @@ import { basename, dirname, join } from 'node:path';
 import { HOJAS_DE_FIGURA, hojasDeFigura } from '../../src/shared/arte.js';
 import { clipDeDisparoDe } from '../art/poses.js';
 import { escribirDerivado } from './derivar.js';
-import { apilarHojas, juegoEn8dDe, sha256, sueltaDeUnidad } from './poses-8d.js';
+import { apilarHojas, derivacionDeUnidad, juegoEn8dDe, sha256 } from './poses-8d.js';
 
 /**
  * Junta las hojas de una dirección (`assets/unidades/<id>/dN/`) en `atlas.webp`
@@ -32,8 +32,7 @@ export async function juntarDireccion(dir: string): Promise<string | null> {
   const webp = await (await apilarHojas(hojas)).webp({ lossless: true, effort: 6 }).toBuffer();
   const atlas = join(dir, 'atlas.webp');
   await writeFile(atlas, webp);
-  const suelta = await sueltaDeUnidad(id);
-  await escribirDerivado(atlas, suelta === null ? {} : { suelta });
+  await escribirDerivado(atlas, await derivacionDeUnidad(id));
   await writeFile(
     join(dir, 'atlas.composicion.json'),
     `${JSON.stringify(

@@ -51,6 +51,22 @@ export const PAPELES = {
   // la imagen adjunta. Reabrir el hilo con `exec resume` falló dos de dos veces.
   edita:
     'es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual',
+  // Las pruebas del 10-10-2026 (`experimento.ts`): ¿copia mejor el movimiento
+  // si ve el volumen? Como complemento de la pose o en su lugar.
+  profundidad:
+    'es el MAPA DE PROFUNDIDAD del mismo maniquí, celda a celda como la referencia de pose: cuanto más claro, más cerca de la cámara; el negro es fondo. Dice el volumen y qué brazo, qué pierna y qué arma van delante de cuáles en cada celda, y manda en eso igual que la pose. NO copies su gris ni su fondo negro: es solo información',
+  'pose-profundidad':
+    'es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente',
+  // Editar una hoja ya pintada (las pruebas del 10-10-2026): que copie mejor la
+  // pose del maniquí sin volver a inventar el personaje.
+  editar:
+    'es la HOJA YA PINTADA de este personaje que hay que EDITAR: el personaje, su aspecto, su ropa, sus colores, su acabado, la rejilla y el sitio y el tamaño de cada figura se conservan; solo cambia la postura. Su fondo VERDE es solo fondo: el resultado va sobre transparente',
+  'editar-silueta':
+    'es la HOJA YA PINTADA de este personaje que hay que EDITAR, con la SILUETA del maniquí de cada pose superpuesta en CIAN translúcido con su contorno: la silueta dice la postura que tiene que tener cada figura y NO se pinta. El personaje, su aspecto, su ropa, sus colores, su acabado, la rejilla y el sitio y el tamaño de cada figura se conservan. Su fondo VERDE es solo fondo: el resultado va sobre transparente',
+  // Editar el propio maniquí (10-10-2026): la pose, el sitio y el tamaño ya están
+  // en la imagen; solo cambia quién es.
+  'editar-maniqui':
+    'es la HOJA DEL MANIQUÍ que hay que EDITAR: cada figura es un maniquí Y Bot con cámara ortográfica elevada 25 grados. Conviértelo en el personaje SIN cambiar nada más: la misma postura articulación por articulación, el mismo sitio, el mismo tamaño y la misma orientación de cada figura, la misma cámara y la misma rejilla. Si sus piernas son de color, la ROJA es la DERECHA y la AZUL la IZQUIERDA (el personaje no lleva esos colores); el palo gris que empuña es su arma, que pasa a ser la del personaje',
   guia: 'es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo',
 } as const;
 export type Papel = keyof typeof PAPELES;
@@ -124,12 +140,47 @@ export const encargoSchema = z
      * sola dirección se retiró el 03-10-2026.
      */
     ocho: z
-      .object({ direccion: z.number().int().min(0).max(7), hoja: z.enum(LETRAS_DE_HOJA) })
+      .object({
+        direccion: z.number().int().min(0).max(7),
+        hoja: z.enum(LETRAS_DE_HOJA),
+        /**
+         * La hoja del maniquí contra la que se escala y se evalúa, cuando no es
+         * la primera referencia: en una edición, la primera es la hoja que se edita.
+         */
+        pose: ruta.optional(),
+      })
       .optional(),
     /** Módulos del escenario: cuántos lleva la hoja, en filas de 4. */
     cuantos: z.number().int().min(4).max(16).optional(),
     /** Iconos: el nombre de cada uno, en el orden de lectura de la lámina de 4×4. */
     nombres: z.array(z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)).optional(),
+    /**
+     * Otro modelo que el de ChatGPT por la suscripción: un endpoint de fal.ai
+     * (las pruebas del 10-10-2026, `MOTORES` en `experimento.ts`). Sin él, codex.
+     */
+    motor: z
+      .object({
+        nombre: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+        endpoint: z.string().regex(/^[a-z0-9-]+(\/[a-z0-9.-]+)+$/),
+        /** Lo que se le pasa además del prompt y las imágenes: tamaño, calidad… */
+        params: z.record(z.string(), z.unknown()).default({}),
+        /** Lo que cuesta una llamada, en dólares (de la página de fal; estimado si cobra por tokens). */
+        coste: z.number().positive(),
+        /** Si devuelve alfa, o un fondo liso que el taller recorta (`cutoutBackground`). */
+        fondo: z.enum(['transparente', 'liso']),
+        /** La pose va como ControlNet (la primera referencia) y el resto, solo por texto. */
+        control: z.literal(true).optional(),
+        /** El prompt en otro idioma, si el modelo no entiende bien el español (FLUX.1). */
+        prompt: z.string().min(20).optional(),
+        /**
+         * Un modelo de vídeo de transferencia de movimiento (`video.ts`): una
+         * llamada por acción con el vídeo del maniquí; `coste` es por segundo.
+         */
+        video: z.literal(true).optional(),
+        /** Otra tirada del mismo encargo: entra en la clave de la caché de fal (si no, sale la misma imagen). */
+        intento: z.number().int().min(2).optional(),
+      })
+      .optional(),
   })
   .superRefine((e, ctx) => {
     if (e.tipo === 'iconos') {
@@ -147,15 +198,25 @@ export const encargoSchema = z
       });
     }
     const papeles = e.referencias.map((r) => r.papel);
+    const edita =
+      papeles[0] === 'editar' || papeles[0] === 'editar-silueta' || papeles[0] === 'editar-maniqui';
+    if (e.tipo === 'atlas' && edita !== (e.ocho?.pose !== undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'un atlas que edita una hoja pintada (`editar` o `editar-silueta` primero) dice contra qué maniquí se escala (`ocho.pose`), y solo él',
+      });
+    }
     if (
       e.tipo === 'atlas' &&
       !e.reanudar &&
-      (papeles[0] !== 'pose' || papeles[1] !== 'identidad')
+      !edita &&
+      (!(papeles[0] === 'pose' || papeles[0] === 'pose-profundidad') || papeles[1] !== 'identidad')
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          'un atlas lleva primero la referencia de pose y después la identidad del personaje (y quizá un estilo)',
+          'un atlas lleva primero la referencia de pose (en color o en profundidad) y después la identidad del personaje (y quizá un estilo)',
       });
     }
     // La lámina de identidad a 25° se dibuja sobre el maniquí: su primera
@@ -187,6 +248,15 @@ export function prefacioDeReferencias(referencias: Encargo['referencias']): stri
 const SIN_FONDO =
   'Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.';
 
+/** El fondo que se pide a un motor que no da alfa: liso, para recortarlo (`cutoutBackground`). */
+const FONDO_LISO =
+  'Fondo LISO de un solo color gris medio uniforme (#808080), sin degradado, sin suelo, sin sombra pintada, sin halo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.';
+
+/** Las reglas con el fondo que da el motor del encargo: el alfa de siempre, o liso. */
+function conFondo(e: Encargo, texto: string): string {
+  return e.motor?.fondo === 'liso' ? texto.replace(SIN_FONDO, FONDO_LISO) : texto;
+}
+
 /** Lo que pinta cada fila de una hoja de 8 direcciones. */
 const FILAS_OCHO = {
   a: 'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.',
@@ -214,6 +284,14 @@ export function alturaDelReposo(e: Encargo): number {
   return Math.round(FIGURA.alturaAdulto * (e.talla ?? 1));
 }
 
+/** Lo que se pide a cada fila de una hoja que se edita, en vez de `FILAS_OCHO`. */
+const FILAS_DE_UNA_EDICION =
+  'Las mismas figuras en las mismas celdas y en el mismo orden, editadas una a una: cada figura de la fila N y la columna M toma la postura de la fila N y la columna M de la referencia de su pose (brazos, piernas, torso, cabeza y arma, articulación por articulación) y conserva todo lo demás.';
+
+/** Lo que se pide a cada fila cuando se edita el propio maniquí (`editar-maniqui`). */
+const FILAS_SOBRE_EL_MANIQUI =
+  'Las mismas 21 figuras en las mismas celdas y en el mismo orden: cada maniquí se convierte en el personaje con EXACTAMENTE su postura, su sitio y su tamaño. Fila 1, el reposo; fila 2, la marcha; fila 3, la carga: no cambies ninguna pose.';
+
 function reglasDeAtlas(e: Encargo): string {
   const ocho = ochoDe(e);
   const { columnas } = FIGURA;
@@ -224,7 +302,11 @@ function reglasDeAtlas(e: Encargo): string {
   const mira = `El personaje mira hacia donde mira el maniquí (dirección «${NOMBRES_DE_DIRECCION[ocho.direccion]}» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.`;
   return [
     `Hoja de sprites de EXACTAMENTE ${columnas} columnas por ${filas} ${una ? 'fila' : 'filas'}, ${columnas * filas} figuras del MISMO personaje, separadas con holgura y sin tocarse.`,
-    FILAS_OCHO[ocho.hoja],
+    ocho.pose === undefined
+      ? FILAS_OCHO[ocho.hoja]
+      : e.referencias[0]?.papel === 'editar-maniqui'
+        ? FILAS_SOBRE_EL_MANIQUI
+        : FILAS_DE_UNA_EDICION,
     `Misma cámara ortográfica elevada 25 grados en ${una ? 'toda la fila' : 'todas las filas'}, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. ${mira}`,
     `Misma escala en todas las celdas: la figura de pie ocupa unos ${altura} de cada ${e.celda ?? FIGURA.celda} píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.`,
     // Once de los primeros 52 atlas fallaron por lo mismo: en el ataque, la
@@ -341,11 +423,27 @@ export function promptDe(e: Encargo): string {
       reglas(e),
     ].join('\n\n');
   }
+  if (e.motor?.prompt !== undefined) return e.motor.prompt;
+  // Por API no hay herramienta integrada que nombrar; con ControlNet la pose la
+  // pone el control y las demás referencias no viajan: sin prefacio ni lo que
+  // las nombra.
+  const control = e.motor?.control === true;
   return [
-    'Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.',
-    prefacioDeReferencias(e.referencias),
-    e.descripcion,
-    reglas(e),
+    e.motor !== undefined
+      ? e.ocho?.pose === undefined
+        ? 'Genera UNA imagen.'
+        : 'EDITA la imagen 1 y devuelve UNA imagen, la hoja editada.'
+      : e.ocho?.pose === undefined
+        ? 'Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.'
+        : 'EDITA la imagen 1 con la herramienta de imágenes integrada y devuelve UNA imagen, la hoja editada. No escribas código ni ficheros: solo la imagen.',
+    control ? '' : prefacioDeReferencias(e.referencias),
+    control
+      ? e.descripcion
+          .split('\n')
+          .filter((l) => !/\(imagen \d\)/.test(l))
+          .join('\n')
+      : e.descripcion,
+    conFondo(e, reglas(e)),
   ]
     .filter((p) => p.length > 0)
     .join('\n\n');

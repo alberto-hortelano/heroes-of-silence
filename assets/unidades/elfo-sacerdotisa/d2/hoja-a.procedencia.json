@@ -1,18 +1,18 @@
 {
   "encargo": "elfo-sacerdotisa-d2-a",
   "tipo": "atlas",
-  "fecha": "2026-10-05T11:03:20.904Z",
+  "fecha": "2026-10-10T17:41:29.944Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a10bba-6898-71f0-8099-4295872d889b",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna sacerdotisa elfa de protección, curación y ocultación: túnicas blancas y verde musgo con manto de escamas de hoja plateadas, capucha, pelo plateado largo, bastón esbelto de madera clara rematado en una media luna de hojas de plata y una bruma suave en la mano libre.\nEn la lámina de giro (imagen 2), la figura 3 en orden de lectura es la que mira hacia «derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a126e6-c621-73b1-8125-736fb55d8f30",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna sacerdotisa elfa de protección, curación y ocultación: túnicas blancas y verde musgo con manto de escamas de hoja plateadas, capucha, pelo plateado largo, bastón esbelto de madera clara rematado en una media luna de hojas de plata y una bruma suave en la mano libre.\nEn la lámina de giro (imagen 2), la figura 3 en orden de lectura es la que mira hacia «derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/elfo-sacerdotisa-8d/d2-a.png",
-      "papel": "pose",
-      "sha256": "3fc97e8d8fb517ae4eaf93f58f119d9d084398bea86f348959ce0a8c3a535ef1"
+      "ruta": "assets/unidades/_poses/unidades/elfo-sacerdotisa-8d/d2-a.profundidad.png",
+      "papel": "pose-profundidad",
+      "sha256": "a8d9778be3db49c235f3258b61a09b570239ee3bf33e9cb335fb064a4a14b7ae"
     },
     {
       "ruta": "assets/unidades/elfo-sacerdotisa/giro.webp",
@@ -26,21 +26,21 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a10bba-6898-71f0-8099-4295872d889b/exec-ee96efae-4219-4709-ae3b-eea4c4562deb.png",
-    "sha256": "6c60b04827b1862628d895f886a947c3deb74396febbf81b34276732047db2f6",
+    "fichero": "~/.codex/generated_images/01a126e6-c621-73b1-8125-736fb55d8f30/exec-993fe465-47b3-4050-8868-ab69fd8b6740.png",
+    "sha256": "df5012d7585cbf38e9caa7398368d2580906e71231d229d232d27ff69ef633f3",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8119, pies en y=342, reposo a 160 px",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8006, pies en y=342, reposo a 160 px",
     "WebP calidad 92, alfa sin pérdida",
-    "media dirección: se junta con la otra hoja cuando esté"
+    "dirección completa: assets/unidades/elfo-sacerdotisa/d2/atlas.webp"
   ],
   "validacion": {
-    "visibles": 0.06106357473544974,
-    "opacos": 0.9272984007446269,
-    "haloSuelto": 0.00000528854290066001,
+    "visibles": 0.05406810619212963,
+    "opacos": 0.9303274282369525,
+    "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
   },
@@ -52,12 +52,12 @@
     ],
     "apoyoReposo": [
       196,
-      282
+      280
     ],
     "posicion": false
   },
   "salida": {
     "ruta": "assets/unidades/elfo-sacerdotisa/d2/hoja-a.webp",
-    "sha256": "ce995263e09d6680db25674ae7d06d14ae84463e97fbcd9c0958832f0dacb6c2"
+    "sha256": "b6d98b8efaa8fc80c959c243aeb40bd73864cddc2ad5492fa5b4f00cc4651657"
   }
 }

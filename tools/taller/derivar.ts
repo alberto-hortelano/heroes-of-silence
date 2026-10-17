@@ -54,6 +54,22 @@ export const RELOJ = {
 export type ClipDeHoja = keyof typeof RELOJ;
 
 /**
+ * Los fotogramas por segundo de los clips de una unidad que no van al reloj de
+ * `RELOJ` (decisión del usuario, 10-10-2026: «la velocidad tiene que ser por
+ * unidad y animación»). Lo declara la unidad (`Unidad.ritmo`) y va a su
+ * `atlas.json`, que es lo que lee el juego.
+ */
+export type Ritmo = Readonly<Partial<Record<ClipDeFigura, number>>>;
+
+/**
+ * Cómo declara una unidad su ritmo: los fps de cada clip, o `tiempoReal`, que
+ * los saca de lo que dura cada clip en su maniquí (`fpsATiempoReal`), con los
+ * de `fps` por encima (el vampiro, 10-10-2026: todo a tiempo real menos el
+ * reposo, que a tiempo real sostiene cada pose casi medio segundo).
+ */
+export type RitmoDeUnidad = Ritmo | { readonly tiempoReal: true; readonly fps?: Ritmo };
+
+/**
  * Cuánto más arriba va la fila de la muerte en su celda en las hojas de 8
  * direcciones, en píxeles de la celda de 384. Bajo los pies quedan 42 px y un
  * cuerpo tendido hacia la cámara ocupa ~70: el empaquetado lo metía en la celda
@@ -181,8 +197,25 @@ export async function derivarAtlas(
   {
     elevacionDeLaMuerte = ELEVACION_DEL_CADAVER,
     suelta,
-  }: { elevacionDeLaMuerte?: number; suelta?: number } = {},
+    ritmo = {},
+    enteros = [],
+  }: {
+    elevacionDeLaMuerte?: number;
+    suelta?: number;
+    ritmo?: Ritmo;
+    /**
+     * Los clips que se quedan con todas sus columnas, como el disparo: los de
+     * ida y vuelta (`ClipsDeManiqui.vaiven`), que repiten columnas a propósito
+     * y cuyo balanceo cambia poco el alfa. Recortados, el reposo del vampiro
+     * se quedaba en un fotograma en siete de sus ocho direcciones.
+     */
+    enteros?: readonly ClipDeFigura[];
+  } = {},
 ): Promise<AtlasDerivado> {
+  for (const [clip, fps] of Object.entries(ritmo)) {
+    if (!(clip in RELOJ) || !(fps > 0 && fps <= 30))
+      throw new Error(`${rutaImagen}: el ritmo de «${clip}» es ${fps} fps; va de más de 0 a 30`);
+  }
   const bytes = await readFile(rutaImagen);
   const { data, info } = await sharp(bytes)
     .ensureAlpha()
@@ -216,7 +249,7 @@ export async function derivarAtlas(
     );
     const esDisparo = def.clip === 'shoot';
     let frames: number = columnas;
-    while (frames > 0 && !esDisparo) {
+    while (frames > 0 && !esDisparo && !enteros.includes(def.clip)) {
       const ultima = celdas[frames - 1] as Celda;
       const previa = celdas[frames - 2];
       if (ultima.vacia || (previa !== undefined && diferencia(ultima, previa) < REPETIDO)) frames--;
@@ -256,7 +289,7 @@ export async function derivarAtlas(
     clips[def.clip] = {
       row: fila,
       frames,
-      fps: def.fps,
+      fps: ritmo[def.clip] ?? def.fps,
       loop: def.loop,
       anchor,
       ...(esDisparo ? { suelta } : {}),
@@ -297,7 +330,7 @@ export function rutaDelJson(rutaImagen: string): string {
 
 export async function escribirDerivado(
   rutaImagen: string,
-  opciones: { readonly suelta?: number } = {},
+  opciones: Parameters<typeof derivarAtlas>[1] = {},
 ): Promise<AtlasDerivado> {
   const derivado = await derivarAtlas(rutaImagen, opciones);
   await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(derivado, null, 2)}\n`);

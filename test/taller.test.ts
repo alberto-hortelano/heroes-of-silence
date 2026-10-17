@@ -12,7 +12,7 @@ import { FIGURA } from '../src/shared/arte.js';
 import { leerEventos } from '../tools/taller/codex.js';
 import { Cola } from '../tools/taller/cola.js';
 import { derivarAtlas } from '../tools/taller/derivar.js';
-import { empaquetar } from '../tools/taller/empaquetar.js';
+import { empaquetar, enFilas, fundirSobrantes } from '../tools/taller/empaquetar.js';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
 import { quitarHalo, type Raster } from '../tools/taller/recorte.js';
 import {
@@ -194,6 +194,26 @@ describe('el empaquetado y la derivación', () => {
     expect(Math.abs(d.clips.idle.anchor[0] - p.apoyoPorFila[0]![0])).toBeLessThanOrEqual(3);
     expect(d.altura).toBeGreaterThan(150);
     expect(d.cajaDeClic[1]).toBeLessThan(-150); // la caja sube desde los pies
+  });
+
+  it('un trozo suelto de más se funde con su figura; una figura entera de más, no', () => {
+    const caja = (x0: number, w: number, area: number) => ({
+      x0,
+      y0: 0,
+      x1: x0 + w,
+      y1: 100,
+      area,
+    });
+    // Siete figuras y la punta de una espada suelta: se funde.
+    const conPunta = [
+      ...Array.from({ length: 7 }, (_, i) => caja(i * 100, 60, 5000)),
+      caja(65, 10, 200),
+    ];
+    expect(fundirSobrantes(conPunta, 7)).toHaveLength(7);
+    // Nueve figuras: no se funde ninguna, y la fila falla por figuras de más.
+    const nueve = Array.from({ length: 9 }, (_, i) => caja(i * 100, 60, 4000 + i * 100));
+    expect(fundirSobrantes(nueve, 7)).toHaveLength(9);
+    expect(() => enFilas(nueve, 1, 7)).toThrow(/la fila 1 tiene 9 figuras y la hoja pide 7/);
   });
 
   it('una fila con una figura de menos se dice, no se reparte a ojo', async () => {

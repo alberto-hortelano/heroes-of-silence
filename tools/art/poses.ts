@@ -23,7 +23,7 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import sharp from 'sharp';
 import {
   type ClipDeFigura,
@@ -59,7 +59,30 @@ const ANIMS_EXTRA = [
   { id: 'idle2', file: 'anims/sword_and_shield/sword and shield idle (2).fbx' },
   { id: 'idle3', file: 'anims/sword_and_shield/sword and shield idle (3).fbx' },
   { id: 'idle4', file: 'anims/sword_and_shield/sword and shield idle (4).fbx' },
-  { id: 'casting', file: 'anims/sword_and_shield/sword and shield casting.fbx' },
+  {
+    id: 'casting',
+    file: 'anims/sword_and_shield/sword and shield casting.fbx',
+  },
+  // De pie y relajado, con el arma colgando y un balanceo lento del peso: el
+  // reposo genérico de Mixamo, para quien no está en guardia (el vampiro).
+  { id: 'idle_neutral', file: 'mixamo/ambient_anims/idle_neutral.fbx' },
+  // El resto del catálogo de donde cada unidad elige sus acciones
+  // (`ClipsDeManiqui.acciones`, 10-10-2026): reposos de ambiente y del pack,
+  // marchas y carreras (con su desplazamiento congelado, como `walk` y `run`),
+  // ataques, golpes y muertes. Fuera los ataques que dan pasos (`attack`,
+  // `attack (2)`, `(3)`, `slash (2)`): se salen de la celda.
+  { id: 'idle_breathing', file: 'mixamo/ambient_anims/idle_breathing.fbx' },
+  { id: 'idle_look_around', file: 'mixamo/ambient_anims/idle_look_around.fbx' },
+  { id: 'block_idle', file: 'anims/sword_and_shield/sword and shield block idle.fbx' },
+  { id: 'walk2', file: 'anims/sword_and_shield/sword and shield walk (2).fbx', locomotion: true },
+  { id: 'walking', file: 'mixamo/ambient_anims/walking.fbx', locomotion: true },
+  { id: 'run2', file: 'anims/sword_and_shield/sword and shield run (2).fbx', locomotion: true },
+  { id: 'slash4', file: 'anims/sword_and_shield/sword and shield slash (4).fbx' },
+  { id: 'kick', file: 'anims/sword_and_shield/sword and shield kick.fbx' },
+  { id: 'casting2', file: 'anims/sword_and_shield/sword and shield casting (2).fbx' },
+  { id: 'power_up', file: 'anims/sword_and_shield/sword and shield power up.fbx' },
+  { id: 'impact2', file: 'anims/sword_and_shield/sword and shield impact (2).fbx' },
+  { id: 'death2', file: 'anims/sword_and_shield/sword and shield death (2).fbx' },
   // El arco no tiene clip de Mixamo: el FBX solo da la postura y los brazos los
   // coloca `POSE_A_DISTANCIA` fotograma a fotograma.
   { id: 'bow', file: 'anims/sword_and_shield/sword and shield attack (4).fbx' },
@@ -109,6 +132,16 @@ interface Encuadre {
   readonly objetivo: number;
 }
 const ENCUADRE_DE_FIGURA: Encuadre = { ortho: FIGURA.camara.ortho, objetivo: 0.95 };
+
+/**
+ * El mapa de profundidad del maniquí (prueba del 10-10-2026: ¿el modelo de
+ * imagen copia mejor el balanceo si ve el volumen?). La cámara se ciñe a
+ * `metros` delante y detrás del punto mirado, y al componer la hoja los grises
+ * de cada celda se estiran entre sus percentiles `recorte` y `1 − recorte`
+ * hasta `de`-255: lo más lejano no se confunde con el negro del fondo sobre el
+ * que se le enseña.
+ */
+export const PROFUNDIDAD_DEL_MANIQUI = { metros: 0.9, de: 48, recorte: 0.02 } as const;
 
 /**
  * La muerte arranca desde el último fotograma de recibir daño, no desde el
@@ -634,6 +667,19 @@ async function prepararForge(
   piernasDeColor = false,
   /** El clip del disparo, si el juego dispara: el de su `disparo`. */
   clipDeDisparo: ClipDeDisparo | null = null,
+  /**
+   * El segundo del clip `death` desde el que se muestrea (`ClipsDeManiqui.tramos`):
+   * el fundido desde el final del daño empieza ahí, no en el 0.
+   */
+  inicioDeLaMuerte = 0,
+  /**
+   * El mapa de profundidad en vez del color (`PROFUNDIDAD_DEL_MANIQUI`): cada
+   * fotograma con `MeshDepthMaterial`, claro cerca, y la cámara ceñida a la
+   * figura para que los grises den el volumen y no el encuadre.
+   */
+  profundidad = false,
+  /** Los FBX del daño y de la muerte (`archivosDeDañoYMuerte`). */
+  archivos: ArchivosDeDañoYMuerte = archivosDeDañoYMuerte(),
 ): Promise<void> {
   for (const item of ['src', 'bin', 'sets', 'package.json']) {
     await cp(join(FORGE, item), join(temporal, item), { recursive: true });
@@ -660,8 +706,18 @@ async function prepararForge(
   );
 
   const rutaSet = join(temporal, 'sets/mixamo.json');
-  const set = JSON.parse(await readFile(rutaSet, 'utf8')) as { animations: unknown[] };
-  set.animations.push(...ANIMS_EXTRA);
+  const set = JSON.parse(await readFile(rutaSet, 'utf8')) as {
+    animations: unknown[];
+  };
+  // Copias: el bucle de abajo les cambia el FBX y `ANIMS_EXTRA` es de todo el proceso
+  // (el 10-10-2026 el `impact2` de una unidad se quedó en las siguientes).
+  set.animations.push(...ANIMS_EXTRA.map((a) => ({ ...a })));
+  // El golpe y la muerte de la unidad: las filas siguen llamándose `impact3` y
+  // `death` (la muerte se funde desde el daño por ese id), pero con su FBX.
+  for (const a of set.animations as { id: string; file: string }[]) {
+    if (a.id === OCHO_DIRECCIONES.anims.hurt) a.file = archivos.daño;
+    if (a.id === OCHO_DIRECCIONES.anims.death) a.file = archivos.muerte;
+  }
   await writeFile(rutaSet, JSON.stringify(set));
 
   // El arco: congela el clip en su primer fotograma y coloca los brazos.
@@ -698,6 +754,14 @@ async function prepararForge(
       const w = state.animId === 'death' ? Math.min(1, Math.max(0, (avance - 0.45) / 0.35)) : 0;
       state.atrezo.colocar(state.suelo, w * w * (3 - 2 * w), new THREE.Vector3(Math.sin(pivot.rotation.y), 0, Math.cos(pivot.rotation.y)), state.disparo, state.animId);
     }
+    // Una vez por escena: cada clip monta la suya (__spriteSetup).
+    if (${profundidad} && scene.overrideMaterial === null) {
+      const lejos = camera.position.distanceTo(new THREE.Vector3(0, TARGET_HEIGHT, 0));
+      camera.near = lejos - ${PROFUNDIDAD_DEL_MANIQUI.metros};
+      camera.far = lejos + ${PROFUNDIDAD_DEL_MANIQUI.metros};
+      camera.updateProjectionMatrix();
+      scene.overrideMaterial = new THREE.MeshDepthMaterial();
+    }
     renderer.render(scene, camera);
     out.push(`,
     ],
@@ -705,7 +769,7 @@ async function prepararForge(
       'Object.assign(state, { renderer, scene, camera, pivot, mixer, clip });',
       `let golpe = null;
   if (animId === 'death') {
-    const urlGolpe = animUrl.replace(/[^/]*death[.]fbx$/, '${encodeURIComponent(basename(CLIP_DE_DAÑO))}');
+    const urlGolpe = animUrl.replace(/[/]assets[/].*$/, '/assets/${archivos.daño.split('/').map(encodeURIComponent).join('/')}');
     if (urlGolpe === animUrl) throw new Error('no sé dónde está el clip de daño junto a ' + animUrl);
     const raizGolpe = await loadFbx(urlGolpe);
     const clipGolpe = raizGolpe.animations.find((c) => c.name === 'mixamo.com') ?? raizGolpe.animations.at(-1);
@@ -714,7 +778,7 @@ async function prepararForge(
     accionGolpe.setLoop(THREE.LoopOnce, 1);
     accionGolpe.clampWhenFinished = true;
     accionGolpe.play();
-    golpe = { accion: accionGolpe, fin: clipGolpe.duration - 1e-4, muerte: action };
+    golpe = { accion: accionGolpe, fin: clipGolpe.duration - 1e-4, duracion: clipGolpe.duration, muerte: action };
   }
   const confAtrezo = ${JSON.stringify(atrezo)};
   const atrezo = confAtrezo ? crearAtrezo(model, bonePrefix, confAtrezo) : null;
@@ -738,10 +802,15 @@ async function prepararForge(
       pivot.rotation.set(0, (2 * Math.PI * dir) / directions, 0);
     } else if (state.golpe) {
       const t = Math.min(clip.duration, frameStep * f);
-      const w = Math.min(1, t / ${FUNDIDO_MUERTE});
+      const w = Math.min(1, Math.max(0, (t - ${inicioDeLaMuerte}) / ${FUNDIDO_MUERTE}));
       const s = w * w * (3 - 2 * w);
       mixer.setTime(t);
-      state.golpe.accion.time = state.golpe.fin;
+      // El daño se sostiene en el último fotograma que enseña su fila, el
+      // fotograma n − 1 de sprite-forge (n = round(duración × fps)), no en el final
+      // del clip: en su último instante Mixamo vuelve a la guardia, y la
+      // muerte arrancaba de una pose que la fila del daño no enseña.
+      const n = Math.max(1, Math.round(state.golpe.duracion / frameStep));
+      state.golpe.accion.time = Math.min(state.golpe.fin, (n - 1) * frameStep);
       state.golpe.accion.setEffectiveWeight(1 - s);
       state.golpe.muerte.setEffectiveWeight(s);
       mixer.update(0);
@@ -1304,31 +1373,185 @@ export interface FilaDePose {
   readonly clip: ClipDeFigura;
   readonly anim: string;
   readonly enBucle: boolean;
+  /** El trozo del clip que se muestrea, en segundos; sin él, el clip entero. */
+  readonly tramo?: Tramo;
+  /** Ida y vuelta por el trozo (`indicesDeTramo`): solo en un bucle. */
+  readonly vaiven?: true;
+}
+
+/** Las acciones cuyo clip elige la unidad, además del reposo; el disparo lo coloca `POSE_A_DISTANCIA`. */
+export type AccionElegible = 'walk' | 'charge' | 'attack' | 'hurt' | 'death';
+
+/** Los clips que se pueden elegir: los de `ANIMS_EXTRA` y los de sprite-forge que no son de ambiente. */
+const ARCHIVO_DE_SPRITE_FORGE: Readonly<Record<string, string>> = {
+  idle: 'anims/sword_and_shield/sword and shield idle.fbx',
+  walk: 'anims/sword_and_shield/sword and shield walk.fbx',
+  run: 'anims/sword_and_shield/sword and shield run.fbx',
+  quick: 'anims/sword_and_shield/sword and shield attack (4).fbx',
+  heavy: 'anims/sword_and_shield/sword and shield slash.fbx',
+  medium: 'anims/sword_and_shield/sword and shield slash (5).fbx',
+  defensive: 'anims/sword_and_shield/sword and shield block.fbx',
+  precise: 'anims/sword_and_shield/sword and shield slash (3).fbx',
+  hit_react: 'anims/sword_and_shield/sword and shield impact.fbx',
+  death: 'anims/sword_and_shield/sword and shield death.fbx',
+  wounded_idle: 'mixamo/ambient_anims/wounded_idle.fbx',
+};
+
+/** El FBX de un clip elegible; lanza con uno que no existe, que sprite-forge no pintaría. */
+export function archivoDeClip(id: string): string {
+  const archivo =
+    ARCHIVO_DE_SPRITE_FORGE[id] ?? ANIMS_EXTRA.find((a) => a.id === id && !esDisparo(a.id))?.file;
+  if (archivo === undefined) throw new Error(`no hay clip de Mixamo «${id}» que elegir`);
+  return archivo;
+}
+
+export interface ArchivosDeDañoYMuerte {
+  readonly daño: string;
+  readonly muerte: string;
+}
+
+/** Los FBX de las filas del daño y la muerte de un maniquí: los suyos o los de siempre. */
+export function archivosDeDañoYMuerte(clips: ClipsDeManiqui = {}): ArchivosDeDañoYMuerte {
+  return {
+    daño: archivoDeClip(clips.acciones?.hurt ?? 'impact3'),
+    muerte: archivoDeClip(clips.acciones?.death ?? 'death'),
+  };
+}
+
+/** `[desde, hasta]` en segundos del clip de Mixamo, los dos incluidos. */
+export type Tramo = readonly [number, number];
+
+/**
+ * Lo que el maniquí de una unidad cambia de los clips de su juego, cuando el
+ * clip entero no le sirve (el vampiro, 10-10-2026: la guardia de `idle` saca la
+ * espada al costado a mitad del bucle y la muerte se pasa medio clip de pie
+ * agitando el brazo antes de caer; el modelo de imagen lo copiaba tal cual).
+ */
+export interface ClipsDeManiqui {
+  /** El clip de Mixamo del reposo, en vez del de su juego. */
+  readonly reposo?: string;
+  /**
+   * El clip de las demás acciones, en vez del de su juego (10-10-2026: cada
+   * personaje se mueve a su manera). Ids de sprite-forge o de `ANIMS_EXTRA`;
+   * el golpe y la muerte cambian el FBX de sus filas (`archivosDeDañoYMuerte`).
+   */
+  readonly acciones?: Partial<Record<AccionElegible, string>>;
+  /**
+   * El trozo de cada clip que se muestrea en sus siete columnas. El de la muerte
+   * mueve también el fundido desde el final del daño a su `desde`, para que su
+   * primera columna siga siendo la última del daño.
+   */
+  readonly tramos?: Partial<Record<ClipDeFigura, Tramo>>;
+  /**
+   * Los bucles que se muestrean de ida y vuelta: un trozo que no acaba donde
+   * empieza saltaría al volver a la primera columna (el reposo del vampiro,
+   * 10-10-2026: la guardia quieta de `idle (4)` solo respira y, pintada, era
+   * una estatua; el arranque de `idle` se mueve lo justo pero no cierra).
+   */
+  readonly vaiven?: readonly ClipDeFigura[];
+}
+
+/**
+ * Los fotogramas de un tramo de un clip renderizado a `fps`, repartidos en las
+ * columnas como `indicesDeClip`. Lanza si el tramo se sale del clip o no tiene
+ * dos fotogramas: callado, se muestrearía otra cosa. En `vaiven`, la columna
+ * va y vuelve como una onda triangular, del primer fotograma del tramo al
+ * último y de vuelta (en 7 columnas, 0 ⅓ ⅔ 1 1 ⅔ ⅓): la última enlaza con la
+ * primera sin salto.
+ */
+export function indicesDeTramo(
+  total: number,
+  fps: number,
+  tramo: Tramo | undefined,
+  columnas: number,
+  enBucle: boolean,
+  vaiven = false,
+): number[] {
+  const [desde, hasta] =
+    tramo === undefined
+      ? [0, total - 1]
+      : (tramo.map((t) => Math.round(t * fps)) as [number, number]);
+  if (desde < 0 || hasta > total - 1 || hasta - desde < 1) {
+    throw new Error(
+      `el tramo [${tramo?.join(', ')}] s no cabe en un clip de ${total} fotogramas a ${fps} fps (${((total - 1) / fps).toFixed(2)} s)`,
+    );
+  }
+  if (!vaiven) return indicesDeClip(hasta - desde + 1, columnas, enBucle).map((i) => i + desde);
+  if (!enBucle) throw new Error('solo un bucle se muestrea de ida y vuelta');
+  const onda = (i: number) => 1 - Math.abs(1 - (2 * i) / columnas);
+  const cima = onda(Math.floor(columnas / 2));
+  return Array.from(
+    { length: columnas },
+    (_, i) => desde + Math.round(((hasta - desde) * onda(i)) / cima),
+  );
+}
+
+/**
+ * Los fps a los que una fila de pose se ve a la velocidad de su clip de Mixamo,
+ * renderizado a `fpsDelRender` en `fotogramas`: sus columnas entre los segundos
+ * que cubren. Un bucle cubre una vuelta: el clip entero, su tramo entero
+ * (`indicesDeTramo` reparte sus fotogramas sin repetir el primero) o, en
+ * vaivén, la ida y la vuelta. Lo demás, de su primera columna a la última.
+ * Redondeado a 0,1.
+ */
+export function fpsATiempoReal(
+  fila: Pick<FilaDePose, 'enBucle' | 'tramo' | 'vaiven'> & { readonly indices: readonly number[] },
+  fotogramas: number,
+  fpsDelRender: number,
+): number {
+  const { indices, tramo } = fila;
+  const columnas = indices.length;
+  const primero = Math.min(...indices);
+  const ultimo = Math.max(...indices);
+  const enTramo =
+    tramo === undefined
+      ? fotogramas
+      : Math.round(tramo[1] * fpsDelRender) - Math.round(tramo[0] * fpsDelRender) + 1;
+  // Los fotogramas del render que dura una vuelta, o el clip de punta a punta.
+  const dura = fila.vaiven ? 2 * (ultimo - primero) : fila.enBucle ? enTramo : ultimo - primero;
+  const pasos = fila.enBucle ? columnas : columnas - 1;
+  if (!(dura > 0)) throw new Error(`una fila sin duración: ${indices.join(', ')}`);
+  return Math.round((10 * pasos * fpsDelRender) / dura) / 10;
 }
 
 /**
  * Las hojas de un juego de armas, en el reparto de `HOJAS_DE_FIGURA`: la A y la
  * B siempre, la C solo si dispara. Cada fila con el clip que le pone el juego.
  */
-export function hojasDe(j: JuegoDeArmas): Partial<Record<HojaDeFigura, FilaDePose[]>> {
+export function hojasDe(
+  j: JuegoDeArmas,
+  clips: ClipsDeManiqui = {},
+): Partial<Record<HojaDeFigura, FilaDePose[]>> {
   const juego: {
     readonly reposo: string;
     readonly marcha?: string;
     readonly ataque: string;
     readonly disparo?: string;
   } = JUEGOS_DE_ARMAS[j];
+  for (const id of [clips.reposo, ...Object.values(clips.acciones ?? {})])
+    if (id !== undefined) archivoDeClip(id);
   const anims: Partial<Record<ClipDeFigura, string>> = {
     ...OCHO_DIRECCIONES.anims,
-    idle: juego.reposo,
+    idle: clips.reposo ?? juego.reposo,
     ...(juego.marcha === undefined ? {} : { walk: juego.marcha }),
     attack: juego.ataque,
+    ...(clips.acciones?.walk === undefined ? {} : { walk: clips.acciones.walk }),
+    ...(clips.acciones?.charge === undefined ? {} : { charge: clips.acciones.charge }),
+    ...(clips.acciones?.attack === undefined ? {} : { attack: clips.acciones.attack }),
     ...(juego.disparo === undefined ? {} : { shoot: juego.disparo }),
   };
   const fila = (clip: ClipDeFigura): FilaDePose => {
     const anim = anims[clip];
     if (anim === undefined)
       throw new Error(`el juego «${j}» no dice con qué clip se pinta «${clip}»`);
-    return { clip, anim, enBucle: OCHO_DIRECCIONES.enBucle.includes(clip) };
+    const tramo = clips.tramos?.[clip];
+    return {
+      clip,
+      anim,
+      enBucle: OCHO_DIRECCIONES.enBucle.includes(clip),
+      ...(tramo === undefined ? {} : { tramo }),
+      ...(clips.vaiven?.includes(clip) ? { vaiven: true as const } : {}),
+    };
   };
   return Object.fromEntries(
     hojasDeFigura(clipDeDisparoDe(j) !== null).map((h) => [h, HOJAS_DE_FIGURA[h].map(fila)]),
@@ -1450,11 +1673,11 @@ function pasadasDelRender(
   ];
   const disparo = clipDeDisparoDe(juego);
   if (disparo === null) return [{ atrezo, anims: animsDe(() => true), disparo }];
-  const { ataque } = JUEGOS_DE_ARMAS[juego];
+  const ataque = filas.find((c) => c.clip === 'attack')?.anim;
   // Un tirador sin arma de mano pintaría su ataque con el arma de tiro, que es
   // justo lo que la hoja C vino a quitar.
   const deCerca = armaDeManoDe(juego, atrezo).atrezo;
-  if ((ataque as string) === disparo) {
+  if (ataque === disparo) {
     throw new Error(`el juego «${juego}» ataca y dispara con el mismo clip «${disparo}»`);
   }
   return [
@@ -1471,10 +1694,27 @@ function pasadasDelRender(
 export async function renderizarOchoDirecciones(
   juego: JuegoDeArmas,
   destino = DIR_POSES,
-  maniqui?: { readonly id: string; readonly atrezo: Atrezo },
+  maniqui?: {
+    readonly id: string;
+    readonly atrezo: Atrezo;
+    readonly clips?: ClipsDeManiqui;
+    /** Además, cada hoja en mapa de profundidad y en color sombreado por él. */
+    readonly profundidad?: boolean;
+    /**
+     * Una carpeta donde guardar los fotogramas enteros de cada clip (en color),
+     * no solo los siete de cada fila: los vídeos del maniquí que mueven a los
+     * modelos de transferencia de movimiento (`tools/taller/video.ts`).
+     */
+    readonly fotogramas?: string;
+  },
 ): Promise<string> {
   const { celda, encuadre } = OCHO_DIRECCIONES;
-  const hojas = hojasDe(juego);
+  const hojas = hojasDe(juego, maniqui?.clips);
+  const inicioDeLaMuerte = maniqui?.clips?.tramos?.death?.[0] ?? 0;
+  // La muerte arranca del último fotograma del daño entero (`prepararForge`):
+  // con un tramo del daño, su primera columna dejaría de ser la última de él.
+  if (maniqui?.clips?.tramos?.hurt !== undefined)
+    throw new Error(`${maniqui.id}: el daño no admite tramo, la muerte arranca de su final`);
   const perfil = maniqui ? `${maniqui.id}-8d` : `${juego}-8d`;
   const atrezo: Atrezo | null = maniqui?.atrezo ?? JUEGOS_DE_ARMAS[juego].atrezo;
   const { piernasDeColor } = JUEGOS_DE_ARMAS[juego];
@@ -1482,12 +1722,27 @@ export async function renderizarOchoDirecciones(
   const pasadas = pasadasDelRender(juego, hojas, atrezo);
   const temporal = await mkdtemp(join(tmpdir(), 'heroes-poses-8d-'));
   try {
-    // Dónde dejó cada pasada los fotogramas de cada clip de Mixamo.
+    // Dónde dejó cada pasada los fotogramas de cada clip de Mixamo, en color y
+    // (si se pide) en profundidad: la misma pasada otra vez con ese material.
     const framesDe: Record<string, string> = {};
-    for (const [n, pasada] of pasadas.entries()) {
-      const forge = join(temporal, `pasada-${n}`);
+    const profundidadDe: Record<string, string> = {};
+    const tandas = pasadas.flatMap((pasada, n) => [
+      { pasada, n, profundidad: false },
+      ...(maniqui?.profundidad ? [{ pasada, n, profundidad: true }] : []),
+    ]);
+    for (const { pasada, n, profundidad } of tandas) {
+      const forge = join(temporal, `pasada-${n}${profundidad ? '-profundidad' : ''}`);
       await mkdir(forge);
-      await prepararForge(forge, encuadre, pasada.atrezo, piernasDeColor, pasada.disparo);
+      await prepararForge(
+        forge,
+        encuadre,
+        pasada.atrezo,
+        piernasDeColor,
+        pasada.disparo,
+        inicioDeLaMuerte,
+        profundidad,
+        archivosDeDañoYMuerte(maniqui?.clips),
+      );
       const salida = join(forge, 'out');
       execFileSync(
         process.execPath,
@@ -1517,8 +1772,17 @@ export async function renderizarOchoDirecciones(
         ],
         { stdio: 'inherit' },
       );
-      for (const a of pasada.anims) framesDe[a] = join(salida, 'frames/y_bot', a, 'tactical_25');
+      for (const a of pasada.anims)
+        (profundidad ? profundidadDe : framesDe)[a] = join(
+          salida,
+          'frames/y_bot',
+          a,
+          'tactical_25',
+        );
     }
+    if (maniqui?.fotogramas !== undefined)
+      for (const [anim, dir] of Object.entries(framesDe))
+        await cp(dir, join(maniqui.fotogramas, anim), { recursive: true });
 
     const carpeta = join(destino, perfil);
     await mkdir(carpeta, { recursive: true });
@@ -1530,36 +1794,54 @@ export async function renderizarOchoDirecciones(
           await readFile(join(framesDe[c.anim] as string, 'meta.json'), 'utf8'),
         ) as MetaDeClip;
         meta[c.clip] = m;
-        indicesPorClip[c.clip] = indicesDeClip(m.frame_count, columnas, c.enBucle);
+        indicesPorClip[c.clip] = indicesDeTramo(
+          m.frame_count,
+          OCHO_DIRECCIONES.fps,
+          c.tramo,
+          columnas,
+          c.enBucle,
+          c.vaiven === true,
+        );
       }
     }
     const shas: Record<string, string> = {};
     for (let d = 0; d < 8; d += 1) {
       for (const [hoja, filas] of Object.entries(hojas)) {
-        const capas = filas.flatMap((c, fila) =>
-          (indicesPorClip[c.clip] ?? []).map((i, col) => ({
-            input: join(
-              framesDe[c.anim] as string,
-              `dir_${d}_frame_${String(i).padStart(3, '0')}.png`,
-            ),
-            left: col * celda,
-            top: fila * celda,
-          })),
-        );
-        const png = await sharp({
-          create: {
-            width: columnas * celda,
-            height: filas.length * celda,
-            channels: 4,
-            background: { r: 0, g: 0, b: 0, alpha: 0 },
-          },
-        })
-          .composite(capas)
-          .png()
-          .toBuffer();
+        const componer = (de: Record<string, string>) =>
+          sharp({
+            create: {
+              width: columnas * celda,
+              height: filas.length * celda,
+              channels: 4,
+              background: { r: 0, g: 0, b: 0, alpha: 0 },
+            },
+          })
+            .composite(
+              filas.flatMap((c, fila) =>
+                (indicesPorClip[c.clip] ?? []).map((i, col) => ({
+                  input: join(
+                    de[c.anim] as string,
+                    `dir_${d}_frame_${String(i).padStart(3, '0')}.png`,
+                  ),
+                  left: col * celda,
+                  top: fila * celda,
+                })),
+              ),
+            )
+            .png()
+            .toBuffer();
+        const png = await componer(framesDe);
         const nombre = `d${d}-${hoja}.png`;
         await writeFile(join(carpeta, nombre), png);
         shas[nombre] = sha256(png);
+        if (maniqui?.profundidad) {
+          const hechas = await hojasDeProfundidad(png, await componer(profundidadDe));
+          for (const [sufijo, buffer] of Object.entries(hechas)) {
+            const otra = `d${d}-${hoja}.${sufijo}.png`;
+            await writeFile(join(carpeta, otra), buffer);
+            shas[otra] = sha256(buffer);
+          }
+        }
       }
     }
     shas['giro.png'] = await componerGiro(carpeta);
@@ -1584,7 +1866,11 @@ export async function renderizarOchoDirecciones(
             target: encuadre.objetivo,
           },
           light: luzEnElMundo(),
-          deathStartsFrom: { clip: 'hurt', blendSeconds: FUNDIDO_MUERTE },
+          deathStartsFrom: {
+            clip: 'hurt',
+            blendSeconds: FUNDIDO_MUERTE,
+            at: inicioDeLaMuerte,
+          },
           cell: celda,
           columns: columnas,
           sheets: Object.fromEntries(
@@ -1604,6 +1890,65 @@ export async function renderizarOchoDirecciones(
   } finally {
     await rm(temporal, { recursive: true, force: true });
   }
+}
+
+/**
+ * De una hoja del maniquí en color y la misma en profundidad, las dos que se le
+ * enseñan al pintor en las pruebas: `profundidad`, los grises de cada celda
+ * estirados entre sus percentiles `recorte` y `1 − recorte` hasta
+ * `PROFUNDIDAD_DEL_MANIQUI.de`-255 (claro cerca: por celda, porque estirada la
+ * hoja entera la espada y la carga se comían el rango y la figura quieta salía
+ * plana), y `mezcla`, el color sombreado por ellos. Las dos con la alfa de la de
+ * color: su silueta es la que leen `escalaDePose` y el evaluador.
+ */
+export async function hojasDeProfundidad(
+  color: Buffer,
+  profundidad: Buffer,
+): Promise<{ readonly profundidad: Buffer; readonly mezcla: Buffer }> {
+  const c = await sharp(color).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const p = await sharp(profundidad).ensureAlpha().raw().toBuffer();
+  const { width, height } = c.info;
+  if (p.length !== c.data.length)
+    throw new Error(`la hoja de profundidad no mide lo que la de color (${width}×${height})`);
+  const { de, recorte } = PROFUNDIDAD_DEL_MANIQUI;
+  const lado = width / FIGURA.columnas;
+  const gris = Buffer.alloc(c.data.length);
+  const mezcla = Buffer.alloc(c.data.length);
+  const pixeles = (cx: number, cy: number) =>
+    Array.from({ length: lado * lado }, (_, k) => {
+      const x = cx * lado + (k % lado);
+      const y = cy * lado + Math.floor(k / lado);
+      return (y * width + x) * 4;
+    });
+  for (let cy = 0; cy < height / lado; cy++) {
+    for (let cx = 0; cx < FIGURA.columnas; cx++) {
+      const celda = pixeles(cx, cy);
+      const dentro = celda.filter(
+        (i) => (c.data[i + 3] as number) >= 40 && (p[i + 3] as number) >= 40,
+      );
+      const grises = dentro.map((i) => p[i] as number).sort((a, b) => a - b);
+      const min = grises[Math.floor(grises.length * recorte)] ?? 0;
+      const max = grises[Math.ceil(grises.length * (1 - recorte)) - 1] ?? 255;
+      for (const i of celda) {
+        const alfa = c.data[i + 3] as number;
+        const t =
+          max > min && (p[i + 3] as number) >= 40
+            ? Math.min(1, Math.max(0, ((p[i] as number) - min) / (max - min)))
+            : 0;
+        const v = de + Math.round(t * (255 - de));
+        gris.fill(v, i, i + 3);
+        gris[i + 3] = alfa;
+        const luz = 0.35 + (0.65 * v) / 255;
+        for (let k = 0; k < 3; k++) mezcla[i + k] = Math.round((c.data[i + k] as number) * luz);
+        mezcla[i + 3] = alfa;
+      }
+    }
+  }
+  const png = (b: Buffer) =>
+    sharp(b, { raw: { width, height, channels: 4 } })
+      .png()
+      .toBuffer();
+  return { profundidad: await png(gris), mezcla: await png(mezcla) };
 }
 
 const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename;
@@ -1632,3 +1977,134 @@ if (esScript) {
     console.log(`→ ${await renderizarPerfil(p)}`);
   }
 }
+
+/**
+ * Un muestrario de clips para elegir las acciones de una unidad
+ * (`ClipsDeManiqui.acciones`): cada clip en una fila, visto de frente y de lado
+ * (direcciones 0 y 2) con el atrezo dado, siete columnas por lado repartidas
+ * por el clip entero, en una celda pequeña. Devuelve el PNG.
+ */
+export async function renderizarMuestrario(
+  anims: readonly string[],
+  atrezo: Atrezo | null,
+  destino: string,
+  lado = 160,
+): Promise<string> {
+  for (const a of anims) archivoDeClip(a);
+  const { encuadre, celda } = OCHO_DIRECCIONES;
+  const temporal = await mkdtemp(join(tmpdir(), 'heroes-muestrario-'));
+  try {
+    await prepararForge(temporal, encuadre, atrezo);
+    const salida = join(temporal, 'out');
+    execFileSync(
+      process.execPath,
+      [
+        join(temporal, 'bin/sprite-forge.mjs'),
+        'render',
+        '--assets',
+        FBX,
+        '--models',
+        'y_bot',
+        '--anims',
+        ...anims,
+        '--angle',
+        'tactical_25',
+        '--directions',
+        '8',
+        '--fps',
+        String(OCHO_DIRECCIONES.fps),
+        '--width',
+        String(celda),
+        '--height',
+        String(celda),
+        '--out',
+        join(salida, 'frames'),
+        '--cache',
+        join(salida, 'cache'),
+      ],
+      { stdio: 'ignore' },
+    );
+    const columnas = FIGURA.columnas;
+    const capas: { input: Buffer; left: number; top: number }[] = [];
+    for (const [fila, a] of anims.entries()) {
+      const dir = join(salida, 'frames/y_bot', a, 'tactical_25');
+      const m = JSON.parse(await readFile(join(dir, 'meta.json'), 'utf8')) as MetaDeClip;
+      const indices = indicesDeTramo(
+        m.frame_count,
+        OCHO_DIRECCIONES.fps,
+        undefined,
+        columnas,
+        false,
+        false,
+      );
+      for (const [n, d] of [0, 2].entries())
+        for (const [col, i] of indices.entries())
+          capas.push({
+            input: await sharp(join(dir, `dir_${d}_frame_${String(i).padStart(3, '0')}.png`))
+              .resize(lado, lado)
+              .toBuffer(),
+            left: (n * (columnas + 1) + col) * lado + 220,
+            top: fila * lado,
+          });
+      capas.push({
+        input: Buffer.from(
+          `<svg width="220" height="${lado}"><text x="8" y="${lado / 2}" font-size="22" font-family="sans-serif">${a} ${(m.frame_count / OCHO_DIRECCIONES.fps).toFixed(1)}s</text></svg>`,
+        ),
+        left: 0,
+        top: fila * lado,
+      });
+    }
+    const png = join(destino);
+    await sharp({
+      create: {
+        width: 220 + (2 * columnas + 1) * lado,
+        height: anims.length * lado,
+        channels: 4,
+        background: { r: 235, g: 235, b: 235, alpha: 1 },
+      },
+    })
+      .composite(capas)
+      .png()
+      .toFile(png);
+    return png;
+  } finally {
+    await rm(temporal, { recursive: true, force: true });
+  }
+}
+
+/** Los clips que enseña el muestrario por defecto: todo lo elegible, por acción. */
+export const CANDIDATOS_DEL_MUESTRARIO: readonly string[] = [
+  // reposo
+  'idle',
+  'idle2',
+  'idle3',
+  'idle4',
+  'idle_neutral',
+  'idle_breathing',
+  'idle_look_around',
+  'block_idle',
+  'wounded_idle',
+  // marcha y carrera
+  'walk',
+  'walk2',
+  'walking',
+  'run',
+  'run2',
+  // ataque
+  'quick',
+  'heavy',
+  'medium',
+  'precise',
+
+  'slash4',
+  'kick',
+  'casting',
+  'casting2',
+  'power_up',
+  // golpe y muerte
+  'hit_react',
+  'impact2',
+  'impact3',
+  'death',
+  'death2',
+];

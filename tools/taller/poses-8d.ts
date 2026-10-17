@@ -19,13 +19,15 @@
  * del Y Bot se hundiría 64 px en el suelo.
  */
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp, { type Sharp } from 'sharp';
 import {
+  type ClipDeFigura,
   esHojaOpcional,
   FIGURA,
+  FILAS_DEL_ATLAS,
   HOJAS_DE_FIGURA,
   type HojaDeFigura,
   hojasDeFigura,
@@ -38,9 +40,12 @@ import {
   clipDeDisparoDe,
   columnaDeSuelta,
   DIR_POSES,
+  type FilaDePose,
+  fpsATiempoReal,
   type JuegoEn8d,
+  OCHO_DIRECCIONES,
 } from '../art/poses.js';
-import { type AtlasDerivado, derivarAtlas } from './derivar.js';
+import { type AtlasDerivado, derivarAtlas, type Ritmo, type RitmoDeUnidad } from './derivar.js';
 import { EN_OCHO_DIRECCIONES, JUEGOS_EN_8D, unidad } from './unidades.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -66,9 +71,12 @@ export interface DireccionDePoses extends Omit<AtlasDerivado, 'imagen' | 'sha256
   };
 }
 
-/** La hoja de 6 o 7 filas que se mide, en la caché: el visor del taller la enseña. */
-export const rutaJunta = (juego: JuegoEn8d, d: number): string =>
-  join(DIR_JUNTAS, `${juego}-d${d}.png`);
+/**
+ * La hoja de 6 o 7 filas que se mide, en la caché: el visor del taller la enseña.
+ * La de un juego, por su nombre; la del maniquí propio de una unidad, por su id.
+ */
+export const rutaJunta = (juegoOUnidad: string, d: number): string =>
+  join(DIR_JUNTAS, `${juegoOUnidad}-d${d}.png`);
 
 export const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 
@@ -136,18 +144,20 @@ async function hojasDeLaDireccion(
 /**
  * Junta las hojas de la dirección `d` de un juego, las mide y lo devuelve.
  * `suelta`: la de `sueltaDe` para ese juego, si ya se calculó (al derivar las 8
- * direcciones se calcula una vez); si no, se calcula aquí.
+ * direcciones se calcula una vez); si no, se calcula aquí. Con `maniqui`, las
+ * del maniquí propio de esa unidad (`carpetaDeManiqui`), que es de ese juego.
  */
 export async function derivarDireccionDePoses(
   juego: JuegoEn8d,
   d: number,
   suelta?: number | null,
+  maniqui?: string,
 ): Promise<DireccionDePoses> {
-  const origen = carpetaDePoses(juego);
+  const origen = maniqui === undefined ? carpetaDePoses(juego) : carpetaDeManiqui(maniqui);
   const laSuelta = suelta === undefined ? await sueltaDe(origen, juego) : suelta;
   const hojas = await hojasDeLaDireccion(origen, d, laSuelta !== null);
   await mkdir(DIR_JUNTAS, { recursive: true });
-  const ruta = rutaJunta(juego, d);
+  const ruta = rutaJunta(maniqui ?? juego, d);
   await (await apilarHojas(hojas)).png().toFile(ruta);
   const {
     imagen: _i,
@@ -156,6 +166,9 @@ export async function derivarDireccionDePoses(
     ...atlas
   } = await derivarAtlas(ruta, {
     elevacionDeLaMuerte: 0,
+    // El maniquí de una unidad se ve a su ritmo y con sus clips enteros, como se verá pintada.
+    ...(maniqui === undefined ? {} : conRitmo(ritmoDeUnidad(maniqui))),
+    ...(maniqui === undefined ? {} : conEnteros(maniqui)),
     ...(laSuelta === null ? {} : { suelta: laSuelta }),
   });
   const deLasHojas: Partial<Record<HojaDeFigura, HojaDePoses>> = {};
@@ -205,6 +218,65 @@ export async function sueltaDeUnidad(id: string): Promise<number | null> {
   return sueltaDe(carpeta, juego);
 }
 
+/**
+ * Los fps de los clips de una unidad que no van al reloj de todos, o `null`.
+ * Con `tiempoReal`, los de cada fila de las poses sobre las que se pinta (su
+ * maniquí o las de su juego: `poses.json`), a la velocidad de su clip
+ * (`fpsATiempoReal`), y los de `fps` por encima.
+ */
+export function ritmoDeUnidad(id: string): Ritmo | null {
+  const { maniqui, clipsDelManiqui } = unidad(id);
+  // Quien elige sus clips va al tiempo de Mixamo (decisión del usuario, 10-10-2026).
+  const ritmo: RitmoDeUnidad | undefined =
+    unidad(id).ritmo ?? (clipsDelManiqui === undefined ? undefined : { tiempoReal: true });
+  if (ritmo === undefined) return null;
+  if (!('tiempoReal' in ritmo)) return ritmo;
+  const carpeta = maniqui === undefined ? carpetaDePoses(juegoEn8dDe(id)) : carpetaDeManiqui(id);
+  const poses = JSON.parse(readFileSync(join(carpeta, 'poses.json'), 'utf8')) as {
+    readonly sheets: Record<string, readonly (FilaDePose & { readonly indices: number[] })[]>;
+    readonly sourceMetadata: Record<string, { readonly frame_count: number }>;
+  };
+  const deMixamo: Partial<Record<ClipDeFigura, number>> = {};
+  for (const f of Object.values(poses.sheets).flat()) {
+    const meta = poses.sourceMetadata[f.clip];
+    if (meta === undefined)
+      throw new Error(`${carpeta}/poses.json: «${f.clip}» sin sourceMetadata`);
+    deMixamo[f.clip] = fpsATiempoReal(f, meta.frame_count, OCHO_DIRECCIONES.fps);
+  }
+  return { ...deMixamo, ...ritmo.fps };
+}
+
+const conRitmo = (ritmo: Ritmo | null): { readonly ritmo?: Ritmo } =>
+  ritmo === null ? {} : { ritmo };
+
+/**
+ * Los clips de una unidad que se derivan sin recortar: todos si elige sus clips
+ * (las siete columnas son el tiempo de su clip; decisión del usuario, 10-10-2026).
+ */
+const conEnteros = (id: string): { readonly enteros?: readonly ClipDeFigura[] } => {
+  const u = unidad(id);
+  return u.clipsDelManiqui === undefined ? {} : { enteros: FILAS_DEL_ATLAS };
+};
+
+/**
+ * Con qué se deriva el atlas de una unidad: la suelta de su maniquí, si dispara,
+ * su ritmo, si lo declara (`ritmoDeUnidad`), y sus clips de ida y vuelta,
+ * enteros. Lo leen juntar, `pnpm taller derivar` y el test que vuelve a derivar
+ * cada atlas: una sola cuenta.
+ */
+export async function derivacionDeUnidad(id: string): Promise<{
+  readonly suelta?: number;
+  readonly ritmo?: Ritmo;
+  readonly enteros?: readonly ClipDeFigura[];
+}> {
+  const suelta = await sueltaDeUnidad(id);
+  return {
+    ...(suelta === null ? {} : { suelta }),
+    ...conRitmo(ritmoDeUnidad(id)),
+    ...conEnteros(id),
+  };
+}
+
 export interface AtlasDePoses {
   readonly _comment: string;
   readonly derivadoPor: 'tools/taller/poses-8d.ts';
@@ -251,3 +323,12 @@ export async function escribirAtlasDePoses(): Promise<AtlasDePoses> {
   await writeFile(RUTA_DEL_ATLAS_8D, `${JSON.stringify(atlas, null, 2)}\n`);
   return atlas;
 }
+
+/**
+ * La hoja A (la del reposo) de la misma dirección y del mismo tipo que una hoja
+ * de pose: `d3-b.png` → `d3-a.png`, `d3-c.profundidad.png` → `d3-a.profundidad.png`.
+ * Las hojas B y C se escalan contra el reposo de su A; con la de profundidad, la
+ * cuenta vieja (`-[bc].png`) no casaba y las medía contra su ataque.
+ */
+export const hojaDelReposo = (ruta: string): string =>
+  ruta.replace(/-[bc]((?:\.[a-z]+)?)\.png$/, '-a$1.png');
