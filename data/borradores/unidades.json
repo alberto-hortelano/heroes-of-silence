@@ -1,0 +1,328 @@
+{
+  "_comment": "BORRADOR de la arena (/arena/, pnpm arena): cifras de las unidades de las cinco facciones, INVENTADAS y provisionales, ajustadas a mano peleando. Lo escribe la página al pulsar «Guardar» y lo valida validarUnidadDeArena (src/core/arena.ts); una unidad que no valida se conserva tal cual. El juego NO lo lee. Cada unidad es un CUERPO (cuerpo: { hoja }, el arte con que se pinta: solo las hojas de las cinco facciones, sin criaturas del catálogo del juego; las cifras de arriba son las suyas, y de ellas sale el nivel) más su EQUIPO (equipo: una pieza de data/equipo.json por hueco, arma (la de cuerpo a cuerpo), distancia (la de disparar), carga (la lanza), armadura, accesorio y escudo; un arma a dos manos no admite escudo), y pelea con las dos cosas sumadas: cada golpe con las cifras de su arma (el disparo, las de distancia; la carga, las de carga, o si no las de arma; lo demás, las de arma, o sin arma las del cuerpo). Dispara quien lleva algo en distancia, sin munición (dos tiros por disparo con el rasgo double_shot), y toda unidad ocupa una casilla: no hay shots ni hexes; lo de antes con ellos se lee sin ellos, y una unidad con cuerpo de criatura se retira (migrarUnidadDeArena). Una unidad sin cuerpo es de antes y se lee como sus cifras menos el equipo de su perfil (migrarUnidadDeArena). Los campos de cifras se llaman como en data/creatures.json, pero pasar una unidad al catálogo NO es copiarla; hay que añadir: (1) la faction del juego (hoy solo knight o necromancer; una facción nueva pide además su guarnición neutral en data/ciudades.json), (2) speed: el escalón de sus casillas (2 very_slow, 3 slow, 4 average, 5 fast, 6 very_fast, 7 ultra_fast), en lugar de casillas, (3) growth (crecimiento semanal de su morada), (4) upgradesTo si tiene mejora, (5) su fila en data/experiencia.json (una habilidad por rango, del 2 al máximo: la lista habilidades de aquí es suelta y no dice a qué rango va cada una), (6) morada: la de la morada que la produzca (1-6); el nivel NO se escribe, sale de las cifras (core/nivel.ts), y quitar id, cuerpo, equipo (sumado a las cifras, si se quiere que la criatura del catálogo pelee como aquí), faction de la arena y habilidades. PV y daño van en la escala del catálogo (×10 la de fheroes2); una unidad que aún traiga level es de la escala de fheroes2 y se lee con PV y daño ×10. habilidades = nombres de data/habilidades.json, sin efecto todavía, salvo las que dan un poder de data/poderes.json (Curar (X), Bendecir), que en la arena se usan en la pelea; Bendecir no está en data/habilidades.json.",
+  "unidades": [
+    {
+      "id": "templario-escudo",
+      "name": "Guerrero con escudo",
+      "faction": "templarios",
+      "cuerpo": {
+        "hoja": "templario-escudo"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 4,
+      "damage": [
+        8,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "cost": {
+        "gold": 150
+      }
+    },
+    {
+      "id": "esqueleto-guerrero",
+      "name": "Esqueleto guerrero",
+      "faction": "no-muertos",
+      "cuerpo": {
+        "hoja": "esqueleto-guerrero"
+      },
+      "leadership": 1,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        6,
+        8
+      ],
+      "hp": 60,
+      "casillas": 4,
+      "traits": [
+        "undead"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "cost": {
+        "gold": 150
+      }
+    },
+    {
+      "id": "zombi",
+      "name": "Zombie",
+      "faction": "no-muertos",
+      "cuerpo": {
+        "hoja": "zombi"
+      },
+      "leadership": 3,
+      "attack": 2,
+      "defense": 3,
+      "damage": [
+        10,
+        12
+      ],
+      "hp": 160,
+      "casillas": 3,
+      "traits": [
+        "undead"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "cost": {
+        "gold": 150
+      }
+    },
+    {
+      "id": "imperio-alabardero",
+      "name": "Alabardero",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-alabardero"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        8,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "cost": {
+        "gold": 250
+      }
+    },
+    {
+      "id": "elfo-arquero",
+      "name": "Arquero",
+      "faction": "elfos",
+      "cuerpo": {
+        "hoja": "elfo-arquero"
+      },
+      "leadership": 3,
+      "attack": 4,
+      "defense": 4,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 5,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "distancia": "arco",
+        "armadura": "jubon_de_arquero"
+      },
+      "cost": {
+        "gold": 150
+      }
+    },
+    {
+      "id": "elfo-explorador",
+      "name": "Explorador",
+      "faction": "elfos",
+      "cuerpo": {
+        "hoja": "elfo-explorador"
+      },
+      "leadership": 3,
+      "attack": 4,
+      "defense": 3,
+      "damage": [
+        6,
+        12
+      ],
+      "hp": 70,
+      "casillas": 6,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "cost": {
+        "gold": 150
+      }
+    },
+    {
+      "id": "elfo-guardia-del-bosque",
+      "name": "Guardia del bosque",
+      "faction": "elfos",
+      "cuerpo": {
+        "hoja": "elfo-guardia-del-bosque"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 6,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "cost": {
+        "gold": 150
+      }
+    },
+    {
+      "id": "orko-hacha-escudo",
+      "name": "Orko con hacha y escudo",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "orko-hacha-escudo"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        12,
+        14
+      ],
+      "hp": 120,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "cost": {
+        "gold": 150
+      }
+    },
+    {
+      "id": "orko-dos-armas",
+      "name": "Orko con dos armas",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "orko-dos-armas"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "cost": {
+        "gold": 250
+      }
+    },
+    {
+      "id": "goblin-lancero",
+      "name": "Goblin lancero",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "goblin-lancero"
+      },
+      "leadership": 1,
+      "attack": 2,
+      "defense": 2,
+      "damage": [
+        6,
+        8
+      ],
+      "hp": 60,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "cost": {
+        "gold": 50
+      }
+    },
+    {
+      "id": "goblin-arquero",
+      "name": "Goblin arquero",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "goblin-arquero"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "distancia": "arco",
+        "armadura": "jubon_de_arquero"
+      },
+      "cost": {
+        "gold": 150
+      }
+    },
+    {
+      "id": "troll-maza",
+      "name": "Troll con maza",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "troll-maza"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 3,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "cost": {
+        "gold": 250
+      }
+    }
+  ]
+}

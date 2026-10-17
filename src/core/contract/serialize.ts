@@ -33,6 +33,7 @@ import {
   LIDERAZGO,
   NIVEL_POR_SUELO,
   tiposDeHeroe,
+  tirosQueQuedan,
 } from '../data.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
 import {
@@ -757,7 +758,9 @@ export function serializeBattleTurn(
       defense: info.defense,
       damage: info.damage,
       shooter: isShooter(info),
-      shotsLeft: s.shotsLeft,
+      // Quien no cuenta tiros, 0: es el que no tira (el juego), y el que tira sin
+      // contarlos (la arena) no llega al agente. Así el contrato es el de siempre.
+      shotsLeft: tirosQueQuedan(s) ?? 0,
       traits: info.traits ?? [],
       // La suerte va ya con los efectos aplicados: el contrato promete el
       // valor con el que se va a tirar, no el de la ficha. La moral no tiene

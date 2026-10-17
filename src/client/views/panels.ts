@@ -14,10 +14,24 @@
  * un `.join('')` sobre cadenas era justo el sitio por donde el marcado se
  * escapaba de la puerta.
  */
-import { activeStack, quedanCasillas } from '@core/battle/battle.js';
+import { activeStack, cargaDelStack } from '@core/battle/battle.js';
+import { quedanCasillas } from '@core/battle/board.js';
+import { CARGA, CARGA_MINIMA, type CifrasDeCarga, dichoDeLaCarga } from '@core/battle/carga.js';
 import { DEFEND_BONUS } from '@core/battle/damage.js';
-import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
+import {
+  type CuandoVence,
+  type EffectKind,
+  effectiveLuck,
+  type StackEffect,
+} from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
+import {
+  contraataqueDelCruce,
+  duracion,
+  esTipoDeGolpe,
+  NOMBRE_DE_GOLPE,
+  NOMBRE_DEL_PUNTO,
+} from '@core/battle/rueda.js';
 import { enOrdenDelLibro, type Spell, spell } from '@core/battle/spells.js';
 import {
   type BattleAction,
@@ -27,7 +41,13 @@ import {
   SIDES,
   type Side,
 } from '@core/battle/types.js';
-import { creature, hasTrait, isShooter, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
+import {
+  creature,
+  isShooter,
+  nombreDeTipoDeHeroe,
+  type Pieza,
+  tirosQueQuedan,
+} from '@core/data.js';
 import {
   destinoDeEquipo,
   modificadoresDePieza,
@@ -737,6 +757,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
   }
 
   const s = activeStack(battle);
+  const tiros = s === null ? null : tirosQueQuedan(s);
   const activo =
     s === null
       ? html`<p>Sin unidad activa.</p>`
@@ -744,7 +765,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
         <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>
-        ${isShooter(s.unit) ? html`<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : NADA}`;
+        ${tiros === null ? NADA : html`<div class="row"><span class="label">Munición</span><span>${tiros}</span></div>`}`;
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
@@ -752,6 +773,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
         contandoAun,
         accionesDeLaUnidad({
           activa: s,
+          carga: cargaDelStack(battle, s),
           legales: session.battleLegalActions(),
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
@@ -807,6 +829,8 @@ function filaManaDeBatalla(session: Session): Html {
  */
 export function accionesDeLaUnidad(o: {
   readonly activa: BattleStack;
+  /** Con qué cifras carga la activa (`cargaDelStack`), o `null` si no carga. */
+  readonly carga: CifrasDeCarga | null;
   readonly legales: readonly BattleAction[];
   readonly pasos: number | null;
   readonly rendicion: Html;
@@ -818,11 +842,35 @@ export function accionesDeLaUnidad(o: {
    * escalera» y «Subir»—, donde la hay (la arena); si no, `NADA`.
    */
   readonly muralla: Html;
+  /**
+   * Por qué no puede salir de su casilla, como frase (`contactoBlocker`: rodeada,
+   * lo que le queda no paga salir del contacto; solo en la arena), o nada. Va en la misma
+   * línea del marcado que lo que le queda: sin él, el ancla de
+   * `test/fixtures/paneles.txt` no cambia.
+   */
+  readonly sinSalida?: string | null;
+  /**
+   * Si ha golpeado con Finta y le queda solo el tramo de andar (la rueda de la
+   * arena): la ayuda lo dice en vez de invitar a golpear (R2 de QA de #263).
+   */
+  readonly trasLaFinta?: boolean;
 }): Html {
   const puede = (tipo: BattleAction['type']): boolean => o.legales.some((a) => a.type === tipo);
   const quedan = o.pasos === null ? null : quedanCasillas(o.pasos);
+  const sinSalida =
+    o.sinSalida == null ? NADA : html`<p class="cost" data-sin-salida>${o.sinSalida}</p>`;
+  // La ayuda dice lo que se puede hacer: tras la Finta, solo andar un tramo; rodeada,
+  // solo golpear a quien tiene al lado (C2 de QA de #259: no hay hexágonos verdes).
+  const ayuda =
+    o.trasLaFinta === true
+      ? html`Finta: puede andar ${quedan === null ? 'lo que le queda' : quedan[1]}; andar termina el turno.`
+      : o.sinSalida != null
+        ? html`Pasa el ratón por un enemigo a su lado para golpearlo.`
+        : html`Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
+         ${ayudaDeCarga(o.carga)}`;
   return html`<h3>Acciones</h3>
-       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}
+       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}${sinSalida}
        <div class="stack-list">
          <button data-action="battle-end-turn">Terminar turno</button>
          <button data-action="battle-defend" ${puede('defend') ? NADA : DESHABILITADO}>Defender</button>
@@ -830,10 +878,8 @@ export function accionesDeLaUnidad(o: {
          ${o.rendicion}${o.muralla}${o.poderes}
        </div>
        ${o.hechizos}
-       <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
-         ${ayudaDeCarga(o.activa)}
+       <p class="cost" style="margin-top:.5rem"${o.trasLaFinta === true ? html` data-tras-la-finta` : NADA}>
+         ${ayuda}
          Espacio termina el turno de la unidad.
        </p>`;
 }
@@ -950,6 +996,9 @@ const FUENTE_RASGO: Readonly<Record<string, string>> = {
  * es un fallo nuestro, no algo que disimular con el id crudo en pantalla.
  */
 function nombreFuente(source: string): string {
+  // Lo que deja un golpe de la rueda (Defensivo, Romper guardia, Finta), por el
+  // nombre de su tipo.
+  if (esTipoDeGolpe(source)) return NOMBRE_DE_GOLPE[source];
   return FUENTE_RASGO[source] ?? spell(source).name;
 }
 
@@ -965,6 +1014,7 @@ const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
   luck: 'suerte',
   attack: 'ataque',
   tirada: 'tirada de daño',
+  defense: 'defensa',
 };
 
 /**
@@ -973,6 +1023,30 @@ const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
  */
 export function enRondas(n: number): string {
   return `${n} ${n === 1 ? 'ronda' : 'rondas'}`;
+}
+
+/**
+ * Lo que dura un efecto colgado, dicho: «3 rondas», o, el de la rueda del golpe,
+ * «hasta que empiece (o termine) su próximo turno» (`vence`, `duracion`); sus
+ * rondas son solo el tope y contarlas sería mentir.
+ */
+export function duracionDeEfecto(e: {
+  readonly rounds: number;
+  readonly vence?: CuandoVence | undefined;
+}): string {
+  return e.vence === undefined ? `durante ${enRondas(e.rounds)}` : duracion(e.vence, 'su');
+}
+
+/**
+ * Un efecto que lleva colgado un stack, dicho entero: quién lo puso, qué hace y
+ * lo que le queda («Defensivo: defensa +1 hasta que empiece su próximo turno»).
+ * Con las mismas tres piezas que el parte (`nombreFuente`, `cifraDeEfecto`,
+ * `duracionDeEfecto`), que lo dice al colgarse; esto lo dice mientras dura (la
+ * vista previa de la rueda, #261).
+ */
+export function efectoEnCurso(e: StackEffect): string {
+  const dura = duracionDeEfecto({ rounds: e.roundsLeft, vence: e.hasta?.al });
+  return `${nombreFuente(e.source)}: ${cifraDeEfecto(e.kind, e.amount)} ${dura}`;
 }
 
 /**
@@ -1035,16 +1109,19 @@ function clase(bueno: boolean, malo: boolean): Html {
 }
 
 /**
- * La línea de ayuda de la carga, solo si la unidad activa tiene el rasgo: con un
- * campesino o un arquero es ruido, y quien juega no tiene caballería hasta
- * varios días después (N2 de QA, 02-10-2026). Se pregunta por el rasgo y no por
- * si hay casillas de carga ahora: el texto explica cómo se ve, también el turno
- * en que no sale ninguna.
+ * La línea de ayuda de la carga, solo si la unidad activa carga (`cargaDelStack`:
+ * en el juego, el rasgo; en la arena, todos, #260): con un campesino o un arquero
+ * del juego es ruido, y quien juega no tiene caballería hasta varios días después
+ * (N2 de QA, 02-10-2026). Se pregunta por quién carga y no por si hay casillas de
+ * carga ahora: el texto explica cómo se ve, también el turno en que no sale
+ * ninguna.
  */
-function ayudaDeCarga(s: BattleStack | null): Html {
-  if (s === null || !hasTrait(s.unit, 'charge')) return NADA;
-  return html`Al enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
-         número («»3»).`;
+function ayudaDeCarga(carga: CifrasDeCarga | null): Html {
+  if (carga === null) return NADA;
+  // El número que enseña la casilla son las casillas que corre: sin un ejemplo fijo,
+  // que con el jinete despistaba (C3 de QA de #260).
+  return html`Al enemigo en naranja se le puede cargar: pasa por él y elige la casilla con
+         «»» y las casillas que corre (de ${CARGA_MINIMA} a ${carga.tope}, +${carga.porcentaje} % cada una).`;
 }
 
 /**
@@ -1146,15 +1223,30 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
   /** «1 baja», «3 bajas»: «1 bajas» salía en cada golpe que mataba a uno. */
   const bajas = (n: number): string => `${n} ${n === 1 ? 'baja' : 'bajas'}`;
 
+  /**
+   * El daño de un hecho con lo que paró la armadura (la arena, #262): «12 de
+   * daño (−7 armadura), 1 baja», o «0 de daño: la armadura para los 18» si no
+   * llegó nada. Sin armadura, lo de siempre. Con «lo para la armadura (18)» el 18
+   * se leía como la armadura, y es el golpe parado (A2 de QA de #262); la
+   * armadura no se escribe: un retoque a media pelea la cambiaría en las líneas
+   * de antes.
+   */
+  const danio = (d: number, muertos: number, parado: number | undefined): string => {
+    if (parado === undefined) return `${d} de daño, ${bajas(muertos)}`;
+    if (d === 0) return `0 de daño: la armadura para los ${parado}`;
+    return `${d} de daño (−${parado} armadura), ${bajas(muertos)}`;
+  };
+
   const paraQuienLee = (id: string, buenoParaSuBando: boolean): Html => {
     if (mio === null) return NADA;
     const bueno = (stackDe(id).side === mio) === buenoParaSuBando;
     return clase(bueno, !bueno);
   };
 
-  const lineas = battle.log
-    .slice(-40)
-    .map((e): Html => {
+  const ultimos = battle.log.slice(-40);
+  const desde = battle.log.length - ultimos.length;
+  const lineas = ultimos
+    .map((e, i): Html => {
       switch (e.kind) {
         case 'round_start':
           return html`<div>— Ronda ${e.round} —</div>`;
@@ -1164,12 +1256,14 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         // porque lo que se busca al leer es el nombre.
         case 'attack': {
           const modo = `${e.retaliation ? ' (contraataque)' : ''}${
-            e.charge === undefined ? '' : ` (carga de ${e.charge} hexes)`
+            e.charge === undefined
+              ? ''
+              : ` (${dichoDeLaCarga(e.charge, e.cargaAPie === true ? CARGA.aPie : CARGA.jinete)})`
           }`;
-          return html`<div>${golpe(e.stack, e.target)}${modo}: ${e.damage} de daño, ${bajas(e.killed)}</div>`;
+          return html`<div>${golpe(e.stack, e.target)}${modo}: ${danio(e.damage, e.killed, e.parado)}</div>`;
         }
         case 'shoot':
-          return html`<div>${golpe(e.stack, e.target)} (${e.splash === true ? 'salpicadura' : 'disparo'}): ${e.damage} de daño, ${bajas(e.killed)}</div>`;
+          return html`<div>${golpe(e.stack, e.target)} (${e.splash === true ? 'salpicadura' : 'disparo'}): ${danio(e.damage, e.killed, e.parado)}</div>`;
         case 'cast': {
           // El nombre, no el id: `spell()` ya lo tiene y quien lee el parte no
           // sabe qué es un "magic_arrow". Quien lanza es siempre el héroe de su
@@ -1181,7 +1275,10 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
                 ? 'Lanzas'
                 : 'El enemigo lanza';
           const sobre = e.target === undefined ? '' : ` sobre ${quien(e.target)}`;
-          const efecto = e.damage ? `: ${e.damage} de daño, ${bajas(e.killed ?? 0)}` : '';
+          const efecto =
+            e.damage || e.parado !== undefined
+              ? `: ${danio(e.damage ?? 0, e.killed ?? 0, e.parado)}`
+              : '';
           return html`<div>${lanza} ${spell(e.spell).name}${sobre}${efecto}</div>`;
         }
         case 'power': {
@@ -1205,7 +1302,14 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         case 'luck':
           return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Golpe afortunado' : 'Golpe desafortunado'} de ${quienEs(e.stack)}</div>`;
         case 'effect':
-          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} durante ${enRondas(e.rounds)}</div>`;
+          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} ${duracionDeEfecto(e)}</div>`;
+        // La rueda del golpe (solo la arena): qué eligió cada uno y dónde cayó,
+        // antes de las líneas del golpe. El contraataque, solo si lo hubo.
+        case 'cruce': {
+          const devuelto = contraataqueDelCruce(battle.log, desde + i);
+          const contra = devuelto === null ? '' : `; contraataque ${NOMBRE_DEL_PUNTO[devuelto]}`;
+          return html`<div class="cruce">${golpe(e.stack, e.target)}, ${NOMBRE_DE_GOLPE[e.golpe]} contra ${NOMBRE_DE_GOLPE[e.respuesta]}: ${NOMBRE_DEL_PUNTO[e.punto]}${contra}</div>`;
+        }
         case 'effect_end':
           return html`<div>Se disipa ${nombreFuente(e.source)} de ${quienEs(e.stack)}</div>`;
         case 'immune':

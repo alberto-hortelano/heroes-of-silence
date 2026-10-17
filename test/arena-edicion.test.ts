@@ -25,47 +25,49 @@ import {
   avisoDeNuevaUnidad,
   enElMontaje,
   focoTrasQuitar,
+  renderAvisosDeLectura,
   renderCatalogo,
   renderFicha,
-  renderFichaDeCatalogo,
+  resumenDeLaLectura,
 } from '../src/client/arena/paneles.js';
 import { html, marcadoDe } from '../src/client/html.js';
 import { unidadNueva } from '../src/core/arena.js';
 import { REGLAS_DEL_JUEGO, reglasDeLaURL } from '../src/core/battle/reglas.js';
-import { creature } from '../src/core/data.js';
-import { DEL_JUEGO, hojasDeLaArena, unidadDeArena } from './helpers.js';
+import { DEL_JUEGO, hojaDeLaArena, hojasDeLaArena, unidadDeArena } from './helpers.js';
 
 const HOJAS = hojasDeLaArena();
 const hoja = (id: string): FichaEditable => ({ kind: 'unidad', id });
-const cat = (id: string): FichaEditable => ({ kind: 'catalogo', id });
-const CUATRO = [hoja('templario-escudo'), hoja('templario-monje'), cat('pikeman'), cat('archer')];
+const CUATRO = [
+  hoja('templario-escudo'),
+  hoja('templario-monje'),
+  hoja('imperio-piquero'),
+  hoja('elfo-arquero'),
+];
 /** Seis: más de las cuatro que cabían antes, y más de las tres columnas de una fila. */
-const SEIS = [...CUATRO, cat('peasant'), hoja('zombi')];
+const SEIS = [...CUATRO, hoja('goblin-lancero'), hoja('zombi')];
 
 describe('abrir y cerrar fichas', () => {
   it('abre al final y dice cuál', () => {
-    const r = abrirFicha([hoja('templario-escudo')], cat('pikeman'), 'Piquero');
-    expect(r.abiertas).toEqual([hoja('templario-escudo'), cat('pikeman')]);
+    const r = abrirFicha([hoja('templario-escudo')], hoja('imperio-piquero'), 'Piquero');
+    expect(r.abiertas).toEqual([hoja('templario-escudo'), hoja('imperio-piquero')]);
     expect(r.aviso).toBe('Piquero: ficha abierta.');
   });
 
   it('la misma no se abre dos veces', () => {
-    const antes = [hoja('templario-escudo'), cat('pikeman')];
-    const r = abrirFicha(antes, cat('pikeman'), 'Piquero');
+    const antes = [hoja('templario-escudo'), hoja('imperio-piquero')];
+    const r = abrirFicha(antes, hoja('imperio-piquero'), 'Piquero');
     expect(r.abiertas).toBe(antes);
     expect(r.aviso).toBe('Piquero. Su ficha ya está abierta.');
-    // Una hoja y una criatura con el mismo id son dos fichas distintas.
-    expect(abrirFicha([hoja('x')], cat('x'), 'X').abiertas).toHaveLength(2);
   });
 
   it('sin tope: con cuatro abiertas entra una quinta y una sexta, sin aviso de lleno', () => {
-    const quinta = abrirFicha(CUATRO, cat('peasant'), 'Campesino');
+    const quinta = abrirFicha(CUATRO, hoja('goblin-lancero'), 'Campesino');
     expect(quinta.abiertas).toEqual(SEIS.slice(0, 5));
     expect(quinta.aviso).toBe('Campesino: ficha abierta.');
     const sexta = abrirFicha(quinta.abiertas, hoja('zombi'), 'Zombi');
     expect(sexta.abiertas).toEqual(SEIS);
     expect(sexta.aviso).toBe('Zombi: ficha abierta.');
-    expect(abrirFichaBlocker(SEIS, cat('goblin'), null)).toBeNull();
+    expect(abrirFichaBlocker(SEIS, hoja('troll-maza'), null)).toBeNull();
   });
 
   it('un motivo por caso, el mismo para el botón, el gesto y abrirFicha', () => {
@@ -76,45 +78,54 @@ describe('abrir y cerrar fichas', () => {
     expect(abrirFichaBlocker(CUATRO, hoja('templario-escudo'), null)).toBe(
       'Su ficha ya está abierta.',
     );
-    expect(abrirFichaBlocker(CUATRO, cat('peasant'), null)).toBeNull();
-    expect(abrirFichaBlocker([], cat('peasant'), null)).toBeNull();
+    expect(abrirFichaBlocker(CUATRO, hoja('goblin-lancero'), null)).toBeNull();
+    expect(abrirFichaBlocker([], hoja('goblin-lancero'), null)).toBeNull();
     const r = abrirFicha([], hoja('x'), 'X', 'le falta d7');
     expect(r.abiertas).toEqual([]);
     expect(r.aviso).toBe('X. No se abre: le falta d7.');
   });
 
   it('cerrar quita solo esa y deja las demás en su orden', () => {
-    expect(cerrarFicha(CUATRO, 'catalogo:pikeman')).toEqual([
+    expect(cerrarFicha(CUATRO, 'unidad:imperio-piquero')).toEqual([
       hoja('templario-escudo'),
       hoja('templario-monje'),
-      cat('archer'),
+      hoja('elfo-arquero'),
     ]);
-    expect(() => cerrarFicha(CUATRO, 'catalogo:peasant')).toThrow(
-      'no hay ninguna ficha «catalogo:peasant» abierta que cerrar',
+    expect(() => cerrarFicha(CUATRO, 'unidad:goblin-lancero')).toThrow(
+      'no hay ninguna ficha «unidad:goblin-lancero» abierta que cerrar',
     );
   });
 });
 
 describe('la clave de una ficha', () => {
-  it('va y vuelve con las tres, y lanza con lo que no es una ficha', () => {
+  it('va y vuelve con las dos, y lanza con lo que no es una ficha', () => {
     const heroe = { kind: 'heroe', lado: 'derecha' } as const;
     for (const f of [...CUATRO, heroe]) expect(fichaDeClave(claveDeFicha(f))).toEqual(f);
     expect(claveDeFicha(heroe)).toBe('heroe:derecha');
     // Un id con dos puntos no se parte por el segundo.
     expect(fichaDeClave('unidad:a:b')).toEqual(hoja('a:b'));
-    for (const basura of ['', 'hoja', 'unidad:', 'heroe:arriba', 'heroe:', 'monje', ':x']) {
+    // La de una criatura del catálogo ya no es una ficha (13-10-2026).
+    for (const basura of [
+      '',
+      'hoja',
+      'unidad:',
+      'heroe:arriba',
+      'heroe:',
+      'monje',
+      ':x',
+      'catalogo:pikeman',
+      // La de antes de las unidades nuevas (14-10-2026: sin compatibilidad).
+      'hoja:zombi',
+    ]) {
       expect(() => fichaDeClave(basura), basura).toThrow('no es la clave de una ficha');
     }
   });
 
-  it('la ficha la lleva en el marcado, y es la misma clave para las tres', () => {
+  it('la ficha la lleva en el marcado, y es la misma clave', () => {
     const como = enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO);
     const u = unidadDeArena('templario-monje');
     expect(marcadoDe(renderFicha(u, false, como))).toContain(
       'class="ficha" data-clave-de-ficha="unidad:templario-monje"',
-    );
-    expect(marcadoDe(renderFichaDeCatalogo('pikeman', creature('pikeman'), false, como))).toContain(
-      'class="ficha" data-clave-de-ficha="catalogo:pikeman"',
     );
   });
 });
@@ -142,15 +153,6 @@ describe('recordar las abiertas', () => {
     expect(leerAbiertas(abiertasATexto(SEIS), todas)).toEqual({ abiertas: SEIS, aviso: '' });
   });
 
-  it('lee la clave de antes de las unidades nuevas, «hoja:<id>», como la de su unidad', () => {
-    // La unidad de una hoja tiene el id de su hoja: lo recordado en el navegador
-    // antes del 12-10-2026 sigue abriendo su ficha.
-    expect(fichaDeClave('hoja:zombi')).toEqual({ kind: 'unidad', id: 'zombi' });
-    expect(leerAbiertas(JSON.stringify(['hoja:zombi']), () => true).abiertas).toEqual([
-      { kind: 'unidad', id: 'zombi' },
-    ]);
-  });
-
   it('quita las que ya no se abren y las repetidas, diciéndolo', () => {
     const texto = JSON.stringify([
       'unidad:borrada',
@@ -158,18 +160,32 @@ describe('recordar las abiertas', () => {
       'unidad:templario-escudo',
       'basura',
       ...CUATRO.slice(1).map(claveDeFicha),
-      'catalogo:peasant',
+      'unidad:goblin-lancero',
       'heroe:izquierda',
     ]);
     const r = leerAbiertas(texto, (f) => f.id !== 'borrada');
     // La quinta, el campesino, ya cabe: no hay tope.
-    expect(r.abiertas).toEqual([...CUATRO, cat('peasant')]);
+    expect(r.abiertas).toEqual([...CUATRO, hoja('goblin-lancero')]);
     expect(r.aviso).toContain('«unidad:borrada»');
     expect(r.aviso).toContain('«basura»');
-    expect(r.aviso).not.toContain('«catalogo:peasant»');
+    expect(r.aviso).not.toContain('«unidad:goblin-lancero»');
     // Un héroe tiene clave, pero no se abre en la edición.
     expect(r.aviso).toContain('«heroe:izquierda»');
     expect(r.aviso.match(/«unidad:templario-escudo»/g)).toHaveLength(1);
+  });
+
+  it('las claves de antes —una criatura del catálogo, «hoja:<id>»— se quitan diciéndolo (14-10-2026)', () => {
+    const texto = JSON.stringify([
+      'catalogo:pikeman',
+      'unidad:templario-escudo',
+      'criatura:skeleton',
+      'hoja:zombi',
+    ]);
+    const r = leerAbiertas(texto, todas);
+    expect(r.abiertas).toEqual([hoja('templario-escudo')]);
+    for (const vieja of ['catalogo:pikeman', 'criatura:skeleton', 'hoja:zombi']) {
+      expect(r.aviso).toContain(`«${vieja}»`);
+    }
   });
 });
 
@@ -198,18 +214,18 @@ describe('el foco al cerrar con el teclado (H4 de QA)', () => {
   it('va al × de la siguiente; si era la última, al de la anterior', () => {
     expect(focoTrasCerrar(CUATRO, 'unidad:templario-monje')).toEqual({
       kind: 'cerrar',
-      clave: 'catalogo:pikeman',
+      clave: 'unidad:imperio-piquero',
     });
-    expect(focoTrasCerrar(CUATRO, 'catalogo:archer')).toEqual({
+    expect(focoTrasCerrar(CUATRO, 'unidad:elfo-arquero')).toEqual({
       kind: 'cerrar',
-      clave: 'catalogo:pikeman',
+      clave: 'unidad:imperio-piquero',
     });
   });
 
   it('sin ninguna más, al «Abrir» de la que se cerró', () => {
-    expect(focoTrasCerrar([cat('pikeman')], 'catalogo:pikeman')).toEqual({
+    expect(focoTrasCerrar([hoja('imperio-piquero')], 'unidad:imperio-piquero')).toEqual({
       kind: 'abrir',
-      ficha: cat('pikeman'),
+      ficha: hoja('imperio-piquero'),
     });
   });
 
@@ -241,7 +257,7 @@ describe('la lista en la vista de edición', () => {
 
   it('cada tarjeta lleva «Abrir» y no «+ izq.»; la abierta, «Abierta» deshabilitada', () => {
     const m = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', [], {
+      renderCatalogo(HOJAS, 'todas', {
         kind: 'edicion',
         abiertas: [hoja('templario-escudo')],
         plegada: false,
@@ -256,31 +272,16 @@ describe('la lista en la vista de edición', () => {
   });
 
   it('con seis abiertas, las demás se siguen abriendo; solo las abiertas van deshabilitadas', () => {
-    const m = marcadoDe(renderCatalogo(HOJAS, 'todas', [], muchas));
-    // Las tres hojas abiertas (templario, monje y zombi): «Abierta»; las demás, «Abrir» sin motivo.
-    expect(m.match(/disabled>Abierta</g)).toHaveLength(3);
-    expect(m.match(/disabled>/g)).toHaveLength(3);
+    const m = marcadoDe(renderCatalogo(HOJAS, 'todas', muchas));
+    // Las seis abiertas: «Abierta»; las demás, «Abrir» sin motivo.
+    expect(m.match(/disabled>Abierta</g)).toHaveLength(6);
+    expect(m.match(/disabled>/g)).toHaveLength(6);
     expect(m.match(/title="Abre su ficha junto a las demás" >Abrir</g)).toHaveLength(
-      HOJAS.length - 3,
+      HOJAS.length - 6,
     );
-    const c = marcadoDe(
-      renderCatalogo(
-        HOJAS,
-        'catalogo',
-        [
-          { id: 'pikeman', name: 'Piquero', resumen: 'A 5' },
-          { id: 'goblin', name: 'Trasgo', resumen: '' },
-        ],
-        muchas,
-      ),
-    );
-    expect(c).toContain(
-      'data-arena="abrir-ficha" data-criatura="pikeman" title="Su ficha ya está abierta." disabled>Abierta<',
-    );
-    expect(c).toContain(
-      'data-arena="abrir-ficha" data-criatura="goblin" title="Abre su ficha junto a las demás" >Abrir<',
-    );
-    expect(c).not.toContain('añadir-catalogo');
+    // Sin el catálogo del juego: ni su filtro ni una criatura (13-10-2026).
+    expect(m).not.toContain('data-faccion="catalogo"');
+    expect(m).not.toContain('data-criatura');
   });
 
   it('una hoja incompleta no se abre, con su motivo', () => {
@@ -288,26 +289,22 @@ describe('la lista en la vista de edición', () => {
     if (primera === undefined) throw new Error('sin hojas');
     const hojas = [{ ...primera, incompleta: 'le falta d7' }, ...resto];
     const m = marcadoDe(
-      renderCatalogo(hojas, 'todas', [], { kind: 'edicion', abiertas: [], plegada: false }),
+      renderCatalogo(hojas, 'todas', { kind: 'edicion', abiertas: [], plegada: false }),
     );
     expect(m).toContain(
       `data-arena="abrir-ficha" data-unidad="${primera.id}" title="No se abre: le falta d7." disabled>Abrir<`,
     );
   });
 
-  it('«Nueva unidad» avisa de que las criaturas del catálogo salen con el maniquí (H3 de QA)', () => {
+  it('«Nueva unidad» ofrece solo las hojas: el catálogo del juego no está en la arena (13-10-2026)', () => {
     const m = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', [], undefined, {
-        cuerpos: {
-          hojas: [{ id: 'esqueleto-guerrero', nombre: 'Esqueleto guerrero' }],
-          criaturas: [{ id: 'skeleton', name: 'Esqueleto' }],
-        },
+      renderCatalogo(HOJAS, 'todas', undefined, {
+        cuerpos: [{ id: 'esqueleto-guerrero', nombre: 'Esqueleto guerrero' }],
       }),
     );
-    expect(m).toContain('<optgroup label="Hojas"><option value="hoja:esqueleto-guerrero">');
-    expect(m).toContain(
-      '<optgroup label="Catálogo del juego (con el maniquí)"><option value="criatura:skeleton">Esqueleto</option>',
-    );
+    expect(m).toContain('<option value="esqueleto-guerrero">Esqueleto guerrero</option>');
+    expect(m).not.toContain('optgroup');
+    expect(m).not.toContain('criatura:');
   });
 
   it('en el montaje sigue como estaba', () => {
@@ -319,24 +316,24 @@ describe('la lista en la vista de edición', () => {
   it('con alguna abierta se pliega a su cabecera, y su botón la despliega (H1, H2)', () => {
     const una = [hoja('templario-escudo')];
     const plegada = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', [], { kind: 'edicion', abiertas: una, plegada: true }),
+      renderCatalogo(HOJAS, 'todas', { kind: 'edicion', abiertas: una, plegada: true }),
     );
     expect(plegada).not.toContain('abrir-ficha');
     expect(plegada).not.toContain('data-arena="filtro"');
     expect(plegada).toContain('data-arena="plegar-lista" aria-expanded="false"');
     expect(plegada).toContain('>Desplegar</button>');
     const abierta = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', [], { kind: 'edicion', abiertas: una, plegada: false }),
+      renderCatalogo(HOJAS, 'todas', { kind: 'edicion', abiertas: una, plegada: false }),
     );
     expect(abierta).toContain('data-arena="plegar-lista" aria-expanded="true"');
     expect(abierta.match(/data-arena="abrir-ficha"/g)).toHaveLength(HOJAS.length);
     // Sin ninguna abierta no hay nada que plegar: ni botón, ni lista plegada.
     const vacia = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', [], { kind: 'edicion', abiertas: [], plegada: false }),
+      renderCatalogo(HOJAS, 'todas', { kind: 'edicion', abiertas: [], plegada: false }),
     );
     expect(vacia).not.toContain('plegar-lista');
     expect(() =>
-      renderCatalogo(HOJAS, 'todas', [], { kind: 'edicion', abiertas: [], plegada: true }),
+      renderCatalogo(HOJAS, 'todas', { kind: 'edicion', abiertas: [], plegada: true }),
     ).toThrow('no se pliega sin ninguna ficha abierta');
   });
 });
@@ -346,26 +343,28 @@ describe('la vista de edición', () => {
     const u = unidadDeArena('templario-monje');
     const como = enElMontaje(reglasDeLaURL('bendicion'), DEL_JUEGO);
     const deHoja = renderFicha(u, false, como);
-    const deCatalogo = renderFichaDeCatalogo('pikeman', creature('pikeman'), true, como);
+    const deOtra = renderFicha(unidadDeArena('imperio-piquero'), false, como);
     const m = marcadoDe(
       renderEdicion({
         lista: html`<div class="catalogo"></div>`,
         fichas: [
           { clave: 'unidad:templario-monje', titulo: u.name, cuerpo: deHoja },
-          { clave: 'catalogo:pikeman', titulo: '<Piquero>', cuerpo: deCatalogo },
+          { clave: 'unidad:imperio-piquero', titulo: '<Piquero>', cuerpo: deOtra },
         ],
       }),
     );
     // Un solo renderizador: el cuerpo es el marcado de la ficha del montaje.
     expect(m).toContain(marcadoDe(deHoja));
-    expect(m).toContain(marcadoDe(deCatalogo));
+    expect(m).toContain(marcadoDe(deOtra));
     expect(m.match(/<article class="ficha-abierta"/g)).toHaveLength(2);
     expect(m.match(/data-arena="cerrar-ficha"/g)).toHaveLength(2);
     // El × no lleva clave propia: la de su `article`, la misma que la de la ficha.
     expect(m).toContain(
       '<article class="ficha-abierta" data-clave-de-ficha="unidad:templario-monje">',
     );
-    expect(m).toContain('<article class="ficha-abierta" data-clave-de-ficha="catalogo:pikeman">');
+    expect(m).toContain(
+      '<article class="ficha-abierta" data-clave-de-ficha="unidad:imperio-piquero">',
+    );
     // Lo que se repinta solo tras un cambio es lo de dentro del `article`, tal cual.
     expect(m).toContain(
       marcadoDe(
@@ -409,24 +408,23 @@ describe('la barra al crear y al leer el borrador (segunda vuelta de QA)', () =>
   const ocupados = { validas: [], sinValidar: [], hojas: [] };
 
   it('R1: el nivel de una nueva se lee de su índice, el mismo de su ficha', () => {
-    const paladin = unidadNueva({ criatura: 'paladin' }, ocupados, DEL_JUEGO);
-    expect(avisoDeNuevaUnidad(paladin, 'edicion', DEL_JUEGO)).toBe(
-      'Nueva unidad «Paladín 2», sin equipo (Índice 217 · nivel 2): su ficha está abierta.',
+    // Desde una hoja (las criaturas del catálogo ya no entran, 13-10-2026), con el
+    // doble golpe que la sube al 2: la barra no lo escribe a mano.
+    const nueva = unidadNueva(hojaDeLaArena('templario-escudo'), ocupados, DEL_JUEGO);
+    const doble = { ...nueva, traits: ['double_attack' as const] };
+    expect(avisoDeNuevaUnidad(doble, 'edicion', DEL_JUEGO)).toBe(
+      'Nueva unidad «Guerrero con escudo 2», sin equipo (Índice 209 · nivel 2): su ficha está abierta.',
     );
-    expect(avisoDeNuevaUnidad(paladin, 'montaje', DEL_JUEGO)).toBe(
-      'Nueva unidad «Paladín 2», sin equipo (Índice 217 · nivel 2): añádela a un bando o cambia su ficha.',
+    expect(avisoDeNuevaUnidad(doble, 'montaje', DEL_JUEGO)).toBe(
+      'Nueva unidad «Guerrero con escudo 2», sin equipo (Índice 209 · nivel 2): añádela a un bando o cambia su ficha.',
     );
     // Lo mismo que dice su ficha, sin «nivel 1» escrito a mano.
     expect(
-      marcadoDe(renderFicha(paladin, false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO))),
-    ).toContain('Índice 217 · nivel 2');
-    expect(
-      avisoDeNuevaUnidad(
-        unidadNueva({ criatura: 'peasant' }, ocupados, DEL_JUEGO),
-        'edicion',
-        DEL_JUEGO,
-      ),
-    ).toMatch(/ \(Índice 1\d\d · nivel 1\): /);
+      marcadoDe(renderFicha(doble, false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO))),
+    ).toContain('Índice 209 · nivel 2');
+    expect(avisoDeNuevaUnidad(nueva, 'edicion', DEL_JUEGO)).toMatch(
+      / \(Índice 1\d\d · nivel 1\): /,
+    );
   });
 
   it('R4: un borrador con solo unidades que no valen se ha leído, y se dice', () => {
@@ -440,5 +438,33 @@ describe('la barra al crear y al leer el borrador (segunda vuelta de QA)', () =>
       /^Sin borrador guardado todavía \(b\.json\)/,
     );
     expect(avisoDelBorradorLeido('b.json', 2, 1)).toBe('Cargado b.json: 2 unidades.');
+  });
+
+  it('H1 de QA: lo que no vale al leer va entero, con su motivo, y la barra solo lo resume', () => {
+    // En la barra, cortada a dos líneas, el motivo de la segunda que no valía no
+    // se llegaba a leer (14-10-2026). Sin compatibilidad (14-10-2026), lo que
+    // queda que decir al leer es lo que no vale.
+    const motivo =
+      'monje: la unidad «Monje»: «level» no es un campo de la arena; valen id, name, faction';
+    const unidades = { de: 'Del borrador de unidades (b.json):', noValen: [motivo, 'zombi: otra'] };
+    const piezas = { de: 'De las piezas de la arena:', noValen: ['arco: su hueco no se cambia'] };
+    const marcado = marcadoDe(renderAvisosDeLectura([unidades, piezas]));
+    // Cada frase, entera y en su punto de la lista, y un botón para quitar el recuadro.
+    expect(marcado).toContain(`<li>${motivo}</li>`);
+    expect(marcado.indexOf('monje:')).toBeLessThan(marcado.indexOf('arco:'));
+    expect(marcado).toMatch(/<ul class="no-valen"><li>monje: /);
+    expect(marcado).toContain('Al leer el borrador · 3 no valen');
+    expect(marcado).toContain('data-arena="cerrar-avisos"');
+    // Sin nada que decir, nada.
+    expect(marcadoDe(renderAvisosDeLectura([]))).toBe('');
+    expect(marcadoDe(renderAvisosDeLectura([{ ...unidades, noValen: [] }]))).toBe('');
+    // La barra, solo el resumen y dónde leerlo.
+    expect(resumenDeLaLectura([unidades, piezas])).toBe(
+      ' 3 no valen y se conservan tal cual al guardar: sus motivos se leen enteros con «Avisos al leer», en esta barra.',
+    );
+    expect(resumenDeLaLectura([piezas])).toBe(
+      ' Una no vale y se conserva tal cual al guardar: su motivo se lee entero con «Avisos al leer», en esta barra.',
+    );
+    expect(resumenDeLaLectura([{ ...unidades, noValen: [] }])).toBe('');
   });
 });

@@ -12,9 +12,8 @@
  * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
  * instante, del animador.
  */
-import { activeStack, type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/battle.js';
+import { type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/battle.js';
 import { allHexes, hexKey, indiceDe } from '@core/battle/board.js';
-import { CHARGE_BONUS_PER_HEX, stackHp } from '@core/battle/damage.js';
 import {
   type EstadoDePuerta,
   hayMuralla,
@@ -29,7 +28,7 @@ import {
   rangoDeVeterania,
   type Side,
 } from '@core/battle/types.js';
-import { hexSize, isShooter } from '@core/data.js';
+import { hexSize, isShooter, tirosQueQuedan } from '@core/data.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { COMPRESION_SUELO } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
@@ -136,6 +135,19 @@ export interface VistaBatalla {
   readonly puntero: Punto | null;
   /** Dónde y cómo está cada figura ahora: lo dice el animador. */
   readonly figura: (s: BattleStack) => EstadoFigura;
+  /**
+   * Quién actúa en el tablero (aro, nombre y casilla resaltada): lo dice el
+   * animador (`BattleAnimator.activo`), que con algo por contar no es el turno
+   * del estado sino el de lo que se cuenta.
+   */
+  readonly activo: string | null;
+  /**
+   * Los dos que se cruzan en la rueda del golpe mientras está abierta (solo la
+   * arena, `EscenaBatalla.enLaRueda`): cada uno lleva un aro de más del color de
+   * su bando, que une la figura de la cabecera de la rueda con la del tablero
+   * (#261). `null` sin rueda, y siempre en el espectador.
+   */
+  readonly enLaRueda: { readonly atacante: string; readonly objetivo: string } | null;
   readonly efectos: readonly Efecto[];
   /** Los bandos sin dueño, que se tiñen de gris (`bandosSinDueño`); en la arena, ninguno. */
   readonly sinDueño: ReadonlySet<Side>;
@@ -179,15 +191,25 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   pintarFondo(ctx, v);
 
   const movibles = new Set(v.movibles.map(hexKey));
-  const enTurno = activeStack(battle);
-  const activo = enTurno !== null && isAlive(enTurno) ? enTurno : null;
+  // La figura de cada uno, una vez por fotograma: de ella salen también la
+  // casilla y la vida que se ven, que con algo por contar no son las del estado.
+  const todas = battle.stacks
+    .map((s) => ({ s, f: v.figura(s) }))
+    .sort((a, b) => a.f.en.y - b.f.en.y);
+  const porId = new Map(todas.map((x) => [x.s.id, x]));
+  // Quien actúa, si se le ve en pie: el que cae en la cola aún se ve.
+  const enTurno = v.activo === null ? undefined : porId.get(v.activo);
+  const activo = enTurno?.f.visible ? enTurno.s : null;
   const hexDeActivo = new Set<string>();
+  // Su casilla, la de la figura: mientras anda, ninguna.
+  const casillaDelActivo = enTurno?.f.casilla ?? null;
+  if (activo !== null && casillaDelActivo !== null) {
+    for (const h of stackHexes({ ...activo, hex: casillaDelActivo })) hexDeActivo.add(hexKey(h));
+  }
   const hexAtacables = new Set<string>();
   for (const s of battle.stacks) {
-    if (!isAlive(s)) continue;
-    const marcas = s.id === activo?.id ? hexDeActivo : v.atacables.has(s.id) ? hexAtacables : null;
-    if (marcas === null) continue;
-    for (const h of stackHexes(s)) marcas.add(hexKey(h));
+    if (!isAlive(s) || !v.atacables.has(s.id)) continue;
+    for (const h of stackHexes(s)) hexAtacables.add(hexKey(h));
   }
 
   // Las casillas desde las que se cargaría y los enemigos a los que se cargaría.
@@ -274,9 +296,6 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
 
   // 2 · Los cadáveres del suelo, debajo de todo lo que sigue en pie: se quedan
   // en su casilla hasta el final de la batalla, sin aro, sin barra y sin nombre.
-  const todas = battle.stacks
-    .map((s) => ({ s, f: v.figura(s) }))
-    .sort((a, b) => a.f.en.y - b.f.en.y);
   for (const { s, f } of todas) {
     if (f.caida !== null && f.elevacion === 0) pintarCadaver(ctx, v, s, f);
   }
@@ -284,7 +303,6 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   // 3 · Lo que se levanta del suelo, de atrás adelante (`piezasEnOrden`).
   const figuras = todas.filter(({ f }) => f.visible);
   const casillas = hexesDe(tablero);
-  const porId = new Map(todas.map((x) => [x.s.id, x]));
   // La figura de cada uno, la ya pedida al animador: una vez por fotograma.
   const yaPedida = (s: BattleStack): EstadoFigura => (porId.get(s.id) as { f: EstadoFigura }).f;
   const translucidas = columnasTranslucidas(
@@ -1291,12 +1309,9 @@ function pintarCargas(
   ctx.font = `bold ${Math.max(9, Math.round(t.paso * 0.22))}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (const { target, at, hexes } of cargas) {
+  for (const { target, at, hexes, porciento } of cargas) {
     const c = centroHex(t, at);
-    const texto =
-      angulo?.objetivo === target
-        ? `+${Math.round(hexes * CHARGE_BONUS_PER_HEX * 100)} %`
-        : `»${hexes}`;
+    const texto = angulo?.objetivo === target ? `+${porciento} %` : `»${hexes}`;
     ctx.lineWidth = 3;
     ctx.strokeStyle = '#2a1a0acc';
     ctx.strokeText(texto, c.x, c.y);
@@ -1487,6 +1502,13 @@ function pintarCadaver(
   });
 }
 
+/**
+ * Lo que mide el aro de quien se cruza en la rueda, por el de los pies: fuera del
+ * de su bando, del dorado de la activa y del de defender (×1,25), y dentro del
+ * del hechizo (×1,45).
+ */
+export const ARO_DE_LA_RUEDA = 1.3;
+
 function pintarUnidad(
   ctx: CanvasRenderingContext2D,
   v: VistaBatalla,
@@ -1517,6 +1539,13 @@ function pintarUnidad(
   ctx.beginPath();
   ctx.ellipse(x, suelo, rx, ry, 0, 0, Math.PI * 2);
   ctx.stroke();
+  if (v.enLaRueda !== null && (v.enLaRueda.atacante === s.id || v.enLaRueda.objetivo === s.id)) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(x, suelo, rx * ARO_DE_LA_RUEDA, ry * ARO_DE_LA_RUEDA, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   if (s.defending) {
     ctx.strokeStyle = '#9fc49a';
     ctx.lineWidth = 2;
@@ -1538,8 +1567,15 @@ function pintarUnidad(
   pintarFigura(ctx, figura);
 }
 
-/** Lo que va encima de la cabeza: dónde, y de qué ancho es la barra. */
-function cabezaDe(v: VistaBatalla, s: BattleStack, f: EstadoFigura) {
+/**
+ * Lo que va encima de la cabeza: dónde, y de qué ancho es la barra. Exportada
+ * para `pnpm capturas`, que mira en el lienzo la barra de vida que se pinta.
+ */
+export function cabezaDe(
+  v: Pick<VistaBatalla, 'tablero'>,
+  s: BattleStack,
+  f: Pick<EstadoFigura, 'en' | 'elevacion'>,
+) {
   const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
   const grande = hexSize(s.unit) > 1;
   return {
@@ -1679,19 +1715,24 @@ function pintarVida(
   f: EstadoFigura,
 ): void {
   const { x, y, anchoBarra } = cabezaDe(v, s, f);
-  const vida = Math.max(0, Math.min(1, stackHp(s) / Math.max(1, s.unit.hp * s.initialCount)));
+  // La vida que se ve (`EstadoFigura.pv`), no la del estado: con la cola llena,
+  // la del estado es la de después de todo lo que aún no se ha enseñado.
+  const vida = Math.max(0, Math.min(1, f.pv / Math.max(1, s.unit.hp * s.initialCount)));
   ctx.save();
   ctx.globalAlpha = f.alfaDelAro;
   ctx.fillStyle = 'rgba(12,10,6,0.85)';
   ctx.fillRect(x - anchoBarra / 2 - 1, y - 1, anchoBarra + 2, 6);
   ctx.fillStyle = vida > 0.5 ? '#9fc49a' : vida > 0.25 ? '#e0c060' : '#e3735a';
   ctx.fillRect(x - anchoBarra / 2, y, anchoBarra * vida, 4);
-  if (isShooter(s.unit) && s.shotsLeft > 0) {
+  // Los tiros que quedan, solo de quien los cuenta (la criatura del catálogo): el
+  // arma a distancia de la arena no lleva munición.
+  const tiros = tirosQueQuedan(s);
+  if (tiros !== null && tiros > 0) {
     ctx.fillStyle = '#9fc49a';
     ctx.font = `bold ${Math.max(9, Math.round(v.tablero.paso * 0.14))}px system-ui, sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`↑${s.shotsLeft}`, x + anchoBarra / 2 + 3, y + 2);
+    ctx.fillText(`↑${tiros}`, x + anchoBarra / 2 + 3, y + 2);
   }
   ctx.restore();
 }
@@ -1779,6 +1820,21 @@ function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): voi
       const y = p.y - alto - e.t * t.paso * 0.45;
       ctx.strokeText(`−${e.cifra}`, p.x, y);
       ctx.fillText(`−${e.cifra}`, p.x, y);
+      break;
+    }
+    case 'parado': {
+      // Lo que la armadura paró entero (#262): el mismo vuelo que la cifra, en el
+      // tono frío del metal, para que no se lea como un «−0».
+      const p = enPantalla(tableroA(t, e.alto), e.en);
+      ctx.globalAlpha = Math.min(1, (1 - e.t) * 3);
+      ctx.fillStyle = '#d6e2ee';
+      ctx.strokeStyle = '#10202e';
+      ctx.lineWidth = 3;
+      ctx.font = `bold ${Math.max(13, Math.round(t.paso * 0.24))}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      const y = p.y - alto - e.t * t.paso * 0.45;
+      ctx.strokeText('parado', p.x, y);
+      ctx.fillText('parado', p.x, y);
       break;
     }
   }

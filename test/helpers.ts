@@ -17,11 +17,15 @@ import {
   type HojaDeArena,
   type MontajeDeArena,
   type UnidadDeArena,
+  unidadDeCombate,
   unidadPorDefecto,
 } from '../src/core/arena.js';
 import {
   activeStack,
   applyAction,
+  type BattleMember,
+  type BattleSide,
+  createBattle,
   enemiesOf,
   legalActions,
   stackHexes,
@@ -29,6 +33,7 @@ import {
 import { hexDistance } from '../src/core/battle/board.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
+import type { ModoDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
 import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
@@ -1108,11 +1113,7 @@ export function montajeDePrueba(
   reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
 ): MontajeDeArena {
   const lado = (puestos: readonly PuestoDeLaPelea[]) => ({
-    unidades: puestos.map(({ unidad, escalera }) => ({
-      kind: 'borrador' as const,
-      unidad,
-      escalera: escalera === true,
-    })),
+    unidades: puestos.map(({ unidad, escalera }) => ({ unidad, escalera: escalera === true })),
     heroe: null,
   });
   return {
@@ -1134,16 +1135,64 @@ export function peleaDeArena(
   return batallaDeArena(montajeDePrueba(izquierda, derecha, muralla), rng);
 }
 
+/** Un puesto de `peleaDelMotor`: una unidad del borrador, con escalera y de dos casillas si se pide. */
+export interface PuestoDelMotor extends PuestoDeLaPelea {
+  readonly grande?: boolean;
+}
+
+/**
+ * La pelea de `peleaDeArena` por la vía del motor, sin la arena: cada unidad entra
+ * como personaje (`members`) con sus cifras de combate (`unidadDeCombate`) y, si
+ * se pide, de dos casillas. La arena ya no hace unidades grandes (13-10-2026:
+ * «todo el mundo un hexe»), pero el motor sí las juega —el dragón óseo del
+ * juego— y sus reglas con la muralla (la cola, la puerta, la escalera) se
+ * prueban así. Con las reglas del juego (`createBattle`). Con `heroes`, el de cada
+ * bando: es la puerta con la que se compara la de la arena (`batallaDeArena`).
+ */
+export function peleaDelMotor(
+  izquierda: readonly PuestoDelMotor[],
+  derecha: readonly PuestoDelMotor[],
+  rng: Rng,
+  muralla: MurallaDeBatalla = SIN_MURALLA,
+  heroes: { readonly izquierda: BattleSide['hero']; readonly derecha: BattleSide['hero'] } = {
+    izquierda: null,
+    derecha: null,
+  },
+): BattleState {
+  const lado = (puestos: readonly PuestoDelMotor[], hero: BattleSide['hero']): BattleSide => {
+    const members = new Map<string, BattleMember>();
+    const army: Stack[] = puestos.map(({ unidad, escalera, grande }, i) => {
+      const cifras = unidadDeCombate(unidad, DEL_JUEGO);
+      const unit = grande === true ? { ...cifras, hexes: 2 } : cifras;
+      const member = `motor-${i}`;
+      members.set(member, {
+        profile: { unit, morale: 0, luck: 0 },
+        hp: unit.hp,
+        escalera: escalera === true,
+      });
+      return { creature: unidad.cuerpo.hoja, member, count: 1 };
+    });
+    return { army, hero, members };
+  };
+  return createBattle(
+    lado(izquierda, heroes.izquierda),
+    lado(derecha, heroes.derecha),
+    rng,
+    muralla,
+  );
+}
+
 /**
  * Una sesión de la arena con unidades del borrador, sin héroes, sin empezar. Quién
  * mueve va en cada puesto por comodidad, pero la sesión mueve cada bando entero:
- * un bando con puestos de los dos es un error del test.
+ * un bando con puestos de los dos es un error del test. En `o`, la muralla del
+ * tablero y cómo cae el golpe (la rueda, para las pruebas de la rueda).
  */
 export function sesionDeArena(
   izquierda: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   derecha: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   semilla: number,
-  muralla: MurallaDeBatalla = SIN_MURALLA,
+  o: { readonly muralla?: MurallaDeBatalla; readonly golpe?: ModoDelGolpe } = {},
 ): SesionDeArena {
   const lado = (puestos: readonly (PuestoDeLaPelea & { readonly ia: boolean })[]) => {
     const ia = puestos.every((p) => p.ia);
@@ -1159,13 +1208,53 @@ export function sesionDeArena(
       izquierda: lado(izquierda),
       derecha: lado(derecha),
       ...MONTAJE,
-      muralla,
+      muralla: o.muralla ?? SIN_MURALLA,
+      ...(o.golpe === undefined ? {} : { modos: { golpe: o.golpe } }),
     },
     semilla,
   );
 }
 
+/**
+ * Juega la sesión hasta que la rueda le pide algo a la persona (`fase`, si se
+ * dice; la otra se contesta con Normal y se sigue): si `golpea`, golpea en cuanto
+ * puede y si no se acerca al enemigo más cercano; si no, se defiende. Siempre
+ * igual con la misma semilla. Lo usan las pruebas de la rueda.
+ */
+export function hastaLaRueda(
+  s: SesionDeArena,
+  golpea: boolean,
+  fase?: 'golpe' | 'respuesta',
+): void {
+  for (let i = 0; i < 300 && s.battle.finished === null; i++) {
+    const pendiente = s.ruedaPendiente;
+    if (pendiente !== null && (fase === undefined || pendiente.fase === fase)) return;
+    if (pendiente !== null) {
+      s.elegirEnLaRueda('normal');
+      continue;
+    }
+    const turno = s.turnoPropio;
+    if (turno === null) throw new Error('la sesión devuelve el control sin turno ni rueda');
+    const legales = s.battleLegalActions();
+    const ataque = legales.find((a) => a.type === 'attack');
+    const enemigos = s.battle.stacks.filter((x) => x.side !== turno.side && x.count > 0);
+    const cerca = (h: { col: number; row: number }): number =>
+      Math.min(...enemigos.map((e) => hexDistance(h, e.hex)));
+    const acercarse = legales
+      .flatMap((a) => (a.type === 'move' ? [a] : []))
+      .sort((a, b) => cerca(a.to) - cerca(b.to))[0];
+    if (golpea && ataque !== undefined) s.playBattleAction(ataque);
+    else if (golpea && acercarse !== undefined && turno.battle.turno?.gastado === 0)
+      s.playBattleAction(acercarse);
+    else
+      s.playBattleAction(
+        legales.some((a) => a.type === 'defend') ? { type: 'defend' } : { type: 'end_turn' },
+      );
+  }
+  throw new Error('la rueda no pide nada');
+}
+
 /** Una unidad del borrador como fuente del montaje de la arena. */
 export function delBorrador(unidad: UnidadDeArena, escalera = false): FuenteDeArena {
-  return escalera ? { kind: 'borrador', unidad, escalera } : { kind: 'borrador', unidad };
+  return escalera ? { unidad, escalera } : { unidad };
 }

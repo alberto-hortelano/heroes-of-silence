@@ -271,6 +271,9 @@ function pintarTodo(ahora: number): void {
         hoverStack: null,
         puntero: null,
         figura: (s) => mirada.reproductor.animador.figura(s),
+        activo: mirada.reproductor.animador.activo(enCurso),
+        // La rueda del golpe es solo de la arena.
+        enLaRueda: null,
         efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),
       });

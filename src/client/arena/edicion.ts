@@ -6,13 +6,13 @@
  *
  * Puro, sin DOM, y por eso con tests (`test/arena-edicion.test.ts`). Las fichas
  * mismas no se pintan aquí: el cuerpo de cada una lo da `main.ts` con
- * `renderFicha` / `renderFichaDeCatalogo`, las de siempre, sin copia.
+ * `renderFicha`, la de siempre, sin copia.
  */
 import { type Html, html, unir } from '../html.js';
 import type { Elegida } from './paneles.js';
 
-/** Lo que se abre en la vista de edición: una unidad o una criatura del catálogo (los héroes, no). */
-export type FichaEditable = Extract<Elegida, { readonly kind: 'unidad' | 'catalogo' }>;
+/** Lo que se abre en la vista de edición: una unidad (los héroes, no). */
+export type FichaEditable = Extract<Elegida, { readonly kind: 'unidad' }>;
 
 /** Lo que se dice cuando lo recordado no se entiende. */
 const NO_SE_LEEN = 'No se leen las fichas que estaban abiertas: se empieza sin ninguna.';
@@ -28,28 +28,22 @@ export function claveDeFicha(e: Elegida): string {
 
 /**
  * Un `tipo:id` partido por sus primeros dos puntos (el id puede llevar más), o
- * `null` si no los lleva. La forma de las claves de ficha y de los cuerpos de
- * «Nueva unidad» (`hoja:<id>`, `criatura:<id>`).
+ * `null` si no los lleva. La forma de las claves de ficha.
  */
-export function partirClave(clave: string): { readonly tipo: string; readonly id: string } | null {
+function partirClave(clave: string): { readonly tipo: string; readonly id: string } | null {
   const dos = clave.indexOf(':');
   return dos < 0 ? null : { tipo: clave.slice(0, dos), id: clave.slice(dos + 1) };
 }
 
-/**
- * La inversa de `claveDeFicha`, para las tres: lo que no entiende lo dice. Lee
- * también `hoja:<id>`, la de antes de las unidades nuevas (lo recordado en
- * `localStorage`): la unidad de una hoja tiene el id de su hoja.
- */
+/** La inversa de `claveDeFicha`: lo que no entiende lo dice. */
 export function fichaDeClave(clave: string): Elegida {
   const { tipo, id } = partirClave(clave) ?? { tipo: null, id: '' };
-  if (id !== '' && (tipo === 'unidad' || tipo === 'hoja')) return { kind: 'unidad', id };
-  if (id !== '' && tipo === 'catalogo') return { kind: tipo, id };
+  if (id !== '' && tipo === 'unidad') return { kind: 'unidad', id };
   if (tipo === 'heroe' && (id === 'izquierda' || id === 'derecha')) {
     return { kind: tipo, lado: id };
   }
   throw new Error(
-    `«${clave}» no es la clave de una ficha: se esperaba «unidad:<id>», «catalogo:<id>» o «heroe:<izquierda|derecha>»`,
+    `«${clave}» no es la clave de una ficha: se esperaba «unidad:<id>» o «heroe:<izquierda|derecha>»`,
   );
 }
 
@@ -152,8 +146,10 @@ export function abiertasATexto(abiertas: readonly FichaEditable[]): string {
  * Lo que había abierto la última vez, leído de `localStorage` (`null` si no
  * había nada): se vuelve a abrir una a una con `abrirFicha`, la misma regla que
  * el gesto. Es una comodidad, no un dato: lo ilegible se dice y se empieza sin
- * ninguna; lo que ya no se puede abrir (`sePuede` dice que no: la hoja se borró,
- * o quedó a medias en el taller) y lo repetido se quita diciéndolo.
+ * ninguna; lo que no es una clave de hoy (la de una criatura del catálogo o la
+ * `hoja:<id>` de antes de las unidades nuevas, 14-10-2026: sin compatibilidad
+ * hacia atrás), lo que ya no se puede abrir (`sePuede` dice que no: la hoja se
+ * borró, o quedó a medias en el taller) y lo repetido se quita diciéndolo.
  */
 export function leerAbiertas(
   texto: string | null,

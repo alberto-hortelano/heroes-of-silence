@@ -24,7 +24,13 @@ import { validarMuralla } from '../src/core/battle/muralla.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import { escribirMurallas, leerMurallas, RUTA_DE_MURALLAS } from '../tools/arena/borrador.js';
-import { aPelear, montajeDePrueba, peleaDeArena, sesionDeArena, unidadDeArena } from './helpers.js';
+import {
+  aPelear,
+  montajeDePrueba,
+  peleaDelMotor,
+  sesionDeArena,
+  unidadDeArena,
+} from './helpers.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const unidad = unidadDeArena;
@@ -44,11 +50,14 @@ describe('las formas de ejemplo', () => {
       'Muralla gruesa',
       'Semicírculo grueso',
     ]);
-    const grandes = Array.from({ length: LIDERAZGO.maxPorBando }, () =>
-      unidad('troll-maza', { hexes: 2 }),
-    );
+    // Grandes por el motor: la arena ya no las hace (13-10-2026), y el despliegue
+    // junto a los muros es del motor.
+    const grandes = Array.from({ length: LIDERAZGO.maxPorBando }, () => ({
+      unidad: unidad('troll-maza'),
+      grande: true,
+    }));
     for (const f of FORMAS_DE_EJEMPLO) {
-      const b = peleaDeArena(aPelear(grandes), aPelear(grandes), createRng(1), f.muralla);
+      const b = peleaDelMotor(grandes, grandes, createRng(1), f.muralla);
       const cerradas = new Set(f.muralla.muros.map(hexKey));
       for (const s of b.stacks) {
         for (const h of stackHexes(s)) expect(cerradas.has(hexKey(h)), f.nombre).toBe(false);
@@ -217,15 +226,14 @@ describe('el borrador de murallas', () => {
 describe('la arena pelea con la muralla', () => {
   it('con la línea recta y todo cuerpo a cuerpo, se acaba por tiempo y lo dice', () => {
     const linea = FORMAS_DE_EJEMPLO[0]!.muralla;
-    // El zombi no tira, y de dos casillas no sube a la muralla: nadie la cruza,
-    // ni por arriba.
-    const grande = unidad('zombi', { hexes: 2 });
-    expect(grande.shots).toBeUndefined();
+    // El zombi no tira ni escala, y sin escalera no sube a la muralla desde fuera:
+    // nadie la cruza.
+    const zombi = unidad('zombi');
     const s = sesionDeArena(
-      [{ unidad: grande, ia: true, escalera: false }],
-      [{ unidad: grande, ia: true, escalera: false }],
+      [{ unidad: zombi, ia: true, escalera: false }],
+      [{ unidad: zombi, ia: true, escalera: false }],
       5,
-      linea,
+      { muralla: linea },
     );
     s.empezar();
     expect(s.battle.muralla).toEqual(linea);
@@ -239,7 +247,7 @@ describe('la arena pelea con la muralla', () => {
       [{ unidad: unidad('zombi'), ia: false, escalera: false }],
       [{ unidad: unidad('zombi'), ia: true, escalera: false }],
       5,
-      conPuerta,
+      { muralla: conPuerta },
     );
     s.empezar();
     expect(s.turnoPropio).not.toBeNull();

@@ -1,0 +1,5 @@
+{
+  "_comment": "Cuánto cobra una carga, por casilla de la recta y hasta qué tope (src/core/battle/carga.ts; la recta, CARGA_MINIMA = 3 casillas en línea recta con el objetivo en ella, la dice cargaDesde). jinete: quien tiene el rasgo charge, en el juego y en la arena; +10 % por casilla hasta 5 es REGLA NUESTRA del 02-10-2026 y el juego juega con ella (pnpm banco). aPie: todo el que pega cuerpo a cuerpo en la ARENA sin el rasgo (#260, 14-10-2026); +5 % por casilla hasta 5 es INVENTADO y PROVISIONAL (decisión del usuario: «todos los que pegan cuerpo a cuerpo, y el jinete más»; tope 5, como el jinete). El juego no carga a pie. porcentaje y tope, enteros ≥ 1; el tope, CARGA_MINIMA o más (con menos, la recta más corta ya pasaría del tope).",
+  "jinete": { "porcentaje": 10, "tope": 5 },
+  "aPie": { "porcentaje": 5, "tope": 5 }
+}

@@ -17,6 +17,8 @@
  * el golpe (`opcionesDeDanio`).
  */
 import { describe, expect, it } from 'vitest';
+import { textoDePrevision } from '../src/client/views/prevision.js';
+import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/arena.js';
 import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
 import {
   applyAction,
@@ -31,6 +33,7 @@ import {
 import { hexEquals } from '../src/core/battle/board.js';
 import type { Horquilla, RamaDeSuerte } from '../src/core/battle/damage.js';
 import { applyEffect } from '../src/core/battle/effects.js';
+import { MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { NOMBRES_DE_REGLA, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
 import { delHeroe, efectoDe, spell } from '../src/core/battle/spells.js';
@@ -41,9 +44,10 @@ import type {
   BattleState,
 } from '../src/core/battle/types.js';
 import { creature, MURALLA } from '../src/core/data.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import type { Hex } from '../src/core/types.js';
-import { bando, mando as mandoDePrueba } from './batalla-de-prueba.js';
+import type { EquipoDeArena, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
+import { bando, bandoDe, mando as mandoDePrueba } from './batalla-de-prueba.js';
 import { dadoCargado } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
@@ -124,6 +128,32 @@ function bendecirYMaldecir(b: BattleState): void {
   applyEffect(a, efecto('bless'));
   applyEffect(d, efecto('curse'));
 }
+
+/**
+ * Una unidad de la arena con armas por uso (13-10-2026): el cuerpo común con su
+ * equipo, de uno. Cada golpe va con las cifras de su arma (`cifrasDelGolpe`).
+ */
+function deLaArena(
+  nombre: string,
+  equipo: EquipoDeArena,
+  speed: SpeedTier = 'average',
+  traits: UnitInfo['traits'] = [],
+): BattleSide {
+  const { attack, defense, damage, hp } = CUERPO_COMUN;
+  const cuerpo: UnitInfo = {
+    name: nombre,
+    faction: null,
+    attack,
+    defense,
+    damage,
+    hp,
+    speed,
+    traits,
+  };
+  return bandoDe([{ id: nombre, unit: EQUIPO_DEL_JUEGO.conEquipo(cuerpo, equipo) }]);
+}
+const ARQUERO_DE_LA_ARENA = KIT_DEL_PERFIL.arco.equipo;
+const JINETE_DE_LA_ARENA = KIT_DEL_PERFIL['montado-lanza'].equipo;
 
 /** La línea recta de la arena (la columna 7 entera) y una casilla de lo alto. */
 const LINEA_RECTA = FORMAS_DE_EJEMPLO[0]!.muralla;
@@ -249,6 +279,57 @@ const ESCENARIOS: readonly Escenario[] = [
     muralla: LINEA_RECTA,
   },
   {
+    nombre: 'arquero de la arena: dispara con el arco',
+    izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
+    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    en: { col: 1, row: 4 },
+    contra: { col: 4, row: 4 },
+    accion: disparo,
+  },
+  {
+    nombre: 'arquero de la arena pegado: golpe con la daga y contraataque con la daga',
+    izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
+    derecha: () => deLaArena('otro', ARQUERO_DE_LA_ARENA),
+    en: { col: 5, row: 4 },
+    contra: { col: 6, row: 4 },
+    accion: golpe(),
+  },
+  {
+    nombre: 'jinete de la arena: carga con la lanza y le devuelven el golpe',
+    izquierda: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 'very_fast', ['charge']),
+    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    en: { col: 3, row: 4 },
+    contra: { col: 7, row: 4 },
+    accion: golpe({ col: 6, row: 4 }),
+  },
+  // La armadura de la arena (#262): se resta lo último de cada golpe, y la
+  // previsión con la misma resta (`trasLaArmadura`).
+  {
+    nombre: 'armadura: el arco contra la brigantina y el escudo del templario',
+    izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
+    derecha: () => deLaArena('templario', KIT_DEL_PERFIL['espada-escudo'].equipo),
+    en: { col: 1, row: 4 },
+    contra: { col: 4, row: 4 },
+    accion: disparo,
+  },
+  {
+    nombre: 'armadura: la daga contra la barda del jinete, que la para entera',
+    izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
+    derecha: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 'very_fast', ['charge']),
+    en: { col: 5, row: 4 },
+    contra: { col: 6, row: 4 },
+    accion: golpe(),
+  },
+  {
+    nombre: 'armadura: Flecha mágica sobre el templario',
+    izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
+    derecha: () => deLaArena('templario', KIT_DEL_PERFIL['espada-escudo'].equipo),
+    en: { col: 5, row: 4 },
+    contra: { col: 8, row: 4 },
+    accion: lanza('magic_arrow'),
+    sinDado: true,
+  },
+  {
     nombre: 'Flecha mágica',
     izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
     derecha: () => bando([{ creature: 'pikeman', count: 3 }]),
@@ -284,13 +365,9 @@ const ESCENARIOS: readonly Escenario[] = [
 const ACCIONES = new Map<Escenario, BattleAction>();
 
 function montar(e: Escenario, reglas: ReglasDeBatalla, rng: Rng): Montado {
-  const b = crearBatallaConReglas(
-    e.izquierda(),
-    e.derecha(),
-    rng,
-    reglas,
-    e.muralla ?? SIN_MURALLA,
-  );
+  const b = crearBatallaConReglas(e.izquierda(), e.derecha(), rng, reglas, {
+    muralla: e.muralla ?? SIN_MURALLA,
+  });
   stackById(b, 'attacker-0').hex = e.en;
   stackById(b, 'defender-0').hex = e.contra;
   e.antes?.(b);
@@ -481,6 +558,53 @@ describe('la previsión de daño cae en el daño real', () => {
     expect(enLoAlto(0)).not.toContain('tirador con flechas cuerpo a cuerpo (fheroes2)');
   });
 
+  it('con armas por uso (la arena), lo primero que dice es con qué arma pega cada golpe', () => {
+    const golpeDe = (nombre: string): PrevisionDeGolpe => {
+      const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
+      const { b, accion } = montar(e, reglasDe(0), createRng(1));
+      return previsionDe(b, accion) as PrevisionDeGolpe;
+    };
+    expect(golpeDe('arquero de la arena: dispara').modificadores[0]?.causa).toBe(
+      'con Arco (a distancia)',
+    );
+    const pegado = golpeDe('arquero de la arena pegado');
+    expect(pegado.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
+    expect(pegado.contraataque?.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
+    const carga = golpeDe('jinete de la arena');
+    expect(carga.modificadores.map((m) => m.causa)).toEqual([
+      'con Lanza de jinete (en la carga)',
+      'ataque 10 contra defensa 9',
+      'carga de 3 casillas',
+    ]);
+    // La tropa del catálogo no tiene armas por uso: ni una palabra de ellas.
+    expect(carga.contraataque?.modificadores[0]?.causa).toMatch(/^ataque /);
+  });
+
+  it('con armadura (la arena), la cuenta lo dice lo último: «−7 armadura»', () => {
+    const prevista = (nombre: string): Prevision => {
+      const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
+      const { b, accion } = montar(e, reglasDe(0), createRng(1));
+      return previsionDe(b, accion)!;
+    };
+    // El arco (5 contra 7: ×0,95) da 20–30 → 19–29, menos los 7 de la brigantina.
+    const arco = prevista('armadura: el arco') as PrevisionDeGolpe;
+    expect(arco.danio).toEqual({ min: 12, max: 22 });
+    expect(arco.modificadores.at(-1)).toEqual({ causa: '−7 armadura', factor: null });
+    expect(textoDePrevision(arco, (id) => id)).toContain('; −7 armadura.');
+    // La daga (4 contra 8: ×0,9) da 10–20 → 9–18: la barda (22) lo para todo, y
+    // el contraataque del jinete (espada, 20–40) contra el jubón (2) sí llega.
+    const daga = prevista('armadura: la daga') as PrevisionDeGolpe;
+    expect(daga.danio).toEqual({ min: 0, max: 0 });
+    expect(daga.modificadores.at(-1)?.causa).toBe('−22 armadura');
+    expect(daga.contraataque?.modificadores.at(-1)?.causa).toBe('−2 armadura');
+    // El hechizo, con la misma resta: lo que llega, sin la cuenta.
+    const flecha = prevista('armadura: Flecha mágica');
+    if (flecha.kind !== 'hechizo') throw new Error('sin previsión de hechizo');
+    const sinArmadura = prevista('Flecha mágica');
+    if (sinArmadura.kind !== 'hechizo') throw new Error('sin previsión de hechizo');
+    expect(flecha.danio).toBe((sinArmadura.danio ?? 0) - 7);
+  });
+
   it('la muralla tapa el disparo en el suelo, y la previsión lo dice con el motivo del núcleo', () => {
     const e = ESCENARIOS.find((x) => x.nombre.startsWith('disparo al tirador en lo alto'))!;
     for (const mascara of MASCARAS) {
@@ -502,5 +626,67 @@ describe('la previsión de daño cae en el daño real', () => {
       'no se puede lanzar: este bando no tiene héroe',
     );
     expect(previsionDe(b, { type: 'defend' })).toBeNull();
+  });
+});
+
+describe('con la rueda del golpe, cada sector prevé el daño que cae (la arena)', () => {
+  // Las parejas: dos piqueros, el paladín (doble golpe) contra esqueletos con suerte
+  // en contra, y el dragón óseo (deja miedo al golpear) contra espadachines.
+  const PAREJAS: readonly (readonly [string, number, string, number, number])[] = [
+    ['pikeman', 10, 'pikeman', 10, 0],
+    ['paladin', 3, 'skeleton', 40, 2],
+    ['bone_dragon', 1, 'swordsman', 6, -1],
+  ];
+  const TIPOS = [
+    'rapido',
+    'defensivo',
+    'finta',
+    'fuerte',
+    'romperGuardia',
+    'ofensivo',
+    'normal',
+  ] as const;
+
+  it('el golpe de cada tipo, contra cada respuesta, cae en la horquilla de su sector; el mínimo y el máximo, justos', () => {
+    let vistos = 0;
+    for (const [atacante, n, defensor, m, suerte] of PAREJAS) {
+      for (const golpe of TIPOS) {
+        for (const respuesta of TIPOS) {
+          for (const semilla of SEMILLAS.slice(0, 5)) {
+            const que = `${atacante} ${golpe} contra ${defensor} ${respuesta}, semilla ${semilla}`;
+            const rng = createRng(semilla);
+            const b = crearBatallaConReglas(
+              bando([{ creature: atacante, count: n }], { suerte }),
+              bando([{ creature: defensor, count: m }]),
+              rng,
+              reglasDe(0),
+              { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
+            );
+            stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
+            stackById(b, 'defender-0').hex = { col: 6, row: 4 };
+            b.turno = { n: 1, stack: 'attacker-0', gastado: 0 };
+            const p = previsionDe(b, { type: 'attack', target: 'defender-0', golpe });
+            if (p === null || p.kind !== 'golpe') throw new Error(`${que}: sin previsión`);
+            const desde = b.log.length;
+            applyAction(b, { type: 'attack', target: 'defender-0', golpe, respuesta }, rng);
+            const mios = golpesDe(b.log.slice(desde)).filter((g) => !g.retaliation);
+            expect(mios.length, que).toBeGreaterThan(0);
+            expect(mios.length, que).toBeLessThanOrEqual(p.golpes);
+            for (const g of mios) dentro(g.damage, rama(p, g.suerte, que), que);
+            // Sin suerte, el primero cae justo en la punta que dice el cruce.
+            const cruce = b.log.find((e) => e.kind === 'cruce');
+            const primero = mios[0];
+            if (cruce?.kind === 'cruce' && primero !== undefined && primero.suerte === undefined) {
+              if (cruce.punto === 0 && golpe !== 'normal')
+                expect(primero.damage, que).toBe(p.danio.min);
+              if (cruce.punto === 4) expect(primero.damage, que).toBe(p.danio.max);
+              if (golpe === 'normal') expect(primero.damage, que).toBe(p.danio.min);
+            }
+            vistos++;
+          }
+        }
+      }
+    }
+    expect(vistos).toBe(PAREJAS.length * TIPOS.length * TIPOS.length * 5);
   });
 });

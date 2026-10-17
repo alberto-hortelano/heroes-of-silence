@@ -13,6 +13,7 @@ import {
   PIEZAS_DE_ARMERIA,
   type Portador,
   pieza,
+  piezaDelJuego,
   valorDePieza,
 } from '../hero/equipo.js';
 import { cifrasDeCatalogo, rangoDeTropa } from '../hero/experiencia.js';
@@ -678,7 +679,7 @@ function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Eq
 
 /** Lo que gana `equipo` llevando `id` en vez de lo que lleve en ese hueco. */
 function mejora(equipo: Equipo, id: string): number {
-  const nueva = pieza(id);
+  const nueva = piezaDelJuego(id);
   const actual = equipo[nueva.hueco];
   return valorDePieza(nueva) - (actual === undefined ? 0 : valorDePieza(pieza(actual)));
 }

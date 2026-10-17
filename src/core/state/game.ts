@@ -111,6 +111,7 @@ import {
   canAfford,
   describirCoste,
   EMPTY_RESOURCES,
+  enumerar,
   type Hueco,
   subtractResources,
 } from '../types.js';
@@ -1993,9 +1994,7 @@ export function porQueNoLlega(state: GameState, hero: Hero, to: Point): string {
   );
   const cierran = (bastan.length > 0 ? bastan : delante).map((at) => queLoCierra(state, hero, at));
   if (cierran.length === 0) return frase;
-  const lista =
-    cierran.length === 1 ? cierran[0] : `${cierran.slice(0, -1).join(', ')} y ${cierran.at(-1)}`;
-  return `${frase}: ${cierran.length === 1 ? 'lo cierra' : 'lo cierran'} ${lista}`;
+  return `${frase}: ${cierran.length === 1 ? 'lo cierra' : 'lo cierran'} ${enumerar(cierran)}`;
 }
 
 /** Qué hostil hay en esa casilla, con nombre: el héroe va antes, como en `enemyAt`. */

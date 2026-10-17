@@ -14,12 +14,21 @@
  * `main.ts` no manda clics, porque el tablero que se ve aún no es el del estado.
  * Lo usan los dos lienzos: el cliente que juega y el espectador.
  *
+ * **La vida y quién actúa también van al ritmo de la cola** (H6 de la QA de la
+ * rueda, 13-10-2026): el estado ya trae el final de todo lo que se cuenta —con
+ * todo en IA, el final de la pelea—, así que la barra de cada unidad se queda en
+ * la vida de su último impacto visto (`EstadoFigura.pv`) y el aro, en quien
+ * actúa en el paso que se cuenta (`activo`). Antes, el tablero enseñaba quién
+ * moría antes que la rueda y la animación.
+ *
  * Lo que NO se anima: lo que el rival hizo antes de que la batalla se viera por
  * primera vez. El registro dice a dónde fue cada unidad, no de dónde venía, así
  * que la primera lectura de una batalla toma las posiciones tal y como están.
  */
 import { isAlive, stackHexes } from '@core/battle/battle.js';
+import { stackHp, trasElGolpe } from '@core/battle/damage.js';
 import { nivelDe } from '@core/battle/muralla.js';
+import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleEvent, BattleStack, BattleState } from '@core/battle/types.js';
 import { hexSize } from '@core/data.js';
 import type { Hex } from '@core/types.js';
@@ -40,10 +49,20 @@ export const DURACION = {
   shoot: 620,
   cast: 520,
   perished: 520,
+  /**
+   * El desenlace de la rueda del golpe (la arena): la rueda gira y se para, caen
+   * los marcadores, se enciende el arco y sale el rótulo. Es el reloj de la rueda
+   * entera: el diálogo pinta cada tramo según lo que lleve este paso.
+   */
+  cruce: 1900,
 } as const;
 
-/** En qué fracción del paso se nota el impacto si nada dice otra cosa: el retroceso y la cifra. */
-const IMPACTO = 0.55;
+/**
+ * En qué fracción del paso se nota el impacto si nada dice otra cosa: el
+ * retroceso, la cifra y la barra que baja. Exportada para `pnpm capturas`, que
+ * mira que la barra no baje antes.
+ */
+export const IMPACTO = 0.55;
 
 /** Lo que vuela el proyectil de un disparo con suelta, de la suelta al impacto. */
 export const VUELO_MS = 340;
@@ -105,6 +124,8 @@ type Paso =
       readonly stack: string;
       readonly desde: Plano;
       readonly hasta: Plano;
+      /** La casilla de `hasta`: donde se la ve quieta al acabar (`EstadoFigura.casilla`). */
+      readonly casilla: Hex;
       /**
        * Las casillas por las que se anda, de `desde` a `hasta` las dos
        * incluidas: el camino del motor (`path` del hecho). Interpolar en recta
@@ -127,6 +148,10 @@ type Paso =
       readonly stack: string;
       readonly target: string;
       readonly damage: number;
+      /** Lo que paró la armadura del objetivo (la arena, #262); 0 sin ella. */
+      readonly parado: number;
+      /** Es un contraataque: quien pega no es quien actúa (`activo`). */
+      readonly devuelto: boolean;
     } & Reloj)
   /**
    * Un hechizo. `lanza`, la unidad que lo lanza con su poder (la arena: Curar,
@@ -138,8 +163,14 @@ type Paso =
       readonly lanza: string | null;
       readonly target: string | null;
       readonly damage: number;
+      /** Lo que paró la armadura del objetivo, como en el golpe. */
+      readonly parado: number;
+      /** Los PV que repuso, si cura: el poder lo dice (`power.cura`); el hechizo del héroe, no. */
+      readonly cura: number;
     } & Reloj)
-  | { readonly tipo: 'perished'; readonly stack: string; readonly dura: number };
+  | { readonly tipo: 'perished'; readonly stack: string; readonly dura: number }
+  /** El cruce de la rueda del golpe: nadie se mueve; lo cuenta el diálogo de la rueda. */
+  | { readonly tipo: 'cruce'; readonly evento: HechoDelCruce; readonly dura: number };
 
 /** Lo que el lienzo necesita de una figura en este instante. */
 export interface EstadoFigura {
@@ -175,6 +206,60 @@ export interface EstadoFigura {
    * miró la última vez. Es estado del animador, no del núcleo.
    */
   readonly mira: Direccion;
+  /**
+   * Los PV que se ven en su barra: los de su último impacto ya contado, no los
+   * del estado, que ya trae lo que la cola aún no ha enseñado. Con nada suyo por
+   * contar, los del estado.
+   */
+  readonly pv: number;
+  /**
+   * La casilla de cabeza en la que se la ve quieta —la de antes de un tramo que
+   * aún no ha andado—, o `null` mientras anda: el resaltado del activo va donde
+   * está la figura, no donde la deja el estado.
+   */
+  readonly casilla: Hex | null;
+}
+
+/** La vida de una unidad como la escribe el núcleo: lo que cambia un golpe. */
+type Vida = Pick<BattleStack, 'count' | 'topHp'>;
+
+/**
+ * Las unidades cuya vida cambia un paso al llegar su impacto. Quien pega cuenta
+ * también: el drenaje del vampiro no va en el registro, y así su barra no se
+ * queda con lo del estado mientras su golpe espera en la cola.
+ */
+function tocadosPor(p: Paso): readonly string[] {
+  switch (p.tipo) {
+    case 'attack':
+      return [p.target, p.stack];
+    case 'shoot':
+      return [p.target];
+    case 'cast':
+      return p.target === null ? [] : [p.target];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Quién actúa en el paso `p`, o `null` si el paso no cambia de actor: un
+ * contraataque, una caída o el hechizo del héroe, que no gasta el turno de nadie.
+ */
+function actorDe(p: Paso): string | null {
+  switch (p.tipo) {
+    case 'move':
+      return p.stack;
+    case 'attack':
+      return p.devuelto ? null : p.stack;
+    case 'shoot':
+      return p.stack;
+    case 'cast':
+      return p.lanza;
+    case 'cruce':
+      return p.evento.stack;
+    case 'perished':
+      return null;
+  }
 }
 
 /**
@@ -207,6 +292,8 @@ export type Efecto =
       readonly cifra: number;
       readonly t: number;
     }
+  /** Un golpe que la armadura paró entero (#262): en vez de «−0», «parado». */
+  | { readonly tipo: 'parado'; readonly en: Plano; readonly alto: number; readonly t: number }
   | { readonly tipo: 'hechizo'; readonly en: Plano; readonly alto: number; readonly t: number };
 
 /**
@@ -282,6 +369,8 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
         stack: e.stack,
         target: e.target,
         damage: e.damage,
+        parado: e.parado ?? 0,
+        devuelto: e.retaliation,
         dura: DURACION.attack,
         impacto: IMPACTO,
         suelta: null,
@@ -294,6 +383,8 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
         stack: e.stack,
         target: e.target,
         damage: e.damage,
+        parado: e.parado ?? 0,
+        devuelto: false,
         ...relojDelDisparo(body),
       };
     }
@@ -305,12 +396,16 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
         lanza: e.kind === 'power' ? e.stack : null,
         target: e.target ?? null,
         damage: e.kind === 'cast' ? (e.damage ?? 0) : 0,
+        parado: e.kind === 'cast' ? (e.parado ?? 0) : 0,
+        cura: e.kind === 'power' ? (e.cura ?? 0) : 0,
         dura: DURACION.cast,
         impacto: IMPACTO,
         suelta: null,
       };
     case 'perished':
       return { tipo: 'perished', stack: e.stack, dura: DURACION.perished };
+    case 'cruce':
+      return { tipo: 'cruce', evento: e, dura: DURACION.cruce };
     default:
       return null;
   }
@@ -326,21 +421,15 @@ function altoDeFigura(s: BattleStack): number {
  * registro de `battle`: la misma cuenta que hace con su cola, para quien tiene
  * que esperar a que acabe de contar —el guion de capturas— sin un reloj propio
  * que se quede atrás. Un tramo son sus casillas (`path`) al paso de quien anda,
- * con la carga si el golpe que lo sigue carga.
+ * con la carga si el tramo es una carrera de carga (`charge` de su `move`).
  */
 export function duracionDeLaJugada(battle: BattleState, nuevos: readonly BattleEvent[]): number {
   let ms = 0;
-  for (const [i, e] of nuevos.entries()) {
+  for (const e of nuevos) {
     if (e.kind === 'move' || e.kind === 'climbed') {
       // Subir es un paso de una casilla, a la marcha.
       const s = stackDe(battle, e.stack, e.kind === 'move' ? 'mueve' : 'hace subir');
-      const siguiente = nuevos[i + 1];
-      const carga =
-        e.kind === 'move' &&
-        siguiente?.kind === 'attack' &&
-        siguiente.stack === e.stack &&
-        siguiente.charge !== undefined &&
-        !siguiente.retaliation;
+      const carga = e.kind === 'move' && e.charge === true;
       const casillas = e.kind === 'move' ? e.path.length : 1;
       ms += casillas * msPorCasilla(s.body, carga ? 'charge' : 'walk', altoDeFigura(s));
     } else {
@@ -349,6 +438,11 @@ export function duracionDeLaJugada(battle: BattleState, nuevos: readonly BattleE
     }
   }
   return ms;
+}
+
+/** La vida de `s` como está escrita: una copia, que el núcleo la cambia en el sitio. */
+function vidaDe(s: BattleStack): Vida {
+  return { count: s.count, topHp: s.topHp };
 }
 
 /** Cada bando sale mirando al otro: el atacante al este, el defensor al oeste. */
@@ -361,7 +455,8 @@ export class BattleAnimator {
   private identidad: unknown = null;
   private leidos = 0;
   private readonly cola: Paso[] = [];
-  private actual: { paso: Paso; inicio: number; dura: number } | null = null;
+  /** El paso que se cuenta ahora; `impactado`, si ya llegó su impacto a la vida (`impactar`). */
+  private actual: { paso: Paso; inicio: number; dura: number; impactado: boolean } | null = null;
   /**
    * A qué ritmo se cuenta, 1 el normal. Lo sube el espectador cuando se queda
    * detrás de la partida (`ritmoDeReproduccion` en `espectador/telon.ts`); el
@@ -412,6 +507,26 @@ export class BattleAnimator {
   private readonly aCentro = new Map<string, Plano>();
   /** El instante del fotograma, fijado por `tick`. */
   private ahora = 0;
+  /** La casilla de cabeza en la que se VE quieta cada una, como `vista`. */
+  private readonly casillaVista = new Map<string, Hex>();
+  /**
+   * La vida que se VE de cada una con algo suyo por contar: la del estado antes
+   * de lo que espera en la cola, con los impactos ya vistos encima. Sin nada por
+   * contar (`porContar`), manda el estado.
+   */
+  private readonly vidaVista = new Map<string, Vida>();
+  /** Cuántos pasos de la cola, o el de ahora antes de su impacto, cambian la vida de cada una. */
+  private readonly porContar = new Map<string, number>();
+  /**
+   * La última batalla observada: al contarse el último impacto de una unidad,
+   * su vida es la de aquí —lo que el registro no dice, como el drenaje, también—.
+   */
+  private ultima: BattleState | null = null;
+  /**
+   * Quién actúa en lo que se cuenta: el del último paso con actor (`actorDe`).
+   * Con la cola vacía manda el turno del estado (`activo`), y de él se parte.
+   */
+  private actor: string | null = null;
 
   /**
    * Lee lo nuevo del registro y lo encola.
@@ -436,6 +551,9 @@ export class BattleAnimator {
       this.heridas.clear();
       this.aCentro.clear();
       this.mirada.clear();
+      this.casillaVista.clear();
+      this.vidaVista.clear();
+      this.porContar.clear();
       for (const s of battle.stacks) {
         // Cada uno empieza mirando al otro lado del tablero: el defensor, al oeste.
         this.mirada.set(s.id, miradaDeSalida(s));
@@ -446,31 +564,46 @@ export class BattleAnimator {
         this.altura.set(s.id, alto);
         this.alturaDestino.set(s.id, alto);
         if (!isAlive(s)) this.caidas.set(s.id, Number.NEGATIVE_INFINITY);
+        this.casillaVista.set(s.id, s.hex);
       }
       this.leidos = battle.log.length;
+      this.alDiaCon(battle);
       return;
     }
     for (let i = this.leidos; i < battle.log.length; i++) {
       const e = battle.log[i] as BattleEvent;
       const paso = this.traducir(e, battle);
-      if (paso !== null) this.cola.push(paso);
-      // El registro dice que hubo carga en el golpe, no en el paso que lo
-      // precede: se le marca al paso, que sigue en la cola porque la acción
-      // entera —andar y golpear— se lee de una vez.
-      if (e.kind === 'attack' && e.charge !== undefined && !e.retaliation) {
-        const previo = this.cola.at(-2);
-        if (previo?.tipo === 'move' && previo.stack === e.stack) {
-          this.cola[this.cola.length - 2] = { ...previo, carga: true };
-        }
+      if (paso !== null) {
+        this.cola.push(paso);
+        for (const id of tocadosPor(paso))
+          this.porContar.set(id, (this.porContar.get(id) ?? 0) + 1);
       }
     }
     this.leidos = battle.log.length;
+    this.alDiaCon(battle);
+  }
+
+  /**
+   * Lo que del estado ya se puede enseñar: la vida de quien no tiene nada por
+   * contar y, con la cola vacía, quién actúa. Va DESPUÉS de leer lo nuevo: con
+   * algo suyo recién leído, la unidad se queda con la vida de antes, que es la
+   * que se apuntó en la lectura anterior.
+   */
+  private alDiaCon(battle: BattleState): void {
+    this.ultima = battle;
+    for (const s of battle.stacks) {
+      if ((this.porContar.get(s.id) ?? 0) === 0) this.vidaVista.set(s.id, vidaDe(s));
+    }
+    if (!this.busy) this.actor = battle.turno?.stack ?? null;
   }
 
   private traducir(e: BattleEvent, battle: BattleState): Paso | null {
     switch (e.kind) {
-      case 'move':
-        return this.andar(battle, e.stack, e.to, e.path, 'mueve');
+      case 'move': {
+        // La carga la dice el `move`, que la escribe el núcleo: con la rueda, el
+        // golpe que la cobra llega en otra jugada, después de la rueda.
+        return this.andar(battle, e.stack, e.to, e.path, 'mueve', e.charge === true);
+      }
       // Subir a la muralla se cuenta como un paso del pie a la columna.
       case 'climbed':
         return this.andar(battle, e.stack, e.to, [e.to], 'hace subir');
@@ -486,6 +619,7 @@ export class BattleAnimator {
     to: Hex,
     path: readonly Hex[],
     que: string,
+    carga = false,
   ): Paso {
     const hasta = planoDeHex(to);
     const desde = this.destino.get(stack) ?? hasta;
@@ -500,10 +634,12 @@ export class BattleAnimator {
       stack,
       desde,
       hasta,
+      casilla: to,
       camino,
       alturas,
       body: s.body,
       alto: altoDeFigura(s),
+      ...(carga ? { carga: true as const } : {}),
     };
   }
 
@@ -524,7 +660,12 @@ export class BattleAnimator {
     for (;;) {
       if (this.actual !== null) {
         const fin = this.actual.inicio + this.actual.dura;
-        if (ahora < fin) return;
+        if (ahora < fin) {
+          if (ahora >= this.instanteDelImpacto(this.actual)) this.impactar(this.actual);
+          return;
+        }
+        // Un fotograma que llega tarde se salta el impacto, pero no la vida que quita.
+        this.impactar(this.actual);
         this.terminar(this.actual);
         this.actual = null;
         libreDesde = fin;
@@ -535,8 +676,63 @@ export class BattleAnimator {
         paso: siguiente,
         inicio: libreDesde,
         dura: duracionDelPaso(siguiente) / this.ritmo,
+        impactado: false,
       };
+      this.actor = actorDe(siguiente) ?? this.actor;
     }
+  }
+
+  /** Cuándo llega el impacto de un paso; el de uno sin impacto, al acabar. */
+  private instanteDelImpacto(a: { paso: Paso; inicio: number; dura: number }): number {
+    const p = a.paso;
+    return p.tipo === 'attack' || p.tipo === 'shoot' || p.tipo === 'cast'
+      ? a.inicio + p.impacto * a.dura
+      : a.inicio + a.dura;
+  }
+
+  /**
+   * El impacto del paso, una vez: la vida de su objetivo baja lo que dice el
+   * registro (`trasElGolpe`, la cuenta del núcleo) o sube lo que curó, y cada
+   * unidad que tocaba tiene una cosa menos por contar. Con la última, su vida es
+   * la del estado.
+   */
+  private impactar(a: { paso: Paso; impactado: boolean }): void {
+    if (a.impactado) return;
+    a.impactado = true;
+    const p = a.paso;
+    if ((p.tipo === 'attack' || p.tipo === 'shoot' || p.tipo === 'cast') && p.target !== null) {
+      const s = this.ultima?.stacks.find((x) => x.id === p.target);
+      const antes = this.vidaVista.get(p.target);
+      if (s !== undefined && antes !== undefined) {
+        const tras = trasElGolpe({ ...antes, unit: s.unit }, p.damage);
+        const cura = p.tipo === 'cast' ? p.cura : 0;
+        this.vidaVista.set(
+          p.target,
+          cura > 0 && tras.count > 0
+            ? { count: tras.count, topHp: Math.min(s.unit.hp, tras.topHp + cura) }
+            : tras,
+        );
+      }
+    }
+    for (const id of tocadosPor(p)) {
+      const quedan = (this.porContar.get(id) ?? 0) - 1;
+      if (quedan > 0) {
+        this.porContar.set(id, quedan);
+        continue;
+      }
+      this.porContar.delete(id);
+      const s = this.ultima?.stacks.find((x) => x.id === id);
+      if (s !== undefined) this.vidaVista.set(id, vidaDe(s));
+    }
+  }
+
+  /**
+   * Quién actúa en el tablero: con la cola vacía, el del turno del estado; si
+   * no, quien actúa en lo que se cuenta. Sin esto el aro saltaba al siguiente
+   * en cuanto el núcleo cerraba la jugada, con la figura aún andando.
+   */
+  activo(battle: BattleState): string | null {
+    return this.busy ? this.actor : (battle.turno?.stack ?? null);
   }
 
   private terminar({ paso: p, inicio, dura }: { paso: Paso; inicio: number; dura: number }): void {
@@ -556,6 +752,7 @@ export class BattleAnimator {
     }
     if (p.tipo === 'move') {
       this.vista.set(p.stack, p.hasta);
+      this.casillaVista.set(p.stack, p.casilla);
       this.altura.set(p.stack, p.alturas.at(-1) as number);
     }
     if (p.tipo === 'perished') this.caidas.set(p.stack, inicio);
@@ -563,8 +760,19 @@ export class BattleAnimator {
     if (p.tipo === 'attack' || p.tipo === 'shoot' || p.tipo === 'cast') {
       if (p.target !== null && p.damage > 0) this.heridas.set(p.target, inicio + p.impacto * dura);
     }
-    // Quien actúa deja de dolerse: su propio paso manda.
-    if (p.tipo !== 'cast') this.heridas.delete(p.stack);
+    // Quien actúa deja de dolerse: su propio paso manda. El cruce no es un paso
+    // de nadie en el tablero: lo cuenta la rueda.
+    if (p.tipo !== 'cast' && p.tipo !== 'cruce') this.heridas.delete(p.stack);
+  }
+
+  /**
+   * El cruce de la rueda que se está contando y cuánto lleva, de 0 a 1, o `null`
+   * si el paso de ahora es otro: lo lee el diálogo de la rueda para pintar el
+   * desenlace al ritmo de la cola.
+   */
+  cruceEnCurso(): { readonly evento: HechoDelCruce; readonly t: number } | null {
+    const paso = this.actual?.paso;
+    return paso?.tipo === 'cruce' ? { evento: paso.evento, t: this.progreso() } : null;
   }
 
   /** ¿Queda algo por enseñar? Mientras sí, se repinta y no se aceptan clics. */
@@ -614,6 +822,7 @@ export class BattleAnimator {
     let golpe = 0;
     let alfaDelAro = 1;
     let mirada = this.mirada.get(s.id) ?? miradaDeSalida(s);
+    let casilla: Hex | null = this.casillaVista.get(s.id) ?? s.hex;
     // El daño de un golpe que ya acabó sigue su clip desde el impacto, si nada
     // de lo que pasa ahora le toca a esta figura.
     const herida = this.heridas.get(s.id);
@@ -629,6 +838,7 @@ export class BattleAnimator {
         mirada = miradaEnElTramo(paso.camino, tramoEn(paso.camino, t), mirada);
         clip = paso.carga === true ? 'charge' : 'walk';
         tiempo = desdeInicio;
+        casilla = null;
       } else if ((paso.tipo === 'attack' || paso.tipo === 'shoot') && paso.stack === s.id) {
         // El golpe con su ataque, cuerpo a cuerpo; el disparo con su clip, que
         // en quien no lo pinta es su ataque (`figuraDe`).
@@ -668,9 +878,12 @@ export class BattleAnimator {
     const inicioDeLaCaida = isAlive(s) ? undefined : this.caidas.get(s.id);
     const visible = inicioDeLaCaida === undefined;
     const caida = inicioDeLaCaida === undefined ? null : this.ahora - inicioDeLaCaida;
+    const vida = (this.porContar.get(s.id) ?? 0) > 0 ? this.vidaVista.get(s.id) : undefined;
     return {
       en: this.centro(s, cabeza),
       elevacion,
+      pv: vida === undefined ? stackHp(s) : stackHp({ ...s, ...vida }),
+      casilla,
       clip,
       tiempo,
       golpe,
@@ -708,15 +921,7 @@ export class BattleAnimator {
             altoHasta: alto(paso.target),
           });
         }
-        if (t >= impacto && paso.damage > 0) {
-          out.push({
-            tipo: 'danio',
-            en: b,
-            alto: alto(paso.target),
-            cifra: paso.damage,
-            t: trasImpacto(t, impacto),
-          });
-        }
+        if (t >= impacto) out.push(...cifraDelGolpe(paso, b, alto(paso.target), t, impacto));
       }
     }
     if (paso.tipo === 'cast' && paso.target !== null) {
@@ -724,17 +929,27 @@ export class BattleAnimator {
       if (b !== null) {
         const arriba = alto(paso.target);
         out.push({ tipo: 'hechizo', en: b, alto: arriba, t });
-        if (t >= paso.impacto && paso.damage > 0) {
-          out.push({
-            tipo: 'danio',
-            en: b,
-            alto: arriba,
-            cifra: paso.damage,
-            t: trasImpacto(t, paso.impacto),
-          });
-        }
+        if (t >= paso.impacto) out.push(...cifraDelGolpe(paso, b, arriba, t, paso.impacto));
       }
     }
     return out;
   }
+}
+
+/**
+ * La cifra que sale sobre quien recibe en el impacto: «−N» con daño, «parado» si
+ * la armadura se lo comió entero (#262) y nada si no hubo golpe que contar (una
+ * Bendición, una cura).
+ */
+function cifraDelGolpe(
+  paso: { readonly damage: number; readonly parado: number },
+  en: Plano,
+  alto: number,
+  t: number,
+  impacto: number,
+): Efecto[] {
+  const tras = trasImpacto(t, impacto);
+  if (paso.damage > 0) return [{ tipo: 'danio', en, alto, cifra: paso.damage, t: tras }];
+  if (paso.parado > 0) return [{ tipo: 'parado', en, alto, t: tras }];
+  return [];
 }

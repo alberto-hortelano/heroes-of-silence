@@ -9,11 +9,11 @@ import {
   armyMorale,
   ataqueBlocker,
   type BattleSide,
-  CARGA_MINIMA,
   cargaDesde,
   casillasDeCarga,
   createBattle,
   enemiesOf,
+  firmaDelTurno,
   isAlive,
   legalActions,
   legalActionsAndCosts,
@@ -27,13 +27,12 @@ import {
   stackSpeed,
 } from '../src/core/battle/battle.js';
 import * as board from '../src/core/battle/board.js';
+import { CARGA, CARGA_MINIMA, cargaEfectiva } from '../src/core/battle/carga.js';
 import {
-  cargaEfectiva,
   computeDamage,
   damageMultiplier,
   effectiveAttack,
   herir,
-  MAX_CHARGE_HEXES,
   stackHp,
 } from '../src/core/battle/damage.js';
 import {
@@ -53,7 +52,7 @@ import type {
   Side,
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
-import { creature } from '../src/core/data.js';
+import { creature, cuentaTiros } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import type { Rng } from '../src/core/rng.js';
@@ -156,7 +155,7 @@ describe('aplicación de daño a un stack', () => {
   it('mata efectivos enteros y deja al de arriba herido', () => {
     const s = stackOf('swordsman', 10); // 250 PV cada uno
     expect(stackHp(s)).toBe(2500);
-    const killed = herir(s, 600, null);
+    const killed = herir(s, 600, null).muertos;
     expect(killed).toBe(2);
     expect(s.count).toBe(8);
     expect(stackHp(s)).toBe(1900);
@@ -164,14 +163,14 @@ describe('aplicación de daño a un stack', () => {
 
   it('un daño menor que un efectivo no mata a nadie', () => {
     const s = stackOf('swordsman', 3);
-    expect(herir(s, 50, null)).toBe(0);
+    expect(herir(s, 50, null).muertos).toBe(0);
     expect(s.count).toBe(3);
     expect(s.topHp).toBe(200);
   });
 
   it('el exceso de daño no resucita ni deja restos', () => {
     const s = stackOf('peasant', 4);
-    expect(herir(s, 9999, null)).toBe(4);
+    expect(herir(s, 9999, null).muertos).toBe(4);
     expect(s.count).toBe(0);
     expect(stackHp(s)).toBe(0);
   });
@@ -521,6 +520,28 @@ describe('tiradores', () => {
     expect(arquero.shotsLeft).toBe(municionInicial - 1);
     expect(state.log.some((e) => e.kind === 'shoot')).toBe(true);
   });
+
+  it('sin munición no se le ofrece el disparo, y el motivo lo dice (la del catálogo se cuenta)', () => {
+    // La arena no cuenta tiros (13-10-2026), pero la criatura del catálogo sí:
+    // `cuentaTiros`. Lo que cambió es la regla, no el juego.
+    const rng = createRng(21);
+    const state = createBattle(
+      side([{ creature: 'archer', count: 10 }]),
+      side([{ creature: 'zombie', count: 10 }]),
+      rng,
+    );
+    const arquero = stackById(state, 'attacker-0');
+    expect(cuentaTiros(arquero.unit)).toBe(true);
+    arquero.shotsLeft = 0;
+    expect(legalActions(state).some((a) => a.type === 'shoot')).toBe(false);
+    expect(() => applyAction(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
+      'attacker-0 se ha quedado sin munición',
+    );
+  });
+
+  it('el dragón óseo sigue en el catálogo del juego, de dos casillas', () => {
+    expect(creature('bone_dragon').hexes).toBe(2);
+  });
 });
 
 describe('hechizos', () => {
@@ -776,7 +797,11 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const conPista = montar(createRng(51));
     const s = activeStack(conPista) as BattleStack;
     const turno = conPista.turno as TurnoDeUnidad;
-    const conRecorrido = { n: turno.n, gastado: 0, puertas: '', costs: movableFrom(conPista, s) };
+    const conRecorrido = {
+      firma: firmaDelTurno(turno),
+      puertas: '',
+      costs: movableFrom(conPista, s),
+    };
     applyAction(conPista, carga, createRng(51), conRecorrido);
 
     expect(conPista.log).toEqual(aPelo.log);
@@ -793,13 +818,13 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const state = batallaDeCuatroEnemigos();
     const s = activeStack(state) as BattleStack;
     const turno = state.turno as TurnoDeUnidad;
-    const suyo = { n: turno.n, gastado: 0, puertas: '', costs: movableFrom(state, s) };
+    const suyo = { firma: firmaDelTurno(turno), puertas: '', costs: movableFrom(state, s) };
     applyAction(state, { type: 'defend' }, createRng(1));
     const otro = activeStack(state) as BattleStack;
     expect(otro.id).not.toBe(s.id);
 
     expect(() => applyAction(state, { type: 'defend' }, createRng(1), suyo)).toThrow(
-      `el recorrido que traes es del turno ${turno.n} con 0 casillas gastadas, y ahora es el turno ${turno.n + 1} de ${otro.id} con 0`,
+      `el recorrido que traes es del turno ${turno.n} con 0 casillas gastadas, y ahora le toca a ${otro.id} en el turno ${turno.n + 1} con 0 casillas gastadas`,
     );
   });
 
@@ -2016,13 +2041,14 @@ describe('el turno en tramos (2026-10-02)', () => {
     // antes de moverse dejaría ir más lejos de lo que queda.
     const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
     const s = stackById(state, 'attacker-0');
-    const n = (state.turno as TurnoDeUnidad).n;
-    const viejo = { n, gastado: 0, puertas: '', costs: movableFrom(state, s) };
+    const turno = state.turno as TurnoDeUnidad;
+    const n = turno.n;
+    const viejo = { firma: firmaDelTurno(turno), puertas: '', costs: movableFrom(state, s) };
     applyAction(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(() =>
       applyAction(state, { type: 'move', to: { col: 5, row: 4 } }, createRng(1), viejo),
     ).toThrow(
-      `el recorrido que traes es del turno ${n} con 0 casillas gastadas, y ahora es el turno ${n} de attacker-0 con 1`,
+      `el recorrido que traes es del turno ${n} con 0 casillas gastadas, y ahora le toca a attacker-0 en el turno ${n} con 1 casilla gastada`,
     );
   });
 
@@ -2066,9 +2092,9 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     // viene recortado, para que un «»6» pintado no acabe cobrando 5.
     const jinete = stackById(seis, 'attacker-0');
     expect(cargaDesde(seis, jinete, { col: 6, row: 4 }, stackById(seis, 'defender-0'))).toBe(6);
-    expect(cargaEfectiva(6)).toBe(MAX_CHARGE_HEXES);
+    expect(cargaEfectiva(6, CARGA.jinete)).toBe(CARGA.jinete.tope);
     expect(casillasDeCarga(seis, jinete)).toEqual([
-      { target: 'defender-0', at: { col: 6, row: 4 }, hexes: MAX_CHARGE_HEXES },
+      { target: 'defender-0', at: { col: 6, row: 4 }, hexes: CARGA.jinete.tope, porciento: 50 },
     ]);
     applyAction(
       seis,
@@ -2207,7 +2233,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     // enemigo justo detrás.
     const state = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 5, row: 4 });
     expect(casillasDeCarga(state, stackById(state, 'attacker-0'))).toEqual([
-      { target: 'defender-0', at: { col: 4, row: 4 }, hexes: 4 },
+      { target: 'defender-0', at: { col: 4, row: 4 }, hexes: 4, porciento: 40 },
     ]);
   });
 
@@ -2226,6 +2252,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
       target: 'defender-0',
       at: { col: 5, row: 2 },
       hexes: 3,
+      porciento: 30,
     });
     applyAction(
       state,
@@ -2407,7 +2434,7 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     // «1 baja», no «1 bajas».
     expect(golpes).toContain('<div>Zombi\u00a0→ Campeón (contraataque): 4 de daño, 1 baja</div>');
     expect(golpes).toContain(
-      '<div>Campeón\u00a0→ Zombi (carga de 3 hexes): 20 de daño, 0 bajas</div>',
+      '<div>Campeón\u00a0→ Zombi (carga de 3 casillas, +30 %): 20 de daño, 0 bajas</div>',
     );
     expect(golpes).toContain('<div>Campeón\u00a0→ Zombi (disparo): 8 de daño, 1 baja</div>');
     expect(golpes).toContain('<div>Campeón\u00a0→ Zombi (salpicadura): 2 de daño, 0 bajas</div>');

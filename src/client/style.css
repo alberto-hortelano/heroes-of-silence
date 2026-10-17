@@ -223,8 +223,11 @@ progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
   gap: 1rem;
   padding: 0.45rem 1rem;
   /* Dos líneas de aviso caben sin mover el lienzo: con la barra creciendo al
-     pasar el ratón por una ruta, el mapa encogía bajo el cursor. */
-  min-height: calc(3em + 0.9rem);
+     pasar el ratón por una ruta, el mapa encogía bajo el cursor. Con el borde de
+     arriba (`border-box`): sin él, las dos líneas medían 1 px más que la barra, el
+     lienzo encogía 1 px y con el puntero en la frontera de dos casillas la
+     casilla del golpe oscilaba entre la barra y el clic (B1 de QA, 14-10-2026). */
+  min-height: calc(3em + 0.9rem + 1px);
   background: #26362ef5;
   border-top: 1px solid #b39e6355;
   font: 13px/1.5 system-ui, sans-serif;
@@ -377,8 +380,12 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   anchor-scope: --nota;
 }
 .nota:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+/* Quien lleva `data-abre-nota` abre la nota que tiene dentro también al pasar por
+   él o con el foco del teclado en su botón (un sector de la rueda del golpe). */
 .nota:hover::after,
-.nota:focus-visible::after {
+.nota:focus-visible::after,
+[data-abre-nota]:hover > .nota::after,
+[data-abre-nota]:has(button:focus-visible) > .nota::after {
   content: attr(aria-label);
   position: fixed;
   position-anchor: --nota;

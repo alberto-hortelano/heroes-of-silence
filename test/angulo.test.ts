@@ -14,7 +14,6 @@ import { renderSide } from '../src/client/views/panels.js';
 import { textoDePrevision } from '../src/client/views/prevision.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
-import { CHARGE_BONUS_PER_HEX } from '../src/core/battle/damage.js';
 import { creature } from '../src/core/data.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
 import { sesionContraMonstruo } from './batalla-de-cliente.js';
@@ -66,13 +65,14 @@ describe('el ángulo del golpe', () => {
     ).toEqual({ disparo });
   });
 
-  it('la barra dice la casilla y, si carga, cuánto, con el tanto por ciento de la constante', () => {
+  it('la barra dice la casilla y, si carga, cuánto, con el tanto por ciento que trae la carga', () => {
     expect(rotuloDeAngulo({ col: 4, row: 4 }, undefined)).toBe('Golpearías desde (4,4).');
     expect(
-      rotuloDeAngulo({ col: 4, row: 4 }, { target: 'e', at: { col: 4, row: 4 }, hexes: 4 }),
-    ).toBe(
-      `Golpearías desde (4,4), cargando 4 casillas (+${Math.round(4 * CHARGE_BONUS_PER_HEX * 100)} % de daño).`,
-    );
+      rotuloDeAngulo(
+        { col: 4, row: 4 },
+        { target: 'e', at: { col: 4, row: 4 }, hexes: 4, porciento: 20 },
+      ),
+    ).toBe('Golpearías desde (4,4), cargando 4 casillas (+20 % de daño).');
   });
 
   it('sin golpes contra ese enemigo no hay nada que elegir', () => {
@@ -243,7 +243,9 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
 
   it('se anuncia contra el enemigo y desde la casilla de su recta, y nada más', () => {
     const { s, objetivo } = montar();
-    expect(s.battleCharges()).toEqual([{ target: objetivo, at: { col: 8, row: 6 }, hexes: 3 }]);
+    expect(s.battleCharges()).toEqual([
+      { target: objetivo, at: { col: 8, row: 6 }, hexes: 3, porciento: 30 },
+    ]);
   });
 
   it('una casilla vacía de la recta solo mueve, y la barra no promete carga', () => {
@@ -285,12 +287,12 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
     expect(s.status).toBe(
       rotuloDeAngulo(
         { col: 8, row: 6 },
-        { target: objetivo, at: { col: 8, row: 6 }, hexes: 3 },
+        { target: objetivo, at: { col: 8, row: 6 }, hexes: 3, porciento: 30 },
         textoDePrevision(prevision, (id) => id),
       ),
     );
     expect(s.status).toContain('carga de 3 casillas ×1,3');
-    expect(s.status).toContain(`(+${Math.round(3 * CHARGE_BONUS_PER_HEX * 100)} % de daño)`);
+    expect(s.status).toContain('(+30 % de daño)');
     const antes = s.battle!.log.length;
     escena.pulsar(px, py);
     const golpe = s.battle!.log.slice(antes).find((e) => e.kind === 'attack' && !e.retaliation);

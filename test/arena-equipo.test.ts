@@ -19,7 +19,6 @@ import {
 import { marcadoDe } from '../src/client/html.js';
 import {
   batallaDeArena,
-  CON_PIEZAS,
   cambioDePiezaBlocker,
   catalogoDeLaArena,
   conPieza,
@@ -34,7 +33,6 @@ import {
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
-  perfilDeLasHojas,
   piezaNueva,
   piezasDeLaArena,
   piezasDelEnlace,
@@ -50,8 +48,9 @@ import {
   VERSION_DEL_ENLACE,
   validarPiezaDeArena,
 } from '../src/core/arena.js';
+import { armaduraDe } from '../src/core/battle/damage.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { EQUIPO, type Pieza } from '../src/core/data.js';
+import { cuentaTiros, EQUIPO, isShooter, type Pieza } from '../src/core/data.js';
 import {
   EQUIPO_BASE,
   PIEZAS_DE_ARMERIA,
@@ -71,7 +70,6 @@ import {
   unidadDeArena,
 } from './helpers.js';
 
-const perfilDe = perfilDeLasHojas(hojasDeLaArena());
 const ESPADA = pieza('espada');
 const ARCO = pieza('arco');
 /** La espada cambiada para la arena: más ataque que la del juego. */
@@ -84,7 +82,7 @@ const arquero = (): UnidadDeArena => unidadDeArena('goblin-arquero');
 /** Una unidad nueva de otro tipo que también lleva la espada. */
 function otroConEspada(): UnidadDeArena {
   const ocupados = { validas: [], sinValidar: [], hojas: hojasDeLaArena().map((h) => h.id) };
-  const u = unidadNueva({ hoja: hojaDeLaArena('templario-escudo') }, ocupados, DEL_JUEGO);
+  const u = unidadNueva(hojaDeLaArena('templario-escudo'), ocupados, DEL_JUEGO);
   return equiparEnArena(u, 'espada', DEL_JUEGO);
 }
 
@@ -106,6 +104,19 @@ describe('las piezas de la arena', () => {
     expect([...PIEZAS_DE_BOTIN, ...PIEZAS_DE_ARMERIA, ...PIEZAS_DEL_JUEGO]).not.toContain(nueva);
     expect(Object.values(EQUIPO_BASE)).not.toContain(nueva.id);
     expect(() => catalogoDeLaArena([ESPADA_MAS, ESPADA_MAS])).toThrow('va dos veces');
+  });
+
+  it('un arma a distancia nueva, sin disparos, ya hace tirador a quien la lleva (13-10-2026)', () => {
+    // Sin munición: llevarla es disparar. Antes nacía con los 12 del arco (H1 del QA
+    // de las armas por uso), que con 0 no se usaba nunca.
+    const nueva = piezaNueva('distancia', DEL_JUEGO);
+    expect(nueva).not.toHaveProperty('disparos');
+    expect(DEL_JUEGO.pieza('arco')).not.toHaveProperty('disparos');
+    const eq = catalogoDeLaArena([nueva]);
+    const conElla = unidadDeCombate(equiparEnArena(guerrero(), nueva.id, eq), eq);
+    expect(isShooter(conElla)).toBe(true);
+    expect(cuentaTiros(conElla)).toBe(false);
+    expect(isShooter(unidadDeCombate(guerrero(), DEL_JUEGO))).toBe(false);
   });
 
   it('una del juego no cambia de hueco ni de calidad; una nueva es de la arena; lo ajeno se dice', () => {
@@ -146,8 +157,12 @@ describe('las piezas de la arena', () => {
     expect(() => validarPiezaDeArena({ ...ESPADA, ataque: Number.NaN })).toThrow(
       '«Espada»: ataque tiene que ser un entero ≥ 0 y no es un número',
     );
-    // Lo que no suma se escribe sin el campo: una mano, 0 disparos.
-    expect(validarPiezaDeArena({ ...ESPADA, manos: 1, disparos: 0 })).toEqual(ESPADA);
+    // Lo que no suma se escribe sin el campo: una mano.
+    expect(validarPiezaDeArena({ ...ESPADA, manos: 1 })).toEqual(ESPADA);
+    // Los disparos ya no son un campo (13-10-2026): sin munición.
+    expect(() => validarPiezaDeArena({ ...ARCO, disparos: 12 })).toThrow(
+      '«Arco»: «disparos» no es un campo de una pieza',
+    );
   });
 
   it('cambiar el hueco rehace lo que el hueco exige: el escudo resta y las manos son de un arma', () => {
@@ -267,22 +282,21 @@ describe('el enlace de la pelea lleva las piezas de la arena', () => {
   const conNueva = equiparEnArena(guerrero(), nueva.id, eq);
   const lado = (unidad: string, ia: boolean) => ({
     ia,
-    puestos: [{ kind: 'unidad' as const, unidad, escalera: false }],
+    puestos: [{ unidad, escalera: false }],
     heroe: null,
   });
   const ENLACE: MontajeDelEnlace = {
     unidades: [conNueva, arquero()],
     piezas: [nueva],
-    pruebas: {},
     izquierda: lado(conNueva.id, false),
     derecha: lado('goblin-arquero', true),
     muralla: null,
   };
 
-  it('versión 6: va y vuelve con la pieza nueva, y monta con las del juego más las suyas', () => {
-    expect(VERSION_DEL_ENLACE).toBe(CON_PIEZAS);
+  it('va y vuelve con la pieza nueva, y monta con las del juego más las suyas', () => {
+    expect(VERSION_DEL_ENLACE).toBe(9);
     const leido = montajeDeLaURL(montajeALaURL(ENLACE));
-    expect(leido).toEqual({ ...ENLACE, version: VERSION_DEL_ENLACE });
+    expect(leido).toEqual(ENLACE);
     const montado = montajeDeArenaDelEnlace(leido, MONTAJE.reglas, leido.piezas);
     expect(batallaDeArena(montado, createRng(3)).stacks[0]?.unit.attack).toBe(
       unidadDeCombate(conNueva, eq).attack,
@@ -314,26 +328,6 @@ describe('el enlace de la pelea lleva las piezas de la arena', () => {
     const falta = { ...o, piezas: [] };
     expect(() => montajeDeLaURL(JSON.stringify(falta))).toThrow(
       `no existe ninguna pieza "${nueva.id}"`,
-    );
-  });
-
-  it('un enlace de la versión 5 se lee con las piezas de la arena que lo abre', () => {
-    const o = JSON.parse(
-      montajeALaURL({
-        ...ENLACE,
-        unidades: [guerrero(), arquero()],
-        piezas: [],
-        izquierda: lado('templario-escudo', false),
-      }),
-    );
-    o.v = 5;
-    delete o.piezas;
-    const leido = montajeDeLaURL(JSON.stringify(o), perfilDe, [ESPADA_MAS]);
-    expect(leido.version).toBe(5);
-    expect(leido.piezas).toEqual([]);
-    // Si con las de aquí una unidad del enlace no vale, no se monta y se dice por qué.
-    expect(() => montajeDeLaURL(JSON.stringify(o), perfilDe, [{ ...ESPADA, manos: 2 }])).toThrow(
-      'Espada es un arma a dos manos y no se puede llevar con Escudo',
     );
   });
 });
@@ -389,21 +383,20 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
   it('tras abrir un enlace, «Guardar» no sustituye ni borra una pieza tuya; las nuevas del enlace, sí', () => {
     const d = carpeta();
     // Tu brigantina, cambiada y guardada.
-    const tuya = { ...pieza('brigantina'), pv: pieza('brigantina').pv + 20 };
+    const tuya = { ...pieza('brigantina'), armadura: (pieza('brigantina').armadura ?? 0) + 2 };
     escribirBorrador(d, { unidades: [], piezas: [tuya] });
     // El enlace lleva al guerrero con la brigantina del juego y al arquero con una nueva.
     const nueva = piezaNueva('accesorio', DEL_JUEGO);
     const conNueva = equiparEnArena(arquero(), nueva.id, catalogoDeLaArena([nueva]));
     const lado = (unidad: string) => ({
       ia: false,
-      puestos: [{ kind: 'unidad' as const, unidad, escalera: false }],
+      puestos: [{ unidad, escalera: false }],
       heroe: null,
     });
     const enlace = montajeDeLaURL(
       montajeALaURL({
         unidades: [guerrero(), conNueva],
         piezas: [nueva],
-        pruebas: {},
         izquierda: lado(guerrero().id),
         derecha: lado(conNueva.id),
         muralla: null,
@@ -412,8 +405,8 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
     const delDisco = leerBorrador(d).piezas;
     const capa = piezasDelEnlace(enlace);
     // En la pelea va la del juego…
-    expect(catalogoDeLaArena(capa.reduce(conPieza, delDisco)).pieza('brigantina').pv).toBe(
-      pieza('brigantina').pv,
+    expect(catalogoDeLaArena(capa.reduce(conPieza, delDisco)).pieza('brigantina').armadura).toBe(
+      pieza('brigantina').armadura,
     );
     // …y al guardar, la tuya se queda y la nueva entra con las unidades del enlace.
     escribirBorrador(d, {
@@ -464,10 +457,13 @@ describe('cambiar una pieza a media pelea', () => {
     a.topHp -= 30;
     const antes = { a: { ...a }, a2: { ...a2 } };
     const desde = b.log.length;
-    const mas = { ...ESPADA, pv: ESPADA.pv + 100 };
+    // En la arena una pieza protege con armadura, no con PV (#262): la espada,
+    // con 3 puntos, se los da a los dos que la llevan.
+    const mas = { ...ESPADA, armadura: 3 };
     expect(retocarEnBatalla(b, { kind: 'piezas', piezas: [mas] })).toBeNull();
-    expect(de(b, a2.id).unit.hp).toBe(antes.a2.unit.hp + 100);
-    // Subir los PV no cura: la herida se queda.
+    expect(armaduraDe(de(b, a2.id).unit)).toBe(armaduraDe(antes.a2.unit) + 3);
+    expect(de(b, a2.id).unit.hp).toBe(antes.a2.unit.hp);
+    // La armadura no cura: la herida se queda.
     expect(de(b, a.id).unit.hp - de(b, a.id).topHp).toBe(30);
     // El arquero no lleva espada: el mismo objeto.
     expect(b.stacks.find((s) => s.body === 'goblin-arquero')).toBe(arq);
@@ -476,7 +472,7 @@ describe('cambiar una pieza a media pelea', () => {
         kind: 'retoque',
         nombre: 'Espada',
         stacks: [a.id, a2.id],
-        cambios: [`PV ${ESPADA.pv} → ${mas.pv}`],
+        cambios: ['armadura 0 → 3'],
       },
     ]);
     // Volver a la del juego deja las cifras de antes, con la herida.
@@ -484,24 +480,9 @@ describe('cambiar una pieza a media pelea', () => {
     expect(de(b, a.id).unit).toEqual(antes.a.unit);
     expect(de(b, a.id).topHp).toBe(antes.a.topHp);
     expect(b.log.at(-1)).toMatchObject({
-      cambios: [`PV ${mas.pv} → ${ESPADA.pv}`, 'vuelve a la del juego'],
+      cambios: ['armadura 3 → 0', 'vuelve a la del juego'],
     });
     expect(b.piezasDeArena).toEqual([]);
-  });
-
-  it('lo gastado de más se debe: bajar los disparos del arco y volver a subirlos no devuelve tiros', () => {
-    const b = pelea();
-    const arq = b.stacks.find((s) => s.body === 'goblin-arquero') as BattleStack;
-    const quedan = 2;
-    arq.shotsLeft = quedan;
-    // El arco con `quedan + 1` disparos menos: se queda sin ninguno y debe uno.
-    const menos = { ...ARCO, disparos: (ARCO.disparos ?? 0) - quedan - 1 };
-    expect(retocarEnBatalla(b, { kind: 'piezas', piezas: [menos] })).toBeNull();
-    expect(de(b, arq.id).shotsLeft).toBe(0);
-    expect(de(b, arq.id).gastadoDeMas?.disparos).toBe(1);
-    expect(retocarEnBatalla(b, { kind: 'piezas', piezas: [] })).toBeNull();
-    expect(de(b, arq.id).shotsLeft).toBe(quedan);
-    expect(de(b, arq.id).gastadoDeMas).toBeUndefined();
   });
 
   it('lo que deja sin valer a un stack se rechaza con su nombre y no toca nada', () => {

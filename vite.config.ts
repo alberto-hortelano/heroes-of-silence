@@ -138,8 +138,6 @@ function arena(): Plugin {
             return {
               unidades: leido.unidades,
               invalidas: leido.invalidas.map(({ id, motivo }) => ({ id, motivo })),
-              // Lo que hubo que decir al convertir unidades de antes del equipo.
-              avisos: leido.avisos,
               // Y las piezas de la arena (vista «Editar equipo»), que el juego no lee:
               // van con las unidades porque se guardan con ellas, en una operación.
               piezas: leido.piezas,
@@ -152,7 +150,12 @@ function arena(): Plugin {
                 : { equipoIlegible: leido.equipoIlegible }),
             };
           },
-          vacio: { unidades: [], invalidas: [], avisos: [], piezas: [], piezasInvalidas: [] },
+          vacio: {
+            unidades: [],
+            invalidas: [],
+            piezas: [],
+            piezasInvalidas: [],
+          },
           escribir: (cuerpo) => escribirBorrador(raiz, cuerpo),
         }),
       );

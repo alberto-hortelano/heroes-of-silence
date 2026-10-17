@@ -55,9 +55,8 @@ describe('queHayEn', () => {
     const hay = queHayEn(esc, { x: casilla.x + 0.5, y: casilla.y + 0.1 }, casilla);
     const suya = hay.caras.find((c) => c.y === cara.y && c.x0 === cara.x0);
     expect(suya?.banda).toEqual(bandaDeCara(cara));
-    expect(suya?.rampas).toBeUndefined();
     // La celda del vértice de la esquina de la casilla, con su tipo.
-    expect(hay.celdas?.some((c) => c.tipo === 'S' && c.vy === cara.y + 1)).toBe(true);
+    expect(hay.celdas.some((c) => c.tipo === 'S' && c.vy === cara.y + 1)).toBe(true);
   });
 
   it('donde arranca una bajada da la bajada (R5)', () => {
@@ -67,7 +66,7 @@ describe('queHayEn', () => {
       if (b === undefined) continue;
       const casilla = { x: Math.floor(b.arriba[0]), y: Math.floor(b.arriba[1]) };
       const hay = queHayEn(e, { x: b.arriba[0], y: b.arriba[1] }, casilla);
-      expect(hay.bajadas?.map((x) => x.rumbo)).toContain(b.rumbo);
+      expect(hay.bajadas.map((x) => x.rumbo)).toContain(b.rumbo);
       return;
     }
     throw new Error('ninguna semilla de 1 a 10 tiene bajadas');

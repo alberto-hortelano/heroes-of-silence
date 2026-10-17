@@ -23,7 +23,8 @@ function decimal(n: number): string {
   return conComa(n, 2);
 }
 
-function horquilla(h: Horquilla): string {
+/** «7–12», o «9» si las dos puntas son la misma: la horquilla de la previsión y de la rueda. */
+export function horquilla(h: Horquilla): string {
   return h.min === h.max ? `${h.min}` : `${h.min}–${h.max}`;
 }
 
@@ -52,14 +53,26 @@ function reglas(p: Pick<Prevision, 'reglas'>): string {
   return ` Reglas de fheroes2: ${p.reglas.map((r) => DESCRIPCION_DE_REGLA[r].nombre.toLowerCase()).join(', ')}.`;
 }
 
+/**
+ * «Contraataque con Daga (cuerpo a cuerpo), si sobrevive: 9–18.»: el arma con que
+ * lo devuelve, en la arena, es la de cuerpo a cuerpo y no la del golpe (un jinete
+ * carga con la lanza y devuelve con la espada), y la barra lo dice.
+ */
 function contraataque(c: PrevisionDeContraataque | null): string {
   if (c === null) return ' Sin contraataque.';
-  const si = c.seguro ? '' : ' si sobrevive';
-  return ` Contraataque${si}: ${horquilla(c.danio)}${suerte(c.buena, c.mala)}.`;
+  const con = c.conArma === null ? '' : ` ${c.conArma}`;
+  const si = c.seguro ? '' : `${con === '' ? '' : ','} si sobrevive`;
+  return ` Contraataque${con}${si}: ${horquilla(c.danio)}${suerte(c.buena, c.mala)}.`;
 }
 
 function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
-  const golpes = p.golpes > 1 ? ` por golpe (${p.golpes} golpes)` : '';
+  // Con carga y más de un golpe, solo el primero la cobra (`intercambio`).
+  const golpes =
+    p.siguientes !== null
+      ? ` el primer golpe, con la carga, y ${horquilla(p.siguientes)} ${p.golpes === 2 ? 'el segundo' : `cada uno de los otros ${p.golpes - 1}`}`
+      : p.golpes > 1
+        ? ` por golpe (${p.golpes} golpes)`
+        : '';
   const bajas =
     p.bajas.max === 0
       ? 'no caería ninguno'
@@ -100,7 +113,10 @@ function deLanzar(quien: string, p: PrevisionDeLanzar): string {
     const bajas =
       p.bajas === 0 ? 'no caería ninguno' : p.bajas === 1 ? 'caería 1' : `caerían ${p.bajas}`;
     const leQuedan = p.leQuedan === 0 ? 'no le quedaría nada' : `le quedarían ${p.leQuedan} PV`;
-    return `${quien}: ${p.danio} de daño, ${bajas} y ${leQuedan}.${reglas(p)}`;
+    // Lo que para la armadura, como en el parte («193 de daño (−7 armadura)»): sin
+    // ello se veía 193 donde se esperaba 200 (A1 de QA de #262).
+    const armadura = p.parado > 0 ? ` (−${p.parado} armadura)` : '';
+    return `${quien}: ${p.danio} de daño${armadura}, ${bajas} y ${leQuedan}.${reglas(p)}`;
   }
   const hace = curaOEfecto(p.cura, p.efecto);
   return `${quien}${hace === null ? '' : `: ${hace}`}.${reglas(p)}`;

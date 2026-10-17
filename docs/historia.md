@@ -4990,3 +4990,315 @@ de lago mide al menos 20 casillas del lago al borde, y si no cabe, se coge otra 
   s44) eran mapas de lago. Ninguna de 1-200 las da ya: la de escritorio busca hasta la 300
   (`TOPE_DEL_ESCRITORIO`, la 243) y la derrota empieza en la 201 (`DESDE_LA_DERROTA`, la 208; de 1 a 200
   eran 65 s de buscar en vano).
+
+## Cada arma para lo suyo (arena, 13-10-2026)
+
+Petición del usuario: «Como le pongo dos armas a un personaje? Como le pongo arma secundaria a los
+arqueros? El jinete elfico tiene lanza, espada y arco» (`docs/agents/2026-10-13-armas-por-uso/`).
+Decisión: un arma de cuerpo a cuerpo, una a distancia y la lanza para la carga, y las cifras de cada
+golpe son las del arma de ese golpe. Solo la arena: el juego, el botín, la armería y el agente siguen
+con cuatro huecos (`pnpm banco` no se mueve).
+
+- **El hueco es el uso**: la arena tiene `distancia` y `carga` además de los cuatro del juego
+  (`HUECOS_DE_LA_ARENA`), y una pieza no dice para qué sirve con un campo propio: lo dice el hueco
+  (`USO_DEL_HUECO`). Con un `uso` en la pieza y varias en `arma`, «una pieza por hueco» dejaba de
+  valer en todo el juego. **La frontera la pone el compilador** (pasada de simplify): `Hueco` y
+  `Equipo` son los cuatro del juego —el héroe, la tropa, el agente— y `HuecoDeArena`/`EquipoDeArena`
+  los seis; con los seis en `Hueco`, la frontera eran un guardia de test y un `throw`.
+- **Quién elige el arma, `damage.ts`**: `usoDelGolpe` lo deduce de lo que ya trae todo golpe
+  (`ranged`, la carga cobrada), así que ni `battle.ts` ni el contrato de la batalla cambian. Las
+  cifras de cada arma las deja `conEquipo` en `UnitInfo.armas` (sin esos huecos, el objeto de
+  siempre, sin la clave): por uso, el id del arma y sus cifras, las de arriba con esa arma en lugar
+  de la de cuerpo a cuerpo. Una sola función, `golpeDe`, da el golpe de cada uso con su respaldo, y
+  de ella leen las cifras (`cifrasDelGolpe`), la previsión y la ficha. Los ids, no los nombres:
+  renombrar una pieza a media pelea no vuelve a vestir a nadie, y el nombre se lee de las piezas de
+  la pelea (`piezasDeLaPelea`).
+- **Lo que cambia a propósito**: tiradores y jinetes pegan y devuelven el golpe con la daga o la
+  espada, no con el arco ni la lanza (el contraataque del jinete baja de 10 / 50–90 a 5 / 20–40). El
+  disparo y la carga dan lo de antes. **La daga** (+1 de ataque, 0–10 de daño) es inventada. **El
+  arco a la espalda deja llevar escudo**: `manosBlocker` mira el arma de cuerpo a cuerpo y el escudo,
+  y el arco, la ballesta y la lanza dejaron de ser a dos manos.
+- **Lo de antes, convertido**: el kit del ciclo 2 queda congelado (`KIT_DEL_CICLO_2`) para restar el
+  equipo de un borrador de antes de cuerpo y equipo; la suma va por la clave del hueco, así que el
+  arco en `arma` suma lo que sumaba, y después pasa a su hueco (`armasEnSuHueco`) diciéndolo. Un
+  arquero convertido dispara igual y pega sin arma hasta que se le ponga una. El enlace pasa a la
+  versión 7.
+- **Fuera, a una issue**: la IA mide la fuerza de una unidad con las cifras de arriba (las del cuerpo
+  a cuerpo) e infravalora a los tiradores de la arena; el pistolero montado sigue con el kit de la
+  lanza. Con qué pelea una unidad del taller ya no se deduce del Y Bot: lo declara
+  (`perfilEnLaArena`, el jinete élfico `montado-arco`) y, si no, es el de su pose.
+
+## La arena, sin munición, sin tamaños y sin el catálogo del juego (13-10-2026)
+
+Petición del usuario: «Elimina las caracteristicas de disparos y hexes, todo el mundo un hexe, el
+dragon de hueso no deberia existir. Todo el mundo tiene un disparo a no ser que tengan la habilidad
+dos disparos», y, preguntado, «elimina los ejércitos antiguos, solo cuentan los 5 que hay en la
+arena» (`docs/agents/2026-10-13-arena-sin-municion-ni-tamanos/`). Solo la arena: el catálogo del juego
+(el dragón óseo, de dos casillas, incluido), la partida, el agente y `pnpm banco` no cambian.
+
+- **La munición es de la criatura del catálogo; con un arma a distancia no se cuenta** (opción A
+  del plan, a propósito y no por accidente): `isShooter` es «tiene `shots` o lleva algo en
+  `distancia`», `cuentaTiros` es «tiene `shots` > 0» (la misma lectura), `tirosQueQuedan` da los
+  tiros o `null` si no se cuentan, y `quedanTiros` une las nueve copias de `isShooter && shotsLeft >
+  0` (el disparo, el castigo del tirador de fheroes2, seis de la IA y el `↑N` del tablero). Fuera de
+  `data.ts` y del motor nadie lee `shotsLeft` (`invariantes.test.ts`), y nada lleva a la vez `shots`
+  y algo en `distancia` (`vestir` lanza). El juego no pone nada en `distancia`, así que para él cada
+  pregunta da lo de siempre: el banco quedó en `066767b4…` justo después del cambio. Se descartaron
+  un interruptor en `reglas` («munición: fheroes2 / sin munición»), que pondría la munición del juego
+  a merced de un montaje cuando lo que cambia es de quién son los tiros, no la regla; un
+  `BattleState.sinMunicion` (más firmas en el motor del banco para lo mismo) y un `shots: 1` que no
+  se gasta (munición falsa). `shotsLeft` de un stack de la arena vale 0 y nadie lo lee.
+- **El nivel no ve el arco**: el doble disparo pesa en el índice solo si el cuerpo tira, y en la
+  arena el cuerpo no tira nunca (el equipo no cuenta). Se acepta.
+- **Ninguna pieza lleva `disparos`**: el cargador lo rechaza diciéndolo y lo de antes se lee sin el
+  campo (`piezaDeAntes`). La pasada de simplify quitó la frase propia del campo y con ella el rechazo
+  en `data/equipo.json`, que no miraba campos ajenos: el juego ignoraba un `disparos` (o un `danyo`
+  mal escrito) y la arena lanzaba después sin nombrar el fichero (H2 de QA). Desde el 14-10-2026 la
+  lista de campos (`CAMPOS_DE_PIEZA`) vive en `data.ts` y la mira `problemasDePieza`: cualquier campo
+  ajeno tumba la carga diciendo `data/equipo.json: "arco": «disparos» no es un campo de una pieza`. «+ Nueva pieza» en «Arma a distancia» ya no nace con los 12 del arco: con
+  la pieza puesta, dispara.
+- **Sin catálogo**: ni filtro, ni ficha de criatura con su «prueba», ni «Nueva unidad» desde una, ni
+  cuerpo `{ criatura }`, ni `FuenteDeArena` `catalogo`. Una unidad de un borrador con cuerpo de
+  criatura se **retira** (ni vale ni se conserva al guardar) y lo dice. El enlace sube a la versión 8
+  (`SOLO_LA_ARENA`): sin `pruebas` ni puestos `{ criatura }`; de la 1 a la 7 se quitan, con un aviso
+  que los nombra por su id (la arena no lee el catálogo ni para el nombre), y un bando que se queda
+  vacío se monta vacío y se dice. Lo que llevaba tiros y sigue disparando se dice una vez por
+  borrador o enlace, no unidad a unidad. **Los avisos se leen enteros** (H1 de QA, 14-10-2026): iban
+  a la barra, que corta a dos líneas, y la frase de una unidad que se retiraba quedaba en la parte
+  cortada mientras «Guardar» la borraba del disco. Ahora van en un recuadro que se despliega solo
+  desde la barra al arrancar («Avisos al leer», con su botón para volver a abrirlo), lo que se retira
+  primero y en el color del peligro. No va como franja en el montaje: a 1440×900 los bandos tienen
+  208 px de alto y una franja de avisos los dejaba en 0. Las reglas de la grande con la muralla siguen en el motor
+  (el dragón del juego) y se prueban por `peleaDelMotor` (`test/helpers.ts`).
+- **La IA no se tocó** (decisión del usuario tras el plan): el riesgo era que con tiros infinitos se
+  quedara atrás para siempre. Medido en 300 semillas por montaje, todo en IA, unidades sorteadas de
+  las cinco facciones (`docs/agents/…/medida-arena-todo-ia.mts`): en campo abierto, 0 de 300 sin
+  terminar, con tiradores o sin ellos y con la rueda o sin ella (antes, emulando la munición, también
+  0); los tiradores pasan de 12 tiros en 23 de 300 peleas mixtas y 75 de 300 de solo tiradores. Con
+  una muralla de ejemplo y sin escaleras, 74 de 300 sin terminar con un tirador por bando (122 con la
+  munición de antes) y 161 de 300 sin tiradores: lo que no termina es la muralla sin escalera, no el
+  tiro.
+
+## Salir del contacto (#259, arena, 14-10-2026)
+
+Petición: «que al moverse, el coste de salir de una casilla sea el número de enemigos en contacto
+con esta». El usuario lo cerró así: **solo la arena, con un interruptor** (`?contacto=paga`, aparte
+de las seis reglas como el golpe: no es un par nuestra/fheroes2); **1 + N** (sin enemigos al lado,
+1, como siempre); **si no le llega, no sale** (rodear a alguien lo atrapa); el **volador paga al
+despegar**. Y tras el plan: «en contacto» es quien te puede golpear cuerpo a cuerpo desde donde está
+(`canReachMelee`, la regla del trabado), así que el de lo alto del muro de al lado no cuenta y el del
+otro lado de una puerta cerrada sí, porque hoy se golpea a través de ellas (eso es otra issue).
+
+- **El juego no cambia ni una línea de ejecución**: sin la regla, `movableFrom` llama al mismo
+  `reachable` de siempre (`recorrer`). La búsqueda con costes es aparte (`alcanceConCostes`, un
+  Dijkstra por cubos con FIFO dentro de cada uno) y un test fija que con coste 1 en todo da lo mismo
+  que `reachable`, casilla a casilla, en orden, pasos y camino (300 casos al azar). No se pasó el
+  juego por ella para no pagar los cubos en cada sondeo de la IA. `pnpm banco`, el mismo hash.
+- **Por qué la cuenta vive en `battle.ts` y no en `contacto.ts`**: necesita `canReachMelee`, y ningún
+  módulo de `battle/` importa `battle.ts`; `contacto.ts` lleva el modo, su lectura, la URL, el coste
+  de un paso y la frase, como `rueda.ts` con el golpe.
+- **La carga** cuenta casillas, como siempre; con la regla, además, la recta se paga, y lo que se anda
+  y se cobra es la recta (`carreraHasta` en `moveTo`), no el camino más barato a la misma casilla, que
+  puede costar menos. Si la recta no cabe, la casilla sigue a mano por otro camino, sin carga.
+- **Quien no sale lo dice** sin que se señale una casilla: «Rodeado: con 3 enemigos al lado, salir de
+  su casilla le cuesta 4 y le quedan 3.» en el panel de la arena (`sinSalida`, en la línea de lo que
+  le queda: sin él, el ancla de `paneles.txt` no cambia), y la misma frase si se pide ir a cualquier
+  casilla (`movimientoBlocker`). Si saliendo gratis llegaría y pagando no, «no llega: … y salir de
+  una casilla con enemigos al lado cuesta 1 más por cada uno».
+- **La IA no se tocó**: lee `movableFrom` y sus `steps`. Medido en 100 peleas de la arena, IA contra
+  IA, de 3 al máximo de unidades por bando de las cinco facciones (`tools/qa/arena-ia.ts`, tanda
+  «contacto», 14-10-2026, tras el /simplify): libre 1,5 ms por pelea y con la regla 1,6; 0 sin
+  terminar en los dos, mediana de 5 rondas (máximo 18 / 17), y la izquierda gana 46 de 100 en los dos.
+
+## La armadura de la arena: puntos que se restan del daño (#262, 14-10-2026)
+
+Petición del usuario: «Que las armaduras den puntos de armadura, no de vida, los puntos de armadura
+se restan del daño final» (`docs/agents/2026-10-14-armadura/`). Solo la arena: las piezas del juego
+siguen con PV, el agente no ve la armadura y `pnpm banco` quedó en `066767b4…`.
+
+- **Dónde se resta: dentro de `herir`** (opción A del plan). `herir` ya era la única forma de quitar
+  vida, así que el golpe, el contraataque, cada golpe de Rápido o del doble golpe, cada tiro, la
+  salpicadura (con la armadura de cada salpicado, que reparte el daño del disparo y no el que llegó al
+  objetivo), el hechizo y el poder la pagan sin un sitio donde olvidarla. Se descartaron restarla en
+  `computeDamage` (tres sitios más: la salpicadura, `castSpell` y quien leyera el bruto) y como un
+  modificador de `applyModifiers` (quedaba antes de la suerte y del redondeo, en contra del orden
+  acordado con las hermanas de la carga y de R. guardia: ataque y defensa, multiplicadores y la
+  armadura al final). `herir` devuelve `{ muertos, danio, parado }` y el registro anota lo que llegó
+  y, si paró algo, `armadura` (solo entonces: el banco hashea el registro). La previsión y la IA
+  llaman a la misma resta (`trasLaArmadura`); es monótona, así que la horquilla sigue siendo justa.
+- **Por calidad, no por hueco** (decisión tras el plan): la calidad `arena` lleva armadura y no PV y
+  las demás PV y no armadura (`problemasDePieza`). Así el editor no reescribe nada al cambiar una pieza
+  de hueco, una del juego cambiada en el borrador no puede llevarla (su calidad no se cambia) y una del
+  juego duplicada como nueva pasa sus PV a armadura. `UnitInfo.puntosDeArmadura` (con otro nombre que
+  el hueco `armadura`, para que se encuentre buscándolo) lo escribe solo `conEquipo` y solo si es > 0.
+- **Lo de antes, PV / 10 al entero más cercano**: una pieza de la arena con PV de un borrador o de un
+  enlace hasta la versión 8 se lee con armadura y lo dice; el enlace sube a la 9 (`CON_ARMADURA`) y
+  desde ella una pieza de la arena con PV se rechaza. Las unidades de antes del equipo (enlaces de la
+  1 a la 4 y borradores sin cuerpo) contaban en su vida los PV de la armadura del kit: su cuerpo pierde
+  esos PV y el aviso dice que ahora lleva la armadura (comprobado al revés con `conLaArmaduraEnPV`).
+- **El equilibrio, medido** (`tools/qa/arena-ia.ts`, tandas «armadura», 100 semillas, IA contra IA
+  sobre `autoResolve`, sin héroes, reglas del juego y golpe de azar; medido otra vez tras el
+  /simplify del 14-10-2026, con el bucle común y la carga solo en el primer golpe): tres contra tres
+  al azar, 1 de 100 peleas sin terminar con la barda (s43), 0 sin ella y 0 con los 220 PV de antes;
+  un jinete contra tres de arco, ballesta o bastón gana 93 de 100 con la barda, 0 sin ella y 83 con
+  los PV de antes, y la armadura para del todo 1 246 de los 2 438 golpes de esa tanda (51 %). La
+  barda (22) gana algo más que la de antes; la pelea colgada es una sola, y si molesta, se ajusta en
+  el JSON, sin código. (La medida de la tarea, con su propio bucle, daba 97 / 2 / 92 y 46 %.)
+
+## La rueda del golpe: el anillo nuevo, Romper guardia por éxito y la Finta que deja andar (#263, 14-10-2026)
+
+Petición del usuario sobre la rueda de la arena (`docs/agents/2026-10-14-rueda-anillo-y-efectos/`).
+
+- **El anillo**, desde arriba y en el sentido del reloj: Ofensivo, Fuerte, Finta, Defensivo,
+  Rápido, Romper guardia; Normal en el centro. Los opuestos: Ofensivo y Defensivo, Fuerte y Rápido,
+  Finta y Romper guardia. Cambia solo `TIPOS_DE_GOLPE` (y con él `ANILLO`, las teclas y los
+  ángulos); `puntoDelCruce` sale de ahí. Las notas de cada sector se colocan en el CSS por su
+  **puesto** (`data-puesto`), no por su tipo: con el orden escrito dos veces, cambiarlo en el núcleo
+  dejaba las notas abriéndose hacia dentro de la rueda. Un guardia de `pnpm capturas` (el foco con
+  → enciende «el primero», que era Rápido) dependía del orden y se cayó al cambiarlo: ahora lee el
+  primero de `TIPOS_DE_GOLPE`.
+- **La respuesta no da bonificadores** (decisión del usuario: «si no, alguien defendiendo que
+  hiciese varios ataques defensivos empezaría a sumar defensa cada vez que le ataquen»). Solo
+  Fuerte y Rápido cambian el contraataque; Ofensivo, Defensivo, Finta y Romper guardia, elegidos
+  por quien recibe, solo deciden el cruce. Lo dice `cruceDelGolpe(…, papel)` (el +1 de Ofensivo,
+  solo con `golpe`) y `intercambio`, que solo cuelga lo de quien pega.
+- **Defensivo** dura hasta que **empieza** el próximo turno de quien lo usó (antes, hasta que
+  terminaba): se quita en `abrirTurno`, también en el turno extra de la moral alta, y en el turno que
+  la moral baja le quita, que empieza y se pierde. `StackEffect.hastaElTurno` (un número) pasó a
+  `StackEffect.hasta` (`{ turno, al: 'empezar' | 'terminar' }`) y el parte dice cuál.
+- **Romper guardia** quita **ataque** (antes, defensa al acabar el intercambio) al atacado según el
+  éxito del golpe —el punto del cruce de quien pega: máximo −3, alto −2, medio −1, bajo y mínimo
+  nada—, ya en su contraataque (se cuelga entre el golpe y el contraataque) y hasta que termine su
+  próximo turno. Dos seguidos refrescan: queda el último. En piqueros 10 contra 10 (A 5, D 9), el
+  contraataque baja de 216 a 198 con éxito máximo; con éxito bajo, la respuesta Ofensivo ya no suma:
+  300 y no 308.
+- **La Finta** ya no quita nada: tras golpear con ella, el resto del turno es un tramo **solo de
+  andar** (`TurnoDeUnidad.finta`, que lo pone solo `melee`; `fintaBlocker`): lo que le quede menos
+  `5 − p` casillas (`pasosQueQuedan` lo resta; no va en `gastado`, que son las casillas
+  recorridas). Andar cierra el turno; con 0, se cierra solo, y si el golpe acaba la pelea, también.
+  Ni volver a golpear, ni disparar, ni poder, ni el hechizo del héroe, ni rendirse, ni esperar,
+  defender, puertas o escaleras (decisión del usuario tras el plan): lo dice cada motivo de la
+  pantalla. Las casillas salen solas porque la lista legal solo trae los `move` del recorrido de
+  siempre (`movableFrom`), que el cliente pinta al acabar el desenlace. La IA no cambia: elige de
+  esa lista; en 50 semillas de `autoResolve` todo termina y alguna anda tras fintar.
+- **Las cifras**, en `data/rueda.json` por nivel de éxito (`minimo` … `maximo`), inventadas; las
+  notas de Romper guardia y de la Finta las dicen enteras, sacadas de ahí.
+- El juego no cambia: `pnpm banco`, ancla igual (066767b4…, 200 partidas).
+
+## La carga para todos en la arena (#260, 14-10-2026)
+
+«En la arena no he podido hacer ninguna carga; he probado con el guerrero con escudo»: solo
+cargaba quien tenía el rasgo `charge`, y en la arena solo lo llevan los perfiles montados. Decisión
+del usuario: **«todos los que pegan cuerpo a cuerpo, y el jinete más»**, con la recta de siempre
+(`cargaDesde`) y solo en la arena.
+
+- **Las cifras, en `data/carga.json`** (`battle/carga.ts`, `validarCarga`): el jinete, +10 % por
+  casilla hasta 5 (la de antes: `porciento / 100` da el mismo double que el `0.1` escrito, y el banco
+  no se mueve); a pie, +5 % hasta 5 (inventado). El arquitecto proponía tope 3 a pie, que con la
+  recta mínima de 3 dejaba la carga a pie en «sí o no» (+15 % siempre); el usuario subió el tope a 5.
+- **Una regla de la pelea, no de la unidad**: `BattleState.cargaAPie`, que pone solo la arena
+  (`batallaDeArena(…, CARGA_A_PIE_EN_LA_ARENA)`). Un rasgo nuevo en cada unidad de la arena habría
+  llegado al catálogo, al agente y a la ficha como algo que se quita. Quién carga y cuánto lo dice
+  `cifrasDeCarga`, que leen la recta, el anuncio, el daño, la IA y la ficha. Sin interruptor: la
+  prueba C4 (arena = juego) pasa `false` a mano.
+- **El cliente ya no calcula el tanto por ciento**: `CasillaDeCarga.porciento` lo trae del núcleo
+  (antes, `hexes × CHARGE_BONUS_PER_HEX × 100` en el tablero y en la barra). El parte dice
+  «carga de 3 casillas a pie, +15 %» (`dichoDeLaCarga`; el `attack` lleva `cargaAPie` solo en la
+  arena), la previsión «carga de 3 casillas a pie ×1,15» y la ficha de la arena, en «Armas», una fila
+  de Carga para toda unidad con «+5 %/casilla, de 3 a 5 casillas (a pie)».
+- **La IA no se tocó**: `mejorCarga` ya elegía la casilla que más carga entre las que alcanzan al
+  objetivo, y ahora lo hace también a pie; `pasoParaCargar` (colocarse en recta) sigue solo para el
+  jinete. Medido IA contra IA en la arena, 100 semillas, cuatro unidades sorteadas de las cinco
+  facciones por bando y sin héroes (`tools/qa/arena-ia.ts`, tanda «carga», sobre `autoResolve`;
+  medido otra vez tras el /simplify del 14-10-2026): 36 cargas a pie y 69 del jinete; sin la carga a
+  pie, 0 y las mismas 69 del jinete. 2 de 100 peleas sin terminar en las dos variantes (s13, s43),
+  las mismas. (La medida de la tarea contaba además las ocasiones al empezar cada turno con
+  `casillasDeCarga`, que no da `autoResolve`: 38 a pie y 71 del jinete, con su propio bucle.)
+
+## La rueda: todo el sector responde y los dos contrincantes a la vista (#258, #261, 14-10-2026)
+
+- **El sector entero** (#258): lo que se veía era la corona del SVG y lo que recibía el ratón, una
+  caja ovalada de 26 × 24 % en su centro: las esquinas de fuera y los picos junto a los radios no
+  respondían. Ahora cada botón mide el plato entero y se recorta a su sector con `clip-path:
+  url(#forma-de-<tipo>)`, un `<clipPath>` con la misma forma que pinta el disco (`sector`, o el
+  círculo de Normal). Antes de nada se midió en Chromium sin pantalla que el recorte recorta el
+  clic, no solo lo que se pinta: con `elementFromPoint`, los picos, el borde de fuera y Normal dan su
+  botón y fuera de la corona, la junta y el hueco, ninguno. La opción de hacer del `<path>` el botón
+  obligaba a rehacer el teclado y las notas, que funcionaban. El rótulo y el «ⓘ» se colocan por el
+  ángulo del sector y la nota abre hacia fuera por `data-hacia` (`haciaDe`): nada va por tipo, y el
+  anillo puede cambiar de orden sin tocar la colocación. `pnpm capturas` mide 50 puntos de la rueda
+  (escritorio y móvil) y elige Fuerte por su esquina de fuera; sin el recorte, todos dan Normal.
+- **Los dos contrincantes** (#261): la cabecera lleva la figura de cada uno, la del botón del puesto,
+  animada y del color de su bando, también en el desenlace. Con el ratón encima (o el foco del
+  teclado), su vista previa a un lado —debajo tapaba los sectores de arriba mientras se elegía—; con
+  un clic, su ficha de solo lectura encima de la rueda (`<fieldset disabled>`), y al cerrarla, la
+  rueda en la misma fase. **En el móvil no hay vista previa**: tocar la figura abre la ficha
+  (decisión del usuario); la regla es `(hover: hover)`, no el ancho. Pasar por la cabecera no
+  despierta los sectores (`data-quieta`). Mientras la rueda está abierta, los dos llevan un aro de
+  más del color de su bando en el tablero (`ARO_DE_LA_RUEDA`). Nada de lo nuevo lee lo elegido: va a
+  ciegas en la sesión, y la rueda de la respuesta sale idéntica tras dos golpes distintos.
+- **Una trampa del test**: el título del editor vuelve en el evento `close`, que llega en una tarea
+  aparte tras `close()`; mirarlo justo al cerrarse daba a veces el de la ficha.
+
+## Las cinco de la arena, juntas: el /simplify (14-10-2026)
+
+Tras juntar #259, #260, #262, #263 y #258/#261, una pasada de limpieza
+(`docs/agents/2026-10-14-arena-cinco-juntas/`). El juego no cambia: `pnpm banco` da el mismo hash.
+
+- **Los modos de la arena, en un campo**: `BattleState.arena` (`ModosDeArena`: golpe, contacto y
+  carga a pie, `battle/modos.ts`), con `MODOS_DEL_JUEGO` y `MODOS_DE_LA_ARENA`, en vez de tres campos
+  sueltos; `crearBatallaConReglas(…, { muralla, modos })` en vez de ocho parámetros. El golpe y el
+  contacto tienen un descriptor cada uno y una sola lectura y escritura de la URL; la página los
+  recorre en un bucle y los pinta con un solo `renderModo`. Un solo guardia vigila que solo la arena
+  encienda un modo, con alias e imports (los dos de antes no los miraban).
+- **Las fases del turno** (`faseDelTurno`: libre, movido, plantado, tras la Finta) y lo que no vale en
+  cada una (`faseBlocker`), en vez de la Finta pegada a mano en nueve sitios. **Un fallo latente**: la
+  firma con que `applyAction` rechaza un recorrido viejo no llevaba la Finta, y un `move` con el
+  recorrido de antes de golpear con ella andaba de más; ahora `firmaDelTurno` la lleva.
+- **La carga es el paso que se anda** (un fallo con el contacto): plantarse para cargar pagaba la recta
+  aunque el camino barato costara menos, y soltar el golpe dejaba la recta pagada y sin carga. Ahora
+  el golpe plantado guarda la carrera y el coste barato, y soltarlo devuelve lo gastado al barato.
+- **Decisión del usuario**: la carga la cobra solo el primer golpe (Rápido y el doble golpe), en el
+  golpe y en la previsión. En el juego nadie carga y pega dos veces.
+- **Decisiones del usuario sin código**: la Finta y el contacto se apilan (su nota lo dice cuando el
+  contacto se cobra), y Rápido pierde contra armadura (su nota lo dice). La IA no se toca.
+- **Las medidas de la IA contra la IA en la arena**, en un solo `tools/qa/arena-ia.ts` sobre
+  `autoResolve`; las cifras de cada regla, medidas otra vez con él, en sus secciones de arriba.
+
+## La arena, sin compatibilidad hacia atrás (14-10-2026)
+
+El usuario, al cerrar las cinco de la arena (#258–#263): «No queremos mantener compatibilidad hacia
+atras, estamos en pleno desarrollo». Dos de los hallazgos pendientes del QA eran de leer enlaces
+viejos (el aviso de la armadura de antes y una pieza antigua con muchos PV): cada formato nuevo
+dejaba una conversión más, con sus avisos, sus umbrales y sus tests, y ya pesaba más que la regla.
+Los requisitos, en `docs/agents/2026-10-14-sin-compatibilidad/`.
+
+- **El borrador del usuario se convirtió una vez** (decisión suya) con las conversiones de entonces
+  y se guardó: 12 unidades válidas, sin avisos.
+- **El enlace (`?montaje=`) lee solo la versión de hoy** (la 9): uno de otra versión se rechaza con
+  «este enlace es de una versión anterior de la arena (la N; la de hoy es la 9): vuelve a copiarlo»,
+  sin montar nada. Fuera las versiones 1 a 8, sus umbrales con nombre (`CON_MURALLA`,
+  `BANDO_ENTERO`, `CON_EQUIPO`, `CON_PIEZAS`, `CON_ARMAS`, `SOLO_LA_ARENA`, `CON_ARMADURA`), sus
+  campos y lo que se leía con las piezas de la arena que lo abre (antes de la 6).
+- **Unidades y piezas, solo el formato de hoy**: fuera `migrarUnidadDeArena` y lo suyo (`loDeAntes`,
+  `cuerpoSinElKit` con `KIT_DEL_CICLO_2`, la escala de `level`, la velocidad en `speed`, la retirada
+  de los cuerpos de criatura con `seRetiran`), `piezaDeAntes` (el arco en `arma`, los `disparos`, los
+  PV de una pieza de la arena), `armasEnSuHueco`, el aviso de la armadura de antes,
+  `perfilDeLasHojas`, `pvDeLaArmadura` y `conLaArmaduraEnPV`. Lo de antes **no vale**: sale entre
+  las que no valen con su motivo y «Guardar» lo conserva tal cual, como cualquier otra.
+- **Se queda** lo que también usa la regla de hoy: `armaduraDePV` y `avisoDeLaCopia` (una pieza del
+  juego con PV duplicada en la arena protege con armadura), `mismasCifras` (el cambio de una pieza a
+  media pelea solo escribe a quien cambia), `piezasDelEnlace` y `piezasQueSeGuardan` (el enlace de
+  hoy pelea con sus piezas) e `IA_POR_DEFECTO` (la página al abrirse).
+- **El recuadro «Avisos al leer»** se queda, pero con lo único que queda que decir al leer: las
+  unidades y piezas que no valen, con su motivo entero (en la barra, cortada a dos líneas, no se
+  leía).
+- **Fuera de la arena, en el navegador**: las fichas abiertas recordadas en `localStorage` con la
+  clave de antes (`hoja:<id>`, y las de una criatura del catálogo, que se tiraban callando) se quitan
+  diciéndolo, como cualquier otra que ya no se abre.
+- **Lo que no se tocó**: las marcas del mapa (`docs/revision/marcas/`, del usuario) admiten campos
+  que las de antes de R4/R5 y de #159 no traen (`src/client/desarrollo/esquema.ts`); 3 de las 15
+  marcas guardadas son de entonces y dejarían de leerse. Es un dato del usuario que no se puede
+  regenerar: queda pendiente de su decisión.
+- Se van ~990 líneas netas de código (`src/core/arena.ts`, de 3 287 a 2 427) y ~600 de tests. El
+  juego no cambia: `pnpm banco` da el mismo hash.

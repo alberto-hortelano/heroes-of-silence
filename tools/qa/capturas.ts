@@ -40,14 +40,27 @@ import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
-import { DURACION, duracionDeLaJugada } from '../../src/client/anim.js';
+import { DURACION, duracionDeLaJugada, IMPACTO } from '../../src/client/anim.js';
+import {
+  anguloDe,
+  MEDIDAS_DE_LA_RUEDA,
+  sitioEnLaRueda,
+  teclaDe,
+} from '../../src/client/arena/rueda.js';
 import { EscenaAventura } from '../../src/client/escenas/aventura.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
 import { msPorCasilla } from '../../src/client/marcha.js';
 import { camaraDeLaBase, camaraQuieta } from '../../src/client/render/base/camara.js';
 import { dondePulsarElSitio } from '../../src/client/render/base/recortes.js';
-import { cajaDeFigura, cajaDeFiguraEn, galonesDe } from '../../src/client/render/batalla.js';
+import {
+  ARO_DE_LA_RUEDA,
+  COLOR_BANDO,
+  cabezaDe,
+  cajaDeFigura,
+  cajaDeFiguraEn,
+  galonesDe,
+} from '../../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, type Encuadre } from '../../src/client/render/camara-mapa.js';
 import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
 import { registrarUnidad } from '../../src/client/render/personajes.js';
@@ -73,10 +86,23 @@ import {
   unidadDeCombate,
   unidadPorDefecto,
 } from '../../src/core/arena.js';
-import { isAlive, mismoTurno, quedanCasillas, stackHexes } from '../../src/core/battle/battle.js';
-import { hexDistance, hexEquals } from '../../src/core/battle/board.js';
+import {
+  isAlive,
+  mismoTurno,
+  piezasDeLaPelea,
+  stackById,
+  stackHexes,
+} from '../../src/core/battle/battle.js';
+import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/board.js';
+import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
 import { poder } from '../../src/core/battle/poderes.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../../src/core/battle/reglas.js';
+import {
+  NOMBRE_DE_GOLPE,
+  NOMBRE_DEL_PUNTO,
+  TIPOS_DE_GOLPE,
+  type TipoDeGolpe,
+} from '../../src/core/battle/rueda.js';
 import { allSpells } from '../../src/core/battle/spells.js';
 import type {
   BattleAction,
@@ -84,7 +110,7 @@ import type {
   BattleStack,
   BattleState,
 } from '../../src/core/battle/types.js';
-import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
+import { allCreatures, nombreDeTipoDeHeroe } from '../../src/core/data.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
@@ -723,11 +749,17 @@ async function pixelDeUnidad(
   const c = cajaDeFigura(t, s, centroDeStack(stackHexes(s)));
   const escena = escenaDelEspejo(espejo, b.width, b.height);
   for (const alto of [0.5, 0.35, 0.65, 0.8, 0.2]) {
-    const y = c.suelo - c.alto * alto;
-    if (escena.objetivoEn(c.x, y)?.id === s.id) {
+    // En un píxel entero de la página: el ratón llega entero al navegador, y
+    // con la caja en media fila (el móvil, `y` 45,78) el espejo leía otro punto.
+    // Junto a la bisectriz de dos casillas, ese medio píxel cambiaba desde dónde
+    // se golpea: la página se plantaba en (4,3) y el espejo en (3,3).
+    const px = Math.round(b.x + c.x);
+    const py = Math.round(b.y + c.suelo - c.alto * alto);
+    const [x, y] = [px - b.x, py - b.y];
+    if (escena.objetivoEn(x, y)?.id === s.id) {
       // La acción que el cliente mandará al pulsar AHÍ: con el ángulo, el píxel
       // decide desde qué casilla se golpea, así que el espejo tiene que saberlo.
-      return { x: b.x + c.x, y: b.y + y, accion: escena.accionContraEn(c.x, y) };
+      return { x: px, y: py, accion: escena.accionContraEn(x, y) };
     }
   }
   throw new Error(`no hay un punto del cuerpo de ${s.id} que el clic lea como suyo`);
@@ -2688,7 +2720,7 @@ function deHoja(
 
 /** Una unidad del borrador como fuente del montaje del espejo. */
 function delBorrador(unidad: UnidadDeArena): FuenteDeArena {
-  return { kind: 'borrador', unidad };
+  return { unidad };
 }
 
 /**
@@ -2754,6 +2786,29 @@ function jugadaDeLaPauta(espejo: SesionDeArena, tramos: number, golpes: number):
     return { tipo: 'tramo', mover };
   }
   return { tipo: 'terminar' };
+}
+
+/**
+ * Juega en la página y en el espejo un paso de la pauta que no es golpear (el
+ * golpe depende del píxel que se pulsa, y cada pasada lo hace a su manera): el
+ * tramo, con un clic en su casilla, o «Terminar turno». Lo comparten las pasadas
+ * de la rueda.
+ */
+async function ejecutarPauta(
+  page: Page,
+  espejo: SesionDeArena,
+  j: Exclude<JugadaDeLaPauta, { tipo: 'golpe' }>,
+): Promise<void> {
+  if (j.tipo === 'tramo') {
+    const b0 = await caja(page);
+    const c = centroHex(tableroPara(b0.width, b0.height), j.mover.to);
+    const b = await alcanzar(page, c.x);
+    await page.mouse.click(b.x + c.x, b.y + c.y);
+    espejo.playBattleAction(j.mover);
+  } else {
+    await page.getByRole('button', { name: 'Terminar turno' }).click();
+    espejo.playBattleAction({ type: 'end_turn' });
+  }
 }
 
 /**
@@ -3115,7 +3170,7 @@ async function poderesEnLaArena(
       .waitFor({ timeout: 2000 });
     const motivoDelOrco = espejo.retocar({
       kind: 'tipo',
-      fuente: { kind: 'borrador', unidad: deHoja(hojas, 'orko-dos-armas', { attack: ataque }) },
+      fuente: { unidad: deHoja(hojas, 'orko-dos-armas', { attack: ataque }) },
     });
     if (motivoDelOrco !== null)
       throw new Error(`poderes: el espejo no retoca el orco: ${motivoDelOrco}`);
@@ -3493,19 +3548,29 @@ const HEROE_DEL_BANCO: HeroeDeArena = {
   hechizos: allSpells().map((s) => s.id),
 };
 
-/** El espejo de la pelea del banco: la caballería del catálogo y el héroe, contra esqueletos. */
+/** Las hojas del banco, leídas una vez: `buscarBanco` monta muchos espejos. */
+let hojasDelBanco: ReturnType<typeof hojasDeArena> | null = null;
+
+/**
+ * El espejo de la pelea del banco: el hermano de carga y el héroe, contra un
+ * esqueleto guerrero y uno arquero (hojas por defecto). Hasta el 13-10-2026 eran
+ * la caballería, el esqueleto y el arquero del catálogo del juego, que ya no
+ * entran en la arena.
+ */
 function espejoDelBanco(semilla: number): SesionDeArena {
+  hojasDelBanco ??= hojasDeArena(process.cwd());
+  const hojas = hojasDelBanco;
   const espejo = new SesionDeArena(
     {
       izquierda: {
-        unidades: [{ kind: 'catalogo', id: 'cavalry', cambios: null }],
+        unidades: [delBorrador(deHoja(hojas, 'templario-hermano-de-carga'))],
         heroe: HEROE_DEL_BANCO,
         ia: false,
       },
       derecha: {
         unidades: [
-          { kind: 'catalogo', id: 'skeleton', cambios: null },
-          { kind: 'catalogo', id: 'archer', cambios: null },
+          delBorrador(deHoja(hojas, 'esqueleto-guerrero')),
+          delBorrador(deHoja(hojas, 'esqueleto-arquero')),
         ],
         heroe: null,
         ia: true,
@@ -3585,6 +3650,36 @@ async function abrirLaArena(page: Page, url: string, query: string): Promise<voi
 }
 
 /**
+ * Que la lista de la arena bajo `raiz` no ofrezca el catálogo del juego
+ * (13-10-2026): ni un botón u opción que lo nombre, ni una criatura suya entre las
+ * unidades de la lista o los cuerpos de «Nueva unidad». Mira lo que la página
+ * genera hoy: buscar el `data-faccion="catalogo"` de antes pasaba siempre, porque
+ * nadie lo escribe ya.
+ */
+async function sinElCatalogoDelJuego(page: Page, raiz: string, paso: string): Promise<void> {
+  const nombrado = await page
+    .locator(`${raiz} :is(button, option)`, { hasText: /cat[aá]logo del juego/i })
+    .count();
+  const ids = await page
+    .locator(`${raiz} [data-unidad-catalogo], ${raiz} [data-arena-nueva] option`)
+    .evaluateAll((els) =>
+      els.map((e) => e.getAttribute('data-unidad-catalogo') ?? e.getAttribute('value') ?? ''),
+    );
+  if (!ids.some((id) => id !== '')) {
+    throw new Error(
+      `${paso}: la lista de la arena no tiene unidades, y no hay catálogo que buscar`,
+    );
+  }
+  const delJuego = new Set(allCreatures().map((c) => c.id));
+  const criaturas = ids.filter((id) => delJuego.has(id));
+  if (nombrado > 0 || criaturas.length > 0) {
+    throw new Error(
+      `${paso}: la lista de la arena aún ofrece el catálogo del juego (${nombrado} botones u opciones que lo nombran; criaturas: ${criaturas.join(', ') || 'ninguna'})`,
+    );
+  }
+}
+
+/**
  * Hasta que la página ha pintado lo último que se le pidió: las fuentes cargadas
  * y dos fotogramas (el del repintado pendiente y el siguiente, ya con él).
  */
@@ -3608,9 +3703,10 @@ async function asentada(page: Page): Promise<void> {
 }
 
 /**
- * El banco de combate en la arena, con clics de verdad (#ciclo 2026-10-09): una
- * criatura del CATÁLOGO del juego (la caballería) y un HÉROE con libro a la
- * izquierda, el interruptor del tirador en fheroes2 desde la URL, la Flecha
+ * El banco de combate en la arena, con clics de verdad (#ciclo 2026-10-09): un
+ * jinete (el hermano de carga; hasta el 13-10-2026, la caballería del catálogo)
+ * y un HÉROE con libro a la izquierda, sin el catálogo del juego en la lista ni
+ * munición en la ficha y el panel, el interruptor del tirador en fheroes2 desde la URL, la Flecha
  * mágica lanzada con un clic tras leer su previsión en la barra, y el primer
  * golpe con su previsión, las dos de la misma cuenta del núcleo que el espejo.
  */
@@ -3620,14 +3716,30 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   const semilla = buscarBanco();
   log(`banco: semilla ${semilla}, buscada en el espejo`);
   await abrirLaArena(page, url, `?seed=${semilla}&reglas=tirador`);
-  const cabecera = await page.locator('#catalogo h3').first().innerText();
+  // La de las reglas por su nombre: delante va la del golpe (azar o rueda).
+  const cabecera = await page
+    .locator('#catalogo h3', { hasText: /^\s*reglas/i })
+    .first()
+    .innerText();
   if (!/1 de fheroes2/i.test(cabecera)) {
     throw new Error(`banco: la URL pide el tirador de fheroes2 y el montaje dice «${cabecera}»`);
   }
-  await page.locator('[data-arena="filtro"][data-faccion="catalogo"]').click();
-  await page.locator('[data-criatura-catalogo="cavalry"] [data-lado="izquierda"]').click();
-  await page.locator('[data-criatura-catalogo="skeleton"] [data-lado="derecha"]').click();
-  await page.locator('[data-criatura-catalogo="archer"] [data-lado="derecha"]').click();
+  await sinElCatalogoDelJuego(page, '#catalogo', 'banco');
+  await page
+    .locator('[data-unidad-catalogo="templario-hermano-de-carga"] [data-lado="izquierda"]')
+    .click();
+  await page.locator('[data-unidad-catalogo="esqueleto-guerrero"] [data-lado="derecha"]').click();
+  await page.locator('[data-unidad-catalogo="esqueleto-arquero"] [data-lado="derecha"]').click();
+  // La ficha del arquero: dispara por su arco, sin munición ni tamaño que escribir.
+  const fichaDelArquero = await page.locator('#ficha').innerText();
+  if (/Disparos|Hexes|Munición/.test(fichaDelArquero)) {
+    throw new Error(
+      `banco: la ficha del arquero aún habla de munición o tamaño: «${fichaDelArquero}»`,
+    );
+  }
+  if (!/A distancia/.test(fichaDelArquero)) {
+    throw new Error('banco: la ficha del arquero no dice su arma a distancia');
+  }
   await page.locator('[data-arena="poner-heroe"][data-lado="izquierda"]').click();
   for (const [campo, valor] of [
     ['poder', HEROE_DEL_BANCO.poder],
@@ -3640,11 +3752,10 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   await page
     .locator(`#ficha [data-mana-de-la-ficha="${HEROE_DEL_BANCO.conocimiento * 10}"]`)
     .waitFor({ timeout: 2000 });
-  const sello = await page
-    .locator('#bando-izquierda .puesto', { hasText: 'Caballería' })
-    .innerText();
-  if (!/catálogo/i.test(sello))
-    throw new Error(`banco: la caballería no lleva el sello del catálogo: «${sello}»`);
+  const tarjetas = await bandosDichos(page);
+  if (/tiros|hexes/i.test(tarjetas)) {
+    throw new Error(`banco: las tarjetas de los bandos hablan de tiros o casillas: «${tarjetas}»`);
+  }
   await sleep(300);
   await captura(page, 'arena-05-banco-montaje');
 
@@ -3656,6 +3767,10 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   }
   await esperarCola(espejo.battle, espejo.battle.log);
   await mismaPelea(page, espejo, 'empezar la pelea del banco');
+  // El panel de la pelea no tiene fila de munición (13-10-2026).
+  if ((await page.locator('#side').innerText()).includes('Munición')) {
+    throw new Error('banco: el panel de la pelea enseña «Munición»');
+  }
 
   // La Flecha mágica: el botón del libro, el puntero sobre el objetivo hasta que
   // la barra dice su previsión, y el clic.
@@ -3765,12 +3880,90 @@ async function bandosDichos(page: Page): Promise<string> {
 }
 
 /**
+ * Una unidad de antes en el borrador (con `level`, 14-10-2026: sin compatibilidad
+ * hacia atrás) no vale: la página la dice con su motivo entero en el recuadro que
+ * se despliega solo desde la barra, a 1440 y a 390 de ancho; «Entendido» lo cierra
+ * y el botón de la barra lo vuelve a abrir. El borrador se deja como estaba.
+ */
+async function loQueNoValeAlLeer(page: Page, url: string): Promise<void> {
+  const ruta = join(process.cwd(), RUTA_DEL_BORRADOR);
+  const guardado = readFileSync(ruta, 'utf8');
+  const json = JSON.parse(guardado) as { unidades: Record<string, unknown>[] };
+  // La primera guardada, con otro id y el `level` de la escala de fheroes2.
+  const viejo = { ...json.unidades[0], id: 'unidad-de-antes', level: 3 };
+  writeFileSync(ruta, JSON.stringify({ ...json, unidades: [...json.unidades, viejo] }, null, 2));
+  try {
+    const motivo = leerBorrador(process.cwd()).invalidas.find((i) => i.id === viejo.id)?.motivo;
+    if (motivo === undefined) throw new Error('no-vale: la unidad con «level» vale');
+    const frase = `${viejo.id}: ${motivo}`;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${url}/arena/`, { waitUntil: 'networkidle' });
+    await page.locator('#avisos-de-lectura li').first().waitFor({ timeout: 5000 });
+    if (!(await page.locator('#status').innerText()).includes('«Avisos al leer»')) {
+      throw new Error('no-vale: la barra no dice dónde leer lo que no vale');
+    }
+    await avisosEnteros(page, [frase], 'no-vale (1440)');
+    await captura(page, 'arena-09c-no-vale');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await avisosEnteros(page, [frase], 'no-vale (390)');
+    await captura(page, 'arena-09d-no-vale-movil');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.locator('[data-arena="cerrar-avisos"]').click();
+    if (await page.locator('#avisos-de-lectura').isVisible()) {
+      throw new Error('no-vale: «Entendido» no cierra el recuadro');
+    }
+    // Y se vuelve a abrir desde la barra.
+    await page.locator('#ver-avisos', { hasText: 'Avisos al leer (1)' }).click();
+    await avisosEnteros(page, [frase], 'no-vale (reabierto)');
+    await page.locator('[data-arena="cerrar-avisos"]').click();
+    log('no-vale: una unidad con «level» no vale y se dice entera, en el recuadro de la barra');
+  } finally {
+    writeFileSync(ruta, guardado);
+  }
+}
+
+/**
+ * Que los avisos de lo leído (`#avisos-de-lectura`, desplegados desde la barra)
+ * empiecen por `primeros`, en ese orden y enteros, y que cada uno se lea entero en
+ * la pantalla: su punto de la lista sin recortar (ni por su caja ni por la del
+ * recuadro) y, traído a la vista, dentro de ella. Es lo que la barra, cortada a dos líneas, no daba (H1 de QA,
+ * 14-10-2026).
+ */
+async function avisosEnteros(page: Page, primeros: readonly string[], paso: string): Promise<void> {
+  const puntos = page.locator('#avisos-de-lectura li');
+  const dichos = await puntos.allInnerTexts();
+  for (const [i, frase] of primeros.entries()) {
+    if (dichos[i]?.trim() !== frase) {
+      throw new Error(
+        `${paso}: el aviso ${i + 1} debía ser «${frase}» y es «${dichos[i] ?? '(ninguno)'}»`,
+      );
+    }
+    const punto = puntos.nth(i);
+    await punto.scrollIntoViewIfNeeded();
+    const fallo = await punto.evaluate((li) => {
+      const caja = li.getBoundingClientRect();
+      const recuadro = (li.closest('#avisos-de-lectura') as HTMLElement).getBoundingClientRect();
+      if (li.scrollHeight > li.clientHeight + 1 || li.scrollWidth > li.clientWidth + 1)
+        return `su punto está recortado (${li.scrollWidth}×${li.scrollHeight} en ${li.clientWidth}×${li.clientHeight})`;
+      if (caja.top < recuadro.top - 1 || caja.bottom > recuadro.bottom + 1)
+        return `se sale del recuadro (${Math.round(caja.top)}-${Math.round(caja.bottom)} en ${Math.round(recuadro.top)}-${Math.round(recuadro.bottom)})`;
+      if (caja.top < 0 || caja.bottom > window.innerHeight || caja.right > window.innerWidth)
+        return `no cabe en la pantalla (${Math.round(caja.left)},${Math.round(caja.top)}-${Math.round(caja.right)},${Math.round(caja.bottom)} en ${window.innerWidth}×${window.innerHeight})`;
+      return null;
+    });
+    if (fallo !== null) throw new Error(`${paso}: el aviso «${frase.slice(0, 40)}…» ${fallo}`);
+  }
+}
+
+/**
  * El enlace de la pelea (H6 de QA del banco): se monta con clics una pelea con
- * todo lo que lleva el enlace —una hoja con una cifra sin guardar, una criatura
- * del catálogo con su prueba, un héroe con su hoja de figura y sus cifras en cada
- * lado, todo en IA, y dos reglas de fheroes2—, se copia el enlace, y abierto en
- * otra página monta lo mismo y se queda en el montaje sin luchar. Un enlace roto
- * y un `?reglas=` repetido se rechazan diciéndolo.
+ * todo lo que lleva el enlace —dos hojas con una cifra sin guardar, un arquero,
+ * un héroe con su hoja de figura y sus cifras en cada lado, todo en IA, y dos
+ * reglas de fheroes2—, se copia el enlace, y abierto en otra página monta lo
+ * mismo y se queda en el montaje sin luchar. Un enlace de hoy con una criatura
+ * del catálogo (que ya no está en la arena, 13-10-2026), uno de la versión 8 y un
+ * `?reglas=` repetido se rechazan diciéndolo, y una unidad de antes en el borrador
+ * no vale y se dice entera (`loQueNoValeAlLeer`).
  */
 async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -3784,10 +3977,10 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
   await campo('[data-campo="attack"]', '11');
   await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
-  await page.locator('[data-arena="filtro"][data-faccion="catalogo"]').click();
-  await page.locator('[data-criatura-catalogo="pikeman"] [data-lado="izquierda"]').click();
-  await campo('[data-catalogo-campo="attack"]', '8');
-  await page.locator('[data-criatura-catalogo="archer"] [data-lado="derecha"]').click();
+  // Hasta el 13-10-2026, el piquero y el arquero del catálogo con su prueba.
+  await page.locator('[data-unidad-catalogo="imperio-piquero"] [data-lado="izquierda"]').click();
+  await campo('[data-campo="attack"]', '8');
+  await page.locator('[data-unidad-catalogo="elfo-arquero"] [data-lado="derecha"]').click();
   for (const lado of ['izquierda', 'derecha'] as const) {
     await page.locator(`[data-arena="poner-heroe"][data-lado="${lado}"]`).click();
     await campo('[data-heroe-campo="poder"]', lado === 'izquierda' ? '3' : '2');
@@ -3805,8 +3998,8 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   if (!/6 hechizos/.test(montado)) {
     throw new Error(`enlace: los héroes no llevan el libro sin el Rayo: «${montado}»`);
   }
-  if (!/catálogo · prueba que no se guarda/i.test(montado) || !/IA/.test(montado)) {
-    throw new Error(`enlace: el montaje no lleva la prueba del catálogo: «${montado}»`);
+  if (!/IA/.test(montado) || /catálogo/i.test(montado)) {
+    throw new Error(`enlace: el montaje no es el de solo la arena: «${montado}»`);
   }
   await page.locator('[data-arena="enlace"]').click();
   const campoDelEnlace = page.locator('[data-enlace-de-pelea]');
@@ -3841,15 +4034,45 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   await captura(otra, 'arena-09-enlace-abierto');
   log('enlace: abierto, monta lo mismo que se copió y no empieza a pelear solo');
 
-  // Roto: una criatura que no existe. No se monta nada, y se dice.
-  const roto = enlace.replace(/pikeman/g, 'dragon_rojo');
-  await otra.goto(roto, { waitUntil: 'networkidle' });
+  /** El enlace copiado con su montaje cambiado a mano. */
+  const conMontaje = (cambiar: (m: Record<string, any>) => void): string => {
+    const u = new URL(enlace);
+    const m = JSON.parse(u.searchParams.get('montaje') as string) as Record<string, any>;
+    cambiar(m);
+    u.searchParams.set('montaje', JSON.stringify(m));
+    return u.href;
+  };
+  // Roto: uno de hoy (versión 8) con una criatura del catálogo. No se monta nada, y se dice.
+  await otra.goto(
+    conMontaje((m) => m.izquierda.puestos.push({ criatura: 'pikeman', escalera: false })),
+    { waitUntil: 'networkidle' },
+  );
   await otra
-    .locator('#status', { hasText: 'El enlace de la pelea no se monta: criatura desconocida' })
+    .locator('#status', { hasText: '«criatura» no es un campo del enlace' })
     .waitFor({ timeout: 5000 });
   if ((await otra.locator('#bando-izquierda .puesto, #bando-derecha .puesto').count()) !== 0) {
     throw new Error('enlace: un enlace roto ha montado algo');
   }
+  // De otra versión: uno de la 8 no monta nada y dice que se vuelva a copiar
+  // (14-10-2026, el usuario: «no queremos mantener compatibilidad hacia atrás»).
+  await otra.goto(
+    conMontaje((m) => {
+      m.v = 8;
+    }),
+    { waitUntil: 'networkidle' },
+  );
+  await otra
+    .locator('#status', {
+      hasText:
+        'este enlace es de una versión anterior de la arena (la 8; la de hoy es la 9): vuelve a copiarlo',
+    })
+    .waitFor({ timeout: 5000 });
+  if ((await otra.locator('#bando-izquierda .puesto, #bando-derecha .puesto').count()) !== 0) {
+    throw new Error('enlace: uno de la versión 8 ha montado algo');
+  }
+  await captura(otra, 'arena-09b-enlace-de-la-8');
+  log('enlace: uno de la versión 8 no se monta y dice que se vuelva a copiar');
+  await loQueNoValeAlLeer(otra, url);
   // Repetido: `reglas` dos veces se rechaza diciéndolo (H4 de QA del banco).
   await otra.goto(`${url}/arena/?seed=5&reglas=tirador&reglas=bendicion`, {
     waitUntil: 'networkidle',
@@ -4005,7 +4228,7 @@ async function edicionEntera(page: Page, paso: string): Promise<void> {
 /**
  * La vista de edición de la arena (ciclos 2026-10-11, página de edición, y
  * 2026-10-12, fichas sin tope): se entra desde el montaje y se abren seis fichas
- * —cuatro hojas y dos criaturas del catálogo— sin tope y sin que la lista se
+ * de hojas (hasta el 13-10-2026, dos eran criaturas del catálogo) sin tope y sin que la lista se
  * pliegue; con 1 a 6, como mucho tres columnas y las demás debajo, sin
  * desplazarse ni recortarse ninguna, y a 390 de ancho una columna; girar una no
  * gira otra, un campo cambia SU ficha, lo ilegal no entra, y al volver el
@@ -4047,9 +4270,9 @@ async function edicionDeLaArena(
   // más abajo.
   const abrir = async (que: string, paso: string): Promise<void> => {
     await page.locator(`#edicion [data-arena="abrir-ficha"]${que}`).click();
-    const [, kind, id] = /^\[data-(unidad|criatura)="([^"]+)"\]$/.exec(que) ?? [];
+    const [, id] = /^\[data-unidad="([^"]+)"\]$/.exec(que) ?? [];
     if (id === undefined) throw new Error(`edición: «${que}» no dice qué ficha se abre`);
-    const clave = `${kind === 'unidad' ? 'unidad' : 'catalogo'}:${id}`;
+    const clave = `unidad:${id}`;
     await asentada(page);
     const donde = await page.evaluate((c) => {
       const t = document
@@ -4076,10 +4299,13 @@ async function edicionDeLaArena(
   // lleva el nombre largo que no se leía entero (H5).
   await abrir('[data-unidad="templario-monje"]', '2 abiertas');
   await abrir('[data-unidad="caballero-de-la-muerte"]', '3 abiertas');
-  await page.locator('#edicion [data-arena="filtro"][data-faccion="catalogo"]').click();
-  await abrir('[data-criatura="archer"]', '4 abiertas');
+  // Por su facción, como se elige en la lista: sin el catálogo del juego (13-10-2026).
+  await sinElCatalogoDelJuego(page, '#edicion', 'edición');
+  await page.locator('#edicion [data-arena="filtro"][data-faccion="elfos"]').click();
+  await abrir('[data-unidad="elfo-arquero"]', '4 abiertas');
   // Sin tope: la quinta y la sexta entran, debajo de las tres primeras.
-  await abrir('[data-criatura="skeleton"]', '5 abiertas');
+  await page.locator('#edicion [data-arena="filtro"][data-faccion="no-muertos"]').click();
+  await abrir('[data-unidad="esqueleto-guerrero"]', '5 abiertas');
   await page.locator('#edicion [data-arena="filtro"][data-faccion="todas"]').click();
   await abrir('[data-unidad="zombi"]', '6 abiertas');
   await esperarBarra(page, 'Zombie: ficha abierta.', 'edición: la sexta', { exacta: true });
@@ -4216,8 +4442,8 @@ async function edicionDeLaArena(
     'unidad:templario-escudo',
     'unidad:templario-monje',
     'unidad:caballero-de-la-muerte',
-    'catalogo:archer',
-    'catalogo:skeleton',
+    'unidad:elfo-arquero',
+    'unidad:esqueleto-guerrero',
     'unidad:zombi',
   ];
   if (abiertas.join() !== esperadas.join())
@@ -4329,13 +4555,15 @@ async function edicionDeLaArena(
     'edición: quitar un rasgo o una habilidad con Intro deja el foco en la siguiente o en «Añadir»',
   );
   // Con el ratón, el foco no se lleva a ningún sitio (como `pintar`).
-  const esqueleto = '#edicion article[data-clave-de-ficha="catalogo:skeleton"]';
+  const esqueleto = '#edicion article[data-clave-de-ficha="unidad:esqueleto-guerrero"]';
   await page.locator(`${esqueleto} [data-arena="quitar-rasgo"][data-rasgo="undead"]`).click();
-  await esperarBarra(page, 'prueba que no se guarda', 'edición: quitar no-muerto al esqueleto', {
-    exacta: false,
-  });
-  if ((await page.locator(`${esqueleto} [data-arena="quitar-rasgo"]`).count()) > 0)
-    throw new Error('edición: el esqueleto sigue con su rasgo tras quitarlo');
+  await page
+    .locator(`${esqueleto} [data-arena="quitar-rasgo"]`)
+    .first()
+    .waitFor({ state: 'detached', timeout: 2000 })
+    .catch(() => {
+      throw new Error('edición: el esqueleto sigue con su rasgo tras quitarlo');
+    });
   if ((await focoEn()) !== 'body')
     throw new Error(`edición: quitar con el ratón ha llevado el foco a «${await focoEn()}»`);
   await page.locator('[data-arena="volver-de-edicion"]').click();
@@ -4372,8 +4600,7 @@ async function edicionDeLaArena(
       const a = document.activeElement;
       if (a === null || a === document.body) return 'body';
       const ficha = a.closest('[data-clave-de-ficha]')?.getAttribute('data-clave-de-ficha');
-      const quien = a.getAttribute('data-unidad') ?? a.getAttribute('data-criatura');
-      return `${a.getAttribute('data-arena')} ${ficha ?? quien}`;
+      return `${a.getAttribute('data-arena')} ${ficha ?? a.getAttribute('data-unidad')}`;
     });
   await page.locator(`${ficha('templario-escudo')} [data-arena-habilidad]`).focus();
   await page.keyboard.press('Tab');
@@ -4382,8 +4609,8 @@ async function edicionDeLaArena(
       `edición: el tabulador no llega al × de la ficha siguiente: ${await enfocado()}`,
     );
   const tras = [
-    'cerrar-ficha catalogo:archer',
-    'cerrar-ficha catalogo:skeleton',
+    'cerrar-ficha unidad:elfo-arquero',
+    'cerrar-ficha unidad:esqueleto-guerrero',
     'cerrar-ficha unidad:zombi',
     'cerrar-ficha unidad:templario-escudo',
     'abrir-ficha templario-escudo',
@@ -4415,6 +4642,19 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
   await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
   await page.locator('[data-arena="ir-a-equipo"]').first().click();
   await page.locator('#app[data-escena="equipo"]').waitFor({ timeout: 2000 });
+  // Un arma a distancia nueva no lleva «Disparos»: llevarla ya es disparar (13-10-2026).
+  await page.locator('[data-arena="crear-pieza"][data-hueco="distancia"]').click();
+  await page
+    .locator('#equipo [data-pieza-elegida] [data-arena-pieza-campo="nombre"]')
+    .waitFor({ timeout: 2000 });
+  const fichaDeLaPieza = await page.locator('#equipo [data-pieza-elegida]').innerText();
+  if (
+    /Disparos/.test(fichaDeLaPieza) ||
+    (await page.locator('#equipo [data-arena-pieza-campo="disparos"]').count()) > 0
+  ) {
+    throw new Error('equipo: el arma a distancia nueva aún tiene el campo «Disparos»');
+  }
+  log('equipo: un arma a distancia nueva, sin campo «Disparos»');
   await page.locator('[data-arena="crear-pieza"][data-hueco="arma"]').click();
   const nombre = page.locator('#equipo [data-pieza-elegida] [data-arena-pieza-campo="nombre"]');
   await nombre.fill('Hoja de pruebas');
@@ -4444,6 +4684,1690 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
   await page.close();
 }
 
+// ------------------------------------------------------------- cada arma para lo suyo
+
+/**
+ * La pelea de las armas en el espejo (13-10-2026): el arquero élfico de la persona
+ * —daga, arco y jubón— contra el orco con dos armas de la IA, que viene a por él.
+ */
+/**
+ * El orco de la pasada con una lanza de jinete en «Arma de carga»: tiene armas por
+ * uso, y la barra del golpe del arquero tiene que nombrar el arma con que le
+ * devuelve el golpe: el mandoble (H3 del QA, 13-10-2026). Desde que en la arena
+ * carga todo el que pega cuerpo a cuerpo (#260), la lanza se usa al cargar a pie, y
+ * su ficha lo dice; la página se la pone igual, así que pelean lo mismo.
+ */
+function orcoConLanza(hojas: ReturnType<typeof hojasDeArena>): UnidadDeArena {
+  const orco = deHoja(hojas, 'orko-dos-armas');
+  return { ...orco, equipo: { ...orco.equipo, carga: 'lanza_de_jinete' } };
+}
+
+/** Lo que dice la barra del golpe del arquero sobre el contraataque del orco (`orcoConLanza`). */
+const CONTRAATAQUE_DEL_ORCO = /Contraataque con Mandoble \(cuerpo a cuerpo\)(, si sobrevive)?: /;
+
+function espejoDeLasArmas(hojas: ReturnType<typeof hojasDeArena>, semilla: number): SesionDeArena {
+  const espejo = new SesionDeArena(
+    {
+      izquierda: { unidades: [delBorrador(deHoja(hojas, 'elfo-arquero'))], heroe: null, ia: false },
+      derecha: { unidades: [delBorrador(orcoConLanza(hojas))], heroe: null, ia: true },
+      reglas: REGLAS_DEL_JUEGO,
+      piezas: [],
+    },
+    semilla,
+  );
+  espejo.empezar();
+  return espejo;
+}
+
+/**
+ * Lo que hace el arquero en su turno: disparar la primera vez que puede; después,
+ * esperar («Terminar turno») hasta que el orco esté pegado y golpearle sin
+ * moverse. La juegan la pasada y la búsqueda de su semilla.
+ */
+function jugadaDeLasArmas(
+  espejo: SesionDeArena,
+  disparos: number,
+):
+  | { readonly tipo: 'disparo' | 'golpe'; readonly contra: BattleStack }
+  | { readonly tipo: 'terminar' } {
+  const turno = espejo.turnoPropio;
+  if (turno === null)
+    throw new Error('armas: el espejo devuelve el control sin que le toque a la persona');
+  const acciones = espejo.battleLegalActions();
+  const contra = espejo.battle.stacks.find((x) => isAlive(x) && x.side !== turno.side);
+  if (contra === undefined) return { tipo: 'terminar' };
+  if (disparos === 0 && acciones.some((a) => a.type === 'shoot' && a.target === contra.id)) {
+    return { tipo: 'disparo', contra };
+  }
+  const pegado = acciones.some(
+    (a) => a.type === 'attack' && a.target === contra.id && a.from === undefined,
+  );
+  if (disparos > 0 && pegado) return { tipo: 'golpe', contra };
+  return { tipo: 'terminar' };
+}
+
+/** La semilla en que el arquero dispara y, más tarde, golpea pegado antes de que acabe. */
+function buscarArmas(hojas: ReturnType<typeof hojasDeArena>): number {
+  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
+    const espejo = espejoDeLasArmas(hojas, semilla);
+    let disparos = 0;
+    for (let jugadas = 0; jugadas < 200 && espejo.battle.finished === null; jugadas++) {
+      const j = jugadaDeLasArmas(espejo, disparos);
+      if (j.tipo === 'golpe') return semilla;
+      if (j.tipo === 'disparo') {
+        espejo.playBattleAction({ type: 'shoot', target: j.contra.id });
+        disparos++;
+      } else espejo.playBattleAction({ type: 'end_turn' });
+    }
+  }
+  throw new Error(
+    `armas: en las semillas 1–${TOPE_DE_SEMILLAS} el arquero nunca dispara y luego golpea pegado`,
+  );
+}
+
+/**
+ * Cada arma para lo suyo, con clics de verdad: el editor de equipo enseña los
+ * huecos nuevos con el arco y la lanza en el suyo; la ficha del jinete élfico, sus
+ * tres armas; y en la pelea el arquero dispara con el arco y, con el orco pegado,
+ * pega con la daga —la barra dice con cuál antes del clic, y lo que pasa es lo del
+ * espejo—.
+ */
+async function armasEnLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  await sinElBorrador('armas', async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    vigilarConsola(page, 'armas', problemas);
+    const hojas = hojasDeArena(process.cwd());
+    for (const h of hojas) registrarUnidad(h.id, h);
+    const semilla = buscarArmas(hojas);
+    log(`armas: semilla ${semilla}, buscada en el espejo`);
+    await abrirLaArena(page, url, `?seed=${semilla}`);
+
+    // La ficha del jinete élfico: lanza, espada y arco, cada una con su golpe.
+    await page.locator('[data-unidad-catalogo="elfo-jinete"] [data-lado="izquierda"]').click();
+    await page.locator('#bando-izquierda button.ver[data-unidad="elfo-jinete"]').click();
+    const filas = page.locator('#ficha .armas-de-la-ficha [data-arma-de-la-ficha]');
+    await filas.first().waitFor({ timeout: 2000 });
+    const dichas = (await filas.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+    const esperadas = [
+      'Cuerpo a cuerpo ⓘ Espada · Ataque 5 · Daño 20–40',
+      'A distancia ⓘ Arco · Ataque 5 · Daño 20–30',
+      'Carga ⓘ Lanza de jinete · Ataque 10 · Daño 50–90 · +10 %/casilla (3 a 5)',
+    ];
+    if (JSON.stringify(dichas) !== JSON.stringify(esperadas)) {
+      throw new Error(`armas: la ficha del jinete élfico dice ${JSON.stringify(dichas)}`);
+    }
+    await page.locator('#ficha .armas-de-la-ficha').scrollIntoViewIfNeeded();
+    await asentada(page);
+    await cifrasSinCortar(page, '#ficha', 'armas, ficha del jinete');
+    await captura(page, 'arena-14-armas-del-jinete');
+    log('armas: la ficha del jinete élfico enseña sus tres armas');
+
+    // El editor de equipo: un hueco por uso, y cada arma en el suyo.
+    await page.locator('[data-arena="ir-a-equipo"]').first().click();
+    await page.locator('#app[data-escena="equipo"]').waitFor({ timeout: 2000 });
+    const cabeceras = await page.locator('.cabecera-hueco > span').allInnerTexts();
+    const huecos = cabeceras.map((t) => t.trim().toLowerCase());
+    for (const h of ['arma', 'arma a distancia', 'arma de carga']) {
+      if (!huecos.includes(h))
+        throw new Error(`armas: el editor no enseña «${h}»: ${huecos.join(', ')}`);
+    }
+    for (const [hueco, pieza] of [
+      ['distancia', 'Arco'],
+      ['carga', 'Lanza de jinete'],
+      ['arma', 'Daga'],
+    ] as const) {
+      await page
+        .locator(`[data-arena="crear-pieza"][data-hueco="${hueco}"]`)
+        .waitFor({ timeout: 2000 });
+      const ofrecidas = await page.locator('#equipo').innerText();
+      if (!ofrecidas.includes(pieza)) throw new Error(`armas: el editor no lista ${pieza}`);
+    }
+    await asentada(page);
+    await captura(page, 'arena-15-equipo-con-armas');
+    log('equipo: el editor enseña el arma a distancia y la de carga, con el arco y la lanza');
+    await page.locator('[data-arena="volver-de-equipo"]').click();
+
+    // La pelea: fuera el jinete, y el arquero contra el orco.
+    await page.locator('#bando-izquierda [data-arena="quitar"]').first().click();
+    await page.locator('[data-unidad-catalogo="elfo-arquero"] [data-lado="izquierda"]').click();
+    await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+    // La lanza al orco, como en el espejo (`orcoConLanza`), desde su ficha.
+    await page.locator('#bando-derecha button.ver[data-unidad="orko-dos-armas"]').click();
+    await page.locator('#ficha select[data-arena-pieza="carga"]').selectOption('lanza_de_jinete');
+    const filaDeLaLanza = page.locator('#ficha [data-arma-de-la-ficha="carga"]');
+    await filaDeLaLanza.waitFor({ timeout: 2000 });
+    const dichaLanza = (await filaDeLaLanza.innerText()).replace(/\s+/g, ' ').trim();
+    // A pie también carga (#260): la lanza se usa, con lo que cobra a pie.
+    if (
+      !dichaLanza.startsWith('Carga ⓘ Lanza de jinete · Ataque ') ||
+      !dichaLanza.endsWith(' · +5 %/casilla (3 a 5), a pie')
+    ) {
+      throw new Error(`armas: la ficha del orco con lanza dice «${dichaLanza}»`);
+    }
+    const espejo = espejoDeLasArmas(hojas, semilla);
+    await page.locator('[data-arena="luchar"]').click();
+    await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
+    await esperarCola(espejo.battle, espejo.battle.log);
+    await mismaPelea(page, espejo, 'armas: empezar la pelea');
+    let disparos = 0;
+    let golpeado = false;
+    for (let jugadas = 0; !golpeado; jugadas++) {
+      if (jugadas > 200 || espejo.battle.finished !== null) {
+        throw new Error('armas: la pelea acaba sin que el arquero dispare y golpee pegado');
+      }
+      const antes = espejo.battle.log.length;
+      const j = jugadaDeLasArmas(espejo, disparos);
+      if (j.tipo === 'terminar') {
+        await page.getByRole('button', { name: 'Terminar turno' }).click();
+        espejo.playBattleAction({ type: 'end_turn' });
+      } else {
+        // Antes del clic, la barra dice con qué arma: la previsión del núcleo.
+        const px = await pixelDeUnidad(page, espejo, j.contra);
+        const esperada = j.tipo === 'disparo' ? 'shoot' : 'attack';
+        if (px.accion?.type !== esperada) {
+          throw new Error(
+            `armas: el clic sobre el orco haría ${px.accion?.type ?? 'nada'}, no ${esperada}`,
+          );
+        }
+        const conQue =
+          j.tipo === 'disparo'
+            ? 'Cuenta: con Arco (a distancia)'
+            : 'Cuenta: con Daga (cuerpo a cuerpo)';
+        await page.mouse.move(px.x - 6, px.y);
+        await page.mouse.move(px.x, px.y);
+        await esperarBarra(page, conQue, `armas: apuntar ${j.tipo}`, { exacta: false });
+        if (j.tipo === 'golpe') {
+          // Y con qué le devuelven el golpe: el arma de cuerpo a cuerpo del orco.
+          const barra = await page.locator('#status').innerText();
+          if (!CONTRAATAQUE_DEL_ORCO.test(barra)) {
+            throw new Error(`armas: la barra no nombra el arma del contraataque: «${barra}»`);
+          }
+          log('armas: la barra nombra el arma del contraataque (Mandoble)');
+        }
+        await captura(
+          page,
+          j.tipo === 'disparo' ? 'arena-16-dispara-con-el-arco' : 'arena-17-pega-con-la-daga',
+        );
+        await page.mouse.click(px.x, px.y);
+        espejo.playBattleAction(px.accion);
+        // Lo que hace, con las cifras del arma: el daño cae en su horquilla.
+        const hecho = espejo.battle.log
+          .slice(antes)
+          .find((e) => (e.kind === 'shoot' || e.kind === 'attack') && e.stack !== j.contra.id);
+        const arquero = espejo.battle.stacks.find((x) => x.side !== j.contra.side) as BattleStack;
+        const fila = armasDe(
+          arquero.unit,
+          piezasDeLaPelea(espejo.battle),
+          espejo.battle.arena.cargaAPie,
+        ).find((a) => a.uso === (j.tipo === 'disparo' ? 'distancia' : 'cuerpo'));
+        if (hecho === undefined || fila === undefined)
+          throw new Error(`armas: el ${j.tipo} no se ve en el parte`);
+        const debia = j.tipo === 'disparo' ? 'Arco' : 'Daga';
+        if (fila.arma !== debia)
+          throw new Error(`armas: el ${j.tipo} va con ${fila.arma}, no con ${debia}`);
+        log(
+          `armas: ${j.tipo} con ${fila.arma} (${fila.attack}, ${fila.damage.join('–')}): ${'damage' in hecho ? hecho.damage : '?'} de daño`,
+        );
+        if (j.tipo === 'disparo') disparos++;
+        else golpeado = true;
+      }
+      await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+      if (espejo.battle.finished === null)
+        await mismaPelea(page, espejo, `armas: la jugada ${jugadas}`);
+    }
+    await page.close();
+  });
+}
+
+// ------------------------------------------------------------- la rueda del golpe
+
+/**
+ * Lo que elige la persona en la rueda de la pasada: Fuerte al golpear (con el
+ * ratón) y Defensivo al responder (con su tecla, `teclaDe`: la 4 desde el anillo
+ * de #263).
+ */
+const ELECCION_DE_LA_RUEDA = { golpe: 'fuerte', respuesta: 'defensivo' } as const;
+
+/**
+ * La pelea de la rueda en el espejo: el guerrero con escudo de la persona contra
+ * el orco de la IA, con «Golpe: rueda» (`?golpe=rueda`). Ya empezada, como la página.
+ */
+function espejoDeLaRueda(hojas: ReturnType<typeof hojasDeArena>, semilla: number): SesionDeArena {
+  const espejo = new SesionDeArena(
+    {
+      izquierda: {
+        unidades: [delBorrador(deHoja(hojas, 'templario-escudo'))],
+        heroe: null,
+        ia: false,
+      },
+      // El orco de la lista, como el que pulsa la página: sin la lanza de
+      // `orcoConLanza`, que desde que todos cargan en la arena (#260) se usa al
+      // cargar y separaba el espejo de la página.
+      derecha: {
+        unidades: [delBorrador(deHoja(hojas, 'orko-dos-armas'))],
+        heroe: null,
+        ia: true,
+      },
+      reglas: REGLAS_DEL_JUEGO,
+      piezas: [],
+      modos: { golpe: 'rueda' },
+    },
+    semilla,
+  );
+  espejo.empezar();
+  return espejo;
+}
+
+/**
+ * Lo que hace la persona en la pelea de la rueda: si la rueda espera, elige lo de
+ * su fase (`ELECCION_DE_LA_RUEDA`); si no, la pauta de la arena (golpear en cuanto
+ * puede, un tramo hacia el enemigo la primera vez, y si no «Terminar turno»).
+ */
+type JugadaDeLaRueda =
+  | { readonly tipo: 'elegir'; readonly fase: 'golpe' | 'respuesta'; readonly golpe: TipoDeGolpe }
+  | JugadaDeLaPauta;
+
+function jugadaDeLaRueda(espejo: SesionDeArena, tramos: number): JugadaDeLaRueda {
+  const p = espejo.ruedaPendiente;
+  if (p !== null) return { tipo: 'elegir', fase: p.fase, golpe: ELECCION_DE_LA_RUEDA[p.fase] };
+  return jugadaDeLaPauta(espejo, tramos, 0);
+}
+
+/**
+ * La jugada `j` en el espejo, la misma en la búsqueda de la semilla y en la
+ * pasada. `golpe`, la acción con que golpea la página (la del píxel que pulsa,
+ * `pixelDeUnidad`); sin ella, la primera de la lista legal contra ese enemigo.
+ */
+function enElEspejo(espejo: SesionDeArena, j: JugadaDeLaRueda, golpe?: BattleAction): void {
+  switch (j.tipo) {
+    case 'elegir':
+      espejo.elegirEnLaRueda(j.golpe);
+      return;
+    case 'golpe': {
+      const accion =
+        golpe ??
+        espejo.battleLegalActions().find((a) => a.type === 'attack' && a.target === j.contra.id);
+      if (accion === undefined) throw new Error('rueda: la pauta golpea a quien no alcanza');
+      espejo.playBattleAction(accion);
+      return;
+    }
+    case 'tramo':
+      espejo.playBattleAction(j.mover);
+      return;
+    case 'terminar':
+      espejo.playBattleAction({ type: 'end_turn' });
+      return;
+  }
+}
+
+/**
+ * La semilla de la pelea de la rueda: la primera en la que, jugando la pauta, la
+ * rueda pide a la persona el golpe Y la respuesta antes de que acabe la pelea. El
+ * golpe del espejo es el primero de la lista legal contra ese enemigo; en la
+ * página sale del píxel que se pulsa (`pixelDeUnidad`), así que la pasada lo vuelve
+ * a mirar y lo dice si no llega.
+ */
+function buscarRueda(hojas: ReturnType<typeof hojasDeArena>): number {
+  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
+    const espejo = espejoDeLaRueda(hojas, semilla);
+    const vistas = new Set<string>();
+    let tramos = 0;
+    for (let n = 0; n < 300 && espejo.battle.finished === null; n++) {
+      const j = jugadaDeLaRueda(espejo, tramos);
+      if (j.tipo === 'elegir') {
+        vistas.add(j.fase);
+        if (vistas.size === 2) return semilla;
+      }
+      enElEspejo(espejo, j);
+      if (j.tipo === 'tramo') tramos++;
+    }
+  }
+  throw new Error(
+    `rueda: en las semillas 1–${TOPE_DE_SEMILLAS} la rueda no pide a la persona el golpe y la respuesta`,
+  );
+}
+
+/**
+ * La rueda del golpe con clics de verdad (docs/agents/2026-10-13-rueda-del-golpe/),
+ * a escritorio y a móvil: «Rueda» en el montaje (y `?golpe=rueda` en la barra); un
+ * clic en el enemigo abre la rueda en su fase de golpe, Escape la cierra sin dar
+ * el golpe, y elegir Fuerte da el desenlace —giro, marcadores, arco, medidor y
+ * rótulo— con el punto que dice el espejo; cuando el orco golpea, la rueda se abre
+ * para responder, sin nada del golpe a la vista, y se elige con su tecla. Cada
+ * fase, con su captura.
+ */
+async function ruedaEnLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  await sinElBorrador('rueda-del-golpe', async () => {
+    const hojas = hojasDeArena(process.cwd());
+    for (const h of hojas) registrarUnidad(h.id, h);
+    const semilla = buscarRueda(hojas);
+    log(`rueda: semilla ${semilla}, buscada en el espejo`);
+    await jugarLaRueda(browser, url, problemas, hojas, semilla, { width: 1440, height: 900 }, '');
+    await jugarLaRueda(
+      browser,
+      url,
+      problemas,
+      hojas,
+      semilla,
+      { width: 390, height: 844 },
+      '-movil',
+    );
+    await yoContraYoEnLaRueda(browser, url, problemas, hojas);
+    await todoEnIAConLaRueda(browser, url, problemas, hojas);
+  });
+}
+
+async function jugarLaRueda(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+  hojas: ReturnType<typeof hojasDeArena>,
+  semilla: number,
+  viewport: { readonly width: number; readonly height: number },
+  sufijo: string,
+): Promise<void> {
+  const page = await browser.newPage({ viewport });
+  vigilarConsola(page, `rueda${sufijo}`, problemas);
+  await abrirLaArena(page, url, `?seed=${semilla}`);
+  await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+  await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+  await page.locator('[data-arena="modo"][data-parametro="golpe"][data-modo="rueda"]').click();
+  await page
+    .locator('[data-modo-del-montaje="golpe"][data-modo="rueda"]')
+    .waitFor({ timeout: 2000 });
+  if (!page.url().includes('golpe=rueda')) {
+    throw new Error(`rueda: la barra no lleva el golpe: ${page.url()}`);
+  }
+  if (sufijo === '') await captura(page, 'rueda-01-montaje');
+  await page.locator('[data-arena="luchar"]').click();
+  await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
+  const espejo = espejoDeLaRueda(hojas, semilla);
+  await esperarCola(espejo.battle, espejo.battle.log);
+  await mismaPelea(page, espejo, 'empezar la pelea de la rueda');
+
+  const vistas = new Set<string>();
+  let cancelado = false;
+  let tramos = 0;
+  // Dónde estaba cada uno al empezar la jugada anterior: la casilla de la que
+  // salió quien está plantado cuando se abre la rueda.
+  let salidas = casillasDe(espejo.battle);
+  for (let n = 0; vistas.size < 2; n++) {
+    if (espejo.battle.finished !== null || n > 300) {
+      throw new Error(
+        `rueda${sufijo}: la pelea acaba sin que la rueda pida las dos fases (vistas: ${[...vistas].join(', ') || 'ninguna'})`,
+      );
+    }
+    const antes = espejo.battle.log.length;
+    const j = jugadaDeLaRueda(espejo, tramos);
+    if (j.tipo === 'elegir') {
+      const rueda = page.locator(`#rueda[open] .rueda[data-fase="${j.fase}"]`);
+      await rueda.waitFor({ timeout: 10_000 }).catch(async () => {
+        throw new Error(
+          `rueda${sufijo}: la rueda debía abrirse en la fase ${j.fase}; la barra dice «${await page.locator('#status').innerText()}»`,
+        );
+      });
+      // Primero se anda, luego la rueda: en cuanto se abre, quien pega ya está
+      // quieto en su casilla.
+      log(
+        `rueda${sufijo}: ${j.fase}, ${await plantadoAlAbrir(page, espejo, salidas, `rueda${sufijo}`)}`,
+      );
+      await sleep(300);
+      if (j.fase === 'golpe' && !cancelado) {
+        // Escape antes de elegir: el golpe no se da, y quien pega se queda donde
+        // llegó con su turno; se vuelve a pulsar desde ahí.
+        const plantado = espejo.battle.golpeEnCurso;
+        if (plantado === null)
+          throw new Error(`rueda${sufijo}: la rueda se abre sin nadie plantado`);
+        await page.keyboard.press('Escape');
+        await page
+          .locator('#rueda[open]')
+          .waitFor({ state: 'detached', timeout: 2000 })
+          .catch(() => {
+            throw new Error(`rueda${sufijo}: Escape no cierra la rueda en la fase del golpe`);
+          });
+        espejo.cancelarGolpe();
+        cancelado = true;
+        // «Golpe cancelado.», o con la carga que se pierde si venía cargando (R6).
+        await esperarBarra(page, espejo.status, `rueda${sufijo}, Escape`, { exacta: true });
+        log(
+          `rueda${sufijo}: ${await sigueTrasSoltar(page, espejo, plantado.stack, `rueda${sufijo}`)}`,
+        );
+        salidas = casillasDe(espejo.battle);
+        continue;
+      }
+      if (j.fase === 'respuesta') {
+        // A ciegas: ni un sector marcado como elegido mientras se responde.
+        const marcados = await page.locator('#rueda [data-elegido="golpe"]').count();
+        if (marcados > 0) throw new Error(`rueda${sufijo}: la respuesta deja ver el golpe`);
+      }
+      await captura(page, `rueda-0${j.fase === 'golpe' ? 2 : 4}-${j.fase}${sufijo}`);
+      if (j.fase === 'golpe') {
+        const en = await centroDelSector(page, j.golpe);
+        await page.mouse.click(en.x, en.y);
+      } else await page.keyboard.press(teclaDe(j.golpe));
+      enElEspejo(espejo, j);
+      const cruce = espejo.battle.log.slice(antes).find((e) => e.kind === 'cruce');
+      if (cruce?.kind !== 'cruce')
+        throw new Error(`rueda${sufijo}: elegir no dio el golpe en el espejo`);
+      await page.locator('#rueda[data-tramo~="rotulo"]').waitFor({ timeout: 8000 });
+      await sleep(450);
+      const rotulo = (await page.locator('#rueda .rotulo').innerText()).toLowerCase();
+      if (!rotulo.includes(NOMBRE_DEL_PUNTO[cruce.punto])) {
+        throw new Error(
+          `rueda${sufijo}: el rótulo dice «${rotulo}» y el cruce cayó en el ${NOMBRE_DEL_PUNTO[cruce.punto]}`,
+        );
+      }
+      await captura(page, `rueda-0${j.fase === 'golpe' ? 3 : 5}-desenlace-${j.fase}${sufijo}`);
+      vistas.add(j.fase);
+      log(
+        `rueda${sufijo}: ${j.fase}, ${cruce.golpe} contra ${cruce.respuesta}: ${NOMBRE_DEL_PUNTO[cruce.punto]}`,
+      );
+    } else if (j.tipo === 'golpe') {
+      // El clic en el enemigo no golpea: abre la rueda. La acción la lee la escena
+      // del espejo en el mismo píxel.
+      const px = await pixelDeUnidad(page, espejo, j.contra);
+      if (px.accion === undefined)
+        throw new Error(`rueda${sufijo}: el clic sobre ${j.contra.id} no da acción`);
+      // Ahora se anda antes de la rueda, y la casilla en que se planta se ve: la
+      // página tiene que golpear desde la misma que el espejo. Lo dice la barra al
+      // pasar por encima.
+      if (px.accion.type === 'attack' && px.accion.from !== undefined) {
+        await page.mouse.move(px.x, px.y);
+        const { col, row } = px.accion.from;
+        await esperarBarra(
+          page,
+          `Golpearías desde (${col},${row})`,
+          `rueda${sufijo}, sobre ${j.contra.id}`,
+          {
+            exacta: false,
+          },
+        );
+      }
+      await page.mouse.click(px.x, px.y);
+      enElEspejo(espejo, j, px.accion);
+      continue;
+    } else {
+      await ejecutarPauta(page, espejo, j);
+      if (j.tipo === 'tramo') tramos++;
+    }
+    await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+    if (espejo.battle.finished === null)
+      await mismaPelea(page, espejo, `la jugada ${n} de la rueda`);
+    salidas = casillasDe(espejo.battle);
+  }
+  // El parte cuenta el último cruce como el espejo.
+  const ultimo = espejo.battle.log.filter((e) => e.kind === 'cruce').at(-1);
+  if (ultimo?.kind === 'cruce') {
+    await page
+      .locator('#side .log .cruce', { hasText: NOMBRE_DEL_PUNTO[ultimo.punto] })
+      .last()
+      .waitFor({ timeout: 4000 });
+  }
+  await page.close();
+}
+
+/** La casilla de cada unidad, copiada: dónde estaba antes de la jugada que sigue. */
+function casillasDe(b: BattleState): ReadonlyMap<string, BattleStack['hex']> {
+  return new Map(b.stacks.map((x) => [x.id, { ...x.hex }]));
+}
+
+/** Lo que mide la barra de vida de `s` quieta en su casilla, según el estado: la entera por su fracción. */
+async function barraQueDebe(page: Page, s: BattleStack): Promise<number> {
+  const b = await caja(page);
+  const t = tableroPara(b.width, b.height);
+  const { anchoBarra } = cabezaDe({ tablero: t }, s, {
+    en: centroDeStack(stackHexes(s)),
+    elevacion: 0,
+  });
+  return (anchoBarra * stackHp(s)) / (s.unit.hp * s.initialCount);
+}
+
+/**
+ * Con la rueda recién abierta, quien pega está plantado (`golpeEnCurso` del
+ * espejo) y ya quieto en su casilla: su barra de vida mide ahí lo que debe, y en
+ * la casilla de la que salió (`salidas`), si anduvo, no hay barra. Primero se
+ * anda, luego la rueda (decisión del usuario, 13-10-2026). Devuelve qué se vio.
+ */
+async function plantadoAlAbrir(
+  page: Page,
+  espejo: SesionDeArena,
+  salidas: ReadonlyMap<string, BattleStack['hex']>,
+  quien: string,
+): Promise<string> {
+  const g = espejo.battle.golpeEnCurso;
+  if (g === null) throw new Error(`${quien}: la rueda se abre sin nadie plantado en el espejo`);
+  const s = stackById(espejo.battle, g.stack);
+  const donde = `(${s.hex.col},${s.hex.row})`;
+  const ahi = await vidaPintada(page, s);
+  const debe = await barraQueDebe(page, s);
+  if (Math.abs(ahi - debe) > 1.5) {
+    throw new Error(
+      `${quien}: al abrirse la rueda, ${s.id} no está quieto en ${donde}: su barra mide ahí ${ahi.toFixed(1)} px y debe ${debe.toFixed(1)}`,
+    );
+  }
+  const salida = salidas.get(s.id);
+  if (salida === undefined || hexEquals(salida, s.hex))
+    return `${s.id} golpea desde ${donde}, sin andar`;
+  const alli = await vidaPintada(page, { ...s, hex: salida });
+  if (alli > 1.5) {
+    throw new Error(
+      `${quien}: al abrirse la rueda, ${s.id} se ve aún en su salida (${salida.col},${salida.row}): ${alli.toFixed(1)} px de barra`,
+    );
+  }
+  return `${s.id} anduvo de (${salida.col},${salida.row}) a ${donde} y la rueda se abrió con él ya allí${g.carga > 0 ? `, cargando ${g.carga}` : ''}`;
+}
+
+/**
+ * Tras Escape con la unidad ya plantada: sigue donde llegó y con su turno —la
+ * barra de arriba dice «Te toca» y la página y el espejo, la misma activa—, y no
+ * vuelve atrás (su barra, ahí, un rato después). Devuelve qué se vio.
+ */
+async function sigueTrasSoltar(
+  page: Page,
+  espejo: SesionDeArena,
+  id: string,
+  quien: string,
+): Promise<string> {
+  const s = stackById(espejo.battle, id);
+  const turno = await page.locator('#turn').innerText();
+  if (turno !== 'Te toca') {
+    throw new Error(`${quien}: tras Escape, la barra dice «${turno}» y ${id} aún tiene su turno`);
+  }
+  if (espejo.turnoPropio?.stack.id !== id) {
+    throw new Error(`${quien}: tras Escape, el turno de ${id} se ha cerrado en el espejo`);
+  }
+  await sleep(600);
+  const ahi = await vidaPintada(page, s);
+  const debe = await barraQueDebe(page, s);
+  if (Math.abs(ahi - debe) > 1.5) {
+    throw new Error(
+      `${quien}: tras Escape, ${id} no sigue quieto en (${s.hex.col},${s.hex.row}): su barra mide ahí ${ahi.toFixed(1)} px y debe ${debe.toFixed(1)}`,
+    );
+  }
+  return `Escape deja a ${id} en (${s.hex.col},${s.hex.row}), con su turno`;
+}
+
+/** Los colores de la barra de vida (`pintarVida`, `render/batalla.ts`): sana, a medias, roja. */
+const COLORES_DE_LA_VIDA: readonly (readonly [number, number, number])[] = [
+  [0x9f, 0xc4, 0x9a],
+  [0xe0, 0xc0, 0x60],
+  [0xe3, 0x73, 0x5a],
+];
+
+/**
+ * Lo que mide la barra de vida de `s` pintada en el lienzo, en píxeles del
+ * lienzo: los de su fila del medio con uno de los colores de la vida. La barra
+ * va donde la pone `cabezaDe`, con la figura quieta en su casilla.
+ */
+async function vidaPintada(page: Page, s: BattleStack): Promise<number> {
+  const b = await caja(page);
+  const t = tableroPara(b.width, b.height);
+  const cabeza = cabezaDe({ tablero: t }, s, { en: centroDeStack(stackHexes(s)), elevacion: 0 });
+  return await page.evaluate(
+    ({ x, y, ancho, colores }) => {
+      const lienzo = document.getElementById('canvas') as HTMLCanvasElement;
+      const k = lienzo.width / lienzo.getBoundingClientRect().width;
+      const ctx = lienzo.getContext('2d');
+      if (ctx === null) throw new Error('el lienzo de la batalla no tiene contexto 2d');
+      const fila = ctx.getImageData(
+        Math.round((x - ancho / 2 - 3) * k),
+        Math.round((y + 2) * k),
+        Math.round((ancho + 6) * k),
+        1,
+      ).data;
+      let n = 0;
+      for (let i = 0; i < fila.length; i += 4) {
+        const [r, g, b] = [fila[i] ?? 0, fila[i + 1] ?? 0, fila[i + 2] ?? 0];
+        if (
+          colores.some(
+            ([R, G, B]) => Math.abs(r - R) < 14 && Math.abs(g - G) < 14 && Math.abs(b - B) < 14,
+          )
+        )
+          n++;
+      }
+      return n / k;
+    },
+    { x: cabeza.x, y: cabeza.y, ancho: cabeza.anchoBarra, colores: COLORES_DE_LA_VIDA },
+  );
+}
+
+/** Una muestra de la barra de vida en un fotograma: cuándo, si la rueda contaba un cruce y lo que medía. */
+interface MuestraDeLaBarra {
+  readonly t: number;
+  readonly abierta: boolean;
+  readonly ancho: number;
+}
+
+/**
+ * La barra de `s` (quieta en su casilla) medida en cada fotograma de la página,
+ * como `vidaPintada`, desde ya hasta `masAlla` ms después de que la rueda deje de
+ * contar su cruce (o `tope` ms en total). `t` es el reloj del fotograma, el mismo
+ * que lleva el animador. Dentro de la página, sin funciones con nombre: tsx les
+ * pone `__name`, que allí no existe.
+ */
+async function muestrasDeLaBarra(
+  page: Page,
+  s: BattleStack,
+  masAlla: number,
+  tope = 15_000,
+): Promise<MuestraDeLaBarra[]> {
+  const b = await caja(page);
+  const t = tableroPara(b.width, b.height);
+  const cabeza = cabezaDe({ tablero: t }, s, { en: centroDeStack(stackHexes(s)), elevacion: 0 });
+  return await page.evaluate(
+    async ({ x, y, ancho, colores, masAlla, tope }) => {
+      const lienzo = document.getElementById('canvas') as HTMLCanvasElement;
+      // Por selector y no por id: el literal del modo es una puerta (`invariantes.test.ts`).
+      const rueda = document.querySelector('dialog#rueda') as HTMLDialogElement;
+      const ctx = lienzo.getContext('2d');
+      if (ctx === null) throw new Error('el lienzo de la batalla no tiene contexto 2d');
+      const muestras: { t: number; abierta: boolean; ancho: number }[] = [];
+      const desde = performance.now();
+      let vista = false;
+      let cerrada: number | null = null;
+      for (;;) {
+        const t = await new Promise<number>((r) => requestAnimationFrame(r));
+        const k = lienzo.width / lienzo.getBoundingClientRect().width;
+        const fila = ctx.getImageData(
+          Math.round((x - ancho / 2 - 3) * k),
+          Math.round((y + 2) * k),
+          Math.round((ancho + 6) * k),
+          1,
+        ).data;
+        let n = 0;
+        for (let i = 0; i < fila.length; i += 4) {
+          const [r, g, b] = [fila[i] ?? 0, fila[i + 1] ?? 0, fila[i + 2] ?? 0];
+          if (
+            colores.some(
+              ([R, G, B]) => Math.abs(r - R) < 14 && Math.abs(g - G) < 14 && Math.abs(b - B) < 14,
+            )
+          )
+            n++;
+        }
+        const abierta = rueda.open && rueda.dataset.tramo !== undefined;
+        muestras.push({ t, abierta, ancho: n / k });
+        if (abierta) {
+          vista = true;
+          cerrada = null;
+        } else if (vista && cerrada === null) cerrada = t;
+        if ((cerrada !== null && t - cerrada > masAlla) || t - desde > tope) break;
+      }
+      return muestras;
+    },
+    {
+      x: cabeza.x,
+      y: cabeza.y,
+      ancho: cabeza.anchoBarra,
+      colores: COLORES_DE_LA_VIDA,
+      masAlla,
+      tope,
+    },
+  );
+}
+
+/**
+ * Lo que un cruce del registro le hace a la barra de su objetivo: la vida de
+ * antes, la de después de cada golpe de quien pega (los de `golpesDe`, antes de
+ * cualquier contraataque) y cuánto tarda, desde que la rueda deja de contarlo,
+ * el impacto del primero y el del último (`duracionDeLaJugada` hasta su paso, y
+ * `IMPACTO` de él). La vida de antes sale del registro: la de salida (`vidaDeSalida`)
+ * menos lo que dicen los golpes anteriores, con la cuenta del núcleo (`trasElGolpe`).
+ */
+function golpesDelCruce(
+  battle: BattleState,
+  i: number,
+  vidaDeSalida: (id: string) => { count: number; topHp: number },
+): {
+  readonly cruce: Extract<BattleEvent, { kind: 'cruce' }>;
+  readonly pvAntes: number;
+  readonly pvTras: readonly number[];
+  readonly alPrimero: number;
+  readonly alUltimo: number;
+} {
+  const cruce = battle.log[i];
+  if (cruce?.kind !== 'cruce') throw new Error(`el hecho ${i} del registro no es un cruce`);
+  const objetivo = stackById(battle, cruce.target);
+  let vida = vidaDeSalida(cruce.target);
+  const recibe = (damage: number) => {
+    vida = trasElGolpe({ ...vida, unit: objetivo.unit }, damage);
+  };
+  for (const e of battle.log.slice(0, i)) {
+    if ((e.kind === 'attack' || e.kind === 'shoot') && e.target === cruce.target) recibe(e.damage);
+    if (e.kind === 'cast' && e.target === cruce.target) recibe(e.damage ?? 0);
+  }
+  const pvAntes = stackHp({ ...objetivo, ...vida });
+  const pvTras: number[] = [];
+  const pasos: number[] = [];
+  for (let k = i + 1; k < battle.log.length; k++) {
+    const e = battle.log[k] as BattleEvent;
+    if (e.kind === 'cruce' || e.kind === 'round_start') break;
+    if (e.kind === 'attack' && e.retaliation) break;
+    if (e.kind === 'attack' && e.stack === cruce.stack && e.target === cruce.target) {
+      recibe(e.damage);
+      pvTras.push(stackHp({ ...objetivo, ...vida }));
+      pasos.push(k);
+    }
+  }
+  const primero = pasos[0];
+  const ultimo = pasos.at(-1);
+  if (primero === undefined || ultimo === undefined) {
+    throw new Error(`el cruce ${i} del registro no tiene golpe detrás`);
+  }
+  const hasta = (k: number): number =>
+    duracionDeLaJugada(battle, battle.log.slice(i + 1, k + 1)) - DURACION.attack * (1 - IMPACTO);
+  return { cruce, pvAntes, pvTras, alPrimero: hasta(primero), alUltimo: hasta(ultimo) };
+}
+
+/**
+ * Lo que se vio de la barra de `quien` (`muestrasDeLaBarra`) contra lo que debía
+ * (H6 de la QA de la rueda): con la rueda girando, `antes` px; nada baja hasta el
+ * impacto del primer golpe (`alPrimero` ms desde que la rueda deja de contar), y
+ * luego pasa por la vida de cada golpe (`escalones`, en px), uno a uno. La rueda
+ * se cerró entre la última muestra que la vio y la siguiente; según el orden de
+ * los fotogramas, la muestra puede leer el de antes: se cuenta el hueco mayor.
+ */
+function barraAlRitmo(
+  muestras: readonly MuestraDeLaBarra[],
+  quien: string,
+  antes: number,
+  alPrimero: number,
+  escalones: readonly number[],
+): string {
+  let ultima = -1;
+  for (const [k, m] of muestras.entries()) if (m.abierta) ultima = k;
+  const vista = muestras[ultima];
+  const siguiente = muestras[ultima + 1];
+  if (vista === undefined || siguiente === undefined) {
+    throw new Error(`${quien}: la rueda no se vio contar el cruce, o no se cerró`);
+  }
+  for (const m of muestras.slice(0, ultima + 1)) {
+    if (m.abierta && Math.abs(m.ancho - antes) > 1.5) {
+      throw new Error(
+        `${quien}: con la rueda girando la barra mide ${m.ancho.toFixed(1)} px y antes del golpe ${antes.toFixed(1)}: enseña el golpe antes de contarlo`,
+      );
+    }
+  }
+  const hueco = Math.max(siguiente.t - vista.t, vista.t - (muestras[ultima - 1]?.t ?? vista.t));
+  const impacto = vista.t - hueco + alPrimero;
+  const baja = muestras.find((m) => m.ancho < antes - 1.5);
+  if (baja === undefined) throw new Error(`${quien}: la barra no baja con el golpe`);
+  if (baja.t < impacto - 2) {
+    throw new Error(
+      `${quien}: la barra baja ${(impacto - baja.t).toFixed(0)} ms antes del impacto del golpe (a ${(baja.t - vista.t).toFixed(0)} ms de cerrarse la rueda; el impacto llega a ${alPrimero.toFixed(0)})`,
+    );
+  }
+  // Golpe a golpe: cada escalón que se distingue del anterior se ve.
+  let previo = antes;
+  for (const [n, px] of escalones.entries()) {
+    if (Math.abs(previo - px) >= 3 && !muestras.some((m) => Math.abs(m.ancho - px) <= 1.5)) {
+      throw new Error(
+        `${quien}: la barra no pasa por ${px.toFixed(1)} px tras el golpe ${n + 1}: no baja golpe a golpe (vistas: ${[...new Set(muestras.map((m) => m.ancho.toFixed(1)))].join(', ')})`,
+      );
+    }
+    previo = px;
+  }
+  return `antes ${antes.toFixed(1)} px, quieta mientras gira, baja a ${(baja.t - vista.t).toFixed(0)} ms de cerrarse la rueda (impacto a ${alPrimero.toFixed(0)}), ${escalones.length} golpe(s)`;
+}
+
+/**
+ * Un punto que recibe el botón del sector `tipo`: el centro de su rótulo. El
+ * botón mide el plato entero, recortado a su sector (#258), así que el centro de
+ * su caja es el de la rueda, que es de Normal.
+ */
+async function centroDelSector(page: Page, tipo: TipoDeGolpe): Promise<{ x: number; y: number }> {
+  const c = await page
+    .locator(`#rueda .sector-de-rueda[data-sector="${tipo}"] .rotulo-del-sector`)
+    .boundingBox();
+  if (c === null) throw new Error(`rueda: el rótulo del sector ${tipo} no se ve`);
+  return { x: c.x + c.width / 2, y: c.y + c.height / 2 };
+}
+
+/** El relleno con que se pinta el sector `tipo` en el disco de la rueda. */
+async function rellenoDelSector(page: Page, tipo: TipoDeGolpe): Promise<string> {
+  return await page
+    .locator(`#rueda .disco .sector[data-sector="${tipo}"]`)
+    .evaluate((el) => getComputedStyle(el).fill);
+}
+
+/** Cómo se pinta el botón del sector `tipo`: fondo, color del texto y escala del icono. */
+async function aspectoDelBoton(page: Page, tipo: TipoDeGolpe): Promise<string> {
+  return await page.locator(`#rueda [data-golpe="${tipo}"]`).evaluate((el) => {
+    const b = getComputedStyle(el);
+    const icono = el.querySelector('.icono');
+    return `${b.backgroundColor} ${b.color} ${icono === null ? '' : getComputedStyle(icono).transform}`;
+  });
+}
+
+/** ¿Está abierta la nota del sector `tipo`? La abre su `::after`. */
+async function notaAbierta(page: Page, tipo: TipoDeGolpe): Promise<boolean> {
+  return await page
+    .locator(`#rueda .sector-de-rueda[data-sector="${tipo}"] > .nota`)
+    .evaluate((el) => {
+      const d = getComputedStyle(el, '::after');
+      return d.content !== 'none' && d.content !== 'normal' && d.display !== 'none';
+    });
+}
+
+/**
+ * Yo contra Yo con el ratón (H1 y H2 de la QA de la rueda, 13-10-2026), a
+ * escritorio. Quien pega pasa el ratón por Fuerte —que se enciende y abre su
+ * nota: así se ve que el `:hover` funciona— y lo pulsa sin moverlo. La respuesta
+ * sale con el puntero en el mismo píxel, encima del sector de Fuerte: no puede
+ * encenderse ni abrir su nota (`data-quieta`) hasta que el ratón se mueve, y al
+ * moverlo sí; ni una tecla la despierta (H1b, vuelta 2: →, Tab y Shift con el
+ * ratón aún encima). Luego se responde con la tecla 2 y la barra de vida del
+ * objetivo, medida en cada fotograma, no baja mientras gira la rueda ni antes
+ * del impacto del golpe, y baja golpe a golpe hasta la del estado (H6: la vida
+ * la retiene el animador, `EstadoFigura.pv`).
+ */
+async function yoContraYoEnLaRueda(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+  hojas: ReturnType<typeof hojasDeArena>,
+): Promise<void> {
+  const semilla = 1;
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(page, 'rueda-yo-contra-yo', problemas);
+  // Hasta que alguien golpea: la rueda se abre en la fase del golpe.
+  const { espejo, objetivo: contra } = await hastaLaRuedaYoContraYo(
+    page,
+    url,
+    hojas,
+    semilla,
+    'rueda-yo-contra-yo',
+    1,
+  );
+  await sleep(300);
+
+  // H1: el ratón por Fuerte lo enciende y abre su nota…
+  const enFuerte = await centroDelSector(page, 'fuerte');
+  await page.mouse.move(enFuerte.x - 12, enFuerte.y - 8);
+  await page.mouse.move(enFuerte.x, enFuerte.y, { steps: 3 });
+  await sleep(150);
+  const encendido = await rellenoDelSector(page, 'fuerte');
+  if (
+    !(await notaAbierta(page, 'fuerte')) ||
+    encendido === (await rellenoDelSector(page, 'rapido'))
+  ) {
+    throw new Error(
+      'rueda-yo-contra-yo: con el ratón encima, Fuerte no se enciende ni abre su nota',
+    );
+  }
+  // H2, antes: la vida del objetivo con la rueda abierta (aún no hay golpe).
+  const vidaAntes = await vidaPintada(page, contra);
+  // …y se pulsa sin mover el ratón.
+  await page.mouse.down();
+  await page.mouse.up();
+  espejo.elegirEnLaRueda('fuerte');
+  await page.locator('#rueda[open] .rueda[data-fase="respuesta"]').waitFor({ timeout: 5000 });
+  await sleep(300);
+  const bajoElRaton = await page
+    .locator('#rueda [data-golpe="fuerte"]')
+    .evaluate((el) => el.matches(':hover'));
+  if (!bajoElRaton) {
+    throw new Error('rueda-yo-contra-yo: la respuesta no sale con el ratón encima de Fuerte');
+  }
+  // Lo que se ve, no el atributo: el sector apagado y su nota cerrada.
+  const seVe = [
+    (await rellenoDelSector(page, 'fuerte')) === encendido ? 'el sector encendido' : '',
+    (await notaAbierta(page, 'fuerte')) ? 'su nota abierta' : '',
+    (await aspectoDelBoton(page, 'fuerte')) !== (await aspectoDelBoton(page, 'rapido'))
+      ? 'su botón distinto de los demás'
+      : '',
+  ].filter((x) => x !== '');
+  if (seVe.length > 0) {
+    throw new Error(
+      `rueda-yo-contra-yo: la respuesta deja ver lo que pulsó quien pega: ${seVe.join(' y ')} de Fuerte`,
+    );
+  }
+  await captura(page, 'rueda-06-yo-contra-yo-respuesta');
+  // H1b: quien responde con el teclado no la despierta. El foco enciende su
+  // sector (el primero del anillo, con →); Fuerte, bajo el ratón quieto, no. Se
+  // compara con uno que no es ninguno de los dos (el orden del anillo cambió con
+  // #263: el primero era Rápido y ahora es Ofensivo).
+  const conElFoco = TIPOS_DE_GOLPE[0];
+  const otro = TIPOS_DE_GOLPE.find((t) => t !== conElFoco && t !== 'fuerte' && t !== 'normal');
+  if (otro === undefined) throw new Error('rueda-yo-contra-yo: la rueda no tiene otro sector');
+  for (const tecla of ['ArrowRight', 'Tab', 'Shift']) {
+    await page.keyboard.press(tecla);
+    await sleep(150);
+    const seVeConTecla = [
+      (await rellenoDelSector(page, 'fuerte')) === encendido ? 'el sector encendido' : '',
+      (await notaAbierta(page, 'fuerte')) ? 'su nota abierta' : '',
+      (await aspectoDelBoton(page, 'fuerte')) !== (await aspectoDelBoton(page, otro))
+        ? 'su botón distinto de los demás'
+        : '',
+    ].filter((x) => x !== '');
+    if (seVeConTecla.length > 0) {
+      throw new Error(
+        `rueda-yo-contra-yo: tras pulsar ${tecla}, la respuesta deja ver lo que pulsó quien pega: ${seVeConTecla.join(' y ')} de Fuerte`,
+      );
+    }
+    // El teclado sí enciende lo suyo: con →, el foco en el primero lo enciende en el disco.
+    if (tecla === 'ArrowRight') {
+      if ((await rellenoDelSector(page, conElFoco)) !== encendido) {
+        throw new Error(`rueda-yo-contra-yo: con → el foco no enciende ${conElFoco} en el disco`);
+      }
+      await captura(page, 'rueda-07-yo-contra-yo-teclado');
+    }
+  }
+  // Moverlo de verdad la despierta: el mismo `:hover` vuelve a encender.
+  await page.mouse.move(enFuerte.x + 3, enFuerte.y + 2);
+  // Hasta 1 s: el relleno cambia con una transición de 140 ms y, con la máquina
+  // cargada, a los 150 ms aún iba por la mitad (14-10-2026, carga 18).
+  for (let i = 0; i < 10 && (await rellenoDelSector(page, 'fuerte')) !== encendido; i++) {
+    await sleep(100);
+  }
+  if ((await rellenoDelSector(page, 'fuerte')) !== encendido) {
+    const diag = await page.evaluate(
+      ([x, y]) => {
+        const el = document.elementFromPoint(x as number, y as number);
+        const b = document.querySelector('#rueda [data-golpe="fuerte"]');
+        return `en el punto ${el?.outerHTML.slice(0, 120)}; quieta ${document.getElementById('rueda')?.hasAttribute('data-quieta')}; hover ${b?.matches(':hover')}; foco ${document.activeElement?.outerHTML.slice(0, 80)}`;
+      },
+      [enFuerte.x + 3, enFuerte.y + 2],
+    );
+    throw new Error(
+      `rueda-yo-contra-yo: movido el ratón, Fuerte no se enciende (${await rellenoDelSector(page, 'fuerte')} / ${encendido}; ${diag})`,
+    );
+  }
+  log('rueda-yo-contra-yo: la respuesta sale quieta bajo el ratón y despierta al moverlo');
+
+  // H2 y H6: mientras gira, la vida de antes; nada baja antes del impacto; luego,
+  // golpe a golpe. Se mide en cada fotograma desde que se pulsa la tecla.
+  const antes = espejo.battle.log.length;
+  const total = contra.unit.hp * contra.initialCount;
+  const hpAntes = stackHp(contra);
+  // Las teclas de antes dejaron el foco en un sector: la tecla 2 elige igual.
+  await page.keyboard.press(teclaDe('defensivo'));
+  espejo.elegirEnLaRueda('defensivo');
+  const tocado = stackById(espejo.battle, contra.id);
+  // La vida de salida, de la misma pelea sin jugar: el registro pone lo demás.
+  const salida = espejoYoContraYo(hojas, semilla, 1).battle;
+  const golpes = golpesDelCruce(espejo.battle, antes, (id) => {
+    const x = stackById(salida, id);
+    return { count: x.count, topHp: x.topHp };
+  });
+  if (golpes.pvAntes !== hpAntes) {
+    throw new Error(
+      `rueda-yo-contra-yo: el registro da ${golpes.pvAntes} PV antes y eran ${hpAntes}`,
+    );
+  }
+  const anchoEntero = vidaAntes / (hpAntes / total);
+  const muestras = await muestrasDeLaBarra(page, contra, golpes.alUltimo + 500);
+  log(
+    `rueda-yo-contra-yo: barra de ${contra.id}: ${barraAlRitmo(
+      muestras,
+      'rueda-yo-contra-yo',
+      vidaAntes,
+      golpes.alPrimero,
+      golpes.pvTras.map((pv) => (anchoEntero * pv) / total),
+    )}`,
+  );
+  await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+  // Contado todo, la del estado: la barra entera mide lo de antes entre su fracción.
+  const despues = await vidaPintada(page, tocado);
+  const debe = (anchoEntero * stackHp(tocado)) / total;
+  log(
+    `rueda-yo-contra-yo: barra de ${contra.id} ${despues.toFixed(1)} px contado el golpe (${hpAntes} → ${stackHp(tocado)} PV; debe ${debe.toFixed(1)})`,
+  );
+  if (Math.abs(despues - debe) > 1.5) {
+    throw new Error(
+      `rueda-yo-contra-yo: contado el golpe (${hpAntes} → ${stackHp(tocado)} PV), la barra mide ${despues.toFixed(1)} px y el estado dice ${debe.toFixed(1)}`,
+    );
+  }
+  await page.close();
+}
+
+/**
+ * Con todo en IA y la rueda (H6 de la vuelta 2 de QA, 13-10-2026): la sesión juega
+ * la pelea entera de una vez y el estado trae el final. Antes, fuera de la rueda,
+ * la barra enseñaba la vida del final desde el primer fotograma (el guerrero
+ * vacío en la s4) y saltaba arriba y abajo en cada cruce. Aquí, en los primeros
+ * cruces de la s4 (Guerrero con escudo contra Orko con dos armas), la barra del
+ * objetivo medida en cada fotograma es la que dice el registro hasta ese golpe
+ * mientras gira la rueda, no baja antes del impacto y baja golpe a golpe; y al
+ * acabar, la de cada superviviente es la del estado.
+ */
+async function todoEnIAConLaRueda(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+  hojas: ReturnType<typeof hojasDeArena>,
+): Promise<void> {
+  const semilla = 4;
+  const espejo = new SesionDeArena(
+    {
+      izquierda: {
+        unidades: [delBorrador(deHoja(hojas, 'templario-escudo'))],
+        heroe: null,
+        ia: true,
+      },
+      // El orco de la lista, como el que pulsa la página: sin la lanza de
+      // `orcoConLanza`, que desde que todos cargan en la arena (#260) se usa al
+      // cargar y separaba el espejo de la página.
+      derecha: {
+        unidades: [delBorrador(deHoja(hojas, 'orko-dos-armas'))],
+        heroe: null,
+        ia: true,
+      },
+      reglas: REGLAS_DEL_JUEGO,
+      piezas: [],
+      modos: { golpe: 'rueda' },
+    },
+    semilla,
+  );
+  const salida = new Map(
+    espejo.battle.stacks.map((x) => [x.id, { hex: x.hex, count: x.count, topHp: x.topHp }]),
+  );
+  espejo.empezar();
+  if (espejo.battle.finished === null) throw new Error('rueda-todo-ia: el espejo no termina');
+  const registro = espejo.battle.log;
+  const cruces = registro.flatMap((e, i) => (e.kind === 'cruce' ? [i] : []));
+  if (cruces.length < 2)
+    throw new Error(`rueda-todo-ia: solo ${cruces.length} cruce(s) en la s${semilla}`);
+
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(page, 'rueda-todo-ia', problemas);
+  await abrirLaArena(page, url, `?seed=${semilla}&golpe=rueda`);
+  await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+  await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+  await page.locator('[data-arena="manda"][data-lado="izquierda"][data-ia="si"]').click();
+  await page.locator('[data-arena="manda"][data-lado="derecha"][data-ia="si"]').click();
+  await page
+    .locator('[data-modo-del-montaje="golpe"][data-modo="rueda"]')
+    .waitFor({ timeout: 2000 });
+  await page.locator('[data-arena="luchar"]').click();
+  await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
+
+  const vidaDeSalida = (id: string) => {
+    const x = salida.get(id);
+    if (x === undefined) throw new Error(`rueda-todo-ia: ${id} no estaba al empezar`);
+    return { count: x.count, topHp: x.topHp };
+  };
+  // Dónde se ve cada uno al empezar el cruce `i`: su último tramo antes de él.
+  const dondeEsta = (id: string, i: number) => {
+    let hex = (salida.get(id) as { hex: BattleStack['hex'] }).hex;
+    for (const e of registro.slice(0, i)) {
+      if ((e.kind === 'move' || e.kind === 'climbed') && e.stack === id) hex = e.to;
+    }
+    return hex;
+  };
+  const vistos = Math.min(3, cruces.length);
+  for (const [n, i] of cruces.slice(0, vistos).entries()) {
+    const g = golpesDelCruce(espejo.battle, i, vidaDeSalida);
+    const objetivo = stackById(espejo.battle, g.cruce.target);
+    const quieto = { ...objetivo, hex: dondeEsta(objetivo.id, i) };
+    await page.locator('#rueda[open][data-tramo]').waitFor({ timeout: 30_000 });
+    // El cruce que se ve es el que toca: el golpe y la respuesta del registro.
+    const elegidos = await page
+      .locator('#rueda [data-elegido]')
+      .evaluateAll((els) =>
+        els.map((el) => `${el.getAttribute('data-sector')}:${el.getAttribute('data-elegido')}`),
+      );
+    const esperados =
+      g.cruce.golpe === g.cruce.respuesta
+        ? [`${g.cruce.golpe}:los-dos`]
+        : [`${g.cruce.golpe}:golpe`, `${g.cruce.respuesta}:respuesta`];
+    if (esperados.some((x) => !elegidos.includes(x))) {
+      throw new Error(
+        `rueda-todo-ia: la rueda ${n + 1} enseña ${elegidos.join(', ')} y el cruce ${n + 1} del registro es ${esperados.join(', ')}: se ha perdido uno`,
+      );
+    }
+    const total = objetivo.unit.hp * objetivo.initialCount;
+    const b = await caja(page);
+    const entero = cabezaDe({ tablero: tableroPara(b.width, b.height) }, quieto, {
+      en: centroDeStack(stackHexes(quieto)),
+      elevacion: 0,
+    }).anchoBarra;
+    const muestras = await muestrasDeLaBarra(page, quieto, g.alUltimo + 400);
+    log(
+      `rueda-todo-ia: cruce ${n + 1}, ${objetivo.id} (${g.pvAntes} → ${g.pvTras.join(' → ')} PV): ${barraAlRitmo(
+        muestras,
+        `rueda-todo-ia, cruce ${n + 1}`,
+        (entero * g.pvAntes) / total,
+        g.alPrimero,
+        g.pvTras.map((pv) => (entero * pv) / total),
+      )}`,
+    );
+    if (n === 0) await captura(page, 'rueda-08-todo-ia');
+  }
+  // Al acabar, la barra de cada superviviente es la del estado.
+  await esperarCola(espejo.battle, registro);
+  for (const x of espejo.battle.stacks.filter((y) => y.count > 0)) {
+    const b = await caja(page);
+    const entero = cabezaDe({ tablero: tableroPara(b.width, b.height) }, x, {
+      en: centroDeStack(stackHexes(x)),
+      elevacion: 0,
+    }).anchoBarra;
+    const debe = (entero * stackHp(x)) / (x.unit.hp * x.initialCount);
+    const mide = await vidaPintada(page, x);
+    if (Math.abs(mide - debe) > 1.5) {
+      throw new Error(
+        `rueda-todo-ia: al acabar, la barra de ${x.id} mide ${mide.toFixed(1)} px y el estado dice ${debe.toFixed(1)}`,
+      );
+    }
+  }
+  log(
+    `rueda-todo-ia: ${vistos} cruces medidos fotograma a fotograma; al acabar, las barras del estado`,
+  );
+  await page.close();
+}
+
+// ------------------------------------------- la rueda: sectores y contrincantes
+
+/**
+ * Lo que da `elementFromPoint` en el plano de la rueda, a `r` y `grados` (las
+ * medidas de `MEDIDAS_DE_LA_RUEDA`): el `data-golpe` del botón que recibe ese
+ * punto, o `null` si no es de ninguno.
+ */
+async function golpeEnElPunto(page: Page, r: number, grados: number): Promise<string | null> {
+  const plato = await page.locator('#rueda .plato').boundingBox();
+  if (plato === null) throw new Error('rueda: el plato no se ve');
+  const k = plato.width / MEDIDAS_DE_LA_RUEDA.lado;
+  const a = (grados * Math.PI) / 180;
+  const x = plato.x + plato.width / 2 + r * k * Math.cos(a);
+  const y = plato.y + plato.height / 2 + r * k * Math.sin(a);
+  return await page.evaluate(
+    ([px, py]) =>
+      document
+        .elementFromPoint(px as number, py as number)
+        ?.closest('[data-golpe]')
+        ?.getAttribute('data-golpe') ?? null,
+    [x, y],
+  );
+}
+
+/**
+ * #258: toda la corona de cada sector responde, y solo ella. En los siete, el
+ * borde de fuera (r 97) y los dos picos de fuera y de dentro (a 1,5° de la
+ * junta) dan su sector, y Normal a r 39; fuera de la corona (r 103), en la junta
+ * entre dos y en el hueco entre la corona y Normal (r 43), ninguno.
+ */
+async function sectoresEnteros(page: Page, quien: string, conRaton: boolean): Promise<string> {
+  const m = MEDIDAS_DE_LA_RUEDA;
+  const fallos: string[] = [];
+  let medidos = 0;
+  const debe = async (r: number, g: number, esperado: string | null, donde: string) => {
+    medidos++;
+    const visto = await golpeEnElPunto(page, r, g);
+    if (visto !== esperado) fallos.push(`${donde}: ${String(visto)} (debía ${String(esperado)})`);
+  };
+  for (const t of TIPOS_DE_GOLPE) {
+    // El «ⓘ» del sector (R1 de QA de #258): con ratón no es un hueco, el clic va
+    // a su sector; tocando, es la nota, y tocarlo la abre.
+    const { nota: n } = sitioEnLaRueda(t);
+    await debe(
+      Math.hypot(n.x, n.y),
+      (Math.atan2(n.y, n.x) * 180) / Math.PI,
+      conRaton ? t : null,
+      `${t}, sobre su «ⓘ»`,
+    );
+    if (t === 'normal') {
+      for (const g of [0, 90, 180, 270]) {
+        await debe(m.radioDelCentro - 2, g, 'normal', `Normal a r ${m.radioDelCentro - 2}, ${g}°`);
+        await debe(m.dentro - 2, g, null, `entre Normal y la corona, ${g}°`);
+      }
+      continue;
+    }
+    const c = anguloDe(t);
+    const pico = m.medioSector - 1.5;
+    await debe(m.fuera - 3, c, t, `${t}, borde de fuera`);
+    for (const lado of [-1, 1]) {
+      await debe(
+        m.fuera - 3,
+        c + lado * pico,
+        t,
+        `${t}, pico de fuera ${lado < 0 ? 'izquierdo' : 'derecho'}`,
+      );
+      await debe(
+        m.dentro + 3,
+        c + lado * pico,
+        t,
+        `${t}, pico de dentro ${lado < 0 ? 'izquierdo' : 'derecho'}`,
+      );
+    }
+    await debe(m.fuera + 3, c, null, `${t}, fuera de la corona`);
+    await debe((m.dentro + m.fuera) / 2, c + 30, null, `junta tras ${t}`);
+  }
+  if (fallos.length > 0) {
+    throw new Error(`${quien}: la rueda no responde donde se ve: ${fallos.join('; ')}`);
+  }
+  return `${medidos} puntos de la rueda dan el sector que se ve`;
+}
+
+/**
+ * Cuántos de 18 puntos de la mitad de delante (la que no tapa la figura) del aro
+ * de la rueda alrededor de los pies de `s` (`ARO_DE_LA_RUEDA` veces el de su
+ * bando) son del color de su bando.
+ */
+async function aroDeLaRueda(page: Page, s: BattleStack): Promise<number> {
+  const b = await caja(page);
+  const t = tableroPara(b.width, b.height);
+  const c = cajaDeFigura(t, s, centroDeStack(stackHexes(s)));
+  const rx = t.paso * 0.36 * ARO_DE_LA_RUEDA;
+  const ry = rx * t.compresion * 0.95;
+  const color = COLOR_BANDO[s.side];
+  return await page.evaluate(
+    ({ x, y, rx, ry, color }) => {
+      const lienzo = document.getElementById('canvas') as HTMLCanvasElement;
+      const k = lienzo.width / lienzo.getBoundingClientRect().width;
+      const ctx = lienzo.getContext('2d');
+      if (ctx === null) throw new Error('el lienzo de la batalla no tiene contexto 2d');
+      const R = Number.parseInt(color.slice(1, 3), 16);
+      const G = Number.parseInt(color.slice(3, 5), 16);
+      const B = Number.parseInt(color.slice(5, 7), 16);
+      let n = 0;
+      for (let i = 0; i < 18; i++) {
+        const a = (i * Math.PI) / 17;
+        const d = ctx.getImageData(
+          Math.round((x + rx * Math.cos(a)) * k) - 1,
+          Math.round((y + ry * Math.sin(a)) * k) - 1,
+          3,
+          3,
+        ).data;
+        for (let j = 0; j < d.length; j += 4) {
+          if (
+            Math.abs((d[j] ?? 0) - R) < 24 &&
+            Math.abs((d[j + 1] ?? 0) - G) < 24 &&
+            Math.abs((d[j + 2] ?? 0) - B) < 24
+          ) {
+            n++;
+            break;
+          }
+        }
+      }
+      return n;
+    },
+    { x: c.x, y: c.suelo, rx, ry, color },
+  );
+}
+
+/**
+ * Si cada lienzo de las figuras de la cabecera cambia alguna vez en 3 s: se
+ * animan. Mirados cada 150 ms contra el primero: un reposo lento puede enseñar
+ * el mismo fotograma en dos instantes sueltos.
+ */
+async function figurasDeLaCabeceraAnimadas(page: Page): Promise<boolean[]> {
+  const fotos = async () =>
+    await page.$$eval('#rueda .cabecera-de-rueda canvas.figura', (ls) =>
+      ls.map((l) => (l as HTMLCanvasElement).toDataURL()),
+    );
+  const primera = await fotos();
+  const cambia = primera.map(() => false);
+  for (let i = 0; i < 20 && cambia.some((c) => !c); i++) {
+    await sleep(150);
+    for (const [j, f] of (await fotos()).entries()) if (f !== primera[j]) cambia[j] = true;
+  }
+  return cambia;
+}
+
+/**
+ * La pelea de Yo contra Yo con la rueda: `n` guerreros con escudo contra `n`
+ * orkos, los dos bandos «Yo». Con uno, la de «Yo contra Yo»; con tres iguales por
+ * bando, la de los contrincantes, en la que la cabecera enseña la figura (#261).
+ */
+function espejoYoContraYo(
+  hojas: ReturnType<typeof hojasDeArena>,
+  semilla: number,
+  n: number,
+): SesionDeArena {
+  const varios = (id: string) => Array.from({ length: n }, () => delBorrador(deHoja(hojas, id)));
+  const espejo = new SesionDeArena(
+    {
+      izquierda: { unidades: varios('templario-escudo'), heroe: null, ia: false },
+      derecha: { unidades: varios('orko-dos-armas'), heroe: null, ia: false },
+      reglas: REGLAS_DEL_JUEGO,
+      piezas: [],
+      modos: { golpe: 'rueda' },
+    },
+    semilla,
+  );
+  espejo.empezar();
+  return espejo;
+}
+
+/** La rueda de Yo contra Yo, abierta en la fase del golpe. */
+interface RuedaYoContraYo {
+  readonly espejo: SesionDeArena;
+  readonly atacante: BattleStack;
+  readonly objetivo: BattleStack;
+  /** Lo que deben decir las figuras de la cabecera, en orden: «hoja/lado». */
+  readonly debenSer: readonly string[];
+}
+
+/**
+ * Monta los `n` contra `n` en la página (`espejoYoContraYo`), los dos bandos «Yo»,
+ * y juega la pauta (un tramo hacia el enemigo y, si no alcanza, terminar) hasta
+ * que alguien golpea: la rueda se abre en la fase del golpe. Devuelve el espejo y
+ * el golpe.
+ */
+async function hastaLaRuedaYoContraYo(
+  page: Page,
+  url: string,
+  hojas: ReturnType<typeof hojasDeArena>,
+  semilla: number,
+  quien: string,
+  n: number,
+): Promise<RuedaYoContraYo> {
+  await abrirLaArena(page, url, `?seed=${semilla}&golpe=rueda`);
+  for (let i = 0; i < n; i++) {
+    await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+    await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+  }
+  await page.locator('[data-arena="manda"][data-lado="derecha"][data-ia="no"]').click();
+  await page
+    .locator('[data-modo-del-montaje="golpe"][data-modo="rueda"]')
+    .waitFor({ timeout: 2000 });
+  await page.locator('[data-arena="luchar"]').click();
+  await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
+  const espejo = espejoYoContraYo(hojas, semilla, n);
+  await mismaPelea(page, espejo, `${quien}: empezar`);
+  for (let jugada = 0; ; jugada++) {
+    if (espejo.battle.finished !== null || jugada > 80)
+      throw new Error(`${quien}: nadie llega a golpear`);
+    const antes = espejo.battle.log.length;
+    const turno = espejo.turnoPropio;
+    const j = jugadaDeLaPauta(espejo, espejo.battle.turno?.gastado === 0 ? 0 : 1, 0);
+    if (j.tipo === 'golpe') {
+      const px = await pixelDeUnidad(page, espejo, j.contra);
+      if (px.accion === undefined)
+        throw new Error(`${quien}: el clic sobre ${j.contra.id} no da acción`);
+      await page.mouse.click(px.x, px.y);
+      espejo.playBattleAction(px.accion);
+      await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+      await page.locator('#rueda[open] .rueda[data-fase="golpe"]').waitFor({ timeout: 10_000 });
+      if (turno === null) throw new Error(`${quien}: golpea alguien sin turno`);
+      const debenSer = [turno.stack, j.contra].map((x) => `${x.body}/${ladoDe(x.side)}`);
+      return { espejo, atacante: turno.stack, objetivo: j.contra, debenSer };
+    }
+    await ejecutarPauta(page, espejo, j);
+    await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+    await mismaPelea(page, espejo, `${quien}: la jugada ${jugada}`);
+  }
+}
+
+/** ¿Se ve la vista previa del contrincante `id`? */
+async function previaAbierta(page: Page, id: string): Promise<boolean> {
+  return await page
+    .locator(`#rueda [data-contrincante="${id}"] > .vista-previa`)
+    .evaluate((el) => getComputedStyle(el).display !== 'none');
+}
+
+/**
+ * La rueda con los dos contrincantes (#261) y todo el sector respondiendo (#258),
+ * a escritorio, con clics de verdad en un tres contra tres. Los dos lienzos de la
+ * cabecera se animan; el ratón por la figura de quien pega abre su vista previa
+ * (con su vida) sin despertar los sectores; el clic abre su ficha de solo lectura
+ * encima de la rueda, y Escape la cierra con la rueda en la misma fase. Los dos
+ * llevan su aro en el tablero. Luego, la corona entera: `elementFromPoint` en los
+ * bordes y picos de cada sector, y el clic real en la esquina de fuera de Fuerte,
+ * que la enciende y la elige; la respuesta con su tecla, y el cruce sale en el parte.
+ */
+async function contrincantesEnElEscritorio(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+  hojas: ReturnType<typeof hojasDeArena>,
+): Promise<void> {
+  const quien = 'rueda-contrincantes';
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(page, quien, problemas);
+  const { espejo, atacante, objetivo, debenSer } = await hastaLaRuedaYoContraYo(
+    page,
+    url,
+    hojas,
+    1,
+    quien,
+    3,
+  );
+  await sleep(300);
+  // Los dos, en orden: quien pega y quien recibe, con la figura de su hoja y su bando.
+  const figuras = await page.$$eval('#rueda .cabecera-de-rueda canvas.figura', (ls) =>
+    ls.map((l) => `${l.getAttribute('data-figura')}/${l.getAttribute('data-lado')}`),
+  );
+  if (JSON.stringify(figuras) !== JSON.stringify(debenSer)) {
+    throw new Error(
+      `${quien}: la cabecera enseña ${figuras.join(', ')} y debía ${debenSer.join(', ')}`,
+    );
+  }
+  await captura(page, 'rueda-20-contrincantes');
+  const animadas = await figurasDeLaCabeceraAnimadas(page);
+  if (animadas.length !== 2 || animadas.some((a) => !a)) {
+    throw new Error(`${quien}: las figuras de la cabecera no se animan (${animadas.join(', ')})`);
+  }
+  // El aro de la rueda en el tablero, de los dos; y de ningún otro de sus bandos.
+  for (const x of [atacante, objetivo]) {
+    const n = await aroDeLaRueda(page, x);
+    if (n < 6)
+      throw new Error(`${quien}: ${x.id} no lleva el aro de la rueda en el tablero (${n} de 18)`);
+  }
+  const otro = espejo.battle.stacks.find(
+    (x) => isAlive(x) && x.side === objetivo.side && x.id !== objetivo.id,
+  );
+  if (otro !== undefined && (await aroDeLaRueda(page, otro)) >= 6) {
+    throw new Error(`${quien}: ${otro.id}, que no se cruza, lleva el aro de la rueda`);
+  }
+  // La vista previa al pasar el ratón, sin despertar los sectores.
+  const icono = page.locator(`#rueda [data-contrincante="${atacante.id}"] > button`);
+  const b = await icono.boundingBox();
+  if (b === null) throw new Error(`${quien}: la figura de quien pega no se ve`);
+  await page.mouse.move(b.x + b.width / 2 - 6, b.y + b.height / 2 - 4);
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 3 });
+  await sleep(150);
+  if (!(await previaAbierta(page, atacante.id))) {
+    throw new Error(`${quien}: con el ratón en la figura, su vista previa no se abre`);
+  }
+  const previa = await page
+    .locator(`#rueda [data-contrincante="${atacante.id}"] > .vista-previa`)
+    .innerText();
+  if (!previa.includes('PV') || !previa.includes('Contraataque')) {
+    throw new Error(`${quien}: la vista previa no dice la vida ni el contraataque: «${previa}»`);
+  }
+  if ((await page.locator('#rueda[data-quieta]').count()) === 0) {
+    throw new Error(`${quien}: pasar por la figura despierta los sectores de la rueda`);
+  }
+  await captura(page, 'rueda-21-vista-previa');
+  // El clic: la ficha, de solo lectura, encima; Escape vuelve a la rueda.
+  await page.mouse.down();
+  await page.mouse.up();
+  await page
+    .locator('#editor-en-combate[open] fieldset.solo-lectura[disabled]')
+    .waitFor({ timeout: 3000 });
+  const titulo = await page.locator('#titulo-del-editor').innerText();
+  if (!titulo.startsWith('Ficha de')) throw new Error(`${quien}: la ficha se titula «${titulo}»`);
+  await captura(page, 'rueda-22-ficha');
+  await page.keyboard.press('Escape');
+  await page
+    .locator('#editor-en-combate:not([open])')
+    .waitFor({ state: 'attached', timeout: 3000 });
+  if ((await page.locator('#rueda[open] .rueda[data-fase="golpe"]').count()) !== 1) {
+    throw new Error(`${quien}: al cerrar la ficha la rueda no sigue en la fase del golpe`);
+  }
+  // El título vuelve con el evento `close`, que llega en una tarea aparte.
+  await page
+    .waitForFunction(
+      (t) => document.getElementById('titulo-del-editor')?.textContent !== t,
+      titulo,
+      { timeout: 2000 },
+    )
+    .catch(() => {
+      throw new Error(`${quien}: cerrada la ficha, el editor sigue titulado «${titulo}»`);
+    });
+  // #258: la corona entera responde, y solo ella.
+  log(`${quien}: ${await sectoresEnteros(page, quien, true)}`);
+  // El clic real en la esquina de fuera de Fuerte: la enciende y la elige.
+  const plato = await page.locator('#rueda .plato').boundingBox();
+  if (plato === null) throw new Error(`${quien}: el plato no se ve`);
+  const k = plato.width / MEDIDAS_DE_LA_RUEDA.lado;
+  // Antes, el ratón sobre el «ⓘ» de Fuerte: enciende su sector y abre su nota (R1).
+  const info = sitioEnLaRueda('fuerte').nota;
+  await page.mouse.move(
+    plato.x + plato.width / 2 + info.x * k - 8,
+    plato.y + plato.height / 2 + info.y * k,
+  );
+  await page.mouse.move(
+    plato.x + plato.width / 2 + info.x * k,
+    plato.y + plato.height / 2 + info.y * k,
+    {
+      steps: 3,
+    },
+  );
+  await sleep(150);
+  if ((await rellenoDelSector(page, 'fuerte')) === (await rellenoDelSector(page, 'rapido'))) {
+    throw new Error(`${quien}: con el ratón en el «ⓘ» de Fuerte, su sector no se enciende`);
+  }
+  const notaAbierta = await page.evaluate(
+    () =>
+      getComputedStyle(
+        document.querySelector('#rueda .sector-de-rueda[data-sector="fuerte"] > .nota') as Element,
+        '::after',
+      ).content,
+  );
+  if (notaAbierta === 'none' || notaAbierta === '') {
+    throw new Error(`${quien}: con el ratón en el «ⓘ» de Fuerte, su nota no se abre`);
+  }
+  const g = ((anguloDe('fuerte') + MEDIDAS_DE_LA_RUEDA.medioSector - 2.5) * Math.PI) / 180;
+  const r = MEDIDAS_DE_LA_RUEDA.fuera - 4;
+  const esquina = {
+    x: plato.x + plato.width / 2 + r * k * Math.cos(g),
+    y: plato.y + plato.height / 2 + r * k * Math.sin(g),
+  };
+  await page.mouse.move(esquina.x - 10, esquina.y - 10);
+  await page.mouse.move(esquina.x, esquina.y, { steps: 3 });
+  await sleep(150);
+  if ((await rellenoDelSector(page, 'fuerte')) === (await rellenoDelSector(page, 'rapido'))) {
+    throw new Error(`${quien}: con el ratón en la esquina de fuera de Fuerte, no se enciende`);
+  }
+  await captura(page, 'rueda-23-esquina-de-fuerte');
+  const antes = espejo.battle.log.length;
+  await page.mouse.down();
+  await page.mouse.up();
+  espejo.elegirEnLaRueda('fuerte');
+  await page.locator('#rueda[open] .rueda[data-fase="respuesta"]').waitFor({ timeout: 5000 });
+  // La respuesta: su cabecera también lleva a los dos, en el mismo orden.
+  const enLaRespuesta = await page.$$eval('#rueda .cabecera-de-rueda canvas.figura', (ls) =>
+    ls.map((l) => `${l.getAttribute('data-figura')}/${l.getAttribute('data-lado')}`),
+  );
+  if (JSON.stringify(enLaRespuesta) !== JSON.stringify(debenSer)) {
+    throw new Error(`${quien}: la cabecera de la respuesta enseña ${enLaRespuesta.join(', ')}`);
+  }
+  await page.keyboard.press(teclaDe('normal'));
+  espejo.elegirEnLaRueda('normal');
+  const cruce = espejo.battle.log.slice(antes).find((e) => e.kind === 'cruce');
+  if (cruce?.kind !== 'cruce' || cruce.golpe !== 'fuerte') {
+    throw new Error(`${quien}: el clic en la esquina de Fuerte no da el golpe Fuerte`);
+  }
+  await page.locator('#rueda[data-tramo~="rotulo"]').waitFor({ timeout: 8000 });
+  const enElDesenlace = await page.locator('#rueda .cabecera-de-rueda canvas.figura').count();
+  if (enElDesenlace !== 2)
+    throw new Error(`${quien}: el desenlace enseña ${enElDesenlace} figuras`);
+  await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+  await page
+    .locator('#rueda[open]')
+    .waitFor({ state: 'detached', timeout: 100 })
+    .catch(() => undefined);
+  const parte = await page.locator('#side').innerText();
+  if (!parte.includes(`${NOMBRE_DE_GOLPE.fuerte} contra ${NOMBRE_DE_GOLPE.normal}`)) {
+    throw new Error(`${quien}: el parte no cuenta el cruce de Fuerte contra Normal`);
+  }
+  log(
+    `${quien}: iconos animados, vista previa, ficha de solo lectura y vuelta, aros; Fuerte por su esquina`,
+  );
+  await page.close();
+}
+
+/**
+ * La misma rueda en un móvil de verdad (toque, sin ratón): la cabecera con los
+ * dos en dos líneas como mucho, y tocar una figura abre su ficha sin vista previa
+ * (decisión del usuario, 14-10-2026); «Volver a la rueda» vuelve a la misma fase y
+ * se elige tocando un sector por el borde de fuera.
+ */
+async function contrincantesEnElMovil(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+  hojas: ReturnType<typeof hojasDeArena>,
+): Promise<void> {
+  const quien = 'rueda-contrincantes-movil';
+  const contexto = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await contexto.newPage();
+  vigilarConsola(page, quien, problemas);
+  const { espejo, objetivo } = await hastaLaRuedaYoContraYo(page, url, hojas, 1, quien, 3);
+  await sleep(300);
+  if (await page.evaluate(() => matchMedia('(hover: hover)').matches)) {
+    throw new Error(`${quien}: el móvil emulado dice que tiene ratón: la prueba no prueba nada`);
+  }
+  // Dos líneas como mucho: las cajas de los dos y de «ataca a», por su alto.
+  const filas = await page.$$eval('#rueda .cabecera-de-rueda :is(.contrincante, .ataca)', (els) => {
+    const medios = els.map((e) => {
+      const r = e.getBoundingClientRect();
+      return r.top + r.height / 2;
+    });
+    const distintas: number[] = [];
+    for (const m of medios) if (!distintas.some((d) => Math.abs(d - m) < 12)) distintas.push(m);
+    return distintas.length;
+  });
+  if (filas > 2) throw new Error(`${quien}: la cabecera de la rueda ocupa ${filas} líneas`);
+  await captura(page, 'rueda-24-contrincantes-movil');
+  await page.locator(`#rueda [data-contrincante="${objetivo.id}"] > button`).tap();
+  await page
+    .locator('#editor-en-combate[open] fieldset.solo-lectura[disabled]')
+    .waitFor({ timeout: 3000 });
+  if (await previaAbierta(page, objetivo.id)) {
+    throw new Error(`${quien}: tocar la figura abre también la vista previa`);
+  }
+  await captura(page, 'rueda-25-ficha-movil');
+  await page.getByRole('button', { name: 'Volver a la rueda' }).tap();
+  await page.locator('#rueda[open] .rueda[data-fase="golpe"]').waitFor({ timeout: 3000 });
+  if ((await page.locator('#editor-en-combate[open]').count()) > 0) {
+    throw new Error(`${quien}: «Volver a la rueda» no cierra la ficha`);
+  }
+  log(`${quien}: ${await sectoresEnteros(page, quien, false)}`);
+  // Elegir tocando Ofensivo cerca de su borde de fuera.
+  const plato = await page.locator('#rueda .plato').boundingBox();
+  if (plato === null) throw new Error(`${quien}: el plato no se ve`);
+  const k = plato.width / MEDIDAS_DE_LA_RUEDA.lado;
+  const g = ((anguloDe('ofensivo') - MEDIDAS_DE_LA_RUEDA.medioSector + 3) * Math.PI) / 180;
+  const r = MEDIDAS_DE_LA_RUEDA.fuera - 5;
+  const antes = espejo.battle.log.length;
+  await page.touchscreen.tap(
+    plato.x + plato.width / 2 + r * k * Math.cos(g),
+    plato.y + plato.height / 2 + r * k * Math.sin(g),
+  );
+  espejo.elegirEnLaRueda('ofensivo');
+  await page.locator('#rueda[open] .rueda[data-fase="respuesta"]').waitFor({ timeout: 5000 });
+  await page.keyboard.press(teclaDe('normal'));
+  espejo.elegirEnLaRueda('normal');
+  const cruce = espejo.battle.log.slice(antes).find((e) => e.kind === 'cruce');
+  if (cruce?.kind !== 'cruce' || cruce.golpe !== 'ofensivo') {
+    throw new Error(`${quien}: tocar el borde de Ofensivo no da el golpe Ofensivo`);
+  }
+  await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+  await mismaPelea(page, espejo, `${quien}: tras el cruce`);
+  log(`${quien}: dos líneas, ficha al tocar sin vista previa, y Ofensivo por su borde`);
+  await contexto.close();
+}
+
+/** Los dos contrincantes de la rueda (#261) y sus sectores enteros (#258), a escritorio y a móvil. */
+async function contrincantesDeLaRueda(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+): Promise<void> {
+  await sinElBorrador('rueda-contrincantes', async () => {
+    const hojas = hojasDeArena(process.cwd());
+    for (const h of hojas) registrarUnidad(h.id, h);
+    await contrincantesEnElEscritorio(browser, url, problemas, hojas);
+    await contrincantesEnElMovil(browser, url, problemas, hojas);
+  });
+}
+
 // ------------------------------------------------------------------------ main
 
 type Paso = (browser: Browser, url: string, problemas: Problemas) => Promise<void>;
@@ -4462,6 +6386,9 @@ const PASADAS: readonly (readonly [string, Paso])[] = [
   ['edicion', (b, u, p) => sinElBorrador('edicion', () => edicionDeLaArena(b, u, p))],
   ['equipo', (b, u, p) => sinElBorrador('equipo', () => equipoDeLaArena(b, u, p))],
   ['poderes', poderesEnLaArena],
+  ['rueda-del-golpe', ruedaEnLaArena],
+  ['armas', armasEnLaArena],
+  ['rueda-contrincantes', contrincantesDeLaRueda],
 ];
 
 /**

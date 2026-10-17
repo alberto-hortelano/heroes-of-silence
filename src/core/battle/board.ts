@@ -617,6 +617,132 @@ export function reachable(
 }
 
 /**
+ * Lo que queda de tramo, dicho: `['queda', '1 casilla']` o `['quedan', '3
+ * casillas']`. Lo escriben el panel («Le queda 1 casilla»), las notas del agente
+ * («le quedan 3 casillas») y las frases del motor (`movimientoBlocker`,
+ * `fraseDelContacto`); antes cada uno ponía su plural, y la del contacto decía
+ * «le queda 1» sin la casilla. Aquí y no en `battle.ts` para que la lea
+ * `contacto.ts`, que no importa el motor.
+ */
+export function quedanCasillas(n: number): readonly [verbo: string, casillas: string] {
+  return n === 1 ? ['queda', '1 casilla'] : ['quedan', `${n} casillas`];
+}
+
+/**
+ * La recta de `desde` a `hasta` andada con costes: el `Paso` de `hasta`, con lo
+ * que cuesta llegar saliendo de cada casilla de la recta (`salirDe`) y su
+ * cadena por cada una, o `null` si no están en recta. No mira lo que hay en
+ * medio: eso es `rectaLibre`, y quien pregunta la llama antes. Es la carrera de
+ * la carga cuando salir del contacto cuesta (`contacto.ts`): la carga se cobra
+ * por la recta, así que la recta es lo que se paga y lo que se anda.
+ */
+export function carreraConCostes(desde: Hex, hasta: Hex, salirDe: CosteDeSalir): Paso | null {
+  const recta = rectaEntre(desde, hasta);
+  if (recta === null) return null;
+  let paso: Paso = { at: desde, steps: 0, previo: null };
+  for (let i = 1; i <= recta.d; i++) {
+    const siguiente = vecinaEnDireccion(paso.at, recta.dir);
+    paso = { at: siguiente, steps: paso.steps + salirDe(indiceDe(paso.at)), previo: paso };
+  }
+  return paso;
+}
+
+/**
+ * Lo que cuesta salir de la casilla de índice `indice` (`indiceDe`): un entero
+ * de 1 o más. Lo pasa quien recorre con costes (`alcanceConCostes`): salir del
+ * contacto en la arena (`contacto.ts`).
+ */
+export type CosteDeSalir = (indice: number) => number;
+
+/**
+ * Lo mismo que `reachable`, pero cada paso cuesta lo que cuesta salir de la
+ * casilla de la que sale (`salirDe`) y el tope es un presupuesto, no un
+ * número de pasos: el camino es el más barato, no el más corto. `Paso.steps` es
+ * el coste pagado hasta ahí.
+ *
+ * Es un Dijkstra por cubos: los costes son enteros pequeños y el presupuesto
+ * también, así que cada coste es una cola y no hace falta montículo. Dentro de
+ * cada cubo, por orden de llegada: en un empate gana quien llegó primero, el
+ * mismo orden que el BFS. Con coste 1 en todo, da exactamente lo que
+ * `reachable` —las mismas casillas, en el mismo orden, con los mismos pasos y
+ * el mismo camino— y lo fija un test (`test/board.test.ts`). Por eso el juego,
+ * que sigue con `reachable`, podría pasar por aquí sin cambiar el banco; no
+ * pasa para no pagar el cubo de más en cada sondeo de la IA.
+ *
+ * El `Map` sale en el orden en que se asienta cada casilla, del coste menor al
+ * mayor; la casilla que se mejora (se descubrió cara y luego por un camino más
+ * barato) va con el coste y el previo del barato.
+ */
+export function alcanceConCostes(
+  from: Hex,
+  presupuesto: number,
+  blocked: ReadonlySet<string>,
+  salirDe: CosteDeSalir,
+  pasoPermitido?: PasoPermitido,
+): Map<string, Paso> {
+  if (!isInside(from)) {
+    throw new Error(
+      `no se puede buscar camino desde (${from.col},${from.row}): está fuera del tablero`,
+    );
+  }
+  const dist = new Map<string, Paso>();
+  if (presupuesto < 0) return dist;
+  // El mejor coste visto de cada casilla (−1: no vista), de dónde llegó y si ya
+  // se asentó: con costes, la primera vez que se ve una casilla no es la buena.
+  const mejor = new Int32Array(BOARD_SIZE).fill(-1);
+  const desde = new Int16Array(BOARD_SIZE).fill(-1);
+  const asentada = new Uint8Array(BOARD_SIZE);
+  const pasoEn: (Paso | undefined)[] = new Array(BOARD_SIZE);
+  const cubos: number[][] = [];
+  for (let c = 0; c <= presupuesto; c++) cubos.push([]);
+  const origen = indiceDe(from);
+  mejor[origen] = 0;
+  (cubos[0] as number[]).push(origen);
+
+  for (let coste = 0; coste <= presupuesto; coste++) {
+    const cubo = cubos[coste] as number[];
+    for (let k = 0; k < cubo.length; k++) {
+      const h = cubo[k] as number;
+      // Una entrada vieja: la casilla ya se asentó más barata.
+      if (asentada[h] === 1 || mejor[h] !== coste) continue;
+      asentada[h] = 1;
+      const c = CASILLAS[h] as Casilla;
+      const padre = desde[h] as number;
+      const paso: Paso = {
+        at: c.hex,
+        steps: coste,
+        previo: padre === -1 ? null : (pasoEn[padre] as Paso),
+      };
+      pasoEn[h] = paso;
+      dist.set(c.key, paso);
+      // Ningún paso cuesta menos de 1: desde la última fila del presupuesto no
+      // se sale, y no se pregunta lo que cuesta (contar enemigos no es gratis).
+      if (coste + 1 > presupuesto) continue;
+      const salir = salirDe(h);
+      if (!Number.isInteger(salir) || salir < 1) {
+        throw new Error(
+          `salir de (${c.hex.col},${c.hex.row}) no puede costar ${salir}: un paso cuesta un entero de 1 o más`,
+        );
+      }
+      const llega = coste + salir;
+      if (llega > presupuesto) continue;
+      for (const n of c.indicesVecinas) {
+        if (asentada[n] === 1) continue;
+        const v = CASILLAS[n] as Casilla;
+        if (blocked.has(v.key)) continue;
+        if (pasoPermitido !== undefined && !pasoPermitido(h, n)) continue;
+        const antes = mejor[n] as number;
+        if (antes !== -1 && antes <= llega) continue;
+        mejor[n] = llega;
+        desde[n] = h;
+        (cubos[llega] as number[]).push(n);
+      }
+    }
+  }
+  return dist;
+}
+
+/**
  * Cuántos pasos hay de cada casilla al más cercano de `origenes`, esquivando
  * `blocked` (los orígenes cuentan aunque estén en él) y dando solo los pasos que
  * deje `pasoPermitido`, si lo hay, sin tope: es la distancia

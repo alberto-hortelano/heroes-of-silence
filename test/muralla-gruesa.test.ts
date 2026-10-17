@@ -451,7 +451,7 @@ describe('la columna translúcida y la figura en silueta (C18)', () => {
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],
       [{ unidad: unidadDeArena('imperio-rodelero'), ia: false, escalera: false }],
       4,
-      LINEA,
+      { muralla: LINEA },
     );
     s.empezar();
     const yo = s.turnoPropio?.stack;

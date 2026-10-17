@@ -1,6 +1,8 @@
 /**
  * El equipo: cuatro huecos por individuo y por héroe —arma, armadura, accesorio
- * y escudo— con una pieza de `data/equipo.json` en cada uno, o nada.
+ * y escudo— con una pieza de `data/equipo.json` en cada uno, o nada. La arena
+ * tiene dos más, el arma a distancia y la de carga (`HUECOS_DE_LA_ARENA`): cada
+ * arma para lo suyo, y cada golpe con las cifras de la suya (`UnitInfo.armas`).
  *
  * Lo pide `NuevaJugabilidad.md` («Las tropas también ganan experiencia y equipo.
  * Cuando mueren se pierde pero dura toda la campaña»), y las cifras son
@@ -17,10 +19,31 @@
  * Este módulo es puro y no importa el estado: las acciones que equipan, compran
  * y reparten botín viven en `game.ts`, que es el único que escribe la crónica.
  */
+
+import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
 import { allCreatures, CALIDADES_DE_BOTIN, EQUIPO, type Pieza } from '../data.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
-import type { Equipo, Hueco, Troop, UnitInfo, Veterania } from '../types.js';
-import { esHueco, HUECOS, huecoDesconocido, SPEED_TIERS } from '../types.js';
+import type {
+  ArmasDeLaUnidad,
+  Equipo,
+  EquipoDeArena,
+  GolpeConArma,
+  Hueco,
+  HuecoDeArena,
+  Troop,
+  UnitInfo,
+  UsoDeArma,
+  Veterania,
+} from '../types.js';
+import {
+  esArmaPorUso,
+  esHueco,
+  esHuecoDeArena,
+  HUECOS_DE_LA_ARENA,
+  huecoDesconocido,
+  SPEED_TIERS,
+  USO_DEL_HUECO,
+} from '../types.js';
 import type { Hero } from './hero.js';
 
 /** Las piezas que se pueden llevar, por su id. */
@@ -41,16 +64,16 @@ export interface EquipoAtado {
   readonly piezas: CatalogoDePiezas;
   readonly pieza: (id: string) => Pieza;
   readonly piezaSiExiste: (id: string) => Pieza | null;
-  readonly piezasPuestas: (equipo: Equipo | undefined) => Pieza[];
-  readonly sumaDeEquipo: (equipo: Equipo | undefined) => SumaDeEquipo;
-  readonly conEquipo: <U extends UnitInfo>(unit: U, equipo: Equipo | undefined) => U;
-  readonly manosBlocker: (equipo: Equipo | undefined, id: string) => string | null;
-  readonly equipoBlocker: (equipo: Equipo) => string | null;
+  readonly piezasPuestas: (equipo: EquipoDeArena | undefined) => Pieza[];
+  readonly sumaDeEquipo: (equipo: EquipoDeArena | undefined) => SumaDeEquipo;
+  readonly conEquipo: <U extends UnitInfo>(unit: U, equipo: EquipoDeArena | undefined) => U;
+  readonly manosBlocker: (equipo: EquipoDeArena | undefined, id: string) => string | null;
+  readonly equipoBlocker: (equipo: EquipoDeArena) => string | null;
   readonly ponerPieza: (
-    equipo: Equipo | undefined,
+    equipo: EquipoDeArena | undefined,
     id: string,
     portador?: string,
-  ) => { readonly equipo: Equipo; readonly quitada: string | null };
+  ) => { readonly equipo: EquipoDeArena; readonly quitada: string | null };
 }
 
 /** Las lecturas de las piezas con el catálogo `piezas` (`EquipoAtado`). */
@@ -64,7 +87,10 @@ export function equipoCon(piezas: CatalogoDePiezas): EquipoAtado {
     conEquipo: (unit, equipo) => vestir(piezas, unit, equipo),
     manosBlocker: (equipo, id) => manosDe(piezas, equipo, id),
     equipoBlocker: (equipo) => equipoBlockerDe(piezas, equipo),
-    ponerPieza: (equipo, id, portador) => poner(piezas, equipo, id, portador),
+    ponerPieza: (equipo, id, portador) => {
+      const p = piezaDe(piezas, id);
+      return poner(piezas, equipo, p, p.hueco, portador);
+    },
   };
 }
 
@@ -103,12 +129,63 @@ export const NOMBRE_DE_CALIDAD: Readonly<Record<Pieza['calidad'], string>> = {
  * El nombre de cada hueco, para pintarlo: lo leen el panel del héroe y la ficha
  * de la arena. Aquí y no en el cliente porque son dos pantallas y un mismo hueco.
  */
-export const NOMBRE_DE_HUECO: Readonly<Record<Hueco, string>> = {
+export const NOMBRE_DE_HUECO: Readonly<Record<HuecoDeArena, string>> = {
   arma: 'Arma',
+  distancia: 'Arma a distancia',
+  carga: 'Arma de carga',
   armadura: 'Armadura',
   accesorio: 'Accesorio',
   escudo: 'Escudo',
 };
+
+/** Lo que dice de un uso de arma `DICHO_DEL_USO`. */
+interface DichoDeUnUso {
+  readonly rotulo: string;
+  readonly golpe: string;
+  readonly cuando: string;
+}
+
+/** Lo que dice la fila de un arma puesta que no se usa (`ArmaDeLaUnidad.sinUso`). */
+interface ConSinUso {
+  readonly sinUso: string;
+}
+
+/**
+ * Cada uso de un arma dicho para quien juega, en la forma en que se pinta: el
+ * `rotulo` de su fila en «Armas» (la ficha y el panel de la pelea), el `golpe`
+ * con que lo dice la previsión («con Daga (cuerpo a cuerpo)», también la del
+ * contraataque), `cuando` se usa, la nota de su fila y la del hueco en el editor
+ * de equipo, y `sinUso`, lo que dice la fila de un arma puesta que no se usa (solo
+ * la de carga en quien no carga: el cuerpo a cuerpo se usa siempre y el arma a
+ * distancia ya es disparar). Las cifras de la carga salen de `data/carga.json`
+ * (`CARGA`), no se escriben aquí. La regla la aplican `usoDelGolpe` y `armasDe`
+ * (`battle/damage.ts`); esto la cuenta.
+ */
+export const DICHO_DEL_USO: {
+  readonly [U in UsoDeArma]: DichoDeUnUso & (U extends 'carga' ? ConSinUso : unknown);
+} = {
+  cuerpo: {
+    rotulo: 'Cuerpo a cuerpo',
+    golpe: 'cuerpo a cuerpo',
+    cuando:
+      'Se usa al pegar cuerpo a cuerpo y al devolver un golpe; también al cargar, si no lleva arma de carga. Sin arma, pega con el cuerpo.',
+  },
+  distancia: {
+    rotulo: 'A distancia',
+    golpe: 'a distancia',
+    cuando:
+      'Se usa al disparar: llevarla ya es disparar, sin munición (dos tiros por disparo con Dos disparos).',
+  },
+  carga: {
+    rotulo: 'Carga',
+    golpe: 'en la carga',
+    cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo. En la arena carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porcentaje} % de daño por casilla hasta ${CARGA.aPie.tope}; con el rasgo Carga (el jinete), +${CARGA.jinete.porcentaje} % hasta ${CARGA.jinete.tope}.`,
+    sinUso: 'no carga: no se usa',
+  },
+};
+
+/** Con qué se da un golpe sin arma (`GolpeConArma.arma` a `null`), dicho para quien juega. */
+export const SIN_ARMA = 'sin arma, con el cuerpo';
 
 /**
  * Si la armería vende `p`: solo lo de calidad de armería. **La regla de lo que se
@@ -119,27 +196,55 @@ export function seVende(p: Pieza): boolean {
   return p.calidad === 'armeria';
 }
 
+/** Una pieza del juego: va en uno de sus cuatro huecos (`HUECOS`), no en uno de arma por uso. */
+export type PiezaDelJuego = Pieza & { readonly hueco: Hueco };
+
+/**
+ * `p` como pieza del juego, o excepción si va en un hueco que solo tiene la arena:
+ * el juego no reparte piezas de la arena (ni botín, ni armería, ni equipo base),
+ * así que una aquí es un fallo, no un vacío. Es la frontera del tipo: un `Equipo`
+ * no tiene dónde ponerla.
+ */
+function delJuego(p: Pieza): PiezaDelJuego {
+  if (!esPiezaDelJuego(p)) {
+    throw new Error(`${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, que solo tiene la arena`);
+  }
+  return p;
+}
+
+function esPiezaDelJuego(p: Pieza): p is PiezaDelJuego {
+  return esHueco(p.hueco);
+}
+
+/** La pieza `id` del juego (`pieza`, en uno de sus cuatro huecos). Lanza si no existe o si es de un hueco de la arena. */
+export function piezaDelJuego(id: string): PiezaDelJuego {
+  return delJuego(pieza(id));
+}
+
+/**
+ * Lo que el juego conoce: todo menos lo de la arena. Es lo que se le describe al
+ * agente (`CATALOGO_DE_EQUIPO_EN_PROSA`): una pieza que no puede caerle ni
+ * comprar no es parte de su juego. En sus cuatro huecos, que garantiza el
+ * cargador (`validarEquipo`).
+ */
+export const PIEZAS_DEL_JUEGO: readonly PiezaDelJuego[] = EQUIPO.filter(
+  (p) => p.calidad !== 'arena',
+).map(delJuego);
+
 /**
  * Lo que vende la armería: una pieza por hueco, en el orden del catálogo. Se
  * deriva de la calidad (`seVende`) y no se escribe en ningún sitio.
  */
-export const PIEZAS_DE_ARMERIA: readonly Pieza[] = EQUIPO.filter(seVende);
+export const PIEZAS_DE_ARMERIA: readonly PiezaDelJuego[] = PIEZAS_DEL_JUEGO.filter(seVende);
 
 /**
  * Lo que puede caer como botín: las piezas de `CALIDADES_DE_BOTIN`, en el orden
  * del catálogo, que es el del sorteo: lo de la arena no está, y el sorteo de cada
  * semilla ve la misma lista que antes de que lo hubiera.
  */
-export const PIEZAS_DE_BOTIN: readonly Pieza[] = EQUIPO.filter((p) =>
+export const PIEZAS_DE_BOTIN: readonly PiezaDelJuego[] = PIEZAS_DEL_JUEGO.filter((p) =>
   CALIDADES_DE_BOTIN.includes(p.calidad),
 );
-
-/**
- * Lo que el juego conoce: todo menos lo de la arena. Es lo que se le describe al
- * agente (`CATALOGO_DE_EQUIPO_EN_PROSA`): una pieza que no puede caerle ni
- * comprar no es parte de su juego.
- */
-export const PIEZAS_DEL_JUEGO: readonly Pieza[] = EQUIPO.filter((p) => p.calidad !== 'arena');
 
 /**
  * El equipo con el que nace todo héroe: la pieza de armería de cada hueco
@@ -159,18 +264,24 @@ export function piezasPuestas(equipo: Equipo | undefined): Pieza[] {
   return puestasDe(PIEZAS_DEL_CATALOGO, equipo);
 }
 
-function puestasDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): Pieza[] {
+function puestasDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): Pieza[] {
   return idsPuestos(equipo).map((id) => piezaDe(piezas, id));
 }
 
 /** Lo que suman las piezas de un equipo, hueco a hueco. */
 export interface SumaDeEquipo {
+  /**
+   * Ataque y daño, los del golpe de cuerpo a cuerpo: lo que no es arma y el arma.
+   * Los de un arma por uso (`esArmaPorUso`) no están: son de su golpe
+   * (`UnitInfo.armas`).
+   */
   readonly ataque: number;
   readonly defensa: number;
   readonly pv: number;
+  /** Los puntos de armadura (`Pieza.armadura`): solo las piezas de la arena la llevan. */
+  readonly armadura: number;
   readonly velocidad: number;
   readonly danio: readonly [number, number];
-  readonly disparos: number;
 }
 
 /**
@@ -183,24 +294,34 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
   return sumaDe(PIEZAS_DEL_CATALOGO, equipo);
 }
 
-function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEquipo {
+/**
+ * La suma, **clasificada por la clave del hueco en `equipo`**, no por el hueco
+ * que dice la pieza: con un equipo válido es lo mismo. El ataque y el daño de un
+ * arma por uso (`esArmaPorUso`) no suman aquí, que son los de su golpe
+ * (`armasPorUso`); lo demás de cualquier pieza —defensa, PV, velocidad—, siempre.
+ */
+function sumaDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): SumaDeEquipo {
   let ataque = 0;
   let defensa = 0;
   let pv = 0;
+  let armadura = 0;
   let velocidad = 0;
   let min = 0;
   let max = 0;
-  let disparos = 0;
-  for (const p of puestasDe(piezas, equipo)) {
-    ataque += p.ataque;
+  for (const hueco of HUECOS_DE_LA_ARENA) {
+    const id = equipo?.[hueco];
+    if (id === undefined) continue;
+    const p = piezaDe(piezas, id);
     defensa += p.defensa;
     pv += p.pv;
+    armadura += p.armadura ?? 0;
     velocidad += p.velocidad;
+    if (esArmaPorUso(hueco)) continue;
+    ataque += p.ataque;
     min += p.danio?.[0] ?? 0;
     max += p.danio?.[1] ?? 0;
-    disparos += p.disparos ?? 0;
   }
-  return { ataque, defensa, pv, velocidad, danio: [min, max], disparos };
+  return { ataque, defensa, pv, armadura, velocidad, danio: [min, max] };
 }
 
 /**
@@ -212,9 +333,10 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEqu
  * pisando el tablero con la `Creature` del catálogo, que es lo que deja al
  * espectador rehacer sus cifras y al banco quedarse igual para quien no lleva
  * nada. La velocidad sube o baja escalones de `SPEED_TIERS` y se queda entre el
- * primero y el último. El daño suma `[+mín, +máx]` y los disparos se suman a los
- * que tenga; `shots` solo aparece si da más de 0 (un arco hace tirador a quien no
- * lo era), para que lo cuerpo a cuerpo siga sin el campo.
+ * primero y el último. El daño suma `[+mín, +máx]`. Ninguna pieza da munición:
+ * un arma en `distancia` hace tirador a quien la lleva por sí misma (`isShooter`,
+ * que mira `equipo`), y `shots` es solo de la criatura del catálogo; lanza si una
+ * unidad lleva las dos cosas.
  *
  * Con piezas, deja en `sinEquipo` las cifras de antes de ponérselas —las del
  * cuerpo, si `unit` ya llevaba equipo—: el nivel se mide sin equipo
@@ -232,25 +354,38 @@ export function conEquipo<U extends UnitInfo>(unit: U, equipo: Equipo | undefine
 function vestir<U extends UnitInfo>(
   piezas: CatalogoDePiezas,
   unit: U,
-  equipo: Equipo | undefined,
+  equipo: EquipoDeArena | undefined,
 ): U {
   if (idsPuestos(equipo).length === 0) return unit;
-  const { ataque, defensa, pv, velocidad, danio, disparos } = sumaDe(piezas, equipo);
   // Lo que ya llevaba y lo de ahora, juntos: la misma pieza en un hueco dos veces
   // se sumaría dos veces y el registro diría una.
-  const yaPuesto = HUECOS.find((h) => unit.equipo?.[h] !== undefined && equipo?.[h] !== undefined);
+  const yaPuesto = HUECOS_DE_LA_ARENA.find(
+    (h) => unit.equipo?.[h] !== undefined && equipo?.[h] !== undefined,
+  );
   if (yaPuesto !== undefined) {
     throw new Error(
       `${unit.name} ya lleva algo en ${NOMBRE_DE_HUECO[yaPuesto]}: no se suma otra pieza encima`,
     );
   }
+  const todo: EquipoDeArena = { ...unit.equipo, ...equipo };
+  // La munición es de la criatura del catálogo y el arma a distancia no la cuenta
+  // (`cuentaTiros`): juntas, quien la lleve tiraría sin fin con tiros que se gastan
+  // sin servir de nada. El juego no pone nada en `distancia` y la arena no tiene
+  // `shots`, así que esto no salta: es la regla escrita donde se juntan.
+  if ((unit.shots ?? 0) > 0 && todo.distancia !== undefined) {
+    throw new Error(
+      `${unit.name} tira con su munición (${unit.shots} tiros) y no puede llevar nada en ${NOMBRE_DE_HUECO.distancia}: el arma a distancia no cuenta tiros`,
+    );
+  }
+  const { ataque, defensa, pv, armadura, velocidad, danio } = sumaDe(piezas, equipo);
+  const puntosDeArmadura = (unit.puntosDeArmadura ?? 0) + armadura;
   const escalon = Math.max(
     0,
     Math.min(SPEED_TIERS.length - 1, SPEED_TIERS.indexOf(unit.speed) + velocidad),
   );
-  // Daño y disparos, solo si alguna pieza los suma: sin ellos el objeto sale con
-  // los mismos campos que antes de que las piezas pudieran sumarlos (el banco).
-  return {
+  // El daño, solo si alguna pieza lo suma: sin él el objeto sale con los mismos
+  // campos que antes de que las piezas pudieran sumarlo (el banco).
+  const vestida: U = {
     ...unit,
     attack: unit.attack + ataque,
     defense: unit.defense + defensa,
@@ -258,19 +393,59 @@ function vestir<U extends UnitInfo>(
       ? { damage: [unit.damage[0] + danio[0], unit.damage[1] + danio[1]] as const }
       : {}),
     hp: unit.hp + pv,
+    // La armadura, solo si la hay (la arena): como el daño, el juego sale con los
+    // mismos campos de siempre.
+    ...(puntosDeArmadura > 0 ? { puntosDeArmadura } : {}),
     speed: SPEED_TIERS[escalon] as UnitInfo['speed'],
-    ...(disparos > 0 ? { shots: (unit.shots ?? 0) + disparos } : {}),
     sinEquipo: unit.sinEquipo ?? unit,
-    equipo: { ...unit.equipo, ...equipo },
+    equipo: todo,
   };
+  const armas = armasPorUso(piezas, vestida, todo);
+  return armas === null ? vestida : { ...vestida, armas };
+}
+
+/**
+ * Con qué arma y qué cifras da `vestida` cada golpe, si lleva un arma por uso
+ * (`esArmaPorUso`: solo la arena), o `null`. El de cuerpo a cuerpo es el de
+ * arriba; el de cada arma por uso, el de arriba con esa arma en lugar de la de
+ * cuerpo a cuerpo (su ataque y su daño no suben arriba, `sumaDe`). El único
+ * escritor de `UnitInfo.armas`.
+ */
+function armasPorUso(
+  piezas: CatalogoDePiezas,
+  vestida: UnitInfo,
+  todo: EquipoDeArena,
+): ArmasDeLaUnidad | null {
+  let armas: { -readonly [U in keyof ArmasDeLaUnidad]: ArmasDeLaUnidad[U] } | null = null;
+  let delCuerpo: Pieza | null = null;
+  for (const hueco of HUECOS_DE_LA_ARENA) {
+    const id = todo[hueco];
+    if (id === undefined || !esArmaPorUso(hueco)) continue;
+    if (armas === null) {
+      delCuerpo = todo.arma === undefined ? null : piezaDe(piezas, todo.arma);
+      armas = {
+        cuerpo: { arma: todo.arma ?? null, attack: vestida.attack, damage: vestida.damage },
+      };
+    }
+    const p = piezaDe(piezas, id);
+    armas[USO_DEL_HUECO[hueco]] = {
+      arma: id,
+      attack: vestida.attack - (delCuerpo?.ataque ?? 0) + p.ataque,
+      damage: [
+        vestida.damage[0] - (delCuerpo?.danio?.[0] ?? 0) + (p.danio?.[0] ?? 0),
+        vestida.damage[1] - (delCuerpo?.danio?.[1] ?? 0) + (p.danio?.[1] ?? 0),
+      ],
+    };
+  }
+  return armas;
 }
 
 /**
  * Si `a` y `b` tienen las mismas cifras en todo lo que el equipo suma: ataque,
- * defensa, daño, PV, velocidad y disparos. Junto a `conEquipo` porque es quien
+ * defensa, daño, PV, armadura y velocidad, y las de cada arma (`armas`). Junto a `conEquipo` porque es quien
  * sabe qué campos toca: si mañana suma otro, esta comparación tiene que verlo.
- * La lee la conversión de la arena (`migrarUnidadDeArena`) para comprobar al
- * revés que un cuerpo con su equipo pelea como las cifras de antes.
+ * La lee el cambio de una pieza a media pelea de la arena (`retocarEnBatalla`):
+ * solo cambia las cifras, y lo escribe en el parte, de quien de verdad cambia.
  */
 export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
   return (
@@ -279,9 +454,45 @@ export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
     a.damage[0] === b.damage[0] &&
     a.damage[1] === b.damage[1] &&
     a.hp === b.hp &&
+    (a.puntosDeArmadura ?? 0) === (b.puntosDeArmadura ?? 0) &&
     a.speed === b.speed &&
-    (a.shots ?? 0) === (b.shots ?? 0)
+    mismasArmas(a.armas, b.armas)
   );
+}
+
+/**
+ * Cuántos PV vale un punto de armadura (#262): la conversión de una pieza del
+ * juego que suma PV duplicada en la arena, que protege con armadura
+ * (`piezaNueva`). **Inventado**, como las cifras de `data/equipo.json`, que
+ * salen de aquí.
+ */
+export const PV_POR_PUNTO_DE_ARMADURA = 10;
+
+/**
+ * Lo más que da de armadura una pieza de la arena (A4 de QA de #262: sin tope,
+ * `1e3` entraba como 1000 y la pelea se agotaba en la ronda 100). **Inventado**:
+ * la barda, la que más, da 22; 99 deja probar de sobra sin que nada sea inmune.
+ */
+export const ARMADURA_MAXIMA_DE_PIEZA = 99;
+
+/**
+ * `pv` PV en puntos de armadura: al entero más cercano (45 → 5), que los PV de
+ * una pieza no van de diez en diez.
+ */
+export function armaduraDePV(pv: number): number {
+  return Math.round(pv / PV_POR_PUNTO_DE_ARMADURA);
+}
+
+function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefined): boolean {
+  const golpe = (x: GolpeConArma | undefined, y: GolpeConArma | undefined): boolean =>
+    x === undefined || y === undefined
+      ? x === y
+      : x.arma === y.arma &&
+        x.attack === y.attack &&
+        x.damage[0] === y.damage[0] &&
+        x.damage[1] === y.damage[1];
+  if (a === undefined || b === undefined) return a === b;
+  return golpe(a.cuerpo, b.cuerpo) && golpe(a.distancia, b.distancia) && golpe(a.carga, b.carga);
 }
 
 /**
@@ -294,7 +505,7 @@ export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
  * la escala también cuenta.
  */
 export function valorDePieza(p: Pieza): number {
-  return ESCALA_DE_CIFRAS * (p.ataque + p.defensa + 3 * p.velocidad) + p.pv;
+  return ESCALA_DE_CIFRAS * (p.ataque + p.defensa + (p.armadura ?? 0) + 3 * p.velocidad) + p.pv;
 }
 
 /**
@@ -325,7 +536,11 @@ export function manosBlocker(equipo: Equipo | undefined, id: string): string | n
   return manosDe(PIEZAS_DEL_CATALOGO, equipo, id);
 }
 
-function manosDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined, id: string): string | null {
+function manosDe(
+  piezas: CatalogoDePiezas,
+  equipo: EquipoDeArena | undefined,
+  id: string,
+): string | null {
   const p = piezaDe(piezas, id);
   const resto = { ...equipo, [p.hueco]: undefined };
   const arma = resto.arma === undefined ? null : piezaDe(piezas, resto.arma);
@@ -348,9 +563,9 @@ export function equipoBlocker(equipo: Equipo): string | null {
   return equipoBlockerDe(PIEZAS_DEL_CATALOGO, equipo);
 }
 
-function equipoBlockerDe(piezas: CatalogoDePiezas, equipo: Equipo): string | null {
+function equipoBlockerDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena): string | null {
   for (const [hueco, id] of Object.entries(equipo)) {
-    if (!esHueco(hueco)) return huecoDesconocido(hueco, HUECOS);
+    if (!esHuecoDeArena(hueco)) return huecoDesconocido(hueco, HUECOS_DE_LA_ARENA);
     if (id === undefined) continue;
     const p = piezas.get(id) ?? null;
     if (p === null) return `no existe ninguna pieza "${id}"`;
@@ -373,33 +588,37 @@ export function ponerPieza(
   id: string,
   portador?: string,
 ): { readonly equipo: Equipo; readonly quitada: string | null } {
-  return poner(PIEZAS_DEL_CATALOGO, equipo, id, portador);
+  const p = piezaDelJuego(id);
+  return poner(PIEZAS_DEL_CATALOGO, equipo, p, p.hueco, portador);
 }
 
-function poner(
+/** Un equipo con los huecos `H`: el del juego (`Equipo`) o el de la arena (`EquipoDeArena`). */
+type EquipoCon<H extends HuecoDeArena> = Readonly<Partial<Record<H, string>>>;
+
+function poner<H extends HuecoDeArena>(
   piezas: CatalogoDePiezas,
-  equipo: Equipo | undefined,
-  id: string,
+  equipo: EquipoCon<H> | undefined,
+  p: Pieza,
+  hueco: H,
   portador?: string,
-): { readonly equipo: Equipo; readonly quitada: string | null } {
-  const p = piezaDe(piezas, id);
-  const motivo = manosDe(piezas, equipo, id);
+): { readonly equipo: EquipoCon<H>; readonly quitada: string | null } {
+  const motivo = manosDe(piezas, equipo, p.id);
   if (motivo !== null) {
     const a = portador === undefined ? '' : ` a ${portador}`;
     throw new Error(`no se puede poner ${p.nombre}${a}: ${motivo}`);
   }
-  const quitada = equipo?.[p.hueco] ?? null;
-  return { equipo: { ...equipo, [p.hueco]: id }, quitada };
+  const quitada = equipo?.[hueco] ?? null;
+  return { equipo: { ...equipo, [hueco]: p.id } as EquipoCon<H>, quitada };
 }
 
-/** El equipo sin lo que hubiera en `hueco`, y lo que había (o `null`). */
-export function quitarPieza(
-  equipo: Equipo | undefined,
-  hueco: Hueco,
-): { readonly equipo: Equipo; readonly quitada: string | null } {
+/** El equipo sin lo que hubiera en `hueco`, y lo que había (o `null`). Del juego o de la arena. */
+export function quitarPieza<H extends HuecoDeArena>(
+  equipo: EquipoCon<H> | undefined,
+  hueco: H,
+): { readonly equipo: EquipoCon<H>; readonly quitada: string | null } {
   const quitada = equipo?.[hueco] ?? null;
-  const { [hueco]: _fuera, ...resto } = equipo ?? {};
-  return { equipo: resto, quitada };
+  const { [hueco]: _fuera, ...resto } = equipo ?? ({} as EquipoCon<H>);
+  return { equipo: resto as EquipoCon<H>, quitada };
 }
 
 /**
@@ -408,7 +627,7 @@ export function quitarPieza(
  * el hueco escudo», que al agente, que lo pidió como `shield`, no le decía nada.
  * La leen `unequipBlocker` y la arena (`quitarEnArena`).
  */
-export function nadaEnElHueco(quien: string, hueco: Hueco): string {
+export function nadaEnElHueco(quien: string, hueco: HuecoDeArena): string {
   return `${quien} no lleva nada en ${NOMBRE_DE_HUECO[hueco]}`;
 }
 
@@ -416,8 +635,8 @@ export function nadaEnElHueco(quien: string, hueco: Hueco): string {
  * Los ids de lo que lleva puesto, en el orden de los huecos: lo que vuelve a una
  * mochila, y quién lleva una pieza. Sin catálogo: solo lee los huecos.
  */
-export function idsPuestos(equipo: Equipo | undefined): string[] {
-  return HUECOS.flatMap((h) => equipo?.[h] ?? []);
+export function idsPuestos(equipo: EquipoDeArena | undefined): string[] {
+  return HUECOS_DE_LA_ARENA.flatMap((h) => equipo?.[h] ?? []);
 }
 
 /** La mochila sin UNA copia de `id` (la primera). Lanza si no está. */
@@ -431,9 +650,9 @@ export function sacarDeLaMochila(mochila: readonly string[], id: string): string
 export const CIFRAS_DE_PIEZA = [
   'ataque',
   'defensa',
+  'armadura',
   'danio',
   'pv',
-  'disparos',
   'velocidad',
 ] as const;
 export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
@@ -447,9 +666,9 @@ export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
 export const NOMBRE_DE_CIFRA: Readonly<Record<CifraDePieza, string>> = {
   ataque: 'Ataque',
   defensa: 'Defensa',
+  armadura: 'Armadura',
   danio: 'Daño',
   pv: 'PV',
-  disparos: 'Disparos',
   velocidad: 'Velocidad',
 };
 
@@ -476,9 +695,9 @@ export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
   const valor: Readonly<Record<CifraDePieza, number>> = {
     ataque: p.ataque,
     defensa: p.defensa,
+    armadura: p.armadura ?? 0,
     danio: p.danio?.[1] ?? 0,
     pv: p.pv,
-    disparos: p.disparos ?? 0,
     velocidad: p.velocidad,
   };
   const cifras: ModificadorDePieza[] = CIFRAS_DE_PIEZA.flatMap((cifra) => {

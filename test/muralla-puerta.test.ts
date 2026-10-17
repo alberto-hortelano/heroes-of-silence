@@ -19,6 +19,7 @@ import {
   type BattleSide,
   createBattle,
   distanciaACaminar,
+  firmaDelTurno,
   legalActions,
   movableFrom,
   puertaBlocker,
@@ -39,7 +40,13 @@ import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack } from '../src/core/types.js';
 import { describeAccion } from '../src/server/notas.js';
-import { abrirPuertas, forzarTurno, peleaDeArena, unidadDeArena } from './helpers.js';
+import {
+  abrirPuertas,
+  forzarTurno,
+  peleaDeArena,
+  peleaDelMotor,
+  unidadDeArena,
+} from './helpers.js';
 
 const h = (col: number, row: number): Hex => ({ col, row });
 const forma = (nombre: string): MurallaDeBatalla => {
@@ -162,8 +169,7 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
     const turno = state.turno;
     if (turno === null) throw new Error('sin turno');
     const viejo = {
-      n: turno.n,
-      gastado: 0,
+      firma: firmaDelTurno(turno),
       puertas: claveDeAbiertas(state.puertas),
       costs: movableFrom(state, stackById(state, 'defender-0')),
     };
@@ -216,8 +222,8 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('no se cierra con una grande plantada en sus dos casillas; con alguien en una sola, sí (C28)', () => {
-    const state = peleaDeArena(
-      [{ unidad: unidadDeArena('troll-maza', { hexes: 2, casillas: 7 }) }],
+    const state = peleaDelMotor(
+      [{ unidad: unidadDeArena('troll-maza', { casillas: 7 }), grande: true }],
       [{ unidad: unidadDeArena('imperio-piquero') }],
       createRng(1),
       CON_PUERTA,

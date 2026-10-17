@@ -26,13 +26,18 @@ import type {
   CreatureTrait,
   FactionId,
   Hueco,
+  HuecoDeArena,
   Resources,
   SpeedTier,
   UnitInfo,
 } from './types.js';
 import {
+  camposDelHueco,
+  esArmaPorUso,
+  esHuecoDeArena,
   FACTION_IDS,
   HUECOS,
+  HUECOS_DE_LA_ARENA,
   NOMBRE_DE_RECURSO,
   RESOURCE_KINDS,
   type ResourceKind,
@@ -124,8 +129,50 @@ export function hasTrait(c: UnitInfo, trait: CreatureTrait): boolean {
   return c.traits?.includes(trait) ?? false;
 }
 
+/**
+ * Tira quien tiene munición (la criatura del catálogo: `shots`) o quien lleva un
+ * arma en el hueco `distancia` (la arena, que no cuenta tiros). Lee `equipo` y
+ * no `armas`: la lista de armas por uso la escribe `conEquipo` para el daño, y el
+ * hueco puesto es el hecho. El juego no pone nunca nada en `distancia`
+ * (`validarEquipo`), así que para él esto es lo de siempre.
+ */
 export function isShooter(c: UnitInfo): boolean {
+  return (c.shots ?? 0) > 0 || c.equipo?.distancia !== undefined;
+}
+
+/**
+ * Si los tiros de `c` se cuentan. **La munición es de la criatura del catálogo**
+ * (`shots`, la misma lectura que `isShooter`); quien tira por su arma a distancia
+ * (la arena, 13-10-2026) no la tiene: dispara siempre que el motor le deje. Las
+ * dos cosas no se juntan nunca (lo vigila `vestir`, `hero/equipo.ts`). Lo leen
+ * `tirosQueQuedan`, `quedanTiros` y `shoot` (resta solo entonces).
+ */
+export function cuentaTiros(c: UnitInfo): boolean {
   return (c.shots ?? 0) > 0;
+}
+
+/**
+ * Los tiros que le quedan a un stack, o `null` si no se cuentan (`cuentaTiros`):
+ * la ÚNICA lectura de `shotsLeft` fuera del motor, que la leen el `↑N` del
+ * tablero, la fila «Munición» del panel, el contrato y la frase de «sin munición»
+ * del disparo. Lo vigila `test/invariantes.test.ts`.
+ */
+export function tirosQueQuedan(s: {
+  readonly unit: UnitInfo;
+  readonly shotsLeft: number;
+}): number | null {
+  return cuentaTiros(s.unit) ? s.shotsLeft : null;
+}
+
+/**
+ * Si un stack puede tirar por munición: la ÚNICA pregunta «es tirador y le
+ * quedan tiros», que leen el disparo, el castigo del tirador de fheroes2, la IA
+ * de batalla y el tablero. Antes iba copiada en nueve sitios como
+ * `isShooter && shotsLeft > 0`; lo vigila `test/invariantes.test.ts`.
+ */
+export function quedanTiros(s: { readonly unit: UnitInfo; readonly shotsLeft: number }): boolean {
+  const tiros = tirosQueQuedan(s);
+  return tiros === null ? isShooter(s.unit) : tiros > 0;
 }
 
 export function hexSize(c: UnitInfo): number {
@@ -717,11 +764,21 @@ export const CALIDADES_DE_BOTIN: readonly Calidad[] = ['comun', 'especial'];
 export interface Pieza {
   readonly id: string;
   readonly nombre: string;
-  readonly hueco: Hueco;
+  /** El de la arena (`HuecoDeArena`): las piezas de calidad `arena` pueden ir en sus huecos de arma. */
+  readonly hueco: HuecoDeArena;
   readonly calidad: Calidad;
   readonly ataque: number;
   readonly defensa: number;
   readonly pv: number;
+  /**
+   * Puntos de armadura (**solo la arena**, #262): se restan del daño de cada golpe,
+   * disparo, hechizo o poder que recibe quien la lleva, con mínimo 0
+   * (`trasLaArmadura`, `battle/damage.ts`). Es de la calidad `arena`, que no suma
+   * PV; las demás calidades suman PV y no la llevan (`problemasDePieza`). Sin el
+   * campo, 0: las piezas del juego no lo escriben, y así salen con los mismos
+   * campos que antes (el banco).
+   */
+  readonly armadura?: number;
   /**
    * Escalones de velocidad que suma a quien la lleva, sin pasar del último ni
    * bajar del primero. Puede ser negativa: un escudo la resta, y tiene que
@@ -730,8 +787,6 @@ export interface Pieza {
   readonly velocidad: number;
   /** `[+mínimo, +máximo]` de daño que suma; sin el campo, nada. */
   readonly danio?: readonly [number, number];
-  /** Disparos que suma: un arco hace tirador a quien lo lleva. Sin el campo, ninguno. */
-  readonly disparos?: number;
   /**
    * `2` si es un arma a dos manos, que no admite escudo (`manosBlocker`, la única
    * lectura). Solo en el hueco `arma`; sin el campo, una mano.
@@ -740,6 +795,29 @@ export interface Pieza {
   readonly precio: Partial<Resources>;
 }
 
+/**
+ * Los campos de una pieza, en el orden en que se escriben: lo demás se rechaza
+ * diciéndolo (`problemasDePieza`). Con la lista en la regla de una pieza, un campo
+ * ajeno en `data/equipo.json` —un `disparos` de antes de quitar la munición, un
+ * `danyo` mal escrito— tumba la carga nombrando el fichero; antes el juego lo
+ * ignoraba callando y la arena lanzaba después sin decir de dónde venía (H2 de QA,
+ * 14-10-2026).
+ */
+export const CAMPOS_DE_PIEZA: readonly string[] = [
+  'id',
+  'nombre',
+  'hueco',
+  'calidad',
+  'ataque',
+  'defensa',
+  'pv',
+  'armadura',
+  'velocidad',
+  'danio',
+  'manos',
+  'precio',
+];
+
 /** Cómo se nombra una pieza en un motivo: por su id si lo trae, si no `otro`. */
 function quienEsLaPieza(p: Record<string, unknown>, otro: string): string {
   return typeof p.id === 'string' && p.id !== '' ? `"${p.id}"` : otro;
@@ -747,7 +825,7 @@ function quienEsLaPieza(p: Record<string, unknown>, otro: string): string {
 
 /**
  * Lo que no vale de UNA pieza, cada cosa con su frase, o vacío si vale: los
- * textos, el hueco y la calidad que existen, las cifras enteras ≥ 0, el escudo
+ * campos que existen (`CAMPOS_DE_PIEZA`), los textos, el hueco y la calidad que existen, las cifras enteras ≥ 0, el escudo
  * que resta velocidad, el daño `[mín, máx]`, las manos solo en un arma y el
  * precio. **La regla de una pieza, en un sitio**: la leen el cargador del
  * catálogo (`validarEquipo`, que añade las reglas de conjunto) y la arena, que
@@ -761,12 +839,21 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   }
   const p = bruta as Record<string, unknown>;
   const q = quien ?? quienEsLaPieza(p, 'la pieza');
+  for (const ajeno of Object.keys(p).filter((k) => !CAMPOS_DE_PIEZA.includes(k))) {
+    problemas.push(
+      `${q}: «${ajeno}» no es un campo de una pieza; valen ${CAMPOS_DE_PIEZA.join(', ')}`,
+    );
+  }
   if (typeof p.id !== 'string' || p.id === '') problemas.push(`${q} no trae id como texto`);
   if (typeof p.nombre !== 'string' || p.nombre.trim() === '') {
     problemas.push(`${q} no tiene nombre: escribe uno`);
   }
-  if (!(HUECOS as readonly unknown[]).includes(p.hueco)) {
-    problemas.push(`${q} va en el hueco "${p.hueco}", que no existe; valen ${HUECOS.join(', ')}`);
+  const campos =
+    typeof p.hueco === 'string' && esHuecoDeArena(p.hueco) ? camposDelHueco(p.hueco) : null;
+  if (campos === null) {
+    problemas.push(
+      `${q} va en el hueco "${p.hueco}", que no existe; valen ${HUECOS_DE_LA_ARENA.join(', ')}`,
+    );
   }
   if (!(CALIDADES as readonly unknown[]).includes(p.calidad)) {
     problemas.push(
@@ -777,6 +864,22 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
     if (!enteroDesde(p[campo], 0)) {
       problemas.push(`${q}: ${campo} tiene que ser un entero ≥ 0 y ${comoSeLee(p[campo])}`);
     }
+  }
+  // La armadura es de la arena y los PV del juego (#262, decisión del usuario:
+  // «por calidad»). Una pieza de la arena con PV volvería a sumar vida con la
+  // regla que la armadura sustituye; una del juego con armadura cambiaría el
+  // juego, que no la lee (`pnpm banco`).
+  if (p.armadura !== undefined && !enteroDesde(p.armadura, 0)) {
+    problemas.push(`${q}: armadura tiene que ser un entero ≥ 0 y ${comoSeLee(p.armadura)}`);
+  } else if (typeof p.armadura === 'number' && p.armadura > 0 && p.calidad !== 'arena') {
+    problemas.push(
+      `${q} es de calidad ${String(p.calidad)} y lleva armadura: la armadura es solo de la arena; fuera de ella, la pieza suma PV`,
+    );
+  }
+  if (p.calidad === 'arena' && typeof p.pv === 'number' && p.pv > 0) {
+    problemas.push(
+      `${q} es de la arena y suma ${p.pv} PV: en la arena se protege con armadura, que se resta de cada golpe, no con PV`,
+    );
   }
   // La velocidad puede restar: es lo que hace un escudo, y el escudo TIENE que
   // restarla.
@@ -795,13 +898,10 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
       problemas.push(`${q}: el daño mínimo que suma (${d[0]}) pasa del máximo (${d[1]})`);
     }
   }
-  if (p.disparos !== undefined && !enteroDesde(p.disparos, 0)) {
-    problemas.push(`${q}: disparos tiene que ser un entero ≥ 0 y ${comoSeLee(p.disparos)}`);
-  }
   if (p.manos !== undefined) {
     if (p.manos !== 1 && p.manos !== 2) {
       problemas.push(`${q}: manos es 1 o 2, y es ${p.manos}`);
-    } else if (p.hueco !== 'arma') {
+    } else if (campos?.conManos !== true) {
       problemas.push(
         `${q} va en el hueco ${p.hueco} y dice manos: solo un arma se lleva a dos manos`,
       );
@@ -869,6 +969,15 @@ export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): read
     problemas.push(...suyos);
     if (suyos.length === 0) piezas.push(p as unknown as Pieza);
   }
+  // Los huecos de la arena (`distancia`, `carga`) no llevan nada del juego: el
+  // juego, el botín, la armería y el agente siguen con cuatro.
+  for (const p of piezas) {
+    if (p.calidad !== 'arena' && esArmaPorUso(p.hueco)) {
+      problemas.push(
+        `"${p.id}" es de calidad ${p.calidad} y va en el hueco ${p.hueco}, que es solo de la arena: el juego tiene ${HUECOS.join(', ')}`,
+      );
+    }
+  }
   for (const hueco of HUECOS) {
     const deArmeria = piezas.filter((p) => p.hueco === hueco && p.calidad === 'armeria');
     // El escudo no lleva ninguna: con una, todo héroe nacería con escudo, y el
@@ -897,7 +1006,7 @@ export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): read
 }
 
 /** El hueco que el equipo base deja vacío: ni armería ni héroe nacido con él. */
-const HUECO_SIN_ARMERIA = 'escudo' satisfies (typeof HUECOS)[number];
+const HUECO_SIN_ARMERIA = 'escudo' satisfies Hueco;
 
 /** El catálogo de equipo, en el orden del fichero: es el orden del sorteo del botín. */
 export const EQUIPO: readonly Pieza[] = validarEquipo(equipoJson);

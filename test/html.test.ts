@@ -136,6 +136,23 @@ describe('la puerta de escapar: lo que el analizador NO adivina', () => {
     expect(() => html`<b class=${'x'}>y</b>`).toThrow(/sin comillas/);
   });
 
+  it('el SVG en línea pinta (la rueda del golpe): `d`, `transform` y `fill` son atributos de texto', () => {
+    const d = 'M0 -100A100 100 0 0 1 86.6 -50';
+    const marcado = marcadoDe(
+      html`<svg viewBox="-110 -110 220 220"><g transform="translate(${3} ${-4})"><path d="${d}" fill="${'#d9774f'}" pathLength="1"/></g></svg>`,
+    );
+    expect(marcado).toBe(
+      '<svg viewBox="-110 -110 220 220"><g transform="translate(3 -4)"><path d="M0 -100A100 100 0 0 1 86.6 -50" fill="#d9774f" pathLength="1"/></g></svg>',
+    );
+    // Una comilla en un `d` no abre otro atributo.
+    expect(marcadoDe(html`<path d="${'M0 0" onload="x'}"/>`)).toBe(
+      '<path d="M0 0&quot; onload=&quot;x"/>',
+    );
+    // Y un enlace dentro del SVG lanza igual que fuera: `href` y `xlink:href`.
+    expect(() => html`<svg><a href="${'javascript:x'}"><path d="M0 0"/></a></svg>`).toThrow(/href/);
+    expect(() => html`<svg><use xlink:href="${'#x'}"/></svg>`).toThrow(/xlink:href/);
+  });
+
   it('un `<script>` se rechaza aunque no lleve ni un hueco', () => {
     expect(() => html`<script>alert(1)</script>`).toThrow(/script/);
     expect(() => html`<div><script src="a.js"></script></div>`).toThrow(/script/);

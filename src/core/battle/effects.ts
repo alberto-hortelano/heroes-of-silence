@@ -23,12 +23,12 @@ import type { BattleStack } from './types.js';
 /**
  * Los tipos de efecto que existen. Es una lista de valores y no solo un tipo
  * porque `test/invariantes.test.ts` la recorre para exigir que cada uno tenga
- * quien lo lea: `effectiveDefense` (`damage.ts`) NO llama a `effectTotal`, así
- * que el día que se añada un `'defense'` aquí el efecto se colgaría del stack y
- * no lo leería nadie. El guardia lo pilla en rojo antes de que llegue a
- * partida. Mismo patrón que `CREATURE_TRAITS` en `types.ts`.
+ * quien lo lea: un tipo que nadie suma se colgaría del stack sin hacer nada.
+ * `'defense'` lo suma `effectiveDefense` (`damage.ts`); hoy solo lo pone
+ * Defensivo de la rueda del golpe (la arena). Mismo patrón que
+ * `CREATURE_TRAITS` en `types.ts`.
  */
-export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'tirada'] as const;
+export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'tirada', 'defense'] as const;
 
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
@@ -39,7 +39,31 @@ export interface StackEffect {
   readonly source: string;
   /** Rondas que le quedan. Baja una en cada `beginRound`. */
   roundsLeft: number;
+  /**
+   * Si dura «hasta el próximo turno del afectado» (la rueda del golpe): hasta
+   * cuándo. `roundsLeft` sigue de tope, por si ese turno no llega.
+   */
+  readonly hasta?: HastaElTurno;
 }
+
+/**
+ * Hasta qué turno dura un efecto de la rueda del golpe: el `turno.n` en que se
+ * colgó y cuándo vence (`al`). El turno en que nace no cuenta: se quita con otro
+ * `n`.
+ */
+export interface HastaElTurno {
+  readonly turno: number;
+  readonly al: CuandoVence;
+}
+
+/**
+ * Cuándo vence un efecto de la rueda: al **empezar** el siguiente turno del
+ * afectado (Defensivo: `abrirTurno`, y el turno que la moral baja le quita, que
+ * también empieza) o al **terminarlo** (Romper guardia: `endTurn`). Decisión del
+ * usuario, 14-10-2026. El único nombre de esto: lo leen el efecto, el evento, la
+ * rueda y su nota.
+ */
+export type CuandoVence = 'empezar' | 'terminar';
 
 /** Moral y suerte se mueven entre −3 y +3 (`CLAUDE.md`, tabla de reglas). */
 const MIN_MORALE_LUCK = -3;
