@@ -21,12 +21,17 @@ import { marcadoDe } from '../src/client/html.js';
 import { modificadoresEnPantalla } from '../src/client/views/panels.js';
 import { fichaDeHeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
-import { modificadoresDePieza, pieza, textoDeModificador } from '../src/core/hero/equipo.js';
+import {
+  EQUIPO_DEL_JUEGO,
+  modificadoresDePieza,
+  pieza,
+  textoDeModificador,
+} from '../src/core/hero/equipo.js';
 import { SPEED_TO_HEXES } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
-import { DEL_JUEGO, unidadDeArena } from './helpers.js';
+import { unidadDeArena } from './helpers.js';
 
-const MONTAJE = enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO);
+const MONTAJE = enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO);
 const COMBATE: ComoDeLaFicha = { ...MONTAJE, enCombate: true };
 
 /** Un templario con escudo: la defensa sube y la velocidad baja; el ataque no cambia. */
@@ -109,7 +114,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
   });
 
   it('la columna final de una unidad es `unidadDeCombate`, y en otro tono solo lo que el equipo cambia', () => {
-    const combate = unidadDeCombate(CON_ESCUDO, DEL_JUEGO);
+    const combate = unidadDeCombate(CON_ESCUDO, EQUIPO_DEL_JUEGO);
     const m = marcadoDe(renderFicha(CON_ESCUDO, false, MONTAJE));
     expect(finalDe(m, 'attack')).toEqual({ valor: combate.attack, cambiada: false });
     expect(finalDe(m, 'defense')).toEqual({ valor: combate.defense, cambiada: true });
@@ -135,7 +140,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
 
   it('la del héroe: ataque y defensa de su cuerpo, y lo que no se escribe sin casilla', () => {
     const h = heroePorDefecto('izquierda');
-    const { cuerpo } = fichaDeHeroeDeArena(h, REGLAS_DEL_JUEGO, DEL_JUEGO);
+    const { cuerpo } = fichaDeHeroeDeArena(h, REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO);
     const m = marcadoDe(renderFichaDeHeroe('izquierda', h, MONTAJE, []));
     expect(finalDe(m, 'ataque').valor).toBe(cuerpo.attack);
     expect(finalDe(m, 'defensa').valor).toBe(cuerpo.defense);
@@ -155,10 +160,9 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     expect(marcadoDe(renderFicha(CON_ESCUDO, false, MONTAJE))).toContain(pastillas);
     const editor = marcadoDe(
       renderEquipo({
-        piezas: DEL_JUEGO,
+        piezas: EQUIPO_DEL_JUEGO,
         elegida: 'escudo',
         llevan: () => [],
-        enLaPelea: () => null,
         rechazo: null,
         enCombate: false,
         sinGuardar: '',
@@ -171,9 +175,9 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     expect(
       marcadoDe(renderFicha({ ...CON_ESCUDO, equipo: { arma: 'espada' } }, false, MONTAJE)),
     ).toContain(`<option value="escudo">${escudo.nombre} · ${texto}</option>`);
-    expect(marcadoDe(modificadoresEnPantalla({ ...pieza('garrote'), ataque: 0 }))).toContain(
-      'no suma nada',
-    );
+    expect(
+      marcadoDe(modificadoresEnPantalla({ ...pieza('rodela'), defensa: 0, velocidad: 0 })),
+    ).toContain('no suma nada');
   });
 
   it('ninguna nota lleva `title`: el bocadillo es el único tooltip (H2 de QA)', () => {
@@ -195,20 +199,19 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
       const quien = `${elegida}${enCombate ? ', en combate' : ''}`;
       const m = marcadoDe(
         renderEquipo({
-          piezas: DEL_JUEGO,
+          piezas: EQUIPO_DEL_JUEGO,
           elegida,
           llevan: () => [],
-          enLaPelea: () => null,
           rechazo: null,
           enCombate,
           sinGuardar: '',
         }),
       );
-      // Ningún párrafo de nota: ni la introducción, ni el sello, ni la regla.
+      // Ningún párrafo de nota: ni la introducción, ni la de la ficha, ni la regla.
       expect(m, quien).not.toMatch(/<p class="(cost|aviso-sin-guardar|aviso-del-enlace)"/);
       for (const dicho of [
-        'Las de la arena (data/equipo.json)',
-        'De serie (data/equipo.json)',
+        'El catálogo de equipo del juego (data/equipo.json)',
+        'Del catálogo de equipo del juego (data/equipo.json)',
         'Regla: ',
       ])
         expect(m, `${quien}: ${dicho}`).toMatch(
@@ -232,10 +235,9 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     // Lo que queda por guardar es estado, no nota: se queda en su línea.
     const conSinGuardar = marcadoDe(
       renderEquipo({
-        piezas: DEL_JUEGO,
+        piezas: EQUIPO_DEL_JUEGO,
         elegida: null,
         llevan: () => [],
-        enLaPelea: () => null,
         rechazo: null,
         enCombate: false,
         sinGuardar: 'Sin guardar: 1 pieza.',

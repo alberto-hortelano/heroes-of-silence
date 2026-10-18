@@ -7,6 +7,7 @@
  */
 
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../ai/fuerza.js';
+import { armaduraDe } from '../battle/armas.js';
 import {
   activeStack,
   casillasDeCarga,
@@ -28,6 +29,7 @@ import {
 import {
   ASALTANTES,
   creature,
+  EQUIPO,
   factionLineup,
   isShooter,
   LIDERAZGO,
@@ -36,13 +38,7 @@ import {
   tirosQueQuedan,
 } from '../data.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
-import {
-  cifrasDePieza,
-  NOMBRE_DE_CALIDAD,
-  PIEZAS_DE_ARMERIA,
-  PIEZAS_DEL_JUEGO,
-  seVende,
-} from '../hero/equipo.js';
+import { cifrasDePieza, deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
 import {
   cifrasDeCatalogo,
   RANGO_MAXIMO_DE_TROPA,
@@ -100,7 +96,7 @@ import {
 import { vecinosDeLaBase, vozDe } from '../town/voces.js';
 import type { Army, Creature, Equipo, PlayerId } from '../types.js';
 import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS } from '../types.js';
-import { SLOT_DE_HUECO } from './huecos.js';
+import { SLOT_DE_HUECO, type Slot } from './huecos.js';
 
 /**
  * El ejército tal como lo lee el agente: agrupado por criatura, con cuántos
@@ -139,7 +135,7 @@ function armyView(
     //
     // Con su `id`, que es lo que el agente escribe en `equip.veteran` y
     // `unequip.veteran`, y su `equipment` con la misma forma que el del héroe
-    // —los cuatro huecos, en inglés, `null` el vacío—: un novato equipado tiene hoja
+    // —los cinco huecos, en inglés, `null` el vacío—: un novato equipado tiene hoja
     // (experiencia 0) y por eso va en su fila con las dos cosas.
     ...(g.veterania === undefined
       ? {}
@@ -155,25 +151,27 @@ function armyView(
 }
 
 /**
- * Lo que lleva puesto alguien, por hueco, con `null` en el vacío: los cuatro
- * huecos siempre, con su nombre del contrato (`SLOT_DE_HUECO`: `weapon`,
- * `armor`, `accessory`, `shield`). **Una sola forma** para el héroe y para la
- * fila de un individuo.
+ * Lo que lleva puesto alguien, por hueco, con `null` en el vacío: los cinco
+ * huecos siempre, con su nombre del contrato (`SLOT_DE_HUECO`). **Una sola
+ * forma** para el héroe y para la fila de un individuo.
  */
-function equipoView(equipo: Equipo | undefined): Record<string, string | null> {
-  return Object.fromEntries(HUECOS.map((h) => [SLOT_DE_HUECO[h], equipo?.[h] ?? null]));
+function equipoView(equipo: Equipo | undefined): Readonly<Record<Slot, string | null>> {
+  return Object.fromEntries(HUECOS.map((h) => [SLOT_DE_HUECO[h], equipo?.[h] ?? null])) as Record<
+    Slot,
+    string | null
+  >;
 }
 
 /**
- * El catálogo de equipo en prosa, **derivado de `PIEZAS_DEL_JUEGO`** y no escrito
- * a mano (lo de la arena no le puede caer ni lo puede comprar: no se le anuncia),
- * con las cifras ya resueltas como los costes del terreno: el agente no tiene
- * otra forma de saber lo que vale una pieza, y una cifra que se le anuncia y no
- * cuadra no la descubre nadie. Lo interpola `RESPONSE_FORMAT.adventure_turn`.
+ * El catálogo de equipo en prosa, **derivado de `EQUIPO`** y no escrito a mano,
+ * con las cifras ya resueltas como los costes del terreno y de dónde sale cada
+ * pieza (`deDondeSale`): el agente no tiene otra forma de saber lo que vale una
+ * pieza, y una cifra que se le anuncia y no cuadra no la descubre nadie. Lo
+ * interpola `RESPONSE_FORMAT.adventure_turn`.
  */
-export const CATALOGO_DE_EQUIPO_EN_PROSA: string = PIEZAS_DEL_JUEGO.map((p) => {
-  const venta = seVende(p) ? ` · se compra por ${describirCoste(p.precio)}` : '';
-  return `    ${p.id} (${SLOT_DE_HUECO[p.hueco]}, ${NOMBRE_DE_CALIDAD[p.calidad]}): ${cifrasDePieza(p)}${venta}`;
+export const CATALOGO_DE_EQUIPO_EN_PROSA: string = EQUIPO.map((p) => {
+  const venta = seVende(p) ? ` por ${describirCoste({ gold: p.precio })}` : '';
+  return `    ${p.id} (${SLOT_DE_HUECO[p.hueco]}): ${cifrasDePieza(p)} · ${deDondeSale(p)}${venta}`;
 }).join('\n');
 
 /**
@@ -552,7 +550,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
             armory: PIEZAS_DE_ARMERIA.map((p) => ({
               item: p.id,
               slot: SLOT_DE_HUECO[p.hueco],
-              cost: p.precio,
+              cost: { gold: p.precio },
             })),
           }
         : {}),
@@ -757,6 +755,8 @@ export function serializeBattleTurn(
       attack: info.attack,
       defense: info.defense,
       damage: info.damage,
+      // Lo que se resta de cada golpe que recibe (`armaduraDe`), 0 sin armadura.
+      armor: armaduraDe(info),
       shooter: isShooter(info),
       // Quien no cuenta tiros, 0: es el que no tira (el juego), y el que tira sin
       // contarlos (la arena) no llega al agente. Así el contrato es el de siempre.

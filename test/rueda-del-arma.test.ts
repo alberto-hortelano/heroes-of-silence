@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
 import { renderEleccion } from '../src/client/arena/rueda.js';
 import { marcadoDe } from '../src/client/html.js';
-import { batallaDeArena, catalogoDeLaArena, equiparEnArena } from '../src/core/arena.js';
+import { batallaDeArena, equiparEnArena } from '../src/core/arena.js';
 import { ruedaDelGolpe } from '../src/core/battle/armas.js';
 import {
   activeStack,
@@ -29,7 +29,7 @@ import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import { efectoDeGolpe, filasDeLaRueda, ruedaDelArmaEnPalabras } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { creature, type Pieza, type PiezaEscrita } from '../src/core/data.js';
-import { conEquipo, pieza } from '../src/core/hero/equipo.js';
+import { conEquipo, EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { TipoDeGolpe } from '../src/core/types.js';
 import { nivelesDeLaEspada, type UnidadDeArena, unidadDeCombate } from '../src/core/unidad.js';
@@ -37,7 +37,7 @@ import {
   type Ataque,
   aPelear,
   ataquesDe,
-  DEL_JUEGO,
+  catalogoCon,
   golpeConLaRueda,
   hastaLaRueda,
   montajeDePrueba,
@@ -57,7 +57,7 @@ const DAGA = pieza('daga');
 const LANZA = pieza('lanza_de_jinete');
 const LANZA_LISA = lisa(LANZA);
 const PIEZAS: readonly PiezaEscrita[] = [MAZA_LISA, LANZA_LISA];
-const EQ = catalogoDeLaArena(PIEZAS);
+const EQ = catalogoCon(...PIEZAS);
 
 /** El guerrero con escudo (espada, brigantina y escudo) con `arma` en la mano. */
 function guerreroCon(arma: string): UnidadDeArena {
@@ -71,7 +71,7 @@ function guerreroCon(arma: string): UnidadDeArena {
 function pelea(izq: UnidadDeArena, der: UnidadDeArena): BattleState {
   const b = batallaDeArena(
     montajeDePrueba(aPelear([izq]), aPelear([der]), SIN_MURALLA, REGLAS_DEL_JUEGO, {
-      piezas: PIEZAS,
+      equipo: EQ,
       modos: { golpe: 'rueda' },
     }),
     createRng(1),
@@ -198,17 +198,15 @@ describe('las cifras de la rueda por niveles', () => {
 
   it('la Espada es la versátil (todo a 3) y la llevan la unidad y el héroe', () => {
     expect(pieza('espada').rueda).toEqual(todoA(3));
-    const conEspada = unidadDeCombate(unidadDeArena('templario-escudo'), DEL_JUEGO);
-    expect(ruedaDelGolpe(conEspada, 'cuerpo').fuerte.porcentaje).toBe(150);
-    // El juego no tiene armas por uso ni rueda: su cuerpo no lleva `armas`.
-    expect(conEquipo(creature('pikeman'), { arma: 'espada_de_armeria' })).not.toHaveProperty(
-      'armas',
-    );
+    const conEspada = unidadDeCombate(unidadDeArena('templario-escudo'), EQUIPO_DEL_JUEGO);
+    expect(ruedaDelGolpe(conEspada, 'arma').fuerte.porcentaje).toBe(150);
+    // Sin arma ni arma por uso, el cuerpo no lleva `armas`: todo golpe, con las de arriba.
+    expect(conEquipo(creature('pikeman'), { armadura: 'gambeson' })).not.toHaveProperty('armas');
   });
 
   it('golpear en la rueda sin arma de la arena es un fallo: lanza', () => {
     const sinArma = { ...creature('pikeman'), name: 'Piquero' };
-    expect(() => ruedaDelGolpe(sinArma, 'cuerpo')).toThrow(
+    expect(() => ruedaDelGolpe(sinArma, 'arma')).toThrow(
       '«Piquero» golpea en la rueda sin arma de la arena',
     );
   });
@@ -356,7 +354,7 @@ describe('cada golpe de la rueda va con su arma', () => {
   it('la rueda que se abre en la página enseña las cifras del arma de quien elige', () => {
     // Yo contra Yo, los dos con maza: elija quien elija, su Fuerte es ×1,83.
     const conMaza = {
-      unidad: equiparEnArena(unidadDeArena('templario-escudo'), 'maza', DEL_JUEGO),
+      unidad: equiparEnArena(unidadDeArena('templario-escudo'), 'maza', EQUIPO_DEL_JUEGO),
       ia: false,
     };
     const s = sesionDeArena([conMaza], [conMaza], 1, { golpe: 'rueda' });

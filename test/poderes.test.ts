@@ -27,6 +27,7 @@ import {
 } from '../src/core/battle/reglas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { allCreatures } from '../src/core/data.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { avanzarHasta, delBorrador, unidadDeArena as unidad } from './helpers.js';
 
@@ -49,7 +50,7 @@ function pelea(
       },
       derecha: { unidades: [delBorrador(unidad('orko-dos-armas'))], heroe: null },
       reglas,
-      piezas: [],
+      equipo: EQUIPO_DEL_JUEGO,
     },
     rng,
   );
@@ -292,7 +293,7 @@ describe('la IA de batalla usa los poderes (A4)', () => {
         },
         derecha: { unidades: [delBorrador(unidad('orko-dos-armas', { hp: 4000 }))], heroe: null },
         reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        equipo: EQUIPO_DEL_JUEGO,
       },
       rng,
     );

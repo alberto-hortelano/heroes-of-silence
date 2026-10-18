@@ -25,15 +25,7 @@
  * No entra en `pnpm verify`: tarda decenas de segundos (ver `implementacion.md`).
  */
 import { type ChildProcess, spawn } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -84,13 +76,7 @@ import {
   ladoDe,
   VERSION_DEL_ENLACE,
 } from '../../src/core/arena.js';
-import {
-  isAlive,
-  mismoTurno,
-  piezasDeLaPelea,
-  stackById,
-  stackHexes,
-} from '../../src/core/battle/battle.js';
+import { isAlive, mismoTurno, stackById, stackHexes } from '../../src/core/battle/battle.js';
 import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/board.js';
 import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
 import { poder } from '../../src/core/battle/poderes.js';
@@ -109,7 +95,11 @@ import type {
   BattleState,
 } from '../../src/core/battle/types.js';
 import { UNIDADES, unidad } from '../../src/core/catalogo.js';
-import { allCreatures, nombreDeTipoDeHeroe } from '../../src/core/data.js';
+import {
+  allCreatures,
+  nombreDeTipoDeHeroe,
+  RUTA_DEL_CATALOGO_DE_EQUIPO,
+} from '../../src/core/data.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
@@ -134,7 +124,7 @@ import {
   FONDO_DE_LA_FRANJA,
   type Plano,
 } from '../../src/shared/base.js';
-import { hojasDeArena, leerCatalogo, RUTA_DE_EQUIPO } from '../arena/borrador.js';
+import { hojasDeArena, leerCatalogo } from '../arena/borrador.js';
 import { cifrasCortadas } from './cifras-de-la-ficha.js';
 import {
   buscarDerrota,
@@ -2700,7 +2690,7 @@ const ATAQUE_EDITADO = 9;
  * el stack enseñan este; la ficha, el del cuerpo.
  */
 function ataqueEnLaPelea(ataque: number): number {
-  // La página arranca sin borrador de equipo (`sinElBorradorDeEquipo`): las piezas del juego.
+  // La página pelea con el catálogo de equipo del disco, el del juego (`conLosCatalogosDevueltos`).
   return unidadDeCombate(delCatalogo('templario-escudo', { attack: ataque }), EQUIPO_DEL_JUEGO)
     .attack;
 }
@@ -2743,7 +2733,7 @@ function espejoDeLaArena(semilla: number): SesionDeArena {
         ia: true,
       },
       reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
+      equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
   );
@@ -2879,40 +2869,30 @@ async function mismaPelea(page: Page, espejo: SesionDeArena, paso: string): Prom
  * prueba no puede dejar en el repo un archivo que nadie ha pedido.
  */
 async function arena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
-  await sinElBorradorDeEquipo('arena', (ruta) => jugarArena(browser, url, problemas, ruta));
+  await conLosCatalogosDevueltos('arena', (ruta) => jugarArena(browser, url, problemas, ruta));
 }
 
 /**
- * Juega `fn` con el borrador de equipo de la arena apartado, y deja ese borrador
- * y el catálogo de unidades como estaban al salir, pase lo que pase: «Guardar»
- * escribe en los dos, y la prueba no puede dejar en el repo lo que nadie ha
- * pedido. El catálogo **no se aparta** (simplify de F1, 18-10-2026): lo importa
- * el núcleo (`core/catalogo.ts`) y de él leen la página y el espejo; sin él no
- * carga nada que importe el catálogo. Con piezas del borrador cambiadas, el espejo
- * (piezas del juego) no pelearía lo mismo que la página: por eso se aparta ese.
+ * Juega `fn` y deja los catálogos de unidades y de equipo como estaban al salir,
+ * pase lo que pase: «Guardar» escribe en los dos, y la prueba no puede dejar en el
+ * repo lo que nadie ha pedido. **No se apartan** (simplify de F1, 18-10-2026): los
+ * importa el núcleo y de ellos leen la página y el espejo; sin ellos no carga
+ * nada.
  */
-async function sinElBorradorDeEquipo(
+async function conLosCatalogosDevueltos(
   quien: string,
   fn: (ruta: string) => Promise<void>,
 ): Promise<void> {
   const ruta = join(process.cwd(), RUTA_DEL_CATALOGO_DE_UNIDADES);
-  const deEquipo = join(process.cwd(), RUTA_DE_EQUIPO);
-  const carpeta = join(process.cwd(), 'data/borradores');
-  const habiaCarpeta = existsSync(carpeta);
+  const deEquipo = join(process.cwd(), RUTA_DEL_CATALOGO_DE_EQUIPO);
   const catalogo = readFileSync(ruta, 'utf8');
-  const equipo = existsSync(deEquipo) ? readFileSync(deEquipo, 'utf8') : null;
-  if (equipo !== null) rmSync(deEquipo);
+  const equipo = readFileSync(deEquipo, 'utf8');
   try {
     await fn(ruta);
   } finally {
     writeFileSync(ruta, catalogo);
-    if (equipo !== null) writeFileSync(deEquipo, equipo);
-    else if (existsSync(deEquipo)) rmSync(deEquipo);
-    if (!habiaCarpeta && existsSync(carpeta) && readdirSync(carpeta).length === 0)
-      rmdirSync(carpeta);
-    log(
-      `${quien}: catálogo de unidades devuelto como estaba; borrador de equipo ${equipo === null ? 'retirado: no había' : 'devuelto como estaba'}`,
-    );
+    writeFileSync(deEquipo, equipo);
+    log(`${quien}: catálogos de unidades y de equipo devueltos como estaban`);
   }
 }
 
@@ -2947,7 +2927,7 @@ function espejoDeLosPoderes(semilla: number): SesionDeArena {
         ia: true,
       },
       reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
+      equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
   );
@@ -3034,7 +3014,7 @@ async function poderesEnLaArena(
   url: string,
   problemas: Problemas,
 ): Promise<void> {
-  await sinElBorradorDeEquipo('poderes', async () => {
+  await conLosCatalogosDevueltos('poderes', async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     vigilarConsola(page, 'poderes', problemas);
     const hojas = hojasDeArena(process.cwd());
@@ -3259,7 +3239,7 @@ async function todoIA(
       izquierda: { unidades: [delBorrador(izquierda)], heroe: null, ia: true },
       derecha: { unidades: [delBorrador(derecha)], heroe: null, ia: true },
       reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
+      equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
   );
@@ -3571,7 +3551,7 @@ function espejoDelBanco(semilla: number): SesionDeArena {
         ia: true,
       },
       reglas: REGLAS_DEL_BANCO,
-      piezas: [],
+      equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
   );
@@ -4640,19 +4620,18 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
   await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
   await page.locator('[data-arena="ir-a-equipo"]').first().click();
   await page.locator('#app[data-escena="equipo"]').waitFor({ timeout: 2000 });
-  // Por tipos y solo lo de la arena (18-10-2026): ni accesorios ni el garrote.
+  // Por tipos (18-10-2026), y el catálogo entero: una sola clase de piezas.
   const secciones = await page
     .locator('[data-seccion-de-equipo]')
     .evaluateAll((els) => els.map((e) => e.getAttribute('data-seccion-de-equipo')));
   if (JSON.stringify(secciones) !== JSON.stringify(['cuerpo', 'distancia', 'armadura', 'escudo']))
     throw new Error(`equipo: las secciones son ${JSON.stringify(secciones)}`);
-  if (
-    (await page
-      .locator('#equipo [data-pieza="garrote"], #equipo [data-hueco="accesorio"]')
-      .count()) > 0
-  )
-    throw new Error('equipo: el editor enseña piezas del juego o accesorios');
-  log('equipo: cuatro secciones por tipo, sin accesorios ni piezas del juego');
+  const enLaLista = await page.locator('#equipo [data-arena="elegir-pieza"]').count();
+  if (enLaLista !== EQUIPO_DEL_JUEGO.piezas.size)
+    throw new Error(
+      `equipo: el editor enseña ${enLaLista} piezas y el catálogo tiene ${EQUIPO_DEL_JUEGO.piezas.size}`,
+    );
+  log('equipo: cuatro secciones por tipo, con el catálogo entero');
   // La Espada: sin PV y con un precio, en oro.
   await page.locator('#equipo [data-arena="elegir-pieza"][data-pieza="espada"]').click();
   const fichaDeLaEspada = page.locator('#equipo [data-pieza-elegida="espada"]');
@@ -4764,22 +4743,18 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
     .filter({ hasText: 'lleva Hoja de pruebas' })
     .waitFor({ timeout: 2000 });
   log('equipo: la ficha de la unidad la ofrece y la tarjeta la lleva');
-  // Lo que el núcleo rechazaría no se ofrece (H3 del QA 2): ni piezas del juego, ni
-  // accesorios, ni la × del arma de cuerpo a cuerpo.
+  // Lo que el núcleo rechazaría no se ofrece (H3 del QA 2): la × del arma de
+  // cuerpo a cuerpo.
   const ficha = page.locator('#ficha');
   if (
-    (await ficha
-      .locator(
-        'option[value="garrote"], option[value="cota_de_malla"], [data-hueco-de-la-ficha="accesorio"], [data-arena="quitar-pieza"][data-hueco="arma"]',
-      )
-      .count()) > 0 ||
+    (await ficha.locator('[data-arena="quitar-pieza"][data-hueco="arma"]').count()) > 0 ||
     (await ficha.locator('[data-no-se-quita="arma"]').count()) !== 1
   )
     throw new Error('equipo: la ficha de la unidad ofrece lo que el núcleo rechaza');
   // El héroe dice con qué arma pelea.
   await page.locator('[data-arena="poner-heroe"][data-lado="izquierda"]').click();
   const armaDelHeroe = (
-    await ficha.locator('[data-armas-del-heroe] [data-arma-de-la-ficha="cuerpo"]').innerText()
+    await ficha.locator('[data-armas-del-heroe] [data-arma-de-la-ficha="arma"]').innerText()
   )
     .replace(/\s+/g, ' ')
     .trim();
@@ -4807,7 +4782,7 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
  */
 function orcoConLanza(): UnidadDeArena {
   const orco = delCatalogo('orko-dos-armas');
-  return { ...orco, equipo: { ...orco.equipo, carga: 'lanza_de_jinete' } };
+  return { ...orco, equipo: { ...orco.equipo, lanza: 'lanza_de_jinete' } };
 }
 
 /** Lo que dice la barra del golpe del arquero sobre el contraataque del orco (`orcoConLanza`). */
@@ -4819,7 +4794,7 @@ function espejoDeLasArmas(semilla: number): SesionDeArena {
       izquierda: { unidades: [delBorrador(delCatalogo('elfo-arquero'))], heroe: null, ia: false },
       derecha: { unidades: [delBorrador(orcoConLanza())], heroe: null, ia: true },
       reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
+      equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
   );
@@ -4881,7 +4856,7 @@ function buscarArmas(): number {
  * espejo—.
  */
 async function armasEnLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
-  await sinElBorradorDeEquipo('armas', async () => {
+  await conLosCatalogosDevueltos('armas', async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     vigilarConsola(page, 'armas', problemas);
     const hojas = hojasDeArena(process.cwd());
@@ -4942,8 +4917,8 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
     // La lanza al orco, como en el espejo (`orcoConLanza`), desde su ficha.
     await page.locator('#bando-derecha button.ver[data-unidad="orko-dos-armas"]').click();
-    await page.locator('#ficha select[data-arena-pieza="carga"]').selectOption('lanza_de_jinete');
-    const filaDeLaLanza = page.locator('#ficha [data-arma-de-la-ficha="carga"]');
+    await page.locator('#ficha select[data-arena-pieza="lanza"]').selectOption('lanza_de_jinete');
+    const filaDeLaLanza = page.locator('#ficha [data-arma-de-la-ficha="lanza"]');
     await filaDeLaLanza.waitFor({ timeout: 2000 });
     const dichaLanza = (await filaDeLaLanza.innerText()).replace(/\s+/g, ' ').trim();
     // A pie también carga (#260): la lanza se usa, con lo que cobra a pie.
@@ -5004,11 +4979,9 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
           .slice(antes)
           .find((e) => (e.kind === 'shoot' || e.kind === 'attack') && e.stack !== j.contra.id);
         const arquero = espejo.battle.stacks.find((x) => x.side !== j.contra.side) as BattleStack;
-        const fila = armasDe(
-          arquero.unit,
-          piezasDeLaPelea(espejo.battle),
-          espejo.battle.arena.cargaAPie,
-        ).find((a) => a.uso === (j.tipo === 'disparo' ? 'distancia' : 'cuerpo'));
+        const fila = armasDe(arquero.unit, espejo.battle.arena.cargaAPie).find(
+          (a) => a.uso === (j.tipo === 'disparo' ? 'distancia' : 'arma'),
+        );
         if (hecho === undefined || fila === undefined)
           throw new Error(`armas: el ${j.tipo} no se ve en el parte`);
         const debia = j.tipo === 'disparo' ? 'Arco' : 'Daga';
@@ -5058,7 +5031,7 @@ function espejoDeLaRueda(semilla: number): SesionDeArena {
         ia: true,
       },
       reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
+      equipo: EQUIPO_DEL_JUEGO,
       modos: { golpe: 'rueda' },
     },
     semilla,
@@ -5146,7 +5119,7 @@ function buscarRueda(): number {
  * fase, con su captura.
  */
 async function ruedaEnLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
-  await sinElBorradorDeEquipo('rueda-del-golpe', async () => {
+  await conLosCatalogosDevueltos('rueda-del-golpe', async () => {
     const hojas = hojasDeArena(process.cwd());
     for (const h of hojas) registrarUnidad(h.id, h);
     const semilla = buscarRueda();
@@ -5850,7 +5823,7 @@ async function todoEnIAConLaRueda(
         ia: true,
       },
       reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
+      equipo: EQUIPO_DEL_JUEGO,
       modos: { golpe: 'rueda' },
     },
     semilla,
@@ -6112,7 +6085,7 @@ function espejoYoContraYo(semilla: number, n: number): SesionDeArena {
       izquierda: { unidades: varios('templario-escudo'), heroe: null, ia: false },
       derecha: { unidades: varios('orko-dos-armas'), heroe: null, ia: false },
       reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
+      equipo: EQUIPO_DEL_JUEGO,
       modos: { golpe: 'rueda' },
     },
     semilla,
@@ -6449,7 +6422,7 @@ async function contrincantesDeLaRueda(
   url: string,
   problemas: Problemas,
 ): Promise<void> {
-  await sinElBorradorDeEquipo('rueda-contrincantes', async () => {
+  await conLosCatalogosDevueltos('rueda-contrincantes', async () => {
     const hojas = hojasDeArena(process.cwd());
     for (const h of hojas) registrarUnidad(h.id, h);
     await contrincantesEnElEscritorio(browser, url, problemas);
@@ -6472,8 +6445,8 @@ const PASADAS: readonly (readonly [string, Paso])[] = [
   ['sin-arte', sinArte],
   ['espectador', espectador],
   ['arena', arena],
-  ['edicion', (b, u, p) => sinElBorradorDeEquipo('edicion', () => edicionDeLaArena(b, u, p))],
-  ['equipo', (b, u, p) => sinElBorradorDeEquipo('equipo', () => equipoDeLaArena(b, u, p))],
+  ['edicion', (b, u, p) => conLosCatalogosDevueltos('edicion', () => edicionDeLaArena(b, u, p))],
+  ['equipo', (b, u, p) => conLosCatalogosDevueltos('equipo', () => equipoDeLaArena(b, u, p))],
   ['poderes', poderesEnLaArena],
   ['rueda-del-golpe', ruedaEnLaArena],
   ['armas', armasEnLaArena],

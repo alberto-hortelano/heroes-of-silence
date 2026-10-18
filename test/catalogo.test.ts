@@ -12,7 +12,7 @@ import { UNIDADES, unidad } from '../src/core/catalogo.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { RUTA_DEL_CATALOGO_DE_UNIDADES, validarCatalogo } from '../src/core/unidad.js';
 import { leerCatalogo } from '../tools/arena/borrador.js';
-import { DEL_JUEGO, hojasDeLaArena } from './helpers.js';
+import { hojasDeLaArena } from './helpers.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 
@@ -54,7 +54,7 @@ describe('el catálogo de unidades (data/unidades.json)', () => {
     expect(() =>
       validarCatalogo(
         { unidades: [{ ...guerrero, equipo: { ...guerrero.equipo, arma: 'espada-9' } }] },
-        DEL_JUEGO,
+        EQUIPO_DEL_JUEGO,
       ),
     ).toThrow('data/unidades.json: la unidad «Guerrero con escudo»: no existe ninguna pieza');
     expect(() => validarCatalogo({ otra: [] }, EQUIPO_DEL_JUEGO)).toThrow(

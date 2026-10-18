@@ -98,7 +98,7 @@ function medida(u: UnitInfo): Medida | { readonly motivo: string } {
  * enciendan. Se mide a media recta: la mitad de lo que cobra la recta entera.
  */
 function ofensaDe(u: UnitInfo): number {
-  const cuerpo = golpeMedido(u, 'cuerpo');
+  const cuerpo = golpeMedido(u, 'arma');
   let ofensa = ofensaDelAtaque(u, cuerpo, cuerpo, null);
   if (isShooter(u)) {
     const disparo = golpeMedido(u, 'distancia').ofensa * disparosDe(u);
@@ -107,7 +107,7 @@ function ofensaDe(u: UnitInfo): number {
   const carga = cifrasDeCarga(u, true);
   if (carga !== null) {
     const cobra = 100 + Math.floor(porcientoDeLaCarga(carga.tope, carga) / 2);
-    ofensa = Math.max(ofensa, ofensaDelAtaque(u, golpeMedido(u, 'carga'), cuerpo, cobra));
+    ofensa = Math.max(ofensa, ofensaDelAtaque(u, golpeMedido(u, 'lanza'), cuerpo, cobra));
   }
   return ofensa;
 }

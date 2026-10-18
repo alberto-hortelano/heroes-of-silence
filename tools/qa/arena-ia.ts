@@ -44,6 +44,7 @@ import { SIN_MURALLA } from '../../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO } from '../../src/core/battle/reglas.js';
 import { unidad } from '../../src/core/catalogo.js';
 import { hasTrait, LIDERAZGO } from '../../src/core/data.js';
+import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import type { UnidadDeArena } from '../../src/core/unidad.js';
 import { hojasDeArena } from '../arena/borrador.js';
@@ -178,7 +179,7 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
           derecha: lado(derecha, 'derecha'),
           reglas: REGLAS_DEL_JUEGO,
           muralla: SIN_MURALLA,
-          piezas: [],
+          equipo: EQUIPO_DEL_JUEGO,
           modos: v.con,
         },
         rng,

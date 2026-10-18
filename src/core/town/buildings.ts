@@ -26,7 +26,7 @@ export interface Building {
   readonly grantsWalls?: boolean;
   readonly moraleBonus?: number;
   /**
-   * Vende equipo de calidad de armería (`hero/equipo.ts`) al héroe propio que
+   * Vende las piezas que se venden (`seVende`, `hero/equipo.ts`) al héroe propio que
    * esté dentro. Es la armería, que pidió el usuario («Edificio Armería en la
    * ciudad»); su coste es inventado y lo dice el `_comment` del JSON.
    */

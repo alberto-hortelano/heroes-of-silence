@@ -61,6 +61,7 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '@core/battle/types.js';
+import type { CatalogoDeEquipo } from '@core/hero/equipo.js';
 import { HERO_BODY, type Hero, maxMana } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
@@ -1669,6 +1670,12 @@ export class SesionDeArena implements ControlDeBatalla {
   readonly battle: BattleState;
   readonly semilla: number;
   readonly reglas: ReglasDeBatalla;
+  /**
+   * El catálogo de equipo con que se pelea (`MontajeDeArena.equipo`): la batalla
+   * no lo lleva, así que el retoque de una pieza lo pide de aquí y aquí deja el
+   * nuevo (`retocar`).
+   */
+  private equipo: CatalogoDeEquipo;
   /** Elegir un hechizo suelta el poder apuntado: el clic apunta una sola cosa (`apuntado`). */
   readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => {
     if (this.hechizos.selectedSpell !== null) this.poderApuntado = null;
@@ -1757,8 +1764,8 @@ export class SesionDeArena implements ControlDeBatalla {
       readonly reglas: ReglasDeBatalla;
       /** La muralla del tablero; sin ella, ninguna (`SIN_MURALLA`). */
       readonly muralla?: MurallaDeBatalla;
-      /** Las piezas de la arena con que se pelea (`catalogoDeLaArena`). */
-      readonly piezas: MontajeDeArena['piezas'];
+      /** El catálogo de equipo con que se pelea, hecho (`catalogoDeEquipo`, o `EQUIPO_DEL_JUEGO`). */
+      readonly equipo: CatalogoDeEquipo;
       /** Los modos de la arena que pide el montaje (la rueda, el contacto); sin él, los de siempre. */
       readonly modos?: MontajeDeArena['modos'];
     },
@@ -1766,6 +1773,7 @@ export class SesionDeArena implements ControlDeBatalla {
   ) {
     this.semilla = semilla;
     this.reglas = montaje.reglas;
+    this.equipo = montaje.equipo;
     this.rng = createRng(semilla);
     this.battle = batallaDeArena(
       {
@@ -1773,7 +1781,7 @@ export class SesionDeArena implements ControlDeBatalla {
         derecha: montaje.derecha,
         reglas: montaje.reglas,
         muralla: montaje.muralla ?? SIN_MURALLA,
-        piezas: montaje.piezas,
+        equipo: montaje.equipo,
         ...(montaje.modos === undefined ? {} : { modos: montaje.modos }),
       },
       this.rng,
@@ -1941,8 +1949,9 @@ export class SesionDeArena implements ControlDeBatalla {
     // cuando se eligió: cambiarlas debajo podría dejarla ilegal.
     if (this.cruce !== null) return comoFrase(ELIGE_EN_LA_RUEDA);
     const largo = this.battle.log.length;
-    const motivo = retocarEnBatalla(this.battle, r);
+    const motivo = retocarEnBatalla(this.battle, r, this.equipo);
     if (motivo !== null) return comoFrase(motivo);
+    if (r.kind === 'piezas') this.equipo = r.equipo;
     // Lo que entra y cambia algo deja su `retoque` en el registro; lo que deja la
     // ficha como estaba no escribe nada, y no se dice «Cambiado» (N1 de QA).
     if (this.battle.log.length === largo) {

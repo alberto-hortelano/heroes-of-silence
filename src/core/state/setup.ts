@@ -1,4 +1,7 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
+// La carga de los catálogos juntos (`leerCatalogos`, en `core/catalogo.ts`): una
+// partida no arranca si el equipo base del héroe no vale con las piezas del juego.
+import '../catalogo.js';
 import { factionLineup, tipoDeHeroePorDefecto } from '../data.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import {

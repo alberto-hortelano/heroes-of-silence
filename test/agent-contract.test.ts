@@ -31,7 +31,7 @@ import {
   serializeTownVoices,
 } from '../src/core/contract/serialize.js';
 import { ASALTANTES, allCreatures, creature, EQUIPO } from '../src/core/data.js';
-import { NOMBRE_DE_CALIDAD, PIEZAS_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../src/core/hero/equipo.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import {
   buildMap,
@@ -104,11 +104,11 @@ describe('contrato con el agente', () => {
     expect(deLaIA).toMatchObject({ type: 'buy_item' });
     const acciones = [
       deLaIA,
-      { type: 'equip', hero: hero.id, item: 'garrote' },
-      { type: 'equip', hero: hero.id, item: 'garrote', veteran: 'veterano-1' },
-      { type: 'equip', hero: hero.id, item: 'garrote', creature: 'peasant' },
-      { type: 'unequip', hero: hero.id, slot: 'weapon' },
-      { type: 'unequip', hero: hero.id, slot: 'accessory', veteran: 'veterano-1' },
+      { type: 'equip', hero: hero.id, item: 'maza' },
+      { type: 'equip', hero: hero.id, item: 'maza', veteran: 'veterano-1' },
+      { type: 'equip', hero: hero.id, item: 'maza', creature: 'peasant' },
+      { type: 'unequip', hero: hero.id, slot: 'melee_weapon' },
+      { type: 'unequip', hero: hero.id, slot: 'lance', veteran: 'veterano-1' },
       { type: 'unequip', hero: hero.id, slot: 'shield' },
     ];
     for (const accion of acciones) {
@@ -123,9 +123,21 @@ describe('contrato con el agente', () => {
     ).toBe(true);
     // Los huecos viajan en inglés (12-10-2026) y se traducen al entrar
     // (`accionDelAgente`, dentro del `try` del director): el nombre de dentro,
-    // «arma», ya no es un hueco del contrato, y se dice con los cuatro que valen.
+    // «arma», ya no es un hueco del contrato, y se dice con los cinco que valen.
     expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'arma' })).toThrow(
-      'no hay ningún hueco "arma": son weapon, armor, accessory, shield',
+      'no hay ningún hueco "arma": son melee_weapon, ranged_weapon, lance, armor, shield',
+    );
+    expect(
+      accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'ranged_weapon' }),
+    ).toMatchObject({
+      slot: 'distancia',
+    });
+    expect(accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'lance' })).toMatchObject({
+      slot: 'lanza',
+    });
+    // El accesorio se fue (18-10-2026): el agente que lo pide lo oye.
+    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'accessory' })).toThrow(
+      'no hay ningún hueco "accessory"',
     );
     expect(accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'shield' })).toEqual({
       type: 'unequip',
@@ -133,21 +145,27 @@ describe('contrato con el agente', () => {
       slot: 'escudo',
     });
     expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'casco' })).toThrow(
-      'no hay ningún hueco "casco": son weapon, armor, accessory, shield',
+      'no hay ningún hueco "casco": son melee_weapon, ranged_weapon, lance, armor, shield',
     );
     // Y el motivo del núcleo nombra el hueco para la persona, no por su clave: el
     // agente lo pidió como `shield`, y «escudo» en minúscula no le decía nada.
     expect(unequipBlocker(state, 0, { type: 'unequip', hero: hero.id, slot: 'escudo' })).toBe(
       `${hero.name} no lleva nada en Escudo`,
     );
-    // La prosa ofrece los cuatro en inglés y explica el escudo y las dos manos.
+    // La prosa ofrece los cinco en inglés y explica el escudo y las dos manos.
     expect(RESPONSE_FORMAT.adventure_turn).toContain(
-      '"slot": "weapon" | "armor" | "accessory" | "shield"',
+      '"slot": "melee_weapon" | "ranged_weapon" | "lance" | "armor" | "shield"',
     );
     expect(RESPONSE_FORMAT.adventure_turn).not.toContain('"slot": "arma"');
-    expect(RESPONSE_FORMAT.adventure_turn).toContain('"shield" es opcional');
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('"shield" el escudo, opcional');
+    // El equipo base, por sus piezas (decisión del usuario: la Espada y el gambesón).
+    expect(RESPONSE_FORMAT.adventure_turn).toContain(
+      'Todo héroe nace\n  con "espada" en "melee_weapon" y "gambeson" en "armor"',
+    );
     // Lo que el héroe trae vacío de serie sale del equipo base, no de la prosa.
-    expect(RESPONSE_FORMAT.adventure_turn).toContain('(y nada en "shield")');
+    expect(RESPONSE_FORMAT.adventure_turn).toContain(
+      '(y nada en "ranged_weapon", "lance", "shield")',
+    );
     expect(RESPONSE_FORMAT.adventure_turn).toContain('un arma a dos manos no admite escudo');
     for (const tipo of ['buy_item', 'equip', 'unequip']) {
       expect(RESPONSE_FORMAT.adventure_turn).toContain(`"type": "${tipo}"`);
@@ -155,20 +173,20 @@ describe('contrato con el agente', () => {
   });
 
   it('el catálogo que se le anuncia al agente sale de `EQUIPO`, pieza a pieza y con sus cifras', () => {
-    // Lo de la arena no le puede caer ni lo puede comprar: no se le anuncia.
-    for (const p of EQUIPO.filter((x) => x.calidad === 'arena')) {
-      expect(CATALOGO_DE_EQUIPO_EN_PROSA, p.id).not.toMatch(new RegExp(`^ *${p.id} \\(`, 'm'));
-    }
-    expect(PIEZAS_DEL_JUEGO.length).toBeGreaterThan(0);
-    for (const p of PIEZAS_DEL_JUEGO) {
+    // Una sola clase de piezas (18-10-2026): se le anuncian todas, con de dónde
+    // salen, su precio si se venden y su armadura.
+    expect(EQUIPO.length).toBeGreaterThan(0);
+    for (const p of EQUIPO) {
       const linea = CATALOGO_DE_EQUIPO_EN_PROSA.split('\n').find((l) =>
         l.trim().startsWith(`${p.id} (`),
       );
       expect(linea, p.id).toBeDefined();
-      expect(linea).toContain(`(${SLOT_DE_HUECO[p.hueco]}, ${NOMBRE_DE_CALIDAD[p.calidad]})`);
+      expect(linea).toContain(`(${SLOT_DE_HUECO[p.hueco]}): `);
+      expect(linea).toContain(deDondeSale(p));
       if (p.ataque > 0) expect(linea).toContain(`+${p.ataque} Ataque`);
-      if (p.pv > 0) expect(linea).toContain(`+${p.pv} PV`);
-      expect(linea?.includes('se compra por'), p.id).toBe(p.calidad === 'armeria');
+      if ((p.armadura ?? 0) > 0) expect(linea).toContain(`+${p.armadura} Armadura`);
+      expect(linea).not.toContain('PV');
+      expect(linea?.includes('armería por'), p.id).toBe(seVende(p));
     }
     expect(RESPONSE_FORMAT.adventure_turn).toContain(CATALOGO_DE_EQUIPO_EN_PROSA);
   });
@@ -177,7 +195,7 @@ describe('contrato con el agente', () => {
     const state = newGame({ seed: 7 });
     const hero = heroesOf(state, 0)[0]!;
     const base = townsOf(state, 0)[0]!;
-    hero.mochila = ['garrote'];
+    hero.mochila = ['maza'];
     hero.army = [
       {
         creature: 'pikeman',
@@ -187,35 +205,42 @@ describe('contrato con el agente', () => {
           batallas: 0,
           bajas: 0,
           heroes: [],
-          equipo: { armadura: 'cota_de_malla' },
+          equipo: { armadura: 'brigantina' },
         },
       },
       { creature: 'pikeman' },
     ];
     const turno = (): any => serializeAdventureTurn(state, 0);
     const h = turno().heroes[0];
-    // Los cuatro huecos, en inglés, y el escudo vacío: el héroe nace sin él.
+    // Los cinco huecos, en inglés, y vacíos los que el héroe no trae de serie.
     expect(h.equipment).toEqual({
-      weapon: 'espada_de_armeria',
-      armor: 'cota_de_malla',
-      accessory: 'brazal_de_armeria',
+      melee_weapon: 'espada',
+      ranged_weapon: null,
+      lance: null,
+      armor: 'gambeson',
       shield: null,
     });
-    expect(h.backpack).toEqual(['garrote']);
+    expect(h.backpack).toEqual(['maza']);
     // La fila de un individuo lleva el equipo con la misma forma que el héroe.
     expect(h.army[0]).toMatchObject({
       id: 'veterano-4',
-      equipment: { weapon: null, armor: 'cota_de_malla', accessory: null, shield: null },
+      equipment: {
+        melee_weapon: null,
+        ranged_weapon: null,
+        lance: null,
+        armor: 'brigantina',
+        shield: null,
+      },
     });
     expect(h.army[1]).not.toHaveProperty('id');
     const pueblo = (): any => turno().towns.find((t: any) => t.id === base.id);
     expect(pueblo()).not.toHaveProperty('armory');
     base.buildings.push('armory');
-    expect(pueblo().armory.map((x: any) => [x.item, x.slot])).toEqual([
-      ['espada_de_armeria', 'weapon'],
-      ['cota_de_malla', 'armor'],
-      ['brazal_de_armeria', 'accessory'],
-    ]);
+    // Lo que vende la armería (`seVende`), con su hueco en inglés.
+    expect(pueblo().armory.map((x: any) => [x.item, x.slot])).toEqual(
+      PIEZAS_DE_ARMERIA.map((p) => [p.id, SLOT_DE_HUECO[p.hueco]]),
+    );
+    expect(pueblo().armory.map((x: any) => x.slot)).toContain('ranged_weapon');
   });
 
   it('las acciones de batalla de la IA pasan su esquema', () => {
@@ -863,10 +888,16 @@ describe('lo que ve el agente', () => {
     const activo = activeStack(battle)!;
     const payload = serializeBattleTurn(battle, activo.side, 'propia', 1000) as {
       legalActions: unknown[];
+      stacks: { id: string; armor: number }[];
     };
     expect(payload.legalActions.length).toBeGreaterThan(0);
     expect(payload.legalActions).toEqual(legalActions(battle));
     expect(JSON.parse(JSON.stringify(payload))).toEqual(payload);
+    // Cada stack dice su armadura (`armaduraDe`): el héroe nace con el gambesón.
+    const delHeroe = battle.stacks.find((s) => s.origen.kind === 'heroe')!;
+    const armadura = (id: string) => payload.stacks.find((s) => s.id === id)?.armor;
+    expect(armadura(delHeroe.id)).toBe(EQUIPO.find((p) => p.id === 'gambeson')?.armadura);
+    expect(payload.stacks.every((s) => Number.isInteger(s.armor))).toBe(true);
 
     resolvePendingBattle(state, ctx);
   });

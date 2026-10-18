@@ -81,9 +81,9 @@ import {
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
-import { SLOT_DE_HUECO, SLOTS } from '../src/core/contract/huecos.js';
+import { SLOT_DE_HUECO, SLOTS, type Slot } from '../src/core/contract/huecos.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA } from '../src/core/contract/serialize.js';
-import { creature, EQUIPO } from '../src/core/data.js';
+import { CAMPOS_DE_PIEZA, creature, EQUIPO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -1245,12 +1245,8 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], sustituyeUnStack)).not.toEqual([]);
     // Las fichas de la arena (`fichasDeArena`), con las que el retoque dice qué
     // cambió, también: las pone ella al montar y al retocar.
-    // Y las piezas con que pelea (`piezasDeArena`): solo ella, al montar y al
-    // retocar. Por escritura de la propiedad —la clave en un literal y
-    // `.piezasDeArena =`—, no por el nombre: una variable suelta que se llame así
-    // no escribe la batalla.
     const escribeTipos =
-      /\b(?:tiposDeArena|fichasDeArena)\s*[:=](?!\s*readonly)|\bpiezasDeArena\s*:(?!\s*readonly)|\.piezasDeArena\s*=(?!=)|\.fichasDeArena\b(?:\s+as\b[^;]*)?\)?\[[^\]]+\]\s*=(?!=)/;
+      /\b(?:tiposDeArena|fichasDeArena)\s*[:=](?!\s*readonly)|\.fichasDeArena\b(?:\s+as\b[^;]*)?\)?\[[^\]]+\]\s*=(?!=)/;
     const sinElTipo = fuera.filter((r) => r !== 'src/core/battle/types.ts');
     expect(infractoresDeCodigo(sinElTipo, escribeTipos)).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribeTipos)).not.toEqual([]);
@@ -1265,25 +1261,55 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PONE_PODERES], escribePoderes)).not.toEqual([]);
   });
 
-  it('el juego no ve el borrador de equipo, y la arena lee cada pieza con el suyo', () => {
-    // Editor de equipo (12-10-2026): las piezas de la arena van encima de las del
-    // juego (`catalogoDeLaArena`) y el juego no las ve. Dos partes:
-    //  (a) fuera de la arena (su núcleo, su página y su disco) nadie nombra en
-    //      código lo que trae el borrador: ni `catalogoDeLaArena`/`piezasDeLaArena`,
-    //      ni la ruta `data/borradores`, ni `tools/arena/`. Ni el juego, ni el
-    //      agente, ni el espectador, ni la sesión de la partida.
-    //  (b) la arena no importa las lecturas sueltas de las piezas (abajo).
-    // Roto a mano: un `import { catalogoDeLaArena }` y su llamada en
-    // `state/game.ts` sale rojo con su línea.
+  it('la batalla no lleva catálogo de equipo: cada golpe lleva el nombre de su arma', () => {
+    // Simplify de F2 (18-10-2026): la batalla no guarda un catálogo de piezas
+    // (`BattleState.piezasDeArena` y `piezasDeLaPelea` se fueron); el nombre del
+    // arma de cada golpe va en `GolpeConArma.arma` (lo escribe `conEquipo`), y quien
+    // cambia una pieza a media pelea le da su catálogo a `retocarEnBatalla`. Dos
+    // partes: nadie nombra `piezasDeArena`, y el motor (`core/battle/`) no lee un
+    // catálogo. Rotos a mano: un `piezasDeArena?: readonly PiezaEscrita[]` en
+    // `battle/types.ts` y un `import { EQUIPO_DEL_JUEGO } from '../hero/equipo.js'`
+    // en `battle.ts` salen rojos con su línea.
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(infractoresDeCodigo(todos, /\bpiezasDeArena\b|\bpiezasDeLaPelea\b/)).toEqual([]);
+    const MOTOR = CORE.filter((r) => r.startsWith('src/core/battle/'));
+    const leeUnCatalogo =
+      /\b(?:EQUIPO_DEL_JUEGO|catalogoDeEquipo|equipoCon|PIEZAS_DEL_CATALOGO|CatalogoDeEquipo|EquipoAtado)\b/;
+    expect(infractoresDeCodigo(MOTOR, leeUnCatalogo)).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/arena.ts'], leeUnCatalogo)).not.toEqual([]);
+  });
+
+  it('el catálogo de equipo lo carga solo `data.ts`, y la arena lee cada pieza con el suyo', () => {
+    // Una sola clase de piezas (F2 de 2026-10-18): el borrador de equipo de la
+    // arena y `data/equipo.json` dejan de ser dos cosas; la arena edita el catálogo
+    // en memoria y «Guardar» lo escribe en disco. Dos partes:
+    //  (a) `data/equipo.json` lo importa solo `core/data.ts` (`leerEquipo`, que lo
+    //      valida entero al cargar): quien lo importara por su cuenta se saltaría
+    //      la validación. La arena lo escribe por su ruta, no importándolo. Y fuera
+    //      de la arena nadie nombra los borradores que quedan (`data/borradores`,
+    //      las murallas) ni `tools/arena/`.
+    //  (b) la arena no importa las lecturas sueltas de las piezas (abajo): leen el
+    //      catálogo tal como se cargó, y la arena pelea con el que edita.
+    // Rotos a mano: un `import e from '../../data/equipo.json'` en `arena.ts` y un
+    // `'data/borradores'` en `state/game.ts` salen rojos con su línea.
+    const PUERTA = 'src/core/data.ts';
+    const importa = importaDe(/[^'"]*data\/equipo\.json/);
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        importa,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
     const ARENA = (r: string): boolean =>
       r === 'src/core/arena.ts' ||
       r === 'src/core/arena-murallas.ts' ||
       r.startsWith('src/client/arena/');
-    const veElBorrador =
-      /\b(?:catalogoDeLaArena|piezasDeLaArena)\b|data\/borradores|tools\/arena\//;
-    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => !ARENA(r));
+    const veElBorrador = /data\/borradores|tools\/arena\//;
+    const fuera = todos.filter((r) => !ARENA(r));
     expect(infractoresDeCodigo(fuera, veElBorrador)).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/arena.ts'], veElBorrador)).not.toEqual([]);
+    expect(infractoresDeCodigo(['src/client/arena/main.ts'], veElBorrador)).not.toEqual([]);
 
     // (b) La arena lee las piezas solo con su catálogo atado (`equipoCon`, que da
     // `catalogoDeLaArena`): no importa las lecturas sueltas de `equipo.ts`, que
@@ -1292,7 +1318,6 @@ describe('invariantes del proyecto', () => {
     // catálogo. Roto a mano: `pieza` importada en `paneles.ts` sale rojo.
     const SUELTAS = new Set([
       'pieza',
-      'piezaDelJuego',
       'piezaSiExiste',
       'piezasPuestas',
       'sumaDeEquipo',
@@ -1430,22 +1455,28 @@ describe('invariantes del proyecto', () => {
   });
 
   it('los huecos del contrato se traducen en un sitio y la regla de las manos vive en otro', () => {
-    // El escudo (12-10-2026): los cuatro huecos van en inglés en el contrato del
-    // agente y en español por dentro, con la traducción en `contract/huecos.ts`;
-    // y «un arma a dos manos no admite escudo» es una regla, `manosBlocker`, que
-    // leen el juego, el agente y la arena. Rotos a mano: un `slot: 'shield'` en
-    // `serialize.ts`, un `p.manos === 2` en `arena.ts` y una `function
-    // manosBlocker` en `game.ts` salen rojos.
+    // El escudo (12-10-2026): los huecos van en inglés en el contrato del agente
+    // (cinco desde el 18-10-2026, simétricos por uso desde el simplify de F2) y en
+    // español por dentro, con la traducción en `contract/huecos.ts`. **Por tipo**:
+    // un hueco del contrato es un `Slot`, con una marca que solo pone ese módulo, así
+    // que fuera de él nadie escribe un `as Slot` (y el compilador no deja escribir
+    // uno a mano, abajo); y «un arma a dos manos no admite escudo» es una regla,
+    // `manosBlocker`, que leen el juego, el agente y la arena. Rotos a mano: un
+    // `slot: 'shield' as Slot` en `serialize.ts`, un `p.manos === 2` en `arena.ts` y
+    // una `function manosBlocker` en `game.ts` salen rojos.
     const TRADUCCION = 'src/core/contract/huecos.ts';
-    const enIngles = /['"`](?:weapon|armor|accessory|shield)['"`]/;
+    const produceUnSlot = /\bas\s+Slot\b|<Slot>/;
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
       infractoresDeCodigo(
         todos.filter((r) => r !== TRADUCCION),
-        enIngles,
+        produceUnSlot,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([TRADUCCION], enIngles)).not.toEqual([]);
+    expect(infractoresDeCodigo([TRADUCCION], produceUnSlot)).not.toEqual([]);
+    // @ts-expect-error: un `Slot` no se escribe a mano: lo da `SLOT_DE_HUECO`.
+    const aMano: Slot = 'melee_weapon';
+    expect(SLOTS).toContain(aMano);
     const MANOS = ['src/core/hero/equipo.ts', 'src/core/data.ts'];
     const leeManos = /\.manos\b/;
     expect(
@@ -1465,21 +1496,18 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([MANOS[0] as string], define)).not.toEqual([]);
   });
 
-  it('cada arma para lo suyo es solo de la arena: las armas por uso se escriben y se leen en dos sitios, y el juego sigue con cuatro huecos', () => {
-    // 13-10-2026: la arena tiene un arma a distancia y una de carga además de la
-    // de cuerpo a cuerpo, y cada golpe va con las cifras de la suya
-    // (`UnitInfo.armas`). Dos partes:
+  it('cada arma para lo suyo: las armas por uso se escriben y se leen en dos sitios, y el agente ve los cinco huecos', () => {
+    // 13-10-2026: un arma a distancia y una de carga además de la de cuerpo a
+    // cuerpo, y cada golpe va con las cifras de la suya (`UnitInfo.armas`); desde
+    // el 18-10-2026, en el juego también (una sola clase de piezas). Dos partes:
     //  (a) `armas` lo escribe solo `conEquipo` (`hero/equipo.ts`) y lo leen solo
     //      él, `battle/armas.ts` (`golpeDe`) y `battle/damage.ts` (`armasDe`): un golpe que leyera
     //      `unit.armas` por su cuenta elegiría el arma con otra regla.
-    //  (b) el agente no los ve: cuatro `SLOTS` y ni una palabra de ellos en su
-    //      formato de respuesta ni en la prosa del catálogo.
-    // Que una pieza del juego no vaya en `distancia` ni en `carga` no se vigila
-    // aquí: lo rechaza el cargador (`validarEquipo`) y un `Equipo` del juego no
-    // tiene esos huecos (lo dice el compilador).
+    //  (b) el agente los ve todos: cinco `SLOTS`, uno por hueco, y su prosa dice
+    //      para qué es el de disparar y el de la lanza.
     // Rotos a mano: un `{ ...u, armas: {...} }` en `arena.ts`, un
-    // `s.unit.armas?.distancia` en `paneles.ts` y `distancia: 'ranged'` en
-    // `SLOT_DE_HUECO` salen rojos.
+    // `s.unit.armas?.distancia` en `paneles.ts` y un `SLOT_DE_HUECO` sin `carga`
+    // salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const ESCRITOR = 'src/core/hero/equipo.ts';
     const LECTORES = [ESCRITOR, 'src/core/battle/armas.ts', 'src/core/battle/damage.ts'];
@@ -1500,12 +1528,14 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo(['src/core/battle/armas.ts'], lee)).not.toEqual([]);
 
-    expect(SLOTS).toHaveLength(4);
+    expect(SLOTS).toHaveLength(HUECOS.length);
     expect(Object.keys(SLOT_DE_HUECO)).toEqual([...HUECOS]);
-    const dichoAlAgente = [...Object.values(RESPONSE_FORMAT), CATALOGO_DE_EQUIPO_EN_PROSA].join(
-      '\n',
+    expect(new Set(SLOTS).size).toBe(HUECOS.length);
+    expect(RESPONSE_FORMAT.adventure_turn).toContain(`"${SLOT_DE_HUECO.distancia}" la que dispara`);
+    expect(RESPONSE_FORMAT.adventure_turn).toContain(
+      `"${SLOT_DE_HUECO.lanza}" la lanza con que se carga`,
     );
-    expect(dichoAlAgente).not.toMatch(/\bdistancia\b|Arma de carga|\(carga,|\bdaga\b/i);
+    expect(CATALOGO_DE_EQUIPO_EN_PROSA).toMatch(/^ *daga \(melee_weapon\)/m);
   });
 
   it('la arena no lee el catálogo del juego: solo cuentan las cinco facciones de las hojas', () => {
@@ -2092,16 +2122,20 @@ describe('invariantes del proyecto', () => {
 
 // ------------------------------------------------------------------ armadura (#262)
 
-describe('la armadura es solo de la arena (#262)', () => {
-  it('`puntosDeArmadura` lo escribe solo `conEquipo` y lo leen solo él y `battle/armas.ts`; el agente no la conoce', () => {
-    // 14-10-2026: las piezas de la arena dan puntos de armadura, que se restan
+describe('la armadura (#262)', () => {
+  it('`puntosDeArmadura` lo escribe solo `conEquipo` y lo leen solo él y `battle/armas.ts`; ninguna pieza da PV y el agente la ve', () => {
+    // 14-10-2026: las piezas dan puntos de armadura, que se restan
     // del daño de cada golpe. La suma es de `vestir` (`hero/equipo.ts`) y la resta
     // de `trasLaArmadura` (`battle/armas.ts`), por donde pasa todo lo que quita
     // vida (`herir`): una pantalla o una IA que leyera `unit.puntosDeArmadura` por
     // su cuenta restaría con otra regla, y un `{ ...u, puntosDeArmadura: 3 }` fuera
-    // de la suma daría armadura que ninguna pieza pone. Rotos a mano: un
+    // de la suma daría armadura que ninguna pieza pone. Desde el 18-10-2026 (una
+    // sola clase de piezas) ninguna da PV, `pv` no es un campo de `Pieza` (lo dice
+    // el tipo y el cargador) y el agente ve la armadura (`stacks[].armor`, por
+    // `armaduraDe`, y en la prosa del catálogo). Rotos a mano: un
     // `{ ...u, puntosDeArmadura: 3 }` en `arena.ts`, un `s.unit.puntosDeArmadura`
-    // en `paneles.ts` y un «+7 Armadura» en la prosa del agente salen rojos.
+    // en `paneles.ts`, un `hp: unit.hp + pv` en la suma y un `'pv'` en
+    // `CAMPOS_DE_PIEZA` salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const ESCRITOR = 'src/core/hero/equipo.ts';
     const LECTORES = [ESCRITOR, 'src/core/battle/armas.ts', 'src/core/types.ts'];
@@ -2121,25 +2155,27 @@ describe('la armadura es solo de la arena (#262)', () => {
       ),
     ).toEqual([]);
     expect(infractoresDeCodigo([ESCRITOR], escribe)).not.toEqual([]);
-    // El agente juega con las piezas del juego, que no la llevan: ni su formato
-    // ni la prosa del catálogo la nombran como cifra.
-    const dichoAlAgente = [...Object.values(RESPONSE_FORMAT), CATALOGO_DE_EQUIPO_EN_PROSA].join(
-      '\n',
-    );
-    expect(dichoAlAgente).not.toMatch(/[+−]\d+ Armadura|puntos de armadura|de armadura, que/);
-    const delJuego = EQUIPO.filter((p) => p.calidad !== 'arena');
-    expect(delJuego.length).toBeGreaterThan(0);
-    expect(delJuego.filter((p) => (p.armadura ?? 0) > 0).map((p) => p.id)).toEqual([]);
+    // Ninguna pieza da PV: la suma de las piezas no toca la vida, y `pv` no es un
+    // campo de una pieza (un `pv` en el fichero tumba la carga).
+    const sumaLaVida = /\bhp:\s*unit\.hp\s*\+/;
+    expect(infractoresDeCodigo([ESCRITOR], sumaLaVida)).toEqual([]);
+    expect(CAMPOS_DE_PIEZA).not.toContain('pv');
+    expect(EQUIPO.some((p) => 'pv' in p)).toBe(false);
+    // El agente la ve: en la prosa del catálogo, como cifra de cada pieza que la da.
+    for (const p of EQUIPO.filter((x) => (x.armadura ?? 0) > 0)) {
+      expect(CATALOGO_DE_EQUIPO_EN_PROSA, p.id).toContain(`+${p.armadura} Armadura`);
+    }
   });
 });
 
 describe('las bases y la rueda del arma (18-10-2026)', () => {
   it('una base se suma en un sitio y la rueda de un golpe va con su arma', () => {
     // Tres partes:
-    //  (a) `resolverBases` (la única suma de una base) se llama solo desde el
-    //      cargador (`data.ts`), el catálogo de la arena y su borrador (`arena.ts`)
-    //      y las piezas de una pelea (`battle.ts`): un segundo montador de catálogo
-    //      sumaría la base con otra regla, o no la sumaría.
+    //  (a) `resolverBases` (la única suma de una base) es privada de `data.ts` y la
+    //      llama solo el cargador del catálogo (`leerPiezas`), por el que pasan el
+    //      fichero, el catálogo que edita la arena y las piezas de una pelea
+    //      (`catalogoDeEquipo`): un segundo montador de catálogo sumaría la base con
+    //      otra regla, o no la sumaría.
     //  (b) Los extras de una pieza con base (`.extras`) los leen solo `data.ts`,
     //      `arena.ts` y la página de la arena (su ficha los escribe): nadie más
     //      suma un extra por su cuenta.
@@ -2169,19 +2205,21 @@ describe('las bases y la rueda del arma (18-10-2026)', () => {
       }
       return fuera;
     };
-    const sumanBases: Readonly<Record<string, readonly string[]>> = {
-      'src/core/arena.ts': ['catalogoDeLaArena', 'revisarBorradorDeEquipo'],
-      'src/core/battle/battle.ts': ['piezasDeLaPelea'],
-    };
-    const llamada = /\bresolverBases\s*\(/;
+    const llamada = /\bresolverBases\b/;
     expect(
-      fueraDe(
-        llamada,
-        sumanBases,
+      infractoresDeCodigo(
         todos.filter((r) => r !== 'src/core/data.ts'),
+        llamada,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/battle.ts'], llamada)).not.toEqual([]);
+    expect(infractoresDeCodigo(['src/core/data.ts'], /\bresolverBases\s*\(/)).not.toEqual([]);
+    // Y en `data.ts`, la llama solo `leerPiezas`: el catálogo (fichero, arena y
+    // pelea) pasa por él.
+    expect(
+      fueraDe(/\bresolverBases\s*\(/, { 'src/core/data.ts': ['resolverBases', 'leerPiezas'] }, [
+        'src/core/data.ts',
+      ]),
+    ).toEqual([]);
 
     const extras = /\.extras\b/;
     const leenExtras = (r: string): boolean =>

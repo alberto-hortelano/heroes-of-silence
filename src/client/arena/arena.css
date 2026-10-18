@@ -346,7 +346,7 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .regla button { min-height: 24px; padding: 0.05rem 0.4rem; font-size: 0.72rem; }
 .regla .cost { font-size: 0.72rem; line-height: 1.25; }
 /* Lo que avisa el editor de equipo: piezas sin guardar y la del enlace en la pelea. */
-.aviso-sin-guardar, .aviso-del-enlace { color: #e0c589; border-left: 3px solid #a68b4d; padding-left: 0.4rem; }
+.aviso-sin-guardar { color: #e0c589; border-left: 3px solid #a68b4d; padding-left: 0.4rem; }
 .efectivos { grid-column: 1 / -1; display: grid; gap: 0.1rem; }
 /* La ficha cabe en su columna: los campos no pasan de la suya y las filas de
    «En la pelea» parten la cifra en dos líneas antes que salirse. */
@@ -515,9 +515,7 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .lista-de-piezas button.pieza .nombre { color: #f2deac; min-width: 0; overflow-wrap: anywhere; }
 .lista-de-piezas button.pieza .cost { grid-column: 1 / -1; font-size: 0.75rem; overflow-wrap: anywhere; }
 .lista-de-piezas button.pieza.elegida { border-color: #e0c589; }
-.sello.sello-de-la-arena { color: #9fd0a0; border-color: #6fa07088; }
-.sello.sello-del-enlace { color: #e0c27a; border-color: #b0904a88; }
-.lista-de-piezas button.pieza .sello-del-enlace { grid-column: 1 / -1; justify-self: start; }
+.sello.sello-solo-en-kits { color: #9fd0a0; border-color: #6fa07088; }
 .ficha-de-pieza .botones { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .ficha-de-pieza .cifras { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); gap: 0.3rem 0.8rem; }
 .ficha-de-pieza .cifras .campo { grid-template-columns: minmax(0, 1fr) 5.5rem; align-items: center; gap: 0.4rem; }

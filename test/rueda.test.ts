@@ -68,6 +68,7 @@ import type {
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
 import type { NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
 import { nivelesDeLaEspada, type UnidadDeArena } from '../src/core/unidad.js';
@@ -1539,7 +1540,9 @@ describe('la sesión de la arena con la rueda', () => {
     const largo = s.battle.log.length;
     s.playBattleAction({ type: 'defend' });
     expect(s.status).toBe('Elige antes en la rueda del golpe.');
-    expect(s.retocar({ kind: 'piezas', piezas: [] })).toBe('Elige antes en la rueda del golpe.');
+    expect(s.retocar({ kind: 'piezas', equipo: EQUIPO_DEL_JUEGO })).toBe(
+      'Elige antes en la rueda del golpe.',
+    );
     expect(s.cancelarGolpe()).toBe(false);
     s.elegirEnLaRueda('patada');
     expect(s.status).toContain('«patada» no es un tipo de golpe');
@@ -1635,7 +1638,7 @@ describe('la sesión de la arena con la rueda', () => {
           ia: true,
         },
         reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        equipo: EQUIPO_DEL_JUEGO,
         modos: { golpe: 'rueda' },
       },
       5,
@@ -1726,7 +1729,7 @@ describe('la sesión de la arena con la rueda', () => {
     expect(s.ruedaPendiente).toBeNull();
     expect(s.turnoPropio?.stack.id).toBe('attacker-0');
     // Lo que resta la Finta del mandoble del piquero con el éxito que cayó.
-    const resta = casillasQueQuitaLaFinta(cruce.punto, ruedaDelGolpe(yo.unit, 'cuerpo'));
+    const resta = casillasQueQuitaLaFinta(cruce.punto, ruedaDelGolpe(yo.unit, 'arma'));
     expect(pasosQueQuedan(s.battle, yo)).toBe(velocidad - resta);
     const casillas = s.battleMovable();
     expect(casillas.length).toBeGreaterThan(0);

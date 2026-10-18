@@ -8,7 +8,7 @@
  * `multiplicadorFheroes2`. Las constantes viven aquí y no repartidas por el motor.
  */
 import { hasTrait, isShooter, quedanTiros } from '../data.js';
-import { DICHO_DEL_USO, type EquipoAtado, SIN_ARMA } from '../hero/equipo.js';
+import { DICHO_DEL_USO, SIN_ARMA } from '../hero/equipo.js';
 import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
@@ -71,7 +71,7 @@ export function usoDelGolpe(
 /** `usoDelGolpe` con la carga ya cobrada: la cuenta del daño la tiene y no la repite. */
 function usoConCarga(opts: Pick<DamageOptions, 'ranged'>, charge: number): UsoDeArma {
   if (opts.ranged === true) return 'distancia';
-  return charge > 0 ? 'carga' : 'cuerpo';
+  return charge > 0 ? 'lanza' : 'arma';
 }
 
 /**
@@ -79,10 +79,10 @@ function usoConCarga(opts: Pick<DamageOptions, 'ranged'>, charge: number): UsoDe
  * cuerpo)» o «sin arma, con el cuerpo (cuerpo a cuerpo)» (`golpeDe`,
  * `DICHO_DEL_USO`). Lo leen la previsión del golpe y la del contraataque.
  */
-export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, piezas: EquipoAtado): string {
+export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma): string {
   const { arma } = golpeDe(unit, uso);
   const como = DICHO_DEL_USO[uso].golpe;
-  return arma === null ? `${SIN_ARMA} (${como})` : `con ${piezas.pieza(arma).nombre} (${como})`;
+  return arma === null ? `${SIN_ARMA} (${como})` : `con ${arma.nombre} (${como})`;
 }
 
 /** Una fila de `armasDe`: el golpe de un uso (`golpeDe`) con el nombre del arma y si se da. */
@@ -102,14 +102,14 @@ export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'arma'> {
 
 /**
  * Las armas de una unidad, una fila por uso (`golpeDe`), con el nombre de cada
- * arma en `piezas`: lo que enseña la ficha de la arena. El cuerpo a cuerpo,
+ * arma: lo que enseña la ficha de la arena. El cuerpo a cuerpo,
  * siempre; el disparo, si dispara (`isShooter`: lleva arma a distancia o es un
  * tirador del catálogo); la carga, si lleva arma de carga o carga
  * (`cifrasDeCarga`: el rasgo, o a pie si la pelea lo juega, `cargaAPie`). Un arma
  * de carga puesta en quien no carga sale igual, con su motivo: callada, ocupaba su
  * hueco y la ficha no la nombraba (H1 del QA de las armas por uso, 13-10-2026).
  */
-export function armasDe(unit: UnitInfo, piezas: EquipoAtado, cargaAPie: boolean): ArmaDeLaUnidad[] {
+export function armasDe(unit: UnitInfo, cargaAPie: boolean): ArmaDeLaUnidad[] {
   const fila = (
     uso: UsoDeArma,
     sinUso: string | null = null,
@@ -118,18 +118,18 @@ export function armasDe(unit: UnitInfo, piezas: EquipoAtado, cargaAPie: boolean)
     const { arma, attack, damage } = golpeDe(unit, uso);
     return {
       uso,
-      arma: arma === null ? null : piezas.pieza(arma).nombre,
+      arma: arma?.nombre ?? null,
       attack,
       damage,
       sinUso,
       carga,
     };
   };
-  const filas = [fila('cuerpo')];
+  const filas = [fila('arma')];
   if (isShooter(unit)) filas.push(fila('distancia'));
   const carga = cifrasDeCarga(unit, cargaAPie);
-  if (unit.armas?.carga !== undefined || carga !== null) {
-    filas.push(fila('carga', carga === null ? DICHO_DEL_USO.carga.sinUso : null, carga));
+  if (unit.armas?.lanza !== undefined || carga !== null) {
+    filas.push(fila('lanza', carga === null ? DICHO_DEL_USO.lanza.sinUso : null, carga));
   }
   return filas;
 }
@@ -140,7 +140,7 @@ export function armasDe(unit: UnitInfo, piezas: EquipoAtado, cargaAPie: boolean)
  * (`BattleHero` cuenta por qué). Los efectos de `attack` son los que mete el
  * miedo del dragón óseo.
  */
-export function effectiveAttack(stack: BattleStack, uso: UsoDeArma = 'cuerpo'): number {
+export function effectiveAttack(stack: BattleStack, uso: UsoDeArma = 'arma'): number {
   return cifrasDelGolpe(stack.unit, uso).attack + effectTotal(stack, 'attack');
 }
 
@@ -614,14 +614,12 @@ export interface RamaDeSuerte extends Horquilla {
  * tirada mínima y la máxima de `tiradasPosibles`—, no de una copia: todo lo que
  * multiplica es positivo y el redondeo es monótono, así que los extremos de la
  * tirada dan los extremos del daño. `test/prevision.test.ts` lo compara con el
- * daño de verdad en cientos de semillas. No toca el `Rng`. `piezas` son las de
- * la pelea, con que se nombra el arma del golpe (`UnitInfo.armas`).
+ * daño de verdad en cientos de semillas. No toca el `Rng`.
  */
 export function horquillaDeDanio(
   attacker: BattleStack,
   defender: BattleStack,
   opts: DamageOptions,
-  piezas: EquipoAtado,
 ): {
   readonly danio: Horquilla;
   readonly buena: RamaDeSuerte | null;
@@ -645,7 +643,7 @@ export function horquillaDeDanio(
   // Con armas por uso (la arena), lo primero es con cuál pega: la horquilla es
   // la de esa arma, y la previsión y el contraataque lo dicen sin campos nuevos.
   const conArma =
-    attacker.unit.armas === undefined ? null : dichoDelGolpe(attacker.unit, golpe.uso, piezas);
+    attacker.unit.armas === undefined ? null : dichoDelGolpe(attacker.unit, golpe.uso);
   if (conArma !== null) modificadores.push({ causa: conArma, factor: null });
   if (tirada !== 0) {
     modificadores.push({

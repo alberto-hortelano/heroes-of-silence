@@ -11,10 +11,10 @@
  * carga. Las 34 unidades del catálogo, en su tabla.
  */
 import { describe, expect, it } from 'vitest';
-import { catalogoDeLaArena, equiparEnArena, piezaNueva } from '../src/core/arena.js';
+import { equiparEnArena, piezaNueva } from '../src/core/arena.js';
 import { UNIDADES, unidad } from '../src/core/catalogo.js';
 import { allCreatures, creature, EQUIPO, type Pieza, validarPoder } from '../src/core/data.js';
-import { conEquipo } from '../src/core/hero/equipo.js';
+import { conEquipo, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { cifrasVeteranas, umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import {
@@ -26,7 +26,7 @@ import {
 } from '../src/core/nivel.js';
 import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
-import { DEL_JUEGO, todoA } from './helpers.js';
+import { catalogoCon, todoA } from './helpers.js';
 
 /**
  * id → [morada, índice, nivel], la tabla de §3 del plan (calculada a mano en el
@@ -172,9 +172,7 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       const puesto = conEquipo(espadachin, { [p.hueco]: p.id });
       expect(indiceDePoder(puesto), p.id).toBeGreaterThanOrEqual(desnudo);
     }
-    expect(indiceDePoder(conEquipo(espadachin, { arma: 'espada_de_armeria' }))).toBeGreaterThan(
-      desnudo,
-    );
+    expect(indiceDePoder(conEquipo(espadachin, { arma: 'espada' }))).toBeGreaterThan(desnudo);
   });
 
   it('la armadura cuenta en lo que aguanta, contra un golpe de 30, y como mucho ×4', () => {
@@ -198,25 +196,27 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   it('lo que pega es el mejor de sus golpes, cada uno con su arma: el disparo cuenta si tira', () => {
     // El arquero de las hojas pega con la daga y dispara con el arco.
     const arquero = unidad('elfo-arquero');
-    const conArco = indiceDePoder(unidadDeCombate(arquero, DEL_JUEGO));
+    const conArco = indiceDePoder(unidadDeCombate(arquero, EQUIPO_DEL_JUEGO));
     const { distancia: _arco, ...sinElArco } = arquero.equipo;
     expect(_arco).toBe('arco');
-    const sinArco = indiceDePoder(unidadDeCombate({ ...arquero, equipo: sinElArco }, DEL_JUEGO));
+    const sinArco = indiceDePoder(
+      unidadDeCombate({ ...arquero, equipo: sinElArco }, EQUIPO_DEL_JUEGO),
+    );
     expect(conArco).toBeGreaterThan(sinArco);
     // Con la ballesta, que pega más, más todavía.
-    const conBallesta = equiparEnArena(arquero, 'ballesta', DEL_JUEGO);
-    expect(indiceDePoder(unidadDeCombate(conBallesta, DEL_JUEGO))).toBeGreaterThan(conArco);
+    const conBallesta = equiparEnArena(arquero, 'ballesta', EQUIPO_DEL_JUEGO);
+    expect(indiceDePoder(unidadDeCombate(conBallesta, EQUIPO_DEL_JUEGO))).toBeGreaterThan(conArco);
   });
 
   it('la rueda del arma pesa por su daño: Fuerte y Rápido suben el índice; Ofensivo, Defensivo, Romper guardia y Finta, no', () => {
     const guerrero = unidad('templario-escudo');
     // Un arma nueva, que nace como la Espada, y de la que no cuelga ninguna otra.
-    const nueva = piezaNueva('arma', DEL_JUEGO) as Pieza;
+    const nueva = piezaNueva('arma', EQUIPO_DEL_JUEGO) as Pieza;
     const conRueda = (rueda: NivelesDeLaRueda) =>
       indiceDePoder(
         unidadDeCombate(
           { ...guerrero, equipo: { ...guerrero.equipo, arma: nueva.id } },
-          catalogoDeLaArena([{ ...nueva, rueda }]),
+          catalogoCon({ ...nueva, rueda }),
         ),
       );
     const base = conRueda(todoA(3));
@@ -233,12 +233,12 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     // Simplify de F1: se mide como pelearán (rueda × carga, `intercambio`), no la carga sola.
     const jinete = unidad('templario-hermano-de-carga');
     // Una copia de la lanza de jinete, que no cuelga de nadie.
-    const lanza = piezaNueva(DEL_JUEGO.pieza('lanza_de_jinete'), DEL_JUEGO) as Pieza;
+    const lanza = piezaNueva(EQUIPO_DEL_JUEGO.pieza('lanza_de_jinete'), EQUIPO_DEL_JUEGO) as Pieza;
     const conLaLanza = (rueda: NivelesDeLaRueda) =>
       indiceDePoder(
         unidadDeCombate(
-          { ...jinete, equipo: { ...jinete.equipo, carga: lanza.id } },
-          catalogoDeLaArena([{ ...lanza, rueda }]),
+          { ...jinete, equipo: { ...jinete.equipo, lanza: lanza.id } },
+          catalogoCon({ ...lanza, rueda }),
         ),
       );
     const base = conLaLanza(todoA(3));
@@ -250,15 +250,15 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   it('quien carga se mide también por la carga: el jinete sin el caballo vale menos', () => {
     const jinete = unidad('templario-hermano-de-carga');
     expect(jinete.traits).toContain('charge');
-    const conCaballo = indiceDePoder(unidadDeCombate(jinete, DEL_JUEGO));
-    const aPie = indiceDePoder(unidadDeCombate({ ...jinete, traits: [] }, DEL_JUEGO));
+    const conCaballo = indiceDePoder(unidadDeCombate(jinete, EQUIPO_DEL_JUEGO));
+    const aPie = indiceDePoder(unidadDeCombate({ ...jinete, traits: [] }, EQUIPO_DEL_JUEGO));
     expect(conCaballo).toBeGreaterThan(aPie);
   });
 
   it('las unidades del catálogo, vestidas, tienen el índice y el nivel de su tabla', () => {
     const leidas = Object.fromEntries(
       UNIDADES.map((u) => {
-        const c = unidadDeCombate(u, DEL_JUEGO);
+        const c = unidadDeCombate(u, EQUIPO_DEL_JUEGO);
         return [u.id, [indiceDePoder(c), nivelDeUnidad(c)]];
       }),
     );
@@ -271,16 +271,16 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     expect(indiceDePoder(conRango(5))).toBe(363);
     expect(nivelDeUnidad(conRango(5))).toBe(3);
     expect(indiceDePoder(conRango(10))).toBeGreaterThan(indiceDePoder(conRango(5)));
-    // Con el equipo base, más: las piezas cuentan.
+    // Con la Espada, más: las piezas cuentan.
     const equipado = heroUnit({
       name: 'X',
       attack: 2,
       defense: 2,
       experience: umbral(5),
-      equipo: { arma: 'espada_de_armeria' },
+      equipo: { arma: 'espada' },
     });
     expect(equipado.attack).toBeGreaterThan(conRango(5).attack);
-    expect(indiceDePoder(equipado)).toBe(376);
+    expect(indiceDePoder(equipado)).toBe(419);
   });
 
   it('unas cifras que no caben en un entero lanzan diciéndolo, no redondean', () => {

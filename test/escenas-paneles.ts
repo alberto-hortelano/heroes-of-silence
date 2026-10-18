@@ -302,10 +302,10 @@ export async function escenas(): Promise<readonly Escena[]> {
   armeria.moveHeroTo(armero.id, conArmeria.at);
   conArmeria.buildings.push('armory');
   armero.army = [
-    { creature: 'pikeman', veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'garrote' } } },
+    { creature: 'pikeman', veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'maza' } } },
     {
       creature: 'peasant',
-      veterania: { ...hoja('veterano-2', 0), equipo: { armadura: 'cota_de_malla' } },
+      veterania: { ...hoja('veterano-2', 0), equipo: { armadura: 'brigantina' } },
     },
     { creature: 'peasant' },
   ];
@@ -313,18 +313,18 @@ export async function escenas(): Promise<readonly Escena[]> {
   out.push({ nombre: 'castillo · con armería y tropa equipada', session: armeria });
 
   // 18 · El héroe en el mapa con la MOCHILA llena y una pieza elegida: su
-  //      «Ponérsela», los «Equipar» de cada fila y los «×» de lo puesto. Le falta
-  //      el accesorio, para que salga el hueco vacío.
+  //      «Ponérsela», los «Equipar» de cada fila y los «×» de lo puesto. Le faltan
+  //      el arma a distancia, la de carga y el escudo, para que salga el hueco vacío.
   const mochila = new Session(12);
   const cargado = mochila.myHeroes()[0]!;
-  cargado.equipo = { arma: 'espada_de_armeria', armadura: 'cota_de_malla' };
-  cargado.mochila = ['talisman_vital', 'garrote'];
+  cargado.equipo = { arma: 'espada', armadura: 'gambeson' };
+  cargado.mochila = ['espada_bendita', 'maza'];
   cargado.army = [
-    { creature: 'pikeman', veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'garrote' } } },
+    { creature: 'pikeman', veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'maza' } } },
     { creature: 'peasant' },
     { creature: 'peasant' },
   ];
-  mochila.selectItem('talisman_vital');
+  mochila.selectItem('espada_bendita');
   out.push({ nombre: 'aventura · mochila y pieza elegida', session: mochila });
 
   return out;
@@ -362,12 +362,12 @@ function cronicaCompleta(): readonly GameEvent[] {
     { ...base, kind: 'recruited', town: 'town-1', creature: 'skeleton', count: 8, actor: 1 },
     { ...base, kind: 'hero_hired', hero: 'hero-2', town: 'town-0', actor: 0 },
     { ...base, kind: 'hero_hired', hero: 'hero-3', town: 'town-1', actor: 1 },
-    { ...base, kind: 'loot_found', hero: 'hero-0', item: 'garrote', from: 'raider', actor: 0 },
+    { ...base, kind: 'loot_found', hero: 'hero-0', item: 'maza', from: 'raider', actor: 0 },
     {
       ...base,
       kind: 'loot_found',
       hero: 'hero-1',
-      item: 'talisman_vital',
+      item: 'espada_bendita',
       from: 'town',
       actor: 1,
     },
@@ -376,7 +376,7 @@ function cronicaCompleta(): readonly GameEvent[] {
       kind: 'item_bought',
       hero: 'hero-0',
       town: 'town-0',
-      item: 'cota_de_malla',
+      item: 'brigantina',
       actor: 0,
     },
     {
@@ -384,7 +384,7 @@ function cronicaCompleta(): readonly GameEvent[] {
       kind: 'item_bought',
       hero: 'hero-1',
       town: 'town-1',
-      item: 'brazal_de_armeria',
+      item: 'arco',
       actor: 1,
     },
     // El nombre lo escribe el narrador, así que va con marcado dentro: el ancla

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
   type Catalogo,
@@ -13,8 +14,8 @@ import type { Senda } from '../src/client/render/escenario/sendas.js';
 import { SesionDeArena } from '../src/client/session.js';
 import {
   batallaDeArena,
-  type CatalogoDeLaArena,
-  catalogoDeLaArena,
+  cambioDePiezas,
+  conPiezas,
   type FuenteDeArena,
   type HojaDeArena,
   type MontajeDeArena,
@@ -41,7 +42,19 @@ import type {
 } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
 import { unidad } from '../src/core/catalogo.js';
-import { BARRERAS_DEL_MAPA, type Pieza } from '../src/core/data.js';
+import {
+  BARRERAS_DEL_MAPA,
+  COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
+  EQUIPO_ESCRITO,
+  type Pieza,
+  type PiezaEscrita,
+  RUTA_DEL_CATALOGO_DE_EQUIPO,
+} from '../src/core/data.js';
+import {
+  type CatalogoDeEquipo,
+  catalogoDeEquipo,
+  EQUIPO_DEL_JUEGO,
+} from '../src/core/hero/equipo.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
@@ -1101,10 +1114,47 @@ export function unidadDeArena(id: string, cambios: Partial<UnidadDeArena> = {}):
 }
 
 /**
- * Las piezas del juego, atadas: las de la arena sin borrador (`catalogoDeLaArena`,
- * con lo escrito: las bases de `data/equipo.json`).
+ * El catálogo de equipo del juego (`EQUIPO_ESCRITO`) con `encima` puestas
+ * (`conPiezas`: la del mismo id la sustituye, una nueva va detrás): el catálogo
+ * entero que una prueba hace (`catalogoCon`) o guarda.
  */
-export const DEL_JUEGO: CatalogoDeLaArena = catalogoDeLaArena([]);
+export function elCatalogoCon(...encima: PiezaEscrita[]): readonly PiezaEscrita[] {
+  return conPiezas(EQUIPO_ESCRITO, encima);
+}
+
+/**
+ * Una carpeta temporal con lo que la arena lee del repo además de lo que escribe:
+ * el catálogo de equipo (`data/equipo.json`, el del juego). Sin él, `leerCatalogo`
+ * no tiene con qué leer las unidades, como no lo tendría el juego.
+ */
+export function carpetaDeLaArena(prefijo = 'arena-'): string {
+  const dir = mkdtempSync(join(tmpdir(), prefijo));
+  mkdirSync(join(dir, 'data'), { recursive: true });
+  writeFileSync(
+    join(dir, RUTA_DEL_CATALOGO_DE_EQUIPO),
+    JSON.stringify({ _comment: COMENTARIO_DEL_CATALOGO_DE_EQUIPO, piezas: EQUIPO_ESCRITO }),
+  );
+  return dir;
+}
+
+/** El catálogo del juego con `encima` puestas (`elCatalogoCon`), leído (`catalogoDeEquipo`). */
+export function catalogoCon(...encima: PiezaEscrita[]): CatalogoDeEquipo {
+  return catalogoDeEquipo(elCatalogoCon(...encima));
+}
+
+/**
+ * Por qué no se pasa del catálogo `antes` a las piezas `despues` con esas
+ * unidades (`cambioDePiezas`), o `null` si se puede: la pregunta de las pruebas
+ * del editor de equipo, que miran el motivo.
+ */
+export function motivoDelCambio(
+  antes: CatalogoDeEquipo,
+  despues: readonly PiezaEscrita[],
+  unidades: readonly UnidadDeArena[],
+): string | null {
+  const r = cambioDePiezas(antes, despues, unidades);
+  return 'motivo' in r ? r.motivo : null;
+}
 
 /** Una rueda con todos los tipos del anillo en el nivel `n`. */
 export function todoA(n: number): NivelesDeLaRueda {
@@ -1122,40 +1172,37 @@ export const MANOS_DE_PRUEBA: Pieza = {
   id: 'manos_de_prueba',
   nombre: 'Manos de prueba',
   hueco: 'arma',
-  calidad: 'arena',
+  seConsigue: [],
   ataque: 0,
   defensa: 0,
-  pv: 0,
   velocidad: 0,
   rueda: nivelesDeLaEspada(),
-  precio: { gold: 0 },
+  precio: 0,
 };
 
 /**
  * Cada stack de `b` (sin arma) con las manos de prueba en el hueco del arma, por
- * `conEquipo`, el único escritor de `UnitInfo.armas`, y la pieza entre las de la
- * pelea (`BattleState.piezasDeArena`): golpea en la rueda con los niveles de la
- * Espada (u otros, `niveles`) sin cambiar sus cifras. Devuelve `b`.
+ * `conEquipo`, el único escritor de `UnitInfo.armas` (con su nombre: la batalla no
+ * lleva catálogo): golpea en la rueda con los niveles de la Espada (u otros,
+ * `niveles`) sin cambiar sus cifras. Devuelve `b`.
  */
 export function conManosDePrueba(
   b: BattleState,
   niveles: NivelesDeLaRueda = nivelesDeLaEspada(),
 ): BattleState {
   const manos: Pieza = { ...MANOS_DE_PRUEBA, rueda: niveles };
-  const eq = catalogoDeLaArena([manos]);
-  // La pelea lleva su pieza: la previsión y la ficha buscan el arma por su id.
-  b.piezasDeArena = [...(b.piezasDeArena ?? []), manos];
+  const eq = catalogoCon(manos);
   for (const s of b.stacks) {
     (s as { unit: UnitInfo }).unit = eq.conEquipo(s.unit, { arma: manos.id });
   }
   return b;
 }
 
-/** Lo común de un montaje de prueba: las reglas del juego y ninguna pieza de la arena. */
-export const MONTAJE = { reglas: REGLAS_DEL_JUEGO, piezas: [] } as const satisfies Pick<
-  MontajeDeArena,
-  'reglas' | 'piezas'
->;
+/** Lo común de un montaje de prueba: las reglas y el catálogo de equipo del juego. */
+export const MONTAJE = {
+  reglas: REGLAS_DEL_JUEGO,
+  equipo: EQUIPO_DEL_JUEGO,
+} as const satisfies Pick<MontajeDeArena, 'reglas' | 'equipo'>;
 
 /** Una unidad del borrador a su puesto de la pelea, con su escalera o sin ella. */
 export interface PuestoDeLaPelea {
@@ -1171,15 +1218,16 @@ export function aPelear(unidades: readonly UnidadDeArena[]): PuestoDeLaPelea[] {
 /**
  * El montaje de la arena con unidades del borrador, sin héroes: los tests de la
  * muralla no miran ni el catálogo ni la magia. Con las reglas del juego salvo
- * que se pidan otras, y sin piezas de la arena ni modos salvo que se pidan
- * (`extra`: las piezas del borrador y los modos, como la rueda del golpe).
+ * que se pidan otras, y con el catálogo de equipo del juego y sin modos salvo que
+ * se pidan (`extra`: el catálogo hecho, `catalogoCon`, y los modos, como la rueda
+ * del golpe).
  */
 export function montajeDePrueba(
   izquierda: readonly PuestoDeLaPelea[],
   derecha: readonly PuestoDeLaPelea[],
   muralla: MurallaDeBatalla = SIN_MURALLA,
   reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
-  extra: Partial<Pick<MontajeDeArena, 'piezas' | 'modos'>> = {},
+  extra: Partial<Pick<MontajeDeArena, 'equipo' | 'modos'>> = {},
 ): MontajeDeArena {
   const lado = (puestos: readonly PuestoDeLaPelea[]) => ({
     unidades: puestos.map(({ unidad, escalera }) => ({ unidad, escalera: escalera === true })),
@@ -1190,7 +1238,7 @@ export function montajeDePrueba(
     derecha: lado(derecha),
     reglas,
     muralla,
-    piezas: extra.piezas ?? [],
+    equipo: extra.equipo ?? EQUIPO_DEL_JUEGO,
     ...(extra.modos === undefined ? {} : { modos: extra.modos }),
   };
 }
@@ -1253,7 +1301,7 @@ export function peleaDelMotor(
   const lado = (puestos: readonly PuestoDelMotor[], hero: BattleSide['hero']): BattleSide => {
     const members = new Map<string, BattleMember>();
     const army: Stack[] = puestos.map(({ unidad, escalera, grande }, i) => {
-      const cifras = unidadDeCombate(unidad, DEL_JUEGO);
+      const cifras = unidadDeCombate(unidad, EQUIPO_DEL_JUEGO);
       const unit = grande === true ? { ...cifras, hexes: 2 } : cifras;
       const member = `motor-${i}`;
       members.set(member, {

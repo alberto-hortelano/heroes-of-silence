@@ -387,11 +387,11 @@ describe('enlace con el agente', () => {
         actions: [
           { type: 'buy_item', town: town.id, item: pieza },
           { type: 'equip', hero: hero.id, item: pieza, creature: hero.army[0].creature },
-          { type: 'unequip', hero: hero.id, slot: 'weapon' },
+          { type: 'unequip', hero: hero.id, slot: 'melee_weapon' },
           // Y tres que no valen, que se descartan una a una con el motivo del
           // núcleo. El hueco inventado tumbaba el turno ENTERO cuando `slot` era
           // un `z.enum`: ni la compra ni el equipo de arriba llegaban (M3).
-          { type: 'equip', hero: hero.id, item: 'talisman_vital' },
+          { type: 'equip', hero: hero.id, item: 'maza' },
           { type: 'unequip', hero: hero.id, slot: 'casco' },
           // El nombre de dentro no es un hueco del contrato: van en inglés.
           { type: 'unequip', hero: hero.id, slot: 'arma' },
@@ -410,17 +410,17 @@ describe('enlace con el agente', () => {
     expect(agent.seen[0]?.kind).toBe('adventure_turn');
     expect(informe.actions).toBe(3);
     expect(informe.problems).toHaveLength(3);
-    expect(informe.problems[0]).toMatch(/no lleva Talismán vital en la mochila/);
+    expect(informe.problems[0]).toMatch(/no lleva Maza en la mochila/);
     expect(informe.problems[1]).toMatch(
-      /unequip casco de .*: no hay ningún hueco "casco": son weapon, armor, accessory, shield/,
+      /unequip casco de .*: no hay ningún hueco "casco": son melee_weapon, ranged_weapon, lance, armor, shield/,
     );
     expect(informe.problems[2]).toMatch(
-      /unequip arma de .*: no hay ningún hueco "arma": son weapon, armor, accessory, shield/,
+      /unequip arma de .*: no hay ningún hueco "arma": son melee_weapon, ranged_weapon, lance, armor, shield/,
     );
     const equipado = hero.army.find((t) => t.veterania?.equipo !== undefined);
-    expect(equipado?.veterania?.equipo).toEqual({ armadura: 'cota_de_malla' });
+    expect(equipado?.veterania?.equipo).toEqual({ armadura: 'brigantina' });
     expect(hero.equipo.arma).toBeUndefined();
-    expect(hero.mochila).toEqual(['espada_de_armeria']);
+    expect(hero.mochila).toEqual(['espada']);
   });
 
   it('una acción ilegal se descarta, se le cuenta al agente y el turno sigue', async () => {
@@ -2160,7 +2160,8 @@ describe('la tropa se hace héroe, por el cable', () => {
     const turno = agent.seen[1]!.payload;
     expect(turno.heroes).toHaveLength(2);
     const nacido = turno.heroes.find((h: any) => h.name === `Héroe de ${veterano}`);
-    expect(nacido).toMatchObject({ type: 'monje', rank: 5, level: 3, movePoints: 0 });
+    // Del nivel 4: el equipo base (la Espada y el gambesón) cuenta en el índice.
+    expect(nacido).toMatchObject({ type: 'monje', rank: 5, level: 4, movePoints: 0 });
     // Nace en la casilla del castillo y se lleva la guarnición (I1): una base
     // defendida por un héroe sin tropa caía esa noche ante dos campesinos.
     expect(nacido.at).toEqual(turno.towns.find((t: any) => t.id === turno.yourBase).at);

@@ -36,9 +36,10 @@ import { FACTION_IDS, HUECOS } from '../types.js';
 import { SLOT_DE_HUECO, SLOTS } from './huecos.js';
 
 /** Los huecos que el héroe trae puestos al nacer y los que trae vacíos, derivados del equipo base. */
-const HUECOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] !== undefined)
-  .map((h) => SLOT_DE_HUECO[h])
-  .join(', ');
+const HUECOS_DE_SERIE = HUECOS.flatMap((h) => {
+  const id = EQUIPO_BASE[h];
+  return id === undefined ? [] : [`"${id}" en "${SLOT_DE_HUECO[h]}"`];
+}).join(' y ');
 const VACIOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] === undefined).map(
   (h) => `"${SLOT_DE_HUECO[h]}"`,
 );
@@ -391,21 +392,26 @@ Notas:
   los de MENOS experiencia: el veterano no se va mientras quede un novato de su
   tipo. Un personaje no se licencia, y fuera de un castillo tuyo se rechaza
   diciéndolo.
-- EQUIPO: todo héroe y todo individuo de la tropa tiene cuatro huecos
-  (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada; cada pieza suma
-  sus cifras a quien la lleva. "${SLOT_DE_HUECO.escudo}" es opcional: ${REGLA_DEL_ESCUDO}
+- EQUIPO: todo héroe y todo individuo de la tropa tiene cinco huecos
+  (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada: "${SLOT_DE_HUECO.arma}" es
+  el arma de cuerpo a cuerpo, "${SLOT_DE_HUECO.distancia}" la que dispara (llevarla ya
+  es disparar, salvo a quien tira con su munición, que no la lleva),
+  "${SLOT_DE_HUECO.lanza}" la lanza con que se carga, "${SLOT_DE_HUECO.armadura}" la
+  armadura y "${SLOT_DE_HUECO.escudo}" el escudo, opcional: ${REGLA_DEL_ESCUDO}
   (ponerle uno a quien lleva un arma a dos manos, o ponerle una a quien lleva
-  escudo, se rechaza diciéndolo).
+  escudo, se rechaza diciéndolo). Cada pieza suma sus cifras a quien la lleva;
+  ninguna da PV: la armadura son puntos que se restan del daño de cada golpe que
+  recibe, y "stacks[].armor" de la batalla dice cuántos.
   "heroes[].equipment" es lo que lleva puesto el héroe (por hueco, el id o null) y
   "heroes[].backpack" su MOCHILA, las piezas que lleva sin poner. Todo héroe nace
-  con el equipo de calidad de armería puesto en ${HUECOS_DE_SERIE}${VACIOS_DE_SERIE.length === 0 ? '' : ` (y nada en ${VACIOS_DE_SERIE.join(', ')})`};
-  solo mejora con piezas especiales. De dónde salen las piezas:
+  con ${HUECOS_DE_SERIE}${VACIOS_DE_SERIE.length === 0 ? '' : ` (y nada en ${VACIOS_DE_SERIE.join(', ')})`}.
+  De dónde salen las piezas (lo dice cada una abajo):
   · BOTÍN: vencer a un grupo de asaltantes —atacándolo o repeliendo su
-    emboscada— o tomar una ciudad NEUTRAL con guarnición deja una pieza común o
-    especial, al azar, en la mochila del héroe que gana. Lo cuenta "recentEvents"
-    con "loot_found".
+    emboscada— o tomar una ciudad NEUTRAL con guarnición deja una de las piezas
+    que caen como botín, al azar, en la mochila del héroe que gana. Lo cuenta
+    "recentEvents" con "loot_found".
   · ARMERÍA: en un castillo tuyo con el edificio "armory" y un héroe tuyo dentro,
-    "buy_item" compra una pieza de calidad de armería para su mochila;
+    "buy_item" compra una de las piezas que se venden para su mochila;
     "towns[].armory" dice qué vende y a qué precio, y solo viene si la tiene.
   Cada fila de "army" con "id" lleva su "equipment" con la misma forma.
   "equip" pone una pieza de la mochila del héroe: sin más, al propio héroe; con

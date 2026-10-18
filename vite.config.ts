@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
+import { RUTA_DEL_CATALOGO_DE_EQUIPO } from './src/core/data.js';
 import { RUTA_DEL_CATALOGO_DE_UNIDADES } from './src/core/unidad.js';
 import { puertoEspectadores } from './src/server/entorno.js';
 import {
@@ -85,8 +87,8 @@ function servirBorrador(b: {
 }
 
 /**
- * La arena (`/arena/`): la lista de hojas, el catálogo de unidades con las
- * piezas de equipo de la arena, y el borrador de murallas.
+ * La arena (`/arena/`): la lista de hojas, los catálogos de unidades y de equipo,
+ * y el borrador de murallas.
  *
  * El guardado existe **solo en `pnpm dev`** (`configureServer`): un navegador no
  * puede escribir en el repo, y en `vite build` no hay quien escriba. El build
@@ -94,9 +96,21 @@ function servirBorrador(b: {
  * que la página lee un campo explícito en vez de deducir del tipo de una
  * respuesta si hay servidor detrás; las unidades, la arena construida las lee
  * del catálogo del núcleo (`core/catalogo.ts`), que ya va en el bundle.
+ *
+ * **«Guardar» no recarga la página**: `data/equipo.json` lo importa el núcleo, así
+ * que está en el grafo de módulos de la arena y de la partida, y vite recargaba la
+ * página entera al reescribirlo, con la pelea a medias (y la partida de otra
+ * pestaña con ella). Lo que acaba de escribir la arena no dispara recarga
+ * (`handleHotUpdate`): se recuerda **el texto** que escribió cada fichero, y el
+ * cambio cuyo fichero dice eso se calla (por contenido, no por reloj: con una
+ * ventana de tiempo, una edición a mano dentro de ella no recargaba). El módulo sí
+ * queda invalidado, así que la siguiente carga de la página lee el nuevo. Lo
+ * cambiado a mano en esos ficheros recarga como siempre.
  */
 function arena(): Plugin {
   const raiz = __dirname;
+  /** Lo que escribió «Guardar» en cada fichero, por su ruta absoluta. */
+  const escritoAlGuardar = new Map<string, string>();
   /**
    * La lista de hojas, leída una vez: son decenas de `dN/atlas.json` síncronos,
    * y en cada recarga de la página bloqueaban el bucle de vite. Se olvida cuando cambia
@@ -139,25 +153,20 @@ function arena(): Plugin {
             return {
               unidades: leido.unidades,
               invalidas: leido.invalidas.map(({ id, motivo }) => ({ id, motivo })),
-              // Y las piezas de la arena (vista «Editar equipo»), que el juego no lee:
-              // van con las unidades porque se guardan con ellas, en una operación.
+              // Y el catálogo de equipo (vista «Editar equipo»): va con las unidades
+              // porque se guarda con ellas, en una operación.
               piezas: leido.piezas,
-              piezasInvalidas: leido.piezasInvalidas.map(({ clave, motivo }) => ({
-                id: clave,
-                motivo,
-              })),
-              ...(leido.equipoIlegible === undefined
-                ? {}
-                : { equipoIlegible: leido.equipoIlegible }),
             };
           },
-          vacio: {
-            unidades: [],
-            invalidas: [],
-            piezas: [],
-            piezasInvalidas: [],
+          vacio: { unidades: [], invalidas: [], piezas: [] },
+          escribir: (cuerpo) => {
+            const hecho = escribirCatalogo(raiz, cuerpo);
+            for (const ruta of [RUTA_DEL_CATALOGO_DE_EQUIPO, RUTA_DEL_CATALOGO_DE_UNIDADES]) {
+              const donde = resolve(raiz, ruta);
+              escritoAlGuardar.set(donde, readFileSync(donde, 'utf8'));
+            }
+            return hecho;
           },
-          escribir: (cuerpo) => escribirCatalogo(raiz, cuerpo),
         }),
       );
       server.middlewares.use(
@@ -175,6 +184,13 @@ function arena(): Plugin {
           escribir: (cuerpo) => escribirMurallas(raiz, cuerpo),
         }),
       );
+    },
+    async handleHotUpdate({ file, read }) {
+      const escrito = escritoAlGuardar.get(resolve(file));
+      if (escrito === undefined) return undefined;
+      if ((await read()) === escrito) return [];
+      escritoAlGuardar.delete(resolve(file));
+      return undefined;
     },
     generateBundle() {
       this.emitFile({

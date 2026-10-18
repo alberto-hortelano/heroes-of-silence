@@ -136,12 +136,12 @@ const comprasVistas = new Set<string>();
 const equipo: { visto: string | null } = { visto: null };
 /**
  * Los huecos en inglés (12-10-2026): el `equipment` de cada héroe trae
- * exactamente estos cuatro, y un `unequip` con `slot: "shield"` cruza el puente,
+ * exactamente estos cinco (sin accesorio desde el 18-10-2026), y un `unequip` con `slot: "shield"` cruza el puente,
  * se traduce (`accionDelAgente`) y lo contesta el NÚCLEO —el héroe no lleva
  * escudo, así que lo descarta `unequipBlocker` diciéndolo—. Si el `slot` no se
  * tradujera, el motivo sería «no hay ningún hueco», no este.
  */
-const SLOTS_DEL_CONTRATO = ['weapon', 'armor', 'accessory', 'shield'];
+const SLOTS_DEL_CONTRATO = ['melee_weapon', 'ranged_weapon', 'lance', 'armor', 'shield'];
 const escudo: { requestId: string | null; heroe: string | null; visto: string | null } = {
   requestId: null,
   heroe: null,
@@ -453,7 +453,7 @@ async function cruzaElHeroeNacido(client: Client, turno: any): Promise<void> {
 /**
  * Busca en el turno un individuo con `id` que lleve algo en su `equipment` —un
  * novato al que se le puso una pieza, o un veterano— y lo cruza con `game_state`: las dos puertas tienen
- * que decir lo mismo de lo que lleva. Y el héroe tiene que traer sus tres huecos
+ * que decir lo mismo de lo que lleva. Y el héroe tiene que traer sus cinco huecos
  * y su mochila, que es lo que el agente lee para decidir qué ponerse.
  */
 async function cruzaElEquipo(client: Client, turno: any): Promise<void> {

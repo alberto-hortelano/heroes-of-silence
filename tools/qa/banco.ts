@@ -1027,11 +1027,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   **7 / 13 / 24**, 0 sin terminar. `troop_rank_up` 1 945 → 1 888, `rank_up`
  *   583 → 580, batallas 1 149 → 1 135, `item_bought` 37 → 19; ningún tipo nuevo
  *   ni ninguno que desaparezca.
+ * - `e1cb20e1…` (50 299 líneas, 18-10-2026): **una sola clase de piezas** (F2 de
+ *   `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`): el héroe nace con
+ *   la Espada y el gambesón (+2 de ataque, +10–30 de daño, +1 de defensa y 4 de
+ *   armadura, en vez de +3 / +3 de la espada, el brazal y la cota), la armería
+ *   vende y el botín da las piezas de la arena, y la IA mide una pieza por lo que
+ *   sube el índice. Cambia todo, a propósito: **0 de 200 idénticas**. El primer
+ *   hecho distinto es el botín (88: la pieza sorteada es otra), un paso (66 + 11
+ *   de una marcha que ya no se para + 4: el héroe pesa otra cosa en la fuerza con
+ *   que la IA decide, así que 81 cambian antes de su primera batalla), el final
+ *   de una batalla (28) o una subida de rango (3). 98 con otro ganador, j0 109 →
+ *   **93**, duración 7 / 13 / 24 → **6 / 10 / 24**, 0 sin terminar. Días 1 687 →
+ *   1 298, batallas 1 135 → 1 128, `troop_rank_up` 1 888 → 1 348, `rank_up` 580 →
+ *   630, `march_halted` 150 → 75, `item_bought` 19 → 19 (18 Espadas y un arco);
+ *   ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'e4d49a3324452188e8481ca88c1ec3f26f253e42ba578380f0ae86be789cf6ca',
+  sha: 'e1cb20e142cece0d1af386958e5736a91caa80e05b648fc07943c30f90e0f7d3',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

@@ -12,11 +12,9 @@
  */
 
 import {
-  type CatalogoDeLaArena,
-  cambioDePiezaBlocker,
-  catalogoDeLaArena,
+  cambioDePiezas,
   conBase,
-  conPieza,
+  conPiezas,
   despliegueDeArenaBlocker,
   enElHueco,
   equiparEnArena,
@@ -38,19 +36,14 @@ import {
   type PuestoDelEnlace,
   piezaNueva,
   piezaSobre,
-  piezasDelEnlace,
   piezasDelMontaje,
-  piezasQueSeGuardan,
   quitarEnArena,
   type RetoqueDeArena,
-  type SelloDePieza,
-  selloDePieza,
   tipoDelStack,
   unaVezEnLaURL,
   unidadNueva,
   validarHeroeDeArena,
   validarHojasDeArena,
-  validarPiezaDeArena,
 } from '@core/arena.js';
 import {
   esFormaDeEjemplo,
@@ -89,22 +82,23 @@ import { allSpells } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import {
   conLosExtras,
+  DONDE_SE_CONSIGUE,
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
   LIDERAZGO,
   type Pieza,
   type PiezaEscrita,
+  validarPieza,
 } from '@core/data.js';
-import { idsPuestos } from '@core/hero/equipo.js';
-import { parseSeed } from '@core/rng.js';
 import {
-  type CreatureTrait,
-  esHuecoDeArena,
-  esTipoDelAnillo,
-  type Hex,
-  type HuecoDeArena,
-} from '@core/types.js';
+  type CatalogoDeEquipo,
+  catalogoDeEquipo,
+  EQUIPO_DEL_JUEGO,
+  idsPuestos,
+} from '@core/hero/equipo.js';
+import { parseSeed } from '@core/rng.js';
+import { type CreatureTrait, esHueco, esTipoDelAnillo, type Hex, type Hueco } from '@core/types.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type UnidadDeArena,
@@ -173,7 +167,6 @@ import {
   type ListaDeUnidades,
   modoDeSiempre,
   type Puesto,
-  piezasDelEditor,
   ROTULO_DE_LOS_AVISOS,
   renderAvisosDeLectura,
   renderBando,
@@ -257,118 +250,27 @@ const unidadesDelCatalogo = new Map<string, UnidadDeArena>();
  */
 let idsSinValidar: readonly string[] = [];
 /**
- * Las piezas de la arena (vista «Editar equipo»): las del borrador de equipo que
- * cambian una del juego o son nuevas. Con ellas encima de las del juego se pelea
- * (`catalogo`); el juego no las ve.
+ * El catálogo de equipo de la página, hecho (`catalogoDeEquipo`): el de
+ * `data/equipo.json` tal como lo sirve el servidor de desarrollo (sin él, el que
+ * se cargó con la página) con lo que se haya cambiado aquí y lo que traigan los
+ * enlaces abiertos, que entra como cualquier cambio sin guardar (`conPiezas`).
+ * **Uno solo**: con él se pelea, es el que enseña «Editar equipo» y el que escribe
+ * «Guardar», lo que lee el juego.
  */
-let piezasDelBorrador: readonly PiezaEscrita[] = [];
+let equipo: CatalogoDeEquipo = EQUIPO_DEL_JUEGO;
 /**
- * Lo que traen los enlaces de la versión 6 abiertos, para lo que lleva lo que
- * montan (`piezasDelEnlace`): va encima del borrador sin tocarlo (`piezasEnUso`).
- * Cambiar una pieza la saca de aquí. «Guardar» escribe de aquí solo las nuevas
- * (`piezasQueSeGuardan`): una pieza tuya nunca la sustituye ni la borra un enlace.
+ * El catálogo de equipo tal como está en disco: con él se cuenta lo que queda por
+ * guardar (`piezasSinGuardar`), pieza a pieza distinta, no por gestos.
  */
-let capaDelEnlace: readonly PiezaEscrita[] = [];
-/**
- * Las piezas de la arena tal como están en disco: con ellas se cuenta lo que
- * queda por guardar (`piezasSinGuardar`), pieza a pieza distinta, no por gestos.
- */
-let piezasGuardadas: readonly PiezaEscrita[] = [];
-/** Los ids de las piezas del borrador que no validan: se conservan y una nueva no los toma. */
-let idsDePiezasSinValidar: readonly string[] = [];
+let equipoGuardado: CatalogoDeEquipo = EQUIPO_DEL_JUEGO;
 /** La pieza de la ficha de la vista de equipo, por su id. */
 let piezaElegida: string | null = null;
 
-/** Las piezas de la arena con que se pelea ahora: el borrador con la capa del enlace encima. */
-function piezasEnUso(
-  delBorrador: readonly PiezaEscrita[] = piezasDelBorrador,
-  capa: readonly PiezaEscrita[] = capaDelEnlace,
-): readonly PiezaEscrita[] {
-  return capa.reduce(conPieza, delBorrador);
-}
-
-/**
- * Las piezas que escribiría «Guardar» ahora: las del borrador más las nuevas de la
- * capa del enlace. Es lo que enseña y edita la vista «Editar equipo»: tu pieza,
- * aunque en esta pelea vaya la del enlace.
- */
-function piezasAGuardar(): readonly PiezaEscrita[] {
-  return piezasQueSeGuardan(piezasDelBorrador, capaDelEnlace);
-}
-
-let catalogoAGuardarHecho: {
-  readonly de: readonly PiezaEscrita[];
-  readonly capa: readonly PiezaEscrita[];
-  readonly eq: CatalogoDeLaArena;
-} | null = null;
-/**
- * Las piezas de la vista «Editar equipo» (`piezasAGuardar`) sobre las del juego,
- * hecho una vez por cada borrador y cada capa, como `catalogo`: lo piden la vista,
- * cada gesto de su ficha y cada tarjeta.
- */
-function catalogoAGuardar(): CatalogoDeLaArena {
-  if (
-    catalogoAGuardarHecho?.de !== piezasDelBorrador ||
-    catalogoAGuardarHecho.capa !== capaDelEnlace
-  ) {
-    catalogoAGuardarHecho = {
-      de: piezasDelBorrador,
-      capa: capaDelEnlace,
-      eq: catalogoDeLaArena(piezasAGuardar()),
-    };
-  }
-  return catalogoAGuardarHecho.eq;
-}
-
 /** Los ids de las piezas que «Guardar» cambiaría en disco: lo que de verdad queda sin guardar. */
 function piezasSinGuardar(): readonly string[] {
-  return idsQueCambian(piezasGuardadas, piezasAGuardar());
+  return idsQueCambian(equipoGuardado, equipo);
 }
 
-/**
- * Las piezas con que pelea ahora la arena que no son las que escribiría
- * «Guardar»: las del enlace que se quedan solo en esta pelea, por sus nombres.
- */
-function soloEnLaPelea(): readonly Pieza[] {
-  const enUso = catalogo();
-  return idsQueCambian(piezasAGuardar(), piezasEnUso()).map((id) => enUso.pieza(id));
-}
-
-/**
- * Las piezas de la vista «Editar equipo» que en esta pelea suman otra cosa, como
- * pelean: las del enlace (`soloEnLaPelea`) y las que cuelgan de una base del
- * enlace, que se guardan escritas igual pero aquí se resuelven sobre la tuya. Es
- * lo que marca su tarjeta y su ficha (QA 1 del 18-10-2026: la «Espada del rey»
- * sobre una Espada del enlace decía +4 y peleaba con +7, sin marca).
- */
-function peleanDistinto(): readonly Pieza[] {
-  const enLaVista = catalogoAGuardar();
-  return [...catalogo().piezas.values()].filter((p) => {
-    const vista = enLaVista.piezaSiExiste(p.id);
-    return vista !== null && !mismaPieza(vista, p);
-  });
-}
-
-let catalogoHecho: {
-  readonly de: readonly PiezaEscrita[];
-  readonly capa: readonly PiezaEscrita[];
-  readonly eq: CatalogoDeLaArena;
-} | null = null;
-/**
- * Las piezas con que pelea la arena (`catalogoDeLaArena` de `piezasEnUso`), hecho
- * una vez por cada borrador y cada capa: lo piden cada tarjeta y cada ficha al
- * pintarse.
- */
-function catalogo(): CatalogoDeLaArena {
-  if (catalogoHecho?.de !== piezasDelBorrador || catalogoHecho.capa !== capaDelEnlace) {
-    catalogoHecho = {
-      de: piezasDelBorrador,
-      capa: capaDelEnlace,
-      eq: catalogoDeLaArena(piezasEnUso()),
-    };
-  }
-  return catalogoHecho.eq;
-}
 const montaje: Record<Lado, Puesto[]> = { izquierda: [], derecha: [] };
 /** El héroe de cada lado, si lleva. */
 const heroes: Record<Lado, HeroeDeArena | null> = { izquierda: null, derecha: null };
@@ -636,7 +538,7 @@ function montajeDeArena(): MontajeDeArena {
     derecha: lado('derecha'),
     reglas,
     muralla,
-    piezas: piezasEnUso(),
+    equipo,
   };
 }
 
@@ -645,9 +547,9 @@ function describir(p: Puesto, lado: Lado): DatosDePuesto {
   const u = unidadDe(p.unidad);
   return {
     nombre: u.name,
-    resumen: resumenDeCifras(u, catalogo()),
+    resumen: resumenDeCifras(u, equipo),
     figura: u.cuerpo.hoja,
-    noEscala: escaleraDeArenaBlocker(fuenteDeArena(p), lado, catalogo()),
+    noEscala: escaleraDeArenaBlocker(fuenteDeArena(p), lado, equipo),
   };
 }
 
@@ -757,12 +659,12 @@ function crearUnidad(valor: string): string | null {
       sinValidar: idsSinValidar,
       hojas: [...hojasPorId.keys()],
     },
-    catalogo(),
+    equipo,
   );
   unidadesDelCatalogo.set(u.id, u);
   unidadesSinGuardar.add(u.id);
   elegida = { kind: 'unidad', id: u.id };
-  aviso = avisoDeNuevaUnidad(u, escena === 'edicion' ? 'edicion' : 'montaje', catalogo());
+  aviso = avisoDeNuevaUnidad(u, escena === 'edicion' ? 'edicion' : 'montaje', equipo);
   return u.id;
 }
 
@@ -787,11 +689,8 @@ interface RespuestaDeBorrador {
   readonly formas?: unknown;
   readonly invalidas?: readonly SinValidar[];
   readonly ilegible?: string;
-  /** Las piezas de la arena, que van con las unidades (`leerCatalogo`). */
+  /** El catálogo de equipo, que va con las unidades (`leerCatalogo`). */
   readonly piezas?: unknown;
-  readonly piezasInvalidas?: readonly SinValidar[];
-  /** El archivo de piezas no se puede leer: las unidades se leen con las del juego. */
-  readonly equipoIlegible?: string;
 }
 
 /**
@@ -881,11 +780,11 @@ async function arrancar(): Promise<void> {
     return;
   }
   // Las piezas antes que las unidades: una unidad puede llevar una nueva.
-  const avisoDeEquipo = cargarPiezas(cuerpo);
+  cargarPiezas(cuerpo);
   const unidades = Array.isArray(cuerpo.unidades) ? cuerpo.unidades : [];
   const sinHoja: string[] = [];
   for (const crudo of unidades) {
-    const u = validarUnidadDeArena(crudo, catalogo());
+    const u = validarUnidadDeArena(crudo, equipo);
     unidadesDelCatalogo.set(u.id, u);
     const motivo = porQueNoSeMonta(u);
     if (motivo !== null) sinHoja.push(`${u.id} (${motivo})`);
@@ -906,9 +805,7 @@ async function arrancar(): Promise<void> {
   avisosDeLectura = [
     ...avisosDeLectura,
     lecturaDe(`Del catálogo de unidades (${RUTA_DEL_CATALOGO_DE_UNIDADES}):`, invalidas),
-    lecturaDe('De las piezas de la arena:', cuerpo.piezasInvalidas ?? []),
   ].filter((l) => l.noValen.length > 0);
-  aviso += avisoDeEquipo;
   aviso += resumenDeLaLectura(avisosDeLectura);
 }
 
@@ -937,23 +834,17 @@ function lecturaDe(de: string, invalidas: readonly SinValidar[]): AvisosDeLectur
 }
 
 /**
- * Las piezas de la arena guardadas (`data/borradores/equipo.json`), que llegan
- * con las unidades. Devuelve lo que hay que añadir a la barra: cuántas, o el
- * archivo ilegible. Las que no valen (se conservan al guardar) van al recuadro de
- * lo leído, con las unidades (`lecturaDe`).
+ * El catálogo de equipo en disco (`data/equipo.json`), que llega con las unidades:
+ * el que se edita y se guarda. El servidor lo lee con la regla del juego, así que
+ * llega entero y válido (si no, no llega nada y se dice, `ilegible`); aquí se
+ * hace con la misma (`catalogoDeEquipo`).
  */
-function cargarPiezas(cuerpo: RespuestaDeBorrador): string {
-  if (cuerpo.equipoIlegible !== undefined) {
-    return ` No se pueden leer las piezas de la arena: ${cuerpo.equipoIlegible}; las unidades se leen con las del juego, y no se guarda hasta que se arregle.`;
+function cargarPiezas(cuerpo: RespuestaDeBorrador): void {
+  if (!Array.isArray(cuerpo.piezas)) {
+    throw new Error('el servidor no ha mandado el catálogo de equipo con las unidades');
   }
-  piezasDelBorrador = (Array.isArray(cuerpo.piezas) ? cuerpo.piezas : []).map(validarPiezaDeArena);
-  piezasGuardadas = piezasDelBorrador;
-  const invalidas = cuerpo.piezasInvalidas ?? [];
-  idsDePiezasSinValidar = invalidas.flatMap((i) => (typeof i.id === 'string' ? [i.id] : []));
-  const n = piezasDelBorrador.length;
-  return n === 0
-    ? ''
-    : ` Piezas de la arena: ${n} ${n === 1 ? 'cambiada o nueva' : 'cambiadas o nuevas'}.`;
+  equipo = catalogoDeEquipo(cuerpo.piezas);
+  equipoGuardado = equipo;
 }
 
 /**
@@ -1183,7 +1074,7 @@ function fichaAbierta(f: FichaEditable): FichaAbierta {
   return {
     clave: claveDeFicha(f),
     titulo: nombreDeFicha(f),
-    cuerpo: fichaDe(f, enElMontaje(reglas, catalogo())),
+    cuerpo: fichaDe(f, enElMontaje(reglas, equipo)),
   };
 }
 
@@ -1200,18 +1091,15 @@ function repintarEdicion(): void {
   });
 }
 
-/** La vista «Editar equipo»: las piezas de la arena por hueco y la ficha de la elegida. */
+/** La vista «Editar equipo»: el catálogo de equipo por tipo y la ficha de la elegida. */
 function repintarEquipo(): void {
   pintarVista(elEquipo, () => {
-    // Una vez por repintado, no una por tarjeta.
-    const ajenas = new Map(peleanDistinto().map((p) => [p.id, p]));
     pintar(
       elEquipo,
       renderEquipo({
-        piezas: catalogoAGuardar(),
+        piezas: equipo,
         elegida: piezaElegida,
         llevan: quienesLaLlevan,
-        enLaPelea: (id) => ajenas.get(id) ?? null,
         rechazo: aviso === rechazado ? aviso : null,
         enCombate: sesion !== null,
         sinGuardar: sinGuardarEnPalabras(piezasSinGuardar().length, unidadesSinGuardar.size),
@@ -1222,7 +1110,7 @@ function repintarEquipo(): void {
 
 /**
  * Quiénes llevan la pieza `id`: las unidades del catálogo, por su nombre, y todo
- * héroe de la arena si es de su equipo (`laLlevaElHeroe`: la Espada).
+ * héroe si es de su equipo base (`laLlevaElHeroe`: la Espada y el gambesón).
  */
 function quienesLaLlevan(id: string): string[] {
   return [
@@ -1234,33 +1122,30 @@ function quienesLaLlevan(id: string): string[] {
 }
 
 /**
- * Pone la pieza `nueva` en lugar de la de id `id` —o la quita, con `null`: una
- * nueva se borra y una cambiada vuelve a la del juego—, o dice por qué no y no
- * toca nada. Va al borrador de equipo y sale de la capa del enlace, si estaba. Entra si lo
- * deja la regla del cambio (`cambioDePiezaBlocker`: cada pieza vale y ninguna
- * unidad del catálogo deja de valer) y, en plena pelea, la de la batalla
- * (`retocarEnBatalla`, `kind: 'piezas'`), como un cambio de unidad en plena pelea
- * (`cambiarUnidad`).
+ * Pone la pieza `nueva` en lugar de la de id `id` —o la borra, con `null`—, o dice
+ * por qué no y no toca nada. Entra si lo deja la regla del cambio
+ * (`cambioDePiezas`: el catálogo que queda vale, y ninguna unidad del catálogo ni
+ * el equipo base del héroe dejan de valer) y, en
+ * plena pelea, la de la batalla (`retocarEnBatalla`, `kind: 'piezas'`), como un
+ * cambio de unidad en plena pelea (`cambiarUnidad`).
  */
 function cambiarPiezas(id: string, nueva: PiezaEscrita | null, texto: string): boolean {
-  const delBorrador =
-    nueva === null
-      ? piezasDelBorrador.filter((p) => p.id !== id)
-      : conPieza(piezasDelBorrador, nueva);
-  const capa = capaDelEnlace.filter((p) => p.id !== id);
-  const despues = piezasEnUso(delBorrador, capa);
-  const motivo = cambioDePiezaBlocker(piezasEnUso(), despues, [...unidadesDelCatalogo.values()]);
-  if (motivo !== null) {
-    noSeCambia(`${motivo}.`);
+  const escritas = [...equipo.escritas.values()];
+  const cambio = cambioDePiezas(
+    equipo,
+    nueva === null ? escritas.filter((p) => p.id !== id) : conPiezas(escritas, [nueva]),
+    [...unidadesDelCatalogo.values()],
+  );
+  if ('motivo' in cambio) {
+    noSeCambia(`${cambio.motivo}.`);
     return false;
   }
-  const enLaPelea = retocarLaPelea({ kind: 'piezas', piezas: despues });
+  const enLaPelea = retocarLaPelea({ kind: 'piezas', equipo: cambio.equipo });
   if (enLaPelea !== null) {
     noSeCambia(enLaPelea);
     return false;
   }
-  piezasDelBorrador = delBorrador;
-  capaDelEnlace = capa;
+  equipo = cambio.equipo;
   avisoTrasCambio(texto);
   return true;
 }
@@ -1276,7 +1161,7 @@ function conCampoDePieza(
   p: PiezaEscrita,
   campo: string,
   valor: string,
-  eq: CatalogoDeLaArena,
+  eq: CatalogoDeEquipo,
 ): unknown {
   // Vacío es `NaN`, y el núcleo lo dice («tiene que ser un entero ≥ 0 y no es un número»).
   const n = valor.trim() === '' ? Number.NaN : Number(valor);
@@ -1285,6 +1170,14 @@ function conCampoDePieza(
       return { ...p, nombre: valor.trim() };
     case 'base':
       return conBase(p, valor === '' ? null : valor, eq);
+    case 'se-consigue-armeria':
+    case 'se-consigue-botin': {
+      // Una casilla por sitio: marcada, se consigue ahí; el resto, como estaba.
+      const donde = campo === 'se-consigue-armeria' ? 'armeria' : 'botin';
+      const antes = p.seConsigue;
+      const ahora = valor === 'true' ? [...antes, donde] : antes.filter((d) => d !== donde);
+      return { ...p, seConsigue: DONDE_SE_CONSIGUE.filter((d) => ahora.includes(d)) };
+    }
     case 'hueco':
     case 'manos':
       if (esPiezaConBase(p)) {
@@ -1293,7 +1186,7 @@ function conCampoDePieza(
       if (campo === 'manos') return { ...p, manos: n };
       // Lo que el hueco exige va con él (`enElHueco`): una nueva pasada a escudo
       // resta velocidad sin pedirlo aparte, y deja lo que el escudo no suma.
-      if (!esHuecoDeArena(valor)) throw new Error(`«${valor}» no es un hueco`);
+      if (!esHueco(valor)) throw new Error(`«${valor}» no es un hueco`);
       return enElHueco(p, valor);
   }
   if (esPiezaConBase(p)) return { ...p, extras: conCifraDePieza(p.extras, campo, n) };
@@ -1331,32 +1224,35 @@ function conCifraDePieza(x: ExtrasDePieza, campo: string, n: number): ExtrasDePi
 }
 
 /** Un campo de la ficha de la pieza: la pieza cambiada, si vale y no rompe a nadie. */
-function cambiarCampoDePieza(el: Element, valor: string = valorDe(el)): void {
+function cambiarCampoDePieza(
+  el: Element,
+  // Una casilla de marcar dice si está marcada; las demás, lo escrito.
+  valor: string = (el as { type?: unknown }).type === 'checkbox'
+    ? String(marcadoDe(el))
+    : valorDe(el),
+): void {
   const id = el.closest('[data-pieza-elegida]')?.getAttribute('data-pieza-elegida');
   const campo = el.getAttribute('data-arena-pieza-campo');
   if (id === null || id === undefined || campo === null) {
     throw new Error('un campo de pieza fuera de la ficha de una pieza');
   }
   try {
-    const eq = catalogoAGuardar();
-    const nueva = validarPiezaDeArena(conCampoDePieza(escritaDe(eq, id), campo, valor, eq));
-    cambiarPiezas(id, nueva, DICHO_DEL_CAMBIO[selloDePieza(nueva)](nueva.nombre));
+    const eq = equipo;
+    const nueva = validarPieza(conCampoDePieza(escritaDe(eq, id), campo, valor, eq));
+    cambiarPiezas(
+      id,
+      nueva,
+      `«${nueva.nombre}» cambiada: «Guardar» la escribe en data/equipo.json.`,
+    );
   } catch (err) {
     noSeCambia(`${mensaje(err)}.`);
   }
 }
 
-/** Lo que dice la barra tras cambiar un campo de una pieza, según cómo queda. */
-const DICHO_DEL_CAMBIO: Readonly<Record<SelloDePieza, (nombre: string) => string>> = {
-  'del juego': (n) => `«${n}» vuelve a ser la de serie (data/equipo.json).`,
-  cambiada: (n) => `«${n}» cambiada: data/equipo.json sigue con la suya.`,
-  nueva: (n) => `«${n}» cambiada.`,
-};
-
 /** La pieza de la ficha de equipo: la elegida, o lanza si no hay ninguna (el botón no estaría). */
 function piezaDeLaFicha(): Pieza {
   if (piezaElegida === null) throw new Error('no hay ninguna pieza elegida en la ficha');
-  return catalogoAGuardar().pieza(piezaElegida);
+  return equipo.pieza(piezaElegida);
 }
 
 /**
@@ -1477,8 +1373,8 @@ function puestoPorClave(clave: number): { lado: Lado; i: number; p: Puesto } {
 function fichaElegida(enCombate = false): Html {
   const como =
     enCombate && sesion !== null
-      ? { enCombate, reglas: sesion.reglas, piezas: catalogo() }
-      : enElMontaje(reglas, catalogo());
+      ? { enCombate, reglas: sesion.reglas, piezas: equipo }
+      : enElMontaje(reglas, equipo);
   return fichaDe(elegida, como);
 }
 
@@ -1679,7 +1575,7 @@ function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): vo
 /** Aplica un cambio a la unidad de un tipo, validado: lo que no cuadra se dice y no entra. */
 function cambiarUnidad(id: string, cambio: (u: UnidadDeArena) => unknown): void {
   try {
-    const nueva = validarUnidadDeArena(cambio(unidadDe(id)), catalogo());
+    const nueva = validarUnidadDeArena(cambio(unidadDe(id)), equipo);
     const motivo = retocarLaPelea({ kind: 'tipo', fuente: { unidad: nueva } });
     if (motivo !== null) {
       noSeCambia(motivo);
@@ -1742,30 +1638,16 @@ async function guardar(): Promise<void> {
     return i < 0 ? orden.length : i;
   };
   const unidades = [...unidadesDelCatalogo.values()].sort((a, b) => puesto(a.id) - puesto(b.id));
-  const piezas = piezasAGuardar();
-  // Las unidades del enlace se guardan con tus piezas, no con las suyas: si con
-  // ellas alguna deja de valer, no se escribe nada y se dice quién.
-  const conLasTuyas = cambioDePiezaBlocker(piezasEnUso(), piezas, unidades);
-  if (conLasTuyas !== null) {
-    aviso = `No se ha guardado: con tus piezas en vez de las del enlace, ${conLasTuyas}.`;
-    return;
-  }
+  const guardado = equipo;
+  const piezas = [...guardado.escritas.values()];
   const hecho = await mandarAlServidor('/__arena/unidades', { unidades, piezas }, sinGuardado, {
     noSePuede: 'No se puede guardar',
     noSeHa: 'No se ha guardado',
   });
   if (hecho === null) return;
   unidadesSinGuardar.clear();
-  // Las nuevas del enlace ya son del catálogo; las demás de la capa siguen
-  // peleando en esta pelea y no se han escrito.
-  piezasDelBorrador = piezas;
-  piezasGuardadas = piezas;
-  const ajenas = soloEnLaPelea();
-  aviso = `${guardadoEnPalabras(hecho as Guardado)}${
-    ajenas.length === 0
-      ? ''
-      : ` No se guardan las del enlace ${nombresDe(ajenas)}: se quedan las de esta arena, y las unidades guardadas pelearán con ellas.`
-  }`;
+  equipoGuardado = guardado;
+  aviso = guardadoEnPalabras(hecho as Guardado);
 }
 
 /** Nombres de piezas para la barra: «Espada», «Brigantina». */
@@ -1797,7 +1679,7 @@ function montajeDelEnlace(): MontajeDelEnlace {
   const conHeroe = heroes.izquierda !== null || heroes.derecha !== null;
   return {
     unidades,
-    piezas: piezasDelMontaje(unidades, conHeroe, piezasEnUso()),
+    piezas: piezasDelMontaje(unidades, conHeroe, [...equipo.escritas.values()]),
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
     muralla: hayMuralla(muralla) ? muralla : null,
@@ -1889,11 +1771,11 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
         );
       }
     }
-    const { capa, dicho: piezasDichas } = capaAlAbrir(m);
     const distintas = m.unidades.filter(
       (u) => JSON.stringify(unidadesDelCatalogo.get(u.id) ?? null) !== JSON.stringify(u),
     );
-    capaDelEnlace = capa;
+    const { despues, dicho: piezasDichas } = equipoAlAbrir(m);
+    equipo = despues;
     for (const u of m.unidades) unidadesDelCatalogo.set(u.id, u);
     for (const u of distintas) unidadesSinGuardar.add(u.id);
     for (const l of ['izquierda', 'derecha'] as const) {
@@ -1925,49 +1807,47 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
 }
 
 /**
- * La capa del enlace tras abrir `m`, sin tocar nada todavía, y lo que hay que
- * decir. Lo que llevan sus unidades y sus héroes pelea con las piezas del enlace
- * o, si no las trae, con las del juego (`piezasDelEnlace`): van en la capa,
- * encima del borrador de equipo, que no cambia.
+ * El catálogo de equipo tras abrir `m`, sin tocar nada todavía, y lo que hay que
+ * decir. **El enlace no se superpone: aplica** (decisión del coordinador, simplify
+ * de F2): trae todas las piezas que lleva lo montado (`MontajeDelEnlace.piezas`), y
+ * las que el catálogo no tiene, o tiene con otro contenido, entran en él como
+ * cambios sin guardar, lo mismo que editarlas a mano; «Guardar» las escribe. Lanza
+ * con lo que no entraría a mano (`cambioDePiezas`, con las unidades del catálogo y
+ * las del enlace).
  */
-function capaAlAbrir(m: MontajeDelEnlace): {
-  readonly capa: readonly PiezaEscrita[];
+function equipoAlAbrir(m: MontajeDelEnlace): {
+  readonly despues: CatalogoDeEquipo;
   readonly dicho: string;
 } {
-  const suyas = piezasDelEnlace(m);
-  // La capa de un enlace anterior se queda para lo que este no lleva: sus
-  // unidades siguen en el catálogo.
-  const capa = [...capaDelEnlace.filter((p) => !suyas.some((x) => x.id === p.id)), ...suyas];
-  const despues = piezasEnUso(piezasDelBorrador, capa);
-  const eq = catalogoDeLaArena(despues);
-  const tocadas = idsQueCambian(piezasEnUso(), despues).map((id) => eq.pieza(id));
-  if (tocadas.length === 0) return { capa, dicho: '' };
-  const seGuardan = new Set(
-    idsQueCambian(piezasDelBorrador, piezasQueSeGuardan(piezasDelBorrador, capa)),
-  );
-  const nuevas = tocadas.filter((p) => seGuardan.has(p.id));
-  const tuyas = tocadas.filter((p) => !seGuardan.has(p.id));
-  const guarda =
-    tuyas.length === 0
-      ? `«Guardar» escribe las nuevas (${nombresDe(nuevas)})`
-      : nuevas.length === 0
-        ? '«Guardar» no las escribe: se quedan las de esta arena'
-        : `«Guardar» escribe las nuevas (${nombresDe(nuevas)}); de ${nombresDe(tuyas)} se quedan las de esta arena`;
+  const unidades = new Map(unidadesDelCatalogo);
+  for (const u of m.unidades) unidades.set(u.id, u);
+  const cambio = cambioDePiezas(equipo, conPiezas([...equipo.escritas.values()], m.piezas), [
+    ...unidades.values(),
+  ]);
+  if ('motivo' in cambio) throw new Error(`sus piezas no entran en las tuyas: ${cambio.motivo}`);
+  const despues = cambio.equipo;
+  const cambian = idsQueCambian(equipo, despues).map((id) => despues.pieza(id));
   return {
-    capa,
-    dicho: ` En esta pelea van las piezas del enlace ${nombresDe(tocadas)}, sin tocar las tuyas; ${guarda}.`,
+    despues,
+    dicho:
+      cambian.length === 0
+        ? ''
+        : ` Este enlace cambia ${cambian.length === 1 ? 'una pieza' : `${cambian.length} piezas`} (${nombresDe(cambian)}), sin guardar: «Guardar» ${cambian.length === 1 ? 'la escribe' : 'las escribe'}.`,
   };
 }
 
-/** Los ids de las piezas que cambian, aparecen o desaparecen de `antes` a `despues`. */
-function idsQueCambian(antes: readonly PiezaEscrita[], despues: readonly PiezaEscrita[]): string[] {
-  const de = (ps: readonly PiezaEscrita[], id: string): PiezaEscrita | null =>
-    ps.find((p) => p.id === id) ?? null;
-  const ids = new Set([...antes.map((p) => p.id), ...despues.map((p) => p.id)]);
+/**
+ * Los ids de las piezas que cambian, aparecen o desaparecen de `antes` a
+ * `despues`, por id y, antes de comparar su contenido (`mismaPieza`), por
+ * identidad: lo que no se ha tocado es el mismo objeto.
+ */
+function idsQueCambian(antes: CatalogoDeEquipo, despues: CatalogoDeEquipo): string[] {
+  const ids = new Set([...antes.escritas.keys(), ...despues.escritas.keys()]);
   return [...ids].filter((id) => {
-    const a = de(antes, id);
-    const d = de(despues, id);
-    return a === null || d === null ? a !== d : !mismaPieza(a, d);
+    const a = antes.escritas.get(id);
+    const d = despues.escritas.get(id);
+    if (a === d) return false;
+    return a === undefined || d === undefined || !mismaPieza(a, d);
   });
 }
 
@@ -1996,7 +1876,7 @@ function luchar(): void {
         derecha: lado('derecha'),
         reglas,
         muralla,
-        piezas: piezasEnUso(),
+        equipo,
         modos,
       },
       semilla,
@@ -2603,8 +2483,7 @@ document.addEventListener('click', (ev) => {
       }
       case 'quitar-pieza': {
         const hueco = el.getAttribute('data-hueco') ?? '';
-        if (!esHuecoDeArena(hueco))
-          throw new Error(`el × del equipo trae «${hueco}», que no es un hueco`);
+        if (!esHueco(hueco)) throw new Error(`el × del equipo trae «${hueco}», que no es un hueco`);
         const f = laFichaDe(el, 'quitar una pieza');
         if (f.kind !== 'unidad') throw new Error('solo las unidades llevan equipo que quitar');
         cambiarUnidad(f.id, (u) => quitarEnArena(u, hueco));
@@ -2732,11 +2611,10 @@ document.addEventListener('click', (ev) => {
       case 'ir-a-equipo':
         if (escena === 'equipo') break;
         irA('equipo');
-        // La primera que enseña el editor: ni las del juego ni los accesorios.
-        piezaElegida ??= piezasDelEditor(catalogo())[0]?.id ?? null;
+        piezaElegida ??= equipo.piezas.keys().next().value ?? null;
         aviso =
           sesion === null
-            ? 'Elige una pieza para cambiarla, o crea una nueva en su hueco: vale para la arena, no para el juego.'
+            ? 'Elige una pieza para cambiarla, o crea una nueva en su hueco: «Guardar» la escribe en data/equipo.json, el catálogo del juego.'
             : EQUIPO_EN_PLENA_PELEA;
         break;
       case 'volver-de-equipo': {
@@ -2763,20 +2641,20 @@ document.addEventListener('click', (ev) => {
         // o sobre ella («Nueva sobre esta»).
         const hueco = el.getAttribute('data-hueco');
         const sobre = que === 'crear-pieza-sobre';
-        let desde: HuecoDeArena | Pieza;
+        let desde: Hueco | Pieza;
         if (hueco === null) desde = piezaDeLaFicha();
-        else if (esHuecoDeArena(hueco)) desde = hueco;
+        else if (esHueco(hueco)) desde = hueco;
         else throw new Error(`«+ Nueva pieza» trae «${hueco}», que no es un hueco`);
         const p =
           sobre && typeof desde !== 'string'
-            ? piezaSobre(desde, catalogo(), idsDePiezasSinValidar)
-            : piezaNueva(desde, catalogo(), idsDePiezasSinValidar);
+            ? piezaSobre(desde, equipo)
+            : piezaNueva(desde, equipo);
         const dicho =
           typeof desde === 'string'
-            ? `Nueva pieza «${p.nombre}», de la arena: cambia sus cifras en la ficha.`
+            ? `Nueva pieza «${p.nombre}»: cambia sus cifras en la ficha, y di si se vende o cae como botín.`
             : sobre
               ? `«${p.nombre}», sobre «${desde.nombre}»: suma lo mismo hasta que le pongas extras, y si cambia «${desde.nombre}», cambia con ella.`
-              : `«${p.nombre}», copia de «${desde.nombre}»: es nueva, de la arena.`;
+              : `«${p.nombre}», copia de «${desde.nombre}»: es nueva.`;
         if (cambiarPiezas(p.id, p, dicho)) {
           piezaElegida = p.id;
           piezaTrasElGesto = p.id;
@@ -2804,13 +2682,9 @@ document.addEventListener('click', (ev) => {
         break;
       }
       case 'retirar-pieza': {
-        // Una nueva se borra; una cambiada vuelve a la de serie.
         const p = piezaDeLaFicha();
-        const nueva = selloDePieza(escritaDe(catalogoAGuardar(), p.id)) === 'nueva';
-        const dicho = nueva
-          ? `Borrada la pieza «${p.nombre}».`
-          : `«${p.nombre}» vuelve a la de serie (data/equipo.json).`;
-        if (cambiarPiezas(p.id, null, dicho) && nueva) piezaElegida = null;
+        const dicho = `Borrada la pieza «${p.nombre}»: «Guardar» la quita de data/equipo.json.`;
+        if (cambiarPiezas(p.id, null, dicho)) piezaElegida = null;
         break;
       }
       case 'abrir-ficha': {
@@ -3181,7 +3055,7 @@ function cambiarDeLaUnidad(id: string, el: Element): void {
     // Ponerle una pieza: lo que no se puede (un escudo con un arma a dos manos)
     // lo dice el núcleo (`manosBlocker`) y sale en la barra.
     const puesta = valorDe(el);
-    if (puesta !== '') cambiarUnidad(id, (u) => equiparEnArena(u, puesta, catalogo()));
+    if (puesta !== '') cambiarUnidad(id, (u) => equiparEnArena(u, puesta, equipo));
   } else if (el.getAttribute('data-arena-rasgo') !== null) {
     añadirRasgo({ kind: 'unidad', id }, el);
   } else if (el.getAttribute('data-arena-habilidad') !== null) {

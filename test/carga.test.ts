@@ -28,10 +28,11 @@ import {
 } from '../src/core/battle/carga.js';
 import type { ModoDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
-import { DEL_JUEGO, delBorrador, forzarTurno, MONTAJE, unidadDeArena } from './helpers.js';
+import { delBorrador, forzarTurno, MONTAJE, unidadDeArena } from './helpers.js';
 
 const A_PIE = 'templario-escudo';
 const JINETE = 'templario-hermano-de-carga';
@@ -117,8 +118,8 @@ describe('las cifras de la carga (`data/carga.json`)', () => {
   });
 
   it('quién carga: el rasgo, siempre con la del jinete; sin él, a pie solo si la pelea lo juega', () => {
-    const jinete = unidadDeCombate(unidadDeArena(JINETE), DEL_JUEGO);
-    const aPie = unidadDeCombate(unidadDeArena(A_PIE), DEL_JUEGO);
+    const jinete = unidadDeCombate(unidadDeArena(JINETE), EQUIPO_DEL_JUEGO);
+    const aPie = unidadDeCombate(unidadDeArena(A_PIE), EQUIPO_DEL_JUEGO);
     expect(cifrasDeCarga(jinete, false)).toBe(CARGA.jinete);
     expect(cifrasDeCarga(jinete, true)).toBe(CARGA.jinete);
     expect(cifrasDeCarga(aPie, true)).toBe(CARGA.aPie);
@@ -172,7 +173,7 @@ describe('en la arena carga todo el que pega cuerpo a cuerpo, y el jinete cobra 
 
   it('con la misma recta, el jinete pega más que el de a pie con las mismas cifras de golpe', () => {
     // El mismo cuerpo y la misma lanza: solo cambia el rasgo.
-    const conLanza = { casillas: 7, equipo: { arma: 'espada', carga: 'lanza_de_jinete' } } as const;
+    const conLanza = { casillas: 7, equipo: { arma: 'espada', lanza: 'lanza_de_jinete' } } as const;
     const danio = (traits: readonly 'charge'[]): number => {
       const b = batallaDeArena(
         {

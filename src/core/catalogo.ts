@@ -9,7 +9,7 @@
  * `core` no lo puede leer. Se escribió una vez con las dos cosas juntas
  * (18-10-2026).
  *
- * Se valida entero al cargar con la regla del juego (`validarCatalogo`, la misma
+ * Se valida entero al cargar con la regla del juego (`leerCatalogos`, la misma
  * con que guarda la arena) y las piezas de `data/equipo.json`: una unidad que no
  * vale tumba la carga diciendo el fichero, cuál y por qué. La arena lo lee más
  * blanda —conserva la que no vale para que se arregle a mano— porque es la
@@ -17,10 +17,14 @@
  */
 import unidadesJson from '../../data/unidades.json' with { type: 'json' };
 import { EQUIPO_DEL_JUEGO } from './hero/equipo.js';
-import { RUTA_DEL_CATALOGO_DE_UNIDADES, type UnidadDeArena, validarCatalogo } from './unidad.js';
+import { leerCatalogos, RUTA_DEL_CATALOGO_DE_UNIDADES, type UnidadDeArena } from './unidad.js';
 
-/** Todas las unidades del catálogo, en su orden: el de las hojas del taller y las nuevas detrás. */
-export const UNIDADES: readonly UnidadDeArena[] = validarCatalogo(unidadesJson, EQUIPO_DEL_JUEGO);
+/**
+ * Todas las unidades del catálogo, en su orden: el de las hojas del taller y las
+ * nuevas detrás. Leídas con lo que el juego exige a los catálogos juntos
+ * (`leerCatalogos`: también el equipo base del héroe con las piezas del juego).
+ */
+export const UNIDADES: readonly UnidadDeArena[] = leerCatalogos(EQUIPO_DEL_JUEGO, unidadesJson);
 
 const POR_ID: ReadonlyMap<string, UnidadDeArena> = new Map(UNIDADES.map((u) => [u.id, u]));
 

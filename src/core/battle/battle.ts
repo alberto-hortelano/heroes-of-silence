@@ -13,11 +13,8 @@ import {
   hexSize,
   isShooter,
   LIDERAZGO,
-  type PiezaEscrita,
-  resolverBases,
   tirosQueQuedan,
 } from '../data.js';
-import { EQUIPO_DEL_JUEGO, type EquipoAtado, equipoCon } from '../hero/equipo.js';
 import { cifrasDeCatalogo, cifrasDelIndividuo } from '../hero/experiencia.js';
 import { HERO_BODY, type Hero } from '../hero/hero.js';
 import type { Rng } from '../rng.js';
@@ -2942,35 +2939,9 @@ function delMando(state: BattleState, s: BattleStack): BattleHero | null {
 export function ataqueYDefensaEnBatalla(
   state: BattleState,
   s: BattleStack,
-  uso: UsoDeArma = 'cuerpo',
+  uso: UsoDeArma = 'arma',
 ): { readonly ataque: number; readonly defensa: number } {
   return ataqueYDefensa(s, s, opcionesDeDanio(state, s, s), uso);
-}
-
-const PIEZAS_POR_PELEA = new WeakMap<readonly PiezaEscrita[], EquipoAtado>();
-
-/**
- * Las piezas con que se pelea: las del juego y, en la arena, las suyas encima
- * (`BattleState.piezasDeArena`, que validó al montarla `catalogoDeLaArena`: una
- * con el id de una del juego la sustituye), con sus bases resueltas por la misma
- * suma que el catálogo de la arena (`resolverBases`); lanza con la primera que no
- * vale. Hechas una vez por cada lista: las leen la previsión, para nombrar el arma
- * de cada golpe, y la ficha de la pelea.
- */
-export function piezasDeLaPelea(state: BattleState): EquipoAtado {
-  const encima = state.piezasDeArena;
-  if (encima === undefined) return EQUIPO_DEL_JUEGO;
-  let eq = PIEZAS_POR_PELEA.get(encima);
-  if (eq === undefined) {
-    // Como `catalogoDeLaArena`: la primera que no vale lo dice aquí, y no luego
-    // `piezaDe` con un «no existe» de una pieza que sí está.
-    const r = resolverBases(encima);
-    const [mal] = r.problemas.values();
-    if (mal !== undefined) throw new Error(mal);
-    eq = equipoCon(r.piezas);
-    PIEZAS_POR_PELEA.set(encima, eq);
-  }
-  return eq;
 }
 
 function strike(
@@ -3508,12 +3479,10 @@ function previsionDeGolpe(
   extra: Omit<DamageOptions, ExtraDelEstado>,
   golpe: GolpeEnLaRueda | null = null,
 ): PrevisionDeGolpe {
-  const piezas = piezasDeLaPelea(state);
-  const h = horquillaDeDanio(a, t, opcionesDeDanio(state, a, t, extra, golpe), piezas);
+  const h = horquillaDeDanio(a, t, opcionesDeDanio(state, a, t, extra, golpe));
   const golpes =
     kind === 'golpe' ? golpesDe(a.unit, golpe?.tipo ?? null, false) : disparosDe(a.unit);
-  const siguientes =
-    golpes > 1 ? danioSinLaCarga(h.danio, a, t, extra, golpe, piezas, state) : null;
+  const siguientes = golpes > 1 ? danioSinLaCarga(h.danio, a, t, extra, golpe, state) : null;
   // Cómo queda el objetivo con `golpes` golpes: el primero de `d`, los demás de
   // `luego`, y cada uno solo si el anterior no lo tumba, como en `melee` y `shoot`.
   const tras = (d: number, luego = d): { count: number; topHp: number } => {
@@ -3562,7 +3531,6 @@ function danioSinLaCarga(
   t: BattleStack,
   extra: Omit<DamageOptions, ExtraDelEstado>,
   golpe: GolpeEnLaRueda | null,
-  piezas: EquipoAtado,
   state: BattleState,
 ): Horquilla | null {
   if ((extra.chargeHexes ?? 0) === 0) return null;
@@ -3570,7 +3538,6 @@ function danioSinLaCarga(
     a,
     t,
     opcionesDeDanio(state, a, t, { ...extra, chargeHexes: 0 }, golpe),
-    piezas,
   ).danio;
   return sin.min === danio.min && sin.max === danio.max ? null : sin;
 }
@@ -3629,14 +3596,8 @@ function previsionDelContraataque(
   const muchos = copia(conPeor.count, golpe?.desde ?? 0);
   // Defensivo, sobre quien pega: no depende del punto.
   const quienPega = golpe === null ? a : conLaRueda(a, golpe.desde, 'propio');
-  const piezas = piezasDeLaPelea(state);
-  const bajo = horquillaDeDanio(pocos, quienPega, opcionesDeDanio(state, pocos, quienPega), piezas);
-  const alto = horquillaDeDanio(
-    muchos,
-    quienPega,
-    opcionesDeDanio(state, muchos, quienPega),
-    piezas,
-  );
+  const bajo = horquillaDeDanio(pocos, quienPega, opcionesDeDanio(state, pocos, quienPega));
+  const alto = horquillaDeDanio(muchos, quienPega, opcionesDeDanio(state, muchos, quienPega));
   const une = (x: RamaDeSuerte | null, y: RamaDeSuerte | null): RamaDeSuerte | null =>
     x === null || y === null ? null : { probabilidad: x.probabilidad, min: x.min, max: y.max };
   return {
@@ -3719,7 +3680,6 @@ export function previsionDeLaRueda(
   }
   // Las opciones, una vez; cada tipo pone encima su sector.
   const opciones = opcionesDeDanio(state, quien, contra, extra);
-  const piezas = piezasDeLaPelea(state);
   // El contraataque que se le devolvería a quien pega, con el golpe `golpe` (la
   // misma cuenta que la previsión del golpe, `previsionDelContraataque`).
   const contraataqueCon = (golpe: GolpeEnLaRueda | null): Horquilla | null =>
@@ -3734,11 +3694,10 @@ export function previsionDeLaRueda(
       contra,
       // Las mismas opciones que contó `rueda`: el arma del primer golpe.
       conElGolpe(opciones, quien.unit, sector, papel, rueda),
-      piezas,
     );
     const golpes = golpesDe(quien.unit, tipo, devuelve);
     const siguientes =
-      golpes > 1 ? danioSinLaCarga(h.danio, quien, contra, extra, sector, piezas, state) : null;
+      golpes > 1 ? danioSinLaCarga(h.danio, quien, contra, extra, sector, state) : null;
     const contraataquePorExito = conContraataque
       ? [...PUNTOS_DEL_MAYOR_AL_MENOR].flatMap((punto) => {
           if (punto < sector.desde || punto > sector.hasta) return [];

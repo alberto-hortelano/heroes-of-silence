@@ -51,12 +51,12 @@ import {
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { LIDERAZGO, MURALLA } from '../src/core/data.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack } from '../src/core/types.js';
 import {
   abrirPuertas,
   aPelear,
-  DEL_JUEGO,
   forzarTurno,
   peleaDeArena,
   peleaDelMotor,
@@ -824,8 +824,8 @@ describe('tras QA', () => {
     // prueba el motor («la escalera del montaje solo llega a quien puede ponerla»).
     const anda = unidadDeArena('zombi');
     const vuela = unidadDeArena('zombi', { traits: ['flying'] });
-    expect(escaleraDeArenaBlocker({ unidad: anda }, 'izquierda', DEL_JUEGO)).toBeNull();
-    expect(escaleraDeArenaBlocker({ unidad: vuela }, 'izquierda', DEL_JUEGO)).toBe(
+    expect(escaleraDeArenaBlocker({ unidad: anda }, 'izquierda', EQUIPO_DEL_JUEGO)).toBeNull();
+    expect(escaleraDeArenaBlocker({ unidad: vuela }, 'izquierda', EQUIPO_DEL_JUEGO)).toBe(
       'vuela: se posa en la muralla sin escalera',
     );
     const unidades = [anda, vuela];
@@ -844,7 +844,7 @@ describe('tras QA', () => {
             resumen: '',
             figura: u.id,
             sello: 'borrador',
-            noEscala: escaleraDeArenaBlocker({ unidad: u }, 'izquierda', DEL_JUEGO),
+            noEscala: escaleraDeArenaBlocker({ unidad: u }, 'izquierda', EQUIPO_DEL_JUEGO),
           };
         },
         null,

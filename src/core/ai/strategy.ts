@@ -5,16 +5,14 @@
  * recluta lo que puede y manda a sus héroes al objetivo más rentable que esté
  * a su alcance. Es el listón que el agente tiene que superar.
  */
-import { creature } from '../data.js';
+import { creature, type Pieza } from '../data.js';
 import {
+  conEquipo,
   destinoDeEquipo,
   equipoDe,
-  manosBlocker,
   PIEZAS_DE_ARMERIA,
   type Portador,
   pieza,
-  piezaDelJuego,
-  valorDePieza,
 } from '../hero/equipo.js';
 import { cifrasDeCatalogo, rangoDeTropa } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
@@ -46,6 +44,7 @@ import {
   heroeEnElPueblo,
   heroesOf,
   miradasDe,
+  ponerseBlocker,
   recruitCapacity,
   townsOf,
 } from '../state/game.js';
@@ -57,8 +56,9 @@ import {
   type Town,
   tieneArmeria,
 } from '../town/town.js';
-import type { Army, Equipo, FactionId, PlayerId, Point, Resources } from '../types.js';
+import type { Army, Equipo, FactionId, PlayerId, Point, Resources, UnitInfo } from '../types.js';
 import { canAfford, subtractResources } from '../types.js';
+import { CUERPO_COMUN } from '../unidad.js';
 import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.js';
 
 /** Lo que vale tomar una ciudad ajena que no es la base de nadie. */
@@ -677,9 +677,46 @@ function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Eq
   return [{ quien: elHeroe, equipo: equipoDe(hero, elHeroe) }, ...tropa];
 }
 
+/**
+ * El cuerpo con que la IA mide una pieza: el cuerpo común de las unidades
+ * (`CUERPO_COMUN`), sin nada puesto.
+ */
+const CUERPO_DE_REFERENCIA: UnitInfo = {
+  name: 'cuerpo de referencia',
+  faction: null,
+  attack: CUERPO_COMUN.attack,
+  defense: CUERPO_COMUN.defense,
+  damage: CUERPO_COMUN.damage,
+  hp: CUERPO_COMUN.hp,
+  speed: 'average',
+};
+
+/** Lo que vale cada pieza (`valorDePieza`), calculado una vez por pieza. */
+const VALOR_DE_PIEZA = new WeakMap<Pieza, number>();
+
+/**
+ * Lo que vale una pieza para la IA: **lo que sube el índice de poder**
+ * (`indiceDePoder`, la regla con que el juego mide una unidad con su equipo) del
+ * cuerpo de referencia al ponérsela. Así la armadura pesa con la cuenta del
+ * índice (contra el golpe de referencia de `data/poder.json`), el arma con su
+ * rueda y un arma a distancia por lo que vale disparar, sin pesos aparte.
+ * **Heurística de la IA**, no una regla del juego: la persona y el agente eligen
+ * ellos. Con el cuerpo de referencia y no con el de quien la recibiría, para que
+ * cada pieza se mida una vez: se compra y se reparte decenas de veces por turno.
+ */
+export function valorDePieza(p: Pieza): number {
+  const ya = VALOR_DE_PIEZA.get(p);
+  if (ya !== undefined) return ya;
+  const valor =
+    indiceDePoder(conEquipo(CUERPO_DE_REFERENCIA, { [p.hueco]: p.id })) -
+    indiceDePoder(CUERPO_DE_REFERENCIA);
+  VALOR_DE_PIEZA.set(p, valor);
+  return valor;
+}
+
 /** Lo que gana `equipo` llevando `id` en vez de lo que lleve en ese hueco. */
 function mejora(equipo: Equipo, id: string): number {
-  const nueva = piezaDelJuego(id);
+  const nueva = pieza(id);
   const actual = equipo[nueva.hueco];
   return valorDePieza(nueva) - (actual === undefined ? 0 : valorDePieza(pieza(actual)));
 }
@@ -766,10 +803,9 @@ function compradasHoy(state: GameState, hero: Hero): number {
  *
  * **Heurística inventada**, y la más simple que juega: una pieza va al primer
  * portador (`portadores`) al que mejora (`valorDePieza`), y se compra la pieza de
- * armería de un hueco si la mejoraría alguien que vale la pena
- * (`paraQuienSeCompra`), tras pagarla queda lo que cuesta un héroe y el héroe no
- * ha llegado hoy a `COMPRAS_POR_HEROE_Y_DIA`. `unitPower` no mira ataque ni defensa, así que el valor de la pieza
- * es una suma propia y no la fuerza de la IA.
+ * armería si la mejoraría alguien que vale la pena y se la puede poner
+ * (`paraQuienSeCompra`, `ponerseBlocker`), tras pagarla queda lo que cuesta un
+ * héroe y el héroe no ha llegado hoy a `COMPRAS_POR_HEROE_Y_DIA`.
  */
 export function siguienteDeEquipo(state: GameState, playerId: PlayerId): AdventureAction | null {
   const player = state.players.find((p) => p.id === playerId);
@@ -785,7 +821,9 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
     for (const id of enMochila) {
       const quien = lista.find(
         (p) =>
-          mejora(p.equipo, id) > 0 && manosBlocker(p.equipo, id) === null && leLlega(hero, p.quien),
+          mejora(p.equipo, id) > 0 &&
+          ponerseBlocker(state, hero, p.quien, id) === null &&
+          leLlega(hero, p.quien),
       );
       if (quien !== undefined) {
         return { type: 'equip', hero: hero.id, item: id, ...nombrar(hero, quien.quien) };
@@ -799,14 +837,19 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
     if (compradasHoy(state, hero) >= COMPRAS_POR_HEROE_Y_DIA) continue;
     const lista = portadores(hero);
     for (const p of PIEZAS_DE_ARMERIA) {
-      const queda = player.resources.gold - (p.precio.gold ?? 0);
+      const queda = player.resources.gold - p.precio;
+      // Tras pagarla queda lo que cuesta un héroe: con eso, también la paga.
       if (queda < HERO_HIRE_COST) continue;
-      if (!canAfford(player.resources, p.precio)) continue;
       // Quien la recibiría es el primero al que mejora, con el MISMO orden con
       // el que se reparte la mochila justo después: si ese no vale la pena, no se
       // compra. Mirar si la mejora «alguien» que vale la pena dejaba comprarla
       // para un veterano y ponérsela después a un novato de más nivel de catálogo.
-      const quien = lista.find((x) => mejora(x.equipo, p.id) > 0 && leLlega(hero, x.quien));
+      const quien = lista.find(
+        (x) =>
+          mejora(x.equipo, p.id) > 0 &&
+          ponerseBlocker(state, hero, x.quien, p.id) === null &&
+          leLlega(hero, x.quien),
+      );
       if (
         quien !== undefined &&
         paraQuienSeCompra(hero, quien.quien, queda >= ORO_DE_SOBRA_PARA_NOVATOS)

@@ -31,9 +31,11 @@ import type { BattleStack } from './types.js';
 export function golpeDe(unit: UnitInfo, uso: UsoDeArma): GolpeConArma {
   const { armas } = unit;
   if (armas === undefined) {
-    return { arma: unit.equipo?.arma ?? null, attack: unit.attack, damage: unit.damage };
+    // Sin `armas` no lleva arma: toda arma de cuerpo a cuerpo dice su rueda, y
+    // con ella `conEquipo` escribe `armas`.
+    return { arma: null, attack: unit.attack, damage: unit.damage };
   }
-  return armas[uso] ?? armas.cuerpo;
+  return armas[uso] ?? armas.arma;
 }
 
 /**
@@ -102,7 +104,7 @@ export function disparosDe(unit: UnitInfo): number {
 
 /**
  * Los puntos de armadura de `u` (`UnitInfo.puntosDeArmadura`, la suma de las
- * piezas de la arena que lleva; 0 sin ella, como toda unidad del juego). La única
+ * piezas que lleva; 0 sin ella). La única
  * lectura del campo fuera de `hero/equipo.ts`: la leen la resta (`trasLaArmadura`),
  * la IA y la ficha.
  */

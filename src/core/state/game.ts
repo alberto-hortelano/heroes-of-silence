@@ -15,14 +15,16 @@ import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
   conEquipoDe,
+  deDondeSale,
   destinoDeEquipo,
   equipoDe,
   idsPuestos,
   manosBlocker,
-  NOMBRE_DE_CALIDAD,
+  municionBlocker,
   nadaEnElHueco,
   PIEZAS_DE_BOTIN,
   type Portador,
+  pieza,
   piezaSiExiste,
   ponerPieza,
   quitarPieza,
@@ -58,6 +60,7 @@ import {
   troopRoom,
   troopsAsStacks,
   troopsThatFit,
+  troopUnit,
   withTroops,
 } from '../hero/troop.js';
 import { Casillas, type CasillasLeidas, casillasDelCuadrado } from '../map/casillas.js';
@@ -396,7 +399,7 @@ export type AdventureAction =
       readonly count: number;
     }
   /**
-   * Comprar en la armería de `town` una pieza de calidad de armería (`item`) para
+   * Comprar en la armería de `town` una pieza que se vende (`seVende`, `item`) para
    * la mochila del héroe propio que está dentro (`buyBlocker`).
    */
   | { readonly type: 'buy_item'; readonly town: string; readonly item: string }
@@ -1436,7 +1439,7 @@ function aplicar(
       // `buyBlocker` ya ha mirado que el héroe está y que la pieza existe.
       const hero = heroeEnElPueblo(state, town) as Hero;
       const pieza = piezaSiExiste(action.item)!;
-      player.resources = subtractResources(player.resources, pieza.precio);
+      player.resources = subtractResources(player.resources, { gold: pieza.precio });
       aLaMochila(hero, pieza.id);
       emit(state, {
         kind: 'item_bought',
@@ -1538,11 +1541,11 @@ export function buyBlocker(
   const pieza = piezaSiExiste(item);
   if (pieza === null) return `no existe ninguna pieza "${item}"`;
   if (!seVende(pieza)) {
-    return `la armería no vende ${pieza.nombre}: es ${NOMBRE_DE_CALIDAD[pieza.calidad]} y solo cae como botín`;
+    return `la armería no vende ${pieza.nombre}: ${deDondeSale(pieza)}`;
   }
   const jugador = playerById(state, player);
-  if (!canAfford(jugador.resources, pieza.precio)) {
-    return `${pieza.nombre} cuesta ${describirCoste(pieza.precio)} y no te alcanza`;
+  if (!canAfford(jugador.resources, { gold: pieza.precio })) {
+    return `${pieza.nombre} cuesta ${describirCoste({ gold: pieza.precio })} y no te alcanza`;
   }
   return null;
 }
@@ -1578,8 +1581,29 @@ export function equipBlocker(
   }
   const quien = destinoDeEquipo(hero, action);
   if ('motivo' in quien) return quien.motivo;
-  // Un arma a dos manos no admite escudo, y al revés (`manosBlocker`, la única regla).
-  return manosBlocker(equipoDe(hero, quien), pieza.id);
+  return ponerseBlocker(state, hero, quien, pieza.id);
+}
+
+/**
+ * Por qué el portador `quien` de `hero` no se puede poner la pieza `id` (que
+ * existe), o `null`: un arma a dos manos no admite escudo, y al revés
+ * (`manosBlocker`), y quien tira con su munición no lleva arma a distancia
+ * (`municionBlocker`, con la que `conEquipo` lanzaría). La leen `equipBlocker` y
+ * la IA, antes de equipar y antes de comprar para alguien.
+ */
+export function ponerseBlocker(
+  state: GameState,
+  hero: Hero,
+  quien: Portador,
+  id: string,
+): string | null {
+  const manos = manosBlocker(equipoDe(hero, quien), id);
+  if (manos !== null || 'heroe' in quien) return manos;
+  const p = pieza(id);
+  // Las cifras de la tropa (`troopUnit`), que saben de dónde sale su munición: la
+  // criatura del catálogo o el perfil de un personaje.
+  const unit = troopUnit(hero.army[quien.indice] as Troop, state.characters);
+  return municionBlocker(unit, { [p.hueco]: p.id });
 }
 
 /** Por qué no se puede hacer ese `unequip`, o `null`. */

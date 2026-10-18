@@ -51,7 +51,6 @@ import {
 import {
   destinoDeEquipo,
   modificadoresDePieza,
-  NOMBRE_DE_CALIDAD,
   PIEZAS_DE_ARMERIA,
   pieza,
   textoDeModificador,
@@ -508,7 +507,7 @@ function renderEquipoDelHeroe(hero: Hero, elegida: string | null): Html {
             const p = pieza(id);
             const marca = id === elegida ? ' ◆' : '';
             return html`<button data-action="select-item" data-item="${id}" class="stack" title="Elegirla para ponérsela a alguien">
-              <span>${p.nombre}${marca}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} ${NOMBRE_DE_CALIDAD[p.calidad]} · ${modificadoresEnPantalla(p)}</span></span>
+              <span>${p.nombre}${marca}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} · ${modificadoresEnPantalla(p)}</span></span>
             </button>`;
           }),
         );
@@ -603,7 +602,7 @@ function renderArmeria(session: Session, town: Town): Html {
   const filas = unir(
     PIEZAS_DE_ARMERIA.map((p) => {
       const motivo = buyBlocker(session.state, town, p.id, session.viewer);
-      return html`<div class="stack"><span>${p.nombre}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} · ${modificadoresEnPantalla(p)}</span></span><span class="count">${describirCoste(p.precio)} <button data-action="buy-item" data-item="${p.id}" title="${motivo ?? 'Comprarla para la mochila del héroe que está dentro'}">Comprar</button></span></div>`;
+      return html`<div class="stack"><span>${p.nombre}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} · ${modificadoresEnPantalla(p)}</span></span><span class="count">${describirCoste({ gold: p.precio })} <button data-action="buy-item" data-item="${p.id}" title="${motivo ?? 'Comprarla para la mochila del héroe que está dentro'}">Comprar</button></span></div>`;
     }),
   );
   return html`<h3>Armería</h3><div class="stack-list">${filas}</div>

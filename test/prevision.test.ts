@@ -45,7 +45,7 @@ import type {
 import { creature, MURALLA } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import type { EquipoDeArena, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
+import type { Equipo, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
 import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/unidad.js';
 import { bando, bandoDe, mando as mandoDePrueba } from './batalla-de-prueba.js';
 import { conManosDePrueba, dadoCargado } from './helpers.js';
@@ -135,7 +135,7 @@ function bendecirYMaldecir(b: BattleState): void {
  */
 function deLaArena(
   nombre: string,
-  equipo: EquipoDeArena,
+  equipo: Equipo,
   speed: SpeedTier = 'average',
   traits: UnitInfo['traits'] = [],
 ): BattleSide {
