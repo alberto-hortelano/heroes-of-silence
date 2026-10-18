@@ -21,7 +21,7 @@ import {
   renderEdicion,
 } from '../src/client/arena/edicion.js';
 import {
-  avisoDelBorradorLeido,
+  avisoDelCatalogoLeido,
   avisoDeNuevaUnidad,
   enElMontaje,
   focoTrasQuitar,
@@ -409,35 +409,34 @@ describe('la barra al crear y al leer el borrador (segunda vuelta de QA)', () =>
 
   it('R1: el nivel de una nueva se lee de su índice, el mismo de su ficha', () => {
     // Desde una hoja (las criaturas del catálogo ya no entran, 13-10-2026), con el
-    // doble golpe que la sube al 2: la barra no lo escribe a mano.
+    // doble golpe que la sube al 3: la barra no lo escribe a mano.
     const nueva = unidadNueva(hojaDeLaArena('templario-escudo'), ocupados, DEL_JUEGO);
     const doble = { ...nueva, traits: ['double_attack' as const] };
     expect(avisoDeNuevaUnidad(doble, 'edicion', DEL_JUEGO)).toBe(
-      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 209 · nivel 2): su ficha está abierta.',
+      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 310 · nivel 3): su ficha está abierta.',
     );
     expect(avisoDeNuevaUnidad(doble, 'montaje', DEL_JUEGO)).toBe(
-      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 209 · nivel 2): añádela a un bando o cambia su ficha.',
+      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 310 · nivel 3): añádela a un bando o cambia su ficha.',
     );
-    // Lo mismo que dice su ficha, sin «nivel 1» escrito a mano.
+    // Lo mismo que dice su ficha, sin el nivel escrito a mano.
     expect(
       marcadoDe(renderFicha(doble, false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO))),
-    ).toContain('Índice 209 · nivel 2');
-    expect(avisoDeNuevaUnidad(nueva, 'edicion', DEL_JUEGO)).toMatch(
-      / \(Índice 1\d\d · nivel 1\): /,
-    );
+    ).toContain('Índice 310 · nivel 3');
+    expect(avisoDeNuevaUnidad(nueva, 'edicion', DEL_JUEGO)).toMatch(/ \(Índice 259 · nivel 2\): /);
   });
 
-  it('R4: un borrador con solo unidades que no valen se ha leído, y se dice', () => {
-    expect(avisoDelBorradorLeido('data/borradores/unidades.json', 0, 3)).toBe(
-      'Cargado data/borradores/unidades.json: ninguna unidad vale, y las 3 que trae se conservan tal cual al guardar; mientras, las unidades salen con cifras por defecto, inventadas.',
+  it('R4: un catálogo con solo unidades que no valen se ha leído, y se dice; sin ninguna, no hay qué montar', () => {
+    expect(avisoDelCatalogoLeido('data/unidades.json', 0, 3)).toBe(
+      'Cargado data/unidades.json: ninguna unidad vale, y las 3 que trae se conservan tal cual al guardar; mientras, no hay unidades que montar: «Nueva unidad» sí crea.',
     );
-    expect(avisoDelBorradorLeido('b.json', 0, 1)).toContain(
+    expect(avisoDelCatalogoLeido('b.json', 0, 1)).toContain(
       'ninguna unidad vale, y la que trae se conserva',
     );
-    expect(avisoDelBorradorLeido('b.json', 0, 0)).toMatch(
-      /^Sin borrador guardado todavía \(b\.json\)/,
+    // Las cifras solo salen del catálogo: sin él no hay «cifras por defecto».
+    expect(avisoDelCatalogoLeido('b.json', 0, 0)).toBe(
+      'b.json no trae ninguna unidad: no hay unidades que montar; «Nueva unidad» sí crea.',
     );
-    expect(avisoDelBorradorLeido('b.json', 2, 1)).toBe('Cargado b.json: 2 unidades.');
+    expect(avisoDelCatalogoLeido('b.json', 2, 1)).toBe('Cargado b.json: 2 unidades.');
   });
 
   it('H1 de QA: lo que no vale al leer va entero, con su motivo, y la barra solo lo resume', () => {
@@ -446,14 +445,14 @@ describe('la barra al crear y al leer el borrador (segunda vuelta de QA)', () =>
     // queda que decir al leer es lo que no vale.
     const motivo =
       'monje: la unidad «Monje»: «level» no es un campo de la arena; valen id, name, faction';
-    const unidades = { de: 'Del borrador de unidades (b.json):', noValen: [motivo, 'zombi: otra'] };
+    const unidades = { de: 'Del catálogo de unidades (b.json):', noValen: [motivo, 'zombi: otra'] };
     const piezas = { de: 'De las piezas de la arena:', noValen: ['arco: su hueco no se cambia'] };
     const marcado = marcadoDe(renderAvisosDeLectura([unidades, piezas]));
     // Cada frase, entera y en su punto de la lista, y un botón para quitar el recuadro.
     expect(marcado).toContain(`<li>${motivo}</li>`);
     expect(marcado.indexOf('monje:')).toBeLessThan(marcado.indexOf('arco:'));
     expect(marcado).toMatch(/<ul class="no-valen"><li>monje: /);
-    expect(marcado).toContain('Al leer el borrador · 3 no valen');
+    expect(marcado).toContain('Al leer lo guardado · 3 no valen');
     expect(marcado).toContain('data-arena="cerrar-avisos"');
     // Sin nada que decir, nada.
     expect(marcadoDe(renderAvisosDeLectura([]))).toBe('');

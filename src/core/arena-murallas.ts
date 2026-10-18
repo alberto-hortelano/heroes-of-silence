@@ -7,11 +7,10 @@
  * los ejemplos que trae la arena de salida.
  */
 
-import { revisarLista, todasValidas } from './arena.js';
 import { FORMA_DEL_TABLERO, isInside, ULTIMA_FILA } from './battle/board.js';
 import { cierra, hayMuralla, type MurallaDeBatalla, validarMuralla } from './battle/muralla.js';
 import type { Hex } from './types.js';
-import { lista, texto } from './validar.js';
+import { lista, revisarLista, texto, todasValidas } from './validar.js';
 
 export interface FormaDeMuralla {
   readonly nombre: string;
@@ -191,7 +190,7 @@ function listaDelBorrador(valor: unknown): readonly unknown[] {
 
 /**
  * El archivo forma a forma: las que valen y las que no, cada una con su motivo,
- * con la regla del borrador de unidades (`revisarLista`): una forma editada a
+ * con la regla de las listas de la arena (`revisarLista`): una forma editada a
  * mano que no vale no tira las demás. Lanza solo si el archivo no tiene la
  * forma `{ formas: [...] }`.
  */
@@ -203,6 +202,7 @@ export function revisarBorradorDeMurallas(valor: unknown): {
     campo: 'nombre',
     clave: (f) => f.nombre,
     quien: (nombre) => `la forma «${nombre}»`,
+    donde: 'el borrador',
   });
   return {
     validas,

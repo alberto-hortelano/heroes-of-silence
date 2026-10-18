@@ -18,10 +18,6 @@ import {
   type FuenteDeArena,
   type HojaDeArena,
   type MontajeDeArena,
-  nivelesDeLaEspada,
-  type UnidadDeArena,
-  unidadDeCombate,
-  unidadPorDefecto,
 } from '../src/core/arena.js';
 import {
   activeStack,
@@ -44,6 +40,7 @@ import type {
   BattleState,
 } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
+import { unidad } from '../src/core/catalogo.js';
 import { BARRERAS_DEL_MAPA, type Pieza } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
@@ -91,6 +88,7 @@ import {
   type Troop,
   type UnitInfo,
 } from '../src/core/types.js';
+import { nivelesDeLaEspada, type UnidadDeArena, unidadDeCombate } from '../src/core/unidad.js';
 import { hojasDeArena } from '../tools/arena/borrador.js';
 
 /**
@@ -1094,9 +1092,12 @@ export function hojaDeLaArena(id: string): HojaDeArena {
   return hoja;
 }
 
-/** Una unidad de la arena con las cifras por defecto de su hoja y los cambios que diga el test. */
+/**
+ * Una unidad del catálogo (`data/unidades.json`, `core/catalogo.ts`) con los
+ * cambios que diga el test: la misma fuente de cifras que la arena y el juego.
+ */
 export function unidadDeArena(id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena {
-  return { ...unidadPorDefecto(hojaDeLaArena(id)), ...cambios };
+  return { ...unidad(id), ...cambios };
 }
 
 /**

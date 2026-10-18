@@ -651,7 +651,7 @@ function laMasBarata(
 /**
  * Quién lleva qué, en el orden en que la IA reparte: **el héroe primero** —es quien
  * más pelea y nunca se licencia— y después la tropa de **mayor índice de poder**
- * (`indiceDePoder`: catálogo + rango, sin el equipo que ya lleve), y a igual
+ * (`indiceDePoder`: catálogo + rango + el equipo que ya lleve), y a igual
  * índice en su orden. Por el índice y no por el nivel: es más fino, y dos
  * criaturas del mismo nivel no empatan por eso. Los personajes no entran —su
  * equipo es de la fase que los traiga— y se apartan **antes** de mirar nada: su

@@ -1,5 +1,18 @@
 {
-  "_comment": "El índice de poder y el nivel de una unidad (core/nivel.ts). REGLA NUESTRA, INVENTADA y PROVISIONAL (decisión del usuario, 12-10-2026: «un solo nivel, derivado de las cifras»; «el nivel es la primera cifra»). poder = raizEntera(ofensa · aguante) · (10 + casillas) / 10, con ofensa = (daño mín + máx) · (10 + ataque) —×2 con doble ataque o doble disparo, ×3/2 si tira— y aguante = PV · (10 + defensa), todo en enteros y sobre las cifras SIN EQUIPO. El peso de ataque y defensa (10 + cifra: un 10 % por punto) también es inventado, no el de la fórmula de daño: allí la defensa vale un 10 % por punto mientras el ataque contrario la supera y un 2,5 % por encima (damageMultiplier); con el catálogo pesan los dos tramos, y lo calibrado es este peso único. Los umbrales: el del nivel 2 es umbralDelNivel2 y cada uno es el anterior × razon[0] / razon[1]. El índice es 100 · nivel + lo recorrido hacia el siguiente (340 = nivel 3); por debajo del nivel 2, todo es el 1 (100-199). Calibrado el 12-10-2026 (docs/agents/2026-10-12-nivel-unico/plan.md §3): con 940 y 2/1 cada criatura del catálogo queda en el nivel de su morada o en el contiguo (todas menos el montaraz y la caballería, en el suyo) y el campesino en el 1; cualquier umbral de 700 a 1300 lo cumple. Con 8/5 (×1,6) también, pero con 15 criaturas fuera de su morada. Cambiar estas cifras cambia la experiencia de toda la partida y la tabla de test/nivel.test.ts.",
+  "_comment": "El índice de poder y el nivel de una unidad (core/nivel.ts). REGLA NUESTRA, INVENTADA y PROVISIONAL (decisiones del usuario, 12-10-2026: «un solo nivel, derivado de las cifras»; «el nivel es la primera cifra»; 18-10-2026: «el nivel ve el equipo»). Se mide la unidad CON SU EQUIPO, tal como pelea. poder = raizEntera(ofensa · aguante) · (10 + casillas) / 10, todo en enteros. ofensa = el mejor de sus ataques, cada golpe con el arma de su uso, a (daño mín + máx) · (10 + ataque): el de cuerpo a cuerpo y la carga, por lo que da la rueda con el arma de cada golpe (la media de los siete tipos con pesosDeLaRueda, cada uno con sus golpes: Fuerte a su %, Rápido a sus golpes por su %, el resto ×1; el doble golpe dobla; sin arma de la arena no hay rueda), y el disparo si tira (×3/2, ×2 con double_shot). La carga es la de la regla final: todo el que pega cuerpo a cuerpo carga, a pie o con el rasgo charge (data/carga.json), y se mide a media recta (la mitad de lo que cobra la recta entera) y solo en el primer golpe, con el arma de carga, como en la pelea. aguante = PV · (10 + defensa) · R / max(lo que llega de R tras la armadura, ⌊R/4⌋), con R = armaduraDeReferencia: 30, INVENTADO, un golpe de referencia contra el que se mide la armadura (como mucho cuenta ×4). pesosDeLaRueda son los de la medida, INVENTADOS y propios (no los de la IA de data/rueda.json, aunque hoy valgan lo mismo: todos 1): retocar cómo elige la IA no mueve índices. El peso de ataque y defensa (10 + cifra: un 10 % por punto) también es inventado, no el de la fórmula de daño: allí la defensa vale un 10 % por punto mientras el ataque contrario la supera y un 2,5 % por encima (damageMultiplier). Los umbrales: el del nivel 2 es umbralDelNivel2 y cada uno es el anterior × razon[0] / razon[1]. El índice es 100 · nivel + lo recorrido hacia el siguiente (340 = nivel 3); por debajo del nivel 2, todo es el 1 (100-199). Calibrado el 12-10-2026 sin equipo (docs/agents/2026-10-12-nivel-unico/plan.md §3): con 940 y 2/1 cada criatura del catálogo queda en el nivel de su morada o en el contiguo y el campesino en el 1. Lo que dan las unidades del catálogo (data/unidades.json) con su equipo lo ancla TABLA_DEL_CATALOGO en test/nivel.test.ts. Cambiar estas cifras cambia la experiencia de toda la partida y las tablas de test/nivel.test.ts.",
   "umbralDelNivel2": 940,
-  "razon": [2, 1]
+  "razon": [
+    2,
+    1
+  ],
+  "armaduraDeReferencia": 30,
+  "pesosDeLaRueda": {
+    "normal": 1,
+    "ofensivo": 1,
+    "fuerte": 1,
+    "finta": 1,
+    "defensivo": 1,
+    "rapido": 1,
+    "romperGuardia": 1
+  }
 }

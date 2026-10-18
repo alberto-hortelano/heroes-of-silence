@@ -331,11 +331,12 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): Su
  * unidad lleva las dos cosas.
  *
  * Con piezas, deja en `sinEquipo` las cifras de antes de ponérselas —las del
- * cuerpo, si `unit` ya llevaba equipo—: el nivel se mide sin equipo
- * (`nivelDeUnidad`) y este es el único sitio que sabe qué suma la pieza. Es el
- * **único escritor** de `sinEquipo` (`test/invariantes.test.ts`). Por eso el
- * equipo va siempre lo último, después de la veteranía o el rango: lo que se
- * sume después de `conEquipo` no llegaría a `sinEquipo`, y el nivel no lo vería.
+ * cuerpo, si `unit` ya llevaba equipo—: la ficha enseña qué suma el equipo y el
+ * retoque de la arena vuelve a vestir el cuerpo, y este es el único sitio que
+ * sabe qué suma la pieza. Es el **único escritor** de `sinEquipo`
+ * (`test/invariantes.test.ts`). Por eso el equipo va siempre lo último, después
+ * de la veteranía o el rango: lo que se sume después de `conEquipo` no llegaría
+ * a `sinEquipo`, y la ficha lo contaría como del equipo.
  * Y deja en `equipo` lo puesto: cambiar una pieza a media pelea (la arena) lo
  * vuelve a sumar a `sinEquipo` desde el propio stack.
  */

@@ -1,9 +1,9 @@
 /**
- * El lado de disco de la arena (`/arena/`): qué hojas hay y sus borradores: las
- * cifras (`data/borradores/unidades.json`), las piezas de equipo
- * (`data/borradores/equipo.json`) y las formas de muralla. Lo sirve el servidor de desarrollo
- * (`vite.config.ts`) y nada más: el navegador no puede escribir en el repo, y
- * la partida no lee el borrador.
+ * El lado de disco de la arena (`/arena/`): qué hojas hay, el catálogo de
+ * unidades (`data/unidades.json`, el que lee `core/catalogo.ts`) y los borradores
+ * de las piezas de equipo (`data/borradores/equipo.json`) y de las formas de
+ * muralla. Lo sirve el servidor de desarrollo (`vite.config.ts`) y nada más: el
+ * navegador no puede escribir en el repo. La partida no lee los borradores.
  *
  * Aparte de `vite.config.ts` para que los tests lo ejerzan contra una carpeta
  * temporal sin arrancar vite.
@@ -11,16 +11,10 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
-  COMENTARIO_DEL_BORRADOR,
   COMENTARIO_DEL_BORRADOR_DE_EQUIPO,
   catalogoDeLaArena,
-  type ElementoSinValidar,
   type HojaDeArena,
-  revisarBorradorDeArena,
   revisarBorradorDeEquipo,
-  type UnidadDeArena,
-  type UnidadSinValidar,
-  validarBorradorDeArena,
   validarBorradorDeEquipo,
   validarHojasDeArena,
 } from '../../src/core/arena.js';
@@ -32,7 +26,16 @@ import {
   validarBorradorDeMurallas,
 } from '../../src/core/arena-murallas.js';
 import type { PiezaEscrita } from '../../src/core/data.js';
-import type { EquipoAtado } from '../../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO, type EquipoAtado } from '../../src/core/hero/equipo.js';
+import {
+  COMENTARIO_DEL_CATALOGO_DE_UNIDADES,
+  RUTA_DEL_CATALOGO_DE_UNIDADES,
+  revisarCatalogo,
+  type UnidadDeArena,
+  type UnidadSinValidar,
+  validarCatalogo,
+} from '../../src/core/unidad.js';
+import type { ElementoSinValidar } from '../../src/core/validar.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import {
   arteEnOchoDirecciones,
@@ -56,9 +59,6 @@ function velocidadDelCuerpo(personaje: string): number {
   }
   return fila[0];
 }
-
-/** Dónde vive el borrador, relativo a la raíz del repo. */
-export const RUTA_DEL_BORRADOR = 'data/borradores/unidades.json';
 
 /**
  * El arte propio de una unidad tal como lo lee la arena: sus ocho
@@ -112,12 +112,12 @@ export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
 }
 
 /**
- * Un borrador de la arena en disco: dónde vive, qué lista lleva y con qué regla
- * se lee y se escribe. Los dos —cifras y murallas— comparten `leer` y
- * `escribir`, que son los que guardan las garantías (lo que no vale se conserva,
- * lo ilegible no se pisa, la escritura es atómica).
+ * Un fichero de la arena en disco —el catálogo de unidades y los borradores de
+ * piezas y de murallas—: dónde vive, qué lista lleva y con qué regla se lee y se
+ * escribe. Comparten `leer` y `escribir`, que son los que guardan las garantías
+ * (lo que no vale se conserva, lo ilegible no se pisa, la escritura es atómica).
  */
-interface Borrador<T, I extends { readonly crudo: unknown }> {
+interface FicheroDeLaArena<T, I extends { readonly crudo: unknown }> {
   readonly ruta: string;
   /** La lista del archivo: `{ _comment, [campo]: [...] }`. */
   readonly campo: string;
@@ -137,17 +137,19 @@ interface Revisado<T, I> {
 }
 
 /**
- * El borrador de unidades leído y escrito con las piezas de la arena `eq`: una
- * unidad puede llevar una pieza nueva. Una cuya pieza no está sale como «no vale»
- * con su motivo y se conserva, como cualquier otra.
+ * El catálogo de unidades en disco. Se **lee** con las piezas de la arena `eq`,
+ * como las lee la página: una unidad cuya pieza no está sale como «no vale» con
+ * su motivo y se conserva, como cualquier otra. Se **escribe** con la regla con
+ * que lo carga el juego (`validarCatalogo` con las piezas de `data/equipo.json`,
+ * `escribirCatalogo`).
  */
-function deUnidades(eq: EquipoAtado): Borrador<UnidadDeArena, UnidadSinValidar> {
+function deUnidades(eq: EquipoAtado): FicheroDeLaArena<UnidadDeArena, UnidadSinValidar> {
   return {
-    ruta: RUTA_DEL_BORRADOR,
+    ruta: RUTA_DEL_CATALOGO_DE_UNIDADES,
     campo: 'unidades',
-    comentario: COMENTARIO_DEL_BORRADOR,
-    revisar: (valor) => revisarBorradorDeArena(valor, eq),
-    validar: (valor) => validarBorradorDeArena(valor, eq),
+    comentario: COMENTARIO_DEL_CATALOGO_DE_UNIDADES,
+    revisar: (valor) => revisarCatalogo(valor, eq),
+    validar: (valor) => validarCatalogo(valor, EQUIPO_DEL_JUEGO),
     clave: (u) => u.id,
     claveSinValidar: (u) => u.id,
   };
@@ -155,12 +157,12 @@ function deUnidades(eq: EquipoAtado): Borrador<UnidadDeArena, UnidadSinValidar> 
 
 /**
  * Lo guardado, elemento a elemento (`revisar`); vacío si todavía no se ha
- * guardado nada. Lanza si el archivo no es JSON o no tiene forma de borrador:
+ * guardado nada. Lanza si el archivo no es JSON o no tiene su forma (`{ [campo]: [...] }`):
  * ahí no hay nada que salvar, y guardar encima lo borraría.
  */
 function leer<T, I extends { readonly crudo: unknown }>(
   raiz: string,
-  b: Borrador<T, I>,
+  b: FicheroDeLaArena<T, I>,
 ): Revisado<T, I> {
   const ruta = join(raiz, b.ruta);
   if (!existsSync(ruta)) return { validas: [], invalidas: [] };
@@ -174,12 +176,12 @@ function leer<T, I extends { readonly crudo: unknown }>(
 }
 
 /**
- * Escribe el borrador si es válido, y si no lanza con la frase de `validar` sin
+ * Escribe el fichero si es válido, y si no lanza con la frase de `validar` sin
  * tocar el fichero (`preparar`, `escribirAtomico`).
  */
 function escribir<T, I extends { readonly crudo: unknown }>(
   raiz: string,
-  b: Borrador<T, I>,
+  b: FicheroDeLaArena<T, I>,
   cuerpo: unknown,
 ): { readonly escritas: number; readonly conservadas: number } {
   const listo = preparar(raiz, b, b.validar(cuerpo));
@@ -187,7 +189,7 @@ function escribir<T, I extends { readonly crudo: unknown }>(
   return listo;
 }
 
-/** Lo que se va a escribir en un borrador: dónde, qué, y cuántos de cada. */
+/** Lo que se va a escribir en un fichero de la arena: dónde, qué, y cuántos de cada. */
 interface Preparado {
   readonly ruta: string;
   readonly contenido: unknown;
@@ -211,7 +213,7 @@ interface Preparado {
  */
 function preparar<T, I extends { readonly crudo: unknown }>(
   raiz: string,
-  b: Borrador<T, I>,
+  b: FicheroDeLaArena<T, I>,
   validas: readonly T[],
 ): Preparado {
   let antes: { readonly validas: readonly T[]; readonly invalidas: readonly I[] };
@@ -255,7 +257,7 @@ function escribirAtomico(listos: readonly Preparado[]): void {
 }
 
 /**
- * Los borradores de cifras y de piezas tal como están en disco: lo que vale y lo
+ * El catálogo de unidades y el borrador de piezas tal como están en disco: lo que vale y lo
  * que no y por qué. Solo el formato de hoy: lo de antes no vale, y se conserva
  * tal cual al guardar como cualquier otra cosa que no vale.
  *
@@ -264,7 +266,7 @@ function escribirAtomico(listos: readonly Preparado[]): void {
  * piezas del juego y `equipoIlegible` dice por qué (las que llevan una pieza
  * nueva salen como «no vale» y se conservan). Guardar, en cambio, no lo pisa.
  */
-export function leerBorrador(raiz: string): {
+export function leerCatalogo(raiz: string): {
   readonly unidades: readonly UnidadDeArena[];
   readonly invalidas: readonly UnidadSinValidar[];
   readonly piezas: readonly PiezaEscrita[];
@@ -291,12 +293,20 @@ export function leerBorrador(raiz: string): {
 
 /**
  * «Guardar» de la arena, **una sola operación**: las piezas y las unidades
- * (`{ unidades, piezas }`), las unidades validadas con las piezas que llegan. Si
- * todo vale se escriben los dos archivos, cada uno atómico (`escribirAtomico`);
- * si algo no vale, o uno de los dos de ahora no se puede leer, no se escribe
- * ninguno y se dice por qué. El de piezas no se crea si no hay nada que poner.
+ * (`{ unidades, piezas }`). Si todo vale se escriben los dos archivos, cada uno
+ * atómico (`escribirAtomico`); si algo no vale, o uno de los dos de ahora no se
+ * puede leer, no se escribe ninguno y se dice por qué. El de piezas no se crea si
+ * no hay nada que poner.
+ *
+ * Las unidades se validan **una vez, con la regla con que las carga el juego**
+ * (`validarCatalogo` con las piezas de `data/equipo.json`, como
+ * `core/catalogo.ts`): una unidad que solo vale con una pieza del borrador de
+ * equipo (nueva, o cambiada de forma que con la del fichero no valdría) tumbaría
+ * esa carga, así que no se guarda, y el motivo lo dice. Las piezas de la arena y
+ * las del fichero son dos cosas hasta que el editor de equipo escriba en
+ * `data/equipo.json` (F2).
  */
-export function escribirBorrador(
+export function escribirCatalogo(
   raiz: string,
   cuerpo: unknown,
 ): {
@@ -307,9 +317,9 @@ export function escribirBorrador(
   readonly piezasConservadas: number;
 } {
   const piezas = validarBorradorDeEquipo(cuerpo);
-  const eq = catalogoDeLaArena(piezas);
   const deEquipo = preparar(raiz, DE_EQUIPO, piezas);
-  const deUnidadesListo = preparar(raiz, deUnidades(eq), validarBorradorDeArena(cuerpo, eq));
+  const catalogo = deUnidades(catalogoDeLaArena(piezas));
+  const deUnidadesListo = preparar(raiz, catalogo, catalogo.validar(cuerpo));
   const sinNadaQuePoner = deEquipo.escritas + deEquipo.conservadas === 0;
   escribirAtomico(
     sinNadaQuePoner && !existsSync(deEquipo.ruta) ? [deUnidadesListo] : [deEquipo, deUnidadesListo],
@@ -326,7 +336,7 @@ export function escribirBorrador(
 /** Dónde viven las piezas de la arena, relativo a la raíz del repo. */
 export const RUTA_DE_EQUIPO = 'data/borradores/equipo.json';
 
-const DE_EQUIPO: Borrador<PiezaEscrita, ElementoSinValidar> = {
+const DE_EQUIPO: FicheroDeLaArena<PiezaEscrita, ElementoSinValidar> = {
   ruta: RUTA_DE_EQUIPO,
   campo: 'piezas',
   comentario: COMENTARIO_DEL_BORRADOR_DE_EQUIPO,
@@ -341,7 +351,7 @@ const DE_EQUIPO: Borrador<PiezaEscrita, ElementoSinValidar> = {
 /** Dónde viven las formas de muralla, relativo a la raíz del repo. */
 export const RUTA_DE_MURALLAS = 'data/borradores/murallas.json';
 
-const DE_MURALLAS: Borrador<FormaDeMuralla, FormaSinValidar> = {
+const DE_MURALLAS: FicheroDeLaArena<FormaDeMuralla, FormaSinValidar> = {
   ruta: RUTA_DE_MURALLAS,
   campo: 'formas',
   comentario: COMENTARIO_DEL_BORRADOR_DE_MURALLAS,

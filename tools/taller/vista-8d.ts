@@ -22,7 +22,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import sharp from 'sharp';
-import { NOMBRE_DE_FACCION_DE_ARENA } from '../../src/core/arena.js';
+import { NOMBRE_DE_FACCION_DE_ARENA } from '../../src/core/unidad.js';
 import {
   type ClipDeFigura,
   colorDeSombra,

@@ -39,9 +39,12 @@ function pelea(
   return batallaDeArena(
     {
       izquierda: {
-        unidades: [unidad('templario-monje'), unidad('templario-escudo')].map((u) =>
-          delBorrador(u),
-        ),
+        // El escudero con las cifras del cuerpo común (3 / 3, daño 10–10): los
+        // casos de la IA hacen la cuenta con ellas.
+        unidades: [
+          unidad('templario-monje'),
+          unidad('templario-escudo', { defense: 3, damage: [10, 10] }),
+        ].map((u) => delBorrador(u)),
         heroe,
       },
       derecha: { unidades: [delBorrador(unidad('orko-dos-armas'))], heroe: null },
@@ -209,14 +212,13 @@ describe('el catálogo de poderes (data/poderes.json)', () => {
       { id: 'curar', nombre: 'Curar', habilidad: 'Curar (X)', hechizo: 'cure', cura: 4 },
       { id: 'bendecir', nombre: 'Bendecir', habilidad: 'Bendecir', hechizo: 'bless', rondas: 3 },
     ],
-    traen: { 'templario-monje': ['curar'] },
   };
 
   it('el bueno se lee', () => {
     expect(validarPoderes(bueno).poderes.map((p) => p.id)).toEqual(['curar', 'bendecir']);
   });
 
-  it('lanza con la cura que falta, un hechizo de daño, uno al enemigo o un poder que no existe', () => {
+  it('lanza con la cura que falta, un hechizo de daño o uno al enemigo', () => {
     const con = (cambio: object, i = 0) => ({
       ...bueno,
       poderes: bueno.poderes.map((p, j) => (j === i ? { ...p, ...cambio } : p)),
@@ -234,9 +236,6 @@ describe('el catálogo de poderes (data/poderes.json)', () => {
       'va a un enemigo',
     );
     expect(() => validarPoderes(con({ rondas: 2 }))).toThrow('no lleva «rondas»');
-    expect(() => validarPoderes({ ...bueno, traen: { x: ['volar'] } })).toThrow(
-      '«volar» no es un poder',
-    );
   });
 
   it('ninguna criatura del juego trae poderes: la jugada `poder` no sale fuera de la arena', () => {

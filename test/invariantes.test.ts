@@ -65,7 +65,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
@@ -430,7 +430,6 @@ const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
     'todoIA',
     'REGLAS_DEL_BANCO',
     'espejoDelBanco',
-    'deHoja',
     'jugarArena',
     'espejoDeLosPoderes',
     'poderesEnLaArena',
@@ -760,11 +759,14 @@ describe('invariantes del proyecto', () => {
     // con su línea.
     const deLaArena =
       /\bfrom\s+['"](?:@core\/|(?:\.\.?\/)+(?:(?:src\/)?core\/)?)arena(?:\.js)?['"]/;
-    // `core/arena-murallas.ts` es el formato de las formas de muralla de la misma
-    // arena: lee sus validadores (`lista`, `texto`…) y no monta ninguna batalla.
+    // Sin excepciones en el núcleo (simplify de F1, 18-10-2026): el formato de la
+    // unidad y del catálogo vive en `core/unidad.ts` y las listas de los ficheros
+    // de la arena en `core/validar.ts`, así que ni el catálogo del juego
+    // (`core/catalogo.ts`) ni las formas de muralla (`core/arena-murallas.ts`) se
+    // traen el montador de batallas. Roto a mano: un `import { unidadNueva } from
+    // './arena.js'` en `core/catalogo.ts` sale rojo.
     const puedeImportarla = (r: string): boolean =>
       enTodoElFichero(r) ||
-      r === 'src/core/arena-murallas.ts' ||
       r.startsWith('tools/arena/') ||
       r.startsWith('tools/taller/') ||
       r in porDeclaracion;
@@ -1231,7 +1233,7 @@ describe('invariantes del proyecto', () => {
     // lectura, y nadie más cambia un stack por otro (el motor los muta por campo,
     // y quien busca uno lo busca por id). De qué tipo sale cada stack
     // (`tiposDeArena`) lo escribe solo ella al montar. Y los poderes
-    // (`UnitInfo.poderes`) solo los escribe ella (`unidadDeCombate`): el catálogo
+    // (`UnitInfo.poderes`) solo los escribe `unidadDeCombate`: el catálogo
     // no los tiene, y por eso la jugada `poder` no sale en el juego ni llega al
     // agente, que no la conoce (`battleActionSchema`). Roto a mano: un
     // `state.stacks[0] = s` en `battle.ts`, un `tiposDeArena: {}` en `state/game.ts`
@@ -1252,12 +1254,15 @@ describe('invariantes del proyecto', () => {
     const sinElTipo = fuera.filter((r) => r !== 'src/core/battle/types.ts');
     expect(infractoresDeCodigo(sinElTipo, escribeTipos)).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribeTipos)).not.toEqual([]);
+    // Los poderes los pone `unidadDeCombate`, que vive con el formato de la unidad
+    // (`core/unidad.ts`, simplify de F1).
+    const PONE_PODERES = 'src/core/unidad.ts';
     const escribePoderes = /\bpoderes\s*:(?!\s*readonly)|\{\s*poderes\s*\}|\.poderes\s*=(?!=)/;
     const ni = [...CORE, ...SERVIDOR].filter(
-      (r) => r !== PUERTA && r !== 'src/core/battle/poderes.ts',
+      (r) => r !== PONE_PODERES && r !== 'src/core/battle/poderes.ts',
     );
     expect(infractoresDeCodigo(ni, escribePoderes)).toEqual([]);
-    expect(infractoresDeCodigo([PUERTA], escribePoderes)).not.toEqual([]);
+    expect(infractoresDeCodigo([PONE_PODERES], escribePoderes)).not.toEqual([]);
   });
 
   it('el juego no ve el borrador de equipo, y la arena lee cada pieza con el suyo', () => {
@@ -1314,14 +1319,16 @@ describe('invariantes del proyecto', () => {
     expect(sueltas).toEqual([]);
   });
 
-  it('el nivel de una unidad se deriva de sus cifras: nadie lo escribe, y el equipo lo aparta solo `conEquipo`', () => {
-    // Un solo nivel (12-10-2026): la primera cifra del índice de poder de las
-    // cifras sin equipo (`core/nivel.ts`). Había un `UnitInfo.nivel` que
-    // escribían cinco constructores y un `level` en el catálogo que era la
-    // morada con otro nombre: el mismo hecho, a mano, en seis sitios. Rotos a
-    // mano: un `"level": 1` en una criatura de `data/creatures.json`, un
-    // `readonly nivel: number;` en `UnitInfo`, un `{ ...u, sinEquipo: u }` en
-    // `arena.ts` y una `function nivelDeUnidad` en `strategy.ts` salen rojos.
+  it('el nivel de una unidad se deriva de sus cifras con su equipo: nadie lo escribe, y el cuerpo sin equipo lo aparta solo `conEquipo`', () => {
+    // Un solo nivel (12-10-2026): la primera cifra del índice de poder de sus
+    // cifras (`core/nivel.ts`), **con el equipo puesto** desde el 18-10-2026 («el
+    // nivel ve el equipo»). Había un `UnitInfo.nivel` que escribían cinco
+    // constructores y un `level` en el catálogo que era la morada con otro
+    // nombre: el mismo hecho, a mano, en seis sitios. Rotos a mano: un
+    // `"level": 1` en una criatura de `data/creatures.json`, un `readonly nivel:
+    // number;` en `UnitInfo`, un `{ ...u, sinEquipo: u }` en `arena.ts`, una
+    // `function nivelDeUnidad` en `strategy.ts` y un `u.sinEquipo ?? u` en
+    // `indiceDePoder` salen rojos.
     const catalogo = JSON.parse(leer('data/creatures.json')) as {
       creatures: { id: string; [campo: string]: unknown }[];
     };
@@ -1343,6 +1350,83 @@ describe('invariantes del proyecto', () => {
     const otros = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/core/nivel.ts');
     expect(infractoresDeCodigo(otros, calcula)).toEqual([]);
     expect(infractoresDeCodigo(['src/core/nivel.ts'], calcula)).not.toEqual([]);
+    // Con el equipo: `nivel.ts` mide la unidad tal como pelea y no mira el cuerpo
+    // sin equipo, que es de la ficha y del retoque de la arena.
+    expect(infractoresDeCodigo(['src/core/nivel.ts'], /\bsinEquipo\b/)).toEqual([]);
+    // Con sus pesos (`PODER.pesosDeLaRueda`), no los de la IA: retocar cómo elige
+    // la IA no mueve índices (simplify de F1). Roto a mano: un
+    // `PESOS_DE_LA_RUEDA.golpe` en `ofensaDelAtaque` sale rojo.
+    expect(infractoresDeCodigo(['src/core/nivel.ts'], /\bPESOS_DE_LA_RUEDA\b/)).toEqual([]);
+  });
+
+  it('`nivel.ts` no está en un ciclo de importación: lo que mide lo lee de módulos que no lo importan', () => {
+    // El nivel mide con las lecturas del combate (con qué arma pega, cuánto le
+    // para la armadura) y el combate lee el nivel para la experiencia (`herir`).
+    // Con esas lecturas en `damage.ts` y `rueda.ts`, `nivel.ts` → `damage.ts` →
+    // `nivel.ts` funcionaba solo porque lo que corre al cargar usa declaraciones
+    // de función: una constante leída al cargarse daba un `ReferenceError` (TDZ).
+    // Ahora viven en `battle/armas.ts`, que no importa nada que importe el nivel
+    // (simplify de F1, 18-10-2026). Solo cuenta lo que corre: `import type` no.
+    // Roto a mano: `golpeDe` importado de `./battle/damage.js` en `nivel.ts` sale
+    // rojo con el ciclo entero.
+    const INICIO = 'src/core/nivel.ts';
+    const deUnModulo =
+      /^(?:import|export)\s+(?!type\s)(?:[^;'"]*?\sfrom\s+)?['"](\.\.?\/[^'"]+)['"]/gm;
+    const importa = (ruta: string): string[] =>
+      [...codigoDe(ruta).matchAll(deUnModulo)].map((m) =>
+        join(dirname(ruta), (m[1] as string).replace(/\.js$/, '.ts')),
+      );
+    const visto = new Set<string>();
+    const ciclo = (ruta: string, camino: readonly string[]): string[] | null => {
+      for (const siguiente of importa(ruta)) {
+        if (siguiente === INICIO) return [...camino, siguiente];
+        if (visto.has(siguiente) || !siguiente.endsWith('.ts')) continue;
+        visto.add(siguiente);
+        const hallado = ciclo(siguiente, [...camino, siguiente]);
+        if (hallado !== null) return hallado;
+      }
+      return null;
+    };
+    expect(ciclo(INICIO, [INICIO])).toBeNull();
+    // Y el guardia ve los imports que corren: `nivel.ts` importa `battle/armas.ts`.
+    expect(importa(INICIO)).toContain('src/core/battle/armas.ts');
+  });
+
+  it('los tiros de un disparo los cuenta solo `disparosDe`', () => {
+    // Dos con el disparo doble, uno sin él: lo leen el disparo (`shoot`), su
+    // previsión y la medida del nivel. Eran tres copias de `double_shot ? 2 : 1`
+    // (simplify de F1, 18-10-2026). Roto a mano: la de `shoot` devuelta a
+    // `battle.ts` sale roja.
+    const PUERTA = 'src/core/battle/armas.ts';
+    const cuenta = /hasTrait\([^)]*['"]double_shot['"]\s*\)/;
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        cuenta,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], cuenta)).not.toEqual([]);
+  });
+
+  it('el catálogo de unidades lo importa solo `core/catalogo.ts`, que lo valida al cargar', () => {
+    // F1 de 2026-10-18: `data/unidades.json` es la lista entera de las cinco
+    // facciones. Quien lo importara por su cuenta se saltaría la validación de
+    // `catalogo.ts` (una unidad rota tumba la carga diciendo cuál) o lo leería
+    // con otras piezas. La arena lo lee y escribe en disco, por su ruta
+    // (`RUTA_DEL_CATALOGO_DE_UNIDADES`), no importándolo: así lo abre aunque esté
+    // roto. Roto a mano: un `import u from '../../data/unidades.json'` en
+    // `arena.ts` sale rojo.
+    const PUERTA = 'src/core/catalogo.ts';
+    const importa = importaDe(/[^'"]*data\/unidades\.json/);
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        importa,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
   });
 
   it('los huecos del contrato se traducen en un sitio y la regla de las manos vive en otro', () => {
@@ -1386,7 +1470,7 @@ describe('invariantes del proyecto', () => {
     // de cuerpo a cuerpo, y cada golpe va con las cifras de la suya
     // (`UnitInfo.armas`). Dos partes:
     //  (a) `armas` lo escribe solo `conEquipo` (`hero/equipo.ts`) y lo leen solo
-    //      él y `battle/damage.ts` (`golpeDe`, `armasDe`): un golpe que leyera
+    //      él, `battle/armas.ts` (`golpeDe`) y `battle/damage.ts` (`armasDe`): un golpe que leyera
     //      `unit.armas` por su cuenta elegiría el arma con otra regla.
     //  (b) el agente no los ve: cuatro `SLOTS` y ni una palabra de ellos en su
     //      formato de respuesta ni en la prosa del catálogo.
@@ -1398,7 +1482,7 @@ describe('invariantes del proyecto', () => {
     // `SLOT_DE_HUECO` salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const ESCRITOR = 'src/core/hero/equipo.ts';
-    const LECTORES = [ESCRITOR, 'src/core/battle/damage.ts'];
+    const LECTORES = [ESCRITOR, 'src/core/battle/armas.ts', 'src/core/battle/damage.ts'];
     const escribe = /\barmas\s*:/;
     expect(
       infractoresDeCodigo(
@@ -1414,7 +1498,7 @@ describe('invariantes del proyecto', () => {
         lee,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/damage.ts'], lee)).not.toEqual([]);
+    expect(infractoresDeCodigo(['src/core/battle/armas.ts'], lee)).not.toEqual([]);
 
     expect(SLOTS).toHaveLength(4);
     expect(Object.keys(SLOT_DE_HUECO)).toEqual([...HUECOS]);
@@ -2009,10 +2093,10 @@ describe('invariantes del proyecto', () => {
 // ------------------------------------------------------------------ armadura (#262)
 
 describe('la armadura es solo de la arena (#262)', () => {
-  it('`puntosDeArmadura` lo escribe solo `conEquipo` y lo leen solo él y `damage.ts`; el agente no la conoce', () => {
+  it('`puntosDeArmadura` lo escribe solo `conEquipo` y lo leen solo él y `battle/armas.ts`; el agente no la conoce', () => {
     // 14-10-2026: las piezas de la arena dan puntos de armadura, que se restan
     // del daño de cada golpe. La suma es de `vestir` (`hero/equipo.ts`) y la resta
-    // de `trasLaArmadura` (`battle/damage.ts`), por donde pasa todo lo que quita
+    // de `trasLaArmadura` (`battle/armas.ts`), por donde pasa todo lo que quita
     // vida (`herir`): una pantalla o una IA que leyera `unit.puntosDeArmadura` por
     // su cuenta restaría con otra regla, y un `{ ...u, puntosDeArmadura: 3 }` fuera
     // de la suma daría armadura que ninguna pieza pone. Rotos a mano: un
@@ -2020,7 +2104,7 @@ describe('la armadura es solo de la arena (#262)', () => {
     // en `paneles.ts` y un «+7 Armadura» en la prosa del agente salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const ESCRITOR = 'src/core/hero/equipo.ts';
-    const LECTORES = [ESCRITOR, 'src/core/battle/damage.ts', 'src/core/types.ts'];
+    const LECTORES = [ESCRITOR, 'src/core/battle/armas.ts', 'src/core/types.ts'];
     const menciona = /\bpuntosDeArmadura\b/;
     expect(
       infractoresDeCodigo(
@@ -2028,7 +2112,7 @@ describe('la armadura es solo de la arena (#262)', () => {
         menciona,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/damage.ts'], menciona)).not.toEqual([]);
+    expect(infractoresDeCodigo(['src/core/battle/armas.ts'], menciona)).not.toEqual([]);
     const escribe = /\bpuntosDeArmadura\s*:|\{\s*puntosDeArmadura\s*\}|\.puntosDeArmadura\s*=(?!=)/;
     expect(
       infractoresDeCodigo(
@@ -2068,7 +2152,7 @@ describe('las bases y la rueda del arma (18-10-2026)', () => {
     //      olvidaría del arma del golpe. Por declaración, no contando líneas: que
     //      el formateador parta una no lo pone rojo.
     // Rotos a mano: un `p.extras.ataque` en `damage.ts`, una lectura de `TABLA`
-    // en `delNivel` y un `cifrasDeLosNiveles(` en `factorDe` salen rojos.
+    // en `delNivel` y un `cifrasDeLosNiveles(` en `porcientoDelTipo` salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     /** Las líneas de `rutas` con `patron` fuera de las declaraciones con permiso. */
     const fueraDe = (
@@ -2125,9 +2209,11 @@ describe('las bases y la rueda del arma (18-10-2026)', () => {
     expect(
       fueraDe(traduce, {
         'src/core/battle/cifras-de-la-rueda.ts': ['cifrasDeLosNiveles'],
-        'src/core/battle/rueda.ts': ['ruedaDelGolpe', 'filasDeLaRueda'],
+        'src/core/battle/armas.ts': ['ruedaDelGolpe'],
+        'src/core/battle/rueda.ts': ['filasDeLaRueda'],
       }),
     ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/battle/armas.ts'], traduce)).not.toEqual([]);
     expect(infractoresDeCodigo(['src/core/battle/rueda.ts'], traduce)).not.toEqual([]);
   });
 });

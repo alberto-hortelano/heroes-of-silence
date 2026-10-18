@@ -24,6 +24,7 @@ import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
 import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo, UsoDeArma } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
+import { disparosDe, golpesDe, ruedaDelGolpe, trasLaArmadura } from './armas.js';
 import {
   alcanceConCostes,
   allHexes,
@@ -71,7 +72,6 @@ import {
   type RamaDeSuerte,
   stackHp,
   trasElGolpe,
-  trasLaArmadura,
   usoDelGolpe,
 } from './damage.js';
 import {
@@ -124,14 +124,12 @@ import {
   cruceDelGolpe,
   type EfectoDeLaRueda,
   efectoDeLaRueda,
-  golpesDe,
   type HechoDelCruce,
   type PapelEnLaRueda,
   type Punto,
   puntoDelContraataque,
   puntoDelCruce,
   puntosDe,
-  ruedaDelGolpe,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
 } from './rueda.js';
@@ -3055,7 +3053,7 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
   // Solo gasta quien cuenta tiros (la criatura del catálogo): el arma a distancia
   // de la arena no lleva munición.
   if (cuentaTiros(info)) shooter.shotsLeft -= 1;
-  const shots = hasTrait(info, 'double_shot') ? 2 : 1;
+  const shots = disparosDe(info);
 
   for (let i = 0; i < shots && isAlive(target); i++) {
     const distance = distanciaDeDisparo(shooter, target);
@@ -3513,11 +3511,7 @@ function previsionDeGolpe(
   const piezas = piezasDeLaPelea(state);
   const h = horquillaDeDanio(a, t, opcionesDeDanio(state, a, t, extra, golpe), piezas);
   const golpes =
-    kind === 'golpe'
-      ? golpesDe(a.unit, golpe?.tipo ?? null, false)
-      : hasTrait(a.unit, 'double_shot')
-        ? 2
-        : 1;
+    kind === 'golpe' ? golpesDe(a.unit, golpe?.tipo ?? null, false) : disparosDe(a.unit);
   const siguientes =
     golpes > 1 ? danioSinLaCarga(h.danio, a, t, extra, golpe, piezas, state) : null;
   // Cómo queda el objetivo con `golpes` golpes: el primero de `d`, los demás de

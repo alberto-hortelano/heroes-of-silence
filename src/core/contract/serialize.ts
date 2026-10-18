@@ -109,8 +109,8 @@ import { SLOT_DE_HUECO } from './huecos.js';
  * velocidad, que es la de su perfil y no la de ningún catálogo.
  *
  * Ya no lleva `slot`: con la tropa de individuos no hay huecos que numerar.
- * Un veterano va en su fila con `rank`, su `level` (el de sus cifras sin equipo,
- * `nivelDeUnidad`), `experience` y `nextRankAt` (la experiencia a la que sube de
+ * Un veterano va en su fila con `rank`, su `level` (el de sus cifras con su
+ * equipo, `nivelDeUnidad`), `experience` y `nextRankAt` (la experiencia a la que sube de
  * rango; `null` en el tope).
  */
 function armyView(
@@ -491,8 +491,8 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       // El rango con su experiencia y el umbral del siguiente, como una fila de
       // veterano de `army`: la escala es una sola (el héroe empieza en el 5,
       // donde la tropa acaba), así que las dos se leen igual. Y su nivel, el de
-      // su cuerpo sin equipo (`nivelDeUnidad`), que es con el que recibe los
-      // golpes. Va con su línea en `RESPONSE_FORMAT`: un dato que el contrato no
+      // su cuerpo con su equipo (`nivelDeUnidad`), que es con el que pega y recibe
+      // los golpes. Va con su línea en `RESPONSE_FORMAT`: un dato que el contrato no
       // nombra no lo mira nadie.
       rank: rangoDeHeroe(h),
       level: nivelDeUnidad(heroUnit(h)),

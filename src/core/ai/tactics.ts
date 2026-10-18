@@ -5,6 +5,8 @@
  * batallas automáticas del mapa. Deliberadamente simple y determinista: su
  * trabajo es que el juego sea jugable sin IA externa, no ser brillante.
  */
+
+import { armaduraDe, trasLaArmadura } from '../battle/armas.js';
 import {
   activeStack,
   applyAction,
@@ -36,12 +38,10 @@ import {
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
 import { CARGA_MINIMA, cargaEfectiva, cifrasDeCarga } from '../battle/carga.js';
 import {
-  armaduraDe,
   type DamageOptions,
   expectedDamage,
   fraccionQueLlega,
   stackHp,
-  trasLaArmadura,
   valorDeEfectoDeDanio,
 } from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';

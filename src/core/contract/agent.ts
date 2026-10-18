@@ -517,7 +517,7 @@ Notas:
 - Un stack con "veteranRank" es un VETERANO (rango 2 a 5): su ataque y su
   defensa ya traen lo que da su rango. Cada PV que le quites a alguien te da
   "PV × índice de poder de quien los recibe" de experiencia (el de sus cifras
-  sin equipo; 100 × su nivel o algo más), así que pegar a lo fuerte enseña más. La tropa que muere pierde lo que había ganado.
+  con el equipo puesto; 100 × su nivel o algo más), así que pegar a lo fuerte enseña más. La tropa que muere pierde lo que había ganado.
 - "surrender" te rinde: pierdes la batalla, pagas el oro de la rendición y tu
   héroe vuelve a la base con la tropa que siga viva. El precio es proporcional
   a la tropa que salvas y viene en su "gold" dentro de "legalActions"; el oro

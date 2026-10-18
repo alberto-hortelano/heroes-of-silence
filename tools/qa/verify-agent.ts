@@ -619,6 +619,16 @@ async function terminarBien(
   exigeElEscudo();
   exigeElAscenso();
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
+  // Peticiones por batalla: la cifra que mueve pedirle al agente también la
+  // respuesta de la rueda (F6 del plan de 2026-10-18). Una batalla nueva se
+  // reconoce porque su `turnId` vuelve a empezar: es el ordinal del turno DENTRO
+  // de su batalla, así que solo baja al cambiar de batalla.
+  const nBatallas = decisionesDeBatalla.filter(
+    (d, i) => i === 0 || d.turnId < decisionesDeBatalla[i - 1]!.turnId,
+  ).length;
+  log(
+    `batallas del agente: ${nBatallas}, ${(batallas / Math.max(1, nBatallas)).toFixed(1)} peticiones de batalla por batalla`,
+  );
   log(
     `${motivo}: ${mapas} ${mapas === 1 ? 'mapa diseñado' : 'mapas diseñados'}, ` +
       `${turnos} turnos de mapa, ${batallas} decisiones de batalla y ` +

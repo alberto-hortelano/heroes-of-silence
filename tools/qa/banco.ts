@@ -1000,11 +1000,38 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   otro ganador, j0 108 → **111**, duración 8 / 14 / 30 → **7 / 13 / 24**, 0
  *   sin terminar. Batallas 1 185 → 1 135; ningún tipo nuevo ni ninguno que
  *   desaparezca.
+ * - `a8b5bf5f…` (63 678 líneas, 18-10-2026): **el nivel ve el equipo** (F1 de
+ *   `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`): el índice de
+ *   poder se mide con la unidad vestida (lo que pega, el mejor de sus golpes con
+ *   el arma de cada uso, la rueda y la carga del jinete; lo que aguanta, con la
+ *   armadura), y la experiencia cobra `PV × índice` de quien los recibe. Contra
+ *   `--dump` de `4ec21762…`, **135 de 200 idénticas**; en las 65 que cambian el
+ *   primer hecho distinto es un `rank_up` (41) o un `troop_rank_up` (24): la
+ *   experiencia de pegarle a un héroe o veterano equipado, o a la caballería y
+ *   el campeón (que con `charge` suben de 475 a 496 y de 507 a 520). Ninguna
+ *   cambia antes de su primera batalla. 3 con otro ganador, j0 111 → **108**,
+ *   duración 7 / 13 / 24 → **7 / 14 / 32**, 0 sin terminar. `rank_up` 550 → 583,
+ *   `troop_rank_up` 1 830 → 1 945, batallas 1 135 → 1 149, `item_bought` 25 →
+ *   37; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `e4d49a33…` (63 127 líneas, 18-10-2026): **el índice mide la carga con la
+ *   regla final y compuesta con la rueda** (simplify de F1): carga todo el que
+ *   pega cuerpo a cuerpo, a pie si no tiene `charge`, y solo el primer golpe la
+ *   cobra, con lo que da la rueda de su arma. Sube el índice de toda criatura sin
+ *   `charge` (+1 a +10: campesino 119 → 120, piquero 328 → 336, dragón óseo 690 →
+ *   700) y con él la experiencia de pegarle. Antes se comprobó que el resto de la
+ *   tanda no mueve nada: con la medida de antes, el árbol daba `a8b5bf5f…` byte a
+ *   byte. Contra ese `--dump`, **164 de 200 idénticas**; en las 36 que cambian el
+ *   primer hecho distinto es una subida de rango que ahora llega antes o después
+ *   (`troop_rank_up` 19, `rank_up` 17), y ninguna cambia antes de su primera
+ *   batalla. 1 con otro ganador, j0 108 → **109**, duración 7 / 14 / 32 →
+ *   **7 / 13 / 24**, 0 sin terminar. `troop_rank_up` 1 945 → 1 888, `rank_up`
+ *   583 → 580, batallas 1 149 → 1 135, `item_bought` 37 → 19; ningún tipo nuevo
+ *   ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '4ec21762894138dd5a71e8a6312efb111d741224279c2009526474ef5683867d',
+  sha: 'e4d49a3324452188e8481ca88c1ec3f26f253e42ba578380f0ae86be789cf6ca',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

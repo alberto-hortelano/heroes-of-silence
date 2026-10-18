@@ -14,7 +14,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { NOMBRE_DE_FACCION_DE_ARENA } from '../../src/core/arena.js';
+import { NOMBRE_DE_FACCION_DE_ARENA } from '../../src/core/unidad.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 export const DIR_VISTA = join(RAIZ, '.cache/taller/vista');

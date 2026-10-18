@@ -1,15 +1,15 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
+import { RUTA_DEL_CATALOGO_DE_UNIDADES } from './src/core/unidad.js';
 import { puertoEspectadores } from './src/server/entorno.js';
 import {
-  escribirBorrador,
+  escribirCatalogo,
   escribirMurallas,
   hojasDeArena,
-  leerBorrador,
+  leerCatalogo,
   leerMurallas,
   RUTA_DE_MURALLAS,
-  RUTA_DEL_BORRADOR,
 } from './tools/arena/borrador.js';
 import { copiarPublico } from './tools/build/publico.js';
 
@@ -85,14 +85,15 @@ function servirBorrador(b: {
 }
 
 /**
- * La arena (`/arena/`): la lista de hojas y los borradores de cifras con sus
- * piezas de equipo, y de murallas.
+ * La arena (`/arena/`): la lista de hojas, el catálogo de unidades con las
+ * piezas de equipo de la arena, y el borrador de murallas.
  *
  * El guardado existe **solo en `pnpm dev`** (`configureServer`): un navegador no
  * puede escribir en el repo, y en `vite build` no hay quien escriba. El build
  * saca la lista de hojas y un `__arena/unidades` que dice `guardado: false`, así
- * que la arena construida monta y pelea, y la página lee un campo explícito en
- * vez de deducir del tipo de una respuesta si hay servidor detrás.
+ * que la página lee un campo explícito en vez de deducir del tipo de una
+ * respuesta si hay servidor detrás; las unidades, la arena construida las lee
+ * del catálogo del núcleo (`core/catalogo.ts`), que ya va en el bundle.
  */
 function arena(): Plugin {
   const raiz = __dirname;
@@ -132,9 +133,9 @@ function arena(): Plugin {
       server.middlewares.use(
         '/__arena/unidades',
         servirBorrador({
-          ruta: RUTA_DEL_BORRADOR,
+          ruta: RUTA_DEL_CATALOGO_DE_UNIDADES,
           leer: () => {
-            const leido = leerBorrador(raiz);
+            const leido = leerCatalogo(raiz);
             return {
               unidades: leido.unidades,
               invalidas: leido.invalidas.map(({ id, motivo }) => ({ id, motivo })),
@@ -156,7 +157,7 @@ function arena(): Plugin {
             piezas: [],
             piezasInvalidas: [],
           },
-          escribir: (cuerpo) => escribirBorrador(raiz, cuerpo),
+          escribir: (cuerpo) => escribirCatalogo(raiz, cuerpo),
         }),
       );
       server.middlewares.use(

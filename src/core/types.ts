@@ -188,9 +188,11 @@ export interface UnitInfo {
   readonly speed: SpeedTier;
   /**
    * Las cifras de esta unidad **sin su equipo**, si lleva alguno. Lo escribe solo
-   * `conEquipo` (`hero/equipo.ts`), que es la única suma de las piezas, y lo lee
-   * solo `core/nivel.ts`: el índice de poder y el nivel se miden sin equipo
-   * («el equipo va aparte»). Vive en la unidad y no se recalcula desde el origen
+   * `conEquipo` (`hero/equipo.ts`), que es la única suma de las piezas, y lo leen
+   * lo que enseña qué suma el equipo (la ficha de la arena, el panel del héroe) y
+   * el retoque de piezas de la arena, que viste otra vez el cuerpo. El nivel **no**
+   * lo lee: se mide con el equipo puesto (18-10-2026; `core/nivel.ts`, lo vigila
+   * `test/invariantes.test.ts`). Vive en la unidad y no se recalcula desde el origen
    * del stack porque ese origen tiene cuatro caminos —catálogo, héroe, arena,
    * personaje— y el que se olvidara uno mentiría. No viaja al espectador.
    *

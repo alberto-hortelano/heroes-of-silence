@@ -144,7 +144,7 @@ function vecinaLibre(state: GameState, p: Point): Point {
 // ---------------------------------------------------------------- C1
 
 describe('la experiencia se gana por daño × índice de poder del que lo recibe (C1)', () => {
-  it('un golpe de 70 sobre un piquero (índice 328) con 50 PV acredita 50 × 328, no 70 × 328', () => {
+  it('un golpe de 70 sobre un piquero (índice 336) con 50 PV acredita 50 × 336, no 70 × 336', () => {
     const b = createBattle(
       { army: [{ creature: 'swordsman', count: 1 }], hero: null },
       { army: [{ creature: 'pikeman', count: 1 }], hero: null },
@@ -152,12 +152,12 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     );
     const autor = stackById(b, 'attacker-0');
     const piquero = stackById(b, 'defender-0');
-    expect(indiceDePoder(piquero.unit)).toBe(328);
+    expect(indiceDePoder(piquero.unit)).toBe(336);
     piquero.topHp = 50;
     expect(herir(piquero, 70, autor).muertos).toBe(1);
     // Lo quitado, no lo tirado: el sobrante no existe para nadie. Y por el
     // índice entero, no por su primera cifra: el nivel (3) daría 150.
-    expect(autor.ganado.experiencia).toBe(50 * 328);
+    expect(autor.ganado.experiencia).toBe(50 * 336);
     expect(autor.ganado.bajas).toBe(1);
   });
 
@@ -177,7 +177,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     const novato = stackById(b, 'defender-0').unit;
     const veterano4 = stackById(b, 'defender-1').unit;
     expect(nivelDeUnidad(novato)).toBe(3);
-    // El rango 4 le suma +3/+3: más índice (328 → 352), así que cobrar de él
+    // El rango 4 le suma +3/+3: más índice, así que cobrar de él
     // paga más aunque su nivel siga siendo el 3.
     expect(indiceDePoder(veterano4)).toBeGreaterThan(indiceDePoder(novato));
     expect(nivelDeUnidad(veterano4)).toBe(3);
@@ -221,10 +221,10 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     const zombi = stackById(b, 'defender-0');
     // Por la puerta de verdad, `applyAction`: es la que tiene que buscar el
     // cuerpo del héroe. 100 + 100 × 1 = 200 de daño sobre un zombi de 150 PV
-    // e índice 248: quita 150, cobra 150 × 248.
+    // e índice 256: quita 150, cobra 150 × 256.
     applyAction(b, { type: 'cast', spell: 'magic_arrow', target: zombi.id }, createRng(4));
-    expect(indiceDePoder(zombi.unit)).toBe(248);
-    expect(cuerpo.ganado.experiencia).toBe(150 * 248);
+    expect(indiceDePoder(zombi.unit)).toBe(256);
+    expect(cuerpo.ganado.experiencia).toBe(150 * 256);
     // Y sin cuerpo que cobre, el hechizo hiere igual y no apunta a nadie.
     const otra = createBattle(
       conHeroe([{ creature: 'champion', count: 1 }]),
@@ -286,10 +286,10 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
     const vivos = b.stacks.filter((s) => s.side === 'attacker' && s.origen.kind === 'catalogo');
     const army = heroById(state, hero.id).army;
-    // 7 campesinos de 10 PV e índice 119: entre todos, 70 × 119 de experiencia.
-    expect(indiceDePoder(creature('peasant'))).toBe(119);
+    // 7 campesinos de 10 PV e índice 120: entre todos, 70 × 120 de experiencia.
+    expect(indiceDePoder(creature('peasant'))).toBe(120);
     const total = vivos.reduce((n, s) => n + s.ganado.experiencia, 0);
-    expect(total).toBe(70 * 119);
+    expect(total).toBe(70 * 120);
     expect(army.reduce((n, t) => n + (t.veterania?.experiencia ?? 0), 0)).toBe(total);
     // Quien no pegó vuelve novato: sin hoja.
     for (const [i, s] of vivos.entries()) {
@@ -813,8 +813,9 @@ describe('una sola escala de rangos: el héroe empieza donde acaba la tropa', ()
       experience: 176_000,
       nextRankAt: 304_000,
     });
-    // El héroe inicial (2/2 sin equipo, rango 5) es del nivel 3: su cuerpo.
-    expect(turno.heroes[0]!.level).toBe(3);
+    // El héroe inicial (2/2, rango 5) es del nivel 4: su cuerpo con su equipo
+    // base, que el nivel ve desde el 18-10-2026 y mide con la carga a pie.
+    expect(turno.heroes[0]!.level).toBe(4);
   });
 
   it('el primer ascenso del héroe es al 6 y cuesta 128 000, no 16 000', () => {

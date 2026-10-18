@@ -8,12 +8,7 @@ import { describe, expect, it } from 'vitest';
 import cargaJson from '../data/carga.json' with { type: 'json' };
 import { marcadoDe } from '../src/client/html.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
-import {
-  batallaDeArena,
-  type HeroeDeArena,
-  heroePorDefecto,
-  unidadDeCombate,
-} from '../src/core/arena.js';
+import { batallaDeArena, type HeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
 import {
   applyAction,
   cargaDesde,
@@ -35,6 +30,7 @@ import type { ModoDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
+import { unidadDeCombate } from '../src/core/unidad.js';
 import { DEL_JUEGO, delBorrador, forzarTurno, MONTAJE, unidadDeArena } from './helpers.js';
 
 const A_PIE = 'templario-escudo';

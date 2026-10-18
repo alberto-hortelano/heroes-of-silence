@@ -9,7 +9,7 @@
  * cada regla con su caso que se rechaza, que es donde vive el fail-loud. Reglas,
  * no resultados de combate: las cifras salen de las piezas, no del JSON.
  */
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -28,22 +28,18 @@ import {
   cambioDePiezaBlocker,
   catalogoDeLaArena,
   conPieza,
-  ESPADA_DE_LA_ARENA,
   enElHueco,
   equiparEnArena,
-  equipoDeArenaBlocker,
   type HeroeDeArena,
   heroePorDefecto,
   idsLlevados,
   laLlevaElHeroe,
-  lecturaDelNivel,
   type MontajeDeArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
   opcionesDelHueco,
-  piezaDelJuegoBlocker,
   piezaNueva,
   piezasDeLaArena,
   piezasDelEnlace,
@@ -54,16 +50,14 @@ import {
   retocarEnBatalla,
   selloDePieza,
   sinPieza,
-  type UnidadDeArena,
-  unidadDeCombate,
   unidadNueva,
   VERSION_DEL_ENLACE,
   validarPiezaDeArena,
-  validarUnidadDeArena,
 } from '../src/core/arena.js';
-import { armaduraDe } from '../src/core/battle/damage.js';
+import { armaduraDe } from '../src/core/battle/armas.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import { UNIDADES } from '../src/core/catalogo.js';
 import { cuentaTiros, EQUIPO, isShooter, type Pieza } from '../src/core/data.js';
 import {
   EQUIPO_BASE,
@@ -73,9 +67,19 @@ import {
   PIEZAS_DEL_JUEGO,
   pieza,
 } from '../src/core/hero/equipo.js';
+import { indiceDePoder } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
 import { HUECOS_DE_LA_ARENA, type HuecoDeArena } from '../src/core/types.js';
-import { escribirBorrador, leerBorrador, RUTA_DE_EQUIPO } from '../tools/arena/borrador.js';
+import {
+  ESPADA_DE_LA_ARENA,
+  equipoDeArenaBlocker,
+  piezaDelJuegoBlocker,
+  RUTA_DEL_CATALOGO_DE_UNIDADES,
+  type UnidadDeArena,
+  unidadDeCombate,
+  validarUnidadDeArena,
+} from '../src/core/unidad.js';
+import { escribirCatalogo, leerCatalogo, RUTA_DE_EQUIPO } from '../tools/arena/borrador.js';
 import {
   DEL_JUEGO,
   delBorrador,
@@ -267,13 +271,14 @@ describe('las piezas de la arena', () => {
 });
 
 describe('la arena pelea con sus piezas', () => {
-  it('la espada cambiada suma en la unidad y en la pelea, y el nivel no cambia', () => {
+  it('la espada cambiada suma en la unidad y en la pelea, y el índice lo ve (18-10-2026)', () => {
     const eq = catalogoDeLaArena([ESPADA_MAS]);
     const u = guerrero();
     const delJuego = unidadDeCombate(u, DEL_JUEGO);
     const deLaArena = unidadDeCombate(u, eq);
     expect(deLaArena.attack - delJuego.attack).toBe(ESPADA_MAS.ataque - ESPADA.ataque);
-    expect(lecturaDelNivel(deLaArena)).toBe(lecturaDelNivel(delJuego));
+    // El nivel se mide con el equipo puesto: más ataque en el arma, más índice.
+    expect(indiceDePoder(deLaArena)).toBeGreaterThan(indiceDePoder(delJuego));
     const b = batallaDeArena(
       {
         izquierda: { unidades: [delBorrador(u)], heroe: null },
@@ -413,44 +418,64 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
 
   it('escribe los dos y los lee; sin piezas, no crea el de equipo; lo que no vale se conserva', () => {
     const d = carpeta();
-    escribirBorrador(d, { unidades: [guerrero()], piezas: [] });
+    escribirCatalogo(d, { unidades: [guerrero()], piezas: [] });
     expect(() => readFileSync(join(d, RUTA_DE_EQUIPO))).toThrow();
     const nueva = piezaNueva('accesorio', DEL_JUEGO);
-    const con = equiparEnArena(arquero(), nueva.id, catalogoDeLaArena([nueva]));
-    expect(escribirBorrador(d, { unidades: [con], piezas: [nueva, ESPADA_MAS] })).toMatchObject({
+    expect(
+      escribirCatalogo(d, { unidades: [guerrero()], piezas: [nueva, ESPADA_MAS] }),
+    ).toMatchObject({
       unidades: 1,
       piezas: 2,
     });
-    const leido = leerBorrador(d);
-    expect(leido.unidades).toEqual([con]);
+    const leido = leerCatalogo(d);
+    expect(leido.unidades).toEqual([guerrero()]);
     expect(leido.piezas).toEqual([nueva, validarPiezaDeArena(ESPADA_MAS)]);
     const json = JSON.parse(readFileSync(join(d, RUTA_DE_EQUIPO), 'utf8')) as { _comment: string };
     expect(json._comment).toContain('El juego NO lo lee');
     // Una editada a mano que no vale se conserva tal cual al guardar.
     const mala = { ...(piezaNueva('escudo', DEL_JUEGO) as Pieza), velocidad: 2 };
     writeFileSync(join(d, RUTA_DE_EQUIPO), JSON.stringify({ piezas: [nueva, mala] }));
-    expect(leerBorrador(d).piezasInvalidas.map((i) => i.clave)).toEqual([mala.id]);
-    expect(escribirBorrador(d, { unidades: [con], piezas: [nueva] }).piezasConservadas).toBe(1);
+    expect(leerCatalogo(d).piezasInvalidas.map((i) => i.clave)).toEqual([mala.id]);
+    expect(escribirCatalogo(d, { unidades: [guerrero()], piezas: [nueva] }).piezasConservadas).toBe(
+      1,
+    );
+  });
+
+  it('una unidad que solo vale con una pieza del borrador de equipo no entra en el catálogo del juego, y se dice', () => {
+    // El catálogo (`data/unidades.json`) lo lee `core/catalogo.ts` con las piezas
+    // de `data/equipo.json`: una unidad con una pieza nueva tumbaría su carga.
+    // «Guardar» valida una vez, con esa misma regla (`validarCatalogo`).
+    const d = carpeta();
+    escribirCatalogo(d, { unidades: [guerrero()], piezas: [] });
+    const antes = readFileSync(join(d, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8');
+    const nueva = piezaNueva('accesorio', DEL_JUEGO);
+    const con = equiparEnArena(arquero(), nueva.id, catalogoDeLaArena([nueva]));
+    expect(() => escribirCatalogo(d, { unidades: [guerrero(), con], piezas: [nueva] })).toThrow(
+      `data/unidades.json: la unidad «${con.name}»: no existe ninguna pieza "${nueva.id}"`,
+    );
+    // No se escribe ninguno de los dos.
+    expect(readFileSync(join(d, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')).toBe(antes);
+    expect(() => readFileSync(join(d, RUTA_DE_EQUIPO))).toThrow();
   });
 
   it('si algo no vale no escribe ninguno: una unidad con una pieza que no viene, o una pieza mala', () => {
     const d = carpeta();
     const nueva = piezaNueva('accesorio', DEL_JUEGO);
     const con = equiparEnArena(arquero(), nueva.id, catalogoDeLaArena([nueva]));
-    expect(() => escribirBorrador(d, { unidades: [con], piezas: [] })).toThrow(
+    expect(() => escribirCatalogo(d, { unidades: [con], piezas: [] })).toThrow(
       `no existe ninguna pieza "${nueva.id}"`,
     );
     expect(() =>
-      escribirBorrador(d, { unidades: [guerrero()], piezas: [{ ...ESPADA, ataque: -1 }] }),
+      escribirCatalogo(d, { unidades: [guerrero()], piezas: [{ ...ESPADA, ataque: -1 }] }),
     ).toThrow('ataque tiene que ser un entero ≥ 0');
-    expect(leerBorrador(d)).toMatchObject({ unidades: [], piezas: [] });
+    expect(leerCatalogo(d)).toMatchObject({ unidades: [], piezas: [] });
   });
 
   it('tras abrir un enlace, «Guardar» no sustituye ni borra una pieza tuya; las nuevas del enlace, sí', () => {
     const d = carpeta();
     // Tu brigantina, cambiada y guardada.
     const tuya = { ...pieza('brigantina'), armadura: (pieza('brigantina').armadura ?? 0) + 2 };
-    escribirBorrador(d, { unidades: [], piezas: [tuya] });
+    escribirCatalogo(d, { unidades: [], piezas: [tuya] });
     // El enlace lleva al guerrero con la brigantina del juego y al arquero con una nueva.
     const nueva = piezaNueva('accesorio', DEL_JUEGO);
     const conNueva = equiparEnArena(arquero(), nueva.id, catalogoDeLaArena([nueva]));
@@ -468,32 +493,38 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
         muralla: null,
       }),
     );
-    const delDisco = leerBorrador(d).piezas;
+    const delDisco = leerCatalogo(d).piezas;
     const capa = piezasDelEnlace(enlace);
     // En la pelea va la del juego…
     expect(catalogoDeLaArena(capa.reduce(conPieza, delDisco)).pieza('brigantina').armadura).toBe(
       pieza('brigantina').armadura,
     );
-    // …y al guardar, la tuya se queda y la nueva entra con las unidades del enlace.
-    escribirBorrador(d, {
-      unidades: [guerrero(), conNueva],
+    // …y al guardar, la tuya se queda y la nueva entra. (La unidad que la lleva no
+    // va al catálogo del juego: solo admite las piezas de `data/equipo.json`.)
+    escribirCatalogo(d, {
+      unidades: [guerrero()],
       piezas: piezasQueSeGuardan(delDisco, capa),
     });
-    expect(leerBorrador(d).piezas).toEqual([validarPiezaDeArena(tuya), nueva]);
+    expect(leerCatalogo(d).piezas).toEqual([validarPiezaDeArena(tuya), nueva]);
   });
 
   it('un equipo.json ilegible no deja ilegible el de unidades, y no se pisa al guardar', () => {
     const d = carpeta();
     const nueva = piezaNueva('accesorio', DEL_JUEGO);
     const con = equiparEnArena(arquero(), nueva.id, catalogoDeLaArena([nueva]));
-    escribirBorrador(d, { unidades: [guerrero(), con], piezas: [nueva] });
+    // A mano: «Guardar» no deja una pieza del borrador en el catálogo del juego.
+    mkdirSync(join(d, 'data/borradores'), { recursive: true });
+    writeFileSync(
+      join(d, RUTA_DEL_CATALOGO_DE_UNIDADES),
+      JSON.stringify({ unidades: [guerrero(), con] }),
+    );
     writeFileSync(join(d, RUTA_DE_EQUIPO), '{ roto');
-    const leido = leerBorrador(d);
+    const leido = leerCatalogo(d);
     expect(leido.equipoIlegible).toMatch(/no es JSON/);
     // Se leen con las del juego: la que lleva la nueva no vale y se conserva.
     expect(leido.unidades).toEqual([guerrero()]);
     expect(leido.invalidas.map((i) => i.id)).toEqual([con.id]);
-    expect(() => escribirBorrador(d, { unidades: [guerrero()], piezas: [] })).toThrow(
+    expect(() => escribirCatalogo(d, { unidades: [guerrero()], piezas: [] })).toThrow(
       'no se guarda para no pisarlo',
     );
   });
@@ -878,9 +909,9 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
     expect(opcionesDelHueco(guerrero(), 'accesorio', DEL_JUEGO)).toEqual([]);
   });
 
-  it('lo que ofrece entra y lo desactivado se rechaza con el motivo que enseña, en toda hoja', () => {
-    for (const h of hojasDeLaArena()) {
-      const u = unidadDeArena(h.id);
+  it('lo que ofrece entra y lo desactivado se rechaza con el motivo que enseña, en todo el catálogo', () => {
+    for (const u of UNIDADES) {
+      const h = { id: u.id };
       const m = ficha(u);
       for (const hueco of HUECOS_DE_LA_ARENA) {
         for (const o of ofrecidas(m, hueco)) {

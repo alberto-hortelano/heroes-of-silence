@@ -26,7 +26,6 @@
  * `melee`, el daño), la IA (`ai/rueda.ts`), la sesión de la arena y la rueda del
  * cliente.
  */
-import { hasTrait } from '../data.js';
 import { conSigno } from '../hero/equipo.js';
 import {
   conComa,
@@ -36,20 +35,18 @@ import {
   TIPOS_DEL_ANILLO,
   type TipoDeGolpe,
   type TipoDelAnillo,
-  type UnitInfo,
-  type UsoDeArma,
 } from '../types.js';
+import { porcientoDelTipo } from './armas.js';
 import {
   type CifrasDeLaRueda,
   cifrasDeLosNiveles,
-  GOLPES_DEL_RAPIDO,
   NOMBRE_DE_GOLPE,
   type PapelEnLaRueda,
   type PorExito,
   PUNTOS,
   type Punto,
 } from './cifras-de-la-rueda.js';
-import { type CruceDelGolpe, golpeDe, tiradaEnCuartos } from './damage.js';
+import { type CruceDelGolpe, tiradaEnCuartos } from './damage.js';
 import type { CuandoVence } from './effects.js';
 import type { ModosDeArena } from './modos.js';
 import type { BattleAction, BattleEvent } from './types.js';
@@ -144,25 +141,6 @@ export interface EfectoDeLaRueda {
   readonly amount: number;
   readonly a: 'propio' | 'rival';
   readonly vence: CuandoVence;
-}
-
-/**
- * Las cifras de la rueda con que da `unit` un golpe de `uso`: las de los niveles de
- * su arma (`golpeDe(unit, uso).rueda`, que escribe `conEquipo`;
- * `cifrasDeLosNiveles`). **La única lectura del arma en la rueda**: la piden el
- * golpe, el contraataque y la previsión (`battle.ts`). Sin arma de la arena
- * **lanza**: en la arena nadie se monta sin ella (`armaDeCuerpoBlocker`) y el
- * héroe lleva la Espada; si se llega aquí sin ella, es un fallo, no un golpe con
- * cifras inventadas.
- */
-export function ruedaDelGolpe(unit: UnitInfo, uso: UsoDeArma): CifrasDeLaRueda {
-  const { rueda } = golpeDe(unit, uso);
-  if (rueda === undefined) {
-    throw new Error(
-      `«${unit.name}» golpea en la rueda sin arma de la arena: en la arena nadie se monta sin ella`,
-    );
-  }
-  return cifrasDeLosNiveles(rueda);
 }
 
 /**
@@ -287,12 +265,6 @@ function porExitoDe(tipo: TipoDelAnillo, c: CifrasDeLaRueda): string | null {
   return null;
 }
 
-/** Lo que multiplica el daño de un golpe de este tipo: Fuerte y Rápido, su %; los demás (Normal también), 1. */
-function factorDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): number {
-  if (tipo === 'fuerte' || tipo === 'rapido') return c[tipo].porcentaje / 100;
-  return 1;
-}
-
 /**
  * Lo que suma al ataque del golpe: solo Ofensivo, y solo al golpear. En el
  * contraataque no suma: la respuesta no da bonificadores (decisión del usuario,
@@ -351,7 +323,7 @@ export function cruceDelGolpe(
   return {
     desde,
     hasta,
-    factor: factorDe(tipo, c),
+    factor: porcientoDelTipo(tipo, c) / 100,
     ataque: ataqueDe(tipo, papel, c),
     causa: `golpe ${NOMBRE_DE_GOLPE[tipo]}`,
     causaDeLaTirada:
@@ -359,19 +331,6 @@ export function cruceDelGolpe(
         ? `rueda: tirada en el ${NOMBRE_DEL_PUNTO[desde]}`
         : `rueda: tirada del ${NOMBRE_DEL_PUNTO[desde]} al ${NOMBRE_DEL_PUNTO[hasta]}, según el cruce`,
   };
-}
-
-/**
- * Cuántos golpes da `unit` al golpear (`contraataque` falso) o al devolver el
- * golpe, con el tipo `tipo` de la rueda o sin rueda (`null`). Uno; el doble
- * golpe (`double_attack`) al atacar, no al devolver; y Rápido, por sus golpes
- * (con el doble golpe, cuatro). La única cuenta: la leen el golpe (`melee`) y la
- * previsión.
- */
-export function golpesDe(unit: UnitInfo, tipo: TipoDeGolpe | null, contraataque: boolean): number {
-  const base = !contraataque && hasTrait(unit, 'double_attack') ? 2 : 1;
-  // El arma cambia el daño de cada golpe del Rápido, no cuántos.
-  return tipo === 'rapido' ? base * GOLPES_DEL_RAPIDO : base;
 }
 
 /**

@@ -136,7 +136,7 @@ export const HERO_BODY = 'hero';
  * Su ataque y su defensa son los de su cuerpo (`BattleHero` cuenta por qué ya
  * no son un bono a la tropa). Lo que crece con el rango lo dice el JSON, contado
  * desde el rango inicial del héroe (el 5: `subidasDeRango`). Su **nivel** no se
- * escribe: es el de este cuerpo sin equipo (`nivelDeUnidad`). Entra
+ * escribe: es el de este cuerpo con su equipo (`nivelDeUnidad`). Entra
  * sano a cada batalla: no hay heridas que arrastrar, así que esto no mira nada
  * más que el héroe.
  *
@@ -150,7 +150,7 @@ export function heroUnit(
   hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience' | 'equipo'>,
 ): UnitInfo {
   // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`), que deja
-  // el cuerpo desnudo en `sinEquipo` para medir su nivel.
+  // el cuerpo desnudo en `sinEquipo` para la ficha.
   return conEquipo(cuerpoDelHeroe(hero), hero.equipo);
 }
 

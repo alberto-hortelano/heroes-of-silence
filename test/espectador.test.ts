@@ -594,7 +594,7 @@ describe('la batalla en la vista', () => {
     }
     for (const c of comandantes) {
       const viaja = ida.battle!.estado.stacks.find((x) => x.id === c.id)!.unit!;
-      // Las cifras sin equipo solo sirven para medir el nivel, y no viajan.
+      // Las cifras sin equipo son de la ficha y el retoque de la arena, y no viajan.
       expect(c.unit.sinEquipo, c.id).toBeDefined();
       expect('sinEquipo' in viaja, c.id).toBe(false);
       expect('equipo' in viaja, c.id).toBe(false);

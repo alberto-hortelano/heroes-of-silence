@@ -49,10 +49,7 @@ const CAMPOS_DEL_PODER = ['id', 'nombre', 'habilidad', 'hechizo', 'cura', 'ronda
 export function validarPoderes(
   json: unknown,
   fichero = 'data/poderes.json',
-): {
-  readonly poderes: readonly Poder[];
-  readonly traen: Readonly<Record<string, readonly PoderId[]>>;
-} {
+): { readonly poderes: readonly Poder[] } {
   if (typeof json !== 'object' || json === null) throw new Error(`${fichero}: no es un objeto`);
   const j = json as Record<string, unknown>;
   if (!Array.isArray(j.poderes)) throw new Error(`${fichero}: «poderes» tiene que ser una lista`);
@@ -96,22 +93,7 @@ export function validarPoderes(
   if (otra !== undefined) {
     throw new Error(`${fichero}: la habilidad «${otra}» da dos poderes`);
   }
-  if (typeof j.traen !== 'object' || j.traen === null || Array.isArray(j.traen)) {
-    throw new Error(`${fichero}: «traen» tiene que ser un objeto de hoja a lista de poderes`);
-  }
-  const traen: Record<string, readonly PoderId[]> = {};
-  for (const [hoja, lista] of Object.entries(j.traen)) {
-    if (!Array.isArray(lista)) throw new Error(`${fichero}: traen.${hoja} tiene que ser una lista`);
-    for (const id of lista) {
-      if (!ids.includes(id as string)) {
-        throw new Error(
-          `${fichero}: traen.${hoja}: «${String(id)}» no es un poder; valen ${ids.join(', ')}`,
-        );
-      }
-    }
-    traen[hoja] = lista as PoderId[];
-  }
-  return { poderes, traen };
+  return { poderes };
 }
 
 const CATALOGO = validarPoderes(poderesJson);
@@ -140,8 +122,3 @@ export function poderDeHabilidad(habilidad: string): PoderId | null {
 
 /** Las habilidades que dan un poder: las únicas de la arena que actúan en la pelea. */
 export const HABILIDADES_CON_PODER: readonly string[] = CATALOGO.poderes.map((p) => p.habilidad);
-
-/** Las habilidades que trae una hoja la primera vez (`traen`), o ninguna. */
-export function habilidadesQueTrae(hoja: string): readonly string[] {
-  return (CATALOGO.traen[hoja] ?? []).map((id) => poder(id).habilidad);
-}

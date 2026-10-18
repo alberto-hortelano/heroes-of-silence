@@ -275,8 +275,9 @@ describe('#261: la vista previa', () => {
     expect(v).toContain('<span class="label">Armadura</span><span>7</span>');
     expect(v).toContain('data-cifra="velocidad">−1 Velocidad');
     expect(v).toMatch(/data-cifra="defensa">\+\d+ Defensa/);
-    // El daño de la rueda es el del cuerpo a cuerpo, en una fila y sin notas.
-    expect(v).toContain('<span class="label">Daño</span><span>20–40');
+    // El daño de la rueda es el del cuerpo a cuerpo, en una fila y sin notas: el
+    // de su cuerpo del catálogo (8–10) más el de la Espada.
+    expect(v).toContain('<span class="label">Daño</span><span>18–40');
     expect(v).not.toContain('class="nota"');
   });
 

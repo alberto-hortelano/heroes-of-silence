@@ -19,10 +19,11 @@ import {
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import { modificadoresEnPantalla } from '../src/client/views/panels.js';
-import { fichaDeHeroeDeArena, heroePorDefecto, unidadDeCombate } from '../src/core/arena.js';
+import { fichaDeHeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import { modificadoresDePieza, pieza, textoDeModificador } from '../src/core/hero/equipo.js';
 import { SPEED_TO_HEXES } from '../src/core/types.js';
+import { unidadDeCombate } from '../src/core/unidad.js';
 import { DEL_JUEGO, unidadDeArena } from './helpers.js';
 
 const MONTAJE = enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO);

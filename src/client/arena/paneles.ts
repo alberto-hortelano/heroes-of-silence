@@ -11,32 +11,24 @@ import {
   baseCambiada,
   baseDe,
   basesPosibles,
-  CASILLAS_MAX,
-  CASILLAS_MIN,
   type CatalogoDeLaArena,
   CIFRA_MAXIMA_DE_HEROE,
   cadenaDeBases,
-  ESPADA_DE_LA_ARENA,
   escritaDe,
-  FACCIONES_DE_ARENA,
   fichaDeHeroeDeArena,
   finalDeArena,
-  HABILIDADES_DE_LA_ARENA,
   type HeroeDeArena,
   type HojaDeArena,
   LADOS,
   type Lado,
   ladoDe,
   lecturaDelNivel,
-  NOMBRE_DE_FACCION_DE_ARENA,
   NOMBRE_DE_RASGO,
   nombreDeHabilidad,
   opcionesDelHueco,
   quitarBlocker,
   type SelloDePieza,
   selloDePieza,
-  type UnidadDeArena,
-  unidadDeCombate,
 } from '@core/arena.js';
 import {
   type FormaDeMuralla,
@@ -44,6 +36,7 @@ import {
   NOMBRE_MAXIMO_DE_FORMA,
   REGLA_DE_LA_MURALLA,
 } from '@core/arena-murallas.js';
+import { armaduraDe } from '@core/battle/armas.js';
 import {
   activeStack,
   ataqueYDefensaEnBatalla,
@@ -55,7 +48,7 @@ import {
 } from '@core/battle/battle.js';
 import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
 import { dichoDeLasCifras } from '@core/battle/carga.js';
-import { armaduraDe, armasDe } from '@core/battle/damage.js';
+import { armasDe } from '@core/battle/damage.js';
 import {
   type ClaveConInterruptor,
   type Interruptor,
@@ -126,6 +119,16 @@ import {
   USO_DEL_HUECO,
   type UsoDeArma,
 } from '@core/types.js';
+import {
+  CASILLAS_MAX,
+  CASILLAS_MIN,
+  ESPADA_DE_LA_ARENA,
+  FACCIONES_DE_ARENA,
+  HABILIDADES_DE_LA_ARENA,
+  NOMBRE_DE_FACCION_DE_ARENA,
+  type UnidadDeArena,
+  unidadDeCombate,
+} from '@core/unidad.js';
 import { type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import type { SesionDeArena } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
@@ -145,7 +148,7 @@ import { ruedaDeLaPieza } from './disco.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
- * Un puesto del montaje: la unidad del borrador que sale, por su id (la de una
+ * Un puesto del montaje: la unidad del catálogo que sale, por su id (la de una
  * hoja de las cinco facciones o una nueva; el catálogo del juego no entra en la
  * arena, 13-10-2026). `clave` distingue dos iguales; quién lo mueve es del bando.
  */
@@ -269,11 +272,11 @@ export interface ListaDeUnidades {
 function renderNuevaUnidad(cuerpos: readonly CuerpoDeLaNueva[]): Html {
   return html`<div class="nueva-unidad" data-nueva-unidad="si">
       <label class="campo"><span class="label">Nueva unidad</span>
-        <select data-arena-nueva="si" title="Su cuerpo: con qué figura se pinta. Nace con las cifras mínimas y sin equipo; su nivel sale de sus cifras y sus rasgos">
+        <select data-arena-nueva="si" title="Su cuerpo: con qué figura se pinta. Nace con las cifras mínimas y la Espada; su nivel sale de sus cifras, sus rasgos y su equipo">
           <option value="">— elige un cuerpo —</option>
           ${unir(cuerpos.map((h) => html`<option value="${h.id}">${h.nombre}</option>`))}
         </select></label>
-      <button data-arena="crear-unidad" title="Crea una unidad nueva con ese cuerpo, las cifras mínimas y sin equipo">Crear</button>
+      <button data-arena="crear-unidad" title="Crea una unidad nueva con ese cuerpo, las cifras mínimas y la Espada">Crear</button>
     </div>`;
 }
 
@@ -860,7 +863,7 @@ function notaDelPie(como: ComoDeLaFicha, enElMontaje: string | null): string | n
 
 /**
  * El nivel de la ficha, que no se escribe: «Índice 340 · nivel 3», calculado por
- * el núcleo de las cifras sin equipo (`lecturaDelNivel`). Va encima de las cifras
+ * el núcleo de las cifras con el equipo puesto (`lecturaDelNivel`). Va encima de las cifras
  * y se repinta con la ficha, así que cambia al tocar cualquiera de ellas.
  */
 function filaDelNivel(lectura: string): Html {
@@ -1114,7 +1117,7 @@ function filasDeArmas(
   );
 }
 
-/** «Armas» en la ficha de una unidad del borrador: lo que pelea, golpe a golpe. */
+/** «Armas» en la ficha de una unidad del catálogo: lo que pelea, golpe a golpe. */
 function armasDeLaFicha(combate: UnitInfo, piezas: EquipoAtado): Html {
   return html`<h3>Armas ${nota('Cada golpe va con las cifras de su arma: el ataque y el daño del cuerpo, con lo que suma todo el equipo y, del arma, solo la de ese golpe. La columna «Final» de arriba es la del cuerpo a cuerpo.')}</h3>
       <div class="armas-de-la-ficha">${filasDeArmas(combate, piezas, MODOS_DE_LA_ARENA.cargaAPie)}</div>`;
@@ -1142,22 +1145,21 @@ export function avisoDeNuevaUnidad(
 }
 
 /**
- * La primera frase de la barra al leer el borrador de unidades: cuántas valen. Un
- * archivo con solo unidades que no valen **sí** es un borrador guardado: decía
- * «Sin borrador guardado todavía» y, en la misma barra, la lista de las que no
- * valen (R4 de la re-verificación de QA). Lo que no vale lo cuenta la página
- * después, con sus motivos.
+ * La primera frase de la barra al leer el catálogo de unidades: cuántas valen.
+ * Con ninguna, la lista no ofrece nada que montar (las cifras solo salen del
+ * catálogo) y lo dice; «Nueva unidad» sí crea. Lo que no vale lo cuenta la
+ * página después, con sus motivos.
  */
-export function avisoDelBorradorLeido(ruta: string, validas: number, sinValidar: number): string {
+export function avisoDelCatalogoLeido(ruta: string, validas: number, sinValidar: number): string {
   if (validas > 0) return `Cargado ${ruta}: ${validas} ${validas === 1 ? 'unidad' : 'unidades'}.`;
   if (sinValidar > 0) {
-    return `Cargado ${ruta}: ninguna unidad vale, y ${sinValidar === 1 ? 'la que trae se conserva' : `las ${sinValidar} que trae se conservan`} tal cual al guardar; mientras, las unidades salen con cifras por defecto, inventadas.`;
+    return `Cargado ${ruta}: ninguna unidad vale, y ${sinValidar === 1 ? 'la que trae se conserva' : `las ${sinValidar} que trae se conservan`} tal cual al guardar; mientras, no hay unidades que montar: «Nueva unidad» sí crea.`;
   }
-  return `Sin borrador guardado todavía (${ruta}): las unidades salen con cifras por defecto, inventadas.`;
+  return `${ruta} no trae ninguna unidad: no hay unidades que montar; «Nueva unidad» sí crea.`;
 }
 
 /**
- * Lo que no vale de un borrador al leerlo: `de` lo nombra y `noValen` trae una
+ * Lo que no vale de un fichero de la arena al leerlo: `de` lo nombra y `noValen` trae una
  * frase por unidad o pieza, con su motivo. Se conservan tal cual al guardar.
  */
 export interface AvisosDeLectura {
@@ -1171,7 +1173,7 @@ export function cuantosAvisos(grupos: readonly AvisosDeLectura[]): number {
 }
 
 /**
- * Lo que no vale de los borradores, entero, en un recuadro que se despliega desde
+ * Lo que no vale del catálogo y de los borradores, entero, en un recuadro que se despliega desde
  * la barra (H1 de QA, 14-10-2026): en la barra, cortada a dos líneas, el motivo se
  * quedaba en la parte que no se ve. Se abre solo al arrancar si hay algo que decir
  * y se cierra con «Entendido»; la barra lleva el resumen (`resumenDeLaLectura`) y
@@ -1190,7 +1192,7 @@ export function renderAvisosDeLectura(grupos: readonly AvisosDeLectura[]): Html 
       </div>`,
     ),
   );
-  return html`<h3 class="cabecera-avisos">Al leer el borrador · ${total} ${total === 1 ? 'no vale' : 'no valen'}
+  return html`<h3 class="cabecera-avisos">Al leer lo guardado · ${total} ${total === 1 ? 'no vale' : 'no valen'}
       <button data-arena="cerrar-avisos" title="Cierra el recuadro: se vuelve a abrir con «${ROTULO_DE_LOS_AVISOS}», en la barra">Entendido</button></h3>
     ${bloques}`;
 }
@@ -1219,8 +1221,7 @@ export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: Com
   if (u === null) {
     return html`<h3>Ficha</h3><p class="cost">Pulsa el nombre de una unidad de un bando para ver y cambiar sus cifras.</p>`;
   }
-  // Con lo que pelea, una vez: el nivel lo mide sin el equipo (`sinEquipo`) y la
-  // columna «Final» lo enseña con él.
+  // Con lo que pelea, una vez: de ahí salen el nivel y la columna «Final».
   const combate = unidadDeCombate(u, como.piezas);
   // Las habilidades que dan un poder actúan en la pelea; las demás, todavía no.
   const etiqueta = (h: string): Html =>
@@ -1276,7 +1277,7 @@ export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: Com
       ${tablaDeCifras(
         {
           nombre: 'Cuerpo',
-          nota: 'Las cifras del cuerpo, sin el equipo: de ellas sale el nivel.',
+          nota: 'Las cifras del cuerpo, sin el equipo. El nivel sale de las finales, con él puesto.',
         },
         'Con lo que pelea: el cuerpo con el equipo puesto. En otro tono, la que el equipo cambia.',
         [
@@ -1443,13 +1444,13 @@ export function renderFichaDeHeroe(
 /** Cómo dice «La llevan» de una pieza del equipo del héroe (la Espada): lo lleva todo héroe de la arena. */
 export const LA_LLEVA_EL_HEROE = 'todo héroe de la arena';
 
-/** Lo que la vista «Editar equipo» enseña: lo da `main.ts`, que tiene las piezas y el borrador. */
+/** Lo que la vista «Editar equipo» enseña: lo da `main.ts`, que tiene las piezas y el catálogo. */
 export interface VistaDeEquipo {
   /** Las piezas de la arena (`catalogoDeLaArena`), en su orden, resueltas y escritas. */
   readonly piezas: CatalogoDeLaArena;
   /** La pieza de la ficha, por su id, o `null`. */
   readonly elegida: string | null;
-  /** Quiénes llevan la pieza `id`: las unidades del borrador y, si es suya, el héroe (`LA_LLEVA_EL_HEROE`). */
+  /** Quiénes llevan la pieza `id`: las unidades del catálogo y, si es suya, el héroe (`LA_LLEVA_EL_HEROE`). */
   readonly llevan: (id: string) => readonly string[];
   /**
    * La pieza de id `id` con que se pelea ahora si no es la que se enseña: la de un
@@ -1476,7 +1477,7 @@ export function sinGuardarEnPalabras(piezas: number, unidades: number): string {
   return partes.length === 0 ? '' : `Sin guardar: ${partes.join(' y ')}.`;
 }
 
-/** Lo que dice el servidor al guardar (`escribirBorrador`): dónde, cuántas de cada, y lo conservado. */
+/** Lo que dice el servidor al guardar (`escribirCatalogo`): dónde, cuántas de cada, y lo conservado. */
 export interface Guardado {
   readonly ruta?: string;
   readonly unidades?: number;
@@ -1575,7 +1576,7 @@ export function renderEquipo(v: VistaDeEquipo): Html {
   );
   const p = v.elegida === null ? null : v.piezas.piezaSiExiste(v.elegida);
   return html`<section class="equipo-lista">
-      <h3>Piezas de equipo ${nota('Las de la arena (data/equipo.json) se cambian solo para ella; las nuevas son suyas. Una pieza puede ir sobre otra de su hueco: suma lo de su base más sus extras, y si cambia la base, cambia ella. Una unidad suma a sus cifras las de la pieza que lleva, y su nivel no cambia. «Guardar» las escribe en data/borradores/equipo.json, que el juego no lee.')}</h3>
+      <h3>Piezas de equipo ${nota('Las de la arena (data/equipo.json) se cambian solo para ella; las nuevas son suyas. Una pieza puede ir sobre otra de su hueco: suma lo de su base más sus extras, y si cambia la base, cambia ella. Una unidad suma a sus cifras las de la pieza que lleva, y su nivel lo ve. «Guardar» las escribe en data/borradores/equipo.json, que el juego no lee.')}</h3>
       ${v.sinGuardar === '' ? NADA : html`<p class="aviso-sin-guardar" role="status" data-sin-guardar="si">${v.sinGuardar}</p>`}
       ${secciones}
     </section>
@@ -1728,7 +1729,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
       ${v.rechazo === null ? NADA : html`<p class="aviso-de-pieza rechazo" role="status">${v.rechazo}</p>`}
       <div class="row resumen-de-pieza" data-resumen-de-pieza="si"><span class="label">Suma</span>${modificadoresEnPantalla(p, 'nada')}</div>
       <div class="row"><span class="label">Precio</span><span>${describirCoste(p.precio)}</span></div>
-      <div class="row" data-la-llevan="si"><span class="label">La llevan</span><span>${llevan.length === 0 ? 'ninguna unidad del borrador' : llevan.join(', ')}</span></div>
+      <div class="row" data-la-llevan="si"><span class="label">La llevan</span><span>${llevan.length === 0 ? 'ninguna unidad del catálogo' : llevan.join(', ')}</span></div>
       ${avisoDelEnlace(v.enLaPelea(p.id))}
       <div class="botones">${botones}</div>
       <div class="cifras">

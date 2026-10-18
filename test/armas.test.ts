@@ -14,12 +14,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { textoDePrevision } from '../src/client/views/prevision.js';
-import {
-  armaDeCuerpoBlocker,
-  CUERPO_COMUN,
-  catalogoDeLaArena,
-  nivelesDeLaEspada,
-} from '../src/core/arena.js';
+import { catalogoDeLaArena } from '../src/core/arena.js';
+import { golpeDe } from '../src/core/battle/armas.js';
 import {
   applyAction,
   crearBatallaConReglas,
@@ -35,7 +31,6 @@ import {
   armasDe,
   computeDamage,
   expectedDamage,
-  golpeDe,
   horquillaDeDanio,
   usoDelGolpe,
 } from '../src/core/battle/damage.js';
@@ -46,6 +41,7 @@ import { cuentaTiros, isShooter, type Pieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { EquipoDeArena, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
+import { armaDeCuerpoBlocker, CUERPO_COMUN, nivelesDeLaEspada } from '../src/core/unidad.js';
 import { bandoDe, con } from './batalla-de-prueba.js';
 import { dadoCargado } from './helpers.js';
 

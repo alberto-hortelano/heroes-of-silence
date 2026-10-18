@@ -2,7 +2,7 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>9000</li>
 ### aventura · renderSide
 
-        <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 3 · Caballero</p>
+        <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
     title="No se le esperará al pasar el turno">Dormir</button>
@@ -226,13 +226,13 @@
         <div class="row"><span class="label">Maná</span><span>7 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>4 (+3) / 4 (+3)</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>610 609 / 848 000</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>644 840 / 848 000</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada de armería<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="ataque">+2 Ataque</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Armadura: Cota de malla<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="defensa">+2 Defensa</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Accesorio: Brazal de armería<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="ataque">+1 Ataque</span><span class="modificador" data-cifra="defensa">+1 Defensa</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Escudo: —</span></div></div>
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 2 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Espadachín<span class="veterania">Veterano · rango 4 · nivel 4 · 116 042 / 176 000 exp</span><span class="veterania">Lleva: Amuleto de hueso</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Amuleto de hueso</button></span></span><span class="count">1</span></div><div class="stack"><span>Espadachín<span class="veterania">Veterano · rango 2 · nivel 4 · 23 068 / 48 000 exp</span></span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+        <div class="stack-list"><div class="stack"><span>Espadachín<span class="veterania">Veterano · rango 4 · nivel 4 · 123 555 / 176 000 exp</span><span class="veterania">Lleva: Amuleto de hueso</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Amuleto de hueso</button></span></span><span class="count">1</span></div><div class="stack"><span>Espadachín<span class="veterania">Veterano · rango 2 · nivel 4 · 23 780 / 48 000 exp</span></span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
               <span>Aldo de Valdeluz</span><span class="count">411</span>
             </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+1000</span>
@@ -254,7 +254,7 @@
     <h2>Partida perdida</h2>
     <p>Has perdido tu base: sin ella quedas eliminado, aunque te queden héroes o ciudades.</p>
   </div>
-        <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 3 · Caballero</p>
+        <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
     title="No se le esperará al pasar el turno">Dormir</button>
@@ -282,7 +282,7 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
 ### aventura · turno del rival · renderSide
 
-        <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 3 · Caballero</p>
+        <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
     title="No se le esperará al pasar el turno">Dormir</button>

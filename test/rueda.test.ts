@@ -19,12 +19,8 @@ import { SesionDeArena } from '../src/client/session.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce, elegirEnLaRueda } from '../src/core/ai/rueda.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import {
-  type FuenteDeArena,
-  nivelesDeLaEspada,
-  type UnidadDeArena,
-  unaVezEnLaURL,
-} from '../src/core/arena.js';
+import { type FuenteDeArena, unaVezEnLaURL } from '../src/core/arena.js';
+import { golpesDe, ruedaDelGolpe } from '../src/core/battle/armas.js';
 import {
   activeStack,
   applyAction,
@@ -57,11 +53,9 @@ import {
   casillasQueQuitaLaFinta,
   contraataqueDelCruce,
   efectoDeGolpe,
-  golpesDe,
   PESOS_DE_LA_RUEDA,
   puntoDelContraataque,
   puntoDelCruce,
-  ruedaDelGolpe,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
   tiradaDelPunto,
@@ -76,6 +70,7 @@ import type {
 import { creature } from '../src/core/data.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
 import type { NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
+import { nivelesDeLaEspada, type UnidadDeArena } from '../src/core/unidad.js';
 import { bando } from './batalla-de-prueba.js';
 import {
   type Ataque,

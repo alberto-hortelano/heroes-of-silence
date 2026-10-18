@@ -12,6 +12,7 @@ import { DICHO_DEL_USO, type EquipoAtado, SIN_ARMA } from '../hero/equipo.js';
 import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
+import { armaduraDe, cifrasDelGolpe, golpeDe, trasLaArmadura } from './armas.js';
 import { type CifrasDeCarga, cargaEfectiva, cifrasDeCarga, dichoDeLaCarga } from './carga.js';
 import { efectoDeTirada, effectiveLuck, effectTotal, type StackEffect } from './effects.js';
 import type { ReglasDeBatalla } from './reglas.js';
@@ -71,36 +72,6 @@ export function usoDelGolpe(
 function usoConCarga(opts: Pick<DamageOptions, 'ranged'>, charge: number): UsoDeArma {
   if (opts.ranged === true) return 'distancia';
   return charge > 0 ? 'carga' : 'cuerpo';
-}
-
-/**
- * Con qué arma y con qué cifras da `unit` un golpe de `uso`: el de su arma
- * (`UnitInfo.armas`) o, si no la lleva, el de cuerpo a cuerpo, que son las cifras
- * de arriba —la carga sin lanza va con la espada, y el disparo sin arma a
- * distancia (quien tira por sí mismo), también—. Sin armas por uso, todo golpe va con las cifras de
- * arriba y el arma de cuerpo a cuerpo de su equipo. **La única regla del
- * respaldo**: de aquí leen las cifras del golpe (`cifrasDelGolpe`), la previsión
- * y la ficha (`armasDe`).
- */
-export function golpeDe(unit: UnitInfo, uso: UsoDeArma): GolpeConArma {
-  const { armas } = unit;
-  if (armas === undefined) {
-    return { arma: unit.equipo?.arma ?? null, attack: unit.attack, damage: unit.damage };
-  }
-  return armas[uso] ?? armas.cuerpo;
-}
-
-/**
- * Las cifras con que se da un golpe de `uso` (`golpeDe`). **La única lectura de
- * las cifras de un golpe**: la leen el ataque, la tirada, la IA, la previsión y
- * la ficha. En el juego no hay `armas` y son las de arriba, sin más cuenta.
- */
-export function cifrasDelGolpe(
-  unit: UnitInfo,
-  uso: UsoDeArma,
-): { readonly attack: number; readonly damage: readonly [number, number] } {
-  if (unit.armas === undefined) return unit;
-  return golpeDe(unit, uso);
 }
 
 /**
@@ -597,39 +568,6 @@ export function fraccionQueLlega(
   return trasLaArmadura(bruto, defender).danio / bruto;
 }
 
-/**
- * Los puntos de armadura de `u` (`UnitInfo.puntosDeArmadura`, la suma de las
- * piezas de la arena que lleva; 0 sin ella, como toda unidad del juego). La única
- * lectura del campo fuera de `hero/equipo.ts`: la leen la resta (`trasLaArmadura`),
- * la IA y la ficha.
- */
-export function armaduraDe(u: UnitInfo): number {
-  return u.puntosDeArmadura ?? 0;
-}
-
-/** El daño de un golpe que llega a quien lo recibe: lo que quita y lo que paró la armadura. */
-export interface TrasLaArmadura {
-  readonly danio: number;
-  /** Lo que se comió la armadura: `min(daño, armadura)`; 0 sin armadura. */
-  readonly parado: number;
-}
-
-/**
- * El daño de UN golpe tras la armadura de `objetivo` (#262, solo la arena): se
- * resta lo último —después de ataque contra defensa, los multiplicadores, la
- * suerte y el redondeo— y nunca baja de 0 (decisión del usuario: «una armadura
- * gruesa puede parar del todo un golpe flojo»). **La única resta**: la aplican
- * `herir` (todo lo que quita vida pasa por ella: golpe, contraataque, cada golpe
- * de Rápido o del doble golpe, cada disparo, la salpicadura, el hechizo y el
- * poder) y la previsión (`horquillaDeDanio`, la del hechizo), y la IA (`expectedDamage`).
- * Sin armadura devuelve `danio` tal cual.
- */
-export function trasLaArmadura(danio: number, objetivo: Pick<BattleStack, 'unit'>): TrasLaArmadura {
-  const a = armaduraDe(objetivo.unit);
-  if (a === 0) return { danio, parado: 0 };
-  return { danio: Math.max(0, danio - a), parado: Math.min(danio, a) };
-}
-
 /** Daño que inflige `attacker` a `defender`, ya con suerte aplicada. */
 export function computeDamage(
   attacker: BattleStack,
@@ -816,7 +754,7 @@ export interface Herida {
 /**
  * Hiere a `objetivo` con `damage` y le apunta la experiencia a `autor`:
  * **los PV quitados de verdad × el índice de poder del que los recibe**
- * (`indiceDePoder`: el de sus cifras sin equipo, no su rango; el índice entero y
+ * (`indiceDePoder`: el de sus cifras con su equipo, no su rango; el índice entero y
  * no su primera cifra, para que un veterano o un héroe que sube cifras pague más
  * aunque no cambie de nivel). Los umbrales de `data/experiencia.json` van en esa
  * escala: nada se divide entre 100. Devuelve los

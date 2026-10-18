@@ -15,14 +15,8 @@ import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
 import { renderEleccion } from '../src/client/arena/rueda.js';
 import { marcadoDe } from '../src/client/html.js';
-import {
-  batallaDeArena,
-  catalogoDeLaArena,
-  equiparEnArena,
-  nivelesDeLaEspada,
-  type UnidadDeArena,
-  unidadDeCombate,
-} from '../src/core/arena.js';
+import { batallaDeArena, catalogoDeLaArena, equiparEnArena } from '../src/core/arena.js';
+import { ruedaDelGolpe } from '../src/core/battle/armas.js';
 import {
   activeStack,
   applyAction,
@@ -32,17 +26,13 @@ import {
 import { cifrasDeLosNiveles, validarRueda } from '../src/core/battle/cifras-de-la-rueda.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
-import {
-  efectoDeGolpe,
-  filasDeLaRueda,
-  ruedaDelArmaEnPalabras,
-  ruedaDelGolpe,
-} from '../src/core/battle/rueda.js';
+import { efectoDeGolpe, filasDeLaRueda, ruedaDelArmaEnPalabras } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { creature, type Pieza, type PiezaEscrita } from '../src/core/data.js';
 import { conEquipo, pieza } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { TipoDeGolpe } from '../src/core/types.js';
+import { nivelesDeLaEspada, type UnidadDeArena, unidadDeCombate } from '../src/core/unidad.js';
 import {
   type Ataque,
   aPelear,

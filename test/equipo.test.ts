@@ -14,8 +14,8 @@ import {
   ORO_DE_SOBRA_PARA_NOVATOS,
   siguienteDeEquipo,
 } from '../src/core/ai/strategy.js';
+import { armaduraDe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
-import { armaduraDe } from '../src/core/battle/damage.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import {
   creature,

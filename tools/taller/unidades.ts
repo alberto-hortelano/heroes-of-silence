@@ -16,7 +16,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import type { FaccionDeArena, PerfilDeArena } from '../../src/core/arena.js';
+import type { FaccionDeArena, PerfilDeArena } from '../../src/core/unidad.js';
 import {
   type ClipDeFigura,
   HOJAS_DE_FIGURA,

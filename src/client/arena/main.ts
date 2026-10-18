@@ -6,7 +6,7 @@
  * Aquí solo se conecta: las reglas las aplica `SesionDeArena` (en `session.ts`,
  * la única puerta del cliente al núcleo), el ratón del tablero lo traduce
  * `EscenaBatalla` —la misma de la partida— y el marcado sale de `paneles.ts`.
- * Las cifras se guardan como borrador en el repo a través del servidor de
+ * Las cifras se guardan en el catálogo de unidades del repo a través del servidor de
  * desarrollo (`vite.config.ts`); sin él la página lo dice y sigue sirviendo para
  * pelear.
  */
@@ -46,14 +46,11 @@ import {
   type SelloDePieza,
   selloDePieza,
   tipoDelStack,
-  type UnidadDeArena,
   unaVezEnLaURL,
   unidadNueva,
-  unidadPorDefecto,
   validarHeroeDeArena,
   validarHojasDeArena,
   validarPiezaDeArena,
-  validarUnidadDeArena,
 } from '@core/arena.js';
 import {
   esFormaDeEjemplo,
@@ -108,6 +105,11 @@ import {
   type Hex,
   type HuecoDeArena,
 } from '@core/types.js';
+import {
+  RUTA_DEL_CATALOGO_DE_UNIDADES,
+  type UnidadDeArena,
+  validarUnidadDeArena,
+} from '@core/unidad.js';
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
@@ -154,7 +156,7 @@ import {
 } from './edicion.js';
 import {
   type AvisosDeLectura,
-  avisoDelBorradorLeido,
+  avisoDelCatalogoLeido,
   avisoDeNuevaUnidad,
   type ComoDeLaFicha,
   cuantosAvisos,
@@ -245,12 +247,12 @@ let hojasPorId: ReadonlyMap<string, HojaDeArena> = new Map();
 /**
  * Las cifras por TIPO de unidad, por su id: cambiar el monje cambia todos los
  * monjes. Las de las hojas (id = la hoja) y las nuevas (`unidadNueva`). Lleva
- * también las del borrador cuya hoja no está —no se pueden montar—, para que
+ * también las del catálogo cuya hoja no está —no se pueden montar—, para que
  * «Guardar» no las tire (H2 de QA).
  */
-const borrador = new Map<string, UnidadDeArena>();
+const unidadesDelCatalogo = new Map<string, UnidadDeArena>();
 /**
- * Los ids de las unidades del borrador que no validan: se conservan al guardar y
+ * Los ids de las unidades del catálogo que no validan: se conservan al guardar y
  * una unidad nueva no los toma (`IdsOcupados`, H1 de QA del ciclo 2).
  */
 let idsSinValidar: readonly string[] = [];
@@ -467,12 +469,6 @@ let avisoDeIncompletas = '';
 /** Por qué no se puede guardar, o `null` si se puede. */
 let sinGuardado: string | null = null;
 /**
- * Si al arrancar no había borrador de unidades: dónde iría y lo que dijo la
- * barra. Con un enlace montado, «las unidades salen con cifras por defecto»
- * contradecía al enlace (M6 de QA): se dice otra cosa.
- */
-let sinBorradorDeUnidades: { readonly ruta: string; readonly dicho: string } | null = null;
-/**
  * Lo que no vale de los borradores al leerlos, con su motivo entero
  * (`pintarAvisosDeLectura`). La barra lleva el resumen.
  */
@@ -624,7 +620,7 @@ function reglasALaBarra(cambiar: (url: URL) => void = () => {}): void {
   history.replaceState(null, '', `${url.pathname}${url.search.replace(/%2C/g, ',')}${url.hash}`);
 }
 
-/** De dónde sale un puesto al pelear: la unidad con sus cifras del borrador, y su escalera. */
+/** De dónde sale un puesto al pelear: la unidad con sus cifras del catálogo, y su escalera. */
 function fuenteDeArena(p: Puesto): FuenteDeArena {
   return { unidad: unidadDe(p.unidad), escalera: p.escalera };
 }
@@ -685,8 +681,24 @@ function hojaPorId(id: string): HojaDeArena {
   return h;
 }
 
+/**
+ * La unidad `id`, del catálogo (`data/unidades.json`): **la única fuente de sus
+ * cifras**. Lo que la lista ofrece sale de él (`hojasDelCatalogo`), así que pedir
+ * una que no está es un fallo del gesto, no una unidad con cifras inventadas.
+ */
 function unidadDe(id: string): UnidadDeArena {
-  return borrador.get(id) ?? unidadPorDefecto(hojaPorId(id));
+  const u = unidadesDelCatalogo.get(id);
+  if (u === undefined) throw new Error(`no hay ninguna unidad «${id}» en el catálogo de unidades`);
+  return u;
+}
+
+/**
+ * Las hojas que la lista enseña como unidad: las que tienen la suya en el
+ * catálogo. Una hoja sin ella (un héroe, o una hoja nueva del taller) no se monta
+ * con cifras por defecto: se crea con «Nueva unidad», que ofrece todas.
+ */
+function hojasDelCatalogo(): readonly HojaDeArena[] {
+  return hojas.filter((h) => unidadesDelCatalogo.has(h.id));
 }
 
 /**
@@ -703,11 +715,11 @@ function porQueNoSeMonta(u: UnidadDeArena): string | null {
 
 /**
  * Lo que la lista enseña además de las hojas, en el montaje y en la edición: las
- * unidades nuevas del borrador (las que no son la de una hoja), con el retrato de
+ * unidades nuevas del catálogo (las que no son la de una hoja), con el retrato de
  * su hoja, y los cuerpos que ofrece «Nueva unidad» (las hojas con su arte entero).
  */
 function listaDeUnidades(): ListaDeUnidades {
-  const nuevas = [...borrador.values()]
+  const nuevas = [...unidadesDelCatalogo.values()]
     .filter((u) => !hojasPorId.has(u.id))
     .map(
       (u): TarjetaDeUnidad => ({
@@ -729,7 +741,7 @@ function listaDeUnidades(): ListaDeUnidades {
 
 /**
  * Crea una unidad nueva con el cuerpo elegido (el id de su hoja), la mete en el
- * borrador y la deja elegida; en la edición, además, abre su ficha.
+ * catálogo y la deja elegida; en la edición, además, abre su ficha.
  */
 function crearUnidad(valor: string): string | null {
   if (valor === '') {
@@ -741,13 +753,13 @@ function crearUnidad(valor: string): string | null {
   const u = unidadNueva(
     h,
     {
-      validas: [...borrador.keys()],
+      validas: [...unidadesDelCatalogo.keys()],
       sinValidar: idsSinValidar,
       hojas: [...hojasPorId.keys()],
     },
     catalogo(),
   );
-  borrador.set(u.id, u);
+  unidadesDelCatalogo.set(u.id, u);
   unidadesSinGuardar.add(u.id);
   elegida = { kind: 'unidad', id: u.id };
   aviso = avisoDeNuevaUnidad(u, escena === 'edicion' ? 'edicion' : 'montaje', catalogo());
@@ -757,11 +769,11 @@ function crearUnidad(valor: string): string | null {
 // ---------------------------------------------------------------- arranque
 
 /**
- * Lo que contesta el GET de un borrador (`/__arena/unidades`, `/__arena/murallas`):
+ * Lo que contesta el GET de un fichero de la arena (`/__arena/unidades`, `/__arena/murallas`):
  * en el build, solo `guardado: false`; si no, su ruta y su lista (`unidades` o
  * `formas`), las que no valen con su motivo, o el archivo ilegible.
  */
-/** Lo de un borrador que no vale: su clave, si la trae, y por qué. */
+/** Lo de un fichero de la arena que no vale: su clave, si la trae, y por qué. */
 interface SinValidar {
   readonly id?: string | null;
   readonly nombre?: string | null;
@@ -775,7 +787,7 @@ interface RespuestaDeBorrador {
   readonly formas?: unknown;
   readonly invalidas?: readonly SinValidar[];
   readonly ilegible?: string;
-  /** Las piezas de la arena, que van con las unidades (`leerBorrador`). */
+  /** Las piezas de la arena, que van con las unidades (`leerCatalogo`). */
   readonly piezas?: unknown;
   readonly piezasInvalidas?: readonly SinValidar[];
   /** El archivo de piezas no se puede leer: las unidades se leen con las del juego. */
@@ -783,7 +795,7 @@ interface RespuestaDeBorrador {
 }
 
 /**
- * Pide un borrador al servidor de desarrollo. Devuelve la respuesta y, si no se
+ * Pide un fichero de la arena al servidor de desarrollo. Devuelve la respuesta y, si no se
  * podrá guardar —sin servidor o con el archivo ilegible—, por qué. Los dos
  * borradores lo dicen con las mismas frases.
  */
@@ -809,7 +821,7 @@ interface FalloAlGuardar {
 }
 
 /**
- * Manda un borrador entero al servidor. Devuelve su respuesta si lo ha escrito;
+ * Manda un fichero de la arena entero al servidor. Devuelve su respuesta si lo ha escrito;
  * si no, deja dicho por qué en `aviso` y devuelve `null`.
  */
 async function mandarAlServidor(
@@ -836,10 +848,11 @@ async function mandarAlServidor(
 }
 
 /**
- * Las hojas y, si hay servidor de desarrollo, el borrador guardado. Las hojas se
- * validan al recibirlas, que es por donde entran su perfil y su facción. Del
- * borrador se cargan las unidades que valen; las que no, se dicen con su motivo
- * —y el servidor las vuelve a escribir tal cual al guardar—.
+ * Las hojas y el catálogo de unidades. Las hojas se validan al recibirlas, que es
+ * por donde entran su perfil y su facción. Con el servidor de desarrollo, del
+ * catálogo se cargan las unidades que valen; las que no, se dicen con su motivo
+ * —y el servidor las vuelve a escribir tal cual al guardar—. Sin él (la arena
+ * construida), las del catálogo del núcleo.
  */
 async function arrancar(): Promise<void> {
   const r = await fetch('/__arena/hojas');
@@ -856,16 +869,15 @@ async function arrancar(): Promise<void> {
       .join('; ')}.`;
     console.warn(`[arena]${avisoDeIncompletas}`);
   }
-  const leido = await leerDelServidor('/__arena/unidades', 'el borrador');
+  const leido = await leerDelServidor('/__arena/unidades', 'el catálogo de unidades');
   const cuerpo = leido.cuerpo;
   sinGuardado = leido.sinGuardado;
   if (!cuerpo.guardado) {
-    aviso =
-      'Sin el servidor de desarrollo (pnpm arena) no se carga ni se guarda el borrador: las cifras que cambies aquí se pierden al cerrar.';
+    aviso = `${await delCatalogoDelNucleo()} Sin el servidor de desarrollo (pnpm arena) no se guarda: las cifras que cambies aquí se pierden al cerrar.`;
     return;
   }
   if (cuerpo.ilegible !== undefined) {
-    aviso = `No se puede leer ${cuerpo.ruta}: ${cuerpo.ilegible}. Se empieza con las cifras por defecto, y no se guarda hasta que se arregle.`;
+    aviso = `No se puede leer ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${cuerpo.ilegible}. No hay unidades que montar ni se guarda hasta que se arregle; «Nueva unidad» sí crea.`;
     return;
   }
   // Las piezas antes que las unidades: una unidad puede llevar una nueva.
@@ -874,17 +886,17 @@ async function arrancar(): Promise<void> {
   const sinHoja: string[] = [];
   for (const crudo of unidades) {
     const u = validarUnidadDeArena(crudo, catalogo());
-    borrador.set(u.id, u);
+    unidadesDelCatalogo.set(u.id, u);
     const motivo = porQueNoSeMonta(u);
     if (motivo !== null) sinHoja.push(`${u.id} (${motivo})`);
   }
   const invalidas = cuerpo.invalidas ?? [];
-  aviso = avisoDelBorradorLeido(cuerpo.ruta ?? 'el borrador', borrador.size, invalidas.length);
-  sinBorradorDeUnidades =
-    borrador.size + invalidas.length === 0
-      ? { ruta: cuerpo.ruta ?? 'el borrador', dicho: aviso }
-      : null;
-  // Las que no tienen hoja se quedan en el borrador y se vuelven a guardar; solo
+  aviso = avisoDelCatalogoLeido(
+    RUTA_DEL_CATALOGO_DE_UNIDADES,
+    unidadesDelCatalogo.size,
+    invalidas.length,
+  );
+  // Las que no tienen hoja se quedan en el catálogo y se vuelven a guardar; solo
   // no se pueden montar.
   if (sinHoja.length > 0) aviso += ` No se pueden montar: ${sinHoja.join(', ')}.`;
   idsSinValidar = invalidas.flatMap((i) => (typeof i.id === 'string' ? [i.id] : []));
@@ -893,14 +905,33 @@ async function arrancar(): Promise<void> {
   // motivo de la segunda no se llegaba a leer.
   avisosDeLectura = [
     ...avisosDeLectura,
-    lecturaDe(`Del borrador de unidades (${cuerpo.ruta ?? 'el borrador'}):`, invalidas),
+    lecturaDe(`Del catálogo de unidades (${RUTA_DEL_CATALOGO_DE_UNIDADES}):`, invalidas),
     lecturaDe('De las piezas de la arena:', cuerpo.piezasInvalidas ?? []),
   ].filter((l) => l.noValen.length > 0);
   aviso += avisoDeEquipo;
   aviso += resumenDeLaLectura(avisosDeLectura);
 }
 
-/** Lo que no vale de un borrador, una frase por elemento con su motivo. */
+/**
+ * La arena construida (sin servidor de desarrollo) pelea con el catálogo del
+ * núcleo (`core/catalogo.ts`), el mismo que lee el juego. Se importa aquí, a
+ * demanda, por dos motivos: un catálogo roto lanza al cargarse y así se dice en
+ * la barra en vez de tumbar la página entera; y en `pnpm arena` no entra en el
+ * grafo de módulos, así que «Guardar», que reescribe `data/unidades.json`, no
+ * hace que vite recargue la página a media pelea. Devuelve la frase de la barra.
+ */
+async function delCatalogoDelNucleo(): Promise<string> {
+  try {
+    const { UNIDADES } = await import('@core/catalogo.js');
+    for (const u of UNIDADES) unidadesDelCatalogo.set(u.id, u);
+    return `Cargado ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${UNIDADES.length} unidades.`;
+  } catch (err) {
+    console.error('[arena] el catálogo de unidades no se ha podido leer', err);
+    return `No se puede leer ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${mensaje(err)}. No hay unidades que montar; «Nueva unidad» sí crea.`;
+  }
+}
+
+/** Lo que no vale de un fichero de la arena, una frase por elemento con su motivo. */
 function lecturaDe(de: string, invalidas: readonly SinValidar[]): AvisosDeLectura {
   return { de, noValen: invalidas.map((i) => `${i.id ?? '(sin id)'}: ${i.motivo}`) };
 }
@@ -1091,7 +1122,7 @@ function pintarMuralla(): void {
 }
 
 /**
- * Los avisos de lo leído (el borrador y el enlace): el recuadro sobre la barra,
+ * Los avisos de lo leído (el catálogo, los borradores y el enlace): el recuadro sobre la barra,
  * desplegado o no, y el botón que lo despliega, que solo está si hay alguno.
  */
 function pintarAvisosDeLectura(): void {
@@ -1130,7 +1161,7 @@ function repintarMontaje(): void {
     pintar(
       elCatalogo,
       html`${unir(INTERRUPTORES.map((d) => renderModo(d, modos[d.clave])))}${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(
-        hojas,
+        hojasDelCatalogo(),
         filtro,
         { kind: 'montaje' },
         listaDeUnidades(),
@@ -1160,7 +1191,7 @@ function fichaAbierta(f: FichaEditable): FichaAbierta {
 function repintarEdicion(): void {
   pintarVista(elEdicion, () => {
     const lista = renderCatalogo(
-      hojas,
+      hojasDelCatalogo(),
       filtro,
       { kind: 'edicion', abiertas, plegada: listaPlegada },
       listaDeUnidades(),
@@ -1190,12 +1221,14 @@ function repintarEquipo(): void {
 }
 
 /**
- * Quiénes llevan la pieza `id`: las unidades del borrador, por su nombre, y todo
+ * Quiénes llevan la pieza `id`: las unidades del catálogo, por su nombre, y todo
  * héroe de la arena si es de su equipo (`laLlevaElHeroe`: la Espada).
  */
 function quienesLaLlevan(id: string): string[] {
   return [
-    ...[...borrador.values()].filter((u) => idsPuestos(u.equipo).includes(id)).map((u) => u.name),
+    ...[...unidadesDelCatalogo.values()]
+      .filter((u) => idsPuestos(u.equipo).includes(id))
+      .map((u) => u.name),
     ...(laLlevaElHeroe(id) ? [LA_LLEVA_EL_HEROE] : []),
   ];
 }
@@ -1203,9 +1236,9 @@ function quienesLaLlevan(id: string): string[] {
 /**
  * Pone la pieza `nueva` en lugar de la de id `id` —o la quita, con `null`: una
  * nueva se borra y una cambiada vuelve a la del juego—, o dice por qué no y no
- * toca nada. Va al borrador y sale de la capa del enlace, si estaba. Entra si lo
+ * toca nada. Va al borrador de equipo y sale de la capa del enlace, si estaba. Entra si lo
  * deja la regla del cambio (`cambioDePiezaBlocker`: cada pieza vale y ninguna
- * unidad del borrador deja de valer) y, en plena pelea, la de la batalla
+ * unidad del catálogo deja de valer) y, en plena pelea, la de la batalla
  * (`retocarEnBatalla`, `kind: 'piezas'`), como un cambio de unidad en plena pelea
  * (`cambiarUnidad`).
  */
@@ -1216,7 +1249,7 @@ function cambiarPiezas(id: string, nueva: PiezaEscrita | null, texto: string): b
       : conPieza(piezasDelBorrador, nueva);
   const capa = capaDelEnlace.filter((p) => p.id !== id);
   const despues = piezasEnUso(delBorrador, capa);
-  const motivo = cambioDePiezaBlocker(piezasEnUso(), despues, [...borrador.values()]);
+  const motivo = cambioDePiezaBlocker(piezasEnUso(), despues, [...unidadesDelCatalogo.values()]);
   if (motivo !== null) {
     noSeCambia(`${motivo}.`);
     return false;
@@ -1360,7 +1393,7 @@ function enfocar(foco: FocoTrasCerrar): void {
   destino.focus();
 }
 
-/** El nombre de lo que enseña una ficha: el de su unidad, del borrador, con el que se le haya puesto. */
+/** El nombre de lo que enseña una ficha: el de su unidad, del catálogo, con el que se le haya puesto. */
 function nombreDeFicha(f: FichaEditable): string {
   return unidadDe(f.id).name;
 }
@@ -1472,7 +1505,7 @@ function fichaDe(e: Elegida | null, como0: ComoDeLaFicha): Html {
 
 /**
  * En plena pelea, un cambio entra antes en la batalla (`SesionDeArena.retocar`):
- * devuelve por qué no entra, y entonces no se escribe nada —ni el borrador ni el
+ * devuelve por qué no entra, y entonces no se escribe nada —ni el catálogo ni el
  * héroe—; `null` si ha entrado o si no hay pelea que retocar.
  */
 function retocarLaPelea(r: RetoqueDeArena): string | null {
@@ -1615,9 +1648,9 @@ function añadir(lado: Lado, id: string, escalera = false): void {
     aviso = `${u.name} no se monta: ${motivo}.`;
     return;
   }
-  // La unidad entra en el borrador al montarla: es lo que se probó y lo que se guarda.
-  if (!borrador.has(u.id)) {
-    borrador.set(u.id, u);
+  // La unidad entra en el catálogo al montarla: es lo que se probó y lo que se guarda.
+  if (!unidadesDelCatalogo.has(u.id)) {
+    unidadesDelCatalogo.set(u.id, u);
     unidadesSinGuardar.add(u.id);
   }
   elegida = { kind: 'unidad', id: u.id };
@@ -1652,7 +1685,7 @@ function cambiarUnidad(id: string, cambio: (u: UnidadDeArena) => unknown): void 
       noSeCambia(motivo);
       return;
     }
-    borrador.set(id, nueva);
+    unidadesDelCatalogo.set(id, nueva);
     unidadesSinGuardar.add(id);
     avisoTrasCambio('');
   } catch (err) {
@@ -1698,7 +1731,7 @@ function marcadoDe(el: Element): boolean {
 
 /**
  * «Guardar»: las unidades y las piezas con que se pelea, en una sola operación
- * (`escribirBorrador`): si algo no vale no se escribe nada y se dice por qué.
+ * (`escribirCatalogo`): si algo no vale no se escribe nada y se dice por qué.
  */
 async function guardar(): Promise<void> {
   const orden = hojas.map((h) => h.id);
@@ -1708,7 +1741,7 @@ async function guardar(): Promise<void> {
     const i = orden.indexOf(id);
     return i < 0 ? orden.length : i;
   };
-  const unidades = [...borrador.values()].sort((a, b) => puesto(a.id) - puesto(b.id));
+  const unidades = [...unidadesDelCatalogo.values()].sort((a, b) => puesto(a.id) - puesto(b.id));
   const piezas = piezasAGuardar();
   // Las unidades del enlace se guardan con tus piezas, no con las suyas: si con
   // ellas alguna deja de valer, no se escribe nada y se dice quién.
@@ -1723,7 +1756,7 @@ async function guardar(): Promise<void> {
   });
   if (hecho === null) return;
   unidadesSinGuardar.clear();
-  // Las nuevas del enlace ya son del borrador; las demás de la capa siguen
+  // Las nuevas del enlace ya son del catálogo; las demás de la capa siguen
   // peleando en esta pelea y no se han escrito.
   piezasDelBorrador = piezas;
   piezasGuardadas = piezas;
@@ -1858,10 +1891,10 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     }
     const { capa, dicho: piezasDichas } = capaAlAbrir(m);
     const distintas = m.unidades.filter(
-      (u) => JSON.stringify(borrador.get(u.id) ?? null) !== JSON.stringify(u),
+      (u) => JSON.stringify(unidadesDelCatalogo.get(u.id) ?? null) !== JSON.stringify(u),
     );
     capaDelEnlace = capa;
-    for (const u of m.unidades) borrador.set(u.id, u);
+    for (const u of m.unidades) unidadesDelCatalogo.set(u.id, u);
     for (const u of distintas) unidadesSinGuardar.add(u.id);
     for (const l of ['izquierda', 'derecha'] as const) {
       montaje[l] = m[l].puestos.map((p) => ({
@@ -1895,7 +1928,7 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
  * La capa del enlace tras abrir `m`, sin tocar nada todavía, y lo que hay que
  * decir. Lo que llevan sus unidades y sus héroes pelea con las piezas del enlace
  * o, si no las trae, con las del juego (`piezasDelEnlace`): van en la capa,
- * encima del borrador, que no cambia.
+ * encima del borrador de equipo, que no cambia.
  */
 function capaAlAbrir(m: MontajeDelEnlace): {
   readonly capa: readonly PiezaEscrita[];
@@ -1903,7 +1936,7 @@ function capaAlAbrir(m: MontajeDelEnlace): {
 } {
   const suyas = piezasDelEnlace(m);
   // La capa de un enlace anterior se queda para lo que este no lleva: sus
-  // unidades siguen en el borrador.
+  // unidades siguen en el catálogo.
   const capa = [...capaDelEnlace.filter((p) => !suyas.some((x) => x.id === p.id)), ...suyas];
   const despues = piezasEnUso(piezasDelBorrador, capa);
   const eq = catalogoDeLaArena(despues);
@@ -3116,7 +3149,7 @@ function cambiarEnFicha(ficha: Elegida, el: Element): void {
 
 /**
  * Los rasgos del motor de la ficha `f`, cambiados por `cambio` (añadir uno del
- * desplegable o quitar una etiqueta): su tipo en el borrador. Lo que no vale lo
+ * desplegable o quitar una etiqueta): su tipo en el catálogo. Lo que no vale lo
  * dice el mismo validador de siempre (`cambiarUnidad`).
  */
 function cambiarRasgos(
@@ -3138,7 +3171,7 @@ function añadirRasgo(f: Elegida, el: Element): void {
   if (t !== '') cambiarRasgos(f, (ts) => [...ts, t as CreatureTrait]);
 }
 
-/** Un campo de la ficha de una unidad: su tipo en el borrador. */
+/** Un campo de la ficha de una unidad: su tipo en el catálogo. */
 function cambiarDeLaUnidad(id: string, el: Element): void {
   const campo = el.getAttribute('data-campo');
   const hueco = el.getAttribute('data-arena-pieza');
@@ -3241,8 +3274,7 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
     // y está entera).
     const recordadas = leerAbiertas(
       leerDelNavegador(CLAVE_DE_ABIERTAS, QUE_ABIERTAS),
-      (f) =>
-        (borrador.has(f.id) || hojasPorId.has(f.id)) && porQueNoSeMonta(unidadDe(f.id)) === null,
+      (f) => unidadesDelCatalogo.has(f.id) && porQueNoSeMonta(unidadDe(f.id)) === null,
     );
     abiertas = recordadas.abiertas;
     listaPlegada = listaPlegadaTras(
@@ -3251,12 +3283,6 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
       abiertas.length,
     );
     const deAbiertas = recordadas.aviso === '' ? '' : ` ${recordadas.aviso}`;
-    if (delEnlace?.montado && sinBorradorDeUnidades !== null) {
-      const { ruta, dicho } = sinBorradorDeUnidades;
-      if (!aviso.startsWith(dicho))
-        throw new Error('la barra del borrador no empieza por su primera frase');
-      aviso = `Sin borrador guardado todavía (${ruta}): «Guardar» lo crea.${aviso.slice(dicho.length)}`;
-    }
     aviso = delEnlace?.montado
       ? `${delEnlace.aviso}${aviso}${avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
       : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas}${avisoDeMurallas} Añade unidades a los dos bandos y pulsa Luchar.${deAbiertas}`;

@@ -38,6 +38,7 @@ import type {
   NivelesDeLaRueda,
   Resources,
   SpeedTier,
+  TipoDeGolpe,
   UnitInfo,
 } from './types.js';
 import {
@@ -55,6 +56,7 @@ import {
   RESOURCE_KINDS,
   type ResourceKind,
   SPEED_TIERS,
+  TIPOS_DE_GOLPE,
   TIPOS_DEL_ANILLO,
 } from './types.js';
 
@@ -610,6 +612,17 @@ export interface ReglasDelPoder {
   readonly umbralDelNivel2: number;
   /** Cada umbral es el anterior × `razon[0]` / `razon[1]`: dos enteros, sin coma flotante. */
   readonly razon: readonly [number, number];
+  /**
+   * La armadura con la que se mide cuánto aguanta una unidad que la lleva: el
+   * golpe de referencia (`core/nivel.ts`). Entero ≥ 1.
+   */
+  readonly armaduraDeReferencia: number;
+  /**
+   * Cuánto pesa cada tipo de la rueda en lo que pega una unidad (`core/nivel.ts`):
+   * los siete, enteros ≥ 0 y al menos uno > 0. Propios de la medida, no los de
+   * la IA (`PESOS_DE_LA_RUEDA`): retocar cómo elige la IA no mueve índices.
+   */
+  readonly pesosDeLaRueda: Readonly<Record<TipoDeGolpe, number>>;
 }
 
 /**
@@ -644,10 +657,31 @@ export function validarPoder(json: unknown, fichero = 'data/poder.json'): Reglas
       `con umbralDelNivel2 ${j.umbralDelNivel2} y razon ${r[0]}/${r[1]} el umbral del nivel 3 sale igual que el del 2, en enteros: sube el umbral o la razón`,
     );
   }
+  if (!enteroDesde(j.armaduraDeReferencia, 1)) {
+    problemas.push(
+      `armaduraDeReferencia tiene que ser un entero ≥ 1 y es ${j.armaduraDeReferencia}`,
+    );
+  }
+  const pesos = j.pesosDeLaRueda;
+  const sonPesos =
+    typeof pesos === 'object' &&
+    pesos !== null &&
+    !Array.isArray(pesos) &&
+    Object.keys(pesos).length === TIPOS_DE_GOLPE.length &&
+    TIPOS_DE_GOLPE.every((t) => enteroDesde((pesos as Record<string, unknown>)[t], 0));
+  if (!sonPesos) {
+    problemas.push(
+      `pesosDeLaRueda tiene que ser un entero ≥ 0 por cada tipo de la rueda (${TIPOS_DE_GOLPE.join(', ')}), y es ${JSON.stringify(pesos)}`,
+    );
+  } else if (TIPOS_DE_GOLPE.every((t) => (pesos as Record<string, number>)[t] === 0)) {
+    problemas.push('pesosDeLaRueda son todos 0: alguno tiene que pesar');
+  }
   if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
   return {
     umbralDelNivel2: j.umbralDelNivel2 as number,
     razon: [(r as number[])[0] as number, (r as number[])[1] as number],
+    armaduraDeReferencia: j.armaduraDeReferencia as number,
+    pesosDeLaRueda: pesos as Record<TipoDeGolpe, number>,
   };
 }
 

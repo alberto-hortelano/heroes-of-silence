@@ -30,8 +30,6 @@ import {
   retocarEnBatalla,
   revisarBorradorDeEquipo,
   selloDePieza,
-  type UnidadDeArena,
-  unidadDeCombate,
   VERSION_DEL_ENLACE,
   validarPiezaDeArena,
 } from '../src/core/arena.js';
@@ -39,6 +37,7 @@ import type { BattleStack } from '../src/core/battle/types.js';
 import { type Pieza, type PiezaConBase, resolverBases } from '../src/core/data.js';
 import { pieza } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
+import { type UnidadDeArena, unidadDeCombate } from '../src/core/unidad.js';
 import { DEL_JUEGO, delBorrador, MONTAJE, unidadDeArena } from './helpers.js';
 
 const ESPADA = pieza('espada');

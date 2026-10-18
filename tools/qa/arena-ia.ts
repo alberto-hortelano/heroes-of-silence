@@ -37,15 +37,15 @@ import {
   heroePorDefecto,
   type Lado,
   quitarEnArena,
-  type UnidadDeArena,
-  unidadPorDefecto,
 } from '../../src/core/arena.js';
 import { causaDelFinal, MAX_ROUNDS } from '../../src/core/battle/battle.js';
 import type { ModosDeArena } from '../../src/core/battle/modos.js';
 import { SIN_MURALLA } from '../../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO } from '../../src/core/battle/reglas.js';
+import { unidad } from '../../src/core/catalogo.js';
 import { hasTrait, LIDERAZGO } from '../../src/core/data.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
+import type { UnidadDeArena } from '../../src/core/unidad.js';
 import { hojasDeArena } from '../arena/borrador.js';
 
 /** Un montaje de la medida: las unidades de cada bando. */
@@ -79,13 +79,15 @@ interface Cuenta {
 }
 
 const HOJAS = hojasDeArena(resolve(import.meta.dirname, '../..'));
+// Solo la tropa: los héroes no tienen unidad en el catálogo, que es de donde salen las cifras.
 const TROPA = HOJAS.filter((h) => !h.heroe);
 const JINETES = TROPA.filter((h) => h.perfil.startsWith('montado-'));
 const FLOJAS = TROPA.filter((h) => ['arco', 'ballesta', 'baston'].includes(h.perfil));
 
 const TANDAS: readonly Tanda[] = (() => {
   const elegir = (rng: Rng, de: readonly HojaDeArena[], n: number): UnidadDeArena[] =>
-    Array.from({ length: n }, () => unidadPorDefecto(rng.pick(de)));
+    // Las cifras, del catálogo: la misma fuente que la arena y el juego.
+    Array.from({ length: n }, () => unidad(rng.pick(de).id));
   const igual = (u: UnidadDeArena): UnidadDeArena => u;
   const sinBarda = (u: UnidadDeArena): UnidadDeArena =>
     u.equipo.armadura === 'barda' ? quitarEnArena(u, 'armadura') : u;
@@ -122,7 +124,7 @@ const TANDAS: readonly Tanda[] = (() => {
     },
     {
       nombre: 'armadura: mezcla',
-      montar: (rng) => [elegir(rng, HOJAS, 3), elegir(rng, HOJAS, 3)],
+      montar: (rng) => [elegir(rng, TROPA, 3), elegir(rng, TROPA, 3)],
       variantes: conArmadura,
     },
     {
@@ -132,7 +134,7 @@ const TANDAS: readonly Tanda[] = (() => {
     },
     {
       nombre: 'rueda: mezcla',
-      montar: (rng) => [elegir(rng, HOJAS, 3), elegir(rng, HOJAS, 3)],
+      montar: (rng) => [elegir(rng, TROPA, 3), elegir(rng, TROPA, 3)],
       variantes: [
         { nombre: 'golpe: azar', con: {}, cambia: igual },
         { nombre: 'golpe: rueda', con: { golpe: 'rueda' }, cambia: igual },

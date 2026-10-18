@@ -15,7 +15,6 @@ import { textoDePrevision } from '../src/client/views/prevision.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   batallaDeArena,
-  CUERPO_COMUN,
   catalogoDeLaArena,
   equiparEnArena,
   type MontajeDelEnlace,
@@ -25,6 +24,7 @@ import {
   revisarBorradorDeEquipo,
   validarPiezaDeArena,
 } from '../src/core/arena.js';
+import { armaduraDe, trasLaArmadura } from '../src/core/battle/armas.js';
 import {
   applyAction,
   crearBatallaConReglas,
@@ -32,7 +32,7 @@ import {
   previsionDe,
   stackById,
 } from '../src/core/battle/battle.js';
-import { armaduraDe, expectedDamage, herir, trasLaArmadura } from '../src/core/battle/damage.js';
+import { expectedDamage, herir } from '../src/core/battle/damage.js';
 import { MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import { delHeroe, spell } from '../src/core/battle/spells.js';
@@ -41,6 +41,7 @@ import { type Pieza, problemasDePieza } from '../src/core/data.js';
 import { cifrasDePieza, EQUIPO_DEL_JUEGO, pieza, sumaDeEquipo } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { EquipoDeArena, Hex, UnitInfo } from '../src/core/types.js';
+import { CUERPO_COMUN } from '../src/core/unidad.js';
 import { bando, bandoDe, mando } from './batalla-de-prueba.js';
 import {
   conManosDePrueba,
