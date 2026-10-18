@@ -4669,6 +4669,10 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
     (await fichaDeLaEspada.locator('[data-arena-pieza-campo^="precio-"]').count()) !== 1
   )
     throw new Error('equipo: la ficha de la Espada tiene PV o más de un precio');
+  // La lleva también el héroe (H3 del QA 2): todo héroe de la arena pelea con ella.
+  const llevanLaEspada = await fichaDeLaEspada.locator('[data-la-llevan]').innerText();
+  if (!llevanLaEspada.includes('todo héroe de la arena'))
+    throw new Error(`equipo: «La llevan» de la Espada no cuenta al héroe: «${llevanLaEspada}»`);
   // «Nueva sobre esta»: la nueva dice su cadena.
   await page.locator('#equipo [data-arena="crear-pieza-sobre"]').click();
   const sobre = page.locator('#equipo [data-pieza-elegida="espada-2"]');
@@ -4767,6 +4771,31 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
     .filter({ hasText: 'lleva Hoja de pruebas' })
     .waitFor({ timeout: 2000 });
   log('equipo: la ficha de la unidad la ofrece y la tarjeta la lleva');
+  // Lo que el núcleo rechazaría no se ofrece (H3 del QA 2): ni piezas del juego, ni
+  // accesorios, ni la × del arma de cuerpo a cuerpo.
+  const ficha = page.locator('#ficha');
+  if (
+    (await ficha
+      .locator(
+        'option[value="garrote"], option[value="cota_de_malla"], [data-hueco-de-la-ficha="accesorio"], [data-arena="quitar-pieza"][data-hueco="arma"]',
+      )
+      .count()) > 0 ||
+    (await ficha.locator('[data-no-se-quita="arma"]').count()) !== 1
+  )
+    throw new Error('equipo: la ficha de la unidad ofrece lo que el núcleo rechaza');
+  // El héroe dice con qué arma pelea.
+  await page.locator('[data-arena="poner-heroe"][data-lado="izquierda"]').click();
+  const armaDelHeroe = (
+    await ficha.locator('[data-armas-del-heroe] [data-arma-de-la-ficha="cuerpo"]').innerText()
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!armaDelHeroe.includes('Espada ·'))
+    throw new Error(`equipo: la ficha del héroe dice «${armaDelHeroe}» de su arma`);
+  await ficha.locator('[data-armas-del-heroe]').scrollIntoViewIfNeeded();
+  await asentada(page);
+  await captura(page, 'arena-12-equipo-ficha-del-heroe');
+  log(`equipo: la ficha no ofrece lo que se rechaza y el héroe dice su arma (${armaDelHeroe})`);
   await page.close();
 }
 

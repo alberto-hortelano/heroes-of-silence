@@ -14,8 +14,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  enElMontaje,
   guardadoEnPalabras,
+  LA_LLEVA_EL_HEROE,
   renderEquipo,
+  renderFicha,
+  renderFichaDeHeroe,
   sinGuardarEnPalabras,
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
@@ -24,22 +28,28 @@ import {
   cambioDePiezaBlocker,
   catalogoDeLaArena,
   conPieza,
+  ESPADA_DE_LA_ARENA,
   enElHueco,
   equiparEnArena,
+  equipoDeArenaBlocker,
   type HeroeDeArena,
   heroePorDefecto,
   idsLlevados,
+  laLlevaElHeroe,
   lecturaDelNivel,
   type MontajeDeArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
+  opcionesDelHueco,
+  piezaDelJuegoBlocker,
   piezaNueva,
   piezasDeLaArena,
   piezasDelEnlace,
   piezasDelMontaje,
   piezasQueSeGuardan,
+  quitarBlocker,
   quitarEnArena,
   retocarEnBatalla,
   selloDePieza,
@@ -49,8 +59,10 @@ import {
   unidadNueva,
   VERSION_DEL_ENLACE,
   validarPiezaDeArena,
+  validarUnidadDeArena,
 } from '../src/core/arena.js';
 import { armaduraDe } from '../src/core/battle/damage.js';
+import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { cuentaTiros, EQUIPO, isShooter, type Pieza } from '../src/core/data.js';
 import {
@@ -62,6 +74,7 @@ import {
   pieza,
 } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
+import { HUECOS_DE_LA_ARENA, type HuecoDeArena } from '../src/core/types.js';
 import { escribirBorrador, leerBorrador, RUTA_DE_EQUIPO } from '../tools/arena/borrador.js';
 import {
   DEL_JUEGO,
@@ -818,5 +831,107 @@ describe('la vista «Editar equipo»', () => {
     expect(
       guardadoEnPalabras({ ruta: 'u.json', unidades: 1, rutaDePiezas: 'e.json', piezas: 2 }),
     ).toBe('Guardado en u.json: 1 unidad. Y en e.json: 2 piezas.');
+  });
+});
+
+describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la vuelta 2)', () => {
+  const como = enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO);
+  const ficha = (u: UnidadDeArena): string => marcadoDe(renderFicha(u, false, como));
+  /** Las opciones del desplegable de `hueco` en la ficha: su id y si va desactivada. */
+  function ofrecidas(m: string, hueco: string): { id: string; desactivada: boolean }[] {
+    const i = m.indexOf(`<select data-arena-pieza="${hueco}">`);
+    if (i < 0) return [];
+    const select = m.slice(i, m.indexOf('</select>', i));
+    return [...select.matchAll(/<option value="([^"]+)"( disabled)?>/g)].map((x) => ({
+      id: x[1] as string,
+      desactivada: x[2] !== undefined,
+    }));
+  }
+
+  it('en la arena solo cuentan las piezas de la arena: una armadura o un accesorio del juego no se monta', () => {
+    const u = guerrero();
+    expect(() =>
+      validarUnidadDeArena({ ...u, equipo: { ...u.equipo, armadura: 'cota_de_malla' } }, DEL_JUEGO),
+    ).toThrow(
+      'lleva «Cota de malla» en Armadura, que es del juego: en la arena solo cuentan las piezas de la arena',
+    );
+    expect(piezaDelJuegoBlocker({ ...u.equipo, accesorio: 'anillo_de_cobre' }, DEL_JUEGO)).toMatch(
+      /«Anillo de cobre» en Accesorio, que es del juego/,
+    );
+    expect(piezaDelJuegoBlocker(u.equipo, DEL_JUEGO)).toBeNull();
+    // Y lo mismo al cambiar una pieza que alguien lleva: la pregunta es la misma.
+    expect(equipoDeArenaBlocker({ arma: 'garrote' }, DEL_JUEGO)).toMatch(/que es del juego/);
+  });
+
+  it('ni piezas del juego ni accesorios: cada hueco, las de la arena del suyo', () => {
+    const m = ficha(guerrero());
+    expect(m).not.toContain('data-hueco-de-la-ficha="accesorio"');
+    expect(m).not.toContain('data-arena-pieza="accesorio"');
+    for (const juego of PIEZAS_DEL_JUEGO) expect(m, juego.id).not.toContain(`value="${juego.id}"`);
+    for (const hueco of ['arma', 'distancia', 'carga', 'armadura', 'escudo'] as const) {
+      const ids = ofrecidas(m, hueco).map((o) => o.id);
+      expect(ids.length, hueco).toBeGreaterThan(0);
+      for (const id of ids) {
+        expect(DEL_JUEGO.pieza(id), id).toMatchObject({ hueco, calidad: 'arena' });
+      }
+    }
+    expect(opcionesDelHueco(guerrero(), 'accesorio', DEL_JUEGO)).toEqual([]);
+  });
+
+  it('lo que ofrece entra y lo desactivado se rechaza con el motivo que enseña, en toda hoja', () => {
+    for (const h of hojasDeLaArena()) {
+      const u = unidadDeArena(h.id);
+      const m = ficha(u);
+      for (const hueco of HUECOS_DE_LA_ARENA) {
+        for (const o of ofrecidas(m, hueco)) {
+          const poner = (): UnidadDeArena =>
+            validarUnidadDeArena(equiparEnArena(u, o.id, DEL_JUEGO), DEL_JUEGO);
+          if (o.desactivada) expect(poner, `${h.id} ${o.id}`).toThrow();
+          else expect(poner, `${h.id} ${o.id}`).not.toThrow();
+        }
+      }
+    }
+    // El escudo con el mandoble a dos manos: va, desactivado y con su motivo.
+    const orco = unidadDeArena('orko-dos-armas');
+    const escudos = opcionesDelHueco(orco, 'escudo', DEL_JUEGO);
+    expect(escudos.length).toBeGreaterThan(0);
+    for (const e of escudos) expect(e.motivo, e.pieza.id).toMatch(/arma a dos manos/);
+    expect(ficha(orco)).toMatch(/<option value="escudo" disabled>Escudo · no: .*a dos manos/);
+  });
+
+  it('el arma de cuerpo a cuerpo no se quita: sin ella no se monta, y la ficha lo dice en vez de la ×', () => {
+    const u = guerrero();
+    expect(quitarBlocker(u, 'arma', DEL_JUEGO)).toMatch(/no lleva arma de cuerpo a cuerpo/);
+    expect(quitarBlocker(u, 'armadura', DEL_JUEGO)).toBeNull();
+    expect(quitarBlocker(u, 'distancia', DEL_JUEGO)).toMatch(/no lleva nada en/);
+    const m = ficha(u);
+    expect(m).not.toContain('data-arena="quitar-pieza" data-hueco="arma"');
+    expect(m).toContain('data-no-se-quita="arma"');
+    expect(m).toContain('data-arena="quitar-pieza" data-hueco="armadura"');
+    // Lo que la ficha deja quitar, el núcleo lo admite.
+    for (const [, hueco] of m.matchAll(/data-arena="quitar-pieza" data-hueco="([^"]+)"/g)) {
+      const h = hueco as HuecoDeArena;
+      expect(() => validarUnidadDeArena(quitarEnArena(u, h), DEL_JUEGO), h).not.toThrow();
+    }
+  });
+
+  it('el héroe dice con qué arma pelea, y la Espada lo cuenta entre quienes la llevan', () => {
+    const m = marcadoDe(renderFichaDeHeroe('izquierda', MAGO, como, []));
+    const armas = m.slice(m.indexOf('data-armas-del-heroe'));
+    expect(armas).toMatch(/data-arma-de-la-ficha="cuerpo"[\s\S]*Espada ·/);
+    expect(laLlevaElHeroe(ESPADA_DE_LA_ARENA)).toBe(true);
+    expect(laLlevaElHeroe('mandoble')).toBe(false);
+    const vista = marcadoDe(
+      renderEquipo({
+        piezas: DEL_JUEGO,
+        elegida: ESPADA_DE_LA_ARENA,
+        llevan: () => ['Guerrero con escudo', LA_LLEVA_EL_HEROE],
+        enLaPelea: () => null,
+        rechazo: null,
+        enCombate: false,
+        sinGuardar: '',
+      }),
+    );
+    expect(vista).toContain('Guerrero con escudo, todo héroe de la arena');
   });
 });

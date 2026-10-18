@@ -413,10 +413,10 @@ describe('la barra al crear y al leer el borrador (segunda vuelta de QA)', () =>
     const nueva = unidadNueva(hojaDeLaArena('templario-escudo'), ocupados, DEL_JUEGO);
     const doble = { ...nueva, traits: ['double_attack' as const] };
     expect(avisoDeNuevaUnidad(doble, 'edicion', DEL_JUEGO)).toBe(
-      'Nueva unidad «Guerrero con escudo 2», sin equipo (Índice 209 · nivel 2): su ficha está abierta.',
+      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 209 · nivel 2): su ficha está abierta.',
     );
     expect(avisoDeNuevaUnidad(doble, 'montaje', DEL_JUEGO)).toBe(
-      'Nueva unidad «Guerrero con escudo 2», sin equipo (Índice 209 · nivel 2): añádela a un bando o cambia su ficha.',
+      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 209 · nivel 2): añádela a un bando o cambia su ficha.',
     );
     // Lo mismo que dice su ficha, sin «nivel 1» escrito a mano.
     expect(

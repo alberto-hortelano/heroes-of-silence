@@ -16,6 +16,7 @@ import {
   type CatalogoDeLaArena,
   CIFRA_MAXIMA_DE_HEROE,
   cadenaDeBases,
+  ESPADA_DE_LA_ARENA,
   escritaDe,
   FACCIONES_DE_ARENA,
   fichaDeHeroeDeArena,
@@ -30,6 +31,8 @@ import {
   NOMBRE_DE_FACCION_DE_ARENA,
   NOMBRE_DE_RASGO,
   nombreDeHabilidad,
+  opcionesDelHueco,
+  quitarBlocker,
   type SelloDePieza,
   selloDePieza,
   type UnidadDeArena,
@@ -1030,39 +1033,47 @@ function filaDeArmadura(final: UnitInfo): FilaDeCifra {
 }
 
 /**
- * El equipo de la ficha: una fila por hueco (`HUECOS_DE_LA_ARENA`), con la pieza puesta, lo
- * que suma y su × o «—», y un desplegable con las piezas de ese hueco (las de la
- * arena: las del juego en su orden, cambiadas si lo están, y las nuevas detrás)
- * para ponerle otra. Sin reglas: lo que no se
- * puede poner —un escudo con un arma a dos manos— lo rechaza el núcleo
- * (`manosBlocker`) y sale en la barra.
+ * El equipo de la ficha: una fila por hueco que tenga piezas de la arena (el
+ * accesorio no tiene), con la pieza puesta, lo que suma y su × o «—», y un
+ * desplegable con lo que se le puede poner. Las reglas son del núcleo y la ficha
+ * solo las lee: qué entra en cada hueco (`opcionesDelHueco`: las de la arena; lo
+ * que rechazaría —un escudo con un arma a dos manos— va desactivado y con su
+ * motivo) y si se puede quitar lo puesto (`quitarBlocker`: sin arma de cuerpo a
+ * cuerpo no se combate, y el arma no lleva ×, sino su motivo en nota).
  */
 function equipoDeLaFicha(u: UnidadDeArena, piezas: EquipoAtado): Html {
   const filas = unir(
-    HUECOS_DE_LA_ARENA.map((hueco) => {
+    HUECOS_DE_LA_ARENA.flatMap((hueco) => {
       const id = u.equipo[hueco];
       const p = id === undefined ? null : piezas.pieza(id);
+      const ofrecidas = opcionesDelHueco(u, hueco, piezas);
+      if (p === null && ofrecidas.length === 0) return [];
+      const noSeQuita = p === null ? null : quitarBlocker(u, hueco, piezas);
       const puesta =
         p === null
           ? html`<span class="cost">—</span>`
-          : etiquetaConQuitar(
-              p.nombre,
-              html`data-arena="quitar-pieza" data-hueco="${hueco}"`,
-              modificadoresEnPantalla(p),
-            );
+          : noSeQuita === null
+            ? etiquetaConQuitar(
+                p.nombre,
+                html`data-arena="quitar-pieza" data-hueco="${hueco}"`,
+                modificadoresEnPantalla(p),
+              )
+            : html`<span class="etiqueta" data-no-se-quita="${hueco}">${p.nombre} ${modificadoresEnPantalla(p)} ${nota(`No se quita: ${noSeQuita}. Para cambiarla, elige otra en «Poner».`)}</span>`;
       const opciones = unir(
-        [...piezas.piezas.values()]
-          .filter((x) => x.hueco === hueco && x.id !== id)
-          .map(
-            (x) =>
-              html`<option value="${x.id}">${x.nombre} · ${cifrasDePieza(x) || 'no suma nada'}</option>`,
-          ),
+        ofrecidas.map(({ pieza: x, motivo }) => {
+          const cifras = cifrasDePieza(x) || 'no suma nada';
+          return motivo === null
+            ? html`<option value="${x.id}">${x.nombre} · ${cifras}</option>`
+            : html`<option value="${x.id}" disabled>${x.nombre} · no: ${motivo}</option>`;
+        }),
       );
-      return html`<div class="hueco" data-hueco-de-la-ficha="${hueco}">
+      return [
+        html`<div class="hueco" data-hueco-de-la-ficha="${hueco}">
         <span class="label">${NOMBRE_DE_HUECO[hueco]}</span> ${puesta}
         <label class="campo"><span class="label">Poner</span>
           <select data-arena-pieza="${hueco}"><option value="">— elige —</option>${opciones}</select></label>
-      </div>`;
+      </div>`,
+      ];
     }),
   );
   return html`<h3>Equipo ${nota(`Suma a las cifras del cuerpo y no cambia el nivel. Lo que no es arma suma a todo golpe; cada arma, solo al suyo (abajo, «Armas»): ${NOMBRE_DE_HUECO.arma} al cuerpo a cuerpo, ${NOMBRE_DE_HUECO.distancia} al disparo y ${NOMBRE_DE_HUECO.carga} a la carga. Regla: ${REGLA_DEL_ESCUDO}; las manos son las del arma de cuerpo a cuerpo.`)}</h3>
@@ -1121,7 +1132,10 @@ export function avisoDeNuevaUnidad(
   escena: 'montaje' | 'edicion',
   piezas: EquipoAtado,
 ): string {
-  const como = `Nueva unidad «${u.name}», sin equipo (${lecturaDelNivel(unidadDeCombate(u, piezas))})`;
+  // Nace con la Espada (sin arma no se combate): se dice lo que lleva.
+  const lleva = piezas.piezasPuestas(u.equipo).map((p) => p.nombre);
+  const con = lleva.length === 0 ? 'sin equipo' : `con ${lleva.join(', ')}`;
+  const como = `Nueva unidad «${u.name}», ${con} (${lecturaDelNivel(unidadDeCombate(u, piezas))})`;
   return escena === 'edicion'
     ? `${como}: su ficha está abierta.`
     : `${como}: añádela a un bando o cambia su ficha.`;
@@ -1404,6 +1418,8 @@ export function renderFichaDeHeroe(
         ],
       )}`,
       })}
+      <h3>Armas ${nota(`Pelea con la ${como.piezas.pieza(ESPADA_DE_LA_ARENA).nombre} de la arena, la que se cambia en «Editar equipo», y de lo demás con el equipo base del juego. Cada golpe va con las cifras de su arma.`)}</h3>
+      <div class="armas-de-la-ficha" data-armas-del-heroe="si">${filasDeArmas(c, como.piezas, MODOS_DE_LA_ARENA.cargaAPie)}</div>
       <h3>Libro de hechizos</h3>
       <div class="rasgos">${libro}</div>
       <h3>En la pelea</h3>
@@ -1424,13 +1440,16 @@ export function renderFichaDeHeroe(
 
 // ---------------------------------------------------------------- equipo
 
+/** Cómo dice «La llevan» de una pieza del equipo del héroe (la Espada): lo lleva todo héroe de la arena. */
+export const LA_LLEVA_EL_HEROE = 'todo héroe de la arena';
+
 /** Lo que la vista «Editar equipo» enseña: lo da `main.ts`, que tiene las piezas y el borrador. */
 export interface VistaDeEquipo {
   /** Las piezas de la arena (`catalogoDeLaArena`), en su orden, resueltas y escritas. */
   readonly piezas: CatalogoDeLaArena;
   /** La pieza de la ficha, por su id, o `null`. */
   readonly elegida: string | null;
-  /** Los nombres de las unidades del borrador que llevan la pieza `id`. */
+  /** Quiénes llevan la pieza `id`: las unidades del borrador y, si es suya, el héroe (`LA_LLEVA_EL_HEROE`). */
   readonly llevan: (id: string) => readonly string[];
   /**
    * La pieza de id `id` con que se pelea ahora si no es la que se enseña: la de un
@@ -1709,7 +1728,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
       ${v.rechazo === null ? NADA : html`<p class="aviso-de-pieza rechazo" role="status">${v.rechazo}</p>`}
       <div class="row resumen-de-pieza" data-resumen-de-pieza="si"><span class="label">Suma</span>${modificadoresEnPantalla(p, 'nada')}</div>
       <div class="row"><span class="label">Precio</span><span>${describirCoste(p.precio)}</span></div>
-      <div class="row"><span class="label">La llevan</span><span>${llevan.length === 0 ? 'ninguna unidad del borrador' : llevan.join(', ')}</span></div>
+      <div class="row" data-la-llevan="si"><span class="label">La llevan</span><span>${llevan.length === 0 ? 'ninguna unidad del borrador' : llevan.join(', ')}</span></div>
       ${avisoDelEnlace(v.enLaPelea(p.id))}
       <div class="botones">${botones}</div>
       <div class="cifras">
