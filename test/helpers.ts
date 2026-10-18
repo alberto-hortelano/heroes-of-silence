@@ -13,9 +13,12 @@ import type { Senda } from '../src/client/render/escenario/sendas.js';
 import { SesionDeArena } from '../src/client/session.js';
 import {
   batallaDeArena,
+  type CatalogoDeLaArena,
+  catalogoDeLaArena,
   type FuenteDeArena,
   type HojaDeArena,
   type MontajeDeArena,
+  nivelesDeLaEspada,
   type UnidadDeArena,
   unidadDeCombate,
   unidadPorDefecto,
@@ -34,10 +37,14 @@ import { hexDistance } from '../src/core/battle/board.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
 import type { ModoDelGolpe } from '../src/core/battle/rueda.js';
-import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/types.js';
+import type {
+  BattleAction,
+  BattleEvent,
+  BattleStack,
+  BattleState,
+} from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
-import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
-import { EQUIPO_DEL_JUEGO, type EquipoAtado } from '../src/core/hero/equipo.js';
+import { BARRERAS_DEL_MAPA, type Pieza } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
@@ -72,7 +79,18 @@ import {
   heroesOf,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Army, Hex, PlayerId, Point, Stack, Troop } from '../src/core/types.js';
+import {
+  type Army,
+  type Hex,
+  type NivelesDeLaRueda,
+  type PlayerId,
+  type Point,
+  type Stack,
+  TIPOS_DEL_ANILLO,
+  type TipoDeGolpe,
+  type Troop,
+  type UnitInfo,
+} from '../src/core/types.js';
 import { hojasDeArena } from '../tools/arena/borrador.js';
 
 /**
@@ -1081,8 +1099,56 @@ export function unidadDeArena(id: string, cambios: Partial<UnidadDeArena> = {}):
   return { ...unidadPorDefecto(hojaDeLaArena(id)), ...cambios };
 }
 
-/** Las piezas del juego, atadas (`EquipoAtado`): las de la arena sin borrador. */
-export const DEL_JUEGO: EquipoAtado = EQUIPO_DEL_JUEGO;
+/**
+ * Las piezas del juego, atadas: las de la arena sin borrador (`catalogoDeLaArena`,
+ * con lo escrito: las bases de `data/equipo.json`).
+ */
+export const DEL_JUEGO: CatalogoDeLaArena = catalogoDeLaArena([]);
+
+/** Una rueda con todos los tipos del anillo en el nivel `n`. */
+export function todoA(n: number): NivelesDeLaRueda {
+  return Object.fromEntries(TIPOS_DEL_ANILLO.map((t) => [t, n])) as NivelesDeLaRueda;
+}
+
+/**
+ * Un arma de prueba que no suma nada y lleva los niveles de la Espada (`data/equipo.json`):
+ * con ella, una criatura del catálogo golpea en la rueda sin que cambien su ataque
+ * ni su daño. En la arena nadie golpea sin arma (`armaDeCuerpoBlocker`); estas
+ * pruebas de la rueda montan criaturas del juego para que las cifras se cuenten a
+ * mano.
+ */
+export const MANOS_DE_PRUEBA: Pieza = {
+  id: 'manos_de_prueba',
+  nombre: 'Manos de prueba',
+  hueco: 'arma',
+  calidad: 'arena',
+  ataque: 0,
+  defensa: 0,
+  pv: 0,
+  velocidad: 0,
+  rueda: nivelesDeLaEspada(),
+  precio: { gold: 0 },
+};
+
+/**
+ * Cada stack de `b` (sin arma) con las manos de prueba en el hueco del arma, por
+ * `conEquipo`, el único escritor de `UnitInfo.armas`, y la pieza entre las de la
+ * pelea (`BattleState.piezasDeArena`): golpea en la rueda con los niveles de la
+ * Espada (u otros, `niveles`) sin cambiar sus cifras. Devuelve `b`.
+ */
+export function conManosDePrueba(
+  b: BattleState,
+  niveles: NivelesDeLaRueda = nivelesDeLaEspada(),
+): BattleState {
+  const manos: Pieza = { ...MANOS_DE_PRUEBA, rueda: niveles };
+  const eq = catalogoDeLaArena([manos]);
+  // La pelea lleva su pieza: la previsión y la ficha buscan el arma por su id.
+  b.piezasDeArena = [...(b.piezasDeArena ?? []), manos];
+  for (const s of b.stacks) {
+    (s as { unit: UnitInfo }).unit = eq.conEquipo(s.unit, { arma: manos.id });
+  }
+  return b;
+}
 
 /** Lo común de un montaje de prueba: las reglas del juego y ninguna pieza de la arena. */
 export const MONTAJE = { reglas: REGLAS_DEL_JUEGO, piezas: [] } as const satisfies Pick<
@@ -1104,13 +1170,15 @@ export function aPelear(unidades: readonly UnidadDeArena[]): PuestoDeLaPelea[] {
 /**
  * El montaje de la arena con unidades del borrador, sin héroes: los tests de la
  * muralla no miran ni el catálogo ni la magia. Con las reglas del juego salvo
- * que se pidan otras.
+ * que se pidan otras, y sin piezas de la arena ni modos salvo que se pidan
+ * (`extra`: las piezas del borrador y los modos, como la rueda del golpe).
  */
 export function montajeDePrueba(
   izquierda: readonly PuestoDeLaPelea[],
   derecha: readonly PuestoDeLaPelea[],
   muralla: MurallaDeBatalla = SIN_MURALLA,
   reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
+  extra: Partial<Pick<MontajeDeArena, 'piezas' | 'modos'>> = {},
 ): MontajeDeArena {
   const lado = (puestos: readonly PuestoDeLaPelea[]) => ({
     unidades: puestos.map(({ unidad, escalera }) => ({ unidad, escalera: escalera === true })),
@@ -1121,8 +1189,30 @@ export function montajeDePrueba(
     derecha: lado(derecha),
     reglas,
     muralla,
-    piezas: [],
+    piezas: extra.piezas ?? [],
+    ...(extra.modos === undefined ? {} : { modos: extra.modos }),
   };
+}
+
+/** Un golpe del registro de la batalla (`attack`). */
+export type Ataque = Extract<BattleEvent, { kind: 'attack' }>;
+
+/** Los golpes del registro de `b`, desde el hecho `desde`: los de quien pega y los del contraataque. */
+export function ataquesDe(b: BattleState, desde = 0): Ataque[] {
+  return b.log.slice(desde).filter((e): e is Ataque => e.kind === 'attack');
+}
+
+/**
+ * El golpe de una vez a `defender-0` con la rueda: el tipo de quien pega
+ * (`golpe`), el de quien recibe (`respuesta`) y lo demás de la acción (`extra`,
+ * como su `from`).
+ */
+export function golpeConLaRueda(
+  golpe: TipoDeGolpe,
+  respuesta: TipoDeGolpe,
+  extra: Partial<BattleAction> = {},
+): BattleAction {
+  return { type: 'attack', target: 'defender-0', golpe, respuesta, ...extra } as BattleAction;
 }
 
 /** `batallaDeArena` con `montajeDePrueba`. */

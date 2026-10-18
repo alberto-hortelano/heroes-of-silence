@@ -131,6 +131,7 @@
       "traits": [],
       "habilidades": [],
       "equipo": {
+        "arma": "daga",
         "distancia": "arco",
         "armadura": "jubon_de_arquero"
       },
@@ -291,6 +292,7 @@
       "traits": [],
       "habilidades": [],
       "equipo": {
+        "arma": "daga",
         "distancia": "arco",
         "armadura": "jubon_de_arquero"
       },

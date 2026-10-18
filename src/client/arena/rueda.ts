@@ -36,6 +36,7 @@ import {
   type Punto,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
+  type TipoDelAnillo,
 } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { DURACION } from '../anim.js';
@@ -45,67 +46,23 @@ import type { RuedaPendiente } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { nota } from '../views/panels.js';
 import { horquilla } from '../views/prevision.js';
+import {
+  anguloDe,
+  BORDE,
+  DENTRO,
+  icono,
+  LADO_DE_LA_CAJA,
+  punto,
+  RADIO_DEL_CENTRO,
+  SITIO_DEL_ROTULO,
+  sector,
+  xy,
+} from './disco.js';
 import { figuraEnLienzo, type VistaDeArena, vistaPrevia } from './paneles.js';
 
-/**
- * Los iconos, dibujados (sin arte generado): trazos en una caja de 24, con el
- * color del texto. Cada uno dice su golpe de un vistazo: el rayo es rápido, el
- * escudo defiende, la flecha que se tuerce engaña, el martillo pega fuerte, el
- * escudo partido rompe la guardia, la espada ataca y la balanza no se inclina.
- */
-const ICONO: Readonly<Record<TipoDeGolpe, readonly string[]>> = {
-  rapido: ['M13.5 2 5 13.5h6L9.5 22 19 9.5h-6.2z'],
-  defensivo: [
-    'M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.4 7.5 10.2 4.4-1.8 7.5-5.6 7.5-10.2V5.5z',
-    'M12 6.5v11',
-  ],
-  finta: [
-    'M4 20c.6-6.4 4.4-10.6 11.5-11',
-    'M12.5 5.5l3.5 3.4-3.6 3.3',
-    'M4.5 4.5l3 3',
-    'M8.5 3.5l1 1',
-  ],
-  fuerte: ['M3.5 8.2 8.2 3.5l5.3 5.3-4.7 4.7z', 'M11.2 11.2 20.5 20.5', 'M17 21.5l4.5-4.5'],
-  romperGuardia: [
-    'M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.4 7.5 10.2 4.4-1.8 7.5-5.6 7.5-10.2V5.5z',
-    'M12.6 5l-2.4 5.2 3.2 1.8-2.6 5.6',
-  ],
-  ofensivo: ['M12 1.8l2 3V15h-4V4.8z', 'M6.5 15h11', 'M12 15v5.4', 'M10 21.6h4'],
-  normal: ['M12 3.5v17', 'M7.5 20.5h9', 'M4.5 7h15', 'M4.5 7 2 13.5h5z', 'M19.5 7 17 13.5h5z'],
-};
+// Las medidas y el ángulo de cada sector se leen desde aquí (`pnpm capturas`, los tests).
+export { anguloDe, MEDIDAS_DE_LA_RUEDA } from './disco.js';
 
-function icono(tipo: TipoDeGolpe): Html {
-  return html`<svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${unir(
-    ICONO[tipo].map((d) => html`<path d="${d}"/>`),
-  )}</svg>`;
-}
-
-/** El ángulo del centro de cada sector del anillo, en grados (0 a la derecha, 90 abajo). */
-export function anguloDe(tipo: TipoDeGolpe): number {
-  const i = ANILLO.indexOf(tipo);
-  if (i < 0) throw new Error(`«${tipo}» no está en el anillo de la rueda`);
-  return -90 + i * (360 / ANILLO.length);
-}
-
-/** Un punto del plano de la rueda (centro en 0,0) a `r` y `grados`, con dos decimales. */
-function punto(r: number, grados: number): { readonly x: number; readonly y: number } {
-  const a = (grados * Math.PI) / 180;
-  return { x: Math.round(r * Math.cos(a) * 100) / 100, y: Math.round(r * Math.sin(a) * 100) / 100 };
-}
-
-function xy(r: number, grados: number): string {
-  const p = punto(r, grados);
-  return `${p.x} ${p.y}`;
-}
-
-/** Radios del anillo, en la caja de −110 a 110. */
-const DENTRO = 45;
-const FUERA = 100;
-const BORDE = 104;
-/** El radio del círculo de Normal: el que se pinta, el que se tiñe y el que recibe el clic. */
-const RADIO_DEL_CENTRO = DENTRO - 4;
-/** Dónde va el centro del rótulo de cada sector del anillo. */
-const SITIO_DEL_ROTULO = 73;
 /**
  * Dónde va el «ⓘ» de cada sector del anillo: cerca del borde de fuera y a un
  * lado del centro, donde no pisa el rótulo. Sale del ángulo del sector, no de su
@@ -114,31 +71,6 @@ const SITIO_DEL_ROTULO = 73;
 const SITIO_DE_LA_NOTA = { r: 88, desvio: 20 } as const;
 /** El «ⓘ» de Normal: arriba a la derecha, dentro de su círculo. */
 const NOTA_DEL_CENTRO = { r: 28, grados: -45 } as const;
-/** Lo que mide de lado la caja de la rueda, de −110 a 110. */
-const LADO_DE_LA_CAJA = 220;
-/** Medio sector, menos la junta entre dos. */
-const MEDIO_SECTOR = 360 / ANILLO.length / 2 - 1.2;
-
-/**
- * Las medidas de la rueda en su plano (de −110 a 110), para quien mide desde
- * fuera dónde responde cada sector (`pnpm capturas`, #258): las mismas que
- * trazan `sector` y `formas`.
- */
-export const MEDIDAS_DE_LA_RUEDA = {
-  dentro: DENTRO,
-  fuera: FUERA,
-  radioDelCentro: RADIO_DEL_CENTRO,
-  medioSector: MEDIO_SECTOR,
-  lado: LADO_DE_LA_CAJA,
-} as const;
-
-function sector(tipo: TipoDeGolpe): string {
-  const c = anguloDe(tipo);
-  const a = c - MEDIO_SECTOR;
-  const b = c + MEDIO_SECTOR;
-  return `M${xy(FUERA, a)}A${FUERA} ${FUERA} 0 0 1 ${xy(FUERA, b)}L${xy(DENTRO, b)}A${DENTRO} ${DENTRO} 0 0 0 ${xy(DENTRO, a)}Z`;
-}
-
 /** El id del `<clipPath>` del sector `tipo`, el que recorta su botón. */
 export function idDeLaForma(tipo: TipoDeGolpe): string {
   return `forma-de-${tipo}`;
@@ -239,12 +171,12 @@ function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): st
 }
 
 /**
- * La nota del sector: lo que hace el tipo para quien elige ahora
- * (`efectoDeGolpe`), y en una respuesta que no devolverá el golpe, solo lo que
- * vale: el cruce. Todo lo demás de la respuesta va con el contraataque.
+ * La nota del sector: lo que hace el tipo para quien elige ahora, con las cifras
+ * de su arma (`efectoDeGolpe`, `previsionDeLaRueda().rueda`), y en una respuesta
+ * que no devolverá el golpe, solo lo que vale: el cruce. Todo lo demás de la respuesta va con el contraataque.
  */
 function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): string {
-  return `${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, contacto)}${contraataqueRebajado(p, tipo)}`;
+  return `${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, contacto, p.prevision.rueda)}${contraataqueRebajado(p, tipo)}`;
 }
 
 /**
@@ -421,7 +353,7 @@ export function tramosDelDesenlace(t: number): string {
 }
 
 /** El ángulo en que se posa el marcador de un papel en un sector del anillo: a un lado del centro. */
-function anguloDeLaMarca(tipo: TipoDeGolpe, papel: 'golpe' | 'respuesta'): number {
+function anguloDeLaMarca(tipo: TipoDelAnillo, papel: 'golpe' | 'respuesta'): number {
   return anguloDe(tipo) + (papel === 'golpe' ? -13 : 13);
 }
 
@@ -437,20 +369,21 @@ function dondeCae(tipo: TipoDeGolpe, papel: 'golpe' | 'respuesta'): { x: number;
  * otro; los dos en Normal, el borde del centro. `data-punto` le da el color.
  */
 function arco(golpe: TipoDeGolpe, respuesta: TipoDeGolpe, p: Punto): Html {
+  // Una recta del centro a la marca del que no eligió Normal.
+  const desdeElCentro = (g: number): string => `M${xy(RADIO_DEL_CENTRO, g)}L${xy(BORDE, g)}`;
   let d: string;
-  if (golpe === 'normal' && respuesta === 'normal') {
-    const r = RADIO_DEL_CENTRO;
-    d = `M${xy(r, -90)}A${r} ${r} 0 0 1 ${xy(r, 90)}A${r} ${r} 0 0 1 ${xy(r, -90)}`;
-  } else if (golpe === 'normal' || respuesta === 'normal') {
-    const [otro, papel] =
-      golpe === 'normal' ? [respuesta, 'respuesta' as const] : [golpe, 'golpe' as const];
-    const g = anguloDeLaMarca(otro, papel);
-    d = `M${xy(RADIO_DEL_CENTRO, g)}L${xy(BORDE, g)}`;
-  } else {
+  if (golpe !== 'normal' && respuesta !== 'normal') {
     const a = anguloDeLaMarca(golpe, 'golpe');
     const b = anguloDeLaMarca(respuesta, 'respuesta');
     const delta = ((b - a + 540) % 360) - 180;
     d = `M${xy(BORDE, a)}A${BORDE} ${BORDE} 0 0 ${delta >= 0 ? 1 : 0} ${xy(BORDE, b)}`;
+  } else if (golpe !== 'normal') {
+    d = desdeElCentro(anguloDeLaMarca(golpe, 'golpe'));
+  } else if (respuesta !== 'normal') {
+    d = desdeElCentro(anguloDeLaMarca(respuesta, 'respuesta'));
+  } else {
+    const r = RADIO_DEL_CENTRO;
+    d = `M${xy(r, -90)}A${r} ${r} 0 0 1 ${xy(r, 90)}A${r} ${r} 0 0 1 ${xy(r, -90)}`;
   }
   return html`<path class="arco" data-punto="${String(p)}" pathLength="1" d="${d}"/>`;
 }

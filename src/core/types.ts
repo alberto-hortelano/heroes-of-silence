@@ -255,7 +255,63 @@ export interface GolpeConArma {
   readonly arma: string | null;
   readonly attack: number;
   readonly damage: readonly [number, number];
+  /**
+   * Los niveles de la rueda del arma de ese golpe (`Pieza.rueda`, solo la arena);
+   * sin el campo, el golpe no va con un arma de la arena. Lo escribe `conEquipo`
+   * con el resto de `armas`, y así la rueda no necesita el catálogo: la lee
+   * `ruedaDelGolpe`.
+   */
+  readonly rueda?: NivelesDeLaRueda;
 }
+
+/**
+ * Los seis tipos del anillo de la rueda del golpe (`battle/rueda.ts`), en el
+ * sentido de las agujas del reloj desde arriba: los que tienen nivel en un arma
+ * (`NivelesDeLaRueda`). Normal, el centro, no está: siempre es ×1.
+ */
+export const TIPOS_DEL_ANILLO = [
+  'ofensivo',
+  'fuerte',
+  'finta',
+  'defensivo',
+  'rapido',
+  'romperGuardia',
+] as const;
+export type TipoDelAnillo = (typeof TIPOS_DEL_ANILLO)[number];
+
+/**
+ * Los siete tipos de la rueda del golpe: el anillo (`TIPOS_DEL_ANILLO`) y Normal,
+ * el centro, al final. El orden es también el de las teclas: el tipo `i` se elige
+ * con la tecla `i + 1`. Viven aquí y no en `rueda.ts` porque los nombra la pieza
+ * (`Pieza.rueda`), y `data.ts` no puede importar `rueda.ts` (que lee `data.ts`).
+ */
+export const TIPOS_DE_GOLPE = [...TIPOS_DEL_ANILLO, 'normal'] as const;
+export type TipoDeGolpe = (typeof TIPOS_DE_GOLPE)[number];
+
+/** Si `x` es un tipo de golpe de la rueda (`TIPOS_DE_GOLPE`). */
+export function esTipoDeGolpe(x: unknown): x is TipoDeGolpe {
+  return typeof x === 'string' && (TIPOS_DE_GOLPE as readonly string[]).includes(x);
+}
+
+/** Si `x` es un tipo del anillo (`TIPOS_DEL_ANILLO`): uno con nivel en un arma. */
+export function esTipoDelAnillo(x: unknown): x is TipoDelAnillo {
+  return typeof x === 'string' && (TIPOS_DEL_ANILLO as readonly string[]).includes(x);
+}
+
+/**
+ * El nivel de un arma de cuerpo a cuerpo de la arena en cada tipo del anillo, de 0
+ * (lo peor) a 6 (lo mejor), **absoluto** (decisión del usuario, 18-10-2026: «que
+ * los valores de las barras sean absolutos y no relativos a la base del arma»):
+ * el mismo nivel da lo mismo en toda arma. Las cifras de cada nivel, en
+ * `data/rueda.json`; cómo se leen, `cifrasDeLosNiveles`. Normal no tiene nivel.
+ */
+export type NivelesDeLaRueda = Readonly<Record<TipoDelAnillo, number>>;
+
+/**
+ * Lo que una pieza con base sube (o baja) los niveles de la rueda de la suya
+ * (`ExtrasDePieza.rueda`): niveles con signo, sin los tipos que no cambian.
+ */
+export type ExtrasDeLaRueda = Readonly<Partial<Record<TipoDelAnillo, number>>>;
 
 /**
  * Las armas de una unidad de la arena (`UnitInfo.armas`), un golpe por uso: el de
@@ -391,6 +447,21 @@ export const HUECOS_DE_LA_ARENA = [
 
 export type HuecoDeArena = (typeof HUECOS_DE_LA_ARENA)[number];
 
+/**
+ * El nombre de cada hueco, para pintarlo y para decirlo en un motivo: lo leen el
+ * panel del héroe, la ficha de la arena y la regla de una base (`baseBlocker`,
+ * `data.ts`). En el núcleo y no en el cliente porque son dos pantallas y un mismo
+ * hueco.
+ */
+export const NOMBRE_DE_HUECO: Readonly<Record<HuecoDeArena, string>> = {
+  arma: 'Arma',
+  distancia: 'Arma a distancia',
+  carga: 'Arma de carga',
+  armadura: 'Armadura',
+  accesorio: 'Accesorio',
+  escudo: 'Escudo',
+};
+
 /** Si el texto `x` nombra un hueco del juego: la pregunta de la sesión de la partida. */
 export function esHueco(x: string): x is Hueco {
   return (HUECOS as readonly string[]).includes(x);
@@ -425,18 +496,72 @@ export const USO_DEL_HUECO = {
   carga: 'carga',
 } as const satisfies Readonly<Partial<Record<HuecoDeArena, UsoDeArma>>>;
 
+/** Las cifras que una pieza puede sumar, por su nombre en `Pieza`, en el orden en que se dicen. */
+export const CIFRAS_DE_PIEZA = [
+  'ataque',
+  'defensa',
+  'armadura',
+  'danio',
+  'pv',
+  'velocidad',
+] as const;
+export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
+
 /**
- * Qué campos de arma admite una pieza de cada hueco: las manos, solo el arma de
- * cuerpo a cuerpo (la regla del escudo mira esa). **La regla, en un sitio**: la
- * leen el cargador (`problemasDePieza`), el cambio de hueco de una pieza de la
- * arena (`enElHueco`) y su editor. Los disparos se fueron con la munición
- * (13-10-2026): dispara quien lleva algo en `distancia`.
+ * El nombre de cada cifra, el mismo en la tabla de la ficha de la arena (sus
+ * rótulos), en lo que suma una pieza («+2 Ataque» en la pieza y «Ataque» en la
+ * fila a la que suma; 13-10-2026, el usuario: «estandariza la forma de mostrar
+ * los modificadores del equipo, que no sea un texto libre») y en lo que un hueco
+ * no admite (`problemasDePieza`).
  */
-export function camposDelHueco(h: HuecoDeArena): {
+export const NOMBRE_DE_CIFRA: Readonly<Record<CifraDePieza, string>> = {
+  ataque: 'Ataque',
+  defensa: 'Defensa',
+  armadura: 'Armadura',
+  danio: 'Daño',
+  pv: 'PV',
+  velocidad: 'Velocidad',
+};
+
+/** Las cifras que puede sumar una pieza de la arena según su hueco: todas menos los PV. */
+export type CifraDelHueco = Exclude<CifraDePieza, 'pv'>;
+
+/** Qué admite una pieza de la arena en su hueco (`camposDelHueco`). */
+export interface CamposDelHueco {
   readonly conManos: boolean;
-} {
-  return { conManos: h === 'arma' };
+  readonly conRueda: boolean;
+  readonly cifras: readonly CifraDelHueco[];
 }
+
+/**
+ * Qué admite una pieza de la arena en cada hueco (decisión del usuario,
+ * 18-10-2026: «diferencia por tipo»): las manos, solo el arma de cuerpo a cuerpo
+ * (la regla del escudo mira esa); la rueda, el arma de cuerpo a cuerpo y la
+ * lanza, que son las que golpean en ella; y sus cifras: las armas, ataque y
+ * daño; la armadura, defensa, armadura y velocidad; el escudo, defensa y
+ * velocidad. El accesorio, todas (la arena no lo enseña; el juego, sí). **La regla,
+ * en un sitio**: la leen el cargador (`problemasDePieza`, para la calidad
+ * `arena`), el cambio de hueco de una pieza de la arena (`enElHueco`) y su editor.
+ * Los disparos se fueron con la munición (13-10-2026): dispara quien lleva algo
+ * en `distancia`.
+ */
+export function camposDelHueco(h: HuecoDeArena): CamposDelHueco {
+  return CAMPOS_DEL_HUECO[h];
+}
+
+const DE_ARMA: readonly CifraDelHueco[] = ['ataque', 'danio'];
+const CAMPOS_DEL_HUECO: Readonly<Record<HuecoDeArena, CamposDelHueco>> = {
+  arma: { conManos: true, conRueda: true, cifras: DE_ARMA },
+  carga: { conManos: false, conRueda: true, cifras: DE_ARMA },
+  distancia: { conManos: false, conRueda: false, cifras: DE_ARMA },
+  armadura: { conManos: false, conRueda: false, cifras: ['defensa', 'armadura', 'velocidad'] },
+  escudo: { conManos: false, conRueda: false, cifras: ['defensa', 'velocidad'] },
+  accesorio: {
+    conManos: false,
+    conRueda: false,
+    cifras: ['ataque', 'defensa', 'armadura', 'velocidad', 'danio'],
+  },
+};
 
 /**
  * Por qué `x` no es un hueco, dicho con los que valen en `lista`: los de dentro

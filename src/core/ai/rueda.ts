@@ -8,9 +8,9 @@
  */
 import { activeStack, stackById } from '../battle/battle.js';
 import {
-  CIFRAS_DE_LA_RUEDA,
   conRueda,
   type PapelEnLaRueda,
+  PESOS_DE_LA_RUEDA,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
 } from '../battle/rueda.js';
@@ -19,7 +19,7 @@ import { type Rng, sortearPorPesos } from '../rng.js';
 
 /** Un tipo al azar con los pesos de su papel: una tirada de `rng.int`. */
 export function elegirEnLaRueda(papel: PapelEnLaRueda, rng: Rng): TipoDeGolpe {
-  const pesos = CIFRAS_DE_LA_RUEDA.pesos[papel];
+  const pesos = PESOS_DE_LA_RUEDA[papel];
   return sortearPorPesos(rng, TIPOS_DE_GOLPE, (t) => pesos[t]);
 }
 

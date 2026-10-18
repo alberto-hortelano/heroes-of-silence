@@ -48,7 +48,7 @@ import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { EquipoDeArena, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
 import { bando, bandoDe, mando as mandoDePrueba } from './batalla-de-prueba.js';
-import { dadoCargado } from './helpers.js';
+import { conManosDePrueba, dadoCargado } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
 /** Las reglas de una máscara de 6 bits: el bit `i` enciende `NOMBRES_DE_REGLA[i]`. */
@@ -655,12 +655,14 @@ describe('con la rueda del golpe, cada sector prevé el daño que cae (la arena)
           for (const semilla of SEMILLAS.slice(0, 5)) {
             const que = `${atacante} ${golpe} contra ${defensor} ${respuesta}, semilla ${semilla}`;
             const rng = createRng(semilla);
-            const b = crearBatallaConReglas(
-              bando([{ creature: atacante, count: n }], { suerte }),
-              bando([{ creature: defensor, count: m }]),
-              rng,
-              reglasDe(0),
-              { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
+            const b = conManosDePrueba(
+              crearBatallaConReglas(
+                bando([{ creature: atacante, count: n }], { suerte }),
+                bando([{ creature: defensor, count: m }]),
+                rng,
+                reglasDe(0),
+                { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
+              ),
             );
             stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
             stackById(b, 'defender-0').hex = { col: 6, row: 4 };

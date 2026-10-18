@@ -85,6 +85,7 @@ import {
   type UnidadDeArena,
   unidadDeCombate,
   unidadPorDefecto,
+  VERSION_DEL_ENLACE,
 } from '../../src/core/arena.js';
 import {
   isAlive,
@@ -4053,25 +4054,26 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   if ((await otra.locator('#bando-izquierda .puesto, #bando-derecha .puesto').count()) !== 0) {
     throw new Error('enlace: un enlace roto ha montado algo');
   }
-  // De otra versión: uno de la 8 no monta nada y dice que se vuelva a copiar
-  // (14-10-2026, el usuario: «no queremos mantener compatibilidad hacia atrás»).
+  // De otra versión: uno de la anterior no monta nada y dice que se vuelva a
+  // copiar (14-10-2026, el usuario: «no queremos mantener compatibilidad hacia
+  // atrás»). La anterior, de la de hoy: subirla no deja esta pasada atrás.
+  const anterior = VERSION_DEL_ENLACE - 1;
   await otra.goto(
     conMontaje((m) => {
-      m.v = 8;
+      m.v = anterior;
     }),
     { waitUntil: 'networkidle' },
   );
   await otra
     .locator('#status', {
-      hasText:
-        'este enlace es de una versión anterior de la arena (la 8; la de hoy es la 9): vuelve a copiarlo',
+      hasText: `este enlace es de una versión anterior de la arena (la ${anterior}; la de hoy es la ${VERSION_DEL_ENLACE}): vuelve a copiarlo`,
     })
     .waitFor({ timeout: 5000 });
   if ((await otra.locator('#bando-izquierda .puesto, #bando-derecha .puesto').count()) !== 0) {
-    throw new Error('enlace: uno de la versión 8 ha montado algo');
+    throw new Error(`enlace: uno de la versión ${anterior} ha montado algo`);
   }
-  await captura(otra, 'arena-09b-enlace-de-la-8');
-  log('enlace: uno de la versión 8 no se monta y dice que se vuelva a copiar');
+  await captura(otra, 'arena-09b-enlace-de-la-anterior');
+  log(`enlace: uno de la versión ${anterior} no se monta y dice que se vuelva a copiar`);
   await loQueNoValeAlLeer(otra, url);
   // Repetido: `reglas` dos veces se rechaza diciéndolo (H4 de QA del banco).
   await otra.goto(`${url}/arena/?seed=5&reglas=tirador&reglas=bendicion`, {
@@ -4631,9 +4633,12 @@ async function edicionDeLaArena(
 // ------------------------------------------------------------------------ editor de equipo
 
 /**
- * El editor de equipo de la arena, con clics de verdad: abrir la vista, crear una
- * pieza, guardarla y verla en la ficha de una unidad. Las reglas (lo que se
- * rechaza, el enlace, a media pelea) las prueban `test/arena-equipo.test.ts`.
+ * El editor de equipo de la arena, con clics de verdad: abrir la vista (cuatro
+ * secciones por tipo, solo las de la arena), crear una pieza sobre la Espada y
+ * ver que cambiar la Espada la cambia, ver la rueda de la Maza, crear una pieza,
+ * guardarla y verla en la ficha de una unidad. Las reglas (lo que se rechaza, las
+ * bases, el enlace, a media pelea) las prueban `test/arena-equipo.test.ts` y
+ * `test/equipo-bases.test.ts`.
  */
 async function equipoDeLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -4642,6 +4647,87 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
   await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
   await page.locator('[data-arena="ir-a-equipo"]').first().click();
   await page.locator('#app[data-escena="equipo"]').waitFor({ timeout: 2000 });
+  // Por tipos y solo lo de la arena (18-10-2026): ni accesorios ni el garrote.
+  const secciones = await page
+    .locator('[data-seccion-de-equipo]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('data-seccion-de-equipo')));
+  if (JSON.stringify(secciones) !== JSON.stringify(['cuerpo', 'distancia', 'armadura', 'escudo']))
+    throw new Error(`equipo: las secciones son ${JSON.stringify(secciones)}`);
+  if (
+    (await page
+      .locator('#equipo [data-pieza="garrote"], #equipo [data-hueco="accesorio"]')
+      .count()) > 0
+  )
+    throw new Error('equipo: el editor enseña piezas del juego o accesorios');
+  log('equipo: cuatro secciones por tipo, sin accesorios ni piezas del juego');
+  // La Espada: sin PV y con un precio, en oro.
+  await page.locator('#equipo [data-arena="elegir-pieza"][data-pieza="espada"]').click();
+  const fichaDeLaEspada = page.locator('#equipo [data-pieza-elegida="espada"]');
+  await fichaDeLaEspada.waitFor({ timeout: 2000 });
+  if (
+    (await fichaDeLaEspada.locator('[data-arena-pieza-campo="pv"]').count()) > 0 ||
+    (await fichaDeLaEspada.locator('[data-arena-pieza-campo^="precio-"]').count()) !== 1
+  )
+    throw new Error('equipo: la ficha de la Espada tiene PV o más de un precio');
+  // «Nueva sobre esta»: la nueva dice su cadena.
+  await page.locator('#equipo [data-arena="crear-pieza-sobre"]').click();
+  const sobre = page.locator('#equipo [data-pieza-elegida="espada-2"]');
+  await sobre.waitFor({ timeout: 2000 });
+  const cadena = (await sobre.locator('[data-cadena-de-bases]').innerText()).trim();
+  if (cadena !== 'Espada → Espada 2') throw new Error(`equipo: la cadena dice «${cadena}»`);
+  // Subir el daño de la Espada cambia la que está sobre ella.
+  await page.locator('#equipo [data-arena="elegir-pieza"][data-pieza="espada"]').click();
+  const danio = page.locator(
+    '#equipo [data-pieza-elegida="espada"] [data-arena-pieza-campo="danio-max"]',
+  );
+  await danio.fill('45');
+  await danio.press('Tab');
+  await asentada(page);
+  await page.locator('#equipo [data-arena="elegir-pieza"][data-pieza="espada-2"]').click();
+  const final = (await sobre.locator('[data-final="danio-max"]').innerText()).trim();
+  if (final !== '45')
+    throw new Error(`equipo: la de encima de la Espada suma «${final}» de daño máximo, no 45`);
+  await sobre.scrollIntoViewIfNeeded();
+  await asentada(page);
+  await captura(page, 'arena-12-equipo-sobre-la-espada');
+  log('equipo: «Nueva sobre esta» de la Espada, y subir la Espada la cambia');
+  // La rueda de la Maza, por niveles absolutos (vuelta 2): Fuerte en el 5 → ×1,83.
+  await page.locator('#equipo [data-arena="elegir-pieza"][data-pieza="maza"]').click();
+  /** La fila de un tipo en la rueda de la Maza. */
+  const deLaMaza = (tipo: string) =>
+    page.locator(`#equipo [data-pieza-elegida="maza"] .barra-de-la-rueda[data-tipo="${tipo}"]`);
+  const fuerte = deLaMaza('fuerte').locator('[data-final="rueda-fuerte"]');
+  await fuerte.waitFor({ timeout: 2000 });
+  if ((await fuerte.innerText()).trim() !== 'Daño ×1,83')
+    throw new Error(`equipo: la rueda de la Maza dice «${await fuerte.innerText()}»`);
+  if ((await page.locator('#equipo [data-tipo="normal"].barra-de-la-rueda').count()) > 0)
+    throw new Error('equipo: la rueda de la Maza tiene fila de Normal');
+  await page.locator('#equipo [data-rueda-de-la-pieza]').scrollIntoViewIfNeeded();
+  await asentada(page);
+  await cifrasSinCortar(page, '#equipo .equipo-ficha', 'equipo, ficha de la Maza');
+  await captura(page, 'arena-12-equipo-rueda-de-la-maza');
+  log('equipo: la Maza enseña su rueda por niveles (Fuerte 5, ×1,83), sin Normal');
+  // La Finta de la Maza, en el 1 (resta 3 a 7): «+» sube un nivel, la barra
+  // crece a la derecha y resta menos; «−» la deja como estaba.
+  const finta = deLaMaza('finta');
+  const fintaDice = async () =>
+    `${await finta.locator('.barra').getAttribute('data-nivel')} ${(await finta.locator('.final').innerText()).trim()}`;
+  if ((await fintaDice()) !== '1 resta 3 a 7 casillas')
+    throw new Error(`equipo: la Finta de la Maza empieza en «${await fintaDice()}»`);
+  await finta.locator('[data-sentido="1"]').click();
+  await asentada(page);
+  if ((await fintaDice()) !== '2 resta 2 a 6 casillas')
+    throw new Error(`equipo: tras «+», la Finta de la Maza dice «${await fintaDice()}»`);
+  const sector = await page
+    .locator('#equipo [data-pieza-elegida="maza"] .rueda-de-la-pieza [data-sector="finta"]')
+    .getAttribute('data-nivel');
+  if (sector !== '2') throw new Error(`equipo: el sector de la Finta sigue en el nivel ${sector}`);
+  await captura(page, 'arena-12-equipo-finta-mas');
+  await finta.locator('[data-sentido="-1"]').click();
+  await asentada(page);
+  if ((await fintaDice()) !== '1 resta 3 a 7 casillas')
+    throw new Error(`equipo: tras «−», la Finta de la Maza dice «${await fintaDice()}»`);
+  log('equipo: «+» en la Finta sube un nivel y resta menos (2 a 6), y «−» la devuelve');
   // Un arma a distancia nueva no lleva «Disparos»: llevarla ya es disparar (13-10-2026).
   await page.locator('[data-arena="crear-pieza"][data-hueco="distancia"]').click();
   await page
@@ -4802,29 +4888,30 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     await captura(page, 'arena-14-armas-del-jinete');
     log('armas: la ficha del jinete élfico enseña sus tres armas');
 
-    // El editor de equipo: un hueco por uso, y cada arma en el suyo.
+    // El editor de equipo, por tipos (18-10-2026): el cuerpo a cuerpo con la daga
+    // y la lanza (la de carga golpea en la rueda), y a distancia con el arco.
     await page.locator('[data-arena="ir-a-equipo"]').first().click();
     await page.locator('#app[data-escena="equipo"]').waitFor({ timeout: 2000 });
     const cabeceras = await page.locator('.cabecera-hueco > span').allInnerTexts();
-    const huecos = cabeceras.map((t) => t.trim().toLowerCase());
-    for (const h of ['arma', 'arma a distancia', 'arma de carga']) {
-      if (!huecos.includes(h))
-        throw new Error(`armas: el editor no enseña «${h}»: ${huecos.join(', ')}`);
+    const tipos = cabeceras.map((t) => t.replace('ⓘ', '').trim().toLowerCase());
+    for (const t of ['cuerpo a cuerpo', 'a distancia']) {
+      if (!tipos.includes(t))
+        throw new Error(`armas: el editor no enseña «${t}»: ${tipos.join(', ')}`);
     }
-    for (const [hueco, pieza] of [
+    for (const [seccion, pieza] of [
       ['distancia', 'Arco'],
-      ['carga', 'Lanza de jinete'],
-      ['arma', 'Daga'],
+      ['cuerpo', 'Lanza de jinete'],
+      ['cuerpo', 'Daga'],
     ] as const) {
-      await page
-        .locator(`[data-arena="crear-pieza"][data-hueco="${hueco}"]`)
-        .waitFor({ timeout: 2000 });
-      const ofrecidas = await page.locator('#equipo').innerText();
-      if (!ofrecidas.includes(pieza)) throw new Error(`armas: el editor no lista ${pieza}`);
+      const ofrecidas = await page
+        .locator(`#equipo [data-seccion-de-equipo="${seccion}"]`)
+        .innerText();
+      if (!ofrecidas.includes(pieza))
+        throw new Error(`armas: el editor no lista ${pieza} en «${seccion}»`);
     }
     await asentada(page);
     await captura(page, 'arena-15-equipo-con-armas');
-    log('equipo: el editor enseña el arma a distancia y la de carga, con el arco y la lanza');
+    log('equipo: el editor enseña el cuerpo a cuerpo (daga y lanza) y a distancia (arco)');
     await page.locator('[data-arena="volver-de-equipo"]').click();
 
     // La pelea: fuera el jinete, y el arquero contra el orco.

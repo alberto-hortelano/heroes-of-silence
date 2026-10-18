@@ -31,7 +31,7 @@ import {
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
 } from '../../src/core/arena-murallas.js';
-import type { Pieza } from '../../src/core/data.js';
+import type { PiezaEscrita } from '../../src/core/data.js';
 import type { EquipoAtado } from '../../src/core/hero/equipo.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import {
@@ -267,11 +267,11 @@ function escribirAtomico(listos: readonly Preparado[]): void {
 export function leerBorrador(raiz: string): {
   readonly unidades: readonly UnidadDeArena[];
   readonly invalidas: readonly UnidadSinValidar[];
-  readonly piezas: readonly Pieza[];
+  readonly piezas: readonly PiezaEscrita[];
   readonly piezasInvalidas: readonly ElementoSinValidar[];
   readonly equipoIlegible?: string;
 } {
-  let equipo: Revisado<Pieza, ElementoSinValidar>;
+  let equipo: Revisado<PiezaEscrita, ElementoSinValidar>;
   let equipoIlegible: string | null = null;
   try {
     equipo = leer(raiz, DE_EQUIPO);
@@ -326,7 +326,7 @@ export function escribirBorrador(
 /** Dónde viven las piezas de la arena, relativo a la raíz del repo. */
 export const RUTA_DE_EQUIPO = 'data/borradores/equipo.json';
 
-const DE_EQUIPO: Borrador<Pieza, ElementoSinValidar> = {
+const DE_EQUIPO: Borrador<PiezaEscrita, ElementoSinValidar> = {
   ruta: RUTA_DE_EQUIPO,
   campo: 'piezas',
   comentario: COMENTARIO_DEL_BORRADOR_DE_EQUIPO,

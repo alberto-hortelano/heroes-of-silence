@@ -204,15 +204,22 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
       );
       // Ningún párrafo de nota: ni la introducción, ni el sello, ni la regla.
       expect(m, quien).not.toMatch(/<p class="(cost|aviso-sin-guardar|aviso-del-enlace)"/);
-      for (const dicho of ['Las del juego (data/equipo.json)', 'Pieza del juego', 'Regla: '])
+      for (const dicho of [
+        'Las de la arena (data/equipo.json)',
+        'De serie (data/equipo.json)',
+        'Regla: ',
+      ])
         expect(m, `${quien}: ${dicho}`).toMatch(
           new RegExp(`<span class="nota"[^>]*aria-label="[^"]*${dicho.replace(/[()]/g, '\\$&')}`),
         );
-      const rotulos = [...m.matchAll(/<span class="label">([^<]*)/g)].map((r) =>
-        (r[1] ?? '').trim(),
-      );
-      expect(rotulos, quien).toContain('Velocidad');
-      expect(rotulos, quien).toContain('Daño mínimo');
+      // Los rótulos de los campos y los de las filas de su tabla (18-10-2026: las
+      // cifras de una pieza, en tabla como las de una unidad).
+      const rotulos = [
+        ...m.matchAll(/<span class="label">([^<]*)/g),
+        ...m.matchAll(/<th scope="row">([^<]*)/g),
+      ].map((r) => (r[1] ?? '').trim());
+      expect(rotulos, quien).toContain(elegida === 'escudo' ? 'Velocidad' : 'Daño mínimo');
+      expect(rotulos, quien).toContain('Precio en oro');
       expect(
         rotulos.filter((r) => r.includes('(')),
         quien,

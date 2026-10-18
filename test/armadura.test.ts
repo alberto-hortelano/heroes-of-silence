@@ -14,7 +14,6 @@ import { renderBattleLog } from '../src/client/views/panels.js';
 import { textoDePrevision } from '../src/client/views/prevision.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
-  avisoDeLaCopia,
   batallaDeArena,
   CUERPO_COMUN,
   catalogoDeLaArena,
@@ -38,12 +37,19 @@ import { MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import { delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { problemasDePieza } from '../src/core/data.js';
+import { type Pieza, problemasDePieza } from '../src/core/data.js';
 import { cifrasDePieza, EQUIPO_DEL_JUEGO, pieza, sumaDeEquipo } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { EquipoDeArena, Hex, UnitInfo } from '../src/core/types.js';
 import { bando, bandoDe, mando } from './batalla-de-prueba.js';
-import { DEL_JUEGO, dadoCargado, delBorrador, MONTAJE, unidadDeArena } from './helpers.js';
+import {
+  conManosDePrueba,
+  DEL_JUEGO,
+  dadoCargado,
+  delBorrador,
+  MONTAJE,
+  unidadDeArena,
+} from './helpers.js';
 
 /** El cuerpo común de la arena con lo que se cambie. */
 function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {
@@ -65,7 +71,8 @@ const DESNUDO = cuerpo('Desnudo');
 
 /**
  * `quien` en `en` contra `contra` en `donde` (y los demás defensores detrás), con
- * el turno de `quien`; con la rueda si se pide. Sin moral, que regala turnos.
+ * el turno de `quien`; con la rueda si se pide (con las manos de prueba). Sin
+ * moral, que regala turnos.
  */
 function frente(
   quien: UnitInfo,
@@ -81,6 +88,9 @@ function frente(
     REGLAS_DEL_JUEGO,
     { modos: { ...MODOS_DEL_JUEGO, golpe: rueda ? 'rueda' : 'azar' } },
   );
+  // En la rueda se golpea con un arma de la arena: las manos de prueba, con los
+  // niveles de la Espada y sin cifras.
+  if (rueda) conManosDePrueba(b);
   stackById(b, 'attacker-0').hex = en;
   donde.forEach((h, i) => {
     stackById(b, `defender-${i}`).hex = h;
@@ -187,7 +197,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     expect(trasLaArmadura(12, { unit: DESNUDO })).toEqual({ danio: 12, parado: 0 });
   });
 
-  it('Rápido resta la armadura en cada uno de sus dos golpes: 50 × 0,6 = 30 → 23 y 23', () => {
+  it('Rápido resta la armadura en cada uno de sus dos golpes: 50 × 0,63 = 31,5 → 32 → 25 y 25', () => {
     const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1], true);
     const desde = jugar(
       b,
@@ -196,10 +206,10 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     );
     const mios = hechos(b, 'attack', desde).filter((a) => !a.retaliation);
     expect(mios.map((a) => [a.damage, a.parado])).toEqual([
-      [23, 7],
-      [23, 7],
+      [25, 7],
+      [25, 7],
     ]);
-    expect(stackById(b, 'defender-0').topHp).toBe(80 - 46);
+    expect(stackById(b, 'defender-0').topHp).toBe(80 - 50);
   });
 
   it('el disparo doble resta en cada tiro: con el arco, 30 × 1,2 = 36 → 29 y 29', () => {
@@ -324,7 +334,7 @@ describe('la IA cuenta con la armadura (`expectedDamage`)', () => {
 
 describe('una pieza de la arena con PV no vale: ni se convierte ni se avisa (14-10-2026)', () => {
   /** Una pieza nueva de la arena para el hueco de armadura, como la escribía la arena de antes. */
-  const peto = { ...piezaNueva('armadura', DEL_JUEGO), nombre: 'Peto' };
+  const peto = { ...(piezaNueva('armadura', DEL_JUEGO) as Pieza), nombre: 'Peto' };
   const MOTIVO = '«Peto» es de la arena y suma 45 PV: en la arena se protege con armadura';
 
   it('en el borrador sale como que no vale, con su motivo, y no se convierte', () => {
@@ -357,32 +367,42 @@ describe('una pieza de la arena con PV no vale: ni se convierte ni se avisa (14-
       muralla: null,
     };
     const o = JSON.parse(montajeALaURL(ENLACE));
-    expect(o.v).toBe(9);
+    expect(o.v).toBe(11);
     const { armadura: _, ...sinArmadura } = o.piezas[0];
     const conPV = { ...o, piezas: [{ ...sinArmadura, pv: 45 }] };
     expect(() => montajeDeLaURL(JSON.stringify(conPV))).toThrow(MOTIVO);
-    expect(() => montajeDeLaURL(JSON.stringify({ ...conPV, v: 8 }))).toThrow(
-      'este enlace es de una versión anterior de la arena (la 8; la de hoy es la 9): vuelve a copiarlo',
+    expect(() => montajeDeLaURL(JSON.stringify({ ...conPV, v: 9 }))).toThrow(
+      'este enlace es de una versión anterior de la arena (la 9; la de hoy es la 11): vuelve a copiarlo',
     );
   });
 
-  it('una pieza del juego que suma PV, duplicada en la arena, protege con armadura', () => {
-    // El Cuero curtido (común, +10 PV) copiado como nuevo es de la arena: 1 de armadura.
-    const copia = piezaNueva(pieza('cuero_curtido'), DEL_JUEGO);
-    expect(copia).toMatchObject({ calidad: 'arena', pv: 0, armadura: 1 });
-    // Y el editor lo dice (A3 de QA): no es una copia de las mismas cifras.
-    expect(avisoDeLaCopia(pieza('cuero_curtido'), copia)).toBe(
-      'En la arena una pieza no suma PV: los 10 PV de «Cuero curtido» pasan a 1 de armadura, que se resta del daño de cada golpe.',
+  it('una pieza del juego que suma PV no se duplica en la arena: solo se parte de las suyas (18-10-2026)', () => {
+    // Antes la copia pasaba los PV a armadura (`armaduraDePV`, ya borrada); el editor
+    // ya no enseña las del juego, y el núcleo lo dice si se le pide.
+    expect(() => piezaNueva(pieza('cuero_curtido'), DEL_JUEGO)).toThrow(
+      '«Cuero curtido» es una pieza del juego: en la arena solo se parte de una pieza de la arena',
     );
-    // Lo que no suma PV se copia sin aviso.
-    const espada = pieza('espada');
-    expect(avisoDeLaCopia(espada, piezaNueva(espada, DEL_JUEGO))).toBeNull();
+    expect(() => validarPiezaDeArena({ ...pieza('cuero_curtido'), pv: 0 })).toThrow(
+      'en la arena solo se cambian las piezas de la arena',
+    );
   });
 
-  it('la armadura tiene tope (A4 de QA)', () => {
-    expect(validarPiezaDeArena({ ...peto, armadura: 99 })).toMatchObject({ armadura: 99 });
-    expect(() => validarPiezaDeArena({ ...peto, armadura: 1000 })).toThrow(
+  it('la armadura tiene tope (A4 de QA): lo juzga el catálogo, también la de una pieza con base', () => {
+    expect(catalogoDeLaArena([{ ...peto, armadura: 99 }]).pieza(peto.id)).toMatchObject({
+      armadura: 99,
+    });
+    expect(() => catalogoDeLaArena([{ ...peto, armadura: 1000 }])).toThrow(
       '«Peto»: la armadura va de 0 a 99 y es 1000',
+    );
+    // Sobre la barda (22), +80 pasa del tope: la resuelta no vale.
+    const sobre = {
+      id: 'barda-2',
+      nombre: 'Barda reforzada',
+      base: 'barda',
+      extras: { armadura: 80 },
+    };
+    expect(() => catalogoDeLaArena([sobre])).toThrow(
+      '«Barda reforzada» (sobre «Barda»): la armadura va de 0 a 99 y es 102',
     );
   });
 });

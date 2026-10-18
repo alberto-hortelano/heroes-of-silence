@@ -29,9 +29,9 @@ export function entero(valor: unknown, campo: string, quien: string, minimo: num
 
 /**
  * El campo `porcentaje` de `o`: un tanto por ciento entero, 1 o más. **La única
- * clave y la única lectura** de los tantos por ciento de los datos
- * (`data/carga.json`, `data/rueda.json`): quien lo usa como factor lo divide
- * entre 100.
+ * clave y la única lectura** de un tanto por ciento suelto de los datos
+ * (`data/carga.json`; los de `data/rueda.json` van uno por nivel y los valida
+ * `validarRueda`): quien lo usa como factor lo divide entre 100.
  */
 export function porcentaje(o: Readonly<Record<string, unknown>>, quien: string): number {
   return entero(o.porcentaje, 'el porcentaje', quien, 1);

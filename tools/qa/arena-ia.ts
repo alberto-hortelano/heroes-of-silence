@@ -19,6 +19,11 @@
  *   tres de arco, ballesta o bastón, con la barda, sin ella y como antes de #262
  *   (sin barda y con lo que sumaba, +5 de defensa y +220 PV, en el cuerpo);
  *   cuenta los golpes que la armadura paró enteros.
+ * - **rueda: mezcla** (18-10-2026, vuelta 2 de los niveles del arma): tres contra
+ *   tres de todas las hojas, **con un héroe por bando** sin libro (que pega con la
+ *   Espada de la arena), al azar y con la rueda del golpe; cuenta los cruces.
+ *   Con los niveles absolutos cambia el equilibrio de la rueda (Ofensivo +3, la
+ *   Finta que resta de 1 a 5…), y sin esta tanda la medida no pelearía con ella.
  *
  * Sustituye a `tools/qa/contacto.ts` y a las medidas de las tareas de la carga y
  * de la armadura (14-10-2026, /simplify). Las variantes se alternan por semilla,
@@ -29,6 +34,8 @@ import { autoResolve } from '../../src/core/ai/tactics.js';
 import {
   batallaDeArena,
   type HojaDeArena,
+  heroePorDefecto,
+  type Lado,
   quitarEnArena,
   type UnidadDeArena,
   unidadPorDefecto,
@@ -51,11 +58,12 @@ interface Variante {
   readonly cambia: (u: UnidadDeArena) => UnidadDeArena;
 }
 
-/** Una tanda: cómo se monta cada semilla y con qué variantes se pelea. */
+/** Una tanda: cómo se monta cada semilla, con qué variantes se pelea y si con héroes. */
 interface Tanda {
   readonly nombre: string;
   readonly montar: (rng: Rng) => Montaje;
   readonly variantes: readonly Variante[];
+  readonly conHeroes?: boolean;
 }
 
 interface Cuenta {
@@ -67,6 +75,7 @@ interface Cuenta {
   parados: number;
   cargasAPie: number;
   cargasDeJinete: number;
+  cruces: number;
 }
 
 const HOJAS = hojasDeArena(resolve(import.meta.dirname, '../..'));
@@ -121,6 +130,15 @@ const TANDAS: readonly Tanda[] = (() => {
       montar: (rng) => [elegir(rng, JINETES, 1), elegir(rng, FLOJAS, 3)],
       variantes: conArmadura,
     },
+    {
+      nombre: 'rueda: mezcla',
+      montar: (rng) => [elegir(rng, HOJAS, 3), elegir(rng, HOJAS, 3)],
+      variantes: [
+        { nombre: 'golpe: azar', con: {}, cambia: igual },
+        { nombre: 'golpe: rueda', con: { golpe: 'rueda' }, cambia: igual },
+      ],
+      conHeroes: true,
+    },
   ];
 })();
 
@@ -135,6 +153,7 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
     parados: 0,
     cargasAPie: 0,
     cargasDeJinete: 0,
+    cruces: 0,
   }));
   for (let semilla = 1; semilla <= semillas; semilla++) {
     // El montaje, de su corriente: el mismo para todas las variantes.
@@ -144,15 +163,17 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
     for (const i of orden) {
       const v = t.variantes[i] as Variante;
       const c = cuentas[i] as Cuenta;
-      const lado = (us: readonly UnidadDeArena[]) => ({
+      const lado = (us: readonly UnidadDeArena[], cual: Lado) => ({
         unidades: us.map((u) => ({ unidad: v.cambia(u) })),
-        heroe: null,
+        // Sin libro: con el de serie, sus hechizos acaban la pelea en la primera
+        // ronda y nadie llega a golpear.
+        heroe: t.conHeroes === true ? { ...heroePorDefecto(cual), hechizos: [] } : null,
       });
       const rng = createRng(semilla);
       const b = batallaDeArena(
         {
-          izquierda: lado(izquierda),
-          derecha: lado(derecha),
+          izquierda: lado(izquierda, 'izquierda'),
+          derecha: lado(derecha, 'derecha'),
           reglas: REGLAS_DEL_JUEGO,
           muralla: SIN_MURALLA,
           piezas: [],
@@ -167,6 +188,7 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
       c.rondas.push(b.round);
       if (b.finished?.winner === 'attacker') c.ganaIzquierda++;
       for (const e of b.log) {
+        if (e.kind === 'cruce') c.cruces++;
         if (e.kind !== 'attack' && e.kind !== 'shoot') continue;
         c.golpes++;
         if (e.damage === 0 && (e.parado ?? 0) > 0) c.parados++;
@@ -197,7 +219,7 @@ for (const t of TANDAS) {
         `; rondas ${rondas[Math.floor(rondas.length / 2)]} / ${rondas.at(-1)} (mediana / máx.)` +
         `; gana la izquierda ${c.ganaIzquierda}; ${(c.ms / semillas).toFixed(1)} ms/pelea` +
         `; cargas a pie ${c.cargasAPie}, de jinete ${c.cargasDeJinete}` +
-        `; golpes parados del todo ${c.parados} de ${c.golpes}`,
+        `; golpes parados del todo ${c.parados} de ${c.golpes}; cruces de la rueda ${c.cruces}`,
     );
   }
 }
