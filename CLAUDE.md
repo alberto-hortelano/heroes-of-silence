@@ -884,7 +884,11 @@ antes del destino (`battle_started` con `faltan`).
   Una pieza puede ir **sobre otra** de su hueco (desplegable «Base», con la cadena dicha: Espada →
   Espada de herrería → Espada bendita); cada cifra se escribe como extra y su final va al lado, y el
   vínculo es vivo (cambiar la base cambia lo que cuelga de ella y a quien lo lleva). Las de cuerpo a
-  cuerpo llevan la tabla «Rueda del golpe» (lo que suma el arma a cada tipo y el final). Una de
+  cuerpo llevan «Rueda del golpe»: se edita en barras, una por tipo, con «−» (peor) y «+» (mejor; en
+  la Finta, «+» resta casillas: `pasoDelTipo`), que crecen desde el centro según lo que el arma hace
+  (`mejoraDelTipo`, en una escala común: 10 puntos de % valen 1 de ataque, de defensa o de casilla), y
+  al lado la rueda del combate teñida de verde y rojo, solo para leer (`ruedaDeLaPieza`, en
+  `arena/disco.ts`, la geometría que comparte con `arena/rueda.ts`). Una de
   `data/equipo.json` se cambia **solo para la arena** (mismo id en `data/borradores/equipo.json`;
   «Volver a la de serie»), una nueva es de calidad `arena` («+ Nueva pieza», «Duplicar», «Nueva sobre
   esta», «Borrar»; no se borra la base de otra), y la unidad suma la pieza que lleva sin que su nivel

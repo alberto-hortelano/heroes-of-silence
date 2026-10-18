@@ -60,15 +60,36 @@ export const NOMBRE_DE_GOLPE: Readonly<Record<TipoDeGolpe, string>> = {
   normal: 'Normal',
 };
 
+/**
+ * Cómo se edita un tipo en la ficha de una pieza: cuánto mueve un paso de sus
+ * botones (`paso`), en qué sentido de su cifra mejora el golpe (`mejora`: la Finta
+ * mejora restando casillas, −1) y cuánto de su cifra vale un punto de mejora
+ * (`escala`: 10 puntos de % valen lo que 1 de ataque, de defensa o de casilla),
+ * para que las barras y los colores de los tipos se comparen entre sí. INVENTADO
+ * (18-10-2026, la escala común de la maqueta).
+ */
+interface ComoSeEdita {
+  readonly paso: number;
+  readonly mejora: 1 | -1;
+  readonly escala: number;
+}
+
 /** Lo que dice `COMO_SUMA_EL_ARMA` de un tipo: según qué cifra suya cambia el arma. */
-type ComoSuma =
-  | { readonly unidad: string; readonly mide: 'porcentaje' }
-  | {
-      readonly unidad: string;
-      readonly mide: 'cifra';
-      readonly de: (c: CifrasDeLaRueda) => number;
-    }
-  | { readonly unidad: string; readonly mide: 'porExito'; readonly signo: 'quita' | 'resta' };
+type ComoSuma = ComoSeEdita &
+  (
+    | { readonly unidad: string; readonly mide: 'porcentaje' }
+    | {
+        readonly unidad: string;
+        readonly mide: 'cifra';
+        readonly de: (c: CifrasDeLaRueda) => number;
+      }
+    | { readonly unidad: string; readonly mide: 'porExito'; readonly signo: 'quita' | 'resta' }
+  );
+
+/** Un tipo que se mide en % de daño: paso de 5, y 10 puntos valen uno de mejora. */
+const EN_PORCENTAJE = { paso: 5, mejora: 1, escala: 10 } as const;
+/** Un tipo que se mide en una cifra entera que mejora al subir. */
+const EN_CIFRA = { paso: 1, mejora: 1, escala: 1 } as const;
 
 /**
  * Cómo cambia un arma cada tipo, un descriptor por tipo: en qué se mide lo que
@@ -81,22 +102,56 @@ type ComoSuma =
  * golpe (`rueda.ts`) y la tabla de la ficha de una pieza.
  */
 export const COMO_SUMA_EL_ARMA = {
-  fuerte: { unidad: '% de daño', mide: 'porcentaje' },
-  rapido: { unidad: '% de daño por golpe', mide: 'porcentaje' },
-  normal: { unidad: '% de daño', mide: 'porcentaje' },
-  ofensivo: { unidad: 'ataque', mide: 'cifra', de: (c: CifrasDeLaRueda) => c.ofensivo.ataque },
+  fuerte: { ...EN_PORCENTAJE, unidad: '% de daño', mide: 'porcentaje' },
+  rapido: { ...EN_PORCENTAJE, unidad: '% de daño por golpe', mide: 'porcentaje' },
+  normal: { ...EN_PORCENTAJE, unidad: '% de daño', mide: 'porcentaje' },
+  ofensivo: {
+    ...EN_CIFRA,
+    unidad: 'ataque',
+    mide: 'cifra',
+    de: (c: CifrasDeLaRueda) => c.ofensivo.ataque,
+  },
   defensivo: {
+    ...EN_CIFRA,
     unidad: 'defensa',
     mide: 'cifra',
     de: (c: CifrasDeLaRueda) => c.defensivo.defensa,
   },
   romperGuardia: {
+    ...EN_CIFRA,
     unidad: 'ataque que quita de más en cada éxito',
     mide: 'porExito',
     signo: 'quita',
   },
-  finta: { unidad: 'casillas que resta de más en cada éxito', mide: 'porExito', signo: 'resta' },
+  // Restar casillas a lo que quita la Finta es mejorarla: su paso hacia mejor resta.
+  finta: {
+    ...EN_CIFRA,
+    mejora: -1,
+    unidad: 'casillas que resta de más en cada éxito',
+    mide: 'porExito',
+    signo: 'resta',
+  },
 } as const satisfies Readonly<Record<TipoDeGolpe, ComoSuma>>;
+
+/**
+ * Cuánto mejora (positivo) o empeora (negativo) el golpe de tipo `tipo` un arma
+ * que suma `suma` a su cifra, en puntos comparables entre tipos
+ * (`ComoSeEdita.escala`: +20 % de Fuerte, 2; −1 casilla de Finta, 1). Lo leen las
+ * barras y la rueda teñida de la ficha de una pieza.
+ */
+export function mejoraDelTipo(tipo: TipoDeGolpe, suma: number): number {
+  const c = COMO_SUMA_EL_ARMA[tipo];
+  return (suma * c.mejora) / c.escala;
+}
+
+/**
+ * Lo que suma a la cifra de `tipo` un paso de sus botones hacia mejor
+ * (`sentido` 1) o hacia peor (−1): +5 % de Fuerte, −1 casilla de Finta.
+ */
+export function pasoDelTipo(tipo: TipoDeGolpe, sentido: 1 | -1): number {
+  const c = COMO_SUMA_EL_ARMA[tipo];
+  return c.paso * c.mejora * sentido;
+}
 
 /** Los tipos que cambian el daño del golpe, en % (`COMO_SUMA_EL_ARMA`, `mide: 'porcentaje'`). */
 export type TipoDeDanio = {

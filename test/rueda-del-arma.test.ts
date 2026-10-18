@@ -31,6 +31,8 @@ import {
   cifrasDeLaRuedaCon,
   efectoDeGolpe,
   filasDeLaRueda,
+  mejoraDelTipo,
+  pasoDelTipo,
   ruedaDelArmaBlocker,
   ruedaDelGolpe,
 } from '../src/core/battle/rueda.js';
@@ -155,6 +157,7 @@ describe('las cifras de la rueda con un arma', () => {
       tipo: 'fuerte',
       suma: 20,
       final: 'Daño ×1,45',
+      corto: '×1,45',
       porExito: null,
     });
     expect(filas.find((f) => f.tipo === 'rapido')?.final).toBe('2 golpes ×0,4');
@@ -164,8 +167,24 @@ describe('las cifras de la rueda con un arma', () => {
     });
     expect(filas.find((f) => f.tipo === 'finta')).toMatchObject({
       final: '5 a 1 casillas',
+      corto: '5 a 1',
       porExito: '5, 4, 3, 2, 1',
     });
+    expect(filas.find((f) => f.tipo === 'rapido')?.corto).toBe('2 ×0,4');
+  });
+
+  it('mejorar es «+» en todos los tipos: en la Finta, restar casillas; y la mejora se compara entre tipos', () => {
+    expect(pasoDelTipo('fuerte', 1)).toBe(5);
+    expect(pasoDelTipo('fuerte', -1)).toBe(-5);
+    expect(pasoDelTipo('ofensivo', 1)).toBe(1);
+    expect(pasoDelTipo('finta', 1)).toBe(-1);
+    expect(pasoDelTipo('finta', -1)).toBe(1);
+    // 10 puntos de % valen lo que 1 de ataque o de casilla.
+    expect(mejoraDelTipo('fuerte', 20)).toBe(2);
+    expect(mejoraDelTipo('rapido', -15)).toBe(-1.5);
+    expect(mejoraDelTipo('romperGuardia', 1)).toBe(1);
+    expect(mejoraDelTipo('finta', -1)).toBe(1);
+    expect(mejoraDelTipo('finta', 2)).toBe(-2);
   });
 
   it('una rueda que deja un golpe sin daño, o que resta ataque o defensa, no vale', () => {

@@ -57,6 +57,7 @@ export {
   COMO_SUMA_EL_ARMA,
   cifrasDeLaRuedaCon,
   esTipoDeDanio,
+  mejoraDelTipo,
   NOMBRE_DE_GOLPE,
   type PapelEnLaRueda,
   PESOS_DE_LA_RUEDA,
@@ -64,6 +65,7 @@ export {
   type PorExito,
   PUNTOS,
   type Punto,
+  pasoDelTipo,
   ruedaDelArmaBlocker,
   type TipoDeDanio,
   validarRueda,
@@ -176,6 +178,8 @@ export interface FilaDeLaRueda {
    * «5 a 1 casillas»).
    */
   readonly final: string;
+  /** Lo mismo en pocas letras, para un sector de la rueda: «×1,45», «2 ×0,4», «−1 a −4». */
+  readonly corto: string;
   /**
    * Romper guardia y la Finta: la cifra de cada éxito, del mínimo al máximo
    * («−1, −1, −2, −3, −4»), para su nota; los demás, `null`.
@@ -194,6 +198,7 @@ export function filasDeLaRueda(mods: RuedaDelArma | undefined): readonly FilaDeL
     tipo,
     suma: mods?.[tipo] ?? 0,
     final: finalDe(tipo, c),
+    corto: cortoDe(tipo, c),
     porExito: porExitoDe(tipo, c),
   }));
 }
@@ -219,6 +224,25 @@ function finalDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): string {
       return delMinimoAlMaximo(c.romperGuardia.ataque, cifraDeAtaque, 'ataque');
     case 'finta':
       return delMinimoAlMaximo(c.finta.casillas, String, 'casillas');
+  }
+}
+
+/** `finalDe` en pocas letras, sin la unidad: lo que cabe en un sector de la rueda. */
+function cortoDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): string {
+  switch (tipo) {
+    case 'fuerte':
+    case 'normal':
+      return porciento(c[tipo].porcentaje);
+    case 'rapido':
+      return `${c.rapido.golpes} ${porciento(c.rapido.porcentaje)}`;
+    case 'ofensivo':
+      return `${conSigno(c.ofensivo.ataque)} atq.`;
+    case 'defensivo':
+      return `${conSigno(c.defensivo.defensa)} def.`;
+    case 'romperGuardia':
+      return delMinimoAlMaximo(c.romperGuardia.ataque, cifraDeAtaque, '').trim();
+    case 'finta':
+      return delMinimoAlMaximo(c.finta.casillas, String, '').trim();
   }
 }
 

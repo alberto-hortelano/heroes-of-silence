@@ -640,6 +640,25 @@ describe('la vista «Editar equipo»', () => {
     expect(maza).toContain('2 golpes ×0,4');
   });
 
+  it('la rueda se edita en barras, «+» mejora (en la Finta, resta casillas), y la rueda teñida va al lado', () => {
+    const maza = vista('maza');
+    expect(maza.match(/data-arena="paso-de-rueda"/g)).toHaveLength(14);
+    expect(maza).toContain('data-arena="paso-de-rueda" data-tipo="finta" data-sentido="1"');
+    // La barra crece hacia donde el arma mejora o empeora el golpe.
+    const fila = (t: string) =>
+      maza.slice(maza.indexOf(`class="barra-de-la-rueda" data-tipo="${t}"`)).split('</div>')[0];
+    expect(fila('fuerte')).toContain('data-mejora="mejor"');
+    expect(fila('fuerte')).toContain('class="relleno mejor"');
+    expect(fila('rapido')).toContain('class="relleno peor"');
+    expect(fila('normal')).not.toContain('relleno');
+    // La rueda de al lado, teñida: Fuerte +20 son dos puntos (fuerte), Romper guardia +1 uno.
+    expect(maza).toMatch(/class="disco rueda-de-la-pieza"/);
+    expect(maza).toContain('data-sector="fuerte" data-mejora="mejor-2"');
+    expect(maza).toContain('data-sector="rapido" data-mejora="peor-2"');
+    expect(maza).toContain('data-sector="romperGuardia" data-mejora="mejor-1"');
+    expect(maza).toContain('data-sector="ofensivo" data-mejora="igual"');
+  });
+
   it('una con base dice su cadena y su extra por cifra; el desplegable no ofrece ni ella ni lo que está sobre ella', () => {
     const m = vista('espada_bendita');
     expect(m).toContain('Espada → Espada de herrería → Espada bendita');

@@ -86,7 +86,7 @@ import {
   reglasALaURL,
   reglasDeLaURL,
 } from '@core/battle/reglas.js';
-import { contraataqueDelCruce, type HechoDelCruce } from '@core/battle/rueda.js';
+import { contraataqueDelCruce, type HechoDelCruce, pasoDelTipo } from '@core/battle/rueda.js';
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import {
@@ -1289,7 +1289,7 @@ function conCifraDePieza(x: ExtrasDePieza, campo: string, n: number): ExtrasDePi
 }
 
 /** Un campo de la ficha de la pieza: la pieza cambiada, si vale y no rompe a nadie. */
-function cambiarCampoDePieza(el: Element): void {
+function cambiarCampoDePieza(el: Element, valor: string = valorDe(el)): void {
   const id = el.closest('[data-pieza-elegida]')?.getAttribute('data-pieza-elegida');
   const campo = el.getAttribute('data-arena-pieza-campo');
   if (id === null || id === undefined || campo === null) {
@@ -1297,7 +1297,7 @@ function cambiarCampoDePieza(el: Element): void {
   }
   try {
     const eq = catalogoAGuardar();
-    const nueva = validarPiezaDeArena(conCampoDePieza(escritaDe(eq, id), campo, valorDe(el), eq));
+    const nueva = validarPiezaDeArena(conCampoDePieza(escritaDe(eq, id), campo, valor, eq));
     cambiarPiezas(id, nueva, DICHO_DEL_CAMBIO[selloDePieza(nueva)](nueva.nombre));
   } catch (err) {
     noSeCambia(`${mensaje(err)}.`);
@@ -2739,6 +2739,26 @@ document.addEventListener('click', (ev) => {
           piezaElegida = p.id;
           piezaTrasElGesto = p.id;
         }
+        break;
+      }
+      case 'paso-de-rueda': {
+        // Un paso de la barra de un tipo de la rueda: «+» mejora y «−» empeora
+        // (`pasoDelTipo`: en la Finta, mejorar resta casillas). Parte de lo que
+        // dice su casilla y entra como si se hubiera tecleado.
+        const tipo = el.getAttribute('data-tipo');
+        const sentido = el.getAttribute('data-sentido');
+        if (!esTipoDeGolpe(tipo) || (sentido !== '1' && sentido !== '-1')) {
+          throw new Error(`el paso de la rueda trae «${tipo}» y «${sentido}»`);
+        }
+        const casilla = el
+          .closest('.barra-de-la-rueda')
+          ?.querySelector(`[data-arena-pieza-campo="rueda-${tipo}"]`);
+        if (casilla === null || casilla === undefined) {
+          throw new Error(`el paso de ${tipo} no tiene su casilla al lado`);
+        }
+        const ahora = Number(valorDe(casilla));
+        const paso = pasoDelTipo(tipo, sentido === '1' ? 1 : -1);
+        cambiarCampoDePieza(casilla, String((Number.isFinite(ahora) ? ahora : 0) + paso));
         break;
       }
       case 'retirar-pieza': {

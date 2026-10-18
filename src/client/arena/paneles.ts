@@ -75,8 +75,11 @@ import {
 import {
   COMO_SUMA_EL_ARMA,
   filasDeLaRueda,
+  mejoraDelTipo,
   NOMBRE_DE_GOLPE,
+  pasoDelTipo,
   ruedaDelArmaEnPalabras,
+  type TipoDeGolpe,
 } from '@core/battle/rueda.js';
 import { allSpells, delHeroe, efectoDe } from '@core/battle/spells.js';
 import type {
@@ -136,6 +139,7 @@ import {
   renderSpells,
 } from '../views/panels.js';
 import { curaOEfecto, textoDePrevision } from '../views/prevision.js';
+import { ruedaDeLaPieza, type TipoEnLaFicha } from './disco.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
@@ -1839,36 +1843,63 @@ function filasDePieza(p: Pieza, extras: ExtrasDePieza | null): FilaDeCifra[] {
   }));
 }
 
+/** Hasta cuántos puntos de mejora (`mejoraDelTipo`) llega media barra: más allá, llena. */
+const MEJORA_DE_MEDIA_BARRA = 4;
+
 /**
- * La tabla «Rueda del golpe» de un arma de cuerpo a cuerpo (`tablaDeCifras`): un
- * tipo por fila, con lo que suma el arma a su cifra (en su unidad,
- * `COMO_SUMA_EL_ARMA`) y cómo queda (`filasDeLaRueda`, la misma cuenta del golpe).
- * Con base, la casilla es lo que suma de más que su base.
+ * La barra de un tipo: crece desde el centro hacia la derecha si el arma mejora el
+ * golpe y hacia la izquierda si lo empeora, en un SVG (el ancho es un atributo: un
+ * `style` con un número no pasa por `html.ts`).
+ */
+function barraDeLaMejora(mejora: number): Html {
+  const m = Math.max(-MEJORA_DE_MEDIA_BARRA, Math.min(MEJORA_DE_MEDIA_BARRA, mejora));
+  const ancho = Math.round((Math.abs(m) / MEJORA_DE_MEDIA_BARRA) * 5000) / 100;
+  const x = m >= 0 ? 0 : -ancho;
+  return html`<svg class="barra" viewBox="-50 0 100 10" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <rect class="pista" x="-50" y="0" width="100" height="10"/>
+      ${mejora === 0 ? NADA : html`<rect class="relleno ${mejora > 0 ? 'mejor' : 'peor'}" x="${String(x)}" y="1.5" width="${String(ancho)}" height="7"/>`}
+      <line class="centro" x1="0" y1="0" x2="0" y2="10"/>
+    </svg>`;
+}
+
+/**
+ * «Rueda del golpe» de un arma de cuerpo a cuerpo (18-10-2026, decisión del
+ * usuario): se edita en barras, un tipo por fila, con «−» a la izquierda (peor) y
+ * «+» a la derecha (mejor) —en la Finta, mejor es restar casillas
+ * (`pasoDelTipo`)—, y la rueda teñida al lado, solo para leer
+ * (`ruedaDeLaPieza`). La barra y el tinte son lo que el arma hace de verdad (con
+ * su base); la casilla, lo que se escribe: con base, lo que suma de más que ella.
+ * Cómo queda cada tipo, `filasDeLaRueda`, la misma cuenta del golpe.
  */
 function tablaDeLaRueda(p: Pieza, extras: ExtrasDePieza | null): Html {
-  const filas = filasDeLaRueda(p.rueda).map((f): FilaDeCifra => {
-    const como = COMO_SUMA_EL_ARMA[f.tipo];
-    return {
-      clave: `rueda-${f.tipo}`,
-      rotulo: NOMBRE_DE_GOLPE[f.tipo],
-      nota: `En ${como.unidad}.${f.porExito === null ? '' : ` Con el arma, del éxito mínimo al máximo: ${f.porExito}.`}`,
-      casilla: {
-        atributo: html`data-arena-pieza-campo="rueda-${f.tipo}"`,
-        valor: extras === null ? f.suma : (extras.rueda?.[f.tipo] ?? 0),
-      },
-      final: f.final,
-      cambia: f.suma !== 0,
-    };
-  });
-  return html`<h4>Rueda del golpe ${nota('Lo que el arma suma a la cifra de cada tipo de la rueda (solo con «Golpe: rueda»). Cada golpe va con su arma: la lanza en el primero de una carga; esta en los demás y en el contraataque.')}</h4>
-    ${tablaDeCifras(
-      extras === null
-        ? { nombre: 'Suma', nota: 'Lo que el arma suma a la cifra del tipo.' }
-        : { nombre: 'Extra', nota: 'Lo que suma encima de su base; puede restar.' },
-      'Cómo queda cada tipo con esta arma.',
-      filas,
-      html` data-rueda-de-la-pieza="si"`,
-    )}`;
+  const filas = filasDeLaRueda(p.rueda);
+  const enLaRueda = Object.fromEntries(
+    filas.map((f) => [
+      f.tipo,
+      { final: f.final, corto: f.corto, mejora: mejoraDelTipo(f.tipo, f.suma) },
+    ]),
+  ) as Record<TipoDeGolpe, TipoEnLaFicha>;
+  const barras = unir(
+    filas.map((f) => {
+      const como = COMO_SUMA_EL_ARMA[f.tipo];
+      const nombre = NOMBRE_DE_GOLPE[f.tipo];
+      const escrito = extras === null ? f.suma : (extras.rueda?.[f.tipo] ?? 0);
+      const mejora = enLaRueda[f.tipo].mejora;
+      return html`<div class="barra-de-la-rueda" data-tipo="${f.tipo}" data-mejora="${mejora > 0 ? 'mejor' : mejora < 0 ? 'peor' : 'igual'}">
+        <span class="rotulo">${nombre} ${nota(`En ${como.unidad}; cada paso, ${Math.abs(pasoDelTipo(f.tipo, 1))}.${como.mejora < 0 ? ' Mejor es restar casillas: «+» resta.' : ''}${f.porExito === null ? '' : ` Con el arma, del éxito mínimo al máximo: ${f.porExito}.`}`, false)}</span>
+        <button class="paso" data-arena="paso-de-rueda" data-tipo="${f.tipo}" data-sentido="-1" aria-label="${nombre}: peor">−</button>
+        ${barraDeLaMejora(mejora)}
+        <button class="paso" data-arena="paso-de-rueda" data-tipo="${f.tipo}" data-sentido="1" aria-label="${nombre}: mejor">+</button>
+        <input type="number" step="1" data-arena-pieza-campo="rueda-${f.tipo}" value="${escrito}" aria-label="${nombre}: ${extras === null ? 'lo que suma' : 'lo que suma de más que su base'}, en ${como.unidad}">
+        <output class="final${f.suma === 0 ? '' : ' cambiada'}" data-final="rueda-${f.tipo}">${f.final}</output>
+      </div>`;
+    }),
+  );
+  return html`<h4>Rueda del golpe ${nota(`Lo que el arma hace a cada tipo de la rueda (solo con «Golpe: rueda»): a la derecha, mejor; a la izquierda, peor. La casilla es ${extras === null ? 'lo que suma' : 'lo que suma de más que su base; la barra, lo que hace con ella'}. Cada golpe va con su arma: la lanza en el primero de una carga; esta en los demás y en el contraataque.`)}</h4>
+    <div class="rueda-del-arma" data-rueda-de-la-pieza="si">
+      <div class="barras-de-la-rueda">${barras}</div>
+      ${ruedaDeLaPieza(enLaRueda)}
+    </div>`;
 }
 
 /**

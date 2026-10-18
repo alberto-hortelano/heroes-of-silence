@@ -531,6 +531,60 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .ficha-de-pieza .cifras h4,
 .ficha-de-pieza .cifras .cadena-de-bases { grid-column: 1 / -1; }
 .ficha-de-pieza .cifras h4 { margin: 0.5rem 0 0; color: var(--gold); font-size: 0.9rem; }
+/* La rueda del golpe de un arma (18-10-2026): las barras para editar y, al lado,
+   la rueda teñida para leer; estrecha, la rueda va debajo. */
+.ficha-de-pieza .cifras .rueda-del-arma {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+}
+.rueda-del-arma .barras-de-la-rueda { flex: 1 1 22rem; min-width: 0; }
+.rueda-del-arma .rueda-de-la-pieza { flex: 0 0 16rem; width: 16rem; height: 16rem; margin: 0 auto; }
+.barra-de-la-rueda {
+  display: grid;
+  grid-template-columns: 9.4rem 1.8rem minmax(3rem, 1fr) 1.8rem calc(4ch + 0.7rem + 22px) 8.4rem;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.barra-de-la-rueda .rotulo { white-space: nowrap; }
+.barra-de-la-rueda .paso { padding: 0; height: 1.6rem; line-height: 1; font-size: 1rem; }
+.barra-de-la-rueda .barra { width: 100%; height: 0.8rem; display: block; }
+.barra-de-la-rueda .barra .pista { fill: #120f0b; }
+.barra-de-la-rueda .barra .centro { stroke: var(--brass); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.barra-de-la-rueda .barra .relleno.mejor { fill: #6f9a55; }
+.barra-de-la-rueda .barra .relleno.peor { fill: #b0614b; }
+.barra-de-la-rueda input {
+  box-sizing: border-box;
+  width: 100%;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  padding: 0.15rem 0.35rem;
+  text-align: right;
+}
+.barra-de-la-rueda .final { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.barra-de-la-rueda[data-mejora="mejor"] .final { color: var(--accent); }
+.barra-de-la-rueda[data-mejora="peor"] .final { color: var(--danger); }
+/* La rueda de la ficha: el disco del combate, cada sector teñido por lo que mejora. */
+.disco.rueda-de-la-pieza .sector[data-mejora] { fill: #2b2519; }
+.disco.rueda-de-la-pieza .sector[data-mejora="mejor-1"] { fill: #3d5a34; }
+.disco.rueda-de-la-pieza .sector[data-mejora="mejor-2"] { fill: #5b8a45; }
+.disco.rueda-de-la-pieza .sector[data-mejora="peor-1"] { fill: #5e3328; }
+.disco.rueda-de-la-pieza .sector[data-mejora="peor-2"] { fill: #8f4a37; }
+.rueda-de-la-pieza .rotulo-en-la-pieza text { fill: var(--ink); font: 600 10.5px system-ui, sans-serif; }
+.rueda-de-la-pieza .rotulo-en-la-pieza text.nombre { fill: var(--ink-dim); font-weight: 400; font-size: 7.5px; }
+.rueda-de-la-pieza .rotulo-en-la-pieza .icono path {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rueda-de-la-pieza .rotulo-en-la-pieza .icono path:first-child { fill: var(--ink); fill-opacity: 0.22; }
+.rueda-de-la-pieza .rotulo-en-la-pieza[data-tipo="finta"] .icono path { fill: none; }
 .ficha-de-pieza .cadena-de-bases { margin: 0; color: var(--ink-dim); font-size: 0.85rem; overflow-wrap: anywhere; }
 .lista-de-piezas button.pieza .sobre-su-base { grid-column: 1 / -1; font-size: 0.75rem; color: var(--ink-dim); }
 .botones-de-la-pelea { margin: 0.4rem 0; }
