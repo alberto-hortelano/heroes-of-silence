@@ -166,9 +166,10 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     expect(editor).toContain(pastillas);
     // En un `<option>`, el mismo texto, separado por comas.
     const texto = modificadoresDePieza(escudo).map(textoDeModificador).join(', ');
-    expect(marcadoDe(renderFicha({ ...CON_ESCUDO, equipo: {} }, false, MONTAJE))).toContain(
-      `<option value="escudo">${escudo.nombre} · ${texto}</option>`,
-    );
+    // Con su espada y sin escudo: sin arma, nada entraría y todo va desactivado.
+    expect(
+      marcadoDe(renderFicha({ ...CON_ESCUDO, equipo: { arma: 'espada' } }, false, MONTAJE)),
+    ).toContain(`<option value="escudo">${escudo.nombre} · ${texto}</option>`);
     expect(marcadoDe(modificadoresEnPantalla({ ...pieza('garrote'), ataque: 0 }))).toContain(
       'no suma nada',
     );

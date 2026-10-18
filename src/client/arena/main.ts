@@ -29,6 +29,7 @@ import {
   IA_POR_DEFECTO,
   LADOS,
   type Lado,
+  laLlevaElHeroe,
   type MontajeDeArena,
   type MontajeDelEnlace,
   mismaPieza,
@@ -166,6 +167,7 @@ import {
   type Guardado,
   guardadoEnPalabras,
   type HerramientaDeMuralla,
+  LA_LLEVA_EL_HEROE,
   type ListaDeUnidades,
   modoDeSiempre,
   type Puesto,
@@ -1187,9 +1189,15 @@ function repintarEquipo(): void {
   });
 }
 
-/** Los nombres de las unidades del borrador que llevan la pieza `id`. */
+/**
+ * Quiénes llevan la pieza `id`: las unidades del borrador, por su nombre, y todo
+ * héroe de la arena si es de su equipo (`laLlevaElHeroe`: la Espada).
+ */
 function quienesLaLlevan(id: string): string[] {
-  return [...borrador.values()].filter((u) => idsPuestos(u.equipo).includes(id)).map((u) => u.name);
+  return [
+    ...[...borrador.values()].filter((u) => idsPuestos(u.equipo).includes(id)).map((u) => u.name),
+    ...(laLlevaElHeroe(id) ? [LA_LLEVA_EL_HEROE] : []),
+  ];
 }
 
 /**

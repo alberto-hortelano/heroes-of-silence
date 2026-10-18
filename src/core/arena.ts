@@ -963,7 +963,9 @@ export function sinPieza(
  * el índice lo sepa medir (`medidaBlocker`). **La pregunta «¿sigue
  * valiendo quien la lleva?», con su única redacción**: la leen el cambio de una
  * pieza en el borrador (`cambioDePiezaBlocker`) y a media pelea
- * (`retocarEnBatalla`, `kind: 'piezas'`).
+ * (`retocarEnBatalla`, `kind: 'piezas'`). Sin `piezaDelJuegoBlocker`: el héroe
+ * lleva el equipo base del juego, y cambiar una pieza no hace del juego a una de
+ * la arena (`validarPiezaDeArena`).
  */
 function equipoQueNoVale(cuerpo: UnitInfo, equipo: EquipoDeArena, eq: EquipoAtado): string | null {
   const motivo =
@@ -971,6 +973,61 @@ function equipoQueNoVale(cuerpo: UnitInfo, equipo: EquipoDeArena, eq: EquipoAtad
     armaDeCuerpoBlocker(equipo, eq) ??
     medidaBlocker(eq.conEquipo(cuerpo, equipo));
   return motivo === null ? null : `la lleva «${cuerpo.name}»: ${motivo}`;
+}
+
+/**
+ * Por qué la unidad `u` no puede llevar `equipo`, o `null`: lo que diría
+ * `validarUnidadDeArena` del equipo (`equipoDeArenaBlocker`) y que con él puesto
+ * el índice la sepa medir (`medidaBlocker`). Lo leen las dos preguntas de la ficha.
+ */
+function unidadQueNoLleva(u: UnidadDeArena, equipo: EquipoDeArena, eq: EquipoAtado): string | null {
+  return (
+    equipoDeArenaBlocker(equipo, eq) ?? medidaBlocker(eq.conEquipo(cuerpoDeCombate(u), equipo))
+  );
+}
+
+/** Lo que se le puede poner a una unidad en un hueco (`opcionesDelHueco`). */
+export interface OpcionDelHueco {
+  readonly pieza: Pieza;
+  /** Por qué no se le puede poner, o `null` si se puede. */
+  readonly motivo: string | null;
+}
+
+/**
+ * Las piezas de la arena del hueco `hueco` que no lleva `u`, en el orden de `eq`,
+ * cada una con lo que diría el núcleo al ponérsela (`unidadQueNoLleva`: un escudo
+ * con un arma a dos manos, una que el índice no sabe medir): `null` si entra. Las
+ * del juego no salen (`esDeLaArena`), y un hueco sin piezas de la arena —el
+ * accesorio— no ofrece nada. **La pregunta «¿qué le pongo?»**: la lee la ficha
+ * de la unidad, que no ofrece lo que el núcleo rechazaría.
+ */
+export function opcionesDelHueco(
+  u: UnidadDeArena,
+  hueco: HuecoDeArena,
+  eq: EquipoAtado,
+): readonly OpcionDelHueco[] {
+  return [...eq.piezas.values()]
+    .filter((p) => p.hueco === hueco && p.id !== u.equipo[hueco] && esDeLaArena(p))
+    .map((p) => ({
+      pieza: p,
+      motivo: unidadQueNoLleva(u, { ...u.equipo, [hueco]: p.id }, eq),
+    }));
+}
+
+/**
+ * Por qué no se le puede quitar a `u` lo que lleva en `hueco`, o `null` si se
+ * puede: que lleve algo (`nadaEnElHueco`) y que sin ello siga valiendo
+ * (`unidadQueNoLleva`: sin arma de cuerpo a cuerpo no se combate). La lee la
+ * ficha, que no ofrece la × que el núcleo rechazaría.
+ */
+export function quitarBlocker(
+  u: UnidadDeArena,
+  hueco: HuecoDeArena,
+  eq: EquipoAtado,
+): string | null {
+  if (u.equipo[hueco] === undefined) return nadaEnElHueco(u.name, hueco);
+  const { [hueco]: _quitada, ...sin } = u.equipo;
+  return unidadQueNoLleva(u, sin, eq);
 }
 
 /**
@@ -1408,9 +1465,9 @@ export function nivelesDeLaEspada(): NivelesDeLaRueda {
  * Por qué una unidad de la arena con `equipo` no se monta por su arma, o `null`:
  * **sin arma de cuerpo a cuerpo no se combate** (decisión del usuario, 18-10-2026:
  * «si hubiese un lobo, los colmillos serían su arma»), y tiene que ser una que
- * golpee en la rueda (`golpeaEnLaRueda`: de la arena, la que dice su rueda). La leen `equipoValido` (el
- * borrador, el enlace, cada cambio de la unidad) y `equipoQueNoVale` (un cambio de
- * pieza, también a media pelea).
+ * golpee en la rueda (`golpeaEnLaRueda`: de la arena, la que dice su rueda). La leen
+ * `equipoDeArenaBlocker` (la unidad) y `equipoQueNoVale` (un cambio de pieza,
+ * también a media pelea, que mira también al héroe).
  */
 export function armaDeCuerpoBlocker(equipo: EquipoDeArena, eq: EquipoAtado): string | null {
   if (equipo.arma === undefined) {
@@ -1426,10 +1483,46 @@ export function armaDeCuerpoBlocker(equipo: EquipoDeArena, eq: EquipoAtado): str
 }
 
 /**
- * El equipo, comprobado con la regla del núcleo (`equipoBlocker`) y las piezas de
- * la arena: que existan, sus huecos y las manos, y que lleve un arma de cuerpo a
- * cuerpo de la arena (`armaDeCuerpoBlocker`).
+ * Por qué una unidad de la arena no puede llevar `equipo` con las piezas de `eq`,
+ * o `null`: que existan, sus huecos y las manos (`equipoBlocker`), que lleve un
+ * arma de cuerpo a cuerpo de la arena (`armaDeCuerpoBlocker`) y que no lleve nada
+ * del juego (`piezaDelJuegoBlocker`). **La regla del equipo de la arena, en un
+ * sitio**: la leen `equipoValido` (el borrador, el enlace, cada cambio de la
+ * unidad) y `unidadQueNoLleva` (lo que ofrece la ficha). El héroe no pasa por
+ * ella: lleva el equipo base del juego (`EQUIPO_DEL_HEROE_EN_LA_ARENA`).
  */
+export function equipoDeArenaBlocker(equipo: EquipoDeArena, eq: EquipoAtado): string | null {
+  return (
+    eq.equipoBlocker(equipo) ?? armaDeCuerpoBlocker(equipo, eq) ?? piezaDelJuegoBlocker(equipo, eq)
+  );
+}
+
+/**
+ * Si `p` cuenta en la arena: **solo las piezas de calidad `arena`** (decisión del
+ * usuario, 18-10-2026). La leen `piezaDelJuegoBlocker` y lo que ofrece la ficha
+ * (`opcionesDelHueco`).
+ */
+function esDeLaArena(p: Pieza): boolean {
+  return p.calidad === 'arena';
+}
+
+/**
+ * Por qué una unidad de la arena no puede llevar `equipo` por una pieza del juego,
+ * o `null`: en la arena solo cuentan las de la arena (`esDeLaArena`). El arma de
+ * cuerpo a cuerpo lo dice antes `armaDeCuerpoBlocker`, con su frase.
+ */
+export function piezaDelJuegoBlocker(equipo: EquipoDeArena, eq: EquipoAtado): string | null {
+  for (const hueco of HUECOS_DE_LA_ARENA) {
+    const id = equipo[hueco];
+    const p = id === undefined ? null : eq.piezaSiExiste(id);
+    if (p !== null && !esDeLaArena(p)) {
+      return `lleva «${p.nombre}» en ${NOMBRE_DE_HUECO[hueco]}, que es del juego: en la arena solo cuentan las piezas de la arena`;
+    }
+  }
+  return null;
+}
+
+/** El equipo, comprobado con la regla del equipo de la arena (`equipoDeArenaBlocker`). */
 function equipoValido(valor: unknown, quien: string, eq: EquipoAtado): EquipoDeArena {
   if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
     throw new Error(`${quien}: el equipo tiene que ser un objeto por hueco ({} sin nada)`);
@@ -1439,8 +1532,7 @@ function equipoValido(valor: unknown, quien: string, eq: EquipoAtado): EquipoDeA
     if (typeof id !== 'string')
       throw new Error(`${quien}: el hueco ${hueco} no trae el id de una pieza`);
   }
-  const motivo =
-    eq.equipoBlocker(e as EquipoDeArena) ?? armaDeCuerpoBlocker(e as EquipoDeArena, eq);
+  const motivo = equipoDeArenaBlocker(e as EquipoDeArena, eq);
   if (motivo !== null) throw new Error(`${quien}: ${motivo}`);
   // En el orden de los huecos, el mismo cada vez: el texto del enlace no cambia.
   return Object.fromEntries(
@@ -1743,6 +1835,11 @@ export const EQUIPO_DEL_HEROE_EN_LA_ARENA: EquipoDeArena = {
   ...EQUIPO_BASE,
   arma: ESPADA_DE_LA_ARENA,
 };
+
+/** Si la pieza `id` es del equipo del héroe de la arena (`EQUIPO_DEL_HEROE_EN_LA_ARENA`): la lleva todo héroe. */
+export function laLlevaElHeroe(id: string): boolean {
+  return idsPuestos(EQUIPO_DEL_HEROE_EN_LA_ARENA).includes(id);
+}
 
 /**
  * El héroe tal como entra en la batalla. **Uno nuevo en cada llamada**: el motor
