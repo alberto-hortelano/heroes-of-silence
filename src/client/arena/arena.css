@@ -469,7 +469,7 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 }
 
 /*
- * La vista «Editar equipo»: a la izquierda las piezas por hueco y a
+ * La vista «Editar equipo»: a la izquierda las piezas por tipo y a
  * la derecha la ficha de la elegida. Se desplaza la vista entera, como la de
  * edición; estrecha, la ficha va debajo de la lista.
  */
@@ -509,6 +509,9 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   font-size: 0.85rem;
   letter-spacing: 0;
 }
+/* Una tarjeta más baja que su vecina de fila no estira su sello: lo de dentro, arriba. */
+.lista-de-piezas button.pieza { align-content: start; }
+.lista-de-piezas button.pieza .sello { align-self: start; }
 .lista-de-piezas button.pieza .nombre { color: #f2deac; min-width: 0; overflow-wrap: anywhere; }
 .lista-de-piezas button.pieza .cost { grid-column: 1 / -1; font-size: 0.75rem; overflow-wrap: anywhere; }
 .lista-de-piezas button.pieza.elegida { border-color: #e0c589; }
@@ -522,6 +525,14 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .ficha-de-pieza .cifras .campo:has(> select) { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 16rem); }
 .ficha-de-pieza .row > span:last-child { text-align: right; min-width: 0; overflow-wrap: anywhere; }
 .ficha-de-pieza .aviso-de-pieza.rechazo { color: var(--danger); margin: 0; }
+/* Las tablas de la pieza (sus cifras y la rueda del golpe) van a lo ancho de la
+   rejilla de campos, y la cadena de bases bajo su desplegable. */
+.ficha-de-pieza .cifras .tabla-de-cifras,
+.ficha-de-pieza .cifras h4,
+.ficha-de-pieza .cifras .cadena-de-bases { grid-column: 1 / -1; }
+.ficha-de-pieza .cifras h4 { margin: 0.5rem 0 0; color: var(--gold); font-size: 0.9rem; }
+.ficha-de-pieza .cadena-de-bases { margin: 0; color: var(--ink-dim); font-size: 0.85rem; overflow-wrap: anywhere; }
+.lista-de-piezas button.pieza .sobre-su-base { grid-column: 1 / -1; font-size: 0.75rem; color: var(--ink-dim); }
 .botones-de-la-pelea { margin: 0.4rem 0; }
 
 /* Ancha, la ficha se queda a la vista mientras la lista se desplaza: sin eso, al

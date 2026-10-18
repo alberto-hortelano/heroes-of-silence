@@ -1575,12 +1575,12 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('un enlace mal formado o con lo que no existe se rechaza diciendo qué', () => {
     const casos: [string, string][] = [
       ['{"v":1,', 'el montaje del enlace no se puede leer'],
-      [tocado((o) => (o.v = 10)), 'es de la versión 10 y esta arena lee la 9'],
+      [tocado((o) => (o.v = 11)), 'es de la versión 11 y esta arena lee la 10'],
       // La versión es la de hoy: ni 0, ni a medias, ni texto.
-      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 9'],
-      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 9'],
-      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 9'],
-      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 9'],
+      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 10'],
+      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 10'],
+      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 10'],
+      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 10'],
       [tocado((o) => delete o.muralla), 'falta «muralla»'],
       [tocado((o) => o.muralla.muros.push({ col: 99, row: 0 })), 'la muralla del enlace no vale'],
       [
@@ -2360,9 +2360,15 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       ['carga', 'Lanza de jinete'],
     ]);
     expect(isShooter(golpes(elfico).c)).toBe(true);
-    // Los demás perfiles no tienen armas por uso: pelean como ayer.
-    for (const id of ['templario-escudo', 'templario-mandoble', 'templario-monje']) {
-      expect(golpes(unidad(id)).c, id).not.toHaveProperty('armas');
+    // Los demás perfiles no tienen armas por uso: pelean como ayer. El de la
+    // espada sin nada más ni siquiera lleva `armas`; el del mandoble y el del
+    // bastón, solo para que su golpe lleve la rueda de su arma (18-10-2026).
+    expect(golpes(unidad('templario-escudo')).c).not.toHaveProperty('armas');
+    for (const id of ['templario-mandoble', 'templario-monje']) {
+      const { c } = golpes(unidad(id));
+      expect(Object.keys(c.armas ?? {}), id).toEqual(['cuerpo']);
+      expect(c.armas?.cuerpo.rueda, id).toBeDefined();
+      expect([c.armas?.cuerpo.attack, c.armas?.cuerpo.damage], id).toEqual([c.attack, c.damage]);
     }
   });
 

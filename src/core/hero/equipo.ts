@@ -25,6 +25,7 @@ import { allCreatures, CALIDADES_DE_BOTIN, EQUIPO, type Pieza } from '../data.js
 import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type {
   ArmasDeLaUnidad,
+  CifraDePieza,
   Equipo,
   EquipoDeArena,
   GolpeConArma,
@@ -36,12 +37,16 @@ import type {
   Veterania,
 } from '../types.js';
 import {
+  CIFRAS_DE_PIEZA,
   esArmaPorUso,
   esHueco,
   esHuecoDeArena,
   HUECOS_DE_LA_ARENA,
   huecoDesconocido,
+  NOMBRE_DE_CIFRA,
+  NOMBRE_DE_HUECO,
   SPEED_TIERS,
+  TIPOS_DE_GOLPE,
   USO_DEL_HUECO,
 } from '../types.js';
 import type { Hero } from './hero.js';
@@ -123,19 +128,6 @@ export const NOMBRE_DE_CALIDAD: Readonly<Record<Pieza['calidad'], string>> = {
   armeria: 'de armería',
   especial: 'especial',
   arena: 'de la arena',
-};
-
-/**
- * El nombre de cada hueco, para pintarlo: lo leen el panel del héroe y la ficha
- * de la arena. Aquí y no en el cliente porque son dos pantallas y un mismo hueco.
- */
-export const NOMBRE_DE_HUECO: Readonly<Record<HuecoDeArena, string>> = {
-  arma: 'Arma',
-  distancia: 'Arma a distancia',
-  carga: 'Arma de carga',
-  armadura: 'Armadura',
-  accesorio: 'Accesorio',
-  escudo: 'Escudo',
 };
 
 /** Lo que dice de un uso de arma `DICHO_DEL_USO`. */
@@ -406,38 +398,54 @@ function vestir<U extends UnitInfo>(
 
 /**
  * Con qué arma y qué cifras da `vestida` cada golpe, si lleva un arma por uso
- * (`esArmaPorUso`: solo la arena), o `null`. El de cuerpo a cuerpo es el de
+ * (`esArmaPorUso`: solo la arena) o un arma de cuerpo a cuerpo que cambia la rueda
+ * (`Pieza.rueda`, solo la arena), o `null`. El de cuerpo a cuerpo es el de
  * arriba; el de cada arma por uso, el de arriba con esa arma en lugar de la de
- * cuerpo a cuerpo (su ataque y su daño no suben arriba, `sumaDe`). El único
- * escritor de `UnitInfo.armas`.
+ * cuerpo a cuerpo (su ataque y su daño no suben arriba, `sumaDe`). Cada golpe
+ * lleva la rueda de su arma: así el motor no busca la pieza. El único escritor de
+ * `UnitInfo.armas`.
  */
 function armasPorUso(
   piezas: CatalogoDePiezas,
   vestida: UnitInfo,
   todo: EquipoDeArena,
 ): ArmasDeLaUnidad | null {
-  let armas: { -readonly [U in keyof ArmasDeLaUnidad]: ArmasDeLaUnidad[U] } | null = null;
-  let delCuerpo: Pieza | null = null;
-  for (const hueco of HUECOS_DE_LA_ARENA) {
-    const id = todo[hueco];
-    if (id === undefined || !esArmaPorUso(hueco)) continue;
-    if (armas === null) {
-      delCuerpo = todo.arma === undefined ? null : piezaDe(piezas, todo.arma);
-      armas = {
-        cuerpo: { arma: todo.arma ?? null, attack: vestida.attack, damage: vestida.damage },
-      };
-    }
+  const delCuerpo = todo.arma === undefined ? null : piezaDe(piezas, todo.arma);
+  // El juego no tiene ni lo uno ni lo otro (su calidad no admite rueda): sale sin
+  // `armas`, con los campos de siempre (el banco), y antes de reservar nada, que
+  // por aquí pasan cada individuo y cada héroe (`cifrasDelIndividuo`, `heroUnit`).
+  const conArmaPorUso = HUECOS_DE_LA_ARENA.some((h) => esArmaPorUso(h) && todo[h] !== undefined);
+  if (!conArmaPorUso && delCuerpo?.rueda === undefined) return null;
+  const porUso = HUECOS_DE_LA_ARENA.filter(
+    (h): h is Exclude<HuecoDeArena, Hueco> => esArmaPorUso(h) && todo[h] !== undefined,
+  );
+  const armas: { -readonly [U in keyof ArmasDeLaUnidad]: ArmasDeLaUnidad[U] } = {
+    cuerpo: conRuedaDe(
+      { arma: todo.arma ?? null, attack: vestida.attack, damage: vestida.damage },
+      delCuerpo,
+    ),
+  };
+  for (const hueco of porUso) {
+    const id = todo[hueco] as string;
     const p = piezaDe(piezas, id);
-    armas[USO_DEL_HUECO[hueco]] = {
-      arma: id,
-      attack: vestida.attack - (delCuerpo?.ataque ?? 0) + p.ataque,
-      damage: [
-        vestida.damage[0] - (delCuerpo?.danio?.[0] ?? 0) + (p.danio?.[0] ?? 0),
-        vestida.damage[1] - (delCuerpo?.danio?.[1] ?? 0) + (p.danio?.[1] ?? 0),
-      ],
-    };
+    armas[USO_DEL_HUECO[hueco]] = conRuedaDe(
+      {
+        arma: id,
+        attack: vestida.attack - (delCuerpo?.ataque ?? 0) + p.ataque,
+        damage: [
+          vestida.damage[0] - (delCuerpo?.danio?.[0] ?? 0) + (p.danio?.[0] ?? 0),
+          vestida.damage[1] - (delCuerpo?.danio?.[1] ?? 0) + (p.danio?.[1] ?? 0),
+        ],
+      },
+      p,
+    );
   }
   return armas;
+}
+
+/** El golpe `g` con la rueda de su arma `p`, solo si la lleva. */
+function conRuedaDe(g: GolpeConArma, p: Pieza | null): GolpeConArma {
+  return p?.rueda === undefined ? g : { ...g, rueda: p.rueda };
 }
 
 /**
@@ -460,29 +468,6 @@ export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
   );
 }
 
-/**
- * Cuántos PV vale un punto de armadura (#262): la conversión de una pieza del
- * juego que suma PV duplicada en la arena, que protege con armadura
- * (`piezaNueva`). **Inventado**, como las cifras de `data/equipo.json`, que
- * salen de aquí.
- */
-export const PV_POR_PUNTO_DE_ARMADURA = 10;
-
-/**
- * Lo más que da de armadura una pieza de la arena (A4 de QA de #262: sin tope,
- * `1e3` entraba como 1000 y la pelea se agotaba en la ronda 100). **Inventado**:
- * la barda, la que más, da 22; 99 deja probar de sobra sin que nada sea inmune.
- */
-export const ARMADURA_MAXIMA_DE_PIEZA = 99;
-
-/**
- * `pv` PV en puntos de armadura: al entero más cercano (45 → 5), que los PV de
- * una pieza no van de diez en diez.
- */
-export function armaduraDePV(pv: number): number {
-  return Math.round(pv / PV_POR_PUNTO_DE_ARMADURA);
-}
-
 function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefined): boolean {
   const golpe = (x: GolpeConArma | undefined, y: GolpeConArma | undefined): boolean =>
     x === undefined || y === undefined
@@ -490,7 +475,10 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
       : x.arma === y.arma &&
         x.attack === y.attack &&
         x.damage[0] === y.damage[0] &&
-        x.damage[1] === y.damage[1];
+        x.damage[1] === y.damage[1] &&
+        // La rueda también, tipo a tipo: sin ella, el retoque de la rueda de la
+        // Maza a media pelea no llegaba a quien la lleva.
+        TIPOS_DE_GOLPE.every((t) => (x.rueda?.[t] ?? 0) === (y.rueda?.[t] ?? 0));
   if (a === undefined || b === undefined) return a === b;
   return golpe(a.cuerpo, b.cuerpo) && golpe(a.distancia, b.distancia) && golpe(a.carga, b.carga);
 }
@@ -645,32 +633,6 @@ export function sacarDeLaMochila(mochila: readonly string[], id: string): string
   if (i < 0) throw new Error(`la mochila no lleva "${id}"`);
   return [...mochila.slice(0, i), ...mochila.slice(i + 1)];
 }
-
-/** Las cifras que una pieza puede sumar, en el orden en que se dicen. */
-export const CIFRAS_DE_PIEZA = [
-  'ataque',
-  'defensa',
-  'armadura',
-  'danio',
-  'pv',
-  'velocidad',
-] as const;
-export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
-
-/**
- * El nombre de cada cifra, el mismo en la tabla de la ficha de la arena (sus
- * rótulos) y en lo que suma una pieza: «+2 Ataque» en la pieza y «Ataque» en la
- * fila a la que suma (13-10-2026, el usuario: «estandariza la forma de mostrar
- * los modificadores del equipo, que no sea un texto libre»).
- */
-export const NOMBRE_DE_CIFRA: Readonly<Record<CifraDePieza, string>> = {
-  ataque: 'Ataque',
-  defensa: 'Defensa',
-  armadura: 'Armadura',
-  danio: 'Daño',
-  pv: 'PV',
-  velocidad: 'Velocidad',
-};
 
 /**
  * Una cosa que suma una pieza: una cifra con su valor (el daño, con su máximo en

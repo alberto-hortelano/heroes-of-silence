@@ -26,31 +26,53 @@
  * `melee`, el daño), la IA (`ai/rueda.ts`), la sesión de la arena y la rueda del
  * cliente.
  */
-import ruedaJson from '../../../data/rueda.json' with { type: 'json' };
 import { hasTrait } from '../data.js';
 import { conSigno } from '../hero/equipo.js';
-import { conComa, type UnitInfo } from '../types.js';
-import { entero, objetoCon, porcentaje } from '../validar.js';
-import { type CruceDelGolpe, tiradaEnCuartos } from './damage.js';
+import {
+  conComa,
+  esTipoDeGolpe,
+  type RuedaDelArma,
+  TIPOS_DE_GOLPE,
+  type TipoDeGolpe,
+  type UnitInfo,
+  type UsoDeArma,
+} from '../types.js';
+import {
+  type CifrasDeLaRueda,
+  cifrasDeLaRuedaCon,
+  esTipoDeDanio,
+  NOMBRE_DE_GOLPE,
+  type PapelEnLaRueda,
+  type PorExito,
+  PUNTOS,
+  type Punto,
+} from './cifras-de-la-rueda.js';
+import { type CruceDelGolpe, golpeDe, tiradaEnCuartos } from './damage.js';
 import type { CuandoVence } from './effects.js';
 import type { ModosDeArena } from './modos.js';
 import type { BattleAction, BattleEvent } from './types.js';
 
-/**
- * Los siete tipos: el anillo en el sentido de las agujas del reloj desde arriba
- * y Normal, el centro, al final. El orden es también el de las teclas: el tipo
- * `i` se elige con la tecla `i + 1`.
- */
-export const TIPOS_DE_GOLPE = [
-  'ofensivo',
-  'fuerte',
-  'finta',
-  'defensivo',
-  'rapido',
-  'romperGuardia',
-  'normal',
-] as const;
-export type TipoDeGolpe = (typeof TIPOS_DE_GOLPE)[number];
+export {
+  type CifrasDeLaRueda,
+  COMO_SUMA_EL_ARMA,
+  cifrasDeLaRuedaCon,
+  esTipoDeDanio,
+  NOMBRE_DE_GOLPE,
+  type PapelEnLaRueda,
+  PESOS_DE_LA_RUEDA,
+  type PesosDeLaRueda,
+  type PorExito,
+  PUNTOS,
+  type Punto,
+  ruedaDelArmaBlocker,
+  type TipoDeDanio,
+  validarRueda,
+} from './cifras-de-la-rueda.js';
+// Los siete tipos viven en `types.ts`, porque los nombra la pieza (`Pieza.rueda`),
+// y las cifras de cada uno con lo que suma un arma, en `cifras-de-la-rueda.ts`,
+// que lee la regla de una pieza: aquí se reexportan, que es donde los busca quien
+// lee la rueda.
+export { esTipoDeGolpe, TIPOS_DE_GOLPE, type TipoDeGolpe };
 
 /** El anillo, sin el centro, en el sentido de las agujas del reloj desde arriba. */
 export const ANILLO: readonly TipoDeGolpe[] = TIPOS_DE_GOLPE.filter((t) => t !== 'normal');
@@ -59,18 +81,8 @@ export const ANILLO: readonly TipoDeGolpe[] = TIPOS_DE_GOLPE.filter((t) => t !==
 export const MODOS_DEL_GOLPE = ['azar', 'rueda'] as const;
 export type ModoDelGolpe = (typeof MODOS_DEL_GOLPE)[number];
 
-/** El punto del cruce, del mínimo (0) al máximo (4). */
-export type Punto = 0 | 1 | 2 | 3 | 4;
-
 /** El punto según la distancia en el anillo: igual, al lado, a dos, enfrente. */
 const PUNTO_POR_DISTANCIA: readonly Punto[] = [0, 1, 3, 4];
-
-/** Quien elige en la rueda: el que pega o el que recibe. */
-export type PapelEnLaRueda = 'golpe' | 'respuesta';
-
-export function esTipoDeGolpe(x: unknown): x is TipoDeGolpe {
-  return typeof x === 'string' && (TIPOS_DE_GOLPE as readonly string[]).includes(x);
-}
 
 /** Por qué `x` no es un tipo de golpe, dicho para la persona; `null` si lo es. */
 export function tipoDeGolpeBlocker(x: unknown): string | null {
@@ -131,126 +143,112 @@ export interface EfectoDeLaRueda {
   readonly vence: CuandoVence;
 }
 
-/** Una cifra por éxito del golpe: el punto del cruce de quien pega, del mínimo al máximo. */
-export type PorExito = Readonly<Record<Punto, number>>;
-
-/** Las cifras de cada tipo, de `data/rueda.json`, con el nombre de lo que son. */
-export interface CifrasDeLaRueda {
-  /** Lo que multiplica el daño del Fuerte. */
-  readonly fuerte: { readonly factor: number };
-  /** Lo que multiplica el daño de cada golpe del Rápido, y por cuánto multiplica los golpes. */
-  readonly rapido: { readonly factor: number; readonly golpes: number };
-  /** Lo que suma Ofensivo al ataque del golpe que se da. */
-  readonly ofensivo: { readonly ataque: number };
-  /** La defensa que se pone quien golpea con Defensivo. */
-  readonly defensivo: { readonly defensa: number };
-  /** Lo que quita Romper guardia al ataque del atacado, por éxito (0 o menos). */
-  readonly romperGuardia: { readonly ataque: PorExito };
-  /** Las casillas que resta la Finta de lo que le queda por andar, por éxito (0 o más). */
-  readonly finta: { readonly casillas: PorExito };
-  /** La mezcla de la IA, por papel: un peso por tipo. */
-  readonly pesos: Readonly<Record<PapelEnLaRueda, Readonly<Record<TipoDeGolpe, number>>>>;
-}
-
-const CAMPOS_DE_LA_RUEDA = [
-  '_comment',
-  'fuerte',
-  'rapido',
-  'ofensivo',
-  'defensivo',
-  'romperGuardia',
-  'finta',
-  'pesos',
-];
-
-/** El nombre de cada punto en `data/rueda.json`: las claves de una cifra por éxito. */
-const CLAVE_DEL_PUNTO: Readonly<Record<Punto, string>> = {
-  0: 'minimo',
-  1: 'bajo',
-  2: 'medio',
-  3: 'alto',
-  4: 'maximo',
-};
-
-/** Los cinco puntos, del mínimo al máximo: las muescas del medidor y las claves de un éxito. */
-export const PUNTOS: readonly Punto[] = [0, 1, 2, 3, 4];
-
 /**
- * Una cifra por éxito: las cinco claves (`CLAVE_DEL_PUNTO`), enteros, y del signo
- * de lo que son: Romper guardia quita (`quita`, 0 o menos) y la Finta resta
- * casillas (0 o más). Falta una o sobra un campo, lanza diciendo cuál.
+ * Las cifras de la rueda con que da `unit` un golpe de `uso`: las de su arma
+ * (`golpeDe(unit, uso).rueda`, que escribe `conEquipo`). Sin arma, o sin nada que
+ * sume, las de siempre. **La única lectura del arma en la rueda**: la piden el
+ * golpe, el contraataque y la previsión (`battle.ts`).
  */
-function porExito(valor: unknown, quien: string, signo: 'quita' | 'resta'): PorExito {
-  const claves = PUNTOS.map((p) => CLAVE_DEL_PUNTO[p]);
-  const o = objetoCon(valor, claves, quien);
-  const out = {} as Record<Punto, number>;
-  for (const p of PUNTOS) {
-    const clave = CLAVE_DEL_PUNTO[p];
-    if (!(clave in o)) throw new Error(`${quien}: falta el éxito «${clave}»`);
-    const n = entero(o[clave], `el éxito «${clave}»`, quien, signo === 'quita' ? -1000 : 0);
-    if (signo === 'quita' && n > 0) {
-      throw new Error(`${quien}: el éxito «${clave}» quita, así que es 0 o menos, y es ${n}`);
-    }
-    out[p] = n;
-  }
-  return out;
-}
-
-/** Los pesos de un papel: uno por tipo, enteros ≥ 0, y alguno mayor que 0. */
-function pesosDe(valor: unknown, quien: string): Readonly<Record<TipoDeGolpe, number>> {
-  const o = objetoCon(valor, TIPOS_DE_GOLPE, quien);
-  const pesos = {} as Record<TipoDeGolpe, number>;
-  for (const t of TIPOS_DE_GOLPE) {
-    if (!(t in o)) throw new Error(`${quien}: falta el peso de «${t}»`);
-    pesos[t] = entero(o[t], `el peso de «${t}»`, quien, 0);
-  }
-  if (TIPOS_DE_GOLPE.every((t) => pesos[t] === 0)) {
-    throw new Error(`${quien}: todos los pesos son 0, y la IA no tendría qué elegir`);
-  }
-  return pesos;
+export function ruedaDelGolpe(unit: UnitInfo, uso: UsoDeArma): CifrasDeLaRueda {
+  return cifrasDeLaRuedaCon(golpeDe(unit, uso).rueda);
 }
 
 /**
- * Valida las cifras de la rueda y las devuelve tipadas; lanza diciendo el
- * fichero y el campo. Exportada con el JSON de argumento para que un test la vea
- * morder.
+ * Lo que suma un arma a la rueda en pocas palabras: «Fuerte +20, Rápido −20», o
+ * «nada». Lo leen el parte de un retoque (`piezaEnPalabras`) y la tarjeta de la
+ * pieza.
  */
-export function validarRueda(json: unknown, fichero = 'data/rueda.json'): CifrasDeLaRueda {
-  const j = objetoCon(json, CAMPOS_DE_LA_RUEDA, fichero);
-  const campo = (nombre: string, campos: readonly string[]): Record<string, unknown> =>
-    objetoCon(j[nombre], campos, `${fichero}: ${nombre}`);
-  const fuerte = campo('fuerte', ['porcentaje']);
-  const rapido = campo('rapido', ['porcentaje', 'golpes']);
-  const ofensivo = campo('ofensivo', ['ataque']);
-  const defensivo = campo('defensivo', ['defensa']);
-  const romper = campo('romperGuardia', ['ataque']);
-  const finta = campo('finta', ['casillas']);
-  const pesos = campo('pesos', ['golpe', 'respuesta']);
-  // En el JSON, en tanto por ciento y en enteros: se valida sin coma.
-  const factor = (o: Record<string, unknown>, quien: string): number =>
-    porcentaje(o, `${fichero}: ${quien}`) / 100;
-  return {
-    fuerte: { factor: factor(fuerte, 'fuerte') },
-    rapido: {
-      factor: factor(rapido, 'rapido'),
-      golpes: entero(rapido.golpes, 'los golpes', `${fichero}: rapido`, 1),
-    },
-    ofensivo: { ataque: entero(ofensivo.ataque, 'el ataque', `${fichero}: ofensivo`, 0) },
-    defensivo: { defensa: entero(defensivo.defensa, 'la defensa', `${fichero}: defensivo`, 0) },
-    romperGuardia: { ataque: porExito(romper.ataque, `${fichero}: romperGuardia.ataque`, 'quita') },
-    finta: { casillas: porExito(finta.casillas, `${fichero}: finta.casillas`, 'resta') },
-    pesos: {
-      golpe: pesosDe(pesos.golpe, `${fichero}: pesos.golpe`),
-      respuesta: pesosDe(pesos.respuesta, `${fichero}: pesos.respuesta`),
-    },
-  };
+export function ruedaDelArmaEnPalabras(mods: RuedaDelArma | undefined): string {
+  const partes = TIPOS_DE_GOLPE.filter((t) => (mods?.[t] ?? 0) !== 0).map(
+    (t) => `${NOMBRE_DE_GOLPE[t]} ${conSigno(mods?.[t] ?? 0)}`,
+  );
+  return partes.length === 0 ? 'nada' : partes.join(', ');
 }
 
-export const CIFRAS_DE_LA_RUEDA: CifrasDeLaRueda = validarRueda(ruedaJson);
+/** Una fila de la tabla «Rueda del golpe» de un arma: lo que suma a un tipo y cómo queda. */
+export interface FilaDeLaRueda {
+  readonly tipo: TipoDeGolpe;
+  /** Lo que suma el arma, en la unidad de su tipo (`COMO_SUMA_EL_ARMA`). */
+  readonly suma: number;
+  /**
+   * Cómo queda el tipo con el arma, en una línea: «Daño ×1,45», «+2 ataque»; Romper
+   * guardia y la Finta, del éxito mínimo al máximo con su unidad («−1 a −4 ataque»,
+   * «5 a 1 casillas»).
+   */
+  readonly final: string;
+  /**
+   * Romper guardia y la Finta: la cifra de cada éxito, del mínimo al máximo
+   * («−1, −1, −2, −3, −4»), para su nota; los demás, `null`.
+   */
+  readonly porExito: string | null;
+}
 
-/** Lo que multiplica el daño de un golpe de este tipo: el Fuerte y el Rápido; los demás, 1. */
-function factorDe(tipo: TipoDeGolpe): number {
-  return tipo === 'fuerte' || tipo === 'rapido' ? CIFRAS_DE_LA_RUEDA[tipo].factor : 1;
+/**
+ * La tabla de la rueda de un arma, un tipo por fila en el orden de la rueda: lo
+ * que suma y cómo queda (`cifrasDeLaRuedaCon`, la misma cuenta del golpe). La
+ * pinta la ficha de una pieza de cuerpo a cuerpo.
+ */
+export function filasDeLaRueda(mods: RuedaDelArma | undefined): readonly FilaDeLaRueda[] {
+  const c = cifrasDeLaRuedaCon(mods);
+  return TIPOS_DE_GOLPE.map((tipo) => ({
+    tipo,
+    suma: mods?.[tipo] ?? 0,
+    final: finalDe(tipo, c),
+    porExito: porExitoDe(tipo, c),
+  }));
+}
+
+/**
+ * Cómo queda un tipo con las cifras `c`, en pocas palabras y en una línea (la
+ * columna de la tabla): «Daño ×1,45», «2 golpes ×0,4», «+1 ataque», y las cifras
+ * por éxito, del mínimo al máximo con su unidad («−1 a −4 ataque»: QA 5 del
+ * 18-10-2026, «1/2/3/4/5» del máximo al mínimo solo se entendía con la nota).
+ */
+function finalDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): string {
+  switch (tipo) {
+    case 'fuerte':
+    case 'normal':
+      return `Daño ${porciento(c[tipo].porcentaje)}`;
+    case 'rapido':
+      return `${c.rapido.golpes} golpes ${porciento(c.rapido.porcentaje)}`;
+    case 'ofensivo':
+      return `${conSigno(c.ofensivo.ataque)} ataque`;
+    case 'defensivo':
+      return `${conSigno(c.defensivo.defensa)} defensa`;
+    case 'romperGuardia':
+      return delMinimoAlMaximo(c.romperGuardia.ataque, cifraDeAtaque, 'ataque');
+    case 'finta':
+      return delMinimoAlMaximo(c.finta.casillas, String, 'casillas');
+  }
+}
+
+/** Una cifra de ataque quitado: «0» o con su signo («−2»). */
+function cifraDeAtaque(n: number): string {
+  return n === 0 ? '0' : conSigno(n);
+}
+
+/** Una cifra por éxito en una línea, del mínimo al máximo: «−1 a −4 ataque», o «0 ataque» si no cambia. */
+function delMinimoAlMaximo(
+  valores: PorExito,
+  cifra: (n: number) => string,
+  unidad: string,
+): string {
+  const minimo = cifra(valores[0]);
+  const maximo = cifra(valores[4]);
+  return minimo === maximo ? `${minimo} ${unidad}` : `${minimo} a ${maximo} ${unidad}`;
+}
+
+/** La cifra de cada éxito de Romper guardia o la Finta, del mínimo al máximo; `null` en los demás. */
+function porExitoDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): string | null {
+  if (tipo === 'romperGuardia')
+    return PUNTOS.map((p) => cifraDeAtaque(c.romperGuardia.ataque[p])).join(', ');
+  if (tipo === 'finta') return PUNTOS.map((p) => String(c.finta.casillas[p])).join(', ');
+  return null;
+}
+
+/** Lo que multiplica el daño de un golpe de este tipo: los de daño (`esTipoDeDanio`), su %; los demás, 1. */
+function factorDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): number {
+  return esTipoDeDanio(tipo) ? c[tipo].porcentaje / 100 : 1;
 }
 
 /**
@@ -258,20 +256,23 @@ function factorDe(tipo: TipoDeGolpe): number {
  * contraataque no suma: la respuesta no da bonificadores (decisión del usuario,
  * 14-10-2026).
  */
-function ataqueDe(tipo: TipoDeGolpe, papel: PapelEnLaRueda): number {
-  return tipo === 'ofensivo' && papel === 'golpe' ? CIFRAS_DE_LA_RUEDA.ofensivo.ataque : 0;
+function ataqueDe(tipo: TipoDeGolpe, papel: PapelEnLaRueda, c: CifrasDeLaRueda): number {
+  return tipo === 'ofensivo' && papel === 'golpe' ? c.ofensivo.ataque : 0;
 }
 
 /**
  * El efecto que deja un **golpe** de tipo `tipo` que cae en el punto `p` (el
- * éxito de quien pega), o `null` si no deja ninguno: Defensivo, a quien pega,
- * hasta que empiece su próximo turno; Romper guardia, al atacado, lo que diga su
- * éxito, hasta que termine el suyo (con 0, nada). La respuesta no deja ninguno:
- * quien recibe muchos golpes y responde Defensivo no acumula defensa (decisión
- * del usuario, 14-10-2026).
+ * éxito de quien pega), con las cifras de su arma `c`, o `null` si no deja
+ * ninguno: Defensivo, a quien pega, hasta que empiece su próximo turno; Romper
+ * guardia, al atacado, lo que diga su éxito, hasta que termine el suyo (con 0,
+ * nada). La respuesta no deja ninguno: quien recibe muchos golpes y responde
+ * Defensivo no acumula defensa (decisión del usuario, 14-10-2026).
  */
-export function efectoDeLaRueda(tipo: TipoDeGolpe, p: Punto): EfectoDeLaRueda | null {
-  const c = CIFRAS_DE_LA_RUEDA;
+export function efectoDeLaRueda(
+  tipo: TipoDeGolpe,
+  p: Punto,
+  c: CifrasDeLaRueda,
+): EfectoDeLaRueda | null {
   if (tipo === 'defensivo' && c.defensivo.defensa !== 0) {
     return { kind: 'defense', amount: c.defensivo.defensa, a: 'propio', vence: 'empezar' };
   }
@@ -283,16 +284,18 @@ export function efectoDeLaRueda(tipo: TipoDeGolpe, p: Punto): EfectoDeLaRueda | 
 
 /**
  * Las casillas que resta la Finta de lo que le queda por andar a quien golpeó con
- * ella, con éxito `p`: con el máximo, 1; con el mínimo, 5 (`data/rueda.json`).
+ * ella, con éxito `p` y las cifras de su arma `c`: sin arma, con el máximo 1 y
+ * con el mínimo 5 (`data/rueda.json`).
  */
-export function casillasQueQuitaLaFinta(p: Punto): number {
-  return CIFRAS_DE_LA_RUEDA.finta.casillas[p];
+export function casillasQueQuitaLaFinta(p: Punto, c: CifrasDeLaRueda): number {
+  return c.finta.casillas[p];
 }
 
 /**
  * La rueda traducida al daño (`DamageOptions.cruce`): un golpe de `tipo` que cae
  * entre los puntos `desde` y `hasta` del cruce, dado por quien elige `papel` (el
- * golpe o el contraataque de la respuesta), en los números que lee `damage.ts`.
+ * golpe o el contraataque de la respuesta) con las cifras de su arma `c`
+ * (`ruedaDelGolpe`), en los números que lee `damage.ts`.
  * La única traducción: la piden `opcionesDeDanio` y la previsión de la rueda
  * (`battle.ts`).
  */
@@ -301,12 +304,13 @@ export function cruceDelGolpe(
   desde: Punto,
   hasta: Punto,
   papel: PapelEnLaRueda,
+  c: CifrasDeLaRueda,
 ): CruceDelGolpe {
   return {
     desde,
     hasta,
-    factor: factorDe(tipo),
-    ataque: ataqueDe(tipo, papel),
+    factor: factorDe(tipo, c),
+    ataque: ataqueDe(tipo, papel, c),
     causa: `golpe ${NOMBRE_DE_GOLPE[tipo]}`,
     causaDeLaTirada:
       desde === hasta
@@ -324,7 +328,8 @@ export function cruceDelGolpe(
  */
 export function golpesDe(unit: UnitInfo, tipo: TipoDeGolpe | null, contraataque: boolean): number {
   const base = !contraataque && hasTrait(unit, 'double_attack') ? 2 : 1;
-  return tipo === 'rapido' ? base * CIFRAS_DE_LA_RUEDA.rapido.golpes : base;
+  // Sin arma: el arma cambia el daño de cada golpe del Rápido, no cuántos.
+  return tipo === 'rapido' ? base * cifrasDeLaRuedaCon(undefined).rapido.golpes : base;
 }
 
 /**
@@ -368,17 +373,6 @@ export function cruceBlocker(
   return null;
 }
 
-/** Cómo se llama cada tipo para la persona: en la rueda, el parte y la barra. */
-export const NOMBRE_DE_GOLPE: Readonly<Record<TipoDeGolpe, string>> = {
-  rapido: 'Rápido',
-  defensivo: 'Defensivo',
-  finta: 'Finta',
-  fuerte: 'Fuerte',
-  romperGuardia: 'Romper guardia',
-  ofensivo: 'Ofensivo',
-  normal: 'Normal',
-};
-
 /** Cómo se dice cada punto: «mínimo» … «máximo». */
 export const NOMBRE_DEL_PUNTO: Readonly<Record<Punto, string>> = {
   0: 'mínimo',
@@ -388,9 +382,9 @@ export const NOMBRE_DEL_PUNTO: Readonly<Record<Punto, string>> = {
   4: 'máximo',
 };
 
-/** «×1,25»: el factor como se escribe, con coma. */
-function porciento(factor: number): string {
-  return `×${conComa(factor, 2)}`;
+/** «×1,25»: un porcentaje como el factor que es, con coma. */
+function porciento(porcentaje: number): string {
+  return `×${conComa(porcentaje / 100, 2)}`;
 }
 
 /**
@@ -424,21 +418,20 @@ function porNivelesDeExito(valores: PorExito, cifra: (n: number) => string): str
     .join(', ');
 }
 
-/** Lo que quita Romper guardia por éxito, dicho: «−3 con éxito máximo, …, nada bajo o mínimo». */
-function romperGuardiaPorExito(): string {
-  return porNivelesDeExito(CIFRAS_DE_LA_RUEDA.romperGuardia.ataque, (n) =>
-    n === 0 ? 'nada' : conSigno(n),
-  );
+/** Lo que quita Romper guardia por éxito con las cifras `c`, dicho: «−3 con éxito máximo, …, nada bajo o mínimo». */
+function romperGuardiaPorExito(c: CifrasDeLaRueda): string {
+  return porNivelesDeExito(c.romperGuardia.ataque, (n) => (n === 0 ? 'nada' : conSigno(n)));
 }
 
-/** Lo que resta la Finta por éxito, dicho: «1 con éxito máximo, 2 alto, …». */
-function fintaPorExito(): string {
-  return porNivelesDeExito(CIFRAS_DE_LA_RUEDA.finta.casillas, String);
+/** Lo que resta la Finta por éxito con las cifras `c`, dicho: «1 con éxito máximo, 2 alto, …». */
+function fintaPorExito(c: CifrasDeLaRueda): string {
+  return porNivelesDeExito(c.finta.casillas, String);
 }
 
 /**
- * Lo que hace cada tipo, dicho desde sus cifras y **para quien elige**: el
- * tooltip de su sector. Si cambia `data/rueda.json`, cambia esta frase.
+ * Lo que hace cada tipo, dicho desde sus cifras —las de `data/rueda.json` con
+ * el arma de quien elige, `c` (`ruedaDelGolpe`)— y **para quien elige**: el
+ * tooltip de su sector. Si cambian las cifras, cambia esta frase.
  *
  * Cada nota dice cuándo actúa su efecto, porque no es lo mismo pegar que
  * responder: la respuesta es el contraataque de quien recibe (decisión del
@@ -462,14 +455,14 @@ function fintaPorExito(): string {
 export function efectoDeGolpe(
   tipo: TipoDeGolpe,
   papel: PapelEnLaRueda,
-  contraataca = true,
-  pagaContacto = false,
+  contraataca: boolean,
+  pagaContacto: boolean,
+  c: CifrasDeLaRueda,
 ): string {
-  const c = CIFRAS_DE_LA_RUEDA;
   if (papel === 'golpe') {
     switch (tipo) {
       case 'normal':
-        return 'Sin modificar. Contra cualquiera, el cruce cae en el medio.';
+        return `${normalDicho(c)}. Contra cualquiera, el cruce cae en el medio.`;
       case 'ofensivo':
         return `${conSigno(c.ofensivo.ataque)} ataque en este golpe.`;
       case 'defensivo':
@@ -477,15 +470,15 @@ export function efectoDeGolpe(
           ? `${conSigno(c.defensivo.defensa)} defensa desde ya: cubre el contraataque de ahora y dura ${duracion('empezar', 'tu')}.`
           : `${conSigno(c.defensivo.defensa)} defensa desde ya ${duracion('empezar', 'tu')} (esta vez no te devuelven el golpe).`;
       case 'fuerte':
-        return `Daño ${porciento(c.fuerte.factor)}.`;
+        return `Daño ${porciento(c.fuerte.porcentaje)}.`;
       case 'rapido':
-        return `${c.rapido.golpes} golpes de daño ${porciento(c.rapido.factor)} cada uno (con doble golpe, el doble). ${CONTRA_ARMADURA}`;
+        return `${c.rapido.golpes} golpes de daño ${porciento(c.rapido.porcentaje)} cada uno (con doble golpe, el doble). ${CONTRA_ARMADURA}`;
       case 'romperGuardia':
         return contraataca
-          ? `Quita ataque al rival desde ya: en su contraataque de ahora y ${duracion('terminar', 'su')}; ${romperGuardiaPorExito()}.`
-          : `Quita ataque al rival en su próximo turno (esta vez no te devuelve el golpe); ${romperGuardiaPorExito()}.`;
+          ? `Quita ataque al rival desde ya: en su contraataque de ahora y ${duracion('terminar', 'su')}; ${romperGuardiaPorExito(c)}.`
+          : `Quita ataque al rival en su próximo turno (esta vez no te devuelve el golpe); ${romperGuardiaPorExito(c)}.`;
       case 'finta':
-        return `Después de golpear puedes andar las casillas que te queden menos ${fintaPorExito()}. Andar cierra el turno.${pagaContacto ? ' Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.' : ''}`;
+        return `Después de golpear puedes andar las casillas que te queden menos ${fintaPorExito(c)}. Andar cierra el turno.${pagaContacto ? ' Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.' : ''}`;
     }
   }
   // La respuesta: lo que hace va con el contraataque, y solo si lo hay.
@@ -496,17 +489,27 @@ export function efectoDeGolpe(
   }
   switch (tipo) {
     case 'normal':
-      return 'Sin modificar. Contra cualquier golpe, el cruce cae en el medio, y tu contraataque también.';
+      return `${normalDicho(c)}. Contra cualquier golpe, el cruce cae en el medio, y tu contraataque también.`;
     case 'fuerte':
-      return `${NO_TOCA}: tu contraataque hace daño ${porciento(c.fuerte.factor)}.`;
+      return `${NO_TOCA}: tu contraataque hace daño ${porciento(c.fuerte.porcentaje)}.`;
     case 'rapido':
-      return `${NO_TOCA}: contraatacas con ${c.rapido.golpes} golpes de daño ${porciento(c.rapido.factor)} cada uno. ${CONTRA_ARMADURA}`;
+      return `${NO_TOCA}: contraatacas con ${c.rapido.golpes} golpes de daño ${porciento(c.rapido.porcentaje)} cada uno. ${CONTRA_ARMADURA}`;
     case 'ofensivo':
     case 'defensivo':
     case 'finta':
     case 'romperGuardia':
       return SOLO_EL_CRUCE;
   }
+}
+
+/**
+ * Cómo empieza la nota de Normal: «Sin modificar», o, si el arma lo cambia, su
+ * daño («Daño ×1,10»).
+ */
+function normalDicho(c: CifrasDeLaRueda): string {
+  return c.normal.porcentaje === cifrasDeLaRuedaCon(undefined).normal.porcentaje
+    ? 'Sin modificar'
+    : `Daño ${porciento(c.normal.porcentaje)}`;
 }
 
 /**

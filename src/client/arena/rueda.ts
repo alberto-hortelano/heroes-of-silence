@@ -239,12 +239,12 @@ function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): st
 }
 
 /**
- * La nota del sector: lo que hace el tipo para quien elige ahora
- * (`efectoDeGolpe`), y en una respuesta que no devolverá el golpe, solo lo que
- * vale: el cruce. Todo lo demás de la respuesta va con el contraataque.
+ * La nota del sector: lo que hace el tipo para quien elige ahora, con las cifras
+ * de su arma (`efectoDeGolpe`, `previsionDeLaRueda().rueda`), y en una respuesta
+ * que no devolverá el golpe, solo lo que vale: el cruce. Todo lo demás de la respuesta va con el contraataque.
  */
 function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): string {
-  return `${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, contacto)}${contraataqueRebajado(p, tipo)}`;
+  return `${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, contacto, p.prevision.rueda)}${contraataqueRebajado(p, tipo)}`;
 }
 
 /**

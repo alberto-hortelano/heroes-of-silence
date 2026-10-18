@@ -1,4 +1,4 @@
-import type { Pieza } from '../data.js';
+import type { PiezaEscrita } from '../data.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
 import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { Paso } from './board.js';
@@ -497,7 +497,7 @@ export interface BattleState {
    * media pelea (`retocarEnBatalla`, `kind: 'piezas'`). La lista del borrador: la
    * misma forma en el montaje, la batalla y el retoque.
    */
-  piezasDeArena?: readonly Pieza[];
+  piezasDeArena?: readonly PiezaEscrita[];
   /**
    * Las escaleras apoyadas en la muralla, con su pie y su muro. Crece con cada
    * `poner_escalera` y no se quita: va fuera de `muralla`, que no cambia en toda

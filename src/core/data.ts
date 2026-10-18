@@ -13,6 +13,7 @@ import poderJson from '../../data/poder.json' with { type: 'json' };
 import relieveJson from '../../data/relieve.json' with { type: 'json' };
 import riosJson from '../../data/rios.json' with { type: 'json' };
 import tiposDeHeroeJson from '../../data/tipos-de-heroe.json' with { type: 'json' };
+import { ruedaDelArmaBlocker } from './battle/cifras-de-la-rueda.js';
 import {
   BARRERAS,
   type Barrera,
@@ -22,26 +23,33 @@ import {
   type Suelo,
 } from './map/terrain.js';
 import type {
+  CifraDelHueco,
   Creature,
   CreatureTrait,
   FactionId,
   Hueco,
   HuecoDeArena,
   Resources,
+  RuedaDelArma,
   SpeedTier,
   UnitInfo,
 } from './types.js';
 import {
+  CIFRAS_DE_PIEZA,
   camposDelHueco,
   esArmaPorUso,
   esHuecoDeArena,
+  esTipoDeGolpe,
   FACTION_IDS,
   HUECOS,
   HUECOS_DE_LA_ARENA,
+  NOMBRE_DE_CIFRA,
+  NOMBRE_DE_HUECO,
   NOMBRE_DE_RECURSO,
   RESOURCE_KINDS,
   type ResourceKind,
   SPEED_TIERS,
+  TIPOS_DE_GOLPE,
 } from './types.js';
 
 const byId = new Map<string, Creature>();
@@ -792,7 +800,88 @@ export interface Pieza {
    * lectura). Solo en el hueco `arma`; sin el campo, una mano.
    */
   readonly manos?: 1 | 2;
+  /**
+   * Lo que suma a cada tipo de la rueda del golpe (**solo la arena**, 18-10-2026:
+   * «una maza es mejor en ataque fuerte y peor en rápido»): solo calidad `arena` y
+   * un hueco que golpea en ella (`camposDelHueco(h).conRueda`: `arma` y `carga`).
+   * Sin el campo, nada. Lo lleva al golpe `conEquipo` (`GolpeConArma.rueda`).
+   */
+  readonly rueda?: RuedaDelArma;
   readonly precio: Partial<Resources>;
+}
+
+/**
+ * Lo que una pieza con base suma encima de la suya (18-10-2026: «una espada de
+ * herrería debería poder ser una espada normal con extras»): sus cifras, el daño
+ * por componentes, la rueda por tipo y el precio en oro. **Enteros con signo**:
+ * manda la regla de la pieza resuelta (`problemasDePieza`, un solo juez), así que
+ * una «oxidada» puede restar y cambiar de base es reversible. Sin un campo, 0.
+ */
+export interface ExtrasDePieza {
+  readonly ataque?: number;
+  readonly defensa?: number;
+  readonly armadura?: number;
+  readonly velocidad?: number;
+  readonly danio?: readonly [number, number];
+  readonly rueda?: RuedaDelArma;
+  readonly oro?: number;
+}
+
+/**
+ * Cómo es cada extra (`ExtrasDePieza`), en el orden en que se escriben: un número,
+ * dos (el daño, que se suma por componentes) o uno por tipo de golpe (la rueda).
+ * **La tabla de los extras, una vez**: de ella salen sus campos
+ * (`CAMPOS_DE_EXTRAS`), su forma (`problemasDePiezaConBase`), cómo se escriben
+ * (`piezaConBaseCanonica`) y la suma de una base y su inversa (`sumarExtras`).
+ */
+const FORMA_DE_LOS_EXTRAS = {
+  ataque: 'numero',
+  defensa: 'numero',
+  armadura: 'numero',
+  velocidad: 'numero',
+  danio: 'par',
+  rueda: 'porTipo',
+  oro: 'numero',
+} as const satisfies Readonly<Record<keyof ExtrasDePieza, 'numero' | 'par' | 'porTipo'>>;
+
+type CampoDeExtra = keyof typeof FORMA_DE_LOS_EXTRAS;
+
+/** Los extras que son un número (`FORMA_DE_LOS_EXTRAS`). */
+type ExtraNumerico = {
+  [K in CampoDeExtra]: (typeof FORMA_DE_LOS_EXTRAS)[K] extends 'numero' ? K : never;
+}[CampoDeExtra];
+
+const EXTRAS = Object.keys(FORMA_DE_LOS_EXTRAS) as readonly CampoDeExtra[];
+const EXTRAS_NUMERICOS = EXTRAS.filter(
+  (c): c is ExtraNumerico => FORMA_DE_LOS_EXTRAS[c] === 'numero',
+);
+
+/** Unos extras con todo escrito (lo que no suma, 0): la forma en que se suman. */
+export type ExtrasEnteros = { readonly [K in CampoDeExtra]-?: NonNullable<ExtrasDePieza[K]> };
+
+/**
+ * Una pieza escrita **sobre otra** (`base`, el id de otra pieza de la arena): su
+ * nombre y lo que suma encima (`extras`). El hueco, la calidad, las manos y los PV
+ * son los de su base, que no se repiten: si cambia la base, cambia ella (el
+ * vínculo es vivo). La suma la hace solo `resolverBases`.
+ */
+export interface PiezaConBase {
+  readonly id: string;
+  readonly nombre: string;
+  readonly base: string;
+  readonly extras: ExtrasDePieza;
+}
+
+/**
+ * Una pieza como se ESCRIBE (el fichero, el borrador, el enlace, la batalla): con
+ * sus cifras enteras o sobre otra. Una `PiezaConBase` no encaja en `Pieza` (le
+ * faltan el hueco y las cifras), así que nadie la lee como si estuviera resuelta.
+ */
+export type PiezaEscrita = Pieza | PiezaConBase;
+
+/** Si `p` está escrita sobre otra. */
+export function esPiezaConBase(p: PiezaEscrita): p is PiezaConBase {
+  return 'base' in p;
 }
 
 /**
@@ -815,8 +904,15 @@ export const CAMPOS_DE_PIEZA: readonly string[] = [
   'velocidad',
   'danio',
   'manos',
+  'rueda',
   'precio',
 ];
+
+/** Los campos de una pieza con base (`PiezaConBase`). */
+export const CAMPOS_DE_PIEZA_CON_BASE: readonly string[] = ['id', 'nombre', 'base', 'extras'];
+
+/** Los campos de los extras de una pieza con base (`FORMA_DE_LOS_EXTRAS`). */
+export const CAMPOS_DE_EXTRAS: readonly string[] = EXTRAS;
 
 /** Cómo se nombra una pieza en un motivo: por su id si lo trae, si no `otro`. */
 function quienEsLaPieza(p: Record<string, unknown>, otro: string): string {
@@ -824,13 +920,44 @@ function quienEsLaPieza(p: Record<string, unknown>, otro: string): string {
 }
 
 /**
+ * Lo más que da de armadura una pieza de la arena (A4 de QA de #262: sin tope,
+ * `1e3` entraba como 1000 y la pelea se agotaba en la ronda 100). **Inventado**:
+ * la barda, la que más, da 22; 99 deja probar de sobra sin que nada sea inmune.
+ * Lo juzga la regla de una pieza (`problemasDePieza`).
+ */
+export const ARMADURA_MAXIMA_DE_PIEZA = 99;
+
+/** Las cifras que un hueco admite o no (`camposDelHueco`): todas menos los PV. */
+const CIFRAS_DEL_HUECO = CIFRAS_DE_PIEZA.filter((c): c is CifraDelHueco => c !== 'pv');
+
+/** Cómo se dice una cifra en un motivo: «daño», «defensa». */
+function cifraDicha(c: CifraDelHueco): string {
+  return NOMBRE_DE_CIFRA[c].toLowerCase();
+}
+
+/**
+ * Si un valor ya leído suma algo: un número distinto de 0, o una lista o un
+ * objeto con alguno (el daño, la rueda). Lo que no se ha escrito no suma.
+ */
+function sumaAlgo(v: unknown): boolean {
+  if (typeof v === 'number') return v !== 0;
+  if (Array.isArray(v)) return v.some(sumaAlgo);
+  return typeof v === 'object' && v !== null && Object.values(v).some(sumaAlgo);
+}
+
+/**
  * Lo que no vale de UNA pieza, cada cosa con su frase, o vacío si vale: los
  * campos que existen (`CAMPOS_DE_PIEZA`), los textos, el hueco y la calidad que existen, las cifras enteras ≥ 0, el escudo
- * que resta velocidad, el daño `[mín, máx]`, las manos solo en un arma y el
- * precio. **La regla de una pieza, en un sitio**: la leen el cargador del
- * catálogo (`validarEquipo`, que añade las reglas de conjunto) y la arena, que
- * edita piezas una a una (`validarPiezaDeArena`, `piezaBlocker`). Escrita en los
- * dos, un escudo que no resta valdría en la arena y no en el juego.
+ * que resta velocidad, el daño `[mín, máx]`, las manos solo en un arma, la rueda
+ * y el precio. Una de la arena, además, solo con las cifras de su hueco
+ * (`camposDelHueco`), la armadura con tope (`ARMADURA_MAXIMA_DE_PIEZA`), una rueda
+ * que se queda en pie (`ruedaDelArmaBlocker`) y el precio solo en oro
+ * (18-10-2026). **La regla de una
+ * pieza, en un sitio**: la leen el cargador del catálogo (`validarEquipo`, que
+ * añade las reglas de conjunto), la arena, que edita piezas una a una
+ * (`validarPiezaDeArena`, `piezaBlocker`), y la suma de una base
+ * (`resolverBases`), que la juzga resuelta. Escrita en dos sitios, un escudo que
+ * no resta valdría en la arena y no en el juego.
  */
 export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   const problemas: string[] = [];
@@ -860,6 +987,7 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
       `${q} es de calidad "${p.calidad}", que no existe; valen ${CALIDADES.join(', ')}`,
     );
   }
+  const deLaArena = p.calidad === 'arena';
   for (const campo of ['ataque', 'defensa', 'pv'] as const) {
     if (!enteroDesde(p[campo], 0)) {
       problemas.push(`${q}: ${campo} tiene que ser un entero ≥ 0 y ${comoSeLee(p[campo])}`);
@@ -871,12 +999,14 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   // juego, que no la lee (`pnpm banco`).
   if (p.armadura !== undefined && !enteroDesde(p.armadura, 0)) {
     problemas.push(`${q}: armadura tiene que ser un entero ≥ 0 y ${comoSeLee(p.armadura)}`);
-  } else if (typeof p.armadura === 'number' && p.armadura > 0 && p.calidad !== 'arena') {
+  } else if (typeof p.armadura === 'number' && p.armadura > 0 && !deLaArena) {
     problemas.push(
       `${q} es de calidad ${String(p.calidad)} y lleva armadura: la armadura es solo de la arena; fuera de ella, la pieza suma PV`,
     );
+  } else if (typeof p.armadura === 'number' && p.armadura > ARMADURA_MAXIMA_DE_PIEZA) {
+    problemas.push(`${q}: la armadura va de 0 a ${ARMADURA_MAXIMA_DE_PIEZA} y es ${p.armadura}`);
   }
-  if (p.calidad === 'arena' && typeof p.pv === 'number' && p.pv > 0) {
+  if (deLaArena && typeof p.pv === 'number' && p.pv > 0) {
     problemas.push(
       `${q} es de la arena y suma ${p.pv} PV: en la arena se protege con armadura, que se resta de cada golpe, no con PV`,
     );
@@ -898,6 +1028,17 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
       problemas.push(`${q}: el daño mínimo que suma (${d[0]}) pasa del máximo (${d[1]})`);
     }
   }
+  // Cada tipo, solo sus cifras (decisión del usuario, 18-10-2026: «diferencia por
+  // tipo»). Solo la arena: las del juego (un accesorio que suma de todo) siguen
+  // como estaban, y ya cumplen.
+  if (deLaArena && campos !== null) {
+    for (const cifra of CIFRAS_DEL_HUECO) {
+      if (campos.cifras.includes(cifra) || !sumaAlgo(p[cifra])) continue;
+      problemas.push(
+        `${q} va en el hueco ${String(p.hueco)}, que no suma ${cifraDicha(cifra)}: en él una pieza de la arena suma ${campos.cifras.map(cifraDicha).join(', ')}`,
+      );
+    }
+  }
   if (p.manos !== undefined) {
     if (p.manos !== 1 && p.manos !== 2) {
       problemas.push(`${q}: manos es 1 o 2, y es ${p.manos}`);
@@ -905,6 +1046,24 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
       problemas.push(
         `${q} va en el hueco ${p.hueco} y dice manos: solo un arma se lleva a dos manos`,
       );
+    }
+  }
+  if (p.rueda !== undefined) {
+    const suyos = problemasDeRueda(p.rueda, q);
+    problemas.push(...suyos);
+    if (suyos.length === 0 && sumaAlgo(p.rueda)) {
+      const rota = ruedaDelArmaBlocker(p.rueda as RuedaDelArma);
+      if (!deLaArena) {
+        problemas.push(
+          `${q} es de calidad ${String(p.calidad)} y cambia la rueda del golpe: la rueda es solo de la arena`,
+        );
+      } else if (campos !== null && !campos.conRueda) {
+        problemas.push(
+          `${q} va en el hueco ${String(p.hueco)} y cambia la rueda del golpe: solo un arma de cuerpo a cuerpo o de carga golpea en ella`,
+        );
+      } else if (rota !== null) {
+        problemas.push(`${q}: ${rota}`);
+      }
     }
   }
   const precio = (p.precio ?? null) as Record<string, unknown> | null;
@@ -916,6 +1075,10 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
         problemas.push(
           `${q} cuesta "${recurso}", que no es un recurso; valen ${RESOURCE_KINDS.join(', ')}`,
         );
+      } else if (deLaArena && recurso !== 'gold') {
+        problemas.push(
+          `${q} es de la arena y cuesta ${NOMBRE_DE_RECURSO[recurso as ResourceKind]}: en la arena el precio es solo en oro`,
+        );
       } else if (!enteroDesde(cifra, 0)) {
         problemas.push(
           typeof cifra === 'number' && Number.isFinite(cifra)
@@ -923,6 +1086,93 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
             : `${q}: el precio en ${NOMBRE_DE_RECURSO[recurso as ResourceKind]} tiene que ser un entero ≥ 0 y ${comoSeLee(cifra)}`,
         );
       }
+    }
+  }
+  return problemas;
+}
+
+/**
+ * Lo que no vale de la forma de una rueda (`Pieza.rueda`, `ExtrasDePieza.rueda`):
+ * un objeto con tipos de golpe (`TIPOS_DE_GOLPE`) y enteros con signo. Si sus
+ * cifras finales dejan la rueda en pie (un Fuerte que no multiplica) no se mira
+ * aquí: lo dice `ruedaDelArmaBlocker` sobre la pieza (`problemasDePieza`).
+ */
+function problemasDeRueda(rueda: unknown, q: string): string[] {
+  if (typeof rueda !== 'object' || rueda === null || Array.isArray(rueda)) {
+    return [`${q}: la rueda tiene que ser un objeto con un número por tipo de golpe`];
+  }
+  const problemas: string[] = [];
+  for (const [tipo, cifra] of Object.entries(rueda)) {
+    if (!esTipoDeGolpe(tipo)) {
+      problemas.push(
+        `${q}: «${tipo}» no es un tipo de golpe de la rueda; valen ${TIPOS_DE_GOLPE.join(', ')}`,
+      );
+    } else if (!enteroDesde(cifra, Number.MIN_SAFE_INTEGER)) {
+      problemas.push(`${q}: lo que suma a ${tipo} tiene que ser un entero y ${comoSeLee(cifra)}`);
+    }
+  }
+  return problemas;
+}
+
+/**
+ * Lo que no vale de UNA pieza con base (`PiezaConBase`), cada cosa con su frase:
+ * sus campos, el id, el nombre, la base (otra pieza, no ella misma) y la forma de
+ * los extras (`FORMA_DE_LOS_EXTRAS`), enteros con signo. Que la base exista, sea
+ * de la arena y no dé la vuelta lo dice `baseBlocker`, y que la pieza resuelta
+ * valga, `resolverBases`.
+ */
+export function problemasDePiezaConBase(bruta: unknown, quien?: string): string[] {
+  if (typeof bruta !== 'object' || bruta === null || Array.isArray(bruta)) {
+    return [`${quien ?? 'la pieza'} no es un objeto`];
+  }
+  const p = bruta as Record<string, unknown>;
+  const q = quien ?? quienEsLaPieza(p, 'la pieza');
+  const problemas: string[] = [];
+  for (const ajeno of Object.keys(p).filter((k) => !CAMPOS_DE_PIEZA_CON_BASE.includes(k))) {
+    problemas.push(
+      CAMPOS_DE_PIEZA.includes(ajeno)
+        ? `${q} tiene base y escribe «${ajeno}»: con base se escriben solo sus extras; el hueco, la calidad, las manos y los PV son los de la base`
+        : `${q}: «${ajeno}» no es un campo de una pieza con base; valen ${CAMPOS_DE_PIEZA_CON_BASE.join(', ')}`,
+    );
+  }
+  if (typeof p.id !== 'string' || p.id === '') problemas.push(`${q} no trae id como texto`);
+  if (typeof p.nombre !== 'string' || p.nombre.trim() === '') {
+    problemas.push(`${q} no tiene nombre: escribe uno`);
+  }
+  if (typeof p.base !== 'string' || p.base === '') {
+    problemas.push(`${q}: la base es el id de otra pieza, como texto`);
+  } else if (p.base === p.id) {
+    problemas.push(suPropiaBase(q));
+  }
+  const x = p.extras;
+  if (typeof x !== 'object' || x === null || Array.isArray(x)) {
+    problemas.push(`${q}: los extras tienen que ser un objeto (vacío si no suma nada)`);
+    return problemas;
+  }
+  const e = x as Record<string, unknown>;
+  for (const ajeno of Object.keys(e).filter((k) => !CAMPOS_DE_EXTRAS.includes(k))) {
+    problemas.push(
+      `${q}: «${ajeno}» no es un extra de una pieza; valen ${CAMPOS_DE_EXTRAS.join(', ')}`,
+    );
+  }
+  const conSigno = (n: unknown): boolean => enteroDesde(n, Number.MIN_SAFE_INTEGER);
+  for (const campo of EXTRAS) {
+    const v = e[campo];
+    if (v === undefined) continue;
+    switch (FORMA_DE_LOS_EXTRAS[campo]) {
+      case 'numero':
+        if (!conSigno(v)) {
+          problemas.push(`${q}: el extra de ${campo} tiene que ser un entero y ${comoSeLee(v)}`);
+        }
+        break;
+      case 'par':
+        if (!Array.isArray(v) || v.length !== 2 || !v.every(conSigno)) {
+          problemas.push(`${q}: el extra de daño tiene que ser [+mínimo, +máximo], dos enteros`);
+        }
+        break;
+      case 'porTipo':
+        problemas.push(...problemasDeRueda(v, q));
+        break;
     }
   }
   return problemas;
@@ -941,34 +1191,334 @@ export function piezaBlocker(bruta: unknown): string | null {
   return problemasDePieza(bruta)[0] ?? null;
 }
 
+/** Una rueda sin los tipos que no suman nada, o `undefined` si no suma nada. */
+function ruedaSinCeros(r: RuedaDelArma | undefined): RuedaDelArma | undefined {
+  if (r === undefined) return undefined;
+  const suma = TIPOS_DE_GOLPE.filter((t) => (r[t] ?? 0) !== 0).map((t) => [t, r[t]] as const);
+  return suma.length === 0 ? undefined : Object.fromEntries(suma);
+}
+
 /**
- * Valida un catálogo de equipo y lo devuelve tipado. **Lanza con todos los
- * problemas a la vez**, escritos para quien edita el JSON. Exportada con el
- * JSON de argumento por lo mismo que `validarExperiencia`: un guardia que solo
- * se prueba con el fichero bueno no se ha visto morder.
+ * Una pieza ya válida escrita siempre igual: los campos en su orden, sin lo que no
+ * suma nada (`armadura` 0, `danio` sin máximo, una mano, la rueda sin ceros) y el
+ * precio sin los ceros (en oro si no cuesta nada). Es la forma que comparan
+ * `mismaPieza` y el sello de la arena: el catálogo (`validarEquipo`), la arena
+ * (`validarPiezaDeArena`) y la suma de una base (`resolverBases`) escriben así.
+ * Una pieza del juego sale con los mismos campos que en el fichero (el banco).
+ */
+export function piezaCanonica(p: Pieza): Pieza {
+  const danio = p.danio !== undefined && p.danio[1] > 0 ? p.danio : undefined;
+  const rueda = ruedaSinCeros(p.rueda);
+  const precio = Object.fromEntries(
+    RESOURCE_KINDS.filter((k) => (p.precio[k] ?? 0) > 0).map((k) => [k, p.precio[k]]),
+  ) as Partial<Resources>;
+  return {
+    id: p.id,
+    nombre: p.nombre,
+    hueco: p.hueco,
+    calidad: p.calidad,
+    ataque: p.ataque,
+    defensa: p.defensa,
+    pv: p.pv,
+    ...((p.armadura ?? 0) > 0 ? { armadura: p.armadura } : {}),
+    velocidad: p.velocidad,
+    ...(danio === undefined ? {} : { danio: [danio[0], danio[1]] as const }),
+    ...(p.manos === 2 ? { manos: 2 as const } : {}),
+    ...(rueda === undefined ? {} : { rueda }),
+    precio: Object.keys(precio).length === 0 ? { gold: 0 } : precio,
+  };
+}
+
+/** Una pieza con base ya válida escrita siempre igual: los extras en su orden y sin ceros. */
+export function piezaConBaseCanonica(p: PiezaConBase): PiezaConBase {
+  const x = p.extras;
+  const extras: Record<string, unknown> = {};
+  for (const campo of EXTRAS) {
+    if (!sumaAlgo(x[campo])) continue;
+    if (campo === 'rueda') extras.rueda = ruedaSinCeros(x.rueda);
+    else if (campo === 'danio') extras.danio = [x.danio?.[0], x.danio?.[1]];
+    else extras[campo] = x[campo];
+  }
+  return { id: p.id, nombre: p.nombre, base: p.base, extras: extras as ExtrasDePieza };
+}
+
+/**
+ * Lo que suma la pieza `p`, como extras sobre nada (`ExtrasEnteros`): sus cifras,
+ * su daño, su rueda y su precio en oro. Con `conLosExtras`, la ficha edita una
+ * pieza entera como edita los extras de una con base.
+ */
+export function extrasDe(p: Pieza): ExtrasEnteros {
+  return {
+    ataque: p.ataque,
+    defensa: p.defensa,
+    armadura: p.armadura ?? 0,
+    velocidad: p.velocidad,
+    danio: p.danio ?? [0, 0],
+    rueda: p.rueda ?? {},
+    oro: p.precio.gold ?? 0,
+  };
+}
+
+/**
+ * La pieza `p` sumando `x` (lo que no trae, 0) en lugar de lo suyo, **sin
+ * juzgar**: su id, su nombre, su hueco, su calidad, sus PV y sus manos se quedan.
+ * La inversa de `extrasDe`.
+ */
+export function conLosExtras(p: Pieza, x: ExtrasDePieza): Pieza {
+  return {
+    id: p.id,
+    nombre: p.nombre,
+    hueco: p.hueco,
+    calidad: p.calidad,
+    ataque: x.ataque ?? 0,
+    defensa: x.defensa ?? 0,
+    pv: p.pv,
+    armadura: x.armadura ?? 0,
+    velocidad: x.velocidad ?? 0,
+    danio: x.danio ?? [0, 0],
+    ...(p.manos === undefined ? {} : { manos: p.manos }),
+    rueda: x.rueda ?? {},
+    precio: { ...p.precio, gold: x.oro ?? 0 },
+  };
+}
+
+/**
+ * `a` más `b` por `signo`, extra a extra (`FORMA_DE_LOS_EXTRAS`): los números, el
+ * daño por componentes y la rueda por tipo. Con `+1` es la suma de una base
+ * (`sumarBase`); con `−1`, su inversa (`diferenciaDe`). Los ceros se quedan: los
+ * quita la forma canónica.
+ */
+function sumarExtras(a: ExtrasDePieza, b: ExtrasDePieza, signo: 1 | -1): ExtrasEnteros {
+  const mas = (x: number | undefined, y: number | undefined): number => (x ?? 0) + signo * (y ?? 0);
+  const numeros = Object.fromEntries(EXTRAS_NUMERICOS.map((c) => [c, mas(a[c], b[c])])) as Record<
+    ExtraNumerico,
+    number
+  >;
+  return {
+    ...numeros,
+    danio: [mas(a.danio?.[0], b.danio?.[0]), mas(a.danio?.[1], b.danio?.[1])],
+    rueda: Object.fromEntries(TIPOS_DE_GOLPE.map((t) => [t, mas(a.rueda?.[t], b.rueda?.[t])])),
+  };
+}
+
+/**
+ * La pieza `e` sobre su base `base`, sumada y **sin juzgar** (`sumarExtras`): lo de
+ * la base más los extras; el hueco, la calidad, los PV y las manos, de la base. La
+ * juzga `resolverEscritas` antes de escribirla canónica: un daño que se queda en
+ * negativo tiene que poder verse.
+ */
+function sumarBase(base: Pieza, e: PiezaConBase): Pieza {
+  const suma = conLosExtras(base, sumarExtras(extrasDe(base), e.extras, 1));
+  return { ...suma, id: e.id, nombre: e.nombre };
+}
+
+/**
+ * Los extras que llevan de `base` a lo que suma `final`: la inversa de la suma de
+ * una base. Con ellos, cambiar de base conserva lo que suma una pieza (`conBase`).
+ */
+export function diferenciaDe(final: Pieza, base: Pieza): ExtrasEnteros {
+  return sumarExtras(extrasDe(final), extrasDe(base), -1);
+}
+
+/** «X no puede ser su propia base»: la forma de una pieza y la regla de una base lo dicen igual. */
+function suPropiaBase(q: string): string {
+  return `${q} no puede ser su propia base`;
+}
+
+/**
+ * Por qué la pieza `quien` no puede ir sobre la de id `base`, o `null`. **La regla
+ * de una base, en un sitio**: la base existe, no es ella misma, no está sobre ella
+ * (sus bases darían la vuelta), es de la arena y, si se dice `hueco`, va en él
+ * (cambiar de base no cambia de hueco). `escritas` dice cómo está escrita cada
+ * pieza (`conElFichero`). La leen la suma de las bases (`resolverEscritas`), el
+ * cambio de base (`conBase`) y lo que ofrece el desplegable «Base»
+ * (`basesPosibles`). Si la base misma está rota, no se mira aquí: lo dice ella.
+ */
+export function baseBlocker(
+  quien: { readonly id: string; readonly nombre: string },
+  base: string,
+  escritas: ReadonlyMap<string, PiezaEscrita>,
+  hueco?: HuecoDeArena,
+): string | null {
+  const q = `«${quien.nombre}»`;
+  if (base === quien.id) return suPropiaBase(q);
+  const b = escritas.get(base);
+  if (b === undefined) return `${q} toma de base «${base}», que no existe`;
+  // De la base a su raíz, la que está entera: si pasa por `quien`, da la vuelta.
+  const cadena: PiezaEscrita[] = [b];
+  let raiz: PiezaEscrita = b;
+  while (esPiezaConBase(raiz)) {
+    if (raiz.base === quien.id) {
+      const vuelta = [quien, ...cadena, quien].map((x) => `«${x.nombre}»`).join(' → ');
+      return `${q}: sus bases dan la vuelta (${vuelta}); una pieza no puede estar sobre sí misma`;
+    }
+    const siguiente = escritas.get(raiz.base);
+    if (siguiente === undefined || cadena.includes(siguiente)) return null;
+    cadena.push(siguiente);
+    raiz = siguiente;
+  }
+  if (raiz.calidad !== 'arena') {
+    return `${q} toma de base «${b.nombre}», que no es de la arena: solo se parte de una pieza de la arena`;
+  }
+  if (hueco !== undefined && raiz.hueco !== hueco) {
+    return `«${b.nombre}» va en ${NOMBRE_DE_HUECO[raiz.hueco]} y ${q} en ${NOMBRE_DE_HUECO[hueco]}: la base es del mismo hueco`;
+  }
+  return null;
+}
+
+/** Lo que sale de resolver unas piezas escritas: las resueltas, las escritas y lo que no vale, por id. */
+export interface ResolucionDePiezas {
+  /** Las que valen, resueltas, en el orden de las escritas. */
+  readonly piezas: ReadonlyMap<string, Pieza>;
+  readonly escritas: ReadonlyMap<string, PiezaEscrita>;
+  /** Las que no valen, con su motivo; la que depende de una que no vale tampoco. */
+  readonly problemas: ReadonlyMap<string, string>;
+}
+
+/**
+ * Cada pieza de `escritas` resuelta: la entera, tal cual; la que tiene base, su
+ * base resuelta más sus extras (`sumarBase`), en cadena. No vale (con su motivo):
+ * la base que no puede ser (`baseBlocker`), la pieza resuelta que no cumple la
+ * regla de una pieza (`problemasDePieza`) y la que tiene el id de una de `fijas`
+ * (las del fichero, en la arena) y no va en su hueco. La que depende de una que
+ * no vale tampoco vale, y lo dice. **La única suma de una base**: la llaman el
+ * cargador del catálogo y `resolverBases`.
+ */
+function resolverEscritas(
+  escritas: ReadonlyMap<string, PiezaEscrita>,
+  fijas: ReadonlyMap<string, Pieza> = new Map(),
+  rotas: ReadonlyMap<string, PiezaRota> = new Map(),
+): ResolucionDePiezas {
+  const hechas = new Map<string, Pieza>();
+  const problemas = new Map<string, string>();
+  // Sin pila: `baseBlocker` no deja recorrer una base que dé la vuelta.
+  const resolver = (id: string): Pieza | null => {
+    const ya = hechas.get(id);
+    if (ya !== undefined) return ya;
+    if (problemas.has(id)) return null;
+    const r = resolverUna(escritas.get(id) as PiezaEscrita);
+    if (typeof r === 'string') {
+      problemas.set(id, r);
+      return null;
+    }
+    hechas.set(id, r);
+    return r;
+  };
+  const resolverUna = (e: PiezaEscrita): Pieza | string => {
+    const q = `«${e.nombre}»`;
+    let p: Pieza;
+    if (!esPiezaConBase(e)) {
+      p = e;
+    } else {
+      // Una base que se leyó y no vale no «no existe»: no vale, y se dice por qué.
+      const rota = escritas.has(e.base) ? undefined : rotas.get(e.base);
+      if (rota !== undefined) return suBaseNoVale(q, rota.nombre, rota.motivo);
+      const mal = baseBlocker(e, e.base, escritas);
+      if (mal !== null) return mal;
+      const b = resolver(e.base);
+      if (b === null) {
+        const nombre = escritas.get(e.base)?.nombre ?? e.base;
+        return suBaseNoVale(q, nombre, problemas.get(e.base) ?? '');
+      }
+      const suma = sumarBase(b, e);
+      const suyos = problemasDePieza(suma, `${q} (sobre «${b.nombre}»)`);
+      if (suyos.length > 0) return suyos.join('; ');
+      p = piezaCanonica(suma);
+    }
+    const fija = fijas.get(e.id);
+    if (fija !== undefined && fija.hueco !== p.hueco) {
+      return `${q} es una pieza de data/equipo.json y va en ${NOMBRE_DE_HUECO[fija.hueco]}: su hueco no se cambia en la arena (crea una nueva)`;
+    }
+    return p;
+  };
+  for (const id of escritas.keys()) resolver(id);
+  const piezas = new Map<string, Pieza>();
+  for (const id of escritas.keys()) {
+    const p = hechas.get(id);
+    if (p !== undefined) piezas.set(id, p);
+  }
+  return { piezas, escritas, problemas };
+}
+
+/** «X: su base «Y» no vale (por qué)»: la que está sobre una que no vale. */
+function suBaseNoVale(q: string, base: string, motivo: string): string {
+  return `${q}: su base «${base}» no vale (${motivo})`;
+}
+
+/** Una pieza que se leyó y no vale (de un borrador), con su nombre y su motivo. */
+export interface PiezaRota {
+  readonly nombre: string;
+  readonly motivo: string;
+}
+
+/**
+ * Las piezas del fichero (`EQUIPO_ESCRITO`) con `encima` encima, como están
+ * escritas, por id: una con el id de otra la sustituye y una nueva va detrás. Lo
+ * que resuelve `resolverBases`, y por donde la arena sigue una cadena de bases
+ * sin resolverla (`piezasDelMontaje`, `piezasDelEnlace`, lo que se borra).
+ */
+export function conElFichero(encima: readonly PiezaEscrita[]): ReadonlyMap<string, PiezaEscrita> {
+  const escritas = new Map<string, PiezaEscrita>(EQUIPO_ESCRITO.map((p) => [p.id, p]));
+  for (const p of encima) escritas.set(p.id, p);
+  return escritas;
+}
+
+/**
+ * Las piezas del fichero con `encima` encima (`conElFichero`), cada una resuelta
+ * (`resolverEscritas`): la entera tal cual y la que tiene base, su base más sus
+ * extras, en cadena; una con el id de una del fichero no cambia de hueco. Las
+ * `rotas` (las de un borrador que no se leyeron) no están, pero lo que va sobre
+ * ellas dice por qué no vale. **La única suma de una base** (lo vigila
+ * `test/invariantes.test.ts`): la leen el catálogo de la arena
+ * (`catalogoDeLaArena`, su borrador) y las piezas de una pelea
+ * (`piezasDeLaPelea`), y el cargador del fichero hace la misma.
+ */
+export function resolverBases(
+  encima: readonly PiezaEscrita[],
+  rotas: ReadonlyMap<string, PiezaRota> = new Map(),
+): ResolucionDePiezas {
+  return resolverEscritas(conElFichero(encima), EQUIPO_POR_ID, rotas);
+}
+
+/**
+ * Valida un catálogo de equipo y lo devuelve tipado: escrito (`escritas`, con sus
+ * bases) y resuelto (`piezas`). **Lanza con todos los problemas a la vez**,
+ * escritos para quien edita el JSON.
  *
  * La regla que más importa es la última: **exactamente una pieza de armería por
  * hueco**. De ella sale el equipo base de todo héroe (`equipoBase`), y con dos
  * habría que elegir cuál es «la mejor que se puede comprar» con un criterio que
  * no está en los datos; con ninguna, el héroe nacería con un hueco vacío.
  */
-export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): readonly Pieza[] {
+function leerEquipo(
+  json: unknown,
+  fichero: string,
+): { readonly escritas: readonly PiezaEscrita[]; readonly piezas: readonly Pieza[] } {
   const problemas: string[] = [];
   const lista = ((json ?? {}) as { piezas?: unknown }).piezas;
   if (!Array.isArray(lista) || lista.length === 0) {
     throw new Error(`${fichero}: no trae ninguna pieza en "piezas"`);
   }
-  const piezas: Pieza[] = [];
-  const vistos = new Set<string>();
+  const escritas = new Map<string, PiezaEscrita>();
   for (const [i, bruta] of (lista as unknown[]).entries()) {
     const p = (bruta ?? {}) as Record<string, unknown>;
     const quien = quienEsLaPieza(p, `la pieza ${i}`);
-    const suyos = problemasDePieza(p, quien);
-    if (typeof p.id === 'string' && vistos.has(p.id)) suyos.push(`${quien} está repetida`);
-    if (typeof p.id === 'string') vistos.add(p.id);
+    const conBase = typeof p === 'object' && 'base' in p;
+    const suyos = conBase ? problemasDePiezaConBase(p, quien) : problemasDePieza(p, quien);
+    if (typeof p.id === 'string' && escritas.has(p.id)) suyos.push(`${quien} está repetida`);
     problemas.push(...suyos);
-    if (suyos.length === 0) piezas.push(p as unknown as Pieza);
+    if (suyos.length === 0) {
+      escritas.set(
+        p.id as string,
+        conBase
+          ? piezaConBaseCanonica(p as unknown as PiezaConBase)
+          : piezaCanonica(p as unknown as Pieza),
+      );
+    }
   }
+  const resueltas = resolverEscritas(escritas);
+  problemas.push(...resueltas.problemas.values());
+  const piezas = [...resueltas.piezas.values()];
   // Los huecos de la arena (`distancia`, `carga`) no llevan nada del juego: el
   // juego, el botín, la armería y el agente siguen con cuatro.
   for (const p of piezas) {
@@ -1002,14 +1552,37 @@ export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): read
     );
   }
   if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
-  return piezas;
+  return { escritas: [...escritas.values()], piezas };
+}
+
+/**
+ * Valida un catálogo de equipo y devuelve sus piezas resueltas (`leerEquipo`).
+ * Exportada con el JSON de argumento por lo mismo que `validarExperiencia`: un
+ * guardia que solo se prueba con el fichero bueno no se ha visto morder.
+ */
+export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): readonly Pieza[] {
+  return leerEquipo(json, fichero).piezas;
 }
 
 /** El hueco que el equipo base deja vacío: ni armería ni héroe nacido con él. */
 const HUECO_SIN_ARMERIA = 'escudo' satisfies Hueco;
 
-/** El catálogo de equipo, en el orden del fichero: es el orden del sorteo del botín. */
-export const EQUIPO: readonly Pieza[] = validarEquipo(equipoJson);
+const EQUIPO_LEIDO = leerEquipo(equipoJson, 'data/equipo.json');
+
+/**
+ * El catálogo de equipo como está escrito en el fichero, con sus bases: de él
+ * parte la arena (`resolverBases`), que compara con él lo que cambia.
+ */
+export const EQUIPO_ESCRITO: readonly PiezaEscrita[] = EQUIPO_LEIDO.escritas;
+
+/**
+ * El catálogo de equipo resuelto, en el orden del fichero: es el orden del sorteo
+ * del botín. Las piezas con base van al final, como todo lo de la arena.
+ */
+export const EQUIPO: readonly Pieza[] = EQUIPO_LEIDO.piezas;
+
+/** `EQUIPO` por id: lo que una pieza del fichero es, para que la arena no le cambie el hueco. */
+const EQUIPO_POR_ID: ReadonlyMap<string, Pieza> = new Map(EQUIPO.map((p) => [p.id, p]));
 
 /** Una barrera con su peso en un sorteo. */
 export interface BarreraConPeso {

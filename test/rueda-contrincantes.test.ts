@@ -115,7 +115,9 @@ describe('R3 de QA (#263): R. guardia dice en cuánto deja el contraataque antes
     const ahora = p.prevision.contraataque;
     const porExito = p.prevision.porTipo?.romperGuardia.contraataquePorExito ?? [];
     expect(ahora).not.toBeNull();
-    expect(porExito.map((x) => x.punto)).toEqual([4, 3, 2]);
+    // El orco pega con el mandoble, que quita uno más en cada éxito (18-10-2026):
+    // también el bajo y el mínimo rebajan el contraataque.
+    expect(porExito.map((x) => x.punto)).toEqual([4, 3, 2, 1, 0]);
     const h = (x: { min: number; max: number }) =>
       x.min === x.max ? `${x.min}` : `${x.min}–${x.max}`;
     const frase = `Su contraataque (con Normal, ${h(ahora ?? { min: 0, max: 0 })}) queda, según el éxito, en: ${porExito

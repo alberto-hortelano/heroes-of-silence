@@ -50,6 +50,7 @@ import {
   poderDeHabilidad,
 } from './battle/poderes.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from './battle/reglas.js';
+import { ruedaDelArmaEnPalabras } from './battle/rueda.js';
 import {
   allSpells,
   delHeroe,
@@ -66,17 +67,29 @@ import type {
   Side,
   TipoDeArena,
 } from './battle/types.js';
-import { CATALOGO_DE_HABILIDADES, LIDERAZGO, type Pieza, problemasDePieza } from './data.js';
 import {
-  ARMADURA_MAXIMA_DE_PIEZA,
+  baseBlocker,
+  CATALOGO_DE_HABILIDADES,
+  conElFichero,
+  diferenciaDe,
+  esPiezaConBase,
+  LIDERAZGO,
+  type Pieza,
+  type PiezaConBase,
+  type PiezaEscrita,
+  piezaCanonica,
+  piezaConBaseCanonica,
+  problemasDePieza,
+  problemasDePiezaConBase,
+  resolverBases,
+} from './data.js';
+import {
   aDosManos,
-  armaduraDePV,
   EQUIPO_BASE,
   type EquipoAtado,
   equipoCon,
   idsPuestos,
   mismasCifras,
-  NOMBRE_DE_HUECO,
   nadaEnElHueco,
   PIEZAS_DEL_CATALOGO,
   quitarPieza,
@@ -86,6 +99,7 @@ import { CIFRAS_DEL_HEROE_INICIAL, cuerpoDelHeroe, HERO_BODY, maxMana } from './
 import { indiceDePoder, medidaBlocker, nivelDelIndice } from './nivel.js';
 import type { Rng } from './rng.js';
 import {
+  type CifraDelHueco,
   CREATURE_TRAITS,
   type Creature,
   type CreatureTrait,
@@ -94,8 +108,7 @@ import {
   type EquipoDeArena,
   HUECOS_DE_LA_ARENA,
   type HuecoDeArena,
-  RESOURCE_KINDS,
-  type Resources,
+  NOMBRE_DE_HUECO,
   SPEED_TIERS,
   SPEED_TO_HEXES,
   type SpeedTier,
@@ -533,142 +546,180 @@ export function quitarEnArena(u: UnidadDeArena, hueco: HuecoDeArena): UnidadDeAr
 // ------------------------------------------------------------- las piezas de la arena
 
 /**
+ * Las piezas con que pelea la arena: las lecturas atadas a su catálogo, resuelto
+ * (`EquipoAtado`), y cómo está escrita cada una (`escritas`: entera o sobre su
+ * base), por id. La ficha, el cambio de base y lo que se guarda leen las escritas;
+ * todo lo que pelea, las resueltas.
+ */
+export type CatalogoDeLaArena = EquipoAtado & {
+  readonly escritas: ReadonlyMap<string, PiezaEscrita>;
+};
+
+/**
  * Las piezas con que pelea la arena: las del juego (`data/equipo.json`) con las
  * de su borrador encima (`data/borradores/equipo.json`): una con el id de una del
- * juego la sustituye —su cambio vale solo aquí— y una con un id nuevo se añade
+ * fichero la sustituye —su cambio vale solo aquí— y una con un id nuevo se añade
  * detrás. **El juego no lo ve**: ni el botín, ni la armería, ni el agente, que
- * leen `EQUIPO` y sus listas. Comprueba cada pieza (`validarPiezaDeArena`) y que
- * ninguna vaya dos veces, y da las lecturas de las piezas atadas a ese catálogo
+ * leen `EQUIPO` y sus listas. Comprueba cada pieza (`validarPiezaDeArena`), que
+ * ninguna vaya dos veces, y las resuelve con sus bases (`resolverBases`, la única
+ * suma de una base, que juzga cada resuelta con la regla de una pieza); lanza con
+ * la primera que no vale. Da las lecturas de las piezas atadas a ese catálogo
  * (`equipoCon`): la arena no lee una pieza por otro camino.
  *
  * Las fronteras (el montaje, la batalla, el retoque, el enlace, el disco) llevan
- * la lista del borrador; el catálogo se hace aquí, donde se resuelve.
+ * la lista del borrador, escrita; el catálogo se hace aquí, donde se resuelve.
  */
-export function catalogoDeLaArena(delBorrador: readonly Pieza[]): EquipoAtado {
-  const piezas = new Map(juegoEscrito());
+export function catalogoDeLaArena(delBorrador: readonly PiezaEscrita[]): CatalogoDeLaArena {
   const vistas = new Set<string>();
-  for (const crudo of delBorrador) {
+  const validadas = delBorrador.map((crudo) => {
     const p = validarPiezaDeArena(crudo);
     if (vistas.has(p.id)) throw new Error(`la pieza «${p.nombre}» («${p.id}») va dos veces`);
     vistas.add(p.id);
-    piezas.set(p.id, p);
-  }
-  return equipoCon(piezas);
+    return p;
+  });
+  const r = resolverBases(validadas);
+  const [mal] = r.problemas.values();
+  if (mal !== undefined) throw new Error(mal);
+  return { ...equipoCon(r.piezas), escritas: r.escritas };
 }
 
 /**
- * Lo que la arena cambia o añade de un catálogo: las piezas que no son la del
- * juego tal cual (`selloDePieza`), en su orden. La inversa de `catalogoDeLaArena`:
- * es lo que se guarda en el borrador, en la batalla y en el enlace.
+ * Lo que la arena cambia o añade de un catálogo: las piezas, escritas, que no son
+ * la del fichero tal cual (`selloDePieza`), en su orden. La inversa de
+ * `catalogoDeLaArena`: es lo que se guarda en el borrador, en la batalla y en el
+ * enlace.
  */
-export function piezasDeLaArena(eq: EquipoAtado): readonly Pieza[] {
-  return [...eq.piezas.values()].filter((p) => selloDePieza(p) !== 'del juego');
+export function piezasDeLaArena(eq: CatalogoDeLaArena): readonly PiezaEscrita[] {
+  return [...eq.escritas.values()].filter((p) => !esDeSerie(p));
 }
 
-/** De dónde sale una pieza: tal cual del juego, cambiada en la arena o nueva. */
+/** De dónde sale una pieza: tal cual del fichero, cambiada en la arena o nueva. */
 export type SelloDePieza = 'del juego' | 'cambiada' | 'nueva';
 
 /**
  * El sello de `p` (escrita como la escribe `validarPiezaDeArena`), comparada con
- * la del juego de su id. Lo leen el catálogo de la arena, el cambio de una pieza,
- * el parte de la pelea («vuelve a la del juego») y la vista «Editar equipo».
+ * la del fichero de su id **como está escrita**: la Espada de herrería del
+ * fichero sigue «del juego» aunque cambie la Espada (su vínculo es vivo), y pasa a
+ * «cambiada» si se le cambian los extras o la base. Lo leen el catálogo de la
+ * arena, el cambio de una pieza, el parte de la pelea («vuelve a la de serie») y
+ * la vista «Editar equipo».
  */
-export function selloDePieza(p: Pieza): SelloDePieza {
-  const delJuego = juegoEscrito().get(p.id);
-  if (delJuego === undefined) return 'nueva';
-  return mismaPieza(delJuego, p) ? 'del juego' : 'cambiada';
+export function selloDePieza(p: PiezaEscrita): SelloDePieza {
+  const delFichero = ESCRITAS_DEL_FICHERO.get(p.id);
+  if (delFichero === undefined) return 'nueva';
+  return mismaPieza(delFichero, p) ? 'del juego' : 'cambiada';
 }
 
-let juegoEscritoHecho: ReadonlyMap<string, Pieza> | null = null;
 /**
- * Las piezas del juego escritas como las escribe la arena (`validarPiezaDeArena`):
- * así `mismaPieza` compara dos formas normalizadas sin volver a validar. Se hace
- * la primera vez que se pide, no al cargar el módulo.
+ * Si `p` es la del fichero tal cual está escrita: «de serie» (`selloDePieza`). **La
+ * única pregunta**: la leen lo que se guarda (`piezasDeLaArena`, `conPieza`) y el
+ * parte de un retoque («vuelve a la de serie»).
  */
-function juegoEscrito(): ReadonlyMap<string, Pieza> {
-  juegoEscritoHecho ??= new Map(
-    [...PIEZAS_DEL_CATALOGO.values()].map((p) => [p.id, validarPiezaDeArena(p)]),
-  );
-  return juegoEscritoHecho;
+export function esDeSerie(p: PiezaEscrita): boolean {
+  return selloDePieza(p) === 'del juego';
 }
+
+/**
+ * La primera base de la cadena de `id` en `eq` (sin contarla a ella, de la más
+ * cercana a la más lejana) cuya escrita cumple `cumple`, ya resuelta; `null` si
+ * ninguna. La leen el sello en pantalla (`baseCambiada`) y el parte de un retoque
+ * (qué base se tocó).
+ */
+function primeraBaseQue(
+  eq: CatalogoDeLaArena,
+  id: string,
+  cumple: (escrita: PiezaEscrita) => boolean,
+): Pieza | null {
+  const propia = eq.escritas.get(id);
+  for (let e = propia; e !== undefined && esPiezaConBase(e); ) {
+    const base = eq.escritas.get(e.base);
+    if (base === undefined) return null;
+    if (cumple(base)) return eq.pieza(base.id);
+    e = base;
+  }
+  return null;
+}
+
+/**
+ * La base de la cadena de `id` que no es de serie (`esDeSerie`), la más cercana, o
+ * `null` si todas lo son: con ella, una pieza escrita como en el fichero suma otra
+ * cosa (su vínculo es vivo). Lo dice el sello de la vista «Editar equipo» (QA 2 del
+ * 18-10-2026: la herrería seguía «de serie» con la Espada cambiada).
+ */
+export function baseCambiada(eq: CatalogoDeLaArena, id: string): Pieza | null {
+  return primeraBaseQue(eq, id, (e) => !esDeSerie(e));
+}
+
+/**
+ * Si la pieza `id` de `eq` y todas sus bases son de serie (`esDeSerie`): entonces
+ * suma lo mismo que en el fichero. Lo pregunta el parte de un retoque.
+ */
+function deSerieConSusBases(eq: CatalogoDeLaArena, id: string): boolean {
+  const propia = eq.escritas.get(id);
+  return propia !== undefined && esDeSerie(propia) && baseCambiada(eq, id) === null;
+}
+
+/**
+ * Las piezas del fichero como están escritas (`EQUIPO_ESCRITO`, ya en la forma
+ * canónica que escribe también `validarPiezaDeArena`), por id: así `mismaPieza`
+ * compara dos formas iguales sin volver a validar.
+ */
+const ESCRITAS_DEL_FICHERO: ReadonlyMap<string, PiezaEscrita> = conElFichero([]);
 
 /**
  * Una pieza de la arena, comprobada y escrita siempre igual; lanza diciendo qué
- * no cuadra. La regla de una pieza es la del catálogo del juego
- * (`problemasDePieza`: los campos que existen, las cifras, el escudo que resta, el
- * daño, las manos solo en un arma, el precio); encima, la de la arena:
+ * no cuadra. Entera, la regla de una pieza es la del catálogo del juego
+ * (`problemasDePieza`: los campos que existen, las cifras de su hueco, el escudo
+ * que resta, el daño, las manos solo en un arma, la rueda, el precio en oro); sobre
+ * otra, la de su forma (`problemasDePiezaConBase`), y lo que dé resuelta lo juzga
+ * el catálogo (`catalogoDeLaArena`). Encima, la de la arena:
  *
  * - el id, en minúsculas, cifras, `-` y `_` (`esIdDePieza`);
- * - una pieza con el id de una del juego es esa pieza cambiada, y **su hueco y su
- *   calidad no se cambian**: de la calidad salen el botín, la armería y el equipo
- *   base, y el juego tiene que poder pasarla tal cual;
- * - una nueva es de calidad `arena`, que el juego no reparte.
+ * - **en la arena solo se cambian las piezas de la arena** (18-10-2026): una con
+ *   el id de una del juego de otra calidad no vale —de la calidad salen el botín,
+ *   la armería y el equipo base, y la arena no las enseña—;
+ * - una entera con el id de una del fichero es esa pieza cambiada (su hueco no se
+ *   cambia: lo dice el catálogo, `resolverBases`, que lo mira también en la que
+ *   tiene base); una nueva entera es de calidad `arena`, que el juego no reparte.
  *
- * Lo que no suma nada se escribe sin el campo (`danio` [0, 0], una mano) y el precio sin los ceros (y en oro si no cuesta nada): es la forma que
+ * Sale en la forma canónica (`piezaCanonica`, `piezaConBaseCanonica`), la que
  * compara `mismaPieza`. Todo lo que entra a la arena pasa por aquí.
  */
-export function validarPiezaDeArena(valor: unknown): Pieza {
+export function validarPiezaDeArena(valor: unknown): PiezaEscrita {
   if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
     throw new Error('una pieza de la arena tiene que ser un objeto');
   }
   const p = valor as Record<string, unknown>;
   const quien = typeof p.nombre === 'string' && p.nombre !== '' ? `«${p.nombre}»` : 'la pieza';
-  const problemas = problemasDePieza(p, quien);
+  const conBase = 'base' in p;
+  const problemas = conBase ? problemasDePiezaConBase(p, quien) : problemasDePieza(p, quien);
   if (problemas.length > 0) throw new Error(problemas.join('; '));
   const id = p.id as string;
   if (!esIdDePieza(id)) {
     throw new Error(`${quien}: el id «${id}» va en minúsculas, con cifras, guiones y _`);
   }
+  const delFichero = PIEZAS_DEL_CATALOGO.get(id);
+  if (delFichero !== undefined && delFichero.calidad !== 'arena') {
+    throw new Error(
+      `${quien} es una pieza del juego de calidad «${delFichero.calidad}»: en la arena solo se cambian las piezas de la arena`,
+    );
+  }
+  if (conBase) return piezaConBaseCanonica(p as unknown as PiezaConBase);
   const bruta = p as unknown as Pieza;
-  const delJuego = PIEZAS_DEL_CATALOGO.get(id);
-  if (delJuego !== undefined) {
-    if (bruta.hueco !== delJuego.hueco) {
-      throw new Error(
-        `${quien} es una pieza del juego y va en ${NOMBRE_DE_HUECO[delJuego.hueco]}: su hueco no se cambia en la arena (crea una nueva)`,
-      );
-    }
-    if (bruta.calidad !== delJuego.calidad) {
-      throw new Error(
-        `${quien} es una pieza del juego de calidad «${delJuego.calidad}»: su calidad no se cambia en la arena, de ella salen el botín, la armería y el equipo base`,
-      );
-    }
-  } else if (bruta.calidad !== 'arena') {
+  if (bruta.calidad !== 'arena') {
     throw new Error(
-      `${quien} es una pieza nueva y su calidad es «arena», que el juego no reparte, no «${bruta.calidad}»`,
+      `${quien} es una pieza de la arena y su calidad es «arena», que el juego no reparte, no «${bruta.calidad}»`,
     );
   }
-  if ((bruta.armadura ?? 0) > ARMADURA_MAXIMA_DE_PIEZA) {
-    throw new Error(
-      `${quien}: la armadura va de 0 a ${ARMADURA_MAXIMA_DE_PIEZA} y es ${bruta.armadura}`,
-    );
-  }
-  const danio = bruta.danio !== undefined && bruta.danio[1] > 0 ? bruta.danio : undefined;
-  const precio = Object.fromEntries(
-    RESOURCE_KINDS.filter((k) => (bruta.precio[k] ?? 0) > 0).map((k) => [k, bruta.precio[k]]),
-  ) as Partial<Resources>;
-  return {
-    id,
-    nombre: bruta.nombre,
-    hueco: bruta.hueco,
-    calidad: bruta.calidad,
-    ataque: bruta.ataque,
-    defensa: bruta.defensa,
-    pv: bruta.pv,
-    // Como el daño: sin el campo si no suma nada (las del juego no lo escriben).
-    ...((bruta.armadura ?? 0) > 0 ? { armadura: bruta.armadura } : {}),
-    velocidad: bruta.velocidad,
-    ...(danio === undefined ? {} : { danio: [danio[0], danio[1]] as const }),
-    ...(aDosManos(bruta) ? { manos: 2 as const } : {}),
-    precio: Object.keys(precio).length === 0 ? { gold: 0 } : precio,
-  };
+  return piezaCanonica(bruta);
 }
 
 /**
- * Si dos piezas son la misma, cifra a cifra. Las dos, ya escritas por
- * `validarPiezaDeArena` (lo que entra a la arena, y las del juego por
- * `juegoEscrito`): con dos formas normalizadas basta comparar el texto.
+ * Si dos piezas son la misma, cifra a cifra (o extra a extra). Las dos en la forma
+ * canónica (`validarPiezaDeArena`, el fichero, la suma de una base): con dos
+ * formas normalizadas basta comparar el texto.
  */
-export function mismaPieza(a: Pieza, b: Pieza): boolean {
+export function mismaPieza(a: PiezaEscrita, b: PiezaEscrita): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
@@ -681,102 +732,203 @@ export function piezaEnPalabras(p: Pieza): FichaEnPalabras {
     nombre: p.nombre,
     ataque: `${p.ataque}`,
     defensa: `${p.defensa}`,
-    PV: `${p.pv}`,
     armadura: `${p.armadura ?? 0}`,
     daño: `${p.danio?.[0] ?? 0}-${p.danio?.[1] ?? 0}`,
     velocidad: `${p.velocidad}`,
     manos: aDosManos(p) ? '2' : '1',
+    rueda: ruedaDelArmaEnPalabras(p.rueda),
     precio: describirCoste(p.precio),
   };
 }
 
 /**
- * `p` en el hueco `hueco`, con lo que el hueco exige: un escudo resta velocidad
- * (al menos −1) y solo un arma de cuerpo a cuerpo se lleva a dos manos. Lo que el
- * escudo exigía se
- * va con él: un escudo que pasa a otro hueco deja de restar (velocidad 0), que si
- * no un arma recién cambiada restaba sin que nadie lo hubiera pedido. Lo demás se
- * queda como estaba. Lo leen la pieza nueva en blanco (`piezaNueva`) y el cambio
- * de hueco de la ficha: cambiar una nueva a escudo no se rechaza por la velocidad
- * que traía.
+ * `p` en el hueco `hueco`, con lo que el hueco exige y nada de lo que no admite
+ * (`camposDelHueco`): un escudo resta velocidad (al menos −1), solo un arma de
+ * cuerpo a cuerpo se lleva a dos manos, solo ella y la lanza llevan rueda, y las
+ * cifras que el hueco no suma se quedan en 0 —un arma que pasa a escudo deja su
+ * ataque y su daño—. Lo que el escudo exigía se va con él: un escudo que pasa a
+ * otro hueco deja de restar (velocidad 0), que si no un arma recién cambiada
+ * restaba sin que nadie lo hubiera pedido. Lo demás se queda como estaba. Lo leen
+ * la pieza nueva en blanco (`piezaNueva`) y el cambio de hueco de la ficha.
  */
 export function enElHueco(p: Pieza, hueco: HuecoDeArena): Pieza {
-  const { manos, ...sinNada } = p;
-  const velocidad =
-    hueco === 'escudo'
+  const { manos, rueda, danio, armadura, ...resto } = p;
+  const campos = camposDelHueco(hueco);
+  const admite = (c: CifraDelHueco): boolean => campos.cifras.includes(c);
+  const velocidad = !admite('velocidad')
+    ? 0
+    : hueco === 'escudo'
       ? Math.min(p.velocidad, -1)
       : p.hueco === 'escudo'
         ? Math.max(p.velocidad, 0)
         : p.velocidad;
-  // Lo que admite el hueco (`camposDelHueco`): un mandoble que pasa a `distancia`
-  // deja de ser a dos manos.
   return {
-    ...sinNada,
-    ...(camposDelHueco(hueco).conManos && manos !== undefined ? { manos } : {}),
+    ...resto,
     hueco,
+    ataque: admite('ataque') ? p.ataque : 0,
+    defensa: admite('defensa') ? p.defensa : 0,
+    ...(admite('armadura') && armadura !== undefined ? { armadura } : {}),
     velocidad,
+    ...(admite('danio') && danio !== undefined ? { danio } : {}),
+    ...(campos.conManos && manos !== undefined ? { manos } : {}),
+    ...(campos.conRueda && rueda !== undefined ? { rueda } : {}),
   };
 }
 
 /**
- * Una pieza NUEVA: en blanco en un hueco —nada que sumar, con lo que el hueco
- * exige (`enElHueco`); una a distancia ya dispara por ir en su hueco— o como copia de otra («Duplicar»), y siempre de calidad
- * `arena`. Su id es `<base>-<n>` con el primer `n` ≥ 2 libre entre las piezas de
- * `eq` (las del juego y las de la arena) y `sinValidar` (las del borrador que no
- * valen y se conservan, que una nueva no debe pisar); la base es el hueco o el id
- * de la que se copia sin su `-<n>`.
+ * Una pieza NUEVA, siempre de la arena: en blanco en un hueco —nada que sumar, con
+ * lo que el hueco exige (`enElHueco`); una a distancia ya dispara por ir en su
+ * hueco— o como copia de otra («Duplicar»: tal como está escrita, con su base si
+ * la tiene). Sobre otra («Nueva sobre esta»), `piezaSobre`. Su id y su nombre,
+ * `idYNombreNuevos`.
  */
 export function piezaNueva(
   desde: HuecoDeArena | Pieza,
-  eq: EquipoAtado,
+  eq: CatalogoDeLaArena,
   sinValidar: readonly string[] = [],
-): Pieza {
-  const base = typeof desde === 'string' ? desde : desde.id.replace(/-\d+$/, '');
+): PiezaEscrita {
+  const { id, nombre } = idYNombreNuevos(desde, eq, sinValidar);
+  if (typeof desde === 'string') {
+    const enBlanco: Pieza = {
+      id,
+      nombre,
+      hueco: desde,
+      calidad: 'arena',
+      ataque: 0,
+      defensa: 0,
+      pv: 0,
+      velocidad: 0,
+      precio: { gold: 0 },
+    };
+    return validarPiezaDeArena(enElHueco(enBlanco, desde));
+  }
+  if (desde.calidad !== 'arena') {
+    throw new Error(
+      `«${desde.nombre}» es una pieza del juego: en la arena solo se parte de una pieza de la arena`,
+    );
+  }
+  return validarPiezaDeArena({ ...escritaDe(eq, desde.id), id, nombre });
+}
+
+/**
+ * Una pieza NUEVA **sobre** `base` («Nueva sobre esta»): la base, la elegida, y
+ * sin extras, así que suma lo mismo hasta que se le pongan. Lo que no puede ser
+ * base lo dice `baseBlocker`. Su id y su nombre, `idYNombreNuevos`.
+ */
+export function piezaSobre(
+  base: Pieza,
+  eq: CatalogoDeLaArena,
+  sinValidar: readonly string[] = [],
+): PiezaEscrita {
+  const nueva = { ...idYNombreNuevos(base, eq, sinValidar), base: base.id, extras: {} };
+  const mal = baseBlocker(nueva, base.id, eq.escritas);
+  if (mal !== null) throw new Error(mal);
+  return validarPiezaDeArena(nueva);
+}
+
+/**
+ * El id y el nombre de una pieza nueva que parte de `desde`: `<raíz>-<n>` y
+ * `<raíz> <n>` con el primer `n` ≥ 2 libre entre las piezas de `eq` (las del juego
+ * y las de la arena) y `sinValidar` (las del borrador que no valen y se
+ * conservan, que una nueva no debe pisar); la raíz es el hueco o la pieza de
+ * partida sin su `-<n>`. Ni el id ni el nombre de otra: dos piezas con el mismo
+ * nombre no se distinguen en el desplegable de la unidad ni en su tarjeta.
+ */
+function idYNombreNuevos(
+  desde: HuecoDeArena | Pieza,
+  eq: CatalogoDeLaArena,
+  sinValidar: readonly string[],
+): { readonly id: string; readonly nombre: string } {
+  const raizDelId = typeof desde === 'string' ? desde : desde.id.replace(/-\d+$/, '');
   const raiz =
     typeof desde === 'string' ? NOMBRE_DE_HUECO[desde] : desde.nombre.replace(/ \d+$/, '');
-  // Ni el id ni el nombre de otra: dos piezas con el mismo nombre no se
-  // distinguen en el desplegable de la unidad ni en su tarjeta.
   const nombres = new Set([...eq.piezas.values()].map((p) => nombreComparable(p.nombre)));
   let n = 2;
   while (
-    eq.piezas.has(`${base}-${n}`) ||
-    sinValidar.includes(`${base}-${n}`) ||
+    eq.piezas.has(`${raizDelId}-${n}`) ||
+    sinValidar.includes(`${raizDelId}-${n}`) ||
     nombres.has(nombreComparable(`${raiz} ${n}`))
   ) {
     n++;
   }
-  const id = `${base}-${n}`;
-  if (typeof desde !== 'string') {
-    // Una del juego que suma PV, duplicada en la arena, protege con armadura (#262):
-    // la calidad de la copia es `arena`, que no suma PV. Lo dice `avisoDeLaCopia`.
-    const copia: Pieza = { ...desde, id, nombre: `${raiz} ${n}`, calidad: 'arena' };
-    return validarPiezaDeArena(
-      copia.pv > 0
-        ? { ...copia, pv: 0, armadura: (copia.armadura ?? 0) + armaduraDePV(copia.pv) }
-        : copia,
-    );
-  }
-  const enBlanco: Pieza = {
-    id,
-    nombre: `${raiz} ${n}`,
-    hueco: desde,
-    calidad: 'arena',
-    ataque: 0,
-    defensa: 0,
-    pv: 0,
-    velocidad: 0,
-    precio: { gold: 0 },
-  };
-  return validarPiezaDeArena(enElHueco(enBlanco, desde));
+  return { id: `${raizDelId}-${n}`, nombre: `${raiz} ${n}` };
+}
+
+/**
+ * La pieza `escrita` sobre la base `base` (el id de otra pieza de la arena del
+ * mismo hueco), o entera con `null`, **con las mismas cifras finales**: sus extras
+ * pasan a ser lo que le falta a la base para llegar a lo que suma ahora
+ * (`diferenciaDe`). Cambiar de base y volver deja la pieza como estaba. Las manos
+ * son las de la base. Lanza con lo que diga `baseBlocker` (con su hueco: cambiar
+ * de base no cambia de hueco). Lo pide el desplegable «Base» de su ficha.
+ */
+export function conBase(
+  escrita: PiezaEscrita,
+  base: string | null,
+  eq: CatalogoDeLaArena,
+): PiezaEscrita {
+  const final = eq.pieza(escrita.id);
+  if (base === null) return validarPiezaDeArena({ ...final, nombre: escrita.nombre });
+  const mal = baseBlocker(escrita, base, eq.escritas, final.hueco);
+  if (mal !== null) throw new Error(mal);
+  return validarPiezaDeArena({
+    id: escrita.id,
+    nombre: escrita.nombre,
+    base,
+    extras: diferenciaDe(final, eq.pieza(base)),
+  });
+}
+
+/**
+ * Cómo está escrita la pieza `id` de `eq`: entera o sobre su base. Lanza si no
+ * está. La leen la ficha, lo que se duplica y lo que se cambia.
+ */
+export function escritaDe(eq: CatalogoDeLaArena, id: string): PiezaEscrita {
+  const e = eq.escritas.get(id);
+  if (e === undefined) throw new Error(`no hay ninguna pieza «${id}»`);
+  return e;
+}
+
+/** La base de la pieza `id` de `eq`, resuelta, o `null` si está entera. */
+export function baseDe(eq: CatalogoDeLaArena, id: string): Pieza | null {
+  const e = escritaDe(eq, id);
+  return esPiezaConBase(e) ? eq.pieza(e.base) : null;
+}
+
+/**
+ * De qué sale la pieza `id`: su cadena de bases resueltas, de la raíz a ella
+ * («Espada → Espada de herrería → Espada bendita»), o solo ella si está entera
+ * (`baseDe`, en cadena). Lo enseña su ficha.
+ */
+export function cadenaDeBases(eq: CatalogoDeLaArena, id: string): readonly Pieza[] {
+  const cadena: Pieza[] = [eq.pieza(id)];
+  for (let b = baseDe(eq, id); b !== null; b = baseDe(eq, b.id)) cadena.unshift(b);
+  return cadena;
+}
+
+/**
+ * Las piezas que `id` puede tomar de base (`baseBlocker`, con su hueco): las de la
+ * arena de su hueco, sin ella ni las que están sobre ella. Las ofrece el
+ * desplegable «Base» de su ficha; `conBase` dice por qué no a las demás.
+ */
+export function basesPosibles(eq: CatalogoDeLaArena, id: string): readonly Pieza[] {
+  const p = eq.pieza(id);
+  const escrita = escritaDe(eq, id);
+  return [...eq.piezas.values()].filter(
+    (b) => baseBlocker(escrita, b.id, eq.escritas, p.hueco) === null,
+  );
 }
 
 /**
  * Las piezas de la arena con `p` puesta: sustituye a la de su id o se añade al
- * final. Si `p` es la del juego tal cual, la quita: ya no está cambiada.
+ * final. Si `p` es la del fichero tal cual, la quita: ya no está cambiada.
  */
-export function conPieza(delBorrador: readonly Pieza[], p: Pieza): readonly Pieza[] {
+export function conPieza(
+  delBorrador: readonly PiezaEscrita[],
+  p: PiezaEscrita,
+): readonly PiezaEscrita[] {
   const nueva = validarPiezaDeArena(p);
-  if (selloDePieza(nueva) === 'del juego') return delBorrador.filter((x) => x.id !== nueva.id);
+  if (esDeSerie(nueva)) return delBorrador.filter((x) => x.id !== nueva.id);
   const i = delBorrador.findIndex((x) => x.id === nueva.id);
   return i < 0
     ? [...delBorrador, nueva]
@@ -784,10 +936,13 @@ export function conPieza(delBorrador: readonly Pieza[], p: Pieza): readonly Piez
 }
 
 /**
- * Las piezas de la arena sin la de id `id`: una nueva se borra, y una del juego
- * cambiada vuelve a la del juego. Lanza si no está.
+ * Las piezas de la arena sin la de id `id`: una nueva se borra, y una del fichero
+ * cambiada vuelve a la de serie. Lanza si no está.
  */
-export function sinPieza(delBorrador: readonly Pieza[], id: string): readonly Pieza[] {
+export function sinPieza(
+  delBorrador: readonly PiezaEscrita[],
+  id: string,
+): readonly PiezaEscrita[] {
   if (!delBorrador.some((x) => x.id === id)) {
     throw new Error(`la pieza «${id}» no está cambiada ni es nueva: no hay nada que quitar`);
   }
@@ -809,17 +964,22 @@ function equipoQueNoVale(cuerpo: UnitInfo, equipo: EquipoDeArena, eq: EquipoAtad
 
 /**
  * Por qué no se pasa de las piezas de la arena `antes` a `despues`, o `null` si
- * se puede: que cada pieza valga (`catalogoDeLaArena`) y que **ninguna unidad de
- * `unidades` (el borrador) deje de valer** por una pieza que lleva y cambia o
- * desaparece —un arma que pasa a dos manos con un escudo puesto, una nueva que se
- * borra—, diciendo quién la lleva. La leen la vista «Editar equipo» y sus
- * pruebas. En plena pelea se pregunta además a la batalla (`retocarEnBatalla`).
+ * se puede: que no se borre la base de otra (`baseQueSeBorra`), que cada pieza
+ * valga resuelta (`catalogoDeLaArena`: un cambio en la base se juzga con todas las
+ * que dependen de ella) y que **ninguna unidad de `unidades` (el borrador) deje de
+ * valer** por una pieza que lleva y cambia o desaparece —un arma que pasa a dos
+ * manos con un escudo puesto, una nueva que se borra, la Espada bendita que cambia
+ * porque cambió la Espada—, diciendo quién la lleva. La leen la vista «Editar
+ * equipo» y sus pruebas. En plena pelea se pregunta además a la batalla
+ * (`retocarEnBatalla`).
  */
 export function cambioDePiezaBlocker(
-  antes: readonly Pieza[],
-  despues: readonly Pieza[],
+  antes: readonly PiezaEscrita[],
+  despues: readonly PiezaEscrita[],
   unidades: readonly UnidadDeArena[],
 ): string | null {
+  const base = baseQueSeBorra(antes, despues);
+  if (base !== null) return base;
   const leidos = oElMotivo(() => ({
     viejo: catalogoDeLaArena(antes),
     nuevo: catalogoDeLaArena(despues),
@@ -838,6 +998,30 @@ export function cambioDePiezaBlocker(
       }
       const motivo = equipoQueNoVale(cuerpoDeCombate(u), u.equipo, nuevo);
       if (motivo !== null) return motivo;
+    }
+  }
+  return null;
+}
+
+/**
+ * Por qué de `antes` a `despues` se borra la base de otra pieza que sigue
+ * (18-10-2026: «Espada es la base de «Espada de herrería»»), o `null`. Solo se
+ * borra una nueva: una del fichero que sale del borrador vuelve a la de serie.
+ */
+function baseQueSeBorra(
+  antes: readonly PiezaEscrita[],
+  despues: readonly PiezaEscrita[],
+): string | null {
+  const quedan = conElFichero(despues);
+  // De cada base, la primera que está sobre ella.
+  const sobre = new Map<string, PiezaEscrita>();
+  for (const x of quedan.values()) {
+    if (esPiezaConBase(x) && !sobre.has(x.base)) sobre.set(x.base, x);
+  }
+  for (const p of antes) {
+    const sobreElla = quedan.has(p.id) ? undefined : sobre.get(p.id);
+    if (sobreElla !== undefined) {
+      return `«${p.nombre}» es la base de «${sobreElla.nombre}»: cámbiale la base o bórrala antes`;
     }
   }
   return null;
@@ -871,15 +1055,16 @@ function nombreRepetido(viejo: EquipoAtado, nuevo: EquipoAtado): string | null {
  * Las piezas que escribe «Guardar» con un enlace abierto: las del
  * borrador y, de la capa del enlace (`piezasDelEnlace`), solo las **nuevas** que
  * el borrador no tiene —las llevan unidades del enlace que entran en el borrador
- * de unidades, que sin ellas no validarían—. Una pieza del juego que el enlace
+ * de unidades, que sin ellas no validarían—. Una pieza del fichero que el enlace
  * trae cambiada, o tal cual, no sustituye ni borra la tuya: el enlace pelea con
  * las suyas sin tocar las de quien lo abre, y las unidades guardadas pelearán con
- * las tuyas.
+ * las tuyas. Una nueva del enlace sobre una base que el enlace trae cambiada se
+ * guarda sobre la tuya: el vínculo es vivo, y pelea con la base que tengas.
  */
 export function piezasQueSeGuardan(
-  delBorrador: readonly Pieza[],
-  delEnlace: readonly Pieza[],
-): readonly Pieza[] {
+  delBorrador: readonly PiezaEscrita[],
+  delEnlace: readonly PiezaEscrita[],
+): readonly PiezaEscrita[] {
   const nuevas = delEnlace.filter(
     (p) => selloDePieza(p) === 'nueva' && !delBorrador.some((x) => x.id === p.id),
   );
@@ -901,33 +1086,63 @@ export function idsLlevados(
 }
 
 /**
+ * `ids` con las bases de cada uno, en cadena (`escrita` dice cómo está escrita
+ * cada pieza), en orden: las de `ids` primero, cada una seguida de lo que le falta.
+ */
+function conSusBases(
+  ids: Iterable<string>,
+  escrita: (id: string) => PiezaEscrita | undefined,
+): ReadonlySet<string> {
+  const out = new Set<string>();
+  const poner = (id: string): void => {
+    if (out.has(id)) return;
+    out.add(id);
+    const e = escrita(id);
+    if (e !== undefined && esPiezaConBase(e)) poner(e.base);
+  };
+  for (const id of ids) poner(id);
+  return out;
+}
+
+/**
  * Las piezas de la arena que lleva lo montado: las de `delBorrador` puestas en
- * alguna unidad o, con héroe, en su equipo base (`idsLlevados`). Es lo que va en
- * el enlace de la pelea para que se abra igual en otra máquina.
+ * alguna unidad o, con héroe, en su equipo base (`idsLlevados`), **con sus bases**
+ * en cadena: la Espada bendita lleva la Espada de herrería y la Espada si están
+ * cambiadas. Es lo que va en el enlace de la pelea para que se abra igual en otra
+ * máquina.
  */
 export function piezasDelMontaje(
   unidades: readonly UnidadDeArena[],
   conHeroe: boolean,
-  delBorrador: readonly Pieza[],
-): readonly Pieza[] {
-  const llevadas = idsLlevados(unidades, conHeroe);
+  delBorrador: readonly PiezaEscrita[],
+): readonly PiezaEscrita[] {
+  const escritas = conElFichero(delBorrador);
+  const llevadas = conSusBases(idsLlevados(unidades, conHeroe), (id) => escritas.get(id));
   return delBorrador.filter((p) => llevadas.has(p.id));
 }
 
 /**
- * Las piezas con que pelea un enlace, para encima de las de la
- * arena que lo abre (`conPieza`, una a una): de cada pieza que lleva lo montado,
- * la del enlace si la trae y, si no, la del juego tal cual —que, puesta con
- * `conPieza`, deshace el cambio de esta arena—. Así pelea con las del juego más
- * las suyas, sin tocar el borrador: lo que no lleva se queda como estaba.
+ * Las piezas con que pelea un enlace, para encima de las de la arena que lo abre
+ * (`conPieza`, una a una): de cada pieza de la arena que lleva lo montado, con sus
+ * bases, la del enlace si la trae y, si no, la del fichero tal cual —que, puesta
+ * con `conPieza`, deshace el cambio de esta arena—. Así pelea con las del juego
+ * más las suyas, sin tocar el borrador: lo que no lleva se queda como estaba. El
+ * equipo base del héroe es del juego, que la arena no cambia: no va en la capa.
  */
-export function piezasDelEnlace(m: MontajeDelEnlace): readonly Pieza[] {
+export function piezasDelEnlace(m: MontajeDelEnlace): readonly PiezaEscrita[] {
   const conHeroe = m.izquierda.heroe !== null || m.derecha.heroe !== null;
-  return [...idsLlevados(m.unidades, conHeroe)].map((id) => {
-    const suya = m.piezas.find((p) => p.id === id) ?? juegoEscrito().get(id);
-    if (suya === undefined) throw new Error(`el enlace lleva la pieza «${id}» y no la trae`);
-    return suya;
-  });
+  const delEnlace = new Map(m.piezas.map((p) => [p.id, p]));
+  const escritas = conElFichero(m.piezas);
+  return [...conSusBases(idsLlevados(m.unidades, conHeroe), (id) => escritas.get(id))].flatMap(
+    (id) => {
+      const suya = delEnlace.get(id);
+      if (suya !== undefined) return [suya];
+      const delFichero = ESCRITAS_DEL_FICHERO.get(id);
+      if (delFichero === undefined)
+        throw new Error(`el enlace lleva la pieza «${id}» y no la trae`);
+      return PIEZAS_DEL_CATALOGO.get(id)?.calidad === 'arena' ? [delFichero] : [];
+    },
+  );
 }
 
 /**
@@ -935,12 +1150,12 @@ export function piezasDelEnlace(m: MontajeDelEnlace): readonly Pieza[] {
  * el juego no lo lee.
  */
 export const COMENTARIO_DEL_BORRADOR_DE_EQUIPO =
-  'BORRADOR de la arena (/arena/, pnpm arena, vista «Editar equipo»): piezas de equipo INVENTADAS y provisionales. Lo escribe la página al pulsar «Guardar» y lo valida validarPiezaDeArena (src/core/arena.ts); una pieza que no valida se conserva tal cual. El juego NO lo lee: ni el botín, ni la armería, ni el equipo base, ni el agente (leen data/equipo.json). Una pieza con el id de una de data/equipo.json es esa pieza cambiada y vale solo en la arena (su hueco y su calidad no se cambian); una con otro id es nueva, de calidad «arena». Los campos son los de data/equipo.json. Pasar una pieza al juego es copiarla a data/equipo.json a mano, y una nueva necesita además decidir su calidad (botín, armería…).';
+  'BORRADOR de la arena (/arena/, pnpm arena, vista «Editar equipo»): piezas de equipo INVENTADAS y provisionales. Lo escribe la página al pulsar «Guardar» y lo valida validarPiezaDeArena (src/core/arena.ts); una pieza que no valida se conserva tal cual. El juego NO lo lee: ni el botín, ni la armería, ni el equipo base, ni el agente (leen data/equipo.json). Solo piezas de la arena (calidad «arena»): una con el id de una de data/equipo.json es esa pieza cambiada y vale solo en la arena (su hueco no se cambia); una con otro id es nueva. Una pieza se escribe entera, con los campos de data/equipo.json (precio solo en oro, sin PV, cada hueco con sus cifras), o sobre otra de su hueco, {id, nombre, base, extras}: sus cifras son las de la base más los extras, en cadena, y si cambia la base cambia ella. Pasar una pieza al juego es copiarla a data/equipo.json a mano.';
 
 /** La clave del borrador de equipo: el id de cada pieza. */
 const CLAVE_DE_PIEZA = {
   campo: 'id',
-  clave: (p: Pieza) => p.id,
+  clave: (p: PiezaEscrita) => p.id,
   quien: (id: string) => `la pieza «${id}»`,
 } as const;
 
@@ -954,35 +1169,49 @@ function listaDelBorradorDeEquipo(valor: unknown): readonly unknown[] {
 /**
  * El borrador de equipo leído pieza a pieza: las que valen y las que no, con su
  * motivo. Solo el formato de hoy (`validarPiezaDeArena`): una pieza de antes —un
- * arco en `arma`, unos `disparos`, PV en una de la arena— no vale, y se conserva
- * tal cual al guardar como cualquier otra que no vale.
+ * arco en `arma`, unos `disparos`, PV en una de la arena, una del juego de otra
+ * calidad, un precio en madera— no vale, y se conserva tal cual al guardar como
+ * cualquier otra que no vale. Las que valen se resuelven con sus bases
+ * (`resolverBases`): la que no resuelve —su base no existe, da la vuelta, o
+ * resuelta no vale— pasa a las que no valen con su motivo, y con ella las que
+ * están sobre ella; el resto se lee.
  */
-export function revisarBorradorDeEquipo(valor: unknown): {
-  readonly validas: readonly Pieza[];
-  readonly invalidas: readonly ElementoSinValidar[];
-} {
-  return revisarLista(listaDelBorradorDeEquipo(valor), validarPiezaDeArena, CLAVE_DE_PIEZA);
+export function revisarBorradorDeEquipo(valor: unknown): BorradorDeEquipoRevisado {
+  const crudas = listaDelBorradorDeEquipo(valor);
+  const leidas = revisarLista(crudas, validarPiezaDeArena, CLAVE_DE_PIEZA);
+  // Las que no se leyeron, para que lo que va sobre ellas diga por qué no vale.
+  const rotas = new Map(
+    leidas.invalidas.flatMap((i) => {
+      if (i.clave === null) return [];
+      const nombre = (i.crudo as { nombre?: unknown } | null)?.nombre;
+      const suyo = typeof nombre === 'string' ? nombre : i.clave;
+      return [[i.clave, { nombre: suyo, motivo: i.motivo }] as const];
+    }),
+  );
+  const { problemas } = resolverBases(leidas.validas, rotas);
+  const crudaDe = (id: string): unknown =>
+    crudas.find((c) => typeof c === 'object' && c !== null && (c as { id?: unknown }).id === id);
+  const sinResolver = leidas.validas.flatMap((p) => {
+    const motivo = problemas.get(p.id);
+    return motivo === undefined ? [] : [{ clave: p.id, motivo, crudo: crudaDe(p.id) }];
+  });
+  return {
+    validas: leidas.validas.filter((p) => !problemas.has(p.id)),
+    // En el orden del borrador: la que no resuelve sale donde está escrita.
+    invalidas: [...leidas.invalidas, ...sinResolver].sort(
+      (a, b) => crudas.indexOf(a.crudo) - crudas.indexOf(b.crudo),
+    ),
+  };
 }
 
-/**
- * Lo que cambia al duplicar `original` como `copia` («Duplicar», `piezaNueva`): la
- * copia es de la arena, que protege con armadura y no con PV, así que los PV de
- * una del juego pasan a armadura (`armaduraDePV`). Sin decirlo, el
- * Talismán vital de +50 PV salía con +5 de armadura en silencio (A3 de QA de #262).
- * Una frase para la barra del editor, o `null` si no cambia nada.
- */
-export function avisoDeLaCopia(original: Pieza, copia: Pieza): string | null {
-  if (original.pv <= 0 || copia.pv > 0) return null;
-  const armadura = copia.armadura ?? 0;
-  const queda =
-    armadura === 0
-      ? 'no llegan a un punto de armadura, así que la copia no protege'
-      : `pasan a ${armadura} de armadura, que se resta del daño de cada golpe`;
-  return `En la arena una pieza no suma PV: los ${original.pv} PV de «${original.nombre}» ${queda}.`;
+/** El borrador de equipo leído: las piezas que valen y las que no, con su motivo. */
+export interface BorradorDeEquipoRevisado {
+  readonly validas: readonly PiezaEscrita[];
+  readonly invalidas: readonly ElementoSinValidar[];
 }
 
 /** El borrador de equipo que se va a ESCRIBIR, entero válido y sin dos veces un id. */
-export function validarBorradorDeEquipo(valor: unknown): readonly Pieza[] {
+export function validarBorradorDeEquipo(valor: unknown): readonly PiezaEscrita[] {
   return todasValidas(revisarBorradorDeEquipo(valor));
 }
 
@@ -1556,7 +1785,7 @@ export interface MontajeDeArena {
    * la misma pelea con dos espadas distintas no tendrían sentido, y cambiar una
    * pieza a media pelea la cambia para todos a la vez (`retocarEnBatalla`).
    */
-  readonly piezas: readonly Pieza[];
+  readonly piezas: readonly PiezaEscrita[];
 }
 
 /**
@@ -1820,7 +2049,7 @@ export type RetoqueDeArena =
    * `piezasDeLaArena`). Cambiar una, crearla, borrarla y volver a la del juego son
    * lo mismo: otra lista. «Editar equipo» también vale a media pelea.
    */
-  | { readonly kind: 'piezas'; readonly piezas: readonly Pieza[] };
+  | { readonly kind: 'piezas'; readonly piezas: readonly PiezaEscrita[] };
 
 /**
  * Aplica el retoque a la batalla en curso y devuelve `null`, o devuelve por qué
@@ -1952,8 +2181,8 @@ function aplicarAlTipo(state: BattleState, suyos: readonly BattleStack[], unit: 
  */
 function retocarLasPiezas(
   state: BattleState,
-  antes: EquipoAtado,
-  nuevas: readonly Pieza[],
+  antes: CatalogoDeLaArena,
+  nuevas: readonly PiezaEscrita[],
 ): string | null {
   const leido = oElMotivo(() => catalogoDeLaArena(nuevas));
   if ('motivo' in leido) return leido.motivo;
@@ -1981,7 +2210,25 @@ function retocarLasPiezas(
     const suyos = cambian.filter((c) => idsPuestos(c.lleva).includes(id));
     if (suyos.length === 0) continue;
     const cambios = cambiosDeLaFicha(piezaEnPalabras(a), piezaEnPalabras(d));
-    if (selloDePieza(d) === 'del juego') cambios.push('vuelve a la del juego');
+    // Vuelve a la de serie la que lo es con todas sus bases; la que sigue escrita
+    // igual cambió por su base (el vínculo es vivo), y se dice cuál.
+    const escritaAntes = antes.escritas.get(id);
+    const escrita = escritaDe(despues, id);
+    if (deSerieConSusBases(despues, id)) cambios.push('vuelve a la de serie');
+    else if (
+      escritaAntes !== undefined &&
+      esPiezaConBase(escrita) &&
+      mismaPieza(escrita, escritaAntes)
+    ) {
+      // La base que se tocó, no la de al lado (QA 3 del 18-10-2026): cambiar la
+      // Espada se dice «por su base, «Espada»» también en la bendita.
+      const tocada =
+        primeraBaseQue(despues, id, (e) => {
+          const a = antes.escritas.get(e.id);
+          return a === undefined || !mismaPieza(a, e);
+        }) ?? despues.pieza(escrita.base);
+      cambios.push(`por su base, «${tocada.nombre}»`);
+    }
     state.log.push({
       kind: 'retoque',
       nombre: d.nombre,
@@ -2164,7 +2411,7 @@ export interface MontajeDelEnlace {
    * enlace se abra igual en otra máquina: con ellas encima de las del juego pelea
    * la pelea del enlace.
    */
-  readonly piezas: readonly Pieza[];
+  readonly piezas: readonly PiezaEscrita[];
   readonly izquierda: LadoDelEnlace;
   readonly derecha: LadoDelEnlace;
   /** La muralla del tablero, o `null` sin ella. */
@@ -2193,7 +2440,7 @@ export function unaVezEnLaURL(valores: readonly string[], nombre: string): strin
  * enlace de otra se rechaza diciendo que se vuelva a copiar, sin convertir nada.
  * Cambiar el formato es subirla.
  */
-export const VERSION_DEL_ENLACE = 9;
+export const VERSION_DEL_ENLACE = 10;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla'];
 const CAMPOS_DEL_LADO = ['ia', 'puestos', 'heroe'];
@@ -2352,7 +2599,7 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
 export function montajeDeArenaDelEnlace(
   m: MontajeDelEnlace,
   reglas: ReglasDeBatalla,
-  piezas: readonly Pieza[],
+  piezas: readonly PiezaEscrita[],
 ): MontajeDeArena {
   const lado = (l: LadoDelEnlace): LadoDeArena => ({
     unidades: l.puestos.map((p): FuenteDeArena => {

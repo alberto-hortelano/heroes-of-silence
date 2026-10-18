@@ -52,7 +52,6 @@ import {
   destinoDeEquipo,
   modificadoresDePieza,
   NOMBRE_DE_CALIDAD,
-  NOMBRE_DE_HUECO,
   PIEZAS_DE_ARMERIA,
   pieza,
   textoDeModificador,
@@ -80,6 +79,7 @@ import {
   conMiles,
   describirCoste,
   HUECOS,
+  NOMBRE_DE_HUECO,
   NOMBRE_DE_RECURSO,
   RESOURCE_KINDS,
 } from '@core/types.js';
