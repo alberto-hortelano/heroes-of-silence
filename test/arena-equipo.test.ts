@@ -710,7 +710,7 @@ describe('la vista «Editar equipo»', () => {
     expect(fila('fuerte')).toContain('class="relleno" x="0" y="1.5" width="50"');
     // La Finta en el 1: lo que da, de menos a más casillas.
     expect(fila('finta')).toContain('data-nivel="1"');
-    expect(fila('finta')).toContain('resta 8 a 10 casillas');
+    expect(fila('finta')).toContain('resta 3 a 7 casillas');
     // Rápido en el 1: se puede bajar y subir.
     expect(fila('rapido')).toMatch(/data-sentido="-1" aria-label="Rápido: un nivel menos" >/);
     // En el 0 no se baja, y en el 6 no se sube.

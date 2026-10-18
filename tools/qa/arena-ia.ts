@@ -23,7 +23,7 @@
  *   tres de todas las hojas, **con un héroe por bando** sin libro (que pega con la
  *   Espada de la arena), al azar y con la rueda del golpe; cuenta los cruces.
  *   Con los niveles absolutos cambia el equilibrio de la rueda (Ofensivo +3, la
- *   Finta que resta de 5 a 10…), y sin esta tanda la medida no pelearía con ella.
+ *   Finta que resta de 1 a 5…), y sin esta tanda la medida no pelearía con ella.
  *
  * Sustituye a `tools/qa/contacto.ts` y a las medidas de las tareas de la carga y
  * de la armadura (14-10-2026, /simplify). Las variantes se alternan por semilla,

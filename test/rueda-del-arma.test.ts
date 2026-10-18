@@ -116,15 +116,15 @@ describe('las cifras de la rueda por niveles', () => {
         rapido: n,
         romperGuardia: n,
       });
-    // Lo peor: nada que sumar, Fuerte ×1, Rápido 2 × 0,25, la Finta resta 10 y
-    // Romper guardia no quita.
+    // Lo peor: nada que sumar, Fuerte ×1, Rápido 2 × 0,25, la Finta resta de 8
+    // (éxito mínimo) a 4 (máximo) y Romper guardia no quita.
     expect(nivel(0)).toEqual({
       fuerte: { porcentaje: 100 },
       rapido: { porcentaje: 25, golpes: 2 },
       ofensivo: { ataque: 0 },
       defensivo: { defensa: 0 },
       romperGuardia: { ataque: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 } },
-      finta: { casillas: { 0: 10, 1: 10, 2: 10, 3: 10, 4: 10 } },
+      finta: { casillas: { 0: 8, 1: 7, 2: 6, 3: 5, 4: 4 } },
     });
     // El 3 (la Espada): Romper guardia quita como antes de los niveles.
     expect(nivel(3)).toEqual({
@@ -133,17 +133,17 @@ describe('las cifras de la rueda por niveles', () => {
       ofensivo: { ataque: 3 },
       defensivo: { defensa: 3 },
       romperGuardia: { ataque: { 0: 0, 1: 0, 2: -1, 3: -2, 4: -3 } },
-      finta: { casillas: { 0: 10, 1: 8, 2: 7, 3: 6, 4: 5 } },
+      finta: { casillas: { 0: 5, 1: 4, 2: 3, 3: 2, 4: 1 } },
     });
-    // Lo mejor: con más éxito, la Finta resta menos (0 con el máximo) y Romper
-    // guardia quita más (6).
+    // Lo mejor: con más éxito, la Finta resta menos (2 con el mínimo, una menos por
+    // punto de éxito, sin bajar de 0) y Romper guardia quita más (6).
     expect(nivel(6)).toEqual({
       fuerte: { porcentaje: 200 },
       rapido: { porcentaje: 100, golpes: 2 },
       ofensivo: { ataque: 6 },
       defensivo: { defensa: 6 },
       romperGuardia: { ataque: { 0: 0, 1: -1, 2: -3, 3: -4, 4: -6 } },
-      finta: { casillas: { 0: 10, 1: 7, 2: 5, 3: 2, 4: 0 } },
+      finta: { casillas: { 0: 2, 1: 1, 2: 0, 3: 0, 4: 0 } },
     });
     // Un nivel fuera de la tabla es un fallo: lanza.
     expect(() => cifrasDeLosNiveles({ ...todoA(3), fuerte: 7 })).toThrow(
@@ -188,18 +188,21 @@ describe('las cifras de la rueda por niveles', () => {
       corto: '0–5',
       porExito: '0, −1, −2, −3, −5',
     });
-    // La Finta nivel 1: resta 8 con el éxito máximo y 10 con el mínimo.
+    // La Finta nivel 1: resta 7 con el éxito mínimo y una menos por punto de éxito.
     expect(filas.find((f) => f.tipo === 'finta')).toMatchObject({
-      final: 'resta 8 a 10 casillas',
-      corto: '8–10',
-      porExito: '10, 9, 9, 8, 8',
+      final: 'resta 3 a 7 casillas',
+      corto: '3–7',
+      porExito: '7, 6, 5, 4, 3',
     });
     expect(ruedaDelArmaEnPalabras(MAZA.rueda)).toBe(
       'Ofensivo 3, Fuerte 5, Finta 1, Defensivo 3, Rápido 1, Romper guardia 5',
     );
     // Con las dos puntas iguales, una sola cifra.
     const peor = filasDeLaRueda({ ...todoA(3), finta: 0, romperGuardia: 0 });
-    expect(peor.find((f) => f.tipo === 'finta')?.final).toBe('resta 10 casillas');
+    expect(peor.find((f) => f.tipo === 'finta')?.final).toBe('resta 4 a 8 casillas');
+    // La mejor: con el éxito máximo no resta nada, y nunca baja de 0.
+    const mejor = filasDeLaRueda({ ...todoA(3), finta: 6 });
+    expect(mejor.find((f) => f.tipo === 'finta')?.porExito).toBe('2, 1, 0, 0, 0');
     expect(peor.find((f) => f.tipo === 'romperGuardia')?.final).toBe('no quita ataque');
   });
 
@@ -239,9 +242,9 @@ describe('las cifras de la rueda por niveles', () => {
     ).toThrow('rueda.json: ofensivo.ataque: el nivel 3 (1) es peor que el 2 (2)');
     expect(
       con((j) => {
-        (j.finta as Record<string, unknown>).conExitoMaximo = [12, 8, 7, 5, 3, 2, 0];
+        (j.finta as Record<string, unknown>).conExitoMinimo = [8, 7, 6, 5, 4, 3, 9];
       }),
-    ).toThrow('rueda.json: finta.conExitoMaximo: el nivel 0 va hasta 10, y es 12');
+    ).toThrow('rueda.json: finta.conExitoMinimo: el nivel 6 (9) es peor que el 5 (3)');
     expect(
       con((j) => {
         (j.romperGuardia as Record<string, unknown>).conExitoMaximo = [0, -1, -2, -3, -4, -5, 1];
@@ -317,12 +320,11 @@ describe('cada golpe de la rueda va con su arma', () => {
       expect(b.turno?.stack).toBe('attacker-0');
       return b.turno?.finta;
     };
-    // Con el éxito máximo, la espada (nivel 3) resta 5 casillas y la daga (nivel
-    // 5), 2. Con menos éxito restan más: contra Normal (el medio), 7 y 6, y al
-    // jinete de 7 casillas no le quedaría nada que andar con la espada.
+    // Con el éxito máximo, la espada (nivel 3) resta 1 casilla y la daga (nivel 5),
+    // ninguna. Con menos éxito restan más: con el mínimo, 5 y 3.
     expect(DAGA.rueda?.finta).toBe(5);
-    expect(tras('espada')).toBe(5);
-    expect(tras('daga')).toBe(2);
+    expect(tras('espada')).toBe(1);
+    expect(tras('daga')).toBe(0);
   });
 
   it('el contraataque va con el arma del que responde', () => {

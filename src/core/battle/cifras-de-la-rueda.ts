@@ -104,10 +104,11 @@ interface TablaDeLaRueda {
   readonly defensivo: PorNivel;
   /** Lo que quita Romper guardia con el éxito máximo (0 o menos). */
   readonly romperGuardia: PorNivel;
-  /** Lo que resta la Finta con el éxito máximo (de 0 a `fintaConExitoMinimo`). */
+  /**
+   * Lo que resta la Finta con el éxito mínimo (0 o más); cada punto de éxito,
+   * una casilla menos, sin bajar de 0.
+   */
   readonly finta: PorNivel;
-  /** Lo que resta la Finta con el éxito mínimo, sea cual sea el nivel. */
-  readonly fintaConExitoMinimo: number;
 }
 
 const CAMPOS_DE_LA_RUEDA = [
@@ -188,14 +189,8 @@ export function validarRueda(
   const ofensivo = campo('ofensivo', ['ataque']);
   const defensivo = campo('defensivo', ['defensa']);
   const romper = campo('romperGuardia', ['conExitoMaximo']);
-  const finta = campo('finta', ['conExitoMaximo', 'conExitoMinimo']);
+  const finta = campo('finta', ['conExitoMinimo']);
   const pesos = campo('pesos', ['golpe', 'respuesta']);
-  const fintaConExitoMinimo = entero(
-    finta.conExitoMinimo,
-    'conExitoMinimo',
-    `${fichero}: finta`,
-    0,
-  );
   // Los % en enteros (×1,5 = 150): se validan sin coma, y un golpe que no hace
   // daño no es un golpe (1 o más).
   const tabla: TablaDeLaRueda = {
@@ -213,14 +208,11 @@ export function validarRueda(
       maximo: 0,
       mejora: -1,
     }),
-    // Resta casillas: con el éxito máximo nunca más que con el mínimo, y mejor
-    // cuanto menos resta.
-    finta: porNivel(finta.conExitoMaximo, `${fichero}: finta.conExitoMaximo`, {
+    // Resta casillas: 0 o más, y mejor cuanto menos resta.
+    finta: porNivel(finta.conExitoMinimo, `${fichero}: finta.conExitoMinimo`, {
       minimo: 0,
-      maximo: fintaConExitoMinimo,
       mejora: -1,
     }),
-    fintaConExitoMinimo,
   };
   return {
     tabla,
@@ -269,21 +261,20 @@ function delNivel(tabla: PorNivel, n: NivelesDeLaRueda, tipo: TipoDelAnillo): nu
  * tabla** (`TABLA`). Por éxito `p` (el punto del cruce, 0 el mínimo, 4 el máximo),
  * en enteros: Romper guardia quita `⌊|q| · p / 4⌋` (q, lo que quita su nivel con
  * el éxito máximo: con el nivel 3, 0, 0, −1, −2, −3), y la Finta resta
- * `v + ⌊(F − v) · (4 − p) / 4⌋` (v, lo que resta su nivel con el éxito máximo; F,
- * lo que resta con el mínimo: con el nivel 3, 10, 8, 7, 6, 5). Con más éxito,
+ * `max(0, m − p)` (m, lo que resta su nivel con el éxito mínimo: una casilla menos
+ * por cada punto de éxito; con el nivel 3, 5, 4, 3, 2, 1). Con más éxito,
  * Romper guardia quita más y la Finta resta menos. Lo leen el golpe
  * (`ruedaDelGolpe`) y la ficha de una pieza (`filasDeLaRueda`).
  */
 export function cifrasDeLosNiveles(n: NivelesDeLaRueda): CifrasDeLaRueda {
   const quita = -delNivel(TABLA.romperGuardia, n, 'romperGuardia');
   const resta = delNivel(TABLA.finta, n, 'finta');
-  const F = TABLA.fintaConExitoMinimo;
   const romper = {} as Record<Punto, number>;
   const finta = {} as Record<Punto, number>;
   for (const p of PUNTOS) {
     // `0 - x` y no `-x`: con `quita` 0, `-0` no es `0` para quien compara con `toEqual`.
     romper[p] = 0 - Math.floor((quita * p) / 4);
-    finta[p] = resta + Math.floor(((F - resta) * (4 - p)) / 4);
+    finta[p] = Math.max(0, resta - p);
   }
   return {
     fuerte: { porcentaje: delNivel(TABLA.fuerte, n, 'fuerte') },

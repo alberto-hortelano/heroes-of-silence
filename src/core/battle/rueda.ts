@@ -182,7 +182,7 @@ export interface FilaDeLaRueda {
   /**
    * Lo que da ese nivel, en una línea: «Daño ×1,5», «+3 ataque», «2 golpes ×0,63»;
    * Romper guardia y la Finta, de menos a más según el éxito, con su unidad
-   * («quita 0 a 3 de ataque», «resta 5 a 10 casillas»).
+   * («quita 0 a 3 de ataque», «resta 1 a 5 casillas»).
    */
   readonly final: string;
   /** Lo mismo en pocas letras, para un sector de la rueda: «×1,5», «2 ×0,63», «5–10». */
@@ -222,8 +222,8 @@ export function filasDeLaRueda(niveles: NivelesDeLaRueda): readonly FilaDeLaRued
 /**
  * Cómo queda un tipo con las cifras `c`, en pocas palabras y en una línea (la
  * columna de la tabla): «Daño ×1,5», «2 golpes ×0,63», «+3 ataque», y las cifras
- * por éxito de menos a más (`deMenosAMas`): «quita 0 a 3 de ataque», «resta 5 a 10
- * casillas» (con las dos iguales, «resta 10 casillas», «no quita ataque»).
+ * por éxito de menos a más (`deMenosAMas`): «quita 0 a 3 de ataque», «resta 1 a 5
+ * casillas» (con las dos iguales, «resta 2 casillas», «no quita ataque»).
  */
 function finalDe(tipo: TipoDelAnillo, c: CifrasDeLaRueda): string {
   switch (tipo) {
@@ -269,7 +269,7 @@ function cifraDeAtaque(n: number): string {
 
 /**
  * Lo que quita o resta una cifra por éxito, sin signo y de menos a más, unido por
- * `entre` («5 a 10»: la Finta resta menos con más éxito; «0 a 3»: Romper guardia
+ * `entre` («1 a 5»: la Finta resta menos con más éxito; «0 a 3»: Romper guardia
  * quita más), o una sola cifra si las dos puntas son iguales.
  */
 function deMenosAMas(valores: PorExito, entre: string): string {

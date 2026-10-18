@@ -4707,16 +4707,16 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
   await cifrasSinCortar(page, '#equipo .equipo-ficha', 'equipo, ficha de la Maza');
   await captura(page, 'arena-12-equipo-rueda-de-la-maza');
   log('equipo: la Maza enseña su rueda por niveles (Fuerte 5, ×1,83), sin Normal');
-  // La Finta de la Maza, en el 1 (resta 8 a 10): «+» sube un nivel, la barra
+  // La Finta de la Maza, en el 1 (resta 3 a 7): «+» sube un nivel, la barra
   // crece a la derecha y resta menos; «−» la deja como estaba.
   const finta = deLaMaza('finta');
   const fintaDice = async () =>
     `${await finta.locator('.barra').getAttribute('data-nivel')} ${(await finta.locator('.final').innerText()).trim()}`;
-  if ((await fintaDice()) !== '1 resta 8 a 10 casillas')
+  if ((await fintaDice()) !== '1 resta 3 a 7 casillas')
     throw new Error(`equipo: la Finta de la Maza empieza en «${await fintaDice()}»`);
   await finta.locator('[data-sentido="1"]').click();
   await asentada(page);
-  if ((await fintaDice()) !== '2 resta 7 a 10 casillas')
+  if ((await fintaDice()) !== '2 resta 2 a 6 casillas')
     throw new Error(`equipo: tras «+», la Finta de la Maza dice «${await fintaDice()}»`);
   const sector = await page
     .locator('#equipo [data-pieza-elegida="maza"] .rueda-de-la-pieza [data-sector="finta"]')
@@ -4725,9 +4725,9 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
   await captura(page, 'arena-12-equipo-finta-mas');
   await finta.locator('[data-sentido="-1"]').click();
   await asentada(page);
-  if ((await fintaDice()) !== '1 resta 8 a 10 casillas')
+  if ((await fintaDice()) !== '1 resta 3 a 7 casillas')
     throw new Error(`equipo: tras «−», la Finta de la Maza dice «${await fintaDice()}»`);
-  log('equipo: «+» en la Finta sube un nivel y resta menos (7 a 10), y «−» la devuelve');
+  log('equipo: «+» en la Finta sube un nivel y resta menos (2 a 6), y «−» la devuelve');
   // Un arma a distancia nueva no lleva «Disparos»: llevarla ya es disparar (13-10-2026).
   await page.locator('[data-arena="crear-pieza"][data-hueco="distancia"]').click();
   await page

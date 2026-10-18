@@ -276,11 +276,11 @@ describe('el modo del golpe', () => {
     expect(
       con((j) => ((j.romperGuardia as { conExitoMaximo: number[] }).conExitoMaximo[2] = 1)),
     ).toThrow('data/rueda.json: romperGuardia.conExitoMaximo: el nivel 2 va hasta 0, y es 1');
-    expect(con((j) => ((j.finta as { conExitoMaximo: number[] }).conExitoMaximo[6] = -1))).toThrow(
-      'data/rueda.json: finta.conExitoMaximo: el nivel 6 tiene que ser 0 o más, y es -1',
+    expect(con((j) => ((j.finta as { conExitoMinimo: number[] }).conExitoMinimo[6] = -1))).toThrow(
+      'data/rueda.json: finta.conExitoMinimo: el nivel 6 tiene que ser 0 o más, y es -1',
     );
     expect(con((j) => delete (j.finta as { conExitoMinimo?: number }).conExitoMinimo)).toThrow(
-      'data/rueda.json: finta: conExitoMinimo tiene que ser un número entero',
+      'data/rueda.json: finta.conExitoMinimo: tiene que ser una lista de 7 enteros, la cifra de los niveles 0 a 6',
     );
     // Lo de antes (las cifras por éxito sin niveles; Normal con su %) ya no entra.
     expect(con((j) => (j.romperGuardia = { ataque: { minimo: 0 } }))).toThrow(
@@ -651,11 +651,10 @@ describe('la respuesta no da bonificadores (#263): solo Fuerte y Rápido cambian
 
 describe('la Finta deja andar después de golpear (#263)', () => {
   /**
-   * Un arma con la Finta en lo mejor (nivel 6): resta 10, 7, 5, 2 y 0 casillas del
-   * éxito mínimo al máximo. Con la de la Espada (nivel 3, de 10 a 5) al piquero no
-   * le quedaría casi nunca nada que andar.
+   * La Finta de la Espada (nivel 3): resta 5, 4, 3, 2 y 1 casillas del éxito
+   * mínimo al máximo (una menos por punto de éxito).
    */
-  const FINTA_6 = { ...nivelesDeLaEspada(), finta: 6 };
+  const CON_LA_ESPADA = nivelesDeLaEspada();
 
   /**
    * Golpea con Finta contra `respuesta` tras haber andado `andado` casillas (a
@@ -667,7 +666,7 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     respuesta: TipoDeGolpe,
     andado = 0,
   ): { b: BattleState; rng: Rng; turno: TurnoDeUnidad } {
-    const { b, rng } = enRueda(piqueros(10), piqueros(10), { niveles: FINTA_6 });
+    const { b, rng } = enRueda(piqueros(10), piqueros(10), { niveles: CON_LA_ESPADA });
     const yo = stackById(b, 'attacker-0');
     yo.effects = [{ kind: 'speed', amount: 2, source: 'haste', roundsLeft: 5 }];
     expect(pasosQueQuedan(b, yo)).toBe(6);
@@ -731,7 +730,7 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     // El fallo latente del /simplify (B): el turno y lo gastado son los mismos
     // antes y después de golpear con Finta sin andar, así que un `Movibles` de
     // antes pasaba y andaba las 6 casillas en vez de 4.
-    const { b, rng } = enRueda(piqueros(10), piqueros(10), { niveles: FINTA_6 });
+    const { b, rng } = enRueda(piqueros(10), piqueros(10), { niveles: CON_LA_ESPADA });
     const yo = stackById(b, 'attacker-0');
     yo.effects = [{ kind: 'speed', amount: 2, source: 'haste', roundsLeft: 5 }];
     const turno = b.turno as TurnoDeUnidad;
@@ -758,19 +757,19 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     );
   });
 
-  it('los cinco éxitos restan, con la Finta en el nivel 6, 0, 2, 5, 7 y 10', () => {
+  it('los cinco éxitos restan, con la Finta de la Espada, 1, 2, 3, 4 y 5', () => {
     // Finta contra: R. guardia (máximo), Ofensivo (alto), Normal (medio), Fuerte (bajo), Finta (mínimo).
     const resta = (['romperGuardia', 'ofensivo', 'normal', 'fuerte', 'finta'] as const).map(
       (r) => conFinta(r).turno.finta,
     );
-    expect(resta).toEqual([0, 2, 5, 7, 10]);
+    expect(resta).toEqual([1, 2, 3, 4, 5]);
   });
 
   it('sin casillas que andar, el turno se cierra solo y no sale nada', () => {
-    // Le quedan 3 y la Finta en el mínimo resta 10: max(0, 3 − 10) = 0.
+    // Le quedan 3 y la Finta en el mínimo resta 5: max(0, 3 − 5) = 0.
     const { b, turno } = conFinta('finta', 3);
     expect(b.log.find((e) => e.kind === 'cruce')).toMatchObject({ punto: 0 });
-    expect(turno.finta).toBe(10);
+    expect(turno.finta).toBe(5);
     expect(activeStack(b)?.id).toBe('defender-0');
     expect(b.turno?.n).not.toBe(turno.n);
     // Y si la pelea acaba con el golpe, se cierra: no hay tramo que andar.
@@ -1307,8 +1306,8 @@ describe('la IA elige a ciegas', () => {
           REGLAS_DEL_JUEGO,
           { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
         ),
-        // La Finta en el nivel 6 (resta de 0 a 10): con la de la Espada (de 5 a 10)
-        // a estas criaturas casi nunca les queda nada que andar tras golpear.
+        // La Finta en el nivel 6 (resta de 0 a 2): con la de la Espada (de 1 a 5)
+        // a estas criaturas pocas veces les queda algo que andar tras golpear.
         { ...nivelesDeLaEspada(), finta: 6 },
       );
       autoResolve(b, rng);
@@ -1808,12 +1807,12 @@ describe('la rueda pintada', () => {
       'Quita ataque al rival desde ya: en su contraataque de ahora y hasta que termine su próximo turno; −3 con éxito máximo, −2 alto, −1 medio, nada bajo o mínimo.',
     );
     expect(notaConEspada('finta', 'golpe')).toBe(
-      'Después de golpear puedes andar las casillas que te queden menos 5 con éxito máximo, 6 alto, 7 medio, 8 bajo, 10 mínimo. Andar cierra el turno.',
+      'Después de golpear puedes andar las casillas que te queden menos 1 con éxito máximo, 2 alto, 3 medio, 4 bajo, 5 mínimo. Andar cierra el turno.',
     );
     // Con el contacto encendido, la Finta avisa de que su tramo lo paga (#259 y #263
     // apilados, decisión del usuario, 14-10-2026).
     expect(notaConEspada('finta', 'golpe', true, true)).toBe(
-      'Después de golpear puedes andar las casillas que te queden menos 5 con éxito máximo, 6 alto, 7 medio, 8 bajo, 10 mínimo. Andar cierra el turno. Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.',
+      'Después de golpear puedes andar las casillas que te queden menos 1 con éxito máximo, 2 alto, 3 medio, 4 bajo, 5 mínimo. Andar cierra el turno. Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.',
     );
     // Rápido avisa de la armadura, al golpear y al responder.
     expect(notaConEspada('rapido', 'golpe')).toBe(
