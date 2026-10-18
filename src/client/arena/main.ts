@@ -86,7 +86,7 @@ import {
   reglasALaURL,
   reglasDeLaURL,
 } from '@core/battle/reglas.js';
-import { contraataqueDelCruce, type HechoDelCruce, pasoDelTipo } from '@core/battle/rueda.js';
+import { contraataqueDelCruce, type HechoDelCruce } from '@core/battle/rueda.js';
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import {
@@ -103,7 +103,7 @@ import { parseSeed } from '@core/rng.js';
 import {
   type CreatureTrait,
   esHuecoDeArena,
-  esTipoDeGolpe,
+  esTipoDelAnillo,
   type Hex,
   type HuecoDeArena,
 } from '@core/types.js';
@@ -1261,12 +1261,13 @@ function conCampoDePieza(
 
 /**
  * Unos extras con la cifra `campo` de la ficha de una pieza a `n`: el precio en
- * oro, una punta del daño, una cifra o un tipo de la rueda (`rueda-<tipo>`).
+ * oro, una punta del daño, una cifra o el nivel de un tipo de la rueda
+ * (`rueda-<tipo>`; con base, lo que sube el de la base).
  */
 function conCifraDePieza(x: ExtrasDePieza, campo: string, n: number): ExtrasDePieza {
   if (campo.startsWith('rueda-')) {
     const tipo = campo.slice('rueda-'.length);
-    if (!esTipoDeGolpe(tipo)) {
+    if (!esTipoDelAnillo(tipo)) {
       throw new Error(`la ficha de la pieza no tiene una fila de la rueda «${tipo}»`);
     }
     return { ...x, rueda: { ...x.rueda, [tipo]: n } };
@@ -2742,12 +2743,12 @@ document.addEventListener('click', (ev) => {
         break;
       }
       case 'paso-de-rueda': {
-        // Un paso de la barra de un tipo de la rueda: «+» mejora y «−» empeora
-        // (`pasoDelTipo`: en la Finta, mejorar resta casillas). Parte de lo que
-        // dice su casilla y entra como si se hubiera tecleado.
+        // Un paso de la barra de un tipo de la rueda: «+» sube un nivel (mejor,
+        // también en la Finta) y «−» lo baja. Parte de lo que dice su casilla y
+        // entra como si se hubiera tecleado: si se sale de 0 a 6, lo dice el núcleo.
         const tipo = el.getAttribute('data-tipo');
         const sentido = el.getAttribute('data-sentido');
-        if (!esTipoDeGolpe(tipo) || (sentido !== '1' && sentido !== '-1')) {
+        if (!esTipoDelAnillo(tipo) || (sentido !== '1' && sentido !== '-1')) {
           throw new Error(`el paso de la rueda trae «${tipo}» y «${sentido}»`);
         }
         const casilla = el
@@ -2757,7 +2758,7 @@ document.addEventListener('click', (ev) => {
           throw new Error(`el paso de ${tipo} no tiene su casilla al lado`);
         }
         const ahora = Number(valorDe(casilla));
-        const paso = pasoDelTipo(tipo, sentido === '1' ? 1 : -1);
+        const paso = sentido === '1' ? 1 : -1;
         cambiarCampoDePieza(casilla, String((Number.isFinite(ahora) ? ahora : 0) + paso));
         break;
       }

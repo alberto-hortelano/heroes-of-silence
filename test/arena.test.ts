@@ -36,8 +36,11 @@ import { nombreEnElCampo } from '../src/client/views/distintivo.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
+  armaDeCuerpoBlocker,
   batallaDeArena,
   COMENTARIO_DEL_BORRADOR,
+  EQUIPO_DEL_HEROE_EN_LA_ARENA,
+  ESPADA_DE_LA_ARENA,
   equiparEnArena,
   escalonDeCasillas,
   type FuenteDeArena,
@@ -48,11 +51,13 @@ import {
   heroeDeArena,
   heroePorDefecto,
   type IdsOcupados,
+  idsLlevados,
   lecturaDelNivel,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
+  nivelesDeLaEspada,
   piezaNueva,
   quitarEnArena,
   retocarEnBatalla,
@@ -122,6 +127,7 @@ import {
   forzarTurno,
   hojaDeLaArena,
   hojasDeLaArena,
+  MANOS_DE_PRUEBA,
   peleaDelMotor,
   unidadDeArena,
 } from './helpers.js';
@@ -138,7 +144,10 @@ const ia = (...us: UnidadDeArena[]): LadoDeSesion => ({
   ia: true,
 });
 
-/** Una pelea solo con unidades del borrador, sin héroes y con las reglas del juego. */
+/**
+ * Una pelea solo con unidades del borrador, sin héroes y con las reglas del juego;
+ * con las manos de prueba entre sus piezas, para quien pelee sin las de su perfil.
+ */
 function pelea(
   izquierda: readonly UnidadDeArena[],
   derecha: readonly UnidadDeArena[],
@@ -149,7 +158,7 @@ function pelea(
       izquierda: { unidades: izquierda.map((u) => delBorrador(u)), heroe: null },
       derecha: { unidades: derecha.map((u) => delBorrador(u)), heroe: null },
       reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
+      piezas: [MANOS_DE_PRUEBA],
     },
     rng,
   );
@@ -189,12 +198,13 @@ describe('la arena pelea con las cifras del borrador', () => {
   it('las cifras editadas llegan al stack tal cual, sin pasar por el catálogo', () => {
     // `templario-monje` no es una criatura del catálogo: si algo llamara a
     // `creature()` con él, lanzaría. Y el ataque de 42 no es el de nadie.
-    // Sin equipo: el bastón de su perfil le sumaría daño (eso, en el test de abajo).
+    // Con las manos de prueba, que no suman nada: el bastón de su perfil le
+    // sumaría daño (eso, en el test de abajo), y sin arma no se monta.
     const monje = unidad('templario-monje', {
       attack: 42,
       damage: [3, 9],
       hp: 21,
-      equipo: {},
+      equipo: { arma: MANOS_DE_PRUEBA.id },
     });
     const b = pelea([monje], [unidad('zombi')], createRng(1));
     const s = b.stacks.find((x) => x.side === 'attacker');
@@ -1575,12 +1585,17 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('un enlace mal formado o con lo que no existe se rechaza diciendo qué', () => {
     const casos: [string, string][] = [
       ['{"v":1,', 'el montaje del enlace no se puede leer'],
-      [tocado((o) => (o.v = 11)), 'es de la versión 11 y esta arena lee la 10'],
-      // La versión es la de hoy: ni 0, ni a medias, ni texto.
-      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 10'],
-      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 10'],
-      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 10'],
-      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 10'],
+      [tocado((o) => (o.v = 12)), 'es de la versión 12 y esta arena lee la 11'],
+      // La versión es la de hoy: ni la de antes de los niveles de la rueda (10), ni
+      // 0, ni a medias, ni texto.
+      [
+        tocado((o) => (o.v = 10)),
+        'este enlace es de una versión anterior de la arena (la 10; la de hoy es la 11): vuelve a copiarlo',
+      ],
+      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 11'],
+      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 11'],
+      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 11'],
+      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 11'],
       [tocado((o) => delete o.muralla), 'falta «muralla»'],
       [tocado((o) => o.muralla.muros.push({ col: 99, row: 0 })), 'la muralla del enlace no vale'],
       [
@@ -1767,9 +1782,10 @@ describe('los poderes del monje en la arena (A3)', () => {
 describe('retocar en plena pelea (B10-B14)', () => {
   // Sin el equipo de su perfil: aquí se comparan las cifras que se escriben con
   // las del stack, y con equipo serían las del cuerpo más sus piezas (el retoque
-  // del equipo, en su propio test).
+  // del equipo, en su propio test). Sin arma no se monta nadie (vuelta 2): llevan
+  // las manos de prueba, que no suman nada.
   const unidad = (id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena =>
-    unidadDeArena(id, { equipo: {}, ...cambios });
+    unidadDeArena(id, { equipo: { arma: MANOS_DE_PRUEBA.id }, ...cambios });
   /** Monje y arquero a la izquierda, con héroe; monje a la derecha. */
   function conMonjes(): BattleState {
     return batallaDeArena(
@@ -1780,7 +1796,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
         },
         derecha: { unidades: [delBorrador(unidad('templario-monje'))], heroe: null },
         reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        piezas: [MANOS_DE_PRUEBA],
       },
       createRng(4),
     );
@@ -1827,7 +1843,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
         izquierda: { unidades: [delBorrador(conEscudo)], heroe: null },
         derecha: { unidades: [delBorrador(unidadDeArena('zombi'))], heroe: null },
         reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        piezas: [MANOS_DE_PRUEBA],
       },
       createRng(1),
     );
@@ -1849,7 +1865,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
         },
         derecha: { unidades: [delBorrador(unidad('zombi'))], heroe: null },
         reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        piezas: [MANOS_DE_PRUEBA],
       },
       createRng(1),
     );
@@ -1925,7 +1941,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
         },
         derecha: { unidades: [delBorrador(unidad('zombi'))], heroe: null },
         reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        piezas: [MANOS_DE_PRUEBA],
       },
       createRng(4),
     );
@@ -1987,7 +2003,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
         izquierda: { ...yo(unidad('templario-monje')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
         reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        piezas: [MANOS_DE_PRUEBA],
       },
       1,
     );
@@ -2068,7 +2084,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
         izquierda: { ...yo(unidad('templario-monje'), unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('orko-dos-armas')),
         reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        piezas: [MANOS_DE_PRUEBA],
       },
       1,
     );
@@ -2110,7 +2126,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
         reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        piezas: [MANOS_DE_PRUEBA],
       },
       1,
     );
@@ -2129,10 +2145,19 @@ describe('retocar en plena pelea (B10-B14)', () => {
     expect(s.version).toBe(version);
     // El escudero no dispara; con un arma a distancia, sí, y ya (sin munición).
     expect(s.battleLegalActions().some((a) => a.type === 'shoot')).toBe(false);
+    // Sin arma no se pelea (vuelta 2): quitársela no entra.
+    expect(
+      s.retocar({ kind: 'tipo', fuente: delBorrador(unidad('templario-escudo', { equipo: {} })) }),
+    ).toBe(
+      'La unidad «Guerrero con escudo»: no lleva arma de cuerpo a cuerpo: en la arena nadie pelea sin ella; ponle una en Arma.',
+    );
+    expect(s.version).toBe(version);
     expect(
       s.retocar({
         kind: 'tipo',
-        fuente: delBorrador(unidad('templario-escudo', { equipo: { distancia: 'arco' } })),
+        fuente: delBorrador(
+          unidad('templario-escudo', { equipo: { arma: MANOS_DE_PRUEBA.id, distancia: 'arco' } }),
+        ),
       }),
     ).toBeNull();
     expect(s.battleLegalActions().some((a) => a.type === 'shoot')).toBe(true);
@@ -2199,13 +2224,57 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
     expect(() => quitarEnArena(u, 'escudo')).toThrow('no lleva nada en Escudo');
   });
 
-  it('«Nueva unidad»: cifras mínimas, sin equipo, id propio y pelea con el arte de su cuerpo', () => {
+  it('sin arma de cuerpo a cuerpo de la arena no se monta, y lo dice (vuelta 2)', () => {
+    const u = unidad('templario-escudo');
+    // Sin nada en «arma», ni con un arco en «distancia».
+    expect(() => validarUnidadDeArena({ ...u, equipo: {} }, DEL_JUEGO)).toThrow(
+      'la unidad «Guerrero con escudo»: no lleva arma de cuerpo a cuerpo: en la arena nadie pelea sin ella; ponle una en Arma',
+    );
+    expect(() => validarUnidadDeArena({ ...u, equipo: { distancia: 'arco' } }, DEL_JUEGO)).toThrow(
+      'no lleva arma de cuerpo a cuerpo',
+    );
+    // Un arma del juego en «arma» no dice su rueda: tampoco.
+    expect(() => validarUnidadDeArena({ ...u, equipo: { arma: 'garrote' } }, DEL_JUEGO)).toThrow(
+      'lleva «Garrote», que es del juego: el arma de cuerpo a cuerpo de la arena es una de la arena',
+    );
+    // Toda hoja nace con la suya (`KIT_DEL_PERFIL`), y vale.
+    for (const h of hojasDeLaArena()) {
+      expect(unidadPorDefecto(h).equipo.arma, h.id).toBeDefined();
+      expect(() => validarUnidadDeArena(unidadPorDefecto(h), DEL_JUEGO), h.id).not.toThrow();
+    }
+    // Y quitársela en el montaje no entra: lo dice el mismo validador.
+    expect(() => validarUnidadDeArena(quitarEnArena(u, 'arma'), DEL_JUEGO)).toThrow(
+      'no lleva arma de cuerpo a cuerpo',
+    );
+  });
+
+  it('el héroe de la arena pelea con la Espada de la arena, que viaja en el enlace (vuelta 2)', () => {
+    const h = heroeDeArena(MAGO, DEL_JUEGO);
+    expect(h.cuerpo.equipo?.arma).toBe(ESPADA_DE_LA_ARENA);
+    expect(h.cuerpo.armas?.cuerpo).toMatchObject({
+      arma: ESPADA_DE_LA_ARENA,
+      rueda: nivelesDeLaEspada(),
+    });
+    expect(idsLlevados([], true)).toContain(ESPADA_DE_LA_ARENA);
+    expect(idsLlevados([], false)).not.toContain(ESPADA_DE_LA_ARENA);
+    // Su equipo pasa la misma regla que el de la tropa: un arma que golpea en la rueda.
+    expect(armaDeCuerpoBlocker(EQUIPO_DEL_HEROE_EN_LA_ARENA, DEL_JUEGO)).toBeNull();
+    expect(
+      armaDeCuerpoBlocker(
+        { ...EQUIPO_DEL_HEROE_EN_LA_ARENA, arma: 'espada_de_armeria' },
+        DEL_JUEGO,
+      ),
+    ).toMatch(/que es del juego/);
+  });
+
+  it('«Nueva unidad»: cifras mínimas, con la Espada y nada más, id propio y pelea con el arte de su cuerpo', () => {
     const h = hojaPorId('templario-escudo');
     const a = unidadNueva(h, ocupados(h.id), DEL_JUEGO);
     expect(a.id).toBe('templario-escudo-2');
     expect(a.name).toBe('Guerrero con escudo 2');
     expect(a.cuerpo).toEqual({ hoja: 'templario-escudo' });
-    expect(a.equipo).toEqual({});
+    // Sin arma no se combate (vuelta 2): nace con la Espada de la arena.
+    expect(a.equipo).toEqual({ arma: ESPADA_DE_LA_ARENA });
     expect(nivelDeLaHoja(a)).toMatch(/^Índice 1\d\d · nivel 1$/);
     expect(validarUnidadDeArena(a, DEL_JUEGO)).toEqual(a);
     const b = unidadNueva(h, ocupados(h.id, a.id), DEL_JUEGO);
@@ -2219,7 +2288,8 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
     const batalla = pelea([fuerte, b], [unidad('zombi')], createRng(3));
     const izq = batalla.stacks.filter((x) => x.side === 'attacker');
     expect(izq.map((x) => x.body)).toEqual(['templario-escudo', 'templario-escudo']);
-    expect(izq.map((x) => x.unit.attack)).toEqual([14, 3]);
+    // 9 + 5 del mandoble; 3 + 2 de la Espada.
+    expect(izq.map((x) => x.unit.attack)).toEqual([14, 5]);
     expect(izq.map((x) => tipoDelStack(batalla, x))).toEqual([
       { kind: 'unidad', id: 'templario-escudo-2' },
       { kind: 'unidad', id: 'templario-escudo-3' },
@@ -2360,11 +2430,11 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       ['carga', 'Lanza de jinete'],
     ]);
     expect(isShooter(golpes(elfico).c)).toBe(true);
-    // Los demás perfiles no tienen armas por uso: pelean como ayer. El de la
-    // espada sin nada más ni siquiera lleva `armas`; el del mandoble y el del
-    // bastón, solo para que su golpe lleve la rueda de su arma (18-10-2026).
-    expect(golpes(unidad('templario-escudo')).c).not.toHaveProperty('armas');
-    for (const id of ['templario-mandoble', 'templario-monje']) {
+    // Los demás perfiles no tienen armas por uso: pelean como ayer. Llevan
+    // `armas` solo para que su golpe lleve los niveles de la rueda de su arma
+    // (18-10-2026; desde la vuelta 2 toda arma de la arena los dice, la Espada
+    // también).
+    for (const id of ['templario-escudo', 'templario-mandoble', 'templario-monje']) {
       const { c } = golpes(unidad(id));
       expect(Object.keys(c.armas ?? {}), id).toEqual(['cuerpo']);
       expect(c.armas?.cuerpo.rueda, id).toBeDefined();
@@ -2393,7 +2463,14 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     expect(r.validas).toEqual([]);
     expect(r.invalidas.map((i) => i.crudo)).toEqual([viejo]);
     // Las piezas: el arco del juego en `arma` y una nueva con disparos.
-    const arcoCambiado = { ...DEL_JUEGO.pieza('arco'), hueco: 'arma', manos: 2, ataque: 4 };
+    const arcoCambiado = {
+      ...DEL_JUEGO.pieza('arco'),
+      hueco: 'arma',
+      manos: 2,
+      ataque: 4,
+      // Con su rueda, que en «arma» la pide: así lo que se dice es el hueco.
+      rueda: nivelesDeLaEspada(),
+    };
     const honda = {
       ...piezaNueva('distancia', DEL_JUEGO),
       nombre: 'Honda',

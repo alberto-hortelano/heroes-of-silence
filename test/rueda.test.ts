@@ -19,7 +19,12 @@ import { SesionDeArena } from '../src/client/session.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce, elegirEnLaRueda } from '../src/core/ai/rueda.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import { type FuenteDeArena, type UnidadDeArena, unaVezEnLaURL } from '../src/core/arena.js';
+import {
+  type FuenteDeArena,
+  nivelesDeLaEspada,
+  type UnidadDeArena,
+  unaVezEnLaURL,
+} from '../src/core/arena.js';
 import {
   activeStack,
   applyAction,
@@ -37,6 +42,7 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { hexDistance, hexKey } from '../src/core/battle/board.js';
+import { cifrasDeLosNiveles } from '../src/core/battle/cifras-de-la-rueda.js';
 import { fraseDelContacto } from '../src/core/battle/contacto.js';
 import { effectiveAttack, effectiveDefense, stackHp } from '../src/core/battle/damage.js';
 import { GOLPE, MODOS_DEL_JUEGO, modoALaURL, modoDeLaURL } from '../src/core/battle/modos.js';
@@ -48,13 +54,14 @@ import {
 } from '../src/core/battle/reglas.js';
 import {
   ANILLO,
-  cifrasDeLaRuedaCon,
+  casillasQueQuitaLaFinta,
   contraataqueDelCruce,
   efectoDeGolpe,
   golpesDe,
   PESOS_DE_LA_RUEDA,
   puntoDelContraataque,
   puntoDelCruce,
+  ruedaDelGolpe,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
   tiradaDelPunto,
@@ -68,17 +75,21 @@ import type {
 } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
-import type { Stack, UnitInfo } from '../src/core/types.js';
+import type { NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
 import { bando } from './batalla-de-prueba.js';
 import {
   type Ataque,
   ataquesDe,
+  conManosDePrueba,
   delBorrador,
   golpeConLaRueda,
   hastaLaRueda,
   sesionDeArena,
   unidadDeArena,
 } from './helpers.js';
+
+/** Las cifras de la rueda con la Espada de la arena (todo a 3): las de un arma versátil. */
+const CON_LA_ESPADA = cifrasDeLosNiveles(nivelesDeLaEspada());
 
 /** Una batalla con la rueda, el atacante en (5,4) y el defensor pegado en (6,4). */
 function enRueda(
@@ -88,15 +99,15 @@ function enRueda(
     readonly semilla?: number;
     readonly reglas?: ReglasDeBatalla;
     readonly lado?: BattleSide;
+    readonly niveles?: NivelesDeLaRueda;
   } = {},
 ): { b: BattleState; rng: Rng } {
   const rng = createRng(o.semilla ?? 1);
-  const b = crearBatallaConReglas(
-    bando(izquierda),
-    bando(derecha),
-    rng,
-    o.reglas ?? REGLAS_DEL_JUEGO,
-    { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
+  const b = conManosDePrueba(
+    crearBatallaConReglas(bando(izquierda), bando(derecha), rng, o.reglas ?? REGLAS_DEL_JUEGO, {
+      modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' },
+    }),
+    o.niveles,
   );
   stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
   stackById(b, 'defender-0').hex = { col: 6, row: 4 };
@@ -108,13 +119,13 @@ function enRueda(
 
 const piqueros = (n: number): Stack[] => [{ creature: 'pikeman', count: n }];
 
-/** La nota de un tipo con las cifras de siempre: sin arma que cambie la rueda. */
-const notaSinArma = (
+/** La nota de un tipo con las cifras de la Espada (todo a 3). */
+const notaConEspada = (
   tipo: TipoDeGolpe,
   papel: 'golpe' | 'respuesta',
   contraataca = true,
   pagaContacto = false,
-): string => efectoDeGolpe(tipo, papel, contraataca, pagaContacto, cifrasDeLaRuedaCon(undefined));
+): string => efectoDeGolpe(tipo, papel, contraataca, pagaContacto, CON_LA_ESPADA);
 
 /** Un `Rng` que cuenta las tiradas de `int`: el cruce fija la tirada y no gasta ninguna. */
 function contando(rng: Rng): { rng: Rng; ints: () => number } {
@@ -256,40 +267,27 @@ describe('el modo del golpe', () => {
       cambio(j);
       return () => validarRueda(j);
     };
-    expect(validarRueda(ruedaJson).cifras.fuerte.porcentaje).toBe(125);
+    expect(validarRueda(ruedaJson).tabla.fuerte[3]).toBe(150);
     expect(con((j) => (j.patada = 1))).toThrow('data/rueda.json: «patada» no es un campo');
-    expect(con((j) => ((j.fuerte as { porcentaje: number }).porcentaje = 0))).toThrow(
-      'data/rueda.json: fuerte: el porcentaje tiene que ser 1 o más, y es 0',
+    expect(con((j) => ((j.fuerte as { porcentaje: number[] }).porcentaje[0] = 0))).toThrow(
+      'data/rueda.json: fuerte.porcentaje: el nivel 0 tiene que ser 1 o más, y es 0',
     );
-    // Romper guardia quita ataque, una cifra por éxito; la Finta resta casillas.
-    type PorExito = Record<string, number>;
-    const romper = (j: Record<string, unknown>): PorExito =>
-      (j.romperGuardia as { ataque: PorExito }).ataque;
-    const finta = (j: Record<string, unknown>): PorExito =>
-      (j.finta as { casillas: PorExito }).casillas;
-    expect(validarRueda(ruedaJson).cifras.romperGuardia.ataque).toEqual({
-      0: 0,
-      1: 0,
-      2: -1,
-      3: -2,
-      4: -3,
-    });
-    expect(validarRueda(ruedaJson).cifras.finta.casillas).toEqual({ 0: 5, 1: 4, 2: 3, 3: 2, 4: 1 });
-    expect(con((j) => (romper(j).alto = 1))).toThrow(
-      'data/rueda.json: romperGuardia.ataque: el éxito «alto» quita, así que es 0 o menos, y es 1',
+    // Romper guardia quita ataque (0 o menos); la Finta resta casillas (0 o más).
+    expect(
+      con((j) => ((j.romperGuardia as { conExitoMaximo: number[] }).conExitoMaximo[2] = 1)),
+    ).toThrow('data/rueda.json: romperGuardia.conExitoMaximo: el nivel 2 va hasta 0, y es 1');
+    expect(con((j) => ((j.finta as { conExitoMaximo: number[] }).conExitoMaximo[6] = -1))).toThrow(
+      'data/rueda.json: finta.conExitoMaximo: el nivel 6 tiene que ser 0 o más, y es -1',
     );
-    expect(con((j) => delete romper(j).medio)).toThrow(
-      'data/rueda.json: romperGuardia.ataque: falta el éxito «medio»',
+    expect(con((j) => delete (j.finta as { conExitoMinimo?: number }).conExitoMinimo)).toThrow(
+      'data/rueda.json: finta: conExitoMinimo tiene que ser un número entero',
     );
-    expect(con((j) => (finta(j).bajo = -1))).toThrow(
-      'data/rueda.json: finta.casillas: el éxito «bajo» tiene que ser 0 o más, y es -1',
+    // Lo de antes (las cifras por éxito sin niveles; Normal con su %) ya no entra.
+    expect(con((j) => (j.romperGuardia = { ataque: { minimo: 0 } }))).toThrow(
+      'data/rueda.json: romperGuardia: «ataque» no es un campo; valen conExitoMaximo',
     );
-    expect(con((j) => (finta(j).enorme = 1))).toThrow(
-      'data/rueda.json: finta.casillas: «enorme» no es un campo; valen minimo, bajo, medio, alto, maximo',
-    );
-    // Lo de antes (Romper guardia quitaba defensa; Finta, ataque) ya no entra.
-    expect(con((j) => (j.romperGuardia = { defensa: -1 }))).toThrow(
-      'data/rueda.json: romperGuardia: «defensa» no es un campo; valen ataque',
+    expect(con((j) => (j.normal = { porcentaje: 100 }))).toThrow(
+      'data/rueda.json: «normal» no es un campo',
     );
     expect(con((j) => delete (j.pesos as { golpe: Record<string, number> }).golpe.normal)).toThrow(
       'data/rueda.json: pesos.golpe: falta el peso de «normal»',
@@ -303,8 +301,8 @@ describe('el modo del golpe', () => {
   });
 });
 
-describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40; 150 PV)', () => {
-  it('Rápido contra Fuerte: máximo, dos golpes de ×0,6; el contraataque, mínimo con Fuerte ×1,25', () => {
+describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40; 150 PV; con los niveles de la Espada)', () => {
+  it('Rápido contra Fuerte: máximo, dos golpes de ×0,63; el contraataque, mínimo con Fuerte ×1,5', () => {
     const { b, rng } = enRueda(piqueros(10), piqueros(10));
     const c = contando(rng);
     applyAction(b, golpeConLaRueda('rapido', 'fuerte'), c.rng);
@@ -316,12 +314,12 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
       respuesta: 'fuerte',
       punto: 4,
     });
-    // 40 × 10 × 0,9 × 0,6 = 216, dos veces; quedan 1 500 − 432 = 1 068 PV, 8 piqueros:
-    // 30 × 8 × 0,9 × 1,25 = 270. Cada golpe dice el punto en que cayó.
+    // 40 × 10 × 0,9 × 0,63 = 226,8 → 227, dos veces; quedan 1 500 − 454 = 1 046 PV,
+    // 7 piqueros: 30 × 7 × 0,9 × 1,5 = 283,5 → 284. Cada golpe dice el punto en que cayó.
     expect(ataquesDe(b).map((a) => [a.stack, a.damage, a.retaliation, a.punto])).toEqual([
-      ['attacker-0', 216, false, 4],
-      ['attacker-0', 216, false, 4],
-      ['defender-0', 270, true, 0],
+      ['attacker-0', 227, false, 4],
+      ['attacker-0', 227, false, 4],
+      ['defender-0', 284, true, 0],
     ]);
     // El cruce sustituye la tirada: ni un `rng.int` en todo el intercambio.
     expect(c.ints()).toBe(0);
@@ -335,19 +333,19 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
     }
   });
 
-  it('Fuerte contra Fuerte, el mínimo ×1,25: 30 × 10 × 0,9 × 1,25 = 337,5 → 338', () => {
+  it('Fuerte contra Fuerte, el mínimo ×1,5: 30 × 10 × 0,9 × 1,5 = 405', () => {
     const { b, rng } = enRueda(piqueros(10), piqueros(10));
     applyAction(b, golpeConLaRueda('fuerte', 'fuerte'), rng);
-    // Y el contraataque, en el máximo: quedan 1 500 − 338 = 1 162 PV, 8 piqueros;
-    // 40 × 8 × 0,9 × 1,25 = 360.
-    expect(ataquesDe(b).map((a) => a.damage)).toEqual([338, 360]);
+    // Y el contraataque, en el máximo: quedan 1 500 − 405 = 1 095 PV, 8 piqueros;
+    // 40 × 8 × 0,9 × 1,5 = 432.
+    expect(ataquesDe(b).map((a) => a.damage)).toEqual([405, 432]);
   });
 
-  it('Ofensivo suma un punto de ataque al golpe que se da: 37 × 10 × 0,925 = 342', () => {
-    // Ofensivo contra Finta, a dos en el anillo: alto (37).
+  it('Ofensivo suma tres puntos de ataque al golpe que se da: 37 × 10 × 0,975 = 360,75 → 361', () => {
+    // Ofensivo contra Finta, a dos en el anillo: alto (37); ataque 5 + 3 contra 9.
     const { b, rng } = enRueda(piqueros(10), piqueros(10));
     applyAction(b, golpeConLaRueda('ofensivo', 'finta'), rng);
-    expect(ataquesDe(b)[0]?.damage).toBe(342);
+    expect(ataquesDe(b)[0]?.damage).toBe(361);
     // Su ataque de verdad no cambia: es del golpe, no un efecto.
     expect(effectiveAttack(stackById(b, 'attacker-0'))).toBe(5);
   });
@@ -362,12 +360,14 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
 
   it('el disparo no pasa por la rueda: sigue con su tirada', () => {
     const rng = createRng(4);
-    const b = crearBatallaConReglas(
-      bando([{ creature: 'archer', count: 5 }]),
-      bando(piqueros(5)),
-      rng,
-      REGLAS_DEL_JUEGO,
-      { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
+    const b = conManosDePrueba(
+      crearBatallaConReglas(
+        bando([{ creature: 'archer', count: 5 }]),
+        bando(piqueros(5)),
+        rng,
+        REGLAS_DEL_JUEGO,
+        { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
+      ),
     );
     const c = contando(rng);
     b.turno = { n: 50, stack: 'attacker-0', gastado: 0 };
@@ -378,23 +378,23 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
 });
 
 describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Romper guardia por éxito', () => {
-  it('Defensivo cubre ya el contraataque: 35 × 8 × 0,875 = 245, hasta que empiece su próximo turno', () => {
+  it('Defensivo cubre ya el contraataque: 35 × 8 × 0,825 = 231, hasta que empiece su próximo turno', () => {
     const { b, rng } = enRueda(piqueros(10), piqueros(10));
     applyAction(b, golpeConLaRueda('defensivo', 'normal'), rng);
     const yo = stackById(b, 'attacker-0');
-    // El golpe, 315; quedan 1 185 PV, 8 piqueros; contra defensa 10, ×0,875.
-    expect(ataquesDe(b).map((a) => a.damage)).toEqual([315, 245]);
+    // El golpe, 315; quedan 1 185 PV, 8 piqueros; contra defensa 9 + 3, ×0,825.
+    expect(ataquesDe(b).map((a) => a.damage)).toEqual([315, 231]);
     expect(yo.effects).toEqual([
-      expect.objectContaining({ kind: 'defense', amount: 1, source: 'defensivo', roundsLeft: 2 }),
+      expect.objectContaining({ kind: 'defense', amount: 3, source: 'defensivo', roundsLeft: 2 }),
     ]);
-    expect(effectiveDefense(yo, REGLAS_DEL_JUEGO)).toBe(10);
+    expect(effectiveDefense(yo, REGLAS_DEL_JUEGO)).toBe(12);
     expect(b.log).toContainEqual(
       expect.objectContaining({ kind: 'effect', source: 'defensivo', vence: 'empezar' }),
     );
     // Sigue en el turno del rival (le cubre si le golpea), y se va al empezar el
     // suyo: antes de que juegue, y aunque luego espere.
     expect(activeStack(b)?.id).toBe('defender-0');
-    expect(effectiveDefense(yo, REGLAS_DEL_JUEGO)).toBe(10);
+    expect(effectiveDefense(yo, REGLAS_DEL_JUEGO)).toBe(12);
     const largo = b.log.length;
     applyAction(b, { type: 'defend' }, rng);
     expect(activeStack(b)?.id).toBe('attacker-0');
@@ -635,21 +635,28 @@ describe('la respuesta no da bonificadores (#263): solo Fuerte y Rápido cambian
     }
   });
 
-  it('Fuerte: 35 × 8 × 0,9 × 1,25 = 315; Rápido: dos de 35 × 8 × 0,9 × 0,6 = 151,2 → 151', () => {
+  it('Fuerte: 35 × 8 × 0,9 × 1,5 = 378; Rápido: dos de 35 × 8 × 0,9 × 0,63 = 158,76 → 159', () => {
     const fuerte = enRueda(piqueros(10), piqueros(10));
     applyAction(fuerte.b, golpeConLaRueda('normal', 'fuerte'), fuerte.rng);
-    expect(ataquesDe(fuerte.b).map((a) => a.damage)).toEqual([315, 315]);
+    expect(ataquesDe(fuerte.b).map((a) => a.damage)).toEqual([315, 378]);
     const rapido = enRueda(piqueros(10), piqueros(10));
     applyAction(rapido.b, golpeConLaRueda('normal', 'rapido'), rapido.rng);
     expect(ataquesDe(rapido.b).map((a) => [a.damage, a.retaliation])).toEqual([
       [315, false],
-      [151, true],
-      [151, true],
+      [159, true],
+      [159, true],
     ]);
   });
 });
 
 describe('la Finta deja andar después de golpear (#263)', () => {
+  /**
+   * Un arma con la Finta en lo mejor (nivel 6): resta 10, 7, 5, 2 y 0 casillas del
+   * éxito mínimo al máximo. Con la de la Espada (nivel 3, de 10 a 5) al piquero no
+   * le quedaría casi nunca nada que andar.
+   */
+  const FINTA_6 = { ...nivelesDeLaEspada(), finta: 6 };
+
   /**
    * Golpea con Finta contra `respuesta` tras haber andado `andado` casillas (a
    * mano). El piquero anda 4; con una Prisa de +2 puesta a mano, 6, el ejemplo
@@ -660,7 +667,7 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     respuesta: TipoDeGolpe,
     andado = 0,
   ): { b: BattleState; rng: Rng; turno: TurnoDeUnidad } {
-    const { b, rng } = enRueda(piqueros(10), piqueros(10));
+    const { b, rng } = enRueda(piqueros(10), piqueros(10), { niveles: FINTA_6 });
     const yo = stackById(b, 'attacker-0');
     yo.effects = [{ kind: 'speed', amount: 2, source: 'haste', roundsLeft: 5 }];
     expect(pasosQueQuedan(b, yo)).toBe(6);
@@ -724,7 +731,7 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     // El fallo latente del /simplify (B): el turno y lo gastado son los mismos
     // antes y después de golpear con Finta sin andar, así que un `Movibles` de
     // antes pasaba y andaba las 6 casillas en vez de 4.
-    const { b, rng } = enRueda(piqueros(10), piqueros(10));
+    const { b, rng } = enRueda(piqueros(10), piqueros(10), { niveles: FINTA_6 });
     const yo = stackById(b, 'attacker-0');
     yo.effects = [{ kind: 'speed', amount: 2, source: 'haste', roundsLeft: 5 }];
     const turno = b.turno as TurnoDeUnidad;
@@ -751,19 +758,19 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     );
   });
 
-  it('los cinco éxitos restan 1, 2, 3, 4 y 5', () => {
+  it('los cinco éxitos restan, con la Finta en el nivel 6, 0, 2, 5, 7 y 10', () => {
     // Finta contra: R. guardia (máximo), Ofensivo (alto), Normal (medio), Fuerte (bajo), Finta (mínimo).
     const resta = (['romperGuardia', 'ofensivo', 'normal', 'fuerte', 'finta'] as const).map(
       (r) => conFinta(r).turno.finta,
     );
-    expect(resta).toEqual([1, 2, 3, 4, 5]);
+    expect(resta).toEqual([0, 2, 5, 7, 10]);
   });
 
   it('sin casillas que andar, el turno se cierra solo y no sale nada', () => {
-    // Le quedan 3 y la Finta en el mínimo resta 5: max(0, 3 − 5) = 0.
+    // Le quedan 3 y la Finta en el mínimo resta 10: max(0, 3 − 10) = 0.
     const { b, turno } = conFinta('finta', 3);
     expect(b.log.find((e) => e.kind === 'cruce')).toMatchObject({ punto: 0 });
-    expect(turno.finta).toBe(5);
+    expect(turno.finta).toBe(10);
     expect(activeStack(b)?.id).toBe('defender-0');
     expect(b.turno?.n).not.toBe(turno.n);
     // Y si la pelea acaba con el golpe, se cierra: no hay tramo que andar.
@@ -786,12 +793,14 @@ describe('la Finta deja andar después de golpear (#263)', () => {
  */
 function aLaCarga(modo: 'rueda' | 'azar' = 'rueda'): { b: BattleState; rng: Rng } {
   const rng = createRng(1);
-  const b = crearBatallaConReglas(
-    bando([{ creature: 'cavalry', count: 2 }]),
-    bando(piqueros(10)),
-    rng,
-    REGLAS_DEL_JUEGO,
-    { modos: { ...MODOS_DEL_JUEGO, golpe: modo } },
+  const b = conManosDePrueba(
+    crearBatallaConReglas(
+      bando([{ creature: 'cavalry', count: 2 }]),
+      bando(piqueros(10)),
+      rng,
+      REGLAS_DEL_JUEGO,
+      { modos: { ...MODOS_DEL_JUEGO, golpe: modo } },
+    ),
   );
   const jinetes = stackById(b, 'attacker-0');
   jinetes.hex = { col: 1, row: 4 };
@@ -983,15 +992,17 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
       let cargas = 0;
       for (let semilla = 1; semilla <= 6; semilla++) {
         const rng = createRng(semilla);
-        const b = crearBatallaConReglas(
-          bando([
-            { creature: 'cavalry', count: 1 },
-            { creature: 'champion', count: 1 },
-          ]),
-          bando(piqueros(3)),
-          rng,
-          REGLAS_DEL_JUEGO,
-          { modos: { ...MODOS_DEL_JUEGO, golpe: modo } },
+        const b = conManosDePrueba(
+          crearBatallaConReglas(
+            bando([
+              { creature: 'cavalry', count: 1 },
+              { creature: 'champion', count: 1 },
+            ]),
+            bando(piqueros(3)),
+            rng,
+            REGLAS_DEL_JUEGO,
+            { modos: { ...MODOS_DEL_JUEGO, golpe: modo } },
+          ),
         );
         autoResolve(b, rng);
         const log = b.log;
@@ -1035,10 +1046,10 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
 describe('la carga la cobra solo el primer golpe (decisión del usuario, 14-10-2026)', () => {
   it('Rápido cargando: el primero con la carga (+40 %) y el segundo sin ella, también en la previsión', () => {
     // Las dos caballerías de `aLaCarga` (A 10 contra D 9: ×1,1; daño 50-100)
-    // cargan 4 (+40 %) y golpean con Rápido (×0,6) contra Defensivo: al lado en el
-    // anillo, punto bajo, tirada 50 + ⌊50 / 4⌋ = 62 cada una, 124 las dos.
-    // El primero: 124 × 1,1 × 1,4 × 0,6 = 114,576 → 115; el segundo, sin la carga:
-    // 124 × 1,1 × 0,6 = 81,84 → 82.
+    // cargan 4 (+40 %) y golpean con Rápido (×0,63, el nivel 3) contra Defensivo:
+    // al lado en el anillo, punto bajo, tirada 50 + ⌊50 / 4⌋ = 62 cada una, 124 las
+    // dos. El primero: 124 × 1,1 × 1,4 × 0,63 = 120,3 → 120; el segundo, sin la
+    // carga: 124 × 1,1 × 0,63 = 85,93 → 86.
     const { b, rng } = aLaCarga();
     applyAction(b, plantarse, rng);
     const golpe = { type: 'attack', target: 'defender-0', golpe: 'rapido' } as const;
@@ -1051,13 +1062,13 @@ describe('la carga la cobra solo el primer golpe (decisión del usuario, 14-10-2
     const largo = b.log.length;
     applyAction(b, { ...golpe, respuesta: 'defensivo' }, rng);
     const [primero, segundo] = ataquesDe(b, largo).filter((a) => !a.retaliation);
-    expect(primero).toMatchObject({ charge: 4, damage: 115 });
-    expect(segundo?.damage).toBe(82);
+    expect(primero).toMatchObject({ charge: 4, damage: 120 });
+    expect(segundo?.damage).toBe(86);
     expect(segundo).not.toHaveProperty('charge');
-    expect(p.danio.min).toBeLessThanOrEqual(115);
-    expect(p.danio.max).toBeGreaterThanOrEqual(115);
-    expect(p.siguientes?.min).toBeLessThanOrEqual(82);
-    expect(p.siguientes?.max).toBeGreaterThanOrEqual(82);
+    expect(p.danio.min).toBeLessThanOrEqual(120);
+    expect(p.danio.max).toBeGreaterThanOrEqual(120);
+    expect(p.siguientes?.min).toBeLessThanOrEqual(86);
+    expect(p.siguientes?.max).toBeGreaterThanOrEqual(86);
   });
 
   it('la rueda enseña el primer golpe aparte en los sectores de más de un golpe', () => {
@@ -1095,16 +1106,16 @@ describe('la previsión de la rueda', () => {
       siguientes: null,
       contraataquePorExito: [],
     });
-    // 30 × 10 × 0,9 × 0,6 = 162; 40 × … = 216.
+    // 30 × 10 × 0,9 × 0,63 = 170,1 → 170; 40 × … = 226,8 → 227.
     expect(t.rapido).toEqual({
-      danio: { min: 162, max: 216 },
+      danio: { min: 170, max: 227 },
       golpes: 2,
       siguientes: null,
       contraataquePorExito: [],
     });
-    expect(t.fuerte.danio).toEqual({ min: 338, max: 450 });
-    // 30 × 10 × 0,925 = 277,5 → 278; 40 × … = 370.
-    expect(t.ofensivo.danio).toEqual({ min: 278, max: 370 });
+    expect(t.fuerte.danio).toEqual({ min: 405, max: 540 });
+    // Ofensivo +3: A 8 contra D 9, ×0,975: 30 × 10 × 0,975 = 292,5 → 293; 40 × … = 390.
+    expect(t.ofensivo.danio).toEqual({ min: 293, max: 390 });
   });
 
   it('quien responde ve su contraataque, o por qué no lo hará', () => {
@@ -1155,13 +1166,13 @@ describe('la previsión de la rueda', () => {
   });
 
   it('sin contraataque, las notas del golpe no lo prometen (H9)', () => {
-    expect(notaSinArma('defensivo', 'golpe', false)).not.toContain('contraataque');
-    expect(notaSinArma('defensivo', 'golpe', false)).toContain('no te devuelven el golpe');
-    expect(notaSinArma('romperGuardia', 'golpe', false)).toBe(
+    expect(notaConEspada('defensivo', 'golpe', false)).not.toContain('contraataque');
+    expect(notaConEspada('defensivo', 'golpe', false)).toContain('no te devuelven el golpe');
+    expect(notaConEspada('romperGuardia', 'golpe', false)).toBe(
       'Quita ataque al rival en su próximo turno (esta vez no te devuelve el golpe); −3 con éxito máximo, −2 alto, −1 medio, nada bajo o mínimo.',
     );
     // La Finta no tiene que ver con el contraataque: la misma nota con él y sin él.
-    expect(notaSinArma('finta', 'golpe', false)).toBe(notaSinArma('finta', 'golpe', true));
+    expect(notaConEspada('finta', 'golpe', false)).toBe(notaConEspada('finta', 'golpe', true));
   });
 
   it('con Romper guardia elegido, el contraataque previsto es menor y abarca el real', () => {
@@ -1196,14 +1207,14 @@ describe('la previsión de la rueda', () => {
       expect(contra, respuesta).toBeGreaterThanOrEqual(romper.contraataque?.danio.min ?? 0);
       expect(contra, respuesta).toBeLessThanOrEqual(romper.contraataque?.danio.max ?? 0);
     }
-    // Defensivo: quien pega lleva +1 defensa al recibirlo (D 10: ×0,875).
-    expect(prevision('defensivo').contraataque?.danio.min).toBe(210);
+    // Defensivo: quien pega lleva +3 defensa al recibirlo (D 12: ×0,825).
+    expect(prevision('defensivo').contraataque?.danio.min).toBe(198);
   });
 
   it('la previsión de un golpe elegido usa su sector y sus golpes', () => {
     const { b } = enRueda(piqueros(10), piqueros(10));
     const p = previsionDe(b, { type: 'attack', target: 'defender-0', golpe: 'rapido' });
-    expect(p).toMatchObject({ golpes: 2, danio: { min: 162, max: 216 } });
+    expect(p).toMatchObject({ golpes: 2, danio: { min: 170, max: 227 } });
     // Al azar, un golpe elegido no se prevé: no se puede dar.
     const rng = createRng(1);
     const azar = crearBatallaConReglas(
@@ -1282,18 +1293,23 @@ describe('la IA elige a ciegas', () => {
   it('`autoResolve` con la rueda termina y es la misma pelea con la misma semilla', () => {
     const pelea = (semilla: number): BattleState => {
       const rng = createRng(semilla);
-      const b = crearBatallaConReglas(
-        bando([
-          { creature: 'pikeman', count: 8 },
-          { creature: 'paladin', count: 2 },
-        ]),
-        bando([
-          { creature: 'skeleton', count: 20 },
-          { creature: 'vampire', count: 3 },
-        ]),
-        rng,
-        REGLAS_DEL_JUEGO,
-        { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
+      const b = conManosDePrueba(
+        crearBatallaConReglas(
+          bando([
+            { creature: 'pikeman', count: 8 },
+            { creature: 'paladin', count: 2 },
+          ]),
+          bando([
+            { creature: 'skeleton', count: 20 },
+            { creature: 'vampire', count: 3 },
+          ]),
+          rng,
+          REGLAS_DEL_JUEGO,
+          { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
+        ),
+        // La Finta en el nivel 6 (resta de 0 a 10): con la de la Espada (de 5 a 10)
+        // a estas criaturas casi nunca les queda nada que andar tras golpear.
+        { ...nivelesDeLaEspada(), finta: 6 },
       );
       autoResolve(b, rng);
       return b;
@@ -1332,7 +1348,7 @@ describe('el parte cuenta el cruce', () => {
     const d = enRueda(piqueros(10), piqueros(10));
     applyAction(d.b, golpeConLaRueda('defensivo', 'normal'), d.rng);
     expect(marcadoDe(renderBattleLog(d.b, null))).toContain(
-      'Defensivo sobre Piquero, del atacante: defensa +1 hasta que empiece su próximo turno',
+      'Defensivo sobre Piquero, del atacante: defensa +3 hasta que empiece su próximo turno',
     );
     expect(
       contraataqueDelCruce(
@@ -1715,7 +1731,8 @@ describe('la sesión de la arena con la rueda', () => {
     // Sigue su turno, solo para andar: las casillas salen solas, sin otro clic.
     expect(s.ruedaPendiente).toBeNull();
     expect(s.turnoPropio?.stack.id).toBe('attacker-0');
-    const resta = 5 - cruce.punto;
+    // Lo que resta la Finta del mandoble del piquero con el éxito que cayó.
+    const resta = casillasQueQuitaLaFinta(cruce.punto, ruedaDelGolpe(yo.unit, 'cuerpo'));
     expect(pasosQueQuedan(s.battle, yo)).toBe(velocidad - resta);
     const casillas = s.battleMovable();
     expect(casillas.length).toBeGreaterThan(0);
@@ -1787,49 +1804,49 @@ describe('la rueda pintada', () => {
 
   it('cada nota dice cuándo actúa su efecto y, en la respuesta, que solo Fuerte y Rápido cambian el contraataque (#263)', () => {
     // Al pegar: Romper guardia y Finta, con lo que darían en cada éxito, desde las cifras.
-    expect(notaSinArma('romperGuardia', 'golpe')).toBe(
+    expect(notaConEspada('romperGuardia', 'golpe')).toBe(
       'Quita ataque al rival desde ya: en su contraataque de ahora y hasta que termine su próximo turno; −3 con éxito máximo, −2 alto, −1 medio, nada bajo o mínimo.',
     );
-    expect(notaSinArma('finta', 'golpe')).toBe(
-      'Después de golpear puedes andar las casillas que te queden menos 1 con éxito máximo, 2 alto, 3 medio, 4 bajo, 5 mínimo. Andar cierra el turno.',
+    expect(notaConEspada('finta', 'golpe')).toBe(
+      'Después de golpear puedes andar las casillas que te queden menos 5 con éxito máximo, 6 alto, 7 medio, 8 bajo, 10 mínimo. Andar cierra el turno.',
     );
     // Con el contacto encendido, la Finta avisa de que su tramo lo paga (#259 y #263
     // apilados, decisión del usuario, 14-10-2026).
-    expect(notaSinArma('finta', 'golpe', true, true)).toBe(
-      'Después de golpear puedes andar las casillas que te queden menos 1 con éxito máximo, 2 alto, 3 medio, 4 bajo, 5 mínimo. Andar cierra el turno. Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.',
+    expect(notaConEspada('finta', 'golpe', true, true)).toBe(
+      'Después de golpear puedes andar las casillas que te queden menos 5 con éxito máximo, 6 alto, 7 medio, 8 bajo, 10 mínimo. Andar cierra el turno. Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.',
     );
     // Rápido avisa de la armadura, al golpear y al responder.
-    expect(notaSinArma('rapido', 'golpe')).toBe(
-      '2 golpes de daño ×0,6 cada uno (con doble golpe, el doble). Cada golpe resta la armadura del rival: contra armadura, pierde.',
+    expect(notaConEspada('rapido', 'golpe')).toBe(
+      '2 golpes de daño ×0,63 cada uno (con doble golpe, el doble). Cada golpe resta la armadura del rival: contra armadura, pierde.',
     );
-    expect(notaSinArma('defensivo', 'golpe')).toBe(
-      '+1 defensa desde ya: cubre el contraataque de ahora y dura hasta que empiece tu próximo turno.',
+    expect(notaConEspada('defensivo', 'golpe')).toBe(
+      '+3 defensa desde ya: cubre el contraataque de ahora y dura hasta que empiece tu próximo turno.',
     );
-    expect(notaSinArma('ofensivo', 'golpe')).toBe('+1 ataque en este golpe.');
-    expect(notaSinArma('fuerte', 'golpe')).toBe('Daño ×1,25.');
+    expect(notaConEspada('ofensivo', 'golpe')).toBe('+3 ataque en este golpe.');
+    expect(notaConEspada('fuerte', 'golpe')).toBe('Daño ×1,5.');
     // En la respuesta: Ofensivo, Defensivo, Finta y Romper guardia solo cuentan para el
     // cruce; Fuerte y Rápido dicen su contraataque.
     for (const t of ['ofensivo', 'defensivo', 'finta', 'romperGuardia'] as const) {
-      expect(notaSinArma(t, 'respuesta'), t).toBe(
+      expect(notaConEspada(t, 'respuesta'), t).toBe(
         'En la respuesta no tiene efecto: solo cuenta para el cruce, que decide cuánto te duele el golpe y dónde cae tu contraataque.',
       );
     }
-    expect(notaSinArma('fuerte', 'respuesta')).toBe(
-      'Su efecto no toca el golpe que recibes (ese lo decide el cruce): tu contraataque hace daño ×1,25.',
+    expect(notaConEspada('fuerte', 'respuesta')).toBe(
+      'Su efecto no toca el golpe que recibes (ese lo decide el cruce): tu contraataque hace daño ×1,5.',
     );
-    expect(notaSinArma('rapido', 'respuesta')).toBe(
-      'Su efecto no toca el golpe que recibes (ese lo decide el cruce): contraatacas con 2 golpes de daño ×0,6 cada uno. Cada golpe resta la armadura del rival: contra armadura, pierde.',
+    expect(notaConEspada('rapido', 'respuesta')).toBe(
+      'Su efecto no toca el golpe que recibes (ese lo decide el cruce): contraatacas con 2 golpes de daño ×0,63 cada uno. Cada golpe resta la armadura del rival: contra armadura, pierde.',
     );
     for (const t of TIPOS_DE_GOLPE) {
       // El doble golpe no dobla el contraataque (`golpesDe`): la respuesta no lo promete.
-      expect(notaSinArma(t, 'respuesta'), t).not.toContain('doble golpe');
+      expect(notaConEspada(t, 'respuesta'), t).not.toContain('doble golpe');
     }
     // Las notas salen de `data/rueda.json`: con otras cifras, otra frase.
     const otras = validarRueda({
       ...ruedaJson,
-      romperGuardia: { ataque: { minimo: -1, bajo: -1, medio: -1, alto: -1, maximo: -4 } },
+      romperGuardia: { conExitoMaximo: [-1, -1, -1, -4, -4, -5, -6] },
     });
-    expect(otras.cifras.romperGuardia.ataque[4]).toBe(-4);
+    expect(otras.tabla.romperGuardia[3]).toBe(-4);
     // Y la rueda pinta la de su fase: en la respuesta, la de la respuesta.
     const s = sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: false });
     hastaLaRueda(s, true);
@@ -1838,7 +1855,7 @@ describe('la rueda pintada', () => {
     const enElGolpe = marcadoDe(renderEleccion(s, golpe));
     expect(enElGolpe).toContain('cubre el contraataque de ahora');
     // Con las cifras del arma de quien pega (18-10-2026): el piquero lleva el
-    // mandoble, que quita uno más con Romper guardia.
+    // mandoble, con Romper guardia en el nivel 4 (la espada, en el 3, quita 3).
     expect(enElGolpe).toContain('−4 con éxito máximo');
     expect(enElGolpe).not.toContain('En la respuesta no tiene efecto');
     s.elegirEnLaRueda('fuerte');
@@ -1846,7 +1863,8 @@ describe('la rueda pintada', () => {
     if (respuesta === null) throw new Error('la rueda no pide la respuesta');
     const enLaRespuesta = marcadoDe(renderEleccion(s, respuesta));
     expect(enLaRespuesta).toContain('En la respuesta no tiene efecto: solo cuenta para el cruce');
-    expect(enLaRespuesta).toContain('tu contraataque hace daño ×1,25');
+    // Responde el jinete, con la espada (Fuerte en el nivel 3).
+    expect(enLaRespuesta).toContain('tu contraataque hace daño ×1,5');
     expect(enLaRespuesta).not.toContain('cubre el contraataque de ahora');
   });
 
@@ -1858,7 +1876,7 @@ describe('la rueda pintada', () => {
     if (p === null) throw new Error('el vampiro no llega a pedir la respuesta');
     expect(p.prevision.sinContraataque).not.toBeNull();
     for (const t of TIPOS_DE_GOLPE) {
-      const nota = notaSinArma(t, 'respuesta', false);
+      const nota = notaConEspada(t, 'respuesta', false);
       expect(nota, t).toMatch(/^Esta vez no devuelves el golpe/);
       expect(nota, t).toContain('solo cuenta para el cruce');
       // Ni «contraatacas», ni «tu contraataque», ni un efecto que no va a actuar.

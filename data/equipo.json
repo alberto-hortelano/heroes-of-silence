@@ -1,5 +1,5 @@
 {
-  "_comment": "El equipo: las piezas que lleva un individuo de la tropa o un héroe, una por hueco (arma, armadura y accesorio). TODO INVENTADO y PROVISIONAL: lo pide NuevaJugabilidad.md («Las tropas también ganan experiencia y equipo»; «En las ciudades puedes construir armería y comprar equipo mejorado para la tropa, los héroes ya lo llevan») y HoMM2 no tiene equipo de tropa, así que no hay fila que copiar. Que nadie cite estas cifras como del original. Cada pieza suma sus cifras a las de quien la lleva: ataque, defensa, pv (×10 desde el 12-10-2026, con los PV del catálogo) y velocidad (escalones de SPEED_TIERS, sin pasar de ultra_fast ni bajar de very_slow; puede ser negativa, y la de un escudo TIENE que serlo); todas las demás, enteras ≥ 0. Una pieza puede sumar además danio ([+mín, +máx]), y un arma de cuerpo a cuerpo (hueco arma) puede decir manos: 2 (a dos manos), que no admite escudo (manosBlocker); el arco a la espalda sí lo admite. El juego tiene cuatro huecos: arma, armadura, accesorio y escudo (12-10-2026: «hueco propio, no hace falta llenar el hueco»); el escudo no lleva pieza de armería, así que el equipo base es espada sin escudo. La arena tiene dos más (13-10-2026, «cada arma para lo suyo»): distancia, el arma con que se dispara (llevarla ya es disparar, sin munición: 13-10-2026), y carga, la lanza con que se carga; arma es la de cuerpo a cuerpo, y cada golpe va con las cifras de su arma. En esos dos solo va calidad arena: el juego no los tiene. El equipo NO cuenta para el nivel (decisión del usuario, 12-10-2026): el índice de poder se mide sobre las cifras sin él. La CALIDAD es lo que decide de dónde sale una pieza, y es una propiedad de la pieza y no una lista aparte (decisión del usuario, 02-10-2026): «comun» cae como botín; «armeria» es lo que vende la armería y lo que TODO héroe trae de serie al nacer —hay exactamente una por hueco, la mejor que se puede comprar, y el equipo base se deriva de aquí—; «especial» cae como botín y trae otro tipo de ventaja (velocidad, más PV): es lo único, con las armas mágicas que vendrán, con lo que un héroe mejora lo que ya lleva; «arena» (12-10-2026) es el equipo de los perfiles de arma de la arena (lo que hacía distintas las cifras de un perfil, como la diferencia con el cuerpo común de core/arena.ts) y los escudos, y el juego NO la reparte: ni botín, ni armería, ni equipo base. Van al final del fichero para que el sorteo del botín vea el mismo orden de siempre; su precio es 0 porque no se venden (las de la arena, solo en oro: 18-10-2026). Cada tipo de la arena suma solo sus cifras (camposDelHueco, 18-10-2026): las armas (arma, distancia, carga), ataque y daño; la armadura, defensa, armadura y velocidad; el escudo, defensa y velocidad. Las de la arena protegen con ARMADURA y no con PV (14-10-2026, #262): armadura = puntos que se restan del daño de cada golpe, disparo, hechizo o poder, con mínimo 0; una pieza de la arena no suma PV y una de otra calidad no lleva armadura (lo dice problemasDePieza). Las cifras son los PV de antes / 10, INVENTADAS y provisionales: se ajustan probando. El precio es lo que cuesta en la armería; solo se cobra el de las de armería, y las demás lo llevan por si un día se venden. Lo valida src/core/data.ts al cargar. LA RUEDA DEL ARMA (18-10-2026, solo la arena, «una maza es mejor en ataque fuerte y peor en rápido, una espada es la más versátil»): un arma de calidad arena en arma o carga puede llevar rueda, lo que suma a la cifra propia de cada tipo de data/rueda.json: fuerte, rapido y normal en puntos de % de daño; ofensivo en ataque; defensivo en defensa; romperGuardia en ataque quitado de más en cada éxito; finta en casillas que se restan de más en cada éxito (negativo, resta menos). Cada golpe de la rueda usa la de su arma (cifrasDeLaRuedaCon). La Espada no lleva nada: es la versátil. Los perfiles de la Maza (nueva), el Mandoble, la Daga, el Bastón y la Lanza son INVENTADOS y provisionales. LAS BASES (18-10-2026, «una espada de herrería debería poder ser una espada normal con extras»): una pieza puede escribirse sobre otra de la arena, {id, nombre, base, extras}; su hueco, calidad, manos y PV son los de su base, y sus cifras, las de la base más sus extras (ataque, defensa, armadura, velocidad, danio, rueda y oro, enteros con signo), en cadena: la Espada de herrería es la Espada +1 ataque, +5/+5 daño y +150 de oro, y la Espada bendita, la de herrería +1 ataque y Normal +10. Si cambia la base, cambian las que la toman (resolverBases, src/core/data.ts). INVENTADAS.",
+  "_comment": "El equipo: las piezas que lleva un individuo de la tropa o un héroe, una por hueco (arma, armadura y accesorio). TODO INVENTADO y PROVISIONAL: lo pide NuevaJugabilidad.md («Las tropas también ganan experiencia y equipo»; «En las ciudades puedes construir armería y comprar equipo mejorado para la tropa, los héroes ya lo llevan») y HoMM2 no tiene equipo de tropa, así que no hay fila que copiar. Que nadie cite estas cifras como del original. Cada pieza suma sus cifras a las de quien la lleva: ataque, defensa, pv (×10 desde el 12-10-2026, con los PV del catálogo) y velocidad (escalones de SPEED_TIERS, sin pasar de ultra_fast ni bajar de very_slow; puede ser negativa, y la de un escudo TIENE que serlo); todas las demás, enteras ≥ 0. Una pieza puede sumar además danio ([+mín, +máx]), y un arma de cuerpo a cuerpo (hueco arma) puede decir manos: 2 (a dos manos), que no admite escudo (manosBlocker); el arco a la espalda sí lo admite. El juego tiene cuatro huecos: arma, armadura, accesorio y escudo (12-10-2026: «hueco propio, no hace falta llenar el hueco»); el escudo no lleva pieza de armería, así que el equipo base es espada sin escudo. La arena tiene dos más (13-10-2026, «cada arma para lo suyo»): distancia, el arma con que se dispara (llevarla ya es disparar, sin munición: 13-10-2026), y carga, la lanza con que se carga; arma es la de cuerpo a cuerpo, y cada golpe va con las cifras de su arma. En esos dos solo va calidad arena: el juego no los tiene. El equipo NO cuenta para el nivel (decisión del usuario, 12-10-2026): el índice de poder se mide sobre las cifras sin él. La CALIDAD es lo que decide de dónde sale una pieza, y es una propiedad de la pieza y no una lista aparte (decisión del usuario, 02-10-2026): «comun» cae como botín; «armeria» es lo que vende la armería y lo que TODO héroe trae de serie al nacer —hay exactamente una por hueco, la mejor que se puede comprar, y el equipo base se deriva de aquí—; «especial» cae como botín y trae otro tipo de ventaja (velocidad, más PV): es lo único, con las armas mágicas que vendrán, con lo que un héroe mejora lo que ya lleva; «arena» (12-10-2026) es el equipo de los perfiles de arma de la arena (lo que hacía distintas las cifras de un perfil, como la diferencia con el cuerpo común de core/arena.ts) y los escudos, y el juego NO la reparte: ni botín, ni armería, ni equipo base. Van al final del fichero para que el sorteo del botín vea el mismo orden de siempre; su precio es 0 porque no se venden (las de la arena, solo en oro: 18-10-2026). Cada tipo de la arena suma solo sus cifras (camposDelHueco, 18-10-2026): las armas (arma, distancia, carga), ataque y daño; la armadura, defensa, armadura y velocidad; el escudo, defensa y velocidad. Las de la arena protegen con ARMADURA y no con PV (14-10-2026, #262): armadura = puntos que se restan del daño de cada golpe, disparo, hechizo o poder, con mínimo 0; una pieza de la arena no suma PV y una de otra calidad no lleva armadura (lo dice problemasDePieza). Las cifras son los PV de antes / 10, INVENTADAS y provisionales: se ajustan probando. El precio es lo que cuesta en la armería; solo se cobra el de las de armería, y las demás lo llevan por si un día se venden. Lo valida src/core/data.ts al cargar. LA RUEDA DEL ARMA (18-10-2026, solo la arena, «una maza es mejor en ataque fuerte y peor en rápido, una espada es la más versátil»; por niveles absolutos en la vuelta 2, «para que sea más fácil ver la diferencia entre armas»): toda arma de calidad arena en arma o carga lleva rueda, su nivel de 0 (lo peor) a 6 (lo mejor) en cada uno de los seis tipos del anillo (ofensivo, fuerte, finta, defensivo, rapido, romperGuardia); lo que da cada nivel está en data/rueda.json, y Normal no tiene nivel (siempre ×1). Cada golpe de la rueda usa los niveles de su arma (cifrasDeLosNiveles). Ninguna otra pieza lleva rueda, y en la arena nadie pelea sin un arma de cuerpo a cuerpo de la arena (armaDeCuerpoBlocker). Los perfiles reparten 18 niveles, los de la Espada, que lo lleva todo a 3 (la versátil): la Maza, fuerte en Fuerte y Romper guardia y floja en Rápido y Finta; el Mandoble, parecido y algo más ofensivo; la Daga, Rápido y Finta; el Bastón, Defensivo y Finta; la Lanza, Ofensivo y Fuerte. INVENTADOS y provisionales: se ajustan peleando. LAS BASES (18-10-2026, «una espada de herrería debería poder ser una espada normal con extras»): una pieza puede escribirse sobre otra de la arena, {id, nombre, base, extras}; su hueco, calidad, manos y PV son los de su base, y sus cifras, las de la base más sus extras (ataque, defensa, armadura, velocidad, danio, rueda y oro, enteros con signo), en cadena: la Espada de herrería es la Espada +1 ataque, +5/+5 daño y +150 de oro, y la Espada bendita, la de herrería +1 ataque y un nivel más de Ofensivo y de Defensivo; la de herrería sube además un nivel Fuerte y Rápido (los extras de la rueda, en niveles con signo). Si cambia la base, cambian las que la toman (resolverBases, src/core/data.ts). INVENTADAS.",
   "piezas": [
     {
       "id": "garrote",
@@ -154,6 +154,14 @@
       "pv": 0,
       "velocidad": 0,
       "danio": [10, 30],
+      "rueda": {
+        "ofensivo": 3,
+        "fuerte": 3,
+        "finta": 3,
+        "defensivo": 3,
+        "rapido": 3,
+        "romperGuardia": 3
+      },
       "precio": { "gold": 0 }
     },
     {
@@ -167,7 +175,14 @@
       "velocidad": 0,
       "danio": [30, 60],
       "manos": 2,
-      "rueda": { "fuerte": 15, "rapido": -15, "romperGuardia": 1 },
+      "rueda": {
+        "ofensivo": 4,
+        "fuerte": 5,
+        "finta": 2,
+        "defensivo": 2,
+        "rapido": 1,
+        "romperGuardia": 4
+      },
       "precio": { "gold": 0 }
     },
     {
@@ -181,7 +196,14 @@
       "velocidad": 0,
       "danio": [0, 20],
       "manos": 2,
-      "rueda": { "fuerte": -10, "finta": -1, "defensivo": 1 },
+      "rueda": {
+        "ofensivo": 2,
+        "fuerte": 2,
+        "finta": 4,
+        "defensivo": 5,
+        "rapido": 3,
+        "romperGuardia": 2
+      },
       "precio": { "gold": 0 }
     },
     {
@@ -218,7 +240,14 @@
       "pv": 0,
       "velocidad": 0,
       "danio": [40, 80],
-      "rueda": { "ofensivo": 1, "rapido": -20 },
+      "rueda": {
+        "ofensivo": 5,
+        "fuerte": 4,
+        "finta": 2,
+        "defensivo": 3,
+        "rapido": 1,
+        "romperGuardia": 3
+      },
       "precio": { "gold": 0 }
     },
     {
@@ -324,7 +353,14 @@
       "pv": 0,
       "velocidad": 0,
       "danio": [0, 10],
-      "rueda": { "fuerte": -20, "finta": -1, "rapido": 15 },
+      "rueda": {
+        "ofensivo": 3,
+        "fuerte": 1,
+        "finta": 5,
+        "defensivo": 2,
+        "rapido": 6,
+        "romperGuardia": 1
+      },
       "precio": { "gold": 0 }
     },
     {
@@ -337,20 +373,36 @@
       "pv": 0,
       "velocidad": 0,
       "danio": [20, 40],
-      "rueda": { "fuerte": 20, "rapido": -20, "romperGuardia": 1 },
+      "rueda": {
+        "ofensivo": 3,
+        "fuerte": 5,
+        "finta": 1,
+        "defensivo": 3,
+        "rapido": 1,
+        "romperGuardia": 5
+      },
       "precio": { "gold": 0 }
     },
     {
       "id": "espada_de_herreria",
       "nombre": "Espada de herrería",
       "base": "espada",
-      "extras": { "ataque": 1, "danio": [5, 5], "oro": 150 }
+      "extras": {
+        "ataque": 1,
+        "danio": [5, 5],
+        "rueda": { "fuerte": 1, "rapido": 1 },
+        "oro": 150
+      }
     },
     {
       "id": "espada_bendita",
       "nombre": "Espada bendita",
       "base": "espada_de_herreria",
-      "extras": { "ataque": 1, "rueda": { "normal": 10 }, "oro": 300 }
+      "extras": {
+        "ataque": 1,
+        "rueda": { "ofensivo": 1, "defensivo": 1 },
+        "oro": 300
+      }
     }
   ]
 }

@@ -46,7 +46,7 @@ import {
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
   SPEED_TIERS,
-  TIPOS_DE_GOLPE,
+  TIPOS_DEL_ANILLO,
   USO_DEL_HUECO,
 } from '../types.js';
 import type { Hero } from './hero.js';
@@ -478,7 +478,7 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
         x.damage[1] === y.damage[1] &&
         // La rueda también, tipo a tipo: sin ella, el retoque de la rueda de la
         // Maza a media pelea no llegaba a quien la lleva.
-        TIPOS_DE_GOLPE.every((t) => (x.rueda?.[t] ?? 0) === (y.rueda?.[t] ?? 0));
+        TIPOS_DEL_ANILLO.every((t) => x.rueda?.[t] === y.rueda?.[t]);
   if (a === undefined || b === undefined) return a === b;
   return golpe(a.cuerpo, b.cuerpo) && golpe(a.distancia, b.distancia) && golpe(a.carga, b.carga);
 }

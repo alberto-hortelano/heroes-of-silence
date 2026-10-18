@@ -265,9 +265,11 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     const conCota = conEquipo(campesino, { armadura: 'cota_de_malla' });
     expect(conCota.damage).toBe(campesino.damage);
     expect(conCota).not.toHaveProperty('shots');
-    // Ni el de armas: solo la arena tiene algo en `distancia` o en `carga`.
+    // Ni el de armas: solo la arena tiene algo en `distancia` o en `carga`, o un
+    // arma con rueda (la Espada de la arena; la de armería, del juego, no).
     expect(conCota).not.toHaveProperty('armas');
-    expect(conEspada).not.toHaveProperty('armas');
+    expect(conEquipo(campesino, { arma: 'espada_de_armeria' })).not.toHaveProperty('armas');
+    expect(conEspada.armas?.cuerpo.rueda).toEqual(pieza('espada').rueda);
   });
 
   it('cada arma para lo suyo (13-10-2026): arriba, el cuerpo a cuerpo; en `armas`, el disparo y la carga', () => {
@@ -1043,14 +1045,46 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
       '"paves" va en el hueco escudo, que no suma ataque',
     );
     expect(con((ps) => (id(ps, 'arco').danio = [0, 0]))).not.toThrow();
-    expect(con((ps) => (id(ps, 'brigantina').rueda = { fuerte: 5 }))).toThrow(
-      '"brigantina" va en el hueco armadura y cambia la rueda del golpe: solo un arma de cuerpo a cuerpo o de carga golpea en ella',
+    // La rueda (vuelta 2): toda arma de cuerpo a cuerpo de la arena dice sus seis
+    // niveles, de 0 a 6, y ninguna otra pieza lleva rueda.
+    const espadaDe = (ps: Record<string, unknown>[]) =>
+      id(ps, 'espada') as { rueda: Record<string, unknown> };
+    expect(con((ps) => (id(ps, 'brigantina').rueda = { ...pieza('espada').rueda }))).toThrow(
+      '"brigantina" va en el hueco armadura y lleva rueda del golpe: solo un arma de cuerpo a cuerpo o de carga golpea en ella',
     );
-    expect(con((ps) => (id(ps, 'espada_de_armeria').rueda = { fuerte: 5 }))).toThrow(
-      '"espada_de_armeria" es de calidad armeria y cambia la rueda del golpe: la rueda es solo de la arena',
+    expect(con((ps) => (id(ps, 'arco').rueda = { ...pieza('espada').rueda }))).toThrow(
+      '"arco" va en el hueco distancia y lleva rueda del golpe',
     );
-    expect(con((ps) => (id(ps, 'maza').rueda = { patada: 5 }))).toThrow(
-      '«patada» no es un tipo de golpe de la rueda',
+    expect(con((ps) => (id(ps, 'espada_de_armeria').rueda = { ...pieza('espada').rueda }))).toThrow(
+      '"espada_de_armeria" es de calidad armeria y lleva rueda del golpe: la rueda es solo de la arena',
+    );
+    expect(con((ps) => delete id(ps, 'maza').rueda)).toThrow(
+      '"maza" es un arma de cuerpo a cuerpo de la arena y no dice su rueda: un nivel de 0 a 6 en Ofensivo, Fuerte, Finta, Defensivo, Rápido, Romper guardia',
+    );
+    expect(con((ps) => delete id(ps, 'lanza_de_jinete').rueda)).toThrow(
+      '"lanza_de_jinete" es un arma de cuerpo a cuerpo de la arena y no dice su rueda',
+    );
+    expect(con((ps) => (espadaDe(ps).rueda.fuerte = 7))).toThrow(
+      '"espada": el nivel de Fuerte es 7: va de 0 a 6',
+    );
+    expect(con((ps) => (espadaDe(ps).rueda.finta = -1))).toThrow(
+      '"espada": el nivel de Finta es -1: va de 0 a 6',
+    );
+    expect(con((ps) => (espadaDe(ps).rueda.rapido = 2.5))).toThrow(
+      '"espada": el nivel de Rápido tiene que ser un entero de 0 a 6',
+    );
+    expect(con((ps) => delete espadaDe(ps).rueda.defensivo)).toThrow(
+      '"espada": falta el nivel de Defensivo (de 0 a 6)',
+    );
+    expect(con((ps) => (espadaDe(ps).rueda.normal = 3))).toThrow(
+      '"espada": Normal no tiene nivel: siempre ×1',
+    );
+    expect(con((ps) => (espadaDe(ps).rueda.patada = 3))).toThrow(
+      '«patada» no es un tipo del anillo de la rueda',
+    );
+    // En los extras de una con base, niveles con signo; Normal tampoco.
+    expect(con((ps) => (id(ps, 'espada_bendita').extras = { rueda: { normal: 1 } }))).toThrow(
+      'Normal no tiene nivel: siempre ×1',
     );
     // Las del juego no cambian: el accesorio suma lo que quiera y cuesta oro.
     expect(problemasDePieza(pieza('brazal_de_armeria'))).toEqual([]);
@@ -1066,6 +1100,8 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
       nombre: 'Espada de herrería',
       ataque: espada.ataque + 1,
       danio: [(espada.danio?.[0] ?? 0) + 5, (espada.danio?.[1] ?? 0) + 5],
+      // Los extras de la rueda, en niveles: Fuerte y Rápido, uno más que la Espada.
+      rueda: { ofensivo: 3, fuerte: 4, finta: 3, defensivo: 3, rapido: 4, romperGuardia: 3 },
       precio: { gold: 150 },
     });
     expect(bendita).toMatchObject({
@@ -1073,7 +1109,7 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
       calidad: 'arena',
       ataque: espada.ataque + 2,
       danio: herreria.danio,
-      rueda: { normal: 10 },
+      rueda: { ofensivo: 4, fuerte: 4, finta: 3, defensivo: 4, rapido: 4, romperGuardia: 3 },
       precio: { gold: 450 },
     });
     // Escritas con su base; el juego no las ve (son de la arena).
@@ -1081,7 +1117,7 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
       id: 'espada_bendita',
       nombre: 'Espada bendita',
       base: 'espada_de_herreria',
-      extras: { ataque: 1, rueda: { normal: 10 }, oro: 300 },
+      extras: { ataque: 1, rueda: { ofensivo: 1, defensivo: 1 }, oro: 300 },
     });
     expect(PIEZAS_DEL_JUEGO.map((p) => p.id)).not.toContain('espada_de_herreria');
     // El orden del fichero, el del botín: lo nuevo, al final.

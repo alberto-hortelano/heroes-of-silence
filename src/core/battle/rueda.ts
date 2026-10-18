@@ -31,16 +31,18 @@ import { conSigno } from '../hero/equipo.js';
 import {
   conComa,
   esTipoDeGolpe,
-  type RuedaDelArma,
+  type NivelesDeLaRueda,
   TIPOS_DE_GOLPE,
+  TIPOS_DEL_ANILLO,
   type TipoDeGolpe,
+  type TipoDelAnillo,
   type UnitInfo,
   type UsoDeArma,
 } from '../types.js';
 import {
   type CifrasDeLaRueda,
-  cifrasDeLaRuedaCon,
-  esTipoDeDanio,
+  cifrasDeLosNiveles,
+  GOLPES_DEL_RAPIDO,
   NOMBRE_DE_GOLPE,
   type PapelEnLaRueda,
   type PorExito,
@@ -54,30 +56,29 @@ import type { BattleAction, BattleEvent } from './types.js';
 
 export {
   type CifrasDeLaRueda,
-  COMO_SUMA_EL_ARMA,
-  cifrasDeLaRuedaCon,
-  esTipoDeDanio,
-  mejoraDelTipo,
+  NIVEL_MAXIMO,
   NOMBRE_DE_GOLPE,
+  NORMAL_SIN_NIVEL,
   type PapelEnLaRueda,
   PESOS_DE_LA_RUEDA,
   type PesosDeLaRueda,
   type PorExito,
   PUNTOS,
   type Punto,
-  pasoDelTipo,
-  ruedaDelArmaBlocker,
-  type TipoDeDanio,
   validarRueda,
 } from './cifras-de-la-rueda.js';
 // Los siete tipos viven en `types.ts`, porque los nombra la pieza (`Pieza.rueda`),
-// y las cifras de cada uno con lo que suma un arma, en `cifras-de-la-rueda.ts`,
-// que lee la regla de una pieza: aquí se reexportan, que es donde los busca quien
-// lee la rueda.
-export { esTipoDeGolpe, TIPOS_DE_GOLPE, type TipoDeGolpe };
-
-/** El anillo, sin el centro, en el sentido de las agujas del reloj desde arriba. */
-export const ANILLO: readonly TipoDeGolpe[] = TIPOS_DE_GOLPE.filter((t) => t !== 'normal');
+// y la tabla de los niveles, en `cifras-de-la-rueda.ts`, que lee la regla de una
+// pieza: aquí se reexportan, que es donde los busca quien lee la rueda. El
+// anillo, sin el centro, en el sentido de las agujas del reloj desde arriba, es
+// `ANILLO` para quien pinta la rueda.
+export {
+  esTipoDeGolpe,
+  TIPOS_DE_GOLPE,
+  TIPOS_DEL_ANILLO as ANILLO,
+  type TipoDeGolpe,
+  type TipoDelAnillo,
+};
 
 /** Los modos del golpe de una pelea: la tirada de siempre o la rueda. */
 export const MODOS_DEL_GOLPE = ['azar', 'rueda'] as const;
@@ -99,10 +100,10 @@ export function tipoDeGolpeBlocker(x: unknown): string | null {
  */
 export function puntoDelCruce(golpe: TipoDeGolpe, respuesta: TipoDeGolpe): Punto {
   if (golpe === 'normal' || respuesta === 'normal') return 2;
-  const a = ANILLO.indexOf(golpe);
-  const b = ANILLO.indexOf(respuesta);
+  const a = TIPOS_DEL_ANILLO.indexOf(golpe);
+  const b = TIPOS_DEL_ANILLO.indexOf(respuesta);
   const d = Math.abs(a - b);
-  return PUNTO_POR_DISTANCIA[Math.min(d, ANILLO.length - d)] as Punto;
+  return PUNTO_POR_DISTANCIA[Math.min(d, TIPOS_DEL_ANILLO.length - d)] as Punto;
 }
 
 /**
@@ -146,57 +147,72 @@ export interface EfectoDeLaRueda {
 }
 
 /**
- * Las cifras de la rueda con que da `unit` un golpe de `uso`: las de su arma
- * (`golpeDe(unit, uso).rueda`, que escribe `conEquipo`). Sin arma, o sin nada que
- * sume, las de siempre. **La única lectura del arma en la rueda**: la piden el
- * golpe, el contraataque y la previsión (`battle.ts`).
+ * Las cifras de la rueda con que da `unit` un golpe de `uso`: las de los niveles de
+ * su arma (`golpeDe(unit, uso).rueda`, que escribe `conEquipo`;
+ * `cifrasDeLosNiveles`). **La única lectura del arma en la rueda**: la piden el
+ * golpe, el contraataque y la previsión (`battle.ts`). Sin arma de la arena
+ * **lanza**: en la arena nadie se monta sin ella (`armaDeCuerpoBlocker`) y el
+ * héroe lleva la Espada; si se llega aquí sin ella, es un fallo, no un golpe con
+ * cifras inventadas.
  */
 export function ruedaDelGolpe(unit: UnitInfo, uso: UsoDeArma): CifrasDeLaRueda {
-  return cifrasDeLaRuedaCon(golpeDe(unit, uso).rueda);
+  const { rueda } = golpeDe(unit, uso);
+  if (rueda === undefined) {
+    throw new Error(
+      `«${unit.name}» golpea en la rueda sin arma de la arena: en la arena nadie se monta sin ella`,
+    );
+  }
+  return cifrasDeLosNiveles(rueda);
 }
 
 /**
- * Lo que suma un arma a la rueda en pocas palabras: «Fuerte +20, Rápido −20», o
- * «nada». Lo leen el parte de un retoque (`piezaEnPalabras`) y la tarjeta de la
- * pieza.
+ * Los niveles de la rueda de un arma en pocas palabras, en el orden del anillo:
+ * «Ofensivo 3, Fuerte 5, …». Lo leen el parte de un retoque (`piezaEnPalabras`)
+ * y la tarjeta de la pieza.
  */
-export function ruedaDelArmaEnPalabras(mods: RuedaDelArma | undefined): string {
-  const partes = TIPOS_DE_GOLPE.filter((t) => (mods?.[t] ?? 0) !== 0).map(
-    (t) => `${NOMBRE_DE_GOLPE[t]} ${conSigno(mods?.[t] ?? 0)}`,
-  );
-  return partes.length === 0 ? 'nada' : partes.join(', ');
+export function ruedaDelArmaEnPalabras(niveles: NivelesDeLaRueda): string {
+  return TIPOS_DEL_ANILLO.map((t) => `${NOMBRE_DE_GOLPE[t]} ${niveles[t]}`).join(', ');
 }
 
-/** Una fila de la tabla «Rueda del golpe» de un arma: lo que suma a un tipo y cómo queda. */
+/** Una fila de la tabla «Rueda del golpe» de un arma: el nivel de un tipo y lo que da. */
 export interface FilaDeLaRueda {
-  readonly tipo: TipoDeGolpe;
-  /** Lo que suma el arma, en la unidad de su tipo (`COMO_SUMA_EL_ARMA`). */
-  readonly suma: number;
+  readonly tipo: TipoDelAnillo;
+  /** El nivel del arma en el tipo, de 0 a `NIVEL_MAXIMO`. */
+  readonly nivel: number;
   /**
-   * Cómo queda el tipo con el arma, en una línea: «Daño ×1,45», «+2 ataque»; Romper
-   * guardia y la Finta, del éxito mínimo al máximo con su unidad («−1 a −4 ataque»,
-   * «5 a 1 casillas»).
+   * Lo que da ese nivel, en una línea: «Daño ×1,5», «+3 ataque», «2 golpes ×0,63»;
+   * Romper guardia y la Finta, de menos a más según el éxito, con su unidad
+   * («quita 0 a 3 de ataque», «resta 5 a 10 casillas»).
    */
   readonly final: string;
-  /** Lo mismo en pocas letras, para un sector de la rueda: «×1,45», «2 ×0,4», «−1 a −4». */
+  /** Lo mismo en pocas letras, para un sector de la rueda: «×1,5», «2 ×0,63», «5–10». */
   readonly corto: string;
   /**
    * Romper guardia y la Finta: la cifra de cada éxito, del mínimo al máximo
-   * («−1, −1, −2, −3, −4»), para su nota; los demás, `null`.
+   * («0, 0, −1, −2, −3»), para su nota; los demás, `null`.
    */
   readonly porExito: string | null;
 }
 
 /**
- * La tabla de la rueda de un arma, un tipo por fila en el orden de la rueda: lo
- * que suma y cómo queda (`cifrasDeLaRuedaCon`, la misma cuenta del golpe). La
- * pinta la ficha de una pieza de cuerpo a cuerpo.
+ * Lo que enseña Normal, el centro de la rueda de un arma: siempre ×1, sin nivel
+ * (`NORMAL_SIN_NIVEL`), dicho como las filas de los demás.
  */
-export function filasDeLaRueda(mods: RuedaDelArma | undefined): readonly FilaDeLaRueda[] {
-  const c = cifrasDeLaRuedaCon(mods);
-  return TIPOS_DE_GOLPE.map((tipo) => ({
+export const NORMAL_EN_LA_FICHA: Pick<FilaDeLaRueda, 'final' | 'corto'> = {
+  final: `Daño ${porciento(100)}, en toda arma`,
+  corto: porciento(100),
+};
+
+/**
+ * La tabla de la rueda de un arma, un tipo del anillo por fila en su orden: su
+ * nivel y lo que da (`cifrasDeLosNiveles`, la misma cuenta del golpe). Normal no
+ * tiene fila: siempre es ×1. La pinta la ficha de una pieza de cuerpo a cuerpo.
+ */
+export function filasDeLaRueda(niveles: NivelesDeLaRueda): readonly FilaDeLaRueda[] {
+  const c = cifrasDeLosNiveles(niveles);
+  return TIPOS_DEL_ANILLO.map((tipo) => ({
     tipo,
-    suma: mods?.[tipo] ?? 0,
+    nivel: niveles[tipo],
     final: finalDe(tipo, c),
     corto: cortoDe(tipo, c),
     porExito: porExitoDe(tipo, c),
@@ -205,34 +221,34 @@ export function filasDeLaRueda(mods: RuedaDelArma | undefined): readonly FilaDeL
 
 /**
  * Cómo queda un tipo con las cifras `c`, en pocas palabras y en una línea (la
- * columna de la tabla): «Daño ×1,45», «2 golpes ×0,4», «+1 ataque», y las cifras
- * por éxito, del mínimo al máximo con su unidad («−1 a −4 ataque»: QA 5 del
- * 18-10-2026, «1/2/3/4/5» del máximo al mínimo solo se entendía con la nota).
+ * columna de la tabla): «Daño ×1,5», «2 golpes ×0,63», «+3 ataque», y las cifras
+ * por éxito de menos a más (`deMenosAMas`): «quita 0 a 3 de ataque», «resta 5 a 10
+ * casillas» (con las dos iguales, «resta 10 casillas», «no quita ataque»).
  */
-function finalDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): string {
+function finalDe(tipo: TipoDelAnillo, c: CifrasDeLaRueda): string {
   switch (tipo) {
     case 'fuerte':
-    case 'normal':
-      return `Daño ${porciento(c[tipo].porcentaje)}`;
+      return `Daño ${porciento(c.fuerte.porcentaje)}`;
     case 'rapido':
       return `${c.rapido.golpes} golpes ${porciento(c.rapido.porcentaje)}`;
     case 'ofensivo':
       return `${conSigno(c.ofensivo.ataque)} ataque`;
     case 'defensivo':
       return `${conSigno(c.defensivo.defensa)} defensa`;
-    case 'romperGuardia':
-      return delMinimoAlMaximo(c.romperGuardia.ataque, cifraDeAtaque, 'ataque');
+    case 'romperGuardia': {
+      const r = deMenosAMas(c.romperGuardia.ataque, ' a ');
+      return r === '0' ? 'no quita ataque' : `quita ${r} de ataque`;
+    }
     case 'finta':
-      return delMinimoAlMaximo(c.finta.casillas, String, 'casillas');
+      return `resta ${deMenosAMas(c.finta.casillas, ' a ')} casillas`;
   }
 }
 
 /** `finalDe` en pocas letras, sin la unidad: lo que cabe en un sector de la rueda. */
-function cortoDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): string {
+function cortoDe(tipo: TipoDelAnillo, c: CifrasDeLaRueda): string {
   switch (tipo) {
     case 'fuerte':
-    case 'normal':
-      return porciento(c[tipo].porcentaje);
+      return porciento(c.fuerte.porcentaje);
     case 'rapido':
       return `${c.rapido.golpes} ${porciento(c.rapido.porcentaje)}`;
     case 'ofensivo':
@@ -240,9 +256,9 @@ function cortoDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): string {
     case 'defensivo':
       return `${conSigno(c.defensivo.defensa)} def.`;
     case 'romperGuardia':
-      return delMinimoAlMaximo(c.romperGuardia.ataque, cifraDeAtaque, '').trim();
+      return deMenosAMas(c.romperGuardia.ataque, '–');
     case 'finta':
-      return delMinimoAlMaximo(c.finta.casillas, String, '').trim();
+      return deMenosAMas(c.finta.casillas, '–');
   }
 }
 
@@ -251,28 +267,30 @@ function cifraDeAtaque(n: number): string {
   return n === 0 ? '0' : conSigno(n);
 }
 
-/** Una cifra por éxito en una línea, del mínimo al máximo: «−1 a −4 ataque», o «0 ataque» si no cambia. */
-function delMinimoAlMaximo(
-  valores: PorExito,
-  cifra: (n: number) => string,
-  unidad: string,
-): string {
-  const minimo = cifra(valores[0]);
-  const maximo = cifra(valores[4]);
-  return minimo === maximo ? `${minimo} ${unidad}` : `${minimo} a ${maximo} ${unidad}`;
+/**
+ * Lo que quita o resta una cifra por éxito, sin signo y de menos a más, unido por
+ * `entre` («5 a 10»: la Finta resta menos con más éxito; «0 a 3»: Romper guardia
+ * quita más), o una sola cifra si las dos puntas son iguales.
+ */
+function deMenosAMas(valores: PorExito, entre: string): string {
+  const puntas = [Math.abs(valores[0]), Math.abs(valores[4])];
+  const menos = Math.min(...puntas);
+  const mas = Math.max(...puntas);
+  return menos === mas ? String(mas) : `${menos}${entre}${mas}`;
 }
 
 /** La cifra de cada éxito de Romper guardia o la Finta, del mínimo al máximo; `null` en los demás. */
-function porExitoDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): string | null {
+function porExitoDe(tipo: TipoDelAnillo, c: CifrasDeLaRueda): string | null {
   if (tipo === 'romperGuardia')
     return PUNTOS.map((p) => cifraDeAtaque(c.romperGuardia.ataque[p])).join(', ');
   if (tipo === 'finta') return PUNTOS.map((p) => String(c.finta.casillas[p])).join(', ');
   return null;
 }
 
-/** Lo que multiplica el daño de un golpe de este tipo: los de daño (`esTipoDeDanio`), su %; los demás, 1. */
+/** Lo que multiplica el daño de un golpe de este tipo: Fuerte y Rápido, su %; los demás (Normal también), 1. */
 function factorDe(tipo: TipoDeGolpe, c: CifrasDeLaRueda): number {
-  return esTipoDeDanio(tipo) ? c[tipo].porcentaje / 100 : 1;
+  if (tipo === 'fuerte' || tipo === 'rapido') return c[tipo].porcentaje / 100;
+  return 1;
 }
 
 /**
@@ -308,8 +326,8 @@ export function efectoDeLaRueda(
 
 /**
  * Las casillas que resta la Finta de lo que le queda por andar a quien golpeó con
- * ella, con éxito `p` y las cifras de su arma `c`: sin arma, con el máximo 1 y
- * con el mínimo 5 (`data/rueda.json`).
+ * ella, con éxito `p` y las cifras de su arma `c`: con el nivel 3, 5 con el
+ * éxito máximo y 10 con el mínimo (`data/rueda.json`).
  */
 export function casillasQueQuitaLaFinta(p: Punto, c: CifrasDeLaRueda): number {
   return c.finta.casillas[p];
@@ -352,8 +370,8 @@ export function cruceDelGolpe(
  */
 export function golpesDe(unit: UnitInfo, tipo: TipoDeGolpe | null, contraataque: boolean): number {
   const base = !contraataque && hasTrait(unit, 'double_attack') ? 2 : 1;
-  // Sin arma: el arma cambia el daño de cada golpe del Rápido, no cuántos.
-  return tipo === 'rapido' ? base * cifrasDeLaRuedaCon(undefined).rapido.golpes : base;
+  // El arma cambia el daño de cada golpe del Rápido, no cuántos.
+  return tipo === 'rapido' ? base * GOLPES_DEL_RAPIDO : base;
 }
 
 /**
@@ -447,14 +465,14 @@ function romperGuardiaPorExito(c: CifrasDeLaRueda): string {
   return porNivelesDeExito(c.romperGuardia.ataque, (n) => (n === 0 ? 'nada' : conSigno(n)));
 }
 
-/** Lo que resta la Finta por éxito con las cifras `c`, dicho: «1 con éxito máximo, 2 alto, …». */
+/** Lo que resta la Finta por éxito con las cifras `c`, dicho: «5 con éxito máximo, 6 alto, …». */
 function fintaPorExito(c: CifrasDeLaRueda): string {
   return porNivelesDeExito(c.finta.casillas, String);
 }
 
 /**
- * Lo que hace cada tipo, dicho desde sus cifras —las de `data/rueda.json` con
- * el arma de quien elige, `c` (`ruedaDelGolpe`)— y **para quien elige**: el
+ * Lo que hace cada tipo, dicho desde sus cifras —las de los niveles del arma de
+ * quien elige, `c` (`ruedaDelGolpe`)— y **para quien elige**: el
  * tooltip de su sector. Si cambian las cifras, cambia esta frase.
  *
  * Cada nota dice cuándo actúa su efecto, porque no es lo mismo pegar que
@@ -486,7 +504,7 @@ export function efectoDeGolpe(
   if (papel === 'golpe') {
     switch (tipo) {
       case 'normal':
-        return `${normalDicho(c)}. Contra cualquiera, el cruce cae en el medio.`;
+        return `${SIN_MODIFICAR}. Contra cualquiera, el cruce cae en el medio.`;
       case 'ofensivo':
         return `${conSigno(c.ofensivo.ataque)} ataque en este golpe.`;
       case 'defensivo':
@@ -513,7 +531,7 @@ export function efectoDeGolpe(
   }
   switch (tipo) {
     case 'normal':
-      return `${normalDicho(c)}. Contra cualquier golpe, el cruce cae en el medio, y tu contraataque también.`;
+      return `${SIN_MODIFICAR}. Contra cualquier golpe, el cruce cae en el medio, y tu contraataque también.`;
     case 'fuerte':
       return `${NO_TOCA}: tu contraataque hace daño ${porciento(c.fuerte.porcentaje)}.`;
     case 'rapido':
@@ -527,20 +545,13 @@ export function efectoDeGolpe(
 }
 
 /**
- * Cómo empieza la nota de Normal: «Sin modificar», o, si el arma lo cambia, su
- * daño («Daño ×1,10»).
- */
-function normalDicho(c: CifrasDeLaRueda): string {
-  return c.normal.porcentaje === cifrasDeLaRuedaCon(undefined).normal.porcentaje
-    ? 'Sin modificar'
-    : `Daño ${porciento(c.normal.porcentaje)}`;
-}
-
-/**
  * Cómo empieza la nota de una respuesta con contraataque que lo cambia (Fuerte,
  * Rápido): lo que elige no toca el golpe que le llega, pero el cruce, sí.
  */
 const NO_TOCA = 'Su efecto no toca el golpe que recibes (ese lo decide el cruce)';
+
+/** Cómo empieza la nota de Normal: siempre ×1, el arma no lo toca (decisión del usuario, 18-10-2026). */
+const SIN_MODIFICAR = 'Sin modificar';
 
 /**
  * Lo que dice Rápido de la armadura: cada golpe resta la del rival (`herir`), y

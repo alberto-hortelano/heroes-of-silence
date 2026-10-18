@@ -42,7 +42,14 @@ import { cifrasDePieza, EQUIPO_DEL_JUEGO, pieza, sumaDeEquipo } from '../src/cor
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { EquipoDeArena, Hex, UnitInfo } from '../src/core/types.js';
 import { bando, bandoDe, mando } from './batalla-de-prueba.js';
-import { DEL_JUEGO, dadoCargado, delBorrador, MONTAJE, unidadDeArena } from './helpers.js';
+import {
+  conManosDePrueba,
+  DEL_JUEGO,
+  dadoCargado,
+  delBorrador,
+  MONTAJE,
+  unidadDeArena,
+} from './helpers.js';
 
 /** El cuerpo común de la arena con lo que se cambie. */
 function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {
@@ -64,7 +71,8 @@ const DESNUDO = cuerpo('Desnudo');
 
 /**
  * `quien` en `en` contra `contra` en `donde` (y los demás defensores detrás), con
- * el turno de `quien`; con la rueda si se pide. Sin moral, que regala turnos.
+ * el turno de `quien`; con la rueda si se pide (con las manos de prueba). Sin
+ * moral, que regala turnos.
  */
 function frente(
   quien: UnitInfo,
@@ -80,6 +88,9 @@ function frente(
     REGLAS_DEL_JUEGO,
     { modos: { ...MODOS_DEL_JUEGO, golpe: rueda ? 'rueda' : 'azar' } },
   );
+  // En la rueda se golpea con un arma de la arena: las manos de prueba, con los
+  // niveles de la Espada y sin cifras.
+  if (rueda) conManosDePrueba(b);
   stackById(b, 'attacker-0').hex = en;
   donde.forEach((h, i) => {
     stackById(b, `defender-${i}`).hex = h;
@@ -186,7 +197,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     expect(trasLaArmadura(12, { unit: DESNUDO })).toEqual({ danio: 12, parado: 0 });
   });
 
-  it('Rápido resta la armadura en cada uno de sus dos golpes: 50 × 0,6 = 30 → 23 y 23', () => {
+  it('Rápido resta la armadura en cada uno de sus dos golpes: 50 × 0,63 = 31,5 → 32 → 25 y 25', () => {
     const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1], true);
     const desde = jugar(
       b,
@@ -195,10 +206,10 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     );
     const mios = hechos(b, 'attack', desde).filter((a) => !a.retaliation);
     expect(mios.map((a) => [a.damage, a.parado])).toEqual([
-      [23, 7],
-      [23, 7],
+      [25, 7],
+      [25, 7],
     ]);
-    expect(stackById(b, 'defender-0').topHp).toBe(80 - 46);
+    expect(stackById(b, 'defender-0').topHp).toBe(80 - 50);
   });
 
   it('el disparo doble resta en cada tiro: con el arco, 30 × 1,2 = 36 → 29 y 29', () => {
@@ -356,12 +367,12 @@ describe('una pieza de la arena con PV no vale: ni se convierte ni se avisa (14-
       muralla: null,
     };
     const o = JSON.parse(montajeALaURL(ENLACE));
-    expect(o.v).toBe(10);
+    expect(o.v).toBe(11);
     const { armadura: _, ...sinArmadura } = o.piezas[0];
     const conPV = { ...o, piezas: [{ ...sinArmadura, pv: 45 }] };
     expect(() => montajeDeLaURL(JSON.stringify(conPV))).toThrow(MOTIVO);
     expect(() => montajeDeLaURL(JSON.stringify({ ...conPV, v: 9 }))).toThrow(
-      'este enlace es de una versión anterior de la arena (la 9; la de hoy es la 10): vuelve a copiarlo',
+      'este enlace es de una versión anterior de la arena (la 9; la de hoy es la 11): vuelve a copiarlo',
     );
   });
 

@@ -4,7 +4,8 @@
  * (`carga`), y cada golpe va con las cifras de la suya (`usoDelGolpe`,
  * `cifrasDelGolpe`). Se escribe desde los criterios: el disparo con el arco, el
  * golpe y el contraataque con la daga, la carga con la lanza (o, sin ella, con la
- * espada), sin arma con el cuerpo; y las reglas que dependen del arma —la rueda,
+ * espada); sin arma de cuerpo a cuerpo, en la arena no se monta y el juego (sin
+ * armas por uso) pega con sus cifras; y las reglas que dependen del arma —la rueda,
  * el castigo del tirador de fheroes2— siguen valiendo.
  *
  * Las cifras se esperan escritas, no calculadas con la fórmula: con el dado
@@ -13,7 +14,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { textoDePrevision } from '../src/client/views/prevision.js';
-import { CUERPO_COMUN, catalogoDeLaArena } from '../src/core/arena.js';
+import {
+  armaDeCuerpoBlocker,
+  CUERPO_COMUN,
+  catalogoDeLaArena,
+  nivelesDeLaEspada,
+} from '../src/core/arena.js';
 import {
   applyAction,
   crearBatallaConReglas,
@@ -24,15 +30,17 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexEquals } from '../src/core/battle/board.js';
 import { CARGA } from '../src/core/battle/carga.js';
+import { cifrasDeLosNiveles } from '../src/core/battle/cifras-de-la-rueda.js';
 import {
   armasDe,
   computeDamage,
   expectedDamage,
+  golpeDe,
   horquillaDeDanio,
   usoDelGolpe,
 } from '../src/core/battle/damage.js';
 import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
-import { cifrasDeLaRuedaCon, cruceDelGolpe } from '../src/core/battle/rueda.js';
+import { cruceDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { cuentaTiros, isShooter, type Pieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
@@ -40,6 +48,9 @@ import { createRng } from '../src/core/rng.js';
 import type { EquipoDeArena, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
 import { bandoDe, con } from './batalla-de-prueba.js';
 import { dadoCargado } from './helpers.js';
+
+/** Las cifras de la rueda con la Espada de la arena (`data/equipo.json`): las de un arma versátil. */
+const CON_LA_ESPADA = cifrasDeLosNiveles(nivelesDeLaEspada());
 
 /** El cuerpo común de la arena (`CUERPO_COMUN`): 3 / 3, daño 10–10, 80 PV. */
 function cuerpo(speed: SpeedTier = 'average', traits: UnitInfo['traits'] = []): UnitInfo {
@@ -68,11 +79,6 @@ const JINETE_SIN_LANZA = vestido(
   cuerpo('very_fast', ['charge']),
   { arma: 'espada', armadura: 'barda' },
   'Jinete sin lanza',
-);
-const JINETE_SIN_ESPADA = vestido(
-  cuerpo('very_fast', ['charge']),
-  { carga: 'lanza_de_jinete', armadura: 'barda' },
-  'Jinete sin espada',
 );
 /** El blanco: defensa 4 (el ataque de la daga), mucha vida y un golpe de 1. */
 const MUNECO: UnitInfo = {
@@ -235,15 +241,28 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     const b = () => frente(JINETE_SIN_LANZA, { col: 3, row: 4 }, { col: 7, row: 4 });
     const { visto, previsto } = puntas(b, (e) => golpe(e, { col: 6, row: 4 }));
     expect(visto).toEqual([29, 57]);
-    // Sin arma de carga ni a distancia no hay armas por uso: no se dice con cuál.
-    expect(previsto.modificadores[0]?.causa).toBe('ataque 5 contra defensa 4');
+    // La Espada de la arena lleva rueda (vuelta 2): hay armas por uso y se dice con
+    // cuál, aunque no lleve lanza.
+    expect(previsto.modificadores[0]?.causa).toBe('con Espada (en la carga)');
   });
 
-  it('sin arma de cuerpo a cuerpo pega con el cuerpo: 3 contra 4 (×0,975), 10–10 → 10', () => {
-    const b = () => frente(JINETE_SIN_ESPADA, { col: 6, row: 4 }, { col: 7, row: 4 });
+  it('sin arma de cuerpo a cuerpo: en la arena no se monta; el juego, sin armas por uso, pega con sus cifras', () => {
+    // La arena: el jinete con lanza y sin espada no se monta (18-10-2026: «sin arma
+    // no se combate»).
+    expect(
+      armaDeCuerpoBlocker({ carga: 'lanza_de_jinete', armadura: 'barda' }, catalogoDeLaArena([])),
+    ).toMatch(/^no lleva arma de cuerpo a cuerpo/);
+    // El juego no lleva `armas`: el respaldo es él, que golpea con las cifras de
+    // arriba sin nombrar arma. 3 contra 4 (×0,975), 10–10 → 10.
+    const juego = cuerpo();
+    expect(juego.armas).toBeUndefined();
+    expect(golpeDe(juego, 'cuerpo')).toEqual({ arma: null, attack: 3, damage: [10, 10] });
+    const b = () => frente(juego, { col: 6, row: 4 }, { col: 7, row: 4 });
     const { visto, previsto } = puntas(b, (e) => golpe(e));
     expect(visto).toEqual([10, 10]);
-    expect(previsto.modificadores[0]?.causa).toBe('sin arma, con el cuerpo (cuerpo a cuerpo)');
+    expect(previsto.modificadores.map((m) => m.causa)).not.toContain(
+      'sin arma, con el cuerpo (cuerpo a cuerpo)',
+    );
   });
 
   it('con la rueda del golpe, la tirada cae en los cuartos de la lanza', () => {
@@ -254,7 +273,7 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     const enUnCuarto = {
       reglas: REGLAS_DEL_JUEGO,
       chargeHexes: 3,
-      cruce: cruceDelGolpe('normal', 1, 1, 'golpe', cifrasDeLaRuedaCon(undefined)),
+      cruce: cruceDelGolpe('normal', 1, 1, 'golpe', CON_LA_ESPADA),
     };
     expect(computeDamage(jinete, muneco, dadoCargado('maximo'), enUnCuarto).damage).toBe(125);
     // Del cuarto 0 al 2: 50–70 → 104–146; sin carga, los de la espada (20–40 → 22–33).
@@ -265,7 +284,7 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
         {
           reglas: REGLAS_DEL_JUEGO,
           chargeHexes,
-          cruce: cruceDelGolpe('normal', 0, 2, 'golpe', cifrasDeLaRuedaCon(undefined)),
+          cruce: cruceDelGolpe('normal', 0, 2, 'golpe', CON_LA_ESPADA),
         },
         EQUIPO_DEL_JUEGO,
       ).danio;

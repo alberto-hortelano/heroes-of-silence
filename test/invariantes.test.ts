@@ -2059,32 +2059,44 @@ describe('las bases y la rueda del arma (18-10-2026)', () => {
     //  (b) Los extras de una pieza con base (`.extras`) los leen solo `data.ts`,
     //      `arena.ts` y la página de la arena (su ficha los escribe): nadie más
     //      suma un extra por su cuenta.
-    //  (c) Las cifras sin arma: `RUEDA_SIN_ARMA` (privada de
-    //      `cifras-de-la-rueda.ts`) sale solo en su declaración y en
-    //      `cifrasDeLaRuedaCon`, y pedirlas sin arma
-    //      (`cifrasDeLaRuedaCon(undefined)`), solo donde el arma no cuenta: en
-    //      `golpesDe` (no cambia cuántos golpes), `normalDicho` (el Normal de
-    //      siempre) y `ruedaDelArmaBlocker` (lo dice junto a la del arma). Un tipo
-    //      que leyera las de siempre se olvidaría del arma del golpe. Por
-    //      declaración, no contando líneas: que el formateador parta una no lo
-    //      pone rojo.
-    // Rotos a mano: un `p.extras.ataque` en `damage.ts`, un
-    // `cifrasDeLaRuedaCon(undefined)` en `factorDe` y un `RUEDA_SIN_ARMA` en
-    // `porExitoCon` salen rojos.
+    //  (c) La tabla de los niveles (vuelta 2): `TABLA` (privada de
+    //      `cifras-de-la-rueda.ts`) sale solo en su declaración, en
+    //      `cifrasDeLosNiveles` (la única lectura) y en `GOLPES_DEL_RAPIDO` (que
+    //      no depende del nivel), y `cifrasDeLosNiveles` la llaman solo
+    //      `ruedaDelGolpe` (el golpe, con el arma de ese golpe) y `filasDeLaRueda`
+    //      (la ficha de una pieza). Un tipo que leyera la tabla por su cuenta se
+    //      olvidaría del arma del golpe. Por declaración, no contando líneas: que
+    //      el formateador parta una no lo pone rojo.
+    // Rotos a mano: un `p.extras.ataque` en `damage.ts`, una lectura de `TABLA`
+    // en `delNivel` y un `cifrasDeLosNiveles(` en `factorDe` salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    /** Las líneas de `rutas` con `patron` fuera de las declaraciones con permiso. */
+    const fueraDe = (
+      patron: RegExp,
+      permisos: Readonly<Record<string, readonly string[]>>,
+      rutas: readonly string[] = todos,
+    ): string[] => {
+      const fuera: string[] = [];
+      for (const ruta of rutas) {
+        const conPermiso = lineasDeLasDeclaraciones(ruta, permisos[ruta] ?? []);
+        for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
+          if (!conPermiso.has(i + 1) && patron.test(linea)) fuera.push(`${ruta}:${i + 1}`);
+        }
+      }
+      return fuera;
+    };
     const sumanBases: Readonly<Record<string, readonly string[]>> = {
       'src/core/arena.ts': ['catalogoDeLaArena', 'revisarBorradorDeEquipo'],
       'src/core/battle/battle.ts': ['piezasDeLaPelea'],
     };
     const llamada = /\bresolverBases\s*\(/;
-    const fuera: string[] = [];
-    for (const ruta of todos.filter((r) => r !== 'src/core/data.ts')) {
-      const conPermiso = lineasDeLasDeclaraciones(ruta, sumanBases[ruta] ?? []);
-      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
-        if (!conPermiso.has(i + 1) && llamada.test(linea)) fuera.push(`${ruta}:${i + 1}`);
-      }
-    }
-    expect(fuera).toEqual([]);
+    expect(
+      fueraDe(
+        llamada,
+        sumanBases,
+        todos.filter((r) => r !== 'src/core/data.ts'),
+      ),
+    ).toEqual([]);
     expect(infractoresDeCodigo(['src/core/battle/battle.ts'], llamada)).not.toEqual([]);
 
     const extras = /\.extras\b/;
@@ -2098,23 +2110,24 @@ describe('las bases y la rueda del arma (18-10-2026)', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo(['src/core/data.ts'], extras)).not.toEqual([]);
 
-    const sinArma = /\bRUEDA_SIN_ARMA\b|\bcifrasDeLaRuedaCon\s*\(\s*undefined\s*\)/;
-    const leenSinArma: Readonly<Record<string, readonly string[]>> = {
-      'src/core/battle/cifras-de-la-rueda.ts': [
-        'RUEDA_SIN_ARMA',
-        'cifrasDeLaRuedaCon',
-        'ruedaDelArmaBlocker',
-      ],
-      'src/core/battle/rueda.ts': ['golpesDe', 'normalDicho'],
-    };
-    const sinArmaFuera: string[] = [];
-    for (const ruta of todos) {
-      const conPermiso = lineasDeLasDeclaraciones(ruta, leenSinArma[ruta] ?? []);
-      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
-        if (!conPermiso.has(i + 1) && sinArma.test(linea)) sinArmaFuera.push(`${ruta}:${i + 1}`);
-      }
-    }
-    expect(sinArmaFuera).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/cifras-de-la-rueda.ts'], sinArma)).not.toEqual([]);
+    const tabla = /\bTABLA\b/;
+    expect(
+      fueraDe(tabla, {
+        'src/core/battle/cifras-de-la-rueda.ts': [
+          'TABLA',
+          'cifrasDeLosNiveles',
+          'GOLPES_DEL_RAPIDO',
+        ],
+      }),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/battle/cifras-de-la-rueda.ts'], tabla)).not.toEqual([]);
+    const traduce = /\bcifrasDeLosNiveles\s*\(/;
+    expect(
+      fueraDe(traduce, {
+        'src/core/battle/cifras-de-la-rueda.ts': ['cifrasDeLosNiveles'],
+        'src/core/battle/rueda.ts': ['ruedaDelGolpe', 'filasDeLaRueda'],
+      }),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/battle/rueda.ts'], traduce)).not.toEqual([]);
   });
 });

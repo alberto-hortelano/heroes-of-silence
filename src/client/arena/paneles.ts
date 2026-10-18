@@ -73,13 +73,12 @@ import {
   reglasEncendidas,
 } from '@core/battle/reglas.js';
 import {
-  COMO_SUMA_EL_ARMA,
   filasDeLaRueda,
-  mejoraDelTipo,
+  NIVEL_MAXIMO,
   NOMBRE_DE_GOLPE,
-  pasoDelTipo,
+  NORMAL_SIN_NIVEL,
   ruedaDelArmaEnPalabras,
-  type TipoDeGolpe,
+  type TipoDelAnillo,
 } from '@core/battle/rueda.js';
 import { allSpells, delHeroe, efectoDe } from '@core/battle/spells.js';
 import type {
@@ -139,7 +138,7 @@ import {
   renderSpells,
 } from '../views/panels.js';
 import { curaOEfecto, textoDePrevision } from '../views/prevision.js';
-import { ruedaDeLaPieza, type TipoEnLaFicha } from './disco.js';
+import { ruedaDeLaPieza } from './disco.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
@@ -1843,62 +1842,80 @@ function filasDePieza(p: Pieza, extras: ExtrasDePieza | null): FilaDeCifra[] {
   }));
 }
 
-/** Hasta cuántos puntos de mejora (`mejoraDelTipo`) llega media barra: más allá, llena. */
-const MEJORA_DE_MEDIA_BARRA = 4;
-
 /**
- * La barra de un tipo: crece desde el centro hacia la derecha si el arma mejora el
- * golpe y hacia la izquierda si lo empeora, en un SVG (el ancho es un atributo: un
- * `style` con un número no pasa por `html.ts`).
+ * La barra de un nivel: siete muescas, del 0 al `NIVEL_MAXIMO`, llena desde la
+ * izquierda hasta el nivel (0, vacía; 6, llena), en un SVG (el ancho es un
+ * atributo: un `style` con un número no pasa por `html.ts`). La misma para toda
+ * arma: el nivel es absoluto.
  */
-function barraDeLaMejora(mejora: number): Html {
-  const m = Math.max(-MEJORA_DE_MEDIA_BARRA, Math.min(MEJORA_DE_MEDIA_BARRA, mejora));
-  const ancho = Math.round((Math.abs(m) / MEJORA_DE_MEDIA_BARRA) * 5000) / 100;
-  const x = m >= 0 ? 0 : -ancho;
-  return html`<svg class="barra" viewBox="-50 0 100 10" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      <rect class="pista" x="-50" y="0" width="100" height="10"/>
-      ${mejora === 0 ? NADA : html`<rect class="relleno ${mejora > 0 ? 'mejor' : 'peor'}" x="${String(x)}" y="1.5" width="${String(ancho)}" height="7"/>`}
-      <line class="centro" x1="0" y1="0" x2="0" y2="10"/>
+function barraDelNivel(nivel: number): Html {
+  const paso = 60 / NIVEL_MAXIMO;
+  const muescas = unir(
+    Array.from({ length: NIVEL_MAXIMO - 1 }, (_, i) => {
+      const x = String(Math.round(paso * (i + 1) * 100) / 100);
+      return html`<line class="muesca" x1="${x}" y1="0" x2="${x}" y2="10"/>`;
+    }),
+  );
+  const ancho = String(Math.round(paso * nivel * 100) / 100);
+  return html`<svg class="barra" data-nivel="${String(nivel)}" viewBox="0 0 60 10" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <rect class="pista" x="0" y="0" width="60" height="10"/>
+      ${nivel <= 0 ? NADA : html`<rect class="relleno" x="0" y="1.5" width="${ancho}" height="7"/>`}
+      ${muescas}
     </svg>`;
 }
 
 /**
- * «Rueda del golpe» de un arma de cuerpo a cuerpo (18-10-2026, decisión del
- * usuario): se edita en barras, un tipo por fila, con «−» a la izquierda (peor) y
- * «+» a la derecha (mejor) —en la Finta, mejor es restar casillas
- * (`pasoDelTipo`)—, y la rueda teñida al lado, solo para leer
- * (`ruedaDeLaPieza`). La barra y el tinte son lo que el arma hace de verdad (con
- * su base); la casilla, lo que se escribe: con base, lo que suma de más que ella.
- * Cómo queda cada tipo, `filasDeLaRueda`, la misma cuenta del golpe.
+ * La nota de la fila de un tipo: su nivel y, en Romper guardia y la Finta, lo que
+ * da cada éxito (el nivel dice el del éxito máximo); en la Finta, además, que
+ * subir es restar menos.
+ */
+function notaDelNivel(tipo: TipoDelAnillo, nivel: number, porExito: string | null): string {
+  const exito =
+    porExito === null
+      ? ''
+      : ` Del éxito mínimo al máximo: ${porExito}; el nivel dice el del máximo.`;
+  const finta = tipo === 'finta' ? ' Subir es restar menos casillas.' : '';
+  return `Nivel ${nivel} de ${NIVEL_MAXIMO}, el mismo en toda arma: 0 es lo peor y ${NIVEL_MAXIMO} lo mejor.${exito}${finta}`;
+}
+
+/**
+ * «Rueda del golpe» de un arma de cuerpo a cuerpo (18-10-2026, vuelta 2: niveles
+ * absolutos): un tipo del anillo por fila, una barra de 0 a 6 llena desde la
+ * izquierda, con «−» (baja un nivel, peor) y «+» (sube, mejor; en la Finta, resta
+ * menos casillas), sin pasar de 0 ni de 6, y lo que da su nivel al lado; Normal no
+ * tiene fila (siempre ×1). Al lado, la rueda teñida por nivel, solo para leer
+ * (`ruedaDeLaPieza`). La barra y el tinte son el nivel final (con su base); la
+ * casilla, lo que se escribe: sin base, el nivel; con base, lo que lo sube o lo
+ * baja sobre el de ella. Lo que da cada nivel, `filasDeLaRueda`, la misma cuenta
+ * del golpe; si un nivel no vale, lo dice el núcleo.
  */
 function tablaDeLaRueda(p: Pieza, extras: ExtrasDePieza | null): Html {
+  if (p.rueda === undefined) {
+    throw new Error(`«${p.nombre}» es un arma de cuerpo a cuerpo de la arena sin rueda`);
+  }
   const filas = filasDeLaRueda(p.rueda);
-  const enLaRueda = Object.fromEntries(
-    filas.map((f) => [
-      f.tipo,
-      { final: f.final, corto: f.corto, mejora: mejoraDelTipo(f.tipo, f.suma) },
-    ]),
-  ) as Record<TipoDeGolpe, TipoEnLaFicha>;
   const barras = unir(
     filas.map((f) => {
-      const como = COMO_SUMA_EL_ARMA[f.tipo];
       const nombre = NOMBRE_DE_GOLPE[f.tipo];
-      const escrito = extras === null ? f.suma : (extras.rueda?.[f.tipo] ?? 0);
-      const mejora = enLaRueda[f.tipo].mejora;
-      return html`<div class="barra-de-la-rueda" data-tipo="${f.tipo}" data-mejora="${mejora > 0 ? 'mejor' : mejora < 0 ? 'peor' : 'igual'}">
-        <span class="rotulo">${nombre} ${nota(`En ${como.unidad}; cada paso, ${Math.abs(pasoDelTipo(f.tipo, 1))}.${como.mejora < 0 ? ' Mejor es restar casillas: «+» resta.' : ''}${f.porExito === null ? '' : ` Con el arma, del éxito mínimo al máximo: ${f.porExito}.`}`, false)}</span>
-        <button class="paso" data-arena="paso-de-rueda" data-tipo="${f.tipo}" data-sentido="-1" aria-label="${nombre}: peor">−</button>
-        ${barraDeLaMejora(mejora)}
-        <button class="paso" data-arena="paso-de-rueda" data-tipo="${f.tipo}" data-sentido="1" aria-label="${nombre}: mejor">+</button>
-        <input type="number" step="1" data-arena-pieza-campo="rueda-${f.tipo}" value="${escrito}" aria-label="${nombre}: ${extras === null ? 'lo que suma' : 'lo que suma de más que su base'}, en ${como.unidad}">
-        <output class="final${f.suma === 0 ? '' : ' cambiada'}" data-final="rueda-${f.tipo}">${f.final}</output>
+      const escrito = extras === null ? f.nivel : (extras.rueda?.[f.tipo] ?? 0);
+      const limites = extras === null ? html`min="0" max="${String(NIVEL_MAXIMO)}"` : NADA;
+      // El nivel no va en la fila sino en la barra y en lo que da: `pintar` busca
+      // el botón pulsado con el teclado por los `data-*` de sus antepasados, y uno
+      // que cambia a cada paso le perdía el foco (QA de la vuelta 2, H1).
+      return html`<div class="barra-de-la-rueda" data-tipo="${f.tipo}">
+        <span class="rotulo">${nombre} ${nota(notaDelNivel(f.tipo, f.nivel, f.porExito), false)}</span>
+        <button class="paso" data-arena="paso-de-rueda" data-tipo="${f.tipo}" data-sentido="-1" aria-label="${nombre}: un nivel menos" ${f.nivel <= 0 ? DESHABILITADO : NADA}>−</button>
+        ${barraDelNivel(f.nivel)}
+        <button class="paso" data-arena="paso-de-rueda" data-tipo="${f.tipo}" data-sentido="1" aria-label="${nombre}: un nivel más" ${f.nivel >= NIVEL_MAXIMO ? DESHABILITADO : NADA}>+</button>
+        <input type="number" step="1" ${limites} data-arena-pieza-campo="rueda-${f.tipo}" value="${escrito}" aria-label="${nombre}: ${extras === null ? `nivel, de 0 a ${NIVEL_MAXIMO}` : 'niveles que sube o baja sobre su base'}">
+        <output class="final" data-final="rueda-${f.tipo}" data-nivel="${String(f.nivel)}">${f.final}</output>
       </div>`;
     }),
   );
-  return html`<h4>Rueda del golpe ${nota(`Lo que el arma hace a cada tipo de la rueda (solo con «Golpe: rueda»): a la derecha, mejor; a la izquierda, peor. La casilla es ${extras === null ? 'lo que suma' : 'lo que suma de más que su base; la barra, lo que hace con ella'}. Cada golpe va con su arma: la lanza en el primero de una carga; esta en los demás y en el contraataque.`)}</h4>
+  return html`<h4>Rueda del golpe ${nota(`El nivel del arma en cada tipo de la rueda (solo con «Golpe: rueda»), de 0 (izquierda, lo peor) a ${NIVEL_MAXIMO} (derecha, lo mejor), el mismo en toda arma. ${NORMAL_SIN_NIVEL}. La casilla es ${extras === null ? 'el nivel' : 'lo que sube o baja el de su base; la barra, el nivel con ella'}. Cada golpe va con su arma: la lanza en el primero de una carga; esta en los demás y en el contraataque.`)}</h4>
     <div class="rueda-del-arma" data-rueda-de-la-pieza="si">
       <div class="barras-de-la-rueda">${barras}</div>
-      ${ruedaDeLaPieza(enLaRueda)}
+      ${ruedaDeLaPieza(filas)}
     </div>`;
 }
 

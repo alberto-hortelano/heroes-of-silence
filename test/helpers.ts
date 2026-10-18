@@ -18,6 +18,7 @@ import {
   type FuenteDeArena,
   type HojaDeArena,
   type MontajeDeArena,
+  nivelesDeLaEspada,
   type UnidadDeArena,
   unidadDeCombate,
   unidadPorDefecto,
@@ -43,7 +44,7 @@ import type {
   BattleState,
 } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
-import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
+import { BARRERAS_DEL_MAPA, type Pieza } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
@@ -78,7 +79,18 @@ import {
   heroesOf,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Army, Hex, PlayerId, Point, Stack, TipoDeGolpe, Troop } from '../src/core/types.js';
+import {
+  type Army,
+  type Hex,
+  type NivelesDeLaRueda,
+  type PlayerId,
+  type Point,
+  type Stack,
+  TIPOS_DEL_ANILLO,
+  type TipoDeGolpe,
+  type Troop,
+  type UnitInfo,
+} from '../src/core/types.js';
 import { hojasDeArena } from '../tools/arena/borrador.js';
 
 /**
@@ -1092,6 +1104,51 @@ export function unidadDeArena(id: string, cambios: Partial<UnidadDeArena> = {}):
  * con lo escrito: las bases de `data/equipo.json`).
  */
 export const DEL_JUEGO: CatalogoDeLaArena = catalogoDeLaArena([]);
+
+/** Una rueda con todos los tipos del anillo en el nivel `n`. */
+export function todoA(n: number): NivelesDeLaRueda {
+  return Object.fromEntries(TIPOS_DEL_ANILLO.map((t) => [t, n])) as NivelesDeLaRueda;
+}
+
+/**
+ * Un arma de prueba que no suma nada y lleva los niveles de la Espada (`data/equipo.json`):
+ * con ella, una criatura del catálogo golpea en la rueda sin que cambien su ataque
+ * ni su daño. En la arena nadie golpea sin arma (`armaDeCuerpoBlocker`); estas
+ * pruebas de la rueda montan criaturas del juego para que las cifras se cuenten a
+ * mano.
+ */
+export const MANOS_DE_PRUEBA: Pieza = {
+  id: 'manos_de_prueba',
+  nombre: 'Manos de prueba',
+  hueco: 'arma',
+  calidad: 'arena',
+  ataque: 0,
+  defensa: 0,
+  pv: 0,
+  velocidad: 0,
+  rueda: nivelesDeLaEspada(),
+  precio: { gold: 0 },
+};
+
+/**
+ * Cada stack de `b` (sin arma) con las manos de prueba en el hueco del arma, por
+ * `conEquipo`, el único escritor de `UnitInfo.armas`, y la pieza entre las de la
+ * pelea (`BattleState.piezasDeArena`): golpea en la rueda con los niveles de la
+ * Espada (u otros, `niveles`) sin cambiar sus cifras. Devuelve `b`.
+ */
+export function conManosDePrueba(
+  b: BattleState,
+  niveles: NivelesDeLaRueda = nivelesDeLaEspada(),
+): BattleState {
+  const manos: Pieza = { ...MANOS_DE_PRUEBA, rueda: niveles };
+  const eq = catalogoDeLaArena([manos]);
+  // La pelea lleva su pieza: la previsión y la ficha buscan el arma por su id.
+  b.piezasDeArena = [...(b.piezasDeArena ?? []), manos];
+  for (const s of b.stacks) {
+    (s as { unit: UnitInfo }).unit = eq.conEquipo(s.unit, { arma: manos.id });
+  }
+  return b;
+}
 
 /** Lo común de un montaje de prueba: las reglas del juego y ninguna pieza de la arena. */
 export const MONTAJE = { reglas: REGLAS_DEL_JUEGO, piezas: [] } as const satisfies Pick<

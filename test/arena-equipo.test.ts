@@ -69,6 +69,7 @@ import {
   hojaDeLaArena,
   hojasDeLaArena,
   MONTAJE,
+  todoA,
   unidadDeArena,
 } from './helpers.js';
 
@@ -108,6 +109,28 @@ describe('las piezas de la arena', () => {
     expect(() => catalogoDeLaArena([ESPADA_MAS, ESPADA_MAS])).toThrow('va dos veces');
   });
 
+  it('un arma de cuerpo a cuerpo nueva nace con la rueda de la Espada; la de otro hueco, sin rueda', () => {
+    const deLaEspada = ESPADA.rueda;
+    expect(deLaEspada).toBeDefined();
+    expect((piezaNueva('arma', DEL_JUEGO) as Pieza).rueda).toEqual(deLaEspada);
+    expect((piezaNueva('carga', DEL_JUEGO) as Pieza).rueda).toEqual(deLaEspada);
+    for (const h of ['distancia', 'armadura', 'escudo'] as const) {
+      expect(piezaNueva(h, DEL_JUEGO), h).not.toHaveProperty('rueda');
+    }
+    // Pasar un arco a cuerpo a cuerpo le da la rueda de una nueva; y al revés, la pierde.
+    const arco = piezaNueva('distancia', DEL_JUEGO) as Pieza;
+    expect(enElHueco(arco, 'arma').rueda).toEqual(deLaEspada);
+    expect(enElHueco(pieza('maza'), 'distancia')).not.toHaveProperty('rueda');
+    // Un 0 es un nivel: la forma canónica lo escribe, y va y vuelve.
+    const enCero = validarPiezaDeArena({
+      ...arco,
+      hueco: 'arma',
+      rueda: { ...todoA(3), fuerte: 0 },
+    });
+    expect((enCero as Pieza).rueda).toEqual({ ...todoA(3), fuerte: 0 });
+    expect(validarPiezaDeArena(JSON.parse(JSON.stringify(enCero)))).toEqual(enCero);
+  });
+
   it('un arma a distancia nueva, sin disparos, ya hace tirador a quien la lleva (13-10-2026)', () => {
     // Sin munición: llevarla es disparar. Antes nacía con los 12 del arco (H1 del QA
     // de las armas por uso), que con 0 no se usaba nunca.
@@ -124,18 +147,27 @@ describe('las piezas de la arena', () => {
   it('una del fichero no cambia de hueco; una del juego no se cambia; una nueva es de la arena; lo ajeno se dice', () => {
     // El hueco lo mira la resolución (`resolverBases`), la misma para la entera y
     // para la que tiene base: la frase se dice en un sitio.
-    expect(() => catalogoDeLaArena([{ ...ESPADA, hueco: 'accesorio' }])).toThrow(
+    // Sin su rueda, que en el accesorio no va: así lo que se dice es el hueco.
+    const { rueda: _, ...espadaSinRueda } = ESPADA;
+    expect(() => catalogoDeLaArena([{ ...espadaSinRueda, hueco: 'accesorio' }])).toThrow(
       '«Espada» es una pieza de data/equipo.json y va en Arma: su hueco no se cambia en la arena',
     );
     // Solo las de la arena (18-10-2026): ni el garrote, ni con otra calidad.
-    expect(() => validarPiezaDeArena({ ...pieza('garrote'), calidad: 'arena' })).toThrow(
+    expect(() =>
+      validarPiezaDeArena({ ...pieza('garrote'), calidad: 'arena', rueda: ESPADA.rueda }),
+    ).toThrow(
       '«Garrote» es una pieza del juego de calidad «comun»: en la arena solo se cambian las piezas de la arena',
     );
     expect(() => validarPiezaDeArena({ ...pieza('garrote'), ataque: 5 })).toThrow(
       'en la arena solo se cambian las piezas de la arena',
     );
+    // Sin su rueda, que en otra calidad no va: así lo que se dice es la calidad.
+    expect(() =>
+      validarPiezaDeArena({ ...espadaSinRueda, id: 'espada-9', calidad: 'comun' }),
+    ).toThrow('es una pieza de la arena y su calidad es «arena»');
+    // Con ella, también se dice.
     expect(() => validarPiezaDeArena({ ...ESPADA, id: 'espada-9', calidad: 'comun' })).toThrow(
-      'es una pieza de la arena y su calidad es «arena»',
+      '«Espada» es de calidad comun y lleva rueda del golpe: la rueda es solo de la arena',
     );
     expect(() => validarPiezaDeArena({ ...ESPADA, filo: 3 })).toThrow(
       '«filo» no es un campo de una pieza',
@@ -309,7 +341,7 @@ describe('el enlace de la pelea lleva las piezas de la arena', () => {
   };
 
   it('va y vuelve con la pieza nueva, y monta con las del juego más las suyas', () => {
-    expect(VERSION_DEL_ENLACE).toBe(10);
+    expect(VERSION_DEL_ENLACE).toBe(11);
     const leido = montajeDeLaURL(montajeALaURL(ENLACE));
     expect(leido).toEqual(ENLACE);
     const montado = montajeDeArenaDelEnlace(leido, MONTAJE.reglas, leido.piezas);
@@ -318,7 +350,13 @@ describe('el enlace de la pelea lleva las piezas de la arena', () => {
     );
     // Lo que va en el enlace es lo que lleva lo montado (`idsLlevados`).
     expect(piezasDelMontaje(ENLACE.unidades, false, [nueva, ESPADA_MAS])).toEqual([nueva]);
-    expect(idsLlevados([], true)).toEqual(new Set(Object.values(EQUIPO_BASE)));
+    // El héroe: el equipo base con la Espada de la arena (vuelta 2), que viaja si
+    // está cambiada.
+    expect(idsLlevados([], true)).toEqual(
+      new Set(Object.values({ ...EQUIPO_BASE, arma: 'espada' })),
+    );
+    expect(piezasDelMontaje([], true, [ESPADA_MAS])).toEqual([validarPiezaDeArena(ESPADA_MAS)]);
+    expect(piezasDelMontaje([], false, [ESPADA_MAS])).toEqual([]);
   });
 
   it('abierto en una arena con piezas cambiadas, lo que lleva pelea con las del enlace o las del juego', () => {
@@ -483,11 +521,13 @@ describe('cambiar una pieza a media pelea', () => {
     expect(de(b, a.id).unit.hp - de(b, a.id).topHp).toBe(30);
     // El arquero no lleva espada: el mismo objeto.
     expect(b.stacks.find((s) => s.body === 'goblin-arquero')).toBe(arq);
+    // El héroe pelea con la Espada de la arena (vuelta 2): también le llega.
+    const heroe = b.stacks.find((s) => s.origen.kind === 'heroe') as BattleStack;
     expect(b.log.slice(desde)).toEqual([
       {
         kind: 'retoque',
         nombre: 'Espada',
-        stacks: [a.id, a2.id],
+        stacks: [a.id, heroe.id, a2.id],
         cambios: [`ataque ${ESPADA.ataque} → ${ESPADA.ataque + 3}`],
       },
     ]);
@@ -512,7 +552,7 @@ describe('cambiar una pieza a media pelea', () => {
     expect(b.log.some((e) => e.kind === 'retoque')).toBe(false);
   });
 
-  it('el héroe lleva el equipo base, que es del juego: la arena no lo cambia (18-10-2026)', () => {
+  it('el equipo base del héroe es del juego: la arena no lo cambia (18-10-2026; su arma, desde la vuelta 2, es la Espada de la arena)', () => {
     const b = pelea();
     const armeria = pieza('espada_de_armeria');
     const piezas = [{ ...armeria, ataque: armeria.ataque + 5 }];
@@ -521,10 +561,16 @@ describe('cambiar una pieza a media pelea', () => {
     );
   });
 
-  it('tras quitarle la espada a un tipo, cambiar la espada ya no lo toca', () => {
+  it('tras cambiarle la espada por la maza a un tipo, cambiar la espada ya no lo toca', () => {
     const b = pelea();
     const [a, a2] = conEspada(b) as [BattleStack, BattleStack];
-    retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador(quitarEnArena(guerrero(), 'arma')) });
+    // Sin arma no se pelea (vuelta 2): se le cambia por otra.
+    expect(
+      retocarEnBatalla(b, {
+        kind: 'tipo',
+        fuente: delBorrador(equiparEnArena(guerrero(), 'maza', DEL_JUEGO)),
+      }),
+    ).toBeNull();
     const sinEspada = de(b, a.id).unit;
     retocarEnBatalla(b, { kind: 'piezas', piezas: [ESPADA_MAS] });
     expect(de(b, a.id).unit).toBe(sinEspada);
@@ -544,7 +590,14 @@ describe('cambiar una pieza a media pelea', () => {
 
 describe('la vista «Editar equipo»', () => {
   const nueva = piezaNueva('arma', DEL_JUEGO);
-  const piezas = catalogoDeLaArena([ESPADA_MAS, nueva]);
+  /** Un arma con todo en el nivel 0, lo peor. */
+  const nuevaEnCero: Pieza = {
+    ...(nueva as Pieza),
+    id: 'arma-en-cero',
+    nombre: 'Arma en cero',
+    rueda: todoA(0),
+  };
+  const piezas = catalogoDeLaArena([ESPADA_MAS, nueva, nuevaEnCero]);
   const vista = (elegida: string, rechazo: string | null = null, eq = piezas) =>
     marcadoDe(
       renderEquipo({
@@ -628,35 +681,60 @@ describe('la vista «Editar equipo»', () => {
     expect(campos('escudo')).toEqual(['defensa', 'velocidad', 'precio-gold']);
     for (const id of ['espada', 'maza', 'lanza_de_jinete']) {
       expect(vista(id), id).toContain('data-rueda-de-la-pieza="si"');
-      expect(vista(id).match(/data-arena-pieza-campo="rueda-/g), id).toHaveLength(7);
+      // Seis tipos: Normal no tiene nivel.
+      expect(vista(id).match(/data-arena-pieza-campo="rueda-/g), id).toHaveLength(6);
+      expect(vista(id), id).not.toContain('data-arena-pieza-campo="rueda-normal"');
     }
     for (const id of ['arco', 'brigantina', 'escudo']) {
       expect(vista(id), id).not.toContain('data-rueda-de-la-pieza');
     }
-    // La maza: Fuerte +20 → ×1,45 y Rápido −20 → 2 golpes ×0,4.
+    // La maza: Fuerte en el nivel 5 → ×1,83 y Rápido en el 1 → 2 golpes ×0,38.
     const maza = vista('maza');
-    expect(maza).toMatch(/data-arena-pieza-campo="rueda-fuerte" value="20"/);
-    expect(maza).toContain('Daño ×1,45');
-    expect(maza).toContain('2 golpes ×0,4');
+    expect(maza).toMatch(/data-arena-pieza-campo="rueda-fuerte" value="5"/);
+    expect(maza).toContain('Daño ×1,83');
+    expect(maza).toContain('2 golpes ×0,38');
+    // Sin base, la casilla es el nivel, de 0 a 6.
+    expect(maza).toMatch(/min="0" max="6" data-arena-pieza-campo="rueda-fuerte"/);
   });
 
-  it('la rueda se edita en barras, «+» mejora (en la Finta, resta casillas), y la rueda teñida va al lado', () => {
+  it('la rueda se edita en barras de 0 a 6, «+» sube un nivel (también en la Finta), y la rueda teñida va al lado', () => {
     const maza = vista('maza');
-    expect(maza.match(/data-arena="paso-de-rueda"/g)).toHaveLength(14);
+    // Seis filas, dos pasos cada una; ninguna de Normal.
+    expect(maza.match(/data-arena="paso-de-rueda"/g)).toHaveLength(12);
+    expect(maza).not.toContain('class="barra-de-la-rueda" data-tipo="normal"');
     expect(maza).toContain('data-arena="paso-de-rueda" data-tipo="finta" data-sentido="1"');
-    // La barra crece hacia donde el arma mejora o empeora el golpe.
     const fila = (t: string) =>
       maza.slice(maza.indexOf(`class="barra-de-la-rueda" data-tipo="${t}"`)).split('</div>')[0];
-    expect(fila('fuerte')).toContain('data-mejora="mejor"');
-    expect(fila('fuerte')).toContain('class="relleno mejor"');
-    expect(fila('rapido')).toContain('class="relleno peor"');
-    expect(fila('normal')).not.toContain('relleno');
-    // La rueda de al lado, teñida: Fuerte +20 son dos puntos (fuerte), Romper guardia +1 uno.
+    // La barra, llena desde la izquierda hasta el nivel: Fuerte 5 de 6 (50 de 60).
+    expect(fila('fuerte')).toContain('data-nivel="5"');
+    expect(fila('fuerte')).toContain('class="relleno" x="0" y="1.5" width="50"');
+    // La Finta en el 1: lo que da, de menos a más casillas.
+    expect(fila('finta')).toContain('data-nivel="1"');
+    expect(fila('finta')).toContain('resta 8 a 10 casillas');
+    // Rápido en el 1: se puede bajar y subir.
+    expect(fila('rapido')).toMatch(/data-sentido="-1" aria-label="Rápido: un nivel menos" >/);
+    // En el 0 no se baja, y en el 6 no se sube.
+    const daga = vista('daga');
+    const filaDe = (m: string, t: string) =>
+      m.slice(m.indexOf(`class="barra-de-la-rueda" data-tipo="${t}"`)).split('</div>')[0];
+    expect(filaDe(daga, 'rapido')).toContain('data-nivel="6"');
+    expect(filaDe(daga, 'rapido')).toMatch(/aria-label="Rápido: un nivel más" disabled>/);
+    expect(filaDe(daga, 'rapido')).not.toMatch(/un nivel menos" disabled/);
+    const peor = vista(nuevaEnCero.id);
+    expect(filaDe(peor, 'fuerte')).toContain('data-nivel="0"');
+    expect(filaDe(peor, 'fuerte')).toMatch(/aria-label="Fuerte: un nivel menos" disabled>/);
+    expect(filaDe(peor, 'fuerte')).not.toContain('class="relleno"');
+    // La rueda de al lado, teñida por nivel; Normal, en el centro, sin nivel.
     expect(maza).toMatch(/class="disco rueda-de-la-pieza"/);
-    expect(maza).toContain('data-sector="fuerte" data-mejora="mejor-2"');
-    expect(maza).toContain('data-sector="rapido" data-mejora="peor-2"');
-    expect(maza).toContain('data-sector="romperGuardia" data-mejora="mejor-1"');
-    expect(maza).toContain('data-sector="ofensivo" data-mejora="igual"');
+    expect(maza).toContain('data-sector="fuerte" data-nivel="5"');
+    expect(maza).toContain('data-sector="rapido" data-nivel="1"');
+    expect(maza).toContain('data-sector="ofensivo" data-nivel="3"');
+    expect(maza).toMatch(/<circle class="sector centro" data-sector="normal" r=/);
+    expect(maza).not.toContain('data-mejora');
+    // El nivel no va en la fila (un antepasado de los botones): `pintar` busca el
+    // botón con el foco del teclado por sus `data-*`, y uno que cambia a cada paso
+    // se lo perdía (QA de la vuelta 2, H1).
+    expect(maza).not.toMatch(/class="barra-de-la-rueda"[^>]*data-nivel/);
   });
 
   it('una con base dice su cadena y su extra por cifra; el desplegable no ofrece ni ella ni lo que está sobre ella', () => {
@@ -669,7 +747,13 @@ describe('la vista «Editar equipo»', () => {
     );
     // Sobre la Espada cambiada (+7 de ataque): 2 + 7, +1 y +1.
     expect(piezas.pieza('espada_bendita').ataque).toBe(ESPADA_MAS.ataque + 2);
-    expect(m).toMatch(/data-arena-pieza-campo="rueda-normal" value="10"/);
+    // La rueda: la casilla, lo que sube sobre la base; la barra, el nivel final.
+    expect(m).toMatch(/data-arena-pieza-campo="rueda-ofensivo" value="1"/);
+    expect(m).toMatch(/data-arena-pieza-campo="rueda-finta" value="0"/);
+    expect(
+      m.slice(m.indexOf('class="barra-de-la-rueda" data-tipo="ofensivo"')).split('</div>')[0],
+    ).toContain('class="barra" data-nivel="4"');
+    expect(m).not.toMatch(/min="0" max="6" data-arena-pieza-campo="rueda-/);
     // Con base, las manos y el hueco son los de la base: no se escriben.
     expect(m).not.toContain('data-arena-pieza-campo="manos"');
     expect(m).not.toContain('data-arena-pieza-campo="hueco"');

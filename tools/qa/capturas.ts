@@ -4691,17 +4691,43 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
   await asentada(page);
   await captura(page, 'arena-12-equipo-sobre-la-espada');
   log('equipo: «Nueva sobre esta» de la Espada, y subir la Espada la cambia');
-  // La rueda de la Maza: Fuerte +20 → ×1,45.
+  // La rueda de la Maza, por niveles absolutos (vuelta 2): Fuerte en el 5 → ×1,83.
   await page.locator('#equipo [data-arena="elegir-pieza"][data-pieza="maza"]').click();
-  const fuerte = page.locator('#equipo [data-pieza-elegida="maza"] [data-final="rueda-fuerte"]');
+  /** La fila de un tipo en la rueda de la Maza. */
+  const deLaMaza = (tipo: string) =>
+    page.locator(`#equipo [data-pieza-elegida="maza"] .barra-de-la-rueda[data-tipo="${tipo}"]`);
+  const fuerte = deLaMaza('fuerte').locator('[data-final="rueda-fuerte"]');
   await fuerte.waitFor({ timeout: 2000 });
-  if ((await fuerte.innerText()).trim() !== 'Daño ×1,45')
+  if ((await fuerte.innerText()).trim() !== 'Daño ×1,83')
     throw new Error(`equipo: la rueda de la Maza dice «${await fuerte.innerText()}»`);
+  if ((await page.locator('#equipo [data-tipo="normal"].barra-de-la-rueda').count()) > 0)
+    throw new Error('equipo: la rueda de la Maza tiene fila de Normal');
   await page.locator('#equipo [data-rueda-de-la-pieza]').scrollIntoViewIfNeeded();
   await asentada(page);
   await cifrasSinCortar(page, '#equipo .equipo-ficha', 'equipo, ficha de la Maza');
   await captura(page, 'arena-12-equipo-rueda-de-la-maza');
-  log('equipo: la Maza enseña su rueda (Fuerte ×1,45)');
+  log('equipo: la Maza enseña su rueda por niveles (Fuerte 5, ×1,83), sin Normal');
+  // La Finta de la Maza, en el 1 (resta 8 a 10): «+» sube un nivel, la barra
+  // crece a la derecha y resta menos; «−» la deja como estaba.
+  const finta = deLaMaza('finta');
+  const fintaDice = async () =>
+    `${await finta.locator('.barra').getAttribute('data-nivel')} ${(await finta.locator('.final').innerText()).trim()}`;
+  if ((await fintaDice()) !== '1 resta 8 a 10 casillas')
+    throw new Error(`equipo: la Finta de la Maza empieza en «${await fintaDice()}»`);
+  await finta.locator('[data-sentido="1"]').click();
+  await asentada(page);
+  if ((await fintaDice()) !== '2 resta 7 a 10 casillas')
+    throw new Error(`equipo: tras «+», la Finta de la Maza dice «${await fintaDice()}»`);
+  const sector = await page
+    .locator('#equipo [data-pieza-elegida="maza"] .rueda-de-la-pieza [data-sector="finta"]')
+    .getAttribute('data-nivel');
+  if (sector !== '2') throw new Error(`equipo: el sector de la Finta sigue en el nivel ${sector}`);
+  await captura(page, 'arena-12-equipo-finta-mas');
+  await finta.locator('[data-sentido="-1"]').click();
+  await asentada(page);
+  if ((await fintaDice()) !== '1 resta 8 a 10 casillas')
+    throw new Error(`equipo: tras «−», la Finta de la Maza dice «${await fintaDice()}»`);
+  log('equipo: «+» en la Finta sube un nivel y resta menos (7 a 10), y «−» la devuelve');
   // Un arma a distancia nueva no lleva «Disparos»: llevarla ya es disparar (13-10-2026).
   await page.locator('[data-arena="crear-pieza"][data-hueco="distancia"]').click();
   await page

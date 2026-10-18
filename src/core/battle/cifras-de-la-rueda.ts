@@ -1,15 +1,23 @@
 /**
- * Las cifras de la rueda del golpe (`data/rueda.json`) y lo que les suma un arma
- * (`Pieza.rueda`, 18-10-2026): leerlas, sumarles el arma y decir lo que no vale.
- * **Sin dependencias** del resto del núcleo (solo `types.ts`, `validar.ts` y el
- * JSON): la regla de una pieza (`problemasDePieza`, `data.ts`) juzga con ellas la
- * rueda de un arma al cargar `data/equipo.json`, y `data.ts` no puede importar
- * `rueda.ts`, que lo lee. El resto de la rueda —el cruce, los efectos, las notas—
- * está en `rueda.ts`, que reexporta lo de aquí.
+ * Las cifras de la rueda del golpe por niveles (`data/rueda.json`) y lo que da el
+ * nivel de un arma en cada tipo (`Pieza.rueda`, vuelta 2 del 18-10-2026): leerlas,
+ * traducir unos niveles a cifras y decir lo que no vale. **Sin dependencias** del
+ * resto del núcleo (solo `types.ts`, `validar.ts` y el JSON): la regla de una
+ * pieza (`problemasDePieza`, `data.ts`) juzga con ellas la rueda de un arma al
+ * cargar `data/equipo.json`, y `data.ts` no puede importar `rueda.ts`, que lo lee.
+ * El resto de la rueda —el cruce, los efectos, las notas— está en `rueda.ts`, que
+ * reexporta lo de aquí.
  */
 import ruedaJson from '../../../data/rueda.json' with { type: 'json' };
-import { type RuedaDelArma, TIPOS_DE_GOLPE, type TipoDeGolpe } from '../types.js';
-import { entero, objetoCon, porcentaje } from '../validar.js';
+import {
+  esTipoDelAnillo,
+  type NivelesDeLaRueda,
+  TIPOS_DE_GOLPE,
+  TIPOS_DEL_ANILLO,
+  type TipoDeGolpe,
+  type TipoDelAnillo,
+} from '../types.js';
+import { entero, objetoCon } from '../validar.js';
 
 /** El punto del cruce, del mínimo (0) al máximo (4). */
 export type Punto = 0 | 1 | 2 | 3 | 4;
@@ -24,16 +32,15 @@ export type PapelEnLaRueda = 'golpe' | 'respuesta';
 export type PorExito = Readonly<Record<Punto, number>>;
 
 /**
- * Las cifras de cada tipo, de `data/rueda.json` con lo que sume el arma del golpe
- * (`cifrasDeLaRuedaCon`), con el nombre de lo que son.
+ * Las cifras de cada tipo con los niveles de un arma (`cifrasDeLosNiveles`), con
+ * el nombre de lo que son. Normal no está: siempre es ×1 (decisión del usuario,
+ * 18-10-2026).
  */
 export interface CifrasDeLaRueda {
-  /** El % del daño del Fuerte (125: ×1,25). */
+  /** El % del daño del Fuerte (150: ×1,5). */
   readonly fuerte: { readonly porcentaje: number };
   /** El % del daño de cada golpe del Rápido, y por cuánto multiplica los golpes. */
   readonly rapido: { readonly porcentaje: number; readonly golpes: number };
-  /** El % del daño del Normal (100: sin modificar; un arma puede cambiarlo). */
-  readonly normal: { readonly porcentaje: number };
   /** Lo que suma Ofensivo al ataque del golpe que se da. */
   readonly ofensivo: { readonly ataque: number };
   /** La defensa que se pone quien golpea con Defensivo. */
@@ -61,106 +68,46 @@ export const NOMBRE_DE_GOLPE: Readonly<Record<TipoDeGolpe, string>> = {
 };
 
 /**
- * Cómo se edita un tipo en la ficha de una pieza: cuánto mueve un paso de sus
- * botones (`paso`), en qué sentido de su cifra mejora el golpe (`mejora`: la Finta
- * mejora restando casillas, −1) y cuánto de su cifra vale un punto de mejora
- * (`escala`: 10 puntos de % valen lo que 1 de ataque, de defensa o de casilla),
- * para que las barras y los colores de los tipos se comparen entre sí. INVENTADO
- * (18-10-2026, la escala común de la maqueta).
+ * El nivel más alto de un tipo (el más bajo es 0): siete niveles, del 0 al 6
+ * (decisión del usuario, 18-10-2026). Es la forma de la tabla, no una cifra que
+ * se ajuste: cambiarlo es cambiar `data/rueda.json` entero.
  */
-interface ComoSeEdita {
-  readonly paso: number;
-  readonly mejora: 1 | -1;
-  readonly escala: number;
-}
-
-/** Lo que dice `COMO_SUMA_EL_ARMA` de un tipo: según qué cifra suya cambia el arma. */
-type ComoSuma = ComoSeEdita &
-  (
-    | { readonly unidad: string; readonly mide: 'porcentaje' }
-    | {
-        readonly unidad: string;
-        readonly mide: 'cifra';
-        readonly de: (c: CifrasDeLaRueda) => number;
-      }
-    | { readonly unidad: string; readonly mide: 'porExito'; readonly signo: 'quita' | 'resta' }
-  );
-
-/** Un tipo que se mide en % de daño: paso de 5, y 10 puntos valen uno de mejora. */
-const EN_PORCENTAJE = { paso: 5, mejora: 1, escala: 10 } as const;
-/** Un tipo que se mide en una cifra entera que mejora al subir. */
-const EN_CIFRA = { paso: 1, mejora: 1, escala: 1 } as const;
+export const NIVEL_MAXIMO = 6;
 
 /**
- * Cómo cambia un arma cada tipo, un descriptor por tipo: en qué se mide lo que
- * suma (`unidad`, para la persona) y qué cifra suya cambia (`mide`): el % del daño
- * (Fuerte, Rápido y Normal: el factor del golpe, que tiene que quedar por encima
- * de 0), una cifra de ataque o de defensa (Ofensivo y Defensivo, `de`: 0 o más) o
- * una por éxito que quita o resta (Romper guardia y la Finta, `signo`: el arma la
- * aleja de 0 o, con un negativo, la acerca, sin pasar de él). Lo leen la suma
- * (`cifrasDeLaRuedaCon`), lo que no vale (`ruedaDelArmaBlocker`), el factor del
- * golpe (`rueda.ts`) y la tabla de la ficha de una pieza.
+ * Lo que se dice de Normal, que no tiene nivel (decisión del usuario, 18-10-2026).
+ * La única frase: la leen la regla de los niveles, la de los extras de una pieza
+ * con base y la nota de la rueda en la ficha de un arma.
  */
-export const COMO_SUMA_EL_ARMA = {
-  fuerte: { ...EN_PORCENTAJE, unidad: '% de daño', mide: 'porcentaje' },
-  rapido: { ...EN_PORCENTAJE, unidad: '% de daño por golpe', mide: 'porcentaje' },
-  normal: { ...EN_PORCENTAJE, unidad: '% de daño', mide: 'porcentaje' },
-  ofensivo: {
-    ...EN_CIFRA,
-    unidad: 'ataque',
-    mide: 'cifra',
-    de: (c: CifrasDeLaRueda) => c.ofensivo.ataque,
-  },
-  defensivo: {
-    ...EN_CIFRA,
-    unidad: 'defensa',
-    mide: 'cifra',
-    de: (c: CifrasDeLaRueda) => c.defensivo.defensa,
-  },
-  romperGuardia: {
-    ...EN_CIFRA,
-    unidad: 'ataque que quita de más en cada éxito',
-    mide: 'porExito',
-    signo: 'quita',
-  },
-  // Restar casillas a lo que quita la Finta es mejorarla: su paso hacia mejor resta.
-  finta: {
-    ...EN_CIFRA,
-    mejora: -1,
-    unidad: 'casillas que resta de más en cada éxito',
-    mide: 'porExito',
-    signo: 'resta',
-  },
-} as const satisfies Readonly<Record<TipoDeGolpe, ComoSuma>>;
+export const NORMAL_SIN_NIVEL = 'Normal no tiene nivel: siempre ×1';
 
 /**
- * Cuánto mejora (positivo) o empeora (negativo) el golpe de tipo `tipo` un arma
- * que suma `suma` a su cifra, en puntos comparables entre tipos
- * (`ComoSeEdita.escala`: +20 % de Fuerte, 2; −1 casilla de Finta, 1). Lo leen las
- * barras y la rueda teñida de la ficha de una pieza.
+ * Lo que no vale de una clave de la rueda de `q` que no es un tipo del anillo:
+ * Normal, que no tiene nivel, o un tipo que no existe. La leen los niveles de un
+ * arma (`problemasDeNiveles`) y los extras de una pieza con base (`data.ts`).
  */
-export function mejoraDelTipo(tipo: TipoDeGolpe, suma: number): number {
-  const c = COMO_SUMA_EL_ARMA[tipo];
-  return (suma * c.mejora) / c.escala;
+export function fueraDelAnillo(clave: string, q: string): string {
+  return clave === 'normal'
+    ? `${q}: ${NORMAL_SIN_NIVEL}`
+    : `${q}: «${clave}» no es un tipo del anillo de la rueda; valen ${TIPOS_DEL_ANILLO.join(', ')}`;
 }
 
-/**
- * Lo que suma a la cifra de `tipo` un paso de sus botones hacia mejor
- * (`sentido` 1) o hacia peor (−1): +5 % de Fuerte, −1 casilla de Finta.
- */
-export function pasoDelTipo(tipo: TipoDeGolpe, sentido: 1 | -1): number {
-  const c = COMO_SUMA_EL_ARMA[tipo];
-  return c.paso * c.mejora * sentido;
-}
+/** Una cifra por nivel, del 0 al `NIVEL_MAXIMO`. */
+type PorNivel = readonly number[];
 
-/** Los tipos que cambian el daño del golpe, en % (`COMO_SUMA_EL_ARMA`, `mide: 'porcentaje'`). */
-export type TipoDeDanio = {
-  [T in TipoDeGolpe]: (typeof COMO_SUMA_EL_ARMA)[T]['mide'] extends 'porcentaje' ? T : never;
-}[TipoDeGolpe];
-
-/** Si el tipo `t` cambia el daño del golpe, en % (Fuerte, Rápido, Normal). */
-export function esTipoDeDanio(t: TipoDeGolpe): t is TipoDeDanio {
-  return COMO_SUMA_EL_ARMA[t].mide === 'porcentaje';
+/** La tabla de `data/rueda.json`: lo que da cada nivel de cada tipo. */
+interface TablaDeLaRueda {
+  readonly fuerte: PorNivel;
+  readonly rapido: PorNivel;
+  readonly golpesDelRapido: number;
+  readonly ofensivo: PorNivel;
+  readonly defensivo: PorNivel;
+  /** Lo que quita Romper guardia con el éxito máximo (0 o menos). */
+  readonly romperGuardia: PorNivel;
+  /** Lo que resta la Finta con el éxito máximo (de 0 a `fintaConExitoMinimo`). */
+  readonly finta: PorNivel;
+  /** Lo que resta la Finta con el éxito mínimo, sea cual sea el nivel. */
+  readonly fintaConExitoMinimo: number;
 }
 
 const CAMPOS_DE_LA_RUEDA = [
@@ -171,38 +118,42 @@ const CAMPOS_DE_LA_RUEDA = [
   'defensivo',
   'romperGuardia',
   'finta',
-  'normal',
   'pesos',
 ];
 
-/** El nombre de cada punto en `data/rueda.json`: las claves de una cifra por éxito. */
-const CLAVE_DEL_PUNTO: Readonly<Record<Punto, string>> = {
-  0: 'minimo',
-  1: 'bajo',
-  2: 'medio',
-  3: 'alto',
-  4: 'maximo',
-};
-
 /**
- * Una cifra por éxito: las cinco claves (`CLAVE_DEL_PUNTO`), enteros, y del signo
- * de lo que son: Romper guardia quita (`quita`, 0 o menos) y la Finta resta
- * casillas (0 o más). Falta una o sobra un campo, lanza diciendo cuál.
+ * Siete enteros, uno por nivel, desde `minimo` y hasta `maximo`, que **no
+ * empeoran al subir** (`mejora`: 1 si mejorar es subir la cifra, −1 si es
+ * bajarla, como la Finta, que mejora restando menos casillas). Lanza diciendo el
+ * campo y el nivel.
  */
-function porExito(valor: unknown, quien: string, signo: 'quita' | 'resta'): PorExito {
-  const claves = PUNTOS.map((p) => CLAVE_DEL_PUNTO[p]);
-  const o = objetoCon(valor, claves, quien);
-  const out = {} as Record<Punto, number>;
-  for (const p of PUNTOS) {
-    const clave = CLAVE_DEL_PUNTO[p];
-    if (!(clave in o)) throw new Error(`${quien}: falta el éxito «${clave}»`);
-    const n = entero(o[clave], `el éxito «${clave}»`, quien, signo === 'quita' ? -1000 : 0);
-    if (signo === 'quita' && n > 0) {
-      throw new Error(`${quien}: el éxito «${clave}» quita, así que es 0 o menos, y es ${n}`);
-    }
-    out[p] = n;
+function porNivel(
+  valor: unknown,
+  quien: string,
+  limites: { readonly minimo: number; readonly maximo?: number; readonly mejora: 1 | -1 },
+): PorNivel {
+  if (!Array.isArray(valor) || valor.length !== NIVEL_MAXIMO + 1) {
+    throw new Error(
+      `${quien}: tiene que ser una lista de ${NIVEL_MAXIMO + 1} enteros, la cifra de los niveles 0 a ${NIVEL_MAXIMO}`,
+    );
   }
-  return out;
+  const cifras = valor.map((v, nivel) => {
+    const n = entero(v, `el nivel ${nivel}`, quien, limites.minimo);
+    if (limites.maximo !== undefined && n > limites.maximo) {
+      throw new Error(`${quien}: el nivel ${nivel} va hasta ${limites.maximo}, y es ${n}`);
+    }
+    return n;
+  });
+  for (let nivel = 1; nivel < cifras.length; nivel++) {
+    const antes = cifras[nivel - 1] as number;
+    const ahora = cifras[nivel] as number;
+    if ((ahora - antes) * limites.mejora < 0) {
+      throw new Error(
+        `${quien}: el nivel ${nivel} (${ahora}) es peor que el ${nivel - 1} (${antes}): un nivel más alto no empeora`,
+      );
+    }
+  }
+  return cifras;
 }
 
 /** Los pesos de un papel: uno por tipo, enteros ≥ 0, y alguno mayor que 0. */
@@ -220,55 +171,59 @@ function pesosDe(valor: unknown, quien: string): Readonly<Record<TipoDeGolpe, nu
 }
 
 /**
- * Valida las cifras de la rueda y las devuelve tipadas; lanza diciendo el
- * fichero y el campo. Exportada con el JSON de argumento para que un test la vea
- * morder.
+ * Valida la tabla de la rueda y la devuelve tipada; lanza diciendo el fichero y
+ * el campo. Exportada con el JSON de argumento para que un test la vea morder.
  */
 export function validarRueda(
   json: unknown,
   fichero = 'data/rueda.json',
-): { readonly cifras: CifrasDeLaRueda; readonly pesos: PesosDeLaRueda } {
+): { readonly tabla: TablaDeLaRueda; readonly pesos: PesosDeLaRueda } {
   const j = objetoCon(json, CAMPOS_DE_LA_RUEDA, fichero);
-  const campo = (nombre: string, campos: readonly string[]): Record<string, unknown> =>
-    objetoCon(j[nombre], campos, `${fichero}: ${nombre}`);
+  const campo = (nombre: string, campos: readonly string[]): Record<string, unknown> => {
+    if (!(nombre in j)) throw new Error(`${fichero}: falta «${nombre}»`);
+    return objetoCon(j[nombre], campos, `${fichero}: ${nombre}`);
+  };
   const fuerte = campo('fuerte', ['porcentaje']);
   const rapido = campo('rapido', ['porcentaje', 'golpes']);
-  const normal = campo('normal', ['porcentaje']);
   const ofensivo = campo('ofensivo', ['ataque']);
   const defensivo = campo('defensivo', ['defensa']);
-  const romper = campo('romperGuardia', ['ataque']);
-  const finta = campo('finta', ['casillas']);
+  const romper = campo('romperGuardia', ['conExitoMaximo']);
+  const finta = campo('finta', ['conExitoMaximo', 'conExitoMinimo']);
   const pesos = campo('pesos', ['golpe', 'respuesta']);
-  // En el JSON, en tanto por ciento y en enteros: se valida sin coma, y se guarda
-  // así para que el arma sume puntos de % (`cifrasDeLaRuedaCon`).
-  const enPorcentaje = (o: Record<string, unknown>, quien: string): number =>
-    porcentaje(o, `${fichero}: ${quien}`);
-  const cifras: CifrasDeLaRueda = {
-    fuerte: { porcentaje: enPorcentaje(fuerte, 'fuerte') },
-    rapido: {
-      porcentaje: enPorcentaje(rapido, 'rapido'),
-      golpes: entero(rapido.golpes, 'los golpes', `${fichero}: rapido`, 1),
-    },
-    normal: { porcentaje: enPorcentaje(normal, 'normal') },
-    ofensivo: { ataque: entero(ofensivo.ataque, 'el ataque', `${fichero}: ofensivo`, 0) },
-    defensivo: { defensa: entero(defensivo.defensa, 'la defensa', `${fichero}: defensivo`, 0) },
-    romperGuardia: {
-      ataque: porExito(
-        romper.ataque,
-        `${fichero}: romperGuardia.ataque`,
-        COMO_SUMA_EL_ARMA.romperGuardia.signo,
-      ),
-    },
-    finta: {
-      casillas: porExito(
-        finta.casillas,
-        `${fichero}: finta.casillas`,
-        COMO_SUMA_EL_ARMA.finta.signo,
-      ),
-    },
+  const fintaConExitoMinimo = entero(
+    finta.conExitoMinimo,
+    'conExitoMinimo',
+    `${fichero}: finta`,
+    0,
+  );
+  // Los % en enteros (×1,5 = 150): se validan sin coma, y un golpe que no hace
+  // daño no es un golpe (1 o más).
+  const tabla: TablaDeLaRueda = {
+    fuerte: porNivel(fuerte.porcentaje, `${fichero}: fuerte.porcentaje`, { minimo: 1, mejora: 1 }),
+    rapido: porNivel(rapido.porcentaje, `${fichero}: rapido.porcentaje`, { minimo: 1, mejora: 1 }),
+    golpesDelRapido: entero(rapido.golpes, 'los golpes', `${fichero}: rapido`, 1),
+    ofensivo: porNivel(ofensivo.ataque, `${fichero}: ofensivo.ataque`, { minimo: 0, mejora: 1 }),
+    defensivo: porNivel(defensivo.defensa, `${fichero}: defensivo.defensa`, {
+      minimo: 0,
+      mejora: 1,
+    }),
+    // Quita ataque: 0 o menos, y mejor cuanto más quita.
+    romperGuardia: porNivel(romper.conExitoMaximo, `${fichero}: romperGuardia.conExitoMaximo`, {
+      minimo: Number.MIN_SAFE_INTEGER,
+      maximo: 0,
+      mejora: -1,
+    }),
+    // Resta casillas: con el éxito máximo nunca más que con el mínimo, y mejor
+    // cuanto menos resta.
+    finta: porNivel(finta.conExitoMaximo, `${fichero}: finta.conExitoMaximo`, {
+      minimo: 0,
+      maximo: fintaConExitoMinimo,
+      mejora: -1,
+    }),
+    fintaConExitoMinimo,
   };
   return {
-    cifras,
+    tabla,
     pesos: {
       golpe: pesosDe(pesos.golpe, `${fichero}: pesos.golpe`),
       respuesta: pesosDe(pesos.respuesta, `${fichero}: pesos.respuesta`),
@@ -279,12 +234,18 @@ export function validarRueda(
 const LEIDA = validarRueda(ruedaJson);
 
 /**
- * Las cifras de `data/rueda.json`, sin arma. **Privada**: quien las quiera las
- * pide con su arma (`cifrasDeLaRuedaCon`; un golpe, `ruedaDelGolpe`), y sin arma
- * con `cifrasDeLaRuedaCon(undefined)`, que lo dice al leerse. Lo vigila
+ * La tabla de `data/rueda.json`. **Privada**: la lee solo `cifrasDeLosNiveles`
+ * (y los golpes del Rápido, `GOLPES_DEL_RAPIDO`), así que una cifra de la rueda
+ * sale siempre de los niveles del arma del golpe. Lo vigila
  * `test/invariantes.test.ts`.
  */
-const RUEDA_SIN_ARMA: CifrasDeLaRueda = LEIDA.cifras;
+const TABLA: TablaDeLaRueda = LEIDA.tabla;
+
+/**
+ * Por cuánto multiplica Rápido los golpes: no depende del nivel (el arma cambia el
+ * daño de cada golpe, no cuántos). Lo lee `golpesDe`.
+ */
+export const GOLPES_DEL_RAPIDO: number = TABLA.golpesDelRapido;
 
 /**
  * La mezcla de la IA al elegir en la rueda, por papel (`ai/rueda.ts`): no depende
@@ -294,65 +255,75 @@ const RUEDA_SIN_ARMA: CifrasDeLaRueda = LEIDA.cifras;
 export const PESOS_DE_LA_RUEDA: PesosDeLaRueda = LEIDA.pesos;
 
 /**
- * Una cifra por éxito con `mas` de más en cada uno, en el sentido de su `signo`
- * (`COMO_SUMA_EL_ARMA`): lo que quita, quita `mas` más; lo que resta, resta `mas`
- * más. Con un `mas` negativo se acerca a 0, sin pasar de él.
+ * La cifra de `tabla` en el nivel de `tipo` de `n`; si no está en ella (un bug:
+ * la pieza ya se juzgó), lanza con lo que diría la regla de los niveles.
  */
-function porExitoCon(valores: PorExito, mas: number, signo: 'quita' | 'resta'): PorExito {
-  const out = {} as Record<Punto, number>;
-  for (const p of PUNTOS) {
-    out[p] = signo === 'quita' ? Math.min(0, valores[p] - mas) : Math.max(0, valores[p] + mas);
-  }
-  return out;
+function delNivel(tabla: PorNivel, n: NivelesDeLaRueda, tipo: TipoDelAnillo): number {
+  const cifra = tabla[n[tipo]];
+  if (cifra === undefined) throw new Error(problemasDeNiveles(n, 'la rueda del arma').join('; '));
+  return cifra;
 }
 
 /**
- * Las cifras de la rueda con lo que suma un arma (`Pieza.rueda`, 18-10-2026: «una
- * maza es mejor en ataque fuerte y peor en rápido»), cada tipo en su unidad
- * (`COMO_SUMA_EL_ARMA`): Fuerte, Rápido y Normal, puntos de %; Ofensivo, ataque;
- * Defensivo, defensa; Romper guardia quita `mod` más en cada éxito, sin pasar de
- * 0 (un −1 quita uno menos, hasta nada); la Finta resta `mod` casillas más en
- * cada éxito, sin bajar de 0. Sin arma o sin nada que sumar, **la misma
- * referencia**. Lo que deja una rueda rota (un Fuerte en 0 %) lo dice
- * `ruedaDelArmaBlocker`, antes.
+ * Las cifras de la rueda con los niveles `n` de un arma: **la única lectura de la
+ * tabla** (`TABLA`). Por éxito `p` (el punto del cruce, 0 el mínimo, 4 el máximo),
+ * en enteros: Romper guardia quita `⌊|q| · p / 4⌋` (q, lo que quita su nivel con
+ * el éxito máximo: con el nivel 3, 0, 0, −1, −2, −3), y la Finta resta
+ * `v + ⌊(F − v) · (4 − p) / 4⌋` (v, lo que resta su nivel con el éxito máximo; F,
+ * lo que resta con el mínimo: con el nivel 3, 10, 8, 7, 6, 5). Con más éxito,
+ * Romper guardia quita más y la Finta resta menos. Lo leen el golpe
+ * (`ruedaDelGolpe`) y la ficha de una pieza (`filasDeLaRueda`).
  */
-export function cifrasDeLaRuedaCon(mods: RuedaDelArma | undefined): CifrasDeLaRueda {
-  const c = RUEDA_SIN_ARMA;
-  if (mods === undefined || TIPOS_DE_GOLPE.every((t) => (mods[t] ?? 0) === 0)) return c;
-  const m = (t: TipoDeGolpe): number => mods[t] ?? 0;
-  const { romperGuardia, finta } = COMO_SUMA_EL_ARMA;
+export function cifrasDeLosNiveles(n: NivelesDeLaRueda): CifrasDeLaRueda {
+  const quita = -delNivel(TABLA.romperGuardia, n, 'romperGuardia');
+  const resta = delNivel(TABLA.finta, n, 'finta');
+  const F = TABLA.fintaConExitoMinimo;
+  const romper = {} as Record<Punto, number>;
+  const finta = {} as Record<Punto, number>;
+  for (const p of PUNTOS) {
+    // `0 - x` y no `-x`: con `quita` 0, `-0` no es `0` para quien compara con `toEqual`.
+    romper[p] = 0 - Math.floor((quita * p) / 4);
+    finta[p] = resta + Math.floor(((F - resta) * (4 - p)) / 4);
+  }
   return {
-    fuerte: { porcentaje: c.fuerte.porcentaje + m('fuerte') },
-    rapido: { porcentaje: c.rapido.porcentaje + m('rapido'), golpes: c.rapido.golpes },
-    normal: { porcentaje: c.normal.porcentaje + m('normal') },
-    ofensivo: { ataque: c.ofensivo.ataque + m('ofensivo') },
-    defensivo: { defensa: c.defensivo.defensa + m('defensivo') },
-    romperGuardia: {
-      ataque: porExitoCon(c.romperGuardia.ataque, m('romperGuardia'), romperGuardia.signo),
+    fuerte: { porcentaje: delNivel(TABLA.fuerte, n, 'fuerte') },
+    rapido: {
+      porcentaje: delNivel(TABLA.rapido, n, 'rapido'),
+      golpes: TABLA.golpesDelRapido,
     },
-    finta: { casillas: porExitoCon(c.finta.casillas, m('finta'), finta.signo) },
+    ofensivo: { ataque: delNivel(TABLA.ofensivo, n, 'ofensivo') },
+    defensivo: { defensa: delNivel(TABLA.defensivo, n, 'defensivo') },
+    romperGuardia: { ataque: romper },
+    finta: { casillas: finta },
   };
 }
 
 /**
- * Por qué lo que suma un arma a la rueda (`Pieza.rueda`) no vale, o `null`: el %
- * final de Fuerte, Rápido y Normal tiene que quedar por encima de 0 (un golpe que
- * no hace daño no es un golpe), y lo que suman Ofensivo y Defensivo, en 0 o más
- * (que Ofensivo reste ataque es otro tipo). Romper guardia y la Finta se quedan
- * en 0 solas (`cifrasDeLaRuedaCon`). Lo lee la regla de una pieza
- * (`problemasDePieza`), también al cargar `data/equipo.json`.
+ * Lo que no vale de los niveles de la rueda de un arma (`Pieza.rueda`), cada cosa
+ * con su frase, o vacío si valen: un objeto con **los seis** tipos del anillo, cada
+ * uno un entero de 0 a `NIVEL_MAXIMO`; Normal no tiene nivel. `q` dice de qué
+ * pieza. Lo lee la regla de una pieza (`problemasDePieza`).
  */
-export function ruedaDelArmaBlocker(mods: RuedaDelArma | undefined): string | null {
-  const c = cifrasDeLaRuedaCon(mods);
-  const sinArma = cifrasDeLaRuedaCon(undefined);
-  for (const t of TIPOS_DE_GOLPE) {
-    const como = COMO_SUMA_EL_ARMA[t];
-    if (esTipoDeDanio(t) && c[t].porcentaje <= 0) {
-      return `con ella, ${NOMBRE_DE_GOLPE[t]} haría el ${c[t].porcentaje} % del daño: tiene que quedar por encima de 0 (sin arma, ${sinArma[t].porcentaje} %)`;
-    }
-    if (como.mide === 'cifra' && como.de(c) < 0) {
-      return `con ella, ${NOMBRE_DE_GOLPE[t]} restaría ${como.unidad} (${como.de(c)}): como mucho se queda en 0`;
+export function problemasDeNiveles(r: unknown, q: string): string[] {
+  if (typeof r !== 'object' || r === null || Array.isArray(r)) {
+    return [`${q}: la rueda tiene que ser un objeto con un nivel por tipo`];
+  }
+  const o = r as Record<string, unknown>;
+  const problemas: string[] = [];
+  for (const ajeno of Object.keys(o).filter((k) => !esTipoDelAnillo(k))) {
+    problemas.push(fueraDelAnillo(ajeno, q));
+  }
+  for (const t of TIPOS_DEL_ANILLO) {
+    const v = o[t];
+    if (v === undefined) {
+      problemas.push(`${q}: falta el nivel de ${NOMBRE_DE_GOLPE[t]} (de 0 a ${NIVEL_MAXIMO})`);
+    } else if (typeof v !== 'number' || !Number.isSafeInteger(v)) {
+      problemas.push(
+        `${q}: el nivel de ${NOMBRE_DE_GOLPE[t]} tiene que ser un entero de 0 a ${NIVEL_MAXIMO}`,
+      );
+    } else if (v < 0 || v > NIVEL_MAXIMO) {
+      problemas.push(`${q}: el nivel de ${NOMBRE_DE_GOLPE[t]} es ${v}: va de 0 a ${NIVEL_MAXIMO}`);
     }
   }
-  return null;
+  return problemas;
 }

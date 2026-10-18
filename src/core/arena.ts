@@ -73,6 +73,7 @@ import {
   conElFichero,
   diferenciaDe,
   esPiezaConBase,
+  golpeaEnLaRueda,
   LIDERAZGO,
   type Pieza,
   type PiezaConBase,
@@ -108,6 +109,7 @@ import {
   type EquipoDeArena,
   HUECOS_DE_LA_ARENA,
   type HuecoDeArena,
+  type NivelesDeLaRueda,
   NOMBRE_DE_HUECO,
   SPEED_TIERS,
   SPEED_TO_HEXES,
@@ -492,7 +494,8 @@ export interface IdsOcupados {
 
 /**
  * Una unidad NUEVA (decisión del usuario, 12-10-2026: «que el editor de
- * personajes permita crear uno desde cero»): el cuerpo común sin equipo, con el
+ * personajes permita crear uno desde cero»): el cuerpo común con la Espada de la
+ * arena y nada más (sin arma no se combate: `armaDeCuerpoBlocker`), con el
  * arte de la hoja y un id propio y único: `<hoja>-<n>`, con el primer `n` ≥ 2 que
  * no esté en `ocupados`. Su nivel no se escribe: nace donde caiga su índice
  * (`indiceDePoder`), el 1.
@@ -520,7 +523,8 @@ export function unidadNueva(
       leadership: CUERPO_COMUN.leadership,
       cost: CUERPO_COMUN.cost,
       habilidades: [],
-      equipo: {},
+      // Sin arma no se combate (18-10-2026): nace con la Espada, la versátil.
+      equipo: { arma: ESPADA_DE_LA_ARENA },
     },
     eq,
   );
@@ -736,7 +740,7 @@ export function piezaEnPalabras(p: Pieza): FichaEnPalabras {
     daño: `${p.danio?.[0] ?? 0}-${p.danio?.[1] ?? 0}`,
     velocidad: `${p.velocidad}`,
     manos: aDosManos(p) ? '2' : '1',
-    rueda: ruedaDelArmaEnPalabras(p.rueda),
+    rueda: p.rueda === undefined ? 'nada' : ruedaDelArmaEnPalabras(p.rueda),
     precio: describirCoste(p.precio),
   };
 }
@@ -744,7 +748,8 @@ export function piezaEnPalabras(p: Pieza): FichaEnPalabras {
 /**
  * `p` en el hueco `hueco`, con lo que el hueco exige y nada de lo que no admite
  * (`camposDelHueco`): un escudo resta velocidad (al menos −1), solo un arma de
- * cuerpo a cuerpo se lleva a dos manos, solo ella y la lanza llevan rueda, y las
+ * cuerpo a cuerpo se lleva a dos manos, solo ella y la lanza llevan rueda (y la
+ * llevan: si no la traía, la de la Espada, `nivelesDeLaEspada`), y las
  * cifras que el hueco no suma se quedan en 0 —un arma que pasa a escudo deja su
  * ataque y su daño—. Lo que el escudo exigía se va con él: un escudo que pasa a
  * otro hueco deja de restar (velocidad 0), que si no un arma recién cambiada
@@ -771,7 +776,9 @@ export function enElHueco(p: Pieza, hueco: HuecoDeArena): Pieza {
     velocidad,
     ...(admite('danio') && danio !== undefined ? { danio } : {}),
     ...(campos.conManos && manos !== undefined ? { manos } : {}),
-    ...(campos.conRueda && rueda !== undefined ? { rueda } : {}),
+    // Un arma de cuerpo a cuerpo dice su rueda: la que trae o, si no traía, la de
+    // la Espada («todo a 3, como la Espada»).
+    ...(campos.conRueda ? { rueda: rueda ?? nivelesDeLaEspada() } : {}),
   };
 }
 
@@ -951,14 +958,18 @@ export function sinPieza(
 
 /**
  * Por qué `cuerpo` no puede llevar `equipo` con las piezas de `eq`, o `null` si
- * puede: que existan, sus huecos y las manos (`equipoBlocker`), y que con ellas
- * puestas el índice lo sepa medir (`medidaBlocker`). **La pregunta «¿sigue
+ * puede: que existan, sus huecos y las manos (`equipoBlocker`), que lleve un arma
+ * de cuerpo a cuerpo de la arena (`armaDeCuerpoBlocker`) y que con ellas puestas
+ * el índice lo sepa medir (`medidaBlocker`). **La pregunta «¿sigue
  * valiendo quien la lleva?», con su única redacción**: la leen el cambio de una
  * pieza en el borrador (`cambioDePiezaBlocker`) y a media pelea
  * (`retocarEnBatalla`, `kind: 'piezas'`).
  */
 function equipoQueNoVale(cuerpo: UnitInfo, equipo: EquipoDeArena, eq: EquipoAtado): string | null {
-  const motivo = eq.equipoBlocker(equipo) ?? medidaBlocker(eq.conEquipo(cuerpo, equipo));
+  const motivo =
+    eq.equipoBlocker(equipo) ??
+    armaDeCuerpoBlocker(equipo, eq) ??
+    medidaBlocker(eq.conEquipo(cuerpo, equipo));
   return motivo === null ? null : `la lleva «${cuerpo.name}»: ${motivo}`;
 }
 
@@ -1081,7 +1092,7 @@ export function idsLlevados(
 ): ReadonlySet<string> {
   return new Set([
     ...unidades.flatMap((u) => idsPuestos(u.equipo)),
-    ...(conHeroe ? idsPuestos(EQUIPO_BASE) : []),
+    ...(conHeroe ? idsPuestos(EQUIPO_DEL_HEROE_EN_LA_ARENA) : []),
   ]);
 }
 
@@ -1371,8 +1382,53 @@ function cuerpoValido(valor: unknown, quien: string): CuerpoDeArena {
 }
 
 /**
+ * La Espada de la arena: la versátil, con todo a 3 (`data/equipo.json`). Con ella
+ * nace una unidad nueva (`unidadNueva`) y pelea el héroe de la arena
+ * (`EQUIPO_DEL_HEROE_EN_LA_ARENA`).
+ */
+export const ESPADA_DE_LA_ARENA = 'espada';
+
+/**
+ * Los niveles de la rueda de la Espada de la arena, leídos de `data/equipo.json`:
+ * los de un arma nueva (decisión del usuario, 18-10-2026: «todo a 3, como la
+ * Espada»; `enElHueco`). Sin copia aparte: si se retoca la Espada, lo que nace la
+ * sigue, y los tests «con la Espada» leen la de verdad.
+ */
+export function nivelesDeLaEspada(): NivelesDeLaRueda {
+  const rueda = PIEZAS_DEL_CATALOGO.get(ESPADA_DE_LA_ARENA)?.rueda;
+  if (rueda === undefined) {
+    throw new Error(
+      `data/equipo.json no trae la Espada de la arena («${ESPADA_DE_LA_ARENA}») con su rueda: con ella nacen la unidad y el arma nuevas`,
+    );
+  }
+  return rueda;
+}
+
+/**
+ * Por qué una unidad de la arena con `equipo` no se monta por su arma, o `null`:
+ * **sin arma de cuerpo a cuerpo no se combate** (decisión del usuario, 18-10-2026:
+ * «si hubiese un lobo, los colmillos serían su arma»), y tiene que ser una que
+ * golpee en la rueda (`golpeaEnLaRueda`: de la arena, la que dice su rueda). La leen `equipoValido` (el
+ * borrador, el enlace, cada cambio de la unidad) y `equipoQueNoVale` (un cambio de
+ * pieza, también a media pelea).
+ */
+export function armaDeCuerpoBlocker(equipo: EquipoDeArena, eq: EquipoAtado): string | null {
+  if (equipo.arma === undefined) {
+    return `no lleva arma de cuerpo a cuerpo: en la arena nadie pelea sin ella; ponle una en ${NOMBRE_DE_HUECO.arma}`;
+  }
+  // Si no existe, lo dice `equipoBlocker`, que va antes; un arma de otro hueco,
+  // también: lo que queda es una pieza del juego.
+  const arma = eq.piezaSiExiste(equipo.arma);
+  if (arma !== null && !golpeaEnLaRueda(arma)) {
+    return `lleva «${arma.nombre}», que es del juego: el arma de cuerpo a cuerpo de la arena es una de la arena`;
+  }
+  return null;
+}
+
+/**
  * El equipo, comprobado con la regla del núcleo (`equipoBlocker`) y las piezas de
- * la arena: que existan, sus huecos y las manos.
+ * la arena: que existan, sus huecos y las manos, y que lleve un arma de cuerpo a
+ * cuerpo de la arena (`armaDeCuerpoBlocker`).
  */
 function equipoValido(valor: unknown, quien: string, eq: EquipoAtado): EquipoDeArena {
   if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
@@ -1383,7 +1439,8 @@ function equipoValido(valor: unknown, quien: string, eq: EquipoAtado): EquipoDeA
     if (typeof id !== 'string')
       throw new Error(`${quien}: el hueco ${hueco} no trae el id de una pieza`);
   }
-  const motivo = eq.equipoBlocker(e as EquipoDeArena);
+  const motivo =
+    eq.equipoBlocker(e as EquipoDeArena) ?? armaDeCuerpoBlocker(e as EquipoDeArena, eq);
   if (motivo !== null) throw new Error(`${quien}: ${motivo}`);
   // En el orden de los huecos, el mismo cada vez: el texto del enlace no cambia.
   return Object.fromEntries(
@@ -1399,7 +1456,7 @@ function equipoValido(valor: unknown, quien: string, eq: EquipoAtado): EquipoDeA
  * `experiencia.json`). Quien lea el archivo —una persona o un agente— se lo cree.
  */
 export const COMENTARIO_DEL_BORRADOR =
-  'BORRADOR de la arena (/arena/, pnpm arena): cifras de las unidades de las cinco facciones, INVENTADAS y provisionales, ajustadas a mano peleando. Lo escribe la página al pulsar «Guardar» y lo valida validarUnidadDeArena (src/core/arena.ts); una unidad que no valida se conserva tal cual. El juego NO lo lee. Cada unidad es un CUERPO (cuerpo: { hoja }, el arte con que se pinta: solo las hojas de las cinco facciones, sin criaturas del catálogo del juego; las cifras de arriba son las suyas, y de ellas sale el nivel) más su EQUIPO (equipo: una pieza de data/equipo.json por hueco, arma (la de cuerpo a cuerpo), distancia (la de disparar), carga (la lanza), armadura, accesorio y escudo; un arma a dos manos no admite escudo), y pelea con las dos cosas sumadas: cada golpe con las cifras de su arma (el disparo, las de distancia; la carga, las de carga, o si no las de arma; lo demás, las de arma, o sin arma las del cuerpo). Dispara quien lleva algo en distancia, sin munición (dos tiros por disparo con el rasgo double_shot), y toda unidad ocupa una casilla: no hay shots ni hexes. Solo se lee el formato de hoy: una unidad de antes (sin cuerpo, con level, speed, shots o hexes) no valida y se conserva tal cual. Los campos de cifras se llaman como en data/creatures.json, pero pasar una unidad al catálogo NO es copiarla; hay que añadir: (1) la faction del juego (hoy solo knight o necromancer; una facción nueva pide además su guarnición neutral en data/ciudades.json), (2) speed: el escalón de sus casillas (2 very_slow, 3 slow, 4 average, 5 fast, 6 very_fast, 7 ultra_fast), en lugar de casillas, (3) growth (crecimiento semanal de su morada), (4) upgradesTo si tiene mejora, (5) su fila en data/experiencia.json (una habilidad por rango, del 2 al máximo: la lista habilidades de aquí es suelta y no dice a qué rango va cada una), (6) morada: la de la morada que la produzca (1-6); el nivel NO se escribe, sale de las cifras (core/nivel.ts), y quitar id, cuerpo, equipo (sumado a las cifras, si se quiere que la criatura del catálogo pelee como aquí), faction de la arena y habilidades. PV y daño van en la escala del catálogo (×10 la de fheroes2). habilidades = nombres de data/habilidades.json, sin efecto todavía, salvo las que dan un poder de data/poderes.json (Curar (X), Bendecir), que en la arena se usan en la pelea; Bendecir no está en data/habilidades.json.';
+  'BORRADOR de la arena (/arena/, pnpm arena): cifras de las unidades de las cinco facciones, INVENTADAS y provisionales, ajustadas a mano peleando. Lo escribe la página al pulsar «Guardar» y lo valida validarUnidadDeArena (src/core/arena.ts); una unidad que no valida se conserva tal cual. El juego NO lo lee. Cada unidad es un CUERPO (cuerpo: { hoja }, el arte con que se pinta: solo las hojas de las cinco facciones, sin criaturas del catálogo del juego; las cifras de arriba son las suyas, y de ellas sale el nivel) más su EQUIPO (equipo: una pieza de data/equipo.json por hueco, arma (la de cuerpo a cuerpo), distancia (la de disparar), carga (la lanza), armadura, accesorio y escudo; un arma a dos manos no admite escudo), y pelea con las dos cosas sumadas: cada golpe con las cifras de su arma (el disparo, las de distancia; la carga, las de carga, o si no las de arma; lo demás, las de arma). Sin arma no se combate: toda unidad lleva un arma de cuerpo a cuerpo de la arena en arma (la que dice sus niveles de la rueda del golpe); una sin ella no valida y se conserva tal cual. Dispara quien lleva algo en distancia, sin munición (dos tiros por disparo con el rasgo double_shot), y toda unidad ocupa una casilla: no hay shots ni hexes. Solo se lee el formato de hoy: una unidad de antes (sin cuerpo, con level, speed, shots o hexes) no valida y se conserva tal cual. Los campos de cifras se llaman como en data/creatures.json, pero pasar una unidad al catálogo NO es copiarla; hay que añadir: (1) la faction del juego (hoy solo knight o necromancer; una facción nueva pide además su guarnición neutral en data/ciudades.json), (2) speed: el escalón de sus casillas (2 very_slow, 3 slow, 4 average, 5 fast, 6 very_fast, 7 ultra_fast), en lugar de casillas, (3) growth (crecimiento semanal de su morada), (4) upgradesTo si tiene mejora, (5) su fila en data/experiencia.json (una habilidad por rango, del 2 al máximo: la lista habilidades de aquí es suelta y no dice a qué rango va cada una), (6) morada: la de la morada que la produzca (1-6); el nivel NO se escribe, sale de las cifras (core/nivel.ts), y quitar id, cuerpo, equipo (sumado a las cifras, si se quiere que la criatura del catálogo pelee como aquí), faction de la arena y habilidades. PV y daño van en la escala del catálogo (×10 la de fheroes2). habilidades = nombres de data/habilidades.json, sin efecto todavía, salvo las que dan un poder de data/poderes.json (Curar (X), Bendecir), que en la arena se usan en la pelea; Bendecir no está en data/habilidades.json.';
 
 /** Una unidad del archivo que no pasa la regla: se cuenta por qué y se guarda tal cual. */
 export interface UnidadSinValidar {
@@ -1678,13 +1735,23 @@ export function validarHeroeDeArena(h: HeroeDeArena): HeroeDeArena {
 }
 
 /**
+ * El equipo del héroe de la arena: el equipo base del juego con la Espada de la
+ * arena en lugar de la de armería (decisión del usuario, 18-10-2026): en la rueda
+ * se golpea con un arma de la arena, la que dice sus niveles.
+ */
+export const EQUIPO_DEL_HEROE_EN_LA_ARENA: EquipoDeArena = {
+  ...EQUIPO_BASE,
+  arma: ESPADA_DE_LA_ARENA,
+};
+
+/**
  * El héroe tal como entra en la batalla. **Uno nuevo en cada llamada**: el motor
  * gasta su maná y marca su hechizo de la ronda sobre este objeto, y una segunda
  * pelea con el mismo empezaría con el maná de la primera.
  *
- * Su equipo base (`EQUIPO_BASE`) son piezas del juego que la arena puede haber
- * cambiado: se leen de `eq`, como las de la tropa (el cuerpo de `heroUnit`,
- * vestido con ellas).
+ * Su equipo (`EQUIPO_DEL_HEROE_EN_LA_ARENA`) se lee de `eq`, como el de la tropa
+ * (el cuerpo de `heroUnit`, vestido con él): la Espada de la arena, que la arena
+ * puede haber cambiado, y lo demás del equipo base del juego.
  */
 export function heroeDeArena(datos: HeroeDeArena, eq: EquipoAtado): HeroeDelBando {
   const h = validarHeroeDeArena(datos);
@@ -1696,7 +1763,7 @@ export function heroeDeArena(datos: HeroeDeArena, eq: EquipoAtado): HeroeDelBand
         defense: h.defensa,
         experience: EXPERIENCIA_INICIAL_DE_HEROE,
       }),
-      EQUIPO_BASE,
+      EQUIPO_DEL_HEROE_EN_LA_ARENA,
     ),
     mando: mandoDe(
       {
@@ -2440,7 +2507,7 @@ export function unaVezEnLaURL(valores: readonly string[], nombre: string): strin
  * enlace de otra se rechaza diciendo que se vuelva a copiar, sin convertir nada.
  * Cambiar el formato es subirla.
  */
-export const VERSION_DEL_ENLACE = 10;
+export const VERSION_DEL_ENLACE = 11;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla'];
 const CAMPOS_DEL_LADO = ['ia', 'puestos', 'heroe'];

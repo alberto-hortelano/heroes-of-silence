@@ -36,6 +36,7 @@ import {
   type Punto,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
+  type TipoDelAnillo,
 } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { DURACION } from '../anim.js';
@@ -352,7 +353,7 @@ export function tramosDelDesenlace(t: number): string {
 }
 
 /** El ángulo en que se posa el marcador de un papel en un sector del anillo: a un lado del centro. */
-function anguloDeLaMarca(tipo: TipoDeGolpe, papel: 'golpe' | 'respuesta'): number {
+function anguloDeLaMarca(tipo: TipoDelAnillo, papel: 'golpe' | 'respuesta'): number {
   return anguloDe(tipo) + (papel === 'golpe' ? -13 : 13);
 }
 
@@ -368,20 +369,21 @@ function dondeCae(tipo: TipoDeGolpe, papel: 'golpe' | 'respuesta'): { x: number;
  * otro; los dos en Normal, el borde del centro. `data-punto` le da el color.
  */
 function arco(golpe: TipoDeGolpe, respuesta: TipoDeGolpe, p: Punto): Html {
+  // Una recta del centro a la marca del que no eligió Normal.
+  const desdeElCentro = (g: number): string => `M${xy(RADIO_DEL_CENTRO, g)}L${xy(BORDE, g)}`;
   let d: string;
-  if (golpe === 'normal' && respuesta === 'normal') {
-    const r = RADIO_DEL_CENTRO;
-    d = `M${xy(r, -90)}A${r} ${r} 0 0 1 ${xy(r, 90)}A${r} ${r} 0 0 1 ${xy(r, -90)}`;
-  } else if (golpe === 'normal' || respuesta === 'normal') {
-    const [otro, papel] =
-      golpe === 'normal' ? [respuesta, 'respuesta' as const] : [golpe, 'golpe' as const];
-    const g = anguloDeLaMarca(otro, papel);
-    d = `M${xy(RADIO_DEL_CENTRO, g)}L${xy(BORDE, g)}`;
-  } else {
+  if (golpe !== 'normal' && respuesta !== 'normal') {
     const a = anguloDeLaMarca(golpe, 'golpe');
     const b = anguloDeLaMarca(respuesta, 'respuesta');
     const delta = ((b - a + 540) % 360) - 180;
     d = `M${xy(BORDE, a)}A${BORDE} ${BORDE} 0 0 ${delta >= 0 ? 1 : 0} ${xy(BORDE, b)}`;
+  } else if (golpe !== 'normal') {
+    d = desdeElCentro(anguloDeLaMarca(golpe, 'golpe'));
+  } else if (respuesta !== 'normal') {
+    d = desdeElCentro(anguloDeLaMarca(respuesta, 'respuesta'));
+  } else {
+    const r = RADIO_DEL_CENTRO;
+    d = `M${xy(r, -90)}A${r} ${r} 0 0 1 ${xy(r, 90)}A${r} ${r} 0 0 1 ${xy(r, -90)}`;
   }
   return html`<path class="arco" data-punto="${String(p)}" pathLength="1" d="${d}"/>`;
 }

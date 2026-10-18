@@ -141,7 +141,13 @@ describe('una pieza sobre otra', () => {
       id: 'espada_bendita',
       nombre: 'Espada bendita',
       base: 'espada',
-      extras: { ataque: 2, danio: [5, 5], rueda: { normal: 10 }, oro: 450 },
+      // La rueda, en niveles: la bendita (4/4/3/4/4/3) sobre la Espada (todo a 3).
+      extras: {
+        ataque: 2,
+        danio: [5, 5],
+        rueda: { ofensivo: 1, fuerte: 1, defensivo: 1, rapido: 1 },
+        oro: 450,
+      },
     });
     expect(catalogoDeLaArena([sobreLaEspada]).pieza('espada_bendita')).toEqual(final);
     expect(selloDePieza(sobreLaEspada)).toBe('cambiada');
@@ -212,21 +218,22 @@ describe('una pieza sobre otra', () => {
   });
 
   it('el borrador deja sin valer solo la rota y las que están sobre ella', () => {
-    const rota = { ...(piezaNueva('arma', DEL_JUEGO) as Pieza), rueda: { fuerte: -200 } };
+    const nueva = piezaNueva('arma', DEL_JUEGO) as Pieza;
+    const rota = { ...nueva, rueda: { ...nueva.rueda, fuerte: 7 } };
     const sobreLaRota = { id: 'arma-3', nombre: 'Arma 3', base: rota.id, extras: {} };
     const sobreEsa = { id: 'arma-4', nombre: 'Arma 4', base: 'arma-3', extras: {} };
     const sana = { id: 'arma-5', nombre: 'Arma 5', base: 'espada', extras: { ataque: 1 } };
     const r = revisarBorradorDeEquipo({ piezas: [rota, sobreLaRota, sobreEsa, sana] });
     expect(r.validas.map((p) => p.id)).toEqual(['arma-5']);
     expect(r.invalidas.map((i) => i.clave)).toEqual([rota.id, 'arma-3', 'arma-4']);
-    expect(r.invalidas[0]?.motivo).toContain('Fuerte haría el -75 % del daño');
+    expect(r.invalidas[0]?.motivo).toContain('el nivel de Fuerte es 7: va de 0 a 6');
     expect(r.invalidas[1]?.motivo).toContain(`su base «${rota.nombre}» no vale`);
     // Se conserva tal cual.
     expect(r.invalidas[1]?.crudo).toBe(sobreLaRota);
   });
 
   it('el enlace lleva las bases de lo que lleva, y se reabre igual', () => {
-    expect(VERSION_DEL_ENLACE).toBe(10);
+    expect(VERSION_DEL_ENLACE).toBe(11);
     const u = conBendita();
     // La bendita es del fichero: va la Espada cambiada, que es su base.
     expect(piezasDelMontaje([u], false, [ESPADA_MAS, { ...pieza('arco'), ataque: 9 }])).toEqual([
@@ -273,8 +280,8 @@ describe('una pieza sobre otra', () => {
       ),
     ).toThrow(`«Arma 3» toma de base «${nueva.id}», que no existe`);
     // Un enlace de la versión de antes se rechaza: hay que volver a copiarlo.
-    expect(() => montajeDeLaURL(JSON.stringify({ ...o, v: 9 }))).toThrow(
-      'este enlace es de una versión anterior de la arena (la 9; la de hoy es la 10): vuelve a copiarlo',
+    expect(() => montajeDeLaURL(JSON.stringify({ ...o, v: 10 }))).toThrow(
+      'este enlace es de una versión anterior de la arena (la 10; la de hoy es la 11): vuelve a copiarlo',
     );
   });
 

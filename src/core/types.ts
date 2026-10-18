@@ -256,29 +256,36 @@ export interface GolpeConArma {
   readonly attack: number;
   readonly damage: readonly [number, number];
   /**
-   * Lo que el arma de ese golpe suma a cada tipo de la rueda (`Pieza.rueda`, solo
-   * la arena); sin el campo, nada. Lo escribe `conEquipo` con el resto de `armas`,
-   * y así la rueda no necesita el catálogo: la lee `ruedaDelGolpe`.
+   * Los niveles de la rueda del arma de ese golpe (`Pieza.rueda`, solo la arena);
+   * sin el campo, el golpe no va con un arma de la arena. Lo escribe `conEquipo`
+   * con el resto de `armas`, y así la rueda no necesita el catálogo: la lee
+   * `ruedaDelGolpe`.
    */
-  readonly rueda?: RuedaDelArma;
+  readonly rueda?: NivelesDeLaRueda;
 }
 
 /**
- * Los siete tipos de la rueda del golpe (`battle/rueda.ts`): el anillo en el
- * sentido de las agujas del reloj desde arriba y Normal, el centro, al final. El
- * orden es también el de las teclas: el tipo `i` se elige con la tecla `i + 1`.
- * Viven aquí y no en `rueda.ts` porque los nombra la pieza (`Pieza.rueda`), y
- * `data.ts` no puede importar `rueda.ts` (que lee `data.ts`).
+ * Los seis tipos del anillo de la rueda del golpe (`battle/rueda.ts`), en el
+ * sentido de las agujas del reloj desde arriba: los que tienen nivel en un arma
+ * (`NivelesDeLaRueda`). Normal, el centro, no está: siempre es ×1.
  */
-export const TIPOS_DE_GOLPE = [
+export const TIPOS_DEL_ANILLO = [
   'ofensivo',
   'fuerte',
   'finta',
   'defensivo',
   'rapido',
   'romperGuardia',
-  'normal',
 ] as const;
+export type TipoDelAnillo = (typeof TIPOS_DEL_ANILLO)[number];
+
+/**
+ * Los siete tipos de la rueda del golpe: el anillo (`TIPOS_DEL_ANILLO`) y Normal,
+ * el centro, al final. El orden es también el de las teclas: el tipo `i` se elige
+ * con la tecla `i + 1`. Viven aquí y no en `rueda.ts` porque los nombra la pieza
+ * (`Pieza.rueda`), y `data.ts` no puede importar `rueda.ts` (que lee `data.ts`).
+ */
+export const TIPOS_DE_GOLPE = [...TIPOS_DEL_ANILLO, 'normal'] as const;
 export type TipoDeGolpe = (typeof TIPOS_DE_GOLPE)[number];
 
 /** Si `x` es un tipo de golpe de la rueda (`TIPOS_DE_GOLPE`). */
@@ -286,15 +293,25 @@ export function esTipoDeGolpe(x: unknown): x is TipoDeGolpe {
   return typeof x === 'string' && (TIPOS_DE_GOLPE as readonly string[]).includes(x);
 }
 
+/** Si `x` es un tipo del anillo (`TIPOS_DEL_ANILLO`): uno con nivel en un arma. */
+export function esTipoDelAnillo(x: unknown): x is TipoDelAnillo {
+  return typeof x === 'string' && (TIPOS_DEL_ANILLO as readonly string[]).includes(x);
+}
+
 /**
- * Lo que un arma de cuerpo a cuerpo suma a la cifra propia de cada tipo de la
- * rueda, en las unidades de `data/rueda.json` (decisión del usuario, 18-10-2026):
- * Fuerte, Rápido y Normal, puntos de % de daño; Ofensivo, ataque; Defensivo,
- * defensa; Romper guardia, ataque quitado de más en cada éxito; Finta, casillas
- * que se restan de más en cada éxito (negativo: resta menos). Enteros con signo,
- * sin los tipos que no suman nada. Cómo se aplica, `cifrasDeLaRuedaCon`.
+ * El nivel de un arma de cuerpo a cuerpo de la arena en cada tipo del anillo, de 0
+ * (lo peor) a 6 (lo mejor), **absoluto** (decisión del usuario, 18-10-2026: «que
+ * los valores de las barras sean absolutos y no relativos a la base del arma»):
+ * el mismo nivel da lo mismo en toda arma. Las cifras de cada nivel, en
+ * `data/rueda.json`; cómo se leen, `cifrasDeLosNiveles`. Normal no tiene nivel.
  */
-export type RuedaDelArma = Readonly<Partial<Record<TipoDeGolpe, number>>>;
+export type NivelesDeLaRueda = Readonly<Record<TipoDelAnillo, number>>;
+
+/**
+ * Lo que una pieza con base sube (o baja) los niveles de la rueda de la suya
+ * (`ExtrasDePieza.rueda`): niveles con signo, sin los tipos que no cambian.
+ */
+export type ExtrasDeLaRueda = Readonly<Partial<Record<TipoDelAnillo, number>>>;
 
 /**
  * Las armas de una unidad de la arena (`UnitInfo.armas`), un golpe por uso: el de

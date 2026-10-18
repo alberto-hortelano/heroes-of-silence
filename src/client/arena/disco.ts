@@ -5,7 +5,14 @@
  * para que `paneles.ts` no importe `rueda.ts`, que ya importa `paneles.ts`.
  */
 
-import { ANILLO, NOMBRE_DE_GOLPE, type TipoDeGolpe } from '@core/battle/rueda.js';
+import {
+  ANILLO,
+  type FilaDeLaRueda,
+  NOMBRE_DE_GOLPE,
+  NORMAL_EN_LA_FICHA,
+  type TipoDeGolpe,
+  type TipoDelAnillo,
+} from '@core/battle/rueda.js';
 import { type Html, html, unir } from '../html.js';
 
 /**
@@ -42,10 +49,8 @@ export function icono(tipo: TipoDeGolpe): Html {
 }
 
 /** El ángulo del centro de cada sector del anillo, en grados (0 a la derecha, 90 abajo). */
-export function anguloDe(tipo: TipoDeGolpe): number {
-  const i = ANILLO.indexOf(tipo);
-  if (i < 0) throw new Error(`«${tipo}» no está en el anillo de la rueda`);
-  return -90 + i * (360 / ANILLO.length);
+export function anguloDe(tipo: TipoDelAnillo): number {
+  return -90 + ANILLO.indexOf(tipo) * (360 / ANILLO.length);
 }
 
 /** Un punto del plano de la rueda (centro en 0,0) a `r` y `grados`, con dos decimales. */
@@ -86,48 +91,43 @@ export const MEDIDAS_DE_LA_RUEDA = {
   lado: LADO_DE_LA_CAJA,
 } as const;
 
-export function sector(tipo: TipoDeGolpe): string {
+export function sector(tipo: TipoDelAnillo): string {
   const c = anguloDe(tipo);
   const a = c - MEDIO_SECTOR;
   const b = c + MEDIO_SECTOR;
   return `M${xy(FUERA, a)}A${FUERA} ${FUERA} 0 0 1 ${xy(FUERA, b)}L${xy(DENTRO, b)}A${DENTRO} ${DENTRO} 0 0 0 ${xy(DENTRO, a)}Z`;
 }
 
-/** Lo que enseña cada tipo en la rueda de la ficha de un arma: cómo queda y cuánto mejora. */
-export interface TipoEnLaFicha {
-  /** Cómo queda con el arma, entero («Daño ×1,45», «5 a 1 casillas»): su `<title>`. */
-  readonly final: string;
-  /** Lo mismo en pocas letras («×1,45», «5 a 1»): lo que se lee en el sector. */
-  readonly corto: string;
-  /** Cuánto mejora (positivo) o empeora el golpe, en puntos comparables (`mejoraDelTipo`). */
-  readonly mejora: number;
-}
-
-/** El tinte de un sector según cuánto mejora: dos escalones hacia cada lado. */
-function tinteDeLaMejora(m: number): string {
-  if (m === 0) return 'igual';
-  const fuerte = Math.abs(m) >= 1.5 ? '2' : '1';
-  return `${m > 0 ? 'mejor' : 'peor'}-${fuerte}`;
-}
+/**
+ * Lo que enseña cada tipo del anillo en la rueda de la ficha de un arma, de su
+ * fila (`filasDeLaRueda`): su nivel (el tinte, `data-nivel`), lo que da entero (su
+ * `<title>`) y en pocas letras (lo que se lee en el sector).
+ */
+export type TipoEnLaFicha = Pick<FilaDeLaRueda, 'tipo' | 'nivel' | 'final' | 'corto'>;
 
 /**
  * La rueda de un arma en su ficha, solo para leer (18-10-2026, decisión del
  * usuario: se edita en barras y la rueda va al lado): el mismo disco que la del
- * combate (`sector`, `anguloDe`), cada sector teñido de verde si el arma mejora su
- * golpe y de rojo si lo empeora (`tinteDeLaMejora`), con su icono y cómo queda.
+ * combate (`sector`, `anguloDe`), cada sector teñido por su nivel —el mismo tono
+ * para el mismo nivel en toda arma: del rojo del 0 al verde del 6, pasando por el
+ * neutro del 3 (`data-nivel`, en `arena.css`)—, con su icono y lo que da. Normal,
+ * en el centro, sin nivel ni tinte.
  */
-export function ruedaDeLaPieza(tipos: Readonly<Record<TipoDeGolpe, TipoEnLaFicha>>): Html {
-  const rotulo = (tipo: TipoDeGolpe, x: number, y: number): Html => {
-    const t = tipos[tipo];
-    return html`<g class="rotulo-en-la-pieza" data-tipo="${tipo}" transform="translate(${String(x)} ${String(y)})"><title>${NOMBRE_DE_GOLPE[tipo]}: ${t.final}</title>
+export function ruedaDeLaPieza(filas: readonly TipoEnLaFicha[]): Html {
+  const rotulo = (
+    tipo: TipoDeGolpe,
+    t: Pick<TipoEnLaFicha, 'final' | 'corto'>,
+    x: number,
+    y: number,
+  ): Html =>
+    html`<g class="rotulo-en-la-pieza" data-tipo="${tipo}" transform="translate(${String(x)} ${String(y)})"><title>${NOMBRE_DE_GOLPE[tipo]}: ${t.final}</title>
         <g class="icono" transform="translate(-7 -22) scale(0.583)">${unir(ICONO[tipo].map((d) => html`<path d="${d}"/>`))}</g>
         <text class="nombre" y="5" text-anchor="middle">${NOMBRE_DE_GOLPE[tipo]}</text>
         <text class="cifra" y="16" text-anchor="middle">${t.corto}</text></g>`;
-  };
   const sectores = unir(
-    ANILLO.map(
-      (t) =>
-        html`<path class="sector" data-sector="${t}" data-mejora="${tinteDeLaMejora(tipos[t].mejora)}" d="${sector(t)}"/>`,
+    filas.map(
+      (f) =>
+        html`<path class="sector" data-sector="${f.tipo}" data-nivel="${String(f.nivel)}" d="${sector(f.tipo)}"/>`,
     ),
   );
   const radios = unir(
@@ -137,17 +137,17 @@ export function ruedaDeLaPieza(tipos: Readonly<Record<TipoDeGolpe, TipoEnLaFicha
     }),
   );
   const rotulos = unir(
-    ANILLO.map((t) => {
-      const p = punto(SITIO_DEL_ROTULO, anguloDe(t));
-      return rotulo(t, p.x, p.y);
+    filas.map((f) => {
+      const p = punto(SITIO_DEL_ROTULO, anguloDe(f.tipo));
+      return rotulo(f.tipo, f, p.x, p.y);
     }),
   );
-  return html`<svg class="disco rueda-de-la-pieza" viewBox="-110 -110 220 220" role="img" aria-label="La rueda con esta arma: en verde, los golpes que mejora; en rojo, los que empeora">
+  return html`<svg class="disco rueda-de-la-pieza" viewBox="-110 -110 220 220" role="img" aria-label="La rueda con esta arma: cada tipo, teñido por su nivel, del rojo del 0 al verde del 6">
       <circle class="fondo" r="108"/>
       <circle class="aro" r="${String(BORDE)}"/>
       ${sectores}${radios}
-      <circle class="sector centro" data-sector="normal" data-mejora="${tinteDeLaMejora(tipos.normal.mejora)}" r="${String(RADIO_DEL_CENTRO)}"/>
+      <circle class="sector centro" data-sector="normal" r="${String(RADIO_DEL_CENTRO)}"/>
       <circle class="aro-de-dentro" r="${String(RADIO_DEL_CENTRO)}"/>
-      ${rotulos}${rotulo('normal', 0, 4)}
+      ${rotulos}${rotulo('normal', NORMAL_EN_LA_FICHA, 0, 4)}
     </svg>`;
 }

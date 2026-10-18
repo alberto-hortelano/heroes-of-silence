@@ -13,7 +13,12 @@ import poderJson from '../../data/poder.json' with { type: 'json' };
 import relieveJson from '../../data/relieve.json' with { type: 'json' };
 import riosJson from '../../data/rios.json' with { type: 'json' };
 import tiposDeHeroeJson from '../../data/tipos-de-heroe.json' with { type: 'json' };
-import { ruedaDelArmaBlocker } from './battle/cifras-de-la-rueda.js';
+import {
+  fueraDelAnillo,
+  NIVEL_MAXIMO,
+  NOMBRE_DE_GOLPE,
+  problemasDeNiveles,
+} from './battle/cifras-de-la-rueda.js';
 import {
   BARRERAS,
   type Barrera,
@@ -26,11 +31,12 @@ import type {
   CifraDelHueco,
   Creature,
   CreatureTrait,
+  ExtrasDeLaRueda,
   FactionId,
   Hueco,
   HuecoDeArena,
+  NivelesDeLaRueda,
   Resources,
-  RuedaDelArma,
   SpeedTier,
   UnitInfo,
 } from './types.js';
@@ -39,7 +45,7 @@ import {
   camposDelHueco,
   esArmaPorUso,
   esHuecoDeArena,
-  esTipoDeGolpe,
+  esTipoDelAnillo,
   FACTION_IDS,
   HUECOS,
   HUECOS_DE_LA_ARENA,
@@ -49,7 +55,7 @@ import {
   RESOURCE_KINDS,
   type ResourceKind,
   SPEED_TIERS,
-  TIPOS_DE_GOLPE,
+  TIPOS_DEL_ANILLO,
 } from './types.js';
 
 const byId = new Map<string, Creature>();
@@ -801,12 +807,13 @@ export interface Pieza {
    */
   readonly manos?: 1 | 2;
   /**
-   * Lo que suma a cada tipo de la rueda del golpe (**solo la arena**, 18-10-2026:
-   * «una maza es mejor en ataque fuerte y peor en rápido»): solo calidad `arena` y
-   * un hueco que golpea en ella (`camposDelHueco(h).conRueda`: `arma` y `carga`).
-   * Sin el campo, nada. Lo lleva al golpe `conEquipo` (`GolpeConArma.rueda`).
+   * Su nivel en cada tipo del anillo de la rueda del golpe, de 0 a 6 (**solo la
+   * arena**, 18-10-2026: «una maza es mejor en ataque fuerte y peor en rápido»;
+   * los niveles, absolutos, en la vuelta 2). Lo lleva **toda** pieza de calidad
+   * `arena` de un hueco que golpea en ella (`camposDelHueco(h).conRueda`: `arma` y
+   * `carga`), y ninguna otra. Lo lleva al golpe `conEquipo` (`GolpeConArma.rueda`).
    */
-  readonly rueda?: RuedaDelArma;
+  readonly rueda?: NivelesDeLaRueda;
   readonly precio: Partial<Resources>;
 }
 
@@ -823,13 +830,15 @@ export interface ExtrasDePieza {
   readonly armadura?: number;
   readonly velocidad?: number;
   readonly danio?: readonly [number, number];
-  readonly rueda?: RuedaDelArma;
+  /** Niveles de la rueda con signo, por tipo del anillo: el final, el de la base más este. */
+  readonly rueda?: ExtrasDeLaRueda;
   readonly oro?: number;
 }
 
 /**
  * Cómo es cada extra (`ExtrasDePieza`), en el orden en que se escriben: un número,
- * dos (el daño, que se suma por componentes) o uno por tipo de golpe (la rueda).
+ * dos (el daño, que se suma por componentes) o uno por tipo del anillo (la rueda,
+ * en niveles).
  * **La tabla de los extras, una vez**: de ella salen sus campos
  * (`CAMPOS_DE_EXTRAS`), su forma (`problemasDePiezaConBase`), cómo se escriben
  * (`piezaConBaseCanonica`) y la suma de una base y su inversa (`sumarExtras`).
@@ -946,12 +955,31 @@ function sumaAlgo(v: unknown): boolean {
 }
 
 /**
+ * Si la pieza golpea en la rueda del golpe: de calidad `arena` y de un hueco que
+ * golpea en ella (`camposDelHueco(h).conRueda`: `arma` y `carga`). Esas, y solo
+ * esas, dicen su rueda (`Pieza.rueda`): las del juego no la llevan. **La regla, en
+ * un sitio**: la leen la de una pieza (`problemasDePieza`) y la de la unidad de la
+ * arena, que no se monta sin un arma así (`armaDeCuerpoBlocker`).
+ */
+export function golpeaEnLaRueda(p: {
+  readonly calidad?: unknown;
+  readonly hueco?: unknown;
+}): boolean {
+  return (
+    p.calidad === 'arena' &&
+    typeof p.hueco === 'string' &&
+    esHuecoDeArena(p.hueco) &&
+    camposDelHueco(p.hueco).conRueda
+  );
+}
+
+/**
  * Lo que no vale de UNA pieza, cada cosa con su frase, o vacío si vale: los
  * campos que existen (`CAMPOS_DE_PIEZA`), los textos, el hueco y la calidad que existen, las cifras enteras ≥ 0, el escudo
  * que resta velocidad, el daño `[mín, máx]`, las manos solo en un arma, la rueda
  * y el precio. Una de la arena, además, solo con las cifras de su hueco
  * (`camposDelHueco`), la armadura con tope (`ARMADURA_MAXIMA_DE_PIEZA`), una rueda
- * que se queda en pie (`ruedaDelArmaBlocker`) y el precio solo en oro
+ * con sus seis niveles si es de cuerpo a cuerpo (`problemasDeNiveles`) y el precio solo en oro
  * (18-10-2026). **La regla de una
  * pieza, en un sitio**: la leen el cargador del catálogo (`validarEquipo`, que
  * añade las reglas de conjunto), la arena, que edita piezas una a una
@@ -1048,23 +1076,25 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
       );
     }
   }
-  if (p.rueda !== undefined) {
-    const suyos = problemasDeRueda(p.rueda, q);
-    problemas.push(...suyos);
-    if (suyos.length === 0 && sumaAlgo(p.rueda)) {
-      const rota = ruedaDelArmaBlocker(p.rueda as RuedaDelArma);
-      if (!deLaArena) {
-        problemas.push(
-          `${q} es de calidad ${String(p.calidad)} y cambia la rueda del golpe: la rueda es solo de la arena`,
-        );
-      } else if (campos !== null && !campos.conRueda) {
-        problemas.push(
-          `${q} va en el hueco ${String(p.hueco)} y cambia la rueda del golpe: solo un arma de cuerpo a cuerpo o de carga golpea en ella`,
-        );
-      } else if (rota !== null) {
-        problemas.push(`${q}: ${rota}`);
-      }
+  // La rueda (vuelta 2, 18-10-2026): toda arma de cuerpo a cuerpo de la arena
+  // dice su nivel en los seis tipos del anillo («sin arma no se combate»), y
+  // ninguna otra pieza lleva rueda.
+  if (p.rueda === undefined) {
+    if (golpeaEnLaRueda(p)) {
+      problemas.push(
+        `${q} es un arma de cuerpo a cuerpo de la arena y no dice su rueda: un nivel de 0 a ${NIVEL_MAXIMO} en ${TIPOS_DEL_ANILLO.map((t) => NOMBRE_DE_GOLPE[t]).join(', ')}`,
+      );
     }
+  } else if (!deLaArena) {
+    problemas.push(
+      `${q} es de calidad ${String(p.calidad)} y lleva rueda del golpe: la rueda es solo de la arena`,
+    );
+  } else if (campos !== null && !campos.conRueda) {
+    problemas.push(
+      `${q} va en el hueco ${String(p.hueco)} y lleva rueda del golpe: solo un arma de cuerpo a cuerpo o de carga golpea en ella`,
+    );
+  } else {
+    problemas.push(...problemasDeNiveles(p.rueda, q));
   }
   const precio = (p.precio ?? null) as Record<string, unknown> | null;
   if (precio === null || typeof precio !== 'object' || Object.keys(precio).length === 0) {
@@ -1092,10 +1122,10 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
 }
 
 /**
- * Lo que no vale de la forma de una rueda (`Pieza.rueda`, `ExtrasDePieza.rueda`):
- * un objeto con tipos de golpe (`TIPOS_DE_GOLPE`) y enteros con signo. Si sus
- * cifras finales dejan la rueda en pie (un Fuerte que no multiplica) no se mira
- * aquí: lo dice `ruedaDelArmaBlocker` sobre la pieza (`problemasDePieza`).
+ * Lo que no vale de los extras de la rueda de una pieza con base
+ * (`ExtrasDePieza.rueda`): un objeto con tipos del anillo (`TIPOS_DEL_ANILLO`) y
+ * niveles con signo. Si el nivel final queda de 0 a 6 no se mira aquí: lo dice la
+ * pieza resuelta (`problemasDeNiveles`, desde `problemasDePieza`).
  */
 function problemasDeRueda(rueda: unknown, q: string): string[] {
   if (typeof rueda !== 'object' || rueda === null || Array.isArray(rueda)) {
@@ -1103,12 +1133,12 @@ function problemasDeRueda(rueda: unknown, q: string): string[] {
   }
   const problemas: string[] = [];
   for (const [tipo, cifra] of Object.entries(rueda)) {
-    if (!esTipoDeGolpe(tipo)) {
-      problemas.push(
-        `${q}: «${tipo}» no es un tipo de golpe de la rueda; valen ${TIPOS_DE_GOLPE.join(', ')}`,
-      );
+    if (!esTipoDelAnillo(tipo)) {
+      problemas.push(fueraDelAnillo(tipo, q));
     } else if (!enteroDesde(cifra, Number.MIN_SAFE_INTEGER)) {
-      problemas.push(`${q}: lo que suma a ${tipo} tiene que ser un entero y ${comoSeLee(cifra)}`);
+      problemas.push(
+        `${q}: lo que sube el nivel de ${tipo} tiene que ser un entero y ${comoSeLee(cifra)}`,
+      );
     }
   }
   return problemas;
@@ -1191,16 +1221,26 @@ export function piezaBlocker(bruta: unknown): string | null {
   return problemasDePieza(bruta)[0] ?? null;
 }
 
-/** Una rueda sin los tipos que no suman nada, o `undefined` si no suma nada. */
-function ruedaSinCeros(r: RuedaDelArma | undefined): RuedaDelArma | undefined {
+/** Los extras de una rueda sin los tipos que no cambian, o `undefined` si no cambia ninguno. */
+function ruedaSinCeros(r: ExtrasDeLaRueda | undefined): ExtrasDeLaRueda | undefined {
   if (r === undefined) return undefined;
-  const suma = TIPOS_DE_GOLPE.filter((t) => (r[t] ?? 0) !== 0).map((t) => [t, r[t]] as const);
+  const suma = TIPOS_DEL_ANILLO.filter((t) => (r[t] ?? 0) !== 0).map((t) => [t, r[t]] as const);
   return suma.length === 0 ? undefined : Object.fromEntries(suma);
 }
 
 /**
+ * Los niveles de una rueda en el orden del anillo, **los seis**: un 0 es un nivel,
+ * no un «nada» (quitarlo dejaría el arma sin decir su rueda). Lo que falte, a 0;
+ * lo juzga la regla de una pieza.
+ */
+function nivelesEnOrden(r: ExtrasDeLaRueda): NivelesDeLaRueda {
+  return Object.fromEntries(TIPOS_DEL_ANILLO.map((t) => [t, r[t] ?? 0])) as NivelesDeLaRueda;
+}
+
+/**
  * Una pieza ya válida escrita siempre igual: los campos en su orden, sin lo que no
- * suma nada (`armadura` 0, `danio` sin máximo, una mano, la rueda sin ceros) y el
+ * suma nada (`armadura` 0, `danio` sin máximo, una mano), la rueda entera en el
+ * orden del anillo (`nivelesEnOrden`: un nivel 0 se escribe) y el
  * precio sin los ceros (en oro si no cuesta nada). Es la forma que comparan
  * `mismaPieza` y el sello de la arena: el catálogo (`validarEquipo`), la arena
  * (`validarPiezaDeArena`) y la suma de una base (`resolverBases`) escriben así.
@@ -1208,7 +1248,7 @@ function ruedaSinCeros(r: RuedaDelArma | undefined): RuedaDelArma | undefined {
  */
 export function piezaCanonica(p: Pieza): Pieza {
   const danio = p.danio !== undefined && p.danio[1] > 0 ? p.danio : undefined;
-  const rueda = ruedaSinCeros(p.rueda);
+  const rueda = p.rueda === undefined ? undefined : nivelesEnOrden(p.rueda);
   const precio = Object.fromEntries(
     RESOURCE_KINDS.filter((k) => (p.precio[k] ?? 0) > 0).map((k) => [k, p.precio[k]]),
   ) as Partial<Resources>;
@@ -1262,9 +1302,12 @@ export function extrasDe(p: Pieza): ExtrasEnteros {
 /**
  * La pieza `p` sumando `x` (lo que no trae, 0) en lugar de lo suyo, **sin
  * juzgar**: su id, su nombre, su hueco, su calidad, sus PV y sus manos se quedan.
- * La inversa de `extrasDe`.
+ * La inversa de `extrasDe`. La rueda, los seis niveles si `p` la lleva o `x` sube
+ * alguno: así un extra de rueda sobre un arco llega a la pieza resuelta y lo
+ * rechaza su regla, en lugar de perderse.
  */
 export function conLosExtras(p: Pieza, x: ExtrasDePieza): Pieza {
+  const conRueda = p.rueda !== undefined || sumaAlgo(x.rueda);
   return {
     id: p.id,
     nombre: p.nombre,
@@ -1277,7 +1320,7 @@ export function conLosExtras(p: Pieza, x: ExtrasDePieza): Pieza {
     velocidad: x.velocidad ?? 0,
     danio: x.danio ?? [0, 0],
     ...(p.manos === undefined ? {} : { manos: p.manos }),
-    rueda: x.rueda ?? {},
+    ...(conRueda ? { rueda: nivelesEnOrden(x.rueda ?? {}) } : {}),
     precio: { ...p.precio, gold: x.oro ?? 0 },
   };
 }
@@ -1297,7 +1340,7 @@ function sumarExtras(a: ExtrasDePieza, b: ExtrasDePieza, signo: 1 | -1): ExtrasE
   return {
     ...numeros,
     danio: [mas(a.danio?.[0], b.danio?.[0]), mas(a.danio?.[1], b.danio?.[1])],
-    rueda: Object.fromEntries(TIPOS_DE_GOLPE.map((t) => [t, mas(a.rueda?.[t], b.rueda?.[t])])),
+    rueda: Object.fromEntries(TIPOS_DEL_ANILLO.map((t) => [t, mas(a.rueda?.[t], b.rueda?.[t])])),
   };
 }
 

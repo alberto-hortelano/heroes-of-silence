@@ -531,8 +531,9 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .ficha-de-pieza .cifras h4,
 .ficha-de-pieza .cifras .cadena-de-bases { grid-column: 1 / -1; }
 .ficha-de-pieza .cifras h4 { margin: 0.5rem 0 0; color: var(--gold); font-size: 0.9rem; }
-/* La rueda del golpe de un arma (18-10-2026): las barras para editar y, al lado,
-   la rueda teñida para leer; estrecha, la rueda va debajo. */
+/* La rueda del golpe de un arma (18-10-2026; niveles absolutos de 0 a 6 en la
+   vuelta 2): las barras para editar y, al lado, la rueda teñida para leer;
+   estrecha, la rueda va debajo. */
 .ficha-de-pieza .cifras .rueda-del-arma {
   grid-column: 1 / -1;
   display: flex;
@@ -540,11 +541,11 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   align-items: center;
   gap: 0.6rem 1rem;
 }
-.rueda-del-arma .barras-de-la-rueda { flex: 1 1 22rem; min-width: 0; }
+.rueda-del-arma .barras-de-la-rueda { flex: 1 1 22rem; min-width: 0; container-type: inline-size; }
 .rueda-del-arma .rueda-de-la-pieza { flex: 0 0 16rem; width: 16rem; height: 16rem; margin: 0 auto; }
 .barra-de-la-rueda {
   display: grid;
-  grid-template-columns: 9.4rem 1.8rem minmax(3rem, 1fr) 1.8rem calc(4ch + 0.7rem + 22px) 8.4rem;
+  grid-template-columns: 8.4rem 1.8rem minmax(3rem, 1fr) 1.8rem calc(4ch + 0.7rem + 22px) 10.6rem;
   align-items: center;
   gap: 0.3rem;
   padding: 0.15rem 0;
@@ -554,9 +555,21 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .barra-de-la-rueda .paso { padding: 0; height: 1.6rem; line-height: 1; font-size: 1rem; }
 .barra-de-la-rueda .barra { width: 100%; height: 0.8rem; display: block; }
 .barra-de-la-rueda .barra .pista { fill: #120f0b; }
-.barra-de-la-rueda .barra .centro { stroke: var(--brass); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.barra-de-la-rueda .barra .relleno.mejor { fill: #6f9a55; }
-.barra-de-la-rueda .barra .relleno.peor { fill: #b0614b; }
+.barra-de-la-rueda .barra .muesca { stroke: #3a3222; stroke-width: 1; vector-effect: non-scaling-stroke; }
+/* La escala de un nivel, la misma en toda arma y en los tres sitios que lo tiñen:
+   el relleno de la barra (--tono-del-nivel), el sector de la rueda
+   (--fondo-del-nivel) y lo que da (--letra-del-nivel), del rojo del 0 al verde
+   del 6, pasando por el neutro del 3. Una regla por nivel, del 0 a NIVEL_MAXIMO
+   (cifras-de-la-rueda.ts): si cambia, cambia esta escala. */
+.rueda-del-arma [data-nivel="0"] { --tono-del-nivel: #bd4f3f; --fondo-del-nivel: #8f4a37; --letra-del-nivel: var(--danger); }
+.rueda-del-arma [data-nivel="1"] { --tono-del-nivel: #b0614b; --fondo-del-nivel: #77402f; --letra-del-nivel: var(--danger); }
+.rueda-del-arma [data-nivel="2"] { --tono-del-nivel: #a3784f; --fondo-del-nivel: #5e3328; --letra-del-nivel: var(--danger); }
+.rueda-del-arma [data-nivel="3"] { --tono-del-nivel: #9a8a5e; --fondo-del-nivel: #3a3222; --letra-del-nivel: currentColor; }
+.rueda-del-arma [data-nivel="4"] { --tono-del-nivel: #87955a; --fondo-del-nivel: #3d5a34; --letra-del-nivel: var(--accent); }
+.rueda-del-arma [data-nivel="5"] { --tono-del-nivel: #73a055; --fondo-del-nivel: #4c723d; --letra-del-nivel: var(--accent); }
+.rueda-del-arma [data-nivel="6"] { --tono-del-nivel: #5fae4e; --fondo-del-nivel: #5b8a45; --letra-del-nivel: var(--accent); }
+.barra-de-la-rueda .barra .relleno { fill: var(--tono-del-nivel); }
+.barra-de-la-rueda .paso:disabled { opacity: 0.35; cursor: default; }
 .barra-de-la-rueda input {
   box-sizing: border-box;
   width: 100%;
@@ -565,15 +578,22 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   padding: 0.15rem 0.35rem;
   text-align: right;
 }
-.barra-de-la-rueda .final { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.barra-de-la-rueda[data-mejora="mejor"] .final { color: var(--accent); }
-.barra-de-la-rueda[data-mejora="peor"] .final { color: var(--danger); }
-/* La rueda de la ficha: el disco del combate, cada sector teñido por lo que mejora. */
-.disco.rueda-de-la-pieza .sector[data-mejora] { fill: #2b2519; }
-.disco.rueda-de-la-pieza .sector[data-mejora="mejor-1"] { fill: #3d5a34; }
-.disco.rueda-de-la-pieza .sector[data-mejora="mejor-2"] { fill: #5b8a45; }
-.disco.rueda-de-la-pieza .sector[data-mejora="peor-1"] { fill: #5e3328; }
-.disco.rueda-de-la-pieza .sector[data-mejora="peor-2"] { fill: #8f4a37; }
+.barra-de-la-rueda .final {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--letra-del-nivel);
+}
+/* Estrecha (el móvil, o con la rueda al lado a ~800 px), lo que da cada nivel va en
+   su propia línea bajo la barra: en la misma fila se cortaba (QA de la vuelta 2, H2). */
+@container (max-width: 28rem) {
+  .barra-de-la-rueda { grid-template-columns: 8.4rem 1.8rem minmax(2rem, 1fr) 1.8rem calc(4ch + 0.7rem + 22px); }
+  .barra-de-la-rueda .final { grid-column: 2 / -1; text-align: left; white-space: normal; }
+}
+/* La rueda de la ficha: el disco del combate, cada sector teñido por su nivel;
+   el centro (Normal, siempre ×1), sin nivel ni tinte. */
+.disco.rueda-de-la-pieza .sector.centro { fill: #2b2519; }
+.disco.rueda-de-la-pieza .sector[data-nivel] { fill: var(--fondo-del-nivel); }
 .rueda-de-la-pieza .rotulo-en-la-pieza text { fill: var(--ink); font: 600 10.5px system-ui, sans-serif; }
 .rueda-de-la-pieza .rotulo-en-la-pieza text.nombre { fill: var(--ink-dim); font-weight: 400; font-size: 7.5px; }
 .rueda-de-la-pieza .rotulo-en-la-pieza .icono path {
