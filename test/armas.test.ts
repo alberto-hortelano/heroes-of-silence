@@ -14,15 +14,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { textoDePrevision } from '../src/client/views/prevision.js';
-import {
-  armaDeCuerpoBlocker,
-  CUERPO_COMUN,
-  catalogoDeLaArena,
-  nivelesDeLaEspada,
-} from '../src/core/arena.js';
+import { golpeDe } from '../src/core/battle/armas.js';
 import {
   applyAction,
-  crearBatallaConReglas,
+  createBattle,
   legalActions,
   type PrevisionDeGolpe,
   previsionDe,
@@ -35,19 +30,18 @@ import {
   armasDe,
   computeDamage,
   expectedDamage,
-  golpeDe,
   horquillaDeDanio,
   usoDelGolpe,
 } from '../src/core/battle/damage.js';
-import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
 import { cruceDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { cuentaTiros, isShooter, type Pieza } from '../src/core/data.js';
+import { isShooter, type Pieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
-import type { EquipoDeArena, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
-import { bandoDe, con } from './batalla-de-prueba.js';
-import { dadoCargado } from './helpers.js';
+import type { Equipo, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
+import { armaDeCuerpoBlocker, CUERPO_COMUN, nivelesDeLaEspada } from '../src/core/unidad.js';
+import { bandoDe } from './batalla-de-prueba.js';
+import { catalogoCon, dadoCargado, MANOS_DE_PRUEBA } from './helpers.js';
 
 /** Las cifras de la rueda con la Espada de la arena (`data/equipo.json`): las de un arma versátil. */
 const CON_LA_ESPADA = cifrasDeLosNiveles(nivelesDeLaEspada());
@@ -58,7 +52,7 @@ function cuerpo(speed: SpeedTier = 'average', traits: UnitInfo['traits'] = []): 
   return { name: 'Cuerpo', faction: null, attack, defense, damage, hp, speed, traits };
 }
 
-const vestido = (c: UnitInfo, equipo: EquipoDeArena, name: string): UnitInfo => ({
+const vestido = (c: UnitInfo, equipo: Equipo, name: string): UnitInfo => ({
   ...EQUIPO_DEL_JUEGO.conEquipo(c, equipo),
   name,
 });
@@ -72,7 +66,7 @@ const ARQUERO = vestido(
 /** Espada (+2, 10–30), lanza (+7, 40–80) y barda (+5 de defensa, 22 de armadura), con Carga. */
 const JINETE = vestido(
   cuerpo('very_fast', ['charge']),
-  { arma: 'espada', carga: 'lanza_de_jinete', armadura: 'barda' },
+  { arma: 'espada', lanza: 'lanza_de_jinete', armadura: 'barda' },
   'Jinete',
 );
 const JINETE_SIN_LANZA = vestido(
@@ -80,29 +74,29 @@ const JINETE_SIN_LANZA = vestido(
   { arma: 'espada', armadura: 'barda' },
   'Jinete sin lanza',
 );
-/** El blanco: defensa 4 (el ataque de la daga), mucha vida y un golpe de 1. */
-const MUNECO: UnitInfo = {
-  name: 'Muñeco',
-  faction: null,
-  attack: 4,
-  defense: 4,
-  damage: [1, 1],
-  hp: 5000,
-  speed: 'very_slow',
-};
+/**
+ * El blanco: defensa 4 (el ataque de la daga), mucha vida y un golpe de 1, con
+ * las manos de prueba (que no suman nada) para devolver el golpe en la rueda.
+ */
+const MUNECO: UnitInfo = catalogoCon(MANOS_DE_PRUEBA).conEquipo(
+  {
+    name: 'Muñeco',
+    faction: null,
+    attack: 4,
+    defense: 4,
+    damage: [1, 1],
+    hp: 5000,
+    speed: 'very_slow',
+  },
+  { arma: MANOS_DE_PRUEBA.id },
+);
 
 /** Uno contra uno: `quien` en `en`, el muñeco en `contra`, y el turno de `quien`. */
-function frente(
-  quien: UnitInfo,
-  en: Hex,
-  contra: Hex,
-  reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
-): BattleState {
-  const b = crearBatallaConReglas(
+function frente(quien: UnitInfo, en: Hex, contra: Hex): BattleState {
+  const b = createBattle(
     bandoDe([{ id: 'quien', unit: quien }]),
     bandoDe([{ id: 'muneco', unit: MUNECO }]),
     createRng(1),
-    reglas,
   );
   stackById(b, 'attacker-0').hex = en;
   stackById(b, 'defender-0').hex = contra;
@@ -112,11 +106,10 @@ function frente(
 
 /** Al revés: el muñeco pega a `quien`, que devuelve el golpe. */
 function recibe(quien: UnitInfo): BattleState {
-  const b = crearBatallaConReglas(
+  const b = createBattle(
     bandoDe([{ id: 'muneco', unit: MUNECO }]),
     bandoDe([{ id: 'quien', unit: quien }]),
     createRng(1),
-    REGLAS_DEL_JUEGO,
   );
   stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
   stackById(b, 'defender-0').hex = { col: 6, row: 4 };
@@ -140,7 +133,22 @@ function golpe(b: BattleState, desde?: Hex): BattleAction {
 
 const DISPARO: BattleAction = { type: 'shoot', target: 'defender-0' };
 
-/** El daño del primer golpe propio y el del contraataque, jugada la acción con el dado cargado. */
+/**
+ * El golpe cuerpo a cuerpo pasa por la rueda (siempre, desde el 19-10-2026), y
+ * cae en una punta del cruce: Finta contra Finta en el mínimo y contra Romper
+ * guardia, su opuesta, en el máximo; ninguna de las dos cambia el daño ni el
+ * ataque de este golpe. El contraataque cae en la contraria.
+ */
+const EN_LA_PUNTA = {
+  minimo: { golpe: 'finta', respuesta: 'finta' },
+  maximo: { golpe: 'finta', respuesta: 'romperGuardia' },
+} as const;
+
+/**
+ * El daño del primer golpe propio y el del contraataque, jugada la acción en la
+ * punta `punta`: el disparo con el dado cargado; el golpe, con la rueda en ella
+ * (`EN_LA_PUNTA`), y su contraataque en la contraria.
+ */
 function jugar(
   b: () => BattleState,
   accion: (b: BattleState) => BattleAction,
@@ -148,7 +156,12 @@ function jugar(
 ): { readonly golpe: number; readonly devuelto: number | null; readonly carga: number } {
   const estado = b();
   const desde = estado.log.length;
-  applyAction(estado, accion(estado), dadoCargado(punta));
+  const a = accion(estado);
+  applyAction(
+    estado,
+    a.type === 'attack' ? { ...a, ...EN_LA_PUNTA[punta] } : a,
+    dadoCargado(punta),
+  );
   const nuevo: BattleEvent[] = estado.log.slice(desde);
   const mio = nuevo.find(
     (e) => (e.kind === 'attack' && !e.retaliation) || (e.kind === 'shoot' && e.splash !== true),
@@ -186,11 +199,6 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     expect(visto).toEqual([22, 33]);
     expect([previsto.danio.min, previsto.danio.max]).toEqual([22, 33]);
     expect(previsto.modificadores[0]?.causa).toBe('con Arco (a distancia)');
-    // Sin munición (13-10-2026): el arco no da tiros que gastar; dispara siempre.
-    const e = b();
-    applyAction(e, DISPARO, dadoCargado('minimo'));
-    expect(stackById(e, 'attacker-0').shotsLeft).toBe(0);
-    expect(cuentaTiros(stackById(e, 'attacker-0').unit)).toBe(false);
   });
 
   it('pega y devuelve el golpe con la daga: ataque 4 contra 4 (×1), 10–20', () => {
@@ -200,8 +208,9 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     expect(previsto.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
     // Y al recibir un golpe lo devuelve con la daga, no con el arco.
     const alReves = () => recibe(ARQUERO);
-    expect(jugar(alReves, (e) => golpe(e), 'minimo').devuelto).toBe(10);
-    expect(jugar(alReves, (e) => golpe(e), 'maximo').devuelto).toBe(20);
+    // El contraataque cae en la punta contraria a la del golpe.
+    expect(jugar(alReves, (e) => golpe(e), 'maximo').devuelto).toBe(10);
+    expect(jugar(alReves, (e) => golpe(e), 'minimo').devuelto).toBe(20);
     const p = previsionDe(alReves(), golpe(alReves()));
     if (p === null || p.kind !== 'golpe') throw new Error('sin previsión');
     expect([p.contraataque?.danio.min, p.contraataque?.danio.max]).toEqual([10, 20]);
@@ -229,8 +238,8 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     expect(puntas(pegado, (e) => golpe(e)).visto).toEqual([22, 44]);
     // Y devuelve el golpe con la espada, no con la lanza: 5 contra 4 → 22–44.
     const alReves = () => recibe(JINETE);
-    expect(jugar(alReves, (e) => golpe(e), 'minimo').devuelto).toBe(22);
-    expect(jugar(alReves, (e) => golpe(e), 'maximo').devuelto).toBe(44);
+    expect(jugar(alReves, (e) => golpe(e), 'maximo').devuelto).toBe(22);
+    expect(jugar(alReves, (e) => golpe(e), 'minimo').devuelto).toBe(44);
     // Y la barra de quien le pega lo dice: devuelve con la espada (H3 del QA).
     const p = previsionDe(alReves(), golpe(alReves()));
     if (p === null || p.kind !== 'golpe') throw new Error('sin previsión');
@@ -249,20 +258,19 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
   it('sin arma de cuerpo a cuerpo: en la arena no se monta; el juego, sin armas por uso, pega con sus cifras', () => {
     // La arena: el jinete con lanza y sin espada no se monta (18-10-2026: «sin arma
     // no se combate»).
-    expect(
-      armaDeCuerpoBlocker({ carga: 'lanza_de_jinete', armadura: 'barda' }, catalogoDeLaArena([])),
-    ).toMatch(/^no lleva arma de cuerpo a cuerpo/);
-    // El juego no lleva `armas`: el respaldo es él, que golpea con las cifras de
-    // arriba sin nombrar arma. 3 contra 4 (×0,975), 10–10 → 10.
+    expect(armaDeCuerpoBlocker({ lanza: 'lanza_de_jinete', armadura: 'barda' })).toMatch(
+      /^no lleva arma de cuerpo a cuerpo/,
+    );
+    // Sin `armas`, `golpeDe` cae en las cifras de arriba sin nombrar arma; pero sin
+    // arma con rueda no se golpea (desde el 19-10-2026 toda batalla va con la rueda):
+    // es un fallo, y se dice.
     const juego = cuerpo();
     expect(juego.armas).toBeUndefined();
-    expect(golpeDe(juego, 'cuerpo')).toEqual({ arma: null, attack: 3, damage: [10, 10] });
-    const b = () => frente(juego, { col: 6, row: 4 }, { col: 7, row: 4 });
-    const { visto, previsto } = puntas(b, (e) => golpe(e));
-    expect(visto).toEqual([10, 10]);
-    expect(previsto.modificadores.map((m) => m.causa)).not.toContain(
-      'sin arma, con el cuerpo (cuerpo a cuerpo)',
-    );
+    expect(golpeDe(juego, 'arma')).toEqual({ arma: null, attack: 3, damage: [10, 10] });
+    const b = frente(juego, { col: 6, row: 4 }, { col: 7, row: 4 });
+    expect(() =>
+      applyAction(b, { ...golpe(b), ...EN_LA_PUNTA.minimo }, dadoCargado('minimo')),
+    ).toThrow('«Cuerpo» golpea en la rueda sin arma que la lleve');
   });
 
   it('con la rueda del golpe, la tirada cae en los cuartos de la lanza', () => {
@@ -271,105 +279,79 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     const muneco = stackById(b, 'defender-0');
     // Lanza 50–90: el cuarto 1 es 60; 60 ×1,6 ×1,3 = 124,8 → 125.
     const enUnCuarto = {
-      reglas: REGLAS_DEL_JUEGO,
       chargeHexes: 3,
       cruce: cruceDelGolpe('normal', 1, 1, 'golpe', CON_LA_ESPADA),
     };
     expect(computeDamage(jinete, muneco, dadoCargado('maximo'), enUnCuarto).damage).toBe(125);
     // Del cuarto 0 al 2: 50–70 → 104–146; sin carga, los de la espada (20–40 → 22–33).
     const horquilla = (chargeHexes: number) =>
-      horquillaDeDanio(
-        jinete,
-        muneco,
-        {
-          reglas: REGLAS_DEL_JUEGO,
-          chargeHexes,
-          cruce: cruceDelGolpe('normal', 0, 2, 'golpe', CON_LA_ESPADA),
-        },
-        EQUIPO_DEL_JUEGO,
-      ).danio;
+      horquillaDeDanio(jinete, muneco, {
+        chargeHexes,
+        cruce: cruceDelGolpe('normal', 0, 2, 'golpe', CON_LA_ESPADA),
+      }).danio;
     expect(horquilla(3)).toEqual({ min: 104, max: 146 });
     expect(horquilla(0)).toEqual({ min: 22, max: 33 });
-  });
-
-  it('con el castigo del tirador de fheroes2, la daga pega la mitad: 10–20 → 5–10', () => {
-    const reglas = con('tirador');
-    const b = () => frente(ARQUERO, { col: 5, row: 4 }, { col: 6, row: 4 }, reglas);
-    const { visto, previsto } = puntas(b, (e) => golpe(e));
-    expect(visto).toEqual([5, 10]);
-    expect(previsto.modificadores.map((m) => m.causa)).toContain(
-      'tirador con flechas cuerpo a cuerpo (fheroes2)',
-    );
   });
 
   it('la IA mide cada golpe con su arma: el disparo medio 27,5 y el golpe medio 15', () => {
     const b = frente(ARQUERO, { col: 1, row: 4 }, { col: 4, row: 4 });
     const a = stackById(b, 'attacker-0');
     const d = stackById(b, 'defender-0');
-    expect(
-      expectedDamage(a, d, { reglas: REGLAS_DEL_JUEGO, ranged: true, distance: 3 }),
-    ).toBeCloseTo(27.5);
-    expect(expectedDamage(a, d, { reglas: REGLAS_DEL_JUEGO })).toBe(15);
+    expect(expectedDamage(a, d, { ranged: true, distance: 3 })).toBeCloseTo(27.5);
+    expect(expectedDamage(a, d, {})).toBe(15);
   });
 
-  it('`usoDelGolpe`: el disparo es a distancia, el golpe que cobra carga es de carga y lo demás, cuerpo a cuerpo', () => {
+  it('`usoDelGolpe`: el disparo es a distancia, el golpe que cobra carga es de lanza y lo demás, de arma', () => {
     expect(usoDelGolpe(JINETE, { ranged: true })).toBe('distancia');
-    expect(usoDelGolpe(JINETE, { chargeHexes: 3 })).toBe('carga');
-    expect(usoDelGolpe(JINETE, { chargeHexes: 0 })).toBe('cuerpo');
-    expect(usoDelGolpe(JINETE, {})).toBe('cuerpo');
-    // Sin el rasgo Carga no hay carga que cobrar: va con la de cuerpo a cuerpo.
-    expect(usoDelGolpe(ARQUERO, { chargeHexes: 4 })).toBe('cuerpo');
+    expect(usoDelGolpe(JINETE, { chargeHexes: 3 })).toBe('lanza');
+    expect(usoDelGolpe(JINETE, { chargeHexes: 0 })).toBe('arma');
+    expect(usoDelGolpe(JINETE, {})).toBe('arma');
+    // Sin el rasgo Carga también carga, a pie (#260; en toda batalla desde el
+    // 19-10-2026): el golpe que la cobra es de lanza, aunque no lleve ninguna.
+    expect(usoDelGolpe(ARQUERO, { chargeHexes: 4 })).toBe('lanza');
   });
 
-  it('`armasDe`: una fila por golpe, con el arma, sus cifras y si se usa', () => {
-    const piezas = EQUIPO_DEL_JUEGO;
-    expect(armasDe(ARQUERO, piezas, false)).toEqual([
-      { uso: 'cuerpo', arma: 'Daga', attack: 4, damage: [10, 20], sinUso: null, carga: null },
-      { uso: 'distancia', arma: 'Arco', attack: 5, damage: [20, 30], sinUso: null, carga: null },
+  it('`armasDe`: una fila por golpe, con el arma y sus cifras', () => {
+    // Todo el que pega cuerpo a cuerpo carga (#260): la fila de la carga va siempre.
+    expect(armasDe(ARQUERO)).toEqual([
+      { uso: 'arma', arma: 'Daga', attack: 4, damage: [10, 20], carga: null },
+      { uso: 'distancia', arma: 'Arco', attack: 5, damage: [20, 30], carga: null },
+      { uso: 'lanza', arma: 'Daga', attack: 4, damage: [10, 20], carga: CARGA.aPie },
     ]);
     // El jinete élfico: lanza, espada y arco, tres filas.
     const elfico = vestido(
       cuerpo('very_fast', ['charge']),
-      { arma: 'espada', distancia: 'arco', carga: 'lanza_de_jinete', armadura: 'barda' },
+      { arma: 'espada', distancia: 'arco', lanza: 'lanza_de_jinete', armadura: 'barda' },
       'Jinete élfico',
     );
-    expect(armasDe(elfico, piezas, false).map((a) => [a.uso, a.arma, a.attack, a.damage])).toEqual([
-      ['cuerpo', 'Espada', 5, [20, 40]],
+    expect(armasDe(elfico).map((a) => [a.uso, a.arma, a.attack, a.damage])).toEqual([
+      ['arma', 'Espada', 5, [20, 40]],
       ['distancia', 'Arco', 5, [20, 30]],
-      ['carga', 'Lanza de jinete', 10, [50, 90]],
+      ['lanza', 'Lanza de jinete', 10, [50, 90]],
     ]);
-    // Sin el rasgo Carga, la lanza se lleva pero no se usa (y se dice).
-    const sinCarga = vestido(cuerpo(), { arma: 'espada', carga: 'lanza_de_jinete' }, 'A pie');
-    expect(armasDe(sinCarga, piezas, false).at(-1)).toMatchObject({
-      uso: 'carga',
-      sinUso: 'no carga: no se usa',
-      carga: null,
-    });
-    // En la arena carga a pie (#260): la lanza se usa, con las cifras de a pie, y
-    // el jinete sigue con las suyas.
-    expect(armasDe(sinCarga, piezas, true).at(-1)).toMatchObject({
-      uso: 'carga',
+    // Sin el rasgo Carga, la lanza se usa al cargar a pie (#260), con las cifras de
+    // a pie, y el jinete sigue con las suyas.
+    const sinCarga = vestido(cuerpo(), { arma: 'espada', lanza: 'lanza_de_jinete' }, 'A pie');
+    expect(armasDe(sinCarga).at(-1)).toMatchObject({
+      uso: 'lanza',
       arma: 'Lanza de jinete',
-      sinUso: null,
       carga: CARGA.aPie,
     });
-    expect(armasDe(elfico, piezas, true).at(-1)).toMatchObject({ carga: CARGA.jinete });
+    expect(armasDe(elfico).at(-1)).toMatchObject({ carga: CARGA.jinete });
     // Y quien no lleva lanza también tiene su fila: carga con la de cuerpo a cuerpo.
     expect(
-      armasDe(vestido(cuerpo(), { arma: 'espada' }, 'Espadachín'), piezas, true).map((a) => [
-        a.uso,
-        a.arma,
-      ]),
+      armasDe(vestido(cuerpo(), { arma: 'espada' }, 'Espadachín')).map((a) => [a.uso, a.arma]),
     ).toEqual([
-      ['cuerpo', 'Espada'],
-      ['carga', 'Espada'],
+      ['arma', 'Espada'],
+      ['lanza', 'Espada'],
     ]);
     // Sin armas por uso, todo va con las de arriba y el arma es la de su equipo.
     const espadachin = EQUIPO_DEL_JUEGO.conEquipo(cuerpo(), { arma: 'espada' });
-    expect(armasDe(espadachin, piezas, false)).toEqual([
-      { uso: 'cuerpo', arma: 'Espada', attack: 5, damage: [20, 40], sinUso: null, carga: null },
+    expect(armasDe(espadachin)).toEqual([
+      { uso: 'arma', arma: 'Espada', attack: 5, damage: [20, 40], carga: null },
+      { uso: 'lanza', arma: 'Espada', attack: 5, damage: [20, 40], carga: CARGA.aPie },
     ]);
-    expect(armasDe(cuerpo(), piezas, false)[0]?.arma).toBeNull();
+    expect(armasDe(cuerpo())[0]?.arma).toBeNull();
   });
 
   it('`armasDe`: un arma a distancia ya es disparar, sin munición (13-10-2026; antes, H1 del QA)', () => {
@@ -380,45 +362,26 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
       id: 'jabalina',
       nombre: 'Jabalina',
       hueco: 'distancia',
-      calidad: 'arena',
+      seConsigue: [],
       ataque: 3,
       defensa: 0,
-      pv: 0,
       velocidad: 0,
       danio: [20, 40],
-      precio: { gold: 0 },
+      precio: 0,
     };
-    const piezas = catalogoDeLaArena([jabalina]);
+    const piezas = catalogoCon(jabalina);
     const conJabalina = (c: UnitInfo): UnitInfo =>
       piezas.conEquipo(c, { arma: 'daga', distancia: 'jabalina' });
-    expect(armasDe(conJabalina(cuerpo()), piezas, false)).toEqual([
-      { uso: 'cuerpo', arma: 'Daga', attack: 4, damage: [10, 20], sinUso: null, carga: null },
-      {
-        uso: 'distancia',
-        arma: 'Jabalina',
-        attack: 6,
-        damage: [30, 50],
-        sinUso: null,
-        carga: null,
-      },
+    expect(armasDe(conJabalina(cuerpo()))).toEqual([
+      { uso: 'arma', arma: 'Daga', attack: 4, damage: [10, 20], carga: null },
+      { uso: 'distancia', arma: 'Jabalina', attack: 6, damage: [30, 50], carga: null },
+      { uso: 'lanza', arma: 'Daga', attack: 4, damage: [10, 20], carga: CARGA.aPie },
     ]);
     expect(isShooter(conJabalina(cuerpo()))).toBe(true);
     // Sin nada en `distancia`, no hay fila de disparo: no tira.
-    expect(
-      armasDe(piezas.conEquipo(cuerpo(), { arma: 'daga' }), piezas, false).map((a) => a.uso),
-    ).toEqual(['cuerpo']);
-  });
-
-  it('la munición y el arma a distancia no se juntan: quien tiene `shots` no lleva nada en `distancia`', () => {
-    // La munición es de la criatura del catálogo y el arma a distancia no la cuenta
-    // (`cuentaTiros`): juntas, tiraría sin fin con unos tiros que bajan sin servir
-    // de nada. Lo dice `vestir`, la única suma de las piezas.
-    const piezas = catalogoDeLaArena([]);
-    const conTiros: UnitInfo = { ...cuerpo(), name: 'Arquero', shots: 12 };
-    expect(() => piezas.conEquipo(conTiros, { distancia: 'arco' })).toThrow(
-      'Arquero tira con su munición (12 tiros) y no puede llevar nada en Arma a distancia',
-    );
-    // Con un arma de cuerpo a cuerpo, sí: los tiros siguen siendo suyos.
-    expect(cuentaTiros(piezas.conEquipo(conTiros, { arma: 'daga' }))).toBe(true);
+    expect(armasDe(piezas.conEquipo(cuerpo(), { arma: 'daga' })).map((a) => a.uso)).toEqual([
+      'arma',
+      'lanza',
+    ]);
   });
 });

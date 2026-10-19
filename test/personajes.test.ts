@@ -1,9 +1,10 @@
 /**
  * La tabla de figuras: toda figura tiene 8 direcciones y las 6 acciones —las
- * suyas o las del Y Bot de su juego de armas— y cada cuerpo del catálogo tiene
- * su juego. Una criatura nueva sin fila caería al respaldo sin que nadie lo
- * decidiera, y por eso se mira aquí.
+ * suyas o las del Y Bot de su juego de armas—. Una tropa del catálogo se pinta
+ * con la hoja de su cuerpo; lo que no tiene hoja (el héroe, el personaje, la
+ * gente de la base), con el juego de su fila, y lo demás cae al respaldo.
  */
+
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -12,11 +13,11 @@ import {
   arteDe,
   CUERPO_DE_VECINO,
   comoDireccion8d,
-  JUEGO_DEL_CUERPO,
+  JUEGO_SIN_HOJA,
   juegosDelYBot,
   registrarUnidad,
 } from '../src/client/render/personajes.js';
-import { allCreatures } from '../src/core/data.js';
+import { hojaDeUnidad, UNIDADES } from '../src/core/catalogo.js';
 import { HERO_BODY } from '../src/core/hero/hero.js';
 import { CHARACTER_BODY } from '../src/core/rpg/character.js';
 import {
@@ -25,6 +26,7 @@ import {
   hojaDeLaFila,
   JUEGO_POR_DEFECTO,
 } from '../src/shared/arte.js';
+import { hojasDeLaArena, TROPA } from './helpers.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 /** Una URL del navegador (publicDir = assets/) a su fichero. */
@@ -32,28 +34,17 @@ const enDisco = (url: string): string => join(RAIZ, 'assets', url);
 const leer = (r: string): unknown => JSON.parse(readFileSync(r, 'utf8'));
 
 describe('las figuras a 25°, en 8 direcciones', () => {
-  it('cada criatura del catálogo, el héroe, el personaje y la gente de la base tienen su juego de armas, y solo ellos', () => {
-    const ids = allCreatures().map((c) => c.id);
-    expect(Object.keys(JUEGO_DEL_CUERPO).sort()).toEqual(
-      [...ids, HERO_BODY, CHARACTER_BODY, CUERPO_DE_VECINO].sort(),
+  it('lo que se pinta sin hoja de unidad —el héroe, el personaje y la gente de la base— tiene su juego de armas, y solo ello', () => {
+    expect(Object.keys(JUEGO_SIN_HOJA).sort()).toEqual(
+      [HERO_BODY, CHARACTER_BODY, CUERPO_DE_VECINO].sort(),
     );
+    expect(JUEGO_SIN_HOJA[HERO_BODY]).toBe('espada-escudo');
+    expect(JUEGO_SIN_HOJA[CHARACTER_BODY]).toBe('espada-escudo');
+    expect(JUEGO_SIN_HOJA[CUERPO_DE_VECINO]).toBe('civil');
   });
 
-  it('la tabla del usuario: piquero con lanza, caballería montada, mago con bastón, arquero con arco, el resto con espada y escudo', () => {
-    expect(JUEGO_DEL_CUERPO.pikeman).toBe('lanza');
-    expect(JUEGO_DEL_CUERPO.veteran_pikeman).toBe('lanza');
-    expect(JUEGO_DEL_CUERPO.cavalry).toBe('montado-lanza');
-    expect(JUEGO_DEL_CUERPO.champion).toBe('montado-lanza');
-    expect(JUEGO_DEL_CUERPO.lich).toBe('baston');
-    expect(JUEGO_DEL_CUERPO.power_lich).toBe('baston');
-    expect(JUEGO_DEL_CUERPO.archer).toBe('arco');
-    expect(JUEGO_DEL_CUERPO.ranger).toBe('arco');
-    expect(JUEGO_DEL_CUERPO.skeleton).toBe('espada-escudo');
-    expect(JUEGO_DEL_CUERPO[HERO_BODY]).toBe('espada-escudo');
-  });
-
-  it('todo cuerpo del juego es el Y Bot de su juego: 8 direcciones, 6 acciones, teñido', () => {
-    for (const [cuerpo, juego] of Object.entries(JUEGO_DEL_CUERPO)) {
+  it('todo cuerpo sin hoja es el Y Bot de su juego: 8 direcciones, 6 acciones, teñido', () => {
+    for (const [cuerpo, juego] of Object.entries(JUEGO_SIN_HOJA)) {
       const arte = arteDe(cuerpo);
       expect(arte.propio, cuerpo).toBe(false);
       expect(arte.nombre, cuerpo).toBe(`el Y Bot «${juego}»`);
@@ -71,40 +62,59 @@ describe('las figuras a 25°, en 8 direcciones', () => {
     }
   });
 
-  it('el arquero dispara con su clip `shoot`, en `dN-c.png`; quien golpea no lo trae', () => {
-    for (const cuerpo of ['archer', 'ranger']) {
-      const arte = arteDe(cuerpo);
-      expect(arte.dispara, cuerpo).toBe(true);
-      for (const [n, d] of arte.direcciones.entries()) {
-        expect(d.clips.shoot?.imagen, `${cuerpo} d${n}`).toBe(
-          `/unidades/_poses/arco-8d/d${n}-c.png`,
-        );
-        expect(d.clips.shoot?.row).toBe(0);
-        expect(d.clips.shoot?.suelta).toBe(4);
-        // El ataque es la daga: cuerpo a cuerpo, sin suelta.
-        expect(d.clips.attack.suelta).toBeUndefined();
-      }
-      expect(arte.imagenes).toContain('/unidades/_poses/arco-8d/d0-c.png');
+  it('una tropa del catálogo se pinta con la hoja de su cuerpo, registrada al arrancar (19-10-2026)', () => {
+    // El stack del juego lleva de `body` el id de su unidad; su arte es el de la
+    // hoja del taller de la que nace (`cuerpo.hoja`), que la partida registra al
+    // arrancar (`registrarLasHojas`). Antes de registrarla, el Y Bot por defecto.
+    expect(arteDe(TROPA).nombre).toBe(`el Y Bot «${JUEGO_POR_DEFECTO}»`);
+    for (const h of hojasDeLaArena()) if (h.incompleta === null) registrarUnidad(h.id, h);
+    // El `body` de un stack es su hoja (`hojaDeUnidad`), y `arteDe` no busca en el
+    // catálogo (simplify de F3-F6, 19-10-2026): con la hoja registrada, su arte.
+    for (const u of UNIDADES) {
+      expect(hojaDeUnidad(u.id), u.id).toBe(u.cuerpo.hoja);
+      const hoja = hojasDeLaArena().find((h) => h.id === u.cuerpo.hoja);
+      if (hoja === undefined || hoja.incompleta !== null) continue;
+      expect(arteDe(hojaDeUnidad(u.id)).propio, u.id).toBe(hoja.direcciones !== null);
     }
-    for (const cuerpo of ['peasant', 'pikeman', 'cavalry', 'lich']) {
-      expect(arteDe(cuerpo).dispara, cuerpo).toBe(false);
+    // Lo que no es una unidad del catálogo no tiene hoja: se dice.
+    expect(() => hojaDeUnidad(HERO_BODY)).toThrow(/no hay ninguna unidad «hero»/);
+  });
+
+  it('el Y Bot del arco dispara con su clip `shoot`, en `dN-c.png`; quien golpea no lo trae', () => {
+    const arco = registrarUnidad('arquero-sin-arte', { juego: 'arco', direcciones: null });
+    expect(arco.dispara).toBe(true);
+    for (const [n, d] of arco.direcciones.entries()) {
+      expect(d.clips.shoot?.imagen, `d${n}`).toBe(`/unidades/_poses/arco-8d/d${n}-c.png`);
+      expect(d.clips.shoot?.row).toBe(0);
+      expect(d.clips.shoot?.suelta).toBe(4);
+      // El ataque es la daga: cuerpo a cuerpo, sin suelta.
+      expect(d.clips.attack.suelta).toBeUndefined();
+    }
+    expect(arco.imagenes).toContain('/unidades/_poses/arco-8d/d0-c.png');
+    for (const juego of ['espada-escudo', 'lanza', 'montado-lanza', 'baston']) {
+      expect(
+        registrarUnidad(`golpea-con-${juego}`, { juego, direcciones: null }).dispara,
+        juego,
+      ).toBe(false);
     }
   });
 
   it('quien no pinta el disparo dispara con su ataque: su `shoot` es su `attack`, en las ocho direcciones', () => {
-    for (const cuerpo of ['peasant', 'pikeman', 'cavalry', 'lich', 'power_lich']) {
-      for (const [n, d] of arteDe(cuerpo).direcciones.entries()) {
-        expect(d.clips.shoot, `${cuerpo} d${n}`).toBe(d.clips.attack);
+    for (const juego of ['espada-escudo', 'lanza', 'montado-lanza', 'baston']) {
+      for (const [n, d] of registrarUnidad(`sin-disparo-${juego}`, {
+        juego,
+        direcciones: null,
+      }).direcciones.entries()) {
+        expect(d.clips.shoot, `${juego} d${n}`).toBe(d.clips.attack);
       }
     }
     // El de quien sí lo pinta es suyo, en su hoja.
-    expect(arteDe('archer').direcciones[0]?.clips.shoot).not.toBe(
-      arteDe('archer').direcciones[0]?.clips.attack,
-    );
+    const arco = registrarUnidad('arquero-que-dispara', { juego: 'arco', direcciones: null });
+    expect(arco.direcciones[0]?.clips.shoot).not.toBe(arco.direcciones[0]?.clips.attack);
   });
 
-  it('un cuerpo sin fila cae al Y Bot de espada y escudo', () => {
-    expect(arteDe('un-cuerpo-inventado')).toBe(arteDe(JUEGO_DEL_CUERPO.peasant as string));
+  it('un cuerpo sin fila ni hoja cae al Y Bot de espada y escudo', () => {
+    expect(arteDe('un-cuerpo-inventado')).toBe(arteDe(HERO_BODY));
     expect(JUEGO_POR_DEFECTO).toBe('espada-escudo');
   });
 
@@ -126,7 +136,7 @@ describe('las figuras a 25°, en 8 direcciones', () => {
       'montado-lanza',
       'montado-pistola',
     ]);
-    for (const cuerpo of Object.keys(JUEGO_DEL_CUERPO)) {
+    for (const cuerpo of Object.keys(JUEGO_SIN_HOJA)) {
       for (const url of arteDe(cuerpo).imagenes) expect(existsSync(enDisco(url)), url).toBe(true);
     }
     for (const [nombre, url] of Object.entries(ARTE_RPG)) {
@@ -134,12 +144,11 @@ describe('las figuras a 25°, en 8 direcciones', () => {
     }
   });
 
-  it('la gente de la base va con el Y Bot sin armas, no con el de su criatura', () => {
+  it('la gente de la base va con el Y Bot sin armas, no con el de su unidad', () => {
     const vecino = arteDe(CUERPO_DE_VECINO);
     expect(vecino.nombre).toBe('el Y Bot «civil»');
     expect(vecino.imagenes.every((u) => u.startsWith('/unidades/_poses/civil-8d/'))).toBe(true);
-    // Un cuerpo del juego más: una hoja de unidad no lo sustituye.
-    expect(JUEGO_DEL_CUERPO[CUERPO_DE_VECINO]).toBe('civil');
+    // Un cuerpo sin hoja más: una hoja de unidad no lo sustituye.
     expect(() => registrarUnidad(CUERPO_DE_VECINO, { juego: 'civil', direcciones: null })).toThrow(
       /es un cuerpo del juego/,
     );
@@ -159,9 +168,9 @@ describe('las figuras a 25°, en 8 direcciones', () => {
   });
 
   it('una unidad sin `dN` lleva el Y Bot de su juego', () => {
-    expect(registrarUnidad('zombi-de-prueba', { juego: 'baston', direcciones: null })).toBe(
-      arteDe('lich'),
-    );
+    const arte = registrarUnidad('zombi-de-prueba', { juego: 'baston', direcciones: null });
+    expect(arte.nombre).toBe('el Y Bot «baston»');
+    expect(arteDe('zombi-de-prueba')).toBe(arte);
   });
 
   it('registrar se niega diciéndolo: un juego sin poses, siete direcciones o un cuerpo del juego', () => {
@@ -174,7 +183,7 @@ describe('las figuras a 25°, en 8 direcciones', () => {
     expect(() => registrarUnidad('x', { juego: 'espada-escudo', direcciones: siete })).toThrow(
       /trae 7 direcciones/,
     );
-    expect(() => registrarUnidad('pikeman', { juego: 'lanza', direcciones: null })).toThrow(
+    expect(() => registrarUnidad(HERO_BODY, { juego: 'lanza', direcciones: null })).toThrow(
       /es un cuerpo del juego/,
     );
   });

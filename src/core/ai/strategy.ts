@@ -5,18 +5,17 @@
  * recluta lo que puede y manda a sus héroes al objetivo más rentable que esté
  * a su alcance. Es el listón que el agente tiene que superar.
  */
-import { creature } from '../data.js';
+import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../catalogo.js';
+import type { Pieza } from '../data.js';
 import {
+  conEquipo,
   destinoDeEquipo,
   equipoDe,
-  manosBlocker,
   PIEZAS_DE_ARMERIA,
   type Portador,
   pieza,
-  piezaDelJuego,
-  valorDePieza,
 } from '../hero/equipo.js';
-import { cifrasDeCatalogo, rangoDeTropa } from '../hero/experiencia.js';
+import { rangoDeTropa } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
 import {
   capacidadDe,
@@ -46,10 +45,11 @@ import {
   heroeEnElPueblo,
   heroesOf,
   miradasDe,
+  ponerseBlocker,
   recruitCapacity,
   townsOf,
 } from '../state/game.js';
-import { building } from '../town/buildings.js';
+import { building, buildingsOfFaction, nivelDeMorada } from '../town/buildings.js';
 import {
   availableBuildings,
   dwellings,
@@ -57,8 +57,9 @@ import {
   type Town,
   tieneArmeria,
 } from '../town/town.js';
-import type { Army, Equipo, FactionId, PlayerId, Point, Resources } from '../types.js';
-import { canAfford, subtractResources } from '../types.js';
+import type { Army, Equipo, FactionId, PlayerId, Point, Resources, UnitInfo } from '../types.js';
+import { canAfford, FACTION_IDS, subtractResources } from '../types.js';
+import { CUERPO_COMUN } from '../unidad.js';
 import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.js';
 
 /** Lo que vale tomar una ciudad ajena que no es la base de nadie. */
@@ -145,7 +146,7 @@ function objectValue(
     }
     case 'monster': {
       if (obj.defeated) return 0;
-      return valorDeNeutral(miPoder, unitPower(creature(obj.creature)) * obj.count);
+      return valorDeNeutral(miPoder, unitPower(unidadDelJuego(obj.creature)) * obj.count);
     }
   }
 }
@@ -317,90 +318,48 @@ export function stepTowards(hero: Hero, destino: Point, alcance: Reachable): Poi
 /**
  * Qué construir antes que qué, en cada facción. **La prioridad es el puesto.**
  *
- * Antes esto era una cascada de seis constantes —`100 + dwellingLevel` para las
- * moradas, 95 para lo que abre una puerta, 90 para el ingreso,
- * `50 + upgradesLevel` para las mejoras, 40 para el gremio y 10 para el resto—
- * y el gremio de magia perdía siempre: `mage_guild_1` se construía en **1
- * partida de 40** y `syncSpellbooks` no enseñaba **un solo hechizo**. La magia
- * estaba entera —el gremio enseña, el héroe aprende, la IA valora, el maná
- * vuelve de la batalla— detrás de un edificio que nadie levantaba.
- *
- * La reparación no sube el 40 a 96: **quita el número**. El original tampoco
- * puntúa, ORDENA por raza (`ai/ai_planner_castle.cpp`), y una lista dice lo que
- * la cascada siempre quiso decir sin que haya que defender por qué 96 y no 94.
- * Estas dos reproducen el orden de la cascada **exactamente** —comprobado: con
- * el gremio en su sitio de siempre el volcado del banco sale byte a byte
- * idéntico— y lo único que se mueve es `mage_guild_1` en la lista del
- * nigromante, al puesto que le da el original: por delante de la morada y la
- * mejora de nivel 4. Al caballero no se le toca, y también es del original,
- * donde para KNGT el gremio va detrás de todo lo militar.
- *
- * **La asimetría no es un descuido que corregir.** Dársela a las dos facciones
- * a la vez se midió: 1 de 200 partidas deja de terminar, porque dos ejércitos
- * que crecen a la par es justo lo que produce partidas eternas.
+ * Antes era una cascada de seis constantes y el gremio de magia perdía siempre
+ * (`mage_guild_1` en 1 partida de 40); la reparación quitó el número y ordenó
+ * por raza, como el original (`ai/ai_planner_castle.cpp`). Con las cinco
+ * facciones (19-10-2026) **las moradas se ordenan solas**: la de más nivel antes
+ * (`nivelDeMorada`, el de lo mejor que produce) y, a igual nivel, la del sitio más
+ * alto. Lo que exige otra (`requires`) no sale en `availableBuildings` hasta que
+ * la otra está, así que la lista no necesita saber de requisitos. Detrás, los de
+ * villa en el orden de siempre del caballero.
  *
  * Y una lista tiene una obligación que un `if` no tiene: **el edificio que
  * llegue mañana hay que colocarlo**. Si no está, `chooseBuilding` lanza
  * diciéndolo, y un test exige que cada edificio de la facción salga aquí
  * exactamente una vez.
  */
-const ORDEN_DE_CONSTRUCCION: Readonly<Record<FactionId, readonly string[]>> = {
-  // La morada más alta que esté a mano manda: como cada una exige la anterior,
-  // solo puede haber una disponible, y ponerlas en cascada es decir «la
-  // siguiente de la cadena, antes que nada».
-  knight: [
-    'knight_dwelling_6',
-    'knight_dwelling_5',
-    'knight_dwelling_4',
-    'knight_dwelling_3',
-    'knight_dwelling_2',
-    'knight_dwelling_1',
-    // El castillo no da ingreso ni criaturas, pero es lo único que separa de la
-    // morada de nivel 6: sin él la IA se quedaba atascada a sus puertas para
-    // siempre. Ese era el 95 de «abre puerta», que se ve mejor aquí.
-    'castle',
-    'town_hall',
-    'city_hall',
-    'knight_upgrade_6',
-    'knight_upgrade_5',
-    'knight_upgrade_4',
-    'knight_upgrade_3',
-    'knight_upgrade_2',
-    'mage_guild_1',
-    'mage_guild_2',
-    'tavern',
-    'marketplace',
-    'armory',
-    // Prebuilt: nunca está disponible, pero la lista tiene que nombrarlo igual.
-    'village_hall',
-  ],
-  necromancer: [
-    'necromancer_dwelling_6',
-    'necromancer_dwelling_5',
-    // El único cambio de esta lista, y el que abre #88: el nigromante levanta el
-    // gremio antes que su morada de nivel 4, que es el puesto que le da
-    // `ai_planner_castle.cpp` para NECR. Comprobado antes de moverlo: con el
-    // gremio abajo, donde lo dejaba el 40 de la cascada, estas dos listas dan
-    // el volcado del banco byte a byte idéntico.
-    'mage_guild_1',
-    'necromancer_dwelling_4',
-    'necromancer_dwelling_3',
-    'necromancer_dwelling_2',
-    'necromancer_dwelling_1',
-    'castle',
-    'town_hall',
-    'city_hall',
-    'necromancer_upgrade_5',
-    'necromancer_upgrade_4',
-    'necromancer_upgrade_3',
-    'necromancer_upgrade_2',
-    'mage_guild_2',
-    'tavern',
-    'marketplace',
-    'armory',
-    'village_hall',
-  ],
-};
+const ORDEN_DE_LA_VILLA: readonly string[] = [
+  // El castillo no da ingreso ni unidades, pero da murallas: el 95 de «abre
+  // puerta» de la cascada vieja, que se ve mejor aquí.
+  'castle',
+  'town_hall',
+  'city_hall',
+  'mage_guild_1',
+  'mage_guild_2',
+  'tavern',
+  'marketplace',
+  'armory',
+  // Prebuilt: nunca está disponible, pero la lista tiene que nombrarlo igual.
+  'village_hall',
+];
+
+function ordenDe(faction: FactionId): readonly string[] {
+  const moradas = buildingsOfFaction(faction)
+    .filter((b) => b.morada !== undefined)
+    .sort(
+      (a, b) => nivelDeMorada(b) - nivelDeMorada(a) || (b.morada as number) - (a.morada as number),
+    )
+    .map((b) => b.id);
+  return [...moradas, ...ORDEN_DE_LA_VILLA];
+}
+
+const ORDEN_DE_CONSTRUCCION: Readonly<Record<FactionId, readonly string[]>> = Object.fromEntries(
+  FACTION_IDS.map((f) => [f, ordenDe(f)]),
+) as Record<FactionId, readonly string[]>;
 
 /** Qué construir hoy: lo primero de la lista de su facción que se pueda pagar. */
 export function chooseBuilding(town: Town, purse: Resources): string | null {
@@ -572,7 +531,7 @@ function planCambio(
   purse: Resources,
 ): Cambio | null {
   const disponibles = town.available[id] ?? 0;
-  const poder = unitPower(creature(id));
+  const poder = unitPower(unidadDelJuego(id));
   let actual = army;
   let cuantos = 0;
   const licencias = new Map<string, number>();
@@ -633,7 +592,7 @@ function laMasBarata(
     const suyo = unitPower(troopUnit(t, undefined));
     if (suyo >= poder) continue;
     const rango = rangoDeTropa(t.veterania);
-    const oro = creature(id).cost.gold ?? 0;
+    const oro = unidadDelJuego(id).oro;
     const gana =
       mejor === null ||
       rango < mejor.rango ||
@@ -651,12 +610,12 @@ function laMasBarata(
 /**
  * Quién lleva qué, en el orden en que la IA reparte: **el héroe primero** —es quien
  * más pelea y nunca se licencia— y después la tropa de **mayor índice de poder**
- * (`indiceDePoder`: catálogo + rango, sin el equipo que ya lleve), y a igual
+ * (`indiceDePoder`: catálogo + rango + el equipo que ya lleve), y a igual
  * índice en su orden. Por el índice y no por el nivel: es más fino, y dos
  * criaturas del mismo nivel no empatan por eso. Los personajes no entran —su
  * equipo es de la fase que los traiga— y se apartan **antes** de mirar nada: su
  * cuerpo es un perfil que no está en el catálogo. Las cifras salen de
- * `cifrasDeCatalogo`, que para un novato devuelve el catálogo tal cual y para un
+ * `cifrasDeUnidad`, que para un novato devuelve el catálogo tal cual y para un
  * veterano las que ya recuerda por su hoja: no se fabrica ninguna.
  */
 function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Equipo }[] {
@@ -666,20 +625,59 @@ function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Eq
     .map(({ t, indice }) => ({
       t,
       indice,
-      poder: indiceDePoder(cifrasDeCatalogo(t.creature, t.veterania)),
+      poder: indiceDePoder(cifrasDeUnidad(t.creature, t.veterania)),
     }))
     .sort((a, b) => b.poder - a.poder || a.indice - b.indice)
     .map(({ indice }) => {
       const quien: Portador = { indice };
-      return { quien, equipo: equipoDe(hero, quien) };
+      // Lo que lleva puesto, el de serie de su unidad incluido: una pieza que no
+      // mejora la brigantina de serie no se compra para él.
+      return { quien, equipo: equipoPuestoDe(hero, quien) };
     });
   const elHeroe: Portador = { heroe: true };
   return [{ quien: elHeroe, equipo: equipoDe(hero, elHeroe) }, ...tropa];
 }
 
+/**
+ * El cuerpo con que la IA mide una pieza: el cuerpo común de las unidades
+ * (`CUERPO_COMUN`), sin nada puesto.
+ */
+const CUERPO_DE_REFERENCIA: UnitInfo = {
+  name: 'cuerpo de referencia',
+  faction: null,
+  attack: CUERPO_COMUN.attack,
+  defense: CUERPO_COMUN.defense,
+  damage: CUERPO_COMUN.damage,
+  hp: CUERPO_COMUN.hp,
+  speed: 'average',
+};
+
+/** Lo que vale cada pieza (`valorDePieza`), calculado una vez por pieza. */
+const VALOR_DE_PIEZA = new WeakMap<Pieza, number>();
+
+/**
+ * Lo que vale una pieza para la IA: **lo que sube el índice de poder**
+ * (`indiceDePoder`, la regla con que el juego mide una unidad con su equipo) del
+ * cuerpo de referencia al ponérsela. Así la armadura pesa con la cuenta del
+ * índice (contra el golpe de referencia de `data/poder.json`), el arma con su
+ * rueda y un arma a distancia por lo que vale disparar, sin pesos aparte.
+ * **Heurística de la IA**, no una regla del juego: la persona y el agente eligen
+ * ellos. Con el cuerpo de referencia y no con el de quien la recibiría, para que
+ * cada pieza se mida una vez: se compra y se reparte decenas de veces por turno.
+ */
+export function valorDePieza(p: Pieza): number {
+  const ya = VALOR_DE_PIEZA.get(p);
+  if (ya !== undefined) return ya;
+  const valor =
+    indiceDePoder(conEquipo(CUERPO_DE_REFERENCIA, { [p.hueco]: p.id })) -
+    indiceDePoder(CUERPO_DE_REFERENCIA);
+  VALOR_DE_PIEZA.set(p, valor);
+  return valor;
+}
+
 /** Lo que gana `equipo` llevando `id` en vez de lo que lleve en ese hueco. */
 function mejora(equipo: Equipo, id: string): number {
-  const nueva = piezaDelJuego(id);
+  const nueva = pieza(id);
   const actual = equipo[nueva.hueco];
   return valorDePieza(nueva) - (actual === undefined ? 0 : valorDePieza(pieza(actual)));
 }
@@ -766,10 +764,9 @@ function compradasHoy(state: GameState, hero: Hero): number {
  *
  * **Heurística inventada**, y la más simple que juega: una pieza va al primer
  * portador (`portadores`) al que mejora (`valorDePieza`), y se compra la pieza de
- * armería de un hueco si la mejoraría alguien que vale la pena
- * (`paraQuienSeCompra`), tras pagarla queda lo que cuesta un héroe y el héroe no
- * ha llegado hoy a `COMPRAS_POR_HEROE_Y_DIA`. `unitPower` no mira ataque ni defensa, así que el valor de la pieza
- * es una suma propia y no la fuerza de la IA.
+ * armería si la mejoraría alguien que vale la pena y se la puede poner
+ * (`paraQuienSeCompra`, `ponerseBlocker`), tras pagarla queda lo que cuesta un
+ * héroe y el héroe no ha llegado hoy a `COMPRAS_POR_HEROE_Y_DIA`.
  */
 export function siguienteDeEquipo(state: GameState, playerId: PlayerId): AdventureAction | null {
   const player = state.players.find((p) => p.id === playerId);
@@ -785,7 +782,9 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
     for (const id of enMochila) {
       const quien = lista.find(
         (p) =>
-          mejora(p.equipo, id) > 0 && manosBlocker(p.equipo, id) === null && leLlega(hero, p.quien),
+          mejora(p.equipo, id) > 0 &&
+          ponerseBlocker(hero, p.quien, id) === null &&
+          leLlega(hero, p.quien),
       );
       if (quien !== undefined) {
         return { type: 'equip', hero: hero.id, item: id, ...nombrar(hero, quien.quien) };
@@ -799,14 +798,19 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
     if (compradasHoy(state, hero) >= COMPRAS_POR_HEROE_Y_DIA) continue;
     const lista = portadores(hero);
     for (const p of PIEZAS_DE_ARMERIA) {
-      const queda = player.resources.gold - (p.precio.gold ?? 0);
+      const queda = player.resources.gold - p.precio;
+      // Tras pagarla queda lo que cuesta un héroe: con eso, también la paga.
       if (queda < HERO_HIRE_COST) continue;
-      if (!canAfford(player.resources, p.precio)) continue;
       // Quien la recibiría es el primero al que mejora, con el MISMO orden con
       // el que se reparte la mochila justo después: si ese no vale la pena, no se
       // compra. Mirar si la mejora «alguien» que vale la pena dejaba comprarla
       // para un veterano y ponérsela después a un novato de más nivel de catálogo.
-      const quien = lista.find((x) => mejora(x.equipo, p.id) > 0 && leLlega(hero, x.quien));
+      const quien = lista.find(
+        (x) =>
+          mejora(x.equipo, p.id) > 0 &&
+          ponerseBlocker(hero, x.quien, p.id) === null &&
+          leLlega(hero, x.quien),
+      );
       if (
         quien !== undefined &&
         paraQuienSeCompra(hero, quien.quien, queda >= ORO_DE_SOBRA_PARA_NOVATOS)

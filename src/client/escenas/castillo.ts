@@ -390,7 +390,7 @@ export class EscenaBase {
     const meta = alaFranja(d, hasta);
     // Como en una batalla (`anim.ts`): la zancada de la figura a su alto en pasos.
     const msPorPaso =
-      msPorCasilla(vista.caminante.cuerpo, 'walk', ALTO_DE_FIGURA.normal) / PRISA_EN_LA_BASE;
+      msPorCasilla(vista.caminante.cuerpo, 'walk', ALTO_DE_FIGURA) / PRISA_EN_LA_BASE;
     const dura = Math.hypot(meta.x - desde.x, meta.y - desde.y) * msPorPaso;
     this.marcha = {
       desde,

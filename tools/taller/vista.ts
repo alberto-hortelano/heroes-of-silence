@@ -14,7 +14,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { NOMBRE_DE_FACCION_DE_ARENA } from '../../src/core/arena.js';
+import { NOMBRE_DE_FACCION } from '../../src/core/types.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 export const DIR_VISTA = join(RAIZ, '.cache/taller/vista');
@@ -34,7 +34,7 @@ export async function vistaEjercitos(): Promise<string> {
   const R = '../../../assets';
   const tarjeta = (u: { id: string; nombre: string }): string =>
     `<figure><img src="${R}/unidades/${u.id}/identidad.webp" alt=""><figcaption>${u.nombre}<span>${u.id}${EN_OCHO_DIRECCIONES[u.id] === undefined ? '' : ' · 8 direcciones'}</span></figcaption></figure>`;
-  const columnas = Object.entries(NOMBRE_DE_FACCION_DE_ARENA)
+  const columnas = Object.entries(NOMBRE_DE_FACCION)
     .map(([fac, nombre]) => {
       const tropas = UNIDADES.filter((u) => u.faccion === fac && conIdentidad(u.id));
       const heroes = HEROES.filter((u) => u.faccion === fac && conIdentidad(u.id));
@@ -173,7 +173,7 @@ export async function vistaEdificios(): Promise<string> {
   const { EDIFICIOS } = await import('./edificios.js');
   const { UNIDADES } = await import('./unidades.js');
   const R = '../../../assets';
-  const secciones = Object.entries(NOMBRE_DE_FACCION_DE_ARENA)
+  const secciones = Object.entries(NOMBRE_DE_FACCION)
     .map(([fac, nombre]) => {
       const lista = EDIFICIOS.filter(
         (e) => e.faccion === fac && existsSync(join(RAIZ, `assets/edificios/${fac}/${e.id}.webp`)),

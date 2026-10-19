@@ -22,7 +22,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import sharp from 'sharp';
-import { NOMBRE_DE_FACCION_DE_ARENA } from '../../src/core/arena.js';
+import { NOMBRE_DE_FACCION } from '../../src/core/types.js';
 import {
   type ClipDeFigura,
   colorDeSombra,
@@ -460,13 +460,13 @@ export async function vista8d(elegida?: string): Promise<string> {
       id,
       // Dentro del grupo Héroes, el «(héroe…)» del nombre sobra.
       titulo: u.nombre.replace(/,? *\(?héroe[^)]*\)?/, '').trim(),
-      ejercito: NOMBRE_DE_FACCION_DE_ARENA[u.faccion],
+      ejercito: NOMBRE_DE_FACCION[u.faccion],
       rango: (RANGOS.find(([r]) => r === rangoDe(u)) as (typeof RANGOS)[number])[1],
       direcciones: nombrar(await desdeElArte(id)),
     });
   }
-  // El orden de los ejércitos es el de `NOMBRE_DE_FACCION_DE_ARENA`.
-  const orden = Object.values(NOMBRE_DE_FACCION_DE_ARENA) as string[];
+  // El orden de los ejércitos es el de `NOMBRE_DE_FACCION`.
+  const orden = Object.values(NOMBRE_DE_FACCION) as string[];
   fuentes.sort((a, b) => orden.indexOf(a.ejercito) - orden.indexOf(b.ejercito));
   for (const j of juegos)
     fuentes.push({

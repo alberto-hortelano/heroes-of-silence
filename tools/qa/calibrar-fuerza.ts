@@ -37,7 +37,13 @@ import { playAiTurn } from '../../src/core/ai/turn.js';
 import { type BattleSide, createBattle } from '../../src/core/battle/battle.js';
 import type { GrupoDeTropa } from '../../src/core/data.js';
 import { rangoDeHeroe } from '../../src/core/hero/experiencia.js';
-import { type Hero, heroUnit, luckBonus, moraleBonus } from '../../src/core/hero/hero.js';
+import {
+  cuerposDelHeroe,
+  type Hero,
+  heroUnit,
+  luckBonus,
+  moraleBonus,
+} from '../../src/core/hero/hero.js';
 import {
   characterOf,
   ejercitoDe,
@@ -105,12 +111,10 @@ function bando(f: Foto): BattleSide {
     ...(members.size === 0 ? {} : { members }),
     army: troopsAsStacks(f.hero.army),
     hero: {
-      cuerpo: heroUnit(f.hero),
+      ...cuerposDelHeroe(f.hero),
       mando: {
         name: f.hero.name,
         retreat: { purse: Number.MAX_SAFE_INTEGER },
-        ataque: f.hero.attack,
-        defensa: f.hero.defense,
         spellPower: f.hero.spellPower,
         knowledge: f.hero.knowledge,
         mana: f.hero.mana,

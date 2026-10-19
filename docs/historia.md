@@ -5302,3 +5302,57 @@ Los requisitos, en `docs/agents/2026-10-14-sin-compatibilidad/`.
   regenerar: queda pendiente de su decisión.
 - Se van ~990 líneas netas de código (`src/core/arena.ts`, de 3 287 a 2 427) y ~600 de tests. El
   juego no cambia: `pnpm banco` da el mismo hash.
+
+## El combate y los ejércitos de la arena, en el juego (18-19-10-2026)
+
+Petición del usuario (18-10-2026): «Mete el sistema de combate y los ejércitos en el juego
+sustituyendo a lo que hay, que no se limiten a la arena». Ciclo entero en
+`docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/` (fases F0-F7, un commit local por fase).
+
+- **Decisiones del usuario**: las cinco facciones de la arena sustituyen a caballeros y nigromantes;
+  todo el equipo pasa a ser el de la arena (una sola clase de piezas, armadura en puntos, armas con
+  niveles de la rueda, huecos por uso; fuera las calidades y el accesorio); la persona y el agente
+  eligen en la rueda y la IA de reglas a ciegas; la muralla de la arena no entra en los asedios
+  (después); todos los modos encendidos (rueda, contacto, carga a pie, armadura, poderes); el
+  catálogo del juego es lo que edita la arena (`data/unidades.json`, `data/equipo.json`); la arena,
+  sin interruptores; los templarios heredan el arte de base de los caballeros. Tras la crítica:
+  **el nivel ve el equipo** (invierte «sin equipo» del 12-10-2026), fuera el accesorio y las
+  mejoras de morada, y la persona juega sus defensas (#116). Antes de F3 (19-10-2026), ante «la
+  tropa del cuaderno no queda por debajo de su élite» y «el índice va del 2 al 4»: «No te preocupes
+  por el valor de las unidades, lo iremos refinando»: el edificio no implica nivel y la escala no se
+  recalibra.
+- **Lo que se retiró**: `data/creatures.json` (21 criaturas), las calidades `comun`, `armeria`,
+  `especial` y `arena`, el accesorio y los PV de las piezas, los borradores de unidades y de equipo
+  de la arena (su catálogo es el del juego), `battle/reglas.ts` y `battle/modos.ts` con sus seis
+  interruptores fheroes2 y los de la rueda y el contacto (`?reglas=`, `?golpe=`, `?contacto=` se
+  rechazan diciéndolo), `crearBatallaConReglas`, las unidades de dos casillas, la munición (`shots`,
+  `shotsLeft`, `quedanTiros`…), las mejoras de morada y su arte (`knight_upgrade_*`, en git), y
+  `UnitInfo.sinEquipo`. Dos guardias nuevos: «nadie escribe fheroes2» y «no quedan caballeros ni
+  nigromantes».
+- **Lo que se inventó y se dice inventado**: el coste (índice² / 500) y el crecimiento (por nivel)
+  de cada unidad y el de las moradas por lo mejor que producen (`data/economia.json`), los precios
+  de las piezas y de dónde salen, las moradas y asignaciones que el cuaderno no daba (dichas en el
+  `_comment` de `data/buildings.json`), los nombres de héroe de
+  imperio, elfos y orkos, las composiciones de asaltantes, `armaduraDeReferencia` (30) y los pesos de
+  la rueda en el índice. `unitPower` divide entre una cifra **medida** (`DIVISOR_DEL_PODER`, la
+  mediana sobre las criaturas de fheroes2 antes de retirarlas) para no recalibrar la fuerza de los
+  asaltantes ni los márgenes de la IA. La experiencia, de base 16 000 a 9 000 (rangos 5 por partida,
+  0,00 → 0,24 en 1-100).
+- **Medido** (100 semillas, partidas de la IA; F0 el 18-10-2026 con caballeros y nigromantes, hoy el
+  19-10-2026):
+
+  | | F0 | hoy |
+  |---|---|---|
+  | j0 / sin terminar | 49 / 0 | 50 / 0 |
+  | duración (mediana / p90 / máx.) | 8 / 14 / 24 | 4 / 7 / 15 |
+  | batallas por partida | 5,5 | 5,2 |
+  | rondas por batalla (media / mediana / p90 / máx.) | 3,17 / 3 / 5 / 10 | 3,58 / 3 / 5 / 12 |
+  | batallas en `MAX_ROUNDS` | 0 | 0 |
+  | peticiones por batalla del agente (`pnpm qa`) | 15,8 | 22,7 (18,4 turnos y 4,3 respuestas) |
+
+  Las partidas duran la mitad: el héroe nace con la Espada y el gambesón y el equilibrio entre las
+  cinco no se ha tocado (ganadas / jugadas: imperio 26/35, elfos 23/41, no muertos 22/55, orkos
+  20/38, templarios 9/31). #266 (batallas largas) no aparece: con la rueda, el contacto y la carga a
+  pie las batallas del mapa duran menos; cada ronda de `autoResolve` cuesta un 28 % más (F4), y el
+  /simplify lo bajó un 19 %. #265 (la IA pega por 0 teniendo otro blanco): 7 golpes a 0 de 6 153 en
+  el banco, ninguno elegido por la IA esperando 0: los pone el punto bajo de la rueda.

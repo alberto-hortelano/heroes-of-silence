@@ -11,6 +11,9 @@
  * nuevo no deja ver lo que eligió el otro.
  */
 import { describe, expect, it } from 'vitest';
+import { caraDeLaArena } from '../src/client/arena/paneles.js';
+import { EscenaBatalla } from '../src/client/escenas/batalla.js';
+import { marcadoDe } from '../src/client/html.js';
 import {
   anguloDe,
   haciaDe,
@@ -19,12 +22,9 @@ import {
   renderDesenlace,
   renderEleccion,
   sitioEnLaRueda,
-} from '../src/client/arena/rueda.js';
-import { EscenaBatalla } from '../src/client/escenas/batalla.js';
-import { marcadoDe } from '../src/client/html.js';
+} from '../src/client/rueda/rueda.js';
 import type { SesionDeArena } from '../src/client/session.js';
 import { efectoEnCurso } from '../src/client/views/panels.js';
-import { ladoDe } from '../src/core/arena.js';
 import { stackById } from '../src/core/battle/battle.js';
 import {
   contraataqueDelCruce,
@@ -33,14 +33,13 @@ import {
   type TipoDeGolpe,
 } from '../src/core/battle/rueda.js';
 import { spell } from '../src/core/battle/spells.js';
-import { hastaLaRueda, sesionDeArena, unidadDeArena } from './helpers.js';
+import { TIPOS_DEL_ANILLO } from '../src/core/types.js';
+import { hastaLaRueda, PESADA, sesionDeArena, TROPA, unidadDeArena } from './helpers.js';
 
-/** Tres guerreros con escudo contra tres orkos, los dos bandos «Yo», con la rueda. */
+/** Tres guerreros con escudo contra tres con mandoble, los dos bandos «Yo», con la rueda. */
 function sesion(semilla = 1): SesionDeArena {
   const tres = (id: string) => [0, 1, 2].map(() => ({ unidad: unidadDeArena(id), ia: false }));
-  const s = sesionDeArena(tres('templario-escudo'), tres('orko-dos-armas'), semilla, {
-    golpe: 'rueda',
-  });
+  const s = sesionDeArena(tres(TROPA), tres(PESADA), semilla);
   s.empezar();
   return s;
 }
@@ -62,7 +61,7 @@ describe('#258: el botón de cada sector se recorta a lo que se ve', () => {
   hastaElGolpe(s);
   const p = s.ruedaPendiente;
   if (p === null) throw new Error('la rueda no pide el golpe');
-  const m = marcadoDe(renderEleccion(s, p));
+  const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
 
   it('cada tipo tiene su <clipPath>, con la misma forma que pinta el disco', () => {
     for (const t of TIPOS_DE_GOLPE) {
@@ -100,7 +99,9 @@ describe('#258: el botón de cada sector se recorta a lo que se ve', () => {
     const i = b.log.findIndex((e) => e.kind === 'cruce');
     const e = b.log[i];
     if (e?.kind !== 'cruce') throw new Error('sin cruce');
-    const d = marcadoDe(renderDesenlace(b, e, contraataqueDelCruce(b.log, i)));
+    const d = marcadoDe(
+      renderDesenlace(b, e, contraataqueDelCruce(b.log, i), null, caraDeLaArena(otra)),
+    );
     expect(d).not.toContain('<clipPath');
     expect(d).not.toContain('data-golpe=');
   });
@@ -115,16 +116,17 @@ describe('R3 de QA (#263): R. guardia dice en cuánto deja el contraataque antes
     const ahora = p.prevision.contraataque;
     const porExito = p.prevision.porTipo?.romperGuardia.contraataquePorExito ?? [];
     expect(ahora).not.toBeNull();
-    // El orco pega con el mandoble, con Romper guardia en el nivel 4 (quita 0, 1,
-    // 2, 3 y 4 del mínimo al máximo): también el bajo rebaja el contraataque; el
-    // mínimo, no.
-    expect(porExito.map((x) => x.punto)).toEqual([4, 3, 2, 1]);
+    // Pega el guerrero con escudo, con la espada: Romper guardia en el nivel 3
+    // (quita 0, 0, 1, 2 y 3 del mínimo al máximo). El medio, el alto y el máximo
+    // rebajan el contraataque; el bajo y el mínimo, no.
+    expect(p.atacante.body).toBe(TROPA);
+    expect(porExito.map((x) => x.punto)).toEqual([4, 3, 2]);
     const h = (x: { min: number; max: number }) =>
       x.min === x.max ? `${x.min}` : `${x.min}–${x.max}`;
     const frase = `Su contraataque (con Normal, ${h(ahora ?? { min: 0, max: 0 })}) queda, según el éxito, en: ${porExito
       .map((x) => `${['mínimo', 'bajo', 'medio', 'alto', 'máximo'][x.punto]}, ${h(x.danio)}`)
       .join('; ')}.`;
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     const rg = m.slice(m.indexOf('data-golpe="romperGuardia"'), m.indexOf('data-golpe="normal"'));
     // Una vez en la etiqueta del botón y otra en su «ⓘ».
     expect(rg.split(frase)).toHaveLength(3);
@@ -153,7 +155,7 @@ describe('#258: la colocación sale del ángulo del sector, no de su tipo', () =
     hastaElGolpe(s);
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     for (const t of TIPOS_DE_GOLPE) {
       const sitio = m.indexOf(`<div class="sector-de-rueda" data-sector="${t}"`);
       expect(sitio, t).toBeGreaterThan(-1);
@@ -193,14 +195,14 @@ describe('#261: los dos contrincantes en la cabecera', () => {
     for (const fase of ['golpe', 'respuesta'] as const) {
       const p = s.ruedaPendiente;
       if (p?.fase !== fase) throw new Error(`la rueda no pide ${fase}`);
-      const m = marcadoDe(renderEleccion(s, p));
+      const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
       const figuras = [
-        ...m.matchAll(/<canvas class="figura" data-figura="([^"]*)" data-lado="([^"]*)"/g),
+        ...m.matchAll(/<canvas class="figura" data-figura="([^"]*)" data-bando="([^"]*)"/g),
       ];
       expect(
         figuras.map((f) => `${f[1]}/${f[2]}`),
         fase,
-      ).toEqual([p.atacante, p.objetivo].map((x) => `${x.body}/${ladoDe(x.side)}`));
+      ).toEqual([p.atacante, p.objetivo].map((x) => `${x.body}/${x.side}`));
       // Cada figura es el botón de su ficha, con su vista previa.
       for (const x of [p.atacante, p.objetivo]) {
         expect(m).toContain(`data-arena="ficha-en-la-rueda" data-stack="${x.id}"`);
@@ -224,7 +226,9 @@ describe('#261: los dos contrincantes en la cabecera', () => {
     const i = b.log.findIndex((e) => e.kind === 'cruce');
     const e = b.log[i];
     if (e?.kind !== 'cruce') throw new Error('sin cruce');
-    const m = marcadoDe(renderDesenlace(b, e, contraataqueDelCruce(b.log, i)));
+    const m = marcadoDe(
+      renderDesenlace(b, e, contraataqueDelCruce(b.log, i), null, caraDeLaArena(s)),
+    );
     expect(m.match(/<canvas class="figura"/g)).toHaveLength(2);
     expect(m).not.toContain('ficha-en-la-rueda');
     expect(m).not.toContain('vista-previa');
@@ -237,7 +241,7 @@ describe('#261: los dos contrincantes en la cabecera', () => {
       s.elegirEnLaRueda(golpe);
       const p = s.ruedaPendiente;
       if (p?.fase !== 'respuesta') throw new Error('la rueda no pide la respuesta');
-      return marcadoDe(renderEleccion(s, p));
+      return marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     };
     const fuerte = conGolpe('fuerte');
     expect(fuerte).toContain('vista-previa');
@@ -251,7 +255,7 @@ describe('#261: la vista previa', () => {
   const previa = (s: SesionDeArena, id: string): string => {
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('sin rueda');
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     const desde = m.indexOf(`id="previa-${id}"`);
     return m.slice(desde, m.indexOf('</div><span class="quien">', desde));
   };
@@ -261,7 +265,7 @@ describe('#261: la vista previa', () => {
     hastaElGolpe(s);
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('sin rueda');
-    const guerrero = [p.atacante, p.objetivo].find((x) => x.body === 'templario-escudo');
+    const guerrero = [p.atacante, p.objetivo].find((x) => x.body === TROPA);
     if (guerrero === undefined) throw new Error('el guerrero no se cruza');
     const v = previa(s, guerrero.id);
     expect(v).toContain('Guerrero con escudo');
@@ -275,8 +279,9 @@ describe('#261: la vista previa', () => {
     expect(v).toContain('<span class="label">Armadura</span><span>7</span>');
     expect(v).toContain('data-cifra="velocidad">−1 Velocidad');
     expect(v).toMatch(/data-cifra="defensa">\+\d+ Defensa/);
-    // El daño de la rueda es el del cuerpo a cuerpo, en una fila y sin notas.
-    expect(v).toContain('<span class="label">Daño</span><span>20–40');
+    // El daño de la rueda es el del cuerpo a cuerpo, en una fila y sin notas: el
+    // de su cuerpo del catálogo (8–10) más el de la Espada.
+    expect(v).toContain('<span class="label">Daño</span><span>18–40');
     expect(v).not.toContain('class="nota"');
   });
 
@@ -347,5 +352,24 @@ describe('#261: los dos, señalados en el tablero', () => {
     expect(s.cancelarGolpe()).toBe(true);
     alDia();
     expect(escena.enLaRueda()).toBeNull();
+  });
+});
+
+describe('la veta del anillo alterna como una ruleta', () => {
+  it('dos sectores vecinos nunca tienen el mismo color, tampoco el último y el primero', () => {
+    // Marca del usuario (19-10-2026): ofensivo y romper guardia salían con el color
+    // cambiado, porque el CSS los elegía por una lista de tipos de antes de #263.
+    const s = sesion();
+    hastaElGolpe(s);
+    const p = s.ruedaPendiente;
+    if (p === null) throw new Error('la rueda no pide el golpe');
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
+    const disco = m.indexOf('class="disco"');
+    const veta = (t: string) => atributo(m, m.indexOf(`data-sector="${t}"`, disco), 'data-veta');
+    const vetas = TIPOS_DEL_ANILLO.map(veta);
+    expect(vetas.every((v) => v === 'mesa' || v === 'madera')).toBe(true);
+    for (const [i, v] of vetas.entries()) {
+      expect(v, TIPOS_DEL_ANILLO[i]).not.toBe(vetas[(i + 1) % vetas.length]);
+    }
   });
 });

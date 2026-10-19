@@ -29,11 +29,18 @@
  * como se comprobó que una mediana justo en el umbral no era suerte.
  */
 import { fuerzaDe } from '../../src/core/ai/fuerza.js';
+import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
 import { ladoDelMapa } from '../../src/core/map/generate.js';
 import { pointKey } from '../../src/core/map/map.js';
 import { createRng } from '../../src/core/rng.js';
-import { baseOf, type GameState, lugarDelRival } from '../../src/core/state/game.js';
+import {
+  baseOf,
+  type GameContext,
+  type GameState,
+  lugarDelRival,
+  settleBattle,
+} from '../../src/core/state/game.js';
 import { newGame } from '../../src/core/state/setup.js';
 import { duracion, mediana } from './estadistica.js';
 
@@ -59,6 +66,18 @@ function basesRivales(state: GameState): Map<string, number> {
   return out;
 }
 
+/**
+ * Cierra la batalla pendiente como la IA de reglas cuando nadie más la lleva:
+ * `resolvePendingBattle` con los dos jugadores en manos de la IA, que se rinde
+ * cuando le conviene.
+ */
+function cerrarComoLaIA(s: GameState, c: GameContext): void {
+  const p = s.pendingBattle;
+  if (p === null) return;
+  autoResolve(p.battle, c.rng, new Set());
+  settleBattle(s, c);
+}
+
 for (const regionesPorBando of REGIONES) {
   const lado = ladoDelMapa(regionesPorBando);
   const dias: number[] = [];
@@ -72,12 +91,22 @@ for (const regionesPorBando of REGIONES) {
   const t0 = performance.now();
 
   for (let semilla = DESDE; semilla < DESDE + SEMILLAS; semilla++) {
-    const state = newGame({ seed: semilla, maxDays: DIAS, regionesPorBando });
+    // Los dos jugadores, «de la persona» solo para que el turno pase cada batalla
+    // que nace por `mirar` (`ConduccionDelTurno.batallas`), que la cierra como la
+    // IA (`cerrarComoLaIA`): esto no cambia ni una partida.
+    const state = newGame({
+      seed: semilla,
+      maxDays: DIAS,
+      regionesPorBando,
+      controllers: { 0: 'human', 1: 'human' },
+    });
     const ctx = { rng: createRng(semilla) };
     const bases = basesRivales(state);
-    // La batalla que nace se mira y se deja: quien la cierra es la IA, como
-    // en `playAiGame`, así que esto no cambia ni una partida.
-    const mirar = async (s: GameState): Promise<void> => {
+    const mirar = async (s: GameState, c: GameContext): Promise<void> => {
+      apuntar(s);
+      cerrarComoLaIA(s, c);
+    };
+    const apuntar = (s: GameState): void => {
       const p = s.pendingBattle;
       if (p === null || p.attacker.kind !== 'hero') return;
       const heroId = p.attacker.heroId;
@@ -99,7 +128,7 @@ for (const regionesPorBando of REGIONES) {
 
     while (state.finished === null) {
       const desde = state.log.length;
-      await playAiTurn(state, ctx, { takeover: mirar });
+      await playAiTurn(state, ctx, { batallas: { human: mirar } });
       // Lo que pasó en el turno, en orden: el `battle_ended` que cierra un
       // asalto mirado, y la toma de una base que no costó batalla.
       for (let i = desde; i < state.log.length; i++) {

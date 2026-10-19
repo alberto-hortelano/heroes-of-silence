@@ -101,6 +101,16 @@ const decisionesDeBatalla: {
   accion: string;
   stepsLeft: number;
 }[] = [];
+/**
+ * La rueda del golpe por el contrato (F6 de 2026-10-18): las respuestas pedidas
+ * (`battle_response`), la primera mandada MAL a propósito («mega», que no es un
+ * golpe) para ver que el veredicto la descarta diciéndolo, la elige la IA y la
+ * batalla sigue siendo del agente; y las demás, de la lista, que entran. El golpe
+ * del agente (`hit`) se mira en los veredictos de sus `attack`.
+ */
+const rueda: { pedidas: string[]; mala: string | null } = { pedidas: [], mala: null };
+const RESPUESTA_MALA = 'mega';
+
 /** Qué cambió en la partida por haberlo pedido. `null` = todavía sin comprobar. */
 let cambioAplicado: string | null = null;
 /**
@@ -136,12 +146,12 @@ const comprasVistas = new Set<string>();
 const equipo: { visto: string | null } = { visto: null };
 /**
  * Los huecos en inglés (12-10-2026): el `equipment` de cada héroe trae
- * exactamente estos cuatro, y un `unequip` con `slot: "shield"` cruza el puente,
+ * exactamente estos cinco (sin accesorio desde el 18-10-2026), y un `unequip` con `slot: "shield"` cruza el puente,
  * se traduce (`accionDelAgente`) y lo contesta el NÚCLEO —el héroe no lleva
  * escudo, así que lo descarta `unequipBlocker` diciéndolo—. Si el `slot` no se
  * tradujera, el motivo sería «no hay ningún hueco», no este.
  */
-const SLOTS_DEL_CONTRATO = ['weapon', 'armor', 'accessory', 'shield'];
+const SLOTS_DEL_CONTRATO = ['melee_weapon', 'ranged_weapon', 'lance', 'armor', 'shield'];
 const escudo: { requestId: string | null; heroe: string | null; visto: string | null } = {
   requestId: null,
   heroe: null,
@@ -333,7 +343,8 @@ function detalle(v: Veredicto): string {
 /** El recuento de veredictos, y el rojo si alguna respuesta entera se cayó. */
 function informaVeredictos(): void {
   const entraron = veredictos.filter((v) => v.ok);
-  const descartadas = veredictos.filter((v) => !v.ok);
+  // La respuesta mala de la rueda se manda a propósito y se mira aparte (`exigeLaRueda`).
+  const descartadas = veredictos.filter((v) => !v.ok && v.requestId !== rueda.mala);
   log(
     `${veredictos.length} veredictos, ${entraron.length} entraron, ${descartadas.length} descartadas`,
   );
@@ -453,7 +464,7 @@ async function cruzaElHeroeNacido(client: Client, turno: any): Promise<void> {
 /**
  * Busca en el turno un individuo con `id` que lleve algo en su `equipment` —un
  * novato al que se le puso una pieza, o un veterano— y lo cruza con `game_state`: las dos puertas tienen
- * que decir lo mismo de lo que lleva. Y el héroe tiene que traer sus tres huecos
+ * que decir lo mismo de lo que lleva. Y el héroe tiene que traer sus cinco huecos
  * y su mochila, que es lo que el agente lee para decidir qué ponerse.
  */
 async function cruzaElEquipo(client: Client, turno: any): Promise<void> {
@@ -562,6 +573,50 @@ function exigeDosTramos(): void {
   );
 }
 
+/**
+ * Que la rueda cruce el contrato en las dos direcciones: el `hit` de un `attack`
+ * del agente entra y su veredicto lo dice; se le piden respuestas
+ * (`battle_response`) y entran; y la mala (`RESPUESTA_MALA`) se descarta con el
+ * motivo del núcleo, la elige la IA y la batalla sigue siendo suya (criterio 4).
+ */
+function exigeLaRueda(): void {
+  const golpe = veredictos.find((v) => v.ok && /Golpeaste con "/.test(v.nota));
+  if (golpe === undefined) {
+    throw new Error(
+      'ningún "attack" del agente ha entrado con su "hit": el golpe no cruza el contrato',
+    );
+  }
+  log(`golpe: «${golpe.nota}»`);
+  if (rueda.mala === null) {
+    throw new Error('no se ha pedido ni una respuesta de la rueda ("battle_response")');
+  }
+  const mala = veredictos.find((v) => v.requestId === rueda.mala);
+  if (
+    mala === undefined ||
+    mala.ok ||
+    !mala.problemas.some((p) => p.includes(`«${RESPUESTA_MALA}» no es un golpe de la rueda`)) ||
+    !/la eligió la IA de reglas a ciegas/.test(mala.nota) ||
+    !/La batalla sigue siendo tuya/.test(mala.nota)
+  ) {
+    throw new Error(
+      `la respuesta «${RESPUESTA_MALA}» no se ha descartado diciéndolo: ${JSON.stringify(mala)}`,
+    );
+  }
+  log(`respuesta mala: «${mala.problemas[0]}» — «${mala.nota}»`);
+  const buenas = rueda.pedidas
+    .filter((id) => id !== rueda.mala)
+    .map((id) => veredictos.find((v) => v.requestId === id));
+  const entradas = buenas.filter((v) => v?.ok === true && /respondiste "/.test(v.nota));
+  if (entradas.length === 0) {
+    throw new Error(
+      `de ${rueda.pedidas.length} respuestas pedidas ninguna ha entrado: ${JSON.stringify(buenas.slice(0, 2))}`,
+    );
+  }
+  log(
+    `respuestas: ${rueda.pedidas.length} pedidas, ${entradas.length} entraron — «${entradas[0]?.nota}»`,
+  );
+}
+
 /** Cierra con el resumen de todo lo que se ha verificado. */
 async function terminarBien(
   turnos: number,
@@ -618,7 +673,21 @@ async function terminarBien(
   log(`equipo: ${comprasVistas.size} compras en la crónica; ${equipo.visto}`);
   exigeElEscudo();
   exigeElAscenso();
+  exigeLaRueda();
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
+  // Peticiones por batalla: la cifra que mueve pedirle al agente también la
+  // respuesta de la rueda (F6 del plan de 2026-10-18). Una batalla nueva se
+  // reconoce porque su `turnId` vuelve a empezar: es el ordinal del turno DENTRO
+  // de su batalla, así que solo baja al cambiar de batalla.
+  const nBatallas = decisionesDeBatalla.filter(
+    (d, i) => i === 0 || d.turnId < decisionesDeBatalla[i - 1]!.turnId,
+  ).length;
+  // Desde F6, también las respuestas de la rueda: cada una es una petición más.
+  const pedidas = batallas + rueda.pedidas.length;
+  log(
+    `batallas del agente: ${nBatallas}, ${(pedidas / Math.max(1, nBatallas)).toFixed(1)} peticiones de batalla por batalla ` +
+      `(${(batallas / Math.max(1, nBatallas)).toFixed(1)} turnos y ${(rueda.pedidas.length / Math.max(1, nBatallas)).toFixed(1)} respuestas)`,
+  );
   log(
     `${motivo}: ${mapas} ${mapas === 1 ? 'mapa diseñado' : 'mapas diseñados'}, ` +
       `${turnos} turnos de mapa, ${batallas} decisiones de batalla y ` +
@@ -711,29 +780,35 @@ async function main(): Promise<void> {
   // como las otras tres —devuelve JSON igual que ellas—, y por eso ahora entra
   // en el recuento: el arnés ejercitaba cinco tools y su propio informe decía
   // cuatro, que es contar mal justo en la línea que existe para contar.
-  const ficha = (await consulta(client, 'creature_stats', { creature: 'paladin' })) as {
+  const ficha = (await consulta(client, 'creature_stats', { creature: 'templario-escudo' })) as {
     name?: string;
-    dwelling?: number;
+    dwelling?: string | null;
     level?: number;
     powerIndex?: number;
+    armor?: number;
+    equipment?: Record<string, string | null>;
   };
-  if (ficha.name !== 'Paladín') {
+  if (ficha.name !== 'Guerrero con escudo') {
     throw new Error(`creature_stats no devuelve la ficha: ${JSON.stringify(ficha).slice(0, 200)}`);
   }
-  // El nivel derivado de las cifras (12-10-2026): la morada viaja como
-  // `dwelling`, y `level` es la primera cifra de `powerIndex`, no la morada.
+  // El catálogo de las cinco facciones (19-10-2026): el edificio que la produce
+  // viaja como `dwelling`, `level` es la primera cifra de `powerIndex`, y con su
+  // equipo de serie (`equipment`, por hueco del contrato) y su armadura.
   if (
-    ficha.dwelling !== 6 ||
+    ficha.dwelling !== 'templarios_pueblo' ||
     typeof ficha.powerIndex !== 'number' ||
     ficha.level !== Math.floor(ficha.powerIndex / 100) ||
-    'morada' in ficha
+    ficha.equipment?.melee_weapon !== 'espada' ||
+    ficha.armor !== 7 ||
+    'morada' in ficha ||
+    'equipoDeSerie' in ficha
   ) {
     throw new Error(
-      `creature_stats no trae "dwelling", "level" y "powerIndex" como dice el contrato: ${JSON.stringify(ficha).slice(0, 300)}`,
+      `creature_stats no trae "dwelling", "equipment", "armor", "level" y "powerIndex" como dice el contrato: ${JSON.stringify(ficha).slice(0, 400)}`,
     );
   }
   log(
-    `creature_stats responde correctamente: paladín, morada ${ficha.dwelling}, índice ${ficha.powerIndex}, nivel ${ficha.level}`,
+    `creature_stats responde correctamente: guerrero con escudo, de ${ficha.dwelling}, índice ${ficha.powerIndex}, nivel ${ficha.level}, armadura ${ficha.armor}`,
   );
 
   // Los otros dos catálogos, por su CONTENIDO: antes solo se comprobaba que
@@ -923,6 +998,20 @@ async function main(): Promise<void> {
         accion: String((respuesta as { action: { type: string } }).action.type),
         stepsLeft: Number(payload.stepsLeft),
       });
+    } else if (kind === 'battle_response') {
+      // Tampoco es un turno de mapa. La primera, mal a propósito (`exigeLaRueda`).
+      // Y sin el golpe del otro: si viniera, la elección no sería a ciegas.
+      if ('hit' in payload || 'golpe' in payload) {
+        throw new Error(
+          `la petición de respuesta trae el golpe del atacante: ${JSON.stringify(payload).slice(0, 200)}`,
+        );
+      }
+      const id = RE_PETICION.exec(texto)?.[1] ?? '';
+      rueda.pedidas.push(id);
+      if (rueda.mala === null) {
+        rueda.mala = id;
+        respuesta = { response: RESPUESTA_MALA, reasoning: 'qa: una respuesta que no es un golpe' };
+      }
     } else if (kind === 'map_generate') mapas++;
     else if (kind === 'town_voices') {
       // Tampoco es un turno de mapa: va antes del `adventure_turn`, como el ascenso.

@@ -16,6 +16,7 @@ import { apuntarElSueloEn } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
 import { ajustarLienzo } from './render/lienzo.js';
 import { repartirClic } from './reparto-del-clic.js';
+import { DialogoDeLaRueda } from './rueda/dialogo.js';
 import { semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
@@ -43,6 +44,8 @@ const elActions = document.getElementById('actions') as HTMLElement;
 const elSeed = document.getElementById('seed') as HTMLElement;
 const haciaEnemigo = document.getElementById('hacia-enemigo') as HTMLElement;
 const conversacion = document.getElementById('conversacion') as HTMLDialogElement;
+/** La rueda del golpe (`rueda/dialogo.ts`): modal sobre el lienzo, mientras se elige y se cuenta un cruce. */
+const elRueda = document.getElementById('rueda') as HTMLDialogElement;
 const stage = document.getElementById('stage') as HTMLElement;
 
 /**
@@ -64,6 +67,8 @@ function abrePartida(seed: number): Session {
   url.searchParams.set('seed', String(seed));
   history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
   const abierta = new Session(seed);
+  // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
+  abierta.alCambiarSinGesto = pedirFotograma;
   elSeed.textContent = `semilla ${abierta.state.seed}`;
   return abierta;
 }
@@ -87,6 +92,20 @@ const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
+/**
+ * La rueda del golpe de la partida, la misma de la arena (F5, 19-10-2026). De los
+ * dos que se cruzan, su figura, su chapa y su nombre, y quién es «tú»
+ * (`Session.quienMira`); la ficha y la vista previa son de la arena (#261).
+ */
+const rueda = new DialogoDeLaRueda(elRueda, {
+  sesion: () => (session.scene === 'battle' ? session : null),
+  escena: batalla,
+  cara: () => null,
+  pedirFotograma,
+  alPulsarMientrasCuenta: () => {
+    jugadaEnCurso();
+  },
+});
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
 /** El modo «marcar fallo» y la vista de regiones (`desarrollo/herramientas.ts`): solo en `pnpm dev`. */
 let desarrollo: Desarrollo | null = null;
@@ -201,6 +220,10 @@ function dibujarFotograma(ahora: number): void {
     aventura.dibujarMinimapa(minimapa);
   }
   señalarEnemigo(enBatalla);
+  // Fuera de la batalla, cerrada (`pintar` la cierra si no hay batalla). Sus dos
+  // figuras respiran con las del tablero (`hayFigurasAnimadas` pide el siguiente).
+  rueda.pintar();
+  rueda.animar(ahora);
 
   if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
 
@@ -527,6 +550,14 @@ document.addEventListener('click', (ev) => {
     case 'battle-spell':
       session.hechizos.selectSpell(target.getAttribute('data-spell') as string);
       break;
+    case 'battle-poder': {
+      // Curar o Bendecir de la unidad activa (`PoderesDeLaActiva`, el de la arena):
+      // con un aliado posible, ya; con varios, el clic en el tablero elige.
+      const id = target.getAttribute('data-poder');
+      if (id === null) throw new Error('el botón del poder no dice cuál es');
+      session.poderes.usar(id);
+      break;
+    }
     case 'auto-battle':
       session.autoResolveBattle();
       break;
@@ -566,8 +597,10 @@ document.addEventListener('keydown', (ev) => {
       castillo.salir();
     }
   }
-  if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso())
-    session.hechizos.clearSpell();
+  // Escape suelta el hechizo elegido o el poder que espera aliado.
+  if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
+    session.soltarLoApuntado();
+  }
   // En batalla, Espacio cierra el turno de la unidad tuya que está actuando: con
   // el movimiento en tramos es lo que más se pulsa. Pasa por la misma puerta que
   // el lienzo y los botones, y sin turno propio no hace nada.

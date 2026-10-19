@@ -15,30 +15,24 @@ import { msPorCasilla } from '../src/client/marcha.js';
 import { arteDe, hojaDe, INDICE_DE_HOJA } from '../src/client/render/personajes.js';
 import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import {
-  activeStack,
-  applyAction,
-  createBattle,
-  isAlive,
-  stackHexes,
-} from '../src/core/battle/battle.js';
+import { activeStack, createBattle, isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { areAdjacent, hexEquals, hexKey } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { hasTrait } from '../src/core/data.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
-import { ejercito } from './helpers.js';
+import { aCiegas, ejercito } from './helpers.js';
 
 function pelea(semilla: number): BattleState {
   return createBattle(
     {
       army: troopsAsStacks(
         ejercito(
-          { creature: 'pikeman', count: 2 },
-          { creature: 'archer', count: 1 },
-          { creature: 'cavalry', count: 1 },
-          { creature: 'swordsman', count: 2 },
+          { creature: 'templario-escudo', count: 2 },
+          { creature: 'elfo-arquero', count: 1 },
+          { creature: 'templario-hermano-de-carga', count: 1 },
+          { creature: 'templario-mandoble', count: 2 },
         ),
       ),
       hero: null,
@@ -46,10 +40,10 @@ function pelea(semilla: number): BattleState {
     {
       army: troopsAsStacks(
         ejercito(
-          { creature: 'skeleton', count: 2 },
-          { creature: 'vampire', count: 1 },
-          { creature: 'bone_dragon', count: 1 },
-          { creature: 'mummy', count: 2 },
+          { creature: 'esqueleto-guerrero', count: 2 },
+          { creature: 'caballero-de-la-muerte', count: 1 },
+          { creature: 'jinete-de-plaga', count: 1 },
+          { creature: 'caballero-de-la-muerte', count: 2 },
         ),
       ),
       hero: null,
@@ -76,7 +70,7 @@ describe('el camino de un movimiento', () => {
             .flatMap((x) => stackHexes(x).map(hexKey)),
         );
         const antes = b.log.length;
-        applyAction(b, chooseBattleAction(b), rng);
+        aCiegas(b, chooseBattleAction(b), rng);
         for (const e of b.log.slice(antes)) {
           if (e.kind !== 'move' || e.stack !== yo.id) continue;
           movimientos++;
@@ -134,7 +128,7 @@ describe('la figura anda por el camino', () => {
     a.observe(b);
     a.tick(1);
     // Dos casillas: a la mitad del tramo está en la primera.
-    a.tick(1 + msPorCasilla(s.body, 'walk', ALTO_DE_FIGURA.normal));
+    a.tick(1 + msPorCasilla(s.body, 'walk', ALTO_DE_FIGURA));
     const en = a.figura(s).en;
     expect(en.x).toBeCloseTo(planoDeHex(arriba).x);
     expect(en.y).toBeCloseTo(planoDeHex(arriba).y);
@@ -176,7 +170,7 @@ describe('hacia dónde mira', () => {
       expect(NOMBRES_DE_DIRECCION[INDICE_DE_HOJA[mira]], mira).toBe(nombre);
     }
     // Ocho direcciones, ocho hojas distintas: no hay dos que compartan una espejada.
-    const arte = arteDe('peasant');
+    const arte = arteDe('goblin-lancero');
     const hojas = new Set(casos.map(([mira]) => hojaDe(arte, mira)));
     expect(hojas.size).toBe(8);
   });
@@ -200,7 +194,7 @@ describe('hacia dónde mira', () => {
     yo.hex = atras;
     a.observe(b);
     a.tick(1);
-    const tramo = msPorCasilla(yo.body, 'walk', ALTO_DE_FIGURA.normal);
+    const tramo = msPorCasilla(yo.body, 'walk', ALTO_DE_FIGURA);
     a.tick(1 + tramo / 2);
     expect(a.figura(yo).mira).toBe('O');
     a.tick(2 + tramo);

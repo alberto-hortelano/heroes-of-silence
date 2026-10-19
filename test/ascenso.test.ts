@@ -28,8 +28,20 @@ import {
   veteranosEnSuBase,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Troop, Veterania } from '../src/core/types.js';
+import { FACTION_IDS, type Troop, type Veterania } from '../src/core/types.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
+import { TROPA_BARATA } from './helpers.js';
+
+/**
+ * El tipo de héroe `i` de la facción del jugador 1, en el orden de
+ * `data/tipos-de-heroe.json` (el 0 es el de por defecto): la facción la sortea
+ * la semilla, y el tipo que vale es el de ella.
+ */
+function tipoDel1(state: GameState, i: number): string {
+  const tipo = tiposDeHeroe(playerById(state, 1).faction)[i];
+  if (tipo === undefined) throw new Error(`la facción del jugador 1 no tiene tipo ${i}`);
+  return tipo.id;
+}
 
 function hoja(id: string, nivel: number): Veterania {
   return { id, experiencia: umbral(nivel), batallas: 4, bajas: 6, heroes: ['Sir Otro'] };
@@ -80,7 +92,7 @@ describe('la tropa se hace héroe: quién puede', () => {
     // Y un veterano de nivel 5 en la guarnición de otra ciudad, aunque sea suya.
     const otra = state.towns.find((t) => t.id !== base.id)!;
     otra.owner = 1;
-    otra.garrison = [{ creature: 'skeleton', veterania: hoja('veterano-lejos', 5) }];
+    otra.garrison = [{ creature: 'esqueleto-guerrero', veterania: hoja('veterano-lejos', 5) }];
     expect(veteranosEnSuBase(state, 1).map((v) => v.veterania.id)).toEqual(['veterano-guarnicion']);
     // Ni los del rival, aunque los tenga.
     expect(veteranosEnSuBase(state, 0)).toEqual([]);
@@ -98,7 +110,7 @@ describe('la tropa se hace héroe: el ascenso', () => {
     const heroe = ascenderVeterano(state, 1, 'veterano-guarnicion', {
       name: 'Ana la Paciente',
       story: 'Guardó la puerta cuatro inviernos.',
-      heroType: 'vampiro',
+      heroType: tipoDel1(state, 1),
     });
 
     expect(heroesOf(state, 1)).toHaveLength(antes + 1);
@@ -111,7 +123,7 @@ describe('la tropa se hace héroe: el ascenso', () => {
     expect(rangoDeHeroe(heroe)).toBeGreaterThanOrEqual(5);
     expect(heroe.army).toEqual([]);
     expect(heroe.movePoints).toBe(0);
-    expect(heroe.tipo).toBe('vampiro');
+    expect(heroe.tipo).toBe(tipoDel1(state, 1));
     expect(heroe.origen).toEqual({
       creature: criatura,
       historia: 'Guardó la puerta cuatro inviernos.',
@@ -155,7 +167,7 @@ describe('la tropa se hace héroe: el ascenso', () => {
     const heroe = ascenderVeterano(state, 1, 'veterano-tropa', {
       name: 'Bruno',
       story: 'Cargó el último.',
-      heroType: 'lich',
+      heroType: tipoDel1(state, 2),
     });
     expect(heroe.id).toBe('hero-veterano-tropa');
     expect(heroe.origen?.creature).toBe(criatura);
@@ -173,7 +185,7 @@ describe('la tropa se hace héroe: el ascenso', () => {
     const heroe = ascenderVeterano(state, 1, 'veterano-guarnicion', {
       name: 'Quieta',
       story: 'Espera a mañana.',
-      heroType: 'nigromante',
+      heroType: tipoDel1(state, 0),
     });
     state.current = state.players.findIndex((p) => p.id === 1);
     // Una vecina pisable y libre: un paso, y ni para ese hay puntos.
@@ -203,12 +215,12 @@ describe('la tropa se hace héroe: el ascenso', () => {
 
 /**
  * La sonda de QA (I1), hecha test: el héroe del jugador 0 llega junto a la base
- * del 1 con solo dos campesinos y entra. Con el héroe del dueño dentro, la ciudad
+ * del 1 con solo dos goblins (lo más barato del catálogo) y entra. Con el héroe del dueño dentro, la ciudad
  * la defiende solo él con su tropa (regla del usuario); así que un nacido sin
  * tropa en la casilla del castillo dejaba la base indefensa esa misma noche.
  * Devuelve si la base sigue siendo del 1 y cuántos defendieron.
  */
-function asaltoConDosCampesinos(
+function asaltoConDosGoblins(
   seed: number,
   preparar: (state: GameState) => void,
 ): { aguanta: boolean; defensores: number } {
@@ -226,11 +238,12 @@ function asaltoConDosCampesinos(
     .find((p) => (p.x !== base.at.x || p.y !== base.at.y) && libre(p));
   if (junto === undefined) throw new Error(`semilla ${seed}: la base del 1 no tiene vecina libre`);
   atacante.at = junto;
-  atacante.army = [{ creature: 'peasant' }, { creature: 'peasant' }];
+  atacante.army = [{ creature: TROPA_BARATA }, { creature: TROPA_BARATA }];
   // Sin su equipo de serie: la sonda mide si la BASE aguanta a un asaltante
   // flojo, y con +3/+3 del equipo base el héroe solo ya toma la guarnición de
-  // salida —que es una pregunta de equilibrio, no la de este test—.
-  atacante.equipo = {};
+  // salida —que es una pregunta de equilibrio, no la de este test—. Con la daga,
+  // que sin arma no se combate (la rueda va con la del arma, 19-10-2026).
+  atacante.equipo = { arma: 'daga' };
   // Ni su Flecha mágica, por lo mismo: desde que la IA elige el hechizo por la
   // amenaza que quita (#92), sus seis Flechas van al héroe nacido —matarlo gana
   // la batalla— y en la semilla 11 lo tumban. Eso es la fuerza del asaltante,
@@ -249,13 +262,17 @@ function asaltoConDosCampesinos(
 describe('la tropa se hace héroe: la base no se queda sin defensa (I1)', () => {
   const ascender = (state: GameState): void => {
     const id = ponVeteranoEnLaBase(state, 1);
-    ascenderVeterano(state, 1, id, { name: 'Nacida', story: 'Guardó.', heroType: 'nigromante' });
+    ascenderVeterano(state, 1, id, {
+      name: 'Nacida',
+      story: 'Guardó.',
+      heroType: tipoDel1(state, 0),
+    });
   };
 
   for (const seed of [11, 23]) {
-    it(`semilla ${seed}: con ascenso la base aguanta a dos campesinos igual que sin él`, () => {
-      const sin = asaltoConDosCampesinos(seed, () => {});
-      const con = asaltoConDosCampesinos(seed, ascender);
+    it(`semilla ${seed}: con ascenso la base aguanta a dos goblins igual que sin él`, () => {
+      const sin = asaltoConDosGoblins(seed, () => {});
+      const con = asaltoConDosGoblins(seed, ascender);
       expect(sin.aguanta).toBe(true);
       expect(con.aguanta).toBe(sin.aguanta);
       // El nacido se lleva la guarnición: defiende con ella, no solo.
@@ -271,7 +288,7 @@ describe('la tropa se hace héroe: la base no se queda sin defensa (I1)', () => 
     const heroe = ascenderVeterano(state, 1, id, {
       name: 'Nacida',
       story: 'Guardó.',
-      heroType: 'nigromante',
+      heroType: tipoDel1(state, 0),
     });
     expect(heroe.at).toEqual(base.at);
     expect(heroe.army.length).toBeGreaterThan(0);
@@ -286,16 +303,20 @@ describe('la tropa se hace héroe: la base no se queda sin defensa (I1)', () => 
 describe('la tropa se hace héroe: las negativas no tocan nada', () => {
   it('un tipo de otra facción lanza nombrando los que valen', () => {
     const { state } = conVeteranos();
+    const suya = playerById(state, 1).faction;
+    const otra = FACTION_IDS.find((f) => f !== suya)!;
+    const ajeno = tipoDeHeroePorDefecto(otra);
+    const valen = tiposDeHeroe(suya)
+      .map((t) => t.id)
+      .join(', ');
     const foto = JSON.stringify({ heroes: state.heroes, towns: state.towns, log: state.log });
     expect(() =>
       ascenderVeterano(state, 1, 'veterano-guarnicion', {
         name: 'X',
         story: 'Y',
-        heroType: 'caballero',
+        heroType: ajeno,
       }),
-    ).toThrow(
-      /"caballero" no es un tipo de héroe de necromancer: valen nigromante, vampiro, lich, caballero_de_la_muerte/,
-    );
+    ).toThrow(`"${ajeno}" no es un tipo de héroe de ${suya}: valen ${valen}`);
     expect(JSON.stringify({ heroes: state.heroes, towns: state.towns, log: state.log })).toBe(foto);
   });
 
@@ -305,14 +326,14 @@ describe('la tropa se hace héroe: las negativas no tocan nada', () => {
     while (heroesOf(state, 1).length < MAX_HEROES_PER_PLAYER) {
       state.heroes.push({ ...modelo, id: `relleno-${state.heroes.length}`, at: { x: 0, y: 0 } });
     }
-    expect(ascensoBlocker(state, 1, 'veterano-guarnicion', 'vampiro')).toBe(
+    expect(ascensoBlocker(state, 1, 'veterano-guarnicion', tipoDel1(state, 1))).toBe(
       `ya tienes ${MAX_HEROES_PER_PLAYER} de ${MAX_HEROES_PER_PLAYER} héroes: el veterano espera en la base hasta que haya sitio`,
     );
     expect(() =>
       ascenderVeterano(state, 1, 'veterano-guarnicion', {
         name: 'X',
         story: 'Y',
-        heroType: 'vampiro',
+        heroType: tipoDel1(state, 1),
       }),
     ).toThrow(/espera en la base/);
     expect(veteranosEnSuBase(state, 1).map((v) => v.veterania.id)).toContain('veterano-guarnicion');
@@ -323,14 +344,14 @@ describe('la tropa se hace héroe: las negativas no tocan nada', () => {
     ascenderVeterano(state, 1, 'veterano-guarnicion', {
       name: 'Una',
       story: 'Vez.',
-      heroType: 'vampiro',
+      heroType: tipoDel1(state, 1),
     });
     const cuantos = state.heroes.length;
     expect(() =>
       ascenderVeterano(state, 1, 'veterano-guarnicion', {
         name: 'Dos',
         story: 'Veces.',
-        heroType: 'vampiro',
+        heroType: tipoDel1(state, 1),
       }),
     ).toThrow(/no está en tu base/);
     expect(state.heroes).toHaveLength(cuantos);
@@ -338,7 +359,7 @@ describe('la tropa se hace héroe: las negativas no tocan nada', () => {
 
   it('el de rango 4 no se asciende aunque esté en la base', () => {
     const { state } = conVeteranos();
-    expect(ascensoBlocker(state, 1, 'veterano-de-4', 'vampiro')).toMatch(
+    expect(ascensoBlocker(state, 1, 'veterano-de-4', tipoDel1(state, 1))).toMatch(
       /no está en tu base con rango 5/,
     );
   });
@@ -369,21 +390,20 @@ describe('a quién se pregunta (`porPreguntar`)', () => {
 });
 
 describe('los tipos de héroe, en datos', () => {
-  it('son los cuatro del cuaderno por facción, y el de por defecto es el primero', () => {
-    expect(tiposDeHeroe('knight').map((t) => t.id)).toEqual([
+  it('son los del cuaderno por facción, y el de por defecto es el primero', () => {
+    // Las listas de las dos primeras facciones, como las genera
+    // `tools/datos/tipos-de-heroe.ts` del cuaderno (19-10-2026).
+    expect(tiposDeHeroe('templarios').map((t) => t.id)).toEqual([
       'caballero',
       'monje',
       'inquisidor',
-      'gran_maestre',
     ]);
-    expect(tiposDeHeroe('necromancer').map((t) => t.id)).toEqual([
-      'nigromante',
-      'vampiro',
-      'lich',
-      'caballero_de_la_muerte',
-    ]);
-    expect(tipoDeHeroePorDefecto('knight')).toBe('caballero');
-    expect(tipoDeHeroePorDefecto('necromancer')).toBe('nigromante');
+    expect(tiposDeHeroe('no-muertos').map((t) => t.id)).toEqual(['nigromante', 'vampiro', 'lich']);
+    for (const f of FACTION_IDS) {
+      const tipos = tiposDeHeroe(f);
+      expect(tipos.length, f).toBeGreaterThan(0);
+      expect(tipoDeHeroePorDefecto(f)).toBe(tipos[0]?.id);
+    }
   });
 
   it('el héroe inicial y el contratado llevan el tipo por defecto de su facción', () => {
@@ -412,24 +432,24 @@ describe('los tipos de héroe, en datos', () => {
       validarTiposDeHeroe(
         {
           tipos: {
-            knight: [],
-            necromancer: [
+            templarios: [],
+            'no-muertos': [
               { id: 'a', nombre: 'A', descripcion: 'x' },
               { id: 'a', nombre: 'B', descripcion: 'y' },
             ],
             orcs: [{ id: 'orko', nombre: 'Orko', descripcion: 'z' }],
           },
         },
-        ['knight', 'necromancer'],
+        ['templarios', 'no-muertos'],
       ),
     ).toThrow(
-      /knight no tiene ningún tipo de héroe; necromancer repite los ids a; "orcs" no es ninguna facción del motor/,
+      /templarios no tiene ningún tipo de héroe; no-muertos repite los ids a; "orcs" no es ninguna facción del motor/,
     );
   });
 
   it('`problemaDeTipo` acepta los de la facción y rechaza los de la otra', () => {
-    expect(problemaDeTipo('knight', 'monje')).toBeNull();
-    expect(problemaDeTipo('knight', 'lich')).toMatch(/valen caballero, monje/);
+    expect(problemaDeTipo('templarios', 'monje')).toBeNull();
+    expect(problemaDeTipo('templarios', 'lich')).toMatch(/valen caballero, monje/);
   });
 });
 
@@ -438,6 +458,6 @@ describe('el veterano del arnés de QA', () => {
     const state = newGame({ seed: 11 });
     const id = ponVeteranoEnLaBase(state, 1);
     expect(veteranosEnSuBase(state, 1).map((v) => v.veterania.id)).toEqual([id]);
-    expect(ascensoBlocker(state, 1, id, tipoDeHeroePorDefecto('necromancer'))).toBeNull();
+    expect(ascensoBlocker(state, 1, id, tipoDel1(state, 0))).toBeNull();
   });
 });

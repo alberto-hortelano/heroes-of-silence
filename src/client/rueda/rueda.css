@@ -1,0 +1,458 @@
+/*
+ * La rueda del golpe (`rueda/rueda.ts`, en la batalla de la partida y en la de la
+ * arena; la enlazan las dos páginas): un diálogo modal sobre
+ * el lienzo, sin fondo: la rueda flota sobre el tablero. Sus colores son los de
+ * la casa (madera, latón, verde de mesa) y el calor de cada punto del cruce, del
+ * mínimo frío al máximo encendido (`--calor-N`, lo leen el arco, el medidor y el
+ * rótulo por su `data-punto`). Los de cada bando llegan en atributos
+ * (`COLOR_BANDO`): no se copian aquí.
+ *
+ * El desenlace lo cuenta `data-tramo` en el diálogo («giro marcas arco rotulo»,
+ * acumulado: `tramosDelDesenlace`), que pone `rueda/dialogo.ts` al ritmo del animador; cada
+ * animación vive dentro de su tramo y se queda en su final (`both`). Sus
+ * duraciones son fracciones de `--cruce`, el paso entero (`DURACION.cruce`, que
+ * pone `ajustarLaRueda`): un solo reloj. Los tramos empiezan en 0, 0,33, 0,45 y
+ * 0,57 del paso (`TRAMOS`, `rueda.ts`).
+ *
+ * En un móvil la rueda no cabe sobre el lienzo y pisa el panel de abajo: ahí
+ * lleva un velo detrás y las cajas opacas (al final).
+ */
+#rueda {
+  --calor-0: #86aed0;
+  --calor-1: #9fc49a;
+  --calor-2: #cbb780;
+  --calor-3: #e8975f;
+  --calor-4: #f2593a;
+  width: min(560px, calc(100vw - 12px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  overflow: visible;
+}
+#rueda::backdrop { background: transparent; }
+/* Anclado arriba y no al medio: la rueda no salta entre elegir y el desenlace,
+   cuyos pies miden distinto. */
+#rueda[open] { margin: max(8px, 5dvh) auto auto; }
+#rueda:focus { outline: none; }
+#rueda [data-punto="0"] { --calor: var(--calor-0); }
+#rueda [data-punto="1"] { --calor: var(--calor-1); }
+#rueda [data-punto="2"] { --calor: var(--calor-2); }
+#rueda [data-punto="3"] { --calor: var(--calor-3); }
+#rueda [data-punto="4"] { --calor: var(--calor-4); }
+
+.rueda {
+  /* Lo que mide la rueda; el texto de dentro va a su escala. Sin `container-type`
+     ni `filter` en el plato: los dos lo hacen bloque contenedor de lo fijo, y el
+     bocadillo de cada nota quedaba encerrado en él. De alto, lo que dejan la
+     cabecera y el pie del desenlace (el más alto), para que todo quepa. */
+  --plato: min(440px, calc(100vw - 24px), 56dvh, calc(100dvh - 20rem));
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.cabecera-de-rueda,
+.pie-de-rueda {
+  width: min(100%, 480px);
+  padding: 0.5rem 0.9rem 0.6rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  border: 3px ridge #71623e;
+  box-shadow: 0 8px 22px #000b;
+}
+/* La cabecera, tan ancha como la rueda: con las dos figuras, «Orko con dos armas A
+   ataca a Guerrero con escudo A» cabe en una línea en el escritorio. */
+.cabecera-de-rueda { width: min(100%, 560px); }
+.cabecera-de-rueda h2 {
+  margin: 0;
+  font: 600 1.05rem Georgia, serif;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+}
+.cabecera-de-rueda .quienes {
+  margin: 0.25rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.2rem 0.5rem;
+  font: 0.9rem system-ui, sans-serif;
+}
+.rueda .quien { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; min-width: 0; }
+.rueda .chapa { width: 0.8rem; height: 0.8rem; flex: none; }
+.rueda .hacia { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; max-width: 100%; }
+.rueda .ataca { color: var(--ink-dim); font-style: italic; white-space: nowrap; }
+/* Los dos que se cruzan (#261): la figura del puesto, animada y del color de su
+   bando, delante de su chapa y su nombre. Con la rueda para elegir, la figura es
+   un botón: el ratón encima (o el foco del teclado) abre su vista previa, y el
+   clic, su ficha. La vista previa va anclada a la figura como el bocadillo de una
+   nota (style.css), y solo donde hay ratón: en un móvil, tocar la figura abre la
+   ficha y nada más (decisión del usuario, 14-10-2026). */
+.rueda .contrincante {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  anchor-scope: --contrincante;
+}
+.rueda .icono-de-contrincante {
+  flex: none;
+  display: block;
+  min-height: 0;
+  padding: 0;
+  line-height: 0;
+  background: #120f0b;
+  border: 1px solid #71623e;
+  border-radius: 4px;
+  anchor-name: --contrincante;
+  -webkit-tap-highlight-color: transparent;
+}
+.rueda button.icono-de-contrincante { cursor: pointer; }
+.rueda button.icono-de-contrincante:hover:not(:disabled) { background: #2b2519; border-color: var(--gold); }
+.rueda button.icono-de-contrincante:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.rueda .icono-de-contrincante .figura { display: block; width: 40px; height: 48px; }
+.rueda .nombre-del-contrincante { overflow: hidden; text-overflow: ellipsis; }
+/* En la partida, «(tú)» o «(rival)» detrás del nombre: más apagado, sin cortarse. */
+.rueda .de-quien { flex: none; opacity: 0.75; font-size: 0.9em; }
+/* A un lado de su figura, hacia fuera (quien pega a la izquierda, quien recibe a
+   la derecha) y bajando: debajo de la cabecera está la rueda, y tapaba sus
+   sectores de arriba mientras se elegía. Si a ese lado no cabe, al otro, y si
+   no, debajo. */
+.vista-previa {
+  display: none;
+  position: fixed;
+  position-anchor: --contrincante;
+  position-area: left span-bottom;
+  position-try-fallbacks: flip-inline, bottom;
+  margin: 6px;
+  width: max-content;
+  max-width: min(19rem, calc(100vw - 24px));
+  z-index: 60;
+  padding: 0.45rem 0.65rem 0.5rem;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--gold);
+  box-shadow: 0 6px 16px #000c;
+  font: 0.82rem/1.3 system-ui, sans-serif;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+}
+.hacia > .contrincante > .vista-previa { position-area: right span-bottom; }
+.vista-previa .nombre-de-la-previa {
+  display: block;
+  margin-bottom: 0.2rem;
+  font: 600 0.95rem Georgia, serif;
+  color: var(--gold);
+}
+.vista-previa .row { gap: 0.8rem; }
+.vista-previa .efectos-en-curso { display: grid; justify-items: end; text-align: right; }
+.vista-previa .sin-efectos { color: var(--ink-dim); font-style: italic; }
+.rueda .contrincante:has(> button:focus-visible) > .vista-previa { display: block; }
+@media (hover: hover) {
+  .rueda .contrincante:has(> button:hover) > .vista-previa { display: block; }
+}
+@supports not (position-area: bottom) {
+  .rueda .contrincante { position: relative; }
+  .vista-previa { position: absolute; top: 100%; left: 0; }
+}
+.pie-de-rueda p { margin: 0.15rem 0; }
+.pie-de-rueda .guia { font: 0.88rem/1.35 Georgia, serif; color: var(--ink); }
+.pie-de-rueda .teclas { font: 0.75rem system-ui, sans-serif; color: var(--ink-dim); }
+.pie-de-rueda .carga-de-la-rueda { font: 0.82rem/1.3 system-ui, sans-serif; color: var(--gold); }
+.pie-de-rueda kbd {
+  display: inline-block;
+  min-width: 1.3em;
+  padding: 0 0.25em;
+  margin: 0 0.08em;
+  font: 0.72rem ui-monospace, monospace;
+  color: var(--ink);
+  background: #2b2519;
+  border: 1px solid #71623e;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+}
+
+/* El plato: la rueda cuadrada, que mide lo que cabe. */
+.plato {
+  position: relative;
+  width: var(--plato);
+  aspect-ratio: 1;
+}
+/* La sombra de la rueda, en un círculo quieto debajo del disco (el fondo mide 108
+   de 110): con un `filter` en el SVG, el aro que late lo repintaba entero en cada
+   fotograma. */
+.plato::before {
+  content: '';
+  position: absolute;
+  inset: 1%;
+  border-radius: 50%;
+  box-shadow: 0 12px 24px #000d;
+}
+.plato .giro,
+.plato .disco,
+.plato .marcas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.plato .marcas { pointer-events: none; overflow: visible; }
+.disco .fondo { fill: #120f0b; }
+.disco .aro { fill: none; stroke: var(--gold); stroke-width: 3; }
+.disco .aro-del-bando {
+  fill: none;
+  stroke-width: 2.5;
+  opacity: 0.85;
+  animation: latir 1.6s ease-in-out infinite;
+}
+.disco .sector {
+  fill: #2b2519;
+  stroke: #0009;
+  stroke-width: 1;
+  transition: fill 140ms, stroke 140ms;
+}
+/* El anillo alterna la madera y el verde de la mesa, como una ruleta (`data-veta`, que
+   pone `disco` por el orden del anillo). */
+.disco .sector[data-veta="mesa"] {
+  fill: #23332a;
+}
+.disco .sector.centro { fill: #342c1c; }
+.disco .radio { stroke: #cbb78055; stroke-width: 1; }
+.disco .aro-de-dentro { fill: none; stroke: var(--gold); stroke-width: 2; }
+
+/* Los sectores (#258): cada uno, una capa del plato entero que no recibe el ratón;
+   dentro, su botón, también del plato entero y recortado a la forma de su sector
+   (`clip-path`, que pone `ajustarLaRueda` con el `<clipPath>` de `formas`): toda
+   la corona que se ve responde, y solo ella. El rótulo y el «ⓘ» van en su sitio
+   (`--x`, `--y` y `--nx`, `--ny`, desde el ángulo del sector, en porcentaje del
+   plato, que es cuadrado). El «ⓘ» se centra con márgenes y no con `transform`,
+   que lo haría bloque contenedor de su propio bocadillo. */
+.plato .formas { position: absolute; width: 0; height: 0; overflow: hidden; }
+.sector-de-rueda {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sector-de-rueda button {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #e9dcbc;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.sector-de-rueda .rotulo-del-sector {
+  position: absolute;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  width: 26%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: calc(var(--plato) * 0.006);
+  color: #e9dcbc;
+}
+.sector-de-rueda button .rotulo-del-sector { color: inherit; }
+/* Con `data-quieta` (la rueda recién pintada, con el puntero aún donde estaba),
+   el `:hover` no enciende nada: el sector de debajo es el que pulsó quien eligió
+   antes, y con los dos bandos «Yo» se lo enseñaba al otro (H1 de QA). Lo quita el
+   primer movimiento del puntero o una pulsación (`rueda/dialogo.ts`); una tecla no (H1b):
+   el teclado enciende por `:focus-visible`. El fondo va aparte y siempre: el
+   `button:hover` de style.css pintaba un óvalo. */
+.sector-de-rueda button:hover:not(:disabled) { background: transparent; }
+#rueda:not([data-quieta]) .sector-de-rueda button:hover:not(:disabled) { color: #fff4d6; }
+.sector-de-rueda button:focus-visible { outline: none; color: #fff4d6; }
+.sector-de-rueda .icono {
+  width: calc(var(--plato) * 0.085);
+  height: calc(var(--plato) * 0.085);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 140ms;
+}
+.sector-de-rueda .icono path:first-child { fill: currentColor; fill-opacity: 0.22; }
+.sector-de-rueda[data-sector="finta"] .icono path { fill: none; }
+.sector-de-rueda button:focus-visible .icono,
+#rueda:not([data-quieta]) .sector-de-rueda button:hover .icono { transform: scale(1.14); }
+.sector-de-rueda .nombre {
+  text-align: center;
+  font: 600 calc(var(--plato) * 0.035)/1.05 Georgia, serif;
+  letter-spacing: 0.02em;
+  color: #f2deac;
+  text-shadow: 0 1px 2px #000;
+}
+.sector-de-rueda .da {
+  font: calc(var(--plato) * 0.031)/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.sector-de-rueda .nota {
+  position: absolute;
+  left: var(--nx, 50%);
+  top: var(--ny, 50%);
+  width: 1em;
+  margin: -0.5em 0 0 -0.5em;
+  text-align: center;
+  font-size: calc(var(--plato) * 0.030);
+  opacity: 0.75;
+  pointer-events: auto;
+}
+/* Con ratón, el «ⓘ» no es un hueco en su sector (R1 de QA de #258): deja pasar el
+   puntero al botón de debajo, así que pasar por él enciende el sector y abre la
+   nota (`[data-abre-nota]`) y el clic elige. Tocando (sin `hover`), se queda como
+   estaba: tocarlo abre la nota. El foco del teclado no cambia. */
+@media (hover: hover) and (pointer: fine) {
+  .sector-de-rueda .nota { pointer-events: none; }
+}
+/* Con la rueda quieta, el `:hover` tampoco abre la nota (style.css la abre al
+   pasar por el sector). */
+#rueda[data-quieta] [data-abre-nota]:hover > .nota::after,
+#rueda[data-quieta] .nota:hover::after { display: none; }
+/* La nota de un sector se abre hacia fuera de la rueda, sin tapar el sector:
+   hacia donde mira su ángulo (`data-hacia`, `haciaDe`), no por su tipo. */
+#rueda [data-hacia="arriba"] > .nota::after { position-area: top; }
+#rueda [data-hacia="derecha"] > .nota::after { position-area: right span-bottom; }
+#rueda [data-hacia="izquierda"] > .nota::after { position-area: left span-bottom; }
+#rueda [data-hacia="abajo"] > .nota::after { position-area: bottom; }
+/* El sector bajo el ratón (salvo con la rueda quieta) o con el foco del teclado
+   se enciende en el disco. */
+#rueda:not([data-quieta]) .rueda:has([data-golpe="rapido"]:hover) .sector[data-sector="rapido"],
+#rueda:not([data-quieta]) .rueda:has([data-golpe="defensivo"]:hover) .sector[data-sector="defensivo"],
+#rueda:not([data-quieta]) .rueda:has([data-golpe="finta"]:hover) .sector[data-sector="finta"],
+#rueda:not([data-quieta]) .rueda:has([data-golpe="fuerte"]:hover) .sector[data-sector="fuerte"],
+#rueda:not([data-quieta]) .rueda:has([data-golpe="romperGuardia"]:hover) .sector[data-sector="romperGuardia"],
+#rueda:not([data-quieta]) .rueda:has([data-golpe="ofensivo"]:hover) .sector[data-sector="ofensivo"],
+#rueda:not([data-quieta]) .rueda:has([data-golpe="normal"]:hover) .sector[data-sector="normal"],
+.rueda:has([data-golpe="rapido"]:focus-visible) .sector[data-sector="rapido"],
+.rueda:has([data-golpe="defensivo"]:focus-visible) .sector[data-sector="defensivo"],
+.rueda:has([data-golpe="finta"]:focus-visible) .sector[data-sector="finta"],
+.rueda:has([data-golpe="fuerte"]:focus-visible) .sector[data-sector="fuerte"],
+.rueda:has([data-golpe="romperGuardia"]:focus-visible) .sector[data-sector="romperGuardia"],
+.rueda:has([data-golpe="ofensivo"]:focus-visible) .sector[data-sector="ofensivo"],
+.rueda:has([data-golpe="normal"]:focus-visible) .sector[data-sector="normal"] {
+  fill: #5a5232;
+  stroke: var(--gold);
+  stroke-width: 2;
+}
+
+/* ---- El desenlace ---- */
+.cabecera-de-rueda .cuando-para { display: none; }
+#rueda[data-tramo~="marcas"] .cuando-para {
+  display: inline;
+  animation: asomar calc(var(--cruce) * 0.126) ease-out both;
+}
+#rueda[data-tramo~="marcas"] .mientras-gira { display: none; }
+.cabecera-de-rueda .mientras-gira { color: var(--ink-dim); font-style: italic; }
+#rueda[data-tramo~="giro"] .giro {
+  /* Hasta que empiezan las marcas (0,33). */
+  animation: girar calc(var(--cruce) * 0.326) cubic-bezier(0.12, 0.72, 0.22, 1) both;
+}
+.rueda[data-fase="desenlace"] .tinte,
+.rueda[data-fase="desenlace"] .marca,
+.rueda[data-fase="desenlace"] .arco,
+.rueda[data-fase="desenlace"] .pie-de-rueda { opacity: 0; }
+.marcas .tinte { pointer-events: none; }
+#rueda[data-tramo~="marcas"] .tinte { animation: colorear calc(var(--cruce) * 0.137) ease-out both; }
+#rueda[data-tramo~="marcas"] .marca {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: caer calc(var(--cruce) * 0.158) cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+#rueda[data-tramo~="marcas"] .marca[data-papel="respuesta"] { animation-delay: calc(var(--cruce) * 0.037); }
+.marca .halo { opacity: 0.35; }
+.marca .cuerpo { stroke: #f6ecd2; stroke-width: 1.6; }
+#rueda[data-tramo~="arco"] .marca .halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: latir-halo 900ms ease-in-out infinite;
+}
+.marcas .arco {
+  fill: none;
+  stroke: var(--calor);
+  color: var(--calor);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+#rueda[data-tramo~="arco"] .arco { animation: trazar calc(var(--cruce) * 0.158) ease-out both; }
+#rueda[data-tramo~="rotulo"] .pie-de-rueda { animation: asomar calc(var(--cruce) * 0.126) ease-out both; }
+.pie-de-rueda .rotulo {
+  margin: 0;
+  font: 700 1.7rem/1.1 Georgia, serif;
+  letter-spacing: 0.03em;
+  color: var(--calor);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--calor) 55%, transparent), 0 2px 2px #000;
+}
+#rueda[data-tramo~="rotulo"] .rotulo {
+  animation: estallar calc(var(--cruce) * 0.221) cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+.pie-de-rueda .contraataque { font: 0.85rem system-ui, sans-serif; color: var(--ink-dim); }
+.pie-de-rueda .contraataque strong { color: var(--calor); }
+.medidor { display: block; width: min(320px, 82vw); margin: 0.2rem auto 0; overflow: visible; }
+.medidor .pista { fill: #3a3427; }
+.medidor .encendida {
+  fill: var(--calor);
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+#rueda[data-tramo~="rotulo"] .medidor .encendida { animation: llenar calc(var(--cruce) * 0.2) ease-out both; }
+.medidor .muesca circle { fill: #221e15; stroke: #cbb78099; stroke-width: 1.2; }
+.medidor .muesca.del-golpe circle,
+.medidor .muesca.del-contraataque circle { fill: var(--calor); stroke: #f6ecd2; }
+.medidor .muesca text {
+  font: 10px system-ui, sans-serif;
+  fill: var(--ink-dim);
+  text-anchor: middle;
+}
+.medidor .muesca.del-golpe text { fill: var(--calor); font-weight: 700; }
+.medidor .aguja { stroke: #f6ecd2; stroke-width: 1; stroke-linejoin: round; }
+
+@keyframes girar {
+  from { transform: rotate(-400deg) scale(0.94); }
+  82% { transform: rotate(5deg) scale(1); }
+  to { transform: rotate(0); }
+}
+@keyframes colorear { from { opacity: 0; } to { opacity: 0.38; } }
+@keyframes caer {
+  from { opacity: 0; transform: translateY(-24px) scale(1.9); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes trazar {
+  from { opacity: 0.4; stroke-dashoffset: 1; }
+  to { opacity: 1; stroke-dashoffset: 0; }
+}
+@keyframes asomar {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes estallar {
+  from { opacity: 0; transform: scale(0.55); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes llenar { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes latir { 50% { opacity: 0.35; } }
+@keyframes latir-halo { 50% { transform: scale(1.35); opacity: 0.15; } }
+@media (prefers-reduced-motion: reduce) {
+  #rueda *, #rueda *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+}
+/* En un móvil la rueda pisa el panel de debajo del lienzo: un velo lo tapa y las
+   cajas van opacas, que a través de ellas se leía el panel. */
+@media (max-width: 760px) {
+  #rueda::backdrop { background: #0b0f0bd9; }
+  .cabecera-de-rueda,
+  .pie-de-rueda { background: var(--panel); }
+  /* Las dos figuras y el texto, en dos líneas como mucho: quien pega en una y
+     «ataca a» con el objetivo en la otra; un nombre largo se corta. */
+  .rueda .icono-de-contrincante .figura { width: 32px; height: 38px; }
+  .cabecera-de-rueda .quienes { gap: 0.15rem 0.4rem; }
+}

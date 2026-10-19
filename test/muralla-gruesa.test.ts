@@ -107,8 +107,8 @@ function duelo(
   turnoDe: 'attacker-0' | 'defender-0',
 ): BattleState {
   const state = createBattle(
-    lado([{ creature: 'swordsman', count: 3 }]),
-    lado([{ creature: 'swordsman', count: 3 }]),
+    lado([{ creature: 'templario-mandoble', count: 3 }]),
+    lado([{ creature: 'templario-mandoble', count: 3 }]),
     createRng(3),
     muralla,
   );
@@ -420,10 +420,10 @@ describe('la columna translúcida y la figura en silueta (C18)', () => {
   it('la figura detrás de una columna está tapada por ella; la de delante, no', () => {
     const m = forma('Semicírculo');
     const state = createBattle(
-      lado([{ creature: 'swordsman', count: 3 }]),
+      lado([{ creature: 'templario-mandoble', count: 3 }]),
       lado([
-        { creature: 'swordsman', count: 3 },
-        { creature: 'pikeman', count: 3 },
+        { creature: 'templario-mandoble', count: 3 },
+        { creature: 'templario-escudo', count: 3 },
       ]),
       createRng(3),
       m,

@@ -13,7 +13,8 @@
  *  - la duración —mediana, p90 y máximo— y las que no terminan;
  *  - cuántas gana el jugador 0 (el caballero);
  *  - las emboscadas por partida;
- *  - las piezas por partida: las de serie (3 por héroe que nace), las de botín,
+ *  - las piezas por partida: las de serie (las del equipo base, `EQUIPO_BASE`,
+ *    por héroe que nace), las de botín (entre paréntesis, las que van sobre otra),
  *    las compradas —con su reparto entre partidas, mediana / p90 / máximo, y en
  *    cuántas se compra algo: la media sola escondía que 1 187 compras del banco
  *    salían de 14 semillas atascadas comprando 18 piezas al día—, las que la tropa lleva puestas al acabar y las que se han
@@ -31,7 +32,13 @@
  * Uso: npx tsx tools/qa/equipo.ts [semillas=100] [lado=28] [desde=1] [dias=300]
  */
 import { playAiGame } from '../../src/core/ai/turn.js';
-import { pieza, piezasPuestas } from '../../src/core/hero/equipo.js';
+import { esPiezaConBase } from '../../src/core/data.js';
+import {
+  EQUIPO_BASE,
+  EQUIPO_DEL_JUEGO,
+  idsPuestos,
+  piezasPuestas,
+} from '../../src/core/hero/equipo.js';
 import { createRng } from '../../src/core/rng.js';
 import { newGame } from '../../src/core/state/setup.js';
 import { duracion, mediana } from './estadistica.js';
@@ -47,7 +54,9 @@ let ganaJ0 = 0;
 let emboscadas = 0;
 let deSerie = 0;
 let botin = 0;
-let botinEspecial = 0;
+let botinSobreOtra = 0;
+/** Cuántas piezas trae puestas cada héroe que nace (`EQUIPO_BASE`). */
+const DE_SERIE_POR_HEROE = idsPuestos(EQUIPO_BASE).length;
 let compradas = 0;
 const compradasPorPartida: number[] = [];
 let puestasEnTropa = 0;
@@ -61,7 +70,7 @@ for (let semilla = DESDE; semilla < DESDE + SEMILLAS; semilla++) {
   const state = newGame({ seed: semilla, maxDays: DIAS, width: LADO, height: LADO });
   // Los héroes con los que nace la partida traen su equipo de serie.
   let entraron = state.heroes.length * 3;
-  deSerie += state.heroes.length * 3;
+  deSerie += state.heroes.length * DE_SERIE_POR_HEROE;
   await playAiGame(state, { rng: createRng(semilla) });
   if (state.finished === null) throw new Error('playAiGame volvió sin terminar la partida');
 
@@ -72,13 +81,14 @@ for (let semilla = DESDE; semilla < DESDE + SEMILLAS; semilla++) {
   for (const e of state.log) {
     if (e.kind === 'day_start') dia = e.day;
     if (e.kind === 'hero_hired' || e.kind === 'hero_promoted') {
-      entraron += 3;
-      deSerie += 3;
+      entraron += DE_SERIE_POR_HEROE;
+      deSerie += DE_SERIE_POR_HEROE;
     }
     if (e.kind === 'loot_found') {
       entraron++;
       botin++;
-      if (pieza(e.item).calidad === 'especial') botinEspecial++;
+      const escrita = EQUIPO_DEL_JUEGO.escritas.get(e.item);
+      if (escrita !== undefined && esPiezaConBase(escrita)) botinSobreOtra++;
     }
     if (e.kind === 'item_bought') {
       entraron++;
@@ -119,7 +129,7 @@ for (let semilla = DESDE; semilla < DESDE + SEMILLAS; semilla++) {
 const ms = performance.now() - t0;
 const porPartida = (x: number): string => (x / SEMILLAS).toFixed(2).replace('.', ',');
 console.log(
-  '| lado | días (mediana / p90 / máx) | sin terminar | gana j0 | emboscadas/partida | de serie | botín (especial) | compradas | compradas por partida (mediana / p90 / máx) · partidas con alguna | puestas en tropa al acabar | perdidas | con armería (día mediano) | con morada 5 | tiempo |',
+  '| lado | días (mediana / p90 / máx) | sin terminar | gana j0 | emboscadas/partida | de serie | botín (sobre otra) | compradas | compradas por partida (mediana / p90 / máx) · partidas con alguna | puestas en tropa al acabar | perdidas | con armería (día mediano) | con morada 5 | tiempo |',
 );
 console.log(
   [
@@ -129,7 +139,7 @@ console.log(
     `${ganaJ0}`,
     porPartida(emboscadas),
     porPartida(deSerie),
-    `${porPartida(botin)} (${porPartida(botinEspecial)})`,
+    `${porPartida(botin)} (${porPartida(botinSobreOtra)})`,
     porPartida(compradas),
     `${duracion(compradasPorPartida)} · ${compradasPorPartida.filter((n) => n > 0).length}`,
     porPartida(puestasEnTropa),

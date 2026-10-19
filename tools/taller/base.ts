@@ -58,7 +58,7 @@ export const dirDeLaBase = (f: FactionId): string => `assets/bases/${f}`;
 const dirDeFuentes = (f: FactionId): string => `${dirDeLaBase(f)}/fuentes`;
 
 /** El adulto de la vara de medir, en píxeles del tramo: 0,95 pasos, el mismo de la batalla. */
-export const ADULTO_EN_EL_CUADRO = Math.round(ALTO_DE_FIGURA.normal * TRAMO.pxPorPaso);
+export const ADULTO_EN_EL_CUADRO = Math.round(ALTO_DE_FIGURA * TRAMO.pxPorPaso);
 /** La puerta que se pide, en píxeles del tramo: 1,2-1,3 pasos, un poco más alta que el adulto. */
 const PUERTA_EN_EL_CUADRO = [
   Math.round(1.2 * TRAMO.pxPorPaso),
@@ -83,11 +83,13 @@ const juntasDelTramo = (d: Pick<Disposicion, 'tramos'>, n: number) =>
   ({ izq: n > 1, der: n < d.tramos }) as const;
 
 /**
- * Lo que se pinta de cada mejora del caballero, por su id del catálogo: lo lee su
- * edición (`encargoDeEdicion`). El primer eslabón de cada sitio no lleva: va en el
- * maestro de su tramo, nombrado (`NOMBRE_EN_EL_CUADRO`) y con su hoja de identidad.
+ * Lo que se pinta de cada mejora de la base templaria, por su id del catálogo: lo
+ * lee su edición (`encargoDeEdicion`). El primer eslabón de cada sitio no lleva: va
+ * en el maestro de su tramo, nombrado (`NOMBRE_EN_EL_CUADRO`) y con su hoja de
+ * identidad. Las moradas no tienen mejora (19-10-2026): las ediciones de las
+ * mejoras del caballero se borraron con ellas.
  */
-export const DESCRIPCION_DEL_CABALLERO: Readonly<Record<string, string>> = {
+export const DESCRIPCION_DE_LOS_TEMPLARIOS: Readonly<Record<string, string>> = {
   town_hall:
     'la casa consistorial: el mismo ayuntamiento crecido, con una torre del reloj de piedra, balcón de madera y un estandarte blanco con cruz roja',
   city_hall:
@@ -98,16 +100,6 @@ export const DESCRIPCION_DEL_CABALLERO: Readonly<Record<string, string>> = {
     // Sin anexo al lado: en la plaza la torre tiene a la taberna pegada y el anexo
     // se le metía encima (primer intento de F3); crece en alto, no a lo ancho.
     'el mismo gremio de magia crecido EN ALTO, con el MISMO ANCHO: la torre con una planta más, un mirador con un telescopio de latón en lo alto y vidrieras; sin anexos ni alas a los lados',
-  knight_upgrade_2:
-    'la misma caseta de tiro mejorada: con una torre de vigía de madera, más dianas y un tejado de teja roja',
-  knight_upgrade_3:
-    'el mismo cuartel de piqueros mejorado: con una planta más, almenas y escudos pintados en la fachada',
-  knight_upgrade_4:
-    'la misma sala de armas mejorada: con una galería de arcos, armaduras completas expuestas y un estandarte dorado',
-  knight_upgrade_5:
-    'los mismos establos mejorados: con una torre de entrada, caballos con gualdrapa roja y blanca asomando y lanzas de torneo',
-  knight_upgrade_6:
-    'la misma capilla mejorada: hecha catedral pequeña, con dos torres, contrafuertes y una cruz roja dorada en lo alto',
 };
 
 /** Cómo se nombra cada edificio en el prompt del cuadro, con el número de la guía delante. */
@@ -118,18 +110,18 @@ const NOMBRE_EN_EL_CUADRO: Readonly<Record<string, string>> = {
   tavern: 'la taberna',
   marketplace: 'el mercado cubierto',
   armory: 'la armería',
-  knight_dwelling_1: 'la choza de los campesinos (morada 1)',
-  knight_dwelling_2: 'el barracón de arqueros (morada 2)',
-  knight_dwelling_3: 'el cuartel de piqueros (morada 3)',
-  knight_dwelling_4: 'el salón de armas (morada 4)',
-  knight_dwelling_5: 'los establos de la caballería (morada 5)',
-  knight_dwelling_6: 'la iglesia de los paladines (morada 6)',
+  // Lo que pintan los maestros de las moradas que los templarios heredaron del
+  // caballero (19-10-2026): el 2 y el 4 se quedaron sin edificio.
+  templarios_pueblo: 'la choza de los campesinos (el pueblo)',
+  templarios_forja: 'el cuartel de piqueros (la forja)',
+  templarios_establos: 'los establos de la caballería',
+  templarios_monasterio: 'la iglesia de los paladines (el monasterio)',
 };
 
 /**
  * El edificio de la vuelta 1 que da la identidad de cada uno: el crudo de Codex,
  * suelto y proporcionado, por su hilo en `~/.codex/generated_images/` (los hilos
- * salen de `tools/taller/cola/hecho/base-knight-<id>.json`). De los seis de la
+ * salen de las colas de hecho de la base del caballero, con los ids de entonces). De los seis de la
  * segunda prueba, el mismo crudo que entonces; de los demás, el último intento.
  * Solo hacen falta para escribir las hojas de `fuentes/`, que se commitean.
  */
@@ -146,28 +138,14 @@ const CRUDO_DE_LA_VUELTA_1: Readonly<Record<string, string>> = {
   tavern: '01a1204b-c14b-7fa2-bdac-d65df8f5c9f2/exec-c1477ad4-2c85-4286-803d-80ac63275fde.png',
   marketplace: '01a1204b-7179-79b1-b6e8-804cc54347ae/exec-97159b62-7bea-45c5-854b-e8d6bcf5f060.png',
   armory: '01a12046-512f-7130-a7a8-f5b5126e5b32/exec-9f2dcd06-e9d5-42e5-b766-aa06302c75e0.png',
-  knight_dwelling_1:
+  templarios_pueblo:
     '01a12047-dec0-7e93-b7ad-31aedd45edd7/exec-d7762283-39e8-45bb-bac9-bb42397ea540.png',
-  knight_dwelling_2:
-    '01a12048-274d-7aa2-820b-d9324d7afb1b/exec-91e6d9de-c0a1-4bca-802c-4a21ab8a01d5.png',
-  knight_dwelling_3:
+  templarios_forja:
     '01a12048-5208-7662-a6d9-c65364032071/exec-6db2edac-0a60-4ed8-a755-dac17eed83e4.png',
-  knight_dwelling_4:
-    '01a12049-c916-71e3-be8f-a33162428172/exec-e0cef070-1ab3-40c5-a63a-dc6842b1246a.png',
-  knight_dwelling_5:
+  templarios_establos:
     '01a1204a-09b3-79f1-b8f9-9f1040596620/exec-5c7f683f-9754-4752-9313-2a0ca15ffd11.png',
-  knight_dwelling_6:
+  templarios_monasterio:
     '01a1204a-32b3-7f83-a61b-fc4c5417eaa3/exec-7c3d8a18-6da8-4490-9124-88bfcbcfc319.png',
-  knight_upgrade_2:
-    '01a1204d-c44d-7360-b367-cd6fcef35b4b/exec-356ef4b3-3fa7-4815-b408-8bd083c9061d.png',
-  knight_upgrade_3:
-    '01a1204d-f452-7122-bda4-d1e6ff538502/exec-fef753cb-4a4f-44c2-bdf2-7f22f13f265c.png',
-  knight_upgrade_4:
-    '01a1204e-53a0-7952-9473-1e56fb5e7530/exec-9f9bc09f-b797-4b1c-9ee2-4c154a0d3048.png',
-  knight_upgrade_5:
-    '01a1204f-13e3-7ca0-94c1-cea6277c5b02/exec-2abbc5b1-5e4e-47b8-bc92-04efd0664f8a.png',
-  knight_upgrade_6:
-    '01a1204f-4235-7b12-b312-0fa0646ce669/exec-f562a666-7f58-493d-8a41-bc366ca5909d.png',
 };
 
 /**
@@ -192,10 +170,7 @@ export function* mejorasDe(
 }
 
 /** El estilo de la facción del juego en las láminas de `assets/art/`. */
-const ESTILO_DE_LA_BASE: Readonly<Record<FactionId, string>> = {
-  knight: ESTILO_DE_FACCION.templarios,
-  necromancer: ESTILO_DE_FACCION['no-muertos'],
-};
+const ESTILO_DE_LA_BASE: Readonly<Record<FactionId, string>> = ESTILO_DE_FACCION;
 
 /** Los sitios de un tramo, de izquierda a derecha por su puerta: el número de cada uno en la guía. */
 export function sitiosDelTramo(d: Disposicion, tramo: number): SitioId[] {
@@ -222,7 +197,7 @@ function puertasPedidas(d: Disposicion, tramo: number, n: number): number[] {
 const primero = (f: FactionId, s: SitioId): string => sitioDe(f, s).cadena[0] as string;
 
 const sinNada = (id: string, f: FactionId): Error =>
-  new Error(`no hay descripción para "${id}" de ${f}: solo el caballero tiene arte este ciclo`);
+  new Error(`no hay descripción para "${id}" de ${f}: solo los templarios tienen arte este ciclo`);
 
 /** Las fuentes de un tramo y de una edición, sin extensión de salida. */
 export const guiaDelTramo = (f: FactionId, n: number): string =>
@@ -261,12 +236,6 @@ const ESTILO = (f: FactionId) => [
 const PALETA =
   'PALETA: SOBRIA y poco saturada, como la imagen 1: piedra gris y ocre apagado, madera parda, pizarra gris y teja de color apagado, verde oliva oscuro. Luz de TARDE NEUTRA, ni dorada ni naranja: cielo gris azulado nublado, sin puesta de sol, sin hojas de otoño. Sombras suaves.';
 
-/** Lo que se dice por edificio cuando su hoja trae algo que no va en la plaza. */
-const SIN_SU_ATREZO: Readonly<Record<string, string>> = {
-  knight_dwelling_4:
-    'EL SALÓN DE ARMAS VA SIN SU PATIO: sin el murete, el patio de arena, los muñecos de entrenamiento ni los estandartes del patio; solo el edificio, con su puerta sobre el borde del empedrado.',
-};
-
 /** Cómo se nombran en el prompt los bordes de un tramo que dan a otro. */
 function bordesDeJunta(j: ReturnType<typeof juntasDelTramo>): string {
   return j.izq && j.der ? 'los dos bordes' : j.izq ? 'el borde izquierdo' : 'el borde derecho';
@@ -281,7 +250,7 @@ const CUADRO_DE_LA_BASE = (f: FactionId) =>
   }) as const;
 
 export function encargoDelMaestro(f: FactionId, n: number): Encargo {
-  if (f !== 'knight') throw sinNada(`maestro-t${n}`, f);
+  if (f !== 'templarios') throw sinNada(`maestro-t${n}`, f);
   const d = disposicionDe(f);
   const sitios = sitiosDelTramo(d, n);
   const ids = sitios.map((s) => primero(f, s));
@@ -304,7 +273,6 @@ export function encargoDelMaestro(f: FactionId, n: number): Encargo {
       `LA SILUETA DE LA GUÍA ES LA VARA DE MEDIR: un adulto de ${ADULTO_EN_EL_CUADRO} px de alto da la escala de TODO el cuadro. La PUERTA de cada edificio es un poco MÁS ALTA que la silueta que tiene al lado (la puerta, unos ${PUERTA_EN_EL_CUADRO[0]}-${PUERTA_EN_EL_CUADRO[1]} px), y las ventanas, plantas, aleros y tejados a esa misma escala, como para gente de ese tamaño. Con esa escala los edificios son GRANDES en el cuadro: llenan el alto de la imagen por encima de la franja del empedrado, y los que de verdad son altos se salen por el borde de arriba, cortados. Eso está bien: no los encojas para que quepan.`,
       `Los ${ids.length} edificios (${lista}), cada uno con el umbral de su puerta en su punto de la guía, a ras del borde de atrás del empedrado. Cada uno es el edificio de la hoja de identidad con ese número: su mismo diseño, materiales, colores, tejado y heráldica, con PROPORCIONES NORMALES, las de la hoja: ni estirados en alto ni estrechados. Entre ellos queda aire: se lee como una plaza, no como una calle.`,
       'SOLO el edificio de cada uno: sin las carretas, huertos, cercas, mesas, escalinatas ni objetos sueltos de la hoja.',
-      ...ids.flatMap((id) => (SIN_SU_ATREZO[id] === undefined ? [] : [SIN_SU_ATREZO[id]])),
       'NO AÑADAS PLAZA DELANTE: el empedrado es solo la franja gris clara de abajo, poco honda y PLANA, con su borde de atrás RECTO y a la MISMA ALTURA de punta a punta de la imagen; el pie de cada edificio, de cada muro y de cada pilar va justo en ese borde. Nada de suelo vacío entre el empedrado y los edificios, ni escalones, ni aceras.',
       // La junta: lo que esconde la costura con el tramo de al lado (F2).
       `LA JUNTA, en ${bordes} de la imagen: la franja VERDE OSCURA de la guía (las ${JUNTA.ancho} columnas pegadas a ${juntas.izq && juntas.der ? 'cada borde' : 'ese borde'}) es UN ÁRBOL ALTO Y FRONDOSO, de copa densa verde oliva oscura que sube desde lo alto del muro hasta el BORDE DE ARRIBA de la imagen y queda CORTADA por el borde lateral, como si el árbol siguiera fuera. El rectángulo PARDO a su pie es un PILAR de piedra del muro, recto y vertical, con su pie en el borde de atrás del empedrado, y detrás de él asoma el tronco. En esas columnas no hay cielo, ni casas, ni tejados: solo el pilar, el tronco y las hojas, de arriba abajo hasta el empedrado.`,
@@ -325,7 +293,7 @@ export function encargoDelMaestro(f: FactionId, n: number): Encargo {
 }
 
 export function encargoDeLaPlaca(f: FactionId, n: number): Encargo {
-  if (f !== 'knight') throw sinNada(`placa-t${n}`, f);
+  if (f !== 'templarios') throw sinNada(`placa-t${n}`, f);
   const d = disposicionDe(f);
   const nombres = sitiosDelTramo(d, n)
     .map((s) => NOMBRE_EN_EL_CUADRO[primero(f, s)] ?? s)
@@ -346,8 +314,8 @@ export function encargoDeLaPlaca(f: FactionId, n: number): Encargo {
 
 /** Una mejora: el eslabón anterior editado cambiando solo ese edificio, dentro de su región. */
 export function encargoDeEdicion(f: FactionId, id: string): Encargo {
-  const describe = DESCRIPCION_DEL_CABALLERO[id];
-  if (f !== 'knight' || describe === undefined) throw sinNada(id, f);
+  const describe = DESCRIPCION_DE_LOS_TEMPLARIOS[id];
+  if (f !== 'templarios' || describe === undefined) throw sinNada(id, f);
   const antes = edificioDeAntes(id, f);
   if (antes === null) throw new Error(`"${id}" es el primer eslabón de su sitio: va en el maestro`);
   const d = disposicionDe(f);
@@ -380,7 +348,7 @@ const enDisco = (ruta: string): boolean => existsSync(join(RAIZ, ruta));
  * y cada mejora cuando está su eslabón de antes. Lo demás se dice como pendiente.
  */
 export function encargosDeLaBase(f: FactionId): { listos: Encargo[]; esperan: string[] } {
-  if (f !== 'knight') throw sinNada('la base', f);
+  if (f !== 'templarios') throw sinNada('la base', f);
   const d = disposicionDe(f);
   const listos: Encargo[] = [];
   const esperan: string[] = [];
@@ -528,7 +496,7 @@ async function escribir(ruta: string, png: () => Promise<Buffer>, fija: boolean)
  * cada tramo y las de cada mejora. Devuelve las que escribió.
  */
 export async function escribirFuentesDeLaBase(f: FactionId): Promise<string[]> {
-  if (f !== 'knight') throw sinNada('la base', f);
+  if (f !== 'templarios') throw sinNada('la base', f);
   const d = disposicionDe(f);
   const escritas: string[] = [];
   for (let n = 1; n <= d.tramos; n++) {

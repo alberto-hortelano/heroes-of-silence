@@ -63,6 +63,9 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { Casillas } from '../src/core/map/casillas.js';
+import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
+import { building } from '../src/core/town/buildings.js';
+import { dwellings } from '../src/core/town/town.js';
 import type { Hex } from '../src/core/types.js';
 import {
   bordeDeAtras,
@@ -112,7 +115,7 @@ function jugarUnTramo(s: Session): number {
     // figura de un hex es la más lenta que hay.
     if (e.kind === 'move') {
       const quien = s.battle!.stacks.find((x) => x.id === e.stack)!;
-      dura += e.path.length * msPorCasilla(quien.body, 'walk', ALTO_DE_FIGURA.normal);
+      dura += e.path.length * msPorCasilla(quien.body, 'walk', ALTO_DE_FIGURA);
     }
   }
   return dura;
@@ -454,7 +457,9 @@ describe('la batalla en el lienzo', () => {
     const s = sesionEnBatalla();
     const escena = escenaDeBatalla(() => s);
     for (let i = 0; i < 500 && s.battle!.finished === null; i++) {
-      s.playBattleAction(agresiva(s.battle!));
+      // La rueda del golpe, si espera a la persona (F5): Normal.
+      if (s.ruedaPendiente !== null) s.elegirEnLaRueda('normal');
+      else s.playBattleAction(agresiva(s.battle!));
     }
     expect(s.battle!.finished).not.toBeNull();
     escena.sincronizar(10);
@@ -507,7 +512,7 @@ describe('la batalla en el lienzo', () => {
           const c = centroHex(t, a.to);
           const tapa = b.stacks.find((e) => {
             if (!isAlive(e) || e.side === s!.miBando) return false;
-            const k = cajaDeFigura(t, e, centroDeStack(stackHexes(e)));
+            const k = cajaDeFigura(t, centroDeStack(stackHexes(e)));
             return (
               Math.abs(c.x - k.x) <= k.ancho / 2 && c.y <= k.suelo + 4 && c.y >= k.suelo - k.alto
             );
@@ -544,7 +549,7 @@ describe('la batalla en el lienzo', () => {
     const t = tableroPara(1086, 778);
     escena.encuadrar(1086, 778);
     const enemigo = s.battle!.stacks.find((x) => isAlive(x) && x.side !== s.miBando)!;
-    const k = cajaDeFigura(t, enemigo, centroDeStack(stackHexes(enemigo)));
+    const k = cajaDeFigura(t, centroDeStack(stackHexes(enemigo)));
     // La cabeza: encima de cualquier centro de hex.
     expect(escena.objetivoEn(k.x, k.suelo - k.alto * 0.85)?.id).toBe(enemigo.id);
   });
@@ -632,7 +637,7 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
       // La barra no la lleva, y la corona solo la pinta quien la pinta.
       pintarSobreLaCabeza(ctx, vista, x, f);
       expect(textos).not.toContain(MARCA_DE_COMANDANTE);
-      if (x.origen.kind === 'heroe') pintarCorona(ctx, vista, x, f);
+      if (x.origen.kind === 'heroe') pintarCorona(ctx, vista, f);
       return textos.filter((t) => t === MARCA_DE_COMANDANTE).length;
     };
     const heroe = batalla.stacks.find((x) => x.origen.kind === 'heroe')!;
@@ -649,9 +654,9 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
     // activa y en la señalada— le caía encima. Las dos cajas no se tocan, y la
     // corona ya no es la de 14 px de antes.
     const f = { en: centroDeStack(stackHexes(heroe)), alfaDelAro: 1 } as EstadoFigura;
-    const corona = cajaDeCorona(vista, heroe, f);
+    const corona = cajaDeCorona(vista, f);
     // Un nombre largo de verdad: lo que mide «Aldo de Valdeluz» y algo más.
-    const nombre = cajaDeNombre(vista, heroe, f, 160);
+    const nombre = cajaDeNombre(vista, f, 160);
     const seTocan =
       corona.x < nombre.x + nombre.ancho &&
       nombre.x < corona.x + corona.ancho &&
@@ -861,6 +866,16 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     dondePulsarElSitio(t, d.sitios[sitio]);
   const elPunto = (p: Plano) => (t: Tablero) => enPantalla(t, p);
 
+  /**
+   * Una partida cuya base de quien juega es del imperio: es la facción con una
+   * morada que pide otra además del pueblo (la Fundición pide el Taller), así que
+   * su «Ampliar» del primer día ya enseña un «falta construir».
+   */
+  const IMPERIO = primeraSemillaCon('la base de quien juega en el imperio', (n) =>
+    faccionesDeLaSemilla(n)[0] === 'imperio' ? true : undefined,
+  ).semilla;
+  const FUNDICION = 'imperio_fundicion';
+
   it('sin héroe dentro camina el alcaide; con él, el héroe', () => {
     const { s } = enLaBase();
     expect(s.vistaDeLaBase()!.caminante.id).toBe(`alcaide-${s.activeTown!.id}`);
@@ -870,7 +885,8 @@ describe('la base caminable (escenas/castillo.ts)', () => {
   });
 
   it('un clic en el ayuntamiento lleva a su puerta y, al llegar, abre «Ampliar» (en menos de 1,5 s)', () => {
-    const { s, escena, d } = enLaBase();
+    const { s, escena, d } = enLaBase(IMPERIO);
+    expect(s.activeTown!.faction).toBe('imperio');
     expect(escena.marca).toBe('quieto');
     expect(escena.posicion).toEqual(d.entrada);
     pulsar(escena, laPuerta(d, 'hall'), 0);
@@ -885,7 +901,9 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     expect(panel).toContain('data-action="build" data-building="town_hall"');
     expect(panel).toContain('data-building="castle"');
     // Lo que no se puede lleva el motivo del núcleo (`buildBlocker`).
-    expect(panel).toContain('falta construir &quot;Morada de nivel 2&quot;');
+    const falta = building(FUNDICION).requires?.find((r) => !s.activeTown!.buildings.includes(r));
+    const taller = building(falta ?? '').name;
+    expect(panel).toContain(`falta construir &quot;${taller}&quot;`);
     // Construir lo hace aparecer en su sitio: el castillo, en el del fuerte.
     expect(s.vistaDeLaBase()!.edificios.map((e) => e.sitio)).not.toContain('fort');
     s.build('castle');
@@ -901,7 +919,8 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     escena.actualizar(10_000);
     expect(escena.abierto).toEqual({ tipo: 'sitio', sitio: 'lvl1' });
     expect(escena.posicion).toEqual(d.sitios.lvl1.puerta);
-    const recluta = s.vistaDeLaBase()!.faccion === 'knight' ? 'peasant' : 'skeleton';
+    // Lo primero que se recluta en la morada del sitio 1, la que la base trae hecha.
+    const recluta = dwellings(s.activeTown!).find((f) => f.morada === 1)!.creature;
     const plan = s.recruitPlan(recluta)!;
     // El primer día la guarnición está llena (20 de 20): no cabe ni uno, y los
     // dos botones salen apagados con la frase del núcleo (QA, H9).
@@ -929,14 +948,14 @@ describe('la base caminable (escenas/castillo.ts)', () => {
   });
 
   it('«Construir» sale apagado, con el motivo de `buildBlocker` en el título, cuando no se puede', () => {
-    const { s, escena, d } = enLaBase();
+    const { s, escena, d } = enLaBase(IMPERIO);
     pulsar(escena, laPuerta(d, 'hall'), 0);
     escena.actualizar(10_000);
     const boton = (panel: string, id: string) =>
       panel.match(new RegExp(`<button data-action="build" data-building="${id}"[^>]*>`))?.[0];
     const antes = marcadoDe(renderSide(s, false, escena.abierto));
     expect(boton(antes, 'castle')).not.toContain('disabled');
-    expect(boton(antes, 'knight_dwelling_3')).toContain('disabled title="falta construir');
+    expect(boton(antes, FUNDICION)).toContain('disabled title="falta construir');
     s.build('castle');
     const despues = marcadoDe(renderSide(s, false, escena.abierto));
     expect(boton(despues, 'town_hall')).toContain('disabled title="ya se ha construido hoy');

@@ -1,11 +1,8 @@
-import type { PiezaEscrita } from '../data.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
 import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { Paso } from './board.js';
 import type { CuandoVence, EffectKind, StackEffect } from './effects.js';
-import type { ModosDeArena } from './modos.js';
 import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
-import type { ReglasDeBatalla } from './reglas.js';
 import type { Punto, TipoDeGolpe } from './rueda.js';
 
 export type Side = 'attacker' | 'defender';
@@ -40,6 +37,12 @@ export type OrigenDelStack =
   | {
       readonly kind: 'catalogo';
       /**
+       * La unidad del catálogo que es (`data/unidades.json`): de ella salen sus
+       * cifras, su cuerpo sin equipo (`cuerpoDe`) y lo que dicen de ella el
+       * resumen, el agente y la vuelta al ejército. `body` es solo su arte.
+       */
+      readonly unidad: string;
+      /**
        * El oro de catálogo de UN individuo: lo que vale para la rendición. Va
        * aquí porque `unit` ya no es siempre la referencia del catálogo —la de
        * un veterano es una copia con sus cifras— y era la referencia la que
@@ -50,7 +53,14 @@ export type OrigenDelStack =
       readonly veterania: Veterania | null;
     }
   | { readonly kind: 'personaje'; readonly id: string; readonly veterania: Veterania | null }
-  | { readonly kind: 'heroe' };
+  | {
+      readonly kind: 'heroe';
+      /**
+       * Su cuerpo sin el equipo (`cuerpoDelHeroe`): el héroe no está en ningún
+       * catálogo, y es de donde `cuerpoDe` saca lo que le suma lo que lleva.
+       */
+      readonly desnudo: UnitInfo;
+    };
 
 /** Lo que un stack ha ganado en esta batalla: lo apunta `herir`, lo cobra `settleBattle`. */
 export interface Ganado {
@@ -75,6 +85,15 @@ export function personajeDe(origen: OrigenDelStack): string | null {
     case 'heroe':
       return null;
   }
+}
+
+/**
+ * Qué es un stack para quien lo cuenta —la crónica (`resumenDeBatalla`) y el
+ * agente—: la unidad del catálogo que es; el héroe y el personaje, por su cuerpo
+ * (`HERO_BODY`, `CHARACTER_BODY`), que no están en él.
+ */
+export function queEs(s: Pick<BattleStack, 'origen' | 'body'>): string {
+  return s.origen.kind === 'catalogo' ? s.origen.unidad : s.body;
 }
 
 /**
@@ -139,9 +158,8 @@ export interface BattleStack {
   count: number;
   /** HP restante del efectivo de arriba; el resto están intactos. */
   topHp: number;
-  /** Hex de cabeza. Las unidades grandes ocupan también el de detrás. */
+  /** La casilla que ocupa: toda unidad, una (13-10-2026). */
   hex: Hex;
-  shotsLeft: number;
   /**
    * Lleva una escalera para subir a la muralla (`poner_escalera`). Llega con
    * el personaje (`BattleMember.escalera`, solo en la arena) si la puede usar, y
@@ -173,8 +191,8 @@ export interface BattleStack {
    * La herida que las cifras de ahora no dejan restar, en PV: solo la arena, al
    * retocar a media pelea (`retocarEnBatalla`). Bajar la vida por debajo de la
    * herida deja el stack a 1 PV; lo que no cupo se apunta aquí para que volver a
-   * subirla no lo devuelva (N3 de QA). Sin él, nada que deber. La arena no cuenta
-   * tiros (13-10-2026): no hay munición que deber, y por eso es un número, como
+   * subirla no lo devuelva (N3 de QA). Sin él, nada que deber. Sin munición
+   * (13-10-2026) no hay tiros que deber, y por eso es un número, como
    * `BattleHero.manaGastadoDeMas`.
    */
   readonly gastadoDeMas?: number;
@@ -202,14 +220,6 @@ export interface BattleHero {
    * que copiarlo al entrar no se queda viejo.
    */
   readonly retreat: { readonly purse: number } | { readonly blocked: string };
-  /**
-   * El ataque y la defensa PRIMARIOS del héroe (`Hero.attack`, `Hero.defense`),
-   * no los de su cuerpo. En el juego no los lee nadie —ya van en su cuerpo—: solo
-   * el interruptor (f) de la arena, que los suma a toda su tropa como fheroes2
-   * (`opcionesDeDanio`, `battle.ts`).
-   */
-  readonly ataque: number;
-  readonly defensa: number;
   readonly spellPower: number;
   readonly knowledge: number;
   mana: number;
@@ -235,7 +245,7 @@ export type BattleEvent =
    */
   | { kind: 'move'; stack: string; to: Hex; path: readonly Hex[]; charge?: true }
   /**
-   * La rueda del golpe (`rueda.ts`, solo la arena): lo que eligieron quien pega y
+   * La rueda del golpe (`rueda.ts`): lo que eligieron quien pega y
    * quien recibe y dónde cae el golpe. Va DESPUÉS del `move` del golpe y justo
    * antes de su `attack`: primero se anda, luego se elige, luego se golpea
    * (decisión del usuario, 13-10-2026). El contraataque, si lo hubo, lleva su
@@ -256,10 +266,9 @@ export type BattleEvent =
       damage: number;
       killed: number;
       retaliation: boolean;
+      /** Las casillas de carga que cobró; con qué cifras, las de quien pegó (`cifrasDeCarga`). */
       charge?: number;
-      /** La carga fue a pie (con `CARGA.aPie`): solo en la arena, que la juega. */
-      cargaAPie?: true;
-      /** Con la rueda del golpe (la arena), el punto del cruce en que cayó. */
+      /** El punto del cruce de la rueda en que cayó: todo golpe cuerpo a cuerpo lo lleva. */
       punto?: Punto;
       /**
        * Lo que paró la armadura del objetivo (la arena, #262; `trasLaArmadura`):
@@ -292,7 +301,7 @@ export type BattleEvent =
       parado?: number;
     }
   /**
-   * Una unidad usa un poder sobre `target` (`poderes.ts`, solo la arena). `cura`,
+   * Una unidad usa un poder sobre `target` (`poderes.ts`). `cura`,
    * los PV que repuso, si cura; lo que deja un poder de efecto va detrás, en su
    * propio `effect`, como el del hechizo.
    */
@@ -376,7 +385,7 @@ export interface TurnoDeUnidad {
   /** Casillas recorridas en este turno: cada `move` suma lo que cuesta su camino. */
   gastado: number;
   /**
-   * Tras golpear con Finta (la rueda del golpe, solo la arena): las casillas que
+   * Tras golpear con Finta (la rueda del golpe): las casillas que
    * resta de lo que le queda por andar (`casillasQueQuitaLaFinta`). Puesto, el
    * resto del turno es un tramo **solo de andar** (`faseDelTurno`, `faseBlocker`): andar o
    * terminar. Lo pone solo `melee` (lo vigila `test/invariantes.test.ts`), y no
@@ -391,13 +400,6 @@ export interface TurnoDeUnidad {
  * sus nombres, para decir lo que entra y lo que sale.
  */
 export type FichaEnPalabras = Readonly<Record<string, string | readonly string[]>>;
-
-/** El tipo del montaje de la arena del que sale un stack (`BattleState.tiposDeArena`). */
-export interface TipoDeArena {
-  /** Una unidad del borrador: el catálogo del juego no entra en la arena (13-10-2026). */
-  readonly kind: 'unidad';
-  readonly id: string;
-}
 
 /** El golpe plantado que espera la rueda (`BattleState.golpeEnCurso`). */
 export interface GolpeEnCurso {
@@ -446,41 +448,21 @@ export interface BattleState {
   turno: TurnoDeUnidad | null;
   heroes: Record<Side, BattleHero | null>;
   /**
-   * Qué versión de cada regla dudosa juega esta batalla (`reglas.ts`). Se pone al
-   * montarla y no cambia: en el juego, siempre `REGLAS_DEL_JUEGO`; solo la arena
-   * pelea con otras.
-   */
-  readonly reglas: ReglasDeBatalla;
-  /**
    * Muros y puertas del tablero (`muralla.ts`). No cambia en toda la batalla; en
    * las del mapa, hoy, `SIN_MURALLA`. Solo la arena la pone.
    */
   readonly muralla: MurallaDeBatalla;
   /**
-   * Los modos de la arena (`modos.ts`): cómo cae el golpe cuerpo a cuerpo (la
-   * rueda, `conRueda`), si salir del contacto cuesta (`pagaElContacto`) y si carga
-   * a pie todo el que pega cuerpo a cuerpo (`cargaDelStack`). Se ponen al montarla
-   * y no cambian: en el juego, siempre `MODOS_DEL_JUEGO`; solo la arena enciende
-   * alguno.
-   */
-  readonly arena: ModosDeArena;
-  /**
-   * Con la rueda, el golpe de quien se ha plantado ante su objetivo y espera la
+   * El golpe de quien se ha plantado ante su objetivo y espera la
    * rueda: quién, contra quién y la carga de la carrera con que llegó (medida
    * antes de andar; al pegar ya no se puede medir). Lo pone el `attack` sin
    * elecciones («plantarse», `applyAction`), lo quita el golpe o `soltarElGolpe`.
    * Mientras está puesto, la única jugada que vale es ese golpe con sus dos
    * elecciones (`golpeEnCursoBlocker`). Lo elegido no va aquí: va a ciegas en
-   * quien lo guarda (la sesión). Siempre `null` al azar y en el juego.
+   * quien lo guarda (la sesión). Siempre `null` si nadie se ha plantado: la IA
+   * y el agente golpean de una vez, con las dos elecciones (`completarCruce`).
    */
   golpeEnCurso: GolpeEnCurso | null;
-  /**
-   * De qué tipo del montaje sale cada stack de la tropa, por bando y en el orden
-   * de su `slot`: una hoja del borrador o una criatura del catálogo. Solo la
-   * arena lo pone (`batallaDeArena`) y lo lee (`tipoDelStack`): retocar un tipo a
-   * media pelea cambia los suyos, y el `body` (su cuerpo) no dice de qué unidad es.
-   */
-  readonly tiposDeArena?: Readonly<Record<Side, readonly TipoDeArena[]>>;
   /**
    * La ficha de cada tipo y de cada héroe tal como pelea ahora, dicha en
    * palabras campo a campo (`fichaEnPalabras`, `arena.ts`): lo que escribe la
@@ -490,14 +472,6 @@ export interface BattleState {
    * escribe nada. La clave, `claveDeFicha`.
    */
   readonly fichasDeArena?: Record<string, FichaEnPalabras>;
-  /**
-   * Las piezas de la arena con que se pelea: las del borrador de equipo que
-   * cambian una del juego o son nuevas (`catalogoDeLaArena` las pone encima de
-   * `data/equipo.json`). Solo la arena las pone al montar y al cambiar una pieza a
-   * media pelea (`retocarEnBatalla`, `kind: 'piezas'`). La lista del borrador: la
-   * misma forma en el montaje, la batalla y el retoque.
-   */
-  piezasDeArena?: readonly PiezaEscrita[];
   /**
    * Las escaleras apoyadas en la muralla, con su pie y su muro. Crece con cada
    * `poner_escalera` y no se quita: va fuera de `muralla`, que no cambia en toda
@@ -522,10 +496,12 @@ export type BattleAction =
    */
   | { type: 'move'; to: Hex }
   /**
-   * Mueve (si hace falta) hasta `from` y golpea a `target`. Con la rueda del golpe
-   * (solo la arena), `golpe` y `respuesta` son lo que eligieron quien pega y quien
-   * recibe, obligatorios; sin ella, no van (`cruceBlocker`). El agente no los
-   * conoce: su esquema los quita.
+   * Mueve (si hace falta) hasta `from` y golpea a `target`. `golpe` y `respuesta`
+   * son lo que eligieron en la rueda quien pega y quien recibe, obligatorios para
+   * dar el golpe; sin ninguno de los dos, quien pega se planta (`cruceBlocker`,
+   * `golpeEnCurso`). El agente manda el suyo como `hit` y su respuesta con
+   * `battle_response` (`contract/vocabulario.ts`); lo que nadie elige, la IA a ciegas
+   * (`completarCruce`).
    */
   | { type: 'attack'; target: string; from?: Hex; golpe?: TipoDeGolpe; respuesta?: TipoDeGolpe }
   | { type: 'shoot'; target: string }
@@ -534,11 +510,11 @@ export type BattleAction =
   | { type: 'cast'; spell: string; target?: string }
   /**
    * La unidad activa usa uno de sus poderes (`UnitInfo.poderes`) sobre el aliado
-   * `target`, sin haberse movido: es el turno entero (`poderBlocker`). Solo sale
-   * en la arena: el catálogo no tiene poderes, y por eso no está en el contrato
-   * del agente, como la escalera.
+   * `target`, sin haberse movido: es el turno entero (`poderBlocker`). La tienen
+   * las unidades con una habilidad que da poder (`unidadDeCombate`), en la arena y
+   * en la partida; el agente la escribe `power` (`accionDeBatallaDelAgente`).
    */
-  | { type: 'poder'; poder: PoderId; target: string }
+  | { type: 'power'; poder: PoderId; target: string }
   /**
    * El bando de la unidad activa se rinde (`surrenderBlocker` dice si puede).
    * `gold` es el precio: `legalActions` lo trae puesto, para que quien decide

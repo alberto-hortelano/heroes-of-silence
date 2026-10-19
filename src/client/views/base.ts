@@ -10,10 +10,10 @@
  * escribe el núcleo (`buildBlocker`). Las acciones salen por `data-action` y las
  * reparte `main.ts`, como todos los botones.
  */
-import { creature } from '@core/data.js';
+import { unidadDelJuego, unidadesDeMorada } from '@core/catalogo.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, SITIOS, type SitioId, siguienteDe, sitioDe } from '@core/town/sitios.js';
-import { buildBlocker, creatureDeMorada, recruitCost, type Town } from '@core/town/town.js';
+import { buildBlocker, recruitCost, type Town } from '@core/town/town.js';
 import { describirCoste } from '@core/types.js';
 import type { Abierto } from '../escenas/castillo.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
@@ -58,10 +58,19 @@ function mejora(session: Session, town: Town, sitio: SitioId): Html {
     : html`<h3>Mejorar</h3><div class="stack-list">${filaDeConstruir(session, town, id)}</div>`;
 }
 
-/** Una morada: cuántos hay, cuánto cuesta y caben, y «+1» y «Todo» (lo que calcula el núcleo). */
-function morada(session: Session, town: Town, sitio: SitioId, numero: number): Html {
-  const id = creatureDeMorada(town, numero);
-  const info = creature(id);
+/**
+ * Una morada: las unidades que produce (una morada produce varias), y de cada una
+ * cuántas hay, cuánto cuesta y caben, y «+1» y «Todo» (lo que calcula el núcleo).
+ */
+function morada(session: Session, town: Town, sitio: SitioId): Html {
+  const hecho = construidoEn(town, sitio);
+  const unidades = hecho === null ? [] : unidadesDeMorada(hecho);
+  return html`${unir(unidades.map(({ id }) => reclutable(session, town, id)))}
+    ${mejora(session, town, sitio)}`;
+}
+
+function reclutable(session: Session, town: Town, id: string): Html {
+  const info = unidadDelJuego(id);
   const hay = town.available[id] ?? 0;
   const plan = session.recruitPlan(id);
   const cupo =
@@ -80,13 +89,12 @@ function morada(session: Session, town: Town, sitio: SitioId, numero: number): H
     <div class="stack-list reclutar">
       <button data-action="recruit" data-creature="${id}" data-todo="no" ${apagado} title="${motivo ?? 'Reclutar uno'}">+1</button>
       <button data-action="recruit" data-creature="${id}" data-todo="si" class="primary" ${apagado} title="${motivo ?? 'Reclutar todos los que caben y se pagan'}">${todo}</button>
-    </div>
-    ${mejora(session, town, sitio)}`;
+    </div>`;
 }
 
 function edificio(session: Session, town: Town, sitio: SitioId, piezas: PiezasDelCastillo): Html {
   const s = sitioDe(town.faction, sitio);
-  if (s.nivel !== undefined) return morada(session, town, sitio, s.nivel);
+  if (s.morada !== undefined) return morada(session, town, sitio);
   const hecho = construidoEn(town, sitio);
   const titulo = hecho === null ? NADA : html`<h2>${building(hecho).name}</h2>`;
   switch (sitio) {

@@ -19,6 +19,7 @@ import {
   FORMAS_DE_EJEMPLO,
   REGLA_DE_LA_MURALLA,
 } from '../src/core/arena-murallas.js';
+import { trasLaArmadura } from '../src/core/battle/armas.js';
 import {
   applyAction,
   ataqueBlocker,
@@ -48,19 +49,26 @@ import {
   puertasAlEmpezar,
   validarMuralla,
 } from '../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
 import { LIDERAZGO, MURALLA } from '../src/core/data.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
-import type { Hex, Stack } from '../src/core/types.js';
+import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
   abrirPuertas,
+  aMano,
   aPelear,
-  DEL_JUEGO,
+  bandoDePersonajes,
   forzarTurno,
+  NO_MUERTO,
+  PESADA,
   peleaDeArena,
   peleaDelMotor,
   sesionDeArena,
+  TIRADOR,
+  TIRADOR_NO_MUERTO,
+  TROPA,
   unidadDeArena,
 } from './helpers.js';
 
@@ -76,30 +84,32 @@ const CON_PUERTA = forma('Línea con puerta');
 
 const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
 
+/** Un volador (el vampiro): `flying`, que nadie del catálogo lleva. */
+const VAMPIRO = aMano(NO_MUERTO, { name: 'Vampiro', traits: ['undead', 'flying'] });
+
 /** Les da escalera a los atacantes de esos puestos, como la casilla del montaje. */
 function conEscalera(state: BattleState, ...puestos: number[]): void {
   for (const i of puestos) stackById(state, `attacker-${i}`).escalera = true;
 }
 
 /**
- * Uno contra uno de catálogo, cada uno donde diga el test y con el turno de
- * quien diga. `escalera`: si el atacante la lleva.
+ * Uno contra uno, cada uno donde diga el test y con el turno de quien diga: del
+ * catálogo (`cuantos` de él) o uno hecho a mano. `escalera`: si el atacante la lleva.
  */
 function duelo(
   muralla: MurallaDeBatalla,
-  atacante: string,
+  atacante: string | UnitInfo,
   en: Hex,
-  defensor: string,
+  defensor: string | UnitInfo,
   enDefensor: Hex,
   turnoDe: 'attacker-0' | 'defender-0' = 'attacker-0',
   { escalera = false, cuantos = 3 }: { escalera?: boolean; cuantos?: number } = {},
 ): BattleState {
-  const state = createBattle(
-    lado([{ creature: atacante, count: cuantos }]),
-    lado([{ creature: defensor, count: cuantos }]),
-    createRng(3),
-    muralla,
-  );
+  const deUno = (quien: string | UnitInfo): BattleSide =>
+    typeof quien === 'string'
+      ? lado([{ creature: quien, count: cuantos }])
+      : bandoDePersonajes([quien]);
+  const state = createBattle(deUno(atacante), deUno(defensor), createRng(3), muralla);
   if (escalera) conEscalera(state, 0);
   stackById(state, 'attacker-0').hex = en;
   stackById(state, 'defender-0').hex = enDefensor;
@@ -115,9 +125,9 @@ describe('la línea de tiro', () => {
   it('en el suelo nadie dispara a través del muro', () => {
     const state = duelo(
       LINEA,
-      'swordsman',
+      PESADA,
       { col: 5, row: 4 },
-      'archer',
+      TIRADOR,
       { col: 9, row: 4 },
       'defender-0',
     );
@@ -136,9 +146,9 @@ describe('la línea de tiro', () => {
   it('desde lo alto sí', () => {
     const state = duelo(
       LINEA,
-      'swordsman',
+      PESADA,
       { col: 3, row: 4 },
-      'archer',
+      TIRADOR,
       { col: 7, row: 2 },
       'defender-0',
     );
@@ -147,7 +157,10 @@ describe('la línea de tiro', () => {
   });
 
   it('al de lo alto, también: los de fuera le disparan', () => {
-    const state = duelo(LINEA, 'archer', { col: 3, row: 4 }, 'swordsman', { col: 7, row: 6 });
+    const state = duelo(LINEA, TIRADOR, { col: 3, row: 4 }, PESADA, {
+      col: 7,
+      row: 6,
+    });
     expect(legalActions(state)).toContainEqual({ type: 'shoot', target: 'defender-0' });
     // Y al que está en el suelo detrás de la columna, no.
     stackById(state, 'defender-0').hex = { col: 9, row: 4 };
@@ -155,7 +168,10 @@ describe('la línea de tiro', () => {
   });
 
   it('a través de la puerta cerrada tampoco; de la abierta, sí (C20)', () => {
-    const state = duelo(CON_PUERTA, 'archer', { col: 4, row: 4 }, 'swordsman', { col: 9, row: 4 });
+    const state = duelo(CON_PUERTA, TIRADOR, { col: 4, row: 4 }, PESADA, {
+      col: 9,
+      row: 4,
+    });
     const a = stackById(state, 'attacker-0');
     const d = stackById(state, 'defender-0');
     expect(tiroBlocker(state, a, d)).toBe('la puerta cerrada está en medio');
@@ -206,9 +222,9 @@ describe('la línea de tiro', () => {
   it('sin muralla, siempre hay tiro', () => {
     const state = duelo(
       validarMuralla({ muros: [], puertas: [] }),
-      'archer',
+      TIRADOR,
       { col: 0, row: 4 },
-      'swordsman',
+      PESADA,
       { col: 10, row: 4 },
     );
     expect(tiroBlocker(state, stackById(state, 'attacker-0'), stackById(state, 'defender-0'))).toBe(
@@ -219,7 +235,10 @@ describe('la línea de tiro', () => {
 
 describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
   it('del suelo no se golpea a quien está arriba', () => {
-    const state = duelo(LINEA, 'swordsman', { col: 6, row: 4 }, 'pikeman', { col: 7, row: 4 });
+    const state = duelo(LINEA, PESADA, { col: 6, row: 4 }, TROPA, {
+      col: 7,
+      row: 4,
+    });
     const a = stackById(state, 'attacker-0');
     const d = stackById(state, 'defender-0');
     expect(canReachMelee(state, a, d)).toBe(false);
@@ -231,27 +250,26 @@ describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
     );
   });
 
-  it('al que señala una columna ocupada se le dice quién está, no que es grande', () => {
-    const state = duelo(LINEA, 'swordsman', { col: 6, row: 4 }, 'archer', { col: 7, row: 4 });
+  it('al que señala una columna ocupada se le dice quién está', () => {
+    const state = duelo(LINEA, PESADA, { col: 6, row: 4 }, TIRADOR, {
+      col: 7,
+      row: 4,
+    });
     expect(movimientoBlocker(state, { col: 7, row: 4 })).toBe('ahí está Arquero');
   });
 
   it('arriba, los dos en el muro, sí', () => {
-    const state = duelo(LINEA, 'swordsman', { col: 7, row: 3 }, 'pikeman', { col: 7, row: 4 });
+    const state = duelo(LINEA, PESADA, { col: 7, row: 3 }, TROPA, {
+      col: 7,
+      row: 4,
+    });
     expect(legalActions(state)).toContainEqual({ type: 'attack', target: 'defender-0' });
   });
 
   it('el que baja a golpear sale de una casilla de su nivel', () => {
     // El piquero defensor está arriba y el espadachín en el suelo, dentro: las
     // casillas desde las que se le golpea son del suelo, nunca un muro.
-    const state = duelo(
-      LINEA,
-      'swordsman',
-      { col: 9, row: 4 },
-      'pikeman',
-      { col: 7, row: 4 },
-      'defender-0',
-    );
+    const state = duelo(LINEA, PESADA, { col: 9, row: 4 }, TROPA, { col: 7, row: 4 }, 'defender-0');
     const desdes = legalActions(state).flatMap((x) =>
       x.type === 'attack' && x.from !== undefined ? [x.from] : [],
     );
@@ -262,9 +280,9 @@ describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
   it('un tirador en lo alto con un enemigo al pie no está trabado; con uno arriba, sí', () => {
     const state = duelo(
       LINEA,
-      'swordsman',
+      PESADA,
       { col: 6, row: 4 },
-      'archer',
+      TIRADOR,
       { col: 7, row: 4 },
       'defender-0',
     );
@@ -279,22 +297,23 @@ describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
 
 describe('la defensa del tirador en lo alto', () => {
   it(`suma ${MURALLA.defensaEnLoAlto} a su defensa, y solo si tira`, () => {
-    const state = duelo(LINEA, 'swordsman', { col: 3, row: 4 }, 'archer', { col: 7, row: 4 });
+    const state = duelo(LINEA, PESADA, { col: 3, row: 4 }, TIRADOR, {
+      col: 7,
+      row: 4,
+    });
     const arquero = stackById(state, 'defender-0');
     const espada = stackById(state, 'attacker-0');
     expect(MURALLA.defensaEnLoAlto).toBeGreaterThan(0);
     const bono = bonoEnLoAlto(state, arquero);
     expect(bono).toBe(MURALLA.defensaEnLoAlto);
-    expect(effectiveDefense(arquero, REGLAS_DEL_JUEGO, bono)).toBe(
-      arquero.unit.defense + MURALLA.defensaEnLoAlto,
-    );
-    expect(effectiveDefense(arquero, REGLAS_DEL_JUEGO)).toBe(arquero.unit.defense);
+    expect(effectiveDefense(arquero, bono)).toBe(arquero.unit.defense + MURALLA.defensaEnLoAlto);
+    expect(effectiveDefense(arquero)).toBe(arquero.unit.defense);
     // Lo pone `opcionesDeDanio`, la única forma de montar las opciones del daño:
     // así lo cuentan a la vez el golpe, la IA y la previsión.
     expect(opcionesDeDanio(state, espada, arquero).bonoEnLoAlto).toBe(bono);
     // La IA lo hereda por `expectedDamage`.
     expect(expectedDamage(espada, arquero, opcionesDeDanio(state, espada, arquero))).toBeLessThan(
-      expectedDamage(espada, arquero, { reglas: REGLAS_DEL_JUEGO }),
+      expectedDamage(espada, arquero, {}),
     );
     // El que no tira, arriba, no suma; ni el tirador en el suelo.
     espada.hex = { col: 7, row: 3 };
@@ -307,9 +326,9 @@ describe('la defensa del tirador en lo alto', () => {
     const muro = validarMuralla({ muros: [{ col: 6, row: 1 }], puertas: [] });
     const state = duelo(
       muro,
-      'archer',
+      TIRADOR,
       { col: 2, row: 1 },
-      'archer',
+      TIRADOR,
       { col: 6, row: 1 },
       'attacker-0',
       { cuantos: 12 },
@@ -318,7 +337,6 @@ describe('la defensa del tirador en lo alto', () => {
     const blanco = stackById(state, 'defender-0');
     const con = (alto: boolean): number =>
       computeDamage(tirador, blanco, createRng(9), {
-        reglas: REGLAS_DEL_JUEGO,
         ranged: true,
         distance: 4,
         bonoEnLoAlto: alto ? MURALLA.defensaEnLoAlto : 0,
@@ -326,14 +344,19 @@ describe('la defensa del tirador en lo alto', () => {
     expect(con(true)).toBeLessThan(con(false));
     applyAction(state, { type: 'shoot', target: 'defender-0' }, createRng(9));
     const tiro = state.log.find((e) => e.kind === 'shoot');
-    expect(tiro?.kind === 'shoot' && tiro.damage).toBe(con(true));
+    // Y la armadura del arquero, que se resta de todo lo que le llega, al final.
+    expect(tiro?.kind === 'shoot' && tiro.damage).toBe(trasLaArmadura(con(true), blanco).danio);
   });
 });
 
 describe('la escalera', () => {
-  /** Un espadachín con escalera al pie de (7,4), y un arquero lejos. */
+  /**
+   * Un espadachín con escalera al pie de (7,4), y un arquero lejos, más lento que
+   * él: el turno que se le fuerza es el suyo de la ronda, y al cerrarlo le toca al
+   * arquero.
+   */
   const alPie = (): BattleState =>
-    duelo(LINEA, 'swordsman', { col: 6, row: 4 }, 'archer', { col: 10, row: 0 }, 'attacker-0', {
+    duelo(LINEA, PESADA, { col: 6, row: 4 }, TIRADOR_NO_MUERTO, { col: 10, row: 0 }, 'attacker-0', {
       escalera: true,
     });
 
@@ -404,10 +427,10 @@ describe('la escalera', () => {
   it('la escalera puesta se queda para otros atacantes', () => {
     const state = createBattle(
       lado([
-        { creature: 'swordsman', count: 2 },
-        { creature: 'pikeman', count: 2 },
+        { creature: PESADA, count: 2 },
+        { creature: TROPA, count: 2 },
       ]),
-      lado([{ creature: 'archer', count: 2 }]),
+      lado([{ creature: TIRADOR, count: 2 }]),
       createRng(3),
       LINEA,
     );
@@ -437,7 +460,9 @@ describe('la escalera', () => {
     expect(escaleraBlocker(state, { col: 7, row: 1 })).toBe('no está al pie de ese muro');
     stackById(state, 'defender-0').hex = muro;
     state.escaleras.push({ pie: { col: 6, row: 4 }, muro });
-    expect(subirBlocker(state, muro)).toBe('en ese muro está Arquero');
+    expect(subirBlocker(state, muro)).toBe(
+      `en ese muro está ${unidadDelJuego(TIRADOR_NO_MUERTO).name}`,
+    );
     forzarTurno(state, 'defender-0');
     expect(subirBlocker(state, { col: 7, row: 3 })).toBe(
       'quien defiende sube a la muralla andando',
@@ -445,12 +470,11 @@ describe('la escalera', () => {
     expect(escalaBlocker(state, 'subir')).toBe('quien defiende sube a la muralla andando');
   });
 
-  it('la grande y el volador no escalan', () => {
-    const grande = duelo(LINEA, 'bone_dragon', { col: 6, row: 4 }, 'archer', { col: 10, row: 0 });
-    expect(subirBlocker(grande, { col: 7, row: 4 })).toBe(
-      'una unidad de dos casillas no sube a la muralla',
-    );
-    const volador = duelo(LINEA, 'vampire', { col: 6, row: 4 }, 'archer', { col: 10, row: 0 });
+  it('el volador no escala', () => {
+    const volador = duelo(LINEA, VAMPIRO, { col: 6, row: 4 }, TIRADOR, {
+      col: 10,
+      row: 0,
+    });
     expect(subirBlocker(volador, { col: 7, row: 4 })).toBe(
       'vuela: se posa en la muralla sin escalera',
     );
@@ -458,22 +482,19 @@ describe('la escalera', () => {
 
   it('la escalera del montaje solo llega a quien puede ponerla', () => {
     const conLaSuya = (unidad: ReturnType<typeof unidadDeArena>) => ({ unidad, escalera: true });
-    // La grande, por el motor: la arena ya no hace unidades de dos casillas.
     const state = peleaDelMotor(
       [
         conLaSuya(unidadDeArena('zombi')),
-        { ...conLaSuya(unidadDeArena('zombi')), grande: true },
         conLaSuya(unidadDeArena('zombi', { traits: ['flying'] })),
       ],
       [conLaSuya(unidadDeArena('zombi'))],
       createRng(1),
       LINEA,
     );
-    // El de una casilla que anda, sí; la grande, el volador y el defensor, no.
+    // El que anda, sí; el volador y el defensor, no.
     expect(state.stacks.map((s) => [s.id, s.escalera])).toEqual([
       ['attacker-0', true],
       ['attacker-1', false],
-      ['attacker-2', false],
       ['defender-0', false],
     ]);
   });
@@ -481,7 +502,7 @@ describe('la escalera', () => {
 
 describe('el rasgo escalar', () => {
   it('sube en un turno, sin escalera', () => {
-    const trepa = unidadDeArena('zombi', { traits: ['escalar'] });
+    const trepa = unidadDeArena('zombi', { id: 'zombi-9', traits: ['escalar'] });
     const state = peleaDeArena(
       aPelear([trepa]),
       aPelear([unidadDeArena('zombi')]),
@@ -502,10 +523,10 @@ describe('la IA con la muralla alta', () => {
   it('el atacante sin camino escala: va al pie, pone la escalera y sube', () => {
     const state = createBattle(
       lado([
-        { creature: 'swordsman', count: 3 },
-        { creature: 'pikeman', count: 3 },
+        { creature: PESADA, count: 3 },
+        { creature: TROPA, count: 3 },
       ]),
-      lado([{ creature: 'archer', count: 3 }]),
+      lado([{ creature: TIRADOR, count: 3 }]),
       createRng(5),
       LINEA,
     );
@@ -520,11 +541,13 @@ describe('la IA con la muralla alta', () => {
   });
 
   it('el que sabe escalar sube sin escalera', () => {
-    const trepa = unidadDeArena('zombi', { traits: ['escalar'] });
-    // Defensores de dos casillas (por el motor): no suben, así que no salen a
-    // buscarle por arriba.
-    const grande = { unidad: unidadDeArena('zombi'), grande: true };
-    const state = peleaDelMotor(aPelear([trepa, trepa]), [grande, grande], createRng(2), LINEA);
+    const trepa = unidadDeArena('zombi', { id: 'zombi-9', traits: ['escalar'] });
+    const state = peleaDelMotor(
+      aPelear([trepa, trepa]),
+      aPelear([unidadDeArena('zombi'), unidadDeArena('zombi')]),
+      createRng(2),
+      LINEA,
+    );
     autoResolve(state, createRng(2));
     expect(state.finished).not.toBeNull();
     const kinds = state.log.map((e) => e.kind);
@@ -532,27 +555,12 @@ describe('la IA con la muralla alta', () => {
     expect(kinds).not.toContain('ladder_placed');
   });
 
-  it('la grande no va a por una escalera puesta: no podría subir por ella', () => {
-    const state = peleaDelMotor(
-      [{ unidad: unidadDeArena('zombi'), grande: true }],
-      aPelear([unidadDeArena('zombi')]),
-      createRng(1),
-      LINEA,
-    );
-    stackById(state, 'attacker-0').hex = { col: 2, row: 4 };
-    stackById(state, 'defender-0').hex = { col: 10, row: 4 };
-    state.escaleras.push({ pie: { col: 6, row: 4 }, muro: { col: 7, row: 4 } });
-    forzarTurno(state, 'attacker-0');
-    // Antes de la regla única de la escala andaba hacia el pie de la escalera.
-    expect(chooseBattleAction(state)).toEqual({ type: 'defend' });
-  });
-
   it('el atacante al pie con escalera la pone, y el que puede subir sube', () => {
     const state = duelo(
       LINEA,
-      'swordsman',
+      PESADA,
       { col: 6, row: 4 },
-      'archer',
+      TIRADOR,
       { col: 10, row: 0 },
       'attacker-0',
       {
@@ -571,9 +579,9 @@ describe('la IA con la muralla alta', () => {
   it('el tirador que defiende sube al muro, y arriba se queda tras subir', () => {
     const state = duelo(
       LINEA,
-      'swordsman',
+      PESADA,
       { col: 2, row: 4 },
-      'archer',
+      TIRADOR,
       { col: 8, row: 4 },
       'defender-0',
     );
@@ -594,20 +602,23 @@ describe('la IA con la muralla alta', () => {
 describe('el cliente', () => {
   it('la figura de lo alto se pinta subida lo que mide la columna', () => {
     const t = tableroPara(1280, 720);
-    const state = duelo(LINEA, 'swordsman', { col: 6, row: 4 }, 'archer', { col: 7, row: 4 });
+    const state = duelo(LINEA, PESADA, { col: 6, row: 4 }, TIRADOR, {
+      col: 7,
+      row: 4,
+    });
     const s = stackById(state, 'defender-0');
     const en = planoDeHex(s.hex);
-    expect(cajaDeFigura(t, s, en, 1).suelo).toBeCloseTo(
-      cajaDeFigura(t, s, en, 0).suelo - alturaDeColumna(t),
+    expect(cajaDeFigura(t, en, 1).suelo).toBeCloseTo(
+      cajaDeFigura(t, en, 0).suelo - alturaDeColumna(t),
     );
   });
 
   it('el animador sube a la figura al trepar, de 0 a 1', () => {
     const state = duelo(
       LINEA,
-      'swordsman',
+      PESADA,
       { col: 6, row: 4 },
-      'archer',
+      TIRADOR,
       { col: 10, row: 0 },
       'attacker-0',
       { escalera: true },
@@ -632,7 +643,7 @@ describe('el cliente', () => {
   });
 
   it('un clic en lo alto de la columna sube por ella', () => {
-    const trepa = unidadDeArena('zombi', { traits: ['escalar'] });
+    const trepa = unidadDeArena('zombi', { id: 'zombi-9', traits: ['escalar'] });
     const s = sesionDeArena(
       [{ unidad: trepa, ia: false, escalera: false }],
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],
@@ -759,10 +770,10 @@ describe('tras QA', () => {
     // están 7,2 y 7,3, y el primero de `neighbours` es el que no tiene escalera.
     const state = createBattle(
       lado([
-        { creature: 'swordsman', count: 2 },
-        { creature: 'pikeman', count: 2 },
+        { creature: PESADA, count: 2 },
+        { creature: TROPA, count: 2 },
       ]),
-      lado([{ creature: 'archer', count: 2 }]),
+      lado([{ creature: TIRADOR, count: 2 }]),
       createRng(21),
       CON_PUERTA,
     );
@@ -776,8 +787,9 @@ describe('tras QA', () => {
     expect(subirBlocker(state, { col: 7, row: 3 })).toBe(
       'no hay escalera puesta ahí y no sabe escalar',
     );
-    expect(subirBlocker(state, muro)).toBe('en ese muro está Espadachín');
-    expect(escalaBlocker(state, 'subir')).toBe('en ese muro está Espadachín');
+    const motivo = `en ese muro está ${unidadDelJuego(PESADA).name}`;
+    expect(subirBlocker(state, muro)).toBe(motivo);
+    expect(escalaBlocker(state, 'subir')).toBe(motivo);
   });
 
   it('subir y poner la escalera cierran el turno aunque la moral regale otro (M3)', () => {
@@ -786,11 +798,12 @@ describe('tras QA', () => {
     let extrasConOtraAccion = 0;
     for (let semilla = 1; semilla <= 100; semilla++) {
       for (const accion of ['poner_escalera', 'subir', 'defend'] as const) {
+        // El arquero, más lento: el turno forzado es el de la ronda del espadachín.
         const state = duelo(
           LINEA,
-          'swordsman',
+          PESADA,
           { col: 6, row: 4 },
-          'archer',
+          TIRADOR_NO_MUERTO,
           { col: 10, row: 0 },
           'attacker-0',
           { escalera: true },
@@ -824,8 +837,8 @@ describe('tras QA', () => {
     // prueba el motor («la escalera del montaje solo llega a quien puede ponerla»).
     const anda = unidadDeArena('zombi');
     const vuela = unidadDeArena('zombi', { traits: ['flying'] });
-    expect(escaleraDeArenaBlocker({ unidad: anda }, 'izquierda', DEL_JUEGO)).toBeNull();
-    expect(escaleraDeArenaBlocker({ unidad: vuela }, 'izquierda', DEL_JUEGO)).toBe(
+    expect(escaleraDeArenaBlocker({ unidad: anda }, 'izquierda', EQUIPO_DEL_JUEGO)).toBeNull();
+    expect(escaleraDeArenaBlocker({ unidad: vuela }, 'izquierda', EQUIPO_DEL_JUEGO)).toBe(
       'vuela: se posa en la muralla sin escalera',
     );
     const unidades = [anda, vuela];
@@ -844,7 +857,7 @@ describe('tras QA', () => {
             resumen: '',
             figura: u.id,
             sello: 'borrador',
-            noEscala: escaleraDeArenaBlocker({ unidad: u }, 'izquierda', DEL_JUEGO),
+            noEscala: escaleraDeArenaBlocker({ unidad: u }, 'izquierda', EQUIPO_DEL_JUEGO),
           };
         },
         null,

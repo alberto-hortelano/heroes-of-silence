@@ -1,0 +1,868 @@
+{
+  "_comment": "CATÁLOGO de unidades de las cinco facciones: una por hoja de tropa del taller, más las que se creen en la arena. Lo lee src/core/catalogo.ts, que lo valida entero al cargar (una unidad que no vale tumba la carga diciendo cuál y por qué); lo escribe la arena (/arena/, pnpm arena) al pulsar «Guardar», con validarCatalogo (src/core/unidad.ts), la misma regla con que lo carga el juego, y una que no valida se conserva tal cual para arreglarla a mano. Cifras INVENTADAS y provisionales, ajustadas a mano peleando. Es el catálogo del juego (19-10-2026): la partida recluta de aquí, con las cinco facciones (docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/). edificio = la morada de su facción que la produce (data/buildings.json; sin él, la partida no la recluta): el reparto sale de NuevaJugabilidad.md (§Ciudades: pueblos y edificios de élite) y lo que el cuaderno no asigna está INVENTADO (lo dice el _comment de data/buildings.json); el edificio no implica nivel. Lo que cuesta, crece y sube de experiencia no se escribe: sale de su índice de poder (data/economia.json). Cada unidad es un CUERPO (cuerpo: { hoja }, el arte con que se pinta: solo las hojas de las cinco facciones; las cifras de arriba son las suyas) más su EQUIPO (equipo: una pieza de data/equipo.json por hueco, arma (la de cuerpo a cuerpo), distancia (la de disparar), lanza (la de cargar), armadura y escudo; un arma a dos manos no admite escudo; la arena guarda las piezas y las unidades a la vez, y no escribe una unidad que lleve una pieza que no esté), y pelea con las dos cosas sumadas: cada golpe con las cifras de su arma (el disparo, las de distancia; la carga, las de lanza, o si no las de arma; lo demás, las de arma). El nivel NO se escribe: sale de las cifras con el equipo puesto (src/core/nivel.ts). Sin arma no se combate: toda unidad lleva un arma de cuerpo a cuerpo en arma (la que dice sus niveles de la rueda del golpe); una sin ella no valida. Dispara quien lleva algo en distancia, sin munición (dos tiros por disparo con el rasgo double_shot), y toda unidad ocupa una casilla: no hay shots ni hexes. Solo se lee el formato de hoy: una unidad de antes (sin cuerpo, con level, speed, shots o hexes) no valida. casillas = las que anda por turno (2 a 7). PV y daño van en la escala del juego (×10 la de fheroes2). habilidades = nombres de data/habilidades.json, sin efecto todavía, salvo las que dan un poder de data/poderes.json (Curar (X), Bendecir), que se usan en la pelea; Bendecir no está en data/habilidades.json.",
+  "unidades": [
+    {
+      "id": "templario-escudo",
+      "name": "Guerrero con escudo",
+      "faction": "templarios",
+      "cuerpo": {
+        "hoja": "templario-escudo"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 4,
+      "damage": [
+        8,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "templarios_pueblo"
+    },
+    {
+      "id": "templario-mandoble",
+      "name": "Guerrero con arma a dos manos",
+      "faction": "templarios",
+      "cuerpo": {
+        "hoja": "templario-mandoble"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "edificio": "templarios_forja"
+    },
+    {
+      "id": "templario-monje",
+      "name": "Monje",
+      "faction": "templarios",
+      "cuerpo": {
+        "hoja": "templario-monje"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [
+        "Curar (X)",
+        "Bendecir"
+      ],
+      "equipo": {
+        "arma": "baston"
+      },
+      "edificio": "templarios_monasterio"
+    },
+    {
+      "id": "templario-escudero",
+      "name": "Escudero",
+      "faction": "templarios",
+      "cuerpo": {
+        "hoja": "templario-escudero"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 6,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "templarios_pueblo"
+    },
+    {
+      "id": "templario-hermano-de-carga",
+      "name": "Hermano de carga (montado; antes Caballero montado)",
+      "faction": "templarios",
+      "cuerpo": {
+        "hoja": "templario-hermano-de-carga"
+      },
+      "leadership": 8,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 7,
+      "traits": [
+        "charge"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "lanza": "lanza_de_jinete",
+        "armadura": "barda"
+      },
+      "edificio": "templarios_establos"
+    },
+    {
+      "id": "templario-penitente",
+      "name": "Penitente",
+      "faction": "templarios",
+      "cuerpo": {
+        "hoja": "templario-penitente"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "edificio": "templarios_monasterio"
+    },
+    {
+      "id": "esqueleto-guerrero",
+      "name": "Esqueleto guerrero",
+      "faction": "no-muertos",
+      "cuerpo": {
+        "hoja": "esqueleto-guerrero"
+      },
+      "leadership": 1,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        6,
+        8
+      ],
+      "hp": 60,
+      "casillas": 4,
+      "traits": [
+        "undead"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "no-muertos_cadaveres"
+    },
+    {
+      "id": "esqueleto-arquero",
+      "name": "Esqueleto arquero",
+      "faction": "no-muertos",
+      "cuerpo": {
+        "hoja": "esqueleto-arquero"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 3,
+      "traits": [
+        "undead"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "daga",
+        "distancia": "arco",
+        "armadura": "jubon_de_arquero"
+      },
+      "edificio": "no-muertos_cadaveres"
+    },
+    {
+      "id": "zombi",
+      "name": "Zombie",
+      "faction": "no-muertos",
+      "cuerpo": {
+        "hoja": "zombi"
+      },
+      "leadership": 3,
+      "attack": 2,
+      "defense": 3,
+      "damage": [
+        10,
+        12
+      ],
+      "hp": 160,
+      "casillas": 3,
+      "traits": [
+        "undead"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "no-muertos_cadaveres"
+    },
+    {
+      "id": "espectro",
+      "name": "Espectro",
+      "faction": "no-muertos",
+      "cuerpo": {
+        "hoja": "espectro"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 6,
+      "traits": [
+        "undead"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "no-muertos_mausoleo"
+    },
+    {
+      "id": "caballero-de-la-muerte",
+      "name": "Caballero de la muerte",
+      "faction": "no-muertos",
+      "cuerpo": {
+        "hoja": "caballero-de-la-muerte"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 3,
+      "traits": [
+        "undead"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "edificio": "no-muertos_cripta"
+    },
+    {
+      "id": "jinete-de-plaga",
+      "name": "Jinete de plaga (a caballo)",
+      "faction": "no-muertos",
+      "cuerpo": {
+        "hoja": "jinete-de-plaga"
+      },
+      "leadership": 8,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 5,
+      "traits": [
+        "charge",
+        "undead"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "lanza": "lanza_de_jinete",
+        "armadura": "barda"
+      },
+      "edificio": "no-muertos_cripta"
+    },
+    {
+      "id": "imperio-alabardero",
+      "name": "Alabardero",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-alabardero"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        8,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "edificio": "imperio_pueblo"
+    },
+    {
+      "id": "imperio-piquero",
+      "name": "Piquero",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-piquero"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 3,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "edificio": "imperio_pueblo"
+    },
+    {
+      "id": "imperio-ballestero",
+      "name": "Ballestero",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-ballestero"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 3,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "daga",
+        "distancia": "ballesta",
+        "armadura": "gambeson"
+      },
+      "edificio": "imperio_taller"
+    },
+    {
+      "id": "imperio-coracero",
+      "name": "Coracero",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-coracero"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "imperio_armeria"
+    },
+    {
+      "id": "imperio-arcabucero",
+      "name": "Arcabucero",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-arcabucero"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 3,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "daga",
+        "distancia": "ballesta",
+        "armadura": "gambeson"
+      },
+      "edificio": "imperio_taller"
+    },
+    {
+      "id": "imperio-rodelero",
+      "name": "Rodelero",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-rodelero"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 6,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "imperio_armeria"
+    },
+    {
+      "id": "imperio-artillero-culebrina",
+      "name": "Artillero con culebrina",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-artillero-culebrina"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 3,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "daga",
+        "distancia": "ballesta",
+        "armadura": "gambeson"
+      },
+      "edificio": "imperio_fundicion"
+    },
+    {
+      "id": "imperio-pistolero-montado",
+      "name": "Pistolero montado",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-pistolero-montado"
+      },
+      "leadership": 8,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 5,
+      "traits": [
+        "charge"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "lanza": "lanza_de_jinete",
+        "armadura": "barda"
+      },
+      "edificio": "imperio_caballerizas"
+    },
+    {
+      "id": "imperio-granadero",
+      "name": "Granadero",
+      "faction": "imperio",
+      "cuerpo": {
+        "hoja": "imperio-granadero"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "daga",
+        "distancia": "ballesta",
+        "armadura": "gambeson"
+      },
+      "edificio": "imperio_fundicion"
+    },
+    {
+      "id": "elfo-arquero",
+      "name": "Arquero",
+      "faction": "elfos",
+      "cuerpo": {
+        "hoja": "elfo-arquero"
+      },
+      "leadership": 3,
+      "attack": 4,
+      "defense": 4,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 5,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "daga",
+        "distancia": "arco",
+        "armadura": "jubon_de_arquero"
+      },
+      "edificio": "elfos_pueblo"
+    },
+    {
+      "id": "elfo-explorador",
+      "name": "Explorador",
+      "faction": "elfos",
+      "cuerpo": {
+        "hoja": "elfo-explorador"
+      },
+      "leadership": 3,
+      "attack": 4,
+      "defense": 3,
+      "damage": [
+        6,
+        12
+      ],
+      "hp": 70,
+      "casillas": 6,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "elfos_pabellon_de_caza"
+    },
+    {
+      "id": "elfo-guardia-del-bosque",
+      "name": "Guardia del bosque",
+      "faction": "elfos",
+      "cuerpo": {
+        "hoja": "elfo-guardia-del-bosque"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 6,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "elfos_pueblo"
+    },
+    {
+      "id": "elfo-jinete",
+      "name": "Jinete (a caballo)",
+      "faction": "elfos",
+      "cuerpo": {
+        "hoja": "elfo-jinete"
+      },
+      "leadership": 8,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 5,
+      "traits": [
+        "charge"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "distancia": "arco",
+        "lanza": "lanza_de_jinete",
+        "armadura": "barda"
+      },
+      "edificio": "elfos_pabellon_de_caza"
+    },
+    {
+      "id": "elfo-sacerdotisa",
+      "name": "Sacerdotisa",
+      "faction": "elfos",
+      "cuerpo": {
+        "hoja": "elfo-sacerdotisa"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 5,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "baston"
+      },
+      "edificio": "elfos_arboleda"
+    },
+    {
+      "id": "elfo-asesino",
+      "name": "Asesino",
+      "faction": "elfos",
+      "cuerpo": {
+        "hoja": "elfo-asesino"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 6,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "elfos_pabellon_de_caza"
+    },
+    {
+      "id": "orko-hacha-escudo",
+      "name": "Orko con hacha y escudo",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "orko-hacha-escudo"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        12,
+        14
+      ],
+      "hp": 120,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "orkos_pueblo"
+    },
+    {
+      "id": "orko-dos-armas",
+      "name": "Orko con dos armas",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "orko-dos-armas"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "edificio": "orkos_pueblo"
+    },
+    {
+      "id": "goblin-lancero",
+      "name": "Goblin lancero",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "goblin-lancero"
+      },
+      "leadership": 1,
+      "attack": 2,
+      "defense": 2,
+      "damage": [
+        6,
+        8
+      ],
+      "hp": 60,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "armadura": "brigantina",
+        "escudo": "escudo"
+      },
+      "edificio": "orkos_pueblo"
+    },
+    {
+      "id": "goblin-arquero",
+      "name": "Goblin arquero",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "goblin-arquero"
+      },
+      "leadership": 3,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "daga",
+        "distancia": "arco",
+        "armadura": "jubon_de_arquero"
+      },
+      "edificio": "orkos_pueblo"
+    },
+    {
+      "id": "troll-maza",
+      "name": "Troll con maza",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "troll-maza"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 3,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "edificio": "orkos_cueva"
+    },
+    {
+      "id": "goblin-jinete-de-hiena",
+      "name": "Jinete de hiena (goblin)",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "goblin-jinete-de-hiena"
+      },
+      "leadership": 8,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 5,
+      "traits": [
+        "charge"
+      ],
+      "habilidades": [],
+      "equipo": {
+        "arma": "espada",
+        "lanza": "lanza_de_jinete",
+        "armadura": "barda"
+      },
+      "edificio": "orkos_pocilga"
+    },
+    {
+      "id": "orko-armadura-pesada",
+      "name": "Orko con armadura pesada",
+      "faction": "orkos",
+      "cuerpo": {
+        "hoja": "orko-armadura-pesada"
+      },
+      "leadership": 4,
+      "attack": 3,
+      "defense": 3,
+      "damage": [
+        10,
+        10
+      ],
+      "hp": 80,
+      "casillas": 4,
+      "traits": [],
+      "habilidades": [],
+      "equipo": {
+        "arma": "mandoble",
+        "armadura": "arnes_de_placas"
+      },
+      "edificio": "orkos_totem"
+    }
+  ]
+}

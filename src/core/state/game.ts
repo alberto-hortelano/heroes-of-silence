@@ -10,19 +10,25 @@ import { stackHp } from '../battle/damage.js';
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { personajeDe, SIDES } from '../battle/types.js';
-import { allCreatures, creature, tipoDeHeroePorDefecto } from '../data.js';
+import {
+  equipoDelPortadorBlocker,
+  equipoPuestoDe,
+  unidadDelJuego,
+  unidadDelJuegoSiExiste,
+} from '../catalogo.js';
+import { tipoDeHeroePorDefecto } from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
   conEquipoDe,
+  deDondeSale,
   destinoDeEquipo,
   equipoDe,
   idsPuestos,
-  manosBlocker,
-  NOMBRE_DE_CALIDAD,
   nadaEnElHueco,
   PIEZAS_DE_BOTIN,
   type Portador,
+  pieza,
   piezaSiExiste,
   ponerPieza,
   quitarPieza,
@@ -36,9 +42,9 @@ import {
   rangoDeTropa,
 } from '../hero/experiencia.js';
 import {
+  cuerposDelHeroe,
   type Hero,
   heroeRecienHecho,
-  heroUnit,
   learnable,
   luckBonus,
   maxMana,
@@ -396,7 +402,7 @@ export type AdventureAction =
       readonly count: number;
     }
   /**
-   * Comprar en la armería de `town` una pieza de calidad de armería (`item`) para
+   * Comprar en la armería de `town` una pieza que se vende (`seVende`, `item`) para
    * la mochila del héroe propio que está dentro (`buyBlocker`).
    */
   | { readonly type: 'buy_item'; readonly town: string; readonly item: string }
@@ -599,7 +605,7 @@ export function recruitCapacity(
     disponibles,
     caben,
     maximo,
-    ocupaUno: creature(creatureId).leadership,
+    ocupaUno: unidadDelJuego(creatureId).leadership,
     ocupado: armyLeadership(destino.army),
     tope: destino.tope,
     quien: destino.quien,
@@ -1436,7 +1442,7 @@ function aplicar(
       // `buyBlocker` ya ha mirado que el héroe está y que la pieza existe.
       const hero = heroeEnElPueblo(state, town) as Hero;
       const pieza = piezaSiExiste(action.item)!;
-      player.resources = subtractResources(player.resources, pieza.precio);
+      player.resources = subtractResources(player.resources, { gold: pieza.precio });
       aLaMochila(hero, pieza.id);
       emit(state, {
         kind: 'item_bought',
@@ -1538,11 +1544,11 @@ export function buyBlocker(
   const pieza = piezaSiExiste(item);
   if (pieza === null) return `no existe ninguna pieza "${item}"`;
   if (!seVende(pieza)) {
-    return `la armería no vende ${pieza.nombre}: es ${NOMBRE_DE_CALIDAD[pieza.calidad]} y solo cae como botín`;
+    return `la armería no vende ${pieza.nombre}: ${deDondeSale(pieza)}`;
   }
   const jugador = playerById(state, player);
-  if (!canAfford(jugador.resources, pieza.precio)) {
-    return `${pieza.nombre} cuesta ${describirCoste(pieza.precio)} y no te alcanza`;
+  if (!canAfford(jugador.resources, { gold: pieza.precio })) {
+    return `${pieza.nombre} cuesta ${describirCoste({ gold: pieza.precio })} y no te alcanza`;
   }
   return null;
 }
@@ -1578,8 +1584,28 @@ export function equipBlocker(
   }
   const quien = destinoDeEquipo(hero, action);
   if ('motivo' in quien) return quien.motivo;
-  // Un arma a dos manos no admite escudo, y al revés (`manosBlocker`, la única regla).
-  return manosBlocker(equipoDe(hero, quien), pieza.id);
+  return ponerseBlocker(hero, quien, pieza.id);
+}
+
+/**
+ * Por qué el portador `quien` de `hero` no se puede poner la pieza `id` (que
+ * existe), o `null`: la pregunta de siempre sobre lo que llevaría puesto, el
+ * equipo de serie de su unidad incluido (`equipoDelPortadorBlocker`: un mandoble
+ * no entra con el escudo de serie). La leen `equipBlocker` y la IA, antes de
+ * equipar y antes de comprar para alguien.
+ */
+export function ponerseBlocker(hero: Hero, quien: Portador, id: string): string | null {
+  const llevaria = equipoPuestoDe(hero, quien, { ...equipoDe(hero, quien), [pieza(id).hueco]: id });
+  return equipoDelPortadorBlocker(nombreDelPortador(hero, quien), llevaria, id);
+}
+
+/** Cómo se nombra al portador `quien` de `hero` en un motivo: el héroe, la unidad o el personaje. */
+function nombreDelPortador(hero: Hero, quien: Portador): string {
+  if ('heroe' in quien) return hero.name;
+  const t = hero.army[quien.indice] as Troop;
+  return t.member === undefined
+    ? `esa unidad de ${unidadDelJuego(t.creature).name}`
+    : 'ese personaje';
 }
 
 /** Por qué no se puede hacer ese `unequip`, o `null`. */
@@ -1592,15 +1618,13 @@ export function unequipBlocker(
   if ('motivo' in hero) return hero.motivo;
   const quien = destinoDeEquipo(hero, action);
   if ('motivo' in quien) return quien.motivo;
-  if (equipoDe(hero, quien)[action.slot] !== undefined) return null;
-  const t = 'heroe' in quien ? null : (hero.army[quien.indice] as Troop);
-  const nombre =
-    t === null
-      ? hero.name
-      : t.member === undefined
-        ? `esa unidad de ${creature(t.creature).name}`
-        : 'ese personaje';
-  return nadaEnElHueco(nombre, action.slot);
+  const nombre = nombreDelPortador(hero, quien);
+  const { [action.slot]: quitada, ...resto } = equipoDe(hero, quien);
+  if (quitada === undefined) return nadaEnElHueco(nombre, action.slot);
+  // Sin arma no se combate (todo golpe cuerpo a cuerpo pasa por la rueda, que va
+  // con la del arma; 19-10-2026): lo que quede puesto, con lo de serie de su
+  // unidad, tiene que llevar una. Quitar la propia de una tropa deja la de serie.
+  return equipoDelPortadorBlocker(nombre, equipoPuestoDe(hero, quien, resto), null);
 }
 
 /**
@@ -1637,9 +1661,9 @@ function dismissBlocker(
   if (creatureId === CHARACTER_BODY) {
     return 'un personaje no se licencia: es uno y tiene nombre, no un individuo de la tropa';
   }
-  const especie = allCreatures().find((c) => c.id === creatureId);
-  if (especie === undefined) {
-    return `no existe ninguna criatura "${creatureId}", así que ${hero.name} no lleva ninguna`;
+  const especie = unidadDelJuegoSiExiste(creatureId);
+  if (especie === null) {
+    return `no existe ninguna unidad "${creatureId}", así que ${hero.name} no lleva ninguna`;
   }
   const lleva = hero.army.filter((t) => t.creature === creatureId && t.member === undefined).length;
   if (lleva === 0) return `${hero.name} no lleva individuos de tipo ${especie.name}`;
@@ -2366,7 +2390,7 @@ function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide
     ...(members === undefined ? {} : { members }),
     army: troopsAsStacks(hero.army),
     hero: {
-      cuerpo: heroUnit(hero),
+      ...cuerposDelHeroe(hero),
       mando: mandoDe(hero, retiradaDe(state, hero, side)),
     },
     moraleBonus: moraleBonus(hero) + (pueblo === undefined ? 0 : moraleFromBuildings(pueblo)),
@@ -2621,21 +2645,26 @@ function dejarPendiente(
 }
 
 /**
- * Juega la batalla pendiente con la IA táctica y aplica el resultado.
- *
- * `noSeRinden` son los jugadores que NO lleva la IA de reglas —la persona, el
- * agente—: por sus bandos pelea, pero no se rinde, porque rendirse les cuesta
- * oro y esa decisión es solo de su dueño. Quien llama es quien sabe para quién
- * juega; el núcleo no sabe que existan personas ni agentes.
+ * Los jugadores que no lleva la IA de reglas (`Player.controller`: la persona y
+ * el agente). Por sus bandos pelea la IA cuando le toca resolver, pero no se
+ * rinde: rendirse les cuesta oro y esa decisión es solo de su dueño.
  */
-export function resolvePendingBattle(
-  state: GameState,
-  ctx: GameContext,
-  noSeRinden: ReadonlySet<PlayerId> = new Set(),
-): BattleOutcome {
+export function sinLaIA(state: GameState): ReadonlySet<PlayerId> {
+  return new Set(state.players.filter((p) => p.controller !== 'ai').map((p) => p.id));
+}
+
+/**
+ * Juega la batalla pendiente con la IA táctica y aplica el resultado. Por los
+ * bandos de los jugadores que no lleva ella (`sinLaIA`) pelea, pero no se rinde.
+ */
+export function resolvePendingBattle(state: GameState, ctx: GameContext): BattleOutcome {
   const pending = state.pendingBattle;
   if (pending === null) throw new Error('no hay batalla pendiente');
-  const outcome = autoResolve(pending.battle, ctx.rng, sidesOwnedBy(state, pending, noSeRinden));
+  const outcome = autoResolve(
+    pending.battle,
+    ctx.rng,
+    sidesOwnedBy(state, pending, sinLaIA(state)),
+  );
   settleBattle(state, ctx);
   return outcome;
 }
@@ -2683,7 +2712,7 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
       let base: Troop;
       switch (s.origen.kind) {
         case 'catalogo':
-          base = { creature: s.body };
+          base = { creature: s.origen.unidad };
           break;
         case 'personaje':
           // `member` viaja de vuelta: sin él, el superviviente volvería al mapa

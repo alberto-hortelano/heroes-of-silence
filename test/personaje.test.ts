@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
-  applyAction,
   type BattleMember,
   type BattleSide,
   createBattle,
   MAX_ROUNDS,
 } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { creature } from '../src/core/data.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
+import { isShooter } from '../src/core/data.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+
 import { createRng } from '../src/core/rng.js';
 import {
   ATTRIBUTES,
@@ -22,7 +24,7 @@ import {
   RACES,
 } from '../src/core/rpg/character.js';
 import { combatProfile } from '../src/core/rpg/stats.js';
-import { esPersonaje } from './helpers.js';
+import { aCiegas, esPersonaje } from './helpers.js';
 
 /**
  * Juega un duelo 1 contra 1 entero con la IA de reglas decidiendo por los dos
@@ -46,7 +48,7 @@ function duelo(atacante: BattleSide, defensor: BattleSide, semilla: number): Bat
     if (acciones > 1000) {
       throw new Error(`el duelo no termina: 1000 acciones y va por la ronda ${batalla.round}`);
     }
-    applyAction(batalla, chooseBattleAction(batalla), rng);
+    aCiegas(batalla, chooseBattleAction(batalla), rng);
   }
   if (batalla.round > MAX_ROUNDS) throw new Error('el duelo se cerró por el tope de rondas');
   return batalla;
@@ -59,7 +61,7 @@ const solo = (creature: string): BattleSide => ({
 
 describe('duelo de individuos con el motor del núcleo', () => {
   it('un duelo 1 contra 1 se juega entero con la IA de reglas', () => {
-    const batalla = duelo(solo('swordsman'), solo('zombie'), 91);
+    const batalla = duelo(solo('templario-mandoble'), solo('zombi'), 91);
     // Uno de los dos cae: `duelo` ya lanzó si se cerró por tope.
     const vivos = batalla.stacks.filter((s) => s.count > 0);
     expect(vivos).toHaveLength(1);
@@ -143,7 +145,7 @@ describe('del personaje a las cifras de combate', () => {
       damage: [30, 70],
       hp: 320,
       speed: 'fast',
-      shots: 13,
+      tira: true,
       morale: 0,
       luck: 1,
     },
@@ -154,7 +156,7 @@ describe('del personaje a las cifras de combate', () => {
       damage: [40, 80],
       hp: 340,
       speed: 'average',
-      shots: undefined,
+      tira: false,
       morale: 0,
       luck: 1,
     },
@@ -165,7 +167,7 @@ describe('del personaje a las cifras de combate', () => {
       damage: [30, 70],
       hp: 320,
       speed: 'average',
-      shots: undefined,
+      tira: false,
       morale: 1,
       luck: 1,
     },
@@ -176,7 +178,7 @@ describe('del personaje a las cifras de combate', () => {
       damage: [30, 70],
       hp: 320,
       speed: 'average',
-      shots: undefined,
+      tira: false,
       morale: 1,
       luck: 1,
     },
@@ -193,7 +195,7 @@ describe('del personaje a las cifras de combate', () => {
         damage: p.unit.damage,
         hp: p.unit.hp,
         speed: p.unit.speed,
-        shots: p.unit.shots,
+        tira: isShooter(p.unit),
         morale: p.morale,
         luck: p.luck,
       }).toEqual(e);
@@ -228,7 +230,11 @@ describe('del personaje a las cifras de combate', () => {
 
 /** El ejército de un personaje solo, y el bando que lo sabe jugar. */
 function ladoDe(c: Character, hp = c.hp, count = 1): BattleSide {
-  const members = new Map<string, BattleMember>([[c.id, { profile: combatProfile(c), hp }]]);
+  // Con una espada: sin arma no se combate (la rueda va con la del arma,
+  // 19-10-2026), y el perfil de un personaje no trae ninguna.
+  const perfil = combatProfile(c);
+  const armado = { ...perfil, unit: EQUIPO_DEL_JUEGO.conEquipo(perfil.unit, { arma: 'espada' }) };
+  const members = new Map<string, BattleMember>([[c.id, { profile: armado, hp }]]);
   return {
     army: [{ creature: CHARACTER_BODY, count, member: c.id }],
     hero: null,
@@ -238,7 +244,7 @@ function ladoDe(c: Character, hp = c.hp, count = 1): BattleSide {
 
 describe('un personaje en el tablero', () => {
   const rng = () => createRng(7);
-  const zombi = solo('zombie');
+  const zombi = solo('zombi');
 
   it('un personaje en un stack de 2 lanza', () => {
     expect(() => createBattle(ladoDe(personaje('Guerrero'), 340, 2), zombi, rng())).toThrow(
@@ -281,7 +287,7 @@ describe('un personaje en el tablero', () => {
       ...ladoDe(c),
       army: [
         { creature: CHARACTER_BODY, count: 1, member: c.id },
-        { creature: 'peasant', count: 5 },
+        { creature: 'goblin-lancero', count: 5 },
         { creature: CHARACTER_BODY, count: 1, member: c.id },
       ],
     };
@@ -313,19 +319,19 @@ describe('un personaje en el tablero', () => {
       ...ladoDe(c),
       army: [
         { creature: CHARACTER_BODY, count: 1, member: c.id },
-        { creature: 'peasant', count: 5 },
+        { creature: 'goblin-lancero', count: 5 },
       ],
     };
     const b = createBattle(lado, zombi, rng());
-    // Solo caballeros entre las criaturas: +1, también para el personaje.
-    expect(b.stacks.find((x) => x.body === 'peasant')!.morale).toBe(1);
+    // Solo orkos entre las unidades (el goblin): +1, también para el personaje.
+    expect(b.stacks.find((x) => x.body === 'goblin-lancero')!.morale).toBe(1);
     expect(b.stacks.find(esPersonaje(c.id))!.morale).toBe(1);
   });
 
   it('el catálogo no conoce al cuerpo de un personaje', () => {
     // Es lo que hace que un lector de Army que no sepa de personajes lance en
     // vez de leer cifras prestadas.
-    expect(() => creature(CHARACTER_BODY)).toThrow(/criatura desconocida: "character"/);
+    expect(() => unidadDelJuego(CHARACTER_BODY)).toThrow(/no hay ninguna unidad «character»/);
   });
 
   it('un personaje se bate en duelo con un zombi y la IA de reglas lo juega entero', () => {
@@ -338,11 +344,11 @@ describe('un personaje en el tablero', () => {
     expect(duelo(ladoDe(c), zombi, 91).log).toEqual(batalla.log);
   });
 
-  it('el Guardabosques dispara con la munición de su percepción', () => {
+  it('el Guardabosques dispara con su arco, sin munición', () => {
     const c = personaje('Guardabosques');
     const batalla = createBattle(ladoDe(c), zombi, rng());
     const s = batalla.stacks.find(esPersonaje(c.id))!;
-    expect(s.shotsLeft).toBe(13);
+    expect(s.unit.equipo?.distancia).toBe('arco');
     const d = duelo(ladoDe(c), zombi, 91);
     expect(d.log.some((e) => e.kind === 'shoot')).toBe(true);
   });

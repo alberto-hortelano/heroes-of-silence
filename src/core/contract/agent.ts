@@ -18,6 +18,7 @@
 import { z } from 'zod';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
+import { PODERES, queHaceElPoder } from '../battle/poderes.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
@@ -32,13 +33,22 @@ import {
 } from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
-import { FACTION_IDS, HUECOS } from '../types.js';
-import { SLOT_DE_HUECO, SLOTS } from './huecos.js';
+import { FACTION_IDS, HUECOS, TIPOS_DEL_ANILLO } from '../types.js';
+import { HIT_DE_GOLPE, HITS, SLOT_DE_HUECO, SLOTS } from './vocabulario.js';
+
+/** Los poderes de unidad, por su id y con lo que hacen (`queHaceElPoder`, lo que lee el panel). */
+const PODERES_EN_PROSA = PODERES.map((p) => `"${p.id}" (${p.nombre}: ${queHaceElPoder(p)})`).join(
+  ', ',
+);
+
+/** El anillo de la rueda en el contrato: «"offensive", "strong"…», en su orden. */
+const ANILLO_EN_PROSA = TIPOS_DEL_ANILLO.map((t) => `"${HIT_DE_GOLPE[t]}"`).join(', ');
 
 /** Los huecos que el héroe trae puestos al nacer y los que trae vacíos, derivados del equipo base. */
-const HUECOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] !== undefined)
-  .map((h) => SLOT_DE_HUECO[h])
-  .join(', ');
+const HUECOS_DE_SERIE = HUECOS.flatMap((h) => {
+  const id = EQUIPO_BASE[h];
+  return id === undefined ? [] : [`"${id}" en "${SLOT_DE_HUECO[h]}"`];
+}).join(' y ');
 const VACIOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] === undefined).map(
   (h) => `"${SLOT_DE_HUECO[h]}"`,
 );
@@ -92,16 +102,37 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
 
 export const battleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('move'), to: hexSchema }),
-  z.object({ type: z.literal('attack'), target: z.string(), from: hexSchema.optional() }),
+  // `hit`, el golpe de la rueda, va como texto y no como `z.enum`: uno mal
+  // escrito descarta ESTA jugada con su motivo (`golpeDelHit`, en el director),
+  // no la batalla entera. Sin él, lo elige la IA a ciegas por ti.
+  z.object({
+    type: z.literal('attack'),
+    target: z.string(),
+    from: hexSchema.optional(),
+    hit: z.string().max(32).optional(),
+  }),
   z.object({ type: z.literal('shoot'), target: z.string() }),
   z.object({ type: z.literal('wait') }),
   z.object({ type: z.literal('defend') }),
   z.object({ type: z.literal('cast'), spell: z.string(), target: z.string().optional() }),
+  // El poder de la unidad activa (`UnitInfo.poderes`) sobre un aliado: el turno entero.
+  z.object({ type: z.literal('power'), power: z.string(), target: z.string() }),
   // `gold` es opcional: viene puesto en `legalActions` y devolverla tal cual
   // vale; si se manda, tiene que ser el precio de ahora (`applyAction`).
   z.object({ type: z.literal('surrender'), gold: z.number().int().nonnegative().optional() }),
   z.object({ type: z.literal('end_turn') }),
 ]);
+
+/**
+ * La respuesta de la rueda cuando golpean a una unidad del agente
+ * (`battle_response`). Texto y no `z.enum`, por lo mismo que `hit`: una que no
+ * es un golpe se dice en el veredicto y la elige la IA a ciegas por él, sin
+ * quitarle la batalla.
+ */
+export const battleResponseResponseSchema = z.object({
+  response: z.string().max(32),
+  reasoning: z.string().max(2000).optional(),
+});
 
 export const adventureTurnResponseSchema = z.object({
   /** Acciones en orden. No hace falta terminar con `end_turn`: se añade solo. */
@@ -267,6 +298,7 @@ export const townVoicesResponseSchema = z.object({
 export const REQUEST_KINDS = [
   'adventure_turn',
   'battle_turn',
+  'battle_response',
   'map_generate',
   'hero_from_troop',
   'town_voices',
@@ -277,6 +309,7 @@ export type RequestKind = (typeof REQUEST_KINDS)[number];
 export const responseSchemas = {
   adventure_turn: adventureTurnResponseSchema,
   battle_turn: battleTurnResponseSchema,
+  battle_response: battleResponseResponseSchema,
   map_generate: mapGenerateResponseSchema,
   hero_from_troop: heroFromTroopResponseSchema,
   town_voices: townVoicesResponseSchema,
@@ -298,13 +331,6 @@ export const responseSchemas = {
  * porque sea más importante.
  */
 export type MapGenerateResponse = z.infer<typeof mapGenerateResponseSchema>;
-
-/**
- * El bono de una casilla de carga en tanto por ciento y su tope, tal y como se le
- * dicen al agente: los del jinete (`data/carga.json`), que el juego no carga a pie.
- */
-const PORCIENTO_POR_CASILLA_DE_CARGA = CARGA.jinete.porcentaje;
-const TOPE_DE_CARGA = CARGA.jinete.tope;
 
 /**
  * Descripción del formato de respuesta que viaja DENTRO de cada petición.
@@ -354,10 +380,12 @@ Notas:
   también sale en el veredicto como marcha parcial.
 - NIVEL y RANGO son dos cosas. El NIVEL de una unidad es la primera cifra de
   su ÍNDICE DE PODER ("powerIndex": 340 es el nivel 3), que sale de sus cifras
-  SIN EQUIPO (ataque, defensa, PV, daño, velocidad, tiro y doble golpe): nadie
-  lo escribe y el equipo no lo mueve. "creature_stats" da de cada criatura su
-  "level", su "powerIndex" y su "dwelling" (la morada que la produce, 1-6), que
-  casi siempre es su nivel o el de al lado. El RANGO es la experiencia: la
+  CON SU EQUIPO PUESTO (ataque, defensa, PV, daño de cada arma, armadura,
+  velocidad, tiro y doble golpe): nadie lo escribe. "creature_stats" da de cada
+  unidad su "level", su "powerIndex", su "dwelling" (el edificio de su facción
+  que la produce; uno produce varias, y el edificio no implica nivel), su equipo
+  de serie ("equipment") y su "armor"; lo que cuesta y crece sale de su índice.
+  El RANGO es la experiencia: la
   TROPA va del 1 al 5, y todo HÉROE empieza en el 5 —el inicial y el
   contratado— y sube sin tope (6, 7, 8…). Cada rango suma cifras (a la tropa,
   ataque y defensa; al héroe, cuerpo y LIDERAZGO, el tope de su ejército), así
@@ -391,21 +419,26 @@ Notas:
   los de MENOS experiencia: el veterano no se va mientras quede un novato de su
   tipo. Un personaje no se licencia, y fuera de un castillo tuyo se rechaza
   diciéndolo.
-- EQUIPO: todo héroe y todo individuo de la tropa tiene cuatro huecos
-  (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada; cada pieza suma
-  sus cifras a quien la lleva. "${SLOT_DE_HUECO.escudo}" es opcional: ${REGLA_DEL_ESCUDO}
+- EQUIPO: todo héroe y todo individuo de la tropa tiene cinco huecos
+  (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada: "${SLOT_DE_HUECO.arma}" es
+  el arma de cuerpo a cuerpo, "${SLOT_DE_HUECO.distancia}" la que dispara (llevarla ya
+  es disparar, sin munición que contar),
+  "${SLOT_DE_HUECO.lanza}" la lanza con que se carga, "${SLOT_DE_HUECO.armadura}" la
+  armadura y "${SLOT_DE_HUECO.escudo}" el escudo, opcional: ${REGLA_DEL_ESCUDO}
   (ponerle uno a quien lleva un arma a dos manos, o ponerle una a quien lleva
-  escudo, se rechaza diciéndolo).
+  escudo, se rechaza diciéndolo). Cada pieza suma sus cifras a quien la lleva;
+  ninguna da PV: la armadura son puntos que se restan del daño de cada golpe que
+  recibe, y "stacks[].armor" de la batalla dice cuántos.
   "heroes[].equipment" es lo que lleva puesto el héroe (por hueco, el id o null) y
   "heroes[].backpack" su MOCHILA, las piezas que lleva sin poner. Todo héroe nace
-  con el equipo de calidad de armería puesto en ${HUECOS_DE_SERIE}${VACIOS_DE_SERIE.length === 0 ? '' : ` (y nada en ${VACIOS_DE_SERIE.join(', ')})`};
-  solo mejora con piezas especiales. De dónde salen las piezas:
+  con ${HUECOS_DE_SERIE}${VACIOS_DE_SERIE.length === 0 ? '' : ` (y nada en ${VACIOS_DE_SERIE.join(', ')})`}.
+  De dónde salen las piezas (lo dice cada una abajo):
   · BOTÍN: vencer a un grupo de asaltantes —atacándolo o repeliendo su
-    emboscada— o tomar una ciudad NEUTRAL con guarnición deja una pieza común o
-    especial, al azar, en la mochila del héroe que gana. Lo cuenta "recentEvents"
-    con "loot_found".
+    emboscada— o tomar una ciudad NEUTRAL con guarnición deja una de las piezas
+    que caen como botín, al azar, en la mochila del héroe que gana. Lo cuenta
+    "recentEvents" con "loot_found".
   · ARMERÍA: en un castillo tuyo con el edificio "armory" y un héroe tuyo dentro,
-    "buy_item" compra una pieza de calidad de armería para su mochila;
+    "buy_item" compra una de las piezas que se venden para su mochila;
     "towns[].armory" dice qué vende y a qué precio, y solo viene si la tiene.
   Cada fila de "army" con "id" lleva su "equipment" con la misma forma.
   "equip" pone una pieza de la mochila del héroe: sin más, al propio héroe; con
@@ -490,11 +523,12 @@ que no existe se descarta.
 
 Acciones válidas para la unidad activa:
   { "type": "move",   "to": { "col": N, "row": N } }
-  { "type": "attack", "target": "<id de stack>", "from": { "col": N, "row": N } }
+  { "type": "attack", "target": "<id de stack>", "from": { "col": N, "row": N }, "hit": "<golpe>" }
   { "type": "shoot",  "target": "<id de stack>" }
   { "type": "wait" }
   { "type": "defend" }
   { "type": "cast",   "spell": "<id>", "target": "<id de stack>" }
+  { "type": "power",  "power": "<id de poder>", "target": "<id de stack aliado>" }
   { "type": "surrender", "gold": N }
   { "type": "end_turn" }
 
@@ -517,7 +551,7 @@ Notas:
 - Un stack con "veteranRank" es un VETERANO (rango 2 a 5): su ataque y su
   defensa ya traen lo que da su rango. Cada PV que le quites a alguien te da
   "PV × índice de poder de quien los recibe" de experiencia (el de sus cifras
-  sin equipo; 100 × su nivel o algo más), así que pegar a lo fuerte enseña más. La tropa que muere pierde lo que había ganado.
+  con el equipo puesto; 100 × su nivel o algo más), así que pegar a lo fuerte enseña más. La tropa que muere pierde lo que había ganado.
 - "surrender" te rinde: pierdes la batalla, pagas el oro de la rendición y tu
   héroe vuelve a la base con la tropa que siga viva. El precio es proporcional
   a la tropa que salvas y viene en su "gold" dentro de "legalActions"; el oro
@@ -530,16 +564,40 @@ Notas:
 - "from" es opcional en "attack": si se indica, la unidad se mueve ahí (lo que le
   quede de "stepsLeft") y golpea; sin él golpea desde donde está, si ya está al
   lado. Puedes ELEGIR desde qué casilla golpear: cualquier "from" de la lista.
-- La CARGA es solo de las unidades con el rasgo "charge": un "attack" con "from"
-  carga si ese "from" está en LÍNEA RECTA desde donde está la unidad ahora (una
-  de las 6 rectas del hexágono, sin giros ni unidades en medio), a ${CARGA_MINIMA} casillas o
-  más, y el "target" está EN ESA RECTA: la casilla que sigue a "from" es suya.
-  Llegar a la recta y girar para pegar al de al lado no carga, ni pegar al que
-  ya tienes pegado. Cada casilla suma un ${PORCIENTO_POR_CASILLA_DE_CARGA} % de daño, hasta ${TOPE_DE_CARGA}. Lo andado en
+- CARGA todo el que pega cuerpo a cuerpo: un "attack" con "from" carga si ese
+  "from" está en LÍNEA RECTA desde donde está la unidad ahora (una de las 6
+  rectas del hexágono, sin giros ni unidades en medio), a ${CARGA_MINIMA} casillas o más, y
+  el "target" está EN ESA RECTA: la casilla que sigue a "from" es suya. Llegar a
+  la recta y girar para pegar al de al lado no carga, ni pegar al que ya tienes
+  pegado. Cada casilla suma un ${CARGA.aPie.porcentaje} % de daño a pie, y un ${CARGA.jinete.porcentaje} % con el rasgo
+  "charge" (el jinete), hasta ${CARGA.jinete.tope}; solo el primer golpe la cobra. Lo andado en
   tramos anteriores no cuenta: cada tramo se vuelve a medir. "chargeFrom" te
   lista las cargas que tienes ahora mismo: contra qué "target", desde qué
   casilla ("col", "row") y con cuántas casillas cobrarías ("hexes"); solo viene
   cuando hay alguna. Un "move" a esa casilla NO carga: solo mueve.
+- SALIR DEL CONTACTO cuesta: dejar una casilla con N enemigos al lado que te
+  puedan golpear cuerpo a cuerpo cuesta 1 + N de "stepsLeft". Las casillas de
+  "legalActions" ya lo descuentan; si no te llega para salir, no te mueves
+  (golpea, defiende o espera). La carga se paga por la recta.
+- Cada golpe cuerpo a cuerpo pasa por la RUEDA DEL GOLPE: quien pega elige su
+  golpe ("hit" en el "attack") y quien recibe su respuesta, a la vez y sin ver
+  el otro. Valen ${HITS.map((h) => `"${h}"`).join(', ')}. En el anillo, en el
+  sentido del reloj desde arriba: ${ANILLO_EN_PROSA}; "normal" va en el centro.
+  El cruce fija el daño dentro de la horquilla del arma: con "normal" en
+  cualquiera de los dos, el medio; si no, cuanto más lejos en el anillo, más
+  daño (los dos iguales, el mínimo; opuestos, el máximo). La respuesta es
+  además el tipo del contraataque, que cae en el punto contrario: quien acierta
+  la respuesta recibe el mínimo y devuelve el máximo. Lo que hace cada tipo con
+  el arma de tu unidad activa viene en "hits", cuando puede golpear. Sin "hit",
+  tu golpe lo elige la IA a ciegas por ti; uno que no es de la lista descarta
+  el "attack" como cualquier acción ilegal. Cuando el rival golpea a una unidad
+  tuya, se te pide la respuesta con "battle_response". El registro cuenta cada
+  cruce con el hecho "cruce" ("hit" de quien pegó, "response" de quien
+  respondió). Tras golpear con "feint", el turno de esa unidad sigue solo para
+  andar (o "end_turn"). El disparo no pasa por la rueda: sigue con su tirada.
+- "power" usa un PODER de la unidad activa ("stacks[].powers": ${PODERES_EN_PROSA})
+  sobre un aliado, incluida ella misma. Gasta su turno entero y solo sin haberse movido; los que
+  puede usar ahora vienen en "legalActions".
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
   disparar o atacar. Se te volverá a pedir acción para el mismo stack.
@@ -555,6 +613,32 @@ Notas:
   si lo que jugó fue un hechizo. Se te dice cuál de las dos en el veredicto.
 - De cada acción se te informa, también cuando entra: no tienes que deducir de
   un silencio si coló.`,
+
+  battle_response: `Responde con:
+{
+  "response": "<golpe>",
+  "reasoning": "una línea opcional"
+}
+
+El rival golpea cuerpo a cuerpo a una unidad tuya ("target", de "attacker") y
+eliges tu RESPUESTA en la rueda del golpe, a la vez que él elige su golpe: NO
+lo ves, ni aquí ni en el registro hasta que se cruzan. Valen
+${HITS.map((h) => `"${h}"`).join(', ')}.
+
+- El cruce fija el daño que recibes dentro de la horquilla de su arma: con
+  "normal" en cualquiera de los dos, el medio; si no, cuanto más lejos esté tu
+  respuesta de su golpe en el anillo (${ANILLO_EN_PROSA}, en el sentido del
+  reloj desde arriba), más daño; la misma, el mínimo.
+- Tu respuesta es también el tipo de tu contraataque, que cae en el punto
+  contrario: si aciertas, recibes el mínimo y devuelves el máximo.
+- "responses" trae, por cada tipo ("response"), el daño de cada golpe de tu
+  contraataque ("counterDamage", de "min" a "max", y "strikes", cuántos golpes)
+  y lo que hace ("effect"). Si
+  tu unidad no devolverá el golpe, "noCounterattack" dice por qué y tu
+  respuesta solo cuenta para el cruce.
+- Una respuesta que no es de la lista, o ninguna a tiempo, no te quita la
+  batalla: esa respuesta la elige la IA a ciegas por ti, se te dice en el
+  veredicto y sigues jugando.`,
 
   map_generate: `Responde con:
 {
@@ -630,7 +714,7 @@ Reglas que se validan antes de aceptarlo:
 - Desde cada inicio se debe poder llegar a pie a todas las ciudades.
 - "monsters[].creature" tiene que ser un id de criatura que exista: usa los de
   "palette.creaturesForGuards", que están escritos como los espera el motor.
-  Distingue mayúsculas ("skeleton" sí, "Skeleton" no) y no vale inventarse una:
+  Distingue mayúsculas ("zombi" sí, "Zombi" no) y no vale inventarse una:
   el mapa no se construye y se te devuelve la lista de las que valen.
 - "monsters[].count" son individuos, un entero de 1 a 7: en batalla ningún
   bando lleva más de 7 (un héroe pelea con 6 más él). Un monstruo de más se

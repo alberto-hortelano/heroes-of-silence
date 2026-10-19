@@ -24,11 +24,11 @@ import type { BattleStack } from './types.js';
  * Los tipos de efecto que existen. Es una lista de valores y no solo un tipo
  * porque `test/invariantes.test.ts` la recorre para exigir que cada uno tenga
  * quien lo lea: un tipo que nadie suma se colgaría del stack sin hacer nada.
- * `'defense'` lo suma `effectiveDefense` (`damage.ts`); hoy solo lo pone
- * Defensivo de la rueda del golpe (la arena). Mismo patrón que
+ * `'defense'` lo suma `effectiveDefense` (`damage.ts`); hoy solo lo ponen
+ * Defensivo y Romper guardia de la rueda del golpe. Mismo patrón que
  * `CREATURE_TRAITS` en `types.ts`.
  */
-export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'tirada', 'defense'] as const;
+export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'defense'] as const;
 
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
@@ -138,19 +138,6 @@ export function effectiveLuck(stack: BattleStack): number {
 }
 
 /**
- * La tirada de daño que impone un efecto: `1` el máximo, `-1` el mínimo, `0` la
- * de siempre. Es la Bendición y la Maldición de fheroes2 (`tirada`), que solo
- * cuelga la arena con el interruptor (e) encendido; en el juego no hay ninguna
- * y esto vale 0. Una sola puede estar viva a la vez —la nueva sustituye a la
- * contraria (`applyStackEffect`, `battle.ts`)—, así que el signo del total es el
- * de la que está.
- */
-export function efectoDeTirada(stack: BattleStack): -1 | 0 | 1 {
-  const total = effectTotal(stack, 'tirada');
-  return total > 0 ? 1 : total < 0 ? -1 : 0;
-}
-
-/**
  * Descuenta una ronda a cada efecto y devuelve los que acaban de caducar.
  * Un efecto de N rondas lanzado en la ronda R vive de la R a la R+N−1.
  */
@@ -164,4 +151,47 @@ export function tickEffects(stack: BattleStack): StackEffect[] {
   }
   stack.effects = vivos;
   return caducados;
+}
+
+// ---------------------------------------------------------------- dicho
+
+/**
+ * Cómo se llama cada clase de efecto. Tipada por `EffectKind`, cerrada: un
+ * `EffectKind` nuevo no compila hasta que alguien le escriba su nombre.
+ */
+export const NOMBRE_DEL_EFECTO: Readonly<Record<EffectKind, string>> = {
+  speed: 'velocidad',
+  luck: 'suerte',
+  attack: 'ataque',
+  defense: 'defensa',
+};
+
+/**
+ * Lo que hace un efecto, dicho: «suerte −1». El único texto de un efecto: lo leen
+ * el parte, la previsión de un hechizo, la ficha del héroe de la arena y lo que
+ * hace un poder (`queHaceElPoder`).
+ */
+export function cifraDeEfecto(kind: EffectKind, amount: number): string {
+  return `${NOMBRE_DEL_EFECTO[kind]} ${amount > 0 ? '+' : ''}${amount}`;
+}
+
+/**
+ * «1 ronda», «3 rondas»: el número concuerda. Lo leen el parte, la previsión y
+ * la ficha del héroe de la arena, que decía «1 rondas» (H5 de QA del banco).
+ */
+export function enRondas(n: number): string {
+  return `${n} ${n === 1 ? 'ronda' : 'rondas'}`;
+}
+
+/**
+ * Lo que hace un hechizo que no hiere, en pocas palabras: «cura 4 PV», «suerte +1
+ * durante 3 rondas»; `null` si no cura ni deja nada. Una sola redacción para la
+ * previsión del hechizo, la del poder y lo que hace un poder (`queHaceElPoder`).
+ */
+export function curaOEfecto(cura: number | null, efecto: StackEffect | null): string | null {
+  if (cura !== null) return `cura ${cura} PV`;
+  if (efecto !== null) {
+    return `${cifraDeEfecto(efecto.kind, efecto.amount)} durante ${enRondas(efecto.roundsLeft)}`;
+  }
+  return null;
 }

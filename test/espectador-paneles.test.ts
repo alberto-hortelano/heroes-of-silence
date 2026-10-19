@@ -37,7 +37,7 @@ import { newGame } from '../src/core/state/setup.js';
 import { ponerVoces } from '../src/core/town/voces.js';
 import type { SpectatorSnapshotMsg } from '../src/server/protocol.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
-import { costesDelAlcance, forzarBatalla, monstruoVivo } from './helpers.js';
+import { aCiegas, costesDelAlcance, forzarBatalla, monstruoVivo } from './helpers.js';
 
 /** Una partida con una batalla contra un MONSTRUO: el defensor no es de nadie. */
 function contraUnNeutral(semilla: number): { state: GameState; vista: SpectatorView } {
@@ -339,7 +339,7 @@ describe('el telón retiene el final de una batalla', () => {
         applyAction(b, rendicion, rng);
         break;
       }
-      applyAction(b, chooseBattleAction(b), rng);
+      aCiegas(b, chooseBattleAction(b), rng);
     }
     expect(b.finished?.surrender).toBeDefined();
     const marcado = marcadoDe(panelDelEspectador(construirVista(state, []), null));
@@ -411,7 +411,7 @@ describe('el espectador cuenta cada batalla en orden', () => {
     const rng = createRng(semilla);
     const fotos: SpectatorSnapshotMsg[] = [];
     for (let i = 0; i < 300 && b.finished === null; i++) {
-      applyAction(b, chooseBattleAction(b), rng);
+      aCiegas(b, chooseBattleAction(b), rng);
       fotos.push(foto());
     }
     expect(b.finished).not.toBeNull();

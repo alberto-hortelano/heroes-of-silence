@@ -12,14 +12,17 @@ import {
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import { stackHp } from '../src/core/battle/damage.js';
 import { allSpells } from '../src/core/battle/spells.js';
+import { queEs } from '../src/core/battle/types.js';
 import {
-  factionLineup,
   guarnicionDeBase,
   guarnicionNeutral,
-  LIDERAZGO,
   problemasDeGrupo,
   problemasDeTopeDeLiderazgo,
-} from '../src/core/data.js';
+  unidadDelJuego,
+  unidadesDelJuego,
+  unidadesDeMorada,
+} from '../src/core/catalogo.js';
+import { crecimientoDelNivel, ECONOMIA, LIDERAZGO, oroDelIndice } from '../src/core/data.js';
 import {
   type Hero,
   learnable,
@@ -27,6 +30,7 @@ import {
   maxMovePoints,
   slowestSpeed,
 } from '../src/core/hero/hero.js';
+import { CUPO_GUARNICION, GARRISON_LEADERSHIP, troopBlocker } from '../src/core/hero/troop.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import {
   blocksMovement,
@@ -49,6 +53,7 @@ import {
   territorio,
 } from '../src/core/map/regiones.js';
 import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {
   CHARACTER_BODY,
@@ -85,7 +90,7 @@ import {
   week,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { building, buildingsOfFaction } from '../src/core/town/buildings.js';
+import { building, buildingsOfFaction, nivelDeMorada } from '../src/core/town/buildings.js';
 import {
   applyWeeklyGrowth,
   availableBuildings,
@@ -99,6 +104,8 @@ import {
 } from '../src/core/town/town.js';
 import {
   EMPTY_RESOURCES as EMPTY,
+  FACTION_IDS,
+  type FactionId,
   type Point,
   RESOURCE_KINDS,
   type Resources,
@@ -110,13 +117,21 @@ import {
   costesDelAlcance,
   ejercito,
   esPersonaje,
+  FACCION_A,
+  FACCION_B,
   forzarBatalla,
   hastaSuSiguienteTurno,
+  JINETE,
   monstruoVivo,
+  NO_MUERTO,
+  PESADA,
   planDeNodos,
   ponerMonstruo,
   primeraMarchaQueSePara,
   sinGuarnicionDeSalida,
+  TIRADOR,
+  TROPA,
+  TROPA_BARATA,
 } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
@@ -147,18 +162,20 @@ const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
 
 describe('puntos de movimiento', () => {
   it('los marca la criatura más lenta del ejército', () => {
-    const lento = ejercito({ creature: 'zombie', count: 5 }, { creature: 'champion', count: 5 });
+    const lento = ejercito({ creature: 'zombi', count: 5 }, { creature: JINETE, count: 5 });
     expect(slowestSpeed(lento, undefined)).toBe('very_slow');
     // La tabla de fheroes2 (1000 y 1500) a la escala del mapa de #226: ×√1,5.
     expect(maxMovePoints({ army: lento, skills: {} }, undefined)).toBe(1224);
 
-    const rapido = ejercito({ creature: 'champion', count: 5 });
+    const rapido = ejercito({ creature: JINETE, count: 5 });
     expect(slowestSpeed(rapido, undefined)).toBe('ultra_fast');
     expect(maxMovePoints({ army: rapido, skills: {} }, undefined)).toBe(1837);
   });
 
   it('Logística los aumenta un 10 % por nivel', () => {
-    const army = ejercito({ creature: 'skeleton', count: 5 });
+    // La pesada va a paso medio (`average`).
+    expect(unidadDelJuego(PESADA).speed).toBe('average');
+    const army = ejercito({ creature: PESADA, count: 5 });
     // 1200 de fheroes2 → 1469 a la escala (#226); la Logística va encima.
     expect(maxMovePoints({ army, skills: {} }, undefined)).toBe(1469);
     expect(maxMovePoints({ army, skills: { logistics: 1 } }, undefined)).toBe(1616);
@@ -283,16 +300,17 @@ describe('generación de mapas', () => {
       monsters: [...plan.monsters, { at: { x: 11, y: 11 }, creature: 'dragon', count: 3 }],
     };
     const problemas = validateMapPlan(inventada);
-    expect(problemas.join(' ')).toMatch(/criatura que no existe: "dragon"/);
+    expect(problemas.join(' ')).toMatch(/unidad que no existe: "dragon"/);
     // Y con qué corregirlo: un rechazo que no dice las opciones no se corrige.
-    expect(problemas.join(' ')).toMatch(/Las que valen:.*skeleton/);
+    expect(problemas.join(' ')).toMatch(new RegExp(`Las que valen:.*${NO_MUERTO}`));
 
     // La mayúscula también, que es el error más probable de un modelo.
+    const conMayuscula = NO_MUERTO.charAt(0).toUpperCase() + NO_MUERTO.slice(1);
     const mayuscula = {
       ...plan,
-      monsters: [{ at: plan.monsters[0]!.at, creature: 'Skeleton', count: 3 }],
+      monsters: [{ at: plan.monsters[0]!.at, creature: conMayuscula, count: 3 }],
     };
-    expect(validateMapPlan(mayuscula).join(' ')).toMatch(/"Skeleton"/);
+    expect(validateMapPlan(mayuscula).join(' ')).toContain(`"${conMayuscula}"`);
 
     // Y el plan que muere en la puerta NO llega a construirse: `newGame` lanza
     // con el motivo del plan, no con «criatura desconocida» desde dentro del
@@ -310,12 +328,12 @@ describe('generación de mapas', () => {
       monsters: [{ at: plan.monsters[0]!.at, creature, count }, ...plan.monsters.slice(1)],
     });
     const at = plan.monsters[0]!.at;
-    expect(validateMapPlan(conMonstruo('peasant', 8))).toEqual([
-      `el monstruo de (${at.x},${at.y}) trae 8 × peasant y un bando lleva como mucho 7`,
+    expect(validateMapPlan(conMonstruo(TROPA_BARATA, 8))).toEqual([
+      `el monstruo de (${at.x},${at.y}) trae 8 × ${TROPA_BARATA} y un bando lleva como mucho 7`,
     ]);
     // Y en el límite, entra.
-    expect(validateMapPlan(conMonstruo('peasant', 7))).toEqual([]);
-    expect(validateMapPlan(conMonstruo('bone_dragon', 7))).toEqual([]);
+    expect(validateMapPlan(conMonstruo(TROPA_BARATA, 7))).toEqual([]);
+    expect(validateMapPlan(conMonstruo('jinete-de-plaga', 7))).toEqual([]);
   });
 
   it('la guarnición de los datos y el monstruo del plan pasan por la misma comprobación', () => {
@@ -324,30 +342,36 @@ describe('generación de mapas', () => {
     expect(
       problemasDeGrupo(
         [
-          { creature: 'peasant', count: 4 },
-          { creature: 'archer', count: 4 },
+          { creature: TROPA_BARATA, count: 4 },
+          { creature: TIRADOR, count: 4 },
         ],
         'la guarnición',
       ),
-    ).toEqual(['la guarnición trae 4 × peasant + 4 × archer y un bando lleva como mucho 7']);
+    ).toEqual([
+      `la guarnición trae 4 × ${TROPA_BARATA} + 4 × ${TIRADOR} y un bando lleva como mucho 7`,
+    ]);
     // Y la de los datos de hoy, la que nace en cada ciudad neutral, vale.
-    for (const f of ['knight', 'necromancer'] as const) {
+    for (const f of FACTION_IDS) {
       expect(problemasDeGrupo(guarnicionNeutral(f), f)).toEqual([]);
     }
   });
 
   it('una guarnición de los datos tiene además el tope de liderazgo de guarnición', () => {
-    // Siete espadachines caben en el cupo de un bando y no en una guarnición:
-    // 42 de liderazgo donde caben 20. Un monstruo así vale; una ciudad, no.
-    const siete = [{ creature: 'swordsman', count: 7 }];
+    // Siete pesados caben en el cupo de un bando y no en una guarnición: 7 × 4
+    // de liderazgo donde caben 20. Un monstruo así vale; una ciudad, no.
+    const siete = [{ creature: PESADA, count: 7 }];
+    const ocupa = 7 * unidadDelJuego(PESADA).leadership;
+    expect(ocupa).toBeGreaterThan(LIDERAZGO.guarnicion);
     expect(problemasDeGrupo(siete, 'el monstruo')).toEqual([]);
     expect(
       problemasDeTopeDeLiderazgo(siete, 'la base', LIDERAZGO.guarnicion, 'una guarnición'),
-    ).toEqual(['la base ocupa 42 de liderazgo y una guarnición lleva como mucho 20']);
-    // Y las dos tablas de hoy valen, la de la base justo en el tope.
+    ).toEqual([
+      `la base ocupa ${ocupa} de liderazgo y una guarnición lleva como mucho ${LIDERAZGO.guarnicion}`,
+    ]);
+    // Y las tablas de hoy valen, las de las cinco facciones.
     const enGuarnicion = (g: Parameters<typeof problemasDeGrupo>[0], q: string) =>
       problemasDeTopeDeLiderazgo(g, q, LIDERAZGO.guarnicion, 'una guarnición');
-    for (const f of ['knight', 'necromancer'] as const) {
+    for (const f of FACTION_IDS) {
       expect(enGuarnicion(guarnicionNeutral(f), f)).toEqual([]);
       expect(enGuarnicion(guarnicionDeBase(f), f)).toEqual([]);
     }
@@ -362,10 +386,10 @@ describe('generación de mapas', () => {
     for (const count of [0, -3, 1.5, Number.NaN]) {
       const malo = {
         ...plan,
-        monsters: [{ at, creature: 'peasant', count }, ...plan.monsters.slice(1)],
+        monsters: [{ at, creature: TROPA_BARATA, count }, ...plan.monsters.slice(1)],
       };
       expect(validateMapPlan(malo), String(count)).toEqual([
-        `el monstruo de (${at.x},${at.y}) trae ${count} × peasant: son individuos, tiene que ser un entero de 1 en adelante`,
+        `el monstruo de (${at.x},${at.y}) trae ${count} × ${TROPA_BARATA}: son individuos, tiene que ser un entero de 1 en adelante`,
       ]);
     }
   });
@@ -405,7 +429,7 @@ describe('generación de mapas', () => {
         {
           id: 'town-9',
           name: 'Fantasma',
-          faction: 'knight' as const,
+          faction: 'templarios' as const,
           at: { x: 12, y: 2 },
           owner: 7,
         },
@@ -647,20 +671,21 @@ describe('economía', () => {
     const town = townsOf(state, 0)[0]!;
     const player = currentPlayer(state);
     const oroAntes = player.resources.gold;
+    // Dos moradas de su facción que solo piden lo que la base trae hecho.
+    const [una, otra] = buildingsOfFaction(town.faction)
+      .filter((b) => b.morada !== undefined && b.prebuilt !== true)
+      .filter((b) => (b.requires ?? []).every((r) => town.buildings.includes(r)))
+      .map((b) => b.id);
+    expect(otra).toBeDefined();
 
-    applyAdventureAction(
-      state,
-      { type: 'build', town: town.id, building: 'knight_dwelling_2' },
-      c,
-      state.current,
-    );
-    expect(town.buildings).toContain('knight_dwelling_2');
+    applyAdventureAction(state, { type: 'build', town: town.id, building: una! }, c, state.current);
+    expect(town.buildings).toContain(una);
     expect(player.resources.gold).toBeLessThan(oroAntes);
 
     expect(() =>
       applyAdventureAction(
         state,
-        { type: 'build', town: town.id, building: 'knight_dwelling_3' },
+        { type: 'build', town: town.id, building: otra! },
         c,
         state.current,
       ),
@@ -872,7 +897,7 @@ describe('movimiento de héroes', () => {
     // todo lo demás: el `Player.name` que hubo era 1-based y decía «Jugador 1»
     // del jugador 0.
     expect(() => applyAdventureAction(state, { type: 'end_turn' }, c, 1)).toThrow(
-      /ahora juega el jugador 0 \(knight\)/,
+      `ahora juega el jugador 0 (${state.players.find((p) => p.id === 0)!.faction})`,
     );
 
     // El de turno sí pasa por la misma puerta.
@@ -888,7 +913,7 @@ describe('batallas del mapa', () => {
     const hero = heroesOf(state, 0)[0]!;
 
     // Ejército sobrado para que la victoria no dependa de la suerte.
-    hero.army = ejercito({ creature: 'paladin', count: 6 });
+    hero.army = ejercito({ creature: PESADA, count: 6 });
     const monstruo = monstruoVivo(state);
     forzarBatalla(state, c, hero, monstruo.at);
     expect(state.pendingBattle!.foe).toEqual({ kind: 'monster', objectId: monstruo.id });
@@ -910,7 +935,7 @@ describe('batallas del mapa', () => {
     const monstruo = monstruoVivo(state);
     const base = townsOf(state, 0)[0]!;
 
-    hero.army = ejercito({ creature: 'peasant', count: 1 });
+    hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
     base.garrison = [];
     // Sin oro no hay rendición: tiene que caer peleando.
     state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
@@ -919,7 +944,7 @@ describe('batallas del mapa', () => {
       kind: 'monster',
       id: monstruo.id,
       at: monstruo.at,
-      creature: 'bone_dragon',
+      creature: 'jinete-de-plaga',
       count: 7,
       defeated: false,
     });
@@ -968,8 +993,8 @@ describe('IA de respaldo', () => {
     state.heroes = state.heroes.filter((h) => h.owner !== 0);
     player.resources = { ...player.resources, gold: HERO_HIRE_COST + 400 };
     // Con la morada llena, quien manda es el oro: sin la reserva, el
-    // reclutamiento se lo lleva hasta el último. Con la docena de campesinos
-    // que hay el día 1 este test pasaría sin reserva y no guardaría nada.
+    // reclutamiento se lo lleva hasta el último. Con lo poco que cría la morada
+    // el día 1 este test pasaría sin reserva y no guardaría nada.
     const town = townsOf(state, 0)[0]!;
     for (const id of Object.keys(town.available)) town.available[id] = 500;
 
@@ -987,8 +1012,8 @@ describe('IA de respaldo', () => {
     // siempre. Las dos partidas salen de la misma semilla y solo se
     // diferencian en si al jugador le queda un héroe; con la morada llena de
     // criaturas, lo que manda es el oro. Y poco oro: el liderazgo de la
-    // guarnición (10 campesinos) también es un techo, y con más se llegaría a él
-    // por los dos lados.
+    // guarnición también es un techo, y con más se llegaría a él por los dos
+    // lados.
     const cuenta = (acciones: readonly AdventureAction[]): number =>
       acciones.reduce((n, a) => (a.type === 'recruit' ? n + a.count : n), 0);
     const montar = (conHeroe: boolean) => {
@@ -1005,25 +1030,28 @@ describe('IA de respaldo', () => {
   });
 
   it('valora más un ejército mayor', () => {
-    const debil = ejercito({ creature: 'peasant', count: 10 });
-    const fuerte = ejercito({ creature: 'paladin', count: 10 });
+    const debil = ejercito({ creature: TROPA_BARATA, count: 10 });
+    const fuerte = ejercito({ creature: PESADA, count: 10 });
     expect(armyPower(fuerte, undefined)).toBeGreaterThan(armyPower(debil, undefined));
   });
 
   it('no manda al héroe contra un monstruo que le supera', () => {
     const state = newGame({ seed: 42 });
     const hero = heroesOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: 'peasant', count: 1 });
+    hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
     hero.movePoints = 99999;
 
     // Se vacía el mapa y se deja un único objetivo: un monstruo descomunal
-    // pegado al héroe. Si la IA lo elige, es que no mide sus fuerzas.
+    // pegado al héroe. Si la IA lo elige, es que no mide sus fuerzas. Sin
+    // asaltantes, que también son objetivo (ni su recuerdo, #164).
     state.map.objects.length = 0;
+    state.raiders = [];
+    for (const p of state.players) p.asaltantesVistos.clear();
     state.map.objects.push({
       kind: 'monster',
       id: 'coloso',
       at: { x: hero.at.x + 1, y: hero.at.y },
-      creature: 'bone_dragon',
+      creature: 'jinete-de-plaga',
       count: 30,
       defeated: false,
     });
@@ -1159,9 +1187,12 @@ describe('IA de respaldo', () => {
   it('mover con la pista deja la partida igual que sin ella (#65)', () => {
     // La equivalencia de arriba es del camino; esta es de la PUERTA: mismo
     // sitio, mismos puntos gastados y misma crónica, hecho a hecho.
+    // La pista es el Dijkstra que lanzaría la puerta, el del héroe con lo hostil
+    // (`alcanceDelHeroe`): uno crudo (`reachableFrom`) cruzaría una guarnición
+    // por la que el héroe no pasa.
     const destinoDe = (state: GameState): Point => {
       const hero = heroesOf(state, 0)[0]!;
-      const alcance = reachableFrom(state.map, hero.at);
+      const alcance = alcanceDelHeroe(state, hero);
       return stepTowards(
         hero,
         chooseHeroDestination(state, hero, alcance) as Point,
@@ -1186,7 +1217,7 @@ describe('IA de respaldo', () => {
       { type: 'move_hero', hero: heroe.id, to: destino },
       ctx(5),
       0,
-      reachableFrom(conPista.map, heroe.at),
+      alcanceDelHeroe(conPista, heroe),
     );
 
     expect(heroesOf(conPista, 0)[0]!.at).toEqual(heroesOf(sinPista, 0)[0]!.at);
@@ -1292,23 +1323,24 @@ describe('partida completa', () => {
     // El guardia del agujero que cierra este ciclo, contado en el docstring de
     // `GameState.finished`: agotar los días dejaba `finished` en `null`.
     //
-    // Tres días sobre la 1235, que es la semilla de aquí arriba: con 300 la
-    // gana el jugador 0 mucho antes, así que lo que se prueba es el tope y no
-    // un empate afortunado.
-    const state = newGame({ seed: 1235, maxDays: 3 });
+    // Dos días sobre la 1235, que es la semilla de aquí arriba: con 300 la
+    // gana el jugador 0 el día 3 (con las cinco facciones de F3, 19-10-2026; eran
+    // tres días cuando la ganaba más tarde), así que lo que se prueba es el tope
+    // y no un empate afortunado.
+    const state = newGame({ seed: 1235, maxDays: 2 });
     await playAiGame(state, ctx(1235));
 
     // El último día jugado es `maxDays` y no `maxDays + 1`: el tope se mira
     // ANTES de incrementar, así que no se emite un `day_start` de un día que no
     // juega nadie. Al revés, cada partida agotada llevaría una línea de más en
     // la crónica y el ancla del banco se movería.
-    expect(state.day).toBe(3);
+    expect(state.day).toBe(2);
     expect(state.finished).toEqual({ winner: null });
     // `game_over` con `actor: null` es exacto: no lo protagoniza ningún
     // jugador. Y va el ÚLTIMO —nadie escribe detrás de él—, que es lo que
     // vigila `invariantes.test.ts` sobre las veinte primeras semillas.
     expect(state.log.at(-1)).toMatchObject({ kind: 'game_over', actor: null });
-    expect(state.log.filter((e) => e.kind === 'day_start').map((e) => e.day)).toEqual([1, 2, 3]);
+    expect(state.log.filter((e) => e.kind === 'day_start').map((e) => e.day)).toEqual([1, 2]);
     // Y nadie está eliminado: la partida no se acabó por eso.
     expect(state.players.every((p) => !p.defeated)).toBe(true);
   });
@@ -1382,7 +1414,7 @@ describe('catálogo de edificios por facción', () => {
     gold: 999999,
   };
 
-  const pueblo = (faction: 'knight' | 'necromancer'): Town =>
+  const pueblo = (faction: FactionId): Town =>
     createTown(`t-${faction}`, 'Prueba', faction, { x: 0, y: 0 }, 0);
 
   /** Levanta la lista entera, uno por día, y devuelve los días gastados. */
@@ -1396,42 +1428,41 @@ describe('catálogo de edificios por facción', () => {
     return dias;
   };
 
-  // ------------------------------------------- el coste sale de fheroes2 (#66)
+  // ----------------------------- lo que cuesta se deriva (F3, 19-10-2026)
 
-  it('las cuatro filas donde muerde el original valen lo que valen allí', () => {
-    // Las cuatro que separan «coste copiado» de «coste inventado». Fuente:
-    // `_buildingStats` de `buildinginfo.cpp` (ihhub/fheroes2), filas Race::KNGT
-    // y Race::NECR sobre `Cost {gold, wood, mercury, ore, sulfur, crystal,
-    // gems}`. Antes eran 10w+10o+5cr, 20w+20o+10ge, 20o+5ge y 30o+15ge: más
-    // materia prima de la que el mapa reparte en toda la partida, y por eso
-    // `dwelling_5` se construía en 0 de 200 semillas.
-    expect(building('knight_dwelling_5').cost).toEqual({ gold: 3000, wood: 20 });
-    expect(building('knight_dwelling_6').cost).toEqual({ gold: 5000, wood: 20, crystal: 20 });
-    expect(building('necromancer_dwelling_5').cost).toEqual({ gold: 4000, wood: 10, sulfur: 10 });
-    expect(building('necromancer_dwelling_6').cost).toEqual({
-      gold: 10000,
-      wood: 10,
-      ore: 10,
-      crystal: 5,
-      gems: 5,
-      mercury: 5,
-      sulfur: 5,
-    });
+  it('lo que cuesta y crece una unidad, y lo que cuesta su morada, salen de su índice', () => {
+    // Nada se escribe por unidad ni por morada (`data/economia.json`): el oro y
+    // el crecimiento, del índice de poder con el equipo puesto; la morada, del
+    // nivel de lo mejor que produce.
+    for (const u of unidadesDelJuego()) {
+      expect(u.oro, u.id).toBe(oroDelIndice(indiceDePoder(u)));
+      expect(u.growth, u.id).toBe(crecimientoDelNivel(nivelDeUnidad(u)));
+    }
+    for (const f of FACTION_IDS) {
+      for (const b of buildingsOfFaction(f).filter((x) => x.morada !== undefined)) {
+        const nivel = Math.max(...unidadesDeMorada(b.id).map((u) => nivelDeUnidad(u)));
+        expect(nivelDeMorada(b), b.id).toBe(nivel);
+        expect(b.cost, b.id).toEqual(ECONOMIA.costeDeLaMorada[nivel - 1]);
+      }
+    }
+    // Y más índice cuesta más oro: el precio no baja al subir el poder.
+    const porIndice = [...unidadesDelJuego()].sort((x, y) => indiceDePoder(x) - indiceDePoder(y));
+    for (let i = 1; i < porIndice.length; i++) {
+      expect(porIndice[i]!.oro).toBeGreaterThanOrEqual(porIndice[i - 1]!.oro);
+    }
   });
 
   it('ninguna morada de nivel 1 a 4 pide un recurso raro, en ninguna facción', () => {
-    // Regla del original y no cuatro filas sueltas: allí el mercurio, el
-    // azufre, el cristal y las gemas no aparecen hasta el nivel 5. Aquí el
-    // cristal mordía en la morada 5 del caballero y las gemas en la 5 del
-    // nigromante, que son los dos recursos que el generador tardaba más en
-    // repartir. Si mañana alguien vuelve a escribir un raro en la mitad baja de
-    // la cadena, salta esto.
+    // Regla del original: allí el mercurio, el azufre, el cristal y las gemas no
+    // aparecen hasta el nivel 5. Desde F3 el coste sale de la tabla de
+    // `data/economia.json` por el nivel de la morada (el de lo mejor que
+    // produce), y si alguien vuelve a escribir un raro en la mitad baja, salta esto.
     const RAROS = ['mercury', 'sulfur', 'crystal', 'gems'] as const;
-    for (const faction of ['knight', 'necromancer'] as const) {
+    for (const faction of FACTION_IDS) {
       for (const b of buildingsOfFaction(faction)) {
-        if (b.dwellingLevel === undefined || b.dwellingLevel > 4) continue;
+        if (b.morada === undefined || nivelDeMorada(b) > 4) continue;
         for (const raro of RAROS) {
-          expect(b.cost[raro] ?? 0, `${b.id} pide ${raro} y es de nivel ${b.dwellingLevel}`).toBe(
+          expect(b.cost[raro] ?? 0, `${b.id} pide ${raro} y es de nivel ${nivelDeMorada(b)}`).toBe(
             0,
           );
         }
@@ -1439,22 +1470,20 @@ describe('catálogo de edificios por facción', () => {
     }
   });
 
-  it('el dragón óseo se paga: seis materiales, y sin azufre se dice cuál falta', () => {
-    // La fila más cara del catálogo y la única que pide los seis materiales a
-    // la vez, así que es la que solo se desbloquea con las dos mitades del
-    // ciclo puestas: el coste de fheroes2 Y minas de azufre, mercurio y gemas
-    // en el mapa. Aquí se comprueba la mitad del coste; la del mapa, en
-    // «el generador reparte minas de los siete recursos».
-    const cripta = pueblo('necromancer');
-    levantar(cripta, [
-      'necromancer_dwelling_2',
-      'necromancer_dwelling_3',
-      'necromancer_dwelling_4',
-      'necromancer_dwelling_5',
-      'castle',
-    ]);
-
-    const justo: Resources = { ...building('necromancer_dwelling_6').cost } as Resources;
+  it('la morada más cara se paga con la bolsa justa, y sin uno de sus materiales se dice', () => {
+    // La de más nivel de todas las facciones, con lo que pide levantado antes.
+    const cara = FACTION_IDS.flatMap((f) => buildingsOfFaction(f))
+      .filter((b) => b.morada !== undefined)
+      .sort((x, y) => nivelDeMorada(y) - nivelDeMorada(x))[0]!;
+    const preparado = (): Town => {
+      const t = pueblo(cara.faction!);
+      levantar(
+        t,
+        (cara.requires ?? []).filter((r) => !t.buildings.includes(r)),
+      );
+      t.builtToday = false;
+      return t;
+    };
     const bolsa: Resources = {
       wood: 0,
       mercury: 0,
@@ -1464,160 +1493,128 @@ describe('catálogo de edificios por facción', () => {
       gems: 0,
       gold: 0,
     };
-    const exacta = { ...bolsa, ...justo };
+    const exacta = { ...bolsa, ...cara.cost };
 
-    cripta.builtToday = false;
-    expect(build(cripta, 'necromancer_dwelling_6', exacta)).toEqual(bolsa);
-    expect(cripta.available.bone_dragon).toBeGreaterThan(0);
+    const t = preparado();
+    expect(build(t, cara.id, exacta)).toEqual(bolsa);
+    // Trae ya la primera hornada de cada unidad que produce.
+    for (const u of unidadesDeMorada(cara.id)) expect(t.available[u.id], u.id).toBe(u.growth);
 
-    // Y con la misma bolsa menos el azufre, el motivo se escribe para la
+    // Y con la misma bolsa menos un material, el motivo se escribe para la
     // persona en vez de dejar el botón muerto sin decir por qué.
-    const otra = pueblo('necromancer');
-    levantar(otra, [
-      'necromancer_dwelling_2',
-      'necromancer_dwelling_3',
-      'necromancer_dwelling_4',
-      'necromancer_dwelling_5',
-      'castle',
-    ]);
-    otra.builtToday = false;
-    expect(buildBlocker(otra, 'necromancer_dwelling_6', { ...exacta, sulfur: 0 })).toBe(
+    const material = RESOURCE_KINDS.find((r) => (cara.cost[r] ?? 0) > 0)!;
+    expect(buildBlocker(preparado(), cara.id, { ...exacta, [material]: 0 })).toBe(
       'recursos insuficientes',
     );
   });
 
   // ------------------------------------------------------------------- #46
 
-  it('el nigromante no puede comprar la mejora de nivel 6: no existe', () => {
-    const cripta = pueblo('necromancer');
-    levantar(cripta, [
-      'necromancer_dwelling_2',
-      'necromancer_dwelling_3',
-      'necromancer_dwelling_4',
-      'necromancer_dwelling_5',
-      'castle',
-      'necromancer_dwelling_6',
-    ]);
-    expect(cripta.available.bone_dragon).toBeGreaterThan(0);
-
-    // El motivo se escribe para la persona, y `null` sería "adelante, cobra".
-    expect(buildBlocker(cripta, 'necromancer_upgrade_6', bolsaInfinita)).toMatch(/no existe/);
-    // Y el id del caballero tampoco cuela en un pueblo nigromante.
-    expect(buildBlocker(cripta, 'knight_upgrade_6', bolsaInfinita)).toMatch(
+  it('un pueblo no levanta un edificio que no existe ni uno de otra facción', () => {
+    // Las mejoras de morada se fueron con las cinco facciones (19-10-2026): sus
+    // ids ya no existen. El motivo se escribe para la persona, y `null` sería
+    // "adelante, cobra".
+    const cripta = pueblo(FACCION_B);
+    expect(buildBlocker(cripta, 'mejora_que_no_existe', bolsaInfinita)).toMatch(/no existe/);
+    // Y una morada de otra facción tampoco cuela.
+    const ajena = buildingsOfFaction(FACCION_A).find((b) => b.morada !== undefined)!;
+    expect(buildBlocker(cripta, ajena.id, bolsaInfinita)).toMatch(
       /no es un edificio de esta facción/,
     );
   });
 
   it('intentarlo lanza y no cuesta ni oro ni la construcción del día', () => {
-    const cripta = pueblo('necromancer');
+    const cripta = pueblo(FACCION_B);
     cripta.builtToday = false;
     const bolsa = { ...bolsaInfinita };
 
-    expect(() => build(cripta, 'necromancer_upgrade_6', bolsa)).toThrow(/no se puede construir/);
+    expect(() => build(cripta, 'mejora_que_no_existe', bolsa)).toThrow(/no se puede construir/);
     expect(cripta.builtToday).toBe(false);
     expect(bolsa.gold).toBe(bolsaInfinita.gold);
     expect(bolsa.gems).toBe(bolsaInfinita.gems);
   });
 
-  it('el caballero conserva su mejora de nivel 6: paladines a cruzados', () => {
-    const castillo = pueblo('knight');
-    levantar(castillo, [
-      'knight_dwelling_2',
-      'knight_dwelling_3',
-      'knight_dwelling_4',
-      'knight_dwelling_5',
-      'castle',
-      'knight_dwelling_6',
-    ]);
-    expect(castillo.available.paladin).toBeGreaterThan(0);
+  // ------------------------------------------------------------------- #13
 
-    castillo.builtToday = false;
-    build(castillo, 'knight_upgrade_6', bolsaInfinita);
-    expect(castillo.available.paladin).toBeUndefined();
-    expect(castillo.available.crusader).toBeGreaterThan(0);
+  it('lo que pide un edificio sin levantar no se levanta el día 1, y el motivo lo dice', () => {
+    let casos = 0;
+    for (const faction of FACTION_IDS) {
+      const t = pueblo(faction);
+      for (const b of buildingsOfFaction(faction)) {
+        const falta = (b.requires ?? []).find((r) => !t.buildings.includes(r));
+        if (falta === undefined) continue;
+        casos++;
+        expect(buildBlocker(t, b.id, bolsaInfinita), `${faction}: ${b.id}`).toBe(
+          `falta construir "${building(falta).name}"`,
+        );
+      }
+    }
+    // Que haya de qué hablar: alguna morada pide otra (la Fundición, el Taller).
+    expect(casos).toBeGreaterThan(0);
   });
 
-  it('ninguna mejora del catálogo apunta a un nivel sin criatura mejorada', () => {
-    // Esto es lo que hace que #46 sea una REGLA y no un caso del dragón óseo:
-    // si mañana alguien escribe la fila de una mejora imposible, salta aquí.
-    for (const faction of ['knight', 'necromancer'] as const) {
-      const linea = factionLineup(faction);
-      for (const b of buildingsOfFaction(faction)) {
-        if (b.upgradesLevel === undefined) continue;
-        const base = linea.find((c) => c.morada === b.upgradesLevel);
-        expect(
-          base,
-          `${b.id}: la facción no tiene criatura de nivel ${b.upgradesLevel}`,
-        ).toBeDefined();
-        expect(
-          base?.upgradesTo,
-          `${b.id} mejora un nivel cuya criatura (${base?.id}) no tiene versión mejorada`,
-        ).toBeDefined();
+  it('un pueblo recién fundado ya es jugable: su pueblo cría cada unidad que produce', () => {
+    for (const faction of FACTION_IDS) {
+      const t = pueblo(faction);
+      const suPueblo = buildingsOfFaction(faction).find((b) => b.morada === 1)!;
+      expect(suPueblo.prebuilt).toBe(true);
+      expect(t.buildings).toContain(suPueblo.id);
+      applyWeeklyGrowth(t);
+      // Una fila por unidad que produce (una morada cría varias).
+      const filas = dwellings(t);
+      expect(filas.map((d) => d.creature)).toEqual(unidadesDeMorada(suPueblo.id).map((u) => u.id));
+      for (const d of filas) {
+        expect(d.edificio).toBe(suPueblo.id);
+        expect(t.available[d.creature] ?? 0, d.creature).toBeGreaterThan(0);
       }
     }
   });
 
-  // ------------------------------------------------------------------- #13
-
-  it('la morada de nivel 6 no se levanta el día 1 en ninguna facción', () => {
-    for (const faction of ['knight', 'necromancer'] as const) {
-      const t = pueblo(faction);
-      const motivo = buildBlocker(t, `${faction}_dwelling_6`, bolsaInfinita);
-      expect(motivo, `${faction} pudo saltar a la morada 6`).not.toBeNull();
-      expect(motivo).toMatch(/falta construir/);
-    }
-  });
-
-  it('un pueblo recién fundado ya es jugable: su morada de nivel 1 cría', () => {
-    for (const faction of ['knight', 'necromancer'] as const) {
-      const t = pueblo(faction);
-      expect(t.buildings).toContain(`${faction}_dwelling_1`);
-      applyWeeklyGrowth(t);
-      const moradas = dwellings(t);
-      expect(moradas.length).toBe(1);
-      expect(t.available[moradas[0]!.creature] ?? 0).toBeGreaterThan(0);
-    }
-  });
-
-  it('la morada de nivel 6 cuesta seis días de obra en las dos facciones', () => {
+  it('levantar todas las moradas cuesta un día por morada, y el castillo recluta de todas', () => {
     // Uno por día, porque solo se construye un edificio diario. Si la cadena
     // del JSON cambia, este número cambia CON ella, no al revés.
-    for (const faction of ['knight', 'necromancer'] as const) {
+    for (const faction of FACTION_IDS) {
       const t = pueblo(faction);
-      const dias = levantar(t, [
-        `${faction}_dwelling_2`,
-        `${faction}_dwelling_3`,
-        `${faction}_dwelling_4`,
-        `${faction}_dwelling_5`,
-        'castle',
-        `${faction}_dwelling_6`,
-      ]);
-      expect(dias, `${faction}`).toBe(6);
-      expect(dwellings(t).map((d) => d.morada)).toEqual([1, 2, 3, 4, 5, 6]);
+      // Por sitio: lo que una pide (la Fundición, el Taller) va en un sitio menor.
+      const moradas = buildingsOfFaction(faction)
+        .filter((b) => b.morada !== undefined && b.prebuilt !== true)
+        .sort((x, y) => (x.morada as number) - (y.morada as number));
+      const dias = levantar(
+        t,
+        moradas.map((b) => b.id),
+      );
+      expect(dias, `${faction}`).toBe(moradas.length);
+      const todas = buildingsOfFaction(faction).filter((b) => b.morada !== undefined);
+      expect(dwellings(t).map((d) => d.creature)).toEqual(
+        todas
+          .sort((x, y) => (x.morada as number) - (y.morada as number))
+          .flatMap((b) => unidadesDeMorada(b.id).map((u) => u.id)),
+      );
     }
   });
 
   it('cada pueblo solo ve su propio catálogo', () => {
-    const castillo = pueblo('knight');
-    const cripta = pueblo('necromancer');
-    expect(availableBuildings(castillo, bolsaInfinita)).toContain('knight_dwelling_2');
-    expect(availableBuildings(castillo, bolsaInfinita)).not.toContain('necromancer_dwelling_2');
-    expect(availableBuildings(cripta, bolsaInfinita)).toContain('necromancer_dwelling_2');
-    expect(availableBuildings(cripta, bolsaInfinita)).not.toContain('knight_dwelling_2');
+    const castillo = pueblo('templarios');
+    const cripta = pueblo('no-muertos');
+    expect(availableBuildings(castillo, bolsaInfinita)).toContain('templarios_monasterio');
+    expect(availableBuildings(castillo, bolsaInfinita)).not.toContain('no-muertos_mausoleo');
+    expect(availableBuildings(cripta, bolsaInfinita)).toContain('no-muertos_mausoleo');
+    expect(availableBuildings(cripta, bolsaInfinita)).not.toContain('templarios_monasterio');
   });
 
-  it('la IA levanta el castillo cuando es lo único que le separa del nivel 6', () => {
-    // Sin la prioridad 95 elegiría el gremio o el mercado y se quedaría
-    // atascada para siempre a las puertas de su mejor criatura.
-    const castillo = pueblo('knight');
-    levantar(castillo, [
-      'knight_dwelling_2',
-      'knight_dwelling_3',
-      'knight_dwelling_4',
-      'knight_dwelling_5',
-    ]);
-    castillo.builtToday = false;
-    expect(chooseBuilding(castillo, bolsaInfinita)).toBe('castle');
+  it('con todas las moradas levantadas, la IA levanta el castillo: es lo primero de la villa', () => {
+    for (const faction of FACTION_IDS) {
+      const t = pueblo(faction);
+      levantar(
+        t,
+        buildingsOfFaction(faction)
+          .filter((b) => b.morada !== undefined && b.prebuilt !== true)
+          .sort((x, y) => (x.morada as number) - (y.morada as number))
+          .map((b) => b.id),
+      );
+      t.builtToday = false;
+      expect(chooseBuilding(t, bolsaInfinita), faction).toBe('castle');
+    }
   });
 
   // --------------------------------------- el orden de construcción es la lista
@@ -1628,7 +1625,7 @@ describe('catálogo de edificios por facción', () => {
     // edificio que llegue mañana cae por el `return 10` del final y nadie se
     // entera; con una lista hay que colocarlo, y si no está `chooseBuilding`
     // lanza. Este test es lo que hace que ese `throw` no se alcance nunca.
-    for (const faction of ['knight', 'necromancer'] as const) {
+    for (const faction of FACTION_IDS) {
       const orden = ordenDeConstruccion(faction);
       const catalogo = buildingsOfFaction(faction).map((b) => b.id);
       expect([...orden].sort()).toEqual([...catalogo].sort());
@@ -1636,26 +1633,26 @@ describe('catálogo de edificios por facción', () => {
     }
   });
 
-  it('el nigromante levanta el gremio antes que su morada de nivel 4; el caballero no', () => {
-    // El único cambio de #88, y su asimetría es del original
-    // (`ai_planner_castle.cpp`): para NECR el gremio va por delante de la
-    // morada y la mejora de nivel 4; para KNGT, detrás de todo lo militar.
-    // Dársela a los dos a la vez está medido y deja 1 de 200 partidas sin
-    // terminar: dos ejércitos que crecen a la par no se matan nunca.
-    const necro = pueblo('necromancer');
-    levantar(necro, ['necromancer_dwelling_2', 'necromancer_dwelling_3']);
-    necro.builtToday = false;
-    expect(chooseBuilding(necro, bolsaInfinita)).toBe('mage_guild_1');
-
-    const caballero = pueblo('knight');
-    levantar(caballero, ['knight_dwelling_2', 'knight_dwelling_3']);
-    caballero.builtToday = false;
-    expect(chooseBuilding(caballero, bolsaInfinita)).toBe('knight_dwelling_4');
-
-    const ordenKnight = ordenDeConstruccion('knight');
-    expect(ordenKnight.indexOf('mage_guild_1')).toBeGreaterThan(
-      ordenKnight.indexOf('knight_upgrade_2'),
-    );
+  it('el orden se deriva: las moradas primero, de más nivel a menos, y la IA levanta la mejor que puede', () => {
+    // Con las cinco facciones (19-10-2026) el orden de cada raza de #88 dio paso
+    // a uno derivado (`ORDEN_DE_CONSTRUCCION`): la morada de más nivel antes y, a
+    // igual nivel, la del sitio más alto; detrás, la villa.
+    for (const faction of FACTION_IDS) {
+      const orden = ordenDeConstruccion(faction);
+      const moradas = orden.filter((id) => building(id).morada !== undefined);
+      expect(orden.slice(0, moradas.length), faction).toEqual(moradas);
+      const clave = (id: string) => {
+        const b = building(id);
+        return nivelDeMorada(b) * 10 + (b.morada as number);
+      };
+      expect(moradas.map(clave), faction).toEqual(moradas.map(clave).sort((x, y) => y - x));
+      // En un pueblo recién fundado, la primera de la lista que se puede levantar.
+      const t = pueblo(faction);
+      t.builtToday = false;
+      expect(chooseBuilding(t, bolsaInfinita), faction).toBe(
+        moradas.find((id) => buildBlocker(t, id, bolsaInfinita) === null),
+      );
+    }
   });
 });
 
@@ -1665,11 +1662,14 @@ describe('el gremio enseña (#2)', () => {
     // en un héroe que aprende algo no cierra nada. Antes de mover el gremio en
     // la lista del nigromante, `mage_guild_1` salía en 10 de las 200 semillas
     // del banco y `syncSpellbooks` enseñaba 15 hechizos en 3 partidas; ahora,
-    // 206 gremios en 200 de 200 y 965 hechizos en 177. Aquí se juegan cinco
-    // semillas, que es lo que cabe en un test de milisegundos.
+    // 206 gremios en 200 de 200 y 965 hechizos en 177. Con las cinco facciones
+    // (19-10-2026) el gremio va detrás de todas las moradas y el castillo, y las
+    // partidas duran la mitad: 8 gremios y 8 hechizos aprendidos en 1-40, en 7
+    // semillas (la 3 y la 8 de las diez primeras). Aquí se juegan diez, que es lo
+    // que cabe en un test de milisegundos.
     let gremios = 0;
     let aprendidos = 0;
-    for (let semilla = 1; semilla <= 5; semilla++) {
+    for (let semilla = 1; semilla <= 10; semilla++) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {
@@ -1729,7 +1729,7 @@ describe('el gremio enseña (#2)', () => {
   });
 
   it('lo que enseña un pueblo lo determina el nivel de su gremio', () => {
-    const castillo = createTown('t-magia', 'Prueba', 'knight', { x: 0, y: 0 }, 0);
+    const castillo = createTown('t-magia', 'Prueba', 'templarios', { x: 0, y: 0 }, 0);
     expect(townSpells(castillo)).toEqual([]);
 
     castillo.buildings = [...castillo.buildings, 'mage_guild_1'];
@@ -1774,14 +1774,14 @@ describe('el maná es un recurso (#4)', () => {
     const c = ctx(53);
     const hero = heroesOf(state, 0)[0]!;
     // Ejército sobrado: interesa el maná, no quién gana.
-    hero.army = ejercito({ creature: 'paladin', count: 5 });
+    hero.army = ejercito({ creature: PESADA, count: 5 });
     hero.mana = maxMana(hero);
     const antes = hero.mana;
     // Zombis y no lo que hubiera: con la tropa de individuos la flecha mágica
     // vale lo que le quede de vida a UNO, y contra un esqueleto de 4 PV no
     // llega al umbral de `VALOR_MINIMO_POR_MANA` y la IA no la lanza. Un zombi
     // tiene 15.
-    ponerMonstruo(state, 'zombie', 4);
+    ponerMonstruo(state, 'zombi', 4);
 
     forzarBatalla(state, c, hero);
     const enBatalla = state.pendingBattle!.battle.heroes.attacker!;
@@ -1798,11 +1798,23 @@ describe('el maná es un recurso (#4)', () => {
 });
 
 describe('los personajes y sus heridas', () => {
-  /** Un guerrero de 34 PV en el primer slot del héroe, dado de alta en la partida. */
+  /**
+   * Un guerrero de 34 PV en el primer slot del héroe, dado de alta en la partida,
+   * con una espada: sin arma no se combate (la rueda va con la del arma,
+   * 19-10-2026), y un personaje no lleva equipo de serie.
+   */
   function alistar(state: GameState, hero: Hero, id = 'aren'): Character {
     const c = createCharacter(id, { ...defaultBuild, profession: 'Guerrero' });
     state.characters = { ...(state.characters ?? {}), [id]: c };
-    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: id });
+    const veterania = {
+      id: `v-${id}`,
+      experiencia: 0,
+      batallas: 0,
+      bajas: 0,
+      heroes: [],
+      equipo: { arma: 'espada' },
+    };
+    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: id, veterania });
     return c;
   }
 
@@ -1819,7 +1831,7 @@ describe('los personajes y sus heridas', () => {
     // Sin maná: con él, la flecha mágica del héroe mata a los zombis antes de
     // que lleguen a tocarlo, y el personaje volvería sano sin probar nada.
     hero.mana = 0;
-    ponerMonstruo(state, 'zombie', 2);
+    ponerMonstruo(state, 'zombi', 2);
     forzarBatalla(state, c, hero);
     const final = state.pendingBattle!.battle;
 
@@ -1844,14 +1856,15 @@ describe('los personajes y sus heridas', () => {
     const hero = heroesOf(state, 0)[0]!;
     alistar(state, hero);
     state.characters!.aren!.hp = 9;
-    ponerMonstruo(state, 'peasant', 1);
+    ponerMonstruo(state, TROPA_BARATA, 1);
     forzarBatalla(state, c, hero);
     expect(state.pendingBattle!.battle.stacks.find(esPersonaje('aren'))!.topHp).toBe(9);
   });
 
   it('el personaje que cae queda a 0 PV y sale del ejército, pero no de la partida', () => {
-    const state = newGame({ seed: 32 });
-    const c = ctx(32);
+    // La semilla, una en la que cae (19-10-2026: con la rueda, la 32 lo dejaba en pie).
+    const state = newGame({ seed: 33 });
+    const c = ctx(33);
     const hero = heroesOf(state, 0)[0]!;
     alistar(state, hero);
     // Llega con 1 PV y sin la flecha mágica del héroe, y lleva un compañero que
@@ -1859,8 +1872,8 @@ describe('los personajes y sus heridas', () => {
     // volvería a la base sin él y no habría ejército que mirar.
     state.characters!.aren!.hp = 1;
     hero.mana = 0;
-    hero.army = [...hero.army, ...ejercito({ creature: 'paladin', count: 1 })];
-    ponerMonstruo(state, 'skeleton', 4);
+    hero.army = [...hero.army, ...ejercito({ creature: PESADA, count: 1 })];
+    ponerMonstruo(state, NO_MUERTO, 4);
     forzarBatalla(state, c, hero);
     const final = state.pendingBattle!.battle;
     // Que caiga lo decide el tablero; el test comprueba lo que se escribe
@@ -1873,12 +1886,14 @@ describe('los personajes y sus heridas', () => {
     expect(vivo.army.some((s) => s?.member === 'aren')).toBe(false);
     // Y el compañero, en su sitio: la lista se queda densa, sin hueco.
     expect(vivo.army.length).toBeGreaterThan(0);
-    expect(vivo.army.every((s) => s.creature === 'paladin')).toBe(true);
+    expect(vivo.army.every((s) => s.creature === PESADA)).toBe(true);
   });
 
   it('las heridas se escriben también en el bando que defiende, aunque su héroe caiga', () => {
-    const state = newGame({ seed: 41 });
-    const c = ctx(41);
+    // La semilla, una en la que el atacante gana y la hiere (19-10-2026: con la
+    // rueda, en la 41 ganaba el defensor).
+    const state = newGame({ seed: 57 });
+    const c = ctx(57);
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');
@@ -1886,7 +1901,7 @@ describe('los personajes y sus heridas', () => {
     // así que el oro no lo impediría— y, si cae, sale del mapa en vez de volver.
     (state.players[1] as { base: string | null }).base = null;
 
-    atacante.army = ejercito({ creature: 'crusader', count: 6 });
+    atacante.army = ejercito({ creature: PESADA, count: 6 });
     atacante.movePoints = 5000;
     defensor.at = casillaVecinaLibre(state, atacante.at);
 
@@ -1906,18 +1921,23 @@ describe('los personajes y sus heridas', () => {
   it('el defensor con personaje que GANA lo conserva en el ejército, con sus PV escritos', () => {
     // Es otro camino que el del atacante —`applyDefenderSurvivors` y
     // `restoreHeroFromBattle`— y es donde ya se olvidó una línea una vez (el
-    // maná). Seis arqueros contra el personaje y cinco vampiros: el defensor
-    // gana, y los arqueros disparan, así que el personaje sale herido.
-    const state = newGame({ seed: 41 });
-    const c = ctx(41);
+    // maná). Seis ballesteros contra el personaje y cinco caballeros de la
+    // muerte: el defensor gana, y los ballesteros disparan, así que el personaje
+    // sale herido.
+    // La semilla, una en la que la hieren (19-10-2026: con la rueda, en la 41 salía sana).
+    const state = newGame({ seed: 57 });
+    const c = ctx(57);
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');
-    defensor.army = [...defensor.army, ...ejercito({ creature: 'vampire', count: 5 })];
+    defensor.army = [
+      ...defensor.army,
+      ...ejercito({ creature: 'caballero-de-la-muerte', count: 5 }),
+    ];
     // Sin oro no hay rendición: la batalla se pelea hasta el final.
     state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
 
-    atacante.army = ejercito({ creature: 'archer', count: 6 });
+    atacante.army = ejercito({ creature: 'imperio-ballestero', count: 6 });
     // Sin maná: la flecha mágica del héroe va a por el personaje —es el único
     // individuo del bando con vida para que valga la pena— y lo mataría.
     atacante.mana = 0;
@@ -1994,7 +2014,7 @@ describe('el mapa de nodos se juega', () => {
     const base = state.towns.find((t) => t.id === 'town-0')!;
     // Zombis: lentos. Si entrar en la tropa recortara los puntos del día, la
     // marcha se quedaría sin puntos a mitad de camino y `moveHero` lanzaría.
-    base.garrison = ejercito({ creature: 'zombie', count: 1 });
+    base.garrison = ejercito({ creature: 'zombi', count: 1 });
     const hero = heroById(state, 'hero-0');
     const tropa = hero.army.length;
     hero.movePoints = 1500;
@@ -2021,18 +2041,20 @@ describe('el mapa de nodos se juega', () => {
     const base = state.towns.find((t) => t.id === 'town-0')!;
     hero.at = base.at;
     hero.movePoints = 1500;
+    // Lo primero que cría la base, en la morada que trae hecha.
+    const recluta = dwellings(base)[0]!.creature;
     const lento = maxMovePoints(
-      { ...hero, army: [...hero.army, ...ejercito({ creature: 'peasant', count: 1 })] },
+      { ...hero, army: [...hero.army, ...ejercito({ creature: recluta, count: 1 })] },
       state.characters,
     );
-    base.available = { ...base.available, peasant: 5 };
+    base.available = { ...base.available, [recluta]: 5 };
     applyAdventureAction(
       state,
-      { type: 'recruit', town: base.id, creature: 'peasant', count: 1 },
+      { type: 'recruit', town: base.id, creature: recluta, count: 1 },
       c,
       0,
     );
-    expect(hero.army.some((t) => t.creature === 'peasant')).toBe(true);
+    expect(hero.army.some((t) => t.creature === recluta)).toBe(true);
     expect(hero.movePoints).toBe(1500);
     // Y al día siguiente manda la criatura más lenta.
     hastaSuSiguienteTurno(state, c, 0);
@@ -2148,7 +2170,7 @@ describe('el mapa de nodos se juega', () => {
   it('una ciudad neutral nace con la guarnición de los datos y se toma peleando', () => {
     const { state, c } = enLaRed();
     const neutral = state.towns.find((t) => t.id === 'town-2')!;
-    const esperada = guarnicionNeutral('knight').flatMap((g) =>
+    const esperada = guarnicionNeutral('templarios').flatMap((g) =>
       Array.from({ length: g.count }, () => g.creature),
     );
     expect(neutral.owner).toBeNull();
@@ -2165,14 +2187,14 @@ describe('el mapa de nodos se juega', () => {
     // Decisión del usuario: con «perder la base elimina», una base vacía hacía
     // de cada partida una carrera. Cada una nace con la de `guarnicionBase`.
     const { state, c } = enLaRed();
-    const individuos = (f: 'knight' | 'necromancer') =>
+    const individuos = (f: FactionId) =>
       guarnicionDeBase(f).flatMap((g) => Array.from({ length: g.count }, () => g.creature));
     for (const p of state.players) {
       const base = baseOf(state, p.id)!;
       expect(base.faction).toBe(p.faction);
       expect(base.garrison.map((t) => t.creature)).toEqual(individuos(p.faction));
     }
-    expect(individuos('knight')).not.toEqual(individuos('necromancer'));
+    expect(individuos('templarios')).not.toEqual(individuos('no-muertos'));
 
     // Y entrar en la del rival ya no es tomarla: es batalla contra esa tropa.
     state.current = 1;
@@ -2191,7 +2213,7 @@ describe('el mapa de nodos se juega', () => {
     // vez, en vez de guarnecer una ciudad y declarar base la otra.
     const plan = planDeNodos();
     const mia = plan.towns.map((t) => (t.id === 'town-2' ? { ...t, owner: 0 } : t));
-    const tamaño = guarnicionDeBase('knight').reduce((n, g) => n + g.count, 0);
+    const tamaño = guarnicionDeBase('templarios').reduce((n, g) => n + g.count, 0);
 
     const enOrden = newGame({ seed: 1, plan: { ...plan, towns: mia } });
     expect(enOrden.players[0]!.base).toBe('town-0');
@@ -2209,21 +2231,33 @@ describe('el mapa de nodos se juega', () => {
   });
 
   it('la base nace llena: sin el héroe dentro no se recluta, y el rechazo lo dice', () => {
-    // Siete individuos y 20 de liderazgo: el cupo y el tope de una guarnición.
-    // El héroe no empieza dentro (los inicios no comparten casilla), así que
-    // el día 1 se recluta entrando en casa, no desde fuera.
+    // La guarnición de salida llena el cupo o el tope de liderazgo de una
+    // guarnición (de 15 a 20 de liderazgo y de 5 a 7 individuos según la
+    // facción, `data/ciudades.json`): lo que su pueblo cría ya no cabe. El héroe
+    // no empieza dentro (los inicios no comparten casilla), así que el día 1 se
+    // recluta entrando en casa, no desde fuera.
     const state = newGame({ seed: 41 });
     const base = baseOf(state, 0)!;
     expect(heroesOf(state, 0).some((h) => pointKey(h.at) === pointKey(base.at))).toBe(false);
-    base.available.peasant = 10;
+    const recluta = dwellings(base)[0]!.creature;
+    base.available[recluta] = 10;
+    const motivo = troopBlocker(
+      base.garrison,
+      GARRISON_LEADERSHIP,
+      CUPO_GUARNICION,
+      recluta,
+      1,
+      'la guarnición',
+    );
+    expect(motivo).toMatch(/^no cabe: la guarnición /);
     expect(() =>
       applyAdventureAction(
         state,
-        { type: 'recruit', town: base.id, creature: 'peasant', count: 1 },
+        { type: 'recruit', town: base.id, creature: recluta, count: 1 },
         ctx(41),
         0,
       ),
-    ).toThrow('no se puede reclutar: no cabe: la guarnición ya lleva 7 de 7 individuos');
+    ).toThrow(`no se puede reclutar: ${motivo}`);
   });
 
   it('una ciudad vacía se toma entrando, con las dos caras a la vez', () => {
@@ -2407,7 +2441,9 @@ describe('el mapa de nodos se juega', () => {
     mio.army = [];
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
-    suyo.army = ejercito({ creature: 'skeleton', count: 2 });
+    // Cinco con mandoble: con dos esqueletos, el héroe solo los paraba (19-10-2026,
+    // la rueda y su Espada).
+    suyo.army = ejercito({ creature: PESADA, count: 5 });
     suyo.at = { x: base.at.x + 1, y: base.at.y };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: base.at }, c, 1);
@@ -2417,7 +2453,7 @@ describe('el mapa de nodos se juega', () => {
     const defensores = state.pendingBattle!.battle.stacks.filter((st) => st.side === 'defender');
     // Uno: el héroe solo, sin tropa, y ninguno de la guarnición en el tablero.
     expect(defensores.map((st) => st.origen.kind)).toEqual(['heroe']);
-    expect(defensores.some((st) => guarnicion.includes(st.body))).toBe(false);
+    expect(defensores.some((st) => guarnicion.includes(queEs(st)))).toBe(false);
 
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
     // Era la batalla final: la base cae sin que la guarnición llegue a pelear,
@@ -2468,10 +2504,10 @@ describe('el mapa de nodos se juega', () => {
       const { state } = enLaRed();
       state.towns.find((t) => t.id === 'town-1')!.garrison = [];
       state.towns.find((t) => t.id === 'town-2')!.garrison = guarnecida
-        ? ejercito({ creature: 'bone_dragon', count: 7 })
+        ? ejercito({ creature: 'jinete-de-plaga', count: 7 })
         : [];
       // El héroe rival, fuerte y fuera del camino: que no sea él el objetivo.
-      heroById(state, 'hero-1').army = ejercito({ creature: 'bone_dragon', count: 6 });
+      heroById(state, 'hero-1').army = ejercito({ creature: 'jinete-de-plaga', count: 6 });
       const mio = heroById(state, 'hero-0');
       mio.at = { x: 14, y: 2 };
       const alcance = alcanceDelHeroe(state, mio);
@@ -2518,7 +2554,7 @@ describe('el id de un héroe contratado no se repite (#126)', () => {
       // Fuera del pueblo, para que el siguiente quepa; con tropa de sobra para
       // ganar lo que le toque pelear.
       nuevo.at = { x: 3, y: 6 };
-      nuevo.army = ejercito({ creature: 'paladin', count: 6 });
+      nuevo.army = ejercito({ creature: PESADA, count: 6 });
       return nuevo;
     };
 
@@ -2529,9 +2565,9 @@ describe('el id de un héroe contratado no se repite (#126)', () => {
     expect(baseOf(state, 2)).toBeNull();
     expect(state.finished).toBeNull();
     // Y su héroe cae sin base a la que volver: sale de `state.heroes`.
-    otro.army = ejercito({ creature: 'peasant', count: 1 });
+    otro.army = ejercito({ creature: TROPA_BARATA, count: 1 });
     const cazador = heroById(state, 'hero-0');
-    cazador.army = ejercito({ creature: 'paladin', count: 6 });
+    cazador.army = ejercito({ creature: PESADA, count: 6 });
     forzarBatalla(state, c, cazador, otro.at);
     resolvePendingBattle(state, c);
     expect(state.heroes.some((h) => h.id === otro.id)).toBe(false);
@@ -2713,7 +2749,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const { seed, destino, antes } = primeraParada();
     const state = copiaDePartida(antes);
     const hero = heroesOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: 'paladin', count: 7 });
+    hero.army = ejercito({ creature: PESADA, count: 7 });
     hero.movePoints = 100_000;
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
     expect(state.log.some((e) => e.kind === 'march_halted')).toBe(false);
@@ -2769,11 +2805,11 @@ function marchaQueGanaFuerza(): {
     state.raiders = [];
     const hero = heroesOf(state, 0)[0]!;
     const base = baseOf(state, 0)!;
-    // Un peón y dos piqueros en casa: la guarnición de salida es de peones y el
-    // liderazgo solo deja recoger uno, que no mueve la fuerza lo bastante para
-    // que quepa un grupo entre la de antes y la de después.
-    hero.army = ejercito({ creature: 'peasant', count: 1 });
-    base.garrison = ejercito({ creature: 'pikeman', count: 2 });
+    // Uno de lo más barato con el héroe y dos de la tropa en casa: con la
+    // guarnición de salida, recogerla no movía la fuerza lo bastante para que
+    // quepa un grupo entre la de antes y la de después.
+    hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
+    base.garrison = ejercito({ creature: TROPA, count: 2 });
     const antes = fuerzaDe(hero, state.characters);
     const recogida = copiaDePartida(state);
     applyAdventureAction(recogida, { type: 'move_hero', hero: hero.id, to: base.at }, ctx(seed), 0);
@@ -2822,7 +2858,7 @@ function marchaQueGanaFuerza(): {
 /** El menor grupo de esqueletos cuya fuerza cumple `vale`. */
 function esqueletos(vale: (poder: number) => boolean): Raider['troops'] {
   for (let count = 1; count <= 2000; count++) {
-    const troops = [{ creature: 'skeleton', count }];
+    const troops = [{ creature: NO_MUERTO, count }];
     if (vale(poderDe({ troops }))) return troops;
   }
   throw new Error('ningún grupo de hasta 2000 esqueletos tiene esa fuerza');

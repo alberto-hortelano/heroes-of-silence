@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import type { MapPlan } from '../src/core/map/generate.js';
 import type { MapObject } from '../src/core/map/map.js';
@@ -34,7 +35,16 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
-import { ejercito, sinGuarnicionDeSalida } from './helpers.js';
+import {
+  ejercito,
+  FACCION_A,
+  FACCION_B,
+  NO_MUERTO,
+  PESADA,
+  sinGuarnicionDeSalida,
+  TROPA,
+  TROPA_BARATA,
+} from './helpers.js';
 
 const MI_CASTILLO: Point = { x: 2, y: 6 };
 const SU_CASTILLO: Point = { x: 37, y: 6 };
@@ -71,8 +81,8 @@ const PLANO: MapPlan = {
   walls: [columna(2), columna(30), columna(37)],
   nodes: [MI_NODO],
   towns: [
-    { id: 'mio', name: 'Valdeluz', faction: 'knight', at: MI_CASTILLO, owner: 0 },
-    { id: 'suyo', name: 'Osario', faction: 'necromancer', at: SU_CASTILLO, owner: 1 },
+    { id: 'mio', name: 'Valdeluz', faction: FACCION_A, at: MI_CASTILLO, owner: 0 },
+    { id: 'suyo', name: 'Osario', faction: FACCION_B, at: SU_CASTILLO, owner: 1 },
   ],
   heroStarts: [
     { player: 0, at: { x: 4, y: 6 } },
@@ -100,8 +110,8 @@ const ESQUINAS: MapPlan = {
   walls: [{ terrain: 'mountain', from: { x: 0, y: 5 }, to: { x: 39, y: 5 } }],
   nodes: [],
   towns: [
-    { id: 'mio', name: 'Valdeluz', faction: 'knight', at: { x: 0, y: 5 }, owner: 0 },
-    { id: 'suyo', name: 'Osario', faction: 'necromancer', at: { x: 39, y: 5 }, owner: 1 },
+    { id: 'mio', name: 'Valdeluz', faction: FACCION_A, at: { x: 0, y: 5 }, owner: 0 },
+    { id: 'suyo', name: 'Osario', faction: FACCION_B, at: { x: 39, y: 5 }, owner: 1 },
   ],
   heroStarts: [
     { player: 0, at: { x: 2, y: 2 } },
@@ -245,12 +255,16 @@ describe('la crónica pasa por la niebla', () => {
 
   it('el reloj y el final llegan siempre, sean de quien sean', () => {
     const { state, ctx } = partida(104);
+    // Sin la guarnición de salida: con ella, cinco templarios con su armadura
+    // paran al rival en la puerta y el castillo no cae. Aquí no se mide quién
+    // gana, sino que el final me llega.
+    sinGuarnicionDeSalida(state);
 
     // Pierdo el héroe y después el castillo: me quedo sin nada que mirar y sin
     // partida, y me tengo que enterar de las dos cosas. Desde la fase 1b el
     // héroe que cae vuelve a casa, así que la segunda batalla es en mi castillo
     // y con él dentro: perderla se lleva la casa y al héroe a la vez.
-    heroById(state, 'hero-0').army = ejercito({ creature: 'peasant', count: 1 });
+    heroById(state, 'hero-0').army = ejercito({ creature: TROPA_BARATA, count: 1 });
     pasear(state, ctx, 0, [{ x: 8, y: 6 }]);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [{ x: 8, y: 6 }]);
@@ -260,6 +274,9 @@ describe('la crónica pasa por la niebla', () => {
     // serpiente (`ordenDelDia`) el 1 cierra el día 1 y abre el 2.
     pasarTurno(state, ctx, 1);
     expect(state.day).toBe(2);
+    // Con fuerza de sobra: con la rueda (19-10-2026), mi héroe solo, con su
+    // Espada, paraba a la tropa de salida del rival.
+    heroById(state, 'hero-1').army = ejercito({ creature: PESADA, count: 5 });
     pasear(state, ctx, 1, [MI_CASTILLO]);
     expect(state.pendingBattle?.foe).toEqual({ kind: 'hero', heroId: 'hero-0' });
     expect(resolvePendingBattle(state, ctx).winner).toBe('attacker');
@@ -445,7 +462,7 @@ describe('la crónica pasa por la niebla', () => {
     // en el campo, mirándose caer. Lo que este test vigila es el otro caso, el
     // que sale del mapa: ahí el sello no lo salva y lo salva `actor`.
     (state.players[0] as { base: string | null }).base = null;
-    heroById(state, 'hero-0').army = ejercito({ creature: 'peasant', count: 1 });
+    heroById(state, 'hero-0').army = ejercito({ creature: TROPA_BARATA, count: 1 });
     pasear(state, ctx, 0, [{ x: 20, y: 6 }]);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [{ x: 20, y: 6 }]);
@@ -523,8 +540,8 @@ describe('la crónica de la pantalla deja de mentir', () => {
     expect(linea({ kind: 'built', town: 't', building: 'tavern', actor: 1 })).toContain(
       'El jugador 1 construye en\u00a0(0,\u00a00): Taberna',
     );
-    expect(linea({ kind: 'recruited', town: 't', creature: 'peasant', count: 3 })).toContain(
-      'El jugador 1 recluta 3 × Campesino',
+    expect(linea({ kind: 'recruited', town: 't', creature: TROPA_BARATA, count: 3 })).toContain(
+      `El jugador 1 recluta 3 × ${unidadDelJuego(TROPA_BARATA).name}`,
     );
     expect(linea({ kind: 'garrison_taken', hero: 'h', town: 't' })).toContain(
       'El jugador 1 incorpora una guarnición',
@@ -557,13 +574,14 @@ describe('la crónica de la pantalla deja de mentir', () => {
   });
 
   it('la tropa que se hace héroe se cuenta, con el nombre del narrador escapado', () => {
-    const cuerpo = { kind: 'hero_promoted', hero: 'h', town: 't', creature: 'pikeman' };
+    const cuerpo = { kind: 'hero_promoted', hero: 'h', town: 't', creature: TROPA };
+    const quien = unidadDelJuego(TROPA).name;
     expect(linea({ ...cuerpo, name: 'Ana', actor: 0 })).toBe(
-      '<div class="log" data-al-final="cronica"><div class="win">Un Piquero tuyo se hace héroe en\u00a0(0,\u00a00): Ana</div></div>',
+      `<div class="log" data-al-final="cronica"><div class="win">Un ${quien} tuyo se hace héroe en\u00a0(0,\u00a00): Ana</div></div>`,
     );
     const suyo = linea({ ...cuerpo, name: '<b>X</b>', actor: 1 });
     expect(suyo).toContain(
-      '<div>Un Piquero del jugador 1 se hace héroe en\u00a0(0,\u00a00): &lt;b&gt;X&lt;/b&gt;</div>',
+      `<div>Un ${quien} del jugador 1 se hace héroe en\u00a0(0,\u00a00): &lt;b&gt;X&lt;/b&gt;</div>`,
     );
     // Y le consta a su dueño aunque nadie lo mirara: es «lo tuyo, siempre».
     expect(visibleTo(evento({ ...cuerpo, name: 'Ana', actor: 0 }), 0)).toBe(true);
@@ -653,21 +671,22 @@ describe('la crónica de la pantalla deja de mentir', () => {
         owners,
         rounds: 2,
         casts: [],
-        lost: { attacker: [], defender: [{ creature: 'skeleton', count: 3 }] },
+        lost: { attacker: [], defender: [{ creature: NO_MUERTO, count: 3 }] },
         actor: owners.attacker,
         at: { x: 7, y: 8 },
       });
     const pinta = (e: GameEvent, quien: number): string => marcadoDe(renderLog([e], quien));
+    const caidos = `3\u00a0× ${unidadDelJuego(NO_MUERTO).name}`;
     const monstruo = batalla({ kind: 'monster', objectId: 'm' }, { attacker: 0, defender: null });
     expect(pinta(monstruo, 0)).toContain(
-      '<div class="win">Batalla ganada contra un monstruo en\u00a0(7,\u00a08), en 2 rondas; pierde el enemigo 3\u00a0× Esqueleto</div>',
+      `<div class="win">Batalla ganada contra un monstruo en\u00a0(7,\u00a08), en 2 rondas; pierde el enemigo ${caidos}</div>`,
     );
     expect(pinta(monstruo, -1)).toContain(
-      '<div>Batalla en\u00a0(7,\u00a08): un héroe del jugador 0 contra un monstruo; gana el jugador 0 en 2 rondas; pierde el monstruo 3\u00a0× Esqueleto</div>',
+      `<div>Batalla en\u00a0(7,\u00a08): un héroe del jugador 0 contra un monstruo; gana el jugador 0 en 2 rondas; pierde el monstruo ${caidos}</div>`,
     );
     const ciudad = batalla({ kind: 'town', townId: 't' }, { attacker: 1, defender: null });
     expect(pinta(ciudad, -1)).toContain(
-      'un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 2 rondas; pierde la guarnición 3\u00a0× Esqueleto',
+      `un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 2 rondas; pierde la guarnición ${caidos}`,
     );
     const castillo = batalla(
       { kind: 'town', townId: 't' },

@@ -9,26 +9,35 @@
  * módulo no importa el estado: solo el catálogo y la tropa.
  */
 import type { GrupoDeTropa } from '../data.js';
-import { ESCALA_DE_CIFRAS } from '../escala.js';
 import { type Hero, heroUnit } from '../hero/hero.js';
 import { ejercitoDe, type Personajes, troopUnit } from '../hero/troop.js';
+import { poderBruto } from '../nivel.js';
 import type { Army, UnitInfo } from '../types.js';
 
 /**
- * Fuerza bruta de un individuo: lo que pega por lo que aguanta.
+ * Fuerza bruta de un individuo: lo que pega por lo que aguanta, **con todo lo que
+ * lleva** (#129, #250, 19-10-2026): el cuadrado del poder bruto del índice
+ * (`poderBruto`, `core/nivel.ts`), que mide cada arma por su uso, la rueda, la
+ * carga, ataque y defensa, la armadura y lo que corre. Antes era daño medio × PV,
+ * y con las unidades de la arena —el mismo cuerpo, lo distinto en el equipo— la IA
+ * decidía a ciegas: no veía ni la armadura ni el arma.
  *
- * **Entre `ESCALA_DE_CIFRAS`²**: PV y daño van cada uno a esa escala y el
- * producto crece con su cuadrado. Dividir aquí deja cada fuerza en la cifra de
- * fheroes2 —exacta en coma flotante con 10: (10a + 10b)/2 · 10h / 100 = (a + b)/2
- * · h—, así que ni `fuerzaMax` de los asaltantes ni los `VALOR_DE_*` de la
- * estrategia, que son cifras medidas, dependen de la escala. No es el nivel
- * (`nivelDeUnidad`): es la vara de la IA para comparar ejércitos.
+ * El cuadrado, porque el poder es la raíz de ofensa × aguante y la fuerza de un
+ * ejército se suma individuo a individuo como se sumaba daño × PV. **Entre
+ * `DIVISOR_DEL_PODER`**, para que la fuerza quede en la escala de antes y no haya
+ * que medir otra vez `fuerzaMax` de los asaltantes, `MARGEN_CONTRA_NEUTRALES` ni
+ * los `VALOR_DE_*` de la estrategia: es la mediana de poder² / (daño medio × PV /
+ * `ESCALA_DE_CIFRAS`²) de las 21 criaturas de `data/creatures.json`, medida antes
+ * de retirarlas (19-10-2026: 143 465). No es el nivel (`nivelDeUnidad`): es la
+ * vara de la IA para comparar ejércitos.
  */
 export function unitPower(info: UnitInfo): number {
-  return (
-    (((info.damage[0] + info.damage[1]) / 2) * info.hp) / (ESCALA_DE_CIFRAS * ESCALA_DE_CIFRAS)
-  );
+  const p = poderBruto(info);
+  return (p * p) / DIVISOR_DEL_PODER;
 }
+
+/** Lo que divide al poder bruto² en `unitPower`: ver allí. Medido, no inventado. */
+export const DIVISOR_DEL_PODER = 143_465;
 
 /**
  * Fuerza bruta de un ejército. Pide los personajes porque un individuo puede

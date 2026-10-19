@@ -16,7 +16,6 @@
  *   (`ladoDeLaMuralla`), por cercanía andando a cada salida: también la que no
  *   cierra tiene un delante y un detrás;
  * - el volador se posa en un muro libre, de cualquier bando, y baja donde quiera;
- * - la unidad de dos casillas no sube nunca, ni la cabeza ni la cola;
  * - la puerta se abre y se cierra (`EstadoDePuerta`, en el estado de la
  *   batalla y no aquí): **cerrada no la cruza nadie que ande**, ni el defensor,
  *   y corta el tiro del suelo; **abierta la cruza cualquiera** y no tapa. La abre
@@ -49,7 +48,6 @@ import {
   isInside,
   lineaLibre,
   neighbours,
-  occupiedHexes,
   type PasoPermitido,
 } from './board.js';
 import type { BattleStack, BattleState, Side } from './types.js';
@@ -176,7 +174,7 @@ export function nivelDe(m: MurallaDeBatalla, h: Hex): 0 | 1 {
 
 /**
  * ¿Está `s` en lo alto de la muralla? Se deriva de su hex: estar en un muro ES
- * estar arriba. Una de dos casillas no puede estarlo (`cierreDeLaMuralla`).
+ * estar arriba.
  */
 export function enLoAlto(
   state: Pick<BattleState, 'muralla'>,
@@ -236,38 +234,18 @@ export function hayLinea(
 }
 
 /**
- * ¿Parte una puerta cerrada el cuerpo de una unidad de dos casillas con la
- * cabeza en `head`? Una puerta cerrada entre su cabeza y su cola: ahí no puede
- * estar. Con la de una casilla, nunca.
- */
-export function partidaPorUnaPuerta(
-  m: MurallaDeBatalla,
-  puertas: readonly EstadoDePuerta[],
-  head: Hex,
-  size: number,
-  side: Side,
-): boolean {
-  if (size < 2 || m.puertas.length === 0) return false;
-  return vigenteDe(m, puertas).partidas(side, size).has(hexKey(head));
-}
-
-/**
- * Lo que la muralla le cierra a una unidad de `side`, de `size` hexes, que vuela
- * o no, con las puertas como están (`puertas`). LA regla de por dónde se va, en
- * un sitio:
+ * Lo que la muralla le cierra a una unidad de `side`, que vuela o no, con las
+ * puertas como están (`puertas`). LA regla de por dónde se va, en un sitio:
  *
- * - `posarse`: donde no cae ninguna de sus casillas al acabar. A la grande, el
- *   muro (no sube); a la de una casilla, nada: al muro sí se sube, andando o
- *   volando. Las casillas de una puerta son suelo, para los dos bandos.
- * - `recorrer`: por donde no pasa su cabeza al andar. A la grande, toda casilla
- *   en la que su cuerpo —la cola incluida— caería en un muro o partido por una
- *   puerta cerrada: en el fuzz de QA (09-10-2026) el troll defensor salía de
- *   (9,3) por (8,2) a (7,3) con la cola resbalando sobre el muro de (8,3), 92
- *   tramos así en 883 batallas. Al volador, lo mismo que `posarse`, que va por
- *   el aire.
- * - `paso`: el paso que no se da al andar: el de los niveles (`pasoPermitido`) a
- *   la de una casilla, y a todas el que cruza una puerta cerrada. Al volador no
- *   le quita nada: `undefined`.
+ * - `posarse`: donde no puede acabar. Nada: al muro se sube, andando o volando,
+ *   y las casillas de una puerta son suelo, para los dos bandos.
+ * - `recorrer`: por donde no pasa al andar. Nada más que lo de `posarse`.
+ * - `paso`: el paso que no se da al andar: el de los niveles (`pasoPermitido`) y
+ *   el que cruza una puerta cerrada. Al volador no le quita nada: `undefined`.
+ *
+ * Toda unidad ocupa una casilla (13-10-2026): lo que la muralla le cerraba a la
+ * de dos —el muro bajo la cola, la puerta entre la cabeza y la cola— se fue con
+ * ella (simplify de F3-F6, 19-10-2026).
  */
 export interface CierreDeLaMuralla {
   readonly posarse: ReadonlySet<string>;
@@ -279,27 +257,18 @@ export function cierreDeLaMuralla(
   m: MurallaDeBatalla,
   puertas: readonly EstadoDePuerta[],
   side: Side,
-  size: number,
   vuela: boolean,
 ): CierreDeLaMuralla {
   if (!hayMuralla(m)) return SIN_CIERRE;
-  const c = conjuntosDe(m);
   const v = vigenteDe(m, puertas);
-  const clave = `${side}|${size}|${vuela}`;
+  const clave = `${side}|${vuela}`;
   const hecho = v.cierres.get(clave);
   if (hecho !== undefined) return hecho;
-  const cierre: CierreDeLaMuralla =
-    size > 1
-      ? {
-          posarse: c.muros,
-          recorrer: vuela ? c.muros : v.cabezas(side, size),
-          paso: vuela ? undefined : v.pasoPorPuertas,
-        }
-      : {
-          posarse: NINGUNA,
-          recorrer: NINGUNA,
-          paso: vuela ? undefined : pasoAlAndar(m, puertas, side),
-        };
+  const cierre: CierreDeLaMuralla = {
+    posarse: NINGUNA,
+    recorrer: NINGUNA,
+    paso: vuela ? undefined : pasoAlAndar(m, puertas, side),
+  };
   v.cierres.set(clave, cierre);
   return cierre;
 }
@@ -412,14 +381,10 @@ interface Vigente {
   readonly pasoPorPuertas: PasoPermitido | undefined;
   /** `hayLinea` por par de índices: 0 sin mirar, 1 libre, 2 tapada. */
   readonly lineas: Uint8Array;
-  /** Los de `cierreDeLaMuralla`, por `bando|tamaño|vuela`. */
+  /** Los de `cierreDeLaMuralla`, por `bando|vuela`. */
   readonly cierres: Map<string, CierreDeLaMuralla>;
   /** Los de `pasoAlAndar`, por `bando|con lados`. */
   readonly pasos: Map<string, PasoPermitido>;
-  /** Las cabezas que la grande no pisa andando: cuerpo en un muro o partido por una puerta. */
-  cabezas(side: Side, size: number): ReadonlySet<string>;
-  /** Las cabezas con el cuerpo partido por una puerta cerrada. */
-  partidas(side: Side, size: number): ReadonlySet<string>;
 }
 
 /**
@@ -444,26 +409,6 @@ function vigenteDe(m: MurallaDeBatalla, puertas: readonly EstadoDePuerta[]): Vig
   }
   const cerradas = m.puertas.filter((p) => !puertaAbierta(puertas, p));
   const cortes = cerradas.length === 0 ? undefined : ladosDe(cerradas);
-  const porCabeza = new Map<string, ReadonlySet<string>>();
-  const partidasPorCabeza = new Map<string, ReadonlySet<string>>();
-  const partidas = (side: Side, size: number): ReadonlySet<string> => {
-    const k = `${side}|${size}`;
-    const hecho = partidasPorCabeza.get(k);
-    if (hecho !== undefined) return hecho;
-    const out = new Set<string>();
-    if (cortes !== undefined) {
-      for (const hex of allHexes()) {
-        const cuerpo = occupiedHexes(hex, size, side === 'attacker').filter(isInside);
-        const partida = cuerpo.some((x, n) => {
-          const y = cuerpo[n + 1];
-          return y !== undefined && cortes.has(codigoDeLado(indiceDe(x), indiceDe(y)));
-        });
-        if (partida) out.add(hexKey(hex));
-      }
-    }
-    partidasPorCabeza.set(k, out);
-    return out;
-  };
   const v: Vigente = {
     cortes,
     pasoPorPuertas:
@@ -471,19 +416,6 @@ function vigenteDe(m: MurallaDeBatalla, puertas: readonly EstadoDePuerta[]): Vig
     lineas: new Uint8Array(BOARD_SIZE * BOARD_SIZE),
     cierres: new Map(),
     pasos: new Map(),
-    partidas,
-    cabezas: (side, size) => {
-      const k = `${side}|${size}`;
-      const hecho = porCabeza.get(k);
-      if (hecho !== undefined) return hecho;
-      const cabezas = new Set(partidas(side, size));
-      for (const hex of allHexes()) {
-        const cuerpo = occupiedHexes(hex, size, side === 'attacker');
-        if (cuerpo.some((h) => c.muros.has(hexKey(h)))) cabezas.add(hexKey(hex));
-      }
-      porCabeza.set(k, cabezas);
-      return cabezas;
-    },
   };
   c.vigentes.set(clave, v);
   return v;

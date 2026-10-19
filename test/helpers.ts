@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
   type Catalogo,
@@ -11,17 +12,13 @@ import { componer, type Escena } from '../src/client/render/escenario/colocar.js
 import type { Puente } from '../src/client/render/escenario/puentes.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
 import { SesionDeArena } from '../src/client/session.js';
+import { completarCruce } from '../src/core/ai/rueda.js';
 import {
   batallaDeArena,
-  type CatalogoDeLaArena,
-  catalogoDeLaArena,
+  cambioDePiezas,
+  conPiezas,
   type FuenteDeArena,
-  type HojaDeArena,
   type MontajeDeArena,
-  nivelesDeLaEspada,
-  type UnidadDeArena,
-  unidadDeCombate,
-  unidadPorDefecto,
 } from '../src/core/arena.js';
 import {
   activeStack,
@@ -31,12 +28,12 @@ import {
   createBattle,
   enemiesOf,
   legalActions,
+  type StackDeBatalla,
+  stackById,
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
-import type { ModoDelGolpe } from '../src/core/battle/rueda.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -44,7 +41,20 @@ import type {
   BattleState,
 } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
-import { BARRERAS_DEL_MAPA, type Pieza } from '../src/core/data.js';
+import { UNIDADES, unidad, unidadDelJuego } from '../src/core/catalogo.js';
+import {
+  BARRERAS_DEL_MAPA,
+  COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
+  EQUIPO_ESCRITO,
+  type Pieza,
+  type PiezaEscrita,
+  RUTA_DEL_CATALOGO_DE_EQUIPO,
+} from '../src/core/data.js';
+import {
+  type CatalogoDeEquipo,
+  catalogoDeEquipo,
+  EQUIPO_DEL_JUEGO,
+} from '../src/core/hero/equipo.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
@@ -81,6 +91,7 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import {
   type Army,
+  type FactionId,
   type Hex,
   type NivelesDeLaRueda,
   type PlayerId,
@@ -91,7 +102,14 @@ import {
   type Troop,
   type UnitInfo,
 } from '../src/core/types.js';
-import { hojasDeArena } from '../tools/arena/borrador.js';
+import {
+  cuerpoDeCombate,
+  type Hoja,
+  nivelesDeLaEspada,
+  type Unidad,
+  unidadDeCombate,
+} from '../src/core/unidad.js';
+import { hojasDelTaller } from '../tools/arena/borrador.js';
 
 /**
  * El coste de cada casilla del alcance por `"x,y"`, en orden de primer
@@ -135,8 +153,86 @@ export function sinGuarnicionDeSalida(state: GameState): GameState {
   return state;
 }
 
+// ------------------------------------------------------------ fixtures por papel
+
 /**
- * Un ejército de individuos, escrito por grupos: `{ creature: 'pikeman',
+ * **Unidades del catálogo por el papel que hacen en una prueba** (19-10-2026, F3
+ * de `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`). El catálogo es
+ * el de `data/unidades.json`, que la arena edita: un test que escribe un id
+ * suelto no dice por qué lo quiere, y el día que la arena cambie esa unidad no
+ * se sabe qué defendía. Aquí cada papel lleva el motivo, y lo que un test espera
+ * de las cifras se lee de la unidad (`unidadDelJuego`), no se escribe.
+ *
+ * Las dos facciones del montaje de prueba son las dos primeras de `FACTION_IDS`,
+ * las que pone el generador cuando nadie pide otras.
+ */
+export const FACCION_A = 'templarios' satisfies FactionId;
+export const FACCION_B = 'no-muertos' satisfies FactionId;
+
+/** La tropa de a pie de la facción A, la de su pueblo (espada, brigantina y escudo). */
+export const TROPA = 'templario-escudo';
+/** La tropa pesada de la facción A, a dos manos (mandoble y arnés). */
+export const PESADA = 'templario-mandoble';
+/** Jinete con `charge` de la facción A (lanza, espada y barda). */
+export const JINETE = 'templario-hermano-de-carga';
+/** Unidad con poderes (Curar y Bendecir) de la facción A. */
+export const SANADOR = 'templario-monje';
+/** El no-muerto más barato (1 de liderazgo), de la facción B. */
+export const NO_MUERTO = 'esqueleto-guerrero';
+/** Tirador de la facción B: dispara con su arco, sin munición que contar. */
+export const TIRADOR_NO_MUERTO = 'esqueleto-arquero';
+/** La tropa más barata del catálogo, 1 de liderazgo (orkos). */
+export const TROPA_BARATA = 'goblin-lancero';
+/** Tirador sin rasgos (elfos): dispara con su arco, sin munición que contar. */
+export const TIRADOR = 'elfo-arquero';
+
+/**
+ * **Una unidad hecha a mano** para un rasgo del motor que ninguna unidad del
+ * catálogo lleva —vuelo, doble golpe, dos casillas, munición, drenaje, miedo,
+ * salpicar…—: las cifras de `base` (del catálogo, novato) con `cambios`. El motor
+ * sigue jugando esos rasgos (los lleva el perfil de un personaje o los pondrá la
+ * arena), así que se prueban con unidades que dicen lo que tienen, no con una del
+ * catálogo que hoy no los trae.
+ */
+export function aMano(base: string, cambios: Partial<UnitInfo>): UnitInfo {
+  return { ...unidadDelJuego(base), ...cambios };
+}
+
+/**
+ * Pone a mano las cifras `unit` a los stacks `ids` de `b` ya montada (con sus PV
+ * de arriba). Devuelve `b`.
+ */
+export function conCifrasAMano(b: BattleState, ids: string | readonly string[], unit: UnitInfo) {
+  for (const id of typeof ids === 'string' ? [ids] : ids) {
+    const s = b.stacks.find((x) => x.id === id);
+    if (s === undefined) throw new Error(`no hay ningún stack ${id}`);
+    const w = s as { unit: UnitInfo; topHp: number };
+    w.unit = unit;
+    w.topHp = unit.hp;
+  }
+  return b;
+}
+
+/**
+ * Un bando de individuos hechos a mano: cada uno entra como personaje
+ * (`members`) con sus cifras, uno por stack, porque el catálogo no los tiene.
+ * Es la vía del motor para lo que cambia el despliegue (dos casillas).
+ */
+export function bandoDePersonajes(
+  units: readonly UnitInfo[],
+  hero: BattleSide['hero'] = null,
+): BattleSide {
+  const members = new Map<string, BattleMember>();
+  const army: Stack[] = units.map((unit, i) => {
+    const member = `a-mano-${i}`;
+    members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp });
+    return { creature: TROPA, member, count: 1 };
+  });
+  return { army, hero, members };
+}
+
+/**
+ * Un ejército de individuos, escrito por grupos: `{ creature: 'templario-escudo',
  * count: 20 }` son veinte piqueros, uno detrás de otro y en el orden en que se
  * escriben. Un personaje va con `count: 1` y conserva su `member`.
  *
@@ -459,11 +555,14 @@ export function dadoCargado(punta: 'minimo' | 'maximo'): Rng {
   };
 }
 
-/** Juega la batalla hasta el final (o hasta `maxTurnos`). Devuelve los turnos usados. */
+/**
+ * Juega la batalla hasta el final (o hasta `maxTurnos`), con la rueda a ciegas
+ * (`aCiegas`). Devuelve los turnos usados.
+ */
 export function simular(state: BattleState, rng: Rng, maxTurnos = 3000): number {
   let n = 0;
   while (state.finished === null && n < maxTurnos) {
-    applyAction(state, agresiva(state), rng);
+    aCiegas(state, agresiva(state), rng);
     n++;
   }
   return n;
@@ -471,8 +570,8 @@ export function simular(state: BattleState, rng: Rng, maxTurnos = 3000): number 
 
 /**
  * Juega con `politica` hasta que se cumpla `hasta` —el id del stack activo, o
- * una pregunta sobre la batalla— o se acabe la batalla o los turnos. Dice si
- * llegó.
+ * una pregunta sobre la batalla— o se acabe la batalla o los turnos, con la rueda
+ * a ciegas (`aCiegas`). Dice si llegó.
  */
 export function avanzarHasta(
   state: BattleState,
@@ -484,9 +583,26 @@ export function avanzarHasta(
   const llego = typeof hasta === 'string' ? (s: BattleState) => s.turno?.stack === hasta : hasta;
   for (let n = 0; state.finished === null && n < maxTurnos; n++) {
     if (llego(state)) return true;
-    applyAction(state, politica(state), rng);
+    aCiegas(state, politica(state), rng);
   }
   return state.finished === null && llego(state);
+}
+
+/**
+ * Una batalla de dos, cara a cara: un `TROPA` (`attacker-0`, en (5,4)) pegado a un
+ * `NO_MUERTO` (`defender-0`, en (6,4)), con el turno del atacante: el golpe de la
+ * rueda se da sin andar. Para la petición de la respuesta y el contrato.
+ */
+export function batallaConDos(rng: Rng): BattleState {
+  const b = createBattle(
+    { army: [{ creature: TROPA, count: 1 }], hero: null },
+    { army: [{ creature: NO_MUERTO, count: 1 }], hero: null },
+    rng,
+  );
+  stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
+  stackById(b, 'defender-0').hex = { col: 6, row: 4 };
+  forzarTurno(b, 'attacker-0');
+  return b;
 }
 
 /**
@@ -566,21 +682,21 @@ export function planDeNodos(): PlanConCasillas {
       {
         id: 'town-0',
         name: 'Valdeluz',
-        faction: 'knight',
+        faction: 'templarios',
         at: { x: 5, y: 4 },
         owner: 0,
       },
       {
         id: 'town-1',
         name: 'Cripta Gris',
-        faction: 'necromancer',
+        faction: 'no-muertos',
         at: { x: 22, y: 4 },
         owner: 1,
       },
       {
         id: 'town-2',
         name: 'Torreblanca',
-        faction: 'knight',
+        faction: 'templarios',
         at: { x: 17, y: 4 },
         owner: null,
       },
@@ -632,8 +748,8 @@ export function planDeMesetas(): PlanConCasillas {
     ],
     nodes: [{ x: 15, y: 7 }],
     towns: [
-      { id: 'town-0', name: 'Valdeluz', faction: 'knight', at: { x: 10, y: 11 }, owner: 0 },
-      { id: 'town-1', name: 'Cripta Gris', faction: 'necromancer', at: { x: 5, y: 7 }, owner: 1 },
+      { id: 'town-0', name: 'Valdeluz', faction: 'templarios', at: { x: 10, y: 11 }, owner: 0 },
+      { id: 'town-1', name: 'Cripta Gris', faction: 'no-muertos', at: { x: 5, y: 7 }, owner: 1 },
     ],
     heroStarts: [
       { player: 0, at: { x: 8, y: 12 } },
@@ -1079,31 +1195,83 @@ export function partidaDe(semilla: number): { readonly map: GameMap; readonly es
 /** La escena de `partidaDe(semilla)`. */
 export const escenaDe = (semilla: number): Escena => partidaDe(semilla).escena;
 
-let hojasLeidas: readonly HojaDeArena[] | null = null;
+let hojasLeidas: readonly Hoja[] | null = null;
 
 /** Las hojas de la arena del repo, leídas una vez por fichero de test. */
-export function hojasDeLaArena(): readonly HojaDeArena[] {
-  hojasLeidas ??= hojasDeArena(resolve(import.meta.dirname, '..'));
+export function hojasDeLaArena(): readonly Hoja[] {
+  hojasLeidas ??= hojasDelTaller(resolve(import.meta.dirname, '..'));
   return hojasLeidas;
 }
 
 /** La hoja `id` de la arena del repo; lanza si no está. */
-export function hojaDeLaArena(id: string): HojaDeArena {
+export function hojaDeLaArena(id: string): Hoja {
   const hoja = hojasDeLaArena().find((h) => h.id === id);
   if (hoja === undefined) throw new Error(`no hay hoja ${id}`);
   return hoja;
 }
 
-/** Una unidad de la arena con las cifras por defecto de su hoja y los cambios que diga el test. */
-export function unidadDeArena(id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena {
-  return { ...unidadPorDefecto(hojaDeLaArena(id)), ...cambios };
+/**
+ * Una unidad del catálogo (`data/unidades.json`, `core/catalogo.ts`) con los
+ * cambios que diga el test: la misma fuente de cifras que la arena y el juego.
+ */
+export function unidadDeArena(id: string, cambios: Partial<Unidad> = {}): Unidad {
+  return { ...unidad(id), ...cambios };
 }
 
 /**
- * Las piezas del juego, atadas: las de la arena sin borrador (`catalogoDeLaArena`,
- * con lo escrito: las bases de `data/equipo.json`).
+ * El catálogo entero de unidades (`data/unidades.json`) con `cambios` encima: la
+ * del mismo id la sustituye en su sitio, una nueva va detrás. «Guardar» exige un
+ * catálogo con el que arranque el juego —cada morada produce alguna unidad
+ * (`moradasBlocker`)—, así que una prueba que guarda lo hace sobre el entero.
  */
-export const DEL_JUEGO: CatalogoDeLaArena = catalogoDeLaArena([]);
+export function catalogoEntero(...cambios: Unidad[]): Unidad[] {
+  const porId = new Map(cambios.map((u) => [u.id, u]));
+  const ids = new Set(UNIDADES.map((u) => u.id));
+  return [...UNIDADES.map((u) => porId.get(u.id) ?? u), ...cambios.filter((u) => !ids.has(u.id))];
+}
+
+/**
+ * El catálogo de equipo del juego (`EQUIPO_ESCRITO`) con `encima` puestas
+ * (`conPiezas`: la del mismo id la sustituye, una nueva va detrás): el catálogo
+ * entero que una prueba hace (`catalogoCon`) o guarda.
+ */
+export function elCatalogoCon(...encima: PiezaEscrita[]): readonly PiezaEscrita[] {
+  return conPiezas(EQUIPO_ESCRITO, encima);
+}
+
+/**
+ * Una carpeta temporal con lo que la arena lee del repo además de lo que escribe:
+ * el catálogo de equipo (`data/equipo.json`, el del juego). Sin él, `leerCatalogo`
+ * no tiene con qué leer las unidades, como no lo tendría el juego.
+ */
+export function carpetaDeLaArena(prefijo = 'arena-'): string {
+  const dir = mkdtempSync(join(tmpdir(), prefijo));
+  mkdirSync(join(dir, 'data'), { recursive: true });
+  writeFileSync(
+    join(dir, RUTA_DEL_CATALOGO_DE_EQUIPO),
+    JSON.stringify({ _comment: COMENTARIO_DEL_CATALOGO_DE_EQUIPO, piezas: EQUIPO_ESCRITO }),
+  );
+  return dir;
+}
+
+/** El catálogo del juego con `encima` puestas (`elCatalogoCon`), leído (`catalogoDeEquipo`). */
+export function catalogoCon(...encima: PiezaEscrita[]): CatalogoDeEquipo {
+  return catalogoDeEquipo(elCatalogoCon(...encima));
+}
+
+/**
+ * Por qué no se pasa del catálogo `antes` a las piezas `despues` con esas
+ * unidades (`cambioDePiezas`), o `null` si se puede: la pregunta de las pruebas
+ * del editor de equipo, que miran el motivo.
+ */
+export function motivoDelCambio(
+  antes: CatalogoDeEquipo,
+  despues: readonly PiezaEscrita[],
+  unidades: readonly Unidad[],
+): string | null {
+  const r = cambioDePiezas(antes, despues, unidades);
+  return 'motivo' in r ? r.motivo : null;
+}
 
 /** Una rueda con todos los tipos del anillo en el nivel `n`. */
 export function todoA(n: number): NivelesDeLaRueda {
@@ -1121,64 +1289,70 @@ export const MANOS_DE_PRUEBA: Pieza = {
   id: 'manos_de_prueba',
   nombre: 'Manos de prueba',
   hueco: 'arma',
-  calidad: 'arena',
+  seConsigue: [],
   ataque: 0,
   defensa: 0,
-  pv: 0,
   velocidad: 0,
   rueda: nivelesDeLaEspada(),
-  precio: { gold: 0 },
+  precio: 0,
 };
 
 /**
- * Cada stack de `b` (sin arma) con las manos de prueba en el hueco del arma, por
- * `conEquipo`, el único escritor de `UnitInfo.armas`, y la pieza entre las de la
- * pelea (`BattleState.piezasDeArena`): golpea en la rueda con los niveles de la
- * Espada (u otros, `niveles`) sin cambiar sus cifras. Devuelve `b`.
+ * Cada stack de `b` con las manos de prueba en el hueco del arma, por
+ * `conEquipo`, el único escritor de `UnitInfo.armas` (con su nombre: la batalla no
+ * lleva catálogo): golpea en la rueda con los niveles de la Espada (u otros,
+ * `niveles`). Uno sin arma, sin cambiar sus cifras; uno del catálogo (desde el
+ * 19-10-2026 todos llevan arma), su cuerpo con su equipo de serie y las manos en
+ * lugar del arma. Devuelve `b`.
  */
 export function conManosDePrueba(
   b: BattleState,
   niveles: NivelesDeLaRueda = nivelesDeLaEspada(),
 ): BattleState {
   const manos: Pieza = { ...MANOS_DE_PRUEBA, rueda: niveles };
-  const eq = catalogoDeLaArena([manos]);
-  // La pelea lleva su pieza: la previsión y la ficha buscan el arma por su id.
-  b.piezasDeArena = [...(b.piezasDeArena ?? []), manos];
+  const eq = catalogoCon(manos);
   for (const s of b.stacks) {
-    (s as { unit: UnitInfo }).unit = eq.conEquipo(s.unit, { arma: manos.id });
+    const unit =
+      s.unit.equipo?.arma === undefined
+        ? eq.conEquipo(s.unit, { arma: manos.id })
+        : s.origen.kind === 'catalogo'
+          ? eq.conEquipo(cuerpoDeCombate(unidad(s.body)), {
+              ...unidad(s.body).equipo,
+              arma: manos.id,
+            })
+          : s.unit;
+    (s as { unit: UnitInfo; topHp: number }).unit = unit;
+    (s as { topHp: number }).topHp = unit.hp;
   }
   return b;
 }
 
-/** Lo común de un montaje de prueba: las reglas del juego y ninguna pieza de la arena. */
-export const MONTAJE = { reglas: REGLAS_DEL_JUEGO, piezas: [] } as const satisfies Pick<
-  MontajeDeArena,
-  'reglas' | 'piezas'
->;
+/** Lo común de un montaje de prueba: el catálogo de equipo del juego. */
+export const MONTAJE = {
+  equipo: EQUIPO_DEL_JUEGO,
+} as const satisfies Pick<MontajeDeArena, 'equipo'>;
 
 /** Una unidad del borrador a su puesto de la pelea, con su escalera o sin ella. */
 export interface PuestoDeLaPelea {
-  readonly unidad: UnidadDeArena;
+  readonly unidad: Unidad;
   readonly escalera?: boolean;
 }
 
 /** Las unidades, cada una a su puesto de la pelea, sin escalera (`batallaDeArena`). */
-export function aPelear(unidades: readonly UnidadDeArena[]): PuestoDeLaPelea[] {
+export function aPelear(unidades: readonly Unidad[]): PuestoDeLaPelea[] {
   return unidades.map((unidad) => ({ unidad }));
 }
 
 /**
  * El montaje de la arena con unidades del borrador, sin héroes: los tests de la
- * muralla no miran ni el catálogo ni la magia. Con las reglas del juego salvo
- * que se pidan otras, y sin piezas de la arena ni modos salvo que se pidan
- * (`extra`: las piezas del borrador y los modos, como la rueda del golpe).
+ * muralla no miran ni el catálogo ni la magia. Con el catálogo de equipo del
+ * juego salvo que se pida otro (`extra`: el catálogo hecho, `catalogoCon`).
  */
 export function montajeDePrueba(
   izquierda: readonly PuestoDeLaPelea[],
   derecha: readonly PuestoDeLaPelea[],
   muralla: MurallaDeBatalla = SIN_MURALLA,
-  reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
-  extra: Partial<Pick<MontajeDeArena, 'piezas' | 'modos'>> = {},
+  extra: Partial<Pick<MontajeDeArena, 'equipo'>> = {},
 ): MontajeDeArena {
   const lado = (puestos: readonly PuestoDeLaPelea[]) => ({
     unidades: puestos.map(({ unidad, escalera }) => ({ unidad, escalera: escalera === true })),
@@ -1187,10 +1361,8 @@ export function montajeDePrueba(
   return {
     izquierda: lado(izquierda),
     derecha: lado(derecha),
-    reglas,
     muralla,
-    piezas: extra.piezas ?? [],
-    ...(extra.modos === undefined ? {} : { modos: extra.modos }),
+    equipo: extra.equipo ?? EQUIPO_DEL_JUEGO,
   };
 }
 
@@ -1215,6 +1387,22 @@ export function golpeConLaRueda(
   return { type: 'attack', target: 'defender-0', golpe, respuesta, ...extra } as BattleAction;
 }
 
+/**
+ * Las dos elecciones de un golpe que no mira la rueda: Normal contra Normal cae
+ * en el medio de la horquilla y no gasta tirada. Desde el 19-10-2026 todo golpe
+ * cuerpo a cuerpo pasa por la rueda: sin elecciones, el `attack` se planta.
+ */
+export const NORMAL = { golpe: 'normal', respuesta: 'normal' } as const;
+
+/**
+ * Aplica `accion` con lo que le falte de la rueda elegido a ciegas por la IA
+ * (`completarCruce`), como `autoResolve`: para los tests que juegan la IA sin
+ * mirar el golpe.
+ */
+export function aCiegas(b: BattleState, accion: BattleAction, rng: Rng): void {
+  applyAction(b, completarCruce(b, accion, rng).accion, rng);
+}
+
 /** `batallaDeArena` con `montajeDePrueba`. */
 export function peleaDeArena(
   izquierda: readonly PuestoDeLaPelea[],
@@ -1225,23 +1413,15 @@ export function peleaDeArena(
   return batallaDeArena(montajeDePrueba(izquierda, derecha, muralla), rng);
 }
 
-/** Un puesto de `peleaDelMotor`: una unidad del borrador, con escalera y de dos casillas si se pide. */
-export interface PuestoDelMotor extends PuestoDeLaPelea {
-  readonly grande?: boolean;
-}
-
 /**
  * La pelea de `peleaDeArena` por la vía del motor, sin la arena: cada unidad entra
- * como personaje (`members`) con sus cifras de combate (`unidadDeCombate`) y, si
- * se pide, de dos casillas. La arena ya no hace unidades grandes (13-10-2026:
- * «todo el mundo un hexe»), pero el motor sí las juega —el dragón óseo del
- * juego— y sus reglas con la muralla (la cola, la puerta, la escalera) se
- * prueban así. Con las reglas del juego (`createBattle`). Con `heroes`, el de cada
- * bando: es la puerta con la que se compara la de la arena (`batallaDeArena`).
+ * como personaje (`members`) con sus cifras de combate (`unidadDeCombate`). Con
+ * las reglas del juego (`createBattle`). Con `heroes`, el de cada bando: es la
+ * puerta con la que se compara la de la arena (`batallaDeArena`).
  */
 export function peleaDelMotor(
-  izquierda: readonly PuestoDelMotor[],
-  derecha: readonly PuestoDelMotor[],
+  izquierda: readonly PuestoDeLaPelea[],
+  derecha: readonly PuestoDeLaPelea[],
   rng: Rng,
   muralla: MurallaDeBatalla = SIN_MURALLA,
   heroes: { readonly izquierda: BattleSide['hero']; readonly derecha: BattleSide['hero'] } = {
@@ -1249,18 +1429,18 @@ export function peleaDelMotor(
     derecha: null,
   },
 ): BattleState {
-  const lado = (puestos: readonly PuestoDelMotor[], hero: BattleSide['hero']): BattleSide => {
+  const lado = (puestos: readonly PuestoDeLaPelea[], hero: BattleSide['hero']): BattleSide => {
     const members = new Map<string, BattleMember>();
-    const army: Stack[] = puestos.map(({ unidad, escalera, grande }, i) => {
-      const cifras = unidadDeCombate(unidad, DEL_JUEGO);
-      const unit = grande === true ? { ...cifras, hexes: 2 } : cifras;
+    const army: StackDeBatalla[] = puestos.map(({ unidad, escalera }, i) => {
+      const unit = unidadDeCombate(unidad, EQUIPO_DEL_JUEGO);
       const member = `motor-${i}`;
-      members.set(member, {
-        profile: { unit, morale: 0, luck: 0 },
-        hp: unit.hp,
-        escalera: escalera === true,
-      });
-      return { creature: unidad.cuerpo.hoja, member, count: 1 };
+      members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp });
+      return {
+        creature: unidad.cuerpo.hoja,
+        member,
+        count: 1,
+        ...(escalera === true ? { escalera: true } : {}),
+      };
     });
     return { army, hero, members };
   };
@@ -1276,13 +1456,13 @@ export function peleaDelMotor(
  * Una sesión de la arena con unidades del borrador, sin héroes, sin empezar. Quién
  * mueve va en cada puesto por comodidad, pero la sesión mueve cada bando entero:
  * un bando con puestos de los dos es un error del test. En `o`, la muralla del
- * tablero y cómo cae el golpe (la rueda, para las pruebas de la rueda).
+ * tablero.
  */
 export function sesionDeArena(
   izquierda: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   derecha: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   semilla: number,
-  o: { readonly muralla?: MurallaDeBatalla; readonly golpe?: ModoDelGolpe } = {},
+  o: { readonly muralla?: MurallaDeBatalla } = {},
 ): SesionDeArena {
   const lado = (puestos: readonly (PuestoDeLaPelea & { readonly ia: boolean })[]) => {
     const ia = puestos.every((p) => p.ia);
@@ -1299,7 +1479,6 @@ export function sesionDeArena(
       derecha: lado(derecha),
       ...MONTAJE,
       muralla: o.muralla ?? SIN_MURALLA,
-      ...(o.golpe === undefined ? {} : { modos: { golpe: o.golpe } }),
     },
     semilla,
   );
@@ -1345,6 +1524,6 @@ export function hastaLaRueda(
 }
 
 /** Una unidad del borrador como fuente del montaje de la arena. */
-export function delBorrador(unidad: UnidadDeArena, escalera = false): FuenteDeArena {
+export function delBorrador(unidad: Unidad, escalera = false): FuenteDeArena {
   return escalera ? { unidad, escalera } : { unidad };
 }

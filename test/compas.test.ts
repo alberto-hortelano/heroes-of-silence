@@ -99,15 +99,15 @@ describe('el compás de cada figura', () => {
 });
 
 function clipFrameDe(id: string, t: number): number {
-  const atlas = hojaDe(arteDe('peasant'), MIRADA_DE_PRESENTACION);
+  const atlas = hojaDe(arteDe('goblin-lancero'), MIRADA_DE_PRESENTACION);
   return clipFrame(atlas, 'idle', relojDeFigura(atlas.clips.idle, t, id));
 }
 
 describe('la prisa de la marcha', () => {
   it('una casilla de un adulto andando son ~0,9 s, y cargando ~0,55 s', () => {
     // La cifra que pidió el usuario al verlo: «un poco más rápido» que los ~1,3 s.
-    const andando = msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal);
-    const cargando = msPorCasilla('peasant', 'charge', ALTO_DE_FIGURA.normal);
+    const andando = msPorCasilla('goblin-lancero', 'walk', ALTO_DE_FIGURA);
+    const cargando = msPorCasilla('goblin-lancero', 'charge', ALTO_DE_FIGURA);
     expect(andando).toBeGreaterThan(850);
     expect(andando).toBeLessThan(950);
     expect(cargando).toBeGreaterThan(500);

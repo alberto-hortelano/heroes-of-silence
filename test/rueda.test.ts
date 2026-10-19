@@ -4,32 +4,32 @@
  * caducidad «hasta su próximo turno», la IA a ciegas, la sesión de la arena con
  * sus tres maneras (Yo contra IA, IA contra Yo, Yo contra Yo) y el parte.
  *
- * Las cifras se escriben a mano desde el catálogo (piquero: A 5, D 9, daño 30-40,
- * 150 PV) y desde `data/rueda.json` (Fuerte ×1,25, Rápido 2 × ×0,6): un test que
- * calculara el esperado con las mismas funciones del motor solo probaría que el
- * motor es el que es.
+ * Las cifras se escriben a mano desde unidades hechas a mano (`A_MANO`: el piquero,
+ * A 5, D 9, daño 30-40, 150 PV, sin armadura) y desde `data/rueda.json` (la Espada,
+ * todo a 3: Fuerte ×1,5, Rápido 2 × ×0,63): un test que calculara el esperado con
+ * las mismas funciones del motor solo probaría que el motor es el que es.
  */
+
 import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
 import { BattleAnimator, DURACION } from '../src/client/anim.js';
-import { renderModo, renderPanelDeBatalla, rotuloDelTurno } from '../src/client/arena/paneles.js';
-import { renderDesenlace, renderEleccion, tramosDelDesenlace } from '../src/client/arena/rueda.js';
+import {
+  caraDeLaArena,
+  renderPanelDeBatalla,
+  rotuloDelTurno,
+} from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
+import { renderDesenlace, renderEleccion, tramosDelDesenlace } from '../src/client/rueda/rueda.js';
 import { SesionDeArena } from '../src/client/session.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce, elegirEnLaRueda } from '../src/core/ai/rueda.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import {
-  type FuenteDeArena,
-  nivelesDeLaEspada,
-  type UnidadDeArena,
-  unaVezEnLaURL,
-} from '../src/core/arena.js';
+import type { FuenteDeArena } from '../src/core/arena.js';
+import { golpesDe, ruedaDelGolpe } from '../src/core/battle/armas.js';
 import {
   activeStack,
   applyAction,
   type BattleSide,
-  crearBatallaConReglas,
   createBattle,
   firmaDelTurno,
   legalActions,
@@ -45,23 +45,15 @@ import { hexDistance, hexKey } from '../src/core/battle/board.js';
 import { cifrasDeLosNiveles } from '../src/core/battle/cifras-de-la-rueda.js';
 import { fraseDelContacto } from '../src/core/battle/contacto.js';
 import { effectiveAttack, effectiveDefense, stackHp } from '../src/core/battle/damage.js';
-import { GOLPE, MODOS_DEL_JUEGO, modoALaURL, modoDeLaURL } from '../src/core/battle/modos.js';
 import { claveDeAbiertas } from '../src/core/battle/muralla.js';
-import {
-  REGLAS_DEL_JUEGO,
-  type ReglasDeBatalla,
-  reglasDeLaURL,
-} from '../src/core/battle/reglas.js';
 import {
   ANILLO,
   casillasQueQuitaLaFinta,
   contraataqueDelCruce,
   efectoDeGolpe,
-  golpesDe,
   PESOS_DE_LA_RUEDA,
   puntoDelContraataque,
   puntoDelCruce,
-  ruedaDelGolpe,
   TIPOS_DE_GOLPE,
   type TipoDeGolpe,
   tiradaDelPunto,
@@ -73,23 +65,96 @@ import type {
   BattleState,
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
-import { creature } from '../src/core/data.js';
+import { unidad } from '../src/core/catalogo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
 import type { NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
+import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
 import { bando } from './batalla-de-prueba.js';
 import {
   type Ataque,
   ataquesDe,
+  conCifrasAMano,
   conManosDePrueba,
   delBorrador,
   golpeConLaRueda,
   hastaLaRueda,
+  JINETE,
+  NO_MUERTO,
+  NORMAL,
+  PESADA,
   sesionDeArena,
+  TIRADOR,
+  TROPA,
   unidadDeArena,
 } from './helpers.js';
 
 /** Las cifras de la rueda con la Espada de la arena (todo a 3): las de un arma versátil. */
 const CON_LA_ESPADA = cifrasDeLosNiveles(nivelesDeLaEspada());
+
+/**
+ * El cuerpo desnudo de `base` (sin su equipo de serie: ni armas ni armadura) con
+ * las cifras de `cifras`. Estas pruebas cuentan el daño de cada cruce a mano, y la
+ * armadura de las unidades del catálogo (desde el 19-10-2026 todas la llevan) lo
+ * enturbiaría: con cifras redondas y sin armadura cada esperado se lee en su
+ * comentario.
+ */
+const sinEquipo = (base: string, cifras: Partial<UnitInfo>): UnitInfo => ({
+  ...cuerpoDeCombate(unidad(base)),
+  ...cifras,
+});
+
+/** El piquero de las cuentas: A 5, D 9, daño 30-40, 150 PV, 4 casillas. */
+const PIQUERO_A_MANO = sinEquipo(TROPA, {
+  name: 'Piquero',
+  attack: 5,
+  defense: 9,
+  damage: [30, 40],
+  hp: 150,
+  speed: 'average',
+  traits: [],
+});
+
+/** Uno que pega dos veces (`double_attack`, que nadie del catálogo lleva) y es más rápido que el piquero. */
+const DOBLE_GOLPE = sinEquipo(PESADA, {
+  name: 'Paladín',
+  attack: 11,
+  defense: 12,
+  damage: [100, 200],
+  hp: 500,
+  speed: 'fast',
+  traits: ['double_attack'],
+});
+
+/** La caballería de las cargas: A 10, D 9, daño 50-100, 300 PV, `charge`, sin lanza. */
+const CABALLERIA = sinEquipo(JINETE, {
+  name: 'Caballería',
+  attack: 10,
+  defense: 9,
+  damage: [50, 100],
+  hp: 300,
+  speed: 'very_fast',
+  traits: ['charge'],
+});
+
+/** Lo que se pone a mano en lugar de cada unidad del catálogo, por su id. */
+const A_MANO: Readonly<Record<string, UnitInfo>> = {
+  [TROPA]: PIQUERO_A_MANO,
+  [PESADA]: DOBLE_GOLPE,
+  [JINETE]: CABALLERIA,
+};
+
+/**
+ * Cada stack de `b` de una unidad de `A_MANO` con sus cifras hechas a mano y,
+ * todos, con las manos de prueba (`conManosDePrueba`) para golpear en la rueda.
+ */
+function conCifrasDePrueba(b: BattleState, niveles?: NivelesDeLaRueda): BattleState {
+  for (const s of b.stacks) {
+    const cifras = A_MANO[s.body];
+    if (cifras !== undefined) conCifrasAMano(b, s.id, cifras);
+  }
+  return conManosDePrueba(b, niveles);
+}
 
 /** Una batalla con la rueda, el atacante en (5,4) y el defensor pegado en (6,4). */
 function enRueda(
@@ -97,18 +162,12 @@ function enRueda(
   derecha: readonly Stack[],
   o: {
     readonly semilla?: number;
-    readonly reglas?: ReglasDeBatalla;
     readonly lado?: BattleSide;
     readonly niveles?: NivelesDeLaRueda;
   } = {},
 ): { b: BattleState; rng: Rng } {
   const rng = createRng(o.semilla ?? 1);
-  const b = conManosDePrueba(
-    crearBatallaConReglas(bando(izquierda), bando(derecha), rng, o.reglas ?? REGLAS_DEL_JUEGO, {
-      modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' },
-    }),
-    o.niveles,
-  );
+  const b = conCifrasDePrueba(createBattle(bando(izquierda), bando(derecha), rng), o.niveles);
   stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
   stackById(b, 'defender-0').hex = { col: 6, row: 4 };
   // Sin moral: la de una sola facción (+1) regala a veces un turno, y los turnos
@@ -117,15 +176,15 @@ function enRueda(
   return { b, rng };
 }
 
-const piqueros = (n: number): Stack[] => [{ creature: 'pikeman', count: n }];
+/** `n` piqueros: en `enRueda` y `aLaCarga`, con las cifras de `PIQUERO_A_MANO`. */
+const piqueros = (n: number): Stack[] => [{ creature: TROPA, count: n }];
 
 /** La nota de un tipo con las cifras de la Espada (todo a 3). */
 const notaConEspada = (
   tipo: TipoDeGolpe,
   papel: 'golpe' | 'respuesta',
   contraataca = true,
-  pagaContacto = false,
-): string => efectoDeGolpe(tipo, papel, contraataca, pagaContacto, CON_LA_ESPADA);
+): string => efectoDeGolpe(tipo, papel, contraataca, CON_LA_ESPADA);
 
 /** Un `Rng` que cuenta las tiradas de `int`: el cruce fija la tirada y no gasta ninguna. */
 function contando(rng: Rng): { rng: Rng; ints: () => number } {
@@ -192,8 +251,8 @@ describe('el cruce: el anillo de la petición (#263, 14-10-2026)', () => {
   });
 
   it('los golpes: uno, el doble golpe dos al atacar y uno al devolver, Rápido por dos', () => {
-    const piquero = creature('pikeman');
-    const paladin = creature('paladin');
+    const piquero = PIQUERO_A_MANO;
+    const paladin = DOBLE_GOLPE;
     expect(golpesDe(piquero, null, false)).toBe(1);
     expect(golpesDe(paladin, null, false)).toBe(2);
     expect(golpesDe(paladin, null, true)).toBe(1);
@@ -204,44 +263,13 @@ describe('el cruce: el anillo de la petición (#263, 14-10-2026)', () => {
   });
 });
 
-describe('el modo del golpe', () => {
-  it('la URL: vacío es azar, lo que no es un modo se rechaza diciendo cuáles valen', () => {
-    expect(modoDeLaURL(GOLPE, null)).toBe('azar');
-    expect(modoDeLaURL(GOLPE, '')).toBe('azar');
-    expect(modoDeLaURL(GOLPE, 'rueda')).toBe('rueda');
-    expect(() => modoDeLaURL(GOLPE, 'ruleta')).toThrow(
-      '«ruleta» no es un modo del golpe; valen azar, rueda',
-    );
-    expect(modoALaURL(GOLPE, 'azar')).toBe('');
-    expect(modoALaURL(GOLPE, 'rueda')).toBe('rueda');
-    // Repetido, como cualquier parámetro de la pelea: se dice.
-    expect(() => unaVezEnLaURL(['rueda', 'azar'], 'golpe')).toThrow('«golpe» va 2 veces');
-  });
-
-  it('el juego pelea al azar: `createBattle` no deja elegir', () => {
-    const rng = createRng(1);
-    const b = createBattle(bando(piqueros(1)), bando(piqueros(1)), rng);
-    expect(b.arena).toBe(MODOS_DEL_JUEGO);
-  });
-
-  it('al azar no se elige tipo; con la rueda, los dos van juntos (o ninguno: plantarse) y tienen que ser tipos', () => {
-    const rng = createRng(1);
-    const azar = crearBatallaConReglas(
-      bando(piqueros(5)),
-      bando(piqueros(5)),
-      rng,
-      REGLAS_DEL_JUEGO,
-    );
-    stackById(azar, 'attacker-0').hex = { col: 5, row: 4 };
-    stackById(azar, 'defender-0').hex = { col: 6, row: 4 };
-    expect(() => applyAction(azar, golpeConLaRueda('fuerte', 'finta'), rng)).toThrow(
-      'en esta pelea el golpe es de azar: no se elige tipo',
-    );
+describe('el golpe con la rueda', () => {
+  it('los dos van juntos (o ninguno: plantarse) y tienen que ser tipos', () => {
     const { b, rng: r } = enRueda(piqueros(5), piqueros(5));
     const largo = b.log.length;
     expect(() =>
       applyAction(b, { type: 'attack', target: 'defender-0', respuesta: 'finta' }, r),
-    ).toThrow('en esta pelea se golpea con la rueda: falta el golpe');
+    ).toThrow('se golpea con la rueda: falta el golpe');
     expect(() =>
       applyAction(b, { type: 'attack', target: 'defender-0', golpe: 'fuerte' }, r),
     ).toThrow('falta la respuesta');
@@ -351,7 +379,7 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
   });
 
   it('con el doble golpe y Rápido, cuatro golpes', () => {
-    const { b, rng } = enRueda([{ creature: 'paladin', count: 1 }], piqueros(60));
+    const { b, rng } = enRueda([{ creature: PESADA, count: 1 }], piqueros(60));
     // El paladín es rápido y el piquero no: el paladín abre la ronda.
     expect(activeStack(b)?.id).toBe('attacker-0');
     applyAction(b, golpeConLaRueda('rapido', 'normal'), rng);
@@ -361,13 +389,7 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
   it('el disparo no pasa por la rueda: sigue con su tirada', () => {
     const rng = createRng(4);
     const b = conManosDePrueba(
-      crearBatallaConReglas(
-        bando([{ creature: 'archer', count: 5 }]),
-        bando(piqueros(5)),
-        rng,
-        REGLAS_DEL_JUEGO,
-        { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
-      ),
+      createBattle(bando([{ creature: TIRADOR, count: 5 }]), bando(piqueros(5)), rng),
     );
     const c = contando(rng);
     b.turno = { n: 50, stack: 'attacker-0', gastado: 0 };
@@ -387,14 +409,14 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
     expect(yo.effects).toEqual([
       expect.objectContaining({ kind: 'defense', amount: 3, source: 'defensivo', roundsLeft: 2 }),
     ]);
-    expect(effectiveDefense(yo, REGLAS_DEL_JUEGO)).toBe(12);
+    expect(effectiveDefense(yo)).toBe(12);
     expect(b.log).toContainEqual(
       expect.objectContaining({ kind: 'effect', source: 'defensivo', vence: 'empezar' }),
     );
     // Sigue en el turno del rival (le cubre si le golpea), y se va al empezar el
     // suyo: antes de que juegue, y aunque luego espere.
     expect(activeStack(b)?.id).toBe('defender-0');
-    expect(effectiveDefense(yo, REGLAS_DEL_JUEGO)).toBe(12);
+    expect(effectiveDefense(yo)).toBe(12);
     const largo = b.log.length;
     applyAction(b, { type: 'defend' }, rng);
     expect(activeStack(b)?.id).toBe('attacker-0');
@@ -437,7 +459,6 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
     for (let semilla = 1; semilla <= 200; semilla++) {
       const { b, rng } = enRueda(piqueros(10), piqueros(10), {
         semilla,
-        reglas: reglasDeLaURL('moralBaja'),
       });
       applyAction(b, golpeConLaRueda('defensivo', 'normal'), rng);
       const yo = stackById(b, 'attacker-0');
@@ -579,12 +600,11 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
   });
 
   it('si su turno no llega (la moral baja lo salta), lo quita el tope de dos rondas', () => {
-    // La primera semilla en la que el defensor, con moral −3 y la regla de fheroes2
-    // (3/12), pierde su turno: deterministas, cada una con su `Rng`.
-    for (let semilla = 1; semilla <= 200; semilla++) {
+    // La primera semilla en la que el defensor, con moral −3 (3/24), pierde sus
+    // dos turnos: deterministas, cada una con su `Rng`.
+    for (let semilla = 1; semilla <= 2000; semilla++) {
       const { b, rng } = enRueda(piqueros(10), piqueros(10), {
         semilla,
-        reglas: reglasDeLaURL('moralBaja'),
       });
       const el = stackById(b, 'defender-0');
       el.morale = -3;
@@ -605,7 +625,7 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
       expect(el.effects).toEqual([]);
       return;
     }
-    throw new Error('en 200 semillas la moral baja no salta nunca dos turnos del defensor');
+    throw new Error('en 2000 semillas la moral baja no salta nunca dos turnos del defensor');
   });
 });
 
@@ -627,7 +647,7 @@ describe('la respuesta no da bonificadores (#263): solo Fuerte y Rápido cambian
       for (const x of b.stacks) {
         expect(x.effects, `${respuesta}: ${x.id}`).toEqual([]);
         expect(effectiveAttack(x), `${respuesta}: ${x.id}`).toBe(5);
-        expect(effectiveDefense(x, REGLAS_DEL_JUEGO), `${respuesta}: ${x.id}`).toBe(9);
+        expect(effectiveDefense(x), `${respuesta}: ${x.id}`).toBe(9);
       }
       // La Finta de quien responde no le abre nada a nadie: el turno pasa.
       expect(activeStack(b)?.id, respuesta).toBe('defender-0');
@@ -721,9 +741,10 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     const yo = stackById(b, 'attacker-0');
     expect(activeStack(b)?.id).toBe('attacker-0');
     expect(pasosQueQuedan(b, yo)).toBe(2);
-    // Las casillas que salen son las de ese presupuesto: alguna a 2, ninguna a más.
+    // Las casillas que salen son las de ese presupuesto, pagando el contacto: salir
+    // de su casilla, con el piquero al lado, cuesta 2. Alguna a 1, ninguna a más.
     const casillas = legalActions(b).flatMap((a) => (a.type === 'move' ? [a.to] : []));
-    expect(Math.max(...casillas.map((h) => hexDistance(h, yo.hex)))).toBe(2);
+    expect(Math.max(...casillas.map((h) => hexDistance(h, yo.hex)))).toBe(1);
   });
 
   it('un recorrido de antes de la Finta no vale después: la firma del turno la lleva', () => {
@@ -743,7 +764,8 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     applyAction(b, golpeConLaRueda('finta', 'ofensivo'), rng);
     expect(b.turno).toMatchObject({ n: turno.n, gastado: 0, finta: 2 });
     const lejos = { col: 0, row: 4 };
-    expect(viejo.costs.get(hexKey(lejos))?.steps).toBe(5);
+    // Cinco casillas, y salir del contacto cuesta una más.
+    expect(viejo.costs.get(hexKey(lejos))?.steps).toBe(6);
     expect(movableFrom(b, yo).has(hexKey(lejos))).toBe(false);
     expect(() => applyAction(b, { type: 'move', to: lejos }, rng, viejo)).toThrow(
       `el recorrido que traes es del turno ${turno.n} con 0 casillas gastadas, y ahora le toca a attacker-0 en el turno ${turno.n} con 0 casillas gastadas y 2 menos por la Finta`,
@@ -790,16 +812,10 @@ describe('la Finta deja andar después de golpear (#263)', () => {
  * (D 9) en (6,4): desde (5,4) la recta mide 4 y el piquero está en ella, así que
  * carga 4 (+40 %). Con 4 casillas por gastar: la carrera las agota.
  */
-function aLaCarga(modo: 'rueda' | 'azar' = 'rueda'): { b: BattleState; rng: Rng } {
+function aLaCarga(): { b: BattleState; rng: Rng } {
   const rng = createRng(1);
-  const b = conManosDePrueba(
-    crearBatallaConReglas(
-      bando([{ creature: 'cavalry', count: 2 }]),
-      bando(piqueros(10)),
-      rng,
-      REGLAS_DEL_JUEGO,
-      { modos: { ...MODOS_DEL_JUEGO, golpe: modo } },
-    ),
+  const b = conCifrasDePrueba(
+    createBattle(bando([{ creature: JINETE, count: 2 }]), bando(piqueros(10)), rng),
   );
   const jinetes = stackById(b, 'attacker-0');
   jinetes.hex = { col: 1, row: 4 };
@@ -824,11 +840,12 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
     const turno = b.turno?.n;
     applyAction(b, plantarse, c.rng);
     expect(stackById(b, 'attacker-0').hex).toEqual(DESDE);
+    // La carrera, por la recta: lo que anda (salir del contacto se paga por ella).
     expect(b.golpeEnCurso).toMatchObject({
       stack: 'attacker-0',
       target: 'defender-0',
       carga: 4,
-      carrera: null,
+      carrera: { at: DESDE, steps: 4 },
     });
     // Solo el tramo, con la marca de carga: ni cruce ni golpe todavía.
     expect(b.log.slice(largo)).toEqual([
@@ -986,30 +1003,28 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
     );
   });
 
-  it('la carga va en el `move`, al azar y con la rueda: cada carrera con marca la cierra un golpe que carga, y al revés', () => {
-    for (const modo of ['azar', 'rueda'] as const) {
+  it('la carga va en el `move`: cada carrera con marca la cierra un golpe que carga, y al revés', () => {
+    {
+      const modo = 'rueda';
       let cargas = 0;
       for (let semilla = 1; semilla <= 6; semilla++) {
         const rng = createRng(semilla);
-        const b = conManosDePrueba(
-          crearBatallaConReglas(
+        const b = conCifrasDePrueba(
+          createBattle(
             bando([
-              { creature: 'cavalry', count: 1 },
-              { creature: 'champion', count: 1 },
+              { creature: JINETE, count: 1 },
+              { creature: JINETE, count: 1 },
             ]),
             bando(piqueros(3)),
             rng,
-            REGLAS_DEL_JUEGO,
-            { modos: { ...MODOS_DEL_JUEGO, golpe: modo } },
           ),
         );
         autoResolve(b, rng);
         const log = b.log;
-        // Entre la carrera y su golpe, al azar nada; con la rueda, su cruce y el
-        // Defensivo de quien pega, que se pone antes de sus golpes. Hacia atrás,
-        // también los golpes de antes de la misma jugada: cada golpe del Rápido
-        // cobra la carga.
-        const enMedio = modo === 'azar' ? [] : ['cruce', 'effect'];
+        // Entre la carrera y su golpe, su cruce y el Defensivo de quien pega, que
+        // se pone antes de sus golpes. Hacia atrás, también los golpes de antes de
+        // la misma jugada: cada golpe del Rápido cobra la carga.
+        const enMedio = ['cruce', 'effect'];
         const saltando = (desde: number, paso: 1 | -1): BattleEvent | undefined => {
           const stack = log[desde]?.kind === 'attack' ? (log[desde] as Ataque).stack : null;
           const deLaJugada = (e: BattleEvent | undefined): boolean =>
@@ -1023,7 +1038,7 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
         for (const [i, e] of log.entries()) {
           if (e.kind === 'move' && e.charge === true) {
             cargas++;
-            if (modo === 'rueda') expect(log[i + 1]?.kind).toBe('cruce');
+            expect(log[i + 1]?.kind).toBe('cruce');
             const golpe = saltando(i, 1);
             expect(golpe).toMatchObject({ kind: 'attack', stack: e.stack, retaliation: false });
             expect(golpe?.kind === 'attack' && golpe.charge).toBeGreaterThan(0);
@@ -1082,11 +1097,11 @@ describe('la carga la cobra solo el primer golpe (decisión del usuario, 14-10-2
 
   it('con el doble golpe, igual: el segundo no carga', () => {
     // En el catálogo nadie carga y pega dos veces: se le da el doble golpe a la caballería.
-    const { b, rng } = aLaCarga('azar');
+    const { b, rng } = aLaCarga();
     const jinetes = stackById(b, 'attacker-0') as { unit: UnitInfo };
     jinetes.unit = { ...jinetes.unit, traits: [...(jinetes.unit.traits ?? []), 'double_attack'] };
     const largo = b.log.length;
-    applyAction(b, plantarse, rng);
+    applyAction(b, { ...plantarse, ...NORMAL }, rng);
     const golpes = ataquesDe(b, largo).filter((a) => !a.retaliation);
     expect(golpes.map((a) => a.charge)).toEqual([4, undefined]);
   });
@@ -1214,19 +1229,6 @@ describe('la previsión de la rueda', () => {
     const { b } = enRueda(piqueros(10), piqueros(10));
     const p = previsionDe(b, { type: 'attack', target: 'defender-0', golpe: 'rapido' });
     expect(p).toMatchObject({ golpes: 2, danio: { min: 170, max: 227 } });
-    // Al azar, un golpe elegido no se prevé: no se puede dar.
-    const rng = createRng(1);
-    const azar = crearBatallaConReglas(
-      bando(piqueros(5)),
-      bando(piqueros(5)),
-      rng,
-      REGLAS_DEL_JUEGO,
-    );
-    stackById(azar, 'attacker-0').hex = { col: 5, row: 4 };
-    stackById(azar, 'defender-0').hex = { col: 6, row: 4 };
-    expect(() =>
-      previsionDe(azar, { type: 'attack', target: 'defender-0', golpe: 'rapido' }),
-    ).toThrow('el golpe es de azar');
   });
 });
 
@@ -1257,11 +1259,12 @@ describe('la IA elige a ciegas', () => {
     );
   });
 
-  it('sin rueda, `completarCruce` no toca ni la acción ni el `Rng`', () => {
+  it('lo que no es un golpe, `completarCruce` no toca ni la acción ni el `Rng`', () => {
     const rng = createRng(1);
     const b = createBattle(bando(piqueros(1)), bando(piqueros(1)), rng);
     const c = contando(createRng(3));
-    const accion: BattleAction = { type: 'attack', target: 'defender-0' };
+    const accion: BattleAction = { type: 'defend' };
+    expect(completarCruce(b, accion, c.rng)).toEqual({ falta: null, accion });
     expect(completarCruce(b, accion, c.rng).accion).toBe(accion);
     expect(c.ints()).toBe(0);
   });
@@ -1293,18 +1296,16 @@ describe('la IA elige a ciegas', () => {
     const pelea = (semilla: number): BattleState => {
       const rng = createRng(semilla);
       const b = conManosDePrueba(
-        crearBatallaConReglas(
+        createBattle(
           bando([
-            { creature: 'pikeman', count: 8 },
-            { creature: 'paladin', count: 2 },
+            { creature: TROPA, count: 8 },
+            { creature: PESADA, count: 2 },
           ]),
           bando([
-            { creature: 'skeleton', count: 20 },
-            { creature: 'vampire', count: 3 },
+            { creature: NO_MUERTO, count: 20 },
+            { creature: 'caballero-de-la-muerte', count: 3 },
           ]),
           rng,
-          REGLAS_DEL_JUEGO,
-          { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
         ),
         // La Finta en el nivel 6 (resta de 0 a 2): con la de la Espada (de 1 a 5)
         // a estas criaturas pocas veces les queda algo que andar tras golpear.
@@ -1376,26 +1377,25 @@ describe('el parte cuenta el cruce', () => {
  * del montaje. Las criaturas del catálogo del juego ya no entran en la arena
  * (13-10-2026): el jinete es el hermano de carga, el piquero el del imperio.
  */
-const deLaArena = (u: string | UnidadDeArena): FuenteDeArena =>
+const deLaArena = (u: string | Unidad): FuenteDeArena =>
   delBorrador(typeof u === 'string' ? unidadDeArena(u) : u);
 
-/** Los de estas pruebas: dos jinetes que cargan, un piquero y lo demás. */
-const JINETE = 'templario-hermano-de-carga';
+/** Los de estas pruebas: dos jinetes que cargan (`JINETE` y este), un piquero y lo demás. */
 const JINETE_DE_LA_IA = 'jinete-de-plaga';
 const PIQUERO = 'imperio-piquero';
 /** El que no recibe contraataques: un espectro con `no_retaliation`. */
-const SIN_RESPUESTA = (): UnidadDeArena =>
+const SIN_RESPUESTA = (): Unidad =>
   unidadDeArena('espectro', { traits: ['undead', 'no_retaliation'] });
 
 /** Una sesión con la rueda, empezada: cada bando, sus unidades y si las lleva la IA. */
 function sesion(
-  izquierda: { readonly ids: readonly (string | UnidadDeArena)[]; readonly ia: boolean },
-  derecha: { readonly ids: readonly (string | UnidadDeArena)[]; readonly ia: boolean },
+  izquierda: { readonly ids: readonly (string | Unidad)[]; readonly ia: boolean },
+  derecha: { readonly ids: readonly (string | Unidad)[]; readonly ia: boolean },
   semilla = 1,
 ): SesionDeArena {
   const lado = (l: typeof izquierda) =>
     l.ids.map((u) => ({ unidad: typeof u === 'string' ? unidadDeArena(u) : u, ia: l.ia }));
-  const s = sesionDeArena(lado(izquierda), lado(derecha), semilla, { golpe: 'rueda' });
+  const s = sesionDeArena(lado(izquierda), lado(derecha), semilla);
   s.empezar();
   return s;
 }
@@ -1428,7 +1428,7 @@ describe('la sesión de la arena con la rueda', () => {
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no se abre tras la carrera');
     expect(p.prevision.carga).toBe('carga de 5 casillas, +50 %');
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     expect(m).toContain('Las cifras llevan la carga de 5 casillas, +50 %');
     // Rápido: el primer golpe, con la carga, y el siguiente, sin ella, cada uno en su línea.
     const desde = m.indexOf('data-golpe="rapido"');
@@ -1482,7 +1482,7 @@ describe('la sesión de la arena con la rueda', () => {
       stack: 'attacker-0',
       target: 'defender-0',
       carga: 5,
-      carrera: null,
+      carrera: expect.objectContaining({ at: from }),
     });
     // …y la rueda enseña las cifras de antes de andar, con la carga.
     expect(s.ruedaPendiente?.prevision).toEqual(antesDeAndar);
@@ -1544,7 +1544,9 @@ describe('la sesión de la arena con la rueda', () => {
     const largo = s.battle.log.length;
     s.playBattleAction({ type: 'defend' });
     expect(s.status).toBe('Elige antes en la rueda del golpe.');
-    expect(s.retocar({ kind: 'piezas', piezas: [] })).toBe('Elige antes en la rueda del golpe.');
+    expect(s.retocar({ kind: 'piezas', equipo: EQUIPO_DEL_JUEGO })).toBe(
+      'Elige antes en la rueda del golpe.',
+    );
     expect(s.cancelarGolpe()).toBe(false);
     s.elegirEnLaRueda('patada');
     expect(s.status).toContain('«patada» no es un tipo de golpe');
@@ -1630,18 +1632,16 @@ describe('la sesión de la arena con la rueda', () => {
     const s = new SesionDeArena(
       {
         izquierda: {
-          unidades: [PIQUERO, 'templario-escudo'].map(deLaArena),
+          unidades: [PIQUERO, TROPA].map(deLaArena),
           heroe: null,
           ia: true,
         },
         derecha: {
-          unidades: ['esqueleto-guerrero', SIN_RESPUESTA()].map(deLaArena),
+          unidades: [NO_MUERTO, SIN_RESPUESTA()].map(deLaArena),
           heroe: null,
           ia: true,
         },
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
-        modos: { golpe: 'rueda' },
+        equipo: EQUIPO_DEL_JUEGO,
       },
       5,
     );
@@ -1731,7 +1731,7 @@ describe('la sesión de la arena con la rueda', () => {
     expect(s.ruedaPendiente).toBeNull();
     expect(s.turnoPropio?.stack.id).toBe('attacker-0');
     // Lo que resta la Finta del mandoble del piquero con el éxito que cayó.
-    const resta = casillasQueQuitaLaFinta(cruce.punto, ruedaDelGolpe(yo.unit, 'cuerpo'));
+    const resta = casillasQueQuitaLaFinta(cruce.punto, ruedaDelGolpe(yo.unit, 'arma'));
     expect(pasosQueQuedan(s.battle, yo)).toBe(velocidad - resta);
     const casillas = s.battleMovable();
     expect(casillas.length).toBeGreaterThan(0);
@@ -1758,8 +1758,8 @@ describe('la sesión de la arena con la rueda', () => {
   it('con todo en IA la pelea se juega entera, y es la misma con la misma semilla', () => {
     const todo = (semilla: number): BattleState =>
       sesion(
-        { ids: [PIQUERO, 'templario-escudo'], ia: true },
-        { ids: ['esqueleto-guerrero', SIN_RESPUESTA()], ia: true },
+        { ids: [PIQUERO, TROPA], ia: true },
+        { ids: [NO_MUERTO, SIN_RESPUESTA()], ia: true },
         semilla,
       ).battle;
     const a = todo(5);
@@ -1776,7 +1776,7 @@ describe('la rueda pintada', () => {
     s.elegirEnLaRueda('fuerte');
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide la respuesta');
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     expect(m.match(/data-golpe="/g)).toHaveLength(7);
     for (const [i, t] of TIPOS_DE_GOLPE.entries()) {
       expect(m).toContain(`data-golpe="${t}" aria-label="`);
@@ -1791,7 +1791,7 @@ describe('la rueda pintada', () => {
     hastaLaRueda(s, true);
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     // De arriba en el sentido de las agujas del reloj: arriba, los dos de la
     // derecha, abajo y los dos de la izquierda; Normal, abajo.
     const hacia = ['arriba', 'derecha', 'derecha', 'abajo', 'izquierda', 'izquierda'];
@@ -1806,12 +1806,9 @@ describe('la rueda pintada', () => {
     expect(notaConEspada('romperGuardia', 'golpe')).toBe(
       'Quita ataque al rival desde ya: en su contraataque de ahora y hasta que termine su próximo turno; −3 con éxito máximo, −2 alto, −1 medio, nada bajo o mínimo.',
     );
+    // La Finta avisa de que su tramo paga salir del contacto (#259 y #263 apilados,
+    // decisión del usuario, 14-10-2026; siempre desde el 19-10-2026).
     expect(notaConEspada('finta', 'golpe')).toBe(
-      'Después de golpear puedes andar las casillas que te queden menos 1 con éxito máximo, 2 alto, 3 medio, 4 bajo, 5 mínimo. Andar cierra el turno.',
-    );
-    // Con el contacto encendido, la Finta avisa de que su tramo lo paga (#259 y #263
-    // apilados, decisión del usuario, 14-10-2026).
-    expect(notaConEspada('finta', 'golpe', true, true)).toBe(
       'Después de golpear puedes andar las casillas que te queden menos 1 con éxito máximo, 2 alto, 3 medio, 4 bajo, 5 mínimo. Andar cierra el turno. Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.',
     );
     // Rápido avisa de la armadura, al golpear y al responder.
@@ -1851,7 +1848,7 @@ describe('la rueda pintada', () => {
     hastaLaRueda(s, true);
     const golpe = s.ruedaPendiente;
     if (golpe === null) throw new Error('la rueda no pide el golpe');
-    const enElGolpe = marcadoDe(renderEleccion(s, golpe));
+    const enElGolpe = marcadoDe(renderEleccion(s.battle, golpe, null, caraDeLaArena(s)));
     expect(enElGolpe).toContain('cubre el contraataque de ahora');
     // Con las cifras del arma de quien pega (18-10-2026): el piquero lleva el
     // mandoble, con Romper guardia en el nivel 4 (la espada, en el 3, quita 3).
@@ -1860,7 +1857,7 @@ describe('la rueda pintada', () => {
     s.elegirEnLaRueda('fuerte');
     const respuesta = s.ruedaPendiente;
     if (respuesta === null) throw new Error('la rueda no pide la respuesta');
-    const enLaRespuesta = marcadoDe(renderEleccion(s, respuesta));
+    const enLaRespuesta = marcadoDe(renderEleccion(s.battle, respuesta, null, caraDeLaArena(s)));
     expect(enLaRespuesta).toContain('En la respuesta no tiene efecto: solo cuenta para el cruce');
     // Responde el jinete, con la espada (Fuerte en el nivel 3).
     expect(enLaRespuesta).toContain('tu contraataque hace daño ×1,5');
@@ -1882,10 +1879,46 @@ describe('la rueda pintada', () => {
       expect(nota, t).not.toMatch(/contraata|ataque al|defensa|daño ×/);
     }
     // La rueda pinta esas, en la nota y en la etiqueta de cada sector.
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     expect(m).not.toContain('contraatacas');
     expect(m).not.toContain('tu contraataque');
     expect(m.match(/Esta vez no devuelves el golpe/g)?.length).toBe(2 * TIPOS_DE_GOLPE.length);
+  });
+
+  it('la rueda dice quién es quién por quien mira: «Tu golpe», «Tu respuesta», tú y el rival (F6)', () => {
+    // Con los dos bandos de la persona (la arena) se dicen por su lado; con uno
+    // solo, quien elige es quien mira (`SesionConRueda.quienMira`, de la sesión).
+    const s = sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: false });
+    expect(s.quienMira).toBeNull();
+    hastaLaRueda(s, true);
+    const golpe = s.ruedaPendiente;
+    if (golpe === null) throw new Error('la rueda no pide el golpe');
+    const enLaArena = marcadoDe(renderEleccion(s.battle, golpe, s.quienMira, caraDeLaArena(s)));
+    expect(enLaArena).toMatch(/Golpe del bando (?:izquierdo|derecho)/);
+    expect(enLaArena).not.toContain('class="de-quien"');
+    // Con un solo bando de la persona, la arena también lo dice.
+    expect(sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: true }).quienMira).toBe(
+      'attacker',
+    );
+    const tuyo = marcadoDe(renderEleccion(s.battle, golpe, golpe.bando, null));
+    expect(tuyo).toContain('<h2 id="titulo-de-la-rueda">Tu golpe</h2>');
+    // Sin la cara de la arena (la partida), las figuras de los dos, sin botón.
+    for (const x of [golpe.atacante, golpe.objetivo]) {
+      expect(tuyo).toContain(
+        `<span class="icono-de-contrincante"><canvas class="figura" data-figura="${x.body}" data-bando="${x.side}"`,
+      );
+    }
+    expect(tuyo).not.toContain('ficha-en-la-rueda');
+    expect(tuyo).toMatch(
+      new RegExp(
+        `data-contrincante="${golpe.atacante.id}".*?\\(tú\\).*data-contrincante="${golpe.objetivo.id}".*?\\(rival\\)`,
+      ),
+    );
+    s.elegirEnLaRueda('fuerte');
+    const respuesta = s.ruedaPendiente;
+    if (respuesta === null) throw new Error('la rueda no pide la respuesta');
+    const suya = marcadoDe(renderEleccion(s.battle, respuesta, respuesta.bando, null));
+    expect(suya).toContain('<h2 id="titulo-de-la-rueda">Tu respuesta</h2>');
   });
 
   it('el desenlace: los dos elegidos, el rótulo, el medidor y los tramos en orden', () => {
@@ -1894,7 +1927,7 @@ describe('la rueda pintada', () => {
     const i = b.log.findIndex((e) => e.kind === 'cruce');
     const e = b.log[i];
     if (e?.kind !== 'cruce') throw new Error('sin cruce');
-    const m = marcadoDe(renderDesenlace(b, e, contraataqueDelCruce(b.log, i)));
+    const m = marcadoDe(renderDesenlace(b, e, contraataqueDelCruce(b.log, i), null, null));
     expect(m).toContain('Romper guardia contra Defensivo');
     expect(m).toContain('data-sector="romperGuardia" data-elegido="golpe"');
     expect(m).toContain('data-sector="defensivo" data-elegido="respuesta"');
@@ -1906,16 +1939,5 @@ describe('la rueda pintada', () => {
       'giro marcas arco',
       'giro marcas arco rotulo',
     ]);
-  });
-});
-
-describe('el interruptor del montaje', () => {
-  it('«Golpe: azar / rueda», con el modo encendido y lo que hace', () => {
-    const azar = marcadoDe(renderModo(GOLPE, 'azar'));
-    expect(azar).toContain('<h3>Golpe · al azar</h3>');
-    expect(azar).toContain('data-modo="azar" class="primary"');
-    const rueda = marcadoDe(renderModo(GOLPE, 'rueda'));
-    expect(rueda).toContain('data-modo="rueda" class="primary"');
-    expect(rueda).toContain('data-modo-del-montaje="golpe" data-modo="rueda"');
   });
 });

@@ -17,7 +17,7 @@
  * El del héroe es `HERO_BODY` y el de un personaje `CHARACTER_BODY`; quien lo
  * cuente decide cómo nombrarlos.
  */
-import type { BattleState, Side } from './types.js';
+import { type BattleState, queEs, type Side } from './types.js';
 
 /** Un hechizo lanzado en la batalla: quién, cuál, sobre qué y cuántos mató. */
 export interface HechizoLanzado {
@@ -51,7 +51,7 @@ export function resumenDeBatalla(battle: BattleState): ResumenDeBatalla {
     const s = battle.stacks.find((x) => x.id === id);
     if (s === undefined)
       throw new Error(`el registro de la batalla nombra un stack que no existe: ${id}`);
-    return s.body;
+    return queEs(s);
   };
 
   const casts: HechizoLanzado[] = [];
@@ -72,7 +72,8 @@ export function resumenDeBatalla(battle: BattleState): ResumenDeBatalla {
     const muertos = s.initialCount - s.count;
     if (muertos <= 0) continue;
     const delBando = perdidas[s.side];
-    delBando.set(s.body, (delBando.get(s.body) ?? 0) + muertos);
+    const que = queEs(s);
+    delBando.set(que, (delBando.get(que) ?? 0) + muertos);
   }
   const lista = (m: Map<string, number>): Baja[] =>
     [...m].map(([creature, count]) => ({ creature, count }));

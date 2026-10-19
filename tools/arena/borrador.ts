@@ -1,44 +1,52 @@
 /**
- * El lado de disco de la arena (`/arena/`): qué hojas hay y sus borradores: las
- * cifras (`data/borradores/unidades.json`), las piezas de equipo
- * (`data/borradores/equipo.json`) y las formas de muralla. Lo sirve el servidor de desarrollo
- * (`vite.config.ts`) y nada más: el navegador no puede escribir en el repo, y
- * la partida no lee el borrador.
+ * El lado de disco de la arena (`/arena/`): qué hojas hay, los catálogos de
+ * unidades (`data/unidades.json`, el que lee `core/catalogo.ts`) y de equipo
+ * (`data/equipo.json`, el que carga `core/data.ts`) y el borrador de las formas de
+ * muralla. Lo sirve el servidor de desarrollo (`vite.config.ts`) y nada más: el
+ * navegador no puede escribir en el repo. La partida no lee el borrador.
  *
  * Aparte de `vite.config.ts` para que los tests lo ejerzan contra una carpeta
  * temporal sin arrancar vite.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import {
-  COMENTARIO_DEL_BORRADOR,
-  COMENTARIO_DEL_BORRADOR_DE_EQUIPO,
-  catalogoDeLaArena,
-  type ElementoSinValidar,
-  type HojaDeArena,
-  revisarBorradorDeArena,
-  revisarBorradorDeEquipo,
-  type UnidadDeArena,
-  type UnidadSinValidar,
-  validarBorradorDeArena,
-  validarBorradorDeEquipo,
-  validarHojasDeArena,
-} from '../../src/core/arena.js';
+
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   type FormaDeMuralla,
   type FormaSinValidar,
+  RUTA_DE_MURALLAS,
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
 } from '../../src/core/arena-murallas.js';
-import type { PiezaEscrita } from '../../src/core/data.js';
-import type { EquipoAtado } from '../../src/core/hero/equipo.js';
+import {
+  COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
+  type PiezaEscrita,
+  RUTA_DEL_CATALOGO_DE_EQUIPO,
+} from '../../src/core/data.js';
+import {
+  type CatalogoDeEquipo,
+  catalogoDelFichero,
+  type EquipoAtado,
+} from '../../src/core/hero/equipo.js';
+import { moradasBlocker } from '../../src/core/town/buildings.js';
+import {
+  COMENTARIO_DEL_CATALOGO_DE_UNIDADES,
+  type Hoja,
+  leerCatalogos,
+  RUTA_DEL_CATALOGO_DE_UNIDADES,
+  revisarCatalogo,
+  type Unidad,
+  type UnidadSinValidar,
+  validarCatalogo,
+  validarHojas,
+} from '../../src/core/unidad.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import {
   arteEnOchoDirecciones,
   HEROES,
   juegoDelYBot,
-  perfilDeArena,
+  perfilDeUnidad,
   UNIDADES,
 } from '../taller/unidades.js';
 import { VELOCIDAD_DEL_CUERPO } from './velocidades.js';
@@ -57,9 +65,6 @@ function velocidadDelCuerpo(personaje: string): number {
   return fila[0];
 }
 
-/** Dónde vive el borrador, relativo a la raíz del repo. */
-export const RUTA_DEL_BORRADOR = 'data/borradores/unidades.json';
-
 /**
  * El arte propio de una unidad tal como lo lee la arena: sus ocho
  * `dN/atlas.json`, o `null` sin ninguno (sale con el Y Bot), y si lo tiene a
@@ -67,10 +72,7 @@ export const RUTA_DEL_BORRADOR = 'data/borradores/unidades.json';
  * taller la está generando, y la lista de la arena y `vite build` caían con
  * ella— pero tampoco se pinta con el Y Bot: la arena la lista y no la monta.
  */
-export function direccionesDe(
-  raiz: string,
-  id: string,
-): Pick<HojaDeArena, 'direcciones' | 'incompleta'> {
+export function direccionesDe(raiz: string, id: string): Pick<Hoja, 'direcciones' | 'incompleta'> {
   const arte = arteEnOchoDirecciones(raiz, id);
   if (arte.hecho === 'ninguno') return { direcciones: null, incompleta: null };
   if (arte.hecho === 'a-medias') return { direcciones: null, incompleta: arte.motivo };
@@ -91,17 +93,17 @@ export function direccionesDe(
  * la misma validación que la página aplica al recibirlas, así que un perfil que
  * la arena no conoce revienta aquí, al servir la lista, y no a mitad de una pelea.
  */
-export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
+export function hojasDelTaller(raiz: string): readonly Hoja[] {
   const todas = [
     ...UNIDADES.map((u) => ({ u, heroe: false })),
     ...HEROES.map((u) => ({ u, heroe: true })),
   ];
-  return validarHojasDeArena(
+  return validarHojas(
     todas.map(({ u, heroe }) => ({
       id: u.id,
       nombre: u.nombre,
       faccion: u.faccion,
-      perfil: perfilDeArena(u),
+      perfil: perfilDeUnidad(u),
       personaje: u.personaje ?? u.id,
       heroe,
       casillas: velocidadDelCuerpo(u.personaje ?? u.id),
@@ -112,15 +114,16 @@ export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
 }
 
 /**
- * Un borrador de la arena en disco: dónde vive, qué lista lleva y con qué regla
- * se lee y se escribe. Los dos —cifras y murallas— comparten `leer` y
- * `escribir`, que son los que guardan las garantías (lo que no vale se conserva,
- * lo ilegible no se pisa, la escritura es atómica).
+ * Un fichero de la arena en disco —el catálogo de unidades y el borrador de
+ * murallas—: dónde vive, qué lista lleva y con qué regla se lee y se
+ * escribe. Comparten `leer` y `escribir`, que son los que guardan las garantías
+ * (lo que no vale se conserva, lo ilegible no se pisa, la escritura es atómica).
  */
-interface Borrador<T, I extends { readonly crudo: unknown }> {
+interface FicheroDeLaArena<T, I extends { readonly crudo: unknown }> {
   readonly ruta: string;
   /** La lista del archivo: `{ _comment, [campo]: [...] }`. */
   readonly campo: string;
+  /** El `_comment` si el archivo no trae uno: el que trae se conserva (`comentarioDe`). */
   readonly comentario: string;
   /** Lo del archivo, elemento a elemento: solo el formato de hoy. */
   readonly revisar: (valor: unknown) => Revisado<T, I>;
@@ -137,49 +140,69 @@ interface Revisado<T, I> {
 }
 
 /**
- * El borrador de unidades leído y escrito con las piezas de la arena `eq`: una
- * unidad puede llevar una pieza nueva. Una cuya pieza no está sale como «no vale»
- * con su motivo y se conserva, como cualquier otra.
+ * El JSON de `ruta` (relativa a `raiz`), o `undefined` si el archivo no existe.
+ * Lanza si no es JSON: ahí no hay nada que leer, y guardar encima lo borraría.
  */
-function deUnidades(eq: EquipoAtado): Borrador<UnidadDeArena, UnidadSinValidar> {
+function jsonDe(raiz: string, ruta: string): unknown {
+  const donde = join(raiz, ruta);
+  if (!existsSync(donde)) return undefined;
+  try {
+    return JSON.parse(readFileSync(donde, 'utf8')) as unknown;
+  } catch (err) {
+    throw new Error(`${ruta} no es JSON: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+/**
+ * El `_comment` de un archivo leído, si trae uno, y si no `porDefecto`. **Guardar
+ * conserva el comentario del disco**: es el que se edita a mano (lo que dice qué es
+ * el fichero y por qué cada cifra), y la arena no lo pisa con el suyo.
+ */
+function comentarioDe(json: unknown, porDefecto: string): string {
+  const c = (json as { _comment?: unknown } | undefined)?._comment;
+  return typeof c === 'string' && c.trim() !== '' ? c : porDefecto;
+}
+
+/**
+ * El catálogo de unidades en disco, con las piezas `eq`: las del catálogo de
+ * equipo en disco al leerlo, y las que se van a escribir con él al guardar. Se
+ * **lee** como lo lee la página: una unidad cuya pieza no está sale como «no
+ * vale» con su motivo y se conserva, como cualquier otra. Se **escribe** con la
+ * regla con que lo carga el juego (`validarCatalogo`).
+ */
+function deUnidades(eq: EquipoAtado): FicheroDeLaArena<Unidad, UnidadSinValidar> {
   return {
-    ruta: RUTA_DEL_BORRADOR,
+    ruta: RUTA_DEL_CATALOGO_DE_UNIDADES,
     campo: 'unidades',
-    comentario: COMENTARIO_DEL_BORRADOR,
-    revisar: (valor) => revisarBorradorDeArena(valor, eq),
-    validar: (valor) => validarBorradorDeArena(valor, eq),
+    comentario: COMENTARIO_DEL_CATALOGO_DE_UNIDADES,
+    revisar: (valor) => revisarCatalogo(valor, eq),
+    validar: (valor) => validarCatalogo(valor, eq),
     clave: (u) => u.id,
     claveSinValidar: (u) => u.id,
   };
 }
 
 /**
- * Lo guardado, elemento a elemento (`revisar`); vacío si todavía no se ha
- * guardado nada. Lanza si el archivo no es JSON o no tiene forma de borrador:
- * ahí no hay nada que salvar, y guardar encima lo borraría.
+ * Lo guardado, elemento a elemento (`revisar`), con su comentario; vacío si todavía
+ * no se ha guardado nada. Lanza si el archivo no es JSON o no tiene su forma
+ * (`{ [campo]: [...] }`): ahí no hay nada que salvar, y guardar encima lo borraría.
  */
 function leer<T, I extends { readonly crudo: unknown }>(
   raiz: string,
-  b: Borrador<T, I>,
-): Revisado<T, I> {
-  const ruta = join(raiz, b.ruta);
-  if (!existsSync(ruta)) return { validas: [], invalidas: [] };
-  let json: unknown;
-  try {
-    json = JSON.parse(readFileSync(ruta, 'utf8')) as unknown;
-  } catch (err) {
-    throw new Error(`${b.ruta} no es JSON: ${err instanceof Error ? err.message : err}`);
-  }
-  return b.revisar(json);
+  b: FicheroDeLaArena<T, I>,
+): Revisado<T, I> & { readonly comentario: string } {
+  const json = jsonDe(raiz, b.ruta);
+  if (json === undefined) return { validas: [], invalidas: [], comentario: b.comentario };
+  return { ...b.revisar(json), comentario: comentarioDe(json, b.comentario) };
 }
 
 /**
- * Escribe el borrador si es válido, y si no lanza con la frase de `validar` sin
+ * Escribe el fichero si es válido, y si no lanza con la frase de `validar` sin
  * tocar el fichero (`preparar`, `escribirAtomico`).
  */
 function escribir<T, I extends { readonly crudo: unknown }>(
   raiz: string,
-  b: Borrador<T, I>,
+  b: FicheroDeLaArena<T, I>,
   cuerpo: unknown,
 ): { readonly escritas: number; readonly conservadas: number } {
   const listo = preparar(raiz, b, b.validar(cuerpo));
@@ -187,7 +210,7 @@ function escribir<T, I extends { readonly crudo: unknown }>(
   return listo;
 }
 
-/** Lo que se va a escribir en un borrador: dónde, qué, y cuántos de cada. */
+/** Lo que se va a escribir en un fichero de la arena: dónde, qué, y cuántos de cada. */
 interface Preparado {
   readonly ruta: string;
   readonly contenido: unknown;
@@ -211,10 +234,10 @@ interface Preparado {
  */
 function preparar<T, I extends { readonly crudo: unknown }>(
   raiz: string,
-  b: Borrador<T, I>,
+  b: FicheroDeLaArena<T, I>,
   validas: readonly T[],
 ): Preparado {
-  let antes: { readonly validas: readonly T[]; readonly invalidas: readonly I[] };
+  let antes: ReturnType<typeof leer<T, I>>;
   try {
     antes = leer(raiz, b);
   } catch (err) {
@@ -231,7 +254,7 @@ function preparar<T, I extends { readonly crudo: unknown }>(
   return {
     ruta: join(raiz, b.ruta),
     contenido: {
-      _comment: b.comentario,
+      _comment: antes.comentario,
       [b.campo]: [...validas, ...conservadas.map((i) => i.crudo)],
     },
     escritas: validas.length,
@@ -255,93 +278,100 @@ function escribirAtomico(listos: readonly Preparado[]): void {
 }
 
 /**
- * Los borradores de cifras y de piezas tal como están en disco: lo que vale y lo
- * que no y por qué. Solo el formato de hoy: lo de antes no vale, y se conserva
- * tal cual al guardar como cualquier otra cosa que no vale.
- *
- * Las unidades se leen con las piezas guardadas: una puede llevar una nueva. Un
- * archivo de piezas ilegible no deja ilegible el de unidades: se leen con las
- * piezas del juego y `equipoIlegible` dice por qué (las que llevan una pieza
- * nueva salen como «no vale» y se conservan). Guardar, en cambio, no lo pisa.
+ * El catálogo de equipo en disco (`data/equipo.json`), hecho con la regla con que
+ * lo carga el juego (`catalogoDelFichero`, una sola validación): lanza con lo que
+ * no vale. Del disco y no del módulo (`EQUIPO`): el servidor lo cargó al arrancar
+ * y «Guardar» lo cambia. Con su comentario, que «Guardar» conserva.
  */
-export function leerBorrador(raiz: string): {
-  readonly unidades: readonly UnidadDeArena[];
-  readonly invalidas: readonly UnidadSinValidar[];
-  readonly piezas: readonly PiezaEscrita[];
-  readonly piezasInvalidas: readonly ElementoSinValidar[];
-  readonly equipoIlegible?: string;
+function equipoEnDisco(raiz: string): {
+  readonly equipo: CatalogoDeEquipo;
+  readonly comentario: string;
 } {
-  let equipo: Revisado<PiezaEscrita, ElementoSinValidar>;
-  let equipoIlegible: string | null = null;
-  try {
-    equipo = leer(raiz, DE_EQUIPO);
-  } catch (err) {
-    equipo = { validas: [], invalidas: [] };
-    equipoIlegible = err instanceof Error ? err.message : String(err);
-  }
-  const { validas, invalidas } = leer(raiz, deUnidades(catalogoDeLaArena(equipo.validas)));
+  const json = jsonDe(raiz, RUTA_DEL_CATALOGO_DE_EQUIPO);
+  if (json === undefined) throw new Error(`${RUTA_DEL_CATALOGO_DE_EQUIPO} no existe`);
   return {
-    unidades: validas,
-    invalidas,
-    piezas: equipo.validas,
-    piezasInvalidas: equipo.invalidas,
-    ...(equipoIlegible === null ? {} : { equipoIlegible }),
+    equipo: catalogoDelFichero(json),
+    comentario: comentarioDe(json, COMENTARIO_DEL_CATALOGO_DE_EQUIPO),
   };
 }
 
 /**
- * «Guardar» de la arena, **una sola operación**: las piezas y las unidades
- * (`{ unidades, piezas }`), las unidades validadas con las piezas que llegan. Si
- * todo vale se escriben los dos archivos, cada uno atómico (`escribirAtomico`);
- * si algo no vale, o uno de los dos de ahora no se puede leer, no se escribe
- * ninguno y se dice por qué. El de piezas no se crea si no hay nada que poner.
+ * Los catálogos de unidades y de equipo tal como están en disco. Las unidades, lo
+ * que vale y lo que no y por qué (solo el formato de hoy: lo de antes no vale, y
+ * se conserva tal cual al guardar como cualquier otra cosa que no vale), leídas
+ * con las piezas del disco: una puede llevar una nueva. El catálogo de equipo,
+ * entero: si no vale, lanza (el juego tampoco lo cargaría) y no se lee nada.
  */
-export function escribirBorrador(
+export function leerCatalogo(raiz: string): {
+  readonly unidades: readonly Unidad[];
+  readonly invalidas: readonly UnidadSinValidar[];
+  readonly piezas: readonly PiezaEscrita[];
+} {
+  const { equipo } = equipoEnDisco(raiz);
+  const { validas, invalidas } = leer(raiz, deUnidades(equipo));
+  return { unidades: validas, invalidas, piezas: [...equipo.escritas.values()] };
+}
+
+/**
+ * «Guardar» de la arena, **una sola operación**: el catálogo de equipo y el de
+ * unidades (`{ unidades, piezas }`). Si todo vale se escriben los dos archivos,
+ * cada uno atómico (`escribirAtomico`) y con el comentario que tenía en disco; si
+ * algo no vale, o el de unidades de ahora no se puede leer, no se escribe ninguno
+ * y se dice por qué.
+ *
+ * **La misma regla con que los carga el juego**: las piezas, entero
+ * (`catalogoDelFichero`: cada pieza, sus bases, alguna de botín) y, con ellas, lo
+ * que se exige a los dos catálogos juntos (`leerCatalogos`: el equipo base del
+ * héroe y las unidades) y a las unidades con los edificios (`moradasBlocker`). Un catálogo de equipo que no vale no se conserva a medias:
+ * el juego no arrancaría con él.
+ */
+export function escribirCatalogo(
   raiz: string,
   cuerpo: unknown,
 ): {
   readonly unidades: number;
   readonly conservadas: number;
-  readonly rutaDePiezas: string;
   readonly piezas: number;
-  readonly piezasConservadas: number;
 } {
-  const piezas = validarBorradorDeEquipo(cuerpo);
-  const eq = catalogoDeLaArena(piezas);
-  const deEquipo = preparar(raiz, DE_EQUIPO, piezas);
-  const deUnidadesListo = preparar(raiz, deUnidades(eq), validarBorradorDeArena(cuerpo, eq));
-  const sinNadaQuePoner = deEquipo.escritas + deEquipo.conservadas === 0;
-  escribirAtomico(
-    sinNadaQuePoner && !existsSync(deEquipo.ruta) ? [deUnidadesListo] : [deEquipo, deUnidadesListo],
-  );
+  const equipo = catalogoDelFichero(cuerpo);
+  const unidades = leerCatalogos(equipo, cuerpo);
+  // Y con los edificios: una unidad que sale de una morada que no es de su
+  // facción, o una morada sin unidades, y la partida no arrancaría.
+  const moradas = moradasBlocker(unidades);
+  if (moradas !== null) throw new Error(`no se guarda: ${moradas}`);
+  const deUnidadesListo = preparar(raiz, deUnidades(equipo), unidades);
+  const escritas = [...equipo.escritas.values()];
+  // El comentario del disco. Ilegible, no se pisa, como el de unidades (`preparar`).
+  let json: unknown;
+  try {
+    json = jsonDe(raiz, RUTA_DEL_CATALOGO_DE_EQUIPO);
+  } catch (err) {
+    throw new Error(
+      `no se guarda para no pisarlo: ${err instanceof Error ? err.message : err}. Arréglalo o bórralo a mano`,
+    );
+  }
+  escribirAtomico([
+    {
+      ruta: join(raiz, RUTA_DEL_CATALOGO_DE_EQUIPO),
+      contenido: {
+        _comment: comentarioDe(json, COMENTARIO_DEL_CATALOGO_DE_EQUIPO),
+        piezas: escritas,
+      },
+      escritas: escritas.length,
+      conservadas: 0,
+    },
+    deUnidadesListo,
+  ]);
   return {
     unidades: deUnidadesListo.escritas,
     conservadas: deUnidadesListo.conservadas,
-    rutaDePiezas: RUTA_DE_EQUIPO,
-    piezas: deEquipo.escritas,
-    piezasConservadas: deEquipo.conservadas,
+    piezas: escritas.length,
   };
 }
 
-/** Dónde viven las piezas de la arena, relativo a la raíz del repo. */
-export const RUTA_DE_EQUIPO = 'data/borradores/equipo.json';
-
-const DE_EQUIPO: Borrador<PiezaEscrita, ElementoSinValidar> = {
-  ruta: RUTA_DE_EQUIPO,
-  campo: 'piezas',
-  comentario: COMENTARIO_DEL_BORRADOR_DE_EQUIPO,
-  revisar: revisarBorradorDeEquipo,
-  validar: validarBorradorDeEquipo,
-  clave: (p) => p.id,
-  claveSinValidar: (p) => p.clave,
-};
-
 // ---------------------------------------------------------------- murallas
 
-/** Dónde viven las formas de muralla, relativo a la raíz del repo. */
-export const RUTA_DE_MURALLAS = 'data/borradores/murallas.json';
-
-const DE_MURALLAS: Borrador<FormaDeMuralla, FormaSinValidar> = {
+const DE_MURALLAS: FicheroDeLaArena<FormaDeMuralla, FormaSinValidar> = {
   ruta: RUTA_DE_MURALLAS,
   campo: 'formas',
   comentario: COMENTARIO_DEL_BORRADOR_DE_MURALLAS,

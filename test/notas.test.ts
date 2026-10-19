@@ -117,7 +117,7 @@ describe('notas para el agente', () => {
       kind: 'march_halted',
       hero: 'h1',
       raider: 'raider-4',
-      troops: [{ creature: 'mummy', count: 5 }],
+      troops: [{ creature: 'caballero-de-la-muerte', count: 5 }],
       at: { x: 4, y: 6 },
       ...sello,
     };
@@ -410,9 +410,9 @@ describe('notas para el agente', () => {
     expect(describeAccion({ type: 'build', building: 'town_hall', town: 't2' })).toBe(
       'build town_hall en t2',
     );
-    expect(describeAccion({ type: 'recruit', town: 't2', creature: 'peasant', count: 5 })).toBe(
-      'recruit 5× peasant en t2',
-    );
+    expect(
+      describeAccion({ type: 'recruit', town: 't2', creature: 'goblin-lancero', count: 5 }),
+    ).toBe('recruit 5× goblin-lancero en t2');
     // Y sigue cubriendo las de batalla con las mismas palabras de siempre.
     expect(describeAccion({ type: 'attack', target: 'd0' })).toBe('ataque a d0');
   });

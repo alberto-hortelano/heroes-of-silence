@@ -31,7 +31,7 @@ describe('la escala de la base es la del combate', () => {
   });
 
   it('el adulto de la base mide lo que el de la batalla, a 1440×900', () => {
-    const d = disposicionDe('knight');
+    const d = disposicionDe('templarios');
     // El lienzo que deja la página a 1440×900, medido con capturas (1086×778).
     const t = camaraDeLaBase({ ancho: 1086, alto: 778 }, 0);
     const batalla = tableroPara(1086, 778);

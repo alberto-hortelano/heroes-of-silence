@@ -16,19 +16,45 @@ import {
 import { msPorCasilla } from '../src/client/marcha.js';
 import { clipQueSePinta } from '../src/client/render/batalla.js';
 import { clipFrame } from '../src/client/render/character.js';
-import { arteDe, hojaDe, MIRADA_DE_PRESENTACION } from '../src/client/render/personajes.js';
+import {
+  arteDe,
+  hojaDe,
+  MIRADA_DE_PRESENTACION,
+  registrarUnidad,
+} from '../src/client/render/personajes.js';
 import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import { stackHp } from '../src/core/battle/damage.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
-import { ejercito } from './helpers.js';
+import { ejercito, NO_MUERTO, TIRADOR, TROPA_BARATA } from './helpers.js';
+
+/**
+ * Cuerpos de prueba, cada uno con el Y Bot de un juego de armas y sin arte
+ * propio: lo que se prueba es cómo cuenta el animador un disparo según lo que
+ * pinte el arte (con la hoja C del arco, o con el ataque), no qué arte lleva hoy
+ * una unidad del catálogo. Los dos del bastón comparten arte: el aviso sale una
+ * vez por arte, no por cuerpo.
+ */
+const CON_ARCO = 'prueba-arco';
+const CON_BASTON = 'prueba-baston';
+const CON_OTRO_BASTON = 'prueba-otro-baston';
+const CON_ESPADA = 'prueba-espada';
+for (const [cuerpo, juego] of [
+  [CON_ARCO, 'arco'],
+  [CON_BASTON, 'baston'],
+  [CON_OTRO_BASTON, 'baston'],
+  [CON_ESPADA, 'espada-escudo'],
+] as const) {
+  registrarUnidad(cuerpo, { juego, direcciones: null });
+}
 
 function batalla(): BattleState {
   return createBattle(
-    { army: troopsAsStacks(ejercito({ creature: 'peasant', count: 2 })), hero: null },
-    { army: troopsAsStacks(ejercito({ creature: 'skeleton', count: 2 })), hero: null },
+    { army: troopsAsStacks(ejercito({ creature: TROPA_BARATA, count: 2 })), hero: null },
+    { army: troopsAsStacks(ejercito({ creature: NO_MUERTO, count: 2 })), hero: null },
     createRng(1),
   );
 }
@@ -66,7 +92,7 @@ describe('el animador de batalla', () => {
 
     expect(a.busy).toBe(true);
     // Cada uno tarda lo que tarda en andar SUS casillas: dos el primero, una el segundo.
-    const casilla = msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal);
+    const casilla = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA);
     t = casilla;
     a.tick(t);
     const medio = a.figura(s1);
@@ -178,16 +204,18 @@ describe('el animador de batalla', () => {
   });
 
   /**
-   * Una batalla con `tirador` de atacante, y su primer stack disparando al
-   * primer defensor (o golpeándolo, con `tipo: 'attack'`).
+   * Una batalla de tiradores con el cuerpo `cuerpo` de atacante, y su primer
+   * stack disparando al primer defensor (o golpeándolo, con `tipo: 'attack'`).
+   * El cuerpo se pone a mano: el animador pinta lo que dice `body`.
    */
-  function disparo(tirador: string, tipo: 'shoot' | 'attack' = 'shoot') {
+  function disparo(cuerpo: string, tipo: 'shoot' | 'attack' = 'shoot') {
     const a = new BattleAnimator();
     const b = createBattle(
-      { army: troopsAsStacks(ejercito({ creature: tirador, count: 2 })), hero: null },
-      { army: troopsAsStacks(ejercito({ creature: 'skeleton', count: 2 })), hero: null },
+      { army: troopsAsStacks(ejercito({ creature: TIRADOR, count: 2 })), hero: null },
+      { army: troopsAsStacks(ejercito({ creature: NO_MUERTO, count: 2 })), hero: null },
       createRng(1),
     );
+    for (const s of b.stacks) if (s.side === 'attacker') (s as { body: string }).body = cuerpo;
     a.observe(b);
     a.tick(0);
     const quien = b.stacks.find((s) => s.side === 'attacker')!;
@@ -211,13 +239,13 @@ describe('el animador de batalla', () => {
   }
 
   it('un arquero dispara con su clip `shoot`, suelta el proyectil en su columna de suelta, y el daño llega con él', () => {
-    const info = hojaDe(arteDe('archer'), MIRADA_DE_PRESENTACION).clips.shoot;
+    const info = hojaDe(arteDe(CON_ARCO), MIRADA_DE_PRESENTACION).clips.shoot;
     expect(info?.suelta, 'el arco de `atlas-8d.json` sin suelta en el disparo').toBeDefined();
     if (info === undefined) return;
     const columna = 1000 / info.fps;
     const desde = (info.suelta as number) * columna;
-    const { dura, impacto } = relojDelDisparo('archer');
-    const { a, quien, victima, proyectil, danio } = disparo('archer');
+    const { dura, impacto } = relojDelDisparo(CON_ARCO);
+    const { a, quien, victima, proyectil, danio } = disparo(CON_ARCO);
     const atlas = hojaDe(arteDe(quien.body), a.figura(quien).mira);
     // Mientras tensa: el tirador dispara, pero la flecha aún no ha salido.
     a.tick(desde - 1);
@@ -247,12 +275,12 @@ describe('el animador de batalla', () => {
     // disparo, así que el golpe cuerpo a cuerpo tensaba el arco, el daño caía en
     // el 0,55 del paso (308 ms) y la cuerda se soltaba a los 400, sin flecha.
     // Hoy el golpe pinta su propia fila, sin suelta, y nada vuela.
-    const hoja = hojaDe(arteDe('archer'), MIRADA_DE_PRESENTACION);
+    const hoja = hojaDe(arteDe(CON_ARCO), MIRADA_DE_PRESENTACION);
     expect(hoja.clips.attack, 'el golpe del arquero es su fila de disparo').not.toBe(
       hoja.clips.shoot,
     );
     expect(hoja.clips.attack.suelta).toBeUndefined();
-    const { a, quien, victima, proyectil, danio } = disparo('archer', 'attack');
+    const { a, quien, victima, proyectil, danio } = disparo(CON_ARCO, 'attack');
     const impacto = 0.55 * DURACION.attack;
     for (let t = 1; t < DURACION.attack; t += 20) {
       a.tick(t);
@@ -266,10 +294,10 @@ describe('el animador de batalla', () => {
   });
 
   it('quien dispara sin clip `shoot` cae al ataque, lo avisa, y el proyectil sale en 0 con el paso de siempre', () => {
-    // El liche lanza con el bastón: su Y Bot no tiene disparo ni suelta.
+    // Quien lanza con el bastón (el liche de antes): su Y Bot no tiene disparo ni suelta.
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      for (const tirador of ['lich', 'peasant', 'power_lich']) {
+      for (const tirador of [CON_BASTON, CON_ESPADA, CON_OTRO_BASTON]) {
         const hoja = hojaDe(arteDe(tirador), MIRADA_DE_PRESENTACION);
         expect(arteDe(tirador).dispara, tirador).toBe(false);
         expect(hoja.clips.shoot, tirador).toBe(hoja.clips.attack);
@@ -288,12 +316,12 @@ describe('el animador de batalla', () => {
         expect(a.busy, tirador).toBe(false);
       }
       // Una vez por arte, aunque dispare muchas veces, y diciendo de qué arte:
-      // el de `power_lich` es el mismo Y Bot «baston» que el del liche.
-      const disparoOtraVez = disparo('lich');
+      // el del otro bastón es el mismo Y Bot «baston» que el del primero.
+      const disparoOtraVez = disparo(CON_BASTON);
       disparoOtraVez.a.tick(1);
       expect(aviso.mock.calls.map((c) => String(c[0]))).toEqual([
-        'lich dispara y su arte (el Y Bot «baston») no tiene clip shoot: se pinta con attack',
-        'peasant dispara y su arte (el Y Bot «espada-escudo») no tiene clip shoot: se pinta con attack',
+        `${CON_BASTON} dispara y su arte (el Y Bot «baston») no tiene clip shoot: se pinta con attack`,
+        `${CON_ESPADA} dispara y su arte (el Y Bot «espada-escudo») no tiene clip shoot: se pinta con attack`,
       ]);
     } finally {
       aviso.mockRestore();
@@ -375,7 +403,7 @@ describe('el animador de batalla', () => {
     // Ya ha pasado de sobra lo que dura el paso, pero nadie ha dado la hora.
     for (let i = 0; i < 3; i++) expect(a.busy).toBe(true);
     expect(a.figura(s1).clip).toBe('walk');
-    a.tick(msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal) + 1);
+    a.tick(msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA) + 1);
     expect(a.busy).toBe(false);
   });
 
@@ -391,7 +419,7 @@ describe('el animador de batalla', () => {
     b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino] });
     const otraCopia = structuredClone(b);
     a.observe(otraCopia, 1);
-    a.tick(msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal));
+    a.tick(msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA));
     expect(a.busy).toBe(true);
     expect(a.figura(otraCopia.stacks[0]!).clip).toBe('walk');
     // Otra batalla, aunque el registro sea igual de largo, empieza quieta.
@@ -411,16 +439,16 @@ describe('el animador de batalla', () => {
     b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino] });
     a.observe(b);
     a.tick(0);
-    const casilla = msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal);
+    const casilla = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA);
     a.tick(3 * casilla - 1);
     expect(a.busy).toBe(true);
     a.tick(3 * casilla + 1);
     expect(a.busy).toBe(false);
     // La carrera avanza más por ciclo con el mismo reloj: la casilla dura menos.
-    expect(msPorCasilla('peasant', 'charge', ALTO_DE_FIGURA.normal)).toBeLessThan(casilla);
-    // Y una figura grande da zancadas más largas.
-    expect(msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.grande)).toBeLessThan(casilla);
-    expect(() => msPorCasilla('peasant', 'attack', 1)).toThrow(/no anda/);
+    expect(msPorCasilla(TROPA_BARATA, 'charge', ALTO_DE_FIGURA)).toBeLessThan(casilla);
+    // Y una figura más alta da zancadas más largas.
+    expect(msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA * 1.5)).toBeLessThan(casilla);
+    expect(() => msPorCasilla(TROPA_BARATA, 'attack', 1)).toThrow(/no anda/);
   });
 
   it('la carga la marca el `move`: con el cruce en medio (la rueda) y sin él', () => {
@@ -456,7 +484,7 @@ describe('el animador de batalla', () => {
         },
       ];
       b.log.push(...nuevos);
-      const casilla = msPorCasilla('peasant', 'charge', ALTO_DE_FIGURA.normal);
+      const casilla = msPorCasilla(TROPA_BARATA, 'charge', ALTO_DE_FIGURA);
       expect(duracionDeLaJugada(b, nuevos), `con cruce: ${conCruce}`).toBe(
         casilla + (conCruce ? DURACION.cruce : 0) + DURACION.attack,
       );
@@ -516,7 +544,7 @@ describe('el animador de batalla', () => {
     a2.tick(1);
     expect(a2.figura(b1).clip).toBe('walk');
     expect(duracionDeLaJugada(otra, sinMarca)).toBe(
-      msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal) + DURACION.attack,
+      msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA) + DURACION.attack,
     );
   });
 
@@ -534,7 +562,7 @@ describe('el animador de batalla', () => {
     a.tick(0);
     // Ya empezado a ritmo 2: volver a 1 no lo estira.
     a.velocidad = 1;
-    const casilla = msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal);
+    const casilla = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA);
     a.tick(casilla / 2 - 1);
     expect(a.busy).toBe(true);
     a.tick(casilla / 2 + 1);
@@ -546,19 +574,20 @@ describe('el animador de batalla', () => {
 /**
  * La vida y quién actúa, al ritmo de la cola (H6 de la QA de la rueda,
  * 13-10-2026): el estado ya trae el final de lo que se cuenta, y el tablero
- * enseñaba quién moría antes que la animación. Las cifras se escriben a mano:
- * el esqueleto tiene 40 PV y un individuo por stack.
+ * enseñaba quién moría antes que la animación. Los golpes se escriben a mano
+ * sobre la vida del no-muerto (`VIDA`), un individuo por stack.
  */
 describe('la vida y quién actúa, al ritmo de la cola', () => {
   type Stack = BattleState['stacks'][number];
-  /** La batalla de prueba ya observada, con el primer campesino, el segundo y el primer esqueleto. */
+  const VIDA = unidadDelJuego(NO_MUERTO).hp;
+  /** La batalla de prueba ya observada, con la primera tropa, la segunda y el primer no-muerto. */
   function enCola(): { a: BattleAnimator; b: BattleState; c1: Stack; c2: Stack; v: Stack } {
     const a = new BattleAnimator();
     const b = batalla();
     a.observe(b);
     a.tick(0);
     const [c1, c2, v] = b.stacks as [Stack, Stack, Stack];
-    expect(stackHp(v)).toBe(40);
+    expect(stackHp(v)).toBe(VIDA);
     return { a, b, c1, c2, v };
   }
   const golpe = (de: Stack, a: Stack, damage: number, retaliation = false): BattleEvent => ({
@@ -574,20 +603,20 @@ describe('la vida y quién actúa, al ritmo de la cola', () => {
   it('la barra baja golpe a golpe en su impacto, no antes; contado todo, es la del estado', () => {
     const { a, b, c1, c2, v } = enCola();
     // Lo que haría el motor: los dos golpes ya hechos en el estado.
-    v.topHp = 40 - 10 - 15;
+    v.topHp = VIDA - 10 - 15;
     b.log.push(golpe(c1, v, 10), golpe(c2, v, 15));
     a.observe(b);
     a.tick(0);
-    expect(a.figura(v).pv).toBe(40);
+    expect(a.figura(v).pv).toBe(VIDA);
     a.tick(impacto - 1);
-    expect(a.figura(v).pv).toBe(40);
+    expect(a.figura(v).pv).toBe(VIDA);
     a.tick(impacto + 1);
-    expect(a.figura(v).pv).toBe(30);
+    expect(a.figura(v).pv).toBe(VIDA - 10);
     // El segundo, igual: antes de su impacto, lo del primero.
     a.tick(DURACION.attack + impacto - 1);
-    expect(a.figura(v).pv).toBe(30);
+    expect(a.figura(v).pv).toBe(VIDA - 10);
     a.tick(DURACION.attack + impacto + 1);
-    expect(a.figura(v).pv).toBe(15);
+    expect(a.figura(v).pv).toBe(VIDA - 25);
     a.tick(2 * DURACION.attack + 1);
     expect(a.busy).toBe(false);
     expect(a.figura(v).pv).toBe(stackHp(v));
@@ -602,7 +631,7 @@ describe('la vida y quién actúa, al ritmo de la cola', () => {
     a.tick(0);
     // De un salto al segundo paso, antes de su impacto: el primero ya quitó lo suyo.
     a.tick(DURACION.attack + 10);
-    expect(a.figura(v).pv).toBe(15);
+    expect(a.figura(v).pv).toBe(VIDA - 25);
     a.tick(DURACION.attack + impacto + 1);
     expect(a.figura(v).pv).toBe(0);
   });
@@ -613,8 +642,8 @@ describe('la vida y quién actúa, al ritmo de la cola', () => {
     c2.topHp = 5;
     a.observe(b);
     a.tick(0);
-    // El monje cura 15 al esqueleto, el segundo campesino le pega 5 y drena 3
-    // (como el señor vampiro: el registro no lo apunta) y el esqueleto le
+    // El monje cura 15 al no-muerto, la segunda tropa le pega 5 y drena 3
+    // (como el señor vampiro: el registro no lo apunta) y el no-muerto le
     // devuelve 2. El estado: 30 y 6.
     v.topHp = 30;
     c2.topHp = 5 + 3 - 2;
@@ -630,7 +659,7 @@ describe('la vida y quién actúa, al ritmo de la cola', () => {
     expect(a.figura(v).pv).toBe(35);
     a.tick(DURACION.cast + impacto + 1);
     expect(a.figura(v).pv).toBe(30);
-    // Al campesino aún le queda el contraataque: su drenaje no se ve todavía.
+    // A la tropa aún le queda el contraataque: su drenaje no se ve todavía.
     expect(a.figura(c2).pv).toBe(5);
     // Con su último impacto, la del estado, drenaje incluido.
     a.tick(DURACION.cast + DURACION.attack + impacto + 1);
@@ -668,7 +697,7 @@ describe('la vida y quién actúa, al ritmo de la cola', () => {
     expect(a.activo(b)).toBe(c1.id);
     expect(a.figura(c1).casilla).toEqual(salida);
     // Andando, en ninguna; llegado, en la de destino.
-    const anda = msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal);
+    const anda = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA);
     a.tick(DURACION.cruce + anda / 2);
     expect(a.figura(c1).casilla).toBeNull();
     a.tick(DURACION.cruce + anda + 1);

@@ -23,6 +23,7 @@ import { hayFigurasAnimadas } from '../render/figura.js';
 import { ajustarLienzo, pixelesDe } from '../render/lienzo.js';
 import { type AdventureScene, drawMapa, presupuestoConHolgura } from '../render/mapa.js';
 import { tableroPara } from '../render/proyeccion.js';
+import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { rotuloDeDia } from '../views/panels.js';
 import { adaptarEscena, centroDeLaEscena } from './adaptar.js';
@@ -143,6 +144,38 @@ const mirada = new Mirada();
 
 /** Sin objetivos ni hexes atacables: el espectador no mueve nada. */
 const NINGUNO: ReadonlySet<string> = new Set();
+
+/** Lo que pone el espectador donde la rueda espera una sesión: no elige ni cancela. */
+const SOLO_MIRA = {
+  ruedaPendiente: null,
+  quienMira: null,
+  elegirEnLaRueda(): void {
+    throw new Error('el espectador no elige en la rueda: solo la mira');
+  },
+  cancelarGolpe: (): boolean => false,
+} as const;
+
+/**
+ * La rueda del golpe, que aquí solo CUENTA (F6, 19-10-2026): mientras el
+ * animador cuenta un cruce, su desenlace —el mismo diálogo de la partida y la
+ * arena, `DialogoDeLaRueda`—, leído del hecho `cruce` del registro que viaja tal
+ * cual. Nadie elige: el espectador no tiene sesión, y lo que hace sus veces no
+ * espera ninguna elección y no deja cancelar nada.
+ */
+const rueda = new DialogoDeLaRueda(document.getElementById('rueda') as HTMLDialogElement, {
+  sesion: () => {
+    const battle = mirada.reproductor.batalla;
+    return battle === null ? null : { battle, ...SOLO_MIRA };
+  },
+  escena: {
+    get ocupada() {
+      return mirada.reproductor.contando;
+    },
+    cruceEnCurso: () => mirada.reproductor.animador.cruceEnCurso(),
+  },
+  cara: () => null,
+  pedirFotograma: () => pedirFotograma(),
+});
 
 let fotogramaPedido = false;
 function pedirFotograma(): void {
@@ -272,8 +305,8 @@ function pintarTodo(ahora: number): void {
         puntero: null,
         figura: (s) => mirada.reproductor.animador.figura(s),
         activo: mirada.reproductor.animador.activo(enCurso),
-        // La rueda del golpe es solo de la arena.
-        enLaRueda: null,
+        // Los dos del cruce que se cuenta, con su aro (#261), como en la partida.
+        enLaRueda: mirada.reproductor.animador.losDelCruce(),
         efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),
       });
@@ -302,6 +335,9 @@ function pintarTodo(ahora: number): void {
       });
     }
   }
+
+  rueda.pintar();
+  rueda.animar(ahora);
 
   // El final de la batalla no se adelanta al tablero: el panel lo calla mientras
   // el animador cuenta, y se repinta en cuanto acaba (H-7 de la QA de la fase 1b).

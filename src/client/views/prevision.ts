@@ -11,12 +11,10 @@ import type {
   PrevisionDeLanzar,
 } from '@core/battle/battle.js';
 import type { Horquilla, Modificador, RamaDeSuerte } from '@core/battle/damage.js';
-import type { StackEffect } from '@core/battle/effects.js';
+import { curaOEfecto } from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
-import { DESCRIPCION_DE_REGLA } from '@core/battle/reglas.js';
 import { spell } from '@core/battle/spells.js';
 import { conComa } from '@core/types.js';
-import { cifraDeEfecto, enRondas } from './panels.js';
 
 /** Un número con coma decimal y dos decimales como mucho. */
 function decimal(n: number): string {
@@ -46,11 +44,6 @@ function modificadores(ms: readonly Modificador[]): string {
   if (ms.length === 0) return '';
   const dichos = ms.map((m) => (m.factor === null ? m.causa : `${m.causa} ×${decimal(m.factor)}`));
   return ` Cuenta: ${dichos.join('; ')}.`;
-}
-
-function reglas(p: Pick<Prevision, 'reglas'>): string {
-  if (p.reglas.length === 0) return '';
-  return ` Reglas de fheroes2: ${p.reglas.map((r) => DESCRIPCION_DE_REGLA[r].nombre.toLowerCase()).join(', ')}.`;
 }
 
 /**
@@ -85,22 +78,8 @@ function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
   return (
     `Daño ${horquilla(p.danio)}${golpes}${suerte(p.buena, p.mala)}: ${bajas} y ${leQuedan}.` +
     `${p.kind === 'golpe' ? contraataque(p.contraataque) : ''}${salpica}` +
-    `${modificadores(p.modificadores)}${reglas(p)}`
+    `${modificadores(p.modificadores)}`
   );
-}
-
-/**
- * Lo que hace un hechizo que no hiere, en pocas palabras: «cura 4 PV», «suerte +1
- * durante 3 rondas»; `null` si no cura ni deja nada. Una sola redacción para la
- * previsión del hechizo, la del poder y lo que la ficha de la arena dice del
- * poder (`queHaceElPoder`).
- */
-export function curaOEfecto(cura: number | null, efecto: StackEffect | null): string | null {
-  if (cura !== null) return `cura ${cura} PV`;
-  if (efecto !== null) {
-    return `${cifraDeEfecto(efecto.kind, efecto.amount)} durante ${enRondas(efecto.roundsLeft)}`;
-  }
-  return null;
 }
 
 /**
@@ -116,10 +95,10 @@ function deLanzar(quien: string, p: PrevisionDeLanzar): string {
     // Lo que para la armadura, como en el parte («193 de daño (−7 armadura)»): sin
     // ello se veía 193 donde se esperaba 200 (A1 de QA de #262).
     const armadura = p.parado > 0 ? ` (−${p.parado} armadura)` : '';
-    return `${quien}: ${p.danio} de daño${armadura}, ${bajas} y ${leQuedan}.${reglas(p)}`;
+    return `${quien}: ${p.danio} de daño${armadura}, ${bajas} y ${leQuedan}.`;
   }
   const hace = curaOEfecto(p.cura, p.efecto);
-  return `${quien}${hace === null ? '' : `: ${hace}`}.${reglas(p)}`;
+  return `${quien}${hace === null ? '' : `: ${hace}`}.`;
 }
 
 /**

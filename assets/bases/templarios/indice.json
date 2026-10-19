@@ -1,0 +1,211 @@
+{
+  "tramos": [
+    {
+      "imagen": "tramo-1.webp",
+      "ancho": 1536,
+      "alto": 831,
+      "sha256": "f9edc2c01a61061a72879179915eb5b984f78b399ec690fade9a9f752e389d0b",
+      "origen": "619e9a290b95d93b16573f3cca322534e320c8b97a1a28814e2b3a17a578d9e5"
+    },
+    {
+      "imagen": "tramo-2.webp",
+      "ancho": 1536,
+      "alto": 708,
+      "sha256": "1772471e05b709522c285fea4934a68e69d17fab940b8a911932baf2c73e2e06",
+      "origen": "c0ab94c3fb48ebc8e213445d3103377c601610ce48ce3b45db615836273e12ab"
+    },
+    {
+      "imagen": "tramo-3.webp",
+      "ancho": 1536,
+      "alto": 677,
+      "sha256": "7df651d9c80dc98689ec36894acdebdba55eed6a2e6769cc455cf14e234b0c86",
+      "origen": "fdc81e2a6ec2efbec4897006403c0915431c562e66e0d847a2efc3c964ba5720"
+    },
+    {
+      "imagen": "tramo-4.webp",
+      "ancho": 1536,
+      "alto": 715,
+      "sha256": "f6b5730dd0319749280ba57c7eecc50e94f9af67c93e9f7386fb63ecec015a97",
+      "origen": "d2a8c3fbb94d5bb1bcc2262dc46cd39969bb3ef38032cbdf9fda7e4b4131d094"
+    },
+    {
+      "imagen": "tramo-5.webp",
+      "ancho": 1536,
+      "alto": 732,
+      "sha256": "964b67cdcdefff272ab25e087f1e034434904313110a27e202d484ed39f10929",
+      "origen": "d39b411667e0f3e631d10d2b6da31c43f1f6d056645d3c29a04d27a40327df73"
+    }
+  ],
+  "suelo": {
+    "imagen": "suelo.webp",
+    "ancho": 768,
+    "alto": 248,
+    "sha256": "7be9ddc51bc292cc3f2ec346ed377c2e4e1a8beddf495b40fdd945aaddae946f",
+    "origen": "3a284d182c2cb85f62fe02565682b8b6dc574e976855be926fad4ad37e83fe2f",
+    "tramo": 3
+  },
+  "cielo": [
+    106,
+    108,
+    108
+  ],
+  "edificios": {
+    "village_hall": {
+      "imagen": "village_hall.webp",
+      "ancho": 508,
+      "alto": 572,
+      "sha256": "3b197898755a7dd9985bf095614efa252707fbaba9e0eeee365dc043c2c5cc80",
+      "origen": "0eed4c8c710ee31631a30d5d3a4c2f75ef10b210436b00a3eed818cae883a392",
+      "tramo": 3,
+      "en": [
+        512,
+        99
+      ]
+    },
+    "town_hall": {
+      "imagen": "town_hall.webp",
+      "ancho": 508,
+      "alto": 635,
+      "sha256": "78759ea14d85d252ed84dc3933aacf4f69ed7b8a1c6c2c307e43a49b0ad3c6ec",
+      "origen": "0f678329bffe6aea6c7ae248feb4d6d6309abe1ef911f6ec9b92df92f9c266c8",
+      "tramo": 3,
+      "en": [
+        512,
+        35
+      ]
+    },
+    "city_hall": {
+      "imagen": "city_hall.webp",
+      "ancho": 508,
+      "alto": 649,
+      "sha256": "d358dede466294ad090b2cb4c519cf76a66ed3a04355ed7dd3fd8070ffca98e9",
+      "origen": "ed867ce86a810133e0684abde17060079ffb0a0a49d3d3eb8bd8829571a2ed22",
+      "tramo": 3,
+      "en": [
+        512,
+        36
+      ]
+    },
+    "castle": {
+      "imagen": "castle.webp",
+      "ancho": 480,
+      "alto": 616,
+      "sha256": "e11865484549d066ffe74980db05423e287f309d5ebd9056282e387799b19bdc",
+      "origen": "1ed4eea5712e3daadc5a0896c9e158e1effa49b1cece6a56d80475229bb2333f",
+      "tramo": 3,
+      "en": [
+        1020,
+        64
+      ]
+    },
+    "mage_guild_1": {
+      "imagen": "mage_guild_1.webp",
+      "ancho": 335,
+      "alto": 654,
+      "sha256": "56fb58e7cc27a316493aed33b834107071039cc9c9e29ed681736530f19cd08c",
+      "origen": "a0d89194bcb503632b8881084a0573e0817ebcce07f2801c82a6983110e465ed",
+      "tramo": 2,
+      "en": [
+        141,
+        45
+      ]
+    },
+    "mage_guild_2": {
+      "imagen": "mage_guild_2.webp",
+      "ancho": 335,
+      "alto": 697,
+      "sha256": "b2a6202e694fbfba857c8a80cf426ec49098d6505a2115731203ba1156a5abed",
+      "origen": "2116dd3b390956cbe23e13a7966bf0154333ab50435cb64f566268a20cdb085f",
+      "tramo": 2,
+      "en": [
+        141,
+        0
+      ]
+    },
+    "tavern": {
+      "imagen": "tavern.webp",
+      "ancho": 455,
+      "alto": 449,
+      "sha256": "0fdf9a510d425c42d7475dbc7c88e650bc68b16554b03143184f4705ef579772",
+      "origen": "908a616f0a8b915410b64c1e6d4ad4ad0d09ff639b6faca951fc46d19f8f6171",
+      "tramo": 2,
+      "en": [
+        476,
+        242
+      ]
+    },
+    "marketplace": {
+      "imagen": "marketplace.webp",
+      "ancho": 674,
+      "alto": 562,
+      "sha256": "3f5341fa05ed4cff83e4faf7886f6978e81d314fb71bdc99bbf675284935ed68",
+      "origen": "adcd4e8aacf4672746bfbe6d56489ad28896cfbb95883f521206a126c8f4750f",
+      "tramo": 4,
+      "en": [
+        76,
+        130
+      ]
+    },
+    "armory": {
+      "imagen": "armory.webp",
+      "ancho": 708,
+      "alto": 596,
+      "sha256": "d521cb4ba5edb6e35041f668ce751f243954b0208ed579aa143efe523a8cf651",
+      "origen": "5e681fc099466e4cdeb23ca9ba12d9f3f5b441d13bf6a54628b5bd8d0b86a208",
+      "tramo": 4,
+      "en": [
+        757,
+        104
+      ]
+    },
+    "templarios_pueblo": {
+      "imagen": "templarios_pueblo.webp",
+      "ancho": 404,
+      "alto": 396,
+      "sha256": "112dd4c5c194dac2d13928f8c59c93e2f4a4a3dd39519e5acbcbd4ccbd238359",
+      "origen": "255bcda1cef2390482a8576f6226e3426ffa7e539c470bc957677f140a0e094e",
+      "tramo": 3,
+      "en": [
+        108,
+        273
+      ]
+    },
+    "templarios_forja": {
+      "imagen": "templarios_forja.webp",
+      "ancho": 681,
+      "alto": 505,
+      "sha256": "c18181901fa6ac367df258e8c6e29c65677412db88d9d3530687b6b91c6417b2",
+      "origen": "5d16412eb4393ba3ff652e002814bd9aa9fb0d733db19184ae611b7986d3b4b4",
+      "tramo": 5,
+      "en": [
+        74,
+        208
+      ]
+    },
+    "templarios_establos": {
+      "imagen": "templarios_establos.webp",
+      "ancho": 781,
+      "alto": 467,
+      "sha256": "fc223d3843be1ca25acdfb6d245b5816e5d008aebf0b355b91dc4f4325c7ee9b",
+      "origen": "3768dded9e0466d0f53dd22ed790a904c64b173b72f8985477bda13c70d61d6e",
+      "tramo": 5,
+      "en": [
+        755,
+        243
+      ]
+    },
+    "templarios_monasterio": {
+      "imagen": "templarios_monasterio.webp",
+      "ancho": 650,
+      "alto": 803,
+      "sha256": "c56c15c0187e4a41ee68f7ff2d3cc03ae3f0d2679dec294b4554c0fead3d6145",
+      "origen": "a645692a98e741a674888e868b78118a438e328f359c9df545ece7faf0e76138",
+      "tramo": 1,
+      "en": [
+        14,
+        0
+      ]
+    }
+  },
+  "derivadoPor": "tools/taller/recorte-base.ts"
+}

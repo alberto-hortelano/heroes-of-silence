@@ -1,0 +1,188 @@
+{
+  "_comment": "La base de templarios (la de los caballeros hasta el 19-10-2026) como escenario lateral (vuelta 3, 09-10-2026). La plaza son `tramos` cuadros de 1536×1024 a 128 px por paso, pedidos cada uno por separado y cosidos por una JUNTA: en cada borde que da a otro tramo, Codex pinta un árbol alto con su pilar (`JUNTA` de tools/taller/base.ts), y cada tramo desde el segundo se monta SOLAPE (64 px) sobre el anterior, fundido dentro del árbol. Debajo de todo va un solo empedrado repetible (`suelo.webp`) y de cada tramo se pinta solo lo de encima de su pie. `fuera` [izquierda, derecha]: los pasos que se recortan por fuera del primer tramo y del último (de 0 a 6), medidos sobre el cuadro; el escenario mide 12 + (tramos − 1) × 11,5 − izquierda − derecha. Cada sitio lleva su `tramo` (1 a tramos), el umbral de su `puerta` [x, fila] y su `region` [x0, x1, pie] (banda de columnas hasta la fila del pie, con la sombra) en PÍXELES DE SU TRAMO. MANDA EL CUADRO: puerta y región se miden sobre el maestro de cada tramo (`pnpm taller medir-base templarios`, la puerta a mano a ×2). Cada tramo se alinea por su pie: la mediana de las filas de sus puertas cae en la raya de la franja (`bajar`, uno por tramo, derivado). Los cinco tramos están pintados y medidos (F3 de la vuelta 3): sin nada que recortar por fuera, el escenario mide 58 pasos. Una región de columnas no puede pisar la de al lado: donde una mejora se sale (el palacio municipal, el gremio crecido), la frontera va por donde menos corta a los dos. Lo demás se deriva en src/shared/base.ts (`planoDelCuadro`, `bordeDeAtras`, `bajar`). La entrada y los vecinos, en PASOS del escenario. El núcleo NO lee este fichero.",
+  "tramos": 5,
+  "fuera": [
+    0,
+    0
+  ],
+  "entrada": [
+    29,
+    2.4
+  ],
+  "sitios": {
+    "lvl6": {
+      "tramo": 1,
+      "puerta": [
+        353,
+        788
+      ],
+      "region": [
+        0,
+        669,
+        815
+      ]
+    },
+    "lvl4": {
+      "tramo": 1,
+      "puerta": [
+        1032,
+        790
+      ],
+      "region": [
+        669,
+        1420,
+        815
+      ]
+    },
+    "guild": {
+      "tramo": 2,
+      "puerta": [
+        309,
+        687
+      ],
+      "region": [
+        140,
+        476,
+        712
+      ]
+    },
+    "tavern": {
+      "tramo": 2,
+      "puerta": [
+        709,
+        683
+      ],
+      "region": [
+        476,
+        931,
+        712
+      ]
+    },
+    "lvl2": {
+      "tramo": 2,
+      "puerta": [
+        1205,
+        689
+      ],
+      "region": [
+        931,
+        1536,
+        712
+      ]
+    },
+    "lvl1": {
+      "tramo": 3,
+      "puerta": [
+        343,
+        656
+      ],
+      "region": [
+        108,
+        512,
+        685
+      ]
+    },
+    "hall": {
+      "tramo": 3,
+      "puerta": [
+        771,
+        652
+      ],
+      "region": [
+        512,
+        1020,
+        685
+      ]
+    },
+    "fort": {
+      "tramo": 3,
+      "puerta": [
+        1249,
+        661
+      ],
+      "region": [
+        1020,
+        1500,
+        685
+      ]
+    },
+    "market": {
+      "tramo": 4,
+      "puerta": [
+        563,
+        680
+      ],
+      "region": [
+        76,
+        750,
+        705
+      ]
+    },
+    "armory": {
+      "tramo": 4,
+      "puerta": [
+        1109,
+        680
+      ],
+      "region": [
+        750,
+        1465,
+        705
+      ]
+    },
+    "lvl3": {
+      "tramo": 5,
+      "puerta": [
+        433,
+        697
+      ],
+      "region": [
+        64,
+        755,
+        722
+      ]
+    },
+    "lvl5": {
+      "tramo": 5,
+      "puerta": [
+        1120,
+        697
+      ],
+      "region": [
+        755,
+        1536,
+        722
+      ]
+    }
+  },
+  "vecinos": {
+    "pregonero": {
+      "en": [
+        18.5,
+        2.2
+      ],
+      "mira": "SE"
+    },
+    "lavandera": {
+      "en": [
+        10.2,
+        1.9
+      ],
+      "mira": "S"
+    },
+    "mozo": {
+      "en": [
+        35.2,
+        2.6
+      ],
+      "mira": "SO"
+    },
+    "herrera": {
+      "en": [
+        41.3,
+        2
+      ],
+      "mira": "S"
+    }
+  }
+}

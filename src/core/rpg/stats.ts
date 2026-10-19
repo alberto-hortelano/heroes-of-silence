@@ -14,12 +14,15 @@
  * | destreza    | ataque, velocidad           | ⌊a/3⌋ + n + 1; <10 slow, <13 average, <16 fast, si no very_fast |
  * | resistencia | PV, defensa                 | 10 × (10 + 2a) (`maxHpFrom`); ⌊a/4⌋ en la defensa |
  * | intelecto   | defensa                     | ⌊a/4⌋ en la defensa, más n       |
- * | percepción  | suerte; munición del Guardabosques | ⌊(a − 8)/4⌋; a disparos   |
+ * | percepción  | suerte                      | ⌊(a − 8)/4⌋                      |
  * | voluntad    | moral                       | ⌊(a − 8)/4⌋                      |
  *
  * **Cada atributo mueve al menos una cifra que se juega**, y el test lo exige
  * atributo por atributo: uno que no moviera nada sería decorativo, que es lo
  * que la rama de archivo tenía con intelecto y percepción.
+ *
+ * El Guardabosques tira con un arco (`arco`, en `distancia`), como cualquier
+ * tirador: llevarlo ya es disparar, sin munición (13-10-2026).
  *
  * Moral y suerte salen 0 con 8..11, así que un personaje es neutro por defecto.
  * Las cifras quedan en el orden de una criatura de nivel 3-4 —el espadachín es
@@ -32,8 +35,12 @@
  * plataforma (`test/invariantes.test.ts`).
  */
 import { ESCALA_DE_CIFRAS } from '../escala.js';
+import { conEquipo } from '../hero/equipo.js';
 import type { SpeedTier, UnitInfo } from '../types.js';
 import { type Character, effectiveAttributes, maxHpFrom } from './character.js';
+
+/** Lo que lleva el Guardabosques: el arco de `data/equipo.json`, en `distancia`. */
+const ARCO_DEL_GUARDABOSQUES = { distancia: 'arco' } as const;
 
 export interface CombatProfile {
   readonly unit: UnitInfo;
@@ -65,11 +72,10 @@ export function combatProfile(c: Character): CombatProfile {
     ],
     hp: maxHpFrom(a),
     speed: speedFor(a.destreza),
-    // Mago y Sanador no tienen rasgo propio: la magia sigue siendo del héroe.
-    ...(c.profession === 'Guardabosques' ? { shots: a.percepcion } : {}),
   };
   return {
-    unit,
+    // Mago y Sanador no tienen rasgo propio: la magia sigue siendo del héroe.
+    unit: c.profession === 'Guardabosques' ? conEquipo(unit, ARCO_DEL_GUARDABOSQUES) : unit,
     morale: Math.floor((a.voluntad - 8) / 4),
     luck: Math.floor((a.percepcion - 8) / 4),
   };

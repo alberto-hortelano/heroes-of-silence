@@ -22,8 +22,8 @@
  * de `Math.pow`, que es lo que vigila `test/invariantes.test.ts` para que el
  * banco valga fuera de esta máquina.
  */
-import { creature, EXPERIENCIA } from '../data.js';
-import type { Creature, UnitInfo, Veterania } from '../types.js';
+import { EXPERIENCIA } from '../data.js';
+import type { UnitInfo, Veterania } from '../types.js';
 import { conEquipo } from './equipo.js';
 
 /**
@@ -150,14 +150,11 @@ export function siguienteUmbral(experiencia: number, tope = UMBRALES.length): nu
  * Las cifras de un individuo de ese rango: las de su base con `porRango` sumado
  * por cada rango por encima del 1. Su nivel no se toca: sale de estas cifras.
  *
- * **En el rango 1 devuelve la MISMA referencia**, no una copia: el stack de un
- * novato sigue llevando la `Creature` del catálogo, y eso es lo que deja al
- * espectador rehacer sus cifras del catálogo y al volcado del banco quedarse
- * igual para quien no ha ganado nada.
+ * **En el rango 1 devuelve la MISMA referencia**, no una copia.
  *
- * Es la ÚNICA regla de cifras por rango: la llaman `troopUnit` —que es lo que
- * leen la IA, el agente y el panel— y `resolveUnit` —lo que pisa el tablero—, y
- * un test exige que den lo mismo. Si cada una sumara por su cuenta, el día que
+ * Es la ÚNICA regla de cifras por rango: la llaman `cifrasDeUnidad` y
+ * `cifrasDelIndividuo` —que es lo que leen la IA, el agente, el panel y el
+ * tablero—, y un test exige que las puertas de la tropa den lo mismo. Si cada una sumara por su cuenta, el día que
  * cambie `porRango` divergirían sin que nada se pusiera rojo.
  */
 export function cifrasVeteranas<U extends UnitInfo>(unit: U, rango: number): U {
@@ -171,45 +168,10 @@ export function cifrasVeteranas<U extends UnitInfo>(unit: U, rango: number): U {
 }
 
 /**
- * Las cifras de un individuo del catálogo: las de su criatura con su veteranía
- * sumada. **Es la única regla de «cifras = catálogo + veteranía»**, y tiene tres
- * lectores que antes la escribían cada uno: `troopUnit` —la IA, el agente y el
- * panel—, `resolveUnit` —lo que pisa el tablero— y la inversa del cable del
- * espectador (`espectador/adaptar.ts`), que rehace las cifras que el cable no
- * manda.
- *
- * Devuelve la `Creature` —el precio, la morada y el liderazgo siguen siendo los
- * suyos— y, en el rango 1, **la misma referencia** del catálogo.
- *
- * `veterania` pide la experiencia y el equipo porque es lo único que decide
- * las cifras: por el cable del espectador viaja eso y no la hoja entera.
- */
-export function cifrasDeCatalogo(
-  creatureId: string,
-  veterania: Pick<Veterania, 'experiencia' | 'equipo'> | null | undefined,
-): Creature {
-  const base = creature(creatureId);
-  if (veterania == null) return base;
-  // Las cifras de un veterano se guardan por SU hoja: la hoja es inmutable
-  // —`settleBattle` escribe una nueva al volver de cada batalla— y es de un
-  // solo individuo, así que mientras sea el mismo objeto sus cifras son las
-  // mismas. Sin esto, `armyPower` fabricaba una copia por veterano en cada
-  // pregunta de la IA. La criatura va en la entrada por si alguien diera la
-  // misma hoja a dos criaturas: entonces se recalcula, no se presta.
-  const guardadas = CIFRAS_POR_HOJA.get(veterania);
-  if (guardadas !== undefined && guardadas.id === creatureId) return guardadas;
-  const cifras = cifrasDelIndividuo(base, veterania);
-  CIFRAS_POR_HOJA.set(veterania, cifras);
-  return cifras;
-}
-
-/**
- * Las cifras de un individuo sobre las de su cuerpo —el catálogo o el perfil de
- * su personaje—: su veteranía y lo que lleva puesto. **La única regla de
- * «cuerpo + hoja»**: la llaman `cifrasDeCatalogo` y las dos ramas del personaje,
- * `troopUnit` y `resolveUnit`. Con el equipo eran tres sitios donde sumar las
- * piezas, y el que se olvidara de una dejaría a la IA viendo unas cifras y al
- * tablero jugando otras.
+ * Las cifras de un personaje sobre las de su perfil: su veteranía y lo que lleva
+ * puesto. **La regla de «perfil + hoja»**: la llaman las dos ramas del personaje,
+ * `troopUnit` y `resolveUnit`. La de una unidad del catálogo es `cifrasDeUnidad`
+ * (`core/catalogo.ts`), que suma lo de serie y lo suyo de una vez.
  *
  * Sin hoja, o con una de rango 1 y sin piezas, devuelve **la misma referencia**.
  */
@@ -219,10 +181,3 @@ export function cifrasDelIndividuo<U extends UnitInfo>(
 ): U {
   return conEquipo(cifrasVeteranas(unit, rangoDeTropa(hoja)), hoja?.equipo);
 }
-
-/**
- * Las cifras ya calculadas de cada hoja de veterano. Débil para que una hoja
- * que ya no lleva nadie —el veterano murió, o volvió con otra— no se quede en
- * memoria. No es estado de la partida: es una función pura recordada.
- */
-const CIFRAS_POR_HOJA = new WeakMap<object, Creature>();

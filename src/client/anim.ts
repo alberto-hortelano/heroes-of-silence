@@ -30,7 +30,6 @@ import { stackHp, trasElGolpe } from '@core/battle/damage.js';
 import { nivelDe } from '@core/battle/muralla.js';
 import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleEvent, BattleStack, BattleState } from '@core/battle/types.js';
-import { hexSize } from '@core/data.js';
 import type { Hex } from '@core/types.js';
 import { type Direccion, direccionHacia } from './direccion.js';
 import { msDeSuelta, msPorCasilla } from './marcha.js';
@@ -50,7 +49,7 @@ export const DURACION = {
   cast: 520,
   perished: 520,
   /**
-   * El desenlace de la rueda del golpe (la arena): la rueda gira y se para, caen
+   * El desenlace de la rueda del golpe: la rueda gira y se para, caen
    * los marcadores, se enciende el arco y sale el rótulo. Es el reloj de la rueda
    * entera: el diálogo pinta cada tramo según lo que lleve este paso.
    */
@@ -411,11 +410,6 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
   }
 }
 
-/** Lo alto que se pinta `s`, en pasos: lo que fija su zancada (`msPorCasilla`). */
-function altoDeFigura(s: BattleStack): number {
-  return ALTO_DE_FIGURA[hexSize(s.unit) > 1 ? 'grande' : 'normal'];
-}
-
 /**
  * Lo que tarda el animador, a ritmo normal, en contar `nuevos`, hechos del
  * registro de `battle`: la misma cuenta que hace con su cola, para quien tiene
@@ -431,7 +425,7 @@ export function duracionDeLaJugada(battle: BattleState, nuevos: readonly BattleE
       const s = stackDe(battle, e.stack, e.kind === 'move' ? 'mueve' : 'hace subir');
       const carga = e.kind === 'move' && e.charge === true;
       const casillas = e.kind === 'move' ? e.path.length : 1;
-      ms += casillas * msPorCasilla(s.body, carga ? 'charge' : 'walk', altoDeFigura(s));
+      ms += casillas * msPorCasilla(s.body, carga ? 'charge' : 'walk', ALTO_DE_FIGURA);
     } else {
       const paso = pasoDeAccion(e, battle);
       if (paso !== null) ms += paso.dura;
@@ -500,9 +494,9 @@ export class BattleAnimator {
   /** Hacia dónde miró cada una la última vez. */
   private readonly mirada = new Map<string, Direccion>();
   /**
-   * De la cabeza al centro de cada unidad, en el plano. En una unidad grande es
-   * medio hex hacia atrás, y no cambia en toda la batalla: antes se rehacía con
-   * `stackHexes` por figura y por fotograma.
+   * De su casilla al centro de cada unidad, en el plano (`centroDeStack`). No
+   * cambia en toda la batalla: antes se rehacía con `stackHexes` por figura y
+   * por fotograma.
    */
   private readonly aCentro = new Map<string, Plano>();
   /** El instante del fotograma, fijado por `tick`. */
@@ -638,7 +632,7 @@ export class BattleAnimator {
       camino,
       alturas,
       body: s.body,
-      alto: altoDeFigura(s),
+      alto: ALTO_DE_FIGURA,
       ...(carga ? { carga: true as const } : {}),
     };
   }
@@ -773,6 +767,16 @@ export class BattleAnimator {
   cruceEnCurso(): { readonly evento: HechoDelCruce; readonly t: number } | null {
     const paso = this.actual?.paso;
     return paso?.tipo === 'cruce' ? { evento: paso.evento, t: this.progreso() } : null;
+  }
+
+  /**
+   * Los dos del cruce que se cuenta ahora (quien pega y quien recibe), o `null`:
+   * los marca el tablero con su aro (`VistaBatalla.enLaRueda`) en la partida, la
+   * arena y el espectador.
+   */
+  losDelCruce(): { readonly atacante: string; readonly objetivo: string } | null {
+    const cruce = this.cruceEnCurso();
+    return cruce === null ? null : { atacante: cruce.evento.stack, objetivo: cruce.evento.target };
   }
 
   /** ¿Queda algo por enseñar? Mientras sí, se repinta y no se aceptan clics. */

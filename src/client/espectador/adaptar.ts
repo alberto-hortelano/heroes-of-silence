@@ -16,7 +16,7 @@
  */
 
 import type { BattleStack, BattleState } from '@core/battle/types.js';
-import { cifrasDeCatalogo } from '@core/hero/experiencia.js';
+import { cifrasDeUnidad, oroDeUnidad } from '@core/catalogo.js';
 import { Casillas } from '@core/map/casillas.js';
 import { aPunto, RedDeCaminos, type TramoDeCamino } from '@core/map/map.js';
 import { BARRERAS, NIVELES, type TerrainKind } from '@core/map/terrain.js';
@@ -148,7 +148,7 @@ export function centroDeLaEscena(view: SpectatorView): { x: number; y: number } 
  * La batalla del cable con sus cifras otra vez: la inversa de `stackAlCable`.
  *
  * Una criatura del catálogo llega sin `unit` y se rehace con
- * `cifrasDeCatalogo`, la misma regla que usó `createBattle` —en el nivel 1, la
+ * `cifrasDeUnidad`, la misma regla que usó `createBattle` —en el nivel 1, la
  * misma referencia del catálogo—; un personaje o el héroe la traen puesta. Se
  * reparte por `origen`, que viaja, y no por si `unit` vino o no: un personaje
  * que llegara sin cifras lanza nombrándolo en vez de ir a buscar al catálogo las
@@ -171,14 +171,15 @@ function stackDelCable(s: StackEnCable): BattleStack {
   const ganado = { experiencia: 0, bajas: 0, heroes: [] };
   switch (s.origen.kind) {
     case 'catalogo': {
-      const unit = cifrasDeCatalogo(s.body, s.origen.veterania);
+      const unit = cifrasDeUnidad(s.origen.unidad, s.origen.veterania);
       return {
         ...resto,
         unit,
         ganado,
         origen: {
           kind: 'catalogo',
-          oro: unit.cost.gold ?? 0,
+          unidad: s.origen.unidad,
+          oro: oroDeUnidad(s.origen.unidad),
           veterania: hojaDelCable(s.origen.veterania),
         },
       };

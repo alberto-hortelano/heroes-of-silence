@@ -110,8 +110,8 @@ export interface VozEnLaBase {
 
 /**
  * Un stack de batalla tal y como viaja: **sin `unit` si sus cifras salen del
- * catálogo**, que el espectador ya tiene —`cifrasDeCatalogo(body, …)`, con la
- * experiencia que viaja en el origen—, y con `unit` si es un personaje, cuyas
+ * catálogo**, que el espectador ya tiene —`cifrasDeUnidad(origen.unidad, …)`,
+ * con la experiencia que viaja en el origen—, y con `unit` si es un personaje, cuyas
  * cifras no están en ninguna otra parte.
  *
  * Mandar el catálogo por el cable costaba +2 097 B en una batalla de 5 contra 5
@@ -131,8 +131,8 @@ export type StackEnCable = Omit<BattleStack, 'unit' | 'ganado' | 'origen'> & {
  * usará la tropa que se hace héroe (ciclo B), y el espectador no pinta ninguna
  * de las tres.
  *
- * El equipo sí, y no por pintarlo: sin él, `cifrasDeCatalogo` rehace en el
- * espectador las cifras de un piquero con espada SIN la espada, y el tablero
+ * El equipo sí, y no por pintarlo: sin él, `cifrasDeUnidad` rehace en el
+ * espectador las cifras de un veterano con un arma propia SIN ella, y el tablero
  * enseñaría un ataque que no es el que pelea.
  */
 export type VeteraniaEnCable = Pick<Veterania, 'id' | 'experiencia' | 'equipo'>;
@@ -143,9 +143,13 @@ export type VeteraniaEnCable = Pick<Veterania, 'id' | 'experiencia' | 'equipo'>;
  * recortada a `VeteraniaEnCable`.
  */
 export type OrigenEnCable =
-  | { readonly kind: 'catalogo'; readonly veterania: VeteraniaEnCable | null }
+  | {
+      readonly kind: 'catalogo';
+      readonly unidad: string;
+      readonly veterania: VeteraniaEnCable | null;
+    }
   | { readonly kind: 'personaje'; readonly id: string; readonly veterania: VeteraniaEnCable | null }
-  | { readonly kind: 'heroe' };
+  | { readonly kind: 'heroe'; readonly desnudo: UnitInfo };
 
 export interface BatallaEnCable extends Omit<BattleState, 'stacks'> {
   readonly stacks: readonly StackEnCable[];
@@ -280,23 +284,32 @@ export function construirVista(state: GameState, directorLog: readonly string[])
 /**
  * Se quita `unit` exactamente cuando `createBattle` la sacó del catálogo
  * (`origen: catalogo`), que es lo que deja a `adaptarBatalla` rehacerla con
- * `cifrasDeCatalogo` sin adivinar nada: un veterano también, porque su
+ * `cifrasDeUnidad` sin adivinar nada: un veterano también, porque su
  * experiencia viaja en `origen.veterania`. El personaje y el héroe la traen de
  * otro sitio y viajan con ella.
  *
  * Y no viaja lo que el espectador no lee: `ganado` —la contabilidad de la
- * batalla en curso, que cobra `settleBattle`—, el precio de rendición, la hoja
- * de servicios y las cifras sin equipo (`UnitInfo.sinEquipo`, de las que solo se
- * mide el nivel, y el espectador no mide niveles) con lo puesto (`UnitInfo.equipo`). Iban en cada fotograma por el
- * solo hecho de estar en el objeto.
+ * batalla en curso, que cobra `settleBattle`—, el precio de rendición y la hoja
+ * de servicios. Iban en cada fotograma por el solo hecho de estar en el objeto.
+ *
+ * Lo puesto (`UnitInfo.equipo`) sí viaja con las cifras del héroe y del
+ * personaje (F6 de la tarea del combate en el juego, 19-10-2026): son unos pocos
+ * ids, y con ellos la vuelta (`adaptarBatalla`) es la inversa exacta, sin un
+ * «menos el equipo» que la comparación tuviera que quitar; las del catálogo lo
+ * rehacen con `cifrasDeUnidad`, como el resto de sus cifras.
  */
 function stackAlCable(s: BattleStack): StackEnCable {
-  const { unit: cifras, ganado: _ganado, origen, ...resto } = s;
-  // Sin renombrarlo: `sinEquipo:` es como se escribe, y solo lo escribe `conEquipo`.
-  const { sinEquipo, equipo: _equipo, ...unit } = cifras;
+  const { unit, ganado: _ganado, origen, ...resto } = s;
   switch (origen.kind) {
     case 'catalogo':
-      return { ...resto, origen: { kind: 'catalogo', veterania: hojaAlCable(origen.veterania) } };
+      return {
+        ...resto,
+        origen: {
+          kind: 'catalogo',
+          unidad: origen.unidad,
+          veterania: hojaAlCable(origen.veterania),
+        },
+      };
     case 'personaje':
       return {
         ...resto,

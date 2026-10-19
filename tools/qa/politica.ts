@@ -11,10 +11,8 @@
  * reclutar, comprar y equipar, moverse y, en batalla, pegar a algo.
  */
 
-import { allCreatures } from '../../src/core/data.js';
 import { generateMapPlan, planDelAgente } from '../../src/core/map/generate.js';
 import { createRng } from '../../src/core/rng.js';
-import { buildingIfExists } from '../../src/core/town/buildings.js';
 
 /**
  * La firma con la que se reconoce el mapa del arnés.
@@ -39,18 +37,9 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       const town = payload.towns?.[0];
       const obra: string | undefined = town?.canBuildNow?.[0]?.id;
       if (obra !== undefined) acciones.push({ type: 'build', town: town.id, building: obra });
-      // La foto del turno es de ANTES de construir, y una mejora de morada se
-      // lleva lo disponible de su nivel a la criatura mejorada: pedir después los
-      // zombis que la foto enseñaba es pedir unos que ya no hay. Pasaba el día 7
-      // de `pnpm qa`, fuera de la cuenta del arnés —«1 rechazadas»—, desde que
-      // `ponArmeriaEnLaBase` da oro para pagar la mejora.
-      const nivelMejorado = obra === undefined ? undefined : buildingIfExists(obra)?.upgradesLevel;
-      const reclutable = town?.recruitable?.find(
-        (r: any) =>
-          r.available > 0 &&
-          (nivelMejorado === undefined ||
-            allCreatures().find((c) => c.id === r.creature)?.morada !== nivelMejorado),
-      );
+      // Lo primero que se pueda reclutar de la foto del turno. Ya no hay mejoras de
+      // morada que se lleven lo disponible a otra unidad (19-10-2026).
+      const reclutable = town?.recruitable?.find((r: any) => r.available > 0);
       const dentro = payload.heroes?.find(
         (h: any) => town?.at !== undefined && h.at?.x === town.at.x && h.at?.y === town.at.y,
       );
@@ -107,13 +96,27 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       // casilla vecina: desde el turno en tramos (02-10-2026) eso deja el turno
       // abierto y se vuelve a preguntar por la misma unidad, que es lo que el
       // arnés exige ver cruzar el circuito dos veces seguidas.
+      // El poder, si lo hay: es como el arnés cruza `power` por el circuito.
+      // Al golpear, el golpe de la rueda va por turno (`turnId`) de la lista
+      // "hits": así cruzan todos los tipos, no siempre el mismo.
       const acciones = payload.legalActions as any[];
       const elegida =
+        acciones.find((a) => a.type === 'power') ??
         acciones.find((a) => a.type === 'shoot') ??
         acciones.find((a) => a.type === 'attack') ??
         acciones.find((a) => a.type === 'move') ??
         acciones[0];
+      const hits: any[] = payload.hits ?? [];
+      if (elegida?.type === 'attack' && hits.length > 0) {
+        return { action: { ...elegida, hit: hits[Number(payload.turnId) % hits.length].hit } };
+      }
       return { action: elegida };
+    }
+    case 'battle_response': {
+      // Una de la lista, por turno, como el golpe: elegir de la lista nunca falla.
+      const respuestas: any[] = payload.responses ?? [];
+      const n = Number(payload.turnId ?? 0);
+      return { response: respuestas[(n + 3) % respuestas.length]?.response };
     }
     case 'map_generate': {
       // El plan sale del generador procedimental y NO se dibuja a mano: su

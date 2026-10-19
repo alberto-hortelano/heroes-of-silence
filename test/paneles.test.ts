@@ -60,8 +60,9 @@ describe('las cifras grandes se leen con separador de miles (QA, 12-10-2026)', (
     expect(conMiles(0)).toBe('0');
     expect(conMiles(-12_000)).toBe('-12\u00A0000');
     expect(() => conMiles(2.5)).toThrow('no es un entero');
+    // En el panel, la experiencia del héroe recién hecho (base 9 000 desde el 19-10-2026).
     expect(readFileSync(ANCLA, 'utf8')).toContain(
-      '<span class="label">Experiencia</span><span>176\u00A0000 / 304\u00A0000</span>',
+      '<span class="label">Experiencia</span><span>99\u00A0000 / 171\u00A0000</span>',
     );
   });
 });
@@ -103,7 +104,7 @@ describe('el héroe nacido de la tropa en el panel del cliente', () => {
     const salida = marcadoDe(renderSide(session));
     const tipo = tiposDeHeroe(heroe.faction)[2]!.nombre;
     // Rango 5, el de la tropa que acaba; nivel 3, el de su cuerpo de héroe.
-    expect(salida).toContain(`HÉROE · RANGO 5 · NIVEL 3 · ${tipo}`);
+    expect(salida).toContain(`HÉROE · RANGO 5 · NIVEL 4 · ${tipo}`);
     expect(salida).toContain('Vio caer &lt;i&gt;tres&lt;/i&gt; murallas &amp; siguió.');
     expect(salida).not.toContain('<i>tres');
   });
@@ -151,23 +152,23 @@ describe('la fila de un equipado (M5)', () => {
     session.selectedHeroId = heroe.id;
     heroe.army = [
       {
-        creature: 'peasant',
+        creature: 'goblin-lancero',
         veterania: {
           id: 'veterano-1',
           experiencia: 0,
           batallas: 0,
           bajas: 0,
           heroes: [],
-          equipo: { arma: 'espada_de_armeria', armadura: 'cota_de_malla' },
+          equipo: { arma: 'espada', armadura: 'brigantina' },
         },
       },
     ];
     const salida = marcadoDe(renderSide(session));
     expect(salida).toContain(
-      '<span class="veterania">Lleva: Espada de armería, Cota de malla</span><span class="quitar-equipo">',
+      '<span class="veterania">Lleva: Espada, Brigantina</span><span class="quitar-equipo">',
     );
     expect(salida).toMatch(
-      /data-slot="armadura" data-veteran="veterano-1"[^>]*>× Cota de malla<\/button>/,
+      /data-slot="armadura" data-veteran="veterano-1"[^>]*>× Brigantina<\/button>/,
     );
   });
 });

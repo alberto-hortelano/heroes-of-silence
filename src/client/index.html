@@ -6,6 +6,7 @@
     <title>Heroes of Silence</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./rueda/rueda.css" />
   </head>
   <body>
     <div id="app" data-escena="adventure">
@@ -37,11 +38,13 @@
         </aside>
       </main>
 
+      <dialog id="rueda" aria-labelledby="titulo-de-la-rueda" tabindex="-1"></dialog>
+
       <footer id="statusbar">
         <span id="status">Cargando…</span>
         <span id="actions"></span>
       </footer>
     </div>
-    <script type="module" src="./main.ts"></script>
+    <script type="module" src="./entrada.ts"></script>
   </body>
 </html>

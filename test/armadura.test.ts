@@ -1,8 +1,8 @@
 /**
- * La armadura de la arena (#262, 14-10-2026): las piezas de calidad `arena` dan
- * puntos de armadura en vez de PV, y cada golpe que llega se queda en
- * `max(0, daño − armadura)`, restado lo último (`trasLaArmadura`, dentro de
- * `herir`). El juego no cambia: sus piezas no la llevan.
+ * La armadura (#262, 14-10-2026): las piezas dan puntos de armadura y ninguna da
+ * PV (una sola clase de piezas desde el 18-10-2026), y cada golpe que llega se
+ * queda en `max(0, daño − armadura)`, restado lo último (`trasLaArmadura`, dentro
+ * de `herir`).
  *
  * Escrito desde los criterios del plan, con las cifras a mano en cada caso. Las
  * unidades son el cuerpo común de la arena (3 / 3, 10–10, 80 PV) con lo que se
@@ -15,39 +15,38 @@ import { textoDePrevision } from '../src/client/views/prevision.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   batallaDeArena,
-  CUERPO_COMUN,
-  catalogoDeLaArena,
   equiparEnArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeLaURL,
   piezaNueva,
-  revisarBorradorDeEquipo,
-  validarPiezaDeArena,
+  piezasDelMontaje,
+  VERSION_DEL_ENLACE,
 } from '../src/core/arena.js';
+import { armaduraDe, trasLaArmadura } from '../src/core/battle/armas.js';
 import {
   applyAction,
-  crearBatallaConReglas,
+  createBattle,
   opcionesDeDanio,
   previsionDe,
   stackById,
 } from '../src/core/battle/battle.js';
-import { armaduraDe, expectedDamage, herir, trasLaArmadura } from '../src/core/battle/damage.js';
-import { MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
+import { expectedDamage, herir } from '../src/core/battle/damage.js';
 import { delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { type Pieza, problemasDePieza } from '../src/core/data.js';
+import { type Pieza, problemasDePieza, validarPieza } from '../src/core/data.js';
 import { cifrasDePieza, EQUIPO_DEL_JUEGO, pieza, sumaDeEquipo } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import type { EquipoDeArena, Hex, UnitInfo } from '../src/core/types.js';
+import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';
+import { CUERPO_COMUN } from '../src/core/unidad.js';
 import { bando, bandoDe, mando } from './batalla-de-prueba.js';
 import {
+  catalogoCon,
   conManosDePrueba,
-  DEL_JUEGO,
   dadoCargado,
   delBorrador,
   MONTAJE,
+  NORMAL,
   unidadDeArena,
 } from './helpers.js';
 
@@ -57,8 +56,7 @@ function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {
   return { name, faction: null, attack, defense, damage, hp, speed: 'average', ...over };
 }
 
-const vestido = (c: UnitInfo, equipo: EquipoDeArena): UnitInfo =>
-  EQUIPO_DEL_JUEGO.conEquipo(c, equipo);
+const vestido = (c: UnitInfo, equipo: Equipo): UnitInfo => EQUIPO_DEL_JUEGO.conEquipo(c, equipo);
 
 /** Pega 50 justos (ataque 3): contra defensa 3, ×1. */
 const GOLPEADOR = cuerpo('Golpeador', { damage: [50, 50] });
@@ -71,26 +69,22 @@ const DESNUDO = cuerpo('Desnudo');
 
 /**
  * `quien` en `en` contra `contra` en `donde` (y los demás defensores detrás), con
- * el turno de `quien`; con la rueda si se pide (con las manos de prueba). Sin
- * moral, que regala turnos.
+ * el turno de `quien`. Sin moral, que regala turnos.
  */
 function frente(
   quien: UnitInfo,
   contra: readonly UnitInfo[],
   en: Hex,
   donde: readonly Hex[],
-  rueda = false,
 ): BattleState {
-  const b = crearBatallaConReglas(
+  const b = createBattle(
     bandoDe([{ id: 'quien', unit: quien }]),
     bandoDe(contra.map((unit, i) => ({ id: `contra-${i}`, unit }))),
     createRng(1),
-    REGLAS_DEL_JUEGO,
-    { modos: { ...MODOS_DEL_JUEGO, golpe: rueda ? 'rueda' : 'azar' } },
   );
-  // En la rueda se golpea con un arma de la arena: las manos de prueba, con los
-  // niveles de la Espada y sin cifras.
-  if (rueda) conManosDePrueba(b);
+  // En la rueda se golpea con un arma: las manos de prueba, con los niveles de la
+  // Espada y sin cifras.
+  conManosDePrueba(b);
   stackById(b, 'attacker-0').hex = en;
   donde.forEach((h, i) => {
     stackById(b, `defender-${i}`).hex = h;
@@ -114,37 +108,39 @@ function jugar(b: BattleState, accion: Parameters<typeof applyAction>[1], rng: R
   return desde;
 }
 
-describe('las piezas de la arena dan armadura, no PV', () => {
-  it('las cinco armaduras de la arena: PV / 10 de armadura y ningún PV; la defensa se queda', () => {
+describe('las piezas dan armadura, no PV', () => {
+  it('las cinco armaduras: PV / 10 de antes en armadura y ningún PV; la defensa se queda', () => {
     const cifras = (id: string) => {
       const p = pieza(id);
-      return [p.pv, p.armadura ?? 0, p.defensa];
+      return ['pv' in p, p.armadura ?? 0, p.defensa];
     };
-    expect(cifras('brigantina')).toEqual([0, 7, 0]);
-    expect(cifras('arnes_de_placas')).toEqual([0, 10, 1]);
-    expect(cifras('gambeson')).toEqual([0, 4, 1]);
-    expect(cifras('jubon_de_arquero')).toEqual([0, 2, 0]);
-    expect(cifras('barda')).toEqual([0, 22, 5]);
+    expect(cifras('brigantina')).toEqual([false, 7, 0]);
+    expect(cifras('arnes_de_placas')).toEqual([false, 10, 1]);
+    expect(cifras('gambeson')).toEqual([false, 4, 1]);
+    expect(cifras('jubon_de_arquero')).toEqual([false, 2, 0]);
+    expect(cifras('barda')).toEqual([false, 22, 5]);
     // Se suma como las demás cifras, y se dice como una más.
-    expect(sumaDeEquipo({ armadura: 'barda' })).toMatchObject({ pv: 0, armadura: 22, defensa: 5 });
+    expect(sumaDeEquipo({ armadura: 'barda' })).toEqual({
+      ataque: 0,
+      defensa: 5,
+      armadura: 22,
+      velocidad: 0,
+      danio: [0, 0],
+    });
     expect(cifrasDePieza(pieza('barda'))).toBe('+5 Defensa, +22 Armadura');
     expect(armaduraDe(JINETE)).toBe(22);
     expect(JINETE.hp).toBe(80);
   });
 
-  it('el juego no la lleva: una pieza que no es de la arena con armadura, o una de la arena con PV, no vale', () => {
-    expect(problemasDePieza({ ...pieza('cota_de_malla'), armadura: 1 })).toEqual([
-      '"cota_de_malla" es de calidad armeria y lleva armadura: la armadura es solo de la arena; fuera de ella, la pieza suma PV',
-    ]);
+  it('una pieza con PV no vale; una armadura en negativo, tampoco; sin armadura, la unidad no gana el campo', () => {
     expect(problemasDePieza({ ...pieza('brigantina'), pv: 70 })).toEqual([
-      '"brigantina" es de la arena y suma 70 PV: en la arena se protege con armadura, que se resta de cada golpe, no con PV',
+      '"brigantina" suma PV: ninguna pieza da PV, se protege con armadura, que se resta de cada golpe',
     ]);
     expect(problemasDePieza({ ...pieza('brigantina'), armadura: -1 })).toEqual([
       '"brigantina": armadura tiene que ser un entero ≥ 0 y es -1',
     ]);
-    // Sin armadura, la unidad del juego sale con los campos de siempre (el banco).
     const campesino = cuerpo('Campesino');
-    expect(EQUIPO_DEL_JUEGO.conEquipo(campesino, { armadura: 'cuero_curtido' })).not.toHaveProperty(
+    expect(EQUIPO_DEL_JUEGO.conEquipo(campesino, { arma: 'maza' })).not.toHaveProperty(
       'puntosDeArmadura',
     );
   });
@@ -153,7 +149,7 @@ describe('las piezas de la arena dan armadura, no PV', () => {
 describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () => {
   it('un golpe de 50 sobre la brigantina quita 43, y el parte dice los 7 que paró', () => {
     const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
-    const desde = jugar(b, { type: 'attack', target: 'defender-0' }, createRng(1));
+    const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     // 50 × 1 (3 contra 3) = 50; 50 − 7 = 43; quedan 80 − 43 = 37.
     expect(hechos(b, 'attack', desde)[0]).toMatchObject({
       stack: 'attacker-0',
@@ -164,7 +160,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     expect(stackById(b, 'defender-0').topHp).toBe(37);
     // Sin armadura, los 50 enteros y el hecho de siempre, sin el campo.
     const sin = frente(GOLPEADOR, [DESNUDO], PEGADOS[0], PEGADOS[1]);
-    const d2 = jugar(sin, { type: 'attack', target: 'defender-0' }, createRng(1));
+    const d2 = jugar(sin, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     expect(hechos(sin, 'attack', d2)[0]).toEqual({
       kind: 'attack',
       stack: 'attacker-0',
@@ -172,6 +168,8 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
       damage: 50,
       killed: 0,
       retaliation: false,
+      // Normal contra Normal: en el medio de la rueda.
+      punto: 2,
     });
     expect(marcadoDe(renderBattleLog(b, null))).toContain(': 43 de daño (−7 armadura), 0 bajas');
   });
@@ -180,7 +178,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     // 20 con ataque 3 contra defensa 8: ×(1 − 5 × 0,025) = ×0,875 → 17,5 → 18; 18 − 22 → 0.
     const flojo = cuerpo('Flojo', { damage: [20, 20] });
     const b = frente(flojo, [JINETE], PEGADOS[0], PEGADOS[1]);
-    const desde = jugar(b, { type: 'attack', target: 'defender-0' }, createRng(1));
+    const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     expect(hechos(b, 'attack', desde)[0]).toMatchObject({ damage: 0, killed: 0, parado: 18 });
     const jinete = stackById(b, 'defender-0');
     expect([jinete.count, jinete.topHp]).toEqual([1, 80]);
@@ -198,7 +196,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
   });
 
   it('Rápido resta la armadura en cada uno de sus dos golpes: 50 × 0,63 = 31,5 → 32 → 25 y 25', () => {
-    const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1], true);
+    const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
     const desde = jugar(
       b,
       { type: 'attack', target: 'defender-0', golpe: 'rapido', respuesta: 'normal' },
@@ -243,11 +241,10 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     const muneco = vestido(cuerpo('Muñeco', { hp: 5000 }), { armadura: 'brigantina' });
     const heroe = mando({ spells: ['magic_arrow'] });
     const flecha = delHeroe(spell('magic_arrow'), heroe).cantidad;
-    const b = crearBatallaConReglas(
-      bando([{ creature: 'swordsman', count: 5 }], { heroe }),
+    const b = createBattle(
+      bando([{ creature: 'templario-mandoble', count: 5 }], { heroe }),
       bandoDe([{ id: 'muneco', unit: muneco }]),
       createRng(1),
-      REGLAS_DEL_JUEGO,
     );
     b.turno = { n: 1000, stack: 'attacker-0', gastado: 0 };
     // La barra lo dice como el golpe (A1 de QA): el daño que llega y lo que para.
@@ -272,7 +269,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     const vampiro = cuerpo('Vampiro', { damage: [50, 50], traits: ['life_drain'] });
     const b = frente(vampiro, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
     stackById(b, 'attacker-0').topHp = 30;
-    const desde = jugar(b, { type: 'attack', target: 'defender-0' }, createRng(1));
+    const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     const [golpe, devuelto] = hechos(b, 'attack', desde);
     expect(golpe).toMatchObject({ damage: 43, parado: 7 });
     expect(devuelto).toMatchObject({ retaliation: true, damage: 10 });
@@ -305,7 +302,7 @@ describe('la IA cuenta con la armadura (`expectedDamage`)', () => {
         // El mismo jinete sin la barda: el factor no está y sigue mandando la vida.
         [
           unidadDeArena('templario-hermano-de-carga', {
-            equipo: { arma: 'espada', carga: 'lanza_de_jinete' },
+            equipo: { arma: 'espada', lanza: 'lanza_de_jinete' },
           }),
           sinArmadura,
         ],
@@ -332,66 +329,59 @@ describe('la IA cuenta con la armadura (`expectedDamage`)', () => {
   });
 });
 
-describe('una pieza de la arena con PV no vale: ni se convierte ni se avisa (14-10-2026)', () => {
-  /** Una pieza nueva de la arena para el hueco de armadura, como la escribía la arena de antes. */
-  const peto = { ...(piezaNueva('armadura', DEL_JUEGO) as Pieza), nombre: 'Peto' };
-  const MOTIVO = '«Peto» es de la arena y suma 45 PV: en la arena se protege con armadura';
+describe('una pieza con PV no vale: ni se convierte ni se avisa (14-10-2026)', () => {
+  /** Una pieza nueva para el hueco de armadura, como la escribía la arena de antes. */
+  const peto = { ...(piezaNueva('armadura', EQUIPO_DEL_JUEGO) as Pieza), nombre: 'Peto' };
+  const MOTIVO = '«Peto» suma PV: ninguna pieza da PV';
 
-  it('en el borrador sale como que no vale, con su motivo, y no se convierte', () => {
-    const { pv: _, armadura: __, ...sinCifras } = peto;
-    const crudo = { ...sinCifras, pv: 45 };
-    const r = revisarBorradorDeEquipo({ piezas: [crudo] });
-    expect(r.validas).toEqual([]);
-    expect(r.invalidas).toHaveLength(1);
-    expect(r.invalidas[0]?.crudo).toBe(crudo);
-    expect(r.invalidas[0]?.motivo).toContain(MOTIVO);
+  it('pieza a pieza no vale, con su motivo, y no se convierte', () => {
+    const { armadura: _, ...sinCifras } = peto;
+    expect(() => validarPieza({ ...sinCifras, pv: 45 })).toThrow(MOTIVO);
   });
 
-  it('en un enlace de hoy se rechaza; uno de la versión 8 se rechaza por viejo', () => {
-    const conArmadura = validarPiezaDeArena({ ...peto, armadura: 5 });
+  it('en un enlace de hoy se rechaza; uno de una versión de antes, por viejo', () => {
+    const conArmadura = validarPieza({ ...peto, armadura: 5 });
     const guerrero = equiparEnArena(
       unidadDeArena('templario-escudo'),
       conArmadura.id,
-      catalogoDeLaArena([conArmadura]),
+      catalogoCon(conArmadura),
     );
     const lado = (unidad: string, ia: boolean) => ({
       ia,
       puestos: [{ unidad, escalera: false }],
       heroe: null,
     });
+    const arquero = unidadDeArena('goblin-arquero');
     const ENLACE: MontajeDelEnlace = {
-      unidades: [guerrero, unidadDeArena('goblin-arquero')],
-      piezas: [conArmadura],
+      unidades: [guerrero, arquero],
+      piezas: piezasDelMontaje([guerrero, arquero], false, [
+        ...catalogoCon(conArmadura).escritas.values(),
+      ]),
       izquierda: lado(guerrero.id, false),
       derecha: lado('goblin-arquero', true),
       muralla: null,
     };
     const o = JSON.parse(montajeALaURL(ENLACE));
-    expect(o.v).toBe(11);
-    const { armadura: _, ...sinArmadura } = o.piezas[0];
-    const conPV = { ...o, piezas: [{ ...sinArmadura, pv: 45 }] };
+    expect(o.v).toBe(VERSION_DEL_ENLACE);
+    const conPV = {
+      ...o,
+      piezas: o.piezas.map((p: { id: string; armadura?: number }) => {
+        if (p.id !== conArmadura.id) return p;
+        const { armadura: _, ...sinArmadura } = p;
+        return { ...sinArmadura, pv: 45 };
+      }),
+    };
     expect(() => montajeDeLaURL(JSON.stringify(conPV))).toThrow(MOTIVO);
     expect(() => montajeDeLaURL(JSON.stringify({ ...conPV, v: 9 }))).toThrow(
-      'este enlace es de una versión anterior de la arena (la 9; la de hoy es la 11): vuelve a copiarlo',
-    );
-  });
-
-  it('una pieza del juego que suma PV no se duplica en la arena: solo se parte de las suyas (18-10-2026)', () => {
-    // Antes la copia pasaba los PV a armadura (`armaduraDePV`, ya borrada); el editor
-    // ya no enseña las del juego, y el núcleo lo dice si se le pide.
-    expect(() => piezaNueva(pieza('cuero_curtido'), DEL_JUEGO)).toThrow(
-      '«Cuero curtido» es una pieza del juego: en la arena solo se parte de una pieza de la arena',
-    );
-    expect(() => validarPiezaDeArena({ ...pieza('cuero_curtido'), pv: 0 })).toThrow(
-      'en la arena solo se cambian las piezas de la arena',
+      `este enlace es de una versión anterior de la arena (la 9; la de hoy es la ${VERSION_DEL_ENLACE}): vuelve a copiarlo`,
     );
   });
 
   it('la armadura tiene tope (A4 de QA): lo juzga el catálogo, también la de una pieza con base', () => {
-    expect(catalogoDeLaArena([{ ...peto, armadura: 99 }]).pieza(peto.id)).toMatchObject({
+    expect(catalogoCon({ ...peto, armadura: 99 }).pieza(peto.id)).toMatchObject({
       armadura: 99,
     });
-    expect(() => catalogoDeLaArena([{ ...peto, armadura: 1000 }])).toThrow(
+    expect(() => validarPieza({ ...peto, armadura: 1000 })).toThrow(
       '«Peto»: la armadura va de 0 a 99 y es 1000',
     );
     // Sobre la barda (22), +80 pasa del tope: la resuelta no vale.
@@ -399,9 +389,10 @@ describe('una pieza de la arena con PV no vale: ni se convierte ni se avisa (14-
       id: 'barda-2',
       nombre: 'Barda reforzada',
       base: 'barda',
+      seConsigue: [],
       extras: { armadura: 80 },
     };
-    expect(() => catalogoDeLaArena([sobre])).toThrow(
+    expect(() => catalogoCon(sobre)).toThrow(
       '«Barda reforzada» (sobre «Barda»): la armadura va de 0 a 99 y es 102',
     );
   });

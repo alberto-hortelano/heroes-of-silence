@@ -19,6 +19,7 @@
  *  4. que los dueños de los bandos viajen, que es lo que le deja pintar cada
  *     bando del color de su jugador sin rederivar `battleOwners` por su cuenta.
  */
+
 import { once } from 'node:events';
 import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
@@ -29,9 +30,12 @@ import { adaptarBatalla, adaptarEscena } from '../src/client/espectador/adaptar.
 import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
 import type { AdventureScene } from '../src/client/render/mapa.js';
-import { createBattle } from '../src/core/battle/battle.js';
-import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { allCreatures } from '../src/core/data.js';
+import { completarCruce } from '../src/core/ai/rueda.js';
+import { chooseBattleAction } from '../src/core/ai/tactics.js';
+import { applyAction, createBattle } from '../src/core/battle/battle.js';
+import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
+import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { aPunto, pointKey, reachableFrom } from '../src/core/map/map.js';
@@ -55,7 +59,13 @@ import {
   type VistaHeroe,
 } from '../src/server/vista-espectador.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import { conCaminos, costesDelAlcance, monstruoVivo, sinGuarnicionDeSalida } from './helpers.js';
+import {
+  conCaminos,
+  costesDelAlcance,
+  monstruoVivo,
+  sinGuarnicionDeSalida,
+  TROPA,
+} from './helpers.js';
 
 const abiertos: (() => void)[] = [];
 afterEach(() => {
@@ -223,10 +233,12 @@ describe('adaptar: la vuelta del cable', () => {
     // para buscarlo— y la historia tal cual; los demás, con la suya a `null`.
     const state = newGame({ seed: 5 });
     const id = ponVeteranoEnLaBase(state, 1);
+    // Un tipo que no es el de por defecto (el primero) de su facción.
+    const tipo = tiposDeHeroe(state.players[1]!.faction)[1]!;
     ascenderVeterano(state, 1, id, {
       name: 'Ana <la> Paciente',
       story: 'Guardó la puerta & no se movió.',
-      heroType: 'vampiro',
+      heroType: tipo.id,
     });
     // Los héroes no pasan por `adaptarEscena` (#64: el lienzo los recibe aparte
     // de la escena); se leen del fotograma tal como lo pinta `main.ts`.
@@ -237,12 +249,15 @@ describe('adaptar: la vuelta del cable', () => {
     const nacida = heroes.find((h) => h.id === `hero-${id}`) as VistaHeroe;
     expect(nacida).toMatchObject({
       name: 'Ana <la> Paciente',
-      nombreDelTipo: 'Vampiro',
+      nombreDelTipo: tipo.nombre,
       historia: 'Guardó la puerta & no se movió.',
     });
     const otros = heroes.filter((h) => h.id !== nacida.id);
     expect(otros.map((h) => h.historia)).toEqual(otros.map(() => null));
-    expect(otros.map((h) => h.nombreDelTipo).sort()).toEqual(['Caballero', 'Nigromante']);
+    // Los demás, con el tipo de por defecto de su facción.
+    const porDefecto = (h: VistaHeroe): string =>
+      tiposDeHeroe(state.heroes.find((x) => x.id === h.id)!.faction)[0]!.nombre;
+    expect(otros.map((h) => h.nombreDelTipo)).toEqual(otros.map(porDefecto));
   });
 
   it('el terreno que no cambia vuelve como EL MISMO array, para no rehacer la superficie', () => {
@@ -282,16 +297,28 @@ describe('adaptar: la vuelta del cable', () => {
   });
 });
 
+/**
+ * Tres acciones que entran en el turno del agente, leídas de lo que le llega:
+ * levantar lo primero que se pueda en su base, reclutar uno de lo primero que
+ * tenga disponible y acabar. Se leen del turno y no se escriben: la facción del
+ * jugador sale de la semilla, y con ella sus moradas y sus unidades.
+ */
+function tresAcciones(payload: any): unknown[] {
+  const base = payload.towns.find((t: any) => t.id === payload.yourBase);
+  const obra = base.canBuildNow[0].id as string;
+  const recluta = base.recruitable.find((r: any) => r.available > 0).creature as string;
+  return [
+    { type: 'build', town: base.id, building: obra },
+    { type: 'recruit', town: base.id, creature: recluta, count: 1 },
+    { type: 'end_turn' },
+  ];
+}
+
 describe('el fotograma por acción', () => {
   it('un turno de N acciones da N fotogramas, y no uno', async () => {
     // Antes había UNO por turno: una batalla entera caía entre dos snapshots.
-    const acciones = [
-      { type: 'build', town: 'town-1', building: 'necromancer_dwelling_2' },
-      { type: 'recruit', town: 'town-1', creature: 'skeleton', count: 1 },
-      { type: 'end_turn' },
-    ];
-    const { link } = await montar((kind) =>
-      kind === 'adventure_turn' ? { actions: acciones } : undefined,
+    const { link } = await montar((kind, payload) =>
+      kind === 'adventure_turn' ? { actions: tresAcciones(payload) } : undefined,
     );
 
     const fotogramas: number[] = [];
@@ -345,6 +372,9 @@ describe('el fotograma por acción', () => {
             acciones[0],
         };
       }
+      // La respuesta de la rueda cuando el monstruo le pega (F6): sin ella, cada
+      // golpe esperaría el plazo entero.
+      if (kind === 'battle_response') return { response: 'normal' };
       return undefined;
     });
 
@@ -374,34 +404,29 @@ describe('el fotograma por acción', () => {
     const batalla = campo as BattleState | null;
     if (batalla === null) throw new Error('el montaje no abrió ninguna batalla');
 
-    // Cuántas acciones se aplicaron de verdad, derivado del registro. Tres
-    // reglas, y las tres son del motor y no de este test:
-    //  - cada acción deja UN hecho primario: `move`, `wait`, `defend`, `shoot`,
-    //    `cast` o `attack`;
-    //  - el `attack` de un contraataque NO es una acción: es parte de la del
-    //    otro, y por eso se filtra por `retaliation`;
-    //  - un `attack` con `from` **se mueve y luego pega**, así que deja un `move`
-    //    pegado delante del `attack`. Eso es UNA acción, no dos. Sin esta
-    //    tercera regla la cuenta sale dos de más en esta misma semilla.
+    // Cuántas acciones se aplicaron de verdad, derivado del registro. Las
+    // reglas son del motor y no de este test:
+    //  - cada acción que no golpea deja UN hecho primario: `move`, `wait`,
+    //    `defend`, `shoot` (sin las salpicaduras), `cast` o `surrender`;
+    //  - un golpe cuerpo a cuerpo deja UN `cruce` (la rueda, en toda batalla
+    //    desde el 19-10-2026), y detrás sus golpes —Rápido o el doble golpe dan
+    //    dos— y el contraataque, que son parte de él;
+    //  - un golpe con `from` **se mueve y luego pega**: deja un `move` pegado
+    //    delante de su `cruce`, del mismo stack. Eso es UNA acción, no dos.
     //
-    // «Pegado» es en el registro CRUDO y del MISMO stack. Antes se miraba la
-    // lista ya filtrada y sin mirar quién: un `move` de un stack seguido del
-    // `attack` de otro contaba como una carga, y con el héroe en el tablero
-    // (fase 1b) esta semilla sacaba tres acciones de menos.
-    const primarias = new Set(['move', 'wait', 'defend', 'shoot', 'cast', 'attack', 'surrender']);
-    const hechos = batalla.log.filter(
-      (e) => primarias.has(e.kind) && !(e.kind === 'attack' && e.retaliation),
-    );
-    const cargas = batalla.log.filter((e, i) => {
-      const siguiente = batalla.log[i + 1];
-      return (
-        e.kind === 'move' &&
-        siguiente?.kind === 'attack' &&
-        !siguiente.retaliation &&
-        siguiente.stack === e.stack
-      );
-    }).length;
-    const acciones = hechos.length - cargas;
+    // «Pegado» es en el registro CRUDO y del MISMO stack: un `move` de un stack
+    // seguido del golpe de otro no es una carga.
+    const accionesDe = (trozo: readonly BattleEvent[]): number =>
+      trozo.filter((e, i) => {
+        if (e.kind === 'cruce') return true;
+        if (e.kind === 'shoot') return e.splash !== true;
+        if (e.kind === 'move') {
+          const siguiente = trozo[i + 1];
+          return !(siguiente?.kind === 'cruce' && siguiente.stack === e.stack);
+        }
+        return ['wait', 'defend', 'cast', 'surrender'].includes(e.kind);
+      }).length;
+    const acciones = accionesDe(batalla.log);
 
     expect(acciones).toBeGreaterThan(1);
     // El `+1` es el fotograma del `move_hero` que ABRIÓ la batalla: en él la
@@ -415,19 +440,7 @@ describe('el fotograma por acción', () => {
     let desde = 0;
     for (const hasta of largos.slice(1)) {
       const trozo = batalla.log.slice(desde, hasta);
-      const deEste = trozo.filter(
-        (e) => primarias.has(e.kind) && !(e.kind === 'attack' && e.retaliation),
-      ).length;
-      const cargasDeEste = trozo.filter((e, i) => {
-        const siguiente = trozo[i + 1];
-        return (
-          e.kind === 'move' &&
-          siguiente?.kind === 'attack' &&
-          !siguiente.retaliation &&
-          siguiente.stack === e.stack
-        );
-      }).length;
-      expect(deEste - cargasDeEste, `fotograma de ${desde} a ${hasta}`).toBeLessThanOrEqual(1);
+      expect(accionesDe(trozo), `fotograma de ${desde} a ${hasta}`).toBeLessThanOrEqual(1);
       desde = hasta;
     }
     // Y son fotogramas de verdad repartidos, no N copias del final: el registro
@@ -467,13 +480,8 @@ describe('el fotograma por acción', () => {
     // «se lo traga el de arriba». Lo que lo distingue son estas tres cosas:
     // el turno lo sigue jugando el AGENTE, las tres acciones entran, y el mirón
     // se llama UNA vez y se desengancha.
-    const acciones = [
-      { type: 'build', town: 'town-1', building: 'necromancer_dwelling_2' },
-      { type: 'recruit', town: 'town-1', creature: 'skeleton', count: 1 },
-      { type: 'end_turn' },
-    ];
-    const { link } = await montar((kind) =>
-      kind === 'adventure_turn' ? { actions: acciones } : undefined,
+    const { link } = await montar((kind, payload) =>
+      kind === 'adventure_turn' ? { actions: tresAcciones(payload) } : undefined,
     );
     let llamadas = 0;
     const director = new Director(link, {
@@ -542,26 +550,19 @@ describe('la batalla en la vista', () => {
    * rendición se leía de la referencia; desde que viaja en `origen.oro` solo la
    * pregunta este test, y aquí está.
    */
-  const esDelCatalogo = (u: UnitInfo): boolean => allCreatures().some((c) => c === u);
+  const esDelCatalogo = (u: UnitInfo): boolean => unidadesDelJuego().some((c) => c === u);
 
   /**
    * La batalla sin lo que el cable no manda (`stackAlCable`): lo ganado y la
-   * hoja de servicios vuelven vacíos de `adaptarBatalla`, y las cifras que
-   * viajan (héroe y personaje) llegan sin `sinEquipo` ni `equipo`; la ida y vuelta se
-   * compara en todo lo demás. Se quita exactamente eso, campo a campo, y no se
-   * relaja la comparación entera. (Las del catálogo las rehace el espectador
-   * con `cifrasDeCatalogo`, y esas sí lo llevan.)
+   * hoja de servicios vuelven vacíos de `adaptarBatalla`; la ida y vuelta se
+   * compara en todo lo demás, también lo puesto (`UnitInfo.equipo`, que viaja
+   * desde F6). Se quita exactamente eso, y no se relaja la comparación entera.
    */
-  const sinCuerpo = (u: UnitInfo): UnitInfo => {
-    const { sinEquipo: _cuerpo, equipo: _puesto, ...cifras } = u;
-    return cifras;
-  };
   const sinLoQueNoViaja = (b: BattleState): BattleState => ({
     ...b,
     stacks: b.stacks.map(
       (s): BattleStack => ({
         ...s,
-        unit: s.origen.kind === 'catalogo' ? s.unit : sinCuerpo(s.unit),
         ganado: { experiencia: 0, bajas: 0, heroes: [] },
         origen:
           s.origen.kind === 'heroe' || s.origen.veterania === null
@@ -594,13 +595,38 @@ describe('la batalla en la vista', () => {
     }
     for (const c of comandantes) {
       const viaja = ida.battle!.estado.stacks.find((x) => x.id === c.id)!.unit!;
-      // Las cifras sin equipo solo sirven para medir el nivel, y no viajan.
-      expect(c.unit.sinEquipo, c.id).toBeDefined();
-      expect('sinEquipo' in viaja, c.id).toBe(false);
-      expect('equipo' in viaja, c.id).toBe(false);
-      expect(viaja).toEqual(sinCuerpo(c.unit));
+      // Lo puesto (`UnitInfo.equipo`) viaja con sus cifras (F6): la Espada del héroe.
+      expect(c.unit.equipo?.arma, c.id).toBeDefined();
+      expect(viaja).toEqual(c.unit);
     }
     expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
+  });
+
+  it('una batalla con cruces de la rueda y golpes parados por la armadura vuelve igual del cable (F6)', () => {
+    // Lo que el espectador cuenta de la rueda —el cruce, el punto, lo que paró la
+    // armadura— viaja en el registro tal cual, y las cifras con que se cuenta (las
+    // armas, la armadura, lo puesto) se rehacen o viajan: la vuelta es la inversa
+    // exacta, sin aplicar ninguna regla. Se juega a ciegas por los dos bandos hasta
+    // tener cruces y golpes parados, con el héroe de cada lado en el tablero.
+    const { state } = conBatalla();
+    const batalla = state.pendingBattle!.battle;
+    const rng = createRng(9);
+    for (let i = 0; i < 400 && batalla.finished === null; i++) {
+      const hechos = batalla.log;
+      const cruces = hechos.filter((e) => e.kind === 'cruce').length;
+      const parados = hechos.filter((e) => e.kind === 'attack' && (e.parado ?? 0) > 0).length;
+      if (cruces >= 3 && parados >= 3) break;
+      applyAction(batalla, completarCruce(batalla, chooseBattleAction(batalla), rng).accion, rng);
+    }
+    expect(batalla.log.filter((e) => e.kind === 'cruce').length).toBeGreaterThanOrEqual(3);
+    expect(
+      batalla.log.filter((e) => e.kind === 'attack' && (e.parado ?? 0) > 0).length,
+    ).toBeGreaterThanOrEqual(3);
+    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    const vuelta = adaptarBatalla(ida.battle!);
+    expect(vuelta).toEqual(sinLoQueNoViaja(batalla));
+    // Lo que lee quien cuenta el cruce: el hecho, con su punto, y el contraataque.
+    expect(vuelta.log).toEqual(batalla.log);
   });
 
   it('un veterano del catálogo viaja SIN `unit` y llega con sus cifras de veterano', () => {
@@ -609,14 +635,14 @@ describe('la batalla en la vista', () => {
       {
         army: [
           {
-            creature: 'pikeman',
+            creature: TROPA,
             count: 1,
             veterania: { id: 'v-1', experiencia: umbral(4), batallas: 3, bajas: 4, heroes: [] },
           },
         ],
         hero: null,
       },
-      { army: [{ creature: 'zombie', count: 3 }], hero: null },
+      { army: [{ creature: 'zombi', count: 3 }], hero: null },
       createRng(5),
     );
     state.pendingBattle = { ...state.pendingBattle!, battle: batalla };
@@ -628,16 +654,17 @@ describe('la batalla en la vista', () => {
     // precio ni de lo ganado: el espectador no pinta ninguna de las cuatro.
     expect(veterano!.origen).toEqual({
       kind: 'catalogo',
+      unidad: TROPA,
       veterania: { id: 'v-1', experiencia: umbral(4) },
     });
     expect('ganado' in veterano!).toBe(false);
     const vuelta = adaptarBatalla(ida.battle!);
     expect(vuelta).toEqual(sinLoQueNoViaja(batalla));
     // `sinLoQueNoViaja` deja el precio: no viaja y se rehace del catálogo, el mismo.
-    // Rango 4: +3 de ataque sobre el piquero de catálogo. Si el espectador
-    // rehiciera con `creature(body)` a secas, le pintaría cifras de novato.
+    // Rango 4: más ataque que el novato del catálogo. Si el espectador
+    // rehiciera con `unidadDelJuego(body)` a secas, le pintaría cifras de novato.
     expect(vuelta.stacks[0]!.unit.attack).toBe(batalla.stacks[0]!.unit.attack);
-    expect(vuelta.stacks[0]!.unit.attack).toBeGreaterThan(5);
+    expect(vuelta.stacks[0]!.unit.attack).toBeGreaterThan(unidadDelJuego(TROPA).attack);
   });
 
   it('un personaje viaja CON su `unit`, que no está en ninguna otra parte', () => {
@@ -649,7 +676,7 @@ describe('la batalla en la vista', () => {
         hero: null,
         members: new Map([[aren.id, { profile: combatProfile(aren), hp: 20 }]]),
       },
-      { army: [{ creature: 'zombie', count: 3 }], hero: null },
+      { army: [{ creature: 'zombi', count: 3 }], hero: null },
       createRng(5),
     );
     state.pendingBattle = { ...state.pendingBattle!, battle: batalla };
@@ -661,17 +688,19 @@ describe('la batalla en la vista', () => {
     expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
   });
 
-  it('un cuerpo que no está en el catálogo y llega sin `unit` lanza, no se inventa', () => {
+  it('una unidad que no está en el catálogo y llega sin `unit` lanza, no se inventa', () => {
     const { state } = conBatalla();
     const vista = construirVista(state, []);
+    const s = vista.battle!.estado.stacks[0]!;
+    if (s.origen.kind !== 'catalogo') throw new Error('el primer stack no es del catálogo');
     const roto = {
       ...vista.battle!,
       estado: {
         ...vista.battle!.estado,
-        stacks: [{ ...vista.battle!.estado.stacks[0]!, body: CHARACTER_BODY }],
+        stacks: [{ ...s, origen: { ...s.origen, unidad: CHARACTER_BODY } }],
       },
     };
-    expect(() => adaptarBatalla(roto)).toThrow(/criatura desconocida: "character"/);
+    expect(() => adaptarBatalla(roto)).toThrow(/no hay ninguna unidad «character»/);
   });
 
   it('y al acabarla vuelve a ser `null`, que es como el espectador cambia de escena', () => {

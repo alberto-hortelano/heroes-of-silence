@@ -13,8 +13,8 @@
  * eso `ponerVoces` es su único escritor (lo vigila `invariantes.test.ts`).
  */
 import vecinosJson from '../../../data/vecinos.json' with { type: 'json' };
+import { unidadDelJuego } from '../catalogo.js';
 import { motivoDeLinea } from '../contract/linea.js';
-import { creature } from '../data.js';
 import { createRng, hashDeTexto } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
 import { esSitio, SITIOS, type SitioId, sitiosConstruidos } from './sitios.js';
@@ -74,7 +74,7 @@ function cargarGente(): Readonly<Record<FactionId, GenteDeFaccion>> {
     if (typeof x.papel !== 'string' || x.papel === '')
       throw fuera(faccion, quien, 'no tiene papel');
     if (typeof x.cuerpo !== 'string') throw fuera(faccion, quien, 'no tiene cuerpo');
-    if (creature(x.cuerpo).faction !== faccion) {
+    if (unidadDelJuego(x.cuerpo).faction !== faccion) {
       throw fuera(faccion, quien, `tiene el cuerpo de "${x.cuerpo}", que no es de su facción`);
     }
     const frases = x.frases;

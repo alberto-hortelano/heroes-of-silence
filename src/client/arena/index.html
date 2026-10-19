@@ -6,6 +6,7 @@
     <title>Heroes of Silence — arena</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="../rueda/rueda.css" />
     <link rel="stylesheet" href="./arena.css" />
   </head>
   <body>
@@ -17,7 +18,7 @@
         <span id="seed"></span>
         <span id="acciones-arena">
           <button data-arena="luchar" class="primary">Luchar</button>
-          <button data-arena="enlace" title="Copia una dirección que monta esta misma pelea: unidades, cifras, héroes, quién mueve, semilla y reglas">Copiar enlace de la pelea</button>
+          <button data-arena="enlace" title="Copia una dirección que monta esta misma pelea: unidades, cifras, héroes, quién mueve y semilla">Copiar enlace de la pelea</button>
           <button data-arena="ir-a-edicion" title="Abre las fichas de las unidades que quieras, en columnas; las que no caben van debajo">Editar fichas</button>
           <button data-arena="ir-a-equipo" title="Cambia las piezas de equipo para la arena o crea nuevas: el juego no las ve">Editar equipo</button>
           <button data-arena="guardar">Guardar</button>
@@ -56,10 +57,8 @@
 
       <footer id="statusbar">
         <span id="status">Cargando las hojas…</span>
-        <button id="ver-avisos" data-arena="ver-avisos" aria-controls="avisos-de-lectura" aria-expanded="false" hidden>Avisos al leer</button>
-        <section id="avisos-de-lectura" aria-label="Lo que no vale al leer el borrador" hidden></section>
       </footer>
     </div>
-    <script type="module" src="./main.ts"></script>
+    <script type="module" src="./entrada.ts"></script>
   </body>
 </html>

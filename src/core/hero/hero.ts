@@ -136,12 +136,12 @@ export const HERO_BODY = 'hero';
  * Su ataque y su defensa son los de su cuerpo (`BattleHero` cuenta por qué ya
  * no son un bono a la tropa). Lo que crece con el rango lo dice el JSON, contado
  * desde el rango inicial del héroe (el 5: `subidasDeRango`). Su **nivel** no se
- * escribe: es el de este cuerpo sin equipo (`nivelDeUnidad`). Entra
+ * escribe: es el de este cuerpo con su equipo (`nivelDeUnidad`). Entra
  * sano a cada batalla: no hay heridas que arrastrar, así que esto no mira nada
  * más que el héroe.
  *
  * `faction: null` para que no cambie la moral por diversidad del ejército, y
- * sin rasgos: el héroe no es no-muerto aunque mande a los nigromantes.
+ * sin rasgos: el héroe no es no-muerto aunque mande a los no muertos.
  *
  * Y con su equipo puesto: pide `equipo` sin opcional a propósito, para que nadie
  * pueda construir el cuerpo de un héroe olvidándose de lo que lleva.
@@ -149,9 +149,21 @@ export const HERO_BODY = 'hero';
 export function heroUnit(
   hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience' | 'equipo'>,
 ): UnitInfo {
-  // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`), que deja
-  // el cuerpo desnudo en `sinEquipo` para medir su nivel.
+  // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`); el cuerpo
+  // desnudo, para la ficha, es `cuerpoDelHeroe`.
   return conEquipo(cuerpoDelHeroe(hero), hero.equipo);
+}
+
+/**
+ * El cuerpo del héroe con su equipo y sin él, como entra en una batalla
+ * (`HeroeDelBando.cuerpo` y `.desnudo`): el segundo es de donde `cuerpoDe` saca
+ * lo que le suma lo que lleva.
+ */
+export function cuerposDelHeroe(
+  hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience' | 'equipo'>,
+): { readonly cuerpo: UnitInfo; readonly desnudo: UnitInfo } {
+  const desnudo = cuerpoDelHeroe(hero);
+  return { cuerpo: conEquipo(desnudo, hero.equipo), desnudo };
 }
 
 /**

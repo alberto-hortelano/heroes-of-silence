@@ -28,7 +28,7 @@ import {
   rangoDeVeterania,
   type Side,
 } from '@core/battle/types.js';
-import { hexSize, isShooter, tirosQueQuedan } from '@core/data.js';
+import { isShooter } from '@core/data.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { COMPRESION_SUELO } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
@@ -372,7 +372,7 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   }
   // Y la corona, la última de las tres: encima del nombre y no debajo (H-8).
   for (const { s, f } of figuras) {
-    if (s.origen.kind === 'heroe') pintarCorona(ctx, v, s, f);
+    if (s.origen.kind === 'heroe') pintarCorona(ctx, v, f);
   }
 
   // 4 · Lo que vuela por encima: proyectiles, hechizos y cifras.
@@ -654,7 +654,7 @@ export function tapadasPorLaMuralla(
     if (p.kind !== 'figura' || delante.length === 0) continue;
     const s = porId.get(p.id) as BattleStack;
     const f = figura(s);
-    const c = cajaDeFigura(t, s, f.en, f.elevacion);
+    const c = cajaDeFigura(t, f.en, f.elevacion);
     const caja: Punto[] = [
       { x: c.x - c.ancho / 2, y: c.suelo - c.alto },
       { x: c.x + c.ancho / 2, y: c.suelo - c.alto },
@@ -751,7 +751,7 @@ function pintarSilueta(
   f: EstadoFigura,
   cubren: readonly Tapa[],
 ): void {
-  const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
+  const caja = cajaDeFigura(v.tablero, f.en, f.elevacion);
   const figura = colocarFigura(figuraDe(v, s, f, caja, caja.x));
   const transformacion = ctx.getTransform();
   const escala = Math.max(1e-6, Math.hypot(transformacion.a, transformacion.b));
@@ -1327,9 +1327,9 @@ function pintarCargas(
  * su hex, y con solo el hex un clic en la cabeza de un esqueleto caía en el de
  * la fila de atrás.
  */
-export function cajaDeFigura(t: Tablero, s: BattleStack, en: Plano, elevacion = 0): CajaDeFigura {
+export function cajaDeFigura(t: Tablero, en: Plano, elevacion = 0): CajaDeFigura {
   // En lo alto de una columna los pies van en su tapa: subidos lo que ella mide.
-  const c = cajaDeFiguraEn(tableroA(t, elevacion), en, hexSize(s.unit) > 1);
+  const c = cajaDeFiguraEn(tableroA(t, elevacion), en);
   return { ...c, suelo: c.suelo + t.paso * 0.24 * t.compresion };
 }
 
@@ -1347,10 +1347,10 @@ export interface CajaDeFigura {
  * caminable, que no tiene hexes, y la que hay debajo de la del combate. Así un
  * adulto mide lo mismo en los dos.
  */
-export function cajaDeFiguraEn(t: Tablero, en: Plano, grande = false): CajaDeFigura {
+export function cajaDeFiguraEn(t: Tablero, en: Plano): CajaDeFigura {
   const p = enPantalla(t, en);
-  const alto = t.paso * ALTO_DE_FIGURA[grande ? 'grande' : 'normal'];
-  return { x: p.x, suelo: p.y, alto, ancho: alto * (grande ? 0.9 : 0.42) };
+  const alto = t.paso * ALTO_DE_FIGURA;
+  return { x: p.x, suelo: p.y, alto, ancho: alto * 0.42 };
 }
 
 /** Lo que se cuenta por debajo del suelo como pulsar la figura, en píxeles: la sombra de los pies. */
@@ -1491,7 +1491,7 @@ function pintarCadaver(
   s: BattleStack,
   f: EstadoFigura,
 ): void {
-  const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
+  const caja = cajaDeFigura(v.tablero, f.en, f.elevacion);
   pintarFiguraConSombra(ctx, {
     ...figuraDe(v, s, f, caja, caja.x),
     clip: 'death',
@@ -1517,8 +1517,7 @@ function pintarUnidad(
   activa: boolean,
 ): void {
   const paso = v.tablero.paso;
-  const grande = hexSize(s.unit) > 1;
-  const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
+  const caja = cajaDeFigura(v.tablero, f.en, f.elevacion);
   // El retroceso del golpe: un temblor que se apaga.
   const x = caja.x + (f.golpe > 0 ? Math.sin(f.golpe * 22) * paso * 0.06 * (1 - f.golpe) : 0);
   const { suelo } = caja;
@@ -1532,7 +1531,7 @@ function pintarUnidad(
   ctx.save();
   ctx.globalAlpha = f.alfaDelAro;
   // Aro del bando a los pies; dorado y más grueso si es la que actúa.
-  const rx = paso * (grande ? 0.75 : 0.36);
+  const rx = paso * 0.36;
   const ry = rx * v.tablero.compresion * 0.95;
   ctx.lineWidth = activa ? 3 : 2;
   ctx.strokeStyle = activa ? '#fbe3a0' : color;
@@ -1573,15 +1572,13 @@ function pintarUnidad(
  */
 export function cabezaDe(
   v: Pick<VistaBatalla, 'tablero'>,
-  s: BattleStack,
   f: Pick<EstadoFigura, 'en' | 'elevacion'>,
 ) {
-  const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
-  const grande = hexSize(s.unit) > 1;
+  const caja = cajaDeFigura(v.tablero, f.en, f.elevacion);
   return {
     x: caja.x,
     y: caja.suelo - caja.alto - v.tablero.paso * 0.08,
-    anchoBarra: v.tablero.paso * (grande ? 0.9 : 0.6),
+    anchoBarra: v.tablero.paso * 0.6,
   };
 }
 
@@ -1624,7 +1621,7 @@ function pintarGalones(
 ): void {
   const n = galonesDe(s);
   if (n <= 0) return;
-  const { x, y } = cabezaDe(v, s, f);
+  const { x, y } = cabezaDe(v, f);
   const ancho = Math.max(8, Math.round(v.tablero.paso * 0.13));
   const alto = Math.round(ancho * 0.55);
   const hueco = 3;
@@ -1667,9 +1664,9 @@ export interface Caja {
  * (H-8 de la QA de la fase 1b). Ahora no comparten sitio y además se pinta en la
  * última pasada; el test lo comprueba con las dos cajas, no con un píxel.
  */
-export function cajaDeCorona(v: VistaBatalla, s: BattleStack, f: EstadoFigura): Caja {
-  const { x } = cabezaDe(v, s, f);
-  const nombre = cajaDeNombre(v, s, f, 0);
+export function cajaDeCorona(v: VistaBatalla, f: EstadoFigura): Caja {
+  const { x } = cabezaDe(v, f);
+  const nombre = cajaDeNombre(v, f, 0);
   const tam = Math.max(22, Math.round(v.tablero.paso * 0.4));
   return { x: x - tam / 2, y: nombre.y - 2 - tam, ancho: tam, alto: tam };
 }
@@ -1682,10 +1679,9 @@ export function cajaDeCorona(v: VistaBatalla, s: BattleStack, f: EstadoFigura): 
 export function pintarCorona(
   ctx: CanvasRenderingContext2D,
   v: VistaBatalla,
-  s: BattleStack,
   f: EstadoFigura,
 ): void {
-  const c = cajaDeCorona(v, s, f);
+  const c = cajaDeCorona(v, f);
   ctx.save();
   ctx.globalAlpha = f.alfaDelAro;
   ctx.font = `bold ${c.alto}px system-ui, "DejaVu Sans", sans-serif`;
@@ -1714,7 +1710,7 @@ function pintarVida(
   s: BattleStack,
   f: EstadoFigura,
 ): void {
-  const { x, y, anchoBarra } = cabezaDe(v, s, f);
+  const { x, y, anchoBarra } = cabezaDe(v, f);
   // La vida que se ve (`EstadoFigura.pv`), no la del estado: con la cola llena,
   // la del estado es la de después de todo lo que aún no se ha enseñado.
   const vida = Math.max(0, Math.min(1, f.pv / Math.max(1, s.unit.hp * s.initialCount)));
@@ -1724,16 +1720,6 @@ function pintarVida(
   ctx.fillRect(x - anchoBarra / 2 - 1, y - 1, anchoBarra + 2, 6);
   ctx.fillStyle = vida > 0.5 ? '#9fc49a' : vida > 0.25 ? '#e0c060' : '#e3735a';
   ctx.fillRect(x - anchoBarra / 2, y, anchoBarra * vida, 4);
-  // Los tiros que quedan, solo de quien los cuenta (la criatura del catálogo): el
-  // arma a distancia de la arena no lleva munición.
-  const tiros = tirosQueQuedan(s);
-  if (tiros !== null && tiros > 0) {
-    ctx.fillStyle = '#9fc49a';
-    ctx.font = `bold ${Math.max(9, Math.round(v.tablero.paso * 0.14))}px system-ui, sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`↑${tiros}`, x + anchoBarra / 2 + 3, y + 2);
-  }
   ctx.restore();
 }
 
@@ -1750,7 +1736,7 @@ function pintarNombre(
   // Con la letra de los homónimos («Piquero B»): es la misma que dice el parte,
   // y pasar el ratón por la figura es como se casa una línea con su unidad (#198).
   const nombre = nombreEnElCampo(v.battle, s);
-  const caja = cajaDeNombre(v, s, f, ctx.measureText(nombre).width);
+  const caja = cajaDeNombre(v, f, ctx.measureText(nombre).width);
   ctx.fillStyle = 'rgba(25,21,9,0.9)';
   ctx.fillRect(caja.x, caja.y, caja.ancho, caja.alto);
   ctx.fillStyle = '#fbe8b5';
@@ -1765,13 +1751,8 @@ function cuerpoDelNombre(v: VistaBatalla): number {
 }
 
 /** La chapa del nombre, sobre la barra; `anchoTexto` lo mide quien tiene la fuente. */
-export function cajaDeNombre(
-  v: VistaBatalla,
-  s: BattleStack,
-  f: EstadoFigura,
-  anchoTexto: number,
-): Caja {
-  const { x, y } = cabezaDe(v, s, f);
+export function cajaDeNombre(v: VistaBatalla, f: EstadoFigura, anchoTexto: number): Caja {
+  const { x, y } = cabezaDe(v, f);
   const cuerpo = cuerpoDelNombre(v);
   const ancho = anchoTexto + 8;
   return { x: x - ancho / 2, y: y - cuerpo - 6, ancho, alto: cuerpo + 4 };

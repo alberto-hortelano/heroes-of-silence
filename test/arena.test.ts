@@ -26,7 +26,6 @@ import {
   renderFicha,
   renderFichaDeHeroe,
   renderPanelDeBatalla,
-  renderReglas,
   resumenDeCifras,
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
@@ -34,19 +33,13 @@ import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/per
 import { type LadoDeSesion, SesionDeArena } from '../src/client/session.js';
 import { nombreEnElCampo } from '../src/client/views/distintivo.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
+import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
-  armaDeCuerpoBlocker,
-  batallaDeArena,
-  COMENTARIO_DEL_BORRADOR,
-  EQUIPO_DEL_HEROE_EN_LA_ARENA,
-  ESPADA_DE_LA_ARENA,
   equiparEnArena,
-  escalonDeCasillas,
   type FuenteDeArena,
   fichaDeHeroeDeArena,
   finalDeArena,
-  HABILIDADES_DE_LA_ARENA,
   type HeroeDeArena,
   heroeDeArena,
   heroePorDefecto,
@@ -57,59 +50,66 @@ import {
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
-  nivelesDeLaEspada,
   piezaNueva,
+  piezasDelMontaje,
   quitarEnArena,
+  retiradosDeLaURL,
   retocarEnBatalla,
-  revisarBorradorDeArena,
-  revisarBorradorDeEquipo,
   tipoDelStack,
-  type UnidadDeArena,
   unaVezEnLaURL,
-  unidadDeCombate,
   unidadNueva,
-  unidadPorDefecto,
   VERSION_DEL_ENLACE,
-  validarBorradorDeArena,
   validarHeroeDeArena,
-  validarHojasDeArena,
-  validarUnidadDeArena,
 } from '../src/core/arena.js';
 import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena-murallas.js';
+import { armaduraDe } from '../src/core/battle/armas.js';
 import {
   activeStack,
   applyAction,
   ataqueBlocker,
-  createBattle,
   isAlive,
   legalActions,
   MAX_ROUNDS,
   stackById,
   stackHexes,
 } from '../src/core/battle/battle.js';
-import { armaduraDe, armasDe } from '../src/core/battle/damage.js';
-import { MODOS_DE_LA_ARENA, MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
+import { armasDe } from '../src/core/battle/damage.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO, reglasDeLaURL } from '../src/core/battle/reglas.js';
 import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/catalogo.js';
 import {
   CATALOGO_DE_HABILIDADES,
-  creature,
-  cuentaTiros,
+  EQUIPO_ESCRITO,
   isShooter,
   LIDERAZGO,
+  type Pieza,
+  validarPieza,
 } from '../src/core/data.js';
+import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { HERO_BODY } from '../src/core/hero/hero.js';
+import { indiceDePoder } from '../src/core/nivel.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { CREATURE_TRAITS, SPEED_TIERS, SPEED_TO_HEXES } from '../src/core/types.js';
-import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import {
-  escribirBorrador,
-  hojasDeArena,
-  leerBorrador,
-  RUTA_DEL_BORRADOR,
-} from '../tools/arena/borrador.js';
+  armaDeCuerpoBlocker,
+  COMENTARIO_DEL_CATALOGO_DE_UNIDADES,
+  ESPADA,
+  escalonDeCasillas,
+  HABILIDADES,
+  type Hoja,
+  KIT_DEL_PERFIL,
+  nivelesDeLaEspada,
+  RUTA_DEL_CATALOGO_DE_UNIDADES,
+  revisarCatalogo,
+  type Unidad,
+  unidadDeCombate,
+  validarCatalogo,
+  validarHojas,
+  validarUnidad,
+} from '../src/core/unidad.js';
+import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
+import { escribirCatalogo, hojasDelTaller, leerCatalogo } from '../tools/arena/borrador.js';
 import { VELOCIDAD_DEL_CUERPO } from '../tools/arena/velocidades.js';
 import {
   arteEnOchoDirecciones,
@@ -122,23 +122,31 @@ import {
   unidad as unidadDelTaller,
 } from '../tools/taller/unidades.js';
 import {
-  DEL_JUEGO,
+  carpetaDeLaArena,
+  catalogoCon,
+  catalogoEntero,
   delBorrador,
+  elCatalogoCon,
   forzarTurno,
   hojaDeLaArena,
   hojasDeLaArena,
   MANOS_DE_PRUEBA,
+  MONTAJE,
+  motivoDelCambio,
   peleaDelMotor,
   unidadDeArena,
 } from './helpers.js';
+import { catalogoDe, montar } from './pelea-de-arena.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
+/** El catálogo del juego con las manos de prueba: el de las peleas de estas pruebas. */
+const CON_MANOS = catalogoCon(MANOS_DE_PRUEBA);
 const HOJAS = hojasDeLaArena();
 const hojaPorId = hojaDeLaArena;
 const unidad = unidadDeArena;
 
 /** Un bando de la sesión con unidades del borrador y sin héroe, que mueve la IA. */
-const ia = (...us: UnidadDeArena[]): LadoDeSesion => ({
+const ia = (...us: Unidad[]): LadoDeSesion => ({
   unidades: us.map((u) => delBorrador(u)),
   heroe: null,
   ia: true,
@@ -148,17 +156,12 @@ const ia = (...us: UnidadDeArena[]): LadoDeSesion => ({
  * Una pelea solo con unidades del borrador, sin héroes y con las reglas del juego;
  * con las manos de prueba entre sus piezas, para quien pelee sin las de su perfil.
  */
-function pelea(
-  izquierda: readonly UnidadDeArena[],
-  derecha: readonly UnidadDeArena[],
-  rng: Rng,
-): BattleState {
-  return batallaDeArena(
+function pelea(izquierda: readonly Unidad[], derecha: readonly Unidad[], rng: Rng): BattleState {
+  return montar(
     {
       izquierda: { unidades: izquierda.map((u) => delBorrador(u)), heroe: null },
       derecha: { unidades: derecha.map((u) => delBorrador(u)), heroe: null },
-      reglas: REGLAS_DEL_JUEGO,
-      piezas: [MANOS_DE_PRUEBA],
+      equipo: CON_MANOS,
     },
     rng,
   );
@@ -166,24 +169,34 @@ function pelea(
 
 /** Una sesión con las reglas del juego, sin empezar. */
 function sesion(izquierda: LadoDeSesion, derecha: LadoDeSesion, semilla: number): SesionDeArena {
-  return new SesionDeArena({ izquierda, derecha, reglas: REGLAS_DEL_JUEGO, piezas: [] }, semilla);
+  return new SesionDeArena({ izquierda, derecha, ...MONTAJE }, semilla);
 }
 
 /** La tarjeta de una unidad del borrador, como la da `main.ts`. */
-const tarjeta = (u: UnidadDeArena): DatosDePuesto => ({
+const tarjeta = (u: Unidad): DatosDePuesto => ({
   nombre: u.name,
-  resumen: resumenDeCifras(u, DEL_JUEGO),
+  resumen: resumenDeCifras(u, EQUIPO_DEL_JUEGO),
   figura: u.id,
   noEscala: null,
 });
 
 /** Los ids ocupados de un borrador sin unidades que no validan ni hojas. */
 function ocupados(...validas: string[]): IdsOcupados {
-  return { validas, sinValidar: [], hojas: [] };
+  return { validas, hojas: [] };
+}
+
+/**
+ * Una unidad nueva de la hoja `h` con el equipo de su perfil (`KIT_DEL_PERFIL`):
+ * como nació cada unidad del catálogo. Para las hojas que no tienen la suya en él
+ * (los héroes), que los tests de velocidad comparan con las del catálogo.
+ */
+function conSuKit(h: Hoja): Unidad {
+  const nueva = unidadNueva(h, ocupados(), EQUIPO_DEL_JUEGO);
+  return validarUnidad({ ...nueva, equipo: KIT_DEL_PERFIL[h.perfil].equipo }, EQUIPO_DEL_JUEGO);
 }
 
 /** Lo que la ficha enseña del nivel de una unidad: el de su cuerpo, aunque pelee con su equipo. */
-const nivelDeLaHoja = (u: UnidadDeArena): string => lecturaDelNivel(unidadDeCombate(u, DEL_JUEGO));
+const nivelDeLaHoja = (u: Unidad): string => lecturaDelNivel(unidadDeCombate(u, EQUIPO_DEL_JUEGO));
 
 /** Una sesión montada y empezada: lo que hace la página al pulsar «Luchar». */
 function montada(izquierda: LadoDeSesion, derecha: LadoDeSesion, semilla: number): SesionDeArena {
@@ -192,7 +205,7 @@ function montada(izquierda: LadoDeSesion, derecha: LadoDeSesion, semilla: number
   return s;
 }
 /** Un bando de la sesión que mueve la persona. */
-const yo = (...us: UnidadDeArena[]): LadoDeSesion => ({ ...ia(...us), ia: false });
+const yo = (...us: Unidad[]): LadoDeSesion => ({ ...ia(...us), ia: false });
 
 describe('la arena pelea con las cifras del borrador', () => {
   it('las cifras editadas llegan al stack tal cual, sin pasar por el catálogo', () => {
@@ -209,7 +222,9 @@ describe('la arena pelea con las cifras del borrador', () => {
     const b = pelea([monje], [unidad('zombi')], createRng(1));
     const s = b.stacks.find((x) => x.side === 'attacker');
     expect(s?.body).toBe('templario-monje');
-    expect(s?.origen.kind).toBe('personaje');
+    // Una unidad del catálogo de su pelea, como en el juego: la del montaje,
+    // no la de `data/unidades.json`.
+    expect(s?.origen).toMatchObject({ kind: 'catalogo', unidad: 'templario-monje' });
     expect(s?.unit).toMatchObject({ attack: 42, damage: [3, 9], hp: 21 });
     expect(s?.unit).not.toHaveProperty('nivel');
     // Sin munición ni tamaño: la arena no los escribe (13-10-2026).
@@ -227,12 +242,19 @@ describe('la arena pelea con las cifras del borrador', () => {
     const b = pelea([u], [unidad('zombi')], createRng(1));
     const s = b.stacks.find((x) => x.side === 'attacker') as BattleStack;
     expect(s.body).toBe('templario-escudo');
-    expect(s.unit).toMatchObject({ attack: 5, defense: 7, damage: [20, 40], hp: 80 });
+    // Su cuerpo, el del catálogo: 3 / 4, daño 8–10, 80 PV y 4 casillas.
+    expect(u).toMatchObject({ attack: 3, defense: 4, damage: [8, 10], hp: 80, casillas: 4 });
+    expect(s.unit).toMatchObject({ attack: 5, defense: 8, damage: [18, 40], hp: 80 });
     expect(armaduraDe(s.unit)).toBe(7);
     expect(SPEED_TO_HEXES[s.unit.speed]).toBe(3);
     expect(s.topHp).toBe(80);
-    // El nivel, el del cuerpo: el equipo no cuenta.
-    expect(s.unit.sinEquipo).toMatchObject({ attack: 3, defense: 3, damage: [10, 10], hp: 80 });
+    // El cuerpo sin equipo, para la ficha y el retoque (el nivel lo mide vestido).
+    expect(cuerpoDe(s, catalogoDe(b, EQUIPO_DEL_JUEGO))).toMatchObject({
+      attack: 3,
+      defense: 4,
+      damage: [8, 10],
+      hp: 80,
+    });
   });
 
   it('los rasgos del motor van con la unidad, y las habilidades no pelean', () => {
@@ -281,6 +303,13 @@ describe('la arena pelea con las cifras del borrador', () => {
       let turnos = 0;
       let movioLaIA = false;
       while (s.battle.finished === null) {
+        // La rueda (siempre, desde el 19-10-2026) para la sesión también al
+        // golpear y al responder: se elige y se sigue.
+        if (s.ruedaPendiente !== null) {
+          s.elegirEnLaRueda('normal');
+          if (++turnos > 500) throw new Error('la batalla no termina');
+          continue;
+        }
         // Cada vez que la sesión devuelve el control, la activa es de las mías.
         const activa = activeStack(s.battle);
         expect(mios).toContain(activa?.id);
@@ -322,7 +351,7 @@ describe('la arena pelea con las cifras del borrador', () => {
 describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
   it('la ficha enseña «Índice N · nivel n» y no tiene un campo de nivel que escribir', () => {
     const u = unidad('templario-monje');
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).toContain(nivelDeLaHoja(u));
     expect(m).toMatch(/Índice \d{3} · nivel \d/);
     expect(m).not.toContain('data-campo="level"');
@@ -340,7 +369,7 @@ describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
   it('un borrador de antes con `level` no vale: no se convierte, y se conserva con su motivo', () => {
     // Sin compatibilidad hacia atrás (14-10-2026): la escala de fheroes2 ya no se lee.
     const vieja = { ...unidad('templario-monje'), level: 9 };
-    const r = revisarBorradorDeArena({ unidades: [vieja] }, DEL_JUEGO);
+    const r = revisarCatalogo({ unidades: [vieja] }, EQUIPO_DEL_JUEGO);
     expect(r.validas).toEqual([]);
     expect(r.invalidas).toEqual([
       {
@@ -354,7 +383,7 @@ describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
   it('`level` no se ofrece como campo de la arena', () => {
     const motivo = ((): string => {
       try {
-        validarUnidadDeArena({ ...unidad('templario-monje'), growth: 3 }, DEL_JUEGO);
+        validarUnidad({ ...unidad('templario-monje'), growth: 3 }, EQUIPO_DEL_JUEGO);
       } catch (err) {
         return String(err);
       }
@@ -372,7 +401,7 @@ describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
     // guerrero lanzaba dentro de `herir`. Ahora no pasan de la validación, así
     // que no hay batalla y nada llega a `herir`.
     const guerrero = unidad('templario-escudo');
-    const enormes: UnidadDeArena[] = [
+    const enormes: Unidad[] = [
       { ...guerrero, hp: 1e15 },
       {
         ...guerrero,
@@ -383,77 +412,72 @@ describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
       },
     ];
     for (const u of enormes) {
-      expect(() => validarUnidadDeArena(u, DEL_JUEGO)).toThrow(
+      expect(() => validarUnidad(u, EQUIPO_DEL_JUEGO)).toThrow(
         `la unidad «${guerrero.name}»: estas cifras son demasiado grandes para medir su nivel`,
       );
-      expect(() => validarUnidadDeArena(u, DEL_JUEGO)).toThrow('baja la vida o el daño');
+      expect(() => validarUnidad(u, EQUIPO_DEL_JUEGO)).toThrow('baja la vida o el daño');
       expect(() => pelea([u], [unidad('zombi')], createRng(5))).toThrow('demasiado grandes');
       expect(() => pelea([unidad('zombi')], [u], createRng(5))).toThrow('demasiado grandes');
     }
     // Lo grande pero medible sigue entrando y pelea.
-    const grande = validarUnidadDeArena({ ...guerrero, hp: 10_000_000 }, DEL_JUEGO);
+    const grande = validarUnidad({ ...guerrero, hp: 10_000_000 }, EQUIPO_DEL_JUEGO);
     expect(nivelDeLaHoja(grande)).toMatch(/^Índice \d+ · nivel \d+$/);
   });
 });
 
 describe('el borrador se valida antes de escribirse', () => {
-  const base = (): UnidadDeArena => unidad('templario-monje');
-
-  it('toda hoja sale con unas cifras por defecto que pasan la validación', () => {
-    for (const h of HOJAS)
-      expect(() => validarUnidadDeArena(unidadPorDefecto(h), DEL_JUEGO), h.id).not.toThrow();
-  });
+  const base = (): Unidad => unidad('templario-monje');
 
   it('rechaza diciéndolo: velocidad inventada, rasgo inexistente, daño al revés', () => {
-    expect(() => validarUnidadDeArena({ ...base(), casillas: 9 }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...base(), casillas: 9 }, EQUIPO_DEL_JUEGO)).toThrow(
       'la unidad «Monje»: la velocidad es de 2 a 7 casillas, y es 9',
     );
-    expect(() => validarUnidadDeArena({ ...base(), traits: ['volar'] }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...base(), traits: ['volar'] }, EQUIPO_DEL_JUEGO)).toThrow(
       'la unidad «Monje»: el rasgo "volar" no existe',
     );
-    expect(() => validarUnidadDeArena({ ...base(), damage: [5, 2] }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...base(), damage: [5, 2] }, EQUIPO_DEL_JUEGO)).toThrow(
       'la unidad «Monje»: el daño mínimo (5) no puede pasar del máximo (2)',
     );
-    expect(() => validarUnidadDeArena({ ...base(), habilidades: ['Volar'] }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...base(), habilidades: ['Volar'] }, EQUIPO_DEL_JUEGO)).toThrow(
       'la habilidad "Volar" no existe',
     );
-    expect(() => validarUnidadDeArena({ ...base(), hp: 0 }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...base(), hp: 0 }, EQUIPO_DEL_JUEGO)).toThrow(
       'la vida tiene que ser 1 o más',
     );
-    expect(() => validarUnidadDeArena({ ...base(), attack: 2.5 }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...base(), attack: 2.5 }, EQUIPO_DEL_JUEGO)).toThrow(
       'el ataque tiene que ser un número entero, y es 2.5',
     );
-    expect(() => validarUnidadDeArena({ ...base(), attack: Number.NaN }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...base(), attack: Number.NaN }, EQUIPO_DEL_JUEGO)).toThrow(
       'la unidad «Monje»: el ataque no tiene valor, el campo está vacío',
     );
     expect(() =>
-      validarUnidadDeArena({ ...base(), traits: ['charge', 'charge'] }, DEL_JUEGO),
+      validarUnidad({ ...base(), traits: ['charge', 'charge'] }, EQUIPO_DEL_JUEGO),
     ).toThrow('el rasgo "charge" está dos veces');
     // Toda unidad ocupa una casilla (13-10-2026): el tamaño ya no es un campo.
-    expect(() => validarUnidadDeArena({ ...base(), hexes: 2 }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...base(), hexes: 2 }, EQUIPO_DEL_JUEGO)).toThrow(
       '«hexes» no es un campo de la arena',
     );
-    expect(() => validarUnidadDeArena({ ...base(), faction: 'knight' }, DEL_JUEGO)).toThrow(
-      'la facción "knight" no existe',
+    expect(() => validarUnidad({ ...base(), faction: 'caballeros' }, EQUIPO_DEL_JUEGO)).toThrow(
+      'la facción "caballeros" no existe',
     );
   });
 
   it('sin munición: `shots` no es un campo de la arena, y el motivo no lo ofrece (13-10-2026)', () => {
     // Dispara quien lleva arma a distancia; lo de antes con tiros no vale.
-    expect(() => validarUnidadDeArena({ ...base(), shots: 3 }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...base(), shots: 3 }, EQUIPO_DEL_JUEGO)).toThrow(
       '«shots» no es un campo de la arena',
     );
-    expect(() => validarUnidadDeArena({ ...base(), shots: 3 }, DEL_JUEGO)).not.toThrow(
+    expect(() => validarUnidad({ ...base(), shots: 3 }, EQUIPO_DEL_JUEGO)).not.toThrow(
       /valen .*\bshots\b/,
     );
-    expect(() => validarUnidadDeArena({ ...base(), hexes: 2 }, DEL_JUEGO)).not.toThrow(
+    expect(() => validarUnidad({ ...base(), hexes: 2 }, EQUIPO_DEL_JUEGO)).not.toThrow(
       /valen .*\bhexes\b/,
     );
   });
 
-  it('el archivo no trae dos veces la misma hoja', () => {
-    expect(() => validarBorradorDeArena({ unidades: [base(), base()] }, DEL_JUEGO)).toThrow(
-      'la unidad "templario-monje" está dos veces en el borrador',
+  it('el catálogo no trae dos veces la misma unidad', () => {
+    expect(() => validarCatalogo({ unidades: [base(), base()] }, EQUIPO_DEL_JUEGO)).toThrow(
+      'data/unidades.json: la unidad "templario-monje" está dos veces en el catálogo',
     );
   });
 
@@ -465,38 +489,43 @@ describe('el borrador se valida antes de escribirse', () => {
     });
 
     it('lo que no valida no se escribe; lo que valida vuelve igual y sin temporales', () => {
-      dir = mkdtempSync(join(tmpdir(), 'arena-'));
-      const ruta = join(dir, RUTA_DEL_BORRADOR);
+      dir = carpetaDeLaArena();
+      const ruta = join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES);
       // Lo que se escribe va en el formato de hoy: lo de antes no se escribe.
       expect(() =>
-        escribirBorrador(dir as string, {
+        escribirCatalogo(dir as string, {
           unidades: [{ ...base(), speed: 'x' }],
-          piezas: [],
+          piezas: EQUIPO_ESCRITO,
         }),
       ).toThrow('«speed» no es un campo de la arena');
       expect(existsSync(ruta)).toBe(false);
-      expect(leerBorrador(dir)).toMatchObject({ unidades: [], invalidas: [] });
+      expect(leerCatalogo(dir)).toMatchObject({ unidades: [], invalidas: [] });
 
       const monje = { ...base(), attack: 9, habilidades: ['Salto'] };
-      escribirBorrador(dir, { unidades: [monje], piezas: [] });
+      escribirCatalogo(dir, { unidades: catalogoEntero(monje), piezas: EQUIPO_ESCRITO });
       const json = JSON.parse(readFileSync(ruta, 'utf8')) as {
         _comment: string;
         unidades: unknown[];
       };
-      expect(json._comment).toContain('BORRADOR');
-      expect(leerBorrador(dir).unidades).toEqual([monje]);
-      expect(readdirSync(join(dir, 'data/borradores'))).toEqual(['unidades.json']);
+      expect(json._comment).toContain('CATÁLOGO de unidades');
+      expect(leerCatalogo(dir).unidades).toEqual(catalogoEntero(monje));
+      // Sin temporales al lado, y sin crear el borrador de equipo: no había piezas.
+      expect(readdirSync(dir).sort()).toEqual(['data']);
+      expect(readdirSync(join(dir, 'data')).sort()).toEqual(['equipo.json', 'unidades.json']);
 
       // Un guardado malo después de uno bueno deja el bueno donde estaba.
       expect(() =>
-        escribirBorrador(dir as string, { unidades: [{ ...monje, damage: [3, 1] }], piezas: [] }),
+        escribirCatalogo(dir as string, {
+          unidades: catalogoEntero({ ...monje, damage: [3, 1] }),
+          piezas: EQUIPO_ESCRITO,
+        }),
       ).toThrow();
-      expect(leerBorrador(dir).unidades).toEqual([monje]);
+      expect(leerCatalogo(dir).unidades).toEqual(catalogoEntero(monje));
     });
   });
 
-  it('el borrador guardado en el repo, si lo hay, sigue cumpliendo la regla', () => {
-    expect(() => leerBorrador(RAIZ)).not.toThrow();
+  it('el catálogo del repo se lee entero: ninguna unidad que no valga', () => {
+    expect(leerCatalogo(RAIZ).invalidas).toEqual([]);
   });
 });
 
@@ -650,7 +679,7 @@ describe('las hojas de assets/unidades se pintan en el tablero', () => {
 describe('el marcado de la arena', () => {
   it('la ficha dice que las habilidades no tienen efecto, y escapa lo que se escribe', () => {
     const u = { ...unidad('templario-monje'), name: '<b>Monje</b>', habilidades: ['Salto'] };
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).toContain('sin efecto todavía');
     expect(m).toContain('&lt;b&gt;Monje&lt;/b&gt;');
     expect(m).not.toContain('<b>Monje');
@@ -662,14 +691,14 @@ describe('el marcado de la arena', () => {
     expect(m).toContain('data-arena="girar"');
     // El disparo, solo en la ficha de quien lo trae.
     expect(m).not.toContain('data-clip="shoot"');
-    expect(marcadoDe(renderFicha(u, true, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO)))).toContain(
+    expect(marcadoDe(renderFicha(u, true, enElMontaje(EQUIPO_DEL_JUEGO)))).toContain(
       'data-clip="shoot"',
     );
   });
 
   it('la ficha lleva el nombre en su título con «✎ Editar», y no entre las cifras', () => {
     const u = { ...unidad('templario-monje'), name: 'Hermano <Monje>' };
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     const titulo = m.slice(m.indexOf('<header class="titulo-de-ficha">'), m.indexOf('</header>'));
     expect(titulo).toContain('<span class="nombre">Hermano &lt;Monje&gt;</span>');
     expect(titulo).toContain('data-arena="renombrar"');
@@ -680,7 +709,7 @@ describe('el marcado de la arena', () => {
     // Tras «✎»: el título es el campo, con el mismo `data-campo` que lee `main.ts`.
     const renombrando = marcadoDe(
       renderFicha(u, false, {
-        ...enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO),
+        ...enElMontaje(EQUIPO_DEL_JUEGO),
         renombrando: true,
       }),
     );
@@ -693,7 +722,7 @@ describe('el marcado de la arena', () => {
       renderFichaDeHeroe(
         'izquierda',
         heroePorDefecto('izquierda'),
-        enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO),
+        enElMontaje(EQUIPO_DEL_JUEGO),
         [],
       ),
     );
@@ -704,7 +733,7 @@ describe('el marcado de la arena', () => {
         renderFichaDeHeroe(
           'izquierda',
           heroePorDefecto('izquierda'),
-          { ...enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO), renombrando: true },
+          { ...enElMontaje(EQUIPO_DEL_JUEGO), renombrando: true },
           [],
         ),
       ),
@@ -713,7 +742,7 @@ describe('el marcado de la arena', () => {
 
   it('los rasgos del motor van como las habilidades: etiquetas con × y el resto en «Añadir»', () => {
     const u = unidad('zombi', { traits: ['undead', 'charge'] });
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).not.toContain('type="checkbox"');
     expect(m).toContain('data-arena="quitar-rasgo" data-rasgo="undead"');
     expect(m).toContain('data-arena="quitar-rasgo" data-rasgo="charge"');
@@ -725,7 +754,7 @@ describe('el marcado de la arena', () => {
     }
     // Sin ninguno, «Ninguno.».
     const sinRasgos = marcadoDe(
-      renderFicha(unidad('zombi', { traits: [] }), false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO)),
+      renderFicha(unidad('zombi', { traits: [] }), false, enElMontaje(EQUIPO_DEL_JUEGO)),
     );
     expect(sinRasgos).toContain(
       '<div class="etiquetas rasgos-puestos"><span class="cost">Ninguno.</span>',
@@ -734,7 +763,7 @@ describe('el marcado de la arena', () => {
 
   it('la cabeza de la ficha: figura y clips en columna a la izquierda, cifras a la derecha; en combate, sin figura', () => {
     const u = unidad('templario-escudo');
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     const cabeza = m.slice(
       m.indexOf('<div class="cabeza">'),
       m.indexOf('<h3>Rasgos del motor</h3>'),
@@ -752,14 +781,13 @@ describe('el marcado de la arena', () => {
     // Las cifras, a su lado y no en los clips.
     const cifras = cabeza.slice(cabeza.indexOf('<div class="cifras">'));
     expect(cifras).toContain('data-campo="attack"');
-    expect(cifras).toContain('data-campo="gold"');
+    expect(cifras).toContain('data-campo="defense"');
     expect(clips).not.toContain('data-campo');
     // En el editor de la batalla: sin figura ni clips, las cifras a todo el ancho.
     const enCombate = marcadoDe(
       renderFicha(u, false, {
         enCombate: true,
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: DEL_JUEGO,
+        piezas: EQUIPO_DEL_JUEGO,
       }),
     );
     expect(enCombate).toContain('<div class="cabeza sin-retrato">');
@@ -844,15 +872,15 @@ describe('corrección de hallazgos de QA', () => {
     });
     const escribirAMano = (raiz: string, unidades: unknown[]): void => {
       mkdirSync(join(raiz, 'data/borradores'), { recursive: true });
-      writeFileSync(join(raiz, RUTA_DEL_BORRADOR), JSON.stringify({ unidades }));
+      writeFileSync(join(raiz, RUTA_DEL_CATALOGO_DE_UNIDADES), JSON.stringify({ unidades }));
     };
 
     it('una unidad que no vale no tira las buenas, y se vuelve a escribir tal cual', () => {
-      dir = mkdtempSync(join(tmpdir(), 'arena-'));
+      dir = carpetaDeLaArena();
       const buena = unidad('templario-monje', { attack: 11 });
       const mala = { ...unidad('zombi'), hp: -1 };
       escribirAMano(dir, [buena, mala]);
-      const leido = leerBorrador(dir);
+      const leido = leerCatalogo(dir);
       expect(leido.unidades).toEqual([buena]);
       expect(leido.invalidas).toEqual([
         {
@@ -861,74 +889,70 @@ describe('corrección de hallazgos de QA', () => {
           crudo: mala,
         },
       ]);
-      // La página guarda lo que tiene —la buena y una nueva— y la mala sigue ahí.
-      const nueva = unidad('elfo-arquero');
-      expect(escribirBorrador(dir, { unidades: [buena, nueva], piezas: [] })).toMatchObject({
-        unidades: 2,
-        conservadas: 1,
-      });
-      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_BORRADOR), 'utf8')) as {
+      // La página guarda lo que tiene —el catálogo con la buena, sin el zombi que
+      // no vale, y una nueva— y la mala sigue ahí. Guarda el catálogo entero: con
+      // menos, una morada se quedaría sin unidades y el juego no arrancaría.
+      const nueva = { ...unidad('elfo-arquero'), id: 'elfo-arquero-2' };
+      const sinElZombi = [...catalogoEntero(buena).filter((u) => u.id !== 'zombi'), nueva];
+      expect(escribirCatalogo(dir, { unidades: sinElZombi, piezas: EQUIPO_ESCRITO })).toMatchObject(
+        {
+          unidades: sinElZombi.length,
+          conservadas: 1,
+        },
+      );
+      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')) as {
         unidades: unknown[];
       };
-      expect(json.unidades).toEqual([buena, nueva, mala]);
+      expect(json.unidades).toEqual([...sinElZombi, mala]);
       // Y mandar una válida con su id es arreglarla: la mala se va.
       const arreglada = unidad('zombi');
-      expect(
-        escribirBorrador(dir, { unidades: [buena, nueva, arreglada], piezas: [] }).conservadas,
-      ).toBe(0);
-      expect(leerBorrador(dir)).toMatchObject({
-        unidades: [buena, nueva, arreglada],
-        invalidas: [],
-      });
+      const todas = catalogoEntero(buena, nueva, arreglada);
+      expect(escribirCatalogo(dir, { unidades: todas, piezas: EQUIPO_ESCRITO }).conservadas).toBe(
+        0,
+      );
+      expect(leerCatalogo(dir)).toMatchObject({ unidades: todas, invalidas: [] });
     });
 
     it('una unidad repetida se conserva al guardar otra (QA, M3)', () => {
-      dir = mkdtempSync(join(tmpdir(), 'arena-'));
+      dir = carpetaDeLaArena();
       const buena = unidad('templario-monje', { attack: 11 });
       const repetida = unidad('templario-monje', { attack: 3 });
       escribirAMano(dir, [buena, repetida]);
-      expect(leerBorrador(dir).invalidas.map((i) => i.crudo)).toEqual([repetida]);
-      const nueva = unidad('elfo-arquero');
-      expect(escribirBorrador(dir, { unidades: [buena, nueva], piezas: [] }).conservadas).toBe(1);
-      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_BORRADOR), 'utf8')) as {
+      expect(leerCatalogo(dir).invalidas.map((i) => i.crudo)).toEqual([repetida]);
+      const nueva = { ...unidad('elfo-arquero'), id: 'elfo-arquero-2' };
+      const todas = catalogoEntero(buena, nueva);
+      expect(escribirCatalogo(dir, { unidades: todas, piezas: EQUIPO_ESCRITO }).conservadas).toBe(
+        1,
+      );
+      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')) as {
         unidades: unknown[];
       };
-      expect(json.unidades).toEqual([buena, nueva, repetida]);
+      expect(json.unidades).toEqual([...todas, repetida]);
     });
 
     it('un archivo que no se puede leer no se pisa: se dice', () => {
-      dir = mkdtempSync(join(tmpdir(), 'arena-'));
+      dir = carpetaDeLaArena();
       mkdirSync(join(dir, 'data/borradores'), { recursive: true });
-      writeFileSync(join(dir, RUTA_DEL_BORRADOR), '{ esto no es json');
-      expect(() => leerBorrador(dir as string)).toThrow(`${RUTA_DEL_BORRADOR} no es JSON`);
+      writeFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), '{ esto no es json');
+      expect(() => leerCatalogo(dir as string)).toThrow(
+        `${RUTA_DEL_CATALOGO_DE_UNIDADES} no es JSON`,
+      );
       expect(() =>
-        escribirBorrador(dir as string, { unidades: [unidad('zombi')], piezas: [] }),
+        escribirCatalogo(dir as string, { unidades: catalogoEntero(), piezas: EQUIPO_ESCRITO }),
       ).toThrow('no se guarda para no pisarlo');
-      expect(readFileSync(join(dir, RUTA_DEL_BORRADOR), 'utf8')).toBe('{ esto no es json');
+      expect(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')).toBe(
+        '{ esto no es json',
+      );
     });
 
     it('una unidad válida sin hoja se lee y se vuelve a guardar', () => {
-      dir = mkdtempSync(join(tmpdir(), 'arena-'));
+      dir = carpetaDeLaArena();
       const fantasma = { ...unidad('templario-monje'), id: 'templario-fantasma', name: 'Fantasma' };
       escribirAMano(dir, [fantasma]);
-      expect(leerBorrador(dir).unidades).toEqual([fantasma]);
-      escribirBorrador(dir, { unidades: [fantasma], piezas: [] });
-      expect(leerBorrador(dir).unidades).toEqual([fantasma]);
+      expect(leerCatalogo(dir).unidades).toEqual([fantasma]);
+      escribirCatalogo(dir, { unidades: catalogoEntero(fantasma), piezas: EQUIPO_ESCRITO });
+      expect(leerCatalogo(dir).unidades).toEqual(catalogoEntero(fantasma));
     });
-  });
-
-  it('H3: el comentario del archivo dice qué falta para pasar una unidad al catálogo', () => {
-    for (const falta of [
-      'NO es copiarla',
-      'growth',
-      'upgradesTo',
-      'experiencia.json',
-      'ciudades.json',
-      'knight',
-    ]) {
-      expect(COMENTARIO_DEL_BORRADOR).toContain(falta);
-    }
-    expect(COMENTARIO_DEL_BORRADOR).not.toContain('copiándola');
   });
 
   it('H4: un final por tope de rondas se dice por tiempo, y uno de verdad no', () => {
@@ -958,7 +982,8 @@ describe('corrección de hallazgos de QA', () => {
     // cada lado, todo en IA. El héroe izquierdo lanza el Rayo sobre el derecho en
     // la ronda 1 y la pelea acaba con los dos piqueros en pie. El piquero era el
     // del catálogo; desde que el catálogo no está en la arena (13-10-2026), el
-    // del imperio.
+    // del imperio. Con el gambesón del equipo base (18-10-2026) el héroe aguanta
+    // el primer Rayo y cae en la ronda 2.
     const lado = (l: 'izquierda' | 'derecha'): LadoDeSesion => ({
       unidades: [delBorrador(unidad('imperio-piquero'))],
       heroe: heroePorDefecto(l),
@@ -968,34 +993,37 @@ describe('corrección de hallazgos de QA', () => {
       {
         izquierda: lado('izquierda'),
         derecha: lado('derecha'),
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        equipo: EQUIPO_DEL_JUEGO,
       },
       11,
     );
     s.empezar();
-    expect(s.battle.round).toBe(1);
+    expect(s.battle.round).toBe(2);
     expect(s.battle.stacks.filter((x) => x.origen.kind !== 'heroe' && isAlive(x))).toHaveLength(2);
     expect(finalDeArena(s.battle)).toMatchObject({ ganador: 'izquierda', causa: 'heroe' });
     const texto = marcadoDe(renderPanelDeBatalla(s, false));
     expect(texto).toContain(
-      'Gana el bando izquierdo en la ronda 1: cayó el héroe del bando derecho.',
+      'Gana el bando izquierdo en la ronda 2: cayó el héroe del bando derecho.',
     );
     expect(texto).not.toContain('por tiempo');
   });
 
   it('M2 y M14: un campo vacío se dice vacío, y un campo que no es de la arena se rechaza', () => {
-    expect(() => validarUnidadDeArena({ ...unidad('zombi'), hp: Number.NaN }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...unidad('zombi'), hp: Number.NaN }, EQUIPO_DEL_JUEGO)).toThrow(
       'la vida no tiene valor, el campo está vacío',
     );
-    expect(() => validarUnidadDeArena({ ...unidad('zombi'), growth: 3 }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...unidad('zombi'), growth: 3 }, EQUIPO_DEL_JUEGO)).toThrow(
       'la unidad "zombi": «growth» no es un campo de la arena',
     );
   });
 
-  it('M7: los no muertos salen con `undead`; los demás, no', () => {
+  it('M7: los no muertos son `undead`, en el catálogo y al nacer con «Nueva unidad»; los demás, no', () => {
+    for (const u of CATALOGO) {
+      expect(u.traits.includes('undead'), u.id).toBe(u.faction === 'no-muertos');
+    }
     for (const h of HOJAS) {
-      expect(unidadPorDefecto(h).traits.includes('undead'), h.id).toBe(h.faccion === 'no-muertos');
+      const nueva = unidadNueva(h, ocupados(), EQUIPO_DEL_JUEGO);
+      expect(nueva.traits.includes('undead'), h.id).toBe(h.faccion === 'no-muertos');
     }
   });
 
@@ -1020,17 +1048,17 @@ describe('corrección de hallazgos de QA', () => {
 
   it('la lista de hojas que llega por la red se valida al recibirla', () => {
     const buena = HOJAS[0] as (typeof HOJAS)[number];
-    expect(validarHojasDeArena(JSON.parse(JSON.stringify([buena])))).toEqual([buena]);
-    expect(() => validarHojasDeArena([{ ...buena, perfil: 'lanza-de-fuego' }])).toThrow(
+    expect(validarHojas(JSON.parse(JSON.stringify([buena])))).toEqual([buena]);
+    expect(() => validarHojas([{ ...buena, perfil: 'lanza-de-fuego' }])).toThrow(
       `la hoja "${buena.id}": el perfil "lanza-de-fuego" no existe`,
     );
-    expect(() => validarHojasDeArena({})).toThrow('no es una lista');
+    expect(() => validarHojas({})).toThrow('no es una lista');
   });
 
-  it('una hoja de unidad no sustituye a un cuerpo del juego', () => {
+  it('una hoja de unidad no sustituye a un cuerpo sin hoja (el héroe)', () => {
     const jinete = HOJAS.find((h) => h.id === 'templario-hermano-de-carga');
-    expect(() => registrarUnidad('pikeman', jinete as (typeof HOJAS)[number])).toThrow(
-      '"pikeman" es un cuerpo del juego',
+    expect(() => registrarUnidad(HERO_BODY, jinete as (typeof HOJAS)[number])).toThrow(
+      `"${HERO_BODY}" es un cuerpo del juego`,
     );
   });
 
@@ -1039,9 +1067,9 @@ describe('corrección de hallazgos de QA', () => {
     // El ocho de `core` es `NOMBRES_DE_DIRECCION.length` escrito a mano (`core`
     // no importa de `shared`): este test los pone en contacto.
     const n = NOMBRES_DE_DIRECCION.length;
-    expect(() =>
-      validarHojasDeArena([{ ...buena, direcciones: buena.direcciones?.slice(1) }]),
-    ).toThrow(`trae ${n - 1} direcciones, y son ${n} o ninguna`);
+    expect(() => validarHojas([{ ...buena, direcciones: buena.direcciones?.slice(1) }])).toThrow(
+      `trae ${n - 1} direcciones, y son ${n} o ninguna`,
+    );
   });
 });
 
@@ -1051,7 +1079,7 @@ describe('la velocidad son casillas', () => {
     expect(Object.keys(VELOCIDAD_DEL_CUERPO).sort()).toEqual([...new Set(personajes)].sort());
     for (const h of HOJAS) {
       expect(h.casillas, h.id).toBe(VELOCIDAD_DEL_CUERPO[h.personaje]?.[0]);
-      expect(unidadPorDefecto(h).casillas, h.id).toBe(h.casillas);
+      expect(unidadNueva(h, ocupados(), EQUIPO_DEL_JUEGO).casillas, h.id).toBe(h.casillas);
     }
     // Un personaje, una velocidad: todas sus hojas comparten cuerpo (12-10-2026).
     const porPersonaje = new Map<string, Set<number>>();
@@ -1061,35 +1089,36 @@ describe('la velocidad son casillas', () => {
     for (const [p, cs] of porPersonaje) expect(cs.size, p).toBe(1);
   });
 
-  it('el criterio del usuario se cumple en lo que pelea cada hoja por defecto', () => {
+  it('el criterio del usuario se cumple en lo que pelea cada unidad del catálogo', () => {
     // Las casillas con las que pelea (cuerpo + equipo), que es lo que pedía el
     // criterio de 02-10-2026 cuando la tabla iba por hoja.
     const v = (id: string): number =>
-      SPEED_TO_HEXES[unidadDeCombate(unidadPorDefecto(hojaPorId(id)), DEL_JUEGO).speed];
+      SPEED_TO_HEXES[unidadDeCombate(unidad(id), EQUIPO_DEL_JUEGO).speed];
     expect(v('goblin-jinete-de-hiena')).toBeGreaterThan(v('orko-hacha-escudo'));
-    // El Danzante, el más rápido de los de a pie: solo el jinete le pasa.
-    const aPie = HOJAS.filter((h) => h.id !== 'templario-hermano-de-carga');
-    expect(Math.max(...aPie.map((h) => v(h.id)))).toBe(6);
-    expect(aPie.filter((h) => v(h.id) === 6).map((h) => h.id)).toEqual([
-      'heroe-elfo-danzante-de-espadas',
-    ]);
     expect(v('templario-hermano-de-carga')).toBeGreaterThan(6);
+    // A pie, ninguna llega al Danzante (un héroe, 6 con su espada y su escudo):
+    // solo el jinete le pasa.
+    const danzante = conSuKit(hojaPorId('heroe-elfo-danzante-de-espadas'));
+    expect(SPEED_TO_HEXES[unidadDeCombate(danzante, EQUIPO_DEL_JUEGO).speed]).toBe(6);
+    const aPie = CATALOGO.filter((u) => !u.traits.includes('charge'));
+    expect(Math.max(...aPie.map((u) => v(u.id)))).toBeLessThan(6);
     // Y no hay un empate masivo: ninguna velocidad lleva a más de la mitad.
     const cuenta = new Map<number, number>();
-    for (const h of HOJAS) cuenta.set(v(h.id), (cuenta.get(v(h.id)) ?? 0) + 1);
-    expect(Math.max(...cuenta.values())).toBeLessThan(HOJAS.length / 2);
+    for (const u of CATALOGO) cuenta.set(v(u.id), (cuenta.get(v(u.id)) ?? 0) + 1);
+    expect(Math.max(...cuenta.values())).toBeLessThan(CATALOGO.length / 2);
   });
 
   it('el motor juega el escalón de esas casillas, y fuera de 2..7 se rechaza diciéndolo', () => {
     for (const t of SPEED_TIERS) expect(escalonDeCasillas(SPEED_TO_HEXES[t])).toBe(t);
     expect(() => escalonDeCasillas(8)).toThrow('la velocidad es de 2 a 7 casillas, y es 8');
-    expect(() => validarUnidadDeArena({ ...unidad('zombi'), casillas: 9 }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...unidad('zombi'), casillas: 9 }, EQUIPO_DEL_JUEGO)).toThrow(
       'la unidad «Zombie»: la velocidad es de 2 a 7 casillas, y es 9',
     );
-    expect(() => validarUnidadDeArena({ ...unidad('zombi'), casillas: 1 }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...unidad('zombi'), casillas: 1 }, EQUIPO_DEL_JUEGO)).toThrow(
       'la velocidad tiene que ser 2 o más, y es 1',
     );
-    const b = pelea([unidad('heroe-elfo-danzante-de-espadas')], [unidad('zombi')], createRng(1));
+    const danzante = conSuKit(hojaPorId('heroe-elfo-danzante-de-espadas'));
+    const b = pelea([danzante], [unidad('zombi')], createRng(1));
     expect(b.stacks.map((s) => s.unit.speed)).toEqual(['very_fast', 'very_slow']);
   });
 
@@ -1099,7 +1128,9 @@ describe('la velocidad son casillas', () => {
         ...['templario-escudo', 'templario-mandoble', 'templario-escudero'].map((id) => unidad(id)),
       ),
       ia(
-        ...['elfo-arquero', 'troll-maza', 'heroe-elfo-danzante-de-espadas'].map((id) => unidad(id)),
+        unidad('elfo-arquero'),
+        unidad('troll-maza'),
+        conSuKit(hojaPorId('heroe-elfo-danzante-de-espadas')),
       ),
       1,
     );
@@ -1132,7 +1163,7 @@ describe('una unidad a medias en el taller (#140)', () => {
 
   it('la lista de la arena no cae: la lista entera, y esa con el motivo y sin direcciones', () => {
     const raiz = zombiASieteDirecciones();
-    const hojas = hojasDeArena(raiz);
+    const hojas = hojasDelTaller(raiz);
     expect(hojas.map((h) => h.id)).toEqual(HOJAS.map((h) => h.id));
     const zombi = hojas.find((h) => h.id === 'zombi');
     expect(zombi?.direcciones).toBeNull();
@@ -1142,7 +1173,7 @@ describe('una unidad a medias en el taller (#140)', () => {
     // Las demás, sin arte en este repo de mentira, van con el Y Bot y montables.
     for (const h of hojas.filter((x) => x.id !== 'zombi')) expect(h.incompleta, h.id).toBeNull();
     // Y el cable la lleva tal cual hasta la página.
-    expect(validarHojasDeArena(JSON.parse(JSON.stringify(hojas)))).toEqual(hojas);
+    expect(validarHojas(JSON.parse(JSON.stringify(hojas)))).toEqual(hojas);
   });
 
   it('el visor del taller sigue lanzando con el mismo motivo: allí no hay dónde decir «a medias»', () => {
@@ -1159,7 +1190,7 @@ describe('una unidad a medias en el taller (#140)', () => {
   });
 
   it('el catálogo la enseña con su motivo y sin botones que la monten', () => {
-    const hojas = hojasDeArena(zombiASieteDirecciones());
+    const hojas = hojasDelTaller(zombiASieteDirecciones());
     const m = marcadoDe(renderCatalogo(hojas, 'todas'));
     const tarjeta = m.slice(m.indexOf('data-unidad-catalogo="zombi"'));
     const delZombi = tarjeta.slice(0, tarjeta.indexOf('</div>'));
@@ -1172,11 +1203,11 @@ describe('una unidad a medias en el taller (#140)', () => {
 
   it('la lista rechaza una hoja incompleta que trae direcciones, o que no dice si lo está', () => {
     const buena = HOJAS.find((h) => h.id === 'templario-escudo') as (typeof HOJAS)[number];
-    expect(() => validarHojasDeArena([{ ...buena, incompleta: 'le falta d7' }])).toThrow(
+    expect(() => validarHojas([{ ...buena, incompleta: 'le falta d7' }])).toThrow(
       'la hoja "templario-escudo": dice que está incompleta y trae sus direcciones',
     );
     const { incompleta: _fuera, ...sinCampo } = buena;
-    expect(() => validarHojasDeArena([sinCampo])).toThrow(
+    expect(() => validarHojas([sinCampo])).toThrow(
       'la hoja "templario-escudo": por qué está incompleta tiene que ser un texto no vacío',
     );
   });
@@ -1201,45 +1232,40 @@ const MAGO: HeroeDeArena = {
 function aLaIA(b: BattleState, rng: Rng): BattleState {
   for (let n = 0; b.finished === null; n++) {
     if (n > 5000) throw new Error('la IA no acaba la batalla');
-    applyAction(b, chooseBattleAction(b), rng);
+    applyAction(b, completarCruce(b, chooseBattleAction(b), rng).accion, rng);
   }
   return b;
 }
 
 describe('la arena como banco de combate', () => {
-  it('C4: con todas las reglas en «nuestra», la arena pelea exactamente como el juego', () => {
-    // El mismo ejército por las dos puertas: la del juego (`createBattle`, con
-    // cada unidad como personaje: la vía por la que entra la arena, `peleaDelMotor`)
-    // y la de la arena. Héroes con todo el libro, tiradores, jinetes que cargan y
-    // no-muertos: que se jueguen las reglas que tienen interruptor. Hasta el
-    // 13-10-2026 eran criaturas del catálogo, que ya no entran en la arena.
+  it('C4: la arena pelea exactamente como el juego', () => {
+    // El mismo ejército por las dos vías: la del juego (`createBattle`, con cada
+    // unidad como personaje: `peleaDelMotor`) y la de la arena (`batallaDeArena`).
+    // Héroes con todo el libro, tiradores, jinetes que cargan y no-muertos. Desde
+    // el 19-10-2026 las dos van por `createBattle`, sin interruptores: esto vigila
+    // que el montaje de la arena no cambie nada por el camino.
     const izquierda = ['elfo-arquero', 'templario-hermano-de-carga', 'templario-escudo'];
     const derecha = ['esqueleto-guerrero', 'esqueleto-arquero', 'caballero-de-la-muerte'];
     const delMotor = (ids: readonly string[]) => ids.map((id) => ({ unidad: unidad(id) }));
     for (const semilla of [1, 2, 3, 4, 5, 6]) {
       const juego = aLaIA(
         peleaDelMotor(delMotor(izquierda), delMotor(derecha), createRng(semilla), SIN_MURALLA, {
-          izquierda: heroeDeArena(MAGO, DEL_JUEGO),
-          derecha: heroeDeArena(MAGO, DEL_JUEGO),
+          izquierda: heroeDeArena(MAGO, EQUIPO_DEL_JUEGO),
+          derecha: heroeDeArena(MAGO, EQUIPO_DEL_JUEGO),
         }),
         createRng(semilla + 100),
       );
       const arena = aLaIA(
-        batallaDeArena(
+        montar(
           {
             izquierda: { unidades: izquierda.map(deLaHoja), heroe: MAGO },
             derecha: { unidades: derecha.map(deLaHoja), heroe: MAGO },
-            reglas: REGLAS_DEL_JUEGO,
-            piezas: [],
-            // La carga a pie es de la arena y no tiene interruptor (#260): sin
-            // ella, la arena es el juego.
-            modos: MODOS_DEL_JUEGO,
+            equipo: EQUIPO_DEL_JUEGO,
           },
           createRng(semilla),
         ),
         createRng(semilla + 100),
       );
-      expect(arena.reglas).toEqual(REGLAS_DEL_JUEGO);
       expect(arena.log).toEqual(juego.log);
       // Y la batalla se jugó de verdad: hubo hechizos y golpes.
       expect(juego.log.some((e) => e.kind === 'cast')).toBe(true);
@@ -1251,13 +1277,12 @@ describe('la arena como banco de combate', () => {
       {
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        equipo: EQUIPO_DEL_JUEGO,
       },
       1,
     );
     s.empezar();
-    expect(s.battle.heroes.attacker).toMatchObject({ mana: 40, spellPower: 3, ataque: 2 });
+    expect(s.battle.heroes.attacker).toMatchObject({ mana: 40, spellPower: 3 });
     const heroe = s.battle.stacks.find((x) => x.origen.kind === 'heroe');
     expect(heroe?.body).toBe('hero');
     // Con la Prisa del libro sobre una unidad propia, cuando le toque a la persona.
@@ -1274,29 +1299,26 @@ describe('la arena como banco de combate', () => {
   });
 
   it('C2: la ficha del héroe enseña lo que rinde con sus cifras, y cuenta en el bando', () => {
-    const ficha = fichaDeHeroeDeArena(MAGO, REGLAS_DEL_JUEGO, DEL_JUEGO);
+    const ficha = fichaDeHeroeDeArena(MAGO, EQUIPO_DEL_JUEGO);
     expect(ficha.mana).toBe(40);
     // El cuerpo con el que pisa el tablero: sus cifras con el equipo base puesto,
     // como el de un héroe recién hecho en la partida.
-    expect(ficha.cuerpo).toEqual(heroeDeArena(MAGO, DEL_JUEGO).cuerpo);
+    expect(ficha.cuerpo).toEqual(heroeDeArena(MAGO, EQUIPO_DEL_JUEGO).cuerpo);
     expect(ficha.cuerpo.attack).toBeGreaterThanOrEqual(MAGO.ataque);
     expect(ficha.hechizos.find((h) => h.id === 'magic_arrow')?.rinde).toBe(100 + 100 * 3);
     expect(ficha.hechizos.find((h) => h.id === 'bless')?.efecto).toMatchObject({
       kind: 'luck',
       roundsLeft: 3,
     });
-    const conF2 = fichaDeHeroeDeArena(MAGO, reglasDeLaURL('bendicion'), DEL_JUEGO);
-    expect(conF2.hechizos.find((h) => h.id === 'bless')?.efecto).toMatchObject({ kind: 'tirada' });
     const llenos = Array.from({ length: LIDERAZGO.maxPorBando }, () =>
       delBorrador(unidad('zombi')),
     );
     expect(() =>
-      batallaDeArena(
+      montar(
         {
           izquierda: { unidades: llenos, heroe: MAGO },
           derecha: { unidades: [deLaHoja('imperio-piquero')], heroe: null },
-          reglas: REGLAS_DEL_JUEGO,
-          piezas: [],
+          equipo: EQUIPO_DEL_JUEGO,
         },
         createRng(1),
       ),
@@ -1316,13 +1338,12 @@ describe('la arena como banco de combate', () => {
         heroe: { ...MAGO, figura: 'heroe-elfo-druida' },
       },
       derecha: { unidades: [deLaHoja('esqueleto-guerrero')], heroe: null },
-      reglas: REGLAS_DEL_JUEGO,
-      piezas: [],
+      ...MONTAJE,
     };
-    const b = batallaDeArena(lado, createRng(1));
+    const b = montar(lado, createRng(1));
     expect(b.stacks.find((s) => s.origen.kind === 'heroe')?.body).toBe('heroe-elfo-druida');
     b.heroes.attacker!.mana = 0;
-    expect(batallaDeArena(lado, createRng(1)).heroes.attacker?.mana).toBe(40);
+    expect(montar(lado, createRng(1)).heroes.attacker?.mana).toBe(40);
   });
 
   it('C3: un lanzamiento sin maná se rechaza con el motivo de castBlocker', () => {
@@ -1330,8 +1351,7 @@ describe('la arena como banco de combate', () => {
       {
         izquierda: { ...yo(unidad('templario-escudo')), heroe: { ...MAGO, conocimiento: 0 } },
         derecha: ia(unidad('zombi')),
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [],
+        equipo: EQUIPO_DEL_JUEGO,
       },
       2,
     );
@@ -1356,8 +1376,7 @@ describe('la arena como banco de combate', () => {
           // el orko de 80 PV no paga los 3 de maná de la Flecha mágica
           // (`VALOR_MINIMO_POR_MANA`: lo que quita, con el tope de su vida).
           derecha: ia(unidad('orko-dos-armas', { hp: 200 })),
-          reglas: REGLAS_DEL_JUEGO,
-          piezas: [],
+          equipo: EQUIPO_DEL_JUEGO,
         },
         semilla,
       );
@@ -1373,8 +1392,7 @@ describe('la arena como banco de combate', () => {
       {
         izquierda: yo(unidad('elfo-arquero')),
         derecha: ia(unidad('zombi')),
-        reglas: reglasDeLaURL('tirador'),
-        piezas: [],
+        equipo: EQUIPO_DEL_JUEGO,
       },
       1,
     );
@@ -1385,7 +1403,7 @@ describe('la arena como banco de combate', () => {
     const disparo = s.battleLegalActions().find((a) => a.type === 'shoot');
     if (disparo === undefined) throw new Error('el arquero no puede disparar');
     const p = s.prevision(disparo);
-    expect(p).toMatchObject({ kind: 'disparo', reglas: ['tirador'] });
+    expect(p).toMatchObject({ kind: 'disparo', objetivo: 'defender-0' });
   });
 });
 
@@ -1394,13 +1412,16 @@ describe('el montaje del banco de combate', () => {
     expect(FIGURA_GENERICA).toBe(HERO_BODY);
   });
 
-  it('los seis interruptores, con lo que dice cada versión y cuál está puesta', () => {
-    const m = marcadoDe(renderReglas(reglasDeLaURL('bendicion')));
-    expect(m).toContain('Reglas · 1 de fheroes2');
-    expect(m.match(/data-arena="regla"/g)?.length).toBe(2 * 6);
-    expect(m).toContain('data-regla="bendicion" data-version="fheroes2" class="primary"');
-    expect(m).toContain('daño máximo y daño mínimo (también la Maldición de la momia)');
-    expect(marcadoDe(renderReglas(REGLAS_DEL_JUEGO))).toContain('Reglas · las del juego');
+  it('sin interruptores: un ?reglas=, ?golpe= o ?contacto= se rechaza diciéndolo (19-10-2026)', () => {
+    const url = new URLSearchParams('seed=5&reglas=tirador&golpe=rueda&contacto=paga&montaje=x');
+    const motivo = (p: string) =>
+      `la arena pelea con las reglas del juego: quita «?${p}=» de la dirección`;
+    expect(retiradosDeLaURL(url.keys())).toEqual([
+      { nombre: 'reglas', motivo: motivo('reglas') },
+      { nombre: 'golpe', motivo: motivo('golpe') },
+      { nombre: 'contacto', motivo: motivo('contacto') },
+    ]);
+    expect(retiradosDeLaURL(new URLSearchParams('seed=5&montaje=x').keys())).toEqual([]);
   });
 
   it('C1: sin el catálogo del juego: ni su filtro, ni una criatura, ni «Nueva unidad» desde una (13-10-2026)', () => {
@@ -1426,10 +1447,10 @@ describe('el montaje del banco de combate', () => {
     expect(m.match(/data-unidad-catalogo="/g)).toHaveLength(HOJAS.length);
   });
 
-  it('la ficha del héroe enseña los valores con los que pelea, de las reglas en curso', () => {
+  it('la ficha del héroe enseña los valores con los que pelea', () => {
     const hojas = [{ id: 'heroe-elfo-druida', nombre: 'Druida' }];
     const m = marcadoDe(
-      renderFichaDeHeroe('izquierda', MAGO, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO), hojas),
+      renderFichaDeHeroe('izquierda', MAGO, enElMontaje(EQUIPO_DEL_JUEGO), hojas),
     );
     expect(m).toContain('data-mana-de-la-ficha="40"');
     expect(m).toContain('<span>40</span>');
@@ -1440,23 +1461,12 @@ describe('el montaje del banco de combate', () => {
     expect(m).not.toContain('A la tropa');
     expect(m).not.toContain('nada: su ataque');
     expect(m).toContain('<option value="heroe-elfo-druida" >Druida</option>');
-    const f2 = marcadoDe(
-      renderFichaDeHeroe(
-        'izquierda',
-        MAGO,
-        enElMontaje(reglasDeLaURL('heroe,bendicion'), DEL_JUEGO),
-        hojas,
-      ),
-    );
-    expect(f2).toContain('<span>+2 de ataque y +1 de defensa</span>');
-    expect(f2).toMatch(/A la tropa <span class="nota"[^>]*aria-label="Regla de fheroes2/);
-    expect(f2).toContain('Bendición (3)</span><span>daño máximo, 3 rondas');
     // H5 del banco: con Poder 1 decía «1 rondas».
     const poder1 = marcadoDe(
       renderFichaDeHeroe(
         'izquierda',
         heroePorDefecto('izquierda'),
-        enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO),
+        enElMontaje(EQUIPO_DEL_JUEGO),
         hojas,
       ),
     );
@@ -1465,13 +1475,12 @@ describe('el montaje del banco de combate', () => {
     expect(poder1).not.toContain('1 rondas');
   });
 
-  it('el panel de la pelea lleva el maná, las reglas y el libro de la persona', () => {
+  it('el panel de la pelea lleva el maná y el libro de la persona, sin reglas que elegir', () => {
     const s = new SesionDeArena(
       {
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
-        reglas: reglasDeLaURL('tirador'),
-        piezas: [],
+        equipo: EQUIPO_DEL_JUEGO,
       },
       1,
     );
@@ -1480,7 +1489,7 @@ describe('el montaje del banco de combate', () => {
       s.playBattleAction({ type: 'end_turn' });
     const m = marcadoDe(renderPanelDeBatalla(s, false));
     expect(m).toContain('Maná de Maga de pruebas</span><span>40 / 40');
-    expect(m).toContain('<span>Tirador</span>');
+    expect(m).not.toContain('fheroes2');
     expect(m).toContain('data-action="battle-spell" data-spell="magic_arrow"');
   });
 });
@@ -1494,14 +1503,16 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
    * prueba (el piquero con ataque 8): hoy, un piquero del imperio con su cifra sin
    * guardar.
    */
+  const UNIDADES_DEL_ENLACE = [
+    unidad('templario-escudo', { attack: 11 }),
+    unidad('imperio-piquero', { attack: 8 }),
+    unidad('zombi'),
+    unidad('orko-dos-armas'),
+  ];
   const MONTAJE: MontajeDelEnlace = {
-    unidades: [
-      unidad('templario-escudo', { attack: 11 }),
-      unidad('imperio-piquero', { attack: 8 }),
-      unidad('zombi'),
-      unidad('orko-dos-armas'),
-    ],
-    piezas: [],
+    unidades: UNIDADES_DEL_ENLACE,
+    // Todas las piezas que lleva lo montado, la tropa y los héroes.
+    piezas: piezasDelMontaje(UNIDADES_DEL_ENLACE, true, EQUIPO_ESCRITO),
     izquierda: {
       ia: false,
       puestos: [
@@ -1539,12 +1550,14 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     // A través de URLSearchParams, que es por donde viaja.
     const url = new URLSearchParams({ montaje: texto }).toString();
     expect(montajeDeLaURL(new URLSearchParams(url).get('montaje') as string)).toEqual(MONTAJE);
-    const b = batallaDeArena(montajeDeArenaDelEnlace(leido, REGLAS_DEL_JUEGO, []), createRng(7));
+    const b = montar(montajeDeArenaDelEnlace(leido, EQUIPO_DEL_JUEGO), createRng(7));
     expect(b.muralla).toEqual(MONTAJE.muralla);
     // Las escaleras del montaje llegan al tablero, con las cifras del enlace.
     const conEscalera = b.stacks.filter((st) => st.side === 'attacker' && st.escalera);
     expect(conEscalera.map((st) => st.slot)).toEqual([0, 1]);
-    expect(conEscalera[1]?.unit.sinEquipo?.attack).toBe(8);
+    expect(cuerpoDe(conEscalera[1] as BattleStack, catalogoDe(b, EQUIPO_DEL_JUEGO))?.attack).toBe(
+      8,
+    );
   });
 
   it('un enlace de otra versión se rechaza diciendo que se vuelva a copiar, sin convertir nada', () => {
@@ -1560,7 +1573,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
         tocado((o) => {
           o.v = 7;
           o.pruebas = { pikeman: { attack: 8 } };
-          o.izquierda.puestos.push({ criatura: 'pikeman', escalera: false });
+          o.izquierda.puestos.push({ criatura: 'templario-escudo', escalera: false });
         }),
       ),
     ).toThrow('vuelve a copiarlo');
@@ -1585,17 +1598,17 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('un enlace mal formado o con lo que no existe se rechaza diciendo qué', () => {
     const casos: [string, string][] = [
       ['{"v":1,', 'el montaje del enlace no se puede leer'],
-      [tocado((o) => (o.v = 12)), 'es de la versión 12 y esta arena lee la 11'],
-      // La versión es la de hoy: ni la de antes de los niveles de la rueda (10), ni
+      [tocado((o) => (o.v = 14)), 'es de la versión 14 y esta arena lee la 13'],
+      // La versión es la de hoy: ni la de antes de quitar los interruptores (12), ni
       // 0, ni a medias, ni texto.
       [
-        tocado((o) => (o.v = 10)),
-        'este enlace es de una versión anterior de la arena (la 10; la de hoy es la 11): vuelve a copiarlo',
+        tocado((o) => (o.v = 12)),
+        'este enlace es de una versión anterior de la arena (la 12; la de hoy es la 13): vuelve a copiarlo',
       ],
-      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 11'],
-      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 11'],
-      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 11'],
-      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 11'],
+      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 13'],
+      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 13'],
+      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 13'],
+      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 13'],
       [tocado((o) => delete o.muralla), 'falta «muralla»'],
       [tocado((o) => o.muralla.muros.push({ col: 99, row: 0 })), 'la muralla del enlace no vale'],
       [
@@ -1619,12 +1632,12 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
       [tocado((o) => delete o.derecha), 'falta «derecha»'],
       // Solo la arena: ni criaturas del catálogo ni sus pruebas.
       [
-        tocado((o) => (o.izquierda.puestos[1] = { criatura: 'pikeman', escalera: false })),
+        tocado((o) => (o.izquierda.puestos[1] = { criatura: 'templario-escudo', escalera: false })),
         'el bando izquierdo del enlace, puesto 2: «criatura» no es un campo del enlace',
       ],
       [tocado((o) => (o.pruebas = {})), '«pruebas» no es un campo del enlace'],
       [
-        tocado((o) => (o.unidades[0].cuerpo = { criatura: 'pikeman' })),
+        tocado((o) => (o.unidades[0].cuerpo = { criatura: 'templario-escudo' })),
         'el cuerpo tiene que ser { hoja }, y trae criatura',
       ],
       [tocado((o) => (o.unidades[0].shots = 12)), '«shots» no es un campo de la arena'],
@@ -1663,12 +1676,12 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   });
 
   it('un parámetro repetido en la URL se rechaza diciéndolo (H4 de QA del banco)', () => {
-    const repetido = new URLSearchParams('seed=5&reglas=tirador&reglas=bendicion');
-    expect(() => unaVezEnLaURL(repetido.getAll('reglas'), 'reglas')).toThrow(
-      '«reglas» va 2 veces en la URL («tirador», «bendicion»): pon uno solo, con las reglas separadas por comas (reglas=tirador,bendicion)',
+    const repetido = new URLSearchParams('seed=5&montaje=a&montaje=b');
+    expect(() => unaVezEnLaURL(repetido.getAll('montaje'), 'montaje')).toThrow(
+      '«montaje» va 2 veces en la URL («a», «b»): pon uno solo',
     );
     expect(unaVezEnLaURL(repetido.getAll('seed'), 'seed')).toBe('5');
-    expect(unaVezEnLaURL(repetido.getAll('montaje'), 'montaje')).toBeNull();
+    expect(unaVezEnLaURL(repetido.getAll('reglas'), 'reglas')).toBeNull();
   });
 });
 
@@ -1677,9 +1690,11 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
 describe('los poderes del monje en la arena (A3)', () => {
   it('el monje templario sale con Curar y Bendecir; otro bastón, con ninguno', () => {
     expect(unidad('templario-monje').habilidades).toEqual(['Curar (X)', 'Bendecir']);
-    const otroBaston = HOJAS.find((h) => h.perfil === 'baston' && h.id !== 'templario-monje');
-    if (otroBaston === undefined) throw new Error('no hay otra hoja de bastón');
-    expect(unidadPorDefecto(otroBaston).habilidades).toEqual([]);
+    const otroBaston = CATALOGO.find(
+      (u) => hojaPorId(u.cuerpo.hoja).perfil === 'baston' && u.id !== 'templario-monje',
+    );
+    if (otroBaston === undefined) throw new Error('no hay otra unidad de bastón');
+    expect(otroBaston.habilidades).toEqual([]);
     // Y en la pelea son poderes del motor; las demás habilidades no pelean.
     const b = pelea(
       [unidad('templario-monje', { habilidades: ['Bendecir', 'Salto', 'Curar (X)'] })],
@@ -1693,12 +1708,12 @@ describe('los poderes del monje en la arena (A3)', () => {
   it('«Bendecir» se valida aunque no esté en el cuaderno, y lo que no existe no', () => {
     expect(CATALOGO_DE_HABILIDADES).toContain('Curar (X)');
     expect(CATALOGO_DE_HABILIDADES).not.toContain('Bendecir');
-    expect(HABILIDADES_DE_LA_ARENA).toContain('Bendecir');
+    expect(HABILIDADES).toContain('Bendecir');
     expect(
-      validarUnidadDeArena(unidad('zombi', { habilidades: ['Bendecir'] }), DEL_JUEGO).habilidades,
+      validarUnidad(unidad('zombi', { habilidades: ['Bendecir'] }), EQUIPO_DEL_JUEGO).habilidades,
     ).toEqual(['Bendecir']);
     expect(() =>
-      validarUnidadDeArena(unidad('zombi', { habilidades: ['Bendecirr'] }), DEL_JUEGO),
+      validarUnidad(unidad('zombi', { habilidades: ['Bendecirr'] }), EQUIPO_DEL_JUEGO),
     ).toThrow('la habilidad "Bendecirr" no existe');
   });
 
@@ -1706,7 +1721,7 @@ describe('los poderes del monje en la arena (A3)', () => {
     const u = unidad('templario-monje', {
       habilidades: ['Curar (X)', 'Bendecir', 'Salto'],
     });
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).toContain('Poderes · actúan en la pelea');
     expect(m).toContain('cura 40 PV a un aliado herido, incluida la propia unidad');
     // El chip dice lo que cura, no la X del cuaderno; el valor sigue siendo el nombre (M3).
@@ -1727,8 +1742,7 @@ describe('los poderes del monje en la arena (A3)', () => {
     const enCombate = marcadoDe(
       renderFicha(u, false, {
         enCombate: true,
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: DEL_JUEGO,
+        piezas: EQUIPO_DEL_JUEGO,
       }),
     );
     expect(enCombate).not.toContain('<canvas');
@@ -1742,8 +1756,7 @@ describe('los poderes del monje en la arena (A3)', () => {
         {
           izquierda: { ...yo(unidad('templario-monje'), unidad('templario-escudo')), heroe: MAGO },
           derecha: ia(unidad('orko-dos-armas')),
-          reglas: REGLAS_DEL_JUEGO,
-          piezas: [],
+          equipo: EQUIPO_DEL_JUEGO,
         },
         1,
       );
@@ -1784,19 +1797,18 @@ describe('retocar en plena pelea (B10-B14)', () => {
   // las del stack, y con equipo serían las del cuerpo más sus piezas (el retoque
   // del equipo, en su propio test). Sin arma no se monta nadie (vuelta 2): llevan
   // las manos de prueba, que no suman nada.
-  const unidad = (id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena =>
+  const unidad = (id: string, cambios: Partial<Unidad> = {}): Unidad =>
     unidadDeArena(id, { equipo: { arma: MANOS_DE_PRUEBA.id }, ...cambios });
   /** Monje y arquero a la izquierda, con héroe; monje a la derecha. */
   function conMonjes(): BattleState {
-    return batallaDeArena(
+    return montar(
       {
         izquierda: {
           unidades: [delBorrador(unidad('templario-monje')), delBorrador(unidad('goblin-arquero'))],
           heroe: MAGO,
         },
         derecha: { unidades: [delBorrador(unidad('templario-monje'))], heroe: null },
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [MANOS_DE_PRUEBA],
+        equipo: CON_MANOS,
       },
       createRng(4),
     );
@@ -1808,10 +1820,14 @@ describe('retocar en plena pelea (B10-B14)', () => {
     const arquero = b.stacks.find((x) => x.body === 'goblin-arquero');
     const desde = b.log.length;
     expect(
-      retocarEnBatalla(b, {
-        kind: 'tipo',
-        fuente: delBorrador(unidad('templario-monje', { attack: 19 })),
-      }),
+      retocarEnBatalla(
+        b,
+        {
+          kind: 'tipo',
+          fuente: delBorrador(unidad('templario-monje', { attack: 19 })),
+        },
+        catalogoDe(b, CON_MANOS),
+      ),
     ).toBeNull();
     expect(monjes(b).map((x) => [x.side, x.unit.attack])).toEqual([
       ['attacker', 19],
@@ -1832,68 +1848,80 @@ describe('retocar en plena pelea (B10-B14)', () => {
       `Cambian las cifras de ${unidad('templario-monje').name} a media pelea (ataque 3 → 19)`,
     );
     // La misma fuente sin cambios deja las cifras de una pelea recién montada.
-    retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador(unidad('templario-monje')) });
+    retocarEnBatalla(
+      b,
+      { kind: 'tipo', fuente: delBorrador(unidad('templario-monje')) },
+      catalogoDe(b, CON_MANOS),
+    );
     expect(monjes(b)[0]?.unit).toEqual(monjes(conMonjes())[0]?.unit);
   });
 
   it('quitarle el escudo a media pelea sube su velocidad y el parte dice «escudo: − Escudo»', () => {
     const conEscudo = unidadDeArena('templario-escudo');
-    const b = batallaDeArena(
+    const b = montar(
       {
         izquierda: { unidades: [delBorrador(conEscudo)], heroe: null },
         derecha: { unidades: [delBorrador(unidadDeArena('zombi'))], heroe: null },
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [MANOS_DE_PRUEBA],
+        equipo: CON_MANOS,
       },
       createRng(1),
     );
     const suyo = () => b.stacks.find((x) => x.side === 'attacker') as BattleStack;
     expect(SPEED_TO_HEXES[suyo().unit.speed]).toBe(3);
     const sinEscudo = quitarEnArena(conEscudo, 'escudo');
-    expect(retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador(sinEscudo) })).toBeNull();
+    expect(
+      retocarEnBatalla(
+        b,
+        { kind: 'tipo', fuente: delBorrador(sinEscudo) },
+        catalogoDe(b, CON_MANOS),
+      ),
+    ).toBeNull();
     expect(SPEED_TO_HEXES[suyo().unit.speed]).toBe(4);
-    expect(suyo().unit.defense).toBe(3);
+    expect(suyo().unit.defense).toBe(conEscudo.defense);
     expect(b.log.at(-1)).toMatchObject({ kind: 'retoque', cambios: ['escudo: − Escudo'] });
   });
 
   it('el tipo de cada stack lo anota el montaje: unidad o héroe', () => {
-    const b = batallaDeArena(
+    const b = montar(
       {
         izquierda: {
           unidades: [delBorrador(unidad('zombi')), delBorrador(unidad('esqueleto-guerrero'))],
           heroe: MAGO,
         },
         derecha: { unidades: [delBorrador(unidad('zombi'))], heroe: null },
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [MANOS_DE_PRUEBA],
+        equipo: CON_MANOS,
       },
       createRng(1),
     );
-    expect(b.stacks.map((x) => tipoDelStack(b, x))).toEqual([
+    expect(b.stacks.map((x) => tipoDelStack(x))).toEqual([
       { kind: 'unidad', id: 'zombi' },
       { kind: 'unidad', id: 'esqueleto-guerrero' },
       { kind: 'heroe', lado: 'izquierda' },
       { kind: 'unidad', id: 'zombi' },
     ]);
     // Retocar un tipo no toca los demás.
-    retocarEnBatalla(b, {
-      kind: 'tipo',
-      fuente: delBorrador(unidad('esqueleto-guerrero', { attack: 9 })),
-    });
+    retocarEnBatalla(
+      b,
+      {
+        kind: 'tipo',
+        fuente: delBorrador(unidad('esqueleto-guerrero', { attack: 9 })),
+      },
+      catalogoDe(b, CON_MANOS),
+    );
     expect(b.stacks.map((x) => x.unit.attack)).toEqual([
       unidad('zombi').attack,
       9,
       b.stacks[2]?.unit.attack,
       unidad('zombi').attack,
     ]);
-    // Una pelea que no es de la arena no sabe de tipos: se dice.
-    const delJuego = createBattle(
-      { army: [{ creature: 'zombie', count: 1 }], hero: null },
-      { army: [{ creature: 'zombie', count: 1 }], hero: null },
+    // Un personaje no sale de ningún puesto del montaje: se dice.
+    const conPersonaje = peleaDelMotor(
+      [{ unidad: unidadDeArena('zombi') }],
+      [{ unidad: unidadDeArena('zombi') }],
       createRng(1),
     );
-    expect(() => tipoDelStack(delJuego, delJuego.stacks[0] as BattleStack)).toThrow(
-      'no es una pelea de la arena',
+    expect(() => tipoDelStack(conPersonaje.stacks[0] as BattleStack)).toThrow(
+      'no sale de ningún puesto del montaje',
     );
   });
 
@@ -1902,22 +1930,34 @@ describe('retocar en plena pelea (B10-B14)', () => {
     const elMonje = () => monjes(b)[0] as BattleStack;
     const hp = elMonje().unit.hp;
     elMonje().topHp = hp - 3;
-    retocarEnBatalla(b, {
-      kind: 'tipo',
-      fuente: delBorrador(unidad('templario-monje', { hp: hp + 10 })),
-    });
+    retocarEnBatalla(
+      b,
+      {
+        kind: 'tipo',
+        fuente: delBorrador(unidad('templario-monje', { hp: hp + 10 })),
+      },
+      catalogoDe(b, CON_MANOS),
+    );
     expect(elMonje().topHp).toBe(hp + 10 - 3);
     // Bajar la vida por debajo de la herida no mata: queda en 1.
-    retocarEnBatalla(b, {
-      kind: 'tipo',
-      fuente: delBorrador(unidad('templario-monje', { hp: 2 })),
-    });
+    retocarEnBatalla(
+      b,
+      {
+        kind: 'tipo',
+        fuente: delBorrador(unidad('templario-monje', { hp: 2 })),
+      },
+      catalogoDe(b, CON_MANOS),
+    );
     expect(elMonje().topHp).toBe(1);
     const mando = b.heroes.attacker;
     if (mando === null) throw new Error('sin héroe');
     mando.mana -= 7;
     mando.castThisRound = true;
-    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, conocimiento: 6 } });
+    retocarEnBatalla(
+      b,
+      { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, conocimiento: 6 } },
+      catalogoDe(b, CON_MANOS),
+    );
     expect(b.heroes.attacker).toMatchObject({ mana: 60 - 7, knowledge: 6, castThisRound: true });
     expect(b.log.at(-1)).toMatchObject({
       kind: 'retoque',
@@ -1930,7 +1970,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
     // Lo que no cupo al bajar se debe: con lo gastado calculado desde las cifras
     // de ese momento, la vida bajo la herida lo perdía. La munición se fue con la
     // munición de la arena (13-10-2026).
-    const b = batallaDeArena(
+    const b = montar(
       {
         izquierda: {
           unidades: [
@@ -1940,17 +1980,20 @@ describe('retocar en plena pelea (B10-B14)', () => {
           heroe: MAGO,
         },
         derecha: { unidades: [delBorrador(unidad('zombi'))], heroe: null },
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [MANOS_DE_PRUEBA],
+        equipo: CON_MANOS,
       },
       createRng(4),
     );
     const de = (body: string) => b.stacks.find((x) => x.body === body) as BattleStack;
     const escudero = (hp: number) =>
-      retocarEnBatalla(b, {
-        kind: 'tipo',
-        fuente: delBorrador(unidad('templario-escudo', { hp })),
-      });
+      retocarEnBatalla(
+        b,
+        {
+          kind: 'tipo',
+          fuente: delBorrador(unidad('templario-escudo', { hp })),
+        },
+        catalogoDe(b, CON_MANOS),
+      );
     de('templario-escudo').topHp = 5;
     escudero(3);
     expect(de('templario-escudo').topHp).toBe(1);
@@ -1964,9 +2007,17 @@ describe('retocar en plena pelea (B10-B14)', () => {
     // El maná: Conocimiento 4 (40) con 7 gastados → 0 → 4 vuelve a 33.
     const mando = () => b.heroes.attacker as NonNullable<typeof b.heroes.attacker>;
     mando().mana -= 7;
-    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, conocimiento: 0 } });
+    retocarEnBatalla(
+      b,
+      { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, conocimiento: 0 } },
+      catalogoDe(b, CON_MANOS),
+    );
     expect(mando().mana).toBe(0);
-    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: MAGO });
+    retocarEnBatalla(
+      b,
+      { kind: 'heroe', lado: 'izquierda', datos: MAGO },
+      catalogoDe(b, CON_MANOS),
+    );
     expect(mando().mana).toBe(10 * MAGO.conocimiento - 7);
   });
 
@@ -1975,25 +2026,25 @@ describe('retocar en plena pelea (B10-B14)', () => {
     const monje = unidad('templario-monje');
     // Una habilidad sin motor: no cambia ninguna cifra de la pelea.
     const inerte = 'Salto';
-    expect(HABILIDADES_DE_LA_ARENA).toContain(inerte);
+    expect(HABILIDADES).toContain(inerte);
     expect(monje.habilidades).not.toContain(inerte);
     const desde = b.log.length;
-    const retoca = (cambios: Partial<UnidadDeArena>) =>
-      retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador({ ...monje, ...cambios }) });
+    const retoca = (cambios: Partial<Unidad>) =>
+      retocarEnBatalla(
+        b,
+        { kind: 'tipo', fuente: delBorrador({ ...monje, ...cambios }) },
+        catalogoDe(b, CON_MANOS),
+      );
     retoca({ leadership: 9 });
-    retoca({ leadership: 9, cost: { gold: 999 } });
-    retoca({ leadership: 9, cost: { gold: 999 }, habilidades: [...monje.habilidades, inerte] });
+    retoca({ leadership: 9, habilidades: [...monje.habilidades, inerte] });
     expect(b.log.slice(desde).map((e) => (e.kind === 'retoque' ? e.cambios : e.kind))).toEqual([
       [`liderazgo ${monje.leadership} → 9`],
-      [`coste (oro) ${monje.cost.gold} → 999`],
       [`habilidades: + ${inerte}`],
     ]);
     // El mismo valor (ataque 3 → 3): ni línea ni stacks nuevos.
     const antes = [...b.stacks];
     const largo = b.log.length;
-    expect(
-      retoca({ leadership: 9, cost: { gold: 999 }, habilidades: [...monje.habilidades, inerte] }),
-    ).toBeNull();
+    expect(retoca({ leadership: 9, habilidades: [...monje.habilidades, inerte] })).toBeNull();
     expect(b.log.length).toBe(largo);
     expect(b.stacks).toEqual(antes);
     expect(b.stacks.every((s, i) => s === antes[i])).toBe(true);
@@ -2002,8 +2053,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
       {
         izquierda: { ...yo(unidad('templario-monje')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [MANOS_DE_PRUEBA],
+        equipo: CON_MANOS,
       },
       1,
     );
@@ -2021,17 +2071,29 @@ describe('retocar en plena pelea (B10-B14)', () => {
   it('el parte del héroe dice las cifras de su ficha y los hechizos por su nombre (N2 de QA)', () => {
     const b = conMonjes();
     const desde = b.log.length;
-    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, ataque: 9 } });
-    retocarEnBatalla(b, {
-      kind: 'heroe',
-      lado: 'izquierda',
-      datos: { ...MAGO, ataque: 9, hechizos: MAGO.hechizos.filter((h) => h !== 'haste') },
-    });
-    retocarEnBatalla(b, {
-      kind: 'heroe',
-      lado: 'izquierda',
-      datos: { ...MAGO, ataque: 9, hechizos: ['magic_arrow', 'haste'] },
-    });
+    retocarEnBatalla(
+      b,
+      { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, ataque: 9 } },
+      catalogoDe(b, CON_MANOS),
+    );
+    retocarEnBatalla(
+      b,
+      {
+        kind: 'heroe',
+        lado: 'izquierda',
+        datos: { ...MAGO, ataque: 9, hechizos: MAGO.hechizos.filter((h) => h !== 'haste') },
+      },
+      catalogoDe(b, CON_MANOS),
+    );
+    retocarEnBatalla(
+      b,
+      {
+        kind: 'heroe',
+        lado: 'izquierda',
+        datos: { ...MAGO, ataque: 9, hechizos: ['magic_arrow', 'haste'] },
+      },
+      catalogoDe(b, CON_MANOS),
+    );
     expect(b.log.slice(desde).map((e) => (e.kind === 'retoque' ? e.cambios : e.kind))).toEqual([
       [`ataque ${MAGO.ataque} → 9`],
       ['hechizos: − Prisa'],
@@ -2041,7 +2103,11 @@ describe('retocar en plena pelea (B10-B14)', () => {
 
   it('el héroe retocado lanza con su poder nuevo (B13)', () => {
     const b = conMonjes();
-    retocarEnBatalla(b, { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, poder: 9 } });
+    retocarEnBatalla(
+      b,
+      { kind: 'heroe', lado: 'izquierda', datos: { ...MAGO, poder: 9 } },
+      catalogoDe(b, CON_MANOS),
+    );
     const objetivo = b.stacks.find((x) => x.side === 'defender');
     if (objetivo === undefined) throw new Error('sin objetivo');
     applyAction(b, { type: 'cast', spell: 'magic_arrow', target: objetivo.id }, createRng(1));
@@ -2053,28 +2119,48 @@ describe('retocar en plena pelea (B10-B14)', () => {
     const b = conMonjes();
     const antes = JSON.stringify(b);
     expect(
-      retocarEnBatalla(b, {
-        kind: 'heroe',
-        lado: 'izquierda',
-        datos: { ...MAGO, figura: 'heroe-lich' },
-      }),
+      retocarEnBatalla(
+        b,
+        {
+          kind: 'heroe',
+          lado: 'izquierda',
+          datos: { ...MAGO, figura: 'heroe-lich' },
+        },
+        catalogoDe(b, CON_MANOS),
+      ),
     ).toContain('la figura del héroe no se cambia a media pelea');
     expect(
-      retocarEnBatalla(b, {
-        kind: 'tipo',
-        fuente: delBorrador(unidad('templario-monje', { damage: [5, 2] })),
-      }),
+      retocarEnBatalla(
+        b,
+        {
+          kind: 'tipo',
+          fuente: delBorrador(unidad('templario-monje', { damage: [5, 2] })),
+        },
+        catalogoDe(b, CON_MANOS),
+      ),
     ).toContain('el daño mínimo (5) no puede pasar del máximo (2)');
-    expect(retocarEnBatalla(b, { kind: 'heroe', lado: 'derecha', datos: MAGO })).toBe(
-      'el bando derecho no lleva héroe en esta pelea',
-    );
     expect(
-      retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador(unidad('zombi', { attack: 3 })) }),
+      retocarEnBatalla(
+        b,
+        { kind: 'heroe', lado: 'derecha', datos: MAGO },
+        catalogoDe(b, CON_MANOS),
+      ),
+    ).toBe('el bando derecho no lleva héroe en esta pelea');
+    expect(
+      retocarEnBatalla(
+        b,
+        { kind: 'tipo', fuente: delBorrador(unidad('zombi', { attack: 3 })) },
+        catalogoDe(b, CON_MANOS),
+      ),
     ).toBe('Zombie no está en esta pelea');
     expect(JSON.stringify(b)).toBe(antes);
     b.finished = { winner: 'attacker' };
     expect(
-      retocarEnBatalla(b, { kind: 'tipo', fuente: delBorrador(unidad('templario-monje')) }),
+      retocarEnBatalla(
+        b,
+        { kind: 'tipo', fuente: delBorrador(unidad('templario-monje')) },
+        catalogoDe(b, CON_MANOS),
+      ),
     ).toBe('la batalla ya ha terminado; el cambio vale para la pelea siguiente');
   });
 
@@ -2083,8 +2169,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
       {
         izquierda: { ...yo(unidad('templario-monje'), unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('orko-dos-armas')),
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [MANOS_DE_PRUEBA],
+        equipo: CON_MANOS,
       },
       1,
     );
@@ -2094,13 +2179,13 @@ describe('retocar en plena pelea (B10-B14)', () => {
     s.hechizos.selectSpell('bless');
     expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'bless' });
     // Apuntar el poder suelta el hechizo, y elegir el hechizo suelta el poder.
-    s.apuntarPoder('bendecir');
+    s.poderes.apuntar('bendecir');
     expect(s.apuntado).toEqual({ kind: 'poder', id: 'bendecir' });
     expect(s.hechizos.selectedSpell).toBeNull();
     s.hechizos.selectSpell('bless');
     expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'bless' });
     // El rechazo de lo apuntado es el del núcleo: el de Bendecir sobre el orco.
-    s.apuntarPoder('bendecir');
+    s.poderes.apuntar('bendecir');
     const orco = s.battle.stacks.find((x) => x.side === 'defender')?.id as string;
     expect(s.rechazoDeLoApuntado(orco)).toBe('«Bendecir» va dirigido a un aliado.');
     // Sin Bendecir en sus habilidades, el poder apuntado ya no vale: se suelta y se dice.
@@ -2125,8 +2210,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
       {
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
-        reglas: REGLAS_DEL_JUEGO,
-        piezas: [MANOS_DE_PRUEBA],
+        equipo: CON_MANOS,
       },
       1,
     );
@@ -2149,7 +2233,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
     expect(
       s.retocar({ kind: 'tipo', fuente: delBorrador(unidad('templario-escudo', { equipo: {} })) }),
     ).toBe(
-      'La unidad «Guerrero con escudo»: no lleva arma de cuerpo a cuerpo: en la arena nadie pelea sin ella; ponle una en Arma.',
+      'La unidad «Guerrero con escudo»: no lleva arma de cuerpo a cuerpo: nadie pelea sin ella; ponle una en Arma.',
     );
     expect(s.version).toBe(version);
     expect(
@@ -2168,56 +2252,66 @@ describe('retocar en plena pelea (B10-B14)', () => {
   });
 });
 
-describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo (12-10-2026)', () => {
-  it('toda hoja por defecto valida, y su cuerpo sin equipo es nivel 1', () => {
+describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puesto (18-10-2026)', () => {
+  it('el cuerpo común, desnudo, es del nivel 1 (el jinete, que carga, hasta el 2), y cada unidad del catálogo vale más vestida que desnuda', () => {
     for (const h of HOJAS) {
-      const u = validarUnidadDeArena(unidadPorDefecto(h), DEL_JUEGO);
-      expect(nivelDeLaHoja(u), h.id).toMatch(/· nivel 1$/);
+      const desnuda = { ...unidadNueva(h, ocupados(), EQUIPO_DEL_JUEGO), equipo: {} };
+      expect(nivelDeLaHoja(desnuda), h.id).toMatch(
+        desnuda.traits.includes('charge') ? /· nivel [12]$/ : /· nivel 1$/,
+      );
+    }
+    for (const u of CATALOGO) {
+      expect(indiceDePoder(unidadDeCombate(u, EQUIPO_DEL_JUEGO)), u.id).toBeGreaterThan(
+        indiceDePoder(unidadDeCombate({ ...u, equipo: {} }, EQUIPO_DEL_JUEGO)),
+      );
     }
   });
 
-  it('el mismo cuerpo es el mismo nivel lleve lo que lleve, y el equipo cambia lo que pelea', () => {
-    const a = unidadNueva(hojaPorId('templario-escudo'), ocupados(), DEL_JUEGO);
-    const b = unidadNueva(hojaPorId('templario-escudo'), ocupados(a.id), DEL_JUEGO);
-    const conEscudo = equiparEnArena(equiparEnArena(a, 'espada', DEL_JUEGO), 'escudo', DEL_JUEGO);
-    const conMandoble = equiparEnArena(b, 'mandoble', DEL_JUEGO);
-    expect(nivelDeLaHoja(conEscudo)).toBe(nivelDeLaHoja(conMandoble));
-    expect(nivelDeLaHoja(conEscudo)).toBe(nivelDeLaHoja(a));
-    expect(unidadDeCombate(conEscudo, DEL_JUEGO)).not.toEqual(
-      unidadDeCombate(conMandoble, DEL_JUEGO),
+  it('el mismo cuerpo vale según lo que lleva: con mandoble y arnés, más que con la Espada, y esta más que la daga', () => {
+    const a = unidadNueva(hojaPorId('templario-escudo'), ocupados(), EQUIPO_DEL_JUEGO);
+    const conDaga = equiparEnArena(a, 'daga', EQUIPO_DEL_JUEGO);
+    const conMandoble = equiparEnArena(
+      equiparEnArena(a, 'mandoble', EQUIPO_DEL_JUEGO),
+      'arnes_de_placas',
+      EQUIPO_DEL_JUEGO,
     );
+    const indice = (u: Unidad) => indiceDePoder(unidadDeCombate(u, EQUIPO_DEL_JUEGO));
+    expect(indice(conMandoble)).toBeGreaterThan(indice(a));
+    expect(indice(a)).toBeGreaterThan(indice(conDaga));
+    expect(nivelDeLaHoja(conMandoble)).toBe('Índice 349 · nivel 3');
+    expect(nivelDeLaHoja(conDaga)).toBe('Índice 211 · nivel 2');
   });
 
   it('el escudo resta velocidad y un arma a dos manos no lo admite, en las dos direcciones', () => {
-    const u = unidadNueva(hojaPorId('templario-escudo'), ocupados(), DEL_JUEGO);
-    const conEscudo = equiparEnArena(u, 'escudo', DEL_JUEGO);
-    expect(SPEED_TO_HEXES[unidadDeCombate(conEscudo, DEL_JUEGO).speed]).toBe(
-      SPEED_TO_HEXES[unidadDeCombate(u, DEL_JUEGO).speed] - 1,
+    const u = unidadNueva(hojaPorId('templario-escudo'), ocupados(), EQUIPO_DEL_JUEGO);
+    const conEscudo = equiparEnArena(u, 'escudo', EQUIPO_DEL_JUEGO);
+    expect(SPEED_TO_HEXES[unidadDeCombate(conEscudo, EQUIPO_DEL_JUEGO).speed]).toBe(
+      SPEED_TO_HEXES[unidadDeCombate(u, EQUIPO_DEL_JUEGO).speed] - 1,
     );
-    expect(() => equiparEnArena(conEscudo, 'mandoble', DEL_JUEGO)).toThrow(
+    expect(() => equiparEnArena(conEscudo, 'mandoble', EQUIPO_DEL_JUEGO)).toThrow(
       'Mandoble es un arma a dos manos y no se puede llevar con Escudo: quita antes el escudo',
     );
     expect(() =>
-      equiparEnArena(equiparEnArena(u, 'baston', DEL_JUEGO), 'paves', DEL_JUEGO),
+      equiparEnArena(equiparEnArena(u, 'baston', EQUIPO_DEL_JUEGO), 'paves', EQUIPO_DEL_JUEGO),
     ).toThrow(
       'Pavés no se puede llevar con Bastón: es un arma a dos manos y no deja mano para el escudo',
     );
     // El arco a la espalda sí deja llevar escudo (13-10-2026): las manos son las
     // del arma de cuerpo a cuerpo.
     const arqueroConPaves = equiparEnArena(
-      equiparEnArena(u, 'arco', DEL_JUEGO),
+      equiparEnArena(u, 'arco', EQUIPO_DEL_JUEGO),
       'paves',
-      DEL_JUEGO,
+      EQUIPO_DEL_JUEGO,
     );
     expect(arqueroConPaves.equipo).toMatchObject({ distancia: 'arco', escudo: 'paves' });
     // El borrador tampoco lo admite escrito a mano.
     expect(() =>
-      validarUnidadDeArena({ ...u, equipo: { arma: 'mandoble', escudo: 'escudo' } }, DEL_JUEGO),
+      validarUnidad({ ...u, equipo: { arma: 'mandoble', escudo: 'escudo' } }, EQUIPO_DEL_JUEGO),
     ).toThrow('Mandoble es un arma a dos manos y no se puede llevar con Escudo');
-    expect(() => validarUnidadDeArena({ ...u, equipo: { arma: 'escudo' } }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...u, equipo: { arma: 'escudo' } }, EQUIPO_DEL_JUEGO)).toThrow(
       'Escudo va en Escudo, no en Arma',
     );
-    expect(() => validarUnidadDeArena({ ...u, equipo: { casco: 'escudo' } }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...u, equipo: { casco: 'escudo' } }, EQUIPO_DEL_JUEGO)).toThrow(
       'no hay ningún hueco "casco"',
     );
     // Quitar lo que no lleva se dice.
@@ -2227,151 +2321,100 @@ describe('cuerpo y equipo: el perfil de arma es equipo y el nivel mide el cuerpo
   it('sin arma de cuerpo a cuerpo de la arena no se monta, y lo dice (vuelta 2)', () => {
     const u = unidad('templario-escudo');
     // Sin nada en «arma», ni con un arco en «distancia».
-    expect(() => validarUnidadDeArena({ ...u, equipo: {} }, DEL_JUEGO)).toThrow(
-      'la unidad «Guerrero con escudo»: no lleva arma de cuerpo a cuerpo: en la arena nadie pelea sin ella; ponle una en Arma',
+    expect(() => validarUnidad({ ...u, equipo: {} }, EQUIPO_DEL_JUEGO)).toThrow(
+      'la unidad «Guerrero con escudo»: no lleva arma de cuerpo a cuerpo: nadie pelea sin ella; ponle una en Arma',
     );
-    expect(() => validarUnidadDeArena({ ...u, equipo: { distancia: 'arco' } }, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad({ ...u, equipo: { distancia: 'arco' } }, EQUIPO_DEL_JUEGO)).toThrow(
       'no lleva arma de cuerpo a cuerpo',
     );
-    // Un arma del juego en «arma» no dice su rueda: tampoco.
-    expect(() => validarUnidadDeArena({ ...u, equipo: { arma: 'garrote' } }, DEL_JUEGO)).toThrow(
-      'lleva «Garrote», que es del juego: el arma de cuerpo a cuerpo de la arena es una de la arena',
-    );
-    // Toda hoja nace con la suya (`KIT_DEL_PERFIL`), y vale.
-    for (const h of hojasDeLaArena()) {
-      expect(unidadPorDefecto(h).equipo.arma, h.id).toBeDefined();
-      expect(() => validarUnidadDeArena(unidadPorDefecto(h), DEL_JUEGO), h.id).not.toThrow();
-    }
+
+    // Toda unidad del catálogo lleva la suya (el catálogo entero vale: `catalogo.test.ts`).
+    for (const u of CATALOGO) expect(u.equipo.arma, u.id).toBeDefined();
     // Y quitársela en el montaje no entra: lo dice el mismo validador.
-    expect(() => validarUnidadDeArena(quitarEnArena(u, 'arma'), DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad(quitarEnArena(u, 'arma'), EQUIPO_DEL_JUEGO)).toThrow(
       'no lleva arma de cuerpo a cuerpo',
     );
   });
 
-  it('el héroe de la arena pelea con la Espada de la arena, que viaja en el enlace (vuelta 2)', () => {
-    const h = heroeDeArena(MAGO, DEL_JUEGO);
-    expect(h.cuerpo.equipo?.arma).toBe(ESPADA_DE_LA_ARENA);
-    expect(h.cuerpo.armas?.cuerpo).toMatchObject({
-      arma: ESPADA_DE_LA_ARENA,
+  it('el héroe de la arena pelea con su equipo base, la Espada y el gambesón, que viaja en el enlace', () => {
+    const h = heroeDeArena(MAGO, EQUIPO_DEL_JUEGO);
+    expect(h.cuerpo.equipo?.arma).toBe(ESPADA);
+    expect(h.cuerpo.armas?.arma).toMatchObject({
+      arma: { id: ESPADA },
       rueda: nivelesDeLaEspada(),
     });
-    expect(idsLlevados([], true)).toContain(ESPADA_DE_LA_ARENA);
-    expect(idsLlevados([], false)).not.toContain(ESPADA_DE_LA_ARENA);
-    // Su equipo pasa la misma regla que el de la tropa: un arma que golpea en la rueda.
-    expect(armaDeCuerpoBlocker(EQUIPO_DEL_HEROE_EN_LA_ARENA, DEL_JUEGO)).toBeNull();
-    expect(
-      armaDeCuerpoBlocker(
-        { ...EQUIPO_DEL_HEROE_EN_LA_ARENA, arma: 'espada_de_armeria' },
-        DEL_JUEGO,
-      ),
-    ).toMatch(/que es del juego/);
+    expect(idsLlevados([], true)).toContain(ESPADA);
+    expect(idsLlevados([], false)).not.toContain(ESPADA);
+    expect(h.cuerpo.equipo).toEqual(EQUIPO_BASE);
+    expect(idsLlevados([], true)).toEqual(new Set(['espada', 'gambeson']));
+    // Su equipo pasa la misma regla que el de la tropa: lleva un arma.
+    expect(armaDeCuerpoBlocker(EQUIPO_BASE)).toBeNull();
   });
 
   it('«Nueva unidad»: cifras mínimas, con la Espada y nada más, id propio y pelea con el arte de su cuerpo', () => {
     const h = hojaPorId('templario-escudo');
-    const a = unidadNueva(h, ocupados(h.id), DEL_JUEGO);
+    const a = unidadNueva(h, ocupados(h.id), EQUIPO_DEL_JUEGO);
     expect(a.id).toBe('templario-escudo-2');
     expect(a.name).toBe('Guerrero con escudo 2');
     expect(a.cuerpo).toEqual({ hoja: 'templario-escudo' });
     // Sin arma no se combate (vuelta 2): nace con la Espada de la arena.
-    expect(a.equipo).toEqual({ arma: ESPADA_DE_LA_ARENA });
-    expect(nivelDeLaHoja(a)).toMatch(/^Índice 1\d\d · nivel 1$/);
-    expect(validarUnidadDeArena(a, DEL_JUEGO)).toEqual(a);
-    const b = unidadNueva(h, ocupados(h.id, a.id), DEL_JUEGO);
+    expect(a.equipo).toEqual({ arma: ESPADA });
+    // Con la Espada, del nivel 2: desnuda sería del 1.
+    expect(nivelDeLaHoja(a)).toBe('Índice 259 · nivel 2');
+    expect(validarUnidad(a, EQUIPO_DEL_JUEGO)).toEqual(a);
+    const b = unidadNueva(h, ocupados(h.id, a.id), EQUIPO_DEL_JUEGO);
     expect(b.id).toBe('templario-escudo-3');
     // De una hoja de no muertos, con `undead`, como su hoja.
-    expect(unidadNueva(hojaPorId('esqueleto-guerrero'), ocupados(), DEL_JUEGO).traits).toEqual([
-      'undead',
-    ]);
+    expect(
+      unidadNueva(hojaPorId('esqueleto-guerrero'), ocupados(), EQUIPO_DEL_JUEGO).traits,
+    ).toEqual(['undead']);
     // Las dos del mismo cuerpo pelean, cada una con sus cifras, y se pintan con su hoja.
-    const fuerte = { ...equiparEnArena(a, 'mandoble', DEL_JUEGO), attack: 9 };
+    const fuerte = { ...equiparEnArena(a, 'mandoble', EQUIPO_DEL_JUEGO), attack: 9 };
     const batalla = pelea([fuerte, b], [unidad('zombi')], createRng(3));
     const izq = batalla.stacks.filter((x) => x.side === 'attacker');
     expect(izq.map((x) => x.body)).toEqual(['templario-escudo', 'templario-escudo']);
     // 9 + 5 del mandoble; 3 + 2 de la Espada.
     expect(izq.map((x) => x.unit.attack)).toEqual([14, 5]);
-    expect(izq.map((x) => tipoDelStack(batalla, x))).toEqual([
+    expect(izq.map((x) => tipoDelStack(x))).toEqual([
       { kind: 'unidad', id: 'templario-escudo-2' },
       { kind: 'unidad', id: 'templario-escudo-3' },
     ]);
   });
 
-  it('H1: una nueva no toma el id de una del borrador que no vale, y al guardar siguen las dos', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'arena-'));
-    try {
-      const h = hojaPorId('templario-mandoble');
-      // La reproducción de QA: una unidad de hoy que no vale con id templario-mandoble-2.
-      const tramposo = {
-        ...unidadNueva(h, ocupados(h.id), DEL_JUEGO),
-        name: 'Tramposo',
-        equipo: { arma: 'mandoble', escudo: 'escudo' },
-      };
-      expect(tramposo.id).toBe('templario-mandoble-2');
-      // Escrita a mano, como haría quien toca el JSON: `escribirBorrador` no la dejaría pasar.
-      mkdirSync(join(dir, 'data/borradores'), { recursive: true });
-      writeFileSync(join(dir, RUTA_DEL_BORRADOR), JSON.stringify({ unidades: [tramposo] }));
-      const leido = leerBorrador(dir);
-      expect(leido.invalidas.map((i) => i.id)).toEqual(['templario-mandoble-2']);
-      const nueva = unidadNueva(
-        h,
-        {
-          validas: leido.unidades.map((u) => u.id),
-          sinValidar: leido.invalidas.flatMap((i) => (i.id === null ? [] : [i.id])),
-          hojas: [h.id],
-        },
-        DEL_JUEGO,
-      );
-      expect(nueva.id).toBe('templario-mandoble-3');
-      expect(escribirBorrador(dir, { unidades: [nueva], piezas: [] })).toMatchObject({
-        unidades: 1,
-        conservadas: 1,
-      });
-      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_BORRADOR), 'utf8')) as {
-        unidades: { id: string; name: string }[];
-      };
-      expect(json.unidades.map((u) => [u.id, u.name])).toEqual([
-        ['templario-mandoble-3', 'Guerrero con arma a dos manos 3'],
-        ['templario-mandoble-2', 'Tramposo'],
-      ]);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it('R1/R2: una nueva nace donde cae su índice, y un rasgo de tiro no lo sube (el arco es equipo)', () => {
-    const nueva = unidadNueva(hojaPorId('templario-escudo'), ocupados(), DEL_JUEGO);
-    // El doble ataque es del cuerpo y cuenta: nace en el 2.
-    expect(nivelDeLaHoja({ ...nueva, traits: ['double_attack'] })).toBe('Índice 209 · nivel 2');
-    // El disparo doble solo pesa si el cuerpo tira, y en la arena el cuerpo no
-    // tira nunca: dispara quien lleva arma a distancia, y el equipo no cuenta para
-    // el nivel (plan, decisión (c), 13-10-2026). Mide lo mismo con el rasgo y sin él,
-    // con el arco puesto o sin él.
+  it('R1/R2: una nueva nace donde cae su índice, y un rasgo de tiro pesa solo con algo con que tirar', () => {
+    const nueva = unidadNueva(hojaPorId('templario-escudo'), ocupados(), EQUIPO_DEL_JUEGO);
+    // El doble ataque dobla su golpe de cuerpo a cuerpo: del 2 al 3.
+    expect(nivelDeLaHoja({ ...nueva, traits: ['double_attack'] })).toBe('Índice 310 · nivel 3');
+    // El disparo doble solo pesa si tira, y en la arena tira quien lleva arma a
+    // distancia: sin el arco mide lo mismo con el rasgo que sin él (R2 de QA, 12-10-2026).
     const conElRasgo = { ...nueva, traits: ['double_shot' as const] };
     expect(nivelDeLaHoja(conElRasgo)).toBe(nivelDeLaHoja(nueva));
-    expect(nivelDeLaHoja(equiparEnArena(conElRasgo, 'arco', DEL_JUEGO))).toBe(nivelDeLaHoja(nueva));
-    expect(nivelDeLaHoja(nueva)).toMatch(/ · nivel 1$/);
+    // Con el arco puesto el disparo es su mejor golpe, y con el rasgo, el doble.
+    const conArco = equiparEnArena(nueva, 'arco', EQUIPO_DEL_JUEGO);
+    expect(nivelDeLaHoja(conArco)).toBe('Índice 260 · nivel 2');
+    expect(nivelDeLaHoja(equiparEnArena(conElRasgo, 'arco', EQUIPO_DEL_JUEGO))).toBe(
+      'Índice 313 · nivel 3',
+    );
   });
 
   it('C3: toda unidad de la arena ocupa una casilla y no lleva munición', () => {
-    for (const h of HOJAS) {
-      const c = unidadDeCombate(unidadPorDefecto(h), DEL_JUEGO);
-      expect(c, h.id).not.toHaveProperty('shots');
-      expect(c, h.id).not.toHaveProperty('hexes');
+    for (const u of CATALOGO) {
+      const c = unidadDeCombate(u, EQUIPO_DEL_JUEGO);
+      expect(c, u.id).not.toHaveProperty('shots');
+      expect(c, u.id).not.toHaveProperty('hexes');
     }
     const batalla = pelea([unidad('troll-maza')], [unidad('zombi')], createRng(3));
     for (const s of batalla.stacks) expect(stackHexes(s), s.id).toHaveLength(1);
-    // El dragón óseo sigue en el catálogo del juego, de dos casillas (C5).
-    expect(creature('bone_dragon').hexes).toBe(2);
   });
 });
 
 describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertido', () => {
   /** Las cifras de cada golpe: arriba (cuerpo a cuerpo) y las de cada arma. */
-  const golpes = (u: UnidadDeArena) => {
-    const c = unidadDeCombate(u, DEL_JUEGO);
-    return { c, porArma: armasDe(c, DEL_JUEGO, MODOS_DE_LA_ARENA.cargaAPie) };
+  const golpes = (u: Unidad) => {
+    const c = unidadDeCombate(u, EQUIPO_DEL_JUEGO);
+    return { c, porArma: armasDe(c) };
   };
-  const delUso = (u: UnidadDeArena, uso: string) => {
+  const delUso = (u: Unidad, uso: string) => {
     const fila = golpes(u).porArma.find((a) => a.uso === uso);
     if (fila === undefined) throw new Error(`${u.id} no tiene golpe de ${uso}`);
     return [fila.arma, fila.attack, fila.damage];
@@ -2387,8 +2430,10 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
         distancia: 'arco',
         armadura: 'jubon_de_arquero',
       });
-      expect(delUso(u, 'distancia'), id).toEqual(['Arco', 5, [20, 30]]);
-      expect(delUso(u, 'cuerpo'), id).toEqual(['Daga', 4, [10, 20]]);
+      // El arco suma +2 y +10–20; la daga, +1 y +0–10, a las cifras de su cuerpo.
+      const [min, max] = u.damage;
+      expect(delUso(u, 'distancia'), id).toEqual(['Arco', u.attack + 2, [min + 10, max + 20]]);
+      expect(delUso(u, 'arma'), id).toEqual(['Daga', u.attack + 1, [min, max + 10]]);
       // Dispara por su arco, sin munición (13-10-2026).
       expect(golpes(u).c, id).not.toHaveProperty('shots');
       expect(isShooter(golpes(u).c), id).toBe(true);
@@ -2408,26 +2453,26 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     for (const id of ['templario-hermano-de-carga', 'jinete-de-plaga', 'goblin-jinete-de-hiena']) {
       const u = unidad(id);
       expect(u.traits, id).toContain('charge');
-      expect(delUso(u, 'carga'), id).toEqual(['Lanza de jinete', 10, [50, 90]]);
-      expect(delUso(u, 'cuerpo'), id).toEqual(['Espada', 5, [20, 40]]);
+      expect(delUso(u, 'lanza'), id).toEqual(['Lanza de jinete', 10, [50, 90]]);
+      expect(delUso(u, 'arma'), id).toEqual(['Espada', 5, [20, 40]]);
       expect(
         golpes(u).porArma.map((a) => a.uso),
         id,
-      ).toEqual(['cuerpo', 'carga']);
+      ).toEqual(['arma', 'lanza']);
     }
-    // Un solo perfil, coherente: lanza, espada y arco (`perfilDeArena`).
+    // Un solo perfil, coherente: lanza, espada y arco (`perfilDeUnidad`).
     expect(hojaPorId('elfo-jinete').perfil).toBe('montado-arco');
     const elfico = unidad('elfo-jinete');
     expect(elfico.equipo).toEqual({
       arma: 'espada',
       distancia: 'arco',
-      carga: 'lanza_de_jinete',
+      lanza: 'lanza_de_jinete',
       armadura: 'barda',
     });
     expect(golpes(elfico).porArma.map((a) => [a.uso, a.arma])).toEqual([
-      ['cuerpo', 'Espada'],
+      ['arma', 'Espada'],
       ['distancia', 'Arco'],
-      ['carga', 'Lanza de jinete'],
+      ['lanza', 'Lanza de jinete'],
     ]);
     expect(isShooter(golpes(elfico).c)).toBe(true);
     // Los demás perfiles no tienen armas por uso: pelean como ayer. Llevan
@@ -2436,15 +2481,15 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     // también).
     for (const id of ['templario-escudo', 'templario-mandoble', 'templario-monje']) {
       const { c } = golpes(unidad(id));
-      expect(Object.keys(c.armas ?? {}), id).toEqual(['cuerpo']);
-      expect(c.armas?.cuerpo.rueda, id).toBeDefined();
-      expect([c.armas?.cuerpo.attack, c.armas?.cuerpo.damage], id).toEqual([c.attack, c.damage]);
+      expect(Object.keys(c.armas ?? {}), id).toEqual(['arma']);
+      expect(c.armas?.arma.rueda, id).toBeDefined();
+      expect([c.armas?.arma.attack, c.armas?.arma.damage], id).toEqual([c.attack, c.damage]);
     }
   });
 
   it('el arco a la espalda deja llevar escudo, y la ficha lo monta', () => {
-    const u = equiparEnArena(unidad('elfo-arquero'), 'paves', DEL_JUEGO);
-    expect(validarUnidadDeArena(u, DEL_JUEGO).equipo).toMatchObject({
+    const u = equiparEnArena(unidad('elfo-arquero'), 'paves', EQUIPO_DEL_JUEGO);
+    expect(validarUnidad(u, EQUIPO_DEL_JUEGO).equipo).toMatchObject({
       distancia: 'arco',
       escudo: 'paves',
     });
@@ -2456,15 +2501,15 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       ...unidad('elfo-arquero'),
       equipo: { arma: 'arco', armadura: 'jubon_de_arquero' },
     };
-    expect(() => validarUnidadDeArena(viejo, DEL_JUEGO)).toThrow(
+    expect(() => validarUnidad(viejo, EQUIPO_DEL_JUEGO)).toThrow(
       'Arco va en Arma a distancia, no en Arma',
     );
-    const r = revisarBorradorDeArena({ unidades: [viejo] }, DEL_JUEGO);
+    const r = revisarCatalogo({ unidades: [viejo] }, EQUIPO_DEL_JUEGO);
     expect(r.validas).toEqual([]);
     expect(r.invalidas.map((i) => i.crudo)).toEqual([viejo]);
     // Las piezas: el arco del juego en `arma` y una nueva con disparos.
     const arcoCambiado = {
-      ...DEL_JUEGO.pieza('arco'),
+      ...EQUIPO_DEL_JUEGO.pieza('arco'),
       hueco: 'arma',
       manos: 2,
       ataque: 4,
@@ -2472,24 +2517,27 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       rueda: nivelesDeLaEspada(),
     };
     const honda = {
-      ...piezaNueva('distancia', DEL_JUEGO),
+      ...piezaNueva('distancia', EQUIPO_DEL_JUEGO),
       nombre: 'Honda',
       disparos: 20,
     };
-    const p = revisarBorradorDeEquipo({ piezas: [arcoCambiado, honda] });
-    expect(p.validas).toEqual([]);
-    expect(p.invalidas.map((i) => [i.clave, i.motivo])).toEqual([
-      ['arco', expect.stringContaining('su hueco no se cambia en la arena')],
-      [honda.id, expect.stringContaining('disparos')],
-    ]);
+    // El arco pasado a «arma» con manos vale pieza a pieza (es otra arma), pero el
+    // elfo que lo lleva en «distancia» deja de valer: lo dice el cambio.
+    expect(
+      motivoDelCambio(EQUIPO_DEL_JUEGO, elCatalogoCon(arcoCambiado as Pieza), [
+        unidad('elfo-arquero'),
+      ]),
+    ).toMatch(/la lleva «.*»: Arco va en Arma, no en Arma a distancia/);
+    expect(() => validarPieza(honda)).toThrow('«disparos» no es un campo de una pieza');
   });
 });
 
 describe('sin munición: dispara quien lleva arma a distancia (13-10-2026)', () => {
   /** Un blanco que no cae ni se mueve: mucha vida, lejos. */
-  const muro = (): UnidadDeArena => unidad('troll-maza', { hp: 100_000 });
+  // Con su propio id: el catálogo de la pelea no deja dos unidades distintas con uno.
+  const muro = (): Unidad => unidad('troll-maza', { id: 'troll-maza-9', hp: 100_000 });
   /** El arquero (o lo que sea) a la izquierda contra el muro, cada uno en su punta. */
-  function tiroLibre(tirador: UnidadDeArena): BattleState {
+  function tiroLibre(tirador: Unidad): BattleState {
     const b = pelea([tirador], [muro()], createRng(3));
     stackById(b, 'attacker-0').hex = { col: 0, row: 4 };
     stackById(b, 'defender-0').hex = { col: 11, row: 4 };
@@ -2507,14 +2555,11 @@ describe('sin munición: dispara quien lleva arma a distancia (13-10-2026)', () 
     const b = tiroLibre(unidad('elfo-arquero'));
     for (let i = 0; i < 15; i++) dispara(b);
     expect(b.log.filter((e) => e.kind === 'shoot')).toHaveLength(15);
-    // Ni cuenta ni gasta: `shotsLeft` no significa nada en la arena.
-    expect(cuentaTiros(stackById(b, 'attacker-0').unit)).toBe(false);
-    expect(stackById(b, 'attacker-0').shotsLeft).toBe(0);
   });
 
   it('cada disparo es un tiro; con «dos disparos», dos', () => {
     // Los tiros de un disparo: un `shoot` en el registro por cada uno (`shoot`, `battle.ts`).
-    const tiros = (u: UnidadDeArena): number => {
+    const tiros = (u: Unidad): number => {
       const b = tiroLibre(u);
       const desde = b.log.length;
       dispara(b);
@@ -2531,11 +2576,11 @@ describe('sin munición: dispara quien lleva arma a distancia (13-10-2026)', () 
     expect(() => applyAction(b, { type: 'shoot', target: 'defender-0' }, createRng(1))).toThrow(
       'attacker-0 no es tirador',
     );
-    // Ninguna hoja por defecto dice «sin munición»: o tira, o no es tirador.
-    for (const h of HOJAS) {
-      const t = tiroLibre(unidadPorDefecto(h));
+    // Ninguna unidad del catálogo dice «sin munición»: o tira, o no es tirador.
+    for (const u of CATALOGO) {
+      const t = tiroLibre(u);
       forzarTurno(t, 'attacker-0');
-      expect(ataqueBlocker(t, 'defender-0') ?? '', h.id).not.toContain('munición');
+      expect(ataqueBlocker(t, 'defender-0') ?? '', u.id).not.toContain('munición');
     }
   });
 });
@@ -2543,15 +2588,18 @@ describe('sin munición: dispara quien lleva arma a distancia (13-10-2026)', () 
 describe('sin el catálogo del juego (13-10-2026)', () => {
   it('un cuerpo de criatura no vale: no se retira ni se convierte, se queda como cualquiera que no vale', () => {
     expect(() =>
-      validarUnidadDeArena({ ...unidad('zombi'), cuerpo: { criatura: 'skeleton' } }, DEL_JUEGO),
+      validarUnidad(
+        { ...unidad('zombi'), cuerpo: { criatura: 'esqueleto-guerrero' } },
+        EQUIPO_DEL_JUEGO,
+      ),
     ).toThrow('la unidad «Zombie»: el cuerpo tiene que ser { hoja }, y trae criatura');
     const dragon = {
       ...unidad('zombi'),
       id: 'bone-dragon-2',
       name: 'Dragón óseo 2',
-      cuerpo: { criatura: 'bone_dragon' },
+      cuerpo: { criatura: 'jinete-de-plaga' },
     };
-    const r = revisarBorradorDeArena({ unidades: [unidad('zombi'), dragon] }, DEL_JUEGO);
+    const r = revisarCatalogo({ unidades: [unidad('zombi'), dragon] }, EQUIPO_DEL_JUEGO);
     expect(r.validas.map((u) => u.id)).toEqual(['zombi']);
     expect(r.invalidas.map((i) => [i.id, i.crudo])).toEqual([['bone-dragon-2', dragon]]);
   });
@@ -2559,7 +2607,7 @@ describe('sin el catálogo del juego (13-10-2026)', () => {
 
 describe('sin compatibilidad hacia atrás (14-10-2026)', () => {
   it('en disco: lo de antes sale como que no vale, con su motivo, y «Guardar» lo conserva sin convertirlo', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'arena-'));
+    const dir = carpetaDeLaArena();
     try {
       mkdirSync(join(dir, 'data/borradores'), { recursive: true });
       // Uno de cada formato de antes: con `level`, con el arco en `arma`, sin
@@ -2573,15 +2621,15 @@ describe('sin compatibilidad hacia atrás (14-10-2026)', () => {
           ...unidad('zombi'),
           id: 'peasant-2',
           name: 'Campesino 2',
-          cuerpo: { criatura: 'peasant' },
+          cuerpo: { criatura: 'goblin-lancero' },
         },
         { ...unidad('esqueleto-arquero'), shots: 12 },
       ];
       writeFileSync(
-        join(dir, RUTA_DEL_BORRADOR),
+        join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES),
         JSON.stringify({ unidades: [unidad('troll-maza'), ...deAntes] }),
       );
-      const leido = leerBorrador(dir);
+      const leido = leerCatalogo(dir);
       expect(leido.unidades.map((u) => u.id)).toEqual(['troll-maza']);
       expect(leido.invalidas.map((i) => i.crudo)).toEqual(deAntes);
       expect(leido.invalidas.map((i) => i.motivo)).toEqual([
@@ -2593,26 +2641,37 @@ describe('sin compatibilidad hacia atrás (14-10-2026)', () => {
         expect.stringContaining('el cuerpo tiene que ser { hoja }, y trae criatura'),
         expect.stringContaining('«shots» no es un campo de la arena'),
       ]);
-      // «Guardar» escribe lo que manda la página y conserva lo de antes tal cual.
-      expect(escribirBorrador(dir, { unidades: leido.unidades, piezas: [] })).toMatchObject({
-        unidades: 1,
+      // «Guardar» escribe lo que manda la página —el catálogo sin las de antes,
+      // que una válida con su id las arreglaría— y conserva lo de antes tal cual.
+      const deAntesIds = new Set(deAntes.map((u) => u.id));
+      const manda = catalogoEntero().filter((u) => !deAntesIds.has(u.id));
+      expect(escribirCatalogo(dir, { unidades: manda, piezas: EQUIPO_ESCRITO })).toMatchObject({
+        unidades: manda.length,
         conservadas: deAntes.length,
       });
-      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_BORRADOR), 'utf8')) as {
+      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')) as {
         unidades: unknown[];
       };
-      expect(json.unidades).toEqual([unidad('troll-maza'), ...deAntes]);
+      expect(json.unidades).toEqual([...manda, ...deAntes]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it('el comentario del borrador lo dice: solo hojas, sin munición ni tamaño, y solo lo de hoy', () => {
-    expect(COMENTARIO_DEL_BORRADOR).toContain('Solo se lee el formato de hoy');
-    expect(COMENTARIO_DEL_BORRADOR).not.toContain('migrarUnidadDeArena');
-    expect(COMENTARIO_DEL_BORRADOR).toContain('cuerpo: { hoja }');
-    expect(COMENTARIO_DEL_BORRADOR).not.toContain('{ criatura }');
-    expect(COMENTARIO_DEL_BORRADOR).toContain('sin munición');
-    expect(COMENTARIO_DEL_BORRADOR).toContain('no hay shots ni hexes');
+  it('el comentario del catálogo lo dice: solo hojas, sin munición ni tamaño, y solo lo de hoy', () => {
+    // El que se lee es el del fichero: «Guardar» lo conserva (simplify de F2) y la
+    // constante es solo el de reserva, corto.
+    const enDisco = (
+      JSON.parse(readFileSync(resolve(RAIZ, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')) as {
+        _comment: string;
+      }
+    )._comment;
+    expect(enDisco).toContain('Solo se lee el formato de hoy');
+    expect(enDisco).not.toContain('migrarUnidad');
+    expect(enDisco).toContain('cuerpo: { hoja }');
+    expect(enDisco).not.toContain('{ criatura }');
+    expect(enDisco).toContain('sin munición');
+    expect(enDisco).toContain('no hay shots ni hexes');
+    expect(COMENTARIO_DEL_CATALOGO_DE_UNIDADES).toContain('cuerpo: { hoja }');
   });
 });

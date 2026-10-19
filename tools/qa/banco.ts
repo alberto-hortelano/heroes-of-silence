@@ -95,12 +95,12 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   NORMAL de `Kingdom::_getKingdomStartingResources`. Aquí no queda una sola
  *   semilla igual, y la forma del diff es la que tiene que ser: el **primer
  *   hecho distinto es `built` en 200 de 200**, porque la economía entra por el
- *   castillo y por ningún otro sitio. `knight_dwelling_4` pasa de 8/200 a
+ *   castillo y por ningún otro sitio. la morada 4 del caballero pasa de 8/200 a
  *   **200/200** y `mage_guild_2` de 0 a 25/200.
  * - `f0eee7c3…` (51 952 líneas): el coste de las 18 filas inventadas de
  *   `data/buildings.json`, copiado de `buildinginfo.cpp`. Misma forma que la
  *   palanca anterior y por el mismo motivo: **`built` es el primer hecho
- *   distinto en 200 de 200**. `knight_dwelling_5` pasa de 15/200 a 129/200 y
+ *   distinto en 200 de 200**. la morada 5 del caballero pasa de 15/200 a 129/200 y
  *   aparecen las tres primeras criaturas de nivel ≥5. Este paso solo **alarga**
  *   la partida —mediana 7 → 17 días— porque quien pisa el freno es la materia
  *   prima, que llega con la palanca de las minas: es el estado intermedio que
@@ -1000,11 +1000,97 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   otro ganador, j0 108 → **111**, duración 8 / 14 / 30 → **7 / 13 / 24**, 0
  *   sin terminar. Batallas 1 185 → 1 135; ningún tipo nuevo ni ninguno que
  *   desaparezca.
+ * - `a8b5bf5f…` (63 678 líneas, 18-10-2026): **el nivel ve el equipo** (F1 de
+ *   `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`): el índice de
+ *   poder se mide con la unidad vestida (lo que pega, el mejor de sus golpes con
+ *   el arma de cada uso, la rueda y la carga del jinete; lo que aguanta, con la
+ *   armadura), y la experiencia cobra `PV × índice` de quien los recibe. Contra
+ *   `--dump` de `4ec21762…`, **135 de 200 idénticas**; en las 65 que cambian el
+ *   primer hecho distinto es un `rank_up` (41) o un `troop_rank_up` (24): la
+ *   experiencia de pegarle a un héroe o veterano equipado, o a la caballería y
+ *   el campeón (que con `charge` suben de 475 a 496 y de 507 a 520). Ninguna
+ *   cambia antes de su primera batalla. 3 con otro ganador, j0 111 → **108**,
+ *   duración 7 / 13 / 24 → **7 / 14 / 32**, 0 sin terminar. `rank_up` 550 → 583,
+ *   `troop_rank_up` 1 830 → 1 945, batallas 1 135 → 1 149, `item_bought` 25 →
+ *   37; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `e4d49a33…` (63 127 líneas, 18-10-2026): **el índice mide la carga con la
+ *   regla final y compuesta con la rueda** (simplify de F1): carga todo el que
+ *   pega cuerpo a cuerpo, a pie si no tiene `charge`, y solo el primer golpe la
+ *   cobra, con lo que da la rueda de su arma. Sube el índice de toda criatura sin
+ *   `charge` (+1 a +10: campesino 119 → 120, piquero 328 → 336, dragón óseo 690 →
+ *   700) y con él la experiencia de pegarle. Antes se comprobó que el resto de la
+ *   tanda no mueve nada: con la medida de antes, el árbol daba `a8b5bf5f…` byte a
+ *   byte. Contra ese `--dump`, **164 de 200 idénticas**; en las 36 que cambian el
+ *   primer hecho distinto es una subida de rango que ahora llega antes o después
+ *   (`troop_rank_up` 19, `rank_up` 17), y ninguna cambia antes de su primera
+ *   batalla. 1 con otro ganador, j0 108 → **109**, duración 7 / 14 / 32 →
+ *   **7 / 13 / 24**, 0 sin terminar. `troop_rank_up` 1 945 → 1 888, `rank_up`
+ *   583 → 580, batallas 1 149 → 1 135, `item_bought` 37 → 19; ningún tipo nuevo
+ *   ni ninguno que desaparezca.
+ * - `e1cb20e1…` (50 299 líneas, 18-10-2026): **una sola clase de piezas** (F2 de
+ *   `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`): el héroe nace con
+ *   la Espada y el gambesón (+2 de ataque, +10–30 de daño, +1 de defensa y 4 de
+ *   armadura, en vez de +3 / +3 de la espada, el brazal y la cota), la armería
+ *   vende y el botín da las piezas de la arena, y la IA mide una pieza por lo que
+ *   sube el índice. Cambia todo, a propósito: **0 de 200 idénticas**. El primer
+ *   hecho distinto es el botín (88: la pieza sorteada es otra), un paso (66 + 11
+ *   de una marcha que ya no se para + 4: el héroe pesa otra cosa en la fuerza con
+ *   que la IA decide, así que 81 cambian antes de su primera batalla), el final
+ *   de una batalla (28) o una subida de rango (3). 98 con otro ganador, j0 109 →
+ *   **93**, duración 7 / 13 / 24 → **6 / 10 / 24**, 0 sin terminar. Días 1 687 →
+ *   1 298, batallas 1 135 → 1 128, `troop_rank_up` 1 888 → 1 348, `rank_up` 580 →
+ *   630, `march_halted` 150 → 75, `item_bought` 19 → 19 (18 Espadas y un arco);
+ *   ningún tipo nuevo ni ninguno que desaparezca.
+ * - `9e7b303d…` (45 218 líneas, 19-10-2026): **las cinco facciones** (F3 de
+ *   `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`): caballeros y
+ *   nigromantes se retiran con `data/creatures.json`; cada partida sortea dos de
+ *   las cinco con su propia corriente (`faccionesDeLaSemilla`: el mapa de cada
+ *   semilla no se mueve ni una casilla), recluta del catálogo de la arena
+ *   (`data/unidades.json`) con coste y crecimiento por su índice, la IA mide la
+ *   fuerza por el poder del índice (`unitPower`) y la experiencia se recalibró
+ *   (base 16 000 → 9 000). Cambia todo, a propósito: **0 de 200 idénticas**, y en
+ *   las 200 el primer hecho distinto es el primer `raider_spawned` del día 1 (los
+ *   asaltantes son de las cinco facciones). 95 con otro ganador, j0 93 → **82**,
+ *   duración 6 / 10 / 24 → **4 / 9 / 20**, 0 sin terminar. Días 1 298 → 1 017,
+ *   batallas 1 128 → 1 105, `built` 3 350 → 2 270, `troop_rank_up` 1 348 → 2 702,
+ *   `rank_up` 630 → 904, `hero_defeated` 251 → 333, `spells_learned` 126 → 24,
+ *   `item_bought` 19 → 3; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `06318579…` (45 627 líneas, 19-10-2026, F3b), dos pasos juzgados por
+ *   separado. (1) **Los templarios en los sitios de su arte**: heredan la base
+ *   del caballero, y sus moradas pasan a los sitios donde él pintó lo que les
+ *   cuadra (el Monasterio a la iglesia, el 6; los Establos a los establos, el 5);
+ *   el orden de construcción de la IA, derivado por nivel y sitio, cambia entre la
+ *   Forja y el Monasterio. **64 de 200 distintas**, todas con templarios (66 de
+ *   200 los llevan), y en las 64 el primer hecho distinto es un `built` (el
+ *   Monasterio antes que la Forja); 10 con otro ganador, j0 82 → 86, duración
+ *   4 / 9 / 20 → 4 / 9 / 36. (2) **El ejército de salida cabe en el liderazgo**
+ *   (`startingArmy` recorta a lo que cabe: el pueblo de los orkos cría dos de 4
+ *   y daba 24 de 20). **22 de 200 distintas**, todas con orkos (82 de 200 los
+ *   llevan); el primer hecho distinto, el de la batalla que se libra con uno
+ *   menos (`battle_ended` en 16, `troop_rank_up` en 3); 5 con otro ganador, j0
+ *   86 → 89. Ningún tipo de hecho nuevo ni ninguno que desaparezca.
+ * - `1c496b88…` (42 259 líneas, 19-10-2026): **un solo combate** (F4 de
+ *   `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`): toda batalla pelea
+ *   como la arena, sin interruptores —la rueda del golpe (la IA elige a ciegas por
+ *   los dos bandos; la persona y el agente eligen los suyos desde F5 y F6, que el
+ *   banco no juega), salir del
+ *   contacto cuesta y carga a pie todo el que pega cuerpo a cuerpo—, y fuera las
+ *   ramas de fheroes2. Cambia todo, a propósito: **1 de 200 idénticas**; en las
+ *   199 el primer hecho distinto es el final de una batalla (`battle_ended` 131:
+ *   otras rondas y otras bajas) o una subida de rango o una toma que llega antes
+ *   o después (`troop_rank_up` 43 + 12, `town_captured` 12, `hero_moved` 1):
+ *   ninguna cambia antes de su primera batalla. 44 con otro ganador, j0 89 →
+ *   **99**, duración 4 / 9 / 36 → **4 / 8 / 21**, 0 sin terminar. Batallas 1 099 →
+ *   1 041, rondas por batalla (media / mediana / p90 / máx.) 4,04 / 3 / 7 / 13 →
+ *   **3,64 / 3 / 5 / 12**, ninguna en `MAX_ROUNDS`; días 1 027 → 960, `recruited`
+ *   1 991 → 1 794, `troop_rank_up` 2 642 → 2 529, `hero_defeated` 331 → 264.
+ *   Ningún tipo de hecho nuevo; `item_bought` 3 → 0 (era una rareza: no se
+ *   retiró nada).
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '4ec21762894138dd5a71e8a6312efb111d741224279c2009526474ef5683867d',
+  sha: '1c496b88ca817b7beed16539aa4ced5c918969afd34c55fcc69328490bd31140',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

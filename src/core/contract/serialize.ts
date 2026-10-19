@@ -7,44 +7,46 @@
  */
 
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../ai/fuerza.js';
+import { armaduraDe, ruedaDelGolpe } from '../battle/armas.js';
 import {
   activeStack,
   casillasDeCarga,
-  legalActions,
+  legalActionsAndCosts,
   pasosQueQuedan,
+  previsionDeLaRueda,
+  stackById,
   stackHexes,
   stackSpeed,
 } from '../battle/battle.js';
-import { tableroDelContrato } from '../battle/board.js';
+import { type Paso, tableroDelContrato } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
+import { type CifrasDeLaRueda, efectoDeGolpe } from '../battle/rueda.js';
 import {
   type BattleStack,
   type BattleState,
   type OrigenDelStack,
+  queEs,
   rangoDeVeterania,
   type Side,
 } from '../battle/types.js';
 import {
+  cifrasDeUnidad,
+  type UnidadDelJuego,
+  unidadDelJuego,
+  unidadesDeFaccion,
+} from '../catalogo.js';
+import {
   ASALTANTES,
-  creature,
-  factionLineup,
+  EQUIPO,
   isShooter,
   LIDERAZGO,
   NIVEL_POR_SUELO,
   tiposDeHeroe,
-  tirosQueQuedan,
 } from '../data.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
+import { cifrasDePieza, deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
 import {
-  cifrasDePieza,
-  NOMBRE_DE_CALIDAD,
-  PIEZAS_DE_ARMERIA,
-  PIEZAS_DEL_JUEGO,
-  seVende,
-} from '../hero/equipo.js';
-import {
-  cifrasDeCatalogo,
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
   rangoDeTropa,
@@ -98,9 +100,16 @@ import {
   townSpells,
 } from '../town/town.js';
 import { vecinosDeLaBase, vozDe } from '../town/voces.js';
-import type { Army, Creature, Equipo, PlayerId } from '../types.js';
-import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS } from '../types.js';
-import { SLOT_DE_HUECO } from './huecos.js';
+import type { Army, Equipo, PlayerId } from '../types.js';
+import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS, TIPOS_DE_GOLPE } from '../types.js';
+import {
+  accionAlAgente,
+  HIT_DE_GOLPE,
+  type Hit,
+  hechoAlAgente,
+  SLOT_DE_HUECO,
+  type Slot,
+} from './vocabulario.js';
 
 /**
  * El ejército tal como lo lee el agente: agrupado por criatura, con cuántos
@@ -109,8 +118,8 @@ import { SLOT_DE_HUECO } from './huecos.js';
  * velocidad, que es la de su perfil y no la de ningún catálogo.
  *
  * Ya no lleva `slot`: con la tropa de individuos no hay huecos que numerar.
- * Un veterano va en su fila con `rank`, su `level` (el de sus cifras sin equipo,
- * `nivelDeUnidad`), `experience` y `nextRankAt` (la experiencia a la que sube de
+ * Un veterano va en su fila con `rank`, su `level` (el de sus cifras con su
+ * equipo, `nivelDeUnidad`), `experience` y `nextRankAt` (la experiencia a la que sube de
  * rango; `null` en el tope).
  */
 function armyView(
@@ -139,7 +148,7 @@ function armyView(
     //
     // Con su `id`, que es lo que el agente escribe en `equip.veteran` y
     // `unequip.veteran`, y su `equipment` con la misma forma que el del héroe
-    // —los cuatro huecos, en inglés, `null` el vacío—: un novato equipado tiene hoja
+    // —los cinco huecos, en inglés, `null` el vacío—: un novato equipado tiene hoja
     // (experiencia 0) y por eso va en su fila con las dos cosas.
     ...(g.veterania === undefined
       ? {}
@@ -155,25 +164,27 @@ function armyView(
 }
 
 /**
- * Lo que lleva puesto alguien, por hueco, con `null` en el vacío: los cuatro
- * huecos siempre, con su nombre del contrato (`SLOT_DE_HUECO`: `weapon`,
- * `armor`, `accessory`, `shield`). **Una sola forma** para el héroe y para la
- * fila de un individuo.
+ * Lo que lleva puesto alguien, por hueco, con `null` en el vacío: los cinco
+ * huecos siempre, con su nombre del contrato (`SLOT_DE_HUECO`). **Una sola
+ * forma** para el héroe y para la fila de un individuo.
  */
-function equipoView(equipo: Equipo | undefined): Record<string, string | null> {
-  return Object.fromEntries(HUECOS.map((h) => [SLOT_DE_HUECO[h], equipo?.[h] ?? null]));
+function equipoView(equipo: Equipo | undefined): Readonly<Record<Slot, string | null>> {
+  return Object.fromEntries(HUECOS.map((h) => [SLOT_DE_HUECO[h], equipo?.[h] ?? null])) as Record<
+    Slot,
+    string | null
+  >;
 }
 
 /**
- * El catálogo de equipo en prosa, **derivado de `PIEZAS_DEL_JUEGO`** y no escrito
- * a mano (lo de la arena no le puede caer ni lo puede comprar: no se le anuncia),
- * con las cifras ya resueltas como los costes del terreno: el agente no tiene
- * otra forma de saber lo que vale una pieza, y una cifra que se le anuncia y no
- * cuadra no la descubre nadie. Lo interpola `RESPONSE_FORMAT.adventure_turn`.
+ * El catálogo de equipo en prosa, **derivado de `EQUIPO`** y no escrito a mano,
+ * con las cifras ya resueltas como los costes del terreno y de dónde sale cada
+ * pieza (`deDondeSale`): el agente no tiene otra forma de saber lo que vale una
+ * pieza, y una cifra que se le anuncia y no cuadra no la descubre nadie. Lo
+ * interpola `RESPONSE_FORMAT.adventure_turn`.
  */
-export const CATALOGO_DE_EQUIPO_EN_PROSA: string = PIEZAS_DEL_JUEGO.map((p) => {
-  const venta = seVende(p) ? ` · se compra por ${describirCoste(p.precio)}` : '';
-  return `    ${p.id} (${SLOT_DE_HUECO[p.hueco]}, ${NOMBRE_DE_CALIDAD[p.calidad]}): ${cifrasDePieza(p)}${venta}`;
+export const CATALOGO_DE_EQUIPO_EN_PROSA: string = EQUIPO.map((p) => {
+  const venta = seVende(p) ? ` por ${describirCoste({ gold: p.precio })}` : '';
+  return `    ${p.id} (${SLOT_DE_HUECO[p.hueco]}): ${cifrasDePieza(p)} · ${deDondeSale(p)}${venta}`;
 }).join('\n');
 
 /**
@@ -491,8 +502,8 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       // El rango con su experiencia y el umbral del siguiente, como una fila de
       // veterano de `army`: la escala es una sola (el héroe empieza en el 5,
       // donde la tropa acaba), así que las dos se leen igual. Y su nivel, el de
-      // su cuerpo sin equipo (`nivelDeUnidad`), que es con el que recibe los
-      // golpes. Va con su línea en `RESPONSE_FORMAT`: un dato que el contrato no
+      // su cuerpo con su equipo (`nivelDeUnidad`), que es con el que pega y recibe
+      // los golpes. Va con su línea en `RESPONSE_FORMAT`: un dato que el contrato no
       // nombra no lo mira nadie.
       rank: rangoDeHeroe(h),
       level: nivelDeUnidad(heroUnit(h)),
@@ -540,8 +551,8 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       recruitable: dwellings(t).map(({ creature: id }) => ({
         creature: id,
         available: t.available[id] ?? 0,
-        cost: creature(id).cost,
-        leadership: creature(id).leadership,
+        cost: { gold: unidadDelJuego(id).oro },
+        leadership: unidadDelJuego(id).leadership,
       })),
       garrison: armyView(t.garrison, state.characters),
       garrisonLeadership: { used: armyLeadership(t.garrison), max: GARRISON_LEADERSHIP },
@@ -552,7 +563,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
             armory: PIEZAS_DE_ARMERIA.map((p) => ({
               item: p.id,
               slot: SLOT_DE_HUECO[p.hueco],
-              cost: p.precio,
+              cost: { gold: p.precio },
             })),
           }
         : {}),
@@ -611,9 +622,9 @@ export function serializeHeroFromTroop(state: GameState, playerId: PlayerId, v: 
     veteran: {
       id: v.veterania.id,
       creature: v.creature,
-      creatureName: creature(v.creature).name,
+      creatureName: unidadDelJuego(v.creature).name,
       rank: rangoDeTropa(v.veterania),
-      level: nivelDeUnidad(cifrasDeCatalogo(v.creature, v.veterania)),
+      level: nivelDeUnidad(cifrasDeUnidad(v.creature, v.veterania)),
       experience: v.veterania.experiencia,
       battles: v.veterania.batallas,
       kills: v.veterania.bajas,
@@ -742,45 +753,6 @@ export function serializeBattleTurn(
   vista: VistaDeBatalla,
   oro: number | null,
 ) {
-  const stackView = (s: (typeof battle.stacks)[number]) => {
-    const info = s.unit;
-    return {
-      id: s.id,
-      side: s.side,
-      creature: s.body,
-      name: info.name,
-      count: s.count,
-      hp: stackHp(s),
-      hex: s.hex,
-      occupies: stackHexes(s),
-      speed: stackSpeed(s),
-      attack: info.attack,
-      defense: info.defense,
-      damage: info.damage,
-      shooter: isShooter(info),
-      // Quien no cuenta tiros, 0: es el que no tira (el juego), y el que tira sin
-      // contarlos (la arena) no llega al agente. Así el contrato es el de siempre.
-      shotsLeft: tirosQueQuedan(s) ?? 0,
-      traits: info.traits ?? [],
-      // La suerte va ya con los efectos aplicados: el contrato promete el
-      // valor con el que se va a tirar, no el de la ficha. La moral no tiene
-      // efectos temporales que aplicar, así que es la suya y ya.
-      morale: s.morale,
-      luck: effectiveLuck(s),
-      // Y aparte, cuánto le queda a cada cosa: sin esto el agente ve el número
-      // cambiar de una ronda a otra sin saber por qué ni hasta cuándo.
-      effects: s.effects.map((e) => ({
-        kind: e.kind,
-        amount: e.amount,
-        source: e.source,
-        roundsLeft: e.roundsLeft,
-      })),
-      defending: s.defending,
-      waited: s.waited,
-      ...marcaDelOrigen(s.origen),
-    };
-  };
-
   const hero = battle.heroes[side];
   const propia = vista === 'propia';
   if (propia && oro === null) {
@@ -801,7 +773,7 @@ export function serializeBattleTurn(
     // solo `activeStack` no se distingue.
     turnId: battle.turno?.n ?? null,
     board: tableroDelContrato(),
-    stacks: battle.stacks.filter((s) => s.count > 0).map(stackView),
+    stacks: stacksVistos(battle),
     hero:
       hero === null
         ? null
@@ -835,12 +807,131 @@ export function serializeBattleTurn(
         ? { legalActionsOmitted: 'nobody_active' as const }
         : activo.side !== side
           ? { legalActionsOmitted: 'not_your_turn' as const }
-          : {
-              legalActions: legalActions(battle),
-              stepsLeft: pasosQueQuedan(battle, activo),
-              ...chargeFrom(battle, activo),
-            }),
-    log: battle.log.slice(-30),
+          : delTurnoPropio(battle, activo)),
+    log: registroVisto(battle),
+  };
+}
+
+/**
+ * Lo que solo va cuando el turno es tuyo: la lista legal (en los nombres del
+ * contrato, `accionAlAgente`), lo que le queda de turno, sus cargas y, si puede
+ * golpear cuerpo a cuerpo, lo que hace cada golpe de la rueda con su arma
+ * (`hits`, `efectoDeGolpe` con `ruedaDelGolpe`: lo mismo que lee la persona en
+ * las notas de la rueda).
+ */
+function delTurnoPropio(battle: BattleState, activo: BattleStack) {
+  // Con el recorrido que ya hizo la lista legal: las cargas salen de él.
+  const { actions: legales, costs } = legalActionsAndCosts(battle);
+  const golpea = legales.some((a) => a.type === 'attack');
+  return {
+    legalActions: legales.map(accionAlAgente),
+    stepsLeft: pasosQueQuedan(battle, activo),
+    ...chargeFrom(battle, activo, costs),
+    ...(golpea ? { hits: golpesDeLaRueda(ruedaDelGolpe(activo.unit, 'arma')) } : {}),
+  };
+}
+
+/** Lo que hace cada golpe de la rueda con estas cifras, en los nombres del contrato. */
+function golpesDeLaRueda(rueda: CifrasDeLaRueda): { hit: Hit; effect: string }[] {
+  return TIPOS_DE_GOLPE.map((t) => ({
+    hit: HIT_DE_GOLPE[t],
+    effect: efectoDeGolpe(t, 'golpe', true, rueda),
+  }));
+}
+
+/** Los stacks vivos como los ve el agente (`stackView`), en el orden de la batalla. */
+function stacksVistos(battle: BattleState) {
+  return battle.stacks.filter((s) => s.count > 0).map(stackView);
+}
+
+/** Los últimos hechos de la batalla, con el cruce en los nombres del contrato (`hechoAlAgente`). */
+function registroVisto(battle: BattleState) {
+  return battle.log.slice(-30).map(hechoAlAgente);
+}
+
+/** Un stack como lo ve el agente: lo público, que se ve pasar en el tablero. */
+function stackView(s: BattleStack) {
+  const info = s.unit;
+  return {
+    id: s.id,
+    side: s.side,
+    creature: queEs(s),
+    name: info.name,
+    count: s.count,
+    hp: stackHp(s),
+    hex: s.hex,
+    occupies: stackHexes(s),
+    speed: stackSpeed(s),
+    attack: info.attack,
+    defense: info.defense,
+    damage: info.damage,
+    // Lo que se resta de cada golpe que recibe (`armaduraDe`), 0 sin armadura.
+    armor: armaduraDe(info),
+    shooter: isShooter(info),
+    traits: info.traits ?? [],
+    // Sus poderes (`power`), solo si tiene alguno: como `chargeFrom`, lo que no hay no viaja.
+    ...((info.poderes?.length ?? 0) > 0 ? { powers: info.poderes } : {}),
+    // La suerte va ya con los efectos aplicados: el contrato promete el
+    // valor con el que se va a tirar, no el de la ficha. La moral no tiene
+    // efectos temporales que aplicar, así que es la suya y ya.
+    morale: s.morale,
+    luck: effectiveLuck(s),
+    // Y aparte, cuánto le queda a cada cosa: sin esto el agente ve el número
+    // cambiar de una ronda a otra sin saber por qué ni hasta cuándo.
+    effects: s.effects.map((e) => ({
+      kind: e.kind,
+      amount: e.amount,
+      source: e.source,
+      roundsLeft: e.roundsLeft,
+    })),
+    defending: s.defending,
+    waited: s.waited,
+    ...marcaDelOrigen(s.origen),
+  };
+}
+
+/**
+ * La petición de la respuesta de la rueda (`battle_response`): `atacante` golpea
+ * cuerpo a cuerpo a `objetivo`, del bando del agente, y ya está plantado ante él
+ * (`golpeEnCurso`): lo que se enseña es lo de después de andar.
+ *
+ * **Sin el golpe del atacante**, y por construcción: esta función recibe los dos
+ * ids y nada más, así que no lo puede filtrar aunque quien la llame ya lo sepa
+ * (la IA elige el suyo antes de preguntar). La previsión se cuenta con un
+ * `attack` sin elecciones (`previsionDeLaRueda` no las lee). Lo vigila
+ * `invariantes.test.ts`.
+ *
+ * `responses` lleva por cada tipo lo que daría su contraataque y lo que hace; si
+ * no devolverá el golpe, `noCounterattack` con el motivo del núcleo y solo el
+ * efecto de cada tipo en el cruce.
+ */
+export function serializeBattleResponse(
+  battle: BattleState,
+  ataque: { readonly atacante: string; readonly objetivo: string },
+) {
+  const objetivo = stackById(battle, ataque.objetivo);
+  const atacante = stackById(battle, ataque.atacante);
+  const p = previsionDeLaRueda(battle, { type: 'attack', target: objetivo.id }, 'respuesta');
+  const contraataca = p.sinContraataque === null;
+  return {
+    kind: 'battle_response',
+    round: battle.round,
+    yourSide: objetivo.side,
+    turnId: battle.turno?.n ?? null,
+    attacker: atacante.id,
+    target: objetivo.id,
+    ...(contraataca ? {} : { noCounterattack: p.sinContraataque }),
+    responses: TIPOS_DE_GOLPE.map((t) => {
+      const response = HIT_DE_GOLPE[t];
+      const effect = efectoDeGolpe(t, 'respuesta', contraataca, p.rueda);
+      const sector = p.porTipo?.[t];
+      return sector === undefined
+        ? { response, effect }
+        : { response, effect, counterDamage: sector.danio, strikes: sector.golpes };
+    }),
+    board: tableroDelContrato(),
+    stacks: stacksVistos(battle),
+    log: registroVisto(battle),
   };
 }
 
@@ -848,8 +939,9 @@ export function serializeBattleTurn(
 function chargeFrom(
   battle: BattleState,
   activo: BattleStack,
+  costes: ReadonlyMap<string, Paso>,
 ): { chargeFrom?: { target: string; col: number; row: number; hexes: number }[] } {
-  const cargas = casillasDeCarga(battle, activo);
+  const cargas = casillasDeCarga(battle, activo, costes);
   if (cargas.length === 0) return {};
   return {
     chargeFrom: cargas.map((c) => ({
@@ -913,24 +1005,46 @@ function comoRepartenLosNiveles(): string {
 }
 
 /**
- * La ficha de una criatura del catálogo tal como la lee el agente
- * (`creature_stats`): sus cifras, su `dwelling` (la morada que la produce, el
- * `morada` del catálogo) y lo que se deriva de las cifras, su `level` y su
- * `powerIndex` (`core/nivel.ts`). Antes la tool mandaba el catálogo en crudo, y
- * con el nivel derivado eso era mandar la morada con el nombre del nivel.
+ * La ficha de una unidad del catálogo tal como la lee el agente
+ * (`creature_stats`): sus cifras con su equipo de serie puesto, su `dwelling` (el
+ * edificio que la produce, `null` si ninguno), lo que lleva (`equipment`, por
+ * hueco del contrato, y `armor`, los puntos que resta de cada golpe) y lo que se
+ * deriva de las cifras, su `level` y su `powerIndex` (`core/nivel.ts`). Las armas
+ * por uso y la rueda de cada una no viajan: el agente las lee de las piezas
+ * (`equipment` y el catálogo de equipo de su prosa).
  */
-export function fichaDeCriatura(c: Creature) {
-  const { morada, ...cifras } = c;
-  return { ...cifras, dwelling: morada, level: nivelDeUnidad(c), powerIndex: indiceDePoder(c) };
+export function fichaDeCriatura(c: UnidadDelJuego) {
+  // Campo a campo, no «todo menos lo que no viaja»: quitar `armas` o la armadura
+  // por desestructuración era nombrarlas fuera de su escritor (`conEquipo`), y un
+  // campo nuevo de `UnitInfo` llegaría al agente sin que nadie lo decidiera.
+  return {
+    id: c.id,
+    name: c.name,
+    faction: c.faction,
+    attack: c.attack,
+    defense: c.defense,
+    damage: c.damage,
+    hp: c.hp,
+    speed: c.speed,
+    ...(c.traits === undefined ? {} : { traits: c.traits }),
+    leadership: c.leadership,
+    cost: { gold: c.oro },
+    growth: c.growth,
+    dwelling: c.edificio,
+    equipment: equipoView(c.equipo),
+    armor: armaduraDe(c),
+    level: nivelDeUnidad(c),
+    powerIndex: indiceDePoder(c),
+  };
 }
 
 /**
- * Hasta qué morada se sugieren criaturas para guardar el mapa
- * (`palette.creaturesForGuards`). Es la cifra que tenía la lista escrita a mano
- * cuando se derivó (#108): una sugerencia, no una regla —`validateMapPlan`
- * acepta cualquier criatura del catálogo—.
+ * Hasta qué nivel se sugieren unidades para guardar el mapa
+ * (`palette.creaturesForGuards`): una sugerencia, no una regla —`validateMapPlan`
+ * acepta cualquier unidad del catálogo—. Era la morada 4 de caballeros y
+ * nigromantes; con las cinco facciones, el nivel 3 deja fuera a los jinetes.
  */
-const MORADA_MAXIMA_DE_GUARDIA = 4;
+const NIVEL_MAXIMO_DE_GUARDIA = 3;
 
 export function serializeMapRequest(opts: MapRequestOptions) {
   return {
@@ -939,7 +1053,7 @@ export function serializeMapRequest(opts: MapRequestOptions) {
       width: opts.width,
       height: opts.height,
       players: opts.players,
-      theme: opts.theme ?? 'un valle en disputa entre un reino caballeresco y una necrópolis',
+      theme: opts.theme ?? 'un valle en disputa entre dos ejércitos',
     },
     palette: {
       // Derivada, no copiada: era la tercera declaración de la misma lista de
@@ -959,14 +1073,14 @@ export function serializeMapRequest(opts: MapRequestOptions) {
         maxStrength: ASALTANTES.fuerzaMax,
         examples: ASALTANTES.composiciones,
       },
-      // Derivada del catálogo y no escrita a mano (#108): las criaturas base
-      // —sin las mejoras— de morada ≤ `MORADA_MAXIMA_DE_GUARDIA` de cada facción.
+      // Derivada del catálogo y no escrita a mano (#108): las unidades de nivel
+      // ≤ `NIVEL_MAXIMO_DE_GUARDIA` de cada facción.
       // La prosa le dice al agente que use estas tal cual, así que una copia que
       // se quedara atrás le haría escribir un id que `validateMapPlan` rechaza.
       creaturesForGuards: FACTION_IDS.flatMap((f) =>
-        factionLineup(f)
-          .filter((c) => c.morada <= MORADA_MAXIMA_DE_GUARDIA)
-          .map((c) => c.id),
+        unidadesDeFaccion(f)
+          .filter((u) => nivelDeUnidad(u) <= NIVEL_MAXIMO_DE_GUARDIA)
+          .map((u) => u.id),
       ),
     },
     advice: [

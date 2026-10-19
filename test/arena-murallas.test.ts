@@ -14,16 +14,16 @@ import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   columna,
   FORMAS_DE_EJEMPLO,
+  RUTA_DE_MURALLAS,
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
   validarFormaDeMuralla,
 } from '../src/core/arena-murallas.js';
-import { stackHexes } from '../src/core/battle/battle.js';
 import { FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
 import { validarMuralla } from '../src/core/battle/muralla.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
-import { escribirMurallas, leerMurallas, RUTA_DE_MURALLAS } from '../tools/arena/borrador.js';
+import { escribirMurallas, leerMurallas } from '../tools/arena/borrador.js';
 import {
   aPelear,
   montajeDePrueba,
@@ -41,7 +41,7 @@ const muro = {
 };
 
 describe('las formas de ejemplo', () => {
-  it('validan y montan batalla con siete grandes por bando', () => {
+  it('validan y montan batalla con siete por bando', () => {
     expect(FORMAS_DE_EJEMPLO.map((f) => f.nombre)).toEqual([
       'Línea recta',
       'Línea con puerta',
@@ -50,28 +50,13 @@ describe('las formas de ejemplo', () => {
       'Muralla gruesa',
       'Semicírculo grueso',
     ]);
-    // Grandes por el motor: la arena ya no las hace (13-10-2026), y el despliegue
-    // junto a los muros es del motor.
-    const grandes = Array.from({ length: LIDERAZGO.maxPorBando }, () => ({
+    const siete = Array.from({ length: LIDERAZGO.maxPorBando }, () => ({
       unidad: unidad('troll-maza'),
-      grande: true,
     }));
     for (const f of FORMAS_DE_EJEMPLO) {
-      const b = peleaDelMotor(grandes, grandes, createRng(1), f.muralla);
+      const b = peleaDelMotor(siete, siete, createRng(1), f.muralla);
       const cerradas = new Set(f.muralla.muros.map(hexKey));
-      for (const s of b.stacks) {
-        for (const h of stackHexes(s)) expect(cerradas.has(hexKey(h)), f.nombre).toBe(false);
-      }
-      // Y ninguna grande empieza con una puerta, que empieza cerrada, entre cabeza y cola.
-      for (const s of b.stacks) {
-        const [cabeza, cola] = stackHexes(s);
-        for (const p of f.muralla.puertas) {
-          const parte = [cabeza, cola].every(
-            (h) => h !== undefined && (hexKey(h) === hexKey(p.a) || hexKey(h) === hexKey(p.b)),
-          );
-          expect(parte, f.nombre).toBe(false);
-        }
-      }
+      for (const s of b.stacks) expect(cerradas.has(hexKey(s.hex)), f.nombre).toBe(false);
       expect(b.muralla).toEqual(f.muralla);
     }
   });

@@ -1,8 +1,9 @@
 /**
- * El equipo: cuatro huecos por individuo y por héroe —arma, armadura, accesorio
- * y escudo— con una pieza de `data/equipo.json` en cada uno, o nada. La arena
- * tiene dos más, el arma a distancia y la de carga (`HUECOS_DE_LA_ARENA`): cada
- * arma para lo suyo, y cada golpe con las cifras de la suya (`UnitInfo.armas`).
+ * El equipo: cinco huecos por individuo, unidad y héroe —el arma de cuerpo a
+ * cuerpo, la de disparar, la de carga, la armadura y el escudo (`HUECOS`)— con una
+ * pieza de `data/equipo.json` en cada uno, o nada: cada arma para lo suyo, y cada
+ * golpe con las cifras de la suya (`UnitInfo.armas`). **Una sola clase de piezas**
+ * (18-10-2026): las mismas en el juego y en la arena, que las edita y las guarda.
  *
  * Lo pide `NuevaJugabilidad.md` («Las tropas también ganan experiencia y equipo.
  * Cuando mueren se pierde pero dura toda la campaña»), y las cifras son
@@ -21,16 +22,24 @@
  */
 
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
-import { allCreatures, CALIDADES_DE_BOTIN, EQUIPO, type Pieza } from '../data.js';
-import { ESCALA_DE_CIFRAS } from '../escala.js';
+import {
+  DICHO_DE_DONDE,
+  EQUIPO,
+  EQUIPO_ESCRITO,
+  HEROE,
+  leerEquipo,
+  leerPiezas,
+  type Pieza,
+  type PiezaEscrita,
+  SOLO_EN_KITS,
+} from '../data.js';
 import type {
   ArmasDeLaUnidad,
   CifraDePieza,
   Equipo,
-  EquipoDeArena,
   GolpeConArma,
   Hueco,
-  HuecoDeArena,
+  HuecoDeArmaPorUso,
   Troop,
   UnitInfo,
   UsoDeArma,
@@ -40,46 +49,54 @@ import {
   CIFRAS_DE_PIEZA,
   esArmaPorUso,
   esHueco,
-  esHuecoDeArena,
-  HUECOS_DE_LA_ARENA,
+  HUECOS,
   huecoDesconocido,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
   SPEED_TIERS,
   TIPOS_DEL_ANILLO,
-  USO_DEL_HUECO,
 } from '../types.js';
 import type { Hero } from './hero.js';
 
 /** Las piezas que se pueden llevar, por su id. */
 export type CatalogoDePiezas = ReadonlyMap<string, Pieza>;
 
-/** El catálogo del juego: `data/equipo.json` por id. El único que ve el juego. */
+/** El catálogo del juego: `data/equipo.json` por id, tal como se cargó. El único que ve el juego. */
 export const PIEZAS_DEL_CATALOGO: CatalogoDePiezas = new Map(EQUIPO.map((p) => [p.id, p]));
 
 /**
  * Las lecturas de las piezas atadas a UN catálogo (`equipoCon`). El juego usa las
- * sueltas de este módulo, que leen siempre el suyo (`PIEZAS_DEL_CATALOGO`); la
- * arena pelea con el del juego con su borrador encima (`catalogoDeLaArena`) y
- * solo entra por aquí: así no hay lectura que se olvide de su catálogo y
- * resuelva en silencio con la pieza del juego. Que la arena no importe las
- * sueltas lo vigila `test/invariantes.test.ts`.
+ * sueltas de este módulo, que leen siempre el suyo (`PIEZAS_DEL_CATALOGO`, el
+ * fichero tal como se cargó); la arena edita el catálogo en memoria antes de
+ * guardarlo y pelea con él (`catalogoDeEquipo`), y solo entra por aquí: así no hay
+ * lectura que se olvide de su catálogo y resuelva en silencio con la pieza que se
+ * cargó. Que la arena no importe las sueltas lo vigila `test/invariantes.test.ts`.
  */
 export interface EquipoAtado {
   readonly piezas: CatalogoDePiezas;
   readonly pieza: (id: string) => Pieza;
   readonly piezaSiExiste: (id: string) => Pieza | null;
-  readonly piezasPuestas: (equipo: EquipoDeArena | undefined) => Pieza[];
-  readonly sumaDeEquipo: (equipo: EquipoDeArena | undefined) => SumaDeEquipo;
-  readonly conEquipo: <U extends UnitInfo>(unit: U, equipo: EquipoDeArena | undefined) => U;
-  readonly manosBlocker: (equipo: EquipoDeArena | undefined, id: string) => string | null;
-  readonly equipoBlocker: (equipo: EquipoDeArena) => string | null;
+  readonly piezasPuestas: (equipo: Equipo | undefined) => Pieza[];
+  readonly sumaDeEquipo: (equipo: Equipo | undefined) => SumaDeEquipo;
+  readonly conEquipo: <U extends UnitInfo>(unit: U, equipo: Equipo | undefined) => U;
+  readonly manosBlocker: (equipo: Equipo | undefined, id: string) => string | null;
+  readonly equipoBlocker: (equipo: Equipo) => string | null;
   readonly ponerPieza: (
-    equipo: EquipoDeArena | undefined,
+    equipo: Equipo | undefined,
     id: string,
     portador?: string,
-  ) => { readonly equipo: EquipoDeArena; readonly quitada: string | null };
+  ) => { readonly equipo: Equipo; readonly quitada: string | null };
 }
+
+/**
+ * Un catálogo de equipo con cómo está escrita cada pieza (`escritas`: entera o
+ * sobre su base), por id, además de sus lecturas resueltas. La ficha de la arena,
+ * el cambio de base y lo que se guarda leen las escritas; todo lo que pelea, las
+ * resueltas.
+ */
+export type CatalogoDeEquipo = EquipoAtado & {
+  readonly escritas: ReadonlyMap<string, PiezaEscrita>;
+};
 
 /** Las lecturas de las piezas con el catálogo `piezas` (`EquipoAtado`). */
 export function equipoCon(piezas: CatalogoDePiezas): EquipoAtado {
@@ -93,14 +110,48 @@ export function equipoCon(piezas: CatalogoDePiezas): EquipoAtado {
     manosBlocker: (equipo, id) => manosDe(piezas, equipo, id),
     equipoBlocker: (equipo) => equipoBlockerDe(piezas, equipo),
     ponerPieza: (equipo, id, portador) => {
-      const p = piezaDe(piezas, id);
-      return poner(piezas, equipo, p, p.hueco, portador);
+      return poner(piezas, equipo, piezaDe(piezas, id), portador);
     },
   };
 }
 
-/** Las lecturas atadas al catálogo del juego: lo que leen las sueltas, para quien pide un `EquipoAtado`. */
-export const EQUIPO_DEL_JUEGO: EquipoAtado = equipoCon(PIEZAS_DEL_CATALOGO);
+/**
+ * Un catálogo de equipo entero (`escritas`, todas las piezas, como se escriben en
+ * `data/equipo.json`), comprobado con la regla del catálogo (`leerPiezas`: cada
+ * pieza, sin repetir, resuelta con sus bases, y alguna de botín) y atado
+ * (`equipoCon`); lanza con lo que no vale. Es el catálogo que edita la arena y con
+ * el que pelea; el del juego es `EQUIPO_DEL_JUEGO`. **Se hace una vez por lista** y
+ * viaja hecho a quien lo necesita (el montaje, el retoque, el cambio de una pieza).
+ */
+export function catalogoDeEquipo(escritas: readonly unknown[]): CatalogoDeEquipo {
+  return atado(leerPiezas(escritas));
+}
+
+/**
+ * El catálogo de equipo de un fichero (`{ piezas: [...] }`, `leerEquipo`), hecho:
+ * lo que lee y escribe la arena en disco (`tools/arena/borrador.ts`), con una sola
+ * validación.
+ */
+export function catalogoDelFichero(json: unknown, fichero?: string): CatalogoDeEquipo {
+  return atado(leerEquipo(json, fichero));
+}
+
+/** Unas piezas ya leídas (`leerPiezas`), atadas (`equipoCon`) y con sus escritas. */
+function atado(leido: {
+  readonly escritas: readonly PiezaEscrita[];
+  readonly piezas: readonly Pieza[];
+}): CatalogoDeEquipo {
+  return {
+    ...equipoCon(new Map(leido.piezas.map((p) => [p.id, p]))),
+    escritas: new Map(leido.escritas.map((p) => [p.id, p])),
+  };
+}
+
+/** El catálogo del juego (`data/equipo.json` tal como se cargó), atado y con sus escritas. */
+export const EQUIPO_DEL_JUEGO: CatalogoDeEquipo = atado({
+  escritas: EQUIPO_ESCRITO,
+  piezas: EQUIPO,
+});
 
 /** La pieza `id`. Lanza si no existe: un id inventado en un estado es un bug, no un vacío. */
 export function pieza(id: string): Pieza {
@@ -122,14 +173,6 @@ export function piezaSiExiste(id: string): Pieza | null {
   return PIEZAS_DEL_CATALOGO.get(id) ?? null;
 }
 
-/** El nombre de cada calidad, para pintarlo. */
-export const NOMBRE_DE_CALIDAD: Readonly<Record<Pieza['calidad'], string>> = {
-  comun: 'común',
-  armeria: 'de armería',
-  especial: 'especial',
-  arena: 'de la arena',
-};
-
 /** Lo que dice de un uso de arma `DICHO_DEL_USO`. */
 interface DichoDeUnUso {
   readonly rotulo: string;
@@ -137,26 +180,19 @@ interface DichoDeUnUso {
   readonly cuando: string;
 }
 
-/** Lo que dice la fila de un arma puesta que no se usa (`ArmaDeLaUnidad.sinUso`). */
-interface ConSinUso {
-  readonly sinUso: string;
-}
-
 /**
  * Cada uso de un arma dicho para quien juega, en la forma en que se pinta: el
  * `rotulo` de su fila en «Armas» (la ficha y el panel de la pelea), el `golpe`
  * con que lo dice la previsión («con Daga (cuerpo a cuerpo)», también la del
  * contraataque), `cuando` se usa, la nota de su fila y la del hueco en el editor
- * de equipo, y `sinUso`, lo que dice la fila de un arma puesta que no se usa (solo
- * la de carga en quien no carga: el cuerpo a cuerpo se usa siempre y el arma a
- * distancia ya es disparar). Las cifras de la carga salen de `data/carga.json`
+ * de equipo. Toda arma puesta se usa: el cuerpo a cuerpo siempre, la de carga al
+ * cargar (carga todo el que pega cuerpo a cuerpo) y la de distancia, que ya es
+ * disparar. Las cifras de la carga salen de `data/carga.json`
  * (`CARGA`), no se escriben aquí. La regla la aplican `usoDelGolpe` y `armasDe`
  * (`battle/damage.ts`); esto la cuenta.
  */
-export const DICHO_DEL_USO: {
-  readonly [U in UsoDeArma]: DichoDeUnUso & (U extends 'carga' ? ConSinUso : unknown);
-} = {
-  cuerpo: {
+export const DICHO_DEL_USO: Readonly<Record<UsoDeArma, DichoDeUnUso>> = {
+  arma: {
     rotulo: 'Cuerpo a cuerpo',
     golpe: 'cuerpo a cuerpo',
     cuando:
@@ -168,11 +204,10 @@ export const DICHO_DEL_USO: {
     cuando:
       'Se usa al disparar: llevarla ya es disparar, sin munición (dos tiros por disparo con Dos disparos).',
   },
-  carga: {
+  lanza: {
     rotulo: 'Carga',
     golpe: 'en la carga',
-    cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo. En la arena carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porcentaje} % de daño por casilla hasta ${CARGA.aPie.tope}; con el rasgo Carga (el jinete), +${CARGA.jinete.porcentaje} % hasta ${CARGA.jinete.tope}.`,
-    sinUso: 'no carga: no se usa',
+    cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo. Carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porcentaje} % de daño por casilla hasta ${CARGA.aPie.tope}; con el rasgo Carga (el jinete), +${CARGA.jinete.porcentaje} % hasta ${CARGA.jinete.tope}.`,
   },
 };
 
@@ -180,83 +215,64 @@ export const DICHO_DEL_USO: {
 export const SIN_ARMA = 'sin arma, con el cuerpo';
 
 /**
- * Si la armería vende `p`: solo lo de calidad de armería. **La regla de lo que se
- * vende, en un sitio**: la leen `buyBlocker`, para rechazar, y `PIEZAS_DE_ARMERIA`,
- * para enseñar y para el equipo base. Escrita en los dos podían discrepar.
+ * Si la armería vende `p` (`Pieza.seConsigue`). **La regla de lo que se vende, en
+ * un sitio**: la leen `buyBlocker`, para rechazar, y `PIEZAS_DE_ARMERIA`, para
+ * enseñar. Escrita en los dos podían discrepar.
  */
 export function seVende(p: Pieza): boolean {
-  return p.calidad === 'armeria';
+  return p.seConsigue.includes('armeria');
 }
 
-/** Una pieza del juego: va en uno de sus cuatro huecos (`HUECOS`), no en uno de arma por uso. */
-export type PiezaDelJuego = Pieza & { readonly hueco: Hueco };
-
-/**
- * `p` como pieza del juego, o excepción si va en un hueco que solo tiene la arena:
- * el juego no reparte piezas de la arena (ni botín, ni armería, ni equipo base),
- * así que una aquí es un fallo, no un vacío. Es la frontera del tipo: un `Equipo`
- * no tiene dónde ponerla.
- */
-function delJuego(p: Pieza): PiezaDelJuego {
-  if (!esPiezaDelJuego(p)) {
-    throw new Error(`${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, que solo tiene la arena`);
-  }
-  return p;
-}
-
-function esPiezaDelJuego(p: Pieza): p is PiezaDelJuego {
-  return esHueco(p.hueco);
-}
-
-/** La pieza `id` del juego (`pieza`, en uno de sus cuatro huecos). Lanza si no existe o si es de un hueco de la arena. */
-export function piezaDelJuego(id: string): PiezaDelJuego {
-  return delJuego(pieza(id));
+/** Si `p` cae como botín (`Pieza.seConsigue`): la lee `PIEZAS_DE_BOTIN`. */
+export function caeComoBotin(p: Pieza): boolean {
+  return p.seConsigue.includes('botin');
 }
 
 /**
- * Lo que el juego conoce: todo menos lo de la arena. Es lo que se le describe al
- * agente (`CATALOGO_DE_EQUIPO_EN_PROSA`): una pieza que no puede caerle ni
- * comprar no es parte de su juego. En sus cuatro huecos, que garantiza el
- * cargador (`validarEquipo`).
+ * De dónde se consigue `p`, dicho para quien juega con la tabla del núcleo
+ * (`DICHO_DE_DONDE`, `SOLO_EN_KITS`): «se vende en la armería», «cae como botín»,
+ * las dos cosas o que solo la llevan las unidades que nacen con ella. Lo leen la
+ * prosa del agente y el motivo de `buyBlocker`.
  */
-export const PIEZAS_DEL_JUEGO: readonly PiezaDelJuego[] = EQUIPO.filter(
-  (p) => p.calidad !== 'arena',
-).map(delJuego);
+export function deDondeSale(p: Pick<Pieza, 'seConsigue'>): string {
+  if (p.seConsigue.length === 0) return SOLO_EN_KITS;
+  return p.seConsigue.map((d) => DICHO_DE_DONDE[d]).join(' y ');
+}
+
+/** Lo que vende la armería, en el orden del catálogo (`seVende`). */
+export const PIEZAS_DE_ARMERIA: readonly Pieza[] = EQUIPO.filter(seVende);
 
 /**
- * Lo que vende la armería: una pieza por hueco, en el orden del catálogo. Se
- * deriva de la calidad (`seVende`) y no se escribe en ningún sitio.
+ * Lo que puede caer como botín (`caeComoBotin`), en el orden del catálogo, que es
+ * el del sorteo. Que haya alguna lo garantiza el cargador (`leerEquipo`).
  */
-export const PIEZAS_DE_ARMERIA: readonly PiezaDelJuego[] = PIEZAS_DEL_JUEGO.filter(seVende);
+export const PIEZAS_DE_BOTIN: readonly Pieza[] = EQUIPO.filter(caeComoBotin);
 
 /**
- * Lo que puede caer como botín: las piezas de `CALIDADES_DE_BOTIN`, en el orden
- * del catálogo, que es el del sorteo: lo de la arena no está, y el sorteo de cada
- * semilla ve la misma lista que antes de que lo hubiera.
+ * Por qué el equipo base del héroe (`data/heroe.json`) no vale con las piezas de
+ * `eq`, o `null`: que cada pieza exista, vaya en su hueco y las manos casen
+ * (`equipoBlocker`). La lee solo `leerCatalogos` (`core/unidad.ts`), lo que la
+ * carga del juego, «Guardar» y el editor de equipo exigen a los catálogos juntos.
  */
-export const PIEZAS_DE_BOTIN: readonly PiezaDelJuego[] = PIEZAS_DEL_JUEGO.filter((p) =>
-  CALIDADES_DE_BOTIN.includes(p.calidad),
-);
+export function equipoBaseBlocker(eq: EquipoAtado): string | null {
+  const motivo = eq.equipoBlocker(HEROE.equipoBase);
+  return motivo === null ? null : `el equipo base del héroe (data/heroe.json): ${motivo}`;
+}
 
 /**
- * El equipo con el que nace todo héroe: la pieza de armería de cada hueco
- * (decisión del usuario, 02-10-2026: «los héroes ya lo llevan» es el equipo de
- * mejor calidad que se compra en la armería). **Derivado de la calidad de las
- * piezas**: escrito aquí al lado sería una segunda lista que se quedaría atrás el
- * día que cambie la espada. Que haya exactamente una por hueco —ni un hueco
- * vacío ni dos candidatas— lo garantiza `validarEquipo` al cargar, y por eso
- * aquí no se vuelve a comprobar.
+ * El equipo con el que nace todo héroe (decisión del usuario, 18-10-2026: la
+ * Espada y el gambesón), de `data/heroe.json`, donde se comprueba su forma; que
+ * sus piezas valgan con el catálogo lo comprueba la carga de los catálogos
+ * (`leerCatalogos`, desde `core/catalogo.ts`). Lo lleva también el héroe de la arena.
  */
-export const EQUIPO_BASE: Equipo = Object.freeze(
-  Object.fromEntries(PIEZAS_DE_ARMERIA.map((p) => [p.hueco, p.id])),
-);
+export const EQUIPO_BASE: Equipo = Object.freeze({ ...HEROE.equipoBase });
 
 /** Las piezas puestas, en el orden de los huecos. */
 export function piezasPuestas(equipo: Equipo | undefined): Pieza[] {
   return puestasDe(PIEZAS_DEL_CATALOGO, equipo);
 }
 
-function puestasDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): Pieza[] {
+function puestasDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): Pieza[] {
   return idsPuestos(equipo).map((id) => piezaDe(piezas, id));
 }
 
@@ -269,8 +285,7 @@ export interface SumaDeEquipo {
    */
   readonly ataque: number;
   readonly defensa: number;
-  readonly pv: number;
-  /** Los puntos de armadura (`Pieza.armadura`): solo las piezas de la arena la llevan. */
+  /** Los puntos de armadura (`Pieza.armadura`). Ninguna pieza da PV. */
   readonly armadura: number;
   readonly velocidad: number;
   readonly danio: readonly [number, number];
@@ -290,22 +305,21 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
  * La suma, **clasificada por la clave del hueco en `equipo`**, no por el hueco
  * que dice la pieza: con un equipo válido es lo mismo. El ataque y el daño de un
  * arma por uso (`esArmaPorUso`) no suman aquí, que son los de su golpe
- * (`armasPorUso`); lo demás de cualquier pieza —defensa, PV, velocidad—, siempre.
+ * (`armasPorUso`); lo demás de cualquier pieza —defensa, armadura, velocidad—,
+ * siempre.
  */
-function sumaDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): SumaDeEquipo {
+function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEquipo {
   let ataque = 0;
   let defensa = 0;
-  let pv = 0;
   let armadura = 0;
   let velocidad = 0;
   let min = 0;
   let max = 0;
-  for (const hueco of HUECOS_DE_LA_ARENA) {
+  for (const hueco of HUECOS) {
     const id = equipo?.[hueco];
     if (id === undefined) continue;
     const p = piezaDe(piezas, id);
     defensa += p.defensa;
-    pv += p.pv;
     armadura += p.armadura ?? 0;
     velocidad += p.velocidad;
     if (esArmaPorUso(hueco)) continue;
@@ -313,7 +327,7 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): Su
     min += p.danio?.[0] ?? 0;
     max += p.danio?.[1] ?? 0;
   }
-  return { ataque, defensa, pv, armadura, velocidad, danio: [min, max] };
+  return { ataque, defensa, armadura, velocidad, danio: [min, max] };
 }
 
 /**
@@ -321,23 +335,14 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena | undefined): Su
  * `cifrasDelIndividuo` y `heroUnit`, y un test exige que las puertas de la tropa
  * den lo mismo.
  *
- * Sin piezas devuelve **la misma referencia**, no una copia: un novato sigue
- * pisando el tablero con la `Creature` del catálogo, que es lo que deja al
- * espectador rehacer sus cifras y al banco quedarse igual para quien no lleva
- * nada. La velocidad sube o baja escalones de `SPEED_TIERS` y se queda entre el
- * primero y el último. El daño suma `[+mín, +máx]`. Ninguna pieza da munición:
- * un arma en `distancia` hace tirador a quien la lleva por sí misma (`isShooter`,
- * que mira `equipo`), y `shots` es solo de la criatura del catálogo; lanza si una
- * unidad lleva las dos cosas.
+ * Sin piezas devuelve **la misma referencia**, no una copia. La velocidad sube
+ * o baja escalones de `SPEED_TIERS` y se queda entre el primero y el último. El
+ * daño suma `[+mín, +máx]`. Un arma en `distancia` hace tirador a quien la lleva
+ * (`isShooter`, que mira `equipo`), sin munición que contar.
  *
- * Con piezas, deja en `sinEquipo` las cifras de antes de ponérselas —las del
- * cuerpo, si `unit` ya llevaba equipo—: el nivel se mide sin equipo
- * (`nivelDeUnidad`) y este es el único sitio que sabe qué suma la pieza. Es el
- * **único escritor** de `sinEquipo` (`test/invariantes.test.ts`). Por eso el
- * equipo va siempre lo último, después de la veteranía o el rango: lo que se
- * sume después de `conEquipo` no llegaría a `sinEquipo`, y el nivel no lo vería.
- * Y deja en `equipo` lo puesto: cambiar una pieza a media pelea (la arena) lo
- * vuelve a sumar a `sinEquipo` desde el propio stack.
+ * Deja en `equipo` lo puesto: es de donde se deriva qué suma el equipo
+ * (`modificadoresDePieza`). Las cifras sin él no se guardan (19-10-2026: fuera
+ * `sinEquipo`): quien necesite el cuerpo desnudo lo saca de su origen.
  */
 export function conEquipo<U extends UnitInfo>(unit: U, equipo: Equipo | undefined): U {
   return vestir(PIEZAS_DEL_CATALOGO, unit, equipo);
@@ -346,30 +351,19 @@ export function conEquipo<U extends UnitInfo>(unit: U, equipo: Equipo | undefine
 function vestir<U extends UnitInfo>(
   piezas: CatalogoDePiezas,
   unit: U,
-  equipo: EquipoDeArena | undefined,
+  equipo: Equipo | undefined,
 ): U {
   if (idsPuestos(equipo).length === 0) return unit;
   // Lo que ya llevaba y lo de ahora, juntos: la misma pieza en un hueco dos veces
   // se sumaría dos veces y el registro diría una.
-  const yaPuesto = HUECOS_DE_LA_ARENA.find(
-    (h) => unit.equipo?.[h] !== undefined && equipo?.[h] !== undefined,
-  );
+  const yaPuesto = HUECOS.find((h) => unit.equipo?.[h] !== undefined && equipo?.[h] !== undefined);
   if (yaPuesto !== undefined) {
     throw new Error(
       `${unit.name} ya lleva algo en ${NOMBRE_DE_HUECO[yaPuesto]}: no se suma otra pieza encima`,
     );
   }
-  const todo: EquipoDeArena = { ...unit.equipo, ...equipo };
-  // La munición es de la criatura del catálogo y el arma a distancia no la cuenta
-  // (`cuentaTiros`): juntas, quien la lleve tiraría sin fin con tiros que se gastan
-  // sin servir de nada. El juego no pone nada en `distancia` y la arena no tiene
-  // `shots`, así que esto no salta: es la regla escrita donde se juntan.
-  if ((unit.shots ?? 0) > 0 && todo.distancia !== undefined) {
-    throw new Error(
-      `${unit.name} tira con su munición (${unit.shots} tiros) y no puede llevar nada en ${NOMBRE_DE_HUECO.distancia}: el arma a distancia no cuenta tiros`,
-    );
-  }
-  const { ataque, defensa, pv, armadura, velocidad, danio } = sumaDe(piezas, equipo);
+  const todo: Equipo = { ...unit.equipo, ...equipo };
+  const { ataque, defensa, armadura, velocidad, danio } = sumaDe(piezas, equipo);
   const puntosDeArmadura = (unit.puntosDeArmadura ?? 0) + armadura;
   const escalon = Math.max(
     0,
@@ -384,12 +378,10 @@ function vestir<U extends UnitInfo>(
     ...(danio[1] > 0
       ? { damage: [unit.damage[0] + danio[0], unit.damage[1] + danio[1]] as const }
       : {}),
-    hp: unit.hp + pv,
-    // La armadura, solo si la hay (la arena): como el daño, el juego sale con los
-    // mismos campos de siempre.
+    // La armadura, solo si la hay: como el daño, sin piezas que la den la unidad
+    // sale con los mismos campos.
     ...(puntosDeArmadura > 0 ? { puntosDeArmadura } : {}),
     speed: SPEED_TIERS[escalon] as UnitInfo['speed'],
-    sinEquipo: unit.sinEquipo ?? unit,
     equipo: todo,
   };
   const armas = armasPorUso(piezas, vestida, todo);
@@ -398,8 +390,8 @@ function vestir<U extends UnitInfo>(
 
 /**
  * Con qué arma y qué cifras da `vestida` cada golpe, si lleva un arma por uso
- * (`esArmaPorUso`: solo la arena) o un arma de cuerpo a cuerpo que cambia la rueda
- * (`Pieza.rueda`, solo la arena), o `null`. El de cuerpo a cuerpo es el de
+ * (`esArmaPorUso`) o un arma de cuerpo a cuerpo, que dice su rueda
+ * (`Pieza.rueda`), o `null`. El de cuerpo a cuerpo es el de
  * arriba; el de cada arma por uso, el de arriba con esa arma en lugar de la de
  * cuerpo a cuerpo (su ataque y su daño no suben arriba, `sumaDe`). Cada golpe
  * lleva la rueda de su arma: así el motor no busca la pieza. El único escritor de
@@ -408,29 +400,28 @@ function vestir<U extends UnitInfo>(
 function armasPorUso(
   piezas: CatalogoDePiezas,
   vestida: UnitInfo,
-  todo: EquipoDeArena,
+  todo: Equipo,
 ): ArmasDeLaUnidad | null {
   const delCuerpo = todo.arma === undefined ? null : piezaDe(piezas, todo.arma);
-  // El juego no tiene ni lo uno ni lo otro (su calidad no admite rueda): sale sin
-  // `armas`, con los campos de siempre (el banco), y antes de reservar nada, que
-  // por aquí pasan cada individuo y cada héroe (`cifrasDelIndividuo`, `heroUnit`).
-  const conArmaPorUso = HUECOS_DE_LA_ARENA.some((h) => esArmaPorUso(h) && todo[h] !== undefined);
-  if (!conArmaPorUso && delCuerpo?.rueda === undefined) return null;
-  const porUso = HUECOS_DE_LA_ARENA.filter(
-    (h): h is Exclude<HuecoDeArena, Hueco> => esArmaPorUso(h) && todo[h] !== undefined,
+  const porUso = HUECOS.filter(
+    (h): h is HuecoDeArmaPorUso => esArmaPorUso(h) && todo[h] !== undefined,
   );
+  // Sin arma ni arma por uso, sin `armas`: todo golpe va con las cifras de arriba.
+  // Antes de reservar nada, que por aquí pasan cada individuo y cada héroe
+  // (`cifrasDelIndividuo`, `heroUnit`).
+  if (porUso.length === 0 && delCuerpo?.rueda === undefined) return null;
   const armas: { -readonly [U in keyof ArmasDeLaUnidad]: ArmasDeLaUnidad[U] } = {
-    cuerpo: conRuedaDe(
-      { arma: todo.arma ?? null, attack: vestida.attack, damage: vestida.damage },
+    arma: conRuedaDe(
+      { arma: armaDe(delCuerpo), attack: vestida.attack, damage: vestida.damage },
       delCuerpo,
     ),
   };
   for (const hueco of porUso) {
     const id = todo[hueco] as string;
     const p = piezaDe(piezas, id);
-    armas[USO_DEL_HUECO[hueco]] = conRuedaDe(
+    armas[hueco] = conRuedaDe(
       {
-        arma: id,
+        arma: armaDe(p),
         attack: vestida.attack - (delCuerpo?.ataque ?? 0) + p.ataque,
         damage: [
           vestida.damage[0] - (delCuerpo?.danio?.[0] ?? 0) + (p.danio?.[0] ?? 0),
@@ -443,14 +434,19 @@ function armasPorUso(
   return armas;
 }
 
+/** El arma de un golpe (`GolpeConArma.arma`): la pieza por su id y su nombre, o `null`. */
+function armaDe(p: Pieza | null): GolpeConArma['arma'] {
+  return p === null ? null : { id: p.id, nombre: p.nombre };
+}
+
 /** El golpe `g` con la rueda de su arma `p`, solo si la lleva. */
 function conRuedaDe(g: GolpeConArma, p: Pieza | null): GolpeConArma {
   return p?.rueda === undefined ? g : { ...g, rueda: p.rueda };
 }
 
 /**
- * Si `a` y `b` tienen las mismas cifras en todo lo que el equipo suma: ataque,
- * defensa, daño, PV, armadura y velocidad, y las de cada arma (`armas`). Junto a `conEquipo` porque es quien
+ * Si `a` y `b` tienen las mismas cifras en todo lo que el equipo suma y la vida:
+ * ataque, defensa, daño, PV, armadura y velocidad, y las de cada arma (`armas`). Junto a `conEquipo` porque es quien
  * sabe qué campos toca: si mañana suma otro, esta comparación tiene que verlo.
  * La lee el cambio de una pieza a media pelea de la arena (`retocarEnBatalla`):
  * solo cambia las cifras, y lo escribe en el parte, de quien de verdad cambia.
@@ -472,7 +468,8 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
   const golpe = (x: GolpeConArma | undefined, y: GolpeConArma | undefined): boolean =>
     x === undefined || y === undefined
       ? x === y
-      : x.arma === y.arma &&
+      : x.arma?.id === y.arma?.id &&
+        x.arma?.nombre === y.arma?.nombre &&
         x.attack === y.attack &&
         x.damage[0] === y.damage[0] &&
         x.damage[1] === y.damage[1] &&
@@ -480,26 +477,13 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
         // Maza a media pelea no llegaba a quien la lleva.
         TIPOS_DEL_ANILLO.every((t) => x.rueda?.[t] === y.rueda?.[t]);
   if (a === undefined || b === undefined) return a === b;
-  return golpe(a.cuerpo, b.cuerpo) && golpe(a.distancia, b.distancia) && golpe(a.carga, b.carga);
-}
-
-/**
- * Lo que vale una pieza para la IA: la suma de sus cifras, con la velocidad a
- * tres porque un escalón pesa más que un punto. **Heurística de la IA e
- * inventada**, no una regla del juego: la persona y el agente eligen ellos.
- *
- * En PV: un punto de ataque o de defensa pesa como `ESCALA_DE_CIFRAS` PV, lo que
- * pesaba un PV en la escala de fheroes2. Sin redondear: lo que no es múltiplo de
- * la escala también cuenta.
- */
-export function valorDePieza(p: Pieza): number {
-  return ESCALA_DE_CIFRAS * (p.ataque + p.defensa + (p.armadura ?? 0) + 3 * p.velocidad) + p.pv;
+  return golpe(a.arma, b.arma) && golpe(a.distancia, b.distancia) && golpe(a.lanza, b.lanza);
 }
 
 /**
  * La regla de las manos y del escudo dicha para quien juega: la leen la prosa del
  * agente y la ficha de la arena. Junto a `manosBlocker`, que es quien la aplica
- * (el escudo que no resta lo rechaza el cargador del catálogo, `validarEquipo`).
+ * (el escudo que no resta lo rechaza el cargador del catálogo, `leerEquipo`).
  */
 export const REGLA_DEL_ESCUDO = 'un arma a dos manos no admite escudo, y el escudo resta velocidad';
 
@@ -524,11 +508,7 @@ export function manosBlocker(equipo: Equipo | undefined, id: string): string | n
   return manosDe(PIEZAS_DEL_CATALOGO, equipo, id);
 }
 
-function manosDe(
-  piezas: CatalogoDePiezas,
-  equipo: EquipoDeArena | undefined,
-  id: string,
-): string | null {
+function manosDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined, id: string): string | null {
   const p = piezaDe(piezas, id);
   const resto = { ...equipo, [p.hueco]: undefined };
   const arma = resto.arma === undefined ? null : piezaDe(piezas, resto.arma);
@@ -544,16 +524,17 @@ function manosDe(
 
 /**
  * Por qué un equipo entero no vale, o `null`: que cada pieza exista, que vaya en
- * su hueco y que las manos cuadren (`manosBlocker`). Lo lee la arena al validar
- * una unidad: un equipo escrito a mano en el borrador no pasa por `ponerPieza`.
+ * su hueco y que las manos cuadren (`manosBlocker`). Lo leen la arena al validar
+ * una unidad (un equipo escrito a mano en el catálogo no pasa por `ponerPieza`) y
+ * el equipo base del héroe (`equipoBaseBlocker`).
  */
 export function equipoBlocker(equipo: Equipo): string | null {
   return equipoBlockerDe(PIEZAS_DEL_CATALOGO, equipo);
 }
 
-function equipoBlockerDe(piezas: CatalogoDePiezas, equipo: EquipoDeArena): string | null {
+function equipoBlockerDe(piezas: CatalogoDePiezas, equipo: Equipo): string | null {
   for (const [hueco, id] of Object.entries(equipo)) {
-    if (!esHuecoDeArena(hueco)) return huecoDesconocido(hueco, HUECOS_DE_LA_ARENA);
+    if (!esHueco(hueco)) return huecoDesconocido(hueco, HUECOS);
     if (id === undefined) continue;
     const p = piezas.get(id) ?? null;
     if (p === null) return `no existe ninguna pieza "${id}"`;
@@ -576,37 +557,32 @@ export function ponerPieza(
   id: string,
   portador?: string,
 ): { readonly equipo: Equipo; readonly quitada: string | null } {
-  const p = piezaDelJuego(id);
-  return poner(PIEZAS_DEL_CATALOGO, equipo, p, p.hueco, portador);
+  return poner(PIEZAS_DEL_CATALOGO, equipo, pieza(id), portador);
 }
 
-/** Un equipo con los huecos `H`: el del juego (`Equipo`) o el de la arena (`EquipoDeArena`). */
-type EquipoCon<H extends HuecoDeArena> = Readonly<Partial<Record<H, string>>>;
-
-function poner<H extends HuecoDeArena>(
+function poner(
   piezas: CatalogoDePiezas,
-  equipo: EquipoCon<H> | undefined,
+  equipo: Equipo | undefined,
   p: Pieza,
-  hueco: H,
   portador?: string,
-): { readonly equipo: EquipoCon<H>; readonly quitada: string | null } {
+): { readonly equipo: Equipo; readonly quitada: string | null } {
   const motivo = manosDe(piezas, equipo, p.id);
   if (motivo !== null) {
     const a = portador === undefined ? '' : ` a ${portador}`;
     throw new Error(`no se puede poner ${p.nombre}${a}: ${motivo}`);
   }
-  const quitada = equipo?.[hueco] ?? null;
-  return { equipo: { ...equipo, [hueco]: p.id } as EquipoCon<H>, quitada };
+  const quitada = equipo?.[p.hueco] ?? null;
+  return { equipo: { ...equipo, [p.hueco]: p.id }, quitada };
 }
 
-/** El equipo sin lo que hubiera en `hueco`, y lo que había (o `null`). Del juego o de la arena. */
-export function quitarPieza<H extends HuecoDeArena>(
-  equipo: EquipoCon<H> | undefined,
-  hueco: H,
-): { readonly equipo: EquipoCon<H>; readonly quitada: string | null } {
+/** El equipo sin lo que hubiera en `hueco`, y lo que había (o `null`). */
+export function quitarPieza(
+  equipo: Equipo | undefined,
+  hueco: Hueco,
+): { readonly equipo: Equipo; readonly quitada: string | null } {
   const quitada = equipo?.[hueco] ?? null;
-  const { [hueco]: _fuera, ...resto } = equipo ?? ({} as EquipoCon<H>);
-  return { equipo: resto as EquipoCon<H>, quitada };
+  const { [hueco]: _fuera, ...resto } = equipo ?? {};
+  return { equipo: resto, quitada };
 }
 
 /**
@@ -615,7 +591,7 @@ export function quitarPieza<H extends HuecoDeArena>(
  * el hueco escudo», que al agente, que lo pidió como `shield`, no le decía nada.
  * La leen `unequipBlocker` y la arena (`quitarEnArena`).
  */
-export function nadaEnElHueco(quien: string, hueco: HuecoDeArena): string {
+export function nadaEnElHueco(quien: string, hueco: Hueco): string {
   return `${quien} no lleva nada en ${NOMBRE_DE_HUECO[hueco]}`;
 }
 
@@ -623,8 +599,8 @@ export function nadaEnElHueco(quien: string, hueco: HuecoDeArena): string {
  * Los ids de lo que lleva puesto, en el orden de los huecos: lo que vuelve a una
  * mochila, y quién lleva una pieza. Sin catálogo: solo lee los huecos.
  */
-export function idsPuestos(equipo: EquipoDeArena | undefined): string[] {
-  return HUECOS_DE_LA_ARENA.flatMap((h) => equipo?.[h] ?? []);
+export function idsPuestos(equipo: Equipo | undefined): string[] {
+  return HUECOS.flatMap((h) => equipo?.[h] ?? []);
 }
 
 /** La mochila sin UNA copia de `id` (la primera). Lanza si no está. */
@@ -659,7 +635,6 @@ export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
     defensa: p.defensa,
     armadura: p.armadura ?? 0,
     danio: p.danio?.[1] ?? 0,
-    pv: p.pv,
     velocidad: p.velocidad,
   };
   const cifras: ModificadorDePieza[] = CIFRAS_DE_PIEZA.flatMap((cifra) => {
@@ -739,19 +714,20 @@ export function destinoDeEquipo(
     return { indice };
   }
   if (especieId !== undefined) {
-    const especie = allCreatures().find((c) => c.id === especieId);
-    if (especie === undefined) return { motivo: `no existe ninguna criatura "${especieId}"` };
+    // Sin el catálogo de unidades: lo importa a este módulo, y desde aquí sería un
+    // ciclo que se cuelga al cargar. La unidad se nombra por su id, que es lo que
+    // escribió quien pregunta.
     const indice = hero.army.findIndex(
-      (t) => t.creature === especie.id && t.member === undefined && t.veterania === undefined,
+      (t) => t.creature === especieId && t.member === undefined && t.veterania === undefined,
     );
     if (indice < 0) {
       // La pista de «veteran» solo si hay a quién nombrar con ella: sin ninguno
       // de ese tipo, sugerir un id es mandar a buscar a alguien que no está.
-      const conId = hero.army.some((t) => t.creature === especie.id && t.veterania !== undefined);
+      const conId = hero.army.some((t) => t.creature === especieId && t.veterania !== undefined);
       return {
         motivo: conId
-          ? `${hero.name} no lleva ninguna unidad de ${especie.name} sin id: a uno que ya lo tiene —el que va en su propia fila— se le nombra con "veteran"`
-          : `${hero.name} no lleva ninguna unidad de ${especie.name} en su tropa`,
+          ? `${hero.name} no lleva ninguna unidad «${especieId}» sin id: a uno que ya lo tiene —el que va en su propia fila— se le nombra con "veteran"`
+          : `${hero.name} no lleva ninguna unidad «${especieId}» en su tropa`,
       };
     }
     return { indice };

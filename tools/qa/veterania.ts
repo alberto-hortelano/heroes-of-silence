@@ -38,7 +38,7 @@ const DIAS = Number(process.argv[3] ?? DIAS_POR_DEFECTO);
 
 const cruces = new Array<number>(RANGO_MAXIMO_DE_TROPA + 1).fill(0);
 const rangosDeHeroe = new Map<number, number>();
-/** El nivel de su cuerpo sin equipo (`nivelDeUnidad`), que no es su rango. */
+/** El nivel de su cuerpo con su equipo (`nivelDeUnidad`), que no es su rango. */
 const nivelesDeCuerpo = new Map<number, number>();
 const dias: number[] = [];
 let conAlgun5 = 0;

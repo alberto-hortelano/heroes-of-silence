@@ -10,17 +10,21 @@
  */
 
 import {
+  guarnicionDeBase,
+  guarnicionNeutral,
+  problemasDeGrupo,
+  unidadesDelJuego,
+} from '../catalogo.js';
+import {
   ASALTANTES,
   BARRERAS_DEL_MAPA,
   FORMAS_DEL_RIO,
   type FormaDelRio,
-  guarnicionDeBase,
-  guarnicionNeutral,
   NIVEL_POR_SUELO,
-  problemasDeGrupo,
 } from '../data.js';
 import { AREA_POR_REGION } from '../escala.js';
 import { CUPO_GUARNICION, ejercitoDe } from '../hero/troop.js';
+import { nivelDeUnidad } from '../nivel.js';
 import { createRng, type Rng } from '../rng.js';
 import {
   problemasDeAsaltante,
@@ -30,7 +34,14 @@ import {
   tocaUnNodo,
 } from '../state/asaltantes.js';
 import { createTown, primeraCiudadDe, type Town } from '../town/town.js';
-import type { Army, FactionId, PlayerId, Point, ResourceKind } from '../types.js';
+import {
+  type Army,
+  FACTION_IDS,
+  type FactionId,
+  type PlayerId,
+  type Point,
+  type ResourceKind,
+} from '../types.js';
 import {
   createEmptyMap,
   type GameMap,
@@ -514,9 +525,9 @@ export function validateMapPlan(plan: MapPlan): string[] {
     }
   }
 
-  // La criatura de un monstruo es el ÚNICO texto del plan que el motor ejecuta
+  // La unidad de un monstruo es el ÚNICO texto del plan que el motor ejecuta
   // en vez de leer: `buildMap` la copia verbatim y el primer turno de la IA
-  // llama a `creature(id)`, que lanza. La comprobación vive aquí y no en el
+  // llama a `unidadDelJuego(id)`, que lanza. La comprobación vive aquí y no en el
   // esquema porque esta es la puerta de los DOS productores de planes, y un
   // `z.enum` dejaría al generador de casa sin vigilar justo en este campo. Y
   // un monstruo son `count` individuos que no pasan de un bando: `createBattle`
@@ -1937,6 +1948,16 @@ export function crucesConCamino(
 }
 
 /**
+ * Las unidades que pueden ser un monstruo del mapa: las de nivel 2 o menos de
+ * cualquier facción (`nivelDeUnidad`, con el equipo puesto), en el orden del
+ * catálogo. Con caballeros y nigromantes eran seis criaturas escritas a mano, de
+ * las moradas 1 a 3; derivadas, una unidad nueva del catálogo entra sola.
+ */
+const MONSTRUOS_POSIBLES: readonly string[] = unidadesDelJuego()
+  .filter((u) => nivelDeUnidad(u) <= 2)
+  .map((u) => u.id);
+
+/**
  * Viste una red fina (`vestir.ts`): suelos, fronteras gruesas, objetos,
  * obstáculos y caminos. Todo lo que hace convierte casillas pisables en barrera,
  * y eso nunca abre un paso. Devuelve el plan, o en qué fase y por qué este
@@ -1950,7 +1971,10 @@ function vestirRed(
 ): PlanConTramos | VestidoFallido {
   const { W, H, semillas, etiqueta, muro, nodos, regions, conNodos, red, b0, b1 } = fina;
   const { neutrales, d0, d1 } = fina;
-  const [f0, f1] = opts.factions ?? (['knight', 'necromancer'] as const);
+  // Sin facciones pedidas, las dos primeras de las cinco, sin tirada: el sorteo lo
+  // hace la partida (`newGame`) con su propia corriente, para que pedir dos
+  // facciones no mueva ni una casilla del mapa de una semilla.
+  const [f0, f1] = opts.factions ?? [FACTION_IDS[0], FACTION_IDS[1]];
   const N = W * H;
   const punto = (i: number): Point => aPunto(i, W);
   const indice = (p: Point): number => p.y * W + p.x;
@@ -2230,7 +2254,7 @@ function vestirRed(
     );
   }
 
-  const monstruosPosibles = ['peasant', 'skeleton', 'zombie', 'archer', 'pikeman', 'mummy'];
+  const monstruosPosibles = MONSTRUOS_POSIBLES;
   const monsters: { at: Point; creature: string; count: number }[] = [];
   const parejasDeMonstruos = Math.floor((opts.monsterCount ?? 8) / 2);
   for (let i = 0; i < parejasDeMonstruos; i++) {

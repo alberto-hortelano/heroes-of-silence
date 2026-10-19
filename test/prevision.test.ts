@@ -2,7 +2,8 @@
  * La previsión de daño (`previsionDe`) contra el daño de verdad.
  *
  * Por cada escenario —golpe, carga, disparo cerca y lejos, defensa, contraataque,
- * doble golpe, la momia, el dragón, Bendición y Maldición, héroes con ataque y
+ * doble golpe, maldecir y asustar al golpear (hechos a mano: el catálogo no trae esos
+ * rasgos), Bendición y Maldición, héroes con ataque y
  * defensa, hechizos— se pide la previsión, se juega la acción y se mira el
  * registro: cada golpe cae en la horquilla de la rama de suerte que le tocó y
  * las bajas en las suyas, semilla a semilla; y con el dado cargado en cada punta
@@ -18,12 +19,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { textoDePrevision } from '../src/client/views/prevision.js';
-import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/arena.js';
 import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
+import { armaduraDe, golpeDe } from '../src/core/battle/armas.js';
 import {
   applyAction,
   type BattleSide,
-  crearBatallaConReglas,
+  createBattle,
   legalActions,
   type Prevision,
   type PrevisionDeGolpe,
@@ -33,9 +34,7 @@ import {
 import { hexEquals } from '../src/core/battle/board.js';
 import type { Horquilla, RamaDeSuerte } from '../src/core/battle/damage.js';
 import { applyEffect } from '../src/core/battle/effects.js';
-import { MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { NOMBRES_DE_REGLA, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
 import { delHeroe, efectoDe, spell } from '../src/core/battle/spells.js';
 import type {
   BattleAction,
@@ -43,30 +42,60 @@ import type {
   BattleHero,
   BattleState,
 } from '../src/core/battle/types.js';
-import { creature, MURALLA } from '../src/core/data.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
+import { MURALLA } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import type { EquipoDeArena, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
+import type { CreatureTrait, Equipo, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
+import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/unidad.js';
 import { bando, bandoDe, mando as mandoDePrueba } from './batalla-de-prueba.js';
-import { conManosDePrueba, dadoCargado } from './helpers.js';
+import {
+  aMano,
+  catalogoCon,
+  conManosDePrueba,
+  dadoCargado,
+  JINETE,
+  MANOS_DE_PRUEBA,
+  NO_MUERTO,
+  PESADA,
+  SANADOR,
+  TIRADOR,
+  TROPA,
+  TROPA_BARATA,
+} from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
-/** Las reglas de una máscara de 6 bits: el bit `i` enciende `NOMBRES_DE_REGLA[i]`. */
-function reglasDe(mascara: number): ReglasDeBatalla {
-  return Object.fromEntries(
-    NOMBRES_DE_REGLA.map((n, i) => [n, (mascara >> i) & 1 ? 'fheroes2' : 'nuestra']),
-  ) as unknown as ReglasDeBatalla;
+const SEMILLAS = segunPrisa(rango(1, 40), rango(1, 300));
+
+/**
+ * Las respuestas con que se juega el golpe del barrido, una por semilla: las que
+ * no cambian el contraataque (la respuesta no da bonificadores; Fuerte y Rápido,
+ * sí, y su previsión es la de la rueda, abajo). El golpe va siempre con Finta,
+ * que no toca este golpe ni el contraataque: lo que deja es andar después. Así el
+ * cruce cae en cualquier punto de la horquilla, que es lo que prevé la previsión
+ * sin elegir.
+ */
+const RESPUESTAS = ['finta', 'romperGuardia', 'defensivo', 'normal', 'ofensivo'] as const;
+
+/** El golpe con Finta y la respuesta de la semilla; lo que no es un golpe, tal cual. */
+function conLaRueda(accion: BattleAction, semilla: number): BattleAction {
+  if (accion.type !== 'attack') return accion;
+  const respuesta = RESPUESTAS[semilla % RESPUESTAS.length] as (typeof RESPUESTAS)[number];
+  return { ...accion, golpe: 'finta', respuesta };
 }
 
-const TODAS = 2 ** NOMBRES_DE_REGLA.length - 1;
-const MASCARAS = segunPrisa([0, TODAS, ...NOMBRES_DE_REGLA.map((_, i) => 1 << i)], rango(0, TODAS));
-const SEMILLAS = segunPrisa(rango(1, 40), rango(1, 300));
+/**
+ * El golpe en una punta del cruce: Finta contra Finta en el mínimo, contra Romper
+ * guardia (su opuesta) en el máximo.
+ */
+const EN_LA_PUNTA = {
+  minimo: { golpe: 'finta', respuesta: 'finta' },
+  maximo: { golpe: 'finta', respuesta: 'romperGuardia' },
+} as const;
 
 /** El héroe de estos escenarios: con ataque y defensa, poder 2 y un libro con daño. */
 function mando(over: Partial<BattleHero> = {}): BattleHero {
   return mandoDePrueba({
-    ataque: 3,
-    defensa: 2,
     spellPower: 2,
     spells: ['magic_arrow', 'lightning_bolt', 'bless', 'curse', 'haste', 'cure'],
     ...over,
@@ -124,7 +153,7 @@ function bendecirYMaldecir(b: BattleState): void {
   const h = mando();
   const a = stackById(b, 'attacker-0');
   const d = stackById(b, 'defender-0');
-  const efecto = (id: string) => efectoDe(spell(id), delHeroe(spell(id), h), b.reglas)!;
+  const efecto = (id: string) => efectoDe(spell(id), delHeroe(spell(id), h))!;
   applyEffect(a, efecto('bless'));
   applyEffect(d, efecto('curse'));
 }
@@ -135,7 +164,7 @@ function bendecirYMaldecir(b: BattleState): void {
  */
 function deLaArena(
   nombre: string,
-  equipo: EquipoDeArena,
+  equipo: Equipo,
   speed: SpeedTier = 'average',
   traits: UnitInfo['traits'] = [],
 ): BattleSide {
@@ -153,6 +182,28 @@ function deLaArena(
   return bandoDe([{ id: nombre, unit: EQUIPO_DEL_JUEGO.conEquipo(cuerpo, equipo) }]);
 }
 const ARQUERO_DE_LA_ARENA = KIT_DEL_PERFIL.arco.equipo;
+
+/**
+ * Un bando de un individuo hecho a mano (`aMano`): para los rasgos del motor que
+ * ninguna unidad del catálogo lleva (doble golpe, doble disparo, maldecir al
+ * golpear, miedo) o un daño exacto. Entra como personaje (`bandoDe`).
+ */
+function aManoSolo(nombre: string, unit: UnitInfo, suerte = 0): BattleSide {
+  return { ...bandoDe([{ id: nombre, unit }]), luckBonus: suerte };
+}
+
+/**
+ * `unit` con las manos de prueba por toda arma: pega con las cifras de arriba
+ * (las manos no suman nada) y golpea en la rueda con los niveles de la Espada.
+ */
+function conManos(unit: UnitInfo): UnitInfo {
+  const { armas: _armas, equipo: _equipo, puntosDeArmadura: _armadura, ...cuerpo } = unit;
+  return catalogoCon(MANOS_DE_PRUEBA).conEquipo(cuerpo, { arma: MANOS_DE_PRUEBA.id });
+}
+
+/** Los rasgos de `base` más `rasgo`. */
+const con = (base: string, rasgo: CreatureTrait): UnitInfo =>
+  aMano(base, { traits: [...(unidadDelJuego(base).traits ?? []), rasgo] });
 const JINETE_DE_LA_ARENA = KIT_DEL_PERFIL['montado-lanza'].equipo;
 
 /** La línea recta de la arena (la columna 7 entera) y una casilla de lo alto. */
@@ -162,56 +213,56 @@ const LO_ALTO: Hex = { col: 7, row: 4 };
 const ESCENARIOS: readonly Escenario[] = [
   {
     nombre: 'golpe con contraataque',
-    izquierda: () => bando([{ creature: 'swordsman', count: 5 }]),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }]),
+    derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
   },
   {
-    nombre: 'daño [1, 1]: exacta',
-    izquierda: () => bando([{ creature: 'peasant', count: 12 }]),
-    derecha: () => bando([{ creature: 'skeleton', count: 6 }]),
+    nombre: 'daño fijo: exacta',
+    izquierda: () => aManoSolo('exacta', conManos(aMano(TROPA_BARATA, { damage: [10, 10] }))),
+    derecha: () => bando([{ creature: NO_MUERTO, count: 6 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
   },
   {
     nombre: 'carga de la caballería',
-    izquierda: () => bando([{ creature: 'cavalry', count: 3 }]),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    izquierda: () => bando([{ creature: JINETE, count: 3 }]),
+    derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 1, row: 4 },
     contra: { col: 7, row: 4 },
     accion: golpe({ col: 6, row: 4 }),
   },
   {
     nombre: 'disparo cerca',
-    izquierda: () => bando([{ creature: 'archer', count: 8 }]),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    izquierda: () => bando([{ creature: TIRADOR, count: 8 }]),
+    derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 1, row: 4 },
     contra: { col: 4, row: 4 },
     accion: disparo,
   },
   {
     nombre: 'disparo lejos, doble y con suerte',
-    izquierda: () => bando([{ creature: 'ranger', count: 8 }], { suerte: 2 }),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    izquierda: () => aManoSolo('doble disparo', con(TIRADOR, 'double_shot'), 2),
+    derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 1, row: 4 },
     contra: { col: 9, row: 4 },
     accion: disparo,
   },
   {
     nombre: 'arquero pegado: golpe cuerpo a cuerpo y su contraataque',
-    izquierda: () => bando([{ creature: 'archer', count: 8 }]),
-    derecha: () => bando([{ creature: 'archer', count: 20 }]),
+    izquierda: () => bando([{ creature: TIRADOR, count: 8 }]),
+    derecha: () => bando([{ creature: TIRADOR, count: 20 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
   },
   {
     nombre: 'contra quien defiende, con mala suerte en el contraataque',
-    izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { suerte: 1 }),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }], { suerte: -2 }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { suerte: 1 }),
+    derecha: () => bando([{ creature: TROPA, count: 30 }], { suerte: -2 }),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     antes: (b) => {
@@ -220,33 +271,33 @@ const ESCENARIOS: readonly Escenario[] = [
     accion: golpe(),
   },
   {
-    nombre: 'doble golpe del paladín',
-    izquierda: () => bando([{ creature: 'paladin', count: 2 }]),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    nombre: 'doble golpe',
+    izquierda: () => aManoSolo('doble golpe', con(PESADA, 'double_attack')),
+    derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
   },
   {
-    nombre: 'la momia maldice antes del contraataque',
-    izquierda: () => bando([{ creature: 'mummy', count: 4 }]),
-    derecha: () => bando([{ creature: 'swordsman', count: 20 }]),
+    nombre: 'quien maldice al golpear lo hace antes del contraataque',
+    izquierda: () => aManoSolo('maldice', con(NO_MUERTO, 'curse_on_hit')),
+    derecha: () => bando([{ creature: PESADA, count: 20 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
   },
   {
-    nombre: 'el dragón asusta antes del contraataque',
-    izquierda: () => bando([{ creature: 'bone_dragon', count: 1 }]),
-    derecha: () => bando([{ creature: 'pikeman', count: 40 }]),
+    nombre: 'quien asusta lo hace antes del contraataque',
+    izquierda: () => aManoSolo('asusta', con(NO_MUERTO, 'fear')),
+    derecha: () => bando([{ creature: TROPA, count: 40 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
   },
   {
     nombre: 'Bendición del que pega y Maldición del que contraataca',
-    izquierda: () => bando([{ creature: 'swordsman', count: 5 }]),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }]),
+    derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     antes: bendecirYMaldecir,
@@ -254,16 +305,16 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'tropa con héroes a los dos lados',
-    izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando({ ataque: 4 }) }),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }], { heroe: mando({ defensa: 3 }) }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    derecha: () => bando([{ creature: TROPA, count: 30 }], { heroe: mando() }),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
   },
   {
     nombre: 'disparo al tirador en lo alto de la muralla',
-    izquierda: () => bando([{ creature: 'archer', count: 8 }]),
-    derecha: () => bando([{ creature: 'archer', count: 20 }]),
+    izquierda: () => bando([{ creature: TIRADOR, count: 8 }]),
+    derecha: () => bando([{ creature: TIRADOR, count: 20 }]),
     en: { col: 1, row: 4 },
     contra: LO_ALTO,
     accion: disparo,
@@ -271,8 +322,8 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'golpe en lo alto de la muralla y el contraataque del tirador',
-    izquierda: () => bando([{ creature: 'swordsman', count: 5 }]),
-    derecha: () => bando([{ creature: 'archer', count: 20 }]),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }]),
+    derecha: () => bando([{ creature: TIRADOR, count: 20 }]),
     en: { col: 7, row: 3 },
     contra: LO_ALTO,
     accion: golpe(),
@@ -281,7 +332,7 @@ const ESCENARIOS: readonly Escenario[] = [
   {
     nombre: 'arquero de la arena: dispara con el arco',
     izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 1, row: 4 },
     contra: { col: 4, row: 4 },
     accion: disparo,
@@ -297,7 +348,7 @@ const ESCENARIOS: readonly Escenario[] = [
   {
     nombre: 'jinete de la arena: carga con la lanza y le devuelven el golpe',
     izquierda: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 'very_fast', ['charge']),
-    derecha: () => bando([{ creature: 'pikeman', count: 30 }]),
+    derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 3, row: 4 },
     contra: { col: 7, row: 4 },
     accion: golpe({ col: 6, row: 4 }),
@@ -322,7 +373,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'armadura: Flecha mágica sobre el templario',
-    izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
     derecha: () => deLaArena('templario', KIT_DEL_PERFIL['espada-escudo'].equipo),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },
@@ -331,8 +382,9 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'Flecha mágica',
-    izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
-    derecha: () => bando([{ creature: 'pikeman', count: 3 }]),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    // Sin armadura (el monje): la del templario la compara con esta.
+    derecha: () => bando([{ creature: SANADOR, count: 3 }]),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },
     accion: lanza('magic_arrow'),
@@ -340,8 +392,8 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'Rayo',
-    izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
-    derecha: () => bando([{ creature: 'pikeman', count: 3 }]),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    derecha: () => bando([{ creature: TROPA, count: 3 }]),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },
     accion: lanza('lightning_bolt'),
@@ -349,8 +401,8 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'Maldición',
-    izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
-    derecha: () => bando([{ creature: 'pikeman', count: 3 }]),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    derecha: () => bando([{ creature: TROPA, count: 3 }]),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },
     accion: lanza('curse'),
@@ -364,10 +416,8 @@ const ESCENARIOS: readonly Escenario[] = [
  */
 const ACCIONES = new Map<Escenario, BattleAction>();
 
-function montar(e: Escenario, reglas: ReglasDeBatalla, rng: Rng): Montado {
-  const b = crearBatallaConReglas(e.izquierda(), e.derecha(), rng, reglas, {
-    muralla: e.muralla ?? SIN_MURALLA,
-  });
+function montar(e: Escenario, rng: Rng): Montado {
+  const b = createBattle(e.izquierda(), e.derecha(), rng, e.muralla ?? SIN_MURALLA);
   stackById(b, 'attacker-0').hex = e.en;
   stackById(b, 'defender-0').hex = e.contra;
   e.antes?.(b);
@@ -426,23 +476,36 @@ function golpesDe(
   return out;
 }
 
+/** Las cifras de quien actúa (`attacker-0`) y de quien recibe (`defender-0`) en `b`. */
+function losDos(b: BattleState): { yo: UnitInfo; el: UnitInfo } {
+  return { yo: stackById(b, 'attacker-0').unit, el: stackById(b, 'defender-0').unit };
+}
+
+/** Lo mismo, en el escenario `nombre` montado con las reglas del juego. */
+function losDosDe(nombre: string): { yo: UnitInfo; el: UnitInfo } {
+  const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
+  return losDos(montar(e, createRng(1)).b);
+}
+
+/** Un número como lo escribe la previsión: con coma y, como mucho, un decimal. */
+const conComa = (n: number): string => String(Math.round(n * 10) / 10).replace('.', ',');
+
 describe('la previsión de daño cae en el daño real', () => {
   for (const e of ESCENARIOS) {
     it(e.nombre, () => {
       let vistos = 0;
       const semillas = e.sinDado === true ? SEMILLAS.slice(0, 1) : SEMILLAS;
-      for (const mascara of MASCARAS) {
-        const reglas = reglasDe(mascara);
-        const que = `${e.nombre}, reglas ${mascara}`;
+      {
+        const que = e.nombre;
         let previsto: Prevision | null = null;
         for (const semilla of semillas) {
           const rng = createRng(semilla);
-          const { b, accion } = montar(e, reglas, rng);
+          const { b, accion } = montar(e, rng);
           const p = previsionDe(b, accion);
           if (p === null) throw new Error(`${que}: sin previsión`);
           previsto = p;
           const desde = b.log.length;
-          applyAction(b, accion, rng);
+          applyAction(b, conLaRueda(accion, semilla), rng);
           const nuevo = b.log.slice(desde);
           if (p.kind === 'hechizo') {
             const c = nuevo.find((x) => x.kind === 'cast');
@@ -486,13 +549,15 @@ describe('la previsión de daño cae en el daño real', () => {
           vistos++;
         }
         // La horquilla no es más ancha de lo que pasa: con el dado cargado en
-        // cada punta, el primer golpe (sin suerte) cae justo en ella.
+        // cada punta (el golpe, en esa punta de la rueda), el primer golpe (sin
+        // suerte) cae justo en ella.
         if (previsto !== null && previsto.kind !== 'hechizo') {
           const p = previsto as PrevisionDeGolpe;
           const enLaPunta = (punta: 'minimo' | 'maximo'): number => {
-            const { b, accion } = montar(e, reglas, createRng(SEMILLAS[0]!));
+            const { b, accion } = montar(e, createRng(SEMILLAS[0]!));
             const desde = b.log.length;
-            applyAction(b, accion, dadoCargado(punta));
+            const a = accion.type === 'attack' ? { ...accion, ...EN_LA_PUNTA[punta] } : accion;
+            applyAction(b, a, dadoCargado(punta));
             const primero = golpesDe(b.log.slice(desde)).find((g) => !g.retaliation);
             if (primero === undefined) throw new Error(`${que}: con el dado cargado no golpeó`);
             return primero.damage;
@@ -503,87 +568,86 @@ describe('la previsión de daño cae en el daño real', () => {
           ).toEqual([p.danio.min, p.danio.max]);
         }
       }
-      expect(vistos).toBe(MASCARAS.length * semillas.length);
+      expect(vistos).toBe(semillas.length);
     });
   }
 
-  it('con daño [1, 1] la previsión es un número, y dice el contraataque', () => {
-    const e = ESCENARIOS.find((x) => x.nombre.startsWith('daño [1, 1]'))!;
-    const { b, accion } = montar(e, reglasDe(0), createRng(1));
+  it('con un daño fijo la previsión es un número, y dice el contraataque', () => {
+    const e = ESCENARIOS.find((x) => x.nombre.startsWith('daño fijo'))!;
+    const { b, accion } = montar(e, createRng(1));
     const p = previsionDe(b, accion) as PrevisionDeGolpe;
     expect(p.danio.min).toBe(p.danio.max);
     expect(p.contraataque).not.toBeNull();
-    expect(p.modificadores.map((m) => m.causa)).toEqual(['ataque 1 contra defensa 3']);
+    // Con qué pega, lo primero; la armadura de quien recibe, lo último.
+    const { yo, el } = losDos(b);
+    expect(p.modificadores.map((m) => m.causa)).toEqual([
+      'con Manos de prueba (cuerpo a cuerpo)',
+      `ataque ${yo.attack} contra defensa ${el.defense}`,
+      `−${armaduraDe(el)} armadura`,
+    ]);
   });
 
-  it('dice qué cambia el daño: carga, distancia, defensa y las reglas en curso', () => {
-    const causas = (nombre: string, mascara: number): string[] => {
+  it('dice qué cambia el daño: carga, distancia y defensa', () => {
+    const causas = (nombre: string): string[] => {
       const e = ESCENARIOS.find((x) => x.nombre === nombre)!;
-      const { b, accion } = montar(e, reglasDe(mascara), createRng(1));
+      const { b, accion } = montar(e, createRng(1));
       const p = previsionDe(b, accion) as PrevisionDeGolpe;
-      return [...p.modificadores.map((m) => m.causa), ...p.reglas];
+      return p.modificadores.map((m) => m.causa);
     };
-    expect(causas('carga de la caballería', 0)).toContain('carga de 5 casillas');
-    expect(causas('disparo lejos, doble y con suerte', 0)).toContain(
-      'disparo a 8 casillas, más de 5',
+    expect(causas('carga de la caballería')).toContain('carga de 5 casillas');
+    expect(causas('disparo lejos, doble y con suerte')).toContain('disparo a 8 casillas, más de 5');
+    // Quien defiende suma el 20 % a su defensa (`DEFEND_BONUS`).
+    const defiende = losDosDe('contra quien defiende');
+    expect(causas('contra quien defiende, con mala suerte en el contraataque')).toContain(
+      `ataque ${golpeDe(defiende.yo, 'arma').attack} contra defensa ${conComa(defiende.el.defense * 1.2)} (defiende)`,
     );
-    expect(causas('disparo lejos, doble y con suerte', 1)).toEqual([
-      'ataque 5 contra defensa 9',
-      'tirador',
-    ]);
-    expect(causas('contra quien defiende, con mala suerte en el contraataque', 0)[0]).toBe(
-      'ataque 7 contra defensa 10,8 (defiende)',
+    // La muralla: en lo alto suma su defensa.
+    const arquero = unidadDelJuego(TIRADOR);
+    expect(causas('disparo al tirador en lo alto de la muralla')).toContain(
+      `ataque ${golpeDe(arquero, 'distancia').attack} contra defensa ${arquero.defense + MURALLA.defensaEnLoAlto}, en lo alto de la muralla`,
     );
-    expect(causas('arquero pegado: golpe cuerpo a cuerpo y su contraataque', 1)).toContain(
-      'tirador con flechas cuerpo a cuerpo (fheroes2)',
-    );
-    expect(causas('Bendición del que pega y Maldición del que contraataca', 16)).toContain(
-      'Bendición: daño máximo (fheroes2)',
-    );
-    // La muralla, con las dos reglas del tirador: en lo alto suma su defensa, y
-    // con la de fheroes2 el arquero que devuelve el golpe pega la mitad.
-    const arquero = creature('archer');
-    expect(causas('disparo al tirador en lo alto de la muralla', 0)[0]).toBe(
-      `ataque ${arquero.attack} contra defensa ${arquero.defense + MURALLA.defensaEnLoAlto}, en lo alto de la muralla`,
-    );
-    const enLoAlto = (m: number) =>
-      (previsionDe(
-        ...((): [BattleState, BattleAction] => {
-          const e = ESCENARIOS.find((x) => x.nombre.startsWith('golpe en lo alto'))!;
-          const { b, accion } = montar(e, reglasDe(m), createRng(1));
-          return [b, accion];
-        })(),
-      ) as PrevisionDeGolpe)!.contraataque!.modificadores.map((x) => x.causa);
-    expect(enLoAlto(1)).toContain('tirador con flechas cuerpo a cuerpo (fheroes2)');
-    expect(enLoAlto(0)).not.toContain('tirador con flechas cuerpo a cuerpo (fheroes2)');
+  });
+
+  it('los rasgos hechos a mano se juegan: el doble golpe y el doble disparo dan dos', () => {
+    for (const nombre of ['doble golpe', 'disparo lejos, doble y con suerte']) {
+      const e = ESCENARIOS.find((x) => x.nombre === nombre)!;
+      const { b, accion } = montar(e, createRng(1));
+      expect((previsionDe(b, accion) as PrevisionDeGolpe).golpes, nombre).toBe(2);
+    }
   });
 
   it('con armas por uso (la arena), lo primero que dice es con qué arma pega cada golpe', () => {
-    const golpeDe = (nombre: string): PrevisionDeGolpe => {
+    const previsto = (nombre: string): PrevisionDeGolpe => {
       const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
-      const { b, accion } = montar(e, reglasDe(0), createRng(1));
+      const { b, accion } = montar(e, createRng(1));
       return previsionDe(b, accion) as PrevisionDeGolpe;
     };
-    expect(golpeDe('arquero de la arena: dispara').modificadores[0]?.causa).toBe(
+    expect(previsto('arquero de la arena: dispara').modificadores[0]?.causa).toBe(
       'con Arco (a distancia)',
     );
-    const pegado = golpeDe('arquero de la arena pegado');
+    const pegado = previsto('arquero de la arena pegado');
     expect(pegado.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
     expect(pegado.contraataque?.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
-    const carga = golpeDe('jinete de la arena');
+    const carga = previsto('jinete de la arena');
+    const { yo, el } = losDosDe('jinete de la arena');
+    const lanza = golpeDe(yo, 'lanza');
     expect(carga.modificadores.map((m) => m.causa)).toEqual([
-      'con Lanza de jinete (en la carga)',
-      'ataque 10 contra defensa 9',
+      `con ${lanza.arma?.nombre} (en la carga)`,
+      `ataque ${lanza.attack} contra defensa ${el.defense}`,
       'carga de 3 casillas',
+      `−${armaduraDe(el)} armadura`,
     ]);
-    // La tropa del catálogo no tiene armas por uso: ni una palabra de ellas.
-    expect(carga.contraataque?.modificadores[0]?.causa).toMatch(/^ataque /);
+    // La tropa del catálogo también pega con su arma (desde F3 lleva equipo): su
+    // contraataque lo dice.
+    expect(carga.contraataque?.modificadores[0]?.causa).toBe(
+      `con ${golpeDe(el, 'arma').arma?.nombre} (cuerpo a cuerpo)`,
+    );
   });
 
   it('con armadura (la arena), la cuenta lo dice lo último: «−7 armadura»', () => {
     const prevista = (nombre: string): Prevision => {
       const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
-      const { b, accion } = montar(e, reglasDe(0), createRng(1));
+      const { b, accion } = montar(e, createRng(1));
       return previsionDe(b, accion)!;
     };
     // El arco (5 contra 7: ×0,95) da 20–30 → 19–29, menos los 7 de la brigantina.
@@ -607,18 +671,16 @@ describe('la previsión de daño cae en el daño real', () => {
 
   it('la muralla tapa el disparo en el suelo, y la previsión lo dice con el motivo del núcleo', () => {
     const e = ESCENARIOS.find((x) => x.nombre.startsWith('disparo al tirador en lo alto'))!;
-    for (const mascara of MASCARAS) {
-      const { b } = montar(e, reglasDe(mascara), createRng(1));
-      stackById(b, 'defender-0').hex = { col: 9, row: 4 };
-      expect(() => previsionDe(b, { type: 'shoot', target: 'defender-0' })).toThrow(
-        'attacker-0 no puede disparar a defender-0: el muro está en medio',
-      );
-    }
+    const { b } = montar(e, createRng(1));
+    stackById(b, 'defender-0').hex = { col: 9, row: 4 };
+    expect(() => previsionDe(b, { type: 'shoot', target: 'defender-0' })).toThrow(
+      'attacker-0 no puede disparar a defender-0: el muro está en medio',
+    );
   });
 
   it('una acción que no se puede jugar no se prevé: se dice por qué', () => {
     const e = ESCENARIOS[0]!;
-    const { b } = montar(e, reglasDe(0), createRng(1));
+    const { b } = montar(e, createRng(1));
     expect(() => previsionDe(b, { type: 'shoot', target: 'defender-0' })).toThrow(
       'attacker-0 no es tirador',
     );
@@ -629,13 +691,26 @@ describe('la previsión de daño cae en el daño real', () => {
   });
 });
 
-describe('con la rueda del golpe, cada sector prevé el daño que cae (la arena)', () => {
-  // Las parejas: dos piqueros, el paladín (doble golpe) contra esqueletos con suerte
-  // en contra, y el dragón óseo (deja miedo al golpear) contra espadachines.
-  const PAREJAS: readonly (readonly [string, number, string, number, number])[] = [
-    ['pikeman', 10, 'pikeman', 10, 0],
-    ['paladin', 3, 'skeleton', 40, 2],
-    ['bone_dragon', 1, 'swordsman', 6, -1],
+describe('con la rueda del golpe, cada sector prevé el daño que cae', () => {
+  // Las parejas: dos de a pie, uno de doble golpe con suerte contra no-muertos,
+  // y uno que deja miedo al golpear, con suerte en contra, contra pesadas. Los
+  // dos rasgos, a mano: el catálogo no los trae.
+  const PAREJAS: readonly (readonly [string, () => BattleSide, () => BattleSide])[] = [
+    [
+      'de a pie contra de a pie',
+      () => bando([{ creature: TROPA, count: 10 }]),
+      () => bando([{ creature: TROPA, count: 10 }]),
+    ],
+    [
+      'doble golpe contra no-muertos',
+      () => aManoSolo('doble golpe', con(PESADA, 'double_attack'), 2),
+      () => bando([{ creature: NO_MUERTO, count: 40 }]),
+    ],
+    [
+      'miedo contra pesadas',
+      () => aManoSolo('asusta', con(NO_MUERTO, 'fear'), -1),
+      () => bando([{ creature: PESADA, count: 6 }]),
+    ],
   ];
   const TIPOS = [
     'rapido',
@@ -649,21 +724,13 @@ describe('con la rueda del golpe, cada sector prevé el daño que cae (la arena)
 
   it('el golpe de cada tipo, contra cada respuesta, cae en la horquilla de su sector; el mínimo y el máximo, justos', () => {
     let vistos = 0;
-    for (const [atacante, n, defensor, m, suerte] of PAREJAS) {
+    for (const [pareja, atacante, defensor] of PAREJAS) {
       for (const golpe of TIPOS) {
         for (const respuesta of TIPOS) {
           for (const semilla of SEMILLAS.slice(0, 5)) {
-            const que = `${atacante} ${golpe} contra ${defensor} ${respuesta}, semilla ${semilla}`;
+            const que = `${pareja}: ${golpe} contra ${respuesta}, semilla ${semilla}`;
             const rng = createRng(semilla);
-            const b = conManosDePrueba(
-              crearBatallaConReglas(
-                bando([{ creature: atacante, count: n }], { suerte }),
-                bando([{ creature: defensor, count: m }]),
-                rng,
-                reglasDe(0),
-                { modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' } },
-              ),
-            );
+            const b = conManosDePrueba(createBattle(atacante(), defensor(), rng));
             stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
             stackById(b, 'defender-0').hex = { col: 6, row: 4 };
             b.turno = { n: 1, stack: 'attacker-0', gastado: 0 };

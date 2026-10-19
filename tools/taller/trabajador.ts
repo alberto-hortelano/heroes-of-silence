@@ -44,11 +44,11 @@
  *   pnpm taller escenario [semilla…] [--px=N]  el escenógrafo: compone, pinta, captura y mide
  *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
- *   pnpm taller encolar --base knight [--solo=maestro-t1,placa-t1,…]
+ *   pnpm taller encolar --base templarios [--solo=maestro-t1,placa-t1,…]
  *                                        la plaza de la base en un solo cuadro (vuelta 3, `base.ts`): maestro, placa y ediciones de cada tramo
- *   pnpm taller recortar-base knight     deriva los tramos (lo de encima del pie), el suelo y cada recorte, y rehace el índice (`recorte-base.ts`)
- *   pnpm taller medir-base knight [n]    propone las regiones de un tramo, para `data/bases/knight.json`
- *   pnpm taller vista-base knight [dir]  la revisión: tramos, máscaras, compuesta, costuras y eslabones
+ *   pnpm taller recortar-base templarios     deriva los tramos (lo de encima del pie), el suelo y cada recorte, y rehace el índice (`recorte-base.ts`)
+ *   pnpm taller medir-base templarios [n]    propone las regiones de un tramo, para `data/bases/templarios.json`
+ *   pnpm taller vista-base templarios [dir]  la revisión: tramos, máscaras, compuesta, costuras y eslabones
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
  *   pnpm taller vista-8d [unidad|juego]  el visor de 8 direcciones de las unidades y las poses
  *
@@ -703,7 +703,7 @@ async function encolar(args: readonly string[]): Promise<void> {
   if (base >= 0) {
     const faccion = faccionDe(
       args[base + 1],
-      'pnpm taller encolar --base knight [--rehacer] [--solo=maestro-t1,placa-t1,edicion-town-hall,…]',
+      'pnpm taller encolar --base templarios [--rehacer] [--solo=maestro-t1,placa-t1,edicion-town-hall,…]',
     );
     for (const g of await escribirFuentesDeLaBase(faccion)) console.log(`fuente: ${g}`);
     const { listos, esperan } = encargosDeLaBase(faccion);
@@ -1015,12 +1015,12 @@ switch (orden) {
     console.log(`→ ${await vistaEjercitos()}`);
     break;
   case 'vista-base': {
-    const uso = 'pnpm taller vista-base knight [carpeta-de-salida [prefijo]]';
+    const uso = 'pnpm taller vista-base templarios [carpeta-de-salida [prefijo]]';
     console.log(await vistaBase(faccionDe(resto[0], uso), resto[1], resto[2]));
     break;
   }
   case 'recortar-base': {
-    const faccion = faccionDe(resto[0], 'pnpm taller recortar-base knight');
+    const faccion = faccionDe(resto[0], 'pnpm taller recortar-base templarios');
     const { indice, avisos } = await recortarLaBase(faccion);
     for (const [id, e] of Object.entries(indice.edificios))
       console.log(`${id}: tramo ${e.tramo}, en (${e.en.join(', ')}), ${e.ancho}×${e.alto}`);
@@ -1031,7 +1031,7 @@ switch (orden) {
     break;
   }
   case 'medir-base': {
-    const faccion = faccionDe(resto[0], 'pnpm taller medir-base knight [tramo]');
+    const faccion = faccionDe(resto[0], 'pnpm taller medir-base templarios [tramo]');
     const tramos =
       resto[1] === undefined
         ? Array.from({ length: disposicionDe(faccion).tramos }, (_, i) => i + 1)

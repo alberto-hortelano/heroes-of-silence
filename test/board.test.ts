@@ -18,7 +18,6 @@ import {
   isInside,
   lineaLibre,
   neighbours,
-  occupiedHexes,
   reachable,
   rectaLibre,
   siguienteEnRecta,
@@ -215,22 +214,6 @@ describe('movimiento', () => {
     const to = { col: 5, row: 4 };
     const cerco = new Set(neighbours(to).map(hexKey));
     expect(findPath({ col: 0, row: 0 }, to, cerco)).toBeNull();
-  });
-});
-
-describe('unidades grandes', () => {
-  it('ocupan dos hexes, con la cola detrás según el bando', () => {
-    expect(occupiedHexes({ col: 5, row: 4 }, 1, true)).toHaveLength(1);
-    const atacante = occupiedHexes({ col: 5, row: 4 }, 2, true);
-    expect(atacante).toEqual([
-      { col: 5, row: 4 },
-      { col: 4, row: 4 },
-    ]);
-    const defensor = occupiedHexes({ col: 5, row: 4 }, 2, false);
-    expect(defensor).toEqual([
-      { col: 5, row: 4 },
-      { col: 6, row: 4 },
-    ]);
   });
 });
 

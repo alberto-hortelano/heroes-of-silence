@@ -36,10 +36,26 @@ import {
   stackHexes,
 } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleStack, BattleState } from '../../src/core/battle/types.js';
+import { unidadesDeMorada } from '../../src/core/catalogo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
-import type { Point } from '../../src/core/types.js';
+import { sitioDe } from '../../src/core/town/sitios.js';
+import type { FactionId, Point } from '../../src/core/types.js';
+
+/**
+ * Pasa el turno en el espejo y dice si el rival atacó a la persona por el camino
+ * (una defensa, #116, F5): entonces el turno espera a que ella la juegue, y
+ * `endTurn` a secas se quedaba esperando para siempre. Las búsquedas descartan esa
+ * semilla; las pasadas que no juegan defensas lo dicen.
+ */
+export async function turnoDelEspejo(espejo: Session): Promise<'pasado' | 'defensa'> {
+  const defensa = new Promise<'defensa'>((r) => {
+    espejo.alCambiarSinGesto = () => r('defensa');
+  });
+  const pasado = espejo.endTurn().then(() => 'pasado' as const);
+  return Promise.race([pasado, defensa]);
+}
 
 export interface Caja {
   readonly x: number;
@@ -260,7 +276,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
     const heroe = espejo.myHeroes()[0];
     if (heroe === undefined) continue;
     if (!troopSummary(heroe.army, espejo.state.characters).some((g) => g.rango >= 2)) continue;
-    await espejo.endTurn();
+    if ((await turnoDelEspejo(espejo)) === 'defensa') continue;
     if (espejo.state.finished !== null) continue;
     const segunda = guardiaEnElMarco(b, e, TILE_INICIAL, espejo, VETERANOS);
     if (segunda === null) continue;
@@ -283,10 +299,12 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
  * vista a escala y las fronteras onduladas (#229), la primera es la 30. Con
  * el río continuo (#144), la 44; con el río de lago de 20 casillas
  * (17-10-2026) la 44 es otro mapa y en 1-200 no pierde ninguna (65 s de
- * buscar): desde la 201, la primera es la 208. Es un punto de partida, no una
- * semilla escrita.
+ * buscar): desde la 201, la primera es la 208. Con los ejércitos de la arena en
+ * el juego (19-10-2026) de 201 a 400 no pierde ninguna (80 s de buscar) y desde
+ * la 1 la primera es la 62 (26 s; 477, 695 y 880 en las tandas de 401, 601 y
+ * 801). Es un punto de partida, no una semilla escrita.
  */
-export const DESDE_LA_DERROTA = 201;
+export const DESDE_LA_DERROTA = 1;
 
 /** La partida y la guardia de la batalla que se pierde (`buscarDerrota`). */
 export interface EscenaDeDerrota {
@@ -368,9 +386,16 @@ export function rutaDeDosColores(
   return elegido?.destino ?? null;
 }
 
-/** Lo que la pasada de escritorio recluta en el castillo: lo de nivel 1 de su facción. */
-export const reclutaDeNivel1 = (faction: string): string =>
-  faction === 'knight' ? 'peasant' : 'skeleton';
+/**
+ * Lo que la pasada de escritorio recluta en el castillo: la primera unidad del
+ * pueblo de su facción (la morada del sitio 1, ya construida).
+ */
+export const reclutaDeNivel1 = (faction: FactionId): string => {
+  const pueblo = sitioDe(faction, 'lvl1').cadena[0];
+  const primera = pueblo === undefined ? undefined : unidadesDeMorada(pueblo)[0];
+  if (primera === undefined) throw new Error(`${faction} no tiene nada que reclutar en su pueblo`);
+  return primera.id;
+};
 
 /** Los pasos de rueda que da la pasada de escritorio antes de su batalla (zoom y arrastre). */
 export const RUEDA_DEL_ESCRITORIO = 2;
@@ -519,7 +544,7 @@ export async function buscarSinArte(b: Caja, desde = 1): Promise<number> {
         for (let dy = -2; dy <= 2; dy++)
           for (let dx = -2; dx <= 2; dx++) mirado.add(`${at.x + dx},${at.y + dy}`);
       const ayer = new Map(espejo.state.raiders.map((r) => [r.id, { ...r.at }]));
-      await espejo.endTurn();
+      if ((await turnoDelEspejo(espejo)) === 'defensa') break;
       movido = espejo.state.raiders.some((r) => {
         const a = ayer.get(r.id);
         return (
@@ -585,7 +610,7 @@ export function planDeAngulo(espejo: Session, ancho: number, alto: number): Plan
         if (!isAlive(e) || e.side === yo.side) continue;
         const opciones = opcionesDeGolpe(acciones, e.id, yo.hex);
         if (opciones.length < 2) continue;
-        const c = cajaDeFigura(t, e, centroDeStack(stackHexes(e)));
+        const c = cajaDeFigura(t, centroDeStack(stackHexes(e)));
         for (const lado of [0.45, -0.45, 0.3, -0.3]) {
           for (const h of [0.05, 0.3, 0.5]) {
             const elegida = masCercana(opciones, t, c.x + lado * c.ancho, c.suelo - c.alto * h);
@@ -614,6 +639,9 @@ export function hayAnguloEnLaBatalla(espejo: Session, b: Caja): boolean {
   const battle = espejo.battle;
   if (battle === null) return false;
   for (let n = 0; n < 40 && battle.finished === null; n++) {
+    // La rueda, como `responderLaRueda`: Normal, antes y después de cada jugada.
+    while (espejo.ruedaPendiente !== null) espejo.elegirEnLaRueda('normal');
+    if (battle.finished !== null) break;
     if (n >= 3 && planDeAngulo(espejo, b.width, b.height) !== null) return true;
     const acciones = espejo.battleLegalActions();
     if (acciones.length === 0) return false;
@@ -632,6 +660,7 @@ export function hayAnguloEnLaBatalla(espejo: Session, b: Caja): boolean {
       const ia = chooseBattleAction(battle);
       espejo.playBattleAction(ia.type === 'cast' ? { type: 'defend' } : ia);
     }
+    while (espejo.ruedaPendiente !== null) espejo.elegirEnLaRueda('normal');
   }
   return false;
 }

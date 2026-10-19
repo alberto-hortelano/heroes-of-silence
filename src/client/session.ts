@@ -5,14 +5,16 @@
  * pintan lo que devuelve, nunca tocan el `GameState` por su cuenta. Cuando
  * llegue el bridge por WebSocket, lo que cambia es esta capa y solo esta.
  */
-import { completarCruce } from '@core/ai/rueda.js';
+import { pasoDelCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
 import {
   batallaDeArena,
+  type CatalogoDeLaArena,
+  catalogoDelMontaje,
+  conUnidad,
   LADOS,
   type LadoDeArena,
-  type MontajeDeArena,
   type RetoqueDeArena,
   retocarEnBatalla,
 } from '@core/arena.js';
@@ -44,7 +46,6 @@ import {
 } from '@core/battle/battle.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
 import { type PoderId, poder } from '@core/battle/poderes.js';
-import type { ReglasDeBatalla } from '@core/battle/reglas.js';
 import {
   esTipoDeGolpe,
   type PapelEnLaRueda,
@@ -61,6 +62,8 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '@core/battle/types.js';
+import { cuerpoDe } from '@core/catalogo.js';
+import type { CatalogoDeEquipo } from '@core/hero/equipo.js';
 import { HERO_BODY, type Hero, maxMana } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
@@ -113,6 +116,7 @@ import {
   huecoDesconocido,
   type PlayerId,
   type Point,
+  type UnitInfo,
 } from '@core/types.js';
 import { quienesDe } from './desenlace.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
@@ -281,7 +285,7 @@ export function esDeLoApuntado(apuntado: Apuntado, a: BattleAction, objetivo?: s
   const suya =
     apuntado.kind === 'hechizo'
       ? a.type === 'cast' && a.spell === apuntado.id
-      : a.type === 'poder' && a.poder === apuntado.id;
+      : a.type === 'power' && a.poder === apuntado.id;
   return suya && (objetivo === undefined || ('target' in a && a.target === objetivo));
 }
 
@@ -348,6 +352,11 @@ function claveConMagia(b: BattleState): string {
   return `${claveDeBatalla(b)}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
 }
 
+/** Lo apuntado en la clave de una caché o de la versión: su clase y su id. */
+function claveDeLoApuntado(a: Apuntado | null): string {
+  return a === null ? '' : `${a.kind}:${a.id}`;
+}
+
 /**
  * Por qué la unidad activa no puede actuar contra ese enemigo: ni dispararle ni
  * golpearlo. La frase es del núcleo (`ataqueBlocker`) —«ya se ha movido este
@@ -397,6 +406,156 @@ function motivoDeLaActiva(
 }
 
 /**
+ * Lo que apunta el siguiente clic en una unidad, **uno solo** (`Apuntado`): el
+ * hechizo del libro o el poder de la activa. Lo comparten el libro
+ * (`LibroDeBatalla`) y los poderes (`PoderesDeLaActiva`) de cada sesión: apuntar
+ * uno suelta el otro sin que ninguno se lo diga al otro, y soltar lo que haya es
+ * una función (`soltar`): tras una jugada, con Escape, al cerrar la batalla.
+ */
+export class LoApuntado {
+  private valor: Apuntado | null = null;
+
+  /** `alCambiar`: la partida sube su versión; la arena la deriva de aquí. */
+  constructor(private readonly alCambiar: () => void = () => {}) {}
+
+  get actual(): Apuntado | null {
+    return this.valor;
+  }
+
+  /** Apunta `a`, soltando lo que hubiera. */
+  apuntar(a: Apuntado): void {
+    if (this.valor?.kind === a.kind && this.valor.id === a.id) return;
+    this.valor = a;
+    this.alCambiar();
+  }
+
+  /** Suelta lo apuntado si es de la clase `kind` (o lo que sea, sin ella); dice si soltó algo. */
+  soltar(kind?: Apuntado['kind']): boolean {
+    if (this.valor === null || (kind !== undefined && this.valor.kind !== kind)) return false;
+    this.valor = null;
+    this.alCambiar();
+    return true;
+  }
+
+  /** El id apuntado de la clase `kind`, o `null`. */
+  de(kind: Apuntado['kind']): string | null {
+    return this.valor?.kind === kind ? this.valor.id : null;
+  }
+}
+
+/** Por qué lo apuntado no vale sobre `targetId`: la frase del libro o la del poder. */
+function rechazoDeLoApuntado(
+  hechizos: LibroDeBatalla,
+  poderes: PoderesDeLaActiva,
+  apuntado: Apuntado | null,
+  targetId: string,
+): string {
+  if (apuntado === null) return '';
+  return apuntado.kind === 'hechizo'
+    ? hechizos.castRejection(targetId)
+    : poderes.rechazo(apuntado.id, targetId);
+}
+
+/** Quien juega lo que piden los botones: la sesión de la partida y la de la arena. */
+interface QuienJuega {
+  readonly turnoPropio: TurnoPropio | null;
+  status: string;
+  battleLegalActions(): readonly BattleAction[];
+  playBattleAction(action: BattleAction): void;
+}
+
+/**
+ * Lo común a los botones de escala, puerta y poder: con una sola jugada posible
+ * (`posibles`), se juega ya; con varias, el siguiente clic en el tablero elige
+ * (`esperar(true)` lo deja esperando y la barra dice `pide`), y pulsar el botón
+ * otra vez lo cancela; con ninguna, el motivo del núcleo (`motivo`) o `ninguna`.
+ */
+export function unaOElegir(
+  s: Pick<QuienJuega, 'status' | 'playBattleAction'>,
+  posibles: readonly BattleAction[],
+  o: {
+    readonly esperando: boolean;
+    readonly esperar: (si: boolean) => void;
+    readonly motivo: () => string | null;
+    readonly ninguna: string;
+    readonly pide: string;
+  },
+): void {
+  const unica = posibles.length === 1 ? posibles[0] : undefined;
+  if (unica !== undefined) {
+    o.esperar(false);
+    s.playBattleAction(unica);
+    return;
+  }
+  if (posibles.length === 0) {
+    s.status = o.motivo() ?? o.ninguna;
+    return;
+  }
+  const espera = !o.esperando;
+  o.esperar(espera);
+  s.status = espera ? o.pide : '';
+}
+
+/**
+ * Los poderes de la unidad activa (Curar, Bendecir) tal como los usa la persona:
+ * el que espera el clic en un aliado (lo apunta su botón cuando hay más de uno) y
+ * qué hace el botón. Común a la partida y la arena (F6 de la tarea del combate en
+ * el juego, 19-10-2026: la partida no los usaba). Con el hechizo elegido del libro,
+ * es lo apuntado (`ControlDeBatalla.apuntado`): elegir uno suelta el otro. Las
+ * frases son del núcleo (`poderBlocker`).
+ */
+export class PoderesDeLaActiva {
+  constructor(
+    private readonly dueño: QuienJuega,
+    private readonly apuntados: LoApuntado,
+  ) {}
+
+  /** El poder que espera aliado, o `null`. */
+  get apuntado(): PoderId | null {
+    return this.apuntados.de('poder');
+  }
+
+  /** Deja el poder `id` esperando aliado (soltando el hechizo), o lo suelta con `null`. */
+  apuntar(id: PoderId | null): void {
+    if (id === null) this.apuntados.soltar('poder');
+    else this.apuntados.apuntar({ kind: 'poder', id });
+  }
+
+  /** Por qué la activa no puede usar `id` ahora, o `null` si puede (`poderBlocker`). */
+  motivo(id: PoderId): string | null {
+    return motivoDeLaActiva(this.dueño.turnoPropio, (b) => poderBlocker(b, id));
+  }
+
+  /** Por qué el poder apuntado no vale sobre `targetId`, con la frase del núcleo. */
+  rechazo(id: PoderId, targetId: string): string {
+    return motivoExigido(
+      this.dueño.turnoPropio,
+      (b) => poderBlocker(b, id, targetId),
+      `«${id}» sobre ${targetId}`,
+    );
+  }
+
+  /**
+   * El botón del poder `id`: con un solo aliado posible lo usa ya; sin ninguno, la
+   * barra dice por qué; con varios, lo deja esperando el clic en uno (o lo suelta
+   * si ya esperaba).
+   */
+  usar(id: PoderId): void {
+    unaOElegir(
+      this.dueño,
+      this.dueño.battleLegalActions().filter((a) => a.type === 'power' && a.poder === id),
+      {
+        esperando: this.apuntado === id,
+        esperar: (si) => this.apuntar(si ? id : null),
+        motivo: () => this.motivo(id),
+        ninguna: 'No hay ningún aliado sobre el que usarlo.',
+        pide: 'Elige el aliado sobre el que usarlo: pulsa en uno de los marcados, o Escape para cancelar.',
+      },
+    );
+  }
+}
+
+/**
  * Por qué la unidad activa no puede ir a ese hex: «ahí hay muro», «la puerta
  * solo la cruza quien defiende», «no llega: le quedan 2 casillas»… La frase es
  * del núcleo (`movimientoBlocker`); antes la escena decía «No puedes llegar a
@@ -415,14 +574,15 @@ function motivoDeMovimiento(turno: TurnoPropio | null, hex: Hex): string {
 /**
  * La IA juega mientras la unidad activa sea suya, y devuelve cuántas jugadas
  * hizo. El único bucle de «juega la IA hasta que te toque»: la partida y la
- * arena solo cambian el predicado. Al tope (`MAX_JUGADAS`) **lanza**, en las
- * dos: un bucle que no avanza no se corta callando.
+ * arena solo cambian el predicado y lo que completa la jugada. Al tope
+ * (`MAX_JUGADAS`) **lanza**, en las dos: un bucle que no avanza no se corta
+ * callando.
  */
 function jugarIAMientras(
   battle: BattleState,
   rng: Rng,
   laLlevaLaIA: (s: BattleStack) => boolean,
-  antes: (accion: BattleAction) => BattleAction | null = (accion) => accion,
+  antes: (accion: BattleAction) => BattleAction | null,
 ): number {
   let jugadas = 0;
   while (battle.finished === null) {
@@ -431,8 +591,8 @@ function jugarIAMientras(
     if (jugadas >= MAX_JUGADAS) {
       throw new Error(`la IA lleva ${MAX_JUGADAS} jugadas seguidas sin soltar la batalla`);
     }
-    // `antes` completa la jugada o la para (`null`): la arena, con la rueda del
-    // golpe, espera ahí a que la persona responda. La partida no lo pasa.
+    // `antes` completa la jugada con la rueda del golpe o la para (`null`): si la
+    // IA golpea a una unidad de la persona, se espera ahí a que responda.
     const accion = antes(chooseBattleAction(battle));
     if (accion === null) break;
     applyAction(battle, accion, rng);
@@ -502,19 +662,18 @@ interface DueñoDelLibro {
  * partida; cada sesión le da su turno, sus opciones y su barra.
  */
 export class LibroDeBatalla implements HechizosDeBatalla {
-  private elegido: string | null = null;
-
   constructor(
     private readonly dueño: DueñoDelLibro,
-    private readonly alCambiar: () => void = () => {},
+    private readonly apuntados: LoApuntado,
   ) {}
 
+  /** El hechizo elegido: lo apuntado, si es un hechizo (`LoApuntado`). */
   get selectedSpell(): string | null {
-    return this.elegido;
+    return this.apuntados.de('hechizo');
   }
   set selectedSpell(v: string | null) {
-    this.elegido = v;
-    this.alCambiar();
+    if (v === null) this.apuntados.soltar('hechizo');
+    else this.apuntados.apuntar({ kind: 'hechizo', id: v });
   }
 
   /** Ids de los stacks sobre los que se puede lanzar el hechizo elegido. */
@@ -573,8 +732,6 @@ export class Session implements ControlDeBatalla {
   readonly ctx: GameContext;
   /** El jugador que maneja la persona sentada delante. */
   readonly viewer = 0;
-  /** Por quién no se rinde nunca la IA de reglas: por la persona (H-1 de la 1b). */
-  private readonly sinRendirsePorMi: ReadonlySet<PlayerId> = new Set([this.viewer]);
 
   /**
    * Cuántas veces ha cambiado algo que se ve. Sube con cada acción, cada cambio
@@ -622,7 +779,11 @@ export class Session implements ControlDeBatalla {
    * `main.ts` porque lo lee también el panel; `main.ts` solo guarda estado de
    * píxel. Es el mismo de la arena, y elegir sube la versión.
    */
-  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => this.tocar());
+  /** Lo que apunta el siguiente clic, uno solo: cambiarlo sube la versión. */
+  readonly apuntados = new LoApuntado(() => this.tocar());
+  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, this.apuntados);
+  /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`, el de la arena). */
+  readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
 
   get openTownId(): string | null {
     return this.puebloAbierto;
@@ -667,10 +828,19 @@ export class Session implements ControlDeBatalla {
   muroPorElegir: TipoDeEscala | null = null;
   /** Ni puerta (`ControlDeBatalla`). */
   puertaPorElegir: TipoDePuerta | null = null;
-  /** Lo apuntado, en la partida, solo puede ser un hechizo: la tropa del juego no tiene poderes. */
+  /** Lo apuntado: el hechizo del libro o el poder de la activa (desde F6, también en la partida). */
   get apuntado(): Apuntado | null {
-    const id = this.hechizos.selectedSpell;
-    return id === null ? null : { kind: 'hechizo', id };
+    return this.apuntados.actual;
+  }
+
+  /** Escape: suelta lo apuntado, hechizo o poder, y limpia la barra que lo pedía. */
+  soltarLoApuntado(): void {
+    if (this.apuntados.soltar()) this.status = '';
+  }
+
+  /** Quien mira la rueda del golpe (`SesionConRueda.quienMira`): la persona, por su bando. */
+  get quienMira(): Side | null {
+    return this.miBando;
   }
 
   /**
@@ -684,6 +854,12 @@ export class Session implements ControlDeBatalla {
    */
   private turnoDelRivalEnCurso = false;
 
+  /**
+   * El golpe que espera la rueda: la persona elige por su bando y la IA, a ciegas,
+   * por el del rival.
+   */
+  private readonly rueda: CruceDeLaRueda;
+
   constructor(seed: number) {
     // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
     // de donde la lee quien la enseña. Un hecho en dos sitios se desincroniza
@@ -691,6 +867,15 @@ export class Session implements ControlDeBatalla {
     // el cliente y `state.seed` la que abrió el servidor—.
     this.state = newGame({ seed, controllers: { 0: 'human', 1: 'ai' } });
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
+    this.rueda = new CruceDeLaRueda(
+      {
+        sesion: this,
+        alMoverse: () => this.tocar(),
+        seguirLaIA: () => this.advanceEnemyTurns(),
+      },
+      this.ctx.rng,
+      (side) => side !== this.miBando,
+    );
     this.selectedHeroId = heroesOf(this.state, this.viewer)[0]?.id ?? null;
   }
 
@@ -1110,15 +1295,49 @@ export class Session implements ControlDeBatalla {
     // ese getter es falso mientras corre esto, y el bucle daría las 20 vueltas
     // del guardia jugando días enteros de golpe. Se pregunta por el estado.
     while (this.state.finished === null && this.state.current !== this.viewer && guard < 20) {
-      // La IA de reglas resuelve también las batallas en las que el rival ataca
-      // a la persona; por ella pelea, pero no se rinde: rendirse le cobra su oro
-      // y esa decisión es solo suya (H-1 de la fase 1b).
-      await playAiTurn(this.state, this.ctx, { noSeRinden: this.sinRendirsePorMi });
+      // Las batallas en las que el rival ataca a la persona las juega ella
+      // (#116, `defender`). Si una se quedara a medias, la IA pelearía por ella,
+      // pero sin rendirse: rendirse le cobra su oro y esa decisión es solo suya
+      // (H-1 de la fase 1b).
+      await playAiTurn(this.state, this.ctx, { batallas: { human: () => this.defender() } });
       guard++;
     }
     // Si se acabó, la barra ya dice cómo (`status`).
     if (this.desenlace === null) this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
   }
+
+  /**
+   * La persona juega las batallas en las que la atacan (#116), rueda incluida: el
+   * turno del rival se para en la batalla que acaba de nacer, la escena pasa a ella
+   * y se espera a que la persona la cierre («Continuar» o «Resolver sola», que
+   * pasan por `afterBattle`). Es el `BattleTakeover` de `playAiTurn`, el mismo
+   * contrato que el del agente: si te la quedas, la cierras. Una batalla que no va
+   * con la persona no se toca: la cierra la IA.
+   */
+  private async defender(): Promise<void> {
+    if (this.miBando === null) return;
+    const cerrada = new Promise<void>((resolve) => {
+      this.alCerrarLaDefensa = resolve;
+    });
+    this.scene = 'battle';
+    this.status = '¡Te atacan! Defiéndete.';
+    // Si la iniciativa la tiene el rival, mueve él primero.
+    this.advanceEnemyTurns();
+    // Lo que juega el rival llega sin un gesto de la persona: quien pinta no sabría
+    // que hay una batalla que enseñar.
+    this.alCambiarSinGesto();
+    await cerrada;
+  }
+
+  /** Quien cierra la defensa en curso y deja seguir el turno del rival, o `null`. */
+  private alCerrarLaDefensa: (() => void) | null = null;
+
+  /**
+   * Lo que se llama cuando algo que se ve cambia sin un gesto de la persona (una
+   * defensa que se abre a media jugada del rival). Lo pone quien pinta, para
+   * pedir fotograma; por defecto, nada.
+   */
+  alCambiarSinGesto: () => void = () => {};
 
   // ------------------------------------------------------------ castillo
 
@@ -1452,7 +1671,7 @@ export class Session implements ControlDeBatalla {
   private calculoDeBatalla(): CalculoDeBatalla {
     const battle = this.battle;
     if (battle === null) return { acciones: [], movibles: [], opciones: [], cargas: SIN_CARGAS };
-    const clave = `${claveConMagia(battle)}|${this.hechizos.selectedSpell}`;
+    const clave = `${claveConMagia(battle)}|${claveDeLoApuntado(this.apuntados.actual)}`;
     const c = this.cacheBatalla;
     if (c !== null && c.battle === battle && c.clave === clave) return c.valor;
     const comunes = accionesDeBatalla(battle, this.turnoPropio);
@@ -1521,7 +1740,12 @@ export class Session implements ControlDeBatalla {
   }
 
   rechazoDeLoApuntado(targetId: string): string {
-    return this.hechizos.castRejection(targetId);
+    return rechazoDeLoApuntado(this.hechizos, this.poderes, this.apuntado, targetId);
+  }
+
+  /** Por qué la activa no puede usar el poder `p` ahora, o `null` (el botón deshabilitado). */
+  motivoDePoder(p: PoderId): string | null {
+    return this.poderes.motivo(p);
   }
 
   /**
@@ -1536,39 +1760,71 @@ export class Session implements ControlDeBatalla {
     return surrenderBlocker(turno.battle, turno.side);
   }
 
-  /** Aplica la acción de la persona y deja que la IA juegue lo suyo. */
-  playBattleAction(action: BattleAction): void {
-    const battle = this.battle;
-    if (battle === null) return;
-    try {
-      applyAction(battle, action, this.ctx.rng);
-      this.tocar();
-      this.status = '';
-    } catch (err) {
-      this.status = mensaje(err);
-      return;
-    }
-    // Una acción aplicada deja el hechizo elegido sin sentido: o se acaba de
-    // lanzar —y el héroe ya no puede volver a lanzar esta ronda— o el stack
-    // activo ha cambiado. Se suelta aquí y no en cada llamante.
-    this.hechizos.selectedSpell = null;
-    this.advanceEnemyTurns();
+  /**
+   * El golpe que espera la rueda, si lo hay (`CruceDeLaRueda`, el mismo de la
+   * arena): la persona elige su golpe y, cuando la golpean cuerpo a cuerpo, su
+   * respuesta, sin ver lo del otro. Sin batalla, ninguno.
+   */
+  get ruedaPendiente(): RuedaPendiente | null {
+    return this.battle === null ? null : this.rueda.pendiente;
   }
 
-  /** Deja que la IA mueva mientras el turno NO sea del bando de la persona. */
+  /**
+   * Por qué los botones de la batalla no hacen nada mientras la rueda espera, o
+   * `null` (`motivoDeLaRueda`): el panel los apaga con esta frase en su `title`.
+   */
+  get motivoDeLaRueda(): string | null {
+    return motivoDeLaRueda(this.ruedaPendiente);
+  }
+
+  /**
+   * Aplica la acción de la persona y deja que la IA juegue lo suyo. Un golpe
+   * cuerpo a cuerpo no se da de una vez: quien pega anda hasta su objetivo y la
+   * rueda (`ruedaPendiente`) espera su elección (`elegirEnLaRueda`).
+   */
+  playBattleAction(action: BattleAction): void {
+    if (this.battle !== null) this.rueda.jugar(this.battle, action);
+  }
+
+  /** Lo que elige la persona en la rueda (`CruceDeLaRueda.elegirYJugar`). */
+  elegirEnLaRueda(tipo: string): void {
+    if (this.battle !== null) this.rueda.elegirYJugar(this.battle, tipo);
+  }
+
+  /** Escape en la rueda (`CruceDeLaRueda.cancelarGolpe`). Devuelve si se canceló. */
+  cancelarGolpe(): boolean {
+    return this.battle !== null && this.rueda.cancelarGolpe(this.battle);
+  }
+
+  /**
+   * Deja que la IA mueva mientras el turno NO sea del bando de la persona. Si la
+   * IA golpea cuerpo a cuerpo a una unidad de la persona, se para: anda hasta ella
+   * y la rueda pide la respuesta.
+   */
   advanceEnemyTurns(): void {
     const battle = this.battle;
     const mio = this.miBando;
     if (battle === null || mio === null) return;
-    if (jugarIAMientras(battle, this.ctx.rng, (s) => s.side !== mio) > 0) this.tocar();
+    const jugadas = jugarIAMientras(
+      battle,
+      this.ctx.rng,
+      (s) => s.side !== mio,
+      (a) => this.rueda.completar(battle, a),
+    );
+    if (jugadas > 0 || this.rueda.pendiente !== null) this.tocar();
     if (battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
 
   /** Resuelve el resto de la batalla con la IA en ambos bandos. */
   autoResolveBattle(): void {
     if (this.state.pendingBattle === null) return;
+    // Con un golpe plantado ante la rueda, la IA no sabría qué hacer con él.
+    if (this.rueda.pendiente !== null) {
+      this.status = comoFrase(ELIGE_EN_LA_RUEDA);
+      return;
+    }
     // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona.
-    resolvePendingBattle(this.state, this.ctx, this.sinRendirsePorMi);
+    resolvePendingBattle(this.state, this.ctx);
     this.afterBattle();
   }
 
@@ -1581,8 +1837,12 @@ export class Session implements ControlDeBatalla {
   }
 
   private afterBattle(): void {
+    // Si era una defensa (#116), el turno del rival sigue desde aquí.
+    const defensa = this.alCerrarLaDefensa;
+    this.alCerrarLaDefensa = null;
+    defensa?.();
     this.scene = 'adventure';
-    this.hechizos.selectedSpell = null;
+    this.apuntados.soltar();
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
@@ -1647,7 +1907,7 @@ export type LadoDeSesion = LadoDeArena & { readonly ia: boolean };
 /**
  * La batalla de la arena (`/arena/`): dos bandos de unidades del borrador o del
  * catálogo, con un héroe cada uno si se quiere, sin partida alrededor, y en cada
- * unidad decide la persona o la IA. Las reglas (`reglas.ts`) son las del montaje,
+ * unidad decide la persona o la IA. Las reglas son las del juego (`createBattle`),
  * las mismas para los dos lados.
  *
  * Vive aquí porque `session.ts` es la única puerta del cliente al núcleo —lo
@@ -1668,16 +1928,25 @@ export type LadoDeSesion = LadoDeArena & { readonly ia: boolean };
 export class SesionDeArena implements ControlDeBatalla {
   readonly battle: BattleState;
   readonly semilla: number;
-  readonly reglas: ReglasDeBatalla;
-  /** Elegir un hechizo suelta el poder apuntado: el clic apunta una sola cosa (`apuntado`). */
-  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => {
-    if (this.hechizos.selectedSpell !== null) this.poderApuntado = null;
-  });
+  /**
+   * El catálogo con que se pelea: las unidades del montaje y sus piezas
+   * (`catalogoDelMontaje`). La batalla no lo lleva, así que el retoque lo pide de
+   * aquí y aquí deja lo retocado (`retocar`), y de aquí sale el cuerpo sin equipo
+   * de cada stack (`cuerpoDe`).
+   */
+  private catalogo: CatalogoDeLaArena;
+  /** Lo que apunta el siguiente clic, uno solo (la versión lo lee de aquí). */
+  readonly apuntados = new LoApuntado();
+  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, this.apuntados);
+  /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`). */
+  readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
   readonly dueños = null;
   private readonly rng: Rng;
   /** Qué bandos mueve la IA, enteros: sus unidades y su héroe. */
   private readonly iaDelBando: Readonly<Record<Side, boolean>>;
+  /** El golpe que espera la rueda: la IA elige por sus bandos y la persona por los suyos. */
+  private readonly rueda: CruceDeLaRueda;
   private empezada = false;
 
   /**
@@ -1686,31 +1955,21 @@ export class SesionDeArena implements ControlDeBatalla {
    * pueda desacompasar.
    */
   get version(): string {
-    return `${claveDeBatalla(this.battle)}|${this.hechizos.selectedSpell}|${this.poderApuntado}|${this.cruce?.pendiente.fase ?? ''}`;
+    return `${claveDeBatalla(this.battle)}|${claveDeLoApuntado(this.apuntados.actual)}|${this.rueda.pendiente?.fase ?? ''}`;
   }
 
   /**
-   * El golpe que espera la rueda (`battle/rueda.ts`): la acción y lo que se
-   * enseña. Quien pega ya anduvo y está plantado ante su objetivo
-   * (`BattleState.golpeEnCurso`), así que la acción va sin `from`. En la fase
-   * `golpe` elige quien pega, y la acción va sin golpe; en `respuesta`, quien
-   * recibe, y la acción lleva ya el golpe elegido, que **no sale de aquí**:
-   * `ruedaPendiente` enseña la fase, no la elección del otro.
-   */
-  private cruce: {
-    readonly accion: BattleAction & { type: 'attack' };
-    readonly pendiente: RuedaPendiente;
-  } | null = null;
-
-  /**
-   * Lo que la rueda enseña ahora, o `null` si no espera a nadie: la fase, quién
-   * pega a quién, qué bando elige y lo que daría cada tipo
-   * (`previsionDeLaRueda`). Sin el golpe guardado: la elección es a ciegas. Se
-   * calcula una vez, al abrir la fase (con la rueda abierta la batalla no se
-   * mueve), y es el mismo objeto mientras dura: quien pinta repinta al cambiar.
+   * El golpe que espera la rueda, si lo hay (`CruceDeLaRueda`, el mismo de la
+   * partida): la fase, quién pega a quién, qué bando elige y lo que daría cada
+   * tipo, sin lo que eligió el otro.
    */
   get ruedaPendiente(): RuedaPendiente | null {
-    return this.cruce?.pendiente ?? null;
+    return this.rueda.pendiente;
+  }
+
+  /** Lo mismo que en `Session` (`motivoDeLaRueda`). */
+  get motivoDeLaRueda(): string | null {
+    return motivoDeLaRueda(this.ruedaPendiente);
   }
 
   /** No es parte de la versión, por lo mismo que en `Session`: la reescribe el puntero. */
@@ -1720,68 +1979,57 @@ export class SesionDeArena implements ControlDeBatalla {
   muroPorElegir: TipoDeEscala | null = null;
   /** El botón de la puerta esperando el clic en una portada (`ControlDeBatalla`). */
   puertaPorElegir: TipoDePuerta | null = null;
-  /**
-   * El poder de la activa que espera el clic en un aliado (lo pone su botón
-   * cuando hay más de uno). Con el hechizo elegido del libro, es lo apuntado
-   * (`apuntado`): elegir uno suelta el otro (`apuntarPoder` y el libro).
-   */
-  private poderApuntado: PoderId | null = null;
-
   get apuntado(): Apuntado | null {
-    const hechizo = this.hechizos.selectedSpell;
-    if (hechizo !== null) return { kind: 'hechizo', id: hechizo };
-    return this.poderApuntado === null ? null : { kind: 'poder', id: this.poderApuntado };
+    return this.apuntados.actual;
   }
 
-  /** Deja el poder `id` esperando aliado (o lo suelta con `null`), soltando el hechizo. */
-  apuntarPoder(id: PoderId | null): void {
-    if (id !== null) this.hechizos.selectedSpell = null;
-    this.poderApuntado = id;
+  /** Escape: suelta lo apuntado, hechizo o poder, y limpia la barra que lo pedía. */
+  soltarLoApuntado(): void {
+    if (this.apuntados.soltar()) this.status = '';
   }
 
   rechazoDeLoApuntado(targetId: string): string {
-    const a = this.apuntado;
-    if (a === null) return '';
-    if (a.kind === 'hechizo') return this.hechizos.castRejection(targetId);
-    return motivoExigido(
-      this.turnoPropio,
-      (b) => poderBlocker(b, a.id, targetId),
-      `«${a.id}» sobre ${targetId}`,
-    );
+    return rechazoDeLoApuntado(this.hechizos, this.poderes, this.apuntado, targetId);
+  }
+
+  /**
+   * El cuerpo de `s` sin lo que lleva, con el catálogo de esta pelea (`cuerpoDe`):
+   * lo que el panel resta para decir qué le suma el equipo.
+   */
+  cuerpoDe(s: BattleStack): UnitInfo | null {
+    return cuerpoDe(s, this.catalogo);
   }
 
   constructor(
     montaje: {
       readonly izquierda: LadoDeSesion;
       readonly derecha: LadoDeSesion;
-      readonly reglas: ReglasDeBatalla;
       /** La muralla del tablero; sin ella, ninguna (`SIN_MURALLA`). */
       readonly muralla?: MurallaDeBatalla;
-      /** Las piezas de la arena con que se pelea (`catalogoDeLaArena`). */
-      readonly piezas: MontajeDeArena['piezas'];
-      /** Los modos de la arena que pide el montaje (la rueda, el contacto); sin él, los de siempre. */
-      readonly modos?: MontajeDeArena['modos'];
+      /** El catálogo de equipo con que se pelea, hecho (`catalogoDeEquipo`, o `EQUIPO_DEL_JUEGO`). */
+      readonly equipo: CatalogoDeEquipo;
     },
     semilla: number,
   ) {
     this.semilla = semilla;
-    this.reglas = montaje.reglas;
     this.rng = createRng(semilla);
-    this.battle = batallaDeArena(
-      {
-        izquierda: montaje.izquierda,
-        derecha: montaje.derecha,
-        reglas: montaje.reglas,
-        muralla: montaje.muralla ?? SIN_MURALLA,
-        piezas: montaje.piezas,
-        ...(montaje.modos === undefined ? {} : { modos: montaje.modos }),
-      },
-      this.rng,
-    );
+    const delMontaje = {
+      izquierda: montaje.izquierda,
+      derecha: montaje.derecha,
+      muralla: montaje.muralla ?? SIN_MURALLA,
+      equipo: montaje.equipo,
+    };
+    this.catalogo = catalogoDelMontaje(delMontaje);
+    this.battle = batallaDeArena(delMontaje, this.rng);
     this.iaDelBando = {
       [LADOS.izquierda.bando]: montaje.izquierda.ia,
       [LADOS.derecha.bando]: montaje.derecha.ia,
     } as Record<Side, boolean>;
+    this.rueda = new CruceDeLaRueda(
+      { sesion: this, alMoverse: () => {}, seguirLaIA: () => this.avanzarIA() },
+      this.rng,
+      (side) => this.iaDelBando[side],
+    );
   }
 
   /**
@@ -1810,6 +2058,16 @@ export class SesionDeArena implements ControlDeBatalla {
 
   get miBando(): Side | null {
     return this.turnoPropio?.side ?? null;
+  }
+
+  /**
+   * Quien mira la rueda del golpe (`SesionConRueda.quienMira`): el bando de la
+   * persona si lleva uno solo; con los dos suyos (o ninguno), `null`, y la rueda
+   * los dice por su lado del campo.
+   */
+  get quienMira(): Side | null {
+    const suyos = (['attacker', 'defender'] as const).filter((b) => !this.iaDelBando[b]);
+    return suyos.length === 1 ? (suyos[0] as Side) : null;
   }
 
   /** Como en `Session`, guardado por jugada: la escena lo pide en cada fotograma. */
@@ -1927,7 +2185,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * (`poderBlocker`), como frase; `null` si puede. Lo pinta el botón deshabilitado.
    */
   motivoDePoder(p: PoderId): string | null {
-    return motivoDeLaActiva(this.turnoPropio, (b) => poderBlocker(b, p));
+    return this.poderes.motivo(p);
   }
 
   /**
@@ -1939,10 +2197,12 @@ export class SesionDeArena implements ControlDeBatalla {
   retocar(r: RetoqueDeArena): string | null {
     // Con la rueda a medias, la acción guardada se juega con las cifras de
     // cuando se eligió: cambiarlas debajo podría dejarla ilegal.
-    if (this.cruce !== null) return comoFrase(ELIGE_EN_LA_RUEDA);
+    if (this.rueda.pendiente !== null) return comoFrase(ELIGE_EN_LA_RUEDA);
     const largo = this.battle.log.length;
-    const motivo = retocarEnBatalla(this.battle, r);
+    const motivo = retocarEnBatalla(this.battle, r, this.catalogo);
     if (motivo !== null) return comoFrase(motivo);
+    if (r.kind === 'piezas') this.catalogo = { ...this.catalogo, equipo: r.equipo };
+    if (r.kind === 'tipo') this.catalogo = conUnidad(this.catalogo, r.fuente.unidad);
     // Lo que entra y cambia algo deja su `retoque` en el registro; lo que deja la
     // ficha como estaba no escribe nada, y no se dice «Cambiado» (N1 de QA).
     if (this.battle.log.length === largo) {
@@ -1970,8 +2230,7 @@ export class SesionDeArena implements ControlDeBatalla {
   private soltarLoQueNoVale(): string | null {
     const a = this.apuntado;
     if (a === null || this.battleLegalActions().some((x) => esDeLoApuntado(a, x))) return null;
-    this.hechizos.selectedSpell = null;
-    this.poderApuntado = null;
+    this.apuntados.soltar();
     return a.kind === 'hechizo' ? spell(a.id).name : poder(a.id).nombre;
   }
 
@@ -1981,130 +2240,17 @@ export class SesionDeArena implements ControlDeBatalla {
    * pega anda hasta su objetivo y la rueda (`ruedaPendiente`) espera su elección.
    */
   playBattleAction(action: BattleAction): void {
-    if (this.cruce !== null) {
-      this.status = comoFrase(ELIGE_EN_LA_RUEDA);
-      return;
-    }
-    if (this.turnoPropio === null) {
-      this.status = NINGUNA_TUYA;
-      return;
-    }
-    // Con la rueda, un golpe cuerpo a cuerpo sin elegir anda y abre la fase del
-    // golpe. Plantarse hace las comprobaciones del golpe antes de andar: uno que
-    // no se puede dar no mueve a nadie ni abre la rueda, y la barra dice por qué.
-    let lista: BattleAction | null;
-    try {
-      lista = this.completarElCruce(action);
-    } catch (err) {
-      this.status = mensaje(err);
-      return;
-    }
-    if (lista === null) this.status = '';
-    else this.aplicar(lista);
+    this.rueda.jugar(this.battle, action);
   }
 
-  /**
-   * Lo de la rueda que le toque a la IA (`completarCruce`, el mismo sorteo que
-   * `autoResolve`) y, si falta lo de una persona, quien pega anda hasta su
-   * objetivo (se planta: el `attack` sin elecciones), la rueda queda abierta en
-   * su fase y devuelve `null`; si no falta nada, la acción lista para darse. Sin
-   * rueda, la misma acción. Primero se anda y luego se elige (decisión del
-   * usuario, 13-10-2026): la vista abre la rueda cuando el animador acaba la
-   * marcha. Lo de la IA ya elegido se queda aquí, a ciegas para la persona.
-   */
-  private completarElCruce(accion: BattleAction): BattleAction | null {
-    const c = completarCruce(this.battle, accion, this.rng, (side) => this.iaDelBando[side]);
-    if (c.falta === null) return c.accion;
-    const { golpe, respuesta, from, ...plantado } = c.accion;
-    // La segunda fase (Yo contra Yo) ya está plantada; la primera anda ahora.
-    // Plantarse no tira dados: el `Rng` gasta lo mismo y en el mismo orden que el
-    // golpe de una vez.
-    if (this.battle.golpeEnCurso === null) {
-      applyAction(this.battle, from === undefined ? plantado : { ...plantado, from }, this.rng);
-    }
-    const atacante = activeStack(this.battle);
-    if (atacante === null) throw new Error('la rueda espera un golpe y no le toca a nadie');
-    const objetivo = stackById(this.battle, c.accion.target);
-    const enLaRueda = {
-      ...plantado,
-      ...(golpe === undefined ? {} : { golpe }),
-      ...(respuesta === undefined ? {} : { respuesta }),
-    };
-    this.cruce = {
-      accion: enLaRueda,
-      pendiente: {
-        fase: c.falta,
-        atacante,
-        objetivo,
-        bando: c.falta === 'golpe' ? atacante.side : objetivo.side,
-        prevision: previsionDeLaRueda(this.battle, enLaRueda, c.falta),
-      },
-    };
-    return null;
-  }
-
-  /**
-   * Lo que elige en la rueda quien le toca: en la fase `golpe`, quien pega; si
-   * el objetivo es de la IA, ella responde a ciegas y el golpe se da, y si es de
-   * la persona, la rueda pasa a la `respuesta` sin enseñar el golpe. En la
-   * `respuesta`, el golpe se da. `tipo` llega del marcado: uno que no es un tipo
-   * se dice en la barra.
-   */
+  /** Lo que elige en la rueda quien le toca (`CruceDeLaRueda.elegirYJugar`). */
   elegirEnLaRueda(tipo: string): void {
-    const c = this.cruce;
-    if (c === null) {
-      this.status = 'La rueda no espera ninguna elección.';
-      return;
-    }
-    if (!esTipoDeGolpe(tipo)) {
-      this.status = `${tipoDeGolpeBlocker(tipo)}.`;
-      return;
-    }
-    const elegido: Partial<Record<PapelEnLaRueda, TipoDeGolpe>> = { [c.pendiente.fase]: tipo };
-    this.cruce = null;
-    // Con los dos bandos de la persona, la rueda vuelve a abrirse para el otro,
-    // que elige sin ver este.
-    const lista = this.completarElCruce({ ...c.accion, ...elegido });
-    if (lista !== null) this.aplicar(lista);
+    this.rueda.elegirYJugar(this.battle, tipo);
   }
 
-  /**
-   * Escape en la rueda: deja el golpe sin dar, solo antes de elegirlo. Quien
-   * pega ya anduvo: se queda donde llegó y sigue su turno, sin la carga de esa
-   * carrera (`soltarElGolpe`); si no le queda nada, el turno se cierra y juega
-   * quien siga. La respuesta no se cancela: el golpe ya viene. Devuelve si se
-   * canceló.
-   */
+  /** Escape en la rueda (`CruceDeLaRueda.cancelarGolpe`). Devuelve si se canceló. */
   cancelarGolpe(): boolean {
-    if (this.cruce?.pendiente.fase !== 'golpe') {
-      this.status =
-        this.cruce === null
-          ? 'La rueda no espera ninguna elección.'
-          : 'El golpe ya viene: elige la respuesta en la rueda.';
-      return false;
-    }
-    // La carga de la carrera se pierde al soltar: se dice (R6 de QA de #260).
-    const conCarga = this.cruce.pendiente.prevision.carga !== null;
-    this.cruce = null;
-    soltarElGolpe(this.battle, this.rng);
-    this.status = conCarga ? 'Golpe cancelado: se pierde la carga.' : 'Golpe cancelado.';
-    this.avanzarIA();
-    return true;
-  }
-
-  private aplicar(action: BattleAction): void {
-    try {
-      applyAction(this.battle, action, this.rng);
-      this.status = '';
-    } catch (err) {
-      this.status = mensaje(err);
-      return;
-    }
-    // Como en la partida: lanzado el hechizo, o con otra unidad activa, lo
-    // apuntado ya no tiene sentido, se pueda aún o no.
-    this.hechizos.selectedSpell = null;
-    this.poderApuntado = null;
-    this.avanzarIA();
+    return this.rueda.cancelarGolpe(this.battle);
   }
 
   /**
@@ -2117,7 +2263,7 @@ export class SesionDeArena implements ControlDeBatalla {
       this.battle,
       this.rng,
       (s) => this.iaDelBando[s.side],
-      (accion) => this.completarElCruce(accion),
+      (accion) => this.rueda.completar(this.battle, accion),
     );
     if (this.battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
@@ -2126,7 +2272,212 @@ export class SesionDeArena implements ControlDeBatalla {
 /** Lo que dice la barra a quien quiere hacer otra cosa con la rueda abierta. */
 const ELIGE_EN_LA_RUEDA = 'elige antes en la rueda del golpe';
 
-/** Lo que la rueda enseña a quien elige (`SesionDeArena.ruedaPendiente`). */
+/**
+ * Por qué no se juega nada más con la rueda abierta, como frase, o `null` si no
+ * espera nada. La misma de la barra (`ELIGE_EN_LA_RUEDA`): con ella el panel apaga
+ * sus botones, que con el diálogo modal encima no recibían el clic y se veían
+ * encendidos (H3 de QA, 19-10-2026).
+ */
+function motivoDeLaRueda(pendiente: RuedaPendiente | null): string | null {
+  return pendiente === null ? null : comoFrase(ELIGE_EN_LA_RUEDA);
+}
+
+/**
+ * El golpe que espera la rueda (`battle/rueda.ts`) y lo que se hace con él, para
+ * las dos sesiones: la de la partida y la de la arena eligen igual (F5 de la tarea
+ * del combate en el juego, 19-10-2026; antes vivía solo en la arena). Cada una
+ * dice quién lleva cada bando (`laLlevaLaIA`): lo de la IA lo sortea
+ * `completarCruce` a ciegas, y lo de la persona espera aquí.
+ *
+ * Primero se anda y luego se elige (decisión del usuario, 13-10-2026): un golpe
+ * al que le falta lo de una persona planta a quien pega ante su objetivo (el
+ * `attack` sin elecciones, `BattleState.golpeEnCurso`) y abre la fase; la vista
+ * abre el diálogo cuando el animador acaba la marcha. En la fase `golpe` elige
+ * quien pega, y la acción va sin golpe; en `respuesta`, quien recibe, y la acción
+ * lleva ya el golpe elegido, que **no sale de aquí**: `pendiente` enseña la fase,
+ * no la elección del otro.
+ *
+ * Solo hay un golpe a la vez y es de la batalla en la que se plantó: quien lo
+ * lleva no deja jugar otra cosa mientras espera (`ELIGE_EN_LA_RUEDA`).
+ */
+export class CruceDeLaRueda {
+  private cruce: {
+    readonly accion: BattleAction & { type: 'attack' };
+    readonly pendiente: RuedaPendiente;
+  } | null = null;
+
+  constructor(
+    private readonly conductor: ConductorDelCruce,
+    private readonly rng: Rng,
+    private readonly laLlevaLaIA: (side: Side) => boolean,
+  ) {}
+
+  /**
+   * La jugada de la persona (`playBattleAction` de las dos sesiones): con la rueda
+   * abierta o sin turno propio no se acepta, y la barra dice por qué. Un golpe
+   * cuerpo a cuerpo sin elegir anda y abre la fase del golpe (`completar`):
+   * plantarse hace las comprobaciones del golpe antes de andar, así que uno que no
+   * se puede dar no mueve a nadie ni abre la rueda. Lo demás, se aplica.
+   */
+  jugar(battle: BattleState, accion: BattleAction): void {
+    const { sesion } = this.conductor;
+    if (this.cruce !== null) {
+      sesion.status = comoFrase(ELIGE_EN_LA_RUEDA);
+      return;
+    }
+    if (sesion.turnoPropio === null) {
+      sesion.status = NINGUNA_TUYA;
+      return;
+    }
+    let lista: BattleAction | null;
+    try {
+      lista = this.completar(battle, accion);
+    } catch (err) {
+      sesion.status = mensaje(err);
+      return;
+    }
+    // Plantado, la rueda espera: el tablero cuenta la marcha y luego se abre.
+    this.conductor.alMoverse();
+    if (lista === null) sesion.status = '';
+    else this.aplicar(battle, lista);
+  }
+
+  /** Lo que elige quien le toca en la rueda (`elegir`), y la jugada si ya está lista. */
+  elegirYJugar(battle: BattleState, tipo: string): void {
+    let lista: BattleAction | null;
+    try {
+      lista = this.elegir(battle, tipo);
+    } catch (err) {
+      this.conductor.sesion.status = mensaje(err);
+      return;
+    }
+    this.conductor.alMoverse();
+    if (lista !== null) this.aplicar(battle, lista);
+  }
+
+  /** Escape en la rueda (`cancelar`), y la IA sigue si le toca. Devuelve si se canceló. */
+  cancelarGolpe(battle: BattleState): boolean {
+    const { sesion } = this.conductor;
+    try {
+      sesion.status = this.cancelar(battle);
+    } catch (err) {
+      sesion.status = mensaje(err);
+      return false;
+    }
+    this.conductor.alMoverse();
+    this.conductor.seguirLaIA();
+    return true;
+  }
+
+  /**
+   * Aplica una jugada lista y deja a la IA mover lo suyo. Una jugada aplicada deja
+   * lo apuntado sin sentido —el hechizo ya se lanzó, o la unidad activa es otra—:
+   * se suelta aquí y no en cada llamante.
+   */
+  private aplicar(battle: BattleState, accion: BattleAction): void {
+    const { sesion } = this.conductor;
+    try {
+      applyAction(battle, accion, this.rng);
+      this.conductor.alMoverse();
+      sesion.status = '';
+    } catch (err) {
+      sesion.status = mensaje(err);
+      return;
+    }
+    sesion.apuntados.soltar();
+    this.conductor.seguirLaIA();
+  }
+
+  /**
+   * Lo que la rueda enseña ahora, o `null` si no espera a nadie. Se calcula una
+   * vez, al abrir la fase (con la rueda abierta la batalla no se mueve), y es el
+   * mismo objeto mientras dura: quien pinta repinta al cambiar.
+   */
+  get pendiente(): RuedaPendiente | null {
+    return this.cruce?.pendiente ?? null;
+  }
+
+  /**
+   * Un paso del cruce (`pasoDelCruce`, el mismo del director): la acción con lo de
+   * la rueda que le toque a la IA y lista para darse; o, si falta lo de una
+   * persona, `null`: quien pega se ha plantado ante su objetivo y la rueda queda
+   * abierta en su fase. Lo que no es un golpe, la misma acción. Lanza con la frase
+   * del núcleo si plantarse no vale: uno que no se puede dar no mueve a nadie.
+   */
+  completar(battle: BattleState, accion: BattleAction): BattleAction | null {
+    const paso = pasoDelCruce(battle, accion, this.rng, this.laLlevaLaIA);
+    if ('lista' in paso) return paso.lista;
+    const atacante = activeStack(battle);
+    if (atacante === null) throw new Error('la rueda espera un golpe y no le toca a nadie');
+    this.cruce = {
+      accion: paso.accion,
+      pendiente: {
+        fase: paso.falta,
+        atacante,
+        objetivo: stackById(battle, paso.accion.target),
+        bando: paso.bando,
+        prevision: previsionDeLaRueda(battle, paso.accion, paso.falta),
+      },
+    };
+    return null;
+  }
+
+  /**
+   * Lo que elige quien le toca: en la fase `golpe`, quien pega; si el objetivo es
+   * de la IA, ella responde a ciegas y sale la acción lista, y si es de una
+   * persona, la rueda pasa a la `respuesta` sin enseñar el golpe (`null`). En la
+   * `respuesta`, la acción lista. `tipo` llega del marcado: uno que no es un tipo,
+   * o una rueda que no espera nada, lanza con la frase para la barra.
+   */
+  elegir(battle: BattleState, tipo: string): BattleAction | null {
+    const c = this.cruce;
+    if (c === null) throw new Error('La rueda no espera ninguna elección.');
+    if (!esTipoDeGolpe(tipo)) throw new Error(`${tipoDeGolpeBlocker(tipo)}.`);
+    const elegido: Partial<Record<PapelEnLaRueda, TipoDeGolpe>> = { [c.pendiente.fase]: tipo };
+    this.cruce = null;
+    return this.completar(battle, { ...c.accion, ...elegido });
+  }
+
+  /**
+   * Escape en la rueda: deja el golpe sin dar, solo antes de elegirlo. Quien pega
+   * ya anduvo: se queda donde llegó y sigue su turno, sin la carga de esa carrera
+   * (`soltarElGolpe`); si no le queda nada, el turno se cierra y juega quien siga
+   * (eso lo hace la sesión). La respuesta no se cancela: el golpe ya viene, y lanza
+   * diciéndolo. Devuelve la frase de la barra.
+   */
+  cancelar(battle: BattleState): string {
+    if (this.cruce?.pendiente.fase !== 'golpe') {
+      throw new Error(
+        this.cruce === null
+          ? 'La rueda no espera ninguna elección.'
+          : 'El golpe ya viene: elige la respuesta en la rueda.',
+      );
+    }
+    // La carga de la carrera se pierde al soltar: se dice (R6 de QA de #260).
+    const conCarga = this.cruce.pendiente.prevision.carga !== null;
+    this.cruce = null;
+    soltarElGolpe(battle, this.rng);
+    return conCarga ? 'Golpe cancelado: se pierde la carga.' : 'Golpe cancelado.';
+  }
+}
+
+/**
+ * Lo que el cruce pide de la sesión que lo conduce (la de la partida y la de la
+ * arena): su barra, su turno y lo apuntado; qué hace cuando la batalla se mueve
+ * (la partida sube su versión; la arena la deriva de la batalla) y cómo sigue la
+ * IA hasta la siguiente jugada de la persona.
+ */
+interface ConductorDelCruce {
+  readonly sesion: {
+    status: string;
+    readonly turnoPropio: TurnoPropio | null;
+    readonly apuntados: LoApuntado;
+  };
+  readonly alMoverse: () => void;
+  readonly seguirLaIA: () => void;
+}
+
+/** Lo que la rueda enseña a quien elige (`CruceDeLaRueda.pendiente`). */
 export interface RuedaPendiente {
   readonly fase: PapelEnLaRueda;
   readonly atacante: BattleStack;

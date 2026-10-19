@@ -14,7 +14,9 @@ import { renderSide } from '../src/client/views/panels.js';
 import { textoDePrevision } from '../src/client/views/prevision.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
-import { creature } from '../src/core/data.js';
+import { CARGA } from '../src/core/battle/carga.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
+
 import type { Hex, UnitInfo } from '../src/core/types.js';
 import { sesionContraMonstruo } from './batalla-de-cliente.js';
 
@@ -100,10 +102,8 @@ function sesionConEnemigoALaVista(
   const turno = s.turnoPropio;
   if (b === null || turno === null)
     throw new Error('la sesión no abre la batalla con turno propio');
-  const rival = b.stacks.find(
-    (x) => isAlive(x) && x.side !== s.miBando && x.unit.shots === undefined,
-  );
-  if (rival === undefined) throw new Error('no hay enemigo cuerpo a cuerpo');
+  const rival = b.stacks.find((x) => isAlive(x) && x.side !== s.miBando);
+  if (rival === undefined) throw new Error('no hay enemigo');
   let propios = 0;
   let ajenos = 0;
   for (const x of b.stacks) {
@@ -113,7 +113,7 @@ function sesionConEnemigoALaVista(
   turno.stack.hex = { col: 5, row: 6 };
   rival.hex = enRival;
   // Antes de la primera lectura de la lista legal: la sesión la guarda por jugada.
-  if (criatura !== undefined) (turno.stack as { unit: UnitInfo }).unit = creature(criatura);
+  if (criatura !== undefined) (turno.stack as { unit: UnitInfo }).unit = unidadDelJuego(criatura);
   if (isShooterActivo(s)) throw new Error('la unidad activa dispara: el ángulo no se ve');
   return { s, activo: turno.stack.id, objetivo: rival.id };
 }
@@ -130,7 +130,7 @@ describe('el clic sobre un enemigo elige el ángulo', () => {
       const escena = new EscenaBatalla(() => s);
       escena.encuadrar(ancho, alto);
       const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
-      const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+      const k = cajaDeFigura(tableroPara(ancho, alto), centroDeStack(stackHexes(rival)));
       const px = k.x + lado * k.ancho * 0.45;
       const py = k.suelo - 2;
       expect(escena.objetivoEn(px, py)?.id).toBe(objetivo);
@@ -170,7 +170,7 @@ describe('el clic sobre un enemigo al que no se llega', () => {
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
     const escena = new EscenaBatalla(() => s);
     escena.encuadrar(ancho, alto);
-    const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+    const k = cajaDeFigura(tableroPara(ancho, alto), centroDeStack(stackHexes(rival)));
     const antes = s.battle!.log.length;
     escena.pulsar(k.x, k.suelo - k.alto / 2);
     expect(s.battle!.log.length).toBe(antes);
@@ -183,7 +183,7 @@ describe('el clic sobre un enemigo al que no se llega', () => {
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
     const escena = new EscenaBatalla(() => s);
     escena.encuadrar(ancho, alto);
-    const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+    const k = cajaDeFigura(tableroPara(ancho, alto), centroDeStack(stackHexes(rival)));
     const antes = s.battle!.log.length;
     escena.mover(k.x, k.suelo - k.alto / 2);
     expect(s.status).toBe(s.attackRejection(objetivo));
@@ -199,7 +199,7 @@ describe('el clic sobre un enemigo al que no se llega', () => {
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
     const escena = new EscenaBatalla(() => s);
     escena.encuadrar(ancho, alto);
-    const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+    const k = cajaDeFigura(tableroPara(ancho, alto), centroDeStack(stackHexes(rival)));
     escena.mover(k.x, k.suelo - 2);
     expect(s.status).toMatch(/^Golpearías desde/);
   });
@@ -224,20 +224,24 @@ describe('el panel dice lo que le queda al tramo', () => {
   });
 });
 
-describe('la ayuda de la carga solo con una unidad que carga (QA, N2)', () => {
-  it('con un piquero activo no se habla de cargar; con un jinete, sí', () => {
+describe('la ayuda de la carga, con las cifras de quien carga (QA, N2)', () => {
+  it('a pie (desde el 19-10-2026, toda unidad carga) con las suyas; el jinete, con las suyas', () => {
     const AYUDA = 'Al enemigo en naranja se le puede cargar';
-    const sinRasgo = sesionConEnemigoALaVista(undefined, 'pikeman');
-    expect(marcadoDe(renderSide(sinRasgo.s))).not.toContain(AYUDA);
-    const conRasgo = sesionConEnemigoALaVista(undefined, 'cavalry');
-    expect(marcadoDe(renderSide(conRasgo.s))).toContain(AYUDA);
+    const aPie = marcadoDe(renderSide(sesionConEnemigoALaVista(undefined, 'templario-escudo').s));
+    expect(aPie).toContain(AYUDA);
+    expect(aPie).toContain(`+${CARGA.aPie.porcentaje} % cada una`);
+    const jinete = marcadoDe(
+      renderSide(sesionConEnemigoALaVista(undefined, 'templario-hermano-de-carga').s),
+    );
+    expect(jinete).toContain(AYUDA);
+    expect(jinete).toContain(`+${CARGA.jinete.porcentaje} % cada una`);
   });
 });
 
 describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
   // Jinete en (5,6) y el rival en (9,6): la recta E pasa por (6,6), (7,6) y
   // (8,6), y desde (8,6) el rival es la casilla siguiente. La única carga.
-  const montar = () => sesionConEnemigoALaVista({ col: 9, row: 6 }, 'cavalry');
+  const montar = () => sesionConEnemigoALaVista({ col: 9, row: 6 }, 'templario-hermano-de-carga');
   const [ancho, alto] = [1086, 778];
   const t = tableroPara(ancho, alto);
 
@@ -272,7 +276,7 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
     const escena = new EscenaBatalla(() => s);
     escena.encuadrar(ancho, alto);
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
-    const k = cajaDeFigura(t, rival, centroDeStack(stackHexes(rival)));
+    const k = cajaDeFigura(t, centroDeStack(stackHexes(rival)));
     // A la altura del centro de su casilla y hacia el oeste: el lado de la recta.
     const px = k.x - k.ancho * 0.45;
     const py = centroHex(t, rival.hex).y;
@@ -295,6 +299,10 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
     expect(s.status).toContain('(+30 % de daño)');
     const antes = s.battle!.log.length;
     escena.pulsar(px, py);
+    // Primero anda (la carrera de la carga) y luego elige en la rueda (F5).
+    expect(s.ruedaPendiente?.fase).toBe('golpe');
+    expect(s.ruedaPendiente?.prevision.carga).not.toBeNull();
+    s.elegirEnLaRueda('normal');
     const golpe = s.battle!.log.slice(antes).find((e) => e.kind === 'attack' && !e.retaliation);
     expect(golpe?.kind === 'attack' ? golpe.charge : undefined).toBe(3);
   });

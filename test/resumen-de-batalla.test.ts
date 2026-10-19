@@ -10,34 +10,35 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { resumenDeBatalla } from '../src/core/battle/resumen.js';
-import type { BattleState } from '../src/core/battle/types.js';
+import { type BattleState, queEs } from '../src/core/battle/types.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { HERO_BODY } from '../src/core/hero/hero.js';
 import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import { type GameContext, heroesOf, resolvePendingBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { ejercito, forzarBatalla } from './helpers.js';
+import { ejercito, forzarBatalla, ponerMonstruo, TROPA_BARATA } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 /**
- * La semilla de la batalla: tiene que lanzar algún hechizo y matar algo. Era
- * la 33, que con menos mesetas (#210) ya no lanza ninguno, la 2, que con el
- * acantilado en línea (#215) nace a la vista del rival, la 1, que con el
- * vestido que se repite por una silla (#224) tampoco lanza, y la 3, que con las
- * fronteras onduladas (#229) tampoco. Con ellas, la 1 vuelve a lanzar, hasta
- * las dos puertas de la mina (#230); ni la 2 ni la 3 tampoco: la 4, hasta la
- * muralla como cierre de un paso (#232), y de la 1 a la 10 solo lanza la 7,
- * hasta los ríos (#144, 16-10-2026): de la 1 a la 10 lanzan, matan y no las ve
- * el rival la 2, la 3, la 5 y la 6. La 6 desde el río de una casilla (#144,
- * paso 2): de la 1 a la 12, la 6, la 7, la 8, la 9 y la 11; la 2 ya no lanza.
- * La 1 desde el río continuo (#144): de la 1 a la 12 valen la 1, la 3, la 4,
- * la 5, la 11 y la 12; la 6 ya no.
+ * La semilla de la batalla: tiene que lanzar algún hechizo y matar algo, y el
+ * rival no tiene que verla. Con las cinco facciones (F3, 19-10-2026) de la 1 a
+ * la 10 valen todas menos la 4, que nace a la vista del rival.
  */
 const SEMILLA = 1;
 
-/** Una batalla contra el primer monstruo, con un héroe que sabe Flecha mágica y tiene maná. */
+/**
+ * El monstruo de enfrente: la unidad del catálogo con más PV. La IA lanza un
+ * hechizo de daño solo si quita al menos `VALOR_MINIMO_POR_MANA` PV por punto
+ * de maná (`bestCast`, `ai/tactics.ts`), y lo que quita no pasa de la vida del
+ * objetivo, que es un individuo: contra uno de 60 u 80 PV la Flecha mágica no
+ * se lanza nunca.
+ */
+const GORDA = [...unidadesDelJuego()].sort((a, b) => b.hp - a.hp)[0]!.id;
+
+/** Una batalla contra tres de `GORDA`, con un héroe que sabe Flecha mágica y tiene maná. */
 function batallaConMagia(seed: number): { state: ReturnType<typeof newGame>; battle: BattleState } {
   const state = newGame({ seed });
   const c = ctx(seed);
@@ -46,7 +47,8 @@ function batallaConMagia(seed: number): { state: ReturnType<typeof newGame>; bat
   hero.knowledge = 5;
   hero.spellPower = 3;
   hero.mana = 50;
-  hero.army = ejercito({ creature: 'peasant', count: 4 });
+  hero.army = ejercito({ creature: TROPA_BARATA, count: 4 });
+  ponerMonstruo(state, GORDA, 3);
   forzarBatalla(state, c, hero);
   const battle = state.pendingBattle!.battle;
   resolvePendingBattle(state, c);
@@ -66,7 +68,7 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
       lanzados.map((e) => ({
         side: e.side,
         spell: e.spell,
-        target: battle.stacks.find((s) => s.id === e.target)!.body,
+        target: queEs(battle.stacks.find((s) => s.id === e.target)!),
         killed: e.killed ?? 0,
       })),
     );
@@ -137,6 +139,7 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
   });
 
   it('la crónica de la pantalla lo cuenta en primera persona a cada bando y en tercera al que mira', () => {
+    const nombre = unidadDelJuego(TROPA_BARATA).name;
     const fin = {
       kind: 'battle_ended',
       winner: 'defender',
@@ -144,18 +147,18 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
       owners: { attacker: 0, defender: 1 },
       rounds: 1,
       casts: [{ side: 'defender', spell: 'magic_arrow', target: HERO_BODY, killed: 1 }],
-      lost: { attacker: [{ creature: 'peasant', count: 3 }], defender: [] },
+      lost: { attacker: [{ creature: TROPA_BARATA, count: 3 }], defender: [] },
       actor: 0,
       at: { x: 1, y: 1 },
     } as const;
     expect(marcadoDe(renderLog([fin], 0))).toContain(
-      '<div class="lose">Batalla perdida contra un héroe del jugador 1 en\u00a0(1,\u00a01), en 1 ronda; pierdes 3\u00a0× Campesino; lanza el enemigo Flecha mágica sobre el héroe (mata 1)</div>',
+      `<div class="lose">Batalla perdida contra un héroe del jugador 1 en\u00a0(1,\u00a01), en 1 ronda; pierdes 3\u00a0× ${nombre}; lanza el enemigo Flecha mágica sobre el héroe (mata 1)</div>`,
     );
     expect(marcadoDe(renderLog([fin], 1))).toContain(
-      '<div class="win">Batalla ganada contra un héroe del jugador 0 en\u00a0(1,\u00a01), en 1 ronda; pierde el enemigo 3\u00a0× Campesino; lanzas Flecha mágica sobre el héroe (mata 1)</div>',
+      `<div class="win">Batalla ganada contra un héroe del jugador 0 en\u00a0(1,\u00a01), en 1 ronda; pierde el enemigo 3\u00a0× ${nombre}; lanzas Flecha mágica sobre el héroe (mata 1)</div>`,
     );
     expect(marcadoDe(renderLog([fin], -1))).toContain(
-      '<div>Batalla en\u00a0(1,\u00a01): un héroe del jugador 0 contra un héroe del jugador 1; gana el jugador 1 en 1 ronda; pierde el jugador 0 3\u00a0× Campesino; lanza el jugador 1 Flecha mágica sobre el héroe (mata 1)</div>',
+      `<div>Batalla en\u00a0(1,\u00a01): un héroe del jugador 0 contra un héroe del jugador 1; gana el jugador 1 en 1 ronda; pierde el jugador 0 3\u00a0× ${nombre}; lanza el jugador 1 Flecha mágica sobre el héroe (mata 1)</div>`,
     );
   });
 });

@@ -5,11 +5,12 @@
  * batallas automáticas del mapa. Deliberadamente simple y determinista: su
  * trabajo es que el juego sea jugable sin IA externa, no ser brillante.
  */
+
+import { armaduraDe, trasLaArmadura } from '../battle/armas.js';
 import {
   activeStack,
   applyAction,
   canReachMelee,
-  cargaDelStack,
   cargaDesde,
   cerradasPara,
   distanciaACaminar,
@@ -36,12 +37,10 @@ import {
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
 import { CARGA_MINIMA, cargaEfectiva, cifrasDeCarga } from '../battle/carga.js';
 import {
-  armaduraDe,
   type DamageOptions,
   expectedDamage,
   fraccionQueLlega,
   stackHp,
-  trasLaArmadura,
   valorDeEfectoDeDanio,
 } from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
@@ -56,7 +55,7 @@ import { esDeCura, poder } from '../battle/poderes.js';
 import { curaDe, delHeroe, efectoDe, type Lanzador, type Spell, spell } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
-import { hasTrait, quedanTiros } from '../data.js';
+import { hasTrait, isShooter } from '../data.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
@@ -66,7 +65,7 @@ import { completarCruce } from './rueda.js';
 function amenazaPropia(s: BattleStack): number {
   const info = s.unit;
   const damage = ((info.damage[0] + info.damage[1]) / 2) * s.count;
-  const shooterBonus = quedanTiros(s) ? 1.6 : 1;
+  const shooterBonus = isShooter(s.unit) ? 1.6 : 1;
   return damage * shooterBonus;
 }
 
@@ -255,7 +254,7 @@ function escalar(r: Rinde, k: number): Rinde {
  * aquí para que la IA no le eche una Prisa a un arquero.
  */
 function mejorGolpe(state: BattleState, a: BattleStack, pasos: number): Rinde {
-  const tira = quedanTiros(a) && !isEngaged(state, a);
+  const tira = isShooter(a.unit) && !isEngaged(state, a);
   const golpes = hasTrait(a.unit, 'double_attack') ? 2 : 1;
   let mejor = NADA;
   for (const e of enemiesOf(state, a)) {
@@ -331,7 +330,7 @@ function rindeTemporal(
         amenaza: Math.abs(despues.amenaza - antes.amenaza),
       };
     } else {
-      hoy = escalar(mejorGolpe(state, objetivo, pasos), valorDeEfectoDeDanio(efecto, objetivo));
+      hoy = escalar(mejorGolpe(state, objetivo, pasos), valorDeEfectoDeDanio(efecto));
     }
   }
 
@@ -344,11 +343,11 @@ function rindeTemporal(
   // Sin saber dónde estará nadie: el mejor golpe sin mirar el alcance. Al
   // tirador la velocidad no le compra nada, igual que en la ronda en curso.
   const golpe = mejorGolpe(state, objetivo, Number.POSITIVE_INFINITY);
-  const tira = quedanTiros(objetivo);
+  const tira = isShooter(objetivo.unit);
   const porRonda =
     sp.kind === 'speed'
       ? escalar(golpe, tira ? 0 : FRACCION_TEMPO)
-      : escalar(golpe, valorDeEfectoDeDanio(efecto, objetivo));
+      : escalar(golpe, valorDeEfectoDeDanio(efecto));
   return { pv: hoy.pv + despues * porRonda.pv, amenaza: hoy.amenaza + despues * porRonda.amenaza };
 }
 
@@ -386,7 +385,7 @@ function rindeDe(
       // colgaría, así que la duración no se recalcula aquí. Solo devuelve
       // `null` fuera de estas dos ramas: no rinde y no lanza, porque esto es
       // una heurística, no una regla.
-      const efecto = efectoDe(sp, l, state.reglas);
+      const efecto = efectoDe(sp, l);
       return efecto === null
         ? NADA
         : rindeTemporal(state, sp, efecto, objetivo, quedan, gastaSuTurno);
@@ -427,6 +426,8 @@ function mejorPoder(
   s: BattleStack,
   acciones: readonly BattleAction[],
 ): BattleAction | null {
+  // Casi nadie tiene poderes: entonces, ni se mira la lista.
+  if ((s.unit.poderes?.length ?? 0) === 0) return null;
   const mas = (a: Rinde, b: Rinde): boolean =>
     a.pv > b.pv || (a.pv === b.pv && a.amenaza > b.amenaza);
   let mejor: BattleAction | null = null;
@@ -434,10 +435,10 @@ function mejorPoder(
   // Todos sus objetivos son de su bando: las rondas que le quedan, una vez.
   let quedan: number | undefined;
   for (const a of acciones) {
-    if (a.type !== 'poder') continue;
+    if (a.type !== 'power') continue;
     const p = poder(a.poder);
     const objetivo = stackById(state, a.target);
-    const efecto = efectoDe(p.hechizo, p.lanzador, state.reglas);
+    const efecto = efectoDe(p.hechizo, p.lanzador);
     if (efecto !== null && roundsLeftOf(objetivo, efecto) > 0) continue;
     if (esDeCura(p) && !(enPeligro(state, objetivo) && vaGanando(state, s.side))) continue;
     quedan ??= rondasQueQuedan(state, s.side);
@@ -464,7 +465,7 @@ function mejorPoder(
 function enPeligro(state: BattleState, aliado: BattleStack): boolean {
   let pegan = 0;
   for (const e of enemiesOf(state, aliado)) {
-    const tira = quedanTiros(e) && !isEngaged(state, e);
+    const tira = isShooter(e.unit) && !isEngaged(state, e);
     if (!tira && distanceTo(state, e, e.hex, aliado) > stackSpeed(e) + 1) continue;
     const golpes = hasTrait(e.unit, 'double_attack') ? 2 : 1;
     pegan += golpes * expectedDamage(e, aliado, opcionesDeDanio(state, e, aliado));
@@ -556,7 +557,7 @@ type CargaContra = Extract<BattleAction, { type: 'attack' }> & { from: Hex };
  *    ordenar por la carga cobrada es ordenar por daño esperado sin calcularlo.
  *    La dicen `cargaDesde` y `cargaEfectiva`, las mismas que la cobran: en
  *    línea recta, a 3 casillas o más, con el objetivo en la recta y con el
- *    tope de 5 (02-10-2026). Quien no carga (`cargaDelStack`: sin el rasgo, en
+ *    tope de 5 (02-10-2026). Quien no carga (`cifrasDeCarga`: sin el rasgo, en
  *    el juego) da 0 en todas y no se calcula nada más; en la arena carga todo
  *    el que pega cuerpo a cuerpo (#260) y se mide la recta de cada casilla.
  * 2. **Coste mínimo**, que es lo que queda cuando la carga empata: sin `charge`
@@ -586,7 +587,7 @@ function mejorCarga(
   // Lo que no cambia de una casilla candidata a otra (las ocupadas, lo que cuesta
   // salir de cada casilla) se cuenta una vez: `medirCargas`.
   const medir = medirCargas(state, s);
-  const cifras = cargaDelStack(state, s);
+  const cifras = cifrasDeCarga(s.unit);
 
   let mejor = cargas[0] as CargaContra;
   let cargaMejor = -1;
@@ -599,11 +600,11 @@ function mejorCarga(
     if (paso === undefined) {
       throw new Error(`${s.id} no alcanza (${a.from.col},${a.from.row}): la lista legal miente`);
     }
-    const medida = cifras === null ? null : medir(a.from, objetivo);
-    // Lo que pagará: la carrera por la recta si salir del contacto cuesta, que
-    // puede costar más que el camino barato del recorrido.
-    const coste = medida?.carrera?.steps ?? paso.steps;
-    const carga = medida === null || cifras === null ? 0 : cargaEfectiva(medida.recta, cifras);
+    const medida = medir(a.from, objetivo);
+    // Lo que pagará: la carrera por la recta, que puede costar más que el camino
+    // barato del recorrido.
+    const coste = medida?.carrera.steps ?? paso.steps;
+    const carga = medida === null ? 0 : cargaEfectiva(medida.recta, cifras);
     if (carga > cargaMejor || (carga === cargaMejor && coste < mejorCoste)) {
       mejor = a;
       cargaMejor = carga;
@@ -658,10 +659,10 @@ function pasoParaCargar(
   costes: ReadonlyMap<string, Paso>,
 ): Hex | null {
   // Solo el jinete se coloca para cargar: que la IA busque la recta también a pie
-  // en la arena (#260) queda para después de medir cuántas cargas hace sin ello.
-  // Por eso pregunta como el juego, sin la carga a pie: el rasgo, o nada.
-  const cifras = cifrasDeCarga(s.unit, false);
-  if (cifras === null) return null;
+  // (#260) queda para después de medir cuántas cargas hace sin ello. A pie carga
+  // si la recta le sale de camino.
+  if (!hasTrait(s.unit, 'charge')) return null;
+  const cifras = cifrasDeCarga(s.unit);
   const bloqueadas = cerradasPara(state, s);
   if (golpes.some((a) => cargaDesde(state, s, a.from, objetivo, bloqueadas) > 0)) return null;
 
@@ -714,19 +715,10 @@ function pasoParaCargar(
  *
  * El alcance se aproxima con `hexDistance` y `stackSpeed(e) + 1` —los pasos que
  * da más el hex desde el que golpea— en vez de un BFS por enemigo: en línea
- * recta se llega antes que rodeando, así que casi siempre sobreestima y la IA
- * espera de más, nunca de menos, sin costar un recorrido de tablero. Con
- * muralla sí se recorre (`distanciaHasta`, guardado por muralla): el que está
- * tras un muro cerrado no alcanza a nadie aunque esté a dos hexes.
- *
- * «Casi siempre» y no «siempre», que la diferencia la encontró QA: se mide
- * desde la CABEZA del enemigo, mientras que el `distanceTo` de aquí al lado
- * mide contra todos sus hexes. Para una unidad de dos casillas la cabeza puede
- * quedar un hex más lejos que su celda más cercana, y ahí la cuenta subestima:
- * la IA se acerca a un dragón óseo creyéndose fuera de su alcance. Afecta a una
- * criatura de las veintiuna —es la única con `hexes: 2`— y el `+1` lo tapa casi
- * siempre. Queda escrito y no arreglado a propósito: arreglarlo mueve partidas,
- * y esto es una heurística, no una regla.
+ * recta se llega antes que rodeando, así que sobreestima y la IA espera de más,
+ * nunca de menos, sin costar un recorrido de tablero. Con muralla sí se recorre
+ * (`distanciaHasta`, guardado por muralla): el que está tras un muro cerrado no
+ * alcanza a nadie aunque esté a dos hexes.
  *
  * De las tres reglas que se midieron es la del medio, y la única cuyo intervalo
  * de confianza entero queda por encima del 50 %. Mirar solo mi hex actual apenas
@@ -1026,7 +1018,7 @@ function tiradorAlMuro(
   acciones: readonly BattleAction[],
   costes: ReadonlyMap<string, Paso>,
 ): BattleAction | null {
-  if (s.side !== 'defender' || !quedanTiros(s)) return null;
+  if (s.side !== 'defender' || !isShooter(s.unit)) return null;
   if (enLoAlto(state, s)) {
     return seHaMovido(state, s) && !isEngaged(state, s) ? { type: 'end_turn' } : null;
   }
@@ -1096,7 +1088,7 @@ function enemigoEnLaPuerta(state: BattleState, s: BattleStack, puerta: PuertaDeM
  * suyo es la muralla. El volador no necesita puerta.
  */
 function quiereCruzar(state: BattleState, abierta: BattleState, s: BattleStack): boolean {
-  if (hasTrait(s.unit, 'flying') || quedanTiros(s)) return false;
+  if (hasTrait(s.unit, 'flying') || isShooter(s.unit)) return false;
   const masCerca = (st: BattleState): number =>
     Math.min(...enemiesOf(st, s).map((e) => distanciaACaminar(st, s, e)(s.hex)));
   return masCerca(abierta) < masCerca(state);
@@ -1181,8 +1173,8 @@ export function autoResolve(
     // El recorrido con el que se decidió viaja hasta el motor: `moveTo` lo
     // repetía entero para cobrar la carga.
     const { action, movibles } = chooseBattleActionAndCosts(state, noSeRinden);
-    // Con la rueda (solo la arena), los dos eligen a ciegas, y aquí los dos son
-    // de la IA: no falta nunca nada. Sin rueda, la misma acción.
+    // Con la rueda, los dos eligen a ciegas, y aquí los dos son de la IA: no
+    // falta nunca nada. Lo que no es un golpe, la misma acción.
     applyAction(state, completarCruce(state, action, rng).accion, rng, movibles);
     n++;
   }

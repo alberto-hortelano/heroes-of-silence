@@ -25,8 +25,8 @@ import { startingArmy } from '../src/core/state/setup.js';
 function espejo(semilla: number): { battle: BattleState; rng: ReturnType<typeof createRng> } {
   const rng = createRng(semilla);
   const battle = createBattle(
-    { army: troopsAsStacks(startingArmy('knight', rng)), hero: null },
-    { army: troopsAsStacks(startingArmy('necromancer', rng)), hero: null },
+    { army: troopsAsStacks(startingArmy('templarios', rng)), hero: null },
+    { army: troopsAsStacks(startingArmy('no-muertos', rng)), hero: null },
     rng,
   );
   return { battle, rng };
@@ -67,7 +67,7 @@ describe('el parte de guerra cuenta la espera y la defensa (#82)', () => {
     // La cifra no se copia en el test: sale de lo que `effectiveDefense` hace
     // con el stack defendiéndose, así que si cambia la regla y no el texto,
     // esto se pone rojo.
-    const pct = Math.round((effectiveDefense(quien, battle.reglas) / quien.unit.defense - 1) * 100);
+    const pct = Math.round((effectiveDefense(quien) / quien.unit.defense - 1) * 100);
     expect(pct).toBeGreaterThan(0);
     expect(parte(battle, quien.side)).toContain(
       `<div>Se defiende ${nombreEnElCampo(battle, quien)}, de tu bando: +${pct}\u00a0% de defensa hasta el final de la ronda</div>`,

@@ -16,7 +16,8 @@
  */
 import { existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import type { FaccionDeArena, PerfilDeArena } from '../../src/core/arena.js';
+import type { FactionId } from '../../src/core/types.js';
+import type { PerfilDeUnidad } from '../../src/core/unidad.js';
 import {
   type ClipDeFigura,
   HOJAS_DE_FIGURA,
@@ -44,7 +45,7 @@ import type { Encargo } from './encargo.js';
 export interface Unidad {
   readonly id: string;
   /** Las cinco facciones se declaran en `src/core/arena.ts`, que es quien las valida al guardar. */
-  readonly faccion: FaccionDeArena;
+  readonly faccion: FactionId;
   /** El nombre en `NuevaJugabilidad.md`. */
   readonly nombre: string;
   /**
@@ -57,7 +58,7 @@ export interface Unidad {
    * pose: el jinete élfico posa con la lanza y lleva además arco y espada
    * (`montado-arco`, 13-10-2026). Solo con qué pelea: la pose y el arte no cambian.
    */
-  readonly perfilEnLaArena?: PerfilDeArena;
+  readonly perfilEnLaArena?: PerfilDeUnidad;
   /**
    * El personaje del que es esta hoja, si el taller pinta el mismo con varios
    * equipos («Guerrero con escudo» y «Guerrero con arma a dos manos»): todas sus
@@ -1124,7 +1125,7 @@ export function juegoDelYBot(u: Unidad): JuegoEn8d {
  * El perfil de arma con que la arena viste una unidad (`KIT_DEL_PERFIL`): el que
  * declara (`perfilEnLaArena`) o, si no, el de su hoja de pose.
  */
-export function perfilDeArena(u: Unidad): PerfilDeArena {
+export function perfilDeUnidad(u: Unidad): PerfilDeUnidad {
   return u.perfilEnLaArena ?? u.perfil;
 }
 
@@ -1240,7 +1241,7 @@ export function arteEnOchoDirecciones(raiz: string, id: string): ArteEnOchoDirec
  * ¿Tiene la unidad su arte propio en las ocho direcciones? `true` con las ocho
  * y `false` sin ninguna; con algunas **lanza** con el motivo. Lo lee el visor
  * del taller (`vista-8d.ts`), que enseña lo hecho y no tiene dónde decir «a
- * medias»; la arena lo lista como incompleta (`hojasDeArena`).
+ * medias»; la arena lo lista como incompleta (`hojasDelTaller`).
  */
 export function tieneSusOchoDirecciones(raiz: string, id: string): boolean {
   const arte = arteEnOchoDirecciones(raiz, id);

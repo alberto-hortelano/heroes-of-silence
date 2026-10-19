@@ -418,3 +418,25 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* La página que no arranca (`arranque.ts`): el motivo entero, en lugar de la página. */
+#app[data-escena='no-arranca'] { display: block; overflow: auto; }
+#no-arranca {
+  max-width: 60rem;
+  margin: 2rem auto;
+  padding: 1rem 1.25rem;
+  background: var(--panel);
+  border: 3px ridge #71623e;
+}
+#no-arranca h1 { margin: 0 0 0.6rem; font-size: 1.3rem; color: var(--danger); }
+#no-arranca p { margin: 0.4rem 0; }
+#no-arranca .motivo {
+  margin: 0.6rem 0;
+  padding: 0.6rem 0.8rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font: 0.85rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#no-arranca .que-hacer { color: var(--ink-dim); }

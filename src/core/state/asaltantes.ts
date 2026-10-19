@@ -31,7 +31,8 @@
  *    los lunes en regiones sin dueño y sin héroe, en una casilla libre.
  */
 import { fuerzaDe, poderDe, ventajaClara } from '../ai/fuerza.js';
-import { ASALTANTES, type GrupoDeTropa, problemasDeTopeDeLiderazgo } from '../data.js';
+import { problemasDeTopeDeLiderazgo } from '../catalogo.js';
+import { ASALTANTES, type GrupoDeTropa } from '../data.js';
 import { deHoyALaEscala } from '../escala.js';
 import type { Hero } from '../hero/hero.js';
 import { individuosDe } from '../hero/troop.js';

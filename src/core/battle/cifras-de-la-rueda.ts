@@ -267,6 +267,8 @@ function delNivel(tabla: PorNivel, n: NivelesDeLaRueda, tipo: TipoDelAnillo): nu
  * (`ruedaDelGolpe`) y la ficha de una pieza (`filasDeLaRueda`).
  */
 export function cifrasDeLosNiveles(n: NivelesDeLaRueda): CifrasDeLaRueda {
+  const guardadas = CIFRAS_POR_NIVELES.get(n);
+  if (guardadas !== undefined) return guardadas;
   const quita = -delNivel(TABLA.romperGuardia, n, 'romperGuardia');
   const resta = delNivel(TABLA.finta, n, 'finta');
   const romper = {} as Record<Punto, number>;
@@ -276,7 +278,7 @@ export function cifrasDeLosNiveles(n: NivelesDeLaRueda): CifrasDeLaRueda {
     romper[p] = 0 - Math.floor((quita * p) / 4);
     finta[p] = Math.max(0, resta - p);
   }
-  return {
+  const c: CifrasDeLaRueda = {
     fuerte: { porcentaje: delNivel(TABLA.fuerte, n, 'fuerte') },
     rapido: {
       porcentaje: delNivel(TABLA.rapido, n, 'rapido'),
@@ -287,7 +289,17 @@ export function cifrasDeLosNiveles(n: NivelesDeLaRueda): CifrasDeLaRueda {
     romperGuardia: { ataque: romper },
     finta: { casillas: finta },
   };
+  CIFRAS_POR_NIVELES.set(n, c);
+  return c;
 }
+
+/**
+ * Las cifras ya calculadas de cada objeto de niveles: los de un arma
+ * (`Pieza.rueda`) no cambian —cambiar una pieza en la arena pone otra—, y las
+ * piden cada golpe de la rueda, su previsión y la IA que lo simula. Débil, para no
+ * retener las de piezas que ya no lleva nadie. Una función pura recordada.
+ */
+const CIFRAS_POR_NIVELES = new WeakMap<NivelesDeLaRueda, CifrasDeLaRueda>();
 
 /**
  * Lo que no vale de los niveles de la rueda de un arma (`Pieza.rueda`), cada cosa

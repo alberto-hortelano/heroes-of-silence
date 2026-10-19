@@ -2,7 +2,6 @@
 import spellsJson from '../../../data/spells.json' with { type: 'json' };
 import { herir } from './damage.js';
 import type { StackEffect } from './effects.js';
-import { efectoConReglas, type ReglasDeBatalla } from './reglas.js';
 import type { BattleHero, BattleStack } from './types.js';
 
 export type SpellKind = 'damage' | 'speed' | 'luck' | 'heal';
@@ -69,7 +68,7 @@ export interface SpellResult {
   /** El daño que llegó, tras la armadura del objetivo (`herir`). */
   readonly damage: number;
   readonly killed: number;
-  /** Lo que paró la armadura del objetivo (la arena); 0 sin ella o si no hiere. */
+  /** Lo que paró la armadura del objetivo; 0 sin ella o si no hiere. */
   readonly parado: number;
   /** PV que repuso, si cura (`curaDe`). */
   readonly cura: number;
@@ -117,29 +116,20 @@ export function duracionDeLoQueLanza(caster: Pick<BattleHero, 'spellPower'>): nu
 /**
  * El efecto temporal que dejaría este hechizo lanzado por `l`, o `null` si no deja
  * ninguno. El único constructor del efecto de un hechizo: dura las rondas del
- * lanzador y, con el interruptor (e) en fheroes2, la Bendición y la Maldición
- * fijan la tirada (`efectoConReglas`).
+ * lanzador.
  *
  * Se calcula aparte de aplicarlo porque `legalActions` necesita saber si el
  * objetivo sería inmune ANTES de ofrecer el lanzamiento: así no se le propone
  * al agente una Maldición sobre un esqueleto que después va a rebotar.
  */
-export function efectoDe(s: Spell, l: Lanzador, reglas: ReglasDeBatalla): StackEffect | null {
+export function efectoDe(s: Spell, l: Lanzador): StackEffect | null {
   if (s.kind !== 'speed' && s.kind !== 'luck') return null;
-  return temporal(s.kind, s, l, reglas);
+  return temporal(s.kind, s, l);
 }
 
 /** `efectoDe` con el tipo ya acotado: dentro del `case` de `castSpell`, sin rama `null`. */
-function temporal(
-  kind: 'speed' | 'luck',
-  s: Spell,
-  l: Lanzador,
-  reglas: ReglasDeBatalla,
-): StackEffect {
-  return efectoConReglas(
-    { kind, amount: s.amount ?? 0, source: s.id, roundsLeft: l.rondas },
-    reglas,
-  );
+function temporal(kind: 'speed' | 'luck', s: Spell, l: Lanzador): StackEffect {
+  return { kind, amount: s.amount ?? 0, source: s.id, roundsLeft: l.rondas };
 }
 
 /**
@@ -164,7 +154,6 @@ export function castSpell(
   l: Lanzador,
   target: BattleStack,
   autor: BattleStack | null,
-  reglas: ReglasDeBatalla,
 ): SpellResult {
   switch (s.kind) {
     case 'damage': {
@@ -173,7 +162,7 @@ export function castSpell(
     }
     case 'speed':
     case 'luck':
-      return { damage: 0, killed: 0, cura: 0, parado: 0, effect: temporal(s.kind, s, l, reglas) };
+      return { damage: 0, killed: 0, cura: 0, parado: 0, effect: temporal(s.kind, s, l) };
     case 'heal': {
       const cura = curaDe(s, l, target);
       target.topHp += cura;

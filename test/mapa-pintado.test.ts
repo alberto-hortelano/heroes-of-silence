@@ -1012,7 +1012,7 @@ describe('un grupo que vuelve a la vista aparece en su casilla (H3 de QA de #130
       heroes: state.heroes,
       objetos: state.map.objects,
       asaltantes: todosALaVista(
-        grupos.map((g) => ({ ...g, troops: [{ creature: 'skeleton', count: 13 }] })),
+        grupos.map((g) => ({ ...g, troops: [{ creature: 'esqueleto-guerrero', count: 13 }] })),
       ),
       camara,
       ancho: 900,

@@ -17,7 +17,8 @@
 import poderesJson from '../../../data/poderes.json' with { type: 'json' };
 import type { PoderId } from '../types.js';
 import { entero, repetidoEn, texto } from '../validar.js';
-import { type Lanzador, type Spell, spell } from './spells.js';
+import { curaOEfecto } from './effects.js';
+import { delHeroe, efectoDe, type Lanzador, type Spell, spell } from './spells.js';
 
 export type { PoderId };
 
@@ -31,7 +32,7 @@ export interface Poder {
   readonly id: PoderId;
   /** Como se dice en un botón y en el parte: «Curar», «Bendecir». */
   readonly nombre: string;
-  /** El nombre de la habilidad que lo da, en `UnidadDeArena.habilidades`. */
+  /** El nombre de la habilidad que lo da, en `Unidad.habilidades`. */
   readonly habilidad: string;
   /** El hechizo cuyo efecto aplica. Siempre a un aliado. */
   readonly hechizo: Spell;
@@ -49,10 +50,7 @@ const CAMPOS_DEL_PODER = ['id', 'nombre', 'habilidad', 'hechizo', 'cura', 'ronda
 export function validarPoderes(
   json: unknown,
   fichero = 'data/poderes.json',
-): {
-  readonly poderes: readonly Poder[];
-  readonly traen: Readonly<Record<string, readonly PoderId[]>>;
-} {
+): { readonly poderes: readonly Poder[] } {
   if (typeof json !== 'object' || json === null) throw new Error(`${fichero}: no es un objeto`);
   const j = json as Record<string, unknown>;
   if (!Array.isArray(j.poderes)) throw new Error(`${fichero}: «poderes» tiene que ser una lista`);
@@ -96,22 +94,7 @@ export function validarPoderes(
   if (otra !== undefined) {
     throw new Error(`${fichero}: la habilidad «${otra}» da dos poderes`);
   }
-  if (typeof j.traen !== 'object' || j.traen === null || Array.isArray(j.traen)) {
-    throw new Error(`${fichero}: «traen» tiene que ser un objeto de hoja a lista de poderes`);
-  }
-  const traen: Record<string, readonly PoderId[]> = {};
-  for (const [hoja, lista] of Object.entries(j.traen)) {
-    if (!Array.isArray(lista)) throw new Error(`${fichero}: traen.${hoja} tiene que ser una lista`);
-    for (const id of lista) {
-      if (!ids.includes(id as string)) {
-        throw new Error(
-          `${fichero}: traen.${hoja}: «${String(id)}» no es un poder; valen ${ids.join(', ')}`,
-        );
-      }
-    }
-    traen[hoja] = lista as PoderId[];
-  }
-  return { poderes, traen };
+  return { poderes };
 }
 
 const CATALOGO = validarPoderes(poderesJson);
@@ -138,10 +121,24 @@ export function poderDeHabilidad(habilidad: string): PoderId | null {
   return CATALOGO.poderes.find((p) => p.habilidad === habilidad)?.id ?? null;
 }
 
+/** Todos los poderes, en el orden de `data/poderes.json`: lo que se le cuenta al agente. */
+export const PODERES: readonly Poder[] = CATALOGO.poderes;
+
 /** Las habilidades que dan un poder: las únicas de la arena que actúan en la pelea. */
 export const HABILIDADES_CON_PODER: readonly string[] = CATALOGO.poderes.map((p) => p.habilidad);
 
-/** Las habilidades que trae una hoja la primera vez (`traen`), o ninguna. */
-export function habilidadesQueTrae(hoja: string): readonly string[] {
-  return (CATALOGO.traen[hoja] ?? []).map((id) => poder(id).habilidad);
+/**
+ * Lo que hace un poder, en una frase: la leen el botón y la ficha de la batalla
+ * (`views/poderes.ts`) y la prosa del agente (`contract/agent.ts`). Que no se suma
+ * al hechizo del héroe se dice porque los dos dejan un efecto del mismo origen,
+ * que refresca y no se apila (`applyEffect`): se compara, no se da por hecho.
+ */
+export function queHaceElPoder(p: Poder): string {
+  const s = p.hechizo;
+  const e = efectoDe(s, p.lanzador);
+  const hace = curaOEfecto(esDeCura(p) ? p.lanzador.cantidad : null, e) ?? '';
+  if (esDeCura(p)) return `${hace} a un aliado herido, incluida la propia unidad`;
+  const elDelHeroe = efectoDe(s, delHeroe(s, { spellPower: 1 }));
+  const unoSolo = e !== null && elDelHeroe !== null && elDelHeroe.source === e.source;
+  return `${hace} a un aliado${unoSolo ? `; es la ${s.name} del héroe: las dos no se suman` : ''}`;
 }

@@ -1,30 +1,15 @@
 {
-  "_comment": "La experiencia y los RANGOS. REGLA NUESTRA, NO DEL ORIGINAL: la pidió el usuario (NuevaJugabilidad.md, «Experiencia», 02-10-2026) y sustituye a la tabla de fheroes2 (GetExperienceFromLevel) y a sus +500; que nadie la cite como de HoMM2. Se gana por daño: cada individuo que quita PV de verdad (sin el sobrante) a un enemigo cobra «PV quitados × ÍNDICE DE PODER del que los recibe» (core/nivel.ts, indiceDePoder: 100-199 un nivel 1, 300-399 un nivel 3; el de las cifras sin equipo de quien recibe). Primero fue × NIVEL (la primera cifra del índice; decisión del usuario, 12-10-2026: «un solo nivel, derivado de las cifras»), y pegarle a un héroe de rango 5 pagaba su nivel 3: los rangos 5 cayeron de 0,25 a 0,05 por partida; el mismo día el usuario eligió cobrar por el índice entero. Sin coma flotante: el índice es el nivel en centésimas y los umbrales van en esa escala, no se divide entre 100. La experiencia da RANGOS (1-5 la tropa; el héroe sin tope), y cada rango suma sus cifras (porRango), así que el nivel de un veterano sube solo si sus cifras lo suben. Umbrales: subir del rango n al n+1 cuesta base × incrementos[n−1], y los incrementos son Fibonacci (cada uno la suma de los dos anteriores; data.ts lanza si no). Más allá de la lista se siguen por la misma recurrencia, que es lo que sube a un HÉROE, que no tiene tope (decisión del usuario: «el tope de nivel 5 es solo de la tropa») y EMPIEZA en el rango 5 con su experiencia, donde la tropa acaba: una sola escala (decisión del usuario tras medir: «si la tropa pasa a héroe con nivel 5, la base de héroe debería ser 5»; el 5 inicial se deriva de rangoMaximoDeTropa en experiencia.ts; lo que le da cada rango de héroe vive en data/heroe.json y data/liderazgo.json). base 16000 = umbrales 16000, 48000, 96000, 176000 para los rangos 2-5. Eran 20, 60, 120, 220 (elegidos midiendo, prototipo de 200 y 1000 partidas, docs/agents/2026-10-02-la-tropa-crece, para que pocas tropas lleguen al 5), ×10 con los PV (200) y, al cobrar por índice, CALIBRADA midiendo (tools/qa/veterania.ts 1000, 12-10-2026) para volver a los 0,25 rangos 5 por partida de antes: 20000 daba 0,09, 17000 0,18, 16000 0,25 y 15000 0,28. rangoMaximoDeTropa: el tope de la tropa. porRango: lo que suma a sus cifras cada rango por encima del 1, PROVISIONAL. habilidades: qué habilidad gana cada criatura en los rangos 2, 3, 4 y 5, con nombres del catálogo data/habilidades.json (data.ts lanza con uno que no esté). PROVISIONALES e INERTES: no tienen efecto hasta que exista el motor de habilidades.",
-  "base": 16000,
-  "incrementos": [1, 2, 3, 5],
+  "_comment": "La experiencia y los RANGOS. REGLA NUESTRA, NO DEL ORIGINAL: la pidió el usuario (NuevaJugabilidad.md, «Experiencia», 02-10-2026) y sustituye a la tabla de fheroes2 (GetExperienceFromLevel) y a sus +500; que nadie la cite como de HoMM2. Se gana por daño: cada individuo que quita PV de verdad (sin el sobrante) a un enemigo cobra «PV quitados × ÍNDICE DE PODER del que los recibe» (core/nivel.ts, indiceDePoder: 100-199 un nivel 1, 300-399 un nivel 3; el de quien recibe con su equipo puesto). Primero fue × NIVEL (la primera cifra del índice; decisión del usuario, 12-10-2026: «un solo nivel, derivado de las cifras»), y pegarle a un héroe de rango 5 pagaba su nivel 3: los rangos 5 cayeron de 0,25 a 0,05 por partida; el mismo día el usuario eligió cobrar por el índice entero. Sin coma flotante: el índice es el nivel en centésimas y los umbrales van en esa escala, no se divide entre 100. La experiencia da RANGOS (1-5 la tropa; el héroe sin tope), y cada rango suma sus cifras (porRango), así que el nivel de un veterano sube solo si sus cifras lo suben. Umbrales: subir del rango n al n+1 cuesta base × incrementos[n−1], y los incrementos son Fibonacci (cada uno la suma de los dos anteriores; data.ts lanza si no). Más allá de la lista se siguen por la misma recurrencia, que es lo que sube a un HÉROE, que no tiene tope (decisión del usuario: «el tope de nivel 5 es solo de la tropa») y EMPIEZA en el rango 5 con su experiencia, donde la tropa acaba: una sola escala (decisión del usuario tras medir: «si la tropa pasa a héroe con nivel 5, la base de héroe debería ser 5»; el 5 inicial se deriva de rangoMaximoDeTropa en experiencia.ts; lo que le da cada rango de héroe vive en data/heroe.json y data/liderazgo.json). base 9000 = umbrales 9000, 27000, 54000, 99000 para los rangos 2-5. Eran 20, 60, 120, 220 (elegidos midiendo, prototipo de 200 y 1000 partidas, docs/agents/2026-10-02-la-tropa-crece, para que pocas tropas lleguen al 5), ×10 con los PV (200) y, al cobrar por índice, CALIBRADA midiendo (tools/qa/veterania.ts 1000, 12-10-2026) para volver a los 0,25 rangos 5 por partida de antes: 20000 daba 0,09, 17000 0,18, 16000 0,25 y 15000 0,28. rangoMaximoDeTropa: el tope de la tropa. porRango: lo que suma a sus cifras cada rango por encima del 1, PROVISIONAL. Las habilidades por rango de cada criatura (inertes) se fueron con data/creatures.json (19-10-2026): las unidades del catálogo llevan las suyas en data/unidades.json. Con las cinco facciones (19-10-2026, tools/qa/veterania.ts 100) la partida dura la mitad (mediana 4 días) y con 16000 ningún individuo llegaba al 5 (0,00 por partida; rangos 2/3/4: 6,25 / 1,63 / 0,27); RECALIBRADA: 9000 da 0,24 rangos 5 por partida (2/3/4: 8,37 / 3,89 / 1,37) y 8000 daba 0,53.",
+  "base": 9000,
+  "incrementos": [
+    1,
+    2,
+    3,
+    5
+  ],
   "rangoMaximoDeTropa": 5,
-  "porRango": { "ataque": 1, "defensa": 1 },
-  "habilidades": {
-    "peasant":          ["Formación cerrada", "Contraataque", "Guardia", "Proteger"],
-    "archer":           ["Perforante", "Hostigar", "Descarga", "Area (X)"],
-    "ranger":           ["Perforante", "Terreno natural", "Sigilo", "Hostigar"],
-    "pikeman":          ["Alcance", "Antiinfantería montada", "Formación cerrada", "Contraataque"],
-    "veteran_pikeman":  ["Alcance", "Antiinfantería montada", "Formación cerrada", "Contraataque"],
-    "swordsman":        ["Contraataque", "Proteger", "Barrido", "Golpe aturdidor"],
-    "master_swordsman": ["Contraataque", "Proteger", "Barrido", "Golpe aturdidor"],
-    "cavalry":          ["Carga", "Hostigar", "Pesado", "Golpe aturdidor"],
-    "champion":         ["Carga", "Hostigar", "Pesado", "Golpe aturdidor"],
-    "paladin":          ["Bendecido", "Aura (X)", "Desafío", "Curar (X)"],
-    "crusader":         ["Bendecido", "Aura (X)", "Desafío", "Curar (X)"],
-    "skeleton":         ["Escudo contra proyectiles", "Formación cerrada", "Contraataque", "Sangre fría (No muerto)"],
-    "zombie":           ["Pesado", "Infectar", "Regeneración (X)", "Devorar"],
-    "mutant_zombie":    ["Pesado", "Infectar", "Regeneración (X)", "Devorar"],
-    "mummy":            ["Veneno", "Miedo", "Golpe aturdidor", "Guardia"],
-    "royal_mummy":      ["Veneno", "Miedo", "Golpe aturdidor", "Guardia"],
-    "vampire":          ["Robo de vida", "Salto", "Hostigar", "Miedo"],
-    "vampire_lord":     ["Robo de vida", "Salto", "Hostigar", "Miedo"],
-    "lich":             ["Area (X)", "Perforante", "Resucitar", "Miedo"],
-    "power_lich":       ["Area (X)", "Perforante", "Resucitar", "Miedo"],
-    "bone_dragon":      ["Miedo", "Barrido", "Pesado", "Golpe aturdidor"]
+  "porRango": {
+    "ataque": 1,
+    "defensa": 1
   }
 }

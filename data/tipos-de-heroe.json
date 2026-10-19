@@ -1,11 +1,11 @@
 {
-  "_comment": "GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios» (knight) y «No muertos» (necromancer) de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto del héroe inicial y del contratado. Los tipos todavía NO tienen efecto (no hay motor de habilidades): se guardan en el héroe, se ven y se serializan.",
+  "_comment": "GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto del héroe inicial y del contratado. Los tipos todavía NO tienen efecto (no hay motor de habilidades): se guardan en el héroe, se ven y se serializan.",
   "tipos": {
-    "knight": [
+    "templarios": [
       {
         "id": "caballero",
         "nombre": "Caballero",
-        "descripcion": "líder de primera línea. Desafío: obliga a un enemigo adyacente a atacarle a él durante un turno."
+        "descripcion": "líder de primera línea. Las tropas adyacentes a él ganan +1 al ataque y no pueden ser empujadas."
       },
       {
         "id": "monje",
@@ -16,14 +16,9 @@
         "id": "inquisidor",
         "nombre": "Inquisidor",
         "descripcion": "cazador de magos y no muertos. Daño extra contra unidades mágicas o resucitadas, y puede impedir que un enemigo resucite."
-      },
-      {
-        "id": "gran_maestre",
-        "nombre": "Gran Maestre",
-        "descripcion": "héroe de formación. Las tropas adyacentes a él ganan +1 al ataque y no pueden ser empujadas."
       }
     ],
-    "necromancer": [
+    "no-muertos": [
       {
         "id": "nigromante",
         "nombre": "Nigromante",
@@ -38,11 +33,72 @@
         "id": "lich",
         "nombre": "Lich",
         "descripcion": "mago oscuro de largo alcance. Puede Drenar para quitar una habilidad a un enemigo."
+      }
+    ],
+    "imperio": [
+      {
+        "id": "duelista",
+        "nombre": "Duelista",
+        "descripcion": "espada y daga. Dos ataques, rapidos."
       },
       {
-        "id": "caballero_de_la_muerte",
-        "nombre": "Caballero de la muerte",
-        "descripcion": "el contrapunto oscuro del Caballero templario. Las tropas que mueren a su lado se levantan en el acto con 1 de vida."
+        "id": "mago",
+        "nombre": "Mago (Mago de batalla)",
+        "descripcion": "magia elemental táctica, como un muro de fuego que bloquea hexes o una niebla que reduce la precisión de los disparos."
+      },
+      {
+        "id": "capitan_mercenario",
+        "nombre": "Capitán mercenario",
+        "descripcion": "puede \"contratar\". Al inicio de la partida, una tropa elegida gana una habilidad aleatoria."
+      },
+      {
+        "id": "ingeniero",
+        "nombre": "Ingeniero",
+        "descripcion": "construye un obstáculo o empalizada en un hex vacío y repara a los coraceros. Rifle de largo alcance."
+      }
+    ],
+    "elfos": [
+      {
+        "id": "guerrero",
+        "nombre": "Guerrero (Danzante de espadas)",
+        "descripcion": "ataca a todos los enemigos que estén en su ruta de movimiento."
+      },
+      {
+        "id": "mago",
+        "nombre": "Mago (Druida o Archimago)",
+        "descripcion": "controla el terreno. Hace crecer raíces que inmovilizan o un bosque que da cobertura."
+      },
+      {
+        "id": "senor_de_las_bestias",
+        "nombre": "Señor de las bestias",
+        "descripcion": "invoca o mejora criaturas, y sus bestias ganan +1 de movimiento."
+      },
+      {
+        "id": "cantora",
+        "nombre": "Cantora",
+        "descripcion": "soporte. Canción otorga movimiento extra o un ataque adicional a los aliados que estén en un radio."
+      }
+    ],
+    "orkos": [
+      {
+        "id": "orko",
+        "nombre": "Orko (Kaudillo)",
+        "descripcion": "se hace más fuerte cuantos más orkos tiene cerca. Grito obliga a los goblins a no huir."
+      },
+      {
+        "id": "goblin",
+        "nombre": "Goblin (Jefe goblin)",
+        "descripcion": "sucio y tramposo. Coloca trampas en hexes ocultos y puede sacrificar a un goblin para escapar."
+      },
+      {
+        "id": "chaman_goblin",
+        "nombre": "Chamán goblin",
+        "descripcion": "magia inestable con una tirada de efecto. Puede salir una gran bola de fuego o puede salirle mal y dañarse a sí mismo."
+      },
+      {
+        "id": "senor_de_la_guerra_montado_en_jabali",
+        "nombre": "Señor de la guerra montado en jabalí",
+        "descripcion": "carga brutal que derriba al objetivo."
       }
     ]
   }
