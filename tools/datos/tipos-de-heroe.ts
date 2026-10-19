@@ -84,7 +84,7 @@ const tipos = Object.fromEntries(
 
 const json = {
   _comment:
-    'GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto del héroe inicial y del contratado. Los tipos todavía NO tienen efecto (no hay motor de habilidades): se guardan en el héroe, se ven y se serializan.',
+    'GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto: el del héroe inicial que nadie eligió (la partida rápida, la IA) y el del contratado. Los tipos todavía NO tienen efecto en las reglas (no hay motor de habilidades): se guardan en el héroe, se ven, se serializan y dan su figura (data/figuras-de-heroe.json).',
   tipos,
 };
 writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);
