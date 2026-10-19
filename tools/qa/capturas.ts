@@ -5104,8 +5104,13 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     // La lanza al orco, como en el espejo (`orcoConLanza`), desde su ficha.
     await page.locator('#bando-derecha button.ver[data-unidad="orko-dos-armas"]').click();
     await page.locator('#ficha select[data-arena-pieza="lanza"]').selectOption('lanza_de_jinete');
-    const filaDeLaLanza = page.locator('#ficha [data-arma-de-la-ficha="lanza"]');
-    await filaDeLaLanza.waitFor({ timeout: 2000 });
+    // La fila ya existe antes de elegir (la carga, con el arma de cuerpo a cuerpo):
+    // se espera a que la repinte con la lanza. Leída al momento, con la máquina
+    // cargada, decía aún «Mandoble» (19-10-2026).
+    const filaDeLaLanza = page.locator('#ficha [data-arma-de-la-ficha="lanza"]', {
+      hasText: 'Lanza de jinete',
+    });
+    await filaDeLaLanza.waitFor({ timeout: 5000 });
     const dichaLanza = (await filaDeLaLanza.innerText()).replace(/\s+/g, ' ').trim();
     // A pie también carga (#260): la lanza se usa, con lo que cobra a pie.
     if (
