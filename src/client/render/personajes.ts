@@ -21,7 +21,7 @@
  * a mano es justo lo que se descuadra en silencio.
  */
 
-import { HERO_BODY } from '@core/hero/hero.js';
+import { HERO_BODY } from '@core/battle/types.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
 import { type Hoja, validarHojas } from '@core/unidad.js';
 import { esIdDeUnidad } from '@core/validar.js';
@@ -343,6 +343,24 @@ export function arteDe(body: string): ArteDeFigura {
 }
 
 /**
+ * Si ya contestó la lista de hojas (`registrarLasHojas`, bien o mal). Mientras
+ * no, un cuerpo sin registrar aún no se sabe qué arte lleva.
+ */
+let hojasSabidas = false;
+
+/**
+ * Si el arte de `body` ya se sabe: es de la tabla del juego, está registrado o la
+ * lista de hojas ya contestó (y entonces, sin registrar, va el Y Bot de
+ * `arteDe`). Lo pregunta quien pinta (`colocarFigura`) para pintar el marcador
+ * mientras tanto: la base abre con el héroe en pantalla antes de que llegue la
+ * lista, y se pintaba —y se pedía— el Y Bot de espada y escudo un instante (lo
+ * cazó `pnpm capturas`, vuelta 2 del arranque; a las tropas les pasaba igual).
+ */
+export function arteSabido(body: string): boolean {
+  return hojasSabidas || CUERPOS.has(body);
+}
+
+/**
  * Pide la lista de hojas del taller (`/__arena/hojas`: la sirve `pnpm dev` y la
  * emite `vite build`), la valida y registra cada hoja completa
  * (`registrarUnidad`). La usan la partida, el espectador y la arena: sin ella,
@@ -351,11 +369,19 @@ export function arteDe(body: string): ArteDeFigura {
  * la pide decide cómo decirlo. Devuelve la lista entera.
  */
 export async function registrarLasHojas(): Promise<readonly Hoja[]> {
-  const r = await fetch('/__arena/hojas');
-  if (!r.ok) throw new Error(`no se ha podido leer la lista de hojas (${r.status})`);
-  const hojas = validarHojas(await r.json());
-  for (const h of hojas) if (h.incompleta === null && !CUERPOS.has(h.id)) registrarUnidad(h.id, h);
-  return hojas;
+  try {
+    const r = await fetch('/__arena/hojas');
+    if (!r.ok) throw new Error(`no se ha podido leer la lista de hojas (${r.status})`);
+    const hojas = validarHojas(await r.json());
+    for (const h of hojas) {
+      if (h.incompleta === null && !CUERPOS.has(h.id)) registrarUnidad(h.id, h);
+    }
+    return hojas;
+  } finally {
+    // También si falla: sin la lista, lo que no está registrado va con el Y Bot
+    // (`arteDe`) y el fallo lo dice quien la pidió; no se queda en marcador.
+    hojasSabidas = true;
+  }
 }
 
 /** El atlas de la dirección en la que mira la figura. No se espeja nunca. */

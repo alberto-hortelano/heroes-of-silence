@@ -76,6 +76,7 @@ import { armasDe } from '../src/core/battle/damage.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import { HERO_BODY } from '../src/core/battle/types.js';
 import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/catalogo.js';
 import {
   CATALOGO_DE_HABILIDADES,
@@ -86,7 +87,6 @@ import {
   validarPieza,
 } from '../src/core/data.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
-import { HERO_BODY } from '../src/core/hero/hero.js';
 import { indiceDePoder } from '../src/core/nivel.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { CREATURE_TRAITS, SPEED_TIERS, SPEED_TO_HEXES } from '../src/core/types.js';

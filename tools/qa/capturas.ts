@@ -94,7 +94,13 @@ import {
   queEs,
 } from '../../src/core/battle/types.js';
 import { UNIDADES, unidad } from '../../src/core/catalogo.js';
-import { nombreDeTipoDeHeroe, RUTA_DEL_CATALOGO_DE_EQUIPO } from '../../src/core/data.js';
+import {
+  figuraDelHeroe,
+  nombreDeTipoDeHeroe,
+  RUTA_DEL_CATALOGO_DE_EQUIPO,
+  tipoDeHeroePorDefecto,
+  tiposDeHeroe,
+} from '../../src/core/data.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
@@ -1209,7 +1215,7 @@ async function estadoDelArranque(page: Page): Promise<{
       search: location.search,
       foco:
         foco?.getAttribute('data-inicio') ??
-        (foco instanceof HTMLInputElement ? `faccion:${foco.value}` : null),
+        (foco instanceof HTMLInputElement ? `${foco.name}:${foco.value}` : null),
     };
   });
 }
@@ -1224,10 +1230,13 @@ function exigir<T>(cosa: T, vale: (x: T) => boolean, paso: string): void {
  * La pantalla de inicio (19-10-2026): `/` sin nada pide qué jugar y no monta la
  * partida hasta elegir (ni escena ni suelo); «Cargar partida» no hace nada, ni
  * con el teclado; «Nuevo juego» lleva a la elección, que viste la página con la
- * facción que se mira (ratón y foco) y vuelve al neutro con Escape; «Empezar»
- * escribe `?seed=N&faccion=<id>` y abre la base de esa facción con su héroe
- * dentro; al salir, el mapa con el tema; recargar entra sin menú en la misma
- * partida. Y la rápida, y una facción que no existe.
+ * facción que se mira (ratón y foco) y vuelve al neutro con Escape; «Siguiente»
+ * lleva a la elección del héroe (vuelta 2), con el tema de la facción y el retrato
+ * de cada tipo, de la que «Volver» y Escape retroceden un paso; «Empezar» escribe
+ * `?seed=N&faccion=<id>&heroe=<tipo>` y abre la base de esa facción con su héroe
+ * dentro, pintado con la hoja de su tipo (no el Y Bot); al salir, el mapa con el
+ * tema; recargar entra sin menú en la misma partida. Y la rápida, una facción que
+ * no existe y un héroe que no es de la facción.
  */
 async function arranque(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   // Las tres páginas de la pasada en un contexto: lo que cambia entre ellas es la
@@ -1347,33 +1356,96 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   );
   await captura(page, 'inicio-02b-eleccion-orkos');
 
-  // «Empezar»: la URL dice la partida y abre la base de los orkos con su héroe.
+  // «Siguiente»: la elección del héroe de los orkos, con su tema, el de por defecto
+  // marcado y el retrato de cada tipo cargado. Escape vuelve a la facción, con los
+  // orkos marcados; «Volver», lo mismo.
+  const TIPO = 'chaman_goblin';
+  const tiposOrkos = tiposDeHeroe('orkos');
+  await page.locator('[data-inicio="siguiente"]').click();
+  await page.waitForSelector('[data-inicio="heroe"]');
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema === 'orkos' && e.foco === `heroe:${tipoDeHeroePorDefecto('orkos')}`,
+    'la elección del héroe va con el tema de los orkos y el de por defecto enfocado',
+  );
+  const retratos = await page.evaluate(async () => {
+    const imgs = [...document.querySelectorAll<HTMLImageElement>('.retrato-de-heroe')];
+    await Promise.all(imgs.map((i) => i.decode().catch(() => undefined)));
+    return imgs.map((i) => ({ src: new URL(i.src).pathname, ancho: i.naturalWidth }));
+  });
+  const esperados = tiposOrkos.map(
+    (t) => `/unidades/${figuraDelHeroe({ faction: 'orkos', tipo: t.id })}/identidad.webp`,
+  );
+  if (
+    JSON.stringify(retratos.map((r) => r.src)) !== JSON.stringify(esperados) ||
+    retratos.some((r) => r.ancho === 0)
+  )
+    throw new Error(
+      `arranque: los retratos de la elección del héroe no son los de sus hojas, o no cargan: ${JSON.stringify(retratos)}`,
+    );
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('[data-inicio="eleccion"]');
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema === 'orkos' && e.foco === 'faccion:orkos',
+    'Escape en el héroe vuelve a la facción, con los orkos marcados',
+  );
+  await page.locator('[data-inicio="siguiente"]').click();
+  await page.waitForSelector('[data-inicio="heroe"]');
+  await page.locator(`[data-heroe="${TIPO}"]`).click();
+  await page.locator('[data-inicio="volver"]').click();
+  await page.waitForSelector('[data-inicio="eleccion"]');
+  await page.locator('[data-inicio="siguiente"]').click();
+  await page.waitForSelector('[data-inicio="heroe"]');
+  exigir(
+    await page.evaluate(
+      () => document.querySelector<HTMLInputElement>('input[name="heroe"]:checked')?.value ?? null,
+    ),
+    (v) => v === TIPO,
+    `«Volver» y «Siguiente» con la misma facción conservan el héroe marcado (${TIPO})`,
+  );
+  await captura(page, 'inicio-02c-heroe-orkos');
+
+  // «Empezar»: la URL dice la partida y abre la base de los orkos con su héroe,
+  // pintado con la hoja de su tipo. Lo que pide la página se apunta desde aquí:
+  // la hoja del chamán tiene que llegar, y el Y Bot de espada y escudo (el de
+  // `HERO_BODY`, con que se pintaba el héroe) no.
+  const hojaDelTipo = figuraDelHeroe({ faction: 'orkos', tipo: TIPO });
+  const pedidas: string[] = [];
+  page.on('request', (r) => pedidas.push(new URL(r.url()).pathname));
   await page.locator('[data-inicio="empezar"]').click();
   await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
   const pedida = new URL(page.url()).searchParams;
   const semilla = parseSeed(pedida.get('seed'));
-  if (semilla === null || pedida.get('faccion') !== 'orkos')
+  if (semilla === null || pedida.get('faccion') !== 'orkos' || pedida.get('heroe') !== TIPO)
     throw new Error(`arranque: «Empezar» no deja la partida en la URL: ${page.url()}`);
   exigir(
     await estadoDelArranque(page),
     (e) => !e.menu && e.app && e.tema === 'orkos',
     'la partida, con el tema de los orkos y sin menú',
   );
-  const espejo = new Session(semilla, 'orkos');
+  const espejo = new Session(semilla, 'orkos', TIPO);
   const heroe = espejo.myHeroes()[0];
-  if (heroe === undefined || espejo.jugador.faction !== 'orkos')
-    throw new Error('arranque: el espejo no juega con los orkos');
+  if (heroe === undefined || espejo.jugador.faction !== 'orkos' || heroe.tipo !== TIPO)
+    throw new Error(`arranque: el espejo no juega con los orkos y un ${TIPO}`);
   const suBase = baseOf(espejo.state, espejo.jugador.id);
   if (heroe.at.x !== suBase?.at.x || heroe.at.y !== suBase.at.y)
     throw new Error('arranque: el héroe del espejo no nace dentro de su base');
   // Quien camina por la base es él (lo pinta el lienzo: se lee del espejo, que
   // abre su base como la página y la cierra, sin tocar la partida).
   espejo.abrirSuBase();
-  const caminante = espejo.vistaDeLaBase()?.caminante.id;
+  const caminante = espejo.vistaDeLaBase()?.caminante;
   espejo.closeTown();
-  if (caminante !== heroe.id)
-    throw new Error(`arranque: por la base camina ${caminante} y no ${heroe.id}`);
+  if (caminante?.id !== heroe.id || caminante.cuerpo !== hojaDelTipo)
+    throw new Error(
+      `arranque: por la base camina ${caminante?.id} con ${caminante?.cuerpo}, y no ${heroe.id} con ${hojaDelTipo}`,
+    );
   await esperarLaBase(page, 'quieto');
+  const delTipo = new RegExp(`^/unidades/${hojaDelTipo}/d[0-7]/atlas\\.webp$`);
+  if (!pedidas.some((p) => delTipo.test(p)))
+    throw new Error(
+      `arranque: la base no pidió ninguna dirección de ${hojaDelTipo}: el héroe no se pinta con su hoja`,
+    );
   // Con tema, las barras de sección son de una línea y lo que no cabe sale con
   // «…»: «Tropa de Grommash Dientenegro» no cabía (QA del arranque, H3).
   const cortados = await page.evaluate(() =>
@@ -1392,14 +1464,21 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   await comprobar(page, espejo, 'arranque: al salir de la base');
   exigir(await estadoDelArranque(page), (e) => e.tema === 'orkos', 'el mapa sigue con su tema');
   await sleep(450);
+  // Ni en la base ni en el mapa se pinta nadie con el Y Bot de espada y escudo, el
+  // de `HERO_BODY`: es lo que tenía el héroe («la imagen es el y_bot»).
+  const ybot = pedidas.filter((p) => p.startsWith('/unidades/_poses/espada-escudo-8d/'));
+  if (ybot.length > 0)
+    throw new Error(`arranque: la base o el mapa pintan el Y Bot del héroe: ${ybot.join(', ')}`);
   await captura(page, 'inicio-04-mapa-orkos');
+  log(`arranque: el ${TIPO} se pinta con ${hojaDelTipo} en la base y el mapa, sin el Y Bot`);
 
   // La URL reproduce la partida: recargar entra sin menú, en su base, con la misma semilla.
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
   exigir(
     await estadoDelArranque(page),
-    (e) => !e.menu && e.tema === 'orkos' && e.search === `?seed=${semilla}&faccion=orkos`,
+    (e) =>
+      !e.menu && e.tema === 'orkos' && e.search === `?seed=${semilla}&faccion=orkos&heroe=${TIPO}`,
     'recargar entra sin menú en la misma partida',
   );
   const rotulo = (await page.locator('#seed').innerText()).trim();
@@ -1433,8 +1512,11 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   const suya: FactionId = faccionesDeLaSemilla(sRapida)[0];
   exigir(
     await estadoDelArranque(rapida),
-    (e) => e.tema === suya && deLaRapida.get('faccion') === suya,
-    `la rápida juega con la de la semilla ${sRapida} (${suya}) y lo deja en la URL`,
+    (e) =>
+      e.tema === suya &&
+      deLaRapida.get('faccion') === suya &&
+      deLaRapida.get('heroe') === tipoDeHeroePorDefecto(suya),
+    `la rápida juega con la de la semilla ${sRapida} (${suya}) y su héroe por defecto, y lo deja en la URL`,
   );
   await captura(rapida, 'inicio-05-partida-rapida');
   log(`arranque: partida rápida, semilla ${sRapida} con ${suya}`);
@@ -1449,16 +1531,29 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   if (!/"xyz" no es una facción/.test(dicho) || !/quita "\?faccion=…"/.test(dicho))
     throw new Error(`arranque: ?faccion=xyz no dice por qué ni cómo salir: «${dicho}»`);
   log('arranque: ?faccion=xyz se rechaza diciéndolo');
+  // Un héroe que no es de la facción, igual.
+  await mala.goto(`${url}/?seed=7&faccion=templarios&heroe=lich`, { waitUntil: 'networkidle' });
+  await mala.waitForSelector('#no-arranca', { timeout: 15_000 });
+  const dichoDelHeroe = (await mala.locator('#no-arranca').innerText()).replace(/\s+/g, ' ');
+  if (
+    !/"lich" no es un tipo de héroe de templarios/.test(dichoDelHeroe) ||
+    !/quita "\?heroe=…"/.test(dichoDelHeroe)
+  )
+    throw new Error(
+      `arranque: ?heroe=lich con los templarios no dice por qué ni cómo salir: «${dichoDelHeroe}»`,
+    );
+  log('arranque: ?heroe=lich con los templarios se rechaza diciéndolo');
   await contexto.close();
   await eleccionConElDedo(browser, url, problemas);
 }
 
 /**
  * La elección en un teléfono pequeño (375×667), con el dedo: no cabe, así que
- * hay que bajar hasta «Empezar» deslizando, con toques de verdad por CDP. El
+ * hay que bajar hasta «Siguiente» deslizando, con toques de verdad por CDP. El
  * `tap()` de Playwright no vale para esto: desplaza la página por programa hasta
  * el botón, y así escondía que no había forma de llegar (QA, H1). Deslizar no
- * viste ninguna facción: el dedo no tiene vista previa.
+ * viste ninguna facción: el dedo no tiene vista previa. Luego la del héroe
+ * (vuelta 2), con el dedo también: se toca un tipo y se baja hasta «Empezar».
  */
 async function eleccionConElDedo(
   browser: Browser,
@@ -1479,59 +1574,86 @@ async function eleccionConElDedo(
     if (b === null) throw new Error(`arranque, con el dedo: no se ve ${selector}`);
     return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
   };
+  const abajo = (selector: string): Promise<{ readonly bajo: number; readonly alto: number }> =>
+    page.evaluate(
+      (sel) => ({
+        bajo: (document.querySelector(sel) as HTMLElement).getBoundingClientRect().bottom,
+        alto: innerHeight,
+      }),
+      selector,
+    );
+  const cdp = await contexto.newCDPSession(page);
+  /** Desliza hacia arriba, como un dedo, hasta que `selector` se vea entero. */
+  const bajarHasta = async (selector: string): Promise<void> => {
+    const alto = (await abajo(selector)).alto;
+    for (let vez = 0; vez < 4 && (await abajo(selector)).bajo > alto; vez++) {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ x: 187, y: 560 }],
+      });
+      for (let y = 540; y >= 160; y -= 20) {
+        await cdp.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [{ x: 187, y }],
+        });
+        await sleep(16);
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await sleep(400);
+    }
+    const despues = await abajo(selector);
+    if (despues.bajo > despues.alto)
+      throw new Error(
+        `arranque, con el dedo: a 375×667 no se llega a ${selector} deslizando: sigue en ${Math.round(despues.bajo)} de ${despues.alto}`,
+      );
+  };
   const nuevo = await centro('[data-inicio="nuevo"]');
   await page.touchscreen.tap(nuevo.x, nuevo.y);
   await page.waitForSelector('[data-inicio="eleccion"]');
   await sleep(300);
-  const abajo = (): Promise<{ readonly bajo: number; readonly alto: number }> =>
-    page.evaluate(() => ({
-      bajo: (
-        document.querySelector('[data-inicio="empezar"]') as HTMLElement
-      ).getBoundingClientRect().bottom,
-      alto: innerHeight,
-    }));
-  const antes = await abajo();
+  const SIGUIENTE = '[data-inicio="siguiente"]';
+  const antes = await abajo(SIGUIENTE);
   if (antes.bajo <= antes.alto)
     throw new Error(
-      `arranque, con el dedo: a 375×667 «Empezar» ya se ve sin bajar (${Math.round(antes.bajo)} de ${antes.alto}): así no se prueba que se llegue deslizando`,
+      `arranque, con el dedo: a 375×667 «Siguiente» ya se ve sin bajar (${Math.round(antes.bajo)} de ${antes.alto}): así no se prueba que se llegue deslizando`,
     );
-  const cdp = await contexto.newCDPSession(page);
-  for (let vez = 0; vez < 4 && (await abajo()).bajo > antes.alto; vez++) {
-    await cdp.send('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x: 187, y: 560 }],
-    });
-    for (let y = 540; y >= 160; y -= 20) {
-      await cdp.send('Input.dispatchTouchEvent', {
-        type: 'touchMove',
-        touchPoints: [{ x: 187, y }],
-      });
-      await sleep(16);
-    }
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await sleep(400);
-  }
-  const despues = await abajo();
-  if (despues.bajo > despues.alto)
-    throw new Error(
-      `arranque, con el dedo: a 375×667 no se llega a «Empezar» deslizando: sigue en ${Math.round(despues.bajo)} de ${despues.alto}`,
-    );
+  await bajarHasta(SIGUIENTE);
   exigir(
     await estadoDelArranque(page),
     (e) => e.tema === FACTION_IDS[0],
     `deslizar no viste ninguna facción: sigue la de ${FACTION_IDS[0]}, la marcada`,
   );
   await captura(page, 'inicio-06-eleccion-movil');
+  const siguiente = await centro(SIGUIENTE);
+  await page.touchscreen.tap(siguiente.x, siguiente.y);
+  await page.waitForSelector('[data-inicio="heroe"]');
+  await sleep(300);
+  // El último tipo, tocado: hay que bajar hasta él y luego hasta «Empezar».
+  const ultimo = tiposDeHeroe(FACTION_IDS[0]).at(-1)!.id;
+  const DEL_ULTIMO = `[data-heroe="${ultimo}"]`;
+  await bajarHasta(DEL_ULTIMO);
+  const elUltimo = await centro(DEL_ULTIMO);
+  await page.touchscreen.tap(elUltimo.x, elUltimo.y);
+  await bajarHasta('[data-inicio="empezar"]');
+  await captura(page, 'inicio-07-heroe-movil');
   const empezar = await centro('[data-inicio="empezar"]');
   await page.touchscreen.tap(empezar.x, empezar.y);
   await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
   exigir(
     await estadoDelArranque(page),
-    (e) =>
-      e.tema === FACTION_IDS[0] && new URLSearchParams(e.search).get('faccion') === FACTION_IDS[0],
-    `«Empezar», tocado tras deslizar, abre la base de ${FACTION_IDS[0]}`,
+    (e) => {
+      const q = new URLSearchParams(e.search);
+      return (
+        e.tema === FACTION_IDS[0] &&
+        q.get('faccion') === FACTION_IDS[0] &&
+        q.get('heroe') === ultimo
+      );
+    },
+    `«Empezar», tocado tras deslizar, abre la base de ${FACTION_IDS[0]} con un ${ultimo}`,
   );
-  log(`arranque: con el dedo, a 375×667 se baja hasta «Empezar» y abre la base`);
+  log(
+    `arranque: con el dedo, a 375×667 se baja hasta «Siguiente» y «Empezar» y abre la base con un ${ultimo}`,
+  );
   await contexto.close();
 }
 

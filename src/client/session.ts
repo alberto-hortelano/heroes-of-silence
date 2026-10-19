@@ -63,8 +63,9 @@ import type {
   TipoDePuerta,
 } from '@core/battle/types.js';
 import { cuerpoDe } from '@core/catalogo.js';
+import { figuraDelHeroe } from '@core/data.js';
 import type { CatalogoDeEquipo } from '@core/hero/equipo.js';
-import { HERO_BODY, type Hero, maxMana } from '@core/hero/hero.js';
+import { type Hero, maxMana } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
@@ -872,8 +873,11 @@ export class Session implements ControlDeBatalla {
    * @param faccion la de la persona (la elegida en el menú o la de `?faccion=`);
    *   sin ella, la que saque la semilla. El rival, otra: lo decide el núcleo
    *   (`faccionesDeLaSemilla`), no la sesión.
+   * @param tipoDelHeroe el tipo de su héroe (el elegido en el menú o el de
+   *   `?heroe=`); sin él, el de por defecto de su facción. Uno que no es de su
+   *   facción lo rechaza el núcleo (`newGame`) diciendo cuáles valen.
    */
-  constructor(seed: number, faccion?: FactionId) {
+  constructor(seed: number, faccion?: FactionId, tipoDelHeroe?: string) {
     // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
     // de donde la lee quien la enseña. Un hecho en dos sitios se desincroniza
     // el día que esta capa hable por WebSocket —`this.seed` sería la que pidió
@@ -882,6 +886,7 @@ export class Session implements ControlDeBatalla {
       seed,
       controllers: { 0: 'human', 1: 'ai' },
       faccionDelJugador: faccion,
+      tipoDelHeroe,
     });
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
     this.rueda = new CruceDeLaRueda(
@@ -1465,7 +1470,7 @@ export class Session implements ControlDeBatalla {
       caminante:
         heroe === null
           ? { id: `alcaide-${town.id}`, nombre: alcaide.nombre, cuerpo: alcaide.cuerpo }
-          : { id: heroe.id, nombre: heroe.name, cuerpo: HERO_BODY },
+          : { id: heroe.id, nombre: heroe.name, cuerpo: figuraDelHeroe(heroe) },
     };
     this.cacheDeLaBase = { version: this.version, townId: town.id, vista };
     return vista;

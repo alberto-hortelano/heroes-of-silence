@@ -27,12 +27,14 @@ npx tsx tools/qa/neutro.ts [ref]       # el estilo sin tema, igual que en las ho
 npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (google/fonts, sha256) y rehace src/client/fuentes.css
 ```
 
-- **`?seed=N&faccion=<id>` fija la partida**; la barra enseña siempre cuál se juega y la URL lleva
-  las dos tras empezar. Lo que no es semilla o facción se rechaza diciéndolo (`parseSeed`,
-  `parseFaccion`, en `core`; repetido, `unaVezEnLaURL`). `?seed=` vacío = sin semilla. **Sin
-  ninguna de las dos, la página pregunta** (19-10-2026, `inicio/`): «Nuevo juego» (elegir facción,
-  con su tema al mirarla), «Cargar partida» (apagado: no hay guardado) o «Partida rápida» (semilla al
-  azar y la facción que saque); hasta elegir no hay `Session` ni mapa. La partida abre en la base
+- **`?seed=N&faccion=<id>&heroe=<tipo>` fija la partida**; la barra enseña siempre cuál se juega y
+  la URL lleva las tres tras empezar. Lo que no es semilla o facción se rechaza diciéndolo
+  (`parseSeed`, `parseFaccion`, en `core`; repetido, `unaVezEnLaURL`), y un tipo de héroe que no es
+  de la facción que se juega, también (`problemaDeTipo`, el mismo de `newGame`). `?seed=` vacío =
+  sin semilla. **Sin ninguna de las tres, la página pregunta** (19-10-2026, `inicio/`): «Nuevo
+  juego» (elegir facción, con su tema al mirarla, y luego el héroe), «Cargar partida» (apagado: no
+  hay guardado) o «Partida rápida» (semilla al azar, la facción que saque y su héroe por defecto);
+  hasta elegir no hay `Session` ni mapa. La partida abre en la base
   del jugador, con su héroe dentro; «Partida nueva», al acabar, vuelve al menú. Si el agente diseña
   el mapa, la semilla del servidor ya no reproduce la partida, y la consola lo dice.
 - **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
@@ -148,6 +150,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Cifras = catálogo + veteranía + equipo | `cifrasDeUnidad` (`core/catalogo.ts`: cuerpo + rango + lo de serie con lo propio encima, un solo `conEquipo`; con el catálogo de la pelea, `CatalogoDeUnidades`, por defecto `CATALOGO_DEL_JUEGO`), `cifrasDelIndividuo` (el personaje), `conEquipo`; el oro de una unidad, `costeDeUnaUnidad` (de la vestida) y `oroDeUnidad`; el cuerpo sin equipo de un stack, `cuerpoDe(stack, cat?)` (del origen: igual en el juego y la arena; el héroe lo lleva en `OrigenDelStack`, `desnudo`); qué unidad es un stack, `origen.unidad` o `queEs` (`battle/types.ts`): `body` es el arte |
 | A quién se licencia | `elQueSeIria` (`hero/troop.ts`) |
 | Construir un héroe | `heroeRecienHecho` |
+| Con qué hoja se pinta un héroe (vuelta 2 del arranque, 19-10-2026) | `figuraDelHeroe` (`core/data.ts`): la de su tipo en `data/figuras-de-heroe.json`, comprobada al cargar contra los tipos (`validarFigurasDeHeroe`) y contra el disco en `test/figuras-de-heroe.test.ts` (ocho direcciones, identidad, y ninguna hoja `heroe-*` sin tipo). Derivada, no guardada en el `Hero`: la leen el mapa (`HeroeEnElMapa` lleva `faction` y `tipo`), la base caminable, el retrato del menú, la batalla (`HeroeDelBando.figura`, sin opcional: la arena pone la suya o la genérica) y el espectador, con la facción y el tipo que trae el cable. Lo que el héroe ES para la crónica y el agente es `HERO_BODY` (`battle/types.ts`, `queEs`), no su figura |
 | Qué se levanta en cada sitio de la base | `sitiosDeLaBase`, `siguienteDe`, `construidoEn` (`town/sitios.ts`) |
 | De un píxel del cuadro de la base al escenario | `planoDelCuadro` (`shared/base.ts`); en pantalla, `colocarLaPlaca` y `colocarEnElCuadro` (`render/base/recortes.ts`) |
 | Recortar un edificio de la base de su cuadro | `recortarLaBase`, `derivarRecorte` (`tools/taller/recorte-base.ts`) |
@@ -690,10 +693,11 @@ antes del destino (`battle_started` con `faltan`).
 - **Figuras**: 8 direcciones y 6 acciones (`idle`, `ready`, `attack`, `hit`,
   `die`, `win`). Arte propio (`dN/atlas.webp`) o el Y Bot de su juego de armas
   teñido del color del bando; lo sin dueño, en gris. **Nunca se espeja.** Tablas:
-  `JUEGO_SIN_HOJA` (héroe, personaje y vecino), `JUEGO_DEL_YBOT`, `DIRECCION_DE_HOJA`. Una tropa
-  del catálogo se pinta con la hoja de su unidad (`hojaDeUnidad`; el `body` de su stack es esa
-  hoja), que registra `registrarLasHojas` al arrancar (`cargarArte`) en la partida, el espectador y
-  la arena. Anclas del Y Bot en `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
+  `JUEGO_SIN_HOJA` (el héroe genérico de la arena, el personaje y el vecino), `JUEGO_DEL_YBOT`,
+  `DIRECCION_DE_HOJA`. Una tropa del catálogo se pinta con la hoja de su unidad (`hojaDeUnidad`; el
+  `body` de su stack es esa hoja) y un héroe con la de su tipo (`figuraDelHeroe`), que registra
+  `registrarLasHojas` al arrancar (`cargarArte`) en la partida, el espectador y la arena; hasta que
+  contesta, lo que no está registrado se pinta con su marcador y no con el Y Bot (`arteSabido`). Anclas del Y Bot en `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
 - Ritmo: `marcha.ts` (`PRISA_DE_LA_MARCHA`), compás propio por figura con hash
   del id (`compas.ts`), sombra por silueta, carga hoja a hoja con cachés LRU.
 - **La batalla se cuenta en cola** (`anim.ts`): el estado ya trae el final de lo que se cuenta,
@@ -869,7 +873,10 @@ antes del destino (`battle_started` con `faltan`).
   elección enseña de cada facción su nombre, su rasgo del cuaderno (`rasgoDeFaccion`) y el héroe con
   que se empieza (`nombreDeSalida`); el foco o el puntero encima la viste (`ponerTema`; la lista
   mide lo mismo con cualquier tema, para que el ratón quieto no la vuelva a vestir), salir con el
-  puntero vuelve a la marcada y Escape al menú, en el neutro (`quitarTema`). Mientras se está en la
+  puntero vuelve a la marcada y Escape al menú, en el neutro (`quitarTema`). «Siguiente» lleva a la
+  del héroe (vuelta 2, 19-10-2026): los tipos de la facción, con el retrato de su hoja
+  (`identidad.webp`), su nombre y su descripción del cuaderno, ya con su tema; «Volver» y Escape
+  retroceden un paso. Mientras se está en la
   base de arranque, el suelo del mapa ya se pinta (`calentarElMapa`, `main.ts`). Lo juega la pasada
   «arranque» de `pnpm capturas`.
 - **La base es un escenario lateral** (`escenas/castillo.ts`, `render/base/`), como el de

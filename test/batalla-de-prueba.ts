@@ -5,6 +5,7 @@
  */
 import type { BattleMember, BattleSide } from '../src/core/battle/battle.js';
 import type { BattleHero } from '../src/core/battle/types.js';
+import { HERO_BODY } from '../src/core/battle/types.js';
 import { EQUIPO_BASE } from '../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
 import { cuerposDelHeroe } from '../src/core/hero/hero.js';
@@ -40,6 +41,7 @@ export function bando(
         ? null
         : {
             mando: h,
+            figura: HERO_BODY,
             ...cuerposDelHeroe({
               name: h.name,
               attack: 0,

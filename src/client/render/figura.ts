@@ -26,7 +26,7 @@ import {
 } from './character.js';
 import { CacheDeLienzos } from './copias.js';
 import { densidadDe } from './lienzo.js';
-import { type ArteDeFigura, arteDe, hojaDe, hojasPorCercania } from './personajes.js';
+import { type ArteDeFigura, arteDe, arteSabido, hojaDe, hojasPorCercania } from './personajes.js';
 import { pintarSombra } from './sombra.js';
 
 /** Hasta cuándo hay alguna figura en marcha, en el reloj de `performance.now()`. */
@@ -196,6 +196,9 @@ function hojaQueSePinta(
 
 /** Resuelve la figura: qué fotograma de qué hoja y cómo cae en pantalla. */
 export function colocarFigura(f: Figura): FiguraColocada {
+  // Sin la lista de hojas aún, el marcador: no el Y Bot de quien todavía no se
+  // sabe qué hoja lleva (`arteSabido`).
+  if (!arteSabido(f.body)) return { f, p: null };
   const arte = arteDe(f.body);
   const hoja = hojaQueSePinta(arte, f);
   if (hoja === null) return { f, p: null };

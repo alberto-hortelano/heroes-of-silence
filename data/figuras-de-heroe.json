@@ -1,0 +1,31 @@
+{
+  "_comment": "Con qué hoja de assets/unidades/ se pinta cada tipo de héroe (data/tipos-de-heroe.json) en el mapa, la base caminable y la batalla (19-10-2026, vuelta 2 del arranque: «la imagen es el y_bot»). Escrito a mano: el cuaderno no sabe de hojas. Se comprueba al cargar (`validarFigurasDeHeroe`, core/data.ts: cada tipo de cada facción tiene la suya, y nada que no sea un tipo) y en test/figuras-de-heroe.test.ts (cada hoja existe con sus ocho direcciones y su identidad, y no queda ninguna hoja de héroe sin tipo). Es presentación: no cambia ninguna regla.",
+  "figuras": {
+    "templarios": {
+      "caballero": "heroe-templario-caballero",
+      "monje": "heroe-templario-abad",
+      "inquisidor": "heroe-templario-inquisidor"
+    },
+    "no-muertos": {
+      "nigromante": "heroe-nigromante",
+      "vampiro": "heroe-vampiro",
+      "lich": "heroe-lich"
+    },
+    "imperio": {
+      "duelista": "heroe-imperio-duelista",
+      "mago": "heroe-imperio-mago",
+      "capitan_mercenario": "heroe-imperio-capitan-mercenario",
+      "ingeniero": "heroe-imperio-ingeniero"
+    },
+    "elfos": {
+      "guerrero": "heroe-elfo-danzante-de-espadas",
+      "mago": "heroe-elfo-druida",
+      "cantora": "heroe-elfo-cantora"
+    },
+    "orkos": {
+      "orko": "heroe-orko-kaudillo",
+      "goblin": "heroe-goblin-jefe",
+      "chaman_goblin": "heroe-goblin-chaman"
+    }
+  }
+}

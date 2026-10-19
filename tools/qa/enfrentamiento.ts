@@ -121,6 +121,7 @@
  *
  * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--espera] [--carga] [--contra <ref>] [--magia] [--espejo]
  */
+
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -139,7 +140,7 @@ import {
 } from '../../src/core/battle/battle.js';
 import { allSpells } from '../../src/core/battle/spells.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
-import { otroBando } from '../../src/core/battle/types.js';
+import { HERO_BODY, otroBando } from '../../src/core/battle/types.js';
 import { hasTrait } from '../../src/core/data.js';
 import { EQUIPO_BASE } from '../../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
@@ -312,6 +313,7 @@ function heroeDeLaMagia(nombre: string): HeroeDelBando {
   const cifras = { name: nombre, attack: 2, defense: 2, experience: EXPERIENCIA_INICIAL_DE_HEROE };
   return {
     ...cuerposDelHeroe({ ...cifras, equipo: EQUIPO_BASE }),
+    figura: HERO_BODY,
     mando: {
       name: nombre,
       retreat: { blocked: 'en el banco no se huye' },

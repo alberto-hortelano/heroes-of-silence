@@ -59,6 +59,7 @@ import type {
   OrigenDelStack,
   Side,
 } from './battle/types.js';
+import { HERO_BODY } from './battle/types.js';
 import { type CatalogoDeUnidades, cuerpoDe } from './catalogo.js';
 import {
   baseBlocker,
@@ -82,7 +83,7 @@ import {
   quitarPieza,
 } from './hero/equipo.js';
 import { cifrasDelIndividuo, EXPERIENCIA_INICIAL_DE_HEROE } from './hero/experiencia.js';
-import { CIFRAS_DEL_HEROE_INICIAL, cuerpoDelHeroe, HERO_BODY, maxMana } from './hero/hero.js';
+import { CIFRAS_DEL_HEROE_INICIAL, cuerpoDelHeroe, maxMana } from './hero/hero.js';
 import { indiceDePoder, nivelDelIndice } from './nivel.js';
 import type { Rng } from './rng.js';
 import {
@@ -751,7 +752,7 @@ export function heroeDeArena(datos: HeroeDeArena, eq: EquipoAtado): HeroeDelBand
       },
       { blocked: 'en la arena no hay huida' },
     ),
-    ...(h.figura === null ? {} : { figura: h.figura }),
+    figura: h.figura ?? HERO_BODY,
   };
 }
 
@@ -1329,7 +1330,7 @@ function retocarElHeroe(
   if (antes === null || cuerpo === undefined) {
     return `el bando ${LADOS[lado].adjetivo} no lleva héroe en esta pelea`;
   }
-  if ((nuevo.figura ?? HERO_BODY) !== cuerpo.body) {
+  if (nuevo.figura !== cuerpo.body) {
     return 'la figura del héroe no se cambia a media pelea: eso, en el montaje';
   }
   const clave = claveDeFicha({ kind: 'heroe', lado });

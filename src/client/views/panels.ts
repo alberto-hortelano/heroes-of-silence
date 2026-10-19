@@ -43,6 +43,7 @@ import {
   type BattleAction,
   type BattleStack,
   type BattleState,
+  HERO_BODY,
   rangoDeVeterania,
   SIDES,
   type Side,
@@ -57,14 +58,7 @@ import {
   textoDeModificador,
 } from '@core/hero/equipo.js';
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
-import {
-  cuerpoDelHeroe,
-  HERO_BODY,
-  type Hero,
-  heroUnit,
-  maxMana,
-  maxMovePoints,
-} from '@core/hero/hero.js';
+import { cuerpoDelHeroe, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
 import { nivelDeUnidad } from '@core/nivel.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';

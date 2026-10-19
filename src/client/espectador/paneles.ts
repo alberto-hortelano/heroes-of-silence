@@ -13,6 +13,7 @@
  * texto ajeno más ancho que hay en el cable.
  */
 import type { BattleState, Side } from '@core/battle/types.js';
+import { nombreDeTipoDeHeroe } from '@core/data.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADIE } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
@@ -118,7 +119,7 @@ function jugadores(v: SpectatorView): Html {
             // que escriba el agente acaba aquí. Sale por la puerta como todo.
             .map(
               (h) => html`<div class="stack empty">
-                <span>${h.name} · ${h.nombreDelTipo}</span><span class="count">${h.movePoints}</span>
+                <span>${h.name} · ${nombreDeTipoDeHeroe(h.faction, h.tipo)}</span><span class="count">${h.movePoints}</span>
               </div>${historiaDelHeroe(h.historia)}${
                 h.equipo.length === 0
                   ? NADA

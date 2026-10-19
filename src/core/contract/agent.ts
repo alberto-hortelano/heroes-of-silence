@@ -19,9 +19,9 @@ import { z } from 'zod';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
 import { PODERES, queHaceElPoder } from '../battle/poderes.js';
+import { HERO_BODY } from '../battle/types.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
-import { HERO_BODY } from '../hero/hero.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
 import {
   BARRERAS,

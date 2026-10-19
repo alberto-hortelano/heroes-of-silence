@@ -1,8 +1,9 @@
 /**
  * La pantalla de inicio (19-10-2026): antes de montar la partida, si la URL no
- * pide ninguna, pregunta qué jugar —«Nuevo juego» (con la elección de facción),
- * «Cargar partida» (apagado: no hay guardado) o «Partida rápida»— y lo deja
- * escrito en la URL (`?seed=N&faccion=<id>`, o solo `?seed=N` en la rápida). La
+ * pide ninguna, pregunta qué jugar —«Nuevo juego» (la elección de facción y luego
+ * la del héroe), «Cargar partida» (apagado: no hay guardado) o «Partida
+ * rápida»— y lo deja escrito en la URL (`?seed=N&faccion=<id>&heroe=<tipo>`, o
+ * solo `?seed=N` en la rápida). «Volver» y Escape retroceden un paso. La
  * URL es la única fuente: el menú, una recarga y un enlace entran por el mismo
  * lector, el de `main.ts`, que es quien la valida. Hasta elegir no existe
  * `Session`, ni el mapa, ni su Worker del suelo: `main.ts` se carga después
@@ -10,13 +11,14 @@
  *
  * Lo que se ve lo pinta `pantallas.ts`; aquí solo se conduce. Al mirar una
  * facción se viste la página con su tema (`ponerTema`); el menú va en el neutro
- * (`quitarTema`).
+ * (`quitarTema`); la elección del héroe va con el de la facción elegida.
  */
+import { tipoDeHeroe, tipoDeHeroePorDefecto } from '@core/data.js';
 import { esFaccion, FACTION_IDS, type FactionId } from '@core/types.js';
 import { pintar } from '../html.js';
 import { aLaBarra, semillaSorteada } from '../semilla.js';
 import { ponerTema, quitarTema } from '../temas.js';
-import { renderEleccion, renderMenu } from './pantallas.js';
+import { renderEleccion, renderEleccionDeHeroe, renderMenu } from './pantallas.js';
 
 function deLaPagina<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -38,7 +40,15 @@ export function pedirPartida(): Promise<void> {
 
   return new Promise<void>((empezar) => {
     let elegida: FactionId = FACTION_IDS[0];
-    let pantalla: 'menu' | 'eleccion' = 'menu';
+    /**
+     * El tipo de héroe marcado y de qué facción es: al volver a la facción y
+     * cambiarla, el de la otra no vale y se marca el de por defecto de la nueva.
+     */
+    let heroe: { readonly faccion: FactionId; readonly tipo: string } = {
+      faccion: elegida,
+      tipo: tipoDeHeroePorDefecto(elegida),
+    };
+    let pantalla: 'menu' | 'eleccion' | 'heroe' = 'menu';
     /**
      * Dónde estaba el puntero la última vez que se supo, y dónde estaba al abrir
      * la elección. El puntero solo viste la facción de debajo tras moverse de
@@ -71,11 +81,29 @@ export function pedirPartida(): Promise<void> {
       ponerTema(elegida);
       enfocar('input[name="faccion"]:checked');
     };
+    const aHeroe = (): void => {
+      pantalla = 'heroe';
+      if (heroe.faccion !== elegida)
+        heroe = { faccion: elegida, tipo: tipoDeHeroePorDefecto(elegida) };
+      pintar(inicio, renderEleccionDeHeroe(elegida, heroe.tipo));
+      ponerTema(elegida);
+      enfocar('input[name="heroe"]:checked');
+    };
+    /** Un paso atrás: del héroe a la facción, y de la facción al menú. */
+    const atras = (): void => {
+      if (pantalla === 'heroe') aEleccion();
+      else if (pantalla === 'eleccion') aMenu();
+    };
     /** Escribe lo elegido en la URL y deja paso a la partida. */
-    const jugar = (pedido: { readonly seed: number; readonly faccion?: FactionId }): void => {
+    const jugar = (pedido: {
+      readonly seed: number;
+      readonly faccion?: FactionId;
+      readonly heroe?: string;
+    }): void => {
       aLaBarra((url) => {
         url.searchParams.set('seed', String(pedido.seed));
         if (pedido.faccion !== undefined) url.searchParams.set('faccion', pedido.faccion);
+        if (pedido.heroe !== undefined) url.searchParams.set('heroe', pedido.heroe);
       });
       escucha.abort();
       inicio.hidden = true;
@@ -104,7 +132,7 @@ export function pedirPartida(): Promise<void> {
             jugar({ seed: semillaSorteada() });
             break;
           case 'volver':
-            aMenu();
+            atras();
             break;
         }
       },
@@ -114,16 +142,19 @@ export function pedirPartida(): Promise<void> {
       'submit',
       (ev) => {
         ev.preventDefault();
-        jugar({ seed: semillaSorteada(), faccion: elegida });
+        if (pantalla === 'eleccion') aHeroe();
+        else if (pantalla === 'heroe') {
+          jugar({ seed: semillaSorteada(), faccion: elegida, heroe: heroe.tipo });
+        }
       },
       { signal },
     );
     document.addEventListener(
       'keydown',
       (ev) => {
-        if (ev.key === 'Escape' && pantalla === 'eleccion') {
+        if (ev.key === 'Escape' && pantalla !== 'menu') {
           ev.preventDefault();
-          aMenu();
+          atras();
         }
       },
       { signal },
@@ -189,6 +220,15 @@ export function pedirPartida(): Promise<void> {
     inicio.addEventListener(
       'change',
       (ev) => {
+        const delHeroe = (ev.target as Element).closest('input[name="heroe"]');
+        if (delHeroe !== null) {
+          const tipo = delHeroe.getAttribute('value') ?? '';
+          if (tipoDeHeroe(elegida, tipo) === null) {
+            throw new Error(`"${tipo}" no es un tipo de héroe de ${elegida}`);
+          }
+          heroe = { faccion: elegida, tipo };
+          return;
+        }
         const radio = (ev.target as Element).closest('input[name="faccion"]');
         if (radio === null) return;
         const valor = radio.getAttribute('value') ?? '';

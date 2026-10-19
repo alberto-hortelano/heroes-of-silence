@@ -4,7 +4,9 @@
  * La sesión decide, `render/` pinta, `views/` monta los paneles y cada escena
  * (`escenas/`) traduce el puntero de su pantalla. Aquí solo se conecta todo.
  */
+import { problemaDeTipo } from '@core/hero/ascenso.js';
 import { parseSeed } from '@core/rng.js';
+import { faccionesDeLaSemilla } from '@core/state/setup.js';
 import { type FactionId, parseFaccion } from '@core/types.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
@@ -73,24 +75,44 @@ function faccionDeLaUrl(): FactionId | null {
 }
 
 /**
- * Cómo salir de una URL que no abre partida: quitar lo que pidió. Sin la semilla
- * se juega otra al azar; sin las dos, vuelve el menú de inicio.
+ * El tipo de héroe que pide la URL (`?heroe=`, el que escribe el menú), o `null`
+ * si no pide ninguno. Como la facción: vacío es no pedir, y uno que no es de
+ * `faccion` —la que se jugará— lanza diciendo cuáles valen, con la regla del
+ * núcleo (`problemaDeTipo`, la misma que aplica `newGame`).
  */
-function salidaDe(pedidos: readonly ('seed' | 'faccion')[]): string | null {
+function heroeDeLaUrl(faccion: FactionId): string | null {
+  const tipo = unaVezEnLaURL(new URLSearchParams(location.search).getAll('heroe'), 'heroe');
+  if (tipo === null || tipo.trim() === '') return null;
+  const problema = problemaDeTipo(faccion, tipo);
+  if (problema !== null) throw new Error(problema);
+  return tipo;
+}
+
+/** Lo que la URL puede pedir de una partida. */
+type Pedido = 'seed' | 'faccion' | 'heroe';
+
+/**
+ * Cómo salir de una URL que no abre partida: quitar lo que pidió. Sin la semilla
+ * se juega otra al azar; sin nada, vuelve el menú de inicio.
+ */
+function salidaDe(pedidos: readonly Pedido[]): string | null {
   if (pedidos.length === 0) return null;
   return `quita ${pedidos.map((p) => `"?${p}=…"`).join(' y ')} de la barra de direcciones`;
 }
 
 /**
- * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla y con
- * qué facción juega: las dos se escriben siempre, también si la facción la sacó
+ * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla, con qué
+ * facción y con qué héroe juega: los tres se escriben siempre, también si los sacó
  * la semilla (la partida rápida), para que la URL la reproduzca entera.
  */
-function abrePartida(seed: number, faccion: FactionId | null): Session {
-  const abierta = new Session(seed, faccion ?? undefined);
+function abrePartida(seed: number, faccion: FactionId | null, heroe: string | null): Session {
+  const abierta = new Session(seed, faccion ?? undefined, heroe ?? undefined);
+  const suyo = abierta.myHeroes()[0];
+  if (suyo === undefined) throw new Error('la partida abre sin héroe para quien juega');
   aLaBarra((url) => {
     url.searchParams.set('seed', String(seed));
     url.searchParams.set('faccion', abierta.jugador.faction);
+    url.searchParams.set('heroe', suyo.tipo);
   });
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
@@ -136,7 +158,7 @@ let session: Session;
   // Lo que pide la URL, leído entero antes de decir nada: cada parámetro que no
   // vale, con su salida, y todos a la vez.
   const fallos: Fallo[] = [];
-  const leer = <T>(nombre: 'seed' | 'faccion', leerlo: () => T | null): T | null => {
+  const leer = <T>(nombre: Pedido, leerlo: () => T | null): T | null => {
     try {
       return leerlo();
     } catch (motivo) {
@@ -146,15 +168,25 @@ let session: Session;
   };
   const semilla = leer('seed', semillaDeLaUrl);
   const faccion = leer('faccion', faccionDeLaUrl);
+  const seed = semilla ?? semillaSorteada();
+  // El héroe se juzga contra la facción que se jugará: la pedida o la que saque
+  // la semilla, que la dice la misma función que usa `newGame`. Así el motivo
+  // nombra solo `?heroe=` como salida. Con la semilla o la facción rotas no se
+  // juzga: sería contra otra.
+  const heroe =
+    fallos.length > 0
+      ? null
+      : leer('heroe', () => heroeDeLaUrl(faccionesDeLaSemilla(seed, faccion ?? undefined)[0]));
   if (fallos.length > 0) sinArrancar(fallos);
   try {
-    session = abrePartida(semilla ?? semillaSorteada(), faccion);
+    session = abrePartida(seed, faccion, heroe);
   } catch (motivo) {
     // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso.
     // Sin nada pedido no hay salida que dar.
     const pedidos = [
       ...(semilla === null ? [] : (['seed'] as const)),
       ...(faccion === null ? [] : (['faccion'] as const)),
+      ...(heroe === null ? [] : (['heroe'] as const)),
     ];
     sinArrancar([{ motivo, salida: salidaDe(pedidos) }]);
   }

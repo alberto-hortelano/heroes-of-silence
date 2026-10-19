@@ -5414,3 +5414,31 @@ la partida abre en la base caminable. Lo que se retiró con eso y lo que destap�
   de las 32 veces en 1-100, en partidas largas donde los grupos que le sacaban el margen le cerraban el
   paso. Turnos de héroe sin ninguna ciudad ajena a la que llegar: 183 de 1 592 (11,5 %) antes, 4 de
   1 400 (0,3 %) ahora (medido ya con el arreglo de arriba; el banco sin él ya daba 0 y 0).
+
+## Elegir el héroe y su figura (19-10-2026)
+
+«Al empezar la partida nueva no he elegido al heroe y la imagen es el y_bot» (el usuario, tras jugar
+la fase 1 del arranque). Tras la facción, el menú pide el héroe por su tipo, con el retrato de su
+hoja, y el héroe se pinta con esa hoja en el mapa, la base caminable, la batalla y el espectador.
+
+- **La figura se deriva del tipo** (`figuraDelHeroe`, `data/figuras-de-heroe.json`), no se guarda en
+  el `Hero`: el tipo ya estaba en él. La tabla la escribe una persona —el cuaderno no sabe de
+  hojas— y se comprueba contra los tipos al cargar y contra el disco en un test. Los dos tipos sin
+  arte (Señor de las bestias, Señor de la guerra montado en jabalí) salieron del cuaderno y del
+  JSON regenerado, y la hoja sin tipo (Gran maestre templario) se borró con sus poses: «no deberían
+  existir».
+- **`HERO_BODY` dejó de ser el arte del héroe del juego** y quedó como lo que el héroe ES para quien
+  cuenta una batalla (`queEs`: la crónica, el `creature` y el `target` del agente) y la figura
+  genérica de la arena. Con la figura en `body`, la crónica habría escrito «heroe-lich» donde
+  escribía «hero», y el banco se habría movido sin cambiar ninguna regla. Se mudó a
+  `battle/types.ts` porque desde allí importarlo de `hero/hero.ts` cerraba un ciclo.
+- **`HeroeDelBando.figura` sin opcional**: con `figura ?? HERO_BODY` el juego no la ponía nunca y
+  el Y Bot salía sin que nada lo dijera.
+- **El Y Bot de un instante** (lo cazó la pasada «arranque» de `pnpm capturas`, que apunta lo que
+  pide la página): la base abre con el héroe en pantalla antes de que conteste la lista de hojas
+  (`/__arena/hojas`), y `arteDe` daba el Y Bot por defecto a lo no registrado, así que se pintaba y
+  se pedía el de espada y escudo. A las tropas les pasaba igual desde siempre. Ahora, hasta que la
+  lista contesta, lo no registrado se pinta con su marcador (`arteSabido`).
+- **El cable del espectador lleva `faction` y `tipo`** del héroe en vez del nombre del tipo ya
+  redactado: de ese par salen el nombre y la figura, con las mismas funciones del núcleo.
+

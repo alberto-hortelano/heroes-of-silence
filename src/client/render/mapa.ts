@@ -18,13 +18,13 @@
  */
 
 import { hojaDeUnidad } from '@core/catalogo.js';
-import { HERO_BODY } from '@core/hero/hero.js';
+import { figuraDelHeroe } from '@core/data.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, MapRegion, TramoDeCamino } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.js';
-import type { Point } from '@core/types.js';
+import type { FactionId, Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla } from '../marcha.js';
 import { temaDelLienzo } from '../temas.js';
@@ -90,6 +90,9 @@ export interface HeroeEnElMapa {
   readonly owner: number;
   readonly name: string;
   readonly at: Point;
+  /** Su facción y su tipo: de ellos sale la hoja con que se pinta (`figuraDelHeroe`). */
+  readonly faction: FactionId;
+  readonly tipo: string;
 }
 
 /**
@@ -884,11 +887,11 @@ function pintarHeroe(
   }
   ctx.restore();
   const figura: Figura = {
-    // El héroe a pie, con su id de arte: el mismo que lleva en el tablero
-    // (`HERO_BODY`), y `personajes.ts` lo resuelve al Y Bot de su juego de
-    // armas, teñido del color del dueño.
+    // El héroe a pie, con la hoja de su tipo: la misma con que pisa el tablero y
+    // la base (`figuraDelHeroe`). Con `HERO_BODY` era el Y Bot («la imagen es el
+    // y_bot», 19-10-2026).
     id: h.id,
-    body: HERO_BODY,
+    body: figuraDelHeroe(h),
     clip: 'idle',
     tiempo: v.tiempo,
     x: c.x,

@@ -16,7 +16,7 @@ import {
   unidadDelJuego,
   unidadDelJuegoSiExiste,
 } from '../catalogo.js';
-import { tipoDeHeroePorDefecto } from '../data.js';
+import { figuraDelHeroe, tipoDeHeroePorDefecto } from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
@@ -2392,6 +2392,7 @@ function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide
     hero: {
       ...cuerposDelHeroe(hero),
       mando: mandoDe(hero, retiradaDe(state, hero, side)),
+      figura: figuraDelHeroe(hero),
     },
     moraleBonus: moraleBonus(hero) + (pueblo === undefined ? 0 : moraleFromBuildings(pueblo)),
     luckBonus: luckBonus(hero),

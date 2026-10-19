@@ -27,11 +27,11 @@ export function aLaBarra(cambiar: (url: URL) => void): void {
 
 /**
  * Si la página tiene que preguntar qué jugar: solo cuando la URL no pide nada,
- * ni semilla ni facción. `?seed=` vacío es no pedir (la regla de `parseSeed`), y
+ * ni semilla, ni facción, ni héroe. `?seed=` vacío es no pedir (la regla de `parseSeed`), y
  * lo que pida algo, aunque no valga, va a la partida, que dice por qué no vale.
  */
 export function hayQuePreguntar(search: string): boolean {
   const q = new URLSearchParams(search);
   const pide = (nombre: string): boolean => q.getAll(nombre).some((v) => v.trim() !== '');
-  return !pide('seed') && !pide('faccion');
+  return !pide('seed') && !pide('faccion') && !pide('heroe');
 }

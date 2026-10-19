@@ -806,6 +806,8 @@ describe('la partida empieza en la base (19-10-2026)', () => {
     expect(heroe?.faction).toBe('orkos');
     expect(heroe?.at).toEqual(s.activeTown?.at);
     expect(s.vistaDeLaBase()!.caminante.id).toBe(heroe!.id);
+    // Pasea con la hoja de su tipo, no con el Y Bot (vuelta 2).
+    expect(s.vistaDeLaBase()!.caminante.cuerpo).toBe('heroe-orko-kaudillo');
 
     s.closeTown();
     expect(s.scene).toBe('adventure');
@@ -823,5 +825,21 @@ describe('la partida empieza en la base (19-10-2026)', () => {
     const sola = new Session(9);
     const conLaSuya = new Session(9, sola.jugador.faction);
     expect(JSON.stringify(conLaSuya.state)).toBe(JSON.stringify(sola.state));
+  });
+});
+
+describe('el héroe elegido en el menú (vuelta 2, 19-10-2026)', () => {
+  it('la sesión abre con el tipo pedido, y la base lo pinta con su hoja', () => {
+    const s = new Session(5, 'no-muertos', 'vampiro');
+    const heroe = s.myHeroes()[0]!;
+    expect(heroe.tipo).toBe('vampiro');
+    s.abrirSuBase();
+    expect(s.vistaDeLaBase()!.caminante).toMatchObject({ id: heroe.id, cuerpo: 'heroe-vampiro' });
+  });
+
+  it('un tipo de otra facción no abre partida, y lo dice', () => {
+    expect(() => new Session(5, 'no-muertos', 'cantora')).toThrow(
+      '"cantora" no es un tipo de héroe de no-muertos: valen nigromante, vampiro, lich',
+    );
   });
 });

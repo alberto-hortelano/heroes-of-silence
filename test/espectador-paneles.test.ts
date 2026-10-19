@@ -241,7 +241,12 @@ describe('el panel del espectador escapa lo ajeno', () => {
     const conHistoria: SpectatorView = {
       ...vista,
       heroes: [
-        { ...primero!, nombreDelTipo: 'Vampiro', historia: 'Mordió <b>tres</b> veces & volvió' },
+        {
+          ...primero!,
+          faction: 'no-muertos',
+          tipo: 'vampiro',
+          historia: 'Mordió <b>tres</b> veces & volvió',
+        },
         ...resto,
       ],
     };

@@ -1,6 +1,7 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
 import { unidadesDeMorada } from '../catalogo.js';
 import { tipoDeHeroePorDefecto } from '../data.js';
+import { problemaDeTipo } from '../hero/ascenso.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import {
   CIFRAS_DEL_HEROE_INICIAL,
@@ -57,6 +58,15 @@ export interface NewGameOptions {
    * del rival y, sin ella, las dos, las sortea la semilla (`faccionesDeLaSemilla`).
    */
   readonly faccionDelJugador?: FactionId | undefined;
+  /**
+   * El tipo del héroe con que empieza el jugador 0 (la elección del menú,
+   * `?heroe=`), un id de `data/tipos-de-heroe.json` de **su** facción; sin él, el de
+   * por defecto (`tipoDeHeroePorDefecto`). El rival empieza siempre con el de por
+   * defecto. Un tipo que no es de la facción del jugador 0 lanza diciendo cuáles
+   * valen (`problemaDeTipo`), en vez de jugar con otro. Es presentación hasta que
+   * los tipos den habilidades: cambia la figura del héroe, no la partida.
+   */
+  readonly tipoDelHeroe?: string | undefined;
 }
 
 /**
@@ -188,6 +198,9 @@ export function newGame(options: NewGameOptions = {}): GameState {
 
   const heroes: Hero[] = bases.map(([player, base], i) => {
     const faction = base.faction;
+    const tipo = player === 0 ? options.tipoDelHeroe : undefined;
+    const tipoMalo = tipo === undefined ? null : problemaDeTipo(faction, tipo);
+    if (tipoMalo !== null) throw new Error(tipoMalo);
     // El héroe nace DENTRO de su base («empieza en la base»): en la casilla del
     // castillo, que es estado normal (al acabar una marcha en él también está
     // ahí). No recoge la guarnición al nacer: la base del día 1 se queda con la
@@ -203,7 +216,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
         faction,
         at: base.at,
         experience: EXPERIENCIA_INICIAL_DE_HEROE,
-        tipo: tipoDeHeroePorDefecto(faction),
+        tipo: tipo ?? tipoDeHeroePorDefecto(faction),
       }),
       ...CIFRAS_DEL_HEROE_INICIAL,
       army: startingArmy(faction, rng),

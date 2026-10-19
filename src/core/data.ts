@@ -9,6 +9,7 @@ import economiaJson from '../../data/economia.json' with { type: 'json' };
 import equipoJson from '../../data/equipo.json' with { type: 'json' };
 import experienciaJson from '../../data/experiencia.json' with { type: 'json' };
 import faccionesJson from '../../data/facciones.json' with { type: 'json' };
+import figurasDeHeroeJson from '../../data/figuras-de-heroe.json' with { type: 'json' };
 import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
@@ -58,7 +59,7 @@ import {
   TIPOS_DE_GOLPE,
   TIPOS_DEL_ANILLO,
 } from './types.js';
-import { esIdDePieza, revisarLista } from './validar.js';
+import { esIdDePieza, esIdDeUnidad, revisarLista } from './validar.js';
 
 /**
  * Un entero que se puede sumar sin perder bits, y ≥ `desde`. Es la única forma
@@ -589,8 +590,9 @@ export function tiposDeHeroe(faction: FactionId): readonly TipoDeHeroe[] {
 }
 
 /**
- * El id del tipo del héroe que nadie eligió —el inicial y el contratado—: **el
- * primero de su facción en el cuaderno** (Caballero, Nigromante). El id y no el
+ * El id del tipo del héroe que nadie eligió —el inicial de la IA y el de la
+ * partida rápida, y el contratado—: **el primero de su facción en el cuaderno**
+ * (Caballero, Nigromante). El id y no el
  * tipo entero, porque es lo que guarda `Hero.tipo` y lo único que leen quienes
  * lo piden. Lo elige así el plan
  * de este ciclo, y como el tipo es inerte no cambia ninguna partida.
@@ -616,6 +618,76 @@ export function nombreDeTipoDeHeroe(faction: FactionId, id: string): string {
     throw new Error(`el tipo de héroe "${id}" no existe en ${faction} (data/tipos-de-heroe.json)`);
   }
   return tipo.nombre;
+}
+
+/**
+ * La hoja de `assets/unidades/` de cada tipo de héroe (`data/figuras-de-heroe.json`),
+ * comprobada contra el catálogo de tipos. **Lanza con todos los problemas a la
+ * vez**: un tipo sin hoja (el héroe se pintaría con el Y Bot, que es lo que se vino
+ * a quitar: «la imagen es el y_bot», 19-10-2026), una hoja que no tiene la forma de
+ * un id de carpeta, o una fila que no es ningún tipo (la de un tipo que el cuaderno
+ * retiró). Que la hoja exista en disco con sus ocho direcciones no se mira aquí
+ * —el núcleo no lee el disco—: lo mira `test/figuras-de-heroe.test.ts`.
+ *
+ * Exportada con el JSON de argumento por lo mismo que `validarTiposDeHeroe`: para
+ * verla morder con un fichero malo.
+ */
+export function validarFigurasDeHeroe(
+  json: unknown,
+  tipos: Readonly<Record<FactionId, readonly TipoDeHeroe[]>>,
+  fichero = 'data/figuras-de-heroe.json',
+): Readonly<Record<FactionId, Readonly<Record<string, string>>>> {
+  const problemas: string[] = [];
+  const figuras = ((json ?? {}) as { figuras?: Record<string, unknown> }).figuras ?? {};
+  const out = {} as Record<FactionId, Readonly<Record<string, string>>>;
+  for (const [faccion, lista] of Object.entries(tipos) as [FactionId, readonly TipoDeHeroe[]][]) {
+    const escritas = (figuras[faccion] ?? {}) as Record<string, unknown>;
+    const deLaFaccion: Record<string, string> = {};
+    for (const t of lista) {
+      const hoja = escritas[t.id];
+      if (typeof hoja !== 'string' || !esIdDeUnidad(hoja)) {
+        problemas.push(
+          hoja === undefined
+            ? `el tipo ${t.id} (${t.nombre}) de ${faccion} no tiene hoja`
+            : `la hoja del tipo ${t.id} de ${faccion} no es el id de una carpeta de assets/unidades/: ${JSON.stringify(hoja)}`,
+        );
+        continue;
+      }
+      deLaFaccion[t.id] = hoja;
+    }
+    for (const id of Object.keys(escritas)) {
+      if (!lista.some((t) => t.id === id)) {
+        problemas.push(
+          `"${id}" no es ningún tipo de héroe de ${faccion} (data/tipos-de-heroe.json)`,
+        );
+      }
+    }
+    out[faccion] = deLaFaccion;
+  }
+  for (const faccion of Object.keys(figuras)) {
+    if (!(faccion in tipos)) problemas.push(`"${faccion}" no es ninguna facción del motor`);
+  }
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return out;
+}
+
+const FIGURAS_DE_HEROE = validarFigurasDeHeroe(figurasDeHeroeJson, TIPOS_DE_HEROE);
+
+/**
+ * La hoja con que se pinta un héroe: la de su tipo. **Derivada y no guardada**:
+ * el héroe solo lleva su tipo (`Hero.tipo`), y de aquí la leen el mapa, la base
+ * caminable, el retrato de la elección y la batalla (`HeroeDelBando.figura`), y el
+ * espectador con la facción y el tipo que le llegan por el cable. Lanza con un tipo
+ * que no es de su facción, como `nombreDeTipoDeHeroe`.
+ */
+export function figuraDelHeroe(h: { readonly faction: FactionId; readonly tipo: string }): string {
+  const hoja = FIGURAS_DE_HEROE[h.faction][h.tipo];
+  if (hoja === undefined) {
+    throw new Error(
+      `el tipo de héroe "${h.tipo}" no existe en ${h.faction} (data/tipos-de-heroe.json)`,
+    );
+  }
+  return hoja;
 }
 
 // ---------------------------------------------------------------- facciones
