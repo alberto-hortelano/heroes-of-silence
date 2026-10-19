@@ -57,3 +57,7 @@ pasa la URL (hay uno vivo en :3201 del coordinador; no tocarlo).
 ## Visto bueno del plan (19-10-2026)
 
 El usuario aprueba `plan.md` tal cual: escena propia `tropa`, héroe al fondo en el centro y la tropa en arco con los extremos más cerca de cámara, fondo del combate, solo en tu turno, el panel del mapa sin tocar.
+
+## Cambio del coordinador (19-10-2026)
+
+El criterio 2 decía «misma escala de figura que en la batalla»: daba figuras diminutas y lo había escrito el coordinador, no el usuario. Pasa a: la cámara encuadra al grupo, con las figuras tan grandes como quepan (ver `hallazgos-coordinador.md`).

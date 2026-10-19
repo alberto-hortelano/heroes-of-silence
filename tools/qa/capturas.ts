@@ -57,6 +57,7 @@ import {
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
+import { cajaEnLaTropa, encuadrarLaTropa } from '../../src/client/render/tropa/arco.js';
 import {
   anguloDe,
   MEDIDAS_DE_LA_RUEDA,
@@ -2889,7 +2890,7 @@ async function pulsarEnLaTropa(page: Page, espejo: Session, i: number): Promise<
   if (vista === null) throw new Error('tropa: el espejo no está en la escena de la tropa');
   const f = escena.figuras(vista)[i];
   if (f === undefined) throw new Error(`tropa: no hay figura ${i} en la escena`);
-  const c = cajaDeFiguraEn(escena.camara(), f.en);
+  const c = cajaEnLaTropa(escena.camara(vista), f.en);
   const x = Math.round(b.x + c.x);
   const y = Math.round(b.y + c.suelo - c.alto * 0.5);
   await page.mouse.move(x - 4, y);
@@ -2926,12 +2927,40 @@ async function mismaBarra(page: Page, espejo: Session, paso: string): Promise<vo
 }
 
 /**
+ * La cota del encuadre (E1 del ciclo de corrección): en el lienzo de la página, el
+ * héroe del centro mide del 45 al 55 % de su alto y nadie se sale. Con la misma
+ * cuenta que pinta la página (`encuadrarLaTropa`) y el lienzo medido en ella.
+ */
+async function cotaDelEncuadre(page: Page, quien: string, tropa: number): Promise<void> {
+  const b = await caja(page);
+  const e = encuadrarLaTropa({ ancho: b.width, alto: b.height }, tropa);
+  const cajas = e.en.map((p) => cajaEnLaTropa(e.camara, p));
+  const parte = cajas[0]!.alto / b.height;
+  const fuera = cajas.filter(
+    (c) =>
+      c.x - c.ancho / 2 < 0 ||
+      c.x + c.ancho / 2 > b.width ||
+      c.suelo - c.alto < 0 ||
+      c.suelo > b.height,
+  ).length;
+  log(
+    `${quien}: ${tropa + 1} figuras en ${Math.round(b.width)}×${Math.round(b.height)}, el héroe mide el ${(parte * 100).toFixed(1)} % del alto`,
+  );
+  if (parte < 0.45 || parte > 0.55 || fuera > 0) {
+    throw new Error(
+      `${quien}: el héroe mide el ${(parte * 100).toFixed(1)} % del alto del lienzo (del 45 al 55) y ${fuera} figuras se salen`,
+    );
+  }
+}
+
+/**
  * La tropa del héroe en escena (19-10-2026): con la T se abre, pulsar a uno lo
  * elige (el aro en el lienzo y su ficha en el panel), se le quita el gambesón al
  * héroe y se le pone a un novato —con el espejo a la par: el oro, la barra y a
  * quién se elige—, y «Volver al mapa» deja el mapa con la cámara de antes (la
  * vista movida con la rueda y un arrastre, para que volver a la de siempre no
- * pase por igual). Y la escena a 1280×720 y en el móvil.
+ * pase por igual). Y la escena a 1280×720, a 1024×768 y en el móvil, con la cota del
+ * encuadre (`cotaDelEncuadre`) en cada uno.
  */
 async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const semilla = 7;
@@ -2953,6 +2982,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
   await esperarLaElegida(page, espejo, 'abrir con la T');
   await mismaBarra(page, espejo, 'abrir con la T');
   await sleep(400);
+  await cotaDelEncuadre(page, 'tropa', heroe.army.length);
   await captura(page, 'tropa-01-escena');
 
   // Pulsar en el lienzo al segundo de la tropa.
@@ -3035,9 +3065,11 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
   await captura(page, 'tropa-05-de-vuelta-en-el-mapa');
   await page.close();
 
-  // A 1280×720 y en el móvil: abrir con el botón «Tropa» (tocándolo en el móvil).
+  // A 1280×720, a 1024×768 y en el móvil: abrir con el botón «Tropa» (tocándolo en el
+  // móvil), y la cota del encuadre en cada uno.
   for (const v of [
     { nombre: 'tropa-1280', viewport: { width: 1280, height: 720 }, movil: false },
+    { nombre: 'tropa-1024', viewport: { width: 1024, height: 768 }, movil: false },
     { nombre: 'tropa-movil', viewport: { width: 390, height: 844 }, movil: true },
   ]) {
     const contexto = await browser.newContext(
@@ -3055,6 +3087,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     await p.waitForSelector(`#app[data-escena="tropa"]`, { timeout: 5000 });
     await p.waitForSelector(`#canvas[data-tropa="${heroe.id}"]`, { timeout: 3000 });
     await sleep(600);
+    await cotaDelEncuadre(p, v.nombre, heroe.army.length);
     await captura(p, `${v.nombre}-escena`);
     await contexto.close();
   }

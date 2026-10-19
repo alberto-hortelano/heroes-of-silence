@@ -189,7 +189,7 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   const { battle, tablero } = v;
   ctx.save();
   ctx.imageSmoothingEnabled = true;
-  pintarFondo(ctx, v);
+  pintarFondo(ctx, { ancho: v.ancho, alto: v.alto, horizonte: horizonteDelCampo(v.tablero) });
 
   const movibles = new Set(v.movibles.map(hexKey));
   // La figura de cada uno, una vez por fotograma: de ella salen también la
@@ -1394,18 +1394,31 @@ let fondo: {
   lienzo: HTMLCanvasElement;
 } | null = null;
 
-/** Lo que mira el fondo del combate de una vista: el tamaño del lienzo y el tablero. */
-export type LienzoDelCampo = Pick<VistaBatalla, 'ancho' | 'alto' | 'tablero'>;
+/** Lo que mira el fondo del campo: el tamaño del lienzo y dónde cae su horizonte, en píxeles. */
+export interface LienzoDelCampo {
+  readonly ancho: number;
+  readonly alto: number;
+  readonly horizonte: number;
+}
 
 /**
- * El campo de batalla detrás de todo, con su horizonte un poco por encima de la
- * fila de atrás de `v.tablero`. Lo pintan la batalla y la escena de la tropa, que
- * se alza en el mismo campo.
+ * El horizonte del campo en una batalla: un poco por encima de la fila de atrás
+ * del tablero, a la cabeza de quien está en ella. Así el tablero entero pisa
+ * suelo y no flota sobre el cielo.
+ */
+function horizonteDelCampo(t: Tablero): number {
+  return t.origenY - t.paso * 0.9;
+}
+
+/**
+ * El campo de batalla detrás de todo, con su horizonte en `v.horizonte`. Lo
+ * pintan la batalla (`horizonteDelCampo`) y la escena de la tropa, que se alza en
+ * el mismo campo y pone el suyo detrás del héroe.
  */
 export function pintarFondo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
   const campo = asset('rpg', 'campo');
   const dpr = densidadDe(ctx);
-  const clave = `${v.ancho}|${v.alto}|${dpr}|${v.tablero.paso}|${v.tablero.origenY}|${v.tablero.compresion}`;
+  const clave = `${v.ancho}|${v.alto}|${dpr}|${v.horizonte}`;
   if (fondo === null || fondo.clave !== clave || fondo.campo !== campo) {
     const lienzo = fondo?.lienzo ?? document.createElement('canvas');
     lienzo.width = Math.max(1, Math.ceil(v.ancho * dpr));
@@ -1428,14 +1441,13 @@ function componerFondo(
 ): void {
   if (campo !== null) {
     pintarCielo(ctx, v);
-    // El horizonte del fondo (el 47 % de su alto, donde acaba el empedrado) se
-    // pone un poco por encima de la fila de atrás: así el tablero entero pisa
-    // suelo y no flota sobre el cielo. Y la escala nunca deja el fondo más
-    // estrecho que el lienzo ni corto por abajo.
+    // El horizonte del fondo (el 47 % de su alto, donde acaba el empedrado) va
+    // en `v.horizonte`. Y la escala nunca deja el fondo más estrecho que el
+    // lienzo ni corto por abajo.
     const HORIZONTE = 0.47;
     const W = campo.naturalWidth;
     const H = campo.naturalHeight;
-    const arriba = v.tablero.origenY - v.tablero.paso * 0.9;
+    const arriba = v.horizonte;
     const escala = Math.max(v.ancho / W, (v.alto - arriba) / ((1 - HORIZONTE) * H));
     const w = W * escala;
     const h = H * escala;
@@ -1460,7 +1472,7 @@ function componerFondo(
  * la luz que ya tiene el empedrado.
  */
 function pintarCielo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
-  const linea = Math.max(1, v.tablero.origenY - v.tablero.paso * 0.9);
+  const linea = Math.max(1, v.horizonte);
   const cielo = ctx.createLinearGradient(0, 0, 0, linea);
   cielo.addColorStop(0, '#27303b');
   cielo.addColorStop(0.55, '#5b5e58');

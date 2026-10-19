@@ -10,7 +10,7 @@
 
 import { playerColor } from '../render/palette.js';
 import type { Tablero } from '../render/proyeccion.js';
-import { camaraDeLaTropa, colocarLaTropa, vistaEnPasos } from '../render/tropa/arco.js';
+import { type EncuadreDeLaTropa, encuadrarLaTropa } from '../render/tropa/arco.js';
 import { type FiguraEnLaEscena, figuraBajo, pintarLaTropa } from '../render/tropa/pintar.js';
 import { AYUDA_DE_LA_TROPA, type Session } from '../session.js';
 import type { VistaDeLaTropa } from '../tropa/vista.js';
@@ -25,14 +25,23 @@ export class EscenaTropa {
     this.lienzo = { ancho, alto };
   }
 
-  /** La cámara de ahora (la lee `pnpm capturas` para pulsar donde pinta la página). */
-  camara(): Tablero {
-    return camaraDeLaTropa(this.lienzo);
+  /**
+   * El encuadre de ahora para la vista: la cámara, que se acerca al grupo, y
+   * dónde pisa cada uno (lo lee también `pnpm capturas` para pulsar donde pinta
+   * la página).
+   */
+  encuadre(vista: VistaDeLaTropa): EncuadreDeLaTropa {
+    return encuadrarLaTropa(this.lienzo, vista.figuras.length - 1);
+  }
+
+  /** La cámara de ahora para la vista. */
+  camara(vista: VistaDeLaTropa): Tablero {
+    return this.encuadre(vista).camara;
   }
 
   /** Las figuras de la vista, ya colocadas en el arco. */
   figuras(vista: VistaDeLaTropa): FiguraEnLaEscena[] {
-    const en = colocarLaTropa(vista.figuras.length - 1, vistaEnPasos(this.lienzo));
+    const { en } = this.encuadre(vista);
     return vista.figuras.map((f, i) => ({
       id: f.id,
       nombre: f.nombre,
@@ -56,9 +65,11 @@ export class EscenaTropa {
     const vista = this.sesion().vistaDeLaTropa();
     if (vista === null) return;
     const figuras = this.figuras(vista);
+    const { camara, horizonte } = this.encuadre(vista);
     pintarLaTropa(ctx, {
       lienzo: this.lienzo,
-      t: this.camara(),
+      t: camara,
+      horizonte,
       figuras,
       elegida: vista.elegida,
       señalada: this.señalada !== null && this.señalada < figuras.length ? this.señalada : null,
@@ -70,7 +81,7 @@ export class EscenaTropa {
   private bajo(px: number, py: number): { vista: VistaDeLaTropa; i: number } | null {
     const vista = this.sesion().vistaDeLaTropa();
     if (vista === null) return null;
-    const i = figuraBajo(this.camara(), this.figuras(vista), px, py);
+    const i = figuraBajo(this.camara(vista), this.figuras(vista), px, py);
     return i === null ? null : { vista, i };
   }
 

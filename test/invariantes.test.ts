@@ -2087,8 +2087,9 @@ describe('invariantes del proyecto', () => {
     // del tablero son privadas de `proyeccion.ts`; si la escena de la base las
     // nombrara o fijara su propio alto de figura, la escala sería una copia que
     // un día deja de casar (vuelta 2 del ciclo de la base).
-    // La escena de la tropa, igual (19-10-2026): sus figuras miden lo de una
-    // batalla porque su cámara es `pasoDeLaBase`.
+    // La escena de la tropa (19-10-2026) no va a la escala del combate: su
+    // cámara encuadra al grupo (`encuadrarLaTropa`). Pero la figura en pasos es
+    // la de `cajaDeFiguraEn`, y tampoco puede fijar su propio alto de figura.
     const base = CLIENTE.filter(
       (r) =>
         r.startsWith('src/client/render/base/') ||
