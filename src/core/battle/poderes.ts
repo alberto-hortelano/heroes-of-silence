@@ -120,5 +120,8 @@ export function poderDeHabilidad(habilidad: string): PoderId | null {
   return CATALOGO.poderes.find((p) => p.habilidad === habilidad)?.id ?? null;
 }
 
+/** Todos los poderes, en el orden de `data/poderes.json`: lo que se le cuenta al agente. */
+export const PODERES: readonly Poder[] = CATALOGO.poderes;
+
 /** Las habilidades que dan un poder: las únicas de la arena que actúan en la pelea. */
 export const HABILIDADES_CON_PODER: readonly string[] = CATALOGO.poderes.map((p) => p.habilidad);

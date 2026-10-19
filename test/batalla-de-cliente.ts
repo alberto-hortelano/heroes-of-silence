@@ -12,7 +12,7 @@
  */
 import { Session } from '../src/client/session.js';
 import { objectAt, pointKey } from '../src/core/map/map.js';
-import type { Point } from '../src/core/types.js';
+import type { Army, Point } from '../src/core/types.js';
 
 let hallada: { readonly semilla: number; readonly at: Point } | null = null;
 let emboscada: { readonly semilla: number; readonly destino: Point } | null = null;
@@ -43,6 +43,23 @@ export function sesionContraMonstruo(): Session {
     return s;
   }
   throw new Error('ninguna de 200 semillas abre el día 1 una batalla contra un monstruo');
+}
+
+/**
+ * La misma batalla, con el héroe de la persona llevando `ejercito` en vez del
+ * suyo: para los tests que necesitan una tropa concreta (el monje de los poderes).
+ * Lanza si con ese ejército no se abre la batalla.
+ */
+export function sesionContraMonstruoCon(ejercito: Army): Session {
+  sesionContraMonstruo();
+  if (hallada === null) throw new Error('sin batalla hallada');
+  const s = new Session(hallada.semilla);
+  const h = s.selectedHero;
+  if (h === null) throw new Error('la sesión no tiene héroe seleccionado');
+  h.army = ejercito;
+  s.clickTile(hallada.at);
+  if (s.battle === null) throw new Error('con ese ejército no se abre la batalla');
+  return s;
 }
 
 /**

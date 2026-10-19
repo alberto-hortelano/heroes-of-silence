@@ -285,13 +285,17 @@ export function construirVista(state: GameState, directorLog: readonly string[])
  * otro sitio y viajan con ella.
  *
  * Y no viaja lo que el espectador no lee: `ganado` —la contabilidad de la
- * batalla en curso, que cobra `settleBattle`—, el precio de rendición, la hoja
- * de servicios y lo puesto (`UnitInfo.equipo`). Iban en cada fotograma por el
- * solo hecho de estar en el objeto.
+ * batalla en curso, que cobra `settleBattle`—, el precio de rendición y la hoja
+ * de servicios. Iban en cada fotograma por el solo hecho de estar en el objeto.
+ *
+ * Lo puesto (`UnitInfo.equipo`) sí viaja con las cifras del héroe y del
+ * personaje (F6 de la tarea del combate en el juego, 19-10-2026): son unos pocos
+ * ids, y con ellos la vuelta (`adaptarBatalla`) es la inversa exacta, sin un
+ * «menos el equipo» que la comparación tuviera que quitar; las del catálogo lo
+ * rehacen con `cifrasDeUnidad`, como el resto de sus cifras.
  */
 function stackAlCable(s: BattleStack): StackEnCable {
-  const { unit: cifras, ganado: _ganado, origen, ...resto } = s;
-  const { equipo: _equipo, ...unit } = cifras;
+  const { unit, ganado: _ganado, origen, ...resto } = s;
   switch (origen.kind) {
     case 'catalogo':
       return { ...resto, origen: { kind: 'catalogo', veterania: hojaAlCable(origen.veterania) } };

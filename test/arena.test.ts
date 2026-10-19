@@ -2170,13 +2170,13 @@ describe('retocar en plena pelea (B10-B14)', () => {
     s.hechizos.selectSpell('bless');
     expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'bless' });
     // Apuntar el poder suelta el hechizo, y elegir el hechizo suelta el poder.
-    s.apuntarPoder('bendecir');
+    s.poderes.apuntar('bendecir');
     expect(s.apuntado).toEqual({ kind: 'poder', id: 'bendecir' });
     expect(s.hechizos.selectedSpell).toBeNull();
     s.hechizos.selectSpell('bless');
     expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'bless' });
     // El rechazo de lo apuntado es el del núcleo: el de Bendecir sobre el orco.
-    s.apuntarPoder('bendecir');
+    s.poderes.apuntar('bendecir');
     const orco = s.battle.stacks.find((x) => x.side === 'defender')?.id as string;
     expect(s.rechazoDeLoApuntado(orco)).toBe('«Bendecir» va dirigido a un aliado.');
     // Sin Bendecir en sus habilidades, el poder apuntado ya no vale: se suelta y se dice.

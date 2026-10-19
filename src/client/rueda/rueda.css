@@ -114,6 +114,8 @@
 .rueda button.icono-de-contrincante:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 .rueda .icono-de-contrincante .figura { display: block; width: 40px; height: 48px; }
 .rueda .nombre-del-contrincante { overflow: hidden; text-overflow: ellipsis; }
+/* En la partida, «(tú)» o «(rival)» detrás del nombre: más apagado, sin cortarse. */
+.rueda .de-quien { flex: none; opacity: 0.75; font-size: 0.9em; }
 /* A un lado de su figura, hacia fuera (quien pega a la izquierda, quien recibe a
    la derecha) y bajando: debajo de la cabecera está la rueda, y tapaba sus
    sectores de arriba mientras se elegía. Si a ese lado no cabe, al otro, y si

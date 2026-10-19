@@ -93,6 +93,7 @@ import { MARCA_DE_COMANDANTE, RESOURCE_COLORS, RESOURCE_NAMES } from '../render/
 import type { Session, SpellOption } from '../session.js';
 import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
+import { botonesDePoder } from './poderes.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
 export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
@@ -779,9 +780,10 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
           hechizos: renderSpells(session.hechizos.selectedSpell, session.spellOptions()),
-          // Las batallas del mapa no tienen muralla, y su tropa no tiene poderes.
+          // Las batallas del mapa no tienen muralla (decisión 4 de la tarea del
+          // combate en el juego). Los poderes, los de la arena (F6).
           muralla: NADA,
-          poderes: NADA,
+          poderes: botonesDePoder(session, s),
         }),
       )
     : html`<p>Turno del enemigo…</p>`;

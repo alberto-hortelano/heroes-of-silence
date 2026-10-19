@@ -395,6 +395,111 @@ function motivoDeLaActiva(
   return motivo === null ? null : comoFrase(motivo);
 }
 
+/** Lo apuntado: el hechizo elegido del libro o, si no, el poder que espera aliado. */
+function loApuntado(
+  hechizos: { readonly selectedSpell: string | null },
+  poderes: PoderesDeLaActiva,
+): Apuntado | null {
+  const hechizo = hechizos.selectedSpell;
+  if (hechizo !== null) return { kind: 'hechizo', id: hechizo };
+  const id = poderes.apuntado;
+  return id === null ? null : { kind: 'poder', id };
+}
+
+/** Por qué lo apuntado no vale sobre `targetId`: la frase del libro o la del poder. */
+function rechazoDeLoApuntado(
+  hechizos: LibroDeBatalla,
+  poderes: PoderesDeLaActiva,
+  targetId: string,
+): string {
+  const a = loApuntado(hechizos, poderes);
+  if (a === null) return '';
+  return a.kind === 'hechizo' ? hechizos.castRejection(targetId) : poderes.rechazo(a.id, targetId);
+}
+
+/** Lo que pide `PoderesDeLaActiva` de su sesión: la de la partida y la de la arena. */
+interface DueñoDeLosPoderes {
+  readonly turnoPropio: TurnoPropio | null;
+  readonly hechizos: { selectedSpell: string | null };
+  status: string;
+  battleLegalActions(): readonly BattleAction[];
+  playBattleAction(action: BattleAction): void;
+}
+
+/**
+ * Los poderes de la unidad activa (Curar, Bendecir) tal como los usa la persona:
+ * el que espera el clic en un aliado (lo apunta su botón cuando hay más de uno) y
+ * qué hace el botón. Común a la partida y la arena (F6 de la tarea del combate en
+ * el juego, 19-10-2026: la partida no los usaba). Con el hechizo elegido del libro,
+ * es lo apuntado (`ControlDeBatalla.apuntado`): elegir uno suelta el otro. Las
+ * frases son del núcleo (`poderBlocker`).
+ */
+export class PoderesDeLaActiva {
+  private id: PoderId | null = null;
+
+  /**
+   * `alCambiar`, lo que hace la sesión cuando cambia lo apuntado: la de la partida
+   * sube su versión (`tocar`); la de la arena la deriva de aquí y no lo necesita.
+   */
+  constructor(
+    private readonly dueño: DueñoDeLosPoderes,
+    private readonly alCambiar: () => void = () => {},
+  ) {}
+
+  /** El poder que espera aliado, o `null`. */
+  get apuntado(): PoderId | null {
+    return this.id;
+  }
+
+  /** Deja el poder `id` esperando aliado (o lo suelta con `null`), soltando el hechizo. */
+  apuntar(id: PoderId | null): void {
+    if (id !== null) this.dueño.hechizos.selectedSpell = null;
+    if (this.id === id) return;
+    this.id = id;
+    this.alCambiar();
+  }
+
+  /** Por qué la activa no puede usar `id` ahora, o `null` si puede (`poderBlocker`). */
+  motivo(id: PoderId): string | null {
+    return motivoDeLaActiva(this.dueño.turnoPropio, (b) => poderBlocker(b, id));
+  }
+
+  /** Por qué el poder apuntado no vale sobre `targetId`, con la frase del núcleo. */
+  rechazo(id: PoderId, targetId: string): string {
+    return motivoExigido(
+      this.dueño.turnoPropio,
+      (b) => poderBlocker(b, id, targetId),
+      `«${id}» sobre ${targetId}`,
+    );
+  }
+
+  /**
+   * El botón del poder `id`: con un solo aliado posible lo usa ya; sin ninguno, la
+   * barra dice por qué; con varios, lo deja esperando el clic en uno (o lo suelta
+   * si ya esperaba).
+   */
+  usar(id: PoderId): void {
+    const posibles = this.dueño
+      .battleLegalActions()
+      .filter((a) => a.type === 'poder' && a.poder === id);
+    const unica = posibles.length === 1 ? posibles[0] : undefined;
+    if (unica !== undefined) {
+      this.apuntar(null);
+      this.dueño.playBattleAction(unica);
+      return;
+    }
+    if (posibles.length === 0) {
+      this.dueño.status = this.motivo(id) ?? 'No hay ningún aliado sobre el que usarlo.';
+      return;
+    }
+    const espera = this.id !== id;
+    this.apuntar(espera ? id : null);
+    this.dueño.status = espera
+      ? 'Elige el aliado sobre el que usarlo: pulsa en uno de los marcados, o Escape para cancelar.'
+      : '';
+  }
+}
+
 /**
  * Por qué la unidad activa no puede ir a ese hex: «ahí hay muro», «la puerta
  * solo la cruza quien defiende», «no llega: le quedan 2 casillas»… La frase es
@@ -622,7 +727,13 @@ export class Session implements ControlDeBatalla {
    * `main.ts` porque lo lee también el panel; `main.ts` solo guarda estado de
    * píxel. Es el mismo de la arena, y elegir sube la versión.
    */
-  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => this.tocar());
+  /** Elegir un hechizo suelta el poder apuntado: el clic apunta una sola cosa (`apuntado`). */
+  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => {
+    if (this.hechizos.selectedSpell !== null) this.poderes.apuntar(null);
+    this.tocar();
+  });
+  /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`, el de la arena). */
+  readonly poderes = new PoderesDeLaActiva(this, () => this.tocar());
 
   get openTownId(): string | null {
     return this.puebloAbierto;
@@ -667,10 +778,9 @@ export class Session implements ControlDeBatalla {
   muroPorElegir: TipoDeEscala | null = null;
   /** Ni puerta (`ControlDeBatalla`). */
   puertaPorElegir: TipoDePuerta | null = null;
-  /** Lo apuntado, en la partida, solo puede ser un hechizo: la tropa del juego no tiene poderes. */
+  /** Lo apuntado: el hechizo del libro o el poder de la activa (desde F6, también en la partida). */
   get apuntado(): Apuntado | null {
-    const id = this.hechizos.selectedSpell;
-    return id === null ? null : { kind: 'hechizo', id };
+    return loApuntado(this.hechizos, this.poderes);
   }
 
   /**
@@ -1496,7 +1606,7 @@ export class Session implements ControlDeBatalla {
   private calculoDeBatalla(): CalculoDeBatalla {
     const battle = this.battle;
     if (battle === null) return { acciones: [], movibles: [], opciones: [], cargas: SIN_CARGAS };
-    const clave = `${claveConMagia(battle)}|${this.hechizos.selectedSpell}`;
+    const clave = `${claveConMagia(battle)}|${this.hechizos.selectedSpell}|${this.poderes.apuntado}`;
     const c = this.cacheBatalla;
     if (c !== null && c.battle === battle && c.clave === clave) return c.valor;
     const comunes = accionesDeBatalla(battle, this.turnoPropio);
@@ -1565,7 +1675,12 @@ export class Session implements ControlDeBatalla {
   }
 
   rechazoDeLoApuntado(targetId: string): string {
-    return this.hechizos.castRejection(targetId);
+    return rechazoDeLoApuntado(this.hechizos, this.poderes, targetId);
+  }
+
+  /** Por qué la activa no puede usar el poder `p` ahora, o `null` (el botón deshabilitado). */
+  motivoDePoder(p: PoderId): string | null {
+    return this.poderes.motivo(p);
   }
 
   /**
@@ -1659,8 +1774,9 @@ export class Session implements ControlDeBatalla {
     }
     // Una acción aplicada deja el hechizo elegido sin sentido: o se acaba de
     // lanzar —y el héroe ya no puede volver a lanzar esta ronda— o el stack
-    // activo ha cambiado. Se suelta aquí y no en cada llamante.
+    // activo ha cambiado. Se suelta aquí y no en cada llamante. El poder, igual.
     this.hechizos.selectedSpell = null;
+    this.poderes.apuntar(null);
     this.advanceEnemyTurns();
   }
 
@@ -1711,6 +1827,7 @@ export class Session implements ControlDeBatalla {
     defensa?.();
     this.scene = 'adventure';
     this.hechizos.selectedSpell = null;
+    this.poderes.apuntar(null);
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
@@ -1804,8 +1921,10 @@ export class SesionDeArena implements ControlDeBatalla {
   private equipo: CatalogoDeEquipo;
   /** Elegir un hechizo suelta el poder apuntado: el clic apunta una sola cosa (`apuntado`). */
   readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => {
-    if (this.hechizos.selectedSpell !== null) this.poderApuntado = null;
+    if (this.hechizos.selectedSpell !== null) this.poderes.apuntar(null);
   });
+  /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`). */
+  readonly poderes = new PoderesDeLaActiva(this);
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
   readonly dueños = null;
   private readonly rng: Rng;
@@ -1821,7 +1940,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * pueda desacompasar.
    */
   get version(): string {
-    return `${claveDeBatalla(this.battle)}|${this.hechizos.selectedSpell}|${this.poderApuntado}|${this.rueda.pendiente?.fase ?? ''}`;
+    return `${claveDeBatalla(this.battle)}|${this.hechizos.selectedSpell}|${this.poderes.apuntado}|${this.rueda.pendiente?.fase ?? ''}`;
   }
 
   /**
@@ -1840,34 +1959,12 @@ export class SesionDeArena implements ControlDeBatalla {
   muroPorElegir: TipoDeEscala | null = null;
   /** El botón de la puerta esperando el clic en una portada (`ControlDeBatalla`). */
   puertaPorElegir: TipoDePuerta | null = null;
-  /**
-   * El poder de la activa que espera el clic en un aliado (lo pone su botón
-   * cuando hay más de uno). Con el hechizo elegido del libro, es lo apuntado
-   * (`apuntado`): elegir uno suelta el otro (`apuntarPoder` y el libro).
-   */
-  private poderApuntado: PoderId | null = null;
-
   get apuntado(): Apuntado | null {
-    const hechizo = this.hechizos.selectedSpell;
-    if (hechizo !== null) return { kind: 'hechizo', id: hechizo };
-    return this.poderApuntado === null ? null : { kind: 'poder', id: this.poderApuntado };
-  }
-
-  /** Deja el poder `id` esperando aliado (o lo suelta con `null`), soltando el hechizo. */
-  apuntarPoder(id: PoderId | null): void {
-    if (id !== null) this.hechizos.selectedSpell = null;
-    this.poderApuntado = id;
+    return loApuntado(this.hechizos, this.poderes);
   }
 
   rechazoDeLoApuntado(targetId: string): string {
-    const a = this.apuntado;
-    if (a === null) return '';
-    if (a.kind === 'hechizo') return this.hechizos.castRejection(targetId);
-    return motivoExigido(
-      this.turnoPropio,
-      (b) => poderBlocker(b, a.id, targetId),
-      `«${a.id}» sobre ${targetId}`,
-    );
+    return rechazoDeLoApuntado(this.hechizos, this.poderes, targetId);
   }
 
   constructor(
@@ -2043,7 +2140,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * (`poderBlocker`), como frase; `null` si puede. Lo pinta el botón deshabilitado.
    */
   motivoDePoder(p: PoderId): string | null {
-    return motivoDeLaActiva(this.turnoPropio, (b) => poderBlocker(b, p));
+    return this.poderes.motivo(p);
   }
 
   /**
@@ -2088,7 +2185,7 @@ export class SesionDeArena implements ControlDeBatalla {
     const a = this.apuntado;
     if (a === null || this.battleLegalActions().some((x) => esDeLoApuntado(a, x))) return null;
     this.hechizos.selectedSpell = null;
-    this.poderApuntado = null;
+    this.poderes.apuntar(null);
     return a.kind === 'hechizo' ? spell(a.id).name : poder(a.id).nombre;
   }
 
@@ -2155,7 +2252,7 @@ export class SesionDeArena implements ControlDeBatalla {
     // Como en la partida: lanzado el hechizo, o con otra unidad activa, lo
     // apuntado ya no tiene sentido, se pueda aún o no.
     this.hechizos.selectedSpell = null;
-    this.poderApuntado = null;
+    this.poderes.apuntar(null);
     this.avanzarIA();
   }
 

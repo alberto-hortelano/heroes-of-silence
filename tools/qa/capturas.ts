@@ -3111,7 +3111,7 @@ async function poderesEnLaArena(
           'poderes: Bendecir espera un aliado',
           { exacta: true },
         );
-        espejo.apuntarPoder('bendecir');
+        espejo.poderes.apuntar('bendecir');
         const accion: BattleAction = { type: 'poder', poder: 'bendecir', target: paso.sobre.id };
         const prevista = espejo.prevision(accion);
         if (prevista === null) throw new Error('poderes: Bendecir sin previsión en el espejo');

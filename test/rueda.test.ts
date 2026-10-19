@@ -1885,6 +1885,31 @@ describe('la rueda pintada', () => {
     expect(m.match(/Esta vez no devuelves el golpe/g)?.length).toBe(2 * TIPOS_DE_GOLPE.length);
   });
 
+  it('en la partida la rueda dice quién es quién: «Tu golpe», «Tu respuesta», tú y el rival (F6)', () => {
+    // En la arena los dos bandos pueden ser de la persona y se dicen por su lado;
+    // en la partida, quien elige es quien mira (`CaraDeLosContrincantes.propio`).
+    const s = sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: false });
+    hastaLaRueda(s, true);
+    const golpe = s.ruedaPendiente;
+    if (golpe === null) throw new Error('la rueda no pide el golpe');
+    const enLaArena = marcadoDe(renderEleccion(s.battle, golpe, caraDeLaArena(s)));
+    expect(enLaArena).toMatch(/Golpe del bando (?:izquierdo|derecho)/);
+    expect(enLaArena).not.toContain('class="de-quien"');
+    const cara = (propio: 'attacker' | 'defender') => ({ icono: () => null, propio });
+    const tuyo = marcadoDe(renderEleccion(s.battle, golpe, cara(golpe.bando)));
+    expect(tuyo).toContain('<h2 id="titulo-de-la-rueda">Tu golpe</h2>');
+    expect(tuyo).toMatch(
+      new RegExp(
+        `data-contrincante="${golpe.atacante.id}".*?\\(tú\\).*data-contrincante="${golpe.objetivo.id}".*?\\(rival\\)`,
+      ),
+    );
+    s.elegirEnLaRueda('fuerte');
+    const respuesta = s.ruedaPendiente;
+    if (respuesta === null) throw new Error('la rueda no pide la respuesta');
+    const suya = marcadoDe(renderEleccion(s.battle, respuesta, cara(respuesta.bando)));
+    expect(suya).toContain('<h2 id="titulo-de-la-rueda">Tu respuesta</h2>');
+  });
+
   it('el desenlace: los dos elegidos, el rótulo, el medidor y los tramos en orden', () => {
     const { b, rng } = enRueda(piqueros(10), piqueros(10));
     applyAction(b, golpeConLaRueda('romperGuardia', 'defensivo'), rng);

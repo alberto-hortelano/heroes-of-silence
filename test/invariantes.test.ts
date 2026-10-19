@@ -88,14 +88,18 @@ import {
 import type { BattleStack } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
+import { HITS } from '../src/core/contract/golpes.js';
 import { SLOT_DE_HUECO, SLOTS, type Slot } from '../src/core/contract/huecos.js';
-import { CATALOGO_DE_EQUIPO_EN_PROSA } from '../src/core/contract/serialize.js';
+import {
+  CATALOGO_DE_EQUIPO_EN_PROSA,
+  serializeBattleResponse,
+} from '../src/core/contract/serialize.js';
 import { CAMPOS_DE_PIEZA, EQUIPO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { CREATURE_TRAITS, HUECOS } from '../src/core/types.js';
-import { TROPA } from './helpers.js';
+import { batallaConDos, TROPA } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
 // `new URL(...).pathname` devuelve la ruta PERCENT-ENCODED: en un checkout que
@@ -1152,23 +1156,62 @@ describe('invariantes del proyecto', () => {
     expect([...conElNombre, ...enElTexto]).toEqual([]);
   });
 
-  it('el agente no conoce la rueda del golpe: su esquema quita `golpe` y `respuesta`', () => {
-    // La rueda es solo de la arena (13-10-2026): un `attack` del agente con
-    // `golpe` y `respuesta` llega al motor sin ellos, y la batalla del juego, al
-    // azar, lo juega como siempre; su formato de respuesta no los nombra. Roto a
-    // mano: con `golpe: z.string().optional()` en el `attack` de
-    // `battleActionSchema`, rojo.
+  it('el agente elige en la rueda: manda `hit` y `response`, se traducen en un sitio y la petición de respuesta no lleva el golpe del otro', () => {
+    // Invertido en F6 (19-10-2026): hasta F5 el esquema quitaba `golpe` y
+    // `respuesta` y la IA elegía por el agente. Ahora:
+    //  (1) el `attack` del agente lleva su `hit` y llega al director, y la jugada
+    //      `power` también; los dos formatos de batalla nombran lo que se elige;
+    //  (2) los nombres del contrato (`Hit`) los produce solo `contract/golpes.ts`,
+    //      como los huecos (`Slot`): nadie escribe un `as Hit` fuera;
+    //  (3) quien pide la respuesta no puede contar el golpe del atacante: la
+    //      serialización recibe solo los dos ids, y su salida no lleva ni `hit` ni
+    //      `golpe`, aunque la IA ya haya elegido el suyo.
+    // Rotos a mano (19-10-2026): `hit` fuera de `battleActionSchema` → rojo (1);
+    // un `'strong' as Hit` en `serialize.ts` → rojo (2); un tercer parámetro
+    // `golpe` en `serializeBattleResponse` que se copia a la salida → rojo (3).
     const accion = battleActionSchema.parse({
       type: 'attack',
       target: 'defender-0',
+      hit: 'strong',
       golpe: 'fuerte',
       respuesta: 'finta',
     });
-    expect(accion).toEqual({ type: 'attack', target: 'defender-0' });
-    const nombrados = Object.entries(RESPONSE_FORMAT).filter(([, texto]) =>
-      /"(?:golpe|respuesta)"/.test(texto),
-    );
-    expect(nombrados.map(([kind]) => kind)).toEqual([]);
+    expect(accion).toEqual({ type: 'attack', target: 'defender-0', hit: 'strong' });
+    expect(battleActionSchema.parse({ type: 'power', power: 'curar', target: 'a-1' })).toEqual({
+      type: 'power',
+      power: 'curar',
+      target: 'a-1',
+    });
+    expect(RESPONSE_FORMAT.battle_turn).toMatch(/"hit"/);
+    expect(RESPONSE_FORMAT.battle_turn).toMatch(/"power"/);
+    expect(RESPONSE_FORMAT.battle_response).toMatch(/"response"/);
+    for (const h of HITS) {
+      expect(RESPONSE_FORMAT.battle_turn).toContain(`"${h}"`);
+      expect(RESPONSE_FORMAT.battle_response).toContain(`"${h}"`);
+    }
+
+    const TRADUCCION = 'src/core/contract/golpes.ts';
+    const produceUnHit = /\bas\s+Hit\b|<Hit>/;
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== TRADUCCION),
+        produceUnHit,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([TRADUCCION], produceUnHit)).not.toEqual([]);
+
+    // (3): el golpe de la IA ya elegido y plantado ante el objetivo, como lo deja
+    // el director antes de preguntar.
+    const b = batallaConDos(createRng(3));
+    const [atacante, objetivo] = b.stacks as [BattleStack, BattleStack];
+    const ataque = { atacante: atacante.id, objetivo: objetivo.id };
+    expect(serializeBattleResponse.length).toBe(2);
+    const payload = JSON.stringify(serializeBattleResponse(b, ataque));
+    expect(payload).not.toMatch(/"(?:hit|golpe)"\s*:/);
+    expect(JSON.parse(payload).responses.map((r: { response: string }) => r.response)).toEqual([
+      ...HITS,
+    ]);
   });
 
   it('el golpe plantado de la rueda lo escribe el motor y lo suelta solo la sesión', () => {

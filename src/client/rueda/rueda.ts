@@ -212,6 +212,12 @@ export interface CaraDeLosContrincantes {
    * figura: lo que se abriera ahí quedaría debajo de la rueda de la fase siguiente).
    */
   icono(x: BattleStack, nombre: string, paraElegir: boolean): Html | null;
+  /**
+   * El bando de quien mira, en la partida (`Session.miBando`): la rueda dice «Tu
+   * golpe» o «Tu respuesta» y marca a cada uno «tú» o «rival». En la arena, sin él:
+   * los dos bandos pueden ser de la persona, y se dicen por su lado del campo.
+   */
+  readonly propio?: Side | null;
 }
 
 /** Uno de los dos: su icono (`cara`), la chapa de su bando y su nombre en el campo. */
@@ -223,7 +229,12 @@ function contrincante(
 ): Html {
   const nombre = nombreEnElCampo(battle, x);
   const icono = cara?.icono(x, nombre, paraElegir) ?? null;
-  return html`<span class="contrincante" data-contrincante="${x.id}">${icono ?? NADA}<span class="quien">${chapa(x.side)}<span class="nombre-del-contrincante">${nombre}</span></span></span>`;
+  const propio = cara?.propio ?? null;
+  const deQuien =
+    propio === null
+      ? NADA
+      : html` <span class="de-quien">(${x.side === propio ? 'tú' : 'rival'})</span>`;
+  return html`<span class="contrincante" data-contrincante="${x.id}">${icono ?? NADA}<span class="quien">${chapa(x.side)}<span class="nombre-del-contrincante">${nombre}</span>${deQuien}</span></span>`;
 }
 
 const LADO: Readonly<Record<Side, string>> = { attacker: 'izquierdo', defender: 'derecho' };
@@ -299,9 +310,13 @@ export function renderEleccion(
   cara: CaraDeLosContrincantes | null,
 ): Html {
   const golpe = p.fase === 'golpe';
-  const titulo = golpe
-    ? html`Golpe del bando ${LADO[p.bando]}`
-    : html`Respuesta del bando ${LADO[p.bando]}`;
+  // En la partida, quien elige es quien mira: «Tu golpe»; en la arena, por su lado.
+  const titulo =
+    cara?.propio === p.bando
+      ? html`${golpe ? 'Tu golpe' : 'Tu respuesta'}`
+      : golpe
+        ? html`Golpe del bando ${LADO[p.bando]}`
+        : html`Respuesta del bando ${LADO[p.bando]}`;
   const guia = golpe
     ? 'Elige cómo golpear. El rival elige a la vez, sin ver el tuyo: cuanto más lejos en la rueda, más daño.'
     : p.prevision.sinContraataque === null

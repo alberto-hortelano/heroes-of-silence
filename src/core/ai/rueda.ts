@@ -41,8 +41,8 @@ export type CruceCompletado =
  *
  * El único sitio donde la IA completa un cruce: lo leen `autoResolve`, las dos
  * sesiones (`CruceDeLaRueda`, donde la persona elige lo suyo) y el director del
- * agente. **Parche temporal (F4 de la tarea del combate en el juego, 19-10-2026)**:
- * el agente aún no elige (F6), así que el director le deja todo a la IA a ciegas.
+ * agente (`Director.conLaRueda`: el golpe que el agente no manda lo elige la IA,
+ * y su respuesta se le pide a él).
  */
 export function completarCruce(
   state: BattleState,

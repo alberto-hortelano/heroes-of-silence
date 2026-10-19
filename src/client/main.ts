@@ -99,7 +99,8 @@ const castillo = new EscenaBase(sesion);
 const rueda = new DialogoDeLaRueda(elRueda, {
   sesion: () => (session.scene === 'battle' ? session : null),
   escena: batalla,
-  cara: () => null,
+  // Sin figura ni vista previa (eso es de la arena, #261): quién es quién, sí.
+  cara: () => ({ icono: () => null, propio: session.miBando }),
   pedirFotograma,
 });
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
@@ -544,6 +545,14 @@ document.addEventListener('click', (ev) => {
     case 'battle-spell':
       session.hechizos.selectSpell(target.getAttribute('data-spell') as string);
       break;
+    case 'battle-poder': {
+      // Curar o Bendecir de la unidad activa (`PoderesDeLaActiva`, el de la arena):
+      // con un aliado posible, ya; con varios, el clic en el tablero elige.
+      const id = target.getAttribute('data-poder');
+      if (id === null) throw new Error('el botón del poder no dice cuál es');
+      session.poderes.usar(id);
+      break;
+    }
     case 'auto-battle':
       session.autoResolveBattle();
       break;
@@ -583,8 +592,14 @@ document.addEventListener('keydown', (ev) => {
       castillo.salir();
     }
   }
-  if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso())
+  // Escape suelta el hechizo elegido o el poder que espera aliado.
+  if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
     session.hechizos.clearSpell();
+    if (session.poderes.apuntado !== null) {
+      session.poderes.apuntar(null);
+      session.status = '';
+    }
+  }
   // En batalla, Espacio cierra el turno de la unidad tuya que está actuando: con
   // el movimiento en tramos es lo que más se pulsa. Pasa por la misma puerta que
   // el lienzo y los botones, y sin turno propio no hace nada.

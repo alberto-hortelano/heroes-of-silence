@@ -18,6 +18,7 @@
 import { z } from 'zod';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
+import { esDeCura, PODERES } from '../battle/poderes.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
@@ -32,8 +33,18 @@ import {
 } from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
-import { FACTION_IDS, HUECOS } from '../types.js';
+import { FACTION_IDS, HUECOS, TIPOS_DEL_ANILLO } from '../types.js';
+import { HIT_DE_GOLPE, HITS } from './golpes.js';
 import { SLOT_DE_HUECO, SLOTS } from './huecos.js';
+
+/** Los poderes de unidad, por su id y con el hechizo cuyo efecto aplican. */
+const PODERES_EN_PROSA = PODERES.map(
+  (p) =>
+    `"${p.id}" (${p.nombre}: ${esDeCura(p) ? `cura ${p.lanzador.cantidad} PV a un aliado herido` : `el efecto del hechizo "${p.hechizo.id}" en un aliado durante ${p.lanzador.rondas} rondas`})`,
+).join(', ');
+
+/** El anillo de la rueda en el contrato: «"offensive", "strong"…», en su orden. */
+const ANILLO_EN_PROSA = TIPOS_DEL_ANILLO.map((t) => `"${HIT_DE_GOLPE[t]}"`).join(', ');
 
 /** Los huecos que el héroe trae puestos al nacer y los que trae vacíos, derivados del equipo base. */
 const HUECOS_DE_SERIE = HUECOS.flatMap((h) => {
@@ -93,16 +104,37 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
 
 export const battleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('move'), to: hexSchema }),
-  z.object({ type: z.literal('attack'), target: z.string(), from: hexSchema.optional() }),
+  // `hit`, el golpe de la rueda, va como texto y no como `z.enum`: uno mal
+  // escrito descarta ESTA jugada con su motivo (`golpeDelHit`, en el director),
+  // no la batalla entera. Sin él, lo elige la IA a ciegas por ti.
+  z.object({
+    type: z.literal('attack'),
+    target: z.string(),
+    from: hexSchema.optional(),
+    hit: z.string().max(32).optional(),
+  }),
   z.object({ type: z.literal('shoot'), target: z.string() }),
   z.object({ type: z.literal('wait') }),
   z.object({ type: z.literal('defend') }),
   z.object({ type: z.literal('cast'), spell: z.string(), target: z.string().optional() }),
+  // El poder de la unidad activa (`UnitInfo.poderes`) sobre un aliado: el turno entero.
+  z.object({ type: z.literal('power'), power: z.string(), target: z.string() }),
   // `gold` es opcional: viene puesto en `legalActions` y devolverla tal cual
   // vale; si se manda, tiene que ser el precio de ahora (`applyAction`).
   z.object({ type: z.literal('surrender'), gold: z.number().int().nonnegative().optional() }),
   z.object({ type: z.literal('end_turn') }),
 ]);
+
+/**
+ * La respuesta de la rueda cuando golpean a una unidad del agente
+ * (`battle_response`). Texto y no `z.enum`, por lo mismo que `hit`: una que no
+ * es un golpe se dice en el veredicto y la elige la IA a ciegas por él, sin
+ * quitarle la batalla.
+ */
+export const battleResponseResponseSchema = z.object({
+  response: z.string().max(32),
+  reasoning: z.string().max(2000).optional(),
+});
 
 export const adventureTurnResponseSchema = z.object({
   /** Acciones en orden. No hace falta terminar con `end_turn`: se añade solo. */
@@ -268,6 +300,7 @@ export const townVoicesResponseSchema = z.object({
 export const REQUEST_KINDS = [
   'adventure_turn',
   'battle_turn',
+  'battle_response',
   'map_generate',
   'hero_from_troop',
   'town_voices',
@@ -278,6 +311,7 @@ export type RequestKind = (typeof REQUEST_KINDS)[number];
 export const responseSchemas = {
   adventure_turn: adventureTurnResponseSchema,
   battle_turn: battleTurnResponseSchema,
+  battle_response: battleResponseResponseSchema,
   map_generate: mapGenerateResponseSchema,
   hero_from_troop: heroFromTroopResponseSchema,
   town_voices: townVoicesResponseSchema,
@@ -491,11 +525,12 @@ que no existe se descarta.
 
 Acciones válidas para la unidad activa:
   { "type": "move",   "to": { "col": N, "row": N } }
-  { "type": "attack", "target": "<id de stack>", "from": { "col": N, "row": N } }
+  { "type": "attack", "target": "<id de stack>", "from": { "col": N, "row": N }, "hit": "<golpe>" }
   { "type": "shoot",  "target": "<id de stack>" }
   { "type": "wait" }
   { "type": "defend" }
   { "type": "cast",   "spell": "<id>", "target": "<id de stack>" }
+  { "type": "power",  "power": "<id de poder>", "target": "<id de stack aliado>" }
   { "type": "surrender", "gold": N }
   { "type": "end_turn" }
 
@@ -546,13 +581,25 @@ Notas:
   puedan golpear cuerpo a cuerpo cuesta 1 + N de "stepsLeft". Las casillas de
   "legalActions" ya lo descuentan; si no te llega para salir, no te mueves
   (golpea, defiende o espera). La carga se paga por la recta.
-- Cada golpe cuerpo a cuerpo pasa por la RUEDA DEL GOLPE: quien pega y quien
-  recibe eligen a ciegas un tipo (normal, ofensivo, fuerte, finta, defensivo,
-  rápido, romper guardia), y el cruce fija el daño dentro de la horquilla del
-  arma y el del contraataque. Hoy no eliges: los dos tipos los elige la IA a
-  ciegas por ti y por el rival, y el registro lo cuenta con el hecho "cruce".
-  Tras golpear con Finta, el turno de esa unidad sigue solo para andar (o
-  "end_turn"). El disparo no pasa por la rueda: sigue con su tirada.
+- Cada golpe cuerpo a cuerpo pasa por la RUEDA DEL GOLPE: quien pega elige su
+  golpe ("hit" en el "attack") y quien recibe su respuesta, a la vez y sin ver
+  el otro. Valen ${HITS.map((h) => `"${h}"`).join(', ')}. En el anillo, en el
+  sentido del reloj desde arriba: ${ANILLO_EN_PROSA}; "normal" va en el centro.
+  El cruce fija el daño dentro de la horquilla del arma: con "normal" en
+  cualquiera de los dos, el medio; si no, cuanto más lejos en el anillo, más
+  daño (los dos iguales, el mínimo; opuestos, el máximo). La respuesta es
+  además el tipo del contraataque, que cae en el punto contrario: quien acierta
+  la respuesta recibe el mínimo y devuelve el máximo. Lo que hace cada tipo con
+  el arma de tu unidad activa viene en "hits", cuando puede golpear. Sin "hit",
+  tu golpe lo elige la IA a ciegas por ti; uno que no es de la lista descarta
+  el "attack" como cualquier acción ilegal. Cuando el rival golpea a una unidad
+  tuya, se te pide la respuesta con "battle_response". El registro cuenta cada
+  cruce con el hecho "cruce" ("hit" de quien pegó, "response" de quien
+  respondió). Tras golpear con "feint", el turno de esa unidad sigue solo para
+  andar (o "end_turn"). El disparo no pasa por la rueda: sigue con su tirada.
+- "power" usa un PODER de la unidad activa ("stacks[].powers": ${PODERES_EN_PROSA})
+  sobre un aliado, incluida ella misma. Gasta su turno entero y solo sin haberse movido; los que
+  puede usar ahora vienen en "legalActions".
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
   disparar o atacar. Se te volverá a pedir acción para el mismo stack.
@@ -568,6 +615,32 @@ Notas:
   si lo que jugó fue un hechizo. Se te dice cuál de las dos en el veredicto.
 - De cada acción se te informa, también cuando entra: no tienes que deducir de
   un silencio si coló.`,
+
+  battle_response: `Responde con:
+{
+  "response": "<golpe>",
+  "reasoning": "una línea opcional"
+}
+
+El rival golpea cuerpo a cuerpo a una unidad tuya ("target", de "attacker") y
+eliges tu RESPUESTA en la rueda del golpe, a la vez que él elige su golpe: NO
+lo ves, ni aquí ni en el registro hasta que se cruzan. Valen
+${HITS.map((h) => `"${h}"`).join(', ')}.
+
+- El cruce fija el daño que recibes dentro de la horquilla de su arma: con
+  "normal" en cualquiera de los dos, el medio; si no, cuanto más lejos esté tu
+  respuesta de su golpe en el anillo (${ANILLO_EN_PROSA}, en el sentido del
+  reloj desde arriba), más daño; la misma, el mínimo.
+- Tu respuesta es también el tipo de tu contraataque, que cae en el punto
+  contrario: si aciertas, recibes el mínimo y devuelves el máximo.
+- "responses" trae, por cada tipo ("response"), el daño de cada golpe de tu
+  contraataque ("counterDamage", de "min" a "max", y "strikes", cuántos golpes)
+  y lo que hace ("effect"). Si
+  tu unidad no devolverá el golpe, "noCounterattack" dice por qué y tu
+  respuesta solo cuenta para el cruce.
+- Una respuesta que no es de la lista, o ninguna a tiempo, no te quita la
+  batalla: esa respuesta la elige la IA a ciegas por ti, se te dice en el
+  veredicto y sigues jugando.`,
 
   map_generate: `Responde con:
 {

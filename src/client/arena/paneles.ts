@@ -50,7 +50,7 @@ import {
   type MurallaDeBatalla,
   type PiezaDeMuralla,
 } from '@core/battle/muralla.js';
-import { esDeCura, type Poder, poder, poderDeHabilidad } from '@core/battle/poderes.js';
+import { type Poder, poder, poderDeHabilidad } from '@core/battle/poderes.js';
 import {
   filasDeLaRueda,
   NIVEL_MAXIMO,
@@ -59,14 +59,8 @@ import {
   ruedaDelArmaEnPalabras,
   type TipoDelAnillo,
 } from '@core/battle/rueda.js';
-import { allSpells, delHeroe, efectoDe } from '@core/battle/spells.js';
-import type {
-  BattleAction,
-  BattleStack,
-  BattleState,
-  TipoDeEscala,
-  TipoDePuerta,
-} from '@core/battle/types.js';
+import { allSpells } from '@core/battle/spells.js';
+import type { BattleStack, BattleState, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
   type ExtrasDePieza,
@@ -135,7 +129,7 @@ import {
   renderBattleLog,
   renderSpells,
 } from '../views/panels.js';
-import { curaOEfecto, textoDePrevision } from '../views/prevision.js';
+import { botonDeElegir, botonesDePoder, queHaceElPoder } from '../views/poderes.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
@@ -498,32 +492,6 @@ function botonesDeEscala(s: VistaDeArena): Html {
 }
 
 /**
- * El botón de algo que, con más de una jugada posible, se elige con un clic en el
- * tablero —escala, puerta, poder—: habilitado si se puede, y marcado mientras
- * espera ese clic (`esperando`); si no, deshabilitado con el motivo del núcleo en
- * el `title`. `ayuda`, el `title` cuando se puede. `dato`, el atributo que dice
- * cuál (`data-escala="subir"`), que lee `main.ts`.
- */
-function botonDeElegir(o: {
-  readonly accion: string;
-  readonly dato: Html;
-  readonly clase: string;
-  readonly rotulo: string;
-  readonly motivo: string | null;
-  readonly esperando: boolean;
-  readonly ayuda?: string;
-}): Html {
-  const clase = o.motivo === null && o.esperando ? `${o.clase} primary` : o.clase;
-  const estado =
-    o.motivo !== null
-      ? html`disabled title="${o.motivo}"`
-      : o.ayuda === undefined
-        ? NADA
-        : html`title="${o.ayuda}"`;
-  return html`<button data-action="${o.accion}" ${o.dato} class="${clase}" ${estado}>${o.rotulo}</button>`;
-}
-
-/**
  * «Abrir puerta» y «Cerrar puerta» para la unidad activa —tuya— de quien
  * defiende: habilitados si hay alguna puerta que abrir (o cerrar) ahora, y si
  * no, con el motivo del núcleo en el `title` (tras moverse: «la puerta se abre o
@@ -594,21 +562,6 @@ export function enElMontaje(piezas: EquipoAtado): ComoDeLaFicha {
  */
 export const CAMBIO_EN_COMBATE =
   'En plena pelea: el cambio vale ya para todas las de este tipo en el campo, de los dos bandos, y para la pelea siguiente. Lo gastado sigue gastado: la herida y el maná que ya se fueron se restan de las cifras nuevas (subir la vida no cura). La velocidad nueva cuenta en el orden desde la ronda siguiente y la moral no cambia. La figura del héroe solo se cambia en el montaje.';
-
-/**
- * Lo que hace un poder, en una frase para la ficha y el botón. Que no se suma al
- * hechizo del héroe se dice porque los dos dejan un efecto del mismo origen, que
- * refresca y no se apila (`applyEffect`): se compara, no se da por hecho.
- */
-export function queHaceElPoder(p: Poder): string {
-  const s = p.hechizo;
-  const e = efectoDe(s, p.lanzador);
-  const hace = curaOEfecto(esDeCura(p) ? p.lanzador.cantidad : null, e) ?? '';
-  if (esDeCura(p)) return `${hace} a un aliado herido, incluida la propia unidad`;
-  const elDelHeroe = efectoDe(s, delHeroe(s, { spellPower: 1 }));
-  const unoSolo = e !== null && elDelHeroe !== null && elDelHeroe.source === e.source;
-  return `${hace} a un aliado${unoSolo ? `; es la ${s.name} del héroe: las dos no se suman` : ''}`;
-}
 
 /**
  * El título de una ficha: el nombre de lo que enseña y, debajo, qué es. Si el
@@ -1796,53 +1749,6 @@ export function rotuloDelTurno(s: VistaDeArena, contandoAun: boolean): string {
   if (s.battle.finished !== null) return 'Terminada';
   if (s.ruedaPendiente?.fase === 'respuesta') return 'Te toca responder';
   return s.turnoPropio === null ? 'Mueve la IA' : 'Te toca';
-}
-
-/**
- * Un botón por poder de la unidad activa —tuya—: habilitado si hay algún aliado
- * sobre el que usarlo, y si no con el motivo del núcleo en el `title`. Con un
- * solo aliado posible se usa ya; con varios, el clic en el tablero elige (el
- * botón queda marcado mientras espera).
- */
-function botonesDePoder(s: VistaDeArena, activa: BattleStack): Html {
-  const apuntado = s.apuntado;
-  const legales = s.battleLegalActions();
-  return unir(
-    (activa.unit.poderes ?? []).map((id) => {
-      const p = poder(id);
-      // Se puede si la lista legal lo trae; el motivo, al núcleo solo si no.
-      const suyas = legales.filter((a) => a.type === 'poder' && a.poder === id);
-      return html`
-         ${botonDeElegir({
-           accion: 'battle-poder',
-           dato: html`data-poder="${id}"`,
-           clase: 'poder',
-           rotulo: p.nombre,
-           motivo: suyas.length > 0 ? null : s.motivoDePoder(id),
-           esperando: apuntado?.kind === 'poder' && apuntado.id === id,
-           ayuda: suyas.length === 1 ? previsionDelUnico(s, suyas[0]) : queHaceElPoder(p),
-         })}`;
-    }),
-  );
-}
-
-/**
- * Con un solo aliado posible el clic en el botón ya juega, sin pasar por el
- * tablero ni por su previsión: la ayuda del botón es esa previsión, con a quién y
- * cuánto de verdad («Curar a Guerrero con escudo: cura 2 PV.», con el tope de la
- * herida; M1 de QA: decía «cura 4 PV» aunque la herida fuera menor). Lanza si la
- * sesión no la da: el botón solo sale en un turno propio, y una jugada de la
- * lista legal siempre tiene previsión.
- */
-function previsionDelUnico(s: VistaDeArena, accion: BattleAction | undefined): string {
-  if (accion === undefined) throw new Error('el poder no tiene jugada que prever');
-  const p = s.prevision(accion);
-  if (p === null) throw new Error('la jugada del poder no tiene previsión: no es un turno propio');
-  const b = s.battle;
-  return textoDePrevision(p, (id) => {
-    const x = b.stacks.find((st) => st.id === id);
-    return x === undefined ? id : nombreEnElCampo(b, x);
-  });
 }
 
 /**

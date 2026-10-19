@@ -30,7 +30,9 @@ import { adaptarBatalla, adaptarEscena } from '../src/client/espectador/adaptar.
 import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
 import type { AdventureScene } from '../src/client/render/mapa.js';
-import { createBattle } from '../src/core/battle/battle.js';
+import { completarCruce } from '../src/core/ai/rueda.js';
+import { chooseBattleAction } from '../src/core/ai/tactics.js';
+import { applyAction, createBattle } from '../src/core/battle/battle.js';
 import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { tiposDeHeroe } from '../src/core/data.js';
@@ -370,6 +372,9 @@ describe('el fotograma por acción', () => {
             acciones[0],
         };
       }
+      // La respuesta de la rueda cuando el monstruo le pega (F6): sin ella, cada
+      // golpe esperaría el plazo entero.
+      if (kind === 'battle_response') return { response: 'normal' };
       return undefined;
     });
 
@@ -549,22 +554,15 @@ describe('la batalla en la vista', () => {
 
   /**
    * La batalla sin lo que el cable no manda (`stackAlCable`): lo ganado y la
-   * hoja de servicios vuelven vacíos de `adaptarBatalla`, y las cifras que
-   * viajan (héroe y personaje) llegan sin `equipo`; la ida y vuelta se compara
-   * en todo lo demás. Se quita exactamente eso, y no se relaja la comparación
-   * entera. (Las del catálogo las rehace el espectador con `cifrasDeUnidad`, y
-   * esas sí lo llevan.)
+   * hoja de servicios vuelven vacíos de `adaptarBatalla`; la ida y vuelta se
+   * compara en todo lo demás, también lo puesto (`UnitInfo.equipo`, que viaja
+   * desde F6). Se quita exactamente eso, y no se relaja la comparación entera.
    */
-  const sinCuerpo = (u: UnitInfo): UnitInfo => {
-    const { equipo: _puesto, ...cifras } = u;
-    return cifras;
-  };
   const sinLoQueNoViaja = (b: BattleState): BattleState => ({
     ...b,
     stacks: b.stacks.map(
       (s): BattleStack => ({
         ...s,
-        unit: s.origen.kind === 'catalogo' ? s.unit : sinCuerpo(s.unit),
         ganado: { experiencia: 0, bajas: 0, heroes: [] },
         origen:
           s.origen.kind === 'heroe' || s.origen.veterania === null
@@ -597,12 +595,38 @@ describe('la batalla en la vista', () => {
     }
     for (const c of comandantes) {
       const viaja = ida.battle!.estado.stacks.find((x) => x.id === c.id)!.unit!;
-      // Lo puesto (`UnitInfo.equipo`) no viaja: sus cifras ya van sumadas.
-      expect(c.unit.equipo, c.id).toBeDefined();
-      expect('equipo' in viaja, c.id).toBe(false);
-      expect(viaja).toEqual(sinCuerpo(c.unit));
+      // Lo puesto (`UnitInfo.equipo`) viaja con sus cifras (F6): la Espada del héroe.
+      expect(c.unit.equipo?.arma, c.id).toBeDefined();
+      expect(viaja).toEqual(c.unit);
     }
     expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
+  });
+
+  it('una batalla con cruces de la rueda y golpes parados por la armadura vuelve igual del cable (F6)', () => {
+    // Lo que el espectador cuenta de la rueda —el cruce, el punto, lo que paró la
+    // armadura— viaja en el registro tal cual, y las cifras con que se cuenta (las
+    // armas, la armadura, lo puesto) se rehacen o viajan: la vuelta es la inversa
+    // exacta, sin aplicar ninguna regla. Se juega a ciegas por los dos bandos hasta
+    // tener cruces y golpes parados, con el héroe de cada lado en el tablero.
+    const { state } = conBatalla();
+    const batalla = state.pendingBattle!.battle;
+    const rng = createRng(9);
+    for (let i = 0; i < 400 && batalla.finished === null; i++) {
+      const hechos = batalla.log;
+      const cruces = hechos.filter((e) => e.kind === 'cruce').length;
+      const parados = hechos.filter((e) => e.kind === 'attack' && (e.parado ?? 0) > 0).length;
+      if (cruces >= 3 && parados >= 3) break;
+      applyAction(batalla, completarCruce(batalla, chooseBattleAction(batalla), rng).accion, rng);
+    }
+    expect(batalla.log.filter((e) => e.kind === 'cruce').length).toBeGreaterThanOrEqual(3);
+    expect(
+      batalla.log.filter((e) => e.kind === 'attack' && (e.parado ?? 0) > 0).length,
+    ).toBeGreaterThanOrEqual(3);
+    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    const vuelta = adaptarBatalla(ida.battle!);
+    expect(vuelta).toEqual(sinLoQueNoViaja(batalla));
+    // Lo que lee quien cuenta el cruce: el hecho, con su punto, y el contraataque.
+    expect(vuelta.log).toEqual(batalla.log);
   });
 
   it('un veterano del catálogo viaja SIN `unit` y llega con sus cifras de veterano', () => {

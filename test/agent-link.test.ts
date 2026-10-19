@@ -8,6 +8,7 @@ import { activeStack, applyAction, legalActions } from '../src/core/battle/battl
 import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
+import { HITS } from '../src/core/contract/golpes.js';
 import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -49,8 +50,10 @@ import {
   ponerMonstruo,
   primeraMarchaQueSePara,
   primeraSemillaCon,
+  SANADOR,
   sinGuarnicionDeSalida,
   TIRADOR,
+  TROPA,
   TROPA_BARATA,
 } from './helpers.js';
 
@@ -2429,6 +2432,170 @@ describe('identidad de la partida (#118)', () => {
     expect(a1).toBe(a.partida);
     expect(a2).toBe(a1);
     expect(b1).not.toBe(a1);
+  });
+});
+
+describe('la rueda del golpe por el contrato (F6)', () => {
+  /**
+   * El héroe del agente (jugador 0) con tres templarios de escudo y un monje
+   * (Curar y Bendecir), contra cuatro templarios de mandoble que le pegan cuerpo a
+   * cuerpo: la batalla trae golpes del agente, respuestas que se le piden y
+   * poderes. `responder` contesta lo de batalla; el mapa, ir al monstruo una vez.
+   */
+  async function contraElMonstruo(
+    seed: number,
+    batalla: (kind: string, payload: any) => unknown,
+    plazoMs = 4000,
+  ) {
+    let ido = false;
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind === 'adventure_turn') {
+        if (ido) return { actions: [] };
+        ido = true;
+        const monstruo = payload.knownMap.objects.find(
+          (o: any) => o.kind === 'monster' && !o.defeated,
+        );
+        return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: monstruo.at }] };
+      }
+      return batalla(kind, payload);
+    }, plazoMs);
+    const director = new Director(link, { seed, agentPlayers: [0] });
+    revealEverything(director.state, 0);
+    sinGuarnicionDeSalida(director.state);
+    sinAsaltantes(director.state);
+    sinRecogidas(director.state);
+    ponerMonstruo(director.state, PESADA, 4);
+    const heroe = director.state.heroes[0]!;
+    heroe.army = ejercito({ creature: TROPA, count: 3 }, { creature: SANADOR, count: 1 });
+    heroe.movePoints = 20000;
+    await director.playTurn();
+    await respira();
+    return { director, agent };
+  }
+
+  const numero = (requestId: string): number => Number(requestId.replace('req-', ''));
+
+  it('manda su golpe con `hit`, responde con `battle_response` sin ver el golpe y usa sus poderes', async () => {
+    const { agent } = await contraElMonstruo(601, (kind, payload) => {
+      if (kind === 'battle_turn') {
+        const acciones = payload.legalActions as any[];
+        const elegida =
+          acciones.find((a) => a.type === 'power') ??
+          acciones.find((a) => a.type === 'attack') ??
+          acciones.find((a) => a.type === 'move') ??
+          acciones[0];
+        return { action: elegida.type === 'attack' ? { ...elegida, hit: 'strong' } : elegida };
+      }
+      if (kind === 'battle_response') return { response: 'quick' };
+      return undefined;
+    });
+
+    const nota = (id: string) => agent.results.find((r) => r.requestId === id);
+    const turnos = agent.seen.filter((p) => p.kind === 'battle_turn');
+    // El golpe: entra con su `hit`, y el veredicto lo dice con lo que respondió el otro.
+    const golpes = turnos.filter((p) =>
+      nota(p.requestId)?.note?.includes('Golpeaste con "strong"'),
+    );
+    expect(golpes.length).toBeGreaterThan(0);
+    expect(nota(golpes[0]!.requestId)?.ok).toBe(true);
+    expect(nota(golpes[0]!.requestId)?.note).toMatch(
+      /respondió "[a-z_]+": el golpe cayó en el punto/,
+    );
+    // Lo que hace cada golpe con su arma viene en el turno cuando puede golpear.
+    const conGolpe = turnos.find((p) =>
+      (p.payload.legalActions as any[]).some((a) => a.type === 'attack'),
+    );
+    expect(conGolpe?.payload.hits.map((h: any) => h.hit)).toEqual([...HITS]);
+    // Los poderes: en la lista legal como `power`, y entran.
+    const poderes = turnos.filter((p) =>
+      (p.payload.legalActions as any[]).some((a) => a.type === 'power'),
+    );
+    expect(poderes.length).toBeGreaterThan(0);
+    expect(nota(poderes[0]!.requestId)).toMatchObject({ ok: true });
+    expect(nota(poderes[0]!.requestId)?.note).toMatch(
+      /^attacker-\d+: power (curar|bendecir) sobre attacker-\d+, aplicada\.$/,
+    );
+    const monje = poderes[0]!.payload.stacks.find(
+      (x: any) => x.id === poderes[0]!.payload.activeStack,
+    );
+    expect(monje.powers).toEqual(['curar', 'bendecir']);
+
+    // La respuesta: se pide para una unidad suya, sin el golpe del otro, con los siete tipos.
+    const respuestas = agent.seen.filter((p) => p.kind === 'battle_response');
+    expect(respuestas.length).toBeGreaterThan(0);
+    for (const r of respuestas) {
+      // Fuera del registro, que cuenta los cruces ya dados (públicos), ni rastro del golpe.
+      const { log: _log, ...sinElRegistro } = r.payload;
+      expect(JSON.stringify(sinElRegistro)).not.toMatch(/"(?:hit|golpe)"\s*:/);
+      const suya = r.payload.stacks.find((x: any) => x.id === r.payload.target);
+      expect(suya.side).toBe(r.payload.yourSide);
+      expect(r.payload.responses.map((x: any) => x.response)).toEqual([...HITS]);
+      expect(nota(r.requestId)).toMatchObject({ ok: true });
+      expect(nota(r.requestId)?.note).toMatch(
+        new RegExp(
+          `^${r.payload.target}: respondiste "quick" y ${r.payload.attacker} golpeó con "[a-z_]+"`,
+        ),
+      );
+    }
+  });
+
+  it('un `hit` que no es un golpe descarta ese ataque diciéndolo, y juega la IA', async () => {
+    const { agent } = await contraElMonstruo(602, (kind, payload) => {
+      if (kind === 'battle_turn') {
+        const acciones = payload.legalActions as any[];
+        const golpe = acciones.find((a) => a.type === 'attack');
+        return { action: golpe === undefined ? acciones[0] : { ...golpe, hit: 'mighty' } };
+      }
+      if (kind === 'battle_response') return { response: 'normal' };
+      return undefined;
+    });
+    const malos = agent.results.filter((r) =>
+      r.problems?.some((p) => p.includes('«mighty» no es un golpe de la rueda; valen offensive')),
+    );
+    expect(malos.length).toBeGreaterThan(0);
+    expect(malos[0]).toMatchObject({ ok: false });
+    expect(malos[0]!.note).toContain('juega la IA de reglas en tu lugar');
+  });
+
+  it('una respuesta que no es un golpe, o que no llega, la elige la IA y la batalla sigue siendo suya', async () => {
+    let pedidas = 0;
+    const { agent } = await contraElMonstruo(
+      603,
+      (kind, payload) => {
+        if (kind === 'battle_turn') {
+          const acciones = payload.legalActions as any[];
+          // Ni golpea ni se mueve: espera y se defiende, para que le peguen.
+          return { action: acciones.find((a) => a.type === 'defend') ?? acciones[0] };
+        }
+        if (kind === 'battle_response') {
+          pedidas++;
+          if (pedidas === 1) return { response: 'mega' };
+          if (pedidas === 2) return undefined; // se calla: plazo agotado
+          return { response: 'normal' };
+        }
+        return undefined;
+      },
+      600,
+    );
+    const respuestas = agent.seen.filter((p) => p.kind === 'battle_response');
+    expect(respuestas.length).toBeGreaterThanOrEqual(3);
+    const [mala, callada] = respuestas as [(typeof respuestas)[0], (typeof respuestas)[0]];
+    const nota = (id: string) => agent.results.find((r) => r.requestId === id);
+    expect(nota(mala.requestId)).toMatchObject({ ok: false });
+    expect(nota(mala.requestId)?.problems).toEqual([
+      '«mega» no es un golpe de la rueda; valen offensive, strong, feint, defensive, quick, guard_break, normal',
+    ]);
+    expect(nota(mala.requestId)?.note).toMatch(
+      /la eligió la IA de reglas a ciegas en tu lugar: "[a-z_]+"\. .* La batalla sigue siendo tuya\.$/,
+    );
+    expect(nota(callada.requestId)).toMatchObject({ ok: false });
+    expect(nota(callada.requestId)?.note).toContain('No llegó tu respuesta a "battle_response"');
+    expect(nota(callada.requestId)?.note).toContain('la batalla sigue siendo tuya');
+    // Y la batalla sigue siendo suya: después de las dos, se le sigue pidiendo.
+    const despues = agent.seen.filter(
+      (p) => p.kind === 'battle_turn' && numero(p.requestId) > numero(callada.requestId),
+    );
+    expect(despues.length).toBeGreaterThan(0);
   });
 });
 

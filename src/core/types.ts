@@ -239,8 +239,8 @@ export interface UnitInfo {
   /**
    * Los poderes que usa en su turno (`battle/poderes.ts`): Curar, Bendecir. Los pone
    * solo `unidadDeCombate`, por sus habilidades: desde que el catálogo del juego es
-   * el de la arena (19-10-2026) también los usa la partida. El agente aún no los
-   * juega (su contrato no tiene la jugada `poder`: F6).
+   * el de la arena (19-10-2026) también los usa la partida; el agente, con la
+   * jugada `power` de su contrato (`contract/golpes.ts`).
    */
   readonly poderes?: readonly PoderId[];
 }

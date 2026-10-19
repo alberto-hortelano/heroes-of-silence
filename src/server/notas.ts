@@ -20,8 +20,10 @@
  * pasó. Son papeles distintos, y además `core` no puede importar del servidor.
  */
 import { quedanCasillas } from '@core/battle/board.js';
+import { type HechoDelCruce, NOMBRE_DEL_PUNTO } from '@core/battle/rueda.js';
 import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
+import { HIT_DE_GOLPE } from '@core/contract/golpes.js';
 import type { AccionDelAgente } from '@core/contract/huecos.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
@@ -431,6 +433,7 @@ export function notaAccionAceptada(
   accion: BattleAction,
   pagado: number | null,
   turnoAbierto: TurnoAbierto | null,
+  cruce: HechoDelCruce | null = null,
 ): string {
   if (accion.type === 'surrender') {
     if (pagado === null) {
@@ -451,7 +454,51 @@ export function notaAccionAceptada(
       : `${unidad}: ${describeAccion(accion)}, aplicada. Su turno sigue abierto: ` +
           `${leQuedan(turnoAbierto.pasos)} y se te volverá a pedir acción para ella.`;
   }
+  if (accion.type === 'attack' && cruce !== null) {
+    // El golpe de la rueda: lo que eligió cada uno —el rival ya lo ha enseñado al
+    // cruzarse— y dónde cayó. Si el `hit` no vino, se dice que lo eligió la IA.
+    const quien =
+      accion.golpe === undefined
+        ? `Sin "hit", tu golpe lo eligió la IA a ciegas: "${HIT_DE_GOLPE[cruce.golpe]}"`
+        : `Golpeaste con "${HIT_DE_GOLPE[cruce.golpe]}"`;
+    const sigue =
+      turnoAbierto === null
+        ? ''
+        : ` Tras la finta su turno sigue abierto: ${leQuedan(turnoAbierto.pasos)} para andar (o "end_turn").`;
+    return (
+      `${unidad}: ${describeAccion(accion)}, aplicada. ${quien}; ${cruce.target} respondió ` +
+      `"${HIT_DE_GOLPE[cruce.respuesta]}": el golpe cayó en el punto ${NOMBRE_DEL_PUNTO[cruce.punto]}.${sigue}`
+    );
+  }
   return `${unidad}: ${describeAccion(accion)}, aplicada.`;
+}
+
+/**
+ * Acuse de la respuesta de la rueda que sí entró (`battle_response`): lo que
+ * eligió el rival —ya cruzado, así que ya es público— y dónde cayó el golpe.
+ */
+export function notaRespuestaAceptada(unidad: string, cruce: HechoDelCruce): string {
+  return (
+    `${unidad}: respondiste "${HIT_DE_GOLPE[cruce.respuesta]}" y ${cruce.stack} golpeó con ` +
+    `"${HIT_DE_GOLPE[cruce.golpe]}": su golpe cayó en el punto ${NOMBRE_DEL_PUNTO[cruce.punto]}.`
+  );
+}
+
+/**
+ * Una respuesta de la rueda que no era un golpe: no le quita la batalla, la elige
+ * la IA a ciegas solo para ese golpe, y se dice cuál y cómo salió.
+ */
+export function notaRespuestaSustituida(
+  unidad: string,
+  motivo: string,
+  cruce: HechoDelCruce,
+): string {
+  return (
+    `Tu respuesta para ${unidad} se descartó (${motivo}); la eligió la IA de reglas a ciegas ` +
+    `en tu lugar: "${HIT_DE_GOLPE[cruce.respuesta]}". ${cruce.stack} golpeó con ` +
+    `"${HIT_DE_GOLPE[cruce.golpe]}" y cayó en el punto ${NOMBRE_DEL_PUNTO[cruce.punto]}. ` +
+    'La batalla sigue siendo tuya.'
+  );
 }
 
 /**
@@ -480,6 +527,15 @@ const SIN_VOCES =
   'Los vecinos dicen sus frases de siempre, y no se te vuelve a preguntar por esas bases ' +
   'hasta que empiece semana o se levante algo en un sitio vacío. Tu turno sigue igual.';
 
+/**
+ * Lo que pasa con una respuesta de la rueda que no llega o no sirve: la elige la
+ * IA a ciegas solo para ese golpe, y la batalla sigue siendo del agente (criterio
+ * 4 de la tarea del combate en el juego: un fallo ahí no le quita la batalla).
+ */
+const BATALLA_SIGUE =
+  'Esa respuesta la elige la IA de reglas a ciegas en tu lugar, solo para ese golpe: ' +
+  'la batalla sigue siendo tuya y se te volverá a pedir lo que toque.';
+
 /** Lo que pasa con el mapa cuando el del agente no llega o no sirve. */
 const EL_MAPA_LO_PONE_EL_GENERADOR =
   'el mapa lo pone el generador procedimental y la partida empieza igual';
@@ -506,6 +562,7 @@ const EL_MAPA_LO_PONE_EL_GENERADOR =
 const EN_SU_LUGAR: Readonly<Record<RequestKind, string>> = {
   adventure_turn: `Ese turno lo ${LA_JUEGA_LA_IA}.`,
   battle_turn: `Ese turno lo ${LA_JUEGA_LA_IA}.`,
+  battle_response: BATALLA_SIGUE,
   map_generate: `${mayuscula(EL_MAPA_LO_PONE_EL_GENERADOR)}.`,
   hero_from_troop: SIN_ASCENSO,
   town_voices: SIN_VOCES,
@@ -794,7 +851,8 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
     case 'move':
       return `movimiento a (${accion.to.col},${accion.to.row})`;
     case 'attack':
-      return `ataque a ${accion.target}`;
+      // Con el golpe de la rueda si lo trae (el del agente, ya traducido): como lo escribió.
+      return `ataque a ${accion.target}${'golpe' in accion && accion.golpe !== undefined ? ` con "${HIT_DE_GOLPE[accion.golpe]}"` : ''}`;
     case 'shoot':
       return `disparo a ${accion.target}`;
     case 'wait':
@@ -806,7 +864,8 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
     case 'surrender':
       return 'rendición';
     case 'poder':
-      return `poder ${accion.poder} sobre ${accion.target}`;
+      // Como lo escribe el agente: "power".
+      return `power ${accion.poder} sobre ${accion.target}`;
     case 'move_hero':
       return `move_hero ${accion.hero} → (${accion.to.x},${accion.to.y})`;
     case 'hire_hero':

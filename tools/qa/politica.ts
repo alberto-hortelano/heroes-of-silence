@@ -96,13 +96,27 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       // casilla vecina: desde el turno en tramos (02-10-2026) eso deja el turno
       // abierto y se vuelve a preguntar por la misma unidad, que es lo que el
       // arnés exige ver cruzar el circuito dos veces seguidas.
+      // El poder, si lo hay: es como el arnés cruza `power` por el circuito.
+      // Al golpear, el golpe de la rueda va por turno (`turnId`) de la lista
+      // "hits": así cruzan todos los tipos, no siempre el mismo.
       const acciones = payload.legalActions as any[];
       const elegida =
+        acciones.find((a) => a.type === 'power') ??
         acciones.find((a) => a.type === 'shoot') ??
         acciones.find((a) => a.type === 'attack') ??
         acciones.find((a) => a.type === 'move') ??
         acciones[0];
+      const hits: any[] = payload.hits ?? [];
+      if (elegida?.type === 'attack' && hits.length > 0) {
+        return { action: { ...elegida, hit: hits[Number(payload.turnId) % hits.length].hit } };
+      }
       return { action: elegida };
+    }
+    case 'battle_response': {
+      // Una de la lista, por turno, como el golpe: elegir de la lista nunca falla.
+      const respuestas: any[] = payload.responses ?? [];
+      const n = Number(payload.turnId ?? 0);
+      return { response: respuestas[(n + 3) % respuestas.length]?.response };
     }
     case 'map_generate': {
       // El plan sale del generador procedimental y NO se dibuja a mano: su

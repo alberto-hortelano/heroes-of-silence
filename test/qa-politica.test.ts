@@ -45,7 +45,12 @@ const PAYLOADS: Record<string, unknown> = {
     towns: [{ id: 't1', canBuildNow: [{ id: 'town_hall' }], recruitable: [] }],
     heroes: [{ id: 'h1', at: { x: 2, y: 2 } }],
   },
-  battle_turn: { legalActions: [{ type: 'move' }, { type: 'attack', target: 's2' }] },
+  battle_turn: {
+    turnId: 3,
+    legalActions: [{ type: 'move' }, { type: 'attack', target: 's2' }],
+    hits: [{ hit: 'normal' }, { hit: 'strong' }],
+  },
+  battle_response: { turnId: 4, responses: [{ response: 'normal' }, { response: 'quick' }] },
   map_generate: { want: { width: 24, height: 24, players: 2 } },
   hero_from_troop: {
     veteran: { id: 'veterano-3', creatureName: 'Piquero', battles: 4 },

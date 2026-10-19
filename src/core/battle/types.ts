@@ -500,8 +500,9 @@ export type BattleAction =
    * Mueve (si hace falta) hasta `from` y golpea a `target`. `golpe` y `respuesta`
    * son lo que eligieron en la rueda quien pega y quien recibe, obligatorios para
    * dar el golpe; sin ninguno de los dos, quien pega se planta (`cruceBlocker`,
-   * `golpeEnCurso`). El agente no los conoce: su esquema los quita, y los elige la
-   * IA a ciegas (`completarCruce`) hasta F6.
+   * `golpeEnCurso`). El agente manda el suyo como `hit` y su respuesta con
+   * `battle_response` (`contract/golpes.ts`); lo que nadie elige, la IA a ciegas
+   * (`completarCruce`).
    */
   | { type: 'attack'; target: string; from?: Hex; golpe?: TipoDeGolpe; respuesta?: TipoDeGolpe }
   | { type: 'shoot'; target: string }
@@ -510,9 +511,9 @@ export type BattleAction =
   | { type: 'cast'; spell: string; target?: string }
   /**
    * La unidad activa usa uno de sus poderes (`UnitInfo.poderes`) sobre el aliado
-   * `target`, sin haberse movido: es el turno entero (`poderBlocker`). Solo sale
-   * en la arena: el catálogo no tiene poderes, y por eso no está en el contrato
-   * del agente, como la escalera.
+   * `target`, sin haberse movido: es el turno entero (`poderBlocker`). La tienen
+   * las unidades con una habilidad que da poder (`unidadDeCombate`), en la arena y
+   * en la partida; el agente la escribe `power` (`accionDeBatallaDelAgente`).
    */
   | { type: 'poder'; poder: PoderId; target: string }
   /**

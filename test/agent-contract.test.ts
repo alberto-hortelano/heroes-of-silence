@@ -20,12 +20,20 @@ import {
   RESPONSE_FORMAT,
   responseSchemas,
 } from '../src/core/contract/agent.js';
+import {
+  accionAlAgente,
+  accionDeBatallaDelAgente,
+  golpeDelHit,
+  HIT_DE_GOLPE,
+  HITS,
+} from '../src/core/contract/golpes.js';
 import { accionDelAgente, SLOT_DE_HUECO } from '../src/core/contract/huecos.js';
 import {
   CATALOGO_DE_EQUIPO_EN_PROSA,
   COMO_SE_LEE_EL_MAPA,
   fichaDeCriatura,
   serializeAdventureTurn,
+  serializeBattleResponse,
   serializeBattleTurn,
   serializeKnownMap,
   serializeMapRequest,
@@ -60,8 +68,9 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
-import { FACTION_IDS, SPEED_TO_HEXES } from '../src/core/types.js';
+import { FACTION_IDS, SPEED_TO_HEXES, TIPOS_DE_GOLPE } from '../src/core/types.js';
 import {
+  batallaConDos,
   conCaminos,
   forzarBatalla,
   forzarTurno,
@@ -1682,5 +1691,112 @@ describe('las voces de la base (town_voices)', () => {
     }
     expect(p.towns[0]!.npcs.find((n) => n.id === 'encargado-hall')!.building).toBe('Ayuntamiento');
     expect(p.recentEvents.length).toBeLessThanOrEqual(10);
+  });
+});
+
+describe('la rueda y los poderes en el contrato (F6)', () => {
+  it('los siete tipos tienen su nombre en inglés, y uno que no es se rechaza nombrando los que valen', () => {
+    expect(HITS).toEqual([
+      'offensive',
+      'strong',
+      'feint',
+      'defensive',
+      'quick',
+      'guard_break',
+      'normal',
+    ]);
+    for (const t of TIPOS_DE_GOLPE) expect(golpeDelHit(HIT_DE_GOLPE[t])).toBe(t);
+    // El nombre de dentro tampoco vale: el contrato es uno.
+    expect(() => golpeDelHit('fuerte')).toThrow(
+      '«fuerte» no es un golpe de la rueda; valen offensive, strong, feint, defensive, quick, guard_break, normal',
+    );
+  });
+
+  it('lo que manda el agente se traduce a la jugada del núcleo, y la lista legal al revés', () => {
+    expect(
+      accionDeBatallaDelAgente({
+        type: 'attack',
+        target: 'd-0',
+        from: { col: 3, row: 2 },
+        hit: 'guard_break',
+      }),
+    ).toEqual({ type: 'attack', target: 'd-0', from: { col: 3, row: 2 }, golpe: 'romperGuardia' });
+    // Sin `hit`, sin golpe: lo elige la IA (el director).
+    expect(accionDeBatallaDelAgente({ type: 'attack', target: 'd-0' })).toEqual({
+      type: 'attack',
+      target: 'd-0',
+    });
+    expect(accionDeBatallaDelAgente({ type: 'power', power: 'curar', target: 'a-1' })).toEqual({
+      type: 'poder',
+      poder: 'curar',
+      target: 'a-1',
+    });
+    expect(() =>
+      accionDeBatallaDelAgente({ type: 'attack', target: 'd-0', hit: 'Strong' }),
+    ).toThrow(/«Strong» no es un golpe de la rueda/);
+    expect(accionAlAgente({ type: 'poder', poder: 'bendecir', target: 'a-1' })).toEqual({
+      type: 'power',
+      power: 'bendecir',
+      target: 'a-1',
+    });
+    // Lo que el núcleo elige en la rueda no sale en la lista: es del agente.
+    expect(
+      accionAlAgente({ type: 'attack', target: 'd-0', golpe: 'fuerte', respuesta: 'finta' }),
+    ).toEqual({ type: 'attack', target: 'd-0' });
+    // Y el esquema acepta lo que la lista ofrece.
+    for (const a of [
+      { type: 'power', power: 'curar', target: 'a-1' },
+      { type: 'attack', target: 'd-0', hit: 'quick' },
+    ]) {
+      expect(battleActionSchema.parse(a)).toEqual(a);
+    }
+    expect(responseSchemas.battle_response.parse({ response: 'normal' })).toEqual({
+      response: 'normal',
+    });
+  });
+
+  it('el turno trae lo que hace cada golpe con el arma de la activa, la lista en el contrato y el cruce del registro con sus nombres', () => {
+    const b = batallaConDos(createRng(11));
+    const turno = serializeBattleTurn(b, 'attacker', 'propia', 0) as any;
+    expect(turno.hits.map((h: any) => h.hit)).toEqual([...HITS]);
+    expect(turno.hits.every((h: any) => typeof h.effect === 'string' && h.effect.length > 0)).toBe(
+      true,
+    );
+    expect(turno.legalActions.every((a: any) => a.type !== 'poder' && !('golpe' in a))).toBe(true);
+    applyAction(
+      b,
+      { type: 'attack', target: 'defender-0', golpe: 'fuerte', respuesta: 'rapido' },
+      createRng(1),
+    );
+    const vista = serializeBattleTurn(b, 'defender', 'ajena', null) as any;
+    const cruce = vista.log.find((e: any) => e.kind === 'cruce');
+    expect(cruce).toMatchObject({
+      stack: 'attacker-0',
+      target: 'defender-0',
+      hit: 'strong',
+      response: 'quick',
+    });
+    expect('golpe' in cruce).toBe(false);
+  });
+
+  it('la petición de respuesta: quién pega a quién, el contraataque de cada tipo y sin el golpe del otro', () => {
+    const b = batallaConDos(createRng(12));
+    const p = serializeBattleResponse(b, { atacante: 'attacker-0', objetivo: 'defender-0' }) as any;
+    expect(p).toMatchObject({
+      kind: 'battle_response',
+      yourSide: 'defender',
+      attacker: 'attacker-0',
+      target: 'defender-0',
+    });
+    expect(p.noCounterattack).toBeUndefined();
+    expect(p.responses.map((r: any) => r.response)).toEqual([...HITS]);
+    for (const r of p.responses) {
+      expect(r.counterDamage.min).toBeLessThanOrEqual(r.counterDamage.max);
+      expect(r.strikes).toBeGreaterThanOrEqual(1);
+    }
+    // Normal cae siempre en el medio: una sola cifra.
+    const normal = p.responses.find((r: any) => r.response === 'normal');
+    expect(normal.counterDamage.min).toBe(normal.counterDamage.max);
+    expect(RESPONSE_FORMAT.battle_response).toContain('"response"');
   });
 });

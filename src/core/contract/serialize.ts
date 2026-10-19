@@ -7,18 +7,21 @@
  */
 
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../ai/fuerza.js';
-import { armaduraDe } from '../battle/armas.js';
+import { armaduraDe, ruedaDelGolpe } from '../battle/armas.js';
 import {
   activeStack,
   casillasDeCarga,
   legalActions,
   pasosQueQuedan,
+  previsionDeLaRueda,
+  stackById,
   stackHexes,
   stackSpeed,
 } from '../battle/battle.js';
 import { tableroDelContrato } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
+import { type CifrasDeLaRueda, efectoDeGolpe, type PapelEnLaRueda } from '../battle/rueda.js';
 import {
   type BattleStack,
   type BattleState,
@@ -98,7 +101,15 @@ import {
 } from '../town/town.js';
 import { vecinosDeLaBase, vozDe } from '../town/voces.js';
 import type { Army, Equipo, PlayerId } from '../types.js';
-import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS } from '../types.js';
+import {
+  describirCoste,
+  FACTION_IDS,
+  HUECOS,
+  RESOURCE_KINDS,
+  TIPOS_DE_GOLPE,
+  type TipoDeGolpe,
+} from '../types.js';
+import { accionAlAgente, HIT_DE_GOLPE, type Hit, hechoAlAgente } from './golpes.js';
 import { SLOT_DE_HUECO, type Slot } from './huecos.js';
 
 /**
@@ -743,47 +754,6 @@ export function serializeBattleTurn(
   vista: VistaDeBatalla,
   oro: number | null,
 ) {
-  const stackView = (s: (typeof battle.stacks)[number]) => {
-    const info = s.unit;
-    return {
-      id: s.id,
-      side: s.side,
-      creature: s.body,
-      name: info.name,
-      count: s.count,
-      hp: stackHp(s),
-      hex: s.hex,
-      occupies: stackHexes(s),
-      speed: stackSpeed(s),
-      attack: info.attack,
-      defense: info.defense,
-      damage: info.damage,
-      // Lo que se resta de cada golpe que recibe (`armaduraDe`), 0 sin armadura.
-      armor: armaduraDe(info),
-      shooter: isShooter(info),
-      // Quien no cuenta tiros, 0: es el que no tira (el juego), y el que tira sin
-      // contarlos (la arena) no llega al agente. Así el contrato es el de siempre.
-      shotsLeft: tirosQueQuedan(s) ?? 0,
-      traits: info.traits ?? [],
-      // La suerte va ya con los efectos aplicados: el contrato promete el
-      // valor con el que se va a tirar, no el de la ficha. La moral no tiene
-      // efectos temporales que aplicar, así que es la suya y ya.
-      morale: s.morale,
-      luck: effectiveLuck(s),
-      // Y aparte, cuánto le queda a cada cosa: sin esto el agente ve el número
-      // cambiar de una ronda a otra sin saber por qué ni hasta cuándo.
-      effects: s.effects.map((e) => ({
-        kind: e.kind,
-        amount: e.amount,
-        source: e.source,
-        roundsLeft: e.roundsLeft,
-      })),
-      defending: s.defending,
-      waited: s.waited,
-      ...marcaDelOrigen(s.origen),
-    };
-  };
-
   const hero = battle.heroes[side];
   const propia = vista === 'propia';
   if (propia && oro === null) {
@@ -804,7 +774,7 @@ export function serializeBattleTurn(
     // solo `activeStack` no se distingue.
     turnId: battle.turno?.n ?? null,
     board: tableroDelContrato(),
-    stacks: battle.stacks.filter((s) => s.count > 0).map(stackView),
+    stacks: stacksVistos(battle),
     hero:
       hero === null
         ? null
@@ -838,12 +808,135 @@ export function serializeBattleTurn(
         ? { legalActionsOmitted: 'nobody_active' as const }
         : activo.side !== side
           ? { legalActionsOmitted: 'not_your_turn' as const }
-          : {
-              legalActions: legalActions(battle),
-              stepsLeft: pasosQueQuedan(battle, activo),
-              ...chargeFrom(battle, activo),
-            }),
-    log: battle.log.slice(-30),
+          : delTurnoPropio(battle, activo)),
+    log: registroVisto(battle),
+  };
+}
+
+/**
+ * Lo que solo va cuando el turno es tuyo: la lista legal (en los nombres del
+ * contrato, `accionAlAgente`), lo que le queda de turno, sus cargas y, si puede
+ * golpear cuerpo a cuerpo, lo que hace cada golpe de la rueda con su arma
+ * (`hits`, `efectoDeGolpe` con `ruedaDelGolpe`: lo mismo que lee la persona en
+ * las notas de la rueda).
+ */
+function delTurnoPropio(battle: BattleState, activo: BattleStack) {
+  const legales = legalActions(battle);
+  const golpea = legales.some((a) => a.type === 'attack');
+  return {
+    legalActions: legales.map(accionAlAgente),
+    stepsLeft: pasosQueQuedan(battle, activo),
+    ...chargeFrom(battle, activo),
+    ...(golpea ? { hits: lasDeLaRueda('golpe', ruedaDelGolpe(activo.unit, 'arma')) } : {}),
+  };
+}
+
+/** Lo que hace cada tipo de la rueda con estas cifras, en los nombres del contrato. */
+function lasDeLaRueda(
+  papel: PapelEnLaRueda,
+  rueda: CifrasDeLaRueda,
+  contraataca = true,
+): { hit: Hit; effect: string }[] {
+  return TIPOS_DE_GOLPE.map((t) => ({
+    hit: HIT_DE_GOLPE[t],
+    effect: efectoDeGolpe(t, papel, contraataca, rueda),
+  }));
+}
+
+/** Los stacks vivos como los ve el agente (`stackView`), en el orden de la batalla. */
+function stacksVistos(battle: BattleState) {
+  return battle.stacks.filter((s) => s.count > 0).map(stackView);
+}
+
+/** Los últimos hechos de la batalla, con el cruce en los nombres del contrato (`hechoAlAgente`). */
+function registroVisto(battle: BattleState) {
+  return battle.log.slice(-30).map(hechoAlAgente);
+}
+
+/** Un stack como lo ve el agente: lo público, que se ve pasar en el tablero. */
+function stackView(s: BattleStack) {
+  const info = s.unit;
+  return {
+    id: s.id,
+    side: s.side,
+    creature: s.body,
+    name: info.name,
+    count: s.count,
+    hp: stackHp(s),
+    hex: s.hex,
+    occupies: stackHexes(s),
+    speed: stackSpeed(s),
+    attack: info.attack,
+    defense: info.defense,
+    damage: info.damage,
+    // Lo que se resta de cada golpe que recibe (`armaduraDe`), 0 sin armadura.
+    armor: armaduraDe(info),
+    shooter: isShooter(info),
+    // Quien no cuenta tiros, 0: es el que no tira (el juego), y el que tira sin
+    // contarlos (la arena) no llega al agente. Así el contrato es el de siempre.
+    shotsLeft: tirosQueQuedan(s) ?? 0,
+    traits: info.traits ?? [],
+    // Sus poderes (`power`), solo si tiene alguno: como `chargeFrom`, lo que no hay no viaja.
+    ...((info.poderes?.length ?? 0) > 0 ? { powers: info.poderes } : {}),
+    // La suerte va ya con los efectos aplicados: el contrato promete el
+    // valor con el que se va a tirar, no el de la ficha. La moral no tiene
+    // efectos temporales que aplicar, así que es la suya y ya.
+    morale: s.morale,
+    luck: effectiveLuck(s),
+    // Y aparte, cuánto le queda a cada cosa: sin esto el agente ve el número
+    // cambiar de una ronda a otra sin saber por qué ni hasta cuándo.
+    effects: s.effects.map((e) => ({
+      kind: e.kind,
+      amount: e.amount,
+      source: e.source,
+      roundsLeft: e.roundsLeft,
+    })),
+    defending: s.defending,
+    waited: s.waited,
+    ...marcaDelOrigen(s.origen),
+  };
+}
+
+/**
+ * La petición de la respuesta de la rueda (`battle_response`): `atacante` golpea
+ * cuerpo a cuerpo a `objetivo`, del bando del agente, y ya está plantado ante él
+ * (`golpeEnCurso`): lo que se enseña es lo de después de andar.
+ *
+ * **Sin el golpe del atacante**, y por construcción: esta función recibe los dos
+ * ids y nada más, así que no lo puede filtrar aunque quien la llame ya lo sepa
+ * (la IA elige el suyo antes de preguntar). La previsión se cuenta con un
+ * `attack` sin elecciones (`previsionDeLaRueda` no las lee). Lo vigila
+ * `invariantes.test.ts`.
+ *
+ * `responses` lleva por cada tipo lo que daría su contraataque y lo que hace; si
+ * no devolverá el golpe, `noCounterattack` con el motivo del núcleo y solo el
+ * efecto de cada tipo en el cruce.
+ */
+export function serializeBattleResponse(
+  battle: BattleState,
+  ataque: { readonly atacante: string; readonly objetivo: string },
+) {
+  const objetivo = stackById(battle, ataque.objetivo);
+  const atacante = stackById(battle, ataque.atacante);
+  const p = previsionDeLaRueda(battle, { type: 'attack', target: objetivo.id }, 'respuesta');
+  const contraataca = p.sinContraataque === null;
+  return {
+    kind: 'battle_response',
+    round: battle.round,
+    yourSide: objetivo.side,
+    turnId: battle.turno?.n ?? null,
+    attacker: atacante.id,
+    target: objetivo.id,
+    ...(contraataca ? {} : { noCounterattack: p.sinContraataque }),
+    responses: lasDeLaRueda('respuesta', p.rueda, contraataca).map(({ hit, effect }, i) => {
+      const sector = p.porTipo?.[TIPOS_DE_GOLPE[i] as TipoDeGolpe];
+      return sector === undefined
+        ? { response: hit, effect }
+        : { response: hit, effect, counterDamage: sector.danio, strikes: sector.golpes };
+    }),
+    board: tableroDelContrato(),
+    stacks: stacksVistos(battle),
+    log: registroVisto(battle),
   };
 }
 

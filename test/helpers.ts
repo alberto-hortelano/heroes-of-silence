@@ -28,6 +28,7 @@ import {
   createBattle,
   enemiesOf,
   legalActions,
+  stackById,
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
@@ -586,6 +587,23 @@ export function avanzarHasta(
     aCiegas(state, politica(state), rng);
   }
   return state.finished === null && llego(state);
+}
+
+/**
+ * Una batalla de dos, cara a cara: un `TROPA` (`attacker-0`, en (5,4)) pegado a un
+ * `NO_MUERTO` (`defender-0`, en (6,4)), con el turno del atacante: el golpe de la
+ * rueda se da sin andar. Para la petición de la respuesta y el contrato.
+ */
+export function batallaConDos(rng: Rng): BattleState {
+  const b = createBattle(
+    { army: [{ creature: TROPA, count: 1 }], hero: null },
+    { army: [{ creature: NO_MUERTO, count: 1 }], hero: null },
+    rng,
+  );
+  stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
+  stackById(b, 'defender-0').hex = { col: 6, row: 4 };
+  forzarTurno(b, 'attacker-0');
+  return b;
 }
 
 /**

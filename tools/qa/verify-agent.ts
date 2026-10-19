@@ -101,6 +101,16 @@ const decisionesDeBatalla: {
   accion: string;
   stepsLeft: number;
 }[] = [];
+/**
+ * La rueda del golpe por el contrato (F6 de 2026-10-18): las respuestas pedidas
+ * (`battle_response`), la primera mandada MAL a propósito («mega», que no es un
+ * golpe) para ver que el veredicto la descarta diciéndolo, la elige la IA y la
+ * batalla sigue siendo del agente; y las demás, de la lista, que entran. El golpe
+ * del agente (`hit`) se mira en los veredictos de sus `attack`.
+ */
+const rueda: { pedidas: string[]; mala: string | null } = { pedidas: [], mala: null };
+const RESPUESTA_MALA = 'mega';
+
 /** Qué cambió en la partida por haberlo pedido. `null` = todavía sin comprobar. */
 let cambioAplicado: string | null = null;
 /**
@@ -333,7 +343,8 @@ function detalle(v: Veredicto): string {
 /** El recuento de veredictos, y el rojo si alguna respuesta entera se cayó. */
 function informaVeredictos(): void {
   const entraron = veredictos.filter((v) => v.ok);
-  const descartadas = veredictos.filter((v) => !v.ok);
+  // La respuesta mala de la rueda se manda a propósito y se mira aparte (`exigeLaRueda`).
+  const descartadas = veredictos.filter((v) => !v.ok && v.requestId !== rueda.mala);
   log(
     `${veredictos.length} veredictos, ${entraron.length} entraron, ${descartadas.length} descartadas`,
   );
@@ -562,6 +573,50 @@ function exigeDosTramos(): void {
   );
 }
 
+/**
+ * Que la rueda cruce el contrato en las dos direcciones: el `hit` de un `attack`
+ * del agente entra y su veredicto lo dice; se le piden respuestas
+ * (`battle_response`) y entran; y la mala (`RESPUESTA_MALA`) se descarta con el
+ * motivo del núcleo, la elige la IA y la batalla sigue siendo suya (criterio 4).
+ */
+function exigeLaRueda(): void {
+  const golpe = veredictos.find((v) => v.ok && /Golpeaste con "/.test(v.nota));
+  if (golpe === undefined) {
+    throw new Error(
+      'ningún "attack" del agente ha entrado con su "hit": el golpe no cruza el contrato',
+    );
+  }
+  log(`golpe: «${golpe.nota}»`);
+  if (rueda.mala === null) {
+    throw new Error('no se ha pedido ni una respuesta de la rueda ("battle_response")');
+  }
+  const mala = veredictos.find((v) => v.requestId === rueda.mala);
+  if (
+    mala === undefined ||
+    mala.ok ||
+    !mala.problemas.some((p) => p.includes(`«${RESPUESTA_MALA}» no es un golpe de la rueda`)) ||
+    !/la eligió la IA de reglas a ciegas/.test(mala.nota) ||
+    !/La batalla sigue siendo tuya/.test(mala.nota)
+  ) {
+    throw new Error(
+      `la respuesta «${RESPUESTA_MALA}» no se ha descartado diciéndolo: ${JSON.stringify(mala)}`,
+    );
+  }
+  log(`respuesta mala: «${mala.problemas[0]}» — «${mala.nota}»`);
+  const buenas = rueda.pedidas
+    .filter((id) => id !== rueda.mala)
+    .map((id) => veredictos.find((v) => v.requestId === id));
+  const entradas = buenas.filter((v) => v?.ok === true && /respondiste "/.test(v.nota));
+  if (entradas.length === 0) {
+    throw new Error(
+      `de ${rueda.pedidas.length} respuestas pedidas ninguna ha entrado: ${JSON.stringify(buenas.slice(0, 2))}`,
+    );
+  }
+  log(
+    `respuestas: ${rueda.pedidas.length} pedidas, ${entradas.length} entraron — «${entradas[0]?.nota}»`,
+  );
+}
+
 /** Cierra con el resumen de todo lo que se ha verificado. */
 async function terminarBien(
   turnos: number,
@@ -618,6 +673,7 @@ async function terminarBien(
   log(`equipo: ${comprasVistas.size} compras en la crónica; ${equipo.visto}`);
   exigeElEscudo();
   exigeElAscenso();
+  exigeLaRueda();
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
   // Peticiones por batalla: la cifra que mueve pedirle al agente también la
   // respuesta de la rueda (F6 del plan de 2026-10-18). Una batalla nueva se
@@ -626,8 +682,11 @@ async function terminarBien(
   const nBatallas = decisionesDeBatalla.filter(
     (d, i) => i === 0 || d.turnId < decisionesDeBatalla[i - 1]!.turnId,
   ).length;
+  // Desde F6, también las respuestas de la rueda: cada una es una petición más.
+  const pedidas = batallas + rueda.pedidas.length;
   log(
-    `batallas del agente: ${nBatallas}, ${(batallas / Math.max(1, nBatallas)).toFixed(1)} peticiones de batalla por batalla`,
+    `batallas del agente: ${nBatallas}, ${(pedidas / Math.max(1, nBatallas)).toFixed(1)} peticiones de batalla por batalla ` +
+      `(${(batallas / Math.max(1, nBatallas)).toFixed(1)} turnos y ${(rueda.pedidas.length / Math.max(1, nBatallas)).toFixed(1)} respuestas)`,
   );
   log(
     `${motivo}: ${mapas} ${mapas === 1 ? 'mapa diseñado' : 'mapas diseñados'}, ` +
@@ -939,6 +998,20 @@ async function main(): Promise<void> {
         accion: String((respuesta as { action: { type: string } }).action.type),
         stepsLeft: Number(payload.stepsLeft),
       });
+    } else if (kind === 'battle_response') {
+      // Tampoco es un turno de mapa. La primera, mal a propósito (`exigeLaRueda`).
+      // Y sin el golpe del otro: si viniera, la elección no sería a ciegas.
+      if ('hit' in payload || 'golpe' in payload) {
+        throw new Error(
+          `la petición de respuesta trae el golpe del atacante: ${JSON.stringify(payload).slice(0, 200)}`,
+        );
+      }
+      const id = RE_PETICION.exec(texto)?.[1] ?? '';
+      rueda.pedidas.push(id);
+      if (rueda.mala === null) {
+        rueda.mala = id;
+        respuesta = { response: RESPUESTA_MALA, reasoning: 'qa: una respuesta que no es un golpe' };
+      }
     } else if (kind === 'map_generate') mapas++;
     else if (kind === 'town_voices') {
       // Tampoco es un turno de mapa: va antes del `adventure_turn`, como el ascenso.

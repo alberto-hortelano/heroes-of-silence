@@ -6,7 +6,7 @@
  * culpa del agente.
  */
 
-import { completarCruce } from '@core/ai/rueda.js';
+import { completarCruce, elegirEnLaRueda } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
 import {
@@ -16,10 +16,17 @@ import {
   mismoTurno,
   pasosQueQuedan,
 } from '@core/battle/battle.js';
-import type { BattleAction, BattleState, TurnoDeUnidad } from '@core/battle/types.js';
+import type { HechoDelCruce } from '@core/battle/rueda.js';
+import type { BattleAction, BattleState, Side, TurnoDeUnidad } from '@core/battle/types.js';
+import {
+  type AccionDeBatallaDelAgente,
+  accionDeBatallaDelAgente,
+  golpeDelHit,
+} from '@core/contract/golpes.js';
 import { type AccionDelAgente, accionDelAgente } from '@core/contract/huecos.js';
 import {
   serializeAdventureTurn,
+  serializeBattleResponse,
   serializeBattleTurn,
   serializeHeroFromTroop,
   serializeTownVoices,
@@ -47,7 +54,7 @@ import {
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/town/voces.js';
-import type { PlayerId } from '@core/types.js';
+import type { PlayerId, TipoDeGolpe } from '@core/types.js';
 import type { AgentLink } from './agent-link.js';
 import {
   describeAccion,
@@ -58,6 +65,8 @@ import {
   notaAscenso,
   notaAscensoRechazado,
   notaMarchaParcial,
+  notaRespuestaAceptada,
+  notaRespuestaSustituida,
   notaTurnoAventura,
   notaVoces,
   paradaDeLaMarcha,
@@ -501,11 +510,6 @@ export class Director {
     // De quién es cada bando, para leer su oro: el turno de batalla lo lleva,
     // porque sin él el precio de rendirse no se puede comparar con nada.
     const dueños = battleOwners(this.state, pending);
-    // La rueda del golpe: hasta que el agente elija golpe y respuesta por su
-    // contrato (F6), los dos los elige la IA a ciegas (`completarCruce`), también
-    // la respuesta de las suyas cuando las golpean.
-    const conLaRueda = (a: BattleAction): BattleAction =>
-      completarCruce(battle, a, this.ctx.rng).accion;
     let guard = 0;
 
     while (battle.finished === null && guard < MAX_JUGADAS) {
@@ -514,7 +518,9 @@ export class Director {
       if (s === null) break;
 
       if (!bandos.has(s.side)) {
-        applyAction(battle, conLaRueda(chooseBattleAction(battle)), this.ctx.rng);
+        // La IA del rival: su golpe a ciegas y, si golpea a una unidad del
+        // agente, la respuesta se le pide a él (`conLaRueda`).
+        await this.conLaRueda(battle, chooseBattleAction(battle), bandos);
         this.frame();
         continue;
       }
@@ -537,18 +543,27 @@ export class Director {
         });
       if (respuesta === null) break;
 
-      const accion = respuesta.data.action as BattleAction;
       // El turno de antes, para comparar su ordinal con el de después: si es el
       // mismo, la acción ha dejado el turno abierto.
       const turnoAntes = battle.turno;
+      const desde = battle.log.length;
       try {
-        applyAction(battle, conLaRueda(accion), this.ctx.rng);
+        // Dentro del `try`: un `hit` que no es un golpe de la rueda descarta esta
+        // acción con su motivo (`golpeDelHit`), no la batalla.
+        const accion = accionDeBatallaDelAgente(respuesta.data.action as AccionDeBatallaDelAgente);
+        await this.conLaRueda(battle, accion, bandos);
         this.frame();
         this.link.report(
           respuesta.requestId,
           true,
           undefined,
-          notaAccionAceptada(s.id, accion, precioPagado(battle), turnoAbierto(battle, turnoAntes)),
+          notaAccionAceptada(
+            s.id,
+            accion,
+            precioPagado(battle),
+            turnoAbierto(battle, turnoAntes),
+            cruceDe(battle, desde, accion),
+          ),
         );
       } catch (err) {
         const motivo = err instanceof Error ? err.message : String(err);
@@ -562,7 +577,7 @@ export class Director {
         const sustituta = chooseBattleAction(battle, bandos);
         const heroe = battle.heroes[s.side];
         const manaAntes = heroe?.mana ?? 0;
-        applyAction(battle, conLaRueda(sustituta), this.ctx.rng);
+        await this.conLaRueda(battle, sustituta, bandos);
         this.frame();
         const manaGastado = manaAntes - (heroe?.mana ?? 0);
         // Si la sustituta remató, la promesa del `cast` —«se te volverá a pedir
@@ -592,6 +607,101 @@ export class Director {
     }
   }
 
+  /**
+   * Da `accion` con la rueda del golpe: lo que no elige el agente lo elige la IA
+   * a ciegas (`completarCruce`, el mismo sorteo y en el mismo orden que
+   * `autoResolve`: el golpe y luego la respuesta), y la respuesta de una unidad
+   * del agente se le pide a él (`battle_response`). Lo que no es un golpe se
+   * aplica tal cual.
+   *
+   * Un golpe del agente sin `hit` lo completa la IA por él: el contrato lo dice.
+   * Para pedir la respuesta, quien pega primero anda hasta su objetivo (se
+   * planta, `golpeEnCurso`, como la persona en la partida): la petición enseña lo
+   * de después de andar, el espectador lo ve llegar, y un golpe que no se puede
+   * dar lanza aquí, antes de preguntar nada. Lanza con la frase del núcleo.
+   */
+  private async conLaRueda(
+    battle: BattleState,
+    accion: BattleAction,
+    bandos: ReadonlySet<Side>,
+  ): Promise<void> {
+    const rng = this.ctx.rng;
+    const laLlevaLaIA = (side: Side): boolean => !bandos.has(side);
+    let c = completarCruce(battle, accion, rng, laLlevaLaIA);
+    if (c.falta === 'golpe') {
+      c = completarCruce(
+        battle,
+        { ...c.accion, golpe: elegirEnLaRueda('golpe', rng) },
+        rng,
+        laLlevaLaIA,
+      );
+    }
+    if (c.falta === null) {
+      applyAction(battle, c.accion, rng);
+      return;
+    }
+    const { golpe, respuesta: _respuesta, from, ...plantado } = c.accion;
+    // Solo falta la respuesta: el golpe ya lo eligió quien pega, o la IA por él.
+    if (golpe === undefined) throw new Error('la rueda pide la respuesta de un golpe sin elegir');
+    applyAction(battle, from === undefined ? plantado : { ...plantado, from }, rng);
+    this.frame();
+    const atacante = activeStack(battle);
+    if (atacante === null) throw new Error('la rueda espera un golpe y no le toca a nadie');
+    const pedida = await this.respuestaDelAgente(battle, atacante.id, plantado.target);
+    const desde = battle.log.length;
+    applyAction(battle, { ...plantado, golpe, respuesta: pedida.tipo }, rng);
+    if (pedida.requestId === null) return;
+    const cruce = cruceDe(battle, desde, { type: 'attack', target: plantado.target });
+    if (cruce === null)
+      throw new Error('el golpe de la rueda no ha dejado su cruce en el registro');
+    this.link.report(
+      pedida.requestId,
+      pedida.motivo === null,
+      pedida.motivo === null ? undefined : [pedida.motivo],
+      pedida.motivo === null
+        ? notaRespuestaAceptada(plantado.target, cruce)
+        : notaRespuestaSustituida(plantado.target, pedida.motivo, cruce),
+    );
+  }
+
+  /**
+   * La respuesta de la rueda de una unidad del agente golpeada por `atacante`.
+   * Si la petición falla —plazo, esquema, canal—, el enlace ya se lo ha dicho
+   * (`notaSinRespuesta`, con `EN_SU_LUGAR`) y aquí la elige la IA a ciegas solo
+   * para este golpe: la batalla sigue siendo suya (criterio 4). Si llega una que
+   * no es un golpe, también la IA, y el veredicto (`conLaRueda`) dice el motivo.
+   */
+  private async respuestaDelAgente(
+    battle: BattleState,
+    atacante: string,
+    objetivo: string,
+  ): Promise<{ tipo: TipoDeGolpe; requestId: string | null; motivo: string | null }> {
+    const rng = this.ctx.rng;
+    const respuesta = await this.link
+      .ask('battle_response', serializeBattleResponse(battle, { atacante, objetivo }))
+      .catch((err: unknown) => {
+        this.note(
+          `La respuesta de ${objetivo} no llega (${err instanceof Error ? err.message : String(err)}); la elige la IA a ciegas.`,
+        );
+        return null;
+      });
+    if (respuesta === null) {
+      return { tipo: elegirEnLaRueda('respuesta', rng), requestId: null, motivo: null };
+    }
+    if (respuesta.data.reasoning !== undefined) this.note(`Agente: ${respuesta.data.reasoning}`);
+    try {
+      return {
+        tipo: golpeDelHit(respuesta.data.response),
+        requestId: respuesta.requestId,
+        motivo: null,
+      };
+    } catch (err) {
+      const motivo = err instanceof Error ? err.message : String(err);
+      this.note(`Respuesta de la rueda rechazada: ${motivo}`);
+      return { tipo: elegirEnLaRueda('respuesta', rng), requestId: respuesta.requestId, motivo };
+    }
+  }
+
   /** El oro de quien lleva un bando del agente: siempre es un jugador, nunca un monstruo. */
   private oroDe(dueño: PlayerId | null): number {
     if (dueño === null)
@@ -615,6 +725,19 @@ function turnoAbierto(battle: BattleState, antes: TurnoDeUnidad | null): TurnoAb
   const s = activeStack(battle);
   if (s === null) return null;
   return { pasos: pasosQueQuedan(battle, s) };
+}
+
+/**
+ * El cruce que dejó en el registro, desde `desde`, el golpe `accion` contra su
+ * objetivo, o `null` si no fue un golpe (o no llegó a darse). Se lee del
+ * registro, donde lo escribe el motor una vez: el veredicto cuenta lo que pasó.
+ */
+function cruceDe(battle: BattleState, desde: number, accion: BattleAction): HechoDelCruce | null {
+  if (accion.type !== 'attack') return null;
+  for (const e of battle.log.slice(desde)) {
+    if (e.kind === 'cruce' && e.target === accion.target) return e;
+  }
+  return null;
 }
 
 /**

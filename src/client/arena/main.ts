@@ -60,7 +60,6 @@ import {
   SIN_MURALLA,
   validarMuralla,
 } from '@core/battle/muralla.js';
-import type { PoderId } from '@core/battle/poderes.js';
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import {
@@ -2122,25 +2121,6 @@ function puerta(s: SesionDeArena, tipo: TipoDePuerta): void {
   );
 }
 
-/**
- * El botón de un poder, sobre un aliado (`apuntarPoder`). Elegir un poder suelta
- * el hechizo, y al revés: el clic apunta una sola cosa (`apuntado`).
- */
-function usarPoder(s: SesionDeArena, id: PoderId): void {
-  const apuntado = s.apuntado;
-  unaOElegir(
-    s,
-    s.battleLegalActions().filter((a) => a.type === 'poder' && a.poder === id),
-    {
-      esperando: apuntado?.kind === 'poder' && apuntado.id === id,
-      esperar: (si) => s.apuntarPoder(si ? id : null),
-      motivo: () => s.motivoDePoder(id),
-      ninguna: 'No hay ningún aliado sobre el que usarlo.',
-      pide: 'Elige el aliado sobre el que usarlo: pulsa en uno de los marcados, o Escape para cancelar.',
-    },
-  );
-}
-
 /** Los botones de la batalla, los mismos de la partida (`accionesDeLaUnidad`). */
 const JUGADA_DE_BOTON = {
   'battle-end-turn': 'end_turn',
@@ -2167,7 +2147,7 @@ document.addEventListener('click', (ev) => {
     if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
     const id = (ev.target as Element).closest('[data-poder]')?.getAttribute('data-poder');
     if (id === null || id === undefined) throw new Error('el botón del poder no dice cuál es');
-    usarPoder(sesion, id);
+    sesion.poderes.usar(id);
     pedirFotograma();
     return;
   }
@@ -2853,7 +2833,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape' && sesion !== null && !jugadaEnCurso()) {
     sesion.hechizos.clearSpell();
     if (sesion.apuntado?.kind === 'poder') {
-      sesion.apuntarPoder(null);
+      sesion.poderes.apuntar(null);
       sesion.status = '';
     }
     pedirFotograma();
