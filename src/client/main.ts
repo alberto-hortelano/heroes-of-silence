@@ -13,6 +13,7 @@ import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaBatalla } from './escenas/batalla.js';
 import { EscenaBase } from './escenas/castillo.js';
+import { EscenaTropa } from './escenas/tropa.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
 import { cargarArte } from './render/assets.js';
@@ -198,6 +199,7 @@ const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
+const tropa = new EscenaTropa(sesion);
 /**
  * La rueda del golpe de la partida, la misma de la arena (F5, 19-10-2026). De los
  * dos que se cruzan, su figura, su chapa y su nombre, y quién es «tú»
@@ -305,9 +307,12 @@ function dibujarFotograma(ahora: number): void {
 
   const enCastillo = escena === 'town' && session.activeTown !== null;
   const enBatalla = escena === 'battle' && session.battle !== null;
+  const enTropa = escena === 'tropa';
   // Solo el mapa tiene presupuesto de píxeles: es la única pantalla que pinta
   // miles de sprites a cada fotograma. Depende del zoom: acercando, plena.
-  const rect = principal.preparar(enCastillo || enBatalla ? undefined : aventura.presupuesto);
+  const rect = principal.preparar(
+    enCastillo || enBatalla || enTropa ? undefined : aventura.presupuesto,
+  );
   ctx.clearRect(0, 0, rect.width, rect.height);
   // Lo abierto en la base o si se anda: lo leen la página (`canvas[data-base]`)
   // y los paneles. Una lectura por fotograma, después de dibujar.
@@ -320,6 +325,8 @@ function dibujarFotograma(ahora: number): void {
     batalla.sincronizar(ahora);
     batalla.dibujar(ctx, rect.width, rect.height);
     seguirALaActiva();
+  } else if (enTropa) {
+    tropa.dibujar(ctx, rect.width, rect.height, ahora);
   } else {
     aventura.dibujar(ctx, rect.width, rect.height, ahora);
     desarrollo?.dibujar(ctx);
@@ -332,6 +339,11 @@ function dibujarFotograma(ahora: number): void {
   rueda.animar(ahora);
 
   if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
+  // A quién se mira en la escena de la tropa: por donde esperan `pnpm capturas`.
+  const marcaDeLaTropa = enTropa ? tropa.marca : '';
+  if (marcaDeLaTropa === '') {
+    if (canvas.dataset.tropa !== undefined) delete canvas.dataset.tropa;
+  } else if (canvas.dataset.tropa !== marcaDeLaTropa) canvas.dataset.tropa = marcaDeLaTropa;
 
   // Después de `batalla.sincronizar`: es la cola de ESTE fotograma.
   const contando = enBatalla && batalla.ocupada;
@@ -469,6 +481,8 @@ canvas.addEventListener('pointermove', (ev) => {
     canvas.style.cursor = castillo.mover(p.x, p.y, performance.now()) ? 'pointer' : 'default';
   } else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
+  } else if (session.scene === 'tropa') {
+    canvas.style.cursor = tropa.mover(p.x, p.y) ? 'pointer' : 'default';
   } else {
     aventura.mover(p.x, p.y);
   }
@@ -479,6 +493,7 @@ canvas.addEventListener('pointerup', (ev) => {
   if (ev.button !== 0) return;
   const p = enLienzo(ev);
   if (session.scene === 'town') castillo.pulsar(p.x, p.y, performance.now());
+  else if (session.scene === 'tropa') tropa.pulsar(p.x, p.y);
   else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
     if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
@@ -494,6 +509,7 @@ canvas.addEventListener('pointerleave', () => {
   aventura.salir();
   batalla.salir();
   castillo.salir();
+  tropa.salir();
   pedirFotograma();
 });
 
@@ -528,6 +544,29 @@ function pasarTurno(confirmado = false): void {
   void finDeTurno
     .pasar(session, animando, confirmado, () => aventura.olvidarRuta())
     .then(pedirFotograma);
+}
+
+/**
+ * «Tropa», por el botón o por la T: la escena de la tropa del héroe elegido. Si no
+ * se puede (sin héroe, fuera de tu turno), el motivo va a la barra.
+ */
+function abrirLaTropa(): void {
+  if (session.scene !== 'adventure') return;
+  const motivo = session.tropaBlocker();
+  if (motivo !== null) {
+    session.status = motivo;
+    return;
+  }
+  aventura.salir();
+  session.abrirLaTropa();
+}
+
+/** Vuelve de la tropa al mapa: el héroe elegido y la cámara del mapa no se han movido. */
+function cerrarLaTropa(): void {
+  if (session.scene !== 'tropa') return;
+  tropa.salir();
+  canvas.style.cursor = 'default';
+  session.cerrarLaTropa();
 }
 
 /** «Siguiente héroe», por el botón o por la H: lo elige la sesión y aquí se le mira. */
@@ -591,6 +630,25 @@ document.addEventListener('click', (ev) => {
       castillo.cerrar();
       session.closeTown();
       castillo.salir();
+      break;
+    case 'abrir-tropa':
+      abrirLaTropa();
+      break;
+    case 'cerrar-tropa':
+      cerrarLaTropa();
+      break;
+    case 'tropa-elegir': {
+      const quien = target.getAttribute('data-quien');
+      if (quien === null) throw new Error('el botón de la tropa no dice a quién elige');
+      session.elegirEnLaTropa(quien === 'heroe' ? { heroe: true } : { indice: Number(quien) });
+      break;
+    }
+    case 'tropa-poner':
+      session.ponerALaElegida(target.getAttribute('data-item') as string);
+      break;
+    case 'tropa-quitar':
+      // El hueco lo valida la sesión (`esHueco`), como en `unequip`.
+      session.quitarALaElegida(target.getAttribute('data-slot') as string);
       break;
     case 'ir-a-sitio':
       castillo.irA(target.getAttribute('data-sitio') as string, performance.now());
@@ -712,6 +770,7 @@ document.addEventListener('keydown', (ev) => {
       castillo.salir();
     }
   }
+  if (ev.key === 'Escape' && session.scene === 'tropa') cerrarLaTropa();
   // Escape suelta el hechizo elegido o el poder que espera aliado.
   if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
     session.soltarLoApuntado();
@@ -746,6 +805,9 @@ document.addEventListener('keydown', (ev) => {
   const conModificador = ev.ctrlKey || ev.metaKey || ev.altKey;
   if ((ev.key === 'h' || ev.key === 'H') && !conModificador && session.scene === 'adventure') {
     if (!ev.repeat) siguienteHeroe();
+  }
+  if ((ev.key === 't' || ev.key === 'T') && !conModificador && session.scene === 'adventure') {
+    if (!ev.repeat) abrirLaTropa();
   }
   if ((ev.key === '+' || ev.key === '-') && session.scene === 'adventure') {
     aventura.zoom(ev.key === '+' ? 1 : -1);

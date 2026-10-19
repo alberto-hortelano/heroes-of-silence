@@ -33,6 +33,7 @@ import {
   catalogoDeEquipo,
   cifrasDePieza,
   conEquipo,
+  destinoDeEquipo,
   EQUIPO_BASE,
   EQUIPO_DEL_JUEGO,
   equipoBaseBlocker,
@@ -44,6 +45,7 @@ import {
   PIEZAS_DE_ARMERIA,
   PIEZAS_DE_BOTIN,
   PIEZAS_DEL_CATALOGO,
+  pedidoDeEquipo,
   pieza,
   ponerPieza,
   textoDeModificador,
@@ -774,6 +776,40 @@ describe('equipar y desequipar (C1, C4)', () => {
     accion(state, { type: 'dismiss', hero: hero.id, creature: TROPA_BARATA, count: 1 }, c);
     expect(hero.army).toEqual([]);
     expect(hero.mochila).toEqual(['maza']);
+  });
+});
+
+describe('cómo se nombra a un portador: `pedidoDeEquipo`, la inversa de `destinoDeEquipo` (tropa en escena)', () => {
+  it('cada portador de un ejército mixto vuelve a sí mismo, o al primer novato de su tipo', () => {
+    const { hero } = enLaArmeria();
+    hero.army = [
+      { creature: TROPA_BARATA },
+      { creature: TROPA, veterania: hoja('veterano-1', 30) },
+      { creature: TROPA_BARATA },
+      { creature: CHARACTER_BODY, member: 'aren', veterania: hoja('veterano-2', 0) },
+      { creature: TROPA },
+    ];
+    expect(pedidoDeEquipo(hero, { heroe: true })).toEqual({});
+    expect(destinoDeEquipo(hero, {})).toEqual({ heroe: true });
+    const esperado = [0, 1, 0, 3, 4];
+    for (const [indice, vuelve] of esperado.entries()) {
+      const pedido = pedidoDeEquipo(hero, { indice });
+      if ('motivo' in pedido) throw new Error(pedido.motivo);
+      expect(destinoDeEquipo(hero, pedido), `el puesto ${indice}`).toEqual({ indice: vuelve });
+    }
+    expect(pedidoDeEquipo(hero, { indice: 1 })).toEqual({ veteran: 'veterano-1' });
+    expect(pedidoDeEquipo(hero, { indice: 2 })).toEqual({ creature: TROPA_BARATA });
+  });
+
+  it('un personaje sin hoja no se puede nombrar, y lo dice; un puesto vacío lanza', () => {
+    const { hero } = enLaArmeria();
+    hero.army = [{ creature: CHARACTER_BODY, member: 'aren' }];
+    expect(pedidoDeEquipo(hero, { indice: 0 })).toEqual({
+      motivo: 'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo',
+    });
+    expect(() => pedidoDeEquipo(hero, { indice: 3 })).toThrow(
+      'la tropa no tiene a nadie en el puesto 3',
+    );
   });
 });
 

@@ -735,6 +735,34 @@ export function destinoDeEquipo(
   return { heroe: true };
 }
 
+/** Cómo se nombra a un portador en una acción: lo que escribe `pedidoDeEquipo`, sin campos a `undefined`. */
+export type PedidoDeEquipo =
+  | Record<string, never>
+  | { readonly veteran: string }
+  | { readonly creature: string };
+
+/**
+ * **La inversa de `destinoDeEquipo`**: cómo se nombra en una acción `equip` o
+ * `unequip` al portador `quien` de `hero`, o por qué no se le puede nombrar. El
+ * héroe, sin nada; el de hoja, por su id; el novato, por su tipo —y entonces la
+ * pieza va al **primer** novato de ese tipo, que no tiene por qué ser `quien`:
+ * son fungibles, y quien la pide lo sabe preguntándole a `destinoDeEquipo`—. Un
+ * personaje sin hoja no entra por `creature` (es uno y tiene nombre) y todavía no
+ * tiene id: no hay forma de nombrarlo. La leen la IA y la escena de la tropa.
+ */
+export function pedidoDeEquipo(
+  hero: Pick<Hero, 'army'>,
+  quien: Portador,
+): PedidoDeEquipo | { readonly motivo: string } {
+  if ('heroe' in quien) return {};
+  const t = individuo(hero, quien);
+  if (t.veterania !== undefined) return { veteran: t.veterania.id };
+  if (t.member === undefined) return { creature: t.creature };
+  return {
+    motivo: 'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo',
+  };
+}
+
 /** Lo que lleva puesto el portador `quien` de `hero`. */
 export function equipoDe(hero: Pick<Hero, 'equipo' | 'army'>, quien: Portador): Equipo {
   if ('heroe' in quien) return hero.equipo;

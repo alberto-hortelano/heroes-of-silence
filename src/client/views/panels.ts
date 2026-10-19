@@ -94,6 +94,7 @@ import type { Session, SpellOption } from '../session.js';
 import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
 import { botonesDePoder } from './poderes.js';
+import { renderPanelDeLaTropa } from './tropa.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
 export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
@@ -202,6 +203,8 @@ export function renderSide(
       return renderTownPanel(session, abierto);
     case 'battle':
       return renderBattlePanel(session, contandoAun);
+    case 'tropa':
+      return renderPanelDeLaTropa(session.vistaDeLaTropa());
     default:
       return renderAdventurePanel(session);
   }
@@ -215,6 +218,8 @@ export function renderActions(session: Session, contandoAun = false): Html {
   switch (session.scene) {
     case 'town':
       return html`<button data-action="close-town">Volver al mapa</button>`;
+    case 'tropa':
+      return html`<button data-action="cerrar-tropa" title="Escape">Volver al mapa</button>`;
     case 'battle': {
       const battle = session.battle;
       // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,
@@ -332,7 +337,7 @@ function renderAdventurePanel(session: Session): Html {
       : html`
         <p class="eyebrow">HÉROE · RANGO ${rangoDeHeroe(hero)} · NIVEL ${nivelDeUnidad(puesto)} · ${nombreDeTipoDeHeroe(hero.faction, hero.tipo)}</p>
         <h2>${hero.name}</h2>${historiaDelHeroe(hero.origen?.historia ?? null)}
-        ${botonDeSueño(session, hero)}
+        ${botonDeSueño(session, hero)} ${botonDeLaTropa(session)}
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
@@ -386,6 +391,15 @@ function botonDeSueño(session: Session, hero: Hero): Html {
   const duerme = session.estaDormido(hero.id);
   return html`<button data-action="sleep-hero" data-hero="${hero.id}" class="dormir"
     title="${duerme ? 'Vuelve a contar con él al pasar el turno' : 'No se le esperará al pasar el turno'}">${duerme ? 'Despertar' : 'Dormir'}</button>`;
+}
+
+/**
+ * «Tropa»: abre la escena de la tropa del héroe elegido (también con la T). Fuera
+ * de tu turno sale apagado con el motivo del núcleo (`tropaBlocker`).
+ */
+function botonDeLaTropa(session: Session): Html {
+  const motivo = session.tropaBlocker();
+  return html`<button data-action="abrir-tropa" class="abrir-tropa" title="${motivo ?? 'Ver a la tropa en escena y repartirle equipo (tecla T)'}" ${motivo === null ? NADA : DESHABILITADO}>Tropa</button>`;
 }
 
 /**

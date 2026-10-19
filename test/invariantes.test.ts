@@ -2053,13 +2053,21 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo(CORE, /data\/bases/)).toEqual([]);
   });
 
-  it('la escena de la base no cambia el estado: `render/base/` solo importa tipos del núcleo', () => {
+  it('las escenas de la base y de la tropa no cambian el estado: solo importan tipos del núcleo', () => {
     // La base caminable es estado del cliente; las reglas van por los botones a
     // la sesión. Un `import` de valor de `@core` en `render/base/` sería una
     // puerta lateral al núcleo que el guardia de `session.ts` no ve, porque
-    // solo mira las funciones que mutan.
-    const base = CLIENTE.filter((r) => r.startsWith('src/client/render/base/'));
-    expect(base.length).toBeGreaterThan(0);
+    // solo mira las funciones que mutan. La escena de la tropa (19-10-2026), lo
+    // mismo: lo que lee del núcleo se lo da la sesión ya compuesto
+    // (`vistaDeLaTropa`). Roto a mano: un `import { heroUnit } from
+    // '@core/hero/hero.js'` en `render/tropa/pintar.ts` sale rojo con su línea.
+    const base = CLIENTE.filter(
+      (r) =>
+        r.startsWith('src/client/render/base/') ||
+        r.startsWith('src/client/render/tropa/') ||
+        r === 'src/client/escenas/tropa.ts',
+    );
+    expect(base.filter((r) => r.includes('tropa')).length).toBeGreaterThanOrEqual(3);
     const colados: string[] = [];
     for (const ruta of base) {
       const codigo = codigoDe(ruta);
@@ -2073,16 +2081,22 @@ describe('invariantes del proyecto', () => {
     expect(colados).toEqual([]);
   });
 
-  it('la base no copia la escala del combate: la toma de `escalaDelCombate`', () => {
+  it('la base y la tropa no copian la escala del combate: la toman de `escalaDelCombate`', () => {
     // Un adulto mide lo mismo en la base que en una batalla porque el paso sale
     // de una sola cuenta (`pasoDeLaBase` → `escalaDelCombate`). Las constantes
     // del tablero son privadas de `proyeccion.ts`; si la escena de la base las
     // nombrara o fijara su propio alto de figura, la escala sería una copia que
     // un día deja de casar (vuelta 2 del ciclo de la base).
+    // La escena de la tropa, igual (19-10-2026): sus figuras miden lo de una
+    // batalla porque su cámara es `pasoDeLaBase`.
     const base = CLIENTE.filter(
-      (r) => r.startsWith('src/client/render/base/') || r === 'src/client/escenas/castillo.ts',
+      (r) =>
+        r.startsWith('src/client/render/base/') ||
+        r === 'src/client/escenas/castillo.ts' ||
+        r.startsWith('src/client/render/tropa/') ||
+        r === 'src/client/escenas/tropa.ts',
     );
-    expect(base.length).toBeGreaterThan(5);
+    expect(base.length).toBeGreaterThan(8);
     expect(
       infractoresDeCodigo(base, /\bANCHO_TABLERO\b|\bALTO_FIJO\b|\bALTO_DE_FIGURA\s*=/),
     ).toEqual([]);

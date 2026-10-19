@@ -391,6 +391,10 @@ button.primary:hover:not(:disabled) { background: var(--boton-primario-encima); 
 /* Los botones que quitan lo que lleva, en su propia línea y a la medida del texto. */
 .stack .quitar-equipo { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.2rem; }
 .stack .quitar-equipo button { font-size: 0.75em; padding: 0.1rem 0.4rem; }
+/* La escena de la tropa: el motivo de un botón apagado va escrito, no en un `title`
+   (en el móvil no hay ratón que lo enseñe), y lo de serie dice que lo es. */
+.stack .motivo-apagado { display: block; font-size: 0.75em; color: var(--ink-dim); }
+.stack .de-serie { font-size: 0.78em; color: var(--ink-dim); }
 
 progress.liderazgo {
   display: block;
@@ -465,9 +469,11 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
  * con cielo encima: la plaza se leía como un descampado. A 0,55 se ven las
  * puertas y lo que entre de alto, y los edificios altos se cortan por arriba. No
  * baja de 0,495, donde el combate deja de ir por el ancho: así el paso es el
- * mismo que el de una batalla en el lienzo entero.
+ * mismo que el de una batalla en el lienzo entero. La escena de la tropa va en el
+ * mismo marco: es la misma escala, con la tropa de pie en el campo del combate.
  */
-#app[data-escena='town'] .map-wrap {
+#app[data-escena='town'] .map-wrap,
+#app[data-escena='tropa'] .map-wrap {
   align-self: start;
   aspect-ratio: 20 / 11;
   max-height: 100%;
@@ -500,8 +506,10 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
      marco no se desplaza: el escenario ya se recorre con su cámara, que sigue a
      quien camina (`render/base/camara.ts`). */
   #app[data-escena='battle'] .map-wrap,
-  #app[data-escena='town'] .map-wrap { height: 380px; }
-  #app[data-escena='town'] .map-wrap { aspect-ratio: auto; }
+  #app[data-escena='town'] .map-wrap,
+  #app[data-escena='tropa'] .map-wrap { height: 380px; }
+  #app[data-escena='town'] .map-wrap,
+  #app[data-escena='tropa'] .map-wrap { aspect-ratio: auto; }
   .map-tools button { min-width: 44px; min-height: 44px; }
   #lateral { border-left: 0; padding: 12px 0 0; }
   .atlas-panel { max-width: 150px; }

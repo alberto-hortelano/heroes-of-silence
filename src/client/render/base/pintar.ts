@@ -30,7 +30,7 @@ import {
   planoDelCuadro,
 } from '../../../shared/base.js';
 import { temaDelLienzo } from '../../temas.js';
-import { cajaDeFiguraEn } from '../batalla.js';
+import { cajaDeFiguraEn, pintarAroDeFigura } from '../batalla.js';
 import { type Figura, pintarFiguraConSombra } from '../figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
 import { enPantalla, type Tablero } from '../proyeccion.js';
@@ -272,15 +272,7 @@ function pintarPersona(
 ): void {
   const c = cajaDeFiguraEn(v.t, e.en);
   if (c.x + c.ancho < 0 || c.x - c.ancho > v.lienzo.ancho) return;
-  if (v.señalado?.tipo === 'pnj' && v.señalado.id === e.id) {
-    ctx.save();
-    ctx.strokeStyle = '#f5d973';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(c.x, c.suelo, c.alto * 0.3, c.alto * 0.11, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
+  if (v.señalado?.tipo === 'pnj' && v.señalado.id === e.id) pintarAroDeFigura(ctx, c);
   const figura: Figura = {
     id: e.id,
     body: e.cuerpo,

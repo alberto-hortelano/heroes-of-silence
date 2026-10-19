@@ -5,7 +5,7 @@
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
         <h2>Grommash Dientenegro</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="Ver a la tropa en escena y repartirle equipo (tecla T)" >Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>20 / 20</span></div>
     <progress class="liderazgo" max="20" value="20"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1482 / 1482</span></div>
@@ -97,7 +97,7 @@
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
         <h2>Capitán de Valdeluz</h2>
         <button data-action="sleep-hero" data-hero="hero-0-c1" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="Ver a la tropa en escena y repartirle equipo (tecla T)" >Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>13 / 20</span></div>
     <progress class="liderazgo" max="20" value="13"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1837 / 1347</span></div>
@@ -219,7 +219,7 @@
         <p class="eyebrow">HÉROE · RANGO 9 · NIVEL 5 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="la partida ya ha terminado" disabled>Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>8 / 40</span></div>
     <progress class="liderazgo" max="40" value="8"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1451 / 2021</span></div>
@@ -268,7 +268,7 @@
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
         <h2>Grommash Dientenegro</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="todavía no es tu turno: ahora juega el jugador 1 (elfos)" disabled>Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>20 / 20</span></div>
     <progress class="liderazgo" max="20" value="20"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1482 / 1482</span></div>
@@ -756,7 +756,7 @@
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
         <h2>Grommash Dientenegro</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="Ver a la tropa en escena y repartirle equipo (tecla T)" >Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>5 / 20</span></div>
     <progress class="liderazgo" max="20" value="5"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1482 / 1482</span></div>

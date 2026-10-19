@@ -11,8 +11,10 @@ import {
   conEquipo,
   destinoDeEquipo,
   equipoDe,
+  type PedidoDeEquipo,
   PIEZAS_DE_ARMERIA,
   type Portador,
+  pedidoDeEquipo,
   pieza,
 } from '../hero/equipo.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
@@ -691,16 +693,14 @@ function mejora(equipo: Equipo, id: string): number {
 }
 
 /**
- * Cómo se nombra al portador `quien` en una acción `equip`: el héroe sin más, el
- * de hoja por su id y el novato por su tipo —el motor elige al primero sin hoja—.
+ * Cómo se nombra al portador `quien` en una acción `equip`: lo dice el núcleo
+ * (`pedidoDeEquipo`, la inversa de `destinoDeEquipo`). Los personajes no llegan
+ * aquí (`portadores` los aparta), así que un motivo es un fallo y se lanza.
  */
-function nombrar(
-  hero: Hero,
-  quien: Portador,
-): Pick<Extract<AdventureAction, { type: 'equip' }>, 'veteran' | 'creature'> {
-  if ('heroe' in quien) return {};
-  const t = hero.army[quien.indice]!;
-  return t.veterania !== undefined ? { veteran: t.veterania.id } : { creature: t.creature };
+function nombrar(hero: Hero, quien: Portador): PedidoDeEquipo {
+  const pedido = pedidoDeEquipo(hero, quien);
+  if ('motivo' in pedido) throw new Error(pedido.motivo);
+  return pedido;
 }
 
 /**

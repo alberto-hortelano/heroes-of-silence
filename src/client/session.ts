@@ -64,9 +64,20 @@ import type {
 } from '@core/battle/types.js';
 import { cuerpoDe } from '@core/catalogo.js';
 import { figuraDelHeroe } from '@core/data.js';
-import type { CatalogoDeEquipo } from '@core/hero/equipo.js';
+import {
+  type CatalogoDeEquipo,
+  destinoDeEquipo,
+  type Portador,
+  pedidoDeEquipo,
+  pieza,
+} from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
-import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
+import {
+  armyLeadership,
+  GARRISON_LEADERSHIP,
+  heroLeadership,
+  troopUnit,
+} from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
 import { createRng, type Rng } from '@core/rng.js';
@@ -122,6 +133,7 @@ import {
 } from '@core/types.js';
 import { quienesDe } from './desenlace.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
+import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
 
 /**
  * Lo que dice la barra en el mapa la primera vez: al salir de la base en que
@@ -134,7 +146,11 @@ export const AYUDA_DEL_MAPA =
 export const AYUDA_DE_LA_BASE =
   'Pulsa el suelo para andar, un edificio para entrar o a alguien para hablar. Escape vuelve al mapa.';
 
-export type Scene = 'adventure' | 'town' | 'battle';
+/** Lo que dice la barra en la escena de la tropa cuando el ratón no señala a nadie. */
+export const AYUDA_DE_LA_TROPA =
+  'Pulsa a alguien de la tropa para ver su ficha y repartirle equipo. Escape vuelve al mapa.';
+
+export type Scene = 'adventure' | 'town' | 'battle' | 'tropa';
 
 /**
  * Un paso de la ruta previsualizada: `hoy` si lo alcanza el movimiento del día;
@@ -1632,6 +1648,167 @@ export class Session implements ControlDeBatalla {
     });
   }
 
+  // ------------------------------------------------------------ la tropa en escena
+
+  /**
+   * Por qué no se puede abrir ahora la escena de la tropa, o `null`: hace falta un
+   * héroe propio elegido y que sea tu turno (el motivo del turno, del núcleo). Lo
+   * leen el botón «Tropa» (apagado con él) y la tecla T (a la barra).
+   */
+  tropaBlocker(): string | null {
+    const hero = this.selectedHero;
+    if (hero === null || hero.owner !== this.viewer) {
+      return 'Elige antes a uno de tus héroes para ver su tropa.';
+    }
+    return this.bloqueoDeTurno();
+  }
+
+  /**
+   * Abre la escena de la tropa del héroe elegido, con él elegido. No guarda otro
+   * héroe: la tropa es la del `selectedHero`, que volver al mapa no toca.
+   */
+  abrirLaTropa(): void {
+    const motivo = this.tropaBlocker();
+    if (motivo !== null) throw new Error(`no se puede abrir la tropa: ${motivo}`);
+    this.elegidoEnLaTropaAhora = { heroe: true };
+    this.scene = 'tropa';
+    this.status = AYUDA_DE_LA_TROPA;
+  }
+
+  /** Vuelve al mapa con el mismo héroe elegido. */
+  cerrarLaTropa(): void {
+    this.scene = 'adventure';
+    this.status = '';
+  }
+
+  /**
+   * A quién se mira en la escena de la tropa. Se valida al leer, como
+   * `selectedItem`: el elegido puede dejar de estar (no hoy, pero un licenciar o
+   * una batalla que se lo lleve no tendrían que acordarse de soltarlo) y entonces
+   * vuelve a ser el héroe.
+   */
+  get elegidoEnLaTropa(): Portador {
+    const q = this.elegidoEnLaTropaAhora;
+    if ('heroe' in q) return q;
+    return this.selectedHero?.army[q.indice] === undefined ? { heroe: true } : q;
+  }
+  private elegidoEnLaTropaAhora: Portador = { heroe: true };
+
+  /** Elegir a alguien de la tropa (un clic en su figura o en su botón del panel). */
+  elegirEnLaTropa(q: Portador): void {
+    const hero = this.heroeDeLaTropa();
+    if (!('heroe' in q) && hero.army[q.indice] === undefined) {
+      throw new Error(`${hero.name} no lleva a nadie en el puesto ${q.indice} de su tropa`);
+    }
+    this.elegidoEnLaTropaAhora = q;
+    this.tocar();
+  }
+
+  /** El héroe de la escena de la tropa: el elegido, que es propio (`abrirLaTropa` lo exige). */
+  private heroeDeLaTropa(): Hero {
+    const hero = this.selectedHero;
+    if (hero === null || hero.owner !== this.viewer) {
+      throw new Error('la escena de la tropa no tiene héroe: elige antes a uno de los tuyos');
+    }
+    return hero;
+  }
+
+  /**
+   * Lo que se ve en la escena de la tropa (`tropa/vista.ts`), o `null` fuera de
+   * ella. Se rehace cuando cambia algo que se ve (`version`) o el turno, no en
+   * cada fotograma.
+   */
+  vistaDeLaTropa(): VistaDeLaTropa | null {
+    if (this.scene !== 'tropa') return null;
+    const hero = this.heroeDeLaTropa();
+    const elegido = this.elegidoEnLaTropa;
+    const bloqueo = this.bloqueoDeTurno();
+    const c = this.cacheDeLaTropa;
+    if (
+      c !== null &&
+      c.version === this.version &&
+      c.heroId === hero.id &&
+      c.bloqueo === bloqueo &&
+      mismoPortador(c.elegido, elegido)
+    ) {
+      return c.vista;
+    }
+    const vista = componerVistaDeLaTropa(this.state, this.viewer, hero, elegido, bloqueo);
+    this.cacheDeLaTropa = { version: this.version, heroId: hero.id, bloqueo, elegido, vista };
+    return vista;
+  }
+  private cacheDeLaTropa: {
+    version: number;
+    heroId: string;
+    bloqueo: string | null;
+    elegido: Portador;
+    vista: VistaDeLaTropa;
+  } | null = null;
+
+  /**
+   * Ponerle `item` de la mochila del héroe al elegido de la tropa, por `equip`.
+   * A un novato se le nombra por su tipo y el núcleo se la pone al **primero** sin
+   * hoja de ese tipo (`destinoDeEquipo`): son iguales, así que la elección pasa a
+   * él y la barra lo dice. El motivo de un rechazo, el del núcleo, en la barra.
+   */
+  ponerALaElegida(item: string): void {
+    const hero = this.heroeDeLaTropa();
+    const quien = this.elegidoEnLaTropa;
+    let dicho = '';
+    const bien = this.run(() => {
+      const pedido = pedidoDeEquipo(hero, quien);
+      if ('motivo' in pedido) throw new Error(pedido.motivo);
+      const destino = destinoDeEquipo(hero, pedido);
+      applyAdventureAction(
+        this.state,
+        { type: 'equip', hero: hero.id, item, ...pedido },
+        this.ctx,
+        this.viewer,
+      );
+      // Si llegó a la acción, el núcleo ya dijo que `destino` es un portador.
+      if ('motivo' in destino) throw new Error(destino.motivo);
+      this.elegidoEnLaTropaAhora = destino;
+      const nombre = pieza(item).nombre;
+      const unidad =
+        'heroe' in destino
+          ? hero.name
+          : troopUnit(hero.army[destino.indice]!, this.state.characters).name;
+      dicho = mismoPortador(destino, quien)
+        ? `${unidad} lleva ahora ${nombre}.`
+        : `${nombre} va al primer ${unidad} sin equipar, que es igual que el que mirabas: ahora es el elegido.`;
+    });
+    if (bien) this.status = dicho;
+  }
+
+  /** Quitarle al elegido de la tropa lo suyo del hueco `slot`, a la mochila del héroe, por `unequip`. */
+  quitarALaElegida(slot: string): void {
+    const hero = this.heroeDeLaTropa();
+    const quien = this.elegidoEnLaTropa;
+    let dicho = '';
+    const bien = this.run(() => {
+      if (!esHueco(slot)) throw new Error(huecoDesconocido(slot, HUECOS));
+      const pedido = pedidoDeEquipo(hero, quien);
+      if ('motivo' in pedido) throw new Error(pedido.motivo);
+      // `unequip` no nombra novatos: uno sin hoja no lleva nada suyo, solo lo de serie.
+      if ('creature' in pedido) {
+        throw new Error(
+          'un novato no lleva nada suyo que quitar: lo de serie de su unidad no se quita',
+        );
+      }
+      const antes = hero.mochila.length;
+      applyAdventureAction(
+        this.state,
+        { type: 'unequip', hero: hero.id, slot, ...pedido },
+        this.ctx,
+        this.viewer,
+      );
+      const vuelta = hero.mochila[antes];
+      if (vuelta !== undefined)
+        dicho = `${pieza(vuelta).nombre} vuelve a la mochila de ${hero.name}.`;
+    });
+    if (bien) this.status = dicho;
+  }
+
   hireHero(): void {
     if (this.openTownId === null) return;
     this.run(() =>
@@ -1899,19 +2076,24 @@ export class Session implements ControlDeBatalla {
    * que no lo es sí. El núcleo también las rechaza —lo cierran los dos lados—,
    * pero aquí se dice antes y sin excepción.
    */
-  private run(fn: () => void): void {
+  private run(fn: () => void): boolean {
     const bloqueo = this.bloqueoDeTurno();
     if (bloqueo !== null) {
       this.status = bloqueo;
-      return;
+      return false;
     }
+    let bien = false;
     try {
       fn();
       this.status = '';
+      bien = true;
     } catch (err) {
       this.status = mensaje(err);
     }
     this.tocar();
+    // Quien lo llama puede decir en la barra qué pasó si salió bien («El gambesón
+    // vuelve a la mochila»): lo de un rechazo ya lo ha escrito el núcleo.
+    return bien;
   }
 
   /**

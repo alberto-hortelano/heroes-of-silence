@@ -16,6 +16,7 @@ import {
 import { HEROE, hasTrait, isShooter, LIDERAZGO } from '../data.js';
 import { cifrasDelIndividuo } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
+import { hojaDeLaTropa } from '../hero/troop.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
 import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo, UsoDeArma } from '../types.js';
@@ -547,7 +548,7 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
       slot,
       // El arte, la hoja de su unidad; qué unidad es lo dice su origen, que es lo
       // que leen el agente, el resumen y `settleBattle`.
-      body: cat.unidad(stack.creature).cuerpo.hoja,
+      body: hojaDeLaTropa(stack, cat),
       unit,
       origen: {
         kind: 'catalogo',
@@ -593,7 +594,7 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
   // PV: entra con los que trae.
   return {
     slot,
-    body: stack.creature,
+    body: hojaDeLaTropa(stack),
     unit: cifrasDelIndividuo(miembro.profile.unit, stack.veterania),
     origen: { kind: 'personaje', id, veterania: stack.veterania ?? null },
     count: 1,

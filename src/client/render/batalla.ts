@@ -1354,6 +1354,24 @@ export function cajaDeFiguraEn(t: Tablero, en: Plano): CajaDeFigura {
   return { x: p.x, suelo: p.y, alto, ancho: alto * 0.42 };
 }
 
+/**
+ * El aro dorado a los pies de una figura de pie: el de quien señala el ratón en
+ * la base y el de la elegida en la escena de la tropa (`grueso` dice cuál pesa más).
+ */
+export function pintarAroDeFigura(
+  ctx: CanvasRenderingContext2D,
+  c: CajaDeFigura,
+  grueso = 2,
+): void {
+  ctx.save();
+  ctx.strokeStyle = '#f5d973';
+  ctx.lineWidth = grueso;
+  ctx.beginPath();
+  ctx.ellipse(c.x, c.suelo, c.alto * 0.3, c.alto * 0.11, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** Lo que se cuenta por debajo del suelo como pulsar la figura, en píxeles: la sombra de los pies. */
 const BAJO_LOS_PIES = 4;
 
@@ -1376,7 +1394,15 @@ let fondo: {
   lienzo: HTMLCanvasElement;
 } | null = null;
 
-function pintarFondo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
+/** Lo que mira el fondo del combate de una vista: el tamaño del lienzo y el tablero. */
+export type LienzoDelCampo = Pick<VistaBatalla, 'ancho' | 'alto' | 'tablero'>;
+
+/**
+ * El campo de batalla detrás de todo, con su horizonte un poco por encima de la
+ * fila de atrás de `v.tablero`. Lo pintan la batalla y la escena de la tropa, que
+ * se alza en el mismo campo.
+ */
+export function pintarFondo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
   const campo = asset('rpg', 'campo');
   const dpr = densidadDe(ctx);
   const clave = `${v.ancho}|${v.alto}|${dpr}|${v.tablero.paso}|${v.tablero.origenY}|${v.tablero.compresion}`;
@@ -1397,7 +1423,7 @@ function pintarFondo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
 
 function componerFondo(
   ctx: CanvasRenderingContext2D,
-  v: VistaBatalla,
+  v: LienzoDelCampo,
   campo: HTMLImageElement | null,
 ): void {
   if (campo !== null) {
@@ -1433,7 +1459,7 @@ function componerFondo(
  * del azul pizarra arriba al ocre de la bruma en la línea de los árboles, que es
  * la luz que ya tiene el empedrado.
  */
-function pintarCielo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
+function pintarCielo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
   const linea = Math.max(1, v.tablero.origenY - v.tablero.paso * 0.9);
   const cielo = ctx.createLinearGradient(0, 0, 0, linea);
   cielo.addColorStop(0, '#27303b');

@@ -265,3 +265,30 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
     expect(marcadoDe(renderSide(session))).not.toContain('Maná');
   });
 });
+
+describe('el panel de la escena de la tropa', () => {
+  it('cada «Poner» apagado lleva su motivo escrito debajo, y lo de serie no lleva ×', async () => {
+    const { renderPanelDeLaTropa } = await import('../src/client/views/tropa.js');
+    const { TROPA } = await import('./helpers.js');
+    const s = new Session(7);
+    s.abrirLaTropa();
+    const hero = s.selectedHero!;
+    hero.army = [{ creature: TROPA }];
+    hero.mochila = ['mandoble', 'gambeson'];
+    s.elegirEnLaTropa({ indice: 0 });
+    const vista = s.vistaDeLaTropa()!;
+    const m = marcadoDe(renderPanelDeLaTropa(vista));
+    const mandoble = vista.ficha.mochila.find((p) => p.pieza.id === 'mandoble')!;
+    expect(mandoble.poner).not.toBeNull();
+    const fila = m.slice(m.indexOf('data-item="mandoble"'), m.indexOf('data-item="gambeson"'));
+    expect(fila).toContain('disabled>Poner</button>');
+    expect(fila).toContain(`<span class="motivo-apagado">${mandoble.poner}</span>`);
+    // El gambesón sí se le pone: encendido y sin motivo.
+    const gambeson = m.slice(m.indexOf('data-item="gambeson"'));
+    expect(gambeson).not.toContain('motivo-apagado');
+    expect(gambeson).toMatch(/data-action="tropa-poner" data-item="gambeson" >Poner/);
+    // Lo de serie: «de serie» y ningún botón de quitar en todo su equipo (es un novato).
+    expect(m).toContain('class="de-serie"');
+    expect(m).not.toContain('data-action="tropa-quitar"');
+  });
+});
