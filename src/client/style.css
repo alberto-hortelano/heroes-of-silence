@@ -633,10 +633,18 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   border: 3px var(--marco-estilo) var(--marco);
   box-shadow: var(--marco-sombra);
 }
+/* La elección mide lo mismo con cualquier tema: el título y el nombre de cada
+   facción, en una línea de alto fijo, y lo demás de la lista con la letra del
+   neutro. Si cambiara de medidas al pasar por una facción, el navegador avisaría
+   de otro `pointerover` con el ratón quieto (`inicio.ts`) y el tema saltaría a la
+   que hubiera quedado debajo. */
 .titulo-de-inicio {
   margin: 0 0 1.1rem;
   text-align: center;
-  font: 600 1.8rem var(--letra-titulo);
+  font: 600 1.8rem/2.4rem var(--letra-titulo);
+  height: 2.4rem;
+  white-space: nowrap;
+  overflow: hidden;
   letter-spacing: 0.06em;
   color: var(--titulo);
 }
@@ -645,7 +653,15 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 /* Apagado pero enfocable: con `disabled` no llegaría el teclado ni se leería por qué. */
 .opciones-de-inicio button[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
 #sin-partidas { margin: -0.3rem 0 0.2rem; text-align: center; }
-.facciones { display: grid; gap: 0.5rem; margin: 0 0 1.1rem; padding: 0; border: 0; }
+.facciones {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1.1rem;
+  padding: 0;
+  border: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.25;
+}
 .facciones legend { padding: 0 0 0.4rem; color: var(--ink-dim); }
 .opcion-de-faccion {
   display: grid;
@@ -659,7 +675,13 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .opcion-de-faccion input { grid-row: span 3; align-self: center; accent-color: var(--gold); }
 .opcion-de-faccion:has(input:checked) { border-color: var(--resalte); }
 .opcion-de-faccion:has(input:focus-visible) { outline: 2px solid var(--foco); outline-offset: 1px; }
-.nombre-de-faccion { font: 600 1.15rem var(--letra-titulo); color: var(--titulo); }
+.nombre-de-faccion {
+  font: 600 1.15rem/1.5rem var(--letra-titulo);
+  height: 1.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--titulo);
+}
 .rasgo-de-faccion { font-size: 0.92rem; color: var(--ink); }
 .heroe-de-faccion { font-size: 0.85rem; font-style: italic; color: var(--ink-dim); }
 .botones-de-inicio { display: flex; justify-content: space-between; gap: 0.6rem; }

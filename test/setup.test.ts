@@ -8,7 +8,7 @@ import { leerRasgosDeFaccion, rasgoDeFaccion } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import { applyAdventureAction, baseOf, heroesOf } from '../src/core/state/game.js';
 import { faccionesDeLaSemilla, newGame, nombreDeSalida } from '../src/core/state/setup.js';
-import { FACTION_IDS, NOMBRE_DE_FACCION, parseFaccion } from '../src/core/types.js';
+import { esFaccion, FACTION_IDS, NOMBRE_DE_FACCION, parseFaccion } from '../src/core/types.js';
 import { pegadoA } from './helpers.js';
 
 describe('las facciones de la partida', () => {
@@ -31,7 +31,7 @@ describe('las facciones de la partida', () => {
     }
     // Y de punta a punta: `?seed=N` ≡ `?seed=N&faccion=<la suya>`.
     const sin = newGame({ seed: 7 });
-    const con = newGame({ seed: 7, factions: faccionesDeLaSemilla(7, sin.players[0]!.faction) });
+    const con = newGame({ seed: 7, faccionDelJugador: sin.players[0]!.faction });
     expect(JSON.stringify(con)).toBe(JSON.stringify(sin));
   });
 
@@ -50,6 +50,12 @@ describe('la facción de la URL', () => {
     expect(parseFaccion('')).toBeNull();
     expect(parseFaccion('  ')).toBeNull();
     for (const f of FACTION_IDS) expect(parseFaccion(f)).toBe(f);
+  });
+
+  it('`esFaccion` reconoce las cinco por su id y nada más', () => {
+    for (const f of FACTION_IDS) expect(esFaccion(f)).toBe(true);
+    for (const x of ['', 'Elfos', 'knight', 'necromancer', 'elfos '])
+      expect(esFaccion(x)).toBe(false);
   });
 
   it('una que no existe se rechaza nombrando las cinco', () => {
@@ -105,7 +111,7 @@ describe('el héroe nace dentro de su base', () => {
 
   it('con la facción elegida, el héroe del jugador 0 es de ella', () => {
     for (const f of FACTION_IDS) {
-      const state = newGame({ seed: 3, factions: faccionesDeLaSemilla(3, f) });
+      const state = newGame({ seed: 3, faccionDelJugador: f });
       expect(state.players[0]!.faction).toBe(f);
       expect(heroesOf(state, 0)[0]!.faction).toBe(f);
       expect(baseOf(state, 0)!.faction).toBe(f);

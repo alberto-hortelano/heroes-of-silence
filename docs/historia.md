@@ -5374,3 +5374,28 @@ medía a 1600 (1254 px). Sin pieza, un estandarte de CSS con el emblema (`--esta
 - **Qué queda igual**: `--fondo-escenario` se sigue midiendo en la lámina entre sus figuras: es el
   fondo de su margen, el color de lo que rodea el mapa también sin ellas. El lienzo mide con tema lo
   mismo que sin él en toda ventana (`tools/qa/temas-con-piezas.ts`, de 390 a 2560).
+
+## El héroe nace dentro de su base (19-10-2026)
+
+«Empieza en la base» (decisión del usuario): el héroe de salida nace en la casilla de su castillo y
+la partida abre en la base caminable. Lo que se retiró con eso y lo que destapó:
+
+- **`MapPlan.heroStarts`**: el plan escribía dónde empezaba cada héroe y `validateMapPlan` comprobaba
+  que cada inicio tuviera ciudad y cada ciudad inicio, que no se repitieran y que cayeran en una región:
+  el mismo hecho que la base, dos veces. Ahora los jugadores son los dueños de ciudad y la base, la
+  primera suya (`basesDelPlan`), y el esquema del agente rechaza `heroStarts` diciéndolo.
+- **La regla de asaltantes «donde empieza un héroe»**: un grupo encima de un inicio era una emboscada
+  antes del primer turno. Con el héroe dentro de la base, que no es región, esa emboscada no puede
+  pasar. No se sustituyó por «la región de casa»: no es un hecho del mapa. La base toca dos o tres
+  regiones (2 en 393 de 400 bases de 1-200) y nada las distingue: su puerta, la casilla de debajo,
+  es barrera en 262 de 400, otra región en 72 y la de casa en 66; la región con más vecinas de la
+  base es la de casa en 243 de 400, y la de centro más cercano, en 140 de 600 (1-300). Es de cómo
+  construye el procedimental (la semilla `p` es la casa del jugador `p`: de ella salen su base, sus
+  minas y su suelo), que sigue sin sembrar asaltantes en las dos de casa.
+- **El inicio paraba de rebote un vestido roto**: buscaba una vecina de la base en la región de casa
+  y, sin ella, tiraba el vestido. Sin esa búsqueda, el 64×64 s8 llegó al trazado con la ciudad de
+  (7,8) apartada por el engorde de la región 4, que le llevaba camino, y `centroDeRegion` lanzaba. La
+  primera corrección lo trataba como un vestido que no vale desde dentro del trazado (una excepción
+  tipada y su `instanceof`); ahora `vestirRed` pregunta lo que hace falta antes de colocar nada: cada
+  nodo toca las regiones que le dan camino (`crucesConCamino`), o el vestido se tira. Salta 1 vez en
+  64×64 1-40 (la s8) y 0 en 42×42 1-200 y 24×24 1-200; el banco no se mueve.

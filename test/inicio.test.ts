@@ -5,12 +5,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
-import {
-  hayQuePreguntar,
-  renderEleccion,
-  renderMenu,
-  SIN_PARTIDAS,
-} from '../src/client/inicio/pantallas.js';
+import { renderEleccion, renderMenu } from '../src/client/inicio/pantallas.js';
+import { hayQuePreguntar } from '../src/client/semilla.js';
 import { rasgoDeFaccion } from '../src/core/data.js';
 import { nombreDeSalida } from '../src/core/state/setup.js';
 import { FACTION_IDS, NOMBRE_DE_FACCION } from '../src/core/types.js';
@@ -47,7 +43,7 @@ describe('el menú', () => {
     expect(cargar).toContain('aria-describedby="sin-partidas"');
     // `disabled` lo sacaría del teclado: no lo lleva.
     expect(cargar).not.toMatch(/\sdisabled/);
-    expect(menu).toContain(`<p id="sin-partidas" class="cost">${SIN_PARTIDAS}</p>`);
+    expect(menu).toContain('<p id="sin-partidas" class="cost">Aún no hay partidas guardadas.</p>');
   });
 });
 

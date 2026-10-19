@@ -105,7 +105,7 @@ import {
   visibleNow,
   week,
 } from '@core/state/game.js';
-import { faccionesDeLaSemilla, newGame } from '@core/state/setup.js';
+import { newGame } from '@core/state/setup.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, sitiosConstruidos } from '@core/town/sitios.js';
 import { alcaideDe, vecinosDeLaBase, vozDe } from '@core/town/voces.js';
@@ -881,7 +881,7 @@ export class Session implements ControlDeBatalla {
     this.state = newGame({
       seed,
       controllers: { 0: 'human', 1: 'ai' },
-      factions: faccionesDeLaSemilla(seed, faccion),
+      faccionDelJugador: faccion,
     });
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
     this.rueda = new CruceDeLaRueda(

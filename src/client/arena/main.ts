@@ -114,7 +114,7 @@ import {
   registrarLasHojas,
 } from '../render/personajes.js';
 import { DialogoDeLaRueda } from '../rueda/dialogo.js';
-import { semillaSorteada } from '../semilla.js';
+import { aLaBarra, semillaSorteada } from '../semilla.js';
 import { type LadoDeSesion, SesionDeArena, unaOElegir } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
@@ -437,13 +437,13 @@ let enlaceCopiado: string | null = null;
  * semilla), sin los parámetros retirados: ya se dijeron al abrir, y copiar la
  * barra no los arrastra.
  */
-function aLaBarra(cambiar: (url: URL) => void): void {
-  const url = new URL(location.href);
-  cambiar(url);
-  for (const { nombre } of retiradosDeLaURL([...url.searchParams.keys()])) {
-    url.searchParams.delete(nombre);
-  }
-  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+function aLaBarraDeLaArena(cambiar: (url: URL) => void): void {
+  aLaBarra((url) => {
+    cambiar(url);
+    for (const { nombre } of retiradosDeLaURL([...url.searchParams.keys()])) {
+      url.searchParams.delete(nombre);
+    }
+  });
 }
 
 /** De dónde sale un puesto al pelear: la unidad con sus cifras del catálogo, y su escalera. */
@@ -1584,7 +1584,7 @@ async function copiarEnlace(): Promise<void> {
   const semilla = semillaPedida ?? semillaSorteada();
   const enlace = enlaceDe(semilla);
   semillaPedida = semilla;
-  aLaBarra((url) => url.searchParams.set('seed', String(semilla)));
+  aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
   enlaceCopiado = enlace;
   try {
     await navigator.clipboard.writeText(enlace);
@@ -1657,7 +1657,7 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     nombreDeForma = '';
     // La barra se queda con la semilla: el montaje, si cambia, ya no sería el del
     // enlace.
-    aLaBarra((url) => url.searchParams.delete('montaje'));
+    aLaBarraDeLaArena((url) => url.searchParams.delete('montaje'));
     const cifras =
       distintas.length === 0
         ? ''
@@ -1748,7 +1748,7 @@ function luchar(): void {
     aviso = `No se puede luchar: ${mensaje(err)}.`;
     return;
   }
-  aLaBarra((url) => url.searchParams.set('seed', String(semilla)));
+  aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
   sesion = nueva;
   elSeed.textContent = `semilla ${semilla}`;
   irA('battle');

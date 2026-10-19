@@ -2977,15 +2977,6 @@ class Busqueda {
 }
 
 /**
- * Una región sin casilla libre desde la que se llegue a todos sus objetivos:
- * el vestido no vale (lo recoge `vestirRed` como un fallo de `objetos` y prueba
- * otro). Un tipo propio y no un mensaje: así se distingue de un fallo de verdad,
- * que sigue lanzando. Lo destapó el 64×64 s8 cuando el inicio del héroe dejó de
- * reservar la vecina de su base (19-10-2026): otro azar, otros objetos.
- */
-export class SinCentroDeRegion extends Error {}
-
-/**
  * El centro de la región `r`: la casilla abierta y libre —sin monstruo ni nada
  * de `ocupadas`— que menos le cuesta al héroe sumando lo que hay hasta cada uno
  * de sus objetivos. Desempata el índice menor. Es un hecho derivado: el plan
@@ -3014,7 +3005,7 @@ export function centroDeRegion(
     if (mejor === -1 || t < (suma.get(mejor) as number)) mejor = i;
   }
   if (mejor === -1) {
-    throw new SinCentroDeRegion(
+    throw new Error(
       `la región ${r} no tiene una casilla libre desde la que se llegue a todos sus objetivos: no hay dónde poner el centro de sus caminos`,
     );
   }

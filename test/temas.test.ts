@@ -11,13 +11,7 @@
  */
 import { FACTION_IDS } from '@core/types.js';
 import { describe, expect, it } from 'vitest';
-import {
-  esTema,
-  FICHAS_DEL_LIENZO,
-  LIENZO_NEUTRO,
-  TEMAS,
-  temaDelLienzo,
-} from '../src/client/temas.js';
+import { FICHAS_DEL_LIENZO, LIENZO_NEUTRO, temaDelLienzo } from '../src/client/temas.js';
 import { contraste, PAREJAS, sobre } from '../tools/taller/temas/paleta.js';
 import {
   bloquesCss,
@@ -280,12 +274,6 @@ describe('los temas de la interfaz', () => {
       }
     }
     expect(malas).toEqual([]);
-  });
-
-  it('un tema por facción del juego, con su mismo id (19-10-2026: las cinco son las del juego)', () => {
-    expect(TEMAS).toEqual(FACTION_IDS);
-    for (const f of FACTION_IDS) expect(esTema(f)).toBe(true);
-    expect(esTema('knight')).toBe(false);
   });
 
   it('el respaldo del lienzo sin DOM es el `:root` neutro de style.css, ficha a ficha', () => {

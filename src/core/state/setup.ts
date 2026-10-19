@@ -11,15 +11,14 @@ import {
 } from '../hero/hero.js';
 import { CUPO_HEROE, heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
 import {
+  basesDelPlan,
   buildMap,
   generateMapPlan,
   type MapPlan,
-  type PlannedTown,
   validateMapPlan,
 } from '../map/generate.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
-import { primeraCiudadDe } from '../town/town.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
 import { createGame, type GameState } from './game.js';
 
@@ -54,10 +53,10 @@ export interface NewGameOptions {
    */
   readonly maxDays?: number | undefined;
   /**
-   * Las facciones del jugador 0 y del 1 en el mapa procedimental; sin ellas, dos
-   * distintas de las cinco sorteadas por la semilla (`faccionesDeLaSemilla`).
+   * La facción del jugador 0 en el mapa procedimental (la elección del menú); la
+   * del rival y, sin ella, las dos, las sortea la semilla (`faccionesDeLaSemilla`).
    */
-  readonly factions?: readonly [FactionId, FactionId];
+  readonly faccionDelJugador?: FactionId | undefined;
 }
 
 /**
@@ -168,7 +167,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
   const plan =
     options.plan ??
     generateMapPlan(rng, {
-      factions: options.factions ?? faccionesDeLaSemilla(seed),
+      factions: faccionesDeLaSemilla(seed, options.faccionDelJugador),
       ...(options.regionesPorBando === undefined
         ? {}
         : { regionesPorBando: options.regionesPorBando }),
@@ -183,29 +182,16 @@ export function newGame(options: NewGameOptions = {}): GameState {
 
   const { map, towns, raiders } = buildMap(plan);
 
-  // La facción de cada jugador, la de su primera ciudad (su base).
-  const factionOf = new Map<PlayerId, FactionId>();
-  for (const t of plan.towns) {
-    if (t.owner !== null && !factionOf.has(t.owner)) factionOf.set(t.owner, t.faction);
-  }
+  // Los jugadores y sus bases, por id (`basesDelPlan`): de ese orden salen
+  // `state.players`, `state.heroes` y el nombre de cada héroe.
+  const bases = [...basesDelPlan(plan)];
 
-  // Los jugadores son los dueños de ciudad, ORDENADOS por id, y de ese orden
-  // salen las tres cosas que decide: `state.players`, `state.heroes` y el nombre
-  // de cada héroe. `currentPlayer` juega por el índice de `state.players`, así
-  // que derivarlo del orden en que el plan escribe sus ciudades le regalaría la
-  // iniciativa a quien diseña el mapa (lo que pasaba con `heroStarts` del revés:
-  // el agente abría el día 1). Se ordena aquí, en el único sitio donde el plan se
-  // convierte en partida: una regla que el motor puede cumplir solo no se delega
-  // en quien tiene interés en incumplirla.
-  const jugadores = [...factionOf.keys()].sort((a, b) => a - b);
-
-  const heroes: Hero[] = jugadores.map((player, i) => {
-    const faction = factionOf.get(player) as FactionId;
-    // El héroe nace DENTRO de su base (19-10-2026, «empieza en la base»): en la
-    // casilla del castillo, que es estado normal (al acabar una marcha en él
-    // también está ahí). No recoge la guarnición al nacer: la base del día 1 se
-    // queda con la suya, como cuando nacía al lado (decisión del usuario).
-    const base = primeraCiudadDe(plan.towns, player) as PlannedTown;
+  const heroes: Hero[] = bases.map(([player, base], i) => {
+    const faction = base.faction;
+    // El héroe nace DENTRO de su base («empieza en la base»): en la casilla del
+    // castillo, que es estado normal (al acabar una marcha en él también está
+    // ahí). No recoge la guarnición al nacer: la base del día 1 se queda con la
+    // suya (decisión del usuario).
     // La construcción de siempre (`heroeRecienHecho`), con lo que el inicial
     // tiene de más encima: mejores cifras, su tropa, Flecha mágica y dos
     // habilidades.
@@ -234,9 +220,9 @@ export function newGame(options: NewGameOptions = {}): GameState {
     return hero;
   });
 
-  const players = jugadores.map((player) => ({
+  const players = bases.map(([player, base]) => ({
     id: player,
-    faction: factionOf.get(player) as FactionId,
+    faction: base.faction,
     controller: options.controllers?.[player] ?? ('ai' as Controller),
   }));
 

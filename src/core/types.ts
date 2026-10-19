@@ -150,6 +150,11 @@ export const NOMBRE_DE_FACCION: Readonly<Record<FactionId, string>> = {
   orkos: 'Orkos',
 };
 
+/** Si un texto es el id de una facción. */
+export function esFaccion(x: string): x is FactionId {
+  return (FACTION_IDS as readonly string[]).includes(x);
+}
+
 /**
  * La facción que pide la URL (`?faccion=`), con la regla de `parseSeed`: no pedir
  * ninguna no es un error y da `null` (la sortea la semilla); una que no existe se
@@ -157,12 +162,11 @@ export const NOMBRE_DE_FACCION: Readonly<Record<FactionId, string>> = {
  */
 export function parseFaccion(texto: string | null | undefined): FactionId | null {
   if (texto === null || texto === undefined || texto.trim() === '') return null;
-  const f = FACTION_IDS.find((id) => id === texto);
-  if (f === undefined) {
+  if (!esFaccion(texto)) {
     const valen = FACTION_IDS.map((id) => `${id} (${NOMBRE_DE_FACCION[id]})`).join(', ');
     throw new Error(`"${texto}" no es una facción: las que hay son ${valen}`);
   }
-  return f;
+  return texto;
 }
 
 /**

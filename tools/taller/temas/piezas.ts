@@ -34,8 +34,6 @@ import sharp from 'sharp';
 import { FACTION_IDS, type FactionId } from '../../../src/core/types.js';
 import type { Rect } from './paleta.js';
 
-type Tema = FactionId;
-
 const RAIZ = resolve(import.meta.dirname, '../../..');
 
 /** La hoja que se genera, relativa a la raíz del repo. */
@@ -174,7 +172,7 @@ export const DEFINICIONES: Readonly<Record<Pieza, DefDePieza>> = {
 };
 
 /** El material y el acabado de cada lámina: va delante de cada encargo del tema. */
-export const MATERIAL: Readonly<Record<Tema, string>> = {
+export const MATERIAL: Readonly<Record<FactionId, string>> = {
   templarios:
     'Tema TEMPLARIOS: piedra gótica gris oscura tallada con tracería y pináculos, madera oscura, pergamino claro y el rojo de la cruz paté de los templarios, con remates de latón viejo.',
   'no-muertos':
@@ -203,7 +201,7 @@ const lamina = (
  * lleva no está: la cartela solo la llevan los temas con lema (`--lema`), como en
  * las láminas de los elfos y los orkos, que no tienen.
  */
-export const POR_TEMA: Readonly<Record<Tema, Partial<Record<Pieza, EnLaLamina>>>> = {
+export const POR_TEMA: Readonly<Record<FactionId, Partial<Record<Pieza, EnLaLamina>>>> = {
   templarios: {
     'marco-mapa': lamina(
       [95, 880, 300, 235],
@@ -399,18 +397,18 @@ export async function texturaNeutra(png: Buffer): Promise<{ png: Buffer; media: 
 }
 
 /** Las piezas que lleva un tema, en el orden de `PIEZAS`. */
-export function piezasDe(tema: Tema): Pieza[] {
+export function piezasDe(tema: FactionId): Pieza[] {
   return PIEZAS.filter((p) => POR_TEMA[tema][p] !== undefined);
 }
 
 /** La ruta de una pieza final, relativa a la raíz y sin extensión (la del encargo). */
-export const salidaDe = (tema: Tema, pieza: Pieza): string =>
+export const salidaDe = (tema: FactionId, pieza: Pieza): string =>
   `${CARPETA_DE_PIEZAS}/${tema}/${pieza}`;
 export const guiaDe = (g: Guia): string => `${CARPETA_DE_PIEZAS}/_guias/${g}.png`;
-export const laminaDe = (tema: Tema): string => `assets/art/temas/${tema}.png`;
+export const laminaDe = (tema: FactionId): string => `assets/art/temas/${tema}.png`;
 
 /** Las piezas de la lista que están en disco, como `.webp` en su sitio. */
-export function piezasEnDisco(raiz = RAIZ): { tema: Tema; pieza: Pieza }[] {
+export function piezasEnDisco(raiz = RAIZ): { tema: FactionId; pieza: Pieza }[] {
   return FACTION_IDS.flatMap((tema) =>
     piezasDe(tema)
       .filter((pieza) => existsSync(join(raiz, `${salidaDe(tema, pieza)}.webp`)))
@@ -508,7 +506,7 @@ export async function corteDeMarco(ruta: string): Promise<CorteMedido> {
 
 /** Una pieza en disco, con el corte medido si es un marco. */
 export interface PiezaEnDisco {
-  readonly tema: Tema;
+  readonly tema: FactionId;
   readonly pieza: Pieza;
   readonly corte?: CorteMedido;
   /** Del remate, ancho entre alto: su caja en pantalla mide lo que su imagen. */

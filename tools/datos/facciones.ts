@@ -17,6 +17,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { FACTION_IDS, NOMBRE_DE_FACCION } from '../../src/core/types.js';
+import { seccionDelCuaderno } from './cuaderno.js';
 
 const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
 // El cuaderno vive en la copia principal del repo, sin commitear: desde un
@@ -27,10 +28,7 @@ const DESTINO = `${RAIZ}data/facciones.json`;
 const texto = readFileSync(ORIGEN, 'utf8');
 
 function rasgoDeLaSeccion(titulo: string): string {
-  const escapado = titulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const seccion = new RegExp(`^### ${escapado}:?[ \\t]*$([\\s\\S]*?)(?=^##)`, 'm').exec(texto);
-  if (seccion === null) throw new Error(`${ORIGEN}: no encuentro la sección «### ${titulo}»`);
-  const linea = (seccion[1] as string)
+  const linea = seccionDelCuaderno(texto, titulo, ORIGEN)
     .split('\n')
     .map((l) => l.trim())
     .find((l) => l !== '');

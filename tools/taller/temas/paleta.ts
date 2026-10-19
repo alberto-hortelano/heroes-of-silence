@@ -35,8 +35,7 @@
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
-import { esTema, TEMAS, type Tema } from '../../../src/client/temas.js';
-import { conComa } from '../../../src/core/types.js';
+import { conComa, esFaccion, FACTION_IDS, type FactionId } from '../../../src/core/types.js';
 
 export interface Rect {
   readonly x: number;
@@ -150,7 +149,7 @@ function par<F extends FichaMedida, T extends FichaMedida>(
  * recortes con rejilla). Las láminas son la misma pantalla, pero cada tema la
  * viste con otro marco y los textos no caen en el mismo píxel.
  */
-export const MUESTRAS: Readonly<Record<Tema, Muestras>> = {
+export const MUESTRAS: Readonly<Record<FactionId, Muestras>> = {
   templarios: {
     '--bg': liso(872, 700, 10, 150, 'la hendidura oscura entre el mapa y la columna de piedra'),
     ...par(
@@ -592,7 +591,7 @@ function dosGrupos(t: Trozo, borde: Rgb): { fondo: number[]; letra: number[]; ce
 const LAMINAS = resolve(import.meta.dirname, '../../../assets/art/temas');
 
 /** Los píxeles RGB de la lámina de un tema (sin alfa). */
-async function pixeles(tema: Tema): Promise<{ datos: Buffer; ancho: number; alto: number }> {
+async function pixeles(tema: FactionId): Promise<{ datos: Buffer; ancho: number; alto: number }> {
   const { data, info } = await sharp(join(LAMINAS, `${tema}.png`))
     .removeAlpha()
     .raw()
@@ -677,7 +676,7 @@ function hastaLeerse(tinta: string, fondo: string, quien: string): string {
 }
 
 /** La paleta de un tema: lo medido en su lámina, con las tintas que no se leían movidas. */
-export async function medirPaleta(tema: Tema, ajustar = true): Promise<Paleta> {
+export async function medirPaleta(tema: FactionId, ajustar = true): Promise<Paleta> {
   const img = await pixeles(tema);
   const fichas: Partial<Record<FichaMedida, string>> = {};
   for (const [ficha, m] of Object.entries(MUESTRAS[tema]) as [FichaMedida, Muestra][]) {
@@ -700,7 +699,7 @@ export async function medirPaleta(tema: Tema, ajustar = true): Promise<Paleta> {
 }
 
 /** La hoja de muestras de un tema: cada rectángulo ampliado y el color que sale de él. */
-async function hojaDeMuestras(tema: Tema, paleta: Paleta, carpeta: string): Promise<string> {
+async function hojaDeMuestras(tema: FactionId, paleta: Paleta, carpeta: string): Promise<string> {
   const lamina = join(LAMINAS, `${tema}.png`);
   const filas = Object.entries(MUESTRAS[tema]) as [FichaMedida, Muestra][];
   const ALTO = 60;
@@ -747,10 +746,10 @@ if (esScript) {
     (a, i) => a !== '--muestras' && a !== '--crudo' && (iMuestras === -1 || i !== iMuestras + 1),
   );
   const temas = pedidos.map((p) => {
-    if (!esTema(p)) throw new Error(`"${p}" no es un tema: valen ${TEMAS.join(', ')}`);
+    if (!esFaccion(p)) throw new Error(`"${p}" no es un tema: valen ${FACTION_IDS.join(', ')}`);
     return p;
   });
-  for (const tema of temas.length > 0 ? temas : TEMAS) {
+  for (const tema of temas.length > 0 ? temas : FACTION_IDS) {
     const paleta = await medirPaleta(tema, !crudo);
     console.log(`\n${tema}`);
     for (const [ficha, color] of Object.entries(paleta.fichas))

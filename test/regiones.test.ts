@@ -1268,6 +1268,25 @@ describe('la barrera que cruza cada nodo del generador (#145, #187)', () => {
   });
 });
 
+describe('cada nodo toca las regiones que le llevan camino', () => {
+  it('el vestido que aparta a un nodo de una de ellas se tira y sale otro (64×64 s8)', () => {
+    // El engorde de las fronteras dejó la ciudad de (7,8) sin la región 4, que le
+    // llevaba camino, y el centro de la región 4 no tenía desde dónde llegar a
+    // ella: `centroDeRegion` lanzaba y tumbaba la generación. Sin el
+    // veto de `vestirRed`, este test lanza.
+    const tirados: string[] = [];
+    const plan = generateMapPlan(createRng(8), {
+      width: 64,
+      height: 64,
+      alTirarUnVestido: (_fase, motivo) => tirados.push(motivo),
+    });
+    expect(validateMapPlan(plan)).toEqual([]);
+    expect(tirados.filter((m) => /no toca la región \d+, que le lleva camino/.test(m))).toEqual([
+      'el nodo de (7,8) no toca la región 4, que le lleva camino: el engorde lo apartó de ella',
+    ]);
+  }, 60_000);
+});
+
 describe('los caminos de cada región salen de su centro', () => {
   // Dos regiones de 5×7 separadas por una columna de barrera con dos pasos, en
   // (5,1) y (5,5). El centro que saldría en cada región, (3,3) y (7,3), está

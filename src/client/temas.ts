@@ -13,16 +13,7 @@
  * el de la que se mira; el menú y lo demás (la arena, el espectador) van en el
  * neutro, sin `data-tema` (`quitarTema`).
  */
-import { FACTION_IDS, type FactionId } from '@core/types.js';
-
-export type Tema = FactionId;
-
-/** Los temas: la lista de facciones del núcleo, no otra. */
-export const TEMAS: readonly Tema[] = FACTION_IDS;
-
-export function esTema(x: string): x is Tema {
-  return (TEMAS as readonly string[]).includes(x);
-}
+import type { FactionId } from '@core/types.js';
 
 /**
  * Lo que es interfaz dentro del lienzo: chapas, fondo de la barra de vida,
@@ -95,7 +86,7 @@ let cargaDeLetras: Promise<void> = Promise.resolve();
  * de cuándo llega. Mientras, el lienzo pinta con el respaldo de la cadena; al
  * llegar, se olvida lo leído y el siguiente fotograma ya la usa.
  */
-export function ponerTema(tema: Tema): void {
+export function ponerTema(tema: FactionId): void {
   const raiz = document.documentElement;
   if (raiz.dataset.tema === tema) return;
   raiz.dataset.tema = tema;
@@ -131,10 +122,13 @@ const CIFRAS_DE_DANIO = '−0123456789';
  * y que no llegue es que algo se rompió (el texto sigue con el respaldo, pero no
  * se calla).
  */
-async function cargarLetraDeTitulo(tema: Tema): Promise<void> {
-  const familia = getComputedStyle(document.documentElement)
-    .getPropertyValue(FICHAS_DEL_LIENZO.letraTitulo)
-    .trim();
+async function cargarLetraDeTitulo(tema: FactionId): Promise<void> {
+  // Al fotograma siguiente y de lo que lee el lienzo: leer el estilo en el mismo
+  // paso que se escribe `data-tema` obligaba a recalcular la página entera ahí,
+  // en cada facción por la que pasa el ratón en la elección.
+  await new Promise<void>((listo) => requestAnimationFrame(() => listo()));
+  if (document.documentElement.dataset.tema !== tema) return;
+  const familia = temaDelLienzo().letraTitulo;
   try {
     await document.fonts.load(`bold 16px ${familia}`, CIFRAS_DE_DANIO);
   } catch (err) {
@@ -164,26 +158,16 @@ export function temaDelLienzo(): TemaDelLienzo {
     return LIENZO_NEUTRO;
   }
   const estilo = getComputedStyle(document.documentElement);
-  const leer = (campo: keyof TemaDelLienzo): string => {
-    const ficha = FICHAS_DEL_LIENZO[campo];
-    const valor = estilo.getPropertyValue(ficha).trim();
-    if (valor === '') {
-      throw new Error(
-        `la hoja de estilos no define ${ficha}, que pinta el lienzo: ¿carga la página style.css?`,
-      );
-    }
-    return valor;
-  };
-  leido = {
-    chapaFondo: leer('chapaFondo'),
-    chapaBorde: leer('chapaBorde'),
-    chapaTinta: leer('chapaTinta'),
-    vidaFondo: leer('vidaFondo'),
-    galon: leer('galon'),
-    rotulo: leer('rotulo'),
-    vistaMinimapa: leer('vistaMinimapa'),
-    letraUi: leer('letraUi'),
-    letraTitulo: leer('letraTitulo'),
-  };
+  leido = Object.fromEntries(
+    Object.entries(FICHAS_DEL_LIENZO).map(([campo, ficha]) => {
+      const valor = estilo.getPropertyValue(ficha).trim();
+      if (valor === '') {
+        throw new Error(
+          `la hoja de estilos no define ${ficha}, que pinta el lienzo: ¿carga la página style.css?`,
+        );
+      }
+      return [campo, valor];
+    }),
+  ) as Record<keyof TemaDelLienzo, string>;
   return leido;
 }

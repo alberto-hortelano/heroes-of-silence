@@ -37,12 +37,10 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import sharp from 'sharp';
-import { FACTION_IDS } from '../../src/core/types.js';
+import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
-const TEMAS = FACTION_IDS;
-type Tema = (typeof TEMAS)[number];
 
 /**
  * La caja de `#canvas` [x, y, ancho, alto] que no se mueve, con tema y sin él: la
@@ -73,7 +71,7 @@ const CONTRASTE_MINIMO = 4.5;
  * de las figuras de su lámina, no el pardo de +13 que dejó la textura del marco
  * sin neutralizar): de −22 (la cifra con la luz de la lámina que midió QA) a −12.
  */
-const LUZ_DEL_MARGEN: Record<Tema, readonly [number, number]> = {
+const LUZ_DEL_MARGEN: Record<FactionId, readonly [number, number]> = {
   templarios: [-15, 15],
   'no-muertos': [-15, 15],
   imperio: [-22, -12],
@@ -105,7 +103,7 @@ async function crudo(png: Buffer): Promise<{ data: Buffer; w: number; h: number 
 }
 
 /** La luz mediana de la franja x 0-75 de la lámina, de arriba abajo (la de QA). */
-async function luzDeLaLamina(tema: Tema): Promise<number> {
+async function luzDeLaLamina(tema: FactionId): Promise<number> {
   const { data, w, h } = await crudo(
     await sharp(join(RAIZ, `assets/art/temas/${tema}.png`))
       .png()
@@ -120,7 +118,7 @@ async function luzDeLaLamina(tema: Tema): Promise<number> {
   return mediana(ls);
 }
 
-async function ponerTema(page: Page, tema: Tema | null): Promise<void> {
+async function ponerTema(page: Page, tema: FactionId | null): Promise<void> {
   await page.evaluate(async (t: string | null) => {
     // El módulo lo sirve el vite de la página; la ruta, en una variable para que
     // TypeScript no la busque en el disco.
@@ -306,7 +304,12 @@ async function luzDelMargen(page: Page, png: Buffer): Promise<{ luz: number; anc
   return { luz: mediana(ls), ancho: caja.x1 - caja.x0 };
 }
 
-async function ladoALado(png: Buffer, tema: Tema, alto: number, salida: string): Promise<void> {
+async function ladoALado(
+  png: Buffer,
+  tema: FactionId,
+  alto: number,
+  salida: string,
+): Promise<void> {
   const lamina = await sharp(join(RAIZ, `assets/art/temas/${tema}.png`))
     .resize({ height: alto })
     .png()
@@ -334,8 +337,8 @@ const ruta = chromiumInstalado(log);
 const navegador = await chromium.launch(ruta === undefined ? {} : { executablePath: ruta });
 try {
   const luzLamina = Object.fromEntries(
-    await Promise.all(TEMAS.map(async (t) => [t, await luzDeLaLamina(t)] as const)),
-  ) as Record<Tema, number>;
+    await Promise.all(FACTION_IDS.map(async (t) => [t, await luzDeLaLamina(t)] as const)),
+  ) as Record<FactionId, number>;
   const movil: Buffer[] = [];
   for (const [ventana, esperado] of Object.entries(LIENZO)) {
     const [ancho, alto] = ventana.split('x').map(Number) as [number, number];
@@ -358,7 +361,7 @@ try {
     await esperarElSuelo(page, ventana, 180_000, log);
     // El del neutro en esta misma página: con tema, el lienzo es ese y el anotado.
     let delNeutro: string | null = null;
-    for (const tema of [null, ...TEMAS] as const) {
+    for (const tema of [null, ...FACTION_IDS] as const) {
       await ponerTema(page, tema);
       const m = await medir(page);
       const quien = tema ?? 'neutro';

@@ -10,19 +10,8 @@ import { nombreDeSalida } from '@core/state/setup.js';
 import { FACTION_IDS, type FactionId, NOMBRE_DE_FACCION } from '@core/types.js';
 import { type Html, html, NADA, unir } from '../html.js';
 
-/**
- * Si la página tiene que preguntar qué jugar: solo cuando la URL no pide nada,
- * ni semilla ni facción. `?seed=` vacío es no pedir (la regla de `parseSeed`), y
- * lo que pida algo, aunque no valga, va a la partida, que dice por qué no vale.
- */
-export function hayQuePreguntar(search: string): boolean {
-  const q = new URLSearchParams(search);
-  const pide = (nombre: string): boolean => q.getAll(nombre).some((v) => v.trim() !== '');
-  return !pide('seed') && !pide('faccion');
-}
-
 /** Por qué «Cargar partida» no hace nada: no hay guardado (fuera de alcance, 19-10-2026). */
-export const SIN_PARTIDAS = 'Aún no hay partidas guardadas.';
+const SIN_PARTIDAS = 'Aún no hay partidas guardadas.';
 
 /**
  * El menú: «Nuevo juego», «Cargar partida» (enfocable, pero apagado con

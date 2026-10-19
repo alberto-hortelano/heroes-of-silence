@@ -19,7 +19,7 @@
 
 import type { MapGenerateResponse } from '@core/contract/agent.js';
 import { type MapRequestOptions, serializeMapRequest } from '@core/contract/serialize.js';
-import { type MapPlan, validateMapPlan } from '@core/map/generate.js';
+import { basesDelPlan, type MapPlan, validateMapPlan } from '@core/map/generate.js';
 import type { AgentAnswer, AgentLink } from './agent-link.js';
 import { notaMapaAceptado, notaMapaRechazado } from './notas.js';
 
@@ -111,13 +111,12 @@ export async function pedirMapaAlAgente(
  * de los jugadores 3 y 4 sigue siendo jugable y sigue dejando la partida sin un
  * solo turno en silencio. Lo que murió es la convención, no el guardia.
  *
- * Desde que el héroe nace en su base (19-10-2026) los jugadores del plan son los
- * dueños de ciudad: no hay `heroStarts` que mirar.
+ * Los jugadores del plan son los dueños de ciudad (`basesDelPlan`).
  */
 function loQuePidioElServidor(plan: MapPlan, peticion: MapRequestOptions): string[] {
   const problemas: string[] = [];
   const esperados = peticion.players;
-  const trae = new Set(plan.towns.flatMap((t) => (t.owner === null ? [] : [t.owner])));
+  const trae = [...basesDelPlan(plan).keys()];
   const lista = esperados.join(', ');
 
   if (plan.width !== peticion.width || plan.height !== peticion.height) {
@@ -127,15 +126,15 @@ function loQuePidioElServidor(plan: MapPlan, peticion: MapRequestOptions): strin
   }
 
   for (const p of esperados) {
-    if (!trae.has(p)) {
+    if (!trae.includes(p)) {
       problemas.push(
         `el jugador ${p} no tiene ninguna ciudad: esta partida la juegan los jugadores ${lista}, y cada uno necesita al menos una (la primera suya es su base y su héroe empieza dentro)`,
       );
     }
   }
-  // Ordenado, y no en el orden del `Set`: el motivo que lee el agente tiene que
+  // `basesDelPlan` ya los da ordenados: el motivo que lee el agente tiene que
   // ser el mismo en dos partidas iguales.
-  for (const p of [...trae].sort((a, b) => a - b)) {
+  for (const p of trae) {
     if (!esperados.includes(p)) {
       problemas.push(
         `hay ciudades del jugador ${p}, que no juega esta partida: los jugadores son ${lista}; déjalas neutrales con "owner": null`,

@@ -25,6 +25,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { TipoDeHeroe } from '../../src/core/data.js';
 import { type FactionId, NOMBRE_DE_FACCION } from '../../src/core/types.js';
+import { seccionDelCuaderno } from './cuaderno.js';
 
 const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
 // El cuaderno vive en la copia principal del repo, sin commitear: desde un
@@ -54,13 +55,10 @@ function idDe(nombre: string): string {
 }
 
 function tiposDeLaSeccion(titulo: string): TipoDeHeroe[] {
-  // De «### Templarios:» a la siguiente cabecera de nivel 3 o 2. El título se
-  // escapa por si algún día lleva un carácter de expresión regular.
-  const escapado = titulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const seccion = new RegExp(`^### ${escapado}:?[ \\t]*$([\\s\\S]*?)(?=^##)`, 'm').exec(texto);
-  if (seccion === null) throw new Error(`${ORIGEN}: no encuentro la sección «### ${titulo}»`);
-  // Dentro, de «- Heroes:» a «- Tropas:».
-  const heroes = /^- Heroes:[ \t]*$([\s\S]*?)(?=^- Tropas:)/m.exec(seccion[1] as string);
+  // De «### Templarios:» a la siguiente cabecera y, dentro, de «- Heroes:» a
+  // «- Tropas:».
+  const seccion = seccionDelCuaderno(texto, titulo, ORIGEN);
+  const heroes = /^- Heroes:[ \t]*$([\s\S]*?)(?=^- Tropas:)/m.exec(seccion);
   if (heroes === null) {
     throw new Error(
       `${ORIGEN}: la sección «${titulo}» no tiene «- Heroes:» seguida de «- Tropas:»`,

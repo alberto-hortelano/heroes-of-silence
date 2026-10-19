@@ -14,12 +14,12 @@ import { EscenaBase } from './escenas/castillo.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
 import { cargarArte } from './render/assets.js';
-import { apuntarElSueloEn } from './render/escenario/superficie.js';
+import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
 import { ajustarLienzo } from './render/lienzo.js';
 import { repartirClic } from './reparto-del-clic.js';
 import { DialogoDeLaRueda } from './rueda/dialogo.js';
-import { semillaSorteada } from './semilla.js';
+import { aLaBarra, semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { ponerTema } from './temas.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
@@ -72,27 +72,26 @@ function faccionDeLaUrl(): FactionId | null {
   );
 }
 
-/** Cómo salir de una URL que no abre partida: quitar lo que pidió. */
-const SALIDA_DE_LA_SEMILLA =
-  'quita "?seed=…" de la barra de direcciones para jugar una partida al azar';
-const SALIDA_DE_LA_FACCION =
-  'quita "?faccion=…" de la barra de direcciones para jugar con la que saque la semilla';
-const SALIDA_DE_LAS_DOS =
-  'quita "?seed=…" y "?faccion=…" de la barra de direcciones para volver al menú de inicio';
+/**
+ * Cómo salir de una URL que no abre partida: quitar lo que pidió. Sin la semilla
+ * se juega otra al azar; sin las dos, vuelve el menú de inicio.
+ */
+function salidaDe(pedidos: readonly ('seed' | 'faccion')[]): string | null {
+  if (pedidos.length === 0) return null;
+  return `quita ${pedidos.map((p) => `"?${p}=…"`).join(' y ')} de la barra de direcciones`;
+}
 
 /**
  * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla y con
  * qué facción juega: las dos se escriben siempre, también si la facción la sacó
- * la semilla (la partida rápida), para que la URL la reproduzca entera. Se
- * cambian SOLO `seed` y `faccion` sobre la URL de ahora: escribir `?seed=N` a
- * pelo sustituía la query entera y el fragmento.
+ * la semilla (la partida rápida), para que la URL la reproduzca entera.
  */
 function abrePartida(seed: number, faccion: FactionId | null): Session {
   const abierta = new Session(seed, faccion ?? undefined);
-  const url = new URL(location.href);
-  url.searchParams.set('seed', String(seed));
-  url.searchParams.set('faccion', abierta.jugador.faction);
-  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  aLaBarra((url) => {
+    url.searchParams.set('seed', String(seed));
+    url.searchParams.set('faccion', abierta.jugador.faction);
+  });
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
   elSeed.textContent = `semilla ${abierta.state.seed}`;
@@ -114,7 +113,7 @@ interface Fallo {
  * los dos: diciendo solo el primero, arreglarlo destapaba el segundo en otra
  * recarga (H4 de QA del tema por ejército, en su rama).
  */
-function sinArrancar(fallos: readonly [Fallo, ...Fallo[]]): never {
+function sinArrancar(fallos: readonly Fallo[]): never {
   const texto = fallos
     .map(({ motivo, salida }) => {
       const m = motivo instanceof Error ? motivo.message : String(motivo);
@@ -128,44 +127,36 @@ function sinArrancar(fallos: readonly [Fallo, ...Fallo[]]): never {
   // Con la salida en el mensaje: lo que se lanza lo pinta entero la página que
   // no arranca (`arranque.ts`), encima de la barra.
   throw new Error(texto, {
-    cause: fallos.length === 1 ? fallos[0].motivo : fallos.map((f) => f.motivo),
+    cause: fallos.length === 1 ? fallos[0]?.motivo : fallos.map((f) => f.motivo),
   });
-}
-
-/** Lo que pide la URL, leído con `leer`: su valor, o por qué no vale y cómo salir. */
-function deLaUrl<T>(leer: () => T, salida: string): { readonly valor: T } | Fallo {
-  try {
-    return { valor: leer() };
-  } catch (motivo) {
-    return { motivo, salida };
-  }
 }
 
 let session: Session;
 {
-  const semilla = deLaUrl(semillaDeLaUrl, SALIDA_DE_LA_SEMILLA);
-  const faccion = deLaUrl(faccionDeLaUrl, SALIDA_DE_LA_FACCION);
-  if ('motivo' in semilla && 'motivo' in faccion) sinArrancar([semilla, faccion]);
-  if ('motivo' in semilla) sinArrancar([semilla]);
-  if ('motivo' in faccion) sinArrancar([faccion]);
+  // Lo que pide la URL, leído entero antes de decir nada: cada parámetro que no
+  // vale, con su salida, y todos a la vez.
+  const fallos: Fallo[] = [];
+  const leer = <T>(nombre: 'seed' | 'faccion', leerlo: () => T | null): T | null => {
+    try {
+      return leerlo();
+    } catch (motivo) {
+      fallos.push({ motivo, salida: salidaDe([nombre]) });
+      return null;
+    }
+  };
+  const semilla = leer('seed', semillaDeLaUrl);
+  const faccion = leer('faccion', faccionDeLaUrl);
+  if (fallos.length > 0) sinArrancar(fallos);
   try {
-    session = abrePartida(semilla.valor ?? semillaSorteada(), faccion.valor);
+    session = abrePartida(semilla ?? semillaSorteada(), faccion);
   } catch (motivo) {
-    // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso:
-    // la semilla, la facción o las dos. Sin nada pedido no hay salida que dar.
-    sinArrancar([
-      {
-        motivo,
-        salida:
-          semilla.valor === null
-            ? faccion.valor === null
-              ? null
-              : SALIDA_DE_LA_FACCION
-            : faccion.valor === null
-              ? SALIDA_DE_LA_SEMILLA
-              : SALIDA_DE_LAS_DOS,
-      },
-    ]);
+    // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso.
+    // Sin nada pedido no hay salida que dar.
+    const pedidos = [
+      ...(semilla === null ? [] : (['seed'] as const)),
+      ...(faccion === null ? [] : (['faccion'] as const)),
+    ];
+    sinArrancar([{ motivo, salida: salidaDe(pedidos) }]);
   }
 }
 
@@ -655,7 +646,9 @@ document.addEventListener('click', (ev) => {
       // «Partida nueva» vuelve al menú de inicio: la página sin nada pedido.
       // Recargando y no montando otra sesión aquí: así se suelta la partida
       // entera, el Worker del suelo incluido.
-      history.replaceState(null, '', location.pathname);
+      aLaBarra((url) => {
+        url.search = '';
+      });
       location.reload();
       break;
     default:
@@ -720,10 +713,33 @@ document.addEventListener('keydown', (ev) => {
   pedirFotograma();
 });
 
-// La partida empieza en la base, con el héroe dentro (19-10-2026): salir de ella
-// lleva al mapa, y la barra dice entonces cómo se anda (`AYUDA_DEL_MAPA`).
+/**
+ * Compone el escenario del mapa y encarga su suelo mientras se está en la base,
+ * cuando el hilo quede libre: el suelo lo pinta un Worker en 2-12 s y, si se
+ * encargaba al salir de la base, el mapa se veía ese rato con el sucedáneo o el
+ * esbozo. Son las mismas llamadas que hace el primer fotograma del mapa
+ * (`escenarioListo`, `sueloDelMapa`), así que lo que se adelanta es lo que luego
+ * se pinta.
+ */
+function calentarElMapa(): void {
+  const cuandoQuedeLibre = (fn: () => void): void => {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1000 });
+    else setTimeout(fn, 100);
+  };
+  const paso = (): void => {
+    const esc = escenarioListo(session.state.map, session.state.seed);
+    // Se compone en una tarea aparte: hasta que esté, otra vuelta.
+    if (esc === null) cuandoQuedeLibre(paso);
+    else sueloDelMapa(esc, 1, devicePixelRatio);
+  };
+  cuandoQuedeLibre(paso);
+}
+
+// La partida empieza en la base, con el héroe dentro: salir de ella lleva al
+// mapa, y la barra dice entonces cómo se anda (`AYUDA_DEL_MAPA`).
 session.abrirSuBase();
 pedirFotograma();
+calentarElMapa();
 
 if (HERRAMIENTAS_DE_DESARROLLO) {
   void import('./desarrollo/herramientas.js')

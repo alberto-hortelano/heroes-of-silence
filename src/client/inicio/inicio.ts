@@ -12,11 +12,11 @@
  * facción se viste la página con su tema (`ponerTema`); el menú va en el neutro
  * (`quitarTema`).
  */
-import { FACTION_IDS, type FactionId } from '@core/types.js';
+import { esFaccion, FACTION_IDS, type FactionId } from '@core/types.js';
 import { pintar } from '../html.js';
-import { semillaSorteada } from '../semilla.js';
+import { aLaBarra, semillaSorteada } from '../semilla.js';
 import { ponerTema, quitarTema } from '../temas.js';
-import { hayQuePreguntar, renderEleccion, renderMenu } from './pantallas.js';
+import { renderEleccion, renderMenu } from './pantallas.js';
 
 function deLaPagina<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -24,16 +24,12 @@ function deLaPagina<T extends HTMLElement>(id: string): T {
   return el as T;
 }
 
-function esFaccion(x: string): x is FactionId {
-  return (FACTION_IDS as readonly string[]).includes(x);
-}
-
 /**
- * Lo que pide la URL o, si no pide nada, lo que se elija en el menú, escrito en
- * ella. Se cumple cuando hay partida que abrir: al momento si la URL ya la pide.
+ * Lo que se elija en el menú, escrito en la URL. Se cumple cuando hay partida
+ * que abrir. Solo se llama si la URL no pide ninguna (`hayQuePreguntar`, en
+ * `entrada.ts`).
  */
 export function pedirPartida(): Promise<void> {
-  if (!hayQuePreguntar(location.search)) return Promise.resolve();
   const app = deLaPagina('app');
   const inicio = deLaPagina('inicio');
   quitarTema();
@@ -43,6 +39,9 @@ export function pedirPartida(): Promise<void> {
   return new Promise<void>((empezar) => {
     let elegida: FactionId = FACTION_IDS[0];
     let pantalla: 'menu' | 'eleccion' = 'menu';
+    /** Lo que escucha el menú, que se suelta de una vez al empezar. */
+    const escucha = new AbortController();
+    const { signal } = escucha;
 
     const enfocar = (selector: string): void => {
       inicio.querySelector<HTMLElement>(selector)?.focus();
@@ -61,89 +60,95 @@ export function pedirPartida(): Promise<void> {
     };
     /** Escribe lo elegido en la URL y deja paso a la partida. */
     const jugar = (pedido: { readonly seed: number; readonly faccion?: FactionId }): void => {
-      const url = new URL(location.href);
-      url.searchParams.set('seed', String(pedido.seed));
-      if (pedido.faccion === undefined) url.searchParams.delete('faccion');
-      else url.searchParams.set('faccion', pedido.faccion);
-      history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
-      inicio.removeEventListener('click', alPulsar);
-      inicio.removeEventListener('submit', alEnviar);
-      document.removeEventListener('keydown', alTeclear);
-      inicio.removeEventListener('focusin', alMirar);
-      inicio.removeEventListener('pointermove', alMoverse);
-      inicio.removeEventListener('pointerout', alDejarDeMirar);
-      inicio.removeEventListener('change', alMarcar);
+      aLaBarra((url) => {
+        url.searchParams.set('seed', String(pedido.seed));
+        if (pedido.faccion !== undefined) url.searchParams.set('faccion', pedido.faccion);
+      });
+      escucha.abort();
       inicio.hidden = true;
-      pintar(inicio, renderMenu());
       app.hidden = false;
       empezar();
     };
+    /** La facción de `el` (o de lo que lo contiene) en la elección, si es una. */
+    const faccionDe = (el: EventTarget | null): FactionId | null => {
+      if (!(el instanceof Element)) return null;
+      const f = el.closest<HTMLElement>('[data-faccion]')?.dataset.faccion;
+      return f !== undefined && esFaccion(f) ? f : null;
+    };
 
-    const alPulsar = (ev: MouseEvent): void => {
-      const boton = (ev.target as Element).closest<HTMLElement>('[data-inicio]');
-      if (boton === null || boton.getAttribute('aria-disabled') === 'true') return;
-      switch (boton.dataset.inicio) {
-        case 'nuevo':
-          aEleccion();
-          break;
-        case 'rapida':
-          // La facción, la que saque la semilla (`faccionesDeLaSemilla`): el
-          // menú no sortea nada que no sea la semilla.
-          jugar({ seed: semillaSorteada() });
-          break;
-        case 'volver':
-          aMenu();
-          break;
-      }
-    };
-    const alEnviar = (ev: SubmitEvent): void => {
-      ev.preventDefault();
-      jugar({ seed: semillaSorteada(), faccion: elegida });
-    };
-    const alTeclear = (ev: KeyboardEvent): void => {
-      if (ev.key === 'Escape' && pantalla === 'eleccion') {
+    inicio.addEventListener(
+      'click',
+      (ev) => {
+        const boton = (ev.target as Element).closest<HTMLElement>('[data-inicio]');
+        if (boton === null || boton.getAttribute('aria-disabled') === 'true') return;
+        switch (boton.dataset.inicio) {
+          case 'nuevo':
+            aEleccion();
+            break;
+          case 'rapida':
+            // La facción, la que saque la semilla (`faccionesDeLaSemilla`): el
+            // menú no sortea nada que no sea la semilla.
+            jugar({ seed: semillaSorteada() });
+            break;
+          case 'volver':
+            aMenu();
+            break;
+        }
+      },
+      { signal },
+    );
+    inicio.addEventListener(
+      'submit',
+      (ev) => {
         ev.preventDefault();
-        aMenu();
-      }
-    };
-    /** La facción con el foco o bajo el puntero: su tema, ya. */
+        jugar({ seed: semillaSorteada(), faccion: elegida });
+      },
+      { signal },
+    );
+    document.addEventListener(
+      'keydown',
+      (ev) => {
+        if (ev.key === 'Escape' && pantalla === 'eleccion') {
+          ev.preventDefault();
+          aMenu();
+        }
+      },
+      { signal },
+    );
+    // La facción con el foco o bajo el puntero: su tema, ya. La lista mide lo
+    // mismo con cualquier tema (`.opcion-de-faccion`, `style.css`): si cambiara
+    // de medidas, el navegador avisaría de otro `pointerover` con el ratón quieto
+    // y el tema de la que se elige con el teclado volvería a la de debajo.
     const alMirar = (ev: Event): void => {
-      const f = (ev.target as Element).closest<HTMLElement>('[data-faccion]')?.dataset.faccion;
-      if (f !== undefined && esFaccion(f)) ponerTema(f);
+      const f = faccionDe(ev.target);
+      if (f !== null) ponerTema(f);
     };
-    /**
-     * Solo si el puntero se ha movido: el navegador también avisa cuando lo de
-     * debajo cambia con él quieto (al cambiar de tema cambian la letra y las
-     * medidas), y con el ratón parado encima de una facción el tema de la que se
-     * elige con el teclado volvía a la de debajo.
-     */
-    const alMoverse = (ev: PointerEvent): void => {
-      if (ev.movementX !== 0 || ev.movementY !== 0) alMirar(ev);
-    };
-    /** Al salir el puntero de las facciones, el tema vuelve al de la marcada. */
-    const alDejarDeMirar = (ev: PointerEvent): void => {
-      const lista = inicio.querySelector('.facciones');
-      if (lista === null) return;
-      const hacia = ev.relatedTarget;
-      if (hacia instanceof Node && lista.contains(hacia)) return;
-      ponerTema(elegida);
-    };
-    const alMarcar = (ev: Event): void => {
-      const radio = (ev.target as Element).closest('input[name="faccion"]');
-      if (radio === null) return;
-      const valor = radio.getAttribute('value') ?? '';
-      if (!esFaccion(valor)) throw new Error(`"${valor}" no es una facción`);
-      elegida = valor;
-      ponerTema(elegida);
-    };
-
-    inicio.addEventListener('click', alPulsar);
-    inicio.addEventListener('submit', alEnviar);
-    document.addEventListener('keydown', alTeclear);
-    inicio.addEventListener('focusin', alMirar);
-    inicio.addEventListener('pointermove', alMoverse);
-    inicio.addEventListener('pointerout', alDejarDeMirar);
-    inicio.addEventListener('change', alMarcar);
+    inicio.addEventListener('focusin', alMirar, { signal });
+    inicio.addEventListener('pointerover', alMirar, { signal });
+    // Al salir el puntero de las facciones, el tema vuelve al de la marcada.
+    inicio.addEventListener(
+      'pointerout',
+      (ev) => {
+        const lista = inicio.querySelector('.facciones');
+        if (lista === null || !(ev.target instanceof Node) || !lista.contains(ev.target)) return;
+        const hacia = ev.relatedTarget;
+        if (hacia instanceof Node && lista.contains(hacia)) return;
+        ponerTema(elegida);
+      },
+      { signal },
+    );
+    inicio.addEventListener(
+      'change',
+      (ev) => {
+        const radio = (ev.target as Element).closest('input[name="faccion"]');
+        if (radio === null) return;
+        const valor = radio.getAttribute('value') ?? '';
+        if (!esFaccion(valor)) throw new Error(`"${valor}" no es una facción`);
+        elegida = valor;
+        ponerTema(elegida);
+      },
+      { signal },
+    );
     aMenu();
   });
 }
