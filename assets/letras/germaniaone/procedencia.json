@@ -1,0 +1,22 @@
+{
+  "familia": "Germania One",
+  "tema": "orkos",
+  "licencia": "SIL Open Font License 1.1 (OFL.txt)",
+  "repositorio": "https://github.com/google/fonts",
+  "commit": "66928797f271fed5ee428544e7229685e2d90127",
+  "ficheros": [
+    {
+      "local": "GermaniaOne-Regular.ttf",
+      "origen": "ofl/germaniaone/GermaniaOne-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/germaniaone/GermaniaOne-Regular.ttf",
+      "sha256": "3ee3d56584bab8c9e3f59cc3360aa8a36e219dcf0a9f3c8928e3da5a19277e3f"
+    },
+    {
+      "local": "OFL.txt",
+      "origen": "ofl/germaniaone/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/germaniaone/OFL.txt",
+      "sha256": "b7574cd4c76770e5e3915d16bd93f09663bd77cb041a4ec09d824c52b540529a"
+    }
+  ],
+  "modificado": "no: los bytes del repositorio de origen, sin subconjunto ni cambio de nombre"
+}

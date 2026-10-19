@@ -41,7 +41,7 @@
 #catalogo { grid-column: 1; grid-row: 1; }
 #montaje h3, #edicion h3 {
   margin: 0 0 0.4rem;
-  font: 10px system-ui, sans-serif;
+  font: 10px var(--letra-ui);
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold);
@@ -58,9 +58,9 @@
   gap: 0.1rem 0.4rem;
   padding: 0.25rem;
   background: var(--panel-alt);
-  border: 1px solid #6e71413d;
+  border: 1px solid var(--borde-tenue);
 }
-.hoja img { grid-row: span 3; width: 48px; height: 48px; object-fit: contain; background: #0b0f0b; }
+.hoja img { grid-row: span 3; width: 48px; height: 48px; object-fit: contain; background: var(--fondo-figura); }
 .hoja .nombre { line-height: 1.15; }
 .hoja .botones, .puesto .botones, .retrato .botones { display: flex; flex-wrap: wrap; gap: 0.2rem; }
 .hoja button, .puesto .botones button, .retrato button { min-height: 26px; padding: 0.1rem 0.4rem; font-size: 0.75rem; }
@@ -76,9 +76,9 @@
   gap: 0.4rem;
   padding: 0.3rem;
   background: var(--panel-alt);
-  border: 1px solid #6e71413d;
+  border: 1px solid var(--borde-tenue);
 }
-.puesto.elegida { border-color: #e0c589; }
+.puesto.elegida { border-color: var(--resalte); }
 .puesto .datos { display: grid; gap: 0.2rem; align-content: start; }
 .puesto button.nombre {
   background: none;
@@ -86,8 +86,8 @@
   padding: 0;
   min-height: 0;
   text-align: left;
-  color: #f2deac;
-  font: 1rem Georgia, serif;
+  color: var(--titulo);
+  font: 1rem var(--letra-titulo);
   text-decoration: underline dotted;
   /* Los nombres del taller son largos («Hermano de carga (montado; antes…)»):
      en la tarjeta se recortan, y entero se lee en la ficha (M8 de QA). */
@@ -108,22 +108,22 @@
   line-height: 0;
 }
 .puesto button.ver:hover canvas.figura,
-.puesto button.ver:focus-visible canvas.figura { border-color: #e0c589; }
-canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
+.puesto button.ver:focus-visible canvas.figura { border-color: var(--resalte); }
+canvas.figura { background: var(--fondo-figura); border: 1px solid var(--borde-tenue); }
 
 .campo { display: grid; gap: 0.1rem; }
 .campo .label { color: var(--ink-dim); font-size: 0.75rem; }
 .campo input, .campo select {
-  font: 13px system-ui, sans-serif;
-  background: #16201a;
+  font: 13px var(--letra-ui);
+  background: var(--fondo-campo);
   color: var(--ink);
-  border: 1px solid #8f784955;
+  border: 1px solid var(--boton-borde);
   padding: 0.25rem 0.35rem;
 }
 .rasgos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.15rem 0.6rem; }
 .rasgo { font-size: 0.9rem; }
 .etiquetas { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-.etiqueta { background: #33302a; border: 1px dashed #a68b4d88; padding: 0.1rem 0.3rem; font-size: 0.9rem; }
+.etiqueta { background: var(--etiqueta); border: 1px dashed var(--etiqueta-borde); padding: 0.1rem 0.3rem; font-size: 0.9rem; }
 .etiqueta button { min-height: 0; padding: 0 0.3rem; background: none; border: 0; }
 
 /* «Nueva unidad» (12-10-2026): el cuerpo y su botón, encima de los filtros. */
@@ -132,7 +132,7 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 /* Un desplegable mide su opción más larga: sin ancho, en un teléfono el de las piezas
    («Lanza de jinete · +7 ataque, +40-80 daño, a dos manos») sacaba la vista de lado. */
 .nueva-unidad select, .equipo-de-la-ficha select { width: 100%; min-width: 0; max-width: 100%; }
-.hoja canvas.figura { grid-row: span 3; width: 48px; height: 48px; background: #0b0f0b; }
+.hoja canvas.figura { grid-row: span 3; width: 48px; height: 48px; background: var(--fondo-figura); }
 /* Con retrato o figura, todo lo demás va en la segunda columna: con el sello hay una
    fila más que las que el retrato ocupa, y los botones caían debajo de él. */
 .hoja > img ~ .sello, .hoja > canvas ~ .sello,
@@ -156,15 +156,15 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .ficha .cost { font-size: 0.85rem; }
 .titulo-de-ficha { display: grid; gap: 0.05rem; }
 .nombre-de-ficha { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; min-width: 0; }
-.nombre-de-ficha .nombre { color: #f2deac; font: 1.2rem Georgia, serif; min-width: 0; overflow-wrap: anywhere; }
+.nombre-de-ficha .nombre { color: var(--titulo); font: 1.2rem var(--letra-titulo); min-width: 0; overflow-wrap: anywhere; }
 .nombre-de-ficha .boton-de-cabecera { min-height: 24px; font-size: 0.8rem; letter-spacing: 0; }
 .nombre-de-ficha input.renombrar {
   flex: 1 1 12rem;
   min-width: 0;
-  font: 1.1rem Georgia, serif;
-  background: #16201a;
-  color: #f2deac;
-  border: 1px solid #e0c589;
+  font: 1.1rem var(--letra-titulo);
+  background: var(--fondo-campo);
+  color: var(--titulo);
+  border: 1px solid var(--resalte);
   padding: 0.1rem 0.35rem;
 }
 .titulo-de-ficha .subtitulo { color: var(--gold); font-size: 0.72rem; letter-spacing: 1.5px; text-transform: uppercase; }
@@ -199,7 +199,7 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
  */
 .tabla-de-cifras { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
 .tabla-de-cifras th, .tabla-de-cifras td { padding: 0.1rem 0.3rem; border-bottom: 1px solid var(--border); }
-.tabla-de-cifras thead th { color: var(--ink-dim); font: 0.75rem system-ui, sans-serif; text-align: right; white-space: nowrap; }
+.tabla-de-cifras thead th { color: var(--ink-dim); font: 0.75rem var(--letra-ui); text-align: right; white-space: nowrap; }
 .tabla-de-cifras tbody th { text-align: left; font-weight: normal; white-space: nowrap; }
 .tabla-de-cifras td.escrita { width: 1%; text-align: right; }
 /* Cinco cifras, su relleno y las flechas del `number` (~16 px en Chromium), sin
@@ -244,41 +244,43 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   padding: 0;
   margin: 0;
   border: 0;
-  background: #2b3328;
+  background: var(--hex);
   clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
   cursor: pointer;
   transform: scale(0.94);
 }
-.muralla .hex.salida-izq { background: #33405a; }
-.muralla .hex.salida-der { background: #5a3a33; }
+.muralla .hex.salida-izq { background: var(--info-salida-izq); }
+.muralla .hex.salida-der { background: var(--info-salida-der); }
 /* Lo de fuera de una forma que cierra (`ladoDe`), rayado: de lo alto no se baja ahí. */
-.muralla .hex.fuera { background-image: repeating-linear-gradient(45deg, #0000 0 4px, #c9a24a55 4px 6px); }
-.muralla .hex:hover, .muralla .hex:focus-visible { background: #4c5a44; }
-.muralla .hex.muro { background: #9a948a; }
+.muralla .hex.fuera { background-image: var(--info-rayado); }
+.muralla .hex:hover, .muralla .hex:focus-visible { background: var(--hex-encima); }
+.muralla .hex.muro { background: var(--info-piedra); }
 /* La puerta va en el lado entre dos casillas: una franja de madera en el borde
    este de la de la izquierda y en el oeste de la de la derecha (ampliación 4). */
-.muralla .hex.puerta-este { box-shadow: inset -6px 0 0 #9a6634, inset -8px 0 0 #3f2410; }
-.muralla .hex.puerta-oeste { box-shadow: inset 6px 0 0 #9a6634, inset 8px 0 0 #3f2410; }
+.muralla .hex.puerta-este { box-shadow: inset -6px 0 0 var(--info-madera), inset -8px 0 0 var(--info-madera-canto); }
+.muralla .hex.puerta-oeste { box-shadow: inset 6px 0 0 var(--info-madera), inset 8px 0 0 var(--info-madera-canto); }
 .muralla .hex.puerta-este.puerta-oeste {
-  box-shadow: inset -6px 0 0 #9a6634, inset -8px 0 0 #3f2410, inset 6px 0 0 #9a6634, inset 8px 0 0 #3f2410;
+  box-shadow:
+    inset -6px 0 0 var(--info-madera), inset -8px 0 0 var(--info-madera-canto),
+    inset 6px 0 0 var(--info-madera), inset 8px 0 0 var(--info-madera-canto);
 }
 /* Con la herramienta Puerta, el puntero resalta la casilla y su vecina del este: entre las dos va. */
-.muralla .rejilla.herramienta-puerta .hex:hover + .hex { background: #4c5a44; }
+.muralla .rejilla.herramienta-puerta .hex:hover + .hex { background: var(--hex-encima); }
 .muralla .mandos { display: grid; gap: 0.35rem; flex: 1; min-width: 16rem; max-width: 34rem; }
 .muralla .mandos .botones { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .muralla .mandos button { min-height: 26px; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
 .muralla .mandos p { margin: 0; }
-.muralla .aviso-despliegue, #muralla > .aviso-despliegue { color: #f0a070; font-weight: bold; margin: 0; }
-.muralla .aviso-guardado { color: #f0a070; }
+.muralla .aviso-despliegue, #muralla > .aviso-despliegue { color: var(--aviso); font-weight: bold; margin: 0; }
+.muralla .aviso-guardado { color: var(--aviso); }
 /* La cabecera del bando lleva su Yo / IA: quién mueve el bando entero. */
 #montaje h3.cabecera-bando { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
 .cabecera-bando .botones { display: flex; gap: 0.2rem; }
 /* La cabecera lleva el botón de plegar: plegado, el editor es esta línea (QA, M7). */
 #montaje h3.cabecera-muralla { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
 /* Los botones de una cabecera (bando, muralla, ficha abierta): de la letra del rótulo. */
-.boton-de-cabecera { min-height: 0; padding: 0.05rem 0.5rem; font: 10px system-ui, sans-serif; letter-spacing: 1px; }
+.boton-de-cabecera { min-height: 0; padding: 0.05rem 0.5rem; font: 10px var(--letra-ui); letter-spacing: 1px; }
 .muralla .formas { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.25rem; }
-.muralla .forma { display: grid; gap: 0.1rem; padding: 0.25rem; background: var(--panel-alt); border: 1px solid #6e71413d; }
+.muralla .forma { display: grid; gap: 0.1rem; padding: 0.25rem; background: var(--panel-alt); border: 1px solid var(--borde-tenue); }
 .muralla .forma .botones { display: flex; gap: 0.2rem; }
 
 @media (max-width: 760px) {
@@ -294,15 +296,15 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   font-size: 0.68rem;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #e0c589;
-  border: 1px solid #a68b4d88;
+  color: var(--resalte);
+  border: 1px solid var(--etiqueta-borde);
   padding: 0 0.3rem;
 }
 .heroe-del-bando { margin-bottom: 0.4rem; }
 .enlace-de-pelea { margin-bottom: 0.8rem; }
 .enlace-de-pelea input { width: 100%; box-sizing: border-box; font-size: 0.75rem; }
 /* Lo que avisa el editor de equipo: piezas sin guardar y la del enlace en la pelea. */
-.aviso-sin-guardar { color: #e0c589; border-left: 3px solid #a68b4d; padding-left: 0.4rem; }
+.aviso-sin-guardar { color: var(--resalte); border-left: 3px solid var(--filo); padding-left: 0.4rem; }
 .efectivos { grid-column: 1 / -1; display: grid; gap: 0.1rem; }
 /* La ficha cabe en su columna: los campos no pasan de la suya y las filas de
    «En la pelea» parten la cifra en dos líneas antes que salirse. */
@@ -333,13 +335,13 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   color: var(--ink);
   border: 1px solid var(--brass);
   border-radius: 4px;
-  box-shadow: 0 12px 40px #000a;
+  box-shadow: var(--sombra-honda);
 }
-#editor-en-combate::backdrop { background: #0008; }
+#editor-en-combate::backdrop { background: var(--velo); }
 #editor-en-combate .cabecera-del-editor {
   display: flex; align-items: center; justify-content: space-between; gap: 0.8rem;
 }
-#editor-en-combate h2 { margin: 0; font-size: 1.1rem; color: var(--gold); }
+#editor-en-combate h2 { margin: 0; font-family: var(--letra-encabezado); font-size: 1.1rem; color: var(--gold); }
 #editor-en-combate h3 { font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); }
 #editor-en-combate .aviso-del-editor { margin: 0.5rem 0; color: var(--accent); min-height: 1.2em; }
 #editor-en-combate .aviso-del-editor:empty { display: none; }
@@ -444,7 +446,7 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 #equipo > section { min-width: 0; }
 #equipo h3 {
   margin: 0 0 0.4rem;
-  font: 10px system-ui, sans-serif;
+  font: 10px var(--letra-ui);
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold);
@@ -461,17 +463,17 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
   padding: 0.3rem 0.4rem;
   text-align: left;
   background: var(--panel-alt);
-  border: 1px solid #6e71413d;
+  border: 1px solid var(--borde-tenue);
   font-size: 0.85rem;
   letter-spacing: 0;
 }
 /* Una tarjeta más baja que su vecina de fila no estira su sello: lo de dentro, arriba. */
 .lista-de-piezas button.pieza { align-content: start; }
 .lista-de-piezas button.pieza .sello { align-self: start; }
-.lista-de-piezas button.pieza .nombre { color: #f2deac; min-width: 0; overflow-wrap: anywhere; }
+.lista-de-piezas button.pieza .nombre { color: var(--titulo); min-width: 0; overflow-wrap: anywhere; }
 .lista-de-piezas button.pieza .cost { grid-column: 1 / -1; font-size: 0.75rem; overflow-wrap: anywhere; }
-.lista-de-piezas button.pieza.elegida { border-color: #e0c589; }
-.sello.sello-solo-en-kits { color: #9fd0a0; border-color: #6fa07088; }
+.lista-de-piezas button.pieza.elegida { border-color: var(--resalte); }
+.sello.sello-solo-en-kits { color: var(--sello-arena); border-color: var(--sello-arena-borde); }
 .ficha-de-pieza .botones { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .ficha-de-pieza .cifras { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); gap: 0.3rem 0.8rem; }
 .ficha-de-pieza .cifras .campo { grid-template-columns: minmax(0, 1fr) 5.5rem; align-items: center; gap: 0.4rem; }
@@ -508,20 +510,21 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 .barra-de-la-rueda .rotulo { white-space: nowrap; }
 .barra-de-la-rueda .paso { padding: 0; height: 1.6rem; line-height: 1; font-size: 1rem; }
 .barra-de-la-rueda .barra { width: 100%; height: 0.8rem; display: block; }
-.barra-de-la-rueda .barra .pista { fill: #120f0b; }
-.barra-de-la-rueda .barra .muesca { stroke: #3a3222; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.barra-de-la-rueda .barra .pista { fill: var(--rueda-oscuro); }
+.barra-de-la-rueda .barra .muesca { stroke: var(--info-nivel-3-fondo); stroke-width: 1; vector-effect: non-scaling-stroke; }
 /* La escala de un nivel, la misma en toda arma y en los tres sitios que lo tiñen:
    el relleno de la barra (--tono-del-nivel), el sector de la rueda
    (--fondo-del-nivel) y lo que da (--letra-del-nivel), del rojo del 0 al verde
    del 6, pasando por el neutro del 3. Una regla por nivel, del 0 a NIVEL_MAXIMO
-   (cifras-de-la-rueda.ts): si cambia, cambia esta escala. */
-.rueda-del-arma [data-nivel="0"] { --tono-del-nivel: #bd4f3f; --fondo-del-nivel: #8f4a37; --letra-del-nivel: var(--danger); }
-.rueda-del-arma [data-nivel="1"] { --tono-del-nivel: #b0614b; --fondo-del-nivel: #77402f; --letra-del-nivel: var(--danger); }
-.rueda-del-arma [data-nivel="2"] { --tono-del-nivel: #a3784f; --fondo-del-nivel: #5e3328; --letra-del-nivel: var(--danger); }
-.rueda-del-arma [data-nivel="3"] { --tono-del-nivel: #9a8a5e; --fondo-del-nivel: #3a3222; --letra-del-nivel: currentColor; }
-.rueda-del-arma [data-nivel="4"] { --tono-del-nivel: #87955a; --fondo-del-nivel: #3d5a34; --letra-del-nivel: var(--accent); }
-.rueda-del-arma [data-nivel="5"] { --tono-del-nivel: #73a055; --fondo-del-nivel: #4c723d; --letra-del-nivel: var(--accent); }
-.rueda-del-arma [data-nivel="6"] { --tono-del-nivel: #5fae4e; --fondo-del-nivel: #5b8a45; --letra-del-nivel: var(--accent); }
+   (cifras-de-la-rueda.ts): si cambia, cambia esta escala. Los colores son fichas
+   fijas (`--info-nivel-N`, en el `:root` de style.css): es información. */
+.rueda-del-arma [data-nivel="0"] { --tono-del-nivel: var(--info-nivel-0); --fondo-del-nivel: var(--info-nivel-0-fondo); --letra-del-nivel: var(--danger); }
+.rueda-del-arma [data-nivel="1"] { --tono-del-nivel: var(--info-nivel-1); --fondo-del-nivel: var(--info-nivel-1-fondo); --letra-del-nivel: var(--danger); }
+.rueda-del-arma [data-nivel="2"] { --tono-del-nivel: var(--info-nivel-2); --fondo-del-nivel: var(--info-nivel-2-fondo); --letra-del-nivel: var(--danger); }
+.rueda-del-arma [data-nivel="3"] { --tono-del-nivel: var(--info-nivel-3); --fondo-del-nivel: var(--info-nivel-3-fondo); --letra-del-nivel: currentColor; }
+.rueda-del-arma [data-nivel="4"] { --tono-del-nivel: var(--info-nivel-4); --fondo-del-nivel: var(--info-nivel-4-fondo); --letra-del-nivel: var(--accent); }
+.rueda-del-arma [data-nivel="5"] { --tono-del-nivel: var(--info-nivel-5); --fondo-del-nivel: var(--info-nivel-5-fondo); --letra-del-nivel: var(--accent); }
+.rueda-del-arma [data-nivel="6"] { --tono-del-nivel: var(--info-nivel-6); --fondo-del-nivel: var(--info-nivel-6-fondo); --letra-del-nivel: var(--accent); }
 .barra-de-la-rueda .barra .relleno { fill: var(--tono-del-nivel); }
 .barra-de-la-rueda .paso:disabled { opacity: 0.35; cursor: default; }
 .barra-de-la-rueda input {
@@ -546,7 +549,7 @@ canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 }
 /* La rueda de la ficha: el disco del combate, cada sector teñido por su nivel;
    el centro (Normal, siempre ×1), sin nivel ni tinte. */
-.disco.rueda-de-la-pieza .sector.centro { fill: #2b2519; }
+.disco.rueda-de-la-pieza .sector.centro { fill: var(--rueda-sector); }
 .disco.rueda-de-la-pieza .sector[data-nivel] { fill: var(--fondo-del-nivel); }
 .rueda-de-la-pieza .rotulo-en-la-pieza text { fill: var(--ink); font: 600 10.5px system-ui, sans-serif; }
 .rueda-de-la-pieza .rotulo-en-la-pieza text.nombre { fill: var(--ink-dim); font-weight: 400; font-size: 7.5px; }

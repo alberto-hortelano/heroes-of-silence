@@ -1,0 +1,54 @@
+{
+  "encargo": "tema-01-marco-mapa-elfos-c1",
+  "tipo": "interfaz",
+  "fecha": "2026-10-18T10:21:11.391Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b3e-32fc-7772-b81d-66962ecbdb01",
+  "reanuda": "01a14b3e-32fc-7772-b81d-66962ecbdb01",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nRehaz el mismo marco, con el mismo material y el mismo estilo, pero con TODOS los adornos de cada esquina (cristal cian, hiedra, filigrana) metidos dentro del cuadrado de la esquina, de 64×64 px (el 12,5 % del lado): ni el cristal ni la hiedra pueden salir de ese cuadrado hacia el tramo recto del borde ni hacia el hueco interior. Los cuatro tramos rectos, entre esquina y esquina, van lisos y uniformes de punta a punta (solo la moldura de plata con un motivo continuo y repetible, sin hojas sueltas), para poder estirarlos. El hueco interior, vacío. Mismo tamaño de imagen.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs un MARCO que el juego corta en 9 trozos para rodear un rectángulo de cualquier tamaño: las cuatro ESQUINAS (el 12,5 % de cada lado, como en la guía) llevan los adornos y se pintan una vez; las cuatro BANDAS entre ellas se estiran a lo largo y van lisas, uniformes y continuas, sin adornos sueltos, y casan con sus esquinas sin costura. El marco ocupa EXACTAMENTE la banda de la guía, de borde a borde de la imagen, y el centro es un fondo oscuro liso que no se ve.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nImagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/elfos.png",
+      "papel": "estilo",
+      "sha256": "ba3ae923d896b0dabf5460e3e14e1788a2c5a586a061f015569d1f5a752783f8"
+    },
+    {
+      "ruta": "assets/art/temas/elfos.png",
+      "papel": "pieza",
+      "sha256": "ba3ae923d896b0dabf5460e3e14e1788a2c5a586a061f015569d1f5a752783f8",
+      "recorte": {
+        "x": 0,
+        "y": 860,
+        "w": 300,
+        "h": 280
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/marco.png",
+      "papel": "corte",
+      "sha256": "9008a793b573c19143be4f7bc01562bbd2bdb5f10a1d53d4d15b194f725c0a4a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b3e-32fc-7772-b81d-66962ecbdb01/exec-9b197466-c36d-4081-ac15-65fe5be3b359.png",
+    "sha256": "c8a2229ed7a09a495ed54afba67dbabdff9983b0edc3403a9f952f7d74e63552",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "llevado de 1254×1254 a 512×512, el tamaño que pide",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 53 piezas en disco"
+  ],
+  "validacion": {
+    "ancho": 512,
+    "alto": 512
+  },
+  "salida": {
+    "ruta": "assets/temas/elfos/marco-mapa.webp",
+    "sha256": "5c6efc58c6372b1dab84b19001b17709d224b29598cefbac892aedcd82893a46"
+  }
+}

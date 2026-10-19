@@ -1,0 +1,22 @@
+{
+  "familia": "IM Fell English SC",
+  "tema": "no-muertos",
+  "licencia": "SIL Open Font License 1.1 (OFL.txt)",
+  "repositorio": "https://github.com/google/fonts",
+  "commit": "66928797f271fed5ee428544e7229685e2d90127",
+  "ficheros": [
+    {
+      "local": "IMFeENsc28P.ttf",
+      "origen": "ofl/imfellenglishsc/IMFeENsc28P.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/imfellenglishsc/IMFeENsc28P.ttf",
+      "sha256": "102324fb5434bb5da7963533426b0ad44c85bbc9e7755067535c9d11464a176b"
+    },
+    {
+      "local": "OFL.txt",
+      "origen": "ofl/imfellenglishsc/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/imfellenglishsc/OFL.txt",
+      "sha256": "2a3ca501fc4d5efcad9798531e3e06962b1e20c60e464f6cbd6c17630112c773"
+    }
+  ],
+  "modificado": "no: los bytes del repositorio de origen, sin subconjunto ni cambio de nombre"
+}

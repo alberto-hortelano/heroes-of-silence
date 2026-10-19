@@ -24,10 +24,8 @@
  *
  * No entra en `pnpm verify`: tarda decenas de segundos (ver `implementacion.md`).
  */
-import { type ChildProcess, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:net';
-import { homedir } from 'node:os';
+import type { ChildProcess } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
@@ -147,6 +145,7 @@ import {
 import { entornoDelArnes, semillaDelEspectador } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
+import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
 
 /**
  * Las semillas cambiaron todas con el mapa de 28 y los asaltantes (ciclo «el
@@ -217,103 +216,11 @@ import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 // se pisan); un ciclo que quiera guardarlas le pasa la suya.
 const DESTINO = resolve(process.argv[2] ?? '.cache/capturas');
 
-/** Los códigos de color ANSI; escritos con `fromCharCode` porque Biome no deja un ESC literal en una regex. */
-const COLORES_DE_TERMINAL = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
-
 function log(msg: string): void {
   console.log(`\x1b[36m[capturas]\x1b[0m ${msg}`);
 }
 
 // ------------------------------------------------------------------ navegador
-
-/**
- * El Chromium que haya. Playwright pide una revisión concreta y la descarga si
- * falta; aquí no se descarga nada: si la suya no está, se usa la más reciente
- * de las que ya hay en su caché, y se dice cuál.
- */
-function chromiumInstalado(): string | undefined {
-  const propio = chromium.executablePath();
-  if (existsSync(propio)) return undefined;
-  const cache = join(homedir(), '.cache', 'ms-playwright');
-  const candidatos = existsSync(cache)
-    ? readdirSync(cache)
-        .filter((d) => /^chromium-\d+$/.test(d))
-        .sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]))
-        .map((d) => join(cache, d, 'chrome-linux64', 'chrome'))
-        .filter((p) => existsSync(p))
-    : [];
-  const elegido = candidatos[0];
-  if (elegido === undefined) {
-    throw new Error(
-      `no hay ningún Chromium de Playwright en ${cache}: instálalo con \`npx playwright install chromium\``,
-    );
-  }
-  log(`Playwright pide ${propio}; uso el que hay: ${elegido}`);
-  return elegido;
-}
-
-// ----------------------------------------------------------------------- vite
-
-/**
- * Un puerto libre, preguntándoselo al sistema. `vite --port 0` NO es un puerto
- * efímero: vite toma el 0 por «no me lo han dicho» y abre el 5173 —se vio al
- * correrlo—, que choca con el vite de cualquier otro proyecto de la máquina.
- */
-async function puertoLibre(): Promise<number> {
-  return await new Promise((ok, mal) => {
-    const srv = createServer();
-    srv.once('error', mal);
-    srv.listen(0, '127.0.0.1', () => {
-      const dir = srv.address();
-      srv.close(() =>
-        typeof dir === 'object' && dir !== null ? ok(dir.port) : mal(new Error('sin puerto')),
-      );
-    });
-  });
-}
-
-/** Vite en un puerto libre y en su propio grupo, para poder matarlo entero. */
-async function arrancarVite(): Promise<{ proceso: ChildProcess; url: string }> {
-  const puerto = await puertoLibre();
-  const proceso = spawn('node_modules/.bin/vite', ['--port', String(puerto), '--strictPort'], {
-    cwd: process.cwd(),
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
-  });
-  let salida = '';
-  const url = await new Promise<string>((ok, mal) => {
-    const plazo = setTimeout(
-      () => mal(new Error(`vite no anunció su dirección en 15 s. Salida:\n${salida}`)),
-      15_000,
-    );
-    const leer = (trozo: Buffer): void => {
-      // Sin los códigos de color: vite pinta el puerto en negrita.
-      salida += trozo.toString().replace(COLORES_DE_TERMINAL, '');
-      const m = /Local:\s+(http:\/\/\S+)/.exec(salida);
-      if (m?.[1] !== undefined) {
-        clearTimeout(plazo);
-        ok(m[1].replace(/\/$/, ''));
-      }
-    };
-    proceso.stdout?.on('data', leer);
-    proceso.stderr?.on('data', leer);
-    proceso.on('exit', (code) => {
-      clearTimeout(plazo);
-      mal(new Error(`vite salió con ${code} antes de arrancar. Salida:\n${salida}`));
-    });
-  });
-  return { proceso, url };
-}
-
-function matarGrupo(p: ChildProcess | null): void {
-  if (p?.pid === undefined || p.exitCode !== null) return;
-  try {
-    process.kill(-p.pid, 'SIGTERM');
-  } catch (err) {
-    // El grupo ya no existe: se dice, no se calla, pero no es un fallo del guion.
-    log(`el grupo ya había terminado: ${err instanceof Error ? err.message : err}`);
-  }
-}
 
 // ------------------------------------------------------------------- la página
 
@@ -341,24 +248,6 @@ function vigilarConsola(
     problemas.lista.push(`[${nombre}] consola: ${m.text()} (${m.location().url})`);
   });
   page.on('pageerror', (e) => problemas.lista.push(`[${nombre}] excepción: ${e.message}`));
-}
-
-/**
- * Espera a que el suelo del mapa esté pintado a resolución plena
- * (`#app[data-escenario="pintado"]`, que apunta `apuntarElSueloEn`): antes se
- * ve el sucedáneo de pigmentos o el esbozo, sin texturas ni caminos.
- */
-async function esperarElSuelo(page: Page, quien: string, tope: number): Promise<void> {
-  const desde = Date.now();
-  await page
-    .waitForSelector('#app[data-escenario="pintado"]', { timeout: tope })
-    .catch(async () => {
-      const estado = await page.locator('#app').getAttribute('data-escenario');
-      throw new Error(
-        `${quien}: el suelo del mapa no llegó a «pintado» en ${tope / 1000} s (está en «${estado}»)`,
-      );
-    });
-  log(`${quien}: suelo pintado en ${((Date.now() - desde) / 1000).toFixed(1)} s`);
 }
 
 async function captura(page: Page, nombre: string): Promise<void> {
@@ -1257,7 +1146,7 @@ async function abrir(
   }
   const espejo = new Session(p.semilla);
   await page.goto(`${url}/?seed=${p.semilla}`, { waitUntil: 'networkidle' });
-  if (p.sinSuelo !== true) await esperarElSuelo(page, p.nombre, 60_000);
+  if (p.sinSuelo !== true) await esperarElSuelo(page, p.nombre, 60_000, log);
   await sleep(450);
   if (p.esperada !== undefined) {
     const b = await caja(page);
@@ -1929,7 +1818,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   const medida = await cajaDeMovil(browser, url, problemas);
   const espejo = new Session(semilla);
   await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
-  await esperarElSuelo(page, 'táctil', 60_000);
+  await esperarElSuelo(page, 'táctil', 60_000, log);
   await sleep(450);
   const mapa = new Mapa(page, espejo);
 
@@ -2660,7 +2549,7 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
             mapa = true;
             // Por debajo de HEROES_WAIT_AGENT_MS (30 s): mientras se espera, el
             // servidor no juega por el agente y el mapa sigue siendo el del día 1.
-            await esperarElSuelo(page, 'espectador', 25_000);
+            await esperarElSuelo(page, 'espectador', 25_000, log);
             await sleep(300);
             await captura(page, 'espectador-01-mapa');
           }
@@ -6584,7 +6473,7 @@ async function main(): Promise<void> {
   const problemas: Problemas = { lista: [] };
   let vite: ChildProcess | null = null;
   let browser: Browser | null = null;
-  const limpiar = (): void => matarGrupo(vite);
+  const limpiar = (): void => matarGrupo(vite, log);
   process.on('SIGINT', () => {
     limpiar();
     process.exit(130);
@@ -6593,7 +6482,7 @@ async function main(): Promise<void> {
     const arrancado = await arrancarVite();
     vite = arrancado.proceso;
     log(`vite en ${arrancado.url} (grupo ${vite.pid})`);
-    const ejecutable = chromiumInstalado();
+    const ejecutable = chromiumInstalado(log);
     browser = await chromium.launch(ejecutable === undefined ? {} : { executablePath: ejecutable });
     for (const [nombre, pasada] of pasadas) {
       log(`pasada «${nombre}»`);

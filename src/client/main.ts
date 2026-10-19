@@ -19,6 +19,7 @@ import { repartirClic } from './reparto-del-clic.js';
 import { DialogoDeLaRueda } from './rueda/dialogo.js';
 import { semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
+import { ponerTema } from './temas.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
 import { renderConversacion } from './views/base.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
@@ -70,6 +71,8 @@ function abrePartida(seed: number): Session {
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
   elSeed.textContent = `semilla ${abierta.state.seed}`;
+  // La interfaz, con el tema de la facción de quien juega (`temas.ts`).
+  ponerTema(abierta.jugador.faction);
   return abierta;
 }
 

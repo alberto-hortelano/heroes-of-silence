@@ -23,6 +23,8 @@ pnpm qa         # circuito entero del agente (mapa, servidor, puente MCP), ~3 s
 pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales, ~245 s; deja los PNG en .cache/capturas/ o en la carpeta que se le pase
 npx tsx tools/qa/barrido-semillas.ts   # cuántas partidas no terminan (hoy 0)
 npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión anterior
+npx tsx tools/qa/neutro.ts [ref]       # el estilo sin tema, igual que en las hojas de un ref (HEAD), ~10 s
+npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (google/fonts, sha256) y rehace src/client/fuentes.css
 ```
 
 - **`?seed=N` fija la partida**; la barra enseña siempre cuál se juega. Lo que no
@@ -30,7 +32,9 @@ npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión
   sin semilla. Si el agente diseña el mapa, la semilla del servidor ya no
   reproduce la partida, y la consola lo dice.
 - **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
-  `unidades/<id>/dN/`, solo `atlas.webp` (`seCopiaAlBuild`, `tools/build/publico.ts`, #137).
+  `unidades/<id>/dN/`, solo `atlas.webp`; ninguna carpeta `fuentes/` ni `_guias/`, a cualquier altura;
+  y nada de `art/` (láminas y referencias de estilo) (`seCopiaAlBuild`, `tools/build/publico.ts`,
+  #137). Por eso las letras de los temas viven en `assets/letras/`.
 - **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
   `vite build` y `pnpm qa`. No gasta un céntimo: nada de `tools/gen/`.
 - Un hook `Stop` (`.claude/hooks/verde.sh`) impide cerrar una tarea con
@@ -78,7 +82,8 @@ tools/qa/          verificación de extremo a extremo y medidas
 tools/datos/       extrae JSON de NuevaJugabilidad.md con expresiones regulares
 tools/arena/ tools/taller/ tools/art/   arena, taller de arte, rig del Y Bot
 data/              unidades, equipo, edificios, economía, hechizos, experiencia… en JSON editable
-assets/            arte (generated/, unidades/, mapa/, _poses/ del Y Bot)
+assets/            arte (generated/, unidades/, mapa/, _poses/ del Y Bot), letras/ y temas/ de los
+                   temas de la interfaz; art/ (láminas y referencias de estilo) no va al build
 docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 ```
 
@@ -178,7 +183,9 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Los golpes y los poderes en el contrato (19-10-2026) | `HIT_DE_GOLPE` (`offensive`, `strong`, `feint`, `defensive`, `quick`, `guard_break`, `normal`), `HITS`, `golpeDelHit` (lanza diciendo cuáles valen), `accionDeBatallaDelAgente` (lo que manda el agente: `attack.hit` → el golpe, `power` → el poder), `accionAlAgente` (la lista legal al revés) y `hechoAlAgente` (el `cruce` del registro con `hit` y `response`), en `contract/vocabulario.ts` con los huecos; la petición de respuesta, `serializeBattleResponse` (recibe solo los dos ids: no puede contar el golpe del otro; lo vigila `invariantes.test.ts`, «el agente elige en la rueda») |
 | Quién lleva cada bando | `Player.controller` (`human`, `agent` o `ai`); la batalla que nace en el turno de la IA la toma el controlador de su dueño (`quienLaToma`, con lo que pasa `ConduccionDelTurno.batallas`: la persona, sus defensas; el agente, `BattleTakeover`), y quién no se rinde lo dice `sinLaIA` |
 | Por qué acabó una batalla (arena) | `causaDelFinal` (`battle.ts`, con `bandoVencido`) → `finalDeArena` |
-| Enlace de una pelea de la arena | `montajeALaURL` / `montajeDeLaURL` (`?montaje=`, con `?seed=`); un parámetro repetido, `unaVezEnLaURL`; uno retirado, `retiradosDeLaURL` |
+| Enlace de una pelea de la arena | `montajeALaURL` / `montajeDeLaURL` (`?montaje=`, con `?seed=`); un parámetro repetido, `unaVezEnLaURL` (`core/validar.ts`: la lee también la partida, `?seed=` y `?faccion=`); uno retirado, `retiradosDeLaURL` |
+| Tema de la interfaz (uno por facción, 19-10-2026, traído de `claude/army-game-theme-ui-28d2ad`) | el tema es la facción tal cual (`Tema = FactionId`, `TEMAS = FACTION_IDS`); las fichas, en el `:root` neutro de `style.css` (las que se leen sin tema) y en `temas.css`: un bloque común (`:root[data-tema]`, lo que los cinco derivan igual, también las de la rueda del golpe, `--rueda-*`) y uno por tema con lo medido en su lámina (`MUESTRAS`, `medirPaleta`, `tools/taller/temas/paleta.ts`); `style.css` las importa con `fuentes.css` (generada de `FUENTES`, `tools/fuentes/bajar.ts`), `forma.css` (la única hoja con reglas de tema, todas bajo `:root[data-tema]`) y `piezas-de-tema.css`. Que «común ∪ tema» defina toda ficha que leen las hojas con tema y el neutro las que se leen sin él (salvo las fijas `--info-*`, solo en el neutro: lo que es información, como el calor de la rueda y el nivel de un arma), lo vigila `temas.test.ts`; quién manda, `ponerTema` y `quitarTema` (los únicos que escriben `data-tema`, `src/client/temas.ts`); el lienzo las lee con `temaDelLienzo` y no escribe ninguna familia de letra a mano; ninguna hoja lleva un color fijo fuera del `:root` (los tres, en `invariantes.test.ts`). La partida pone el de su jugador (`main.ts`); la arena y el espectador van en neutro (el selector «Tema» de la arena y los encargos de piezas del taller se quedaron en la rama: backlog) |
+| Piezas en imagen de los temas (marcos en 9 trozos, barra de sección, cartela, remate, sello, texturas) | la lista cerrada y su corte, `PIEZAS`/`DEFINICIONES`, y lo que enseña cada lámina y dónde, `POR_TEMA` (`tools/taller/temas/piezas.ts`); su sitio, su respaldo y todas sus reglas, en `forma.css`; `src/client/piezas-de-tema.css`, **generada** y solo de fichas (`cssDePiezas`, `escribirPiezasDeTema`: las medidas de la tabla y, por pieza en disco, `--pieza-<x>` con su `url()` y la marca vacía `--con-pieza-<x>`; de un marco, su corte medido, `corteDeMarco`; nadie la edita a mano: lo vigila `piezas-de-tema.test.ts`) |
 | Forma del tablero de batalla (qué casillas existen, su espejo, la frase del contrato) | `board.ts`: `isInside`, `allHexes` (la lista congelada; su posición es `indiceDe`), `filasDelTablero`, `espejo`, `desplazamientoDeFila`, `EXTENSION_HORIZONTAL`, `ULTIMA_FILA`, `codigoDeLado`, `FORMA_DEL_TABLERO`, `tableroDelContrato`; fuera de `board.ts` nadie importa `anchoDeFila`, `ANCHO_DE_FILA_*` ni `BOARD_HEIGHT` (lo vigila `invariantes.test.ts`, por importación) |
 | Muros, puertas, niveles y tiro tapado de la batalla | `battle/muralla.ts` (`pasoPermitido`, `hayLinea`, `bonoEnLoAlto`, `validarMuralla`); al montarla, `createBattle(…, muralla)` (solo la arena: las batallas del mapa, `SIN_MURALLA`) |
 | Previsión de daño (barra de la partida y de la arena) | `previsionDe` → `horquillaDeDanio`, `trasElGolpe`; opciones del golpe, `opcionesDeDanio` |
@@ -656,6 +663,17 @@ antes del destino (`battle_started` con `faltan`).
 
 ## El cliente
 
+- **Tema por facción** (13-10-2026 en su rama; en el juego desde el 19-10-2026): cinco, uno por
+  facción, **como sus láminas** (`assets/art/temas/<tema>.png`): la paleta se mide en la lámina y
+  `temas.css` la copia (`paleta-de-las-laminas.test.ts`); la forma (barras de sección con su adorno,
+  botones, el día en su cartela, los emblemas, el marco del mapa con anillos de `box-shadow` que no
+  mueven el lienzo), en `forma.css`; los títulos, con una OFL por tema (Cinzel, IM Fell English SC,
+  Marcellus, Almendra, Germania One) desde `assets/letras/`; las piezas en imagen de Codex (43, ya
+  hechas) encima de su respaldo de CSS. Sin tema nada cambia: `npx tsx tools/qa/neutro.ts main`, 0
+  diferencias (19-10-2026). En la partida, el de la facción de quien juega; en el lienzo, solo lo que
+  es interfaz (chapas, fondo de la vida, galones, la corona, rótulos de la base, recuadro del
+  minimapa, letras). La historia y el porqué, en `docs/historia.md` y
+  `docs/agents/2026-10-13-tema-por-ejercito/`, `docs/agents/2026-10-13-temas-de-las-laminas/`.
 - **Figuras**: 8 direcciones y 6 acciones (`idle`, `ready`, `attack`, `hit`,
   `die`, `win`). Arte propio (`dN/atlas.webp`) o el Y Bot de su juego de armas
   teñido del color del bando; lo sin dueño, en gris. **Nunca se espeja.** Tablas:
@@ -1018,6 +1036,8 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
 | `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10, y con el río de lago de 20, 121 / 0 / 12; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
+| `tools/qa/neutro.ts` | ~10 s | si tocas una hoja de estilo: sin `data-tema`, 0 diferencias con HEAD |
+| `tools/qa/temas-con-piezas.ts [carpeta]` | ~5 min | si tocas los temas o sus piezas: rótulos de sección sobre su pieza, el lienzo quieto en 7 ventanas, lo que tapan marco, remate y cartela, y las capturas lado a lado |
 | `npx tsx tools/qa/arena-ia.ts` | ~2 s | si tocas el movimiento de la batalla, salir del contacto, la carga, la rueda o la armadura: 100 peleas por variante con unidades del catálogo, IA contra IA (peleas sin terminar, rondas, tiempo, cargas, cruces y golpes parados) |
 
 - **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y

@@ -29,6 +29,7 @@ import {
   FONDO_DE_LA_FRANJA,
   planoDelCuadro,
 } from '../../../shared/base.js';
+import { temaDelLienzo } from '../../temas.js';
 import { cajaDeFiguraEn } from '../batalla.js';
 import { type Figura, pintarFiguraConSombra } from '../figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
@@ -256,8 +257,9 @@ function pintarEdificio(
   ctx.strokeStyle = señalado ? '#f5d973' : 'rgba(0,0,0,0.6)';
   ctx.lineWidth = señalado ? 3 : 1.5;
   ctx.strokeRect(caja.x, caja.y, caja.ancho, caja.alto);
-  ctx.fillStyle = '#e8dcc4';
-  ctx.font = `bold ${Math.max(10, Math.round(v.t.paso * 0.16))}px system-ui, sans-serif`;
+  const tema = temaDelLienzo();
+  ctx.fillStyle = tema.rotulo;
+  ctx.font = `bold ${Math.max(10, Math.round(v.t.paso * 0.16))}px ${tema.letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(e.nombre, caja.x + caja.ancho / 2, caja.y + caja.alto / 2, caja.ancho - 8);

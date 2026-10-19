@@ -2,10 +2,12 @@
  * La rueda del golpe (`rueda/rueda.ts`, en la batalla de la partida y en la de la
  * arena; la enlazan las dos páginas): un diálogo modal sobre
  * el lienzo, sin fondo: la rueda flota sobre el tablero. Sus colores son los de
- * la casa (madera, latón, verde de mesa) y el calor de cada punto del cruce, del
- * mínimo frío al máximo encendido (`--calor-N`, lo leen el arco, el medidor y el
- * rótulo por su `data-punto`). Los de cada bando llegan en atributos
- * (`COLOR_BANDO`): no se copian aquí.
+ * la casa (madera, latón, verde de mesa), que son fichas del tema (`--rueda-*`: en
+ * el `:root` neutro de `style.css` y, con tema, derivadas de las suyas en el común
+ * de `temas.css`), y el calor de cada punto del cruce, del mínimo frío al máximo
+ * encendido, que es información y no cambia con el tema (`--info-calor-N`, lo
+ * leen el arco, el medidor y el rótulo por su `data-punto`). Los de cada bando
+ * llegan en atributos (`COLOR_BANDO`): no se copian aquí.
  *
  * El desenlace lo cuenta `data-tramo` en el diálogo («giro marcas arco rotulo»,
  * acumulado: `tramosDelDesenlace`), que pone `rueda/dialogo.ts` al ritmo del animador; cada
@@ -17,12 +19,12 @@
  * En un móvil la rueda no cabe sobre el lienzo y pisa el panel de abajo: ahí
  * lleva un velo detrás y las cajas opacas (al final).
  */
+/* Lo que pone `ajustarLaRueda` en el estilo de cada elemento (`rueda.ts`): el
+   reloj del desenlace y el sitio del rótulo y del «ⓘ» de cada sector. Aquí, su
+   valor sin ella. */
+#rueda { --cruce: 0ms; }
+.sector-de-rueda { --x: 50%; --y: 50%; --nx: 50%; --ny: 50%; }
 #rueda {
-  --calor-0: #86aed0;
-  --calor-1: #9fc49a;
-  --calor-2: #cbb780;
-  --calor-3: #e8975f;
-  --calor-4: #f2593a;
   width: min(560px, calc(100vw - 12px));
   max-width: none;
   max-height: none;
@@ -37,11 +39,11 @@
    cuyos pies miden distinto. */
 #rueda[open] { margin: max(8px, 5dvh) auto auto; }
 #rueda:focus { outline: none; }
-#rueda [data-punto="0"] { --calor: var(--calor-0); }
-#rueda [data-punto="1"] { --calor: var(--calor-1); }
-#rueda [data-punto="2"] { --calor: var(--calor-2); }
-#rueda [data-punto="3"] { --calor: var(--calor-3); }
-#rueda [data-punto="4"] { --calor: var(--calor-4); }
+#rueda [data-punto="0"] { --calor: var(--info-calor-0); --resplandor: var(--info-resplandor-0); }
+#rueda [data-punto="1"] { --calor: var(--info-calor-1); --resplandor: var(--info-resplandor-1); }
+#rueda [data-punto="2"] { --calor: var(--info-calor-2); --resplandor: var(--info-resplandor-2); }
+#rueda [data-punto="3"] { --calor: var(--info-calor-3); --resplandor: var(--info-resplandor-3); }
+#rueda [data-punto="4"] { --calor: var(--info-calor-4); --resplandor: var(--info-resplandor-4); }
 
 .rueda {
   /* Lo que mide la rueda; el texto de dentro va a su escala. Sin `container-type`
@@ -58,16 +60,16 @@
   width: min(100%, 480px);
   padding: 0.5rem 0.9rem 0.6rem;
   text-align: center;
-  background: color-mix(in srgb, var(--panel) 90%, transparent);
-  border: 3px ridge #71623e;
-  box-shadow: 0 8px 22px #000b;
+  background: var(--rueda-caja);
+  border: 3px ridge var(--marco);
+  box-shadow: var(--rueda-sombra);
 }
 /* La cabecera, tan ancha como la rueda: con las dos figuras, «Orko con dos armas A
    ataca a Guerrero con escudo A» cabe en una línea en el escritorio. */
 .cabecera-de-rueda { width: min(100%, 560px); }
 .cabecera-de-rueda h2 {
   margin: 0;
-  font: 600 1.05rem Georgia, serif;
+  font: 600 1.05rem var(--letra-titulo);
   letter-spacing: 0.04em;
   color: var(--gold);
 }
@@ -78,7 +80,7 @@
   justify-content: center;
   align-items: center;
   gap: 0.2rem 0.5rem;
-  font: 0.9rem system-ui, sans-serif;
+  font: 0.9rem var(--letra-ui);
 }
 .rueda .quien { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; min-width: 0; }
 .rueda .chapa { width: 0.8rem; height: 0.8rem; flex: none; }
@@ -103,14 +105,14 @@
   min-height: 0;
   padding: 0;
   line-height: 0;
-  background: #120f0b;
-  border: 1px solid #71623e;
+  background: var(--rueda-oscuro);
+  border: 1px solid var(--marco);
   border-radius: 4px;
   anchor-name: --contrincante;
   -webkit-tap-highlight-color: transparent;
 }
 .rueda button.icono-de-contrincante { cursor: pointer; }
-.rueda button.icono-de-contrincante:hover:not(:disabled) { background: #2b2519; border-color: var(--gold); }
+.rueda button.icono-de-contrincante:hover:not(:disabled) { background: var(--rueda-sector); border-color: var(--gold); }
 .rueda button.icono-de-contrincante:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 .rueda .icono-de-contrincante .figura { display: block; width: 40px; height: 48px; }
 .rueda .nombre-del-contrincante { overflow: hidden; text-overflow: ellipsis; }
@@ -134,8 +136,8 @@
   background: var(--panel);
   color: var(--ink);
   border: 1px solid var(--gold);
-  box-shadow: 0 6px 16px #000c;
-  font: 0.82rem/1.3 system-ui, sans-serif;
+  box-shadow: var(--rueda-sombra-previa);
+  font: 0.82rem/1.3 var(--letra-ui);
   text-align: left;
   white-space: normal;
   pointer-events: none;
@@ -144,7 +146,7 @@
 .vista-previa .nombre-de-la-previa {
   display: block;
   margin-bottom: 0.2rem;
-  font: 600 0.95rem Georgia, serif;
+  font: 600 0.95rem var(--letra-titulo);
   color: var(--gold);
 }
 .vista-previa .row { gap: 0.8rem; }
@@ -159,9 +161,9 @@
   .vista-previa { position: absolute; top: 100%; left: 0; }
 }
 .pie-de-rueda p { margin: 0.15rem 0; }
-.pie-de-rueda .guia { font: 0.88rem/1.35 Georgia, serif; color: var(--ink); }
-.pie-de-rueda .teclas { font: 0.75rem system-ui, sans-serif; color: var(--ink-dim); }
-.pie-de-rueda .carga-de-la-rueda { font: 0.82rem/1.3 system-ui, sans-serif; color: var(--gold); }
+.pie-de-rueda .guia { font: 0.88rem/1.35 var(--letra-titulo); color: var(--ink); }
+.pie-de-rueda .teclas { font: 0.75rem var(--letra-ui); color: var(--ink-dim); }
+.pie-de-rueda .carga-de-la-rueda { font: 0.82rem/1.3 var(--letra-ui); color: var(--gold); }
 .pie-de-rueda kbd {
   display: inline-block;
   min-width: 1.3em;
@@ -169,8 +171,8 @@
   margin: 0 0.08em;
   font: 0.72rem ui-monospace, monospace;
   color: var(--ink);
-  background: #2b2519;
-  border: 1px solid #71623e;
+  background: var(--rueda-sector);
+  border: 1px solid var(--marco);
   border-bottom-width: 2px;
   border-radius: 3px;
 }
@@ -189,13 +191,13 @@
   position: absolute;
   inset: 1%;
   border-radius: 50%;
-  box-shadow: 0 12px 24px #000d;
+  box-shadow: var(--rueda-sombra-plato);
 }
 .plato .giro,
 .plato .disco,
 .plato .marcas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .plato .marcas { pointer-events: none; overflow: visible; }
-.disco .fondo { fill: #120f0b; }
+.disco .fondo { fill: var(--rueda-oscuro); }
 .disco .aro { fill: none; stroke: var(--gold); stroke-width: 3; }
 .disco .aro-del-bando {
   fill: none;
@@ -204,18 +206,18 @@
   animation: latir 1.6s ease-in-out infinite;
 }
 .disco .sector {
-  fill: #2b2519;
-  stroke: #0009;
+  fill: var(--rueda-sector);
+  stroke: var(--rueda-filo-del-sector);
   stroke-width: 1;
   transition: fill 140ms, stroke 140ms;
 }
 /* El anillo alterna la madera y el verde de la mesa, como una ruleta (`data-veta`, que
    pone `disco` por el orden del anillo). */
 .disco .sector[data-veta="mesa"] {
-  fill: #23332a;
+  fill: var(--rueda-mesa);
 }
-.disco .sector.centro { fill: #342c1c; }
-.disco .radio { stroke: #cbb78055; stroke-width: 1; }
+.disco .sector.centro { fill: var(--rueda-centro); }
+.disco .radio { stroke: var(--rueda-radio); stroke-width: 1; }
 .disco .aro-de-dentro { fill: none; stroke: var(--gold); stroke-width: 2; }
 
 /* Los sectores (#258): cada uno, una capa del plato entero que no recibe el ratón;
@@ -241,21 +243,21 @@
   background: transparent;
   border: 0;
   border-radius: 0;
-  color: #e9dcbc;
+  color: var(--rueda-tinta);
   font: inherit;
   cursor: pointer;
   pointer-events: auto;
 }
 .sector-de-rueda .rotulo-del-sector {
   position: absolute;
-  left: var(--x, 50%);
-  top: var(--y, 50%);
+  left: var(--x);
+  top: var(--y);
   width: 26%;
   transform: translate(-50%, -50%);
   display: grid;
   justify-items: center;
   gap: calc(var(--plato) * 0.006);
-  color: #e9dcbc;
+  color: var(--rueda-tinta);
 }
 .sector-de-rueda button .rotulo-del-sector { color: inherit; }
 /* Con `data-quieta` (la rueda recién pintada, con el puntero aún donde estaba),
@@ -265,8 +267,8 @@
    el teclado enciende por `:focus-visible`. El fondo va aparte y siempre: el
    `button:hover` de style.css pintaba un óvalo. */
 .sector-de-rueda button:hover:not(:disabled) { background: transparent; }
-#rueda:not([data-quieta]) .sector-de-rueda button:hover:not(:disabled) { color: #fff4d6; }
-.sector-de-rueda button:focus-visible { outline: none; color: #fff4d6; }
+#rueda:not([data-quieta]) .sector-de-rueda button:hover:not(:disabled) { color: var(--rueda-tinta-encima); }
+.sector-de-rueda button:focus-visible { outline: none; color: var(--rueda-tinta-encima); }
 .sector-de-rueda .icono {
   width: calc(var(--plato) * 0.085);
   height: calc(var(--plato) * 0.085);
@@ -283,10 +285,10 @@
 #rueda:not([data-quieta]) .sector-de-rueda button:hover .icono { transform: scale(1.14); }
 .sector-de-rueda .nombre {
   text-align: center;
-  font: 600 calc(var(--plato) * 0.035)/1.05 Georgia, serif;
+  font: 600 calc(var(--plato) * 0.035)/1.05 var(--letra-titulo);
   letter-spacing: 0.02em;
-  color: #f2deac;
-  text-shadow: 0 1px 2px #000;
+  color: var(--titulo);
+  text-shadow: 0 1px 2px var(--rueda-sombra-del-texto);
 }
 .sector-de-rueda .da {
   font: calc(var(--plato) * 0.031)/1 ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -296,8 +298,8 @@
 }
 .sector-de-rueda .nota {
   position: absolute;
-  left: var(--nx, 50%);
-  top: var(--ny, 50%);
+  left: var(--nx);
+  top: var(--ny);
   width: 1em;
   margin: -0.5em 0 0 -0.5em;
   text-align: center;
@@ -338,7 +340,7 @@
 .rueda:has([data-golpe="romperGuardia"]:focus-visible) .sector[data-sector="romperGuardia"],
 .rueda:has([data-golpe="ofensivo"]:focus-visible) .sector[data-sector="ofensivo"],
 .rueda:has([data-golpe="normal"]:focus-visible) .sector[data-sector="normal"] {
-  fill: #5a5232;
+  fill: var(--rueda-sector-encima);
   stroke: var(--gold);
   stroke-width: 2;
 }
@@ -368,7 +370,7 @@
 }
 #rueda[data-tramo~="marcas"] .marca[data-papel="respuesta"] { animation-delay: calc(var(--cruce) * 0.037); }
 .marca .halo { opacity: 0.35; }
-.marca .cuerpo { stroke: #f6ecd2; stroke-width: 1.6; }
+.marca .cuerpo { stroke: var(--rueda-marca); stroke-width: 1.6; }
 #rueda[data-tramo~="arco"] .marca .halo {
   transform-box: fill-box;
   transform-origin: center;
@@ -388,34 +390,34 @@
 #rueda[data-tramo~="rotulo"] .pie-de-rueda { animation: asomar calc(var(--cruce) * 0.126) ease-out both; }
 .pie-de-rueda .rotulo {
   margin: 0;
-  font: 700 1.7rem/1.1 Georgia, serif;
+  font: 700 1.7rem/1.1 var(--letra-titulo);
   letter-spacing: 0.03em;
   color: var(--calor);
-  text-shadow: 0 0 12px color-mix(in srgb, var(--calor) 55%, transparent), 0 2px 2px #000;
+  text-shadow: 0 0 12px var(--resplandor), 0 2px 2px var(--rueda-sombra-del-texto);
 }
 #rueda[data-tramo~="rotulo"] .rotulo {
   animation: estallar calc(var(--cruce) * 0.221) cubic-bezier(0.3, 1.5, 0.5, 1) both;
 }
-.pie-de-rueda .contraataque { font: 0.85rem system-ui, sans-serif; color: var(--ink-dim); }
+.pie-de-rueda .contraataque { font: 0.85rem var(--letra-ui); color: var(--ink-dim); }
 .pie-de-rueda .contraataque strong { color: var(--calor); }
 .medidor { display: block; width: min(320px, 82vw); margin: 0.2rem auto 0; overflow: visible; }
-.medidor .pista { fill: #3a3427; }
+.medidor .pista { fill: var(--rueda-pista); }
 .medidor .encendida {
   fill: var(--calor);
   transform-box: fill-box;
   transform-origin: left center;
 }
 #rueda[data-tramo~="rotulo"] .medidor .encendida { animation: llenar calc(var(--cruce) * 0.2) ease-out both; }
-.medidor .muesca circle { fill: #221e15; stroke: #cbb78099; stroke-width: 1.2; }
+.medidor .muesca circle { fill: var(--rueda-muesca); stroke: var(--rueda-filo-de-la-muesca); stroke-width: 1.2; }
 .medidor .muesca.del-golpe circle,
-.medidor .muesca.del-contraataque circle { fill: var(--calor); stroke: #f6ecd2; }
+.medidor .muesca.del-contraataque circle { fill: var(--calor); stroke: var(--rueda-marca); }
 .medidor .muesca text {
-  font: 10px system-ui, sans-serif;
+  font: 10px var(--letra-ui);
   fill: var(--ink-dim);
   text-anchor: middle;
 }
 .medidor .muesca.del-golpe text { fill: var(--calor); font-weight: 700; }
-.medidor .aguja { stroke: #f6ecd2; stroke-width: 1; stroke-linejoin: round; }
+.medidor .aguja { stroke: var(--rueda-marca); stroke-width: 1; stroke-linejoin: round; }
 
 @keyframes girar {
   from { transform: rotate(-400deg) scale(0.94); }
@@ -448,7 +450,7 @@
 /* En un móvil la rueda pisa el panel de debajo del lienzo: un velo lo tapa y las
    cajas van opacas, que a través de ellas se leía el panel. */
 @media (max-width: 760px) {
-  #rueda::backdrop { background: #0b0f0bd9; }
+  #rueda::backdrop { background: var(--rueda-velo); }
   .cabecera-de-rueda,
   .pie-de-rueda { background: var(--panel); }
   /* Las dos figuras y el texto, en dos líneas como mucho: quien pega en una y

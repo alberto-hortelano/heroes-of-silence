@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
+import { FACTION_IDS } from '../src/core/types.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import { direccionesDe } from '../tools/arena/borrador.js';
 import { copiarPublico, seCopiaAlBuild } from '../tools/build/publico.js';
@@ -51,6 +52,36 @@ describe('la carpeta pública en el build', () => {
       'identidad-t1.png',
     ]) {
       expect(seCopiaAlBuild(`bases/knight/fuentes/${f}`), f).toBe(false);
+    }
+  });
+
+  it('copia las letras de los temas con su licencia y deja fuera `art/` entero', () => {
+    // Las letras viven en `letras/`: en `fuentes/` el build las dejaría fuera.
+    for (const f of [
+      'letras/cinzel/Cinzel.ttf',
+      'letras/cinzel/OFL.txt',
+      'letras/cinzel/procedencia.json',
+      'letras/almendra/Almendra-Bold.ttf',
+    ]) {
+      expect(seCopiaAlBuild(f), f).toBe(true);
+    }
+    // Las láminas de las que se midieron y las demás referencias de estilo.
+    for (const t of FACTION_IDS) {
+      expect(seCopiaAlBuild(`art/temas/${t}.png`), t).toBe(false);
+      expect(seCopiaAlBuild(`art/${t}/concepto.png`), t).toBe(false);
+    }
+    expect(seCopiaAlBuild('art/prompts.json')).toBe(false);
+  });
+
+  it('copia las piezas finales de los temas y deja fuera sus guías de corte', () => {
+    // La página pide `/temas/<tema>/<pieza>.webp` (`piezas-de-tema.css`); las
+    // guías solo las lee el taller al encargarlas.
+    for (const t of FACTION_IDS) {
+      expect(seCopiaAlBuild(`temas/${t}/marco-mapa.webp`), t).toBe(true);
+      expect(seCopiaAlBuild(`temas/${t}/sello.procedencia.json`), t).toBe(true);
+    }
+    for (const f of ['temas/_guias/marco.png', 'temas/_guias/figura.png']) {
+      expect(seCopiaAlBuild(f), f).toBe(false);
     }
   });
 

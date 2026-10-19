@@ -32,6 +32,7 @@ import { isShooter } from '@core/data.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { COMPRESION_SUELO } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
+import { temaDelLienzo } from '../temas.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { asset } from './assets.js';
 import { type CharacterClip, clipEnCurso } from './character.js';
@@ -1306,7 +1307,7 @@ function pintarCargas(
   angulo: Angulo | null,
 ): void {
   ctx.save();
-  ctx.font = `bold ${Math.max(9, Math.round(t.paso * 0.22))}px sans-serif`;
+  ctx.font = `bold ${Math.max(9, Math.round(t.paso * 0.22))}px ${temaDelLienzo().letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (const { target, at, hexes, porciento } of cargas) {
@@ -1627,8 +1628,8 @@ function pintarGalones(
   const hueco = 3;
   const total = n * ancho + (n - 1) * hueco;
   const abajo = y - 4;
+  const tema = temaDelLienzo();
   ctx.save();
-  ctx.globalAlpha = f.alfaDelAro;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (let i = 0; i < n; i++) {
@@ -1637,11 +1638,15 @@ function pintarGalones(
     ctx.moveTo(izq, abajo);
     ctx.lineTo(izq + ancho / 2, abajo - alto);
     ctx.lineTo(izq + ancho, abajo);
+    // El contorno lleva su transparencia encima de la del aro: el tema da el
+    // color opaco.
+    ctx.globalAlpha = f.alfaDelAro * 0.9;
     ctx.lineWidth = 5;
-    ctx.strokeStyle = 'rgba(12,10,6,0.9)';
+    ctx.strokeStyle = tema.vidaFondo;
     ctx.stroke();
+    ctx.globalAlpha = f.alfaDelAro;
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = '#e8c35a';
+    ctx.strokeStyle = tema.galon;
     ctx.stroke();
   }
   ctx.restore();
@@ -1682,16 +1687,21 @@ export function pintarCorona(
   f: EstadoFigura,
 ): void {
   const c = cajaDeCorona(v, f);
+  const tema = temaDelLienzo();
   ctx.save();
-  ctx.globalAlpha = f.alfaDelAro;
-  ctx.font = `bold ${c.alto}px system-ui, "DejaVu Sans", sans-serif`;
+  // La letra del tema: si no trae el glifo, el navegador lo saca de otra del
+  // sistema, como con cualquier carácter que le falte a una fuente.
+  ctx.font = `bold ${c.alto}px ${tema.letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineWidth = 4;
-  ctx.strokeStyle = 'rgba(12,10,6,0.9)';
+  // El contorno, del oscuro de la barra de vida (opaco en el tema) a 0,9.
+  ctx.globalAlpha = f.alfaDelAro * 0.9;
+  ctx.strokeStyle = tema.vidaFondo;
   const cx = c.x + c.ancho / 2;
   const cy = c.y + c.alto / 2;
   ctx.strokeText(MARCA_DE_COMANDANTE, cx, cy);
+  ctx.globalAlpha = f.alfaDelAro;
   ctx.fillStyle = COLOR_DE_COMANDANTE;
   ctx.fillText(MARCA_DE_COMANDANTE, cx, cy);
   ctx.restore();
@@ -1714,10 +1724,12 @@ function pintarVida(
   // La vida que se ve (`EstadoFigura.pv`), no la del estado: con la cola llena,
   // la del estado es la de después de todo lo que aún no se ha enseñado.
   const vida = Math.max(0, Math.min(1, f.pv / Math.max(1, s.unit.hp * s.initialCount)));
+  const tema = temaDelLienzo();
   ctx.save();
-  ctx.globalAlpha = f.alfaDelAro;
-  ctx.fillStyle = 'rgba(12,10,6,0.85)';
+  ctx.globalAlpha = f.alfaDelAro * 0.85;
+  ctx.fillStyle = tema.vidaFondo;
   ctx.fillRect(x - anchoBarra / 2 - 1, y - 1, anchoBarra + 2, 6);
+  ctx.globalAlpha = f.alfaDelAro;
   ctx.fillStyle = vida > 0.5 ? '#9fc49a' : vida > 0.25 ? '#e0c060' : '#e3735a';
   ctx.fillRect(x - anchoBarra / 2, y, anchoBarra * vida, 4);
   ctx.restore();
@@ -1730,16 +1742,19 @@ function pintarNombre(
   s: BattleStack,
   f: EstadoFigura,
 ): void {
+  const tema = temaDelLienzo();
   ctx.save();
   ctx.globalAlpha = f.alfaDelAro;
-  ctx.font = `${cuerpoDelNombre(v)}px system-ui, sans-serif`;
+  ctx.font = `${cuerpoDelNombre(v)}px ${tema.letraUi}`;
   // Con la letra de los homónimos («Piquero B»): es la misma que dice el parte,
   // y pasar el ratón por la figura es como se casa una línea con su unidad (#198).
   const nombre = nombreEnElCampo(v.battle, s);
   const caja = cajaDeNombre(v, f, ctx.measureText(nombre).width);
-  ctx.fillStyle = 'rgba(25,21,9,0.9)';
+  ctx.globalAlpha = f.alfaDelAro * 0.9;
+  ctx.fillStyle = tema.chapaFondo;
   ctx.fillRect(caja.x, caja.y, caja.ancho, caja.alto);
-  ctx.fillStyle = '#fbe8b5';
+  ctx.globalAlpha = f.alfaDelAro;
+  ctx.fillStyle = tema.chapaTinta;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(nombre, caja.x + caja.ancho / 2, caja.y + 2);
@@ -1796,7 +1811,7 @@ function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): voi
       ctx.fillStyle = '#ffe1c2';
       ctx.strokeStyle = '#2a0e06';
       ctx.lineWidth = 3;
-      ctx.font = `bold ${Math.max(14, Math.round(t.paso * 0.28))}px Georgia, serif`;
+      ctx.font = `bold ${Math.max(14, Math.round(t.paso * 0.28))}px ${temaDelLienzo().letraTitulo}`;
       ctx.textAlign = 'center';
       const y = p.y - alto - e.t * t.paso * 0.45;
       ctx.strokeText(`−${e.cifra}`, p.x, y);
@@ -1811,7 +1826,10 @@ function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): voi
       ctx.fillStyle = '#d6e2ee';
       ctx.strokeStyle = '#10202e';
       ctx.lineWidth = 3;
-      ctx.font = `bold ${Math.max(13, Math.round(t.paso * 0.24))}px Georgia, serif`;
+      // Con la letra de la interfaz y no la de título: de esa, el lienzo solo
+      // pide las cifras (`cargarLetraDeTitulo`), y estas letras saldrían con el
+      // respaldo hasta que otra cosa la bajara.
+      ctx.font = `bold ${Math.max(13, Math.round(t.paso * 0.24))}px ${temaDelLienzo().letraUi}`;
       ctx.textAlign = 'center';
       const y = p.y - alto - e.t * t.paso * 0.45;
       ctx.strokeText('parado', p.x, y);

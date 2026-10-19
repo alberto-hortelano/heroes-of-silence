@@ -197,9 +197,12 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
     return { session, inicial, contratado };
   }
 
-  /** Los nombres de la lista que sigue a `<h3>{titulo}</h3>`, en orden. */
+  /** Los nombres de la lista que sigue al rótulo `{titulo}` (con `title` o sin él), en orden. */
   function lista(marcado: string, titulo: string): string[] {
-    const desde = marcado.indexOf(`<h3>${titulo}</h3>`);
+    const desde = Math.max(
+      marcado.indexOf(`<h3>${titulo}</h3>`),
+      marcado.indexOf(`<h3 title="${titulo}">${titulo}</h3>`),
+    );
     expect(desde).toBeGreaterThanOrEqual(0);
     const bloque = marcado.slice(desde).split('</div></div>')[0]!;
     return [...bloque.matchAll(/<div class="stack"><span>([^<]+)</g)].map((m) => m[1]!);
@@ -232,7 +235,10 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
     const pueblo = session.myTowns()[0]!;
     session.openTown(pueblo.id);
     const marcado = marcadoDe(renderSide(session));
-    expect(marcado).toContain(`<h3>Libro de ${session.myHeroes()[0]!.name}</h3>`);
+    // Con su nombre entero en el `title`: con tema, el rótulo se recorta con «…»
+    // si no cabe en una línea (QA v3, V3-5).
+    const libro = `Libro de ${session.myHeroes()[0]!.name}`;
+    expect(marcado).toContain(`<h3 title="${libro}">${libro}</h3>`);
     expect(marcado).not.toContain('Aprendió aquí');
   });
 

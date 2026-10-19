@@ -99,6 +99,7 @@ import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { CREATURE_TRAITS, HUECOS } from '../src/core/types.js';
 import { batallaConDos, TROPA } from './helpers.js';
+import { bloquesCss, COLOR, hojasDelCliente } from './hojas-de-estilo.js';
 import { rango, segunPrisa } from './lento.js';
 
 // `new URL(...).pathname` devuelve la ruta PERCENT-ENCODED: en un checkout que
@@ -226,6 +227,14 @@ function codigoDe(ruta: string): string {
   CACHE_SIN_COMENTARIOS.set(ruta, codigo);
   return codigo;
 }
+/**
+ * Las hojas del cliente que vigilan los guardias de colores fijos y de la forma
+ * de los temas: todas las del disco menos `temas.css`, que solo lleva fichas (y
+ * vigila `temas.test.ts`). Del disco y no de una lista: una hoja nueva no se
+ * libra sin que nadie lo note.
+ */
+const HOJAS_CON_REGLAS = hojasDelCliente().filter((r) => r !== 'src/client/temas.css');
+
 function leer(ruta: string): string {
   const guardado = CACHE.get(ruta);
   if (guardado !== undefined) return guardado;
@@ -2091,6 +2100,87 @@ describe('invariantes del proyecto', () => {
     expect(ajenas).toEqual([]);
     // Y que mire algo: la escritura de verdad tiene que salir.
     expect(escrituras).toHaveLength(1);
+  });
+
+  it('el tema de la interfaz lo pone `ponerTema`: nadie más escribe `data-tema`', () => {
+    // Un `data-tema` escrito por otro sitio no borraría lo que el lienzo leyó del
+    // tema anterior (`temaDelLienzo`, en caché): CSS de un tema y chapas de otro.
+    // Por `dataset`, por `setAttribute` (que ya vigila la puerta del marcado) y
+    // borrándolo. Roto a mano: un `document.documentElement.dataset.tema = 'elfos'`
+    // en `arena/main.ts` sale rojo con su línea.
+    const escribeElTema =
+      /dataset\s*(?:\.\s*tema|\[\s*['"`]tema['"`]\s*\])\s*=(?!=)|delete\s+[\w.]*dataset\s*\.\s*tema\b|['"`]data-tema['"`]/;
+    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/client/temas.ts');
+    expect(infractoresDeCodigo(fuera, escribeElTema)).toEqual([]);
+    expect(infractoresDeCodigo(['src/client/temas.ts'], escribeElTema)).not.toEqual([]);
+  });
+
+  it('la forma de los temas vive en forma.css y toda regla suya empieza por `:root[data-tema]`', () => {
+    // Sin tema (el espectador) no se aplica ninguna: así el neutro no cambia, y
+    // la regla gana en especificidad a la de `style.css` que corrige. Y es el
+    // único sitio: una regla con tema en `style.css` o en `arena.css` sería una
+    // segunda forma de lo mismo. `piezas-de-tema.css` (generada) lleva bloques de
+    // tema, pero solo de fichas: lo vigila `piezas-de-tema.test.ts`. Roto a mano:
+    // `#side h3 { letter-spacing: 3px }` sin el prefijo en `forma.css` sale rojo
+    // con su línea, y `:root[data-tema] #day { padding: 0 }` en `style.css`, también.
+    const sinTema: string[] = [];
+    const deForma = bloquesCss(leer('src/client/forma.css'));
+    for (const { selector, linea } of deForma) {
+      if (selector.startsWith('@')) continue;
+      for (const parte of selector.split(','))
+        if (!parte.trim().startsWith(':root[data-tema]'))
+          sinTema.push(`forma.css:${linea} ${parte.trim()}`);
+    }
+    expect(sinTema).toEqual([]);
+    expect(deForma.filter((b) => !b.selector.startsWith('@')).length).toBeGreaterThan(10);
+    const fuera: string[] = [];
+    const conTema = ['/forma.css', '/piezas-de-tema.css'];
+    for (const ruta of HOJAS_CON_REGLAS.filter((r) => !conTema.some((c) => r.endsWith(c)))) {
+      for (const { selector, linea } of bloquesCss(leer(ruta)))
+        if (/\[data-tema/.test(selector)) fuera.push(`${ruta}:${linea} ${selector}`);
+    }
+    expect(fuera).toEqual([]);
+  });
+
+  it('las hojas de estilo no llevan colores fijos: todos salen de las fichas del tema', () => {
+    // Un color escrito en una regla no cambia con el tema: con el de los no
+    // muertos se veía el latón de siempre en un rincón. Las fichas viven en el
+    // `:root` neutro de `style.css` (también las fijas, `--info-*`, que valen
+    // igual en todos) y en los bloques de `temas.css` (que vigila
+    // `temas.test.ts`); fuera de ahí, ninguno. Roto a mano: `color: #f2deac` de
+    // vuelta en `#day` sale rojo con su línea.
+    const colados: string[] = [];
+    for (const ruta of HOJAS_CON_REGLAS) {
+      for (const { selector, declaraciones } of bloquesCss(leer(ruta))) {
+        if (selector === ':root') continue;
+        for (const { propiedad, valor, linea } of declaraciones) {
+          // Las variables, fuera: `var(--gold)` no es un color escrito.
+          const decl = `${propiedad}: ${valor}`.replace(/var\(--[a-z0-9-]+\)/gi, '');
+          if (COLOR.test(decl)) colados.push(`${ruta}:${linea} [${selector}] ${decl}`);
+        }
+      }
+    }
+    expect(HOJAS_CON_REGLAS.length).toBeGreaterThan(4);
+    expect(colados).toEqual([]);
+  });
+
+  it('el lienzo escribe sus letras con las del tema: ninguna familia a mano en `ctx.font`', () => {
+    // Una letra escrita en el lienzo no cambia con el tema: la corona del
+    // comandante y el rótulo de la figura sin arte se quedaron en `system-ui`
+    // cuando todo lo de alrededor ya iba con la del ejército. La familia sale de
+    // `temaDelLienzo()` (`letraUi`, `letraTitulo`), y el tamaño y el grosor, de
+    // quien pinta. Roto a mano: la corona con su `system-ui, "DejaVu Sans"` de
+    // antes sale rojo con su línea.
+    const familiaEscrita =
+      /\.font\s*=.*(?:system-ui|sans-serif|\bserif\b|monospace|cursive|fantasy|Georgia|DejaVu|Times|Arial|Helvetica|Verdana)/;
+    // Las herramientas de desarrollo (`src/client/desarrollo/`, solo en `pnpm dev`)
+    // no se visten: pintan sobre el mapa lo que se mide, en la letra del sistema.
+    const lienzoDelJuego = CLIENTE.filter((r) => !r.startsWith('src/client/desarrollo/'));
+    expect(infractoresDeCodigo(lienzoDelJuego, familiaEscrita)).toEqual([]);
+    // Y el guardia mira algo: el lienzo sí pone letras.
+    expect(
+      infractoresDeCodigo(CLIENTE, /\.font\s*=.*temaDelLienzo\(\)|\.font\s*=.*\btema\.letra/),
+    ).not.toEqual([]);
   });
 
   it('FAL_KEY no llega al navegador', () => {

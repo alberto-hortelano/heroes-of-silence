@@ -54,7 +54,7 @@
     <progress class="liderazgo" max="20" value="17"></progress>
     <div class="stack-list"><div class="stack"><span>Goblin lancero</span><span class="count">3</span></div><div class="stack"><span>Goblin arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Orko con hacha y escudo</span><span class="count">2</span></div></div>
 
-    <h3>Libro de Grommash Dientenegro</h3><div class="stack-list"><div class="stack"><span>Prisa</span><span class="count">3</span></div><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div><div class="stack"><span>Lentitud</span><span class="count">3</span></div></div><p class="cost">Aprendió aquí: Prisa, Lentitud.</p><h3>Tropa de Grommash Dientenegro</h3>
+    <h3 title="Libro de Grommash Dientenegro">Libro de Grommash Dientenegro</h3><div class="stack-list"><div class="stack"><span>Prisa</span><span class="count">3</span></div><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div><div class="stack"><span>Lentitud</span><span class="count">3</span></div></div><p class="cost">Aprendió aquí: Prisa, Lentitud.</p><h3 title="Tropa de Grommash Dientenegro">Tropa de Grommash Dientenegro</h3>
           <div class="row"><span class="label">Liderazgo</span><span>20 / 20</span></div>
     <progress class="liderazgo" max="20" value="20"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
@@ -667,7 +667,7 @@
     <progress class="liderazgo" max="20" value="17"></progress>
     <div class="stack-list"><div class="stack"><span>Goblin lancero</span><span class="count">3</span></div><div class="stack"><span>Goblin arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Orko con hacha y escudo</span><span class="count">2</span></div></div>
 
-    <h3>Libro de Grommash Dientenegro</h3><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3>Tropa de Grommash Dientenegro</h3>
+    <h3 title="Libro de Grommash Dientenegro">Libro de Grommash Dientenegro</h3><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3 title="Tropa de Grommash Dientenegro">Tropa de Grommash Dientenegro</h3>
           <div class="row"><span class="label">Liderazgo</span><span>11 / 20</span></div>
     <progress class="liderazgo" max="20" value="11"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
@@ -740,7 +740,7 @@
     <progress class="liderazgo" max="20" value="17"></progress>
     <div class="stack-list"><div class="stack"><span>Goblin lancero</span><span class="count">3</span></div><div class="stack"><span>Goblin arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Orko con hacha y escudo</span><span class="count">2</span></div></div>
 
-    <h3>Libro de Grommash Dientenegro</h3><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3>Tropa de Grommash Dientenegro</h3>
+    <h3 title="Libro de Grommash Dientenegro">Libro de Grommash Dientenegro</h3><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3 title="Tropa de Grommash Dientenegro">Tropa de Grommash Dientenegro</h3>
           <div class="row"><span class="label">Liderazgo</span><span>5 / 20</span></div>
     <progress class="liderazgo" max="20" value="5"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>

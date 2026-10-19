@@ -1,0 +1,53 @@
+{
+  "encargo": "tema-06-remate-elfos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:24:07.449Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b51-9dfe-7723-8565-da31759d12c2",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\n\nTema ELFOS: plata clara con hiedra viva, filigrana fina, hojas y cristales cian tallados, verde azulado y pergamino claro, con un aire de luna y bosque. El REMATE que corona el centro del borde de arriba del mapa: un adorno suelto, más ancho que alto, que se ve entero y pequeño (unos 36 px de alto en pantalla), así que con la silueta clara y sin detalle menudo. Un cristal cian tallado en punta, entre dos hojas de plata y hiedra.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/elfos.png",
+      "papel": "estilo",
+      "sha256": "ba3ae923d896b0dabf5460e3e14e1788a2c5a586a061f015569d1f5a752783f8"
+    },
+    {
+      "ruta": "assets/art/temas/elfos.png",
+      "papel": "pieza",
+      "sha256": "ba3ae923d896b0dabf5460e3e14e1788a2c5a586a061f015569d1f5a752783f8",
+      "recorte": {
+        "x": 490,
+        "y": 45,
+        "w": 80,
+        "h": 70
+      }
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b51-9dfe-7723-8565-da31759d12c2/exec-0cb9748d-994e-4cdb-b773-4abeb0b9ceab.png",
+    "sha256": "f636ac0dadc558f7f069a1a2c72b1e9fea93584597bf7b319d52d655b8a442ef",
+    "ancho": 1983,
+    "alto": 793
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 1904×510 a 512×137, dentro de 512×256",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 25 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.2435817945601929,
+    "opacos": 0.9840511491057,
+    "haloSuelto": 0,
+    "ancho": 1983,
+    "alto": 793
+  },
+  "salida": {
+    "ruta": "assets/temas/elfos/remate.webp",
+    "sha256": "3dfaddc344bc665b4d4e011f3176342251c6483cf32a4c7298229740bca2898e"
+  }
+}

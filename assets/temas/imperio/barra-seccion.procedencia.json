@@ -1,0 +1,58 @@
+{
+  "encargo": "tema-04-barra-seccion-imperio",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:18:13.403Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b4c-311b-7000-a5c4-8680b7753572",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema IMPERIO: mármol claro con capiteles y molduras doradas, colgaduras moradas con flecos de oro, laureas, águilas y grifos dorados, al estilo de Roma. La BARRA DE SECCIÓN sobre la que el juego escribe el título de cada sección del panel («HECHIZOS», «EQUIPO», «TROPA»): una tira horizontal y baja, unas once veces más ancha que alta, con un remate en cada punta y el centro liso para el texto. Tira oscura con un filo dorado arriba y abajo y una voluta dorada en cada punta.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs una TIRA que el juego estira a lo ancho: el 14 % de la izquierda y el 14 % de la derecha son sus REMATES, que se pintan una vez y llevan los adornos; lo de en medio se estira, así que va liso y uniforme de punta a punta, sin adornos sueltos ni nada centrado.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/imperio.png",
+      "papel": "estilo",
+      "sha256": "803df1df8c741579af365f0f5f7b652323466dcaa387d2aad2cdc293952f2f0d"
+    },
+    {
+      "ruta": "assets/art/temas/imperio.png",
+      "papel": "pieza",
+      "sha256": "803df1df8c741579af365f0f5f7b652323466dcaa387d2aad2cdc293952f2f0d",
+      "recorte": {
+        "x": 940,
+        "y": 632,
+        "w": 345,
+        "h": 30
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/barra.png",
+      "papel": "corte",
+      "sha256": "f67a9e5070fbeeb1454e38f2b83abe540f96ad7cb7f2d8091b3a2cf7c5b7d3f8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b4c-311b-7000-a5c4-8680b7753572/exec-53bc7dba-3f59-4115-87d1-59604078f10e.png",
+    "sha256": "f2a672c9e0f936eacb7c5bde6addd944ff759ff835276a15ad00fd8931a80cf6",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 2126×112 a 768×40, dentro de 768×64",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 18 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.13091976740636732,
+    "opacos": 0.9877692774741955,
+    "haloSuelto": 0,
+    "ancho": 2172,
+    "alto": 724
+  },
+  "salida": {
+    "ruta": "assets/temas/imperio/barra-seccion.webp",
+    "sha256": "dfb8e267b0d2c0cee7860644cacd1d1856ebc1533338374b54ddcd58203fb58d"
+  }
+}

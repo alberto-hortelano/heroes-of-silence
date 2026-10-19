@@ -14,6 +14,7 @@
 import { colorDeSombra, FIGURA, PROYECCION_DE_SOMBRA } from '../../shared/arte.js';
 import { relojDeFigura } from '../compas.js';
 import type { Direccion } from '../direccion.js';
+import { temaDelLienzo } from '../temas.js';
 import { cargarHojaDeFigura, hayFiguraCargada, imagenDeFigura } from './assets.js';
 import {
   type CharacterAtlas,
@@ -381,7 +382,7 @@ function pintarMarcador(ctx: CanvasRenderingContext2D, f: Figura): void {
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#14110d';
-  ctx.font = `bold ${Math.max(9, Math.round(ancho * 0.42))}px system-ui, sans-serif`;
+  ctx.font = `bold ${Math.max(9, Math.round(ancho * 0.42))}px ${temaDelLienzo().letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(f.rotulo, f.x, f.suelo - alto / 2, ancho * 2);

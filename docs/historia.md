@@ -5356,3 +5356,21 @@ sustituyendo a lo que hay, que no se limiten a la arena». Ciclo entero en
   pie las batallas del mapa duran menos; cada ronda de `autoResolve` cuesta un 28 % más (F4), y el
   /simplify lo bajó un 19 %. #265 (la IA pega por 0 teniendo otro blanco): 7 golpes a 0 de 6 153 en
   el banco, ninguno elegido por la IA esperando 0: los pone el punto bajo de la rueda.
+
+## Sin figuras en los márgenes (18-10-2026)
+
+Los temas llevaban dos piezas más, `figura-izquierda` y `figura-derecha`: la columna de adornos del
+margen de cada lámina, en dos canales de `#stage` (`izq mapa panel der`) que se abrían desde 1820 px
+de ventana con lo que pasaba de 1600 (`--canal`, de 96 a 180 px), así que el mapa no bajaba de lo que
+medía a 1600 (1254 px). Sin pieza, un estandarte de CSS con el emblema (`--estandarte-*`).
+
+- **Por qué se quitaron** (decisión del usuario): no funcionaban. A poco más de 1820 los canales
+  medían ~100 px y la figura salía pequeña; en una ventana mucho más ancha el canal se quedaba en
+  180 px y el mapa crecía igual, así que no limitaban su ancho, solo le quitaban un poco. «Elimínalas,
+  siempre ancho total».
+- **Qué se fue**: las dos piezas de la lista (`PIEZAS`, `DEFINICIONES`, `POR_TEMA`), sus diez imágenes
+  con su procedencia, la guía de corte `figura`, los canales y su `@media`, el estandarte de respaldo
+  con sus fichas medidas y los dos `<div>` de la partida. Los encargos pasan de 53 a 43.
+- **Qué queda igual**: `--fondo-escenario` se sigue midiendo en la lámina entre sus figuras: es el
+  fondo de su margen, el color de lo que rodea el mapa también sin ellas. El lienzo mide con tema lo
+  mismo que sin él en toda ventana (`tools/qa/temas-con-piezas.ts`, de 390 a 2560).

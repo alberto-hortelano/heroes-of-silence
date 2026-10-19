@@ -1,0 +1,53 @@
+{
+  "encargo": "tema-06-remate-orkos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:26:38.694Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b53-c777-72f0-ace8-47ab5736966a",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\n\nTema ORKOS: hierro oscuro remachado y oxidado, colmillos y cuernos de hueso, cadenas, cráneos con cuernos y estandartes rojos de la Horda con goterones de sangre. El REMATE que corona el centro del borde de arriba del mapa: un adorno suelto, más ancho que alto, que se ve entero y pequeño (unos 36 px de alto en pantalla), así que con la silueta clara y sin detalle menudo. Un cráneo de bestia con cuernos curvos, pintado de rojo, entre dos colmillos.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "estilo",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85"
+    },
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "pieza",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85",
+      "recorte": {
+        "x": 410,
+        "y": 55,
+        "w": 230,
+        "h": 90
+      }
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b53-c777-72f0-ace8-47ab5736966a/exec-9076a024-1757-4a51-8251-b47daa483a00.png",
+    "sha256": "61989fe958703fc94e1e5ea18320f09ed86c90b5b495bcb592848eb77221e7bd",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 2052×692 a 512×173, dentro de 512×256",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 28 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.40845377633975355,
+    "opacos": 0.991770264905302,
+    "haloSuelto": 0.000001556892753442679,
+    "ancho": 2172,
+    "alto": 724
+  },
+  "salida": {
+    "ruta": "assets/temas/orkos/remate.webp",
+    "sha256": "041816720cc3777ef27e4a9f89079a7c16209f984d296b43027f9ee110017136"
+  }
+}

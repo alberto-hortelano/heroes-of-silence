@@ -37,8 +37,8 @@ export const COLOR_DE_COMANDANTE = '#f5cd4f';
 
 /**
  * El latón de lo que no es de ningún bando: la figura de la casilla de reclutar,
- * que dice qué se recluta y no de quién es, y la ficha de la arena. También el
- * filo de las chapas del mapa.
+ * que dice qué se recluta y no de quién es, y la ficha de la arena. El filo de
+ * las chapas del mapa ya no: es interfaz y lo da el tema (`--chapa-borde`).
  */
 export const COLOR_NEUTRO = '#cbb780';
 

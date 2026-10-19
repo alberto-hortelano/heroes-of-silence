@@ -5,6 +5,18 @@
  * comparte el espectador: sus ids (#topbar #day #turn #seed #stage #canvas #side
  * #statusbar #status) no se tocan.
  */
+
+/* Los cinco temas (`:root[data-tema='…']`): una sola hoja para las tres páginas.
+   El orden no importa: el selector del tema es más específico que `:root`. Sus
+   letras de título (`fuentes.css`) y su forma (`forma.css`, toda regla bajo
+   `:root[data-tema]`: sin tema no se aplica ninguna). */
+@import './temas.css';
+@import './fuentes.css';
+@import './forma.css';
+/* Las piezas en imagen de cada tema, encima de su respaldo de `forma.css`: una
+   regla solo por pieza que está en disco (la escribe el taller). */
+@import './piezas-de-tema.css';
+
 :root {
   --bg: #151a15;
   --panel: #201d17;
@@ -16,6 +28,162 @@
   --accent: #9fc49a;
   --danger: #e3a076;
   --border: #a68b4d55;
+
+  /* Marcos: el del lienzo, el del minimapa y la raya de la barra de arriba. */
+  --marco: #71623e;
+  --marco-estilo: ridge;
+  --marco-sombra: 0 0 0 2px #19140d, 0 12px 30px #0008;
+  --fondo-lienzo: #080a10;
+  --foco-lienzo: #f5d973;
+
+  /* Botones y controles. */
+  --boton: #303421;
+  --boton-encima: #4a4d2d;
+  --boton-borde: #8f784955;
+  --boton-tinta: #efe5ce;
+  --boton-primario: #b59b60;
+  --boton-primario-encima: #c9ae70;
+  --boton-primario-tinta: #161d16;
+  --resalte: #e0c589;
+  --foco: #ecd49e;
+  --herramienta: #292619ed;
+  --herramienta-borde: #857147;
+  --tinta-clara: #f5dfb0;
+  --alerta: #3b1f17ee;
+  --alerta-borde: #b8664b;
+  --alerta-tinta: #ffe1c2;
+
+  /* Textos. */
+  --titulo: #f2deac;
+  --tinta-estado: #d6d6c0;
+  --veterania: #d8b866;
+  --rechazo: #d08a6a;
+  --aviso: #f0a070;
+
+  /* Fondos, bordes y sombras. */
+  --fondo-estado: #26362ef5;
+  --borde-estado: #b39e6355;
+  --fondo-cronica: #1d281f;
+  --borde-tenue: #6e71413d;
+  --borde-oscuro: #4a3c2a;
+  --contorno: rgba(0, 0, 0, 0.4);
+  --fondo-dialogo: rgba(24, 21, 16, 0.94);
+  --dialogo-borde: #8f7849;
+  --dialogo-sombra: 0 6px 18px rgba(0, 0, 0, 0.5);
+  --sombra-honda: 0 12px 40px #000a;
+  --velo: #0008;
+  --barra-fondo: #16221a;
+  --barra: #d5ba78;
+  --fondo-campo: #16201a;
+  --fondo-figura: #0b0f0b;
+  --etiqueta: #33302a;
+  --etiqueta-borde: #a68b4d88;
+  --filo: #a68b4d;
+  --hex: #2b3328;
+  --hex-encima: #4c5a44;
+  --sello-arena: #9fd0a0;
+  --sello-arena-borde: #6fa07088;
+
+  /* Fin de partida. */
+  --fin-borde: #a18b565e;
+  --fin-gana-filo: #cfb474;
+  --fin-gana: linear-gradient(110deg, #334435, #222c23);
+  --fin-pierde: linear-gradient(110deg, #4a3326, #2a221c);
+
+  /*
+   * Letra. `--letra-titulo` y `--letra-cuerpo` no son la misma cadena aunque
+   * empiecen igual: sin Georgia (Linux), la segunda cae en la métrica de Times
+   * y la primera en la serif del sistema, y así se veían hoy.
+   */
+  --letra-titulo: Georgia, serif;
+  --letra-encabezado: Georgia, 'Times New Roman', serif;
+  --letra-cuerpo: Georgia, 'Times New Roman', serif;
+  --letra-ui: system-ui, sans-serif;
+
+  /* La rueda del golpe (`rueda/rueda.css`): madera, latón y el verde de la mesa.
+     Con tema, cada una se deriva de las suyas en el común de `temas.css`. */
+  --rueda-caja: color-mix(in srgb, var(--panel) 90%, transparent);
+  --rueda-sombra: 0 8px 22px #000b;
+  --rueda-sombra-previa: 0 6px 16px #000c;
+  --rueda-sombra-plato: 0 12px 24px #000d;
+  --rueda-sombra-del-texto: #000;
+  --rueda-oscuro: #120f0b;
+  --rueda-sector: #2b2519;
+  --rueda-sector-encima: #5a5232;
+  --rueda-filo-del-sector: #0009;
+  --rueda-mesa: #23332a;
+  --rueda-centro: #342c1c;
+  --rueda-radio: #cbb78055;
+  --rueda-tinta: #e9dcbc;
+  --rueda-tinta-encima: #fff4d6;
+  --rueda-marca: #f6ecd2;
+  --rueda-pista: #3a3427;
+  --rueda-muesca: #221e15;
+  --rueda-filo-de-la-muesca: #cbb78099;
+  --rueda-velo: #0b0f0bd9;
+
+  /*
+   * Lo que es interfaz dentro del lienzo: lo lee `temaDelLienzo` (`temas.ts`).
+   * Los fondos van opacos: la transparencia de cada chapa la pone quien la pinta.
+   */
+  --chapa-fondo: #191509;
+  --chapa-borde: #cbb780;
+  --chapa-tinta: #fbe8b5;
+  --vida-fondo: #0c0a06;
+  --galon: #e8c35a;
+  --rotulo: #e8dcc4;
+  --vista-minimapa: #fbe6a5aa;
+
+  /*
+   * Fichas fijas (`--info-*`): lo que la interfaz dibuja como información, no
+   * como marco, y vale igual en todos los temas. Solo van aquí: un tema no las
+   * redefine (lo vigila `temas.test.ts`). Son las del editor de muralla de la
+   * arena: la salida de cada bando (un azul y un rojo apagados, tonos de esa
+   * escena, no `COLOR_BANDO`), el rayado de lo de fuera de una forma que cierra,
+   * la piedra del muro y la madera de la puerta con su canto.
+   */
+  --info-salida-izq: #33405a;
+  --info-salida-der: #5a3a33;
+  --info-rayado: repeating-linear-gradient(45deg, #0000 0 4px, #c9a24a55 4px 6px);
+  --info-piedra: #9a948a;
+  --info-madera: #9a6634;
+  --info-madera-canto: #3f2410;
+  /* El calor de cada punto del cruce de la rueda, del mínimo frío al máximo
+     encendido, y su resplandor en el rótulo del desenlace. */
+  --info-calor-0: #86aed0;
+  --info-calor-1: #9fc49a;
+  --info-calor-2: #cbb780;
+  --info-calor-3: #e8975f;
+  --info-calor-4: #f2593a;
+  --info-resplandor-0: color-mix(in srgb, var(--info-calor-0) 55%, transparent);
+  --info-resplandor-1: color-mix(in srgb, var(--info-calor-1) 55%, transparent);
+  --info-resplandor-2: color-mix(in srgb, var(--info-calor-2) 55%, transparent);
+  --info-resplandor-3: color-mix(in srgb, var(--info-calor-3) 55%, transparent);
+  --info-resplandor-4: color-mix(in srgb, var(--info-calor-4) 55%, transparent);
+  /* El nivel de cada tipo de la rueda de un arma (el editor de equipo de la
+     arena), del rojo del 0 al verde del 6: el relleno de su barra y el sector. */
+  --info-nivel-0: #bd4f3f;
+  --info-nivel-0-fondo: #8f4a37;
+  --info-nivel-1: #b0614b;
+  --info-nivel-1-fondo: #77402f;
+  --info-nivel-2: #a3784f;
+  --info-nivel-2-fondo: #5e3328;
+  --info-nivel-3: #9a8a5e;
+  --info-nivel-3-fondo: #3a3222;
+  --info-nivel-4: #87955a;
+  --info-nivel-4-fondo: #3d5a34;
+  --info-nivel-5: #73a055;
+  --info-nivel-5-fondo: #4c723d;
+  --info-nivel-6: #5fae4e;
+  --info-nivel-6-fondo: #5b8a45;
+
+  /*
+   * Medidas del escenario que leen también `forma.css` (los marcos en 9 trozos
+   * salen sobre el relleno; los adornos suben por él): el relleno de arriba y
+   * abajo de `#stage` y el borde del mapa. En el móvil, otras (abajo).
+   */
+  --relleno-del-escenario: 12px;
+  --borde-del-mapa: 7px;
   color-scheme: dark;
 }
 
@@ -26,7 +194,7 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--letra-cuerpo);
   overflow: hidden;
 }
 
@@ -45,12 +213,12 @@ html, body {
   gap: 1.1rem;
   padding: 0.45rem 1rem;
   background: var(--panel);
-  border-bottom: 3px ridge #71623e;
-  font: 13px system-ui, sans-serif;
+  border-bottom: 3px var(--marco-estilo) var(--marco);
+  font: 13px var(--letra-ui);
   flex-wrap: wrap;
 }
 #topbar .marca { font-size: 11px; letter-spacing: 2px; color: var(--gold); }
-#day { color: #f2deac; font: 15px Georgia, serif; letter-spacing: 0.03em; }
+#day { color: var(--titulo); font-size: 15px; font-family: var(--letra-titulo); letter-spacing: 0.03em; }
 #turn { margin-left: auto; color: var(--ink-dim); }
 #seed {
   color: var(--ink-dim);
@@ -59,28 +227,39 @@ html, body {
   opacity: 0.8;
 }
 
+/* Un desplegable de la barra de arriba (`selectorDeLaBarra`): «Ejército» en la
+   partida y «Tema» en la arena, con la letra de la barra. */
+.selector-de-la-barra { color: var(--ink-dim); }
+.selector-de-la-barra select {
+  font: 12px var(--letra-ui);
+  color: var(--ink);
+  background: var(--fondo-campo);
+  border: 1px solid var(--boton-borde);
+  padding: 0.1rem 0.25rem;
+}
+
 #resources { display: flex; gap: 0.9rem; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
 /* La muestra de color y el icono ocupan la misma caja de 1,15rem: cuando llega el
    icono, la barra de arriba no crece y el lienzo no se mueve (lo daba por movido
    `pnpm capturas`, que tenía que esperar a que se quedara quieto). */
 #resources li { display: flex; align-items: center; gap: 0.3rem; min-height: 1.15rem; font-variant-numeric: tabular-nums; }
 #resources .res-icon { width: 1.15rem; height: 1.15rem; object-fit: contain; }
-#resources .swatch { width: 0.65rem; height: 0.65rem; margin: 0 0.25rem; border: 1px solid rgba(0, 0, 0, 0.4); }
+#resources .swatch { width: 0.65rem; height: 0.65rem; margin: 0 0.25rem; border: 1px solid var(--contorno); }
 
 #stage {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 19rem;
   gap: 14px;
-  padding: 12px 14px;
+  padding: var(--relleno-del-escenario) 14px;
   min-height: 0;
 }
 
 .map-wrap {
   position: relative;
   min-height: 0;
-  border: 7px ridge var(--brass);
-  box-shadow: 0 0 0 2px #19140d, 0 12px 30px #0008;
-  background: #080a10;
+  border: var(--borde-del-mapa) var(--marco-estilo) var(--brass);
+  box-shadow: var(--marco-sombra);
+  background: var(--fondo-lienzo);
   overflow: hidden;
 }
 
@@ -91,23 +270,23 @@ html, body {
   cursor: crosshair;
   touch-action: none;
 }
-#canvas:focus-visible { outline: 2px solid #f5d973; outline-offset: -3px; }
+#canvas:focus-visible { outline: 2px solid var(--foco-lienzo); outline-offset: -3px; }
 
 .map-tools { position: absolute; bottom: 10px; right: 10px; display: flex; gap: 3px; }
 .map-tools button {
-  background: #292619ed;
-  border: 2px outset #857147;
+  background: var(--herramienta);
+  border: 2px outset var(--herramienta-borde);
   padding: 6px 10px;
-  color: #f5dfb0;
+  color: var(--tinta-clara);
   min-height: 34px;
 }
 /* La pista del borde en la batalla del móvil: hay enemigos fuera de la vista. */
 .borde-enemigo {
   position: absolute;
   top: 8px;
-  background: #3b1f17ee;
-  border: 2px outset #b8664b;
-  color: #ffe1c2;
+  background: var(--alerta);
+  border: 2px outset var(--alerta-borde);
+  color: var(--alerta-tinta);
   font-weight: 600;
   min-height: 40px;
   z-index: 1;
@@ -117,6 +296,11 @@ html, body {
 #app:not([data-escena='adventure']) .map-tools,
 #app:not([data-escena='adventure']) #atlas { display: none; }
 
+/* Los adornos de los temas (el remate y la cartela sobre el mapa): solo existen
+   con tema, y los saca `forma.css`. Sin tema (el espectador, la partida antes de
+   saber quién juega) no ocupan ni un píxel. */
+.adornos-del-mapa { display: none; }
+
 #lateral {
   min-height: 0;
   overflow-y: auto;
@@ -125,22 +309,22 @@ html, body {
   font-size: 0.86rem;
 }
 
-.eyebrow { font: 10px system-ui, sans-serif; letter-spacing: 2.5px; color: var(--gold); margin: 0 0 8px; }
+.eyebrow { font: 10px var(--letra-ui); letter-spacing: 2.5px; color: var(--gold); margin: 0 0 8px; }
 .atlas-panel { margin-bottom: 14px; }
 .atlas-panel canvas {
   display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 1;
-  border: 4px ridge var(--brass);
-  background: #080a10;
+  border: 4px var(--marco-estilo) var(--brass);
+  background: var(--fondo-lienzo);
   cursor: crosshair;
 }
 
-#side h2 { margin: 0 0 0.45rem; font-size: 1.35rem; font-weight: 400; color: #f2deac; }
+#side h2 { margin: 0 0 0.45rem; font-family: var(--letra-encabezado); font-size: 1.35rem; font-weight: 400; color: var(--titulo); }
 #side h3 {
   margin: 1rem 0 0.4rem;
-  font: 10px system-ui, sans-serif;
+  font: 10px var(--letra-ui);
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold);
@@ -154,23 +338,23 @@ html, body {
 .row .label { color: var(--ink-dim); }
 
 button {
-  font: 13px system-ui, sans-serif;
-  color: #efe5ce;
-  background: #303421;
-  border: 1px solid #8f784955;
+  font: 13px var(--letra-ui);
+  color: var(--boton-tinta);
+  background: var(--boton);
+  border: 1px solid var(--boton-borde);
   border-radius: 0;
   padding: 0.4rem 0.75rem;
   min-height: 34px;
   cursor: pointer;
 }
-button:hover:not(:disabled) { background: #4a4d2d; border-color: #cbb780; }
-button:focus-visible { outline: 2px solid #ecd49e; outline-offset: 2px; }
+button:hover:not(:disabled) { background: var(--boton-encima); border-color: var(--gold); }
+button:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 /* Los botones de la batalla mientras se cuenta la jugada (#165): el fieldset
    solo apaga, no tiene que verse ni mover nada. */
 fieldset.contando { border: 0; margin: 0; padding: 0; min-width: 0; }
-button.primary { background: #b59b60; color: #161d16; border-color: #e0c589; font-weight: 600; }
-button.primary:hover:not(:disabled) { background: #c9ae70; color: #161d16; }
+button.primary { background: var(--boton-primario); color: var(--boton-primario-tinta); border-color: var(--resalte); font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--boton-primario-encima); color: var(--boton-primario-tinta); }
 
 .stack-list { display: grid; gap: 0.3rem; }
 .stack {
@@ -179,14 +363,14 @@ button.primary:hover:not(:disabled) { background: #c9ae70; color: #161d16; }
   gap: 0.5rem;
   padding: 0.32rem 0.5rem;
   background: var(--panel-alt);
-  border: 1px solid #6e71413d;
+  border: 1px solid var(--borde-tenue);
   text-align: left;
 }
-.stack .count { color: #f2deac; font-variant-numeric: tabular-nums; }
+.stack .count { color: var(--titulo); font-variant-numeric: tabular-nums; }
 .stack.empty { opacity: 0.45; font-style: italic; }
-.stack.primary { background: #4a4d2d; border-color: #e0c589; color: #f5dfb0; font-weight: 400; }
+.stack.primary { background: var(--boton-encima); border-color: var(--resalte); color: var(--tinta-clara); font-weight: 400; }
 /* Un veterano: su nivel y lo que le falta, debajo del nombre. */
-.stack .veterania { display: block; font-size: 0.78em; color: #d8b866; }
+.stack .veterania { display: block; font-size: 0.78em; color: var(--veterania); }
 /* Los botones que quitan lo que lleva, en su propia línea y a la medida del texto. */
 .stack .quitar-equipo { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.2rem; }
 .stack .quitar-equipo button { font-size: 0.75em; padding: 0.1rem 0.4rem; }
@@ -197,23 +381,23 @@ progress.liderazgo {
   height: 5px;
   margin: 0.2rem 0 0.5rem;
   border: 0;
-  background: #16221a;
-  accent-color: #d5ba78;
+  background: var(--barra-fondo);
+  accent-color: var(--barra);
 }
-progress.liderazgo::-webkit-progress-bar { background: #16221a; }
-progress.liderazgo::-webkit-progress-value { background: #d5ba78; }
-progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
+progress.liderazgo::-webkit-progress-bar { background: var(--barra-fondo); }
+progress.liderazgo::-webkit-progress-value { background: var(--barra); }
+progress.liderazgo::-moz-progress-bar { background: var(--barra); }
 
 .cost { color: var(--ink-dim); font-size: 0.8rem; }
 
 .fin {
   padding: 0.8rem 0.9rem;
   margin-bottom: 0.9rem;
-  border: 1px solid #a18b565e;
-  border-left: 3px solid #cfb474;
-  background: linear-gradient(110deg, #334435, #222c23);
+  border: 1px solid var(--fin-borde);
+  border-left: 3px solid var(--fin-gana-filo);
+  background: var(--fin-gana);
 }
-.fin.perdida { border-left-color: var(--danger); background: linear-gradient(110deg, #4a3326, #2a221c); }
+.fin.perdida { border-left-color: var(--danger); background: var(--fin-pierde); }
 .fin h2 { margin: 0 0 0.3rem; }
 
 #statusbar {
@@ -228,27 +412,29 @@ progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
      lienzo encogía 1 px y con el puntero en la frontera de dos casillas la
      casilla del golpe oscilaba entre la barra y el clic (B1 de QA, 14-10-2026). */
   min-height: calc(3em + 0.9rem + 1px);
-  background: #26362ef5;
-  border-top: 1px solid #b39e6355;
-  font: 13px/1.5 system-ui, sans-serif;
+  background: var(--fondo-estado);
+  border-top: 1px solid var(--borde-estado);
+  font: 13px/1.5 var(--letra-ui);
 }
 #actions { display: flex; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; }
 #status {
-  color: #d6d6c0;
+  color: var(--tinta-estado);
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
 }
+/* La partida no arrancó (`sinArrancar`): el porqué se lee entero. */
+#status[data-sin-arrancar] { display: block; overflow: visible; }
 
 .log {
   max-height: 12rem;
   overflow-y: auto;
-  font: 12px/1.55 system-ui, sans-serif;
+  font: 12px/1.55 var(--letra-ui);
   color: var(--ink-dim);
-  background: #1d281f;
-  border: 1px solid #6e71413d;
+  background: var(--fondo-cronica);
+  border: 1px solid var(--borde-tenue);
   padding: 0.45rem 0.55rem;
 }
 .log div { margin-bottom: 0.15rem; }
@@ -277,6 +463,8 @@ progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
  * horizontal dentro de su marco (decisión del usuario, 01-10-2026).
  */
 @media (max-width: 760px) {
+  /* El escenario, más justo: 8 px de relleno y un borde de 5 en el mapa. */
+  :root { --relleno-del-escenario: 8px; --borde-del-mapa: 5px; }
   /* La barra de acciones es una fila de la rejilla, no una capa pegajosa
      encima del contenido: lo que se desplaza es `#stage`, entre la barra de
      arriba y la de abajo. Pegada con `position: sticky` sobre el documento,
@@ -286,8 +474,8 @@ progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
   #app { height: 100dvh; }
   #topbar { gap: 0.6rem; padding: 0.4rem 0.6rem; }
   #topbar .marca { display: none; }
-  #stage { display: block; padding: 8px; overflow-y: auto; }
-  .map-wrap { height: 62dvh; border-width: 5px; }
+  #stage { display: block; padding: var(--relleno-del-escenario); overflow-y: auto; }
+  .map-wrap { height: 62dvh; }
   #app[data-escena='battle'] .map-wrap { overflow-x: auto; overflow-y: hidden; }
   #app[data-escena='battle'] #canvas { width: 860px; }
   /* La base va en el marco del combate, 380 px de alto, y su figura mide lo que
@@ -302,13 +490,15 @@ progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
   .atlas-panel { max-width: 150px; }
   #statusbar { flex-wrap: wrap; padding: 0.4rem 0.6rem; }
   #actions button { min-height: 44px; }
+  /* Un dedo no acierta en 19 px (H7 de QA): lo mismo que los botones de abajo. */
+  .selector-de-la-barra select { min-height: 44px; }
 }
 
 /* Dormir o despertar al héroe (#17): pequeño, bajo su nombre. */
 button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4rem; }
 .stack .duerme { color: var(--ink-dim); font-style: italic; font-size: 0.85em; }
 /* La pregunta de fin de turno, en la barra de abajo junto a sus dos botones. */
-.aviso-fin-de-turno { align-self: center; color: #f2deac; }
+.aviso-fin-de-turno { align-self: center; color: var(--titulo); }
 
 /* La base caminable: la conversación con un vecino, sobre el lienzo, y lo que se
    abre en el panel al llegar a una puerta. */
@@ -324,17 +514,17 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   margin: 0;
   max-width: min(28rem, calc(100% - 2rem));
   padding: 0.7rem 0.9rem;
-  background: rgba(24, 21, 16, 0.94);
-  color: var(--ink, #e8dcc4);
-  border: 1px solid #8f7849;
+  background: var(--fondo-dialogo);
+  color: var(--ink);
+  border: 1px solid var(--dialogo-borde);
   border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--dialogo-sombra);
   z-index: 3;
 }
 .conversacion h3 { margin: 0 0 0.1rem; }
-.conversacion .linea { font-family: Georgia, serif; font-size: 1.05em; margin: 0.4rem 0 0.6rem; }
-.abierto-en-la-base { border-bottom: 1px solid #4a3c2a; padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
-.abierto-en-la-base .motivo { color: #d08a6a; }
+.conversacion .linea { font-family: var(--letra-titulo); font-size: 1.05em; margin: 0.4rem 0 0.6rem; }
+.abierto-en-la-base { border-bottom: 1px solid var(--borde-oscuro); padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
+.abierto-en-la-base .motivo { color: var(--rechazo); }
 .abierto-en-la-base .reclutar { grid-template-columns: 1fr 1fr; margin: 0.4rem 0; }
 
 /*
@@ -350,7 +540,7 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   padding: 0 0.35em;
   border: 1px solid var(--border);
   border-radius: 3px;
-  font: normal 12px/1.45 system-ui, sans-serif;
+  font: normal 12px/1.45 var(--letra-ui);
   letter-spacing: 0;
   text-transform: none;
   white-space: nowrap;
@@ -371,7 +561,7 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   display: inline-block;
   cursor: help;
   color: var(--gold);
-  font: normal 0.9em system-ui, sans-serif;
+  font: normal 0.9em var(--letra-ui);
   letter-spacing: 0;
   text-transform: none;
   line-height: 1;
@@ -399,7 +589,7 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   background: var(--panel);
   color: var(--ink);
   border: 1px solid var(--gold);
-  font: 0.9rem/1.35 Georgia, serif;
+  font: 0.9rem/1.35 var(--letra-titulo);
   white-space: normal;
   text-align: left;
   pointer-events: none;
@@ -426,7 +616,7 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   margin: 2rem auto;
   padding: 1rem 1.25rem;
   background: var(--panel);
-  border: 3px ridge #71623e;
+  border: 3px ridge var(--marco);
 }
 #no-arranca h1 { margin: 0 0 0.6rem; font-size: 1.3rem; color: var(--danger); }
 #no-arranca p { margin: 0.4rem 0; }

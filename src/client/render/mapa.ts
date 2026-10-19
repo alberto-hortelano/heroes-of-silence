@@ -27,6 +27,7 @@ import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.
 import type { Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla } from '../marcha.js';
+import { temaDelLienzo } from '../temas.js';
 import { asset, imagenDeEscena, type PiezaDelMapa } from './assets.js';
 import {
   type CamaraMapa,
@@ -55,7 +56,7 @@ import {
 } from './escenario/superficie.js';
 import { animarHasta, type Figura, pintarFiguraConSombra } from './figura.js';
 import { densidadDe } from './lienzo.js';
-import { COLOR_NEUTRO, COLOR_SIN_DUEÑO, playerColor, RESOURCE_COLORS } from './palette.js';
+import { COLOR_SIN_DUEÑO, playerColor, RESOURCE_COLORS } from './palette.js';
 import { MIRADA_DE_PRESENTACION } from './personajes.js';
 import { pintarPieza } from './piezas.js';
 import { pintarSombra } from './sombra.js';
@@ -1124,7 +1125,7 @@ function inicial(
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#fbf6ea';
-  ctx.font = `bold ${Math.round(r * 1.2)}px system-ui, sans-serif`;
+  ctx.font = `bold ${Math.round(r * 1.2)}px ${temaDelLienzo().letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(letra, x, y + 0.5);
@@ -1207,15 +1208,19 @@ function chapa(
   tile: number,
 ): void {
   const alto = Math.max(14, tile * 0.24);
+  const tema = temaDelLienzo();
   ctx.save();
-  ctx.font = `bold ${Math.round(alto * 0.72)}px system-ui, sans-serif`;
+  ctx.font = `bold ${Math.round(alto * 0.72)}px ${tema.letraUi}`;
   const ancho = ctx.measureText(texto).width + alto * 0.6;
-  ctx.fillStyle = 'rgba(25,21,9,0.92)';
-  ctx.strokeStyle = COLOR_NEUTRO;
-  ctx.lineWidth = 1;
+  // El fondo del tema es opaco: la transparencia es de esta chapa, no del tema.
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = tema.chapaFondo;
   ctx.fillRect(x - ancho / 2, y - alto / 2, ancho, alto);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = tema.chapaBorde;
+  ctx.lineWidth = 1;
   ctx.strokeRect(x - ancho / 2 + 0.5, y - alto / 2 + 0.5, ancho - 1, alto - 1);
-  ctx.fillStyle = '#fbe8b5';
+  ctx.fillStyle = tema.chapaTinta;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(texto, x, y + 0.5);
@@ -1377,7 +1382,7 @@ function pintarRuta(
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = '#fff4e0';
-      ctx.font = 'bold 14px sans-serif';
+      ctx.font = `bold 14px ${temaDelLienzo().letraUi}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('!', c.x, c.y + 1);

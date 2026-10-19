@@ -1,0 +1,53 @@
+{
+  "encargo": "tema-07-sello-orkos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:31:10.706Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b57-b28d-75c2-9ce5-f9bcd83a24f7",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\n\nTema ORKOS: hierro oscuro remachado y oxidado, colmillos y cuernos de hueso, cadenas, cráneos con cuernos y estandartes rojos de la Horda con goterones de sangre. El SELLO o medallón redondo que abre la barra de abajo, a la izquierda del aviso: se ve a 36 px, así que con la silueta clara. Un cráneo pequeño sobre un disco de hierro remachado.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "estilo",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85"
+    },
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "pieza",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85",
+      "recorte": {
+        "x": 15,
+        "y": 1130,
+        "w": 60,
+        "h": 66
+      }
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b57-b28d-75c2-9ce5-f9bcd83a24f7/exec-119cca9d-a20e-47d9-ac89-6f2c8bd4e7de.png",
+    "sha256": "6eae13954b2ca75395565996f44dfcd8221bbc775da1641cd81a7ab6deba9889",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 1084×1078 a 256×255, dentro de 256×256",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 32 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.5687496979363008,
+    "opacos": 0.9978196894343269,
+    "haloSuelto": 0,
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "salida": {
+    "ruta": "assets/temas/orkos/sello.webp",
+    "sha256": "5c8e88bdffaa87466dcd12512cddc96044888159446437850cee6a2e598e4707"
+  }
+}

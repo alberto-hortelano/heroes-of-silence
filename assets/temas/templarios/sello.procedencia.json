@@ -1,0 +1,53 @@
+{
+  "encargo": "tema-07-sello-templarios",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:32:11.055Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b58-c45b-7e92-a555-c829bf5684d8",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\n\nTema TEMPLARIOS: piedra gótica gris oscura tallada con tracería y pináculos, madera oscura, pergamino claro y el rojo de la cruz paté de los templarios, con remates de latón viejo. El SELLO o medallón redondo que abre la barra de abajo, a la izquierda del aviso: se ve a 36 px, así que con la silueta clara. Un sello de lacre rojo con la cruz paté en relieve.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/templarios.png",
+      "papel": "estilo",
+      "sha256": "d2dd32d800395f7f14c8e16a1edaedf88438cdaa4a349ff6b2dc6c8ae28188cb"
+    },
+    {
+      "ruta": "assets/art/temas/templarios.png",
+      "papel": "pieza",
+      "sha256": "d2dd32d800395f7f14c8e16a1edaedf88438cdaa4a349ff6b2dc6c8ae28188cb",
+      "recorte": {
+        "x": 20,
+        "y": 1096,
+        "w": 86,
+        "h": 96
+      }
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b58-c45b-7e92-a555-c829bf5684d8/exec-1b44d72c-ce5e-4b61-835d-39f66b4d4e1a.png",
+    "sha256": "3cc0e09a1b156ea3b9bb6119c7de84762a8853b32c4cce7dbad26652d4726cc3",
+    "ancho": 1187,
+    "alto": 1325
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 906×1197 a 194×256, dentro de 256×256",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 33 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.4003179094276041,
+    "opacos": 0.9969044329029082,
+    "haloSuelto": 0,
+    "ancho": 1187,
+    "alto": 1325
+  },
+  "salida": {
+    "ruta": "assets/temas/templarios/sello.webp",
+    "sha256": "9a68a9e7a15bc5c7bfa17ed3480f8fe5d5866ee508387850a733e0ebc190920f"
+  }
+}

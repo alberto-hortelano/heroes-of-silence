@@ -1,0 +1,530 @@
+/*
+ * La forma de los temas (13-10-2026): lo que las láminas de `assets/art/temas/`
+ * cambian además del color y la letra. Las barras de sección, los botones,
+ * «Fin de turno», el día en su cartela, el panel lateral (pergamino en templarios
+ * y elfos) y el marco del mapa, todo con CSS y leyendo las fichas del tema.
+ *
+ * **Toda regla empieza por `:root[data-tema]`** (lo vigila `invariantes.test.ts`):
+ * gana en especificidad a la de `style.css` que corrige, y sin tema (el
+ * espectador) no se aplica ninguna. Por eso el neutro se queda como estaba, cosa
+ * que mide `tools/qa/neutro.ts` contra HEAD.
+ *
+ * **Nada mueve el lienzo**: los marcos son anillos de `box-shadow`, que no
+ * ocupan sitio; el día lleva su cartela en una sombra y no en un relleno de
+ * arriba abajo, y los altos de línea de la barra se fijan a los del neutro. En
+ * cualquier ancho el lienzo mide lo mismo con tema y sin él: el mapa ocupa todo
+ * el ancho que deja el panel (lo mide `tools/qa/temas-con-piezas.ts`).
+ *
+ * Las piezas en imagen (los marcos en 9 trozos, la barra de sección, el remate y
+ * la cartela sobre el mapa, el sello y las texturas; la lista es
+ * `tools/taller/temas/piezas.ts`) tienen aquí su sitio, su respaldo (lo que se ve
+ * sin imagen) y todas sus reglas. `piezas-de-tema.css`, generada,
+ * no lleva ninguna: solo fichas (abajo, «Las piezas en imagen»).
+ */
+
+/* --- Letra y alto de línea ----------------------------------------------- */
+
+/* El texto va con el alto de línea de la letra del neutro (1,15) y no con el de
+   la suya (H2 de QA, 13-10-2026): las de los no muertos piden 1,47 para los
+   diacríticos apilados, y el panel de la pelea crecía 55 px y dejaba «Rayo» fuera
+   de la vista; con la de interfaz del imperio (1,43), un botón partido en cuatro
+   líneas («Copiar enlace de la pelea», en el móvil) subía la barra de la arena
+   16 px. El botón no lo hereda: su `font:` lo devuelve a `normal`. */
+:root[data-tema] body,
+:root[data-tema] button { line-height: 1.15; }
+
+/* La barra mide lo mismo con cualquier letra (H2 de QA). Un desplegable mide lo
+   que pide su letra y no hace caso de `line-height`: con la de los no muertos la
+   barra crecía de 38,6 a 41,6 px y con la de los templarios encogía a 36,6. Se
+   fija al alto del neutro (21,2 px con la letra de sistema de 12 px de Linux), y
+   el texto de la barra lleva el alto de línea del neutro. */
+:root[data-tema] #topbar { line-height: 0.9375rem; }
+:root[data-tema] .selector-de-la-barra select { height: 1.325rem; }
+
+/* La letra de los títulos es de rótulo: en párrafos (la aclaración de una nota,
+   lo que dice un vecino) se lee la del cuerpo. */
+:root[data-tema] .nota:hover::after,
+:root[data-tema] .nota:focus-visible::after,
+:root[data-tema] .conversacion .linea { font-family: var(--letra-cuerpo); }
+
+/* --- La barra de arriba ---------------------------------------------------- */
+
+/* La marca y el día, con la letra del tema, sin cambiar el alto de la barra (el
+   alto de línea es el de arriba). */
+:root[data-tema] #topbar .marca {
+  font: 15px/0.9375rem var(--letra-titulo);
+  letter-spacing: 0.06em;
+}
+/* El día en su cartela y con la letra del cuerpo, como «Día 1 · Semana 1» en
+   las cinco láminas (en la de los templarios, sobre pergamino). El fondo de
+   arriba abajo es una sombra, que no ocupa sitio. Donde la lámina no lleva
+   cartela, el fondo es el del panel y el filo no se ve. */
+:root[data-tema] #day {
+  font-family: var(--letra-cuerpo);
+  line-height: 1.0625rem;
+  padding: 0 0.55em;
+  background: var(--dia-fondo);
+  color: var(--dia-tinta);
+  box-shadow: 0 0 0 3px var(--dia-fondo), 0 0 0 4px var(--dia-filo);
+}
+
+/* --- El marco del mapa ----------------------------------------------------- */
+
+/* Grueso y del color del material: el borde de siempre más anillos de sombra
+   (`--marco-anillos`), que no ocupan sitio ni mueven el lienzo. El borde es el
+   material del marco (la piedra, el hierro, el mármol), y los anillos, su remate
+   (`--brass`: el oro, la plata, el hueso). El escenario de alrededor (el hueco
+   que rodea el mapa y el panel) es el fondo del margen de la lámina,
+   `--fondo-escenario`, no el material: con `--marco` llenándolo, el del imperio
+   salía beis sobre una lámina casi negra (QA, 13-10-2026, H1). */
+:root[data-tema] #stage { background: var(--fondo-escenario); }
+:root[data-tema] .map-wrap {
+  --sombra-con-pieza: var(--con-pieza-marco-mapa) var(--marco-sombra);
+  border-color: var(--marco);
+  box-shadow: var(--sombra-con-pieza, var(--marco-anillos), var(--marco-sombra));
+}
+
+/* --- El panel lateral ------------------------------------------------------ */
+
+/* Su propio fondo y sus propias tintas: en templarios y elfos, pergamino claro con
+   tinta oscura, que no se lee con las fichas de la barra (claras). Lo de dentro
+   pinta con `--ink`, `--titulo`, `--gold`…, así que basta con reasignarlas aquí. */
+:root[data-tema] #lateral {
+  --ink: var(--lateral-tinta);
+  --ink-dim: var(--lateral-tenue);
+  --titulo: var(--lateral-titulo);
+  --gold: var(--lateral-rotulo);
+  --panel: var(--lateral);
+  --panel-alt: var(--lateral-alt);
+  --border: var(--lateral-borde);
+  --borde-tenue: var(--lateral-borde);
+  --borde-oscuro: var(--lateral-borde);
+  --accent: var(--lateral-acento);
+  --danger: var(--lateral-peligro);
+  --veterania: var(--lateral-aviso);
+  --rechazo: var(--lateral-peligro);
+  --fondo-cronica: var(--lateral);
+  --fondo-campo: var(--lateral);
+  color: var(--ink);
+  background: var(--lateral);
+  --sombra-con-pieza: var(--con-pieza-marco-panel) none;
+  border-left: 0;
+  padding: 8px 10px 10px 12px;
+  box-shadow: var(--sombra-con-pieza, var(--marco-anillos));
+}
+
+/* Las filas (tropa, equipo, hechizos): en los elfos, verde azulado con tinta
+   clara sobre el pergamino; en los demás, del tono del panel. */
+:root[data-tema] #lateral .stack {
+  --ink: var(--lateral-alt-tinta);
+  --ink-dim: var(--lateral-alt-tinta);
+  --titulo: var(--lateral-alt-tinta);
+  --veterania: var(--lateral-alt-tinta);
+  color: var(--ink);
+  border-radius: calc(var(--radio-boton) / 2);
+}
+/* La elegida (el héroe de ahora, el hechizo apuntado): del pergamino, con filo. */
+:root[data-tema] #lateral .stack.primary {
+  --ink: var(--lateral-tinta);
+  --titulo: var(--lateral-titulo);
+  background: var(--lateral);
+  border-color: var(--lateral-rotulo);
+}
+/* El final de la partida, sobre la fila y no sobre un degradado oscuro. */
+:root[data-tema] #lateral .fin {
+  --titulo: var(--lateral-alt-tinta);
+  color: var(--lateral-alt-tinta);
+  background: var(--lateral-alt);
+}
+
+/* Las barras de sección («HECHIZOS», «EQUIPO»…): el rótulo con la letra del tema,
+   su adorno delante (la cruz, la hoja; o nada) y su fondo: el filo de oro del
+   imperio con el rótulo al centro, los goterones de los orkos. */
+:root[data-tema] #side h3 {
+  /* Con la pieza, su imagen y no el degradado, el rótulo entre sus remates, en
+     medio de su alto (sin ella, el relleno de abajo deja sitio al filo) y con la
+     tinta que se lee sobre la pieza (`--seccion-tinta`: en los elfos, con la
+     oscura del pergamino sobre la barra verde azulada no se leía, a 1,35). */
+  --fondo-con-pieza: var(--con-pieza-barra-seccion) none;
+  --remates-con-pieza: var(--con-pieza-barra-seccion) var(--remates-barra-seccion);
+  --relleno-con-pieza: var(--con-pieza-barra-seccion) 0.4rem;
+  --tinta-con-pieza: var(--con-pieza-barra-seccion) var(--seccion-tinta);
+  display: flex;
+  align-items: center;
+  justify-content: var(--seccion-alinear);
+  gap: 0.45em;
+  font: 12px/1.15 var(--letra-titulo);
+  letter-spacing: 0.14em;
+  color: var(--tinta-con-pieza, var(--gold));
+  background: var(--fondo-con-pieza, var(--seccion-fondo));
+  border-top: 0;
+  border-bottom: 1px solid var(--seccion-filo);
+  padding-block: var(--relleno-con-pieza, 0.3rem 0.5rem);
+  padding-inline: var(--remates-con-pieza, 0.45rem);
+}
+:root[data-tema] #side h3::before {
+  --tinta-con-pieza: var(--con-pieza-barra-seccion) var(--seccion-adorno);
+  content: var(--adorno);
+  color: var(--tinta-con-pieza, var(--adorno-tinta));
+  font-family: var(--letra-simbolos);
+  font-size: 1.2em;
+  letter-spacing: 0;
+}
+/* El rótulo de una línea, como en las láminas: el que no cabe («Libro de Aldo de
+   Valdeluz» en la base) se recorta con «…» y su `title` lo dice entero (QA v3,
+   V3-5). Partido en dos, estiraba la barra de sección a lo alto y su línea de
+   arriba tocaba la moldura de la pieza. En bloque, porque un texto suelto en una
+   caja flexible no lleva «…»; el que lleva algo más que texto (la «ⓘ» de una nota
+   en la arena) sigue en la caja flexible y entero. */
+:root[data-tema] #side h3:not(:has(*)) {
+  display: block;
+  text-align: var(--seccion-alinear);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:root[data-tema] #side h3:not(:has(*))::before {
+  margin-right: 0.45em;
+  vertical-align: top;
+}
+/* El espaciado, del tema: con el de los demás, «HÉROE · RANGO 5 · NIVEL 3 ·
+   NIGROMANTE» no cabía en una línea con la IM Fell de los no muertos (QA,
+   13-10-2026, H6). */
+:root[data-tema] .eyebrow {
+  font: 11px/1.15 var(--letra-titulo);
+  letter-spacing: var(--rotulo-espaciado);
+}
+
+/* --- Botones --------------------------------------------------------------- */
+
+/* Cuadrados en cuatro temas y redondeados en los elfos, con su relieve. */
+:root[data-tema] button:not(.stack) {
+  border-radius: var(--radio-boton);
+  box-shadow: var(--boton-relieve);
+}
+/* La «×» de quitar una pieza del héroe va sola en su botón: con la serifa del
+   tema medía 4 px de tinta en el imperio y 6 en templarios, frente a 8 en el neutro
+   (QA, 13-10-2026, H4). Va con la letra de los símbolos, como en el neutro. */
+:root[data-tema] .stack .count button[data-action='unequip'] { font-family: var(--letra-simbolos); }
+
+/* «Fin de turno» (y lo que ocupa su sitio: «Continuar», «Partida nueva»),
+   destacado como en la lámina: la letra del título, el adorno delante y el
+   relieve propio (el brillo verde de los no muertos). Sin cambiar de alto: cabe
+   en los 34 px de un botón. */
+:root[data-tema] #actions button.primary {
+  font: 15px/1.15 var(--letra-titulo);
+  min-width: 9rem;
+  box-shadow: var(--boton-primario-relieve);
+}
+:root[data-tema] #actions button.primary::before {
+  content: var(--adorno);
+  font-family: var(--letra-simbolos);
+  margin-right: 0.45em;
+}
+
+/* --- La barra de abajo ----------------------------------------------------- */
+
+/* El aviso, en su cartela de lado a lado (el pergamino de los templarios), y los
+   botones sobre el panel. La cartela llena el alto de la barra sin cambiarlo, y
+   el aviso va en medio de su alto con `align-content`, que vale en un bloque: el
+   `-webkit-box-pack` no lo centraba (con `-webkit-line-clamp`, Chromium lo lleva
+   como bloque, `flow-root`) y el texto iba pegado arriba (QA, 13-10-2026, H3). El
+   recorte a dos líneas es el de `style.css`. */
+:root[data-tema] #statusbar { background: var(--panel); }
+:root[data-tema] #status {
+  flex: 1 1 auto;
+  align-self: stretch;
+  align-content: center;
+  padding: 0 0.7rem;
+  background: var(--fondo-estado);
+  box-shadow: inset 0 0 0 1px var(--seccion-filo);
+}
+
+/* --- Las piezas en imagen: su sitio y su respaldo -------------------------- */
+
+/* Cómo llega una pieza. `piezas-de-tema.css` (generada) no lleva reglas, solo
+   fichas: las medidas de la tabla (`--corte-<pieza>`, `--remates-…`), siempre, y
+   por tema y pieza que está en disco, `--pieza-<pieza>` (su `url()`) y
+   `--con-pieza-<pieza>`, vacía: la marca de que está. Aquí la imagen se lee con
+   `var(--pieza-<pieza>, none)`, y lo que cambia con ella va en una ficha propia
+   que empieza por `var(--con-pieza-<pieza>)` (o por la imagen misma): sin la pieza
+   esa ficha no vale, porque lee una que no existe, y la propiedad se queda con su
+   respaldo, `var(--…-con-pieza, respaldo)`. Así no hay un `url()` que dé 404 ni
+   una regla fuera de esta hoja. */
+
+/* Los marcos en 9 trozos (`border-image`): la banda pinta encima del borde y sale
+   hacia el relleno de alrededor con `border-image-outset`, que es tinta y no caja:
+   no mueve el lienzo ni da desplazamiento. Sin imagen (`none`) nada de esto pinta,
+   y se ven el borde y los anillos de arriba. El corte es el medido en cada pieza
+   (`--corte-<marco>`, en sus píxeles: Codex no respetó el 12,5 % pedido) y cada
+   lado de la banda guarda la proporción de la pieza frente a los costados
+   (`--banda-<marco>-<lado>`: el pie, casi siempre más grueso). El del mapa, fuera
+   de la aventura (la base, la batalla) y en el móvil, sale lo que mide el relleno de
+   `#stage` y cubre el borde; en la aventura lo pinta el adorno, encima del mapa
+   (abajo). El del panel sale 6 (sus 8 px de relleno) y el del minimapa, 6. */
+:root[data-tema] .map-wrap {
+  --corte-con-pieza: var(--con-pieza-marco-mapa) var(--corte-marco-mapa);
+  border-image-source: var(--pieza-marco-mapa, none);
+  border-image-slice: var(--corte-con-pieza, 100%);
+  border-image-width: calc(var(--relleno-del-escenario) + var(--borde-del-mapa));
+  border-image-outset: var(--relleno-del-escenario);
+}
+:root[data-tema] .atlas-panel canvas {
+  --corte-con-pieza: var(--con-pieza-marco-minimapa) var(--corte-marco-minimapa);
+  border-image-source: var(--pieza-marco-minimapa, none);
+  border-image-slice: var(--corte-con-pieza, 100%);
+  border-image-width: calc(10px * var(--banda-marco-minimapa-arriba, 1))
+    calc(10px * var(--banda-marco-minimapa-derecha, 1))
+    calc(10px * var(--banda-marco-minimapa-abajo, 1))
+    calc(10px * var(--banda-marco-minimapa-izquierda, 1));
+  border-image-outset: 6px;
+}
+:root[data-tema] #lateral {
+  --corte-con-pieza: var(--con-pieza-marco-panel) var(--corte-marco-panel);
+  border-image-source: var(--pieza-marco-panel, none);
+  border-image-slice: var(--corte-con-pieza, 100%);
+  border-image-width: calc(12px * var(--banda-marco-panel-arriba, 1))
+    calc(12px * var(--banda-marco-panel-derecha, 1))
+    calc(12px * var(--banda-marco-panel-abajo, 1))
+    calc(12px * var(--banda-marco-panel-izquierda, 1));
+  border-image-outset: 6px;
+}
+/* La barra de sección: se estira por el centro, y sus remates miden lo que pide su
+   alto (`--remates-barra-seccion`); el rótulo va entre ellos (arriba, su relleno). */
+:root[data-tema] #side h3 {
+  --corte-con-pieza: var(--con-pieza-barra-seccion) var(--corte-barra-seccion);
+  --ancho-con-pieza: var(--con-pieza-barra-seccion) 0 var(--remates-barra-seccion);
+  border-image-source: var(--pieza-barra-seccion, none);
+  border-image-slice: var(--corte-con-pieza, 100%);
+  border-image-width: var(--ancho-con-pieza, 1);
+}
+
+/* Las texturas (`textura-panel`, `textura-marco`) se mezclan con el color de su
+   ficha, que sigue mandando: un gris medio de la textura deja el color medido
+   tal cual, y el contraste de la tinta apenas se mueve. */
+:root[data-tema] #lateral { background-image: var(--pieza-textura-panel, none); }
+:root[data-tema] #topbar,
+:root[data-tema] #stage,
+:root[data-tema] #statusbar { background-image: var(--pieza-textura-marco, none); }
+:root[data-tema] #lateral,
+:root[data-tema] #topbar,
+:root[data-tema] #stage,
+:root[data-tema] #statusbar { background-blend-mode: soft-light; }
+
+/* El mapa y el panel, en sus áreas: el adorno comparte la del mapa. */
+:root[data-tema] #stage { grid-template-areas: 'mapa panel'; }
+:root[data-tema] #stage > .map-wrap,
+:root[data-tema] #stage > .adornos-del-mapa { grid-area: mapa; }
+:root[data-tema] #stage > #lateral { grid-area: panel; }
+
+/* --- Encima del mapa, en la aventura: el marco grueso, el remate y la cartela ---
+
+   Las láminas (1315×1196) son la pantalla entera; su mapa mide 928 px de alto (el
+   de los templarios, de 130 a 1058), y el de aquí, lo que deja la ventana sin las
+   dos barras, el relleno y el borde: 130 px con tema (950 a 1080 de alto). Un
+   píxel de la lámina mide en pantalla `--a-la-lamina` (1,02 px a 1080; 0,83 a 900).
+   Y la lámina es la ventana entera de ancho (1315): manda la menor de las dos
+   escalas (QA v3, V3-2). Con la del alto sola, una ventana vertical de 1080×1920
+   ponía la moldura de 1,93 px por píxel de lámina sobre un mapa de 720 de ancho;
+   a 1440×900 y 1920×1080 manda el alto, como antes. Solo escala los adornos; no
+   mide nada del juego. */
+:root[data-tema] {
+  --a-la-lamina: min((100vh - 130px) / 928, 100vw / 1315);
+  /* La moldura del mapa en las láminas: unos 31 px de lado a 1315 (afinado,
+     18-10-2026; el coordinador la midió entre 25 y 40 a 1920). Nunca menos que lo
+     que sale por fuera (relleno y borde): de ahí para dentro, monta sobre el mapa. */
+  --moldura-del-mapa: max(
+    var(--dentro-del-mapa),
+    calc(31 * var(--a-la-lamina))
+  );
+  /* Lo que sale por fuera del mapa: lo que la banda entra en él es lo que pasa de
+     aquí (las herramientas se apartan eso). */
+  --dentro-del-mapa: calc(var(--relleno-del-escenario) + var(--borde-del-mapa));
+  /* Y lo que la banda puede entrar en el mapa, como mucho (QA v3, V3-2): la escala
+     de la lámina sigue creciendo con la ventana (a 2560×1440, 1,41) y el pie de
+     las piezas es hasta 1,5 veces el costado. A 1440 y a 1920 no llega (13 y 29
+     como mucho, el pie de los orkos); lo vigila `tools/qa/temas-con-piezas.ts`. */
+  --tapa-el-costado: 24px;
+  --tapa-el-pie: 32px;
+  /* Cada lado de la banda del mapa: el de la pieza a la escala de la lámina, con
+     su tope. Sin la pieza (`--banda-…` no existe), 0: nada que apartar. */
+  --banda-del-mapa-arriba: min(
+    var(--moldura-del-mapa) * var(--banda-marco-mapa-arriba, 0),
+    var(--dentro-del-mapa) + var(--tapa-el-costado)
+  );
+  --banda-del-mapa-derecha: min(
+    var(--moldura-del-mapa) * var(--banda-marco-mapa-derecha, 0),
+    var(--dentro-del-mapa) + var(--tapa-el-costado)
+  );
+  --banda-del-mapa-abajo: min(
+    var(--moldura-del-mapa) * var(--banda-marco-mapa-abajo, 0),
+    var(--dentro-del-mapa) + var(--tapa-el-pie)
+  );
+  --banda-del-mapa-izquierda: min(
+    var(--moldura-del-mapa) * var(--banda-marco-mapa-izquierda, 0),
+    var(--dentro-del-mapa) + var(--tapa-el-costado)
+  );
+}
+
+/* El mapa y el adorno comparten su área: el adorno mide lo mismo que el mapa con
+   su borde. No recibe el ratón: los clics llegan al lienzo. Solo en la aventura y
+   en el escritorio (en la batalla taparía el tablero, y en el móvil el mapa es
+   pequeño). Lleva el marco del mapa en 9 trozos, de la moldura de la lámina: sale
+   lo que mide el relleno de `#stage` y lo demás monta sobre el mapa, como en las
+   láminas, donde el marco va encima del terreno; el lienzo no se mueve. Cuánto
+   tapa en cada ancho, `tools/qa/temas-con-piezas.ts`. */
+:root[data-tema] #stage > .adornos-del-mapa {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+  border: 0 solid transparent;
+  border-image-source: var(--pieza-marco-mapa, none);
+  border-image-slice: var(--corte-marco-mapa, 100%);
+  border-image-width: var(--banda-del-mapa-arriba) var(--banda-del-mapa-derecha)
+    var(--banda-del-mapa-abajo) var(--banda-del-mapa-izquierda);
+  border-image-outset: var(--relleno-del-escenario);
+}
+@media (min-width: 761px) {
+  :root[data-tema] #app[data-escena='adventure'] #stage > .adornos-del-mapa { display: block; }
+  /* Con el adorno puesto, el marco es suyo: el del mapa no se pinta debajo. */
+  :root[data-tema] #app[data-escena='adventure'] .map-wrap { border-image-source: none; }
+  :root[data-tema] #app[data-escena='adventure'] .map-tools {
+    right: calc(10px + max(0px, var(--banda-del-mapa-derecha) - var(--dentro-del-mapa)));
+    bottom: calc(10px + max(0px, var(--banda-del-mapa-abajo) - var(--dentro-del-mapa)));
+  }
+}
+
+/* El remate y la cartela, sobre el borde de arriba del mapa y centrados, como en
+   las láminas (decisión del usuario, 13-10-2026), del tamaño que tienen en ellas
+   (afinado, 18-10-2026): el alto de cada uno en su lámina (`--remate-en-la-lamina`,
+   `--cartela-en-la-lamina`, de los rectángulos de `POR_TEMA`), por `--a-la-lamina`.
+   Empiezan arriba del relleno de `#stage` y no bajan más de 64 px sobre el mapa
+   (decisión del coordinador): si lo de la lámina no cabe, se encogen los dos a la
+   vez. Donde la lámina parte el lema a los lados del remate (templarios, no
+   muertos: `--cartela-partida: 1`, con `--lema` a la izquierda y `--lema-tras` a
+   la derecha), la cartela va a media altura del remate; donde no (el imperio, 0),
+   debajo, montada por su pie (al 80 % de su alto, como el águila de su lámina:
+   más arriba, la cola tapaba el punto de en medio del lema). Sin pieza, las medidas de
+   antes (36 y 21 px). */
+:root[data-tema] .adornos-del-mapa {
+  --r-lamina: var(--remate-en-la-lamina, 36);
+  --c-lamina: var(--cartela-en-la-lamina, 21);
+  --p: var(--cartela-partida);
+  --tope: calc(var(--relleno-del-escenario) + var(--borde-del-mapa) + 64px);
+  --px-lamina: min(
+    var(--a-la-lamina),
+    calc(var(--tope) / (var(--r-lamina) + (1 - var(--p)) * (var(--c-lamina) - 0.2 * var(--r-lamina))))
+  );
+  --alto-del-remate: calc(var(--r-lamina) * var(--px-lamina));
+  --ancho-del-remate: calc(var(--alto-del-remate) * var(--proporcion-remate, 3.111));
+  --alto-de-la-cartela: calc(var(--c-lamina) * var(--px-lamina));
+  /* Lo que la cartela se mete bajo el remate partido: las puntas de sus volutas. */
+  --bajo-el-remate: calc(0.08 * var(--ancho-del-remate));
+}
+/* La cartela es su `::before` (el lema, o su mitad de la izquierda) y su `::after`
+   (la de la derecha): con `none` (elfos y orkos, como en sus láminas, y el `::after`
+   del imperio) no existen. Respaldo: una cinta con las puntas en cola de golondrina. */
+:root[data-tema] .adornos-del-mapa .cartela::before,
+:root[data-tema] .adornos-del-mapa .cartela::after {
+  --fondo-con-pieza: var(--con-pieza-cartela) transparent;
+  --recorte-con-pieza: var(--con-pieza-cartela) none;
+  --corte-con-pieza: var(--con-pieza-cartela) var(--corte-cartela);
+  --filo-con-pieza: var(--con-pieza-cartela) none;
+  position: absolute;
+  top: calc(
+    -1 * var(--relleno-del-escenario) + var(--p) * (var(--alto-del-remate) - var(--alto-de-la-cartela)) / 2 +
+      (1 - var(--p)) * 0.8 * var(--alto-del-remate)
+  );
+  height: var(--alto-de-la-cartela);
+  padding: 0 2.6em;
+  white-space: nowrap;
+  font: calc(0.5 * var(--alto-de-la-cartela)) / var(--alto-de-la-cartela) var(--letra-titulo);
+  letter-spacing: 0.22em;
+  color: var(--cartela-tinta);
+  background-color: var(--fondo-con-pieza, var(--cartela-fondo));
+  box-shadow: var(--filo-con-pieza, inset 0 0 0 1px var(--brass));
+  clip-path: var(
+    --recorte-con-pieza,
+    polygon(0 0, 100% 0, calc(100% - 0.8em) 50%, 100% 100%, 0 100%, 0.8em 50%)
+  );
+  border-image-source: var(--pieza-cartela, none);
+  border-image-slice: var(--corte-con-pieza, 100%);
+  border-image-width: 0 var(--remates-cartela);
+}
+:root[data-tema] .adornos-del-mapa .cartela::before {
+  content: var(--lema);
+  right: calc(50% + var(--p) * (var(--ancho-del-remate) / 2 - var(--bajo-el-remate)));
+  translate: calc((1 - var(--p)) * 50%) 0;
+}
+:root[data-tema] .adornos-del-mapa .cartela::after {
+  content: var(--lema-tras);
+  left: calc(50% + var(--ancho-del-remate) / 2 - var(--bajo-el-remate));
+}
+/* El remate, encima de la cartela. Respaldo: un escudo con el emblema del
+   ejército, en su `::before`, que se va con la pieza. */
+:root[data-tema] .adornos-del-mapa .remate {
+  position: absolute;
+  top: calc(-1 * var(--relleno-del-escenario));
+  left: 50%;
+  translate: -50% 0;
+  width: var(--ancho-del-remate);
+  height: var(--alto-del-remate);
+  background: var(--pieza-remate, none) center / contain no-repeat;
+}
+:root[data-tema] .adornos-del-mapa .remate::before {
+  --sin-respaldo: var(--con-pieza-remate) none;
+  content: var(--emblema);
+  display: var(--sin-respaldo, flex);
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  width: 30px;
+  height: 33px;
+  margin: 0 auto;
+  padding-bottom: 6px;
+  font: 17px/1 var(--letra-simbolos);
+  color: var(--cartela-fondo);
+  background: var(--brass);
+  clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%);
+}
+
+/* El sello abre la barra de abajo. Respaldo: un disco del botón primario con el
+   emblema; con la pieza, su imagen y el emblema transparente (tocar `content`
+   ganaría al `content: none` del móvil). Cabe en el alto de la barra (53 px). */
+:root[data-tema] #statusbar::before {
+  --fondo-con-pieza: var(--pieza-sello) center / contain no-repeat;
+  --tinta-con-pieza: var(--con-pieza-sello) transparent;
+  --relieve-con-pieza: var(--con-pieza-sello) none;
+  content: var(--emblema);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font: 18px/1 var(--letra-simbolos);
+  color: var(--tinta-con-pieza, var(--boton-primario-tinta));
+  background: var(--fondo-con-pieza, var(--boton-primario) center / contain no-repeat);
+  box-shadow: var(--relieve-con-pieza, var(--boton-primario-relieve));
+}
+
+/* --- Móvil ----------------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  /* «Fin de turno» con la letra del título y sin ancho mínimo: con los 9 rem y
+     15 px de la mesa se salía de la pantalla a 390 px (las versales de Cinzel, a
+     13 px, aún 5 px; el neutro se sale 15). */
+  :root[data-tema] #actions button.primary {
+    min-width: 0;
+    font-size: 12px;
+  }
+  /* El panel va debajo del mapa, sin anillos ni marco: no hay canal donde caigan. */
+  :root[data-tema] #lateral {
+    padding: 10px;
+    margin-top: 10px;
+    box-shadow: none;
+    border-image-width: 0;
+  }
+  /* La barra de abajo se parte en dos filas: el sello la haría más alta. */
+  :root[data-tema] #statusbar::before { content: none; }
+}

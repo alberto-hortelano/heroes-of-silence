@@ -1,0 +1,206 @@
+/*
+ * GENERADO por `pnpm taller piezas-de-tema` (`tools/taller/temas/piezas.ts`):
+ * no se edita a mano. Solo fichas, ninguna regla (las reglas son de
+ * `forma.css`): las medidas de la tabla y, por tema, la imagen de cada pieza
+ * de `assets/temas/<tema>/` que está en disco (`--pieza-<pieza>`) y su marca
+ * (`--con-pieza-<pieza>`, vacía); de un marco, su corte medido en la imagen
+ * (`corteDeMarco`) y la proporción de cada lado de su banda. Ninguna por la que
+ * falta: así no hay un `url()` que dé 404. Lo compara con el disco
+ * `test/piezas-de-tema.test.ts`.
+ */
+
+:root[data-tema] {
+  --corte-barra-seccion: 0% 14% fill;
+  --remates-barra-seccion: 3.6em;
+  --corte-cartela: 0% 15% fill;
+  --remates-cartela: 2.4em;
+}
+
+:root[data-tema='templarios'] {
+  --pieza-marco-mapa: url('/temas/templarios/marco-mapa.webp');
+  --con-pieza-marco-mapa:;
+  --corte-marco-mapa: 65 65 77 64;
+  --banda-marco-mapa-arriba: 1.008;
+  --banda-marco-mapa-derecha: 1.008;
+  --banda-marco-mapa-abajo: 1.194;
+  --banda-marco-mapa-izquierda: 0.992;
+  --pieza-marco-panel: url('/temas/templarios/marco-panel.webp');
+  --con-pieza-marco-panel:;
+  --corte-marco-panel: 46 46 54 46;
+  --banda-marco-panel-arriba: 1;
+  --banda-marco-panel-derecha: 1;
+  --banda-marco-panel-abajo: 1.174;
+  --banda-marco-panel-izquierda: 1;
+  --pieza-marco-minimapa: url('/temas/templarios/marco-minimapa.webp');
+  --con-pieza-marco-minimapa:;
+  --corte-marco-minimapa: 29 28 39 29;
+  --banda-marco-minimapa-arriba: 1.018;
+  --banda-marco-minimapa-derecha: 0.982;
+  --banda-marco-minimapa-abajo: 1.368;
+  --banda-marco-minimapa-izquierda: 1.018;
+  --pieza-barra-seccion: url('/temas/templarios/barra-seccion.webp');
+  --con-pieza-barra-seccion:;
+  --pieza-cartela: url('/temas/templarios/cartela.webp');
+  --con-pieza-cartela:;
+  --cartela-en-la-lamina: 48;
+  --pieza-remate: url('/temas/templarios/remate.webp');
+  --con-pieza-remate:;
+  --remate-en-la-lamina: 96;
+  --proporcion-remate: 2.798;
+  --pieza-sello: url('/temas/templarios/sello.webp');
+  --con-pieza-sello:;
+  --pieza-textura-panel: url('/temas/templarios/textura-panel.webp');
+  --con-pieza-textura-panel:;
+  --pieza-textura-marco: url('/temas/templarios/textura-marco.webp');
+  --con-pieza-textura-marco:;
+}
+
+:root[data-tema='no-muertos'] {
+  --pieza-marco-mapa: url('/temas/no-muertos/marco-mapa.webp');
+  --con-pieza-marco-mapa:;
+  --corte-marco-mapa: 47 42 59 42;
+  --banda-marco-mapa-arriba: 1.119;
+  --banda-marco-mapa-derecha: 1;
+  --banda-marco-mapa-abajo: 1.405;
+  --banda-marco-mapa-izquierda: 1;
+  --pieza-marco-panel: url('/temas/no-muertos/marco-panel.webp');
+  --con-pieza-marco-panel:;
+  --corte-marco-panel: 26 24 33 24;
+  --banda-marco-panel-arriba: 1.083;
+  --banda-marco-panel-derecha: 1;
+  --banda-marco-panel-abajo: 1.375;
+  --banda-marco-panel-izquierda: 1;
+  --pieza-marco-minimapa: url('/temas/no-muertos/marco-minimapa.webp');
+  --con-pieza-marco-minimapa:;
+  --corte-marco-minimapa: 20 20 22 20;
+  --banda-marco-minimapa-arriba: 1;
+  --banda-marco-minimapa-derecha: 1;
+  --banda-marco-minimapa-abajo: 1.1;
+  --banda-marco-minimapa-izquierda: 1;
+  --pieza-barra-seccion: url('/temas/no-muertos/barra-seccion.webp');
+  --con-pieza-barra-seccion:;
+  --pieza-cartela: url('/temas/no-muertos/cartela.webp');
+  --con-pieza-cartela:;
+  --cartela-en-la-lamina: 40;
+  --pieza-remate: url('/temas/no-muertos/remate.webp');
+  --con-pieza-remate:;
+  --remate-en-la-lamina: 95;
+  --proporcion-remate: 2.462;
+  --pieza-sello: url('/temas/no-muertos/sello.webp');
+  --con-pieza-sello:;
+  --pieza-textura-panel: url('/temas/no-muertos/textura-panel.webp');
+  --con-pieza-textura-panel:;
+  --pieza-textura-marco: url('/temas/no-muertos/textura-marco.webp');
+  --con-pieza-textura-marco:;
+}
+
+:root[data-tema='imperio'] {
+  --pieza-marco-mapa: url('/temas/imperio/marco-mapa.webp');
+  --con-pieza-marco-mapa:;
+  --corte-marco-mapa: 47 54 62 54;
+  --banda-marco-mapa-arriba: 0.87;
+  --banda-marco-mapa-derecha: 1;
+  --banda-marco-mapa-abajo: 1.148;
+  --banda-marco-mapa-izquierda: 1;
+  --pieza-marco-panel: url('/temas/imperio/marco-panel.webp');
+  --con-pieza-marco-panel:;
+  --corte-marco-panel: 51 51 54 51;
+  --banda-marco-panel-arriba: 1;
+  --banda-marco-panel-derecha: 1;
+  --banda-marco-panel-abajo: 1.059;
+  --banda-marco-panel-izquierda: 1;
+  --pieza-marco-minimapa: url('/temas/imperio/marco-minimapa.webp');
+  --con-pieza-marco-minimapa:;
+  --corte-marco-minimapa: 20 20 28 20;
+  --banda-marco-minimapa-arriba: 1;
+  --banda-marco-minimapa-derecha: 1;
+  --banda-marco-minimapa-abajo: 1.4;
+  --banda-marco-minimapa-izquierda: 1;
+  --pieza-barra-seccion: url('/temas/imperio/barra-seccion.webp');
+  --con-pieza-barra-seccion:;
+  --pieza-cartela: url('/temas/imperio/cartela.webp');
+  --con-pieza-cartela:;
+  --cartela-en-la-lamina: 40;
+  --pieza-remate: url('/temas/imperio/remate.webp');
+  --con-pieza-remate:;
+  --remate-en-la-lamina: 70;
+  --proporcion-remate: 3.261;
+  --pieza-sello: url('/temas/imperio/sello.webp');
+  --con-pieza-sello:;
+  --pieza-textura-panel: url('/temas/imperio/textura-panel.webp');
+  --con-pieza-textura-panel:;
+  --pieza-textura-marco: url('/temas/imperio/textura-marco.webp');
+  --con-pieza-textura-marco:;
+}
+
+:root[data-tema='elfos'] {
+  --pieza-marco-mapa: url('/temas/elfos/marco-mapa.webp');
+  --con-pieza-marco-mapa:;
+  --corte-marco-mapa: 48 47 57 47;
+  --banda-marco-mapa-arriba: 1.021;
+  --banda-marco-mapa-derecha: 1;
+  --banda-marco-mapa-abajo: 1.213;
+  --banda-marco-mapa-izquierda: 1;
+  --pieza-marco-panel: url('/temas/elfos/marco-panel.webp');
+  --con-pieza-marco-panel:;
+  --corte-marco-panel: 44 41 48 41;
+  --banda-marco-panel-arriba: 1.073;
+  --banda-marco-panel-derecha: 1;
+  --banda-marco-panel-abajo: 1.171;
+  --banda-marco-panel-izquierda: 1;
+  --pieza-marco-minimapa: url('/temas/elfos/marco-minimapa.webp');
+  --con-pieza-marco-minimapa:;
+  --corte-marco-minimapa: 16 16 22 16;
+  --banda-marco-minimapa-arriba: 1;
+  --banda-marco-minimapa-derecha: 1;
+  --banda-marco-minimapa-abajo: 1.375;
+  --banda-marco-minimapa-izquierda: 1;
+  --pieza-barra-seccion: url('/temas/elfos/barra-seccion.webp');
+  --con-pieza-barra-seccion:;
+  --pieza-remate: url('/temas/elfos/remate.webp');
+  --con-pieza-remate:;
+  --remate-en-la-lamina: 70;
+  --proporcion-remate: 3.737;
+  --pieza-sello: url('/temas/elfos/sello.webp');
+  --con-pieza-sello:;
+  --pieza-textura-panel: url('/temas/elfos/textura-panel.webp');
+  --con-pieza-textura-panel:;
+  --pieza-textura-marco: url('/temas/elfos/textura-marco.webp');
+  --con-pieza-textura-marco:;
+}
+
+:root[data-tema='orkos'] {
+  --pieza-marco-mapa: url('/temas/orkos/marco-mapa.webp');
+  --con-pieza-marco-mapa:;
+  --corte-marco-mapa: 45 42 64 43;
+  --banda-marco-mapa-arriba: 1.059;
+  --banda-marco-mapa-derecha: 0.988;
+  --banda-marco-mapa-abajo: 1.506;
+  --banda-marco-mapa-izquierda: 1.012;
+  --pieza-marco-panel: url('/temas/orkos/marco-panel.webp');
+  --con-pieza-marco-panel:;
+  --corte-marco-panel: 48 49 60 49;
+  --banda-marco-panel-arriba: 0.98;
+  --banda-marco-panel-derecha: 1;
+  --banda-marco-panel-abajo: 1.224;
+  --banda-marco-panel-izquierda: 1;
+  --pieza-marco-minimapa: url('/temas/orkos/marco-minimapa.webp');
+  --con-pieza-marco-minimapa:;
+  --corte-marco-minimapa: 23 24 29 24;
+  --banda-marco-minimapa-arriba: 0.958;
+  --banda-marco-minimapa-derecha: 1;
+  --banda-marco-minimapa-abajo: 1.208;
+  --banda-marco-minimapa-izquierda: 1;
+  --pieza-barra-seccion: url('/temas/orkos/barra-seccion.webp');
+  --con-pieza-barra-seccion:;
+  --pieza-remate: url('/temas/orkos/remate.webp');
+  --con-pieza-remate:;
+  --remate-en-la-lamina: 90;
+  --proporcion-remate: 2.96;
+  --pieza-sello: url('/temas/orkos/sello.webp');
+  --con-pieza-sello:;
+  --pieza-textura-panel: url('/temas/orkos/textura-panel.webp');
+  --con-pieza-textura-panel:;
+  --pieza-textura-marco: url('/temas/orkos/textura-marco.webp');
+  --con-pieza-textura-marco:;
+}

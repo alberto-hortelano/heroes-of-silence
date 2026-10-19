@@ -9,6 +9,7 @@ import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
+import { temaDelLienzo } from '../temas.js';
 import type { CamaraMapa } from './camara-mapa.js';
 import type { AdventureScene, HeroeEnElMapa } from './mapa.js';
 import { playerColor } from './palette.js';
@@ -126,7 +127,7 @@ export function drawMinimapa(
     ctx.fill();
     ctx.stroke();
   }
-  ctx.strokeStyle = '#fbe6a5aa';
+  ctx.strokeStyle = temaDelLienzo().vistaMinimapa;
   ctx.lineWidth = 1;
   ctx.strokeRect(
     v.camara.x * sx,

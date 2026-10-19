@@ -1,0 +1,58 @@
+{
+  "encargo": "tema-04-barra-seccion-orkos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:19:49.894Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b4d-a2cf-7471-8e3a-103185f20c60",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema ORKOS: hierro oscuro remachado y oxidado, colmillos y cuernos de hueso, cadenas, cráneos con cuernos y estandartes rojos de la Horda con goterones de sangre. La BARRA DE SECCIÓN sobre la que el juego escribe el título de cada sección del panel («HECHIZOS», «EQUIPO», «TROPA»): una tira horizontal y baja, unas once veces más ancha que alta, con un remate en cada punta y el centro liso para el texto. Tira de hierro oscuro con goterones de sangre roja colgando del filo de abajo y un remache en cada punta.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs una TIRA que el juego estira a lo ancho: el 14 % de la izquierda y el 14 % de la derecha son sus REMATES, que se pintan una vez y llevan los adornos; lo de en medio se estira, así que va liso y uniforme de punta a punta, sin adornos sueltos ni nada centrado.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "estilo",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85"
+    },
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "pieza",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85",
+      "recorte": {
+        "x": 1012,
+        "y": 615,
+        "w": 270,
+        "h": 32
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/barra.png",
+      "papel": "corte",
+      "sha256": "f67a9e5070fbeeb1454e38f2b83abe540f96ad7cb7f2d8091b3a2cf7c5b7d3f8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b4d-a2cf-7471-8e3a-103185f20c60/exec-427dbc8d-1211-48f9-a13a-fb215bc55ddf.png",
+    "sha256": "8ab68d6dd89c008f94442b5fca7589faab39509af724a458f218cc630f71d755",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 2051×207 a 634×64, dentro de 768×64",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 20 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.16721228493228737,
+    "opacos": 0.985282149186525,
+    "haloSuelto": 0,
+    "ancho": 2172,
+    "alto": 724
+  },
+  "salida": {
+    "ruta": "assets/temas/orkos/barra-seccion.webp",
+    "sha256": "92428eca168943b6227322519d5cd518666a6efc2ae7afd36343c5dbc382bf29"
+  }
+}
