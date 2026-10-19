@@ -31,13 +31,7 @@
  */
 import { resolve } from 'node:path';
 import { autoResolve } from '../../src/core/ai/tactics.js';
-import {
-  batallaDeArena,
-  type HojaDeArena,
-  heroePorDefecto,
-  type Lado,
-  quitarEnArena,
-} from '../../src/core/arena.js';
+import { batallaDeArena, heroePorDefecto, type Lado, quitarEnArena } from '../../src/core/arena.js';
 import { causaDelFinal, MAX_ROUNDS } from '../../src/core/battle/battle.js';
 import type { ModosDeArena } from '../../src/core/battle/modos.js';
 import { SIN_MURALLA } from '../../src/core/battle/muralla.js';
@@ -46,7 +40,7 @@ import { unidad } from '../../src/core/catalogo.js';
 import { hasTrait, LIDERAZGO } from '../../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
-import type { UnidadDeArena } from '../../src/core/unidad.js';
+import type { HojaDeArena, UnidadDeArena } from '../../src/core/unidad.js';
 import { hojasDeArena } from '../arena/borrador.js';
 
 /** Un montaje de la medida: las unidades de cada bando. */

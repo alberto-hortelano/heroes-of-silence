@@ -3,6 +3,7 @@ import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderBattleLog, renderSide } from '../src/client/views/panels.js';
 import { chooseBattleAction, chooseBattleActionAndCosts } from '../src/core/ai/tactics.js';
+import { armaduraDe } from '../src/core/battle/armas.js';
 import {
   activeStack,
   applyAction,
@@ -52,13 +53,29 @@ import type {
   Side,
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
-import { creature, cuentaTiros } from '../src/core/data.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
+import { cuentaTiros } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
-import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
-import { forzarTurno, monstruoVivo, simular } from './helpers.js';
+import type { CreatureTrait, Hex, Stack, UnitInfo } from '../src/core/types.js';
+import {
+  aMano,
+  bandoDePersonajes,
+  conCifrasAMano,
+  FACCION_B,
+  forzarTurno,
+  JINETE,
+  monstruoVivo,
+  NO_MUERTO,
+  PESADA,
+  simular,
+  TIRADOR,
+  TIRADOR_NO_MUERTO,
+  TROPA,
+  TROPA_BARATA,
+} from './helpers.js';
 
 /**
  * `reachable` es el BFS del tablero y `movableFrom` es su ÚNICO llamante, así
@@ -109,18 +126,21 @@ const hero = (over: Partial<BattleHero> = {}): BattleHero => ({
   ...over,
 });
 
-/** Un stack suelto, fuera de tablero: para probar lecturas sin montar batalla. */
-function stackOf(id: string, count: number): BattleStack {
+/**
+ * Un stack suelto, fuera de tablero: para probar lecturas sin montar batalla.
+ * Con `unit`, esas cifras (una unidad hecha a mano) en vez de las del catálogo.
+ */
+function stackOf(id: string, count: number, unit: UnitInfo = unidadDelJuego(id)): BattleStack {
   return {
     id,
     side: 'attacker',
     slot: 0,
     body: id,
-    unit: creature(id),
-    origen: { kind: 'catalogo', oro: creature(id).cost.gold ?? 0, veterania: null },
+    unit,
+    origen: { kind: 'catalogo', oro: unidadDelJuego(id).cost.gold ?? 0, veterania: null },
     initialCount: count,
     count,
-    topHp: creature(id).hp,
+    topHp: unit.hp,
     hex: { col: 0, row: 0 },
     shotsLeft: 0,
     escalera: false,
@@ -134,6 +154,32 @@ function stackOf(id: string, count: number): BattleStack {
     effects: [],
     ganado: { experiencia: 0, bajas: 0, heroes: [] },
   };
+}
+
+/**
+ * El no-muerto lento y duro del catálogo (3 casillas, el doble de PV que la
+ * tropa): un alcance que cabe en la vista y un blanco que aguanta un hechizo.
+ */
+const ZOMBI = 'zombi';
+
+/** Las cifras de `base` con el rasgo `rasgo` además de los suyos: el catálogo no lo trae. */
+function con(base: string, rasgo: CreatureTrait, cambios: Partial<UnitInfo> = {}): UnitInfo {
+  return aMano(base, { ...cambios, traits: [...(unidadDelJuego(base).traits ?? []), rasgo] });
+}
+
+/**
+ * Una unidad de dos casillas, hecha a mano (`hexes: 2`): ninguna del catálogo
+ * lo es, y el despliegue y la carga las siguen jugando.
+ */
+const GRANDE = aMano(NO_MUERTO, { hexes: 2 });
+
+/**
+ * Un bando con `grandes` de dos casillas (cada uno como personaje,
+ * `bandoDePersonajes`) seguidos de `resto`, del catálogo.
+ */
+function conGrandes(grandes: number, resto: readonly Stack[] = []): BattleSide {
+  const b = bandoDePersonajes(Array.from({ length: grandes }, () => GRANDE));
+  return { ...b, army: [...b.army, ...resto] };
 }
 
 describe('fórmula de daño', () => {
@@ -152,24 +198,29 @@ describe('fórmula de daño', () => {
 });
 
 describe('aplicación de daño a un stack', () => {
+  // Lo que llega es el daño menos la armadura de quien lo recibe (#262):
+  // `herir` la resta, así que cada golpe se escribe con ella encima.
   it('mata efectivos enteros y deja al de arriba herido', () => {
-    const s = stackOf('swordsman', 10); // 250 PV cada uno
-    expect(stackHp(s)).toBe(2500);
-    const killed = herir(s, 600, null).muertos;
+    const s = stackOf(PESADA, 10);
+    const { hp } = s.unit;
+    expect(stackHp(s)).toBe(10 * hp);
+    const llega = 2 * hp + hp / 2;
+    const killed = herir(s, llega + armaduraDe(s.unit), null).muertos;
     expect(killed).toBe(2);
     expect(s.count).toBe(8);
-    expect(stackHp(s)).toBe(1900);
+    expect(stackHp(s)).toBe(10 * hp - llega);
   });
 
   it('un daño menor que un efectivo no mata a nadie', () => {
-    const s = stackOf('swordsman', 3);
-    expect(herir(s, 50, null).muertos).toBe(0);
+    const s = stackOf(PESADA, 3);
+    const llega = Math.floor(s.unit.hp / 2);
+    expect(herir(s, llega + armaduraDe(s.unit), null).muertos).toBe(0);
     expect(s.count).toBe(3);
-    expect(s.topHp).toBe(200);
+    expect(s.topHp).toBe(s.unit.hp - llega);
   });
 
   it('el exceso de daño no resucita ni deja restos', () => {
-    const s = stackOf('peasant', 4);
+    const s = stackOf(TROPA_BARATA, 4);
     expect(herir(s, 9999, null).muertos).toBe(4);
     expect(s.count).toBe(0);
     expect(stackHp(s)).toBe(0);
@@ -177,40 +228,42 @@ describe('aplicación de daño a un stack', () => {
 });
 
 describe('moral por composición del ejército', () => {
-  const u = (id: string) => creature(id);
+  const u = (id: string) => unidadDelJuego(id);
 
   it('premia al ejército de una sola facción', () => {
-    expect(armyMorale([u('peasant')])).toBe(1);
-    expect(armyMorale([u('peasant'), u('archer')])).toBe(1);
+    expect(armyMorale([u(TROPA)])).toBe(1);
+    expect(armyMorale([u(TROPA), u(PESADA)])).toBe(1);
   });
 
   it('no premia a un ejército mixto de dos facciones', () => {
-    expect(armyMorale([u('peasant'), u('swordsman'), u('crusader')])).toBe(1);
-    const otra = { ...u('peasant'), faction: 'necromancer' as const };
-    expect(armyMorale([u('peasant'), otra])).toBe(0);
+    expect(armyMorale([u(TROPA), u(PESADA), u(JINETE)])).toBe(1);
+    expect(armyMorale([u(TROPA), u(TROPA_BARATA)])).toBe(0);
+    // La facción es lo que cuenta, no la unidad: la misma con otra facción mezcla.
+    const otra: UnitInfo = { ...u(TROPA), faction: FACCION_B };
+    expect(armyMorale([u(TROPA), otra])).toBe(0);
   });
 
   it('con algún no-muerto, −1 al ejército entero, como fheroes2 (#199)', () => {
     // «Some undead in army -1» (`army.cpp`): dos facciones con no-muertos no
     // se quedan en 0, bajan a −1.
-    expect(armyMorale([u('peasant'), u('skeleton')])).toBe(-1);
+    expect(armyMorale([u(TROPA_BARATA), u(NO_MUERTO)])).toBe(-1);
   });
 
   it('y el no-muerto anula el +1 de una sola facción (#199)', () => {
-    // Un ejército solo de nigromantes: una facción, pero sin el +1 y con el −1.
-    expect(armyMorale([u('skeleton'), u('zombie')])).toBe(-1);
+    // Un ejército solo de no-muertos: una facción, pero sin el +1 y con el −1.
+    expect(armyMorale([u(NO_MUERTO), u(TIRADOR_NO_MUERTO)])).toBe(-1);
     // Quien no tiene facción tampoco es no-muerto: ni da el −1 ni quita el +1.
-    const sinFaccion = { ...u('skeleton'), faction: null, traits: [] };
-    expect(armyMorale([u('peasant'), sinFaccion])).toBe(1);
+    const sinFaccion = { ...u(NO_MUERTO), faction: null, traits: [] };
+    expect(armyMorale([u(TROPA_BARATA), sinFaccion])).toBe(1);
   });
 
   it('el −1 lo pagan los vivos: el no-muerto sigue a 0 (#199)', () => {
     const state = createBattle(
       side([
-        { creature: 'peasant', count: 5 },
-        { creature: 'skeleton', count: 5 },
+        { creature: TROPA_BARATA, count: 5 },
+        { creature: NO_MUERTO, count: 5 },
       ]),
-      side([{ creature: 'pikeman', count: 5 }]),
+      side([{ creature: TROPA, count: 5 }]),
       createRng(1),
     );
     expect(stackById(state, 'attacker-0').morale).toBe(-1);
@@ -220,8 +273,8 @@ describe('moral por composición del ejército', () => {
   });
 
   it('quien no tiene facción no cuenta: ni rompe la unidad ni la da', () => {
-    const sinFaccion = { ...u('peasant'), faction: null };
-    expect(armyMorale([u('peasant'), sinFaccion])).toBe(1);
+    const sinFaccion = { ...u(TROPA_BARATA), faction: null };
+    expect(armyMorale([u(TROPA_BARATA), sinFaccion])).toBe(1);
     expect(armyMorale([sinFaccion])).toBe(0);
   });
 
@@ -230,10 +283,10 @@ describe('moral por composición del ejército', () => {
     // batalla, que no se entera de las bajas hasta que la batalla acaba.
     const state = createBattle(
       side([
-        { creature: 'peasant', count: 5 },
-        { creature: 'skeleton', count: 5 },
+        { creature: TROPA_BARATA, count: 5 },
+        { creature: NO_MUERTO, count: 5 },
       ]),
-      side([{ creature: 'pikeman', count: 5 }]),
+      side([{ creature: TROPA, count: 5 }]),
       createRng(1),
     );
     const campesino = stackById(state, 'attacker-0');
@@ -274,10 +327,10 @@ describe('los que esperan vuelven por orden de llegada (#81, regla nuestra)', ()
   function batalla(): BattleState {
     const state = createBattle(
       side([
-        { creature: 'peasant', count: 5 },
-        { creature: 'swordsman', count: 5 },
+        { creature: TROPA_BARATA, count: 5 },
+        { creature: PESADA, count: 5 },
       ]),
-      side([{ creature: 'skeleton', count: 5 }]),
+      side([{ creature: NO_MUERTO, count: 5 }]),
       createRng(1),
     );
     // Sin moral: un turno extra al defenderse metería a alguien dos veces.
@@ -312,20 +365,20 @@ describe('los que esperan vuelven por orden de llegada (#81, regla nuestra)', ()
 describe('despliegue inicial', () => {
   it('coloca cada bando en su borde y respeta la cola de las unidades grandes', () => {
     const state = createBattle(
-      side([{ creature: 'peasant', count: 10 }]),
-      side([{ creature: 'bone_dragon', count: 1 }]),
+      side([{ creature: TROPA_BARATA, count: 10 }]),
+      conGrandes(1),
       createRng(1),
     );
     expect(stackById(state, 'attacker-0').hex.col).toBe(0);
-    // El dragón óseo ocupa 2 hexes: sale en la fila del medio (la 4, par) con
-    // la cabeza en la 10 y la cola en la 11, el espejo de un grande atacante.
+    // El grande ocupa 2 hexes: sale en la fila del medio (la 4, par) con la
+    // cabeza en la 10 y la cola en la 11, el espejo de un grande atacante.
     expect(stackById(state, 'defender-0').hex).toEqual({ col: 10, row: 4 });
   });
 
   it('empieza en la ronda 1 con un stack activo', () => {
     const state = createBattle(
-      side([{ creature: 'archer', count: 5 }]),
-      side([{ creature: 'skeleton', count: 5 }]),
+      side([{ creature: TIRADOR, count: 5 }]),
+      side([{ creature: NO_MUERTO, count: 5 }]),
       createRng(7),
     );
     expect(state.round).toBe(1);
@@ -336,8 +389,8 @@ describe('despliegue inicial', () => {
 describe('iniciativa', () => {
   it('mueve primero al más rápido', () => {
     const state = createBattle(
-      side([{ creature: 'zombie', count: 5 }]), // very_slow
-      side([{ creature: 'champion', count: 5 }]), // ultra_fast
+      side([{ creature: NO_MUERTO, count: 5 }]), // 4 casillas
+      side([{ creature: JINETE, count: 5 }]), // 7 casillas
       createRng(3),
     );
     expect(activeStack(state)!.id).toBe('defender-0');
@@ -345,8 +398,8 @@ describe('iniciativa', () => {
 
   it('en un empate de velocidad mueve el atacante', () => {
     const state = createBattle(
-      side([{ creature: 'skeleton', count: 5 }]),
-      side([{ creature: 'skeleton', count: 5 }]),
+      side([{ creature: NO_MUERTO, count: 5 }]),
+      side([{ creature: NO_MUERTO, count: 5 }]),
       createRng(3),
     );
     expect(activeStack(state)!.id).toBe('attacker-0');
@@ -365,7 +418,7 @@ describe('iniciativa', () => {
   /** Esqueletos contra esqueletos: todos a la misma velocidad y sin moral. */
   function empatados(atacantes: number, defensores: number): BattleState {
     const esqueletos = (n: number): Stack[] =>
-      Array.from({ length: n }, () => ({ creature: 'skeleton', count: 5 }));
+      Array.from({ length: n }, () => ({ creature: NO_MUERTO, count: 5 }));
     const state = createBattle(
       side(esqueletos(atacantes)),
       side(esqueletos(defensores)),
@@ -456,8 +509,8 @@ describe('iniciativa', () => {
 
   it('los hechizos de velocidad cambian el orden', () => {
     const state = createBattle(
-      side([{ creature: 'skeleton', count: 5 }]),
-      side([{ creature: 'skeleton', count: 5 }]),
+      side([{ creature: NO_MUERTO, count: 5 }]),
+      side([{ creature: NO_MUERTO, count: 5 }]),
       createRng(3),
     );
     const s = stackById(state, 'attacker-0');
@@ -471,8 +524,8 @@ describe('combate cuerpo a cuerpo', () => {
   it('ningún stack contraataca más de una vez por ronda', () => {
     const rng = createRng(11);
     const state = createBattle(
-      side([{ creature: 'swordsman', count: 20 }]),
-      side([{ creature: 'pikeman', count: 20 }]),
+      side([{ creature: PESADA, count: 20 }]),
+      side([{ creature: TROPA, count: 20 }]),
       rng,
     );
     simular(state, rng);
@@ -490,28 +543,47 @@ describe('combate cuerpo a cuerpo', () => {
     expect(state.log.some((e) => e.kind === 'attack' && e.retaliation)).toBe(true);
   });
 
-  it('los vampiros no reciben contraataque', () => {
+  it('quien no recibe contraataque (`no_retaliation`) no lo recibe', () => {
     const rng = createRng(5);
-    const state = createBattle(
-      side([{ creature: 'vampire', count: 10 }]),
-      side([{ creature: 'peasant', count: 40 }]),
-      rng,
+    const state = conCifrasAMano(
+      createBattle(
+        side([{ creature: PESADA, count: 10 }]),
+        side([{ creature: TROPA_BARATA, count: 40 }]),
+        rng,
+      ),
+      'attacker-0',
+      con(PESADA, 'no_retaliation'),
     );
     simular(state, rng);
-    const golpes = state.log.filter((e) => e.kind === 'attack');
-    expect(golpes.length).toBeGreaterThan(0);
-    expect(golpes.some((e) => e.kind === 'attack' && e.retaliation)).toBe(false);
+    // Sus golpes no se devuelven; los que recibe, él sí los devuelve.
+    const suyos = state.log.filter((e) => e.kind === 'attack' && e.stack === 'attacker-0');
+    expect(suyos.some((e) => e.kind === 'attack' && !e.retaliation)).toBe(true);
+    expect(
+      state.log.some((e) => e.kind === 'attack' && e.retaliation && e.target === 'attacker-0'),
+    ).toBe(false);
   });
 });
 
 describe('tiradores', () => {
+  /**
+   * Un tirador con munición: ninguna unidad del catálogo la lleva (tiran con su
+   * arma, sin contar tiros), pero el motor la sigue contando para el perfil de un
+   * personaje (el guardabosques), así que va hecho a mano.
+   */
+  const conMunicion = (rng: Rng): BattleState =>
+    conCifrasAMano(
+      createBattle(
+        side([{ creature: TIRADOR, count: 10 }]),
+        side([{ creature: NO_MUERTO, count: 10 }]),
+        rng,
+      ),
+      'attacker-0',
+      aMano(TIRADOR, { shots: 12 }),
+    );
+
   it('gastan munición al disparar y no pueden hacerlo con un enemigo encima', () => {
     const rng = createRng(21);
-    const state = createBattle(
-      side([{ creature: 'archer', count: 10 }]),
-      side([{ creature: 'zombie', count: 10 }]),
-      rng,
-    );
+    const state = conMunicion(rng);
     const arquero = stackById(state, 'attacker-0');
     const municionInicial = arquero.shotsLeft;
     const disparo = legalActions(state).find((a) => a.type === 'shoot');
@@ -521,15 +593,12 @@ describe('tiradores', () => {
     expect(state.log.some((e) => e.kind === 'shoot')).toBe(true);
   });
 
-  it('sin munición no se le ofrece el disparo, y el motivo lo dice (la del catálogo se cuenta)', () => {
-    // La arena no cuenta tiros (13-10-2026), pero la criatura del catálogo sí:
-    // `cuentaTiros`. Lo que cambió es la regla, no el juego.
+  it('sin munición no se le ofrece el disparo, y el motivo lo dice (la del personaje se cuenta)', () => {
+    // La arena y el catálogo no cuentan tiros (13-10-2026), pero quien lleva
+    // munición sí: `cuentaTiros`.
     const rng = createRng(21);
-    const state = createBattle(
-      side([{ creature: 'archer', count: 10 }]),
-      side([{ creature: 'zombie', count: 10 }]),
-      rng,
-    );
+    const state = conMunicion(rng);
+    expect(cuentaTiros(unidadDelJuego(TIRADOR))).toBe(false);
     const arquero = stackById(state, 'attacker-0');
     expect(cuentaTiros(arquero.unit)).toBe(true);
     arquero.shotsLeft = 0;
@@ -538,10 +607,6 @@ describe('tiradores', () => {
       'attacker-0 se ha quedado sin munición',
     );
   });
-
-  it('el dragón óseo sigue en el catálogo del juego, de dos casillas', () => {
-    expect(creature('bone_dragon').hexes).toBe(2);
-  });
 });
 
 describe('hechizos', () => {
@@ -549,8 +614,8 @@ describe('hechizos', () => {
     const rng = createRng(31);
     const lanzador = hero({ spells: ['magic_arrow'], mana: 10, spellPower: 3 });
     const state = createBattle(
-      side([{ creature: 'champion', count: 10 }], lanzador),
-      side([{ creature: 'zombie', count: 10 }]),
+      side([{ creature: JINETE, count: 10 }], lanzador),
+      side([{ creature: NO_MUERTO, count: 10 }]),
       rng,
     );
     const objetivo = stackById(state, 'defender-0');
@@ -569,8 +634,8 @@ describe('hechizos', () => {
     const rng = createRng(32);
     const lanzador = hero({ spells: ['magic_arrow'], mana: 30 });
     const state = createBattle(
-      side([{ creature: 'champion', count: 10 }], lanzador),
-      side([{ creature: 'zombie', count: 10 }]),
+      side([{ creature: JINETE, count: 10 }], lanzador),
+      side([{ creature: NO_MUERTO, count: 10 }]),
       rng,
     );
     applyAction(state, { type: 'cast', spell: 'magic_arrow', target: 'defender-0' }, rng);
@@ -584,8 +649,8 @@ describe('acciones ilegales', () => {
   it('se rechazan en vez de corregirse en silencio', () => {
     const rng = createRng(41);
     const state = createBattle(
-      side([{ creature: 'champion', count: 5 }]),
-      side([{ creature: 'zombie', count: 5 }]),
+      side([{ creature: JINETE, count: 5 }]),
+      side([{ creature: NO_MUERTO, count: 5 }]),
       rng,
     );
     expect(activeStack(state)!.id).toBe('attacker-0');
@@ -607,12 +672,12 @@ describe('acciones ilegales', () => {
  */
 function batallaDeCuatroEnemigos(): BattleState {
   const state = createBattle(
-    side([{ creature: 'zombie', count: 5 }]),
+    side([{ creature: ZOMBI, count: 5 }]),
     side([
-      { creature: 'peasant', count: 6 },
-      { creature: 'archer', count: 4 },
-      { creature: 'pikeman', count: 3 },
-      { creature: 'cavalry', count: 2 },
+      { creature: TROPA_BARATA, count: 6 },
+      { creature: TIRADOR, count: 4 },
+      { creature: TROPA, count: 3 },
+      { creature: JINETE, count: 2 },
     ]),
     createRng(7),
   );
@@ -773,8 +838,8 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // pegaría distinto — y eso mueve partidas sin que el tipo cambie.
     const montar = (rng: ReturnType<typeof createRng>): BattleState => {
       const s = createBattle(
-        side([{ creature: 'cavalry', count: 10 }]),
-        side([{ creature: 'pikeman', count: 40 }]),
+        side([{ creature: JINETE, count: 10 }]),
+        side([{ creature: TROPA, count: 40 }]),
         rng,
       );
       stackById(s, 'attacker-0').hex = { col: 0, row: 4 };
@@ -840,12 +905,12 @@ describe('batalla completa', () => {
     const rng = createRng(1234);
     const state = createBattle(
       side([
-        { creature: 'swordsman', count: 20 },
-        { creature: 'archer', count: 15 },
+        { creature: PESADA, count: 20 },
+        { creature: TIRADOR, count: 15 },
       ]),
       side([
-        { creature: 'skeleton', count: 40 },
-        { creature: 'lich', count: 5 },
+        { creature: NO_MUERTO, count: 40 },
+        { creature: TIRADOR_NO_MUERTO, count: 5 },
       ]),
       rng,
     );
@@ -877,8 +942,8 @@ describe('batalla completa', () => {
     const jugar = (semilla: number): string => {
       const rng = createRng(semilla);
       const state = createBattle(
-        side([{ creature: 'pikeman', count: 12 }]),
-        side([{ creature: 'zombie', count: 18 }]),
+        side([{ creature: TROPA, count: 12 }]),
+        side([{ creature: NO_MUERTO, count: 18 }]),
         rng,
       );
       let n = 0;
@@ -918,8 +983,8 @@ describe('efectos temporales (#9)', () => {
     const rng = createRng(7);
     const lanzador = hero({ spells: ['slow'], mana: 30, spellPower: 2 });
     const state = createBattle(
-      side([{ creature: 'skeleton', count: 5 }], lanzador),
-      side([{ creature: 'skeleton', count: 5 }]),
+      side([{ creature: NO_MUERTO, count: 5 }], lanzador),
+      side([{ creature: NO_MUERTO, count: 5 }]),
       rng,
     );
     const objetivo = stackById(state, 'defender-0');
@@ -948,8 +1013,8 @@ describe('efectos temporales (#9)', () => {
     const state = createBattle(
       // El campeón es lo más rápido del tablero: así el turno activo es el del
       // bando que tiene héroe y se le puede pedir el lanzamiento.
-      side([{ creature: 'champion', count: 5 }], lanzador),
-      side([{ creature: 'skeleton', count: 5 }]),
+      side([{ creature: JINETE, count: 5 }], lanzador),
+      side([{ creature: NO_MUERTO, count: 5 }]),
       rng,
     );
     const esqueleto = stackById(state, 'defender-0');
@@ -971,7 +1036,7 @@ describe('efectos temporales (#9)', () => {
   });
 
   it('la maldición sí muerde a un vivo, y el recorte a −3 se hace al leer', () => {
-    const s = stackOf('pikeman', 10);
+    const s = stackOf(TROPA, 10);
     s.luck = -2; // ya venía con la suerte en contra
     applyEffect(s, { kind: 'luck', amount: -1, source: 'curse', roundsLeft: 3 });
     applyEffect(s, { kind: 'luck', amount: -1, source: 'curse_on_hit', roundsLeft: 3 });
@@ -985,24 +1050,28 @@ describe('efectos temporales (#9)', () => {
 
   it('el mismo origen refresca en vez de acumularse: dos miedos no dan −4', () => {
     const rng = createRng(66);
-    const state = createBattle(
-      // Uno contra cincuenta: el dragón aguanta dos contraataques y el
-      // esqueleto aguanta dos mordiscos, así que la batalla llega entera a la
-      // segunda ronda, que es lo que se quiere mirar.
-      side([{ creature: 'bone_dragon', count: 1 }]),
-      side([{ creature: 'skeleton', count: 50 }]),
-      rng,
+    const state = conCifrasAMano(
+      createBattle(
+        // Uno contra cincuenta: el que asusta aguanta dos contraataques (con PV
+        // de sobra) y los esqueletos dos mordiscos, así que la batalla llega
+        // entera a la segunda ronda, que es lo que se quiere mirar.
+        side([{ creature: PESADA, count: 1 }]),
+        side([{ creature: NO_MUERTO, count: 50 }]),
+        rng,
+      ),
+      'attacker-0',
+      con(PESADA, 'fear', { hp: 2000 }),
     );
-    const dragon = stackById(state, 'attacker-0');
+    const asusta = stackById(state, 'attacker-0');
     const esqueleto = stackById(state, 'defender-0');
-    enfrentar(dragon, esqueleto);
-    const base = creature('skeleton').attack;
+    enfrentar(asusta, esqueleto);
+    const base = unidadDelJuego(NO_MUERTO).attack;
 
     expect(state.turno?.stack).toBe('attacker-0');
     applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
     expect(effectiveAttack(esqueleto)).toBe(base - 2);
 
-    // El esqueleto cierra la ronda y el dragón vuelve a morder con el miedo
+    // El esqueleto cierra la ronda y quien asusta vuelve a morder con el miedo
     // anterior todavía vivo (le quedaba 1 ronda de las 2).
     applyAction(state, { type: 'defend' }, rng);
     expect(state.round).toBe(2);
@@ -1019,7 +1088,7 @@ describe('efectos temporales (#9)', () => {
   });
 
   it('refrescar nunca acorta lo que ya estaba puesto', () => {
-    const s = stackOf('skeleton', 10);
+    const s = stackOf(NO_MUERTO, 10);
     applyEffect(s, { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 4 });
     applyEffect(s, { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 2 });
     expect(s.effects).toHaveLength(1);
@@ -1032,12 +1101,12 @@ describe('efectos temporales (#9)', () => {
     // `applyEffect` guardara el objeto en vez de una copia, `tickEffects` le
     // iría bajando el `roundsLeft` y el miedo duraría cada vez menos.
     const plantilla = { kind: 'attack' as const, amount: -2, source: 'fear', roundsLeft: 2 };
-    const a = stackOf('skeleton', 10);
+    const a = stackOf(NO_MUERTO, 10);
     applyEffect(a, plantilla);
     tickEffects(a);
     expect(plantilla.roundsLeft).toBe(2);
 
-    const b = stackOf('skeleton', 10);
+    const b = stackOf(NO_MUERTO, 10);
     applyEffect(b, plantilla);
     expect(b.effects[0]!.roundsLeft).toBe(2);
   });
@@ -1050,8 +1119,8 @@ describe('rasgos de criatura (#8)', () => {
 
     const montar = (rng: ReturnType<typeof createRng>) =>
       createBattle(
-        side([{ creature: 'cavalry', count: 10 }]),
-        side([{ creature: 'pikeman', count: 40 }]),
+        side([{ creature: JINETE, count: 10 }]),
+        side([{ creature: TROPA, count: 40 }]),
         rng,
       );
 
@@ -1078,8 +1147,8 @@ describe('rasgos de criatura (#8)', () => {
   });
 
   it('charge: el parte cuenta los hexes que se cobran, no los que se anduvieron', () => {
-    const jinetes = stackOf('cavalry', 10);
-    const piqueros = stackOf('pikeman', 40);
+    const jinetes = stackOf(JINETE, 10);
+    const piqueros = stackOf(TROPA, 40);
     const cinco = computeDamage(jinetes, piqueros, createRng(52), {
       reglas: REGLAS_DEL_JUEGO,
       chargeHexes: 5,
@@ -1104,42 +1173,51 @@ describe('rasgos de criatura (#8)', () => {
     expect(aPie.charge).toBe(0);
   });
 
-  it('fear: el dragón óseo asusta a los no-muertos, que es donde la moral no llega', () => {
-    // Espejo nigromante: con el aura de moral del original esto no haría NADA,
+  it('fear: quien asusta (el dragón óseo de antes) asusta a los no-muertos, que es donde la moral no llega', () => {
+    // Espejo no-muerto: con el aura de moral del original esto no haría NADA,
     // porque `createBattle` fuerza `morale: 0` a todo lo no-muerto.
     const rng = createRng(61);
-    const state = createBattle(
-      side([{ creature: 'bone_dragon', count: 2 }]),
-      side([{ creature: 'skeleton', count: 40 }]),
-      rng,
+    const state = conCifrasAMano(
+      createBattle(
+        side([{ creature: NO_MUERTO, count: 2 }]),
+        side([{ creature: NO_MUERTO, count: 40 }]),
+        rng,
+      ),
+      'attacker-0',
+      con(NO_MUERTO, 'fear'),
     );
-    const dragon = stackById(state, 'attacker-0');
+    const asusta = stackById(state, 'attacker-0');
     const esqueleto = stackById(state, 'defender-0');
-    enfrentar(dragon, esqueleto);
+    enfrentar(asusta, esqueleto);
 
-    expect(effectiveAttack(esqueleto)).toBe(creature('skeleton').attack);
+    expect(effectiveAttack(esqueleto)).toBe(unidadDelJuego(NO_MUERTO).attack);
     applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
 
     expect(esqueleto.effects.some((e) => e.source === 'fear' && e.amount === -2)).toBe(true);
-    expect(effectiveAttack(esqueleto)).toBe(creature('skeleton').attack - 2);
+    expect(effectiveAttack(esqueleto)).toBe(unidadDelJuego(NO_MUERTO).attack - 2);
     expect(
       state.log.some((e) => e.kind === 'effect' && e.source === 'fear' && e.effect === 'attack'),
     ).toBe(true);
 
     // Y el miedo se nota en el golpe: mismo dado, menos daño.
-    const conMiedo = computeDamage(esqueleto, dragon, createRng(5), { reglas: REGLAS_DEL_JUEGO });
-    const sinMiedo = computeDamage({ ...esqueleto, effects: [] }, dragon, createRng(5), {
+    const conMiedo = computeDamage(esqueleto, asusta, createRng(5), { reglas: REGLAS_DEL_JUEGO });
+    const sinMiedo = computeDamage({ ...esqueleto, effects: [] }, asusta, createRng(5), {
       reglas: REGLAS_DEL_JUEGO,
     });
     expect(conMiedo.damage).toBeLessThan(sinMiedo.damage);
   });
 
-  it('curse_on_hit: la momia maldice a un vivo y rebota en un no-muerto', () => {
+  it('curse_on_hit: quien maldice al golpear (la momia de antes) maldice a un vivo y rebota en un no-muerto', () => {
+    const maldice = con(NO_MUERTO, 'curse_on_hit');
     const rng = createRng(62);
-    const contraVivos = createBattle(
-      side([{ creature: 'mummy', count: 5 }]),
-      side([{ creature: 'pikeman', count: 30 }]),
-      rng,
+    const contraVivos = conCifrasAMano(
+      createBattle(
+        side([{ creature: NO_MUERTO, count: 5 }]),
+        side([{ creature: TROPA, count: 30 }]),
+        rng,
+      ),
+      'attacker-0',
+      maldice,
     );
     enfrentar(stackById(contraVivos, 'attacker-0'), stackById(contraVivos, 'defender-0'));
     applyAction(contraVivos, { type: 'attack', target: 'defender-0' }, rng);
@@ -1151,12 +1229,16 @@ describe('rasgos de criatura (#8)', () => {
       true,
     );
 
-    // Espejo nigromante: una momia no desmoraliza a un esqueleto.
+    // Espejo no-muerto: quien maldice no desmoraliza a un esqueleto.
     const rng2 = createRng(63);
-    const contraMuertos = createBattle(
-      side([{ creature: 'mummy', count: 5 }]),
-      side([{ creature: 'skeleton', count: 30 }]),
-      rng2,
+    const contraMuertos = conCifrasAMano(
+      createBattle(
+        side([{ creature: NO_MUERTO, count: 5 }]),
+        side([{ creature: NO_MUERTO, count: 30 }]),
+        rng2,
+      ),
+      'attacker-0',
+      maldice,
     );
     enfrentar(stackById(contraMuertos, 'attacker-0'), stackById(contraMuertos, 'defender-0'));
     applyAction(contraMuertos, { type: 'attack', target: 'defender-0' }, rng2);
@@ -1168,15 +1250,22 @@ describe('rasgos de criatura (#8)', () => {
     );
   });
 
-  it('splash_shot: el disparo del liche salpica también a los suyos', () => {
+  /** El tirador que salpica (el liche de antes), a mano: el catálogo no lo trae. */
+  const salpica = con(TIRADOR_NO_MUERTO, 'splash_shot');
+
+  it('splash_shot: el disparo del que salpica salpica también a los suyos', () => {
     const rng = createRng(64);
-    const state = createBattle(
-      side([
-        { creature: 'lich', count: 5 },
-        { creature: 'skeleton', count: 30 },
-      ]),
-      side([{ creature: 'pikeman', count: 30 }]),
-      rng,
+    const state = conCifrasAMano(
+      createBattle(
+        side([
+          { creature: TIRADOR_NO_MUERTO, count: 5 },
+          { creature: NO_MUERTO, count: 30 },
+        ]),
+        side([{ creature: TROPA, count: 30 }]),
+        rng,
+      ),
+      'attacker-0',
+      salpica,
     );
     const liche = stackById(state, 'attacker-0');
     const aliado = stackById(state, 'attacker-1');
@@ -1197,23 +1286,27 @@ describe('rasgos de criatura (#8)', () => {
 
   it('splash_shot: la IA no se dispara a los suyos si tiene otro objetivo', () => {
     const rng = createRng(65);
-    const state = createBattle(
-      side([
-        { creature: 'lich', count: 5 },
-        { creature: 'skeleton', count: 30 },
-      ]),
-      side([
-        { creature: 'pikeman', count: 30 },
-        { creature: 'archer', count: 10 },
-      ]),
-      rng,
+    const state = conCifrasAMano(
+      createBattle(
+        side([
+          { creature: TIRADOR_NO_MUERTO, count: 5 },
+          { creature: NO_MUERTO, count: 30 },
+        ]),
+        side([
+          { creature: TROPA, count: 30 },
+          { creature: TIRADOR, count: 10 },
+        ]),
+        rng,
+      ),
+      'attacker-0',
+      salpica,
     );
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
     stackById(state, 'attacker-1').hex = { col: 5, row: 4 };
     stackById(state, 'defender-0').hex = { col: 6, row: 4 }; // pegado al aliado
     stackById(state, 'defender-1').hex = { col: 9, row: 1 }; // limpio
-
-    expect(state.turno?.stack).toBe('attacker-0');
+    // El turno, a mano: el arquero de enfrente es más rápido.
+    forzarTurno(state, 'attacker-0');
     const eleccion = chooseBattleAction(state);
     // Disparar al piquero era legal —y `legalActions` lo sigue ofreciendo—,
     // pero se llevaría por delante a su propio esqueleto.
@@ -1234,8 +1327,8 @@ describe('el libro de hechizos del jugador (#4)', () => {
     const session = new Session(semilla);
     const heroe = hero(over);
     const battle = createBattle(
-      side([{ creature: 'champion', count: 10 }], heroe),
-      side([{ creature: 'zombie', count: 10 }]),
+      side([{ creature: JINETE, count: 10 }], heroe),
+      side([{ creature: NO_MUERTO, count: 10 }]),
       session.ctx.rng,
     );
     // El rival es un monstruo REAL del mapa. Con un id inventado la batalla se
@@ -1345,7 +1438,7 @@ describe('el libro de hechizos del jugador (#4)', () => {
 function escenaDeCarga(atacante: string): BattleState {
   const state = createBattle(
     side([{ creature: atacante, count: 10 }]),
-    side([{ creature: 'zombie', count: 10 }]),
+    side([{ creature: NO_MUERTO, count: 10 }]),
     createRng(7),
   );
   stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
@@ -1366,7 +1459,7 @@ describe('la IA elige la casilla de ataque por daño esperado (#50)', () => {
     // regla nueva un rodeo no carga nada. Ahora el zombi está en (5,4): (4,4)
     // está en recta a 4 casillas y carga 4; (5,3) y (5,5) cuestan 6 pasos —con
     // la regla vieja habrían cobrado el tope, 5— y no cargan nada.
-    const state = escenaDeCarga('cavalry');
+    const state = escenaDeCarga(JINETE);
     stackById(state, 'defender-0').hex = { col: 5, row: 4 };
     expect(state.turno?.stack).toBe('attacker-0');
     const s = stackById(state, 'attacker-0');
@@ -1381,7 +1474,7 @@ describe('la IA elige la casilla de ataque por daño esperado (#50)', () => {
     // Misma escena y misma disyuntiva, con una unidad sin el rasgo. Todas las
     // casillas pegan lo mismo —`computeDamage` no mira el hex salvo por la
     // carga—, así que irse lejos solo sirve para acabar el turno más expuesto.
-    const state = escenaDeCarga('swordsman');
+    const state = escenaDeCarga(PESADA);
     expect(state.turno?.stack).toBe('attacker-0');
     expect(casillaElegida(state)).toEqual({ col: 2, row: 4 });
   });
@@ -1400,7 +1493,7 @@ describe('la IA elige la casilla de ataque por daño esperado (#50)', () => {
       reverse(real(from, maxSteps, blocked)),
     );
     try {
-      const state = escenaDeCarga('swordsman');
+      const state = escenaDeCarga(PESADA);
       expect(casillaElegida(state)).toEqual({ col: 2, row: 4 });
     } finally {
       espia.mockImplementation(real);
@@ -1416,10 +1509,10 @@ describe('la IA elige la casilla de ataque por daño esperado (#50)', () => {
  * fila 3 lleva a (4,3) en cuatro, y 1 + 4 caben en los 6 de la caballería.
  */
 function escenaDePasoDeLado(otro?: Hex): BattleState {
-  const defensores: Stack[] = [{ creature: 'zombie', count: 10 }];
-  if (otro !== undefined) defensores.push({ creature: 'zombie', count: 10 });
+  const defensores: Stack[] = [{ creature: NO_MUERTO, count: 10 }];
+  if (otro !== undefined) defensores.push({ creature: NO_MUERTO, count: 10 });
   const state = createBattle(
-    side([{ creature: 'cavalry', count: 10 }]),
+    side([{ creature: JINETE, count: 10 }]),
     side(defensores),
     createRng(7),
   );
@@ -1465,7 +1558,7 @@ describe('la IA busca la carga: un tramo de lado y la recta en el siguiente', ()
   it('sin el rasgo, la misma unidad no da el paso de lado', () => {
     const state = escenaDePasoDeLado();
     const s = stackById(state, 'attacker-0');
-    const jinete = creature('cavalry');
+    const jinete = unidadDelJuego(JINETE);
     (s as { unit: UnitInfo }).unit = { ...jinete, traits: [] };
     const a = chooseBattleAction(state);
     expect(a.type).toBe('attack');
@@ -1490,7 +1583,7 @@ describe('la IA busca la carga: un tramo de lado y la recta en el siguiente', ()
     const conQuedan = (quedan: number, conRasgo: boolean): BattleState => {
       const state = escenaDePasoDeLado();
       const s = stackById(state, 'attacker-0');
-      if (!conRasgo) (s as { unit: UnitInfo }).unit = { ...creature('cavalry'), traits: [] };
+      if (!conRasgo) (s as { unit: UnitInfo }).unit = { ...unidadDelJuego(JINETE), traits: [] };
       (state.turno as { gastado: number }).gastado = stackSpeed(s) - quedan;
       expect(pasosQueQuedan(state, s)).toBe(quedan);
       return state;
@@ -1515,8 +1608,8 @@ describe('la IA lanza hechizos (#24)', () => {
     const rng = createRng(71);
     const lanzador = hero({ spells: ['magic_arrow'], mana: 20, spellPower: 1 });
     const state = createBattle(
-      side([{ creature: 'champion', count: 10 }], lanzador),
-      side([{ creature: 'zombie', count: 10 }]),
+      side([{ creature: JINETE, count: 10 }], lanzador),
+      side([{ creature: NO_MUERTO, count: 10 }]),
       rng,
     );
 
@@ -1535,8 +1628,8 @@ describe('la IA lanza hechizos (#24)', () => {
     const rng = createRng(72);
     const lanzador = hero({ spells: ['magic_arrow'], mana: 0, spellPower: 1 });
     const state = createBattle(
-      side([{ creature: 'champion', count: 10 }], lanzador),
-      side([{ creature: 'zombie', count: 10 }]),
+      side([{ creature: JINETE, count: 10 }], lanzador),
+      side([{ creature: NO_MUERTO, count: 10 }]),
       rng,
     );
     expect(chooseBattleAction(state).type).not.toBe('cast');
@@ -1558,7 +1651,7 @@ function escenaDeHechizo(
 ): BattleState {
   const state = createBattle(
     side(
-      [{ creature: 'swordsman', count: espadachines }],
+      [{ creature: PESADA, count: espadachines }],
       hero({ spells: libro, mana: 20, spellPower: poder }),
     ),
     side([{ creature: enemigo.creature, count: enemigo.count }], heroeRival ? hero() : null),
@@ -1575,7 +1668,7 @@ function escenaDeHechizo(
 describe('la IA valora los hechizos por lo que compran en esta batalla (#92)', () => {
   it('la Prisa vale el golpe que compra hoy: ni cuando ya llega ni cuando ni con ella llega', () => {
     const conZombisEn = (col: number): BattleState =>
-      escenaDeHechizo(['haste'], { creature: 'zombie', count: 5, col });
+      escenaDeHechizo(['haste'], { creature: NO_MUERTO, count: 5, col });
     // A 6 casillas el espadachín no llega (4 + 1) y con la Prisa sí (6 + 1).
     expect(chooseBattleAction(conZombisEn(6))).toEqual({
       type: 'cast',
@@ -1590,7 +1683,7 @@ describe('la IA valora los hechizos por lo que compran en esta batalla (#92)', (
   });
 
   it('la Prisa sobre quien ya actuó esta ronda no vale nada', () => {
-    const state = escenaDeHechizo(['haste'], { creature: 'zombie', count: 5, col: 6 });
+    const state = escenaDeHechizo(['haste'], { creature: NO_MUERTO, count: 5, col: 6 });
     // El turno pasa al héroe, y el espadachín ya actuó: de los dos, el único
     // que podría aprovecharla hoy no va a volver a moverse.
     stackById(state, 'attacker-0').acted = true;
@@ -1600,7 +1693,7 @@ describe('la IA valora los hechizos por lo que compran en esta batalla (#92)', (
 
   it('la Lentitud vale el golpe que le quita al enemigo que aún no ha actuado', () => {
     // Espadachines rivales a 5: llegan (4 + 1) y frenados no (2 + 1).
-    const state = escenaDeHechizo(['slow'], { creature: 'swordsman', count: 5, col: 5 });
+    const state = escenaDeHechizo(['slow'], { creature: PESADA, count: 5, col: 5 });
     expect(chooseBattleAction(state)).toEqual({
       type: 'cast',
       spell: 'slow',
@@ -1612,7 +1705,7 @@ describe('la IA valora los hechizos por lo que compran en esta batalla (#92)', (
   });
 
   it('un refresco no compra la ronda que ya cubre el mismo origen', () => {
-    const state = escenaDeHechizo(['slow'], { creature: 'swordsman', count: 5, col: 5 }, false, 3);
+    const state = escenaDeHechizo(['slow'], { creature: PESADA, count: 5, col: 5 }, false, 3);
     const rivales = stackById(state, 'defender-0');
     expect(chooseBattleAction(state).type).toBe('cast');
     // Con la Lentitud ya encima, relanzarla no le quita el golpe de hoy —ya
@@ -1626,36 +1719,32 @@ describe('la IA valora los hechizos por lo que compran en esta batalla (#92)', (
   });
 
   it('las rondas siguientes cuentan hasta el final estimado de la batalla, no hasta el de la Lentitud', () => {
-    // Tres vampiros a 10 casillas: hoy no llegan ni sin frenar, así que la
+    // Cinco pesadas a 10 casillas: hoy no llegan ni sin frenar, así que la
     // Lentitud de Poder 3 solo compra las dos rondas siguientes.
     const contra = (espadachines: number): BattleState =>
-      escenaDeHechizo(['slow'], { creature: 'vampire', count: 3, col: 10 }, false, 3, espadachines);
+      escenaDeHechizo(['slow'], { creature: PESADA, count: 5, col: 10 }, false, 3, espadachines);
     // Con cinco espadachines la batalla da para esas dos rondas, y valen.
     expect(chooseBattleAction(contra(5))).toEqual({
       type: 'cast',
       spell: 'slow',
       target: 'defender-0',
     });
-    // Con veinte, los vampiros caen en la primera (90 PV contra ~100 de
-    // golpe por ronda): no hay ronda siguiente que comprar.
+    // Con veinte, las pesadas caen en la primera: no hay ronda siguiente que
+    // comprar.
     expect(chooseBattleAction(contra(20)).type).not.toBe('cast');
   });
 
   it('la Flecha va a quien más amenaza le quita al rival: al héroe, que es su bando entero', () => {
-    // Cinco zombis (75 PV) y el héroe rival (50): la Flecha les quita 20 PV a
-    // cualquiera de los dos, pero matar al héroe gana la batalla.
-    const conHeroe = escenaDeHechizo(
-      ['magic_arrow'],
-      { creature: 'zombie', count: 5, col: 10 },
-      true,
-    );
+    // Cinco zombis y el héroe rival: la Flecha les quita lo mismo a cualquiera
+    // de los dos, pero matar al héroe gana la batalla.
+    const conHeroe = escenaDeHechizo(['magic_arrow'], { creature: ZOMBI, count: 5, col: 10 }, true);
     expect(chooseBattleAction(conHeroe)).toEqual({
       type: 'cast',
       spell: 'magic_arrow',
       target: 'defender-heroe',
     });
     // Sin héroe rival, a los zombis.
-    const sinHeroe = escenaDeHechizo(['magic_arrow'], { creature: 'zombie', count: 5, col: 10 });
+    const sinHeroe = escenaDeHechizo(['magic_arrow'], { creature: ZOMBI, count: 5, col: 10 });
     expect(chooseBattleAction(sinHeroe)).toEqual({
       type: 'cast',
       spell: 'magic_arrow',
@@ -1664,7 +1753,11 @@ describe('la IA valora los hechizos por lo que compran en esta batalla (#92)', (
   });
 
   it('el umbral sigue en PV: una Flecha que solo puede quitar 1 PV no se lanza', () => {
-    const state = escenaDeHechizo(['magic_arrow'], { creature: 'peasant', count: 1, col: 10 });
+    const state = escenaDeHechizo(['magic_arrow'], {
+      creature: TROPA_BARATA,
+      count: 1,
+      col: 10,
+    });
     expect(chooseBattleAction(state).type).not.toBe('cast');
   });
 });
@@ -1674,11 +1767,11 @@ describe('la IA espera en vez de plantarse (#24)', () => {
     const rng = createRng(74);
     const state = createBattle(
       side([
-        { creature: 'champion', count: 5 },
-        { creature: 'peasant', count: 5 },
-        { creature: 'peasant', count: 5 },
+        { creature: JINETE, count: 5 },
+        { creature: TROPA_BARATA, count: 5 },
+        { creature: TROPA_BARATA, count: 5 },
       ]),
-      side([{ creature: 'zombie', count: 5 }]),
+      side([{ creature: NO_MUERTO, count: 5 }]),
       rng,
     );
     // El campeón queda embotellado en la esquina por los suyos: (0,0) solo
@@ -1699,17 +1792,18 @@ describe('la IA espera en vez de plantarse (#24)', () => {
 });
 
 /**
- * La escena de #52: campeón del atacante contra un piquero, en la fila 4.
+ * La escena de #52: el jinete del atacante contra una pesada (el piquero de
+ * antes), en la fila 4.
  *
- * El campeón corre 7 hexes y el piquero 4, así que el campeón mueve primero y
- * el piquero le alcanza a 5 (sus pasos más el hex desde el que golpea). Con el
- * piquero al otro extremo, avanzar deja al campeón dentro de ese radio y
- * esperar lo deja pegando al final de la ronda.
+ * El jinete corre 7 hexes y la pesada 4, así que el jinete mueve primero y la
+ * pesada le alcanza a 5 (sus pasos más el hex desde el que golpea). Con ella
+ * al otro extremo, avanzar deja al jinete dentro de ese radio y esperar lo deja
+ * pegando al final de la ronda.
  */
 function escenaDeEspera(piqueroEn: Hex, piqueroYaActuo = false): BattleState {
   const state = createBattle(
-    side([{ creature: 'champion', count: 5 }]),
-    side([{ creature: 'pikeman', count: 5 }]),
+    side([{ creature: JINETE, count: 5 }]),
+    side([{ creature: PESADA, count: 5 }]),
     createRng(74),
   );
   stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
@@ -1720,7 +1814,10 @@ function escenaDeEspera(piqueroEn: Hex, piqueroYaActuo = false): BattleState {
 
 describe('la IA aprovecha el segundo tramo (02-10-2026)', () => {
   it('tras moverse, si ahora alcanza a alguien, le pega en vez de cerrar', () => {
-    const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 5, row: 4 });
+    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 5,
+      row: 4,
+    });
     applyAction(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
     expect(state.turno?.stack).toBe('attacker-0');
     expect(chooseBattleAction(state)).toEqual({ type: 'attack', target: 'defender-0' });
@@ -1731,10 +1828,10 @@ describe('la IA aprovecha el segundo tramo (02-10-2026)', () => {
     // los tramos la cola era `wait` o `defend`, que tras moverse ya no son legales.
     const state = createBattle(
       side([
-        { creature: 'swordsman', count: 5 },
-        { creature: 'peasant', count: 5 },
+        { creature: PESADA, count: 5 },
+        { creature: TROPA_BARATA, count: 5 },
       ]),
-      side([{ creature: 'pikeman', count: 5 }]),
+      side([{ creature: TROPA, count: 5 }]),
       createRng(3),
     );
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
@@ -1754,14 +1851,14 @@ describe('la IA aprovecha el segundo tramo (02-10-2026)', () => {
       const rng = createRng(semilla);
       const state = createBattle(
         side([
-          { creature: 'cavalry', count: 3 },
-          { creature: 'archer', count: 4 },
-          { creature: 'swordsman', count: 3 },
+          { creature: JINETE, count: 3 },
+          { creature: TIRADOR, count: 4 },
+          { creature: PESADA, count: 3 },
         ]),
         side([
-          { creature: 'skeleton', count: 6 },
-          { creature: 'lich', count: 2 },
-          { creature: 'vampire', count: 2 },
+          { creature: NO_MUERTO, count: 6 },
+          { creature: TIRADOR_NO_MUERTO, count: 2 },
+          { creature: PESADA, count: 2 },
         ]),
         rng,
       );
@@ -1833,10 +1930,16 @@ describe('la IA cede la iniciativa en vez de meter el morro (#52)', () => {
  * Dos stacks, uno por bando, puestos a mano y con el turno abierto del atacante.
  * El activo se fija y no se sortea: la iniciativa no es lo que se mide aquí.
  */
-function duelo(atacante: string, en: Hex, defensor: string, enDefensor: Hex, n = 5): BattleState {
+function duelo(
+  atacante: string,
+  en: Hex,
+  defensor: string | BattleSide,
+  enDefensor: Hex,
+  n = 5,
+): BattleState {
   const state = createBattle(
     side([{ creature: atacante, count: n }]),
-    side([{ creature: defensor, count: n }]),
+    typeof defensor === 'string' ? side([{ creature: defensor, count: n }]) : defensor,
     createRng(3),
   );
   stackById(state, 'attacker-0').hex = en;
@@ -1848,7 +1951,10 @@ function duelo(atacante: string, en: Hex, defensor: string, enDefensor: Hex, n =
 describe('el turno en tramos (2026-10-02)', () => {
   it('dos `move` seguidos dejan a la misma unidad activa, y el que pasa del presupuesto se rechaza', () => {
     // Espadachín: velocidad media, 4 casillas.
-    const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 10,
+      row: 4,
+    });
     const s = stackById(state, 'attacker-0');
     const antes = { ...(state.turno as TurnoDeUnidad) };
     applyAction(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
@@ -1867,7 +1973,10 @@ describe('el turno en tramos (2026-10-02)', () => {
   });
 
   it('si agota el presupuesto sin nadie al alcance, el turno se cierra solo', () => {
-    const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 10,
+      row: 4,
+    });
     applyAction(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
     applyAction(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
     expect(stackById(state, 'attacker-0').acted).toBe(true);
@@ -1879,8 +1988,8 @@ describe('el turno en tramos (2026-10-02)', () => {
     // `cast` del héroe: si contara, la unidad sin casillas ni nadie al lado se
     // quedaría esperando un clic que no decide nada.
     const state = createBattle(
-      side([{ creature: 'swordsman', count: 5 }], hero({ spells: ['magic_arrow'] })),
-      side([{ creature: 'pikeman', count: 5 }]),
+      side([{ creature: PESADA, count: 5 }], hero({ spells: ['magic_arrow'] })),
+      side([{ creature: TROPA, count: 5 }]),
       createRng(3),
     );
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
@@ -1897,7 +2006,10 @@ describe('el turno en tramos (2026-10-02)', () => {
   });
 
   it('con el presupuesto agotado y un enemigo al lado, el turno sigue: le queda golpear', () => {
-    const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 5, row: 4 });
+    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 5,
+      row: 4,
+    });
     applyAction(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
     expect(state.turno).toMatchObject({ stack: 'attacker-0', gastado: 4 });
     expect(legalActions(state)).toEqual([
@@ -1908,7 +2020,10 @@ describe('el turno en tramos (2026-10-02)', () => {
 
   it('tras moverse no se dispara, ni se espera, ni se defiende: ni se ofrece ni se acepta', () => {
     // Arquero: muy lento, 2 casillas; tras una le queda otra y el turno sigue.
-    const state = duelo('archer', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+    const state = duelo(TIRADOR, { col: 0, row: 4 }, TROPA, {
+      col: 10,
+      row: 4,
+    });
     expect(legalActions(state)).toContainEqual({ type: 'shoot', target: 'defender-0' });
     applyAction(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(state.turno?.stack).toBe('attacker-0');
@@ -1934,7 +2049,10 @@ describe('el turno en tramos (2026-10-02)', () => {
   it('por qué no se puede actuar contra un enemigo lo dice el núcleo, y al tirador movido le dice el bueno', () => {
     // Hallazgo de QA (H2): el cliente escribía «No alcanzas a esa unidad» a un
     // arquero que se acababa de mover, con un arco de alcance ilimitado.
-    const arquero = duelo('archer', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+    const arquero = duelo(TIRADOR, { col: 0, row: 4 }, TROPA, {
+      col: 10,
+      row: 4,
+    });
     expect(ataqueBlocker(arquero, 'defender-0')).toBeNull();
     applyAction(arquero, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(ataqueBlocker(arquero, 'defender-0')).toBe(
@@ -1946,11 +2064,17 @@ describe('el turno en tramos (2026-10-02)', () => {
     ).toThrow('attacker-0 ya se ha movido este turno: no puede disparar');
 
     // A quien no tira no se le habla de disparar.
-    const lejos = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+    const lejos = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 10,
+      row: 4,
+    });
     expect(ataqueBlocker(lejos, 'defender-0')).toBe(
       'no alcanza a esa unidad cuerpo a cuerpo este turno',
     );
-    const cerca = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 4, row: 4 });
+    const cerca = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 4,
+      row: 4,
+    });
     expect(ataqueBlocker(cerca, 'defender-0')).toBeNull();
     expect(ataqueBlocker(cerca, 'attacker-0')).toBe('no se puede atacar a un aliado');
   });
@@ -1960,14 +2084,14 @@ describe('el turno en tramos (2026-10-02)', () => {
     // tableros con y sin tramo, con tiradores y sin ellos.
     const casos: BattleState[] = [];
     for (const [quien, rival] of [
-      ['archer', { col: 10, row: 4 }],
-      ['archer', { col: 1, row: 4 }],
-      ['swordsman', { col: 10, row: 4 }],
-      ['swordsman', { col: 5, row: 4 }],
-      ['cavalry', { col: 7, row: 2 }],
+      [TIRADOR, { col: 10, row: 4 }],
+      [TIRADOR, { col: 1, row: 4 }],
+      [PESADA, { col: 10, row: 4 }],
+      [PESADA, { col: 5, row: 4 }],
+      [JINETE, { col: 7, row: 2 }],
     ] as const) {
-      casos.push(duelo(quien, { col: 0, row: 4 }, 'pikeman', rival));
-      const tramo = duelo(quien, { col: 0, row: 4 }, 'pikeman', rival);
+      casos.push(duelo(quien, { col: 0, row: 4 }, TROPA, rival));
+      const tramo = duelo(quien, { col: 0, row: 4 }, TROPA, rival);
       applyAction(tramo, { type: 'move', to: { col: 1, row: 3 } }, createRng(1));
       if (tramo.turno?.stack === 'attacker-0') casos.push(tramo);
     }
@@ -1985,7 +2109,10 @@ describe('el turno en tramos (2026-10-02)', () => {
   });
 
   it('un tirador que no se ha movido dispara como siempre', () => {
-    const state = duelo('archer', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+    const state = duelo(TIRADOR, { col: 0, row: 4 }, TROPA, {
+      col: 10,
+      row: 4,
+    });
     // Sin moral: un turno extra dejaría `acted` en falso y no es lo que se mide.
     stackById(state, 'attacker-0').morale = 0;
     applyAction(state, { type: 'shoot', target: 'defender-0' }, createRng(1));
@@ -1999,7 +2126,10 @@ describe('el turno en tramos (2026-10-02)', () => {
     let extra = 0;
     let normal = 0;
     for (let semilla = 1; semilla <= 80; semilla++) {
-      const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+      const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+        col: 10,
+        row: 4,
+      });
       const s = stackById(state, 'attacker-0');
       s.morale = 3;
       applyAction(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(semilla));
@@ -2026,7 +2156,10 @@ describe('el turno en tramos (2026-10-02)', () => {
   });
 
   it('una Lentitud a mitad de turno recorta lo que queda, sin bajar de 0', () => {
-    const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 10,
+      row: 4,
+    });
     const s = stackById(state, 'attacker-0');
     applyAction(state, { type: 'move', to: { col: 3, row: 4 } }, createRng(1));
     expect(pasosQueQuedan(state, s)).toBe(1);
@@ -2039,7 +2172,10 @@ describe('el turno en tramos (2026-10-02)', () => {
   it('un recorrido de antes del tramo se rechaza: el mismo stack, otro presupuesto', () => {
     // El recorrido traído es una pista de rendimiento; con tramos, uno calculado
     // antes de moverse dejaría ir más lejos de lo que queda.
-    const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 10,
+      row: 4,
+    });
     const s = stackById(state, 'attacker-0');
     const turno = state.turno as TurnoDeUnidad;
     const n = turno.n;
@@ -2053,7 +2189,10 @@ describe('el turno en tramos (2026-10-02)', () => {
   });
 
   it('`end_turn` se ofrece siempre, la última, y sin moverse cierra igual', () => {
-    const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
+    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 10,
+      row: 4,
+    });
     expect(legalActions(state).at(-1)).toEqual({ type: 'end_turn' });
     applyAction(state, { type: 'end_turn' }, createRng(1));
     expect(stackById(state, 'attacker-0').acted).toBe(true);
@@ -2070,7 +2209,10 @@ function cargaCobrada(state: BattleState): number {
 describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
   // Caballería: muy rápida, 6 casillas, con `charge`.
   it('una recta libre de 3 carga 3; de 2, nada; de 6, el tope de 5', () => {
-    const tres = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 4, row: 4 });
+    const tres = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+      col: 4,
+      row: 4,
+    });
     applyAction(
       tres,
       { type: 'attack', target: 'defender-0', from: { col: 3, row: 4 } },
@@ -2078,7 +2220,10 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     );
     expect(cargaCobrada(tres)).toBe(3);
 
-    const dos = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 3, row: 4 });
+    const dos = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+      col: 3,
+      row: 4,
+    });
     applyAction(
       dos,
       { type: 'attack', target: 'defender-0', from: { col: 2, row: 4 } },
@@ -2087,7 +2232,10 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     expect(cargaCobrada(dos)).toBe(0);
     expect(CARGA_MINIMA).toBe(3);
 
-    const seis = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 7, row: 4 });
+    const seis = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+      col: 7,
+      row: 4,
+    });
     // La recta se mide entera y el tope lo pone el daño: lo que se ANUNCIA ya
     // viene recortado, para que un «»6» pintado no acabe cobrando 5.
     const jinete = stackById(seis, 'attacker-0');
@@ -2106,7 +2254,10 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
 
   it('una casilla a la que solo se llega con rodeo no carga, por muchos pasos que cueste', () => {
     // (5,5) cuesta 6 pasos —con la regla vieja, el tope— y no está en recta.
-    const state = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 5, row: 4 });
+    const state = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+      col: 5,
+      row: 4,
+    });
     expect(movableFrom(state, stackById(state, 'attacker-0')).get('5,5')?.steps).toBe(6);
     applyAction(
       state,
@@ -2118,10 +2269,10 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
 
   it('una unidad en medio de la recta la corta, aunque se llegue rodeándola', () => {
     const state = createBattle(
-      side([{ creature: 'cavalry', count: 5 }]),
+      side([{ creature: JINETE, count: 5 }]),
       side([
-        { creature: 'pikeman', count: 5 },
-        { creature: 'peasant', count: 5 },
+        { creature: TROPA, count: 5 },
+        { creature: TROPA_BARATA, count: 5 },
       ]),
       createRng(3),
     );
@@ -2142,7 +2293,10 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
   });
 
   it('se recalcula por tramo: 2 de un tramo y una recta de 3 en el siguiente cargan 3, no 5', () => {
-    const state = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 6, row: 4 });
+    const state = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+      col: 6,
+      row: 4,
+    });
     applyAction(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
     expect(state.turno).toMatchObject({ stack: 'attacker-0', gastado: 2 });
     applyAction(
@@ -2158,12 +2312,12 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     // casillas que cargan, que no, y que cargan distinto.
     const montar = (): BattleState => {
       const st = createBattle(
-        side([{ creature: 'cavalry', count: 5 }]),
+        side([{ creature: JINETE, count: 5 }]),
         side([
-          { creature: 'pikeman', count: 5 },
-          { creature: 'peasant', count: 5 },
-          { creature: 'archer', count: 5 },
-          { creature: 'swordsman', count: 5 },
+          { creature: TROPA, count: 5 },
+          { creature: TROPA_BARATA, count: 5 },
+          { creature: TIRADOR, count: 5 },
+          { creature: PESADA, count: 5 },
         ]),
         createRng(3),
       );
@@ -2199,7 +2353,10 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
   });
 
   it('sin el rasgo no hay carga ni se anuncia', () => {
-    const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 4, row: 4 });
+    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
+      col: 4,
+      row: 4,
+    });
     const s = stackById(state, 'attacker-0');
     expect(casillasDeCarga(state, s)).toEqual([]);
     expect(cargaDesde(state, s, { col: 3, row: 4 }, stackById(state, 'defender-0'))).toBe(0);
@@ -2210,7 +2367,10 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
   it('una recta que llega y gira para pegar al de al lado no carga, aunque la casilla esté en recta', () => {
     // (3,4) está en la recta E a 3 casillas, pero lo que sigue es (4,4), vacía;
     // el piquero está en (3,3), la vecina de arriba.
-    const state = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 3, row: 3 });
+    const state = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+      col: 3,
+      row: 3,
+    });
     const s = stackById(state, 'attacker-0');
     const giro = { type: 'attack', target: 'defender-0', from: { col: 3, row: 4 } } as const;
     expect(legalActions(state)).toContainEqual(giro);
@@ -2221,7 +2381,10 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
   });
 
   it('a un enemigo pegado de salida no se le carga: ni quieto ni alejándose para volver', () => {
-    const state = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 1, row: 4 });
+    const state = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+      col: 1,
+      row: 4,
+    });
     const s = stackById(state, 'attacker-0');
     expect(casillasDeCarga(state, s)).toEqual([]);
     applyAction(state, { type: 'attack', target: 'defender-0' }, createRng(1));
@@ -2231,16 +2394,19 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
   it('una casilla vacía de la recta sin nadie detrás no se anuncia: desde ahí solo se mueve', () => {
     // Antes salían todas las de la recta a 3 o más; ahora solo la que tiene al
     // enemigo justo detrás.
-    const state = duelo('cavalry', { col: 0, row: 4 }, 'pikeman', { col: 5, row: 4 });
+    const state = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+      col: 5,
+      row: 4,
+    });
     expect(casillasDeCarga(state, stackById(state, 'attacker-0'))).toEqual([
       { target: 'defender-0', at: { col: 4, row: 4 }, hexes: 4, porciento: 40 },
     ]);
   });
 
   it('contra un enemigo de dos casillas basta con que la que sigue a la recta sea una de ellas', () => {
-    // El dragón defiende mirando a la izquierda: cabeza en (3,2), cola en (4,2).
+    // El grande defiende mirando a la izquierda: cabeza en (3,2), cola en (4,2).
     // El jinete viene del este por la fila 2 y la recta termina en la COLA.
-    const state = duelo('cavalry', { col: 8, row: 2 }, 'bone_dragon', { col: 3, row: 2 }, 1);
+    const state = duelo(JINETE, { col: 8, row: 2 }, conGrandes(1), { col: 3, row: 2 }, 1);
     const dragon = stackById(state, 'defender-0');
     expect(stackHexes(dragon)).toEqual([
       { col: 3, row: 2 },
@@ -2264,6 +2430,10 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
 });
 
 describe('el parte de guerra pinta de quién es cada cosa', () => {
+  /** Los nombres de los dos bandos del parte: el jinete atacante y el no-muerto. */
+  const NOMBRE_A = unidadDelJuego(JINETE).name;
+  const NOMBRE_B = unidadDelJuego(NO_MUERTO).name;
+
   /**
    * `deQuien` elige a quién pertenece el héroe atacante, que es de donde
    * `session.miBando` deriva el bando de quien lee: `'mio'` deja al jugador de
@@ -2273,8 +2443,8 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
   function parte(eventos: BattleEvent[], deQuien: 'mio' | 'ajena' = 'mio'): string {
     const session = new Session(71);
     const battle = createBattle(
-      side([{ creature: 'champion', count: 10 }], hero()),
-      side([{ creature: 'zombie', count: 10 }]),
+      side([{ creature: JINETE, count: 10 }], hero()),
+      side([{ creature: NO_MUERTO, count: 10 }]),
       session.ctx.rng,
     );
     // El registro del despliegue estorba: lo que se mira son estas líneas.
@@ -2295,30 +2465,30 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
 
   it('la moral y la suerte se pintan por lo que son para quien lee, no por su signo (#198)', () => {
     // La moral alta del ENEMIGO salía en verde: se pintaba por `good`. Aquí la
-    // persona es el atacante (Campeón); el defensor es el Zombi.
+    // persona es el atacante (el jinete); el defensor, el no-muerto.
     expect(parte([{ kind: 'morale', stack: 'attacker-0', good: true }])).toContain(
-      '<div class="win">Moral alta de Campeón, de tu bando: turno extra</div>',
+      `<div class="win">Moral alta de ${NOMBRE_A}, de tu bando: turno extra</div>`,
     );
     expect(parte([{ kind: 'morale', stack: 'attacker-0', good: false }])).toContain(
-      '<div class="lose">Moral baja de Campeón, de tu bando: turno perdido</div>',
+      `<div class="lose">Moral baja de ${NOMBRE_A}, de tu bando: turno perdido</div>`,
     );
     expect(parte([{ kind: 'morale', stack: 'defender-0', good: true }])).toContain(
-      '<div class="lose">Moral alta de Zombi, del enemigo: turno extra</div>',
+      `<div class="lose">Moral alta de ${NOMBRE_B}, del enemigo: turno extra</div>`,
     );
     expect(parte([{ kind: 'morale', stack: 'defender-0', good: false }])).toContain(
-      '<div class="win">Moral baja de Zombi, del enemigo: turno perdido</div>',
+      `<div class="win">Moral baja de ${NOMBRE_B}, del enemigo: turno perdido</div>`,
     );
     expect(parte([{ kind: 'luck', stack: 'attacker-0', good: true }])).toContain(
-      '<div class="win">Golpe afortunado de Campeón, de tu bando</div>',
+      `<div class="win">Golpe afortunado de ${NOMBRE_A}, de tu bando</div>`,
     );
     expect(parte([{ kind: 'luck', stack: 'attacker-0', good: false }])).toContain(
-      '<div class="lose">Golpe desafortunado de Campeón, de tu bando</div>',
+      `<div class="lose">Golpe desafortunado de ${NOMBRE_A}, de tu bando</div>`,
     );
     expect(parte([{ kind: 'luck', stack: 'defender-0', good: true }])).toContain(
-      '<div class="lose">Golpe afortunado de Zombi, del enemigo</div>',
+      `<div class="lose">Golpe afortunado de ${NOMBRE_B}, del enemigo</div>`,
     );
     expect(parte([{ kind: 'luck', stack: 'defender-0', good: false }])).toContain(
-      '<div class="win">Golpe desafortunado de Zombi, del enemigo</div>',
+      `<div class="win">Golpe desafortunado de ${NOMBRE_B}, del enemigo</div>`,
     );
   });
 
@@ -2330,8 +2500,8 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
       ],
       'ajena',
     );
-    expect(ajena).toContain('<div>Moral alta de Campeón, del atacante: turno extra</div>');
-    expect(ajena).toContain('<div>Golpe desafortunado de Zombi, del defensor</div>');
+    expect(ajena).toContain(`<div>Moral alta de ${NOMBRE_A}, del atacante: turno extra</div>`);
+    expect(ajena).toContain(`<div>Golpe desafortunado de ${NOMBRE_B}, del defensor</div>`);
   });
 
   it('un efecto se pinta por lo que suma o resta a la unidad, dicho desde quien lee (#198)', () => {
@@ -2344,17 +2514,17 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
       rounds: amount > 0 ? 3 : 1,
     });
     expect(parte([efecto('attacker-0', 2)])).toContain(
-      '<div class="win">Prisa sobre Campeón, de tu bando: velocidad +2 durante 3 rondas</div>',
+      `<div class="win">Prisa sobre ${NOMBRE_A}, de tu bando: velocidad +2 durante 3 rondas</div>`,
     );
     expect(parte([efecto('attacker-0', -2)])).toContain(
-      '<div class="lose">Terror sobre Campeón, de tu bando: ataque -2 durante 1 ronda</div>',
+      `<div class="lose">Terror sobre ${NOMBRE_A}, de tu bando: ataque -2 durante 1 ronda</div>`,
     );
     // El terror sobre el enemigo es bueno para ti, y la prisa del enemigo, mala.
     expect(parte([efecto('defender-0', -2)])).toContain(
-      '<div class="win">Terror sobre Zombi, del enemigo: ataque -2 durante 1 ronda</div>',
+      `<div class="win">Terror sobre ${NOMBRE_B}, del enemigo: ataque -2 durante 1 ronda</div>`,
     );
     expect(parte([efecto('defender-0', 2)])).toContain(
-      '<div class="lose">Prisa sobre Zombi, del enemigo: velocidad +2 durante 3 rondas</div>',
+      `<div class="lose">Prisa sobre ${NOMBRE_B}, del enemigo: velocidad +2 durante 3 rondas</div>`,
     );
   });
 
@@ -2375,10 +2545,10 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     // misatribución que el ciclo de #59 le quitó a `hero_defeated` en la crónica
     // del mapa, veinte líneas más arriba en el mismo fichero.
     expect(parte([{ kind: 'perished', stack: 'attacker-0' }])).toContain(
-      '<div class="lose">Aniquilada la unidad Campeón, de tu bando</div>',
+      `<div class="lose">Aniquilada la unidad ${NOMBRE_A}, de tu bando</div>`,
     );
     expect(parte([{ kind: 'perished', stack: 'defender-0' }])).toContain(
-      '<div class="win">Aniquilada la unidad Zombi, del enemigo</div>',
+      `<div class="win">Aniquilada la unidad ${NOMBRE_B}, del enemigo</div>`,
     );
   });
 
@@ -2430,24 +2600,32 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
       },
       { kind: 'cast', side: 'defender', spell: 'haste', target: 'defender-0' },
     ]);
-    expect(golpes).toContain('<div>Campeón\u00a0→ Zombi: 12 de daño, 3 bajas</div>');
+    expect(golpes).toContain(`<div>${NOMBRE_A}\u00a0→ ${NOMBRE_B}: 12 de daño, 3 bajas</div>`);
     // «1 baja», no «1 bajas».
-    expect(golpes).toContain('<div>Zombi\u00a0→ Campeón (contraataque): 4 de daño, 1 baja</div>');
     expect(golpes).toContain(
-      '<div>Campeón\u00a0→ Zombi (carga de 3 casillas, +30 %): 20 de daño, 0 bajas</div>',
+      `<div>${NOMBRE_B}\u00a0→ ${NOMBRE_A} (contraataque): 4 de daño, 1 baja</div>`,
     );
-    expect(golpes).toContain('<div>Campeón\u00a0→ Zombi (disparo): 8 de daño, 1 baja</div>');
-    expect(golpes).toContain('<div>Campeón\u00a0→ Zombi (salpicadura): 2 de daño, 0 bajas</div>');
-    expect(golpes).toContain('<div>Lanzas Flecha mágica sobre Zombi: 10 de daño, 2 bajas</div>');
-    expect(golpes).toContain('<div>El enemigo lanza Prisa sobre Zombi</div>');
+    expect(golpes).toContain(
+      `<div>${NOMBRE_A}\u00a0→ ${NOMBRE_B} (carga de 3 casillas, +30 %): 20 de daño, 0 bajas</div>`,
+    );
+    expect(golpes).toContain(
+      `<div>${NOMBRE_A}\u00a0→ ${NOMBRE_B} (disparo): 8 de daño, 1 baja</div>`,
+    );
+    expect(golpes).toContain(
+      `<div>${NOMBRE_A}\u00a0→ ${NOMBRE_B} (salpicadura): 2 de daño, 0 bajas</div>`,
+    );
+    expect(golpes).toContain(
+      `<div>Lanzas Flecha mágica sobre ${NOMBRE_B}: 10 de daño, 2 bajas</div>`,
+    );
+    expect(golpes).toContain(`<div>El enemigo lanza Prisa sobre ${NOMBRE_B}</div>`);
     expect(golpes).not.toMatch(/<div>(Ataque|Contraataque|Disparo|Hechizo)\b/);
   });
 
   it('un golpe y lo que se disipa dicen el bando cuando el nombre está en los dos', () => {
-    // La batalla espejo: «Campeón → Campeón» no dice quién pega a quién.
+    // La batalla espejo: «Jinete → Jinete» no dice quién pega a quién.
     const battle = createBattle(
-      side([{ creature: 'champion', count: 10 }], hero()),
-      side([{ creature: 'champion', count: 10 }]),
+      side([{ creature: JINETE, count: 10 }], hero()),
+      side([{ creature: JINETE, count: 10 }]),
       createRng(1),
     );
     battle.log.length = 0;
@@ -2463,11 +2641,13 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
       { kind: 'effect_end', stack: 'defender-0', source: 'slow' },
     );
     const mio = marcadoDe(renderBattleLog(battle, 'attacker'));
-    expect(mio).toContain('<div>Campeón (tuyo)\u00a0→ Campeón (enemigo): 5 de daño, 0 bajas</div>');
-    expect(mio).toContain('<div>Se disipa Lentitud de Campeón, del enemigo</div>');
+    expect(mio).toContain(
+      `<div>${NOMBRE_A} (tuyo)\u00a0→ ${NOMBRE_A} (enemigo): 5 de daño, 0 bajas</div>`,
+    );
+    expect(mio).toContain(`<div>Se disipa Lentitud de ${NOMBRE_A}, del enemigo</div>`);
     const ajena = marcadoDe(renderBattleLog(battle, null));
     expect(ajena).toContain(
-      '<div>Campeón (atacante)\u00a0→ Campeón (defensor): 5 de daño, 0 bajas</div>',
+      `<div>${NOMBRE_A} (atacante)\u00a0→ ${NOMBRE_A} (defensor): 5 de daño, 0 bajas</div>`,
     );
   });
 
@@ -2475,7 +2655,7 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     // Sin bando propio no hay «tuya» ni «enemiga» que valga, y tampoco color:
     // inventarse uno es lo que hacía la versión de antes con todo el mundo.
     const ajena = parte([{ kind: 'perished', stack: 'attacker-0' }], 'ajena');
-    expect(ajena).toContain('<div>Aniquilada la unidad Campeón, del atacante</div>');
+    expect(ajena).toContain(`<div>Aniquilada la unidad ${NOMBRE_A}, del atacante</div>`);
     expect(ajena).not.toContain('class="lose"');
     expect(ajena).not.toContain('class="win"');
   });
@@ -2518,16 +2698,17 @@ describe('el héroe ya no bonifica a su tropa (fase 1b)', () => {
         equipo: {},
       });
       const state = createBattle(
-        side([{ creature: 'pikeman', count: 1 }], hero(), cuerpo),
-        side([{ creature: 'peasant', count: 1 }]),
+        side([{ creature: TROPA, count: 1 }], hero(), cuerpo),
+        side([{ creature: TROPA_BARATA, count: 1 }]),
         rng,
       );
       const piquero = stackById(state, 'attacker-0');
       const campesino = stackById(state, 'defender-0');
       enfrentar(piquero, campesino);
       // Por el motor entero y no por `computeDamage`, que ya ni recibe al héroe:
-      // lo que se mira es que nadie se lo sume por otro camino.
-      expect(state.turno?.stack).toBe('attacker-0');
+      // lo que se mira es que nadie se lo sume por otro camino. El turno, a mano:
+      // el héroe es más rápido que su tropa.
+      forzarTurno(state, 'attacker-0');
       applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
       const ev = state.log.find((e) => e.kind === 'attack' && e.stack === 'attacker-0');
       if (ev === undefined || ev.kind !== 'attack') throw new Error('el piquero no pegó');
@@ -2557,8 +2738,8 @@ describe('despliegue de una tropa de individuos', () => {
     // Antes del sexto todo iba bien; del sexto en adelante caían todos a la
     // fila 4 de la columna del borde, unos encima de otros, sin aviso.
     const state = createBattle(
-      side(individuos('peasant', 7)),
-      side(individuos('skeleton', 7)),
+      side(individuos(TROPA_BARATA, 7)),
+      side(individuos(NO_MUERTO, 7)),
       createRng(1),
     );
     for (const lado of ['attacker', 'defender'] as const) {
@@ -2579,24 +2760,20 @@ describe('despliegue de una tropa de individuos', () => {
     // La regla del usuario: un bando lleva como mucho 7 (un héroe y seis, o
     // siete sin héroe). Antes el tope era el del tablero, 27.
     expect(() =>
-      createBattle(side(individuos('peasant', 8)), side(individuos('skeleton', 3)), createRng(1)),
+      createBattle(side(individuos(TROPA_BARATA, 8)), side(individuos(NO_MUERTO, 3)), createRng(1)),
     ).toThrow('no caben: el atacante trae 8 y un bando lleva como mucho 7');
     expect(() =>
-      createBattle(side(individuos('peasant', 3)), side(individuos('skeleton', 9)), createRng(1)),
+      createBattle(side(individuos(TROPA_BARATA, 3)), side(individuos(NO_MUERTO, 9)), createRng(1)),
     ).toThrow('no caben: el defensor trae 9 y un bando lleva como mucho 7');
   });
 
-  it('siete dragones caben, uno por fila, con la cola dentro del tablero', () => {
-    const state = createBattle(
-      side(individuos('peasant', 3)),
-      side(individuos('bone_dragon', 7)),
-      createRng(2),
-    );
+  it('siete grandes caben, uno por fila, con la cola dentro del tablero', () => {
+    const state = createBattle(side(individuos(TROPA_BARATA, 3)), conGrandes(7), createRng(2));
     const hexes = hexesDe(state, 'defender');
     expect(hexes).toHaveLength(14);
     expect(new Set(hexes).size).toBe(14);
-    // La cola del dragón defensor queda a su derecha, dentro del tablero.
-    for (const s of state.stacks.filter((x) => x.body === 'bone_dragon')) {
+    // La cola del grande defensor queda a su derecha, dentro del tablero.
+    for (const s of state.stacks.filter((x) => x.side === 'defender')) {
       expect(stackHexes(s).every((h) => board.isInside(h))).toBe(true);
     }
   });
@@ -2605,11 +2782,7 @@ describe('despliegue de una tropa de individuos', () => {
     // No hay caso especial para cinco o menos: del centro hacia fuera en la
     // columna del borde, y la grande con la cabeza una columna hacia dentro.
     // Con las filas de HoMM2 de antes, estos cinco salían en 0, 2, 4, 6 y 8.
-    const state = createBattle(
-      side(individuos('peasant', 5)),
-      side([{ creature: 'bone_dragon', count: 1 }]),
-      createRng(3),
-    );
+    const state = createBattle(side(individuos(TROPA_BARATA, 5)), conGrandes(1), createRng(3));
     const atacantes = state.stacks.filter((s) => s.side === 'attacker');
     expect(atacantes.map((s) => s.hex)).toEqual([4, 3, 5, 2, 6].map((row) => ({ col: 0, row })));
     expect(stackById(state, 'defender-0').hex).toEqual({ col: 10, row: 4 });
@@ -2619,14 +2792,14 @@ describe('despliegue de una tropa de individuos', () => {
     // El tablero de filas de 12 y 11 es su propio espejo (11-10-2026): con 11
     // en todas las filas, el defensor de una fila impar salía media casilla más
     // cerca del centro que el atacante de la suya.
-    const ejercitos: Stack[][] = [
-      individuos('peasant', 7),
-      [...individuos('bone_dragon', 3), ...individuos('skeleton', 4)],
-      individuos('bone_dragon', 7),
-      [
-        { creature: 'cavalry', count: 4 },
-        { creature: 'archer', count: 9 },
-      ],
+    const ejercitos: BattleSide[] = [
+      side(individuos(TROPA_BARATA, 7)),
+      conGrandes(3, individuos(NO_MUERTO, 4)),
+      conGrandes(7),
+      side([
+        { creature: JINETE, count: 4 },
+        { creature: TIRADOR, count: 9 },
+      ]),
     ];
     // Las casillas de un stack dadas la vuelta, en el orden de las claves.
     const huellaEspejada = (s: BattleStack) =>
@@ -2635,7 +2808,7 @@ describe('despliegue de una tropa de individuos', () => {
         .sort();
     const huella = (s: BattleStack) => stackHexes(s).map(board.hexKey).sort();
     for (const ejercito of ejercitos) {
-      const state = createBattle(side(ejercito), side(ejercito), createRng(5));
+      const state = createBattle(ejercito, ejercito, createRng(5));
       const del = (lado: Side) => state.stacks.filter((s) => s.side === lado);
       const atacantes = del('attacker');
       const defensores = del('defender');
@@ -2662,8 +2835,8 @@ describe('despliegue de una tropa de individuos', () => {
         { a: board.espejo({ col: 1, row: 3 }), b: board.espejo({ col: 0, row: 3 }) },
       ],
     });
-    const ejercito = [...individuos('bone_dragon', 3), ...individuos('skeleton', 4)];
-    const state = createBattle(side(ejercito), side(ejercito), createRng(5), muralla);
+    const ejercito = conGrandes(3, individuos(NO_MUERTO, 4));
+    const state = createBattle(ejercito, ejercito, createRng(5), muralla);
     const atacantes = state.stacks.filter((s) => s.side === 'attacker');
     const defensores = state.stacks.filter((s) => s.side === 'defender');
     expect(atacantes.some((s) => s.hex.row === 3 && stackHexes(s).length > 1)).toBe(false);
@@ -2675,8 +2848,8 @@ describe('despliegue de una tropa de individuos', () => {
   it('una batalla de muchos individuos se juega hasta el final', () => {
     const rng = createRng(4);
     const state = createBattle(
-      side([...individuos('pikeman', 4), ...individuos('archer', 3)]),
-      side([...individuos('skeleton', 5), ...individuos('zombie', 2)]),
+      side([...individuos(TROPA, 4), ...individuos(TIRADOR, 3)]),
+      side(individuos(NO_MUERTO, 7)),
       rng,
     );
     simular(state, rng);
@@ -2685,20 +2858,23 @@ describe('despliegue de una tropa de individuos', () => {
 });
 
 /**
- * Un espadachín entre un campesino suelto y diez esqueletos, a cinco casillas
- * de cada uno y los dos ya movidos (que no salte la espera). Con `threat / vida` el campesino vale
- * 1 por PV y los esqueletos 0,625: iba a por el campesino, que muere de un golpe
- * con 4 de daño de sobra, mientras los diez le pegaban.
+ * Dos pesadas entre un goblin suelto y malherido y diez esqueletos, a cinco
+ * casillas de cada uno y los dos ya movidos (que no salte la espera). El goblin
+ * y el esqueleto pegan y aguantan lo mismo, así que con `threat / vida` el
+ * goblin, a media vida, vale el doble por PV: iba a por él, que muere de un
+ * golpe con daño de sobra, mientras los diez le pegaban.
  */
 function escenaDeAQuienIr(): BattleState {
   const state = createBattle(
-    side([{ creature: 'swordsman', count: 1 }]),
+    side([{ creature: PESADA, count: 2 }]),
     side([
-      { creature: 'peasant', count: 1 },
-      { creature: 'skeleton', count: 10 },
+      { creature: TROPA_BARATA, count: 1 },
+      { creature: NO_MUERTO, count: 10 },
     ]),
     createRng(11),
   );
+  const suelto = stackById(state, 'defender-0');
+  suelto.topHp = Math.floor(suelto.unit.hp / 2);
   stackById(state, 'attacker-0').hex = { col: 5, row: 4 };
   stackById(state, 'defender-0').hex = { col: 0, row: 4 };
   stackById(state, 'defender-1').hex = { col: 10, row: 4 };
@@ -2708,7 +2884,7 @@ function escenaDeAQuienIr(): BattleState {
 }
 
 describe('la IA va a por quien su golpe le quita más amenaza (#79)', () => {
-  it('deja al campesino suelto y va a golpear a los diez esqueletos', () => {
+  it('deja al goblin suelto y va a golpear a los diez esqueletos', () => {
     const a = chooseBattleAction(escenaDeAQuienIr());
     expect(a).toMatchObject({ type: 'attack', target: 'defender-1' });
     expect(a.type === 'attack' && a.from !== undefined).toBe(true);

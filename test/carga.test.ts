@@ -311,8 +311,8 @@ describe('el juego no carga a pie', () => {
 
   it('`createBattle` monta siempre sin carga a pie', () => {
     const b = createBattle(
-      { army: [{ creature: 'pikeman', count: 1 }], hero: null },
-      { army: [{ creature: 'pikeman', count: 1 }], hero: null },
+      { army: [{ creature: 'templario-escudo', count: 1 }], hero: null },
+      { army: [{ creature: 'templario-escudo', count: 1 }], hero: null },
       createRng(1),
     );
     expect(b.arena.cargaAPie).toBe(false);

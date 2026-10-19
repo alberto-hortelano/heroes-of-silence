@@ -8,7 +8,8 @@ import {
   MAX_ROUNDS,
 } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { creature } from '../src/core/data.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
+
 import { createRng } from '../src/core/rng.js';
 import {
   ATTRIBUTES,
@@ -59,7 +60,7 @@ const solo = (creature: string): BattleSide => ({
 
 describe('duelo de individuos con el motor del núcleo', () => {
   it('un duelo 1 contra 1 se juega entero con la IA de reglas', () => {
-    const batalla = duelo(solo('swordsman'), solo('zombie'), 91);
+    const batalla = duelo(solo('templario-mandoble'), solo('zombi'), 91);
     // Uno de los dos cae: `duelo` ya lanzó si se cerró por tope.
     const vivos = batalla.stacks.filter((s) => s.count > 0);
     expect(vivos).toHaveLength(1);
@@ -238,7 +239,7 @@ function ladoDe(c: Character, hp = c.hp, count = 1): BattleSide {
 
 describe('un personaje en el tablero', () => {
   const rng = () => createRng(7);
-  const zombi = solo('zombie');
+  const zombi = solo('zombi');
 
   it('un personaje en un stack de 2 lanza', () => {
     expect(() => createBattle(ladoDe(personaje('Guerrero'), 340, 2), zombi, rng())).toThrow(
@@ -281,7 +282,7 @@ describe('un personaje en el tablero', () => {
       ...ladoDe(c),
       army: [
         { creature: CHARACTER_BODY, count: 1, member: c.id },
-        { creature: 'peasant', count: 5 },
+        { creature: 'goblin-lancero', count: 5 },
         { creature: CHARACTER_BODY, count: 1, member: c.id },
       ],
     };
@@ -313,19 +314,19 @@ describe('un personaje en el tablero', () => {
       ...ladoDe(c),
       army: [
         { creature: CHARACTER_BODY, count: 1, member: c.id },
-        { creature: 'peasant', count: 5 },
+        { creature: 'goblin-lancero', count: 5 },
       ],
     };
     const b = createBattle(lado, zombi, rng());
-    // Solo caballeros entre las criaturas: +1, también para el personaje.
-    expect(b.stacks.find((x) => x.body === 'peasant')!.morale).toBe(1);
+    // Solo orkos entre las unidades (el goblin): +1, también para el personaje.
+    expect(b.stacks.find((x) => x.body === 'goblin-lancero')!.morale).toBe(1);
     expect(b.stacks.find(esPersonaje(c.id))!.morale).toBe(1);
   });
 
   it('el catálogo no conoce al cuerpo de un personaje', () => {
     // Es lo que hace que un lector de Army que no sepa de personajes lance en
     // vez de leer cifras prestadas.
-    expect(() => creature(CHARACTER_BODY)).toThrow(/criatura desconocida: "character"/);
+    expect(() => unidadDelJuego(CHARACTER_BODY)).toThrow(/no hay ninguna unidad «character»/);
   });
 
   it('un personaje se bate en duelo con un zombi y la IA de reglas lo juega entero', () => {

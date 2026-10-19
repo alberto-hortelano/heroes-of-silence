@@ -1,0 +1,13 @@
+{
+  "_comment": "Lo que cuestan y crecen las unidades del catálogo (data/unidades.json) y lo que cuestan sus moradas (data/buildings.json). INVENTADO y PROVISIONAL (19-10-2026, F3 de docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/): nada de esto se escribe por unidad, sale de su índice de poder con el equipo puesto (src/core/nivel.ts), y el usuario dijo «no te preocupes por el valor de las unidades, lo iremos refinando». oroPorIndice: una unidad cuesta índice² / divisor en oro, redondeado a la decena (con 500: índice 220 → 100, 300 → 180, 350 → 250, 500 → 500), en enteros; con las criaturas de fheroes2 un nivel 3 costaba 200-250 y un nivel 4 250-650. crecimientoPorNivel: cuántas suelta por semana la morada que la produce, por el nivel de la unidad (1 a 6; el de fheroes2 por morada: 12, 8, 5, 4, 3, 2, en la escala de una morada por nivel); una morada que produce varias suelta el de cada una. costeDeLaMorada: el coste de una morada por el nivel de lo mejor que produce (1 a 6), la tabla de las seis moradas del caballero de fheroes2 (buildinginfo.cpp, Race::KNGT, DWELLING_MONSTER1-6), sin la exigencia del castillo de la sexta. Cambiar estas cifras cambia la economía de toda la partida: se vuelve a medir con tools/qa/barrido-semillas.ts y pnpm banco.",
+  "oroPorIndice": { "divisor": 500 },
+  "crecimientoPorNivel": [12, 8, 5, 4, 3, 2],
+  "costeDeLaMorada": [
+    { "gold": 200 },
+    { "gold": 1000 },
+    { "gold": 1000, "ore": 5 },
+    { "gold": 2000, "wood": 10, "ore": 10 },
+    { "gold": 3000, "wood": 20 },
+    { "gold": 5000, "wood": 20, "crystal": 20 }
+  ]
+}

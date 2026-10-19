@@ -7,7 +7,8 @@ import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
 import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { creature } from '../src/core/data.js';
+import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
+import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
 import {
@@ -17,6 +18,7 @@ import {
   validateMapPlan,
 } from '../src/core/map/generate.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
+import { nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
 import { loQueLaPara } from '../src/core/state/asaltantes.js';
 import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
@@ -31,7 +33,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Town } from '../src/core/town/town.js';
-import type { Point } from '../src/core/types.js';
+import { FACTION_IDS, type FactionId, type Point, SPEED_TO_HEXES } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
@@ -42,10 +44,14 @@ import {
   conCaminos,
   costesDelAlcance,
   ejercito,
+  NO_MUERTO,
+  PESADA,
   ponerMonstruo,
   primeraMarchaQueSePara,
   primeraSemillaCon,
   sinGuarnicionDeSalida,
+  TIRADOR,
+  TROPA_BARATA,
 } from './helpers.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
@@ -231,7 +237,7 @@ function vecina(state: GameState, desde: Point, lejosDe?: Point): Point {
 function plantarRival(state: GameState, objetivo: Point, lejosDe?: Point): Hero {
   const rival = state.heroes.find((h) => h.owner === 0) as Hero;
   rival.at = vecina(state, objetivo, lejosDe);
-  rival.army = ejercito({ creature: 'paladin', count: 6 });
+  rival.army = ejercito({ creature: PESADA, count: 6 });
   rival.movePoints =
     costesDelAlcance(reachableFrom(state.map, rival.at)).get(pointKey(objetivo)) ?? 200;
   return rival;
@@ -244,6 +250,19 @@ function plantarRival(state: GameState, objetivo: Point, lejosDe?: Point): Hero 
  * un ejército aplastante, que es lo que `chooseHeroDestination` necesita para
  * decidirse a atacarlo. Devuelve el héroe del agente, el que va a defender.
  */
+/**
+ * Un ejército más rápido que el del rival plantado y más flojo: cinco
+ * exploradores elfos (5 casillas) contra los pesados (4). El rival lo ataca y
+ * él abre la ronda sin llegar a nadie, que es la escena de la espera de #52.
+ */
+const RAPIDO = 'elfo-explorador';
+function rapidos(h: Hero): void {
+  expect(SPEED_TO_HEXES[unidadDelJuego(RAPIDO).speed]).toBeGreaterThan(
+    SPEED_TO_HEXES[unidadDelJuego(PESADA).speed],
+  );
+  h.army = ejercito({ creature: RAPIDO, count: 5 });
+}
+
 function rivalAlAtaque(state: GameState): Hero {
   const mio = state.heroes.find((h) => h.owner === 1) as Hero;
   // Pegado al héroe y no a su base: con el héroe fuera de ella y el rival
@@ -336,7 +355,7 @@ function rivalAlCastillo(state: GameState): Town {
   const [x, y] = lejos[0].split(',').map(Number);
   mio.at = { x: x as number, y: y as number };
 
-  pueblo.garrison = ejercito({ creature: 'skeleton', count: 7 });
+  pueblo.garrison = ejercito({ creature: NO_MUERTO, count: 7 });
   plantarRival(state, pueblo.at);
   return pueblo;
 }
@@ -587,7 +606,7 @@ describe('enlace con el agente', () => {
     // al que atacar, y el test no probaría nada.
     revealEverything(director.state, 0);
     // Se le da un ejército de sobra para que la batalla la gane él.
-    director.state.heroes[0]!.army = ejercito({ creature: 'paladin', count: 6 });
+    director.state.heroes[0]!.army = ejercito({ creature: PESADA, count: 6 });
     director.state.heroes[0]!.movePoints = 20000;
 
     const informe = await director.playTurn();
@@ -625,7 +644,7 @@ describe('enlace con el agente', () => {
 
     const director = new Director(link, { seed: 110, agentPlayers: [0] });
     revealEverything(director.state, 0);
-    director.state.heroes[0]!.army = ejercito({ creature: 'paladin', count: 6 });
+    director.state.heroes[0]!.army = ejercito({ creature: PESADA, count: 6 });
     director.state.heroes[0]!.movePoints = 20000;
     await director.playTurn();
     await respira();
@@ -698,7 +717,7 @@ describe('el agente se rinde (fase 1b)', () => {
     sinAsaltantes(director.state);
     sinRecogidas(director.state);
     const heroe = director.state.heroes[0]!;
-    heroe.army = ejercito({ creature: 'archer', count: 2 });
+    heroe.army = ejercito({ creature: TIRADOR, count: 2 });
     heroe.movePoints = 20000;
     const oroAntes = director.state.players[0]!.resources.gold;
 
@@ -711,7 +730,7 @@ describe('el agente se rinde (fase 1b)', () => {
     );
     // Se ofrece, con su precio y con el oro con el que se compara (H-2)…
     expect(conRendicion).toBeDefined();
-    const precio = Math.ceil((2 * creature('archer').cost.gold! * 50) / 100);
+    const precio = Math.ceil((2 * unidadDelJuego(TIRADOR).cost.gold! * 50) / 100);
     expect(conRendicion!.payload.legalActions).toContainEqual({ type: 'surrender', gold: precio });
     expect(conRendicion!.payload.yourGold).toBe(oroAntes);
     // …entra, y el veredicto dice cuánto se pagó…
@@ -724,7 +743,7 @@ describe('el agente se rinde (fase 1b)', () => {
     expect(director.state.log.some((e) => e.kind === 'hero_defeated')).toBe(false);
     const base = director.state.towns.find((t) => t.id === director.state.players[0]!.base)!;
     expect(pointKey(heroe.at)).toBe(pointKey(base.at));
-    expect(heroe.army).toEqual(ejercito({ creature: 'archer', count: 2 }));
+    expect(heroe.army).toEqual(ejercito({ creature: TIRADOR, count: 2 }));
     expect(oroAntes - director.state.players[0]!.resources.gold).toBe(precio);
     // …y la crónica que le llega después lo cuenta también.
     expect(vuelta).toMatchObject({ surrendered: true, gold: precio });
@@ -757,15 +776,15 @@ describe('el agente se rinde (fase 1b)', () => {
     sinAsaltantes(director.state);
     sinRecogidas(director.state);
     const heroe = director.state.heroes[0]!;
-    heroe.army = ejercito({ creature: 'peasant', count: 2 });
+    heroe.army = ejercito({ creature: TROPA_BARATA, count: 2 });
     heroe.movePoints = 20000;
-    // Monstruos llenos y de nivel alto: dos campesinos contra siete vampiros
-    // pesan menos de un tercio. `creature` es de solo lectura en el tipo porque
+    // Monstruos llenos y de nivel alto: dos goblins contra siete caballeros de
+    // la muerte pesan menos de un tercio. `creature` es de solo lectura en el tipo porque
     // la partida no la cambia nunca; el andamio del test sí.
     for (const o of director.state.map.objects) {
       if (o.kind !== 'monster') continue;
       o.count = 7;
-      (o as { creature: string }).creature = 'vampire';
+      (o as { creature: string }).creature = 'caballero-de-la-muerte';
     }
     const oroAntes = director.state.players[0]!.resources.gold;
 
@@ -840,7 +859,7 @@ describe('el agente defiende', () => {
     // siguen siendo #7.
     expect(batallas[0]!.payload.hero).toBeNull();
     const guarnicion = batallas[0]!.payload.stacks.filter((s: any) => s.side === 'defender');
-    expect(guarnicion.every((s: any) => s.creature === 'skeleton')).toBe(true);
+    expect(guarnicion.every((s: any) => s.creature === NO_MUERTO)).toBe(true);
     expect(pueblo.at).toBeDefined();
     expect(director.state.pendingBattle).toBeNull();
   });
@@ -1492,7 +1511,7 @@ describe('el agente diseña el mapa', () => {
   it('un plan con una criatura inventada muere en la PUERTA, no en el primer turno', async () => {
     // El bloqueante, por el camino entero. Antes de esto el servidor aceptaba
     // el plan, le mandaba al agente «Tu plan de mapa entró» y reventaba en
-    // `playAiTurn` con «criatura desconocida». Fail-loud en el sitio equivocado:
+    // `playAiTurn` con una criatura desconocida. Fail-loud en el sitio equivocado:
     // ruidoso DESPUÉS del acuse, que es cuando ya no se puede corregir.
     const base = generateMapPlan(createRng(24));
     const { link, agent } = await montar(() => ({
@@ -1501,7 +1520,7 @@ describe('el agente diseña el mapa', () => {
 
     const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
     expect(plan).toBeNull();
-    expect(motivo).toMatch(/criatura que no existe: "no-existe"/);
+    expect(motivo).toMatch(/unidad que no existe: "no-existe"/);
 
     const acuse = await acuseDelMapa(agent);
     // Lo que más importa: el acuse dice que NO, no que sí.
@@ -1751,17 +1770,17 @@ describe('el agente sabe cómo le fue', () => {
       return { action: payload.legalActions[0] };
     });
 
-    // La primera desde la 309 en que el rival ataca: con los niveles del mapa
-    // (#143), en la 309 ya no llegaba a hacerlo.
-    const seed = await semillaEnQueElRivalAtaca(309);
+    // La primera desde la 309 en que el rival ataca, buscada con el ejército ya
+    // puesto: que el rival lo ataque depende de su fuerza.
+    const seed = await semillaEnQueElRivalAtaca(309, rapidos);
     const director = new Director(link, { seed, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
-    // Un campeón (7 hexes) contra los 40 paladines del rival (alcance 5+1): en
-    // la ronda 1 mueve primero, no llega a nadie, y avanzar lo dejaría a tiro
-    // de quien todavía no ha actuado. Eso es exactamente la regla de #52, así
-    // que la sustituta de la heurística es un `wait`. Montado a mano y no
+    // Cinco exploradores (5 casillas) contra los pesados del rival (alcance 4+1):
+    // en la ronda 1 mueven primero, no llegan a nadie, y avanzar los dejaría a
+    // tiro de quien todavía no ha actuado. Eso es exactamente la regla de #52,
+    // así que la sustituta de la heurística es un `wait`. Montado a mano y no
     // buscado por semilla: el ejército de salida no da esa escena nunca.
-    mio.army = ejercito({ creature: 'champion', count: 5 });
+    rapidos(mio);
     await director.playTurn();
     await respira();
 
@@ -1792,7 +1811,7 @@ describe('el agente sabe cómo le fue', () => {
     const director = new Director(link, { seed: 300, agentPlayers: [1] });
     rivalAlAtaque(director.state);
     // Sin oro para rendirse: si no, la heurística sustituta se rinde en la
-    // primera decisión —seis paladines contra su tropa— y la batalla acaba
+    // primera decisión —seis pesados contra su tropa— y la batalla acaba
     // antes de que salgan las ramas del turno y del maná, que es lo que se mide.
     director.state.players[1]!.resources = { ...director.state.players[1]!.resources, gold: 0 };
     await director.playTurn();
@@ -1868,7 +1887,7 @@ describe('el agente sabe cómo le fue', () => {
     revealEverything(director.state, 0);
 
     const heroe = director.state.heroes.find((h) => h.owner === 0) as Hero;
-    heroe.army = ejercito({ creature: 'paladin', count: 6 });
+    heroe.army = ejercito({ creature: PESADA, count: 6 });
     heroe.movePoints = 20000;
     // Con qué se remata: una flecha que se lleva al monstruo entero de una.
     heroe.spells = ['magic_arrow'];
@@ -1880,7 +1899,7 @@ describe('el agente sabe cómo le fue', () => {
     // que una flecha se lleva al monstruo entero. Antes era un stack de
     // `⌈12/PV⌉`; con la tropa de individuos cada uno es un hex, y la flecha da
     // a uno solo.
-    objetivo = ponerMonstruo(director.state, 'zombie', 1).id;
+    objetivo = ponerMonstruo(director.state, 'zombi', 1).id;
 
     await director.playTurn();
     await respira();
@@ -1911,22 +1930,19 @@ describe('el agente sabe cómo le fue', () => {
       return { action: { type: 'attack', target: 'no-existe' } };
     });
 
-    // La semilla se busca con el campeón ya puesto: que el rival lo ataque
-    // depende de su fuerza. Era la 310 escrita, que con las fronteras
+    // La semilla se busca con los exploradores ya puestos: que el rival los
+    // ataque depende de su fuerza. Era la 310 escrita, que con las fronteras
     // onduladas de #229 ya no daba la batalla.
-    const campeones = (h: Hero): void => {
-      h.army = ejercito({ creature: 'champion', count: 5 });
-    };
-    const seed = await semillaEnQueElRivalAtaca(310, campeones);
+    const seed = await semillaEnQueElRivalAtaca(310, rapidos);
     const director = new Director(link, { seed, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
-    // Un campeón (7 hexes) contra los 40 paladines del rival (alcance 5+1). Es
+    // Un explorador (5 casillas) contra los pesados del rival (alcance 4+1). Es
     // el más rápido, así que abre la ronda: no llega a nadie desde su borde, y
     // el paso adelante lo dejaría a tiro de quien todavía no ha actuado. Esa es
     // exactamente la regla de #52, así que la sustituta de la heurística es un
-    // `wait`. Con el ejército de salida del nigromante no pasa: el paladín es
-    // más rápido que el esqueleto y que el zombi, y mueve antes que los dos.
-    campeones(mio);
+    // `wait`. Con el ejército de salida no pasa: nadie en él es más rápido que
+    // el pesado.
+    rapidos(mio);
 
     await director.playTurn();
     await respira();
@@ -2123,13 +2139,20 @@ describe('la tropa se hace héroe, por el cable', () => {
   it('una respuesta buena crea el héroe antes del turno, y el turno ya lo trae con su tipo', async () => {
     const { link, agent } = await montar(narrador(bueno));
     let veterano = '';
+    // El nivel que le toca por sus cifras: las de su unidad con su rango encima.
+    let nivelDelVeterano = 0;
     const director = new Director(link, {
       seed: 501,
       agentPlayers: [0],
       preparar: (s) => {
         veterano = ponVeteranoEnLaBase(s, 0);
+        const g = baseOf(s, 0)!.garrison.find((x) => x.veterania?.id === veterano)!;
+        nivelDelVeterano = nivelDeUnidad(cifrasDeUnidad(g.creature, g.veterania));
       },
     });
+    // La facción sale de la semilla: los tipos que se le ofrecen son los suyos.
+    const faccion = director.state.players[0]!.faction;
+    const tipos = tiposDeHeroe(faccion).map((t) => t.id);
     await director.playTurn();
     await respira();
 
@@ -2139,57 +2162,69 @@ describe('la tropa se hace héroe, por el cable', () => {
     expect(peticion.veteran).toMatchObject({
       id: veterano,
       rank: 5,
-      // Es el primero de la guarnición, un campesino: rango 5, y sus cifras
-      // (+4/+4) no le sacan del nivel 1. Rango y nivel son dos cosas.
-      level: 1,
+      // Es el primero de la guarnición: rango 5, y su nivel es el de sus cifras,
+      // no el de su rango. Rango y nivel son dos cosas.
+      level: nivelDelVeterano,
       experience: umbral(5),
       battles: 3,
       kills: 5,
       heroesDefeated: ['Sir Arnés'],
       in: 'garrison',
     });
-    expect(peticion.you.faction).toBe('knight');
-    expect(peticion.heroTypes.map((t: any) => t.id)).toEqual([
-      'caballero',
-      'monje',
-      'inquisidor',
-      'gran_maestre',
-    ]);
+    expect(nivelDelVeterano).not.toBe(5);
+    expect(peticion.you.faction).toBe(faccion);
+    expect(peticion.heroTypes.map((t: any) => t.id)).toEqual(tipos);
     expect(peticion.heroes).toEqual({ count: 1, max: 4 });
 
     const turno = agent.seen[1]!.payload;
     expect(turno.heroes).toHaveLength(2);
     const nacido = turno.heroes.find((h: any) => h.name === `Héroe de ${veterano}`);
-    // Del nivel 4: el equipo base (la Espada y el gambesón) cuenta en el índice.
-    expect(nacido).toMatchObject({ type: 'monje', rank: 5, level: 4, movePoints: 0 });
+    // El nivel del héroe es el de su cuerpo con rango y equipo base.
+    const heroe = director.state.heroes.find((h) => h.name === `Héroe de ${veterano}`)!;
+    expect(nacido).toMatchObject({
+      type: tipos[1],
+      rank: 5,
+      level: nivelDeUnidad(heroUnit(heroe)),
+      movePoints: 0,
+    });
     // Nace en la casilla del castillo y se lleva la guarnición (I1): una base
-    // defendida por un héroe sin tropa caía esa noche ante dos campesinos.
+    // defendida por un héroe sin tropa caía esa noche ante dos goblins.
     expect(nacido.at).toEqual(turno.towns.find((t: any) => t.id === turno.yourBase).at);
     expect(nacido.army.length).toBeGreaterThan(0);
     expect(nacido.story).toMatch(/batallas/);
     // El que ya estaba lleva su tipo por defecto y no trae historia.
     const viejo = turno.heroes.find((h: any) => h.id !== nacido.id);
-    expect(viejo.type).toBe('caballero');
+    expect(viejo.type).toBe(tipos[0]);
     expect('story' in viejo).toBe(false);
 
     const veredicto = agent.results.find((r) => r.requestId === agent.seen[0]!.requestId)!;
     expect(veredicto.ok).toBe(true);
-    expect(veredicto.note).toMatch(/es ya un héroe tuyo de tipo monje y rango 5/);
+    expect(veredicto.note).toContain(`es ya un héroe tuyo de tipo ${tipos[1]} y rango 5`);
     // La nota dice la tropa con la que quedó, no la que se suponía.
     expect(veredicto.note).toMatch(/Se ha llevado \d+ individuos de la guarnición/);
     expect(veredicto.note).not.toMatch(/sin tropa/);
   });
 
+  /** Un tipo de héroe de otra facción que la suya no tiene (hay nombres repetidos). */
+  const tipoAjeno = (faccion: FactionId): string => {
+    const suyos = new Set(tiposDeHeroe(faccion).map((t) => t.id));
+    const otro = FACTION_IDS.filter((f) => f !== faccion)
+      .flatMap((f) => tiposDeHeroe(f))
+      .find((t) => !suyos.has(t.id));
+    if (otro === undefined) throw new Error(`ninguna otra facción tiene un tipo que ${faccion} no`);
+    return otro.id;
+  };
+
   for (const [caso, ascenso, motivo] of [
     [
       'un esquema malo (nombre con salto de línea)',
       (p: any) => ({ ...bueno(p), name: 'Dos\nlíneas' }),
-      /una sola línea/,
+      () => /una sola línea/,
     ],
     [
       'un tipo de la otra facción',
-      (p: any) => ({ ...bueno(p), heroType: 'lich' }),
-      /"lich" no es un tipo de héroe de knight/,
+      (p: any) => ({ ...bueno(p), heroType: tipoAjeno(p.you.faction) }),
+      (f: FactionId) => new RegExp(`"${tipoAjeno(f)}" no es un tipo de héroe de ${f}`),
     ],
   ] as const) {
     it(`${caso}: el estado queda igual y el veredicto lo dice sin hablar de la IA de reglas`, async () => {
@@ -2210,7 +2245,7 @@ describe('la tropa se hace héroe, por el cable', () => {
       expect(JSON.stringify(director.state.towns.map((t) => t.garrison))).toBe(guarnicion);
       const veredicto = agent.results.find((r) => r.requestId === ascensoId)!;
       expect(veredicto.ok).toBe(false);
-      expect(veredicto.problems?.join(' ')).toMatch(motivo);
+      expect(veredicto.problems?.join(' ')).toMatch(motivo(director.state.players[0]!.faction));
       expect(veredicto.note).not.toMatch(/IA de reglas/);
       expect(veredicto.note).toMatch(/no se te volverá a preguntar hasta que salga de la base/);
       // Y el turno sigue: el ascenso fallido no se come el `adventure_turn`.
@@ -2242,7 +2277,10 @@ describe('la tropa se hace héroe, por el cable', () => {
   });
 
   it('no se le vuelve a preguntar por el mismo mientras siga en la base, y sí cuando vuelve', async () => {
-    const { link, agent } = await montar(narrador((p) => ({ ...bueno(p), heroType: 'lich' })));
+    // Un tipo que su facción no tiene: el ascenso se rechaza y el veterano se queda.
+    const { link, agent } = await montar(
+      narrador((p) => ({ ...bueno(p), heroType: tipoAjeno(p.you.faction) })),
+    );
     let veterano = '';
     // Prueba el volver a preguntar, no el equilibrio: los dos jugadores son el
     // agente, que no mueve a nadie (`actions: []`), y sin asaltantes nadie pelea.

@@ -41,13 +41,8 @@ import {
   SIDES,
   type Side,
 } from '@core/battle/types.js';
-import {
-  creature,
-  isShooter,
-  nombreDeTipoDeHeroe,
-  type Pieza,
-  tirosQueQuedan,
-} from '@core/data.js';
+import { unidadDelJuego } from '@core/catalogo.js';
+import { isShooter, nombreDeTipoDeHeroe, type Pieza, tirosQueQuedan } from '@core/data.js';
 import {
   destinoDeEquipo,
   modificadoresDePieza,
@@ -56,7 +51,14 @@ import {
   textoDeModificador,
 } from '@core/hero/equipo.js';
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
-import { HERO_BODY, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
+import {
+  cuerpoDelHeroe,
+  HERO_BODY,
+  type Hero,
+  heroUnit,
+  maxMana,
+  maxMovePoints,
+} from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
 import { nivelDeUnidad } from '@core/nivel.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
@@ -297,11 +299,11 @@ function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number }): Ht
  * «3 (+3) / 3 (+3)»: con lo que el héroe pelea sin nada puesto —sus atributos más
  * lo que le da el rango— y, entre paréntesis, lo que le suma el equipo. `puesto`
  * es su `heroUnit`, la misma puerta con la que entra en batalla, y lo de sin nada
- * puesto, su `sinEquipo`: sumar aquí `hero.attack + sumaDeEquipo` se saltaba el
- * rango, y a un héroe de rango 6 la ficha le enseñaba uno menos de lo que pegaba.
+ * puesto, `desnudo`, su `cuerpoDelHeroe`: sumar aquí `hero.attack + sumaDeEquipo`
+ * se saltaba el rango, y a un héroe de rango 6 la ficha le enseñaba uno menos de
+ * lo que pegaba.
  */
-function ataqueYDefensa(puesto: UnitInfo): string {
-  const desnudo = puesto.sinEquipo ?? puesto;
+function ataqueYDefensa(desnudo: UnitInfo, puesto: UnitInfo): string {
   const cifra = (base: number, total: number) =>
     total > base ? `${base} (+${total - base})` : `${base}`;
   return `${cifra(desnudo.attack, puesto.attack)} / ${cifra(desnudo.defense, puesto.defense)}`;
@@ -325,7 +327,7 @@ function renderAdventurePanel(session: Session): Html {
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(puesto)}</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(cuerpoDelHeroe(hero), puesto)}</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>${hero.spellPower} / ${hero.knowledge}</span></div>
         <div class="row"><span class="label">Experiencia</span><span>${experienciaDeHeroe(hero.experience)}</span></div>
         <h3>Hechizos</h3>
@@ -639,7 +641,7 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
       ? html`<div class="stack empty">Sin moradas</div>`
       : unir(
           moradas.map(({ creature: id }) => {
-            const info = creature(id);
+            const info = unidadDelJuego(id);
             return html`<div class="stack"><span>${info.name}</span><span class="count">+${info.growth}</span></div>`;
           }),
         );
@@ -1398,7 +1400,7 @@ function enLaCasilla(at: Point | null): string {
 function nombreDeCuerpo(body: string): string {
   if (body === HERO_BODY) return 'el héroe';
   if (body === CHARACTER_BODY) return 'un personaje';
-  return creature(body).name;
+  return unidadDelJuego(body).name;
 }
 
 /**
@@ -1554,11 +1556,11 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
         case 'recruited':
           return html`<div${clase(mio, false)}>${
             mio ? 'Reclutados' : `${jugador(e.actor)} recluta`
-          } ${e.count} × ${creature(e.creature).name}${aqui}</div>`;
+          } ${e.count} × ${unidadDelJuego(e.creature).name}${aqui}</div>`;
         case 'dismissed':
           return html`<div${clase(mio, false)}>${
             mio ? 'Licenciados' : `${jugador(e.actor)} licencia`
-          } ${e.count} × ${creature(e.creature).name}${aqui}</div>`;
+          } ${e.count} × ${unidadDelJuego(e.creature).name}${aqui}</div>`;
         case 'hero_hired':
           return html`<div${clase(mio, false)}>${
             mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`
@@ -1578,7 +1580,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
         case 'hero_promoted':
           // El nombre lo escribió el narrador: va en un hueco de texto y la
           // plantilla lo escapa, como el de cualquier pueblo del agente.
-          return html`<div${clase(mio, false)}>Un ${creature(e.creature).name} ${deJugador(
+          return html`<div${clase(mio, false)}>Un ${unidadDelJuego(e.creature).name} ${deJugador(
             e.actor,
           )} se hace héroe${aqui}: ${e.name}</div>`;
         case 'garrison_taken':
@@ -1628,7 +1630,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
         case 'troop_rank_up':
           // La tropa también sube, y es lo que se pidió que se viera: un
           // veterano no se distingue en el mapa, así que el ascenso se cuenta.
-          return html`<div${clase(mio, false)}>Un ${creature(e.creature).name} ${deJugador(
+          return html`<div${clase(mio, false)}>Un ${unidadDelJuego(e.creature).name} ${deJugador(
             e.actor,
           )} sube a veterano de rango ${e.rank}${aqui}</div>`;
         case 'game_over': {

@@ -27,8 +27,11 @@
  * tramo fuera de rango, una región que sale de su tramo o pisa otra, una puerta
  * fuera de su región o lejos de la franja, y lo que no se pisa.
  */
-import knightJson from '../../data/bases/knight.json' with { type: 'json' };
-import necromancerJson from '../../data/bases/necromancer.json' with { type: 'json' };
+import elfosJson from '../../data/bases/elfos.json' with { type: 'json' };
+import imperioJson from '../../data/bases/imperio.json' with { type: 'json' };
+import noMuertosJson from '../../data/bases/no-muertos.json' with { type: 'json' };
+import orkosJson from '../../data/bases/orkos.json' with { type: 'json' };
+import templariosJson from '../../data/bases/templarios.json' with { type: 'json' };
 import { SITIOS, type SitioId } from '../core/town/sitios.js';
 import { idsDeVecinos } from '../core/town/voces.js';
 import type { FactionId } from '../core/types.js';
@@ -199,10 +202,18 @@ export function planoDelCuadro(
   };
 }
 
-const CRUDOS = {
-  knight: knightJson,
-  necromancer: necromancerJson,
-} satisfies Record<FactionId, unknown>;
+/**
+ * La disposición de cada facción. La de los Templarios es la de los caballeros, con
+ * su arte (19-10-2026); las otras cuatro, la de marcadores de los no muertos (la
+ * del nigromante), cada una con sus vecinos (`data/vecinos.json`).
+ */
+const CRUDOS: Readonly<Record<FactionId, unknown>> = {
+  templarios: templariosJson,
+  'no-muertos': noMuertosJson,
+  imperio: imperioJson,
+  elfos: elfosJson,
+  orkos: orkosJson,
+};
 
 /**
  * El borde de atrás de lo que se pisa en `x`: la recta a trozos que une los

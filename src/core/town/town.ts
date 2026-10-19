@@ -1,6 +1,6 @@
 /** Castillos: construcción, moradas y reclutamiento. */
 import { allSpells, ordenDelLibro, type Spell } from '../battle/spells.js';
-import { creature, factionLineup } from '../data.js';
+import { unidadDelJuego, unidadesDeMorada } from '../catalogo.js';
 import type { Army, FactionId, PlayerId, Point, Resources } from '../types.js';
 import { canAfford, scaleResources, subtractResources } from '../types.js';
 import { building, buildingIfExists, buildingsOfFaction, prebuiltBuildings } from './buildings.js';
@@ -15,7 +15,7 @@ export interface Town {
   buildings: string[];
   /** Ya se construyó hoy: uno por día. */
   builtToday: boolean;
-  /** Criaturas disponibles para reclutar, por id. */
+  /** Unidades disponibles para reclutar, por id (`data/unidades.json`). */
   available: Record<string, number>;
   /** Guarnición: defiende el pueblo si no hay héroe. */
   garrison: Army;
@@ -141,21 +141,6 @@ export function buildBlocker(town: Town, buildingId: string, purse: Resources): 
   if (hasBuilding(town, buildingId)) return 'ya está construido';
   if (town.builtToday) return 'ya se ha construido hoy en este pueblo';
 
-  // #46, y como regla general y no como caso del dragón óseo: una mejora de
-  // morada no tiene sentido si la criatura base de ese nivel no tiene versión
-  // mejorada. Hoy el catálogo ya lo impide —esa fila no se escribe—, pero
-  // `data/buildings.json` se edita sin recompilar, y sin esta red el día que
-  // alguien vuelva a escribirla se paga por una mejora que no mejora nada, que
-  // es exactamente el bug de #46. Va DESPUÉS de las dos comprobaciones de
-  // arriba, que son O(1): `factionLineup` rehace dos veces el mapa de criaturas
-  // y la pantalla de castillo pregunta esto hasta seis veces por fotograma.
-  if (b.upgradesLevel !== undefined) {
-    const base = criaturaBaseDeMorada(town, b.upgradesLevel);
-    if (creature(base).upgradesTo === undefined) {
-      return `las criaturas de la morada ${b.upgradesLevel} de esta facción no tienen mejora`;
-    }
-  }
-
   for (const req of b.requires ?? []) {
     if (!hasBuilding(town, req)) return `falta construir "${building(req).name}"`;
   }
@@ -181,65 +166,47 @@ export function build(town: Town, buildingId: string, purse: Resources): Resourc
   town.buildings = [...town.buildings, buildingId];
   town.builtToday = true;
 
-  // Una morada recién construida trae ya su primera hornada.
-  if (b.dwellingLevel !== undefined) {
-    const c = creatureDeMorada(town, b.dwellingLevel);
-    town.available[c] = (town.available[c] ?? 0) + creature(c).growth;
-  }
-  // Una mejora convierte lo disponible al tipo mejorado.
-  if (b.upgradesLevel !== undefined) {
-    const base = criaturaBaseDeMorada(town, b.upgradesLevel);
-    const upgraded = creature(base).upgradesTo;
-    if (upgraded !== undefined) {
-      const pending = town.available[base] ?? 0;
-      delete town.available[base];
-      town.available[upgraded] = (town.available[upgraded] ?? 0) + pending;
+  // Una morada recién construida trae ya su primera hornada, de cada unidad que
+  // produce.
+  if (b.morada !== undefined) {
+    for (const u of unidadesDeMorada(b.id)) {
+      town.available[u.id] = (town.available[u.id] ?? 0) + u.growth;
     }
   }
 
   return subtractResources(purse, b.cost);
 }
 
-function criaturaBaseDeMorada(town: Town, morada: number): string {
-  const found = factionLineup(town.faction).find((c) => c.morada === morada);
-  if (found === undefined) {
-    throw new Error(`la facción ${town.faction} no tiene criatura de la morada ${morada}`);
-  }
-  return found.id;
-}
-
 /**
- * Qué criatura produce la morada `morada` (1-6), ya mejorada si procede. Es la
- * morada del edificio, no el nivel de la criatura, que sale de sus cifras.
+ * Las unidades que se reclutan en el castillo: las de cada morada construida, en
+ * el orden de los sitios de la base y, dentro de una morada, en el del catálogo.
+ * Una morada produce varias (19-10-2026: «el edificio no implica nivel»).
  */
-export function creatureDeMorada(town: Town, morada: number): string {
-  const base = criaturaBaseDeMorada(town, morada);
-  const upgradeBuilt = town.buildings.some((id) => building(id).upgradesLevel === morada);
-  if (!upgradeBuilt) return base;
-  return creature(base).upgradesTo ?? base;
-}
-
-/** Moradas construidas y la criatura que produce cada una. */
-export function dwellings(town: Town): { morada: number; creature: string }[] {
+export function dwellings(
+  town: Town,
+): { readonly edificio: string; readonly morada: number; readonly creature: string }[] {
   return town.buildings
     .map((id) => building(id))
-    .filter((b) => b.dwellingLevel !== undefined)
-    .map((b) => ({
-      morada: b.dwellingLevel as number,
-      creature: creatureDeMorada(town, b.dwellingLevel as number),
-    }))
-    .sort((a, b) => a.morada - b.morada);
+    .filter((b) => b.morada !== undefined)
+    .sort((a, b) => (a.morada as number) - (b.morada as number))
+    .flatMap((b) =>
+      unidadesDeMorada(b.id).map((u) => ({
+        edificio: b.id,
+        morada: b.morada as number,
+        creature: u.id,
+      })),
+    );
 }
 
 /** El lunes cada morada suelta su crecimiento semanal. */
 export function applyWeeklyGrowth(town: Town, multiplier = 1): void {
   for (const { creature: id } of dwellings(town)) {
-    town.available[id] = (town.available[id] ?? 0) + creature(id).growth * multiplier;
+    town.available[id] = (town.available[id] ?? 0) + unidadDelJuego(id).growth * multiplier;
   }
 }
 
 export function recruitCost(creatureId: string, count: number): Resources {
-  return scaleResources(creature(creatureId).cost, count);
+  return scaleResources(unidadDelJuego(creatureId).cost, count);
 }
 
 /** Motivo por el que no se puede reclutar, o `null`. */

@@ -12,8 +12,8 @@
  * no tiene junta entre tramos, y cada tramo se alinea por su pie sin arrastrar
  * la plaza que pintó Codex, que cada vez la pinta a otra altura.
  *
- *   pnpm taller recortar-base knight      → los tramos, el suelo, los recortes y el índice que lee el juego
- *   pnpm taller medir-base knight [tramo] → propone la región de cada sitio
+ *   pnpm taller recortar-base templarios      → los tramos, el suelo, los recortes y el índice que lee el juego
+ *   pnpm taller medir-base templarios [tramo] → propone la región de cada sitio
  *
  * La morfología es pura sobre `(ancho, alto, Uint8Array)` y está en JS, no en
  * sharp: con `raw` de un canal, sharp devolvía más canales de los que entraban y

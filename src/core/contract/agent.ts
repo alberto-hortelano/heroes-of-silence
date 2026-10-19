@@ -355,10 +355,12 @@ Notas:
   también sale en el veredicto como marcha parcial.
 - NIVEL y RANGO son dos cosas. El NIVEL de una unidad es la primera cifra de
   su ÍNDICE DE PODER ("powerIndex": 340 es el nivel 3), que sale de sus cifras
-  SIN EQUIPO (ataque, defensa, PV, daño, velocidad, tiro y doble golpe): nadie
-  lo escribe y el equipo no lo mueve. "creature_stats" da de cada criatura su
-  "level", su "powerIndex" y su "dwelling" (la morada que la produce, 1-6), que
-  casi siempre es su nivel o el de al lado. El RANGO es la experiencia: la
+  CON SU EQUIPO PUESTO (ataque, defensa, PV, daño de cada arma, armadura,
+  velocidad, tiro y doble golpe): nadie lo escribe. "creature_stats" da de cada
+  unidad su "level", su "powerIndex", su "dwelling" (el edificio de su facción
+  que la produce; uno produce varias, y el edificio no implica nivel), su equipo
+  de serie ("equipment") y su "armor"; lo que cuesta y crece sale de su índice.
+  El RANGO es la experiencia: la
   TROPA va del 1 al 5, y todo HÉROE empieza en el 5 —el inicial y el
   contratado— y sube sin tope (6, 7, 8…). Cada rango suma cifras (a la tropa,
   ataque y defensa; al héroe, cuerpo y LIDERAZGO, el tope de su ejército), así
@@ -636,7 +638,7 @@ Reglas que se validan antes de aceptarlo:
 - Desde cada inicio se debe poder llegar a pie a todas las ciudades.
 - "monsters[].creature" tiene que ser un id de criatura que exista: usa los de
   "palette.creaturesForGuards", que están escritos como los espera el motor.
-  Distingue mayúsculas ("skeleton" sí, "Skeleton" no) y no vale inventarse una:
+  Distingue mayúsculas ("zombi" sí, "Zombi" no) y no vale inventarse una:
   el mapa no se construye y se te devuelve la lista de las que valen.
 - "monsters[].count" son individuos, un entero de 1 a 7: en batalla ningún
   bando lleva más de 7 (un héroe pelea con 6 más él). Un monstruo de más se

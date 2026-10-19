@@ -19,17 +19,17 @@ import {
   previsionDe,
 } from '../src/core/battle/battle.js';
 import { hexKey, neighbours } from '../src/core/battle/board.js';
-import { poder, validarPoderes } from '../src/core/battle/poderes.js';
+import { poder, poderDeHabilidad, validarPoderes } from '../src/core/battle/poderes.js';
 import {
   REGLAS_DEL_JUEGO,
   type ReglasDeBatalla,
   reglasDeLaURL,
 } from '../src/core/battle/reglas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { allCreatures } from '../src/core/data.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import { avanzarHasta, delBorrador, unidadDeArena as unidad } from './helpers.js';
+import { avanzarHasta, delBorrador, SANADOR, unidadDeArena as unidad } from './helpers.js';
 
 /** El monje y el escudero a la izquierda contra un orco, con la semilla y las reglas que se pidan. */
 function pelea(
@@ -88,6 +88,10 @@ function enElTurnoDelMonje(
 describe('Curar (A1)', () => {
   it('repone lo que dice el poder, sin pasar del máximo, cierra el turno y lo cuenta', () => {
     const { b, rng, monje, escudero } = enElTurnoDelMonje(6);
+    // Sin el turno extra de la moral alta, que es otra regla: con las cinco
+    // facciones en el juego, el bando de una sola (monje y escudero, templarios)
+    // lleva +1 y, con esta semilla, el monje volvería a actuar.
+    monje.morale = 0;
     const cura = { cura: poder('curar').lanzador.cantidad };
     const accion = { type: 'poder', poder: 'curar', target: escudero.id } as const;
     const p = previsionDe(b, accion);
@@ -239,8 +243,15 @@ describe('el catálogo de poderes (data/poderes.json)', () => {
     expect(() => validarPoderes(con({ rondas: 2 }))).toThrow('no lleva «rondas»');
   });
 
-  it('ninguna criatura del juego trae poderes: la jugada `poder` no sale fuera de la arena', () => {
-    expect(allCreatures().filter((c) => c.poderes !== undefined)).toEqual([]);
+  it('cada unidad del juego trae los poderes de sus habilidades, y nada más: el monje, los dos', () => {
+    for (const u of unidadesDelJuego()) {
+      const suyos = unidad(u.id).habilidades.flatMap((h) => {
+        const p = poderDeHabilidad(h);
+        return p === null ? [] : [p];
+      });
+      expect(u.poderes ?? [], u.id).toEqual(suyos);
+    }
+    expect(unidadDelJuego(SANADOR).poderes).toEqual(['curar', 'bendecir']);
   });
 });
 

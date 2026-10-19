@@ -25,7 +25,7 @@
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { createBattle } from '../../src/core/battle/battle.js';
 import { createRng } from '../../src/core/rng.js';
-import type { FactionId } from '../../src/core/types.js';
+import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 import { ejercitoDe, tropaDe } from './ejercitos.js';
 
 const args = process.argv.slice(2);
@@ -35,7 +35,8 @@ if (!Number.isInteger(BATALLAS) || BATALLAS < 1) {
   throw new Error(`el número de batallas tiene que ser un entero positivo, no «${BATALLAS}»`);
 }
 
-const FACCIONES: readonly FactionId[] = ['knight', 'necromancer'];
+// Las dos primeras de las cinco: la medida compara asientos, no facciones.
+const FACCIONES: readonly FactionId[] = [FACTION_IDS[0], FACTION_IDS[1]];
 const PRIMO_DE_EJERCITOS = 49_979_687;
 const PRIMO_DE_BATALLA = 86_028_121;
 

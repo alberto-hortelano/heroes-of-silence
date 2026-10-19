@@ -63,6 +63,9 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { Casillas } from '../src/core/map/casillas.js';
+import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
+import { building } from '../src/core/town/buildings.js';
+import { dwellings } from '../src/core/town/town.js';
 import type { Hex } from '../src/core/types.js';
 import {
   bordeDeAtras,
@@ -861,6 +864,16 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     dondePulsarElSitio(t, d.sitios[sitio]);
   const elPunto = (p: Plano) => (t: Tablero) => enPantalla(t, p);
 
+  /**
+   * Una partida cuya base de quien juega es del imperio: es la facción con una
+   * morada que pide otra además del pueblo (la Fundición pide el Taller), así que
+   * su «Ampliar» del primer día ya enseña un «falta construir».
+   */
+  const IMPERIO = primeraSemillaCon('la base de quien juega en el imperio', (n) =>
+    faccionesDeLaSemilla(n)[0] === 'imperio' ? true : undefined,
+  ).semilla;
+  const FUNDICION = 'imperio_fundicion';
+
   it('sin héroe dentro camina el alcaide; con él, el héroe', () => {
     const { s } = enLaBase();
     expect(s.vistaDeLaBase()!.caminante.id).toBe(`alcaide-${s.activeTown!.id}`);
@@ -870,7 +883,8 @@ describe('la base caminable (escenas/castillo.ts)', () => {
   });
 
   it('un clic en el ayuntamiento lleva a su puerta y, al llegar, abre «Ampliar» (en menos de 1,5 s)', () => {
-    const { s, escena, d } = enLaBase();
+    const { s, escena, d } = enLaBase(IMPERIO);
+    expect(s.activeTown!.faction).toBe('imperio');
     expect(escena.marca).toBe('quieto');
     expect(escena.posicion).toEqual(d.entrada);
     pulsar(escena, laPuerta(d, 'hall'), 0);
@@ -885,7 +899,9 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     expect(panel).toContain('data-action="build" data-building="town_hall"');
     expect(panel).toContain('data-building="castle"');
     // Lo que no se puede lleva el motivo del núcleo (`buildBlocker`).
-    expect(panel).toContain('falta construir &quot;Morada de nivel 2&quot;');
+    const falta = building(FUNDICION).requires?.find((r) => !s.activeTown!.buildings.includes(r));
+    const taller = building(falta ?? '').name;
+    expect(panel).toContain(`falta construir &quot;${taller}&quot;`);
     // Construir lo hace aparecer en su sitio: el castillo, en el del fuerte.
     expect(s.vistaDeLaBase()!.edificios.map((e) => e.sitio)).not.toContain('fort');
     s.build('castle');
@@ -901,7 +917,8 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     escena.actualizar(10_000);
     expect(escena.abierto).toEqual({ tipo: 'sitio', sitio: 'lvl1' });
     expect(escena.posicion).toEqual(d.sitios.lvl1.puerta);
-    const recluta = s.vistaDeLaBase()!.faccion === 'knight' ? 'peasant' : 'skeleton';
+    // Lo primero que se recluta en la morada del sitio 1, la que la base trae hecha.
+    const recluta = dwellings(s.activeTown!).find((f) => f.morada === 1)!.creature;
     const plan = s.recruitPlan(recluta)!;
     // El primer día la guarnición está llena (20 de 20): no cabe ni uno, y los
     // dos botones salen apagados con la frase del núcleo (QA, H9).
@@ -929,14 +946,14 @@ describe('la base caminable (escenas/castillo.ts)', () => {
   });
 
   it('«Construir» sale apagado, con el motivo de `buildBlocker` en el título, cuando no se puede', () => {
-    const { s, escena, d } = enLaBase();
+    const { s, escena, d } = enLaBase(IMPERIO);
     pulsar(escena, laPuerta(d, 'hall'), 0);
     escena.actualizar(10_000);
     const boton = (panel: string, id: string) =>
       panel.match(new RegExp(`<button data-action="build" data-building="${id}"[^>]*>`))?.[0];
     const antes = marcadoDe(renderSide(s, false, escena.abierto));
     expect(boton(antes, 'castle')).not.toContain('disabled');
-    expect(boton(antes, 'knight_dwelling_3')).toContain('disabled title="falta construir');
+    expect(boton(antes, FUNDICION)).toContain('disabled title="falta construir');
     s.build('castle');
     const despues = marcadoDe(renderSide(s, false, escena.abierto));
     expect(boton(despues, 'town_hall')).toContain('disabled title="ya se ha construido hoy');

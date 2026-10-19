@@ -158,8 +158,8 @@
         104
       ]
     },
-    "knight_dwelling_1": {
-      "imagen": "knight_dwelling_1.webp",
+    "templarios_pueblo": {
+      "imagen": "templarios_pueblo.webp",
       "ancho": 404,
       "alto": 396,
       "sha256": "112dd4c5c194dac2d13928f8c59c93e2f4a4a3dd39519e5acbcbd4ccbd238359",
@@ -170,32 +170,8 @@
         273
       ]
     },
-    "knight_dwelling_2": {
-      "imagen": "knight_dwelling_2.webp",
-      "ancho": 605,
-      "alto": 487,
-      "sha256": "db6e8a76275ec0450c1f7787cddbfc01f9b6588441b9665307fef3be64b81ddb",
-      "origen": "d3a08ce5fd4ce5dbc9f9116db36188d443015a4e23487faf3b6c85480cc39684",
-      "tramo": 2,
-      "en": [
-        931,
-        209
-      ]
-    },
-    "knight_upgrade_2": {
-      "imagen": "knight_upgrade_2.webp",
-      "ancho": 605,
-      "alto": 490,
-      "sha256": "a2d0b54188d3e89229a492543931935bee9d6a1b779e8a0aebd38883b5a1c22f",
-      "origen": "a816d6dee969579e8ef2f1f0b777a9fefc6d1b8767f12afe1530752719fd5937",
-      "tramo": 2,
-      "en": [
-        931,
-        206
-      ]
-    },
-    "knight_dwelling_3": {
-      "imagen": "knight_dwelling_3.webp",
+    "templarios_forja": {
+      "imagen": "templarios_forja.webp",
       "ancho": 681,
       "alto": 505,
       "sha256": "c18181901fa6ac367df258e8c6e29c65677412db88d9d3530687b6b91c6417b2",
@@ -206,44 +182,8 @@
         208
       ]
     },
-    "knight_upgrade_3": {
-      "imagen": "knight_upgrade_3.webp",
-      "ancho": 681,
-      "alto": 593,
-      "sha256": "6c06b59b22704720e4711e272d1ffc0cd421faa2eab2150e3c2120abae42c03d",
-      "origen": "988a3788f9c1455afd03ad6c8a29ec9faa65e607b7a5d83bc7f6779e669dec7e",
-      "tramo": 5,
-      "en": [
-        74,
-        119
-      ]
-    },
-    "knight_dwelling_4": {
-      "imagen": "knight_dwelling_4.webp",
-      "ancho": 751,
-      "alto": 600,
-      "sha256": "e859f3dd9d6fd0cf2c8c931303ee0953ddc87672c7875dd3e11aa7cc41a2de81",
-      "origen": "1f7cf1c264da2626b1b5b92d73daee1affb15b200e3f322d198652241f5e2a1c",
-      "tramo": 1,
-      "en": [
-        669,
-        206
-      ]
-    },
-    "knight_upgrade_4": {
-      "imagen": "knight_upgrade_4.webp",
-      "ancho": 751,
-      "alto": 599,
-      "sha256": "ec581c7215880e422af621c14645a83e29962fa95f22ee781c8574a10db3b511",
-      "origen": "be8e64039475de3c804cff6362b1584bb36651d270bae75e5e9cc880efaa1b87",
-      "tramo": 1,
-      "en": [
-        669,
-        206
-      ]
-    },
-    "knight_dwelling_5": {
-      "imagen": "knight_dwelling_5.webp",
+    "templarios_establos": {
+      "imagen": "templarios_establos.webp",
       "ancho": 781,
       "alto": 467,
       "sha256": "fc223d3843be1ca25acdfb6d245b5816e5d008aebf0b355b91dc4f4325c7ee9b",
@@ -254,20 +194,8 @@
         243
       ]
     },
-    "knight_upgrade_5": {
-      "imagen": "knight_upgrade_5.webp",
-      "ancho": 781,
-      "alto": 601,
-      "sha256": "58d3550d99faa35381be6649f766d9115bc07adb192921e47fab999807be30f9",
-      "origen": "dbd906e332128b5c56735408f88bc06e1589fc7a71519c312a22cdb353d6e55d",
-      "tramo": 5,
-      "en": [
-        755,
-        109
-      ]
-    },
-    "knight_dwelling_6": {
-      "imagen": "knight_dwelling_6.webp",
+    "templarios_monasterio": {
+      "imagen": "templarios_monasterio.webp",
       "ancho": 650,
       "alto": 803,
       "sha256": "c56c15c0187e4a41ee68f7ff2d3cc03ae3f0d2679dec294b4554c0fead3d6145",
@@ -276,18 +204,6 @@
       "en": [
         14,
         0
-      ]
-    },
-    "knight_upgrade_6": {
-      "imagen": "knight_upgrade_6.webp",
-      "ancho": 657,
-      "alto": 797,
-      "sha256": "ffd67c5a0d65de49949ff6ff773f05450357761971f24555aedc26625ae097a1",
-      "origen": "6360e5ea0e217df2a73ca21d54c222e21f792610dcf7e5522fcc1c18d11f005f",
-      "tramo": 1,
-      "en": [
-        12,
-        7
       ]
     }
   },

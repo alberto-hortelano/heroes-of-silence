@@ -14,11 +14,12 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { sitioDeEdificio } from '../src/core/town/sitios.js';
+import { sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
+import { FACTION_IDS } from '../src/core/types.js';
 import { disposicionDe, type IndiceDeLaBase, SOLAPE } from '../src/shared/base.js';
 import {
   cuadroDe,
-  DESCRIPCION_DEL_CABALLERO,
+  DESCRIPCION_DE_LOS_TEMPLARIOS,
   dirDeLaBase,
   encargoDeEdicion,
   encargoDeLaPlaca,
@@ -41,7 +42,7 @@ import { sha256 } from './helpers.js';
 import { itLento, segunPrisa } from './lento.js';
 
 const RAIZ = join(import.meta.dirname, '..');
-const FACCIONES = ['knight', 'necromancer'] as const;
+const FACCIONES = FACTION_IDS;
 
 /** El índice escrito de una facción, leído una vez. */
 const INDICES = new Map<string, IndiceDeLaBase>();
@@ -94,20 +95,49 @@ describe('el arte de la base', () => {
     }
   });
 
-  it('el nigromante va con marcadores este ciclo: índice vacío, sin un 404 que pedir', () => {
-    const indice = indiceDe('necromancer');
-    expect(indice.tramos.every((t) => t === null)).toBe(true);
-    expect(indice.suelo).toBeNull();
-    expect(indice.cielo).toBeNull();
-    expect(indice.edificios).toEqual({});
+  it('las cuatro facciones sin arte van con marcadores: índice vacío, sin un 404 que pedir', () => {
+    for (const f of FACCIONES.filter((x) => x !== 'templarios')) {
+      const indice = indiceDe(f);
+      expect(
+        indice.tramos.every((t) => t === null),
+        f,
+      ).toBe(true);
+      expect(indice.suelo, f).toBeNull();
+      expect(indice.cielo, f).toBeNull();
+      expect(indice.edificios, f).toEqual({});
+    }
   });
 
-  it('los encargos: 5 maestros sobre su guía, 5 placas y 8 mejoras, cada una sobre lo de antes', () => {
-    const d = disposicionDe('knight');
-    const maestros = Array.from({ length: d.tramos }, (_, i) => encargoDelMaestro('knight', i + 1));
-    const placas = Array.from({ length: d.tramos }, (_, i) => encargoDeLaPlaca('knight', i + 1));
-    const mejoras = [...mejorasDe('knight')].map((m) => encargoDeEdicion('knight', m.id));
-    expect([maestros.length, placas.length, mejoras.length]).toEqual([5, 5, 8]);
+  it('los templarios heredan el arte de los caballeros: cada edificio suyo lleva su recorte', () => {
+    // Decisión del usuario (18-10-2026): la base templaria es la del caballero.
+    // Sus moradas van en los sitios donde el caballero pintó algo que les cuadra
+    // (`data/buildings.json`); un sitio de morada sin edificio no deja recorte.
+    const edificios = Object.keys(indiceDe('templarios').edificios).sort();
+    expect(edificios).toEqual(
+      sitiosDeLaBase('templarios')
+        .flatMap((s) => s.cadena)
+        .sort(),
+    );
+    expect(edificios).toEqual(
+      expect.arrayContaining([
+        'templarios_pueblo',
+        'templarios_forja',
+        'templarios_establos',
+        'templarios_monasterio',
+      ]),
+    );
+  });
+
+  it('los encargos: 5 maestros sobre su guía, 5 placas y 3 mejoras, cada una sobre lo de antes', () => {
+    const d = disposicionDe('templarios');
+    const maestros = Array.from({ length: d.tramos }, (_, i) =>
+      encargoDelMaestro('templarios', i + 1),
+    );
+    const placas = Array.from({ length: d.tramos }, (_, i) =>
+      encargoDeLaPlaca('templarios', i + 1),
+    );
+    const mejoras = [...mejorasDe('templarios')].map((m) => encargoDeEdicion('templarios', m.id));
+    expect([maestros.length, placas.length, mejoras.length]).toEqual([5, 5, 3]);
     for (const [i, m] of maestros.entries()) {
       const n = i + 1;
       // Cada uno sobre su guía, sin el de al lado: la costura la esconde la
@@ -118,46 +148,48 @@ describe('el arte de la base', () => {
         m.referencias.map((r) => r.papel),
         `maestro-t${n}`,
       ).toEqual(['estilo', 'estilo', 'plaza', 'edificios']);
-      expect(m.referencias[2]?.ruta).toBe(guiaDelTramo('knight', n));
+      expect(m.referencias[2]?.ruta).toBe(guiaDelTramo('templarios', n));
       const bordes =
         n === 1 ? 'el borde derecho' : n === d.tramos ? 'el borde izquierdo' : 'los dos bordes';
       expect(m.descripcion, `maestro-t${n}`).toContain(`LA JUNTA, en ${bordes}`);
       expect(m.descripcion).toContain(`las ${JUNTA.ancho} columnas`);
-      expect(m.salida).toBe(maestroDelTramo('knight', n));
+      expect(m.salida).toBe(maestroDelTramo('templarios', n));
     }
     // Todo cuadro de la base mide un tramo y, al llegar, se vuelve a recortar:
     // lo declara el encargo, no lo adivina el trabajador por la ruta.
     for (const e of [...maestros, ...placas, ...mejoras]) {
       expect(e.fondo, e.id).toBe('opaco');
       expect(e.tamano, e.id).toEqual({ ancho: 1536, alto: 1024 });
-      expect(e.despues, e.id).toEqual({ orden: 'recortar-base', faccion: 'knight' });
+      expect(e.despues, e.id).toEqual({ orden: 'recortar-base', faccion: 'templarios' });
     }
     for (const [i, p] of placas.entries()) {
       expect(p.referencias).toEqual([
-        { ruta: `${maestroDelTramo('knight', i + 1)}.webp`, papel: 'edita' },
+        { ruta: `${maestroDelTramo('templarios', i + 1)}.webp`, papel: 'edita' },
       ]);
-      expect(p.salida).toBe(placaDelTramo('knight', i + 1));
+      expect(p.salida).toBe(placaDelTramo('templarios', i + 1));
       expect(p.salida, 'la placa de Codex solo la lee el taller').toMatch(/\/fuentes\//);
     }
-    for (const [i, { id, antes }] of [...mejorasDe('knight')].entries()) {
+    for (const [i, { id, antes }] of [...mejorasDe('templarios')].entries()) {
       const e = mejoras[i]!;
       expect(e.salida, id).toMatch(new RegExp(`/edicion-${id}$`));
       expect(e.referencias[0], id).toEqual({
-        ruta: `${cuadroDe('knight', antes)}.webp`,
+        ruta: `${cuadroDe('templarios', antes)}.webp`,
         papel: 'edita',
       });
       expect(e.referencias[1]?.papel, id).toBe('edificios');
     }
     // La cadena de las mejoras: city_hall edita town_hall, que edita el maestro.
-    expect(cuadroDe('knight', 'village_hall')).toBe(maestroDelTramo('knight', d.sitios.hall.tramo));
-    expect(encargoDeEdicion('knight', 'city_hall').referencias[0]?.ruta).toBe(
-      `${cuadroDe('knight', 'town_hall')}.webp`,
+    expect(cuadroDe('templarios', 'village_hall')).toBe(
+      maestroDelTramo('templarios', d.sitios.hall.tramo),
+    );
+    expect(encargoDeEdicion('templarios', 'city_hall').referencias[0]?.ruta).toBe(
+      `${cuadroDe('templarios', 'town_hall')}.webp`,
     );
   });
 
-  it('el taller describe exactamente las mejoras del caballero, ni una más', () => {
-    expect(Object.keys(DESCRIPCION_DEL_CABALLERO).sort()).toEqual(
-      [...mejorasDe('knight')].map((m) => m.id).sort(),
+  it('el taller describe exactamente las mejoras de los templarios, ni una más', () => {
+    expect(Object.keys(DESCRIPCION_DE_LOS_TEMPLARIOS).sort()).toEqual(
+      [...mejorasDe('templarios')].map((m) => m.id).sort(),
     );
   });
 
@@ -165,18 +197,18 @@ describe('el arte de la base', () => {
    * Lo que se vuelve a derivar de los tramos: el segundo en el bucle rápido (el
    * primero con solape), todos en el lento. Sin placas no mira nada, y lo dice.
    */
-  const conPlaca = placasDeLaBase('knight').flatMap((hay, i) => (hay ? [i + 1] : []));
+  const conPlaca = placasDeLaBase('templarios').flatMap((hay, i) => (hay ? [i + 1] : []));
   const tramosADerivar = segunPrisa(conPlaca.includes(2) ? [2] : conPlaca.slice(0, 1), conPlaca);
   it.each(tramosADerivar.length > 0 ? tramosADerivar : [0])(
     'tramo %i: lo que pinta el juego es su placa por encima del pie',
     async (n) => {
       if (n === 0) return;
-      const e = indiceDe('knight').tramos[n - 1]!;
-      const t = await derivarTramo('knight', n);
+      const e = indiceDe('templarios').tramos[n - 1]!;
+      const t = await derivarTramo('templarios', n);
       expect({ ancho: t.ancho, alto: t.alto }).toEqual({ ancho: e.ancho, alto: e.alto });
       expect(
         createHash('sha256').update(t.rgba).digest('hex'),
-        'el tramo no es el de su placa: pnpm taller recortar-base knight',
+        'el tramo no es el de su placa: pnpm taller recortar-base templarios',
       ).toBe(e.origen);
       // Por encima del pie, opaco; por debajo del fundido, nada.
       for (let x = n > 1 ? SOLAPE : 0; x < t.ancho; x += 97) {
@@ -198,10 +230,10 @@ describe('el arte de la base', () => {
   );
 
   itLento('el suelo es el que sale de su placa, repetible', async () => {
-    const s = indiceDe('knight').suelo;
+    const s = indiceDe('templarios').suelo;
     if (s === null) return;
-    expect(s.tramo).toBe(await tramoDelSuelo('knight'));
-    const r = await derivarSuelo('knight', s.tramo);
+    expect(s.tramo).toBe(await tramoDelSuelo('templarios'));
+    const r = await derivarSuelo('templarios', s.tramo);
     expect({ ancho: r.ancho, alto: r.alto }).toEqual({ ancho: s.ancho, alto: s.alto });
     expect(createHash('sha256').update(r.v).digest('hex')).toBe(s.origen);
   });
@@ -210,7 +242,7 @@ describe('el arte de la base', () => {
    * Lo que se vuelve a recortar: el primero en el bucle rápido (el ayuntamiento
    * si está), todos en el lento. Hasta que haya recortes no mira nada, y lo dice.
    */
-  const recortes = Object.keys(indiceDe('knight').edificios);
+  const recortes = Object.keys(indiceDe('templarios').edificios);
   const aDerivar = segunPrisa(
     recortes.includes('village_hall') ? ['village_hall'] : recortes.slice(0, 1),
     recortes,
@@ -219,8 +251,8 @@ describe('el arte de la base', () => {
     '%s: el recorte es el que sale de su cuadro y su placa',
     async (id) => {
       if (recortes.length === 0) return;
-      const e = indiceDe('knight').edificios[id]!;
-      const r = await derivarRecorte('knight', id);
+      const e = indiceDe('templarios').edificios[id]!;
+      const r = await derivarRecorte('templarios', id);
       expect({ tramo: r.tramo, en: r.en, ancho: r.ancho, alto: r.alto }).toEqual({
         tramo: e.tramo,
         en: e.en,
@@ -229,7 +261,7 @@ describe('el arte de la base', () => {
       });
       expect(
         createHash('sha256').update(r.rgba).digest('hex'),
-        'el recorte no es el de sus fuentes: pnpm taller recortar-base knight',
+        'el recorte no es el de sus fuentes: pnpm taller recortar-base templarios',
       ).toBe(e.origen);
     },
   );

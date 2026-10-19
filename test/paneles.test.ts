@@ -60,8 +60,9 @@ describe('las cifras grandes se leen con separador de miles (QA, 12-10-2026)', (
     expect(conMiles(0)).toBe('0');
     expect(conMiles(-12_000)).toBe('-12\u00A0000');
     expect(() => conMiles(2.5)).toThrow('no es un entero');
+    // En el panel, la experiencia del héroe recién hecho (base 9 000 desde el 19-10-2026).
     expect(readFileSync(ANCLA, 'utf8')).toContain(
-      '<span class="label">Experiencia</span><span>176\u00A0000 / 304\u00A0000</span>',
+      '<span class="label">Experiencia</span><span>99\u00A0000 / 171\u00A0000</span>',
     );
   });
 });
@@ -151,7 +152,7 @@ describe('la fila de un equipado (M5)', () => {
     session.selectedHeroId = heroe.id;
     heroe.army = [
       {
-        creature: 'peasant',
+        creature: 'goblin-lancero',
         veterania: {
           id: 'veterano-1',
           experiencia: 0,

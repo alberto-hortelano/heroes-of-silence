@@ -47,7 +47,7 @@ describe('la marcha sale del área (#226)', () => {
   });
 
   it('maxMovePoints la aplica: un héroe anda la tabla a escala, no la tabla', () => {
-    const army = [{ creature: 'zombie' }];
+    const army = [{ creature: 'zombi' }];
     expect(maxMovePoints({ army, skills: {} }, undefined)).toBe(
       marchaALaEscala(SPEED_TO_MOVE_POINTS.very_slow),
     );

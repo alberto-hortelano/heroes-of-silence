@@ -20,6 +20,13 @@
  * su efecto en una partida. Dos tandas de generadores distintos tampoco se
  * comparan entre sí.
  *
+ * **Desde F3 (19-10-2026) la población es otra**: templarios contra no muertos
+ * (las dos primeras de `FACTION_IDS`), del catálogo de la arena, con armadura y
+ * armas por uso. Las cifras medidas de abajo son de caballeros contra
+ * nigromantes y no se comparan con las de hoy. La primera con la población
+ * nueva, la regla por defecto (el segundo tramo) en 1 000 parejas: **57,65 % ±
+ * 1,18** (161 ganadas · 831 empatadas · 8 perdidas), peor batalla 14 rondas.
+ *
  * ## Por qué a nivel de batalla y no de partida
  *
  * Distinguir un 55 % de un 50 % con partidas enteras pide 783 partidas; 40 dan
@@ -137,7 +144,7 @@ import { EQUIPO_BASE } from '../../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
 import { heroUnit } from '../../src/core/hero/hero.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
-import type { Stack, UnitInfo } from '../../src/core/types.js';
+import { FACTION_IDS, type Stack, type UnitInfo } from '../../src/core/types.js';
 import { ejercitoDe, tropaDe } from './ejercitos.js';
 
 const args = process.argv.slice(2);
@@ -278,7 +285,9 @@ function jugar(state: BattleState, rng: Rng, tacticas: Record<Side, Tactica>): R
 function ejercitosDe(semilla: number): Record<Side, Stack[]> {
   const rng = createRng(semilla * PRIMO_DE_EJERCITOS);
   const de = MAGIA ? tropaDe : ejercitoDe;
-  return { attacker: de('knight', rng), defender: de('necromancer', rng) };
+  // Las dos primeras de las cinco facciones, siempre las mismas: la medida compara
+  // dos IA de batalla, no facciones.
+  return { attacker: de(FACTION_IDS[0], rng), defender: de(FACTION_IDS[1], rng) };
 }
 
 /**

@@ -721,29 +721,35 @@ async function main(): Promise<void> {
   // como las otras tres —devuelve JSON igual que ellas—, y por eso ahora entra
   // en el recuento: el arnés ejercitaba cinco tools y su propio informe decía
   // cuatro, que es contar mal justo en la línea que existe para contar.
-  const ficha = (await consulta(client, 'creature_stats', { creature: 'paladin' })) as {
+  const ficha = (await consulta(client, 'creature_stats', { creature: 'templario-escudo' })) as {
     name?: string;
-    dwelling?: number;
+    dwelling?: string | null;
     level?: number;
     powerIndex?: number;
+    armor?: number;
+    equipment?: Record<string, string | null>;
   };
-  if (ficha.name !== 'Paladín') {
+  if (ficha.name !== 'Guerrero con escudo') {
     throw new Error(`creature_stats no devuelve la ficha: ${JSON.stringify(ficha).slice(0, 200)}`);
   }
-  // El nivel derivado de las cifras (12-10-2026): la morada viaja como
-  // `dwelling`, y `level` es la primera cifra de `powerIndex`, no la morada.
+  // El catálogo de las cinco facciones (19-10-2026): el edificio que la produce
+  // viaja como `dwelling`, `level` es la primera cifra de `powerIndex`, y con su
+  // equipo de serie (`equipment`, por hueco del contrato) y su armadura.
   if (
-    ficha.dwelling !== 6 ||
+    ficha.dwelling !== 'templarios_pueblo' ||
     typeof ficha.powerIndex !== 'number' ||
     ficha.level !== Math.floor(ficha.powerIndex / 100) ||
-    'morada' in ficha
+    ficha.equipment?.melee_weapon !== 'espada' ||
+    ficha.armor !== 7 ||
+    'morada' in ficha ||
+    'equipoDeSerie' in ficha
   ) {
     throw new Error(
-      `creature_stats no trae "dwelling", "level" y "powerIndex" como dice el contrato: ${JSON.stringify(ficha).slice(0, 300)}`,
+      `creature_stats no trae "dwelling", "equipment", "armor", "level" y "powerIndex" como dice el contrato: ${JSON.stringify(ficha).slice(0, 400)}`,
     );
   }
   log(
-    `creature_stats responde correctamente: paladín, morada ${ficha.dwelling}, índice ${ficha.powerIndex}, nivel ${ficha.level}`,
+    `creature_stats responde correctamente: guerrero con escudo, de ${ficha.dwelling}, índice ${ficha.powerIndex}, nivel ${ficha.level}, armadura ${ficha.armor}`,
   );
 
   // Los otros dos catálogos, por su CONTENIDO: antes solo se comprobaba que

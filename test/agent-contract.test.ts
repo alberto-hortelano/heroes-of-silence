@@ -11,6 +11,7 @@ import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction, createBattle, legalActions } from '../src/core/battle/battle.js';
 import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../src/core/battle/carga.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import {
   adventureActionSchema,
   battleActionSchema,
@@ -30,7 +31,7 @@ import {
   serializeMapRequest,
   serializeTownVoices,
 } from '../src/core/contract/serialize.js';
-import { ASALTANTES, allCreatures, creature, EQUIPO } from '../src/core/data.js';
+import { ASALTANTES, EQUIPO, tiposDeHeroe } from '../src/core/data.js';
 import { deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../src/core/hero/equipo.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import {
@@ -59,8 +60,19 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
-import { FACTION_IDS } from '../src/core/types.js';
-import { conCaminos, forzarBatalla, forzarTurno, planDeNodos } from './helpers.js';
+import { FACTION_IDS, SPEED_TO_HEXES } from '../src/core/types.js';
+import {
+  conCaminos,
+  forzarBatalla,
+  forzarTurno,
+  JINETE,
+  NO_MUERTO,
+  PESADA,
+  planDeNodos,
+  TIRADOR,
+  TROPA,
+  TROPA_BARATA,
+} from './helpers.js';
 
 describe('contrato con el agente', () => {
   it('cada tipo de petición tiene esquema y formato de respuesta', () => {
@@ -81,7 +93,12 @@ describe('contrato con el agente', () => {
       { type: 'move_hero' as const, hero: heroesOf(state, 0)[0]!.id, to: { x: 5, y: 5 } },
       // La que la IA usa para cambiar tropa (`planRecruits`), que en esta
       // semilla y este día no le hace falta.
-      { type: 'dismiss' as const, hero: heroesOf(state, 0)[0]!.id, creature: 'peasant', count: 1 },
+      {
+        type: 'dismiss' as const,
+        hero: heroesOf(state, 0)[0]!.id,
+        creature: TROPA_BARATA,
+        count: 1,
+      },
       { type: 'end_turn' as const },
     ];
     // Y la prosa la anuncia: un agente no descubre una acción que no le cuentan.
@@ -106,7 +123,7 @@ describe('contrato con el agente', () => {
       deLaIA,
       { type: 'equip', hero: hero.id, item: 'maza' },
       { type: 'equip', hero: hero.id, item: 'maza', veteran: 'veterano-1' },
-      { type: 'equip', hero: hero.id, item: 'maza', creature: 'peasant' },
+      { type: 'equip', hero: hero.id, item: 'maza', creature: TROPA_BARATA },
       { type: 'unequip', hero: hero.id, slot: 'melee_weapon' },
       { type: 'unequip', hero: hero.id, slot: 'lance', veteran: 'veterano-1' },
       { type: 'unequip', hero: hero.id, slot: 'shield' },
@@ -198,7 +215,7 @@ describe('contrato con el agente', () => {
     hero.mochila = ['maza'];
     hero.army = [
       {
-        creature: 'pikeman',
+        creature: TROPA,
         veterania: {
           id: 'veterano-4',
           experiencia: 0,
@@ -208,7 +225,7 @@ describe('contrato con el agente', () => {
           equipo: { armadura: 'brigantina' },
         },
       },
-      { creature: 'pikeman' },
+      { creature: TROPA },
     ];
     const turno = (): any => serializeAdventureTurn(state, 0);
     const h = turno().heroes[0];
@@ -248,12 +265,12 @@ describe('contrato con el agente', () => {
     const battle = createBattle(
       {
         army: [
-          { creature: 'swordsman', count: 10 },
-          { creature: 'archer', count: 6 },
+          { creature: PESADA, count: 10 },
+          { creature: TIRADOR, count: 6 },
         ],
         hero: null,
       },
-      { army: [{ creature: 'skeleton', count: 20 }], hero: null },
+      { army: [{ creature: NO_MUERTO, count: 20 }], hero: null },
       rng,
     );
     for (const accion of legalActions(battle)) {
@@ -967,7 +984,7 @@ describe('lo que ve el agente', () => {
 
     const vista = payload.towns.find((t) => t.id === town.id)!;
     for (const r of vista.recruitable) {
-      expect(r.leadership).toBe(creature(r.creature).leadership);
+      expect(r.leadership).toBe(unidadDelJuego(r.creature).leadership);
     }
     // La base nace guarnecida (`guarnicionBase`), así que lo usado no es 0: es
     // lo que ocupa esa tropa, y la vista tiene que decirlo.
@@ -1042,8 +1059,8 @@ describe('lo que ve el agente', () => {
     // Un solo sitio decide si la lista va y por qué no: el serializador. Cada
     // motivo sale de una batalla real, no de un estado fabricado.
     const battle = createBattle(
-      { army: [{ creature: 'swordsman', count: 5 }], hero: null },
-      { army: [{ creature: 'pikeman', count: 5 }], hero: null },
+      { army: [{ creature: PESADA, count: 5 }], hero: null },
+      { army: [{ creature: TROPA, count: 5 }], hero: null },
       createRng(3),
     );
     forzarTurno(battle, 'attacker-0');
@@ -1093,7 +1110,7 @@ describe('lo que ve el agente', () => {
     const turno = (criatura: string): Record<string, unknown> => {
       const battle = createBattle(
         { army: [{ creature: criatura, count: 5 }], hero: null },
-        { army: [{ creature: 'pikeman', count: 5 }], hero: null },
+        { army: [{ creature: TROPA, count: 5 }], hero: null },
         createRng(3),
       );
       battle.stacks.find((x) => x.id === 'attacker-0')!.hex = { col: 0, row: 4 };
@@ -1101,28 +1118,30 @@ describe('lo que ve el agente', () => {
       forzarTurno(battle, 'attacker-0');
       return serializeBattleTurn(battle, 'attacker', 'propia', 0) as Record<string, unknown>;
     };
-    const jinetes = turno('cavalry');
-    expect(jinetes.stepsLeft).toBe(6);
-    // Contra quién y desde dónde: la casilla de la recta con el piquero detrás,
+    const jinetes = turno(JINETE);
+    expect(jinetes.stepsLeft).toBe(SPEED_TO_HEXES[unidadDelJuego(JINETE).speed]);
+    // Contra quién y desde dónde: la casilla de la recta con el escudo detrás,
     // y ninguna de las vacías (H1).
     expect(jinetes.chargeFrom).toEqual([{ target: 'defender-0', col: 4, row: 4, hexes: 4 }]);
-    const espadas = turno('swordsman');
-    expect(espadas.stepsLeft).toBe(4);
+    const espadas = turno(PESADA);
+    expect(espadas.stepsLeft).toBe(SPEED_TO_HEXES[unidadDelJuego(PESADA).speed]);
     expect('chargeFrom' in espadas).toBe(false);
   });
 
   it('`chargeFrom` viaja cuando hay alguna casilla de carga, no cuando la unidad tiene el rasgo', () => {
-    // Caballería con el tramo entero gastado y pegada al enemigo: le queda
+    // El jinete con el tramo entero gastado y pegado al enemigo: le queda
     // golpear, pero no hay casilla a la que ir ni, por tanto, desde la que cargar.
     const battle = createBattle(
-      { army: [{ creature: 'cavalry', count: 5 }], hero: null },
-      { army: [{ creature: 'pikeman', count: 5 }], hero: null },
+      { army: [{ creature: JINETE, count: 5 }], hero: null },
+      { army: [{ creature: TROPA, count: 5 }], hero: null },
       createRng(3),
     );
+    // Anda toda su velocidad en recta y se queda al lado del enemigo.
+    const pasos = SPEED_TO_HEXES[unidadDelJuego(JINETE).speed];
     battle.stacks.find((x) => x.id === 'attacker-0')!.hex = { col: 0, row: 4 };
-    battle.stacks.find((x) => x.id === 'defender-0')!.hex = { col: 7, row: 4 };
+    battle.stacks.find((x) => x.id === 'defender-0')!.hex = { col: pasos + 1, row: 4 };
     forzarTurno(battle, 'attacker-0');
-    applyAction(battle, { type: 'move', to: { col: 6, row: 4 } }, createRng(1));
+    applyAction(battle, { type: 'move', to: { col: pasos, row: 4 } }, createRng(1));
     expect(battle.turno?.stack).toBe('attacker-0');
     const vista = serializeBattleTurn(battle, 'attacker', 'propia', 0) as Record<string, unknown>;
     expect(vista.stepsLeft).toBe(0);
@@ -1131,8 +1150,8 @@ describe('lo que ve el agente', () => {
 
   it('`turnId` es el ordinal del turno: no cambia con un tramo y sí con el turno siguiente', () => {
     const battle = createBattle(
-      { army: [{ creature: 'swordsman', count: 5 }], hero: null },
-      { army: [{ creature: 'pikeman', count: 5 }], hero: null },
+      { army: [{ creature: PESADA, count: 5 }], hero: null },
+      { army: [{ creature: TROPA, count: 5 }], hero: null },
       createRng(3),
     );
     battle.stacks.find((x) => x.id === 'attacker-0')!.hex = { col: 0, row: 4 };
@@ -1413,7 +1432,13 @@ describe('lo que ve el agente', () => {
   it('la petición de mapa describe la paleta disponible', () => {
     const payload = serializeMapRequest({ width: 24, height: 24, players: [0, 1] });
     expect(payload.palette.terrains).toContain('grass');
-    expect(payload.palette.factions).toEqual(['knight', 'necromancer']);
+    expect(payload.palette.factions).toEqual([
+      'templarios',
+      'no-muertos',
+      'imperio',
+      'elfos',
+      'orkos',
+    ]);
   });
 
   it('las facciones y las criaturas de guardia de la paleta salen del catálogo, no de una copia (#108)', () => {
@@ -1423,30 +1448,24 @@ describe('lo que ve el agente', () => {
     const ciudad = mapPlanSchema.shape.towns.element.shape.faction;
     expect(ciudad.options).toEqual([...FACTION_IDS]);
 
-    // Cada criatura de guardia existe, es base —ninguna otra mejora a ella— y
-    // de morada ≤ 4; y cada facción pone las suyas. Es la regla que la lista
-    // escrita a mano cumplía sin decirlo.
-    const mejoras = new Set(allCreatures().flatMap((c) => c.upgradesTo ?? []));
+    // La regla: las unidades del catálogo de nivel ≤ 3, todas y solo ellas, y
+    // cada facción pone las suyas. Un id que no existiera lo lanzaría
+    // `unidadDelJuego`.
+    const guardias = new Set(palette.creaturesForGuards);
+    expect(guardias.size).toBe(palette.creaturesForGuards.length);
     for (const id of palette.creaturesForGuards) {
-      const c = creature(id);
-      expect(mejoras.has(id), `${id} es una mejora`).toBe(false);
-      expect(c.morada).toBeLessThanOrEqual(4);
+      expect(nivelDeUnidad(unidadDelJuego(id)), id).toBeLessThanOrEqual(3);
+    }
+    for (const c of unidadesDelJuego()) {
+      if (!guardias.has(c.id)) expect(nivelDeUnidad(c), c.id).toBeGreaterThan(3);
     }
     for (const f of FACTION_IDS) {
-      expect(palette.creaturesForGuards.some((id) => creature(id).faction === f)).toBe(true);
+      expect(palette.creaturesForGuards.some((id) => unidadDelJuego(id).faction === f)).toBe(true);
     }
-    // Y lo que el agente recibe no cambia al derivarla: son las ocho de antes,
-    // en el mismo orden.
-    expect(palette.creaturesForGuards).toEqual([
-      'peasant',
-      'archer',
-      'pikeman',
-      'swordsman',
-      'skeleton',
-      'zombie',
-      'mummy',
-      'vampire',
-    ]);
+    // El jinete de nivel 4 se queda fuera: la sugerencia no le pone al agente
+    // lo más fuerte de cada facción en el primer recodo.
+    expect(nivelDeUnidad(unidadDelJuego(JINETE))).toBeGreaterThan(3);
+    expect(guardias.has(JINETE)).toBe(false);
   });
 
   it('la petición de mapa sigue pidiendo ancho y alto, y aconseja las regiones y minas del procedimental (#195)', () => {
@@ -1495,7 +1514,7 @@ describe('respuestas del agente', () => {
   it('acepta una respuesta de turno bien formada', () => {
     const r = responseSchemas.adventure_turn.safeParse({
       actions: [
-        { type: 'build', town: 'town-1', building: 'knight_dwelling_2' },
+        { type: 'build', town: 'town-1', building: 'templarios_monasterio' },
         { type: 'move_hero', hero: 'hero-1', to: { x: 3, y: 4 } },
       ],
       reasoning: 'Construyo y salgo a por la mina.',
@@ -1513,7 +1532,7 @@ describe('respuestas del agente', () => {
 
   it('rechaza reclutar una cantidad negativa', () => {
     const r = responseSchemas.adventure_turn.safeParse({
-      actions: [{ type: 'recruit', town: 't', creature: 'peasant', count: -5 }],
+      actions: [{ type: 'recruit', town: 't', creature: TROPA_BARATA, count: -5 }],
     });
     expect(r.success).toBe(false);
   });
@@ -1543,18 +1562,23 @@ describe('respuestas del agente', () => {
 
 describe('el nivel en el contrato: derivado de las cifras (12-10-2026)', () => {
   it('`creature_stats` da la morada como `dwelling` y el `level` y el `powerIndex` derivados', () => {
-    for (const c of allCreatures()) {
+    for (const c of unidadesDelJuego()) {
       const ficha = fichaDeCriatura(c);
-      expect(ficha.dwelling, c.id).toBe(c.morada);
+      expect(ficha.dwelling, c.id).toBe(c.edificio);
       expect(ficha.powerIndex, c.id).toBe(indiceDePoder(c));
       expect(ficha.level, c.id).toBe(Math.floor(ficha.powerIndex / 100));
       expect(ficha.level, c.id).toBe(nivelDeUnidad(c));
       expect('morada' in ficha, c.id).toBe(false);
+      expect('edificio' in ficha, c.id).toBe(false);
       // Las cifras van tal cual: el agente no recibe otra criatura que la del motor.
       expect(ficha).toMatchObject({ attack: c.attack, damage: c.damage, hp: c.hp });
     }
-    // El montaraz es de la morada 2 y sus cifras son de nivel 3: dos datos.
-    expect(fichaDeCriatura(creature('ranger'))).toMatchObject({ dwelling: 2, level: 3 });
+    // La morada y el nivel son dos datos: el pueblo de los templarios suelta
+    // guerreros con escudo y escuderos, y las cifras de cada uno dan su nivel.
+    const escudo = fichaDeCriatura(unidadDelJuego(TROPA));
+    const escudero = fichaDeCriatura(unidadDelJuego('templario-escudero'));
+    expect(escudero.dwelling).toBe(escudo.dwelling);
+    expect(escudero.level).not.toBe(escudo.level);
   });
 
   it('la prosa nombra rango y nivel con las claves que viajan', () => {
@@ -1609,8 +1633,10 @@ describe('la tropa se hace héroe: el contrato', () => {
   it('cada héroe del turno lleva su tipo, y solo el nacido de la tropa su historia', () => {
     const state = newGame({ seed: 12 });
     const turno = serializeAdventureTurn(state, 0) as { heroes: Record<string, unknown>[] };
+    // El héroe inicial lleva el primer tipo de su facción, el de por defecto.
+    const porDefecto = tiposDeHeroe(state.players[0]!.faction)[0]!.id;
     for (const h of turno.heroes) {
-      expect(h.type).toBe('caballero');
+      expect(h.type).toBe(porDefecto);
       expect('story' in h).toBe(false);
     }
   });

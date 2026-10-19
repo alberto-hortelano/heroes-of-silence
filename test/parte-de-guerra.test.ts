@@ -25,8 +25,8 @@ import { startingArmy } from '../src/core/state/setup.js';
 function espejo(semilla: number): { battle: BattleState; rng: ReturnType<typeof createRng> } {
   const rng = createRng(semilla);
   const battle = createBattle(
-    { army: troopsAsStacks(startingArmy('knight', rng)), hero: null },
-    { army: troopsAsStacks(startingArmy('necromancer', rng)), hero: null },
+    { army: troopsAsStacks(startingArmy('templarios', rng)), hero: null },
+    { army: troopsAsStacks(startingArmy('no-muertos', rng)), hero: null },
     rng,
   );
   return { battle, rng };

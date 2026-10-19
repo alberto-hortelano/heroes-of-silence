@@ -280,20 +280,18 @@ export function construirVista(state: GameState, directorLog: readonly string[])
 /**
  * Se quita `unit` exactamente cuando `createBattle` la sacó del catálogo
  * (`origen: catalogo`), que es lo que deja a `adaptarBatalla` rehacerla con
- * `cifrasDeCatalogo` sin adivinar nada: un veterano también, porque su
+ * `cifrasDeUnidad` sin adivinar nada: un veterano también, porque su
  * experiencia viaja en `origen.veterania`. El personaje y el héroe la traen de
  * otro sitio y viajan con ella.
  *
  * Y no viaja lo que el espectador no lee: `ganado` —la contabilidad de la
  * batalla en curso, que cobra `settleBattle`—, el precio de rendición, la hoja
- * de servicios y las cifras sin equipo (`UnitInfo.sinEquipo`, que solo leen la
- * ficha y el retoque de la arena, y el espectador no tiene ninguno) con lo puesto (`UnitInfo.equipo`). Iban en cada fotograma por el
+ * de servicios y lo puesto (`UnitInfo.equipo`). Iban en cada fotograma por el
  * solo hecho de estar en el objeto.
  */
 function stackAlCable(s: BattleStack): StackEnCable {
   const { unit: cifras, ganado: _ganado, origen, ...resto } = s;
-  // Sin renombrarlo: `sinEquipo:` es como se escribe, y solo lo escribe `conEquipo`.
-  const { sinEquipo, equipo: _equipo, ...unit } = cifras;
+  const { equipo: _equipo, ...unit } = cifras;
   switch (origen.kind) {
     case 'catalogo':
       return { ...resto, origen: { kind: 'catalogo', veterania: hojaAlCable(origen.veterania) } };

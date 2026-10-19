@@ -27,10 +27,14 @@ import {
   type Side,
 } from '../battle/types.js';
 import {
+  cifrasDeUnidad,
+  type UnidadDelJuego,
+  unidadDelJuego,
+  unidadesDeFaccion,
+} from '../catalogo.js';
+import {
   ASALTANTES,
-  creature,
   EQUIPO,
-  factionLineup,
   isShooter,
   LIDERAZGO,
   NIVEL_POR_SUELO,
@@ -40,7 +44,6 @@ import {
 import type { VeteranoEnBase } from '../hero/ascenso.js';
 import { cifrasDePieza, deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
 import {
-  cifrasDeCatalogo,
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
   rangoDeTropa,
@@ -94,7 +97,7 @@ import {
   townSpells,
 } from '../town/town.js';
 import { vecinosDeLaBase, vozDe } from '../town/voces.js';
-import type { Army, Creature, Equipo, PlayerId } from '../types.js';
+import type { Army, Equipo, PlayerId } from '../types.js';
 import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS } from '../types.js';
 import { SLOT_DE_HUECO, type Slot } from './huecos.js';
 
@@ -538,8 +541,8 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       recruitable: dwellings(t).map(({ creature: id }) => ({
         creature: id,
         available: t.available[id] ?? 0,
-        cost: creature(id).cost,
-        leadership: creature(id).leadership,
+        cost: unidadDelJuego(id).cost,
+        leadership: unidadDelJuego(id).leadership,
       })),
       garrison: armyView(t.garrison, state.characters),
       garrisonLeadership: { used: armyLeadership(t.garrison), max: GARRISON_LEADERSHIP },
@@ -609,9 +612,9 @@ export function serializeHeroFromTroop(state: GameState, playerId: PlayerId, v: 
     veteran: {
       id: v.veterania.id,
       creature: v.creature,
-      creatureName: creature(v.creature).name,
+      creatureName: unidadDelJuego(v.creature).name,
       rank: rangoDeTropa(v.veterania),
-      level: nivelDeUnidad(cifrasDeCatalogo(v.creature, v.veterania)),
+      level: nivelDeUnidad(cifrasDeUnidad(v.creature, v.veterania)),
       experience: v.veterania.experiencia,
       battles: v.veterania.batallas,
       kills: v.veterania.bajas,
@@ -913,24 +916,46 @@ function comoRepartenLosNiveles(): string {
 }
 
 /**
- * La ficha de una criatura del catálogo tal como la lee el agente
- * (`creature_stats`): sus cifras, su `dwelling` (la morada que la produce, el
- * `morada` del catálogo) y lo que se deriva de las cifras, su `level` y su
- * `powerIndex` (`core/nivel.ts`). Antes la tool mandaba el catálogo en crudo, y
- * con el nivel derivado eso era mandar la morada con el nombre del nivel.
+ * La ficha de una unidad del catálogo tal como la lee el agente
+ * (`creature_stats`): sus cifras con su equipo de serie puesto, su `dwelling` (el
+ * edificio que la produce, `null` si ninguno), lo que lleva (`equipment`, por
+ * hueco del contrato, y `armor`, los puntos que resta de cada golpe) y lo que se
+ * deriva de las cifras, su `level` y su `powerIndex` (`core/nivel.ts`). Las armas
+ * por uso y la rueda de cada una no viajan: el agente las lee de las piezas
+ * (`equipment` y el catálogo de equipo de su prosa).
  */
-export function fichaDeCriatura(c: Creature) {
-  const { morada, ...cifras } = c;
-  return { ...cifras, dwelling: morada, level: nivelDeUnidad(c), powerIndex: indiceDePoder(c) };
+export function fichaDeCriatura(c: UnidadDelJuego) {
+  // Campo a campo, no «todo menos lo que no viaja»: quitar `armas` o la armadura
+  // por desestructuración era nombrarlas fuera de su escritor (`conEquipo`), y un
+  // campo nuevo de `UnitInfo` llegaría al agente sin que nadie lo decidiera.
+  return {
+    id: c.id,
+    name: c.name,
+    faction: c.faction,
+    attack: c.attack,
+    defense: c.defense,
+    damage: c.damage,
+    hp: c.hp,
+    speed: c.speed,
+    ...(c.traits === undefined ? {} : { traits: c.traits }),
+    leadership: c.leadership,
+    cost: c.cost,
+    growth: c.growth,
+    dwelling: c.edificio,
+    equipment: equipoView(c.equipoDeSerie),
+    armor: armaduraDe(c),
+    level: nivelDeUnidad(c),
+    powerIndex: indiceDePoder(c),
+  };
 }
 
 /**
- * Hasta qué morada se sugieren criaturas para guardar el mapa
- * (`palette.creaturesForGuards`). Es la cifra que tenía la lista escrita a mano
- * cuando se derivó (#108): una sugerencia, no una regla —`validateMapPlan`
- * acepta cualquier criatura del catálogo—.
+ * Hasta qué nivel se sugieren unidades para guardar el mapa
+ * (`palette.creaturesForGuards`): una sugerencia, no una regla —`validateMapPlan`
+ * acepta cualquier unidad del catálogo—. Era la morada 4 de caballeros y
+ * nigromantes; con las cinco facciones, el nivel 3 deja fuera a los jinetes.
  */
-const MORADA_MAXIMA_DE_GUARDIA = 4;
+const NIVEL_MAXIMO_DE_GUARDIA = 3;
 
 export function serializeMapRequest(opts: MapRequestOptions) {
   return {
@@ -939,7 +964,7 @@ export function serializeMapRequest(opts: MapRequestOptions) {
       width: opts.width,
       height: opts.height,
       players: opts.players,
-      theme: opts.theme ?? 'un valle en disputa entre un reino caballeresco y una necrópolis',
+      theme: opts.theme ?? 'un valle en disputa entre dos ejércitos',
     },
     palette: {
       // Derivada, no copiada: era la tercera declaración de la misma lista de
@@ -959,14 +984,14 @@ export function serializeMapRequest(opts: MapRequestOptions) {
         maxStrength: ASALTANTES.fuerzaMax,
         examples: ASALTANTES.composiciones,
       },
-      // Derivada del catálogo y no escrita a mano (#108): las criaturas base
-      // —sin las mejoras— de morada ≤ `MORADA_MAXIMA_DE_GUARDIA` de cada facción.
+      // Derivada del catálogo y no escrita a mano (#108): las unidades de nivel
+      // ≤ `NIVEL_MAXIMO_DE_GUARDIA` de cada facción.
       // La prosa le dice al agente que use estas tal cual, así que una copia que
       // se quedara atrás le haría escribir un id que `validateMapPlan` rechaza.
       creaturesForGuards: FACTION_IDS.flatMap((f) =>
-        factionLineup(f)
-          .filter((c) => c.morada <= MORADA_MAXIMA_DE_GUARDIA)
-          .map((c) => c.id),
+        unidadesDeFaccion(f)
+          .filter((u) => nivelDeUnidad(u) <= NIVEL_MAXIMO_DE_GUARDIA)
+          .map((u) => u.id),
       ),
     },
     advice: [

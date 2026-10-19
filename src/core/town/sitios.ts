@@ -1,9 +1,10 @@
 /**
  * Los sitios de una base: dónde se levanta cada edificio, sin geometría.
  *
- * Una base tiene doce sitios fijos —seis de villa y seis moradas— y cada uno
+ * Una base tiene doce sitios fijos —seis de villa y seis de morada— y cada uno
  * lleva una CADENA de mejora: el ayuntamiento se hace casa consistorial y luego
- * palacio en el mismo sitio, la morada de nivel 2 se mejora donde está. Dónde cae
+ * palacio en el mismo sitio. Una morada no tiene mejora (19-10-2026) y una
+ * facción puede dejar sitios de morada vacíos: su cadena va vacía. Dónde cae
  * cada sitio en el fondo de la escena es presentación y vive en
  * `data/bases/<facción>.json`, que este módulo no lee (lo vigila
  * `invariantes.test.ts`): aquí solo está qué se levanta en cada uno, que lo leen
@@ -42,7 +43,7 @@ export interface Sitio {
   readonly id: SitioId;
   /** Los edificios que se levantan aquí, en orden de mejora. */
   readonly cadena: readonly string[];
-  /** Nivel de morada, si este sitio cría criaturas. */
+  /** El sitio de morada (1 a 6, `Building.morada`), si este sitio cría unidades. No es un nivel. */
   readonly nivel?: number;
 }
 
@@ -51,10 +52,9 @@ export interface Sitio {
  *
  * Las del gremio, la armería y las moradas se DERIVAN del catálogo: el gremio por
  * `mageGuildLevel` en orden de nivel, la armería por `sellsEquipment`, las
- * moradas por `dwellingLevel` y `upgradesLevel`. Escritas a mano eran una trampa
+ * moradas por su sitio (`Building.morada`). Escritas a mano eran una trampa
  * esperando —el día que entrara `mage_guild_3`, la IA podría construirlo y la
- * persona no lo vería nunca—; derivadas, el `lvl6` del nigromante sale con un
- * solo eslabón sin que nadie sepa nada del dragón óseo.
+ * persona no lo vería nunca—.
  */
 export function sitiosDeLaBase(faccion: FactionId): readonly Sitio[] {
   const propios = buildingsOfFaction(faccion);
@@ -63,11 +63,7 @@ export function sitiosDeLaBase(faccion: FactionId): readonly Sitio[] {
     .filter((b) => b.mageGuildLevel !== undefined)
     .slice()
     .sort((a, b) => (a.mageGuildLevel ?? 0) - (b.mageGuildLevel ?? 0));
-  const morada = (nivel: number): string[] =>
-    ids([
-      ...propios.filter((b) => b.dwellingLevel === nivel),
-      ...propios.filter((b) => b.upgradesLevel === nivel),
-    ]);
+  const morada = (sitio: number): string[] => ids(propios.filter((b) => b.morada === sitio));
 
   return [
     { id: 'hall', cadena: ['village_hall', 'town_hall', 'city_hall'] },

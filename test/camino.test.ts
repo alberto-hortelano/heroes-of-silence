@@ -35,10 +35,10 @@ function pelea(semilla: number): BattleState {
     {
       army: troopsAsStacks(
         ejercito(
-          { creature: 'pikeman', count: 2 },
-          { creature: 'archer', count: 1 },
-          { creature: 'cavalry', count: 1 },
-          { creature: 'swordsman', count: 2 },
+          { creature: 'templario-escudo', count: 2 },
+          { creature: 'elfo-arquero', count: 1 },
+          { creature: 'templario-hermano-de-carga', count: 1 },
+          { creature: 'templario-mandoble', count: 2 },
         ),
       ),
       hero: null,
@@ -46,10 +46,10 @@ function pelea(semilla: number): BattleState {
     {
       army: troopsAsStacks(
         ejercito(
-          { creature: 'skeleton', count: 2 },
-          { creature: 'vampire', count: 1 },
-          { creature: 'bone_dragon', count: 1 },
-          { creature: 'mummy', count: 2 },
+          { creature: 'esqueleto-guerrero', count: 2 },
+          { creature: 'caballero-de-la-muerte', count: 1 },
+          { creature: 'jinete-de-plaga', count: 1 },
+          { creature: 'caballero-de-la-muerte', count: 2 },
         ),
       ),
       hero: null,
@@ -176,7 +176,7 @@ describe('hacia dónde mira', () => {
       expect(NOMBRES_DE_DIRECCION[INDICE_DE_HOJA[mira]], mira).toBe(nombre);
     }
     // Ocho direcciones, ocho hojas distintas: no hay dos que compartan una espejada.
-    const arte = arteDe('peasant');
+    const arte = arteDe('goblin-lancero');
     const hojas = new Set(casos.map(([mira]) => hojaDe(arte, mira)));
     expect(hojas.size).toBe(8);
   });

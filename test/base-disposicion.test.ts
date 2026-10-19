@@ -10,7 +10,7 @@
  * lance con su frase: un guardia que nunca se ha visto morder no guarda nada.
  */
 import { describe, expect, it } from 'vitest';
-import knightJson from '../data/bases/knight.json' with { type: 'json' };
+import templariosJson from '../data/bases/templarios.json' with { type: 'json' };
 import { SITIOS } from '../src/core/town/sitios.js';
 import { idsDeVecinos } from '../src/core/town/voces.js';
 import {
@@ -28,10 +28,10 @@ import {
   TRAMO,
 } from '../src/shared/base.js';
 
-const FACCIONES = ['knight', 'necromancer'] as const;
+const FACCIONES = ['templarios', 'no-muertos'] as const;
 
 /** Una copia del JSON del caballero para estropearla. */
-const copia = (): any => JSON.parse(JSON.stringify(knightJson));
+const copia = (): any => JSON.parse(JSON.stringify(templariosJson));
 
 describe('la disposición de la base', () => {
   it('cada facción tiene exactamente los doce sitios del núcleo', () => {
@@ -56,12 +56,12 @@ describe('la disposición de la base', () => {
       // Cada tramo se monta `SOLAPE` sobre el anterior.
       expect(PASO_DE_TRAMO).toBe((TRAMO.ancho - SOLAPE) / TRAMO.pxPorPaso);
     }
-    expect(disposicionDe('knight').ancho).toBe(disposicionDe('necromancer').ancho);
+    expect(disposicionDe('templarios').ancho).toBe(disposicionDe('no-muertos').ancho);
     // ~50 pasos (decisión del usuario): lo de fuera se mide sobre el cuadro, de 0
     // a 6 por lado. Con la junta de medio paso y los cinco tramos pintados, 58
     // (F3): Codex llenó T5 hasta el borde y no sobra nada que recortar.
-    expect(disposicionDe('knight').ancho).toBeGreaterThanOrEqual(48);
-    expect(disposicionDe('knight').ancho).toBeLessThanOrEqual(58);
+    expect(disposicionDe('templarios').ancho).toBeGreaterThanOrEqual(48);
+    expect(disposicionDe('templarios').ancho).toBeLessThanOrEqual(58);
     // Un tramo a 128 px por paso es lo que pinta el juego sin remuestrear.
     expect(PASOS_POR_TRAMO).toBe(12);
   });
@@ -105,7 +105,7 @@ describe('la disposición de la base', () => {
       }
     }
     // En F2, Codex pintó la plaza de T1 y de T2 a alturas distintas: cada uno baja lo suyo.
-    const k = disposicionDe('knight');
+    const k = disposicionDe('templarios');
     expect(Math.abs(k.bajar[0]! - k.bajar[1]!)).toBeGreaterThan(50);
   });
 
@@ -164,19 +164,19 @@ describe('la disposición de la base', () => {
     it('si falta un sitio', () => {
       const j = copia();
       delete j.sitios.tavern;
-      expect(() => leerDisposicion('knight', j)).toThrow(/falta el sitio "tavern"/);
+      expect(() => leerDisposicion('templarios', j)).toThrow(/falta el sitio "tavern"/);
     });
 
     it('si sobra un sitio', () => {
       const j = copia();
       j.sitios.establo = j.sitios.lvl5;
-      expect(() => leerDisposicion('knight', j)).toThrow(/sobra el sitio "establo"/);
+      expect(() => leerDisposicion('templarios', j)).toThrow(/sobra el sitio "establo"/);
     });
 
     it('si un sitio está en un tramo que no existe', () => {
       const j = copia();
       j.sitios.lvl5.tramo = 6;
-      expect(() => leerDisposicion('knight', j)).toThrow(
+      expect(() => leerDisposicion('templarios', j)).toThrow(
         /el sitio "lvl5" está en el tramo 6, y los hay del 1 al 5/,
       );
     });
@@ -186,7 +186,7 @@ describe('la disposición de la base', () => {
       // Lo de fuera del primer tramo no se ve: un edificio ahí no se pisa nunca.
       j.fuera = [1, j.fuera[1]];
       j.sitios.lvl6.region[0] = 100;
-      expect(() => leerDisposicion('knight', j)).toThrow(
+      expect(() => leerDisposicion('templarios', j)).toThrow(
         /la región de "lvl6" \(100-\d+, hasta la fila \d+\) sale de lo que se ve de su tramo 1 \(columnas 128-1536/,
       );
     });
@@ -196,7 +196,7 @@ describe('la disposición de la base', () => {
       const [g0, g1] = j.sitios.guild.region;
       j.sitios.tavern.region[0] = g1 - 10;
       j.sitios.tavern.puerta[0] = Math.max(j.sitios.tavern.puerta[0], g1);
-      expect(() => leerDisposicion('knight', j)).toThrow(
+      expect(() => leerDisposicion('templarios', j)).toThrow(
         new RegExp(
           `las regiones de "guild" \\(${g0}-${g1}\\) y "tavern" \\(${g1 - 10}-\\d+\\) se pisan en el tramo 2`,
         ),
@@ -207,7 +207,7 @@ describe('la disposición de la base', () => {
       const j = copia();
       const [h0, h1, pie] = j.sitios.hall.region;
       j.sitios.hall.puerta = [h1 + 5, pie - 10];
-      expect(() => leerDisposicion('knight', j)).toThrow(
+      expect(() => leerDisposicion('templarios', j)).toThrow(
         new RegExp(
           `la puerta de "hall" \\(${h1 + 5}, ${pie - 10}\\) cae fuera de su región \\(${h0}-${h1}`,
         ),
@@ -220,7 +220,7 @@ describe('la disposición de la base', () => {
       // a −2 de la raya, tiene que estar a −4 de lvl5.
       const lvl5 = j.sitios.lvl5.puerta[1] as number;
       j.sitios.lvl3.puerta[1] = Math.round(lvl5 + 2 * (filaDelPanorama(-2) - filaDelPanorama(0)));
-      expect(() => leerDisposicion('knight', j)).toThrow(
+      expect(() => leerDisposicion('templarios', j)).toThrow(
         /la plaza pintada no casa con la franja: el umbral de "lvl3" queda a -(1\.99|2\.0\d) pasos de la raya/,
       );
     });
@@ -228,27 +228,27 @@ describe('la disposición de la base', () => {
     it('si un tramo no tiene ningún sitio: sin puertas no hay pie por el que alinearlo', () => {
       const j = copia();
       j.tramos = 6;
-      expect(() => leerDisposicion('knight', j)).toThrow(/el tramo 6 no tiene ningún sitio/);
+      expect(() => leerDisposicion('templarios', j)).toThrow(/el tramo 6 no tiene ningún sitio/);
     });
 
     it('si un vecino cae fuera de la franja, no está en data/vecinos.json o falta', () => {
       const j = copia();
       j.vecinos.mozo.en = [10, -1];
-      expect(() => leerDisposicion('knight', j)).toThrow(
+      expect(() => leerDisposicion('templarios', j)).toThrow(
         /el vecino "mozo" \(10\.00, -1\.00\) cae fuera de lo que se pisa/,
       );
       const k = copia();
       k.vecinos.forastero = { en: k.entrada, mira: 'S' };
-      expect(() => leerDisposicion('knight', k)).toThrow(/el vecino "forastero" no está/);
+      expect(() => leerDisposicion('templarios', k)).toThrow(/el vecino "forastero" no está/);
       const l = copia();
       delete l.vecinos.mozo;
-      expect(() => leerDisposicion('knight', l)).toThrow(/falta dónde está el vecino "mozo"/);
+      expect(() => leerDisposicion('templarios', l)).toThrow(/falta dónde está el vecino "mozo"/);
     });
 
     it('si lo que se recorta por fuera no va de 0 a 6 pasos', () => {
       const j = copia();
       j.fuera = [7, 5];
-      expect(() => leerDisposicion('knight', j)).toThrow(
+      expect(() => leerDisposicion('templarios', j)).toThrow(
         /lo que se recorta por la izquierda son 7 pasos: va de 0 a 6/,
       );
     });
@@ -256,7 +256,9 @@ describe('la disposición de la base', () => {
     it('si la entrada no se pisa', () => {
       const j = copia();
       j.entrada = [25, 5];
-      expect(() => leerDisposicion('knight', j)).toThrow(/la entrada .* fuera de lo que se pisa/);
+      expect(() => leerDisposicion('templarios', j)).toThrow(
+        /la entrada .* fuera de lo que se pisa/,
+      );
     });
   });
 });

@@ -12,11 +12,11 @@ import {
   basesPosibles,
   CIFRA_MAXIMA_DE_HEROE,
   cadenaDeBases,
+  cuerpoDelStack,
   escritaDe,
   fichaDeHeroeDeArena,
   finalDeArena,
   type HeroeDeArena,
-  type HojaDeArena,
   LADOS,
   type Lado,
   ladoDe,
@@ -84,6 +84,7 @@ import {
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
+  oroDelIndice,
   type Pieza,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   SOLO_EN_KITS,
@@ -103,6 +104,7 @@ import {
   seVende,
   textoDeModificador,
 } from '@core/hero/equipo.js';
+import { indiceDePoder } from '@core/nivel.js';
 import {
   type CifraDePieza,
   CREATURE_TRAITS,
@@ -111,9 +113,11 @@ import {
   conComa,
   describirCoste,
   esArmaPorUso,
+  FACTION_IDS,
   HUECOS,
   type Hueco,
   NOMBRE_DE_CIFRA,
+  NOMBRE_DE_FACCION,
   NOMBRE_DE_HUECO,
   SPEED_TO_HEXES,
   type UnitInfo,
@@ -122,9 +126,8 @@ import {
 import {
   CASILLAS_MAX,
   CASILLAS_MIN,
-  FACCIONES_DE_ARENA,
   HABILIDADES_DE_LA_ARENA,
-  NOMBRE_DE_FACCION_DE_ARENA,
+  type HojaDeArena,
   type UnidadDeArena,
   unidadDeCombate,
 } from '@core/unidad.js';
@@ -241,7 +244,7 @@ function tarjetaDeUnidad(t: TarjetaDeUnidad, modo: ModoDelCatalogo): Html {
         <img${srcDeImagen(rutaDeIdentidad(t.retrato))} alt="${t.nombre}" loading="lazy" width="64" height="64">
         ${t.sello === undefined ? NADA : html`<span class="sello">${t.sello}</span>`}
         <span class="nombre">${t.nombre}</span>
-        <span class="cost">${NOMBRE_DE_FACCION_DE_ARENA[t.faccion]}</span>
+        <span class="cost">${NOMBRE_DE_FACCION[t.faccion]}</span>
         ${t.incompleta === null ? NADA : html`<span class="cost" data-incompleta title="${t.incompleta}">Incompleta: ${t.incompleta}</span>`}
         <span class="botones">${botonesDeTarjeta(modo, { kind: 'unidad', id: t.id }, t.incompleta)}</span>
       </div>`;
@@ -343,8 +346,8 @@ export function renderCatalogo(
   if (modo.kind === 'edicion' && modo.plegada) return cabecera;
   const nueva = extra.cuerpos === undefined ? NADA : renderNuevaUnidad(extra.cuerpos);
   const botones = unir(
-    (['todas', ...FACCIONES_DE_ARENA] as const).map((f) => {
-      const nombre = f === 'todas' ? 'Todas' : NOMBRE_DE_FACCION_DE_ARENA[f];
+    (['todas', ...FACTION_IDS] as const).map((f) => {
+      const nombre = f === 'todas' ? 'Todas' : NOMBRE_DE_FACCION[f];
       return html`<button data-arena="filtro" data-faccion="${f}" class="${f === filtro ? 'primary' : ''}">${nombre}</button>`;
     }),
   );
@@ -1252,7 +1255,7 @@ export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: Com
   return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'unidad', id: u.id })}">
       ${tituloDeFicha(
         u.name,
-        `Ficha · ${NOMBRE_DE_FACCION_DE_ARENA[u.faction]}`,
+        `Ficha · ${NOMBRE_DE_FACCION[u.faction]}`,
         como,
         html`data-campo="name"`,
         notaDelPie(
@@ -1289,9 +1292,8 @@ export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: Com
           {
             clave: 'gold',
             rotulo: 'Coste',
-            nota: 'En oro.',
-            casilla: { atributo: html`data-campo="gold"`, valor: u.cost.gold, minimo: 0 },
-            final: u.cost.gold,
+            nota: 'En oro, en la partida. No se escribe: sale de su índice de poder (data/economia.json).',
+            final: oroDelIndice(indiceDePoder(combate)),
           },
         ],
       )}`,
@@ -1997,15 +1999,18 @@ function botonDeEditar(x: BattleStack, nombre: string): Html {
 
 /**
  * Lo que suma el equipo a una `cifra` de `u`: lo de ahora menos lo de su cuerpo
- * (`UnitInfo.sinEquipo`, que escribe solo `conEquipo`), en la pastilla de toda
+ * (`cuerpo`, el del stack sin equipo, `cuerpoDelStack`), en la pastilla de toda
  * suma de equipo (`textoDeModificador`, como `modificadoresEnPantalla`), o nada
  * si no suma. La velocidad, en casillas, que es como se lee al lado. La armadura
  * no pasa por aquí: el cuerpo no la lleva, toda es del equipo, y su fila la dice
  * entera (`filasDelStack`).
  */
-function delEquipo(u: UnitInfo, cifra: Exclude<CifraDePieza, 'armadura'>): Html {
-  const cuerpo = u.sinEquipo;
-  if (cuerpo === undefined) return NADA;
+function delEquipo(
+  u: UnitInfo,
+  cuerpo: UnitInfo | null,
+  cifra: Exclude<CifraDePieza, 'armadura'>,
+): Html {
+  if (cuerpo === null || u.equipo === undefined) return NADA;
   let m: ModificadorDePieza;
   switch (cifra) {
     case 'ataque':
@@ -2045,15 +2050,16 @@ export function filasDelStack(
 ): Html {
   const b = s.battle;
   const u = x.unit;
+  const cuerpo = cuerpoDelStack(b, x);
   const danio =
     conArmas && u.equipo !== undefined
       ? filasDeArmas(u, b.arena.cargaAPie, (uso) => ataqueYDefensaEnBatalla(b, x, uso).ataque)
-      : html`<div class="row"><span class="label">Daño</span><span>${u.damage[0]}–${u.damage[1]}${delEquipo(u, 'danio')}</span></div>`;
+      : html`<div class="row"><span class="label">Daño</span><span>${u.damage[0]}–${u.damage[1]}${delEquipo(u, cuerpo, 'danio')}</span></div>`;
   return html`<div class="row"><span class="label">Vida</span><span>${isAlive(x) ? x.topHp : 0} / ${u.hp} PV</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, x, s.defensaEnLoAlto(x))}${delEquipo(u, 'ataque')}${delEquipo(u, 'defensa')}</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, x, s.defensaEnLoAlto(x))}${delEquipo(u, cuerpo, 'ataque')}${delEquipo(u, cuerpo, 'defensa')}</span></div>
         ${armaduraDe(u) === 0 ? NADA : html`<div class="row"><span class="label">${NOMBRE_DE_CIFRA.armadura}</span><span>${armaduraDe(u)}</span></div>`}
         ${danio}
-        <div class="row"><span class="label">Velocidad</span><span>${SPEED_TO_HEXES[u.speed]} casillas${delEquipo(u, 'velocidad')}</span></div>`;
+        <div class="row"><span class="label">Velocidad</span><span>${SPEED_TO_HEXES[u.speed]} casillas${delEquipo(u, cuerpo, 'velocidad')}</span></div>`;
 }
 
 /**

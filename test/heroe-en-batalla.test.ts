@@ -23,7 +23,8 @@ import {
   surrenderBlocker,
 } from '../src/core/battle/battle.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
-import { creature, HEROE } from '../src/core/data.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
+import { HEROE } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { HERO_BODY, type Hero, heroUnit } from '../src/core/hero/hero.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
@@ -47,7 +48,19 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Army, Point, Stack } from '../src/core/types.js';
-import { avanzarHasta, costesDelAlcance, ejercito, forzarBatalla } from './helpers.js';
+import {
+  avanzarHasta,
+  costesDelAlcance,
+  ejercito,
+  forzarBatalla,
+  NO_MUERTO,
+  PESADA,
+  primeraSemillaCon,
+  TIRADOR,
+  TIRADOR_NO_MUERTO,
+  TROPA,
+  TROPA_BARATA,
+} from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -152,8 +165,8 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
     const { atacante, defensor } = batallaDeHeroes(
       state,
       ctx(3),
-      [{ creature: 'peasant', count: 3 }],
-      [{ creature: 'skeleton', count: 2 }],
+      [{ creature: TROPA_BARATA, count: 3 }],
+      [{ creature: NO_MUERTO, count: 2 }],
     );
     const batalla = state.pendingBattle!.battle;
     for (const [side, hero] of [
@@ -191,8 +204,8 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
 
   it('un monstruo o una guarnición no tienen comandante', () => {
     const b = createBattle(
-      lado(ejercito({ creature: 'peasant', count: 3 }), heroeDeBatalla()),
-      lado(ejercito({ creature: 'skeleton', count: 3 }), null),
+      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), heroeDeBatalla()),
+      lado(ejercito({ creature: NO_MUERTO, count: 3 }), null),
       createRng(1),
     );
     expect(b.stacks.filter((s) => s.origen.kind === 'heroe').map((s) => s.side)).toEqual([
@@ -203,8 +216,8 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
   it('matar al héroe da la batalla al rival aunque a su bando le quede tropa', () => {
     const rng = createRng(4);
     const b = createBattle(
-      lado(ejercito({ creature: 'paladin', count: 2 }), heroeDeBatalla()),
-      lado(ejercito({ creature: 'skeleton', count: 5 }), heroeDeBatalla()),
+      lado(ejercito({ creature: PESADA, count: 2 }), heroeDeBatalla()),
+      lado(ejercito({ creature: NO_MUERTO, count: 5 }), heroeDeBatalla()),
       rng,
     );
     const comandante = stackById(b, 'defender-heroe');
@@ -224,58 +237,82 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
 
   it('el héroe ocupa el séptimo puesto: seis de tropa caben y siete no', () => {
     const seis = createBattle(
-      lado(ejercito({ creature: 'peasant', count: 6 }), heroeDeBatalla()),
-      lado(ejercito({ creature: 'skeleton', count: 7 }), null),
+      lado(ejercito({ creature: TROPA_BARATA, count: 6 }), heroeDeBatalla()),
+      lado(ejercito({ creature: NO_MUERTO, count: 7 }), null),
       createRng(1),
     );
     expect(seis.stacks.filter((s) => s.side === 'attacker')).toHaveLength(7);
     expect(() =>
       createBattle(
-        lado(ejercito({ creature: 'peasant', count: 7 }), heroeDeBatalla()),
-        lado(ejercito({ creature: 'skeleton', count: 3 }), null),
+        lado(ejercito({ creature: TROPA_BARATA, count: 7 }), heroeDeBatalla()),
+        lado(ejercito({ creature: NO_MUERTO, count: 3 }), null),
         createRng(1),
       ),
     ).toThrow('no caben: el atacante trae 8 y un bando lleva como mucho 7');
   });
 });
 
+/** Lo que cuesta rendirse con dos no-muertos vivos. */
+function precioDeDos(): number {
+  const oro = 2 * unidadDelJuego(NO_MUERTO).cost.gold!;
+  return Math.ceil((oro * HEROE.rendicion.porcentajeDelOro) / 100);
+}
+
+/**
+ * Una batalla que el atacante pierde de largo, en su turno y con oro para
+ * rendirse: tres de la tropa más barata contra seis pesadas, y su héroe a 1 PV.
+ * Sin la herida no pierde de largo: el héroe (500 PV) pesa más que toda su tropa,
+ * y con dos héroes iguales ningún bando baja del tercio del otro
+ * (`RENDIRSE_POR_DEBAJO_DE`, `ai/tactics.ts`).
+ */
+function perdidaDeLargo(): BattleState {
+  const b = createBattle(
+    lado(ejercito({ creature: TROPA_BARATA, count: 3 }), heroeDeBatalla(1000)),
+    lado(ejercito({ creature: PESADA, count: 6 }), heroeDeBatalla()),
+    createRng(6),
+  );
+  hastaQueLeToque(b, 'attacker');
+  stackById(b, 'attacker-heroe').topHp = 1;
+  return b;
+}
+
 describe('la rendición (criterio 5)', () => {
   it('cuesta el ⌈50 %⌉ del oro de catálogo de la tropa viva, sin contar al héroe', () => {
     const b = createBattle(
       lado(
-        ejercito({ creature: 'skeleton', count: 1 }, { creature: 'zombie', count: 2 }),
+        ejercito({ creature: NO_MUERTO, count: 1 }, { creature: TIRADOR_NO_MUERTO, count: 2 }),
         heroeDeBatalla(10_000),
       ),
-      lado(ejercito({ creature: 'peasant', count: 3 }), null),
+      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(2),
     );
-    const oro = creature('skeleton').cost.gold! + 2 * creature('zombie').cost.gold!; // 375
-    expect(surrenderBlocker(b, 'attacker').coste).toBe(
-      Math.ceil((oro * HEROE.rendicion.porcentajeDelOro) / 100),
-    );
-    expect(surrenderBlocker(b, 'attacker').coste).toBe(188); // 187,5 hacia arriba
+    const oro = (n: number) => n * unidadDelJuego(NO_MUERTO).cost.gold!;
+    const deTiro = (n: number) => n * unidadDelJuego(TIRADOR_NO_MUERTO).cost.gold!;
+    const precio = (o: number) => Math.ceil((o * HEROE.rendicion.porcentajeDelOro) / 100);
+    expect(surrenderBlocker(b, 'attacker').coste).toBe(precio(oro(1) + deTiro(2)));
     // Los muertos no se salvan, así que no se pagan.
     stackById(b, 'attacker-1').count = 0;
-    expect(surrenderBlocker(b, 'attacker').coste).toBe(113); // (75 + 150) / 2 = 112,5
+    expect(surrenderBlocker(b, 'attacker').coste).toBe(precio(oro(1) + deTiro(1)));
   });
 
   it('se ofrece cuando se puede, y lo que dice la lista es lo que acepta el motor', () => {
+    const precio = precioDeDos();
     const b = createBattle(
-      lado(ejercito({ creature: 'skeleton', count: 2 }), heroeDeBatalla(500)),
-      lado(ejercito({ creature: 'peasant', count: 3 }), null),
+      lado(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla(500)),
+      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(3),
     );
     hastaQueLeToque(b, 'attacker');
     // Con su precio puesto (H-2): quien decide sabe lo que paga antes de pagarlo.
-    expect(legalActions(b)).toContainEqual({ type: 'surrender', gold: 75 });
+    expect(legalActions(b)).toContainEqual({ type: 'surrender', gold: precio });
     // Un precio que no es el de ahora se rechaza, en vez de cobrar otro callando.
-    expect(() => applyAction(b, { type: 'surrender', gold: 40 }, createRng(3))).toThrow(
-      'no se puede rendir por 40 de oro: ahora cuesta 75',
+    expect(() => applyAction(b, { type: 'surrender', gold: precio - 1 }, createRng(3))).toThrow(
+      `no se puede rendir por ${precio - 1} de oro: ahora cuesta ${precio}`,
     );
     expect(b.finished).toBeNull();
-    applyAction(b, { type: 'surrender', gold: 75 }, createRng(3));
+    applyAction(b, { type: 'surrender', gold: precio }, createRng(3));
     // El precio, una vez: en `finished`. Quién se rindió es el que pierde.
-    expect(b.finished).toEqual({ winner: 'defender', surrender: { gold: 75 } });
+    expect(b.finished).toEqual({ winner: 'defender', surrender: { gold: precio } });
     expect(b.log.slice(-2)).toEqual([
       { kind: 'surrender', side: 'attacker' },
       { kind: 'finished', winner: 'defender' },
@@ -283,16 +320,18 @@ describe('la rendición (criterio 5)', () => {
   });
 
   it('sin héroe, sin oro o sin base no se ofrece, y la frase dice por qué', () => {
+    const precio = precioDeDos();
+    expect(precio).toBeGreaterThan(10);
     const sinOro = createBattle(
-      lado(ejercito({ creature: 'skeleton', count: 2 }), heroeDeBatalla(10)),
-      lado(ejercito({ creature: 'peasant', count: 3 }), null),
+      lado(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla(10)),
+      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(3),
     );
-    expect(surrenderBlocker(sinOro, 'attacker').motivo).toBe('cuesta 75 de oro y tienes 10');
+    expect(surrenderBlocker(sinOro, 'attacker').motivo).toBe(`cuesta ${precio} de oro y tienes 10`);
     expect(surrenderBlocker(sinOro, 'defender').motivo).toBe('este bando no tiene héroe');
     const sinBase = createBattle(
-      lado(ejercito({ creature: 'skeleton', count: 2 }), heroeDeBatalla()),
-      lado(ejercito({ creature: 'peasant', count: 3 }), null),
+      lado(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla()),
+      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(3),
     );
     expect(surrenderBlocker(sinBase, 'attacker').motivo).toBe('no tienes base a la que volver');
@@ -300,7 +339,7 @@ describe('la rendición (criterio 5)', () => {
     hastaQueLeToque(sinOro, 'attacker');
     expect(legalActions(sinOro).some((a) => a.type === 'surrender')).toBe(false);
     expect(() => applyAction(sinOro, { type: 'surrender' }, createRng(3))).toThrow(
-      'no se puede rendir: cuesta 75 de oro y tienes 10',
+      `no se puede rendir: cuesta ${precio} de oro y tienes 10`,
     );
   });
 
@@ -310,8 +349,8 @@ describe('la rendición (criterio 5)', () => {
     batallaDeHeroes(
       state,
       ctx(5),
-      [{ creature: 'paladin', count: 4 }],
-      [{ creature: 'skeleton', count: 2 }],
+      [{ creature: PESADA, count: 4 }],
+      [{ creature: NO_MUERTO, count: 2 }],
       base.at,
     );
     expect(surrenderBlocker(state.pendingBattle!.battle, 'defender').motivo).toBe(
@@ -322,22 +361,18 @@ describe('la rendición (criterio 5)', () => {
   });
 
   it('la IA de reglas se rinde cuando pierde de largo y tiene tropa que salvar', () => {
-    const b = createBattle(
-      lado(ejercito({ creature: 'peasant', count: 3 }), heroeDeBatalla(1000)),
-      lado(ejercito({ creature: 'paladin', count: 6 }), heroeDeBatalla()),
-      createRng(6),
-    );
-    hastaQueLeToque(b, 'attacker');
+    const b = perdidaDeLargo();
     expect(chooseBattleAction(b)).toEqual({ type: 'surrender' });
   });
 
   it('y no se rinde si no le queda tropa: rendirse solo con el héroe es pagar por nada', () => {
     const b = createBattle(
       lado([], heroeDeBatalla(1000)),
-      lado(ejercito({ creature: 'paladin', count: 6 }), heroeDeBatalla()),
+      lado(ejercito({ creature: PESADA, count: 6 }), heroeDeBatalla()),
       createRng(6),
     );
     hastaQueLeToque(b, 'attacker');
+    stackById(b, 'attacker-heroe').topHp = 1;
     expect(chooseBattleAction(b)).not.toEqual({ type: 'surrender' });
   });
 });
@@ -351,8 +386,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante } = batallaDeHeroes(
       state,
       c,
-      [{ creature: 'archer', count: 3 }],
-      [{ creature: 'skeleton', count: 2 }],
+      [{ creature: TIRADOR, count: 3 }],
+      [{ creature: NO_MUERTO, count: 2 }],
     );
     const batalla = state.pendingBattle!.battle;
     hastaQueLeToque(batalla, 'attacker');
@@ -363,12 +398,12 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const desde = state.log.length;
     applyAction(batalla, { type: 'surrender' }, c.rng);
     const precio = batalla.finished!.surrender!.gold;
-    expect(precio).toBe(Math.ceil((vivos * creature('archer').cost.gold! * 50) / 100));
+    expect(precio).toBe(Math.ceil((vivos * unidadDelJuego(TIRADOR).cost.gold! * 50) / 100));
     settleBattle(state, c);
 
     const vuelto = heroById(state, atacante.id);
     expect(vuelto.at).toEqual(base.at);
-    expect(vuelto.army).toEqual(ejercito({ creature: 'archer', count: vivos }));
+    expect(vuelto.army).toEqual(ejercito({ creature: TIRADOR, count: vivos }));
     expect(vuelto.movePoints).toBe(0);
     expect(state.players[0]!.resources.gold).toBe(oroAntes - precio);
     const hechos = state.log.slice(desde);
@@ -392,8 +427,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante } = batallaDeHeroes(
       state,
       c,
-      [{ creature: 'peasant', count: 2 }],
-      [{ creature: 'paladin', count: 6 }],
+      [{ creature: TROPA_BARATA, count: 2 }],
+      [{ creature: PESADA, count: 6 }],
     );
     const desde = state.log.length;
     expect(resolvePendingBattle(state, c).winner).toBe('defender');
@@ -419,8 +454,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante } = batallaDeHeroes(
       state,
       c,
-      [{ creature: 'pikeman', count: 3 }],
-      [{ creature: 'peasant', count: 2 }],
+      [{ creature: TROPA, count: 3 }],
+      [{ creature: TROPA_BARATA, count: 2 }],
     );
     const batalla = state.pendingBattle!.battle;
     // El héroe cae —así, a mano, para que la tropa siga entera— y el siguiente
@@ -446,8 +481,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante } = batallaDeHeroes(
       state,
       c,
-      [{ creature: 'peasant', count: 1 }],
-      [{ creature: 'paladin', count: 6 }],
+      [{ creature: TROPA_BARATA, count: 1 }],
+      [{ creature: PESADA, count: 6 }],
     );
     // Un segundo héroe del mismo jugador, plantado en el castillo.
     const portero: Hero = { ...atacante, id: 'portero', name: 'Portero', at: base.at, army: [] };
@@ -474,8 +509,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante } = batallaDeHeroes(
       state,
       c,
-      [{ creature: 'peasant', count: 1 }],
-      [{ creature: 'paladin', count: 6 }],
+      [{ creature: TROPA_BARATA, count: 1 }],
+      [{ creature: PESADA, count: 6 }],
     );
     // Ocho héroes en el castillo y alrededor, salvo en la primera vecina que se
     // pisa: ahí un montón de oro sin recoger. Un objeto que no bloquea deja
@@ -525,8 +560,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { defensor } = batallaDeHeroes(
       state,
       c,
-      [{ creature: 'peasant', count: 1 }],
-      [{ creature: 'paladin', count: 6 }],
+      [{ creature: TROPA_BARATA, count: 1 }],
+      [{ creature: PESADA, count: 6 }],
     );
     const batalla = state.pendingBattle!.battle;
     // Uno de sus paladines cae antes de empezar, y su héroe ha gastado maná.
@@ -549,8 +584,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante } = batallaDeHeroes(
       state,
       c,
-      [{ creature: 'peasant', count: 1 }],
-      [{ creature: 'paladin', count: 6 }],
+      [{ creature: TROPA_BARATA, count: 1 }],
+      [{ creature: PESADA, count: 6 }],
     );
     expect(resolvePendingBattle(state, c).winner).toBe('defender');
     expect(state.heroes.some((h) => h.id === atacante.id)).toBe(false);
@@ -578,8 +613,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante, defensor } = batallaDeHeroes(
       state,
       c,
-      [{ creature: 'paladin', count: 6 }],
-      [{ creature: 'peasant', count: 1 }],
+      [{ creature: PESADA, count: 6 }],
+      [{ creature: TROPA_BARATA, count: 1 }],
       otro.at,
     );
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
@@ -614,8 +649,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante, defensor } = batallaDeHeroes(
       state,
       c,
-      [{ creature: 'paladin', count: 6 }],
-      [{ creature: 'peasant', count: 1 }],
+      [{ creature: PESADA, count: 6 }],
+      [{ creature: TROPA_BARATA, count: 1 }],
       base.at,
     );
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
@@ -646,12 +681,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
  */
 describe('la IA no se rinde por quien no es ella (H-1)', () => {
   it('con el bando vetado, la misma posición que daba «rendirse» da otra cosa', () => {
-    const b = createBattle(
-      lado(ejercito({ creature: 'peasant', count: 3 }), heroeDeBatalla(1000)),
-      lado(ejercito({ creature: 'paladin', count: 6 }), heroeDeBatalla()),
-      createRng(6),
-    );
-    hastaQueLeToque(b, 'attacker');
+    const b = perdidaDeLargo();
     // La sonda: sin veto se rinde, así que el veto es lo único que cambia.
     expect(chooseBattleAction(b)).toEqual({ type: 'surrender' });
     expect(chooseBattleAction(b, new Set(['attacker']))).not.toEqual({ type: 'surrender' });
@@ -660,21 +690,14 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
   });
 
   /** Una batalla del jugador 0, perdida de largo y con oro para rendirse. */
-  function perdidaDelJugador0(): { state: GameState; c: GameContext } {
-    const state = newGame({ seed: 7 });
-    const c = ctx(7);
+  function perdidaDelJugador0(semilla: number): { state: GameState; c: GameContext } {
+    const state = newGame({ seed: semilla });
+    const c = ctx(semilla);
     batallaDeHeroes(
       state,
       c,
-      [
-        { creature: 'archer', count: 2 },
-        { creature: 'peasant', count: 4 },
-      ],
-      [
-        { creature: 'bone_dragon', count: 1 },
-        { creature: 'lich', count: 2 },
-        { creature: 'vampire', count: 3 },
-      ],
+      [{ creature: TROPA_BARATA, count: 3 }],
+      [{ creature: PESADA, count: 6 }],
     );
     return { state, c };
   }
@@ -682,12 +705,21 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
     state.log.filter((e) => e.kind === 'hero_returned' && e.surrendered).length;
 
   it('`resolvePendingBattle` pelea por los vetados hasta el final, sin rendirse', () => {
-    const libre = perdidaDelJugador0();
-    resolvePendingBattle(libre.state, libre.c);
-    // Sin veto la IA se rinde: es la posición que reproduce el hallazgo.
-    expect(rendiciones(libre.state)).toBe(1);
+    // Sin veto la IA se rinde: es la posición que reproduce el hallazgo. Que se
+    // rinda depende de cómo vaya la pelea (con el héroe sano no pierde de largo,
+    // `perdidaDeLargo`), así que se busca la semilla en que lo hace.
+    const { semilla } = primeraSemillaCon(
+      'una batalla en que la IA se rinde por el jugador 0',
+      (s) => {
+        const libre = perdidaDelJugador0(s);
+        resolvePendingBattle(libre.state, libre.c);
+        return rendiciones(libre.state) === 1 ? s : undefined;
+      },
+      1,
+      20,
+    );
 
-    const vetada = perdidaDelJugador0();
+    const vetada = perdidaDelJugador0(semilla);
     const oro = vetada.state.players[0]!.resources.gold;
     resolvePendingBattle(vetada.state, vetada.c, new Set([0]));
     expect(rendiciones(vetada.state)).toBe(0);
@@ -702,12 +734,8 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
       const st = ses.state;
       const mio = heroesOf(st, 0)[0]!;
       const suyo = heroesOf(st, 1)[0]!;
-      mio.army = ejercito({ creature: 'archer', count: 2 }, { creature: 'peasant', count: 4 });
-      suyo.army = ejercito(
-        { creature: 'bone_dragon', count: 1 },
-        { creature: 'lich', count: 2 },
-        { creature: 'vampire', count: 3 },
-      );
+      mio.army = ejercito({ creature: TROPA_BARATA, count: 3 });
+      suyo.army = ejercito({ creature: PESADA, count: 6 });
       // A dos pasos del rival y en casilla pisable: con el mapa de nodos, dos a
       // la izquierda puede ser cordillera.
       mio.at = casillaADosPasos(st, suyo.at);

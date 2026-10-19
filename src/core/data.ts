@@ -1,8 +1,11 @@
-/** Catálogo de criaturas: carga `data/creatures.json` y lo tipa. */
+/**
+ * Las tablas de datos del juego (`data/*.json`), leídas y validadas al cargar.
+ * El catálogo de unidades no está aquí: lo lee `core/catalogo.ts`, que necesita
+ * el equipo y el nivel, y desde aquí sería un ciclo.
+ */
 import asaltantesJson from '../../data/asaltantes.json' with { type: 'json' };
 import barrerasJson from '../../data/barreras.json' with { type: 'json' };
-import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
-import creaturesJson from '../../data/creatures.json' with { type: 'json' };
+import economiaJson from '../../data/economia.json' with { type: 'json' };
 import equipoJson from '../../data/equipo.json' with { type: 'json' };
 import experienciaJson from '../../data/experiencia.json' with { type: 'json' };
 import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
@@ -29,13 +32,13 @@ import {
 } from './map/terrain.js';
 import type {
   CifraDePieza,
-  Creature,
   CreatureTrait,
   Equipo,
   ExtrasDeLaRueda,
   FactionId,
   Hueco,
   NivelesDeLaRueda,
+  Resources,
   SpeedTier,
   TipoDeGolpe,
   UnitInfo,
@@ -49,58 +52,12 @@ import {
   HUECOS,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
+  RESOURCE_KINDS,
   SPEED_TIERS,
   TIPOS_DE_GOLPE,
   TIPOS_DEL_ANILLO,
 } from './types.js';
 import { esIdDePieza, revisarLista } from './validar.js';
-
-const byId = new Map<string, Creature>();
-
-/**
- * La facción de una criatura del catálogo, comprobada contra `FACTION_IDS` en
- * vez de casteada: con el `as`, una facción mal escrita en el JSON entraba al
- * juego y salía por el contrato como un valor que el esquema del plan rechaza.
- */
-function faccionDelCatalogo(id: string, faccion: string): FactionId {
-  const valida = FACTION_IDS.find((f) => f === faccion);
-  if (valida === undefined) {
-    throw new Error(
-      `data/creatures.json: la criatura "${id}" es de la facción "${faccion}", que no es ninguna de las del juego (${FACTION_IDS.join(', ')})`,
-    );
-  }
-  return valida;
-}
-
-for (const raw of creaturesJson.creatures) {
-  const creature: Creature = {
-    id: raw.id,
-    faction: faccionDelCatalogo(raw.id, raw.faction),
-    morada: raw.morada,
-    leadership: raw.leadership,
-    name: raw.name,
-    attack: raw.attack,
-    defense: raw.defense,
-    damage: [raw.damage[0] as number, raw.damage[1] as number],
-    hp: raw.hp,
-    speed: raw.speed as SpeedTier,
-    growth: raw.growth,
-    cost: raw.cost,
-    ...('shots' in raw ? { shots: raw.shots as number } : {}),
-    ...('hexes' in raw ? { hexes: raw.hexes as number } : {}),
-    ...('traits' in raw ? { traits: raw.traits as readonly CreatureTrait[] } : {}),
-    ...('upgradesTo' in raw ? { upgradesTo: raw.upgradesTo as string } : {}),
-  };
-  byId.set(creature.id, creature);
-}
-
-/**
- * Las facciones que se juegan: las del catálogo de criaturas, no una lista
- * aparte. La leen las tablas por facción —guarniciones y tipos de héroe— para
- * que una facción nueva en el catálogo las ponga en rojo al cargar si le falta
- * su fila.
- */
-const FACCIONES: readonly FactionId[] = [...new Set([...byId.values()].map((c) => c.faction))];
 
 /**
  * Un entero que se puede sumar sin perder bits, y ≥ `desde`. Es la única forma
@@ -109,31 +66,8 @@ const FACCIONES: readonly FactionId[] = [...new Set([...byId.values()].map((c) =
  * `isSafeInteger` y no `isInteger`, por lo mismo que `entorno.ts`: `1e21` es
  * entero y no se puede sumar.
  */
-function enteroDesde(v: unknown, desde: number): v is number {
+export function enteroDesde(v: unknown, desde: number): v is number {
   return typeof v === 'number' && Number.isSafeInteger(v) && v >= desde;
-}
-
-/** Lanza si el id no existe: un id de criatura inventado es un bug, no un vacío. */
-export function creature(id: string): Creature {
-  const found = byId.get(id);
-  if (found === undefined) throw new Error(`criatura desconocida: "${id}"`);
-  return found;
-}
-
-export function allCreatures(): readonly Creature[] {
-  return [...byId.values()];
-}
-
-/** Las 6 criaturas base de una facción, de la morada 1 a la 6 (sin mejoras). */
-export function factionLineup(faction: FactionId): readonly Creature[] {
-  const upgrades = new Set(
-    allCreatures()
-      .map((c) => c.upgradesTo)
-      .filter((id): id is string => id !== undefined),
-  );
-  return allCreatures()
-    .filter((c) => c.faction === faction && !upgrades.has(c.id))
-    .sort((a, b) => a.morada - b.morada);
 }
 
 export function hasTrait(c: UnitInfo, trait: CreatureTrait): boolean {
@@ -312,129 +246,6 @@ export interface GrupoDeTropa {
 }
 
 /**
- * Lo que impide que unos grupos de tropa formen **un bando**: una criatura que
- * no existe, un número que no es de individuos o más de los que lleva un bando
- * (`maxPorBando`). Vacío: valen. `quien` encabeza cada frase.
- *
- * Una sola comprobación para los dos sitios donde se escriben grupos a mano:
- * la guarnición neutral de `data/ciudades.json` y los monstruos de un plan de
- * mapa (`validateMapPlan`). Eran dos copias con dos redacciones, y una ciudad
- * neutral y un monstruo acaban en la misma batalla con el mismo tope.
- */
-export function problemasDeGrupo(grupos: readonly GrupoDeTropa[], quien: string): string[] {
-  const problemas: string[] = [];
-  let total = 0;
-  for (const g of grupos) {
-    if (!byId.has(g.creature)) {
-      problemas.push(
-        `${quien} es de una criatura que no existe: "${g.creature}". Las que valen: ${[...byId.keys()].sort().join(', ')}`,
-      );
-      continue;
-    }
-    if (!enteroDesde(g.count, 1)) {
-      problemas.push(
-        `${quien} trae ${g.count} × ${g.creature}: son individuos, tiene que ser un entero de 1 en adelante`,
-      );
-      continue;
-    }
-    total += g.count;
-  }
-  if (problemas.length === 0 && total > LIDERAZGO.maxPorBando) {
-    const cuales = grupos.map((g) => `${g.count} × ${g.creature}`).join(' + ');
-    problemas.push(`${quien} trae ${cuales} y un bando lleva como mucho ${LIDERAZGO.maxPorBando}`);
-  }
-  return problemas;
-}
-
-/**
- * Lo que impide que unos grupos quepan bajo un tope de liderazgo: lo de
- * `problemasDeGrupo` y, además, que no ocupen más de `tope`. `queEs` nombra a
- * quien tiene el tope en la frase —«una guarnición», «un grupo de
- * asaltantes»—. Un monstruo no tiene tope; una ciudad y un asaltante, sí.
- *
- * Eran dos copias —la de la guarnición y la del asaltante— con la misma suma y
- * otra frase. La suma no pasa por `armyLeadership` (`hero/troop.ts`) aunque es
- * la misma cuenta: este módulo valida sus tablas AL CARGAR, y `troop.ts` lo
- * importa a él, así que llamarla desde aquí cerraría un ciclo justo en la
- * evaluación del módulo.
- *
- * Una guarnición que naciera por encima dejaría el castillo en un estado que
- * ninguna partida alcanza reclutando —lo vigila `tropa.test.ts` sobre partidas
- * enteras—, y el tope existe porque una guarnición mayor que el héroe recién
- * contratado deja partidas en tablas para siempre (`data/liderazgo.json`).
- */
-export function problemasDeTopeDeLiderazgo(
-  grupos: readonly GrupoDeTropa[],
-  quien: string,
-  tope: number,
-  queEs: string,
-): string[] {
-  const problemas = problemasDeGrupo(grupos, quien);
-  if (problemas.length > 0) return problemas;
-  let ocupa = 0;
-  for (const g of grupos) ocupa += creature(g.creature).leadership * g.count;
-  if (ocupa > tope) {
-    problemas.push(`${quien} ocupa ${ocupa} de liderazgo y ${queEs} lleva como mucho ${tope}`);
-  }
-  return problemas;
-}
-
-/**
- * Lee una tabla de guarniciones de `data/ciudades.json`, una por facción.
- *
- * Se valida al cargar y no al usarla: una criatura mal escrita, una guarnición
- * de más de `maxPorBando` individuos o de más liderazgo que el de guarnición
- * revientan aquí con el nombre del fichero, en vez de en la primera batalla
- * contra esa ciudad, con la partida ya en marcha.
- */
-function tablaDeGuarniciones(
-  clave: 'guarnicionNeutral' | 'guarnicionBase',
-  que: string,
-): Readonly<Record<FactionId, readonly GrupoDeTropa[]>> {
-  const tabla = ciudadesJson[clave] as Record<string, readonly GrupoDeTropa[]> | undefined;
-  if (tabla === undefined) throw new Error(`data/ciudades.json: falta "${clave}"`);
-  const out = {} as Record<FactionId, readonly GrupoDeTropa[]>;
-  for (const faccion of FACCIONES) {
-    const grupos = tabla[faccion];
-    if (grupos === undefined) {
-      throw new Error(`data/ciudades.json: falta ${que} de ${faccion}`);
-    }
-    const problemas = problemasDeTopeDeLiderazgo(
-      grupos,
-      `data/ciudades.json: ${que} de ${faccion}`,
-      LIDERAZGO.guarnicion,
-      'una guarnición',
-    );
-    if (problemas.length > 0) throw new Error(problemas.join('; '));
-    out[faccion] = grupos;
-  }
-  return out;
-}
-
-/**
- * La guarnición con la que nace una ciudad **neutral**, por su facción.
- * **Inventada y provisional**: la fijó el usuario como regla («nacen CON
- * guarnición») y no como cifra.
- */
-const GUARNICION_NEUTRAL = tablaDeGuarniciones('guarnicionNeutral', 'la guarnición neutral');
-
-/**
- * La guarnición con la que nace la **base** de cada jugador, de la facción de su
- * dueño. **Inventada y provisional**, igual que la neutral: la pidió el usuario
- * cuando «perder la base elimina» convirtió las partidas en carreras contra una
- * base vacía. Las murallas y la ventaja del defensor son de la fase 3.
- */
-const GUARNICION_DE_BASE = tablaDeGuarniciones('guarnicionBase', 'la guarnición de la base');
-
-export function guarnicionNeutral(faction: FactionId): readonly GrupoDeTropa[] {
-  return GUARNICION_NEUTRAL[faction];
-}
-
-export function guarnicionDeBase(faction: FactionId): readonly GrupoDeTropa[] {
-  return GUARNICION_DE_BASE[faction];
-}
-
-/**
  * Las reglas de los asaltantes de caminos, de `data/asaltantes.json`.
  * **Inventadas y provisionales**, y así lo dice su `_comment`: en HoMM2 los
  * monstruos del mapa no se mueven, así que no hay fila que copiar.
@@ -485,15 +296,9 @@ function reglasDeAsaltantes(): ReglasDeAsaltantes {
   if (j.composiciones.length === 0) {
     throw new Error(`${fichero}: no hay ninguna composición, y un grupo que brota necesita una`);
   }
-  const problemas = j.composiciones.flatMap((grupos, i) =>
-    problemasDeTopeDeLiderazgo(
-      grupos,
-      `${fichero}: la composición ${i}`,
-      j.liderazgoMax,
-      'un grupo de asaltantes',
-    ),
-  );
-  if (problemas.length > 0) throw new Error(problemas.join('; '));
+  // Cada composición (unidades que existan, cupo, liderazgo y fuerza) la mira
+  // `state/asaltantes.ts` al cargar: pide el catálogo de unidades y la fuerza, y
+  // desde aquí serían ciclos.
   return {
     probabilidadSemanal: j.probabilidadSemanal,
     pasosPorDia: j.pasosPorDia,
@@ -520,30 +325,19 @@ export interface ReglasDeExperiencia {
   readonly rangoMaximoDeTropa: number;
   /** Lo que suma a ataque y defensa cada rango por encima del 1. */
   readonly porRango: { readonly ataque: number; readonly defensa: number };
-  /**
-   * Qué habilidad gana cada criatura en los rangos 2…`rangoMaximoDeTropa`, por
-   * id de criatura. **Inertes**: no hay motor de habilidades todavía.
-   */
-  readonly habilidades: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
- * Valida unas reglas de experiencia contra el catálogo de habilidades y el de
- * criaturas, y las devuelve tipadas. **Lanza con todos los problemas a la vez**,
- * escritos para quien edita el JSON.
+ * Valida unas reglas de experiencia y las devuelve tipadas. **Lanza con todos los
+ * problemas a la vez**, escritos para quien edita el JSON. Exportada con el JSON
+ * de argumento para que un test pueda darle uno roto y verla morder.
  *
- * Exportada y con los catálogos de argumento para que un test pueda darle un
- * JSON roto y verla morder: sin eso, el guardia de nombres solo se probaría con
- * el fichero bueno, que es probar que no muerde.
- *
- * El nombre de una habilidad se compara **exacto** contra el catálogo, que se
- * sacó del cuaderno con una expresión regular (`tools/datos/habilidades.ts`):
- * una habilidad escrita de memoria es la forma en que se cuela una inventada.
+ * Las habilidades por rango de cada criatura (inertes) se fueron con
+ * `data/creatures.json` (19-10-2026): las unidades del catálogo llevan las suyas
+ * (`UnidadDeArena.habilidades`), y un campo `habilidades` aquí se rechaza.
  */
 export function validarExperiencia(
   json: unknown,
-  catalogo: readonly string[],
-  criaturas: readonly string[],
   fichero = 'data/experiencia.json',
 ): ReglasDeExperiencia {
   const problemas: string[] = [];
@@ -576,41 +370,16 @@ export function validarExperiencia(
       problemas.push(`porRango.${campo} tiene que ser un entero ≥ 0 y es ${por[campo]}`);
     }
   }
-  const hab = (j.habilidades ?? {}) as Record<string, unknown>;
-  const validas = new Set(catalogo);
-  const cuantas = enteroDesde(rangoMax, 2) ? rangoMax - 1 : null;
-  for (const id of criaturas) {
-    if (!(id in hab)) problemas.push(`habilidades: falta la criatura "${id}"`);
-  }
-  for (const [id, lista] of Object.entries(hab)) {
-    if (!criaturas.includes(id)) {
-      problemas.push(`habilidades: "${id}" no es ninguna criatura del catálogo`);
-      continue;
-    }
-    if (!Array.isArray(lista) || !lista.every((x) => typeof x === 'string')) {
-      problemas.push(`habilidades.${id} tiene que ser una lista de nombres`);
-      continue;
-    }
-    if (cuantas !== null && lista.length !== cuantas) {
-      problemas.push(
-        `habilidades.${id} trae ${lista.length} y son ${cuantas}: una por rango, del 2 al ${rangoMax}`,
-      );
-    }
-    for (const nombre of lista) {
-      if (!validas.has(nombre)) {
-        problemas.push(
-          `habilidades.${id}: "${nombre}" no está en el catálogo (data/habilidades.json, sacado de NuevaJugabilidad.md)`,
-        );
-      }
-    }
-  }
+  const ajeno = Object.keys(j).find(
+    (k) => !['_comment', 'base', 'incrementos', 'rangoMaximoDeTropa', 'porRango'].includes(k),
+  );
+  if (ajeno !== undefined) problemas.push(`«${ajeno}» no es un campo de la experiencia`);
   if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
   return {
     base: j.base as number,
     incrementos: [...(inc as number[])],
     rangoMaximoDeTropa: rangoMax as number,
     porRango: { ataque: por.ataque as number, defensa: por.defensa as number },
-    habilidades: hab as Record<string, readonly string[]>,
   };
 }
 
@@ -619,11 +388,90 @@ export const CATALOGO_DE_HABILIDADES: readonly string[] = habilidadesJson.habili
   (h) => h.nombre,
 );
 
-export const EXPERIENCIA: ReglasDeExperiencia = validarExperiencia(
-  experienciaJson,
-  CATALOGO_DE_HABILIDADES,
-  [...byId.keys()],
-);
+export const EXPERIENCIA: ReglasDeExperiencia = validarExperiencia(experienciaJson);
+
+/**
+ * Lo que cuestan y crecen las unidades y sus moradas, de `data/economia.json`.
+ * **Inventado y provisional** (19-10-2026): nada se escribe por unidad, sale de
+ * su índice de poder (`core/catalogo.ts`, `town/buildings.ts`).
+ */
+export interface ReglasDeLaEconomia {
+  /** Una unidad cuesta `índice² / divisor` en oro, redondeado a la decena. */
+  readonly oroPorIndice: { readonly divisor: number };
+  /** Lo que suelta por semana una morada de cada unidad, por su nivel (1 a 6). */
+  readonly crecimientoPorNivel: readonly number[];
+  /** El coste de una morada por el nivel de lo mejor que produce (1 a 6). */
+  readonly costeDeLaMorada: readonly Partial<Resources>[];
+}
+
+/** Los niveles que tienen fila en las tablas de la economía: del 1 al 6. */
+export const NIVELES_DE_LA_ECONOMIA = 6;
+
+/**
+ * Valida la economía y la devuelve tipada; lanza con todos los problemas a la vez.
+ * Exportada con el JSON de argumento para verla morder en un test.
+ */
+export function validarEconomia(json: unknown, fichero = 'data/economia.json'): ReglasDeLaEconomia {
+  const problemas: string[] = [];
+  const j = (json ?? {}) as Record<string, unknown>;
+  const divisor = (j.oroPorIndice as Record<string, unknown> | undefined)?.divisor;
+  if (!enteroDesde(divisor, 1)) {
+    problemas.push(`oroPorIndice.divisor tiene que ser un entero ≥ 1 y es ${divisor}`);
+  }
+  const crece = j.crecimientoPorNivel;
+  if (
+    !Array.isArray(crece) ||
+    crece.length !== NIVELES_DE_LA_ECONOMIA ||
+    !crece.every((x) => enteroDesde(x, 1))
+  ) {
+    problemas.push(
+      `crecimientoPorNivel tiene que ser una lista de ${NIVELES_DE_LA_ECONOMIA} enteros ≥ 1, uno por nivel, y es ${JSON.stringify(crece)}`,
+    );
+  }
+  const costes = j.costeDeLaMorada;
+  if (!Array.isArray(costes) || costes.length !== NIVELES_DE_LA_ECONOMIA) {
+    problemas.push(
+      `costeDeLaMorada tiene que ser una lista de ${NIVELES_DE_LA_ECONOMIA} costes, uno por nivel`,
+    );
+  } else {
+    for (const [i, c] of (costes as unknown[]).entries()) {
+      const malos =
+        typeof c !== 'object' || c === null
+          ? ['(no es un objeto)']
+          : Object.entries(c).filter(
+              ([k, v]) => !(RESOURCE_KINDS as readonly string[]).includes(k) || !enteroDesde(v, 0),
+            );
+      if (malos.length > 0) {
+        problemas.push(
+          `costeDeLaMorada[${i}] tiene que ser { recurso: entero ≥ 0 } con recursos de ${RESOURCE_KINDS.join(', ')}`,
+        );
+      }
+    }
+  }
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return {
+    oroPorIndice: { divisor: divisor as number },
+    crecimientoPorNivel: [...(crece as number[])],
+    costeDeLaMorada: costes as Partial<Resources>[],
+  };
+}
+
+export const ECONOMIA: ReglasDeLaEconomia = validarEconomia(economiaJson);
+
+/**
+ * Lo que cuesta en oro una unidad de ese índice: `índice² / divisor`, redondeado
+ * a la decena, en enteros. **Inventado** (`data/economia.json`).
+ */
+export function oroDelIndice(indice: number): number {
+  const d = ECONOMIA.oroPorIndice.divisor;
+  return Math.floor((indice * indice + 5 * d) / (10 * d)) * 10;
+}
+
+/** Lo que suelta por semana una morada de una unidad de ese nivel (1 a 6). */
+export function crecimientoDelNivel(nivel: number): number {
+  const tabla = ECONOMIA.crecimientoPorNivel;
+  return tabla[Math.max(1, Math.min(tabla.length, nivel)) - 1] as number;
+}
 
 /**
  * Las cifras del índice de poder, de `data/poder.json` (`core/nivel.ts`).
@@ -772,7 +620,7 @@ export function validarTiposDeHeroe(
   return out;
 }
 
-const TIPOS_DE_HEROE = validarTiposDeHeroe(tiposDeHeroeJson, FACCIONES);
+const TIPOS_DE_HEROE = validarTiposDeHeroe(tiposDeHeroeJson, FACTION_IDS);
 
 /** Los tipos de héroe de una facción, en el orden del cuaderno. */
 export function tiposDeHeroe(faction: FactionId): readonly TipoDeHeroe[] {

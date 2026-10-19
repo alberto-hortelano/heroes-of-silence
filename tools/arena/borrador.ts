@@ -10,7 +10,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { type HojaDeArena, validarHojasDeArena } from '../../src/core/arena.js';
+
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   type FormaDeMuralla,
@@ -28,14 +28,17 @@ import {
   catalogoDelFichero,
   type EquipoAtado,
 } from '../../src/core/hero/equipo.js';
+import { moradasBlocker } from '../../src/core/town/buildings.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_UNIDADES,
+  type HojaDeArena,
   leerCatalogos,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   revisarCatalogo,
   type UnidadDeArena,
   type UnidadSinValidar,
   validarCatalogo,
+  validarHojasDeArena,
 } from '../../src/core/unidad.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import {
@@ -321,7 +324,7 @@ export function leerCatalogo(raiz: string): {
  * **La misma regla con que los carga el juego**: las piezas, entero
  * (`catalogoDelFichero`: cada pieza, sus bases, alguna de botín) y, con ellas, lo
  * que se exige a los dos catálogos juntos (`leerCatalogos`: el equipo base del
- * héroe y las unidades). Un catálogo de equipo que no vale no se conserva a medias:
+ * héroe y las unidades) y a las unidades con los edificios (`moradasBlocker`). Un catálogo de equipo que no vale no se conserva a medias:
  * el juego no arrancaría con él.
  */
 export function escribirCatalogo(
@@ -334,6 +337,10 @@ export function escribirCatalogo(
 } {
   const equipo = catalogoDelFichero(cuerpo);
   const unidades = leerCatalogos(equipo, cuerpo);
+  // Y con los edificios: una unidad que sale de una morada que no es de su
+  // facción, o una morada sin unidades, y la partida no arrancaría.
+  const moradas = moradasBlocker(unidades);
+  if (moradas !== null) throw new Error(`no se guarda: ${moradas}`);
   const deUnidadesListo = preparar(raiz, deUnidades(equipo), unidades);
   const escritas = [...equipo.escritas.values()];
   // El comentario del disco. Ilegible, no se pisa, como el de unidades (`preparar`).

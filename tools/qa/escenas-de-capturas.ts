@@ -36,10 +36,12 @@ import {
   stackHexes,
 } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleStack, BattleState } from '../../src/core/battle/types.js';
+import { unidadesDeMorada } from '../../src/core/catalogo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
-import type { Point } from '../../src/core/types.js';
+import { buildingsOfFaction } from '../../src/core/town/buildings.js';
+import type { FactionId, Point } from '../../src/core/types.js';
 
 export interface Caja {
   readonly x: number;
@@ -368,9 +370,16 @@ export function rutaDeDosColores(
   return elegido?.destino ?? null;
 }
 
-/** Lo que la pasada de escritorio recluta en el castillo: lo de nivel 1 de su facción. */
-export const reclutaDeNivel1 = (faction: string): string =>
-  faction === 'knight' ? 'peasant' : 'skeleton';
+/**
+ * Lo que la pasada de escritorio recluta en el castillo: la primera unidad del
+ * pueblo de su facción (la morada del sitio 1, ya construida).
+ */
+export const reclutaDeNivel1 = (faction: FactionId): string => {
+  const pueblo = buildingsOfFaction(faction).find((b) => b.morada === 1);
+  const primera = pueblo === undefined ? undefined : unidadesDeMorada(pueblo.id)[0];
+  if (primera === undefined) throw new Error(`${faction} no tiene nada que reclutar en su pueblo`);
+  return primera.id;
+};
 
 /** Los pasos de rueda que da la pasada de escritorio antes de su batalla (zoom y arrastre). */
 export const RUEDA_DEL_ESCRITORIO = 2;

@@ -766,7 +766,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
         { terrain: 'forest' as const, from: { x: 6, y: 1 }, to: { x: 7, y: 1 } },
         { terrain: 'forest' as const, from: { x: 9, y: 1 }, to: { x: 10, y: 1 } },
       ],
-      monsters: [{ at: { x: 8, y: 1 }, creature: 'peasant', count: 3 }],
+      monsters: [{ at: { x: 8, y: 1 }, creature: 'goblin-lancero', count: 3 }],
     };
     expect(validateMapPlan(cortada)).toEqual([]);
     expect(densa(cortada).join('\n')).toMatch(

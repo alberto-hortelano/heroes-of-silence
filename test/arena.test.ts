@@ -37,12 +37,12 @@ import { renderBattleLog } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   batallaDeArena,
+  cuerpoDelStack,
   equiparEnArena,
   type FuenteDeArena,
   fichaDeHeroeDeArena,
   finalDeArena,
   type HeroeDeArena,
-  type HojaDeArena,
   heroeDeArena,
   heroePorDefecto,
   type IdsOcupados,
@@ -61,7 +61,6 @@ import {
   unidadNueva,
   VERSION_DEL_ENLACE,
   validarHeroeDeArena,
-  validarHojasDeArena,
 } from '../src/core/arena.js';
 import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena-murallas.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
@@ -82,10 +81,9 @@ import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO, reglasDeLaURL } from '../src/core/battle/reglas.js';
 import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { UNIDADES as CATALOGO } from '../src/core/catalogo.js';
+import { UNIDADES as CATALOGO, unidadesDelJuego } from '../src/core/catalogo.js';
 import {
   CATALOGO_DE_HABILIDADES,
-  creature,
   cuentaTiros,
   EQUIPO_ESCRITO,
   isShooter,
@@ -104,6 +102,7 @@ import {
   ESPADA,
   escalonDeCasillas,
   HABILIDADES_DE_LA_ARENA,
+  type HojaDeArena,
   KIT_DEL_PERFIL,
   nivelesDeLaEspada,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
@@ -111,6 +110,7 @@ import {
   type UnidadDeArena,
   unidadDeCombate,
   validarCatalogo,
+  validarHojasDeArena,
   validarUnidadDeArena,
 } from '../src/core/unidad.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
@@ -129,6 +129,7 @@ import {
 import {
   carpetaDeLaArena,
   catalogoCon,
+  catalogoEntero,
   delBorrador,
   elCatalogoCon,
   forzarTurno,
@@ -259,7 +260,7 @@ describe('la arena pelea con las cifras del borrador', () => {
     expect(SPEED_TO_HEXES[s.unit.speed]).toBe(3);
     expect(s.topHp).toBe(80);
     // El cuerpo sin equipo, para la ficha y el retoque (el nivel lo mide vestido).
-    expect(s.unit.sinEquipo).toMatchObject({ attack: 3, defense: 4, damage: [8, 10], hp: 80 });
+    expect(cuerpoDelStack(b, s)).toMatchObject({ attack: 3, defense: 4, damage: [8, 10], hp: 80 });
   });
 
   it('los rasgos del motor van con la unidad, y las habilidades no pelean', () => {
@@ -455,9 +456,9 @@ describe('el borrador se valida antes de escribirse', () => {
     expect(() => validarUnidadDeArena({ ...base(), hexes: 2 }, EQUIPO_DEL_JUEGO)).toThrow(
       '«hexes» no es un campo de la arena',
     );
-    expect(() => validarUnidadDeArena({ ...base(), faction: 'knight' }, EQUIPO_DEL_JUEGO)).toThrow(
-      'la facción "knight" no existe',
-    );
+    expect(() =>
+      validarUnidadDeArena({ ...base(), faction: 'caballeros' }, EQUIPO_DEL_JUEGO),
+    ).toThrow('la facción "caballeros" no existe');
   });
 
   it('sin munición: `shots` no es un campo de la arena, y el motivo no lo ofrece (13-10-2026)', () => {
@@ -500,13 +501,13 @@ describe('el borrador se valida antes de escribirse', () => {
       expect(leerCatalogo(dir)).toMatchObject({ unidades: [], invalidas: [] });
 
       const monje = { ...base(), attack: 9, habilidades: ['Salto'] };
-      escribirCatalogo(dir, { unidades: [monje], piezas: EQUIPO_ESCRITO });
+      escribirCatalogo(dir, { unidades: catalogoEntero(monje), piezas: EQUIPO_ESCRITO });
       const json = JSON.parse(readFileSync(ruta, 'utf8')) as {
         _comment: string;
         unidades: unknown[];
       };
       expect(json._comment).toContain('CATÁLOGO de unidades');
-      expect(leerCatalogo(dir).unidades).toEqual([monje]);
+      expect(leerCatalogo(dir).unidades).toEqual(catalogoEntero(monje));
       // Sin temporales al lado, y sin crear el borrador de equipo: no había piezas.
       expect(readdirSync(dir).sort()).toEqual(['data']);
       expect(readdirSync(join(dir, 'data')).sort()).toEqual(['equipo.json', 'unidades.json']);
@@ -514,11 +515,11 @@ describe('el borrador se valida antes de escribirse', () => {
       // Un guardado malo después de uno bueno deja el bueno donde estaba.
       expect(() =>
         escribirCatalogo(dir as string, {
-          unidades: [{ ...monje, damage: [3, 1] }],
+          unidades: catalogoEntero({ ...monje, damage: [3, 1] }),
           piezas: EQUIPO_ESCRITO,
         }),
       ).toThrow();
-      expect(leerCatalogo(dir).unidades).toEqual([monje]);
+      expect(leerCatalogo(dir).unidades).toEqual(catalogoEntero(monje));
     });
   });
 
@@ -783,7 +784,7 @@ describe('el marcado de la arena', () => {
     // Las cifras, a su lado y no en los clips.
     const cifras = cabeza.slice(cabeza.indexOf('<div class="cifras">'));
     expect(cifras).toContain('data-campo="attack"');
-    expect(cifras).toContain('data-campo="gold"');
+    expect(cifras).toContain('data-campo="defense"');
     expect(clips).not.toContain('data-campo');
     // En el editor de la batalla: sin figura ni clips, las cifras a todo el ancho.
     const enCombate = marcadoDe(
@@ -892,28 +893,28 @@ describe('corrección de hallazgos de QA', () => {
           crudo: mala,
         },
       ]);
-      // La página guarda lo que tiene —la buena y una nueva— y la mala sigue ahí.
-      const nueva = unidad('elfo-arquero');
-      expect(
-        escribirCatalogo(dir, { unidades: [buena, nueva], piezas: EQUIPO_ESCRITO }),
-      ).toMatchObject({
-        unidades: 2,
-        conservadas: 1,
-      });
+      // La página guarda lo que tiene —el catálogo con la buena, sin el zombi que
+      // no vale, y una nueva— y la mala sigue ahí. Guarda el catálogo entero: con
+      // menos, una morada se quedaría sin unidades y el juego no arrancaría.
+      const nueva = { ...unidad('elfo-arquero'), id: 'elfo-arquero-2' };
+      const sinElZombi = [...catalogoEntero(buena).filter((u) => u.id !== 'zombi'), nueva];
+      expect(escribirCatalogo(dir, { unidades: sinElZombi, piezas: EQUIPO_ESCRITO })).toMatchObject(
+        {
+          unidades: sinElZombi.length,
+          conservadas: 1,
+        },
+      );
       const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')) as {
         unidades: unknown[];
       };
-      expect(json.unidades).toEqual([buena, nueva, mala]);
+      expect(json.unidades).toEqual([...sinElZombi, mala]);
       // Y mandar una válida con su id es arreglarla: la mala se va.
       const arreglada = unidad('zombi');
-      expect(
-        escribirCatalogo(dir, { unidades: [buena, nueva, arreglada], piezas: EQUIPO_ESCRITO })
-          .conservadas,
-      ).toBe(0);
-      expect(leerCatalogo(dir)).toMatchObject({
-        unidades: [buena, nueva, arreglada],
-        invalidas: [],
-      });
+      const todas = catalogoEntero(buena, nueva, arreglada);
+      expect(escribirCatalogo(dir, { unidades: todas, piezas: EQUIPO_ESCRITO }).conservadas).toBe(
+        0,
+      );
+      expect(leerCatalogo(dir)).toMatchObject({ unidades: todas, invalidas: [] });
     });
 
     it('una unidad repetida se conserva al guardar otra (QA, M3)', () => {
@@ -922,14 +923,15 @@ describe('corrección de hallazgos de QA', () => {
       const repetida = unidad('templario-monje', { attack: 3 });
       escribirAMano(dir, [buena, repetida]);
       expect(leerCatalogo(dir).invalidas.map((i) => i.crudo)).toEqual([repetida]);
-      const nueva = unidad('elfo-arquero');
-      expect(
-        escribirCatalogo(dir, { unidades: [buena, nueva], piezas: EQUIPO_ESCRITO }).conservadas,
-      ).toBe(1);
+      const nueva = { ...unidad('elfo-arquero'), id: 'elfo-arquero-2' };
+      const todas = catalogoEntero(buena, nueva);
+      expect(escribirCatalogo(dir, { unidades: todas, piezas: EQUIPO_ESCRITO }).conservadas).toBe(
+        1,
+      );
       const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')) as {
         unidades: unknown[];
       };
-      expect(json.unidades).toEqual([buena, nueva, repetida]);
+      expect(json.unidades).toEqual([...todas, repetida]);
     });
 
     it('un archivo que no se puede leer no se pisa: se dice', () => {
@@ -940,7 +942,7 @@ describe('corrección de hallazgos de QA', () => {
         `${RUTA_DEL_CATALOGO_DE_UNIDADES} no es JSON`,
       );
       expect(() =>
-        escribirCatalogo(dir as string, { unidades: [unidad('zombi')], piezas: EQUIPO_ESCRITO }),
+        escribirCatalogo(dir as string, { unidades: catalogoEntero(), piezas: EQUIPO_ESCRITO }),
       ).toThrow('no se guarda para no pisarlo');
       expect(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')).toBe(
         '{ esto no es json',
@@ -952,8 +954,8 @@ describe('corrección de hallazgos de QA', () => {
       const fantasma = { ...unidad('templario-monje'), id: 'templario-fantasma', name: 'Fantasma' };
       escribirAMano(dir, [fantasma]);
       expect(leerCatalogo(dir).unidades).toEqual([fantasma]);
-      escribirCatalogo(dir, { unidades: [fantasma], piezas: EQUIPO_ESCRITO });
-      expect(leerCatalogo(dir).unidades).toEqual([fantasma]);
+      escribirCatalogo(dir, { unidades: catalogoEntero(fantasma), piezas: EQUIPO_ESCRITO });
+      expect(leerCatalogo(dir).unidades).toEqual(catalogoEntero(fantasma));
     });
   });
 
@@ -1058,10 +1060,10 @@ describe('corrección de hallazgos de QA', () => {
     expect(() => validarHojasDeArena({})).toThrow('no es una lista');
   });
 
-  it('una hoja de unidad no sustituye a un cuerpo del juego', () => {
+  it('una hoja de unidad no sustituye a un cuerpo sin hoja (el héroe)', () => {
     const jinete = HOJAS.find((h) => h.id === 'templario-hermano-de-carga');
-    expect(() => registrarUnidad('pikeman', jinete as (typeof HOJAS)[number])).toThrow(
-      '"pikeman" es un cuerpo del juego',
+    expect(() => registrarUnidad(HERO_BODY, jinete as (typeof HOJAS)[number])).toThrow(
+      `"${HERO_BODY}" es un cuerpo del juego`,
     );
   });
 
@@ -1582,7 +1584,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     // Las escaleras del montaje llegan al tablero, con las cifras del enlace.
     const conEscalera = b.stacks.filter((st) => st.side === 'attacker' && st.escalera);
     expect(conEscalera.map((st) => st.slot)).toEqual([0, 1]);
-    expect(conEscalera[1]?.unit.sinEquipo?.attack).toBe(8);
+    expect(cuerpoDelStack(b, conEscalera[1] as BattleStack)?.attack).toBe(8);
   });
 
   it('un enlace de otra versión se rechaza diciendo que se vuelva a copiar, sin convertir nada', () => {
@@ -1598,7 +1600,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
         tocado((o) => {
           o.v = 7;
           o.pruebas = { pikeman: { attack: 8 } };
-          o.izquierda.puestos.push({ criatura: 'pikeman', escalera: false });
+          o.izquierda.puestos.push({ criatura: 'templario-escudo', escalera: false });
         }),
       ),
     ).toThrow('vuelve a copiarlo');
@@ -1657,12 +1659,12 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
       [tocado((o) => delete o.derecha), 'falta «derecha»'],
       // Solo la arena: ni criaturas del catálogo ni sus pruebas.
       [
-        tocado((o) => (o.izquierda.puestos[1] = { criatura: 'pikeman', escalera: false })),
+        tocado((o) => (o.izquierda.puestos[1] = { criatura: 'templario-escudo', escalera: false })),
         'el bando izquierdo del enlace, puesto 2: «criatura» no es un campo del enlace',
       ],
       [tocado((o) => (o.pruebas = {})), '«pruebas» no es un campo del enlace'],
       [
-        tocado((o) => (o.unidades[0].cuerpo = { criatura: 'pikeman' })),
+        tocado((o) => (o.unidades[0].cuerpo = { criatura: 'templario-escudo' })),
         'el cuerpo tiene que ser { hoja }, y trae criatura',
       ],
       [tocado((o) => (o.unidades[0].shots = 12)), '«shots» no es un campo de la arena'],
@@ -1943,8 +1945,8 @@ describe('retocar en plena pelea (B10-B14)', () => {
     ]);
     // Una pelea que no es de la arena no sabe de tipos: se dice.
     const delJuego = createBattle(
-      { army: [{ creature: 'zombie', count: 1 }], hero: null },
-      { army: [{ creature: 'zombie', count: 1 }], hero: null },
+      { army: [{ creature: 'zombi', count: 1 }], hero: null },
+      { army: [{ creature: 'zombi', count: 1 }], hero: null },
       createRng(1),
     );
     expect(() => tipoDelStack(delJuego, delJuego.stacks[0] as BattleStack)).toThrow(
@@ -2060,19 +2062,15 @@ describe('retocar en plena pelea (B10-B14)', () => {
         CON_MANOS,
       );
     retoca({ leadership: 9 });
-    retoca({ leadership: 9, cost: { gold: 999 } });
-    retoca({ leadership: 9, cost: { gold: 999 }, habilidades: [...monje.habilidades, inerte] });
+    retoca({ leadership: 9, habilidades: [...monje.habilidades, inerte] });
     expect(b.log.slice(desde).map((e) => (e.kind === 'retoque' ? e.cambios : e.kind))).toEqual([
       [`liderazgo ${monje.leadership} → 9`],
-      [`coste (oro) ${monje.cost.gold} → 999`],
       [`habilidades: + ${inerte}`],
     ]);
     // El mismo valor (ataque 3 → 3): ni línea ni stacks nuevos.
     const antes = [...b.stacks];
     const largo = b.log.length;
-    expect(
-      retoca({ leadership: 9, cost: { gold: 999 }, habilidades: [...monje.habilidades, inerte] }),
-    ).toBeNull();
+    expect(retoca({ leadership: 9, habilidades: [...monje.habilidades, inerte] })).toBeNull();
     expect(b.log.length).toBe(largo);
     expect(b.stacks).toEqual(antes);
     expect(b.stacks.every((s, i) => s === antes[i])).toBe(true);
@@ -2440,14 +2438,15 @@ describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puest
         EQUIPO_DEL_JUEGO,
       );
       expect(nueva.id).toBe('templario-mandoble-3');
-      expect(escribirCatalogo(dir, { unidades: [nueva], piezas: EQUIPO_ESCRITO })).toMatchObject({
-        unidades: 1,
+      const todas = catalogoEntero(nueva);
+      expect(escribirCatalogo(dir, { unidades: todas, piezas: EQUIPO_ESCRITO })).toMatchObject({
+        unidades: todas.length,
         conservadas: 1,
       });
       const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')) as {
         unidades: { id: string; name: string }[];
       };
-      expect(json.unidades.map((u) => [u.id, u.name])).toEqual([
+      expect(json.unidades.slice(-2).map((u) => [u.id, u.name])).toEqual([
         ['templario-mandoble-3', 'Guerrero con arma a dos manos 3'],
         ['templario-mandoble-2', 'Tramposo'],
       ]);
@@ -2480,8 +2479,8 @@ describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puest
     }
     const batalla = pelea([unidad('troll-maza')], [unidad('zombi')], createRng(3));
     for (const s of batalla.stacks) expect(stackHexes(s), s.id).toHaveLength(1);
-    // El dragón óseo sigue en el catálogo del juego, de dos casillas (C5).
-    expect(creature('bone_dragon').hexes).toBe(2);
+    // Y el catálogo del juego es el de la arena (19-10-2026): ninguna de dos casillas.
+    for (const u of unidadesDelJuego()) expect(u.hexes, u.id).toBeUndefined();
   });
 });
 
@@ -2668,7 +2667,7 @@ describe('sin el catálogo del juego (13-10-2026)', () => {
   it('un cuerpo de criatura no vale: no se retira ni se convierte, se queda como cualquiera que no vale', () => {
     expect(() =>
       validarUnidadDeArena(
-        { ...unidad('zombi'), cuerpo: { criatura: 'skeleton' } },
+        { ...unidad('zombi'), cuerpo: { criatura: 'esqueleto-guerrero' } },
         EQUIPO_DEL_JUEGO,
       ),
     ).toThrow('la unidad «Zombie»: el cuerpo tiene que ser { hoja }, y trae criatura');
@@ -2676,7 +2675,7 @@ describe('sin el catálogo del juego (13-10-2026)', () => {
       ...unidad('zombi'),
       id: 'bone-dragon-2',
       name: 'Dragón óseo 2',
-      cuerpo: { criatura: 'bone_dragon' },
+      cuerpo: { criatura: 'jinete-de-plaga' },
     };
     const r = revisarCatalogo({ unidades: [unidad('zombi'), dragon] }, EQUIPO_DEL_JUEGO);
     expect(r.validas.map((u) => u.id)).toEqual(['zombi']);
@@ -2700,7 +2699,7 @@ describe('sin compatibilidad hacia atrás (14-10-2026)', () => {
           ...unidad('zombi'),
           id: 'peasant-2',
           name: 'Campesino 2',
-          cuerpo: { criatura: 'peasant' },
+          cuerpo: { criatura: 'goblin-lancero' },
         },
         { ...unidad('esqueleto-arquero'), shots: 12 },
       ];
@@ -2720,17 +2719,18 @@ describe('sin compatibilidad hacia atrás (14-10-2026)', () => {
         expect.stringContaining('el cuerpo tiene que ser { hoja }, y trae criatura'),
         expect.stringContaining('«shots» no es un campo de la arena'),
       ]);
-      // «Guardar» escribe lo que manda la página y conserva lo de antes tal cual.
-      expect(
-        escribirCatalogo(dir, { unidades: leido.unidades, piezas: EQUIPO_ESCRITO }),
-      ).toMatchObject({
-        unidades: 1,
+      // «Guardar» escribe lo que manda la página —el catálogo sin las de antes,
+      // que una válida con su id las arreglaría— y conserva lo de antes tal cual.
+      const deAntesIds = new Set(deAntes.map((u) => u.id));
+      const manda = catalogoEntero().filter((u) => !deAntesIds.has(u.id));
+      expect(escribirCatalogo(dir, { unidades: manda, piezas: EQUIPO_ESCRITO })).toMatchObject({
+        unidades: manda.length,
         conservadas: deAntes.length,
       });
       const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')) as {
         unidades: unknown[];
       };
-      expect(json.unidades).toEqual([unidad('troll-maza'), ...deAntes]);
+      expect(json.unidades).toEqual([...manda, ...deAntes]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

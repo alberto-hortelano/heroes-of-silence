@@ -1,17 +1,61 @@
 {
-  "_comment": "PROVISIONAL e INVENTADO (ciclo «el camino cuesta», 02-10-2026). Los asaltantes de caminos: grupos neutrales que patrullan una región sin dueño y emboscan al héroe que la pisa si le sacan el margen (src/core/ai/fuerza.ts, MARGEN_CONTRA_NEUTRALES). No hay fila del original que copiar —en HoMM2 los monstruos del mapa no se mueven—, así que las cifras son de quien escribe esto y se eligieron MIDIENDO (docs/agents/2026-10-02-el-camino-cuesta/implementacion.md). probabilidadSemanal = la probabilidad de que brote un grupo, cada lunes, en cada región sin dueño, sin héroe y sin otro asaltante. pasosPorDia = cuántas casillas (Chebyshev) se mueve un grupo al día como mucho EN EL MAPA DE REFERENCIA (300 casillas por región); desde #229 va a la escala del mapa como la marcha de los héroes (src/core/escala.ts, deHoyALaEscala: con 450, días de 2 y de 3, 2,45 de media). liderazgoMax y fuerzaMax son el TECHO: un grupo más fuerte de lo que un héroe puede llegar a llevar es un muro eterno —medido en el prototipo: 7 vampiros (1260) contra héroes de nivel 2 (≈320) dejaban 110-134 partidas de 1000 sin terminar—. fuerzaMax es la fuerza bruta de src/core/ai/fuerza.ts (daño medio × PV, sumado), y un test exige que no pase de MARGEN × la fuerza de un héroe de nivel 1 con el liderazgo lleno: así ningún grupo embosca a un héroe que haya llenado su tropa. composiciones = los grupos posibles, de 1 a 7 individuos cada uno; el cargador comprueba cada uno contra el cupo de un bando, liderazgoMax y fuerzaMax.",
+  "_comment": "PROVISIONAL e INVENTADO (ciclo «el camino cuesta», 02-10-2026). Los asaltantes de caminos: grupos neutrales que patrullan una región sin dueño y emboscan al héroe que la pisa si le sacan el margen (src/core/ai/fuerza.ts, MARGEN_CONTRA_NEUTRALES). No hay fila del original que copiar —en HoMM2 los monstruos del mapa no se mueven—, así que las cifras son de quien escribe esto y se eligieron MIDIENDO (docs/agents/2026-10-02-el-camino-cuesta/implementacion.md). probabilidadSemanal = la probabilidad de que brote un grupo, cada lunes, en cada región sin dueño, sin héroe y sin otro asaltante. pasosPorDia = cuántas casillas (Chebyshev) se mueve un grupo al día como mucho EN EL MAPA DE REFERENCIA (300 casillas por región); desde #229 va a la escala del mapa como la marcha de los héroes (src/core/escala.ts, deHoyALaEscala: con 450, días de 2 y de 3, 2,45 de media). liderazgoMax y fuerzaMax son el TECHO: un grupo más fuerte de lo que un héroe puede llegar a llevar es un muro eterno —medido en el prototipo: 7 vampiros (1260) contra héroes de nivel 2 (≈320) dejaban 110-134 partidas de 1000 sin terminar—. fuerzaMax es la fuerza bruta de src/core/ai/fuerza.ts (desde el 19-10-2026, el poder del índice al cuadrado entre su divisor, en la escala del daño medio × PV de antes; sumado), y un test exige que no pase de MARGEN × la fuerza de un héroe de nivel 1 con el liderazgo lleno: así ningún grupo embosca a un héroe que haya llenado su tropa. composiciones = los grupos posibles, de 1 a 7 individuos cada uno; el cargador comprueba cada uno contra el cupo de un bando, liderazgoMax y fuerzaMax. composiciones: desde el 19-10-2026 de unidades de las cinco facciones (data/unidades.json), INVENTADAS como las de antes y del mismo orden de fuerza (de 100 a 700).",
   "probabilidadSemanal": 0.5,
   "pasosPorDia": 2,
   "liderazgoMax": 28,
   "fuerzaMax": 800,
   "composiciones": [
-    [{ "creature": "pikeman", "count": 5 }],
-    [{ "creature": "pikeman", "count": 7 }],
-    [{ "creature": "veteran_pikeman", "count": 6 }],
-    [{ "creature": "swordsman", "count": 4 }],
-    [{ "creature": "mummy", "count": 5 }],
-    [{ "creature": "mummy", "count": 7 }],
-    [{ "creature": "royal_mummy", "count": 6 }],
-    [{ "creature": "vampire", "count": 4 }]
+    [
+      {
+        "creature": "goblin-lancero",
+        "count": 7
+      }
+    ],
+    [
+      {
+        "creature": "esqueleto-guerrero",
+        "count": 7
+      }
+    ],
+    [
+      {
+        "creature": "zombi",
+        "count": 6
+      }
+    ],
+    [
+      {
+        "creature": "orko-hacha-escudo",
+        "count": 6
+      }
+    ],
+    [
+      {
+        "creature": "troll-maza",
+        "count": 7
+      }
+    ],
+    [
+      {
+        "creature": "caballero-de-la-muerte",
+        "count": 7
+      }
+    ],
+    [
+      {
+        "creature": "orko-armadura-pesada",
+        "count": 7
+      }
+    ],
+    [
+      {
+        "creature": "jinete-de-plaga",
+        "count": 2
+      },
+      {
+        "creature": "esqueleto-guerrero",
+        "count": 5
+      }
+    ]
   ]
 }

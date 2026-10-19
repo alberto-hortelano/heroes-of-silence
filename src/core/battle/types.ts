@@ -490,6 +490,13 @@ export interface BattleState {
    */
   readonly fichasDeArena?: Record<string, FichaEnPalabras>;
   /**
+   * El cuerpo de cada tipo y de cada héroe, sin su equipo, con la misma clave que
+   * `fichasDeArena`: cambiar una pieza a media pelea vuelve a vestirlo con lo que
+   * lleva cada stack (`UnitInfo.equipo`). Solo la arena lo pone y lo pone al día al
+   * retocar; vivía en cada stack como `UnitInfo.sinEquipo` (fuera el 19-10-2026).
+   */
+  readonly cuerposDeArena?: Record<string, UnitInfo>;
+  /**
    * Las escaleras apoyadas en la muralla, con su pie y su muro. Crece con cada
    * `poner_escalera` y no se quita: va fuera de `muralla`, que no cambia en toda
    * la batalla y se guarda en cachés por objeto.

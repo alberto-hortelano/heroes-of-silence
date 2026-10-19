@@ -26,6 +26,7 @@ import { troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import type { GameOutcome, GameState } from '../../src/core/state/game.js';
 import { newGame, startingArmy } from '../../src/core/state/setup.js';
+import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 
 /** Días de tope: pasados estos, una partida que no ha acabado no acaba. */
 export const DIAS_POR_DEFECTO = 300;
@@ -83,8 +84,9 @@ export async function partidaDeSemilla(
 }
 
 /**
- * La batalla espejo de una semilla: el ejército de salida del caballero contra
- * el del nigromante, resuelta por la IA táctica.
+ * La batalla de una semilla: el ejército de salida de una facción contra el de la
+ * siguiente, rotando por las cinco con la semilla (`FACTION_IDS`), resuelta por
+ * la IA táctica.
  *
  * Va aparte de la partida porque una batalla resuelta ya no está en el
  * `GameState`, así que ni el barrido puede leerle las rondas ni el banco puede
@@ -92,9 +94,12 @@ export async function partidaDeSemilla(
  */
 export function batallaDeSemilla(semilla: number): BattleOutcome {
   const rng = createRng(semilla * PRIMO_DE_BATALLA);
+  const n = FACTION_IDS.length;
+  const a = FACTION_IDS[((semilla % n) + n) % n] as FactionId;
+  const b = FACTION_IDS[(((semilla + 1) % n) + n) % n] as FactionId;
   const battle = createBattle(
-    { army: troopsAsStacks(startingArmy('knight', rng)), hero: null },
-    { army: troopsAsStacks(startingArmy('necromancer', rng)), hero: null },
+    { army: troopsAsStacks(startingArmy(a, rng)), hero: null },
+    { army: troopsAsStacks(startingArmy(b, rng)), hero: null },
     rng,
   );
   return autoResolve(battle, rng);

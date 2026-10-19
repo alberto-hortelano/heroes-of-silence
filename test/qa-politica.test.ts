@@ -107,31 +107,6 @@ describe('la política del arnés de QA (#44)', () => {
     expect(heroe.heroType).toBe('caballero');
   });
 
-  it('no pide los reclutas que su propia mejora del mismo plan ya ha convertido (I1)', () => {
-    // La foto del turno es de antes de construir: con la mejora de la morada 2
-    // en el plan, los zombis disponibles pasan a ser zombis mutantes y pedirlos
-    // es un rechazo seguro. Pasaba el día 7 de `pnpm qa`, fuera de su cuenta.
-    const aventura = decidir(
-      'adventure_turn',
-      {
-        towns: [
-          {
-            id: 't1',
-            canBuildNow: [{ id: 'necromancer_upgrade_2' }],
-            recruitable: [
-              { creature: 'zombie', available: 4 },
-              { creature: 'skeleton', available: 3 },
-            ],
-          },
-        ],
-        heroes: [{ id: 'h1', at: { x: 2, y: 2 } }],
-      },
-      SEMILLA,
-    ) as { actions: { type: string; creature?: string }[] };
-    const reclutas = aventura.actions.filter((a) => a.type === 'recruit');
-    expect(reclutas.map((a) => a.creature)).toEqual(['skeleton']);
-  });
-
   it('el plan de mapa del arnés es jugable y va FIRMADO (#27)', () => {
     // Las dos mitades del plan del arnés, y las dos importan:
     //

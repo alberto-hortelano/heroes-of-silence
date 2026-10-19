@@ -17,7 +17,6 @@ import {
   cambioDePiezas,
   conPiezas,
   type FuenteDeArena,
-  type HojaDeArena,
   type MontajeDeArena,
 } from '../src/core/arena.js';
 import {
@@ -41,7 +40,7 @@ import type {
   BattleState,
 } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
-import { unidad } from '../src/core/catalogo.js';
+import { UNIDADES, unidad, unidadDelJuego } from '../src/core/catalogo.js';
 import {
   BARRERAS_DEL_MAPA,
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
@@ -91,6 +90,7 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import {
   type Army,
+  type FactionId,
   type Hex,
   type NivelesDeLaRueda,
   type PlayerId,
@@ -101,7 +101,13 @@ import {
   type Troop,
   type UnitInfo,
 } from '../src/core/types.js';
-import { nivelesDeLaEspada, type UnidadDeArena, unidadDeCombate } from '../src/core/unidad.js';
+import {
+  cuerpoDeCombate,
+  type HojaDeArena,
+  nivelesDeLaEspada,
+  type UnidadDeArena,
+  unidadDeCombate,
+} from '../src/core/unidad.js';
 import { hojasDeArena } from '../tools/arena/borrador.js';
 
 /**
@@ -146,8 +152,88 @@ export function sinGuarnicionDeSalida(state: GameState): GameState {
   return state;
 }
 
+// ------------------------------------------------------------ fixtures por papel
+
 /**
- * Un ejército de individuos, escrito por grupos: `{ creature: 'pikeman',
+ * **Unidades del catálogo por el papel que hacen en una prueba** (19-10-2026, F3
+ * de `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`). El catálogo es
+ * el de `data/unidades.json`, que la arena edita: un test que escribe un id
+ * suelto no dice por qué lo quiere, y el día que la arena cambie esa unidad no
+ * se sabe qué defendía. Aquí cada papel lleva el motivo, y lo que un test espera
+ * de las cifras se lee de la unidad (`unidadDelJuego`), no se escribe.
+ *
+ * Las dos facciones del montaje de prueba son las dos primeras de `FACTION_IDS`,
+ * las que pone el generador cuando nadie pide otras.
+ */
+export const FACCION_A = 'templarios' satisfies FactionId;
+export const FACCION_B = 'no-muertos' satisfies FactionId;
+
+/** La tropa de a pie de la facción A, la de su pueblo (espada, brigantina y escudo). */
+export const TROPA = 'templario-escudo';
+/** La tropa pesada de la facción A, a dos manos (mandoble y arnés). */
+export const PESADA = 'templario-mandoble';
+/** Jinete con `charge` de la facción A (lanza, espada y barda). */
+export const JINETE = 'templario-hermano-de-carga';
+/** Unidad con poderes (Curar y Bendecir) de la facción A. */
+export const SANADOR = 'templario-monje';
+/** El no-muerto más barato (1 de liderazgo), de la facción B. */
+export const NO_MUERTO = 'esqueleto-guerrero';
+/** Tirador de la facción B: dispara con su arco, sin munición que contar. */
+export const TIRADOR_NO_MUERTO = 'esqueleto-arquero';
+/** La tropa más barata del catálogo, 1 de liderazgo (orkos). */
+export const TROPA_BARATA = 'goblin-lancero';
+/** Tirador sin rasgos (elfos): dispara con su arco, sin munición que contar. */
+export const TIRADOR = 'elfo-arquero';
+
+/**
+ * **Una unidad hecha a mano** para un rasgo del motor que ninguna unidad del
+ * catálogo lleva —vuelo, doble golpe, dos casillas, munición, drenaje, miedo,
+ * salpicar…—: las cifras de `base` (del catálogo, novato) con `cambios`. El motor
+ * sigue jugando esos rasgos (los lleva el perfil de un personaje o los pondrá la
+ * arena), así que se prueban con unidades que dicen lo que tienen, no con una del
+ * catálogo que hoy no los trae.
+ */
+export function aMano(base: string, cambios: Partial<UnitInfo>): UnitInfo {
+  return { ...unidadDelJuego(base), ...cambios };
+}
+
+/**
+ * Pone a mano las cifras `unit` a los stacks `ids` de `b` ya montada (con sus PV
+ * de arriba y su munición). Para lo que no cambia el despliegue: una unidad de
+ * dos casillas se monta con `bandoDePersonajes`. Devuelve `b`.
+ */
+export function conCifrasAMano(b: BattleState, ids: string | readonly string[], unit: UnitInfo) {
+  for (const id of typeof ids === 'string' ? [ids] : ids) {
+    const s = b.stacks.find((x) => x.id === id);
+    if (s === undefined) throw new Error(`no hay ningún stack ${id}`);
+    const w = s as { unit: UnitInfo; topHp: number; shotsLeft: number };
+    w.unit = unit;
+    w.topHp = unit.hp;
+    w.shotsLeft = unit.shots ?? 0;
+  }
+  return b;
+}
+
+/**
+ * Un bando de individuos hechos a mano: cada uno entra como personaje
+ * (`members`) con sus cifras, uno por stack, porque el catálogo no los tiene.
+ * Es la vía del motor para lo que cambia el despliegue (dos casillas).
+ */
+export function bandoDePersonajes(
+  units: readonly UnitInfo[],
+  hero: BattleSide['hero'] = null,
+): BattleSide {
+  const members = new Map<string, BattleMember>();
+  const army: Stack[] = units.map((unit, i) => {
+    const member = `a-mano-${i}`;
+    members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp });
+    return { creature: TROPA, member, count: 1 };
+  });
+  return { army, hero, members };
+}
+
+/**
+ * Un ejército de individuos, escrito por grupos: `{ creature: 'templario-escudo',
  * count: 20 }` son veinte piqueros, uno detrás de otro y en el orden en que se
  * escriben. Un personaje va con `count: 1` y conserva su `member`.
  *
@@ -577,21 +663,21 @@ export function planDeNodos(): PlanConCasillas {
       {
         id: 'town-0',
         name: 'Valdeluz',
-        faction: 'knight',
+        faction: 'templarios',
         at: { x: 5, y: 4 },
         owner: 0,
       },
       {
         id: 'town-1',
         name: 'Cripta Gris',
-        faction: 'necromancer',
+        faction: 'no-muertos',
         at: { x: 22, y: 4 },
         owner: 1,
       },
       {
         id: 'town-2',
         name: 'Torreblanca',
-        faction: 'knight',
+        faction: 'templarios',
         at: { x: 17, y: 4 },
         owner: null,
       },
@@ -643,8 +729,8 @@ export function planDeMesetas(): PlanConCasillas {
     ],
     nodes: [{ x: 15, y: 7 }],
     towns: [
-      { id: 'town-0', name: 'Valdeluz', faction: 'knight', at: { x: 10, y: 11 }, owner: 0 },
-      { id: 'town-1', name: 'Cripta Gris', faction: 'necromancer', at: { x: 5, y: 7 }, owner: 1 },
+      { id: 'town-0', name: 'Valdeluz', faction: 'templarios', at: { x: 10, y: 11 }, owner: 0 },
+      { id: 'town-1', name: 'Cripta Gris', faction: 'no-muertos', at: { x: 5, y: 7 }, owner: 1 },
     ],
     heroStarts: [
       { player: 0, at: { x: 8, y: 12 } },
@@ -1114,6 +1200,18 @@ export function unidadDeArena(id: string, cambios: Partial<UnidadDeArena> = {}):
 }
 
 /**
+ * El catálogo entero de unidades (`data/unidades.json`) con `cambios` encima: la
+ * del mismo id la sustituye en su sitio, una nueva va detrás. «Guardar» exige un
+ * catálogo con el que arranque el juego —cada morada produce alguna unidad
+ * (`moradasBlocker`)—, así que una prueba que guarda lo hace sobre el entero.
+ */
+export function catalogoEntero(...cambios: UnidadDeArena[]): UnidadDeArena[] {
+  const porId = new Map(cambios.map((u) => [u.id, u]));
+  const ids = new Set(UNIDADES.map((u) => u.id));
+  return [...UNIDADES.map((u) => porId.get(u.id) ?? u), ...cambios.filter((u) => !ids.has(u.id))];
+}
+
+/**
  * El catálogo de equipo del juego (`EQUIPO_ESCRITO`) con `encima` puestas
  * (`conPiezas`: la del mismo id la sustituye, una nueva va detrás): el catálogo
  * entero que una prueba hace (`catalogoCon`) o guarda.
@@ -1181,10 +1279,12 @@ export const MANOS_DE_PRUEBA: Pieza = {
 };
 
 /**
- * Cada stack de `b` (sin arma) con las manos de prueba en el hueco del arma, por
+ * Cada stack de `b` con las manos de prueba en el hueco del arma, por
  * `conEquipo`, el único escritor de `UnitInfo.armas` (con su nombre: la batalla no
  * lleva catálogo): golpea en la rueda con los niveles de la Espada (u otros,
- * `niveles`) sin cambiar sus cifras. Devuelve `b`.
+ * `niveles`). Uno sin arma, sin cambiar sus cifras; uno del catálogo (desde el
+ * 19-10-2026 todos llevan arma), su cuerpo con su equipo de serie y las manos en
+ * lugar del arma. Devuelve `b`.
  */
 export function conManosDePrueba(
   b: BattleState,
@@ -1193,7 +1293,17 @@ export function conManosDePrueba(
   const manos: Pieza = { ...MANOS_DE_PRUEBA, rueda: niveles };
   const eq = catalogoCon(manos);
   for (const s of b.stacks) {
-    (s as { unit: UnitInfo }).unit = eq.conEquipo(s.unit, { arma: manos.id });
+    const unit =
+      s.unit.equipo?.arma === undefined
+        ? eq.conEquipo(s.unit, { arma: manos.id })
+        : s.origen.kind === 'catalogo'
+          ? eq.conEquipo(cuerpoDeCombate(unidad(s.body)), {
+              ...unidad(s.body).equipo,
+              arma: manos.id,
+            })
+          : s.unit;
+    (s as { unit: UnitInfo; topHp: number }).unit = unit;
+    (s as { topHp: number }).topHp = unit.hp;
   }
   return b;
 }

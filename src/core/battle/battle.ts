@@ -6,6 +6,8 @@
  * pueden disparar con un enemigo encima, moral que da o quita turnos, suerte
  * que dobla o parte el daño, y un hechizo de héroe por ronda.
  */
+
+import { cifrasDeUnidad, unidadDelJuego } from '../catalogo.js';
 import {
   cuentaTiros,
   HEROE,
@@ -15,7 +17,7 @@ import {
   LIDERAZGO,
   tirosQueQuedan,
 } from '../data.js';
-import { cifrasDeCatalogo, cifrasDelIndividuo } from '../hero/experiencia.js';
+import { cifrasDelIndividuo } from '../hero/experiencia.js';
 import { HERO_BODY, type Hero } from '../hero/hero.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
@@ -603,17 +605,20 @@ function resolveUnit(stack: Stack, slot: number, setup: BattleSide): Entrada {
     );
   }
   if (stack.member === undefined) {
-    // `cifrasDeCatalogo`, la misma regla que leen la IA y el agente por
+    // `cifrasDeUnidad`, la misma regla que leen la IA y el agente por
     // `troopUnit`: un veterano pisa el tablero con las cifras que ellos le ven,
     // y un novato con la referencia del catálogo tal cual.
-    const unit = cifrasDeCatalogo(stack.creature, stack.veterania);
+    const unit = cifrasDeUnidad(stack.creature, stack.veterania);
     return {
       slot,
+      // El id de la unidad del catálogo, no el de su hoja: es lo que el agente, el
+      // resumen y `settleBattle` leen como «qué es»; el arte lo busca el cliente
+      // por él (`unidad(id).cuerpo.hoja`).
       body: stack.creature,
       unit,
       origen: {
         kind: 'catalogo',
-        oro: unit.cost.gold ?? 0,
+        oro: unidadDelJuego(stack.creature).cost.gold ?? 0,
         veterania: stack.veterania ?? null,
       },
       count: stack.count,

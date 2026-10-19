@@ -9,7 +9,7 @@ import {
 import { arteDe, hojaDe } from '../src/client/render/personajes.js';
 
 describe('clips de personaje', () => {
-  const atlas = hojaDe(arteDe('peasant'), 'SE');
+  const atlas = hojaDe(arteDe('goblin-lancero'), 'SE');
 
   it('la marcha hace bucle', () => {
     const { frames, fps } = atlas.clips.walk;

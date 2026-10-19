@@ -10,7 +10,8 @@ import { stackHp } from '../battle/damage.js';
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { personajeDe, SIDES } from '../battle/types.js';
-import { allCreatures, creature, tipoDeHeroePorDefecto } from '../data.js';
+import { equipoPuesto, unidadDelJuego, unidadDelJuegoSiExiste } from '../catalogo.js';
+import { tipoDeHeroePorDefecto } from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
@@ -602,7 +603,7 @@ export function recruitCapacity(
     disponibles,
     caben,
     maximo,
-    ocupaUno: creature(creatureId).leadership,
+    ocupaUno: unidadDelJuego(creatureId).leadership,
     ocupado: armyLeadership(destino.army),
     tope: destino.tope,
     quien: destino.quien,
@@ -1597,12 +1598,20 @@ export function ponerseBlocker(
   quien: Portador,
   id: string,
 ): string | null {
-  const manos = manosBlocker(equipoDe(hero, quien), id);
-  if (manos !== null || 'heroe' in quien) return manos;
+  if ('heroe' in quien) return manosBlocker(equipoDe(hero, quien), id);
+  const t = hero.army[quien.indice] as Troop;
+  // Las manos, con todo lo que lleva puesto: el equipo de serie de su unidad
+  // también (un mandoble no entra con el escudo de serie).
+  const puesto =
+    t.member === undefined
+      ? equipoPuesto(t.creature, equipoDe(hero, quien))
+      : equipoDe(hero, quien);
+  const manos = manosBlocker(puesto, id);
+  if (manos !== null) return manos;
   const p = pieza(id);
-  // Las cifras de la tropa (`troopUnit`), que saben de dónde sale su munición: la
-  // criatura del catálogo o el perfil de un personaje.
-  const unit = troopUnit(hero.army[quien.indice] as Troop, state.characters);
+  // Las cifras de la tropa (`troopUnit`), que saben de dónde sale su munición: el
+  // perfil de un personaje.
+  const unit = troopUnit(t, state.characters);
   return municionBlocker(unit, { [p.hueco]: p.id });
 }
 
@@ -1622,7 +1631,7 @@ export function unequipBlocker(
     t === null
       ? hero.name
       : t.member === undefined
-        ? `esa unidad de ${creature(t.creature).name}`
+        ? `esa unidad de ${unidadDelJuego(t.creature).name}`
         : 'ese personaje';
   return nadaEnElHueco(nombre, action.slot);
 }
@@ -1661,9 +1670,9 @@ function dismissBlocker(
   if (creatureId === CHARACTER_BODY) {
     return 'un personaje no se licencia: es uno y tiene nombre, no un individuo de la tropa';
   }
-  const especie = allCreatures().find((c) => c.id === creatureId);
-  if (especie === undefined) {
-    return `no existe ninguna criatura "${creatureId}", así que ${hero.name} no lleva ninguna`;
+  const especie = unidadDelJuegoSiExiste(creatureId);
+  if (especie === null) {
+    return `no existe ninguna unidad "${creatureId}", así que ${hero.name} no lleva ninguna`;
   }
   const lleva = hero.army.filter((t) => t.creature === creatureId && t.member === undefined).length;
   if (lleva === 0) return `${hero.name} no lleva individuos de tipo ${especie.name}`;

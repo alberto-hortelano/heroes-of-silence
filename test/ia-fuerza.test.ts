@@ -6,13 +6,14 @@
  * fotos de partidas reales; aquí van dos guardias baratos que la clavan:
  *
  *  - el caso: un héroe de nivel 20 sin tropa contra uno de nivel 12 con seis
- *    vampiros. `fuerzaDe` da por más fuerte al solo, y lo es;
+ *    caballeros de la muerte. `fuerzaDe` da por más fuerte al solo, y lo es;
  *  - la calibración: con ejércitos montados a semilla fija, la log-pérdida de
  *    `PESO_DEL_CUERPO` no se aleja de la mejor de la rejilla, y quien saca el
  *    margen de `ventajaClara` gana casi siempre.
  *
  * Toda batalla con `createRng`: con la misma semilla, la misma cifra.
  */
+
 import { describe, expect, it } from 'vitest';
 import {
   armyPower,
@@ -23,24 +24,24 @@ import {
 } from '../src/core/ai/fuerza.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
 import { type BattleSide, createBattle } from '../src/core/battle/battle.js';
-import { factionLineup } from '../src/core/data.js';
+import { unidadesDeFaccion } from '../src/core/catalogo.js';
+import { tipoDeHeroePorDefecto } from '../src/core/data.js';
 import { RANGO_MAXIMO_DE_TROPA, umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroeRecienHecho, heroUnit } from '../src/core/hero/hero.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { FactionId, Troop } from '../src/core/types.js';
-
-const TIPO: Record<FactionId, string> = { knight: 'caballero', necromancer: 'nigromante' };
+import { FACCION_A, FACCION_B } from './helpers.js';
 
 function heroe(faction: FactionId, nivel: number, army: Troop[]): Hero {
   const h = heroeRecienHecho({
     id: `heroe-${faction}`,
-    owner: faction === 'knight' ? 0 : 1,
+    owner: faction === FACCION_A ? 0 : 1,
     name: faction,
     faction,
     at: { x: 0, y: 0 },
     experience: umbral(nivel),
-    tipo: TIPO[faction],
+    tipo: tipoDeHeroePorDefecto(faction),
   });
   h.army = army;
   return h;
@@ -81,10 +82,10 @@ function ganaA(a: Hero, b: Hero, veces: number, rng: Rng): number {
 }
 
 describe('la fuerza estimada sigue a la que se ve peleando (#182)', () => {
-  it('un héroe de nivel 20 sin tropa contra uno de nivel 12 con seis vampiros: se le da por más fuerte, y gana', () => {
-    const solo = heroe('knight', 20, []);
-    const vampiros = Array.from({ length: 6 }, () => ({ creature: 'vampire' }));
-    const conTropa = heroe('necromancer', 12, vampiros);
+  it('un héroe de nivel 20 sin tropa contra uno de nivel 12 con seis caballeros de la muerte: se le da por más fuerte, y gana', () => {
+    const solo = heroe(FACCION_A, 20, []);
+    const caballeros = Array.from({ length: 6 }, () => ({ creature: 'caballero-de-la-muerte' }));
+    const conTropa = heroe(FACCION_B, 12, caballeros);
     // Sin margen, que es la regla con la que un héroe persigue a otro.
     expect(fuerzaDe(solo, undefined)).toBeGreaterThan(fuerzaDe(conTropa, undefined));
     expect(ganaA(solo, conTropa, 25, createRng(182))).toBeGreaterThan(0.75);
@@ -94,7 +95,7 @@ describe('la fuerza estimada sigue a la que se ve peleando (#182)', () => {
     const rng = createRng(2026);
     /** Un ejército de 0 a 6 individuos del catálogo, cada uno con su veteranía. */
     const ejercito = (faction: FactionId): Troop[] => {
-      const lineup = factionLineup(faction);
+      const lineup = unidadesDeFaccion(faction);
       return Array.from({ length: rng.int(0, 6) }, (_, i) => {
         const c = lineup[rng.int(0, lineup.length - 1)];
         if (c === undefined) throw new Error(`${faction} no tiene criaturas`);
@@ -106,8 +107,8 @@ describe('la fuerza estimada sigue a la que se ve peleando (#182)', () => {
     };
     const filas: { a: Hero; b: Hero; gana: number }[] = [];
     for (let i = 0; i < 200; i++) {
-      const a = heroe('knight', rng.int(5, 18), ejercito('knight'));
-      const b = heroe('necromancer', rng.int(5, 18), ejercito('necromancer'));
+      const a = heroe(FACCION_A, rng.int(5, 18), ejercito(FACCION_A));
+      const b = heroe(FACCION_B, rng.int(5, 18), ejercito(FACCION_B));
       filas.push({ a, b, gana: ganaA(a, b, 1, rng) });
     }
 

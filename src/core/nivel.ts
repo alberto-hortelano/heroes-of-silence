@@ -29,7 +29,7 @@ import {
 } from './battle/armas.js';
 import { cifrasDeCarga, porcientoDeLaCarga } from './battle/carga.js';
 import type { CifrasDeLaRueda } from './battle/cifras-de-la-rueda.js';
-import { allCreatures, isShooter, PODER } from './data.js';
+import { isShooter, PODER } from './data.js';
 import { raizEntera } from './escala.js';
 import {
   SPEED_TO_HEXES,
@@ -186,8 +186,8 @@ function aguanteDe(u: UnitInfo): number {
 /**
  * **Qué cifras se pueden medir**: por qué estas no, o `null` si sí (`medida`). Lo
  * leen `poderBruto`, la validación de la arena (la hoja del catálogo y su
- * prueba), que rechaza la cifra antes de que llegue a una pelea, y la carga del
- * catálogo de criaturas (`catalogoMedible`). Con un Guerrero con escudo a 10¹⁵
+ * prueba), que rechaza la cifra antes de que llegue a una pelea, también al
+ * cargar el catálogo de unidades (`equipoDeUnidadBlocker`). Con un Guerrero con escudo a 10¹⁵
  * PV, la arena aceptaba la cifra y la pelea se quedaba en «Contando la jugada…»:
  * el primer golpe que recibía lanzaba dentro de `herir` (QA del 12-10-2026).
  */
@@ -195,23 +195,6 @@ export function medidaBlocker(u: UnitInfo): string | null {
   const m = medida(u);
   return 'motivo' in m ? m.motivo : null;
 }
-
-/**
- * Comprueba que cada criatura de un catálogo se puede medir y lanza diciendo
- * cuál no. Corre al cargar este módulo sobre `data/creatures.json`: aquí y no en
- * `data.ts` porque `nivel.ts` ya lee de `data.ts` y el revés sería un ciclo.
- */
-export function catalogoMedible(
-  criaturas: readonly UnitInfo[],
-  fichero = 'data/creatures.json',
-): void {
-  for (const c of criaturas) {
-    const motivo = medidaBlocker(c);
-    if (motivo !== null) throw new Error(`${fichero}: la criatura «${c.name}»: ${motivo}`);
-  }
-}
-
-catalogoMedible(allCreatures());
 
 /**
  * El índice de poder de una unidad, con su equipo: `100 · nivel` más lo recorrido

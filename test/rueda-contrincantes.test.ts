@@ -33,12 +33,12 @@ import {
   type TipoDeGolpe,
 } from '../src/core/battle/rueda.js';
 import { spell } from '../src/core/battle/spells.js';
-import { hastaLaRueda, sesionDeArena, unidadDeArena } from './helpers.js';
+import { hastaLaRueda, PESADA, sesionDeArena, TROPA, unidadDeArena } from './helpers.js';
 
-/** Tres guerreros con escudo contra tres orkos, los dos bandos «Yo», con la rueda. */
+/** Tres guerreros con escudo contra tres con mandoble, los dos bandos «Yo», con la rueda. */
 function sesion(semilla = 1): SesionDeArena {
   const tres = (id: string) => [0, 1, 2].map(() => ({ unidad: unidadDeArena(id), ia: false }));
-  const s = sesionDeArena(tres('templario-escudo'), tres('orko-dos-armas'), semilla, {
+  const s = sesionDeArena(tres(TROPA), tres(PESADA), semilla, {
     golpe: 'rueda',
   });
   s.empezar();
@@ -115,10 +115,11 @@ describe('R3 de QA (#263): R. guardia dice en cuánto deja el contraataque antes
     const ahora = p.prevision.contraataque;
     const porExito = p.prevision.porTipo?.romperGuardia.contraataquePorExito ?? [];
     expect(ahora).not.toBeNull();
-    // El orco pega con el mandoble, con Romper guardia en el nivel 4 (quita 0, 1,
-    // 2, 3 y 4 del mínimo al máximo): también el bajo rebaja el contraataque; el
-    // mínimo, no.
-    expect(porExito.map((x) => x.punto)).toEqual([4, 3, 2, 1]);
+    // Pega el guerrero con escudo, con la espada: Romper guardia en el nivel 3
+    // (quita 0, 0, 1, 2 y 3 del mínimo al máximo). El medio, el alto y el máximo
+    // rebajan el contraataque; el bajo y el mínimo, no.
+    expect(p.atacante.body).toBe(TROPA);
+    expect(porExito.map((x) => x.punto)).toEqual([4, 3, 2]);
     const h = (x: { min: number; max: number }) =>
       x.min === x.max ? `${x.min}` : `${x.min}–${x.max}`;
     const frase = `Su contraataque (con Normal, ${h(ahora ?? { min: 0, max: 0 })}) queda, según el éxito, en: ${porExito
@@ -261,7 +262,7 @@ describe('#261: la vista previa', () => {
     hastaElGolpe(s);
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('sin rueda');
-    const guerrero = [p.atacante, p.objetivo].find((x) => x.body === 'templario-escudo');
+    const guerrero = [p.atacante, p.objetivo].find((x) => x.body === TROPA);
     if (guerrero === undefined) throw new Error('el guerrero no se cruza');
     const v = previa(s, guerrero.id);
     expect(v).toContain('Guerrero con escudo');

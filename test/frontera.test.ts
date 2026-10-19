@@ -222,7 +222,7 @@ describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
       kind: 'monster',
       id: 'guardia',
       at: { x: 1, y: 0 },
-      creature: 'peasant',
+      creature: 'goblin-lancero',
       count: 1,
       defeated: false,
     });

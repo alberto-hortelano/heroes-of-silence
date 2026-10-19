@@ -149,8 +149,8 @@ export const HERO_BODY = 'hero';
 export function heroUnit(
   hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience' | 'equipo'>,
 ): UnitInfo {
-  // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`), que deja
-  // el cuerpo desnudo en `sinEquipo` para la ficha.
+  // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`); el cuerpo
+  // desnudo, para la ficha, es `cuerpoDelHeroe`.
   return conEquipo(cuerpoDelHeroe(hero), hero.equipo);
 }
 

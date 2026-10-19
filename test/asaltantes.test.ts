@@ -6,12 +6,14 @@
  * Cada `it` sale de un criterio de verificación del plan, y los que dependen
  * del azar van con su semilla: la patrulla y el brote tiran de `createRng`.
  */
+
 import { describe, expect, it } from 'vitest';
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe, ventajaClara } from '../src/core/ai/fuerza.js';
 import { planBuildings, planRecruits } from '../src/core/ai/strategy.js';
 import { playAiTurn } from '../src/core/ai/turn.js';
+import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
 import { serializeKnownMap } from '../src/core/contract/serialize.js';
-import { ASALTANTES, creature, factionLineup } from '../src/core/data.js';
+import { ASALTANTES } from '../src/core/data.js';
 import { CUPO_HEROE, withTroops } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import {
@@ -57,7 +59,15 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
-import { costesDelAlcance, ejercito } from './helpers.js';
+import {
+  aMano,
+  conCifrasAMano,
+  costesDelAlcance,
+  ejercito,
+  JINETE,
+  PESADA,
+  TROPA_BARATA,
+} from './helpers.js';
 import { segunPrisa } from './lento.js';
 
 /**
@@ -147,7 +157,7 @@ describe('la patrulla', () => {
 
   it('si no se cree capaz con el héroe de su región, se aparta de él', () => {
     const { state, hero, grupo } = enSuRegion(11);
-    hero.army = ejercito({ creature: 'paladin', count: 6 });
+    hero.army = ejercito({ creature: PESADA, count: 6 });
     hero.at = libresDeSuRegion(state, grupo)[0]!;
     const lejos = (p: Point) => Math.max(Math.abs(p.x - hero.at.x), Math.abs(p.y - hero.at.y));
     const antes = lejos(grupo.at);
@@ -218,7 +228,7 @@ describe('la emboscada', () => {
 
   it('un héroe que no da el margen al grupo pasa sin batalla', () => {
     const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
-    hero.army = ejercito({ creature: 'paladin', count: 6 });
+    hero.army = ejercito({ creature: PESADA, count: 6 });
     expect(poderDe(grupo)).toBeLessThanOrEqual(MARGEN_CONTRA_NEUTRALES * fuerzaDe(hero, undefined));
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
     expect(state.pendingBattle).toBeNull();
@@ -237,7 +247,7 @@ describe('la emboscada', () => {
 
   it('gana el héroe atacando: el grupo desaparece', () => {
     const { state, ctx, hero, grupo } = enSuRegion(11);
-    hero.army = ejercito({ creature: 'paladin', count: 6 });
+    hero.army = ejercito({ creature: PESADA, count: 6 });
     hero.at = libresDeSuRegion(state, grupo).find(
       (p) => Math.max(Math.abs(p.x - grupo.at.x), Math.abs(p.y - grupo.at.y)) === 1,
     )!;
@@ -248,17 +258,28 @@ describe('la emboscada', () => {
   });
 
   it('la IA que resuelve la defensa de una persona no la rinde por ella', () => {
-    // Con dos campesinos contra el grupo, la IA para sí se rinde —pesa menos de
-    // un tercio y hay base—; por la persona pelea, pero no paga.
+    // Con dos de la tropa más barata contra el grupo, la IA para sí se rinde
+    // —pesa menos de un tercio y hay base—; por la persona pelea, pero no paga.
     const desenlace = (vetada: boolean) => {
       const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
-      hero.army = ejercito({ creature: 'peasant', count: 2 });
-      // El grupo, fijo: los cuatro vampiros con los que se escribió. El más
-      // fuerte de la semilla depende del mapa, y con los bordes de #169 eran
-      // cinco momias, contra las que la IA no llegaba a rendirse (un desenlace
-      // de la batalla, no del veto, que es lo que mira este test).
-      (grupo as { troops: unknown }).troops = [{ creature: 'vampire', count: 4 }];
+      hero.army = ejercito({ creature: TROPA_BARATA, count: 2 });
+      // El grupo, fijo: siete jinetes de plaga, que emboscan. El más fuerte de la
+      // semilla depende del mapa, y con los bordes de #169 eran cinco momias,
+      // contra las que la IA no llegaba a rendirse (un desenlace de la batalla,
+      // no del veto, que es lo que mira este test).
+      (grupo as { troops: unknown }).troops = [{ creature: 'jinete-de-plaga', count: 7 }];
       applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
+      // Y en la batalla, con diez veces su vida: con el catálogo de F3 (todas las
+      // unidades de 60 a 160 PV) ningún grupo de siete pesa el triple que un
+      // héroe de rango 5 (500 PV), y la IA no se rendiría nunca. El test necesita
+      // una batalla perdida, no un grupo del catálogo.
+      const b = state.pendingBattle!.battle;
+      const jinete = unidadDelJuego('jinete-de-plaga');
+      conCifrasAMano(
+        b,
+        b.stacks.filter((x) => x.side === 'attacker').map((x) => x.id),
+        aMano(jinete.id, { hp: 10 * jinete.hp }),
+      );
       resolvePendingBattle(state, ctx, vetada ? new Set([0]) : new Set());
       return state.log.find((e) => e.kind === 'hero_returned');
     };
@@ -299,7 +320,7 @@ describe('dispersarse y brotar', () => {
       if (town !== undefined) town.owner = 0;
     }
     const hero = heroesOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: 'paladin', count: 6 });
+    hero.army = ejercito({ creature: PESADA, count: 6 });
     const nodo = red.nodos[ultimo!]!;
     hero.at = VECINAS.map(([dx, dy]) => ({ x: nodo.at.x + dx, y: nodo.at.y + dy })).find(
       (p) => isEnterable(state.map, p) && objectAt(state.map, p) === undefined,
@@ -526,7 +547,9 @@ describe('los datos de los asaltantes', () => {
     for (const p of [0, 1] as const) {
       const hero = heroesOf(state, p)[0]!;
       hero.at = { ...baseOf(state, p)!.at };
-      const barata = factionLineup(state.players[p]!.faction)[0]!.id;
+      const barata = [...unidadesDeFaccion(state.players[p]!.faction)].sort(
+        (a, b) => (a.cost.gold ?? 0) - (b.cost.gold ?? 0),
+      )[0]!.id;
       hero.army = withTroops([], barata, CUPO_HEROE);
     }
     const fuerza = [0, 0];
@@ -554,13 +577,13 @@ describe('los datos de los asaltantes', () => {
     for (const grupos of ASALTANTES.composiciones) {
       expect(poderDe({ troops: grupos })).toBeLessThanOrEqual(ASALTANTES.fuerzaMax);
       expect(
-        grupos.reduce((n, g) => n + creature(g.creature).leadership * g.count, 0),
+        grupos.reduce((n, g) => n + unidadDelJuego(g.creature).leadership * g.count, 0),
       ).toBeLessThanOrEqual(ASALTANTES.liderazgoMax);
     }
   });
 
-  it('siete vampiros son un muro, y se rechazan diciéndolo', () => {
-    const problemas = problemasDeAsaltante([{ creature: 'vampire', count: 7 }], 'el grupo');
+  it('siete jinetes son un muro, y se rechazan diciéndolo', () => {
+    const problemas = problemasDeAsaltante([{ creature: JINETE, count: 7 }], 'el grupo');
     expect(problemas.join(' ')).toMatch(/liderazgo|muro/);
   });
 });
@@ -582,25 +605,32 @@ describe('el plan de mapa con asaltantes', () => {
     const con = (r: { at: Point; troops: readonly { creature: string; count: number }[] }) =>
       validateMapPlan({ ...plan, raiders: [r] }).join(' | ');
     expect(con({ at: uno.at, troops: [{ creature: 'dragon', count: 3 }] })).toMatch(
-      /criatura que no existe: "dragon"/,
+      /unidad que no existe: "dragon"/,
     );
-    expect(con({ at: uno.at, troops: [{ creature: 'peasant', count: 8 }] })).toMatch(
+    expect(con({ at: uno.at, troops: [{ creature: TROPA_BARATA, count: 8 }] })).toMatch(
       /como mucho 7/,
     );
-    // Cinco espadachines: 30 de liderazgo y 625 de fuerza, así que solo cae por
-    // el primer techo. Cuatro vampiros y una momia: 28 y 807,5, solo por el otro.
-    expect(con({ at: uno.at, troops: [{ creature: 'swordsman', count: 5 }] })).toMatch(
-      /ocupa 30 de liderazgo/,
+    // Un jinete de plaga y seis caballeros de la muerte pasan del liderazgo sin
+    // pasar de la fuerza: solo caen por el primer techo. Tres jinetes de plaga
+    // caben en el liderazgo y pasan de la fuerza: solo por el otro.
+    const porLiderazgo = [
+      { creature: 'jinete-de-plaga', count: 1 },
+      { creature: 'caballero-de-la-muerte', count: 6 },
+    ];
+    const ocupa = porLiderazgo.reduce(
+      (n, g) => n + unidadDelJuego(g.creature).leadership * g.count,
+      0,
     );
-    expect(
-      con({
-        at: uno.at,
-        troops: [
-          { creature: 'vampire', count: 4 },
-          { creature: 'mummy', count: 1 },
-        ],
-      }),
-    ).toMatch(/suma 807.5 de fuerza/);
+    expect(ocupa).toBeGreaterThan(ASALTANTES.liderazgoMax);
+    expect(poderDe({ troops: porLiderazgo })).toBeLessThanOrEqual(ASALTANTES.fuerzaMax);
+    expect(con({ at: uno.at, troops: porLiderazgo })).toMatch(`ocupa ${ocupa} de liderazgo`);
+    const porFuerza = [{ creature: 'jinete-de-plaga', count: 3 }];
+    const suma = poderDe({ troops: porFuerza });
+    expect(suma).toBeGreaterThan(ASALTANTES.fuerzaMax);
+    expect(3 * unidadDelJuego('jinete-de-plaga').leadership).toBeLessThanOrEqual(
+      ASALTANTES.liderazgoMax,
+    );
+    expect(con({ at: uno.at, troops: porFuerza })).toMatch(`suma ${suma} de fuerza`);
     const { map } = buildMap(plan);
     const red = estructura(map);
     const nodo = red.nodos.find((n) => !n.ciudad)!;
@@ -651,7 +681,11 @@ describe('lo que el castillo ve se pinta (H1)', () => {
   // El castillo ve en un radio de 5 (`visibleNow`), y ese radio no se escribía en
   // `fog`: el agente veía el grupo de la región de casa y la persona, que pinta
   // con `fog`, no — en 96 de 200 semillas el día 1, y lo pisaba a ciegas.
-  it('el día 1, todo grupo que embosca al héroe y cuya casilla se ve está explorado, y ningún objeto cae sobre `null`', () => {
+  it('el día 1, todo grupo cuya casilla se ve está explorado (también los que emboscan al héroe), y ningún objeto cae sobre `null`', () => {
+    // Todos los que se ven y no solo los que emboscan: con la fuerza por el índice
+    // de F3 (19-10-2026) los que emboscan el día 1 son pocos (5 en 1-60), y la
+    // regla es la misma para todo grupo cuya casilla se mira.
+    let vistos = 0;
     let emboscadores = 0;
     let sobreLaNiebla = 0;
     for (let semilla = 1; semilla <= 60; semilla++) {
@@ -660,9 +694,9 @@ describe('lo que el castillo ve se pinta (H1)', () => {
       const fog = state.players[0]!.fog;
       const mirando = visibleNow(state, 0);
       for (const r of state.raiders) {
-        if (!ventajaClara(poderDe(r), fuerzaDe(hero, state.characters))) continue;
         if (!mirando.has(r.at)) continue;
-        emboscadores++;
+        vistos++;
+        if (ventajaClara(poderDe(r), fuerzaDe(hero, state.characters))) emboscadores++;
         expect(fog.has(r.at), `semilla ${semilla}: ${r.id} se ve y no se pinta`).toBe(true);
       }
       const km = serializeKnownMap(state, 0);
@@ -678,9 +712,10 @@ describe('lo que el castillo ve se pinta (H1)', () => {
         if (km.terrain[r.at.y * km.width + r.at.x] === null) sobreLaNiebla++;
       }
     }
-    // Que haya de qué hablar: sin grupos vistos que embosquen, el test pasaría
-    // por vacío.
-    expect(emboscadores).toBeGreaterThan(20);
+    // Que haya de qué hablar: sin grupos vistos, el test pasaría por vacío; y
+    // entre ellos, alguno que embosca, que es el que la persona pisaba a ciegas.
+    expect(vistos).toBeGreaterThan(20);
+    expect(emboscadores).toBeGreaterThan(0);
     expect(sobreLaNiebla).toBeGreaterThan(0);
   });
 
@@ -755,7 +790,7 @@ describe('la ruta que pisa una emboscada (H2)', () => {
       emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, Casillas.vacias(state.map))),
     ).toBeNull();
     // Y un héroe al que el grupo no le saca el margen, tampoco.
-    hero.army = ejercito({ creature: 'paladin', count: 7 });
+    hero.army = ejercito({ creature: PESADA, count: 7 });
     expect(emboscadaEnLaRuta(state, hero, camino, vistos)).toBeNull();
   });
 });
@@ -801,7 +836,7 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
     const hero = heroesOf(state, 0)[0]!;
     // Lo bastante débil para que cualquiera le saque el margen: aquí se mira
     // qué se ve, no quién embosca a quién.
-    hero.army = ejercito({ creature: 'peasant', count: 1 });
+    hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
     const region = regionDeCasilla(state.map, raider.at);
     const { regionDe } = estructura(state.map);
     const i = regionDe.indexOf(region);

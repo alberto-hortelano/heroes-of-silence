@@ -11,6 +11,7 @@
  * la misma arma con los niveles de la Espada (todo a 3, una copia «lisa»): así lo
  * que cambia es solo la rueda, no el ataque ni el daño.
  */
+
 import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
 import { renderEleccion } from '../src/client/arena/rueda.js';
@@ -28,11 +29,17 @@ import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import { efectoDeGolpe, filasDeLaRueda, ruedaDelArmaEnPalabras } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
-import { creature, type Pieza, type PiezaEscrita } from '../src/core/data.js';
+import { unidad } from '../src/core/catalogo.js';
+import type { Pieza, PiezaEscrita } from '../src/core/data.js';
 import { conEquipo, EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { TipoDeGolpe } from '../src/core/types.js';
-import { nivelesDeLaEspada, type UnidadDeArena, unidadDeCombate } from '../src/core/unidad.js';
+import {
+  cuerpoDeCombate,
+  nivelesDeLaEspada,
+  type UnidadDeArena,
+  unidadDeCombate,
+} from '../src/core/unidad.js';
 import {
   type Ataque,
   aPelear,
@@ -40,8 +47,10 @@ import {
   catalogoCon,
   golpeConLaRueda,
   hastaLaRueda,
+  JINETE,
   montajeDePrueba,
   sesionDeArena,
+  TROPA,
   todoA,
   unidadDeArena,
 } from './helpers.js';
@@ -61,7 +70,7 @@ const EQ = catalogoCon(...PIEZAS);
 
 /** El guerrero con escudo (espada, brigantina y escudo) con `arma` en la mano. */
 function guerreroCon(arma: string): UnidadDeArena {
-  return equiparEnArena(unidadDeArena('templario-escudo'), arma, EQ);
+  return equiparEnArena(unidadDeArena(TROPA), arma, EQ);
 }
 
 /**
@@ -198,14 +207,18 @@ describe('las cifras de la rueda por niveles', () => {
 
   it('la Espada es la versátil (todo a 3) y la llevan la unidad y el héroe', () => {
     expect(pieza('espada').rueda).toEqual(todoA(3));
-    const conEspada = unidadDeCombate(unidadDeArena('templario-escudo'), EQUIPO_DEL_JUEGO);
+    const conEspada = unidadDeCombate(unidadDeArena(TROPA), EQUIPO_DEL_JUEGO);
     expect(ruedaDelGolpe(conEspada, 'arma').fuerte.porcentaje).toBe(150);
-    // Sin arma ni arma por uso, el cuerpo no lleva `armas`: todo golpe, con las de arriba.
-    expect(conEquipo(creature('pikeman'), { armadura: 'gambeson' })).not.toHaveProperty('armas');
+    // Sin arma ni arma por uso, el cuerpo (sin su equipo de serie) no lleva `armas`:
+    // todo golpe, con las de arriba.
+    expect(conEquipo(cuerpoDeCombate(unidad(TROPA)), { armadura: 'gambeson' })).not.toHaveProperty(
+      'armas',
+    );
   });
 
   it('golpear en la rueda sin arma de la arena es un fallo: lanza', () => {
-    const sinArma = { ...creature('pikeman'), name: 'Piquero' };
+    // El cuerpo desnudo: las del catálogo llevan todas arma de serie.
+    const sinArma = { ...cuerpoDeCombate(unidad(TROPA)), name: 'Piquero' };
     expect(() => ruedaDelGolpe(sinArma, 'arma')).toThrow(
       '«Piquero» golpea en la rueda sin arma de la arena',
     );
@@ -264,7 +277,7 @@ describe('las cifras de la rueda por niveles', () => {
 describe('cada golpe de la rueda va con su arma', () => {
   it('con la maza, Fuerte da más y Rápido menos que con la misma maza sin rueda; Normal, igual', () => {
     const con = (arma: string, golpe: TipoDeGolpe) =>
-      dar(pelea(guerreroCon(arma), unidadDeArena('templario-escudo')), golpe, 'normal').golpe;
+      dar(pelea(guerreroCon(arma), unidadDeArena(TROPA)), golpe, 'normal').golpe;
     const [fuerte] = con('maza', 'fuerte');
     const [fuerteLisa] = con(MAZA_LISA.id, 'fuerte');
     expect(fuerte?.damage).toBeGreaterThan(fuerteLisa?.damage ?? 0);
@@ -278,7 +291,7 @@ describe('cada golpe de la rueda va con su arma', () => {
   it('la previsión de la rueda lo enseña antes de elegir, con las cifras del arma', () => {
     const prevista = (arma: string) =>
       previsionDeLaRueda(
-        pelea(guerreroCon(arma), unidadDeArena('templario-escudo')),
+        pelea(guerreroCon(arma), unidadDeArena(TROPA)),
         { type: 'attack', target: 'defender-0' },
         'golpe',
       );
@@ -290,7 +303,7 @@ describe('cada golpe de la rueda va con su arma', () => {
     expect(maza.porTipo?.rapido.danio.max).toBeLessThan(llana.porTipo?.rapido.danio.max ?? 0);
     expect(maza.porTipo?.normal.danio).toEqual(llana.porTipo?.normal.danio);
     // Y lo que cae está en lo previsto.
-    const b = pelea(guerreroCon('maza'), unidadDeArena('templario-escudo'));
+    const b = pelea(guerreroCon('maza'), unidadDeArena(TROPA));
     const previsto = previsionDeLaRueda(b, { type: 'attack', target: 'defender-0' }, 'golpe');
     const [golpe] = dar(b, 'fuerte', 'normal').golpe;
     const h = previsto.porTipo?.fuerte.danio;
@@ -301,8 +314,8 @@ describe('cada golpe de la rueda va con su arma', () => {
   it('la Finta de la daga (nivel 5) resta menos casillas que la de la espada (nivel 3)', () => {
     // El jinete (7 casillas): tras golpear le queda por andar, y el turno sigue.
     const tras = (arma: string): number | undefined => {
-      const jinete = equiparEnArena(unidadDeArena('templario-hermano-de-carga'), arma, EQ);
-      const b = pelea(jinete, unidadDeArena('templario-escudo'));
+      const jinete = equiparEnArena(unidadDeArena(JINETE), arma, EQ);
+      const b = pelea(jinete, unidadDeArena(TROPA));
       // Contra Romper guardia, su opuesto: el éxito máximo.
       dar(b, 'finta', 'romperGuardia');
       expect(b.turno?.stack).toBe('attacker-0');
@@ -317,7 +330,7 @@ describe('cada golpe de la rueda va con su arma', () => {
 
   it('el contraataque va con el arma del que responde', () => {
     const vuelta = (arma: string) =>
-      dar(pelea(unidadDeArena('templario-escudo'), guerreroCon(arma)), 'normal', 'fuerte').vuelta;
+      dar(pelea(unidadDeArena(TROPA), guerreroCon(arma)), 'normal', 'fuerte').vuelta;
     const [conMaza] = vuelta('maza');
     const [conLisa] = vuelta(MAZA_LISA.id);
     expect(conMaza?.stack).toBe('defender-0');
@@ -327,8 +340,8 @@ describe('cada golpe de la rueda va con su arma', () => {
   it('en una carga, el primer golpe va con la lanza y el segundo de Rápido con la espada', () => {
     /** El jinete en (1,4), el guerrero en (6,4): desde (5,4) carga 4 casillas. */
     const carga = (lanza: string) => {
-      const jinete = equiparEnArena(unidadDeArena('templario-hermano-de-carga'), lanza, EQ);
-      const b = pelea(jinete, unidadDeArena('templario-escudo'));
+      const jinete = equiparEnArena(unidadDeArena(JINETE), lanza, EQ);
+      const b = pelea(jinete, unidadDeArena(TROPA));
       stackById(b, 'attacker-0').hex = { col: 1, row: 4 };
       const accion = { type: 'attack', target: 'defender-0', from: { col: 5, row: 4 } } as const;
       const previsto = previsionDeLaRueda(b, accion, 'golpe');
@@ -354,7 +367,7 @@ describe('cada golpe de la rueda va con su arma', () => {
   it('la rueda que se abre en la página enseña las cifras del arma de quien elige', () => {
     // Yo contra Yo, los dos con maza: elija quien elija, su Fuerte es ×1,83.
     const conMaza = {
-      unidad: equiparEnArena(unidadDeArena('templario-escudo'), 'maza', EQUIPO_DEL_JUEGO),
+      unidad: equiparEnArena(unidadDeArena(TROPA), 'maza', EQUIPO_DEL_JUEGO),
       ia: false,
     };
     const s = sesionDeArena([conMaza], [conMaza], 1, { golpe: 'rueda' });

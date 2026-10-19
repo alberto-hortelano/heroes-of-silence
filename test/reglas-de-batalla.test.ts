@@ -33,9 +33,22 @@ import {
   reglasDeLaURL,
 } from '../src/core/battle/reglas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import { unidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { ESCALA_DE_CIFRAS } from '../src/core/escala.js';
 import { createRng, type Rng } from '../src/core/rng.js';
+import type { UnitInfo } from '../src/core/types.js';
+import { cuerpoDeCombate } from '../src/core/unidad.js';
 import { bando, con, mando } from './batalla-de-prueba.js';
+import {
+  aMano,
+  conCifrasAMano,
+  forzarTurno,
+  NO_MUERTO,
+  PESADA,
+  TIRADOR,
+  TROPA,
+  TROPA_BARATA,
+} from './helpers.js';
 
 function batalla(
   izquierda: BattleSide,
@@ -45,6 +58,40 @@ function batalla(
 ): { b: BattleState; rng: Rng } {
   const rng = createRng(semilla);
   return { b: crearBatallaConReglas(izquierda, derecha, rng, reglas), rng };
+}
+
+/**
+ * El cuerpo de `id` sin su equipo de serie, con `cambios`: sin la armadura, que se
+ * resta al final de todo lo que llega, para que se lean los multiplicadores de
+ * cada regla tal cual.
+ */
+const desnudo = (id: string, cambios: Partial<UnitInfo> = {}): UnitInfo => ({
+  ...cuerpoDeCombate(unidad(id)),
+  ...cambios,
+});
+
+/** Un piquero sin armadura. */
+const PIQUERO = desnudo(TROPA);
+/**
+ * Un arquero con flechas que contar (`shots`, que ya solo lleva un personaje: el
+ * catálogo tira con su arco, sin munición).
+ */
+const ARQUERO = desnudo(TIRADOR, { name: 'Arquero', shots: 12 });
+/** El espadachín de las cuentas: A 7, D 9, daño 40-60, sin armadura. */
+const ESPADACHIN = desnudo(PESADA, {
+  name: 'Espadachín',
+  attack: 7,
+  defense: 9,
+  damage: [40, 60],
+});
+
+/** Los stacks de `b` de cada bando, cada uno con las cifras hechas a mano de su bando. */
+function aManoEn(b: BattleState, atacante: UnitInfo, defensor: UnitInfo): BattleState {
+  for (const s of b.stacks) {
+    if (s.origen.kind === 'heroe') continue;
+    conCifrasAMano(b, s.id, s.side === 'attacker' ? atacante : defensor);
+  }
+  return b;
 }
 
 /** Un `Rng` que cuenta las tiradas de `int`: la Bendición de fheroes2 no gasta ninguna. */
@@ -91,13 +138,14 @@ describe('la URL de las reglas', () => {
 });
 
 describe('(a) el tirador', () => {
-  /** Un arquero y un piquero a `distancia` casillas en la misma fila. */
+  /** Un arquero y un piquero (a mano) a `distancia` casillas en la misma fila. */
   function aDistancia(reglas: ReglasDeBatalla, distancia: number) {
     const { b } = batalla(
-      bando([{ creature: 'archer', count: 10 }]),
-      bando([{ creature: 'pikeman', count: 10 }]),
+      bando([{ creature: TIRADOR, count: 10 }]),
+      bando([{ creature: TROPA, count: 10 }]),
       reglas,
     );
+    aManoEn(b, ARQUERO, PIQUERO);
     const arquero = stackById(b, 'attacker-0');
     const piquero = stackById(b, 'defender-0');
     arquero.hex = { col: 1, row: 4 };
@@ -132,13 +180,16 @@ describe('(a) el tirador', () => {
     // El piquero golpea al arquero; el arquero devuelve el golpe cuerpo a cuerpo.
     const golpe = (reglas: ReglasDeBatalla) => {
       const { b, rng } = batalla(
-        bando([{ creature: 'pikeman', count: 1 }]),
-        bando([{ creature: 'archer', count: 40 }]),
+        bando([{ creature: TROPA, count: 1 }]),
+        bando([{ creature: TIRADOR, count: 40 }]),
         reglas,
         3,
       );
+      aManoEn(b, PIQUERO, ARQUERO);
       stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
       stackById(b, 'defender-0').hex = { col: 6, row: 4 };
+      // El turno se abrió con las cifras del catálogo (el arquero corre más): el piquero.
+      forzarTurno(b, 'attacker-0');
       applyAction(b, { type: 'attack', target: 'defender-0' }, rng);
       const r = b.log.find((e) => e.kind === 'attack' && e.retaliation);
       if (r === undefined || r.kind !== 'attack') throw new Error('no hubo contraataque');
@@ -164,12 +215,17 @@ describe('(b) ataque contra defensa', () => {
   });
 
   it('el motor la elige por la regla de la batalla', () => {
-    // Campesino (A 1) contra piquero (D 9): r = −8.
+    // Campesino (A 1) contra piquero (D 9), a mano: r = −8.
     const ratio = (reglas: ReglasDeBatalla) => {
       const { b } = batalla(
-        bando([{ creature: 'peasant', count: 10 }]),
-        bando([{ creature: 'pikeman', count: 10 }]),
+        bando([{ creature: TROPA_BARATA, count: 10 }]),
+        bando([{ creature: TROPA, count: 10 }]),
         reglas,
+      );
+      aManoEn(
+        b,
+        desnudo(TROPA_BARATA, { attack: 1, damage: [ESCALA_DE_CIFRAS, ESCALA_DE_CIFRAS] }),
+        desnudo(TROPA, { defense: 9 }),
       );
       const a = stackById(b, 'attacker-0');
       const d = stackById(b, 'defender-0');
@@ -195,8 +251,8 @@ describe('(c) la moral baja', () => {
       const n = 3000;
       for (let semilla = 1; semilla <= n; semilla++) {
         const { b } = batalla(
-          bando([{ creature: 'pikeman', count: 1 }], { moral: -2 }),
-          bando([{ creature: 'pikeman', count: 1 }]),
+          bando([{ creature: TROPA, count: 1 }], { moral: -2 }),
+          bando([{ creature: TROPA, count: 1 }]),
           reglas,
           semilla,
         );
@@ -218,14 +274,15 @@ describe('(c) la moral baja', () => {
 describe('(d) defender', () => {
   it('fheroes2: sin bono de defensa', () => {
     const { b } = batalla(
-      bando([{ creature: 'pikeman', count: 1 }]),
-      bando([{ creature: 'pikeman', count: 1 }]),
+      bando([{ creature: TROPA, count: 1 }]),
+      bando([{ creature: TROPA, count: 1 }]),
       REGLAS_DEL_JUEGO,
     );
     const p = stackById(b, 'defender-0');
     p.defending = true;
-    expect(effectiveDefense(p, REGLAS_DEL_JUEGO)).toBeCloseTo(9 * 1.2);
-    expect(effectiveDefense(p, con('defender'))).toBe(9);
+    const defensa = unidadDelJuego(TROPA).defense;
+    expect(effectiveDefense(p, REGLAS_DEL_JUEGO)).toBeCloseTo(defensa * 1.2);
+    expect(effectiveDefense(p, con('defender'))).toBe(defensa);
   });
 
   it('fheroes2: tras defender no hay turno extra por moral; nuestra, a veces sí', () => {
@@ -234,8 +291,8 @@ describe('(d) defender', () => {
       let n = 0;
       for (let semilla = 1; semilla <= 400; semilla++) {
         const { b, rng } = batalla(
-          bando([{ creature: 'pikeman', count: 1 }], { moral: 2 }),
-          bando([{ creature: 'pikeman', count: 1 }]),
+          bando([{ creature: TROPA, count: 1 }], { moral: 2 }),
+          bando([{ creature: TROPA, count: 1 }]),
           reglas,
           semilla,
         );
@@ -253,11 +310,13 @@ describe('(d) defender', () => {
 
 describe('(e) Bendición y Maldición', () => {
   function conLibro(reglas: ReglasDeBatalla) {
-    return batalla(
-      bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
-      bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
+    const r = batalla(
+      bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+      bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
       reglas,
     );
+    aManoEn(r.b, ESPADACHIN, ESPADACHIN);
+    return r;
   }
 
   it('fheroes2: la Bendición fija el daño máximo y no gasta tirada', () => {
@@ -302,29 +361,32 @@ describe('(e) Bendición y Maldición', () => {
   });
 
   it('la Maldición de la momia sigue al interruptor, y el no-muerto es inmune en los dos', () => {
+    // La momia: `curse_on_hit`, que nadie del catálogo lleva.
+    const momia = aMano(NO_MUERTO, { name: 'Momia', traits: ['undead', 'curse_on_hit'] });
     const golpe = (reglas: ReglasDeBatalla, victima: string) => {
       const { b, rng } = batalla(
-        bando([{ creature: 'mummy', count: 5 }]),
+        bando([{ creature: NO_MUERTO, count: 5 }]),
         bando([{ creature: victima, count: 20 }]),
         reglas,
         4,
       );
+      conCifrasAMano(b, 'attacker-0', momia);
       stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
       stackById(b, 'defender-0').hex = { col: 6, row: 4 };
       while (activeStack(b)?.id !== 'attacker-0') applyAction(b, { type: 'wait' }, rng);
       applyAction(b, { type: 'attack', target: 'defender-0' }, rng);
       return { b, v: stackById(b, 'defender-0') };
     };
-    const f2 = golpe(con('bendicion'), 'pikeman');
+    const f2 = golpe(con('bendicion'), TROPA);
     expect(f2.v.effects).toEqual([
       expect.objectContaining({ kind: 'tirada', amount: -1, source: 'curse_on_hit' }),
     ]);
-    const nuestra = golpe(REGLAS_DEL_JUEGO, 'pikeman');
+    const nuestra = golpe(REGLAS_DEL_JUEGO, TROPA);
     expect(nuestra.v.effects).toEqual([
       expect.objectContaining({ kind: 'luck', amount: -1, source: 'curse_on_hit' }),
     ]);
     for (const reglas of [REGLAS_DEL_JUEGO, con('bendicion')]) {
-      const { b, v } = golpe(reglas, 'skeleton');
+      const { b, v } = golpe(reglas, NO_MUERTO);
       expect(v.effects).toEqual([]);
       expect(b.log).toContainEqual({ kind: 'immune', stack: v.id, source: 'curse_on_hit' });
     }
@@ -333,11 +395,17 @@ describe('(e) Bendición y Maldición', () => {
 
 describe('(f) el ataque y la defensa del héroe', () => {
   function conHeroes(reglas: ReglasDeBatalla) {
-    return batalla(
-      bando([{ creature: 'swordsman', count: 5 }], { heroe: mando({ ataque: 4, defensa: 0 }) }),
-      bando([{ creature: 'swordsman', count: 5 }], { heroe: mando({ ataque: 0, defensa: 3 }) }),
+    const r = batalla(
+      bando([{ creature: PESADA, count: 5 }], {
+        heroe: mando({ ataque: 4, defensa: 0 }),
+      }),
+      bando([{ creature: PESADA, count: 5 }], {
+        heroe: mando({ ataque: 0, defensa: 3 }),
+      }),
       reglas,
     );
+    aManoEn(r.b, ESPADACHIN, ESPADACHIN);
+    return r;
   }
 
   it('fheroes2: el ataque de su héroe y la defensa del rival cuentan en la tropa', () => {

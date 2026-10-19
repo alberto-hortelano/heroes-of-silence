@@ -4,61 +4,23 @@
  *
  * Los criterios salen de `docs/agents/2026-10-12-nivel-unico/plan.md` §7 y de
  * `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/plan.md` (F1), no de la
- * implementación: la tabla de las criaturas es la de la calibración del primero
- * (§3), con la carga del jinete que ahora cuenta; la monotonía se prueba cifra a
- * cifra sobre todo el catálogo; y el equipo, por lo que cada pieza cambia de lo
- * que pega o de lo que aguanta: la armadura, el arma de cada uso, la rueda y la
- * carga. Las 34 unidades del catálogo, en su tabla.
+ * implementación: la monotonía se prueba cifra a cifra sobre todo el catálogo; y
+ * el equipo, por lo que cada pieza cambia de lo que pega o de lo que aguanta: la
+ * armadura, el arma de cada uso, la rueda y la carga. Las 34 unidades del catálogo,
+ * en su tabla. La tabla de las criaturas de `data/creatures.json` se fue con ellas
+ * (19-10-2026, F3).
  */
 import { describe, expect, it } from 'vitest';
 import { equiparEnArena, piezaNueva } from '../src/core/arena.js';
-import { UNIDADES, unidad } from '../src/core/catalogo.js';
-import { allCreatures, creature, EQUIPO, type Pieza, validarPoder } from '../src/core/data.js';
+import { UNIDADES, unidad, unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
+import { EQUIPO, type Pieza, validarPoder } from '../src/core/data.js';
 import { conEquipo, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { cifrasVeteranas, umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
-import {
-  catalogoMedible,
-  indiceDePoder,
-  medidaBlocker,
-  nivelDeUnidad,
-  poderBruto,
-} from '../src/core/nivel.js';
+import { indiceDePoder, medidaBlocker, nivelDeUnidad, poderBruto } from '../src/core/nivel.js';
 import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
-import { unidadDeCombate } from '../src/core/unidad.js';
-import { catalogoCon, todoA } from './helpers.js';
-
-/**
- * id → [morada, índice, nivel], la tabla de §3 del plan (calculada a mano en el
- * scratchpad). Desde el 18-10-2026 se mide con la carga: la caballería y el campeón,
- * con el rasgo `charge`, a media recta (×1,25: 475 → 496 y 507 → 520, en el mismo
- * nivel), y los demás con la carga a pie de la regla final (simplify de F1: +2 a
- * +10 de índice; el zombi mutante pasa al nivel 3 y el dragón óseo al 7, contiguos
- * a su morada).
- */
-const TABLA: Readonly<Record<string, readonly [number, number, number]>> = {
-  peasant: [1, 120, 1],
-  archer: [2, 249, 2],
-  ranger: [2, 327, 3],
-  pikeman: [3, 336, 3],
-  veteran_pikeman: [3, 368, 3],
-  swordsman: [4, 411, 4],
-  master_swordsman: [4, 431, 4],
-  cavalry: [5, 496, 4],
-  champion: [5, 520, 5],
-  paladin: [6, 620, 6],
-  crusader: [6, 647, 6],
-  skeleton: [1, 195, 1],
-  zombie: [2, 256, 2],
-  mutant_zombie: [2, 305, 3],
-  mummy: [3, 366, 3],
-  royal_mummy: [3, 395, 3],
-  vampire: [4, 426, 4],
-  vampire_lord: [4, 456, 4],
-  lich: [5, 500, 5],
-  power_lich: [5, 529, 5],
-  bone_dragon: [6, 700, 7],
-};
+import { cuerpoDeCombate, unidadDeCombate } from '../src/core/unidad.js';
+import { catalogoCon, JINETE, PESADA, TROPA, todoA } from './helpers.js';
 
 /**
  * id → [índice, nivel] de cada unidad del catálogo (`data/unidades.json`) con su
@@ -107,20 +69,6 @@ const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = 
 };
 
 describe('el índice de poder y el nivel (core/nivel.ts)', () => {
-  it('cada criatura del catálogo tiene el índice y el nivel de la tabla del plan', () => {
-    const leidas = Object.fromEntries(
-      allCreatures().map((c) => [c.id, [c.morada, indiceDePoder(c), nivelDeUnidad(c)]]),
-    );
-    expect(leidas).toEqual(TABLA);
-  });
-
-  it('cada criatura queda en el nivel de su morada o en el contiguo, y el campesino en el 1', () => {
-    for (const c of allCreatures()) {
-      expect(Math.abs(nivelDeUnidad(c) - c.morada), c.id).toBeLessThanOrEqual(1);
-    }
-    expect(nivelDeUnidad(creature('peasant'))).toBe(1);
-  });
-
   it('el nivel es la primera cifra del índice, y nunca baja del 1', () => {
     const minima: UnitInfo = {
       name: 'nada',
@@ -136,7 +84,7 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   });
 
   it('es monótono: subir ataque, defensa, PV, daño o velocidad no baja el índice', () => {
-    for (const c of allCreatures()) {
+    for (const c of unidadesDelJuego()) {
       const antes = indiceDePoder(c);
       const escalon = SPEED_TIERS.indexOf(c.speed);
       const subidas: UnitInfo[] = [
@@ -152,20 +100,24 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   });
 
   it('subir el ataque de una unidad tipo SÍ sube su índice', () => {
-    const piquero = creature('pikeman');
-    expect(indiceDePoder({ ...piquero, attack: piquero.attack + 1 })).toBeGreaterThan(
-      indiceDePoder(piquero),
-    );
+    // El ataque de su cuerpo: con el arma puesta, cada golpe va con el ataque de
+    // su arma más lo que no es arma (`cifrasDelGolpe`), así que se sube donde se
+    // escribe, en la unidad, y se mide vestida.
+    const tropa = unidad(TROPA);
+    expect(
+      indiceDePoder(unidadDeCombate({ ...tropa, attack: tropa.attack + 1 }, EQUIPO_DEL_JUEGO)),
+    ).toBeGreaterThan(indiceDePoder(unidadDeCombate(tropa, EQUIPO_DEL_JUEGO)));
   });
 
-  it('un veterano tiene más índice que un novato de su criatura', () => {
-    for (const c of allCreatures()) {
+  it('un veterano tiene más índice que un novato de su unidad', () => {
+    for (const c of unidadesDelJuego()) {
       expect(indiceDePoder(cifrasVeteranas(c, 5)), c.id).toBeGreaterThan(indiceDePoder(c));
     }
   });
 
   it('el equipo cuenta: ponerse una pieza que no frena no baja el índice, y el arma de más ataque lo sube', () => {
-    const espadachin = creature('swordsman');
+    // El cuerpo desnudo de la pesada: vestida ya lleva algo en cada hueco.
+    const espadachin = cuerpoDeCombate(unidad(PESADA));
     const desnudo = indiceDePoder(espadachin);
     for (const p of EQUIPO) {
       if ((p.velocidad ?? 0) < 0) continue;
@@ -284,22 +236,17 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   });
 
   it('unas cifras que no caben en un entero lanzan diciéndolo, no redondean', () => {
+    // El cuerpo sin equipo: vestido, cada golpe pega con las cifras de su arma.
     const enorme: UnitInfo = {
-      ...creature('bone_dragon'),
+      ...cuerpoDeCombate(unidad(JINETE)),
       damage: [1e9, 1e9],
       hp: 1e9,
     };
-    expect(() => poderBruto(enorme)).toThrow('Dragón óseo: estas cifras son demasiado grandes');
-    expect(medidaBlocker(enorme)).toContain('1000000000-1000000000 de daño, 1000000000 PV');
-    expect(medidaBlocker(creature('bone_dragon'))).toBeNull();
-  });
-
-  it('un catálogo con una criatura que no se puede medir falla al cargar, diciendo cuál', () => {
-    const enorme: UnitInfo = { ...creature('paladin'), hp: 1e15 };
-    expect(() => catalogoMedible([creature('peasant'), enorme])).toThrow(
-      'data/creatures.json: la criatura «Paladín»: estas cifras son demasiado grandes',
+    expect(() => poderBruto(enorme)).toThrow(
+      `${unidad(JINETE).name}: estas cifras son demasiado grandes`,
     );
-    expect(() => catalogoMedible(allCreatures())).not.toThrow();
+    expect(medidaBlocker(enorme)).toContain('1000000000-1000000000 de daño, 1000000000 PV');
+    expect(medidaBlocker(unidadDelJuego(JINETE))).toBeNull();
   });
 
   it('data/poder.json se valida al cargar: una razón que no crece se rechaza', () => {

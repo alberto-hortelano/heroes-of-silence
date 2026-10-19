@@ -1,5 +1,5 @@
 /**
- * La revisión del arte de la base (`pnpm taller vista-base knight [carpeta
+ * La revisión del arte de la base (`pnpm taller vista-base templarios [carpeta
  * [prefijo]]`, por defecto en `.cache/vista-base/` con el prefijo `vista`): PNG
  * para enseñárselos al usuario y para medir la disposición sobre el cuadro.
  *

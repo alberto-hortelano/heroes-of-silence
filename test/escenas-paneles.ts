@@ -27,7 +27,7 @@ import { isEnterable, objectAt } from '../src/core/map/map.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
 import type { Army, Point, Veterania } from '../src/core/types.js';
-import { agresiva, avanzarHasta } from './helpers.js';
+import { agresiva, avanzarHasta, TIRADOR, TROPA } from './helpers.js';
 
 /** Una hoja de servicios de prueba: lo justo para que el panel la pinte. */
 function hoja(id: string, experiencia: number): Veterania {
@@ -187,9 +187,11 @@ export async function escenas(): Promise<readonly Escena[]> {
   heroeSinManá.mana = 0;
   out.push({ nombre: 'batalla · en espera y sin maná', session: sinManá });
 
-  // 11 · Con un tirador activo sale la fila de munición, que no pinta ninguna
-  //      otra escena.
-  const tirador = meAtacan(7);
+  // 11 · Con un tirador activo: el panel de quien dispara. Sin fila de
+  //      munición: ninguna unidad del catálogo la cuenta desde que es el de la
+  //      arena (19-10-2026); tira quien lleva arma a distancia (el arquero
+  //      elfo), y por eso va en el ejército de quien defiende.
+  const tirador = meAtacan(7, [{ creature: TIRADOR }, { creature: TROPA }]);
   const campoTirador = tirador.battle;
   if (campoTirador === null) throw new Error('la batalla no se montó');
   const arquero = campoTirador.stacks.find((s) => s.side === 'defender' && isShooter(s.unit));
@@ -274,12 +276,12 @@ export async function escenas(): Promise<readonly Escena[]> {
   const capitan = veteranos.myHeroes()[0]!;
   veteranos.moveHeroTo(capitan.id, casa.at);
   capitan.army = [
-    { creature: 'peasant' },
-    { creature: 'pikeman', veterania: hoja('veterano-1', 70) },
-    { creature: 'pikeman' },
-    { creature: 'archer', veterania: hoja('veterano-2', 400) },
+    { creature: 'goblin-lancero' },
+    { creature: 'templario-escudo', veterania: hoja('veterano-1', 70) },
+    { creature: 'templario-escudo' },
+    { creature: 'elfo-arquero', veterania: hoja('veterano-2', 400) },
     // Con experiencia y sin llegar al primer umbral: «Nivel 1», no «Veterano».
-    { creature: 'peasant', veterania: hoja('veterano-3', 12) },
+    { creature: 'goblin-lancero', veterania: hoja('veterano-3', 12) },
   ];
   veteranos.openTown(casa.id);
   out.push({ nombre: 'castillo · con veteranos', session: veteranos });
@@ -288,8 +290,8 @@ export async function escenas(): Promise<readonly Escena[]> {
   out.push({
     nombre: 'batalla · con un veterano',
     session: meAtacan(7, [
-      { creature: 'pikeman', veterania: hoja('veterano-1', 70) },
-      { creature: 'peasant' },
+      { creature: 'templario-escudo', veterania: hoja('veterano-1', 70) },
+      { creature: 'goblin-lancero' },
     ]),
   });
 
@@ -302,12 +304,15 @@ export async function escenas(): Promise<readonly Escena[]> {
   armeria.moveHeroTo(armero.id, conArmeria.at);
   conArmeria.buildings.push('armory');
   armero.army = [
-    { creature: 'pikeman', veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'maza' } } },
     {
-      creature: 'peasant',
+      creature: 'templario-escudo',
+      veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'maza' } },
+    },
+    {
+      creature: 'goblin-lancero',
       veterania: { ...hoja('veterano-2', 0), equipo: { armadura: 'brigantina' } },
     },
-    { creature: 'peasant' },
+    { creature: 'goblin-lancero' },
   ];
   armeria.openTown(conArmeria.id);
   out.push({ nombre: 'castillo · con armería y tropa equipada', session: armeria });
@@ -320,9 +325,12 @@ export async function escenas(): Promise<readonly Escena[]> {
   cargado.equipo = { arma: 'espada', armadura: 'gambeson' };
   cargado.mochila = ['espada_bendita', 'maza'];
   cargado.army = [
-    { creature: 'pikeman', veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'maza' } } },
-    { creature: 'peasant' },
-    { creature: 'peasant' },
+    {
+      creature: 'templario-escudo',
+      veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'maza' } },
+    },
+    { creature: 'goblin-lancero' },
+    { creature: 'goblin-lancero' },
   ];
   mochila.selectItem('espada_bendita');
   out.push({ nombre: 'aventura · mochila y pieza elegida', session: mochila });
@@ -358,8 +366,15 @@ function cronicaCompleta(): readonly GameEvent[] {
     { ...base, kind: 'town_captured', town: 'town-1', from: null, actor: 1 },
     { ...base, kind: 'built', town: 'town-0', building: 'town_hall', actor: 0 },
     { ...base, kind: 'built', town: 'town-1', building: 'mage_guild_1', actor: 1 },
-    { ...base, kind: 'recruited', town: 'town-0', creature: 'peasant', count: 12, actor: 0 },
-    { ...base, kind: 'recruited', town: 'town-1', creature: 'skeleton', count: 8, actor: 1 },
+    { ...base, kind: 'recruited', town: 'town-0', creature: 'goblin-lancero', count: 12, actor: 0 },
+    {
+      ...base,
+      kind: 'recruited',
+      town: 'town-1',
+      creature: 'esqueleto-guerrero',
+      count: 8,
+      actor: 1,
+    },
     { ...base, kind: 'hero_hired', hero: 'hero-2', town: 'town-0', actor: 0 },
     { ...base, kind: 'hero_hired', hero: 'hero-3', town: 'town-1', actor: 1 },
     { ...base, kind: 'loot_found', hero: 'hero-0', item: 'maza', from: 'raider', actor: 0 },
@@ -394,7 +409,7 @@ function cronicaCompleta(): readonly GameEvent[] {
       kind: 'hero_promoted',
       hero: 'hero-veterano-0',
       town: 'town-0',
-      creature: 'pikeman',
+      creature: 'templario-escudo',
       name: 'Sir <b>Ana</b> & "Co"',
       actor: 0,
     },
@@ -403,7 +418,7 @@ function cronicaCompleta(): readonly GameEvent[] {
       kind: 'hero_promoted',
       hero: 'hero-veterano-1',
       town: 'town-1',
-      creature: 'skeleton',
+      creature: 'esqueleto-guerrero',
       name: 'Hueso',
       actor: 1,
     },
@@ -439,10 +454,10 @@ function cronicaCompleta(): readonly GameEvent[] {
       foe: { kind: 'hero', heroId: 'hero-1' },
       owners: { attacker: 0, defender: 1 },
       rounds: 4,
-      casts: [{ side: 'attacker', spell: 'magic_arrow', target: 'skeleton', killed: 1 }],
+      casts: [{ side: 'attacker', spell: 'magic_arrow', target: 'esqueleto-guerrero', killed: 1 }],
       lost: {
-        attacker: [{ creature: 'peasant', count: 2 }],
-        defender: [{ creature: 'skeleton', count: 3 }],
+        attacker: [{ creature: 'goblin-lancero', count: 2 }],
+        defender: [{ creature: 'esqueleto-guerrero', count: 3 }],
       },
       actor: 0,
     },
@@ -470,7 +485,7 @@ function cronicaCompleta(): readonly GameEvent[] {
     {
       ...base,
       kind: 'troop_rank_up',
-      creature: 'pikeman',
+      creature: 'templario-escudo',
       rank: 2,
       veterano: 'veterano-1',
       actor: 0,
@@ -478,7 +493,7 @@ function cronicaCompleta(): readonly GameEvent[] {
     {
       ...base,
       kind: 'troop_rank_up',
-      creature: 'skeleton',
+      creature: 'esqueleto-guerrero',
       rank: 4,
       veterano: 'veterano-2',
       actor: 1,

@@ -95,12 +95,12 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   NORMAL de `Kingdom::_getKingdomStartingResources`. Aquí no queda una sola
  *   semilla igual, y la forma del diff es la que tiene que ser: el **primer
  *   hecho distinto es `built` en 200 de 200**, porque la economía entra por el
- *   castillo y por ningún otro sitio. `knight_dwelling_4` pasa de 8/200 a
+ *   castillo y por ningún otro sitio. la morada 4 del caballero pasa de 8/200 a
  *   **200/200** y `mage_guild_2` de 0 a 25/200.
  * - `f0eee7c3…` (51 952 líneas): el coste de las 18 filas inventadas de
  *   `data/buildings.json`, copiado de `buildinginfo.cpp`. Misma forma que la
  *   palanca anterior y por el mismo motivo: **`built` es el primer hecho
- *   distinto en 200 de 200**. `knight_dwelling_5` pasa de 15/200 a 129/200 y
+ *   distinto en 200 de 200**. la morada 5 del caballero pasa de 15/200 a 129/200 y
  *   aparecen las tres primeras criaturas de nivel ≥5. Este paso solo **alarga**
  *   la partida —mediana 7 → 17 días— porque quien pisa el freno es la materia
  *   prima, que llega con la palanca de las minas: es el estado intermedio que
@@ -1041,11 +1041,39 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 298, batallas 1 135 → 1 128, `troop_rank_up` 1 888 → 1 348, `rank_up` 580 →
  *   630, `march_halted` 150 → 75, `item_bought` 19 → 19 (18 Espadas y un arco);
  *   ningún tipo nuevo ni ninguno que desaparezca.
+ * - `9e7b303d…` (45 218 líneas, 19-10-2026): **las cinco facciones** (F3 de
+ *   `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`): caballeros y
+ *   nigromantes se retiran con `data/creatures.json`; cada partida sortea dos de
+ *   las cinco con su propia corriente (`faccionesDeLaSemilla`: el mapa de cada
+ *   semilla no se mueve ni una casilla), recluta del catálogo de la arena
+ *   (`data/unidades.json`) con coste y crecimiento por su índice, la IA mide la
+ *   fuerza por el poder del índice (`unitPower`) y la experiencia se recalibró
+ *   (base 16 000 → 9 000). Cambia todo, a propósito: **0 de 200 idénticas**, y en
+ *   las 200 el primer hecho distinto es el primer `raider_spawned` del día 1 (los
+ *   asaltantes son de las cinco facciones). 95 con otro ganador, j0 93 → **82**,
+ *   duración 6 / 10 / 24 → **4 / 9 / 20**, 0 sin terminar. Días 1 298 → 1 017,
+ *   batallas 1 128 → 1 105, `built` 3 350 → 2 270, `troop_rank_up` 1 348 → 2 702,
+ *   `rank_up` 630 → 904, `hero_defeated` 251 → 333, `spells_learned` 126 → 24,
+ *   `item_bought` 19 → 3; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `06318579…` (45 627 líneas, 19-10-2026, F3b), dos pasos juzgados por
+ *   separado. (1) **Los templarios en los sitios de su arte**: heredan la base
+ *   del caballero, y sus moradas pasan a los sitios donde él pintó lo que les
+ *   cuadra (el Monasterio a la iglesia, el 6; los Establos a los establos, el 5);
+ *   el orden de construcción de la IA, derivado por nivel y sitio, cambia entre la
+ *   Forja y el Monasterio. **64 de 200 distintas**, todas con templarios (66 de
+ *   200 los llevan), y en las 64 el primer hecho distinto es un `built` (el
+ *   Monasterio antes que la Forja); 10 con otro ganador, j0 82 → 86, duración
+ *   4 / 9 / 20 → 4 / 9 / 36. (2) **El ejército de salida cabe en el liderazgo**
+ *   (`startingArmy` recorta a lo que cabe: el pueblo de los orkos cría dos de 4
+ *   y daba 24 de 20). **22 de 200 distintas**, todas con orkos (82 de 200 los
+ *   llevan); el primer hecho distinto, el de la batalla que se libra con uno
+ *   menos (`battle_ended` en 16, `troop_rank_up` en 3); 5 con otro ganador, j0
+ *   86 → 89. Ningún tipo de hecho nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'e1cb20e142cece0d1af386958e5736a91caa80e05b648fc07943c30f90e0f7d3',
+  sha: '06318579f175e5dc21312e23b7b8f4d2bedd65284c9ffc7c83bddf0d94ec93a9',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

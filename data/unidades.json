@@ -1,5 +1,5 @@
 {
-  "_comment": "CATÁLOGO de unidades de las cinco facciones: una por hoja de tropa del taller, más las que se creen en la arena. Lo lee src/core/catalogo.ts, que lo valida entero al cargar (una unidad que no vale tumba la carga diciendo cuál y por qué); lo escribe la arena (/arena/, pnpm arena) al pulsar «Guardar», con validarCatalogo (src/core/unidad.ts), la misma regla con que lo carga el juego, y una que no valida se conserva tal cual para arreglarla a mano. Cifras INVENTADAS y provisionales, ajustadas a mano peleando. La partida todavía recluta de data/creatures.json (caballeros y nigromantes): este catálogo pasa a ser el suyo cuando las cinco facciones sustituyan a esas dos (docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/). Cada unidad es un CUERPO (cuerpo: { hoja }, el arte con que se pinta: solo las hojas de las cinco facciones; las cifras de arriba son las suyas) más su EQUIPO (equipo: una pieza de data/equipo.json por hueco, arma (la de cuerpo a cuerpo), distancia (la de disparar), lanza (la de cargar), armadura y escudo; un arma a dos manos no admite escudo; la arena guarda las piezas y las unidades a la vez, y no escribe una unidad que lleve una pieza que no esté), y pelea con las dos cosas sumadas: cada golpe con las cifras de su arma (el disparo, las de distancia; la carga, las de lanza, o si no las de arma; lo demás, las de arma). El nivel NO se escribe: sale de las cifras con el equipo puesto (src/core/nivel.ts). Sin arma no se combate: toda unidad lleva un arma de cuerpo a cuerpo en arma (la que dice sus niveles de la rueda del golpe); una sin ella no valida. Dispara quien lleva algo en distancia, sin munición (dos tiros por disparo con el rasgo double_shot), y toda unidad ocupa una casilla: no hay shots ni hexes. Solo se lee el formato de hoy: una unidad de antes (sin cuerpo, con level, speed, shots o hexes) no valida. casillas = las que anda por turno (2 a 7). PV y daño van en la escala del juego (×10 la de fheroes2). habilidades = nombres de data/habilidades.json, sin efecto todavía, salvo las que dan un poder de data/poderes.json (Curar (X), Bendecir), que se usan en la pelea; Bendecir no está en data/habilidades.json.",
+  "_comment": "CATÁLOGO de unidades de las cinco facciones: una por hoja de tropa del taller, más las que se creen en la arena. Lo lee src/core/catalogo.ts, que lo valida entero al cargar (una unidad que no vale tumba la carga diciendo cuál y por qué); lo escribe la arena (/arena/, pnpm arena) al pulsar «Guardar», con validarCatalogo (src/core/unidad.ts), la misma regla con que lo carga el juego, y una que no valida se conserva tal cual para arreglarla a mano. Cifras INVENTADAS y provisionales, ajustadas a mano peleando. Es el catálogo del juego (19-10-2026): la partida recluta de aquí, con las cinco facciones (docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/). edificio = la morada de su facción que la produce (data/buildings.json; sin él, la partida no la recluta): el reparto sale de NuevaJugabilidad.md (§Ciudades: pueblos y edificios de élite) y lo que el cuaderno no asigna está INVENTADO (lo dice el _comment de data/buildings.json); el edificio no implica nivel. Lo que cuesta, crece y sube de experiencia no se escribe: sale de su índice de poder (data/economia.json). Cada unidad es un CUERPO (cuerpo: { hoja }, el arte con que se pinta: solo las hojas de las cinco facciones; las cifras de arriba son las suyas) más su EQUIPO (equipo: una pieza de data/equipo.json por hueco, arma (la de cuerpo a cuerpo), distancia (la de disparar), lanza (la de cargar), armadura y escudo; un arma a dos manos no admite escudo; la arena guarda las piezas y las unidades a la vez, y no escribe una unidad que lleve una pieza que no esté), y pelea con las dos cosas sumadas: cada golpe con las cifras de su arma (el disparo, las de distancia; la carga, las de lanza, o si no las de arma; lo demás, las de arma). El nivel NO se escribe: sale de las cifras con el equipo puesto (src/core/nivel.ts). Sin arma no se combate: toda unidad lleva un arma de cuerpo a cuerpo en arma (la que dice sus niveles de la rueda del golpe); una sin ella no valida. Dispara quien lleva algo en distancia, sin munición (dos tiros por disparo con el rasgo double_shot), y toda unidad ocupa una casilla: no hay shots ni hexes. Solo se lee el formato de hoy: una unidad de antes (sin cuerpo, con level, speed, shots o hexes) no valida. casillas = las que anda por turno (2 a 7). PV y daño van en la escala del juego (×10 la de fheroes2). habilidades = nombres de data/habilidades.json, sin efecto todavía, salvo las que dan un poder de data/poderes.json (Curar (X), Bendecir), que se usan en la pelea; Bendecir no está en data/habilidades.json.",
   "unidades": [
     {
       "id": "templario-escudo",
@@ -24,9 +24,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "templarios_pueblo"
     },
     {
       "id": "templario-mandoble",
@@ -50,9 +48,7 @@
         "arma": "mandoble",
         "armadura": "arnes_de_placas"
       },
-      "cost": {
-        "gold": 250
-      }
+      "edificio": "templarios_forja"
     },
     {
       "id": "templario-monje",
@@ -78,9 +74,7 @@
       "equipo": {
         "arma": "baston"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "templarios_monasterio"
     },
     {
       "id": "templario-escudero",
@@ -105,9 +99,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "templarios_pueblo"
     },
     {
       "id": "templario-hermano-de-carga",
@@ -134,9 +126,7 @@
         "lanza": "lanza_de_jinete",
         "armadura": "barda"
       },
-      "cost": {
-        "gold": 300
-      }
+      "edificio": "templarios_establos"
     },
     {
       "id": "templario-penitente",
@@ -160,9 +150,7 @@
         "arma": "mandoble",
         "armadura": "arnes_de_placas"
       },
-      "cost": {
-        "gold": 250
-      }
+      "edificio": "templarios_monasterio"
     },
     {
       "id": "esqueleto-guerrero",
@@ -189,9 +177,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "no-muertos_cadaveres"
     },
     {
       "id": "esqueleto-arquero",
@@ -218,9 +204,7 @@
         "distancia": "arco",
         "armadura": "jubon_de_arquero"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "no-muertos_cadaveres"
     },
     {
       "id": "zombi",
@@ -247,9 +231,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "no-muertos_cadaveres"
     },
     {
       "id": "espectro",
@@ -276,9 +258,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "no-muertos_mausoleo"
     },
     {
       "id": "caballero-de-la-muerte",
@@ -304,9 +284,7 @@
         "arma": "mandoble",
         "armadura": "arnes_de_placas"
       },
-      "cost": {
-        "gold": 250
-      }
+      "edificio": "no-muertos_cripta"
     },
     {
       "id": "jinete-de-plaga",
@@ -334,9 +312,7 @@
         "lanza": "lanza_de_jinete",
         "armadura": "barda"
       },
-      "cost": {
-        "gold": 300
-      }
+      "edificio": "no-muertos_cripta"
     },
     {
       "id": "imperio-alabardero",
@@ -360,9 +336,7 @@
         "arma": "mandoble",
         "armadura": "arnes_de_placas"
       },
-      "cost": {
-        "gold": 250
-      }
+      "edificio": "imperio_pueblo"
     },
     {
       "id": "imperio-piquero",
@@ -386,9 +360,7 @@
         "arma": "mandoble",
         "armadura": "arnes_de_placas"
       },
-      "cost": {
-        "gold": 250
-      }
+      "edificio": "imperio_pueblo"
     },
     {
       "id": "imperio-ballestero",
@@ -413,9 +385,7 @@
         "distancia": "ballesta",
         "armadura": "gambeson"
       },
-      "cost": {
-        "gold": 200
-      }
+      "edificio": "imperio_taller"
     },
     {
       "id": "imperio-coracero",
@@ -440,9 +410,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "imperio_armeria"
     },
     {
       "id": "imperio-arcabucero",
@@ -467,9 +435,7 @@
         "distancia": "ballesta",
         "armadura": "gambeson"
       },
-      "cost": {
-        "gold": 200
-      }
+      "edificio": "imperio_taller"
     },
     {
       "id": "imperio-rodelero",
@@ -494,9 +460,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "imperio_armeria"
     },
     {
       "id": "imperio-artillero-culebrina",
@@ -521,9 +485,7 @@
         "distancia": "ballesta",
         "armadura": "gambeson"
       },
-      "cost": {
-        "gold": 200
-      }
+      "edificio": "imperio_fundicion"
     },
     {
       "id": "imperio-pistolero-montado",
@@ -550,9 +512,7 @@
         "lanza": "lanza_de_jinete",
         "armadura": "barda"
       },
-      "cost": {
-        "gold": 300
-      }
+      "edificio": "imperio_caballerizas"
     },
     {
       "id": "imperio-granadero",
@@ -577,9 +537,7 @@
         "distancia": "ballesta",
         "armadura": "gambeson"
       },
-      "cost": {
-        "gold": 200
-      }
+      "edificio": "imperio_fundicion"
     },
     {
       "id": "elfo-arquero",
@@ -604,9 +562,7 @@
         "distancia": "arco",
         "armadura": "jubon_de_arquero"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "elfos_pueblo"
     },
     {
       "id": "elfo-explorador",
@@ -631,9 +587,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "elfos_pabellon_de_caza"
     },
     {
       "id": "elfo-guardia-del-bosque",
@@ -658,9 +612,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "elfos_pueblo"
     },
     {
       "id": "elfo-jinete",
@@ -688,9 +640,7 @@
         "lanza": "lanza_de_jinete",
         "armadura": "barda"
       },
-      "cost": {
-        "gold": 300
-      }
+      "edificio": "elfos_pabellon_de_caza"
     },
     {
       "id": "elfo-sacerdotisa",
@@ -713,9 +663,7 @@
       "equipo": {
         "arma": "baston"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "elfos_arboleda"
     },
     {
       "id": "elfo-asesino",
@@ -740,9 +688,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "elfos_pabellon_de_caza"
     },
     {
       "id": "orko-hacha-escudo",
@@ -767,9 +713,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "orkos_pueblo"
     },
     {
       "id": "orko-dos-armas",
@@ -793,9 +737,7 @@
         "arma": "mandoble",
         "armadura": "arnes_de_placas"
       },
-      "cost": {
-        "gold": 250
-      }
+      "edificio": "orkos_pueblo"
     },
     {
       "id": "goblin-lancero",
@@ -820,9 +762,7 @@
         "armadura": "brigantina",
         "escudo": "escudo"
       },
-      "cost": {
-        "gold": 50
-      }
+      "edificio": "orkos_pueblo"
     },
     {
       "id": "goblin-arquero",
@@ -847,9 +787,7 @@
         "distancia": "arco",
         "armadura": "jubon_de_arquero"
       },
-      "cost": {
-        "gold": 150
-      }
+      "edificio": "orkos_pueblo"
     },
     {
       "id": "troll-maza",
@@ -873,9 +811,7 @@
         "arma": "mandoble",
         "armadura": "arnes_de_placas"
       },
-      "cost": {
-        "gold": 250
-      }
+      "edificio": "orkos_cueva"
     },
     {
       "id": "goblin-jinete-de-hiena",
@@ -902,9 +838,7 @@
         "lanza": "lanza_de_jinete",
         "armadura": "barda"
       },
-      "cost": {
-        "gold": 300
-      }
+      "edificio": "orkos_pocilga"
     },
     {
       "id": "orko-armadura-pesada",
@@ -928,9 +862,7 @@
         "arma": "mandoble",
         "armadura": "arnes_de_placas"
       },
-      "cost": {
-        "gold": 250
-      }
+      "edificio": "orkos_totem"
     }
   ]
 }

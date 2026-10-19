@@ -22,7 +22,6 @@ import {
   escritaDe,
   type FuenteDeArena,
   type HeroeDeArena,
-  type HojaDeArena,
   heroePorDefecto,
   IA_POR_DEFECTO,
   LADOS,
@@ -43,7 +42,6 @@ import {
   unaVezEnLaURL,
   unidadNueva,
   validarHeroeDeArena,
-  validarHojasDeArena,
 } from '@core/arena.js';
 import {
   esFormaDeEjemplo,
@@ -100,6 +98,7 @@ import {
 import { parseSeed } from '@core/rng.js';
 import { type CreatureTrait, esHueco, esTipoDelAnillo, type Hex, type Hueco } from '@core/types.js';
 import {
+  type HojaDeArena,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type UnidadDeArena,
   validarUnidadDeArena,
@@ -127,7 +126,7 @@ import {
   hojaDe,
   INDICE_DE_HOJA,
   MIRADA_DE_PRESENTACION,
-  registrarUnidad,
+  registrarLasHojas,
 } from '../render/personajes.js';
 import { semillaSorteada } from '../semilla.js';
 import { type LadoDeSesion, type RuedaPendiente, SesionDeArena } from '../session.js';
@@ -754,13 +753,10 @@ async function mandarAlServidor(
  * construida), las del catálogo del núcleo.
  */
 async function arrancar(): Promise<void> {
-  const r = await fetch('/__arena/hojas');
-  if (!r.ok) throw new Error(`no se ha podido leer la lista de hojas (${r.status})`);
-  hojas = validarHojasDeArena(await r.json());
-  hojasPorId = new Map(hojas.map((h) => [h.id, h]));
   // Una hoja incompleta no se registra: `arteDe` la pintaría con el Y Bot por
   // defecto, que es justo lo que no puede pasar en silencio (#140).
-  for (const h of hojas) if (h.incompleta === null) registrarUnidad(h.id, h);
+  hojas = await registrarLasHojas();
+  hojasPorId = new Map(hojas.map((h) => [h.id, h]));
   const incompletas = hojas.filter((h) => h.incompleta !== null);
   if (incompletas.length > 0) {
     avisoDeIncompletas = ` A medias en el taller (se listan y no se montan): ${incompletas
@@ -1601,8 +1597,6 @@ function conCampo(u: UnidadDeArena, campo: string, valor: string): unknown {
       return { ...u, damage: [n, u.damage[1]] };
     case 'damage-max':
       return { ...u, damage: [u.damage[0], n] };
-    case 'gold':
-      return { ...u, cost: { gold: n } };
     case 'casillas':
     case 'attack':
     case 'defense':
@@ -1959,7 +1953,7 @@ function pedirFotograma(): void {
 }
 
 const principal = ajustarLienzo(canvas, pedirFotograma);
-cargarArte(pedirFotograma, { manifiesto: false, mapa: false });
+cargarArte(pedirFotograma, { manifiesto: false, mapa: false, hojas: false });
 
 let paneles: { version: string; ocupada: boolean } | null = null;
 

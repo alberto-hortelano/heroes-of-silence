@@ -18,6 +18,7 @@ import {
   sitiosConstruidos,
   sitiosDeLaBase,
 } from '../src/core/town/sitios.js';
+import { FACTION_IDS } from '../src/core/types.js';
 
 /** La cadena que el catálogo dicta para un sitio, calculada aparte a propósito. */
 function cadenaDelCatalogo(
@@ -31,8 +32,8 @@ function cadenaDelCatalogo(
 }
 
 describe('los sitios de la base', () => {
-  it('son los doce de SITIOS, en su orden, para las dos facciones', () => {
-    for (const faccion of ['knight', 'necromancer'] as const) {
+  it('son los doce de SITIOS, en su orden, para las cinco facciones', () => {
+    for (const faccion of FACTION_IDS) {
       expect(sitiosDeLaBase(faccion).map((s) => s.id)).toEqual([...SITIOS]);
     }
   });
@@ -43,7 +44,7 @@ describe('los sitios de la base', () => {
     // construirlo y la persona no lo vería nunca en la base.
     const esperada = cadenaDelCatalogo((b) => b.mageGuildLevel);
     expect(esperada.length).toBeGreaterThan(0);
-    for (const faccion of ['knight', 'necromancer'] as const) {
+    for (const faccion of FACTION_IDS) {
       const gremio = sitiosDeLaBase(faccion).find((s) => s.id === 'guild');
       expect(gremio?.cadena).toEqual(esperada);
     }
@@ -51,13 +52,17 @@ describe('los sitios de la base', () => {
 
   it('cada edificio de la facción va en un solo sitio, y ningún sitio ofrece uno que no exista', () => {
     const conocidos = new Set(allBuildings().map((b) => b.id));
-    for (const faccion of ['knight', 'necromancer'] as const) {
+    for (const faccion of FACTION_IDS) {
       const sitios = sitiosDeLaBase(faccion);
       for (const s of sitios) {
-        expect(
-          s.cadena.length,
-          `${faccion}/${s.id} se quedó sin nada que construir`,
-        ).toBeGreaterThan(0);
+        // Una facción puede dejar vacíos los sitios de morada que no usa (los
+        // templarios crían en cuatro, los elfos en tres); los de villa, nunca.
+        if (s.nivel === undefined) {
+          expect(
+            s.cadena.length,
+            `${faccion}/${s.id} se quedó sin nada que construir`,
+          ).toBeGreaterThan(0);
+        }
         for (const id of s.cadena)
           expect(conocidos.has(id), `${faccion}/${s.id}: "${id}"`).toBe(true);
       }
@@ -69,24 +74,33 @@ describe('los sitios de la base', () => {
     }
   });
 
-  it('el lvl6 del nigromante tiene un solo eslabón: su mejora no existe en el catálogo', () => {
-    expect(sitiosDeLaBase('necromancer').find((s) => s.id === 'lvl6')?.cadena).toEqual([
-      'necromancer_dwelling_6',
-    ]);
+  it('una morada no tiene mejora: cada sitio de morada lleva como mucho un edificio, el de su `morada`', () => {
+    for (const faccion of FACTION_IDS) {
+      for (const s of sitiosDeLaBase(faccion).filter((x) => x.nivel !== undefined)) {
+        const esperada = buildingsOfFaction(faccion)
+          .filter((b) => b.morada === s.nivel)
+          .map((b) => b.id);
+        expect(esperada.length, `${faccion}/${s.id}`).toBeLessThanOrEqual(1);
+        expect(s.cadena, `${faccion}/${s.id}`).toEqual(esperada);
+      }
+    }
   });
 
   it('sobre una base recién hecha: construido, siguiente y los sitios levantados', () => {
     const state = newGame({ seed: 7 });
     const town =
-      state.towns.find((t) => t.owner === 0 && t.faction === 'knight') ??
+      state.towns.find((t) => t.owner === 0 && t.faction === 'templarios') ??
       state.towns.find((t) => t.owner === 0)!;
     const f = town.faction;
-    // Nace con el ayuntamiento y la morada de nivel 1.
+    // Nace con el ayuntamiento y la morada del sitio 1 (su pueblo), la única
+    // que trae hecha.
+    const pueblo = buildingsOfFaction(f).find((b) => b.morada === 1);
+    expect(pueblo?.prebuilt).toBe(true);
     expect(construidoEn(town, 'hall')).toBe('village_hall');
     expect(siguienteDe(town, 'hall')).toBe('town_hall');
     expect(construidoEn(town, 'fort')).toBeNull();
     expect(siguienteDe(town, 'fort')).toBe('castle');
-    expect(construidoEn(town, 'lvl1')).toBe(`${f}_dwelling_1`);
+    expect(construidoEn(town, 'lvl1')).toBe(pueblo?.id);
     expect(sitiosConstruidos(town)).toEqual(['hall', 'lvl1']);
     // Un sitio completo no ofrece nada más.
     town.buildings.push('marketplace');
@@ -95,6 +109,6 @@ describe('los sitios de la base', () => {
   });
 
   it('un edificio que no está en ningún sitio lanza diciéndolo', () => {
-    expect(() => sitioDeEdificio('knight', 'necromancer_dwelling_1')).toThrow(/ningún sitio/);
+    expect(() => sitioDeEdificio('templarios', 'no-muertos_cadaveres')).toThrow(/ningún sitio/);
   });
 });

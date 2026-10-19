@@ -43,7 +43,7 @@ describe('la gente de la base', () => {
   });
 
   it('el alcaide y cada cuerpo son de su facción', () => {
-    for (const f of ['knight', 'necromancer'] as const) {
+    for (const f of ['templarios', 'no-muertos'] as const) {
       expect(alcaideDe(f).nombre.length).toBeGreaterThan(0);
     }
   });

@@ -1,8 +1,6 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
-// La carga de los catálogos juntos (`leerCatalogos`, en `core/catalogo.ts`): una
-// partida no arranca si el equipo base del héroe no vale con las piezas del juego.
-import '../catalogo.js';
-import { factionLineup, tipoDeHeroePorDefecto } from '../data.js';
+import { unidadesDeMorada } from '../catalogo.js';
+import { tipoDeHeroePorDefecto } from '../data.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import {
   CIFRAS_DEL_HEROE_INICIAL,
@@ -11,16 +9,24 @@ import {
   maxMana,
   maxMovePoints,
 } from '../hero/hero.js';
-import { withTroops } from '../hero/troop.js';
+import { CUPO_HEROE, heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
 import { buildMap, generateMapPlan, type MapPlan, validateMapPlan } from '../map/generate.js';
-import { createRng, type Rng } from '../rng.js';
-import type { Controller, FactionId, PlayerId } from '../types.js';
+import { createRng, hashDeTexto, type Rng } from '../rng.js';
+import { buildingsOfFaction } from '../town/buildings.js';
+import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
 import { createGame, type GameState } from './game.js';
 
-/** Nombres propios del juego: nada tomado de la serie original. */
+/**
+ * Nombres propios del juego: nada tomado de la serie original. Los de Templarios y
+ * No muertos son los de caballeros y nigromantes; los demás, INVENTADOS
+ * (19-10-2026).
+ */
 const HERO_NAMES: Readonly<Record<FactionId, readonly string[]>> = {
-  knight: ['Aldo de Valdeluz', 'Beatriz del Alba', 'Cristóbal Yelmo'],
-  necromancer: ['Malaquías', 'Serena la Pálida', 'Ordóñez el Mudo'],
+  templarios: ['Aldo de Valdeluz', 'Beatriz del Alba', 'Cristóbal Yelmo'],
+  'no-muertos': ['Malaquías', 'Serena la Pálida', 'Ordóñez el Mudo'],
+  imperio: ['Konstanz von Adler', 'Margarethe Eisen', 'Ulrich el Tuerto'],
+  elfos: ['Aerin del Roble', 'Thalanor', 'Nimriel la Silente'],
+  orkos: ['Grommash Dientenegro', 'Ugra la Roja', 'Snikrot'],
 };
 
 export interface NewGameOptions {
@@ -40,6 +46,23 @@ export interface NewGameOptions {
    * mirarla. Mismo idioma que `MapPlan.roads`.
    */
   readonly maxDays?: number | undefined;
+  /**
+   * Las facciones del jugador 0 y del 1 en el mapa procedimental; sin ellas, dos
+   * distintas de las cinco sorteadas por la semilla (`faccionesDeLaSemilla`).
+   */
+  readonly factions?: readonly [FactionId, FactionId];
+}
+
+/**
+ * Las facciones de una partida procedimental: dos distintas de las cinco
+ * (19-10-2026: «las cinco sustituyen»), sorteadas con **su propia corriente** de
+ * la semilla: con la del mapa, pedir facciones movía cada casilla de cada mapa.
+ */
+export function faccionesDeLaSemilla(seed: number): readonly [FactionId, FactionId] {
+  const rng = createRng(hashDeTexto(`facciones|${seed}`));
+  const f0 = rng.pick(FACTION_IDS);
+  const f1 = rng.pick(FACTION_IDS.filter((f) => f !== f0));
+  return [f0, f1];
 }
 
 /**
@@ -53,19 +76,23 @@ export interface NewGameOptions {
 const MAX_DAYS_POR_DEFECTO = 200;
 
 /**
- * Ejército de salida: unos cuantos individuos de la morada 1 y dos de la 2 de
- * la facción. Con el liderazgo provisional (2 y 3) son 10 a 14 de los 20 de un
- * héroe recién hecho, y 4 a 6 individuos de los 6 que lleva además de él: cabe
- * siempre y, salvo con 6, deja hueco para reclutar algo el primer día. Una sola
- * tirada del `rng`, como antes: solo cambia su rango.
+ * Ejército de salida: unos cuantos individuos de la primera unidad del pueblo de
+ * la facción (la morada del sitio 1) y dos de la segunda, **los que quepan** en
+ * el liderazgo y el cupo de un héroe recién hecho (`troopRoom`). Con el catálogo
+ * de la arena el pueblo de los orkos cría dos unidades de 4: cuatro y dos eran 24
+ * de 20, y `withTroops` no mira el tope (lo cazó `tropa.test.ts`, 19-10-2026).
+ * Una sola tirada del `rng`, quepa o no.
  */
 export function startingArmy(faction: FactionId, rng: Rng): Hero['army'] {
-  const lineup = factionLineup(faction);
-  const morada1 = lineup.find((c) => c.morada === 1);
-  const morada2 = lineup.find((c) => c.morada === 2);
+  const pueblo = buildingsOfFaction(faction).find((b) => b.morada === 1);
+  if (pueblo === undefined) throw new Error(`${faction} no tiene morada en el sitio 1`);
+  const [primera, segunda] = unidadesDeMorada(pueblo.id);
+  const tope = heroLeadership({ experience: EXPERIENCIA_INICIAL_DE_HEROE });
+  const conLasQueQuepan = (army: Hero['army'], id: string, n: number): Hero['army'] =>
+    withTroops(army, id, Math.min(n, troopRoom(army, tope, CUPO_HEROE, id)));
   let army: Hero['army'] = [];
-  if (morada1 !== undefined) army = withTroops(army, morada1.id, rng.int(2, 4));
-  if (morada2 !== undefined) army = withTroops(army, morada2.id, 2);
+  if (primera !== undefined) army = conLasQueQuepan(army, primera.id, rng.int(2, 4));
+  if (segunda !== undefined) army = conLasQueQuepan(army, segunda.id, 2);
   return army;
 }
 
@@ -76,6 +103,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
   const plan =
     options.plan ??
     generateMapPlan(rng, {
+      factions: options.factions ?? faccionesDeLaSemilla(seed),
       ...(options.regionesPorBando === undefined
         ? {}
         : { regionesPorBando: options.regionesPorBando }),
@@ -111,7 +139,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
   const inicios = [...plan.heroStarts].sort((a, b) => a.player - b.player);
 
   const heroes: Hero[] = inicios.map((inicio, i) => {
-    const faction = factionOf.get(inicio.player) ?? 'knight';
+    const faction = factionOf.get(inicio.player) ?? FACTION_IDS[0];
     const nombres = HERO_NAMES[faction];
     // La construcción de siempre (`heroeRecienHecho`), con lo que el inicial
     // tiene de más encima: mejores cifras, su tropa, Flecha mágica y dos
@@ -143,7 +171,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
 
   const players = inicios.map((inicio) => ({
     id: inicio.player,
-    faction: factionOf.get(inicio.player) ?? ('knight' as FactionId),
+    faction: factionOf.get(inicio.player) ?? FACTION_IDS[0],
     controller: options.controllers?.[inicio.player] ?? ('ai' as Controller),
   }));
 

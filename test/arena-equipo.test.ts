@@ -76,6 +76,7 @@ import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
 import {
   carpetaDeLaArena,
   catalogoCon,
+  catalogoEntero,
   delBorrador,
   elCatalogoCon,
   hojaDeLaArena,
@@ -449,12 +450,15 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
     const d = carpeta();
     const nueva = piezaNueva('escudo', EQUIPO_DEL_JUEGO);
     const piezas = elCatalogoCon(nueva, ESPADA_MAS);
-    expect(escribirCatalogo(d, { unidades: [guerrero()], piezas })).toMatchObject({
-      unidades: 1,
+    // El catálogo entero: con menos, una morada se queda sin unidades y el juego
+    // no arrancaría (`moradasBlocker`).
+    const unidades = catalogoEntero(guerrero());
+    expect(escribirCatalogo(d, { unidades, piezas })).toMatchObject({
+      unidades: unidades.length,
       piezas: piezas.length,
     });
     const leido = leerCatalogo(d);
-    expect(leido.unidades).toEqual([guerrero()]);
+    expect(leido.unidades).toEqual(unidades);
     expect(leido.piezas).toEqual(piezas);
     expect(enDisco(d)._comment).toBe(COMENTARIO_DEL_CATALOGO_DE_EQUIPO);
     expect(enDisco(d).piezas).toEqual(piezas);
@@ -467,7 +471,7 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
       join(d, RUTA_DEL_CATALOGO_DE_UNIDADES),
       JSON.stringify({ _comment: 'el de unidades, a mano', unidades: [guerrero()] }),
     );
-    escribirCatalogo(d, { unidades: [guerrero()], piezas });
+    escribirCatalogo(d, { unidades, piezas });
     expect(enDisco(d)._comment).toBe('escrito a mano');
     expect(JSON.parse(readFileSync(join(d, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8'))._comment).toBe(
       'el de unidades, a mano',
@@ -476,7 +480,7 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
 
   it('con la regla con que lo carga el juego: si algo no vale no escribe ninguno, y se dice', () => {
     const d = carpeta();
-    escribirCatalogo(d, { unidades: [guerrero()], piezas: EQUIPO_ESCRITO });
+    escribirCatalogo(d, { unidades: catalogoEntero(guerrero()), piezas: EQUIPO_ESCRITO });
     const antes = {
       unidades: readFileSync(join(d, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8'),
       equipo: readFileSync(join(d, RUTA_DEL_CATALOGO_DE_EQUIPO), 'utf8'),
@@ -484,19 +488,19 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
     // Una unidad con una pieza que no viene.
     const nueva = piezaNueva('escudo', EQUIPO_DEL_JUEGO);
     const con = equiparEnArena(arquero(), nueva.id, catalogoCon(nueva));
-    expect(() => escribirCatalogo(d, { unidades: [con], piezas: EQUIPO_ESCRITO })).toThrow(
-      `data/unidades.json: la unidad «${con.name}»: no existe ninguna pieza "${nueva.id}"`,
-    );
+    expect(() =>
+      escribirCatalogo(d, { unidades: catalogoEntero(con), piezas: EQUIPO_ESCRITO }),
+    ).toThrow(`data/unidades.json: la unidad «${con.name}»: no existe ninguna pieza "${nueva.id}"`);
     // Una pieza mala, una con PV o una calidad de antes.
     expect(() =>
       escribirCatalogo(d, {
-        unidades: [guerrero()],
+        unidades: catalogoEntero(guerrero()),
         piezas: conMala({ ...ESPADA, ataque: -1 }),
       }),
     ).toThrow('data/equipo.json: "espada": ataque tiene que ser un entero ≥ 0');
     expect(() =>
       escribirCatalogo(d, {
-        unidades: [guerrero()],
+        unidades: catalogoEntero(guerrero()),
         piezas: [...EQUIPO_ESCRITO.filter((p) => p.id !== 'barda'), { ...pieza('barda'), pv: 1 }],
       }),
     ).toThrow('suma PV: ninguna pieza da PV');
@@ -522,17 +526,18 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
     const d = carpeta();
     const nueva = piezaNueva('escudo', EQUIPO_DEL_JUEGO);
     const con = equiparEnArena(arquero(), nueva.id, catalogoCon(nueva));
-    expect(
-      escribirCatalogo(d, { unidades: [guerrero(), con], piezas: elCatalogoCon(nueva) }),
-    ).toMatchObject({ unidades: 2 });
-    expect(leerCatalogo(d).unidades).toEqual([guerrero(), con]);
+    const unidades = catalogoEntero(guerrero(), con);
+    expect(escribirCatalogo(d, { unidades, piezas: elCatalogoCon(nueva) })).toMatchObject({
+      unidades: unidades.length,
+    });
+    expect(leerCatalogo(d).unidades).toEqual(unidades);
   });
 
   it('tras abrir un enlace, sus piezas son cambios sin guardar: «Guardar» las escribe, también sobre una tuya', () => {
     const d = carpeta();
     // Tu brigantina, cambiada y guardada.
     const tuya = { ...pieza('brigantina'), armadura: (pieza('brigantina').armadura ?? 0) + 2 };
-    escribirCatalogo(d, { unidades: [], piezas: elCatalogoCon(tuya) });
+    escribirCatalogo(d, { unidades: catalogoEntero(), piezas: elCatalogoCon(tuya) });
     // El enlace lleva al guerrero con la brigantina del fichero y al arquero con una nueva.
     const nueva = piezaNueva('escudo', EQUIPO_DEL_JUEGO);
     const conNueva = equiparEnArena(arquero(), nueva.id, catalogoCon(nueva));
@@ -556,7 +561,7 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
       pieza('brigantina').armadura,
     );
     // …y «Guardar» escribe esa lista, la única de la página.
-    escribirCatalogo(d, { unidades: [guerrero(), conNueva], piezas: abierto });
+    escribirCatalogo(d, { unidades: catalogoEntero(guerrero(), conNueva), piezas: abierto });
     const guardadas = leerCatalogo(d).piezas;
     expect(guardadas.find((p) => p.id === 'brigantina')).toEqual(pieza('brigantina'));
     expect(guardadas.at(-1)).toEqual(nueva);

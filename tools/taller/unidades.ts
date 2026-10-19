@@ -16,7 +16,8 @@
  */
 import { existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import type { FaccionDeArena, PerfilDeArena } from '../../src/core/unidad.js';
+import type { FactionId } from '../../src/core/types.js';
+import type { PerfilDeArena } from '../../src/core/unidad.js';
 import {
   type ClipDeFigura,
   HOJAS_DE_FIGURA,
@@ -44,7 +45,7 @@ import type { Encargo } from './encargo.js';
 export interface Unidad {
   readonly id: string;
   /** Las cinco facciones se declaran en `src/core/arena.ts`, que es quien las valida al guardar. */
-  readonly faccion: FaccionDeArena;
+  readonly faccion: FactionId;
   /** El nombre en `NuevaJugabilidad.md`. */
   readonly nombre: string;
   /**

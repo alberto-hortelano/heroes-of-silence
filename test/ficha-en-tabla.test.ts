@@ -21,12 +21,14 @@ import { marcadoDe } from '../src/client/html.js';
 import { modificadoresEnPantalla } from '../src/client/views/panels.js';
 import { fichaDeHeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
+import { oroDelIndice } from '../src/core/data.js';
 import {
   EQUIPO_DEL_JUEGO,
   modificadoresDePieza,
   pieza,
   textoDeModificador,
 } from '../src/core/hero/equipo.js';
+import { indiceDePoder } from '../src/core/nivel.js';
 import { SPEED_TO_HEXES } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
 import { unidadDeArena } from './helpers.js';
@@ -127,7 +129,11 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     expect(finalDe(m, 'damage-max').valor).toBe(combate.damage[1]);
     expect(finalDe(m, 'hp').valor).toBe(combate.hp);
     expect(finalDe(m, 'leadership')).toEqual({ valor: CON_ESCUDO.leadership, cambiada: false });
-    expect(finalDe(m, 'gold')).toEqual({ valor: CON_ESCUDO.cost.gold, cambiada: false });
+    // El coste no se escribe: sale del índice de lo que pelea (19-10-2026).
+    expect(finalDe(m, 'gold')).toEqual({
+      valor: oroDelIndice(indiceDePoder(combate)),
+      cambiada: false,
+    });
     // Sin el escudo, la defensa vuelve a la del cuerpo y deja de resaltarse.
     const sin = marcadoDe(renderFicha({ ...CON_ESCUDO, equipo: {} }, false, MONTAJE));
     expect(finalDe(sin, 'defense')).toEqual({ valor: CON_ESCUDO.defense, cambiada: false });

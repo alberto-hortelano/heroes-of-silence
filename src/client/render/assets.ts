@@ -7,6 +7,7 @@
  * error sino "todavía no se ha generado nada".
  */
 import { urlDeImagenSegura } from '../html.js';
+import { registrarLasHojas } from './personajes.js';
 
 interface AssetManifest {
   readonly generatedAt: string;
@@ -294,11 +295,25 @@ async function loadAssets(): Promise<boolean> {
 /**
  * Pone a cargar todo el arte y avisa con `onCambio` cada vez que entra algo. Es
  * lo único que llaman los `main` —el que juega, el espectador y la arena, que
- * pasa `manifiesto: false` y `mapa: false`—: el juego ya
+ * pasa `manifiesto: false`, `mapa: false` y `hojas: false`—: el juego ya
  * es jugable con los marcadores, y el arte entra cuando entra.
+ *
+ * `hojas`: las hojas del taller con que se pinta cada tropa del catálogo
+ * (`registrarLasHojas`). La arena las pide ella, porque además las lista.
  */
-export function cargarArte(onCambio: () => void, { manifiesto = true, mapa = true } = {}): void {
+export function cargarArte(
+  onCambio: () => void,
+  { manifiesto = true, mapa = true, hojas = true } = {},
+): void {
   oyentes.add(onCambio);
+  if (hojas) {
+    // Sin la lista, cada tropa se pinta con el Y Bot por defecto: se dice, no se calla.
+    tandaDeArte(
+      registrarLasHojas().catch((e: unknown) =>
+        console.error(`[assets] sin las hojas de las unidades: ${String(e)}`),
+      ),
+    );
+  }
   // La arena no pinta ni recursos ni edificios ni castillo: sin el manifiesto se
   // ahorra sus decenas de peticiones y se queda con las figuras y el tablero.
   if (manifiesto) {

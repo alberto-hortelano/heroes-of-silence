@@ -181,3 +181,17 @@ coste, crecimiento y morada de cada unidad derivados del índice con equipo (var
 morada; fuera el campo `cost`); la fórmula del índice con equipo propuesta (con la rueda, R = 30,
 inventada y dicha); el héroe nace con **Espada y gambesón**; la armería vende las piezas que no van
 sobre otra y el botín da las que van sobre otra más la maza y el pavés (precios inventados).
+
+## Antes de F3 (19-10-2026)
+
+Ante «tropa ≤ élite no se cumple» y «el índice va del 2 al 4», el usuario: «No te preocupes por el
+valor de las unidades, lo iremos refinando. Lo que quiero es ir avanzando el juego para poder
+probarlas fuera de la arena». Por tanto:
+
+- **El edificio no implica nivel**: se sigue el reparto del cuaderno (pueblos y edificios de élite);
+  cada unidad cuesta según su índice y la morada según lo mejor que produce. Ni se retocan cuerpos ni
+  kits, ni se recolocan unidades.
+- **No se recalibra la escala del nivel** (`data/poder.json`): las moradas que se queden sin unidades
+  de un nivel no son un problema. Solo se ajusta lo necesario para que el juego termine (barrido en 0).
+- **Prioridad: avanzar.** El coordinador aligera el ciclo: `/simplify` una sola vez al final, antes
+  del QA, no por fase. Se mantienen el verde de cada fase y su commit local.

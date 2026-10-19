@@ -94,7 +94,7 @@ describe('la memoria de la IA se lee de la crónica', () => {
 });
 
 /** La semilla del vaivén (ver `vaiven`). */
-const SEMILLA_DEL_VAIVEN = 1;
+const SEMILLA_DEL_VAIVEN = 3;
 
 describe('el vaivén', () => {
   /**
@@ -103,7 +103,9 @@ describe('el vaivén', () => {
    * devuelve el estado con el héroe otra vez en A.
    */
   function vaiven(idas: number) {
-    // La 1 (la 17 hasta el río continuo, #144, cuando su marcha del día 1 ya
+    // La 3 (la 1 hasta las cinco facciones de F3, 19-10-2026, cuando la IA mide
+    // la fuerza por el índice y su primer paso del día 1 ya no es una casilla
+    // vacía; la 17 hasta el río continuo, #144, cuando su marcha del día 1 ya
     // no llegaba a su paso; la 16 hasta la muralla como cierre de un paso, #232, cuando su
     // marcha del día 1 ya no llegaba a su paso; la 7 hasta #230, cuando la mina pasa a tener dos puertas y el
     // primer paso de la 7 ya es una ciudad neutral; la 6 hasta #229, cuando las

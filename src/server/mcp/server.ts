@@ -8,8 +8,8 @@
  */
 
 import { allSpells } from '@core/battle/spells.js';
+import { unidadDelJuego, unidadesDeFaccion, unidadesDelJuego } from '@core/catalogo.js';
 import { COMO_SE_LEE_EL_MAPA, fichaDeCriatura } from '@core/contract/serialize.js';
-import { allCreatures, creature, factionLineup } from '@core/data.js';
 import { RANGO_MAXIMO_DE_TROPA } from '@core/hero/experiencia.js';
 import { allBuildings } from '@core/town/buildings.js';
 import { FACTION_IDS } from '@core/types.js';
@@ -497,17 +497,17 @@ server.tool(
 
 server.tool(
   'creature_stats',
-  'Ficha de una criatura —sus cifras, "dwelling" (la morada que la produce) y su "level" y "powerIndex", derivados de las cifras—, o el catálogo entero si no indicas ninguna.',
+  'Ficha de una unidad del catálogo —sus cifras con su equipo de serie, "dwelling" (el edificio que la produce), "equipment", "armor" y su "level" y "powerIndex", derivados de las cifras—, o el catálogo entero si no indicas ninguna.',
   {
-    creature: z.string().optional().describe('Id de criatura, p. ej. "paladin"'),
+    creature: z.string().optional().describe('Id de unidad, p. ej. "templario-escudo"'),
     faction: z.enum(FACTION_IDS).optional().describe('Alineación de una facción'),
   },
   ({ creature: id, faction }) => {
     if (id !== undefined) {
-      const ficha = fichaDeCriatura(creature(id));
+      const ficha = fichaDeCriatura(unidadDelJuego(id));
       return { content: [{ type: 'text' as const, text: JSON.stringify(ficha, null, 2) }] };
     }
-    const lista = (faction === undefined ? allCreatures() : factionLineup(faction)).map(
+    const lista = (faction === undefined ? unidadesDelJuego() : unidadesDeFaccion(faction)).map(
       fichaDeCriatura,
     );
     return { content: [{ type: 'text' as const, text: JSON.stringify(lista, null, 2) }] };

@@ -4,11 +4,12 @@
  * caducidad «hasta su próximo turno», la IA a ciegas, la sesión de la arena con
  * sus tres maneras (Yo contra IA, IA contra Yo, Yo contra Yo) y el parte.
  *
- * Las cifras se escriben a mano desde el catálogo (piquero: A 5, D 9, daño 30-40,
- * 150 PV) y desde `data/rueda.json` (Fuerte ×1,25, Rápido 2 × ×0,6): un test que
- * calculara el esperado con las mismas funciones del motor solo probaría que el
- * motor es el que es.
+ * Las cifras se escriben a mano desde unidades hechas a mano (`A_MANO`: el piquero,
+ * A 5, D 9, daño 30-40, 150 PV, sin armadura) y desde `data/rueda.json` (la Espada,
+ * todo a 3: Fuerte ×1,5, Rápido 2 × ×0,63): un test que calculara el esperado con
+ * las mismas funciones del motor solo probaría que el motor es el que es.
  */
+
 import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
 import { BattleAnimator, DURACION } from '../src/client/anim.js';
@@ -67,25 +68,95 @@ import type {
   BattleState,
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
-import { creature } from '../src/core/data.js';
+import { unidad } from '../src/core/catalogo.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
 import type { NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
-import { nivelesDeLaEspada, type UnidadDeArena } from '../src/core/unidad.js';
+import { cuerpoDeCombate, nivelesDeLaEspada, type UnidadDeArena } from '../src/core/unidad.js';
 import { bando } from './batalla-de-prueba.js';
 import {
   type Ataque,
   ataquesDe,
+  conCifrasAMano,
   conManosDePrueba,
   delBorrador,
   golpeConLaRueda,
   hastaLaRueda,
+  JINETE,
+  NO_MUERTO,
+  PESADA,
   sesionDeArena,
+  TIRADOR,
+  TROPA,
   unidadDeArena,
 } from './helpers.js';
 
 /** Las cifras de la rueda con la Espada de la arena (todo a 3): las de un arma versátil. */
 const CON_LA_ESPADA = cifrasDeLosNiveles(nivelesDeLaEspada());
+
+/**
+ * El cuerpo desnudo de `base` (sin su equipo de serie: ni armas ni armadura) con
+ * las cifras de `cifras`. Estas pruebas cuentan el daño de cada cruce a mano, y la
+ * armadura de las unidades del catálogo (desde el 19-10-2026 todas la llevan) lo
+ * enturbiaría: con cifras redondas y sin armadura cada esperado se lee en su
+ * comentario.
+ */
+const sinEquipo = (base: string, cifras: Partial<UnitInfo>): UnitInfo => ({
+  ...cuerpoDeCombate(unidad(base)),
+  ...cifras,
+});
+
+/** El piquero de las cuentas: A 5, D 9, daño 30-40, 150 PV, 4 casillas. */
+const PIQUERO_A_MANO = sinEquipo(TROPA, {
+  name: 'Piquero',
+  attack: 5,
+  defense: 9,
+  damage: [30, 40],
+  hp: 150,
+  speed: 'average',
+  traits: [],
+});
+
+/** Uno que pega dos veces (`double_attack`, que nadie del catálogo lleva) y es más rápido que el piquero. */
+const DOBLE_GOLPE = sinEquipo(PESADA, {
+  name: 'Paladín',
+  attack: 11,
+  defense: 12,
+  damage: [100, 200],
+  hp: 500,
+  speed: 'fast',
+  traits: ['double_attack'],
+});
+
+/** La caballería de las cargas: A 10, D 9, daño 50-100, 300 PV, `charge`, sin lanza. */
+const CABALLERIA = sinEquipo(JINETE, {
+  name: 'Caballería',
+  attack: 10,
+  defense: 9,
+  damage: [50, 100],
+  hp: 300,
+  speed: 'very_fast',
+  traits: ['charge'],
+});
+
+/** Lo que se pone a mano en lugar de cada unidad del catálogo, por su id. */
+const A_MANO: Readonly<Record<string, UnitInfo>> = {
+  [TROPA]: PIQUERO_A_MANO,
+  [PESADA]: DOBLE_GOLPE,
+  [JINETE]: CABALLERIA,
+};
+
+/**
+ * Cada stack de `b` de una unidad de `A_MANO` con sus cifras hechas a mano y,
+ * todos, con las manos de prueba (`conManosDePrueba`) para golpear en la rueda.
+ */
+function conCifrasDePrueba(b: BattleState, niveles?: NivelesDeLaRueda): BattleState {
+  for (const s of b.stacks) {
+    const cifras = A_MANO[s.body];
+    if (cifras !== undefined) conCifrasAMano(b, s.id, cifras);
+  }
+  return conManosDePrueba(b, niveles);
+}
 
 /** Una batalla con la rueda, el atacante en (5,4) y el defensor pegado en (6,4). */
 function enRueda(
@@ -99,7 +170,7 @@ function enRueda(
   } = {},
 ): { b: BattleState; rng: Rng } {
   const rng = createRng(o.semilla ?? 1);
-  const b = conManosDePrueba(
+  const b = conCifrasDePrueba(
     crearBatallaConReglas(bando(izquierda), bando(derecha), rng, o.reglas ?? REGLAS_DEL_JUEGO, {
       modos: { ...MODOS_DEL_JUEGO, golpe: 'rueda' },
     }),
@@ -113,7 +184,8 @@ function enRueda(
   return { b, rng };
 }
 
-const piqueros = (n: number): Stack[] => [{ creature: 'pikeman', count: n }];
+/** `n` piqueros: en `enRueda` y `aLaCarga`, con las cifras de `PIQUERO_A_MANO`. */
+const piqueros = (n: number): Stack[] => [{ creature: TROPA, count: n }];
 
 /** La nota de un tipo con las cifras de la Espada (todo a 3). */
 const notaConEspada = (
@@ -188,8 +260,8 @@ describe('el cruce: el anillo de la petición (#263, 14-10-2026)', () => {
   });
 
   it('los golpes: uno, el doble golpe dos al atacar y uno al devolver, Rápido por dos', () => {
-    const piquero = creature('pikeman');
-    const paladin = creature('paladin');
+    const piquero = PIQUERO_A_MANO;
+    const paladin = DOBLE_GOLPE;
     expect(golpesDe(piquero, null, false)).toBe(1);
     expect(golpesDe(paladin, null, false)).toBe(2);
     expect(golpesDe(paladin, null, true)).toBe(1);
@@ -347,7 +419,7 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
   });
 
   it('con el doble golpe y Rápido, cuatro golpes', () => {
-    const { b, rng } = enRueda([{ creature: 'paladin', count: 1 }], piqueros(60));
+    const { b, rng } = enRueda([{ creature: PESADA, count: 1 }], piqueros(60));
     // El paladín es rápido y el piquero no: el paladín abre la ronda.
     expect(activeStack(b)?.id).toBe('attacker-0');
     applyAction(b, golpeConLaRueda('rapido', 'normal'), rng);
@@ -358,7 +430,7 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
     const rng = createRng(4);
     const b = conManosDePrueba(
       crearBatallaConReglas(
-        bando([{ creature: 'archer', count: 5 }]),
+        bando([{ creature: TIRADOR, count: 5 }]),
         bando(piqueros(5)),
         rng,
         REGLAS_DEL_JUEGO,
@@ -788,9 +860,9 @@ describe('la Finta deja andar después de golpear (#263)', () => {
  */
 function aLaCarga(modo: 'rueda' | 'azar' = 'rueda'): { b: BattleState; rng: Rng } {
   const rng = createRng(1);
-  const b = conManosDePrueba(
+  const b = conCifrasDePrueba(
     crearBatallaConReglas(
-      bando([{ creature: 'cavalry', count: 2 }]),
+      bando([{ creature: JINETE, count: 2 }]),
       bando(piqueros(10)),
       rng,
       REGLAS_DEL_JUEGO,
@@ -987,11 +1059,11 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
       let cargas = 0;
       for (let semilla = 1; semilla <= 6; semilla++) {
         const rng = createRng(semilla);
-        const b = conManosDePrueba(
+        const b = conCifrasDePrueba(
           crearBatallaConReglas(
             bando([
-              { creature: 'cavalry', count: 1 },
-              { creature: 'champion', count: 1 },
+              { creature: JINETE, count: 1 },
+              { creature: JINETE, count: 1 },
             ]),
             bando(piqueros(3)),
             rng,
@@ -1291,12 +1363,12 @@ describe('la IA elige a ciegas', () => {
       const b = conManosDePrueba(
         crearBatallaConReglas(
           bando([
-            { creature: 'pikeman', count: 8 },
-            { creature: 'paladin', count: 2 },
+            { creature: TROPA, count: 8 },
+            { creature: PESADA, count: 2 },
           ]),
           bando([
-            { creature: 'skeleton', count: 20 },
-            { creature: 'vampire', count: 3 },
+            { creature: NO_MUERTO, count: 20 },
+            { creature: 'caballero-de-la-muerte', count: 3 },
           ]),
           rng,
           REGLAS_DEL_JUEGO,
@@ -1375,8 +1447,7 @@ describe('el parte cuenta el cruce', () => {
 const deLaArena = (u: string | UnidadDeArena): FuenteDeArena =>
   delBorrador(typeof u === 'string' ? unidadDeArena(u) : u);
 
-/** Los de estas pruebas: dos jinetes que cargan, un piquero y lo demás. */
-const JINETE = 'templario-hermano-de-carga';
+/** Los de estas pruebas: dos jinetes que cargan (`JINETE` y este), un piquero y lo demás. */
 const JINETE_DE_LA_IA = 'jinete-de-plaga';
 const PIQUERO = 'imperio-piquero';
 /** El que no recibe contraataques: un espectro con `no_retaliation`. */
@@ -1628,12 +1699,12 @@ describe('la sesión de la arena con la rueda', () => {
     const s = new SesionDeArena(
       {
         izquierda: {
-          unidades: [PIQUERO, 'templario-escudo'].map(deLaArena),
+          unidades: [PIQUERO, TROPA].map(deLaArena),
           heroe: null,
           ia: true,
         },
         derecha: {
-          unidades: ['esqueleto-guerrero', SIN_RESPUESTA()].map(deLaArena),
+          unidades: [NO_MUERTO, SIN_RESPUESTA()].map(deLaArena),
           heroe: null,
           ia: true,
         },
@@ -1756,8 +1827,8 @@ describe('la sesión de la arena con la rueda', () => {
   it('con todo en IA la pelea se juega entera, y es la misma con la misma semilla', () => {
     const todo = (semilla: number): BattleState =>
       sesion(
-        { ids: [PIQUERO, 'templario-escudo'], ia: true },
-        { ids: ['esqueleto-guerrero', SIN_RESPUESTA()], ia: true },
+        { ids: [PIQUERO, TROPA], ia: true },
+        { ids: [NO_MUERTO, SIN_RESPUESTA()], ia: true },
         semilla,
       ).battle;
     const a = todo(5);

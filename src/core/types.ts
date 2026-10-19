@@ -132,12 +132,23 @@ export const SPEED_TO_MOVE_POINTS: Readonly<Record<SpeedTier, number>> = {
 // ---------------------------------------------------------------- criaturas
 
 /**
- * Las facciones del juego, una vez (#108). El tipo sale de la lista y no al
- * revés, para que los esquemas del contrato (`z.enum(FACTION_IDS)`) y la paleta
- * del mapa la lean en vez de copiarla: eran cuatro copias de lo mismo.
+ * Las facciones del juego, una vez (#108): las cinco de las hojas de la arena
+ * (19-10-2026, «las cinco sustituyen»: caballeros y nigromantes se retiraron con
+ * `data/creatures.json`). El tipo sale de la lista y no al revés, para que los
+ * esquemas del contrato (`z.enum(FACTION_IDS)`), la paleta del mapa, el catálogo
+ * de unidades y el taller (`tools/taller/unidades.ts`) la lean en vez de copiarla.
  */
-export const FACTION_IDS = ['knight', 'necromancer'] as const;
+export const FACTION_IDS = ['templarios', 'no-muertos', 'imperio', 'elfos', 'orkos'] as const;
 export type FactionId = (typeof FACTION_IDS)[number];
+
+/** Cómo se llama cada facción en pantalla: el juego, la arena y el taller. */
+export const NOMBRE_DE_FACCION: Readonly<Record<FactionId, string>> = {
+  templarios: 'Templarios',
+  'no-muertos': 'No muertos',
+  imperio: 'Imperio',
+  elfos: 'Elfos',
+  orkos: 'Orkos',
+};
 
 /**
  * Rasgos especiales de criatura.
@@ -187,22 +198,14 @@ export interface UnitInfo {
   readonly hp: number;
   readonly speed: SpeedTier;
   /**
-   * Las cifras de esta unidad **sin su equipo**, si lleva alguno. Lo escribe solo
-   * `conEquipo` (`hero/equipo.ts`), que es la única suma de las piezas, y lo leen
-   * lo que enseña qué suma el equipo (la ficha de la arena, el panel del héroe) y
-   * el retoque de piezas de la arena, que viste otra vez el cuerpo. El nivel **no**
-   * lo lee: se mide con el equipo puesto (18-10-2026; `core/nivel.ts`, lo vigila
-   * `test/invariantes.test.ts`). Vive en la unidad y no se recalcula desde el origen
-   * del stack porque ese origen tiene cuatro caminos —catálogo, héroe, arena,
-   * personaje— y el que se olvidara uno mentiría. No viaja al espectador.
-   *
-   * **No hay `nivel` en las cifras**: se deriva de ellas (`nivelDeUnidad`).
+   * **No hay `nivel` en las cifras**: se deriva de ellas, con el equipo puesto
+   * (`nivelDeUnidad`). Tampoco las cifras sin equipo: lo que suma el equipo se
+   * deriva de lo que lleva (`equipo`, con `modificadoresDePieza`), y el cuerpo
+   * desnudo, de su origen (19-10-2026: fuera `sinEquipo`).
    */
-  readonly sinEquipo?: UnitInfo;
   /**
-   * Lo que lleva puesto, con `sinEquipo` (lo escribe `conEquipo`): cambiar una
-   * pieza a media pelea en la arena lo vuelve a sumar a su cuerpo desde el stack.
-   * No viaja al espectador.
+   * Lo que lleva puesto (lo escribe `conEquipo`, la única suma de las piezas). No
+   * viaja al espectador.
    */
   readonly equipo?: Equipo;
   /**
@@ -224,16 +227,20 @@ export interface UnitInfo {
    * para que se encuentre buscándolo. No viaja al espectador.
    */
   readonly puntosDeArmadura?: number;
-  /** Munición. > 0 = es tirador. */
+  /**
+   * Munición. > 0 = es tirador que cuenta tiros. Ya solo la lleva el perfil de un
+   * personaje (el guardabosques, `rpg/stats.ts`): las unidades del catálogo tiran
+   * con su arma a distancia, sin contar tiros.
+   */
   readonly shots?: number;
   /** Hexes que ocupa en la rejilla de batalla (1 o 2). */
   readonly hexes?: number;
   readonly traits?: readonly CreatureTrait[];
   /**
-   * Los poderes que usa en su turno (`battle/poderes.ts`): Curar, Bendecir. **Solo
-   * la arena** los pone (`unidadDeCombate`, por sus habilidades); el catálogo no los
-   * tiene nunca, y por eso la jugada `poder` no sale en el juego ni llega al agente
-   * (lo vigila `test/invariantes.test.ts`).
+   * Los poderes que usa en su turno (`battle/poderes.ts`): Curar, Bendecir. Los pone
+   * solo `unidadDeCombate`, por sus habilidades: desde que el catálogo del juego es
+   * el de la arena (19-10-2026) también los usa la partida. El agente aún no los
+   * juega (su contrato no tiene la jugada `poder`: F6).
    */
   readonly poderes?: readonly PoderId[];
 }
@@ -333,27 +340,6 @@ export type ArmasDeLaUnidad = { readonly arma: GolpeConArma } & Readonly<
  * `poder`, y este fichero no importa de nadie.
  */
 export type PoderId = string;
-
-export interface Creature extends UnitInfo {
-  readonly id: string;
-  readonly faction: FactionId;
-  /**
-   * 1..6 — la morada que la produce: un dato del edificio, no de las cifras. El
-   * **nivel** de la criatura no está aquí: se deriva de sus cifras
-   * (`nivelDeUnidad`, `core/nivel.ts`), y casi siempre coincide con su morada o
-   * con la contigua.
-   */
-  readonly morada: number;
-  /**
-   * Lo que ocupa UN individuo en el liderazgo de quien lo lleva
-   * (`hero/troop.ts`). Provisional, en datos: lo define el usuario.
-   */
-  readonly leadership: number;
-  /** Crecimiento semanal base de la morada. */
-  readonly growth: number;
-  readonly cost: Partial<Resources>;
-  readonly upgradesTo?: string;
-}
 
 // ---------------------------------------------------------------- ejército
 

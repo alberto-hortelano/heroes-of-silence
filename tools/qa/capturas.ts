@@ -95,11 +95,7 @@ import type {
   BattleState,
 } from '../../src/core/battle/types.js';
 import { UNIDADES, unidad } from '../../src/core/catalogo.js';
-import {
-  allCreatures,
-  nombreDeTipoDeHeroe,
-  RUTA_DEL_CATALOGO_DE_EQUIPO,
-} from '../../src/core/data.js';
+import { nombreDeTipoDeHeroe, RUTA_DEL_CATALOGO_DE_EQUIPO } from '../../src/core/data.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
@@ -3625,9 +3621,8 @@ async function abrirLaArena(page: Page, url: string, query: string): Promise<voi
 }
 
 /**
- * Que la lista de la arena bajo `raiz` no ofrezca el catálogo del juego
- * (13-10-2026): ni un botón u opción que lo nombre, ni una criatura suya entre las
- * unidades de la lista o los cuerpos de «Nueva unidad». Mira lo que la página
+ * Que la lista de la arena bajo `raiz` no ofrezca un catálogo del juego aparte
+ * (13-10-2026): ni un botón u opción que lo nombre. Mira lo que la página
  * genera hoy: buscar el `data-faccion="catalogo"` de antes pasaba siempre, porque
  * nadie lo escribe ya.
  */
@@ -3645,11 +3640,11 @@ async function sinElCatalogoDelJuego(page: Page, raiz: string, paso: string): Pr
       `${paso}: la lista de la arena no tiene unidades, y no hay catálogo que buscar`,
     );
   }
-  const delJuego = new Set(allCreatures().map((c) => c.id));
-  const criaturas = ids.filter((id) => delJuego.has(id));
-  if (nombrado > 0 || criaturas.length > 0) {
+  // Las criaturas de `data/creatures.json` ya no existen (19-10-2026): el
+  // catálogo del juego es el de la arena, y solo queda que nada lo nombre aparte.
+  if (nombrado > 0) {
     throw new Error(
-      `${paso}: la lista de la arena aún ofrece el catálogo del juego (${nombrado} botones u opciones que lo nombran; criaturas: ${criaturas.join(', ') || 'ninguna'})`,
+      `${paso}: la lista de la arena aún ofrece un «catálogo del juego» aparte (${nombrado} botones u opciones que lo nombran)`,
     );
   }
 }

@@ -244,7 +244,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     const heroe = mando({ spells: ['magic_arrow'] });
     const flecha = delHeroe(spell('magic_arrow'), heroe).cantidad;
     const b = crearBatallaConReglas(
-      bando([{ creature: 'swordsman', count: 5 }], { heroe }),
+      bando([{ creature: 'templario-mandoble', count: 5 }], { heroe }),
       bandoDe([{ id: 'muneco', unit: muneco }]),
       createRng(1),
       REGLAS_DEL_JUEGO,

@@ -5,17 +5,15 @@
  * Hermano de `habilidades.ts`, y por la misma lección: **con una expresión
  * regular y sin teclear un nombre**. Lo único escrito a mano es qué sección del
  * cuaderno es de qué facción del motor (`SECCIONES`), porque el cuaderno habla
- * de «Templarios» y el motor de `knight`, y esa traducción no está en ninguna
- * parte que se pueda leer.
+ * de «No muertos» y el motor de `no-muertos`.
  *
- * Solo las dos facciones que están en juego. Imperio, Elfos y Orkos tienen sus
- * héroes escritos en el cuaderno y se quedan sin extraer hasta que existan: un
- * tipo de una facción que no se puede jugar es un dato que nadie lee.
+ * Las cinco facciones del juego (19-10-2026, #127): desde que sustituyeron a
+ * caballeros y nigromantes, Imperio, Elfos y Orkos se extraen como las otras dos.
  *
  * `NuevaJugabilidad.md` **no se commitea**; el JSON sí, y es contra él contra
  * quien comprueba `data.ts`. Se corre a mano cuando el cuaderno cambie:
  *
- *   npx tsx tools/datos/tipos-de-heroe.ts
+ *   npx tsx tools/datos/tipos-de-heroe.ts [ruta de NuevaJugabilidad.md]
  *
  * Lanza si una sección o su lista de héroes no está o sale vacía, en vez de
  * escribir un catálogo que dejaría a una facción sin héroes que ofrecer. Dos
@@ -26,13 +24,22 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { TipoDeHeroe } from '../../src/core/data.js';
+import type { FactionId } from '../../src/core/types.js';
 
 const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
-const ORIGEN = `${RAIZ}NuevaJugabilidad.md`;
+// El cuaderno vive en la copia principal del repo, sin commitear: desde un
+// worktree se le pasa la ruta (`npx tsx tools/datos/tipos-de-heroe.ts <ruta>`).
+const ORIGEN = process.argv[2] ?? `${RAIZ}NuevaJugabilidad.md`;
 const DESTINO = `${RAIZ}data/tipos-de-heroe.json`;
 
 /** La sección del cuaderno de cada facción del motor. Lo único tecleado. */
-const SECCIONES = { knight: 'Templarios', necromancer: 'No muertos' } as const;
+const SECCIONES: Readonly<Record<FactionId, string>> = {
+  templarios: 'Templarios',
+  'no-muertos': 'No muertos',
+  imperio: 'Imperio',
+  elfos: 'Elfos',
+  orkos: 'Orkos',
+};
 
 const texto = readFileSync(ORIGEN, 'utf8');
 
@@ -84,7 +91,7 @@ const tipos = Object.fromEntries(
 
 const json = {
   _comment:
-    'GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios» (knight) y «No muertos» (necromancer) de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto del héroe inicial y del contratado. Los tipos todavía NO tienen efecto (no hay motor de habilidades): se guardan en el héroe, se ven y se serializan.',
+    'GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto del héroe inicial y del contratado. Los tipos todavía NO tienen efecto (no hay motor de habilidades): se guardan en el héroe, se ven y se serializan.',
   tipos,
 };
 writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);

@@ -14,7 +14,8 @@ import { renderSide } from '../src/client/views/panels.js';
 import { textoDePrevision } from '../src/client/views/prevision.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
-import { creature } from '../src/core/data.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
+
 import type { Hex, UnitInfo } from '../src/core/types.js';
 import { sesionContraMonstruo } from './batalla-de-cliente.js';
 
@@ -113,7 +114,7 @@ function sesionConEnemigoALaVista(
   turno.stack.hex = { col: 5, row: 6 };
   rival.hex = enRival;
   // Antes de la primera lectura de la lista legal: la sesión la guarda por jugada.
-  if (criatura !== undefined) (turno.stack as { unit: UnitInfo }).unit = creature(criatura);
+  if (criatura !== undefined) (turno.stack as { unit: UnitInfo }).unit = unidadDelJuego(criatura);
   if (isShooterActivo(s)) throw new Error('la unidad activa dispara: el ángulo no se ve');
   return { s, activo: turno.stack.id, objetivo: rival.id };
 }
@@ -227,9 +228,9 @@ describe('el panel dice lo que le queda al tramo', () => {
 describe('la ayuda de la carga solo con una unidad que carga (QA, N2)', () => {
   it('con un piquero activo no se habla de cargar; con un jinete, sí', () => {
     const AYUDA = 'Al enemigo en naranja se le puede cargar';
-    const sinRasgo = sesionConEnemigoALaVista(undefined, 'pikeman');
+    const sinRasgo = sesionConEnemigoALaVista(undefined, 'templario-escudo');
     expect(marcadoDe(renderSide(sinRasgo.s))).not.toContain(AYUDA);
-    const conRasgo = sesionConEnemigoALaVista(undefined, 'cavalry');
+    const conRasgo = sesionConEnemigoALaVista(undefined, 'templario-hermano-de-carga');
     expect(marcadoDe(renderSide(conRasgo.s))).toContain(AYUDA);
   });
 });
@@ -237,7 +238,7 @@ describe('la ayuda de la carga solo con una unidad que carga (QA, N2)', () => {
 describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
   // Jinete en (5,6) y el rival en (9,6): la recta E pasa por (6,6), (7,6) y
   // (8,6), y desde (8,6) el rival es la casilla siguiente. La única carga.
-  const montar = () => sesionConEnemigoALaVista({ col: 9, row: 6 }, 'cavalry');
+  const montar = () => sesionConEnemigoALaVista({ col: 9, row: 6 }, 'templario-hermano-de-carga');
   const [ancho, alto] = [1086, 778];
   const t = tableroPara(ancho, alto);
 

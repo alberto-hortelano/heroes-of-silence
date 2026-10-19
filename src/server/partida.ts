@@ -126,7 +126,7 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
       // Pero **sin `agentPlayers`**, y esa es la diferencia: la nota se redacta
       // para quien la lee, y aquí la lee alguien que no lleva bando. Con el
       // conjunto del agente se le decía «no gana nadie. Tú llevabas al jugador 1
-      // (necromancer) y acabas con 1 castillo» a un espectador que no llevaba
+      // (los nigromantes) y acabas con 1 castillo» a un espectador que no llevaba
       // nada — la segunda persona de otro. `notaFinDePartida` ya sabe callar el
       // veredicto y la cola con el conjunto vacío, así que no hace falta una
       // segunda redacción: hace falta pasarle quién pregunta.

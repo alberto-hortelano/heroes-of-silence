@@ -4,7 +4,7 @@
  * Desde la fase 1a un ejército es una lista de individuos (`Troop`), uno por
  * hex en el tablero, y lo que limita cuántos lleva un héroe no son los cinco
  * huecos de HoMM2 sino su **liderazgo**: cada individuo ocupa lo que diga su
- * fila de `data/creatures.json`, y el héroe tiene un tope que crece con el
+ * unidad de `data/unidades.json`, y el héroe tiene un tope que crece con el
  * nivel (`data/liderazgo.json`). Las dos cifras son provisionales y viven en
  * datos: la economía la define el usuario.
  *
@@ -16,13 +16,13 @@
  * héroe con un personaje no podía ni pasar de día: `maxMovePoints` lanzaba
  * «criatura desconocida: "character"» en el `advanceDay`.
  */
-import { creature, type GrupoDeTropa, LIDERAZGO } from '../data.js';
+import { cifrasDeUnidad, unidadDelJuego } from '../catalogo.js';
+import { type GrupoDeTropa, LIDERAZGO } from '../data.js';
 import type { Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
 import type { Army, Stack, Troop, UnitInfo, Veterania } from '../types.js';
 import { piezasPuestas } from './equipo.js';
 import {
-  cifrasDeCatalogo,
   cifrasDelIndividuo,
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
@@ -58,14 +58,14 @@ export function characterOf(characters: Personajes, id: string, quien: string): 
 export function troopUnit(t: Troop, characters: Personajes): UnitInfo {
   // La veteranía se suma aquí y en `resolveUnit` con las MISMAS funciones: un
   // test exige que las dos puertas den lo mismo para un veterano.
-  if (t.member === undefined) return cifrasDeCatalogo(t.creature, t.veterania);
+  if (t.member === undefined) return cifrasDeUnidad(t.creature, t.veterania);
   const perfil = combatProfile(characterOf(characters, t.member, 'el ejército lleva'));
   return cifrasDelIndividuo(perfil.unit, t.veterania);
 }
 
 /** Lo que ocupa un individuo en el liderazgo. */
 function troopLeadership(t: Troop): number {
-  return t.member === undefined ? creature(t.creature).leadership : LIDERAZGO.personaje;
+  return t.member === undefined ? unidadDelJuego(t.creature).leadership : LIDERAZGO.personaje;
 }
 
 /** Lo que ocupa el ejército entero. */
@@ -126,7 +126,7 @@ export function capacidadDe(hero: { readonly experience: number }): {
  * 12 de 20 y ya no cabe el séptimo.
  */
 export function troopRoom(army: Army, tope: number, cupo: number, creatureId: string): number {
-  return cabenEnElHueco(army, tope, cupo, creature(creatureId).leadership);
+  return cabenEnElHueco(army, tope, cupo, unidadDelJuego(creatureId).leadership);
 }
 
 function cabenEnElHueco(army: Army, tope: number, cupo: number, ocupaUno: number): number {
@@ -153,7 +153,7 @@ export function troopBlocker(
   n: number,
   quien = 'el ejército',
 ): string | null {
-  const info = creature(creatureId);
+  const info = unidadDelJuego(creatureId);
   const ocupa = armyLeadership(army);
   const pide = info.leadership * n;
   const caben = cabenEnElHueco(army, tope, cupo, info.leadership);
@@ -311,7 +311,7 @@ export function troopSummary(army: Army, characters: Personajes): TroopGroup[] {
       porCriatura.set(t.creature, grupos.length);
       grupos.push({
         creature: t.creature,
-        unit: creature(t.creature),
+        unit: unidadDelJuego(t.creature),
         count: 1,
         rango: 1,
         siguiente: null,

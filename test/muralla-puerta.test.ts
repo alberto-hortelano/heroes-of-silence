@@ -88,9 +88,19 @@ const tipos = (acciones: readonly BattleAction[]): string[] => acciones.map((a) 
 
 describe('la puerta es una juntura y empieza cerrada (C19, C27, C30, C31)', () => {
   it('cada puerta de la muralla, en su orden, cerrada; sin muralla, ninguna', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(0, 0)], [['pikeman', h(9, 4)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(0, 0)],
+      [['templario-escudo', h(9, 4)]],
+      'defender-0',
+    );
     expect(state.puertas).toEqual([{ ...PUERTA, abierta: false, cambiadaEn: null }]);
-    const libre = duelo(SIN_MURALLA, ['swordsman', h(0, 0)], [['pikeman', h(9, 4)]], 'defender-0');
+    const libre = duelo(
+      SIN_MURALLA,
+      ['templario-mandoble', h(0, 0)],
+      [['templario-escudo', h(9, 4)]],
+      'defender-0',
+    );
     expect(libre.puertas).toEqual([]);
   });
 
@@ -124,7 +134,12 @@ describe('la puerta es una juntura y empieza cerrada (C19, C27, C30, C31)', () =
   });
 
   it('dentro y fuera se cuentan con las puertas cerradas: abrir no cambia la forma de lado (C22)', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(0, 0)], [['pikeman', h(9, 4)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(0, 0)],
+      [['templario-escudo', h(9, 4)]],
+      'defender-0',
+    );
     const lados = (): string[] =>
       Array.from({ length: 99 }, (_, i) =>
         ladoDeLaMuralla(state.muralla, h(i % 11, Math.floor(i / 11))),
@@ -139,7 +154,12 @@ describe('la puerta es una juntura y empieza cerrada (C19, C27, C30, C31)', () =
 
 describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () => {
   it('se ofrece al defensor sin moverse, no gasta el turno y queda en la crónica', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(0, 0)], [['pikeman', h(9, 2)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(0, 0)],
+      [['templario-escudo', h(9, 2)]],
+      'defender-0',
+    );
     expect(legalActions(state)).toContainEqual(abrir());
     expect(tipos(legalActions(state))).not.toContain('cerrar_puerta');
     const turno = state.turno;
@@ -165,7 +185,12 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('un recorrido de antes de abrir no vale después: el camino ha cambiado', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(0, 0)], [['swordsman', h(9, 4)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(0, 0)],
+      [['templario-mandoble', h(9, 4)]],
+      'defender-0',
+    );
     const turno = state.turno;
     if (turno === null) throw new Error('sin turno');
     const viejo = {
@@ -180,12 +205,22 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('cualquier unidad defensora, esté donde esté, también en lo alto', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(0, 0)], [['archer', h(7, 1)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(0, 0)],
+      [['elfo-arquero', h(7, 1)]],
+      'defender-0',
+    );
     expect(puertaBlocker(state, 'abrir_puerta', PUERTA)).toBeNull();
   });
 
   it('el atacante no: ni se le ofrece ni se le deja, y se dice por qué', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(5, 4)], [['pikeman', h(9, 2)]], 'attacker-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(5, 4)],
+      [['templario-escudo', h(9, 2)]],
+      'attacker-0',
+    );
     expect(tipos(legalActions(state))).not.toContain('abrir_puerta');
     expect(puertaBlocker(state, 'abrir_puerta', PUERTA)).toBe(
       'las puertas las abre y las cierra quien defiende',
@@ -199,7 +234,12 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('tras moverse ya no: la puerta es del principio del turno', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(0, 0)], [['pikeman', h(9, 2)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(0, 0)],
+      [['templario-escudo', h(9, 2)]],
+      'defender-0',
+    );
     applyAction(state, { type: 'move', to: h(9, 3) }, createRng(1));
     expect(state.turno?.stack).toBe('defender-0');
     const motivo =
@@ -210,14 +250,24 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('lo que no tiene sentido se dice: ya abierta, ya cerrada, ninguna puerta ahí', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(0, 0)], [['pikeman', h(9, 2)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(0, 0)],
+      [['templario-escudo', h(9, 2)]],
+      'defender-0',
+    );
     expect(puertaBlocker(state, 'cerrar_puerta', PUERTA)).toBe('la puerta ya está cerrada');
     expect(puertaBlocker(state, 'abrir_puerta', { a: h(2, 2), b: h(3, 2) })).toBe(
       'entre (2,2)-(3,2) no hay puerta',
     );
     abrirPuertas(state);
     expect(puertaBlocker(state, 'abrir_puerta', PUERTA)).toBe('la puerta ya está abierta');
-    const libre = duelo(SIN_MURALLA, ['swordsman', h(0, 0)], [['pikeman', h(9, 2)]], 'defender-0');
+    const libre = duelo(
+      SIN_MURALLA,
+      ['templario-mandoble', h(0, 0)],
+      [['templario-escudo', h(9, 2)]],
+      'defender-0',
+    );
     expect(puertasBlocker(libre, 'abrir_puerta')).toBe('no hay puerta');
   });
 
@@ -248,7 +298,12 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('sin muralla no sale ninguna jugada de puerta: la lista de siempre', () => {
-    const libre = duelo(SIN_MURALLA, ['swordsman', h(0, 0)], [['pikeman', h(9, 2)]], 'defender-0');
+    const libre = duelo(
+      SIN_MURALLA,
+      ['templario-mandoble', h(0, 0)],
+      [['templario-escudo', h(9, 2)]],
+      'defender-0',
+    );
     expect(tipos(legalActions(libre)).filter((t) => t.includes('puerta'))).toEqual([]);
   });
 });
@@ -256,7 +311,12 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
 describe('la IA con la puerta (C24)', () => {
   it('quien defiende la abre para salir si ningún atacante llega a ella, y sale', () => {
     // El campesino atacante, lento y lejos: no pisa la puerta en su turno.
-    const state = duelo(CON_PUERTA, ['peasant', h(0, 8)], [['swordsman', h(9, 4)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['goblin-lancero', h(0, 8)],
+      [['templario-mandoble', h(9, 4)]],
+      'defender-0',
+    );
     expect(chooseBattleAction(state)).toEqual(abrir());
     applyAction(state, abrir(), createRng(1));
     const sale = chooseBattleAction(state);
@@ -270,24 +330,44 @@ describe('la IA con la puerta (C24)', () => {
   });
 
   it('no la abre si un atacante llega a ella, ni para salir', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(5, 4)], [['swordsman', h(9, 4)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(5, 4)],
+      [['templario-mandoble', h(9, 4)]],
+      'defender-0',
+    );
     expect(tipos(legalActions(state))).toContain('abrir_puerta');
     expect(chooseBattleAction(state).type).not.toBe('abrir_puerta');
   });
 
   it('el tirador no sale: su sitio es la muralla', () => {
-    const state = duelo(CON_PUERTA, ['peasant', h(0, 8)], [['archer', h(9, 4)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['goblin-lancero', h(0, 8)],
+      [['elfo-arquero', h(9, 4)]],
+      'defender-0',
+    );
     expect(chooseBattleAction(state).type).not.toBe('abrir_puerta');
   });
 
   it('la cierra en cuanto un atacante puede llegar a ella, si nadie la ocupa', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(5, 4)], [['archer', h(9, 1)]], 'defender-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(5, 4)],
+      [['elfo-arquero', h(9, 1)]],
+      'defender-0',
+    );
     abrirPuertas(state);
     expect(chooseBattleAction(state)).toEqual(cerrar());
   });
 
   it('el atacante cruza la puerta abierta: la distancia lee la puerta, sin caché vieja', () => {
-    const state = duelo(CON_PUERTA, ['swordsman', h(5, 4)], [['pikeman', h(9, 4)]], 'attacker-0');
+    const state = duelo(
+      CON_PUERTA,
+      ['templario-mandoble', h(5, 4)],
+      [['templario-escudo', h(9, 4)]],
+      'attacker-0',
+    );
     const a = stackById(state, 'attacker-0');
     const d = stackById(state, 'defender-0');
     expect(distanciaACaminar(state, a, d)(a.hex)).toBe(Number.POSITIVE_INFINITY);

@@ -10,9 +10,9 @@
  * `test/invariantes.test.ts` («solo la arena cambia las reglas de la batalla»)
  * tenía que dejar pasar por excepción. La arena importa de aquí.
  *
- * Los campos se llaman como en `data/creatures.json` —`attack`, `defense`,
- * `damage`…— y el tipo los toma de `Creature`, así que una cifra que cambie de
- * forma en el catálogo de criaturas deja de compilar aquí.
+ * Los campos de las cifras se llaman como en `UnitInfo` —`attack`, `defense`,
+ * `damage`…— y el tipo los toma de allí, así que una cifra que cambie de forma en
+ * el motor deja de compilar aquí.
  */
 import { HABILIDADES_CON_PODER, poderDeHabilidad } from './battle/poderes.js';
 import { CATALOGO_DE_HABILIDADES } from './data.js';
@@ -20,10 +20,11 @@ import { type EquipoAtado, equipoBaseBlocker, PIEZAS_DEL_CATALOGO } from './hero
 import { medidaBlocker } from './nivel.js';
 import {
   CREATURE_TRAITS,
-  type Creature,
   type CreatureTrait,
   type Equipo,
   esHueco,
+  FACTION_IDS,
+  type FactionId,
   HUECOS,
   huecoDesconocido,
   type NivelesDeLaRueda,
@@ -44,30 +45,6 @@ import {
 } from './validar.js';
 
 /**
- * Las cinco facciones de las hojas. Es la misma lista que la de
- * `tools/taller/unidades.ts`, que la importa de aquí como tipo: escrita en los
- * dos sitios, una facción nueva en el taller dejaría a su hoja sin poder
- * guardarse y nadie lo vería hasta pulsar «Guardar».
- */
-export const FACCIONES_DE_ARENA = [
-  'templarios',
-  'no-muertos',
-  'imperio',
-  'elfos',
-  'orkos',
-] as const;
-export type FaccionDeArena = (typeof FACCIONES_DE_ARENA)[number];
-
-/** Cómo se llama cada facción en pantalla: la arena y la página de ejércitos del taller. */
-export const NOMBRE_DE_FACCION_DE_ARENA: Readonly<Record<FaccionDeArena, string>> = {
-  templarios: 'Templarios',
-  'no-muertos': 'No muertos',
-  imperio: 'Imperio',
-  elfos: 'Elfos',
-  orkos: 'Orkos',
-};
-
-/**
  * Los perfiles de arma de las hojas: los cinco de pose de `tools/art/poses.ts`,
  * el del jinete y el del jinete que además dispara (`montado-arco`, el jinete
  * élfico: lanza, espada y arco, 13-10-2026). Están aquí y no importados de allí
@@ -86,21 +63,38 @@ export const PERFILES_DE_ARENA = [
 export type PerfilDeArena = (typeof PERFILES_DE_ARENA)[number];
 
 /**
- * Una unidad del borrador: lo que la arena pelea y lo que el archivo guarda.
+ * Una unidad del catálogo: lo que la partida recluta, la arena pelea y el archivo
+ * guarda.
  *
- * Las cifras se toman de `Creature` y no se redeclaran: si el catálogo cambia la
- * forma de una, la arena deja de compilar en vez de guardar otra cosa.
+ * Las cifras se toman de `UnitInfo` y no se redeclaran: si el motor cambia la
+ * forma de una, el catálogo deja de compilar en vez de guardar otra cosa.
  */
 export interface UnidadDeArena
-  extends Pick<Creature, 'id' | 'name' | 'leadership' | 'attack' | 'defense' | 'damage' | 'hp'> {
+  extends Pick<UnitInfo, 'name' | 'attack' | 'defense' | 'damage' | 'hp'> {
   /**
    * Su id en el borrador, único. El de una hoja por defecto es el de la hoja; el
    * de una unidad nueva, `<cuerpo>-<n>` (`unidadNueva`). No dice con qué se
    * pinta: eso es `cuerpo`.
    */
   readonly id: string;
-  /** Una de las cinco: no es la `faction` del juego, que solo sabe de dos. */
-  readonly faction: FaccionDeArena;
+  /** Una de las cinco facciones del juego. */
+  readonly faction: FactionId;
+  /**
+   * Lo que ocupa UN individuo en el liderazgo de quien lo lleva
+   * (`hero/troop.ts`). Provisional: lo define el usuario.
+   */
+  readonly leadership: number;
+  /**
+   * El edificio de su facción que la produce (`data/buildings.json`, una morada),
+   * o nada si no la produce ninguno (una unidad recién creada en la arena, que la
+   * partida no recluta hasta que se le escriba). **El edificio no implica nivel**
+   * (decisión del usuario, 19-10-2026): una morada produce varias unidades, y su
+   * coste sale de lo mejor que produce (`town/buildings.ts`). Que exista y sea
+   * una morada de su facción lo comprueba la carga del juego (`moradasBlocker`),
+   * no esta regla: el catálogo de edificios no se puede leer desde aquí sin un
+   * ciclo de importación.
+   */
+  readonly edificio?: string;
   /** Con qué figura se pinta: una hoja de `assets/unidades/`. */
   readonly cuerpo: CuerpoDeArena;
   /**
@@ -125,8 +119,6 @@ export interface UnidadDeArena
    * las demás son **inertes**, se guardan y la ficha dice «sin efecto todavía».
    */
   readonly habilidades: readonly string[];
-  /** Precio en oro. No pelea; el juego lo necesitará. */
-  readonly cost: { readonly gold: number };
 }
 
 /**
@@ -161,7 +153,7 @@ const CAMPOS_DE_UNIDAD: readonly string[] = [
   'traits',
   'habilidades',
   'equipo',
-  'cost',
+  'edificio',
 ];
 
 /**
@@ -180,20 +172,16 @@ export const CUERPO_COMUN = {
   defense: 3,
   damage: [10, 10],
   hp: 80,
-  cost: { gold: 150 },
-} as const satisfies Pick<
-  UnidadDeArena,
-  'leadership' | 'attack' | 'defense' | 'damage' | 'hp' | 'cost'
->;
+} as const satisfies Pick<UnidadDeArena, 'leadership' | 'attack' | 'defense' | 'damage' | 'hp'>;
 
 /** Lo que trae un perfil de arma sobre el cuerpo común (`KIT_DEL_PERFIL`). */
-type KitDelPerfil = Pick<UnidadDeArena, 'equipo' | 'leadership' | 'cost'> & {
+type KitDelPerfil = Pick<UnidadDeArena, 'equipo' | 'leadership'> & {
   readonly traits: readonly CreatureTrait[];
 };
 
 /**
  * Lo que trae cada perfil de arma sobre el cuerpo común: **su equipo** (piezas de
- * `data/equipo.json`), más lo que no pelea —liderazgo y coste— y
+ * `data/equipo.json`), más lo que no pelea —el liderazgo— y
  * los rasgos. El cuerpo es el mismo para todos y lo distinto lo pone el equipo.
  * Con esto se escribió cada unidad del catálogo (18-10-2026), que desde entonces
  * es la única fuente de sus cifras: hoy lo lee solo `unidadNueva`, por los
@@ -217,38 +205,32 @@ export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeArena, KitDelPerfil>> = {
   'espada-escudo': {
     equipo: { arma: 'espada', armadura: 'brigantina', escudo: 'escudo' },
     leadership: 3,
-    cost: { gold: 150 },
     traits: [],
   },
   'dos-manos': {
     equipo: { arma: 'mandoble', armadura: 'arnes_de_placas' },
     leadership: 4,
-    cost: { gold: 250 },
     traits: [],
   },
-  baston: { equipo: { arma: 'baston' }, leadership: 3, cost: { gold: 150 }, traits: [] },
+  baston: { equipo: { arma: 'baston' }, leadership: 3, traits: [] },
   arco: {
     equipo: { arma: 'daga', distancia: 'arco', armadura: 'jubon_de_arquero' },
     leadership: 3,
-    cost: { gold: 150 },
     traits: [],
   },
   ballesta: {
     equipo: { arma: 'daga', distancia: 'ballesta', armadura: 'gambeson' },
     leadership: 4,
-    cost: { gold: 200 },
     traits: [],
   },
   'montado-lanza': {
     equipo: { arma: 'espada', lanza: 'lanza_de_jinete', armadura: 'barda' },
     leadership: 8,
-    cost: { gold: 300 },
     traits: ['charge'],
   },
   'montado-arco': {
     equipo: { arma: 'espada', distancia: 'arco', lanza: 'lanza_de_jinete', armadura: 'barda' },
     leadership: 8,
-    cost: { gold: 300 },
     traits: ['charge'],
   },
 };
@@ -313,7 +295,7 @@ export function validarUnidadDeArena(valor: unknown, eq: EquipoAtado): UnidadDeA
   // Con el nombre ya leído, cada motivo dice el que ve la persona en la ficha
   // («la unidad «Monje»»), no el id de su hoja (QA, vuelta 2).
   const quien = `la unidad «${name}»`;
-  const faction = deLaLista(u.faction, FACCIONES_DE_ARENA, 'la facción', quien);
+  const faction = deLaLista(u.faction, FACTION_IDS, 'la facción', quien);
   const cuerpo = cuerpoValido(u.cuerpo, quien);
   const leadership = entero(u.leadership, 'el liderazgo', quien, 1);
   const attack = entero(u.attack, 'el ataque', quien, 0);
@@ -329,10 +311,7 @@ export function validarUnidadDeArena(valor: unknown, eq: EquipoAtado): UnidadDeA
   );
   sinRepetir(traits, 'el rasgo', quien);
   sinRepetir(habilidades, 'la habilidad', quien);
-  if (typeof u.cost !== 'object' || u.cost === null) {
-    throw new Error(`${quien}: el coste tiene que ser { gold }`);
-  }
-  const gold = entero((u.cost as Record<string, unknown>).gold, 'el coste en oro', quien, 0);
+  const edificio = u.edificio === undefined ? undefined : texto(u.edificio, 'el edificio', quien);
   const equipo = equipoEscrito(u.equipo, quien);
   const unidad: UnidadDeArena = {
     id,
@@ -348,7 +327,7 @@ export function validarUnidadDeArena(valor: unknown, eq: EquipoAtado): UnidadDeA
     traits,
     habilidades,
     equipo,
-    cost: { gold },
+    ...(edificio === undefined ? {} : { edificio }),
   };
   const motivo = equipoDeUnidadBlocker(cuerpoDeCombate(unidad), equipo, eq);
   if (motivo !== null) throw new Error(`${quien}: ${motivo}`);
@@ -598,11 +577,11 @@ function danioValido(par: unknown, quien: string): [number, number] {
 
 /**
  * Lo que el motor juega de una unidad de arena: las cifras de su cuerpo, sin
- * economía, con su equipo sumado (`conEquipo`, la única suma de las piezas, que
- * deja el cuerpo en `sinEquipo` para la ficha y el retoque) y los poderes de sus habilidades
+ * economía, con su equipo sumado (`conEquipo`, la única suma de las piezas) y los
+ * poderes de sus habilidades
  * (`poderDeHabilidad`); las demás habilidades no pelean. Sin poderes no lleva el
- * campo: así sus cifras son las de siempre. Las piezas, de `eq`: las de la
- * arena (`catalogoDeEquipo`, el catálogo que edita) o las del juego.
+ * campo. Las piezas, de `eq`: las del catálogo que edita la arena
+ * (`catalogoDeEquipo`) o las del juego.
  */
 export function unidadDeCombate(u: UnidadDeArena, eq: EquipoAtado): UnitInfo {
   return eq.conEquipo(cuerpoDeCombate(u), u.equipo);
@@ -613,25 +592,126 @@ export function cuerpoDeCombate(u: UnidadDeArena): UnitInfo {
   // Fuera lo que no pelea; el resto son ya los campos de `UnitInfo`.
   const {
     id: _id,
-    faction: _f,
+    faction,
     cuerpo: _cu,
     leadership: _l,
     habilidades,
-    cost: _c,
     casillas,
     equipo: _e,
+    edificio: _ed,
     ...cifras
   } = u;
   const poderes = habilidades.flatMap((h) => {
     const p = poderDeHabilidad(h);
     return p === null ? [] : [p];
   });
-  // Sin facción del juego: las cinco no son `FactionId`, y así tampoco suman ni
-  // restan a la moral por diversidad. Su moral es 0 y no la decide nadie.
+  // Con su facción: desde que las cinco son las del juego, suman y restan a la
+  // moral por diversidad como cualquier tropa (`moraleOf`).
   return {
     ...cifras,
     speed: escalonDeCasillas(casillas),
-    faction: null,
+    faction,
     ...(poderes.length === 0 ? {} : { poderes }),
   };
+}
+
+// ---------------------------------------------------------------- las hojas
+
+/**
+ * Una hoja tal como la sirve el servidor de desarrollo: quién es, si es un
+ * héroe y con qué arte se pinta, para pintarla sin otra petición. Una
+ * declaración, que leen el servidor (`tools/arena/borrador.ts`) y la página.
+ * Es un tipo de cable sin regla de juego: el motor no lo lee.
+ */
+export interface HojaDeArena {
+  readonly id: string;
+  readonly nombre: string;
+  readonly faccion: FactionId;
+  readonly perfil: PerfilDeArena;
+  /**
+   * El personaje del que es una hoja: el taller pinta a veces el mismo con varios
+   * equipos («Guerrero con escudo» y «con arma a dos manos»), y todas sus hojas
+   * comparten cuerpo y velocidad (`tools/arena/velocidades.ts`). Sin personaje
+   * declarado, el de la propia hoja.
+   */
+  readonly personaje: string;
+  readonly heroe: boolean;
+  /**
+   * Las casillas del CUERPO de su personaje: sin el equipo, que las cambia (el
+   * escudo resta una). Con su perfil por defecto pelea con `casillas` más la
+   * velocidad de su equipo.
+   */
+  readonly casillas: number;
+  /**
+   * El juego de armas de su Y Bot (`espada-escudo`, `baston`…): con él se pinta
+   * si no tiene sus ocho direcciones.
+   */
+  readonly juego: string;
+  /**
+   * Los ocho `dN/atlas.json` de su arte propio, en el orden de las direcciones,
+   * o `null` si no los tiene todos. Los comprueba `comoDireccion8d` al
+   * registrarla para pintarla.
+   */
+  readonly direcciones: readonly unknown[] | null;
+  /**
+   * Por qué no se puede montar, o `null` si se puede: una unidad con su arte
+   * propio a medias (el taller la está generando, #140). Se lista con el motivo
+   * y no se pinta: con el Y Bot sería otra figura sin decirlo.
+   */
+  readonly incompleta: string | null;
+}
+
+/**
+ * Las direcciones de una figura: las ocho, o ninguna. Es
+ * `NOMBRES_DE_DIRECCION.length` (`src/shared/arte.ts`), escrito aquí porque
+ * `core` no importa de `shared`: si cambia allí, cambia aquí, y el test de la
+ * arena que manda siete lo vigila.
+ */
+const DIRECCIONES_DE_FIGURA = 8;
+
+/**
+ * La lista de hojas que llega por la red, comprobada: es la puerta por la que
+ * entran el perfil y la facción, así que después nadie tiene que volver a
+ * preguntar si existen.
+ */
+export function validarHojasDeArena(valor: unknown): readonly HojaDeArena[] {
+  if (!Array.isArray(valor)) throw new Error('la lista de hojas de la arena no es una lista');
+  return valor.map((v: unknown): HojaDeArena => {
+    if (typeof v !== 'object' || v === null)
+      throw new Error('una hoja de la arena no es un objeto');
+    const h = v as Record<string, unknown>;
+    const id = texto(h.id, 'el id', 'una hoja de la arena');
+    const quien = `la hoja "${id}"`;
+    if (typeof h.heroe !== 'boolean') throw new Error(`${quien}: no dice si es un héroe`);
+    return {
+      id,
+      nombre: texto(h.nombre, 'el nombre', quien),
+      faccion: deLaLista(h.faccion, FACTION_IDS, 'la facción', quien),
+      perfil: deLaLista(h.perfil, PERFILES_DE_ARENA, 'el perfil', quien),
+      personaje: texto(h.personaje, 'el personaje', quien),
+      heroe: h.heroe,
+      casillas: casillasValidas(h.casillas, quien),
+      juego: texto(h.juego, 'el juego de armas', quien),
+      direcciones: direccionesValidas(h.direcciones, quien),
+      incompleta: incompletaValida(h.incompleta, h.direcciones, quien),
+    };
+  });
+}
+
+function incompletaValida(valor: unknown, direcciones: unknown, quien: string): string | null {
+  if (valor === null) return null;
+  const motivo = texto(valor, 'por qué está incompleta', quien);
+  if (direcciones !== null)
+    throw new Error(`${quien}: dice que está incompleta y trae sus direcciones`);
+  return motivo;
+}
+
+function direccionesValidas(valor: unknown, quien: string): readonly unknown[] | null {
+  if (valor === null) return null;
+  if (!Array.isArray(valor) || valor.length !== DIRECCIONES_DE_FIGURA) {
+    throw new Error(
+      `${quien}: trae ${Array.isArray(valor) ? valor.length : 'algo que no es una lista de'} direcciones, y son ${DIRECCIONES_DE_FIGURA} o ninguna`,
+    );
+  }
+  return valor;
 }

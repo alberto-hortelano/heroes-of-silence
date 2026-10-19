@@ -22,12 +22,14 @@ import {
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dwellings } from '../src/core/town/town.js';
 import {
   anteLaBase,
   costesDelAlcance,
   pegadoA,
   planDeNodos,
   primeraMarchaQueSePara,
+  primeraSemillaCon,
 } from './helpers.js';
 
 describe('sesión del cliente: el turno del rival', () => {
@@ -90,12 +92,13 @@ describe('sesión del cliente: el turno del rival', () => {
     s.state.current = 1;
     s.build('town_hall');
 
-    expect(s.status).toBe('todavía no es tu turno: ahora juega el jugador 1 (necromancer)');
+    const frase = `todavía no es tu turno: ahora juega el jugador 1 (${s.state.players.find((p) => p.id === 1)!.faction})`;
+    expect(s.status).toBe(frase);
     expect(s.activeTown!.buildings.length).toBe(edificios);
 
     // Y `clickTile` enseña la misma, en vez de su propio «Espera tu turno.».
     s.clickTile({ x: 0, y: 0 });
-    expect(s.status).toBe('todavía no es tu turno: ahora juega el jugador 1 (necromancer)');
+    expect(s.status).toBe(frase);
   });
 
   it('si el turno del rival revienta, el tablero lo DICE en vez de quedarse mudo', async () => {
@@ -135,6 +138,18 @@ describe('sesión del cliente: el bando de la persona', () => {
     return { s, mio };
   }
 
+  /**
+   * Una de esas batallas en la que abre el rival: quién abre lo decide la
+   * iniciativa de las dos tropas (velocidad y puesto), que cambia con la facción
+   * que sortea cada semilla.
+   */
+  const elRivalAbre = () =>
+    primeraSemillaCon('una defensa en la que abre el rival', (n) => {
+      const r = meAtacan(n);
+      const b = r.s.battle!;
+      return b.stacks.find((x) => x.id === b.turno?.stack)?.side === 'attacker' ? r : undefined;
+    }).caso;
+
   it('defendiendo, el bando sale del dueño y no de suponerse atacante', () => {
     const { s, mio } = meAtacan(7);
 
@@ -145,7 +160,7 @@ describe('sesión del cliente: el bando de la persona', () => {
   });
 
   it('con el rival activo no se le puede mover NADA a la persona', () => {
-    const { s } = meAtacan(7);
+    const { s } = elRivalAbre();
     const activo = s.battle!.stacks.find((x) => x.id === s.battle!.turno?.stack)!;
     expect(activo.side).toBe('attacker');
 
@@ -156,7 +171,7 @@ describe('sesión del cliente: el bando de la persona', () => {
   });
 
   it('el turno del rival lo juega la IA hasta que le toca a la persona', () => {
-    const { s } = meAtacan(7);
+    const { s } = elRivalAbre();
 
     s.advanceEnemyTurns();
 
@@ -178,26 +193,28 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     // La base nace llena (`guarnicionBase`): aquí se mide «todo» con sitio.
     town.garrison = [];
     s.openTown(town.id);
-    town.available.peasant = 12;
+    // Lo primero que cría la morada que la base trae hecha.
+    const recluta = dwellings(town)[0]!.creature;
+    town.available[recluta] = 12;
 
-    const plan = s.recruitPlan('peasant')!;
-    // La guarnición de salida tiene 20 de liderazgo y el campesino ocupa 2.
+    const plan = s.recruitPlan(recluta)!;
+    // Doce no caben: una guarnición lleva 20 de liderazgo y siete individuos.
     expect(plan.disponibles).toBe(12);
     expect(plan.maximo).toBeLessThan(plan.disponibles);
 
     // Uno más del máximo: el núcleo lo rechaza diciendo que no cabe.
-    s.recruit('peasant', plan.maximo + 1);
+    s.recruit(recluta, plan.maximo + 1);
     expect(s.status).toMatch(/no cabe/);
     expect(town.garrison.length).toBe(0);
 
     // Y «todo» recluta exactamente el máximo, sin mensaje de error.
-    s.recruitAll('peasant');
+    s.recruitAll(recluta);
     expect(s.status).toBe('');
     expect(town.garrison.length).toBe(plan.maximo);
-    expect(s.recruitPlan('peasant')!.maximo).toBe(0);
+    expect(s.recruitPlan(recluta)!.maximo).toBe(0);
 
     // Con el cupo lleno, «todo» no calla: el motivo lo escribe el núcleo.
-    s.recruitAll('peasant');
+    s.recruitAll(recluta);
     expect(s.status).toMatch(/no cabe/);
   });
 

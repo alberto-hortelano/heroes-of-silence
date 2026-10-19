@@ -5,12 +5,13 @@
  * la marcha resbala por el borde de atrás, que sigue los umbrales pintados.
  */
 import { describe, expect, it } from 'vitest';
-import knightJson from '../data/bases/knight.json' with { type: 'json' };
+import templariosJson from '../data/bases/templarios.json' with { type: 'json' };
 import { EscenaBase } from '../src/client/escenas/castillo.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../src/client/render/base/camara.js';
 import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
 import { enPantalla, pasoDeLaBase } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/session.js';
+import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
 import {
   alaFranja,
   bordeDeAtras,
@@ -21,8 +22,9 @@ import {
   leerDisposicion,
   MARGEN_DE_LA_FRANJA,
 } from '../src/shared/base.js';
+import { primeraSemillaCon } from './helpers.js';
 
-const d = disposicionDe('knight');
+const d = disposicionDe('templarios');
 const lienzo = { ancho: 1086, alto: 778 };
 const vista = lienzo.ancho / pasoDeLaBase(lienzo.ancho, lienzo.alto);
 
@@ -105,14 +107,20 @@ describe('la franja', () => {
   it('no es convexa, y la marcha resbala por el borde: de lvl6 a lvl2 no sale en ningún fotograma', () => {
     // Una plaza pintada con la puerta de lvl4 (entre las dos) muy adelantada:
     // la recta de una puerta a otra pasa por detrás de su umbral.
-    const crudo = JSON.parse(JSON.stringify(knightJson));
+    const crudo = JSON.parse(JSON.stringify(templariosJson));
     // T1 lleva dos puertas y se alinea por la media: 2,4 pasos de diferencia
     // dejan lvl6 a −1,2 y lvl4 a +1,2 de la raya.
     crudo.sitios.lvl4.puerta[1] =
       crudo.sitios.lvl6.puerta[1] + Math.round(filaDelPanorama(2.4) - filaDelPanorama(0));
     crudo.sitios.lvl4.region[2] = crudo.sitios.lvl4.puerta[1] + 20;
-    const torcida = leerDisposicion('knight', crudo);
-    const s = new Session(12);
+    const torcida = leerDisposicion('templarios', crudo);
+    // La disposición es la templaria: la base que se abre tiene que serlo, o su
+    // gente no está en ella.
+    const s = new Session(
+      primeraSemillaCon('j0 con los templarios', (n) =>
+        faccionesDeLaSemilla(n)[0] === 'templarios' ? n : undefined,
+      ).semilla,
+    );
     s.openTown(s.myTowns()[0]!.id);
     const escena = new EscenaBase(
       () => s,

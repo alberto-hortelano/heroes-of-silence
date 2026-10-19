@@ -80,14 +80,16 @@ import {
 } from '../src/core/battle/effects.js';
 import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleStack } from '../src/core/battle/types.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
 import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import { SLOT_DE_HUECO, SLOTS, type Slot } from '../src/core/contract/huecos.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA } from '../src/core/contract/serialize.js';
-import { CAMPOS_DE_PIEZA, creature, EQUIPO } from '../src/core/data.js';
+import { CAMPOS_DE_PIEZA, EQUIPO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { CREATURE_TRAITS, HUECOS } from '../src/core/types.js';
+import { TROPA } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
 // `new URL(...).pathname` devuelve la ruta PERCENT-ENCODED: en un checkout que
@@ -522,14 +524,30 @@ function esRellenoDelCable(codigo: string, inicio: number, argumento: string): b
 }
 
 /**
- * Si el fichero importa del catálogo (`data.js`), con su nombre y también como
+ * El precio que rehace la inversa del cable: `unidadDelJuego(X.body)` dentro de
+ * la rama `'catalogo'` de un `switch (X.origen.kind)` sobre el MISMO stack, sin
+ * otra rama en medio. El precio de rendición no viaja (`stackAlCable`) y es del
+ * catálogo, como las cifras.
+ */
+function esPrecioDelCable(codigo: string, inicio: number, argumento: string): boolean {
+  const x = /^(\w+)\.body$/.exec(argumento)?.[1];
+  if (x === undefined) return false;
+  const antes = codigo.slice(Math.max(0, inicio - 600), inicio);
+  const rama = [...antes.matchAll(/\bcase\s+'(\w+)'\s*:/g)].pop();
+  if (rama === undefined || rama[1] !== 'catalogo') return false;
+  const sw = /\bswitch\s*\(\s*(\w+)\.origen\.kind\s*\)\s*\{\s*$/.exec(antes.slice(0, rama.index));
+  return sw !== null && sw[1] === x;
+}
+
+/**
+ * Si el fichero importa del catálogo (`data.js` o `catalogo.js`), con su nombre y también como
  * tipo, alguno de `nombres`: la misma pregunta para el guardia de `creature` como
  * valor y para el de la arena sin el catálogo del juego.
  */
-function importaCreature(codigo: string, nombres: readonly string[] = ['creature']): boolean {
+function importaCreature(codigo: string, nombres: readonly string[]): boolean {
   const alguno = nombres.join('|');
   return new RegExp(
-    `import\\s*(?:type\\s*)?\\{[^}]*\\b(?:${alguno})\\b[^}]*\\}\\s*from\\s*['"][^'"]*\\/data\\.js['"]`,
+    `import\\s*(?:type\\s*)?\\{[^}]*\\b(?:${alguno})\\b[^}]*\\}\\s*from\\s*['"][^'"]*\\/(?:data|catalogo)\\.js['"]`,
   ).test(codigo);
 }
 
@@ -539,12 +557,14 @@ function importaCreature(codigo: string, nombres: readonly string[] = ['creature
  * la llamada, una propiedad (`s.creature`, `{ creature: … }`, `creature?:`) y
  * el texto de una cadena (`'creature'`).
  */
-function creatureComoValor(codigo: string): number[] {
+function creatureComoValor(codigo: string, nombre: string): number[] {
   const sinImports = codigo.replace(/import\s*\{[^}]*\}\s*from\s*['"][^'"]*['"]/g, (m) =>
     m.replace(/[^\n]/g, ' '),
   );
   const out: number[] = [];
-  for (const m of sinImports.matchAll(/(?<![\w.$'"`-])creature\b(?![\w$'"`-])/g)) {
+  for (const m of sinImports.matchAll(
+    new RegExp(`(?<![\\w.$'"\`-])${nombre}\\b(?![\\w$'"\`-])`, 'g'),
+  )) {
     const detras = sinImports.slice(m.index + m[0].length);
     if (/^\s*\(/.test(detras)) continue; // la llamada: la mira `llamadasA`
     if (/^\s*\??:/.test(detras)) continue; // clave de objeto o anotación de tipo
@@ -593,8 +613,8 @@ function stackDePrueba(): BattleStack {
     id: 'guardia-0',
     side: 'attacker',
     slot: 0,
-    body: 'pikeman',
-    unit: creature('pikeman'),
+    body: 'templario-escudo',
+    unit: unidadDelJuego(TROPA),
     origen: { kind: 'catalogo', oro: 200, veterania: null },
     initialCount: 10,
     count: 10,
@@ -864,8 +884,8 @@ describe('invariantes del proyecto', () => {
       return recta;
     };
     const juego = createBattle(
-      { army: [{ creature: 'swordsman', count: 3 }], hero: null },
-      { army: [{ creature: 'pikeman', count: 3 }], hero: null },
+      { army: [{ creature: 'templario-mandoble', count: 3 }], hero: null },
+      { army: [{ creature: 'templario-escudo', count: 3 }], hero: null },
       createRng(1),
     );
     expect(juego.arena).toBe(MODOS_DEL_JUEGO);
@@ -1137,36 +1157,74 @@ describe('invariantes del proyecto', () => {
     // (`esRellenoDelCable`). Una versión anterior eximía la LÍNEA en que aparecía
     // la forma, y una lectura directa escrita a su lado se colaba con ella.
     //
-    // Y la llamada que se mira son DOS nombres: `creature` y `cifrasDeCatalogo`,
-    // que es `creature` más la veteranía. Sin el segundo, la regla de las cifras
-    // en una sola función habría abierto la puerta de al lado: un
-    // `cifrasDeCatalogo(s.body, …)` en el motor lee el catálogo con el cuerpo
-    // igual que `creature(s.body)`. La excepción del cable es solo para él.
+    // Y la llamada que se mira son las lecturas del catálogo por id: desde F3
+    // (19-10-2026, el catálogo de unidades sustituye a `data/creatures.json`),
+    // `unidad`, `unidadDelJuego`, `unidadDelJuegoSiExiste` y `cifrasDeUnidad`, que
+    // es `unidadDelJuego` más la veteranía (eran `creature` y `cifrasDeCatalogo`).
+    // La excepción del cable es solo para `cifrasDeUnidad` con la veteranía y,
+    // en la misma rama, `unidadDelJuego(X.body)` para rehacer el precio, que no
+    // viaja (`esPrecioDelCable`). Roto a mano: un `unidadDelJuego(s.body).attack`
+    // en `ai/tactics.ts`, un `cifrasDeUnidad(s.body, null)` en `battle.ts` y un
+    // `unidadDelJuego(s.body)` en la rama `'personaje'` de la inversa salen rojos.
     const INVERSA_DEL_CABLE = 'src/client/espectador/adaptar.ts';
+    const LECTURAS = ['unidad', 'unidadDelJuego', 'unidadDelJuegoSiExiste', 'cifrasDeUnidad'];
     const fugas: string[] = [];
     for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR]) {
       const codigo = codigoDe(ruta);
-      for (const nombre of ['creature', 'cifrasDeCatalogo'] as const) {
+      for (const nombre of LECTURAS) {
         for (const { inicio, argumento } of llamadasA(nombre, codigo)) {
           if (!/\.\s*body\b|\[\s*(['"`])body\1\s*\]/.test(argumento)) continue;
-          if (
-            nombre === 'cifrasDeCatalogo' &&
-            ruta === INVERSA_DEL_CABLE &&
-            esRellenoDelCable(codigo, inicio, argumento)
-          ) {
-            continue;
+          if (ruta === INVERSA_DEL_CABLE) {
+            if (nombre === 'cifrasDeUnidad' && esRellenoDelCable(codigo, inicio, argumento))
+              continue;
+            if (nombre === 'unidadDelJuego' && esPrecioDelCable(codigo, inicio, argumento))
+              continue;
           }
           fugas.push(
             `${ruta}:${lineaDe(codigo, inicio)} → ${nombre}(${argumento.replace(/\s+/g, ' ')})`,
           );
         }
       }
-      if (ruta === 'src/core/data.ts' || !importaCreature(codigo)) continue;
-      for (const inicio of creatureComoValor(codigo)) {
-        fugas.push(`${ruta}:${lineaDe(codigo, inicio)} → \`creature\` pasada como valor`);
+      // Como valor, sin `unidad`: es una palabra de la prosa y de las variables, y
+      // un `const unidad = …` no es una lectura del catálogo.
+      const COMO_VALOR = LECTURAS.filter((n) => n !== 'unidad');
+      if (!importaCreature(codigo, COMO_VALOR)) continue;
+      for (const nombre of COMO_VALOR) {
+        for (const inicio of creatureComoValor(codigo, nombre)) {
+          fugas.push(`${ruta}:${lineaDe(codigo, inicio)} → \`${nombre}\` pasada como valor`);
+        }
       }
     }
     expect(fugas).toEqual([]);
+  });
+
+  it('no quedan caballeros ni nigromantes: ni `knight` ni `necromancer` en src/, data/ ni tools/', () => {
+    // F3 (19-10-2026): las cinco facciones de la arena sustituyen a caballeros y
+    // nigromantes, sin compatibilidad hacia atrás. Lo que quedara con su nombre
+    // —un id de facción, una morada `knight_dwelling_N`, una tabla del taller, una
+    // carpeta de arte— es una de dos: código muerto o un sitio que aún los lee.
+    // Mira el texto entero, comentarios incluidos (la historia se cuenta con «los
+    // caballeros», no con el id que ya no existe), y las rutas, también las del
+    // arte de las bases. Roto a mano: un `'knight'` en `town/sitios.ts`, un
+    // comentario con `necromancer` en `server/partida.ts` y un
+    // `assets/bases/templarios/knight_dwelling_9.webp` sin indexar salen rojos.
+    const viejo = /knight|necromancer/i;
+    const rutas = execFileSync('git', ['ls-files', '-c', '-o', '--exclude-standard', '-z'], {
+      cwd: RAIZ,
+    })
+      .toString('utf8')
+      .split('\0')
+      .filter((f) => /^(?:src|data|tools|assets\/bases)\//.test(f));
+    const conElNombre = rutas.filter((f) => viejo.test(f));
+    const TEXTO = new Set(['.ts', '.json', '.html', '.css', '.js', '.mjs']);
+    const enElTexto = rutas
+      .filter((f) => /^(?:src|data|tools)\//.test(f) && TEXTO.has(extname(f)))
+      .flatMap((f) =>
+        leer(f)
+          .split('\n')
+          .flatMap((l, i) => (viejo.test(l) ? [`${f}:${i + 1} → ${l.trim().slice(0, 120)}`] : [])),
+      );
+    expect([...conElNombre, ...enElTexto]).toEqual([]);
   });
 
   it('el agente no conoce la rueda del golpe: su esquema quita `golpe` y `respuesta`', () => {
@@ -1233,11 +1291,13 @@ describe('invariantes del proyecto', () => {
     // lectura, y nadie más cambia un stack por otro (el motor los muta por campo,
     // y quien busca uno lo busca por id). De qué tipo sale cada stack
     // (`tiposDeArena`) lo escribe solo ella al montar. Y los poderes
-    // (`UnitInfo.poderes`) solo los escribe `unidadDeCombate`: el catálogo
-    // no los tiene, y por eso la jugada `poder` no sale en el juego ni llega al
-    // agente, que no la conoce (`battleActionSchema`). Roto a mano: un
-    // `state.stacks[0] = s` en `battle.ts`, un `tiposDeArena: {}` en `state/game.ts`
-    // y un `{ ...c, poderes }` en `data.ts` salen rojos con su línea.
+    // (`UnitInfo.poderes`) solo los escribe el formato de la unidad
+    // (`core/unidad.ts`, de sus habilidades): desde F3 (19-10-2026) también en el
+    // juego, cuyo catálogo es el de la arena (el monje trae Curar y Bendecir).
+    // Ni el catálogo en partida (`catalogo.ts`) ni la ficha del agente los
+    // escriben aparte. Roto a mano: un `state.stacks[0] = s` en `battle.ts`, un
+    // `tiposDeArena: {}` en `state/game.ts`, un `{ ...c, poderes }` en `data.ts` y
+    // un `poderes: c.poderes` en `contract/serialize.ts` salen rojos con su línea.
     const PUERTA = 'src/core/arena.ts';
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== PUERTA);
     const sustituyeUnStack = /\bstacks\[[^\]]+\]\s*=(?!=)/;
@@ -1344,40 +1404,35 @@ describe('invariantes del proyecto', () => {
     expect(sueltas).toEqual([]);
   });
 
-  it('el nivel de una unidad se deriva de sus cifras con su equipo: nadie lo escribe, y el cuerpo sin equipo lo aparta solo `conEquipo`', () => {
+  it('el nivel de una unidad se deriva de sus cifras con su equipo: nadie lo escribe, ni su coste, ni el cuerpo sin equipo', () => {
     // Un solo nivel (12-10-2026): la primera cifra del índice de poder de sus
     // cifras (`core/nivel.ts`), **con el equipo puesto** desde el 18-10-2026 («el
     // nivel ve el equipo»). Había un `UnitInfo.nivel` que escribían cinco
     // constructores y un `level` en el catálogo que era la morada con otro
-    // nombre: el mismo hecho, a mano, en seis sitios. Rotos a mano: un
-    // `"level": 1` en una criatura de `data/creatures.json`, un `readonly nivel:
-    // number;` en `UnitInfo`, un `{ ...u, sinEquipo: u }` en `arena.ts`, una
-    // `function nivelDeUnidad` en `strategy.ts` y un `u.sinEquipo ?? u` en
-    // `indiceDePoder` salen rojos.
-    const catalogo = JSON.parse(leer('data/creatures.json')) as {
-      creatures: { id: string; [campo: string]: unknown }[];
+    // nombre: el mismo hecho, a mano, en seis sitios. Y desde F3 (19-10-2026) lo
+    // que cuesta y crece una unidad sale de ese índice (`data/economia.json`):
+    // un `cost` escrito en `data/unidades.json` sería otra vez el mismo hecho en
+    // dos sitios. Tampoco queda `UnitInfo.sinEquipo`: lo que suma el equipo se
+    // deriva de lo que lleva, y el cuerpo desnudo, de su origen. Rotos a mano: un
+    // `"level": 1` y un `"cost": {…}` en una unidad de `data/unidades.json`, un
+    // `readonly nivel: number;` en `UnitInfo`, un `{ ...u, sinEquipo: u }` en
+    // `arena.ts` y una `function nivelDeUnidad` en `strategy.ts` salen rojos.
+    const catalogo = JSON.parse(leer('data/unidades.json')) as {
+      unidades: { id: string; [campo: string]: unknown }[];
     };
-    expect(catalogo.creatures.filter((c) => 'level' in c || 'nivel' in c).map((c) => c.id)).toEqual(
-      [],
-    );
+    expect(
+      catalogo.unidades.filter((u) => 'level' in u || 'nivel' in u || 'cost' in u).map((u) => u.id),
+    ).toEqual([]);
     const tipos = codigoDe('src/core/types.ts');
     const unitInfo = /export interface UnitInfo \{[\s\S]*?\n\}/.exec(tipos)?.[0];
     if (unitInfo === undefined) throw new Error('no encuentro `interface UnitInfo` en types.ts');
     expect(unitInfo).not.toMatch(/\b(?:nivel|level)\??\s*:/);
-    // Las cifras sin equipo las deja solo la suma de las piezas.
-    const PUERTA = 'src/core/hero/equipo.ts';
-    const escribeSinEquipo = /\bsinEquipo\s*:|\.sinEquipo\s*=(?!=)/;
-    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== PUERTA);
-    expect(infractoresDeCodigo(fuera, escribeSinEquipo)).toEqual([]);
-    expect(infractoresDeCodigo([PUERTA], escribeSinEquipo)).not.toEqual([]);
+    expect(infractoresDeCodigo([...CORE, ...CLIENTE, ...SERVIDOR], /\bsinEquipo\b/)).toEqual([]);
     // Y el índice y el nivel los calcula `nivel.ts`, y nadie más.
     const calcula = /\bfunction\s+(?:indiceDePoder|nivelDeUnidad|nivelDelIndice|poderBruto)\b/;
     const otros = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/core/nivel.ts');
     expect(infractoresDeCodigo(otros, calcula)).toEqual([]);
     expect(infractoresDeCodigo(['src/core/nivel.ts'], calcula)).not.toEqual([]);
-    // Con el equipo: `nivel.ts` mide la unidad tal como pelea y no mira el cuerpo
-    // sin equipo, que es de la ficha y del retoque de la arena.
-    expect(infractoresDeCodigo(['src/core/nivel.ts'], /\bsinEquipo\b/)).toEqual([]);
     // Con sus pesos (`PODER.pesosDeLaRueda`), no los de la IA: retocar cómo elige
     // la IA no mueve índices (simplify de F1). Roto a mano: un
     // `PESOS_DE_LA_RUEDA.golpe` en `ofensaDelAtaque` sale rojo.
@@ -1536,20 +1591,6 @@ describe('invariantes del proyecto', () => {
       `"${SLOT_DE_HUECO.lanza}" la lanza con que se carga`,
     );
     expect(CATALOGO_DE_EQUIPO_EN_PROSA).toMatch(/^ *daga \(melee_weapon\)/m);
-  });
-
-  it('la arena no lee el catálogo del juego: solo cuentan las cinco facciones de las hojas', () => {
-    // 13-10-2026 (el usuario: «elimina los ejércitos antiguos, solo cuentan los 5
-    // que hay en la arena»): ni `core/arena.ts` ni el cliente de la arena traen
-    // una criatura de `data/creatures.json`. Una unidad de antes con un cuerpo de
-    // criatura no vale, y se dice sin leerla (14-10-2026). Roto a mano: un
-    // `import { creature } from '@core/data.js'` en `paneles.ts` sale rojo.
-    const ARENA = [
-      'src/core/arena.ts',
-      ...CLIENTE.filter((r) => r.startsWith('src/client/arena/')),
-    ];
-    const delCatalogo = ['creature', 'allCreatures', 'criaturasDeFaccion', 'factionLineup'];
-    expect(ARENA.filter((r) => importaCreature(leer(r), delCatalogo))).toEqual([]);
   });
 
   it('los tiros que quedan se leen en un sitio: `shotsLeft`, solo en `data.ts` y el motor', () => {

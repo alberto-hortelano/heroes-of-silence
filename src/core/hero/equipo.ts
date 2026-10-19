@@ -23,7 +23,6 @@
 
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
 import {
-  allCreatures,
   cuentaTiros,
   DICHO_DE_DONDE,
   EQUIPO,
@@ -345,24 +344,15 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEqu
  * `cifrasDelIndividuo` y `heroUnit`, y un test exige que las puertas de la tropa
  * den lo mismo.
  *
- * Sin piezas devuelve **la misma referencia**, no una copia: un novato sigue
- * pisando el tablero con la `Creature` del catálogo, que es lo que deja al
- * espectador rehacer sus cifras y al banco quedarse igual para quien no lleva
- * nada. La velocidad sube o baja escalones de `SPEED_TIERS` y se queda entre el
- * primero y el último. El daño suma `[+mín, +máx]`. Ninguna pieza da munición:
+ * Sin piezas devuelve **la misma referencia**, no una copia. La velocidad sube
+ * o baja escalones de `SPEED_TIERS` y se queda entre el primero y el último. El daño suma `[+mín, +máx]`. Ninguna pieza da munición:
  * un arma en `distancia` hace tirador a quien la lleva por sí misma (`isShooter`,
- * que mira `equipo`), y `shots` es solo de la criatura del catálogo; lanza si una
+ * que mira `equipo`), y `shots` es solo del perfil de un personaje; lanza si una
  * unidad lleva las dos cosas.
  *
- * Con piezas, deja en `sinEquipo` las cifras de antes de ponérselas —las del
- * cuerpo, si `unit` ya llevaba equipo—: la ficha enseña qué suma el equipo y el
- * retoque de la arena vuelve a vestir el cuerpo, y este es el único sitio que
- * sabe qué suma la pieza. Es el **único escritor** de `sinEquipo`
- * (`test/invariantes.test.ts`). Por eso el equipo va siempre lo último, después
- * de la veteranía o el rango: lo que se sume después de `conEquipo` no llegaría
- * a `sinEquipo`, y la ficha lo contaría como del equipo.
- * Y deja en `equipo` lo puesto: cambiar una pieza a media pelea (la arena) lo
- * vuelve a sumar a `sinEquipo` desde el propio stack.
+ * Deja en `equipo` lo puesto: es de donde se deriva qué suma el equipo
+ * (`modificadoresDePieza`). Las cifras sin él no se guardan (19-10-2026: fuera
+ * `sinEquipo`): quien necesite el cuerpo desnudo lo saca de su origen.
  */
 export function conEquipo<U extends UnitInfo>(unit: U, equipo: Equipo | undefined): U {
   return vestir(PIEZAS_DEL_CATALOGO, unit, equipo);
@@ -404,7 +394,6 @@ function vestir<U extends UnitInfo>(
     // sale con los mismos campos.
     ...(puntosDeArmadura > 0 ? { puntosDeArmadura } : {}),
     speed: SPEED_TIERS[escalon] as UnitInfo['speed'],
-    sinEquipo: unit.sinEquipo ?? unit,
     equipo: todo,
   };
   const armas = armasPorUso(piezas, vestida, todo);
@@ -750,19 +739,20 @@ export function destinoDeEquipo(
     return { indice };
   }
   if (especieId !== undefined) {
-    const especie = allCreatures().find((c) => c.id === especieId);
-    if (especie === undefined) return { motivo: `no existe ninguna criatura "${especieId}"` };
+    // Sin el catálogo de unidades: lo importa a este módulo, y desde aquí sería un
+    // ciclo que se cuelga al cargar. La unidad se nombra por su id, que es lo que
+    // escribió quien pregunta.
     const indice = hero.army.findIndex(
-      (t) => t.creature === especie.id && t.member === undefined && t.veterania === undefined,
+      (t) => t.creature === especieId && t.member === undefined && t.veterania === undefined,
     );
     if (indice < 0) {
       // La pista de «veteran» solo si hay a quién nombrar con ella: sin ninguno
       // de ese tipo, sugerir un id es mandar a buscar a alguien que no está.
-      const conId = hero.army.some((t) => t.creature === especie.id && t.veterania !== undefined);
+      const conId = hero.army.some((t) => t.creature === especieId && t.veterania !== undefined);
       return {
         motivo: conId
-          ? `${hero.name} no lleva ninguna unidad de ${especie.name} sin id: a uno que ya lo tiene —el que va en su propia fila— se le nombra con "veteran"`
-          : `${hero.name} no lleva ninguna unidad de ${especie.name} en su tropa`,
+          ? `${hero.name} no lleva ninguna unidad «${especieId}» sin id: a uno que ya lo tiene —el que va en su propia fila— se le nombra con "veteran"`
+          : `${hero.name} no lleva ninguna unidad «${especieId}» en su tropa`,
       };
     }
     return { indice };

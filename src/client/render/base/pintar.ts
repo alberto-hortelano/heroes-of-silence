@@ -21,6 +21,7 @@
  * figura de combate (`cajaDeFiguraEn`): el héroe o el alcaide anda con su
  * clip `walk`, y la gente respira en `idle`.
  */
+import type { FactionId } from '@core/types.js';
 import {
   bordeDeAtras,
   columnasALaVista,
@@ -49,23 +50,47 @@ export interface PintadoDeLaBase {
   readonly señalado: Exclude<Golpe, { tipo: 'suelo' }> | null;
 }
 
-/** Los tonos del marcador sin arte, por facción: tierra del caballero, ceniza del nigromante. */
+/**
+ * Los tonos del marcador sin arte, por facción: tierra de los templarios, ceniza de
+ * los no muertos; los del Imperio, los Elfos y los Orkos, INVENTADOS (19-10-2026).
+ */
 const TONOS_SIN_ARTE = {
-  knight: {
+  templarios: {
     cielo: ['#3b4250', '#7d6f5c'],
     relleno: '#4d4a40',
     plaza: '#7d6e52',
     franja: '#8a7a58',
     bloque: '#5b4f3c',
   },
-  necromancer: {
+  'no-muertos': {
     cielo: ['#1d1b24', '#4a4350'],
     relleno: '#34303a',
     plaza: '#4f4953',
     franja: '#5f5862',
     bloque: '#433b46',
   },
-} as const;
+  imperio: {
+    cielo: ['#2f3a4a', '#8a8778'],
+    relleno: '#4a4642',
+    plaza: '#857b6a',
+    franja: '#968a74',
+    bloque: '#5a5249',
+  },
+  elfos: {
+    cielo: ['#22352c', '#6f8466'],
+    relleno: '#3c4a36',
+    plaza: '#5f6e4c',
+    franja: '#6f7d58',
+    bloque: '#46543c',
+  },
+  orkos: {
+    cielo: ['#3a2a22', '#7f5f44'],
+    relleno: '#4a3a2c',
+    plaza: '#6e5a40',
+    franja: '#7d684a',
+    bloque: '#544232',
+  },
+} as const satisfies Record<FactionId, unknown>;
 
 /** Lo que sube el muro de relleno del marcador, en pasos de pantalla. */
 const ALTO_DEL_RELLENO = 0.8;
