@@ -102,7 +102,7 @@ const guerrero = (): Unidad => unidadDeArena('templario-escudo');
 const arquero = (): Unidad => unidadDeArena('goblin-arquero');
 /** Una unidad nueva de otro tipo que también lleva la espada. */
 function otroConEspada(): Unidad {
-  const ocupados = { validas: [], sinValidar: [], hojas: hojasDeLaArena().map((h) => h.id) };
+  const ocupados = { validas: [], hojas: hojasDeLaArena().map((h) => h.id) };
   const u = unidadNueva(hojaDeLaArena('templario-escudo'), ocupados, EQUIPO_DEL_JUEGO);
   return equiparEnArena(u, 'espada', EQUIPO_DEL_JUEGO);
 }

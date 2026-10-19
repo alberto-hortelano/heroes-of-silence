@@ -172,6 +172,9 @@ export function ladosDeLaForma(m: MurallaDeBatalla): string {
     : `Esta forma no cierra: la izquierda puede rodearla andando${m.puertas.length > 0 ? ', aun con las puertas cerradas' : ''}. ${lados}`;
 }
 
+/** Dónde viven las formas de muralla, relativo a la raíz del repo. */
+export const RUTA_DE_MURALLAS = 'data/borradores/murallas.json';
+
 export const COMENTARIO_DEL_BORRADOR_DE_MURALLAS = `BORRADOR de la arena (/arena/, pnpm arena): formas de muralla para probar en la batalla. Lo escribe la página al guardar o borrar una forma y lo valida validarFormaDeMuralla (src/core/arena-murallas.ts); una forma que no valida se conserva tal cual. El juego NO lo lee. Cada muro es un hex {col, row} en la rejilla de batalla (${FORMA_DEL_TABLERO}); cada puerta, {a, b}: dos hexes vecinos de la misma fila, b justo al este de a. ${REGLA_DE_LA_MURALLA}`;
 
 /** Una forma del archivo que no pasa la regla: se cuenta por qué y se guarda tal cual. */

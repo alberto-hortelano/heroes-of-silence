@@ -14,6 +14,7 @@ import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   columna,
   FORMAS_DE_EJEMPLO,
+  RUTA_DE_MURALLAS,
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
   validarFormaDeMuralla,
@@ -22,7 +23,7 @@ import { FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
 import { validarMuralla } from '../src/core/battle/muralla.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
-import { escribirMurallas, leerMurallas, RUTA_DE_MURALLAS } from '../tools/arena/borrador.js';
+import { escribirMurallas, leerMurallas } from '../tools/arena/borrador.js';
 import {
   aPelear,
   montajeDePrueba,

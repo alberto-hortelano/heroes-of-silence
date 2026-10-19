@@ -12,9 +12,9 @@
  *
  * Se valida entero al cargar con la regla del juego (`leerCatalogos`, la misma
  * con que guarda la arena) y las piezas de `data/equipo.json`: una unidad que no
- * vale tumba la carga diciendo el fichero, cuál y por qué. La arena lo lee más
- * blanda —conserva la que no vale para que se arregle a mano— porque es la
- * herramienta con que se arregla; el juego no puede jugar con una unidad rota.
+ * vale tumba la carga diciendo el fichero, cuál y por qué. Con ella no arranca
+ * ninguna página (la partida, la arena ni el espectador), y cada una lo dice en
+ * pantalla con ese motivo (`client/arranque.ts`): se arregla a mano.
  */
 import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
 import unidadesJson from '../../data/unidades.json' with { type: 'json' };

@@ -62,6 +62,7 @@ import {
 } from '@core/battle/muralla.js';
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
+import { UNIDADES } from '@core/catalogo.js';
 import {
   conLosExtras,
   DONDE_SE_CONSIGUE,
@@ -90,7 +91,7 @@ import {
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
-import { type Html, html, NADA, pintar } from '../html.js';
+import { type Html, html, pintar } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import type { CharacterClip } from '../render/character.js';
@@ -134,12 +135,10 @@ import {
   renderEdicion,
 } from './edicion.js';
 import {
-  type AvisosDeLectura,
   avisoDelCatalogoLeido,
   avisoDeNuevaUnidad,
   type ComoDeLaFicha,
   caraDeLaArena,
-  cuantosAvisos,
   type DatosDePuesto,
   type Elegida,
   enElMontaje,
@@ -152,8 +151,6 @@ import {
   LA_LLEVA_EL_HEROE,
   type ListaDeUnidades,
   type Puesto,
-  ROTULO_DE_LOS_AVISOS,
-  renderAvisosDeLectura,
   renderBando,
   renderCatalogo,
   renderEnlace,
@@ -163,7 +160,6 @@ import {
   renderMuralla,
   renderPanelDeBatalla,
   resumenDeCifras,
-  resumenDeLaLectura,
   rotuloDelTurno,
   sinGuardarEnPalabras,
   type TarjetaDeUnidad,
@@ -182,10 +178,6 @@ const elFicha = document.getElementById('ficha') as HTMLElement;
 const elCatalogo = document.getElementById('catalogo') as HTMLElement;
 const elMuralla = document.getElementById('muralla') as HTMLElement;
 const elMontaje = document.getElementById('montaje') as HTMLElement;
-/** Lo que no vale de los borradores, entero, desplegado desde la barra (`renderAvisosDeLectura`). */
-const elAvisosDeLectura = document.getElementById('avisos-de-lectura') as HTMLElement;
-/** El botón de la barra que los despliega. */
-const botonVerAvisos = document.getElementById('ver-avisos') as HTMLElement;
 /** La vista de edición: hasta cuatro fichas abiertas a la vez (`edicion.ts`). */
 const elEdicion = document.getElementById('edicion') as HTMLElement;
 /** La vista «Editar equipo»: las piezas por hueco y la ficha de la elegida. */
@@ -220,11 +212,6 @@ let hojasPorId: ReadonlyMap<string, Hoja> = new Map();
  * «Guardar» no las tire (H2 de QA).
  */
 const unidadesDelCatalogo = new Map<string, Unidad>();
-/**
- * Los ids de las unidades del catálogo que no validan: se conservan al guardar y
- * una unidad nueva no los toma (`IdsOcupados`, H1 de QA del ciclo 2).
- */
-let idsSinValidar: readonly string[] = [];
 /**
  * El catálogo de equipo de la página, hecho (`catalogoDeEquipo`): el de
  * `data/equipo.json` tal como lo sirve el servidor de desarrollo (sin él, el que
@@ -346,13 +333,6 @@ let aviso = 'Cargando las hojas…';
 let avisoDeIncompletas = '';
 /** Por qué no se puede guardar, o `null` si se puede. */
 let sinGuardado: string | null = null;
-/**
- * Lo que no vale de los borradores al leerlos, con su motivo entero
- * (`pintarAvisosDeLectura`). La barra lleva el resumen.
- */
-let avisosDeLectura: readonly AvisosDeLectura[] = [];
-/** Si el recuadro de los avisos está desplegado: solo al arrancar, y luego con su botón. */
-let avisosDesplegados = false;
 /**
  * Lo que no se ha guardado, por id: unidades y piezas. Cerrar la página avisa, y
  * la vista de equipo lo cuenta (`sinGuardarEnPalabras`).
@@ -599,7 +579,6 @@ function crearUnidad(valor: string): string | null {
     h,
     {
       validas: [...unidadesDelCatalogo.keys()],
-      sinValidar: idsSinValidar,
       hojas: [...hojasPorId.keys()],
     },
     equipo,
@@ -613,23 +592,23 @@ function crearUnidad(valor: string): string | null {
 
 // ---------------------------------------------------------------- arranque
 
-/**
- * Lo que contesta el GET de un fichero de la arena (`/__arena/unidades`, `/__arena/murallas`):
- * en el build, solo `guardado: false`; si no, su ruta y su lista (`unidades` o
- * `formas`), las que no valen con su motivo, o el archivo ilegible.
- */
-/** Lo de un fichero de la arena que no vale: su clave, si la trae, y por qué. */
+/** Una forma de muralla que no vale: su nombre, si lo trae, y por qué. */
 interface SinValidar {
-  readonly id?: string | null;
   readonly nombre?: string | null;
   readonly motivo: string;
 }
 
+/**
+ * Lo que contesta el GET de un fichero de la arena (`/__arena/unidades`, `/__arena/murallas`):
+ * en el build, solo `guardado: false`; si no, su ruta y su lista (`unidades` o
+ * `formas`), las formas que no valen con su motivo, o el archivo ilegible.
+ */
 interface RespuestaDeBorrador {
   readonly guardado: boolean;
   readonly ruta?: string;
   readonly unidades?: unknown;
   readonly formas?: unknown;
+  /** Las formas de muralla que no valen: el catálogo de unidades no se lee a medias. */
   readonly invalidas?: readonly SinValidar[];
   readonly ilegible?: string;
   /** El catálogo de equipo, que va con las unidades (`leerCatalogo`). */
@@ -691,10 +670,10 @@ async function mandarAlServidor(
 
 /**
  * Las hojas y el catálogo de unidades. Las hojas se validan al recibirlas, que es
- * por donde entran su perfil y su facción. Con el servidor de desarrollo, del
- * catálogo se cargan las unidades que valen; las que no, se dicen con su motivo
- * —y el servidor las vuelve a escribir tal cual al guardar—. Sin él (la arena
- * construida), las del catálogo del núcleo.
+ * por donde entran su perfil y su facción. Con el servidor de desarrollo, el
+ * catálogo de disco, que vale entero: si una unidad no valiera, el núcleo no
+ * habría cargado y la página diría por qué sin llegar aquí (`arranque.ts`). Sin
+ * él (la arena construida), el catálogo del núcleo.
  */
 async function arrancar(): Promise<void> {
   // Una hoja incompleta no se registra: `arteDe` la pintaría con el Y Bot por
@@ -712,7 +691,7 @@ async function arrancar(): Promise<void> {
   const cuerpo = leido.cuerpo;
   sinGuardado = leido.sinGuardado;
   if (!cuerpo.guardado) {
-    aviso = `${await delCatalogoDelNucleo()} Sin el servidor de desarrollo (pnpm arena) no se guarda: las cifras que cambies aquí se pierden al cerrar.`;
+    aviso = `${delCatalogoDelNucleo()} Sin el servidor de desarrollo (pnpm arena) no se guarda: las cifras que cambies aquí se pierden al cerrar.`;
     return;
   }
   if (cuerpo.ilegible !== undefined) {
@@ -729,48 +708,21 @@ async function arrancar(): Promise<void> {
     const motivo = porQueNoSeMonta(u);
     if (motivo !== null) sinHoja.push(`${u.id} (${motivo})`);
   }
-  const invalidas = cuerpo.invalidas ?? [];
-  aviso = avisoDelCatalogoLeido(
-    RUTA_DEL_CATALOGO_DE_UNIDADES,
-    unidadesDelCatalogo.size,
-    invalidas.length,
-  );
+  aviso = avisoDelCatalogoLeido(RUTA_DEL_CATALOGO_DE_UNIDADES, unidadesDelCatalogo.size);
   // Las que no tienen hoja se quedan en el catálogo y se vuelven a guardar; solo
   // no se pueden montar.
   if (sinHoja.length > 0) aviso += ` No se pueden montar: ${sinHoja.join(', ')}.`;
-  idsSinValidar = invalidas.flatMap((i) => (typeof i.id === 'string' ? [i.id] : []));
-  // Lo que no vale, con su motivo entero en el recuadro de la barra
-  // (`renderAvisosDeLectura`), y en ella el resumen: cortada a dos líneas, el
-  // motivo de la segunda no se llegaba a leer.
-  avisosDeLectura = [
-    ...avisosDeLectura,
-    lecturaDe(`Del catálogo de unidades (${RUTA_DEL_CATALOGO_DE_UNIDADES}):`, invalidas),
-  ].filter((l) => l.noValen.length > 0);
-  aviso += resumenDeLaLectura(avisosDeLectura);
 }
 
 /**
  * La arena construida (sin servidor de desarrollo) pelea con el catálogo del
- * núcleo (`core/catalogo.ts`), el mismo que lee el juego. Se importa aquí, a
- * demanda, por dos motivos: un catálogo roto lanza al cargarse y así se dice en
- * la barra en vez de tumbar la página entera; y en `pnpm arena` no entra en el
- * grafo de módulos, así que «Guardar», que reescribe `data/unidades.json`, no
- * hace que vite recargue la página a media pelea. Devuelve la frase de la barra.
+ * núcleo (`core/catalogo.ts`), el mismo que lee el juego. Un catálogo roto no
+ * llega aquí: lanza al cargarse el núcleo y lo dice `arranque.ts`. Devuelve la
+ * frase de la barra.
  */
-async function delCatalogoDelNucleo(): Promise<string> {
-  try {
-    const { UNIDADES } = await import('@core/catalogo.js');
-    for (const u of UNIDADES) unidadesDelCatalogo.set(u.id, u);
-    return `Cargado ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${UNIDADES.length} unidades.`;
-  } catch (err) {
-    console.error('[arena] el catálogo de unidades no se ha podido leer', err);
-    return `No se puede leer ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${mensaje(err)}. No hay unidades que montar; «Nueva unidad» sí crea.`;
-  }
-}
-
-/** Lo que no vale de un fichero de la arena, una frase por elemento con su motivo. */
-function lecturaDe(de: string, invalidas: readonly SinValidar[]): AvisosDeLectura {
-  return { de, noValen: invalidas.map((i) => `${i.id ?? '(sin id)'}: ${i.motivo}`) };
+function delCatalogoDelNucleo(): string {
+  for (const u of UNIDADES) unidadesDelCatalogo.set(u.id, u);
+  return `Cargado ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${UNIDADES.length} unidades.`;
 }
 
 /**
@@ -950,19 +902,6 @@ function pintarMuralla(): void {
   );
   botonLuchar.toggleAttribute('disabled', despliegue !== null);
   botonLuchar.title = despliegue === null ? '' : `No se puede luchar: ${despliegue}.`;
-}
-
-/**
- * Los avisos de lo leído (el catálogo, los borradores y el enlace): el recuadro sobre la barra,
- * desplegado o no, y el botón que lo despliega, que solo está si hay alguno.
- */
-function pintarAvisosDeLectura(): void {
-  const cuantos = cuantosAvisos(avisosDeLectura);
-  pintar(elAvisosDeLectura, avisosDesplegados ? renderAvisosDeLectura(avisosDeLectura) : NADA);
-  elAvisosDeLectura.hidden = !avisosDesplegados || cuantos === 0;
-  botonVerAvisos.hidden = cuantos === 0;
-  botonVerAvisos.textContent = `${ROTULO_DE_LOS_AVISOS} (${cuantos})`;
-  botonVerAvisos.ariaExpanded = String(avisosDesplegados);
 }
 
 /** Solo el editor de la muralla, y la barra de estado en el siguiente fotograma. */
@@ -2410,16 +2349,6 @@ document.addEventListener('click', (ev) => {
         recordarAbiertas();
         break;
       }
-      case 'ver-avisos':
-        avisosDesplegados = !avisosDesplegados;
-        pintarAvisosDeLectura();
-        return;
-      case 'cerrar-avisos':
-        avisosDesplegados = false;
-        pintarAvisosDeLectura();
-        // El botón que lo cerró ya no está: el foco, al que lo vuelve a abrir.
-        botonVerAvisos.focus();
-        return;
       case 'plegar-lista':
         listaPlegada = listaPlegadaTras('alternar', listaPlegada, abiertas.length);
         guardarEnElNavegador(CLAVE_DE_LISTA, listaPlegada ? '1' : '0', QUE_LISTA);
@@ -2850,9 +2779,6 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
     aviso = delEnlace?.montado
       ? `${delEnlace.aviso}${aviso}${avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
       : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas}${avisoDeMurallas} Añade unidades a los dos bandos y pulsa Luchar.${deAbiertas}`;
-    // Lo que no vale se despliega solo, para que se lea antes de «Guardar».
-    avisosDesplegados = cuantosAvisos(avisosDeLectura) > 0;
-    pintarAvisosDeLectura();
     repintarMontaje();
   },
   (err: unknown) => {

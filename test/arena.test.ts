@@ -182,7 +182,7 @@ const tarjeta = (u: Unidad): DatosDePuesto => ({
 
 /** Los ids ocupados de un borrador sin unidades que no validan ni hojas. */
 function ocupados(...validas: string[]): IdsOcupados {
-  return { validas, sinValidar: [], hojas: [] };
+  return { validas, hojas: [] };
 }
 
 /**
@@ -2379,52 +2379,6 @@ describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puest
       { kind: 'unidad', id: 'templario-escudo-2' },
       { kind: 'unidad', id: 'templario-escudo-3' },
     ]);
-  });
-
-  it('H1: una nueva no toma el id de una del borrador que no vale, y al guardar siguen las dos', () => {
-    const dir = carpetaDeLaArena();
-    try {
-      const h = hojaPorId('templario-mandoble');
-      // La reproducción de QA: una unidad de hoy que no vale con id templario-mandoble-2.
-      const tramposo = {
-        ...unidadNueva(h, ocupados(h.id), EQUIPO_DEL_JUEGO),
-        name: 'Tramposo',
-        equipo: { arma: 'mandoble', escudo: 'escudo' },
-      };
-      expect(tramposo.id).toBe('templario-mandoble-2');
-      // Escrita a mano, como haría quien toca el JSON: `escribirCatalogo` no la dejaría pasar.
-      mkdirSync(join(dir, 'data/borradores'), { recursive: true });
-      writeFileSync(
-        join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES),
-        JSON.stringify({ unidades: [tramposo] }),
-      );
-      const leido = leerCatalogo(dir);
-      expect(leido.invalidas.map((i) => i.id)).toEqual(['templario-mandoble-2']);
-      const nueva = unidadNueva(
-        h,
-        {
-          validas: leido.unidades.map((u) => u.id),
-          sinValidar: leido.invalidas.flatMap((i) => (i.id === null ? [] : [i.id])),
-          hojas: [h.id],
-        },
-        EQUIPO_DEL_JUEGO,
-      );
-      expect(nueva.id).toBe('templario-mandoble-3');
-      const todas = catalogoEntero(nueva);
-      expect(escribirCatalogo(dir, { unidades: todas, piezas: EQUIPO_ESCRITO })).toMatchObject({
-        unidades: todas.length,
-        conservadas: 1,
-      });
-      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_CATALOGO_DE_UNIDADES), 'utf8')) as {
-        unidades: { id: string; name: string }[];
-      };
-      expect(json.unidades.slice(-2).map((u) => [u.id, u.name])).toEqual([
-        ['templario-mandoble-3', 'Guerrero con arma a dos manos 3'],
-        ['templario-mandoble-2', 'Tramposo'],
-      ]);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
   });
 
   it('R1/R2: una nueva nace donde cae su índice, y un rasgo de tiro pesa solo con algo con que tirar', () => {

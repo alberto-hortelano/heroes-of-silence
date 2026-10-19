@@ -962,69 +962,14 @@ export function avisoDeNuevaUnidad(
 }
 
 /**
- * La primera frase de la barra al leer el catálogo de unidades: cuántas valen.
- * Con ninguna, la lista no ofrece nada que montar (las cifras solo salen del
- * catálogo) y lo dice; «Nueva unidad» sí crea. Lo que no vale lo cuenta la
- * página después, con sus motivos.
+ * La primera frase de la barra al leer el catálogo de unidades: cuántas hay. Con
+ * ninguna, la lista no ofrece nada que montar (las cifras solo salen del
+ * catálogo) y lo dice; «Nueva unidad» sí crea.
  */
-export function avisoDelCatalogoLeido(ruta: string, validas: number, sinValidar: number): string {
-  if (validas > 0) return `Cargado ${ruta}: ${validas} ${validas === 1 ? 'unidad' : 'unidades'}.`;
-  if (sinValidar > 0) {
-    return `Cargado ${ruta}: ninguna unidad vale, y ${sinValidar === 1 ? 'la que trae se conserva' : `las ${sinValidar} que trae se conservan`} tal cual al guardar; mientras, no hay unidades que montar: «Nueva unidad» sí crea.`;
-  }
+export function avisoDelCatalogoLeido(ruta: string, unidades: number): string {
+  if (unidades > 0)
+    return `Cargado ${ruta}: ${unidades} ${unidades === 1 ? 'unidad' : 'unidades'}.`;
   return `${ruta} no trae ninguna unidad: no hay unidades que montar; «Nueva unidad» sí crea.`;
-}
-
-/**
- * Lo que no vale de un fichero de la arena al leerlo: `de` lo nombra y `noValen` trae una
- * frase por unidad o pieza, con su motivo. Se conservan tal cual al guardar.
- */
-export interface AvisosDeLectura {
-  readonly de: string;
-  readonly noValen: readonly string[];
-}
-
-/** Cuántas frases traen las lecturas: lo que dice el botón de la barra. */
-export function cuantosAvisos(grupos: readonly AvisosDeLectura[]): number {
-  return grupos.reduce((n, g) => n + g.noValen.length, 0);
-}
-
-/**
- * Lo que no vale del catálogo y de los borradores, entero, en un recuadro que se despliega desde
- * la barra (H1 de QA, 14-10-2026): en la barra, cortada a dos líneas, el motivo se
- * quedaba en la parte que no se ve. Se abre solo al arrancar si hay algo que decir
- * y se cierra con «Entendido»; la barra lleva el resumen (`resumenDeLaLectura`) y
- * el botón para volver a abrirlo.
- */
-export function renderAvisosDeLectura(grupos: readonly AvisosDeLectura[]): Html {
-  const conAlgo = grupos.filter((g) => g.noValen.length > 0);
-  if (conAlgo.length === 0) return NADA;
-  const total = cuantosAvisos(conAlgo);
-  const bloques = unir(
-    conAlgo.map(
-      (g) => html`<div class="lectura">
-        <p class="de">${g.de}</p>
-        <p class="que">No valen, y «Guardar» las conserva tal cual:</p>
-        <ul class="no-valen">${unir(g.noValen.map((f) => html`<li>${f}</li>`))}</ul>
-      </div>`,
-    ),
-  );
-  return html`<h3 class="cabecera-avisos">Al leer lo guardado · ${total} ${total === 1 ? 'no vale' : 'no valen'}
-      <button data-arena="cerrar-avisos" title="Cierra el recuadro: se vuelve a abrir con «${ROTULO_DE_LOS_AVISOS}», en la barra">Entendido</button></h3>
-    ${bloques}`;
-}
-
-/** El botón de la barra que despliega lo que no vale de lo leído. */
-export const ROTULO_DE_LOS_AVISOS = 'Avisos al leer';
-
-/**
- * Lo que dice la barra de lo que no vale al leer: cuántos y dónde leerlos enteros
- * (`renderAvisosDeLectura`). Vacío si todo vale.
- */
-export function resumenDeLaLectura(grupos: readonly AvisosDeLectura[]): string {
-  const n = cuantosAvisos(grupos);
-  if (n === 0) return '';
-  return ` ${n === 1 ? 'Una no vale' : `${n} no valen`} y se ${n === 1 ? 'conserva' : 'conservan'} tal cual al guardar: ${n === 1 ? 'su motivo se lee entero' : 'sus motivos se leen enteros'} con «${ROTULO_DE_LOS_AVISOS}», en esta barra.`;
 }
 
 /**
