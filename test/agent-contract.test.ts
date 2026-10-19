@@ -1370,7 +1370,12 @@ describe('lo que ve el agente', () => {
     expect(RESPONSE_FORMAT.map_generate).toMatch(/minúsculas/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/town-0/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/no puede repetirse/);
-    expect(RESPONSE_FORMAT.map_generate).toMatch(/heroStarts/);
+    // Sin `heroStarts` desde el 19-10-2026: la prosa ya no lo pide, y dice dónde
+    // empieza el héroe.
+    expect(RESPONSE_FORMAT.map_generate).not.toMatch(/heroStarts/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(
+      /héroe de cada jugador empieza\s+DENTRO de su base/,
+    );
     // Aquí decía `/numerados desde 0/`: era la convención en prosa de la que el
     // agente tenía que sacar QUÉ jugadores colocar. Desde #101 ese dato viaja en
     // el payload y la prosa manda leerlo; lo que se acota se sigue anunciando.
@@ -1386,14 +1391,13 @@ describe('lo que ve el agente', () => {
     const prosa = RESPONSE_FORMAT.map_generate;
     expect(prosa).toMatch(/creaturesForGuards/);
     expect(prosa).toMatch(/Distingue mayúsculas/);
-    // Las posiciones de inicio ocupan casilla.
-    expect(prosa).toMatch(/posiciones de inicio TAMBIÉN\s+ocupan/);
-    // Los dueños tienen que jugar.
-    expect(prosa).toMatch(/owner.*jugador CON posición\s+de inicio/s);
+    // Cada jugador, con su ciudad; y los dueños tienen que jugar.
+    expect(prosa).toMatch(/cada jugador de "want.players" tiene al menos una\s+ciudad/);
+    expect(prosa).toMatch(/owner".*uno de los jugadores de "want.players"/s);
     // El tamaño pedido es el que hay que devolver.
     expect(prosa).toMatch(/Devuelve el "width" y el "height" que se te piden/);
     // Y que el orden no le regala la iniciativa a nadie.
-    expect(prosa).toMatch(/ORDEN en que escribas "heroStarts" no decide nada/);
+    expect(prosa).toMatch(/ORDEN en que escribas las ciudades no decide quién abre/);
   });
 
   it('la prosa de map_generate explica la red: regiones, muros, nodos y la ciudad como nodo', () => {
@@ -1515,7 +1519,7 @@ describe('lo que ve el agente', () => {
 
   it('y la prosa del mapa manda leer "want.players" en vez de contar desde 0', () => {
     const prosa = RESPONSE_FORMAT.map_generate;
-    expect(prosa).toMatch(/EXACTAMENTE los jugadores de "want\.players"/);
+    expect(prosa).toMatch(/uno de los jugadores de "want\.players": ahí\s+van sus números/);
     // La convención muere: si vuelve a aparecer, el dato ha vuelto a la prosa.
     expect(prosa).not.toMatch(/numerados desde 0/);
     expect(prosa).not.toMatch(/"players": 2 son el 0 y el 1/);
@@ -1549,6 +1553,33 @@ describe('respuestas del agente', () => {
     expect(r.success).toBe(false);
   });
 
+  it('rechaza un plan con "heroStarts", diciendo que el héroe empieza en su base', () => {
+    // Retirado el 19-10-2026. Sin el campo en el esquema, zod lo quitaría en
+    // silencio y el agente creería que sus inicios valen.
+    const r = responseSchemas.map_generate.safeParse({
+      plan: {
+        width: 24,
+        height: 24,
+        baseTerrain: 'grass',
+        patches: [],
+        regions: [],
+        walls: [],
+        nodes: [],
+        towns: [],
+        heroStarts: [{ player: 0, at: { x: 1, y: 1 } }],
+        mines: [],
+        villages: [],
+        resources: [],
+        monsters: [],
+        chests: [],
+      },
+    });
+    expect(r.success).toBe(false);
+    expect(JSON.stringify(r.error?.issues)).toMatch(
+      /ya no hay \\"heroStarts\\".*dentro de su base/,
+    );
+  });
+
   it('rechaza un plan de mapa fuera de límites', () => {
     const r = responseSchemas.map_generate.safeParse({
       plan: {
@@ -1560,7 +1591,6 @@ describe('respuestas del agente', () => {
         walls: [],
         nodes: [],
         towns: [],
-        heroStarts: [],
         mines: [],
         villages: [],
         resources: [],

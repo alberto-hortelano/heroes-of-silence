@@ -56,7 +56,6 @@ import {
   retiradosDeLaURL,
   retocarEnBatalla,
   tipoDelStack,
-  unaVezEnLaURL,
   unidadNueva,
   VERSION_DEL_ENLACE,
   validarHeroeDeArena,
@@ -108,6 +107,7 @@ import {
   validarHojas,
   validarUnidad,
 } from '../src/core/unidad.js';
+import { unaVezEnLaURL } from '../src/core/validar.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import { escribirCatalogo, hojasDelTaller, leerCatalogo } from '../tools/arena/borrador.js';
 import { VELOCIDAD_DEL_CUERPO } from '../tools/arena/velocidades.js';

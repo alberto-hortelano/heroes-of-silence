@@ -1518,21 +1518,6 @@ export function retiradosDeLaURL(
 }
 
 /**
- * El único valor de un parámetro de la URL (`URLSearchParams.getAll`), o `null`
- * si no está. Repetido se rechaza diciéndolo, como lo que no es una semilla:
- * quedarse con el primero en silencio repetía otra pelea que la que dice la URL
- * (H4 de QA del banco).
- */
-export function unaVezEnLaURL(valores: readonly string[], nombre: string): string | null {
-  if (valores.length > 1) {
-    throw new Error(
-      `«${nombre}» va ${valores.length} veces en la URL (${valores.map((v) => `«${v}»`).join(', ')}): pon uno solo`,
-    );
-  }
-  return valores[0] ?? null;
-}
-
-/**
  * La versión del formato. **Se lee solo la de hoy** (14-10-2026, el usuario: «no
  * queremos mantener compatibilidad hacia atrás, estamos en pleno desarrollo»): un
  * enlace de otra se rechaza diciendo que se vuelva a copiar, sin convertir nada.

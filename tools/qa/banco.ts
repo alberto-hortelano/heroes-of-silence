@@ -1086,11 +1086,24 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 991 → 1 794, `troop_rank_up` 2 642 → 2 529, `hero_defeated` 331 → 264.
  *   Ningún tipo de hecho nuevo; `item_bought` 3 → 0 (era una rareza: no se
  *   retiró nada).
+ * - `3daacbe6…` (40 587 líneas, 19-10-2026): **el héroe nace dentro de su base**
+ *   (`docs/agents/2026-10-19-arranque-y-faccion/`): fuera `MapPlan.heroStarts`, y
+ *   el generador ya no reserva la vecina de cada base para el inicio. Cambia
+ *   todo, a propósito: **0 de 200 idénticas**. En 187 el primer hecho distinto es
+ *   el hecho 11, la primera jugada del día 1 del j0: donde antes andaba
+ *   (`hero_moved`), con el héroe dentro la IA recluta en su tropa (`recruited`,
+ *   66) o la cambia (`dismissed`, 121: licencia lo de salida para meter algo
+ *   mejor, `planCambio`). En las otras 13, un `raider_spawned` del día 1 en otra
+ *   casilla: la vecina que ya no se reserva mueve lo que se coloca después. 0 sin
+ *   terminar; j0 99 → 97, duración 4 / 8 / 21 → **4 / 6 / 23**; batallas 1 041 →
+ *   968, días 960 → 862, `recruited` 1 794 → 2 090, `dismissed` 387 → 1 159,
+ *   `garrison_taken` 391 → 271 (el héroe ya no entra en casa el día 1 para
+ *   salir), `hero_defeated` 264 → 245. Ningún tipo de hecho nuevo.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '1c496b88ca817b7beed16539aa4ced5c918969afd34c55fcc69328490bd31140',
+  sha: '3daacbe6cb7729656c3e74bd43fd7601867bae7fb680fdac94e4012f9957ebb6',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

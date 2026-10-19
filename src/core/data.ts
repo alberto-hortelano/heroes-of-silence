@@ -8,6 +8,7 @@ import barrerasJson from '../../data/barreras.json' with { type: 'json' };
 import economiaJson from '../../data/economia.json' with { type: 'json' };
 import equipoJson from '../../data/equipo.json' with { type: 'json' };
 import experienciaJson from '../../data/experiencia.json' with { type: 'json' };
+import faccionesJson from '../../data/facciones.json' with { type: 'json' };
 import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
@@ -615,6 +616,45 @@ export function nombreDeTipoDeHeroe(faction: FactionId, id: string): string {
     throw new Error(`el tipo de héroe "${id}" no existe en ${faction} (data/tipos-de-heroe.json)`);
   }
   return tipo.nombre;
+}
+
+// ---------------------------------------------------------------- facciones
+
+/**
+ * El rasgo de una línea de cada facción (`data/facciones.json`, sacado del
+ * cuaderno por `tools/datos/facciones.ts`), comprobado al cargar: falta una,
+ * sobra una o lleva un salto de línea y se lanza nombrando el fichero, en vez de
+ * pintar la elección del menú con un hueco.
+ */
+export function leerRasgosDeFaccion(
+  json: unknown,
+  fichero = 'data/facciones.json',
+): Readonly<Record<FactionId, string>> {
+  const rasgos = ((json ?? {}) as { rasgos?: Record<string, unknown> }).rasgos ?? {};
+  const problemas: string[] = [];
+  for (const f of FACTION_IDS) {
+    const r = rasgos[f];
+    if (typeof r !== 'string' || r.trim() === '') problemas.push(`${f} no tiene rasgo`);
+    else if (/[\r\n]/.test(r))
+      problemas.push(`el rasgo de ${f} lleva un salto de línea: es de una línea`);
+  }
+  for (const f of Object.keys(rasgos)) {
+    if (!(FACTION_IDS as readonly string[]).includes(f))
+      problemas.push(`"${f}" no es una facción del juego`);
+  }
+  if (problemas.length > 0) {
+    throw new Error(
+      `${fichero}: ${problemas.join('; ')} (se regenera con tools/datos/facciones.ts)`,
+    );
+  }
+  return rasgos as Record<FactionId, string>;
+}
+
+const RASGOS_DE_FACCION = leerRasgosDeFaccion(faccionesJson);
+
+/** El rasgo de una línea de la facción: lo que dice de ella la elección del menú. */
+export function rasgoDeFaccion(f: FactionId): string {
+  return RASGOS_DE_FACCION[f];
 }
 
 // ---------------------------------------------------------------- equipo

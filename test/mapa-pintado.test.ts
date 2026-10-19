@@ -45,6 +45,8 @@ import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
 import { LADO_DEL_MAPA } from '../src/core/map/generate.js';
+import { objectAt } from '../src/core/map/map.js';
+import { isWalkable } from '../src/core/map/terrain.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import {
   HERO_SCOUT_RADIUS,
@@ -970,26 +972,30 @@ describe('qué tapa a qué en el mapa', () => {
     });
   });
 
-  it('el héroe que nace al norte de su castillo se pinta delante de él', () => {
-    // La premisa: nace justo encima de su castillo, que mide casi dos casillas
-    // de alto. Se busca la semilla (era la 1 hasta que #169 cambió los mapas).
-    const { semilla } = primeraSemillaCon('un héroe que nace al norte de su castillo', (s) => {
+  it('el héroe al norte de su castillo se pinta delante de él', () => {
+    // La premisa: está justo encima de su castillo, que mide casi dos casillas
+    // de alto. Antes nacía ahí en alguna semilla (la 1 hasta #169); desde el
+    // 19-10-2026 nace dentro, así que se le pone a mano en la primera semilla
+    // cuya casilla de encima de la base se pisa y está libre.
+    const norteDeLaBase = (st: ReturnType<typeof newGame>) => {
+      const base = st.map.objects.find((o) => o.kind === 'town' && o.owner === 0)!;
+      return { castillo: base, at: { x: base.at.x, y: base.at.y - 1 } };
+    };
+    const { semilla } = primeraSemillaCon('una base con su casilla de encima libre', (s) => {
       const st = newGame({ seed: s });
-      const h = st.heroes[0]!;
-      return st.map.objects.some(
-        (o) => o.kind === 'town' && o.at.x === h.at.x && o.at.y === h.at.y + 1,
-      )
-        ? true
-        : undefined;
+      const { at } = norteDeLaBase(st);
+      const libre =
+        at.y >= 0 &&
+        isWalkable(st.map.terrain[at.y * st.map.width + at.x]!) &&
+        objectAt(st.map, at) === undefined;
+      return libre ? true : undefined;
     });
     const state = newGame({ seed: semilla });
     const heroe = state.heroes[0]!;
-    const castillo = state.map.objects.find(
-      (o) => o.kind === 'town' && o.at.x === heroe.at.x && o.at.y === heroe.at.y + 1,
-    );
-    expect(castillo).toBeDefined();
+    const { castillo, at } = norteDeLaBase(state);
+    heroe.at = at;
     const { esc, registro } = pintarMapa(state, heroe.at);
-    const volumen = esc.separada.volumenes.find((v) => v.s.objeto?.id === castillo!.id);
+    const volumen = esc.separada.volumenes.find((v) => v.s.objeto?.id === castillo.id);
     expect(volumen).toBeDefined();
     // Su figura sube por encima de los pies del héroe: por la base, lo taparía.
     expect(volumen!.s.y - volumen!.s.alto).toBeLessThan(heroe.at.y + PIES.heroe);

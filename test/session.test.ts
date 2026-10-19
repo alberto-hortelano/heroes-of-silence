@@ -30,13 +30,13 @@ import {
   anteLaBase,
   costesDelAlcance,
   ejercito,
+  fueraDeSuBase,
   PESADA,
   pegadoA,
   planDeNodos,
   primeraMarchaQueSePara,
   primeraSemillaCon,
   SANADOR,
-  TROPA,
   TROPA_BARATA,
 } from './helpers.js';
 
@@ -205,8 +205,10 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
   it('«todo» pide lo que cabe: con el liderazgo casi lleno, el máximo es menor que lo disponible', () => {
     const s = new Session(7);
     const town = s.myTowns()[0]!;
-    // La base nace llena (`guarnicionBase`): aquí se mide «todo» con sitio.
+    // La base nace llena (`guarnicionBase`): aquí se mide «todo» con sitio. Y el
+    // héroe nace dentro (19-10-2026), donde reclutaría en su tropa: fuera.
     town.garrison = [];
+    fueraDeSuBase(s.state, 0);
     s.openTown(town.id);
     // Lo primero que cría la morada que la base trae hecha.
     const recluta = dwellings(town)[0]!.creature;
@@ -536,8 +538,11 @@ describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
     // Hasta F6 el panel de la partida decía «su tropa no tiene poderes» aunque el
     // monje los trajera (`poderes: NADA`). Ahora son los botones de la arena
     // (`botonesDePoder`) y el gesto, el mismo (`PoderesDeLaActiva`).
+    // Con dos pesados y no dos de tropa: en la batalla que se halla desde que el
+    // héroe nace en su base (19-10-2026), los seis del monstruo mataban al monje
+    // antes de su primer turno.
     const s = sesionContraMonstruoCon(
-      ejercito({ creature: SANADOR, count: 1 }, { creature: TROPA, count: 2 }),
+      ejercito({ creature: SANADOR, count: 1 }, { creature: PESADA, count: 2 }),
     );
     const conPoderes = () => (s.turnoPropio?.stack.unit.poderes?.length ?? 0) > 0;
     for (let i = 0; i < 40 && !conPoderes(); i++) {
@@ -770,6 +775,8 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     // guarnición se defiende sola (lo reprodujo el QA del 19-10-2026). El panel
     // decía «Este héroe no conoce ninguno» de un héroe que no está.
     const s = new Session(1);
+    // El héroe nace en la base (19-10-2026): fuera, que aquí se defiende sola.
+    fueraDeSuBase(s.state, 0);
     // Una función y no `s.scene` a pelo: el compilador no sabe que `endTurn` la cambia.
     const enBatalla = () => s.scene === 'battle';
     for (let dia = 0; dia < 5 && !enBatalla(); dia++) {

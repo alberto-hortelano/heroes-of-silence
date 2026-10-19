@@ -89,7 +89,7 @@ export async function pedirMapaAlAgente(
  *
  * Lo comprueba el servidor y no `core`, y no es capricho de dónde ponerlo:
  * `validateMapPlan` mira que un plan sea **jugable** —dos pueblos, nadie
- * aislado, un inicio por jugador, ninguna criatura inventada— y no puede saber
+ * aislado, una ciudad por jugador, ninguna criatura inventada— y no puede saber
  * CUÁLES son los jugadores ni qué tamaño se pidió, porque eso lo sabe quien
  * pidió el mapa. Un plan con los jugadores 3 y 4 es perfectamente jugable y deja
  * al agente sin un solo turno: `agentPlayers.has` no se cumple nunca, todos los
@@ -107,14 +107,17 @@ export async function pedirMapaAlAgente(
  * muere sola» hay que leer lo contrario: **no se muere ninguna**. Nombrar los
  * ids quita la **ambigüedad** —el agente ya no tiene que deducir de una
  * convención en prosa que con dos jugadores son el 0 y el 1— y no quita la
- * **desobediencia**: un plan que lee `players: [0, 1]` y devuelve `heroStarts`
- * con los jugadores 3 y 4 sigue siendo jugable y sigue dejando la partida sin un
+ * **desobediencia**: un plan que lee `players: [0, 1]` y devuelve ciudades
+ * de los jugadores 3 y 4 sigue siendo jugable y sigue dejando la partida sin un
  * solo turno en silencio. Lo que murió es la convención, no el guardia.
+ *
+ * Desde que el héroe nace en su base (19-10-2026) los jugadores del plan son los
+ * dueños de ciudad: no hay `heroStarts` que mirar.
  */
 function loQuePidioElServidor(plan: MapPlan, peticion: MapRequestOptions): string[] {
   const problemas: string[] = [];
   const esperados = peticion.players;
-  const trae = new Set(plan.heroStarts.map((h) => h.player));
+  const trae = new Set(plan.towns.flatMap((t) => (t.owner === null ? [] : [t.owner])));
   const lista = esperados.join(', ');
 
   if (plan.width !== peticion.width || plan.height !== peticion.height) {
@@ -126,7 +129,7 @@ function loQuePidioElServidor(plan: MapPlan, peticion: MapRequestOptions): strin
   for (const p of esperados) {
     if (!trae.has(p)) {
       problemas.push(
-        `falta la posición de inicio del jugador ${p}: esta partida la juegan los jugadores ${lista}, y "heroStarts" tiene que traerlos todos`,
+        `el jugador ${p} no tiene ninguna ciudad: esta partida la juegan los jugadores ${lista}, y cada uno necesita al menos una (la primera suya es su base y su héroe empieza dentro)`,
       );
     }
   }
@@ -134,7 +137,9 @@ function loQuePidioElServidor(plan: MapPlan, peticion: MapRequestOptions): strin
   // ser el mismo en dos partidas iguales.
   for (const p of [...trae].sort((a, b) => a - b)) {
     if (!esperados.includes(p)) {
-      problemas.push(`el jugador ${p} no juega esta partida: los jugadores son ${lista}`);
+      problemas.push(
+        `hay ciudades del jugador ${p}, que no juega esta partida: los jugadores son ${lista}; déjalas neutrales con "owner": null`,
+      );
     }
   }
   return problemas;

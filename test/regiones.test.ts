@@ -914,7 +914,8 @@ describe('el generador hace redes como las pidió el usuario', () => {
 
     // Sin base: la base del jugador 0 pierde el tramo de su casa.
     const base = plan.towns.find((t) => t.owner === 0)!;
-    const casa = red.regionDe[indice(plan.heroStarts[0]!.at)]!;
+    // La casa del jugador 0 es la región 0 del procedimental.
+    const casa = 0;
     const sinBase = tramos.filter(
       (t) => !(toca(t, base.at) && t.some((q) => red.regionDe[indice(q)] === casa)),
     );

@@ -183,7 +183,9 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
     const session = new Session(12);
     const pueblo = session.myTowns()[0]!;
     const inicial = session.myHeroes()[0]!;
-    session.moveHeroTo(inicial.id, pueblo.at);
+    // Nace dentro de su castillo (19-10-2026): se abre, sin andar hasta él.
+    expect(inicial.at).toEqual(pueblo.at);
+    session.openTown(pueblo.id);
     session.build('mage_guild_1');
     // El inicial deja el castillo para que el contratado nazca dentro.
     inicial.at = { ...inicial.at, x: inicial.at.x + 1 };
@@ -228,7 +230,6 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
   it('el castillo sin nada aprendido allí no inventa la línea', () => {
     const session = new Session(12);
     const pueblo = session.myTowns()[0]!;
-    session.moveHeroTo(session.myHeroes()[0]!.id, pueblo.at);
     session.openTown(pueblo.id);
     const marcado = marcadoDe(renderSide(session));
     expect(marcado).toContain(`<h3>Libro de ${session.myHeroes()[0]!.name}</h3>`);

@@ -145,7 +145,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Nivel de una unidad (índice de poder, con su equipo) | `nivelDeUnidad`, `indiceDePoder`, `nivelDelIndice` (`core/nivel.ts`, `data/poder.json`), de la unidad vestida (`poderBruto`, memorizado por `UnitInfo`); lo que mide lo lee de `battle/armas.ts` (`golpeDe`, `golpesDe`, `porcientoDelTipo`, `disparosDe`, `trasLaArmadura`), y `nivel.ts` no está en un ciclo de importación (lo vigila `invariantes.test.ts`); qué cifras se pueden medir, `medidaBlocker`. Ni el nivel ni el coste se escriben en `data/unidades.json` (lo vigila `invariantes.test.ts`) |
 | El catálogo de unidades (el juego y la arena) | `data/unidades.json`, que importa solo `core/catalogo.ts` (lo vigila `invariantes.test.ts`): `UNIDADES`, `unidad`, `unidadDelJuego`, `unidadesDelJuego`, `unidadesDeFaccion`, `unidadesDeMorada`, `hojaDeUnidad` (la hoja con que se pinta, `cuerpo.hoja`); el formato, `validarUnidad` y `validarCatalogo` (`core/unidad.ts`); lo que el juego exige a los dos catálogos juntos (equipo base del héroe, unidades y moradas), `leerCatalogos`, que llaman la carga, «Guardar» y el editor de equipo; la forma de un id, `esIdDeUnidad` (`core/validar.ts`) |
 | Moradas: qué producen y qué cuestan | `Unidad.edificio` (la morada que la produce; sin él no se recluta) y `Building.morada` (su sitio en la base, 1-6: no es un nivel); `nivelDeMorada` (el de lo mejor que produce: de él, su coste), `moradasBlocker` (cada `edificio` es una morada de su facción, cada morada produce algo; al cargar y al guardar) (`town/buildings.ts`); una fila por unidad, `dwellings`; el oro y el crecimiento de una unidad, `oroDelIndice`, `crecimientoDelNivel` (`data/economia.json`) |
-| El ejército de salida | `startingArmy` (`state/setup.ts`): la primera unidad del pueblo con su tirada y hasta `DE_LA_SEGUNDA` de la segunda, lo que quepa; que la primera quepa siempre y de la segunda al menos uno se comprueba al cargar (`PUEBLO_DE_SALIDA`); las dos facciones de la partida, `faccionesDeLaSemilla` (con su propia corriente: el mapa de cada semilla no se mueve) |
+| El ejército de salida | `startingArmy` (`state/setup.ts`): la primera unidad del pueblo con su tirada y hasta `DE_LA_SEGUNDA` de la segunda, lo que quepa; que la primera quepa siempre y de la segunda al menos uno se comprueba al cargar (`PUEBLO_DE_SALIDA`); las dos facciones de la partida, `faccionesDeLaSemilla(seed, delJugador?)` (con su propia corriente: el mapa de cada semilla no se mueve; con la elegida en el menú, el rival es otra de las cuatro, y la que la semilla habría sacado da la misma partida), y el nombre del héroe de salida, `nombreDeSalida`; la facción de la URL, `parseFaccion` (`core/types.ts`); el rasgo de cada una, `rasgoDeFaccion` (`data/facciones.json`, extraído del cuaderno por `tools/datos/facciones.ts`) |
 | Reindexar el rango de héroe | `subidasDeRango` (lanza por debajo del 5) |
 | Añadir a la mochila | `aLaMochila` |
 | A quién va una pieza | `destinoDeEquipo` |
@@ -592,6 +592,13 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 - **Base**: nace con guarnición de su facción (`data/ciudades.json`, `guarnicionDeBase`; la de una
   ciudad neutral, `guarnicionNeutral`). Con el héroe del dueño dentro, la defiende solo él con su
   tropa. Las bases de templarios heredan el arte de los caballeros; las otras cuatro, marcadores.
+  **El héroe de salida nace dentro de su base** (19-10-2026, «empieza en la base»): en la casilla
+  del castillo (`newGame`, con `primeraCiudadDe`), sin recoger la guarnición; los jugadores son los
+  dueños de ciudad y el plan no lleva inicios (`MapPlan.heroStarts` se retiró: el esquema del agente
+  lo rechaza diciéndolo). Dentro, lo que se recluta va a su tropa y no se contrata hasta que sale.
+  Medido (19-10-2026): en 1-100, duración 4 / 7 / 15 → 4 / 6 / 15, j0 50 → 45, 0 sin terminar; el
+  banco (`3daacbe6…`), 4 / 8 / 21 → 4 / 6 / 23. La IA recluta y cambia tropa el día 1 en vez de
+  salir: `dismissed` 387 → 1 159, y las batallas contra monstruos y asaltantes del banco, 46 y 12 → 0.
 - **Magia**: el gremio enseña por derivación (`townSpells`), `syncSpellbooks`
   aprende al final de cada acción, `cast` no consume el turno, `castBlocker`
   escribe el motivo.
@@ -640,7 +647,8 @@ antes del destino (`battle_started` con `faltan`).
   el turno y la tool) y batallas ajenas.
 - El agente **defiende** sus batallas (`BattleTakeover`: si te la quedas, la
   cierras) y **diseña el mapa**: un plan declarativo, con el nivel de cada región
-  si quiere (#209), que valida `validateMapPlan`. Si falla por cualquier motivo, se juega el procedimental y
+  si quiere (#209) y sin posiciones de inicio (cada jugador de `want.players` con su ciudad), que
+  valida `validateMapPlan`. Si falla por cualquier motivo, se juega el procedimental y
   se le dice por qué; no hay reintento.
 - La partida termina con un `game_over` explícito. `state.finished` es
   `{ winner: PlayerId | null } | null`; el tope de días es `GameState.maxDays`.

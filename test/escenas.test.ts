@@ -80,7 +80,7 @@ import {
   sesionContraMonstruo,
   sesionesContraMonstruo,
 } from './batalla-de-cliente.js';
-import { agresiva, anteLaBase, primeraSemillaCon } from './helpers.js';
+import { agresiva, anteLaBase, fueraDeSuBase, primeraSemillaCon } from './helpers.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca
@@ -269,7 +269,8 @@ describe('el mapa con el dedo', () => {
 
   it('pulsar la casilla del propio héroe dice algo verdadero, no «No hay camino»', () => {
     const s = new Session(2);
-    const heroe = s.selectedHero!;
+    // Fuera de su base, donde nace (19-10-2026): pulsarlo ahí es entrar en ella.
+    const heroe = fueraDeSuBase(s.state, 0);
     s.clickTile(heroe.at);
     expect(s.status).not.toContain('No hay camino');
     expect(s.status).toBe(`${heroe.name} ya está en esa casilla: pulsa otra para moverlo.`);
@@ -847,6 +848,9 @@ describe('la base caminable (escenas/castillo.ts)', () => {
   /** Una sesión con su base abierta y la escena encuadrada en el lienzo del escritorio. */
   function enLaBase(seed = 12): { s: Session; escena: EscenaBase; d: Disposicion } {
     const s = new Session(seed);
+    // El héroe nace dentro (19-10-2026): fuera, para que camine el alcaide y la
+    // guarnición sea la que recluta, que es lo que miden estas pruebas.
+    fueraDeSuBase(s.state, 0);
     s.openTown(s.myTowns()[0]!.id);
     const escena = new EscenaBase(() => s);
     escena.encuadrar(1086, 778);

@@ -45,6 +45,7 @@ import {
   conCaminos,
   costesDelAlcance,
   ejercito,
+  fueraDeSuBase,
   NO_MUERTO,
   PESADA,
   ponerMonstruo,
@@ -267,7 +268,9 @@ function rapidos(h: Hero): void {
 }
 
 function rivalAlAtaque(state: GameState): Hero {
-  const mio = state.heroes.find((h) => h.owner === 1) as Hero;
+  // El héroe nace en su base (19-10-2026): se le saca al lado, que es donde
+  // empezaba, para que la batalla sea contra él y no contra la base.
+  const mio = fueraDeSuBase(state, 1);
   // Pegado al héroe y no a su base: con el héroe fuera de ella y el rival
   // tocando las dos, la IA tomaba la base vacía y ganaba la partida, y el test
   // no veía ninguna batalla del héroe (semilla 201 con los bordes de #169).
@@ -916,7 +919,9 @@ describe('el agente defiende', () => {
       return { action: payload.legalActions[0] };
     });
 
-    director = new Director(link, { seed: 204, agentPlayers: [1] });
+    // Buscada: era la 204, y con el héroe nacido en su base (19-10-2026) el
+    // rival de esa semilla ya no ataca.
+    director = new Director(link, { seed: await semillaEnQueElRivalAtaca(204), agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
     // Antes de jugar: si pierde, el héroe vuelve a su base sin ejército (fase 1b).
     const misCriaturas = new Set(mio.army.flatMap((s) => (s === null ? [] : [s.creature])));
@@ -1554,22 +1559,21 @@ describe('el agente diseña el mapa', () => {
     const ajeno = {
       ...base,
       towns: base.towns.map((t) => ({ ...t, owner: t.owner === null ? null : t.owner + 3 })),
-      heroStarts: base.heroStarts.map((h) => ({ ...h, player: h.player + 3 })),
     };
     expect(validateMapPlan(ajeno), 'el plan tiene que ser JUGABLE para probar esto').toEqual([]);
 
     const { link, agent } = await montar(() => ({ plan: ajeno }));
     const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
     expect(plan).toBeNull();
-    expect(motivo).toMatch(/falta la posición de inicio del jugador 0/);
+    expect(motivo).toMatch(/el jugador 0 no tiene ninguna ciudad/);
 
     const acuse = await acuseDelMapa(agent);
     expect(acuse?.ok).toBe(false);
     const problemas = acuse?.problems?.join(' ') ?? '';
-    expect(problemas).toMatch(/falta la posición de inicio del jugador 0/);
-    expect(problemas).toMatch(/falta la posición de inicio del jugador 1/);
-    expect(problemas).toMatch(/el jugador 3 no juega esta partida/);
-    expect(problemas).toMatch(/el jugador 4 no juega esta partida/);
+    expect(problemas).toMatch(/el jugador 0 no tiene ninguna ciudad/);
+    expect(problemas).toMatch(/el jugador 1 no tiene ninguna ciudad/);
+    expect(problemas).toMatch(/hay ciudades del jugador 3, que no juega esta partida/);
+    expect(problemas).toMatch(/hay ciudades del jugador 4, que no juega esta partida/);
   });
 });
 
@@ -1815,8 +1819,10 @@ describe('el agente sabe cómo le fue', () => {
 
     // Era la 304: con los mapas densos (03-10-2026) la batalla de esa semilla
     // ya no sacaba la rama del maná; luego la 306, que con las fronteras
-    // onduladas (#229) ya no tiene batalla. Lo que se mide es la nota, no el mapa.
-    const director = new Director(link, { seed: 300, agentPlayers: [1] });
+    // onduladas (#229) ya no tiene batalla; la 300, hasta que el héroe nació en
+    // su base (19-10-2026). Buscada. Lo que se mide es la nota, no el mapa.
+    const seed = await semillaEnQueElRivalAtaca(300);
+    const director = new Director(link, { seed, agentPlayers: [1] });
     rivalAlAtaque(director.state);
     // Sin oro para rendirse: si no, la heurística sustituta se rinde en la
     // primera decisión —seis pesados contra su tropa— y la batalla acaba
@@ -2153,6 +2159,8 @@ describe('la tropa se hace héroe, por el cable', () => {
       seed: 501,
       agentPlayers: [0],
       preparar: (s) => {
+        // El héroe de salida nace en la base: fuera, para que el nacido la ocupe.
+        fueraDeSuBase(s, 0);
         veterano = ponVeteranoEnLaBase(s, 0);
         const g = baseOf(s, 0)!.garrison.find((x) => x.veterania?.id === veterano)!;
         nivelDelVeterano = nivelDeUnidad(cifrasDeUnidad(g.creature, g.veterania));
@@ -2371,6 +2379,7 @@ describe('la tropa se hace héroe, por el cable', () => {
       seed: 11,
       agentPlayers: [0],
       preparar: (s) => {
+        fueraDeSuBase(s, 0);
         ponVeteranoEnLaBase(s, 0);
         const base = baseOf(s, 0)!;
         const [primero, otro, ...resto] = base.garrison;

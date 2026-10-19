@@ -151,6 +151,21 @@ export const NOMBRE_DE_FACCION: Readonly<Record<FactionId, string>> = {
 };
 
 /**
+ * La facción que pide la URL (`?faccion=`), con la regla de `parseSeed`: no pedir
+ * ninguna no es un error y da `null` (la sortea la semilla); una que no existe se
+ * rechaza nombrando las que valen, en vez de jugar otra en silencio.
+ */
+export function parseFaccion(texto: string | null | undefined): FactionId | null {
+  if (texto === null || texto === undefined || texto.trim() === '') return null;
+  const f = FACTION_IDS.find((id) => id === texto);
+  if (f === undefined) {
+    const valen = FACTION_IDS.map((id) => `${id} (${NOMBRE_DE_FACCION[id]})`).join(', ');
+    throw new Error(`"${texto}" no es una facción: las que hay son ${valen}`);
+  }
+  return f;
+}
+
+/**
  * Rasgos especiales de criatura.
  *
  * Es una constante recorrible, y no solo una unión de literales, porque hay un

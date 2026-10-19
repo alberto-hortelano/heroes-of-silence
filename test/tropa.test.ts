@@ -49,6 +49,7 @@ import { FACTION_IDS, SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
 import {
   copiaDePartida,
   ejercito,
+  fueraDeSuBase,
   hastaSuSiguienteTurno,
   JINETE,
   PESADA,
@@ -564,6 +565,8 @@ describe('`recruitCapacity`: lo máximo que el núcleo acepta, ni uno más ni un
       // Con la base llena de salida el máximo sería 0 en las 40 y el test no
       // probaría el `while`: se mide sobre una guarnición con sitio.
       const state = sinGuarnicionDeSalida(newGame({ seed }));
+      // El héroe nace dentro (19-10-2026) y recluta en su tropa: se mide la guarnición.
+      fueraDeSuBase(state, 0);
       const town = townsOf(state, 0)[0]!;
       // Variedad: unas semillas con mucha oferta, otras con poco oro, para que
       // el tope lo pongan las tres cosas en semillas distintas.

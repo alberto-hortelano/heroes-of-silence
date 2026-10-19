@@ -40,7 +40,6 @@ import {
   type RetoqueDeArena,
   retiradosDeLaURL,
   tipoDelStack,
-  unaVezEnLaURL,
   unidadNueva,
   validarHeroeDeArena,
 } from '@core/arena.js';
@@ -88,6 +87,7 @@ import {
   type Unidad,
   validarUnidad,
 } from '@core/unidad.js';
+import { unaVezEnLaURL } from '@core/validar.js';
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';

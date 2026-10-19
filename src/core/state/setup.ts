@@ -10,9 +10,16 @@ import {
   maxMovePoints,
 } from '../hero/hero.js';
 import { CUPO_HEROE, heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
-import { buildMap, generateMapPlan, type MapPlan, validateMapPlan } from '../map/generate.js';
+import {
+  buildMap,
+  generateMapPlan,
+  type MapPlan,
+  type PlannedTown,
+  validateMapPlan,
+} from '../map/generate.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
+import { primeraCiudadDe } from '../town/town.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
 import { createGame, type GameState } from './game.js';
 
@@ -57,12 +64,32 @@ export interface NewGameOptions {
  * Las facciones de una partida procedimental: dos distintas de las cinco
  * (19-10-2026: «las cinco sustituyen»), sorteadas con **su propia corriente** de
  * la semilla: con la del mapa, pedir facciones movía cada casilla de cada mapa.
+ *
+ * Con `delJugador`, la del jugador 0 es esa y el rival, otra de las cuatro que
+ * quedan (la elección del menú). La primera **se sortea siempre** y luego se
+ * sustituye: así la corriente gasta lo mismo con elección y sin ella, y pedir la
+ * que la semilla habría sacado da la misma partida que no pedir nada
+ * (`?seed=N` ≡ `?seed=N&faccion=<la suya>`). Es la única función que decide la
+ * pareja: el cliente solo le pasa la elegida.
  */
-export function faccionesDeLaSemilla(seed: number): readonly [FactionId, FactionId] {
+export function faccionesDeLaSemilla(
+  seed: number,
+  delJugador?: FactionId,
+): readonly [FactionId, FactionId] {
   const rng = createRng(hashDeTexto(`facciones|${seed}`));
-  const f0 = rng.pick(FACTION_IDS);
+  const sorteada = rng.pick(FACTION_IDS);
+  const f0 = delJugador ?? sorteada;
   const f1 = rng.pick(FACTION_IDS.filter((f) => f !== f0));
   return [f0, f1];
+}
+
+/**
+ * El nombre del héroe con que empieza el jugador del puesto `puesto` (0, 1…) si
+ * es de `faction`: el que le da `newGame` y el que enseña la elección del menú.
+ */
+export function nombreDeSalida(faction: FactionId, puesto: number): string {
+  const nombres = HERO_NAMES[faction];
+  return nombres[puesto % nombres.length] as string;
 }
 
 /**
@@ -156,39 +183,39 @@ export function newGame(options: NewGameOptions = {}): GameState {
 
   const { map, towns, raiders } = buildMap(plan);
 
+  // La facción de cada jugador, la de su primera ciudad (su base).
   const factionOf = new Map<PlayerId, FactionId>();
   for (const t of plan.towns) {
     if (t.owner !== null && !factionOf.has(t.owner)) factionOf.set(t.owner, t.faction);
   }
 
-  // Los inicios, ORDENADOS por jugador, y de aquí salen las tres cosas que el
-  // orden decide: `state.players`, `state.heroes` y el nombre de cada héroe.
-  //
-  // `currentPlayer` juega por el índice de `state.players`, así que derivarlo
-  // del orden en que el plan escribe `heroStarts` le regalaba la iniciativa a
-  // quien diseña el mapa: con los inicios del revés, el agente abría la partida
-  // el día 1. Diseñar el mapa no puede ser también repartirse el turno, y menos
-  // con el equilibrio entre facciones ya declarado frágil (#89).
-  //
-  // Se ordena aquí, en el único sitio donde el plan se convierte en partida, en
-  // vez de exigírselo al agente: una regla que el motor puede cumplir solo no se
-  // delega en quien tiene interés en incumplirla. La prosa del contrato se lo
-  // dice para que no lo intente.
-  const inicios = [...plan.heroStarts].sort((a, b) => a.player - b.player);
+  // Los jugadores son los dueños de ciudad, ORDENADOS por id, y de ese orden
+  // salen las tres cosas que decide: `state.players`, `state.heroes` y el nombre
+  // de cada héroe. `currentPlayer` juega por el índice de `state.players`, así
+  // que derivarlo del orden en que el plan escribe sus ciudades le regalaría la
+  // iniciativa a quien diseña el mapa (lo que pasaba con `heroStarts` del revés:
+  // el agente abría el día 1). Se ordena aquí, en el único sitio donde el plan se
+  // convierte en partida: una regla que el motor puede cumplir solo no se delega
+  // en quien tiene interés en incumplirla.
+  const jugadores = [...factionOf.keys()].sort((a, b) => a - b);
 
-  const heroes: Hero[] = inicios.map((inicio, i) => {
-    const faction = factionOf.get(inicio.player) ?? FACTION_IDS[0];
-    const nombres = HERO_NAMES[faction];
+  const heroes: Hero[] = jugadores.map((player, i) => {
+    const faction = factionOf.get(player) as FactionId;
+    // El héroe nace DENTRO de su base (19-10-2026, «empieza en la base»): en la
+    // casilla del castillo, que es estado normal (al acabar una marcha en él
+    // también está ahí). No recoge la guarnición al nacer: la base del día 1 se
+    // queda con la suya, como cuando nacía al lado (decisión del usuario).
+    const base = primeraCiudadDe(plan.towns, player) as PlannedTown;
     // La construcción de siempre (`heroeRecienHecho`), con lo que el inicial
     // tiene de más encima: mejores cifras, su tropa, Flecha mágica y dos
     // habilidades.
     const hero: Hero = {
       ...heroeRecienHecho({
-        id: `hero-${inicio.player}`,
-        owner: inicio.player,
-        name: nombres[i % nombres.length] as string,
+        id: `hero-${player}`,
+        owner: player,
+        name: nombreDeSalida(faction, i),
         faction,
-        at: inicio.at,
+        at: base.at,
         experience: EXPERIENCIA_INICIAL_DE_HEROE,
         tipo: tipoDeHeroePorDefecto(faction),
       }),
@@ -207,10 +234,10 @@ export function newGame(options: NewGameOptions = {}): GameState {
     return hero;
   });
 
-  const players = inicios.map((inicio) => ({
-    id: inicio.player,
-    faction: factionOf.get(inicio.player) ?? FACTION_IDS[0],
-    controller: options.controllers?.[inicio.player] ?? ('ai' as Controller),
+  const players = jugadores.map((player) => ({
+    id: player,
+    faction: factionOf.get(player) as FactionId,
+    controller: options.controllers?.[player] ?? ('ai' as Controller),
   }));
 
   return createGame({
