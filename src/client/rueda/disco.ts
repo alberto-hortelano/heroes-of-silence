@@ -1,8 +1,8 @@
 /**
  * El disco de la rueda del golpe, su geometría y sus iconos: lo comparten la rueda
- * del combate (`rueda.ts`, que elige y cuenta el desenlace) y la rueda de la ficha
- * de un arma (`ruedaDeLaPieza`, solo para leer), que va en `paneles.ts`. Aparte
- * para que `paneles.ts` no importe `rueda.ts`, que ya importa `paneles.ts`.
+ * del combate (`rueda.ts`, que elige y cuenta el desenlace, en la partida y en la
+ * arena) y la rueda de la ficha de un arma de la arena (`ruedaDeLaPieza`, solo para
+ * leer), que va en `arena/paneles.ts`.
  */
 
 import {

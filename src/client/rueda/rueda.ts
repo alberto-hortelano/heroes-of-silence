@@ -1,6 +1,7 @@
 /**
- * La rueda del golpe, pintada (la arena con «Golpe: rueda»; la regla es de
- * `core/battle/rueda.ts`).
+ * La rueda del golpe, pintada, en la batalla de la partida y en la de la arena (la
+ * regla es de `core/battle/rueda.ts`; F5 de la tarea del combate en el juego,
+ * 19-10-2026: antes era solo de la arena).
  *
  * Es un `<dialog id="rueda">` modal sobre el lienzo, con dos caras:
  *
@@ -18,11 +19,11 @@
  *   (`--cruce`, `ajustarLaRueda`). Repintar cada fotograma reiniciaría las
  *   animaciones.
  *
- * Solo pinta: elegir y cancelar lo hace la sesión (`SesionDeArena`), y quien
- * conecta los gestos es `main.ts`.
+ * Solo pinta: elegir y cancelar lo hace la sesión (`CruceDeLaRueda`), y quien
+ * conecta los gestos es `dialogo.ts`. Lo que cada página pone de los dos que se
+ * cruzan (su figura, su vista previa, su ficha) llega en `CaraDeLosContrincantes`.
  */
 
-import { ladoDe } from '@core/arena.js';
 import type { SectorDeLaRueda } from '@core/battle/battle.js';
 import {
   ANILLO,
@@ -57,7 +58,6 @@ import {
   sector,
   xy,
 } from './disco.js';
-import { figuraEnLienzo, type VistaDeArena, vistaPrevia } from './paneles.js';
 
 // Las medidas y el ángulo de cada sector se leen desde aquí (`pnpm capturas`, los tests).
 export { anguloDe, MEDIDAS_DE_LA_RUEDA } from './disco.js';
@@ -200,30 +200,30 @@ function chapa(side: Side): Html {
 }
 
 /**
- * La figura de quien se cruza, la misma del botón del puesto en el montaje
- * (`canvas.figura`, que anima `main.ts` y tiñe del color de su bando por
- * `data-lado`): con varias unidades iguales el nombre no dice cuál es (#261).
+ * Lo que cada página pone de los dos que se cruzan en la cabecera de la rueda: con
+ * varias unidades iguales el nombre no dice cuál es (#261). La arena pone su figura
+ * animada y, en la rueda para elegir, un botón que abre su ficha con su vista
+ * previa (`arena/main.ts`); la partida, de momento, solo la chapa y el nombre.
  */
-function figuraDe(x: BattleStack): Html {
-  return figuraEnLienzo(x.body, ladoDe(x.side), 'rueda');
+export interface CaraDeLosContrincantes {
+  /**
+   * El icono de uno de los dos, o `null` sin icono. `nombre` es el suyo en el
+   * campo; `paraElegir`, si es la rueda para elegir (en el desenlace, solo la
+   * figura: lo que se abriera ahí quedaría debajo de la rueda de la fase siguiente).
+   */
+  icono(x: BattleStack, nombre: string, paraElegir: boolean): Html | null;
 }
 
-/**
- * Uno de los dos: su figura, la chapa de su bando y su nombre en el campo. Con
- * `vista` (la rueda para elegir), la figura es un botón que abre su ficha de solo
- * lectura (`ficha-en-la-rueda`, `main.ts`) y, al pasar el ratón o con el foco del
- * teclado, su vista previa (`vistaPrevia`: del estado, nunca lo elegido, que va
- * a ciegas en la sesión). En el desenlace, solo la figura: la ficha abierta ahí
- * quedaría debajo de la rueda de la fase siguiente.
- */
-function contrincante(battle: BattleState, x: BattleStack, vista: VistaDeArena | null): Html {
+/** Uno de los dos: su icono (`cara`), la chapa de su bando y su nombre en el campo. */
+function contrincante(
+  battle: BattleState,
+  x: BattleStack,
+  cara: CaraDeLosContrincantes | null,
+  paraElegir: boolean,
+): Html {
   const nombre = nombreEnElCampo(battle, x);
-  const previa = `previa-${x.id}`;
-  const icono =
-    vista === null
-      ? html`<span class="icono-de-contrincante">${figuraDe(x)}</span>`
-      : html`<button type="button" class="icono-de-contrincante" data-arena="ficha-en-la-rueda" data-stack="${x.id}" aria-label="${`Ficha de ${nombre}`}" aria-describedby="${previa}">${figuraDe(x)}</button><div class="vista-previa" id="${previa}" role="tooltip">${vistaPrevia(vista, x)}</div>`;
-  return html`<span class="contrincante" data-contrincante="${x.id}">${icono}<span class="quien">${chapa(x.side)}<span class="nombre-del-contrincante">${nombre}</span></span></span>`;
+  const icono = cara?.icono(x, nombre, paraElegir) ?? null;
+  return html`<span class="contrincante" data-contrincante="${x.id}">${icono ?? NADA}<span class="quien">${chapa(x.side)}<span class="nombre-del-contrincante">${nombre}</span></span></span>`;
 }
 
 const LADO: Readonly<Record<Side, string>> = { attacker: 'izquierdo', defender: 'derecho' };
@@ -240,11 +240,12 @@ function cabecera(
   titulo: Html,
   atacante: BattleStack,
   objetivo: BattleStack,
-  vista: VistaDeArena | null,
+  cara: CaraDeLosContrincantes | null,
+  paraElegir: boolean,
 ): Html {
   return html`<header class="cabecera-de-rueda">
       <h2 id="titulo-de-la-rueda">${titulo}</h2>
-      <div class="quienes">${contrincante(battle, atacante, vista)}<span class="hacia"><span class="ataca">ataca a</span>${contrincante(battle, objetivo, vista)}</span></div>
+      <div class="quienes">${contrincante(battle, atacante, cara, paraElegir)}<span class="hacia"><span class="ataca">ataca a</span>${contrincante(battle, objetivo, cara, paraElegir)}</span></div>
     </header>`;
 }
 
@@ -289,10 +290,14 @@ function rotuloDe(t: TipoDeGolpe): Html {
  * La rueda para elegir. En la fase `golpe` elige quien pega; en `respuesta`,
  * quien recibe, que no ve el golpe. Los sectores son botones (`data-golpe`, con
  * la tecla en su etiqueta) del tamaño del plato, recortados a su sector
- * (`formas`), y su efecto, una nota al lado. De `s`, la sesión, sale la vista
- * previa de los dos.
+ * (`formas`), y su efecto, una nota al lado. De `cara`, lo que la página pone de
+ * los dos (`CaraDeLosContrincantes`).
  */
-export function renderEleccion(s: VistaDeArena, p: RuedaPendiente): Html {
+export function renderEleccion(
+  battle: BattleState,
+  p: RuedaPendiente,
+  cara: CaraDeLosContrincantes | null,
+): Html {
   const golpe = p.fase === 'golpe';
   const titulo = golpe
     ? html`Golpe del bando ${LADO[p.bando]}`
@@ -312,7 +317,7 @@ export function renderEleccion(s: VistaDeArena, p: RuedaPendiente): Html {
     () => html` data-abre-nota`,
   );
   return html`<div class="rueda" data-fase="${p.fase}" data-bando="${p.bando}">
-    ${cabecera(s.battle, titulo, p.atacante, p.objetivo, s)}
+    ${cabecera(battle, titulo, p.atacante, p.objetivo, cara, true)}
     <div class="plato">
       ${formas()}
       <div class="giro">${disco(p.bando)}${sectores}</div>
@@ -394,7 +399,7 @@ function tinte(tipo: TipoDeGolpe, side: Side): Html {
 
 /**
  * Un marcador: el disco del color de su bando, que cae a su sitio. `data-papel`
- * retrasa la caída del de la respuesta (arena.css).
+ * retrasa la caída del de la respuesta (`rueda.css`).
  */
 function marcador(side: Side, en: { x: number; y: number }, papel: PapelEnLaRueda): Html {
   return html`<g transform="translate(${String(en.x)} ${String(en.y)})"><g class="marca" data-papel="${papel}">
@@ -451,6 +456,7 @@ export function renderDesenlace(
   battle: BattleState,
   e: HechoDelCruce,
   contraataque: Punto | null,
+  cara: CaraDeLosContrincantes | null,
 ): Html {
   const atacante = battle.stacks.find((s) => s.id === e.stack);
   const objetivo = battle.stacks.find((s) => s.id === e.target);
@@ -473,7 +479,7 @@ export function renderDesenlace(
       : html`contraataque <strong data-punto="${String(contraataque)}">${NOMBRE_DEL_PUNTO[contraataque]}</strong>`;
   const titulo = html`<span class="mientras-gira">La rueda gira…</span><span class="cuando-para">${NOMBRE_DE_GOLPE[e.golpe]} contra ${NOMBRE_DE_GOLPE[e.respuesta]}</span>`;
   return html`<div class="rueda" data-fase="desenlace">
-    ${cabecera(battle, titulo, atacante, objetivo, null)}
+    ${cabecera(battle, titulo, atacante, objetivo, cara, false)}
     <div class="plato">
       <div class="giro">${disco(null)}${etiquetas}</div>
       <svg class="marcas" viewBox="-110 -110 220 220" aria-hidden="true" focusable="false">

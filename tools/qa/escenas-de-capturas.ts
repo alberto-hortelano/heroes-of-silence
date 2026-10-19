@@ -43,6 +43,20 @@ import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
 import { buildingsOfFaction } from '../../src/core/town/buildings.js';
 import type { FactionId, Point } from '../../src/core/types.js';
 
+/**
+ * Pasa el turno en el espejo y dice si el rival atacó a la persona por el camino
+ * (una defensa, #116, F5): entonces el turno espera a que ella la juegue, y
+ * `endTurn` a secas se quedaba esperando para siempre. Las búsquedas descartan esa
+ * semilla; las pasadas que no juegan defensas lo dicen.
+ */
+export async function turnoDelEspejo(espejo: Session): Promise<'pasado' | 'defensa'> {
+  const defensa = new Promise<'defensa'>((r) => {
+    espejo.alCambiarSinGesto = () => r('defensa');
+  });
+  const pasado = espejo.endTurn().then(() => 'pasado' as const);
+  return Promise.race([pasado, defensa]);
+}
+
 export interface Caja {
   readonly x: number;
   readonly y: number;
@@ -262,7 +276,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
     const heroe = espejo.myHeroes()[0];
     if (heroe === undefined) continue;
     if (!troopSummary(heroe.army, espejo.state.characters).some((g) => g.rango >= 2)) continue;
-    await espejo.endTurn();
+    if ((await turnoDelEspejo(espejo)) === 'defensa') continue;
     if (espejo.state.finished !== null) continue;
     const segunda = guardiaEnElMarco(b, e, TILE_INICIAL, espejo, VETERANOS);
     if (segunda === null) continue;
@@ -528,7 +542,7 @@ export async function buscarSinArte(b: Caja, desde = 1): Promise<number> {
         for (let dy = -2; dy <= 2; dy++)
           for (let dx = -2; dx <= 2; dx++) mirado.add(`${at.x + dx},${at.y + dy}`);
       const ayer = new Map(espejo.state.raiders.map((r) => [r.id, { ...r.at }]));
-      await espejo.endTurn();
+      if ((await turnoDelEspejo(espejo)) === 'defensa') break;
       movido = espejo.state.raiders.some((r) => {
         const a = ayer.get(r.id);
         return (
@@ -623,6 +637,9 @@ export function hayAnguloEnLaBatalla(espejo: Session, b: Caja): boolean {
   const battle = espejo.battle;
   if (battle === null) return false;
   for (let n = 0; n < 40 && battle.finished === null; n++) {
+    // La rueda, como `responderLaRueda`: Normal, antes y después de cada jugada.
+    while (espejo.ruedaPendiente !== null) espejo.elegirEnLaRueda('normal');
+    if (battle.finished !== null) break;
     if (n >= 3 && planDeAngulo(espejo, b.width, b.height) !== null) return true;
     const acciones = espejo.battleLegalActions();
     if (acciones.length === 0) return false;
@@ -641,6 +658,7 @@ export function hayAnguloEnLaBatalla(espejo: Session, b: Caja): boolean {
       const ia = chooseBattleAction(battle);
       espejo.playBattleAction(ia.type === 'cast' ? { type: 'defend' } : ia);
     }
+    while (espejo.ruedaPendiente !== null) espejo.elegirEnLaRueda('normal');
   }
   return false;
 }

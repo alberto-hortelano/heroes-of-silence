@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
+import { hexDistance } from '../src/core/battle/board.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { pointFromKey, reachableFrom } from '../src/core/map/map.js';
@@ -23,13 +24,18 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dwellings } from '../src/core/town/town.js';
+import type { Hex } from '../src/core/types.js';
+import { sesionContraMonstruo } from './batalla-de-cliente.js';
 import {
   anteLaBase,
   costesDelAlcance,
+  ejercito,
+  PESADA,
   pegadoA,
   planDeNodos,
   primeraMarchaQueSePara,
   primeraSemillaCon,
+  TROPA_BARATA,
 } from './helpers.js';
 
 describe('sesión del cliente: el turno del rival', () => {
@@ -178,10 +184,17 @@ describe('sesión del cliente: el bando de la persona', () => {
     const battle = s.battle!;
     if (battle.finished === null) {
       const activo = battle.stacks.find((x) => x.id === battle.turno?.stack)!;
-      // Lo contrario de lo que hacía: se paraba al ver un atacante —creyéndolo
-      // suyo— y devolvía el mando con el turno del rival a medias.
-      expect(activo.side).toBe('defender');
-      expect(s.battleMovable().length).toBeGreaterThan(0);
+      if (s.ruedaPendiente !== null) {
+        // Golpeó a una unidad de la persona: se para ahí, plantado, y le toca
+        // a ella responder (F5).
+        expect(s.ruedaPendiente.fase).toBe('respuesta');
+        expect(activo.side).toBe('attacker');
+      } else {
+        // Lo contrario de lo que hacía: se paraba al ver un atacante —creyéndolo
+        // suyo— y devolvía el mando con el turno del rival a medias.
+        expect(activo.side).toBe('defender');
+        expect(s.battleMovable().length).toBeGreaterThan(0);
+      }
     }
   });
 });
@@ -507,5 +520,183 @@ describe('los asaltantes que se ven y la marcha que se para (#130)', () => {
       break;
     }
     expect(probadas).toBe(1);
+  });
+});
+
+/**
+ * F5 de la tarea del combate en el juego (19-10-2026): la persona elige en la
+ * rueda del golpe en las batallas del mapa —su golpe y, cuando la golpean cuerpo a
+ * cuerpo, su respuesta, sin ver lo del otro—, y juega las batallas en que la
+ * atacan (#116). Antes, la IA elegía por ella a ciegas y resolvía sus defensas.
+ */
+describe('la rueda y las defensas de la persona en la partida (F5)', () => {
+  /**
+   * Juega la batalla con la persona acercando sus unidades al enemigo más cercano
+   * (los monstruos guardan su sitio) hasta que `hasta` se cumpla; si no puede
+   * acercarse más, cierra el turno, y su respuesta en la rueda, si se la piden, es
+   * Normal. Lanza si la batalla se acaba antes.
+   */
+  function jugarHasta(s: Session, hasta: () => boolean): void {
+    for (let i = 0; i < 400; i++) {
+      if (hasta()) return;
+      const b = s.battle;
+      if (b === null || b.finished !== null) break;
+      if (s.ruedaPendiente !== null) {
+        s.elegirEnLaRueda('normal');
+        continue;
+      }
+      const turno = s.turnoPropio;
+      if (turno === null) throw new Error('ni le toca a la persona ni espera la rueda');
+      const enemigos = b.stacks.filter((x) => x.side !== turno.side && x.count > 0);
+      const lejos = (h: Hex) => Math.min(...enemigos.map((x) => hexDistance(h, x.hex)));
+      const ahora = lejos(turno.stack.hex);
+      const paso = s
+        .battleLegalActions()
+        .filter((a) => a.type === 'move')
+        .sort((x, y) => lejos(x.to) - lejos(y.to))[0];
+      s.playBattleAction(
+        paso !== undefined && lejos(paso.to) < ahora ? paso : { type: 'end_turn' },
+      );
+    }
+    throw new Error('la batalla no llegó a lo que se esperaba');
+  }
+
+  /** Un golpe cuerpo a cuerpo de la persona en la lista legal, si lo hay. */
+  const golpeLegal = (s: Session) => s.battleLegalActions().find((a) => a.type === 'attack');
+
+  it('el golpe de la persona anda hasta su objetivo y deja la rueda en la fase del golpe', () => {
+    const s = sesionContraMonstruo();
+    jugarHasta(s, () => s.ruedaPendiente === null && golpeLegal(s) !== undefined);
+    const golpe = golpeLegal(s)!;
+    const cruces = () => s.battle!.log.filter((e) => e.kind === 'cruce').length;
+    const antes = cruces();
+    const version = s.version;
+
+    s.playBattleAction(golpe);
+
+    // Plantado: anduvo, no golpeó, y la rueda espera a la persona.
+    const p = s.ruedaPendiente!;
+    expect(p.fase).toBe('golpe');
+    expect(p.bando).toBe(s.miBando);
+    expect(p.atacante.side).toBe(s.miBando);
+    expect(s.battle!.golpeEnCurso).not.toBeNull();
+    expect(cruces()).toBe(antes);
+    expect(s.version).toBeGreaterThan(version);
+    // Con la rueda abierta no se juega otra cosa ni se delega la batalla.
+    s.playBattleAction({ type: 'end_turn' });
+    expect(s.status).toBe('Elige antes en la rueda del golpe.');
+    s.autoResolveBattle();
+    expect(s.status).toBe('Elige antes en la rueda del golpe.');
+    expect(s.battle).not.toBeNull();
+
+    // Elige: el monstruo responde a ciegas y el golpe se da con lo elegido.
+    s.elegirEnLaRueda('fuerte');
+    const cruce = s.battle!.log.find((e) => e.kind === 'cruce' && e.stack === p.atacante.id);
+    expect(cruce).toMatchObject({ kind: 'cruce', golpe: 'fuerte', target: p.objetivo.id });
+    expect(s.battle!.golpeEnCurso).toBeNull();
+  });
+
+  it('un tipo que no existe se dice en la barra y la rueda sigue esperando', () => {
+    const s = sesionContraMonstruo();
+    jugarHasta(s, () => s.ruedaPendiente === null && golpeLegal(s) !== undefined);
+    s.playBattleAction(golpeLegal(s)!);
+    const p = s.ruedaPendiente;
+    s.elegirEnLaRueda('patada');
+    expect(s.status).toMatch(/patada/);
+    expect(s.ruedaPendiente).toBe(p);
+  });
+
+  it('Escape antes de elegir suelta el golpe: se queda donde llegó, sin golpear', () => {
+    const s = sesionContraMonstruo();
+    jugarHasta(s, () => s.ruedaPendiente === null && golpeLegal(s) !== undefined);
+    s.playBattleAction(golpeLegal(s)!);
+    const quien = s.ruedaPendiente!.atacante;
+    const donde = { ...quien.hex };
+
+    expect(s.cancelarGolpe()).toBe(true);
+
+    expect(s.ruedaPendiente).toBeNull();
+    expect(s.battle!.golpeEnCurso).toBeNull();
+    expect(s.status).toMatch(/^Golpe cancelado/);
+    expect(s.battle!.log.some((e) => e.kind === 'cruce' && e.stack === quien.id)).toBe(false);
+    expect(quien.hex).toEqual(donde);
+  });
+
+  it('cuando golpean a la persona, elige su respuesta sin ver el golpe; esa no se cancela', () => {
+    const s = sesionContraMonstruo();
+    jugarHasta(s, () => s.ruedaPendiente?.fase === 'respuesta');
+    const p = s.ruedaPendiente!;
+    expect(p.bando).toBe(s.miBando);
+    expect(p.objetivo.side).toBe(s.miBando);
+    expect(p.atacante.side).not.toBe(s.miBando);
+    // Lo que se enseña no lleva el golpe que ya eligió la IA: ni la acción ni el tipo.
+    expect(Object.keys(p).sort()).toEqual(['atacante', 'bando', 'fase', 'objetivo', 'prevision']);
+    expect(JSON.stringify(p.prevision)).not.toMatch(/"golpe"/);
+
+    expect(s.cancelarGolpe()).toBe(false);
+    expect(s.status).toBe('El golpe ya viene: elige la respuesta en la rueda.');
+
+    s.elegirEnLaRueda('defensivo');
+    const cruce = s.battle!.log.find((e) => e.kind === 'cruce' && e.target === p.objetivo.id);
+    expect(cruce).toMatchObject({ kind: 'cruce', respuesta: 'defensivo', stack: p.atacante.id });
+  });
+
+  /**
+   * Una partida en la que el turno del rival ataca al héroe de la persona: el del
+   * rival, con seis pesados a dos pasos del suyo, con tres baratos.
+   */
+  function elRivalMeAtaca(semilla: number): Session {
+    const s = new Session(semilla);
+    const mio = heroesOf(s.state, 0)[0]!;
+    const suyo = heroesOf(s.state, 1)[0]!;
+    mio.army = ejercito({ creature: TROPA_BARATA, count: 3 });
+    suyo.army = ejercito({ creature: PESADA, count: 6 });
+    mio.at = pegadoA(s.state, suyo.at);
+    return s;
+  }
+
+  /** Deja correr el turno del rival hasta que se cumpla `cond`, o lanza. */
+  async function hastaQue(cond: () => boolean): Promise<void> {
+    for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
+    if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
+  }
+
+  it('la persona juega su defensa (#116): el turno del rival espera a que la cierre', async () => {
+    const s = elRivalMeAtaca(2);
+    let avisos = 0;
+    s.alCambiarSinGesto = () => avisos++;
+    let acabado = false;
+    const turno = s.endTurn().then(() => {
+      acabado = true;
+    });
+    await hastaQue(() => s.scene === 'battle');
+
+    // La batalla es suya y sigue abierta: nadie la resolvió por ella.
+    expect(s.miBando).toBe('defender');
+    expect(s.battle!.finished).toBeNull();
+    expect(s.state.log.some((e) => e.kind === 'battle_ended')).toBe(false);
+    expect(s.status).toBe('¡Te atacan! Defiéndete.');
+    expect(avisos).toBe(1);
+    expect(s.isPlayersTurn).toBe(false);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(acabado).toBe(false);
+
+    // La juega hasta el final —la rueda incluida— y «Continuar» la cierra.
+    let respuestas = 0;
+    for (let i = 0; i < 400 && s.battle!.finished === null; i++) {
+      if (s.ruedaPendiente !== null) {
+        if (s.ruedaPendiente.fase === 'respuesta') respuestas++;
+        s.elegirEnLaRueda('normal');
+      } else s.playBattleAction({ type: 'end_turn' });
+    }
+    expect(s.battle!.finished).not.toBeNull();
+    expect(respuestas).toBeGreaterThan(0);
+    s.finishBattle();
+    await turno;
+
+    expect(acabado).toBe(true);
+    expect(s.scene).toBe('adventure');
+    expect(s.state.pendingBattle).toBeNull();
+    expect(s.state.log.some((e) => e.kind === 'battle_ended')).toBe(true);
   });
 });

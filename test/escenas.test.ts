@@ -457,7 +457,9 @@ describe('la batalla en el lienzo', () => {
     const s = sesionEnBatalla();
     const escena = escenaDeBatalla(() => s);
     for (let i = 0; i < 500 && s.battle!.finished === null; i++) {
-      s.playBattleAction(agresiva(s.battle!));
+      // La rueda del golpe, si espera a la persona (F5): Normal.
+      if (s.ruedaPendiente !== null) s.elegirEnLaRueda('normal');
+      else s.playBattleAction(agresiva(s.battle!));
     }
     expect(s.battle!.finished).not.toBeNull();
     escena.sincronizar(10);

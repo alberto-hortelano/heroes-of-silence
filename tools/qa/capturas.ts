@@ -33,12 +33,6 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
 import { DURACION, duracionDeLaJugada, IMPACTO } from '../../src/client/anim.js';
-import {
-  anguloDe,
-  MEDIDAS_DE_LA_RUEDA,
-  sitioEnLaRueda,
-  teclaDe,
-} from '../../src/client/arena/rueda.js';
 import { EscenaAventura } from '../../src/client/escenas/aventura.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
@@ -63,6 +57,12 @@ import {
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
+import {
+  anguloDe,
+  MEDIDAS_DE_LA_RUEDA,
+  sitioEnLaRueda,
+  teclaDe,
+} from '../../src/client/rueda/rueda.js';
 import { type ControlDeBatalla, SesionDeArena, Session } from '../../src/client/session.js';
 import { nombreEnElCampo } from '../../src/client/views/distintivo.js';
 import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
@@ -140,6 +140,7 @@ import {
   rutaDeDosColores,
   TOPE_DE_SEMILLAS,
   tocable,
+  turnoDelEspejo,
   VETERANOS,
 } from './escenas-de-capturas.js';
 import { entornoDelArnes, semillaDelEspectador } from './partida-del-arnes.js';
@@ -479,6 +480,42 @@ async function esperarCola(battle: BattleState, nuevos: readonly BattleEvent[]):
 }
 
 /**
+ * La rueda del golpe en la batalla del juego (F5): mientras el espejo espera una
+ * elección de la persona —su golpe, o su respuesta cuando la golpean—, espera a
+ * que la página abra la rueda en esa fase (tras contar la marcha), pulsa la tecla
+ * de `tipo` y lo replica en el espejo; y espera a que la página cuente el cruce,
+ * para no leer la rueda de antes como la siguiente.
+ */
+async function responderLaRueda(page: Page, espejo: Session, tipo: TipoDeGolpe = 'normal') {
+  for (let i = 0; i < 20 && espejo.ruedaPendiente !== null; i++) {
+    const { fase } = espejo.ruedaPendiente;
+    await page
+      .locator(`#rueda[open] .rueda[data-fase="${fase}"]`)
+      .waitFor({ timeout: 20000 })
+      .catch(async () => {
+        throw new Error(
+          `la página no abre la rueda en la fase «${fase}» (barra: «${await page.locator('#status').innerText()}»)`,
+        );
+      });
+    await page.keyboard.press(teclaDe(tipo));
+    espejo.elegirEnLaRueda(tipo);
+    if (espejo.ruedaPendiente === null) {
+      await page.locator('#rueda .rueda[data-fase="desenlace"]').waitFor({ timeout: 20000 });
+    }
+  }
+}
+
+/**
+ * «Fin de turno» del espejo, sin defensas: si el rival ataca a la persona por el
+ * camino (#116), esta pasada no la juega y lo dice.
+ */
+async function pasarElTurnoDelEspejo(espejo: Session, donde: string): Promise<void> {
+  if ((await turnoDelEspejo(espejo)) === 'defensa') {
+    throw new Error(`${donde}: el rival atacó a la persona y esta pasada no juega defensas`);
+  }
+}
+
+/**
  * «Fin de turno» en la página y en el espejo, y espera a que la página enseñe el
  * día al que ha llegado el espejo con el turno ya devuelto.
  *
@@ -523,7 +560,7 @@ async function pasarDia(page: Page, espejo: Session): Promise<void> {
     if (entro) break;
     if (intento >= 5) throw new Error(`la página no acepta «Fin de turno» en ${antes}`);
   }
-  await espejo.endTurn();
+  await pasarElTurnoDelEspejo(espejo, `«Fin de turno» en ${antes}`);
   const dia = rotuloDeDia(espejo.state.day);
   // Si el espejo ya sabe que la partida se acabó, se espera a que la página lo
   // diga, y SOLO eso. Con el día en la condición quedaba la misma carrera de
@@ -841,6 +878,7 @@ async function moverDosTramosYAtacar(
   const antes = battle.log.length;
   await page.mouse.click(b.x + px, b.y + py);
   espejo.playBattleAction(accion);
+  await responderLaRueda(page, espejo);
   const nuevos = battle.log.slice(antes);
   const golpeDesde = nuevos.find((e) => e.kind === 'move' && e.stack === activo);
   const llego = golpeDesde?.kind === 'move' ? golpeDesde.to : turno.stack.hex;
@@ -865,6 +903,9 @@ async function turnoDeBatalla(
 ): Promise<boolean> {
   const battle = espejo.battle;
   if (battle === null) throw new Error('no hay batalla en el espejo');
+  // Si la batalla esperaba la respuesta de la persona (la golpearon al empezar).
+  await responderLaRueda(page, espejo);
+  if (battle.finished !== null) return false;
   const antes = battle.log.length;
   const acciones = espejo.battleLegalActions();
 
@@ -990,6 +1031,7 @@ async function turnoDeBatalla(
       espejo.playBattleAction(ia);
     }
   }
+  await responderLaRueda(page, espejo);
   const nuevos = battle.log.slice(antes);
   if (n === 3 && nuevos.some((e) => e.kind in DURACION || e.kind === 'move')) {
     await avisoQueSeRetira(page, battle, nuevos);
@@ -1492,7 +1534,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     await page.locator('#canvas').focus();
     await page.keyboard.press(' ');
     await page.keyboard.press(' ');
-    await espejo.endTurn();
+    await pasarElTurnoDelEspejo(espejo, 'el Espacio que pasa el turno');
     const dia = rotuloDeDia(espejo.state.day);
     await page.waitForFunction((esperado) => {
       const turno = document.getElementById('turn')?.textContent ?? '';

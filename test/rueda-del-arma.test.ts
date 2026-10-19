@@ -14,8 +14,9 @@
 
 import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
-import { renderEleccion } from '../src/client/arena/rueda.js';
+import { caraDeLaArena } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
+import { renderEleccion } from '../src/client/rueda/rueda.js';
 import { batallaDeArena, equiparEnArena } from '../src/core/arena.js';
 import { ruedaDelGolpe } from '../src/core/battle/armas.js';
 import {
@@ -372,7 +373,7 @@ describe('cada golpe de la rueda va con su arma', () => {
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');
     expect(p.prevision.rueda.fuerte.porcentaje).toBe(183);
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
     expect(m).toContain('Daño ×1,83.');
     expect(m).toContain('2 golpes de daño ×0,38 cada uno');
     expect(m).not.toContain('Daño ×1,5.');

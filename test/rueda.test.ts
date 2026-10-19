@@ -13,9 +13,13 @@
 import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
 import { BattleAnimator, DURACION } from '../src/client/anim.js';
-import { renderPanelDeBatalla, rotuloDelTurno } from '../src/client/arena/paneles.js';
-import { renderDesenlace, renderEleccion, tramosDelDesenlace } from '../src/client/arena/rueda.js';
+import {
+  caraDeLaArena,
+  renderPanelDeBatalla,
+  rotuloDelTurno,
+} from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
+import { renderDesenlace, renderEleccion, tramosDelDesenlace } from '../src/client/rueda/rueda.js';
 import { SesionDeArena } from '../src/client/session.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce, elegirEnLaRueda } from '../src/core/ai/rueda.js';
@@ -1424,7 +1428,7 @@ describe('la sesión de la arena con la rueda', () => {
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no se abre tras la carrera');
     expect(p.prevision.carga).toBe('carga de 5 casillas, +50 %');
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
     expect(m).toContain('Las cifras llevan la carga de 5 casillas, +50 %');
     // Rápido: el primer golpe, con la carga, y el siguiente, sin ella, cada uno en su línea.
     const desde = m.indexOf('data-golpe="rapido"');
@@ -1772,7 +1776,7 @@ describe('la rueda pintada', () => {
     s.elegirEnLaRueda('fuerte');
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide la respuesta');
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
     expect(m.match(/data-golpe="/g)).toHaveLength(7);
     for (const [i, t] of TIPOS_DE_GOLPE.entries()) {
       expect(m).toContain(`data-golpe="${t}" aria-label="`);
@@ -1787,7 +1791,7 @@ describe('la rueda pintada', () => {
     hastaLaRueda(s, true);
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
     // De arriba en el sentido de las agujas del reloj: arriba, los dos de la
     // derecha, abajo y los dos de la izquierda; Normal, abajo.
     const hacia = ['arriba', 'derecha', 'derecha', 'abajo', 'izquierda', 'izquierda'];
@@ -1844,7 +1848,7 @@ describe('la rueda pintada', () => {
     hastaLaRueda(s, true);
     const golpe = s.ruedaPendiente;
     if (golpe === null) throw new Error('la rueda no pide el golpe');
-    const enElGolpe = marcadoDe(renderEleccion(s, golpe));
+    const enElGolpe = marcadoDe(renderEleccion(s.battle, golpe, caraDeLaArena(s)));
     expect(enElGolpe).toContain('cubre el contraataque de ahora');
     // Con las cifras del arma de quien pega (18-10-2026): el piquero lleva el
     // mandoble, con Romper guardia en el nivel 4 (la espada, en el 3, quita 3).
@@ -1853,7 +1857,7 @@ describe('la rueda pintada', () => {
     s.elegirEnLaRueda('fuerte');
     const respuesta = s.ruedaPendiente;
     if (respuesta === null) throw new Error('la rueda no pide la respuesta');
-    const enLaRespuesta = marcadoDe(renderEleccion(s, respuesta));
+    const enLaRespuesta = marcadoDe(renderEleccion(s.battle, respuesta, caraDeLaArena(s)));
     expect(enLaRespuesta).toContain('En la respuesta no tiene efecto: solo cuenta para el cruce');
     // Responde el jinete, con la espada (Fuerte en el nivel 3).
     expect(enLaRespuesta).toContain('tu contraataque hace daño ×1,5');
@@ -1875,7 +1879,7 @@ describe('la rueda pintada', () => {
       expect(nota, t).not.toMatch(/contraata|ataque al|defensa|daño ×/);
     }
     // La rueda pinta esas, en la nota y en la etiqueta de cada sector.
-    const m = marcadoDe(renderEleccion(s, p));
+    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
     expect(m).not.toContain('contraatacas');
     expect(m).not.toContain('tu contraataque');
     expect(m.match(/Esta vez no devuelves el golpe/g)?.length).toBe(2 * TIPOS_DE_GOLPE.length);
@@ -1887,7 +1891,7 @@ describe('la rueda pintada', () => {
     const i = b.log.findIndex((e) => e.kind === 'cruce');
     const e = b.log[i];
     if (e?.kind !== 'cruce') throw new Error('sin cruce');
-    const m = marcadoDe(renderDesenlace(b, e, contraataqueDelCruce(b.log, i)));
+    const m = marcadoDe(renderDesenlace(b, e, contraataqueDelCruce(b.log, i), null));
     expect(m).toContain('Romper guardia contra Defensivo');
     expect(m).toContain('data-sector="romperGuardia" data-elegido="golpe"');
     expect(m).toContain('data-sector="defensivo" data-elegido="respuesta"');

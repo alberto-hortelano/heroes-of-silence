@@ -826,6 +826,26 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo(fuera, puertas)).toEqual([]);
   });
 
+  it('en el cliente, la IA completa un cruce solo en `CruceDeLaRueda` (F5, 19-10-2026)', () => {
+    // La partida y la arena eligen en la rueda por la misma pieza: la IA sortea a
+    // ciegas por los bandos que lleva y lo de la persona espera su elección. Hasta
+    // F5 la partida llamaba a `completarCruce` sin decirle quién era la persona, y
+    // la IA elegía por ella su golpe y su respuesta (el parche de F4). Quien la
+    // llamara fuera de esa clase podría volver a elegir por la persona. Roto a mano
+    // (19-10-2026): un `completarCruce(battle, action, this.ctx.rng)` en
+    // `Session.playBattleAction` sale rojo con su línea.
+    const llama = /\bcompletarCruce\s*\(/;
+    const conPermiso = lineasDeLasDeclaraciones('src/client/session.ts', ['CruceDeLaRueda']);
+    const fuera: string[] = [];
+    for (const ruta of CLIENTE) {
+      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
+        if (ruta === 'src/client/session.ts' && conPermiso.has(i + 1)) continue;
+        if (llama.test(linea)) fuera.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(fuera).toEqual([]);
+  });
+
   it('el marcado sale por una sola puerta: solo `html.ts` convierte texto en DOM', () => {
     // El cerrojo de verdad de #63 es de TIPOS: `pintar` solo acepta `Html` y las
     // funciones de `views/panels.ts` lo devuelven, así que una nueva que

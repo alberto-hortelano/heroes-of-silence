@@ -727,7 +727,9 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
   });
 
   it('en el navegador: el turno del rival ataca a la persona y la IA no se rinde por ella', async () => {
-    // Lo que reprodujo la QA con el mismo `Session` que usa el navegador.
+    // Lo que reprodujo la QA con el mismo `Session` que usa el navegador. Desde
+    // #116 (F5) la defensa la juega la persona: aquí la delega con «Resolver
+    // sola», que es la IA peleando por ella, y por ella no se rinde.
     for (const semilla of [2, 5, 9]) {
       const ses = new Session(semilla);
       const st = ses.state;
@@ -739,7 +741,11 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
       // la izquierda puede ser cordillera.
       mio.at = casillaADosPasos(st, suyo.at);
       const desde = st.log.length;
-      await ses.endTurn();
+      const turno = ses.endTurn();
+      await hastaQue(() => ses.scene === 'battle');
+      expect(ses.miBando).toBe('defender');
+      ses.autoResolveBattle();
+      await turno;
       const hechos = st.log.slice(desde);
       expect(hechos.some((e) => e.kind === 'battle_started')).toBe(true);
       expect(
@@ -748,6 +754,15 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
     }
   });
 });
+
+/**
+ * Deja correr el turno del rival hasta que se cumpla `cond` (una defensa que se
+ * abre a media jugada suya), o lanza: el turno es asíncrono y no avisa.
+ */
+async function hastaQue(cond: () => boolean): Promise<void> {
+  for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
+  if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
+}
 
 /** Una casilla libre y pisable a dos pasos de `desde`, la primera que salga. */
 function casillaADosPasos(state: GameState, desde: Point): Point {

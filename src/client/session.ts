@@ -431,9 +431,8 @@ function jugarIAMientras(
     if (jugadas >= MAX_JUGADAS) {
       throw new Error(`la IA lleva ${MAX_JUGADAS} jugadas seguidas sin soltar la batalla`);
     }
-    // `antes` completa la jugada con la rueda del golpe o la para (`null`): la
-    // arena espera ahí a que la persona responda; la partida, aún no (F5), la
-    // completa entera a ciegas.
+    // `antes` completa la jugada con la rueda del golpe o la para (`null`): si la
+    // IA golpea a una unidad de la persona, se espera ahí a que responda.
     const accion = antes(chooseBattleAction(battle));
     if (accion === null) break;
     applyAction(battle, accion, rng);
@@ -685,6 +684,12 @@ export class Session implements ControlDeBatalla {
    */
   private turnoDelRivalEnCurso = false;
 
+  /**
+   * El golpe que espera la rueda: la persona elige por su bando y la IA, a ciegas,
+   * por el del rival.
+   */
+  private readonly rueda: CruceDeLaRueda;
+
   constructor(seed: number) {
     // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
     // de donde la lee quien la enseña. Un hecho en dos sitios se desincroniza
@@ -692,6 +697,7 @@ export class Session implements ControlDeBatalla {
     // el cliente y `state.seed` la que abrió el servidor—.
     this.state = newGame({ seed, controllers: { 0: 'human', 1: 'ai' } });
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
+    this.rueda = new CruceDeLaRueda(this.ctx.rng, (side) => side !== this.miBando);
     this.selectedHeroId = heroesOf(this.state, this.viewer)[0]?.id ?? null;
   }
 
@@ -1111,15 +1117,52 @@ export class Session implements ControlDeBatalla {
     // ese getter es falso mientras corre esto, y el bucle daría las 20 vueltas
     // del guardia jugando días enteros de golpe. Se pregunta por el estado.
     while (this.state.finished === null && this.state.current !== this.viewer && guard < 20) {
-      // La IA de reglas resuelve también las batallas en las que el rival ataca
-      // a la persona; por ella pelea, pero no se rinde: rendirse le cobra su oro
-      // y esa decisión es solo suya (H-1 de la fase 1b).
-      await playAiTurn(this.state, this.ctx, { noSeRinden: this.sinRendirsePorMi });
+      // Las batallas en las que el rival ataca a la persona las juega ella
+      // (#116, `defender`). Si una se quedara a medias, la IA pelearía por ella,
+      // pero sin rendirse: rendirse le cobra su oro y esa decisión es solo suya
+      // (H-1 de la fase 1b).
+      await playAiTurn(this.state, this.ctx, {
+        noSeRinden: this.sinRendirsePorMi,
+        takeover: () => this.defender(),
+      });
       guard++;
     }
     // Si se acabó, la barra ya dice cómo (`status`).
     if (this.desenlace === null) this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
   }
+
+  /**
+   * La persona juega las batallas en las que la atacan (#116), rueda incluida: el
+   * turno del rival se para en la batalla que acaba de nacer, la escena pasa a ella
+   * y se espera a que la persona la cierre («Continuar» o «Resolver sola», que
+   * pasan por `afterBattle`). Es el `BattleTakeover` de `playAiTurn`, el mismo
+   * contrato que el del agente: si te la quedas, la cierras. Una batalla que no va
+   * con la persona no se toca: la cierra la IA.
+   */
+  private async defender(): Promise<void> {
+    if (this.miBando === null) return;
+    const cerrada = new Promise<void>((resolve) => {
+      this.alCerrarLaDefensa = resolve;
+    });
+    this.scene = 'battle';
+    this.status = '¡Te atacan! Defiéndete.';
+    // Si la iniciativa la tiene el rival, mueve él primero.
+    this.advanceEnemyTurns();
+    // Lo que juega el rival llega sin un gesto de la persona: quien pinta no sabría
+    // que hay una batalla que enseñar.
+    this.alCambiarSinGesto();
+    await cerrada;
+  }
+
+  /** Quien cierra la defensa en curso y deja seguir el turno del rival, o `null`. */
+  private alCerrarLaDefensa: (() => void) | null = null;
+
+  /**
+   * Lo que se llama cuando algo que se ve cambia sin un gesto de la persona (una
+   * defensa que se abre a media jugada del rival). Lo pone quien pinta, para
+   * pedir fotograma; por defecto, nada.
+   */
+  alCambiarSinGesto: () => void = () => {};
 
   // ------------------------------------------------------------ castillo
 
@@ -1538,16 +1581,76 @@ export class Session implements ControlDeBatalla {
   }
 
   /**
-   * Aplica la acción de la persona y deja que la IA juegue lo suyo. **Parche
-   * temporal** (F4 de la tarea del combate en el juego, 19-10-2026): hasta que la
-   * persona elija en el diálogo de la rueda (F5), su golpe y la respuesta del
-   * rival los elige la IA a ciegas (`completarCruce`), y el golpe se da de una vez.
+   * El golpe que espera la rueda, si lo hay (`CruceDeLaRueda`, el mismo de la
+   * arena): la persona elige su golpe y, cuando la golpean cuerpo a cuerpo, su
+   * respuesta, sin ver lo del otro. Sin batalla, ninguno.
+   */
+  get ruedaPendiente(): RuedaPendiente | null {
+    return this.battle === null ? null : this.rueda.pendiente;
+  }
+
+  /**
+   * Aplica la acción de la persona y deja que la IA juegue lo suyo. Un golpe
+   * cuerpo a cuerpo no se da de una vez: quien pega anda hasta su objetivo y la
+   * rueda (`ruedaPendiente`) espera su elección (`elegirEnLaRueda`).
    */
   playBattleAction(action: BattleAction): void {
     const battle = this.battle;
     if (battle === null) return;
+    if (this.rueda.pendiente !== null) {
+      this.status = comoFrase(ELIGE_EN_LA_RUEDA);
+      return;
+    }
+    if (this.turnoPropio === null) {
+      this.status = NINGUNA_TUYA;
+      return;
+    }
+    let lista: BattleAction | null;
     try {
-      applyAction(battle, completarCruce(battle, action, this.ctx.rng).accion, this.ctx.rng);
+      lista = this.rueda.completar(battle, action);
+    } catch (err) {
+      this.status = mensaje(err);
+      return;
+    }
+    // Plantado, la rueda espera: el tablero cuenta la marcha y luego se abre.
+    this.tocar();
+    if (lista === null) this.status = '';
+    else this.aplicar(battle, lista);
+  }
+
+  /** Lo que elige la persona en la rueda (`CruceDeLaRueda.elegir`). */
+  elegirEnLaRueda(tipo: string): void {
+    const battle = this.battle;
+    if (battle === null) return;
+    let lista: BattleAction | null;
+    try {
+      lista = this.rueda.elegir(battle, tipo);
+    } catch (err) {
+      this.status = mensaje(err);
+      return;
+    }
+    this.tocar();
+    if (lista !== null) this.aplicar(battle, lista);
+  }
+
+  /** Escape en la rueda (`CruceDeLaRueda.cancelar`). Devuelve si se canceló. */
+  cancelarGolpe(): boolean {
+    const battle = this.battle;
+    if (battle === null) return false;
+    try {
+      this.status = this.rueda.cancelar(battle);
+    } catch (err) {
+      this.status = mensaje(err);
+      return false;
+    }
+    this.tocar();
+    this.advanceEnemyTurns();
+    return true;
+  }
+
+  private aplicar(battle: BattleState, action: BattleAction): void {
+    try {
+      applyAction(battle, action, this.ctx.rng);
       this.tocar();
       this.status = '';
     } catch (err) {
@@ -1561,21 +1664,33 @@ export class Session implements ControlDeBatalla {
     this.advanceEnemyTurns();
   }
 
-  /** Deja que la IA mueva mientras el turno NO sea del bando de la persona. */
+  /**
+   * Deja que la IA mueva mientras el turno NO sea del bando de la persona. Si la
+   * IA golpea cuerpo a cuerpo a una unidad de la persona, se para: anda hasta ella
+   * y la rueda pide la respuesta.
+   */
   advanceEnemyTurns(): void {
     const battle = this.battle;
     const mio = this.miBando;
     if (battle === null || mio === null) return;
-    // Hasta F5, también la respuesta de las de la persona la elige la IA a ciegas.
-    const aCiegas = (a: BattleAction): BattleAction =>
-      completarCruce(battle, a, this.ctx.rng).accion;
-    if (jugarIAMientras(battle, this.ctx.rng, (s) => s.side !== mio, aCiegas) > 0) this.tocar();
+    const jugadas = jugarIAMientras(
+      battle,
+      this.ctx.rng,
+      (s) => s.side !== mio,
+      (a) => this.rueda.completar(battle, a),
+    );
+    if (jugadas > 0 || this.rueda.pendiente !== null) this.tocar();
     if (battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
 
   /** Resuelve el resto de la batalla con la IA en ambos bandos. */
   autoResolveBattle(): void {
     if (this.state.pendingBattle === null) return;
+    // Con un golpe plantado ante la rueda, la IA no sabría qué hacer con él.
+    if (this.rueda.pendiente !== null) {
+      this.status = comoFrase(ELIGE_EN_LA_RUEDA);
+      return;
+    }
     // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona.
     resolvePendingBattle(this.state, this.ctx, this.sinRendirsePorMi);
     this.afterBattle();
@@ -1590,6 +1705,10 @@ export class Session implements ControlDeBatalla {
   }
 
   private afterBattle(): void {
+    // Si era una defensa (#116), el turno del rival sigue desde aquí.
+    const defensa = this.alCerrarLaDefensa;
+    this.alCerrarLaDefensa = null;
+    defensa?.();
     this.scene = 'adventure';
     this.hechizos.selectedSpell = null;
     if (this.selectedHero === null) {
@@ -1692,6 +1811,8 @@ export class SesionDeArena implements ControlDeBatalla {
   private readonly rng: Rng;
   /** Qué bandos mueve la IA, enteros: sus unidades y su héroe. */
   private readonly iaDelBando: Readonly<Record<Side, boolean>>;
+  /** El golpe que espera la rueda: la IA elige por sus bandos y la persona por los suyos. */
+  private readonly rueda: CruceDeLaRueda;
   private empezada = false;
 
   /**
@@ -1700,31 +1821,16 @@ export class SesionDeArena implements ControlDeBatalla {
    * pueda desacompasar.
    */
   get version(): string {
-    return `${claveDeBatalla(this.battle)}|${this.hechizos.selectedSpell}|${this.poderApuntado}|${this.cruce?.pendiente.fase ?? ''}`;
+    return `${claveDeBatalla(this.battle)}|${this.hechizos.selectedSpell}|${this.poderApuntado}|${this.rueda.pendiente?.fase ?? ''}`;
   }
 
   /**
-   * El golpe que espera la rueda (`battle/rueda.ts`): la acción y lo que se
-   * enseña. Quien pega ya anduvo y está plantado ante su objetivo
-   * (`BattleState.golpeEnCurso`), así que la acción va sin `from`. En la fase
-   * `golpe` elige quien pega, y la acción va sin golpe; en `respuesta`, quien
-   * recibe, y la acción lleva ya el golpe elegido, que **no sale de aquí**:
-   * `ruedaPendiente` enseña la fase, no la elección del otro.
-   */
-  private cruce: {
-    readonly accion: BattleAction & { type: 'attack' };
-    readonly pendiente: RuedaPendiente;
-  } | null = null;
-
-  /**
-   * Lo que la rueda enseña ahora, o `null` si no espera a nadie: la fase, quién
-   * pega a quién, qué bando elige y lo que daría cada tipo
-   * (`previsionDeLaRueda`). Sin el golpe guardado: la elección es a ciegas. Se
-   * calcula una vez, al abrir la fase (con la rueda abierta la batalla no se
-   * mueve), y es el mismo objeto mientras dura: quien pinta repinta al cambiar.
+   * El golpe que espera la rueda, si lo hay (`CruceDeLaRueda`, el mismo de la
+   * partida): la fase, quién pega a quién, qué bando elige y lo que daría cada
+   * tipo, sin lo que eligió el otro.
    */
   get ruedaPendiente(): RuedaPendiente | null {
-    return this.cruce?.pendiente ?? null;
+    return this.rueda.pendiente;
   }
 
   /** No es parte de la versión, por lo mismo que en `Session`: la reescribe el puntero. */
@@ -1791,6 +1897,7 @@ export class SesionDeArena implements ControlDeBatalla {
       [LADOS.izquierda.bando]: montaje.izquierda.ia,
       [LADOS.derecha.bando]: montaje.derecha.ia,
     } as Record<Side, boolean>;
+    this.rueda = new CruceDeLaRueda(this.rng, (side) => this.iaDelBando[side]);
   }
 
   /**
@@ -1948,7 +2055,7 @@ export class SesionDeArena implements ControlDeBatalla {
   retocar(r: RetoqueDeArena): string | null {
     // Con la rueda a medias, la acción guardada se juega con las cifras de
     // cuando se eligió: cambiarlas debajo podría dejarla ilegal.
-    if (this.cruce !== null) return comoFrase(ELIGE_EN_LA_RUEDA);
+    if (this.rueda.pendiente !== null) return comoFrase(ELIGE_EN_LA_RUEDA);
     const largo = this.battle.log.length;
     const motivo = retocarEnBatalla(this.battle, r, this.equipo);
     if (motivo !== null) return comoFrase(motivo);
@@ -1991,7 +2098,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * pega anda hasta su objetivo y la rueda (`ruedaPendiente`) espera su elección.
    */
   playBattleAction(action: BattleAction): void {
-    if (this.cruce !== null) {
+    if (this.rueda.pendiente !== null) {
       this.status = comoFrase(ELIGE_EN_LA_RUEDA);
       return;
     }
@@ -2004,7 +2111,7 @@ export class SesionDeArena implements ControlDeBatalla {
     // no se puede dar no mueve a nadie ni abre la rueda, y la barra dice por qué.
     let lista: BattleAction | null;
     try {
-      lista = this.completarElCruce(action);
+      lista = this.rueda.completar(this.battle, action);
     } catch (err) {
       this.status = mensaje(err);
       return;
@@ -2013,91 +2120,26 @@ export class SesionDeArena implements ControlDeBatalla {
     else this.aplicar(lista);
   }
 
-  /**
-   * Lo de la rueda que le toque a la IA (`completarCruce`, el mismo sorteo que
-   * `autoResolve`) y, si falta lo de una persona, quien pega anda hasta su
-   * objetivo (se planta: el `attack` sin elecciones), la rueda queda abierta en
-   * su fase y devuelve `null`; si no falta nada, la acción lista para darse. Sin
-   * rueda, la misma acción. Primero se anda y luego se elige (decisión del
-   * usuario, 13-10-2026): la vista abre la rueda cuando el animador acaba la
-   * marcha. Lo de la IA ya elegido se queda aquí, a ciegas para la persona.
-   */
-  private completarElCruce(accion: BattleAction): BattleAction | null {
-    const c = completarCruce(this.battle, accion, this.rng, (side) => this.iaDelBando[side]);
-    if (c.falta === null) return c.accion;
-    const { golpe, respuesta, from, ...plantado } = c.accion;
-    // La segunda fase (Yo contra Yo) ya está plantada; la primera anda ahora.
-    // Plantarse no tira dados: el `Rng` gasta lo mismo y en el mismo orden que el
-    // golpe de una vez.
-    if (this.battle.golpeEnCurso === null) {
-      applyAction(this.battle, from === undefined ? plantado : { ...plantado, from }, this.rng);
-    }
-    const atacante = activeStack(this.battle);
-    if (atacante === null) throw new Error('la rueda espera un golpe y no le toca a nadie');
-    const objetivo = stackById(this.battle, c.accion.target);
-    const enLaRueda = {
-      ...plantado,
-      ...(golpe === undefined ? {} : { golpe }),
-      ...(respuesta === undefined ? {} : { respuesta }),
-    };
-    this.cruce = {
-      accion: enLaRueda,
-      pendiente: {
-        fase: c.falta,
-        atacante,
-        objetivo,
-        bando: c.falta === 'golpe' ? atacante.side : objetivo.side,
-        prevision: previsionDeLaRueda(this.battle, enLaRueda, c.falta),
-      },
-    };
-    return null;
-  }
-
-  /**
-   * Lo que elige en la rueda quien le toca: en la fase `golpe`, quien pega; si
-   * el objetivo es de la IA, ella responde a ciegas y el golpe se da, y si es de
-   * la persona, la rueda pasa a la `respuesta` sin enseñar el golpe. En la
-   * `respuesta`, el golpe se da. `tipo` llega del marcado: uno que no es un tipo
-   * se dice en la barra.
-   */
+  /** Lo que elige en la rueda quien le toca (`CruceDeLaRueda.elegir`). */
   elegirEnLaRueda(tipo: string): void {
-    const c = this.cruce;
-    if (c === null) {
-      this.status = 'La rueda no espera ninguna elección.';
+    let lista: BattleAction | null;
+    try {
+      lista = this.rueda.elegir(this.battle, tipo);
+    } catch (err) {
+      this.status = mensaje(err);
       return;
     }
-    if (!esTipoDeGolpe(tipo)) {
-      this.status = `${tipoDeGolpeBlocker(tipo)}.`;
-      return;
-    }
-    const elegido: Partial<Record<PapelEnLaRueda, TipoDeGolpe>> = { [c.pendiente.fase]: tipo };
-    this.cruce = null;
-    // Con los dos bandos de la persona, la rueda vuelve a abrirse para el otro,
-    // que elige sin ver este.
-    const lista = this.completarElCruce({ ...c.accion, ...elegido });
     if (lista !== null) this.aplicar(lista);
   }
 
-  /**
-   * Escape en la rueda: deja el golpe sin dar, solo antes de elegirlo. Quien
-   * pega ya anduvo: se queda donde llegó y sigue su turno, sin la carga de esa
-   * carrera (`soltarElGolpe`); si no le queda nada, el turno se cierra y juega
-   * quien siga. La respuesta no se cancela: el golpe ya viene. Devuelve si se
-   * canceló.
-   */
+  /** Escape en la rueda (`CruceDeLaRueda.cancelar`). Devuelve si se canceló. */
   cancelarGolpe(): boolean {
-    if (this.cruce?.pendiente.fase !== 'golpe') {
-      this.status =
-        this.cruce === null
-          ? 'La rueda no espera ninguna elección.'
-          : 'El golpe ya viene: elige la respuesta en la rueda.';
+    try {
+      this.status = this.rueda.cancelar(this.battle);
+    } catch (err) {
+      this.status = mensaje(err);
       return false;
     }
-    // La carga de la carrera se pierde al soltar: se dice (R6 de QA de #260).
-    const conCarga = this.cruce.pendiente.prevision.carga !== null;
-    this.cruce = null;
-    soltarElGolpe(this.battle, this.rng);
-    this.status = conCarga ? 'Golpe cancelado: se pierde la carga.' : 'Golpe cancelado.';
     this.avanzarIA();
     return true;
   }
@@ -2127,7 +2169,7 @@ export class SesionDeArena implements ControlDeBatalla {
       this.battle,
       this.rng,
       (s) => this.iaDelBando[s.side],
-      (accion) => this.completarElCruce(accion),
+      (accion) => this.rueda.completar(this.battle, accion),
     );
     if (this.battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
@@ -2136,7 +2178,122 @@ export class SesionDeArena implements ControlDeBatalla {
 /** Lo que dice la barra a quien quiere hacer otra cosa con la rueda abierta. */
 const ELIGE_EN_LA_RUEDA = 'elige antes en la rueda del golpe';
 
-/** Lo que la rueda enseña a quien elige (`SesionDeArena.ruedaPendiente`). */
+/**
+ * El golpe que espera la rueda (`battle/rueda.ts`) y lo que se hace con él, para
+ * las dos sesiones: la de la partida y la de la arena eligen igual (F5 de la tarea
+ * del combate en el juego, 19-10-2026; antes vivía solo en la arena). Cada una
+ * dice quién lleva cada bando (`laLlevaLaIA`): lo de la IA lo sortea
+ * `completarCruce` a ciegas, y lo de la persona espera aquí.
+ *
+ * Primero se anda y luego se elige (decisión del usuario, 13-10-2026): un golpe
+ * al que le falta lo de una persona planta a quien pega ante su objetivo (el
+ * `attack` sin elecciones, `BattleState.golpeEnCurso`) y abre la fase; la vista
+ * abre el diálogo cuando el animador acaba la marcha. En la fase `golpe` elige
+ * quien pega, y la acción va sin golpe; en `respuesta`, quien recibe, y la acción
+ * lleva ya el golpe elegido, que **no sale de aquí**: `pendiente` enseña la fase,
+ * no la elección del otro.
+ *
+ * Solo hay un golpe a la vez y es de la batalla en la que se plantó: quien lo
+ * lleva no deja jugar otra cosa mientras espera (`ELIGE_EN_LA_RUEDA`).
+ */
+export class CruceDeLaRueda {
+  private cruce: {
+    readonly accion: BattleAction & { type: 'attack' };
+    readonly pendiente: RuedaPendiente;
+  } | null = null;
+
+  constructor(
+    private readonly rng: Rng,
+    private readonly laLlevaLaIA: (side: Side) => boolean,
+  ) {}
+
+  /**
+   * Lo que la rueda enseña ahora, o `null` si no espera a nadie. Se calcula una
+   * vez, al abrir la fase (con la rueda abierta la batalla no se mueve), y es el
+   * mismo objeto mientras dura: quien pinta repinta al cambiar.
+   */
+  get pendiente(): RuedaPendiente | null {
+    return this.cruce?.pendiente ?? null;
+  }
+
+  /**
+   * La acción con lo de la rueda que le toque a la IA (`completarCruce`, el mismo
+   * sorteo que `autoResolve`) y lista para darse; o, si falta lo de una persona,
+   * `null`: quien pega anda hasta su objetivo (se planta) y la rueda queda abierta
+   * en su fase. Lo que no es un golpe, la misma acción. Lanza con la frase del
+   * núcleo si plantarse no vale: uno que no se puede dar no mueve a nadie.
+   */
+  completar(battle: BattleState, accion: BattleAction): BattleAction | null {
+    const c = completarCruce(battle, accion, this.rng, this.laLlevaLaIA);
+    if (c.falta === null) return c.accion;
+    const { golpe, respuesta, from, ...plantado } = c.accion;
+    // La segunda fase (persona contra persona) ya está plantada; la primera anda
+    // ahora. Plantarse no tira dados: el `Rng` gasta lo mismo y en el mismo orden
+    // que el golpe de una vez.
+    if (battle.golpeEnCurso === null) {
+      applyAction(battle, from === undefined ? plantado : { ...plantado, from }, this.rng);
+    }
+    const atacante = activeStack(battle);
+    if (atacante === null) throw new Error('la rueda espera un golpe y no le toca a nadie');
+    const objetivo = stackById(battle, c.accion.target);
+    const enLaRueda = {
+      ...plantado,
+      ...(golpe === undefined ? {} : { golpe }),
+      ...(respuesta === undefined ? {} : { respuesta }),
+    };
+    this.cruce = {
+      accion: enLaRueda,
+      pendiente: {
+        fase: c.falta,
+        atacante,
+        objetivo,
+        bando: c.falta === 'golpe' ? atacante.side : objetivo.side,
+        prevision: previsionDeLaRueda(battle, enLaRueda, c.falta),
+      },
+    };
+    return null;
+  }
+
+  /**
+   * Lo que elige quien le toca: en la fase `golpe`, quien pega; si el objetivo es
+   * de la IA, ella responde a ciegas y sale la acción lista, y si es de una
+   * persona, la rueda pasa a la `respuesta` sin enseñar el golpe (`null`). En la
+   * `respuesta`, la acción lista. `tipo` llega del marcado: uno que no es un tipo,
+   * o una rueda que no espera nada, lanza con la frase para la barra.
+   */
+  elegir(battle: BattleState, tipo: string): BattleAction | null {
+    const c = this.cruce;
+    if (c === null) throw new Error('La rueda no espera ninguna elección.');
+    if (!esTipoDeGolpe(tipo)) throw new Error(`${tipoDeGolpeBlocker(tipo)}.`);
+    const elegido: Partial<Record<PapelEnLaRueda, TipoDeGolpe>> = { [c.pendiente.fase]: tipo };
+    this.cruce = null;
+    return this.completar(battle, { ...c.accion, ...elegido });
+  }
+
+  /**
+   * Escape en la rueda: deja el golpe sin dar, solo antes de elegirlo. Quien pega
+   * ya anduvo: se queda donde llegó y sigue su turno, sin la carga de esa carrera
+   * (`soltarElGolpe`); si no le queda nada, el turno se cierra y juega quien siga
+   * (eso lo hace la sesión). La respuesta no se cancela: el golpe ya viene, y lanza
+   * diciéndolo. Devuelve la frase de la barra.
+   */
+  cancelar(battle: BattleState): string {
+    if (this.cruce?.pendiente.fase !== 'golpe') {
+      throw new Error(
+        this.cruce === null
+          ? 'La rueda no espera ninguna elección.'
+          : 'El golpe ya viene: elige la respuesta en la rueda.',
+      );
+    }
+    // La carga de la carrera se pierde al soltar: se dice (R6 de QA de #260).
+    const conCarga = this.cruce.pendiente.prevision.carga !== null;
+    this.cruce = null;
+    soltarElGolpe(battle, this.rng);
+    return conCarga ? 'Golpe cancelado: se pierde la carga.' : 'Golpe cancelado.';
+  }
+}
+
+/** Lo que la rueda enseña a quien elige (`CruceDeLaRueda.pendiente`). */
 export interface RuedaPendiente {
   readonly fase: PapelEnLaRueda;
   readonly atacante: BattleStack;

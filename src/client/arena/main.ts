@@ -61,7 +61,6 @@ import {
   validarMuralla,
 } from '@core/battle/muralla.js';
 import type { PoderId } from '@core/battle/poderes.js';
-import { contraataqueDelCruce, type HechoDelCruce } from '@core/battle/rueda.js';
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import {
@@ -114,8 +113,9 @@ import {
   MIRADA_DE_PRESENTACION,
   registrarLasHojas,
 } from '../render/personajes.js';
+import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { semillaSorteada } from '../semilla.js';
-import { type LadoDeSesion, type RuedaPendiente, SesionDeArena } from '../session.js';
+import { type LadoDeSesion, SesionDeArena } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import {
@@ -138,6 +138,7 @@ import {
   avisoDelCatalogoLeido,
   avisoDeNuevaUnidad,
   type ComoDeLaFicha,
+  caraDeLaArena,
   cuantosAvisos,
   type DatosDePuesto,
   type Elegida,
@@ -167,13 +168,6 @@ import {
   sinGuardarEnPalabras,
   type TarjetaDeUnidad,
 } from './paneles.js';
-import {
-  ajustarLaRueda,
-  renderDesenlace,
-  renderEleccion,
-  tipoDeLaTecla,
-  tramosDelDesenlace,
-} from './rueda.js';
 
 const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -1829,7 +1823,7 @@ function luchar(): void {
 
 function volverAlMontaje(): void {
   if (editor.open) editor.close();
-  cerrarLaRueda();
+  rueda.cerrar();
   sesion = null;
   irA('montaje');
   aviso = 'De vuelta al montaje: todo sigue como estaba.';
@@ -2016,183 +2010,23 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
   // «La batalla ha terminado» espera a que el tablero llegue al final.
   const estado = ocupada && s.battle.finished !== null ? '' : s.status;
   if (elStatus.textContent !== estado) elStatus.textContent = estado;
-  pintarLaRueda(s);
+  rueda.pintar();
 }
 
 /**
- * Lo que la rueda lleva pintado: el cruce que se cuenta (su hecho del registro) o
- * la elección que espera la sesión (`ruedaPendiente`, el mismo objeto mientras
- * dura su fase). Se repinta solo al cambiar, por identidad: repintar en cada
- * fotograma reiniciaría las animaciones del desenlace.
+ * La rueda del golpe (`rueda/dialogo.ts`, la misma de la partida): la arena pone
+ * de los dos que se cruzan su figura animada, su ficha y su vista previa
+ * (`caraDeLaArena`), y recoge las figuras de su cabecera al pintarla.
  */
-let ruedaPintada: HechoDelCruce | RuedaPendiente | null = null;
-
-/**
- * La rueda del golpe, cada fotograma: mientras el animador cuenta un cruce, su
- * desenlace al ritmo del paso (`data-tramo`); si no se cuenta nada y la sesión
- * espera una elección, la rueda para elegir; si no, cerrada. Con algo en la
- * cola, la elección espera a que acabe: el tablero no puede ir por detrás. Así
- * la rueda se abre cuando quien pega ya ha llegado: la sesión lo planta ante su
- * objetivo (su `move`) antes de pedir la elección, y esta espera a la marcha
- * (decisión del usuario, 13-10-2026: primero se anda, luego se elige).
- */
-function pintarLaRueda(s: SesionDeArena): void {
-  const cruce = batalla.cruceEnCurso();
-  const pendiente = cruce === null && !batalla.ocupada ? s.ruedaPendiente : null;
-  let enfocar = false;
-  if (cruce !== null) {
-    if (ruedaPintada !== cruce.evento) {
-      // El índice, solo al cambiar de cruce: el parte lo busca por él.
-      const i = s.battle.log.indexOf(cruce.evento);
-      if (i < 0) throw new Error('la rueda cuenta un cruce que no está en el registro');
-      pintar(
-        elRueda,
-        renderDesenlace(s.battle, cruce.evento, contraataqueDelCruce(s.battle.log, i)),
-      );
-      ajustarLaRueda(elRueda);
-      recogerFiguras(elRueda);
-      ruedaPintada = cruce.evento;
-    }
-    const tramos = tramosDelDesenlace(cruce.t);
-    if (elRueda.dataset.tramo !== tramos) elRueda.dataset.tramo = tramos;
-  } else if (pendiente !== null) {
-    if (ruedaPintada !== pendiente) {
-      delete elRueda.dataset.tramo;
-      pintar(elRueda, renderEleccion(s, pendiente));
-      ajustarLaRueda(elRueda);
-      recogerFiguras(elRueda);
-      aquietarLaRueda();
-      ruedaPintada = pendiente;
-      enfocar = true;
-    }
-  } else {
-    cerrarLaRueda();
-    return;
-  }
-  if (!elRueda.open) elRueda.showModal();
-  // El foco, en el diálogo y en ningún sector: uno enfocado parecería preelegido
-  // (y abría su nota). Las flechas empiezan por el primero. El de la fase
-  // anterior no se conserva: lleva otra `data-fase`.
-  if (enfocar) elRueda.focus();
-}
-
-function cerrarLaRueda(): void {
-  ruedaPintada = null;
-  delete elRueda.dataset.tramo;
-  despertarLaRueda();
-  if (!elRueda.open) return;
-  elRueda.close();
+const rueda = new DialogoDeLaRueda(elRueda, {
+  sesion: () => sesion,
+  escena: batalla,
+  cara: () => (sesion === null ? null : caraDeLaArena(sesion)),
+  pedirFotograma,
+  alPintar: recogerFiguras,
   // Las figuras que se animaban eran las de su cabecera: al volver al montaje,
   // `pintarVista` recoge las suyas.
-  soltarFiguras();
-}
-
-/**
- * Dónde estaba el puntero la última vez que se movió, en la ventana, y dónde
- * estaba al pintarse la rueda de una fase nueva (`aquietarLaRueda`).
- *
- * La rueda de cada fase sale con el puntero donde lo dejó quien eligió antes, y
- * el `:hover` encendía el sector de debajo y abría su nota: con los dos bandos
- * «Yo», quien respondía veía qué había pulsado quien pegaba (H1 de QA,
- * 13-10-2026). Así que la rueda nace quieta (`data-quieta`: el CSS no enciende
- * nada por el `:hover`) hasta que el puntero se mueve DE VERDAD —un `pointermove`
- * en el mismo píxel no cuenta: el navegador puede mandarlo al cambiar lo de
- * debajo— o se pulsa.
- *
- * Una tecla NO la despierta: quien responde con el teclado no ha movido el
- * ratón, que sigue encima de lo que pulsó el otro, y despertarla encendía ese
- * sector y abría su nota junto al que tenía el foco (H1b, vuelta 2 de QA). El
- * teclado no necesita el `:hover`: el foco enciende su sector por
- * `:focus-visible`, que no mira `data-quieta`.
- */
-let punteroEn: { readonly x: number; readonly y: number } | null = null;
-let quietaEn: { readonly x: number; readonly y: number } | null = null;
-
-window.addEventListener(
-  'pointermove',
-  (ev) => {
-    punteroEn = { x: ev.clientX, y: ev.clientY };
-  },
-  { capture: true, passive: true },
-);
-
-function aquietarLaRueda(): void {
-  elRueda.dataset.quieta = '';
-  quietaEn = punteroEn;
-}
-
-function despertarLaRueda(): void {
-  delete elRueda.dataset.quieta;
-  quietaEn = null;
-}
-
-/**
- * Si el gesto cae en la cabecera de la rueda (las figuras de los dos, #261): ni
- * pasar por ella ni pulsarla despierta los sectores. Al ir a mirar quién es
- * quién, el puntero no ha pasado por la rueda.
- */
-function enLaCabecera(ev: Event): boolean {
-  return ev.target instanceof Element && ev.target.closest('.cabecera-de-rueda') !== null;
-}
-
-elRueda.addEventListener('pointermove', (ev) => {
-  if (elRueda.dataset.quieta === undefined || enLaCabecera(ev)) return;
-  if (quietaEn !== null && ev.clientX === quietaEn.x && ev.clientY === quietaEn.y) return;
-  despertarLaRueda();
-});
-elRueda.addEventListener('pointerdown', (ev) => {
-  if (!enLaCabecera(ev)) despertarLaRueda();
-});
-
-/**
- * Elige en la rueda: el clic en un sector, su tecla o Intro con el foco en él. La
- * sesión dice si no espera nada; mientras se cuenta un desenlace no se elige: la
- * rueda de la siguiente fase aún no se ve.
- */
-function elegirEnLaRueda(tipo: string): void {
-  if (sesion === null || batalla.ocupada) return;
-  sesion.elegirEnLaRueda(tipo);
-  pedirFotograma();
-}
-
-elRueda.addEventListener('click', (ev) => {
-  const boton = (ev.target as Element).closest('[data-golpe]');
-  if (boton === null || ev.detail > 1) return;
-  elegirEnLaRueda(boton.getAttribute('data-golpe') ?? '');
-});
-
-/**
- * Las teclas de la rueda: del 1 al 7 elige el sector de su número
- * (`tipoDeLaTecla`, la misma tabla que pinta las etiquetas), las flechas pasan el
- * foco de uno a otro e Intro pulsa el que lo tiene (el botón, por sí mismo).
- */
-elRueda.addEventListener('keydown', (ev) => {
-  if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
-  const tipo = tipoDeLaTecla(ev.key);
-  if (tipo !== null) {
-    ev.preventDefault();
-    elegirEnLaRueda(tipo);
-    return;
-  }
-  const paso = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
-  if (paso === undefined) return;
-  ev.preventDefault();
-  const botones = [...elRueda.querySelectorAll<HTMLElement>('button[data-golpe]')];
-  if (botones.length === 0) return;
-  const ahora = botones.indexOf(document.activeElement as HTMLElement);
-  const siguiente = ahora < 0 ? 0 : (ahora + paso + botones.length) % botones.length;
-  botones[siguiente]?.focus();
-});
-
-// Escape: cancela el golpe solo antes de elegirlo, y quien pega se queda donde
-// llegó, con su turno (`soltarElGolpe`); si no, la sesión dice por qué no (la
-// respuesta no se cancela: el golpe ya viene). El desenlace se cuenta entero: el
-// diálogo no se cierra solo.
-elRueda.addEventListener('cancel', (ev) => {
-  ev.preventDefault();
-  if (sesion === null || batalla.ocupada) return;
-  if (sesion.cancelarGolpe()) cerrarLaRueda();
-  pedirFotograma();
+  alCerrar: soltarFiguras,
 });
 
 // ---------------------------------------------------------------- gestos

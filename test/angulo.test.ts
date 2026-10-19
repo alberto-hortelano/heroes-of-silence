@@ -301,6 +301,10 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
     expect(s.status).toContain('(+30 % de daño)');
     const antes = s.battle!.log.length;
     escena.pulsar(px, py);
+    // Primero anda (la carrera de la carga) y luego elige en la rueda (F5).
+    expect(s.ruedaPendiente?.fase).toBe('golpe');
+    expect(s.ruedaPendiente?.prevision.carga).not.toBeNull();
+    s.elegirEnLaRueda('normal');
     const golpe = s.battle!.log.slice(antes).find((e) => e.kind === 'attack' && !e.retaliation);
     expect(golpe?.kind === 'attack' ? golpe.charge : undefined).toBe(3);
   });

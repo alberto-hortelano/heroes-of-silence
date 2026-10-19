@@ -120,6 +120,8 @@ import {
   unidadDeCombate,
 } from '@core/unidad.js';
 import { type Html, html, NADA, srcDeImagen, unir } from '../html.js';
+import { ruedaDeLaPieza } from '../rueda/disco.js';
+import type { CaraDeLosContrincantes } from '../rueda/rueda.js';
 import type { SesionDeArena } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import {
@@ -134,7 +136,6 @@ import {
   renderSpells,
 } from '../views/panels.js';
 import { curaOEfecto, textoDePrevision } from '../views/prevision.js';
-import { ruedaDeLaPieza } from './disco.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
@@ -1932,6 +1933,25 @@ export function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
     ${filasDelStack(s, x, false)}
     <div class="row"><span class="label">Efectos</span><span class="efectos-en-curso">${efectos}</span></div>
     <div class="row"><span class="label">Contraataque</span><span data-contraataco="${x.retaliated ? 'si' : 'no'}">${x.retaliated ? 'ya devolvió un golpe esta ronda' : 'aún puede devolver uno esta ronda'}</span></div>`;
+}
+
+/**
+ * Lo que la arena pone de los dos que se cruzan en la rueda (#261): su figura, la
+ * misma del botón del puesto en el montaje (`canvas.figura`, que anima `main.ts` y
+ * tiñe del color de su bando por `data-lado`), y en la rueda para elegir, un botón
+ * que abre su ficha de solo lectura (`ficha-en-la-rueda`, `main.ts`) y, al pasar
+ * el ratón o con el foco del teclado, su vista previa (`vistaPrevia`: del estado,
+ * nunca lo elegido, que va a ciegas en la sesión).
+ */
+export function caraDeLaArena(s: VistaDeArena): CaraDeLosContrincantes {
+  return {
+    icono(x, nombre, paraElegir) {
+      const figura = figuraEnLienzo(x.body, ladoDe(x.side), 'rueda');
+      if (!paraElegir) return html`<span class="icono-de-contrincante">${figura}</span>`;
+      const previa = `previa-${x.id}`;
+      return html`<button type="button" class="icono-de-contrincante" data-arena="ficha-en-la-rueda" data-stack="${x.id}" aria-label="${`Ficha de ${nombre}`}" aria-describedby="${previa}">${figura}</button><div class="vista-previa" id="${previa}" role="tooltip">${vistaPrevia(s, x)}</div>`;
+    },
+  };
 }
 
 /**
