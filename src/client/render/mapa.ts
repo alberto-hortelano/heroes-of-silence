@@ -17,6 +17,7 @@
  * Solo pinta: ni guarda estado de la partida ni escucha al ratón.
  */
 
+import { hojaDeUnidad } from '@core/catalogo.js';
 import { HERO_BODY } from '@core/hero/hero.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
@@ -223,10 +224,8 @@ function posicionDeAsaltante(
     m.desde = { x: ahora.x, y: ahora.y };
     m.hasta = r.at;
     m.inicio = tiempo;
-    const cuerpo = r.troops[0]?.creature;
-    if (cuerpo === undefined) throw new Error(`el grupo de asaltantes ${r.id} no tiene tropa`);
     const largo = Math.hypot(m.hasta.x - m.desde.x, m.hasta.y - m.desde.y);
-    m.dura = largo * msPorCasilla(cuerpo, 'walk', ALTO_DEL_GRUPO);
+    m.dura = largo * msPorCasilla(figuraDelGrupo(r), 'walk', ALTO_DEL_GRUPO);
   }
   return { ...posicionEn(m, tiempo), hasta: m.inicio + m.dura };
 }
@@ -774,7 +773,7 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
     case 'monster':
       pintarGrupoNeutral(ctx, tile, c, {
         id: o.id,
-        body: o.creature,
+        body: hojaDeUnidad(o.creature),
         cuantos: o.count,
         tiempo: v.tiempo,
         andando: false,
@@ -929,11 +928,9 @@ function pintarAsaltante(
   ctx.fill();
   ctx.stroke();
   ctx.restore();
-  const cuerpo = r.troops[0]?.creature;
-  if (cuerpo === undefined) throw new Error(`el grupo de asaltantes ${r.id} no tiene tropa`);
   pintarGrupoNeutral(ctx, tile, c, {
     id: r.id,
-    body: cuerpo,
+    body: figuraDelGrupo(r),
     cuantos: individuosDe(r.troops),
     tiempo: v.tiempo,
     andando: p.andando,
@@ -997,6 +994,13 @@ function estandarteDeAsaltante(
  * estandarte del asaltante, no la figura. Y el gris es lo que los separa del
  * héroe, que lleva el color de su dueño.
  */
+/** La figura de un grupo de asaltantes: la hoja de la unidad de su primer individuo. */
+function figuraDelGrupo(r: VistaAsaltante): string {
+  const id = r.troops[0]?.creature;
+  if (id === undefined) throw new Error(`el grupo de asaltantes ${r.id} no tiene tropa`);
+  return hojaDeUnidad(id);
+}
+
 function pintarGrupoNeutral(
   ctx: CanvasRenderingContext2D,
   tile: number,

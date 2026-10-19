@@ -141,7 +141,7 @@ export const HERO_BODY = 'hero';
  * más que el héroe.
  *
  * `faction: null` para que no cambie la moral por diversidad del ejército, y
- * sin rasgos: el héroe no es no-muerto aunque mande a los nigromantes.
+ * sin rasgos: el héroe no es no-muerto aunque mande a los no muertos.
  *
  * Y con su equipo puesto: pide `equipo` sin opcional a propósito, para que nadie
  * pueda construir el cuerpo de un héroe olvidándose de lo que lleva.
@@ -152,6 +152,18 @@ export function heroUnit(
   // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`); el cuerpo
   // desnudo, para la ficha, es `cuerpoDelHeroe`.
   return conEquipo(cuerpoDelHeroe(hero), hero.equipo);
+}
+
+/**
+ * El cuerpo del héroe con su equipo y sin él, como entra en una batalla
+ * (`HeroeDelBando.cuerpo` y `.desnudo`): el segundo es de donde `cuerpoDe` saca
+ * lo que le suma lo que lleva.
+ */
+export function cuerposDelHeroe(
+  hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience' | 'equipo'>,
+): { readonly cuerpo: UnitInfo; readonly desnudo: UnitInfo } {
+  const desnudo = cuerpoDelHeroe(hero);
+  return { cuerpo: conEquipo(desnudo, hero.equipo), desnudo };
 }
 
 /**

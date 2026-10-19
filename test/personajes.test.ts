@@ -68,15 +68,16 @@ describe('las figuras a 25°, en 8 direcciones', () => {
     // arrancar (`registrarLasHojas`). Antes de registrarla, el Y Bot por defecto.
     expect(arteDe(TROPA).nombre).toBe(`el Y Bot «${JUEGO_POR_DEFECTO}»`);
     for (const h of hojasDeLaArena()) if (h.incompleta === null) registrarUnidad(h.id, h);
+    // El `body` de un stack es su hoja (`hojaDeUnidad`), y `arteDe` no busca en el
+    // catálogo (simplify de F3-F6, 19-10-2026): con la hoja registrada, su arte.
     for (const u of UNIDADES) {
       expect(hojaDeUnidad(u.id), u.id).toBe(u.cuerpo.hoja);
       const hoja = hojasDeLaArena().find((h) => h.id === u.cuerpo.hoja);
       if (hoja === undefined || hoja.incompleta !== null) continue;
-      expect(arteDe(u.id), u.id).toBe(arteDe(u.cuerpo.hoja));
-      expect(arteDe(u.id).propio, u.id).toBe(hoja.direcciones !== null);
+      expect(arteDe(hojaDeUnidad(u.id)).propio, u.id).toBe(hoja.direcciones !== null);
     }
-    // Lo que no es una unidad del catálogo no tiene hoja.
-    expect(hojaDeUnidad(HERO_BODY)).toBeNull();
+    // Lo que no es una unidad del catálogo no tiene hoja: se dice.
+    expect(() => hojaDeUnidad(HERO_BODY)).toThrow(/no hay ninguna unidad «hero»/);
   });
 
   it('el Y Bot del arco dispara con su clip `shoot`, en `dN-c.png`; quien golpea no lo trae', () => {

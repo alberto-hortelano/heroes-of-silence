@@ -12,7 +12,6 @@ import {
   basesPosibles,
   CIFRA_MAXIMA_DE_HEROE,
   cadenaDeBases,
-  cuerpoDelStack,
   escritaDe,
   fichaDeHeroeDeArena,
   finalDeArena,
@@ -37,20 +36,20 @@ import {
   activeStack,
   ataqueYDefensaEnBatalla,
   bandoDeSalida,
-  cargaDelStack,
   isAlive,
   MAX_ROUNDS,
 } from '@core/battle/battle.js';
 import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
-import { dichoDeLasCifras } from '@core/battle/carga.js';
+import { cifrasDeCarga, dichoDeLasCifras } from '@core/battle/carga.js';
 import { armasDe } from '@core/battle/damage.js';
+import { cifraDeEfecto, enRondas } from '@core/battle/effects.js';
 import {
   esMuro,
   ladoDeLaMuralla,
   type MurallaDeBatalla,
   type PiezaDeMuralla,
 } from '@core/battle/muralla.js';
-import { type Poder, poder, poderDeHabilidad } from '@core/battle/poderes.js';
+import { type Poder, poder, poderDeHabilidad, queHaceElPoder } from '@core/battle/poderes.js';
 import {
   filasDeLaRueda,
   NIVEL_MAXIMO,
@@ -61,12 +60,12 @@ import {
 } from '@core/battle/rueda.js';
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleStack, BattleState, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
+import { costeDeUnaUnidad } from '@core/catalogo.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
-  oroDelIndice,
   type Pieza,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   SOLO_EN_KITS,
@@ -86,7 +85,6 @@ import {
   seVende,
   textoDeModificador,
 } from '@core/hero/equipo.js';
-import { indiceDePoder } from '@core/nivel.js';
 import {
   type CifraDePieza,
   CREATURE_TRAITS,
@@ -108,9 +106,9 @@ import {
 import {
   CASILLAS_MAX,
   CASILLAS_MIN,
-  HABILIDADES_DE_LA_ARENA,
-  type HojaDeArena,
-  type UnidadDeArena,
+  HABILIDADES,
+  type Hoja,
+  type Unidad,
   unidadDeCombate,
 } from '@core/unidad.js';
 import { type Html, html, NADA, srcDeImagen, unir } from '../html.js';
@@ -120,16 +118,14 @@ import type { SesionDeArena } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   accionesDeLaUnidad,
-  cifraDeEfecto,
   efectoEnCurso,
-  enRondas,
   listaDelCampo,
   modificadoresEnPantalla,
   nota,
   renderBattleLog,
   renderSpells,
 } from '../views/panels.js';
-import { botonDeElegir, botonesDePoder, queHaceElPoder } from '../views/poderes.js';
+import { botonDeElegir, botonesDePoder } from '../views/poderes.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
@@ -183,7 +179,7 @@ function rasgosDichos(traits: readonly CreatureTrait[] | undefined): string {
  * no salían y un guerrero que vuela se veía igual que uno normal (M9 de QA). Y lo
  * que lleva puesto, que es de donde salen.
  */
-export function resumenDeCifras(u: UnidadDeArena, piezas: EquipoAtado): string {
+export function resumenDeCifras(u: Unidad, piezas: EquipoAtado): string {
   const lleva = piezas.piezasPuestas(u.equipo).map((p) => p.nombre);
   return `${resumenDeUnidad(unidadDeCombate(u, piezas))}${lleva.length === 0 ? '' : ` · lleva ${lleva.join(', ')}`}`;
 }
@@ -203,7 +199,7 @@ export function resumenDeUnidad(u: UnitInfo): string {
 // ---------------------------------------------------------------- la lista
 
 /** Qué enseña la lista: todas las hojas o las de una facción. */
-export type FiltroDeArena = HojaDeArena['faccion'] | 'todas';
+export type FiltroDeArena = Hoja['faccion'] | 'todas';
 
 /**
  * Una unidad en la lista: la de una hoja o una nueva (`unidadNueva`). Su id, su
@@ -214,7 +210,7 @@ export type FiltroDeArena = HojaDeArena['faccion'] | 'todas';
 export interface TarjetaDeUnidad {
   readonly id: string;
   readonly nombre: string;
-  readonly faccion: HojaDeArena['faccion'];
+  readonly faccion: Hoja['faccion'];
   /** La hoja de cuyo retrato de identidad se pinta. */
   readonly retrato: string;
   readonly sello?: string;
@@ -320,7 +316,7 @@ function botonesDeTarjeta(
  * del juego: en la arena solo están las cinco facciones (13-10-2026).
  */
 export function renderCatalogo(
-  hojas: readonly HojaDeArena[],
+  hojas: readonly Hoja[],
   filtro: FiltroDeArena,
   modo: ModoDelCatalogo = { kind: 'montaje' },
   extra: ListaDeUnidades = {},
@@ -873,7 +869,7 @@ function filaDeArmadura(final: UnitInfo): FilaDeCifra {
  * manos— va desactivado y con su motivo) y si se puede quitar lo puesto (`quitarBlocker`: sin arma de cuerpo a
  * cuerpo no se combate, y el arma no lleva ×, sino su motivo en nota).
  */
-function equipoDeLaFicha(u: UnidadDeArena, piezas: EquipoAtado): Html {
+function equipoDeLaFicha(u: Unidad, piezas: EquipoAtado): Html {
   const filas = unir(
     HUECOS.flatMap((hueco) => {
       const id = u.equipo[hueco];
@@ -951,7 +947,7 @@ function armasDeLaFicha(combate: UnitInfo): Html {
  * hay bandos y su ficha ya está abierta.
  */
 export function avisoDeNuevaUnidad(
-  u: UnidadDeArena,
+  u: Unidad,
   escena: 'montaje' | 'edicion',
   piezas: EquipoAtado,
 ): string {
@@ -1037,7 +1033,7 @@ export function resumenDeLaLectura(grupos: readonly AvisosDeLectura[]): string {
  * las del CUERPO, de las que sale el nivel; con el equipo encima se pelea, y la
  * columna «Final» de su tabla lo dice (`tablaDeCifras`).
  */
-export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: ComoDeLaFicha): Html {
+export function renderFicha(u: Unidad | null, dispara: boolean, como: ComoDeLaFicha): Html {
   if (u === null) {
     return html`<h3>Ficha</h3><p class="cost">Pulsa el nombre de una unidad de un bando para ver y cambiar sus cifras.</p>`;
   }
@@ -1068,7 +1064,7 @@ export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: Com
   const puestas =
     inertes.length === 0 ? html`<span class="cost">Ninguna.</span>` : unir(inertes.map(etiqueta));
   const libres = unir(
-    HABILIDADES_DE_LA_ARENA.filter((h) => !u.habilidades.includes(h)).map(
+    HABILIDADES.filter((h) => !u.habilidades.includes(h)).map(
       (h) => html`<option value="${h}">${nombreDeHabilidad(h)}</option>`,
     ),
   );
@@ -1113,7 +1109,7 @@ export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: Com
             clave: 'gold',
             rotulo: 'Coste',
             nota: 'En oro, en la partida. No se escribe: sale de su índice de poder (data/economia.json).',
-            final: oroDelIndice(indiceDePoder(combate)),
+            final: costeDeUnaUnidad(combate),
           },
         ],
       )}`,
@@ -1736,6 +1732,7 @@ export type VistaDeArena = Pick<
   | 'apuntado'
   | 'prevision'
   | 'ruedaPendiente'
+  | 'cuerpoDe'
 >;
 
 /**
@@ -1761,7 +1758,7 @@ function botonDeEditar(x: BattleStack, nombre: string): Html {
 
 /**
  * Lo que suma el equipo a una `cifra` de `u`: lo de ahora menos lo de su cuerpo
- * (`cuerpo`, el del stack sin equipo, `cuerpoDelStack`), en la pastilla de toda
+ * (`cuerpo`, el del stack sin equipo, `SesionDeArena.cuerpoDe`), en la pastilla de toda
  * suma de equipo (`textoDeModificador`, como `modificadoresEnPantalla`), o nada
  * si no suma. La velocidad, en casillas, que es como se lee al lado. La armadura
  * no pasa por aquí: el cuerpo no la lleva, toda es del equipo, y su fila la dice
@@ -1806,13 +1803,13 @@ function delEquipo(
  * la rueda, en una fila y sin notas (el bocadillo no se puede señalar).
  */
 export function filasDelStack(
-  s: Pick<VistaDeArena, 'battle' | 'defensaEnLoAlto'>,
+  s: Pick<VistaDeArena, 'battle' | 'defensaEnLoAlto' | 'cuerpoDe'>,
   x: BattleStack,
   conArmas: boolean,
 ): Html {
   const b = s.battle;
   const u = x.unit;
-  const cuerpo = cuerpoDelStack(b, x);
+  const cuerpo = s.cuerpoDe(x);
   const danio =
     conArmas && u.equipo !== undefined
       ? filasDeArmas(u, (uso) => ataqueYDefensaEnBatalla(b, x, uso).ataque)
@@ -1842,17 +1839,15 @@ export function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
 }
 
 /**
- * Lo que la arena pone de los dos que se cruzan en la rueda (#261): su figura, la
- * misma del botón del puesto en el montaje (`canvas.figura`, que anima `main.ts` y
- * tiñe del color de su bando por `data-lado`), y en la rueda para elegir, un botón
+ * Lo que la arena pone alrededor de la figura de los dos que se cruzan en la rueda
+ * (#261; la figura es la común, `figuraDelContrincante`): en la rueda para elegir, un botón
  * que abre su ficha de solo lectura (`ficha-en-la-rueda`, `main.ts`) y, al pasar
  * el ratón o con el foco del teclado, su vista previa (`vistaPrevia`: del estado,
  * nunca lo elegido, que va a ciegas en la sesión).
  */
 export function caraDeLaArena(s: VistaDeArena): CaraDeLosContrincantes {
   return {
-    icono(x, nombre, paraElegir) {
-      const figura = figuraEnLienzo(x.body, ladoDe(x.side), 'rueda');
+    icono(x, nombre, paraElegir, figura) {
       if (!paraElegir) return html`<span class="icono-de-contrincante">${figura}</span>`;
       const previa = `previa-${x.id}`;
       return html`<button type="button" class="icono-de-contrincante" data-arena="ficha-en-la-rueda" data-stack="${x.id}" aria-label="${`Ficha de ${nombre}`}" aria-describedby="${previa}">${figura}</button><div class="vista-previa" id="${previa}" role="tooltip">${vistaPrevia(s, x)}</div>`;
@@ -1960,7 +1955,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
       : mia && activa !== null
         ? accionesDeLaUnidad({
             activa,
-            carga: cargaDelStack(activa),
+            carga: cifrasDeCarga(activa.unit),
             legales: s.battleLegalActions(),
             pasos: s.battleStepsLeft(),
             sinSalida: s.sinSalida(),

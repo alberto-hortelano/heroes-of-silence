@@ -43,8 +43,8 @@ export interface Sitio {
   readonly id: SitioId;
   /** Los edificios que se levantan aquí, en orden de mejora. */
   readonly cadena: readonly string[];
-  /** El sitio de morada (1 a 6, `Building.morada`), si este sitio cría unidades. No es un nivel. */
-  readonly nivel?: number;
+  /** El sitio de morada (1 a 6, `Building.morada`), si este sitio cría unidades. */
+  readonly morada?: number;
 }
 
 /**
@@ -75,7 +75,7 @@ export function sitiosDeLaBase(faccion: FactionId): readonly Sitio[] {
     ...([1, 2, 3, 4, 5, 6] as const).map((n) => ({
       id: `lvl${n}` as SitioId,
       cadena: morada(n),
-      nivel: n,
+      morada: n,
     })),
   ];
 }

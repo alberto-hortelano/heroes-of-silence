@@ -92,7 +92,7 @@ describe('el animador de batalla', () => {
 
     expect(a.busy).toBe(true);
     // Cada uno tarda lo que tarda en andar SUS casillas: dos el primero, una el segundo.
-    const casilla = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA.normal);
+    const casilla = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA);
     t = casilla;
     a.tick(t);
     const medio = a.figura(s1);
@@ -403,7 +403,7 @@ describe('el animador de batalla', () => {
     // Ya ha pasado de sobra lo que dura el paso, pero nadie ha dado la hora.
     for (let i = 0; i < 3; i++) expect(a.busy).toBe(true);
     expect(a.figura(s1).clip).toBe('walk');
-    a.tick(msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA.normal) + 1);
+    a.tick(msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA) + 1);
     expect(a.busy).toBe(false);
   });
 
@@ -419,7 +419,7 @@ describe('el animador de batalla', () => {
     b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino] });
     const otraCopia = structuredClone(b);
     a.observe(otraCopia, 1);
-    a.tick(msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA.normal));
+    a.tick(msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA));
     expect(a.busy).toBe(true);
     expect(a.figura(otraCopia.stacks[0]!).clip).toBe('walk');
     // Otra batalla, aunque el registro sea igual de largo, empieza quieta.
@@ -439,15 +439,15 @@ describe('el animador de batalla', () => {
     b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino] });
     a.observe(b);
     a.tick(0);
-    const casilla = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA.normal);
+    const casilla = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA);
     a.tick(3 * casilla - 1);
     expect(a.busy).toBe(true);
     a.tick(3 * casilla + 1);
     expect(a.busy).toBe(false);
     // La carrera avanza más por ciclo con el mismo reloj: la casilla dura menos.
-    expect(msPorCasilla(TROPA_BARATA, 'charge', ALTO_DE_FIGURA.normal)).toBeLessThan(casilla);
-    // Y una figura grande da zancadas más largas.
-    expect(msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA.grande)).toBeLessThan(casilla);
+    expect(msPorCasilla(TROPA_BARATA, 'charge', ALTO_DE_FIGURA)).toBeLessThan(casilla);
+    // Y una figura más alta da zancadas más largas.
+    expect(msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA * 1.5)).toBeLessThan(casilla);
     expect(() => msPorCasilla(TROPA_BARATA, 'attack', 1)).toThrow(/no anda/);
   });
 
@@ -484,7 +484,7 @@ describe('el animador de batalla', () => {
         },
       ];
       b.log.push(...nuevos);
-      const casilla = msPorCasilla(TROPA_BARATA, 'charge', ALTO_DE_FIGURA.normal);
+      const casilla = msPorCasilla(TROPA_BARATA, 'charge', ALTO_DE_FIGURA);
       expect(duracionDeLaJugada(b, nuevos), `con cruce: ${conCruce}`).toBe(
         casilla + (conCruce ? DURACION.cruce : 0) + DURACION.attack,
       );
@@ -544,7 +544,7 @@ describe('el animador de batalla', () => {
     a2.tick(1);
     expect(a2.figura(b1).clip).toBe('walk');
     expect(duracionDeLaJugada(otra, sinMarca)).toBe(
-      msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA.normal) + DURACION.attack,
+      msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA) + DURACION.attack,
     );
   });
 
@@ -562,7 +562,7 @@ describe('el animador de batalla', () => {
     a.tick(0);
     // Ya empezado a ritmo 2: volver a 1 no lo estira.
     a.velocidad = 1;
-    const casilla = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA.normal);
+    const casilla = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA);
     a.tick(casilla / 2 - 1);
     expect(a.busy).toBe(true);
     a.tick(casilla / 2 + 1);
@@ -697,7 +697,7 @@ describe('la vida y quién actúa, al ritmo de la cola', () => {
     expect(a.activo(b)).toBe(c1.id);
     expect(a.figura(c1).casilla).toEqual(salida);
     // Andando, en ninguna; llegado, en la de destino.
-    const anda = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA.normal);
+    const anda = msPorCasilla(TROPA_BARATA, 'walk', ALTO_DE_FIGURA);
     a.tick(DURACION.cruce + anda / 2);
     expect(a.figura(c1).casilla).toBeNull();
     a.tick(DURACION.cruce + anda + 1);

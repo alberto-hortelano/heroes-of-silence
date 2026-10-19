@@ -10,14 +10,16 @@ import {
   alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
+  battleOwners,
   currentPlayer,
   type GameContext,
   type GameOutcome,
   type GameState,
   heroesOf,
+  playerById,
   resolvePendingBattle,
 } from '../state/game.js';
-import type { PlayerId, Point } from '../types.js';
+import type { Controller, Point } from '../types.js';
 import { turnosEnLaMismaCasilla, vueltaDelVaiven } from './memoria.js';
 import {
   chooseHeroDestination,
@@ -178,25 +180,41 @@ const MAX_ACCIONES_DE_EQUIPO = 60;
  */
 export type BattleTakeover = (state: GameState, ctx: GameContext) => Promise<void>;
 
-/** Nadie vetado: la IA juega para sí en todas sus batallas. */
-const NADIE: ReadonlySet<PlayerId> = new Set();
-
-/** Cómo se conduce un turno de la IA desde fuera: los dos son opcionales. */
+/**
+ * Cómo se conduce un turno de la IA desde fuera: cómo juega sus batallas cada
+ * controlador que no es la IA de reglas (`Player.controller`). El turno reparte
+ * por el dueño de cada bando de la batalla que nace: si es de la persona
+ * (`human`) o del agente (`agent`) y quien conduce dice cómo juega, se la queda
+ * él (`BattleTakeover`); si no, la cierra la IA, sin rendirse por él
+ * (`resolvePendingBattle`).
+ */
 export interface ConduccionDelTurno {
-  /** Quien puede quedarse las batallas que nazcan (ver `BattleTakeover`). */
-  readonly takeover?: BattleTakeover | undefined;
-  /**
-   * Los jugadores que no lleva la IA de reglas. Si una batalla que resuelve ella
-   * les toca —el rival ataca a la persona—, pelea por ellos pero no se rinde:
-   * rendirse les cuesta oro y es decisión de su dueño (`resolvePendingBattle`).
-   */
-  readonly noSeRinden?: ReadonlySet<PlayerId>;
+  readonly batallas?: Partial<Record<Exclude<Controller, 'ai'>, BattleTakeover>>;
+}
+
+/**
+ * Quién se queda la batalla pendiente (`ConduccionDelTurno.batallas`): el de un
+ * bando de un jugador que no lleva la IA, atacante antes que defensor; o nadie.
+ */
+function quienLaToma(
+  state: GameState,
+  batallas: ConduccionDelTurno['batallas'],
+): BattleTakeover | undefined {
+  const pending = state.pendingBattle;
+  if (pending === null || batallas === undefined) return undefined;
+  const dueños = battleOwners(state, pending);
+  for (const dueño of [dueños.attacker, dueños.defender]) {
+    if (dueño === null) continue;
+    const controller = playerById(state, dueño).controller;
+    if (controller !== 'ai' && batallas[controller] !== undefined) return batallas[controller];
+  }
+  return undefined;
 }
 
 export async function playAiTurn(
   state: GameState,
   ctx: GameContext,
-  { takeover, noSeRinden = NADIE }: ConduccionDelTurno = {},
+  { batallas }: ConduccionDelTurno = {},
 ): Promise<void> {
   if (state.finished !== null) return;
   const player = currentPlayer(state);
@@ -256,10 +274,11 @@ export async function playAiTurn(
         marcha.alcance,
       );
       if (state.pendingBattle !== null) {
+        const takeover = quienLaToma(state, batallas);
         if (takeover !== undefined) await takeover(state, ctx);
         // Se vuelve a preguntar: quien la tomó pudo cerrarla, o no haberla
         // querido. Si sigue ahí, la cierra la IA como toda la vida.
-        if (state.pendingBattle !== null) resolvePendingBattle(state, ctx, noSeRinden);
+        if (state.pendingBattle !== null) resolvePendingBattle(state, ctx);
       }
       seMovio = true;
       movimientos++;

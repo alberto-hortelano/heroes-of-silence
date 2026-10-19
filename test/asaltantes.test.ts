@@ -280,7 +280,9 @@ describe('la emboscada', () => {
         b.stacks.filter((x) => x.side === 'attacker').map((x) => x.id),
         aMano(jinete.id, { hp: 10 * jinete.hp }),
       );
-      resolvePendingBattle(state, ctx, vetada ? new Set([0]) : new Set());
+      // El jugador 0, de la persona: la IA pelea por él sin rendirse (`sinLaIA`).
+      if (vetada) (state.players[0] as { controller: string }).controller = 'human';
+      resolvePendingBattle(state, ctx);
       return state.log.find((e) => e.kind === 'hero_returned');
     };
     expect(desenlace(false)).toMatchObject({ surrendered: true });
@@ -548,7 +550,7 @@ describe('los datos de los asaltantes', () => {
       const hero = heroesOf(state, p)[0]!;
       hero.at = { ...baseOf(state, p)!.at };
       const barata = [...unidadesDeFaccion(state.players[p]!.faction)].sort(
-        (a, b) => (a.cost.gold ?? 0) - (b.cost.gold ?? 0),
+        (a, b) => a.oro - b.oro,
       )[0]!.id;
       hero.army = withTroops([], barata, CUPO_HEROE);
     }

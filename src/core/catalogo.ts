@@ -18,6 +18,7 @@
  */
 import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
 import unidadesJson from '../../data/unidades.json' with { type: 'json' };
+import type { BattleStack } from './battle/types.js';
 import {
   crecimientoDelNivel,
   enteroDesde,
@@ -25,16 +26,25 @@ import {
   LIDERAZGO,
   oroDelIndice,
 } from './data.js';
-import { conEquipo, EQUIPO_DEL_JUEGO } from './hero/equipo.js';
+import {
+  conEquipo,
+  EQUIPO_DEL_JUEGO,
+  type EquipoAtado,
+  equipoDe,
+  manosBlocker,
+  type Portador,
+} from './hero/equipo.js';
 import { cifrasVeteranas, rangoDeTropa } from './hero/experiencia.js';
+import type { Hero } from './hero/hero.js';
 import { indiceDePoder, nivelDelIndice } from './nivel.js';
-import type { Equipo, FactionId, Resources, UnitInfo, Veterania } from './types.js';
+import type { Equipo, FactionId, UnitInfo, Veterania } from './types.js';
 import { FACTION_IDS } from './types.js';
 import {
+  armaDeCuerpoBlocker,
   cuerpoDeCombate,
   leerCatalogos,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
-  type UnidadDeArena,
+  type Unidad,
 } from './unidad.js';
 
 /**
@@ -42,12 +52,12 @@ import {
  * nuevas detrás. Leídas con lo que el juego exige a los catálogos juntos
  * (`leerCatalogos`: también el equipo base del héroe con las piezas del juego).
  */
-export const UNIDADES: readonly UnidadDeArena[] = leerCatalogos(EQUIPO_DEL_JUEGO, unidadesJson);
+export const UNIDADES: readonly Unidad[] = leerCatalogos(EQUIPO_DEL_JUEGO, unidadesJson);
 
-const POR_ID: ReadonlyMap<string, UnidadDeArena> = new Map(UNIDADES.map((u) => [u.id, u]));
+const POR_ID: ReadonlyMap<string, Unidad> = new Map(UNIDADES.map((u) => [u.id, u]));
 
 /** La unidad `id` del catálogo; lanza diciendo cuál si no está. */
-export function unidad(id: string): UnidadDeArena {
+export function unidad(id: string): Unidad {
   const u = POR_ID.get(id);
   if (u === undefined) {
     throw new Error(`no hay ninguna unidad «${id}» en ${RUTA_DEL_CATALOGO_DE_UNIDADES}`);
@@ -56,23 +66,21 @@ export function unidad(id: string): UnidadDeArena {
 }
 
 /**
- * La hoja del taller con que se pinta la unidad `id` (`cuerpo.hoja`), o `null`
- * si `id` no es una unidad del catálogo (el héroe, un personaje, un vecino). Un
- * stack del juego lleva de `body` el id de su unidad, no el de su hoja: una
- * unidad nueva de la arena (`<hoja>-<n>`) se pinta con la hoja de la que nace.
+ * La hoja del taller con que se pinta la unidad `id` (`cuerpo.hoja`): el `body`
+ * de sus stacks y la figura de sus grupos en el mapa. Lanza si no existe.
  */
-export function hojaDeUnidad(id: string): string | null {
-  return POR_ID.get(id)?.cuerpo.hoja ?? null;
+export function hojaDeUnidad(id: string): string {
+  return unidad(id).cuerpo.hoja;
 }
 
 // ---------------------------------------------------------------- en la partida
 
 /**
  * Una unidad del catálogo como la juega la partida: las cifras con que pelea un
- * novato (su cuerpo con su equipo, `unidadDeCombate`) y lo que la economía
- * necesita, que **no se escribe**: el precio y el crecimiento salen de su índice
- * de poder (`data/economia.json`). Es lo que era la `Creature` de
- * `data/creatures.json`, que se retiró el 19-10-2026.
+ * novato (su cuerpo con su equipo, `unidadDeCombate`; lo de serie es su
+ * `equipo`) y lo que la economía necesita, que **no se escribe**: el precio y el
+ * crecimiento salen de su índice de poder (`data/economia.json`). Es lo que era la
+ * `Creature` de `data/creatures.json`, que se retiró el 19-10-2026.
  */
 export interface UnidadDelJuego extends UnitInfo {
   readonly id: string;
@@ -81,26 +89,32 @@ export interface UnidadDelJuego extends UnitInfo {
   readonly leadership: number;
   /** La morada que la produce (`data/buildings.json`), o `null` si ninguna. */
   readonly edificio: string | null;
-  /** Lo que cuesta reclutar uno: oro, por su índice (`costeDeUnaUnidad`). */
-  readonly cost: Partial<Resources>;
+  /** Lo que cuesta reclutar uno, en oro (`costeDeUnaUnidad`). */
+  readonly oro: number;
   /** Cuántas suelta por semana la morada que la produce, por su nivel. */
   readonly growth: number;
-  /** Lo que lleva de serie, el equipo del catálogo: el de un novato. */
-  readonly equipoDeSerie: Equipo;
 }
 
-function delJuego(u: UnidadDeArena): UnidadDelJuego {
+/**
+ * **Lo que cuesta un individuo**, en oro, de sus cifras vestidas: el oro de su
+ * índice de poder (`oroDelIndice`, `data/economia.json`). La única cuenta del
+ * precio de una unidad: la leen el catálogo del juego (el reclutamiento), la
+ * rendición (`OrigenDelStack.oro`) y la ficha de la arena.
+ */
+export function costeDeUnaUnidad(vestida: UnitInfo): number {
+  return oroDelIndice(indiceDePoder(vestida));
+}
+
+function delJuego(u: Unidad): UnidadDelJuego {
   const vestida = conEquipo(cuerpoDeCombate(u), u.equipo);
-  const indice = indiceDePoder(vestida);
   return {
     ...vestida,
     id: u.id,
     faction: u.faction,
     leadership: u.leadership,
     edificio: u.edificio ?? null,
-    cost: { gold: oroDelIndice(indice) },
-    growth: crecimientoDelNivel(nivelDelIndice(indice)),
-    equipoDeSerie: u.equipo,
+    oro: costeDeUnaUnidad(vestida),
+    growth: crecimientoDelNivel(nivelDelIndice(indiceDePoder(vestida))),
   };
 }
 
@@ -145,12 +159,66 @@ export function unidadesDeMorada(edificio: string): readonly UnidadDelJuego[] {
 /**
  * El equipo que lleva puesto un individuo del catálogo: el de serie de su unidad
  * con lo suyo encima, hueco a hueco (lo que se pone sustituye a lo de serie en
- * ese hueco). La leen `cifrasDeUnidad` y quien pregunta si se puede poner algo
- * (`ponerseBlocker`): las manos se miran con todo lo puesto.
+ * ese hueco). La leen `cifrasDeUnidad` y `equipoPuestoDe`.
  */
 export function equipoPuesto(id: string, propio: Equipo | undefined): Equipo {
-  return { ...unidadDelJuego(id).equipoDeSerie, ...propio };
+  return { ...unidadDelJuego(id).equipo, ...propio };
 }
+
+/**
+ * **Lo que lleva puesto un portador** de `hero` —él o un individuo de su tropa—
+ * si lo suyo fuera `propio` (lo de ahora si no se dice, `equipoDe`): el héroe y un
+ * personaje, lo suyo; un individuo del catálogo, además lo de serie de su unidad
+ * (`equipoPuesto`). La leen ponerse y quitar (`equipoDelPortadorBlocker`, con lo
+ * que quedaría) y la IA, que no compra lo que no mejora lo puesto. Vive aquí y no
+ * junto a `equipoDe` (`hero/equipo.ts`) porque necesita el catálogo, que importa
+ * ese módulo al cargar.
+ */
+export function equipoPuestoDe(
+  hero: Pick<Hero, 'equipo' | 'army'>,
+  quien: Portador,
+  propio: Equipo = equipoDe(hero, quien),
+): Equipo {
+  if ('heroe' in quien) return propio;
+  const t = hero.army[quien.indice];
+  if (t === undefined) throw new Error(`la tropa no tiene un individuo ${quien.indice}`);
+  return t.member === undefined ? equipoPuesto(t.creature, propio) : propio;
+}
+
+/**
+ * Por qué un portador, `nombre`, no puede quedarse con `equipo` —lo que llevaría
+ * puesto tras ponerse la pieza `puesta` o quitarse algo (`equipoPuestoDe`)—, o
+ * `null`: las manos (`manosBlocker`, con la pieza que se pone) y un arma de cuerpo
+ * a cuerpo, que sin ella nadie pelea (`armaDeCuerpoBlocker`). **La única pregunta
+ * de ponerse y quitar en el juego** (`ponerseBlocker`, `unequipBlocker`), como
+ * `equipoValido` en la arena.
+ */
+export function equipoDelPortadorBlocker(
+  nombre: string,
+  equipo: Equipo,
+  puesta: string | null,
+): string | null {
+  const manos = puesta === null ? null : manosBlocker(equipo, puesta);
+  if (manos !== null) return manos;
+  return armaDeCuerpoBlocker(equipo) === null
+    ? null
+    : `${nombre} se quedaría sin arma de cuerpo a cuerpo, y nadie pelea sin ella: cámbiala por otra en vez de quitarla`;
+}
+
+/**
+ * Un catálogo de unidades con las piezas con que se visten: el del juego
+ * (`CATALOGO_DEL_JUEGO`, `data/unidades.json` y `data/equipo.json` tal como se
+ * cargaron) o el de una pelea de la arena, con lo que la página no ha guardado
+ * (`catalogoDelMontaje`). De él salen las cifras de un stack del catálogo
+ * (`BattleSide.catalogo`, `cifrasDeUnidad`) y su cuerpo sin equipo (`cuerpoDe`).
+ */
+export interface CatalogoDeUnidades {
+  readonly unidad: (id: string) => Unidad;
+  readonly equipo: EquipoAtado;
+}
+
+/** El catálogo con que juega la partida. */
+export const CATALOGO_DEL_JUEGO: CatalogoDeUnidades = { unidad, equipo: EQUIPO_DEL_JUEGO };
 
 /**
  * **Las cifras de un individuo del catálogo**: el cuerpo de su unidad, su
@@ -162,12 +230,21 @@ export function equipoPuesto(id: string, propio: Equipo | undefined): Equipo {
  *
  * Un novato sin nada propio pelea con **la misma referencia** de
  * `unidadDelJuego`. `veterania` pide la experiencia y el equipo porque es lo
- * único que decide las cifras: por el cable del espectador viaja eso.
+ * único que decide las cifras: por el cable del espectador viaja eso. `cat`, el
+ * catálogo: el del juego si no se dice; la arena pasa el suyo.
  */
 export function cifrasDeUnidad(
   id: string,
   veterania: Pick<Veterania, 'experiencia' | 'equipo'> | null | undefined,
+  cat: CatalogoDeUnidades = CATALOGO_DEL_JUEGO,
 ): UnitInfo {
+  if (cat !== CATALOGO_DEL_JUEGO) {
+    const u = cat.unidad(id);
+    return cat.equipo.conEquipo(cifrasVeteranas(cuerpoDeCombate(u), rangoDeTropa(veterania)), {
+      ...u.equipo,
+      ...veterania?.equipo,
+    });
+  }
   const base = unidadDelJuego(id);
   if (veterania == null) return base;
   const rango = rangoDeTropa(veterania);
@@ -186,6 +263,42 @@ export function cifrasDeUnidad(
   );
   CIFRAS_POR_HOJA.set(veterania, { id, cifras });
   return cifras;
+}
+
+/**
+ * El oro de un novato de `id` en el catálogo `cat` (`costeDeUnaUnidad`): lo que
+ * vale para la rendición (`OrigenDelStack.oro`). En el del juego, el de
+ * `unidadDelJuego`.
+ */
+export function oroDeUnidad(id: string, cat: CatalogoDeUnidades = CATALOGO_DEL_JUEGO): number {
+  return cat === CATALOGO_DEL_JUEGO
+    ? unidadDelJuego(id).oro
+    : costeDeUnaUnidad(cifrasDeUnidad(id, null, cat));
+}
+
+/**
+ * **El cuerpo de un stack sin su equipo**, de su origen: el de su unidad en el
+ * catálogo `cat` con su veteranía (`cifrasVeteranas`), o el del héroe
+ * (`OrigenDelStack.desnudo`, `cuerpoDelHeroe`); `null` de un personaje, cuyo
+ * perfil no está en ningún catálogo. Lo que el equipo le suma es la diferencia con
+ * `stack.unit`, que lleva lo puesto (`UnitInfo.equipo`): lo enseña el panel de la
+ * batalla, y cambiar una pieza a media pelea lo vuelve a vestir
+ * (`retocarEnBatalla`). La misma en la partida y en la arena: lo que cambia es el
+ * catálogo.
+ */
+export function cuerpoDe(
+  s: Pick<BattleStack, 'origen'>,
+  cat: CatalogoDeUnidades = CATALOGO_DEL_JUEGO,
+): UnitInfo | null {
+  const o = s.origen;
+  switch (o.kind) {
+    case 'catalogo':
+      return cifrasVeteranas(cuerpoDeCombate(cat.unidad(o.unidad)), rangoDeTropa(o.veterania));
+    case 'heroe':
+      return o.desnudo;
+    case 'personaje':
+      return null;
+  }
 }
 
 /**

@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { resumenDeBatalla } from '../src/core/battle/resumen.js';
-import type { BattleState } from '../src/core/battle/types.js';
+import { type BattleState, queEs } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { HERO_BODY } from '../src/core/hero/hero.js';
@@ -68,7 +68,7 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
       lanzados.map((e) => ({
         side: e.side,
         spell: e.spell,
-        target: battle.stacks.find((s) => s.id === e.target)!.body,
+        target: queEs(battle.stacks.find((s) => s.id === e.target)!),
         killed: e.killed ?? 0,
       })),
     );

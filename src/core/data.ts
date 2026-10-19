@@ -75,53 +75,13 @@ export function hasTrait(c: UnitInfo, trait: CreatureTrait): boolean {
 }
 
 /**
- * Tira quien tiene munición (la criatura del catálogo: `shots`) o quien lleva un
- * arma en el hueco `distancia` (la arena, que no cuenta tiros). Lee `equipo` y
- * no `armas`: la lista de armas por uso la escribe `conEquipo` para el daño, y el
- * hueco puesto es el hecho. Quien tira con su munición no lleva nada en
- * `distancia` (`municionBlocker`): las dos cosas no se juntan.
+ * Tira quien lleva un arma en el hueco `distancia`: llevarla ya es disparar, sin
+ * munición que contar (13-10-2026; el guardabosques también, con su arco). Lee
+ * `equipo` y no `armas`: la lista de armas por uso la escribe `conEquipo` para el
+ * daño, y el hueco puesto es el hecho.
  */
 export function isShooter(c: UnitInfo): boolean {
-  return (c.shots ?? 0) > 0 || c.equipo?.distancia !== undefined;
-}
-
-/**
- * Si los tiros de `c` se cuentan. **La munición es de la criatura del catálogo**
- * (`shots`, la misma lectura que `isShooter`); quien tira por su arma a distancia
- * (la arena, 13-10-2026) no la tiene: dispara siempre que el motor le deje. Las
- * dos cosas no se juntan nunca (lo vigila `vestir`, `hero/equipo.ts`). Lo leen
- * `tirosQueQuedan`, `quedanTiros` y `shoot` (resta solo entonces).
- */
-export function cuentaTiros(c: UnitInfo): boolean {
-  return (c.shots ?? 0) > 0;
-}
-
-/**
- * Los tiros que le quedan a un stack, o `null` si no se cuentan (`cuentaTiros`):
- * la ÚNICA lectura de `shotsLeft` fuera del motor, que la leen el `↑N` del
- * tablero, la fila «Munición» del panel, el contrato y la frase de «sin munición»
- * del disparo. Lo vigila `test/invariantes.test.ts`.
- */
-export function tirosQueQuedan(s: {
-  readonly unit: UnitInfo;
-  readonly shotsLeft: number;
-}): number | null {
-  return cuentaTiros(s.unit) ? s.shotsLeft : null;
-}
-
-/**
- * Si un stack puede tirar por munición: la ÚNICA pregunta «es tirador y le
- * quedan tiros», que leen el disparo, el castigo del tirador de fheroes2, la IA
- * de batalla y el tablero. Antes iba copiada en nueve sitios como
- * `isShooter && shotsLeft > 0`; lo vigila `test/invariantes.test.ts`.
- */
-export function quedanTiros(s: { readonly unit: UnitInfo; readonly shotsLeft: number }): boolean {
-  const tiros = tirosQueQuedan(s);
-  return tiros === null ? isShooter(s.unit) : tiros > 0;
-}
-
-export function hexSize(c: UnitInfo): number {
-  return c.hexes ?? 1;
+  return c.equipo?.distancia !== undefined;
 }
 
 /**
@@ -334,7 +294,7 @@ export interface ReglasDeExperiencia {
  *
  * Las habilidades por rango de cada criatura (inertes) se fueron con
  * `data/creatures.json` (19-10-2026): las unidades del catálogo llevan las suyas
- * (`UnidadDeArena.habilidades`), y un campo `habilidades` aquí se rechaza.
+ * (`Unidad.habilidades`), y un campo `habilidades` aquí se rechaza.
  */
 export function validarExperiencia(
   json: unknown,

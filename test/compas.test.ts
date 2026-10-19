@@ -106,8 +106,8 @@ function clipFrameDe(id: string, t: number): number {
 describe('la prisa de la marcha', () => {
   it('una casilla de un adulto andando son ~0,9 s, y cargando ~0,55 s', () => {
     // La cifra que pidió el usuario al verlo: «un poco más rápido» que los ~1,3 s.
-    const andando = msPorCasilla('goblin-lancero', 'walk', ALTO_DE_FIGURA.normal);
-    const cargando = msPorCasilla('goblin-lancero', 'charge', ALTO_DE_FIGURA.normal);
+    const andando = msPorCasilla('goblin-lancero', 'walk', ALTO_DE_FIGURA);
+    const cargando = msPorCasilla('goblin-lancero', 'charge', ALTO_DE_FIGURA);
     expect(andando).toBeGreaterThan(850);
     expect(andando).toBeLessThan(950);
     expect(cargando).toBeGreaterThan(500);

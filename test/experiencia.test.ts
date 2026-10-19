@@ -48,7 +48,7 @@ import {
   subidasDeRango,
   umbral,
 } from '../src/core/hero/experiencia.js';
-import { heroUnit } from '../src/core/hero/hero.js';
+import { cuerposDelHeroe, heroUnit } from '../src/core/hero/hero.js';
 import {
   elQueSeIria,
   gruposDe,
@@ -114,7 +114,7 @@ const conHeroe = (army: BattleSide['army'], rango = RANGO_INICIAL_DE_HEROE): Bat
   army,
   hero: {
     mando: mando(),
-    cuerpo: heroUnit({
+    ...cuerposDelHeroe({
       name: 'Prueba',
       attack: 1,
       defense: 1,
@@ -589,7 +589,7 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
     // Antes el precio salía de la referencia del catálogo, que un veterano ya
     // no lleva: el oro viaja en el origen.
     expect(surrenderBlocker(b, 'attacker').coste).toBe(
-      Math.ceil(((base.cost.gold ?? 0) * HEROE.rendicion.porcentajeDelOro) / 100),
+      Math.ceil((base.oro * HEROE.rendicion.porcentajeDelOro) / 100),
     );
   });
 
@@ -754,7 +754,7 @@ describe('la IA no tira a la tropa veterana (C8)', () => {
     // tiradores, que son novatos.
     const barato = unidadDelJuego(TROPA_BARATA);
     const tirador = unidadDelJuego(TIRADOR);
-    expect(barato.cost.gold).toBeLessThan(tirador.cost.gold ?? 0);
+    expect(barato.oro).toBeLessThan(tirador.oro);
     hero.army = [
       veterano(TROPA_BARATA, 'v-1', umbral(3)),
       ...ejercito({ creature: TIRADOR, count: 5 }),

@@ -148,17 +148,12 @@ const NINGUNO: ReadonlySet<string> = new Set();
 /** Lo que pone el espectador donde la rueda espera una sesión: no elige ni cancela. */
 const SOLO_MIRA = {
   ruedaPendiente: null,
+  quienMira: null,
   elegirEnLaRueda(): void {
     throw new Error('el espectador no elige en la rueda: solo la mira');
   },
   cancelarGolpe: (): boolean => false,
 } as const;
-
-/** Los dos del cruce que cuenta el animador, o `null` si no cuenta ninguno. */
-function losDeLaRueda(): { readonly atacante: string; readonly objetivo: string } | null {
-  const cruce = mirada.reproductor.animador.cruceEnCurso();
-  return cruce === null ? null : { atacante: cruce.evento.stack, objetivo: cruce.evento.target };
-}
 
 /**
  * La rueda del golpe, que aquí solo CUENTA (F6, 19-10-2026): mientras el
@@ -311,7 +306,7 @@ function pintarTodo(ahora: number): void {
         figura: (s) => mirada.reproductor.animador.figura(s),
         activo: mirada.reproductor.animador.activo(enCurso),
         // Los dos del cruce que se cuenta, con su aro (#261), como en la partida.
-        enLaRueda: losDeLaRueda(),
+        enLaRueda: mirada.reproductor.animador.losDelCruce(),
         efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),
       });
@@ -342,6 +337,7 @@ function pintarTodo(ahora: number): void {
   }
 
   rueda.pintar();
+  rueda.animar(ahora);
 
   // El final de la batalla no se adelanta al tablero: el panel lo calla mientras
   // el animador cuenta, y se repinta en cuanto acaba (H-7 de la QA de la fase 1b).

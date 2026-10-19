@@ -61,7 +61,7 @@ import {
   validarMuralla,
 } from '@core/battle/muralla.js';
 import { allSpells } from '@core/battle/spells.js';
-import type { BattleAction, BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
+import type { BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import {
   conLosExtras,
   DONDE_SE_CONSIGUE,
@@ -82,10 +82,10 @@ import {
 import { parseSeed } from '@core/rng.js';
 import { type CreatureTrait, esHueco, esTipoDelAnillo, type Hex, type Hueco } from '@core/types.js';
 import {
-  type HojaDeArena,
+  type Hoja,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
-  type UnidadDeArena,
-  validarUnidadDeArena,
+  type Unidad,
+  validarUnidad,
 } from '@core/unidad.js';
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
@@ -114,7 +114,7 @@ import {
 } from '../render/personajes.js';
 import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { semillaSorteada } from '../semilla.js';
-import { type LadoDeSesion, SesionDeArena } from '../session.js';
+import { type LadoDeSesion, SesionDeArena, unaOElegir } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import {
@@ -209,16 +209,16 @@ const elBando: Record<Lado, HTMLElement> = {
 
 // ---------------------------------------------------------------- estado
 
-let hojas: readonly HojaDeArena[] = [];
+let hojas: readonly Hoja[] = [];
 /** Las mismas, por su id: se hace al cargarlas y lo leen todas las preguntas por una hoja. */
-let hojasPorId: ReadonlyMap<string, HojaDeArena> = new Map();
+let hojasPorId: ReadonlyMap<string, Hoja> = new Map();
 /**
  * Las cifras por TIPO de unidad, por su id: cambiar el monje cambia todos los
  * monjes. Las de las hojas (id = la hoja) y las nuevas (`unidadNueva`). Lleva
  * también las del catálogo cuya hoja no está —no se pueden montar—, para que
  * «Guardar» no las tire (H2 de QA).
  */
-const unidadesDelCatalogo = new Map<string, UnidadDeArena>();
+const unidadesDelCatalogo = new Map<string, Unidad>();
 /**
  * Los ids de las unidades del catálogo que no validan: se conservan al guardar y
  * una unidad nueva no los toma (`IdsOcupados`, H1 de QA del ciclo 2).
@@ -519,7 +519,7 @@ function laFichaDe(el: Element, que: string): Elegida {
   return f;
 }
 
-function hojaPorId(id: string): HojaDeArena {
+function hojaPorId(id: string): Hoja {
   const h = hojasPorId.get(id);
   if (h === undefined) throw new Error(`no hay ninguna hoja «${id}» en assets/unidades/`);
   return h;
@@ -530,7 +530,7 @@ function hojaPorId(id: string): HojaDeArena {
  * cifras**. Lo que la lista ofrece sale de él (`hojasDelCatalogo`), así que pedir
  * una que no está es un fallo del gesto, no una unidad con cifras inventadas.
  */
-function unidadDe(id: string): UnidadDeArena {
+function unidadDe(id: string): Unidad {
   const u = unidadesDelCatalogo.get(id);
   if (u === undefined) throw new Error(`no hay ninguna unidad «${id}» en el catálogo de unidades`);
   return u;
@@ -541,7 +541,7 @@ function unidadDe(id: string): UnidadDeArena {
  * catálogo. Una hoja sin ella (un héroe, o una hoja nueva del taller) no se monta
  * con cifras por defecto: se crea con «Nueva unidad», que ofrece todas.
  */
-function hojasDelCatalogo(): readonly HojaDeArena[] {
+function hojasDelCatalogo(): readonly Hoja[] {
   return hojas.filter((h) => unidadesDelCatalogo.has(h.id));
 }
 
@@ -550,7 +550,7 @@ function hojasDelCatalogo(): readonly HojaDeArena[] {
  * no está o está a medias en el taller (#140). Nunca se pinta con el Y Bot en su
  * lugar.
  */
-function porQueNoSeMonta(u: UnidadDeArena): string | null {
+function porQueNoSeMonta(u: Unidad): string | null {
   const hoja = u.cuerpo.hoja;
   const h = hojasPorId.get(hoja);
   if (h === undefined) return `su hoja «${hoja}» no está en assets/unidades/`;
@@ -723,7 +723,7 @@ async function arrancar(): Promise<void> {
   const unidades = Array.isArray(cuerpo.unidades) ? cuerpo.unidades : [];
   const sinHoja: string[] = [];
   for (const crudo of unidades) {
-    const u = validarUnidadDeArena(crudo, equipo);
+    const u = validarUnidad(crudo, equipo);
     unidadesDelCatalogo.set(u.id, u);
     const motivo = porQueNoSeMonta(u);
     if (motivo !== null) sinHoja.push(`${u.id} (${motivo})`);
@@ -1411,7 +1411,7 @@ let fichaDeLaRueda = false;
  * el orden en que se abren, y Escape cierra solo el de arriba.
  */
 function abrirEditor(s: SesionDeArena, st: BattleStack, soloLectura: boolean): void {
-  elegida = tipoDelStack(s.battle, st);
+  elegida = tipoDelStack(st);
   const nombre = nombreEnElCampo(s.battle, st);
   fichaDeLaRueda = soloLectura;
   elTituloDelEditor.textContent = soloLectura ? `Ficha de ${nombre}` : TEXTOS_DEL_EDITOR.titulo;
@@ -1509,9 +1509,9 @@ function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): vo
 }
 
 /** Aplica un cambio a la unidad de un tipo, validado: lo que no cuadra se dice y no entra. */
-function cambiarUnidad(id: string, cambio: (u: UnidadDeArena) => unknown): void {
+function cambiarUnidad(id: string, cambio: (u: Unidad) => unknown): void {
   try {
-    const nueva = validarUnidadDeArena(cambio(unidadDe(id)), equipo);
+    const nueva = validarUnidad(cambio(unidadDe(id)), equipo);
     const motivo = retocarLaPelea({ kind: 'tipo', fuente: { unidad: nueva } });
     if (motivo !== null) {
       noSeCambia(motivo);
@@ -1526,7 +1526,7 @@ function cambiarUnidad(id: string, cambio: (u: UnidadDeArena) => unknown): void 
 }
 
 /** El nuevo valor de un campo de la ficha, en la unidad. Lo que es número lo valida el núcleo. */
-function conCampo(u: UnidadDeArena, campo: string, valor: string): unknown {
+function conCampo(u: Unidad, campo: string, valor: string): unknown {
   // Vacío es `NaN`, y el núcleo lo dice como «está vacío».
   const n = valor.trim() === '' ? Number.NaN : Number(valor);
   switch (campo) {
@@ -1896,8 +1896,8 @@ function render(ahora: number): void {
       otraVez = animarFiguras(ahora);
     } else {
       dibujarBatalla(ahora, sesion);
-      // Las figuras de los dos de la rueda (su cabecera, `recogerFiguras`).
-      const enLaRueda = elRueda.open && animarFiguras(ahora);
+      // Las figuras de los dos de la rueda (su cabecera, `DialogoDeLaRueda.animar`).
+      const enLaRueda = rueda.animar(ahora);
       otraVez = enLaRueda || hayFigurasAnimadas() || batalla.ocupada;
     }
   } catch (err) {
@@ -1920,8 +1920,8 @@ function repeticion(
 
 /**
  * Las figuras animadas de lo que se ve: las miniaturas y las fichas del montaje,
- * la edición o el equipo, o, en la batalla, las dos de la cabecera de la rueda
- * (`recogerFiguras`). Devuelve si hay que seguir: sin ninguna —al arrancar, con
+ * la edición o el equipo (`recogerFiguras`; las de la rueda las anima ella,
+ * `DialogoDeLaRueda.animar`). Devuelve si hay que seguir: sin ninguna —al arrancar, con
  * los bandos vacíos y sin ficha— no hay nada que repintar, y el bucle se para
  * hasta el siguiente gesto o la siguiente imagen.
  */
@@ -2014,18 +2014,14 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
 
 /**
  * La rueda del golpe (`rueda/dialogo.ts`, la misma de la partida): la arena pone
- * de los dos que se cruzan su figura animada, su ficha y su vista previa
- * (`caraDeLaArena`), y recoge las figuras de su cabecera al pintarla.
+ * alrededor de la figura de los dos que se cruzan su ficha y su vista previa
+ * (`caraDeLaArena`).
  */
 const rueda = new DialogoDeLaRueda(elRueda, {
   sesion: () => sesion,
   escena: batalla,
   cara: () => (sesion === null ? null : caraDeLaArena(sesion)),
   pedirFotograma,
-  alPintar: recogerFiguras,
-  // Las figuras que se animaban eran las de su cabecera: al volver al montaje,
-  // `pintarVista` recoge las suyas.
-  alCerrar: soltarFiguras,
 });
 
 // ---------------------------------------------------------------- gestos
@@ -2054,38 +2050,6 @@ canvas.addEventListener('pointerleave', () => {
   if (sesion !== null) batalla.salir();
   pedirFotograma();
 });
-
-/**
- * Lo común a los botones de escala, puerta y poder: con una sola jugada posible
- * (`posibles`), se juega ya; con varias, el siguiente clic en el tablero elige
- * (`esperar(true)` lo deja esperando y la barra dice `pide`), y pulsar el botón
- * otra vez lo cancela; con ninguna, el motivo del núcleo.
- */
-function unaOElegir(
-  s: SesionDeArena,
-  posibles: readonly BattleAction[],
-  o: {
-    readonly esperando: boolean;
-    readonly esperar: (si: boolean) => void;
-    readonly motivo: () => string | null;
-    readonly ninguna: string;
-    readonly pide: string;
-  },
-): void {
-  const unica = posibles.length === 1 ? posibles[0] : undefined;
-  if (unica !== undefined) {
-    o.esperar(false);
-    s.playBattleAction(unica);
-    return;
-  }
-  if (posibles.length === 0) {
-    s.status = o.motivo() ?? o.ninguna;
-    return;
-  }
-  const espera = !o.esperando;
-  o.esperar(espera);
-  s.status = espera ? o.pide : '';
-}
 
 /** «Poner escalera» o «Subir», contra un muro de su pie (`muroPorElegir`). */
 function escala(s: SesionDeArena, tipo: TipoDeEscala): void {
@@ -2244,7 +2208,7 @@ document.addEventListener('click', (ev) => {
           throw new Error(`${boton} trae «${String(id)}», que no está en la pelea`);
         }
         // Lo que se edita es el TIPO: la unidad de la que sale, o el héroe de su
-        // lado (`tipoDelStack`, que anotó el montaje). Desde la rueda, solo se mira.
+        // lado (`tipoDelStack`, por su origen). Desde la rueda, solo se mira.
         abrirEditor(sesion, st, que === 'ficha-en-la-rueda');
         return;
       }
@@ -2831,11 +2795,7 @@ document.addEventListener('keydown', (ev) => {
   if (escena !== 'battle') return;
   // Escape suelta el hechizo elegido, como en la partida, o el poder que espera.
   if (ev.key === 'Escape' && sesion !== null && !jugadaEnCurso()) {
-    sesion.hechizos.clearSpell();
-    if (sesion.apuntado?.kind === 'poder') {
-      sesion.poderes.apuntar(null);
-      sesion.status = '';
-    }
+    sesion.soltarLoApuntado();
     pedirFotograma();
     return;
   }

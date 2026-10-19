@@ -5,7 +5,8 @@ import { ECONOMIA } from '../data.js';
 import { nivelDeUnidad } from '../nivel.js';
 import type { FactionId, Resources } from '../types.js';
 import { FACTION_IDS } from '../types.js';
-import type { UnidadDeArena } from '../unidad.js';
+import type { Unidad } from '../unidad.js';
+import { entero, objetoCon, texto } from '../validar.js';
 
 export interface Building {
   readonly id: string;
@@ -30,7 +31,7 @@ export interface Building {
    * Si es una morada, el sitio que ocupa en la base (1 a 6, el `lvlN` de
    * `sitiosDeLaBase`). **No es un nivel** (decisión del usuario, 19-10-2026: «el
    * edificio no implica nivel»): qué produce lo dice cada unidad
-   * (`UnidadDeArena.edificio`, `unidadesDeMorada`), y una morada produce varias.
+   * (`Unidad.edificio`, `unidadesDeMorada`), y una morada produce varias.
    */
   readonly morada?: number;
   readonly mageGuildLevel?: number;
@@ -62,18 +63,35 @@ export function nivelDeMorada(b: Building): number {
   return nivelDeLasUnidades(b.id);
 }
 
+/**
+ * Los campos que admite un edificio de `data/buildings.json`: uno ajeno —uno de
+ * antes, como `dwellingLevel` o `upgradesLevel`, o uno mal escrito— tumba la carga
+ * diciendo cuál, en vez de quedarse sin leer.
+ */
+const CAMPOS_DE_EDIFICIO: readonly string[] = [
+  'id',
+  'name',
+  'cost',
+  'faction',
+  'income',
+  'prebuilt',
+  'requires',
+  'morada',
+  'mageGuildLevel',
+  'grantsWalls',
+  'moraleBonus',
+  'sellsEquipment',
+];
+
 const byId = new Map<string, Building>();
-for (const raw of buildingsJson.buildings as readonly Record<string, unknown>[]) {
-  const id = raw.id as string;
-  const morada = 'morada' in raw ? (raw.morada as number) : undefined;
-  if ('dwellingLevel' in raw || 'upgradesLevel' in raw) {
-    throw new Error(
-      `data/buildings.json: «${id}» trae dwellingLevel o upgradesLevel, que ya no existen (las moradas llevan «morada», su sitio en la base, y no tienen mejora)`,
-    );
-  }
+for (const [i, crudo] of (buildingsJson.buildings as readonly unknown[]).entries()) {
+  const raw = objetoCon(crudo, CAMPOS_DE_EDIFICIO, `data/buildings.json: el edificio ${i + 1}`);
+  const id = texto(raw.id, 'el id', `data/buildings.json: el edificio ${i + 1}`);
+  const quien = `data/buildings.json: «${id}»`;
+  const morada = 'morada' in raw ? entero(raw.morada, 'la morada', quien, 1) : undefined;
   if (morada !== undefined && 'cost' in raw) {
     throw new Error(
-      `data/buildings.json: la morada «${id}» trae su coste escrito, y el de una morada sale de lo que produce (data/economia.json)`,
+      `${quien}: es una morada y trae su coste escrito; el de una morada sale de lo que produce (data/economia.json)`,
     );
   }
   const cost =
@@ -82,7 +100,7 @@ for (const raw of buildingsJson.buildings as readonly Record<string, unknown>[])
       : (ECONOMIA.costeDeLaMorada[nivelDeLasUnidades(id) - 1] ?? {});
   byId.set(id, {
     id,
-    name: raw.name as string,
+    name: texto(raw.name, 'el nombre', quien),
     cost,
     ...('faction' in raw ? { faction: raw.faction as FactionId } : {}),
     ...('income' in raw ? { income: raw.income as number } : {}),
@@ -105,7 +123,7 @@ for (const raw of buildingsJson.buildings as readonly Record<string, unknown>[])
  * escribir un catálogo con el que la partida no arrancaría. Aquí y no en
  * `unidad.ts` porque desde allí leer los edificios cerraría un ciclo.
  */
-export function moradasBlocker(unidades: readonly UnidadDeArena[]): string | null {
+export function moradasBlocker(unidades: readonly Unidad[]): string | null {
   for (const u of unidades) {
     if (u.edificio === undefined) continue;
     const b = byId.get(u.edificio);

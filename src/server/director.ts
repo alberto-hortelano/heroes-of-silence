@@ -6,7 +6,7 @@
  * culpa del agente.
  */
 
-import { completarCruce, elegirEnLaRueda } from '@core/ai/rueda.js';
+import { elegirEnLaRueda, pasoDelCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
 import {
@@ -19,18 +19,19 @@ import {
 import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleAction, BattleState, Side, TurnoDeUnidad } from '@core/battle/types.js';
 import {
-  type AccionDeBatallaDelAgente,
-  accionDeBatallaDelAgente,
-  golpeDelHit,
-} from '@core/contract/golpes.js';
-import { type AccionDelAgente, accionDelAgente } from '@core/contract/huecos.js';
-import {
   serializeAdventureTurn,
   serializeBattleResponse,
   serializeBattleTurn,
   serializeHeroFromTroop,
   serializeTownVoices,
 } from '@core/contract/serialize.js';
+import {
+  type AccionDeBatallaDelAgente,
+  type AccionDelAgente,
+  accionDeBatallaDelAgente,
+  accionDelAgente,
+  golpeDelHit,
+} from '@core/contract/vocabulario.js';
 import { porPreguntar } from '@core/hero/ascenso.js';
 import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/experiencia.js';
 import type { MapPlan } from '@core/map/generate.js';
@@ -149,13 +150,16 @@ export class Director {
     options: DirectorOptions = {},
   ) {
     const seed = options.seed ?? 20260823;
+    this.agentPlayers = new Set(options.agentPlayers ?? [1]);
     this.state = newGame({
       seed,
       ...(options.plan === undefined ? {} : { plan: options.plan }),
       maxDays: options.maxDays,
+      // Los del agente, por su controlador: el turno de la IA le pasa sus batallas
+      // (`ConduccionDelTurno.batallas`) y, si las resuelve ella, no se rinde por él.
+      controllers: Object.fromEntries([...this.agentPlayers].map((p) => [p, 'agent' as const])),
     });
     this.ctx = { rng: createRng(seed ^ 0xa9e7) };
-    this.agentPlayers = new Set(options.agentPlayers ?? [1]);
     this.mirador = options.onFrame ?? null;
     options.preparar?.(this.state);
   }
@@ -231,8 +235,7 @@ export class Director {
       // Y si la defensa la acaba resolviendo la IA —el agente no la quiso, o no
       // está—, pelea por él pero no se rinde: rendirse le cobra SU oro.
       await playAiTurn(this.state, this.ctx, {
-        takeover: this.link.connected ? this.takeover : undefined,
-        noSeRinden: this.agentPlayers,
+        batallas: this.link.connected ? { agent: this.takeover } : {},
       });
       return { player: player.id, by: 'heuristic', actions: 0, problems: [] };
     }
@@ -245,9 +248,9 @@ export class Director {
       // La partida no se detiene por un fallo del agente. Y sin takeover: si
       // acaba de fallar, no se le vuelve a preguntar dentro del mismo turno.
       if (this.state.pendingBattle !== null) {
-        resolvePendingBattle(this.state, this.ctx, this.agentPlayers);
+        resolvePendingBattle(this.state, this.ctx);
       }
-      await playAiTurn(this.state, this.ctx, { noSeRinden: this.agentPlayers });
+      await playAiTurn(this.state, this.ctx);
       return { player: player.id, by: 'heuristic', actions: 0, problems: [motivo] };
     }
   }
@@ -461,7 +464,7 @@ export class Director {
         // Si nadie la tomó, la cierra la IA: dejarla pendiente reventaría todas
         // las acciones que quedaran del turno con «hay una batalla pendiente».
         if (this.state.pendingBattle !== null) {
-          resolvePendingBattle(this.state, this.ctx, this.agentPlayers);
+          resolvePendingBattle(this.state, this.ctx);
         }
         // Y un fotograma al cerrarla: el de la última acción todavía la enseñaba
         // en pie, así que sin este el tablero se quedaría con la batalla puesta
@@ -601,23 +604,24 @@ export class Director {
     }
 
     if (battle.finished === null) {
-      resolvePendingBattle(this.state, this.ctx, this.agentPlayers);
+      resolvePendingBattle(this.state, this.ctx);
     } else {
       settleBattle(this.state, this.ctx);
     }
   }
 
   /**
-   * Da `accion` con la rueda del golpe: lo que no elige el agente lo elige la IA
-   * a ciegas (`completarCruce`, el mismo sorteo y en el mismo orden que
-   * `autoResolve`: el golpe y luego la respuesta), y la respuesta de una unidad
-   * del agente se le pide a él (`battle_response`). Lo que no es un golpe se
-   * aplica tal cual.
+   * Da `accion` con la rueda del golpe, por el paso de siempre (`pasoDelCruce`,
+   * el mismo de la sesión de la persona): lo que no elige el agente lo elige la IA
+   * a ciegas, en el mismo orden que `autoResolve` (el golpe y luego la respuesta),
+   * y la respuesta de una unidad del agente se le pide a él (`battle_response`).
+   * Lo que no es un golpe se aplica tal cual.
    *
-   * Un golpe del agente sin `hit` lo completa la IA por él: el contrato lo dice.
-   * Para pedir la respuesta, quien pega primero anda hasta su objetivo (se
-   * planta, `golpeEnCurso`, como la persona en la partida): la petición enseña lo
-   * de después de andar, el espectador lo ve llegar, y un golpe que no se puede
+   * El golpe lo elige siempre la IA si no viene en la acción: un golpe del agente
+   * sin `hit` lo completa ella por él (el contrato lo dice), y los de los demás
+   * son suyos. Para pedir la respuesta, quien pega ya se ha plantado ante su
+   * objetivo (`golpeEnCurso`, como la persona en la partida): la petición enseña
+   * lo de después de andar, el espectador lo ve llegar, y un golpe que no se puede
    * dar lanza aquí, antes de preguntar nada. Lanza con la frase del núcleo.
    */
   private async conLaRueda(
@@ -626,30 +630,23 @@ export class Director {
     bandos: ReadonlySet<Side>,
   ): Promise<void> {
     const rng = this.ctx.rng;
-    const laLlevaLaIA = (side: Side): boolean => !bandos.has(side);
-    let c = completarCruce(battle, accion, rng, laLlevaLaIA);
-    if (c.falta === 'golpe') {
-      c = completarCruce(
-        battle,
-        { ...c.accion, golpe: elegirEnLaRueda('golpe', rng) },
-        rng,
-        laLlevaLaIA,
-      );
-    }
-    if (c.falta === null) {
-      applyAction(battle, c.accion, rng);
+    const paso = pasoDelCruce(
+      battle,
+      accion,
+      rng,
+      (side, papel) => papel === 'golpe' || !bandos.has(side),
+    );
+    if ('lista' in paso) {
+      applyAction(battle, paso.lista, rng);
       return;
     }
-    const { golpe, respuesta: _respuesta, from, ...plantado } = c.accion;
-    // Solo falta la respuesta: el golpe ya lo eligió quien pega, o la IA por él.
-    if (golpe === undefined) throw new Error('la rueda pide la respuesta de un golpe sin elegir');
-    applyAction(battle, from === undefined ? plantado : { ...plantado, from }, rng);
     this.frame();
     const atacante = activeStack(battle);
     if (atacante === null) throw new Error('la rueda espera un golpe y no le toca a nadie');
+    const plantado = paso.accion;
     const pedida = await this.respuestaDelAgente(battle, atacante.id, plantado.target);
     const desde = battle.log.length;
-    applyAction(battle, { ...plantado, golpe, respuesta: pedida.tipo }, rng);
+    applyAction(battle, { ...plantado, respuesta: pedida.tipo }, rng);
     if (pedida.requestId === null) return;
     const cruce = cruceDe(battle, desde, { type: 'attack', target: plantado.target });
     if (cruce === null)

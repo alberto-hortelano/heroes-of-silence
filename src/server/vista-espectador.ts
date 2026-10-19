@@ -110,8 +110,8 @@ export interface VozEnLaBase {
 
 /**
  * Un stack de batalla tal y como viaja: **sin `unit` si sus cifras salen del
- * catálogo**, que el espectador ya tiene —`cifrasDeCatalogo(body, …)`, con la
- * experiencia que viaja en el origen—, y con `unit` si es un personaje, cuyas
+ * catálogo**, que el espectador ya tiene —`cifrasDeUnidad(origen.unidad, …)`,
+ * con la experiencia que viaja en el origen—, y con `unit` si es un personaje, cuyas
  * cifras no están en ninguna otra parte.
  *
  * Mandar el catálogo por el cable costaba +2 097 B en una batalla de 5 contra 5
@@ -131,8 +131,8 @@ export type StackEnCable = Omit<BattleStack, 'unit' | 'ganado' | 'origen'> & {
  * usará la tropa que se hace héroe (ciclo B), y el espectador no pinta ninguna
  * de las tres.
  *
- * El equipo sí, y no por pintarlo: sin él, `cifrasDeCatalogo` rehace en el
- * espectador las cifras de un piquero con espada SIN la espada, y el tablero
+ * El equipo sí, y no por pintarlo: sin él, `cifrasDeUnidad` rehace en el
+ * espectador las cifras de un veterano con un arma propia SIN ella, y el tablero
  * enseñaría un ataque que no es el que pelea.
  */
 export type VeteraniaEnCable = Pick<Veterania, 'id' | 'experiencia' | 'equipo'>;
@@ -143,9 +143,13 @@ export type VeteraniaEnCable = Pick<Veterania, 'id' | 'experiencia' | 'equipo'>;
  * recortada a `VeteraniaEnCable`.
  */
 export type OrigenEnCable =
-  | { readonly kind: 'catalogo'; readonly veterania: VeteraniaEnCable | null }
+  | {
+      readonly kind: 'catalogo';
+      readonly unidad: string;
+      readonly veterania: VeteraniaEnCable | null;
+    }
   | { readonly kind: 'personaje'; readonly id: string; readonly veterania: VeteraniaEnCable | null }
-  | { readonly kind: 'heroe' };
+  | { readonly kind: 'heroe'; readonly desnudo: UnitInfo };
 
 export interface BatallaEnCable extends Omit<BattleState, 'stacks'> {
   readonly stacks: readonly StackEnCable[];
@@ -298,7 +302,14 @@ function stackAlCable(s: BattleStack): StackEnCable {
   const { unit, ganado: _ganado, origen, ...resto } = s;
   switch (origen.kind) {
     case 'catalogo':
-      return { ...resto, origen: { kind: 'catalogo', veterania: hojaAlCable(origen.veterania) } };
+      return {
+        ...resto,
+        origen: {
+          kind: 'catalogo',
+          unidad: origen.unidad,
+          veterania: hojaAlCable(origen.veterania),
+        },
+      };
     case 'personaje':
       return {
         ...resto,

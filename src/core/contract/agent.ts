@@ -18,7 +18,7 @@
 import { z } from 'zod';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
-import { esDeCura, PODERES } from '../battle/poderes.js';
+import { PODERES, queHaceElPoder } from '../battle/poderes.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
@@ -34,14 +34,12 @@ import {
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { FACTION_IDS, HUECOS, TIPOS_DEL_ANILLO } from '../types.js';
-import { HIT_DE_GOLPE, HITS } from './golpes.js';
-import { SLOT_DE_HUECO, SLOTS } from './huecos.js';
+import { HIT_DE_GOLPE, HITS, SLOT_DE_HUECO, SLOTS } from './vocabulario.js';
 
-/** Los poderes de unidad, por su id y con el hechizo cuyo efecto aplican. */
-const PODERES_EN_PROSA = PODERES.map(
-  (p) =>
-    `"${p.id}" (${p.nombre}: ${esDeCura(p) ? `cura ${p.lanzador.cantidad} PV a un aliado herido` : `el efecto del hechizo "${p.hechizo.id}" en un aliado durante ${p.lanzador.rondas} rondas`})`,
-).join(', ');
+/** Los poderes de unidad, por su id y con lo que hacen (`queHaceElPoder`, lo que lee el panel). */
+const PODERES_EN_PROSA = PODERES.map((p) => `"${p.id}" (${p.nombre}: ${queHaceElPoder(p)})`).join(
+  ', ',
+);
 
 /** El anillo de la rueda en el contrato: «"offensive", "strong"…», en su orden. */
 const ANILLO_EN_PROSA = TIPOS_DEL_ANILLO.map((t) => `"${HIT_DE_GOLPE[t]}"`).join(', ');
@@ -424,7 +422,7 @@ Notas:
 - EQUIPO: todo héroe y todo individuo de la tropa tiene cinco huecos
   (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada: "${SLOT_DE_HUECO.arma}" es
   el arma de cuerpo a cuerpo, "${SLOT_DE_HUECO.distancia}" la que dispara (llevarla ya
-  es disparar, salvo a quien tira con su munición, que no la lleva),
+  es disparar, sin munición que contar),
   "${SLOT_DE_HUECO.lanza}" la lanza con que se carga, "${SLOT_DE_HUECO.armadura}" la
   armadura y "${SLOT_DE_HUECO.escudo}" el escudo, opcional: ${REGLA_DEL_ESCUDO}
   (ponerle uno a quien lleva un arma a dos manos, o ponerle una a quien lleva

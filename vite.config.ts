@@ -8,7 +8,7 @@ import { puertoEspectadores } from './src/server/entorno.js';
 import {
   escribirCatalogo,
   escribirMurallas,
-  hojasDeArena,
+  hojasDelTaller,
   leerCatalogo,
   leerMurallas,
   RUTA_DE_MURALLAS,
@@ -125,7 +125,7 @@ function arena(): Plugin {
   let hojas: string | null = null;
   const lista = (avisar: (aviso: string) => void): string => {
     if (hojas === null) {
-      const leidas = hojasDeArena(raiz);
+      const leidas = hojasDelTaller(raiz);
       for (const h of leidas)
         if (h.incompleta !== null) avisar(`[arena] se lista sin montarla: ${h.incompleta}`);
       hojas = JSON.stringify(leidas);

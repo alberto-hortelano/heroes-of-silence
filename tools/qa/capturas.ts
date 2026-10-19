@@ -87,11 +87,12 @@ import {
   type TipoDeGolpe,
 } from '../../src/core/battle/rueda.js';
 import { allSpells } from '../../src/core/battle/spells.js';
-import type {
-  BattleAction,
-  BattleEvent,
-  BattleStack,
-  BattleState,
+import {
+  type BattleAction,
+  type BattleEvent,
+  type BattleStack,
+  type BattleState,
+  queEs,
 } from '../../src/core/battle/types.js';
 import { UNIDADES, unidad } from '../../src/core/catalogo.js';
 import { nombreDeTipoDeHeroe, RUTA_DEL_CATALOGO_DE_EQUIPO } from '../../src/core/data.js';
@@ -105,7 +106,7 @@ import type { SitioId } from '../../src/core/town/sitios.js';
 import type { Point } from '../../src/core/types.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,
-  type UnidadDeArena,
+  type Unidad,
   unidadDeCombate,
 } from '../../src/core/unidad.js';
 import type {
@@ -119,7 +120,7 @@ import {
   FONDO_DE_LA_FRANJA,
   type Plano,
 } from '../../src/shared/base.js';
-import { hojasDeArena, leerCatalogo } from '../arena/borrador.js';
+import { hojasDelTaller, leerCatalogo } from '../arena/borrador.js';
 import { cifrasCortadas } from './cifras-de-la-ficha.js';
 import {
   buscarDerrota,
@@ -767,7 +768,7 @@ async function pixelDeUnidad(
   const t0 = tableroPara(b0.width, b0.height);
   const b = await alcanzar(page, centroHex(t0, s.hex).x);
   const t = tableroPara(b.width, b.height);
-  const c = cajaDeFigura(t, s, centroDeStack(stackHexes(s)));
+  const c = cajaDeFigura(t, centroDeStack(stackHexes(s)));
   const escena = escenaDelEspejo(espejo, b.width, b.height);
   for (const alto of [0.5, 0.35, 0.65, 0.8, 0.2]) {
     // En un píxel entero de la página: el ratón llega entero al navegador, y
@@ -839,7 +840,7 @@ async function moverDosTramosYAtacar(
   const b0 = await caja(page);
   const b = await alcanzar(page, centroHex(tableroPara(b0.width, b0.height), objetivo.hex).x);
   const t = tableroPara(b.width, b.height);
-  const k = cajaDeFigura(t, objetivo, centroDeStack(stackHexes(objetivo)));
+  const k = cajaDeFigura(t, centroDeStack(stackHexes(objetivo)));
   const px = k.x + plan.lado * k.ancho;
   const py = k.suelo - k.alto * plan.alto;
   const turno = espejo.turnoPropio;
@@ -1454,7 +1455,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
       ? []
       : primera.stacks
           .filter((s) => s.side === espejo.miBando && s.origen.kind !== 'heroe' && s.count > 0)
-          .map((s) => s.body);
+          .map(queEs);
   const oroAntes = espejo.resources.gold;
   const bando = espejo.miBando;
   if (espejo.battle !== null && espejo.battle.finished === null) {
@@ -2737,12 +2738,12 @@ function ataqueEnLaPelea(ataque: number): number {
  * pidan: la misma fuente de cifras que la página, así que el espejo pelea lo
  * mismo que ella.
  */
-function delCatalogo(id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena {
+function delCatalogo(id: string, cambios: Partial<Unidad> = {}): Unidad {
   return { ...unidad(id), ...cambios };
 }
 
 /** Una unidad del catálogo como fuente del montaje del espejo. */
-function delBorrador(unidad: UnidadDeArena): FuenteDeArena {
+function delBorrador(unidad: Unidad): FuenteDeArena {
   return { unidad };
 }
 
@@ -2989,7 +2990,7 @@ function pasoDeLosPoderes(espejo: SesionDeArena, bendecido: boolean): PasoDeLosP
     const escudo = espejo.battle.stacks.find((x) => x.body === 'templario-escudo' && isAlive(x));
     if (escudo !== undefined) return { tipo: 'bendecir', sobre: escudo };
   }
-  const curas = legales.filter((a) => a.type === 'poder' && a.poder === 'curar');
+  const curas = legales.filter((a) => a.type === 'power' && a.poder === 'curar');
   // Con un solo herido el botón cura ya; con dos habría que apuntar.
   if (bendecido && curas.length === 1) return { tipo: 'curar', accion: curas[0] as BattleAction };
   return { tipo: 'terminar' };
@@ -3012,7 +3013,7 @@ function buscarPoderes(): number {
         break;
       }
       if (paso.tipo === 'bendecir') {
-        espejo.playBattleAction({ type: 'poder', poder: 'bendecir', target: paso.sobre.id });
+        espejo.playBattleAction({ type: 'power', poder: 'bendecir', target: paso.sobre.id });
         bendecido = true;
       } else espejo.playBattleAction({ type: 'end_turn' });
     }
@@ -3052,7 +3053,7 @@ async function poderesEnLaArena(
   await conLosCatalogosDevueltos('poderes', async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     vigilarConsola(page, 'poderes', problemas);
-    const hojas = hojasDeArena(process.cwd());
+    const hojas = hojasDelTaller(process.cwd());
     for (const h of hojas) registrarUnidad(h.id, h);
     const semilla = buscarPoderes();
     log(`poderes: semilla ${semilla}, buscada en el espejo`);
@@ -3112,7 +3113,7 @@ async function poderesEnLaArena(
           { exacta: true },
         );
         espejo.poderes.apuntar('bendecir');
-        const accion: BattleAction = { type: 'poder', poder: 'bendecir', target: paso.sobre.id };
+        const accion: BattleAction = { type: 'power', poder: 'bendecir', target: paso.sobre.id };
         const prevista = espejo.prevision(accion);
         if (prevista === null) throw new Error('poderes: Bendecir sin previsión en el espejo');
         const px = await pixelDeUnidad(page, espejo, paso.sobre);
@@ -3263,8 +3264,8 @@ async function poderesEnLaArena(
 async function todoIA(
   page: Page,
   semilla: number,
-  izquierda: UnidadDeArena,
-  derecha: UnidadDeArena,
+  izquierda: Unidad,
+  derecha: Unidad,
 ): Promise<void> {
   // Tras recargar, el guerrero ya está a la izquierda en «Yo»: se pasa a la IA.
   await page.locator('#bando-izquierda [data-arena="manda"][data-ia="si"]').click();
@@ -3320,7 +3321,7 @@ async function jugarArena(
   // su figura, y sin registrarla el goblin arquero disparaba con el reloj del
   // Y Bot por defecto, que no es el que pinta la página (lo destapó el aviso de
   // `clipDelDisparo`, 04-10-2026).
-  const hojas = hojasDeArena(process.cwd());
+  const hojas = hojasDelTaller(process.cwd());
   for (const h of hojas) registrarUnidad(h.id, h);
   const ATAQUE_EN_LA_PELEA = ataqueEnLaPelea(ATAQUE_EDITADO);
   const semillaDeLaPelea = buscarArena();
@@ -4803,7 +4804,7 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
  * carga todo el que pega cuerpo a cuerpo (#260), la lanza se usa al cargar a pie, y
  * su ficha lo dice; la página se la pone igual, así que pelean lo mismo.
  */
-function orcoConLanza(): UnidadDeArena {
+function orcoConLanza(): Unidad {
   const orco = delCatalogo('orko-dos-armas');
   return { ...orco, equipo: { ...orco.equipo, lanza: 'lanza_de_jinete' } };
 }
@@ -4881,7 +4882,7 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
   await conLosCatalogosDevueltos('armas', async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     vigilarConsola(page, 'armas', problemas);
-    const hojas = hojasDeArena(process.cwd());
+    const hojas = hojasDelTaller(process.cwd());
     for (const h of hojas) registrarUnidad(h.id, h);
     const semilla = buscarArmas();
     log(`armas: semilla ${semilla}, buscada en el espejo`);
@@ -5140,7 +5141,7 @@ function buscarRueda(): number {
  */
 async function ruedaEnLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   await conLosCatalogosDevueltos('rueda-del-golpe', async () => {
-    const hojas = hojasDeArena(process.cwd());
+    const hojas = hojasDelTaller(process.cwd());
     for (const h of hojas) registrarUnidad(h.id, h);
     const semilla = buscarRueda();
     log(`rueda: semilla ${semilla}, buscada en el espejo`);
@@ -5301,10 +5302,13 @@ function casillasDe(b: BattleState): ReadonlyMap<string, BattleStack['hex']> {
 async function barraQueDebe(page: Page, s: BattleStack): Promise<number> {
   const b = await caja(page);
   const t = tableroPara(b.width, b.height);
-  const { anchoBarra } = cabezaDe({ tablero: t }, s, {
-    en: centroDeStack(stackHexes(s)),
-    elevacion: 0,
-  });
+  const { anchoBarra } = cabezaDe(
+    { tablero: t },
+    {
+      en: centroDeStack(stackHexes(s)),
+      elevacion: 0,
+    },
+  );
   return (anchoBarra * stackHp(s)) / (s.unit.hp * s.initialCount);
 }
 
@@ -5388,7 +5392,7 @@ const COLORES_DE_LA_VIDA: readonly (readonly [number, number, number])[] = [
 async function vidaPintada(page: Page, s: BattleStack): Promise<number> {
   const b = await caja(page);
   const t = tableroPara(b.width, b.height);
-  const cabeza = cabezaDe({ tablero: t }, s, { en: centroDeStack(stackHexes(s)), elevacion: 0 });
+  const cabeza = cabezaDe({ tablero: t }, { en: centroDeStack(stackHexes(s)), elevacion: 0 });
   return await page.evaluate(
     ({ x, y, ancho, colores }) => {
       const lienzo = document.getElementById('canvas') as HTMLCanvasElement;
@@ -5439,7 +5443,7 @@ async function muestrasDeLaBarra(
 ): Promise<MuestraDeLaBarra[]> {
   const b = await caja(page);
   const t = tableroPara(b.width, b.height);
-  const cabeza = cabezaDe({ tablero: t }, s, { en: centroDeStack(stackHexes(s)), elevacion: 0 });
+  const cabeza = cabezaDe({ tablero: t }, { en: centroDeStack(stackHexes(s)), elevacion: 0 });
   return await page.evaluate(
     async ({ x, y, ancho, colores, masAlla, tope }) => {
       const lienzo = document.getElementById('canvas') as HTMLCanvasElement;
@@ -5895,10 +5899,13 @@ async function todoEnIAConLaRueda(
     }
     const total = objetivo.unit.hp * objetivo.initialCount;
     const b = await caja(page);
-    const entero = cabezaDe({ tablero: tableroPara(b.width, b.height) }, quieto, {
-      en: centroDeStack(stackHexes(quieto)),
-      elevacion: 0,
-    }).anchoBarra;
+    const entero = cabezaDe(
+      { tablero: tableroPara(b.width, b.height) },
+      {
+        en: centroDeStack(stackHexes(quieto)),
+        elevacion: 0,
+      },
+    ).anchoBarra;
     const muestras = await muestrasDeLaBarra(page, quieto, g.alUltimo + 400);
     log(
       `rueda-todo-ia: cruce ${n + 1}, ${objetivo.id} (${g.pvAntes} → ${g.pvTras.join(' → ')} PV): ${barraAlRitmo(
@@ -5915,10 +5922,13 @@ async function todoEnIAConLaRueda(
   await esperarCola(espejo.battle, registro);
   for (const x of espejo.battle.stacks.filter((y) => y.count > 0)) {
     const b = await caja(page);
-    const entero = cabezaDe({ tablero: tableroPara(b.width, b.height) }, x, {
-      en: centroDeStack(stackHexes(x)),
-      elevacion: 0,
-    }).anchoBarra;
+    const entero = cabezaDe(
+      { tablero: tableroPara(b.width, b.height) },
+      {
+        en: centroDeStack(stackHexes(x)),
+        elevacion: 0,
+      },
+    ).anchoBarra;
     const debe = (entero * stackHp(x)) / (x.unit.hp * x.initialCount);
     const mide = await vidaPintada(page, x);
     if (Math.abs(mide - debe) > 1.5) {
@@ -6023,7 +6033,7 @@ async function sectoresEnteros(page: Page, quien: string, conRaton: boolean): Pr
 async function aroDeLaRueda(page: Page, s: BattleStack): Promise<number> {
   const b = await caja(page);
   const t = tableroPara(b.width, b.height);
-  const c = cajaDeFigura(t, s, centroDeStack(stackHexes(s)));
+  const c = cajaDeFigura(t, centroDeStack(stackHexes(s)));
   const rx = t.paso * 0.36 * ARO_DE_LA_RUEDA;
   const ry = rx * t.compresion * 0.95;
   const color = COLOR_BANDO[s.side];
@@ -6426,7 +6436,7 @@ async function contrincantesDeLaRueda(
   problemas: Problemas,
 ): Promise<void> {
   await conLosCatalogosDevueltos('rueda-contrincantes', async () => {
-    const hojas = hojasDeArena(process.cwd());
+    const hojas = hojasDelTaller(process.cwd());
     for (const h of hojas) registrarUnidad(h.id, h);
     await contrincantesEnElEscritorio(browser, url, problemas);
     await contrincantesEnElMovil(browser, url, problemas);

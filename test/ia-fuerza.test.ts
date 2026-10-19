@@ -27,7 +27,7 @@ import { type BattleSide, createBattle } from '../src/core/battle/battle.js';
 import { unidadesDeFaccion } from '../src/core/catalogo.js';
 import { tipoDeHeroePorDefecto } from '../src/core/data.js';
 import { RANGO_MAXIMO_DE_TROPA, umbral } from '../src/core/hero/experiencia.js';
-import { type Hero, heroeRecienHecho, heroUnit } from '../src/core/hero/hero.js';
+import { cuerposDelHeroe, type Hero, heroeRecienHecho, heroUnit } from '../src/core/hero/hero.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { FactionId, Troop } from '../src/core/types.js';
@@ -52,7 +52,7 @@ function bando(h: Hero): BattleSide {
   return {
     army: troopsAsStacks(h.army),
     hero: {
-      cuerpo: heroUnit(h),
+      ...cuerposDelHeroe(h),
       mando: {
         name: h.name,
         retreat: { purse: Number.MAX_SAFE_INTEGER },

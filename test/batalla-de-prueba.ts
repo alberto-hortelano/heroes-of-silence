@@ -7,7 +7,7 @@ import type { BattleMember, BattleSide } from '../src/core/battle/battle.js';
 import type { BattleHero } from '../src/core/battle/types.js';
 import { EQUIPO_BASE } from '../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
-import { heroUnit } from '../src/core/hero/hero.js';
+import { cuerposDelHeroe } from '../src/core/hero/hero.js';
 import type { Stack, UnitInfo } from '../src/core/types.js';
 
 /** El mando de un héroe de prueba: poder 3, Bendición y Maldición. */
@@ -40,7 +40,7 @@ export function bando(
         ? null
         : {
             mando: h,
-            cuerpo: heroUnit({
+            ...cuerposDelHeroe({
               name: h.name,
               attack: 0,
               defense: 0,

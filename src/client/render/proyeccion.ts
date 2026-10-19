@@ -43,11 +43,11 @@ export interface Tablero {
 }
 
 /**
- * Lo que mide un adulto de pie en el tablero, en pasos: en un hex y en una
- * unidad grande. Lo leen la caja de la figura (`cajaDeFigura`) y el ritmo de su
- * marcha (`marcha.ts`): una figura más grande da zancadas más largas.
+ * Lo que mide un adulto de pie en el tablero, en pasos. Lo leen la caja de la
+ * figura (`cajaDeFigura`) y el ritmo de su marcha (`marcha.ts`). Toda unidad
+ * ocupa una casilla (13-10-2026): la figura grande de dos se fue con ellas.
  */
-export const ALTO_DE_FIGURA = { normal: 0.95, grande: 1.45 } as const;
+export const ALTO_DE_FIGURA = 0.95;
 /** Radio del hex (centro a vértice), en pasos. */
 const RADIO = 1 / Math.sqrt(3);
 /**
@@ -160,8 +160,7 @@ export function planoDeHex(h: Hex): Plano {
 }
 
 /**
- * El centro de una unidad en el plano: el de su hex, o el punto medio de los
- * dos si es grande. Lo usan el animador, que la pinta ahí, y el guion de
+ * El centro de una unidad en el plano: el de sus hexes (hoy, uno). Lo usan el animador, que la pinta ahí, y el guion de
  * capturas, que pulsa ahí: escrito una vez para que no puedan discrepar.
  */
 export function centroDeStack(hexes: readonly Hex[]): Plano {

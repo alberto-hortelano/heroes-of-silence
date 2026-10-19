@@ -10,7 +10,12 @@ import { stackHp } from '../battle/damage.js';
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { personajeDe, SIDES } from '../battle/types.js';
-import { equipoPuesto, unidadDelJuego, unidadDelJuegoSiExiste } from '../catalogo.js';
+import {
+  equipoDelPortadorBlocker,
+  equipoPuestoDe,
+  unidadDelJuego,
+  unidadDelJuegoSiExiste,
+} from '../catalogo.js';
 import { tipoDeHeroePorDefecto } from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
@@ -20,8 +25,6 @@ import {
   destinoDeEquipo,
   equipoDe,
   idsPuestos,
-  manosBlocker,
-  municionBlocker,
   nadaEnElHueco,
   PIEZAS_DE_BOTIN,
   type Portador,
@@ -39,9 +42,9 @@ import {
   rangoDeTropa,
 } from '../hero/experiencia.js';
 import {
+  cuerposDelHeroe,
   type Hero,
   heroeRecienHecho,
-  heroUnit,
   learnable,
   luckBonus,
   maxMana,
@@ -61,7 +64,6 @@ import {
   troopRoom,
   troopsAsStacks,
   troopsThatFit,
-  troopUnit,
   withTroops,
 } from '../hero/troop.js';
 import { Casillas, type CasillasLeidas, casillasDelCuadrado } from '../map/casillas.js';
@@ -119,7 +121,6 @@ import {
   type Hueco,
   subtractResources,
 } from '../types.js';
-import { armaDeCuerpoBlocker } from '../unidad.js';
 import {
   type AsaltanteRecordado,
   casillasPeligrosas,
@@ -1583,37 +1584,28 @@ export function equipBlocker(
   }
   const quien = destinoDeEquipo(hero, action);
   if ('motivo' in quien) return quien.motivo;
-  return ponerseBlocker(state, hero, quien, pieza.id);
+  return ponerseBlocker(hero, quien, pieza.id);
 }
 
 /**
  * Por qué el portador `quien` de `hero` no se puede poner la pieza `id` (que
- * existe), o `null`: un arma a dos manos no admite escudo, y al revés
- * (`manosBlocker`), y quien tira con su munición no lleva arma a distancia
- * (`municionBlocker`, con la que `conEquipo` lanzaría). La leen `equipBlocker` y
- * la IA, antes de equipar y antes de comprar para alguien.
+ * existe), o `null`: la pregunta de siempre sobre lo que llevaría puesto, el
+ * equipo de serie de su unidad incluido (`equipoDelPortadorBlocker`: un mandoble
+ * no entra con el escudo de serie). La leen `equipBlocker` y la IA, antes de
+ * equipar y antes de comprar para alguien.
  */
-export function ponerseBlocker(
-  state: GameState,
-  hero: Hero,
-  quien: Portador,
-  id: string,
-): string | null {
-  if ('heroe' in quien) return manosBlocker(equipoDe(hero, quien), id);
+export function ponerseBlocker(hero: Hero, quien: Portador, id: string): string | null {
+  const llevaria = equipoPuestoDe(hero, quien, { ...equipoDe(hero, quien), [pieza(id).hueco]: id });
+  return equipoDelPortadorBlocker(nombreDelPortador(hero, quien), llevaria, id);
+}
+
+/** Cómo se nombra al portador `quien` de `hero` en un motivo: el héroe, la unidad o el personaje. */
+function nombreDelPortador(hero: Hero, quien: Portador): string {
+  if ('heroe' in quien) return hero.name;
   const t = hero.army[quien.indice] as Troop;
-  // Las manos, con todo lo que lleva puesto: el equipo de serie de su unidad
-  // también (un mandoble no entra con el escudo de serie).
-  const puesto =
-    t.member === undefined
-      ? equipoPuesto(t.creature, equipoDe(hero, quien))
-      : equipoDe(hero, quien);
-  const manos = manosBlocker(puesto, id);
-  if (manos !== null) return manos;
-  const p = pieza(id);
-  // Las cifras de la tropa (`troopUnit`), que saben de dónde sale su munición: el
-  // perfil de un personaje.
-  const unit = troopUnit(t, state.characters);
-  return municionBlocker(unit, { [p.hueco]: p.id });
+  return t.member === undefined
+    ? `esa unidad de ${unidadDelJuego(t.creature).name}`
+    : 'ese personaje';
 }
 
 /** Por qué no se puede hacer ese `unequip`, o `null`. */
@@ -1626,22 +1618,13 @@ export function unequipBlocker(
   if ('motivo' in hero) return hero.motivo;
   const quien = destinoDeEquipo(hero, action);
   if ('motivo' in quien) return quien.motivo;
-  const t = 'heroe' in quien ? null : (hero.army[quien.indice] as Troop);
-  const nombre =
-    t === null
-      ? hero.name
-      : t.member === undefined
-        ? `esa unidad de ${unidadDelJuego(t.creature).name}`
-        : 'ese personaje';
+  const nombre = nombreDelPortador(hero, quien);
   const { [action.slot]: quitada, ...resto } = equipoDe(hero, quien);
   if (quitada === undefined) return nadaEnElHueco(nombre, action.slot);
   // Sin arma no se combate (todo golpe cuerpo a cuerpo pasa por la rueda, que va
-  // con la del arma; 19-10-2026): lo que se quede puesto, con lo de serie de su
+  // con la del arma; 19-10-2026): lo que quede puesto, con lo de serie de su
   // unidad, tiene que llevar una. Quitar la propia de una tropa deja la de serie.
-  const queda = t === null || t.member !== undefined ? resto : equipoPuesto(t.creature, resto);
-  return armaDeCuerpoBlocker(queda) === null
-    ? null
-    : `${nombre} se quedaría sin arma de cuerpo a cuerpo, y nadie pelea sin ella: cámbiala por otra en vez de quitarla`;
+  return equipoDelPortadorBlocker(nombre, equipoPuestoDe(hero, quien, resto), null);
 }
 
 /**
@@ -2407,7 +2390,7 @@ function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide
     ...(members === undefined ? {} : { members }),
     army: troopsAsStacks(hero.army),
     hero: {
-      cuerpo: heroUnit(hero),
+      ...cuerposDelHeroe(hero),
       mando: mandoDe(hero, retiradaDe(state, hero, side)),
     },
     moraleBonus: moraleBonus(hero) + (pueblo === undefined ? 0 : moraleFromBuildings(pueblo)),
@@ -2662,21 +2645,26 @@ function dejarPendiente(
 }
 
 /**
- * Juega la batalla pendiente con la IA táctica y aplica el resultado.
- *
- * `noSeRinden` son los jugadores que NO lleva la IA de reglas —la persona, el
- * agente—: por sus bandos pelea, pero no se rinde, porque rendirse les cuesta
- * oro y esa decisión es solo de su dueño. Quien llama es quien sabe para quién
- * juega; el núcleo no sabe que existan personas ni agentes.
+ * Los jugadores que no lleva la IA de reglas (`Player.controller`: la persona y
+ * el agente). Por sus bandos pelea la IA cuando le toca resolver, pero no se
+ * rinde: rendirse les cuesta oro y esa decisión es solo de su dueño.
  */
-export function resolvePendingBattle(
-  state: GameState,
-  ctx: GameContext,
-  noSeRinden: ReadonlySet<PlayerId> = new Set(),
-): BattleOutcome {
+export function sinLaIA(state: GameState): ReadonlySet<PlayerId> {
+  return new Set(state.players.filter((p) => p.controller !== 'ai').map((p) => p.id));
+}
+
+/**
+ * Juega la batalla pendiente con la IA táctica y aplica el resultado. Por los
+ * bandos de los jugadores que no lleva ella (`sinLaIA`) pelea, pero no se rinde.
+ */
+export function resolvePendingBattle(state: GameState, ctx: GameContext): BattleOutcome {
   const pending = state.pendingBattle;
   if (pending === null) throw new Error('no hay batalla pendiente');
-  const outcome = autoResolve(pending.battle, ctx.rng, sidesOwnedBy(state, pending, noSeRinden));
+  const outcome = autoResolve(
+    pending.battle,
+    ctx.rng,
+    sidesOwnedBy(state, pending, sinLaIA(state)),
+  );
   settleBattle(state, ctx);
   return outcome;
 }
@@ -2724,7 +2712,7 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
       let base: Troop;
       switch (s.origen.kind) {
         case 'catalogo':
-          base = { creature: s.body };
+          base = { creature: s.origen.unidad };
           break;
         case 'personaje':
           // `member` viaja de vuelta: sin él, el superviviente volvería al mapa

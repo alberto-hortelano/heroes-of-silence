@@ -88,12 +88,11 @@ import {
 import type { BattleStack } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
-import { HITS } from '../src/core/contract/golpes.js';
-import { SLOT_DE_HUECO, SLOTS, type Slot } from '../src/core/contract/huecos.js';
 import {
   CATALOGO_DE_EQUIPO_EN_PROSA,
   serializeBattleResponse,
 } from '../src/core/contract/serialize.js';
+import { HITS, SLOT_DE_HUECO, SLOTS, type Slot } from '../src/core/contract/vocabulario.js';
 import { CAMPOS_DE_PIEZA, EQUIPO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameState } from '../src/core/state/game.js';
@@ -493,7 +492,7 @@ function llamadasA(nombre: string, codigo: string): { inicio: number; argumento:
  * él. Ahora decide el discriminante, y el guardia exige el discriminante.
  */
 function esRellenoDelCable(codigo: string, inicio: number, argumento: string): boolean {
-  const cuerpo = /^(\w+)\.body\s*,\s*(\w+)\.origen\.veterania$/.exec(argumento);
+  const cuerpo = /^(\w+)\.origen\.unidad\s*,\s*(\w+)\.origen\.veterania$/.exec(argumento);
   if (cuerpo === null || cuerpo[1] !== cuerpo[2]) return false;
   const antes = codigo.slice(Math.max(0, inicio - 200), inicio);
   const rama =
@@ -504,13 +503,13 @@ function esRellenoDelCable(codigo: string, inicio: number, argumento: string): b
 }
 
 /**
- * El precio que rehace la inversa del cable: `unidadDelJuego(X.body)` dentro de
- * la rama `'catalogo'` de un `switch (X.origen.kind)` sobre el MISMO stack, sin
+ * El precio que rehace la inversa del cable: `oroDeUnidad(X.origen.unidad)` dentro
+ * de la rama `'catalogo'` de un `switch (X.origen.kind)` sobre el MISMO stack, sin
  * otra rama en medio. El precio de rendición no viaja (`stackAlCable`) y es del
  * catálogo, como las cifras.
  */
 function esPrecioDelCable(codigo: string, inicio: number, argumento: string): boolean {
-  const x = /^(\w+)\.body$/.exec(argumento)?.[1];
+  const x = /^(\w+)\.origen\.unidad$/.exec(argumento)?.[1];
   if (x === undefined) return false;
   const antes = codigo.slice(Math.max(0, inicio - 600), inicio);
   const rama = [...antes.matchAll(/\bcase\s+'(\w+)'\s*:/g)].pop();
@@ -594,12 +593,11 @@ function stackDePrueba(): BattleStack {
     slot: 0,
     body: 'templario-escudo',
     unit: unidadDelJuego(TROPA),
-    origen: { kind: 'catalogo', oro: 200, veterania: null },
+    origen: { kind: 'catalogo', unidad: TROPA, oro: 200, veterania: null },
     initialCount: 10,
     count: 10,
     topHp: 1,
     hex: { col: 0, row: 0 },
-    shotsLeft: 0,
     escalera: false,
     retaliated: false,
     defending: false,
@@ -830,18 +828,23 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo(fuera, puertas)).toEqual([]);
   });
 
-  it('en el cliente, la IA completa un cruce solo en `CruceDeLaRueda` (F5, 19-10-2026)', () => {
+  it('el cruce lo conducen `CruceDeLaRueda` (cliente) y el director (servidor), con el paso del núcleo', () => {
     // La partida y la arena eligen en la rueda por la misma pieza: la IA sortea a
     // ciegas por los bandos que lleva y lo de la persona espera su elección. Hasta
     // F5 la partida llamaba a `completarCruce` sin decirle quién era la persona, y
     // la IA elegía por ella su golpe y su respuesta (el parche de F4). Quien la
-    // llamara fuera de esa clase podría volver a elegir por la persona. Roto a mano
-    // (19-10-2026): un `completarCruce(battle, action, this.ctx.rng)` en
-    // `Session.playBattleAction` sale rojo con su línea.
-    const llama = /\bcompletarCruce\s*\(/;
+    // llamara fuera de esa clase podría volver a elegir por la persona. Desde el
+    // simplify de F3-F6 (19-10-2026) el paso del cruce es del núcleo
+    // (`pasoDelCruce`, `plantarse`, `ai/rueda.ts` y `battle.ts`) y lo conducen dos:
+    // `CruceDeLaRueda` en el cliente y el director del agente en el servidor.
+    // Roto a mano (19-10-2026): un `completarCruce(battle, action, this.ctx.rng)` en
+    // `Session.playBattleAction` y un `plantarse(battle, a, rng)` en
+    // `server/partida.ts` salen rojos con su línea.
+    const llama = /\b(?:completarCruce|pasoDelCruce|plantarse|soltarElGolpe)\s*\(/;
     const conPermiso = lineasDeLasDeclaraciones('src/client/session.ts', ['CruceDeLaRueda']);
     const fuera: string[] = [];
-    for (const ruta of CLIENTE) {
+    for (const ruta of [...CLIENTE, ...SERVIDOR]) {
+      if (ruta === 'src/server/director.ts') continue;
       for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
         if (ruta === 'src/client/session.ts' && conPermiso.has(i + 1)) continue;
         if (llama.test(linea)) fuera.push(`${ruta}:${i + 1} → ${linea.trim()}`);
@@ -1087,25 +1090,34 @@ describe('invariantes del proyecto', () => {
     // Y la llamada que se mira son las lecturas del catálogo por id: desde F3
     // (19-10-2026, el catálogo de unidades sustituye a `data/creatures.json`),
     // `unidad`, `unidadDelJuego`, `unidadDelJuegoSiExiste` y `cifrasDeUnidad`, que
-    // es `unidadDelJuego` más la veteranía (eran `creature` y `cifrasDeCatalogo`).
-    // La excepción del cable es solo para `cifrasDeUnidad` con la veteranía y,
-    // en la misma rama, `unidadDelJuego(X.body)` para rehacer el precio, que no
-    // viaja (`esPrecioDelCable`). Roto a mano: un `unidadDelJuego(s.body).attack`
+    // es `unidadDelJuego` más la veteranía (eran `creature` y `cifrasDeCatalogo`),
+    // y `oroDeUnidad` y `hojaDeUnidad`. Desde el simplify de F3-F6 (19-10-2026) el
+    // stack dice qué unidad es en su origen (`origen.unidad`) y `body` es solo el
+    // arte: se miran las dos formas. La excepción del cable es solo para
+    // `cifrasDeUnidad(X.origen.unidad, X.origen.veterania)` y, en la misma rama,
+    // `oroDeUnidad(X.origen.unidad)` para rehacer el precio, que no viaja
+    // (`esPrecioDelCable`). Roto a mano: un `unidadDelJuego(s.origen.unidad).attack`
     // en `ai/tactics.ts`, un `cifrasDeUnidad(s.body, null)` en `battle.ts` y un
-    // `unidadDelJuego(s.body)` en la rama `'personaje'` de la inversa salen rojos.
+    // `oroDeUnidad(s.origen.unidad)` fuera de su rama en la inversa salen rojos.
     const INVERSA_DEL_CABLE = 'src/client/espectador/adaptar.ts';
-    const LECTURAS = ['unidad', 'unidadDelJuego', 'unidadDelJuegoSiExiste', 'cifrasDeUnidad'];
+    const LECTURAS = [
+      'unidad',
+      'unidadDelJuego',
+      'unidadDelJuegoSiExiste',
+      'cifrasDeUnidad',
+      'oroDeUnidad',
+      'hojaDeUnidad',
+    ];
     const fugas: string[] = [];
     for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR]) {
       const codigo = codigoDe(ruta);
       for (const nombre of LECTURAS) {
         for (const { inicio, argumento } of llamadasA(nombre, codigo)) {
-          if (!/\.\s*body\b|\[\s*(['"`])body\1\s*\]/.test(argumento)) continue;
+          if (!/\.\s*body\b|\[\s*(['"`])body\1\s*\]|\.origen\.unidad\b/.test(argumento)) continue;
           if (ruta === INVERSA_DEL_CABLE) {
             if (nombre === 'cifrasDeUnidad' && esRellenoDelCable(codigo, inicio, argumento))
               continue;
-            if (nombre === 'unidadDelJuego' && esPrecioDelCable(codigo, inicio, argumento))
-              continue;
+            if (nombre === 'oroDeUnidad' && esPrecioDelCable(codigo, inicio, argumento)) continue;
           }
           fugas.push(
             `${ruta}:${lineaDe(codigo, inicio)} → ${nombre}(${argumento.replace(/\s+/g, ' ')})`,
@@ -1156,19 +1168,21 @@ describe('invariantes del proyecto', () => {
     expect([...conElNombre, ...enElTexto]).toEqual([]);
   });
 
-  it('el agente elige en la rueda: manda `hit` y `response`, se traducen en un sitio y la petición de respuesta no lleva el golpe del otro', () => {
+  it('el agente elige en la rueda: manda `hit` y `response` y la petición de respuesta no lleva el golpe del otro', () => {
     // Invertido en F6 (19-10-2026): hasta F5 el esquema quitaba `golpe` y
     // `respuesta` y la IA elegía por el agente. Ahora:
     //  (1) el `attack` del agente lleva su `hit` y llega al director, y la jugada
     //      `power` también; los dos formatos de batalla nombran lo que se elige;
-    //  (2) los nombres del contrato (`Hit`) los produce solo `contract/golpes.ts`,
-    //      como los huecos (`Slot`): nadie escribe un `as Hit` fuera;
-    //  (3) quien pide la respuesta no puede contar el golpe del atacante: la
+    //  (2) quien pide la respuesta no puede contar el golpe del atacante: la
     //      serialización recibe solo los dos ids, y su salida no lleva ni `hit` ni
     //      `golpe`, aunque la IA ya haya elegido el suyo.
-    // Rotos a mano (19-10-2026): `hit` fuera de `battleActionSchema` → rojo (1);
-    // un `'strong' as Hit` en `serialize.ts` → rojo (2); un tercer parámetro
-    // `golpe` en `serializeBattleResponse` que se copia a la salida → rojo (3).
+    // La marca de `Hit` y su guardia («nadie escribe `as Hit` fuera») se fueron en
+    // el simplify de F3-F6: `Hit` es la unión de los siete literales de
+    // `HIT_DE_GOLPE` (`contract/vocabulario.ts`), y uno escrito a mano que no esté
+    // en ella no compila.
+    // Rotos a mano (19-10-2026): `hit` fuera de `battleActionSchema` → rojo (1); un
+    // tercer parámetro `golpe` en `serializeBattleResponse` que se copia a la
+    // salida → rojo (2).
     const accion = battleActionSchema.parse({
       type: 'attack',
       target: 'defender-0',
@@ -1190,18 +1204,7 @@ describe('invariantes del proyecto', () => {
       expect(RESPONSE_FORMAT.battle_response).toContain(`"${h}"`);
     }
 
-    const TRADUCCION = 'src/core/contract/golpes.ts';
-    const produceUnHit = /\bas\s+Hit\b|<Hit>/;
-    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    expect(
-      infractoresDeCodigo(
-        todos.filter((r) => r !== TRADUCCION),
-        produceUnHit,
-      ),
-    ).toEqual([]);
-    expect(infractoresDeCodigo([TRADUCCION], produceUnHit)).not.toEqual([]);
-
-    // (3): el golpe de la IA ya elegido y plantado ante el objetivo, como lo deja
+    // (2): el golpe de la IA ya elegido y plantado ante el objetivo, como lo deja
     // el director antes de preguntar.
     const b = batallaConDos(createRng(3));
     const [atacante, objetivo] = b.stacks as [BattleStack, BattleStack];
@@ -1257,14 +1260,13 @@ describe('invariantes del proyecto', () => {
     // La arena retoca un tipo a media pelea (`retocarEnBatalla`) sustituyendo sus
     // stacks enteros en `state.stacks`: `BattleStack.unit` sigue siendo de solo
     // lectura, y nadie más cambia un stack por otro (el motor los muta por campo,
-    // y quien busca uno lo busca por id). De qué tipo sale cada stack
-    // (`tiposDeArena`) lo escribe solo ella al montar. Y los poderes
+    // y quien busca uno lo busca por id). Y los poderes
     // (`UnitInfo.poderes`) solo los escribe el formato de la unidad
     // (`core/unidad.ts`, de sus habilidades): desde F3 (19-10-2026) también en el
     // juego, cuyo catálogo es el de la arena (el monje trae Curar y Bendecir).
     // Ni el catálogo en partida (`catalogo.ts`) ni la ficha del agente los
     // escriben aparte. Roto a mano: un `state.stacks[0] = s` en `battle.ts`, un
-    // `tiposDeArena: {}` en `state/game.ts`, un `{ ...c, poderes }` en `data.ts` y
+    // `fichasDeArena: {}` en `state/game.ts`, un `{ ...c, poderes }` en `data.ts` y
     // un `poderes: c.poderes` en `contract/serialize.ts` salen rojos con su línea.
     const PUERTA = 'src/core/arena.ts';
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== PUERTA);
@@ -1274,7 +1276,7 @@ describe('invariantes del proyecto', () => {
     // Las fichas de la arena (`fichasDeArena`), con las que el retoque dice qué
     // cambió, también: las pone ella al montar y al retocar.
     const escribeTipos =
-      /\b(?:tiposDeArena|fichasDeArena)\s*[:=](?!\s*readonly)|\.fichasDeArena\b(?:\s+as\b[^;]*)?\)?\[[^\]]+\]\s*=(?!=)/;
+      /\bfichasDeArena\s*[:=](?!\s*readonly)|\.fichasDeArena\b(?:\s+as\b[^;]*)?\)?\[[^\]]+\]\s*=(?!=)/;
     const sinElTipo = fuera.filter((r) => r !== 'src/core/battle/types.ts');
     expect(infractoresDeCodigo(sinElTipo, escribeTipos)).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribeTipos)).not.toEqual([]);
@@ -1480,14 +1482,14 @@ describe('invariantes del proyecto', () => {
   it('los huecos del contrato se traducen en un sitio y la regla de las manos vive en otro', () => {
     // El escudo (12-10-2026): los huecos van en inglés en el contrato del agente
     // (cinco desde el 18-10-2026, simétricos por uso desde el simplify de F2) y en
-    // español por dentro, con la traducción en `contract/huecos.ts`. **Por tipo**:
+    // español por dentro, con la traducción en `contract/vocabulario.ts`. **Por tipo**:
     // un hueco del contrato es un `Slot`, con una marca que solo pone ese módulo, así
     // que fuera de él nadie escribe un `as Slot` (y el compilador no deja escribir
     // uno a mano, abajo); y «un arma a dos manos no admite escudo» es una regla,
     // `manosBlocker`, que leen el juego, el agente y la arena. Rotos a mano: un
     // `slot: 'shield' as Slot` en `serialize.ts`, un `p.manos === 2` en `arena.ts` y
     // una `function manosBlocker` en `game.ts` salen rojos.
-    const TRADUCCION = 'src/core/contract/huecos.ts';
+    const TRADUCCION = 'src/core/contract/vocabulario.ts';
     const produceUnSlot = /\bas\s+Slot\b|<Slot>/;
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
@@ -1559,28 +1561,6 @@ describe('invariantes del proyecto', () => {
       `"${SLOT_DE_HUECO.lanza}" la lanza con que se carga`,
     );
     expect(CATALOGO_DE_EQUIPO_EN_PROSA).toMatch(/^ *daga \(melee_weapon\)/m);
-  });
-
-  it('los tiros que quedan se leen en un sitio: `shotsLeft`, solo en `data.ts` y el motor', () => {
-    // 13-10-2026: la munición es de la criatura del catálogo (`cuentaTiros`) y la
-    // arena no la cuenta. La pregunta `isShooter && shotsLeft > 0` iba copiada en
-    // nueve sitios —el disparo, el castigo de fheroes2, la IA, el tablero—, y una
-    // copia que se quedara con la vieja dejaba sin tiros a un arquero de la arena
-    // en ese sitio y no en los demás; y el tablero y el panel combinaban cada uno
-    // sus predicados para enseñar el mismo número. Fuera del motor (`battle.ts`,
-    // que los inicia y los gasta) se lee por `tirosQueQuedan` o `quedanTiros`.
-    // Roto a mano: un `s.shotsLeft > 0` en `tactics.ts` y un `${s.shotsLeft}` en
-    // `views/panels.ts` salen rojos.
-    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    const lectura = /\.shotsLeft\b/;
-    const dueños = ['src/core/data.ts', 'src/core/battle/battle.ts'];
-    expect(
-      infractoresDeCodigo(
-        todos.filter((r) => !dueños.includes(r)),
-        lectura,
-      ),
-    ).toEqual([]);
-    for (const r of dueños) expect(infractoresDeCodigo([r], lectura), r).not.toEqual([]);
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {

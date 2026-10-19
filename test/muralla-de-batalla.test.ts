@@ -21,16 +21,13 @@ import {
   distanciaHasta,
   legalActions,
   MAX_ROUNDS,
-  movableFrom,
   movableHexes,
   movimientoBlocker,
   stackById,
-  stackHexes,
   stackSpeed,
 } from '../src/core/battle/battle.js';
 import {
   allHexes,
-  caminoDe,
   FORMA_DEL_TABLERO,
   hexDistance,
   hexKey,
@@ -44,7 +41,6 @@ import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
   abrirPuertas,
   aMano,
-  aPelear,
   bandoDePersonajes,
   forzarTurno,
   JINETE,
@@ -65,16 +61,6 @@ const VAMPIRO = aMano(NO_MUERTO, {
   speed: 'average',
   traits: ['undead', 'flying'],
 });
-/** Un volador de dos casillas y 4 de velocidad (el dragón óseo): las grandes, a mano. */
-const DRAGON = aMano(NO_MUERTO, {
-  name: 'Dragón óseo',
-  speed: 'average',
-  hexes: 2,
-  traits: ['undead', 'flying'],
-});
-/** `n` dragones, cada uno su stack (`bandoDePersonajes`: dos casillas cambian el despliegue). */
-const dragones = (n: number): BattleSide =>
-  bandoDePersonajes(Array.from({ length: n }, () => DRAGON));
 
 const forma = (nombre: string): MurallaDeBatalla => {
   const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre);
@@ -290,106 +276,6 @@ describe('el muro (C3)', () => {
     expect(stackById(state, 'attacker-0').hex).toEqual({ col: 7, row: 3 });
   });
 
-  it('la unidad grande no mete la cola en el muro', () => {
-    // Dragón óseo, dos hexes: el del atacante lleva la cola a la izquierda.
-    const state = duelo(LINEA, DRAGON, { col: 5, row: 4 }, TROPA, {
-      col: 10,
-      row: 0,
-    });
-    const s = stackById(state, 'attacker-0');
-    const movibles = movableHexes(state, s);
-    const muro = claves(LINEA.muros);
-    for (const cabeza of movibles) {
-      for (const h of stackHexes({ ...s, hex: cabeza })) expect(muro.has(hexKey(h))).toBe(false);
-    }
-    // Con la cabeza en la columna 8 la cola caería en el muro: no se ofrece.
-    expect(claves(movibles).has('8,4')).toBe(false);
-    expect(claves(movibles).has('9,4')).toBe(true);
-    expect(movimientoBlocker(state, { col: 8, row: 4 })).toBe('la cola caería en el muro');
-    // Ni con la cabeza: dos casillas no suben.
-    expect(movimientoBlocker(state, { col: 7, row: 4 })).toBe(
-      'una unidad de dos casillas no sube a la muralla',
-    );
-  });
-
-  it('la grande del defensor tampoco sube', () => {
-    const state = duelo(LINEA, TROPA, { col: 0, row: 0 }, DRAGON, { col: 9, row: 4 }, 'defender-0');
-    const s = stackById(state, 'defender-0');
-    const muro = claves(LINEA.muros);
-    for (const cabeza of movableHexes(state, s)) {
-      for (const h of stackHexes({ ...s, hex: cabeza })) expect(muro.has(hexKey(h))).toBe(false);
-    }
-  });
-
-  it('la cola de la grande que camina no lo atraviesa a mitad del recorrido', () => {
-    // El caso del fuzz de QA (M1, `fuzz.ts 1 300`, batalla 14): troll defensor
-    // de dos hexes en (9,3) —la cola a la derecha, en (10,3)— y muros en (8,3) y
-    // (9,4). El recorrido se buscaba por la cabeza y salía por 9,2 → 8,2 → 7,3,
-    // con la cola resbalando sobre el muro de (8,3).
-    const muro = validarMuralla({
-      muros: [
-        { col: 8, row: 3 },
-        { col: 9, row: 4 },
-      ],
-      puertas: [],
-    });
-    // La arena ya no hace grandes (13-10-2026): el motor sí (`peleaDelMotor`).
-    const troll = { unidad: unidadDeArena('troll-maza', { casillas: 7 }), grande: true };
-    const lejos = { unidad: unidadDeArena('troll-maza', { casillas: 7 }) };
-    for (const [izq, der, quien, en] of [
-      [[lejos], [troll], 'defender-0', { col: 9, row: 3 }],
-      [[troll], [lejos], 'attacker-0', { col: 6, row: 3 }],
-    ] as const) {
-      const state = peleaDelMotor(izq, der, createRng(1), muro);
-      const s = stackById(state, quien);
-      s.hex = en;
-      stackById(state, quien === 'attacker-0' ? 'defender-0' : 'attacker-0').hex = {
-        col: quien === 'attacker-0' ? 10 : 0,
-        row: 8,
-      };
-      forzarTurno(state, quien);
-      const destinos = [...movableFrom(state, s).values()];
-      expect(destinos.length).toBeGreaterThan(0);
-      for (const paso of destinos) {
-        for (const cabeza of caminoDe(paso)) {
-          const cuerpo = stackHexes({ ...s, hex: cabeza }).map(hexKey);
-          expect(
-            cuerpo,
-            `${quien} hacia ${hexKey(paso.at)} pasa por ${hexKey(cabeza)}`,
-          ).not.toContain('8,3');
-        }
-      }
-      // Y la distancia andando de la IA ve el mismo tablero: la cabeza no
-      // puede ponerse donde la cola caería en el muro.
-      const cola = quien === 'attacker-0' ? { col: 9, row: 3 } : { col: 7, row: 3 };
-      expect(distanciaHasta(state, s, [en])(cola)).toBe(Number.POSITIVE_INFINITY);
-    }
-  });
-
-  it('la carga de la grande no cruza el muro con la cola', () => {
-    // La recta (3,2) → (4,5) pasa la cabeza por (3,3) y (4,4); el atacante lleva
-    // la cola a la izquierda, así que con la cabeza en (4,4) la cola pisa (3,4),
-    // que no está en la recta. Con el muro ahí, la cola lo cruzaría.
-    const jinete = unidadDeArena('troll-maza', { casillas: 7, traits: ['charge'] });
-    const blanco = unidadDeArena('troll-maza', { casillas: 7 });
-    const carga = (m: MurallaDeBatalla): number => {
-      const state = peleaDelMotor(
-        [{ unidad: jinete, grande: true }],
-        aPelear([blanco]),
-        createRng(1),
-        m,
-      );
-      const s = stackById(state, 'attacker-0');
-      s.hex = { col: 3, row: 2 };
-      const d = stackById(state, 'defender-0');
-      d.hex = { col: 5, row: 6 };
-      forzarTurno(state, 'attacker-0');
-      return cargaDesde(state, s, { col: 4, row: 5 }, d);
-    };
-    expect(carga(SIN_MURALLA)).toBe(3);
-    expect(carga(validarMuralla({ muros: [{ col: 3, row: 4 }], puertas: [] }))).toBe(0);
-  });
-
   it('la carga no cruza el muro', () => {
     const muro = validarMuralla({ muros: [{ col: 6, row: 4 }], puertas: [] });
     const conMuro = duelo(muro, JINETE, { col: 3, row: 4 }, TROPA, { col: 8, row: 4 });
@@ -476,34 +362,6 @@ describe('la puerta (C4, C20 de la ampliación 3)', () => {
     expect(movibles.has('7,4')).toBe(true);
   });
 
-  it('a la grande no la parte una puerta cerrada; abierta, puede plantarse en ella (C28)', () => {
-    // El atacante lleva la cola a la izquierda: con la cabeza en (8,4), en (7,4).
-    const andando = peleaDelMotor(
-      [{ unidad: unidadDeArena('troll-maza', { casillas: 7 }), grande: true }],
-      aPelear([unidadDeArena('troll-maza', { casillas: 7 })]),
-      createRng(1),
-      CON_PUERTA,
-    );
-    stackById(andando, 'attacker-0').hex = { col: 5, row: 4 };
-    stackById(andando, 'defender-0').hex = { col: 10, row: 0 };
-    forzarTurno(andando, 'attacker-0');
-    expect(movimientoBlocker(andando, { col: 8, row: 4 })).toBe(
-      'no cabe: una puerta cerrada quedaría entre la cabeza y la cola',
-    );
-    // Abierta, la grande pasa por ella: cabeza al este, cola al oeste.
-    abrirPuertas(andando);
-    expect(movimientoBlocker(andando, { col: 8, row: 4 })).toBeNull();
-    // Dragón óseo: vuela y ocupa dos hexes.
-    const volando = duelo(CON_PUERTA, DRAGON, { col: 5, row: 4 }, TROPA, {
-      col: 10,
-      row: 0,
-    });
-    expect(movimientoBlocker(volando, { col: 8, row: 4 })).toBe(
-      'no cabe: una puerta cerrada quedaría entre la cabeza y la cola',
-    );
-    expect(claves(movableHexes(volando, stackById(volando, 'attacker-0'))).has('9,4')).toBe(true);
-  });
-
   it('a quien está en la puerta abierta se le golpea desde fuera', () => {
     const state = duelo(CON_PUERTA, PESADA, { col: 5, row: 4 }, TROPA, {
       col: 7,
@@ -522,8 +380,8 @@ describe('el despliegue esquiva la muralla', () => {
     lado(Array.from({ length: 7 }, () => ({ creature, count: 1 })));
 
   it('sin muralla, el de siempre: pasarla vacía no cambia ni un hex', () => {
-    const sin = createBattle(siete(TROPA_BARATA), dragones(7), createRng(1));
-    const vacia = createBattle(siete(TROPA_BARATA), dragones(7), createRng(1), SIN_MURALLA);
+    const sin = createBattle(siete(TROPA_BARATA), siete(NO_MUERTO), createRng(1));
+    const vacia = createBattle(siete(TROPA_BARATA), siete(NO_MUERTO), createRng(1), SIN_MURALLA);
     expect(vacia.stacks.map((s) => s.hex)).toEqual(sin.stacks.map((s) => s.hex));
     // La instantánea, para que un cambio del orden se vea aquí y no solo en el banco.
     expect(sin.stacks.filter((s) => s.side === 'attacker').map((s) => hexKey(s.hex))).toEqual([
@@ -535,50 +393,24 @@ describe('el despliegue esquiva la muralla', () => {
       '0,1',
       '0,7',
     ]);
-    // El espejo del atacante: la cabeza en la segunda columna desde la derecha,
-    // la 10 en las filas pares (cola en la 11) y la 9 en las impares (cola en la 10).
+    // El espejo del atacante: la columna del borde derecho, la 11 en las filas
+    // pares (de 12) y la 10 en las impares (de 11).
     expect(sin.stacks.filter((s) => s.side === 'defender').map((s) => hexKey(s.hex))).toEqual([
-      '10,4',
-      '9,3',
-      '9,5',
-      '10,2',
-      '10,6',
-      '9,1',
-      '9,7',
+      '11,4',
+      '10,3',
+      '10,5',
+      '11,2',
+      '11,6',
+      '10,1',
+      '10,7',
     ]);
   });
 
-  it('nadie empieza en un muro, tampoco el defensor, y la grande no empieza partida por una puerta', () => {
+  it('nadie empieza en un muro, tampoco el defensor', () => {
     const m = validarMuralla({ muros: columna(10).filter((h) => h.row !== 4), puertas: [] });
     const b = createBattle(siete(TROPA_BARATA), siete(TROPA_BARATA), createRng(1), m);
     const cerradas = claves(m.muros);
-    for (const s of b.stacks)
-      for (const h of stackHexes(s)) expect(cerradas.has(hexKey(h))).toBe(false);
-    // Con una puerta (cerrada) entre (10,4) y (11,4) —la cabeza y la cola de la
-    // grande en la fila 4, que es par—, la grande salta esa fila.
-    const conPuerta = createBattle(
-      siete(TROPA_BARATA),
-      dragones(1),
-      createRng(1),
-      validarMuralla({ muros: [], puertas: [{ a: { col: 10, row: 4 }, b: { col: 11, row: 4 } }] }),
-    );
-    expect(stackHexes(stackById(conPuerta, 'defender-0')).map(hexKey)).toEqual(['9,3', '10,3']);
-    // Entre (9,4) y (10,4) ya no la parte: es el lado de delante de su cabeza.
-    const delante = createBattle(
-      siete(TROPA_BARATA),
-      dragones(1),
-      createRng(1),
-      validarMuralla({ muros: [], puertas: [{ a: { col: 9, row: 4 }, b: { col: 10, row: 4 } }] }),
-    );
-    expect(stackHexes(stackById(delante, 'defender-0')).map(hexKey)).toEqual(['10,4', '11,4']);
-    // La grande salta la fila cuya cola caería en el muro.
-    const g = createBattle(
-      siete(TROPA_BARATA),
-      dragones(1),
-      createRng(1),
-      validarMuralla({ muros: [{ col: 11, row: 4 }], puertas: [] }),
-    );
-    expect(stackHexes(stackById(g, 'defender-0')).map(hexKey)).toEqual(['9,3', '10,3']);
+    for (const s of b.stacks) expect(cerradas.has(hexKey(s.hex))).toBe(false);
   });
 
   it('si no caben, lo dice', () => {
@@ -595,33 +427,12 @@ describe('el despliegue esquiva la muralla', () => {
     expect(() =>
       createBattle(siete(TROPA_BARATA), siete(TROPA_BARATA), createRng(1), tapia),
     ).toThrow('la muralla deja 0 casillas de salida a la derecha y hacen falta 7');
-    expect(() =>
-      createBattle(
-        dragones(7),
-        siete(TROPA_BARATA),
-        createRng(1),
-        validarMuralla({ muros: columna(0), puertas: [] }),
-      ),
-    ).toThrow(
-      'la muralla deja 0 filas de salida para unidades grandes a la izquierda y hacen falta 7',
-    );
   });
 });
 
 describe('las frases del despliegue, con su plural (QA, M6)', () => {
-  it('«1 fila», «1 casilla» y «hace falta 1»', () => {
-    const grandes = (n: number) => Array.from({ length: n }, () => DRAGON);
+  it('«1 casilla» y «hacen falta 2»', () => {
     const peones = (n: number) => Array.from({ length: n }, () => unidadDelJuego(TROPA_BARATA));
-    const columnaCeroMenosLaFila4 = validarMuralla({
-      muros: columna(0).filter((h) => h.row !== 4),
-      puertas: [],
-    });
-    expect(despliegueBlocker(grandes(2), 'attacker', columnaCeroMenosLaFila4)).toBe(
-      'la muralla deja 1 fila de salida para unidades grandes a la izquierda y hacen falta 2',
-    );
-    expect(
-      despliegueBlocker(grandes(1), 'attacker', validarMuralla({ muros: columna(0), puertas: [] })),
-    ).toBe('la muralla deja 0 filas de salida para unidades grandes a la izquierda y hace falta 1');
     const casiTapia = validarMuralla({
       muros: allHexes().filter(
         (h) => bandoDeSalida(h) === 'defender' && !(h.col === 11 && h.row === 4),
@@ -816,8 +627,9 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
   });
 
   it('nadie llega a nadie: se acaba por rondas, sin colgarse', () => {
-    // Dos de dos casillas: ninguna sube, y la línea no tiene hueco.
-    const troll = { unidad: unidadDeArena('troll-maza', { casillas: 4 }), grande: true };
+    // Ninguno sube (el atacante no lleva escalera ni sabe escalar; el defensor, a
+    // su lado), nadie dispara y la línea no tiene hueco.
+    const troll = { unidad: unidadDeArena('troll-maza', { casillas: 4 }) };
     const state = peleaDelMotor([troll], [troll], createRng(7), forma('Línea recta'));
     autoResolve(state, createRng(7));
     expect(state.finished).not.toBeNull();

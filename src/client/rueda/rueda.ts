@@ -58,6 +58,7 @@ import {
   sector,
   xy,
 } from './disco.js';
+import { figuraDelContrincante } from './figuras.js';
 
 // Las medidas y el ángulo de cada sector se leen desde aquí (`pnpm capturas`, los tests).
 export { anguloDe, MEDIDAS_DE_LA_RUEDA } from './disco.js';
@@ -207,34 +208,36 @@ function chapa(side: Side): Html {
  */
 export interface CaraDeLosContrincantes {
   /**
-   * El icono de uno de los dos, o `null` sin icono. `nombre` es el suyo en el
-   * campo; `paraElegir`, si es la rueda para elegir (en el desenlace, solo la
-   * figura: lo que se abriera ahí quedaría debajo de la rueda de la fase siguiente).
+   * Lo que va alrededor de la figura de uno de los dos (`figura`, la común,
+   * `figuraDelContrincante`). `nombre` es el suyo en el campo; `paraElegir`, si es
+   * la rueda para elegir (en el desenlace, solo la figura: lo que se abriera ahí
+   * quedaría debajo de la rueda de la fase siguiente).
    */
-  icono(x: BattleStack, nombre: string, paraElegir: boolean): Html | null;
-  /**
-   * El bando de quien mira, en la partida (`Session.miBando`): la rueda dice «Tu
-   * golpe» o «Tu respuesta» y marca a cada uno «tú» o «rival». En la arena, sin él:
-   * los dos bandos pueden ser de la persona, y se dicen por su lado del campo.
-   */
-  readonly propio?: Side | null;
+  icono(x: BattleStack, nombre: string, paraElegir: boolean, figura: Html): Html;
 }
 
-/** Uno de los dos: su icono (`cara`), la chapa de su bando y su nombre en el campo. */
+/**
+ * Uno de los dos: su figura (con lo que ponga la página alrededor, `cara`), la
+ * chapa de su bando y su nombre en el campo. Con `quienMira`, el bando de quien
+ * mira (la sesión, `SesionConRueda.quienMira`), cada uno se marca «tú» o «rival».
+ */
 function contrincante(
   battle: BattleState,
   x: BattleStack,
+  quienMira: Side | null,
   cara: CaraDeLosContrincantes | null,
   paraElegir: boolean,
 ): Html {
   const nombre = nombreEnElCampo(battle, x);
-  const icono = cara?.icono(x, nombre, paraElegir) ?? null;
-  const propio = cara?.propio ?? null;
+  const figura = figuraDelContrincante(x);
+  const icono =
+    cara?.icono(x, nombre, paraElegir, figura) ??
+    html`<span class="icono-de-contrincante">${figura}</span>`;
   const deQuien =
-    propio === null
+    quienMira === null
       ? NADA
-      : html` <span class="de-quien">(${x.side === propio ? 'tú' : 'rival'})</span>`;
-  return html`<span class="contrincante" data-contrincante="${x.id}">${icono ?? NADA}<span class="quien">${chapa(x.side)}<span class="nombre-del-contrincante">${nombre}</span>${deQuien}</span></span>`;
+      : html` <span class="de-quien">(${x.side === quienMira ? 'tú' : 'rival'})</span>`;
+  return html`<span class="contrincante" data-contrincante="${x.id}">${icono}<span class="quien">${chapa(x.side)}<span class="nombre-del-contrincante">${nombre}</span>${deQuien}</span></span>`;
 }
 
 const LADO: Readonly<Record<Side, string>> = { attacker: 'izquierdo', defender: 'derecho' };
@@ -251,12 +254,13 @@ function cabecera(
   titulo: Html,
   atacante: BattleStack,
   objetivo: BattleStack,
+  quienMira: Side | null,
   cara: CaraDeLosContrincantes | null,
   paraElegir: boolean,
 ): Html {
   return html`<header class="cabecera-de-rueda">
       <h2 id="titulo-de-la-rueda">${titulo}</h2>
-      <div class="quienes">${contrincante(battle, atacante, cara, paraElegir)}<span class="hacia"><span class="ataca">ataca a</span>${contrincante(battle, objetivo, cara, paraElegir)}</span></div>
+      <div class="quienes">${contrincante(battle, atacante, quienMira, cara, paraElegir)}<span class="hacia"><span class="ataca">ataca a</span>${contrincante(battle, objetivo, quienMira, cara, paraElegir)}</span></div>
     </header>`;
 }
 
@@ -301,18 +305,21 @@ function rotuloDe(t: TipoDeGolpe): Html {
  * La rueda para elegir. En la fase `golpe` elige quien pega; en `respuesta`,
  * quien recibe, que no ve el golpe. Los sectores son botones (`data-golpe`, con
  * la tecla en su etiqueta) del tamaño del plato, recortados a su sector
- * (`formas`), y su efecto, una nota al lado. De `cara`, lo que la página pone de
- * los dos (`CaraDeLosContrincantes`).
+ * (`formas`), y su efecto, una nota al lado. `quienMira`, el bando de quien mira
+ * (`SesionConRueda.quienMira`); de `cara`, lo que la página pone alrededor de la
+ * figura de cada uno (`CaraDeLosContrincantes`).
  */
 export function renderEleccion(
   battle: BattleState,
   p: RuedaPendiente,
+  quienMira: Side | null,
   cara: CaraDeLosContrincantes | null,
 ): Html {
   const golpe = p.fase === 'golpe';
-  // En la partida, quien elige es quien mira: «Tu golpe»; en la arena, por su lado.
+  // Si quien elige es quien mira: «Tu golpe»; si no (la arena con los dos bandos
+  // de la persona), por su lado.
   const titulo =
-    cara?.propio === p.bando
+    quienMira === p.bando
       ? html`${golpe ? 'Tu golpe' : 'Tu respuesta'}`
       : golpe
         ? html`Golpe del bando ${LADO[p.bando]}`
@@ -332,7 +339,7 @@ export function renderEleccion(
     () => html` data-abre-nota`,
   );
   return html`<div class="rueda" data-fase="${p.fase}" data-bando="${p.bando}">
-    ${cabecera(battle, titulo, p.atacante, p.objetivo, cara, true)}
+    ${cabecera(battle, titulo, p.atacante, p.objetivo, quienMira, cara, true)}
     <div class="plato">
       ${formas()}
       <div class="giro">${disco(p.bando)}${sectores}</div>
@@ -471,6 +478,7 @@ export function renderDesenlace(
   battle: BattleState,
   e: HechoDelCruce,
   contraataque: Punto | null,
+  quienMira: Side | null,
   cara: CaraDeLosContrincantes | null,
 ): Html {
   const atacante = battle.stacks.find((s) => s.id === e.stack);
@@ -494,7 +502,7 @@ export function renderDesenlace(
       : html`contraataque <strong data-punto="${String(contraataque)}">${NOMBRE_DEL_PUNTO[contraataque]}</strong>`;
   const titulo = html`<span class="mientras-gira">La rueda gira…</span><span class="cuando-para">${NOMBRE_DE_GOLPE[e.golpe]} contra ${NOMBRE_DE_GOLPE[e.respuesta]}</span>`;
   return html`<div class="rueda" data-fase="desenlace">
-    ${cabecera(battle, titulo, atacante, objetivo, cara, false)}
+    ${cabecera(battle, titulo, atacante, objetivo, quienMira, cara, false)}
     <div class="plato">
       <div class="giro">${disco(null)}${etiquetas}</div>
       <svg class="marcas" viewBox="-110 -110 220 220" aria-hidden="true" focusable="false">

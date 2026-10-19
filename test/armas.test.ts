@@ -35,7 +35,7 @@ import {
 } from '../src/core/battle/damage.js';
 import { cruceDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { cuentaTiros, isShooter, type Pieza } from '../src/core/data.js';
+import { isShooter, type Pieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Equipo, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
@@ -199,11 +199,6 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     expect(visto).toEqual([22, 33]);
     expect([previsto.danio.min, previsto.danio.max]).toEqual([22, 33]);
     expect(previsto.modificadores[0]?.causa).toBe('con Arco (a distancia)');
-    // Sin munición (13-10-2026): el arco no da tiros que gastar; dispara siempre.
-    const e = b();
-    applyAction(e, DISPARO, dadoCargado('minimo'));
-    expect(stackById(e, 'attacker-0').shotsLeft).toBe(0);
-    expect(cuentaTiros(stackById(e, 'attacker-0').unit)).toBe(false);
   });
 
   it('pega y devuelve el golpe con la daga: ataque 4 contra 4 (×1), 10–20', () => {
@@ -388,18 +383,5 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
       'arma',
       'lanza',
     ]);
-  });
-
-  it('la munición y el arma a distancia no se juntan: quien tiene `shots` no lleva nada en `distancia`', () => {
-    // La munición es de la criatura del catálogo y el arma a distancia no la cuenta
-    // (`cuentaTiros`): juntas, tiraría sin fin con unos tiros que bajan sin servir
-    // de nada. Lo dice `vestir`, la única suma de las piezas.
-    const piezas = catalogoCon();
-    const conTiros: UnitInfo = { ...cuerpo(), name: 'Arquero', shots: 12 };
-    expect(() => piezas.conEquipo(conTiros, { distancia: 'arco' })).toThrow(
-      'Arquero tira con su munición (12 tiros) y no puede llevar nada en Arma a distancia',
-    );
-    // Con un arma de cuerpo a cuerpo, sí: los tiros siguen siendo suyos.
-    expect(cuentaTiros(piezas.conEquipo(conTiros, { arma: 'daga' }))).toBe(true);
   });
 });

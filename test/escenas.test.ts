@@ -115,7 +115,7 @@ function jugarUnTramo(s: Session): number {
     // figura de un hex es la más lenta que hay.
     if (e.kind === 'move') {
       const quien = s.battle!.stacks.find((x) => x.id === e.stack)!;
-      dura += e.path.length * msPorCasilla(quien.body, 'walk', ALTO_DE_FIGURA.normal);
+      dura += e.path.length * msPorCasilla(quien.body, 'walk', ALTO_DE_FIGURA);
     }
   }
   return dura;
@@ -512,7 +512,7 @@ describe('la batalla en el lienzo', () => {
           const c = centroHex(t, a.to);
           const tapa = b.stacks.find((e) => {
             if (!isAlive(e) || e.side === s!.miBando) return false;
-            const k = cajaDeFigura(t, e, centroDeStack(stackHexes(e)));
+            const k = cajaDeFigura(t, centroDeStack(stackHexes(e)));
             return (
               Math.abs(c.x - k.x) <= k.ancho / 2 && c.y <= k.suelo + 4 && c.y >= k.suelo - k.alto
             );
@@ -549,7 +549,7 @@ describe('la batalla en el lienzo', () => {
     const t = tableroPara(1086, 778);
     escena.encuadrar(1086, 778);
     const enemigo = s.battle!.stacks.find((x) => isAlive(x) && x.side !== s.miBando)!;
-    const k = cajaDeFigura(t, enemigo, centroDeStack(stackHexes(enemigo)));
+    const k = cajaDeFigura(t, centroDeStack(stackHexes(enemigo)));
     // La cabeza: encima de cualquier centro de hex.
     expect(escena.objetivoEn(k.x, k.suelo - k.alto * 0.85)?.id).toBe(enemigo.id);
   });
@@ -637,7 +637,7 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
       // La barra no la lleva, y la corona solo la pinta quien la pinta.
       pintarSobreLaCabeza(ctx, vista, x, f);
       expect(textos).not.toContain(MARCA_DE_COMANDANTE);
-      if (x.origen.kind === 'heroe') pintarCorona(ctx, vista, x, f);
+      if (x.origen.kind === 'heroe') pintarCorona(ctx, vista, f);
       return textos.filter((t) => t === MARCA_DE_COMANDANTE).length;
     };
     const heroe = batalla.stacks.find((x) => x.origen.kind === 'heroe')!;
@@ -654,9 +654,9 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
     // activa y en la señalada— le caía encima. Las dos cajas no se tocan, y la
     // corona ya no es la de 14 px de antes.
     const f = { en: centroDeStack(stackHexes(heroe)), alfaDelAro: 1 } as EstadoFigura;
-    const corona = cajaDeCorona(vista, heroe, f);
+    const corona = cajaDeCorona(vista, f);
     // Un nombre largo de verdad: lo que mide «Aldo de Valdeluz» y algo más.
-    const nombre = cajaDeNombre(vista, heroe, f, 160);
+    const nombre = cajaDeNombre(vista, f, 160);
     const seTocan =
       corona.x < nombre.x + nombre.ancho &&
       nombre.x < corona.x + corona.ancho &&

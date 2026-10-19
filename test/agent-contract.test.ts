@@ -21,14 +21,6 @@ import {
   responseSchemas,
 } from '../src/core/contract/agent.js';
 import {
-  accionAlAgente,
-  accionDeBatallaDelAgente,
-  golpeDelHit,
-  HIT_DE_GOLPE,
-  HITS,
-} from '../src/core/contract/golpes.js';
-import { accionDelAgente, SLOT_DE_HUECO } from '../src/core/contract/huecos.js';
-import {
   CATALOGO_DE_EQUIPO_EN_PROSA,
   COMO_SE_LEE_EL_MAPA,
   fichaDeCriatura,
@@ -39,6 +31,15 @@ import {
   serializeMapRequest,
   serializeTownVoices,
 } from '../src/core/contract/serialize.js';
+import {
+  accionAlAgente,
+  accionDeBatallaDelAgente,
+  accionDelAgente,
+  golpeDelHit,
+  HIT_DE_GOLPE,
+  HITS,
+  SLOT_DE_HUECO,
+} from '../src/core/contract/vocabulario.js';
 import { ASALTANTES, EQUIPO, tiposDeHeroe } from '../src/core/data.js';
 import { deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../src/core/hero/equipo.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
@@ -1727,14 +1728,14 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
       target: 'd-0',
     });
     expect(accionDeBatallaDelAgente({ type: 'power', power: 'curar', target: 'a-1' })).toEqual({
-      type: 'poder',
+      type: 'power',
       poder: 'curar',
       target: 'a-1',
     });
     expect(() =>
       accionDeBatallaDelAgente({ type: 'attack', target: 'd-0', hit: 'Strong' }),
     ).toThrow(/«Strong» no es un golpe de la rueda/);
-    expect(accionAlAgente({ type: 'poder', poder: 'bendecir', target: 'a-1' })).toEqual({
+    expect(accionAlAgente({ type: 'power', poder: 'bendecir', target: 'a-1' })).toEqual({
       type: 'power',
       power: 'bendecir',
       target: 'a-1',
@@ -1762,7 +1763,7 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
     expect(turno.hits.every((h: any) => typeof h.effect === 'string' && h.effect.length > 0)).toBe(
       true,
     );
-    expect(turno.legalActions.every((a: any) => a.type !== 'poder' && !('golpe' in a))).toBe(true);
+    expect(turno.legalActions.every((a: any) => a.type !== 'power' && !('golpe' in a))).toBe(true);
     applyAction(
       b,
       { type: 'attack', target: 'defender-0', golpe: 'fuerte', respuesta: 'rapido' },

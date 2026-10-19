@@ -14,9 +14,10 @@
  * (decisión del usuario, 13-10-2026: primero se anda, luego se elige).
  */
 import { contraataqueDelCruce, type HechoDelCruce } from '@core/battle/rueda.js';
-import type { BattleState } from '@core/battle/types.js';
+import type { BattleState, Side } from '@core/battle/types.js';
 import { pintar } from '../html.js';
 import type { RuedaPendiente } from '../session.js';
+import { FigurasDeLaRueda } from './figuras.js';
 import {
   ajustarLaRueda,
   type CaraDeLosContrincantes,
@@ -26,10 +27,17 @@ import {
   tramosDelDesenlace,
 } from './rueda.js';
 
-/** Lo que la rueda pide de la sesión: la de la partida y la de la arena. */
+/** Lo que la rueda pide de la sesión: la de la partida, la de la arena y la del espectador. */
 export interface SesionConRueda {
   readonly battle: BattleState | null;
   readonly ruedaPendiente: RuedaPendiente | null;
+  /**
+   * El bando de quien mira la rueda: la rueda dice «Tu golpe» o «Tu respuesta» y
+   * marca a cada uno «tú» o «rival». `null` si mira más de uno (la arena con los
+   * dos bandos de la persona, que se dicen por su lado del campo) o ninguno (el
+   * espectador).
+   */
+  readonly quienMira: Side | null;
   elegirEnLaRueda(tipo: string): void;
   cancelarGolpe(): boolean;
 }
@@ -44,13 +52,13 @@ export interface OpcionesDeLaRueda {
   /** La sesión de ahora, o `null` si no hay batalla. */
   readonly sesion: () => SesionConRueda | null;
   readonly escena: QuienCuentaElCruce;
-  /** Lo que la página pone ahora de los dos que se cruzan (`CaraDeLosContrincantes`). */
+  /**
+   * Lo que la página pone ahora alrededor de la figura de los dos que se cruzan
+   * (`CaraDeLosContrincantes`: la arena, el botón de su ficha y su vista previa),
+   * o `null` para la figura sola.
+   */
   readonly cara: () => CaraDeLosContrincantes | null;
   readonly pedirFotograma: () => void;
-  /** Tras pintar una cara nueva: la arena recoge las figuras de su cabecera. */
-  readonly alPintar?: (dialogo: HTMLDialogElement) => void;
-  /** Al cerrarse: la arena suelta esas figuras. */
-  readonly alCerrar?: () => void;
 }
 
 export class DialogoDeLaRueda {
@@ -61,6 +69,8 @@ export class DialogoDeLaRueda {
    * en cada fotograma reiniciaría las animaciones del desenlace.
    */
   private pintada: HechoDelCruce | RuedaPendiente | null = null;
+  /** Las figuras de la cabecera pintada (`FigurasDeLaRueda`): las anima `animar`. */
+  private readonly figuras = new FigurasDeLaRueda();
 
   /**
    * Dónde estaba el puntero la última vez que se movió, en la ventana, y dónde
@@ -159,7 +169,13 @@ export class DialogoDeLaRueda {
         if (i < 0) throw new Error('la rueda cuenta un cruce que no está en el registro');
         pintar(
           this.el,
-          renderDesenlace(battle, cruce.evento, contraataqueDelCruce(battle.log, i), this.o.cara()),
+          renderDesenlace(
+            battle,
+            cruce.evento,
+            contraataqueDelCruce(battle.log, i),
+            s.quienMira,
+            this.o.cara(),
+          ),
         );
         this.ajustar();
         this.pintada = cruce.evento;
@@ -169,7 +185,7 @@ export class DialogoDeLaRueda {
     } else if (pendiente !== null) {
       if (this.pintada !== pendiente) {
         delete this.el.dataset.tramo;
-        pintar(this.el, renderEleccion(battle, pendiente, this.o.cara()));
+        pintar(this.el, renderEleccion(battle, pendiente, s.quienMira, this.o.cara()));
         this.ajustar();
         this.aquietar();
         this.pintada = pendiente;
@@ -190,14 +206,22 @@ export class DialogoDeLaRueda {
     this.pintada = null;
     delete this.el.dataset.tramo;
     this.despertar();
+    this.figuras.soltar();
     if (!this.el.open) return;
     this.el.close();
-    this.o.alCerrar?.();
+  }
+
+  /**
+   * Las figuras de los dos de la cabecera, cada fotograma (quien pinta las pide
+   * con la rueda abierta). Devuelve si hay que seguir animando.
+   */
+  animar(ahora: number): boolean {
+    return this.el.open && this.figuras.animar(ahora);
   }
 
   private ajustar(): void {
     ajustarLaRueda(this.el);
-    this.o.alPintar?.(this.el);
+    this.figuras.recoger(this.el);
   }
 
   /**

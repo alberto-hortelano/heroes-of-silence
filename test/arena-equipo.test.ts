@@ -24,7 +24,6 @@ import {
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import {
-  batallaDeArena,
   conPiezas,
   enElHueco,
   equiparEnArena,
@@ -51,7 +50,6 @@ import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { UNIDADES } from '../src/core/catalogo.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
-  cuentaTiros,
   EQUIPO,
   EQUIPO_ESCRITO,
   isShooter,
@@ -67,9 +65,9 @@ import { HUECOS, type Hueco } from '../src/core/types.js';
 import {
   ESPADA as ID_DE_LA_ESPADA,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
-  type UnidadDeArena,
+  type Unidad,
   unidadDeCombate,
-  validarUnidadDeArena,
+  validarUnidad,
 } from '../src/core/unidad.js';
 import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
 import {
@@ -85,6 +83,7 @@ import {
   todoA,
   unidadDeArena,
 } from './helpers.js';
+import { catalogoDe, montar } from './pelea-de-arena.js';
 
 const ESPADA = pieza('espada');
 const ARCO = pieza('arco');
@@ -99,10 +98,10 @@ const conMala = (mala: Record<string, unknown> & { id: string }): readonly Pieza
 const MAGO: HeroeDeArena = { ...heroePorDefecto('izquierda'), nombre: 'Maga de pruebas' };
 
 /** El guerrero con escudo (espada, brigantina y escudo: su perfil) y el arquero goblin (arco). */
-const guerrero = (): UnidadDeArena => unidadDeArena('templario-escudo');
-const arquero = (): UnidadDeArena => unidadDeArena('goblin-arquero');
+const guerrero = (): Unidad => unidadDeArena('templario-escudo');
+const arquero = (): Unidad => unidadDeArena('goblin-arquero');
 /** Una unidad nueva de otro tipo que también lleva la espada. */
-function otroConEspada(): UnidadDeArena {
+function otroConEspada(): Unidad {
   const ocupados = { validas: [], sinValidar: [], hojas: hojasDeLaArena().map((h) => h.id) };
   const u = unidadNueva(hojaDeLaArena('templario-escudo'), ocupados, EQUIPO_DEL_JUEGO);
   return equiparEnArena(u, 'espada', EQUIPO_DEL_JUEGO);
@@ -156,7 +155,6 @@ describe('el catálogo de equipo en la arena', () => {
     const eq = catalogoCon(nueva);
     const conElla = unidadDeCombate(equiparEnArena(guerrero(), nueva.id, eq), eq);
     expect(isShooter(conElla)).toBe(true);
-    expect(cuentaTiros(conElla)).toBe(false);
     expect(isShooter(unidadDeCombate(guerrero(), EQUIPO_DEL_JUEGO))).toBe(false);
   });
 
@@ -260,7 +258,7 @@ describe('la arena pelea con sus piezas', () => {
     expect(deLaArena.attack - delJuego.attack).toBe(ESPADA_MAS.ataque - ESPADA.ataque);
     // El nivel se mide con el equipo puesto: más ataque en el arma, más índice.
     expect(indiceDePoder(deLaArena)).toBeGreaterThan(indiceDePoder(delJuego));
-    const b = batallaDeArena(
+    const b = montar(
       {
         izquierda: { unidades: [delBorrador(u)], heroe: null },
         derecha: { unidades: [delBorrador(arquero())], heroe: null },
@@ -296,7 +294,7 @@ describe('cambiar una pieza no deja sin valer a nadie del catálogo', () => {
   const cambio = (
     antes: readonly PiezaEscrita[],
     despues: readonly PiezaEscrita[],
-    unidades: readonly UnidadDeArena[],
+    unidades: readonly Unidad[],
   ) => motivoDelCambio(catalogoCon(...antes), elCatalogoCon(...despues), unidades);
 
   it('pasar la espada a dos manos con el escudo puesto se rechaza nombrando a quién', () => {
@@ -375,7 +373,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
     const leido = montajeDeLaURL(montajeALaURL(ENLACE));
     expect(leido).toEqual(ENLACE);
     const montado = montajeDeArenaDelEnlace(leido, catalogoCon(...leido.piezas));
-    expect(batallaDeArena(montado, createRng(3)).stacks[0]?.unit.attack).toBe(
+    expect(montar(montado, createRng(3)).stacks[0]?.unit.attack).toBe(
       unidadDeCombate(conNueva, eq).attack,
     );
     // El héroe: su equipo base, la Espada y el gambesón, viaja con él.
@@ -588,7 +586,7 @@ describe('cambiar una pieza a media pelea', () => {
       derecha: { unidades: [delBorrador(otroConEspada())], heroe: null },
       ...MONTAJE,
     };
-    return batallaDeArena(montaje, createRng(5));
+    return montar(montaje, createRng(5));
   }
   const de = (b: BattleState, id: string): BattleStack =>
     b.stacks.find((s) => s.id === id) as BattleStack;
@@ -606,7 +604,9 @@ describe('cambiar una pieza a media pelea', () => {
     // suma ataque y daño, no armadura: 18-10-2026).
     const mas = { ...ESPADA, ataque: ESPADA.ataque + 3 };
     const conMas = catalogoCon(mas);
-    expect(retocarEnBatalla(b, { kind: 'piezas', equipo: conMas }, EQUIPO_DEL_JUEGO)).toBeNull();
+    expect(
+      retocarEnBatalla(b, { kind: 'piezas', equipo: conMas }, catalogoDe(b, EQUIPO_DEL_JUEGO)),
+    ).toBeNull();
     expect(de(b, a2.id).unit.attack).toBe(antes.a2.unit.attack + 3);
     expect(armaduraDe(de(b, a2.id).unit)).toBe(armaduraDe(antes.a2.unit));
     expect(de(b, a2.id).unit.hp).toBe(antes.a2.unit.hp);
@@ -625,7 +625,9 @@ describe('cambiar una pieza a media pelea', () => {
       },
     ]);
     // Volver a la de antes deja las cifras de antes, con la herida.
-    expect(retocarEnBatalla(b, { kind: 'piezas', equipo: EQUIPO_DEL_JUEGO }, conMas)).toBeNull();
+    expect(
+      retocarEnBatalla(b, { kind: 'piezas', equipo: EQUIPO_DEL_JUEGO }, catalogoDe(b, conMas)),
+    ).toBeNull();
     expect(de(b, a.id).unit).toEqual(antes.a.unit);
     expect(de(b, a.id).topHp).toBe(antes.a.topHp);
     expect(b.log.at(-1)).toMatchObject({
@@ -639,7 +641,7 @@ describe('cambiar una pieza a media pelea', () => {
       retocarEnBatalla(
         b,
         { kind: 'piezas', equipo: catalogoCon({ ...ESPADA, manos: 2 }) },
-        EQUIPO_DEL_JUEGO,
+        catalogoDe(b, EQUIPO_DEL_JUEGO),
       ),
     ).toBe(
       `la lleva «${guerrero().name}»: Espada es un arma a dos manos y no se puede llevar con Escudo: quita antes el escudo`,
@@ -653,7 +655,11 @@ describe('cambiar una pieza a media pelea', () => {
     const gambeson = pieza('gambeson');
     const mas = { ...gambeson, armadura: (gambeson.armadura ?? 0) + 3 };
     expect(
-      retocarEnBatalla(b, { kind: 'piezas', equipo: catalogoCon(mas) }, EQUIPO_DEL_JUEGO),
+      retocarEnBatalla(
+        b,
+        { kind: 'piezas', equipo: catalogoCon(mas) },
+        catalogoDe(b, EQUIPO_DEL_JUEGO),
+      ),
     ).toBeNull();
     expect(armaduraDe(de(b, heroe.id).unit)).toBe(armaduraDe(heroe.unit) + 3);
   });
@@ -669,11 +675,15 @@ describe('cambiar una pieza a media pelea', () => {
           kind: 'tipo',
           fuente: delBorrador(equiparEnArena(guerrero(), 'maza', EQUIPO_DEL_JUEGO)),
         },
-        EQUIPO_DEL_JUEGO,
+        catalogoDe(b, EQUIPO_DEL_JUEGO),
       ),
     ).toBeNull();
     const sinEspada = de(b, a.id).unit;
-    retocarEnBatalla(b, { kind: 'piezas', equipo: catalogoCon(ESPADA_MAS) }, EQUIPO_DEL_JUEGO);
+    retocarEnBatalla(
+      b,
+      { kind: 'piezas', equipo: catalogoCon(ESPADA_MAS) },
+      catalogoDe(b, EQUIPO_DEL_JUEGO),
+    );
     expect(de(b, a.id).unit).toBe(sinEspada);
     expect(de(b, a2.id).unit.attack).toBe(a2.unit.attack + ESPADA_MAS.ataque - ESPADA.ataque);
   });
@@ -682,7 +692,11 @@ describe('cambiar una pieza a media pelea', () => {
     const b = pelea();
     b.finished = { winner: 'attacker' };
     expect(
-      retocarEnBatalla(b, { kind: 'piezas', equipo: catalogoCon(ESPADA_MAS) }, EQUIPO_DEL_JUEGO),
+      retocarEnBatalla(
+        b,
+        { kind: 'piezas', equipo: catalogoCon(ESPADA_MAS) },
+        catalogoDe(b, EQUIPO_DEL_JUEGO),
+      ),
     ).toBe('la batalla ya ha terminado; el cambio vale para la pelea siguiente');
   });
 });
@@ -919,7 +933,7 @@ describe('la vista «Editar equipo»', () => {
 
 describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la vuelta 2)', () => {
   const como = enElMontaje(EQUIPO_DEL_JUEGO);
-  const ficha = (u: UnidadDeArena): string => marcadoDe(renderFicha(u, false, como));
+  const ficha = (u: Unidad): string => marcadoDe(renderFicha(u, false, como));
   /** Las opciones del desplegable de `hueco` en la ficha: su id y si va desactivada. */
   function ofrecidas(m: string, hueco: string): { id: string; desactivada: boolean }[] {
     const i = m.indexOf(`<select data-arena-pieza="${hueco}">`);
@@ -942,7 +956,7 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
     }
     // Un hueco que no existe no se monta.
     expect(() =>
-      validarUnidadDeArena({ ...guerrero(), equipo: { accesorio: 'escudo' } }, EQUIPO_DEL_JUEGO),
+      validarUnidad({ ...guerrero(), equipo: { accesorio: 'escudo' } }, EQUIPO_DEL_JUEGO),
     ).toThrow('no hay ningún hueco "accesorio"');
   });
 
@@ -952,8 +966,8 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
       const m = ficha(u);
       for (const hueco of HUECOS) {
         for (const o of ofrecidas(m, hueco)) {
-          const poner = (): UnidadDeArena =>
-            validarUnidadDeArena(equiparEnArena(u, o.id, EQUIPO_DEL_JUEGO), EQUIPO_DEL_JUEGO);
+          const poner = (): Unidad =>
+            validarUnidad(equiparEnArena(u, o.id, EQUIPO_DEL_JUEGO), EQUIPO_DEL_JUEGO);
           if (o.desactivada) expect(poner, `${h.id} ${o.id}`).toThrow();
           else expect(poner, `${h.id} ${o.id}`).not.toThrow();
         }
@@ -979,7 +993,7 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
     // Lo que la ficha deja quitar, el núcleo lo admite.
     for (const [, hueco] of m.matchAll(/data-arena="quitar-pieza" data-hueco="([^"]+)"/g)) {
       const h = hueco as Hueco;
-      expect(() => validarUnidadDeArena(quitarEnArena(u, h), EQUIPO_DEL_JUEGO), h).not.toThrow();
+      expect(() => validarUnidad(quitarEnArena(u, h), EQUIPO_DEL_JUEGO), h).not.toThrow();
     }
   });
 

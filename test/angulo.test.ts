@@ -102,10 +102,8 @@ function sesionConEnemigoALaVista(
   const turno = s.turnoPropio;
   if (b === null || turno === null)
     throw new Error('la sesión no abre la batalla con turno propio');
-  const rival = b.stacks.find(
-    (x) => isAlive(x) && x.side !== s.miBando && x.unit.shots === undefined,
-  );
-  if (rival === undefined) throw new Error('no hay enemigo cuerpo a cuerpo');
+  const rival = b.stacks.find((x) => isAlive(x) && x.side !== s.miBando);
+  if (rival === undefined) throw new Error('no hay enemigo');
   let propios = 0;
   let ajenos = 0;
   for (const x of b.stacks) {
@@ -132,7 +130,7 @@ describe('el clic sobre un enemigo elige el ángulo', () => {
       const escena = new EscenaBatalla(() => s);
       escena.encuadrar(ancho, alto);
       const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
-      const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+      const k = cajaDeFigura(tableroPara(ancho, alto), centroDeStack(stackHexes(rival)));
       const px = k.x + lado * k.ancho * 0.45;
       const py = k.suelo - 2;
       expect(escena.objetivoEn(px, py)?.id).toBe(objetivo);
@@ -172,7 +170,7 @@ describe('el clic sobre un enemigo al que no se llega', () => {
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
     const escena = new EscenaBatalla(() => s);
     escena.encuadrar(ancho, alto);
-    const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+    const k = cajaDeFigura(tableroPara(ancho, alto), centroDeStack(stackHexes(rival)));
     const antes = s.battle!.log.length;
     escena.pulsar(k.x, k.suelo - k.alto / 2);
     expect(s.battle!.log.length).toBe(antes);
@@ -185,7 +183,7 @@ describe('el clic sobre un enemigo al que no se llega', () => {
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
     const escena = new EscenaBatalla(() => s);
     escena.encuadrar(ancho, alto);
-    const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+    const k = cajaDeFigura(tableroPara(ancho, alto), centroDeStack(stackHexes(rival)));
     const antes = s.battle!.log.length;
     escena.mover(k.x, k.suelo - k.alto / 2);
     expect(s.status).toBe(s.attackRejection(objetivo));
@@ -201,7 +199,7 @@ describe('el clic sobre un enemigo al que no se llega', () => {
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
     const escena = new EscenaBatalla(() => s);
     escena.encuadrar(ancho, alto);
-    const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+    const k = cajaDeFigura(tableroPara(ancho, alto), centroDeStack(stackHexes(rival)));
     escena.mover(k.x, k.suelo - 2);
     expect(s.status).toMatch(/^Golpearías desde/);
   });
@@ -278,7 +276,7 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
     const escena = new EscenaBatalla(() => s);
     escena.encuadrar(ancho, alto);
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
-    const k = cajaDeFigura(t, rival, centroDeStack(stackHexes(rival)));
+    const k = cajaDeFigura(t, centroDeStack(stackHexes(rival)));
     // A la altura del centro de su casilla y hacia el oeste: el lado de la recta.
     const px = k.x - k.ancho * 0.45;
     const py = centroHex(t, rival.hex).y;

@@ -33,16 +33,16 @@ import { unidad } from '../../src/core/catalogo.js';
 import { hasTrait, LIDERAZGO } from '../../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
-import type { HojaDeArena, UnidadDeArena } from '../../src/core/unidad.js';
-import { hojasDeArena } from '../arena/borrador.js';
+import type { Hoja, Unidad } from '../../src/core/unidad.js';
+import { hojasDelTaller } from '../arena/borrador.js';
 
 /** Un montaje de la medida: las unidades de cada bando. */
-type Montaje = readonly [readonly UnidadDeArena[], readonly UnidadDeArena[]];
+type Montaje = readonly [readonly Unidad[], readonly Unidad[]];
 
 /** Una variante: lo que se le cambia a cada unidad. */
 interface Variante {
   readonly nombre: string;
-  readonly cambia: (u: UnidadDeArena) => UnidadDeArena;
+  readonly cambia: (u: Unidad) => Unidad;
 }
 
 /** Una tanda: cómo se monta cada semilla, con qué variantes se pelea y si con héroes. */
@@ -65,21 +65,21 @@ interface Cuenta {
   cruces: number;
 }
 
-const HOJAS = hojasDeArena(resolve(import.meta.dirname, '../..'));
+const HOJAS = hojasDelTaller(resolve(import.meta.dirname, '../..'));
 // Solo la tropa: los héroes no tienen unidad en el catálogo, que es de donde salen las cifras.
 const TROPA = HOJAS.filter((h) => !h.heroe);
 const JINETES = TROPA.filter((h) => h.perfil.startsWith('montado-'));
 const FLOJAS = TROPA.filter((h) => ['arco', 'ballesta', 'baston'].includes(h.perfil));
 
 const TANDAS: readonly Tanda[] = (() => {
-  const elegir = (rng: Rng, de: readonly HojaDeArena[], n: number): UnidadDeArena[] =>
+  const elegir = (rng: Rng, de: readonly Hoja[], n: number): Unidad[] =>
     // Las cifras, del catálogo: la misma fuente que la arena y el juego.
     Array.from({ length: n }, () => unidad(rng.pick(de).id));
-  const igual = (u: UnidadDeArena): UnidadDeArena => u;
-  const sinBarda = (u: UnidadDeArena): UnidadDeArena =>
+  const igual = (u: Unidad): Unidad => u;
+  const sinBarda = (u: Unidad): Unidad =>
     u.equipo.armadura === 'barda' ? quitarEnArena(u, 'armadura') : u;
   // Para comparar, no para jugar: sin barda y lo que sumaba la barda en el cuerpo.
-  const comoAntes = (u: UnidadDeArena): UnidadDeArena => {
+  const comoAntes = (u: Unidad): Unidad => {
     if (u.equipo.armadura !== 'barda') return u;
     const sin = quitarEnArena(u, 'armadura');
     return { ...sin, defense: sin.defense + 5, hp: sin.hp + 220 };
@@ -139,7 +139,7 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
     for (const i of orden) {
       const v = t.variantes[i] as Variante;
       const c = cuentas[i] as Cuenta;
-      const lado = (us: readonly UnidadDeArena[], cual: Lado) => ({
+      const lado = (us: readonly Unidad[], cual: Lado) => ({
         unidades: us.map((u) => ({ unidad: v.cambia(u) })),
         // Sin libro: con el de serie, sus hechizos acaban la pelea en la primera
         // ronda y nadie llega a golpear.

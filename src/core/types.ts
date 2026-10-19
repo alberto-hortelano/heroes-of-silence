@@ -227,20 +227,11 @@ export interface UnitInfo {
    * para que se encuentre buscándolo. No viaja al espectador.
    */
   readonly puntosDeArmadura?: number;
-  /**
-   * Munición. > 0 = es tirador que cuenta tiros. Ya solo la lleva el perfil de un
-   * personaje (el guardabosques, `rpg/stats.ts`): las unidades del catálogo tiran
-   * con su arma a distancia, sin contar tiros.
-   */
-  readonly shots?: number;
-  /** Hexes que ocupa en la rejilla de batalla (1 o 2). */
-  readonly hexes?: number;
   readonly traits?: readonly CreatureTrait[];
   /**
    * Los poderes que usa en su turno (`battle/poderes.ts`): Curar, Bendecir. Los pone
-   * solo `unidadDeCombate`, por sus habilidades: desde que el catálogo del juego es
-   * el de la arena (19-10-2026) también los usa la partida; el agente, con la
-   * jugada `power` de su contrato (`contract/golpes.ts`).
+   * solo `unidadDeCombate`, por sus habilidades; los usan la persona, la IA y el
+   * agente, con la jugada `power` (`contract/vocabulario.ts`).
    */
   readonly poderes?: readonly PoderId[];
 }
@@ -268,8 +259,8 @@ export interface GolpeConArma {
   readonly attack: number;
   readonly damage: readonly [number, number];
   /**
-   * Los niveles de la rueda del arma de ese golpe (`Pieza.rueda`, solo la arena);
-   * sin el campo, el golpe no va con un arma de la arena. Lo escribe `conEquipo`
+   * Los niveles de la rueda del arma de ese golpe (`Pieza.rueda`); sin el campo, el
+   * golpe no va con un arma que golpee en la rueda. Lo escribe `conEquipo`
    * con el resto de `armas`, y así la rueda no necesita el catálogo: la lee
    * `ruedaDelGolpe`.
    */
@@ -412,7 +403,7 @@ export interface Veterania {
  * piezas** desde el 18-10-2026: el juego, la arena, el botín, la armería y el
  * agente tienen los mismos cinco, y el accesorio se fue (decisión del usuario:
  * ninguna pieza lo llenaba). Van sin tilde y en minúscula; al agente viajan en
- * inglés, traducidos en un solo sitio (`contract/huecos.ts`). Los de arma se
+ * inglés, traducidos en un solo sitio (`contract/vocabulario.ts`). Los de arma se
  * llaman como su uso (`UsoDeArma`), y con cuál se da cada golpe lo elige
  * `usoDelGolpe` (`battle/damage.ts`).
  */
@@ -552,8 +543,14 @@ export type Army = readonly Troop[];
 
 export type PlayerId = number;
 
-/** Quién toma las decisiones de este jugador. */
-export type Controller = 'human' | 'ai';
+/**
+ * Quién toma las decisiones de este jugador: la persona (`human`, la sesión del
+ * cliente), el agente por MCP (`agent`, el director) o la IA de reglas (`ai`). Lo
+ * que no es la IA juega sus batallas por quien conduce la partida
+ * (`ConduccionDelTurno.batallas`) y, si las acaba resolviendo la IA, ella pelea
+ * por él sin rendirse (`sinLaIA`).
+ */
+export type Controller = 'human' | 'agent' | 'ai';
 
 // ---------------------------------------------------------------- geometría
 

@@ -23,8 +23,7 @@ import { quedanCasillas } from '@core/battle/board.js';
 import { type HechoDelCruce, NOMBRE_DEL_PUNTO } from '@core/battle/rueda.js';
 import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
-import { HIT_DE_GOLPE } from '@core/contract/golpes.js';
-import type { AccionDelAgente } from '@core/contract/huecos.js';
+import { type AccionDelAgente, HIT_DE_GOLPE } from '@core/contract/vocabulario.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEvent } from '@core/state/events.js';
@@ -457,17 +456,18 @@ export function notaAccionAceptada(
   if (accion.type === 'attack' && cruce !== null) {
     // El golpe de la rueda: lo que eligió cada uno —el rival ya lo ha enseñado al
     // cruzarse— y dónde cayó. Si el `hit` no vino, se dice que lo eligió la IA.
+    const d = dichoDelCruce(cruce);
     const quien =
       accion.golpe === undefined
-        ? `Sin "hit", tu golpe lo eligió la IA a ciegas: "${HIT_DE_GOLPE[cruce.golpe]}"`
-        : `Golpeaste con "${HIT_DE_GOLPE[cruce.golpe]}"`;
+        ? `Sin "hit", tu golpe lo eligió la IA a ciegas: ${d.golpe}`
+        : `Golpeaste con ${d.golpe}`;
     const sigue =
       turnoAbierto === null
         ? ''
         : ` Tras la finta su turno sigue abierto: ${leQuedan(turnoAbierto.pasos)} para andar (o "end_turn").`;
     return (
       `${unidad}: ${describeAccion(accion)}, aplicada. ${quien}; ${cruce.target} respondió ` +
-      `"${HIT_DE_GOLPE[cruce.respuesta]}": el golpe cayó en el punto ${NOMBRE_DEL_PUNTO[cruce.punto]}.${sigue}`
+      `${d.respuesta}: el golpe cayó en ${d.punto}.${sigue}`
     );
   }
   return `${unidad}: ${describeAccion(accion)}, aplicada.`;
@@ -478,9 +478,10 @@ export function notaAccionAceptada(
  * eligió el rival —ya cruzado, así que ya es público— y dónde cayó el golpe.
  */
 export function notaRespuestaAceptada(unidad: string, cruce: HechoDelCruce): string {
+  const d = dichoDelCruce(cruce);
   return (
-    `${unidad}: respondiste "${HIT_DE_GOLPE[cruce.respuesta]}" y ${cruce.stack} golpeó con ` +
-    `"${HIT_DE_GOLPE[cruce.golpe]}": su golpe cayó en el punto ${NOMBRE_DEL_PUNTO[cruce.punto]}.`
+    `${unidad}: respondiste ${d.respuesta} y ${cruce.stack} golpeó con ` +
+    `${d.golpe}: su golpe cayó en ${d.punto}.`
   );
 }
 
@@ -493,12 +494,29 @@ export function notaRespuestaSustituida(
   motivo: string,
   cruce: HechoDelCruce,
 ): string {
+  const d = dichoDelCruce(cruce);
   return (
     `Tu respuesta para ${unidad} se descartó (${motivo}); la eligió la IA de reglas a ciegas ` +
-    `en tu lugar: "${HIT_DE_GOLPE[cruce.respuesta]}". ${cruce.stack} golpeó con ` +
-    `"${HIT_DE_GOLPE[cruce.golpe]}" y cayó en el punto ${NOMBRE_DEL_PUNTO[cruce.punto]}. ` +
+    `en tu lugar: ${d.respuesta}. ${cruce.stack} golpeó con ${d.golpe} y cayó en ${d.punto}. ` +
     'La batalla sigue siendo tuya.'
   );
+}
+
+/**
+ * Un cruce de la rueda dicho al agente: los dos tipos en los nombres del contrato
+ * (`HIT_DE_GOLPE`), entre comillas, y dónde cayó el golpe. Lo leen las tres notas
+ * que lo cuentan: el golpe aceptado y la respuesta, aceptada o sustituida.
+ */
+function dichoDelCruce(cruce: HechoDelCruce): {
+  readonly golpe: string;
+  readonly respuesta: string;
+  readonly punto: string;
+} {
+  return {
+    golpe: `"${HIT_DE_GOLPE[cruce.golpe]}"`,
+    respuesta: `"${HIT_DE_GOLPE[cruce.respuesta]}"`,
+    punto: `el punto ${NOMBRE_DEL_PUNTO[cruce.punto]}`,
+  };
 }
 
 /**
@@ -863,8 +881,7 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
       return `hechizo ${accion.spell}${accion.target === undefined ? '' : ` sobre ${accion.target}`}`;
     case 'surrender':
       return 'rendición';
-    case 'poder':
-      // Como lo escribe el agente: "power".
+    case 'power':
       return `power ${accion.poder} sobre ${accion.target}`;
     case 'move_hero':
       return `move_hero ${accion.hero} → (${accion.to.x},${accion.to.y})`;

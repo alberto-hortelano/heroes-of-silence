@@ -555,7 +555,7 @@ describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
     // Con varios aliados posibles, el botón deja Bendecir esperando el clic.
     const aliados = s
       .battleLegalActions()
-      .filter((a) => a.type === 'poder' && a.poder === 'bendecir');
+      .filter((a) => a.type === 'power' && a.poder === 'bendecir');
     expect(aliados.length).toBeGreaterThan(1);
     const version = s.version;
     s.poderes.usar('bendecir');

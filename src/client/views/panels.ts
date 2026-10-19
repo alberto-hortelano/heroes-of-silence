@@ -14,14 +14,20 @@
  * un `.join('')` sobre cadenas era justo el sitio por donde el marcado se
  * escapaba de la puerta.
  */
-import { activeStack, cargaDelStack } from '@core/battle/battle.js';
+import { activeStack, stackById } from '@core/battle/battle.js';
 import { quedanCasillas } from '@core/battle/board.js';
-import { CARGA, CARGA_MINIMA, type CifrasDeCarga, dichoDeLaCarga } from '@core/battle/carga.js';
+import {
+  CARGA_MINIMA,
+  type CifrasDeCarga,
+  cifrasDeCarga,
+  dichoDeLaCarga,
+} from '@core/battle/carga.js';
 import { DEFEND_BONUS } from '@core/battle/damage.js';
 import {
   type CuandoVence,
-  type EffectKind,
+  cifraDeEfecto,
   effectiveLuck,
+  enRondas,
   type StackEffect,
 } from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
@@ -42,7 +48,7 @@ import {
   type Side,
 } from '@core/battle/types.js';
 import { unidadDelJuego } from '@core/catalogo.js';
-import { isShooter, nombreDeTipoDeHeroe, type Pieza, tirosQueQuedan } from '@core/data.js';
+import { isShooter, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
 import {
   destinoDeEquipo,
   modificadoresDePieza,
@@ -759,15 +765,13 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
   }
 
   const s = activeStack(battle);
-  const tiros = s === null ? null : tirosQueQuedan(s);
   const activo =
     s === null
       ? html`<p>Sin unidad activa.</p>`
       : html`<h2>${nombreEnElCampo(battle, s)}</h2>
         <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
-        <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>
-        ${tiros === null ? NADA : html`<div class="row"><span class="label">Munición</span><span>${tiros}</span></div>`}`;
+        <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>`;
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
@@ -775,13 +779,13 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
         contandoAun,
         accionesDeLaUnidad({
           activa: s,
-          carga: cargaDelStack(s),
+          carga: cifrasDeCarga(s.unit),
           legales: session.battleLegalActions(),
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
           hechizos: renderSpells(session.hechizos.selectedSpell, session.spellOptions()),
           // Las batallas del mapa no tienen muralla (decisión 4 de la tarea del
-          // combate en el juego). Los poderes, los de la arena (F6).
+          // combate en el juego).
           muralla: NADA,
           poderes: botonesDePoder(session, s),
         }),
@@ -832,13 +836,13 @@ function filaManaDeBatalla(session: Session): Html {
  */
 export function accionesDeLaUnidad(o: {
   readonly activa: BattleStack;
-  /** Con qué cifras carga la activa (`cargaDelStack`), o `null` si no carga. */
-  readonly carga: CifrasDeCarga | null;
+  /** Con qué cifras carga la activa (`cifrasDeCarga`): todo el que pega cuerpo a cuerpo. */
+  readonly carga: CifrasDeCarga;
   readonly legales: readonly BattleAction[];
   readonly pasos: number | null;
   readonly rendicion: Html;
   readonly hechizos: Html;
-  /** Los botones de los poderes de la unidad (la arena: Curar, Bendecir); si no, `NADA`. */
+  /** Los botones de los poderes de la unidad (Curar, Bendecir: `botonesDePoder`); sin ellos, `NADA`. */
   readonly poderes: Html;
   /**
    * Los botones de la muralla —«Abrir puerta» y «Cerrar puerta», «Poner
@@ -1006,28 +1010,6 @@ function nombreFuente(source: string): string {
 }
 
 /**
- * Va tipada por `EffectKind` y ya no por `string`, y no es cosmética: con la
- * clave abierta, `ETIQUETA_EFECTO[e.effect]` es `string | undefined` y la puerta
- * no lo acepta —con razón: un hueco que puede ser `undefined` pinta la palabra
- * «undefined»—. Cerrada, la tabla cubre la unión y un `EffectKind` nuevo no
- * compila hasta que alguien le escriba su nombre.
- */
-const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
-  speed: 'velocidad',
-  luck: 'suerte',
-  attack: 'ataque',
-  defense: 'defensa',
-};
-
-/**
- * «1 ronda», «3 rondas»: el número concuerda. Lo leen el parte, la previsión y
- * la ficha del héroe de la arena, que decía «1 rondas» (H5 de QA del banco).
- */
-export function enRondas(n: number): string {
-  return `${n} ${n === 1 ? 'ronda' : 'rondas'}`;
-}
-
-/**
  * Lo que dura un efecto colgado, dicho: «3 rondas», o, el de la rueda del golpe,
  * «hasta que empiece (o termine) su próximo turno» (`vence`, `duracion`); sus
  * rondas son solo el tope y contarlas sería mentir.
@@ -1086,15 +1068,6 @@ export function nota(texto: string, enfocable = true): Html {
 }
 
 /**
- * Lo que hace un efecto, dicho: «suerte −1». El único texto de un efecto: lo leen
- * el parte, la previsión de un hechizo (`prevision.ts`) y la ficha del héroe de la
- * arena.
- */
-export function cifraDeEfecto(kind: EffectKind, amount: number): string {
-  return `${ETIQUETA_EFECTO[kind]} ${amount > 0 ? '+' : ''}${amount}`;
-}
-
-/**
  * Verde lo que te suma, rojo lo que te resta, sin color lo que ni una cosa ni
  * otra. Devuelve el atributo entero —con su espacio delante— o nada, así que
  * `<div${clase(...)}>` no deja un `class=""` colgando cuando no hay color.
@@ -1109,15 +1082,12 @@ function clase(bueno: boolean, malo: boolean): Html {
 }
 
 /**
- * La línea de ayuda de la carga, solo si la unidad activa carga (`cargaDelStack`:
- * en el juego, el rasgo; en la arena, todos, #260): con un campesino o un arquero
- * del juego es ruido, y quien juega no tiene caballería hasta varios días después
- * (N2 de QA, 02-10-2026). Se pregunta por quién carga y no por si hay casillas de
- * carga ahora: el texto explica cómo se ve, también el turno en que no sale
- * ninguna.
+ * La línea de ayuda de la carga, con las cifras de la activa (`cifrasDeCarga`:
+ * desde #260 carga todo el que pega cuerpo a cuerpo, y el jinete más). Se dice
+ * siempre y no solo si hay casillas de carga ahora: el texto explica cómo se ve,
+ * también el turno en que no sale ninguna.
  */
-function ayudaDeCarga(carga: CifrasDeCarga | null): Html {
-  if (carga === null) return NADA;
+function ayudaDeCarga(carga: CifrasDeCarga): Html {
   // El número que enseña la casilla son las casillas que corre: sin un ejemplo fijo,
   // que con el jinete despistaba (C3 de QA de #260).
   return html`Al enemigo en naranja se le puede cargar: pasa por él y elige la casilla con
@@ -1224,7 +1194,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
   const bajas = (n: number): string => `${n} ${n === 1 ? 'baja' : 'bajas'}`;
 
   /**
-   * El daño de un hecho con lo que paró la armadura (la arena, #262): «12 de
+   * El daño de un hecho con lo que paró la armadura (#262): «12 de
    * daño (−7 armadura), 1 baja», o «0 de daño: la armadura para los 18» si no
    * llegó nada. Sin armadura, lo de siempre. Con «lo para la armadura (18)» el 18
    * se leía como la armadura, y es el golpe parado (A2 de QA de #262); la
@@ -1258,7 +1228,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           const modo = `${e.retaliation ? ' (contraataque)' : ''}${
             e.charge === undefined
               ? ''
-              : ` (${dichoDeLaCarga(e.charge, e.cargaAPie === true ? CARGA.aPie : CARGA.jinete)})`
+              : ` (${dichoDeLaCarga(e.charge, cifrasDeCarga(stackById(battle, e.stack).unit))})`
           }`;
           return html`<div>${golpe(e.stack, e.target)}${modo}: ${danio(e.damage, e.killed, e.parado)}</div>`;
         }

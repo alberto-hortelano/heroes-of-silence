@@ -9,10 +9,10 @@
  * Escritos desde los criterios del plan (`docs/agents/2026-10-18-equipo-por-tipos-y-bases/`):
  * cada regla con su caso rechazado, con su frase.
  */
+
 import { describe, expect, it } from 'vitest';
 import {
   basesPosibles,
-  batallaDeArena,
   cadenaDeBases,
   conBase,
   equiparEnArena,
@@ -30,7 +30,7 @@ import type { BattleStack } from '../src/core/battle/types.js';
 import { EQUIPO_ESCRITO, type Pieza, type PiezaConBase, validarPieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
-import { type UnidadDeArena, unidadDeCombate } from '../src/core/unidad.js';
+import { type Unidad, unidadDeCombate } from '../src/core/unidad.js';
 import {
   catalogoCon,
   delBorrador,
@@ -39,13 +39,14 @@ import {
   motivoDelCambio,
   unidadDeArena,
 } from './helpers.js';
+import { catalogoDe, montar } from './pelea-de-arena.js';
 
 const ESPADA = pieza('espada');
 /** La Espada cambiada en el catálogo: +3 de ataque. */
 const ESPADA_MAS: Pieza = { ...ESPADA, ataque: ESPADA.ataque + 3 };
 
 /** El guerrero con escudo, con la Espada bendita en la mano. */
-const conBendita = (): UnidadDeArena =>
+const conBendita = (): Unidad =>
   equiparEnArena(unidadDeArena('templario-escudo'), 'espada_bendita', EQUIPO_DEL_JUEGO);
 
 describe('una pieza sobre otra', () => {
@@ -111,7 +112,7 @@ describe('una pieza sobre otra', () => {
   });
 
   it('a media pelea, cambiar la Espada cambia al que lleva la bendita, y el parte lo dice', () => {
-    const b = batallaDeArena(
+    const b = montar(
       {
         izquierda: { unidades: [delBorrador(conBendita())], heroe: null },
         derecha: { unidades: [delBorrador(unidadDeArena('goblin-arquero'))], heroe: null },
@@ -123,7 +124,9 @@ describe('una pieza sobre otra', () => {
     const antes = s.unit.attack;
     const desde = b.log.length;
     const conMas = catalogoCon(ESPADA_MAS);
-    expect(retocarEnBatalla(b, { kind: 'piezas', equipo: conMas }, EQUIPO_DEL_JUEGO)).toBeNull();
+    expect(
+      retocarEnBatalla(b, { kind: 'piezas', equipo: conMas }, catalogoDe(b, EQUIPO_DEL_JUEGO)),
+    ).toBeNull();
     const ahora = b.stacks.find((x) => x.id === s.id) as BattleStack;
     expect(ahora.unit.attack).toBe(antes + 3);
     const bendita = EQUIPO_DEL_JUEGO.pieza('espada_bendita').ataque;
@@ -134,7 +137,9 @@ describe('una pieza sobre otra', () => {
       cambios: [`ataque ${bendita} → ${bendita + 3}`, 'por su base, «Espada»'],
     });
     // Volver a la Espada de antes deja la bendita como estaba, y dice por qué base.
-    expect(retocarEnBatalla(b, { kind: 'piezas', equipo: EQUIPO_DEL_JUEGO }, conMas)).toBeNull();
+    expect(
+      retocarEnBatalla(b, { kind: 'piezas', equipo: EQUIPO_DEL_JUEGO }, catalogoDe(b, conMas)),
+    ).toBeNull();
     expect(b.log.at(-1)).toMatchObject({
       nombre: 'Espada bendita',
       cambios: [`ataque ${bendita + 3} → ${bendita}`, 'por su base, «Espada»'],

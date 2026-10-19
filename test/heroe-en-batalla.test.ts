@@ -26,7 +26,7 @@ import type { BattleState, Side } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { HEROE } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
-import { HERO_BODY, type Hero, heroUnit } from '../src/core/hero/hero.js';
+import { cuerposDelHeroe, HERO_BODY, type Hero, heroUnit } from '../src/core/hero/hero.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import {
   isEnterable,
@@ -68,7 +68,13 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 /** Un héroe de batalla con su cuerpo y, si se pide, con monedero para rendirse. */
 function heroeDeBatalla(purse: number | null = null): HeroeDelBando {
   return {
-    cuerpo: heroUnit({ name: 'Prueba', attack: 2, defense: 2, experience: umbral(5), equipo: {} }),
+    ...cuerposDelHeroe({
+      name: 'Prueba',
+      attack: 2,
+      defense: 2,
+      experience: umbral(5),
+      equipo: {},
+    }),
     mando: {
       name: 'Prueba',
       retreat: purse === null ? { blocked: 'no tienes base a la que volver' } : { purse },
@@ -253,7 +259,7 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
 
 /** Lo que cuesta rendirse con dos no-muertos vivos. */
 function precioDeDos(): number {
-  const oro = 2 * unidadDelJuego(NO_MUERTO).cost.gold!;
+  const oro = 2 * unidadDelJuego(NO_MUERTO).oro;
   return Math.ceil((oro * HEROE.rendicion.porcentajeDelOro) / 100);
 }
 
@@ -285,8 +291,8 @@ describe('la rendición (criterio 5)', () => {
       lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(2),
     );
-    const oro = (n: number) => n * unidadDelJuego(NO_MUERTO).cost.gold!;
-    const deTiro = (n: number) => n * unidadDelJuego(TIRADOR_NO_MUERTO).cost.gold!;
+    const oro = (n: number) => n * unidadDelJuego(NO_MUERTO).oro;
+    const deTiro = (n: number) => n * unidadDelJuego(TIRADOR_NO_MUERTO).oro;
     const precio = (o: number) => Math.ceil((o * HEROE.rendicion.porcentajeDelOro) / 100);
     expect(surrenderBlocker(b, 'attacker').coste).toBe(precio(oro(1) + deTiro(2)));
     // Los muertos no se salvan, así que no se pagan.
@@ -397,7 +403,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const desde = state.log.length;
     applyAction(batalla, { type: 'surrender' }, c.rng);
     const precio = batalla.finished!.surrender!.gold;
-    expect(precio).toBe(Math.ceil((vivos * unidadDelJuego(TIRADOR).cost.gold! * 50) / 100));
+    expect(precio).toBe(Math.ceil((vivos * unidadDelJuego(TIRADOR).oro * 50) / 100));
     settleBattle(state, c);
 
     const vuelto = heroById(state, atacante.id);
@@ -720,7 +726,9 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
 
     const vetada = perdidaDelJugador0(semilla);
     const oro = vetada.state.players[0]!.resources.gold;
-    resolvePendingBattle(vetada.state, vetada.c, new Set([0]));
+    // El jugador 0, de la persona: la IA pelea por él sin rendirse (`sinLaIA`).
+    (vetada.state.players[0] as { controller: string }).controller = 'human';
+    resolvePendingBattle(vetada.state, vetada.c);
     expect(rendiciones(vetada.state)).toBe(0);
     expect(vetada.state.log.some((e) => e.kind === 'hero_defeated')).toBe(true);
     expect(vetada.state.players[0]!.resources.gold).toBe(oro);

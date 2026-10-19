@@ -6,9 +6,9 @@
  *
  * Aparte de `core/arena.ts` (simplify de F1, 18-10-2026): el catálogo del juego
  * (`core/catalogo.ts`) valida con esta regla al cargar, y si la importaba de la
- * arena arrastraba el montador de batallas, que el guardia de
- * `test/invariantes.test.ts` («solo la arena cambia las reglas de la batalla»)
- * tenía que dejar pasar por excepción. La arena importa de aquí.
+ * arena arrastraba el montador de batallas (la frontera de importación de
+ * `core/arena.ts`, que vigila `test/invariantes.test.ts`). La arena importa de
+ * aquí.
  *
  * Los campos de las cifras se llaman como en `UnitInfo` —`attack`, `defense`,
  * `damage`…— y el tipo los toma de allí, así que una cifra que cambie de forma en
@@ -37,7 +37,7 @@ import {
 import {
   deLaLista,
   entero,
-  esIdDeArena,
+  esIdDeUnidad,
   lista,
   revisarLista,
   sinRepetir,
@@ -49,9 +49,9 @@ import {
  * el del jinete y el del jinete que además dispara (`montado-arco`, el jinete
  * élfico: lanza, espada y arco, 13-10-2026). Están aquí y no importados de allí
  * porque `poses.ts` toca el disco y `core` es puro. El de cada hoja lo da el
- * taller (`perfilDeArena`, `tools/taller/unidades.ts`).
+ * taller (`perfilDeUnidad`, `tools/taller/unidades.ts`).
  */
-export const PERFILES_DE_ARENA = [
+export const PERFILES_DE_UNIDAD = [
   'espada-escudo',
   'dos-manos',
   'baston',
@@ -60,7 +60,7 @@ export const PERFILES_DE_ARENA = [
   'montado-lanza',
   'montado-arco',
 ] as const;
-export type PerfilDeArena = (typeof PERFILES_DE_ARENA)[number];
+export type PerfilDeUnidad = (typeof PERFILES_DE_UNIDAD)[number];
 
 /**
  * Una unidad del catálogo: lo que la partida recluta, la arena pelea y el archivo
@@ -69,8 +69,7 @@ export type PerfilDeArena = (typeof PERFILES_DE_ARENA)[number];
  * Las cifras se toman de `UnitInfo` y no se redeclaran: si el motor cambia la
  * forma de una, el catálogo deja de compilar en vez de guardar otra cosa.
  */
-export interface UnidadDeArena
-  extends Pick<UnitInfo, 'name' | 'attack' | 'defense' | 'damage' | 'hp'> {
+export interface Unidad extends Pick<UnitInfo, 'name' | 'attack' | 'defense' | 'damage' | 'hp'> {
   /**
    * Su id en el borrador, único. El de una hoja por defecto es el de la hoja; el
    * de una unidad nueva, `<cuerpo>-<n>` (`unidadNueva`). No dice con qué se
@@ -96,7 +95,7 @@ export interface UnidadDeArena
    */
   readonly edificio?: string;
   /** Con qué figura se pinta: una hoja de `assets/unidades/`. */
-  readonly cuerpo: CuerpoDeArena;
+  readonly cuerpo: CuerpoDeUnidad;
   /**
    * Lo que lleva puesto (`data/equipo.json`), por hueco; vacío, `{}`. Las cifras
    * de arriba son las del CUERPO: con esto encima se pelea (`unidadDeCombate`),
@@ -113,7 +112,7 @@ export interface UnidadDeArena
   /** Rasgos del motor: estos SÍ actúan en la pelea. Siempre presente, aunque vacía. */
   readonly traits: readonly CreatureTrait[];
   /**
-   * Nombres de `HABILIDADES_DE_LA_ARENA`: las de `data/habilidades.json` y las que
+   * Nombres de `HABILIDADES`: las de `data/habilidades.json` y las que
    * dan un poder (`data/poderes.json`). Solo las de poder actúan en la pelea
    * («Curar (X)», «Bendecir»: `unidadDeCombate` las pasa a `UnitInfo.poderes`);
    * las demás son **inertes**, se guardan y la ficha dice «sin efecto todavía».
@@ -125,7 +124,7 @@ export interface UnidadDeArena
  * El cuerpo de una unidad: la hoja con la que se pinta. Solo hojas: las criaturas
  * del catálogo del juego no entran en la arena (13-10-2026).
  */
-export type CuerpoDeArena = { readonly hoja: string };
+export type CuerpoDeUnidad = { readonly hoja: string };
 
 /**
  * Las habilidades que puede llevar una unidad de la arena: las del catálogo
@@ -133,7 +132,7 @@ export type CuerpoDeArena = { readonly hoja: string };
  * (`data/poderes.json`), sin repetir. «Bendecir» no está en el cuaderno: es de
  * los poderes, y por eso no se escribe en el catálogo generado.
  */
-export const HABILIDADES_DE_LA_ARENA: readonly string[] = [
+export const HABILIDADES: readonly string[] = [
   ...CATALOGO_DE_HABILIDADES,
   ...HABILIDADES_CON_PODER.filter((h) => !CATALOGO_DE_HABILIDADES.includes(h)),
 ];
@@ -172,10 +171,10 @@ export const CUERPO_COMUN = {
   defense: 3,
   damage: [10, 10],
   hp: 80,
-} as const satisfies Pick<UnidadDeArena, 'leadership' | 'attack' | 'defense' | 'damage' | 'hp'>;
+} as const satisfies Pick<Unidad, 'leadership' | 'attack' | 'defense' | 'damage' | 'hp'>;
 
 /** Lo que trae un perfil de arma sobre el cuerpo común (`KIT_DEL_PERFIL`). */
-type KitDelPerfil = Pick<UnidadDeArena, 'equipo' | 'leadership'> & {
+type KitDelPerfil = Pick<Unidad, 'equipo' | 'leadership'> & {
   readonly traits: readonly CreatureTrait[];
 };
 
@@ -201,7 +200,7 @@ type KitDelPerfil = Pick<UnidadDeArena, 'equipo' | 'leadership'> & {
  * otros** (con la daga o la espada, no con el arco ni la lanza): es el cambio
  * que se pidió.
  */
-export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeArena, KitDelPerfil>> = {
+export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
   'espada-escudo': {
     equipo: { arma: 'espada', armadura: 'brigantina', escudo: 'escudo' },
     leadership: 3,
@@ -277,7 +276,7 @@ export function casillasValidas(valor: unknown, quien: string): number {
  * cuerpo, con `level`, `speed`, `shots` o `hexes`) no vale, y se dice por qué
  * (14-10-2026, el usuario: «no queremos mantener compatibilidad hacia atrás»).
  */
-export function validarUnidadDeArena(valor: unknown, eq: EquipoAtado): UnidadDeArena {
+export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
   if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
     throw new Error('una unidad de la arena tiene que ser un objeto');
   }
@@ -307,13 +306,13 @@ export function validarUnidadDeArena(valor: unknown, eq: EquipoAtado): UnidadDeA
     deLaLista(t, CREATURE_TRAITS, 'el rasgo', quien),
   );
   const habilidades = lista(u.habilidades, 'las habilidades', quien).map((h) =>
-    deLaLista(h, HABILIDADES_DE_LA_ARENA, 'la habilidad', quien),
+    deLaLista(h, HABILIDADES, 'la habilidad', quien),
   );
   sinRepetir(traits, 'el rasgo', quien);
   sinRepetir(habilidades, 'la habilidad', quien);
   const edificio = u.edificio === undefined ? undefined : texto(u.edificio, 'el edificio', quien);
   const equipo = equipoEscrito(u.equipo, quien);
-  const unidad: UnidadDeArena = {
+  const unidad: Unidad = {
     id,
     name,
     faction,
@@ -337,7 +336,7 @@ export function validarUnidadDeArena(valor: unknown, eq: EquipoAtado): UnidadDeA
 /** El id de una unidad: minúsculas, cifras y guiones, como el de una hoja. */
 function idValido(valor: unknown): string {
   const id = texto(valor, 'el id', 'una unidad de la arena');
-  if (!esIdDeArena(id)) {
+  if (!esIdDeUnidad(id)) {
     throw new Error(`la unidad "${id}": el id va en minúsculas, con cifras y guiones`);
   }
   return id;
@@ -349,7 +348,7 @@ function idValido(valor: unknown): string {
  * juego no es un cuerpo de la arena (13-10-2026, el usuario: «solo cuentan los
  * 5 que hay en la arena»).
  */
-function cuerpoValido(valor: unknown, quien: string): CuerpoDeArena {
+function cuerpoValido(valor: unknown, quien: string): CuerpoDeUnidad {
   if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
     throw new Error(`${quien}: el cuerpo tiene que ser { hoja }`);
   }
@@ -357,7 +356,7 @@ function cuerpoValido(valor: unknown, quien: string): CuerpoDeArena {
   const claves = Object.keys(c);
   if (claves.length === 1 && claves[0] === 'hoja') {
     const hoja = texto(c.hoja, 'la hoja del cuerpo', quien);
-    if (!esIdDeArena(hoja)) {
+    if (!esIdDeUnidad(hoja)) {
       throw new Error(`${quien}: «${hoja}» no es el id de una hoja`);
     }
     return { hoja };
@@ -409,7 +408,7 @@ export function armaDeCuerpoBlocker(equipo: Equipo): string | null {
  * y que con todo puesto el índice la sepa medir (`medidaBlocker`: si no, la ficha
  * no se repinta y la pelea se cuelga en el primer golpe que recibe; QA,
  * 12-10-2026). **La regla del equipo de una unidad, en un sitio**: la leen
- * `validarUnidadDeArena` (el catálogo, el enlace, cada cambio de la unidad), lo
+ * `validarUnidad` (el catálogo, el enlace, cada cambio de la unidad), lo
  * que ofrece la ficha (`opcionesDelHueco`, `quitarBlocker`) y el cambio de una
  * pieza que alguien lleva (`cambioDePiezas`, `retocarEnBatalla`). El héroe
  * no pasa por ella: lleva el equipo base (`EQUIPO_BASE`).
@@ -471,7 +470,7 @@ export interface UnidadSinValidar {
 
 /**
  * El catálogo leído unidad a unidad: las que valen y las que no, cada una con su
- * motivo. Solo el formato de hoy (`validarUnidadDeArena`): una unidad de antes no
+ * motivo. Solo el formato de hoy (`validarUnidad`): una unidad de antes no
  * vale y se conserva tal cual, como cualquier otra que no vale. Una unidad
  * mala no tira las buenas (H2 de QA: con una sola editada a
  * mano, la página arrancaba vacía y «Guardar» pisaba el resto). Es la lectura
@@ -484,12 +483,12 @@ export function revisarCatalogo(
   valor: unknown,
   eq: EquipoAtado,
 ): {
-  readonly validas: readonly UnidadDeArena[];
+  readonly validas: readonly Unidad[];
   readonly invalidas: readonly UnidadSinValidar[];
 } {
   const { validas, invalidas } = revisarLista(
     listaDelCatalogo(valor),
-    (crudo) => validarUnidadDeArena(crudo, eq),
+    (crudo) => validarUnidad(crudo, eq),
     CLAVE_DE_UNIDAD,
   );
   return {
@@ -504,7 +503,7 @@ export function revisarCatalogo(
  */
 const CLAVE_DE_UNIDAD = {
   campo: 'id',
-  clave: (u: UnidadDeArena) => u.id,
+  clave: (u: Unidad) => u.id,
   quien: (id: string) => `la unidad "${id}"`,
   donde: 'el catálogo',
 } as const;
@@ -522,7 +521,7 @@ function listaDelCatalogo(valor: unknown): readonly unknown[] {
 
 /**
  * **El catálogo entero, con la regla del juego**: `{ unidades: [...] }` con cada
- * unidad en el formato de hoy (`validarUnidadDeArena`), con las piezas `eq`, y sin
+ * unidad en el formato de hoy (`validarUnidad`), con las piezas `eq`, y sin
  * dos veces el mismo id —el catálogo es por tipo, y dos fichas del mismo id
  * querrían decir dos cifras para una unidad—. Lanza con el motivo de la primera
  * que no vale **nombrando el fichero**. Una sola función: la usan la carga del
@@ -530,10 +529,10 @@ function listaDelCatalogo(valor: unknown): readonly unknown[] {
  * las dos con las piezas de `data/equipo.json`; exportada con el JSON de argumento
  * para que un test la vea morder.
  */
-export function validarCatalogo(valor: unknown, eq: EquipoAtado): readonly UnidadDeArena[] {
+export function validarCatalogo(valor: unknown, eq: EquipoAtado): readonly Unidad[] {
   const r = revisarLista(
     listaDelCatalogo(valor),
-    (crudo) => validarUnidadDeArena(crudo, eq),
+    (crudo) => validarUnidad(crudo, eq),
     CLAVE_DE_UNIDAD,
   );
   const mala = r.invalidas[0];
@@ -551,7 +550,7 @@ export function validarCatalogo(valor: unknown, eq: EquipoAtado): readonly Unida
  * arena (`tools/arena/borrador.ts`) y su editor de equipo (`cambioDePiezas`),
  * que no deja hacer un cambio con el que el juego no cargaría.
  */
-export function leerCatalogos(eq: EquipoAtado, unidades: unknown): readonly UnidadDeArena[] {
+export function leerCatalogos(eq: EquipoAtado, unidades: unknown): readonly Unidad[] {
   const base = equipoBaseBlocker(eq);
   if (base !== null) throw new Error(base);
   return validarCatalogo(unidades, eq);
@@ -559,7 +558,7 @@ export function leerCatalogos(eq: EquipoAtado, unidades: unknown): readonly Unid
 
 /**
  * El daño `[mínimo, máximo]` comprobado: dos enteros de 1 o más, el mínimo sin
- * pasar del máximo (`validarUnidadDeArena`).
+ * pasar del máximo (`validarUnidad`).
  */
 function danioValido(par: unknown, quien: string): [number, number] {
   if (!Array.isArray(par) || par.length !== 2) {
@@ -583,12 +582,12 @@ function danioValido(par: unknown, quien: string): [number, number] {
  * campo. Las piezas, de `eq`: las del catálogo que edita la arena
  * (`catalogoDeEquipo`) o las del juego.
  */
-export function unidadDeCombate(u: UnidadDeArena, eq: EquipoAtado): UnitInfo {
+export function unidadDeCombate(u: Unidad, eq: EquipoAtado): UnitInfo {
   return eq.conEquipo(cuerpoDeCombate(u), u.equipo);
 }
 
 /** Lo que el motor juega de una unidad de arena ANTES de su equipo (`unidadDeCombate`). */
-export function cuerpoDeCombate(u: UnidadDeArena): UnitInfo {
+export function cuerpoDeCombate(u: Unidad): UnitInfo {
   // Fuera lo que no pelea; el resto son ya los campos de `UnitInfo`.
   const {
     id: _id,
@@ -623,11 +622,11 @@ export function cuerpoDeCombate(u: UnidadDeArena): UnitInfo {
  * declaración, que leen el servidor (`tools/arena/borrador.ts`) y la página.
  * Es un tipo de cable sin regla de juego: el motor no lo lee.
  */
-export interface HojaDeArena {
+export interface Hoja {
   readonly id: string;
   readonly nombre: string;
   readonly faccion: FactionId;
-  readonly perfil: PerfilDeArena;
+  readonly perfil: PerfilDeUnidad;
   /**
    * El personaje del que es una hoja: el taller pinta a veces el mismo con varios
    * equipos («Guerrero con escudo» y «con arma a dos manos»), y todas sus hojas
@@ -674,9 +673,9 @@ const DIRECCIONES_DE_FIGURA = 8;
  * entran el perfil y la facción, así que después nadie tiene que volver a
  * preguntar si existen.
  */
-export function validarHojasDeArena(valor: unknown): readonly HojaDeArena[] {
+export function validarHojas(valor: unknown): readonly Hoja[] {
   if (!Array.isArray(valor)) throw new Error('la lista de hojas de la arena no es una lista');
-  return valor.map((v: unknown): HojaDeArena => {
+  return valor.map((v: unknown): Hoja => {
     if (typeof v !== 'object' || v === null)
       throw new Error('una hoja de la arena no es un objeto');
     const h = v as Record<string, unknown>;
@@ -687,7 +686,7 @@ export function validarHojasDeArena(valor: unknown): readonly HojaDeArena[] {
       id,
       nombre: texto(h.nombre, 'el nombre', quien),
       faccion: deLaLista(h.faccion, FACTION_IDS, 'la facción', quien),
-      perfil: deLaLista(h.perfil, PERFILES_DE_ARENA, 'el perfil', quien),
+      perfil: deLaLista(h.perfil, PERFILES_DE_UNIDAD, 'el perfil', quien),
       personaje: texto(h.personaje, 'el personaje', quien),
       heroe: h.heroe,
       casillas: casillasValidas(h.casillas, quien),

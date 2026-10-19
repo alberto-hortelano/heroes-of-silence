@@ -50,10 +50,23 @@ import {
  * es lo que se calibró (`data/poder.json`).
  */
 export function poderBruto(u: UnitInfo): number {
+  const guardado = PODER_POR_CIFRAS.get(u);
+  if (guardado !== undefined) return guardado;
   const m = medida(u);
   if ('motivo' in m) throw new Error(`${u.name}: ${m.motivo}`);
-  return Math.floor((raizEntera(m.ofensa * m.aguante) * (10 + SPEED_TO_HEXES[u.speed])) / 10);
+  const p = Math.floor((raizEntera(m.ofensa * m.aguante) * (10 + SPEED_TO_HEXES[u.speed])) / 10);
+  PODER_POR_CIFRAS.set(u, p);
+  return p;
 }
+
+/**
+ * El poder bruto ya calculado de cada objeto de cifras. Las cifras son inmutables
+ * —retocarlas en la arena pone otro objeto— y lo preguntan `herir` en cada golpe
+ * (el índice, `indiceDePoder`) y la IA en cada comparación de fuerzas
+ * (`unitPower`), también los golpes que simula: sin esto, una raíz por pregunta.
+ * Débil, para no retener cifras que ya no lleva nadie. Una función pura recordada.
+ */
+const PODER_POR_CIFRAS = new WeakMap<UnitInfo, number>();
 
 /** Lo que pega y lo que aguanta una unidad, cuyo producto mide `poderBruto`. */
 interface Medida {
@@ -91,11 +104,9 @@ function medida(u: UnitInfo): Medida | { readonly motivo: string } {
  * al nivel 2 por un rasgo que nunca usa (R2 de la re-verificación de QA,
  * 12-10-2026).
  *
- * **Con la regla final de la carga** (simplify de F1, 18-10-2026): carga todo el
- * que pega cuerpo a cuerpo, a pie si no tiene el rasgo (`cifrasDeCarga(u, true)`),
- * como pelearán todas desde que el juego juegue los modos de la arena; medirla ya
- * así deja quietos el índice, la experiencia y lo que se derive de él cuando se
- * enciendan. Se mide a media recta: la mitad de lo que cobra la recta entera.
+ * **Con la regla de la carga** (simplify de F1, 18-10-2026): carga todo el que
+ * pega cuerpo a cuerpo, a pie si no tiene el rasgo (`cifrasDeCarga`), como pelea
+ * toda batalla. Se mide a media recta: la mitad de lo que cobra la recta entera.
  */
 function ofensaDe(u: UnitInfo): number {
   const cuerpo = golpeMedido(u, 'arma');
@@ -200,20 +211,9 @@ export function medidaBlocker(u: UnitInfo): string | null {
  * cifra es siempre el nivel, y no hay nivel 0.
  */
 export function indiceDePoder(u: UnitInfo): number {
-  const guardado = INDICE_POR_CIFRAS.get(u);
-  if (guardado !== undefined) return guardado;
-  const indice = indiceDelPoder(poderBruto(u));
-  INDICE_POR_CIFRAS.set(u, indice);
-  return indice;
+  // Del poder bruto recordado (`poderBruto`): lo que queda son unas pocas sumas.
+  return indiceDelPoder(poderBruto(u));
 }
-
-/**
- * El índice ya calculado de cada objeto de cifras. Las cifras son inmutables
- * —retocarlas en la arena pone otro objeto— y `herir` pregunta en cada golpe,
- * también los que la IA simula: sin esto, una raíz por golpe. Débil,
- * para no retener cifras que ya no lleva nadie. Una función pura recordada.
- */
-const INDICE_POR_CIFRAS = new WeakMap<UnitInfo, number>();
 
 /**
  * Del poder bruto al índice. El umbral del nivel 2 es `umbralDelNivel2` y cada

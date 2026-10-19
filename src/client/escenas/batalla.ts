@@ -210,16 +210,15 @@ export class EscenaBatalla {
   }
 
   /**
-   * Los dos que se cruzan en la rueda que se ve (hoy, solo la arena: en la
-   * partida aún no se abre, F5): los del cruce que se cuenta o, con la cola
-   * vacía, los del golpe plantado que espera la
-   * elección (`BattleState.golpeEnCurso`, que solo se lee). Es cuando la arena
-   * enseña la rueda (`pintarLaRueda`, `main.ts`); si no, `null`. Lo elegido no
-   * sale de aquí: no está en el estado.
+   * Los dos que se cruzan en la rueda que se ve (la partida y la arena): los del
+   * cruce que se cuenta (`losDelCruce`) o, con la cola vacía, los del golpe
+   * plantado que espera la elección (`BattleState.golpeEnCurso`, que solo se lee).
+   * Es cuando se enseña la rueda (`DialogoDeLaRueda`); si no, `null`. Lo elegido
+   * no sale de aquí: no está en el estado.
    */
   enLaRueda(): { readonly atacante: string; readonly objetivo: string } | null {
-    const cruce = this.animador.cruceEnCurso();
-    if (cruce !== null) return { atacante: cruce.evento.stack, objetivo: cruce.evento.target };
+    const delCruce = this.animador.losDelCruce();
+    if (delCruce !== null) return delCruce;
     const g = this.sesion().battle?.golpeEnCurso ?? null;
     if (g === null || this.animador.busy) return null;
     return { atacante: g.stack, objetivo: g.target };
@@ -321,7 +320,7 @@ export class EscenaBatalla {
     if (battle === null || battle.finished !== null) return fuera;
     for (const st of battle.stacks) {
       if (!isAlive(st) || st.side === s.miBando) continue;
-      const x = cajaDeFigura(this.tablero, st, this.animador.figura(st).en).x;
+      const x = cajaDeFigura(this.tablero, this.animador.figura(st).en).x;
       if (x < desde) fuera.izquierda += st.count;
       else if (x > hasta) fuera.derecha += st.count;
     }
@@ -339,7 +338,7 @@ export class EscenaBatalla {
     const turno = this.sesion().turnoPropio;
     if (turno === null) return null;
     const { stack } = turno;
-    return { id: stack.id, x: cajaDeFigura(this.tablero, stack, this.animador.figura(stack).en).x };
+    return { id: stack.id, x: cajaDeFigura(this.tablero, this.animador.figura(stack).en).x };
   }
 
   mover(px: number, py: number): void {
@@ -605,7 +604,7 @@ export class EscenaBatalla {
     for (const s of battle.stacks) {
       if (!isAlive(s)) continue;
       const f = this.animador.figura(s);
-      const c = cajaDeFigura(this.tablero, s, f.en, f.elevacion);
+      const c = cajaDeFigura(this.tablero, f.en, f.elevacion);
       if (dentroDeLaFigura(c, px, py) && (mejor === null || c.suelo > mejor.suelo))
         mejor = { s, suelo: c.suelo };
     }

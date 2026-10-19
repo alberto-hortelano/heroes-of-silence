@@ -7,13 +7,12 @@
  * pinta. El gesto lo lleva la sesión (`PoderesDeLaActiva.usar`).
  */
 import type { Prevision } from '@core/battle/battle.js';
-import { esDeCura, type Poder, type PoderId, poder } from '@core/battle/poderes.js';
-import { delHeroe, efectoDe } from '@core/battle/spells.js';
+import { type PoderId, poder, queHaceElPoder } from '@core/battle/poderes.js';
 import type { BattleAction, BattleStack, BattleState } from '@core/battle/types.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import type { Apuntado } from '../session.js';
 import { nombreEnElCampo } from './distintivo.js';
-import { curaOEfecto, textoDePrevision } from './prevision.js';
+import { textoDePrevision } from './prevision.js';
 
 /** Lo que piden los botones de los poderes a la sesión: la de la partida y la de la arena. */
 export interface ControlDePoderes {
@@ -66,7 +65,7 @@ export function botonesDePoder(s: ControlDePoderes, activa: BattleStack): Html {
     ids.map((id) => {
       const p = poder(id);
       // Se puede si la lista legal lo trae; el motivo, al núcleo solo si no.
-      const suyas = legales.filter((a) => a.type === 'poder' && a.poder === id);
+      const suyas = legales.filter((a) => a.type === 'power' && a.poder === id);
       return html`
          ${botonDeElegir({
            accion: 'battle-poder',
@@ -100,19 +99,4 @@ function previsionDelUnico(s: ControlDePoderes, accion: BattleAction | undefined
     const x = b.stacks.find((st) => st.id === id);
     return x === undefined ? id : nombreEnElCampo(b, x);
   });
-}
-
-/**
- * Lo que hace un poder, en una frase para la ficha y el botón. Que no se suma al
- * hechizo del héroe se dice porque los dos dejan un efecto del mismo origen, que
- * refresca y no se apila (`applyEffect`): se compara, no se da por hecho.
- */
-export function queHaceElPoder(p: Poder): string {
-  const s = p.hechizo;
-  const e = efectoDe(s, p.lanzador);
-  const hace = curaOEfecto(esDeCura(p) ? p.lanzador.cantidad : null, e) ?? '';
-  if (esDeCura(p)) return `${hace} a un aliado herido, incluida la propia unidad`;
-  const elDelHeroe = efectoDe(s, delHeroe(s, { spellPower: 1 }));
-  const unoSolo = e !== null && elDelHeroe !== null && elDelHeroe.source === e.source;
-  return `${hace} a un aliado${unoSolo ? `; es la ${s.name} del héroe: las dos no se suman` : ''}`;
 }

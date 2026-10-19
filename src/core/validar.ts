@@ -80,7 +80,7 @@ export function repetidoEn<T>(lista: readonly T[]): T | undefined {
  * para pintarla (`render/personajes.ts`). Aquí y no en `core/arena.ts` porque el
  * cliente fuera de la arena no importa de allí (`invariantes.test.ts`).
  */
-export function esIdDeArena(id: string): boolean {
+export function esIdDeUnidad(id: string): boolean {
   return /^[a-z0-9-]+$/.test(id);
 }
 

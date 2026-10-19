@@ -29,7 +29,6 @@
  * montaje, la ficha, las piezas, el retoque y el enlace.
  */
 import {
-  type BattleMember,
   type BattleSide,
   type CausaDelFinal,
   causaDelFinal,
@@ -38,6 +37,7 @@ import {
   type HeroeDelBando,
   mandoDe,
   quienNoEscala,
+  type StackDeBatalla,
 } from './battle/battle.js';
 import type { StackEffect } from './battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
@@ -56,9 +56,10 @@ import type {
   BattleStack,
   BattleState,
   FichaEnPalabras,
+  OrigenDelStack,
   Side,
-  TipoDeArena,
 } from './battle/types.js';
+import { type CatalogoDeUnidades, cuerpoDe } from './catalogo.js';
 import {
   baseBlocker,
   diferenciaDe,
@@ -95,7 +96,6 @@ import {
   type Hueco,
   NOMBRE_DE_FACCION,
   NOMBRE_DE_HUECO,
-  type Stack,
   type UnitInfo,
 } from './types.js';
 import {
@@ -103,15 +103,15 @@ import {
   cuerpoDeCombate,
   ESPADA,
   equipoDeUnidadBlocker,
-  type HojaDeArena,
+  type Hoja,
   KIT_DEL_PERFIL,
   leerCatalogos,
   nivelesDeLaEspada,
-  type UnidadDeArena,
+  type Unidad,
   unidadDeCombate,
-  validarUnidadDeArena,
+  validarUnidad,
 } from './unidad.js';
-import { entero, esIdDeArena, lista, sinRepetir, texto } from './validar.js';
+import { entero, esIdDeUnidad, lista, sinRepetir, texto } from './validar.js';
 
 /**
  * Los dos lados del montaje y lo que el motor sabe de ellos: la izquierda ataca
@@ -173,14 +173,14 @@ export interface IdsOcupados {
  * no se monta (una hoja a medias) lo dice la página antes de llamarla.
  */
 export function unidadNueva(
-  hoja: Pick<HojaDeArena, 'id' | 'nombre' | 'faccion' | 'perfil' | 'casillas'>,
+  hoja: Pick<Hoja, 'id' | 'nombre' | 'faccion' | 'perfil' | 'casillas'>,
   ocupados: IdsOcupados,
   eq: EquipoAtado,
-): UnidadDeArena {
+): Unidad {
   const todos = new Set([...ocupados.validas, ...ocupados.sinValidar, ...ocupados.hojas]);
   let n = 2;
   while (todos.has(`${hoja.id}-${n}`)) n++;
-  return validarUnidadDeArena(
+  return validarUnidad(
     {
       id: `${hoja.id}-${n}`,
       name: `${hoja.nombre} ${n}`,
@@ -203,12 +203,12 @@ export function unidadNueva(
  * `ponerPieza` (`manosBlocker`: un arma a dos manos no admite escudo) diciendo a
  * quién.
  */
-export function equiparEnArena(u: UnidadDeArena, id: string, eq: EquipoAtado): UnidadDeArena {
+export function equiparEnArena(u: Unidad, id: string, eq: EquipoAtado): Unidad {
   return { ...u, equipo: eq.ponerPieza(u.equipo, id, u.name).equipo };
 }
 
 /** La unidad sin lo que lleve en `hueco`; si no lleva nada ahí, se dice. */
-export function quitarEnArena(u: UnidadDeArena, hueco: Hueco): UnidadDeArena {
+export function quitarEnArena(u: Unidad, hueco: Hueco): Unidad {
   const { equipo, quitada } = quitarPieza(u.equipo, hueco);
   if (quitada === null) throw new Error(nadaEnElHueco(u.name, hueco));
   return { ...u, equipo };
@@ -473,7 +473,7 @@ export interface OpcionDelHueco {
  * rechazaría.
  */
 export function opcionesDelHueco(
-  u: UnidadDeArena,
+  u: Unidad,
   hueco: Hueco,
   eq: EquipoAtado,
 ): readonly OpcionDelHueco[] {
@@ -491,7 +491,7 @@ export function opcionesDelHueco(
  * (`equipoDeUnidadBlocker`: sin arma de cuerpo a cuerpo no se combate). La lee la
  * ficha, que no ofrece la × que el núcleo rechazaría.
  */
-export function quitarBlocker(u: UnidadDeArena, hueco: Hueco, eq: EquipoAtado): string | null {
+export function quitarBlocker(u: Unidad, hueco: Hueco, eq: EquipoAtado): string | null {
   if (u.equipo[hueco] === undefined) return nadaEnElHueco(u.name, hueco);
   const { [hueco]: _quitada, ...sin } = u.equipo;
   return equipoDeUnidadBlocker(cuerpoDeCombate(u), sin, eq);
@@ -514,7 +514,7 @@ export function quitarBlocker(u: UnidadDeArena, hueco: Hueco, eq: EquipoAtado): 
 export function cambioDePiezas(
   antes: CatalogoDeEquipo,
   despues: readonly PiezaEscrita[],
-  unidades: readonly UnidadDeArena[],
+  unidades: readonly Unidad[],
 ): { readonly equipo: CatalogoDeEquipo } | { readonly motivo: string } {
   const borrada = baseQueSeBorra(antes, despues);
   if (borrada !== null) return { motivo: borrada };
@@ -535,7 +535,7 @@ export function cambioDePiezas(
 function quienDejaDeValer(
   antes: CatalogoDeEquipo,
   despues: CatalogoDeEquipo,
-  unidades: readonly UnidadDeArena[],
+  unidades: readonly Unidad[],
 ): string | null {
   for (const u of unidades) {
     for (const id of idsPuestos(u.equipo)) {
@@ -600,10 +600,7 @@ function nombreRepetido(viejo: EquipoAtado, nuevo: EquipoAtado): string | null {
  * Los ids de las piezas que lleva lo montado: las de sus unidades y, con héroe,
  * su equipo base. Lo leen el enlace (qué piezas viajan) y la página al abrirlo.
  */
-export function idsLlevados(
-  unidades: readonly UnidadDeArena[],
-  conHeroe: boolean,
-): ReadonlySet<string> {
+export function idsLlevados(unidades: readonly Unidad[], conHeroe: boolean): ReadonlySet<string> {
   return new Set([
     ...unidades.flatMap((u) => idsPuestos(u.equipo)),
     ...(conHeroe ? idsPuestos(EQUIPO_BASE) : []),
@@ -619,7 +616,7 @@ export function idsLlevados(
  * no está en `piezas`.
  */
 export function piezasDelMontaje(
-  unidades: readonly UnidadDeArena[],
+  unidades: readonly Unidad[],
   conHeroe: boolean,
   piezas: readonly PiezaEscrita[],
 ): readonly PiezaEscrita[] {
@@ -656,7 +653,7 @@ export function lecturaDelNivel(u: UnitInfo): string {
  * ir con ella o sin ella).
  */
 export interface FuenteDeArena {
-  readonly unidad: UnidadDeArena;
+  readonly unidad: Unidad;
   readonly escalera?: boolean;
 }
 
@@ -703,7 +700,7 @@ export function heroePorDefecto(lado: Lado): HeroeDeArena {
 export function validarHeroeDeArena(h: HeroeDeArena): HeroeDeArena {
   const quien = 'el héroe';
   const nombre = texto(h.nombre, 'el nombre', quien);
-  if (h.figura !== null && !esIdDeArena(h.figura)) {
+  if (h.figura !== null && !esIdDeUnidad(h.figura)) {
     throw new Error(`${quien}: la figura «${h.figura}» no es el id de una hoja`);
   }
   const cifra = (v: number, campo: string, minimo: number): number => {
@@ -747,6 +744,7 @@ export function heroeDeArena(datos: HeroeDeArena, eq: EquipoAtado): HeroeDelBand
   const h = validarHeroeDeArena(datos);
   return {
     cuerpo: eq.conEquipo(cuerpoDelHeroeDeArena(h), EQUIPO_BASE),
+    desnudo: cuerpoDelHeroeDeArena(h),
     mando: mandoDe(
       {
         name: h.nombre,
@@ -839,37 +837,71 @@ export interface MontajeDeArena {
   readonly equipo: CatalogoDeEquipo;
 }
 
+/** Un catálogo de unidades con las piezas como las edita la arena (con sus escritas). */
+export type CatalogoDeLaArena = CatalogoDeUnidades & { readonly equipo: CatalogoDeEquipo };
+
 /**
- * El stack de una unidad del montaje. `member` es su id de personaje, uno por
- * puesto: dos monjes en el mismo bando son dos individuos, y el motor rechaza un
- * personaje que aparece dos veces. Lo que entra por personaje se apunta en
- * `members`.
+ * El catálogo de una pelea de la arena: las unidades de su montaje, comprobadas,
+ * y sus piezas (`MontajeDeArena.equipo`). Es lo que la página no ha guardado: de
+ * él salen las cifras de cada stack (`BattleSide.catalogo`) y su cuerpo sin
+ * equipo (`cuerpoDe`), en el montaje y en cada retoque.
  */
-function stackDeLaFuente(
-  fuente: FuenteDeArena,
-  member: string,
-  members: Map<string, BattleMember>,
-  eq: EquipoAtado,
-): Stack {
-  const escalera = fuente.escalera === true;
-  // Las cifras llegan de la página ya validadas; se vuelven a mirar porque la
-  // batalla es la última puerta y un objeto a mano (un test, el arnés) no pasó
-  // por ninguna otra.
-  const u = validarUnidadDeArena(fuente.unidad, eq);
-  const unit = unidadDeCombate(u, eq);
-  // Con los PV de su armadura: con `u.hp`, los del cuerpo, entraba herida.
-  members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp, escalera });
-  // El `body` es su cuerpo: el arte de su hoja, no su id (dos unidades nuevas
-  // del mismo cuerpo se pintan igual).
-  return { creature: u.cuerpo.hoja, member, count: 1 };
+export function catalogoDelMontaje(montaje: MontajeDeArena): CatalogoDeLaArena {
+  const eq = montaje.equipo;
+  // Se vuelven a mirar porque la batalla es la última puerta y un objeto a mano
+  // (un test, el arnés) no pasó por ninguna otra.
+  return catalogoDeLaPelea(
+    [...montaje.izquierda.unidades, ...montaje.derecha.unidades].map((f) =>
+      validarUnidad(f.unidad, eq),
+    ),
+    eq,
+  );
+}
+
+/**
+ * Un catálogo con estas unidades y estas piezas. Un id, una unidad: la misma puede
+ * salir en varios puestos, pero dos distintas con el mismo id lanzan diciéndolo
+ * (un stack dice qué unidad es por su id, `OrigenDelStack.unidad`, y el retoque
+ * de un tipo cambia todos los suyos).
+ */
+export function catalogoDeLaPelea(
+  unidades: readonly Unidad[],
+  equipo: CatalogoDeEquipo,
+): CatalogoDeLaArena {
+  const porId = new Map<string, Unidad>();
+  for (const u of unidades) {
+    const otra = porId.get(u.id);
+    if (otra !== undefined && JSON.stringify(otra) !== JSON.stringify(u)) {
+      throw new Error(
+        `hay dos unidades distintas con el id «${u.id}» en la pelea: una unidad, unas cifras`,
+      );
+    }
+    porId.set(u.id, u);
+  }
+  return {
+    equipo,
+    unidad: (id) => {
+      const u = porId.get(id);
+      if (u === undefined) throw new Error(`«${id}» no es ninguna unidad de esta pelea`);
+      return u;
+    },
+  };
+}
+
+/**
+ * El catálogo `cat` con la unidad `u` en lugar de la de su id: lo que deja en la
+ * sesión un retoque de su tipo que entra (`retocarEnBatalla`, `kind: 'tipo'`).
+ */
+export function conUnidad(cat: CatalogoDeLaArena, u: Unidad): CatalogoDeLaArena {
+  return { ...cat, unidad: (id) => (id === u.id ? u : cat.unidad(id)) };
 }
 
 /** Las cifras con las que pelea una unidad del montaje, comprobadas. */
 function unidadDeLaFuente(fuente: FuenteDeArena, eq: EquipoAtado): UnitInfo {
-  return unidadDeCombate(validarUnidadDeArena(fuente.unidad, eq), eq);
+  return unidadDeCombate(validarUnidad(fuente.unidad, eq), eq);
 }
 
-function bandoDeArena(lado: LadoDeArena, nombre: string, eq: EquipoAtado): BattleSide {
+function bandoDeArena(lado: LadoDeArena, nombre: string, catalogo: CatalogoDeUnidades): BattleSide {
   const { unidades, heroe } = lado;
   if (unidades.length === 0 && heroe === null) {
     throw new Error(`el bando ${nombre} está vacío: pon al menos una unidad`);
@@ -882,15 +914,14 @@ function bandoDeArena(lado: LadoDeArena, nombre: string, eq: EquipoAtado): Battl
       `el bando ${nombre} lleva ${cuantos} unidades${heroe === null ? '' : ', contando a su héroe,'} y caben ${LIDERAZGO.maxPorBando}: quita ${cuantos - LIDERAZGO.maxPorBando}`,
     );
   }
-  const members = new Map<string, BattleMember>();
-  const army: Stack[] = unidades.map((fuente, i) =>
-    stackDeLaFuente(fuente, `arena-${i}`, members, eq),
-  );
-  return {
-    army,
-    hero: heroe === null ? null : heroeDeArena(heroe, eq),
-    ...(members.size === 0 ? {} : { members }),
-  };
+  // Cada unidad, un individuo de su unidad del catálogo de la pelea: el arte
+  // de su hoja (`body`) y las cifras con su equipo, como en el juego.
+  const army: StackDeBatalla[] = unidades.map((f) => ({
+    creature: f.unidad.id,
+    count: 1,
+    ...(f.escalera === true ? { escalera: true } : {}),
+  }));
+  return { army, hero: heroe === null ? null : heroeDeArena(heroe, catalogo.equipo), catalogo };
 }
 
 /**
@@ -903,69 +934,48 @@ function bandoDeArena(lado: LadoDeArena, nombre: string, eq: EquipoAtado): Battl
  */
 export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
   const eq = montaje.equipo;
+  const catalogo = catalogoDelMontaje(montaje);
   const batalla = createBattle(
-    bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, eq),
-    bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo, eq),
+    bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, catalogo),
+    bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo, catalogo),
     rng,
     montaje.muralla ?? SIN_MURALLA,
   );
-  // De qué tipo sale cada puesto, en el orden de su `slot` (`tipoDelStack`).
-  const tipos = (l: LadoDeArena): readonly TipoDeArena[] => l.unidades.map(tipoDeLaFuente);
-  // Y la ficha de cada tipo y de cada héroe, con la que el retoque compara, y su
-  // cuerpo sin equipo, que cambiar una pieza vuelve a vestir.
+  // La ficha de cada tipo y de cada héroe, con la que el retoque compara.
   const fichas: Record<string, FichaEnPalabras> = {};
-  const cuerpos: Record<string, UnitInfo> = {};
   for (const lado of ['izquierda', 'derecha'] as const) {
     for (const f of montaje[lado].unidades) {
-      const clave = claveDeFicha(tipoDeLaFuente(f));
-      fichas[clave] = fichaEnPalabras(f, eq);
-      cuerpos[clave] = cuerpoDeCombate(validarUnidadDeArena(f.unidad, eq));
+      fichas[claveDeFicha(tipoDeLaFuente(f))] = fichaEnPalabras(f, eq);
     }
     const heroe = montaje[lado].heroe;
-    if (heroe !== null) {
-      const clave = claveDeFicha({ kind: 'heroe', lado });
-      fichas[clave] = fichaDelHeroe(heroe);
-      cuerpos[clave] = cuerpoDelHeroeDeArena(heroe);
-    }
+    if (heroe !== null) fichas[claveDeFicha({ kind: 'heroe', lado })] = fichaDelHeroe(heroe);
   }
-  return {
-    ...batalla,
-    tiposDeArena: {
-      [LADOS.izquierda.bando]: tipos(montaje.izquierda),
-      [LADOS.derecha.bando]: tipos(montaje.derecha),
-    } as Record<Side, readonly TipoDeArena[]>,
-    fichasDeArena: fichas,
-    cuerposDeArena: cuerpos,
-  };
+  return { ...batalla, fichasDeArena: fichas };
+}
+
+/** De qué unidad del catálogo de la pelea sale un stack de la tropa (`tipoDelStack`). */
+export interface TipoDeArena {
+  readonly kind: 'unidad';
+  readonly id: string;
 }
 
 /**
- * De qué sale un stack de una pelea de la arena: una unidad del catálogo (lo que
- * anotó `batallaDeArena`), o el héroe de un lado. Es lo que se
- * edita al pulsar «Editar» en su fila, y lo que cambia `retocarEnBatalla`. Lanza
- * con un stack que no sale del montaje: no es una pelea de la arena.
+ * De qué sale un stack de una pelea de la arena: una unidad del catálogo (su
+ * origen, `OrigenDelStack.unidad`), o el héroe de un lado. Es lo que se edita al
+ * pulsar «Editar» en su fila, y lo que cambia `retocarEnBatalla`. Lanza con un
+ * personaje: en la arena no los hay.
  */
 export function tipoDelStack(
-  state: BattleState,
   s: BattleStack,
 ): TipoDeArena | { readonly kind: 'heroe'; readonly lado: Lado } {
-  if (s.origen.kind === 'heroe') return { kind: 'heroe', lado: ladoDe(s.side) };
-  const tipo = state.tiposDeArena?.[s.side][s.slot];
-  if (tipo === undefined) {
-    throw new Error(`${s.id} no sale de ningún puesto del montaje: no es una pelea de la arena`);
+  switch (s.origen.kind) {
+    case 'heroe':
+      return { kind: 'heroe', lado: ladoDe(s.side) };
+    case 'catalogo':
+      return { kind: 'unidad', id: s.origen.unidad };
+    case 'personaje':
+      throw new Error(`${s.id} es un personaje: no sale de ningún puesto del montaje`);
   }
-  return tipo;
-}
-
-/**
- * El cuerpo de un stack de una pelea de la arena **sin su equipo**: el de su tipo
- * o su héroe, como lo anotó `batallaDeArena` y lo pone al día el retoque
- * (`BattleState.cuerposDeArena`), o `null` si la pelea no lo trae. Lo leen el
- * retoque de piezas, que lo vuelve a vestir, y el panel, que enseña qué suma el
- * equipo.
- */
-export function cuerpoDelStack(state: BattleState, s: BattleStack): UnitInfo | null {
-  return state.cuerposDeArena?.[claveDeFicha(tipoDelStack(state, s))] ?? null;
 }
 
 // ------------------------------------------------------------- la ficha en palabras
@@ -1020,7 +1030,7 @@ function tipoDeLaFuente(f: FuenteDeArena): TipoDeArena {
 function fichaEnPalabras(f: FuenteDeArena, eq: EquipoAtado): FichaEnPalabras {
   const rasgos = (ts: readonly CreatureTrait[] | undefined) =>
     (ts ?? []).map((t) => NOMBRE_DE_RASGO[t]);
-  const u = validarUnidadDeArena(f.unidad, eq);
+  const u = validarUnidad(f.unidad, eq);
   return {
     nombre: u.name,
     facción: NOMBRE_DE_FACCION[u.faction],
@@ -1130,15 +1140,16 @@ export type RetoqueDeArena =
  *
  * Una pieza (`kind: 'piezas'`) cambia a la vez todos los stacks que la llevan, de
  * los dos bandos y el héroe incluido, con la misma cuenta de lo gastado
- * (`retocarLasPiezas`). Las cifras de los tipos y del héroe se leen con `eq`, el
- * catálogo con que pelea quien llama (la sesión de la arena): la batalla no lleva
- * catálogo.
+ * (`retocarLasPiezas`). Las cifras de los tipos y del héroe se leen con
+ * `catalogo`, el de la pelea con que juega quien llama (la sesión de la arena,
+ * `catalogoDelMontaje` con lo retocado): la batalla no lleva catálogo.
  */
 export function retocarEnBatalla(
   state: BattleState,
   r: RetoqueDeArena,
-  eq: CatalogoDeEquipo,
+  catalogo: CatalogoDeLaArena,
 ): string | null {
+  const eq = catalogo.equipo;
   if (state.finished !== null) {
     return 'la batalla ya ha terminado; el cambio vale para la pelea siguiente';
   }
@@ -1161,10 +1172,10 @@ export function retocarEnBatalla(
       }));
       return 'motivo' in nuevo
         ? nuevo.motivo
-        : retocarElHeroe(state, r.lado, r.datos, nuevo.valor.heroe, nuevo.valor.ficha);
+        : retocarElHeroe(state, r.lado, nuevo.valor.heroe, nuevo.valor.ficha);
     }
     case 'piezas':
-      return retocarLasPiezas(state, eq, r.equipo);
+      return retocarLasPiezas(state, catalogo, r.equipo);
   }
 }
 
@@ -1205,9 +1216,6 @@ function retocarElTipo(
   if (cambios.length === 0) return null;
   aplicarAlTipo(state, suyos, unit);
   (state.fichasDeArena as Record<string, FichaEnPalabras>)[clave] = ficha;
-  if (state.cuerposDeArena !== undefined) {
-    state.cuerposDeArena[clave] = cuerpoDeCombate(fuente.unidad);
-  }
   state.log.push({ kind: 'retoque', nombre: unit.name, stacks: suyos.map((s) => s.id), cambios });
   return null;
 }
@@ -1217,7 +1225,7 @@ function retocarElTipo(
  * los dos bandos, o el cuerpo del héroe de un lado.
  */
 function stacksDeLaFicha(state: BattleState, clave: string): BattleStack[] {
-  return state.stacks.filter((s) => claveDeFicha(tipoDelStack(state, s)) === clave);
+  return state.stacks.filter((s) => claveDeFicha(tipoDelStack(s)) === clave);
 }
 
 /**
@@ -1236,8 +1244,8 @@ function aplicarAlTipo(state: BattleState, suyos: readonly BattleStack[], unit: 
 /**
  * Cambia las piezas de la pelea de `antes` a `despues` (catálogos enteros, `kind: 'piezas'`),
  * en dos tiempos y sin tocar nada si no entra: primero cada stack que lleva algo
- * se vuelve a sumar con las piezas nuevas —su cuerpo, el de su tipo en
- * `BattleState.cuerposDeArena`, más lo que lleva, `UnitInfo.equipo`—, con la regla de
+ * se vuelve a sumar con las piezas nuevas —su cuerpo (`cuerpoDe`, con el catálogo
+ * de la pelea), más lo que lleva, `UnitInfo.equipo`—, con la regla de
  * siempre (`equipoQueNoVale`); el primero que no vale es el motivo. Después, a
  * los que cambian de cifras, las nuevas con la misma cuenta de lo gastado que
  * cambiar el tipo a mano (`conCifrasNuevas`).
@@ -1249,16 +1257,17 @@ function aplicarAlTipo(state: BattleState, suyos: readonly BattleStack[], unit: 
  */
 function retocarLasPiezas(
   state: BattleState,
-  antes: CatalogoDeEquipo,
+  catalogo: CatalogoDeLaArena,
   despues: CatalogoDeEquipo,
 ): string | null {
+  const antes = catalogo.equipo;
   const cambian: {
     readonly s: BattleStack;
     readonly unit: UnitInfo;
     readonly lleva: Equipo;
   }[] = [];
   for (const s of state.stacks) {
-    const cuerpo = cuerpoDelStack(state, s);
+    const cuerpo = cuerpoDe(s, catalogo);
     const lleva = s.unit.equipo;
     if (cuerpo === null || lleva === undefined) continue;
     const motivo = equipoQueNoVale(cuerpo, lleva, despues);
@@ -1305,7 +1314,7 @@ function retocarLasPiezas(
   for (const s of state.stacks) {
     const lleva = s.unit.equipo;
     if (fichas === undefined || lleva === undefined || s.origen.kind === 'heroe') continue;
-    const clave = claveDeFicha(tipoDelStack(state, s));
+    const clave = claveDeFicha(tipoDelStack(s));
     const ficha = fichas[clave];
     if (ficha !== undefined) fichas[clave] = { ...ficha, ...huecosEnPalabras(lleva, despues) };
   }
@@ -1315,7 +1324,6 @@ function retocarLasPiezas(
 function retocarElHeroe(
   state: BattleState,
   lado: Lado,
-  datos: HeroeDeArena,
   nuevo: HeroeDelBando,
   ficha: FichaEnPalabras,
 ): string | null {
@@ -1331,7 +1339,7 @@ function retocarElHeroe(
   const clave = claveDeFicha({ kind: 'heroe', lado });
   const cambios = cambiosDeLaFicha(fichaDeAntes(state, clave), ficha);
   if (cambios.length === 0) return null;
-  conCifrasNuevas(state, cuerpo, nuevo.cuerpo);
+  conCifrasNuevas(state, cuerpo, nuevo.cuerpo, { kind: 'heroe', desnudo: nuevo.desnudo });
   // El maná, como la herida: lo que el Conocimiento nuevo no deja restar se debe.
   const gastado = maxMana(antes) - antes.mana + (antes.manaGastadoDeMas ?? 0);
   const mana = Math.max(0, nuevo.mando.mana - gastado);
@@ -1343,9 +1351,6 @@ function retocarElHeroe(
     ...(deMas === 0 ? {} : { manaGastadoDeMas: deMas }),
   };
   (state.fichasDeArena as Record<string, FichaEnPalabras>)[clave] = ficha;
-  if (state.cuerposDeArena !== undefined) {
-    state.cuerposDeArena[clave] = cuerpoDelHeroeDeArena(datos);
-  }
   state.log.push({ kind: 'retoque', nombre: nuevo.mando.name, stacks: [cuerpo.id], cambios });
   return null;
 }
@@ -1363,12 +1368,17 @@ function retocarElHeroe(
  * mientras se debe cura la herida de verdad: lo curado sube `topHp` y la deuda se
  * queda. Sin munición: en la arena no se cuentan tiros (13-10-2026).
  */
-function conCifrasNuevas(state: BattleState, s: BattleStack, unit: UnitInfo): void {
+function conCifrasNuevas(
+  state: BattleState,
+  s: BattleStack,
+  unit: UnitInfo,
+  origen: OrigenDelStack = s.origen,
+): void {
   const i = state.stacks.indexOf(s);
   if (i < 0) throw new Error(`${s.id} no está en esta batalla`);
   const { gastadoDeMas: debe, ...resto } = s;
   if (s.count === 0) {
-    state.stacks[i] = { ...s, unit };
+    state.stacks[i] = { ...s, unit, origen };
     return;
   }
   const herida = s.unit.hp - s.topHp + (debe ?? 0);
@@ -1377,6 +1387,7 @@ function conCifrasNuevas(state: BattleState, s: BattleStack, unit: UnitInfo): vo
   state.stacks[i] = {
     ...resto,
     unit,
+    origen,
     topHp,
     ...(deMas === 0 ? {} : { gastadoDeMas: deMas }),
   };
@@ -1405,7 +1416,7 @@ export function despliegueDeArenaBlocker(montaje: MontajeDeArena): string | null
 /**
  * Por qué esta unidad, en este lado, no usaría una escalera, o `null` si sí: la
  * regla de `quienNoEscala`, preguntada en el montaje. Sin ella la casilla «Lleva
- * escalera» se marcaba en un troll de dos casillas o en una voladora y
+ * escalera» se marcaba en una voladora y
  * `createBattle` la tiraba sin decir nada (QA de la muralla alta, M1).
  */
 export function escaleraDeArenaBlocker(
@@ -1472,7 +1483,7 @@ export const IA_POR_DEFECTO: Readonly<Record<Lado, boolean>> = { izquierda: fals
  */
 export interface MontajeDelEnlace {
   /** Las cifras de cada unidad montada, guardadas o no, en el orden en que salen. */
-  readonly unidades: readonly UnidadDeArena[];
+  readonly unidades: readonly Unidad[];
   /**
    * Todas las piezas que lleva lo montado, con sus bases (`piezasDelMontaje`), tal
    * como las tenía quien lo copió: al abrirlo entran en el catálogo de quien lo
@@ -1622,7 +1633,7 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
   const conLasPiezas = catalogoDeEquipo(conPiezas(EQUIPO_ESCRITO, piezas));
   // La primera unidad que no vale tumba el enlace.
   const unidades = lista(o.unidades, 'las unidades', 'el montaje del enlace').map((c) =>
-    validarUnidadDeArena(c, conLasPiezas),
+    validarUnidad(c, conLasPiezas),
   );
   sinRepetir(
     unidades.map((u) => u.id),

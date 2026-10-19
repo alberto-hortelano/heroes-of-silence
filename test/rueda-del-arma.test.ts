@@ -37,7 +37,7 @@ import type { TipoDeGolpe } from '../src/core/types.js';
 import {
   cuerpoDeCombate,
   nivelesDeLaEspada,
-  type UnidadDeArena,
+  type Unidad,
   unidadDeCombate,
 } from '../src/core/unidad.js';
 import {
@@ -69,15 +69,17 @@ const PIEZAS: readonly PiezaEscrita[] = [MAZA_LISA, LANZA_LISA];
 const EQ = catalogoCon(...PIEZAS);
 
 /** El guerrero con escudo (espada, brigantina y escudo) con `arma` en la mano. */
-function guerreroCon(arma: string): UnidadDeArena {
-  return equiparEnArena(unidadDeArena(TROPA), arma, EQ);
+function guerreroCon(arma: string): Unidad {
+  // Con su propio id: el de enfrente es la tropa tal cual, y en una pelea un id es
+  // una unidad (`catalogoDeLaPelea`).
+  return equiparEnArena(unidadDeArena(TROPA, { id: `${TROPA}-9` }), arma, EQ);
 }
 
 /**
  * Una pelea con la rueda, sin moral: `izq` en (5,4) y `der` pegado en (6,4). Los
  * dos guerreros son iguales de rápidos: empieza el atacante.
  */
-function pelea(izq: UnidadDeArena, der: UnidadDeArena): BattleState {
+function pelea(izq: Unidad, der: Unidad): BattleState {
   const b = batallaDeArena(
     montajeDePrueba(aPelear([izq]), aPelear([der]), SIN_MURALLA, { equipo: EQ }),
     createRng(1),
@@ -373,7 +375,7 @@ describe('cada golpe de la rueda va con su arma', () => {
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');
     expect(p.prevision.rueda.fuerte.porcentaje).toBe(183);
-    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     expect(m).toContain('Daño ×1,83.');
     expect(m).toContain('2 golpes de daño ×0,38 cada uno');
     expect(m).not.toContain('Daño ×1,5.');

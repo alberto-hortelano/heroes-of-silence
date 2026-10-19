@@ -1072,7 +1072,8 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  * - `1c496b88…` (42 259 líneas, 19-10-2026): **un solo combate** (F4 de
  *   `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`): toda batalla pelea
  *   como la arena, sin interruptores —la rueda del golpe (la IA elige a ciegas por
- *   los dos bandos, también por la persona y el agente hasta F5 y F6), salir del
+ *   los dos bandos; la persona y el agente eligen los suyos desde F5 y F6, que el
+ *   banco no juega), salir del
  *   contacto cuesta y carga a pie todo el que pega cuerpo a cuerpo—, y fuera las
  *   ramas de fheroes2. Cambia todo, a propósito: **1 de 200 idénticas**; en las
  *   199 el primer hecho distinto es el final de una batalla (`battle_ended` 131:

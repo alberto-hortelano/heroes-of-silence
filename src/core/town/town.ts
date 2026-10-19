@@ -206,7 +206,7 @@ export function applyWeeklyGrowth(town: Town, multiplier = 1): void {
 }
 
 export function recruitCost(creatureId: string, count: number): Resources {
-  return scaleResources(unidadDelJuego(creatureId).cost, count);
+  return scaleResources({ gold: unidadDelJuego(creatureId).oro }, count);
 }
 
 /** Motivo por el que no se puede reclutar, o `null`. */

@@ -31,7 +31,7 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
-import { CARGA, type CifrasDeCarga } from '../src/core/battle/carga.js';
+import { CARGA, type CifrasDeCarga, cifrasDeCarga } from '../src/core/battle/carga.js';
 import { applyEffect } from '../src/core/battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
@@ -360,7 +360,7 @@ describe('el panel', () => {
     const b = pelea(PIQUERO, h(5, 4), [h(6, 4), h(4, 3), h(5, 5), h(4, 4)]);
     const base = {
       activa: yo(b),
-      carga: null,
+      carga: cifrasDeCarga(yo(b).unit),
       legales: legalActions(b),
       pasos: 4,
       rendicion: NADA,

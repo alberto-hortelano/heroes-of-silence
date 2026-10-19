@@ -11,11 +11,10 @@ import type {
   PrevisionDeLanzar,
 } from '@core/battle/battle.js';
 import type { Horquilla, Modificador, RamaDeSuerte } from '@core/battle/damage.js';
-import type { StackEffect } from '@core/battle/effects.js';
+import { curaOEfecto } from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
 import { spell } from '@core/battle/spells.js';
 import { conComa } from '@core/types.js';
-import { cifraDeEfecto, enRondas } from './panels.js';
 
 /** Un número con coma decimal y dos decimales como mucho. */
 function decimal(n: number): string {
@@ -81,20 +80,6 @@ function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
     `${p.kind === 'golpe' ? contraataque(p.contraataque) : ''}${salpica}` +
     `${modificadores(p.modificadores)}`
   );
-}
-
-/**
- * Lo que hace un hechizo que no hiere, en pocas palabras: «cura 4 PV», «suerte +1
- * durante 3 rondas»; `null` si no cura ni deja nada. Una sola redacción para la
- * previsión del hechizo, la del poder y lo que la ficha de la arena dice del
- * poder (`queHaceElPoder`).
- */
-export function curaOEfecto(cura: number | null, efecto: StackEffect | null): string | null {
-  if (cura !== null) return `cura ${cura} PV`;
-  if (efecto !== null) {
-    return `${cifraDeEfecto(efecto.kind, efecto.amount)} durante ${enRondas(efecto.roundsLeft)}`;
-  }
-  return null;
 }
 
 /**

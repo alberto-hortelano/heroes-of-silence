@@ -12,7 +12,7 @@ import {
 import { CUPO_HEROE, heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
 import { buildMap, generateMapPlan, type MapPlan, validateMapPlan } from '../map/generate.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
-import { buildingsOfFaction } from '../town/buildings.js';
+import { sitioDe } from '../town/sitios.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
 import { createGame, type GameState } from './game.js';
 
@@ -75,25 +75,63 @@ export function faccionesDeLaSemilla(seed: number): readonly [FactionId, Faction
  */
 const MAX_DAYS_POR_DEFECTO = 200;
 
+/** Cuántos individuos de la primera unidad del pueblo lleva el ejército de salida: una tirada. */
+const DE_LA_PRIMERA = { min: 2, max: 4 } as const;
+/** Y cuántos, como mucho, de la segunda: los que quepan tras la primera. */
+const DE_LA_SEGUNDA = 2;
+
+/** El liderazgo de un héroe recién hecho: el tope del ejército de salida. */
+const TOPE_DE_SALIDA = heroLeadership({ experience: EXPERIENCIA_INICIAL_DE_HEROE });
+
 /**
- * Ejército de salida: unos cuantos individuos de la primera unidad del pueblo de
- * la facción (la morada del sitio 1) y dos de la segunda, **los que quepan** en
- * el liderazgo y el cupo de un héroe recién hecho (`troopRoom`). Con el catálogo
- * de la arena el pueblo de los orkos cría dos unidades de 4: cuatro y dos eran 24
- * de 20, y `withTroops` no mira el tope (lo cazó `tropa.test.ts`, 19-10-2026).
- * Una sola tirada del `rng`, quepa o no.
+ * Las dos primeras unidades del pueblo de cada facción (la morada del sitio 1,
+ * `sitioDe`), **comprobadas al cargar** como las guarniciones: la primera, con su
+ * tirada más alta, cabe siempre en el liderazgo y el cupo de un héroe recién hecho,
+ * y de la segunda, si la hay, al menos uno. Un catálogo editado en la arena que no
+ * lo cumpla lanza aquí diciendo la facción, en vez de dar un ejército más corto en
+ * silencio en cada partida.
+ */
+const PUEBLO_DE_SALIDA: Readonly<
+  Record<FactionId, { readonly primera: string; readonly segunda: string | null }>
+> = Object.fromEntries(
+  FACTION_IDS.map((f) => {
+    const pueblo = sitioDe(f, 'lvl1').cadena[0];
+    const [primera, segunda] = pueblo === undefined ? [] : unidadesDeMorada(pueblo);
+    if (primera === undefined) {
+      throw new Error(`el pueblo de ${f} no cría ninguna unidad: no hay ejército de salida`);
+    }
+    const lleno = withTroops([], primera.id, DE_LA_PRIMERA.max);
+    if (troopRoom([], TOPE_DE_SALIDA, CUPO_HEROE, primera.id) < DE_LA_PRIMERA.max) {
+      throw new Error(
+        `${DE_LA_PRIMERA.max} × ${primera.name} (el ejército de salida de ${f}) no caben en el liderazgo de un héroe recién hecho (${TOPE_DE_SALIDA})`,
+      );
+    }
+    if (segunda !== undefined && troopRoom(lleno, TOPE_DE_SALIDA, CUPO_HEROE, segunda.id) < 1) {
+      throw new Error(
+        `tras ${DE_LA_PRIMERA.max} × ${primera.name}, en el ejército de salida de ${f} no cabe ningún ${segunda.name}`,
+      );
+    }
+    return [f, { primera: primera.id, segunda: segunda?.id ?? null }];
+  }),
+) as Record<FactionId, { readonly primera: string; readonly segunda: string | null }>;
+
+/**
+ * Ejército de salida: de la primera unidad del pueblo de la facción, los de una
+ * tirada (`DE_LA_PRIMERA`), y de la segunda hasta `DE_LA_SEGUNDA`, los que quepan
+ * tras ella en un héroe recién hecho (`troopRoom`): el pueblo de los orkos cría
+ * dos unidades de 4 de liderazgo, y cuatro y dos serían 24 de 20 (lo cazó
+ * `tropa.test.ts`, 19-10-2026). Lo que siempre tiene que caber se comprueba al
+ * cargar (`PUEBLO_DE_SALIDA`). Una sola tirada del `rng`.
  */
 export function startingArmy(faction: FactionId, rng: Rng): Hero['army'] {
-  const pueblo = buildingsOfFaction(faction).find((b) => b.morada === 1);
-  if (pueblo === undefined) throw new Error(`${faction} no tiene morada en el sitio 1`);
-  const [primera, segunda] = unidadesDeMorada(pueblo.id);
-  const tope = heroLeadership({ experience: EXPERIENCIA_INICIAL_DE_HEROE });
-  const conLasQueQuepan = (army: Hero['army'], id: string, n: number): Hero['army'] =>
-    withTroops(army, id, Math.min(n, troopRoom(army, tope, CUPO_HEROE, id)));
-  let army: Hero['army'] = [];
-  if (primera !== undefined) army = conLasQueQuepan(army, primera.id, rng.int(2, 4));
-  if (segunda !== undefined) army = conLasQueQuepan(army, segunda.id, 2);
-  return army;
+  const { primera, segunda } = PUEBLO_DE_SALIDA[faction];
+  const army = withTroops([], primera, rng.int(DE_LA_PRIMERA.min, DE_LA_PRIMERA.max));
+  if (segunda === null) return army;
+  return withTroops(
+    army,
+    segunda,
+    Math.min(DE_LA_SEGUNDA, troopRoom(army, TOPE_DE_SALIDA, CUPO_HEROE, segunda)),
+  );
 }
 
 export function newGame(options: NewGameOptions = {}): GameState {

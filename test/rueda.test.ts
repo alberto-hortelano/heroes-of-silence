@@ -69,7 +69,7 @@ import { unidad } from '../src/core/catalogo.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
 import type { NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
-import { cuerpoDeCombate, nivelesDeLaEspada, type UnidadDeArena } from '../src/core/unidad.js';
+import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
 import { bando } from './batalla-de-prueba.js';
 import {
   type Ataque,
@@ -1377,20 +1377,20 @@ describe('el parte cuenta el cruce', () => {
  * del montaje. Las criaturas del catálogo del juego ya no entran en la arena
  * (13-10-2026): el jinete es el hermano de carga, el piquero el del imperio.
  */
-const deLaArena = (u: string | UnidadDeArena): FuenteDeArena =>
+const deLaArena = (u: string | Unidad): FuenteDeArena =>
   delBorrador(typeof u === 'string' ? unidadDeArena(u) : u);
 
 /** Los de estas pruebas: dos jinetes que cargan (`JINETE` y este), un piquero y lo demás. */
 const JINETE_DE_LA_IA = 'jinete-de-plaga';
 const PIQUERO = 'imperio-piquero';
 /** El que no recibe contraataques: un espectro con `no_retaliation`. */
-const SIN_RESPUESTA = (): UnidadDeArena =>
+const SIN_RESPUESTA = (): Unidad =>
   unidadDeArena('espectro', { traits: ['undead', 'no_retaliation'] });
 
 /** Una sesión con la rueda, empezada: cada bando, sus unidades y si las lleva la IA. */
 function sesion(
-  izquierda: { readonly ids: readonly (string | UnidadDeArena)[]; readonly ia: boolean },
-  derecha: { readonly ids: readonly (string | UnidadDeArena)[]; readonly ia: boolean },
+  izquierda: { readonly ids: readonly (string | Unidad)[]; readonly ia: boolean },
+  derecha: { readonly ids: readonly (string | Unidad)[]; readonly ia: boolean },
   semilla = 1,
 ): SesionDeArena {
   const lado = (l: typeof izquierda) =>
@@ -1428,7 +1428,7 @@ describe('la sesión de la arena con la rueda', () => {
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no se abre tras la carrera');
     expect(p.prevision.carga).toBe('carga de 5 casillas, +50 %');
-    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     expect(m).toContain('Las cifras llevan la carga de 5 casillas, +50 %');
     // Rápido: el primer golpe, con la carga, y el siguiente, sin ella, cada uno en su línea.
     const desde = m.indexOf('data-golpe="rapido"');
@@ -1776,7 +1776,7 @@ describe('la rueda pintada', () => {
     s.elegirEnLaRueda('fuerte');
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide la respuesta');
-    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     expect(m.match(/data-golpe="/g)).toHaveLength(7);
     for (const [i, t] of TIPOS_DE_GOLPE.entries()) {
       expect(m).toContain(`data-golpe="${t}" aria-label="`);
@@ -1791,7 +1791,7 @@ describe('la rueda pintada', () => {
     hastaLaRueda(s, true);
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');
-    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     // De arriba en el sentido de las agujas del reloj: arriba, los dos de la
     // derecha, abajo y los dos de la izquierda; Normal, abajo.
     const hacia = ['arriba', 'derecha', 'derecha', 'abajo', 'izquierda', 'izquierda'];
@@ -1848,7 +1848,7 @@ describe('la rueda pintada', () => {
     hastaLaRueda(s, true);
     const golpe = s.ruedaPendiente;
     if (golpe === null) throw new Error('la rueda no pide el golpe');
-    const enElGolpe = marcadoDe(renderEleccion(s.battle, golpe, caraDeLaArena(s)));
+    const enElGolpe = marcadoDe(renderEleccion(s.battle, golpe, null, caraDeLaArena(s)));
     expect(enElGolpe).toContain('cubre el contraataque de ahora');
     // Con las cifras del arma de quien pega (18-10-2026): el piquero lleva el
     // mandoble, con Romper guardia en el nivel 4 (la espada, en el 3, quita 3).
@@ -1857,7 +1857,7 @@ describe('la rueda pintada', () => {
     s.elegirEnLaRueda('fuerte');
     const respuesta = s.ruedaPendiente;
     if (respuesta === null) throw new Error('la rueda no pide la respuesta');
-    const enLaRespuesta = marcadoDe(renderEleccion(s.battle, respuesta, caraDeLaArena(s)));
+    const enLaRespuesta = marcadoDe(renderEleccion(s.battle, respuesta, null, caraDeLaArena(s)));
     expect(enLaRespuesta).toContain('En la respuesta no tiene efecto: solo cuenta para el cruce');
     // Responde el jinete, con la espada (Fuerte en el nivel 3).
     expect(enLaRespuesta).toContain('tu contraataque hace daño ×1,5');
@@ -1879,25 +1879,36 @@ describe('la rueda pintada', () => {
       expect(nota, t).not.toMatch(/contraata|ataque al|defensa|daño ×/);
     }
     // La rueda pinta esas, en la nota y en la etiqueta de cada sector.
-    const m = marcadoDe(renderEleccion(s.battle, p, caraDeLaArena(s)));
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     expect(m).not.toContain('contraatacas');
     expect(m).not.toContain('tu contraataque');
     expect(m.match(/Esta vez no devuelves el golpe/g)?.length).toBe(2 * TIPOS_DE_GOLPE.length);
   });
 
-  it('en la partida la rueda dice quién es quién: «Tu golpe», «Tu respuesta», tú y el rival (F6)', () => {
-    // En la arena los dos bandos pueden ser de la persona y se dicen por su lado;
-    // en la partida, quien elige es quien mira (`CaraDeLosContrincantes.propio`).
+  it('la rueda dice quién es quién por quien mira: «Tu golpe», «Tu respuesta», tú y el rival (F6)', () => {
+    // Con los dos bandos de la persona (la arena) se dicen por su lado; con uno
+    // solo, quien elige es quien mira (`SesionConRueda.quienMira`, de la sesión).
     const s = sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: false });
+    expect(s.quienMira).toBeNull();
     hastaLaRueda(s, true);
     const golpe = s.ruedaPendiente;
     if (golpe === null) throw new Error('la rueda no pide el golpe');
-    const enLaArena = marcadoDe(renderEleccion(s.battle, golpe, caraDeLaArena(s)));
+    const enLaArena = marcadoDe(renderEleccion(s.battle, golpe, s.quienMira, caraDeLaArena(s)));
     expect(enLaArena).toMatch(/Golpe del bando (?:izquierdo|derecho)/);
     expect(enLaArena).not.toContain('class="de-quien"');
-    const cara = (propio: 'attacker' | 'defender') => ({ icono: () => null, propio });
-    const tuyo = marcadoDe(renderEleccion(s.battle, golpe, cara(golpe.bando)));
+    // Con un solo bando de la persona, la arena también lo dice.
+    expect(sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: true }).quienMira).toBe(
+      'attacker',
+    );
+    const tuyo = marcadoDe(renderEleccion(s.battle, golpe, golpe.bando, null));
     expect(tuyo).toContain('<h2 id="titulo-de-la-rueda">Tu golpe</h2>');
+    // Sin la cara de la arena (la partida), las figuras de los dos, sin botón.
+    for (const x of [golpe.atacante, golpe.objetivo]) {
+      expect(tuyo).toContain(
+        `<span class="icono-de-contrincante"><canvas class="figura" data-figura="${x.body}" data-bando="${x.side}"`,
+      );
+    }
+    expect(tuyo).not.toContain('ficha-en-la-rueda');
     expect(tuyo).toMatch(
       new RegExp(
         `data-contrincante="${golpe.atacante.id}".*?\\(tú\\).*data-contrincante="${golpe.objetivo.id}".*?\\(rival\\)`,
@@ -1906,7 +1917,7 @@ describe('la rueda pintada', () => {
     s.elegirEnLaRueda('fuerte');
     const respuesta = s.ruedaPendiente;
     if (respuesta === null) throw new Error('la rueda no pide la respuesta');
-    const suya = marcadoDe(renderEleccion(s.battle, respuesta, cara(respuesta.bando)));
+    const suya = marcadoDe(renderEleccion(s.battle, respuesta, respuesta.bando, null));
     expect(suya).toContain('<h2 id="titulo-de-la-rueda">Tu respuesta</h2>');
   });
 
@@ -1916,7 +1927,7 @@ describe('la rueda pintada', () => {
     const i = b.log.findIndex((e) => e.kind === 'cruce');
     const e = b.log[i];
     if (e?.kind !== 'cruce') throw new Error('sin cruce');
-    const m = marcadoDe(renderDesenlace(b, e, contraataqueDelCruce(b.log, i), null));
+    const m = marcadoDe(renderDesenlace(b, e, contraataqueDelCruce(b.log, i), null, null));
     expect(m).toContain('Romper guardia contra Defensivo');
     expect(m).toContain('data-sector="romperGuardia" data-elegido="golpe"');
     expect(m).toContain('data-sector="defensivo" data-elegido="respuesta"');

@@ -58,7 +58,7 @@ export const dirDeLaBase = (f: FactionId): string => `assets/bases/${f}`;
 const dirDeFuentes = (f: FactionId): string => `${dirDeLaBase(f)}/fuentes`;
 
 /** El adulto de la vara de medir, en píxeles del tramo: 0,95 pasos, el mismo de la batalla. */
-export const ADULTO_EN_EL_CUADRO = Math.round(ALTO_DE_FIGURA.normal * TRAMO.pxPorPaso);
+export const ADULTO_EN_EL_CUADRO = Math.round(ALTO_DE_FIGURA * TRAMO.pxPorPaso);
 /** La puerta que se pide, en píxeles del tramo: 1,2-1,3 pasos, un poco más alta que el adulto. */
 const PUERTA_EN_EL_CUADRO = [
   Math.round(1.2 * TRAMO.pxPorPaso),

@@ -17,7 +17,8 @@
 import poderesJson from '../../../data/poderes.json' with { type: 'json' };
 import type { PoderId } from '../types.js';
 import { entero, repetidoEn, texto } from '../validar.js';
-import { type Lanzador, type Spell, spell } from './spells.js';
+import { curaOEfecto } from './effects.js';
+import { delHeroe, efectoDe, type Lanzador, type Spell, spell } from './spells.js';
 
 export type { PoderId };
 
@@ -31,7 +32,7 @@ export interface Poder {
   readonly id: PoderId;
   /** Como se dice en un botón y en el parte: «Curar», «Bendecir». */
   readonly nombre: string;
-  /** El nombre de la habilidad que lo da, en `UnidadDeArena.habilidades`. */
+  /** El nombre de la habilidad que lo da, en `Unidad.habilidades`. */
   readonly habilidad: string;
   /** El hechizo cuyo efecto aplica. Siempre a un aliado. */
   readonly hechizo: Spell;
@@ -125,3 +126,19 @@ export const PODERES: readonly Poder[] = CATALOGO.poderes;
 
 /** Las habilidades que dan un poder: las únicas de la arena que actúan en la pelea. */
 export const HABILIDADES_CON_PODER: readonly string[] = CATALOGO.poderes.map((p) => p.habilidad);
+
+/**
+ * Lo que hace un poder, en una frase: la leen el botón y la ficha de la batalla
+ * (`views/poderes.ts`) y la prosa del agente (`contract/agent.ts`). Que no se suma
+ * al hechizo del héroe se dice porque los dos dejan un efecto del mismo origen,
+ * que refresca y no se apila (`applyEffect`): se compara, no se da por hecho.
+ */
+export function queHaceElPoder(p: Poder): string {
+  const s = p.hechizo;
+  const e = efectoDe(s, p.lanzador);
+  const hace = curaOEfecto(esDeCura(p) ? p.lanzador.cantidad : null, e) ?? '';
+  if (esDeCura(p)) return `${hace} a un aliado herido, incluida la propia unidad`;
+  const elDelHeroe = efectoDe(s, delHeroe(s, { spellPower: 1 }));
+  const unoSolo = e !== null && elDelHeroe !== null && elDelHeroe.source === e.source;
+  return `${hace} a un aliado${unoSolo ? `; es la ${s.name} del héroe: las dos no se suman` : ''}`;
+}

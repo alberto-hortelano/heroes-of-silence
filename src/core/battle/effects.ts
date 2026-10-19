@@ -152,3 +152,46 @@ export function tickEffects(stack: BattleStack): StackEffect[] {
   stack.effects = vivos;
   return caducados;
 }
+
+// ---------------------------------------------------------------- dicho
+
+/**
+ * Cómo se llama cada clase de efecto. Tipada por `EffectKind`, cerrada: un
+ * `EffectKind` nuevo no compila hasta que alguien le escriba su nombre.
+ */
+export const NOMBRE_DEL_EFECTO: Readonly<Record<EffectKind, string>> = {
+  speed: 'velocidad',
+  luck: 'suerte',
+  attack: 'ataque',
+  defense: 'defensa',
+};
+
+/**
+ * Lo que hace un efecto, dicho: «suerte −1». El único texto de un efecto: lo leen
+ * el parte, la previsión de un hechizo, la ficha del héroe de la arena y lo que
+ * hace un poder (`queHaceElPoder`).
+ */
+export function cifraDeEfecto(kind: EffectKind, amount: number): string {
+  return `${NOMBRE_DEL_EFECTO[kind]} ${amount > 0 ? '+' : ''}${amount}`;
+}
+
+/**
+ * «1 ronda», «3 rondas»: el número concuerda. Lo leen el parte, la previsión y
+ * la ficha del héroe de la arena, que decía «1 rondas» (H5 de QA del banco).
+ */
+export function enRondas(n: number): string {
+  return `${n} ${n === 1 ? 'ronda' : 'rondas'}`;
+}
+
+/**
+ * Lo que hace un hechizo que no hiere, en pocas palabras: «cura 4 PV», «suerte +1
+ * durante 3 rondas»; `null` si no cura ni deja nada. Una sola redacción para la
+ * previsión del hechizo, la del poder y lo que hace un poder (`queHaceElPoder`).
+ */
+export function curaOEfecto(cura: number | null, efecto: StackEffect | null): string | null {
+  if (cura !== null) return `cura ${cura} PV`;
+  if (efecto !== null) {
+    return `${cifraDeEfecto(efecto.kind, efecto.amount)} durante ${enRondas(efecto.roundsLeft)}`;
+  }
+  return null;
+}

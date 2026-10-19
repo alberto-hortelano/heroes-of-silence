@@ -272,22 +272,16 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
     expect(puertasBlocker(libre, 'abrir_puerta')).toBe('no hay puerta');
   });
 
-  it('no se cierra con una grande plantada en sus dos casillas; con alguien en una sola, sí (C28)', () => {
+  it('se cierra con alguien en una de sus casillas (C28)', () => {
+    // Toda unidad ocupa una casilla (13-10-2026): nadie se planta en las dos.
     const state = peleaDelMotor(
-      [{ unidad: unidadDeArena('troll-maza', { casillas: 7 }), grande: true }],
+      [{ unidad: unidadDeArena('troll-maza', { casillas: 7 }) }],
       [{ unidad: unidadDeArena('imperio-piquero') }],
       createRng(1),
       CON_PUERTA,
     );
     abrirPuertas(state);
-    // El atacante lleva la cola al oeste: cabeza en (8,4), cola en (7,4).
-    stackById(state, 'attacker-0').hex = h(8, 4);
-    stackById(state, 'defender-0').hex = h(9, 2);
     forzarTurno(state, 'defender-0');
-    expect(puertaBlocker(state, 'cerrar_puerta', PUERTA)).toMatch(
-      /^no se cierra con alguien en medio: .+ ocupa sus dos casillas$/,
-    );
-    expect(tipos(legalActions(state))).not.toContain('cerrar_puerta');
     stackById(state, 'attacker-0').hex = h(7, 3);
     stackById(state, 'defender-0').hex = h(8, 4);
     expect(puertaBlocker(state, 'cerrar_puerta', PUERTA)).toBeNull();

@@ -21,9 +21,9 @@
  * comparan entre sí.
  *
  * **Desde F3 (19-10-2026) la población es otra**: templarios contra no muertos
- * (las dos primeras de `FACTION_IDS`), del catálogo de la arena, con armadura y
- * armas por uso. Las cifras medidas de abajo son de caballeros contra
- * nigromantes y no se comparan con las de hoy. La primera con la población
+ * (las dos primeras de `FACTION_IDS`), del catálogo de unidades, con armadura y
+ * armas por uso. Las cifras medidas de abajo son de antes, con las facciones
+ * retiradas, y no se comparan con las de hoy. La primera con la población
  * nueva, la regla por defecto (el segundo tramo) en 1 000 parejas: **57,65 % ±
  * 1,18** (161 ganadas · 831 empatadas · 8 perdidas), peor batalla 14 rondas.
  *
@@ -143,7 +143,7 @@ import { otroBando } from '../../src/core/battle/types.js';
 import { hasTrait } from '../../src/core/data.js';
 import { EQUIPO_BASE } from '../../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
-import { heroUnit } from '../../src/core/hero/hero.js';
+import { cuerposDelHeroe } from '../../src/core/hero/hero.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import { FACTION_IDS, type Stack, type UnitInfo } from '../../src/core/types.js';
 import { ejercitoDe, tropaDe } from './ejercitos.js';
@@ -311,7 +311,7 @@ const LIBRO_DE_LA_MAGIA = allSpells()
 function heroeDeLaMagia(nombre: string): HeroeDelBando {
   const cifras = { name: nombre, attack: 2, defense: 2, experience: EXPERIENCIA_INICIAL_DE_HEROE };
   return {
-    cuerpo: heroUnit({ ...cifras, equipo: EQUIPO_BASE }),
+    ...cuerposDelHeroe({ ...cifras, equipo: EQUIPO_BASE }),
     mando: {
       name: nombre,
       retreat: { blocked: 'en el banco no se huye' },

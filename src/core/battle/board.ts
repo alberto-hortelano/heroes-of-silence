@@ -513,18 +513,6 @@ export function areAdjacent(a: Hex, b: Hex): boolean {
   return hexDistance(a, b) === 1;
 }
 
-// -------------------------------------------------------------- ocupación
-
-/**
- * Una unidad grande ocupa su hex de cabeza y el de detrás. "Detrás" depende del
- * bando: el atacante mira a la derecha, así que su cola queda a la izquierda.
- */
-export function occupiedHexes(head: Hex, size: number, facingRight: boolean): Hex[] {
-  if (size <= 1) return [head];
-  const tail: Hex = { col: facingRight ? head.col - 1 : head.col + 1, row: head.row };
-  return [head, tail];
-}
-
 // -------------------------------------------------------------- pathfinding
 
 /**

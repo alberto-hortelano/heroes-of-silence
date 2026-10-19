@@ -8,6 +8,7 @@ import {
 } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { isShooter } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 
 import { createRng } from '../src/core/rng.js';
@@ -144,7 +145,7 @@ describe('del personaje a las cifras de combate', () => {
       damage: [30, 70],
       hp: 320,
       speed: 'fast',
-      shots: 13,
+      tira: true,
       morale: 0,
       luck: 1,
     },
@@ -155,7 +156,7 @@ describe('del personaje a las cifras de combate', () => {
       damage: [40, 80],
       hp: 340,
       speed: 'average',
-      shots: undefined,
+      tira: false,
       morale: 0,
       luck: 1,
     },
@@ -166,7 +167,7 @@ describe('del personaje a las cifras de combate', () => {
       damage: [30, 70],
       hp: 320,
       speed: 'average',
-      shots: undefined,
+      tira: false,
       morale: 1,
       luck: 1,
     },
@@ -177,7 +178,7 @@ describe('del personaje a las cifras de combate', () => {
       damage: [30, 70],
       hp: 320,
       speed: 'average',
-      shots: undefined,
+      tira: false,
       morale: 1,
       luck: 1,
     },
@@ -194,7 +195,7 @@ describe('del personaje a las cifras de combate', () => {
         damage: p.unit.damage,
         hp: p.unit.hp,
         speed: p.unit.speed,
-        shots: p.unit.shots,
+        tira: isShooter(p.unit),
         morale: p.morale,
         luck: p.luck,
       }).toEqual(e);
@@ -343,11 +344,11 @@ describe('un personaje en el tablero', () => {
     expect(duelo(ladoDe(c), zombi, 91).log).toEqual(batalla.log);
   });
 
-  it('el Guardabosques dispara con la munición de su percepción', () => {
+  it('el Guardabosques dispara con su arco, sin munición', () => {
     const c = personaje('Guardabosques');
     const batalla = createBattle(ladoDe(c), zombi, rng());
     const s = batalla.stacks.find(esPersonaje(c.id))!;
-    expect(s.shotsLeft).toBe(13);
+    expect(s.unit.equipo?.distancia).toBe('arco');
     const d = duelo(ladoDe(c), zombi, 91);
     expect(d.log.some((e) => e.kind === 'shoot')).toBe(true);
   });

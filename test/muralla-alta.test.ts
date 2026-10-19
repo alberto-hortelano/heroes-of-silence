@@ -86,8 +86,6 @@ const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
 
 /** Un volador (el vampiro): `flying`, que nadie del catálogo lleva. */
 const VAMPIRO = aMano(NO_MUERTO, { name: 'Vampiro', traits: ['undead', 'flying'] });
-/** Uno de dos casillas que vuela (el dragón óseo): las grandes, a mano. */
-const DRAGON = aMano(NO_MUERTO, { name: 'Dragón óseo', hexes: 2, traits: ['undead', 'flying'] });
 
 /** Les da escalera a los atacantes de esos puestos, como la casilla del montaje. */
 function conEscalera(state: BattleState, ...puestos: number[]): void {
@@ -252,7 +250,7 @@ describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
     );
   });
 
-  it('al que señala una columna ocupada se le dice quién está, no que es grande', () => {
+  it('al que señala una columna ocupada se le dice quién está', () => {
     const state = duelo(LINEA, PESADA, { col: 6, row: 4 }, TIRADOR, {
       col: 7,
       row: 4,
@@ -472,14 +470,7 @@ describe('la escalera', () => {
     expect(escalaBlocker(state, 'subir')).toBe('quien defiende sube a la muralla andando');
   });
 
-  it('la grande y el volador no escalan', () => {
-    const grande = duelo(LINEA, DRAGON, { col: 6, row: 4 }, TIRADOR, {
-      col: 10,
-      row: 0,
-    });
-    expect(subirBlocker(grande, { col: 7, row: 4 })).toBe(
-      'una unidad de dos casillas no sube a la muralla',
-    );
+  it('el volador no escala', () => {
     const volador = duelo(LINEA, VAMPIRO, { col: 6, row: 4 }, TIRADOR, {
       col: 10,
       row: 0,
@@ -491,22 +482,19 @@ describe('la escalera', () => {
 
   it('la escalera del montaje solo llega a quien puede ponerla', () => {
     const conLaSuya = (unidad: ReturnType<typeof unidadDeArena>) => ({ unidad, escalera: true });
-    // La grande, por el motor: la arena ya no hace unidades de dos casillas.
     const state = peleaDelMotor(
       [
         conLaSuya(unidadDeArena('zombi')),
-        { ...conLaSuya(unidadDeArena('zombi')), grande: true },
         conLaSuya(unidadDeArena('zombi', { traits: ['flying'] })),
       ],
       [conLaSuya(unidadDeArena('zombi'))],
       createRng(1),
       LINEA,
     );
-    // El de una casilla que anda, sí; la grande, el volador y el defensor, no.
+    // El que anda, sí; el volador y el defensor, no.
     expect(state.stacks.map((s) => [s.id, s.escalera])).toEqual([
       ['attacker-0', true],
       ['attacker-1', false],
-      ['attacker-2', false],
       ['defender-0', false],
     ]);
   });
@@ -514,7 +502,7 @@ describe('la escalera', () => {
 
 describe('el rasgo escalar', () => {
   it('sube en un turno, sin escalera', () => {
-    const trepa = unidadDeArena('zombi', { traits: ['escalar'] });
+    const trepa = unidadDeArena('zombi', { id: 'zombi-9', traits: ['escalar'] });
     const state = peleaDeArena(
       aPelear([trepa]),
       aPelear([unidadDeArena('zombi')]),
@@ -553,31 +541,18 @@ describe('la IA con la muralla alta', () => {
   });
 
   it('el que sabe escalar sube sin escalera', () => {
-    const trepa = unidadDeArena('zombi', { traits: ['escalar'] });
-    // Defensores de dos casillas (por el motor): no suben, así que no salen a
-    // buscarle por arriba.
-    const grande = { unidad: unidadDeArena('zombi'), grande: true };
-    const state = peleaDelMotor(aPelear([trepa, trepa]), [grande, grande], createRng(2), LINEA);
+    const trepa = unidadDeArena('zombi', { id: 'zombi-9', traits: ['escalar'] });
+    const state = peleaDelMotor(
+      aPelear([trepa, trepa]),
+      aPelear([unidadDeArena('zombi'), unidadDeArena('zombi')]),
+      createRng(2),
+      LINEA,
+    );
     autoResolve(state, createRng(2));
     expect(state.finished).not.toBeNull();
     const kinds = state.log.map((e) => e.kind);
     expect(kinds).toContain('climbed');
     expect(kinds).not.toContain('ladder_placed');
-  });
-
-  it('la grande no va a por una escalera puesta: no podría subir por ella', () => {
-    const state = peleaDelMotor(
-      [{ unidad: unidadDeArena('zombi'), grande: true }],
-      aPelear([unidadDeArena('zombi')]),
-      createRng(1),
-      LINEA,
-    );
-    stackById(state, 'attacker-0').hex = { col: 2, row: 4 };
-    stackById(state, 'defender-0').hex = { col: 10, row: 4 };
-    state.escaleras.push({ pie: { col: 6, row: 4 }, muro: { col: 7, row: 4 } });
-    forzarTurno(state, 'attacker-0');
-    // Antes de la regla única de la escala andaba hacia el pie de la escalera.
-    expect(chooseBattleAction(state)).toEqual({ type: 'defend' });
   });
 
   it('el atacante al pie con escalera la pone, y el que puede subir sube', () => {
@@ -633,8 +608,8 @@ describe('el cliente', () => {
     });
     const s = stackById(state, 'defender-0');
     const en = planoDeHex(s.hex);
-    expect(cajaDeFigura(t, s, en, 1).suelo).toBeCloseTo(
-      cajaDeFigura(t, s, en, 0).suelo - alturaDeColumna(t),
+    expect(cajaDeFigura(t, en, 1).suelo).toBeCloseTo(
+      cajaDeFigura(t, en, 0).suelo - alturaDeColumna(t),
     );
   });
 
@@ -668,7 +643,7 @@ describe('el cliente', () => {
   });
 
   it('un clic en lo alto de la columna sube por ella', () => {
-    const trepa = unidadDeArena('zombi', { traits: ['escalar'] });
+    const trepa = unidadDeArena('zombi', { id: 'zombi-9', traits: ['escalar'] });
     const s = sesionDeArena(
       [{ unidad: trepa, ia: false, escalera: false }],
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],

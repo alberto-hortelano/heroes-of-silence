@@ -128,7 +128,7 @@ describe('la figura anda por el camino', () => {
     a.observe(b);
     a.tick(1);
     // Dos casillas: a la mitad del tramo está en la primera.
-    a.tick(1 + msPorCasilla(s.body, 'walk', ALTO_DE_FIGURA.normal));
+    a.tick(1 + msPorCasilla(s.body, 'walk', ALTO_DE_FIGURA));
     const en = a.figura(s).en;
     expect(en.x).toBeCloseTo(planoDeHex(arriba).x);
     expect(en.y).toBeCloseTo(planoDeHex(arriba).y);
@@ -194,7 +194,7 @@ describe('hacia dónde mira', () => {
     yo.hex = atras;
     a.observe(b);
     a.tick(1);
-    const tramo = msPorCasilla(yo.body, 'walk', ALTO_DE_FIGURA.normal);
+    const tramo = msPorCasilla(yo.body, 'walk', ALTO_DE_FIGURA);
     a.tick(1 + tramo / 2);
     expect(a.figura(yo).mira).toBe('O');
     a.tick(2 + tramo);

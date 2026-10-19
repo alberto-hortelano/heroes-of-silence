@@ -31,21 +31,21 @@ import {
 import { moradasBlocker } from '../../src/core/town/buildings.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_UNIDADES,
-  type HojaDeArena,
+  type Hoja,
   leerCatalogos,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   revisarCatalogo,
-  type UnidadDeArena,
+  type Unidad,
   type UnidadSinValidar,
   validarCatalogo,
-  validarHojasDeArena,
+  validarHojas,
 } from '../../src/core/unidad.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import {
   arteEnOchoDirecciones,
   HEROES,
   juegoDelYBot,
-  perfilDeArena,
+  perfilDeUnidad,
   UNIDADES,
 } from '../taller/unidades.js';
 import { VELOCIDAD_DEL_CUERPO } from './velocidades.js';
@@ -71,10 +71,7 @@ function velocidadDelCuerpo(personaje: string): number {
  * taller la está generando, y la lista de la arena y `vite build` caían con
  * ella— pero tampoco se pinta con el Y Bot: la arena la lista y no la monta.
  */
-export function direccionesDe(
-  raiz: string,
-  id: string,
-): Pick<HojaDeArena, 'direcciones' | 'incompleta'> {
+export function direccionesDe(raiz: string, id: string): Pick<Hoja, 'direcciones' | 'incompleta'> {
   const arte = arteEnOchoDirecciones(raiz, id);
   if (arte.hecho === 'ninguno') return { direcciones: null, incompleta: null };
   if (arte.hecho === 'a-medias') return { direcciones: null, incompleta: arte.motivo };
@@ -95,17 +92,17 @@ export function direccionesDe(
  * la misma validación que la página aplica al recibirlas, así que un perfil que
  * la arena no conoce revienta aquí, al servir la lista, y no a mitad de una pelea.
  */
-export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
+export function hojasDelTaller(raiz: string): readonly Hoja[] {
   const todas = [
     ...UNIDADES.map((u) => ({ u, heroe: false })),
     ...HEROES.map((u) => ({ u, heroe: true })),
   ];
-  return validarHojasDeArena(
+  return validarHojas(
     todas.map(({ u, heroe }) => ({
       id: u.id,
       nombre: u.nombre,
       faccion: u.faccion,
-      perfil: perfilDeArena(u),
+      perfil: perfilDeUnidad(u),
       personaje: u.personaje ?? u.id,
       heroe,
       casillas: velocidadDelCuerpo(u.personaje ?? u.id),
@@ -172,7 +169,7 @@ function comentarioDe(json: unknown, porDefecto: string): string {
  * vale» con su motivo y se conserva, como cualquier otra. Se **escribe** con la
  * regla con que lo carga el juego (`validarCatalogo`).
  */
-function deUnidades(eq: EquipoAtado): FicheroDeLaArena<UnidadDeArena, UnidadSinValidar> {
+function deUnidades(eq: EquipoAtado): FicheroDeLaArena<Unidad, UnidadSinValidar> {
   return {
     ruta: RUTA_DEL_CATALOGO_DE_UNIDADES,
     campo: 'unidades',
@@ -305,7 +302,7 @@ function equipoEnDisco(raiz: string): {
  * entero: si no vale, lanza (el juego tampoco lo cargaría) y no se lee nada.
  */
 export function leerCatalogo(raiz: string): {
-  readonly unidades: readonly UnidadDeArena[];
+  readonly unidades: readonly Unidad[];
   readonly invalidas: readonly UnidadSinValidar[];
   readonly piezas: readonly PiezaEscrita[];
 } {

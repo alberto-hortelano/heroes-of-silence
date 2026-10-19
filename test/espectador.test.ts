@@ -654,6 +654,7 @@ describe('la batalla en la vista', () => {
     // precio ni de lo ganado: el espectador no pinta ninguna de las cuatro.
     expect(veterano!.origen).toEqual({
       kind: 'catalogo',
+      unidad: TROPA,
       veterania: { id: 'v-1', experiencia: umbral(4) },
     });
     expect('ganado' in veterano!).toBe(false);
@@ -687,14 +688,16 @@ describe('la batalla en la vista', () => {
     expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
   });
 
-  it('un cuerpo que no está en el catálogo y llega sin `unit` lanza, no se inventa', () => {
+  it('una unidad que no está en el catálogo y llega sin `unit` lanza, no se inventa', () => {
     const { state } = conBatalla();
     const vista = construirVista(state, []);
+    const s = vista.battle!.estado.stacks[0]!;
+    if (s.origen.kind !== 'catalogo') throw new Error('el primer stack no es del catálogo');
     const roto = {
       ...vista.battle!,
       estado: {
         ...vista.battle!.estado,
-        stacks: [{ ...vista.battle!.estado.stacks[0]!, body: CHARACTER_BODY }],
+        stacks: [{ ...s, origen: { ...s.origen, unidad: CHARACTER_BODY } }],
       },
     };
     expect(() => adaptarBatalla(roto)).toThrow(/no hay ninguna unidad «character»/);

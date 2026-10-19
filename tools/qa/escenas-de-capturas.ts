@@ -40,7 +40,7 @@ import { unidadesDeMorada } from '../../src/core/catalogo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
-import { buildingsOfFaction } from '../../src/core/town/buildings.js';
+import { sitioDe } from '../../src/core/town/sitios.js';
 import type { FactionId, Point } from '../../src/core/types.js';
 
 /**
@@ -389,8 +389,8 @@ export function rutaDeDosColores(
  * pueblo de su facción (la morada del sitio 1, ya construida).
  */
 export const reclutaDeNivel1 = (faction: FactionId): string => {
-  const pueblo = buildingsOfFaction(faction).find((b) => b.morada === 1);
-  const primera = pueblo === undefined ? undefined : unidadesDeMorada(pueblo.id)[0];
+  const pueblo = sitioDe(faction, 'lvl1').cadena[0];
+  const primera = pueblo === undefined ? undefined : unidadesDeMorada(pueblo)[0];
   if (primera === undefined) throw new Error(`${faction} no tiene nada que reclutar en su pueblo`);
   return primera.id;
 };
@@ -608,7 +608,7 @@ export function planDeAngulo(espejo: Session, ancho: number, alto: number): Plan
         if (!isAlive(e) || e.side === yo.side) continue;
         const opciones = opcionesDeGolpe(acciones, e.id, yo.hex);
         if (opciones.length < 2) continue;
-        const c = cajaDeFigura(t, e, centroDeStack(stackHexes(e)));
+        const c = cajaDeFigura(t, centroDeStack(stackHexes(e)));
         for (const lado of [0.45, -0.45, 0.3, -0.3]) {
           for (const h of [0.05, 0.3, 0.5]) {
             const elegida = masCercana(opciones, t, c.x + lado * c.ancho, c.suelo - c.alto * h);

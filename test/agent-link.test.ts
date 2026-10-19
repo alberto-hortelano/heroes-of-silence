@@ -8,7 +8,7 @@ import { activeStack, applyAction, legalActions } from '../src/core/battle/battl
 import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
-import { HITS } from '../src/core/contract/golpes.js';
+import { HITS } from '../src/core/contract/vocabulario.js';
 import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -286,10 +286,10 @@ async function semillaEnQueElRivalAtaca(
   armar: (mio: Hero) => void = () => {},
 ): Promise<number> {
   for (let seed = desde; seed < desde + 40; seed++) {
-    const state = newGame({ seed });
+    const state = newGame({ seed, controllers: { 1: 'agent' } });
     const mio = rivalAlAtaque(state);
     armar(mio);
-    await playAiTurn(state, { rng: createRng(seed ^ 0xa9e7) }, { noSeRinden: new Set([1]) });
+    await playAiTurn(state, { rng: createRng(seed ^ 0xa9e7) });
     const atacado = state.log.some(
       (e) => e.kind === 'battle_started' && e.foe.kind === 'hero' && e.foe.heroId === mio.id,
     );
@@ -738,7 +738,7 @@ describe('el agente se rinde (fase 1b)', () => {
     );
     // Se ofrece, con su precio y con el oro con el que se compara (H-2)…
     expect(conRendicion).toBeDefined();
-    const precio = Math.ceil((2 * unidadDelJuego(TIRADOR).cost.gold! * 50) / 100);
+    const precio = Math.ceil((2 * unidadDelJuego(TIRADOR).oro * 50) / 100);
     expect(conRendicion!.payload.legalActions).toContainEqual({ type: 'surrender', gold: precio });
     expect(conRendicion!.payload.yourGold).toBe(oroAntes);
     // …entra, y el veredicto dice cuánto se pagó…

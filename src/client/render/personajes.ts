@@ -21,11 +21,10 @@
  * a mano es justo lo que se descuadra en silencio.
  */
 
-import { hojaDeUnidad } from '@core/catalogo.js';
 import { HERO_BODY } from '@core/hero/hero.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
-import { type HojaDeArena, validarHojasDeArena } from '@core/unidad.js';
-import { esIdDeArena } from '@core/validar.js';
+import { type Hoja, validarHojas } from '@core/unidad.js';
+import { esIdDeUnidad } from '@core/validar.js';
 import atlasDePoses from '../../../assets/unidades/_poses/atlas-8d.json';
 import {
   type CLIPS_DE_FIGURA,
@@ -291,9 +290,10 @@ export const JUEGO_SIN_HOJA: Readonly<Record<string, JuegoDelYBot>> = {
 };
 
 /**
- * La tabla de cuerpos que se lee al pintar: la del juego y, encima, las unidades
- * de `assets/unidades/` que alguien registre —hoy, la arena—. Una sola tabla: con
- * dos, cada lector de figuras tenía que acordarse de las dos.
+ * La tabla de cuerpos que se lee al pintar: la del juego y, encima, las hojas de
+ * `assets/unidades/` que se registran al arrancar (`registrarLasHojas`: la
+ * partida, el espectador y la arena). Una sola tabla: con dos, cada lector de
+ * figuras tenía que acordarse de las dos.
  */
 const CUERPOS = new Map<string, ArteDeFigura>(
   Object.entries(JUEGO_SIN_HOJA).map(([cuerpo, juego]) => [cuerpo, ybot(juego)]),
@@ -312,7 +312,7 @@ export function registrarUnidad(
   if (JUEGO_SIN_HOJA[id] !== undefined) {
     throw new Error(`"${id}" es un cuerpo del juego: una hoja de unidad no lo sustituye`);
   }
-  if (!esIdDeArena(id)) {
+  if (!esIdDeUnidad(id)) {
     throw new Error(`"${id}" no es el id de una carpeta de assets/unidades/: minúsculas y guiones`);
   }
   const arte =
@@ -333,16 +333,13 @@ export function registrarUnidad(
 }
 
 /**
- * La figura de un cuerpo: la registrada o la de la tabla; si es una unidad del
- * catálogo, la de la hoja de su cuerpo (su id no es el de la hoja si nació en la
- * arena); y si no, el Y Bot por defecto (la hoja aún no ha llegado, o está a
- * medias en el taller y no se registró).
+ * La figura de un cuerpo (`BattleStack.body`, que es siempre el arte: la hoja de
+ * su unidad, `hojaDeUnidad`): la registrada o la de la tabla; y si no, el Y Bot
+ * por defecto (la hoja aún no ha llegado, o está a medias en el taller y no se
+ * registró).
  */
 export function arteDe(body: string): ArteDeFigura {
-  const propio = CUERPOS.get(body);
-  if (propio !== undefined) return propio;
-  const hoja = hojaDeUnidad(body);
-  return (hoja === null ? undefined : CUERPOS.get(hoja)) ?? ybot(JUEGO_POR_DEFECTO);
+  return CUERPOS.get(body) ?? ybot(JUEGO_POR_DEFECTO);
 }
 
 /**
@@ -353,10 +350,10 @@ export function arteDe(body: string): ArteDeFigura {
  * en el taller no se registra (#140): la lista la trae con su motivo, y quien
  * la pide decide cómo decirlo. Devuelve la lista entera.
  */
-export async function registrarLasHojas(): Promise<readonly HojaDeArena[]> {
+export async function registrarLasHojas(): Promise<readonly Hoja[]> {
   const r = await fetch('/__arena/hojas');
   if (!r.ok) throw new Error(`no se ha podido leer la lista de hojas (${r.status})`);
-  const hojas = validarHojasDeArena(await r.json());
+  const hojas = validarHojas(await r.json());
   for (const h of hojas) if (h.incompleta === null && !CUERPOS.has(h.id)) registrarUnidad(h.id, h);
   return hojas;
 }

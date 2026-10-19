@@ -134,7 +134,6 @@
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
         <div class="row"><span class="label">Efectivos</span><span>1</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
-        
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <h3>Acciones</h3>
@@ -329,7 +328,6 @@
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
         <div class="row"><span class="label">Efectivos</span><span>1</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
-        
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <h3>Acciones</h3>
@@ -400,7 +398,6 @@
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
         <div class="row"><span class="label">Efectivos</span><span>1</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
-        
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>0 / 20</span></div>
     <h3>Acciones</h3>
@@ -471,7 +468,6 @@
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
         <div class="row"><span class="label">Efectivos</span><span>1</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>0 / 0</span></div>
-        
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <h3>Acciones</h3>
@@ -535,7 +531,7 @@
 <h2>Victoria</h2>
       <p>El campo es tuyo.</p>
       <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
-      <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 3 —</div><div>Espera Guerrero con escudo A, de tu bando: cede la iniciativa y pasa al final de la ronda</div><div>Se defiende Guerrero con escudo A, de tu bando: +20 % de defensa hasta el final de la ronda</div><div>Guerrero con escudo A → Esqueleto guerrero A: 12 de daño, 2 bajas</div><div>Esqueleto guerrero A → Guerrero con escudo A (contraataque): 3 de daño, 0 bajas</div><div>Guerrero con escudo A → Esqueleto guerrero A (carga de 3 casillas, +30 %): 20 de daño, 4 bajas</div><div>Guerrero con escudo A → Esqueleto guerrero A (disparo): 8 de daño, 1 baja</div><div>Guerrero con escudo A → Esqueleto guerrero A (salpicadura): 4 de daño, 0 bajas</div><div>Lanzas Flecha mágica sobre Esqueleto guerrero A: 10 de daño, 0 bajas</div><div>Lanzas Prisa sobre Guerrero con escudo A</div><div class="win">Moral alta de Guerrero con escudo A, de tu bando: turno extra</div><div class="win">Moral baja de Esqueleto guerrero A, del enemigo: turno perdido</div><div class="win">Golpe afortunado de Guerrero con escudo A, de tu bando</div><div class="lose">Golpe desafortunado de Guerrero con escudo A, de tu bando</div><div class="win">Prisa sobre Guerrero con escudo A, de tu bando: velocidad +2 durante 3 rondas</div><div class="win">Terror sobre Esqueleto guerrero A, del enemigo: ataque -2 durante 1 ronda</div><div>Se disipa Lentitud de Guerrero con escudo A, de tu bando</div><div>Esqueleto guerrero A, del enemigo, inmune a Maldición al golpear: los no-muertos no tienen ánimo que quebrar</div><div class="win">Aniquilada la unidad Esqueleto guerrero A, del enemigo</div><div class="lose">Aniquilada la unidad Guerrero con escudo A, de tu bando</div><div class="win">El enemigo se rinde por 150 de oro</div><div class="lose">Te rindes por 150 de oro</div><div class="win">Fin: gana el defensor</div></div>
+      <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 3 —</div><div>Espera Guerrero con escudo A, de tu bando: cede la iniciativa y pasa al final de la ronda</div><div>Se defiende Guerrero con escudo A, de tu bando: +20 % de defensa hasta el final de la ronda</div><div>Guerrero con escudo A → Esqueleto guerrero A: 12 de daño, 2 bajas</div><div>Esqueleto guerrero A → Guerrero con escudo A (contraataque): 3 de daño, 0 bajas</div><div>Guerrero con escudo A → Esqueleto guerrero A (carga de 3 casillas a pie, +15 %): 20 de daño, 4 bajas</div><div>Guerrero con escudo A → Esqueleto guerrero A (disparo): 8 de daño, 1 baja</div><div>Guerrero con escudo A → Esqueleto guerrero A (salpicadura): 4 de daño, 0 bajas</div><div>Lanzas Flecha mágica sobre Esqueleto guerrero A: 10 de daño, 0 bajas</div><div>Lanzas Prisa sobre Guerrero con escudo A</div><div class="win">Moral alta de Guerrero con escudo A, de tu bando: turno extra</div><div class="win">Moral baja de Esqueleto guerrero A, del enemigo: turno perdido</div><div class="win">Golpe afortunado de Guerrero con escudo A, de tu bando</div><div class="lose">Golpe desafortunado de Guerrero con escudo A, de tu bando</div><div class="win">Prisa sobre Guerrero con escudo A, de tu bando: velocidad +2 durante 3 rondas</div><div class="win">Terror sobre Esqueleto guerrero A, del enemigo: ataque -2 durante 1 ronda</div><div>Se disipa Lentitud de Guerrero con escudo A, de tu bando</div><div>Esqueleto guerrero A, del enemigo, inmune a Maldición al golpear: los no-muertos no tienen ánimo que quebrar</div><div class="win">Aniquilada la unidad Esqueleto guerrero A, del enemigo</div><div class="lose">Aniquilada la unidad Guerrero con escudo A, de tu bando</div><div class="win">El enemigo se rinde por 150 de oro</div><div class="lose">Te rindes por 150 de oro</div><div class="win">Fin: gana el defensor</div></div>
 ### batalla · parte de guerra completo · renderActions
 <button data-action="finish-battle" class="primary">Continuar</button>
 ### batalla · parte de guerra completo · renderLog
@@ -547,7 +543,6 @@
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
         <div class="row"><span class="label">Efectivos</span><span>1</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
-        
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <h3>Acciones</h3>
@@ -618,7 +613,6 @@
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
         <div class="row"><span class="label">Efectivos</span><span>1</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
-        
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <h3>Acciones</h3>
@@ -714,7 +708,6 @@
         <div class="row"><span class="label">Bando</span><span>Enemigo</span></div>
         <div class="row"><span class="label">Efectivos</span><span>1</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>-1 / 0</span></div>
-        
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <p>Turno del enemigo…</p>

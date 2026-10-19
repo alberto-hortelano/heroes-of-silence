@@ -10,10 +10,10 @@
  * escribe el núcleo (`buildBlocker`). Las acciones salen por `data-action` y las
  * reparte `main.ts`, como todos los botones.
  */
-import { unidadDelJuego } from '@core/catalogo.js';
+import { unidadDelJuego, unidadesDeMorada } from '@core/catalogo.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, SITIOS, type SitioId, siguienteDe, sitioDe } from '@core/town/sitios.js';
-import { buildBlocker, dwellings, recruitCost, type Town } from '@core/town/town.js';
+import { buildBlocker, recruitCost, type Town } from '@core/town/town.js';
 import { describirCoste } from '@core/types.js';
 import type { Abierto } from '../escenas/castillo.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
@@ -62,9 +62,10 @@ function mejora(session: Session, town: Town, sitio: SitioId): Html {
  * Una morada: las unidades que produce (una morada produce varias), y de cada una
  * cuántas hay, cuánto cuesta y caben, y «+1» y «Todo» (lo que calcula el núcleo).
  */
-function morada(session: Session, town: Town, sitio: SitioId, numero: number): Html {
-  const unidades = dwellings(town).filter((d) => d.morada === numero);
-  return html`${unir(unidades.map(({ creature: id }) => reclutable(session, town, id)))}
+function morada(session: Session, town: Town, sitio: SitioId): Html {
+  const hecho = construidoEn(town, sitio);
+  const unidades = hecho === null ? [] : unidadesDeMorada(hecho);
+  return html`${unir(unidades.map(({ id }) => reclutable(session, town, id)))}
     ${mejora(session, town, sitio)}`;
 }
 
@@ -93,7 +94,7 @@ function reclutable(session: Session, town: Town, id: string): Html {
 
 function edificio(session: Session, town: Town, sitio: SitioId, piezas: PiezasDelCastillo): Html {
   const s = sitioDe(town.faction, sitio);
-  if (s.nivel !== undefined) return morada(session, town, sitio, s.nivel);
+  if (s.morada !== undefined) return morada(session, town, sitio);
   const hecho = construidoEn(town, sitio);
   const titulo = hecho === null ? NADA : html`<h2>${building(hecho).name}</h2>`;
   switch (sitio) {

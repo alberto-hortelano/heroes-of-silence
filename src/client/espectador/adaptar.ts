@@ -16,7 +16,7 @@
  */
 
 import type { BattleStack, BattleState } from '@core/battle/types.js';
-import { cifrasDeUnidad, unidadDelJuego } from '@core/catalogo.js';
+import { cifrasDeUnidad, oroDeUnidad } from '@core/catalogo.js';
 import { Casillas } from '@core/map/casillas.js';
 import { aPunto, RedDeCaminos, type TramoDeCamino } from '@core/map/map.js';
 import { BARRERAS, NIVELES, type TerrainKind } from '@core/map/terrain.js';
@@ -171,14 +171,15 @@ function stackDelCable(s: StackEnCable): BattleStack {
   const ganado = { experiencia: 0, bajas: 0, heroes: [] };
   switch (s.origen.kind) {
     case 'catalogo': {
-      const unit = cifrasDeUnidad(s.body, s.origen.veterania);
+      const unit = cifrasDeUnidad(s.origen.unidad, s.origen.veterania);
       return {
         ...resto,
         unit,
         ganado,
         origen: {
           kind: 'catalogo',
-          oro: unidadDelJuego(s.body).cost.gold ?? 0,
+          unidad: s.origen.unidad,
+          oro: oroDeUnidad(s.origen.unidad),
           veterania: hojaDelCable(s.origen.veterania),
         },
       };

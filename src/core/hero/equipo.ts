@@ -23,7 +23,6 @@
 
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
 import {
-  cuentaTiros,
   DICHO_DE_DONDE,
   EQUIPO,
   EQUIPO_ESCRITO,
@@ -337,10 +336,9 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEqu
  * den lo mismo.
  *
  * Sin piezas devuelve **la misma referencia**, no una copia. La velocidad sube
- * o baja escalones de `SPEED_TIERS` y se queda entre el primero y el último. El daño suma `[+mín, +máx]`. Ninguna pieza da munición:
- * un arma en `distancia` hace tirador a quien la lleva por sí misma (`isShooter`,
- * que mira `equipo`), y `shots` es solo del perfil de un personaje; lanza si una
- * unidad lleva las dos cosas.
+ * o baja escalones de `SPEED_TIERS` y se queda entre el primero y el último. El
+ * daño suma `[+mín, +máx]`. Un arma en `distancia` hace tirador a quien la lleva
+ * (`isShooter`, que mira `equipo`), sin munición que contar.
  *
  * Deja en `equipo` lo puesto: es de donde se deriva qué suma el equipo
  * (`modificadoresDePieza`). Las cifras sin él no se guardan (19-10-2026: fuera
@@ -365,8 +363,6 @@ function vestir<U extends UnitInfo>(
     );
   }
   const todo: Equipo = { ...unit.equipo, ...equipo };
-  const municion = municionBlocker(unit, todo);
-  if (municion !== null) throw new Error(municion);
   const { ataque, defensa, armadura, velocidad, danio } = sumaDe(piezas, equipo);
   const puntosDeArmadura = (unit.puntosDeArmadura ?? 0) + armadura;
   const escalon = Math.max(
@@ -390,19 +386,6 @@ function vestir<U extends UnitInfo>(
   };
   const armas = armasPorUso(piezas, vestida, todo);
   return armas === null ? vestida : { ...vestida, armas };
-}
-
-/**
- * Por qué `unit` no puede llevar `equipo` por su munición, o `null`: quien tira con
- * la suya (`cuentaTiros`, la criatura del catálogo o el guardabosques) no lleva
- * nada en `distancia`, que no cuenta tiros: juntas, tiraría sin fin con tiros que
- * se gastan sin servir de nada. **La regla, en un sitio**: la aplica `conEquipo`
- * (lanza con ella) y la pregunta quien equipa antes (`ponerseBlocker`). Se va con
- * la munición (F3).
- */
-export function municionBlocker(unit: UnitInfo, equipo: Equipo | undefined): string | null {
-  if (!cuentaTiros(unit) || equipo?.distancia === undefined) return null;
-  return `${unit.name} tira con su munición (${unit.shots} tiros) y no puede llevar nada en ${NOMBRE_DE_HUECO.distancia}: el arma a distancia no cuenta tiros`;
 }
 
 /**

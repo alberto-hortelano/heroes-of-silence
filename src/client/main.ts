@@ -94,13 +94,13 @@ const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
 /**
  * La rueda del golpe de la partida, la misma de la arena (F5, 19-10-2026). De los
- * dos que se cruzan, de momento, la chapa y el nombre: sin figura ni vista previa.
+ * dos que se cruzan, su figura, su chapa y su nombre, y quién es «tú»
+ * (`Session.quienMira`); la ficha y la vista previa son de la arena (#261).
  */
 const rueda = new DialogoDeLaRueda(elRueda, {
   sesion: () => (session.scene === 'battle' ? session : null),
   escena: batalla,
-  // Sin figura ni vista previa (eso es de la arena, #261): quién es quién, sí.
-  cara: () => ({ icono: () => null, propio: session.miBando }),
+  cara: () => null,
   pedirFotograma,
 });
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
@@ -217,8 +217,10 @@ function dibujarFotograma(ahora: number): void {
     aventura.dibujarMinimapa(minimapa);
   }
   señalarEnemigo(enBatalla);
-  // Fuera de la batalla, cerrada (`pintar` la cierra si no hay batalla).
+  // Fuera de la batalla, cerrada (`pintar` la cierra si no hay batalla). Sus dos
+  // figuras respiran con las del tablero (`hayFigurasAnimadas` pide el siguiente).
   rueda.pintar();
+  rueda.animar(ahora);
 
   if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
 
@@ -594,11 +596,7 @@ document.addEventListener('keydown', (ev) => {
   }
   // Escape suelta el hechizo elegido o el poder que espera aliado.
   if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
-    session.hechizos.clearSpell();
-    if (session.poderes.apuntado !== null) {
-      session.poderes.apuntar(null);
-      session.status = '';
-    }
+    session.soltarLoApuntado();
   }
   // En batalla, Espacio cierra el turno de la unidad tuya que está actuando: con
   // el movimiento en tramos es lo que más se pulsa. Pasa por la misma puerta que

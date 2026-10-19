@@ -95,7 +95,7 @@ export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'arma'> {
  * Las armas de una unidad, una fila por uso (`golpeDe`), con el nombre de cada
  * arma: lo que enseña la ficha. El cuerpo a cuerpo y la carga, siempre (todo el
  * que pega cuerpo a cuerpo carga: `cifrasDeCarga`); el disparo, si dispara
- * (`isShooter`: lleva arma a distancia o es un tirador con munición).
+ * (`isShooter`: lleva arma a distancia).
  */
 export function armasDe(unit: UnitInfo): ArmaDeLaUnidad[] {
   const fila = (uso: UsoDeArma, carga: CifrasDeCarga | null = null): ArmaDeLaUnidad => {
@@ -312,21 +312,19 @@ function deUnGolpe(attacker: BattleStack, opts: DamageOptions): DeUnGolpe {
   return { charge, cifrasDeCarga: cifras, uso: usoConCarga(opts, charge) };
 }
 
-/** Las tiradas posibles de UN individuo: las del arma de ese uso. */
-function tiradasPosibles(attacker: BattleStack, uso: UsoDeArma): Horquilla {
-  const [min, max] = cifrasDelGolpe(attacker.unit, uso).damage;
-  return { min, max };
-}
-
 /**
- * Las tiradas con la rueda: del cuarto `desde` al `hasta` de la horquilla. Sin
- * rueda (el disparo), las mismas, sin copiarlas.
+ * Las tiradas de UN individuo con su daño `[min, max]` (el del arma de ese uso,
+ * `cifrasDelGolpe`) y la rueda: del cuarto `desde` al `hasta` de la horquilla. Sin
+ * rueda (el disparo), la horquilla entera.
  */
-function enElCruce(t: Horquilla, cruce: CruceDelGolpe | undefined): Horquilla {
-  if (cruce === undefined) return t;
+function enElCruce(
+  [min, max]: readonly [number, number],
+  cruce: CruceDelGolpe | undefined,
+): Horquilla {
+  if (cruce === undefined) return { min, max };
   return {
-    min: tiradaEnCuartos(t.min, t.max, cruce.desde),
-    max: tiradaEnCuartos(t.min, t.max, cruce.hasta),
+    min: tiradaEnCuartos(min, max, cruce.desde),
+    max: tiradaEnCuartos(min, max, cruce.hasta),
   };
 }
 
@@ -337,7 +335,7 @@ function enElCruce(t: Horquilla, cruce: CruceDelGolpe | undefined): Horquilla {
  */
 function tiradaDe(attacker: BattleStack, opts: DamageOptions, uso: UsoDeArma, rng: Rng): number {
   const { cruce } = opts;
-  const t = enElCruce(tiradasPosibles(attacker, uso), cruce);
+  const t = enElCruce(cifrasDelGolpe(attacker.unit, uso).damage, cruce);
   const fija = cruce !== undefined && cruce.desde === cruce.hasta;
   return fija ? t.min : rng.int(t.min, t.max);
 }
@@ -375,7 +373,7 @@ function medioSinArmadura(
   opts: DamageOptions,
 ): number {
   const golpe = deUnGolpe(attacker, opts);
-  const { min, max } = tiradasPosibles(attacker, golpe.uso);
+  const [min, max] = cifrasDelGolpe(attacker.unit, golpe.uso).damage;
   const medio = ((min + max) / 2) * attacker.count;
   return applyModifiers(medio, attacker, defender, opts, golpe);
 }
@@ -441,7 +439,7 @@ export interface RamaDeSuerte extends Horquilla {
  * probabilidad) y los modificadores con su causa.
  *
  * Sale de la misma cuenta que el golpe —`applyModifiers` y `danioFinal`, con la
- * tirada mínima y la máxima de `tiradasPosibles`—, no de una copia: todo lo que
+ * tirada mínima y la máxima del arma (`enElCruce`)—, no de una copia: todo lo que
  * multiplica es positivo y el redondeo es monótono, así que los extremos de la
  * tirada dan los extremos del daño. `test/prevision.test.ts` lo compara con el
  * daño de verdad en cientos de semillas. No toca el `Rng`.
@@ -464,7 +462,10 @@ export function horquillaDeDanio(
 } {
   const { cruce } = opts;
   const golpe = deUnGolpe(attacker, opts);
-  const { min: tMin, max: tMax } = enElCruce(tiradasPosibles(attacker, golpe.uso), cruce);
+  const { min: tMin, max: tMax } = enElCruce(
+    cifrasDelGolpe(attacker.unit, golpe.uso).damage,
+    cruce,
+  );
   const modificadores: Modificador[] = [];
   // Con armas por uso, lo primero es con cuál pega: la horquilla es
   // la de esa arma, y la previsión y el contraataque lo dicen sin campos nuevos.

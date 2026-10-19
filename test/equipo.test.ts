@@ -21,7 +21,6 @@ import { createBattle, stackById } from '../src/core/battle/battle.js';
 import { cifrasDeUnidad, unidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import {
-  cuentaTiros,
   EQUIPO,
   EQUIPO_ESCRITO,
   isShooter,
@@ -320,7 +319,6 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     // Sin munición (13-10-2026): el arco no da tiros; llevarlo ya es disparar.
     expect(arquero).not.toHaveProperty('shots');
     expect(isShooter(arquero)).toBe(true);
-    expect(cuentaTiros(arquero)).toBe(false);
     // El golpe, el de arriba con la daga; el disparo, cuerpo + arco + jubón, sin la daga.
     expect(arquero.armas).toEqual({
       // La daga cambia la rueda (18-10-2026): su golpe la lleva.
@@ -527,7 +525,7 @@ describe('las cifras se suman en las puertas de siempre (C1)', () => {
   it('una pieza suma sus cifras, y la velocidad sube escalones sin pasarse del último', () => {
     // Lo propio sustituye a lo de serie en su hueco (la maza a la espada, el arnés
     // a la brigantina) y lo de serie que no se toca (el escudo) sigue puesto.
-    const serie = unidadDelJuego(TROPA).equipoDeSerie;
+    const serie = unidadDelJuego(TROPA).equipo!;
     expect(serie.escudo).toBeDefined();
     const piquero = cifrasDeUnidad(
       TROPA,
@@ -659,7 +657,7 @@ describe('equipar y desequipar (C1, C4)', () => {
   it('lo que ocupaba el hueco vuelve a la mochila, en el héroe y en un veterano', () => {
     const { state, c, hero } = enLaArmeria();
     // La pesada, que no lleva escudo de serie: el mandoble le entra.
-    expect(unidadDelJuego(PESADA).equipoDeSerie.escudo).toBeUndefined();
+    expect(unidadDelJuego(PESADA).equipo!.escudo).toBeUndefined();
     hero.army = [
       {
         creature: PESADA,
@@ -679,7 +677,7 @@ describe('equipar y desequipar (C1, C4)', () => {
     // Quitarle su arma al veterano le deja la de serie de su unidad.
     accion(state, { type: 'unequip', hero: hero.id, slot: 'arma', veteran: 'veterano-1' }, c);
     expect(hero.army[0]!.veterania?.equipo).toEqual({});
-    expect(unidadDelJuego(PESADA).equipoDeSerie.arma).toBeDefined();
+    expect(unidadDelJuego(PESADA).equipo!.arma).toBeDefined();
     accion(state, { type: 'unequip', hero: hero.id, slot: 'armadura' }, c);
     expect(hero.equipo).toEqual({ arma: 'daga' });
     expect(hero.mochila).toEqual(['espada', 'maza', 'mandoble', 'gambeson']);
@@ -991,7 +989,7 @@ describe('la IA compra y equipa (C5)', () => {
   it('pone en la tropa lo de la mochila que mejora a alguien, y compra con tope por día', () => {
     const { state, c, hero } = enLaArmeria();
     // El sanador no lleva armadura de serie; la tropa barata, la brigantina.
-    expect(unidadDelJuego(SANADOR).equipoDeSerie.armadura).toBeUndefined();
+    expect(unidadDelJuego(SANADOR).equipo!.armadura).toBeUndefined();
     hero.army = [{ creature: TROPA_BARATA }, { creature: SANADOR }];
     hero.mochila = ['jubon_de_arquero'];
     // El jubón no mejora al héroe (lleva el gambesón, que vale más: `valorDePieza`)
@@ -1051,7 +1049,7 @@ describe('la IA compra y equipa (C5)', () => {
     // puerta.
     hero.mochila = [];
     const veterano = { creature: TROPA_BARATA, veterania: hoja('veterano-2', umbral(2)) };
-    expect(unidadDelJuego(TROPA_BARATA).equipoDeSerie).toEqual(unidadDelJuego(TROPA).equipoDeSerie);
+    expect(unidadDelJuego(TROPA_BARATA).equipo!).toEqual(unidadDelJuego(TROPA).equipo!);
     expect(indiceDePoder(cifrasDeUnidad(TROPA, undefined))).toBeGreaterThan(
       indiceDePoder(cifrasDeUnidad(veterano.creature, veterano.veterania)),
     );
@@ -1078,7 +1076,7 @@ describe('la IA compra y equipa (C5)', () => {
     state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
     // El sanador pega con el bastón de serie, que vale menos que la Espada.
     hero.army = [{ creature: SANADOR }];
-    expect(valorDePieza(pieza(unidadDelJuego(SANADOR).equipoDeSerie.arma!))).toBeLessThan(
+    expect(valorDePieza(pieza(unidadDelJuego(SANADOR).equipo!.arma!))).toBeLessThan(
       valorDePieza(pieza('espada')),
     );
     hero.mochila = ['maza'];

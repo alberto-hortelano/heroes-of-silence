@@ -238,7 +238,7 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
     let subidas = 0;
     for (const nombre of ['Línea recta', 'Línea con puerta', 'Semicírculo']) {
       const m = forma(nombre);
-      const trepa = unidadDeArena('zombi', { traits: ['escalar'] });
+      const trepa = unidadDeArena('zombi', { id: 'zombi-9', traits: ['escalar'] });
       const s = sesionDeArena(
         [
           { unidad: trepa, ia: true, escalera: false },
@@ -323,10 +323,8 @@ describe('columnas altas y lienzo que crece (C12)', () => {
   });
 
   it('quien está en lo alto de la columna más atrasada no se sale del lienzo', () => {
-    // Un arquero (de pie) en cada columna de la fila de atrás y de la siguiente.
+    // La figura de pie en lo alto de cada columna de la fila de atrás y de la siguiente.
     const m = validarMuralla({ muros: [h(7, 0), h(8, 1)], puertas: [] });
-    const state = duelo(m, PESADA, h(1, 4), TIRADOR, h(7, 0));
-    const s = stackById(state, 'defender-0');
     for (const [ancho, alto] of [
       [1280, 600],
       [1600, 520],
@@ -338,12 +336,12 @@ describe('columnas altas y lienzo que crece (C12)', () => {
         alzadoDeLaMuralla(m),
       );
       for (const muro of m.muros) {
-        const caja = cajaDeFigura(t, s, planoDeHex(muro), 1);
+        const caja = cajaDeFigura(t, planoDeHex(muro), 1);
         expect(caja.suelo - caja.alto, `${ancho}×${alto} ${hexKey(muro)}`).toBeGreaterThan(0);
       }
       // Sin el alzado, la cabeza de (7,0) se salía por arriba: es lo que pide.
       const sin = tableroPara(ancho, alto);
-      const caja = cajaDeFigura(sin, s, planoDeHex(h(7, 0)), 1);
+      const caja = cajaDeFigura(sin, planoDeHex(h(7, 0)), 1);
       expect(caja.suelo - caja.alto).toBeLessThan(0);
     }
   });

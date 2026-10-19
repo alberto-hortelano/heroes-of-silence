@@ -53,7 +53,6 @@ import type {
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
-import { cuentaTiros } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import type { Rng } from '../src/core/rng.js';
@@ -61,7 +60,6 @@ import { createRng } from '../src/core/rng.js';
 import type { CreatureTrait, Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
   aMano,
-  bandoDePersonajes,
   conCifrasAMano,
   FACCION_B,
   forzarTurno,
@@ -78,11 +76,12 @@ import {
 } from './helpers.js';
 
 /**
- * `alcanceConCostes` es el recorrido del tablero (pagando el contacto, siempre
- * desde el 19-10-2026; `reachable`, el BFS sin costes, solo lo pide
- * `movimientoBlocker` para explicar un rechazo) y `movableFrom` es su ÚNICO
- * llamante, así que contarle las llamadas cuenta exactamente los recorridos que
- * hace `legalActions`.
+ * `alcanceConCostes` y `reachable` son el recorrido del tablero: el primero paga
+ * el contacto (desde el 19-10-2026) y el segundo, el BFS sin costes, lo hace
+ * cuando no hay un enemigo cerca, que entonces dan lo mismo (`recorrer`, simplify
+ * de F3-F6), y cuando `movimientoBlocker` explica un rechazo. Contarles las
+ * llamadas (`recorridos`) cuenta exactamente los recorridos que hace
+ * `legalActions`.
  *
  * Se envuelve el módulo en vez de espiar el export, y no por gusto: la llamada
  * de `movableFrom` va por el enlace local de su módulo, así que un
@@ -112,8 +111,25 @@ function aplicar(
 
 vi.mock('../src/core/battle/board.js', async (original) => {
   const real = await original<typeof import('../src/core/battle/board.js')>();
-  return { ...real, alcanceConCostes: vi.fn(real.alcanceConCostes) };
+  return {
+    ...real,
+    alcanceConCostes: vi.fn(real.alcanceConCostes),
+    reachable: vi.fn(real.reachable),
+  };
 });
+
+/** Los recorridos del tablero desde el último `aCero`: los dos espías juntos. */
+function recorridos(): number {
+  return (
+    vi.mocked(board.alcanceConCostes).mock.calls.length +
+    vi.mocked(board.reachable).mock.calls.length
+  );
+}
+
+function aCero(): void {
+  vi.mocked(board.alcanceConCostes).mockClear();
+  vi.mocked(board.reachable).mockClear();
+}
 
 /**
  * Un bando. Con héroe, el héroe pisa el tablero (fase 1b): una figura más, con
@@ -131,7 +147,7 @@ const side = (
   }),
 ): BattleSide => ({
   army,
-  hero: hero === null ? null : { mando: hero, cuerpo },
+  hero: hero === null ? null : { mando: hero, cuerpo, desnudo: cuerpo },
 });
 
 const hero = (over: Partial<BattleHero> = {}): BattleHero => ({
@@ -157,12 +173,11 @@ function stackOf(id: string, count: number, unit: UnitInfo = unidadDelJuego(id))
     slot: 0,
     body: id,
     unit,
-    origen: { kind: 'catalogo', oro: unidadDelJuego(id).cost.gold ?? 0, veterania: null },
+    origen: { kind: 'catalogo', unidad: id, oro: unidadDelJuego(id).oro, veterania: null },
     initialCount: count,
     count,
     topHp: unit.hp,
     hex: { col: 0, row: 0 },
-    shotsLeft: 0,
     escalera: false,
     retaliated: false,
     defending: false,
@@ -185,21 +200,6 @@ const ZOMBI = 'zombi';
 /** Las cifras de `base` con el rasgo `rasgo` además de los suyos: el catálogo no lo trae. */
 function con(base: string, rasgo: CreatureTrait, cambios: Partial<UnitInfo> = {}): UnitInfo {
   return aMano(base, { ...cambios, traits: [...(unidadDelJuego(base).traits ?? []), rasgo] });
-}
-
-/**
- * Una unidad de dos casillas, hecha a mano (`hexes: 2`): ninguna del catálogo
- * lo es, y el despliegue y la carga las siguen jugando.
- */
-const GRANDE = aMano(NO_MUERTO, { hexes: 2 });
-
-/**
- * Un bando con `grandes` de dos casillas (cada uno como personaje,
- * `bandoDePersonajes`) seguidos de `resto`, del catálogo.
- */
-function conGrandes(grandes: number, resto: readonly Stack[] = []): BattleSide {
-  const b = bandoDePersonajes(Array.from({ length: grandes }, () => GRANDE));
-  return { ...b, army: [...b.army, ...resto] };
 }
 
 describe('fórmula de daño', () => {
@@ -383,16 +383,14 @@ describe('los que esperan vuelven por orden de llegada (#81, regla nuestra)', ()
 });
 
 describe('despliegue inicial', () => {
-  it('coloca cada bando en su borde y respeta la cola de las unidades grandes', () => {
+  it('coloca cada bando en su borde: el defensor, en el espejo del atacante', () => {
     const state = createBattle(
       side([{ creature: TROPA_BARATA, count: 10 }]),
-      conGrandes(1),
+      side([{ creature: NO_MUERTO, count: 1 }]),
       createRng(1),
     );
-    expect(stackById(state, 'attacker-0').hex.col).toBe(0);
-    // El grande ocupa 2 hexes: sale en la fila del medio (la 4, par) con la
-    // cabeza en la 10 y la cola en la 11, el espejo de un grande atacante.
-    expect(stackById(state, 'defender-0').hex).toEqual({ col: 10, row: 4 });
+    expect(stackById(state, 'attacker-0').hex).toEqual({ col: 0, row: 4 });
+    expect(stackById(state, 'defender-0').hex).toEqual(board.espejo({ col: 0, row: 4 }));
   });
 
   it('empieza en la ronda 1 con un stack activo', () => {
@@ -589,47 +587,21 @@ describe('combate cuerpo a cuerpo', () => {
 });
 
 describe('tiradores', () => {
-  /**
-   * Un tirador con munición: ninguna unidad del catálogo la lleva (tiran con su
-   * arma, sin contar tiros), pero el motor la sigue contando para el perfil de un
-   * personaje (el guardabosques), así que va hecho a mano.
-   */
-  const conMunicion = (rng: Rng): BattleState =>
-    conCifrasAMano(
-      createBattle(
-        side([{ creature: TIRADOR, count: 10 }]),
-        side([{ creature: NO_MUERTO, count: 10 }]),
-        rng,
-      ),
-      'attacker-0',
-      aMano(TIRADOR, { shots: 12 }),
-    );
-
-  it('gastan munición al disparar y no pueden hacerlo con un enemigo encima', () => {
+  it('disparan sin munición que gastar (13-10-2026): llevar el arco ya es disparar', () => {
     const rng = createRng(21);
-    const state = conMunicion(rng);
-    const arquero = stackById(state, 'attacker-0');
-    const municionInicial = arquero.shotsLeft;
-    const disparo = legalActions(state).find((a) => a.type === 'shoot');
-    expect(disparo).toBeDefined();
-    aplicar(state, disparo!, rng);
-    expect(arquero.shotsLeft).toBe(municionInicial - 1);
-    expect(state.log.some((e) => e.kind === 'shoot')).toBe(true);
-  });
-
-  it('sin munición no se le ofrece el disparo, y el motivo lo dice (la del personaje se cuenta)', () => {
-    // La arena y el catálogo no cuentan tiros (13-10-2026), pero quien lleva
-    // munición sí: `cuentaTiros`.
-    const rng = createRng(21);
-    const state = conMunicion(rng);
-    expect(cuentaTiros(unidadDelJuego(TIRADOR))).toBe(false);
-    const arquero = stackById(state, 'attacker-0');
-    expect(cuentaTiros(arquero.unit)).toBe(true);
-    arquero.shotsLeft = 0;
-    expect(legalActions(state).some((a) => a.type === 'shoot')).toBe(false);
-    expect(() => aplicar(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
-      'attacker-0 se ha quedado sin munición',
+    const state = createBattle(
+      side([{ creature: TIRADOR, count: 1 }]),
+      side([{ creature: NO_MUERTO, count: 1 }]),
+      rng,
     );
+    const arquero = stackById(state, 'attacker-0');
+    for (let i = 0; i < 3; i++) {
+      forzarTurno(state, arquero.id);
+      const disparo = legalActions(state).find((a) => a.type === 'shoot');
+      expect(disparo, `disparo ${i + 1}`).toBeDefined();
+      aplicar(state, disparo!, rng);
+    }
+    expect(state.log.filter((e) => e.kind === 'shoot' && e.stack === arquero.id)).toHaveLength(3);
   });
 });
 
@@ -719,11 +691,10 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // diciendo otra cosa.
     expect(enemiesOf(state, activeStack(state) as BattleStack)).toHaveLength(4);
 
-    const espia = vi.mocked(board.alcanceConCostes);
-    espia.mockClear();
+    aCero();
     legalActions(state);
     // Con el BFS dentro del bucle de ataques eran 1 + 4 = 5.
-    expect(espia).toHaveBeenCalledTimes(1);
+    expect(recorridos()).toBe(1);
   });
 
   it('devuelve exactamente la misma lista, en el mismo orden', () => {
@@ -825,15 +796,14 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // la IA pega desde donde está y no se mueve.
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
 
-    const espia = vi.mocked(board.alcanceConCostes);
-    espia.mockClear();
+    aCero();
     const { action, movibles } = chooseBattleActionAndCosts(state);
     // Si la IA dejara de avanzar en este tablero, el test dejaría de medir lo
     // que dice medir y hay que buscarle otro.
     expect(action.type).toBe('move');
     aplicar(state, action, createRng(1), movibles);
 
-    expect(espia).toHaveBeenCalledTimes(1);
+    expect(recorridos()).toBe(1);
   });
 
   it('sin recorrido en la mano, moveTo sigue haciendo el suyo (#78)', () => {
@@ -842,11 +812,10 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const state = batallaDeCuatroEnemigos();
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
 
-    const espia = vi.mocked(board.alcanceConCostes);
-    espia.mockClear();
+    aCero();
     aplicar(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
 
-    expect(espia).toHaveBeenCalledTimes(1);
+    expect(recorridos()).toBe(1);
     expect(stackById(state, 'attacker-0').hex).toEqual({ col: 2, row: 4 });
   });
 
@@ -1502,17 +1471,23 @@ describe('la IA elige la casilla de ataque por daño esperado (#50)', () => {
     // reescribió esa cola una vez. Aquí se le da la vuelta al orden de
     // enumeración: si la heurística se apoyara en `cargas[0]`, elegiría la de
     // coste 4 y este test se pondría rojo.
-    const espia = vi.mocked(board.alcanceConCostes);
-    const real = espia.getMockImplementation() as typeof board.alcanceConCostes;
-    espia.mockImplementation((...args) =>
-      // El mismo mapa con las entradas al revés: mismos hexes, mismos costes.
-      reverse(real(...args)),
-    );
+    // Los dos recorridos, que según haya un enemigo cerca hace uno u otro.
+    const conCostes = vi.mocked(board.alcanceConCostes);
+    const bfs = vi.mocked(board.reachable);
+    const realConCostes = conCostes.getMockImplementation() as typeof board.alcanceConCostes;
+    const realBfs = bfs.getMockImplementation() as typeof board.reachable;
+    // El mismo mapa con las entradas al revés: mismos hexes, mismos costes.
+    conCostes.mockImplementation((...args) => reverse(realConCostes(...args)));
+    bfs.mockImplementation((...args) => reverse(realBfs(...args)));
     try {
+      aCero();
       const state = escenaDeCarga(PESADA);
       expect(casillaElegida(state)).toEqual({ col: 2, row: 4 });
+      // Y el recorrido se hizo: sin él, dar la vuelta no mediría nada.
+      expect(recorridos()).toBeGreaterThan(0);
     } finally {
-      espia.mockImplementation(real);
+      conCostes.mockImplementation(realConCostes);
+      bfs.mockImplementation(realBfs);
     }
   });
 });
@@ -2414,31 +2389,6 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
       { target: 'defender-0', at: { col: 4, row: 4 }, hexes: 4, porciento: 40 },
     ]);
   });
-
-  it('contra un enemigo de dos casillas basta con que la que sigue a la recta sea una de ellas', () => {
-    // El grande defiende mirando a la izquierda: cabeza en (3,2), cola en (4,2).
-    // El jinete viene del este por la fila 2 y la recta termina en la COLA.
-    const state = duelo(JINETE, { col: 8, row: 2 }, conGrandes(1), { col: 3, row: 2 }, 1);
-    const dragon = stackById(state, 'defender-0');
-    expect(stackHexes(dragon)).toEqual([
-      { col: 3, row: 2 },
-      { col: 4, row: 2 },
-    ]);
-    const s = stackById(state, 'attacker-0');
-    expect(cargaDesde(state, s, { col: 5, row: 2 }, dragon)).toBe(3);
-    expect(casillasDeCarga(state, s)).toContainEqual({
-      target: 'defender-0',
-      at: { col: 5, row: 2 },
-      hexes: 3,
-      porciento: 30,
-    });
-    aplicar(
-      state,
-      { type: 'attack', target: 'defender-0', from: { col: 5, row: 2 } },
-      createRng(1),
-    );
-    expect(cargaCobrada(state)).toBe(3);
-  });
 });
 
 describe('el parte de guerra pinta de quién es cada cosa', () => {
@@ -2779,25 +2729,17 @@ describe('despliegue de una tropa de individuos', () => {
     ).toThrow('no caben: el defensor trae 9 y un bando lleva como mucho 7');
   });
 
-  it('siete grandes caben, uno por fila, con la cola dentro del tablero', () => {
-    const state = createBattle(side(individuos(TROPA_BARATA, 3)), conGrandes(7), createRng(2));
-    const hexes = hexesDe(state, 'defender');
-    expect(hexes).toHaveLength(14);
-    expect(new Set(hexes).size).toBe(14);
-    // La cola del grande defensor queda a su derecha, dentro del tablero.
-    for (const s of state.stacks.filter((x) => x.side === 'defender')) {
-      expect(stackHexes(s).every((h) => board.isInside(h))).toBe(true);
-    }
-  });
-
   it('pocos individuos salen por la misma regla que muchos', () => {
     // No hay caso especial para cinco o menos: del centro hacia fuera en la
-    // columna del borde, y la grande con la cabeza una columna hacia dentro.
-    // Con las filas de HoMM2 de antes, estos cinco salían en 0, 2, 4, 6 y 8.
-    const state = createBattle(side(individuos(TROPA_BARATA, 5)), conGrandes(1), createRng(3));
+    // columna del borde. Con las filas de HoMM2 de antes, estos cinco salían en
+    // 0, 2, 4, 6 y 8.
+    const state = createBattle(
+      side(individuos(TROPA_BARATA, 5)),
+      side(individuos(NO_MUERTO, 1)),
+      createRng(3),
+    );
     const atacantes = state.stacks.filter((s) => s.side === 'attacker');
     expect(atacantes.map((s) => s.hex)).toEqual([4, 3, 5, 2, 6].map((row) => ({ col: 0, row })));
-    expect(stackById(state, 'defender-0').hex).toEqual({ col: 10, row: 4 });
   });
 
   it('con el mismo ejército en los dos lados, el defensor sale en el espejo exacto del atacante', () => {
@@ -2806,8 +2748,7 @@ describe('despliegue de una tropa de individuos', () => {
     // cerca del centro que el atacante de la suya.
     const ejercitos: BattleSide[] = [
       side(individuos(TROPA_BARATA, 7)),
-      conGrandes(3, individuos(NO_MUERTO, 4)),
-      conGrandes(7),
+      side([...individuos(PESADA, 3), ...individuos(NO_MUERTO, 4)]),
       side([
         { creature: JINETE, count: 4 },
         { creature: TIRADOR, count: 9 },
@@ -2831,10 +2772,8 @@ describe('despliegue de una tropa de individuos', () => {
         expect(huella(d)).toEqual(huellaEspejada(a));
       });
     }
-    // Y con una muralla que es su propio espejo: muros en la salida de los dos
-    // lados y la puerta entre la cabeza y la cola de las grandes de la fila 3
-    // —impar: en el defensor, entre la 9 y la 10, no la 10 y la 11 de las
-    // pares—, que las manda a otra fila en los dos bandos por igual.
+    // Y con una muralla que es su propio espejo: muros y una puerta en la salida
+    // de los dos lados, que se saltan en los dos bandos por igual.
     const muros = [
       { col: 2, row: 3 },
       { col: 0, row: 6 },
@@ -2847,11 +2786,10 @@ describe('despliegue de una tropa de individuos', () => {
         { a: board.espejo({ col: 1, row: 3 }), b: board.espejo({ col: 0, row: 3 }) },
       ],
     });
-    const ejercito = conGrandes(3, individuos(NO_MUERTO, 4));
+    const ejercito = side(individuos(NO_MUERTO, 7));
     const state = createBattle(ejercito, ejercito, createRng(5), muralla);
     const atacantes = state.stacks.filter((s) => s.side === 'attacker');
     const defensores = state.stacks.filter((s) => s.side === 'defender');
-    expect(atacantes.some((s) => s.hex.row === 3 && stackHexes(s).length > 1)).toBe(false);
     atacantes.forEach((a, i) => {
       expect(huella(defensores[i] as BattleStack)).toEqual(huellaEspejada(a));
     });

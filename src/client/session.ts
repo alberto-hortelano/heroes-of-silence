@@ -5,11 +5,14 @@
  * pintan lo que devuelve, nunca tocan el `GameState` por su cuenta. Cuando
  * llegue el bridge por WebSocket, lo que cambia es esta capa y solo esta.
  */
-import { completarCruce } from '@core/ai/rueda.js';
+import { pasoDelCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
 import {
   batallaDeArena,
+  type CatalogoDeLaArena,
+  catalogoDelMontaje,
+  conUnidad,
   LADOS,
   type LadoDeArena,
   type RetoqueDeArena,
@@ -59,6 +62,7 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '@core/battle/types.js';
+import { cuerpoDe } from '@core/catalogo.js';
 import type { CatalogoDeEquipo } from '@core/hero/equipo.js';
 import { HERO_BODY, type Hero, maxMana } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
@@ -112,6 +116,7 @@ import {
   huecoDesconocido,
   type PlayerId,
   type Point,
+  type UnitInfo,
 } from '@core/types.js';
 import { quienesDe } from './desenlace.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
@@ -280,7 +285,7 @@ export function esDeLoApuntado(apuntado: Apuntado, a: BattleAction, objetivo?: s
   const suya =
     apuntado.kind === 'hechizo'
       ? a.type === 'cast' && a.spell === apuntado.id
-      : a.type === 'poder' && a.poder === apuntado.id;
+      : a.type === 'power' && a.poder === apuntado.id;
   return suya && (objetivo === undefined || ('target' in a && a.target === objetivo));
 }
 
@@ -347,6 +352,11 @@ function claveConMagia(b: BattleState): string {
   return `${claveDeBatalla(b)}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
 }
 
+/** Lo apuntado en la clave de una caché o de la versión: su clase y su id. */
+function claveDeLoApuntado(a: Apuntado | null): string {
+  return a === null ? '' : `${a.kind}:${a.id}`;
+}
+
 /**
  * Por qué la unidad activa no puede actuar contra ese enemigo: ni dispararle ni
  * golpearlo. La frase es del núcleo (`ataqueBlocker`) —«ya se ha movido este
@@ -395,35 +405,95 @@ function motivoDeLaActiva(
   return motivo === null ? null : comoFrase(motivo);
 }
 
-/** Lo apuntado: el hechizo elegido del libro o, si no, el poder que espera aliado. */
-function loApuntado(
-  hechizos: { readonly selectedSpell: string | null },
-  poderes: PoderesDeLaActiva,
-): Apuntado | null {
-  const hechizo = hechizos.selectedSpell;
-  if (hechizo !== null) return { kind: 'hechizo', id: hechizo };
-  const id = poderes.apuntado;
-  return id === null ? null : { kind: 'poder', id };
+/**
+ * Lo que apunta el siguiente clic en una unidad, **uno solo** (`Apuntado`): el
+ * hechizo del libro o el poder de la activa. Lo comparten el libro
+ * (`LibroDeBatalla`) y los poderes (`PoderesDeLaActiva`) de cada sesión: apuntar
+ * uno suelta el otro sin que ninguno se lo diga al otro, y soltar lo que haya es
+ * una función (`soltar`): tras una jugada, con Escape, al cerrar la batalla.
+ */
+export class LoApuntado {
+  private valor: Apuntado | null = null;
+
+  /** `alCambiar`: la partida sube su versión; la arena la deriva de aquí. */
+  constructor(private readonly alCambiar: () => void = () => {}) {}
+
+  get actual(): Apuntado | null {
+    return this.valor;
+  }
+
+  /** Apunta `a`, soltando lo que hubiera. */
+  apuntar(a: Apuntado): void {
+    if (this.valor?.kind === a.kind && this.valor.id === a.id) return;
+    this.valor = a;
+    this.alCambiar();
+  }
+
+  /** Suelta lo apuntado si es de la clase `kind` (o lo que sea, sin ella); dice si soltó algo. */
+  soltar(kind?: Apuntado['kind']): boolean {
+    if (this.valor === null || (kind !== undefined && this.valor.kind !== kind)) return false;
+    this.valor = null;
+    this.alCambiar();
+    return true;
+  }
+
+  /** El id apuntado de la clase `kind`, o `null`. */
+  de(kind: Apuntado['kind']): string | null {
+    return this.valor?.kind === kind ? this.valor.id : null;
+  }
 }
 
 /** Por qué lo apuntado no vale sobre `targetId`: la frase del libro o la del poder. */
 function rechazoDeLoApuntado(
   hechizos: LibroDeBatalla,
   poderes: PoderesDeLaActiva,
+  apuntado: Apuntado | null,
   targetId: string,
 ): string {
-  const a = loApuntado(hechizos, poderes);
-  if (a === null) return '';
-  return a.kind === 'hechizo' ? hechizos.castRejection(targetId) : poderes.rechazo(a.id, targetId);
+  if (apuntado === null) return '';
+  return apuntado.kind === 'hechizo'
+    ? hechizos.castRejection(targetId)
+    : poderes.rechazo(apuntado.id, targetId);
 }
 
-/** Lo que pide `PoderesDeLaActiva` de su sesión: la de la partida y la de la arena. */
-interface DueñoDeLosPoderes {
+/** Quien juega lo que piden los botones: la sesión de la partida y la de la arena. */
+interface QuienJuega {
   readonly turnoPropio: TurnoPropio | null;
-  readonly hechizos: { selectedSpell: string | null };
   status: string;
   battleLegalActions(): readonly BattleAction[];
   playBattleAction(action: BattleAction): void;
+}
+
+/**
+ * Lo común a los botones de escala, puerta y poder: con una sola jugada posible
+ * (`posibles`), se juega ya; con varias, el siguiente clic en el tablero elige
+ * (`esperar(true)` lo deja esperando y la barra dice `pide`), y pulsar el botón
+ * otra vez lo cancela; con ninguna, el motivo del núcleo (`motivo`) o `ninguna`.
+ */
+export function unaOElegir(
+  s: Pick<QuienJuega, 'status' | 'playBattleAction'>,
+  posibles: readonly BattleAction[],
+  o: {
+    readonly esperando: boolean;
+    readonly esperar: (si: boolean) => void;
+    readonly motivo: () => string | null;
+    readonly ninguna: string;
+    readonly pide: string;
+  },
+): void {
+  const unica = posibles.length === 1 ? posibles[0] : undefined;
+  if (unica !== undefined) {
+    o.esperar(false);
+    s.playBattleAction(unica);
+    return;
+  }
+  if (posibles.length === 0) {
+    s.status = o.motivo() ?? o.ninguna;
+    return;
+  }
+  const espera = !o.esperando;
+  o.esperar(espera);
+  s.status = espera ? o.pide : '';
 }
 
 /**
@@ -435,28 +505,20 @@ interface DueñoDeLosPoderes {
  * frases son del núcleo (`poderBlocker`).
  */
 export class PoderesDeLaActiva {
-  private id: PoderId | null = null;
-
-  /**
-   * `alCambiar`, lo que hace la sesión cuando cambia lo apuntado: la de la partida
-   * sube su versión (`tocar`); la de la arena la deriva de aquí y no lo necesita.
-   */
   constructor(
-    private readonly dueño: DueñoDeLosPoderes,
-    private readonly alCambiar: () => void = () => {},
+    private readonly dueño: QuienJuega,
+    private readonly apuntados: LoApuntado,
   ) {}
 
   /** El poder que espera aliado, o `null`. */
   get apuntado(): PoderId | null {
-    return this.id;
+    return this.apuntados.de('poder');
   }
 
-  /** Deja el poder `id` esperando aliado (o lo suelta con `null`), soltando el hechizo. */
+  /** Deja el poder `id` esperando aliado (soltando el hechizo), o lo suelta con `null`. */
   apuntar(id: PoderId | null): void {
-    if (id !== null) this.dueño.hechizos.selectedSpell = null;
-    if (this.id === id) return;
-    this.id = id;
-    this.alCambiar();
+    if (id === null) this.apuntados.soltar('poder');
+    else this.apuntados.apuntar({ kind: 'poder', id });
   }
 
   /** Por qué la activa no puede usar `id` ahora, o `null` si puede (`poderBlocker`). */
@@ -479,24 +541,17 @@ export class PoderesDeLaActiva {
    * si ya esperaba).
    */
   usar(id: PoderId): void {
-    const posibles = this.dueño
-      .battleLegalActions()
-      .filter((a) => a.type === 'poder' && a.poder === id);
-    const unica = posibles.length === 1 ? posibles[0] : undefined;
-    if (unica !== undefined) {
-      this.apuntar(null);
-      this.dueño.playBattleAction(unica);
-      return;
-    }
-    if (posibles.length === 0) {
-      this.dueño.status = this.motivo(id) ?? 'No hay ningún aliado sobre el que usarlo.';
-      return;
-    }
-    const espera = this.id !== id;
-    this.apuntar(espera ? id : null);
-    this.dueño.status = espera
-      ? 'Elige el aliado sobre el que usarlo: pulsa en uno de los marcados, o Escape para cancelar.'
-      : '';
+    unaOElegir(
+      this.dueño,
+      this.dueño.battleLegalActions().filter((a) => a.type === 'power' && a.poder === id),
+      {
+        esperando: this.apuntado === id,
+        esperar: (si) => this.apuntar(si ? id : null),
+        motivo: () => this.motivo(id),
+        ninguna: 'No hay ningún aliado sobre el que usarlo.',
+        pide: 'Elige el aliado sobre el que usarlo: pulsa en uno de los marcados, o Escape para cancelar.',
+      },
+    );
   }
 }
 
@@ -607,19 +662,18 @@ interface DueñoDelLibro {
  * partida; cada sesión le da su turno, sus opciones y su barra.
  */
 export class LibroDeBatalla implements HechizosDeBatalla {
-  private elegido: string | null = null;
-
   constructor(
     private readonly dueño: DueñoDelLibro,
-    private readonly alCambiar: () => void = () => {},
+    private readonly apuntados: LoApuntado,
   ) {}
 
+  /** El hechizo elegido: lo apuntado, si es un hechizo (`LoApuntado`). */
   get selectedSpell(): string | null {
-    return this.elegido;
+    return this.apuntados.de('hechizo');
   }
   set selectedSpell(v: string | null) {
-    this.elegido = v;
-    this.alCambiar();
+    if (v === null) this.apuntados.soltar('hechizo');
+    else this.apuntados.apuntar({ kind: 'hechizo', id: v });
   }
 
   /** Ids de los stacks sobre los que se puede lanzar el hechizo elegido. */
@@ -678,8 +732,6 @@ export class Session implements ControlDeBatalla {
   readonly ctx: GameContext;
   /** El jugador que maneja la persona sentada delante. */
   readonly viewer = 0;
-  /** Por quién no se rinde nunca la IA de reglas: por la persona (H-1 de la 1b). */
-  private readonly sinRendirsePorMi: ReadonlySet<PlayerId> = new Set([this.viewer]);
 
   /**
    * Cuántas veces ha cambiado algo que se ve. Sube con cada acción, cada cambio
@@ -727,13 +779,11 @@ export class Session implements ControlDeBatalla {
    * `main.ts` porque lo lee también el panel; `main.ts` solo guarda estado de
    * píxel. Es el mismo de la arena, y elegir sube la versión.
    */
-  /** Elegir un hechizo suelta el poder apuntado: el clic apunta una sola cosa (`apuntado`). */
-  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => {
-    if (this.hechizos.selectedSpell !== null) this.poderes.apuntar(null);
-    this.tocar();
-  });
+  /** Lo que apunta el siguiente clic, uno solo: cambiarlo sube la versión. */
+  readonly apuntados = new LoApuntado(() => this.tocar());
+  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, this.apuntados);
   /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`, el de la arena). */
-  readonly poderes = new PoderesDeLaActiva(this, () => this.tocar());
+  readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
 
   get openTownId(): string | null {
     return this.puebloAbierto;
@@ -780,7 +830,17 @@ export class Session implements ControlDeBatalla {
   puertaPorElegir: TipoDePuerta | null = null;
   /** Lo apuntado: el hechizo del libro o el poder de la activa (desde F6, también en la partida). */
   get apuntado(): Apuntado | null {
-    return loApuntado(this.hechizos, this.poderes);
+    return this.apuntados.actual;
+  }
+
+  /** Escape: suelta lo apuntado, hechizo o poder, y limpia la barra que lo pedía. */
+  soltarLoApuntado(): void {
+    if (this.apuntados.soltar()) this.status = '';
+  }
+
+  /** Quien mira la rueda del golpe (`SesionConRueda.quienMira`): la persona, por su bando. */
+  get quienMira(): Side | null {
+    return this.miBando;
   }
 
   /**
@@ -807,7 +867,15 @@ export class Session implements ControlDeBatalla {
     // el cliente y `state.seed` la que abrió el servidor—.
     this.state = newGame({ seed, controllers: { 0: 'human', 1: 'ai' } });
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
-    this.rueda = new CruceDeLaRueda(this.ctx.rng, (side) => side !== this.miBando);
+    this.rueda = new CruceDeLaRueda(
+      {
+        sesion: this,
+        alMoverse: () => this.tocar(),
+        seguirLaIA: () => this.advanceEnemyTurns(),
+      },
+      this.ctx.rng,
+      (side) => side !== this.miBando,
+    );
     this.selectedHeroId = heroesOf(this.state, this.viewer)[0]?.id ?? null;
   }
 
@@ -1231,10 +1299,7 @@ export class Session implements ControlDeBatalla {
       // (#116, `defender`). Si una se quedara a medias, la IA pelearía por ella,
       // pero sin rendirse: rendirse le cobra su oro y esa decisión es solo suya
       // (H-1 de la fase 1b).
-      await playAiTurn(this.state, this.ctx, {
-        noSeRinden: this.sinRendirsePorMi,
-        takeover: () => this.defender(),
-      });
+      await playAiTurn(this.state, this.ctx, { batallas: { human: () => this.defender() } });
       guard++;
     }
     // Si se acabó, la barra ya dice cómo (`status`).
@@ -1606,7 +1671,7 @@ export class Session implements ControlDeBatalla {
   private calculoDeBatalla(): CalculoDeBatalla {
     const battle = this.battle;
     if (battle === null) return { acciones: [], movibles: [], opciones: [], cargas: SIN_CARGAS };
-    const clave = `${claveConMagia(battle)}|${this.hechizos.selectedSpell}|${this.poderes.apuntado}`;
+    const clave = `${claveConMagia(battle)}|${claveDeLoApuntado(this.apuntados.actual)}`;
     const c = this.cacheBatalla;
     if (c !== null && c.battle === battle && c.clave === clave) return c.valor;
     const comunes = accionesDeBatalla(battle, this.turnoPropio);
@@ -1675,7 +1740,7 @@ export class Session implements ControlDeBatalla {
   }
 
   rechazoDeLoApuntado(targetId: string): string {
-    return rechazoDeLoApuntado(this.hechizos, this.poderes, targetId);
+    return rechazoDeLoApuntado(this.hechizos, this.poderes, this.apuntado, targetId);
   }
 
   /** Por qué la activa no puede usar el poder `p` ahora, o `null` (el botón deshabilitado). */
@@ -1710,74 +1775,17 @@ export class Session implements ControlDeBatalla {
    * rueda (`ruedaPendiente`) espera su elección (`elegirEnLaRueda`).
    */
   playBattleAction(action: BattleAction): void {
-    const battle = this.battle;
-    if (battle === null) return;
-    if (this.rueda.pendiente !== null) {
-      this.status = comoFrase(ELIGE_EN_LA_RUEDA);
-      return;
-    }
-    if (this.turnoPropio === null) {
-      this.status = NINGUNA_TUYA;
-      return;
-    }
-    let lista: BattleAction | null;
-    try {
-      lista = this.rueda.completar(battle, action);
-    } catch (err) {
-      this.status = mensaje(err);
-      return;
-    }
-    // Plantado, la rueda espera: el tablero cuenta la marcha y luego se abre.
-    this.tocar();
-    if (lista === null) this.status = '';
-    else this.aplicar(battle, lista);
+    if (this.battle !== null) this.rueda.jugar(this.battle, action);
   }
 
-  /** Lo que elige la persona en la rueda (`CruceDeLaRueda.elegir`). */
+  /** Lo que elige la persona en la rueda (`CruceDeLaRueda.elegirYJugar`). */
   elegirEnLaRueda(tipo: string): void {
-    const battle = this.battle;
-    if (battle === null) return;
-    let lista: BattleAction | null;
-    try {
-      lista = this.rueda.elegir(battle, tipo);
-    } catch (err) {
-      this.status = mensaje(err);
-      return;
-    }
-    this.tocar();
-    if (lista !== null) this.aplicar(battle, lista);
+    if (this.battle !== null) this.rueda.elegirYJugar(this.battle, tipo);
   }
 
-  /** Escape en la rueda (`CruceDeLaRueda.cancelar`). Devuelve si se canceló. */
+  /** Escape en la rueda (`CruceDeLaRueda.cancelarGolpe`). Devuelve si se canceló. */
   cancelarGolpe(): boolean {
-    const battle = this.battle;
-    if (battle === null) return false;
-    try {
-      this.status = this.rueda.cancelar(battle);
-    } catch (err) {
-      this.status = mensaje(err);
-      return false;
-    }
-    this.tocar();
-    this.advanceEnemyTurns();
-    return true;
-  }
-
-  private aplicar(battle: BattleState, action: BattleAction): void {
-    try {
-      applyAction(battle, action, this.ctx.rng);
-      this.tocar();
-      this.status = '';
-    } catch (err) {
-      this.status = mensaje(err);
-      return;
-    }
-    // Una acción aplicada deja el hechizo elegido sin sentido: o se acaba de
-    // lanzar —y el héroe ya no puede volver a lanzar esta ronda— o el stack
-    // activo ha cambiado. Se suelta aquí y no en cada llamante. El poder, igual.
-    this.hechizos.selectedSpell = null;
-    this.poderes.apuntar(null);
-    this.advanceEnemyTurns();
+    return this.battle !== null && this.rueda.cancelarGolpe(this.battle);
   }
 
   /**
@@ -1808,7 +1816,7 @@ export class Session implements ControlDeBatalla {
       return;
     }
     // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona.
-    resolvePendingBattle(this.state, this.ctx, this.sinRendirsePorMi);
+    resolvePendingBattle(this.state, this.ctx);
     this.afterBattle();
   }
 
@@ -1826,8 +1834,7 @@ export class Session implements ControlDeBatalla {
     this.alCerrarLaDefensa = null;
     defensa?.();
     this.scene = 'adventure';
-    this.hechizos.selectedSpell = null;
-    this.poderes.apuntar(null);
+    this.apuntados.soltar();
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
@@ -1914,17 +1921,17 @@ export class SesionDeArena implements ControlDeBatalla {
   readonly battle: BattleState;
   readonly semilla: number;
   /**
-   * El catálogo de equipo con que se pelea (`MontajeDeArena.equipo`): la batalla
-   * no lo lleva, así que el retoque de una pieza lo pide de aquí y aquí deja el
-   * nuevo (`retocar`).
+   * El catálogo con que se pelea: las unidades del montaje y sus piezas
+   * (`catalogoDelMontaje`). La batalla no lo lleva, así que el retoque lo pide de
+   * aquí y aquí deja lo retocado (`retocar`), y de aquí sale el cuerpo sin equipo
+   * de cada stack (`cuerpoDe`).
    */
-  private equipo: CatalogoDeEquipo;
-  /** Elegir un hechizo suelta el poder apuntado: el clic apunta una sola cosa (`apuntado`). */
-  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => {
-    if (this.hechizos.selectedSpell !== null) this.poderes.apuntar(null);
-  });
+  private catalogo: CatalogoDeLaArena;
+  /** Lo que apunta el siguiente clic, uno solo (la versión lo lee de aquí). */
+  readonly apuntados = new LoApuntado();
+  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, this.apuntados);
   /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`). */
-  readonly poderes = new PoderesDeLaActiva(this);
+  readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
   readonly dueños = null;
   private readonly rng: Rng;
@@ -1940,7 +1947,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * pueda desacompasar.
    */
   get version(): string {
-    return `${claveDeBatalla(this.battle)}|${this.hechizos.selectedSpell}|${this.poderes.apuntado}|${this.rueda.pendiente?.fase ?? ''}`;
+    return `${claveDeBatalla(this.battle)}|${claveDeLoApuntado(this.apuntados.actual)}|${this.rueda.pendiente?.fase ?? ''}`;
   }
 
   /**
@@ -1960,11 +1967,24 @@ export class SesionDeArena implements ControlDeBatalla {
   /** El botón de la puerta esperando el clic en una portada (`ControlDeBatalla`). */
   puertaPorElegir: TipoDePuerta | null = null;
   get apuntado(): Apuntado | null {
-    return loApuntado(this.hechizos, this.poderes);
+    return this.apuntados.actual;
+  }
+
+  /** Escape: suelta lo apuntado, hechizo o poder, y limpia la barra que lo pedía. */
+  soltarLoApuntado(): void {
+    if (this.apuntados.soltar()) this.status = '';
   }
 
   rechazoDeLoApuntado(targetId: string): string {
-    return rechazoDeLoApuntado(this.hechizos, this.poderes, targetId);
+    return rechazoDeLoApuntado(this.hechizos, this.poderes, this.apuntado, targetId);
+  }
+
+  /**
+   * El cuerpo de `s` sin lo que lleva, con el catálogo de esta pelea (`cuerpoDe`):
+   * lo que el panel resta para decir qué le suma el equipo.
+   */
+  cuerpoDe(s: BattleStack): UnitInfo | null {
+    return cuerpoDe(s, this.catalogo);
   }
 
   constructor(
@@ -1979,22 +1999,24 @@ export class SesionDeArena implements ControlDeBatalla {
     semilla: number,
   ) {
     this.semilla = semilla;
-    this.equipo = montaje.equipo;
     this.rng = createRng(semilla);
-    this.battle = batallaDeArena(
-      {
-        izquierda: montaje.izquierda,
-        derecha: montaje.derecha,
-        muralla: montaje.muralla ?? SIN_MURALLA,
-        equipo: montaje.equipo,
-      },
-      this.rng,
-    );
+    const delMontaje = {
+      izquierda: montaje.izquierda,
+      derecha: montaje.derecha,
+      muralla: montaje.muralla ?? SIN_MURALLA,
+      equipo: montaje.equipo,
+    };
+    this.catalogo = catalogoDelMontaje(delMontaje);
+    this.battle = batallaDeArena(delMontaje, this.rng);
     this.iaDelBando = {
       [LADOS.izquierda.bando]: montaje.izquierda.ia,
       [LADOS.derecha.bando]: montaje.derecha.ia,
     } as Record<Side, boolean>;
-    this.rueda = new CruceDeLaRueda(this.rng, (side) => this.iaDelBando[side]);
+    this.rueda = new CruceDeLaRueda(
+      { sesion: this, alMoverse: () => {}, seguirLaIA: () => this.avanzarIA() },
+      this.rng,
+      (side) => this.iaDelBando[side],
+    );
   }
 
   /**
@@ -2023,6 +2045,16 @@ export class SesionDeArena implements ControlDeBatalla {
 
   get miBando(): Side | null {
     return this.turnoPropio?.side ?? null;
+  }
+
+  /**
+   * Quien mira la rueda del golpe (`SesionConRueda.quienMira`): el bando de la
+   * persona si lleva uno solo; con los dos suyos (o ninguno), `null`, y la rueda
+   * los dice por su lado del campo.
+   */
+  get quienMira(): Side | null {
+    const suyos = (['attacker', 'defender'] as const).filter((b) => !this.iaDelBando[b]);
+    return suyos.length === 1 ? (suyos[0] as Side) : null;
   }
 
   /** Como en `Session`, guardado por jugada: la escena lo pide en cada fotograma. */
@@ -2154,9 +2186,10 @@ export class SesionDeArena implements ControlDeBatalla {
     // cuando se eligió: cambiarlas debajo podría dejarla ilegal.
     if (this.rueda.pendiente !== null) return comoFrase(ELIGE_EN_LA_RUEDA);
     const largo = this.battle.log.length;
-    const motivo = retocarEnBatalla(this.battle, r, this.equipo);
+    const motivo = retocarEnBatalla(this.battle, r, this.catalogo);
     if (motivo !== null) return comoFrase(motivo);
-    if (r.kind === 'piezas') this.equipo = r.equipo;
+    if (r.kind === 'piezas') this.catalogo = { ...this.catalogo, equipo: r.equipo };
+    if (r.kind === 'tipo') this.catalogo = conUnidad(this.catalogo, r.fuente.unidad);
     // Lo que entra y cambia algo deja su `retoque` en el registro; lo que deja la
     // ficha como estaba no escribe nada, y no se dice «Cambiado» (N1 de QA).
     if (this.battle.log.length === largo) {
@@ -2184,8 +2217,7 @@ export class SesionDeArena implements ControlDeBatalla {
   private soltarLoQueNoVale(): string | null {
     const a = this.apuntado;
     if (a === null || this.battleLegalActions().some((x) => esDeLoApuntado(a, x))) return null;
-    this.hechizos.selectedSpell = null;
-    this.poderes.apuntar(null);
+    this.apuntados.soltar();
     return a.kind === 'hechizo' ? spell(a.id).name : poder(a.id).nombre;
   }
 
@@ -2195,65 +2227,17 @@ export class SesionDeArena implements ControlDeBatalla {
    * pega anda hasta su objetivo y la rueda (`ruedaPendiente`) espera su elección.
    */
   playBattleAction(action: BattleAction): void {
-    if (this.rueda.pendiente !== null) {
-      this.status = comoFrase(ELIGE_EN_LA_RUEDA);
-      return;
-    }
-    if (this.turnoPropio === null) {
-      this.status = NINGUNA_TUYA;
-      return;
-    }
-    // Con la rueda, un golpe cuerpo a cuerpo sin elegir anda y abre la fase del
-    // golpe. Plantarse hace las comprobaciones del golpe antes de andar: uno que
-    // no se puede dar no mueve a nadie ni abre la rueda, y la barra dice por qué.
-    let lista: BattleAction | null;
-    try {
-      lista = this.rueda.completar(this.battle, action);
-    } catch (err) {
-      this.status = mensaje(err);
-      return;
-    }
-    if (lista === null) this.status = '';
-    else this.aplicar(lista);
+    this.rueda.jugar(this.battle, action);
   }
 
-  /** Lo que elige en la rueda quien le toca (`CruceDeLaRueda.elegir`). */
+  /** Lo que elige en la rueda quien le toca (`CruceDeLaRueda.elegirYJugar`). */
   elegirEnLaRueda(tipo: string): void {
-    let lista: BattleAction | null;
-    try {
-      lista = this.rueda.elegir(this.battle, tipo);
-    } catch (err) {
-      this.status = mensaje(err);
-      return;
-    }
-    if (lista !== null) this.aplicar(lista);
+    this.rueda.elegirYJugar(this.battle, tipo);
   }
 
-  /** Escape en la rueda (`CruceDeLaRueda.cancelar`). Devuelve si se canceló. */
+  /** Escape en la rueda (`CruceDeLaRueda.cancelarGolpe`). Devuelve si se canceló. */
   cancelarGolpe(): boolean {
-    try {
-      this.status = this.rueda.cancelar(this.battle);
-    } catch (err) {
-      this.status = mensaje(err);
-      return false;
-    }
-    this.avanzarIA();
-    return true;
-  }
-
-  private aplicar(action: BattleAction): void {
-    try {
-      applyAction(this.battle, action, this.rng);
-      this.status = '';
-    } catch (err) {
-      this.status = mensaje(err);
-      return;
-    }
-    // Como en la partida: lanzado el hechizo, o con otra unidad activa, lo
-    // apuntado ya no tiene sentido, se pueda aún o no.
-    this.hechizos.selectedSpell = null;
-    this.poderes.apuntar(null);
-    this.avanzarIA();
+    return this.rueda.cancelarGolpe(this.battle);
   }
 
   /**
@@ -2300,9 +2284,86 @@ export class CruceDeLaRueda {
   } | null = null;
 
   constructor(
+    private readonly conductor: ConductorDelCruce,
     private readonly rng: Rng,
     private readonly laLlevaLaIA: (side: Side) => boolean,
   ) {}
+
+  /**
+   * La jugada de la persona (`playBattleAction` de las dos sesiones): con la rueda
+   * abierta o sin turno propio no se acepta, y la barra dice por qué. Un golpe
+   * cuerpo a cuerpo sin elegir anda y abre la fase del golpe (`completar`):
+   * plantarse hace las comprobaciones del golpe antes de andar, así que uno que no
+   * se puede dar no mueve a nadie ni abre la rueda. Lo demás, se aplica.
+   */
+  jugar(battle: BattleState, accion: BattleAction): void {
+    const { sesion } = this.conductor;
+    if (this.cruce !== null) {
+      sesion.status = comoFrase(ELIGE_EN_LA_RUEDA);
+      return;
+    }
+    if (sesion.turnoPropio === null) {
+      sesion.status = NINGUNA_TUYA;
+      return;
+    }
+    let lista: BattleAction | null;
+    try {
+      lista = this.completar(battle, accion);
+    } catch (err) {
+      sesion.status = mensaje(err);
+      return;
+    }
+    // Plantado, la rueda espera: el tablero cuenta la marcha y luego se abre.
+    this.conductor.alMoverse();
+    if (lista === null) sesion.status = '';
+    else this.aplicar(battle, lista);
+  }
+
+  /** Lo que elige quien le toca en la rueda (`elegir`), y la jugada si ya está lista. */
+  elegirYJugar(battle: BattleState, tipo: string): void {
+    let lista: BattleAction | null;
+    try {
+      lista = this.elegir(battle, tipo);
+    } catch (err) {
+      this.conductor.sesion.status = mensaje(err);
+      return;
+    }
+    this.conductor.alMoverse();
+    if (lista !== null) this.aplicar(battle, lista);
+  }
+
+  /** Escape en la rueda (`cancelar`), y la IA sigue si le toca. Devuelve si se canceló. */
+  cancelarGolpe(battle: BattleState): boolean {
+    const { sesion } = this.conductor;
+    try {
+      sesion.status = this.cancelar(battle);
+    } catch (err) {
+      sesion.status = mensaje(err);
+      return false;
+    }
+    this.conductor.alMoverse();
+    this.conductor.seguirLaIA();
+    return true;
+  }
+
+  /**
+   * Aplica una jugada lista y deja a la IA mover lo suyo. Una jugada aplicada deja
+   * lo apuntado sin sentido —el hechizo ya se lanzó, o la unidad activa es otra—:
+   * se suelta aquí y no en cada llamante.
+   */
+  private aplicar(battle: BattleState, accion: BattleAction): void {
+    const { sesion } = this.conductor;
+    try {
+      applyAction(battle, accion, this.rng);
+      this.conductor.alMoverse();
+      sesion.status = '';
+    } catch (err) {
+      sesion.status = mensaje(err);
+      return;
+    }
+    sesion.apuntados.soltar();
+    this.conductor.seguirLaIA();
+  }
 
   /**
    * Lo que la rueda enseña ahora, o `null` si no espera a nadie. Se calcula una
@@ -2314,38 +2375,25 @@ export class CruceDeLaRueda {
   }
 
   /**
-   * La acción con lo de la rueda que le toque a la IA (`completarCruce`, el mismo
-   * sorteo que `autoResolve`) y lista para darse; o, si falta lo de una persona,
-   * `null`: quien pega anda hasta su objetivo (se planta) y la rueda queda abierta
-   * en su fase. Lo que no es un golpe, la misma acción. Lanza con la frase del
-   * núcleo si plantarse no vale: uno que no se puede dar no mueve a nadie.
+   * Un paso del cruce (`pasoDelCruce`, el mismo del director): la acción con lo de
+   * la rueda que le toque a la IA y lista para darse; o, si falta lo de una
+   * persona, `null`: quien pega se ha plantado ante su objetivo y la rueda queda
+   * abierta en su fase. Lo que no es un golpe, la misma acción. Lanza con la frase
+   * del núcleo si plantarse no vale: uno que no se puede dar no mueve a nadie.
    */
   completar(battle: BattleState, accion: BattleAction): BattleAction | null {
-    const c = completarCruce(battle, accion, this.rng, this.laLlevaLaIA);
-    if (c.falta === null) return c.accion;
-    const { golpe, respuesta, from, ...plantado } = c.accion;
-    // La segunda fase (persona contra persona) ya está plantada; la primera anda
-    // ahora. Plantarse no tira dados: el `Rng` gasta lo mismo y en el mismo orden
-    // que el golpe de una vez.
-    if (battle.golpeEnCurso === null) {
-      applyAction(battle, from === undefined ? plantado : { ...plantado, from }, this.rng);
-    }
+    const paso = pasoDelCruce(battle, accion, this.rng, this.laLlevaLaIA);
+    if ('lista' in paso) return paso.lista;
     const atacante = activeStack(battle);
     if (atacante === null) throw new Error('la rueda espera un golpe y no le toca a nadie');
-    const objetivo = stackById(battle, c.accion.target);
-    const enLaRueda = {
-      ...plantado,
-      ...(golpe === undefined ? {} : { golpe }),
-      ...(respuesta === undefined ? {} : { respuesta }),
-    };
     this.cruce = {
-      accion: enLaRueda,
+      accion: paso.accion,
       pendiente: {
-        fase: c.falta,
+        fase: paso.falta,
         atacante,
-        objetivo,
-        bando: c.falta === 'golpe' ? atacante.side : objetivo.side,
-        prevision: previsionDeLaRueda(battle, enLaRueda, c.falta),
+        objetivo: stackById(battle, paso.accion.target),
+        bando: paso.bando,
+        prevision: previsionDeLaRueda(battle, paso.accion, paso.falta),
       },
     };
     return null;
@@ -2388,6 +2436,22 @@ export class CruceDeLaRueda {
     soltarElGolpe(battle, this.rng);
     return conCarga ? 'Golpe cancelado: se pierde la carga.' : 'Golpe cancelado.';
   }
+}
+
+/**
+ * Lo que el cruce pide de la sesión que lo conduce (la de la partida y la de la
+ * arena): su barra, su turno y lo apuntado; qué hace cuando la batalla se mueve
+ * (la partida sube su versión; la arena la deriva de la batalla) y cómo sigue la
+ * IA hasta la siguiente jugada de la persona.
+ */
+interface ConductorDelCruce {
+  readonly sesion: {
+    status: string;
+    readonly turnoPropio: TurnoPropio | null;
+    readonly apuntados: LoApuntado;
+  };
+  readonly alMoverse: () => void;
+  readonly seguirLaIA: () => void;
 }
 
 /** Lo que la rueda enseña a quien elige (`CruceDeLaRueda.pendiente`). */

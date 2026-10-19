@@ -24,7 +24,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { TipoDeHeroe } from '../../src/core/data.js';
-import type { FactionId } from '../../src/core/types.js';
+import { type FactionId, NOMBRE_DE_FACCION } from '../../src/core/types.js';
 
 const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
 // El cuaderno vive en la copia principal del repo, sin commitear: desde un
@@ -33,13 +33,8 @@ const ORIGEN = process.argv[2] ?? `${RAIZ}NuevaJugabilidad.md`;
 const DESTINO = `${RAIZ}data/tipos-de-heroe.json`;
 
 /** La sección del cuaderno de cada facción del motor. Lo único tecleado. */
-const SECCIONES: Readonly<Record<FactionId, string>> = {
-  templarios: 'Templarios',
-  'no-muertos': 'No muertos',
-  imperio: 'Imperio',
-  elfos: 'Elfos',
-  orkos: 'Orkos',
-};
+/** El título de la sección de cada facción en el cuaderno: su nombre en el juego. */
+const SECCIONES: Readonly<Record<FactionId, string>> = NOMBRE_DE_FACCION;
 
 const texto = readFileSync(ORIGEN, 'utf8');
 

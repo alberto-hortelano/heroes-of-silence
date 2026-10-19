@@ -5,7 +5,7 @@
  * recluta lo que puede y manda a sus héroes al objetivo más rentable que esté
  * a su alcance. Es el listón que el agente tiene que superar.
  */
-import { cifrasDeUnidad, equipoPuesto, unidadDelJuego } from '../catalogo.js';
+import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../catalogo.js';
 import type { Pieza } from '../data.js';
 import {
   conEquipo,
@@ -592,7 +592,7 @@ function laMasBarata(
     const suyo = unitPower(troopUnit(t, undefined));
     if (suyo >= poder) continue;
     const rango = rangoDeTropa(t.veterania);
-    const oro = unidadDelJuego(id).cost.gold ?? 0;
+    const oro = unidadDelJuego(id).oro;
     const gana =
       mejor === null ||
       rango < mejor.rango ||
@@ -628,11 +628,11 @@ function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Eq
       poder: indiceDePoder(cifrasDeUnidad(t.creature, t.veterania)),
     }))
     .sort((a, b) => b.poder - a.poder || a.indice - b.indice)
-    .map(({ t, indice }) => {
+    .map(({ indice }) => {
       const quien: Portador = { indice };
       // Lo que lleva puesto, el de serie de su unidad incluido: una pieza que no
       // mejora la brigantina de serie no se compra para él.
-      return { quien, equipo: equipoPuesto(t.creature, equipoDe(hero, quien)) };
+      return { quien, equipo: equipoPuestoDe(hero, quien) };
     });
   const elHeroe: Portador = { heroe: true };
   return [{ quien: elHeroe, equipo: equipoDe(hero, elHeroe) }, ...tropa];
@@ -783,7 +783,7 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
       const quien = lista.find(
         (p) =>
           mejora(p.equipo, id) > 0 &&
-          ponerseBlocker(state, hero, p.quien, id) === null &&
+          ponerseBlocker(hero, p.quien, id) === null &&
           leLlega(hero, p.quien),
       );
       if (quien !== undefined) {
@@ -808,7 +808,7 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
       const quien = lista.find(
         (x) =>
           mejora(x.equipo, p.id) > 0 &&
-          ponerseBlocker(state, hero, x.quien, p.id) === null &&
+          ponerseBlocker(hero, x.quien, p.id) === null &&
           leLlega(hero, x.quien),
       );
       if (

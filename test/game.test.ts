@@ -12,6 +12,7 @@ import {
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import { stackHp } from '../src/core/battle/damage.js';
 import { allSpells } from '../src/core/battle/spells.js';
+import { queEs } from '../src/core/battle/types.js';
 import {
   guarnicionDeBase,
   guarnicionNeutral,
@@ -1434,7 +1435,7 @@ describe('catálogo de edificios por facción', () => {
     // el crecimiento, del índice de poder con el equipo puesto; la morada, del
     // nivel de lo mejor que produce.
     for (const u of unidadesDelJuego()) {
-      expect(u.cost, u.id).toEqual({ gold: oroDelIndice(indiceDePoder(u)) });
+      expect(u.oro, u.id).toBe(oroDelIndice(indiceDePoder(u)));
       expect(u.growth, u.id).toBe(crecimientoDelNivel(nivelDeUnidad(u)));
     }
     for (const f of FACTION_IDS) {
@@ -1447,7 +1448,7 @@ describe('catálogo de edificios por facción', () => {
     // Y más índice cuesta más oro: el precio no baja al subir el poder.
     const porIndice = [...unidadesDelJuego()].sort((x, y) => indiceDePoder(x) - indiceDePoder(y));
     for (let i = 1; i < porIndice.length; i++) {
-      expect(porIndice[i]!.cost.gold ?? 0).toBeGreaterThanOrEqual(porIndice[i - 1]!.cost.gold ?? 0);
+      expect(porIndice[i]!.oro).toBeGreaterThanOrEqual(porIndice[i - 1]!.oro);
     }
   });
 
@@ -2452,7 +2453,7 @@ describe('el mapa de nodos se juega', () => {
     const defensores = state.pendingBattle!.battle.stacks.filter((st) => st.side === 'defender');
     // Uno: el héroe solo, sin tropa, y ninguno de la guarnición en el tablero.
     expect(defensores.map((st) => st.origen.kind)).toEqual(['heroe']);
-    expect(defensores.some((st) => guarnicion.includes(st.body))).toBe(false);
+    expect(defensores.some((st) => guarnicion.includes(queEs(st)))).toBe(false);
 
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
     // Era la batalla final: la base cae sin que la guarnición llegue a pelear,

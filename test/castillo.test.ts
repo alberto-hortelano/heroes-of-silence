@@ -57,7 +57,7 @@ describe('los sitios de la base', () => {
       for (const s of sitios) {
         // Una facción puede dejar vacíos los sitios de morada que no usa (los
         // templarios crían en cuatro, los elfos en tres); los de villa, nunca.
-        if (s.nivel === undefined) {
+        if (s.morada === undefined) {
           expect(
             s.cadena.length,
             `${faccion}/${s.id} se quedó sin nada que construir`,
@@ -76,9 +76,9 @@ describe('los sitios de la base', () => {
 
   it('una morada no tiene mejora: cada sitio de morada lleva como mucho un edificio, el de su `morada`', () => {
     for (const faccion of FACTION_IDS) {
-      for (const s of sitiosDeLaBase(faccion).filter((x) => x.nivel !== undefined)) {
+      for (const s of sitiosDeLaBase(faccion).filter((x) => x.morada !== undefined)) {
         const esperada = buildingsOfFaction(faccion)
-          .filter((b) => b.morada === s.nivel)
+          .filter((b) => b.morada === s.morada)
           .map((b) => b.id);
         expect(esperada.length, `${faccion}/${s.id}`).toBeLessThanOrEqual(1);
         expect(s.cadena, `${faccion}/${s.id}`).toEqual(esperada);

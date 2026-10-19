@@ -11,21 +11,22 @@ import { armaduraDe, ruedaDelGolpe } from '../battle/armas.js';
 import {
   activeStack,
   casillasDeCarga,
-  legalActions,
+  legalActionsAndCosts,
   pasosQueQuedan,
   previsionDeLaRueda,
   stackById,
   stackHexes,
   stackSpeed,
 } from '../battle/battle.js';
-import { tableroDelContrato } from '../battle/board.js';
+import { type Paso, tableroDelContrato } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
-import { type CifrasDeLaRueda, efectoDeGolpe, type PapelEnLaRueda } from '../battle/rueda.js';
+import { type CifrasDeLaRueda, efectoDeGolpe } from '../battle/rueda.js';
 import {
   type BattleStack,
   type BattleState,
   type OrigenDelStack,
+  queEs,
   rangoDeVeterania,
   type Side,
 } from '../battle/types.js';
@@ -42,7 +43,6 @@ import {
   LIDERAZGO,
   NIVEL_POR_SUELO,
   tiposDeHeroe,
-  tirosQueQuedan,
 } from '../data.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
 import { cifrasDePieza, deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
@@ -101,16 +101,15 @@ import {
 } from '../town/town.js';
 import { vecinosDeLaBase, vozDe } from '../town/voces.js';
 import type { Army, Equipo, PlayerId } from '../types.js';
+import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS, TIPOS_DE_GOLPE } from '../types.js';
 import {
-  describirCoste,
-  FACTION_IDS,
-  HUECOS,
-  RESOURCE_KINDS,
-  TIPOS_DE_GOLPE,
-  type TipoDeGolpe,
-} from '../types.js';
-import { accionAlAgente, HIT_DE_GOLPE, type Hit, hechoAlAgente } from './golpes.js';
-import { SLOT_DE_HUECO, type Slot } from './huecos.js';
+  accionAlAgente,
+  HIT_DE_GOLPE,
+  type Hit,
+  hechoAlAgente,
+  SLOT_DE_HUECO,
+  type Slot,
+} from './vocabulario.js';
 
 /**
  * El ejército tal como lo lee el agente: agrupado por criatura, con cuántos
@@ -552,7 +551,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       recruitable: dwellings(t).map(({ creature: id }) => ({
         creature: id,
         available: t.available[id] ?? 0,
-        cost: unidadDelJuego(id).cost,
+        cost: { gold: unidadDelJuego(id).oro },
         leadership: unidadDelJuego(id).leadership,
       })),
       garrison: armyView(t.garrison, state.characters),
@@ -821,25 +820,22 @@ export function serializeBattleTurn(
  * las notas de la rueda).
  */
 function delTurnoPropio(battle: BattleState, activo: BattleStack) {
-  const legales = legalActions(battle);
+  // Con el recorrido que ya hizo la lista legal: las cargas salen de él.
+  const { actions: legales, costs } = legalActionsAndCosts(battle);
   const golpea = legales.some((a) => a.type === 'attack');
   return {
     legalActions: legales.map(accionAlAgente),
     stepsLeft: pasosQueQuedan(battle, activo),
-    ...chargeFrom(battle, activo),
-    ...(golpea ? { hits: lasDeLaRueda('golpe', ruedaDelGolpe(activo.unit, 'arma')) } : {}),
+    ...chargeFrom(battle, activo, costs),
+    ...(golpea ? { hits: golpesDeLaRueda(ruedaDelGolpe(activo.unit, 'arma')) } : {}),
   };
 }
 
-/** Lo que hace cada tipo de la rueda con estas cifras, en los nombres del contrato. */
-function lasDeLaRueda(
-  papel: PapelEnLaRueda,
-  rueda: CifrasDeLaRueda,
-  contraataca = true,
-): { hit: Hit; effect: string }[] {
+/** Lo que hace cada golpe de la rueda con estas cifras, en los nombres del contrato. */
+function golpesDeLaRueda(rueda: CifrasDeLaRueda): { hit: Hit; effect: string }[] {
   return TIPOS_DE_GOLPE.map((t) => ({
     hit: HIT_DE_GOLPE[t],
-    effect: efectoDeGolpe(t, papel, contraataca, rueda),
+    effect: efectoDeGolpe(t, 'golpe', true, rueda),
   }));
 }
 
@@ -859,7 +855,7 @@ function stackView(s: BattleStack) {
   return {
     id: s.id,
     side: s.side,
-    creature: s.body,
+    creature: queEs(s),
     name: info.name,
     count: s.count,
     hp: stackHp(s),
@@ -872,9 +868,6 @@ function stackView(s: BattleStack) {
     // Lo que se resta de cada golpe que recibe (`armaduraDe`), 0 sin armadura.
     armor: armaduraDe(info),
     shooter: isShooter(info),
-    // Quien no cuenta tiros, 0: es el que no tira (el juego), y el que tira sin
-    // contarlos (la arena) no llega al agente. Así el contrato es el de siempre.
-    shotsLeft: tirosQueQuedan(s) ?? 0,
     traits: info.traits ?? [],
     // Sus poderes (`power`), solo si tiene alguno: como `chargeFrom`, lo que no hay no viaja.
     ...((info.poderes?.length ?? 0) > 0 ? { powers: info.poderes } : {}),
@@ -928,11 +921,13 @@ export function serializeBattleResponse(
     attacker: atacante.id,
     target: objetivo.id,
     ...(contraataca ? {} : { noCounterattack: p.sinContraataque }),
-    responses: lasDeLaRueda('respuesta', p.rueda, contraataca).map(({ hit, effect }, i) => {
-      const sector = p.porTipo?.[TIPOS_DE_GOLPE[i] as TipoDeGolpe];
+    responses: TIPOS_DE_GOLPE.map((t) => {
+      const response = HIT_DE_GOLPE[t];
+      const effect = efectoDeGolpe(t, 'respuesta', contraataca, p.rueda);
+      const sector = p.porTipo?.[t];
       return sector === undefined
-        ? { response: hit, effect }
-        : { response: hit, effect, counterDamage: sector.danio, strikes: sector.golpes };
+        ? { response, effect }
+        : { response, effect, counterDamage: sector.danio, strikes: sector.golpes };
     }),
     board: tableroDelContrato(),
     stacks: stacksVistos(battle),
@@ -944,8 +939,9 @@ export function serializeBattleResponse(
 function chargeFrom(
   battle: BattleState,
   activo: BattleStack,
+  costes: ReadonlyMap<string, Paso>,
 ): { chargeFrom?: { target: string; col: number; row: number; hexes: number }[] } {
-  const cargas = casillasDeCarga(battle, activo);
+  const cargas = casillasDeCarga(battle, activo, costes);
   if (cargas.length === 0) return {};
   return {
     chargeFrom: cargas.map((c) => ({
@@ -1032,10 +1028,10 @@ export function fichaDeCriatura(c: UnidadDelJuego) {
     speed: c.speed,
     ...(c.traits === undefined ? {} : { traits: c.traits }),
     leadership: c.leadership,
-    cost: c.cost,
+    cost: { gold: c.oro },
     growth: c.growth,
     dwelling: c.edificio,
-    equipment: equipoView(c.equipoDeSerie),
+    equipment: equipoView(c.equipo),
     armor: armaduraDe(c),
     level: nivelDeUnidad(c),
     powerIndex: indiceDePoder(c),

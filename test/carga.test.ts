@@ -157,7 +157,8 @@ describe('carga todo el que pega cuerpo a cuerpo, y el jinete cobra más', () =>
         );
         const golpe = golpeDe(b);
         expect(golpe.charge).toBe(cobradas);
-        expect(golpe.cargaAPie).toBe(esAPie ? true : undefined);
+        // A pie o de jinete lo dicen las cifras de quien pegó (`cifrasDeCarga`).
+        expect(cifrasDeCarga(stackById(b, golpe.stack).unit) === CARGA.aPie).toBe(esAPie);
         // La carrera, también marcada: se anima con el clip de cargar.
         expect(b.log.find((e) => e.kind === 'move')).toMatchObject({ charge: true });
       }
@@ -199,7 +200,6 @@ describe('carga todo el que pega cuerpo a cuerpo, y el jinete cobra más', () =>
       createRng(2),
     );
     expect(golpeDe(b).charge).toBeUndefined();
-    expect(golpeDe(b).cargaAPie).toBeUndefined();
   });
 
   it('el tirador que pega con la daga también carga', () => {
@@ -211,7 +211,8 @@ describe('carga todo el que pega cuerpo a cuerpo, y el jinete cobra más', () =>
       porciento: 15,
     });
     applyAction(b, { type: 'attack', target: 'defender-0', from: desde, ...NORMAL }, createRng(2));
-    expect(golpeDe(b)).toMatchObject({ charge: 3, cargaAPie: true });
+    expect(golpeDe(b)).toMatchObject({ charge: 3 });
+    expect(cifrasDeCarga(stackById(b, 'attacker-0').unit)).toBe(CARGA.aPie);
   });
 
   it('el héroe de la arena también carga a pie', () => {
@@ -266,7 +267,8 @@ describe('la rueda del golpe con una carga a pie', () => {
       { type: 'attack', target: 'defender-0', golpe: 'normal', respuesta: 'normal' },
       createRng(3),
     );
-    expect(golpeDe(b, largo)).toMatchObject({ charge: 4, cargaAPie: true });
+    expect(golpeDe(b, largo)).toMatchObject({ charge: 4 });
+    expect(cifrasDeCarga(stackById(b, 'attacker-0').unit)).toBe(CARGA.aPie);
   });
 
   it('con Escape se pierde: el golpe desde el sitio no carga', () => {
@@ -286,7 +288,6 @@ describe('la rueda del golpe con una carga a pie', () => {
     );
     const golpe = golpeDe(b, largo);
     expect(golpe.charge).toBeUndefined();
-    expect(golpe.cargaAPie).toBeUndefined();
   });
 });
 
@@ -294,7 +295,7 @@ describe('el juego carga a pie, como la arena (19-10-2026)', () => {
   it('la misma unidad y la misma recta por `createBattle`: a pie y el jinete', () => {
     for (const [id, aPie] of [
       [A_PIE, true],
-      [JINETE, undefined],
+      [JINETE, false],
     ] as const) {
       const b = createBattle(
         { army: [{ creature: id, count: 1 }], hero: null },
@@ -308,7 +309,7 @@ describe('el juego carga a pie, como la arena (19-10-2026)', () => {
         createRng(2),
       );
       expect(golpeDe(b).charge).toBe(3);
-      expect(golpeDe(b).cargaAPie).toBe(aPie);
+      expect(cifrasDeCarga(stackById(b, 'attacker-0').unit) === CARGA.aPie).toBe(aPie);
     }
   });
 });
