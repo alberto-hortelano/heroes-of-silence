@@ -51,6 +51,8 @@ const haciaEnemigo = document.getElementById('hacia-enemigo') as HTMLElement;
 const conversacion = document.getElementById('conversacion') as HTMLDialogElement;
 /** La rueda del golpe (`rueda/dialogo.ts`): modal sobre el lienzo, mientras se elige y se cuenta un cruce. */
 const elRueda = document.getElementById('rueda') as HTMLDialogElement;
+/** «¿Volver al menú?» (botón «Menú» de la barra de arriba): «Abandonar la partida» es el `restart`. */
+const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElement;
 const stage = document.getElementById('stage') as HTMLElement;
 
 /**
@@ -673,6 +675,12 @@ document.addEventListener('click', (ev) => {
       break;
     case 'centrar':
       aventura.centrar();
+      break;
+    case 'menu':
+      salirAlMenu.showModal();
+      break;
+    case 'seguir-jugando':
+      salirAlMenu.close();
       break;
     case 'restart':
       // «Partida nueva» vuelve al menú de inicio: la página sin nada pedido.

@@ -227,6 +227,23 @@ html, body {
   opacity: 0.8;
 }
 
+#topbar .boton-de-la-barra { font: 12px var(--letra-ui); padding: 0.15rem 0.6rem; }
+
+/* «¿Volver al menú?» a media partida: modal, centrado, con el aspecto de la conversación. */
+.salir-al-menu {
+  max-width: min(24rem, calc(100% - 2rem));
+  padding: 0.9rem 1.1rem;
+  background: var(--fondo-dialogo);
+  color: var(--ink);
+  border: 1px solid var(--dialogo-borde);
+  border-radius: 6px;
+  box-shadow: var(--dialogo-sombra);
+}
+.salir-al-menu::backdrop { background: var(--velo); }
+.salir-al-menu h3 { margin: 0 0 0.4rem; }
+.salir-al-menu p { margin: 0 0 0.8rem; }
+.salir-al-menu .botones { display: flex; gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
+
 /* Un desplegable de la barra de arriba (`selectorDeLaBarra`): «Ejército» en la
    partida y «Tema» en la arena, con la letra de la barra. */
 .selector-de-la-barra { color: var(--ink-dim); }

@@ -18,6 +18,7 @@
         <ul id="resources"></ul>
         <span id="turn"></span>
         <span id="seed" title="Semilla de la partida: ?seed=N en la URL la fija"></span>
+        <button id="al-menu" class="boton-de-la-barra" data-action="menu">Menú</button>
       </header>
 
       <main id="stage">
@@ -40,6 +41,16 @@
           <div id="side"></div>
         </aside>
       </main>
+
+      <!-- Volver al menú de inicio a media partida: se pregunta, porque no hay guardado. -->
+      <dialog id="salir-al-menu" class="salir-al-menu" aria-labelledby="titulo-de-salir">
+        <h3 id="titulo-de-salir">¿Volver al menú?</h3>
+        <p>La partida se pierde: todavía no se puede guardar.</p>
+        <div class="botones">
+          <button data-action="seguir-jugando">Seguir jugando</button>
+          <button data-action="restart" class="primary">Abandonar la partida</button>
+        </div>
+      </dialog>
 
       <dialog id="rueda" aria-labelledby="titulo-de-la-rueda" tabindex="-1"></dialog>
 
