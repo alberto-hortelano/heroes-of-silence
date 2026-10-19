@@ -209,8 +209,9 @@
   stroke-width: 1;
   transition: fill 140ms, stroke 140ms;
 }
-/* El anillo alterna la madera y el verde de la mesa, como una ruleta. */
-.disco .sector:is([data-sector="rapido"], [data-sector="finta"], [data-sector="romperGuardia"]) {
+/* El anillo alterna la madera y el verde de la mesa, como una ruleta (`data-veta`, que
+   pone `disco` por el orden del anillo). */
+.disco .sector[data-veta="mesa"] {
   fill: #23332a;
 }
 .disco .sector.centro { fill: #342c1c; }

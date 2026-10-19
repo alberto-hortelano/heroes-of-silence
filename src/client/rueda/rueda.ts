@@ -106,8 +106,13 @@ function formas(): Html {
  * `elige`, el aro del bando que elige, que late.
  */
 function disco(elige: Side | null): Html {
+  // La veta alterna por el orden del anillo, no por una lista de tipos en el CSS:
+  // con la lista, reordenar el anillo (#263) dejaba dos sectores iguales seguidos.
   const sectores = unir(
-    ANILLO.map((t) => html`<path class="sector" data-sector="${t}" d="${sector(t)}"/>`),
+    ANILLO.map(
+      (t, i) =>
+        html`<path class="sector" data-sector="${t}" data-veta="${i % 2 === 0 ? 'mesa' : 'madera'}" d="${sector(t)}"/>`,
+    ),
   );
   // Las líneas finas del dibujo: los radios entre sectores, como en una rueda.
   const radios = unir(

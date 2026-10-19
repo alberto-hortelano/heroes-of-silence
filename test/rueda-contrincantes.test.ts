@@ -33,6 +33,7 @@ import {
   type TipoDeGolpe,
 } from '../src/core/battle/rueda.js';
 import { spell } from '../src/core/battle/spells.js';
+import { TIPOS_DEL_ANILLO } from '../src/core/types.js';
 import { hastaLaRueda, PESADA, sesionDeArena, TROPA, unidadDeArena } from './helpers.js';
 
 /** Tres guerreros con escudo contra tres con mandoble, los dos bandos «Yo», con la rueda. */
@@ -351,5 +352,24 @@ describe('#261: los dos, señalados en el tablero', () => {
     expect(s.cancelarGolpe()).toBe(true);
     alDia();
     expect(escena.enLaRueda()).toBeNull();
+  });
+});
+
+describe('la veta del anillo alterna como una ruleta', () => {
+  it('dos sectores vecinos nunca tienen el mismo color, tampoco el último y el primero', () => {
+    // Marca del usuario (19-10-2026): ofensivo y romper guardia salían con el color
+    // cambiado, porque el CSS los elegía por una lista de tipos de antes de #263.
+    const s = sesion();
+    hastaElGolpe(s);
+    const p = s.ruedaPendiente;
+    if (p === null) throw new Error('la rueda no pide el golpe');
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
+    const disco = m.indexOf('class="disco"');
+    const veta = (t: string) => atributo(m, m.indexOf(`data-sector="${t}"`, disco), 'data-veta');
+    const vetas = TIPOS_DEL_ANILLO.map(veta);
+    expect(vetas.every((v) => v === 'mesa' || v === 'madera')).toBe(true);
+    for (const [i, v] of vetas.entries()) {
+      expect(v, TIPOS_DEL_ANILLO[i]).not.toBe(vetas[(i + 1) % vetas.length]);
+    }
   });
 });
