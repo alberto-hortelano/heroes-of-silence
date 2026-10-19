@@ -95,3 +95,31 @@ Decisiones del usuario en la conversación:
 El usuario aprueba `plan.md` tal cual: el héroe nace dentro de su base **sin recoger la guarnición**,
 se retira `MapPlan.heroStarts`, y se acepta que no muertos, imperio, elfos y orkos abran en una base
 con marcadores (sin arte de base todavía).
+
+## Vuelta 2: elegir el héroe y su figura (19-10-2026)
+
+Petición literal, tras jugar la fase 1:
+
+> Al empezar la partida nueva no he elegido al heroe y la imagen es el y_bot
+
+Decisiones del usuario:
+- El héroe se elige **por tipo, con su figura**: tras la facción, un paso «Elige a tu héroe» con
+  cada tipo de la facción (`data/tipos-de-heroe.json`) con su retrato (`identidad.webp` de su hoja),
+  su nombre y la descripción del cuaderno. El héroe nace con ese `tipo` y se pinta con su hoja de
+  `assets/unidades/heroe-*` en el mapa, la base y la batalla; nunca el Y Bot.
+- Los tipos sin arte (**Señor de las bestias** de los elfos y **Señor de la guerra montado en
+  jabalí** de los orkos) y la hoja sin tipo (**Gran maestre** templario) «no deberían existir»:
+  fuera del cuaderno y del juego, y la hoja del Gran maestre, borrada.
+
+Criterios:
+12. Nuevo juego → facción → **héroe** → partida. «Volver» y Escape retroceden un paso. Teclado,
+    ratón y móvil como en la elección de facción.
+13. Cada tipo de las cinco facciones tiene su hoja (tabla tipo → hoja, en `data/`, comprobada al
+    cargar o por test: toda hoja existe con sus ocho direcciones y todo tipo tiene hoja).
+14. El héroe de la persona, el de la IA y los que se contraten se pintan con la hoja de su tipo en
+    el mapa, la base caminable y la batalla (y en el espectador, por el cable).
+15. La URL reproduce también el héroe (`?seed&faccion&heroe=<tipo>`); un tipo que no es de la
+    facción se rechaza diciéndolo. «Partida rápida» y `?seed=` solo: el tipo por defecto de la
+    facción (el primero), como hoy.
+16. `data/tipos-de-heroe.json` sin los dos tipos, regenerado desde el cuaderno; ni la hoja del Gran
+    maestre ni referencias a ella.
