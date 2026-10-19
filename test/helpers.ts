@@ -12,6 +12,7 @@ import { componer, type Escena } from '../src/client/render/escenario/colocar.js
 import type { Puente } from '../src/client/render/escenario/puentes.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
 import { SesionDeArena } from '../src/client/session.js';
+import { completarCruce } from '../src/core/ai/rueda.js';
 import {
   batallaDeArena,
   cambioDePiezas,
@@ -31,8 +32,6 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
-import type { ModoDelGolpe } from '../src/core/battle/rueda.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -556,11 +555,14 @@ export function dadoCargado(punta: 'minimo' | 'maximo'): Rng {
   };
 }
 
-/** Juega la batalla hasta el final (o hasta `maxTurnos`). Devuelve los turnos usados. */
+/**
+ * Juega la batalla hasta el final (o hasta `maxTurnos`), con la rueda a ciegas
+ * (`aCiegas`). Devuelve los turnos usados.
+ */
 export function simular(state: BattleState, rng: Rng, maxTurnos = 3000): number {
   let n = 0;
   while (state.finished === null && n < maxTurnos) {
-    applyAction(state, agresiva(state), rng);
+    aCiegas(state, agresiva(state), rng);
     n++;
   }
   return n;
@@ -568,8 +570,8 @@ export function simular(state: BattleState, rng: Rng, maxTurnos = 3000): number 
 
 /**
  * Juega con `politica` hasta que se cumpla `hasta` —el id del stack activo, o
- * una pregunta sobre la batalla— o se acabe la batalla o los turnos. Dice si
- * llegó.
+ * una pregunta sobre la batalla— o se acabe la batalla o los turnos, con la rueda
+ * a ciegas (`aCiegas`). Dice si llegó.
  */
 export function avanzarHasta(
   state: BattleState,
@@ -581,7 +583,7 @@ export function avanzarHasta(
   const llego = typeof hasta === 'string' ? (s: BattleState) => s.turno?.stack === hasta : hasta;
   for (let n = 0; state.finished === null && n < maxTurnos; n++) {
     if (llego(state)) return true;
-    applyAction(state, politica(state), rng);
+    aCiegas(state, politica(state), rng);
   }
   return state.finished === null && llego(state);
 }
@@ -1308,11 +1310,10 @@ export function conManosDePrueba(
   return b;
 }
 
-/** Lo común de un montaje de prueba: las reglas y el catálogo de equipo del juego. */
+/** Lo común de un montaje de prueba: el catálogo de equipo del juego. */
 export const MONTAJE = {
-  reglas: REGLAS_DEL_JUEGO,
   equipo: EQUIPO_DEL_JUEGO,
-} as const satisfies Pick<MontajeDeArena, 'reglas' | 'equipo'>;
+} as const satisfies Pick<MontajeDeArena, 'equipo'>;
 
 /** Una unidad del borrador a su puesto de la pelea, con su escalera o sin ella. */
 export interface PuestoDeLaPelea {
@@ -1327,17 +1328,14 @@ export function aPelear(unidades: readonly UnidadDeArena[]): PuestoDeLaPelea[] {
 
 /**
  * El montaje de la arena con unidades del borrador, sin héroes: los tests de la
- * muralla no miran ni el catálogo ni la magia. Con las reglas del juego salvo
- * que se pidan otras, y con el catálogo de equipo del juego y sin modos salvo que
- * se pidan (`extra`: el catálogo hecho, `catalogoCon`, y los modos, como la rueda
- * del golpe).
+ * muralla no miran ni el catálogo ni la magia. Con el catálogo de equipo del
+ * juego salvo que se pida otro (`extra`: el catálogo hecho, `catalogoCon`).
  */
 export function montajeDePrueba(
   izquierda: readonly PuestoDeLaPelea[],
   derecha: readonly PuestoDeLaPelea[],
   muralla: MurallaDeBatalla = SIN_MURALLA,
-  reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
-  extra: Partial<Pick<MontajeDeArena, 'equipo' | 'modos'>> = {},
+  extra: Partial<Pick<MontajeDeArena, 'equipo'>> = {},
 ): MontajeDeArena {
   const lado = (puestos: readonly PuestoDeLaPelea[]) => ({
     unidades: puestos.map(({ unidad, escalera }) => ({ unidad, escalera: escalera === true })),
@@ -1346,10 +1344,8 @@ export function montajeDePrueba(
   return {
     izquierda: lado(izquierda),
     derecha: lado(derecha),
-    reglas,
     muralla,
     equipo: extra.equipo ?? EQUIPO_DEL_JUEGO,
-    ...(extra.modos === undefined ? {} : { modos: extra.modos }),
   };
 }
 
@@ -1372,6 +1368,22 @@ export function golpeConLaRueda(
   extra: Partial<BattleAction> = {},
 ): BattleAction {
   return { type: 'attack', target: 'defender-0', golpe, respuesta, ...extra } as BattleAction;
+}
+
+/**
+ * Las dos elecciones de un golpe que no mira la rueda: Normal contra Normal cae
+ * en el medio de la horquilla y no gasta tirada. Desde el 19-10-2026 todo golpe
+ * cuerpo a cuerpo pasa por la rueda: sin elecciones, el `attack` se planta.
+ */
+export const NORMAL = { golpe: 'normal', respuesta: 'normal' } as const;
+
+/**
+ * Aplica `accion` con lo que le falte de la rueda elegido a ciegas por la IA
+ * (`completarCruce`), como `autoResolve`: para los tests que juegan la IA sin
+ * mirar el golpe.
+ */
+export function aCiegas(b: BattleState, accion: BattleAction, rng: Rng): void {
+  applyAction(b, completarCruce(b, accion, rng).accion, rng);
 }
 
 /** `batallaDeArena` con `montajeDePrueba`. */
@@ -1435,13 +1447,13 @@ export function peleaDelMotor(
  * Una sesión de la arena con unidades del borrador, sin héroes, sin empezar. Quién
  * mueve va en cada puesto por comodidad, pero la sesión mueve cada bando entero:
  * un bando con puestos de los dos es un error del test. En `o`, la muralla del
- * tablero y cómo cae el golpe (la rueda, para las pruebas de la rueda).
+ * tablero.
  */
 export function sesionDeArena(
   izquierda: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   derecha: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   semilla: number,
-  o: { readonly muralla?: MurallaDeBatalla; readonly golpe?: ModoDelGolpe } = {},
+  o: { readonly muralla?: MurallaDeBatalla } = {},
 ): SesionDeArena {
   const lado = (puestos: readonly (PuestoDeLaPelea & { readonly ia: boolean })[]) => {
     const ia = puestos.every((p) => p.ia);
@@ -1458,7 +1470,6 @@ export function sesionDeArena(
       derecha: lado(derecha),
       ...MONTAJE,
       muralla: o.muralla ?? SIN_MURALLA,
-      ...(o.golpe === undefined ? {} : { modos: { golpe: o.golpe } }),
     },
     semilla,
   );

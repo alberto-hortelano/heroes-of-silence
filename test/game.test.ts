@@ -1797,11 +1797,23 @@ describe('el maná es un recurso (#4)', () => {
 });
 
 describe('los personajes y sus heridas', () => {
-  /** Un guerrero de 34 PV en el primer slot del héroe, dado de alta en la partida. */
+  /**
+   * Un guerrero de 34 PV en el primer slot del héroe, dado de alta en la partida,
+   * con una espada: sin arma no se combate (la rueda va con la del arma,
+   * 19-10-2026), y un personaje no lleva equipo de serie.
+   */
   function alistar(state: GameState, hero: Hero, id = 'aren'): Character {
     const c = createCharacter(id, { ...defaultBuild, profession: 'Guerrero' });
     state.characters = { ...(state.characters ?? {}), [id]: c };
-    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: id });
+    const veterania = {
+      id: `v-${id}`,
+      experiencia: 0,
+      batallas: 0,
+      bajas: 0,
+      heroes: [],
+      equipo: { arma: 'espada' },
+    };
+    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: id, veterania });
     return c;
   }
 
@@ -1849,8 +1861,9 @@ describe('los personajes y sus heridas', () => {
   });
 
   it('el personaje que cae queda a 0 PV y sale del ejército, pero no de la partida', () => {
-    const state = newGame({ seed: 32 });
-    const c = ctx(32);
+    // La semilla, una en la que cae (19-10-2026: con la rueda, la 32 lo dejaba en pie).
+    const state = newGame({ seed: 33 });
+    const c = ctx(33);
     const hero = heroesOf(state, 0)[0]!;
     alistar(state, hero);
     // Llega con 1 PV y sin la flecha mágica del héroe, y lleva un compañero que
@@ -1876,8 +1889,10 @@ describe('los personajes y sus heridas', () => {
   });
 
   it('las heridas se escriben también en el bando que defiende, aunque su héroe caiga', () => {
-    const state = newGame({ seed: 41 });
-    const c = ctx(41);
+    // La semilla, una en la que el atacante gana y la hiere (19-10-2026: con la
+    // rueda, en la 41 ganaba el defensor).
+    const state = newGame({ seed: 57 });
+    const c = ctx(57);
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');
@@ -1908,8 +1923,9 @@ describe('los personajes y sus heridas', () => {
     // maná). Seis ballesteros contra el personaje y cinco caballeros de la
     // muerte: el defensor gana, y los ballesteros disparan, así que el personaje
     // sale herido.
-    const state = newGame({ seed: 41 });
-    const c = ctx(41);
+    // La semilla, una en la que la hieren (19-10-2026: con la rueda, en la 41 salía sana).
+    const state = newGame({ seed: 57 });
+    const c = ctx(57);
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');
@@ -2424,7 +2440,9 @@ describe('el mapa de nodos se juega', () => {
     mio.army = [];
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
-    suyo.army = ejercito({ creature: NO_MUERTO, count: 2 });
+    // Cinco con mandoble: con dos esqueletos, el héroe solo los paraba (19-10-2026,
+    // la rueda y su Espada).
+    suyo.army = ejercito({ creature: PESADA, count: 5 });
     suyo.at = { x: base.at.x + 1, y: base.at.y };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: base.at }, c, 1);

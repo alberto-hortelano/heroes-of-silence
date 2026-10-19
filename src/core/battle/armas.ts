@@ -55,16 +55,16 @@ export function cifrasDelGolpe(
  * Las cifras de la rueda con que da `unit` un golpe de `uso`: las de los niveles de
  * su arma (`golpeDe(unit, uso).rueda`, que escribe `conEquipo`;
  * `cifrasDeLosNiveles`). **La única lectura del arma en la rueda**: la piden el
- * golpe, el contraataque y la previsión (`battle.ts`). Sin arma de la arena
- * **lanza**: en la arena nadie se monta sin ella (`armaDeCuerpoBlocker`) y el
- * héroe lleva la Espada; si se llega aquí sin ella, es un fallo, no un golpe con
- * cifras inventadas.
+ * golpe, el contraataque y la previsión (`battle.ts`). Sin arma con rueda
+ * **lanza**: toda unidad del catálogo la lleva (`armaDeCuerpoBlocker`) y el héroe,
+ * la Espada; si se llega aquí sin ella, es un fallo, no un golpe con cifras
+ * inventadas.
  */
 export function ruedaDelGolpe(unit: UnitInfo, uso: UsoDeArma): CifrasDeLaRueda {
   const { rueda } = golpeDe(unit, uso);
   if (rueda === undefined) {
     throw new Error(
-      `«${unit.name}» golpea en la rueda sin arma de la arena: en la arena nadie se monta sin ella`,
+      `«${unit.name}» golpea en la rueda sin arma que la lleve: nadie pelea sin arma de cuerpo a cuerpo`,
     );
   }
   return cifrasDeLosNiveles(rueda);
@@ -120,7 +120,7 @@ export interface TrasLaArmadura {
 }
 
 /**
- * El daño de UN golpe tras la armadura de `objetivo` (#262, solo la arena): se
+ * El daño de UN golpe tras la armadura de `objetivo` (#262): se
  * resta lo último —después de ataque contra defensa, los multiplicadores, la
  * suerte y el redondeo— y nunca baja de 0 (decisión del usuario: «una armadura
  * gruesa puede parar del todo un golpe flojo»). **La única resta**: la aplican

@@ -20,23 +20,14 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexKey, neighbours } from '../src/core/battle/board.js';
 import { poder, poderDeHabilidad, validarPoderes } from '../src/core/battle/poderes.js';
-import {
-  REGLAS_DEL_JUEGO,
-  type ReglasDeBatalla,
-  reglasDeLaURL,
-} from '../src/core/battle/reglas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { avanzarHasta, delBorrador, SANADOR, unidadDeArena as unidad } from './helpers.js';
 
-/** El monje y el escudero a la izquierda contra un orco, con la semilla y las reglas que se pidan. */
-function pelea(
-  rng: Rng,
-  reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
-  heroe: HeroeDeArena | null = null,
-): BattleState {
+/** El monje y el escudero a la izquierda contra un orco, con la semilla que se pida. */
+function pelea(rng: Rng, heroe: HeroeDeArena | null = null): BattleState {
   return batallaDeArena(
     {
       izquierda: {
@@ -49,7 +40,6 @@ function pelea(
         heroe,
       },
       derecha: { unidades: [delBorrador(unidad('orko-dos-armas'))], heroe: null },
-      reglas,
       equipo: EQUIPO_DEL_JUEGO,
     },
     rng,
@@ -72,11 +62,10 @@ function hastaSuTurno(b: BattleState, id: string, rng: Rng): void {
 /** La pelea en el turno del monje, con el escudero herido `herida` PV. */
 function enElTurnoDelMonje(
   herida: number,
-  reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
   heroe: HeroeDeArena | null = heroePorDefecto('izquierda'),
 ) {
   const rng = createRng(7);
-  const b = pelea(rng, reglas, heroe);
+  const b = pelea(rng, heroe);
   const monje = stack(b, 0);
   const escudero = stack(b, 1);
   const orco = stack(b, 0, 'defender');
@@ -139,12 +128,6 @@ describe('Bendecir (A2)', () => {
     applyAction(b, { type: 'cast', spell: 'bless', target: escudero.id }, rng);
     applyAction(b, { type: 'poder', poder: 'bendecir', target: escudero.id }, rng);
     expect(escudero.effects.filter((e) => e.source === 'bless')).toHaveLength(1);
-  });
-
-  it('con la regla (e) de fheroes2 fija la tirada, como la del héroe', () => {
-    const { b, rng, escudero } = enElTurnoDelMonje(0, reglasDeLaURL('bendicion'));
-    applyAction(b, { type: 'poder', poder: 'bendecir', target: escudero.id }, rng);
-    expect(escudero.effects).toMatchObject([{ kind: 'tirada', amount: 1, source: 'bless' }]);
   });
 });
 
@@ -268,7 +251,7 @@ describe('la IA de batalla usa los poderes (A4)', () => {
     // Sin héroe: con él, la IA lanza antes su hechizo, que no gasta el turno.
     // 30 de herida sobre los 80 del escudero (la brigantina da armadura, no PV:
     // #262), y le quedan 50.
-    const { b, escudero, orco } = enElTurnoDelMonje(30, REGLAS_DEL_JUEGO, null);
+    const { b, escudero, orco } = enElTurnoDelMonje(30, null);
     orco.topHp = 30; // el bando del monje va ganando la carrera
     // Lejos del orco, 50 PV no corren peligro: el monje no se queda curando.
     expect(chooseBattleAction(b)).not.toMatchObject({ type: 'poder' });
@@ -287,7 +270,7 @@ describe('la IA de batalla usa los poderes (A4)', () => {
   it('bendice cuando compensa: a un aliado que pega mucho más que él, y no a quien ya está bendecido', () => {
     // Con las cifras del escudero, suerte +1 (1/24 de golpe doble) no vale lo que
     // el golpe del monje o acercarse: no bendice.
-    expect(chooseBattleAction(enElTurnoDelMonje(0, REGLAS_DEL_JUEGO, null).b)).not.toMatchObject({
+    expect(chooseBattleAction(enElTurnoDelMonje(0, null).b)).not.toMatchObject({
       type: 'poder',
     });
     // Con un escudero que pega diez veces más, y un orco que aguanta para que esas
@@ -303,7 +286,6 @@ describe('la IA de batalla usa los poderes (A4)', () => {
           heroe: null,
         },
         derecha: { unidades: [delBorrador(unidad('orko-dos-armas', { hp: 4000 }))], heroe: null },
-        reglas: REGLAS_DEL_JUEGO,
         equipo: EQUIPO_DEL_JUEGO,
       },
       rng,

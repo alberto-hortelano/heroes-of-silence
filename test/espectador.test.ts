@@ -31,7 +31,7 @@ import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario
 import { componer } from '../src/client/render/escenario/colocar.js';
 import type { AdventureScene } from '../src/client/render/mapa.js';
 import { createBattle } from '../src/core/battle/battle.js';
-import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
@@ -399,34 +399,29 @@ describe('el fotograma por acción', () => {
     const batalla = campo as BattleState | null;
     if (batalla === null) throw new Error('el montaje no abrió ninguna batalla');
 
-    // Cuántas acciones se aplicaron de verdad, derivado del registro. Tres
-    // reglas, y las tres son del motor y no de este test:
-    //  - cada acción deja UN hecho primario: `move`, `wait`, `defend`, `shoot`,
-    //    `cast` o `attack`;
-    //  - el `attack` de un contraataque NO es una acción: es parte de la del
-    //    otro, y por eso se filtra por `retaliation`;
-    //  - un `attack` con `from` **se mueve y luego pega**, así que deja un `move`
-    //    pegado delante del `attack`. Eso es UNA acción, no dos. Sin esta
-    //    tercera regla la cuenta sale dos de más en esta misma semilla.
+    // Cuántas acciones se aplicaron de verdad, derivado del registro. Las
+    // reglas son del motor y no de este test:
+    //  - cada acción que no golpea deja UN hecho primario: `move`, `wait`,
+    //    `defend`, `shoot` (sin las salpicaduras), `cast` o `surrender`;
+    //  - un golpe cuerpo a cuerpo deja UN `cruce` (la rueda, en toda batalla
+    //    desde el 19-10-2026), y detrás sus golpes —Rápido o el doble golpe dan
+    //    dos— y el contraataque, que son parte de él;
+    //  - un golpe con `from` **se mueve y luego pega**: deja un `move` pegado
+    //    delante de su `cruce`, del mismo stack. Eso es UNA acción, no dos.
     //
-    // «Pegado» es en el registro CRUDO y del MISMO stack. Antes se miraba la
-    // lista ya filtrada y sin mirar quién: un `move` de un stack seguido del
-    // `attack` de otro contaba como una carga, y con el héroe en el tablero
-    // (fase 1b) esta semilla sacaba tres acciones de menos.
-    const primarias = new Set(['move', 'wait', 'defend', 'shoot', 'cast', 'attack', 'surrender']);
-    const hechos = batalla.log.filter(
-      (e) => primarias.has(e.kind) && !(e.kind === 'attack' && e.retaliation),
-    );
-    const cargas = batalla.log.filter((e, i) => {
-      const siguiente = batalla.log[i + 1];
-      return (
-        e.kind === 'move' &&
-        siguiente?.kind === 'attack' &&
-        !siguiente.retaliation &&
-        siguiente.stack === e.stack
-      );
-    }).length;
-    const acciones = hechos.length - cargas;
+    // «Pegado» es en el registro CRUDO y del MISMO stack: un `move` de un stack
+    // seguido del golpe de otro no es una carga.
+    const accionesDe = (trozo: readonly BattleEvent[]): number =>
+      trozo.filter((e, i) => {
+        if (e.kind === 'cruce') return true;
+        if (e.kind === 'shoot') return e.splash !== true;
+        if (e.kind === 'move') {
+          const siguiente = trozo[i + 1];
+          return !(siguiente?.kind === 'cruce' && siguiente.stack === e.stack);
+        }
+        return ['wait', 'defend', 'cast', 'surrender'].includes(e.kind);
+      }).length;
+    const acciones = accionesDe(batalla.log);
 
     expect(acciones).toBeGreaterThan(1);
     // El `+1` es el fotograma del `move_hero` que ABRIÓ la batalla: en él la
@@ -440,19 +435,7 @@ describe('el fotograma por acción', () => {
     let desde = 0;
     for (const hasta of largos.slice(1)) {
       const trozo = batalla.log.slice(desde, hasta);
-      const deEste = trozo.filter(
-        (e) => primarias.has(e.kind) && !(e.kind === 'attack' && e.retaliation),
-      ).length;
-      const cargasDeEste = trozo.filter((e, i) => {
-        const siguiente = trozo[i + 1];
-        return (
-          e.kind === 'move' &&
-          siguiente?.kind === 'attack' &&
-          !siguiente.retaliation &&
-          siguiente.stack === e.stack
-        );
-      }).length;
-      expect(deEste - cargasDeEste, `fotograma de ${desde} a ${hasta}`).toBeLessThanOrEqual(1);
+      expect(accionesDe(trozo), `fotograma de ${desde} a ${hasta}`).toBeLessThanOrEqual(1);
       desde = hasta;
     }
     // Y son fotogramas de verdad repartidos, no N copias del final: el registro

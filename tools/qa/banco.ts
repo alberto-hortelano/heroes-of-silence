@@ -1069,11 +1069,27 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   llevan); el primer hecho distinto, el de la batalla que se libra con uno
  *   menos (`battle_ended` en 16, `troop_rank_up` en 3); 5 con otro ganador, j0
  *   86 → 89. Ningún tipo de hecho nuevo ni ninguno que desaparezca.
+ * - `1c496b88…` (42 259 líneas, 19-10-2026): **un solo combate** (F4 de
+ *   `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`): toda batalla pelea
+ *   como la arena, sin interruptores —la rueda del golpe (la IA elige a ciegas por
+ *   los dos bandos, también por la persona y el agente hasta F5 y F6), salir del
+ *   contacto cuesta y carga a pie todo el que pega cuerpo a cuerpo—, y fuera las
+ *   ramas de fheroes2. Cambia todo, a propósito: **1 de 200 idénticas**; en las
+ *   199 el primer hecho distinto es el final de una batalla (`battle_ended` 131:
+ *   otras rondas y otras bajas) o una subida de rango o una toma que llega antes
+ *   o después (`troop_rank_up` 43 + 12, `town_captured` 12, `hero_moved` 1):
+ *   ninguna cambia antes de su primera batalla. 44 con otro ganador, j0 89 →
+ *   **99**, duración 4 / 9 / 36 → **4 / 8 / 21**, 0 sin terminar. Batallas 1 099 →
+ *   1 041, rondas por batalla (media / mediana / p90 / máx.) 4,04 / 3 / 7 / 13 →
+ *   **3,64 / 3 / 5 / 12**, ninguna en `MAX_ROUNDS`; días 1 027 → 960, `recruited`
+ *   1 991 → 1 794, `troop_rank_up` 2 642 → 2 529, `hero_defeated` 331 → 264.
+ *   Ningún tipo de hecho nuevo; `item_bought` 3 → 0 (era una rareza: no se
+ *   retiró nada).
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '06318579f175e5dc21312e23b7b8f4d2bedd65284c9ffc7c83bddf0d94ec93a9',
+  sha: '1c496b88ca817b7beed16539aa4ced5c918969afd34c55fcc69328490bd31140',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

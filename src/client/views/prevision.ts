@@ -13,7 +13,6 @@ import type {
 import type { Horquilla, Modificador, RamaDeSuerte } from '@core/battle/damage.js';
 import type { StackEffect } from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
-import { DESCRIPCION_DE_REGLA } from '@core/battle/reglas.js';
 import { spell } from '@core/battle/spells.js';
 import { conComa } from '@core/types.js';
 import { cifraDeEfecto, enRondas } from './panels.js';
@@ -48,11 +47,6 @@ function modificadores(ms: readonly Modificador[]): string {
   return ` Cuenta: ${dichos.join('; ')}.`;
 }
 
-function reglas(p: Pick<Prevision, 'reglas'>): string {
-  if (p.reglas.length === 0) return '';
-  return ` Reglas de fheroes2: ${p.reglas.map((r) => DESCRIPCION_DE_REGLA[r].nombre.toLowerCase()).join(', ')}.`;
-}
-
 /**
  * «Contraataque con Daga (cuerpo a cuerpo), si sobrevive: 9–18.»: el arma con que
  * lo devuelve, en la arena, es la de cuerpo a cuerpo y no la del golpe (un jinete
@@ -85,7 +79,7 @@ function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
   return (
     `Daño ${horquilla(p.danio)}${golpes}${suerte(p.buena, p.mala)}: ${bajas} y ${leQuedan}.` +
     `${p.kind === 'golpe' ? contraataque(p.contraataque) : ''}${salpica}` +
-    `${modificadores(p.modificadores)}${reglas(p)}`
+    `${modificadores(p.modificadores)}`
   );
 }
 
@@ -116,10 +110,10 @@ function deLanzar(quien: string, p: PrevisionDeLanzar): string {
     // Lo que para la armadura, como en el parte («193 de daño (−7 armadura)»): sin
     // ello se veía 193 donde se esperaba 200 (A1 de QA de #262).
     const armadura = p.parado > 0 ? ` (−${p.parado} armadura)` : '';
-    return `${quien}: ${p.danio} de daño${armadura}, ${bajas} y ${leQuedan}.${reglas(p)}`;
+    return `${quien}: ${p.danio} de daño${armadura}, ${bajas} y ${leQuedan}.`;
   }
   const hace = curaOEfecto(p.cura, p.efecto);
-  return `${quien}${hace === null ? '' : `: ${hace}`}.${reglas(p)}`;
+  return `${quien}${hace === null ? '' : `: ${hace}`}.`;
 }
 
 /**

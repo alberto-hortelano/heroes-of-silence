@@ -241,8 +241,9 @@ function asaltoConDosGoblins(
   atacante.army = [{ creature: TROPA_BARATA }, { creature: TROPA_BARATA }];
   // Sin su equipo de serie: la sonda mide si la BASE aguanta a un asaltante
   // flojo, y con +3/+3 del equipo base el héroe solo ya toma la guarnición de
-  // salida —que es una pregunta de equilibrio, no la de este test—.
-  atacante.equipo = {};
+  // salida —que es una pregunta de equilibrio, no la de este test—. Con la daga,
+  // que sin arma no se combate (la rueda va con la del arma, 19-10-2026).
+  atacante.equipo = { arma: 'daga' };
   // Ni su Flecha mágica, por lo mismo: desde que la IA elige el hechizo por la
   // amenaza que quita (#92), sus seis Flechas van al héroe nacido —matarlo gana
   // la batalla— y en la semilla 11 lo tumban. Eso es la fuerza del asaltante,

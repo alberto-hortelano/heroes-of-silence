@@ -104,12 +104,9 @@ function ofensaDe(u: UnitInfo): number {
     const disparo = golpeMedido(u, 'distancia').ofensa * disparosDe(u);
     ofensa = Math.max(ofensa, Math.floor((disparo * 3) / 2));
   }
-  const carga = cifrasDeCarga(u, true);
-  if (carga !== null) {
-    const cobra = 100 + Math.floor(porcientoDeLaCarga(carga.tope, carga) / 2);
-    ofensa = Math.max(ofensa, ofensaDelAtaque(u, golpeMedido(u, 'lanza'), cuerpo, cobra));
-  }
-  return ofensa;
+  const carga = cifrasDeCarga(u);
+  const cobra = 100 + Math.floor(porcientoDeLaCarga(carga.tope, carga) / 2);
+  return Math.max(ofensa, ofensaDelAtaque(u, golpeMedido(u, 'lanza'), cuerpo, cobra));
 }
 
 /** Un golpe de un uso, medido: lo que pega sin multiplicar y lo que le da la rueda de su arma. */

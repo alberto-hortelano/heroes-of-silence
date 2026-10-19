@@ -1,7 +1,8 @@
 /**
- * La rueda del golpe: el combate por decisión de la ARENA (decisión del usuario,
- * 13-10-2026, docs/agents/2026-10-13-rueda-del-golpe/). **Regla nuestra, solo de
- * la arena**: el juego, el agente y el banco pelean con la tirada de siempre.
+ * La rueda del golpe: el combate por decisión (decisión del usuario, 13-10-2026,
+ * docs/agents/2026-10-13-rueda-del-golpe/). **Regla nuestra**: nació en la arena
+ * y desde el 19-10-2026 es el golpe cuerpo a cuerpo de toda batalla; el disparo
+ * sigue con su tirada.
  *
  * Al golpear cuerpo a cuerpo, quien ataca elige un tipo de golpe y quien recibe
  * elige su respuesta, a la vez y sin ver el otro. El cruce de los dos fija el
@@ -23,8 +24,7 @@
  * Aquí está la regla una vez: el anillo, el punto del cruce, la tirada fija de
  * cada punto, cuántos golpes da cada tipo y sus cifras, con sus nombres para la
  * persona. Puro: no importa `battle.ts`; lo leen el motor (`applyAction`,
- * `melee`, el daño), la IA (`ai/rueda.ts`), la sesión de la arena y la rueda del
- * cliente.
+ * `melee`, el daño), la IA (`ai/rueda.ts`), las sesiones y la rueda del cliente.
  */
 import { conSigno } from '../hero/equipo.js';
 import {
@@ -48,7 +48,6 @@ import {
 } from './cifras-de-la-rueda.js';
 import { type CruceDelGolpe, tiradaEnCuartos } from './damage.js';
 import type { CuandoVence } from './effects.js';
-import type { ModosDeArena } from './modos.js';
 import type { BattleAction, BattleEvent } from './types.js';
 
 export {
@@ -76,10 +75,6 @@ export {
   type TipoDeGolpe,
   type TipoDelAnillo,
 };
-
-/** Los modos del golpe de una pelea: la tirada de siempre o la rueda. */
-export const MODOS_DEL_GOLPE = ['azar', 'rueda'] as const;
-export type ModoDelGolpe = (typeof MODOS_DEL_GOLPE)[number];
 
 /** El punto según la distancia en el anillo: igual, al lado, a dos, enfrente. */
 const PUNTO_POR_DISTANCIA: readonly Punto[] = [0, 1, 3, 4];
@@ -334,38 +329,21 @@ export function cruceDelGolpe(
 }
 
 /**
- * ¿Se pelea con la rueda? La única lectura del modo (`BattleState.arena`; cómo va
- * en la URL lo dice `modos.ts`): nadie compara el literal fuera de aquí y de la
- * arena (lo vigila `test/invariantes.test.ts`).
- */
-export function conRueda(state: { readonly arena: ModosDeArena }): boolean {
-  return state.arena.golpe === 'rueda';
-}
-
-/**
- * Por qué un golpe no vale por lo que elige en la rueda, o `null`. Con la rueda,
- * el golpe y la respuesta tienen que ser tipos, y para darlo (`completa`) son
- * obligatorios; la previsión, que se pide antes de elegir, pasa sin ellos. Sin
- * rueda no se admite ninguno: un golpe elegido que se tira a dados sería una
- * mentira callada. Lo leen `applyAction` antes de mover y la previsión.
+ * Por qué un golpe no vale por lo que elige en la rueda, o `null`. El golpe y la
+ * respuesta tienen que ser tipos, y para darlo (`completa`) son obligatorios; la
+ * previsión, que se pide antes de elegir, pasa sin ellos. Lo leen `applyAction`
+ * antes de mover y la previsión.
  */
 export function cruceBlocker(
-  state: { readonly arena: ModosDeArena },
   accion: BattleAction & { type: 'attack' },
   completa: boolean,
 ): string | null {
-  if (!conRueda(state)) {
-    if (accion.golpe !== undefined || accion.respuesta !== undefined) {
-      return 'en esta pelea el golpe es de azar: no se elige tipo';
-    }
-    return null;
-  }
   for (const [papel, valor] of [
     ['el golpe', accion.golpe],
     ['la respuesta', accion.respuesta],
   ] as const) {
     if (valor === undefined) {
-      if (completa) return `en esta pelea se golpea con la rueda: falta ${papel}`;
+      if (completa) return `se golpea con la rueda: falta ${papel}`;
       continue;
     }
     const motivo = tipoDeGolpeBlocker(valor);
@@ -449,15 +427,13 @@ function fintaPorExito(c: CifrasDeLaRueda): string {
  * promete cubrirlo, ni Romper guardia quitarle ataque en él (H9).
  *
  * Y lo que se apila con otras reglas (decisiones del usuario, 14-10-2026): la
- * Finta, si la pelea cobra el contacto (`pagaContacto`), avisa de que su tramo
- * lo paga como cualquier otro; y Rápido, de que cada golpe resta la armadura del
+ * Finta avisa de que su tramo paga salir del contacto como cualquier otro; y Rápido, de que cada golpe resta la armadura del
  * que lo recibe, así que contra armadura pierde.
  */
 export function efectoDeGolpe(
   tipo: TipoDeGolpe,
   papel: PapelEnLaRueda,
   contraataca: boolean,
-  pagaContacto: boolean,
   c: CifrasDeLaRueda,
 ): string {
   if (papel === 'golpe') {
@@ -479,7 +455,7 @@ export function efectoDeGolpe(
           ? `Quita ataque al rival desde ya: en su contraataque de ahora y ${duracion('terminar', 'su')}; ${romperGuardiaPorExito(c)}.`
           : `Quita ataque al rival en su próximo turno (esta vez no te devuelve el golpe); ${romperGuardiaPorExito(c)}.`;
       case 'finta':
-        return `Después de golpear puedes andar las casillas que te queden menos ${fintaPorExito(c)}. Andar cierra el turno.${pagaContacto ? ' Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.' : ''}`;
+        return `Después de golpear puedes andar las casillas que te queden menos ${fintaPorExito(c)}. Andar cierra el turno. Salir del contacto cuesta encima, como cualquier paso: 1 más por cada enemigo a tu lado.`;
     }
   }
   // La respuesta: lo que hace va con el contraataque, y solo si lo hay.

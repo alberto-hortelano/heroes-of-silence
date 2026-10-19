@@ -80,7 +80,6 @@ import { isAlive, mismoTurno, stackById, stackHexes } from '../../src/core/battl
 import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/board.js';
 import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
 import { poder } from '../../src/core/battle/poderes.js';
-import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../../src/core/battle/reglas.js';
 import {
   NOMBRE_DE_GOLPE,
   NOMBRE_DEL_PUNTO,
@@ -2728,7 +2727,6 @@ function espejoDeLaArena(semilla: number): SesionDeArena {
         heroe: null,
         ia: true,
       },
-      reglas: REGLAS_DEL_JUEGO,
       equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
@@ -2922,7 +2920,6 @@ function espejoDeLosPoderes(semilla: number): SesionDeArena {
         heroe: null,
         ia: true,
       },
-      reglas: REGLAS_DEL_JUEGO,
       equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
@@ -3234,7 +3231,6 @@ async function todoIA(
     {
       izquierda: { unidades: [delBorrador(izquierda)], heroe: null, ia: true },
       derecha: { unidades: [delBorrador(derecha)], heroe: null, ia: true },
-      reglas: REGLAS_DEL_JUEGO,
       equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
@@ -3503,12 +3499,6 @@ async function jugarArena(
 
 // ------------------------------------------------------------- banco de combate
 
-/** Las reglas de la pelea del banco: las del juego con el tirador de fheroes2. */
-const REGLAS_DEL_BANCO: ReglasDeBatalla = Object.freeze({
-  ...REGLAS_DEL_JUEGO,
-  tirador: 'fheroes2',
-});
-
 /**
  * El héroe de la pelea del banco tal como lo deja la página: el nombre y el libro
  * de uno recién puesto (todos los hechizos) y el poder y el conocimiento que el
@@ -3546,7 +3536,6 @@ function espejoDelBanco(semilla: number): SesionDeArena {
         heroe: null,
         ia: true,
       },
-      reglas: REGLAS_DEL_BANCO,
       equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
@@ -3614,7 +3603,7 @@ async function esperarBarra(
     });
 }
 
-/** La arena con `query` (`?seed=…&reglas=…`), con la lista de unidades ya pintada. */
+/** La arena con `query` (`?seed=…`), con la lista de unidades ya pintada. */
 async function abrirLaArena(page: Page, url: string, query: string): Promise<void> {
   await page.goto(`${url}/arena/${query}`, { waitUntil: 'networkidle' });
   await page.locator('[data-unidad-catalogo]').first().waitFor({ timeout: 5000 });
@@ -3676,7 +3665,7 @@ async function asentada(page: Page): Promise<void> {
  * El banco de combate en la arena, con clics de verdad (#ciclo 2026-10-09): un
  * jinete (el hermano de carga; hasta el 13-10-2026, la caballería del catálogo)
  * y un HÉROE con libro a la izquierda, sin el catálogo del juego en la lista ni
- * munición en la ficha y el panel, el interruptor del tirador en fheroes2 desde la URL, la Flecha
+ * munición en la ficha y el panel, sin interruptores de reglas, la Flecha
  * mágica lanzada con un clic tras leer su previsión en la barra, y el primer
  * golpe con su previsión, las dos de la misma cuenta del núcleo que el espejo.
  */
@@ -3685,14 +3674,13 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   vigilarConsola(page, 'banco', problemas);
   const semilla = buscarBanco();
   log(`banco: semilla ${semilla}, buscada en el espejo`);
-  await abrirLaArena(page, url, `?seed=${semilla}&reglas=tirador`);
-  // La de las reglas por su nombre: delante va la del golpe (azar o rueda).
-  const cabecera = await page
-    .locator('#catalogo h3', { hasText: /^\s*reglas/i })
-    .first()
-    .innerText();
-  if (!/1 de fheroes2/i.test(cabecera)) {
-    throw new Error(`banco: la URL pide el tirador de fheroes2 y el montaje dice «${cabecera}»`);
+  await abrirLaArena(page, url, `?seed=${semilla}`);
+  // Sin interruptores (19-10-2026): la arena pelea con las reglas del juego.
+  const interruptores = await page
+    .locator('#catalogo [data-arena="regla"], #catalogo [data-arena="modo"]')
+    .count();
+  if (interruptores > 0) {
+    throw new Error(`banco: el montaje aún enseña ${interruptores} interruptores de reglas`);
   }
   await sinElCatalogoDelJuego(page, '#catalogo', 'banco');
   await page
@@ -3732,8 +3720,8 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   const espejo = espejoDelBanco(semilla);
   await page.locator('[data-arena="luchar"]').click();
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
-  if (!page.url().includes('reglas=tirador')) {
-    throw new Error(`banco: la URL de la pelea no lleva las reglas: ${page.url()}`);
+  if (!page.url().includes(`seed=${semilla}`)) {
+    throw new Error(`banco: la URL de la pelea no lleva la semilla: ${page.url()}`);
   }
   await esperarCola(espejo.battle, espejo.battle.log);
   await mismaPelea(page, espejo, 'empezar la pelea del banco');
@@ -3928,17 +3916,17 @@ async function avisosEnteros(page: Page, primeros: readonly string[], paso: stri
 /**
  * El enlace de la pelea (H6 de QA del banco): se monta con clics una pelea con
  * todo lo que lleva el enlace —dos hojas con una cifra sin guardar, un arquero,
- * un héroe con su hoja de figura y sus cifras en cada lado, todo en IA, y dos
- * reglas de fheroes2—, se copia el enlace, y abierto en otra página monta lo
+ * un héroe con su hoja de figura y sus cifras en cada lado, todo en IA—, se
+ * copia el enlace, y abierto en otra página monta lo
  * mismo y se queda en el montaje sin luchar. Un enlace de hoy con una criatura
  * del catálogo (que ya no está en la arena, 13-10-2026), uno de la versión 8 y un
- * `?reglas=` repetido se rechazan diciéndolo, y una unidad de antes en el borrador
+ * `?reglas=` (un interruptor retirado el 19-10-2026) se rechazan diciéndolo, y una unidad de antes en el borrador
  * no vale y se dice entera (`loQueNoValeAlLeer`).
  */
 async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   vigilarConsola(page, 'enlace', problemas);
-  await abrirLaArena(page, url, `?seed=11&reglas=tirador,bendicion`);
+  await abrirLaArena(page, url, `?seed=11`);
   const campo = async (selector: string, valor: string): Promise<void> => {
     const c = page.locator(`#ficha ${selector}`);
     await c.fill(valor);
@@ -3975,8 +3963,8 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   const campoDelEnlace = page.locator('[data-enlace-de-pelea]');
   await campoDelEnlace.waitFor({ timeout: 2000 });
   const enlace = await campoDelEnlace.inputValue();
-  if (!enlace.includes('seed=11') || !enlace.includes('reglas=tirador,bendicion')) {
-    throw new Error(`enlace: el enlace no lleva la semilla y las reglas: ${enlace}`);
+  if (!enlace.includes('seed=11') || /[?&](reglas|golpe|contacto)=/.test(enlace)) {
+    throw new Error(`enlace: el enlace no lleva la semilla, o lleva un interruptor: ${enlace}`);
   }
   log(`enlace: ${enlace.length} caracteres; barra: «${await page.locator('#status').innerText()}»`);
   await sleep(300);
@@ -4044,14 +4032,12 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   await captura(otra, 'arena-09b-enlace-de-la-anterior');
   log(`enlace: uno de la versión ${anterior} no se monta y dice que se vuelva a copiar`);
   await loQueNoValeAlLeer(otra, url);
-  // Repetido: `reglas` dos veces se rechaza diciéndolo (H4 de QA del banco).
-  await otra.goto(`${url}/arena/?seed=5&reglas=tirador&reglas=bendicion`, {
-    waitUntil: 'networkidle',
-  });
+  // Un interruptor retirado (19-10-2026) se rechaza diciéndolo, no se ignora.
+  await otra.goto(`${url}/arena/?seed=5&reglas=tirador`, { waitUntil: 'networkidle' });
   await otra
-    .locator('#status', { hasText: '«reglas» va 2 veces en la URL' })
+    .locator('#status', { hasText: 'la arena pelea con las reglas del juego' })
     .waitFor({ timeout: 5000 });
-  log('enlace: el enlace roto y la regla repetida se rechazan diciéndolo');
+  log('enlace: el enlace roto y el interruptor retirado se rechazan diciéndolo');
   await otra.close();
 }
 
@@ -4214,7 +4200,7 @@ async function edicionDeLaArena(
 ): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   vigilarConsola(page, 'edicion', problemas);
-  await abrirLaArena(page, url, `?seed=7&reglas=bendicion`);
+  await abrirLaArena(page, url, `?seed=7`);
   // El montaje que tiene que seguir igual: dos unidades y una muralla de ejemplo.
   await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
   await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
@@ -4788,7 +4774,6 @@ function espejoDeLasArmas(semilla: number): SesionDeArena {
     {
       izquierda: { unidades: [delBorrador(delCatalogo('elfo-arquero'))], heroe: null, ia: false },
       derecha: { unidades: [delBorrador(orcoConLanza())], heroe: null, ia: true },
-      reglas: REGLAS_DEL_JUEGO,
       equipo: EQUIPO_DEL_JUEGO,
     },
     semilla,
@@ -4974,7 +4959,7 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
           .slice(antes)
           .find((e) => (e.kind === 'shoot' || e.kind === 'attack') && e.stack !== j.contra.id);
         const arquero = espejo.battle.stacks.find((x) => x.side !== j.contra.side) as BattleStack;
-        const fila = armasDe(arquero.unit, espejo.battle.arena.cargaAPie).find(
+        const fila = armasDe(arquero.unit).find(
           (a) => a.uso === (j.tipo === 'disparo' ? 'distancia' : 'arma'),
         );
         if (hecho === undefined || fila === undefined)
@@ -5007,7 +4992,7 @@ const ELECCION_DE_LA_RUEDA = { golpe: 'fuerte', respuesta: 'defensivo' } as cons
 
 /**
  * La pelea de la rueda en el espejo: el guerrero con escudo de la persona contra
- * el orco de la IA, con «Golpe: rueda» (`?golpe=rueda`). Ya empezada, como la página.
+ * el orco de la IA, con la rueda. Ya empezada, como la página.
  */
 function espejoDeLaRueda(semilla: number): SesionDeArena {
   const espejo = new SesionDeArena(
@@ -5025,9 +5010,7 @@ function espejoDeLaRueda(semilla: number): SesionDeArena {
         heroe: null,
         ia: true,
       },
-      reglas: REGLAS_DEL_JUEGO,
       equipo: EQUIPO_DEL_JUEGO,
-      modos: { golpe: 'rueda' },
     },
     semilla,
   );
@@ -5106,7 +5089,7 @@ function buscarRueda(): number {
 
 /**
  * La rueda del golpe con clics de verdad (docs/agents/2026-10-13-rueda-del-golpe/),
- * a escritorio y a móvil: «Rueda» en el montaje (y `?golpe=rueda` en la barra); un
+ * a escritorio y a móvil (sin interruptor desde el 19-10-2026: siempre hay rueda); un
  * clic en el enemigo abre la rueda en su fase de golpe, Escape la cierra sin dar
  * el golpe, y elegir Fuerte da el desenlace —giro, marcadores, arco, medidor y
  * rótulo— con el punto que dice el espejo; cuando el orco golpea, la rueda se abre
@@ -5139,13 +5122,6 @@ async function jugarLaRueda(
   await abrirLaArena(page, url, `?seed=${semilla}`);
   await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
   await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
-  await page.locator('[data-arena="modo"][data-parametro="golpe"][data-modo="rueda"]').click();
-  await page
-    .locator('[data-modo-del-montaje="golpe"][data-modo="rueda"]')
-    .waitFor({ timeout: 2000 });
-  if (!page.url().includes('golpe=rueda')) {
-    throw new Error(`rueda: la barra no lleva el golpe: ${page.url()}`);
-  }
   if (sufijo === '') await captura(page, 'rueda-01-montaje');
   await page.locator('[data-arena="luchar"]').click();
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
@@ -5817,9 +5793,7 @@ async function todoEnIAConLaRueda(
         heroe: null,
         ia: true,
       },
-      reglas: REGLAS_DEL_JUEGO,
       equipo: EQUIPO_DEL_JUEGO,
-      modos: { golpe: 'rueda' },
     },
     semilla,
   );
@@ -5835,14 +5809,11 @@ async function todoEnIAConLaRueda(
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   vigilarConsola(page, 'rueda-todo-ia', problemas);
-  await abrirLaArena(page, url, `?seed=${semilla}&golpe=rueda`);
+  await abrirLaArena(page, url, `?seed=${semilla}`);
   await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
   await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   await page.locator('[data-arena="manda"][data-lado="izquierda"][data-ia="si"]').click();
   await page.locator('[data-arena="manda"][data-lado="derecha"][data-ia="si"]').click();
-  await page
-    .locator('[data-modo-del-montaje="golpe"][data-modo="rueda"]')
-    .waitFor({ timeout: 2000 });
   await page.locator('[data-arena="luchar"]').click();
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
 
@@ -6079,9 +6050,7 @@ function espejoYoContraYo(semilla: number, n: number): SesionDeArena {
     {
       izquierda: { unidades: varios('templario-escudo'), heroe: null, ia: false },
       derecha: { unidades: varios('orko-dos-armas'), heroe: null, ia: false },
-      reglas: REGLAS_DEL_JUEGO,
       equipo: EQUIPO_DEL_JUEGO,
-      modos: { golpe: 'rueda' },
     },
     semilla,
   );
@@ -6111,15 +6080,12 @@ async function hastaLaRuedaYoContraYo(
   quien: string,
   n: number,
 ): Promise<RuedaYoContraYo> {
-  await abrirLaArena(page, url, `?seed=${semilla}&golpe=rueda`);
+  await abrirLaArena(page, url, `?seed=${semilla}`);
   for (let i = 0; i < n; i++) {
     await page.locator('[data-unidad-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
     await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   }
   await page.locator('[data-arena="manda"][data-lado="derecha"][data-ia="no"]').click();
-  await page
-    .locator('[data-modo-del-montaje="golpe"][data-modo="rueda"]')
-    .waitFor({ timeout: 2000 });
   await page.locator('[data-arena="luchar"]').click();
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
   const espejo = espejoYoContraYo(semilla, n);

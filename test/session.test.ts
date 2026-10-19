@@ -467,10 +467,11 @@ describe('la pieza elegida es de la mochila de un héroe (M1)', () => {
     const session = new Session(12);
     const aldo = session.myHeroes()[0]!;
     session.selectedHeroId = aldo.id;
-    session.unequip(aldo.id, 'arma');
-    const espada = aldo.mochila[0]!;
-    session.selectItem(espada);
-    expect(session.selectedItem).toBe(espada);
+    // La armadura: el arma no se quita, que sin ella no se combate (19-10-2026).
+    session.unequip(aldo.id, 'armadura');
+    const gambeson = aldo.mochila[0]!;
+    session.selectItem(gambeson);
+    expect(session.selectedItem).toBe(gambeson);
 
     // Otro héroe delante: su panel le ofrecía «Ponérsela» con la mochila vacía.
     session.selectedHeroId = 'otro';
@@ -479,7 +480,7 @@ describe('la pieza elegida es de la mochila de un héroe (M1)', () => {
     expect(session.selectedItem).toBeNull();
 
     // Y si sale de la mochila por otro camino que el clic de equipar.
-    session.selectItem(espada);
+    session.selectItem(gambeson);
     aldo.mochila = [];
     expect(session.selectedItem).toBeNull();
   });

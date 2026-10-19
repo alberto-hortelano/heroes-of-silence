@@ -28,7 +28,7 @@ export interface CifrasDeCarga {
   readonly tope: number;
 }
 
-/** Las dos cargas: la del jinete (el rasgo `charge`) y la de a pie (solo la arena). */
+/** Las dos cargas: la del jinete (el rasgo `charge`) y la de a pie (todos los demás). */
 export interface CargasDeLaBatalla {
   readonly jinete: CifrasDeCarga;
   readonly aPie: CifrasDeCarga;
@@ -51,16 +51,15 @@ export function validarCarga(json: unknown, fichero = 'data/carga.json'): Cargas
 export const CARGA: CargasDeLaBatalla = validarCarga(cargaJson);
 
 /**
- * Con qué cifras carga `unit`, o `null` si no carga. **La única regla de quién
- * carga y cuánto**: con el rasgo `charge`, la del jinete, en el juego y en la
- * arena; sin él, la de a pie si la batalla la juega (`ModosDeArena.cargaAPie`,
- * que enciende solo la arena); si no, nadie. La leen `cargaDelStack` (la
- * batalla: la carga, el daño, el anuncio, la IA y la ayuda del panel) y la ficha
- * (`armasDe`).
+ * Con qué cifras carga `unit`. **La única regla de quién carga y cuánto**: con el
+ * rasgo `charge`, la del jinete; sin él, la de a pie (#260; desde F4 de la tarea
+ * del combate en el juego, 19-10-2026, en toda batalla: carga todo el que pega
+ * cuerpo a cuerpo, y el jinete más). La leen `cargaDelStack` (la batalla: la
+ * carga, el daño, el anuncio, la IA y la ayuda del panel), el índice de poder y
+ * la ficha (`armasDe`).
  */
-export function cifrasDeCarga(unit: UnitInfo, cargaAPie: boolean): CifrasDeCarga | null {
-  if (hasTrait(unit, 'charge')) return CARGA.jinete;
-  return cargaAPie ? CARGA.aPie : null;
+export function cifrasDeCarga(unit: UnitInfo): CifrasDeCarga {
+  return hasTrait(unit, 'charge') ? CARGA.jinete : CARGA.aPie;
 }
 
 /**

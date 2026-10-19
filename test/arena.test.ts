@@ -26,7 +26,6 @@ import {
   renderFicha,
   renderFichaDeHeroe,
   renderPanelDeBatalla,
-  renderReglas,
   resumenDeCifras,
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
@@ -34,6 +33,7 @@ import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/per
 import { type LadoDeSesion, SesionDeArena } from '../src/client/session.js';
 import { nombreEnElCampo } from '../src/client/views/distintivo.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
+import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   batallaDeArena,
@@ -55,6 +55,7 @@ import {
   piezaNueva,
   piezasDelMontaje,
   quitarEnArena,
+  retiradosDeLaURL,
   retocarEnBatalla,
   tipoDelStack,
   unaVezEnLaURL,
@@ -76,9 +77,7 @@ import {
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { armasDe } from '../src/core/battle/damage.js';
-import { MODOS_DE_LA_ARENA, MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO, reglasDeLaURL } from '../src/core/battle/reglas.js';
 import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { UNIDADES as CATALOGO, unidadesDelJuego } from '../src/core/catalogo.js';
@@ -169,7 +168,6 @@ function pelea(
     {
       izquierda: { unidades: izquierda.map((u) => delBorrador(u)), heroe: null },
       derecha: { unidades: derecha.map((u) => delBorrador(u)), heroe: null },
-      reglas: REGLAS_DEL_JUEGO,
       equipo: CON_MANOS,
     },
     rng,
@@ -309,6 +307,13 @@ describe('la arena pelea con las cifras del borrador', () => {
       let turnos = 0;
       let movioLaIA = false;
       while (s.battle.finished === null) {
+        // La rueda (siempre, desde el 19-10-2026) para la sesión también al
+        // golpear y al responder: se elige y se sigue.
+        if (s.ruedaPendiente !== null) {
+          s.elegirEnLaRueda('normal');
+          if (++turnos > 500) throw new Error('la batalla no termina');
+          continue;
+        }
         // Cada vez que la sesión devuelve el control, la activa es de las mías.
         const activa = activeStack(s.battle);
         expect(mios).toContain(activa?.id);
@@ -350,7 +355,7 @@ describe('la arena pelea con las cifras del borrador', () => {
 describe('el nivel de la ficha se deriva de las cifras (12-10-2026)', () => {
   it('la ficha enseña «Índice N · nivel n» y no tiene un campo de nivel que escribir', () => {
     const u = unidad('templario-monje');
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).toContain(nivelDeLaHoja(u));
     expect(m).toMatch(/Índice \d{3} · nivel \d/);
     expect(m).not.toContain('data-campo="level"');
@@ -678,7 +683,7 @@ describe('las hojas de assets/unidades se pintan en el tablero', () => {
 describe('el marcado de la arena', () => {
   it('la ficha dice que las habilidades no tienen efecto, y escapa lo que se escribe', () => {
     const u = { ...unidad('templario-monje'), name: '<b>Monje</b>', habilidades: ['Salto'] };
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).toContain('sin efecto todavía');
     expect(m).toContain('&lt;b&gt;Monje&lt;/b&gt;');
     expect(m).not.toContain('<b>Monje');
@@ -690,14 +695,14 @@ describe('el marcado de la arena', () => {
     expect(m).toContain('data-arena="girar"');
     // El disparo, solo en la ficha de quien lo trae.
     expect(m).not.toContain('data-clip="shoot"');
-    expect(
-      marcadoDe(renderFicha(u, true, enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO))),
-    ).toContain('data-clip="shoot"');
+    expect(marcadoDe(renderFicha(u, true, enElMontaje(EQUIPO_DEL_JUEGO)))).toContain(
+      'data-clip="shoot"',
+    );
   });
 
   it('la ficha lleva el nombre en su título con «✎ Editar», y no entre las cifras', () => {
     const u = { ...unidad('templario-monje'), name: 'Hermano <Monje>' };
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     const titulo = m.slice(m.indexOf('<header class="titulo-de-ficha">'), m.indexOf('</header>'));
     expect(titulo).toContain('<span class="nombre">Hermano &lt;Monje&gt;</span>');
     expect(titulo).toContain('data-arena="renombrar"');
@@ -708,7 +713,7 @@ describe('el marcado de la arena', () => {
     // Tras «✎»: el título es el campo, con el mismo `data-campo` que lee `main.ts`.
     const renombrando = marcadoDe(
       renderFicha(u, false, {
-        ...enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO),
+        ...enElMontaje(EQUIPO_DEL_JUEGO),
         renombrando: true,
       }),
     );
@@ -721,7 +726,7 @@ describe('el marcado de la arena', () => {
       renderFichaDeHeroe(
         'izquierda',
         heroePorDefecto('izquierda'),
-        enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO),
+        enElMontaje(EQUIPO_DEL_JUEGO),
         [],
       ),
     );
@@ -732,7 +737,7 @@ describe('el marcado de la arena', () => {
         renderFichaDeHeroe(
           'izquierda',
           heroePorDefecto('izquierda'),
-          { ...enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO), renombrando: true },
+          { ...enElMontaje(EQUIPO_DEL_JUEGO), renombrando: true },
           [],
         ),
       ),
@@ -741,7 +746,7 @@ describe('el marcado de la arena', () => {
 
   it('los rasgos del motor van como las habilidades: etiquetas con × y el resto en «Añadir»', () => {
     const u = unidad('zombi', { traits: ['undead', 'charge'] });
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).not.toContain('type="checkbox"');
     expect(m).toContain('data-arena="quitar-rasgo" data-rasgo="undead"');
     expect(m).toContain('data-arena="quitar-rasgo" data-rasgo="charge"');
@@ -753,11 +758,7 @@ describe('el marcado de la arena', () => {
     }
     // Sin ninguno, «Ninguno.».
     const sinRasgos = marcadoDe(
-      renderFicha(
-        unidad('zombi', { traits: [] }),
-        false,
-        enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO),
-      ),
+      renderFicha(unidad('zombi', { traits: [] }), false, enElMontaje(EQUIPO_DEL_JUEGO)),
     );
     expect(sinRasgos).toContain(
       '<div class="etiquetas rasgos-puestos"><span class="cost">Ninguno.</span>',
@@ -766,7 +767,7 @@ describe('el marcado de la arena', () => {
 
   it('la cabeza de la ficha: figura y clips en columna a la izquierda, cifras a la derecha; en combate, sin figura', () => {
     const u = unidad('templario-escudo');
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     const cabeza = m.slice(
       m.indexOf('<div class="cabeza">'),
       m.indexOf('<h3>Rasgos del motor</h3>'),
@@ -790,7 +791,6 @@ describe('el marcado de la arena', () => {
     const enCombate = marcadoDe(
       renderFicha(u, false, {
         enCombate: true,
-        reglas: REGLAS_DEL_JUEGO,
         piezas: EQUIPO_DEL_JUEGO,
       }),
     );
@@ -997,7 +997,6 @@ describe('corrección de hallazgos de QA', () => {
       {
         izquierda: lado('izquierda'),
         derecha: lado('derecha'),
-        reglas: REGLAS_DEL_JUEGO,
         equipo: EQUIPO_DEL_JUEGO,
       },
       11,
@@ -1237,18 +1236,18 @@ const MAGO: HeroeDeArena = {
 function aLaIA(b: BattleState, rng: Rng): BattleState {
   for (let n = 0; b.finished === null; n++) {
     if (n > 5000) throw new Error('la IA no acaba la batalla');
-    applyAction(b, chooseBattleAction(b), rng);
+    applyAction(b, completarCruce(b, chooseBattleAction(b), rng).accion, rng);
   }
   return b;
 }
 
 describe('la arena como banco de combate', () => {
-  it('C4: con todas las reglas en «nuestra», la arena pelea exactamente como el juego', () => {
-    // El mismo ejército por las dos puertas: la del juego (`createBattle`, con
-    // cada unidad como personaje: la vía por la que entra la arena, `peleaDelMotor`)
-    // y la de la arena. Héroes con todo el libro, tiradores, jinetes que cargan y
-    // no-muertos: que se jueguen las reglas que tienen interruptor. Hasta el
-    // 13-10-2026 eran criaturas del catálogo, que ya no entran en la arena.
+  it('C4: la arena pelea exactamente como el juego', () => {
+    // El mismo ejército por las dos vías: la del juego (`createBattle`, con cada
+    // unidad como personaje: `peleaDelMotor`) y la de la arena (`batallaDeArena`).
+    // Héroes con todo el libro, tiradores, jinetes que cargan y no-muertos. Desde
+    // el 19-10-2026 las dos van por `createBattle`, sin interruptores: esto vigila
+    // que el montaje de la arena no cambie nada por el camino.
     const izquierda = ['elfo-arquero', 'templario-hermano-de-carga', 'templario-escudo'];
     const derecha = ['esqueleto-guerrero', 'esqueleto-arquero', 'caballero-de-la-muerte'];
     const delMotor = (ids: readonly string[]) => ids.map((id) => ({ unidad: unidad(id) }));
@@ -1265,17 +1264,12 @@ describe('la arena como banco de combate', () => {
           {
             izquierda: { unidades: izquierda.map(deLaHoja), heroe: MAGO },
             derecha: { unidades: derecha.map(deLaHoja), heroe: MAGO },
-            reglas: REGLAS_DEL_JUEGO,
             equipo: EQUIPO_DEL_JUEGO,
-            // La carga a pie es de la arena y no tiene interruptor (#260): sin
-            // ella, la arena es el juego.
-            modos: MODOS_DEL_JUEGO,
           },
           createRng(semilla),
         ),
         createRng(semilla + 100),
       );
-      expect(arena.reglas).toEqual(REGLAS_DEL_JUEGO);
       expect(arena.log).toEqual(juego.log);
       // Y la batalla se jugó de verdad: hubo hechizos y golpes.
       expect(juego.log.some((e) => e.kind === 'cast')).toBe(true);
@@ -1287,13 +1281,12 @@ describe('la arena como banco de combate', () => {
       {
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
-        reglas: REGLAS_DEL_JUEGO,
         equipo: EQUIPO_DEL_JUEGO,
       },
       1,
     );
     s.empezar();
-    expect(s.battle.heroes.attacker).toMatchObject({ mana: 40, spellPower: 3, ataque: 2 });
+    expect(s.battle.heroes.attacker).toMatchObject({ mana: 40, spellPower: 3 });
     const heroe = s.battle.stacks.find((x) => x.origen.kind === 'heroe');
     expect(heroe?.body).toBe('hero');
     // Con la Prisa del libro sobre una unidad propia, cuando le toque a la persona.
@@ -1310,7 +1303,7 @@ describe('la arena como banco de combate', () => {
   });
 
   it('C2: la ficha del héroe enseña lo que rinde con sus cifras, y cuenta en el bando', () => {
-    const ficha = fichaDeHeroeDeArena(MAGO, REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO);
+    const ficha = fichaDeHeroeDeArena(MAGO, EQUIPO_DEL_JUEGO);
     expect(ficha.mana).toBe(40);
     // El cuerpo con el que pisa el tablero: sus cifras con el equipo base puesto,
     // como el de un héroe recién hecho en la partida.
@@ -1321,8 +1314,6 @@ describe('la arena como banco de combate', () => {
       kind: 'luck',
       roundsLeft: 3,
     });
-    const conF2 = fichaDeHeroeDeArena(MAGO, reglasDeLaURL('bendicion'), EQUIPO_DEL_JUEGO);
-    expect(conF2.hechizos.find((h) => h.id === 'bless')?.efecto).toMatchObject({ kind: 'tirada' });
     const llenos = Array.from({ length: LIDERAZGO.maxPorBando }, () =>
       delBorrador(unidad('zombi')),
     );
@@ -1331,7 +1322,6 @@ describe('la arena como banco de combate', () => {
         {
           izquierda: { unidades: llenos, heroe: MAGO },
           derecha: { unidades: [deLaHoja('imperio-piquero')], heroe: null },
-          reglas: REGLAS_DEL_JUEGO,
           equipo: EQUIPO_DEL_JUEGO,
         },
         createRng(1),
@@ -1365,7 +1355,6 @@ describe('la arena como banco de combate', () => {
       {
         izquierda: { ...yo(unidad('templario-escudo')), heroe: { ...MAGO, conocimiento: 0 } },
         derecha: ia(unidad('zombi')),
-        reglas: REGLAS_DEL_JUEGO,
         equipo: EQUIPO_DEL_JUEGO,
       },
       2,
@@ -1391,7 +1380,6 @@ describe('la arena como banco de combate', () => {
           // el orko de 80 PV no paga los 3 de maná de la Flecha mágica
           // (`VALOR_MINIMO_POR_MANA`: lo que quita, con el tope de su vida).
           derecha: ia(unidad('orko-dos-armas', { hp: 200 })),
-          reglas: REGLAS_DEL_JUEGO,
           equipo: EQUIPO_DEL_JUEGO,
         },
         semilla,
@@ -1408,7 +1396,6 @@ describe('la arena como banco de combate', () => {
       {
         izquierda: yo(unidad('elfo-arquero')),
         derecha: ia(unidad('zombi')),
-        reglas: reglasDeLaURL('tirador'),
         equipo: EQUIPO_DEL_JUEGO,
       },
       1,
@@ -1420,7 +1407,7 @@ describe('la arena como banco de combate', () => {
     const disparo = s.battleLegalActions().find((a) => a.type === 'shoot');
     if (disparo === undefined) throw new Error('el arquero no puede disparar');
     const p = s.prevision(disparo);
-    expect(p).toMatchObject({ kind: 'disparo', reglas: ['tirador'] });
+    expect(p).toMatchObject({ kind: 'disparo', objetivo: 'defender-0' });
   });
 });
 
@@ -1429,13 +1416,16 @@ describe('el montaje del banco de combate', () => {
     expect(FIGURA_GENERICA).toBe(HERO_BODY);
   });
 
-  it('los seis interruptores, con lo que dice cada versión y cuál está puesta', () => {
-    const m = marcadoDe(renderReglas(reglasDeLaURL('bendicion')));
-    expect(m).toContain('Reglas · 1 de fheroes2');
-    expect(m.match(/data-arena="regla"/g)?.length).toBe(2 * 6);
-    expect(m).toContain('data-regla="bendicion" data-version="fheroes2" class="primary"');
-    expect(m).toContain('daño máximo y daño mínimo (también la Maldición de la momia)');
-    expect(marcadoDe(renderReglas(REGLAS_DEL_JUEGO))).toContain('Reglas · las del juego');
+  it('sin interruptores: un ?reglas=, ?golpe= o ?contacto= se rechaza diciéndolo (19-10-2026)', () => {
+    const url = new URLSearchParams('seed=5&reglas=tirador&golpe=rueda&contacto=paga&montaje=x');
+    const motivo = (p: string) =>
+      `la arena pelea con las reglas del juego: quita «?${p}=» de la dirección`;
+    expect(retiradosDeLaURL(url.keys())).toEqual([
+      { nombre: 'reglas', motivo: motivo('reglas') },
+      { nombre: 'golpe', motivo: motivo('golpe') },
+      { nombre: 'contacto', motivo: motivo('contacto') },
+    ]);
+    expect(retiradosDeLaURL(new URLSearchParams('seed=5&montaje=x').keys())).toEqual([]);
   });
 
   it('C1: sin el catálogo del juego: ni su filtro, ni una criatura, ni «Nueva unidad» desde una (13-10-2026)', () => {
@@ -1461,10 +1451,10 @@ describe('el montaje del banco de combate', () => {
     expect(m.match(/data-unidad-catalogo="/g)).toHaveLength(HOJAS.length);
   });
 
-  it('la ficha del héroe enseña los valores con los que pelea, de las reglas en curso', () => {
+  it('la ficha del héroe enseña los valores con los que pelea', () => {
     const hojas = [{ id: 'heroe-elfo-druida', nombre: 'Druida' }];
     const m = marcadoDe(
-      renderFichaDeHeroe('izquierda', MAGO, enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO), hojas),
+      renderFichaDeHeroe('izquierda', MAGO, enElMontaje(EQUIPO_DEL_JUEGO), hojas),
     );
     expect(m).toContain('data-mana-de-la-ficha="40"');
     expect(m).toContain('<span>40</span>');
@@ -1475,23 +1465,12 @@ describe('el montaje del banco de combate', () => {
     expect(m).not.toContain('A la tropa');
     expect(m).not.toContain('nada: su ataque');
     expect(m).toContain('<option value="heroe-elfo-druida" >Druida</option>');
-    const f2 = marcadoDe(
-      renderFichaDeHeroe(
-        'izquierda',
-        MAGO,
-        enElMontaje(reglasDeLaURL('heroe,bendicion'), EQUIPO_DEL_JUEGO),
-        hojas,
-      ),
-    );
-    expect(f2).toContain('<span>+2 de ataque y +1 de defensa</span>');
-    expect(f2).toMatch(/A la tropa <span class="nota"[^>]*aria-label="Regla de fheroes2/);
-    expect(f2).toContain('Bendición (3)</span><span>daño máximo, 3 rondas');
     // H5 del banco: con Poder 1 decía «1 rondas».
     const poder1 = marcadoDe(
       renderFichaDeHeroe(
         'izquierda',
         heroePorDefecto('izquierda'),
-        enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO),
+        enElMontaje(EQUIPO_DEL_JUEGO),
         hojas,
       ),
     );
@@ -1500,12 +1479,11 @@ describe('el montaje del banco de combate', () => {
     expect(poder1).not.toContain('1 rondas');
   });
 
-  it('el panel de la pelea lleva el maná, las reglas y el libro de la persona', () => {
+  it('el panel de la pelea lleva el maná y el libro de la persona, sin reglas que elegir', () => {
     const s = new SesionDeArena(
       {
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
-        reglas: reglasDeLaURL('tirador'),
         equipo: EQUIPO_DEL_JUEGO,
       },
       1,
@@ -1515,7 +1493,7 @@ describe('el montaje del banco de combate', () => {
       s.playBattleAction({ type: 'end_turn' });
     const m = marcadoDe(renderPanelDeBatalla(s, false));
     expect(m).toContain('Maná de Maga de pruebas</span><span>40 / 40');
-    expect(m).toContain('<span>Tirador</span>');
+    expect(m).not.toContain('fheroes2');
     expect(m).toContain('data-action="battle-spell" data-spell="magic_arrow"');
   });
 });
@@ -1576,10 +1554,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     // A través de URLSearchParams, que es por donde viaja.
     const url = new URLSearchParams({ montaje: texto }).toString();
     expect(montajeDeLaURL(new URLSearchParams(url).get('montaje') as string)).toEqual(MONTAJE);
-    const b = batallaDeArena(
-      montajeDeArenaDelEnlace(leido, REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO),
-      createRng(7),
-    );
+    const b = batallaDeArena(montajeDeArenaDelEnlace(leido, EQUIPO_DEL_JUEGO), createRng(7));
     expect(b.muralla).toEqual(MONTAJE.muralla);
     // Las escaleras del montaje llegan al tablero, con las cifras del enlace.
     const conEscalera = b.stacks.filter((st) => st.side === 'attacker' && st.escalera);
@@ -1625,17 +1600,17 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('un enlace mal formado o con lo que no existe se rechaza diciendo qué', () => {
     const casos: [string, string][] = [
       ['{"v":1,', 'el montaje del enlace no se puede leer'],
-      [tocado((o) => (o.v = 13)), 'es de la versión 13 y esta arena lee la 12'],
-      // La versión es la de hoy: ni la de antes de una sola clase de piezas (11), ni
+      [tocado((o) => (o.v = 14)), 'es de la versión 14 y esta arena lee la 13'],
+      // La versión es la de hoy: ni la de antes de quitar los interruptores (12), ni
       // 0, ni a medias, ni texto.
       [
-        tocado((o) => (o.v = 11)),
-        'este enlace es de una versión anterior de la arena (la 11; la de hoy es la 12): vuelve a copiarlo',
+        tocado((o) => (o.v = 12)),
+        'este enlace es de una versión anterior de la arena (la 12; la de hoy es la 13): vuelve a copiarlo',
       ],
-      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 12'],
-      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 12'],
-      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 12'],
-      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 12'],
+      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 13'],
+      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 13'],
+      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 13'],
+      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 13'],
       [tocado((o) => delete o.muralla), 'falta «muralla»'],
       [tocado((o) => o.muralla.muros.push({ col: 99, row: 0 })), 'la muralla del enlace no vale'],
       [
@@ -1703,12 +1678,12 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   });
 
   it('un parámetro repetido en la URL se rechaza diciéndolo (H4 de QA del banco)', () => {
-    const repetido = new URLSearchParams('seed=5&reglas=tirador&reglas=bendicion');
-    expect(() => unaVezEnLaURL(repetido.getAll('reglas'), 'reglas')).toThrow(
-      '«reglas» va 2 veces en la URL («tirador», «bendicion»): pon uno solo, con las reglas separadas por comas (reglas=tirador,bendicion)',
+    const repetido = new URLSearchParams('seed=5&montaje=a&montaje=b');
+    expect(() => unaVezEnLaURL(repetido.getAll('montaje'), 'montaje')).toThrow(
+      '«montaje» va 2 veces en la URL («a», «b»): pon uno solo',
     );
     expect(unaVezEnLaURL(repetido.getAll('seed'), 'seed')).toBe('5');
-    expect(unaVezEnLaURL(repetido.getAll('montaje'), 'montaje')).toBeNull();
+    expect(unaVezEnLaURL(repetido.getAll('reglas'), 'reglas')).toBeNull();
   });
 });
 
@@ -1749,7 +1724,7 @@ describe('los poderes del monje en la arena (A3)', () => {
     const u = unidad('templario-monje', {
       habilidades: ['Curar (X)', 'Bendecir', 'Salto'],
     });
-    const m = marcadoDe(renderFicha(u, false, enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO)));
+    const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).toContain('Poderes · actúan en la pelea');
     expect(m).toContain('cura 40 PV a un aliado herido, incluida la propia unidad');
     // El chip dice lo que cura, no la X del cuaderno; el valor sigue siendo el nombre (M3).
@@ -1770,7 +1745,6 @@ describe('los poderes del monje en la arena (A3)', () => {
     const enCombate = marcadoDe(
       renderFicha(u, false, {
         enCombate: true,
-        reglas: REGLAS_DEL_JUEGO,
         piezas: EQUIPO_DEL_JUEGO,
       }),
     );
@@ -1785,7 +1759,6 @@ describe('los poderes del monje en la arena (A3)', () => {
         {
           izquierda: { ...yo(unidad('templario-monje'), unidad('templario-escudo')), heroe: MAGO },
           derecha: ia(unidad('orko-dos-armas')),
-          reglas: REGLAS_DEL_JUEGO,
           equipo: EQUIPO_DEL_JUEGO,
         },
         1,
@@ -1838,7 +1811,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
           heroe: MAGO,
         },
         derecha: { unidades: [delBorrador(unidad('templario-monje'))], heroe: null },
-        reglas: REGLAS_DEL_JUEGO,
         equipo: CON_MANOS,
       },
       createRng(4),
@@ -1893,7 +1865,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
       {
         izquierda: { unidades: [delBorrador(conEscudo)], heroe: null },
         derecha: { unidades: [delBorrador(unidadDeArena('zombi'))], heroe: null },
-        reglas: REGLAS_DEL_JUEGO,
         equipo: CON_MANOS,
       },
       createRng(1),
@@ -1917,7 +1888,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
           heroe: MAGO,
         },
         derecha: { unidades: [delBorrador(unidad('zombi'))], heroe: null },
-        reglas: REGLAS_DEL_JUEGO,
         equipo: CON_MANOS,
       },
       createRng(1),
@@ -2009,7 +1979,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
           heroe: MAGO,
         },
         derecha: { unidades: [delBorrador(unidad('zombi'))], heroe: null },
-        reglas: REGLAS_DEL_JUEGO,
         equipo: CON_MANOS,
       },
       createRng(4),
@@ -2079,7 +2048,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
       {
         izquierda: { ...yo(unidad('templario-monje')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
-        reglas: REGLAS_DEL_JUEGO,
         equipo: CON_MANOS,
       },
       1,
@@ -2192,7 +2160,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
       {
         izquierda: { ...yo(unidad('templario-monje'), unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('orko-dos-armas')),
-        reglas: REGLAS_DEL_JUEGO,
         equipo: CON_MANOS,
       },
       1,
@@ -2234,7 +2201,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
       {
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
-        reglas: REGLAS_DEL_JUEGO,
         equipo: CON_MANOS,
       },
       1,
@@ -2488,7 +2454,7 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
   /** Las cifras de cada golpe: arriba (cuerpo a cuerpo) y las de cada arma. */
   const golpes = (u: UnidadDeArena) => {
     const c = unidadDeCombate(u, EQUIPO_DEL_JUEGO);
-    return { c, porArma: armasDe(c, MODOS_DE_LA_ARENA.cargaAPie) };
+    return { c, porArma: armasDe(c) };
   };
   const delUso = (u: UnidadDeArena, uso: string) => {
     const fila = golpes(u).porArma.find((a) => a.uso === uso);

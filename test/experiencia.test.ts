@@ -102,8 +102,6 @@ function veterano(creatureId: string, id: string, experiencia: number): Troop {
 const mando = (over: Partial<BattleHero> = {}): BattleHero => ({
   name: 'Prueba',
   retreat: { blocked: 'no tienes base a la que volver' },
-  ataque: 0,
-  defensa: 0,
   spellPower: 1,
   knowledge: 1,
   mana: 10,
@@ -249,7 +247,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
       createRng(4),
     );
     const flecha = spell('magic_arrow');
-    castSpell(flecha, delHeroe(flecha, mando()), stackById(otra, 'defender-0'), null, otra.reglas);
+    castSpell(flecha, delHeroe(flecha, mando()), stackById(otra, 'defender-0'), null);
     expect(stackById(otra, 'defender-0').count).toBe(0);
   });
 
@@ -304,7 +302,11 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     forzarBatalla(state, c, hero);
     const b = state.pendingBattle!.battle;
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-    const vivos = b.stacks.filter((s) => s.side === 'attacker' && s.origen.kind === 'catalogo');
+    // Los que siguen en pie: vuelven al ejército en su orden (con la rueda, uno de
+    // los tres puede caer).
+    const vivos = b.stacks.filter(
+      (s) => s.side === 'attacker' && s.origen.kind === 'catalogo' && s.count > 0,
+    );
     const army = heroById(state, hero.id).army;
     // Los siete caen enteros: entre todo el bando —la tropa y el cuerpo del
     // héroe—, 7 × sus PV × su índice de experiencia.

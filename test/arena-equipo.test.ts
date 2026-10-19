@@ -47,7 +47,6 @@ import {
   VERSION_DEL_ENLACE,
 } from '../src/core/arena.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { UNIDADES } from '../src/core/catalogo.js';
 import {
@@ -367,7 +366,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
   };
 
   it('va y vuelve con todas las piezas que lleva, y monta con ellas en el catálogo de quien lo abre', () => {
-    expect(VERSION_DEL_ENLACE).toBe(12);
+    expect(VERSION_DEL_ENLACE).toBe(13);
     // Lo que llevan el guerrero (la nueva, la brigantina, el escudo) y el arquero
     // (daga, arco, jubón): todas, no solo las cambiadas.
     expect(ENLACE.piezas.map((p) => p.id).sort()).toEqual(
@@ -375,7 +374,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
     );
     const leido = montajeDeLaURL(montajeALaURL(ENLACE));
     expect(leido).toEqual(ENLACE);
-    const montado = montajeDeArenaDelEnlace(leido, MONTAJE.reglas, catalogoCon(...leido.piezas));
+    const montado = montajeDeArenaDelEnlace(leido, catalogoCon(...leido.piezas));
     expect(batallaDeArena(montado, createRng(3)).stacks[0]?.unit.attack).toBe(
       unidadDeCombate(conNueva, eq).attack,
     );
@@ -919,7 +918,7 @@ describe('la vista «Editar equipo»', () => {
 });
 
 describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la vuelta 2)', () => {
-  const como = enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO);
+  const como = enElMontaje(EQUIPO_DEL_JUEGO);
   const ficha = (u: UnidadDeArena): string => marcadoDe(renderFicha(u, false, como));
   /** Las opciones del desplegable de `hueco` en la ficha: su id y si va desactivada. */
   function ofrecidas(m: string, hueco: string): { id: string; desactivada: boolean }[] {

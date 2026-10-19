@@ -125,6 +125,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { completarCruce } from '../../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import {
   activeStack,
@@ -276,7 +277,8 @@ function jugar(state: BattleState, rng: Rng, tacticas: Record<Side, Tactica>): R
     if (accion.type === 'wait') esperas[s.side]++;
     if (accion.type === 'defend') defensas[s.side]++;
     if (accion.type === 'cast') hechizos[s.side].push(accion.spell);
-    applyAction(state, accion, rng);
+    // La rueda del golpe, a ciegas por los dos bandos, como `autoResolve`.
+    applyAction(state, completarCruce(state, accion, rng).accion, rng);
   }
   throw new Error(`una batalla no ha terminado en ${MAX_JUGADAS} jugadas (ronda ${state.round})`);
 }
@@ -313,8 +315,6 @@ function heroeDeLaMagia(nombre: string): HeroeDelBando {
     mando: {
       name: nombre,
       retreat: { blocked: 'en el banco no se huye' },
-      ataque: cifras.attack,
-      defensa: cifras.defense,
       spellPower: 1,
       knowledge: 2,
       mana: 20,

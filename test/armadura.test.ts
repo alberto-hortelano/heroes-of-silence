@@ -21,18 +21,17 @@ import {
   montajeDeLaURL,
   piezaNueva,
   piezasDelMontaje,
+  VERSION_DEL_ENLACE,
 } from '../src/core/arena.js';
 import { armaduraDe, trasLaArmadura } from '../src/core/battle/armas.js';
 import {
   applyAction,
-  crearBatallaConReglas,
+  createBattle,
   opcionesDeDanio,
   previsionDe,
   stackById,
 } from '../src/core/battle/battle.js';
 import { expectedDamage, herir } from '../src/core/battle/damage.js';
-import { MODOS_DEL_JUEGO } from '../src/core/battle/modos.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import { delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { type Pieza, problemasDePieza, validarPieza } from '../src/core/data.js';
@@ -47,6 +46,7 @@ import {
   dadoCargado,
   delBorrador,
   MONTAJE,
+  NORMAL,
   unidadDeArena,
 } from './helpers.js';
 
@@ -69,26 +69,22 @@ const DESNUDO = cuerpo('Desnudo');
 
 /**
  * `quien` en `en` contra `contra` en `donde` (y los demás defensores detrás), con
- * el turno de `quien`; con la rueda si se pide (con las manos de prueba). Sin
- * moral, que regala turnos.
+ * el turno de `quien`. Sin moral, que regala turnos.
  */
 function frente(
   quien: UnitInfo,
   contra: readonly UnitInfo[],
   en: Hex,
   donde: readonly Hex[],
-  rueda = false,
 ): BattleState {
-  const b = crearBatallaConReglas(
+  const b = createBattle(
     bandoDe([{ id: 'quien', unit: quien }]),
     bandoDe(contra.map((unit, i) => ({ id: `contra-${i}`, unit }))),
     createRng(1),
-    REGLAS_DEL_JUEGO,
-    { modos: { ...MODOS_DEL_JUEGO, golpe: rueda ? 'rueda' : 'azar' } },
   );
-  // En la rueda se golpea con un arma de la arena: las manos de prueba, con los
-  // niveles de la Espada y sin cifras.
-  if (rueda) conManosDePrueba(b);
+  // En la rueda se golpea con un arma: las manos de prueba, con los niveles de la
+  // Espada y sin cifras.
+  conManosDePrueba(b);
   stackById(b, 'attacker-0').hex = en;
   donde.forEach((h, i) => {
     stackById(b, `defender-${i}`).hex = h;
@@ -153,7 +149,7 @@ describe('las piezas dan armadura, no PV', () => {
 describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () => {
   it('un golpe de 50 sobre la brigantina quita 43, y el parte dice los 7 que paró', () => {
     const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
-    const desde = jugar(b, { type: 'attack', target: 'defender-0' }, createRng(1));
+    const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     // 50 × 1 (3 contra 3) = 50; 50 − 7 = 43; quedan 80 − 43 = 37.
     expect(hechos(b, 'attack', desde)[0]).toMatchObject({
       stack: 'attacker-0',
@@ -164,7 +160,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     expect(stackById(b, 'defender-0').topHp).toBe(37);
     // Sin armadura, los 50 enteros y el hecho de siempre, sin el campo.
     const sin = frente(GOLPEADOR, [DESNUDO], PEGADOS[0], PEGADOS[1]);
-    const d2 = jugar(sin, { type: 'attack', target: 'defender-0' }, createRng(1));
+    const d2 = jugar(sin, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     expect(hechos(sin, 'attack', d2)[0]).toEqual({
       kind: 'attack',
       stack: 'attacker-0',
@@ -172,6 +168,8 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
       damage: 50,
       killed: 0,
       retaliation: false,
+      // Normal contra Normal: en el medio de la rueda.
+      punto: 2,
     });
     expect(marcadoDe(renderBattleLog(b, null))).toContain(': 43 de daño (−7 armadura), 0 bajas');
   });
@@ -180,7 +178,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     // 20 con ataque 3 contra defensa 8: ×(1 − 5 × 0,025) = ×0,875 → 17,5 → 18; 18 − 22 → 0.
     const flojo = cuerpo('Flojo', { damage: [20, 20] });
     const b = frente(flojo, [JINETE], PEGADOS[0], PEGADOS[1]);
-    const desde = jugar(b, { type: 'attack', target: 'defender-0' }, createRng(1));
+    const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     expect(hechos(b, 'attack', desde)[0]).toMatchObject({ damage: 0, killed: 0, parado: 18 });
     const jinete = stackById(b, 'defender-0');
     expect([jinete.count, jinete.topHp]).toEqual([1, 80]);
@@ -198,7 +196,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
   });
 
   it('Rápido resta la armadura en cada uno de sus dos golpes: 50 × 0,63 = 31,5 → 32 → 25 y 25', () => {
-    const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1], true);
+    const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
     const desde = jugar(
       b,
       { type: 'attack', target: 'defender-0', golpe: 'rapido', respuesta: 'normal' },
@@ -243,11 +241,10 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     const muneco = vestido(cuerpo('Muñeco', { hp: 5000 }), { armadura: 'brigantina' });
     const heroe = mando({ spells: ['magic_arrow'] });
     const flecha = delHeroe(spell('magic_arrow'), heroe).cantidad;
-    const b = crearBatallaConReglas(
+    const b = createBattle(
       bando([{ creature: 'templario-mandoble', count: 5 }], { heroe }),
       bandoDe([{ id: 'muneco', unit: muneco }]),
       createRng(1),
-      REGLAS_DEL_JUEGO,
     );
     b.turno = { n: 1000, stack: 'attacker-0', gastado: 0 };
     // La barra lo dice como el golpe (A1 de QA): el daño que llega y lo que para.
@@ -272,7 +269,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     const vampiro = cuerpo('Vampiro', { damage: [50, 50], traits: ['life_drain'] });
     const b = frente(vampiro, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
     stackById(b, 'attacker-0').topHp = 30;
-    const desde = jugar(b, { type: 'attack', target: 'defender-0' }, createRng(1));
+    const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     const [golpe, devuelto] = hechos(b, 'attack', desde);
     expect(golpe).toMatchObject({ damage: 43, parado: 7 });
     expect(devuelto).toMatchObject({ retaliation: true, damage: 10 });
@@ -365,7 +362,7 @@ describe('una pieza con PV no vale: ni se convierte ni se avisa (14-10-2026)', (
       muralla: null,
     };
     const o = JSON.parse(montajeALaURL(ENLACE));
-    expect(o.v).toBe(12);
+    expect(o.v).toBe(VERSION_DEL_ENLACE);
     const conPV = {
       ...o,
       piezas: o.piezas.map((p: { id: string; armadura?: number }) => {
@@ -376,7 +373,7 @@ describe('una pieza con PV no vale: ni se convierte ni se avisa (14-10-2026)', (
     };
     expect(() => montajeDeLaURL(JSON.stringify(conPV))).toThrow(MOTIVO);
     expect(() => montajeDeLaURL(JSON.stringify({ ...conPV, v: 9 }))).toThrow(
-      'este enlace es de una versión anterior de la arena (la 9; la de hoy es la 12): vuelve a copiarlo',
+      `este enlace es de una versión anterior de la arena (la 9; la de hoy es la ${VERSION_DEL_ENLACE}): vuelve a copiarlo`,
     );
   });
 

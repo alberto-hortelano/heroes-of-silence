@@ -54,6 +54,7 @@ import {
   ejercito,
   forzarBatalla,
   NO_MUERTO,
+  NORMAL,
   PESADA,
   primeraSemillaCon,
   TIRADOR,
@@ -71,8 +72,6 @@ function heroeDeBatalla(purse: number | null = null): HeroeDelBando {
     mando: {
       name: 'Prueba',
       retreat: purse === null ? { blocked: 'no tienes base a la que volver' } : { purse },
-      ataque: 2,
-      defensa: 2,
       spellPower: 1,
       knowledge: 1,
       mana: 0,
@@ -226,7 +225,7 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
     hastaQueLeToque(b, 'attacker');
     const activo = activeStack(b)!;
     activo.hex = { col: comandante.hex.col - 1, row: comandante.hex.row };
-    applyAction(b, { type: 'attack', target: comandante.id }, rng);
+    applyAction(b, { type: 'attack', target: comandante.id, ...NORMAL }, rng);
 
     expect(b.finished?.winner).toBe('attacker');
     // Su tropa seguía en pie: es la caída del héroe lo que decide.

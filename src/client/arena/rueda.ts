@@ -24,7 +24,6 @@
 
 import { ladoDe } from '@core/arena.js';
 import type { SectorDeLaRueda } from '@core/battle/battle.js';
-import { pagaElContacto } from '@core/battle/contacto.js';
 import {
   ANILLO,
   efectoDeGolpe,
@@ -161,13 +160,13 @@ function loQueDa(p: RuedaPendiente, tipo: TipoDeGolpe): Html {
   return html`<span class="da">${horquilla(s.danio)}</span><span class="da">+ ${resto > 1 ? `${resto} × ` : ''}${horquilla(s.siguientes)}</span>`;
 }
 
-function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): string {
+function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe): string {
   const s = p.prevision.porTipo?.[tipo];
   const nombre = `${NOMBRE_DE_GOLPE[tipo]} (tecla ${teclaDe(tipo)})`;
   // Sin contraataque no hay daño que decir: la nota ya lo cuenta.
-  if (s === undefined) return `${nombre}. ${notaDe(p, tipo, contacto)}`;
+  if (s === undefined) return `${nombre}. ${notaDe(p, tipo)}`;
   const dano = `${conSusGolpes(s)} de daño${p.fase === 'respuesta' ? ' al devolver el golpe' : ''}`;
-  return `${nombre}: ${dano}. ${notaDe(p, tipo, contacto)}`;
+  return `${nombre}: ${dano}. ${notaDe(p, tipo)}`;
 }
 
 /**
@@ -175,8 +174,8 @@ function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): st
  * de su arma (`efectoDeGolpe`, `previsionDeLaRueda().rueda`), y en una respuesta
  * que no devolverá el golpe, solo lo que vale: el cruce. Todo lo demás de la respuesta va con el contraataque.
  */
-function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe, contacto: boolean): string {
-  return `${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, contacto, p.prevision.rueda)}${contraataqueRebajado(p, tipo)}`;
+function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe): string {
+  return `${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, p.prevision.rueda)}${contraataqueRebajado(p, tipo)}`;
 }
 
 /**
@@ -303,15 +302,13 @@ export function renderEleccion(s: VistaDeArena, p: RuedaPendiente): Html {
     : p.prevision.sinContraataque === null
       ? 'Elige tu respuesta sin ver su golpe: si lo aciertas recibes el mínimo y devuelves el máximo.'
       : `No devolverá el golpe (${p.prevision.sinContraataque}): la respuesta solo cuenta para el cruce.`;
-  // La nota de la Finta avisa de lo que cuesta salir del contacto, si se cobra.
-  const contacto = pagaElContacto(s.battle);
   // El sector abre su nota también al pasar por él (`[data-abre-nota]`, style.css).
   const sectores = sitios(
     (
       t,
-    ) => html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t, contacto)}" aria-keyshortcuts="${teclaDe(t)}">
+    ) => html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t)}" aria-keyshortcuts="${teclaDe(t)}">
           <span class="rotulo-del-sector">${rotuloDe(t)}${loQueDa(p, t)}</span>
-        </button>${nota(notaDe(p, t, contacto))}`,
+        </button>${nota(notaDe(p, t))}`,
     () => html` data-abre-nota`,
   );
   return html`<div class="rueda" data-fase="${p.fase}" data-bando="${p.bando}">

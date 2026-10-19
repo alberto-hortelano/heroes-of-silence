@@ -20,7 +20,6 @@ import {
 import { marcadoDe } from '../src/client/html.js';
 import { modificadoresEnPantalla } from '../src/client/views/panels.js';
 import { fichaDeHeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import { oroDelIndice } from '../src/core/data.js';
 import {
   EQUIPO_DEL_JUEGO,
@@ -33,7 +32,7 @@ import { SPEED_TO_HEXES } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
 import { unidadDeArena } from './helpers.js';
 
-const MONTAJE = enElMontaje(REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO);
+const MONTAJE = enElMontaje(EQUIPO_DEL_JUEGO);
 const COMBATE: ComoDeLaFicha = { ...MONTAJE, enCombate: true };
 
 /** Un templario con escudo: la defensa sube y la velocidad baja; el ataque no cambia. */
@@ -146,7 +145,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
 
   it('la del héroe: ataque y defensa de su cuerpo, y lo que no se escribe sin casilla', () => {
     const h = heroePorDefecto('izquierda');
-    const { cuerpo } = fichaDeHeroeDeArena(h, REGLAS_DEL_JUEGO, EQUIPO_DEL_JUEGO);
+    const { cuerpo } = fichaDeHeroeDeArena(h, EQUIPO_DEL_JUEGO);
     const m = marcadoDe(renderFichaDeHeroe('izquierda', h, MONTAJE, []));
     expect(finalDe(m, 'ataque').valor).toBe(cuerpo.attack);
     expect(finalDe(m, 'defensa').valor).toBe(cuerpo.defense);

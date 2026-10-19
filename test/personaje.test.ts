@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
-  applyAction,
   type BattleMember,
   type BattleSide,
   createBattle,
@@ -9,6 +8,7 @@ import {
 } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 
 import { createRng } from '../src/core/rng.js';
 import {
@@ -23,7 +23,7 @@ import {
   RACES,
 } from '../src/core/rpg/character.js';
 import { combatProfile } from '../src/core/rpg/stats.js';
-import { esPersonaje } from './helpers.js';
+import { aCiegas, esPersonaje } from './helpers.js';
 
 /**
  * Juega un duelo 1 contra 1 entero con la IA de reglas decidiendo por los dos
@@ -47,7 +47,7 @@ function duelo(atacante: BattleSide, defensor: BattleSide, semilla: number): Bat
     if (acciones > 1000) {
       throw new Error(`el duelo no termina: 1000 acciones y va por la ronda ${batalla.round}`);
     }
-    applyAction(batalla, chooseBattleAction(batalla), rng);
+    aCiegas(batalla, chooseBattleAction(batalla), rng);
   }
   if (batalla.round > MAX_ROUNDS) throw new Error('el duelo se cerró por el tope de rondas');
   return batalla;
@@ -229,7 +229,11 @@ describe('del personaje a las cifras de combate', () => {
 
 /** El ejército de un personaje solo, y el bando que lo sabe jugar. */
 function ladoDe(c: Character, hp = c.hp, count = 1): BattleSide {
-  const members = new Map<string, BattleMember>([[c.id, { profile: combatProfile(c), hp }]]);
+  // Con una espada: sin arma no se combate (la rueda va con la del arma,
+  // 19-10-2026), y el perfil de un personaje no trae ninguna.
+  const perfil = combatProfile(c);
+  const armado = { ...perfil, unit: EQUIPO_DEL_JUEGO.conEquipo(perfil.unit, { arma: 'espada' }) };
+  const members = new Map<string, BattleMember>([[c.id, { profile: armado, hp }]]);
   return {
     army: [{ creature: CHARACTER_BODY, count, member: c.id }],
     hero: null,

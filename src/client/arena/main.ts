@@ -38,6 +38,7 @@ import {
   piezasDelMontaje,
   quitarEnArena,
   type RetoqueDeArena,
+  retiradosDeLaURL,
   tipoDelStack,
   unaVezEnLaURL,
   unidadNueva,
@@ -51,14 +52,6 @@ import {
 } from '@core/arena-murallas.js';
 import { hexEquals, isInside } from '@core/battle/board.js';
 import {
-  conModo,
-  INTERRUPTORES,
-  MODOS_DE_LA_ARENA,
-  type ModosConInterruptor,
-  modoALaURL,
-  modoDeLaURL,
-} from '@core/battle/modos.js';
-import {
   esMuro,
   hayMuralla,
   type MurallaDeBatalla,
@@ -68,13 +61,6 @@ import {
   validarMuralla,
 } from '@core/battle/muralla.js';
 import type { PoderId } from '@core/battle/poderes.js';
-import {
-  conRegla,
-  REGLAS_DEL_JUEGO,
-  type ReglasDeBatalla,
-  reglasALaURL,
-  reglasDeLaURL,
-} from '@core/battle/reglas.js';
 import { contraataqueDelCruce, type HechoDelCruce } from '@core/battle/rueda.js';
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
@@ -106,7 +92,7 @@ import {
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
-import { type Html, html, NADA, pintar, unir } from '../html.js';
+import { type Html, html, NADA, pintar } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import type { CharacterClip } from '../render/character.js';
@@ -164,7 +150,6 @@ import {
   type HerramientaDeMuralla,
   LA_LLEVA_EL_HEROE,
   type ListaDeUnidades,
-  modoDeSiempre,
   type Puesto,
   ROTULO_DE_LOS_AVISOS,
   renderAvisosDeLectura,
@@ -174,10 +159,8 @@ import {
   renderEquipo,
   renderFicha,
   renderFichaDeHeroe,
-  renderModo,
   renderMuralla,
   renderPanelDeBatalla,
-  renderReglas,
   resumenDeCifras,
   resumenDeLaLectura,
   rotuloDelTurno,
@@ -446,9 +429,9 @@ const parametros = new URLSearchParams(location.search);
 let semillaPedida: number | null = null;
 let avisoDeSemilla = '';
 /**
- * Los parámetros de la URL que no valen (`seed`, `reglas`, `golpe`, `contacto`):
- * un enlace de la pelea con alguno mal no se monta, y lo dice nombrándolos (C1
- * de QA de #259: culpaba «a la semilla o las reglas» de un `?contacto=` mal).
+ * Los parámetros de la URL que no valen (`seed` mal, o uno de los retirados:
+ * `reglas`, `golpe`, `contacto`): un enlace de la pelea con alguno no se monta, y
+ * lo dice nombrándolos (C1 de QA de #259).
  */
 const parametrosQueNoValen: string[] = [];
 try {
@@ -459,38 +442,13 @@ try {
 }
 
 /**
- * Las reglas de la pelea: las del juego, salvo que la URL encienda alguna de
- * fheroes2 (`?reglas=tirador,bendicion`). Van con la semilla en la URL, para que
- * una pelea se pueda repetir; lo que no es una regla se dice, como la semilla.
+ * Los interruptores retirados (19-10-2026: la arena pelea con las reglas del
+ * juego): un `?reglas=`, `?golpe=` o `?contacto=` no se ignora, se dice
+ * (`retiradosDeLaURL`), y el enlace que los trae no se monta.
  */
-let reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO;
-try {
-  // Repetida (`reglas=tirador&reglas=bendicion`) se rechaza: quedarse con la
-  // primera en silencio reproducía otra pelea (H4 de QA del banco).
-  reglas = reglasDeLaURL(unaVezEnLaURL(parametros.getAll('reglas'), 'reglas'));
-} catch (err) {
-  avisoDeSemilla += `${mensaje(err)} — se pelea con las reglas del juego. `;
-  parametrosQueNoValen.push('reglas');
-}
-
-/**
- * Los modos de la arena con interruptor (`battle/modos.ts`): cómo cae el golpe
- * cuerpo a cuerpo (al azar, salvo `?golpe=rueda`) y si salir del contacto cuesta
- * (libre, salvo `?contacto=paga`). Van con las reglas en la URL; lo que no es un
- * modo se dice, y se pelea con el de siempre.
- */
-let modos: ModosConInterruptor = MODOS_DE_LA_ARENA;
-for (const d of INTERRUPTORES) {
-  try {
-    modos = conModo(
-      modos,
-      d,
-      modoDeLaURL(d, unaVezEnLaURL(parametros.getAll(d.parametro), d.parametro)),
-    );
-  } catch (err) {
-    avisoDeSemilla += `${mensaje(err)} — ${modoDeSiempre(d)}. `;
-    parametrosQueNoValen.push(d.parametro);
-  }
+for (const { nombre, motivo } of retiradosDeLaURL(parametros.keys())) {
+  avisoDeSemilla += `${motivo}. `;
+  parametrosQueNoValen.push(nombre);
 }
 
 /**
@@ -501,24 +459,17 @@ for (const d of INTERRUPTORES) {
 let enlaceCopiado: string | null = null;
 
 /**
- * Escribe en la barra la dirección de ahora con las reglas del montaje, para que
- * copiarla repita también las reglas; las comas de `?reglas=` van sin escapar, y
- * así se lee y se copia como se escribe (`?seed=7&reglas=tirador,bendicion`).
- * `cambiar` pone lo demás (la semilla).
+ * Escribe en la barra la dirección de ahora con lo que ponga `cambiar` (la
+ * semilla), sin los parámetros retirados: ya se dijeron al abrir, y copiar la
+ * barra no los arrastra.
  */
-function reglasALaBarra(cambiar: (url: URL) => void = () => {}): void {
+function aLaBarra(cambiar: (url: URL) => void): void {
   const url = new URL(location.href);
   cambiar(url);
-  const enURL = reglasALaURL(reglas);
-  if (enURL === '') url.searchParams.delete('reglas');
-  else url.searchParams.set('reglas', enURL);
-  // Los modos, igual: el de siempre no se escribe.
-  for (const d of INTERRUPTORES) {
-    const enLaURL = modoALaURL(d, modos[d.clave]);
-    if (enLaURL === '') url.searchParams.delete(d.parametro);
-    else url.searchParams.set(d.parametro, enLaURL);
+  for (const { nombre } of retiradosDeLaURL([...url.searchParams.keys()])) {
+    url.searchParams.delete(nombre);
   }
-  history.replaceState(null, '', `${url.pathname}${url.search.replace(/%2C/g, ',')}${url.hash}`);
+  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
 /** De dónde sale un puesto al pelear: la unidad con sus cifras del catálogo, y su escalera. */
@@ -535,7 +486,6 @@ function montajeDeArena(): MontajeDeArena {
   return {
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
-    reglas,
     muralla,
     equipo,
   };
@@ -1047,7 +997,7 @@ function repintarMontaje(): void {
     pintar(elFicha, fichaElegida());
     pintar(
       elCatalogo,
-      html`${unir(INTERRUPTORES.map((d) => renderModo(d, modos[d.clave])))}${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(
+      html`${renderEnlace(enlaceVigente())}${renderCatalogo(
         hojasDelCatalogo(),
         filtro,
         { kind: 'montaje' },
@@ -1065,12 +1015,12 @@ function pintarVista(raiz: Element, pintarla: () => void): void {
   pedirFotograma();
 }
 
-/** Una ficha abierta: su cabecera y la ficha de siempre (`fichaDe`) con las reglas del montaje. */
+/** Una ficha abierta: su cabecera y la ficha de siempre (`fichaDe`) con las piezas del montaje. */
 function fichaAbierta(f: FichaEditable): FichaAbierta {
   return {
     clave: claveDeFicha(f),
     titulo: nombreDeFicha(f),
-    cuerpo: fichaDe(f, enElMontaje(reglas, equipo)),
+    cuerpo: fichaDe(f, enElMontaje(equipo)),
   };
 }
 
@@ -1367,10 +1317,7 @@ function puestoPorClave(clave: number): { lado: Lado; i: number; p: Puesto } {
  * de las miniaturas no corre en la batalla) y diciendo que el cambio vale ya.
  */
 function fichaElegida(enCombate = false): Html {
-  const como =
-    enCombate && sesion !== null
-      ? { enCombate, reglas: sesion.reglas, piezas: equipo }
-      : enElMontaje(reglas, equipo);
+  const como = enCombate && sesion !== null ? { enCombate, piezas: equipo } : enElMontaje(equipo);
   return fichaDe(elegida, como);
 }
 
@@ -1680,21 +1627,12 @@ function montajeDelEnlace(): MontajeDelEnlace {
   };
 }
 
-/**
- * La dirección que monta la pelea de ahora: la semilla, las reglas y el montaje.
- * Las comas de `?reglas=` van sin escapar, como en la barra.
- */
+/** La dirección que monta la pelea de ahora: la semilla y el montaje. */
 function enlaceDe(semilla: number): string {
   const url = new URL(location.pathname, location.origin);
   url.searchParams.set('seed', String(semilla));
-  const enURL = reglasALaURL(reglas);
-  if (enURL !== '') url.searchParams.set('reglas', enURL);
-  for (const d of INTERRUPTORES) {
-    const enLaURL = modoALaURL(d, modos[d.clave]);
-    if (enLaURL !== '') url.searchParams.set(d.parametro, enLaURL);
-  }
   url.searchParams.set('montaje', montajeALaURL(montajeDelEnlace()));
-  return url.href.replace(/%2C/g, ',');
+  return url.href;
 }
 
 /** El enlace copiado, si sigue siendo el de este montaje; si no, `null`. */
@@ -1713,13 +1651,13 @@ async function copiarEnlace(): Promise<void> {
   const semilla = semillaPedida ?? semillaSorteada();
   const enlace = enlaceDe(semilla);
   semillaPedida = semilla;
-  reglasALaBarra((url) => url.searchParams.set('seed', String(semilla)));
+  aLaBarra((url) => url.searchParams.set('seed', String(semilla)));
   enlaceCopiado = enlace;
   try {
     await navigator.clipboard.writeText(enlace);
     aviso = `Enlace de la pelea copiado (semilla ${semilla}): abrirlo monta esta misma pelea.`;
   } catch (err) {
-    aviso = `El enlace de la pelea (semilla ${semilla}) está en su campo, junto a las reglas: no se ha podido copiar solo (${mensaje(err)}).`;
+    aviso = `El enlace de la pelea (semilla ${semilla}) está en su campo: no se ha podido copiar solo (${mensaje(err)}).`;
   }
 }
 
@@ -1743,7 +1681,7 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
   }
   if (texto === null) return null;
   try {
-    // Con la semilla, las reglas o un modo mal, el montaje pelearía otra pelea.
+    // Con la semilla mal o un interruptor retirado, el montaje pelearía otra pelea.
     if (parametrosQueNoValen.length > 0) {
       const cuales = parametrosQueNoValen.map((p) => `«?${p}=»`).join(', ');
       throw new Error(
@@ -1784,9 +1722,9 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     // La muralla del enlace sustituye a la dibujada; sin ella, el tablero va limpio.
     muralla = m.muralla ?? SIN_MURALLA;
     nombreDeForma = '';
-    // La barra se queda con la semilla y las reglas: el montaje, si cambia, ya no
-    // sería el del enlace.
-    reglasALaBarra((url) => url.searchParams.delete('montaje'));
+    // La barra se queda con la semilla: el montaje, si cambia, ya no sería el del
+    // enlace.
+    aLaBarra((url) => url.searchParams.delete('montaje'));
     const cifras =
       distintas.length === 0
         ? ''
@@ -1860,7 +1798,7 @@ function luchar(): void {
   });
   // Una pelea nueva sortea su semilla, salvo que la URL fije una; y la URL la
   // lleva siempre, como en la partida: un resultado raro se repite copiando la
-  // barra de direcciones (M6 de QA). Con las reglas, que también la cambian.
+  // barra de direcciones (M6 de QA).
   const semilla = semillaPedida ?? semillaSorteada();
   let nueva: SesionDeArena;
   try {
@@ -1868,10 +1806,8 @@ function luchar(): void {
       {
         izquierda: lado('izquierda'),
         derecha: lado('derecha'),
-        reglas,
         muralla,
         equipo,
-        modos,
       },
       semilla,
     );
@@ -1879,7 +1815,7 @@ function luchar(): void {
     aviso = `No se puede luchar: ${mensaje(err)}.`;
     return;
   }
-  reglasALaBarra((url) => url.searchParams.set('seed', String(semilla)));
+  aLaBarra((url) => url.searchParams.set('seed', String(semilla)));
   sesion = nueva;
   elSeed.textContent = `semilla ${semilla}`;
   irA('battle');
@@ -2520,27 +2456,6 @@ document.addEventListener('click', (ev) => {
         const lado = el.getAttribute('data-lado') as Lado;
         heroes[lado] = null;
         if (elegida?.kind === 'heroe' && elegida.lado === lado) elegida = null;
-        break;
-      }
-      case 'modo': {
-        // El modo, por la misma lectura que la URL: uno que no es se dice.
-        const parametro = el.getAttribute('data-parametro');
-        const d = INTERRUPTORES.find((i) => i.parametro === parametro);
-        if (d === undefined) throw new Error(`el botón de modo trae «${String(parametro)}»`);
-        modos = conModo(modos, d, modoDeLaURL(d, el.getAttribute('data-modo')));
-        reglasALaBarra();
-        aviso = '';
-        break;
-      }
-      case 'regla': {
-        reglas = conRegla(
-          reglas,
-          el.getAttribute('data-regla') ?? '',
-          el.getAttribute('data-version') ?? '',
-        );
-        // La URL la lleva ya, para que copiarla repita también el montaje de reglas.
-        reglasALaBarra();
-        aviso = '';
         break;
       }
       case 'manda':

@@ -1,6 +1,6 @@
 /**
- * Salir del contacto (#259, solo la arena; docs/agents/2026-10-14-salir-del-contacto/):
- * con `?contacto=paga`, salir de una casilla cuesta 1 + los enemigos en contacto
+ * Salir del contacto (#259; docs/agents/2026-10-14-salir-del-contacto/; en toda
+ * batalla desde el 19-10-2026): salir de una casilla cuesta 1 + los enemigos en contacto
  * (los que podrían golpearla cuerpo a cuerpo, `canReachMelee`), se paga al dejarla,
  * el camino es el más barato y el volador paga solo al despegar.
  *
@@ -12,17 +12,15 @@
  * con la misma búsqueda solo probaría que la búsqueda es la que es.
  */
 import { describe, expect, it } from 'vitest';
-import { renderModo } from '../src/client/arena/paneles.js';
 import { marcadoDe, NADA } from '../src/client/html.js';
 import { accionesDeLaUnidad } from '../src/client/views/panels.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import { batallaDeArena, unaVezEnLaURL } from '../src/core/arena.js';
+import { batallaDeArena } from '../src/core/arena.js';
 import {
   activeStack,
   applyAction,
   cargaDesde,
   contactoBlocker,
-  crearBatallaConReglas,
   createBattle,
   enContactoEn,
   legalActions,
@@ -34,12 +32,8 @@ import {
 } from '../src/core/battle/battle.js';
 import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
 import { CARGA, type CifrasDeCarga } from '../src/core/battle/carga.js';
-import { type ModoDelContacto, pagaElContacto } from '../src/core/battle/contacto.js';
 import { applyEffect } from '../src/core/battle/effects.js';
-import { CONTACTO, MODOS_DEL_JUEGO, modoALaURL, modoDeLaURL } from '../src/core/battle/modos.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
-import type { ModoDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { createRng } from '../src/core/rng.js';
@@ -51,7 +45,6 @@ import {
   conCifrasAMano,
   forzarTurno,
   JINETE,
-  MONTAJE,
   montajeDePrueba,
   NO_MUERTO,
   TROPA,
@@ -84,23 +77,17 @@ function pelea(
   en: Hex,
   enemigos: readonly Hex[],
   o: {
-    readonly contacto?: ModoDelContacto;
-    readonly golpe?: ModoDelGolpe;
     readonly muralla?: MurallaDeBatalla;
     readonly contra?: string;
   } = {},
 ): BattleState {
   const de = (criatura: string, n: number): Stack[] =>
     Array.from({ length: n }, () => ({ creature: criatura, count: 3 }));
-  const b = crearBatallaConReglas(
+  const b = createBattle(
     bando(de(TROPA, 1)),
     bando(de(o.contra ?? NO_MUERTO, enemigos.length)),
     createRng(1),
-    REGLAS_DEL_JUEGO,
-    {
-      muralla: o.muralla ?? SIN_MURALLA,
-      modos: { ...MODOS_DEL_JUEGO, golpe: o.golpe ?? 'azar', contacto: o.contacto ?? 'paga' },
-    },
+    o.muralla ?? SIN_MURALLA,
   );
   conCifrasAMano(b, 'attacker-0', quien);
   stackById(b, 'attacker-0').hex = en;
@@ -135,23 +122,12 @@ describe('el coste de salir de una casilla', () => {
     }
   });
 
-  it('sin la regla, salir cuesta 1 con los enemigos que sea', () => {
-    const b = pelea(PIQUERO, h(5, 4), [h(6, 4), h(4, 3), h(5, 5)], {
-      contacto: 'libre',
-    });
-    expect(enContactoEn(b, yo(b), h(5, 4))).toBe(3);
-    expect(costes(b, h(4, 4))).toEqual([1]);
-  });
-
   it('se paga al salir y no al entrar: el paso que deja el contacto cuesta 2, los demás 1', () => {
     // Un esqueleto al este. Al oeste: (4,4) cuesta 2 (se sale de (5,4), en
     // contacto), y de ahí 1 por paso, que (4,4) ya no toca al esqueleto. El piquero
     // anda 4: (1,4) se queda a 5.
     const b = pelea(PIQUERO, h(5, 4), [h(6, 4)]);
     expect(costes(b, h(4, 4), h(3, 4), h(2, 4), h(1, 4))).toEqual([2, 3, 4, undefined]);
-    // Sin la regla, las casillas de siempre.
-    const libre = pelea(PIQUERO, h(5, 4), [h(6, 4)], { contacto: 'libre' });
-    expect(costes(libre, h(4, 4), h(3, 4), h(2, 4), h(1, 4))).toEqual([1, 2, 3, 4]);
     // Entrar junto a un enemigo no cuesta: desde lejos, (5,5) —que toca al
     // esqueleto— está a 3, lo que mide andar.
     const lejos = pelea(PIQUERO, h(2, 5), [h(6, 4)]);
@@ -203,14 +179,6 @@ describe('quien no puede pagar salir de su casilla', () => {
     expect(costes(b, h(5, 3), h(4, 4), h(4, 5))).toEqual([4, 4, 4]);
     expect([...movableFrom(b, yo(b)).values()].every((p) => p.steps === 4)).toBe(true);
   });
-
-  it('sin la regla, rodeado anda como siempre', () => {
-    const b = pelea(PIQUERO, h(5, 4), [h(6, 4), h(4, 3), h(5, 5), h(4, 4)], {
-      contacto: 'libre',
-    });
-    expect(contactoBlocker(b, yo(b))).toBeNull();
-    expect(costes(b, h(5, 3), h(4, 5))).toEqual([1, 1]);
-  });
 });
 
 describe('un tramo que empieza en contacto', () => {
@@ -227,10 +195,6 @@ describe('un tramo que empieza en contacto', () => {
     );
     // Golpear al que tiene al lado sí puede.
     expect(legalActions(b)).toContainEqual({ type: 'attack', target: 'defender-0' });
-    // Sin la regla, con 1 casilla, anda una.
-    const libre = pelea(PIQUERO, h(2, 4), [h(6, 4)], { contacto: 'libre' });
-    applyAction(libre, { type: 'move', to: h(5, 4) }, createRng(1));
-    expect(costes(libre, h(4, 4))).toEqual([1]);
   });
 });
 
@@ -246,11 +210,6 @@ describe('el camino es el más barato, no el más corto', () => {
     applyAction(b, { type: 'move', to: h(6, 4) }, createRng(1));
     expect(enTexto(movimientos(b).at(-1)?.path ?? [])).toEqual(['2,3', '3,3', '4,3', '5,3', '6,4']);
     expect(b.turno?.gastado).toBe(5);
-    // Sin la regla, el recto de 4.
-    const libre = pelea(CABALLERIA, h(2, 4), [h(3, 5)], { contacto: 'libre' });
-    const recto = movableFrom(libre, yo(libre)).get(hexKey(h(6, 4)));
-    expect(recto?.steps).toBe(4);
-    expect(enTexto(caminoDe(recto!))).toEqual(['3,4', '4,4', '5,4', '6,4']);
   });
 });
 
@@ -363,7 +322,7 @@ describe('la carga', () => {
     // La recta a (4,4) cuesta 6 y el camino barato, por la fila 3, 5. Plantarse
     // anda la recta y la paga entera; Escape suelta la carga, y con ella la recta:
     // le queda 1, como si hubiera ido por el barato (/simplify, C).
-    const b = pelea(CABALLERIA, h(0, 4), [h(5, 4), h(2, 5)], { golpe: 'rueda' });
+    const b = pelea(CABALLERIA, h(0, 4), [h(5, 4), h(2, 5)]);
     applyAction(b, { type: 'attack', target: 'defender-0', from: h(4, 4) }, createRng(1));
     expect(b.golpeEnCurso).toMatchObject({ carga: 4, barato: 5, carrera: { steps: 6 } });
     expect(b.turno?.gastado).toBe(6);
@@ -377,21 +336,13 @@ describe('la carga', () => {
       'rodeado: con 1 enemigo al lado, salir de su casilla le cuesta 2 y le queda 1 casilla',
     );
   });
-
-  it('sin la regla, la misma recta carga sin pagar el contacto', () => {
-    const b = pelea(CABALLERIA, h(0, 4), [h(5, 4), h(2, 5)], {
-      contacto: 'libre',
-    });
-    applyEffect(yo(b), { kind: 'speed', amount: -1, source: 'slow', roundsLeft: 2 });
-    expect(cargaDesde(b, yo(b), h(4, 4), stackById(b, 'defender-0'))).toBe(4);
-  });
 });
 
 describe('con la rueda del golpe', () => {
   it('andar paga el contacto, y Escape deja a la unidad donde llegó con lo que le quede', () => {
     // El piquero (4) de (2,4) a golpear al esqueleto de (6,4) desde (5,4), con otro
     // en (3,5): recto costaría 5; por la fila 3, 4.
-    const b = pelea(PIQUERO, h(2, 4), [h(6, 4), h(3, 5)], { golpe: 'rueda' });
+    const b = pelea(PIQUERO, h(2, 4), [h(6, 4), h(3, 5)]);
     applyAction(b, { type: 'attack', target: 'defender-0', from: h(5, 4) }, createRng(1));
     expect(b.golpeEnCurso?.stack).toBe('attacker-0');
     expect(b.turno?.gastado).toBe(4);
@@ -404,49 +355,7 @@ describe('con la rueda del golpe', () => {
   });
 });
 
-describe('el interruptor', () => {
-  it('el juego anda libre: `createBattle` no lo enciende', () => {
-    const b = createBattle(
-      bando([{ creature: TROPA, count: 3 }]),
-      bando([{ creature: NO_MUERTO, count: 3 }]),
-      createRng(1),
-    );
-    expect(b.arena.contacto).toBe('libre');
-    expect(pagaElContacto(b)).toBe(false);
-  });
-
-  it('va en la URL aparte: `?contacto=paga`, y lo que no es un modo se dice', () => {
-    expect(modoDeLaURL(CONTACTO, null)).toBe('libre');
-    expect(modoDeLaURL(CONTACTO, '')).toBe('libre');
-    expect(modoDeLaURL(CONTACTO, 'paga')).toBe('paga');
-    expect(modoDeLaURL(CONTACTO, 'libre')).toBe('libre');
-    expect(() => modoDeLaURL(CONTACTO, 'cobra')).toThrow(
-      '«cobra» no es un modo del contacto; valen libre, paga',
-    );
-    expect(modoALaURL(CONTACTO, 'libre')).toBe('');
-    expect(modoALaURL(CONTACTO, 'paga')).toBe('paga');
-    // Repetido se rechaza, como el golpe.
-    expect(() => unaVezEnLaURL(['paga', 'libre'], 'contacto')).toThrow();
-  });
-
-  it('el montaje de la arena lo lleva a la batalla; sin él, libre', () => {
-    const lado = aPelear([unidadDeArena(TROPA)]);
-    const sin = batallaDeArena(montajeDePrueba(lado, lado), createRng(1));
-    expect(sin.arena.contacto).toBe('libre');
-    const con = batallaDeArena(
-      { ...montajeDePrueba(lado, lado), ...MONTAJE, modos: { contacto: 'paga' } },
-      createRng(1),
-    );
-    expect(con.arena.contacto).toBe('paga');
-  });
-
-  it('el montaje enseña el interruptor con su modo', () => {
-    const libre = marcadoDe(renderModo(CONTACTO, 'libre'));
-    expect(libre).toContain('data-modo-del-montaje="contacto" data-modo="libre"');
-    expect(libre).toContain('data-arena="modo" data-parametro="contacto" data-modo="paga"');
-    expect(marcadoDe(renderModo(CONTACTO, 'paga'))).toContain('Contacto · salir cuesta');
-  });
-
+describe('el panel', () => {
   it('el panel dice por qué no anda, y sin motivo no cambia', () => {
     const b = pelea(PIQUERO, h(5, 4), [h(6, 4), h(4, 3), h(5, 5), h(4, 4)]);
     const base = {
@@ -517,10 +426,7 @@ describe('la IA de la arena juega con la regla', () => {
     const derecha = aPelear([unidadDeArena(TROPA), unidadDeArena(TROPA), unidadDeArena(TROPA)]);
     const jugar = (): BattleState => {
       const rng = createRng(7);
-      const b = batallaDeArena(
-        { ...montajeDePrueba(izquierda, derecha), modos: { contacto: 'paga' } },
-        rng,
-      );
+      const b = batallaDeArena(montajeDePrueba(izquierda, derecha), rng);
       autoResolve(b, rng);
       return b;
     };

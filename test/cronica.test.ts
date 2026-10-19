@@ -40,6 +40,7 @@ import {
   FACCION_A,
   FACCION_B,
   NO_MUERTO,
+  PESADA,
   sinGuarnicionDeSalida,
   TROPA,
   TROPA_BARATA,
@@ -273,6 +274,9 @@ describe('la crónica pasa por la niebla', () => {
     // serpiente (`ordenDelDia`) el 1 cierra el día 1 y abre el 2.
     pasarTurno(state, ctx, 1);
     expect(state.day).toBe(2);
+    // Con fuerza de sobra: con la rueda (19-10-2026), mi héroe solo, con su
+    // Espada, paraba a la tropa de salida del rival.
+    heroById(state, 'hero-1').army = ejercito({ creature: PESADA, count: 5 });
     pasear(state, ctx, 1, [MI_CASTILLO]);
     expect(state.pendingBattle?.foe).toEqual({ kind: 'hero', heroId: 'hero-0' });
     expect(resolvePendingBattle(state, ctx).winner).toBe('attacker');

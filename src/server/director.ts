@@ -6,6 +6,7 @@
  * culpa del agente.
  */
 
+import { completarCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
 import {
@@ -500,6 +501,11 @@ export class Director {
     // De quién es cada bando, para leer su oro: el turno de batalla lo lleva,
     // porque sin él el precio de rendirse no se puede comparar con nada.
     const dueños = battleOwners(this.state, pending);
+    // La rueda del golpe: hasta que el agente elija golpe y respuesta por su
+    // contrato (F6), los dos los elige la IA a ciegas (`completarCruce`), también
+    // la respuesta de las suyas cuando las golpean.
+    const conLaRueda = (a: BattleAction): BattleAction =>
+      completarCruce(battle, a, this.ctx.rng).accion;
     let guard = 0;
 
     while (battle.finished === null && guard < MAX_JUGADAS) {
@@ -508,7 +514,7 @@ export class Director {
       if (s === null) break;
 
       if (!bandos.has(s.side)) {
-        applyAction(battle, chooseBattleAction(battle), this.ctx.rng);
+        applyAction(battle, conLaRueda(chooseBattleAction(battle)), this.ctx.rng);
         this.frame();
         continue;
       }
@@ -536,7 +542,7 @@ export class Director {
       // mismo, la acción ha dejado el turno abierto.
       const turnoAntes = battle.turno;
       try {
-        applyAction(battle, accion, this.ctx.rng);
+        applyAction(battle, conLaRueda(accion), this.ctx.rng);
         this.frame();
         this.link.report(
           respuesta.requestId,
@@ -556,7 +562,7 @@ export class Director {
         const sustituta = chooseBattleAction(battle, bandos);
         const heroe = battle.heroes[s.side];
         const manaAntes = heroe?.mana ?? 0;
-        applyAction(battle, sustituta, this.ctx.rng);
+        applyAction(battle, conLaRueda(sustituta), this.ctx.rng);
         this.frame();
         const manaGastado = manaAntes - (heroe?.mana ?? 0);
         // Si la sustituta remató, la promesa del `cast` —«se te volverá a pedir

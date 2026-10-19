@@ -50,7 +50,7 @@ export const DURACION = {
   cast: 520,
   perished: 520,
   /**
-   * El desenlace de la rueda del golpe (la arena): la rueda gira y se para, caen
+   * El desenlace de la rueda del golpe: la rueda gira y se para, caen
    * los marcadores, se enciende el arco y sale el rótulo. Es el reloj de la rueda
    * entera: el diálogo pinta cada tramo según lo que lleve este paso.
    */

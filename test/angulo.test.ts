@@ -14,6 +14,7 @@ import { renderSide } from '../src/client/views/panels.js';
 import { textoDePrevision } from '../src/client/views/prevision.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
+import { CARGA } from '../src/core/battle/carga.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 
 import type { Hex, UnitInfo } from '../src/core/types.js';
@@ -225,13 +226,17 @@ describe('el panel dice lo que le queda al tramo', () => {
   });
 });
 
-describe('la ayuda de la carga solo con una unidad que carga (QA, N2)', () => {
-  it('con un piquero activo no se habla de cargar; con un jinete, sí', () => {
+describe('la ayuda de la carga, con las cifras de quien carga (QA, N2)', () => {
+  it('a pie (desde el 19-10-2026, toda unidad carga) con las suyas; el jinete, con las suyas', () => {
     const AYUDA = 'Al enemigo en naranja se le puede cargar';
-    const sinRasgo = sesionConEnemigoALaVista(undefined, 'templario-escudo');
-    expect(marcadoDe(renderSide(sinRasgo.s))).not.toContain(AYUDA);
-    const conRasgo = sesionConEnemigoALaVista(undefined, 'templario-hermano-de-carga');
-    expect(marcadoDe(renderSide(conRasgo.s))).toContain(AYUDA);
+    const aPie = marcadoDe(renderSide(sesionConEnemigoALaVista(undefined, 'templario-escudo').s));
+    expect(aPie).toContain(AYUDA);
+    expect(aPie).toContain(`+${CARGA.aPie.porcentaje} % cada una`);
+    const jinete = marcadoDe(
+      renderSide(sesionConEnemigoALaVista(undefined, 'templario-hermano-de-carga').s),
+    );
+    expect(jinete).toContain(AYUDA);
+    expect(jinete).toContain(`+${CARGA.jinete.porcentaje} % cada una`);
   });
 });
 

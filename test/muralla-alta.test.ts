@@ -49,7 +49,6 @@ import {
   puertasAlEmpezar,
   validarMuralla,
 } from '../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { LIDERAZGO, MURALLA } from '../src/core/data.js';
@@ -309,16 +308,14 @@ describe('la defensa del tirador en lo alto', () => {
     expect(MURALLA.defensaEnLoAlto).toBeGreaterThan(0);
     const bono = bonoEnLoAlto(state, arquero);
     expect(bono).toBe(MURALLA.defensaEnLoAlto);
-    expect(effectiveDefense(arquero, REGLAS_DEL_JUEGO, bono)).toBe(
-      arquero.unit.defense + MURALLA.defensaEnLoAlto,
-    );
-    expect(effectiveDefense(arquero, REGLAS_DEL_JUEGO)).toBe(arquero.unit.defense);
+    expect(effectiveDefense(arquero, bono)).toBe(arquero.unit.defense + MURALLA.defensaEnLoAlto);
+    expect(effectiveDefense(arquero)).toBe(arquero.unit.defense);
     // Lo pone `opcionesDeDanio`, la única forma de montar las opciones del daño:
     // así lo cuentan a la vez el golpe, la IA y la previsión.
     expect(opcionesDeDanio(state, espada, arquero).bonoEnLoAlto).toBe(bono);
     // La IA lo hereda por `expectedDamage`.
     expect(expectedDamage(espada, arquero, opcionesDeDanio(state, espada, arquero))).toBeLessThan(
-      expectedDamage(espada, arquero, { reglas: REGLAS_DEL_JUEGO }),
+      expectedDamage(espada, arquero, {}),
     );
     // El que no tira, arriba, no suma; ni el tirador en el suelo.
     espada.hex = { col: 7, row: 3 };
@@ -342,7 +339,6 @@ describe('la defensa del tirador en lo alto', () => {
     const blanco = stackById(state, 'defender-0');
     const con = (alto: boolean): number =>
       computeDamage(tirador, blanco, createRng(9), {
-        reglas: REGLAS_DEL_JUEGO,
         ranged: true,
         distance: 4,
         bonoEnLoAlto: alto ? MURALLA.defensaEnLoAlto : 0,

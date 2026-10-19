@@ -210,8 +210,9 @@ export class EscenaBatalla {
   }
 
   /**
-   * Los dos que se cruzan en la rueda que se ve (solo la arena): los del cruce
-   * que se cuenta o, con la cola vacía, los del golpe plantado que espera la
+   * Los dos que se cruzan en la rueda que se ve (hoy, solo la arena: en la
+   * partida aún no se abre, F5): los del cruce que se cuenta o, con la cola
+   * vacía, los del golpe plantado que espera la
    * elección (`BattleState.golpeEnCurso`, que solo se lee). Es cuando la arena
    * enseña la rueda (`pintarLaRueda`, `main.ts`); si no, `null`. Lo elegido no
    * sale de aquí: no está en el estado.

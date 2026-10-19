@@ -12,7 +12,6 @@ import {
   batallaDeArena,
   LADOS,
   type LadoDeArena,
-  type MontajeDeArena,
   type RetoqueDeArena,
   retocarEnBatalla,
 } from '@core/arena.js';
@@ -44,7 +43,6 @@ import {
 } from '@core/battle/battle.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
 import { type PoderId, poder } from '@core/battle/poderes.js';
-import type { ReglasDeBatalla } from '@core/battle/reglas.js';
 import {
   esTipoDeGolpe,
   type PapelEnLaRueda,
@@ -416,14 +414,15 @@ function motivoDeMovimiento(turno: TurnoPropio | null, hex: Hex): string {
 /**
  * La IA juega mientras la unidad activa sea suya, y devuelve cuántas jugadas
  * hizo. El único bucle de «juega la IA hasta que te toque»: la partida y la
- * arena solo cambian el predicado. Al tope (`MAX_JUGADAS`) **lanza**, en las
- * dos: un bucle que no avanza no se corta callando.
+ * arena solo cambian el predicado y lo que completa la jugada. Al tope
+ * (`MAX_JUGADAS`) **lanza**, en las dos: un bucle que no avanza no se corta
+ * callando.
  */
 function jugarIAMientras(
   battle: BattleState,
   rng: Rng,
   laLlevaLaIA: (s: BattleStack) => boolean,
-  antes: (accion: BattleAction) => BattleAction | null = (accion) => accion,
+  antes: (accion: BattleAction) => BattleAction | null,
 ): number {
   let jugadas = 0;
   while (battle.finished === null) {
@@ -432,8 +431,9 @@ function jugarIAMientras(
     if (jugadas >= MAX_JUGADAS) {
       throw new Error(`la IA lleva ${MAX_JUGADAS} jugadas seguidas sin soltar la batalla`);
     }
-    // `antes` completa la jugada o la para (`null`): la arena, con la rueda del
-    // golpe, espera ahí a que la persona responda. La partida no lo pasa.
+    // `antes` completa la jugada con la rueda del golpe o la para (`null`): la
+    // arena espera ahí a que la persona responda; la partida, aún no (F5), la
+    // completa entera a ciegas.
     const accion = antes(chooseBattleAction(battle));
     if (accion === null) break;
     applyAction(battle, accion, rng);
@@ -1537,12 +1537,17 @@ export class Session implements ControlDeBatalla {
     return surrenderBlocker(turno.battle, turno.side);
   }
 
-  /** Aplica la acción de la persona y deja que la IA juegue lo suyo. */
+  /**
+   * Aplica la acción de la persona y deja que la IA juegue lo suyo. **Parche
+   * temporal** (F4 de la tarea del combate en el juego, 19-10-2026): hasta que la
+   * persona elija en el diálogo de la rueda (F5), su golpe y la respuesta del
+   * rival los elige la IA a ciegas (`completarCruce`), y el golpe se da de una vez.
+   */
   playBattleAction(action: BattleAction): void {
     const battle = this.battle;
     if (battle === null) return;
     try {
-      applyAction(battle, action, this.ctx.rng);
+      applyAction(battle, completarCruce(battle, action, this.ctx.rng).accion, this.ctx.rng);
       this.tocar();
       this.status = '';
     } catch (err) {
@@ -1561,7 +1566,10 @@ export class Session implements ControlDeBatalla {
     const battle = this.battle;
     const mio = this.miBando;
     if (battle === null || mio === null) return;
-    if (jugarIAMientras(battle, this.ctx.rng, (s) => s.side !== mio) > 0) this.tocar();
+    // Hasta F5, también la respuesta de las de la persona la elige la IA a ciegas.
+    const aCiegas = (a: BattleAction): BattleAction =>
+      completarCruce(battle, a, this.ctx.rng).accion;
+    if (jugarIAMientras(battle, this.ctx.rng, (s) => s.side !== mio, aCiegas) > 0) this.tocar();
     if (battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
 
@@ -1648,7 +1656,7 @@ export type LadoDeSesion = LadoDeArena & { readonly ia: boolean };
 /**
  * La batalla de la arena (`/arena/`): dos bandos de unidades del borrador o del
  * catálogo, con un héroe cada uno si se quiere, sin partida alrededor, y en cada
- * unidad decide la persona o la IA. Las reglas (`reglas.ts`) son las del montaje,
+ * unidad decide la persona o la IA. Las reglas son las del juego (`createBattle`),
  * las mismas para los dos lados.
  *
  * Vive aquí porque `session.ts` es la única puerta del cliente al núcleo —lo
@@ -1669,7 +1677,6 @@ export type LadoDeSesion = LadoDeArena & { readonly ia: boolean };
 export class SesionDeArena implements ControlDeBatalla {
   readonly battle: BattleState;
   readonly semilla: number;
-  readonly reglas: ReglasDeBatalla;
   /**
    * El catálogo de equipo con que se pelea (`MontajeDeArena.equipo`): la batalla
    * no lo lleva, así que el retoque de una pieza lo pide de aquí y aquí deja el
@@ -1761,28 +1768,22 @@ export class SesionDeArena implements ControlDeBatalla {
     montaje: {
       readonly izquierda: LadoDeSesion;
       readonly derecha: LadoDeSesion;
-      readonly reglas: ReglasDeBatalla;
       /** La muralla del tablero; sin ella, ninguna (`SIN_MURALLA`). */
       readonly muralla?: MurallaDeBatalla;
       /** El catálogo de equipo con que se pelea, hecho (`catalogoDeEquipo`, o `EQUIPO_DEL_JUEGO`). */
       readonly equipo: CatalogoDeEquipo;
-      /** Los modos de la arena que pide el montaje (la rueda, el contacto); sin él, los de siempre. */
-      readonly modos?: MontajeDeArena['modos'];
     },
     semilla: number,
   ) {
     this.semilla = semilla;
-    this.reglas = montaje.reglas;
     this.equipo = montaje.equipo;
     this.rng = createRng(semilla);
     this.battle = batallaDeArena(
       {
         izquierda: montaje.izquierda,
         derecha: montaje.derecha,
-        reglas: montaje.reglas,
         muralla: montaje.muralla ?? SIN_MURALLA,
         equipo: montaje.equipo,
-        ...(montaje.modos === undefined ? {} : { modos: montaje.modos }),
       },
       this.rng,
     );

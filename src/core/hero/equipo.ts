@@ -181,25 +181,18 @@ interface DichoDeUnUso {
   readonly cuando: string;
 }
 
-/** Lo que dice la fila de un arma puesta que no se usa (`ArmaDeLaUnidad.sinUso`). */
-interface ConSinUso {
-  readonly sinUso: string;
-}
-
 /**
  * Cada uso de un arma dicho para quien juega, en la forma en que se pinta: el
  * `rotulo` de su fila en «Armas» (la ficha y el panel de la pelea), el `golpe`
  * con que lo dice la previsión («con Daga (cuerpo a cuerpo)», también la del
  * contraataque), `cuando` se usa, la nota de su fila y la del hueco en el editor
- * de equipo, y `sinUso`, lo que dice la fila de un arma puesta que no se usa (solo
- * la de carga en quien no carga: el cuerpo a cuerpo se usa siempre y el arma a
- * distancia ya es disparar). Las cifras de la carga salen de `data/carga.json`
+ * de equipo. Toda arma puesta se usa: el cuerpo a cuerpo siempre, la de carga al
+ * cargar (carga todo el que pega cuerpo a cuerpo) y la de distancia, que ya es
+ * disparar. Las cifras de la carga salen de `data/carga.json`
  * (`CARGA`), no se escriben aquí. La regla la aplican `usoDelGolpe` y `armasDe`
  * (`battle/damage.ts`); esto la cuenta.
  */
-export const DICHO_DEL_USO: {
-  readonly [U in UsoDeArma]: DichoDeUnUso & (U extends 'lanza' ? ConSinUso : unknown);
-} = {
+export const DICHO_DEL_USO: Readonly<Record<UsoDeArma, DichoDeUnUso>> = {
   arma: {
     rotulo: 'Cuerpo a cuerpo',
     golpe: 'cuerpo a cuerpo',
@@ -215,8 +208,7 @@ export const DICHO_DEL_USO: {
   lanza: {
     rotulo: 'Carga',
     golpe: 'en la carga',
-    cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo. En la arena carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porcentaje} % de daño por casilla hasta ${CARGA.aPie.tope}; con el rasgo Carga (el jinete), +${CARGA.jinete.porcentaje} % hasta ${CARGA.jinete.tope}.`,
-    sinUso: 'no carga: no se usa',
+    cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo. Carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porcentaje} % de daño por casilla hasta ${CARGA.aPie.tope}; con el rasgo Carga (el jinete), +${CARGA.jinete.porcentaje} % hasta ${CARGA.jinete.tope}.`,
   },
 };
 

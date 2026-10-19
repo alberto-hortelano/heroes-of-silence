@@ -676,11 +676,20 @@ describe('equipar y desequipar (C1, C4)', () => {
     // Y conserva lo vivido: la hoja es la misma, con la pieza cambiada.
     expect(hero.army[0]!.veterania?.experiencia).toBe(30);
 
+    // Quitarle su arma al veterano le deja la de serie de su unidad.
     accion(state, { type: 'unequip', hero: hero.id, slot: 'arma', veteran: 'veterano-1' }, c);
     expect(hero.army[0]!.veterania?.equipo).toEqual({});
+    expect(unidadDelJuego(PESADA).equipoDeSerie.arma).toBeDefined();
     accion(state, { type: 'unequip', hero: hero.id, slot: 'armadura' }, c);
     expect(hero.equipo).toEqual({ arma: 'daga' });
     expect(hero.mochila).toEqual(['espada', 'maza', 'mandoble', 'gambeson']);
+    // Al héroe no se le quita la suya: sin arma no se combate, que todo golpe
+    // cuerpo a cuerpo va por la rueda con la del arma (19-10-2026). Se cambia.
+    const antes = JSON.stringify({ equipo: hero.equipo, mochila: hero.mochila });
+    expect(() => accion(state, { type: 'unequip', hero: hero.id, slot: 'arma' }, c)).toThrow(
+      `${hero.name} se quedaría sin arma de cuerpo a cuerpo, y nadie pelea sin ella: cámbiala por otra en vez de quitarla`,
+    );
+    expect(JSON.stringify({ equipo: hero.equipo, mochila: hero.mochila })).toBe(antes);
   });
 
   it('"creature" pide un novato SIN HOJA, no uno sin piezas: lo que dice el contrato es lo que hace', () => {

@@ -301,13 +301,6 @@ export const responseSchemas = {
 export type MapGenerateResponse = z.infer<typeof mapGenerateResponseSchema>;
 
 /**
- * El bono de una casilla de carga en tanto por ciento y su tope, tal y como se le
- * dicen al agente: los del jinete (`data/carga.json`), que el juego no carga a pie.
- */
-const PORCIENTO_POR_CASILLA_DE_CARGA = CARGA.jinete.porcentaje;
-const TOPE_DE_CARGA = CARGA.jinete.tope;
-
-/**
  * Descripción del formato de respuesta que viaja DENTRO de cada petición.
  * Es prosa deliberadamente: el agente lee esto en el mismo mensaje que el
  * estado, y no tiene que ir a buscar nada.
@@ -538,16 +531,28 @@ Notas:
 - "from" es opcional en "attack": si se indica, la unidad se mueve ahí (lo que le
   quede de "stepsLeft") y golpea; sin él golpea desde donde está, si ya está al
   lado. Puedes ELEGIR desde qué casilla golpear: cualquier "from" de la lista.
-- La CARGA es solo de las unidades con el rasgo "charge": un "attack" con "from"
-  carga si ese "from" está en LÍNEA RECTA desde donde está la unidad ahora (una
-  de las 6 rectas del hexágono, sin giros ni unidades en medio), a ${CARGA_MINIMA} casillas o
-  más, y el "target" está EN ESA RECTA: la casilla que sigue a "from" es suya.
-  Llegar a la recta y girar para pegar al de al lado no carga, ni pegar al que
-  ya tienes pegado. Cada casilla suma un ${PORCIENTO_POR_CASILLA_DE_CARGA} % de daño, hasta ${TOPE_DE_CARGA}. Lo andado en
+- CARGA todo el que pega cuerpo a cuerpo: un "attack" con "from" carga si ese
+  "from" está en LÍNEA RECTA desde donde está la unidad ahora (una de las 6
+  rectas del hexágono, sin giros ni unidades en medio), a ${CARGA_MINIMA} casillas o más, y
+  el "target" está EN ESA RECTA: la casilla que sigue a "from" es suya. Llegar a
+  la recta y girar para pegar al de al lado no carga, ni pegar al que ya tienes
+  pegado. Cada casilla suma un ${CARGA.aPie.porcentaje} % de daño a pie, y un ${CARGA.jinete.porcentaje} % con el rasgo
+  "charge" (el jinete), hasta ${CARGA.jinete.tope}; solo el primer golpe la cobra. Lo andado en
   tramos anteriores no cuenta: cada tramo se vuelve a medir. "chargeFrom" te
   lista las cargas que tienes ahora mismo: contra qué "target", desde qué
   casilla ("col", "row") y con cuántas casillas cobrarías ("hexes"); solo viene
   cuando hay alguna. Un "move" a esa casilla NO carga: solo mueve.
+- SALIR DEL CONTACTO cuesta: dejar una casilla con N enemigos al lado que te
+  puedan golpear cuerpo a cuerpo cuesta 1 + N de "stepsLeft". Las casillas de
+  "legalActions" ya lo descuentan; si no te llega para salir, no te mueves
+  (golpea, defiende o espera). La carga se paga por la recta.
+- Cada golpe cuerpo a cuerpo pasa por la RUEDA DEL GOLPE: quien pega y quien
+  recibe eligen a ciegas un tipo (normal, ofensivo, fuerte, finta, defensivo,
+  rápido, romper guardia), y el cruce fija el daño dentro de la horquilla del
+  arma y el del contraataque. Hoy no eliges: los dos tipos los elige la IA a
+  ciegas por ti y por el rival, y el registro lo cuenta con el hecho "cruce".
+  Tras golpear con Finta, el turno de esa unidad sigue solo para andar (o
+  "end_turn"). El disparo no pasa por la rueda: sigue con su tirada.
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
   disparar o atacar. Se te volverá a pedir acción para el mismo stack.

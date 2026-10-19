@@ -26,7 +26,6 @@ import {
 } from '../src/core/battle/battle.js';
 import { cifrasDeLosNiveles, validarRueda } from '../src/core/battle/cifras-de-la-rueda.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import { efectoDeGolpe, filasDeLaRueda, ruedaDelArmaEnPalabras } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { unidad } from '../src/core/catalogo.js';
@@ -79,10 +78,7 @@ function guerreroCon(arma: string): UnidadDeArena {
  */
 function pelea(izq: UnidadDeArena, der: UnidadDeArena): BattleState {
   const b = batallaDeArena(
-    montajeDePrueba(aPelear([izq]), aPelear([der]), SIN_MURALLA, REGLAS_DEL_JUEGO, {
-      equipo: EQ,
-      modos: { golpe: 'rueda' },
-    }),
+    montajeDePrueba(aPelear([izq]), aPelear([der]), SIN_MURALLA, { equipo: EQ }),
     createRng(1),
   );
   stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
@@ -220,7 +216,7 @@ describe('las cifras de la rueda por niveles', () => {
     // El cuerpo desnudo: las del catálogo llevan todas arma de serie.
     const sinArma = { ...cuerpoDeCombate(unidad(TROPA)), name: 'Piquero' };
     expect(() => ruedaDelGolpe(sinArma, 'arma')).toThrow(
-      '«Piquero» golpea en la rueda sin arma de la arena',
+      '«Piquero» golpea en la rueda sin arma que la lleve',
     );
   });
 
@@ -261,14 +257,14 @@ describe('las cifras de la rueda por niveles', () => {
   it('las notas de la rueda dicen las cifras del arma de quien elige; Normal, sin modificar', () => {
     if (MAZA.rueda === undefined) throw new Error('la maza no lleva rueda');
     const c = cifrasDeLosNiveles(MAZA.rueda);
-    expect(efectoDeGolpe('fuerte', 'golpe', true, false, c)).toBe('Daño ×1,83.');
-    expect(efectoDeGolpe('rapido', 'respuesta', true, false, c)).toContain(
+    expect(efectoDeGolpe('fuerte', 'golpe', true, c)).toBe('Daño ×1,83.');
+    expect(efectoDeGolpe('rapido', 'respuesta', true, c)).toContain(
       'contraatacas con 2 golpes de daño ×0,38 cada uno',
     );
-    expect(efectoDeGolpe('romperGuardia', 'golpe', true, false, c)).toContain(
+    expect(efectoDeGolpe('romperGuardia', 'golpe', true, c)).toContain(
       '−5 con éxito máximo, −3 alto, −2 medio, −1 bajo, nada mínimo',
     );
-    expect(efectoDeGolpe('normal', 'golpe', true, false, c)).toBe(
+    expect(efectoDeGolpe('normal', 'golpe', true, c)).toBe(
       'Sin modificar. Contra cualquiera, el cruce cae en el medio.',
     );
   });
@@ -370,7 +366,7 @@ describe('cada golpe de la rueda va con su arma', () => {
       unidad: equiparEnArena(unidadDeArena(TROPA), 'maza', EQUIPO_DEL_JUEGO),
       ia: false,
     };
-    const s = sesionDeArena([conMaza], [conMaza], 1, { golpe: 'rueda' });
+    const s = sesionDeArena([conMaza], [conMaza], 1);
     s.empezar();
     hastaLaRueda(s, true, 'golpe');
     const p = s.ruedaPendiente;

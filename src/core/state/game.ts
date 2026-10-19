@@ -119,6 +119,7 @@ import {
   type Hueco,
   subtractResources,
 } from '../types.js';
+import { armaDeCuerpoBlocker } from '../unidad.js';
 import {
   type AsaltanteRecordado,
   casillasPeligrosas,
@@ -1625,7 +1626,6 @@ export function unequipBlocker(
   if ('motivo' in hero) return hero.motivo;
   const quien = destinoDeEquipo(hero, action);
   if ('motivo' in quien) return quien.motivo;
-  if (equipoDe(hero, quien)[action.slot] !== undefined) return null;
   const t = 'heroe' in quien ? null : (hero.army[quien.indice] as Troop);
   const nombre =
     t === null
@@ -1633,7 +1633,15 @@ export function unequipBlocker(
       : t.member === undefined
         ? `esa unidad de ${unidadDelJuego(t.creature).name}`
         : 'ese personaje';
-  return nadaEnElHueco(nombre, action.slot);
+  const { [action.slot]: quitada, ...resto } = equipoDe(hero, quien);
+  if (quitada === undefined) return nadaEnElHueco(nombre, action.slot);
+  // Sin arma no se combate (todo golpe cuerpo a cuerpo pasa por la rueda, que va
+  // con la del arma; 19-10-2026): lo que se quede puesto, con lo de serie de su
+  // unidad, tiene que llevar una. Quitar la propia de una tropa deja la de serie.
+  const queda = t === null || t.member !== undefined ? resto : equipoPuesto(t.creature, resto);
+  return armaDeCuerpoBlocker(queda) === null
+    ? null
+    : `${nombre} se quedaría sin arma de cuerpo a cuerpo, y nadie pelea sin ella: cámbiala por otra en vez de quitarla`;
 }
 
 /**

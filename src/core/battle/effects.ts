@@ -24,11 +24,11 @@ import type { BattleStack } from './types.js';
  * Los tipos de efecto que existen. Es una lista de valores y no solo un tipo
  * porque `test/invariantes.test.ts` la recorre para exigir que cada uno tenga
  * quien lo lea: un tipo que nadie suma se colgaría del stack sin hacer nada.
- * `'defense'` lo suma `effectiveDefense` (`damage.ts`); hoy solo lo pone
- * Defensivo de la rueda del golpe (la arena). Mismo patrón que
+ * `'defense'` lo suma `effectiveDefense` (`damage.ts`); hoy solo lo ponen
+ * Defensivo y Romper guardia de la rueda del golpe. Mismo patrón que
  * `CREATURE_TRAITS` en `types.ts`.
  */
-export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'tirada', 'defense'] as const;
+export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'defense'] as const;
 
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
@@ -135,19 +135,6 @@ export function effectTotal(stack: BattleStack, kind: EffectKind): number {
 
 export function effectiveLuck(stack: BattleStack): number {
   return clampMoraleLuck(stack.luck + effectTotal(stack, 'luck'));
-}
-
-/**
- * La tirada de daño que impone un efecto: `1` el máximo, `-1` el mínimo, `0` la
- * de siempre. Es la Bendición y la Maldición de fheroes2 (`tirada`), que solo
- * cuelga la arena con el interruptor (e) encendido; en el juego no hay ninguna
- * y esto vale 0. Una sola puede estar viva a la vez —la nueva sustituye a la
- * contraria (`applyStackEffect`, `battle.ts`)—, así que el signo del total es el
- * de la que está.
- */
-export function efectoDeTirada(stack: BattleStack): -1 | 0 | 1 {
-  const total = effectTotal(stack, 'tirada');
-  return total > 0 ? 1 : total < 0 ? -1 : 0;
 }
 
 /**

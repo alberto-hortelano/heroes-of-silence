@@ -43,7 +43,6 @@ import {
   tickEffects,
 } from '../src/core/battle/effects.js';
 import { validarMuralla } from '../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -69,6 +68,7 @@ import {
   JINETE,
   monstruoVivo,
   NO_MUERTO,
+  NORMAL,
   PESADA,
   simular,
   TIRADOR,
@@ -78,19 +78,41 @@ import {
 } from './helpers.js';
 
 /**
- * `reachable` es el BFS del tablero y `movableFrom` es su ÚNICO llamante, así
- * que contarle las llamadas cuenta exactamente los recorridos que hace
- * `legalActions`.
+ * `alcanceConCostes` es el recorrido del tablero (pagando el contacto, siempre
+ * desde el 19-10-2026; `reachable`, el BFS sin costes, solo lo pide
+ * `movimientoBlocker` para explicar un rechazo) y `movableFrom` es su ÚNICO
+ * llamante, así que contarle las llamadas cuenta exactamente los recorridos que
+ * hace `legalActions`.
  *
  * Se envuelve el módulo en vez de espiar el export, y no por gusto: la llamada
  * de `movableFrom` va por el enlace local de su módulo, así que un
- * `vi.spyOn(board, 'reachable')` se quedaría mirando un objeto por el que no
- * pasa nadie y contaría cero pase lo que pase. El envoltorio llama al original,
- * de modo que ninguna otra prueba de este fichero cambia de comportamiento.
+ * `vi.spyOn(board, 'alcanceConCostes')` se quedaría mirando un objeto por el que
+ * no pasa nadie y contaría cero pase lo que pase. El envoltorio llama al
+ * original, de modo que ninguna otra prueba de este fichero cambia de
+ * comportamiento.
  */
+/**
+ * `applyAction` con la rueda en Normal contra Normal si el golpe no trae sus
+ * elecciones (desde el 19-10-2026 todo golpe cuerpo a cuerpo pasa por ella, y sin
+ * elecciones se planta): este fichero mira las reglas de siempre; la rueda, en
+ * `rueda.test.ts`.
+ */
+function aplicar(
+  state: BattleState,
+  accion: BattleAction,
+  rng: Rng,
+  movibles?: Parameters<typeof applyAction>[3],
+): void {
+  const conRueda =
+    accion.type === 'attack' && accion.golpe === undefined && accion.respuesta === undefined
+      ? { ...accion, ...NORMAL }
+      : accion;
+  applyAction(state, conRueda, rng, movibles);
+}
+
 vi.mock('../src/core/battle/board.js', async (original) => {
   const real = await original<typeof import('../src/core/battle/board.js')>();
-  return { ...real, reachable: vi.fn(real.reachable) };
+  return { ...real, alcanceConCostes: vi.fn(real.alcanceConCostes) };
 });
 
 /**
@@ -116,8 +138,6 @@ const hero = (over: Partial<BattleHero> = {}): BattleHero => ({
   name: 'Prueba',
   // Sin base a la que volver: un héroe de test no se rinde salvo que se diga.
   retreat: { blocked: 'no tienes base a la que volver' },
-  ataque: 0,
-  defensa: 0,
   spellPower: 3,
   knowledge: 3,
   mana: 30,
@@ -296,7 +316,7 @@ describe('moral por composición del ejército', () => {
     // Una ronda entera a la defensiva, para pasar por el final de ronda y por
     // cada `advance`, que es donde se colaría un recálculo.
     const rng = createRng(1);
-    while (state.round < 2) applyAction(state, { type: 'defend' }, rng);
+    while (state.round < 2) aplicar(state, { type: 'defend' }, rng);
     expect(state.finished).toBeNull();
     expect(campesino.morale).toBe(-1);
   });
@@ -308,7 +328,7 @@ describe('los que esperan vuelven por orden de llegada (#81, regla nuestra)', ()
     const orden: string[] = [];
     for (let s = activeStack(state); s !== null && !s.waited; s = activeStack(state)) {
       orden.push(s.id);
-      applyAction(state, { type: 'wait' }, rng);
+      aplicar(state, { type: 'wait' }, rng);
     }
     return orden;
   }
@@ -319,7 +339,7 @@ describe('los que esperan vuelven por orden de llegada (#81, regla nuestra)', ()
     const ronda = state.round;
     while (state.round === ronda && state.finished === null) {
       orden.push((activeStack(state) as BattleStack).id);
-      applyAction(state, { type: 'defend' }, rng);
+      aplicar(state, { type: 'defend' }, rng);
     }
     return orden;
   }
@@ -410,7 +430,7 @@ describe('iniciativa', () => {
     const orden: string[] = [];
     while (state.round <= rondas && state.finished === null) {
       orden.push((activeStack(state) as BattleStack).id);
-      applyAction(state, { type: 'defend' }, rng);
+      aplicar(state, { type: 'defend' }, rng);
     }
     return orden;
   }
@@ -466,7 +486,7 @@ describe('iniciativa', () => {
     const rng = createRng(1);
     expect(activeStack(state)!.id).toBe('attacker-0');
     herir(stackById(state, 'defender-0'), 9999, null);
-    applyAction(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'defend' }, rng);
     expect(activeStack(state)!.id).toBe('defender-1');
   });
 
@@ -478,7 +498,7 @@ describe('iniciativa', () => {
     const state = empatados(2, 2);
     stackById(state, 'defender-0').morale = -1;
     const rng: Rng = { ...createRng(1), chance: () => true };
-    applyAction(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'defend' }, rng);
     expect(state.log.at(-1)).toEqual({ kind: 'morale', stack: 'defender-0', good: false });
     expect(activeStack(state)!.id).toBe('defender-1');
   });
@@ -487,11 +507,11 @@ describe('iniciativa', () => {
     const state = empatados(2, 2);
     stackById(state, 'attacker-0').morale = 1;
     const rng: Rng = { ...createRng(1), chance: () => true };
-    applyAction(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'defend' }, rng);
     expect(state.log.at(-1)).toEqual({ kind: 'morale', stack: 'attacker-0', good: true });
     expect(activeStack(state)!.id).toBe('attacker-0');
     // Y después, el empate es del defensor: el último que actuó fue un atacante.
-    applyAction(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'defend' }, rng);
     expect(activeStack(state)!.id).toBe('defender-0');
   });
 
@@ -503,7 +523,7 @@ describe('iniciativa', () => {
       source: 'haste',
       roundsLeft: 3,
     });
-    applyAction(state, { type: 'defend' }, createRng(1));
+    aplicar(state, { type: 'defend' }, createRng(1));
     expect(activeStack(state)!.id).toBe('defender-0');
   });
 
@@ -531,13 +551,17 @@ describe('combate cuerpo a cuerpo', () => {
     simular(state, rng);
 
     // El log se recorre por rondas: entre dos 'round_start', cada stack puede
-    // aparecer como contraatacante una sola vez.
+    // contraatacar una sola vez. Un contraataque son los golpes de su intercambio
+    // (Rápido devuelve dos), que van tras el `cruce` de su golpe.
     let contraestaRonda = new Set<string>();
+    let contraEsteGolpe = new Set<string>();
     for (const evento of state.log) {
       if (evento.kind === 'round_start') contraestaRonda = new Set();
-      if (evento.kind === 'attack' && evento.retaliation) {
+      if (evento.kind === 'cruce') contraEsteGolpe = new Set();
+      if (evento.kind === 'attack' && evento.retaliation && !contraEsteGolpe.has(evento.stack)) {
         expect(contraestaRonda.has(evento.stack)).toBe(false);
         contraestaRonda.add(evento.stack);
+        contraEsteGolpe.add(evento.stack);
       }
     }
     expect(state.log.some((e) => e.kind === 'attack' && e.retaliation)).toBe(true);
@@ -588,7 +612,7 @@ describe('tiradores', () => {
     const municionInicial = arquero.shotsLeft;
     const disparo = legalActions(state).find((a) => a.type === 'shoot');
     expect(disparo).toBeDefined();
-    applyAction(state, disparo!, rng);
+    aplicar(state, disparo!, rng);
     expect(arquero.shotsLeft).toBe(municionInicial - 1);
     expect(state.log.some((e) => e.kind === 'shoot')).toBe(true);
   });
@@ -603,7 +627,7 @@ describe('tiradores', () => {
     expect(cuentaTiros(arquero.unit)).toBe(true);
     arquero.shotsLeft = 0;
     expect(legalActions(state).some((a) => a.type === 'shoot')).toBe(false);
-    expect(() => applyAction(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
+    expect(() => aplicar(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
       'attacker-0 se ha quedado sin munición',
     );
   });
@@ -623,7 +647,7 @@ describe('hechizos', () => {
 
     const conjuro = legalActions(state).find((a) => a.type === 'cast');
     expect(conjuro).toBeDefined();
-    applyAction(state, conjuro!, rng);
+    aplicar(state, conjuro!, rng);
 
     expect(lanzador.mana).toBe(7);
     expect(stackHp(objetivo)).toBeLessThan(vidaPrevia);
@@ -638,9 +662,9 @@ describe('hechizos', () => {
       side([{ creature: NO_MUERTO, count: 10 }]),
       rng,
     );
-    applyAction(state, { type: 'cast', spell: 'magic_arrow', target: 'defender-0' }, rng);
+    aplicar(state, { type: 'cast', spell: 'magic_arrow', target: 'defender-0' }, rng);
     expect(() =>
-      applyAction(state, { type: 'cast', spell: 'magic_arrow', target: 'defender-0' }, rng),
+      aplicar(state, { type: 'cast', spell: 'magic_arrow', target: 'defender-0' }, rng),
     ).toThrow(/ya lanzó/);
   });
 });
@@ -654,9 +678,9 @@ describe('acciones ilegales', () => {
       rng,
     );
     expect(activeStack(state)!.id).toBe('attacker-0');
-    expect(() => applyAction(state, { type: 'move', to: { col: 10, row: 8 } }, rng)).toThrow();
-    expect(() => applyAction(state, { type: 'attack', target: 'defender-0' }, rng)).toThrow();
-    expect(() => applyAction(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
+    expect(() => aplicar(state, { type: 'move', to: { col: 10, row: 8 } }, rng)).toThrow();
+    expect(() => aplicar(state, { type: 'attack', target: 'defender-0' }, rng)).toThrow();
+    expect(() => aplicar(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
       /no es tirador/,
     );
   });
@@ -695,7 +719,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // diciendo otra cosa.
     expect(enemiesOf(state, activeStack(state) as BattleStack)).toHaveLength(4);
 
-    const espia = vi.mocked(board.reachable);
+    const espia = vi.mocked(board.alcanceConCostes);
     espia.mockClear();
     legalActions(state);
     // Con el BFS dentro del bucle de ataques eran 1 + 4 = 5.
@@ -718,6 +742,10 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // Y otra vez con el tablero de filas de 12 y 11 (11-10-2026): los
     // defensores de las filas pares salen en la columna 11 —(11,4) y (11,2)— y
     // los de las impares en la 10, así que (10,4), (10,2) y (10,1) quedan libres.
+    //
+    // Y otra con salir del contacto en toda batalla (19-10-2026): en (9,3) el
+    // atacante toca al defensor de (10,3), salir le cuesta uno más y solo le
+    // llega para las casillas de al lado; el orden de las que quedan no cambia.
     expect(legalActions(batallaDeCuatroEnemigos())).toEqual([
       { type: 'defend' },
       { type: 'wait' },
@@ -726,22 +754,12 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
       { type: 'move', to: { col: 8, row: 3 } },
       { type: 'move', to: { col: 9, row: 2 } },
       { type: 'move', to: { col: 10, row: 2 } },
-      { type: 'move', to: { col: 8, row: 5 } },
-      { type: 'move', to: { col: 9, row: 5 } },
-      { type: 'move', to: { col: 8, row: 4 } },
-      { type: 'move', to: { col: 7, row: 3 } },
-      { type: 'move', to: { col: 8, row: 2 } },
-      { type: 'move', to: { col: 8, row: 1 } },
-      { type: 'move', to: { col: 9, row: 1 } },
-      { type: 'move', to: { col: 10, row: 1 } },
       { type: 'attack', target: 'defender-0', from: { col: 10, row: 4 } },
       { type: 'attack', target: 'defender-1' },
       { type: 'attack', target: 'defender-1', from: { col: 10, row: 4 } },
       { type: 'attack', target: 'defender-1', from: { col: 10, row: 2 } },
       { type: 'attack', target: 'defender-2', from: { col: 10, row: 4 } },
-      { type: 'attack', target: 'defender-2', from: { col: 9, row: 5 } },
       { type: 'attack', target: 'defender-3', from: { col: 10, row: 2 } },
-      { type: 'attack', target: 'defender-3', from: { col: 10, row: 1 } },
       // Al final, siempre: con el turno en tramos (2026-10-02) cerrar a mano es
       // una acción más, y al final no mueve lo que encuentra un `find` de la IA.
       { type: 'end_turn' },
@@ -807,13 +825,13 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // la IA pega desde donde está y no se mueve.
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
 
-    const espia = vi.mocked(board.reachable);
+    const espia = vi.mocked(board.alcanceConCostes);
     espia.mockClear();
     const { action, movibles } = chooseBattleActionAndCosts(state);
     // Si la IA dejara de avanzar en este tablero, el test dejaría de medir lo
     // que dice medir y hay que buscarle otro.
     expect(action.type).toBe('move');
-    applyAction(state, action, createRng(1), movibles);
+    aplicar(state, action, createRng(1), movibles);
 
     expect(espia).toHaveBeenCalledTimes(1);
   });
@@ -824,9 +842,9 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const state = batallaDeCuatroEnemigos();
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
 
-    const espia = vi.mocked(board.reachable);
+    const espia = vi.mocked(board.alcanceConCostes);
     espia.mockClear();
-    applyAction(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
 
     expect(espia).toHaveBeenCalledTimes(1);
     expect(stackById(state, 'attacker-0').hex).toEqual({ col: 2, row: 4 });
@@ -857,7 +875,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     } as const;
 
     const aPelo = montar(createRng(51));
-    applyAction(aPelo, carga, createRng(51));
+    aplicar(aPelo, carga, createRng(51));
 
     const conPista = montar(createRng(51));
     const s = activeStack(conPista) as BattleStack;
@@ -867,7 +885,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
       puertas: '',
       costs: movableFrom(conPista, s),
     };
-    applyAction(conPista, carga, createRng(51), conRecorrido);
+    aplicar(conPista, carga, createRng(51), conRecorrido);
 
     expect(conPista.log).toEqual(aPelo.log);
     const golpe = aPelo.log.find((e) => e.kind === 'attack' && !e.retaliation);
@@ -884,11 +902,11 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const s = activeStack(state) as BattleStack;
     const turno = state.turno as TurnoDeUnidad;
     const suyo = { firma: firmaDelTurno(turno), puertas: '', costs: movableFrom(state, s) };
-    applyAction(state, { type: 'defend' }, createRng(1));
+    aplicar(state, { type: 'defend' }, createRng(1));
     const otro = activeStack(state) as BattleStack;
     expect(otro.id).not.toBe(s.id);
 
-    expect(() => applyAction(state, { type: 'defend' }, createRng(1), suyo)).toThrow(
+    expect(() => aplicar(state, { type: 'defend' }, createRng(1), suyo)).toThrow(
       `el recorrido que traes es del turno ${turno.n} con 0 casillas gastadas, y ahora le toca a ${otro.id} en el turno ${turno.n + 1} con 0 casillas gastadas`,
     );
   });
@@ -925,7 +943,7 @@ describe('batalla completa', () => {
         acciones.find((a) => a.type === 'attack') ??
         acciones.find((a) => a.type === 'move') ??
         acciones[0]!;
-      applyAction(state, eleccion, rng);
+      aplicar(state, eleccion, rng);
       turnos++;
     }
 
@@ -949,7 +967,7 @@ describe('batalla completa', () => {
       let n = 0;
       while (state.finished === null && n < 1000) {
         const acciones = legalActions(state);
-        applyAction(state, acciones.find((a) => a.type === 'attack') ?? acciones[0]!, rng);
+        aplicar(state, acciones.find((a) => a.type === 'attack') ?? acciones[0]!, rng);
         n++;
       }
       return JSON.stringify(state.log);
@@ -964,7 +982,7 @@ function pasarRonda(state: BattleState, rng: Rng): void {
   const ronda = state.round;
   let n = 0;
   while (state.round === ronda && state.finished === null && n < 60) {
-    applyAction(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'defend' }, rng);
     n++;
   }
 }
@@ -991,7 +1009,7 @@ describe('efectos temporales (#9)', () => {
     const base = stackSpeed(objetivo);
 
     expect(state.round).toBe(1);
-    applyAction(state, { type: 'cast', spell: 'slow', target: 'defender-0' }, rng);
+    aplicar(state, { type: 'cast', spell: 'slow', target: 'defender-0' }, rng);
     expect(stackSpeed(objetivo)).toBe(base - 2);
     // Con poder mágico 2 vive dos rondas: la que se lanza y la siguiente.
     expect(state.log.some((e) => e.kind === 'effect' && e.source === 'slow')).toBe(true);
@@ -1027,7 +1045,7 @@ describe('efectos temporales (#9)', () => {
     // no ofrecerlo, con el motivo escrito para la persona. Antes se aceptaba,
     // rebotaba y cobraba igual el maná y la tirada de la ronda; ahora ni eso.
     expect(() =>
-      applyAction(state, { type: 'cast', spell: 'curse', target: 'defender-0' }, rng),
+      aplicar(state, { type: 'cast', spell: 'curse', target: 'defender-0' }, rng),
     ).toThrow(/inmune a "Maldición"/);
     expect(esqueleto.effects).toEqual([]);
     expect(effectiveLuck(esqueleto)).toBe(suerteAntes);
@@ -1068,15 +1086,15 @@ describe('efectos temporales (#9)', () => {
     const base = unidadDelJuego(NO_MUERTO).attack;
 
     expect(state.turno?.stack).toBe('attacker-0');
-    applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
+    aplicar(state, { type: 'attack', target: 'defender-0' }, rng);
     expect(effectiveAttack(esqueleto)).toBe(base - 2);
 
     // El esqueleto cierra la ronda y quien asusta vuelve a morder con el miedo
     // anterior todavía vivo (le quedaba 1 ronda de las 2).
-    applyAction(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'defend' }, rng);
     expect(state.round).toBe(2);
     expect(esqueleto.effects.filter((e) => e.source === 'fear')).toHaveLength(1);
-    applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
+    aplicar(state, { type: 'attack', target: 'defender-0' }, rng);
 
     // Sin política de acumulación esto sería −4 sostenido, y una Lentitud por
     // ronda iría a −2, −4, −6.
@@ -1127,12 +1145,12 @@ describe('rasgos de criatura (#8)', () => {
     const a = montar(quieta);
     stackById(a, 'attacker-0').hex = { col: 5, row: 4 };
     stackById(a, 'defender-0').hex = { col: 6, row: 4 };
-    applyAction(a, { type: 'attack', target: 'defender-0' }, quieta);
+    aplicar(a, { type: 'attack', target: 'defender-0' }, quieta);
 
     const b = montar(cargando);
     stackById(b, 'attacker-0').hex = { col: 0, row: 4 };
     stackById(b, 'defender-0').hex = { col: 6, row: 4 };
-    applyAction(b, { type: 'attack', target: 'defender-0', from: { col: 5, row: 4 } }, cargando);
+    aplicar(b, { type: 'attack', target: 'defender-0', from: { col: 5, row: 4 } }, cargando);
 
     const golpe = (state: typeof a) =>
       state.log.find((e) => e.kind === 'attack' && !e.retaliation) as
@@ -1150,11 +1168,9 @@ describe('rasgos de criatura (#8)', () => {
     const jinetes = stackOf(JINETE, 10);
     const piqueros = stackOf(TROPA, 40);
     const cinco = computeDamage(jinetes, piqueros, createRng(52), {
-      reglas: REGLAS_DEL_JUEGO,
       chargeHexes: 5,
     });
     const siete = computeDamage(jinetes, piqueros, createRng(52), {
-      reglas: REGLAS_DEL_JUEGO,
       chargeHexes: 7,
     });
 
@@ -1165,12 +1181,13 @@ describe('rasgos de criatura (#8)', () => {
     expect(cinco.charge).toBe(5);
     expect(siete.charge).toBe(5);
 
-    // Y quien no tiene el rasgo no carga por mucho que corra.
+    // Y quien no tiene el rasgo carga a pie (#260; en toda batalla desde el
+    // 19-10-2026), con sus cifras y el mismo tope.
     const aPie = computeDamage(piqueros, jinetes, createRng(52), {
-      reglas: REGLAS_DEL_JUEGO,
-      chargeHexes: 5,
+      chargeHexes: 7,
     });
-    expect(aPie.charge).toBe(0);
+    expect(aPie.charge).toBe(5);
+    expect(aPie.cifrasDeCarga).toBe(CARGA.aPie);
   });
 
   it('fear: quien asusta (el dragón óseo de antes) asusta a los no-muertos, que es donde la moral no llega', () => {
@@ -1191,7 +1208,7 @@ describe('rasgos de criatura (#8)', () => {
     enfrentar(asusta, esqueleto);
 
     expect(effectiveAttack(esqueleto)).toBe(unidadDelJuego(NO_MUERTO).attack);
-    applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
+    aplicar(state, { type: 'attack', target: 'defender-0' }, rng);
 
     expect(esqueleto.effects.some((e) => e.source === 'fear' && e.amount === -2)).toBe(true);
     expect(effectiveAttack(esqueleto)).toBe(unidadDelJuego(NO_MUERTO).attack - 2);
@@ -1200,10 +1217,8 @@ describe('rasgos de criatura (#8)', () => {
     ).toBe(true);
 
     // Y el miedo se nota en el golpe: mismo dado, menos daño.
-    const conMiedo = computeDamage(esqueleto, asusta, createRng(5), { reglas: REGLAS_DEL_JUEGO });
-    const sinMiedo = computeDamage({ ...esqueleto, effects: [] }, asusta, createRng(5), {
-      reglas: REGLAS_DEL_JUEGO,
-    });
+    const conMiedo = computeDamage(esqueleto, asusta, createRng(5), {});
+    const sinMiedo = computeDamage({ ...esqueleto, effects: [] }, asusta, createRng(5), {});
     expect(conMiedo.damage).toBeLessThan(sinMiedo.damage);
   });
 
@@ -1220,7 +1235,7 @@ describe('rasgos de criatura (#8)', () => {
       maldice,
     );
     enfrentar(stackById(contraVivos, 'attacker-0'), stackById(contraVivos, 'defender-0'));
-    applyAction(contraVivos, { type: 'attack', target: 'defender-0' }, rng);
+    aplicar(contraVivos, { type: 'attack', target: 'defender-0' }, rng);
 
     const piquero = stackById(contraVivos, 'defender-0');
     expect(piquero.effects.some((e) => e.source === 'curse_on_hit' && e.amount === -1)).toBe(true);
@@ -1241,7 +1256,7 @@ describe('rasgos de criatura (#8)', () => {
       maldice,
     );
     enfrentar(stackById(contraMuertos, 'attacker-0'), stackById(contraMuertos, 'defender-0'));
-    applyAction(contraMuertos, { type: 'attack', target: 'defender-0' }, rng2);
+    aplicar(contraMuertos, { type: 'attack', target: 'defender-0' }, rng2);
 
     const esqueleto = stackById(contraMuertos, 'defender-0');
     expect(esqueleto.effects).toEqual([]);
@@ -1276,7 +1291,7 @@ describe('rasgos de criatura (#8)', () => {
 
     const aliadoAntes = aliado.count;
     expect(state.turno?.stack).toBe('attacker-0');
-    applyAction(state, { type: 'shoot', target: 'defender-0' }, rng);
+    aplicar(state, { type: 'shoot', target: 'defender-0' }, rng);
 
     expect(aliado.count).toBeLessThan(aliadoAntes);
     expect(
@@ -1466,7 +1481,8 @@ describe('la IA elige la casilla de ataque por daño esperado (#50)', () => {
     const zombi = stackById(state, 'defender-0');
     expect(cargaDesde(state, s, { col: 4, row: 4 }, zombi)).toBe(4);
     expect(cargaDesde(state, s, { col: 5, row: 5 }, zombi)).toBe(0);
-    expect(movableFrom(state, s).get('5,5')?.steps).toBe(6);
+    // Seis casillas, y salir del contacto del zombi en la última cuesta una más.
+    expect(movableFrom(state, s).get('5,5')?.steps).toBe(7);
     expect(casillaElegida(state)).toEqual({ col: 4, row: 4 });
   });
 
@@ -1486,11 +1502,11 @@ describe('la IA elige la casilla de ataque por daño esperado (#50)', () => {
     // reescribió esa cola una vez. Aquí se le da la vuelta al orden de
     // enumeración: si la heurística se apoyara en `cargas[0]`, elegiría la de
     // coste 4 y este test se pondría rojo.
-    const espia = vi.mocked(board.reachable);
-    const real = espia.getMockImplementation() as typeof board.reachable;
-    espia.mockImplementation((from, maxSteps, blocked) =>
+    const espia = vi.mocked(board.alcanceConCostes);
+    const real = espia.getMockImplementation() as typeof board.alcanceConCostes;
+    espia.mockImplementation((...args) =>
       // El mismo mapa con las entradas al revés: mismos hexes, mismos costes.
-      reverse(real(from, maxSteps, blocked)),
+      reverse(real(...args)),
     );
     try {
       const state = escenaDeCarga(PESADA);
@@ -1532,11 +1548,11 @@ function pasoYGolpe(state: BattleState): {
   const rng = createRng(1);
   const n0 = state.turno?.n ?? -1;
   const paso = chooseBattleAction(state);
-  applyAction(state, paso, rng);
+  aplicar(state, paso, rng);
   const n1 = state.turno?.n ?? -1;
   const golpe = chooseBattleAction(state);
   const antes = state.log.length;
-  applyAction(state, golpe, rng);
+  aplicar(state, golpe, rng);
   const e = state.log.slice(antes).find((x) => x.kind === 'attack' && !x.retaliation);
   return { paso, golpe, turnos: [n0, n1], cobrada: e?.kind === 'attack' ? e.charge : undefined };
 }
@@ -1618,7 +1634,7 @@ describe('la IA lanza hechizos (#24)', () => {
 
     // La segunda vuelta sobre el MISMO stack devuelve una acción de combate:
     // `castThisRound` corta el bucle, así que la IA no se cuelga lanzando.
-    applyAction(state, decision, rng);
+    aplicar(state, decision, rng);
     expect(state.turno?.stack).toBe('attacker-0');
     expect(lanzador.mana).toBe(17);
     expect(chooseBattleAction(state).type).not.toBe('cast');
@@ -1818,7 +1834,7 @@ describe('la IA aprovecha el segundo tramo (02-10-2026)', () => {
       col: 5,
       row: 4,
     });
-    applyAction(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
     expect(state.turno?.stack).toBe('attacker-0');
     expect(chooseBattleAction(state)).toEqual({ type: 'attack', target: 'defender-0' });
   });
@@ -1867,7 +1883,7 @@ describe('la IA aprovecha el segundo tramo (02-10-2026)', () => {
         const accion = chooseBattleAction(state);
         if (seHaMovido(state, s)) tramos++;
         expect(legalActions(state), `semilla ${semilla}`).toContainEqual(accion);
-        applyAction(state, accion, rng);
+        aplicar(state, accion, rng);
       }
       expect(state.finished, `semilla ${semilla}`).not.toBeNull();
     }
@@ -1957,16 +1973,16 @@ describe('el turno en tramos (2026-10-02)', () => {
     });
     const s = stackById(state, 'attacker-0');
     const antes = { ...(state.turno as TurnoDeUnidad) };
-    applyAction(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
     // El MISMO turno, por su ordinal, con lo andado apuntado.
     expect(state.turno).toEqual({ n: antes.n, stack: 'attacker-0', gastado: 2 });
     expect(mismoTurno(antes, state.turno)).toBe(true);
     expect(pasosQueQuedan(state, s)).toBe(2);
     // Lo que le queda manda: nada de lo que se ofrece cuesta más de 2.
     for (const p of movableFrom(state, s).values()) expect(p.steps).toBeLessThanOrEqual(2);
-    expect(() =>
-      applyAction(state, { type: 'move', to: { col: 5, row: 4 } }, createRng(1)),
-    ).toThrow('attacker-0 no puede moverse a (5,4)');
+    expect(() => aplicar(state, { type: 'move', to: { col: 5, row: 4 } }, createRng(1))).toThrow(
+      'attacker-0 no puede moverse a (5,4)',
+    );
     // El rechazo no ha tocado nada: sigue en su sitio y con lo mismo gastado.
     expect(s.hex).toEqual({ col: 2, row: 4 });
     expect(state.turno).toEqual({ n: antes.n, stack: 'attacker-0', gastado: 2 });
@@ -1977,8 +1993,8 @@ describe('el turno en tramos (2026-10-02)', () => {
       col: 10,
       row: 4,
     });
-    applyAction(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
-    applyAction(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
     expect(stackById(state, 'attacker-0').acted).toBe(true);
     expect(state.turno?.stack).not.toBe('attacker-0');
   });
@@ -1998,9 +2014,9 @@ describe('el turno en tramos (2026-10-02)', () => {
     if (cuerpo === undefined) throw new Error('el bando con héroe no trae su cuerpo');
     cuerpo.hex = { col: 0, row: 8 };
     forzarTurno(state, 'attacker-0');
-    applyAction(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
     expect(legalActions(state).some((a) => a.type === 'cast')).toBe(true);
-    applyAction(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
     expect(stackById(state, 'attacker-0').acted).toBe(true);
     expect(state.turno?.stack).not.toBe('attacker-0');
   });
@@ -2010,7 +2026,7 @@ describe('el turno en tramos (2026-10-02)', () => {
       col: 5,
       row: 4,
     });
-    applyAction(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 4, row: 4 } }, createRng(1));
     expect(state.turno).toMatchObject({ stack: 'attacker-0', gastado: 4 });
     expect(legalActions(state)).toEqual([
       { type: 'attack', target: 'defender-0' },
@@ -2025,7 +2041,7 @@ describe('el turno en tramos (2026-10-02)', () => {
       row: 4,
     });
     expect(legalActions(state)).toContainEqual({ type: 'shoot', target: 'defender-0' });
-    applyAction(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(state.turno?.stack).toBe('attacker-0');
 
     const tipos = new Set(legalActions(state).map((a) => a.type));
@@ -2035,13 +2051,13 @@ describe('el turno en tramos (2026-10-02)', () => {
     expect(tipos.has('end_turn')).toBe(true);
 
     const rng = createRng(1);
-    expect(() => applyAction(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
+    expect(() => aplicar(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
       'attacker-0 ya se ha movido este turno: no puede disparar',
     );
-    expect(() => applyAction(state, { type: 'wait' }, rng)).toThrow(
+    expect(() => aplicar(state, { type: 'wait' }, rng)).toThrow(
       'attacker-0 ya se ha movido este turno: no puede esperar',
     );
-    expect(() => applyAction(state, { type: 'defend' }, rng)).toThrow(
+    expect(() => aplicar(state, { type: 'defend' }, rng)).toThrow(
       'attacker-0 ya se ha movido este turno: no puede defenderse',
     );
   });
@@ -2054,14 +2070,14 @@ describe('el turno en tramos (2026-10-02)', () => {
       row: 4,
     });
     expect(ataqueBlocker(arquero, 'defender-0')).toBeNull();
-    applyAction(arquero, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
+    aplicar(arquero, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(ataqueBlocker(arquero, 'defender-0')).toBe(
       'ya se ha movido este turno: no puede disparar, y no alcanza a esa unidad cuerpo a cuerpo este turno',
     );
     // El rechazo del motor sale de la misma redacción, con el id delante.
-    expect(() =>
-      applyAction(arquero, { type: 'shoot', target: 'defender-0' }, createRng(1)),
-    ).toThrow('attacker-0 ya se ha movido este turno: no puede disparar');
+    expect(() => aplicar(arquero, { type: 'shoot', target: 'defender-0' }, createRng(1))).toThrow(
+      'attacker-0 ya se ha movido este turno: no puede disparar',
+    );
 
     // A quien no tira no se le habla de disparar.
     const lejos = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
@@ -2092,7 +2108,7 @@ describe('el turno en tramos (2026-10-02)', () => {
     ] as const) {
       casos.push(duelo(quien, { col: 0, row: 4 }, TROPA, rival));
       const tramo = duelo(quien, { col: 0, row: 4 }, TROPA, rival);
-      applyAction(tramo, { type: 'move', to: { col: 1, row: 3 } }, createRng(1));
+      aplicar(tramo, { type: 'move', to: { col: 1, row: 3 } }, createRng(1));
       if (tramo.turno?.stack === 'attacker-0') casos.push(tramo);
     }
     let conMotivo = 0;
@@ -2115,7 +2131,7 @@ describe('el turno en tramos (2026-10-02)', () => {
     });
     // Sin moral: un turno extra dejaría `acted` en falso y no es lo que se mide.
     stackById(state, 'attacker-0').morale = 0;
-    applyAction(state, { type: 'shoot', target: 'defender-0' }, createRng(1));
+    aplicar(state, { type: 'shoot', target: 'defender-0' }, createRng(1));
     expect(state.log.some((e) => e.kind === 'shoot')).toBe(true);
     expect(stackById(state, 'attacker-0').acted).toBe(true);
   });
@@ -2132,9 +2148,9 @@ describe('el turno en tramos (2026-10-02)', () => {
       });
       const s = stackById(state, 'attacker-0');
       s.morale = 3;
-      applyAction(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(semilla));
+      aplicar(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(semilla));
       const antes = { ...(state.turno as TurnoDeUnidad) };
-      applyAction(state, { type: 'end_turn' }, createRng(semilla));
+      aplicar(state, { type: 'end_turn' }, createRng(semilla));
       const buena = state.log.some((e) => e.kind === 'morale' && e.good);
       // Haya extra o no, lo que viene es OTRO turno: el ordinal siguiente.
       expect(state.turno?.n).toBe(antes.n + 1);
@@ -2161,7 +2177,7 @@ describe('el turno en tramos (2026-10-02)', () => {
       row: 4,
     });
     const s = stackById(state, 'attacker-0');
-    applyAction(state, { type: 'move', to: { col: 3, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 3, row: 4 } }, createRng(1));
     expect(pasosQueQuedan(state, s)).toBe(1);
     applyEffect(s, { kind: 'speed', amount: -2, roundsLeft: 2, source: 'slow' });
     expect(stackSpeed(s)).toBe(2);
@@ -2180,9 +2196,9 @@ describe('el turno en tramos (2026-10-02)', () => {
     const turno = state.turno as TurnoDeUnidad;
     const n = turno.n;
     const viejo = { firma: firmaDelTurno(turno), puertas: '', costs: movableFrom(state, s) };
-    applyAction(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(() =>
-      applyAction(state, { type: 'move', to: { col: 5, row: 4 } }, createRng(1), viejo),
+      aplicar(state, { type: 'move', to: { col: 5, row: 4 } }, createRng(1), viejo),
     ).toThrow(
       `el recorrido que traes es del turno ${n} con 0 casillas gastadas, y ahora le toca a attacker-0 en el turno ${n} con 1 casilla gastada`,
     );
@@ -2194,7 +2210,7 @@ describe('el turno en tramos (2026-10-02)', () => {
       row: 4,
     });
     expect(legalActions(state).at(-1)).toEqual({ type: 'end_turn' });
-    applyAction(state, { type: 'end_turn' }, createRng(1));
+    aplicar(state, { type: 'end_turn' }, createRng(1));
     expect(stackById(state, 'attacker-0').acted).toBe(true);
   });
 });
@@ -2213,22 +2229,14 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
       col: 4,
       row: 4,
     });
-    applyAction(
-      tres,
-      { type: 'attack', target: 'defender-0', from: { col: 3, row: 4 } },
-      createRng(1),
-    );
+    aplicar(tres, { type: 'attack', target: 'defender-0', from: { col: 3, row: 4 } }, createRng(1));
     expect(cargaCobrada(tres)).toBe(3);
 
     const dos = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
       col: 3,
       row: 4,
     });
-    applyAction(
-      dos,
-      { type: 'attack', target: 'defender-0', from: { col: 2, row: 4 } },
-      createRng(1),
-    );
+    aplicar(dos, { type: 'attack', target: 'defender-0', from: { col: 2, row: 4 } }, createRng(1));
     expect(cargaCobrada(dos)).toBe(0);
     expect(CARGA_MINIMA).toBe(3);
 
@@ -2244,22 +2252,19 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     expect(casillasDeCarga(seis, jinete)).toEqual([
       { target: 'defender-0', at: { col: 6, row: 4 }, hexes: CARGA.jinete.tope, porciento: 50 },
     ]);
-    applyAction(
-      seis,
-      { type: 'attack', target: 'defender-0', from: { col: 6, row: 4 } },
-      createRng(1),
-    );
+    aplicar(seis, { type: 'attack', target: 'defender-0', from: { col: 6, row: 4 } }, createRng(1));
     expect(cargaCobrada(seis)).toBe(5);
   });
 
   it('una casilla a la que solo se llega con rodeo no carga, por muchos pasos que cueste', () => {
-    // (5,5) cuesta 6 pasos —con la regla vieja, el tope— y no está en recta.
+    // (5,5) está a 6 casillas —con la regla vieja, el tope—, cuesta 7 con el
+    // contacto, y no está en recta.
     const state = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
       col: 5,
       row: 4,
     });
-    expect(movableFrom(state, stackById(state, 'attacker-0')).get('5,5')?.steps).toBe(6);
-    applyAction(
+    expect(movableFrom(state, stackById(state, 'attacker-0')).get('5,5')?.steps).toBe(7);
+    aplicar(
       state,
       { type: 'attack', target: 'defender-0', from: { col: 5, row: 5 } },
       createRng(1),
@@ -2284,7 +2289,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     // (4,4) se alcanza rodeando al campesino, pero la recta pasa por él.
     expect(movableFrom(state, s).has('4,4')).toBe(true);
     expect(cargaDesde(state, s, { col: 4, row: 4 }, stackById(state, 'defender-0'))).toBe(0);
-    applyAction(
+    aplicar(
       state,
       { type: 'attack', target: 'defender-0', from: { col: 4, row: 4 } },
       createRng(1),
@@ -2297,9 +2302,9 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
       col: 6,
       row: 4,
     });
-    applyAction(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
+    aplicar(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
     expect(state.turno).toMatchObject({ stack: 'attacker-0', gastado: 2 });
-    applyAction(
+    aplicar(
       state,
       { type: 'attack', target: 'defender-0', from: { col: 5, row: 4 } },
       createRng(1),
@@ -2336,7 +2341,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     for (const a of legalActions(base)) {
       if (a.type !== 'attack' || a.from === undefined) continue;
       const st = montar();
-      applyAction(st, a, createRng(1));
+      aplicar(st, a, createRng(1));
       const cobrada = cargaCobrada(st);
       const anunciada = anuncio.filter(
         (c) => c.target === a.target && board.hexEquals(c.at, a.from as Hex),
@@ -2352,14 +2357,21 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     expect(sinCarga).toBeGreaterThan(0);
   });
 
-  it('sin el rasgo no hay carga ni se anuncia', () => {
+  it('sin el rasgo carga a pie, y se anuncia con sus cifras (#260; en toda batalla desde el 19-10-2026)', () => {
     const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
       col: 4,
       row: 4,
     });
     const s = stackById(state, 'attacker-0');
-    expect(casillasDeCarga(state, s)).toEqual([]);
-    expect(cargaDesde(state, s, { col: 3, row: 4 }, stackById(state, 'defender-0'))).toBe(0);
+    expect(casillasDeCarga(state, s)).toEqual([
+      {
+        target: 'defender-0',
+        at: { col: 3, row: 4 },
+        hexes: 3,
+        porciento: 3 * CARGA.aPie.porcentaje,
+      },
+    ]);
+    expect(cargaDesde(state, s, { col: 3, row: 4 }, stackById(state, 'defender-0'))).toBe(3);
   });
 
   // H1 de QA, decisión del usuario: «el enemigo tiene que estar en la línea
@@ -2376,7 +2388,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     expect(legalActions(state)).toContainEqual(giro);
     expect(cargaDesde(state, s, giro.from, stackById(state, 'defender-0'))).toBe(0);
     expect(casillasDeCarga(state, s).some((c) => board.hexEquals(c.at, giro.from))).toBe(false);
-    applyAction(state, giro, createRng(1));
+    aplicar(state, giro, createRng(1));
     expect(cargaCobrada(state)).toBe(0);
   });
 
@@ -2387,7 +2399,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     });
     const s = stackById(state, 'attacker-0');
     expect(casillasDeCarga(state, s)).toEqual([]);
-    applyAction(state, { type: 'attack', target: 'defender-0' }, createRng(1));
+    aplicar(state, { type: 'attack', target: 'defender-0' }, createRng(1));
     expect(cargaCobrada(state)).toBe(0);
   });
 
@@ -2420,7 +2432,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
       hexes: 3,
       porciento: 30,
     });
-    applyAction(
+    aplicar(
       state,
       { type: 'attack', target: 'defender-0', from: { col: 5, row: 2 } },
       createRng(1),
@@ -2709,7 +2721,7 @@ describe('el héroe ya no bonifica a su tropa (fase 1b)', () => {
       // lo que se mira es que nadie se lo sume por otro camino. El turno, a mano:
       // el héroe es más rápido que su tropa.
       forzarTurno(state, 'attacker-0');
-      applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
+      aplicar(state, { type: 'attack', target: 'defender-0' }, rng);
       const ev = state.log.find((e) => e.kind === 'attack' && e.stack === 'attacker-0');
       if (ev === undefined || ev.kind !== 'attack') throw new Error('el piquero no pegó');
       return ev.damage;

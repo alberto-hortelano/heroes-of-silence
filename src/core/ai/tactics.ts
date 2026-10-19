@@ -331,7 +331,7 @@ function rindeTemporal(
         amenaza: Math.abs(despues.amenaza - antes.amenaza),
       };
     } else {
-      hoy = escalar(mejorGolpe(state, objetivo, pasos), valorDeEfectoDeDanio(efecto, objetivo));
+      hoy = escalar(mejorGolpe(state, objetivo, pasos), valorDeEfectoDeDanio(efecto));
     }
   }
 
@@ -348,7 +348,7 @@ function rindeTemporal(
   const porRonda =
     sp.kind === 'speed'
       ? escalar(golpe, tira ? 0 : FRACCION_TEMPO)
-      : escalar(golpe, valorDeEfectoDeDanio(efecto, objetivo));
+      : escalar(golpe, valorDeEfectoDeDanio(efecto));
   return { pv: hoy.pv + despues * porRonda.pv, amenaza: hoy.amenaza + despues * porRonda.amenaza };
 }
 
@@ -386,7 +386,7 @@ function rindeDe(
       // colgaría, así que la duración no se recalcula aquí. Solo devuelve
       // `null` fuera de estas dos ramas: no rinde y no lanza, porque esto es
       // una heurística, no una regla.
-      const efecto = efectoDe(sp, l, state.reglas);
+      const efecto = efectoDe(sp, l);
       return efecto === null
         ? NADA
         : rindeTemporal(state, sp, efecto, objetivo, quedan, gastaSuTurno);
@@ -437,7 +437,7 @@ function mejorPoder(
     if (a.type !== 'poder') continue;
     const p = poder(a.poder);
     const objetivo = stackById(state, a.target);
-    const efecto = efectoDe(p.hechizo, p.lanzador, state.reglas);
+    const efecto = efectoDe(p.hechizo, p.lanzador);
     if (efecto !== null && roundsLeftOf(objetivo, efecto) > 0) continue;
     if (esDeCura(p) && !(enPeligro(state, objetivo) && vaGanando(state, s.side))) continue;
     quedan ??= rondasQueQuedan(state, s.side);
@@ -586,7 +586,7 @@ function mejorCarga(
   // Lo que no cambia de una casilla candidata a otra (las ocupadas, lo que cuesta
   // salir de cada casilla) se cuenta una vez: `medirCargas`.
   const medir = medirCargas(state, s);
-  const cifras = cargaDelStack(state, s);
+  const cifras = cargaDelStack(s);
 
   let mejor = cargas[0] as CargaContra;
   let cargaMejor = -1;
@@ -599,11 +599,11 @@ function mejorCarga(
     if (paso === undefined) {
       throw new Error(`${s.id} no alcanza (${a.from.col},${a.from.row}): la lista legal miente`);
     }
-    const medida = cifras === null ? null : medir(a.from, objetivo);
-    // Lo que pagará: la carrera por la recta si salir del contacto cuesta, que
-    // puede costar más que el camino barato del recorrido.
-    const coste = medida?.carrera?.steps ?? paso.steps;
-    const carga = medida === null || cifras === null ? 0 : cargaEfectiva(medida.recta, cifras);
+    const medida = medir(a.from, objetivo);
+    // Lo que pagará: la carrera por la recta, que puede costar más que el camino
+    // barato del recorrido.
+    const coste = medida?.carrera.steps ?? paso.steps;
+    const carga = medida === null ? 0 : cargaEfectiva(medida.recta, cifras);
     if (carga > cargaMejor || (carga === cargaMejor && coste < mejorCoste)) {
       mejor = a;
       cargaMejor = carga;
@@ -658,10 +658,10 @@ function pasoParaCargar(
   costes: ReadonlyMap<string, Paso>,
 ): Hex | null {
   // Solo el jinete se coloca para cargar: que la IA busque la recta también a pie
-  // en la arena (#260) queda para después de medir cuántas cargas hace sin ello.
-  // Por eso pregunta como el juego, sin la carga a pie: el rasgo, o nada.
-  const cifras = cifrasDeCarga(s.unit, false);
-  if (cifras === null) return null;
+  // (#260) queda para después de medir cuántas cargas hace sin ello. A pie carga
+  // si la recta le sale de camino.
+  if (!hasTrait(s.unit, 'charge')) return null;
+  const cifras = cifrasDeCarga(s.unit);
   const bloqueadas = cerradasPara(state, s);
   if (golpes.some((a) => cargaDesde(state, s, a.from, objetivo, bloqueadas) > 0)) return null;
 
@@ -1181,8 +1181,8 @@ export function autoResolve(
     // El recorrido con el que se decidió viaja hasta el motor: `moveTo` lo
     // repetía entero para cobrar la carga.
     const { action, movibles } = chooseBattleActionAndCosts(state, noSeRinden);
-    // Con la rueda (solo la arena), los dos eligen a ciegas, y aquí los dos son
-    // de la IA: no falta nunca nada. Sin rueda, la misma acción.
+    // Con la rueda, los dos eligen a ciegas, y aquí los dos son de la IA: no
+    // falta nunca nada. Lo que no es un golpe, la misma acción.
     applyAction(state, completarCruce(state, action, rng).accion, rng, movibles);
     n++;
   }

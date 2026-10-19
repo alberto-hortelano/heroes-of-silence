@@ -1,5 +1,5 @@
 /**
- * La IA en la rueda del golpe (`battle/rueda.ts`, solo la arena): elige a ciegas,
+ * La IA en la rueda del golpe (`battle/rueda.ts`): elige a ciegas,
  * con la mezcla de `data/rueda.json` y el `Rng` de la batalla.
  *
  * **No ve lo que eligió el otro**, y no es una cortesía: la elección es
@@ -8,7 +8,6 @@
  */
 import { activeStack, stackById } from '../battle/battle.js';
 import {
-  conRueda,
   type PapelEnLaRueda,
   PESOS_DE_LA_RUEDA,
   TIPOS_DE_GOLPE,
@@ -37,11 +36,14 @@ export type CruceCompletado =
  * golpe y luego la respuesta, cada uno sin ver el otro. Elige solo por los
  * bandos que lleva (`laLlevaLaIA`; sin decirlo, los dos): el primero que es de
  * una persona se queda en `falta`, y lo que viene detrás no se sortea aún, para
- * que el `Rng` gaste lo mismo en el mismo orden. Sin rueda, o si no es un golpe,
- * la misma acción y sin tocar el `Rng`: el juego y el banco no cambian.
+ * que el `Rng` gaste lo mismo en el mismo orden. Si no es un golpe, la misma
+ * acción y sin tocar el `Rng`.
  *
- * El único sitio donde la IA completa un cruce: lo leen `autoResolve` y la sesión
- * de la arena, cuando la IA golpea y cuando la persona acaba de elegir.
+ * El único sitio donde la IA completa un cruce: lo leen `autoResolve`, las dos
+ * sesiones y el director del agente. **Parche temporal (F4 de la tarea del
+ * combate en el juego, 19-10-2026)**: en la partida, la persona y el agente aún no
+ * eligen (F5 y F6), así que su golpe y la respuesta que les toca los elige aquí la
+ * IA a ciegas.
  */
 export function completarCruce(
   state: BattleState,
@@ -49,7 +51,7 @@ export function completarCruce(
   rng: Rng,
   laLlevaLaIA: (side: Side) => boolean = () => true,
 ): CruceCompletado {
-  if (!conRueda(state) || accion.type !== 'attack') return { falta: null, accion };
+  if (accion.type !== 'attack') return { falta: null, accion };
   const atacante = activeStack(state);
   if (atacante === null) throw new Error('un golpe en la rueda sin nadie a quien le toque');
   // Quien elige cada papel: el golpe, el bando del que pega; la respuesta, el del

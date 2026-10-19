@@ -45,24 +45,12 @@ import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
 import { dichoDeLasCifras } from '@core/battle/carga.js';
 import { armasDe } from '@core/battle/damage.js';
 import {
-  type ClaveConInterruptor,
-  type Interruptor,
-  MODOS_DE_LA_ARENA,
-  type ModosDeArena,
-} from '@core/battle/modos.js';
-import {
   esMuro,
   ladoDeLaMuralla,
   type MurallaDeBatalla,
   type PiezaDeMuralla,
 } from '@core/battle/muralla.js';
 import { esDeCura, type Poder, poder, poderDeHabilidad } from '@core/battle/poderes.js';
-import {
-  DESCRIPCION_DE_REGLA,
-  NOMBRES_DE_REGLA,
-  type ReglasDeBatalla,
-  reglasEncendidas,
-} from '@core/battle/reglas.js';
 import {
   filasDeLaRueda,
   NIVEL_MAXIMO,
@@ -454,89 +442,6 @@ function renderHeroeDelBando(
  */
 export const FIGURA_GENERICA = 'hero';
 
-// ---------------------------------------------------------------- reglas
-
-/**
- * Los interruptores de reglas: para cada una, la versión nuestra o la de
- * fheroes2, con lo que dice cada una. Por pelea y para los dos lados (decisión
- * del usuario); van en la URL con la semilla.
- */
-export function renderReglas(reglas: ReglasDeBatalla): Html {
-  const filas = unir(
-    NOMBRES_DE_REGLA.map((n) => {
-      const d = DESCRIPCION_DE_REGLA[n];
-      const v = reglas[n];
-      return html`<div class="regla" data-regla="${n}">
-        <span class="nombre">${d.nombre}</span>
-        <span class="botones">
-          <button data-arena="regla" data-regla="${n}" data-version="nuestra" class="${v === 'nuestra' ? 'primary' : ''}" title="${d.nuestra}">Nuestra</button>
-          <button data-arena="regla" data-regla="${n}" data-version="fheroes2" class="${v === 'fheroes2' ? 'primary' : ''}" title="${d.fheroes2}">fheroes2</button>
-        </span>
-        <span class="cost">${v === 'nuestra' ? d.nuestra : d.fheroes2}</span>
-      </div>`;
-    }),
-  );
-  const encendidas = reglasEncendidas(reglas).length;
-  return html`<h3>Reglas · ${encendidas === 0 ? 'las del juego' : `${encendidas} de fheroes2`}</h3>
-    <div class="reglas">${filas}</div>`;
-}
-
-/**
- * Cómo se enseña cada modo con interruptor en el montaje: el título de su
- * sección, el nombre de su fila y, por modo, el rótulo de su botón, lo que dice
- * el título cuando está puesto y su descripción (la del botón y la de la fila).
- * Qué modos hay y cómo van en la URL es del núcleo (`battle/modos.ts`).
- */
-interface PresentacionDelModo<K extends ClaveConInterruptor> {
-  readonly titulo: string;
-  readonly fila: string;
-  readonly modos: Readonly<
-    Record<
-      ModosDeArena[K],
-      { readonly rotulo: string; readonly puesto: string; readonly descripcion: string }
-    >
-  >;
-}
-
-const PRESENTACION_DEL_MODO: {
-  readonly [K in ClaveConInterruptor]: PresentacionDelModo<K>;
-} = {
-  golpe: {
-    titulo: 'Golpe',
-    fila: 'Cuerpo a cuerpo',
-    modos: {
-      azar: {
-        rotulo: 'Azar',
-        puesto: 'al azar',
-        descripcion: 'la tirada de siempre, entre el mínimo y el máximo de la criatura',
-      },
-      rueda: {
-        rotulo: 'Rueda',
-        puesto: 'con la rueda',
-        descripcion:
-          'cada uno elige un golpe a ciegas en la rueda: el cruce fija el daño y la respuesta es el contraataque',
-      },
-    },
-  },
-  contacto: {
-    titulo: 'Contacto',
-    fila: 'Salir del contacto',
-    modos: {
-      libre: {
-        rotulo: 'Libre',
-        puesto: 'libre',
-        descripcion: 'salir de una casilla cuesta 1, como siempre',
-      },
-      paga: {
-        rotulo: 'Paga',
-        puesto: 'salir cuesta',
-        descripcion:
-          'salir de una casilla cuesta 1 más por cada enemigo en contacto; si no le llega, no sale (el volador paga al despegar)',
-      },
-    },
-  },
-};
-
 /** Lo que mide el lienzo de una figura en cada sitio: el puesto, la rueda y la ficha. */
 const TAMAÑO_DE_FIGURA = {
   puesto: [72, 88],
@@ -559,35 +464,6 @@ export function figuraEnLienzo(
   const [ancho, alto] = TAMAÑO_DE_FIGURA[tamaño];
   const ficha = tamaño === 'ficha';
   return html`<canvas class="figura${ficha ? ' grande' : ''}" data-figura="${figura}"${lado === null ? NADA : html` data-lado="${lado}"`}${ficha ? html` data-ficha-clip="si"` : NADA} width="${String(ancho)}" height="${String(alto)}" aria-hidden="true"></canvas>`;
-}
-
-/**
- * Con qué se pelea si la URL trae un modo que no es: el de siempre, dicho («se
- * pelea con el golpe al azar»). Lo escribe la página detrás del rechazo.
- */
-export function modoDeSiempre<K extends ClaveConInterruptor>(d: Interruptor<K>): string {
-  const p: PresentacionDelModo<K> = PRESENTACION_DEL_MODO[d.clave];
-  return `se pelea con ${p.titulo.toLowerCase()} ${p.modos[d.porDefecto].puesto}`;
-}
-
-/**
- * El interruptor de un modo de la arena (`battle/modos.ts`): la rueda del golpe
- * o salir del contacto. Por pelea y para los dos lados; va en la URL
- * (`?golpe=rueda`, `?contacto=paga`), aparte de las reglas.
- */
-export function renderModo<K extends ClaveConInterruptor>(
-  d: Interruptor<K>,
-  modo: ModosDeArena[K],
-): Html {
-  const p: PresentacionDelModo<K> = PRESENTACION_DEL_MODO[d.clave];
-  const boton = (m: ModosDeArena[K]): Html =>
-    html`<button data-arena="modo" data-parametro="${d.parametro}" data-modo="${m}" class="${modo === m ? 'primary' : ''}" title="${p.modos[m].descripcion}">${p.modos[m].rotulo}</button>`;
-  return html`<h3>${p.titulo} · ${p.modos[modo].puesto}</h3>
-    <div class="reglas"><div class="regla" data-modo-del-montaje="${d.parametro}" data-modo="${modo}">
-      <span class="nombre">${p.fila}</span>
-      <span class="botones">${unir(d.modos.map(boton))}</span>
-      <span class="cost">${p.modos[modo].descripcion}</span>
-    </div></div>`;
 }
 
 /**
@@ -693,12 +569,10 @@ function casillaDeEscalera(p: Puesto, noLaUsa: string | null): Html {
 /**
  * Dónde se enseña una ficha: en el montaje, con su figura animada y valiendo para
  * la pelea siguiente; o en el editor de la batalla (`enCombate`), sin figura
- * —la del tablero ya se ve— y valiendo ya. `reglas`, las del montaje o las de la
- * pelea: con ellas se dice qué deja Bendecir.
+ * —la del tablero ya se ve— y valiendo ya.
  */
 export interface ComoDeLaFicha {
   readonly enCombate: boolean;
-  readonly reglas: ReglasDeBatalla;
   /** El catálogo de equipo de la arena (`catalogoDeEquipo`): con él se suma el equipo y se ofrece. */
   readonly piezas: EquipoAtado;
   /**
@@ -708,9 +582,9 @@ export interface ComoDeLaFicha {
   readonly renombrando?: boolean;
 }
 
-/** La ficha del montaje, con las reglas y las piezas que tiene puestas. */
-export function enElMontaje(reglas: ReglasDeBatalla, piezas: EquipoAtado): ComoDeLaFicha {
-  return { enCombate: false, reglas, piezas };
+/** La ficha del montaje, con las piezas que tiene puestas. */
+export function enElMontaje(piezas: EquipoAtado): ComoDeLaFicha {
+  return { enCombate: false, piezas };
 }
 
 /**
@@ -725,12 +599,12 @@ export const CAMBIO_EN_COMBATE =
  * hechizo del héroe se dice porque los dos dejan un efecto del mismo origen, que
  * refresca y no se apila (`applyEffect`): se compara, no se da por hecho.
  */
-export function queHaceElPoder(p: Poder, reglas: ReglasDeBatalla): string {
+export function queHaceElPoder(p: Poder): string {
   const s = p.hechizo;
-  const e = efectoDe(s, p.lanzador, reglas);
+  const e = efectoDe(s, p.lanzador);
   const hace = curaOEfecto(esDeCura(p) ? p.lanzador.cantidad : null, e) ?? '';
   if (esDeCura(p)) return `${hace} a un aliado herido, incluida la propia unidad`;
-  const elDelHeroe = efectoDe(s, delHeroe(s, { spellPower: 1 }), reglas);
+  const elDelHeroe = efectoDe(s, delHeroe(s, { spellPower: 1 }));
   const unoSolo = e !== null && elDelHeroe !== null && elDelHeroe.source === e.source;
   return `${hace} a un aliado${unoSolo ? `; es la ${s.name} del héroe: las dos no se suman` : ''}`;
 }
@@ -1087,28 +961,20 @@ function equipoDeLaFicha(u: UnidadDeArena, piezas: EquipoAtado): Html {
 /**
  * Las armas de una unidad, una fila por golpe (`armasDe`, del núcleo, con los
  * nombres de `piezas`): para qué, con cuál —o `SIN_ARMA`— y con qué ataque y daño
- * lo da, y en su nota cuándo se usa (`DICHO_DEL_USO`). Un arma puesta que no se
- * usa —una lanza sin el rasgo Carga— lo dice.
+ * lo da, y en su nota cuándo se usa (`DICHO_DEL_USO`).
  * `ataqueEnLaPelea` da el ataque de ese golpe en la pelea (sus efectos y su
  * héroe), si lo hay; si no, el de sus cifras.
  */
-function filasDeArmas(
-  unidad: UnitInfo,
-  cargaAPie: boolean,
-  ataqueEnLaPelea?: (uso: UsoDeArma) => number,
-): Html {
+function filasDeArmas(unidad: UnitInfo, ataqueEnLaPelea?: (uso: UsoDeArma) => number): Html {
   return unir(
-    armasDe(unidad, cargaAPie).map((a) => {
+    armasDe(unidad).map((a) => {
       const con = a.arma ?? SIN_ARMA;
       const ataque = ataqueEnLaPelea?.(a.uso) ?? a.attack;
-      const cifras =
-        a.sinUso !== null
-          ? a.sinUso
-          : `${NOMBRE_DE_CIFRA.ataque} ${conComa(ataque, 1)} · ${NOMBRE_DE_CIFRA.danio} ${a.damage[0]}–${a.damage[1]}`;
+      const cifras = `${NOMBRE_DE_CIFRA.ataque} ${conComa(ataque, 1)} · ${NOMBRE_DE_CIFRA.danio} ${a.damage[0]}–${a.damage[1]}`;
       // Lo que cobra la carga, en su propio trozo sin cortes: con las cifras en uno
       // solo, la fila pedía 398 px en un panel de 274.
       const cobra =
-        a.carga === null || a.sinUso !== null
+        a.carga === null
           ? NADA
           : html` <span class="cifras-del-arma">· ${dichoDeLasCifras(a.carga)}</span>`;
       const { rotulo, cuando } = DICHO_DEL_USO[a.uso];
@@ -1120,7 +986,7 @@ function filasDeArmas(
 /** «Armas» en la ficha de una unidad del catálogo: lo que pelea, golpe a golpe. */
 function armasDeLaFicha(combate: UnitInfo): Html {
   return html`<h3>Armas ${nota('Cada golpe va con las cifras de su arma: el ataque y el daño del cuerpo, con lo que suma todo el equipo y, del arma, solo la de ese golpe. La columna «Final» de arriba es la del cuerpo a cuerpo.')}</h3>
-      <div class="armas-de-la-ficha">${filasDeArmas(combate, MODOS_DE_LA_ARENA.cargaAPie)}</div>`;
+      <div class="armas-de-la-ficha">${filasDeArmas(combate)}</div>`;
 }
 
 /**
@@ -1242,7 +1108,7 @@ export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: Com
       : unir(
           conPoder.map(
             ({ h, p }) =>
-              html`<div class="poder" data-poder-de-la-ficha="${p.id}">${etiqueta(h)} ${nota(`${queHaceElPoder(p, como.reglas)}.`)}</div>`,
+              html`<div class="poder" data-poder-de-la-ficha="${p.id}">${etiqueta(h)} ${nota(`${queHaceElPoder(p)}.`)}</div>`,
           ),
         );
   const puestas =
@@ -1313,7 +1179,7 @@ export function renderFicha(u: UnidadDeArena | null, dispara: boolean, como: Com
 /**
  * La ficha del héroe de un lado: su figura (una hoja de héroe o la genérica), sus
  * cuatro cifras, su libro y los valores con los que pelea, que salen del núcleo
- * (`fichaDeHeroeDeArena`) con las reglas del montaje.
+ * (`fichaDeHeroeDeArena`).
  */
 export function renderFichaDeHeroe(
   lado: Lado,
@@ -1321,8 +1187,7 @@ export function renderFichaDeHeroe(
   como: ComoDeLaFicha,
   hojasDeHeroe: readonly { readonly id: string; readonly nombre: string }[],
 ): Html {
-  const { reglas } = como;
-  const ficha = fichaDeHeroeDeArena(h, reglas, como.piezas);
+  const ficha = fichaDeHeroeDeArena(h, como.piezas);
   const c = ficha.cuerpo;
   const figuras = unir([
     html`<option value="" ${h.figura === null ? html`selected` : NADA}>Genérica del juego</option>`,
@@ -1425,18 +1290,11 @@ export function renderFichaDeHeroe(
             ', ',
           )}), con las cifras de «Editar equipo». Cada golpe va con las cifras de su arma.`,
       )}</h3>
-      <div class="armas-de-la-ficha" data-armas-del-heroe="si">${filasDeArmas(c, MODOS_DE_LA_ARENA.cargaAPie)}</div>
+      <div class="armas-de-la-ficha" data-armas-del-heroe="si">${filasDeArmas(c)}</div>
       <h3>Libro de hechizos</h3>
       <div class="rasgos">${libro}</div>
       <h3>En la pelea</h3>
       <div class="efectivos">
-        ${
-          // Con nuestra regla el héroe no suma nada a su tropa: la fila no diría
-          // nada que no sea una aclaración (H4 de QA, 13-10-2026), y se quita.
-          reglas.heroe === 'fheroes2'
-            ? html`<div class="row" data-a-la-tropa="si"><span class="label">A la tropa ${nota('Regla de fheroes2: el héroe suma su ataque y su defensa a toda su tropa.')}</span><span>+${h.ataque} de ataque y +${h.defensa} de defensa</span></div>`
-            : NADA
-        }
         <div class="row" data-mana-de-la-ficha="${ficha.mana}"><span class="label">Maná ${nota('10 × Conocimiento.')}</span><span>${ficha.mana}</span></div>
         <div class="row"><span class="label">Duración de lo que lanza ${nota('Tantas rondas como su Poder.')}</span><span>${enRondas(ficha.duracion)}</span></div>
         ${rinde}
@@ -1961,10 +1819,7 @@ function botonesDePoder(s: VistaDeArena, activa: BattleStack): Html {
            rotulo: p.nombre,
            motivo: suyas.length > 0 ? null : s.motivoDePoder(id),
            esperando: apuntado?.kind === 'poder' && apuntado.id === id,
-           ayuda:
-             suyas.length === 1
-               ? previsionDelUnico(s, suyas[0])
-               : queHaceElPoder(p, s.battle.reglas),
+           ayuda: suyas.length === 1 ? previsionDelUnico(s, suyas[0]) : queHaceElPoder(p),
          })}`;
     }),
   );
@@ -2053,7 +1908,7 @@ export function filasDelStack(
   const cuerpo = cuerpoDelStack(b, x);
   const danio =
     conArmas && u.equipo !== undefined
-      ? filasDeArmas(u, b.arena.cargaAPie, (uso) => ataqueYDefensaEnBatalla(b, x, uso).ataque)
+      ? filasDeArmas(u, (uso) => ataqueYDefensaEnBatalla(b, x, uso).ataque)
       : html`<div class="row"><span class="label">Daño</span><span>${u.damage[0]}–${u.damage[1]}${delEquipo(u, cuerpo, 'danio')}</span></div>`;
   return html`<div class="row"><span class="label">Vida</span><span>${isAlive(x) ? x.topHp : 0} / ${u.hp} PV</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, x, s.defensaEnLoAlto(x))}${delEquipo(u, cuerpo, 'ataque')}${delEquipo(u, cuerpo, 'defensa')}</span></div>
@@ -2179,7 +2034,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
       : mia && activa !== null
         ? accionesDeLaUnidad({
             activa,
-            carga: cargaDelStack(b, activa),
+            carga: cargaDelStack(activa),
             legales: s.battleLegalActions(),
             pasos: s.battleStepsLeft(),
             sinSalida: s.sinSalida(),
@@ -2202,11 +2057,6 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     heroe === null
       ? NADA
       : html`<div class="row"><span class="label">Maná de ${heroe.mando.name}</span><span>${heroe.mando.mana} / ${heroe.manaMaximo}</span></div>`;
-  const encendidas = reglasEncendidas(b.reglas);
-  const reglas =
-    encendidas.length === 0
-      ? NADA
-      : html`<div class="row"><span class="label">Reglas de fheroes2</span><span>${encendidas.map((r) => DESCRIPCION_DE_REGLA[r].nombre).join(', ')}</span></div>`;
   const campo = listaDelCampo(b, (x) => {
     const nombre = nombreEnElCampo(b, x);
     return {
@@ -2219,7 +2069,6 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
   return html`${ficha}
     <div class="row"><span class="label">Ronda</span><span>${b.round}</span></div>
     ${mana}
-    ${reglas}
     <div class="botones-de-la-pelea"><button data-arena="ir-a-equipo" title="Cambia una pieza de equipo: vale ya para todos los que la llevan, de los dos bandos">Editar equipo</button></div>
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${campo}</div>

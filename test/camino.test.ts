@@ -15,20 +15,14 @@ import { msPorCasilla } from '../src/client/marcha.js';
 import { arteDe, hojaDe, INDICE_DE_HOJA } from '../src/client/render/personajes.js';
 import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import {
-  activeStack,
-  applyAction,
-  createBattle,
-  isAlive,
-  stackHexes,
-} from '../src/core/battle/battle.js';
+import { activeStack, createBattle, isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { areAdjacent, hexEquals, hexKey } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { hasTrait } from '../src/core/data.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
-import { ejercito } from './helpers.js';
+import { aCiegas, ejercito } from './helpers.js';
 
 function pelea(semilla: number): BattleState {
   return createBattle(
@@ -76,7 +70,7 @@ describe('el camino de un movimiento', () => {
             .flatMap((x) => stackHexes(x).map(hexKey)),
         );
         const antes = b.log.length;
-        applyAction(b, chooseBattleAction(b), rng);
+        aCiegas(b, chooseBattleAction(b), rng);
         for (const e of b.log.slice(antes)) {
           if (e.kind !== 'move' || e.stack !== yo.id) continue;
           movimientos++;

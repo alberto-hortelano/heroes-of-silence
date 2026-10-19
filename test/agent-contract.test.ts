@@ -1106,7 +1106,7 @@ describe('lo que ve el agente', () => {
     expect(prosa).toMatch(/el "target" está EN ESA RECTA/);
     expect(prosa).toMatch(/Un "move" a esa casilla NO carga/);
 
-    // `chargeFrom` solo con el rasgo; `stepsLeft` siempre que el activo sea tuyo.
+    // `chargeFrom` cuando hay casilla de carga; `stepsLeft` siempre que el activo sea tuyo.
     const turno = (criatura: string): Record<string, unknown> => {
       const battle = createBattle(
         { army: [{ creature: criatura, count: 5 }], hero: null },
@@ -1123,9 +1123,10 @@ describe('lo que ve el agente', () => {
     // Contra quién y desde dónde: la casilla de la recta con el escudo detrás,
     // y ninguna de las vacías (H1).
     expect(jinetes.chargeFrom).toEqual([{ target: 'defender-0', col: 4, row: 4, hexes: 4 }]);
+    // Sin el rasgo también carga, a pie (desde el 19-10-2026, en toda batalla).
     const espadas = turno(PESADA);
     expect(espadas.stepsLeft).toBe(SPEED_TO_HEXES[unidadDelJuego(PESADA).speed]);
-    expect('chargeFrom' in espadas).toBe(false);
+    expect(espadas.chargeFrom).toEqual([{ target: 'defender-0', col: 4, row: 4, hexes: 4 }]);
   });
 
   it('`chargeFrom` viaja cuando hay alguna casilla de carga, no cuando la unidad tiene el rasgo', () => {
@@ -1169,12 +1170,13 @@ describe('lo que ve el agente', () => {
 
   it('la prosa de la carga sale de las constantes que la cobran', () => {
     const prosa = RESPONSE_FORMAT.battle_turn;
-    expect(prosa).toContain(`a ${CARGA_MINIMA} casillas o\n  más`);
+    expect(prosa).toContain(`a ${CARGA_MINIMA} casillas o más`);
+    // Todo el que pega cuerpo a cuerpo carga (#260; en toda batalla desde el
+    // 19-10-2026): las cifras de a pie y las del jinete.
     expect(prosa).toContain(
-      `suma un ${CARGA.jinete.porcentaje} % de daño, hasta ${CARGA.jinete.tope}`,
+      `suma un ${CARGA.aPie.porcentaje} % de daño a pie, y un ${CARGA.jinete.porcentaje} % con el rasgo\n  "charge" (el jinete), hasta ${CARGA.jinete.tope}`,
     );
-    // El texto no cambia con #260: el juego no carga a pie.
-    expect(prosa).toContain('suma un 10 % de daño, hasta 5');
+    expect(prosa).toContain('suma un 5 % de daño a pie, y un 10 %');
     expect(prosa).toContain('"turnId"');
   });
 

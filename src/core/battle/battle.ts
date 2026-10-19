@@ -58,7 +58,7 @@ import {
   dichoDeLaCarga,
   porcientoDeLaCarga,
 } from './carga.js';
-import { fraseDelContacto, pagaElContacto, salirCuesta } from './contacto.js';
+import { fraseDelContacto, salirCuesta } from './contacto.js';
 import {
   ataqueYDefensa,
   CHANCE_PER_POINT,
@@ -81,7 +81,6 @@ import {
   type StackEffect,
   tickEffects,
 } from './effects.js';
-import { MODOS_DEL_JUEGO, type ModosDeArena } from './modos.js';
 import {
   bonoEnLoAlto,
   type CierreDeLaMuralla,
@@ -109,16 +108,8 @@ import {
 } from './muralla.js';
 import { esDeCura, type Poder, type PoderId, poder, poderSiExiste } from './poderes.js';
 import {
-  efectoConReglas,
-  type NombreDeRegla,
-  REGLAS_DEL_JUEGO,
-  type ReglasDeBatalla,
-  reglasEncendidas,
-} from './reglas.js';
-import {
   type CifrasDeLaRueda,
   casillasQueQuitaLaFinta,
-  conRueda,
   cruceBlocker,
   cruceDelGolpe,
   type EfectoDeLaRueda,
@@ -200,7 +191,7 @@ export interface HeroeDelBando {
  * los dos entraría sin él. Empieza sin haber lanzado en la ronda.
  */
 export function mandoDe(
-  heroe: Pick<Hero, 'name' | 'attack' | 'defense' | 'spellPower' | 'knowledge' | 'mana'> & {
+  heroe: Pick<Hero, 'name' | 'spellPower' | 'knowledge' | 'mana'> & {
     readonly spells: BattleHero['spells'];
   },
   retreat: BattleHero['retreat'],
@@ -208,8 +199,6 @@ export function mandoDe(
   return {
     name: heroe.name,
     retreat,
-    ataque: heroe.attack,
-    defensa: heroe.defense,
     spellPower: heroe.spellPower,
     knowledge: heroe.knowledge,
     mana: heroe.mana,
@@ -424,38 +413,17 @@ export function armyMorale(units: readonly UnitInfo[]): number {
 }
 
 /**
- * Monta la batalla del JUEGO: con sus reglas (`REGLAS_DEL_JUEGO`), siempre. Es la
- * puerta de la partida, del servidor y de los bancos; ninguna de ellas puede
- * pedir otras reglas. `muralla` la pone solo la arena (y los tests); toda batalla
- * del mapa va sin ella.
+ * Monta una batalla: **la única puerta** (19-10-2026: un solo combate para el
+ * juego y la arena, con la rueda, salir del contacto, la carga a pie y la
+ * armadura siempre). `muralla` la pone solo la arena (y los tests); toda batalla
+ * del mapa va sin ella (`SIN_MURALLA`).
  */
 export function createBattle(
   attacker: BattleSide,
   defender: BattleSide,
-  rng: Rng,
+  _rng: Rng,
   murallaPedida: MurallaDeBatalla = SIN_MURALLA,
 ): BattleState {
-  return crearBatallaConReglas(attacker, defender, rng, REGLAS_DEL_JUEGO, {
-    muralla: murallaPedida,
-  });
-}
-
-/**
- * Monta una batalla con otras reglas: la puerta de la arena y solo de ella. Lo
- * vigila `test/invariantes.test.ts` («solo la arena cambia las reglas»): quien
- * la llame fuera de `battle/`, `arena.ts`, `session.ts` y `client/arena/` sale
- * rojo. En `opciones`, la muralla del tablero (sin ella, `SIN_MURALLA`) y los
- * modos de la arena (`modos.ts`: la rueda del golpe, salir del contacto y la
- * carga a pie; sin ellos, `MODOS_DEL_JUEGO`).
- */
-export function crearBatallaConReglas(
-  attacker: BattleSide,
-  defender: BattleSide,
-  _rng: Rng,
-  reglas: ReglasDeBatalla,
-  opciones: { readonly muralla?: MurallaDeBatalla; readonly modos?: ModosDeArena } = {},
-): BattleState {
-  const murallaPedida = opciones.muralla ?? SIN_MURALLA;
   const stacks: BattleStack[] = [];
   const muralla = murallaPedida === SIN_MURALLA ? SIN_MURALLA : validarMuralla(murallaPedida);
 
@@ -536,9 +504,7 @@ export function crearBatallaConReglas(
     ultimoBando: null,
     turno: null,
     heroes: { attacker: attacker.hero?.mando ?? null, defender: defender.hero?.mando ?? null },
-    reglas,
     muralla,
-    arena: opciones.modos ?? MODOS_DEL_JUEGO,
     golpeEnCurso: null,
     escaleras: [],
     puertas: puertasAlEmpezar(muralla),
@@ -942,7 +908,7 @@ export function movimientoBlocker(state: BattleState, hex: Hex): string | null {
   if (quedan === 0) return `${finta}ya no le quedan casillas este turno`;
   const [verbo, casillas] = quedanCasillas(quedan);
   // Si saliendo gratis llegaría, lo que no le deja es el contacto del camino.
-  if (pagaElContacto(state) && movibles(state, s, false).has(hexKey(hex))) {
+  if (movibles(state, s, false).has(hexKey(hex))) {
     return `no llega: ${finta}le ${verbo} ${casillas} y salir de una casilla con enemigos al lado cuesta 1 más por cada uno`;
   }
   return hayMuralla(state.muralla) && !hasTrait(s.unit, 'flying')
@@ -983,7 +949,7 @@ function porElLado(state: BattleState, s: BattleStack, hex: Hex): string | null 
   const sinLados = recorrer(
     state,
     s,
-    pagaElContacto(state),
+    true,
     pasosQueQuedan(state, s),
     alAndar(state, s, blocked).cerradas,
     pasoAlAndar(m, state.puertas, s.side, false),
@@ -1261,7 +1227,7 @@ function golpePreparado(
   const target = stackById(state, accion.target);
   const motivo = golpeBlocker(state, s, target, accion.from, costes);
   if (motivo !== null) throw new Error(motivo);
-  const sinCruce = cruceBlocker(state, accion, completa);
+  const sinCruce = cruceBlocker(accion, completa);
   if (sinCruce !== null) throw new Error(sinCruce);
   const { from } = accion;
   // La carga se mide ANTES de mover, desde donde empieza este tramo: es la regla
@@ -1307,17 +1273,14 @@ function golpeEnCursoBlocker(
 }
 
 /**
- * ¿Es este `attack` un «plantarse»? Con la rueda, el golpe que llega sin ninguna
+ * ¿Es este `attack` un «plantarse»? El golpe que llega sin ninguna
  * de las dos elecciones y sin otro plantado: anda hasta `from` y espera la rueda
  * (`golpeEnCurso`), sin cerrar el turno. Primero se anda, luego se elige (decisión
  * del usuario, 13-10-2026).
  */
 function esPlantarse(state: BattleState, accion: BattleAction & { type: 'attack' }): boolean {
   return (
-    conRueda(state) &&
-    state.golpeEnCurso === null &&
-    accion.golpe === undefined &&
-    accion.respuesta === undefined
+    state.golpeEnCurso === null && accion.golpe === undefined && accion.respuesta === undefined
   );
 }
 
@@ -1356,13 +1319,13 @@ function disparoContraBlocker(
  * creyendo que sigue valiendo.
  */
 export function movableFrom(state: BattleState, s: BattleStack): Map<string, Paso> {
-  return movibles(state, s, pagaElContacto(state));
+  return movibles(state, s, true);
 }
 
 /**
  * `movableFrom` pagando o no el contacto (`contacto`): sin pagarlo lo pregunta
  * `movimientoBlocker`, para decir si es el contacto lo que no le deja llegar, sin
- * fabricar un estado con otro modo.
+ * fabricar un estado distinto.
  */
 function movibles(state: BattleState, s: BattleStack, contacto: boolean): Map<string, Paso> {
   // Sin casillas no hay a dónde ir, y no se recorre el tablero para saberlo: es
@@ -1410,13 +1373,12 @@ function movibles(state: BattleState, s: BattleStack, contacto: boolean): Map<st
 }
 
 /**
- * El recorrido de `s` desde donde está con `pasos` de presupuesto: el BFS de
- * siempre (`reachable`) o, si se paga el contacto (`contacto`, que es
- * `pagaElContacto` salvo cuando `movimientoBlocker` pregunta sin él), el de
- * costes (`alcanceConCostes`) con lo que cuesta salir de cada casilla
- * (`costesDelPaso`). Lo leen `movableFrom` y `porElLado`, para que lo que se
- * enseña, lo que se anda y lo que se explica salgan de la misma cuenta. Sin la
- * regla, el código de siempre, la misma llamada: el banco no se mueve.
+ * El recorrido de `s` desde donde está con `pasos` de presupuesto: el de costes
+ * (`alcanceConCostes`) con lo que cuesta salir de cada casilla (`costesDelPaso`)
+ * o, sin pagar el contacto (`contacto` falso: solo cuando `movimientoBlocker`
+ * pregunta si es el contacto lo que no le deja llegar), el BFS de siempre
+ * (`reachable`). Lo leen `movableFrom` y `porElLado`, para que lo que se enseña,
+ * lo que se anda y lo que se explica salgan de la misma cuenta.
  */
 function recorrer(
   state: BattleState,
@@ -1463,14 +1425,13 @@ export function enContactoEn(
 }
 
 /**
- * Por qué `s` no puede salir de su casilla, o `null` si puede o si la pelea no
- * cobra el contacto: lo que le queda no paga salir de donde está (#259). Sin
+ * Por qué `s` no puede salir de su casilla, o `null` si puede: lo que le queda no
+ * paga salir de donde está (#259). Sin
  * casillas no es esto: «ya no le quedan casillas» lo dice `movimientoBlocker`.
  * La leen `movimientoBlocker`, para cualquier casilla a la que se le pida ir, y
  * el panel de la arena, que lo dice sin que se señale ninguna.
  */
 export function contactoBlocker(state: BattleState, s: BattleStack): string | null {
-  if (!pagaElContacto(state)) return null;
   const quedan = pasosQueQuedan(state, s);
   if (quedan === 0) return null;
   const n = enContactoEn(state, s, s.hex);
@@ -1672,11 +1633,8 @@ function advance(state: BattleState, rng: Rng): void {
     // apunta en la rama de quien «will certainly perform at least one
     // full-fledged action», y la de `MORALE_BAD` va antes.
     // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L496-L501
-    // Con el interruptor (c) en fheroes2, 1/12 por punto y no 1/24. El perdón que
-    // allí tiene la IA (1 de cada 4 se libra) NO se copia (decisión del usuario):
-    // en la arena la persona y la IA se mezclan en un bando.
     const moral = s.morale;
-    if (moral < 0 && rng.chance(-moral * probabilidadDeMoralBaja(state.reglas))) {
+    if (moral < 0 && rng.chance(-moral * CHANCE_PER_POINT)) {
       s.acted = true;
       state.log.push({ kind: 'morale', stack: s.id, good: false });
       // Su turno empieza y se pierde: lo que dura «hasta que empiece su próximo
@@ -1691,23 +1649,6 @@ function advance(state: BattleState, rng: Rng): void {
 
   beginRound(state, rng);
 }
-
-/**
- * La probabilidad por punto de moral negativa de perder el turno: la nuestra,
- * `CHANCE_PER_POINT` (1/24, la misma que la moral alta), o la de fheroes2, que
- * tira un dado de 12:
- *
- * ```cpp
- *     else if ( morale < 0 && static_cast<int>( Rand::GetWithGen( 1, 12, randomGenerator ) ) <= -morale ) {
- *         // AI is given a cheeky 25% chance to avoid it - because they build armies from random troops
- *         if ( isControlHuman() || ( Rand::GetWithGen( 1, 4, randomGenerator ) != 1 ) ) {
- * ```
- * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_troop.cpp#L308-L310
- */
-export function probabilidadDeMoralBaja(reglas: ReglasDeBatalla): number {
-  return reglas.moralBaja === 'fheroes2' ? MORAL_BAJA_FHEROES2 : CHANCE_PER_POINT;
-}
-const MORAL_BAJA_FHEROES2 = 1 / 12;
 
 /**
  * Saca de la cola al siguiente vivo, o `null` si no queda nadie en la ronda.
@@ -1743,17 +1684,7 @@ function abrirTurno(state: BattleState, s: BattleStack): void {
 }
 
 /**
- * Cierra el turno del stack activo y decide si la moral le regala otro. Con el
- * interruptor (d) en fheroes2, quien cerró defendiendo (`TR_SKIP`) no tira la
- * moral alta:
- *
- * ```cpp
- *             if ( _currentUnit->AllModes( TR_MOVED | MORALE_GOOD ) && !_currentUnit->Modes( TR_SKIP ) && _currentUnit->GetSpeed( false, true ) > Speed::STANDING ) {
- * ```
- * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L537
- *
- * Sin tirar, no gasta `rng.chance`: la arena con (d) desplaza las tiradas
- * siguientes, como la Bendición de (e).
+ * Cierra el turno del stack activo y decide si la moral le regala otro.
  *
  * Con `conMoral = false` tampoco lo decide: lo piden las escaladas, que son el
  * turno entero («al subir se quedan arriba y no pueden atacar ni hacer nada más
@@ -1769,13 +1700,9 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true):
   const n = state.turno?.n;
   if (n !== undefined) quitarLosQueVencen(state, s, 'terminar', n);
 
-  // `defending` se borra al empezar la ronda y quien defiende cierra su turno
-  // ahí mismo: si está puesto, este turno se cerró defendiendo.
-  const sinMoral = s.defending && state.reglas.defender === 'fheroes2';
   const moral = s.morale;
   if (
     conMoral &&
-    !sinMoral &&
     isAlive(s) &&
     moral > 0 &&
     !s.gotMoraleBonus &&
@@ -1800,7 +1727,7 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true):
  * este ya se ha ido; `wait` no cierra el turno y no pasa por ahí, y si la moral
  * baja se lo salta, lo quita el tope de `roundsLeft`. Al **empezar**, `abrirTurno`
  * (también el turno extra de la moral, y tras esperar) y la moral baja, cuyo
- * turno empieza y se pierde. Sin rueda no hay ninguno, y no se escribe nada.
+ * turno empieza y se pierde. Sin ninguno que venza, no se escribe nada.
  */
 function quitarLosQueVencen(state: BattleState, s: BattleStack, al: CuandoVence, n: number): void {
   const vencido = (e: StackEffect): boolean =>
@@ -2204,8 +2131,8 @@ export function soltarElGolpe(state: BattleState, rng: Rng): void {
 /**
  * La longitud de la recta de carga si `s` golpeara a `target` desde `from`; 0 si
  * no carga. ÚNICA regla de CUÁNDO hay carga (decisiones del usuario,
- * 02-10-2026): solo quien carga (`cargaDelStack`: el rasgo `charge` y, en la
- * arena, todo el que pega cuerpo a cuerpo, #260), solo si `from` está **en línea
+ * 02-10-2026): carga todo el que pega cuerpo a cuerpo (`cargaDelStack`: el
+ * jinete con el rasgo `charge` y los demás a pie, #260), solo si `from` está **en línea
  * recta** desde donde está ahora —una de las 6 rectas del hexágono, sin giros—,
  * con la recta libre de unidades, a **`CARGA_MINIMA` casillas o más**, y con
  * **el enemigo en esa misma recta**: la casilla que sigue a `from` tiene que ser
@@ -2242,13 +2169,10 @@ export interface CargaMedida {
   /** Las casillas de la recta (`CARGA_MINIMA` o más), sin el tope: lo que da `cargaDesde`. */
   readonly recta: number;
   /**
-   * Lo que se anda para cobrarla cuando salir del contacto cuesta: la recta,
-   * pagando lo que cuesta salir de cada casilla (`carreraConCostes`), que puede
-   * costar más que el camino más barato. `null` sin esa regla: la recta libre ya
-   * es un camino más corto y cuesta lo mismo, así que se anda el del recorrido
-   * (y el banco no se mueve).
+   * Lo que se anda para cobrarla: la recta, pagando lo que cuesta salir de cada
+   * casilla (`carreraConCostes`), que puede costar más que el camino más barato.
    */
-  readonly carrera: Paso | null;
+  readonly carrera: Paso;
 }
 
 /**
@@ -2266,7 +2190,6 @@ export function medirCargas(
   s: BattleStack,
   bloqueadas?: ReadonlySet<string>,
 ): (from: Hex, target: BattleStack) => CargaMedida | null {
-  if (cargaDelStack(state, s) === null) return NINGUNA_CARGA;
   let andando: ReturnType<typeof alAndar> | null = null;
   let salirDe: CosteDeSalir | null = null;
   return (from, target) => {
@@ -2277,9 +2200,7 @@ export function medirCargas(
     andando ??= alAndar(state, s, bloqueadas ?? cerradasPara(state, s));
     const d = rectaLibre(s.hex, from, andando.cerradas, andando.paso);
     if (d === null || d < CARGA_MINIMA) return null;
-    if (!pagaElContacto(state)) return { recta: d, carrera: null };
-    // Si salir del contacto cuesta, la carrera se paga por la recta, que es lo que
-    // se anda (`moveTo`): si no cabe en lo que le queda, la casilla puede seguir a
+    // La carrera se paga por la recta, que es lo que se anda (`moveTo`): si no cabe en lo que le queda, la casilla puede seguir a
     // mano por otro camino más barato, pero sin carga. Cuenta casillas, no pasos.
     salirDe ??= costesDelPaso(state, s);
     const carrera = carreraConCostes(s.hex, from, salirDe);
@@ -2288,15 +2209,12 @@ export function medirCargas(
   };
 }
 
-const NINGUNA_CARGA = (): null => null;
-
 /**
- * Con qué cifras carga `s` en esta batalla, o `null` si no carga: `cifrasDeCarga`
- * con la regla de la pelea (`BattleState.arena`). La leen `cargaDesde`,
- * `casillasDeCarga` y la IA.
+ * Con qué cifras carga `s` (`cifrasDeCarga`: todo el que pega cuerpo a cuerpo
+ * carga). La leen `casillasDeCarga`, la previsión, los paneles y la IA.
  */
-export function cargaDelStack(state: BattleState, s: BattleStack): CifrasDeCarga | null {
-  return cifrasDeCarga(s.unit, state.arena.cargaAPie);
+export function cargaDelStack(s: BattleStack): CifrasDeCarga {
+  return cifrasDeCarga(s.unit);
 }
 
 /**
@@ -2306,15 +2224,14 @@ export function cargaDelStack(state: BattleState, s: BattleStack): CifrasDeCarga
  * «»N» en el cliente, el `chargeFrom` del agente— y sale de `cargaDesde` y
  * `cargaEfectiva`, las mismas que cobran, así que el anuncio no puede discrepar
  * del golpe. Una casilla vacía de la recta sin enemigo detrás no sale: desde ahí
- * solo se mueve. Quien no carga (`cargaDelStack`), `SIN_CARGAS`.
+ * solo se mueve.
  */
 export function casillasDeCarga(
   state: BattleState,
   s: BattleStack,
   costes?: ReadonlyMap<string, Paso>,
 ): readonly CasillaDeCarga[] {
-  const cifras = cargaDelStack(state, s);
-  if (cifras === null) return SIN_CARGAS;
+  const cifras = cargaDelStack(s);
   // Tras la Finta no hay golpe que cobrarla: solo se anda.
   if (state.turno?.stack === s.id && faseDelTurno(state) === 'trasLaFinta') return SIN_CARGAS;
   const medir = medirCargas(state, s);
@@ -2424,16 +2341,7 @@ function moveTo(
  * ni se acepte un hechizo que va a rebotar.
  */
 function isImmuneTo(stack: BattleStack, effect: StackEffect): boolean {
-  const info = stack.unit;
-  // La Maldición de fheroes2 (`tirada` −1) tampoco les llega: allí la Bendición y
-  // la Maldición son `isAliveOnly`, y a un no-muerto no le hacen nada.
-  // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/spell/spell.cpp#L577-L588
-  // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/monster/monster_info.cpp#L900-L902
-  return (
-    (effect.kind === 'luck' || effect.kind === 'tirada') &&
-    effect.amount < 0 &&
-    hasTrait(info, 'undead')
-  );
+  return effect.kind === 'luck' && effect.amount < 0 && hasTrait(stack.unit, 'undead');
 }
 
 /**
@@ -2446,9 +2354,6 @@ function applyStackEffect(state: BattleState, target: BattleStack, effect: Stack
   if (colgado.inmune) {
     state.log.push({ kind: 'immune', stack: target.id, source: effect.source });
     return;
-  }
-  for (const quitado of colgado.quitadas) {
-    state.log.push({ kind: 'effect_end', stack: target.id, source: quitado.source });
   }
   // Lo que se anota es el efecto YA colgado, no el que se pidió: si refrescó a
   // uno del mismo origen, las rondas que se leen en el parte son las que de
@@ -2480,16 +2385,16 @@ function lanzarSobre(
   autor: BattleStack | null,
   anotar: (r: SpellResult) => void,
 ): void {
-  const r = castSpell(s, l, target, autor, state.reglas);
+  const r = castSpell(s, l, target, autor);
   anotar(r);
   if (r.effect !== undefined) applyStackEffect(state, target, r.effect);
 }
 
 /**
- * Cuelga `effect` de `target` sin anotar nada: rebota en el inmune, quita la
- * contraria y refresca o añade (`applyEffect`). La parte pura de
- * `applyStackEffect`, que anota lo que pasó; la previsión del contraataque la
- * usa sobre su copia del objetivo, así que las dos cuelgan igual.
+ * Cuelga `effect` de `target` sin anotar nada: rebota en el inmune y refresca o
+ * añade (`applyEffect`). La parte pura de `applyStackEffect`, que anota lo que
+ * pasó; la previsión del contraataque la usa sobre su copia del objetivo, así que
+ * las dos cuelgan igual.
  */
 function colgarEfecto(
   target: BattleStack,
@@ -2498,25 +2403,10 @@ function colgarEfecto(
   | { readonly inmune: true }
   | {
       readonly inmune: false;
-      readonly quitadas: readonly StackEffect[];
       readonly vivo: StackEffect;
     } {
   if (isImmuneTo(target, effect)) return { inmune: true };
-  // La Bendición y la Maldición de fheroes2 se sustituyen: la nueva quita la
-  // contraria, sea del hechizo o de la momia.
-  //
-  // ```cpp
-  //     case Spell::BLESS:
-  //     case Spell::MASSBLESS:
-  //         _replaceAffection( SP_CURSE, SP_BLESS, duration );
-  // // …
-  //     case Spell::CURSE:
-  //     case Spell::MASSCURSE:
-  //         _replaceAffection( SP_BLESS, SP_CURSE, duration );
-  // ```
-  // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_troop.cpp#L1180-L1193
-  const quitadas = quitarLaContraria(target, effect);
-  return { inmune: false, quitadas, vivo: applyEffect(target, effect) };
+  return { inmune: false, vivo: applyEffect(target, effect) };
 }
 
 /**
@@ -2545,29 +2435,15 @@ function devolveraElGolpe(state: BattleState, attacker: BattleStack, target: Bat
 }
 
 /**
- * Quita la `tirada` contraria a `effect` y devuelve las quitadas: la nueva
- * Bendición se lleva la Maldición, y al revés (`colgarEfecto`).
- */
-function quitarLaContraria(target: BattleStack, effect: StackEffect): StackEffect[] {
-  if (effect.kind !== 'tirada') return [];
-  const contraria = (e: StackEffect): boolean =>
-    e.kind === 'tirada' && e.amount > 0 !== effect.amount > 0;
-  const quitadas = target.effects.filter(contraria);
-  if (quitadas.length > 0) target.effects = target.effects.filter((e) => !contraria(e));
-  return quitadas;
-}
-
-/**
- * Con la rueda, el cruce del golpe de `s` a `target` (ya validado por
- * `cruceBlocker`), escrito en el registro; sin ella, `null`.
+ * El cruce del golpe de `s` a `target` (ya validado por `cruceBlocker`), escrito
+ * en el registro.
  */
 function cruceDeLaRueda(
   state: BattleState,
   s: BattleStack,
   target: BattleStack,
   action: BattleAction & { type: 'attack' },
-): HechoDelCruce | null {
-  if (!conRueda(state)) return null;
+): HechoDelCruce {
   const { golpe, respuesta } = action;
   if (golpe === undefined || respuesta === undefined) {
     throw new Error('cruceBlocker dejó pasar un golpe con la rueda sin sus dos elecciones');
@@ -2617,40 +2493,27 @@ function melee(
   target: BattleStack,
   rng: Rng,
   carga: number,
-  cruce: HechoDelCruce | null,
+  cruce: HechoDelCruce,
 ): void {
-  // Con la rueda, lo que el golpe deja va con el arma de su primer golpe
+  // Lo que el golpe deja va con el arma de su primer golpe
   // (`ruedaDelIntercambio`), contada una vez y antes de pegar: Defensivo, a quien
   // pega antes de sus golpes, que cubre ya lo que venga; Romper guardia y la
   // Finta, después. La respuesta no deja nada.
-  const rueda =
-    cruce === null
-      ? null
-      : { ...cruce, cifras: ruedaDelIntercambio(state, attacker, target, carga) };
-  if (rueda !== null) {
-    colgarDeLaRueda(state, attacker, rueda.golpe, rueda.punto, 'propio', rueda.cifras);
-  }
-  intercambio(
-    state,
-    attacker,
-    target,
-    rng,
-    false,
-    carga,
-    rueda === null ? null : enElPunto(rueda.golpe, rueda.punto),
-  );
+  const rueda = { ...cruce, cifras: ruedaDelIntercambio(state, attacker, target, carga) };
+  colgarDeLaRueda(state, attacker, rueda.golpe, rueda.punto, 'propio', rueda.cifras);
+  intercambio(state, attacker, target, rng, false, carga, enElPunto(rueda.golpe, rueda.punto));
 
   // Romper guardia, tras el golpe y antes del contraataque: quita ataque al
   // atacado ya en él, y en su próximo turno (decisión del usuario, 14-10-2026).
-  if (rueda !== null && isAlive(target)) {
+  if (isAlive(target)) {
     colgarDeLaRueda(state, target, rueda.golpe, rueda.punto, 'rival', rueda.cifras);
   }
 
   // Contraataque: uno por ronda, y solo si el atacante lo permite.
   if (isAlive(target) && isAlive(attacker) && devolveraElGolpe(state, attacker, target)) {
-    // El contraataque no carga: se devuelve el golpe desde donde se está. Con la
-    // rueda, con el tipo de la respuesta y en el punto contrario, sin
-    // bonificadores: solo cuentan el Fuerte y el Rápido.
+    // El contraataque no carga: se devuelve el golpe desde donde se está, con el
+    // tipo de la respuesta y en el punto contrario, sin bonificadores: solo
+    // cuentan el Fuerte y el Rápido.
     target.retaliated = true;
     intercambio(
       state,
@@ -2659,13 +2522,13 @@ function melee(
       rng,
       true,
       0,
-      cruce === null ? null : enElPunto(cruce.respuesta, puntoDelContraataque(cruce.punto)),
+      enElPunto(cruce.respuesta, puntoDelContraataque(cruce.punto)),
     );
   }
 
   // La Finta: el resto del turno, un tramo solo de andar con lo que le quede menos
   // lo que quita su éxito. Si queda en algo lo decide `applyAction`.
-  if (rueda !== null && rueda.golpe === 'finta' && isAlive(attacker) && state.turno !== null) {
+  if (rueda.golpe === 'finta' && isAlive(attacker) && state.turno !== null) {
     state.turno.finta = casillasQueQuitaLaFinta(rueda.punto, rueda.cifras);
   }
 }
@@ -2705,9 +2568,9 @@ function intercambio(
   rng: Rng,
   retaliation: boolean,
   carga: number,
-  golpe: GolpeEnLaRueda | null,
+  golpe: GolpeEnLaRueda,
 ): void {
-  const veces = golpesDe(quien.unit, golpe?.tipo ?? null, retaliation);
+  const veces = golpesDe(quien.unit, golpe.tipo, retaliation);
   for (let i = 0; i < veces && isAlive(contra); i++) {
     strike(state, quien, contra, rng, retaliation, i === 0 ? carga : 0, golpe);
   }
@@ -2796,42 +2659,9 @@ const ON_HIT_EFFECTS: readonly { trait: CreatureTrait; effect: StackEffect }[] =
 ];
 
 /**
- * Los efectos al golpear con el interruptor (e) en fheroes2 (`efectoConReglas`):
- * la Maldición de la momia es daño mínimo en vez de suerte −1, como la del
- * hechizo (decisión del usuario, 09-10-2026). En fheroes2 la momia lanza el
- * hechizo de verdad (`SPELL_CASTER`, 20 %, `CURSE`); aquí sigue siendo nuestro
- * rasgo —siempre, 3 rondas— y solo cambia lo que hace. Calculados una vez, no en
- * cada golpe.
- * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/monster/monster_info.cpp#L491
- */
-const ON_HIT_EFFECTS_BENDICION_FHEROES2: readonly { trait: CreatureTrait; effect: StackEffect }[] =
-  ON_HIT_EFFECTS.map((x) => ({
-    trait: x.trait,
-    effect: efectoConReglas(x.effect, { bendicion: 'fheroes2' }),
-  }));
-
-/** Lo que deja pegado un golpe con este rasgo, con las reglas de la batalla. */
-function efectosAlGolpear(
-  reglas: ReglasDeBatalla,
-): readonly { trait: CreatureTrait; effect: StackEffect }[] {
-  return reglas.bendicion === 'nuestra' ? ON_HIT_EFFECTS : ON_HIT_EFFECTS_BENDICION_FHEROES2;
-}
-
-/**
- * Las opciones del daño de un golpe de `attacker` a `target` en esta batalla: sus
- * reglas y, con el interruptor (f) en fheroes2, el ataque del héroe del que pega
- * y la defensa del héroe del que recibe, sumados a la tropa (no al héroe, que en
- * fheroes2 no pisa el tablero y aquí ya los lleva en su cuerpo):
- *
- * ```cpp
- * uint32_t ArmyTroop::GetAttack() const
- * {
- *     return Troop::GetAttack() + ( _army && _army->GetCommander() ? _army->GetCommander()->GetAttack() : 0 );
- * }
- * ```
- * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/army/army_troop.cpp#L158-L166
- *
- * Es la ÚNICA forma de montarlas: la usan el golpe, el disparo, la IA y la
+ * Las opciones del daño de un golpe de `attacker` a `target` en esta batalla: lo
+ * que trae el golpe (`extra`), lo alto de un muro y, con `golpe`, la rueda. Es la
+ * ÚNICA forma de montarlas: la usan el golpe, el disparo, la IA y la
  * previsión.
  */
 export function opcionesDeDanio(
@@ -2842,7 +2672,7 @@ export function opcionesDeDanio(
   golpe: GolpeEnLaRueda | null = null,
   papel: PapelEnLaRueda = 'golpe',
 ): DamageOptions {
-  const o = opcionesDelEstado(state, attacker, target, extra);
+  const o = opcionesDelEstado(state, target, extra);
   return golpe === null ? o : conElGolpe(o, attacker.unit, golpe, papel);
 }
 
@@ -2867,73 +2697,25 @@ function conElGolpe(
 
 function opcionesDelEstado(
   state: BattleState,
-  attacker: BattleStack,
   target: BattleStack,
   extra: Omit<DamageOptions, ExtraDelEstado>,
 ): DamageOptions {
-  const reglas = state.reglas;
   // Lo alto de un muro (`bonoEnLoAlto`) también sale del estado: así lo cuentan
   // a la vez el golpe, el disparo, la IA, la ficha y la previsión.
   const alto = bonoEnLoAlto(state, target);
-  const enLoAlto = alto > 0 ? { bonoEnLoAlto: alto } : SIN_EXTRA;
-  if (reglas.heroe === 'nuestra') {
-    // La IA pide estas cientos de veces por decisión, casi siempre sin nada
-    // más: un objeto por reglas, no uno por pareja.
-    if (extra === SIN_EXTRA && alto === 0) return soloLasReglas(reglas);
-    return { reglas, ...extra, ...enLoAlto, ...aPie(state, extra) };
-  }
-  return {
-    reglas,
-    ...extra,
-    ...enLoAlto,
-    ...aPie(state, extra),
-    ataqueDelMando: delMando(state, attacker)?.ataque ?? 0,
-    defensaDelMando: delMando(state, target)?.defensa ?? 0,
-  };
+  // La IA pide estas cientos de veces por decisión, casi siempre sin nada más:
+  // entonces, siempre el mismo objeto.
+  if (alto === 0) return extra;
+  return { ...extra, bonoEnLoAlto: alto };
 }
-
-/**
- * La carga a pie en las opciones, solo si la pelea la juega y el golpe trae
- * recta: así el juego no lleva el campo ni en un golpe con carga.
- */
-function aPie(
-  state: BattleState,
-  extra: Omit<DamageOptions, ExtraDelEstado>,
-): { readonly cargaAPie?: true } {
-  return state.arena.cargaAPie && (extra.chargeHexes ?? 0) > 0 ? CON_CARGA_A_PIE : SIN_CARGA_A_PIE;
-}
-const CON_CARGA_A_PIE: { readonly cargaAPie?: true } = Object.freeze({ cargaAPie: true });
-const SIN_CARGA_A_PIE: { readonly cargaAPie?: true } = Object.freeze({});
 
 /**
  * Lo de `DamageOptions` que no se pide: lo pone `opcionesDeDanio` desde el estado
  * y, el `cruce`, desde el golpe de la rueda.
  */
-type ExtraDelEstado =
-  | 'reglas'
-  | 'ataqueDelMando'
-  | 'defensaDelMando'
-  | 'bonoEnLoAlto'
-  | 'cruce'
-  | 'cargaAPie';
+type ExtraDelEstado = 'bonoEnLoAlto' | 'cruce';
 
 const SIN_EXTRA: Omit<DamageOptions, ExtraDelEstado> = Object.freeze({});
-const OPCIONES_SOLO_REGLAS = new WeakMap<ReglasDeBatalla, DamageOptions>();
-
-/** Las opciones con solo las reglas: una por `ReglasDeBatalla`, que no cambian. */
-function soloLasReglas(reglas: ReglasDeBatalla): DamageOptions {
-  let o = OPCIONES_SOLO_REGLAS.get(reglas);
-  if (o === undefined) {
-    o = Object.freeze({ reglas });
-    OPCIONES_SOLO_REGLAS.set(reglas, o);
-  }
-  return o;
-}
-
-/** El héroe que manda a `s`, si es tropa y su bando lleva héroe. */
-function delMando(state: BattleState, s: BattleStack): BattleHero | null {
-  return s.origen.kind === 'heroe' ? null : state.heroes[s.side];
-}
 
 /**
  * El ataque y la defensa con que pelea `s` ahora, para la ficha: los de
@@ -2956,7 +2738,7 @@ function strike(
   rng: Rng,
   retaliation: boolean,
   carga: number,
-  golpe: GolpeEnLaRueda | null,
+  golpe: GolpeEnLaRueda,
 ): void {
   const info = attacker.unit;
   const result = computeDamage(
@@ -2977,16 +2759,16 @@ function strike(
     damage: herida.danio,
     killed: herida.muertos,
     retaliation,
-    // Lo que paró la armadura (la arena): el parte y el lienzo lo dicen.
+    // Lo que paró la armadura: el parte y el lienzo lo dicen.
     ...conLoParado(herida),
     // La carga la dice `computeDamage`, que es quien la cobró: preguntarlo otra
     // vez aquí dejaba el parte contando 7 hexes mientras el bono se había
     // topado en los 5 que caben en +50 %.
     ...(result.charge > 0 ? { charge: result.charge } : {}),
-    // A pie, solo en la arena: el juego no lo escribe nunca y su registro no cambia.
+    // A pie: el parte lo dice («carga de 3 casillas a pie»).
     ...(result.cifrasDeCarga === CARGA.aPie ? { cargaAPie: true as const } : {}),
-    // Con la rueda, el punto en que cayó: el golpe que se da va en uno solo.
-    ...(golpe === null ? {} : { punto: golpe.desde }),
+    // El punto de la rueda en que cayó: el golpe que se da va en uno solo.
+    punto: golpe.desde,
   });
 
   // Los vampiros señores recuperan efectivos con lo que drenan.
@@ -2999,7 +2781,7 @@ function strike(
   // dragón óseo le devuelven el golpe ya asustados, que es donde se nota.
   // Un contraataque no asusta ni maldice: solo el que ataca de verdad.
   if (!retaliation && isAlive(target)) {
-    for (const { trait, effect } of efectosAlGolpear(state.reglas)) {
+    for (const { trait, effect } of ON_HIT_EFFECTS) {
       if (hasTrait(info, trait)) applyStackEffect(state, target, effect);
     }
   }
@@ -3156,28 +2938,16 @@ export function castBlocker(
   if (targetId !== undefined) {
     const target = state.stacks.find((t) => t.id === targetId);
     if (target === undefined) return `no hay ninguna unidad "${targetId}"`;
-    return targetBlocker(state, hero, s, side, target);
+    return targetBlocker(hero, s, side, target);
   }
-  return state.stacks.some((t) => targetBlocker(state, hero, s, side, t) === null)
+  return state.stacks.some((t) => targetBlocker(hero, s, side, t) === null)
     ? null
     : 'no hay ningún objetivo válido';
 }
 
 /** Por qué este stack no vale como objetivo de este hechizo. */
-function targetBlocker(
-  state: BattleState,
-  hero: BattleHero,
-  s: Spell,
-  side: Side,
-  target: BattleStack,
-): string | null {
-  return objetivoBlocker(
-    target,
-    side,
-    s,
-    efectoDe(s, delHeroe(s, hero), state.reglas),
-    `"${s.name}"`,
-  );
+function targetBlocker(hero: BattleHero, s: Spell, side: Side, target: BattleStack): string | null {
+  return objetivoBlocker(target, side, s, efectoDe(s, delHeroe(s, hero)), `"${s.name}"`);
 }
 
 /**
@@ -3255,7 +3025,7 @@ function castHeroSpell(
  * como `castBlocker` para el héroe: la leen `applyAction`, `legalActions` (y con
  * ella la IA), la previsión y los botones de la arena.
  *
- * Reglas nuestras (`data/poderes.json`, solo la arena): a un aliado vivo, también
+ * Reglas nuestras (`data/poderes.json`): a un aliado vivo, también
  * a sí misma, esté donde esté y aunque esté trabada (es un bastón, no un arco); y
  * al principio del turno, sin haberse movido, como disparar. Usarlo es el turno
  * entero. Sin objetivo la pregunta es «¿puede usarlo sobre alguien?»; con
@@ -3306,7 +3076,7 @@ function previoDelPoder(
   if (seHaMovido(state, s)) {
     return { motivo: `ya se ha movido este turno: «${p.nombre}» se usa al principio del turno` };
   }
-  return { s, p, efecto: efectoDe(p.hechizo, p.lanzador, state.reglas) };
+  return { s, p, efecto: efectoDe(p.hechizo, p.lanzador) };
 }
 
 /** Por qué este stack no vale como objetivo de este poder de `s`, que deja `efecto`. */
@@ -3329,8 +3099,7 @@ function objetivoDelPoderBlocker(
 /**
  * Lo que daría un golpe o un disparo, ANTES de darlo: la horquilla por golpe sin
  * suerte, las dos ramas de la suerte, lo que se lleva por delante, por qué sale
- * esa cifra y si habrá contraataque. Las reglas en curso van en `reglas` (las
- * que no son las del juego, para decirlas).
+ * esa cifra y si habrá contraataque.
  */
 export interface PrevisionDeGolpe {
   readonly kind: 'golpe' | 'disparo';
@@ -3355,7 +3124,6 @@ export interface PrevisionDeGolpe {
   readonly contraataque: PrevisionDeContraataque | null;
   /** A quién más alcanza la salpicadura de un disparo, con el mismo daño. */
   readonly salpica: readonly string[];
-  readonly reglas: readonly NombreDeRegla[];
 }
 
 /** El golpe que devolvería el objetivo, si sigue en pie. */
@@ -3389,7 +3157,6 @@ export interface PrevisionDeLanzar {
   readonly efecto: StackEffect | null;
   /** PV que repondría una Curación. */
   readonly cura: number | null;
-  readonly reglas: readonly NombreDeRegla[];
 }
 
 /** Lo que haría un hechizo del héroe sobre su objetivo. */
@@ -3460,7 +3227,7 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
       return {
         kind: 'poder',
         poder: p.id,
-        ...previsionDeLanzar(state, p.hechizo, p.lanzador, stackById(state, accion.target)),
+        ...previsionDeLanzar(p.hechizo, p.lanzador, stackById(state, accion.target)),
       };
     }
     case 'move':
@@ -3521,7 +3288,6 @@ function previsionDeGolpe(
       kind === 'disparo' && hasTrait(a.unit, 'splash_shot')
         ? splashTargets(state, t).map((x) => x.id)
         : [],
-    reglas: reglasEncendidas(state.reglas),
   };
 }
 
@@ -3578,9 +3344,9 @@ function previsionDelContraataque(
   if (conPeor.count === 0) return null;
   const conMejor = tras(mejor);
   // Lo que el golpe le deja, colgado sobre una copia con la misma función que
-  // `applyStackEffect`: refrescar, sustituir la contraria, rebotar en el inmune.
+  // `applyStackEffect`: refrescar o rebotar en el inmune.
   const conLoDelGolpe: BattleStack = { ...t, effects: [...t.effects] };
-  for (const { trait, effect } of efectosAlGolpear(state.reglas)) {
+  for (const { trait, effect } of ON_HIT_EFFECTS) {
     if (hasTrait(a.unit, trait)) colgarEfecto(conLoDelGolpe, effect);
   }
   // Lo de la rueda que el golpe deja a `a` (quien pega o el atacado), en el punto
@@ -3668,7 +3434,6 @@ export function previsionDeLaRueda(
    */
   readonly rueda: CifrasDeLaRueda;
 } {
-  if (!conRueda(state)) throw new Error('en esta pelea el golpe es de azar: no hay rueda');
   const s = activeStack(state);
   if (s === null || state.finished !== null) throw new Error('no le toca a ninguna unidad');
   const { target, desdeAhi, carga } = golpePreparado(state, s, accion, false);
@@ -3713,7 +3478,7 @@ export function previsionDeLaRueda(
       : [];
     porTipo[tipo] = { danio: h.danio, golpes, siguientes, contraataquePorExito };
   }
-  const cifras = papel === 'golpe' ? cargaDelStack(state, desdeAhi) : null;
+  const cifras = papel === 'golpe' ? cargaDelStack(desdeAhi) : null;
   const cobrada = cifras === null ? 0 : cargaEfectiva(carga, cifras);
   return {
     porTipo,
@@ -3739,20 +3504,14 @@ function previsionDeHechizo(
   return {
     kind: 'hechizo',
     hechizo: spellId,
-    ...previsionDeLanzar(state, s, delHeroe(s, hero), t),
+    ...previsionDeLanzar(s, delHeroe(s, hero), t),
   };
 }
 
 /** Lo que haría `s` lanzado por `l` sobre `t`, con las cuentas que lo aplican (`castSpell`). */
-function previsionDeLanzar(
-  state: BattleState,
-  s: Spell,
-  l: Lanzador,
-  t: BattleStack,
-): PrevisionDeLanzar {
+function previsionDeLanzar(s: Spell, l: Lanzador, t: BattleStack): PrevisionDeLanzar {
   const base = {
     objetivo: t.id,
-    reglas: reglasEncendidas(state.reglas),
     danio: null,
     parado: 0,
     bajas: null,
@@ -3775,7 +3534,7 @@ function previsionDeLanzar(
     }
     case 'speed':
     case 'luck':
-      return { ...base, efecto: efectoDe(s, l, state.reglas) };
+      return { ...base, efecto: efectoDe(s, l) };
     case 'heal':
       return { ...base, cura: curaDe(s, l, t) };
   }
@@ -4120,7 +3879,7 @@ export function legalActionsAndCosts(state: BattleState): {
     }
   }
 
-  // Los poderes, solo con alguno (la arena): sin ellos ni se mira, y la lista
+  // Los poderes, solo con alguno: sin ellos ni se mira, y la lista
   // del juego no cambia ni de contenido ni de orden. Los pares que deja pasar
   // `poderBlocker` —sus mismas dos piezas—: lo que no depende del objetivo (y el
   // efecto) una vez por poder, y luego cada objetivo.

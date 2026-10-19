@@ -21,13 +21,13 @@ import { type Html, marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
-import { activeStack, applyAction } from '../src/core/battle/battle.js';
+import { activeStack } from '../src/core/battle/battle.js';
 import { isShooter } from '../src/core/data.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
 import type { Army, Point, Veterania } from '../src/core/types.js';
-import { agresiva, avanzarHasta, TIRADOR, TROPA } from './helpers.js';
+import { aCiegas, agresiva, avanzarHasta, TIRADOR, TROPA } from './helpers.js';
 
 /** Una hoja de servicios de prueba: lo justo para que el panel la pinte. */
 function hoja(id: string, experiencia: number): Veterania {
@@ -130,7 +130,7 @@ export async function escenas(): Promise<readonly Escena[]> {
     if (enCurso === null) throw new Error('la batalla no se montó');
     let vueltas = 0;
     while (enCurso.finished === null && vueltas < 3000) {
-      applyAction(enCurso, agresiva(enCurso), s.ctx.rng);
+      aCiegas(enCurso, agresiva(enCurso), s.ctx.rng);
       vueltas++;
     }
     if (enCurso.finished?.winner === 'defender') batallaFin = s;

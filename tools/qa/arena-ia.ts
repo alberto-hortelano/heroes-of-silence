@@ -1,41 +1,34 @@
 /**
- * La IA contra la IA en la arena, con los modos y la armadura de la arena (#259,
- * #260, #262): cuántas peleas no terminan, cuánto duran y qué pasa en ellas. Una
- * medida para las tres reglas, sobre `autoResolve` (el bucle de la IA, el mismo
- * de la página) y `causaDelFinal` («agotada» = la que no termina: sin vencido,
- * por el tope de rondas o de jugadas).
+ * La IA contra la IA en la arena, con las reglas del juego (la rueda del golpe,
+ * salir del contacto, la carga a pie y la armadura, #259, #260, #262, siempre
+ * desde el 19-10-2026): cuántas peleas no terminan, cuánto duran y qué pasa en
+ * ellas, sobre `autoResolve` (el bucle de la IA, el mismo de la página) y
+ * `causaDelFinal` («agotada» = la que no termina: sin vencido, por el tope de
+ * rondas o de jugadas).
  *
  *     npx tsx tools/qa/arena-ia.ts [semillas=100]
  *
- * Tres tandas, cada una con sus variantes sobre los mismos montajes (de su
- * propia corriente de azar, sin héroes ni muralla, con las reglas del juego y el
- * golpe al azar):
+ * Cuatro tandas, cada una con sus montajes de su propia corriente de azar, sin
+ * muralla:
  *
- * - **contacto**: de 3 a `LIDERAZGO.maxPorBando` hojas de tropa por bando, salir
- *   del contacto libre y pagando (`?contacto=paga`).
- * - **carga**: cuatro hojas de tropa por bando, con la carga a pie de la arena y
- *   sin ella (la de antes de #260); cuenta las cargas a pie y del jinete.
+ * - **mezcla**: de 3 a `LIDERAZGO.maxPorBando` hojas de tropa por bando.
  * - **armadura**: tres contra tres de todas las hojas (mezcla) y un jinete contra
  *   tres de arco, ballesta o bastón, con la barda, sin ella y como antes de #262
  *   (sin barda y con lo que sumaba, +5 de defensa y +220 PV, en el cuerpo);
  *   cuenta los golpes que la armadura paró enteros.
- * - **rueda: mezcla** (18-10-2026, vuelta 2 de los niveles del arma): tres contra
- *   tres de todas las hojas, **con un héroe por bando** sin libro (que pega con la
- *   Espada de la arena), al azar y con la rueda del golpe; cuenta los cruces.
- *   Con los niveles absolutos cambia el equilibrio de la rueda (Ofensivo +3, la
- *   Finta que resta de 1 a 5…), y sin esta tanda la medida no pelearía con ella.
+ * - **con héroes**: tres contra tres de todas las hojas, con un héroe por bando
+ *   sin libro (que pega con la Espada).
  *
- * Sustituye a `tools/qa/contacto.ts` y a las medidas de las tareas de la carga y
- * de la armadura (14-10-2026, /simplify). Las variantes se alternan por semilla,
+ * Cuenta en todas las cargas a pie y del jinete, los golpes parados y los cruces
+ * de la rueda. Las variantes de reglas (contacto libre, sin carga a pie, golpe al
+ * azar) se fueron con los interruptores. Las variantes se alternan por semilla,
  * para que la carga de la máquina (compartida) caiga igual en todas.
  */
 import { resolve } from 'node:path';
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { batallaDeArena, heroePorDefecto, type Lado, quitarEnArena } from '../../src/core/arena.js';
 import { causaDelFinal, MAX_ROUNDS } from '../../src/core/battle/battle.js';
-import type { ModosDeArena } from '../../src/core/battle/modos.js';
 import { SIN_MURALLA } from '../../src/core/battle/muralla.js';
-import { REGLAS_DEL_JUEGO } from '../../src/core/battle/reglas.js';
 import { unidad } from '../../src/core/catalogo.js';
 import { hasTrait, LIDERAZGO } from '../../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
@@ -46,10 +39,9 @@ import { hojasDeArena } from '../arena/borrador.js';
 /** Un montaje de la medida: las unidades de cada bando. */
 type Montaje = readonly [readonly UnidadDeArena[], readonly UnidadDeArena[]];
 
-/** Una variante: los modos con que se pelea (`con`) y lo que se le cambia a cada unidad. */
+/** Una variante: lo que se le cambia a cada unidad. */
 interface Variante {
   readonly nombre: string;
-  readonly con: Partial<ModosDeArena>;
   readonly cambia: (u: UnidadDeArena) => UnidadDeArena;
 }
 
@@ -93,29 +85,19 @@ const TANDAS: readonly Tanda[] = (() => {
     return { ...sin, defense: sin.defense + 5, hp: sin.hp + 220 };
   };
   const conArmadura: readonly Variante[] = [
-    { nombre: 'con barda', con: {}, cambia: igual },
-    { nombre: 'sin barda', con: {}, cambia: sinBarda },
-    { nombre: 'como antes', con: {}, cambia: comoAntes },
+    { nombre: 'con barda', cambia: igual },
+    { nombre: 'sin barda', cambia: sinBarda },
+    { nombre: 'como antes', cambia: comoAntes },
   ];
+  const elJuego: readonly Variante[] = [{ nombre: 'el juego', cambia: igual }];
   return [
     {
-      nombre: 'contacto',
+      nombre: 'mezcla',
       montar: (rng) => {
         const n = () => rng.int(3, LIDERAZGO.maxPorBando);
         return [elegir(rng, TROPA, n()), elegir(rng, TROPA, n())];
       },
-      variantes: [
-        { nombre: 'libre', con: {}, cambia: igual },
-        { nombre: 'paga', con: { contacto: 'paga' }, cambia: igual },
-      ],
-    },
-    {
-      nombre: 'carga',
-      montar: (rng) => [elegir(rng, TROPA, 4), elegir(rng, TROPA, 4)],
-      variantes: [
-        { nombre: 'con carga a pie', con: {}, cambia: igual },
-        { nombre: 'sin carga a pie', con: { cargaAPie: false }, cambia: igual },
-      ],
+      variantes: elJuego,
     },
     {
       nombre: 'armadura: mezcla',
@@ -128,12 +110,9 @@ const TANDAS: readonly Tanda[] = (() => {
       variantes: conArmadura,
     },
     {
-      nombre: 'rueda: mezcla',
+      nombre: 'con héroes',
       montar: (rng) => [elegir(rng, TROPA, 3), elegir(rng, TROPA, 3)],
-      variantes: [
-        { nombre: 'golpe: azar', con: {}, cambia: igual },
-        { nombre: 'golpe: rueda', con: { golpe: 'rueda' }, cambia: igual },
-      ],
+      variantes: elJuego,
       conHeroes: true,
     },
   ];
@@ -171,10 +150,8 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
         {
           izquierda: lado(izquierda, 'izquierda'),
           derecha: lado(derecha, 'derecha'),
-          reglas: REGLAS_DEL_JUEGO,
           muralla: SIN_MURALLA,
           equipo: EQUIPO_DEL_JUEGO,
-          modos: v.con,
         },
         rng,
       );

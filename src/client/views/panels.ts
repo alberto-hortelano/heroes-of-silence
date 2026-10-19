@@ -774,7 +774,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
         contandoAun,
         accionesDeLaUnidad({
           activa: s,
-          carga: cargaDelStack(battle, s),
+          carga: cargaDelStack(s),
           legales: session.battleLegalActions(),
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
@@ -845,7 +845,7 @@ export function accionesDeLaUnidad(o: {
   readonly muralla: Html;
   /**
    * Por qué no puede salir de su casilla, como frase (`contactoBlocker`: rodeada,
-   * lo que le queda no paga salir del contacto; solo en la arena), o nada. Va en la misma
+   * lo que le queda no paga salir del contacto), o nada. Va en la misma
    * línea del marcado que lo que le queda: sin él, el ancla de
    * `test/fixtures/paneles.txt` no cambia.
    */
@@ -1014,7 +1014,6 @@ const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
   speed: 'velocidad',
   luck: 'suerte',
   attack: 'ataque',
-  tirada: 'tirada de daño',
   defense: 'defensa',
 };
 
@@ -1085,13 +1084,11 @@ export function nota(texto: string, enfocable = true): Html {
 }
 
 /**
- * Lo que hace un efecto, dicho: «suerte −1», o, para la Bendición y la Maldición
- * de fheroes2 de la arena, «daño máximo» y «daño mínimo», que un «tirada +1» no
- * se entiende. El único texto de un efecto: lo leen el parte, la previsión de un
- * hechizo (`prevision.ts`) y la ficha del héroe de la arena.
+ * Lo que hace un efecto, dicho: «suerte −1». El único texto de un efecto: lo leen
+ * el parte, la previsión de un hechizo (`prevision.ts`) y la ficha del héroe de la
+ * arena.
  */
 export function cifraDeEfecto(kind: EffectKind, amount: number): string {
-  if (kind === 'tirada') return amount > 0 ? 'daño máximo' : 'daño mínimo';
   return `${ETIQUETA_EFECTO[kind]} ${amount > 0 ? '+' : ''}${amount}`;
 }
 
@@ -1304,7 +1301,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Golpe afortunado' : 'Golpe desafortunado'} de ${quienEs(e.stack)}</div>`;
         case 'effect':
           return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} ${duracionDeEfecto(e)}</div>`;
-        // La rueda del golpe (solo la arena): qué eligió cada uno y dónde cayó,
+        // La rueda del golpe: qué eligió cada uno y dónde cayó,
         // antes de las líneas del golpe. El contraataque, solo si lo hubo.
         case 'cruce': {
           const devuelto = contraataqueDelCruce(battle.log, desde + i);

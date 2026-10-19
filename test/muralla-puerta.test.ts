@@ -42,6 +42,7 @@ import type { Hex, Stack } from '../src/core/types.js';
 import { describeAccion } from '../src/server/notas.js';
 import {
   abrirPuertas,
+  aCiegas,
   forzarTurno,
   peleaDeArena,
   peleaDelMotor,
@@ -410,7 +411,7 @@ describe('la IA con la puerta (C24)', () => {
             expect(state.turno?.gastado, `${nombre} ${semilla}`).toBe(0);
           }
           const abiertas = state.puertas.filter((p) => p.abierta);
-          applyAction(state, accion, rng);
+          aCiegas(state, accion, rng);
           if (accion.type === 'move' || accion.type === 'attack') {
             const ultimo = [...state.log].reverse().find((e) => e.kind === 'move');
             if (ultimo?.kind === 'move' && s !== null && ultimo.stack === s.id) {

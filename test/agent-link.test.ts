@@ -406,10 +406,12 @@ describe('enlace con el agente', () => {
         actions: [
           { type: 'buy_item', town: town.id, item: pieza },
           { type: 'equip', hero: hero.id, item: pieza, creature: hero.army[0].creature },
-          { type: 'unequip', hero: hero.id, slot: 'melee_weapon' },
-          // Y tres que no valen, que se descartan una a una con el motivo del
+          { type: 'unequip', hero: hero.id, slot: 'armor' },
+          // Y cuatro que no valen, que se descartan una a una con el motivo del
           // núcleo. El hueco inventado tumbaba el turno ENTERO cuando `slot` era
-          // un `z.enum`: ni la compra ni el equipo de arriba llegaban (M3).
+          // un `z.enum`: ni la compra ni el equipo de arriba llegaban (M3). Y el
+          // arma no se quita: sin ella no se combate (19-10-2026).
+          { type: 'unequip', hero: hero.id, slot: 'melee_weapon' },
           { type: 'equip', hero: hero.id, item: 'maza' },
           { type: 'unequip', hero: hero.id, slot: 'casco' },
           // El nombre de dentro no es un hueco del contrato: van en inglés.
@@ -428,18 +430,21 @@ describe('enlace con el agente', () => {
 
     expect(agent.seen[0]?.kind).toBe('adventure_turn');
     expect(informe.actions).toBe(3);
-    expect(informe.problems).toHaveLength(3);
-    expect(informe.problems[0]).toMatch(/no lleva Maza en la mochila/);
-    expect(informe.problems[1]).toMatch(
+    expect(informe.problems).toHaveLength(4);
+    expect(informe.problems[0]).toMatch(
+      /se quedaría sin arma de cuerpo a cuerpo, y nadie pelea sin ella/,
+    );
+    expect(informe.problems[1]).toMatch(/no lleva Maza en la mochila/);
+    expect(informe.problems[2]).toMatch(
       /unequip casco de .*: no hay ningún hueco "casco": son melee_weapon, ranged_weapon, lance, armor, shield/,
     );
-    expect(informe.problems[2]).toMatch(
+    expect(informe.problems[3]).toMatch(
       /unequip arma de .*: no hay ningún hueco "arma": son melee_weapon, ranged_weapon, lance, armor, shield/,
     );
     const equipado = hero.army.find((t) => t.veterania?.equipo !== undefined);
     expect(equipado?.veterania?.equipo).toEqual({ armadura: 'brigantina' });
-    expect(hero.equipo.arma).toBeUndefined();
-    expect(hero.mochila).toEqual(['espada']);
+    expect(hero.equipo).toEqual({ arma: 'espada' });
+    expect(hero.mochila).toEqual(['gambeson']);
   });
 
   it('una acción ilegal se descarta, se le cuenta al agente y el turno sigue', async () => {

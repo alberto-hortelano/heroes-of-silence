@@ -38,9 +38,7 @@ import { hastaLaRueda, PESADA, sesionDeArena, TROPA, unidadDeArena } from './hel
 /** Tres guerreros con escudo contra tres con mandoble, los dos bandos «Yo», con la rueda. */
 function sesion(semilla = 1): SesionDeArena {
   const tres = (id: string) => [0, 1, 2].map(() => ({ unidad: unidadDeArena(id), ia: false }));
-  const s = sesionDeArena(tres(TROPA), tres(PESADA), semilla, {
-    golpe: 'rueda',
-  });
+  const s = sesionDeArena(tres(TROPA), tres(PESADA), semilla);
   s.empezar();
   return s;
 }

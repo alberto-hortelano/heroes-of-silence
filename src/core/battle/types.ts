@@ -2,9 +2,7 @@ import { rangoDeTropa } from '../hero/experiencia.js';
 import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { Paso } from './board.js';
 import type { CuandoVence, EffectKind, StackEffect } from './effects.js';
-import type { ModosDeArena } from './modos.js';
 import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
-import type { ReglasDeBatalla } from './reglas.js';
 import type { Punto, TipoDeGolpe } from './rueda.js';
 
 export type Side = 'attacker' | 'defender';
@@ -201,14 +199,6 @@ export interface BattleHero {
    * que copiarlo al entrar no se queda viejo.
    */
   readonly retreat: { readonly purse: number } | { readonly blocked: string };
-  /**
-   * El ataque y la defensa PRIMARIOS del héroe (`Hero.attack`, `Hero.defense`),
-   * no los de su cuerpo. En el juego no los lee nadie —ya van en su cuerpo—: solo
-   * el interruptor (f) de la arena, que los suma a toda su tropa como fheroes2
-   * (`opcionesDeDanio`, `battle.ts`).
-   */
-  readonly ataque: number;
-  readonly defensa: number;
   readonly spellPower: number;
   readonly knowledge: number;
   mana: number;
@@ -234,7 +224,7 @@ export type BattleEvent =
    */
   | { kind: 'move'; stack: string; to: Hex; path: readonly Hex[]; charge?: true }
   /**
-   * La rueda del golpe (`rueda.ts`, solo la arena): lo que eligieron quien pega y
+   * La rueda del golpe (`rueda.ts`): lo que eligieron quien pega y
    * quien recibe y dónde cae el golpe. Va DESPUÉS del `move` del golpe y justo
    * antes de su `attack`: primero se anda, luego se elige, luego se golpea
    * (decisión del usuario, 13-10-2026). El contraataque, si lo hubo, lleva su
@@ -256,9 +246,9 @@ export type BattleEvent =
       killed: number;
       retaliation: boolean;
       charge?: number;
-      /** La carga fue a pie (con `CARGA.aPie`): solo en la arena, que la juega. */
+      /** La carga fue a pie (con `CARGA.aPie`): sin el rasgo `charge`. */
       cargaAPie?: true;
-      /** Con la rueda del golpe (la arena), el punto del cruce en que cayó. */
+      /** El punto del cruce de la rueda en que cayó: todo golpe cuerpo a cuerpo lo lleva. */
       punto?: Punto;
       /**
        * Lo que paró la armadura del objetivo (la arena, #262; `trasLaArmadura`):
@@ -291,7 +281,7 @@ export type BattleEvent =
       parado?: number;
     }
   /**
-   * Una unidad usa un poder sobre `target` (`poderes.ts`, solo la arena). `cura`,
+   * Una unidad usa un poder sobre `target` (`poderes.ts`). `cura`,
    * los PV que repuso, si cura; lo que deja un poder de efecto va detrás, en su
    * propio `effect`, como el del hechizo.
    */
@@ -375,7 +365,7 @@ export interface TurnoDeUnidad {
   /** Casillas recorridas en este turno: cada `move` suma lo que cuesta su camino. */
   gastado: number;
   /**
-   * Tras golpear con Finta (la rueda del golpe, solo la arena): las casillas que
+   * Tras golpear con Finta (la rueda del golpe): las casillas que
    * resta de lo que le queda por andar (`casillasQueQuitaLaFinta`). Puesto, el
    * resto del turno es un tramo **solo de andar** (`faseDelTurno`, `faseBlocker`): andar o
    * terminar. Lo pone solo `melee` (lo vigila `test/invariantes.test.ts`), y no
@@ -445,32 +435,19 @@ export interface BattleState {
   turno: TurnoDeUnidad | null;
   heroes: Record<Side, BattleHero | null>;
   /**
-   * Qué versión de cada regla dudosa juega esta batalla (`reglas.ts`). Se pone al
-   * montarla y no cambia: en el juego, siempre `REGLAS_DEL_JUEGO`; solo la arena
-   * pelea con otras.
-   */
-  readonly reglas: ReglasDeBatalla;
-  /**
    * Muros y puertas del tablero (`muralla.ts`). No cambia en toda la batalla; en
    * las del mapa, hoy, `SIN_MURALLA`. Solo la arena la pone.
    */
   readonly muralla: MurallaDeBatalla;
   /**
-   * Los modos de la arena (`modos.ts`): cómo cae el golpe cuerpo a cuerpo (la
-   * rueda, `conRueda`), si salir del contacto cuesta (`pagaElContacto`) y si carga
-   * a pie todo el que pega cuerpo a cuerpo (`cargaDelStack`). Se ponen al montarla
-   * y no cambian: en el juego, siempre `MODOS_DEL_JUEGO`; solo la arena enciende
-   * alguno.
-   */
-  readonly arena: ModosDeArena;
-  /**
-   * Con la rueda, el golpe de quien se ha plantado ante su objetivo y espera la
+   * El golpe de quien se ha plantado ante su objetivo y espera la
    * rueda: quién, contra quién y la carga de la carrera con que llegó (medida
    * antes de andar; al pegar ya no se puede medir). Lo pone el `attack` sin
    * elecciones («plantarse», `applyAction`), lo quita el golpe o `soltarElGolpe`.
    * Mientras está puesto, la única jugada que vale es ese golpe con sus dos
    * elecciones (`golpeEnCursoBlocker`). Lo elegido no va aquí: va a ciegas en
-   * quien lo guarda (la sesión). Siempre `null` al azar y en el juego.
+   * quien lo guarda (la sesión). Siempre `null` si nadie se ha plantado: la IA
+   * y el agente golpean de una vez, con las dos elecciones (`completarCruce`).
    */
   golpeEnCurso: GolpeEnCurso | null;
   /**
@@ -520,10 +497,11 @@ export type BattleAction =
    */
   | { type: 'move'; to: Hex }
   /**
-   * Mueve (si hace falta) hasta `from` y golpea a `target`. Con la rueda del golpe
-   * (solo la arena), `golpe` y `respuesta` son lo que eligieron quien pega y quien
-   * recibe, obligatorios; sin ella, no van (`cruceBlocker`). El agente no los
-   * conoce: su esquema los quita.
+   * Mueve (si hace falta) hasta `from` y golpea a `target`. `golpe` y `respuesta`
+   * son lo que eligieron en la rueda quien pega y quien recibe, obligatorios para
+   * dar el golpe; sin ninguno de los dos, quien pega se planta (`cruceBlocker`,
+   * `golpeEnCurso`). El agente no los conoce: su esquema los quita, y los elige la
+   * IA a ciegas (`completarCruce`) hasta F6.
    */
   | { type: 'attack'; target: string; from?: Hex; golpe?: TipoDeGolpe; respuesta?: TipoDeGolpe }
   | { type: 'shoot'; target: string }

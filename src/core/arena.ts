@@ -33,17 +33,15 @@ import {
   type BattleSide,
   type CausaDelFinal,
   causaDelFinal,
-  crearBatallaConReglas,
+  createBattle,
   despliegueBlocker,
   type HeroeDelBando,
   mandoDe,
   quienNoEscala,
 } from './battle/battle.js';
 import type { StackEffect } from './battle/effects.js';
-import { MODOS_DE_LA_ARENA, type ModosDeArena } from './battle/modos.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
 import { esDeCura, poder, poderDeHabilidad } from './battle/poderes.js';
-import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from './battle/reglas.js';
 import { ruedaDelArmaEnPalabras } from './battle/rueda.js';
 import {
   allSpells,
@@ -752,8 +750,6 @@ export function heroeDeArena(datos: HeroeDeArena, eq: EquipoAtado): HeroeDelBand
     mando: mandoDe(
       {
         name: h.nombre,
-        attack: h.ataque,
-        defense: h.defensa,
         spellPower: h.poder,
         knowledge: h.conocimiento,
         mana: maxMana({ knowledge: h.conocimiento }),
@@ -783,7 +779,6 @@ function cuerpoDelHeroeDeArena(datos: HeroeDeArena): UnitInfo {
  */
 export function fichaDeHeroeDeArena(
   datos: HeroeDeArena,
-  reglas: ReglasDeBatalla,
   eq: EquipoAtado,
 ): {
   readonly cuerpo: UnitInfo;
@@ -811,7 +806,7 @@ export function fichaDeHeroeDeArena(
         nombre: s.name,
         coste: s.cost,
         rinde: s.kind === 'damage' || s.kind === 'heal' ? spellAmount(s, mando) : null,
-        efecto: efectoDe(s, delHeroe(s, mando), reglas),
+        efecto: efectoDe(s, delHeroe(s, mando)),
       })),
   };
 }
@@ -825,22 +820,14 @@ export interface LadoDeArena {
 }
 
 /**
- * Los dos lados, las reglas de la pelea —las mismas para los dos (decisión del
- * usuario)— y la muralla del tablero, si la hay: es del tablero, y sus puertas
- * las abre y las cierra la derecha, que defiende (`battle/muralla.ts`).
+ * Los dos lados, el catálogo de equipo y la muralla del tablero, si la hay: es
+ * del tablero, y sus puertas las abre y las cierra la derecha, que defiende
+ * (`battle/muralla.ts`). Las reglas son las del juego, las mismas para los dos.
  */
 export interface MontajeDeArena {
   readonly izquierda: LadoDeArena;
   readonly derecha: LadoDeArena;
-  readonly reglas: ReglasDeBatalla;
   readonly muralla?: MurallaDeBatalla;
-  /**
-   * Los modos de la arena que cambian sobre los de siempre (`MODOS_DE_LA_ARENA`,
-   * `battle/modos.ts`): la rueda del golpe y salir del contacto, que van en el
-   * enlace aparte (`?golpe=`, `?contacto=`) como las reglas, y la carga a pie,
-   * que la arena juega siempre y solo apaga la prueba que la compara con el juego.
-   */
-  readonly modos?: Partial<ModosDeArena>;
   /**
    * El catálogo de equipo con que pelea, hecho (`catalogoDeEquipo`): el que edita
    * la página, con lo que no se ha guardado, o el del juego (`EQUIPO_DEL_JUEGO`).
@@ -908,24 +895,19 @@ function bandoDeArena(lado: LadoDeArena, nombre: string, eq: EquipoAtado): Battl
 
 /**
  * Una batalla de arena: la izquierda ataca y la derecha defiende, con las reglas
- * del montaje. Los stacks de la tropa salen en el orden de cada lista (`slot` =
+ * del juego (`createBattle`, la única puerta: la arena no tiene interruptores
+ * desde el 19-10-2026). Los stacks de la tropa salen en el orden de cada lista (`slot` =
  * su puesto) y el héroe, si lo hay, el último (`<bando>-heroe`): es lo que deja a
  * quien llama saber qué puesto del montaje es cada stack. La muralla, si la
- * hay, es del tablero (`battle/muralla.ts`). Los modos, los de la arena
- * (`MODOS_DE_LA_ARENA`: carga todo el que pega cuerpo a cuerpo, y el jinete más,
- * #260) con lo que cambie el montaje.
+ * hay, es del tablero (`battle/muralla.ts`).
  */
 export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
   const eq = montaje.equipo;
-  const batalla = crearBatallaConReglas(
+  const batalla = createBattle(
     bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, eq),
     bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo, eq),
     rng,
-    montaje.reglas,
-    {
-      muralla: montaje.muralla ?? SIN_MURALLA,
-      modos: { ...MODOS_DE_LA_ARENA, ...montaje.modos },
-    },
+    montaje.muralla ?? SIN_MURALLA,
   );
   // De qué tipo sale cada puesto, en el orden de su `slot` (`tipoDelStack`).
   const tipos = (l: LadoDeArena): readonly TipoDeArena[] => l.unidades.map(tipoDeLaFuente);
@@ -1484,7 +1466,7 @@ export const IA_POR_DEFECTO: Readonly<Record<Lado, boolean>> = { izquierda: fals
 
 /**
  * El montaje entero que viaja en la URL de la arena (`?montaje=`), con la
- * semilla y las reglas en sus propios parámetros: abrir el enlace monta la misma
+ * semilla en su propio parámetro: abrir el enlace monta la misma
  * pelea (H6 de QA, decisión del usuario del 09-10-2026). Las cifras van por
  * TIPO, como las lleva la página: dos monjes son un monje en `unidades`.
  */
@@ -1505,16 +1487,39 @@ export interface MontajeDelEnlace {
 }
 
 /**
+ * Los parámetros de la URL que la arena ya no lee (19-10-2026): los interruptores
+ * de las reglas de fheroes2 (`reglas`) y de los modos (`golpe`, `contacto`). La
+ * arena pelea con las reglas del juego, sin interruptores; un enlace de antes con
+ * ellos pelearía otra pelea que la que dice, así que no se ignoran: se rechazan.
+ */
+export const PARAMETROS_RETIRADOS = ['reglas', 'golpe', 'contacto'] as const;
+export type ParametroRetirado = (typeof PARAMETROS_RETIRADOS)[number];
+
+/**
+ * Los parámetros retirados que trae la URL (`nombres`, sus claves), cada uno con
+ * su motivo para la persona: «la arena pelea con las reglas del juego: quita
+ * «?reglas=» de la dirección». Lo lee la página al abrir.
+ */
+export function retiradosDeLaURL(
+  nombres: Iterable<string>,
+): readonly { readonly nombre: ParametroRetirado; readonly motivo: string }[] {
+  const hay = new Set(nombres);
+  return PARAMETROS_RETIRADOS.filter((n) => hay.has(n)).map((nombre) => ({
+    nombre,
+    motivo: `la arena pelea con las reglas del juego: quita «?${nombre}=» de la dirección`,
+  }));
+}
+
+/**
  * El único valor de un parámetro de la URL (`URLSearchParams.getAll`), o `null`
- * si no está. Repetido se rechaza diciéndolo, como lo que no es una semilla o una
- * regla: quedarse con el primero en silencio repetía otra pelea que la que dice
- * la URL (`?reglas=tirador&reglas=bendicion` encendía solo el tirador, H4 de QA
- * del banco).
+ * si no está. Repetido se rechaza diciéndolo, como lo que no es una semilla:
+ * quedarse con el primero en silencio repetía otra pelea que la que dice la URL
+ * (H4 de QA del banco).
  */
 export function unaVezEnLaURL(valores: readonly string[], nombre: string): string | null {
   if (valores.length > 1) {
     throw new Error(
-      `«${nombre}» va ${valores.length} veces en la URL (${valores.map((v) => `«${v}»`).join(', ')}): pon uno solo${nombre === 'reglas' ? ', con las reglas separadas por comas (reglas=tirador,bendicion)' : ''}`,
+      `«${nombre}» va ${valores.length} veces en la URL (${valores.map((v) => `«${v}»`).join(', ')}): pon uno solo`,
     );
   }
   return valores[0] ?? null;
@@ -1525,9 +1530,12 @@ export function unaVezEnLaURL(valores: readonly string[], nombre: string): strin
  * queremos mantener compatibilidad hacia atrás, estamos en pleno desarrollo»): un
  * enlace de otra se rechaza diciendo que se vuelva a copiar, sin convertir nada.
  * Cambiar el formato es subirla: la 12 (18-10-2026) trae todas las piezas que
- * lleva lo montado, de la única clase que queda, sin calidad ni PV.
+ * lleva lo montado, de la única clase que queda, sin calidad ni PV; la 13
+ * (19-10-2026) no cambia el formato, cambian las reglas: sin interruptores, con
+ * la rueda, el contacto y la carga a pie siempre, el montaje de antes pelearía
+ * otra pelea sin decirlo.
  */
-export const VERSION_DEL_ENLACE = 12;
+export const VERSION_DEL_ENLACE = 13;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla'];
 const CAMPOS_DEL_LADO = ['ia', 'puestos', 'heroe'];
@@ -1666,7 +1674,7 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
   // Que quepa en sus columnas de salida y que nadie lleve una escalera que no
   // usaría, con las mismas preguntas que el montaje de la página: un enlace no
   // monta lo que la página no dejaría montar.
-  const delEnlace = montajeDeArenaDelEnlace(montaje, REGLAS_DEL_JUEGO, conLasPiezas);
+  const delEnlace = montajeDeArenaDelEnlace(montaje, conLasPiezas);
   const despliegue = despliegueDeArenaBlocker(delEnlace);
   if (despliegue !== null) throw new Error(`el montaje del enlace no cabe: ${despliegue}`);
   for (const lado of ['izquierda', 'derecha'] as const) {
@@ -1684,14 +1692,12 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
 }
 
 /**
- * El montaje con el que pelea un enlace ya leído, con estas reglas y este
- * catálogo de equipo: las fuentes de cada puesto (la unidad con sus cifras) y la
+ * El montaje con el que pelea un enlace ya leído, con este catálogo de equipo: las fuentes de cada puesto (la unidad con sus cifras) y la
  * muralla. El catálogo lo da quien lo abre (el suyo con las piezas del enlace,
  * `conPiezas`). Lo que mueve la IA no es del montaje: lo lee la página del enlace.
  */
 export function montajeDeArenaDelEnlace(
   m: MontajeDelEnlace,
-  reglas: ReglasDeBatalla,
   equipo: CatalogoDeEquipo,
 ): MontajeDeArena {
   const lado = (l: LadoDelEnlace): LadoDeArena => ({
@@ -1707,7 +1713,6 @@ export function montajeDeArenaDelEnlace(
   return {
     izquierda: lado(m.izquierda),
     derecha: lado(m.derecha),
-    reglas,
     ...(m.muralla === null ? {} : { muralla: m.muralla }),
     equipo,
   };

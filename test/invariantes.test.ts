@@ -64,7 +64,15 @@
  * con seis errores a partir de aquí abajo.
  */
 import { execFileSync } from 'node:child_process';
-import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  statSync,
+} from 'node:fs';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -75,10 +83,8 @@ import {
   applyEffect,
   EFFECT_KINDS,
   type EffectKind,
-  efectoDeTirada,
   effectiveLuck,
 } from '../src/core/battle/effects.js';
-import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
@@ -380,35 +386,6 @@ function lineasDeImport(ruta: string): Set<number> {
   return out;
 }
 
-/**
- * Lo que solo la arena puede hacer (las reglas de fheroes2, los modos de la
- * arena): las rutas de fuera del motor, la arena del núcleo y su página
- * (`enTodoElFichero`) que nombran una `puerta`. Con permiso por declaración
- * (`porDeclaracion`), la sesión de la arena y las pasadas de la arena de las
- * herramientas; en esos ficheros, el `import` de una puerta no cuenta, salvo con
- * otro nombre (`conAlias`): con un alias, la llamada ya no se ve. En los demás,
- * importarla ya es rojo. Lo comparten los guardias de las reglas y de los modos.
- */
-function fueraDeLaArena(
-  puertas: RegExp,
-  conAlias: RegExp,
-  porDeclaracion: Readonly<Record<string, readonly string[]>>,
-): string[] {
-  const colados: string[] = [];
-  for (const ruta of RUTAS_DE_LA_ARENA.todas().filter(
-    (r) => !RUTAS_DE_LA_ARENA.enTodoElFichero(r),
-  )) {
-    const conPermiso = lineasDeLasDeclaraciones(ruta, porDeclaracion[ruta] ?? []);
-    const imports = ruta in porDeclaracion ? lineasDeImport(ruta) : new Set<number>();
-    for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
-      if (conPermiso.has(i + 1)) continue;
-      if (imports.has(i + 1) && !conAlias.test(linea)) continue;
-      if (puertas.test(linea)) colados.push(`${ruta}:${i + 1} → ${linea.trim()}`);
-    }
-  }
-  return colados;
-}
-
 /** Dónde se puede nombrar lo de la arena sin permiso, y todo lo que se mira. */
 const RUTAS_DE_LA_ARENA = {
   enTodoElFichero: (r: string): boolean =>
@@ -419,18 +396,17 @@ const RUTAS_DE_LA_ARENA = {
 };
 
 /**
- * Quién nombra lo de la arena fuera de ella, y en qué declaraciones: la sesión
- * de la arena (la clase, no el resto de `session.ts`, que es la partida), las
- * pasadas de la arena de `pnpm capturas`, que juegan su espejo, y la medida de la
- * IA contra la IA en la arena (#259, #260, #262), que pelea con cada modo. Lo
- * leen los guardias de las reglas y de los modos: un permiso, una vez.
+ * Quién usa el montador de la arena (`core/arena.ts`) fuera de ella, y en qué
+ * declaraciones: la sesión de la arena (la clase, no el resto de `session.ts`,
+ * que es la partida), las pasadas de la arena de `pnpm capturas`, que juegan su
+ * espejo, y la medida de la IA contra la IA en la arena (#259, #260, #262). Lo lee
+ * el guardia de la puerta de las batallas.
  */
 const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
   'src/client/session.ts': ['SesionDeArena'],
   'tools/qa/capturas.ts': [
     'espejoDeLaArena',
     'todoIA',
-    'REGLAS_DEL_BANCO',
     'espejoDelBanco',
     'jugarArena',
     'espejoDeLosPoderes',
@@ -444,7 +420,7 @@ const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
     'espejoYoContraYo',
     'hastaLaRuedaYoContraYo',
     // El enlace de la versión anterior se escribe con la de hoy menos uno
-    // (`VERSION_DEL_ENLACE`): no monta nada ni enciende ningún modo.
+    // (`VERSION_DEL_ENLACE`): no monta nada.
     'enlaceDeLaPelea',
   ],
   // La IA contra la IA en la arena (#259, #260, #262): sus tandas y la pelea.
@@ -602,9 +578,8 @@ const LECTORES_DE_EFECTO: Readonly<Record<string, (s: BattleStack) => number>> =
   speed: stackSpeed,
   luck: effectiveLuck,
   attack: (s) => effectiveAttack(s),
-  tirada: efectoDeTirada,
-  // La rueda del golpe de la arena (Defensivo), con las reglas del juego.
-  defense: (s) => effectiveDefense(s, REGLAS_DEL_JUEGO),
+  // La rueda del golpe (Defensivo y Romper guardia).
+  defense: (s) => effectiveDefense(s),
 };
 
 /** Un stack limpio, fuera de tablero: solo se le cuelgan efectos y se lee. */
@@ -732,69 +707,49 @@ describe('invariantes del proyecto', () => {
     expect(colados).toEqual([]);
   });
 
-  it('solo la arena cambia las reglas de la batalla', () => {
-    // Los interruptores de `battle/reglas.ts` comparan la regla nuestra con la de
-    // fheroes2 en la arena, y el juego, el servidor, el agente y los bancos no
-    // pueden encender ninguno: entran por `createBattle`, que pone
-    // `REGLAS_DEL_JUEGO`. Las puertas a otras reglas son TODAS las que dejan
-    // elegirlas: montar la batalla con ellas (`crearBatallaConReglas`, y por
-    // encima `batallaDeArena` y `new SesionDeArena`), leerlas de la URL
-    // (`reglasDeLaURL`), cambiar una (`conRegla`) y escribir a mano la versión
-    // `'fheroes2'` en un literal. Con solo las dos primeras, una llamada a
-    // `batallaDeArena` con reglas en `director.ts` quedaba en verde (H3 de QA
-    // del banco), y `capturas.ts` encendía el tirador con un literal que nadie
-    // veía.
-    //
-    // Se nombran sin permiso en el motor, la arena del núcleo y la página de la
-    // arena; con permiso por declaración, en la sesión de la arena (la clase,
-    // no el resto de `session.ts`, que es la partida) y en las pasadas de la
-    // arena de `pnpm capturas`, que juegan su espejo. En esos dos, el `import`
-    // de una puerta no cuenta, salvo con otro nombre (`as`): con un alias, la
-    // llamada ya no se ve. En los demás, importarla ya es rojo. Roto a mano:
-    // `batallaDeArena` importado con alias y llamado en `server/director.ts`,
-    // `crearBatallaConReglas` en `state/game.ts`, un `'fheroes2'` en `Session`
-    // (fuera de `SesionDeArena`) y otro en la pasada del juego de `capturas.ts`
-    // salen rojos con su línea.
-    const puertas =
-      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla)\b|\bnew\s+SesionDeArena\b|['"`]fheroes2['"`]/;
-    const conAlias =
-      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla|SesionDeArena)\s+as\b/;
+  it('una puerta para montar batallas: `createBattle` (19-10-2026)', () => {
+    // Un solo combate para el juego y la arena: la rueda, salir del contacto, la
+    // carga a pie y la armadura siempre, sin interruptores. Toda batalla nace en
+    // `createBattle`, la única que escribe un `BattleState` entero: el campo
+    // `golpeEnCurso:` como clave de un objeto solo está ahí (y en la interfaz).
+    // Quien montara otra batalla a mano —con otras reglas, o con un campo de más—
+    // tendría que escribirlo. Roto a mano (19-10-2026): un `{ golpeEnCurso: null }`
+    // en `state/game.ts` sale rojo con su línea.
+    const PERMITIDOS: Readonly<Record<string, readonly string[]>> = {
+      'src/core/battle/battle.ts': ['createBattle'],
+    };
+    const escribeElEstado = /(?:^\s*|[{,]\s*)golpeEnCurso\s*:/;
+    const fuera: string[] = [];
+    for (const ruta of RUTAS_DE_LA_ARENA.todas()) {
+      if (ruta === 'src/core/battle/types.ts') continue;
+      const conPermiso = lineasDeLasDeclaraciones(ruta, PERMITIDOS[ruta] ?? []);
+      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
+        if (conPermiso.has(i + 1)) continue;
+        if (escribeElEstado.test(linea)) fuera.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(fuera).toEqual([]);
+
+    // Y el montador de la arena (`core/arena.ts`: el montaje, la ficha, el retoque
+    // y el enlace) es de la arena: solo la arena (página, disco y taller), la
+    // sesión y `pnpm capturas` lo importan; y en la sesión y en `capturas.ts`, lo
+    // importado de allí solo se usa dentro de sus declaraciones con permiso
+    // (`PERMISOS_DE_LA_ARENA`). Sin excepciones en el núcleo (simplify de F1,
+    // 18-10-2026): el formato de la unidad y del catálogo vive en `core/unidad.ts`.
+    // Roto a mano (19-10-2026): un `import type` de `./arena.js` en
+    // `core/catalogo.ts` y un `batallaDeArena` usado en `session.ts` fuera de
+    // `SesionDeArena` salen rojos con su línea.
     const { enTodoElFichero } = RUTAS_DE_LA_ARENA;
     const porDeclaracion = PERMISOS_DE_LA_ARENA;
-    const todos = RUTAS_DE_LA_ARENA.todas();
-    expect(fueraDeLaArena(puertas, conAlias, porDeclaracion)).toEqual([]);
-
-    // Los nombres no bastan (vuelta 2 de QA del banco): una función nueva en
-    // `core/arena.ts` que llamase a `batallaDeArena` con otro nombre pasaba, y
-    // también `{ ...createBattle(), reglas: otras }` en `state/game.ts`. Por
-    // eso se vigilan además los MÓDULOS y la ESCRITURA:
-    //  1. Solo la arena (página, disco y taller), la sesión y `pnpm capturas`
-    //     importan de `core/arena.ts`; y en la sesión y en `capturas.ts`, lo
-    //     importado de allí solo se usa dentro de sus declaraciones con permiso.
-    //  2. Fuera del motor, la arena del núcleo y su página, nadie escribe
-    //     `reglas:` ni `.reglas =`, salvo en esas mismas declaraciones.
-    // Roto a mano: un envoltorio de `batallaDeArena` en `core/arena.ts` importado
-    // en `server/director.ts`, un valor de la arena usado en `Session` fuera de
-    // `SesionDeArena`, y el spread con `reglas:` en `state/game.ts` salen rojos
-    // con su línea.
     const deLaArena =
       /\bfrom\s+['"](?:@core\/|(?:\.\.?\/)+(?:(?:src\/)?core\/)?)arena(?:\.js)?['"]/;
-    // Sin excepciones en el núcleo (simplify de F1, 18-10-2026): el formato de la
-    // unidad y del catálogo vive en `core/unidad.ts` y las listas de los ficheros
-    // de la arena en `core/validar.ts`, así que ni el catálogo del juego
-    // (`core/catalogo.ts`) ni las formas de muralla (`core/arena-murallas.ts`) se
-    // traen el montador de batallas. Roto a mano: un `import { unidadNueva } from
-    // './arena.js'` en `core/catalogo.ts` sale rojo.
     const puedeImportarla = (r: string): boolean =>
       enTodoElFichero(r) ||
       r.startsWith('tools/arena/') ||
       r.startsWith('tools/taller/') ||
       r in porDeclaracion;
-    // Una clave `reglas:` o `{ …, reglas }`, o una asignación; no la prosa de
-    // un mensaje («no lleva las reglas: …»).
-    const escribeReglas = /(?:^\s*|[{,]\s*)reglas\s*(?::|[,}])|\.reglas\s*=(?!=)/;
-    const fuera: string[] = [];
-    for (const ruta of todos.filter((r) => !enTodoElFichero(r))) {
+    const colados: string[] = [];
+    for (const ruta of RUTAS_DE_LA_ARENA.todas().filter((r) => !enTodoElFichero(r))) {
       const texto = leer(ruta);
       const codigo = codigoDe(ruta).split('\n');
       const conPermiso = lineasDeLasDeclaraciones(ruta, porDeclaracion[ruta] ?? []);
@@ -820,89 +775,37 @@ describe('invariantes del proyecto', () => {
       for (const [i, linea] of codigo.entries()) {
         if (imports.has(i + 1)) {
           if (deLaArena.test(linea) && !puedeImportarla(ruta))
-            fuera.push(`${ruta}:${i + 1} importa de core/arena.ts`);
+            colados.push(`${ruta}:${i + 1} importa de core/arena.ts`);
           continue;
         }
         if (conPermiso.has(i + 1)) continue;
         if (usaLaArena && ruta in porDeclaracion && usaLaArena.test(linea))
-          fuera.push(`${ruta}:${i + 1} usa la arena fuera de su permiso → ${linea.trim()}`);
-        if (escribeReglas.test(linea))
-          fuera.push(`${ruta}:${i + 1} escribe reglas → ${linea.trim()}`);
+          colados.push(`${ruta}:${i + 1} usa la arena fuera de su permiso → ${linea.trim()}`);
       }
     }
-    expect([...new Set(fuera)]).toEqual([]);
+    expect([...new Set(colados)]).toEqual([]);
   });
 
-  it('solo la arena enciende un modo de la arena: la rueda, el contacto y la carga a pie', async () => {
-    // Los modos de la arena (`battle/modos.ts`, `BattleState.arena`) son reglas
-    // nuestras solo de la arena: el juego, el servidor, el agente y el banco
-    // pelean con `MODOS_DEL_JUEGO`, que pone `createBattle`. Montar la batalla con
-    // otros ya lo vigila el guardia de las reglas (`crearBatallaConReglas`,
-    // `batallaDeArena`, `SesionDeArena`); este cierra las puertas propias de los
-    // modos, por las mismas rutas y permisos: leerlos de la URL o de un botón
-    // (`modoDeLaURL`, `conModo`), los de la arena (`MODOS_DE_LA_ARENA`, que carga
-    // a pie), escribir un modo encendido (`golpe: 'rueda'`, `contacto: 'paga'`,
-    // `cargaAPie: true`: la escritura, no la palabra, que también es el campo
-    // `rueda` de una pieza o el `<dialog id="rueda">`) y escribir el campo (`arena:` o `.arena =`, y `modos:`),
-    // que un spread de `createBattle` con otro modo se saltaría lo demás. Con
-    // alias (`as`), también en un `import` con permiso. Sustituye a los dos de
-    // salir del contacto y la carga a pie (#259, #260), que no miraban los alias
-    // ni los imports. Roto a mano (14-10-2026): un `{ ...createBattle(…), arena:
-    // MODOS_DE_LA_ARENA }` en `state/game.ts`, un `modoDeLaURL as leer` importado
-    // en `session.ts` y un `golpe: 'rueda'` en la pasada del juego de
-    // `capturas.ts` salen rojos con su línea.
-    const puertas =
-      /\b(?:modoDeLaURL|conModo|MODOS_DE_LA_ARENA)\b|\b(?:golpe\s*(?::|=(?!=))\s*['"`]rueda|contacto\s*(?::|=(?!=))\s*['"`]paga)['"`]|\bcargaAPie\s*:\s*true\b|(?:^\s*|[{,]\s*)arena\s*:(?!\s*['"`])|\.arena\s*=(?!=)|\bmodos\s*:/;
-    const conAlias = /\b(?:modoDeLaURL|conModo|MODOS_DE_LA_ARENA)\s+as\b/;
-    expect(fueraDeLaArena(puertas, conAlias, PERMISOS_DE_LA_ARENA)).toEqual([]);
-
-    // Y por conducta, que el texto no mira dentro de `battle/`: la misma unidad
-    // sin el rasgo, en la misma recta, no carga por `createBattle` y carga por la
-    // arena. Roto a mano: `cargaAPie: true` en `MODOS_DEL_JUEGO` sale rojo aquí.
-    const { applyAction, cargaDesde, casillasDeCarga, createBattle, stackById } = await import(
-      '../src/core/battle/battle.js'
-    );
-    const { batallaDeArena } = await import('../src/core/arena.js');
-    const { MODOS_DEL_JUEGO } = await import('../src/core/battle/modos.js');
-    const { delBorrador, forzarTurno, MONTAJE, unidadDeArena } = await import('./helpers.js');
-    // Un espadachín del juego y el guerrero con escudo de la arena, sin `charge`,
-    // con el rival a 4 casillas en recta.
-    const enRecta = (b: ReturnType<typeof createBattle>): number => {
-      stackById(b, 'attacker-0').hex = { col: 0, row: 4 };
-      stackById(b, 'defender-0').hex = { col: 5, row: 4 };
-      forzarTurno(b, 'attacker-0');
-      const s = stackById(b, 'attacker-0');
-      const recta = cargaDesde(b, s, { col: 4, row: 4 }, stackById(b, 'defender-0'));
-      expect(casillasDeCarga(b, s).length).toBe(recta > 0 ? 1 : 0);
-      applyAction(
-        b,
-        { type: 'attack', target: 'defender-0', from: { col: 4, row: 4 } },
-        createRng(1),
-      );
-      const golpe = b.log.find((e) => e.kind === 'attack' && !e.retaliation);
-      expect(golpe?.kind === 'attack' ? (golpe.charge ?? 0) : -1).toBe(recta > 0 ? 4 : 0);
-      return recta;
-    };
-    const juego = createBattle(
-      { army: [{ creature: 'templario-mandoble', count: 3 }], hero: null },
-      { army: [{ creature: 'templario-escudo', count: 3 }], hero: null },
-      createRng(1),
-    );
-    expect(juego.arena).toBe(MODOS_DEL_JUEGO);
-    expect(enRecta(juego)).toBe(0);
-    const arena = batallaDeArena(
-      {
-        izquierda: {
-          unidades: [delBorrador(unidadDeArena('templario-escudo', { casillas: 7 }))],
-          heroe: null,
-        },
-        derecha: { unidades: [delBorrador(unidadDeArena('zombi'))], heroe: null },
-        ...MONTAJE,
-      },
-      createRng(1),
-    );
-    expect(arena.arena.cargaAPie).toBe(true);
-    expect(enRecta(arena)).toBe(4);
+  it('nadie escribe fheroes2: sin interruptores de reglas ni de modos (19-10-2026)', () => {
+    // Las reglas de fheroes2 de la arena (`battle/reglas.ts`) y sus modos
+    // (`battle/modos.ts`: la rueda, el contacto y la carga a pie con interruptor)
+    // se retiraron con la decisión 7 del usuario: la arena pelea como el juego.
+    // Lo retirado no vuelve por la puerta de atrás: ni la versión `'fheroes2'`
+    // escrita en un literal, ni los nombres de lo que la elegía, en el código de
+    // `src/` y `tools/` (los comentarios citan la fuente de fheroes2 y no cuentan).
+    // Roto a mano (19-10-2026): un `tirador: 'fheroes2'` en `capturas.ts` y un
+    // `typeof MODOS_DEL_JUEGO` en `state/game.ts` salen rojos con su línea.
+    const retirado =
+      /['"`]fheroes2['"`]|\b(?:crearBatallaConReglas|REGLAS_DEL_JUEGO|ReglasDeBatalla|reglasDeLaURL|conRegla|MODOS_DEL_JUEGO|MODOS_DE_LA_ARENA|ModosDeArena|modoDeLaURL|conModo|pagaElContacto)\b|\bconRueda\(|\bbattle\/(?:reglas|modos)(?:\.js)?['"]/;
+    const fuera: string[] = [];
+    for (const ruta of RUTAS_DE_LA_ARENA.todas()) {
+      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
+        if (retirado.test(linea)) fuera.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(fuera).toEqual([]);
+    expect(existsSync(join(RAIZ, 'src/core/battle/reglas.ts'))).toBe(false);
+    expect(existsSync(join(RAIZ, 'src/core/battle/modos.ts'))).toBe(false);
   });
 
   it('el cliente no aplica reglas: la única puerta al núcleo es session.ts', () => {
@@ -1214,7 +1117,9 @@ describe('invariantes del proyecto', () => {
     })
       .toString('utf8')
       .split('\0')
-      .filter((f) => /^(?:src|data|tools|assets\/bases)\//.test(f));
+      .filter((f) => /^(?:src|data|tools|assets\/bases)\//.test(f))
+      // `ls-files -c` sigue listando lo borrado del árbol hasta que se indexa el borrado.
+      .filter((f) => existsSync(join(RAIZ, f)));
     const conElNombre = rutas.filter((f) => viejo.test(f));
     const TEXTO = new Set(['.ts', '.json', '.html', '.css', '.js', '.mjs']);
     const enElTexto = rutas
