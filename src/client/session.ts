@@ -105,12 +105,13 @@ import {
   visibleNow,
   week,
 } from '@core/state/game.js';
-import { newGame } from '@core/state/setup.js';
+import { faccionesDeLaSemilla, newGame } from '@core/state/setup.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, sitiosConstruidos } from '@core/town/sitios.js';
 import { alcaideDe, vecinosDeLaBase, vozDe } from '@core/town/voces.js';
 import {
   esHueco,
+  type FactionId,
   type Hex,
   HUECOS,
   huecoDesconocido,
@@ -120,6 +121,13 @@ import {
 } from '@core/types.js';
 import { quienesDe } from './desenlace.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
+
+/**
+ * Lo que dice la barra en el mapa la primera vez: al salir de la base en que
+ * empieza la partida (`abrirSuBase`).
+ */
+export const AYUDA_DEL_MAPA =
+  'Haz clic en el mapa para mover a tu héroe; arrastra para mirar. Espacio pasa el turno.';
 
 /** Lo que dice la barra en la base cuando el ratón no señala nada. */
 export const AYUDA_DE_LA_BASE =
@@ -860,12 +868,21 @@ export class Session implements ControlDeBatalla {
    */
   private readonly rueda: CruceDeLaRueda;
 
-  constructor(seed: number) {
+  /**
+   * @param faccion la de la persona (la elegida en el menú o la de `?faccion=`);
+   *   sin ella, la que saque la semilla. El rival, otra: lo decide el núcleo
+   *   (`faccionesDeLaSemilla`), no la sesión.
+   */
+  constructor(seed: number, faccion?: FactionId) {
     // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
     // de donde la lee quien la enseña. Un hecho en dos sitios se desincroniza
     // el día que esta capa hable por WebSocket —`this.seed` sería la que pidió
     // el cliente y `state.seed` la que abrió el servidor—.
-    this.state = newGame({ seed, controllers: { 0: 'human', 1: 'ai' } });
+    this.state = newGame({
+      seed,
+      controllers: { 0: 'human', 1: 'ai' },
+      factions: faccionesDeLaSemilla(seed, faccion),
+    });
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
     this.rueda = new CruceDeLaRueda(
       {
@@ -1374,12 +1391,27 @@ export class Session implements ControlDeBatalla {
   }
   private aperturas = 0;
 
+  /**
+   * Abre la base de la persona, donde nace su héroe: así empieza la partida
+   * (19-10-2026, «empieza en la base»). Salir de ella (`closeTown`) lleva al mapa.
+   */
+  abrirSuBase(): void {
+    const base = this.jugador.base;
+    if (base === null) throw new Error('no se puede abrir tu base: no tienes ninguna');
+    this.openTown(base);
+    this.ayudaAlSalir = AYUDA_DEL_MAPA;
+  }
+
+  /** La ayuda del mapa, para la primera salida de la base en que empieza la partida. */
+  private ayudaAlSalir: string | null = null;
+
   closeTown(): void {
     this.openTownId = null;
     this.scene = 'adventure';
     // El último rótulo del castillo hablaba de solares y reclutas: fuera de
-    // allí no significa nada.
-    this.status = '';
+    // allí no significa nada. Al salir por primera vez, cómo se anda.
+    this.status = this.ayudaAlSalir ?? '';
+    this.ayudaAlSalir = null;
   }
 
   /** El castillo abierto ahora mismo, o `null` si no hay ninguno. */

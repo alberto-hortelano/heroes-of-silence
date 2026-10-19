@@ -109,6 +109,7 @@ import {
   nivelesDeLoEngordado,
   parejaDe,
   ponerObstaculos,
+  SinCentroDeRegion,
   sinAguaEnLasEsquinas,
   TIPOS_POR_MAPA,
   trazarCaminos,
@@ -2330,6 +2331,16 @@ function vestirRed(
       alBajoAlTrazar,
       new Set(ciudades),
     );
+  // Una región sin dónde poner su centro no tira la generación: es este vestido
+  // el que no vale (`SinCentroDeRegion`), y se prueba otro.
+  const trazarOFallar = (nivel: ArrayLike<number>) => {
+    try {
+      return trazar(nivel);
+    } catch (err) {
+      if (err instanceof SinCentroDeRegion) return err;
+      throw err;
+    }
+  };
   const trazar = (nivel: ArrayLike<number>) =>
     trazarCaminos({
       W,
@@ -2363,7 +2374,9 @@ function vestirRed(
   // agua junto a él (s8 (37,16)).
   const vados = new Set(ciudades.filter((c) => mascara[c] === 1));
   let nivelDelTrazado = nivelAlTrazar();
-  let trazado = trazar(nivelDelTrazado);
+  const primero = trazarOFallar(nivelDelTrazado);
+  if (primero instanceof SinCentroDeRegion) return fallo('objetos', primero.message);
+  let trazado = primero;
   // Lo que la búsqueda no pudo evitar —la región que toca un nodo o una ciudad
   // solo por un vértice— se endereza abriendo esa esquina a la región, y se
   // vuelve a trazar (`abrirEsquinasTorcidas`).
@@ -2402,7 +2415,9 @@ function vestirRed(
     });
     if (abiertas === 0) break;
     nivelDelTrazado = nivelAlTrazar();
-    trazado = trazar(nivelDelTrazado);
+    const otra = trazarOFallar(nivelDelTrazado);
+    if (otra instanceof SinCentroDeRegion) return fallo('objetos', otra.message);
+    trazado = otra;
   }
   const tramos = trazado.map(([p, q]): TramoDeCamino => [punto(p), punto(q)]);
   // Y ninguna senda corta en diagonal la esquina de una casilla de agua, salvo

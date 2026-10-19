@@ -99,10 +99,12 @@ import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { nivelDeUnidad } from '../../src/core/nivel.js';
+import { parseSeed } from '../../src/core/rng.js';
 import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
+import { faccionesDeLaSemilla } from '../../src/core/state/setup.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
-import type { Point } from '../../src/core/types.js';
+import { FACTION_IDS, type FactionId, type Point } from '../../src/core/types.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
@@ -1125,6 +1127,22 @@ interface Pasada {
 }
 
 /**
+ * La partida empieza en la base, con el héroe dentro (19-10-2026): sale al mapa
+ * con «Volver al mapa», el gesto de quien juega (en la pasada táctil, tocándolo), y
+ * espera a estar en él. El espejo no abre la base: salir no toca la partida.
+ */
+async function salirDeLaBase(page: Page, quien: string, tocar = false): Promise<void> {
+  await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 }).catch(async () => {
+    const escena = await page.locator('#app').getAttribute('data-escena');
+    throw new Error(`${quien}: la partida no empezó en la base (está en «${escena}»)`);
+  });
+  const volver = page.locator('[data-action="close-town"]');
+  if (tocar) await volver.tap();
+  else await volver.click();
+  await page.waitForSelector('#app[data-escena="adventure"]', { timeout: 10_000 });
+}
+
+/**
  * Abre una pasada: la página con su semilla, el espejo con la misma y el mapa en
  * píxeles. Las cuatro pasadas del cliente empiezan así, y escrito cuatro veces
  * ya había una que no vigilaba lo mismo que las otras.
@@ -1146,6 +1164,7 @@ async function abrir(
   }
   const espejo = new Session(p.semilla);
   await page.goto(`${url}/?seed=${p.semilla}`, { waitUntil: 'networkidle' });
+  await salirDeLaBase(page, p.nombre);
   if (p.sinSuelo !== true) await esperarElSuelo(page, p.nombre, 60_000, log);
   await sleep(450);
   if (p.esperada !== undefined) {
@@ -1159,6 +1178,212 @@ async function abrir(
     }
   }
   return { page, espejo, mapa: new Mapa(page, espejo) };
+}
+
+/** Lo que dice la página de su arranque: qué se ve, qué tema lleva, qué pide la URL y qué tiene el foco. */
+async function estadoDelArranque(page: Page): Promise<{
+  readonly menu: boolean;
+  readonly app: boolean;
+  readonly escena: string | null;
+  readonly escenario: string | null;
+  readonly tema: string | null;
+  readonly search: string;
+  readonly foco: string | null;
+}> {
+  return page.evaluate(() => {
+    const app = document.getElementById('app') as HTMLElement;
+    const inicio = document.getElementById('inicio') as HTMLElement;
+    const foco = document.activeElement;
+    return {
+      menu: !inicio.hidden,
+      app: !app.hidden,
+      escena: app.dataset.escena ?? null,
+      escenario: app.dataset.escenario ?? null,
+      tema: document.documentElement.dataset.tema ?? null,
+      search: location.search,
+      foco:
+        foco?.getAttribute('data-inicio') ??
+        (foco instanceof HTMLInputElement ? `faccion:${foco.value}` : null),
+    };
+  });
+}
+
+/** Lanza diciendo el paso y lo que había si `vale` no se cumple. */
+function exigir<T>(cosa: T, vale: (x: T) => boolean, paso: string): void {
+  if (!vale(cosa))
+    throw new Error(`arranque: ${paso}; la página está así: ${JSON.stringify(cosa)}`);
+}
+
+/**
+ * La pantalla de inicio (19-10-2026): `/` sin nada pide qué jugar y no monta la
+ * partida hasta elegir (ni escena ni suelo); «Cargar partida» no hace nada, ni
+ * con el teclado; «Nuevo juego» lleva a la elección, que viste la página con la
+ * facción que se mira (ratón y foco) y vuelve al neutro con Escape; «Empezar»
+ * escribe `?seed=N&faccion=<id>` y abre la base de esa facción con su héroe
+ * dentro; al salir, el mapa con el tema; recargar entra sin menú en la misma
+ * partida. Y la rápida, y una facción que no existe.
+ */
+async function arranque(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(page, 'arranque', problemas);
+  await page.goto(`${url}/`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('#inicio:not([hidden]) [data-inicio="nuevo"]');
+  await sleep(300);
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.menu && !e.app && e.escenario === null && e.tema === null && e.search === '',
+    'en «/» tiene que verse solo el menú, sin partida montada, sin tema y sin nada en la URL',
+  );
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.foco === 'nuevo',
+    'el foco empieza en «Nuevo juego»',
+  );
+  await captura(page, 'inicio-01-menu');
+
+  // «Cargar partida»: el teclado llega, Intro y el clic no hacen nada.
+  await page.keyboard.press('Tab');
+  exigir(await estadoDelArranque(page), (e) => e.foco === 'cargar', 'Tab lleva a «Cargar partida»');
+  await page.keyboard.press('Enter');
+  // Playwright no pulsa lo que lleva `aria-disabled`: se le obliga, como el ratón.
+  await page.locator('[data-inicio="cargar"]').click({ force: true });
+  await sleep(300);
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.menu && e.search === '' && e.foco === 'cargar',
+    '«Cargar partida» no hace nada',
+  );
+  const motivo = await page.locator('#sin-partidas').innerText();
+  if (!/no hay partidas guardadas/i.test(motivo))
+    throw new Error(`arranque: «Cargar partida» no dice por qué: «${motivo}»`);
+
+  // «Nuevo juego», con el teclado y el ratón fuera (encima de una facción, la
+  // vestiría: es su vista previa): la elección, con la marcada vestida; Escape
+  // vuelve al neutro.
+  await page.mouse.move(5, 5);
+  await page.locator('[data-inicio="nuevo"]').focus();
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('[data-inicio="eleccion"]');
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema === FACTION_IDS[0] && e.foco === `faccion:${FACTION_IDS[0]}`,
+    `la elección empieza con ${FACTION_IDS[0]} marcada, enfocada y vestida`,
+  );
+  const opciones = await page.locator('.opcion-de-faccion').count();
+  if (opciones !== FACTION_IDS.length)
+    throw new Error(`arranque: la elección trae ${opciones} facciones y son ${FACTION_IDS.length}`);
+  await captura(page, 'inicio-02-eleccion');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('[data-inicio="nuevo"]');
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema === null,
+    'Escape vuelve al menú y al neutro',
+  );
+  await page.locator('[data-inicio="nuevo"]').click();
+  await page.waitForSelector('[data-inicio="eleccion"]');
+  await page.locator('[data-faccion="elfos"]').hover();
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema === 'elfos',
+    'pasar el ratón por los elfos los viste',
+  );
+  await page.locator('[data-faccion="orkos"] input').focus();
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema === 'orkos',
+    'el foco en los orkos los viste',
+  );
+  await page.locator('[data-faccion="orkos"]').click();
+  await page.mouse.move(5, 5);
+  await sleep(200);
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema === 'orkos',
+    'marcados los orkos, salir con el ratón deja su tema',
+  );
+  await captura(page, 'inicio-02b-eleccion-orkos');
+
+  // «Empezar»: la URL dice la partida y abre la base de los orkos con su héroe.
+  await page.locator('[data-inicio="empezar"]').click();
+  await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
+  const pedida = new URL(page.url()).searchParams;
+  const semilla = parseSeed(pedida.get('seed'));
+  if (semilla === null || pedida.get('faccion') !== 'orkos')
+    throw new Error(`arranque: «Empezar» no deja la partida en la URL: ${page.url()}`);
+  exigir(
+    await estadoDelArranque(page),
+    (e) => !e.menu && e.app && e.tema === 'orkos',
+    'la partida, con el tema de los orkos y sin menú',
+  );
+  const espejo = new Session(semilla, 'orkos');
+  const heroe = espejo.myHeroes()[0];
+  if (heroe === undefined || espejo.jugador.faction !== 'orkos')
+    throw new Error('arranque: el espejo no juega con los orkos');
+  if (heroe.at.x !== espejo.myTowns()[0]?.at.x || heroe.at.y !== espejo.myTowns()[0]?.at.y)
+    throw new Error('arranque: el héroe del espejo no nace dentro de su base');
+  // Quien camina por la base es él (lo pinta el lienzo: se lee del espejo, que
+  // abre su base como la página y la cierra, sin tocar la partida).
+  espejo.abrirSuBase();
+  const caminante = espejo.vistaDeLaBase()?.caminante.id;
+  espejo.closeTown();
+  if (caminante !== heroe.id)
+    throw new Error(`arranque: por la base camina ${caminante} y no ${heroe.id}`);
+  await sleep(1500);
+  await captura(page, 'inicio-03-base-orkos');
+  log(`arranque: semilla ${semilla}, orkos, en su base con ${heroe.name} dentro`);
+
+  // Salir de la base: el mapa, con el tema, y la partida es la del espejo.
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('#app[data-escena="adventure"]', { timeout: 10_000 });
+  await esperarElSuelo(page, 'arranque', 60_000, log);
+  await comprobar(page, espejo, 'arranque: al salir de la base');
+  exigir(await estadoDelArranque(page), (e) => e.tema === 'orkos', 'el mapa sigue con su tema');
+  await sleep(450);
+  await captura(page, 'inicio-04-mapa-orkos');
+
+  // La URL reproduce la partida: recargar entra sin menú, en su base, con la misma semilla.
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
+  exigir(
+    await estadoDelArranque(page),
+    (e) => !e.menu && e.tema === 'orkos' && e.search === `?seed=${semilla}&faccion=orkos`,
+    'recargar entra sin menú en la misma partida',
+  );
+  const rotulo = (await page.locator('#seed').innerText()).trim();
+  if (rotulo !== `semilla ${semilla}`)
+    throw new Error(`arranque: tras recargar la barra dice «${rotulo}»`);
+  await page.close();
+
+  // «Partida rápida»: semilla al azar y la facción que saque, sin elegir; también en la base.
+  const rapida = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(rapida, 'arranque, partida rápida', problemas);
+  await rapida.goto(`${url}/`, { waitUntil: 'networkidle' });
+  await rapida.locator('[data-inicio="rapida"]').click();
+  await rapida.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
+  const deLaRapida = new URL(rapida.url()).searchParams;
+  const sRapida = parseSeed(deLaRapida.get('seed'));
+  if (sRapida === null) throw new Error(`arranque: la rápida no deja semilla: ${rapida.url()}`);
+  const suya: FactionId = faccionesDeLaSemilla(sRapida)[0];
+  exigir(
+    await estadoDelArranque(rapida),
+    (e) => e.tema === suya && deLaRapida.get('faccion') === suya,
+    `la rápida juega con la de la semilla ${sRapida} (${suya}) y lo deja en la URL`,
+  );
+  await captura(rapida, 'inicio-05-partida-rapida');
+  log(`arranque: partida rápida, semilla ${sRapida} con ${suya}`);
+  await rapida.close();
+
+  // Una facción que no existe no se juega: la página dice por qué y cómo salir.
+  // Sin vigilar la consola: el error es lo que se prueba.
+  const mala = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await mala.goto(`${url}/?faccion=xyz`, { waitUntil: 'networkidle' });
+  await mala.waitForSelector('#no-arranca', { timeout: 15_000 });
+  const dicho = (await mala.locator('#no-arranca').innerText()).replace(/\s+/g, ' ');
+  if (!/"xyz" no es una facción/.test(dicho) || !/quita "\?faccion=…"/.test(dicho))
+    throw new Error(`arranque: ?faccion=xyz no dice por qué ni cómo salir: «${dicho}»`);
+  log('arranque: ?faccion=xyz se rechaza diciéndolo');
+  await mala.close();
 }
 
 async function jugarEscritorio(browser: Browser, url: string, problemas: Problemas): Promise<void> {
@@ -1510,6 +1735,15 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   );
   await finContadoPorSuCausa(page, espejo);
   await captura(page, 'desktop-12-fin-de-partida');
+  // «Partida nueva» vuelve al menú de inicio, sin nada en la URL (19-10-2026).
+  await page.locator('[data-action="restart"]').first().click();
+  await page.waitForSelector('#inicio:not([hidden]) [data-inicio="nuevo"]', { timeout: 15_000 });
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.menu && !e.app && e.search === '' && e.tema === null,
+    '«Partida nueva» vuelve al menú de inicio',
+  );
+  log('fin: «Partida nueva» vuelve al menú de inicio');
   await page.close();
 }
 
@@ -1818,6 +2052,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   const medida = await cajaDeMovil(browser, url, problemas);
   const espejo = new Session(semilla);
   await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
+  await salirDeLaBase(page, 'táctil', true);
   await esperarElSuelo(page, 'táctil', 60_000, log);
   await sleep(450);
   const mapa = new Mapa(page, espejo);
@@ -1894,6 +2129,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   // A la batalla de la semilla, desde el principio otra vez (el héroe ya ha
   // andado), con dos toques: el primero enseña, el segundo va.
   await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
+  await salirDeLaBase(page, 'táctil, otra vez', true);
   await sleep(450);
   const otra = new Session(semilla);
   const enOtra = new Mapa(page, otra);
@@ -6411,6 +6647,7 @@ type Paso = (browser: Browser, url: string, problemas: Problemas) => Promise<voi
 
 /** Las pasadas, en el orden en que se juegan. Los nombres son los de `CAPTURAS_SOLO`. */
 const PASADAS: readonly (readonly [string, Paso])[] = [
+  ['arranque', arranque],
   ['escritorio', jugarEscritorio],
   ['emboscada', emboscadaAvisada],
   ['perdida', batallaPerdida],

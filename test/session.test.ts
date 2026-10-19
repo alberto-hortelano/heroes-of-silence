@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
-import { Session } from '../src/client/session.js';
+import { AYUDA_DEL_MAPA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
@@ -792,5 +792,36 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     const panel = marcadoDe(renderSide(s));
     expect(panel).not.toContain('Este héroe');
     expect(panel).toContain('Sin héroe en esta batalla: nadie lanza hechizos');
+  });
+});
+
+describe('la partida empieza en la base (19-10-2026)', () => {
+  it('abrirSuBase abre la base con el héroe dentro; al salir, el mapa, y el héroe anda', () => {
+    const s = new Session(5, 'orkos');
+    expect(s.jugador.faction).toBe('orkos');
+    s.abrirSuBase();
+    expect(s.scene).toBe('town');
+    expect(s.activeTown?.id).toBe(s.jugador.base);
+    const heroe = s.heroeEnLaBase();
+    expect(heroe?.faction).toBe('orkos');
+    expect(heroe?.at).toEqual(s.activeTown?.at);
+    expect(s.vistaDeLaBase()!.caminante.id).toBe(heroe!.id);
+
+    s.closeTown();
+    expect(s.scene).toBe('adventure');
+    // La primera salida dice cómo se anda; las demás, nada.
+    expect(s.status).toBe(AYUDA_DEL_MAPA);
+    s.openTown(s.jugador.base!);
+    s.closeTown();
+    expect(s.status).toBe('');
+    const fuera = pegadoA(s.state, heroe!.at);
+    s.clickTile(fuera);
+    expect(heroe!.at).toEqual(fuera);
+  });
+
+  it('sin facción, la de la semilla: la misma partida que con la que la semilla saca', () => {
+    const sola = new Session(9);
+    const conLaSuya = new Session(9, sola.jugador.faction);
+    expect(JSON.stringify(conLaSuya.state)).toBe(JSON.stringify(sola.state));
   });
 });

@@ -5,6 +5,8 @@
  * (`escenas/`) traduce el puntero de su pantalla. Aquí solo se conecta todo.
  */
 import { parseSeed } from '@core/rng.js';
+import { type FactionId, parseFaccion } from '@core/types.js';
+import { unaVezEnLaURL } from '@core/validar.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaBatalla } from './escenas/batalla.js';
@@ -51,23 +53,46 @@ const stage = document.getElementById('stage') as HTMLElement;
 
 /**
  * La semilla que pide la URL, o `null` si no pide ninguna. Lanza si pide una
- * que no lo es: la regla entera —incluido que `?seed=` vacío es no pedir— la
- * escribe el núcleo (`parseSeed`), aquí solo se lee la barra de direcciones.
+ * que no lo es, o si la pide dos veces: la regla entera —incluido que `?seed=`
+ * vacío es no pedir— la escribe el núcleo (`parseSeed`, `unaVezEnLaURL`), aquí
+ * solo se lee la barra de direcciones.
  */
 function semillaDeLaUrl(): number | null {
-  return parseSeed(new URLSearchParams(location.search).get('seed'));
+  return parseSeed(unaVezEnLaURL(new URLSearchParams(location.search).getAll('seed'), 'seed'));
 }
 
 /**
- * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla juega.
- * Se cambia SOLO `seed` sobre la URL de ahora: escribir `?seed=N` a pelo
- * sustituía la query entera y el fragmento.
+ * La facción que pide la URL (`?faccion=`, la que escribe el menú de inicio), o
+ * `null` si no pide ninguna. Como la semilla: vacío es no pedir, lo que no sea
+ * una facción lanza nombrando las cinco (`parseFaccion`) y repetido también.
  */
-function abrePartida(seed: number): Session {
+function faccionDeLaUrl(): FactionId | null {
+  return parseFaccion(
+    unaVezEnLaURL(new URLSearchParams(location.search).getAll('faccion'), 'faccion'),
+  );
+}
+
+/** Cómo salir de una URL que no abre partida: quitar lo que pidió. */
+const SALIDA_DE_LA_SEMILLA =
+  'quita "?seed=…" de la barra de direcciones para jugar una partida al azar';
+const SALIDA_DE_LA_FACCION =
+  'quita "?faccion=…" de la barra de direcciones para jugar con la que saque la semilla';
+const SALIDA_DE_LAS_DOS =
+  'quita "?seed=…" y "?faccion=…" de la barra de direcciones para volver al menú de inicio';
+
+/**
+ * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla y con
+ * qué facción juega: las dos se escriben siempre, también si la facción la sacó
+ * la semilla (la partida rápida), para que la URL la reproduzca entera. Se
+ * cambian SOLO `seed` y `faccion` sobre la URL de ahora: escribir `?seed=N` a
+ * pelo sustituía la query entera y el fragmento.
+ */
+function abrePartida(seed: number, faccion: FactionId | null): Session {
+  const abierta = new Session(seed, faccion ?? undefined);
   const url = new URL(location.href);
   url.searchParams.set('seed', String(seed));
+  url.searchParams.set('faccion', abierta.jugador.faction);
   history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
-  const abierta = new Session(seed);
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
   elSeed.textContent = `semilla ${abierta.state.seed}`;
@@ -76,19 +101,72 @@ function abrePartida(seed: number): Session {
   return abierta;
 }
 
+/** Por qué no arranca la partida y, si es por la URL, cómo salir: quitar lo que pidió. */
+interface Fallo {
+  readonly motivo: unknown;
+  readonly salida: string | null;
+}
+
+/**
+ * Sin sesión no arranca el bucle y la página se queda en blanco: los motivos se
+ * escriben para la persona, cada uno con su salida, y se relanza igual: un fallo
+ * no se tapa con una barra bonita. Con dos (`?seed=abc&faccion=xyz`) se dicen
+ * los dos: diciendo solo el primero, arreglarlo destapaba el segundo en otra
+ * recarga (H4 de QA del tema por ejército, en su rama).
+ */
+function sinArrancar(fallos: readonly [Fallo, ...Fallo[]]): never {
+  const texto = fallos
+    .map(({ motivo, salida }) => {
+      const m = motivo instanceof Error ? motivo.message : String(motivo);
+      return salida === null ? m : `${m} — ${salida}`;
+    })
+    .join('. ');
+  elStatus.textContent = texto;
+  // Sin partida no hay lienzo que se mueva: la barra suelta sus dos líneas y se
+  // lee entera también en el móvil.
+  elStatus.dataset.sinArrancar = 'si';
+  // Con la salida en el mensaje: lo que se lanza lo pinta entero la página que
+  // no arranca (`arranque.ts`), encima de la barra.
+  throw new Error(texto, {
+    cause: fallos.length === 1 ? fallos[0].motivo : fallos.map((f) => f.motivo),
+  });
+}
+
+/** Lo que pide la URL, leído con `leer`: su valor, o por qué no vale y cómo salir. */
+function deLaUrl<T>(leer: () => T, salida: string): { readonly valor: T } | Fallo {
+  try {
+    return { valor: leer() };
+  } catch (motivo) {
+    return { motivo, salida };
+  }
+}
+
 let session: Session;
-try {
-  session = abrePartida(semillaDeLaUrl() ?? semillaSorteada());
-} catch (err) {
-  // Sin sesión no arranca el bucle y la página se queda en blanco: el motivo se
-  // escribe para la persona, con la salida si lo que falla es la semilla. Y se
-  // relanza igual: un fallo no se tapa con una barra bonita.
-  const motivo = err instanceof Error ? err.message : String(err);
-  const pideSemilla = new URLSearchParams(location.search).get('seed') !== null;
-  elStatus.textContent = pideSemilla
-    ? `${motivo} — quita "?seed=…" de la barra de direcciones para jugar una partida al azar`
-    : motivo;
-  throw err;
+{
+  const semilla = deLaUrl(semillaDeLaUrl, SALIDA_DE_LA_SEMILLA);
+  const faccion = deLaUrl(faccionDeLaUrl, SALIDA_DE_LA_FACCION);
+  if ('motivo' in semilla && 'motivo' in faccion) sinArrancar([semilla, faccion]);
+  if ('motivo' in semilla) sinArrancar([semilla]);
+  if ('motivo' in faccion) sinArrancar([faccion]);
+  try {
+    session = abrePartida(semilla.valor ?? semillaSorteada(), faccion.valor);
+  } catch (motivo) {
+    // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso:
+    // la semilla, la facción o las dos. Sin nada pedido no hay salida que dar.
+    sinArrancar([
+      {
+        motivo,
+        salida:
+          semilla.valor === null
+            ? faccion.valor === null
+              ? null
+              : SALIDA_DE_LA_FACCION
+            : faccion.valor === null
+              ? SALIDA_DE_LA_SEMILLA
+              : SALIDA_DE_LAS_DOS,
+      },
+    ]);
+  }
 }
 
 const sesion = (): Session => session;
@@ -574,10 +652,11 @@ document.addEventListener('click', (ev) => {
       aventura.centrar();
       break;
     case 'restart':
-      // Reiniciar es partida NUEVA: se sortea aunque la URL traiga una semilla.
-      session = abrePartida(semillaSorteada());
-      aventura.olvidarRuta();
-      aventura.centrar();
+      // «Partida nueva» vuelve al menú de inicio: la página sin nada pedido.
+      // Recargando y no montando otra sesión aquí: así se suelta la partida
+      // entera, el Worker del suelo incluido.
+      history.replaceState(null, '', location.pathname);
+      location.reload();
       break;
     default:
       return;
@@ -641,8 +720,9 @@ document.addEventListener('keydown', (ev) => {
   pedirFotograma();
 });
 
-session.status =
-  'Haz clic en el mapa para mover a tu héroe; arrastra para mirar. Espacio pasa el turno.';
+// La partida empieza en la base, con el héroe dentro (19-10-2026): salir de ella
+// lleva al mapa, y la barra dice entonces cómo se anda (`AYUDA_DEL_MAPA`).
+session.abrirSuBase();
 pedirFotograma();
 
 if (HERRAMIENTAS_DE_DESARROLLO) {

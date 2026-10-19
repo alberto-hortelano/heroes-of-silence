@@ -609,6 +609,61 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   white-space: nowrap;
 }
 
+/* La pantalla de inicio (`inicio/`, 19-10-2026): el menú y la elección de
+   facción, antes de que exista la partida. Mientras, `#app` va oculto; con
+   `hidden` a secas no basta, que `#app` lleva su propio `display`. */
+#app[hidden],
+#inicio[hidden] { display: none; }
+#inicio {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--letra-cuerpo);
+}
+.menu-de-inicio,
+.eleccion-de-faccion {
+  box-sizing: border-box;
+  width: min(100%, 44rem);
+  padding: 1.5rem;
+  background: var(--panel);
+  border: 3px var(--marco-estilo) var(--marco);
+  box-shadow: var(--marco-sombra);
+}
+.titulo-de-inicio {
+  margin: 0 0 1.1rem;
+  text-align: center;
+  font: 600 1.8rem var(--letra-titulo);
+  letter-spacing: 0.06em;
+  color: var(--titulo);
+}
+.opciones-de-inicio { display: grid; gap: 0.6rem; max-width: 20rem; margin: 0 auto; }
+.opciones-de-inicio button { padding: 0.6rem 1rem; font-size: 1.05rem; }
+/* Apagado pero enfocable: con `disabled` no llegaría el teclado ni se leería por qué. */
+.opciones-de-inicio button[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
+#sin-partidas { margin: -0.3rem 0 0.2rem; text-align: center; }
+.facciones { display: grid; gap: 0.5rem; margin: 0 0 1.1rem; padding: 0; border: 0; }
+.facciones legend { padding: 0 0 0.4rem; color: var(--ink-dim); }
+.opcion-de-faccion {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.7rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.opcion-de-faccion input { grid-row: span 3; align-self: center; accent-color: var(--gold); }
+.opcion-de-faccion:has(input:checked) { border-color: var(--resalte); }
+.opcion-de-faccion:has(input:focus-visible) { outline: 2px solid var(--foco); outline-offset: 1px; }
+.nombre-de-faccion { font: 600 1.15rem var(--letra-titulo); color: var(--titulo); }
+.rasgo-de-faccion { font-size: 0.92rem; color: var(--ink); }
+.heroe-de-faccion { font-size: 0.85rem; font-style: italic; color: var(--ink-dim); }
+.botones-de-inicio { display: flex; justify-content: space-between; gap: 0.6rem; }
+
 /* La página que no arranca (`arranque.ts`): el motivo entero, en lugar de la página. */
 #app[data-escena='no-arranca'] { display: block; overflow: auto; }
 #no-arranca {

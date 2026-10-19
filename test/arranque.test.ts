@@ -86,8 +86,10 @@ describe('una página que no arranca dice por qué (H5)', () => {
     const scripts = [...pagina.matchAll(/<script[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1]);
     expect(scripts).toEqual(['./entrada.ts']);
     const entrada = join(dir, 'entrada.ts');
-    expect(readFileSync(join(RAIZ, entrada), 'utf8')).toContain(
-      "arrancar(() => import('./main.js'));",
+    // Carga `main.ts` a demanda dentro de `arrancar`; la partida, antes, su pantalla
+    // de inicio (`inicio/inicio.ts`, 19-10-2026), también a demanda.
+    expect(readFileSync(join(RAIZ, entrada), 'utf8')).toMatch(
+      /arrancar\((?:async )?\(\) =>[\s\S]*import\('\.\/main\.js'\)[\s\S]*\);/,
     );
     // Lo que se evalúa seguro: si cargase algo del núcleo, un catálogo roto lo
     // tumbaría antes de poder decir nada.
