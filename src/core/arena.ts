@@ -141,16 +141,12 @@ function rasgosDelCuerpo(
 
 /**
  * Los ids que una unidad nueva no puede tomar, por separado para que nadie se
- * deje un grupo. **También los del catálogo que no validan** (H1 de QA): se
- * conservan tal cual al guardar, pero mandar una válida con su id es arreglarla
- * (`claveSinValidar`, `tools/arena/borrador.ts`), así que una nueva con ese id la
- * sustituía sin aviso.
+ * deje un grupo. El catálogo no trae unidades que no validan: con una, el núcleo
+ * no carga y la página lo dice (`client/arranque.ts`).
  */
 export interface IdsOcupados {
-  /** Las unidades del catálogo que valen, las nuevas incluidas. */
+  /** Las unidades del catálogo, las nuevas incluidas. */
   readonly validas: readonly string[];
-  /** Las del catálogo que no validan y se conservan al guardar. */
-  readonly sinValidar: readonly string[];
   /** Las hojas del taller: cada una es la unidad con su id. */
   readonly hojas: readonly string[];
 }
@@ -177,7 +173,7 @@ export function unidadNueva(
   ocupados: IdsOcupados,
   eq: EquipoAtado,
 ): Unidad {
-  const todos = new Set([...ocupados.validas, ...ocupados.sinValidar, ...ocupados.hojas]);
+  const todos = new Set([...ocupados.validas, ...ocupados.hojas]);
   let n = 2;
   while (todos.has(`${hoja.id}-${n}`)) n++;
   return validarUnidad(

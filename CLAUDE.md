@@ -103,6 +103,11 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
   excepción son las acciones del agente: se descartan una a una con su motivo.
   El motivo de un rechazo lo escribe un `*Blocker` del núcleo y lo leen
   `legalActions`, la acción y la pantalla.
+- **Una página que no arranca dice por qué** (H5, 19-10-2026): cada página entra por su
+  `entrada.ts`, que carga `main.ts` con un `import()` y, si el núcleo lanza al cargarse (una unidad
+  rota en `data/unidades.json`), pinta el motivo entero (`arranque.ts`, que no importa el núcleo).
+  `vite.config.ts` carga el lado de disco de la arena a demanda, así que `pnpm dev` arranca igual.
+  Lo vigila `test/arranque.test.ts`.
 - **El juego se juega sin agente y sin arte**: sin agente juega `core/ai`; sin
   imágenes, cada renderizador pinta su marcador.
 - **Un hecho, un sitio.** Si son dos caras, se escriben juntas en una función.
@@ -864,11 +869,11 @@ antes del destino (`battle_started` con `faltan`).
   `moradasBlocker`), conservando su `_comment` y sin recargar la página (`handleHotUpdate` por
   contenido, `vite.config.ts`); si algo no vale no escribe ninguno, y uno ilegible no se pisa.
   Guardar cambia lo que se recluta y se compra en `pnpm dev`. La arena construida (sin servidor) lee
-  el catálogo del núcleo con un `import()` a demanda y no guarda. **Solo las cinco facciones**, toda
+  el catálogo del núcleo y no guarda. **Solo las cinco facciones**, toda
   unidad de una casilla y sin munición. **Sin compatibilidad hacia atrás** (14-10-2026: «estamos en
-  pleno desarrollo»): el catálogo y el enlace se leen solo en el formato de hoy; lo que no vale se
-  dice con su motivo entero en un recuadro que se despliega solo desde la barra («Avisos al leer»,
-  `renderAvisosDeLectura`); la barra, cortada a dos líneas, lleva el resumen. Es también el banco
+  pleno desarrollo»): el catálogo y el enlace se leen solo en el formato de hoy; una unidad del
+  catálogo que no vale (editada a mano) no deja arrancar la página, que dice por qué (`arranque.ts`).
+  Es también el banco
   de combate: un héroe por lado con libro (`heroeDeArena`, con el equipo base), y **pelea como el
   juego** (19-10-2026): sin interruptores; un `?reglas=`, `?golpe=` o `?contacto=` se rechaza
   diciéndolo («la arena pelea con las reglas del juego: quita «?reglas=» de la dirección»,

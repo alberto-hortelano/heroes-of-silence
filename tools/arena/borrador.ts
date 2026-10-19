@@ -15,6 +15,7 @@ import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   type FormaDeMuralla,
   type FormaSinValidar,
+  RUTA_DE_MURALLAS,
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
 } from '../../src/core/arena-murallas.js';
@@ -369,9 +370,6 @@ export function escribirCatalogo(
 }
 
 // ---------------------------------------------------------------- murallas
-
-/** Dónde viven las formas de muralla, relativo a la raíz del repo. */
-export const RUTA_DE_MURALLAS = 'data/borradores/murallas.json';
 
 const DE_MURALLAS: FicheroDeLaArena<FormaDeMuralla, FormaSinValidar> = {
   ruta: RUTA_DE_MURALLAS,

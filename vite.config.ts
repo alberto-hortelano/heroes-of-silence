@@ -2,17 +2,10 @@ import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
+import { RUTA_DE_MURALLAS } from './src/core/arena-murallas.js';
 import { RUTA_DEL_CATALOGO_DE_EQUIPO } from './src/core/data.js';
 import { RUTA_DEL_CATALOGO_DE_UNIDADES } from './src/core/unidad.js';
 import { puertoEspectadores } from './src/server/entorno.js';
-import {
-  escribirCatalogo,
-  escribirMurallas,
-  hojasDelTaller,
-  leerCatalogo,
-  leerMurallas,
-  RUTA_DE_MURALLAS,
-} from './tools/arena/borrador.js';
 import { copiarPublico } from './tools/build/publico.js';
 
 /** Lo más que se acepta en un guardado: medio centenar de unidades caben de sobra. */
@@ -37,6 +30,9 @@ async function leerCuerpo(
   }
 }
 
+/** El lado de disco de la arena (`tools/arena/borrador.ts`), que esto carga a demanda. */
+type Borrador = typeof import('./tools/arena/borrador.js');
+
 /**
  * Un borrador de la arena por HTTP: GET lo lee y POST lo guarda entero. Uno
  * para las cifras y otro para las murallas, con las mismas respuestas: copiado
@@ -44,9 +40,9 @@ async function leerCuerpo(
  */
 function servirBorrador(b: {
   readonly ruta: string;
-  readonly leer: () => Record<string, unknown>;
+  readonly leer: () => Promise<Record<string, unknown>>;
   readonly vacio: Record<string, unknown>;
-  readonly escribir: (cuerpo: unknown) => Record<string, unknown>;
+  readonly escribir: (cuerpo: unknown) => Promise<Record<string, unknown>>;
 }): (req: IncomingMessage, res: ServerResponse) => void {
   return (req, res) => {
     const responder = (estado: number, cuerpo: unknown): void => {
@@ -59,16 +55,16 @@ function servirBorrador(b: {
       // archivo que no se puede leer, en `ilegible`. Un 500 dejaba un error en
       // la consola por algo que la página sí explica, y `pnpm capturas` no
       // podía ensayarlo (M13 de QA).
-      try {
-        responder(200, { guardado: true, ruta: b.ruta, ...b.leer() });
-      } catch (err) {
-        responder(200, {
-          guardado: true,
-          ruta: b.ruta,
-          ...b.vacio,
-          ilegible: err instanceof Error ? err.message : String(err),
-        });
-      }
+      b.leer()
+        .then((leido) => responder(200, { guardado: true, ruta: b.ruta, ...leido }))
+        .catch((err: unknown) =>
+          responder(200, {
+            guardado: true,
+            ruta: b.ruta,
+            ...b.vacio,
+            ilegible: err instanceof Error ? err.message : String(err),
+          }),
+        );
       return;
     }
     if (req.method !== 'POST') {
@@ -78,7 +74,7 @@ function servirBorrador(b: {
       return;
     }
     leerCuerpo(req)
-      .then((cuerpo) => responder(200, { ruta: b.ruta, ...b.escribir(cuerpo) }))
+      .then(async (cuerpo) => responder(200, { ruta: b.ruta, ...(await b.escribir(cuerpo)) }))
       .catch((err: unknown) => {
         // Lo que no valida no se escribe: 400 con la frase de la regla.
         responder(400, { error: err instanceof Error ? err.message : String(err) });
@@ -106,9 +102,18 @@ function servirBorrador(b: {
  * ventana de tiempo, una edición a mano dentro de ella no recargaba). El módulo sí
  * queda invalidado, así que la siguiente carga de la página lee el nuevo. Lo
  * cambiado a mano en esos ficheros recarga como siempre.
+ *
+ * **El lado de disco se carga a demanda** (`borrador`): importa el núcleo, y el
+ * núcleo valida `data/unidades.json` al cargarse. Importado aquí arriba, una
+ * unidad rota a mano tumbaba esta configuración y `pnpm dev` no arrancaba, ni para
+ * que la página dijese por qué (`arranque.ts`; H5 de QA, 19-10-2026). En
+ * `pnpm dev` lo carga vite (`ssrLoadModule`, como las marcas): un fallo se vuelve a
+ * intentar en la siguiente petición, ya con el fichero arreglado.
  */
 function arena(): Plugin {
   const raiz = __dirname;
+  /** El lado de disco: en el build, con un `import()`; en `pnpm dev`, por vite. */
+  let borrador = (): Promise<Borrador> => import('./tools/arena/borrador.js');
   /** Lo que escribió «Guardar» en cada fichero, por su ruta absoluta. */
   const escritoAlGuardar = new Map<string, string>();
   /**
@@ -123,9 +128,9 @@ function arena(): Plugin {
    * construida dice lo mismo que `pnpm arena`: está, a medias, y no se monta.
    */
   let hojas: string | null = null;
-  const lista = (avisar: (aviso: string) => void): string => {
+  const lista = async (avisar: (aviso: string) => void): Promise<string> => {
     if (hojas === null) {
-      const leidas = hojasDelTaller(raiz);
+      const leidas = (await borrador()).hojasDelTaller(raiz);
       for (const h of leidas)
         if (h.incompleta !== null) avisar(`[arena] se lista sin montarla: ${h.incompleta}`);
       hojas = JSON.stringify(leidas);
@@ -135,32 +140,38 @@ function arena(): Plugin {
   return {
     name: 'heroes-arena',
     configureServer(server) {
+      borrador = async () =>
+        (await server.ssrLoadModule(resolve(raiz, 'tools/arena/borrador.ts'))) as Borrador;
       const unidades = resolve(raiz, 'assets/unidades');
       server.watcher.add(unidades);
       server.watcher.on('all', (_evento, ruta) => {
         if (ruta.startsWith(unidades)) hojas = null;
       });
-      server.middlewares.use('/__arena/hojas', (_req, res) => {
-        res.setHeader('content-type', 'application/json');
-        res.end(lista((aviso) => server.config.logger.warn(aviso)));
+      // Si no carga, el error va a vite, que responde 500 y lo escribe.
+      server.middlewares.use('/__arena/hojas', (_req, res, next) => {
+        lista((aviso) => server.config.logger.warn(aviso))
+          .then((texto) => {
+            res.setHeader('content-type', 'application/json');
+            res.end(texto);
+          })
+          .catch(next);
       });
       server.middlewares.use(
         '/__arena/unidades',
         servirBorrador({
           ruta: RUTA_DEL_CATALOGO_DE_UNIDADES,
-          leer: () => {
-            const leido = leerCatalogo(raiz);
+          leer: async () => {
+            const leido = (await borrador()).leerCatalogo(raiz);
             return {
               unidades: leido.unidades,
-              invalidas: leido.invalidas.map(({ id, motivo }) => ({ id, motivo })),
               // Y el catálogo de equipo (vista «Editar equipo»): va con las unidades
               // porque se guarda con ellas, en una operación.
               piezas: leido.piezas,
             };
           },
-          vacio: { unidades: [], invalidas: [], piezas: [] },
-          escribir: (cuerpo) => {
-            const hecho = escribirCatalogo(raiz, cuerpo);
+          vacio: { unidades: [], piezas: [] },
+          escribir: async (cuerpo) => {
+            const hecho = (await borrador()).escribirCatalogo(raiz, cuerpo);
             for (const ruta of [RUTA_DEL_CATALOGO_DE_EQUIPO, RUTA_DEL_CATALOGO_DE_UNIDADES]) {
               const donde = resolve(raiz, ruta);
               escritoAlGuardar.set(donde, readFileSync(donde, 'utf8'));
@@ -173,15 +184,15 @@ function arena(): Plugin {
         '/__arena/murallas',
         servirBorrador({
           ruta: RUTA_DE_MURALLAS,
-          leer: () => {
-            const leido = leerMurallas(raiz);
+          leer: async () => {
+            const leido = (await borrador()).leerMurallas(raiz);
             return {
               formas: leido.formas,
               invalidas: leido.invalidas.map(({ nombre, motivo }) => ({ nombre, motivo })),
             };
           },
           vacio: { formas: [], invalidas: [] },
-          escribir: (cuerpo) => escribirMurallas(raiz, cuerpo),
+          escribir: async (cuerpo) => (await borrador()).escribirMurallas(raiz, cuerpo),
         }),
       );
     },
@@ -192,11 +203,11 @@ function arena(): Plugin {
       escritoAlGuardar.delete(resolve(file));
       return undefined;
     },
-    generateBundle() {
+    async generateBundle() {
       this.emitFile({
         type: 'asset',
         fileName: '__arena/hojas',
-        source: lista((aviso) => this.warn(aviso)),
+        source: await lista((aviso) => this.warn(aviso)),
       });
       for (const fileName of ['__arena/unidades', '__arena/murallas']) {
         this.emitFile({ type: 'asset', fileName, source: JSON.stringify({ guardado: false }) });
