@@ -686,7 +686,7 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
       heroeAqui === undefined
         ? html`<p class="cost">Sin héroe dentro, lo que reclutes se queda de guarnición.</p>
           ${contratar}`
-        : html`${renderLibroEnElCastillo(session, heroeAqui, town)}${rotuloConNombre(`Tropa de ${heroeAqui.name}`)}
+        : html`${renderLibroEnElCastillo(session, heroeAqui, town)}<h3>Tropa del héroe</h3>
           ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
           ${renderTropaLicenciable(heroeAqui.id, heroeAqui.army, session.state.characters)}`
@@ -714,15 +714,6 @@ function renderListaDeEdificios(session: Session): Html {
 }
 
 /**
- * Un rótulo de sección con un nombre dentro, que puede no caber en una línea del
- * panel: con tema se recorta con «…» (`forma.css`, QA v3, V3-5) y el `title` lo
- * dice entero.
- */
-function rotuloConNombre(texto: string): Html {
-  return html`<h3 title="${texto}">${texto}</h3>`;
-}
-
-/**
  * El libro del héroe que está dentro, y lo que aprendió en este castillo (#54).
  * El gremio promete «los aprende solo», y sin el libro aquí la única prueba de
  * que se los llevó era la crónica, que solo se lee al volver al mapa.
@@ -735,7 +726,11 @@ function renderLibroEnElCastillo(session: Session, heroe: Hero, town: Town): Htm
       : html`<p class="cost">Aprendió aquí: ${enOrdenDelLibro(aprendido)
           .map((s) => s.name)
           .join(', ')}.</p>`;
-  return html`${rotuloConNombre(`Libro de ${heroe.name}`)}${renderSpellbook(heroe.spells)}${nota}`;
+  // El nombre, en su línea y no en el rótulo: con tema, la barra de sección es
+  // de una línea y «Libro de Aldo de Valdeluz» (como «Tropa de…», o con
+  // Konstanz von Adler y Grommash Dientenegro) salía «LIBRO DE ALDO DE VA…», lo
+  // primero que se ve al empezar en la base (QA del arranque, H3).
+  return html`<h3>Libro del héroe</h3><p class="cost">${heroe.name} está dentro.</p>${renderSpellbook(heroe.spells)}${nota}`;
 }
 
 /**

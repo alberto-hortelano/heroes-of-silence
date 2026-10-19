@@ -154,7 +154,9 @@
   justify-content: var(--seccion-alinear);
   gap: 0.45em;
   font: 12px/1.15 var(--letra-titulo);
-  letter-spacing: 0.14em;
+  /* 0,12 y no 0,14: con la Cinzel de los templarios, «CRECIMIENTO SEMANAL» medía
+     un píxel más que la barra de la base y salía «SEMANA…» (QA del arranque, H3). */
+  letter-spacing: 0.12em;
   color: var(--tinta-con-pieza, var(--gold));
   background: var(--fondo-con-pieza, var(--seccion-fondo));
   border-top: 0;

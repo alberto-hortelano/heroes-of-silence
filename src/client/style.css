@@ -614,9 +614,15 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
    `hidden` a secas no basta, que `#app` lleva su propio `display`. */
 #app[hidden],
 #inicio[hidden] { display: none; }
+/* Con su propio desplazamiento: `html, body` no se desplazan (la partida mide
+   la ventana), y en un teléfono de 375×812 la elección mide 886 px, así que con
+   `min-height` a secas «Empezar» quedaba debajo, sin forma de llegar (QA, H1). La
+   rejilla centra lo que cabe; lo que no, sale por abajo y se baja hasta ello. */
 #inicio {
   box-sizing: border-box;
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: grid;
   place-items: center;
   padding: 16px;

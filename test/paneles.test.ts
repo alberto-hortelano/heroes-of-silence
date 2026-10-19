@@ -222,11 +222,8 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
   it('el castillo enseña el libro del que está dentro y lo que aprendió allí', () => {
     const { session, contratado } = dosLibrosIguales();
     const marcado = marcadoDe(renderSide(session));
-    expect(lista(marcado, `Libro de ${contratado.name}`)).toEqual([
-      'Prisa',
-      'Flecha mágica',
-      'Lentitud',
-    ]);
+    expect(marcado).toContain(`<p class="cost">${contratado.name} está dentro.</p>`);
+    expect(lista(marcado, 'Libro del héroe')).toEqual(['Prisa', 'Flecha mágica', 'Lentitud']);
     expect(marcado).toContain('<p class="cost">Aprendió aquí: Prisa, Flecha mágica, Lentitud.</p>');
   });
 
@@ -235,10 +232,10 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
     const pueblo = session.myTowns()[0]!;
     session.openTown(pueblo.id);
     const marcado = marcadoDe(renderSide(session));
-    // Con su nombre entero en el `title`: con tema, el rótulo se recorta con «…»
-    // si no cabe en una línea (QA v3, V3-5).
-    const libro = `Libro de ${session.myHeroes()[0]!.name}`;
-    expect(marcado).toContain(`<h3 title="${libro}">${libro}</h3>`);
+    // El nombre va en su línea, no en el rótulo: con tema, la barra es de una
+    // línea y no cabía (QA del arranque, H3).
+    expect(marcado).toContain('<h3>Libro del héroe</h3>');
+    expect(marcado).toContain(`<p class="cost">${session.myHeroes()[0]!.name} está dentro.</p>`);
     expect(marcado).not.toContain('Aprendió aquí');
   });
 

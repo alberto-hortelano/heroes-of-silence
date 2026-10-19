@@ -39,6 +39,17 @@ export function pedirPartida(): Promise<void> {
   return new Promise<void>((empezar) => {
     let elegida: FactionId = FACTION_IDS[0];
     let pantalla: 'menu' | 'eleccion' = 'menu';
+    /**
+     * Dónde estaba el puntero la última vez que se supo, y dónde estaba al abrir
+     * la elección. El puntero solo viste la facción de debajo tras moverse de
+     * verdad desde que se abrió (`punteroVivo`): al pulsar «Nuevo juego» con el
+     * ratón y dejarlo quieto, la elección se pinta con «No muertos» bajo él, el
+     * navegador avisa de un `pointerover` sin que nadie mueva nada, y la página
+     * se vestía de no muertos con «Templarios» marcado (QA, H2).
+     */
+    let punto: { readonly x: number; readonly y: number } | null = null;
+    let alAbrir: { readonly x: number; readonly y: number } | null = null;
+    let punteroVivo = false;
     /** Lo que escucha el menú, que se suelta de una vez al empezar. */
     const escucha = new AbortController();
     const { signal } = escucha;
@@ -54,6 +65,8 @@ export function pedirPartida(): Promise<void> {
     };
     const aEleccion = (): void => {
       pantalla = 'eleccion';
+      punteroVivo = false;
+      alAbrir = punto;
       pintar(inicio, renderEleccion(elegida));
       ponerTema(elegida);
       enfocar('input[name="faccion"]:checked');
@@ -124,7 +137,43 @@ export function pedirPartida(): Promise<void> {
       if (f !== null) ponerTema(f);
     };
     inicio.addEventListener('focusin', alMirar, { signal });
-    inicio.addEventListener('pointerover', alMirar, { signal });
+    inicio.addEventListener(
+      'pointerover',
+      (ev) => {
+        if (punteroVivo && ev.pointerType !== 'touch') alMirar(ev);
+      },
+      { signal },
+    );
+    // Un movimiento cuenta si su punto no es el de antes de abrir la elección.
+    // Sin punto conocido (se abrió con el teclado y el ratón no había dado
+    // señales), el primero solo lo apunta: un `pointermove` sintético en el mismo
+    // sitio no basta para despertarlo. El dedo no tiene vista previa: deslizar
+    // para bajar hasta «Empezar» vestiría cada facción por la que pasa; con él,
+    // viste la que se toca (`change`).
+    document.addEventListener(
+      'pointermove',
+      (ev) => {
+        if (ev.pointerType === 'touch') return;
+        const aqui = { x: ev.clientX, y: ev.clientY };
+        punto = aqui;
+        if (pantalla !== 'eleccion' || punteroVivo) return;
+        if (alAbrir === null) {
+          alAbrir = aqui;
+          return;
+        }
+        if (aqui.x === alAbrir.x && aqui.y === alAbrir.y) return;
+        punteroVivo = true;
+        alMirar(ev);
+      },
+      { signal },
+    );
+    document.addEventListener(
+      'pointerdown',
+      (ev) => {
+        punto = { x: ev.clientX, y: ev.clientY };
+      },
+      { signal },
+    );
     // Al salir el puntero de las facciones, el tema vuelve al de la marcada.
     inicio.addEventListener(
       'pointerout',

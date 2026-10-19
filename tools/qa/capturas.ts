@@ -1290,8 +1290,31 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
     (e) => e.tema === null,
     'Escape vuelve al menú y al neutro',
   );
-  await page.locator('[data-inicio="nuevo"]').click();
+  // «Nuevo juego» con el ratón, y el ratón quieto donde pulsó: la elección se
+  // pinta con una facción debajo (si no, la comprobación no muerde) y el
+  // navegador avisa de un `pointerover` sin que nada se mueva. La página sigue
+  // con el tema de la marcada (QA, H2).
+  const nuevo = await page.locator('[data-inicio="nuevo"]').boundingBox();
+  if (nuevo === null) throw new Error('arranque: «Nuevo juego» no se ve');
+  const clic = { x: nuevo.x + nuevo.width / 2, y: nuevo.y + nuevo.height / 2 };
+  await page.mouse.click(clic.x, clic.y);
   await page.waitForSelector('[data-inicio="eleccion"]');
+  await sleep(300);
+  const debajo = await page.evaluate(
+    ({ x, y }) =>
+      document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-faccion]')?.dataset.faccion ??
+      null,
+    clic,
+  );
+  if (debajo === null || debajo === FACTION_IDS[0])
+    throw new Error(
+      `arranque: tras pulsar «Nuevo juego» el ratón queda sobre ${debajo ?? 'ninguna facción'}: así no se ve si la de debajo viste la página`,
+    );
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema === FACTION_IDS[0],
+    `abierta con un clic y el ratón quieto, la elección va con el tema de ${FACTION_IDS[0]}, la marcada, y no con el de la que queda debajo`,
+  );
   await page.locator('[data-faccion="elfos"]').hover();
   exigir(
     await estadoDelArranque(page),
@@ -1351,6 +1374,15 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   if (caminante !== heroe.id)
     throw new Error(`arranque: por la base camina ${caminante} y no ${heroe.id}`);
   await esperarLaBase(page, 'quieto');
+  // Con tema, las barras de sección son de una línea y lo que no cabe sale con
+  // «…»: «Tropa de Grommash Dientenegro» no cabía (QA del arranque, H3).
+  const cortados = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('#side h3')]
+      .filter((h) => h.scrollWidth > h.clientWidth)
+      .map((h) => h.textContent?.trim() ?? ''),
+  );
+  if (cortados.length > 0)
+    throw new Error(`arranque: en el panel de la base salen cortados «${cortados.join('», «')}»`);
   await captura(page, 'inicio-03-base-orkos');
   log(`arranque: semilla ${semilla}, orkos, en su base con ${heroe.name} dentro`);
 
@@ -1417,6 +1449,89 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   if (!/"xyz" no es una facción/.test(dicho) || !/quita "\?faccion=…"/.test(dicho))
     throw new Error(`arranque: ?faccion=xyz no dice por qué ni cómo salir: «${dicho}»`);
   log('arranque: ?faccion=xyz se rechaza diciéndolo');
+  await contexto.close();
+  await eleccionConElDedo(browser, url, problemas);
+}
+
+/**
+ * La elección en un teléfono pequeño (375×667), con el dedo: no cabe, así que
+ * hay que bajar hasta «Empezar» deslizando, con toques de verdad por CDP. El
+ * `tap()` de Playwright no vale para esto: desplaza la página por programa hasta
+ * el botón, y así escondía que no había forma de llegar (QA, H1). Deslizar no
+ * viste ninguna facción: el dedo no tiene vista previa.
+ */
+async function eleccionConElDedo(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+): Promise<void> {
+  const contexto = await browser.newContext({
+    viewport: { width: 375, height: 667 },
+    deviceScaleFactor: 2,
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await contexto.newPage();
+  vigilarConsola(page, 'arranque, con el dedo', problemas);
+  await page.goto(`${url}/`, { waitUntil: 'networkidle' });
+  const centro = async (selector: string): Promise<{ x: number; y: number }> => {
+    const b = await page.locator(selector).boundingBox();
+    if (b === null) throw new Error(`arranque, con el dedo: no se ve ${selector}`);
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  };
+  const nuevo = await centro('[data-inicio="nuevo"]');
+  await page.touchscreen.tap(nuevo.x, nuevo.y);
+  await page.waitForSelector('[data-inicio="eleccion"]');
+  await sleep(300);
+  const abajo = (): Promise<{ readonly bajo: number; readonly alto: number }> =>
+    page.evaluate(() => ({
+      bajo: (
+        document.querySelector('[data-inicio="empezar"]') as HTMLElement
+      ).getBoundingClientRect().bottom,
+      alto: innerHeight,
+    }));
+  const antes = await abajo();
+  if (antes.bajo <= antes.alto)
+    throw new Error(
+      `arranque, con el dedo: a 375×667 «Empezar» ya se ve sin bajar (${Math.round(antes.bajo)} de ${antes.alto}): así no se prueba que se llegue deslizando`,
+    );
+  const cdp = await contexto.newCDPSession(page);
+  for (let vez = 0; vez < 4 && (await abajo()).bajo > antes.alto; vez++) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: 187, y: 560 }],
+    });
+    for (let y = 540; y >= 160; y -= 20) {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: 187, y }],
+      });
+      await sleep(16);
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await sleep(400);
+  }
+  const despues = await abajo();
+  if (despues.bajo > despues.alto)
+    throw new Error(
+      `arranque, con el dedo: a 375×667 no se llega a «Empezar» deslizando: sigue en ${Math.round(despues.bajo)} de ${despues.alto}`,
+    );
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema === FACTION_IDS[0],
+    `deslizar no viste ninguna facción: sigue la de ${FACTION_IDS[0]}, la marcada`,
+  );
+  await captura(page, 'inicio-06-eleccion-movil');
+  const empezar = await centro('[data-inicio="empezar"]');
+  await page.touchscreen.tap(empezar.x, empezar.y);
+  await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
+  exigir(
+    await estadoDelArranque(page),
+    (e) =>
+      e.tema === FACTION_IDS[0] && new URLSearchParams(e.search).get('faccion') === FACTION_IDS[0],
+    `«Empezar», tocado tras deslizar, abre la base de ${FACTION_IDS[0]}`,
+  );
+  log(`arranque: con el dedo, a 375×667 se baja hasta «Empezar» y abre la base`);
   await contexto.close();
 }
 
