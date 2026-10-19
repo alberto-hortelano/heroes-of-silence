@@ -457,14 +457,22 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
   const reserva = heroesOf(state, playerId).length === 0 ? HERO_HIRE_COST : 0;
   let purse = { ...player.resources, gold: player.resources.gold - reserva };
 
-  // Reclutar de arriba abajo: las criaturas caras rinden más por moneda.
   for (const town of townsOf(state, playerId)) {
     // La misma regla que aplica `recruit`: si la IA la copiara, el día que
     // cambie una de las dos pediría lo que el motor rechaza.
     const { tope, cupo, army, quien, hero } = destinoDeRecluta(state, town);
     let destino = army;
 
-    for (const { creature: id } of [...dwellings(town)].reverse()) {
+    // De la más fuerte a la más floja (`unitPower`, la cuenta de `planCambio`):
+    // lo que rinde más va primero, y lo que se recluta hoy no lo licencia un
+    // cambio de más tarde, que solo suelta lo más flojo que lo que mete. La
+    // morada no es un nivel (es su sitio en la base, `Building.morada`): por
+    // ella, del revés, los orkos reclutaban goblins y los licenciaban en la
+    // misma jugada para meter a un orko de una morada anterior (s2, día 1).
+    const candidatos = dwellings(town)
+      .map(({ creature }) => ({ id: creature, poder: unitPower(unidadDelJuego(creature)) }))
+      .sort((a, b) => b.poder - a.poder);
+    for (const { id } of candidatos) {
       // Cuántos caben en el liderazgo, y de esos cuántos en el bolsillo. Lo
       // primero sustituye a los cinco huecos: el tope ya no es de tipos
       // distintos sino de lo que ocupa cada individuo. La cuenta es la misma

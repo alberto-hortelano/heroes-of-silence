@@ -5399,3 +5399,18 @@ la partida abre en la base caminable. Lo que se retiró con eso y lo que destap�
   tipada y su `instanceof`); ahora `vestirRed` pregunta lo que hace falta antes de colocar nada: cada
   nodo toca las regiones que le dan camino (`crucesConCamino`), o el vestido se tira. Salta 1 vez en
   64×64 1-40 (la s8) y 0 en 42×42 1-200 y 24×24 1-200; el banco no se mueve.
+- **La IA licenciaba lo que acababa de reclutar** (`planRecruits`): recorría las moradas del revés,
+  como si la morada fuera un nivel (es su sitio en la base, 1-6), así que reclutaba algo flojo y,
+  al llegar a algo más fuerte que no cabía, lo licenciaba para meterlo (`planCambio`): el día 1 de
+  los orkos de s2, dos tandas de goblins reclutadas y licenciadas en la misma jugada. 76 veces en el
+  banco de `1c496b88…`, 180 con el héroe dentro de la base. Ahora recorre lo que se ofrece del más
+  fuerte al más flojo (`unitPower`, la cuenta de `planCambio`): 1 en el banco, y esa es otra tropa.
+- **Por qué la IA dejó de pelear contra monstruos y asaltantes** (23 y 6 batallas en el banco de
+  `1c496b88…`, 0 desde el héroe dentro; se contaban 46 y 12 porque cada batalla escribe dos hechos con
+  el neutral). No es un fallo: el héroe sale de casa más fuerte, con lo reclutado el día 1 en su tropa
+  (fuerza mediana de los héroes el día 3, 460 → 960, en las 200 del banco). Un neutral vale 2 000 y una
+  ciudad 40 000, por punto de movimiento (`chooseHeroDestination`), así que la IA solo iba a por un
+  monstruo cuando no llegaba a ninguna ciudad ajena por el alcance prudente (`evitarEmboscadas`): 32
+  de las 32 veces en 1-100, en partidas largas donde los grupos que le sacaban el margen le cerraban el
+  paso. Turnos de héroe sin ninguna ciudad ajena a la que llegar: 183 de 1 592 (11,5 %) antes, 4 de
+  1 400 (0,3 %) ahora (medido ya con el arreglo de arriba; el banco sin él ya daba 0 y 0).

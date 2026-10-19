@@ -611,7 +611,14 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   lo rechaza diciéndolo). Dentro, lo que se recluta va a su tropa y no se contrata hasta que sale.
   Medido (19-10-2026): en 1-100, duración 4 / 7 / 15 → 4 / 6 / 15, j0 50 → 45, 0 sin terminar; el
   banco (`3daacbe6…`), 4 / 8 / 21 → 4 / 6 / 23. La IA recluta y cambia tropa el día 1 en vez de
-  salir: `dismissed` 387 → 1 159, y las batallas contra monstruos y asaltantes del banco, 46 y 12 → 0.
+  salir: `dismissed` 387 → 1 159. Con la IA reclutando del más fuerte al más flojo (`planRecruits`,
+  por `unitPower`: la morada no es un nivel, y por ella del revés licenciaba en la misma jugada lo que
+  acababa de reclutar, 180 veces en el banco), `3406f518…`: 1-100, 4 / 6 / 19, j0 46, 0 sin terminar;
+  el banco, 4 / 6 / 22, `dismissed` 977. Las batallas contra monstruos y asaltantes del banco pasan
+  de 23 y 6 a 0 porque el héroe sale de casa más fuerte (fuerza mediana el día 3, 460 → 960): ninguna
+  región lo embosca, siempre llega a una ciudad que tomar y una ciudad (40 000) gana a un neutral
+  (2 000); en 1-100 la IA iba a por un monstruo solo cuando no llegaba a ninguna ciudad ajena (32 de
+  32 veces), y eso pasaba en el 11,5 % de los turnos de héroe y ahora en el 0,3 % (`docs/historia.md`).
 - **Magia**: el gremio enseña por derivación (`townSpells`), `syncSpellbooks`
   aprende al final de cada acción, `cast` no consume el turno, `castBlocker`
   escribe el motivo.

@@ -1099,11 +1099,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   968, días 960 → 862, `recruited` 1 794 → 2 090, `dismissed` 387 → 1 159,
  *   `garrison_taken` 391 → 271 (el héroe ya no entra en casa el día 1 para
  *   salir), `hero_defeated` 264 → 245. Ningún tipo de hecho nuevo.
+ * - `3406f518…` (41 434 líneas, 19-10-2026): **la IA recluta del más fuerte al más
+ *   flojo** (`planRecruits`, por `unitPower` y no por la morada del revés: la morada
+ *   no es un nivel). Antes reclutaba algo flojo y lo licenciaba en la misma jugada
+ *   para meter algo más fuerte: 180 veces en el banco (76 en el ancla de
+ *   `1c496b88…`), 1 ahora, y esa no es la misma tropa (recluta en la guarnición de
+ *   su base y licencia de la tropa del héroe en otra ciudad). **9 de 200
+ *   idénticas**; en las otras 191 el primer hecho distinto es un reclutamiento
+ *   (`recruited` → `recruited` 129, → `dismissed` 55; `dismissed` → `dismissed` 7),
+ *   del día 1 al 4. 0 sin terminar; j0 97 → 103, duración 4 / 6 / 23 → 4 / 6 / 22;
+ *   batallas 968 → 998, días 862 → 888, `dismissed` 1 159 → 977, `recruited`
+ *   2 090 → 2 092, `garrison_taken` 271 → 300, `hero_defeated` 245 → 273. Las
+ *   batallas contra monstruos y asaltantes siguen en 0 (eran 23 y 6 en
+ *   `1c496b88…`): no es esto, ver `docs/historia.md` («El héroe nace dentro de
+ *   su base»).
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '3daacbe6cb7729656c3e74bd43fd7601867bae7fb680fdac94e4012f9957ebb6',
+  sha: '3406f5185d1fe27af3ad9320a84620dffce104e6ab480f8857b4e3dc613d5a94',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
