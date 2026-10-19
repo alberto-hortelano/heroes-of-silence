@@ -102,6 +102,9 @@ const rueda = new DialogoDeLaRueda(elRueda, {
   escena: batalla,
   cara: () => null,
   pedirFotograma,
+  alPulsarMientrasCuenta: () => {
+    jugadaEnCurso();
+  },
 });
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
 /** El modo «marcar fallo» y la vista de regiones (`desarrollo/herramientas.ts`): solo en `pnpm dev`. */

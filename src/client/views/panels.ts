@@ -105,20 +105,28 @@ import { botonesDePoder } from './poderes.js';
 export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
 
 /**
- * Los botones de la batalla mientras el tablero aún cuenta la última jugada
- * (#165): apagados, con el aviso de espera en el `title`, y no ofrecidos para
- * luego rechazarlos. Antes salían encendidos —el estado ya va por delante de
- * lo que se ve— y el clic daba el aviso y pedía pulsar otra vez.
+ * Los botones de la batalla apagados con `motivo` en el `title`, o tal cual con
+ * `null`. Mientras el tablero aún cuenta la última jugada (#165), con el aviso de
+ * espera: no se ofrecen para luego rechazarlos. Antes salían encendidos —el estado
+ * ya va por delante de lo que se ve— y el clic daba el aviso y pedía pulsar otra vez.
+ * Y mientras la rueda espera una elección (`motivoDeLaRueda` de la sesión): con el
+ * diálogo modal encima, «Terminar turno» y «Resolver sola» se veían encendidos y
+ * el clic no llegaba (H3 de QA, 19-10-2026).
  *
  * No se aplazan: un botón pulsado durante la jugada se haría sobre una unidad
  * que todavía no se ve actuar, y un doble clic jugaba el segundo en la
  * SIGUIENTE (M12 de QA de la arena). Un `fieldset` apagado apaga todo lo que
  * lleva dentro, el botón que se añada mañana también: una regla, un sitio.
  */
-function mientrasSeCuenta(contandoAun: boolean, botones: Html): Html {
-  return contandoAun
-    ? html`<fieldset class="contando" disabled title="${AVISO_DE_ESPERA}">${botones}</fieldset>`
-    : botones;
+export function apagadosPor(motivo: string | null, botones: Html): Html {
+  return motivo === null
+    ? botones
+    : html`<fieldset class="contando" disabled title="${motivo}">${botones}</fieldset>`;
+}
+
+/** Lo que apaga los botones de la batalla: la jugada que se cuenta o la rueda que espera. */
+function motivoParaApagar(session: Session, contandoAun: boolean): string | null {
+  return contandoAun ? AVISO_DE_ESPERA : session.motivoDeLaRueda;
 }
 
 /**
@@ -188,7 +196,7 @@ export function renderTopbar(session: Session): {
 
 /**
  * @param contandoAun si el tablero de batalla aún cuenta la última jugada: sus
- *   botones salen apagados (`mientrasSeCuenta`).
+ *   botones salen apagados (`apagadosPor`).
  */
 export function renderSide(
   session: Session,
@@ -220,8 +228,8 @@ export function renderActions(session: Session, contandoAun = false): Html {
       if (battle !== null && battle.finished !== null) {
         return html`<button data-action="finish-battle" class="primary">Continuar</button>`;
       }
-      return mientrasSeCuenta(
-        contandoAun,
+      return apagadosPor(
+        motivoParaApagar(session, contandoAun),
         html`<button data-action="auto-battle">Resolver sola</button>`,
       );
     }
@@ -775,15 +783,20 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
-    ? mientrasSeCuenta(
-        contandoAun,
+    ? apagadosPor(
+        motivoParaApagar(session, contandoAun),
         accionesDeLaUnidad({
           activa: s,
           carga: cifrasDeCarga(s.unit),
           legales: session.battleLegalActions(),
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
-          hechizos: renderSpells(session.hechizos.selectedSpell, session.spellOptions()),
+          // Una base que se defiende sola (#116) no tiene héroe: no hay libro que
+          // enseñar, y «Este héroe no conoce ninguno» hablaba de uno que no está.
+          hechizos:
+            battle.heroes[s.side] === null
+              ? SIN_HEROE_EN_LA_BATALLA
+              : renderSpells(session.hechizos.selectedSpell, session.spellOptions()),
           // Las batallas del mapa no tienen muralla (decisión 4 de la tarea del
           // combate en el juego).
           muralla: NADA,
@@ -952,6 +965,10 @@ function renderRendicion(session: Session): Html {
     ? html`<button data-action="battle-surrender">${rotulo}</button>`
     : html`<button data-action="battle-surrender" ${DESHABILITADO} title="${opcion.motivo}">${rotulo}</button>`;
 }
+
+/** La sección de hechizos de un bando sin héroe en la batalla: nadie lanza. */
+const SIN_HEROE_EN_LA_BATALLA = html`<h3>Hechizos</h3>
+  <div class="stack-list"><div class="stack empty">Sin héroe en esta batalla: nadie lanza hechizos</div></div>`;
 
 /**
  * El libro de hechizos durante la batalla.

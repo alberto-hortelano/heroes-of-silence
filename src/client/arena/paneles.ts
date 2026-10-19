@@ -118,6 +118,7 @@ import type { SesionDeArena } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   accionesDeLaUnidad,
+  apagadosPor,
   efectoEnCurso,
   listaDelCampo,
   modificadoresEnPantalla,
@@ -1732,6 +1733,7 @@ export type VistaDeArena = Pick<
   | 'apuntado'
   | 'prevision'
   | 'ruedaPendiente'
+  | 'motivoDeLaRueda'
   | 'cuerpoDe'
 >;
 
@@ -1953,26 +1955,29 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     s.ruedaPendiente?.fase === 'respuesta'
       ? html`<p>Te toca responder en la rueda.</p>`
       : mia && activa !== null
-        ? accionesDeLaUnidad({
-            activa,
-            carga: cifrasDeCarga(activa.unit),
-            legales: s.battleLegalActions(),
-            pasos: s.battleStepsLeft(),
-            sinSalida: s.sinSalida(),
-            trasLaFinta: s.trasLaFinta(),
-            rendicion: NADA,
-            poderes: botonesDePoder(s, activa),
-            hechizos:
-              heroe === null ? NADA : renderSpells(s.hechizos.selectedSpell, s.spellOptions()),
-            // La puerta, solo a quien defiende: es quien la abre y la cierra. La
-            // escala, solo a quien puede llegar a escalar: al defensor y a la
-            // voladora les saldrían siempre deshabilitados.
-            muralla: html`${b.puertas.length > 0 && activa.side === 'defender' ? botonesDePuerta(s) : NADA}${
-              b.muralla.muros.length > 0 && s.noEscalaNunca(activa) === null
-                ? botonesDeEscala(s)
-                : NADA
-            }`,
-          })
+        ? apagadosPor(
+            s.motivoDeLaRueda,
+            accionesDeLaUnidad({
+              activa,
+              carga: cifrasDeCarga(activa.unit),
+              legales: s.battleLegalActions(),
+              pasos: s.battleStepsLeft(),
+              sinSalida: s.sinSalida(),
+              trasLaFinta: s.trasLaFinta(),
+              rendicion: NADA,
+              poderes: botonesDePoder(s, activa),
+              hechizos:
+                heroe === null ? NADA : renderSpells(s.hechizos.selectedSpell, s.spellOptions()),
+              // La puerta, solo a quien defiende: es quien la abre y la cierra. La
+              // escala, solo a quien puede llegar a escalar: al defensor y a la
+              // voladora les saldrían siempre deshabilitados.
+              muralla: html`${b.puertas.length > 0 && activa.side === 'defender' ? botonesDePuerta(s) : NADA}${
+                b.muralla.muros.length > 0 && s.noEscalaNunca(activa) === null
+                  ? botonesDeEscala(s)
+                  : NADA
+              }`,
+            }),
+          )
         : html`<p>Mueve la IA…</p>`;
   const mana =
     heroe === null

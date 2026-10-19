@@ -117,6 +117,7 @@ import { semillaSorteada } from '../semilla.js';
 import { type LadoDeSesion, SesionDeArena, unaOElegir } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
+import { AVISO_DE_ESPERA } from '../views/panels.js';
 import {
   abiertasATexto,
   abrirFicha,
@@ -2006,8 +2007,11 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
     elDay.textContent = ocupada ? 'Batalla' : `Batalla · ronda ${s.battle.round}`;
     elTurn.textContent = rotuloDelTurno(s, ocupada);
   }
-  // «La batalla ha terminado» espera a que el tablero llegue al final.
-  const estado = ocupada && s.battle.finished !== null ? '' : s.status;
+  // «La batalla ha terminado» espera a que el tablero llegue al final; el aviso de
+  // espera no: un clic durante el último desenlace de la rueda se perdía sin decir
+  // nada (H4 de QA, 19-10-2026), y el aviso no adelanta el final.
+  const estado =
+    ocupada && s.battle.finished !== null && s.status !== AVISO_DE_ESPERA ? '' : s.status;
   if (elStatus.textContent !== estado) elStatus.textContent = estado;
   rueda.pintar();
 }
@@ -2022,6 +2026,9 @@ const rueda = new DialogoDeLaRueda(elRueda, {
   escena: batalla,
   cara: () => (sesion === null ? null : caraDeLaArena(sesion)),
   pedirFotograma,
+  alPulsarMientrasCuenta: () => {
+    jugadaEnCurso();
+  },
 });
 
 // ---------------------------------------------------------------- gestos

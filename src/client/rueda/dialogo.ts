@@ -59,6 +59,12 @@ export interface OpcionesDeLaRueda {
    */
   readonly cara: () => CaraDeLosContrincantes | null;
   readonly pedirFotograma: () => void;
+  /**
+   * Un gesto en la rueda mientras se cuenta su desenlace: la página dice que se
+   * espere (la partida y la arena, `jugadaEnCurso`). Sin él (el espectador, que no
+   * elige), nada.
+   */
+  readonly alPulsarMientrasCuenta?: () => void;
 }
 
 export class DialogoDeLaRueda {
@@ -115,7 +121,14 @@ export class DialogoDeLaRueda {
     });
     el.addEventListener('click', (ev) => {
       const boton = (ev.target as Element).closest('[data-golpe]');
-      if (boton === null || ev.detail > 1) return;
+      if (boton === null) {
+        // El diálogo es modal: mientras cuenta el desenlace, un clic en el tablero
+        // cae aquí y se perdía sin decir nada, cuando en una marcha la barra dice
+        // que se espere (H4 de QA, 19-10-2026). La cabecera es para mirar.
+        if (o.escena.ocupada && !enLaCabecera(ev)) o.alPulsarMientrasCuenta?.();
+        return;
+      }
+      if (ev.detail > 1) return;
       this.elegir(boton.getAttribute('data-golpe') ?? '');
     });
     // Las teclas: del 1 al 7 elige el sector de su número (`tipoDeLaTecla`, la
@@ -226,12 +239,16 @@ export class DialogoDeLaRueda {
 
   /**
    * Elige en la rueda: el clic en un sector, su tecla o Intro con el foco en él.
-   * La sesión dice si no espera nada; mientras se cuenta un desenlace no se elige:
-   * la rueda de la siguiente fase aún no se ve.
+   * La sesión dice si no espera nada; mientras se cuenta un desenlace no se elige
+   * —la rueda de la siguiente fase aún no se ve— y la página dice que se espere.
    */
   private elegir(tipo: string): void {
     const s = this.o.sesion();
-    if (s === null || this.o.escena.ocupada) return;
+    if (s === null) return;
+    if (this.o.escena.ocupada) {
+      this.o.alPulsarMientrasCuenta?.();
+      return;
+    }
     s.elegirEnLaRueda(tipo);
     this.o.pedirFotograma();
   }

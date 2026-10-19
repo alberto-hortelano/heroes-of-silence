@@ -33,6 +33,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
 import { DURACION, duracionDeLaJugada, IMPACTO } from '../../src/client/anim.js';
+import { LA_LLEVA_EL_HEROE } from '../../src/client/arena/paneles.js';
 import { EscenaAventura } from '../../src/client/escenas/aventura.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
@@ -141,7 +142,6 @@ import {
   rutaDeDosColores,
   TOPE_DE_SEMILLAS,
   tocable,
-  turnoDelEspejo,
   VETERANOS,
 } from './escenas-de-capturas.js';
 import { entornoDelArnes, semillaDelEspectador } from './partida-del-arnes.js';
@@ -487,7 +487,11 @@ async function esperarCola(battle: BattleState, nuevos: readonly BattleEvent[]):
  * de `tipo` y lo replica en el espejo; y espera a que la página cuente el cruce,
  * para no leer la rueda de antes como la siguiente.
  */
-async function responderLaRueda(page: Page, espejo: Session, tipo: TipoDeGolpe = 'normal') {
+async function responderLaRueda(
+  page: Page,
+  espejo: Session | SesionDeArena,
+  tipo: TipoDeGolpe = 'normal',
+) {
   for (let i = 0; i < 20 && espejo.ruedaPendiente !== null; i++) {
     const { fase } = espejo.ruedaPendiente;
     await page
@@ -507,13 +511,64 @@ async function responderLaRueda(page: Page, espejo: Session, tipo: TipoDeGolpe =
 }
 
 /**
- * «Fin de turno» del espejo, sin defensas: si el rival ataca a la persona por el
- * camino (#116), esta pasada no la juega y lo dice.
+ * Lo mismo que `responderLaRueda` sin página: las búsquedas de semilla juegan
+ * solo el espejo, y la persona elige lo mismo que elegirá en la pasada. La
+ * respuesta se le pide siempre que la golpean cuerpo a cuerpo (F5), así que una
+ * pauta que no la contesta se queda sin turno propio.
  */
-async function pasarElTurnoDelEspejo(espejo: Session, donde: string): Promise<void> {
-  if ((await turnoDelEspejo(espejo)) === 'defensa') {
-    throw new Error(`${donde}: el rival atacó a la persona y esta pasada no juega defensas`);
+function contestarEnElEspejo(espejo: SesionDeArena, tipo: TipoDeGolpe = 'normal'): void {
+  for (let i = 0; i < 20 && espejo.ruedaPendiente !== null; i++) espejo.elegirEnLaRueda(tipo);
+}
+
+/**
+ * «Fin de turno» del espejo, ya pulsado en la página. Si el rival ataca a la
+ * persona por el camino (#116, F5), la defensa la juega ella: se resuelve sola en
+ * la página y en el espejo (`defenderseSola`) y el turno del rival sigue, las veces
+ * que haga falta. Antes la pasada decía que no jugaba defensas y paraba, y desde
+ * que el juego pelea con los ejércitos de la arena el rival ataca la base de la
+ * pasada de escritorio el día 3 (19-10-2026).
+ */
+async function pasarElTurnoDelEspejo(page: Page, espejo: Session, donde: string): Promise<void> {
+  // La señal de la defensa se arma antes de que el turno empiece: el rival puede
+  // atacar en la primera jugada, y `alCambiarSinGesto` llega una sola vez.
+  let avisar = (): void => {};
+  espejo.alCambiarSinGesto = () => avisar();
+  const siDefiende = (): Promise<'defensa'> =>
+    new Promise((r) => {
+      avisar = () => r('defensa');
+    });
+  let defensa = siDefiende();
+  const turno = espejo.endTurn().then(() => 'pasado' as const);
+  for (let n = 0; n < 20; n++) {
+    if ((await Promise.race([turno, defensa])) === 'pasado') return;
+    defensa = siDefiende();
+    await defenderseSola(page, espejo, donde);
   }
+  throw new Error(`${donde}: el rival atacó a la persona 20 veces en un turno`);
+}
+
+/**
+ * Una defensa (#116) resuelta sola, en la página y en el espejo: se contesta la
+ * rueda si el rival golpeó primero —con ella abierta, «Resolver sola» sale apagado
+ * (H3 de QA, 19-10-2026)—, se espera a que la página cuente lo jugado y se pulsa.
+ */
+async function defenderseSola(page: Page, espejo: Session, donde: string): Promise<void> {
+  const battle = espejo.battle;
+  if (battle === null) throw new Error(`${donde}: el espejo defiende sin batalla`);
+  await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 20_000 });
+  await responderLaRueda(page, espejo);
+  await esperarCola(battle, battle.log);
+  const resolver = page.locator('#actions [data-action="auto-battle"]:enabled');
+  await resolver.waitFor({ timeout: 20_000 }).catch(async () => {
+    throw new Error(
+      `${donde}: «Resolver sola» no se enciende en la defensa (barra: «${await page.locator('#status').innerText()}»)`,
+    );
+  });
+  await resolver.click();
+  espejo.autoResolveBattle();
+  if (espejo.battle !== null)
+    throw new Error(`${donde}: «Resolver sola» no cierra la defensa: ${espejo.status}`);
+  log(`${donde}: el rival atacó a la persona; la defensa se resolvió sola`);
 }
 
 /**
@@ -561,7 +616,7 @@ async function pasarDia(page: Page, espejo: Session): Promise<void> {
     if (entro) break;
     if (intento >= 5) throw new Error(`la página no acepta «Fin de turno» en ${antes}`);
   }
-  await pasarElTurnoDelEspejo(espejo, `«Fin de turno» en ${antes}`);
+  await pasarElTurnoDelEspejo(page, espejo, `«Fin de turno» en ${antes}`);
   const dia = rotuloDeDia(espejo.state.day);
   // Si el espejo ya sabe que la partida se acabó, se espera a que la página lo
   // diga, y SOLO eso. Con el día en la condición quedaba la misma carrera de
@@ -1277,7 +1332,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   const recluta = reclutaDeNivel1(town.faction);
   await pulsarEnLaBase(page, d, d.entrada, laPuerta(d, 'lvl1'));
   await esperarLaBase(page, 'sitio:lvl1');
-  const todo = page.locator('#side button[data-action="recruit"][data-todo="si"]');
+  // La morada ofrece varias unidades (la del pueblo orko, cuatro): el botón de la que se recluta.
+  const deLaRecluta = `#side button[data-action="recruit"][data-creature="${recluta}"]`;
+  const todo = page.locator(`${deLaRecluta}[data-todo="si"]`);
   const plan = espejo.recruitPlan(recluta);
   await todo.hover();
   await sleep(150);
@@ -1299,7 +1356,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
 
   // «+1» con el ejército ya en sus seis (fase 1b): no recluta, y la barra dice
   // por qué con la frase del núcleo. El espejo dice lo mismo, y el oro no se mueve.
-  const uno = page.locator('#side button[data-action="recruit"][data-todo="no"]');
+  const uno = page.locator(`${deLaRecluta}[data-todo="no"]`);
   if ((espejo.selectedHero?.army.length ?? 0) >= 6) {
     // La base apaga «+1» con la frase del núcleo en su `title` cuando no cabe ni
     // uno (`motivoParaNoReclutar`); antes se pulsaba y la frase salía en la barra.
@@ -1535,7 +1592,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     await page.locator('#canvas').focus();
     await page.keyboard.press(' ');
     await page.keyboard.press(' ');
-    await pasarElTurnoDelEspejo(espejo, 'el Espacio que pasa el turno');
+    await pasarElTurnoDelEspejo(page, espejo, 'el Espacio que pasa el turno');
     const dia = rotuloDeDia(espejo.state.day);
     await page.waitForFunction((esperado) => {
       const turno = document.getElementById('turn')?.textContent ?? '';
@@ -2850,6 +2907,8 @@ function buscarArena(): number {
     const espejo = espejoDeLaArena(semilla);
     let tramos = 0;
     for (let jugadas = 0; jugadas < 400 && espejo.battle.finished === null; jugadas++) {
+      contestarEnElEspejo(espejo);
+      if (espejo.battle.finished !== null) break;
       const jugada = jugadaDeLaPauta(espejo, tramos, 0);
       if (jugada.tipo === 'golpe') {
         if (tramos > 0) return semilla;
@@ -3006,9 +3065,12 @@ function buscarPoderes(): number {
     const espejo = espejoDeLosPoderes(semilla);
     let bendecido = false;
     for (let jugadas = 0; jugadas < 300 && espejo.battle.finished === null; jugadas++) {
+      contestarEnElEspejo(espejo);
+      if (espejo.battle.finished !== null) break;
       const paso = pasoDeLosPoderes(espejo, bendecido);
       if (paso.tipo === 'curar') {
         espejo.playBattleAction(paso.accion);
+        contestarEnElEspejo(espejo);
         if (espejo.turnoPropio !== null) return semilla;
         break;
       }
@@ -3053,8 +3115,6 @@ async function poderesEnLaArena(
   await conLosCatalogosDevueltos('poderes', async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     vigilarConsola(page, 'poderes', problemas);
-    const hojas = hojasDelTaller(process.cwd());
-    for (const h of hojas) registrarUnidad(h.id, h);
     const semilla = buscarPoderes();
     log(`poderes: semilla ${semilla}, buscada en el espejo`);
     await abrirLaArena(page, url, `?seed=${semilla}`);
@@ -3094,6 +3154,11 @@ async function poderesEnLaArena(
         throw new Error('poderes: la pelea se acaba sin que el monje bendiga y cure');
       }
       const antes = espejo.battle.log.length;
+      // La golpearon al cerrar su turno: primero, su respuesta en la rueda.
+      await responderLaRueda(page, espejo);
+      if (espejo.battle.finished !== null) {
+        throw new Error('poderes: la pelea se acaba sin que el monje bendiga y cure');
+      }
       const paso = pasoDeLosPoderes(espejo, bendecido);
       if (paso.tipo === 'bendecir') {
         // Curar, apagado y diciendo por qué: aún no hay heridos.
@@ -3139,6 +3204,7 @@ async function poderesEnLaArena(
         await page.getByRole('button', { name: 'Terminar turno' }).click();
         espejo.playBattleAction({ type: 'end_turn' });
       }
+      await responderLaRueda(page, espejo);
       await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
       await mismaPelea(page, espejo, `la jugada ${jugadas} de los poderes`);
     }
@@ -3240,8 +3306,12 @@ async function poderesEnLaArena(
     // pega con el ataque nuevo en los dos.
     for (let i = 0; i < 4 && espejo.battle.finished === null; i++) {
       const antes = espejo.battle.log.length;
+      // Si el orco la golpea, su respuesta en la rueda antes de cerrar el turno.
+      await responderLaRueda(page, espejo);
+      if (espejo.battle.finished !== null) break;
       await page.getByRole('button', { name: 'Terminar turno' }).click();
       espejo.playBattleAction({ type: 'end_turn' });
+      await responderLaRueda(page, espejo);
       await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
       if (espejo.battle.finished === null)
         await mismaPelea(page, espejo, `el turno ${i} tras editar`);
@@ -3316,13 +3386,6 @@ async function jugarArena(
 ): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   vigilarConsola(page, 'arena', problemas);
-  // Las figuras de la arena, registradas también aquí como en la página
-  // (`arena/main.ts`): el espejo mide lo que dura cada jugada con el reloj de
-  // su figura, y sin registrarla el goblin arquero disparaba con el reloj del
-  // Y Bot por defecto, que no es el que pinta la página (lo destapó el aviso de
-  // `clipDelDisparo`, 04-10-2026).
-  const hojas = hojasDelTaller(process.cwd());
-  for (const h of hojas) registrarUnidad(h.id, h);
   const ATAQUE_EN_LA_PELEA = ataqueEnLaPelea(ATAQUE_EDITADO);
   const semillaDeLaPelea = buscarArena();
   log(`arena: semilla ${semillaDeLaPelea}, buscada en el espejo`);
@@ -3372,7 +3435,7 @@ async function jugarArena(
       .map((e) => new URL(e.name).pathname)
       .filter((p) => p.startsWith('/unidades/')),
   );
-  const orco = hojas.find((h) => h.id === 'orko-dos-armas');
+  const orco = hojasDelTaller(process.cwd()).find((h) => h.id === 'orko-dos-armas');
   // El orco está en el bando derecho, quieto y mirando al suroeste (d7).
   const faltan = [
     '/unidades/templario-escudo/d1/atlas.webp',
@@ -3419,6 +3482,9 @@ async function jugarArena(
   while (espejo.battle.finished === null) {
     if (++jugadas > 400) throw new Error('arena: la pelea no termina en 400 jugadas de la persona');
     const antes = espejo.battle.log.length;
+    // La golpearon al empezar o al cerrar su turno: primero, su respuesta.
+    await responderLaRueda(page, espejo);
+    if (espejo.battle.finished !== null) break;
     const jugada = jugadaDeLaPauta(espejo, tramos, golpes);
     if (jugada.tipo === 'golpe') {
       const { contra } = jugada;
@@ -3447,6 +3513,8 @@ async function jugarArena(
       await page.getByRole('button', { name: 'Terminar turno' }).click();
       espejo.playBattleAction({ type: 'end_turn' });
     }
+    // Su golpe, o la respuesta si la IA la golpea antes de devolverle el turno.
+    await responderLaRueda(page, espejo);
     await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
     // Acabada, el panel ya no enseña el campo sino el resultado: lo mira abajo.
     if (espejo.battle.finished === null) await mismaPelea(page, espejo, `la jugada ${jugadas}`);
@@ -3608,6 +3676,8 @@ function buscarBanco(): number {
     espejo.playBattleAction(flecha);
     let tramos = 0;
     for (let jugadas = 0; jugadas < 200 && espejo.battle.finished === null; jugadas++) {
+      contestarEnElEspejo(espejo);
+      if (espejo.battle.finished !== null) break;
       const jugada = jugadaDeLaPauta(espejo, tramos, 0);
       if (jugada.tipo === 'golpe') return semilla;
       if (jugada.tipo === 'tramo') {
@@ -3822,6 +3892,8 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   for (let jugadas = 0; espejo.battle.finished === null; jugadas++) {
     if (jugadas > 200) throw new Error('banco: nadie golpea en 200 jugadas');
     const desde = espejo.battle.log.length;
+    await responderLaRueda(page, espejo);
+    if (espejo.battle.finished !== null) break;
     const jugada = jugadaDeLaPauta(espejo, tramos, 0);
     if (jugada.tipo === 'golpe') {
       const g = await pixelDeUnidad(page, espejo, jugada.contra);
@@ -3864,6 +3936,7 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
       await page.getByRole('button', { name: 'Terminar turno' }).click();
       espejo.playBattleAction({ type: 'end_turn' });
     }
+    await responderLaRueda(page, espejo);
     await esperarCola(espejo.battle, espejo.battle.log.slice(desde));
     if (espejo.battle.finished === null)
       await mismaPelea(page, espejo, `la jugada ${jugadas} del banco`);
@@ -3881,90 +3954,19 @@ async function bandosDichos(page: Page): Promise<string> {
 }
 
 /**
- * Una unidad de antes en el borrador (con `level`, 14-10-2026: sin compatibilidad
- * hacia atrás) no vale: la página la dice con su motivo entero en el recuadro que
- * se despliega solo desde la barra, a 1440 y a 390 de ancho; «Entendido» lo cierra
- * y el botón de la barra lo vuelve a abrir. El borrador se deja como estaba.
- */
-async function loQueNoValeAlLeer(page: Page, url: string): Promise<void> {
-  const ruta = join(process.cwd(), RUTA_DEL_CATALOGO_DE_UNIDADES);
-  const guardado = readFileSync(ruta, 'utf8');
-  const json = JSON.parse(guardado) as { unidades: Record<string, unknown>[] };
-  // La primera guardada, con otro id y el `level` de la escala de fheroes2.
-  const viejo = { ...json.unidades[0], id: 'unidad-de-antes', level: 3 };
-  writeFileSync(ruta, JSON.stringify({ ...json, unidades: [...json.unidades, viejo] }, null, 2));
-  try {
-    const motivo = leerCatalogo(process.cwd()).invalidas.find((i) => i.id === viejo.id)?.motivo;
-    if (motivo === undefined) throw new Error('no-vale: la unidad con «level» vale');
-    const frase = `${viejo.id}: ${motivo}`;
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${url}/arena/`, { waitUntil: 'networkidle' });
-    await page.locator('#avisos-de-lectura li').first().waitFor({ timeout: 5000 });
-    if (!(await page.locator('#status').innerText()).includes('«Avisos al leer»')) {
-      throw new Error('no-vale: la barra no dice dónde leer lo que no vale');
-    }
-    await avisosEnteros(page, [frase], 'no-vale (1440)');
-    await captura(page, 'arena-09c-no-vale');
-    await page.setViewportSize({ width: 390, height: 844 });
-    await avisosEnteros(page, [frase], 'no-vale (390)');
-    await captura(page, 'arena-09d-no-vale-movil');
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.locator('[data-arena="cerrar-avisos"]').click();
-    if (await page.locator('#avisos-de-lectura').isVisible()) {
-      throw new Error('no-vale: «Entendido» no cierra el recuadro');
-    }
-    // Y se vuelve a abrir desde la barra.
-    await page.locator('#ver-avisos', { hasText: 'Avisos al leer (1)' }).click();
-    await avisosEnteros(page, [frase], 'no-vale (reabierto)');
-    await page.locator('[data-arena="cerrar-avisos"]').click();
-    log('no-vale: una unidad con «level» no vale y se dice entera, en el recuadro de la barra');
-  } finally {
-    writeFileSync(ruta, guardado);
-  }
-}
-
-/**
- * Que los avisos de lo leído (`#avisos-de-lectura`, desplegados desde la barra)
- * empiecen por `primeros`, en ese orden y enteros, y que cada uno se lea entero en
- * la pantalla: su punto de la lista sin recortar (ni por su caja ni por la del
- * recuadro) y, traído a la vista, dentro de ella. Es lo que la barra, cortada a dos líneas, no daba (H1 de QA,
- * 14-10-2026).
- */
-async function avisosEnteros(page: Page, primeros: readonly string[], paso: string): Promise<void> {
-  const puntos = page.locator('#avisos-de-lectura li');
-  const dichos = await puntos.allInnerTexts();
-  for (const [i, frase] of primeros.entries()) {
-    if (dichos[i]?.trim() !== frase) {
-      throw new Error(
-        `${paso}: el aviso ${i + 1} debía ser «${frase}» y es «${dichos[i] ?? '(ninguno)'}»`,
-      );
-    }
-    const punto = puntos.nth(i);
-    await punto.scrollIntoViewIfNeeded();
-    const fallo = await punto.evaluate((li) => {
-      const caja = li.getBoundingClientRect();
-      const recuadro = (li.closest('#avisos-de-lectura') as HTMLElement).getBoundingClientRect();
-      if (li.scrollHeight > li.clientHeight + 1 || li.scrollWidth > li.clientWidth + 1)
-        return `su punto está recortado (${li.scrollWidth}×${li.scrollHeight} en ${li.clientWidth}×${li.clientHeight})`;
-      if (caja.top < recuadro.top - 1 || caja.bottom > recuadro.bottom + 1)
-        return `se sale del recuadro (${Math.round(caja.top)}-${Math.round(caja.bottom)} en ${Math.round(recuadro.top)}-${Math.round(recuadro.bottom)})`;
-      if (caja.top < 0 || caja.bottom > window.innerHeight || caja.right > window.innerWidth)
-        return `no cabe en la pantalla (${Math.round(caja.left)},${Math.round(caja.top)}-${Math.round(caja.right)},${Math.round(caja.bottom)} en ${window.innerWidth}×${window.innerHeight})`;
-      return null;
-    });
-    if (fallo !== null) throw new Error(`${paso}: el aviso «${frase.slice(0, 40)}…» ${fallo}`);
-  }
-}
-
-/**
  * El enlace de la pelea (H6 de QA del banco): se monta con clics una pelea con
  * todo lo que lleva el enlace —dos hojas con una cifra sin guardar, un arquero,
  * un héroe con su hoja de figura y sus cifras en cada lado, todo en IA—, se
  * copia el enlace, y abierto en otra página monta lo
  * mismo y se queda en el montaje sin luchar. Un enlace de hoy con una criatura
  * del catálogo (que ya no está en la arena, 13-10-2026), uno de la versión 8 y un
- * `?reglas=` (un interruptor retirado el 19-10-2026) se rechazan diciéndolo, y una unidad de antes en el borrador
- * no vale y se dice entera (`loQueNoValeAlLeer`).
+ * `?reglas=` (un interruptor retirado el 19-10-2026) se rechazan diciéndolo.
+ *
+ * Ya no mira «una unidad de antes no vale y se dice entera en «Avisos al leer»»
+ * (`loQueNoValeAlLeer`, retirada el 19-10-2026): `data/unidades.json` es el catálogo
+ * del juego, el núcleo lo carga al importarse y una unidad que no vale tumba la
+ * página antes de que la arena pueda decirlo (ver «Correcciones de QA (vuelta 1)»
+ * en la tarea del combate en el juego).
  */
 async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -4074,7 +4076,6 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
   }
   await captura(otra, 'arena-09b-enlace-de-la-anterior');
   log(`enlace: uno de la versión ${anterior} no se monta y dice que se vuelva a copiar`);
-  await loQueNoValeAlLeer(otra, url);
   // Un interruptor retirado (19-10-2026) se rechaza diciéndolo, no se ignora.
   await otra.goto(`${url}/arena/?seed=5&reglas=tirador`, { waitUntil: 'networkidle' });
   await otra
@@ -4665,9 +4666,10 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
     (await fichaDeLaEspada.locator('[data-arena-pieza-campo^="precio-"]').count()) !== 1
   )
     throw new Error('equipo: la ficha de la Espada tiene PV o más de un precio');
-  // La lleva también el héroe (H3 del QA 2): todo héroe de la arena pelea con ella.
+  // La lleva también el héroe (H3 del QA 2): es de su equipo base, el de todo héroe
+  // del juego y de la arena desde que son uno (19-10-2026).
   const llevanLaEspada = await fichaDeLaEspada.locator('[data-la-llevan]').innerText();
-  if (!llevanLaEspada.includes('todo héroe de la arena'))
+  if (!llevanLaEspada.includes(LA_LLEVA_EL_HEROE))
     throw new Error(`equipo: «La llevan» de la Espada no cuenta al héroe: «${llevanLaEspada}»`);
   // «Nueva sobre esta»: la nueva dice su cadena.
   await page.locator('#equipo [data-arena="crear-pieza-sobre"]').click();
@@ -4858,6 +4860,8 @@ function buscarArmas(): number {
     const espejo = espejoDeLasArmas(semilla);
     let disparos = 0;
     for (let jugadas = 0; jugadas < 200 && espejo.battle.finished === null; jugadas++) {
+      contestarEnElEspejo(espejo);
+      if (espejo.battle.finished !== null) break;
       const j = jugadaDeLasArmas(espejo, disparos);
       if (j.tipo === 'golpe') return semilla;
       if (j.tipo === 'disparo') {
@@ -4882,8 +4886,6 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
   await conLosCatalogosDevueltos('armas', async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     vigilarConsola(page, 'armas', problemas);
-    const hojas = hojasDelTaller(process.cwd());
-    for (const h of hojas) registrarUnidad(h.id, h);
     const semilla = buscarArmas();
     log(`armas: semilla ${semilla}, buscada en el espejo`);
     await abrirLaArena(page, url, `?seed=${semilla}`);
@@ -4963,6 +4965,11 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
         throw new Error('armas: la pelea acaba sin que el arquero dispare y golpee pegado');
       }
       const antes = espejo.battle.log.length;
+      // El orco la golpeó al cerrar su turno: primero, su respuesta en la rueda.
+      await responderLaRueda(page, espejo);
+      if (espejo.battle.finished !== null) {
+        throw new Error('armas: la pelea acaba sin que el arquero dispare y golpee pegado');
+      }
       const j = jugadaDeLasArmas(espejo, disparos);
       if (j.tipo === 'terminar') {
         await page.getByRole('button', { name: 'Terminar turno' }).click();
@@ -4997,6 +5004,8 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
         );
         await page.mouse.click(px.x, px.y);
         espejo.playBattleAction(px.accion);
+        // El golpe con la daga pasa por la rueda (el juego la lleva siempre).
+        await responderLaRueda(page, espejo);
         // Lo que hace, con las cifras del arma: el daño cae en su horquilla.
         const hecho = espejo.battle.log
           .slice(antes)
@@ -5016,6 +5025,7 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
         if (j.tipo === 'disparo') disparos++;
         else golpeado = true;
       }
+      await responderLaRueda(page, espejo);
       await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
       if (espejo.battle.finished === null)
         await mismaPelea(page, espejo, `armas: la jugada ${jugadas}`);
@@ -5141,8 +5151,6 @@ function buscarRueda(): number {
  */
 async function ruedaEnLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   await conLosCatalogosDevueltos('rueda-del-golpe', async () => {
-    const hojas = hojasDelTaller(process.cwd());
-    for (const h of hojas) registrarUnidad(h.id, h);
     const semilla = buscarRueda();
     log(`rueda: semilla ${semilla}, buscada en el espejo`);
     await jugarLaRueda(browser, url, problemas, semilla, { width: 1440, height: 900 }, '');
@@ -5178,6 +5186,8 @@ async function jugarLaRueda(
   // Dónde estaba cada uno al empezar la jugada anterior: la casilla de la que
   // salió quien está plantado cuando se abre la rueda.
   let salidas = casillasDe(espejo.battle);
+  // Si esta jugada pulsó el tablero durante el desenlace (`clicEnElDesenlace`).
+  let avisoEnElDesenlace = false;
   for (let n = 0; vistas.size < 2; n++) {
     if (espejo.battle.finished !== null || n > 300) {
       throw new Error(
@@ -5236,6 +5246,10 @@ async function jugarLaRueda(
       const cruce = espejo.battle.log.slice(antes).find((e) => e.kind === 'cruce');
       if (cruce?.kind !== 'cruce')
         throw new Error(`rueda${sufijo}: elegir no dio el golpe en el espejo`);
+      if (j.fase === 'respuesta' && sufijo === '') {
+        await clicEnElDesenlace(page, `rueda${sufijo}`);
+        avisoEnElDesenlace = true;
+      }
       await page.locator('#rueda[data-tramo~="rotulo"]').waitFor({ timeout: 8000 });
       await sleep(450);
       const rotulo = (await page.locator('#rueda .rotulo').innerText()).toLowerCase();
@@ -5278,6 +5292,14 @@ async function jugarLaRueda(
       if (j.tipo === 'tramo') tramos++;
     }
     await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+    if (avisoEnElDesenlace) {
+      avisoEnElDesenlace = false;
+      await sleep(100);
+      if ((await page.locator('#status').innerText()) === AVISO_DE_ESPERA)
+        throw new Error(
+          `rueda${sufijo}: el desenlace ha terminado y la barra sigue diciendo que se espere`,
+        );
+    }
     if (espejo.battle.finished === null)
       await mismaPelea(page, espejo, `la jugada ${n} de la rueda`);
     salidas = casillasDe(espejo.battle);
@@ -5291,6 +5313,31 @@ async function jugarLaRueda(
       .waitFor({ timeout: 4000 });
   }
   await page.close();
+}
+
+/**
+ * Un clic en el tablero mientras la rueda cuenta su desenlace: el diálogo es modal
+ * y el clic cae en él, y la barra tiene que decir que se espere, como en una
+ * marcha. Antes se perdía sin decir nada (H4 de QA, 19-10-2026: el disparo pulsado
+ * justo tras elegir la respuesta). Quien llama mira luego que el aviso se retira.
+ */
+async function clicEnElDesenlace(page: Page, quien: string): Promise<void> {
+  await page.locator('#rueda[open] .rueda[data-fase="desenlace"]').waitFor({ timeout: 8000 });
+  const marco = await page.locator('#lienzo').boundingBox();
+  if (marco === null) throw new Error(`${quien}: el marco del lienzo no está en la página`);
+  await page.mouse.click(marco.x + 14, marco.y + 14);
+  await page
+    .waitForFunction(
+      (aviso) => document.getElementById('status')?.textContent === aviso,
+      AVISO_DE_ESPERA,
+      { timeout: 1000 },
+    )
+    .catch(async () => {
+      throw new Error(
+        `${quien}: un clic durante el desenlace debía decir «${AVISO_DE_ESPERA}» y la barra dice «${await page.locator('#status').innerText()}»`,
+      );
+    });
+  log(`${quien}: un clic durante el desenlace dice «${AVISO_DE_ESPERA}»`);
 }
 
 /** La casilla de cada unidad, copiada: dónde estaba antes de la jugada que sigue. */
@@ -5809,21 +5856,15 @@ async function yoContraYoEnLaRueda(
 }
 
 /**
- * Con todo en IA y la rueda (H6 de la vuelta 2 de QA, 13-10-2026): la sesión juega
- * la pelea entera de una vez y el estado trae el final. Antes, fuera de la rueda,
- * la barra enseñaba la vida del final desde el primer fotograma (el guerrero
- * vacío en la s4) y saltaba arriba y abajo en cada cruce. Aquí, en los primeros
- * cruces de la s4 (Guerrero con escudo contra Orko con dos armas), la barra del
- * objetivo medida en cada fotograma es la que dice el registro hasta ese golpe
- * mientras gira la rueda, no baja antes del impacto y baja golpe a golpe; y al
- * acabar, la de cada superviviente es la del estado.
+ * La pelea de `todoEnIAConLaRueda` en el espejo, ya jugada entera: el guerrero con
+ * escudo contra el orco con dos armas, los dos en IA. El orco es el de la lista,
+ * como el que pulsa la página: sin la lanza de `orcoConLanza`, que desde que todos
+ * cargan en la arena (#260) se usa al cargar y separaba el espejo de la página.
  */
-async function todoEnIAConLaRueda(
-  browser: Browser,
-  url: string,
-  problemas: Problemas,
-): Promise<void> {
-  const semilla = 4;
+function espejoTodoEnIA(semilla: number): {
+  readonly espejo: SesionDeArena;
+  readonly salida: ReadonlyMap<string, { hex: BattleStack['hex']; count: number; topHp: number }>;
+} {
   const espejo = new SesionDeArena(
     {
       izquierda: {
@@ -5831,9 +5872,6 @@ async function todoEnIAConLaRueda(
         heroe: null,
         ia: true,
       },
-      // El orco de la lista, como el que pulsa la página: sin la lanza de
-      // `orcoConLanza`, que desde que todos cargan en la arena (#260) se usa al
-      // cargar y separaba el espejo de la página.
       derecha: {
         unidades: [delBorrador(delCatalogo('orko-dos-armas'))],
         heroe: null,
@@ -5848,10 +5886,45 @@ async function todoEnIAConLaRueda(
   );
   espejo.empezar();
   if (espejo.battle.finished === null) throw new Error('rueda-todo-ia: el espejo no termina');
+  return { espejo, salida };
+}
+
+/**
+ * La semilla de `todoEnIAConLaRueda`: la primera con dos cruces o más, que es lo
+ * que mira. Era la 4, fija; con el combate de la arena en el juego (19-10-2026) la
+ * 4 acaba en un solo cruce.
+ */
+function buscarTodoEnIA(): ReturnType<typeof espejoTodoEnIA> & { readonly semilla: number } {
+  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
+    const pelea = espejoTodoEnIA(semilla);
+    if (pelea.espejo.battle.log.filter((e) => e.kind === 'cruce').length >= 2) {
+      return { semilla, ...pelea };
+    }
+  }
+  throw new Error(
+    `rueda-todo-ia: en las semillas 1–${TOPE_DE_SEMILLAS} ninguna pelea tiene dos cruces`,
+  );
+}
+
+/**
+ * Con todo en IA y la rueda (H6 de la vuelta 2 de QA, 13-10-2026): la sesión juega
+ * la pelea entera de una vez y el estado trae el final. Antes, fuera de la rueda,
+ * la barra enseñaba la vida del final desde el primer fotograma (el guerrero
+ * vacío en la s4) y saltaba arriba y abajo en cada cruce. Aquí, en los primeros
+ * cruces de su pelea (Guerrero con escudo contra Orko con dos armas, `buscarTodoEnIA`), la barra del
+ * objetivo medida en cada fotograma es la que dice el registro hasta ese golpe
+ * mientras gira la rueda, no baja antes del impacto y baja golpe a golpe; y al
+ * acabar, la de cada superviviente es la del estado.
+ */
+async function todoEnIAConLaRueda(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+): Promise<void> {
+  const { semilla, espejo, salida } = buscarTodoEnIA();
+  log(`rueda-todo-ia: semilla ${semilla}, buscada en el espejo`);
   const registro = espejo.battle.log;
   const cruces = registro.flatMap((e, i) => (e.kind === 'cruce' ? [i] : []));
-  if (cruces.length < 2)
-    throw new Error(`rueda-todo-ia: solo ${cruces.length} cruce(s) en la s${semilla}`);
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   vigilarConsola(page, 'rueda-todo-ia', problemas);
@@ -6157,7 +6230,9 @@ async function hastaLaRuedaYoContraYo(
       await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
       await page.locator('#rueda[open] .rueda[data-fase="golpe"]').waitFor({ timeout: 10_000 });
       if (turno === null) throw new Error(`${quien}: golpea alguien sin turno`);
-      const debenSer = [turno.stack, j.contra].map((x) => `${x.body}/${ladoDe(x.side)}`);
+      // Por su bando del núcleo (`data-bando`): el diálogo es el de la partida desde
+      // F5, y la partida no tiene izquierda ni derecha.
+      const debenSer = [turno.stack, j.contra].map((x) => `${x.body}/${x.side}`);
       return { espejo, atacante: turno.stack, objetivo: j.contra, debenSer };
     }
     await ejecutarPauta(page, espejo, j);
@@ -6201,7 +6276,7 @@ async function contrincantesEnElEscritorio(
   await sleep(300);
   // Los dos, en orden: quien pega y quien recibe, con la figura de su hoja y su bando.
   const figuras = await page.$$eval('#rueda .cabecera-de-rueda canvas.figura', (ls) =>
-    ls.map((l) => `${l.getAttribute('data-figura')}/${l.getAttribute('data-lado')}`),
+    ls.map((l) => `${l.getAttribute('data-figura')}/${l.getAttribute('data-bando')}`),
   );
   if (JSON.stringify(figuras) !== JSON.stringify(debenSer)) {
     throw new Error(
@@ -6324,7 +6399,7 @@ async function contrincantesEnElEscritorio(
   await page.locator('#rueda[open] .rueda[data-fase="respuesta"]').waitFor({ timeout: 5000 });
   // La respuesta: su cabecera también lleva a los dos, en el mismo orden.
   const enLaRespuesta = await page.$$eval('#rueda .cabecera-de-rueda canvas.figura', (ls) =>
-    ls.map((l) => `${l.getAttribute('data-figura')}/${l.getAttribute('data-lado')}`),
+    ls.map((l) => `${l.getAttribute('data-figura')}/${l.getAttribute('data-bando')}`),
   );
   if (JSON.stringify(enLaRespuesta) !== JSON.stringify(debenSer)) {
     throw new Error(`${quien}: la cabecera de la respuesta enseña ${enLaRespuesta.join(', ')}`);
@@ -6436,8 +6511,6 @@ async function contrincantesDeLaRueda(
   problemas: Problemas,
 ): Promise<void> {
   await conLosCatalogosDevueltos('rueda-contrincantes', async () => {
-    const hojas = hojasDelTaller(process.cwd());
-    for (const h of hojas) registrarUnidad(h.id, h);
     await contrincantesEnElEscritorio(browser, url, problemas);
     await contrincantesEnElMovil(browser, url, problemas);
   });
@@ -6485,9 +6558,27 @@ function pasadasPedidas(): readonly (readonly [string, Paso])[] {
   return PASADAS.filter(([nombre]) => pedidas.includes(nombre));
 }
 
+/**
+ * Las figuras del espejo, registradas como en la página (`registrarLasHojas`: las
+ * hojas completas del taller). El espejo mide lo que dura cada jugada con el reloj
+ * de su figura (`duracionDeLaJugada`), y sin registrarla una figura anda y dispara
+ * con el reloj del Y Bot por defecto, que no es el que pinta la página: lo destapó
+ * el aviso de `clipDelDisparo` en la arena (04-10-2026) y, desde que el juego
+ * recluta las unidades de la arena (19-10-2026), el aviso de espera del móvil: el
+ * arquero elfo andaba 4 casillas con su arte y el espejo contaba las del Y Bot, la
+ * cola de la página iba un segundo por detrás y el guion leía la barra antes de
+ * tiempo. Una vez para todas las pasadas: la partida también las pinta.
+ */
+function registrarLasHojasDelEspejo(): void {
+  for (const h of hojasDelTaller(process.cwd())) {
+    if (h.incompleta === null) registrarUnidad(h.id, h);
+  }
+}
+
 async function main(): Promise<void> {
   // Antes de arrancar nada: un nombre mal escrito no merece un vite.
   const pasadas = pasadasPedidas();
+  registrarLasHojasDelEspejo();
   mkdirSync(DESTINO, { recursive: true });
   const inicio = Date.now();
   const problemas: Problemas = { lista: [] };

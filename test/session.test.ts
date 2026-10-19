@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
-import { renderSide } from '../src/client/views/panels.js';
+import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
@@ -610,6 +610,14 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
   /** Un golpe cuerpo a cuerpo de la persona en la lista legal, si lo hay. */
   const golpeLegal = (s: Session) => s.battleLegalActions().find((a) => a.type === 'attack');
 
+  /**
+   * Los botones de la batalla apagados por la rueda, con su motivo (H3 de QA,
+   * 19-10-2026): con el diálogo modal encima, «Terminar turno» y «Resolver sola»
+   * se veían encendidos y el clic no llegaba.
+   */
+  const APAGADOS_POR_LA_RUEDA =
+    '<fieldset class="contando" disabled title="Elige antes en la rueda del golpe.">';
+
   it('el golpe de la persona anda hasta su objetivo y deja la rueda en la fase del golpe', () => {
     const s = sesionContraMonstruo();
     jugarHasta(s, () => s.ruedaPendiente === null && golpeLegal(s) !== undefined);
@@ -628,7 +636,12 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(s.battle!.golpeEnCurso).not.toBeNull();
     expect(cruces()).toBe(antes);
     expect(s.version).toBeGreaterThan(version);
-    // Con la rueda abierta no se juega otra cosa ni se delega la batalla.
+    // Con la rueda abierta no se juega otra cosa ni se delega la batalla, y los
+    // botones lo dicen apagados: los de la unidad y «Resolver sola».
+    const lado = marcadoDe(renderSide(s));
+    expect(lado).toContain(APAGADOS_POR_LA_RUEDA);
+    expect(lado.indexOf(APAGADOS_POR_LA_RUEDA)).toBeLessThan(lado.indexOf('battle-end-turn'));
+    expect(marcadoDe(renderActions(s))).toContain(APAGADOS_POR_LA_RUEDA);
     s.playBattleAction({ type: 'end_turn' });
     expect(s.status).toBe('Elige antes en la rueda del golpe.');
     s.autoResolveBattle();
@@ -640,6 +653,10 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     const cruce = s.battle!.log.find((e) => e.kind === 'cruce' && e.stack === p.atacante.id);
     expect(cruce).toMatchObject({ kind: 'cruce', golpe: 'fuerte', target: p.objetivo.id });
     expect(s.battle!.golpeEnCurso).toBeNull();
+    // Dado el golpe, los botones vuelven, salvo que la rueda ya pida otra respuesta.
+    if (s.ruedaPendiente === null) {
+      expect(marcadoDe(renderActions(s))).not.toContain(APAGADOS_POR_LA_RUEDA);
+    }
   });
 
   it('un tipo que no existe se dice en la barra y la rueda sigue esperando', () => {
@@ -681,6 +698,8 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
 
     expect(s.cancelarGolpe()).toBe(false);
     expect(s.status).toBe('El golpe ya viene: elige la respuesta en la rueda.');
+    // «Resolver sola» tampoco hace nada mientras se responde: apagado (H3).
+    expect(marcadoDe(renderActions(s))).toContain(APAGADOS_POR_LA_RUEDA);
 
     s.elegirEnLaRueda('defensivo');
     const cruce = s.battle!.log.find((e) => e.kind === 'cruce' && e.target === p.objetivo.id);
@@ -744,5 +763,27 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(s.scene).toBe('adventure');
     expect(s.state.pendingBattle).toBeNull();
     expect(s.state.log.some((e) => e.kind === 'battle_ended')).toBe(true);
+  });
+
+  it('una base que se defiende sin héroe no habla de «este héroe» en los hechizos (H2)', async () => {
+    // s1: con «Fin de turno» y nada más, el día 3 el imperio ataca la base y la
+    // guarnición se defiende sola (lo reprodujo el QA del 19-10-2026). El panel
+    // decía «Este héroe no conoce ninguno» de un héroe que no está.
+    const s = new Session(1);
+    // Una función y no `s.scene` a pelo: el compilador no sabe que `endTurn` la cambia.
+    const enBatalla = () => s.scene === 'battle';
+    for (let dia = 0; dia < 5 && !enBatalla(); dia++) {
+      const turno = s.endTurn();
+      await hastaQue(() => enBatalla() || s.isPlayersTurn);
+      if (!enBatalla()) await turno;
+    }
+    expect(s.scene).toBe('battle');
+    const mio = s.miBando!;
+    expect(s.battle!.heroes[mio]).toBeNull();
+    for (let i = 0; i < 40 && s.turnoPropio === null; i++) s.elegirEnLaRueda('normal');
+    expect(s.turnoPropio).not.toBeNull();
+    const panel = marcadoDe(renderSide(s));
+    expect(panel).not.toContain('Este héroe');
+    expect(panel).toContain('Sin héroe en esta batalla: nadie lanza hechizos');
   });
 });

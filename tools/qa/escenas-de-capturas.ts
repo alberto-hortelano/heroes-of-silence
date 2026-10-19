@@ -299,10 +299,12 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
  * vista a escala y las fronteras onduladas (#229), la primera es la 30. Con
  * el río continuo (#144), la 44; con el río de lago de 20 casillas
  * (17-10-2026) la 44 es otro mapa y en 1-200 no pierde ninguna (65 s de
- * buscar): desde la 201, la primera es la 208. Es un punto de partida, no una
- * semilla escrita.
+ * buscar): desde la 201, la primera es la 208. Con los ejércitos de la arena en
+ * el juego (19-10-2026) de 201 a 400 no pierde ninguna (80 s de buscar) y desde
+ * la 1 la primera es la 62 (26 s; 477, 695 y 880 en las tandas de 401, 601 y
+ * 801). Es un punto de partida, no una semilla escrita.
  */
-export const DESDE_LA_DERROTA = 201;
+export const DESDE_LA_DERROTA = 1;
 
 /** La partida y la guardia de la batalla que se pierde (`buscarDerrota`). */
 export interface EscenaDeDerrota {

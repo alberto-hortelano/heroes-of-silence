@@ -1770,6 +1770,14 @@ export class Session implements ControlDeBatalla {
   }
 
   /**
+   * Por qué los botones de la batalla no hacen nada mientras la rueda espera, o
+   * `null` (`motivoDeLaRueda`): el panel los apaga con esta frase en su `title`.
+   */
+  get motivoDeLaRueda(): string | null {
+    return motivoDeLaRueda(this.ruedaPendiente);
+  }
+
+  /**
    * Aplica la acción de la persona y deja que la IA juegue lo suyo. Un golpe
    * cuerpo a cuerpo no se da de una vez: quien pega anda hasta su objetivo y la
    * rueda (`ruedaPendiente`) espera su elección (`elegirEnLaRueda`).
@@ -1957,6 +1965,11 @@ export class SesionDeArena implements ControlDeBatalla {
    */
   get ruedaPendiente(): RuedaPendiente | null {
     return this.rueda.pendiente;
+  }
+
+  /** Lo mismo que en `Session` (`motivoDeLaRueda`). */
+  get motivoDeLaRueda(): string | null {
+    return motivoDeLaRueda(this.ruedaPendiente);
   }
 
   /** No es parte de la versión, por lo mismo que en `Session`: la reescribe el puntero. */
@@ -2258,6 +2271,16 @@ export class SesionDeArena implements ControlDeBatalla {
 
 /** Lo que dice la barra a quien quiere hacer otra cosa con la rueda abierta. */
 const ELIGE_EN_LA_RUEDA = 'elige antes en la rueda del golpe';
+
+/**
+ * Por qué no se juega nada más con la rueda abierta, como frase, o `null` si no
+ * espera nada. La misma de la barra (`ELIGE_EN_LA_RUEDA`): con ella el panel apaga
+ * sus botones, que con el diálogo modal encima no recibían el clic y se veían
+ * encendidos (H3 de QA, 19-10-2026).
+ */
+function motivoDeLaRueda(pendiente: RuedaPendiente | null): string | null {
+  return pendiente === null ? null : comoFrase(ELIGE_EN_LA_RUEDA);
+}
 
 /**
  * El golpe que espera la rueda (`battle/rueda.ts`) y lo que se hace con él, para
