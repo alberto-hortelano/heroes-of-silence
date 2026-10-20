@@ -665,9 +665,13 @@ document.addEventListener('click', (ev) => {
       break;
     }
     case 'tropa-poner':
+      // El segundo clic de un doble clic cae ya en el panel repintado, a menudo sobre
+      // OTRO «Poner» (la mochila tiene una fila menos y el panel baja): solo cuenta el primero.
+      if (ev.detail > 1) break;
       session.ponerALaElegida(target.getAttribute('data-item') as string);
       break;
     case 'tropa-quitar':
+      if (ev.detail > 1) break;
       // El hueco lo valida la sesión (`esHueco`), como en `unequip`.
       session.quitarALaElegida(target.getAttribute('data-slot') as string);
       break;

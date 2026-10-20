@@ -141,3 +141,104 @@ mirando a cámara, con figuras grandes, se reparte equipo con las reglas del nú
 características y experiencia, sin errores en consola y con el mapa intacto al volver. Las reservas
 son H1, el aro delante de los pies, que es lo que marca a la elegida y se ve en cada captura, y H2,
 que la pieza de un novato vaya a otro y el aro salte. Ninguna bloquea el uso.
+
+---
+
+# Vuelta 2 (20-10-2026): re-verificación de H1, H2, H3, H4 y H6
+
+Sobre `59b54b14` (árbol limpio salvo `hallazgos-qa.md`, sin seguimiento). Playwright sin pantalla
+contra un vite mío en :3263 (arrancado con `set -m` en su propia línea, dueño comprobado por puerto y
+`readlink /proc/<pid>/cwd`, parado por su grupo; `ss` dijo «3263 libre» después). El :3201 del
+coordinador no se tocó. El espejo `Session` en Node solo para saber dónde pulsar (las cajas de
+`EscenaTropa`/`cajaEnLaTropa`); lo comprobado se lee **en la página** (`canvas[data-tropa]`, el botón
+`aria-pressed` de la lista, la ficha, la mochila y la barra). Capturas en `qa/vuelta-2/`. fal.ai: 0.
+Consola: **ningún error** en ninguna de las páginas abiertas.
+
+No repetidos (citados de `implementacion-3.md`, mismo commit): `pnpm verify` (exit 0, 3 496 tests),
+`pnpm banco` («igual», `3406f518…`), `CAPTURAS_SOLO=tropa pnpm capturas` (exit 0). Corridos por mí,
+baratos: `pnpm vitest run test/agent-contract.test.ts test/equipo.test.ts test/tropa-en-escena.test.ts
+test/aro-de-figura.test.ts` → 4 ficheros, 143 tests en verde (6,7 s); `pnpm qa` → exit 0, «299
+veredictos, 298 entraron, 0 descartadas», partida terminada el día 4.
+
+| # | Hallazgo | | Evidencia |
+|---|---|---|---|
+| H1 | El aro bajo los pies, en varias facciones y figuras | ✅ | Diez partidas a 1440×900 (s4 elfos con guerrero y con cantora, s2 orkos con orko y con goblin, s6 imperio con duelista e ingeniero, s7 templarios con caballero y con monje, s14 no muertos con nigromante y con lich), **cada figura pulsada** en el lienzo (62 en total) y recortada a sus pies: el aro va centrado entre los dos pies, el de delante dentro y el de atrás dentro o sobre su borde de atrás, también en las guardias abiertas (`h1-pies-de-los-diez-heroes.png`, `h1-s*-pies.png`, `h1-s7-escena.png`). Se pinta sobre la sombra y bajo la figura (las botas tapan el aro). La elegida de la página coincide con el espejo en las 62. En la **base caminable** (s4, s7, s2), el aro de quien señala el ratón también queda bajo el Y Bot (`h1-base-caminable.png`). Ver M1 (el aro del extremo se corta en el borde). |
+| H2 | Equipar y quitar a un novato concreto: la pieza va al pulsado y la elegida no salta | ✅ | s7: gambesón del héroe → pulsado el **2.º** guerrero con escudo (`hero-0-puesto-1`) → «Poner»: lo lleva el puesto 1 (espejo `1:escudo[{"armadura":"gambeson"}]`, ficha «Armadura: Gambesón ×», barra «Guerrero con escudo lleva ahora Gambesón.»), y la elegida sigue en él (pasa a `veterano-1`, el id que coge al tener hoja; el botón pulsado de la lista, el mismo). La × se lo quita a él y la elegida no se mueve. Lo mismo con el 2.º escudero. s4: cuatro arqueros, a cada uno su pieza (jubón, bastón, rodela, escudo), cada una en el pulsado (`aria-pressed` de 1, 2, 3, 4 antes y después). **Tras licenciar** un arquero en la base (s4, tropa de 5): el 3.º arquero pulsado recibe el gambesón y los demás no (fichas leídas una a una: solo el puesto 2 lleva «Gambesón ×»; `h2-tras-licenciar.png`). |
+| H3 | El panel de la tropa abre arriba y el del mapa vuelve como estaba | ✅ | s7: panel del mapa bajado a 591 → T → la tropa abre en **0**; bajado el de la tropa a 156 y Escape → el mapa vuelve a **591** (fondo 681). Con el botón «Tropa» y el panel en 120: abre en 0 y vuelve a 120. |
+| H4 | El motivo con escudo de serie | ✅ | s4, armería construida y piezas compradas por clics: a la Guardia del bosque (escudo de serie), «Poner» del mandoble y del bastón apagados con «esa unidad de Guardia del bosque no admite Mandoble: es un arma a dos manos y su Escudo es de serie, que no se quita» (`h4-guardia-mandoble.png`); con una rodela suya encima, la misma frase (bien: quitarla deja el de serie). Al héroe con un escudo **suyo** sigue diciendo «…quita antes el escudo», que sí se puede. Ver M2 (la forma de la frase). |
+| H6 | Doble clic en «Poner» | ⚠️ arreglado lo que se pidió; queda una variante (N1) | El doble clic de Playwright (`dblclick`, los dos clics antes de repintar) pone una vez y la barra dice «Aldo de Valdeluz lleva ahora Gambesón.», sin error; lo mismo con dos clics a 130 ms en «Poner» y en la ×, cuando lo que queda bajo el puntero tras repintar no es un botón. **Pero con un doble clic a ritmo de persona (140 y 250 ms) el segundo clic cae en el panel ya repintado y, si debajo hay otro «Poner», lanza otra jugada**: ver N1. |
+
+## Hallazgos nuevos
+
+### Importante
+
+**N1. Un doble clic en «Poner» puede ponerle otra pieza.** Con dos clics a 140 ms o a 250 ms (un
+doble clic normal de persona; con 40-220 ms entre el primero y el repintado pasan varios fotogramas)
+el primer clic pone la pieza, el panel se repinta y el segundo clic cae en lo que haya quedado bajo el
+puntero. Si es el «Poner» de otra pieza, la pone: `repiteLaJugada` solo ignora **la misma** jugada.
+Reproducción (determinista, dos veces de dos): `?seed=4`, en la base ayuntamiento → «Construir»
+Armería → la armería → comprar **Bastón** y luego **Daga** → «Volver al mapa» → T → pulsar al 2.º
+arquero → bajar el panel hasta la mochila (queda al fondo: Bastón, Daga) → doble clic en el «Poner»
+de la **Daga**. Resultado: el arquero lleva **Bastón** (a dos manos), la Daga vuelve a la mochila y la
+barra dice «Arquero lleva ahora Bastón.» (`h6-daga-acaba-en-baston.png`: a la izquierda antes, a la
+derecha después). Con un solo clic, «Arquero lleva ahora Daga.» y el bastón sigue en la mochila. Por
+qué: con el panel al fondo, la mochila pierde una fila, el navegador recorta el desplazamiento y todo
+baja unos 52 px, así que el «Poner» de la fila de encima queda donde estaba el pulsado. No es un error
+del núcleo (las dos jugadas son legales y la barra dice la verdad de la segunda), pero quien hizo
+doble clic en la Daga se encuentra con un Bastón y una frase que no esperaba. Quien juega esperaba la
+Daga puesta y nada más. (Sugerencia, no arreglo: el clic con `event.detail > 1` en `tropa-poner` y
+`tropa-quitar` no se lanza, o el panel no recorta el desplazamiento en el repintado.)
+
+### Menores
+
+**M1. El aro del extremo del arco se sale del lienzo.** Con el aro medido, una figura en guardia
+abierta lleva un aro más ancho que la caja del encuadre: el guerrero con escudo del extremo izquierdo
+de s7 lo tiene cortado por el borde, un cuarto fuera, a 1440×900 (`h1-s7-extremos-1440.png`, a la
+izquierda), y en el móvil (s6, 375×812) el del extremo izquierdo toca el borde
+(`h1-s6-extremos-movil.png`). Se lee igual qué figura es la elegida. Lo da por sabido
+`implementacion-3.md`.
+
+**M2. La frase del escudo de serie empieza en minúscula y suena rara.** Bajo la pieza se lee «esa
+unidad de Guardia del bosque no admite Mandoble: …», cuando las demás de esa lista empiezan por la
+pieza en mayúscula («Rodela no se puede llevar con Mandoble: …», «Mandoble es un arma a dos manos y
+no se puede llevar con Escudo: …»). Dice lo que tiene que decir; es la forma.
+
+**M3 (observación, no regresión). Un `puesto` del agente se descarta en silencio.** El esquema del
+agente quita la clave (lo comprueba `test/agent-contract.test.ts`), así que un
+`{ type: 'equip', item, puesto: 2 }` llegaría al núcleo sin destino y vestiría al **héroe**. El
+contrato no anuncia `puesto` y zod quita toda clave desconocida, así que el agente no tiene por qué
+escribirlo; se apunta porque el núcleo sí lo entiende.
+
+## Workarounds usados
+
+- **Armería y compras por clics en la base** (escaneando con el ratón el lienzo hasta que la barra
+  dice «Ayuntamiento…» y «Armería…», y andando por el suelo si no está a la vista): es el camino del
+  juego. No falsea nada.
+- **Licenciar** con el «−1» del panel de la base: el gesto del juego.
+- **Pulsar por el espejo**: las coordenadas salen de la misma `EscenaTropa` que lee el clic en la
+  página. En las partidas con armería el espejo no compra (no anda hasta la armería), así que solo se
+  usó para las posiciones (la tropa tiene el mismo largo) y todo lo comprobado se leyó en la página.
+- Para el doble clic «humano», dos `mouse.click` en el mismo punto con 40-250 ms entre ellos: es lo
+  que hace un ratón.
+
+## No probado
+
+- **Puestos tras una batalla que mata a alguien**, en la página: no se buscó una semilla con una
+  batalla así antes del turno (el coste no lo justificaba). Por construcción, abrir la tropa vuelve a
+  elegir al héroe, el puesto se lee del `hero.army` del momento del clic y `elegidoEnLaTropa` vuelve al
+  héroe si el puesto ya no existe; la tropa no cambia mientras la escena está abierta (solo en tu
+  turno, y lo único que se juega en ella es equipar y quitar). Licenciar, que también reindexa, sí se
+  probó.
+- **El agente vistiendo a un novato concreto**: `pnpm qa` en verde y el test del contrato; el agente
+  sigue nombrando por tipo (`creature`, el primer novato), como antes.
+- `verify:lento` y las demás pasadas de `pnpm capturas`: no se corrieron (presupuesto), como en
+  `implementacion-3.md`.
+
+## Veredicto (vuelta 2)
+
+**Apto con reservas.** H1, H2, H3 y H4 están arreglados y se ven en la página real, en las cinco
+facciones, con dos tipos de héroe cada una y en la base. H6 está arreglado para lo que se pidió (el
+segundo clic sobre el botón de antes ya no escribe un error), pero el doble clic de una persona puede
+lanzar **otra** jugada sin querer (N1), lo que es peor que el error de antes porque cambia el equipo
+en silencio. Ninguna de las reservas bloquea el uso; N1 es la que habría que arreglar antes de dar la
+escena por cerrada.
