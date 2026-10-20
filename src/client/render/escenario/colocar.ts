@@ -87,6 +87,16 @@ import { ejeDe } from './esqueleto.js';
 import { pisablesTapadas } from './figuras.js';
 import { seHornea } from './horneado.js';
 import {
+  ATREZO,
+  type Casa,
+  casillasConCamino,
+  type Labranza,
+  labranzaDe,
+  MODULOS_DE_LA_LABRANZA,
+  type Parcela,
+  type PiezaDeAtrezo,
+} from './labranza.js';
+import {
   altoMaximoDe,
   MAS_CUMBRES,
   type MaterialDePico,
@@ -129,7 +139,7 @@ import {
   pasilloDe,
   type Tope,
 } from './pasillo.js';
-import { claveDe, esVolumen, ordenDeVolumenes, separar } from './pintar.js';
+import { claveDe, esVolumen, ordenDeVolumenes, type PreguntaDeVolumen, separar } from './pintar.js';
 import {
   type Puente,
   puenteDe,
@@ -246,6 +256,14 @@ export interface Sprite {
    * contra la caja del objeto y no contra su disco.
    */
   readonly enLaReserva?: true;
+  /**
+   * Si va al suelo (`true`) o a los volúmenes (`false`) sea cual sea su alto
+   * (`esVolumen`). Las parcelas de la labranza (`labranza.ts`) miden ~0,8 de
+   * alto y son suelo: tapaban a las figuras que las pisaban. Las casas sueltas
+   * tapan aunque midan menos que el umbral, como un árbol (decisión del
+   * usuario, 20-10-2026): una figura puede quedar detrás de una casa.
+   */
+  readonly plano?: boolean;
 }
 
 export interface Luz {
@@ -759,10 +777,9 @@ const BOSQUE = {
  */
 const MEZCLA: Readonly<Record<Suelo, readonly (readonly [Suelo, number])[]>> = {
   grass: [['grass', 1]],
-  dirt: [
-    ['dirt', 0.75],
-    ['grass', 0.25],
-  ],
+  // Sin la pradera (20-10-2026): sus matas y flores, mezcladas con las parcelas,
+  // eran parte del confeti de la labranza (`labranza.ts`).
+  dirt: [['dirt', 1]],
   sand: [['sand', 1]],
   snow: [['snow', 1]],
   swamp: [
@@ -842,13 +859,137 @@ const CUBIERTA: Readonly<
   rough: { radio: 0.25, alto: 0.38, claro: CLARO_COMO_LA_BARRERA, comoLaBarrera: true },
 };
 
-/** Las hojas de la cubierta de cada suelo: las de su mezcla (`MEZCLA`), sin árboles. */
+/** La hoja de la cubierta de la labranza (`labranza.ts`): parcelas, atrezo, piedras y matas. */
+const HOJA_DE_LA_TIERRA = 'cubierta-dirt';
+
+/**
+ * La hoja de las casas sueltas de la labranza (`labranza.ts`), recortadas de los
+ * pueblos por el taller (`tools/taller/casas.ts`).
+ */
+const HOJA_DE_CASAS = 'casas';
+
+/** Las hojas que sortea el esparcido de la cubierta (`MEZCLA`): con ellas pregunta su dardo. */
+const HOJAS_QUE_SE_ESPARCEN: readonly string[] = Object.keys(MEZCLA).map((s) => `cubierta-${s}`);
+
+/**
+ * Las hojas de la cubierta que pone la regla de un suelo, por su nombre, además
+ * de las de su mezcla: la tierra, sus casas sueltas. Son de su suelo
+ * (`HOJAS_DE_LA_CUBIERTA`) y de la cubierta (`APARTE`), pero el esparcido no las
+ * sortea ni hacen el molde del dardo (`HOJAS_QUE_SE_ESPARCEN`).
+ */
+const HOJAS_DE_SU_REGLA: Readonly<Partial<Record<Suelo, readonly string[]>>> = {
+  dirt: [HOJA_DE_CASAS],
+};
+
+/**
+ * Las hojas de la cubierta de cada suelo: las de su mezcla (`MEZCLA`), sin
+ * árboles, y las de su regla (`HOJAS_DE_SU_REGLA`).
+ */
 const HOJAS_DE_LA_CUBIERTA: Readonly<Record<Suelo, ReadonlySet<string>>> = Object.fromEntries(
-  Object.entries(MEZCLA).map(([s, mezcla]) => [s, new Set(mezcla.map(([o]) => `cubierta-${o}`))]),
+  Object.entries(MEZCLA).map(([s, mezcla]) => [
+    s,
+    new Set([...mezcla.map(([o]) => `cubierta-${o}`), ...(HOJAS_DE_SU_REGLA[s as Suelo] ?? [])]),
+  ]),
 ) as Partial<Record<Suelo, ReadonlySet<string>>> as Record<Suelo, ReadonlySet<string>>;
+
+/**
+ * Si el módulo `nombre` de `hoja` solo se pone por su nombre: no sale al azar de
+ * su hoja (`deHoja` sin nombre) ni como su reserva estrecha (`masEstrecho`). Son
+ * las parcelas y el atrezo de la labranza, que pone su regla. Así el esparcido
+ * de la tierra y lo alto de un acantilado de tierra sacan solo piedras y matas,
+ * y el almiar deja de ser la reserva de toda la hoja.
+ */
+const soloPorSuNombre = (hoja: string, nombre: string): boolean =>
+  hoja === HOJA_DE_LA_TIERRA && MODULOS_DE_LA_LABRANZA.has(nombre);
 
 /** La mata más baja, en veces el alto de la cubierta de su suelo; la más alta, 0,6 más. */
 const MATA_MAS_BAJA = 0.7;
+
+/**
+ * El alto de una parcela de la labranza (`labranza.ts`), en casillas: con los
+ * módulos de la hoja (368 × 283), 1,3 casillas de ancho, y los rombos de dos
+ * casillas vecinas se solapan por las puntas: el campo es una manta.
+ */
+const ALTO_DE_PARCELA = 1;
+
+/**
+ * Si una parcela no entra entera (la senda, la reserva de un objeto), se prueba
+ * a estas veces su alto, centrada, y si no, no va: más pequeña era confeti.
+ */
+const ENCOGER_LA_PARCELA = [1, 0.85, 0.7] as const;
+
+/**
+ * Lo que la caja de una parcela puede meterse en la de un árbol de la masa, en
+ * casillas, a lo ancho y a lo alto a la vez: menos es el margen transparente de
+ * las dos imágenes y la punta del rombo. La labranza sin parcela, en 1-10, 15
+ * y 19 (20-10-2026): 46,6 % sin mirar la copa; con 0,1, 52,6 % (se iba toda
+ * fila al norte de un bosque); con 0,2, 45,9 %, y ya sin trigo bajo los pinos
+ * de la s19.
+ */
+export const MARGEN_BAJO_LA_COPA = 0.2;
+
+/**
+ * Si la caja de una pieza se mete en la de un árbol de la masa de `sprites`
+ * (`esArbol`) más de `MARGEN_BAJO_LA_COPA` a lo ancho y a lo alto. La copa de
+ * la fila norte de un bosque cuelga sobre la casilla que se pisa de su norte
+ * (es perspectiva, #185), y una parcela de 1,3 casillas, al lado, asomaba en la
+ * del bosque: se leía «trigo dentro del bosque» (QA, H4: s19). Ahí la parcela
+ * se encoge o no va. Los árboles, por casilla, porque se pregunta por cada
+ * parcela y cada escala.
+ */
+export function bajoLaCopa(sprites: readonly Sprite[]): (s: ConImagen) => boolean {
+  const cajas: Caja[] = [];
+  const porCasilla = new Map<number, number[]>();
+  /** La clave de la casilla `(x, y)`: el mapa mide como mucho 128 por lado, y la copa sale poco de él. */
+  const clave = (x: number, y: number) => (y + 64) * 1024 + x + 64;
+  for (const s of sprites) {
+    if (s.clase !== 'masa' || !esArbol(s.src)) continue;
+    const c = cajaDeSprite(s);
+    cajas.push(c);
+    for (let y = Math.floor(c[1]); y <= Math.floor(c[3]); y++)
+      for (let x = Math.floor(c[0]); x <= Math.floor(c[2]); x++) {
+        const k = clave(x, y);
+        const l = porCasilla.get(k);
+        if (l === undefined) porCasilla.set(k, [cajas.length - 1]);
+        else l.push(cajas.length - 1);
+      }
+  }
+  return (s) => {
+    const [a0, b0, a1, b1] = cajaDeSprite(s);
+    for (let y = Math.floor(b0); y <= Math.floor(b1); y++)
+      for (let x = Math.floor(a0); x <= Math.floor(a1); x++)
+        for (const n of porCasilla.get(clave(x, y)) ?? []) {
+          const [x0, y0, x1, y1] = cajas[n] as Caja;
+          if (
+            Math.min(a1, x1) - Math.max(a0, x0) > MARGEN_BAJO_LA_COPA &&
+            Math.min(b1, y1) - Math.max(b0, y0) > MARGEN_BAJO_LA_COPA
+          )
+            return true;
+        }
+    return false;
+  };
+}
+
+/** El ancho de un pueblo (el objeto del juego), en casillas. */
+const ANCHO_DEL_PUEBLO = 1.9;
+
+/**
+ * Las casas sueltas, a tantos píxeles de su imagen por casilla: al 89 % de lo
+ * que miden en su pueblo (el 1 de la hoja mide 364 px para `ANCHO_DEL_PUEBLO`),
+ * 215, y de 0,53 a 0,76 casillas de ancho. Más pequeñas que en él y lejos de
+ * él, se leen como un caserío y no como otro pueblo.
+ */
+const PX_POR_CASILLA_DE_CASA = Math.round(364 / ANCHO_DEL_PUEBLO / 0.89);
+
+/** El alto de una casa sin su hoja (el marcador). */
+const ALTO_DE_CASA = 0.6;
+
+/**
+ * De los puntos del esparcido que caen en el barbecho o en un camino de tierra,
+ * los que llevan una piedra o una mata (12-16): el barbecho es tierra con algo,
+ * no una alfombra.
+ */
+const PARTE_DEL_RELLENO = 0.15;
 
 /** Las hojas de árbol: solo de la masa del bosque. Un árbol dice «aquí no se pasa». */
 export const ARBOLES: readonly string[] = ['pinos', 'frondosos', 'muertos', 'abetos-nevados'];
@@ -920,7 +1061,7 @@ export const APARTE: Readonly<Record<Sprite['clase'], Aparte | null>> = {
     semiancho: SEMIANCHO_DEL_PASILLO,
     minimo: (alto) => ENCOGER_HASTA * alto,
     // Sin `ARBOLES`: un árbol de cubierta lanza en `poner`.
-    hojas: Object.keys(MEZCLA).map((s) => `cubierta-${s}`),
+    hojas: [...HOJAS_QUE_SE_ESPARCEN, ...Object.values(HOJAS_DE_SU_REGLA).flat()],
   },
   roca: {
     semiancho: SEMIANCHO_DEL_PASILLO,
@@ -951,6 +1092,13 @@ export const APARTE: Readonly<Record<Sprite['clase'], Aparte | null>> = {
  */
 const PALIDA = 'brightness(0.78) saturate(0.9)';
 const CHILLONA = 'brightness(0.8) saturate(0.72)';
+/**
+ * La labranza (20-10-2026): el trigo amarillo, las coles verdes y las piedras
+ * blancas sobre la tierra parda tapaban minas, recursos y figuras. Las casas,
+ * con el mismo, que si no destacaban más que el pueblo de al lado. Con 0,7 / 0,9
+ * las coles seguían gritando; con 0,55 / 0,85 el trigo salía gris (s19).
+ */
+const TONO_DE_LA_LABRANZA = 'saturate(0.65) brightness(0.88)';
 /**
  * Las laderas de basalto se leían como una franja gris lisa y clara junto a la
  * ceniza rojiza (el usuario, 07-10-2026: más oscuras y un poco más cálidas). Sin
@@ -1005,6 +1153,10 @@ const TONO: Readonly<Record<string, string>> = {
   // 54-59 contra ~47): la mitad del desaturado de su frontal. Sus paredes de lado
   // quedan entre las dos laderas de su material (09-10-2026).
   'rampa-muesca-arenisca': 'saturate(0.85)',
+  // La labranza: la tierra y las hojas de su regla (las casas).
+  ...Object.fromEntries(
+    [HOJA_DE_LA_TIERRA, ...(HOJAS_DE_SU_REGLA.dirt ?? [])].map((h) => [h, TONO_DE_LA_LABRANZA]),
+  ),
 };
 
 /** El tono de una hoja: el suyo o, en una hoja del relieve, el de su familia (sin la caída). */
@@ -1233,16 +1385,28 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * Los módulos de una hoja, de menor a mayor, o null si la hoja aún no está
    * hecha; de la cubierta, sin los que son árboles (`ARBOLES_DE_LA_CUBIERTA`)
    * y, en lo que se pisa, sin los que no van ahí (`FUERA_DE_LO_QUE_SE_PISA`).
+   * Con `alAzar`, solo los que salen al azar: sin los que van por su nombre
+   * (`soloPorSuNombre`).
    */
-  const modulosDe = (hoja: string, enLoQueSePisa = false): readonly Modulo[] | null => {
+  const modulosDe = (
+    hoja: string,
+    enLoQueSePisa = false,
+    alAzar = false,
+  ): readonly Modulo[] | null => {
     const ms = catalogo.hojas[hoja] ?? null;
     const arboles = ARBOLES_DE_LA_CUBIERTA.get(hoja);
     const fuera = enLoQueSePisa ? FUERA_DE_LO_QUE_SE_PISA.get(hoja) : undefined;
-    if (ms === null || (arboles === undefined && fuera === undefined)) return ms;
-    const clave = `${hoja}|${fuera === undefined ? '' : 'pisa'}`;
+    const porNombre = alAzar && hoja === HOJA_DE_LA_TIERRA;
+    if (ms === null || (arboles === undefined && fuera === undefined && !porNombre)) return ms;
+    const clave = `${hoja}|${fuera === undefined ? '' : 'pisa'}|${porNombre ? 'azar' : ''}`;
     let sin = filtrados.get(clave);
     if (sin === undefined) {
-      sin = ms.filter((m) => !arboles?.has(m.nombre) && !fuera?.has(m.nombre));
+      sin = ms.filter(
+        (m) =>
+          !arboles?.has(m.nombre) &&
+          !fuera?.has(m.nombre) &&
+          !(porNombre && soloPorSuNombre(hoja, m.nombre)),
+      );
       filtrados.set(clave, sin);
     }
     return sin;
@@ -1264,6 +1428,16 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // movían todo lo que se viste después: las cordilleras de 1-40 salían otras
   // y el guardia de #204 (s22 (9, 18)) contaba 8 cumbres dominantes.
   let azar = azarDe(semilla * 7919 + 1);
+  /** `fn` con la corriente `otra` en lugar de `azar`, que vuelve a la de antes al acabar. */
+  const conCorriente = <T>(otra: () => number, fn: () => T): T => {
+    const principal = azar;
+    azar = otra;
+    try {
+      return fn();
+    } finally {
+      azar = principal;
+    }
+  };
   const azarDeLoAlto = azarDe(semilla * 3571 + 7);
   /**
    * Las cordilleras, con la suya (#218): cuántos picos lleva una franja de
@@ -1278,18 +1452,26 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   let basesSobreReserva = 0;
 
   const estrechos = new Map<string, Modulo | undefined>();
-  /** El módulo más estrecho de una hoja (ancho entre alto), si la hoja está hecha; `enLoQueSePisa`, como `modulosDe`. */
+  /**
+   * El módulo más estrecho de una hoja (ancho entre alto), si la hoja está
+   * hecha, de los que salen al azar; `enLoQueSePisa`, como `modulosDe`.
+   */
   const masEstrecho = (hoja: string, enLoQueSePisa = false): Modulo | undefined => {
     const clave = `${hoja}|${enLoQueSePisa ? 'pisa' : ''}`;
     if (!estrechos.has(clave))
       estrechos.set(
         clave,
-        [...(modulosDe(hoja, enLoQueSePisa) ?? [])].sort((p, q) => p.nw / p.nh - q.nw / q.nh)[0],
+        [...(modulosDe(hoja, enLoQueSePisa, true) ?? [])].sort(
+          (p, q) => p.nw / p.nh - q.nw / q.nh,
+        )[0],
       );
     return estrechos.get(clave);
   };
 
-  /** Un sprite de una hoja: elige el módulo por tamaño relativo `t` (0 pequeño, 1 grande). */
+  /**
+   * Un sprite de una hoja: el módulo `nombre` (lanza si la hoja no lo tiene) o,
+   * sin él, uno por su tamaño relativo `t` (0 pequeño, 1 grande).
+   */
   const deHoja = (
     hoja: string,
     x: number,
@@ -1323,12 +1505,23 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       };
     }
     let m: Modulo | undefined;
-    if (nombre !== undefined) m = ms.find((k) => k.nombre === nombre);
-    if (m === undefined) {
-      // Alrededor del cuantil `t`, con algo de azar para que no se repitan.
-      const centro = Math.round(t * (ms.length - 1));
-      const k = Math.max(0, Math.min(ms.length - 1, centro + Math.round((elAzar() - 0.5) * 4)));
-      m = ms[k] as Modulo;
+    if (nombre !== undefined) {
+      m = ms.find((k) => k.nombre === nombre);
+      if (m === undefined)
+        throw new Error(
+          `la hoja «${hoja}» no tiene el módulo «${nombre}»${enLoQueSePisa ? ' entre los de lo que se pisa' : ''}`,
+        );
+    } else {
+      // Alrededor del cuantil `t`, con algo de azar para que no se repitan; sin
+      // los que solo van por su nombre (las parcelas de la labranza).
+      const sorteo = modulosDe(hoja, enLoQueSePisa, true) as readonly Modulo[];
+      if (sorteo.length === 0)
+        throw new Error(
+          `la hoja «${hoja}» no tiene módulos que salgan al azar: pide uno por su nombre`,
+        );
+      const centro = Math.round(t * (sorteo.length - 1));
+      const k = Math.max(0, Math.min(sorteo.length - 1, centro + Math.round((elAzar() - 0.5) * 4)));
+      m = sorteo[k] as Modulo;
     }
     const tono = tonoDe(hoja);
     return {
@@ -1451,7 +1644,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     // hito, más estrecho: con su poste, a 1,7 medía 2,2 casillas de alto, más que una mina.
     const ancho = esHito(id)
       ? ANCHO_DEL_HITO
-      : ({ town: 2.4, village: 1.9, node: 1.7, resource: 0.95, mine: 1.2, chest: 0.6 }[
+      : ({ town: 2.4, village: ANCHO_DEL_PUEBLO, node: 1.7, resource: 0.95, mine: 1.2, chest: 0.6 }[
           o.kind as 'town'
         ] ?? 0.5);
     // Ciudades y pueblos, cada uno con su variante de la hoja (por su id, siempre
@@ -2292,11 +2485,16 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    */
   let sinLasReservas: Obstaculos<Medible> | undefined;
   const sendaDeLaMuralla = sendaParaLaMuralla(trazos);
-  /** El sprite más estrecho de cada clase que se aparta: el que pregunta el dardo. */
+  /**
+   * El sprite más estrecho de cada clase que se aparta: el que pregunta el
+   * dardo. El de la cubierta, de las hojas que esparce: las de una regla (las
+   * casas) van por su nombre y no salen de un dardo.
+   */
   const moldes = new Map<Sprite['clase'], Pick<Sprite, 'nw' | 'nh' | 'ax' | 'ay'>>();
   for (const [clase, r] of Object.entries(APARTE) as [Sprite['clase'], Aparte | null][]) {
     if (r === null) continue;
-    const ms = r.hojas.flatMap((h) => masEstrecho(h) ?? []);
+    const hojas = clase === 'cubierta' ? HOJAS_QUE_SE_ESPARCEN : r.hojas;
+    const ms = hojas.flatMap((h) => masEstrecho(h) ?? []);
     moldes.set(
       clase,
       ms.sort((p, q) => p.nw / p.nh - q.nw / q.nh)[0] ?? { nw: 1, nh: 1, ax: 0.5, ay: 1 },
@@ -2404,6 +2602,19 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       undefined,
       sePisa !== undefined,
     );
+  /**
+   * Gasta las tiradas de `mata(hoja, …, sePisa)` sin poner nada: la `t` y, si la
+   * hoja tiene módulos, la del módulo que sortea `deHoja` (sin nombre). Es la
+   * mata que la labranza no pone (`labranza.ts`): con la corriente de siempre,
+   * compartida por toda la cubierta, saltarse sus tiradas movía la cubierta de
+   * los otros suelos y las nubes. Si `mata`, `poner` o `deHoja` tiran una vez
+   * más, esto también: lo comprueba `sin-cambios.mts` de
+   * `docs/agents/2026-10-20-labranza-en-campos/`.
+   */
+  const gastarLasTiradasDeMata = (hoja: string, sePisa?: Suelo): void => {
+    azar();
+    if ((modulosDe(hoja, sePisa !== undefined)?.length ?? 0) > 0) azar();
+  };
   const altoDeMata = (s: Suelo) => CUBIERTA[s].alto * (MATA_MAS_BAJA + azar() * 0.6);
 
   /** Los módulos de `hoja` que van en una cordillera: sin las mesas (`esMesa`, #212). */
@@ -2695,15 +2906,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const puestos = new Set<number>();
     const caja = cajaDe(f.casillas, W);
 
-    if (f.barrera === 'mountain') {
-      const principal = azar;
-      azar = azarDeLasCordilleras;
-      try {
-        vestirMasa(f, dentro, puestos);
-      } finally {
-        azar = principal;
-      }
-    } else if (f.barrera === 'forest') vestirMasa(f, dentro, puestos);
+    if (f.barrera === 'mountain')
+      conCorriente(azarDeLasCordilleras, () => vestirMasa(f, dentro, puestos));
+    else if (f.barrera === 'forest') vestirMasa(f, dentro, puestos);
     else if (f.barrera === 'wall') {
       vestirMuralla(f);
       for (const i of f.casillas) puestos.add(i);
@@ -2715,14 +2920,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       // pintor y arriba van roca y peñascos. Ya no hay mesas sueltas.
       const desde = sprites.length;
       rellenoDeRocas(f, dentro, 0.34, 0.6, 0.3);
-      const principal = azar;
-      azar = azarDeLoAlto;
-      try {
+      conCorriente(azarDeLoAlto, () => {
         rocaEnLoAlto(desde);
         cimaDeRoca(f, sprites.slice(desde));
-      } finally {
-        azar = principal;
-      }
+      });
       for (const i of f.casillas) puestos.add(i);
     } else if (f.barrera === 'water') {
       // El agua la pinta el pintor como superficie; aquí, la orilla.
@@ -3648,9 +3849,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const C = CANTO_DE_LA_ESPALDA;
     // El módulo de cada peñasco (`deHoja`) también sale de `elAzar`: con la
     // corriente de siempre, el canto movía toda la cubierta que va después.
-    const principal = azar;
-    azar = elAzar;
-    try {
+    conCorriente(elAzar, () => {
       let puestos = 0;
       for (let k = 0; k < C.porCasilla; k++) {
         const px = x + (k + 0.5) / C.porCasilla + (elAzar() - 0.5) * C.vaiven;
@@ -3665,9 +3864,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         if (entraria('roca', x + dx, y + dy, ALTO_DEL_REBORDE_MENOR))
           if (peñasco(x + dx, y + dy, ALTO_DEL_REBORDE_MENOR, 0.3)) return;
       espaldasOcupadas.add(y * W + x);
-    } finally {
-      azar = principal;
-    }
+    });
   };
   for (const [x, y] of rebordes)
     if (a.terreno[y * W + x] === 'cliff') hileraDelReborde(x, y, azar, 0.18);
@@ -3686,6 +3883,83 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const azarDelCanto = azarDe(semilla * 4271 + 23);
   for (const [x, y] of rebordes)
     if (a.terreno[y * W + x] === 'cliff') cantoDeLaEspalda(x, y, azarDelCanto);
+
+  /**
+   * El módulo `nombre` de `hoja` como cubierta, entero, con el pie en `(x, y)` y
+   * `alto`. Con `plano`, la pieza va al suelo o a los volúmenes sea cual sea su
+   * alto (`Sprite.plano`).
+   */
+  const piezaEntera = (
+    hoja: string,
+    nombre: string,
+    x: number,
+    y: number,
+    alto: number,
+    plano?: boolean,
+  ): Sprite => {
+    const color = MARCADOR.cubierta as string;
+    const d = deHoja(hoja, x, y, alto, 0, 'cubierta', color, false, nombre, undefined, azar, true);
+    return plano === undefined ? d : { ...d, plano };
+  };
+  /**
+   * La pieza, si no pisa nada de lo que se aparta (`obstaculos`; pisar es
+   * monótono en el alto, así que es «entra sin encogerse»); si no, no va. Una
+   * casa encogida hasta el mínimo de la cubierta se leía como un juguete, y su
+   * reserva estrecha (`poner`) era otro módulo.
+   */
+  const ponerEntera = (s: Sprite): boolean => !obstaculos.pisa(s) && meter(s);
+  /**
+   * La parcela `p` a la escala `escala`, centrada en su sitio: el pie, donde
+   * deja el centro de la imagen en él (sin la hoja, el marcador, con el ancla en
+   * medio de su base).
+   */
+  const parcelaEn = (p: Parcela, escala: number): Sprite => {
+    const m = (modulosDe(HOJA_DE_LA_TIERRA, true) ?? []).find((k) => k.nombre === p.nombre);
+    const [ox, oy, nh] = m === undefined ? [0, 0.5, 1] : [m.ax - m.nw / 2, m.ay - m.nh / 2, m.nh];
+    const alto = ALTO_DE_PARCELA * escala;
+    const k = alto / nh;
+    return piezaEntera(HOJA_DE_LA_TIERRA, p.nombre, p.x + ox * k, p.y + oy * k, alto, true);
+  };
+  /**
+   * La escala con la que entra la parcela `p` (`EntradaDeLabranza.escalaQueEntra`):
+   * la suya o, si no, encogida (`ENCOGER_LA_PARCELA`), sin pisar lo que se
+   * aparta ni meterse bajo la copa de un bosque (`bajoLaCopa`); o null.
+   */
+  const escalaDeLaParcela = (bajoLaCopa: (s: Sprite) => boolean) => (p: Parcela) => {
+    for (const f of ENCOGER_LA_PARCELA) {
+      const s = parcelaEn(p, p.escala * f);
+      if (!obstaculos.pisa(s) && !bajoLaCopa(s)) return p.escala * f;
+    }
+    return null;
+  };
+  /**
+   * La casa o el atrezo `p` de la labranza, en su sitio. La casa, del módulo
+   * del cuantil `t` de su tamaño y con el alto de su imagen.
+   */
+  const piezaDeLaLabranza = (p: Casa | PiezaDeAtrezo): Sprite => {
+    if ('cual' in p)
+      return piezaEntera(HOJA_DE_LA_TIERRA, ATREZO[p.cual], p.x, p.y, CUBIERTA.dirt.alto);
+    const casas = modulosDe(HOJA_DE_CASAS) ?? [];
+    const m = casas[Math.floor(p.t * casas.length)];
+    return m === undefined
+      ? piezaEntera(HOJA_DE_CASAS, '', p.x, p.y, ALTO_DE_CASA, false)
+      : piezaEntera(HOJA_DE_CASAS, m.nombre, p.x, p.y, m.nh / PX_POR_CASILLA_DE_CASA, false);
+  };
+  /**
+   * Si la casa o el atrezo `p` entra (`EntradaDeLabranza.entraLaPieza`): entero,
+   * sin pisar lo que se aparta ni meterse bajo la copa de un bosque (`bajoLaCopa`).
+   */
+  const entraLaPieza = (bajoLaCopa: (s: Sprite) => boolean) => (p: Casa | PiezaDeAtrezo) => {
+    const s = piezaDeLaLabranza(p);
+    return !obstaculos.pisa(s) && !bajoLaCopa(s);
+  };
+  /** Las parcelas, el atrezo y las casas de la labranza (`labranzaDe`), por su nombre. */
+  const ponerLaLabranza = (l: Labranza): void => {
+    // Las parcelas ya entran con su escala, y las casas y el atrezo en su
+    // sitio: la regla se lo ha preguntado.
+    for (const p of l.parcelas) meter(parcelaEn(p, p.escala));
+    for (const p of [...l.atrezo, ...l.casas]) ponerEntera(piezaDeLaLabranza(p));
+  };
 
   // 5 · La cubierta, en manchas y no en motas: la referencia tiene formas
   // grandes y calmadas (una hoja de campos, un claro de prado), y una cubierta
@@ -3751,10 +4025,44 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // que se pisa lleva matas, hierba, flores y piedras; la mancha es más densa,
   // no más alta. `APARTE.cubierta` ya no admite las hojas de árbol: `poner`
   // lanza con una.
+  //
+  // La tierra es labranza en campos (`labranza.ts`, 20-10-2026): parcelas por
+  // casilla, atrezo y casas, que pone su regla con su propia corriente. Sus
+  // puntos del esparcido gastan aun así las tiradas de una mata —la de la hoja,
+  // la del alto y las de `mata` (`gastarLasTiradasDeMata`)— y solo en el
+  // barbecho y los caminos de tierra ponen alguna.
+  const camino = casillasConCamino(map.caminos, W, H);
+  const enLaLabranza = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++)
+    if (a.franjaDe[i] === -1 && pintado[i] === 'dirt' && camino[i] !== 1) enLaLabranza[i] = 1;
+  const copa = bajoLaCopa(sprites);
+  const labranza = labranzaDe({
+    W,
+    H,
+    enLaLabranza,
+    camino,
+    cercaDePueblo,
+    objetos: a.objetos.map((o) => ({ kind: o.kind, ...sitioDe(a, o) })),
+    escalaQueEntra: escalaDeLaParcela(copa),
+    entraLaPieza: entraLaPieza(copa),
+    semilla,
+  });
+  const azarDelRelleno = azarDe(semilla * 5381 + 31);
   for (const p of puntos) {
-    const s = pintado[Math.floor(p.y) * W + Math.floor(p.x)] as Suelo;
-    mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s), s);
+    const i = Math.floor(p.y) * W + Math.floor(p.x);
+    const s = pintado[i] as Suelo;
+    if (s !== 'dirt') {
+      mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s), s);
+      continue;
+    }
+    const hoja = hojaDeCubierta(s, azar());
+    const alto = altoDeMata(s);
+    const relleno =
+      (labranza.deRelleno[i] === 1 || camino[i] === 1) && azarDelRelleno() < PARTE_DEL_RELLENO;
+    if (relleno) mata(hoja, p.x, p.y, alto, s);
+    else gastarLasTiradasDeMata(hoja, s);
   }
+  conCorriente(azarDe(semilla * 6043 + 37), () => ponerLaLabranza(labranza));
 
   // 6 · Nubes en el borde del mapa, como en la referencia.
   for (let k = 0; k < (2 * (W + H)) / 3; k++) {
@@ -4053,7 +4361,7 @@ export function cubiertaDeOtroNivel(
 }
 
 /** Lo que el índice de obstáculos mira de un sprite: dónde cae su imagen y de qué clase es. */
-export type Medible = ConImagen & Pick<Sprite, 'clase' | 'clave' | 'cumbre'>;
+export type Medible = ConImagen & Pick<Sprite, 'clase' | 'clave' | 'cumbre' | 'plano'>;
 
 /** La medida con la que se aparta cada clase de lo que no tapa: su media anchura, por el rectángulo. */
 const MEDIDA_DE_CLASE: Readonly<Record<Sprite['clase'], Medida | null>> = Object.fromEntries(
@@ -4248,20 +4556,19 @@ export function formasDeLasParedes(
   });
 }
 
+/** Lo que mira `vaDelante` de un sprite: dónde, su clave y si es un volumen. */
+type Delante = Pick<Sprite, 'x' | 'y' | 'clave'> & PreguntaDeVolumen;
+
 /** Si `s` se pinta después de lo que está en `t` y, por tanto, lo taparía. */
-const vaDelante = (
-  s: Pick<Sprite, 'x' | 'y' | 'clave' | 'clase' | 'alto'>,
-  t: Pick<Sprite, 'x' | 'y' | 'clave'>,
-) => esVolumen(s) && ordenDeVolumenes(s, t) > 0;
+const vaDelante = (s: Delante, t: Pick<Sprite, 'x' | 'y' | 'clave'>) =>
+  esVolumen(s) && ordenDeVolumenes(s, t) > 0;
 
 /** `s` con el alto `alto`, como lo mide `vaDelante`: con su clave, si la lleva. */
-const conAlto = (
-  s: Medible,
-  alto: number,
-): Pick<Sprite, 'x' | 'y' | 'clave' | 'clase' | 'alto'> => ({
+const conAlto = (s: Medible, alto: number): Delante => ({
   x: s.x,
   y: s.y,
   ...(s.clave === undefined ? {} : { clave: s.clave }),
+  plano: s.plano,
   clase: s.clase,
   alto,
 });
@@ -4573,7 +4880,9 @@ export function formaDeLosPasos(pasos: readonly PasoALaVista[]): Forma<Medible> 
     trazos: pasos.flatMap((p) => p.eje),
     alcance: SEMIANCHO_DEL_PASO,
     mide: (s, alto) =>
-      APARTE[s.clase] !== null && esVolumen({ clase: s.clase, alto }) ? MEDIDA_DEL_PASO : null,
+      APARTE[s.clase] !== null && esVolumen({ clase: s.clase, alto, plano: s.plano })
+        ? MEDIDA_DEL_PASO
+        : null,
   };
 }
 

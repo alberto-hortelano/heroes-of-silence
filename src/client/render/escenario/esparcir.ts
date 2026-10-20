@@ -19,6 +19,15 @@ export function azarDe(semilla: number): () => number {
   };
 }
 
+/** `xs` barajado con `azar` (Fisher-Yates), en su sitio: lo devuelve. */
+export function barajar<T>(xs: T[], azar: () => number): T[] {
+  for (let k = xs.length - 1; k > 0; k--) {
+    const j = Math.floor(azar() * (k + 1));
+    [xs[k], xs[j]] = [xs[j] as T, xs[k] as T];
+  }
+  return xs;
+}
+
 export interface Punto {
   readonly x: number;
   readonly y: number;

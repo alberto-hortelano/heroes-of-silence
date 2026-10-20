@@ -17,7 +17,7 @@
  * (`pintar.ts`), y las fronteras, que leen la altura de la textura en el mismo
  * encaje que se ve (`fronteras.ts`): un hecho, un sitio.
  */
-import { azarDe } from './esparcir.js';
+import { azarDe, barajar } from './esparcir.js';
 
 /** Casillas que mide la textura de un suelo al pintarla. */
 export const CASILLAS_POR_TEXTURA = 4;
@@ -113,11 +113,10 @@ export function encajeDe(
     }
   // El orden barajado (Fisher-Yates): en orden de filas, cada fila taparía el
   // borde de la anterior siempre por el mismo lado, y eso es otra rejilla.
-  const orden = sitios.map((_, k) => k);
-  for (let k = orden.length - 1; k > 0; k--) {
-    const r = Math.floor(azar() * (k + 1));
-    [orden[k], orden[r]] = [orden[r] as number, orden[k] as number];
-  }
+  const orden = barajar(
+    sitios.map((_, k) => k),
+    azar,
+  );
   const celdas: Parche[] = new Array(sitios.length);
   const parches: Parche[] = orden.map((celda, n) => {
     const p = { ...(sitios[celda] as (typeof sitios)[number]), orden: n };

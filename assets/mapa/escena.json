@@ -946,6 +946,112 @@
     }
    }
   ],
+  "casas": [
+   {
+    "src": "modulos/casas/3.webp",
+    "nw": 127,
+    "nh": 109,
+    "ax": 51,
+    "ay": 108,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/casas/8.webp",
+    "nw": 132,
+    "nh": 114,
+    "ax": 74,
+    "ay": 113,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/casas/13.webp",
+    "nw": 132,
+    "nh": 115,
+    "ax": 59,
+    "ay": 114,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/casas/2.webp",
+    "nw": 131,
+    "nh": 125,
+    "ax": 43,
+    "ay": 124,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/casas/4.webp",
+    "nw": 106,
+    "nh": 128,
+    "ax": 52,
+    "ay": 127,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/casas/5.webp",
+    "nw": 130,
+    "nh": 128,
+    "ax": 58,
+    "ay": 127,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/casas/7.webp",
+    "nw": 109,
+    "nh": 132,
+    "ax": 49,
+    "ay": 131,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/casas/11.webp",
+    "nw": 127,
+    "nh": 136,
+    "ax": 71,
+    "ay": 135,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/casas/6.webp",
+    "nw": 149,
+    "nh": 144,
+    "ax": 66,
+    "ay": 143,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/casas/10.webp",
+    "nw": 141,
+    "nh": 146,
+    "ax": 81,
+    "ay": 145,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/casas/12.webp",
+    "nw": 142,
+    "nh": 154,
+    "ax": 93,
+    "ay": 153,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/casas/9.webp",
+    "nw": 144,
+    "nh": 160,
+    "ax": 88,
+    "ay": 159,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/casas/1.webp",
+    "nw": 160,
+    "nh": 174,
+    "ax": 88,
+    "ay": 173,
+    "nombre": "1"
+   }
+  ],
   "ciudades": [
    {
     "src": "modulos/ciudades/8.webp",

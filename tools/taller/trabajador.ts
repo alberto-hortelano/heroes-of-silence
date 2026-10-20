@@ -43,6 +43,7 @@
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
  *   pnpm taller escenario [semilla…] [--px=N]  el escenógrafo: compone, pinta, captura y mide
  *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
+ *   pnpm taller derivar-casas [--vista]  recorta las casas sueltas de la labranza de la hoja de pueblos (`casas.ts`); con --vista, cada casa teñida y numerada
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
  *   pnpm taller encolar --base templarios [--solo=maestro-t1,placa-t1,…]
  *                                        la plaza de la base en un solo cuadro (vuelta 3, `base.ts`): maestro, placa y ediciones de cada tramo
@@ -95,6 +96,7 @@ import {
   NIVELES_DE_BAJADA,
 } from './bajadas.js';
 import { encargosDeLaBase, escribirFuentesDeLaBase } from './base.js';
+import { escribirCasas, vistaDeLasCasas } from './casas.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import {
@@ -1139,6 +1141,17 @@ switch (orden) {
     for (const f of await escribirRelieveDerivado(resto.length === 0 ? undefined : resto))
       console.log(`→ ${f}`);
     break;
+  case 'derivar-casas':
+    // Las casas sueltas de la labranza, de la hoja de pueblos: con --vista, las
+    // casas teñidas y numeradas; sin él, las recorta (`CASAS_DE_LOS_PUEBLOS`).
+    console.log(
+      `→ ${
+        resto.includes('--vista')
+          ? await vistaDeLasCasas(join(RAIZ, '.cache/taller/casas-de-los-pueblos.png'))
+          : await escribirCasas()
+      }`,
+    );
+    break;
   case 'catalogo-escena': {
     const c = await escribirCatalogo();
     console.log(
@@ -1313,6 +1326,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, maniqui, experimento, experimento-medir, vista-versiones, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-casas, maniqui, experimento, experimento-medir, vista-versiones, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar`,
     );
 }

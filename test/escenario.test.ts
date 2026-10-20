@@ -166,15 +166,20 @@ describe('separar: el suelo fijo y los volúmenes', () => {
       expect(planos.length + volumenes.length).toBe(e.sprites.filter((s) => s.capa === 0).length);
     });
 
-    it(`semilla ${semilla}: ninguna masa, muro, pared ni objeto en el suelo; nada alto tampoco`, () => {
+    it(`semilla ${semilla}: ninguna masa, muro, pared ni objeto en el suelo; nada alto tampoco, salvo lo plano`, () => {
       for (const s of planos) {
         expect(['masa', 'muro', 'pared', 'objeto', 'nube']).not.toContain(s.clase);
-        expect(s.alto).toBeLessThanOrEqual(UMBRAL_DE_VOLUMEN);
+        // Lo alto en el suelo lo dice él (`Sprite.plano`): las parcelas de la labranza.
+        if (s.alto > UMBRAL_DE_VOLUMEN) expect(s.plano).toBe(true);
       }
-      // Y lo bajo que no es de esas clases no es volumen: una mata no tapa a nadie.
+      // Y lo bajo que no es de esas clases no es volumen: una mata no tapa a
+      // nadie. Salvo lo que dice que tapa (`plano: false`): una casa suelta.
       for (const v of volumenes)
-        if (!['masa', 'muro', 'pared', 'objeto'].includes(v.s.clase))
-          expect(v.s.alto).toBeGreaterThan(UMBRAL_DE_VOLUMEN);
+        if (
+          !['masa', 'muro', 'pared', 'objeto'].includes(v.s.clase) &&
+          v.s.alto <= UMBRAL_DE_VOLUMEN
+        )
+          expect(v.s.plano).toBe(false);
     });
 
     it(`semilla ${semilla}: los volúmenes van por su clave (la y de su base, o la de lo que tienen delante) y, a igualdad, por la x`, () => {
@@ -197,9 +202,10 @@ describe('separar: el suelo fijo y los volúmenes', () => {
     expect(todos.some((s) => s.objeto?.kind === 'monster')).toBe(false);
   });
 
-  it('el umbral es un parámetro: con uno enorme, solo las clases que tapan siempre', () => {
+  it('el umbral es un parámetro: con uno enorme, solo las clases que tapan siempre y lo que dice que tapa', () => {
     const { volumenes } = separar(escenaDe(1), { umbral: 99 });
-    for (const v of volumenes) expect(['masa', 'muro', 'pared', 'objeto']).toContain(v.s.clase);
+    for (const v of volumenes)
+      if (v.s.plano !== false) expect(['masa', 'muro', 'pared', 'objeto']).toContain(v.s.clase);
   });
 });
 

@@ -126,6 +126,7 @@ function mapaDe(filas: readonly string[], conCamino = false): MapaDeEscena {
             ],
           ]
         : [],
+      sueltas: [],
     },
     objects: [nodo],
     regions: regionesDe(W, terrain, at),

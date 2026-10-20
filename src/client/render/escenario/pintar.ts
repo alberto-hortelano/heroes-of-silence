@@ -347,9 +347,21 @@ export const UMBRAL_DE_VOLUMEN = 0.6;
  */
 const SIEMPRE_VOLUMEN: ReadonlySet<Sprite['clase']> = new Set(['masa', 'muro', 'pared', 'objeto']);
 
-/** Si `s` va a los volúmenes, que se pintan por su `y`; si no, va al suelo, debajo de todos ellos. */
-export const esVolumen = (s: Pick<Sprite, 'clase' | 'alto'>, umbral = UMBRAL_DE_VOLUMEN): boolean =>
-  SIEMPRE_VOLUMEN.has(s.clase) || s.alto > umbral;
+/**
+ * Lo que pregunta `esVolumen` de algo que no es un sprite entero: `plano` va
+ * siempre, aunque sea `undefined`, para que el literal que lo olvide no compile
+ * (`formaDeLosPasos` lo olvidaba y medía una parcela plana como volumen).
+ */
+export type PreguntaDeVolumen = Pick<Sprite, 'clase' | 'alto'> & {
+  readonly plano: boolean | undefined;
+};
+
+/**
+ * Si `s` va a los volúmenes, que se pintan por su `y`; si no, va al suelo,
+ * debajo de todos ellos. Lo que dice `Sprite.plano` manda sobre el alto.
+ */
+export const esVolumen = (s: Sprite | PreguntaDeVolumen, umbral = UMBRAL_DE_VOLUMEN): boolean =>
+  SIEMPRE_VOLUMEN.has(s.clase) || (s.plano === undefined ? s.alto > umbral : !s.plano);
 
 /**
  * La clave del pintor de `s`: la de su pie (`y`), salvo lo que se ordena

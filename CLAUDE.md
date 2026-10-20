@@ -189,6 +189,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Qué grupo de asaltantes se ve | `asaltantesALaVista` (lista con la marca `AsaltantesALaVista`; sin niebla, `todosALaVista`); para un grupo suelto, `grupoALaVistaDesde` |
 | Por dónde se entra en una ciudad, una mina o un pueblo | `puertasDe`, `rodeosParaEntrar` (`map/puertas.ts`, #230) |
 | Por qué una marcha no llegó (veredicto del agente) | `paradaDeLaMarcha` → `notaMarchaParcial` (`server/notas.ts`) |
+| Qué lleva la labranza (campos, atrezo, casas) | `labranzaDe` (`render/escenario/labranza.ts`); las hojas que pone su regla y no el sorteo, `HOJAS_DE_SU_REGLA` (`colocar.ts`); si una pieza va al suelo o es volumen, `Sprite.plano` (lo lee `esVolumen`) |
 | Material de una cara (pared, ladera, pedregal) | `materialDeCara` (`render/escenario/colocar.ts`) |
 | Roca de lo alto de un acantilado (picos, peñascos, reborde) | `materialDeLaCima` (`render/escenario/bordes.ts`) |
 | Suelo de la meseta de una barrera (roca de pared, cima y macizo, y el suelo que se pinta) | `sueloDeLaMeseta` (`render/escenario/bordes.ts`); en la escena, `sueloQueSePinta` |
@@ -772,6 +773,21 @@ antes del destino (`battle_started` con `faltan`).
   hasta no ser más esbelta que `ESBELTEZ_DE_LO_PISABLE` (`tumbado`, en `poner`); lo alto del
   acantilado y el pie de la muralla siguen con la hoja entera. `informe.cubiertaComoLaBarrera` = 0
   (piezas más altas que su esbeltez y regiones de ≥ 9 casillas con huella > `HUELLA_DE_LO_PISABLE`).
+  **La labranza va en campos** (20-10-2026, `docs/agents/2026-10-20-labranza-en-campos/`): la
+  cubierta del suelo `dirt` no se sortea punto a punto (era confeti: parcelas, cercas, almiares y
+  carretas al azar y un 25 % de pradera). La pone una regla pura, `labranzaDe` (`labranza.ts`), con
+  su propia corriente: campos de 3 a 7 casillas (Voronoi de paso 2, partidos por caminos y bosques)
+  de un solo cultivo —trigo, coles o surcos (`PARCELAS`, módulos 1-8 de `cubierta-dirt`)—, ~46 % en
+  barbecho, una parcela por casilla (planas, `Sprite.plano`) y otra en la junta de dos del mismo
+  campo (el arte es en rombo: sin ella, un damero); la parcela que no entra entera saca su casilla
+  del campo y se reparte otra vez (`escalaQueEntra`). Atrezo (`ATREZO`: cerca, almiar junto al
+  trigo, carreta junto a un camino o un pueblo) y **casas** (hoja `casas`, 13 recortadas de los
+  pueblos por semillas a mano, `pnpm taller derivar-casas`; con volumen), pocos, a Chebyshev ≥ 3 de
+  todo objeto del mapa, las casas a ≥ 2 de todo camino (el héroe que se para en la casilla de una
+  casa se pinta encima; decisión del usuario) y a ≥ 4 entre ellas, y nada bajo la copa de un bosque
+  (`entraLaPieza`). Tono `saturate(0.65) brightness(0.88)`. Lo demás de la escena no se mueve: los
+  puntos de tierra del esparcido gastan las mismas tiradas que una mata (`gastarLasTiradasDeMata`;
+  #269 para quitarlo de raíz).
   **Árbol = no se pasa** (14-10-2026, marcas de s1 (2,23) y (1,23)): lo que se pisa, de cualquier
   suelo, no lleva árboles (`APARTE.cubierta` no admite `ARBOLES`; la mancha es de matas), y en las 8
   vecinas de un bosque va en mancha de matas, tupida y baja (`orillaDelBosque`; el `lindeDeBosque` que

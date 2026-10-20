@@ -299,7 +299,7 @@ describe('un catálogo de laderas sin sus juntas no llega a pintarse', () => {
       terrain: Array.from({ length: W * W }, (_, i) =>
         i % W >= 3 && i % W <= 4 ? 'cliff' : 'grass',
       ),
-      caminos: { tramos: [] },
+      caminos: { tramos: [], sueltas: [] },
       objects: [],
       regions: [
         { id: 'meseta', name: 'Meseta', at: { x: 0, y: 0 }, nivel: 2 },

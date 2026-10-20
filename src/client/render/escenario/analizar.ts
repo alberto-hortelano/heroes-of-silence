@@ -24,7 +24,14 @@ export interface MapaDeEscena {
   readonly width: number;
   readonly height: number;
   readonly terrain: readonly TerrainKind[];
-  readonly caminos: { readonly tramos: readonly TramoDeCamino[] };
+  /**
+   * Los tramos y las casillas sueltas (un camino de una casilla, que no se
+   * pinta): las dos caras de `RedDeCaminos` que lee la escena.
+   */
+  readonly caminos: {
+    readonly tramos: readonly TramoDeCamino[];
+    readonly sueltas: readonly Point[];
+  };
   readonly objects: readonly MapObject[];
   /**
    * Las regiones de la red, con su nivel de altura: el relieve es un dato del

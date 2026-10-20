@@ -1,0 +1,167 @@
+{
+  "encargo": "casas",
+  "tipo": "derivada",
+  "fecha": "2026-10-20",
+  "herramienta": {
+    "nombre": "tools/taller/casas.ts (pnpm taller derivar-casas)"
+  },
+  "nota": "Recortadas de la hoja de pueblos, partida desde semillas puestas a mano (CASAS_DE_LOS_PUEBLOS); sin arte nuevo.",
+  "modulos": [
+    {
+      "imagen": "1.webp",
+      "pueblo": 1,
+      "sha256DelPueblo": "6feb972855c8170b1aff38f2787a6aa48f6318fa16bd194266264cb86eefb6e9",
+      "casa": 1,
+      "caja": [
+        45,
+        4,
+        204,
+        177
+      ]
+    },
+    {
+      "imagen": "2.webp",
+      "pueblo": 1,
+      "sha256DelPueblo": "6feb972855c8170b1aff38f2787a6aa48f6318fa16bd194266264cb86eefb6e9",
+      "casa": 2,
+      "caja": [
+        216,
+        57,
+        346,
+        181
+      ]
+    },
+    {
+      "imagen": "3.webp",
+      "pueblo": 2,
+      "sha256DelPueblo": "ae717e6087efd45ed64e2212e0ec5d22314a6217cccbea1d9e638d9724fb4963",
+      "casa": 1,
+      "caja": [
+        4,
+        205,
+        130,
+        313
+      ]
+    },
+    {
+      "imagen": "4.webp",
+      "pueblo": 2,
+      "sha256DelPueblo": "ae717e6087efd45ed64e2212e0ec5d22314a6217cccbea1d9e638d9724fb4963",
+      "casa": 2,
+      "caja": [
+        264,
+        154,
+        369,
+        281
+      ]
+    },
+    {
+      "imagen": "5.webp",
+      "pueblo": 2,
+      "sha256DelPueblo": "ae717e6087efd45ed64e2212e0ec5d22314a6217cccbea1d9e638d9724fb4963",
+      "casa": 3,
+      "caja": [
+        186,
+        244,
+        315,
+        371
+      ]
+    },
+    {
+      "imagen": "6.webp",
+      "pueblo": 3,
+      "sha256DelPueblo": "f9faec81699aa70473d49cc05353129d4748e7357ce12636b99c1c4babbc3190",
+      "casa": 1,
+      "caja": [
+        201,
+        206,
+        349,
+        349
+      ]
+    },
+    {
+      "imagen": "7.webp",
+      "pueblo": 4,
+      "sha256DelPueblo": "f64f20bb382fb80a0a4bda5e24f4a03056f77fc67ca79c5c8a0bb10e4d00d8a0",
+      "casa": 1,
+      "caja": [
+        4,
+        189,
+        112,
+        320
+      ]
+    },
+    {
+      "imagen": "8.webp",
+      "pueblo": 5,
+      "sha256DelPueblo": "7ea6557b21d482f190c4c102ab7ae82c148422dd2b93d31ef618387718e38dcc",
+      "casa": 1,
+      "caja": [
+        4,
+        228,
+        135,
+        341
+      ]
+    },
+    {
+      "imagen": "9.webp",
+      "pueblo": 5,
+      "sha256DelPueblo": "7ea6557b21d482f190c4c102ab7ae82c148422dd2b93d31ef618387718e38dcc",
+      "casa": 2,
+      "caja": [
+        224,
+        159,
+        367,
+        318
+      ]
+    },
+    {
+      "imagen": "10.webp",
+      "pueblo": 6,
+      "sha256DelPueblo": "9b8016ec2a68dcc069394a2f06f98f595b0c255b783ffd5c53ece67d0c357675",
+      "casa": 1,
+      "caja": [
+        230,
+        42,
+        370,
+        187
+      ]
+    },
+    {
+      "imagen": "11.webp",
+      "pueblo": 6,
+      "sha256DelPueblo": "9b8016ec2a68dcc069394a2f06f98f595b0c255b783ffd5c53ece67d0c357675",
+      "casa": 2,
+      "caja": [
+        172,
+        194,
+        298,
+        329
+      ]
+    },
+    {
+      "imagen": "12.webp",
+      "pueblo": 7,
+      "sha256DelPueblo": "69d6072c707c9c62402df441826b8e39a3cbc03845dcf271d5ad429729372e01",
+      "casa": 1,
+      "caja": [
+        199,
+        139,
+        340,
+        292
+      ]
+    },
+    {
+      "imagen": "13.webp",
+      "pueblo": 8,
+      "sha256DelPueblo": "0017f43978ba133a334e7b817e0285d79f5f0b431f9f0f3c6813c4f2669d6aaf",
+      "casa": 1,
+      "caja": [
+        4,
+        210,
+        135,
+        324
+      ]
+    }
+  ]
+}

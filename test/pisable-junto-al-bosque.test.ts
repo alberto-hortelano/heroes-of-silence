@@ -327,7 +327,7 @@ function mapaDe(filas: readonly string[]): MapaDeEscena {
     width: (filas[0] as string).length,
     height: filas.length,
     terrain: filas.flatMap((f) => [...f].map((c) => SUELO[c] as TerrainKind)),
-    caminos: { tramos: [] },
+    caminos: { tramos: [], sueltas: [] },
     objects: [],
     regions: [],
   };

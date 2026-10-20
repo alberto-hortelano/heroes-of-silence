@@ -68,14 +68,18 @@ import { pintarSombra } from './sombra.js';
  * espectador también, sin que ninguno tenga que fabricar una partida falsa.
  * La niebla son `Casillas` (un byte por casilla, #146), y es `adaptar.ts`
  * quien las rehace al otro lado del cable desde sus índices. De los caminos se leen
- * solo los tramos: `RedDeCaminos` los cumple y el espectador los trae tal cual.
+ * los tramos y las sueltas (la labranza no cultiva una casilla con camino):
+ * `RedDeCaminos` los cumple y el espectador los trae tal cual.
  */
 export interface AdventureScene {
   readonly map: {
     readonly width: number;
     readonly height: number;
     readonly terrain: readonly TerrainKind[];
-    readonly caminos: { readonly tramos: readonly TramoDeCamino[] };
+    readonly caminos: {
+      readonly tramos: readonly TramoDeCamino[];
+      readonly sueltas: readonly Point[];
+    };
     readonly objects: readonly MapObject[];
     /** Las regiones del mapa de nodos. Las pintará el territorio de la 2b. */
     readonly regions: readonly MapRegion[];
