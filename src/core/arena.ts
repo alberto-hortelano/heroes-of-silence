@@ -41,7 +41,7 @@ import {
 } from './battle/battle.js';
 import type { StackEffect } from './battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
-import { esDeCura, poder, poderDeHabilidad } from './battle/poderes.js';
+import { nombreDeHabilidad } from './battle/poderes.js';
 import { ruedaDelArmaEnPalabras } from './battle/rueda.js';
 import {
   allSpells,
@@ -97,6 +97,7 @@ import {
   type Hueco,
   NOMBRE_DE_FACCION,
   NOMBRE_DE_HUECO,
+  NOMBRE_DE_RASGO,
   type UnitInfo,
 } from './types.js';
 import {
@@ -976,35 +977,6 @@ export function tipoDelStack(
 }
 
 // ------------------------------------------------------------- la ficha en palabras
-
-/** Qué hace cada rasgo del motor, dicho en corto: la casilla de la ficha y el parte. */
-export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
-  undead: 'no-muerto',
-  flying: 'vuela',
-  no_retaliation: 'sin contraataque',
-  double_attack: 'ataque doble',
-  double_shot: 'disparo doble',
-  life_drain: 'drena vida',
-  splash_shot: 'disparo con salpicadura',
-  charge: 'carga',
-  curse_on_hit: 'maldice al golpear',
-  bane_undead: 'azote de no-muertos',
-  fear: 'terror',
-  escalar: 'escala murallas',
-};
-
-/**
- * Cómo se dice una habilidad: la que da un poder de cura, con lo que cura en vez
- * de la X del cuaderno («Curar (4 PV)»; M3 de QA: el chip decía «Curar (X)»); la
- * de otro poder, por su nombre; las demás, tal cual. El valor guardado sigue
- * siendo el nombre del cuaderno.
- */
-export function nombreDeHabilidad(h: string): string {
-  const id = poderDeHabilidad(h);
-  if (id === null) return h;
-  const p = poder(id);
-  return esDeCura(p) ? `${p.nombre} (${p.lanzador.cantidad} PV)` : p.nombre;
-}
 
 /** La clave de una ficha en `BattleState.fichasDeArena`: un tipo del montaje o el héroe de un lado. */
 function claveDeFicha(t: TipoDeArena | { readonly kind: 'heroe'; readonly lado: Lado }): string {

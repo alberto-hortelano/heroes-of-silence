@@ -93,6 +93,7 @@ import { MARCA_DE_COMANDANTE, RESOURCE_COLORS, RESOURCE_NAMES } from '../render/
 import type { Session, SpellOption } from '../session.js';
 import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
+import { renderPanelDeLaMorada } from './morada.js';
 import { botonesDePoder } from './poderes.js';
 import { renderPanelDeLaTropa } from './tropa.js';
 
@@ -205,6 +206,8 @@ export function renderSide(
       return renderBattlePanel(session, contandoAun);
     case 'tropa':
       return renderPanelDeLaTropa(session.vistaDeLaTropa());
+    case 'morada':
+      return renderPanelDeLaMorada(session);
     default:
       return renderAdventurePanel(session);
   }
@@ -220,6 +223,8 @@ export function renderActions(session: Session, contandoAun = false): Html {
       return html`<button data-action="close-town">Volver al mapa</button>`;
     case 'tropa':
       return html`<button data-action="cerrar-tropa" title="Escape">Volver al mapa</button>`;
+    case 'morada':
+      return html`<button data-action="cerrar-morada" title="Escape">Volver a la base</button>`;
     case 'battle': {
       const battle = session.battle;
       // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,
@@ -304,7 +309,7 @@ function renderFinDePartida(desenlace: Desenlace, causa: DefeatReason | null): H
  * el castillo: es la cifra que decide cuántos más caben, y sin verla «todo»
  * parecía reclutar menos de lo que había por capricho.
  */
-function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number }): Html {
+export function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number }): Html {
   return html`<div class="row"><span class="label">Liderazgo</span><span>${ocupado} / ${tope}</span></div>
     <progress class="liderazgo" max="${tope}" value="${Math.min(ocupado, tope)}"></progress>`;
 }
@@ -592,7 +597,7 @@ function renderArmy(army: Army, characters: Personajes): Html {
  * quien se iría. Sin comprobar reglas: si no se puede,
  * lo dice el núcleo en la barra.
  */
-function renderTropaLicenciable(heroId: string, army: Army, characters: Personajes): Html {
+export function renderTropaLicenciable(heroId: string, army: Army, characters: Personajes): Html {
   if (army.length === 0) return renderArmy(army, characters);
   const grupos = troopSummary(army, characters);
   // `dismiss` licencia POR TIPO, y de cada tipo se va primero quien diga

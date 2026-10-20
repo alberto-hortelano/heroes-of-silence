@@ -2053,7 +2053,7 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo(CORE, /data\/bases/)).toEqual([]);
   });
 
-  it('las escenas de la base y de la tropa no cambian el estado: solo importan tipos del núcleo', () => {
+  it('las escenas de la base, de la tropa y de la morada no cambian el estado: solo importan tipos del núcleo', () => {
     // La base caminable es estado del cliente; las reglas van por los botones a
     // la sesión. Un `import` de valor de `@core` en `render/base/` sería una
     // puerta lateral al núcleo que el guardia de `session.ts` no ve, porque
@@ -2061,13 +2061,21 @@ describe('invariantes del proyecto', () => {
     // mismo: lo que lee del núcleo se lo da la sesión ya compuesto
     // (`vistaDeLaTropa`). Roto a mano: un `import { heroUnit } from
     // '@core/hero/hero.js'` en `render/tropa/pintar.ts` sale rojo con su línea.
+    // La de la morada (20-10-2026) y lo que comparten las dos (`de-pie.ts`), igual:
+    // lo que lee del núcleo es `vistaDeLaMorada`. Roto a mano: un `import {
+    // recruitCost } from '@core/town/town.js'` en `render/morada/fila.ts`, rojo.
     const base = CLIENTE.filter(
       (r) =>
         r.startsWith('src/client/render/base/') ||
         r.startsWith('src/client/render/tropa/') ||
-        r === 'src/client/escenas/tropa.ts',
+        r.startsWith('src/client/render/morada/') ||
+        r === 'src/client/render/de-pie.ts' ||
+        r === 'src/client/escenas/de-pie.ts' ||
+        r === 'src/client/escenas/tropa.ts' ||
+        r === 'src/client/escenas/morada.ts',
     );
     expect(base.filter((r) => r.includes('tropa')).length).toBeGreaterThanOrEqual(3);
+    expect(base.filter((r) => r.includes('morada') || r.includes('de-pie')).length).toBe(4);
     const colados: string[] = [];
     for (const ruta of base) {
       const codigo = codigoDe(ruta);
@@ -2081,7 +2089,7 @@ describe('invariantes del proyecto', () => {
     expect(colados).toEqual([]);
   });
 
-  it('la base y la tropa no copian la escala del combate: la toman de `escalaDelCombate`', () => {
+  it('la base, la tropa y la morada no copian la escala del combate: la toman de `escalaDelCombate`', () => {
     // Un adulto mide lo mismo en la base que en una batalla porque el paso sale
     // de una sola cuenta (`pasoDeLaBase` → `escalaDelCombate`). Las constantes
     // del tablero son privadas de `proyeccion.ts`; si la escena de la base las
@@ -2095,9 +2103,13 @@ describe('invariantes del proyecto', () => {
         r.startsWith('src/client/render/base/') ||
         r === 'src/client/escenas/castillo.ts' ||
         r.startsWith('src/client/render/tropa/') ||
-        r === 'src/client/escenas/tropa.ts',
+        r.startsWith('src/client/render/morada/') ||
+        r === 'src/client/render/de-pie.ts' ||
+        r === 'src/client/escenas/de-pie.ts' ||
+        r === 'src/client/escenas/tropa.ts' ||
+        r === 'src/client/escenas/morada.ts',
     );
-    expect(base.length).toBeGreaterThan(8);
+    expect(base.length).toBeGreaterThan(13);
     expect(
       infractoresDeCodigo(base, /\bANCHO_TABLERO\b|\bALTO_FIJO\b|\bALTO_DE_FIGURA\s*=/),
     ).toEqual([]);

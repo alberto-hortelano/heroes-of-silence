@@ -18,6 +18,7 @@
 import { desplazamientoDeFila, EXTENSION_HORIZONTAL, isInside } from '@core/battle/board.js';
 import type { Hex } from '@core/types.js';
 import {
+  ALTO_DE_FIGURA,
   ALTO_DE_FILA,
   COMPRESION_SUELO,
   FONDO_DEL_COMBATE,
@@ -26,7 +27,7 @@ import {
 } from '../../shared/arte.js';
 
 export type { Plano };
-export { FONDO_DEL_COMBATE };
+export { ALTO_DE_FIGURA, FONDO_DEL_COMBATE };
 
 export interface Tablero {
   /** Ancho de un hex en píxeles. */
@@ -42,12 +43,6 @@ export interface Tablero {
   readonly compresion: number;
 }
 
-/**
- * Lo que mide un adulto de pie en el tablero, en pasos. Lo leen la caja de la
- * figura (`cajaDeFigura`) y el ritmo de su marcha (`marcha.ts`). Toda unidad
- * ocupa una casilla (13-10-2026): la figura grande de dos se fue con ellas.
- */
-export const ALTO_DE_FIGURA = 0.95;
 /** Radio del hex (centro a vértice), en pasos. */
 const RADIO = 1 / Math.sqrt(3);
 /**
@@ -89,7 +84,7 @@ export const ANCHO_DEL_COMBATE_EN_MOVIL = 860;
 /**
  * El tamaño de un paso y la elevación de la cámara del tablero de combate en un
  * lienzo de `ancho × alto`: la única cuenta de la escala, que leen la batalla
- * (`tableroPara`) y la base (`pasoDeLaBase`). `alzado` son los pasos que pide de
+ * (`tableroPara`) y la base (`pasoDeLaBase`, en un marco 20:11 de su alto). `alzado` son los pasos que pide de
  * más encima de la fila de atrás lo que sube del suelo —las columnas de una
  * muralla (`alzadoDeLaMuralla`)—; sin él, el de siempre. La base no lo pasa: su
  * escala es la de una batalla sin muralla.
@@ -109,14 +104,23 @@ export function escalaDelCombate(
 }
 
 /**
- * El paso de la base en un lienzo de `ancho × alto`: el de una batalla en ese
- * lienzo, para que un adulto mida lo mismo en los dos. En un lienzo más
- * estrecho que el del combate en el móvil se calcula como si midiera aquel, que
- * es lo que ve quien juega una batalla en el móvil (con desplazamiento); en un
- * escritorio estrecho la figura de la base sale hasta un 20 % mayor (aceptado).
+ * La forma del marco con que se fijó la escala de la base: 20:11, el que tenía su
+ * lienzo en el escritorio hasta el 20-10-2026 (a 1080×594, 6,9 pasos de alto: el
+ * encuadre aprobado el 09-10-2026, con los edificios altos cortados por arriba).
  */
-export function pasoDeLaBase(ancho: number, alto: number): number {
-  return escalaDelCombate(Math.max(ancho, ANCHO_DEL_COMBATE_EN_MOVIL), alto).paso;
+export const MARCO_DE_LA_BASE = 20 / 11;
+
+/**
+ * El paso de la base en un lienzo de `alto`: el de una batalla en un marco 20:11
+ * de ese alto (`MARCO_DE_LA_BASE`). El ancho no cuenta (20-10-2026, decisión del
+ * usuario: «al hacer la pantalla más estrecha se encoge la parte donde se ve la
+ * base; eso no pasa en el mapa»): el lienzo va a todo el alto, como el mapa, y
+ * enseña lo que quepa de ancho. Con un marco más estrecho que el del combate en el
+ * móvil se calcula como si midiera aquel, que es lo que ve quien juega una
+ * batalla en el móvil (con desplazamiento): 380 de alto, 63,5.
+ */
+export function pasoDeLaBase(alto: number): number {
+  return escalaDelCombate(Math.max(alto * MARCO_DE_LA_BASE, ANCHO_DEL_COMBATE_EN_MOVIL), alto).paso;
 }
 
 /**

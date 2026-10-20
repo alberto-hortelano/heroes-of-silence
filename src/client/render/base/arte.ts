@@ -17,9 +17,13 @@
  * lleva su máscara de alfa a 1/4 (`MASCARA`), que se hace la primera vez que se
  * pulsa cerca (`mascaraDe`): el clic sobre un edificio es sobre lo pintado, no
  * sobre su caja.
+ *
+ * La versión abierta de una morada (`abierta-<id>.webp`: el edificio sin la
+ * pared de delante, con su sala) se pide aparte y solo al entrar en ella
+ * (`abiertaDe`), si el índice la trae, y sustituye a su recorte con `conLaAbierta`.
  */
 import type { FactionId } from '@core/types.js';
-import type { IndiceDeLaBase, RecorteEnElIndice } from '../../../shared/base.js';
+import { INDICE_VACIO, type IndiceDeLaBase, type RecorteEnElIndice } from '../../../shared/base.js';
 import { imagenDeLaBase, tandaDeArte } from '../assets.js';
 
 /** A qué fracción de su tamaño se guarda la máscara de un recorte. */
@@ -86,13 +90,7 @@ async function cargar(f: FactionId, construidos: readonly string[]): Promise<voi
   } catch (err) {
     console.warn(`[base] sin índice del arte de ${f}: ${err instanceof Error ? err.message : err}`);
     cargado.set(f, {
-      indice: {
-        tramos: [],
-        suelo: null,
-        cielo: null,
-        edificios: {},
-        derivadoPor: 'tools/taller/recorte-base.ts',
-      },
+      indice: INDICE_VACIO,
       arte: { tramos: [], suelo: null, cielo: CIELO_SIN_ARTE, edificios: new Map() },
       pedidos: new Set(),
     });
@@ -147,6 +145,61 @@ export function arteDeLaBase(f: FactionId, construidos: readonly string[]): Arte
     tandaDeArte(cargar(f, construidos));
   }
   return null;
+}
+
+/** Las versiones abiertas pedidas, por `<facción>/<edificio>`: `null` la que no llegó, `undefined` en camino. */
+const abiertas = new Map<string, RecorteDeLaBase | null | undefined>();
+
+/**
+ * La versión abierta de la morada `edificio` de `f`, o `null` mientras llega, si
+ * no la hay o si no llegó (la morada se ve entonces con su exterior). Solo se pide
+ * lo que dice el índice: una morada sin versión abierta no deja un 404 en la
+ * consola. La primera llamada pide el índice si no estaba (`arteDeLaBase`).
+ */
+export function abiertaDe(f: FactionId, edificio: string): RecorteDeLaBase | null {
+  const hay = cargado.get(f);
+  if (hay === undefined) {
+    arteDeLaBase(f, [edificio]);
+    return null;
+  }
+  const e = hay.indice.abiertas[edificio];
+  if (e === undefined) return null;
+  const clave = `${f}/${edificio}`;
+  if (abiertas.has(clave)) return abiertas.get(clave) ?? null;
+  abiertas.set(clave, undefined);
+  tandaDeArte(recorteDe(f, e).then((r) => void abiertas.set(clave, r)));
+  return null;
+}
+
+/** Lo ya sustituido, por arte y por versión abierta: cada fotograma da el mismo objeto. */
+const sustituidos = new WeakMap<ArteDeLaBase, WeakMap<RecorteDeLaBase, ArteDeLaBase>>();
+
+/**
+ * El arte de la base con el recorte de `edificio` cambiado por su versión
+ * abierta: la ÚNICA sustitución, que leen el pintor y el golpe por
+ * `arte.edificios`. Sin versión abierta (o sin arte), el mismo objeto; y dos
+ * llamadas con lo mismo dan el mismo objeto, porque el fondo cacheado de la base
+ * (`Fondo`, `pintar.ts`) se rehace cuando cambia la identidad del arte.
+ */
+export function conLaAbierta(
+  arte: ArteDeLaBase | null,
+  edificio: string,
+  abierta: RecorteDeLaBase | null,
+): ArteDeLaBase | null {
+  if (arte === null || abierta === null) return arte;
+  let porArte = sustituidos.get(arte);
+  if (porArte === undefined) {
+    porArte = new WeakMap();
+    sustituidos.set(arte, porArte);
+  }
+  const hay = porArte.get(abierta);
+  if (hay !== undefined) return hay;
+  const nuevo: ArteDeLaBase = {
+    ...arte,
+    edificios: new Map([...arte.edificios, [edificio, abierta]]),
+  };
+  porArte.set(abierta, nuevo);
+  return nuevo;
 }
 
 const mascaras = new WeakMap<HTMLImageElement, MascaraDelRecorte | null>();

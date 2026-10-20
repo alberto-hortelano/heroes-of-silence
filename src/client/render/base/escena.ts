@@ -93,12 +93,17 @@ export function dondeEsta(
   return v;
 }
 
-/** Edificios (lo de detrás primero) y luego gente y quien camina, por su pie. */
+/**
+ * Edificios (lo de detrás primero) y luego gente y quien camina, por su pie. Sin
+ * `gente`, solo quien camina: dentro de una morada (`EscenaBase.pintarLaMorada`)
+ * el encargado esperaría donde van los reclutas, y dentro no se habla con nadie.
+ */
 export function componerBase(
   d: Disposicion,
   vista: VistaDeLaBase,
   caminante: EstadoDelCaminante,
   tiempo: number,
+  { gente = true }: { readonly gente?: boolean } = {},
 ): Elemento[] {
   const elementos: Elemento[] = [
     ...vista.edificios.map((e): Elemento => {
@@ -106,7 +111,7 @@ export function componerBase(
       const pie = planoDelCuadro(d, s.tramo, [s.umbral.enElCuadro[0], s.region.pie]).y;
       return { tipo: 'edificio', ...e, pie };
     }),
-    ...vista.gente.map((p): Elemento => {
+    ...(gente ? vista.gente : []).map((p): Elemento => {
       const { en, mira } = dondeEsta(d, p);
       return {
         tipo: 'figura',

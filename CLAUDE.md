@@ -154,7 +154,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Qué se levanta en cada sitio de la base | `sitiosDeLaBase`, `siguienteDe`, `construidoEn` (`town/sitios.ts`) |
 | De un píxel del cuadro de la base al escenario | `planoDelCuadro` (`shared/base.ts`); en pantalla, `colocarLaPlaca` y `colocarEnElCuadro` (`render/base/recortes.ts`) |
 | Recortar un edificio de la base de su cuadro | `recortarLaBase`, `derivarRecorte` (`tools/taller/recorte-base.ts`) |
-| Escala del tablero de combate (también la de la base) | `escalaDelCombate` (`render/proyeccion.ts`), que leen `tableroPara` y `pasoDeLaBase` |
+| Escala del tablero de combate (también la de la base) | `escalaDelCombate` (`render/proyeccion.ts`), que leen `tableroPara` y `pasoDeLaBase` (la base: la de una batalla en un marco 20:11 de su alto, `MARCO_DE_LA_BASE`; el ancho no cuenta, 20-10-2026) |
 | Quién hay en una base y qué dice (narrado o de respaldo) | `vecinosDeLaBase`, `vozDe`; las voces del narrador las escribe solo `ponerVoces` (`town/voces.ts`) |
 | Nivel de una unidad (índice de poder, con su equipo) | `nivelDeUnidad`, `indiceDePoder`, `nivelDelIndice` (`core/nivel.ts`, `data/poder.json`), de la unidad vestida (`poderBruto`, memorizado por `UnitInfo`); lo que mide lo lee de `battle/armas.ts` (`golpeDe`, `golpesDe`, `porcientoDelTipo`, `disparosDe`, `trasLaArmadura`), y `nivel.ts` no está en un ciclo de importación (lo vigila `invariantes.test.ts`); qué cifras se pueden medir, `medidaBlocker`. Ni el nivel ni el coste se escriben en `data/unidades.json` (lo vigila `invariantes.test.ts`) |
 | El catálogo de unidades (el juego y la arena) | `data/unidades.json`, que importa solo `core/catalogo.ts` (lo vigila `invariantes.test.ts`): `UNIDADES`, `unidad`, `unidadDelJuego`, `unidadesDelJuego`, `unidadesDeFaccion`, `unidadesDeMorada`, `hojaDeUnidad` (la hoja con que se pinta, `cuerpo.hoja`); el formato, `validarUnidad` y `validarCatalogo` (`core/unidad.ts`); lo que el juego exige a los dos catálogos juntos (equipo base del héroe, unidades y moradas), `leerCatalogos`, que llaman la carga, «Guardar» y el editor de equipo; la forma de un id, `esIdDeUnidad` (`core/validar.ts`) |
@@ -902,16 +902,34 @@ antes del destino (`battle_started` con `faltan`).
   escenario. El
   borde de atrás de lo que se pisa une los umbrales (`bordeDeAtras`) y no es convexo.
   `leerDisposicion` lanza con regiones que salen de su tramo o se pisan, puertas fuera de su
-  región o a más de 1,5 pasos de la raya, y lo que no se pisa. El paso es el del combate en ese
-  lienzo (`pasoDeLaBase` → `escalaDelCombate`) y el suelo va a 25°: un adulto mide lo mismo en la
-  base que en una batalla. Toda figura va delante de todo edificio. Un sitio sin construir enseña
-  la placa. Camina el héroe si está dentro y, si no, el alcaide; un clic lleva a la puerta y, al
-  llegar, el ayuntamiento o el castillo abren «Ampliar», una morada su reclutamiento y una
-  persona la conversación (`<dialog id="conversacion">`). La gente se pinta con el Y Bot sin
+  región o a más de 1,5 pasos de la raya, y lo que no se pisa. **El lienzo va a todo el alto, como
+  el mapa** (20-10-2026, decisión del usuario: «al hacer la pantalla más estrecha se encoge la parte
+  donde se ve la base»; iba en un marco 20:11 que encogía con el ancho): el paso es el de una
+  batalla en un marco 20:11 de ese alto (`pasoDeLaBase(alto)` → `escalaDelCombate`, el encuadre
+  aprobado el 09-10: 85,7 a 594 de alto, 111,5 a 773; en el móvil, al alto del mapa, 513 en 390×844, con el
+  ancho de 860 de la batalla del móvil) y lo que
+  cambia con el ancho es cuánta plaza se ve. El suelo va a 25°. Toda figura va delante de todo
+  edificio. Un sitio sin construir enseña la placa. Camina el héroe si está dentro y, si no, el
+  alcaide; un clic lleva a la puerta y, al llegar, el ayuntamiento o el castillo abren «Ampliar»,
+  una morada su escena y una persona la conversación (`<dialog id="conversacion">`). **La morada
+  es la base misma** (`Scene = 'morada'`, `escenas/morada.ts`, vuelta 2 del 20-10-2026: «queda una
+  sala en el vacío»): la cámara de la base se acerca hasta que las figuras miden lo de su hoja
+  (`pasoDeLaHoja`; nunca se aleja, así que a densidad 1,5 casi no se mueve) y se centra en el
+  edificio con su tope (`encuadrarLaMorada`), el edificio se cambia por su **versión abierta**
+  (casa de muñecas, sin la pared de delante: `abierta-<id>.webp`, `abiertaDe`; la única
+  sustitución, `conLaAbierta`; sin ella, su exterior) y delante, en el empedrado
+  (`FILA_DE_LOS_RECLUTAS`), una figura por unidad que produce, que se elige con el clic o su botón
+  del lateral (la ficha y «+1»/«Todo» con el motivo del núcleo escrito, `views/morada.ts`); quien
+  anduvo, quieto en la puerta, y la gente, fuera (`componerBase(…, { gente: false })`). Escape o
+  «Volver a la base» vuelven con la cámara de antes. La gente se pinta con el Y Bot sin
   armas (`CUERPO_DE_VECINO`). Qué se levanta en cada sitio es del núcleo (`sitiosDeLaBase`);
   dónde, del JSON, que **el núcleo no lee**. Contratar no pide taberna. Taller: `encolar --base
-  templarios`, `recortar-base`, `medir-base`, `vista-base`; las fuentes (maestros,
-  ediciones, guías con la silueta del adulto como vara de medir, hojas de identidad) en
+  templarios` (también `--solo=retoque-<id>`: un primer eslabón pintado otra vez sobre la placa,
+  que manda en su cuadro si está en disco, `cuadroDe`; y `--solo=abierta-<id>`: la versión abierta
+  de una morada, su cuadro editado), `recortar-base`, `medir-base`, `vista-base`; las fuentes
+  (maestros, ediciones, retoques, versiones abiertas, guías con la silueta del adulto como vara de
+  medir, hojas de identidad y las salas de la vuelta 1 de la morada, `interior-<id>.webp`, que la
+  versión abierta lleva de referencia) en
   `assets/bases/<f>/fuentes/`, fuera del build. Sin placa, un tramo pinta su marcador. **Los
   templarios heredan el arte de los caballeros** (19-10-2026): sus moradas van en los sitios que
   ese arte pinta (Pueblo 1, Forja 3, Establos 5 y Monasterio 6; el 2 y el 4, sin edificio) y su

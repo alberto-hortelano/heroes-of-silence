@@ -33,6 +33,7 @@ import {
   type DerivadaEnElIndice,
   disposicionDe,
   filaDelPanorama,
+  INDICE_VACIO,
   type IndiceDeLaBase,
   type RecorteEnElIndice,
   type Region,
@@ -40,11 +41,15 @@ import {
   TRAMO,
 } from '../../src/shared/base.js';
 import {
+  abiertaDelJuego,
+  abiertaPintada,
   cuadroDe,
   dirDeLaBase,
   edificiosConArte,
   maestroDelTramo,
+  moradasDeLaBase,
   placaDelTramo,
+  recorteDelJuego,
   sueloDeLaBase,
   tramoDelJuego,
 } from './base.js';
@@ -242,22 +247,12 @@ const MAXIMO_DEL_PIE = 64;
 const PIE_CERCA_DE_LAS_PUERTAS = 40;
 
 /**
- * La línea del pie de un cuadro, columna a columna: la primera fila que ya es
- * empedrado. Lo que se parece al empedrado lo dice el propio cuadro (sus filas
- * de abajo): color y tono desenfocados, en distancias de su desviación. El pie
- * de todo el cuadro es la fila donde lo de encima deja de parecerse y lo de
- * debajo se parece, y el de cada columna se busca cerca de él (lejos, el muro de
- * piedra de encima también se parece). Codex pinta el empedrado a la altura que
- * quiere en cada cuadro (en F2, 705 en T1 y 650 en T2), así que se mide.
+ * Lo lejos que está cada píxel del empedrado de un cuadro (RGB), en distancias
+ * de su desviación y con tope: lo que se parece al empedrado lo dice el propio
+ * cuadro, sus filas de abajo (`MUESTRA_DEL_EMPEDRADO`), en color y tono
+ * desenfocados. Lo lee la línea del pie de la plaza.
  */
-export function lineaDelPie(
-  ancho: number,
-  alto: number,
-  rgb: Uint8Array,
-  puertas?: number,
-): Int16Array {
-  const W = ancho;
-  const H = alto;
+function lejosDelEmpedrado(W: number, H: number, rgb: Uint8Array): Float32Array {
   const canal = (c: number): Pixeles => {
     const v = new Uint8Array(W * H);
     for (let i = 0; i < W * H; i++) v[i] = en(rgb, i * 3 + c);
@@ -290,8 +285,7 @@ export function lineaDelPie(
         desv[c] = (desv[c] as number) + ((f[c] as number) - (media[c] as number)) ** 2;
     }
   for (let c = 0; c < 3; c++) desv[c] = Math.max(2, Math.sqrt((desv[c] as number) / n));
-  // Lo lejos que está cada píxel del empedrado, con tope: una piedra muy clara
-  // del empedrado no pesa más que diez.
+  // Con tope: una piedra muy clara del empedrado no pesa más que diez.
   const lejos = new Float32Array(W * H);
   for (let i = 0; i < W * H; i++) {
     const f = rasgo(i);
@@ -300,31 +294,70 @@ export function lineaDelPie(
       s += (((f[c] as number) - (media[c] as number)) / (desv[c] as number)) ** 2;
     lejos[i] = Math.min(6, Math.sqrt(s));
   }
+  return lejos;
+}
+
+/**
+ * La mejor fila de `perfil` entre `desde` y `hasta` para ser el pie: mucho de
+ * encima lejos del empedrado y poco de debajo (`VENTANA_DEL_PIE` a cada lado), y
+ * lo que le saca a lo de debajo (`fuerza`, en distancias): con poca, encima y
+ * debajo son lo mismo y no hay pie que medir.
+ */
+function corteDelPie(
+  perfil: Float64Array,
+  desde: number,
+  hasta: number,
+): { readonly fila: number; readonly fuerza: number } {
   const V = VENTANA_DEL_PIE;
-  /** La mejor fila de `perfil` entre `desde` y `hasta`: mucho de encima lejos y poco de debajo. */
-  const corte = (perfil: Float64Array, desde: number, hasta: number): number => {
-    const acum = new Float64Array(perfil.length + 1);
-    for (let y = 0; y < perfil.length; y++)
-      acum[y + 1] = (acum[y] as number) + (perfil[y] as number);
-    let mejor = -Infinity;
-    let fila = desde;
-    for (let y = Math.max(V, desde); y <= Math.min(H - V, hasta); y++) {
-      const encima = ((acum[y] as number) - (acum[y - V] as number)) / V;
-      const debajo = ((acum[y + V] as number) - (acum[y] as number)) / V;
-      const e = encima - 1.6 * debajo;
-      if (e > mejor) {
-        mejor = e;
-        fila = y;
-      }
+  const acum = new Float64Array(perfil.length + 1);
+  for (let y = 0; y < perfil.length; y++) acum[y + 1] = (acum[y] as number) + (perfil[y] as number);
+  let mejor = -Infinity;
+  let fila = desde;
+  let fuerza = 0;
+  for (let y = Math.max(V, desde); y <= Math.min(perfil.length - V, hasta); y++) {
+    const encima = ((acum[y] as number) - (acum[y - V] as number)) / V;
+    const debajo = ((acum[y + V] as number) - (acum[y] as number)) / V;
+    const e = encima - 1.6 * debajo;
+    if (e > mejor) {
+      mejor = e;
+      fila = y;
+      fuerza = encima - debajo;
     }
-    return fila;
-  };
+  }
+  return { fila, fuerza };
+}
+
+/** La media de `lejos` en cada fila del cuadro entero: el perfil con que se corta todo el cuadro. */
+function porFilas(lejos: Float32Array, W: number, H: number): Float64Array {
   const filas = new Float64Array(H);
   for (let y = 0; y < H; y++) {
     let s = 0;
     for (let x = 0; x < W; x++) s += lejos[y * W + x] as number;
     filas[y] = s / W;
   }
+  return filas;
+}
+
+/**
+ * La línea del pie de un cuadro, columna a columna: la primera fila que ya es
+ * empedrado (`lejosDelEmpedrado`). El pie de todo el cuadro es la fila donde lo
+ * de encima deja de parecerse y lo de debajo se parece, y el de cada columna se
+ * busca cerca de él (lejos, el muro de piedra de encima también se parece).
+ * Codex pinta el empedrado a la altura que quiere en cada cuadro (en F2, 705 en
+ * T1 y 650 en T2), así que se mide.
+ */
+export function lineaDelPie(
+  ancho: number,
+  alto: number,
+  rgb: Uint8Array,
+  puertas?: number,
+): Int16Array {
+  const W = ancho;
+  const H = alto;
+  const lejos = lejosDelEmpedrado(W, H, rgb);
+  const corte = (perfil: Float64Array, desde: number, hasta: number): number =>
+    corteDelPie(perfil, desde, hasta).fila;
+  const filas = porFilas(lejos, W, H);
   const todo =
     puertas === undefined
       ? corte(filas, Math.round(H * PIE_ENTRE[0]), Math.round(H * PIE_ENTRE[1]))
@@ -589,11 +622,15 @@ export interface RecorteDerivado {
  * (lo de debajo es empedrado, y el del juego va debajo de todo) y recortada a
  * lo que tiene alfa. La diferencia se hace en una ventana de la región con
  * `HOLGURA` alrededor, no en el tramo entero: es la misma imagen y tarda una
- * fracción.
+ * fracción. `fuente` es el cuadro del que sale: el suyo (`cuadroDe`) o el de su
+ * versión abierta (`abiertaPintada`), que se recorta igual.
  */
-export async function derivarRecorte(f: FactionId, id: string): Promise<RecorteDerivado> {
+export async function derivarRecorte(
+  f: FactionId,
+  id: string,
+  fuente = `${cuadroDe(f, id)}.webp`,
+): Promise<RecorteDerivado> {
   const { tramo, region } = disposicionDe(f).sitios[sitioDeEdificio(f, id).id];
-  const fuente = `${cuadroDe(f, id)}.webp`;
   const placa = `${placaDelTramo(f, tramo)}.webp`;
   for (const r of [fuente, placa])
     if (!existsSync(join(RAIZ, r))) throw new Error(`no se puede recortar "${id}": falta ${r}`);
@@ -828,8 +865,9 @@ function sumarElCielo(cielo: { suma: number[]; n: number }, t: TramoDerivado): v
 }
 
 /**
- * Deriva lo que pinta el juego de cada tramo con placa, el suelo y el recorte de
- * cada edificio cuyo cuadro y placa ya están, y escribe el índice
+ * Deriva lo que pinta el juego de cada tramo con placa, el suelo, el recorte de
+ * cada edificio cuyo cuadro y placa ya están y la versión abierta de cada morada
+ * que Codex ya pintó (como un recorte más, de `abiertaPintada`), y escribe el índice
  * (`assets/bases/<f>/indice.json`); borra lo que ya no se puede derivar. Es
  * idempotente: con las mismas fuentes, los mismos ficheros. Devuelve lo que
  * tiene que saber quien lo llama: qué se recortó y qué toca su región.
@@ -863,7 +901,7 @@ export async function recortarLaBase(
   } else if (existsSync(join(RAIZ, rutaDelSuelo))) await rm(join(RAIZ, rutaDelSuelo));
   const ids = edificiosConArte(f);
   const recortes = await deCuatroEnCuatro(ids, async (id) => {
-    const ruta = `${dirDeLaBase(f)}/${id}.webp`;
+    const ruta = recorteDelJuego(f, id);
     let r: RecorteDerivado;
     try {
       r = await derivarRecorte(f, id);
@@ -890,6 +928,39 @@ export async function recortarLaBase(
     if (r.toca.length > 0)
       avisos.push(`${id}: lo recortado toca el borde de su región en ${r.toca.join(' y ')}`);
   }
+  // Las versiones abiertas, en el orden de las moradas: un recorte más, de su
+  // fuente. Sin ella (o sin placa), nada, y lo viejo se borra.
+  const moradas = moradasDeLaBase(f);
+  const derivadas = await deCuatroEnCuatro(moradas, async (id) => {
+    const ruta = abiertaDelJuego(f, id);
+    const fuente = `${abiertaPintada(f, id)}.webp`;
+    if (!existsSync(join(RAIZ, fuente))) {
+      if (existsSync(join(RAIZ, ruta))) await rm(join(RAIZ, ruta));
+      return null;
+    }
+    const r = await derivarRecorte(f, id, fuente).catch(async (err: unknown) => {
+      if (existsSync(join(RAIZ, ruta))) await rm(join(RAIZ, ruta));
+      if (!(err instanceof Error && /falta /.test(err.message))) throw err;
+      return null;
+    });
+    if (r === null) return null;
+    const entrada: RecorteEnElIndice = {
+      ...(await escribirDerivada(ruta, r.rgba, r.ancho, r.alto, 4)),
+      tramo: r.tramo,
+      en: r.en,
+    };
+    return { entrada, toca: r.toca };
+  });
+  const abiertas: Record<string, RecorteEnElIndice> = {};
+  for (const [i, id] of moradas.entries()) {
+    const r = derivadas[i];
+    if (r === null || r === undefined) continue;
+    abiertas[id] = r.entrada;
+    if (r.toca.length > 0)
+      avisos.push(
+        `${id} abierta: lo recortado toca el borde de su región en ${r.toca.join(' y ')}`,
+      );
+  }
   const indice: IndiceDeLaBase = {
     tramos,
     suelo,
@@ -902,6 +973,7 @@ export async function recortarLaBase(
             Math.round((cielo.suma[2] as number) / cielo.n),
           ],
     edificios,
+    abiertas,
     derivadoPor: 'tools/taller/recorte-base.ts',
   };
   await writeFile(join(dir, 'indice.json'), `${JSON.stringify(indice, null, 2)}\n`);
@@ -911,15 +983,7 @@ export async function recortarLaBase(
 /** El índice escrito de una facción, o el vacío si no hay. */
 export async function indiceEscrito(f: FactionId): Promise<IndiceDeLaBase> {
   const ruta = join(RAIZ, dirDeLaBase(f), 'indice.json');
-  if (!existsSync(ruta)) {
-    return {
-      tramos: placasDeLaBase(f).map(() => null),
-      suelo: null,
-      cielo: null,
-      edificios: {},
-      derivadoPor: 'tools/taller/recorte-base.ts',
-    };
-  }
+  if (!existsSync(ruta)) return { ...INDICE_VACIO, tramos: placasDeLaBase(f).map(() => null) };
   return JSON.parse(await readFile(ruta, 'utf8')) as IndiceDeLaBase;
 }
 

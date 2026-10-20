@@ -89,7 +89,7 @@
   color: var(--titulo);
   font: 1rem var(--letra-titulo);
   text-decoration: underline dotted;
-  /* Los nombres del taller son largos («Hermano de carga (montado; antes…)»):
+  /* Los nombres del taller son largos («Guerrero con arma a dos manos»):
      en la tarjeta se recortan, y entero se lee en la ficha (M8 de QA). */
   overflow: hidden;
   text-overflow: ellipsis;

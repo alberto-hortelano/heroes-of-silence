@@ -1,0 +1,59 @@
+{
+  "encargo": "interior-templarios-establos",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T13:42:18.318Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1598a-fb0b-73e1-aefe-c275e568fce9",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 3 es la GUÍA DE LA SALA: el gris OSCURO de arriba es la PARED del fondo y el gris CLARO de abajo es el SUELO por el que se anda, plano, con su borde de atrás RECTO y a la misma altura de punta a punta; las SILUETAS OSCURAS son ADULTOS de pie a su tamaño real en este cuadro, con los pies donde irá la gente: son la VARA DE MEDIR de todo. No pintes sus grises lisos ni sus siluetas.\nLa imagen 4 es el EXTERIOR del edificio cuyo INTERIOR se pide: manda en qué edificio es, sus materiales, sus colores y su heráldica, que el interior repite por dentro. No manda en el encuadre ni en la escala: no lo pintes por fuera.\n\nLa imagen 2 da además la heráldica de la facción (cruz roja sobre blanco).\nEl INTERIOR de los establos de la caballería: una nave de madera con los pesebres y el heno al fondo, sillas de montar, bridas y gualdrapas blancas con cruz roja colgadas de la pared, y lanzas de caballería apoyadas en un armero; sin caballos (en el juego, «Establos»), visto DE CERCA y desde dentro. Formato apaisado de 1536×1024. Cámara ORTOGRÁFICA elevada 25 grados sobre la horizontal, DE FRENTE a la pared del fondo, como el escenario de un combate visto de lado. Nunca cenital ni de perfil. Paredes verticales, nada inclinado.\nLA GUÍA MANDA EN EL SUELO Y EN LA ESCALA: el suelo es plano y empieza en la fila 563 (el borde de atrás del gris claro), con la pared del fondo apoyada justo ahí, recta y a la misma altura de punta a punta de la imagen; del borde de atrás del suelo hacia abajo, solo suelo hasta el borde de la imagen. Las siluetas son adultos de 160 px de alto (1,75 m) con los pies en la fila 670, y el rectángulo oscuro de la pared del fondo es una puerta de 2 m (184 px): dan la escala de TODO. La sala es para gente de ese tamaño, y es MÁS PEQUEÑA de lo que la pintarías sin guía: una puerta no pasa de 184 px; un banco, un pesebre o un saco de grano llegan a la rodilla de una silueta (unos 45 px); una mesa, un yunque o un altar, a su cadera (unos 88 px); la boca de un hogar, a su pecho; un barril, a medio muslo. Mídelo contra las siluetas antes de pintar. Si la sala lleva puerta, de ese tamaño; si no, el rectángulo es solo la vara de medir y no se pinta.\nLA SALA VA VACÍA: ninguna persona, animal ni texto. El suelo de delante, DESPEJADO de punta a punta: nada en él, ni alfombras, ni muebles, ni objetos sueltos, ni sombras de cosas que no se ven. Los muebles, los aperos y lo que se cuelga van contra la pared del fondo, con su pie en el borde de atrás del suelo. Ahí delante se pondrá la gente del juego.\nLa imagen 4 es este edificio por fuera: por dentro tiene sus mismos materiales, colores y heráldica. No pintes la fachada.\nUna sola luz para toda la imagen, de dentro: la de su fuego, sus ventanas o sus cirios, sobria. No pintes los grises lisos ni las siluetas de la guía: son indicaciones.\nPALETA: SOBRIA y poco saturada, como la imagen 1: piedra gris y ocre apagado, madera parda, hierro oscuro, tela blanca gastada, verde oliva oscuro. Nada de colores vivos salvo el rojo de la cruz. Sombras suaves.\nEstilo: ilustración pintada de fantasía medieval oscura, materiales gastados.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-escudo.png",
+      "papel": "estilo",
+      "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
+    },
+    {
+      "ruta": "assets/bases/templarios/fuentes/guia-interior.png",
+      "papel": "sala",
+      "sha256": "46b6a70734f8e0cb8b2e103199f649132508ec006c64331fc4efb22249514ffb"
+    },
+    {
+      "ruta": "assets/bases/templarios/fuentes/identidad-interior-templarios_establos.png",
+      "papel": "exterior",
+      "sha256": "b6199510272f94e128ca6e9fa30c1ca556e101dcd387d7ae73c9fd0f9f772aae"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1598a-fb0b-73e1-aefe-c275e568fce9/call_23c32a0e698b46cf9dd670111627e3df.png",
+    "sha256": "b436c55afd301f97f8308b5ac47b028ff714c88db13ce11039226e54cf837fb5",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 13 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x1 (1020)",
+    "town_hall: lo recortado toca el borde de su región en x0 (512) y x1 (1020)",
+    "city_hall: lo recortado toca el borde de su región en x0 (512) y x1 (1020)",
+    "castle: lo recortado toca el borde de su región en x0 (1020)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (476)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (476)",
+    "tavern: lo recortado toca el borde de su región en x0 (476)",
+    "templarios_establos: lo recortado toca el borde de su región en x0 (755)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/templarios/fuentes/interior-templarios_establos.webp",
+    "sha256": "853823af488ff0ebb18e08086483334e945c245f12f998a72b09f1eaaaaccc8b"
+  }
+}

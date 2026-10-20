@@ -1,0 +1,50 @@
+{
+  "encargo": "base-templarios-abierta-templarios-forja",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T15:17:44.792Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a159e2-7125-7d42-a657-6fc3fe20e778",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\nLa imagen 2 es la SALA de ese edificio por dentro: de ella salen los muebles, los materiales, la luz y la heráldica de lo que se ve al abrirlo. NO manda en el encuadre ni en la escala: va DENTRO del edificio de la imagen 1, a la escala de su plaza, no a pantalla entera.\n\nEl único cambio: el edificio 1 empezando por la izquierda (el cuartel de piqueros (la forja), el que está entre las columnas 64 y 755) se ABRE como una CASA DE MUÑECAS: se le quita la PARED DE DELANTE (la fachada entera, con su puerta y sus ventanas) y se ve su sala por dentro: la forja del cuartel de piqueros: una nave de piedra con la fragua encendida al fondo, un yunque y un barril de templar junto a ella, y contra la pared armeros con picas, lanzas y escudos blancos con cruz roja. La imagen 2 dice cómo es la sala por dentro.\nEs el MISMO edificio, en el MISMO sitio, con el MISMO tamaño y el MISMO contorno: el tejado y los muros de los lados se quedan, cortados limpios donde estaba la fachada, y se ve el grueso de la pared en el corte. El suelo de la sala va a ras del borde de atrás del empedrado, donde estaba el umbral de la puerta, y la sala se ve desde la plaza con la misma cámara que todo el cuadro (ortográfica, elevada 25 grados, de frente). La luz de dentro, la de su fuego, sus ventanas o sus cirios, sobria.\nA la escala de la plaza: un adulto mide 122 px de alto en este cuadro, y los muebles van a su medida (un banco o un saco, a su rodilla; una mesa, un yunque o un altar, a su cadera). La sala va VACÍA: ninguna persona ni animal, que la gente del juego se pone delante, en el empedrado.\nFuera de ese edificio, NADA cambia: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza. Lo nuevo no pasa de las columnas 64 y 755.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/templarios/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "5c5ee6548fcd1f4a8a9f5c5d58755daccf135ec2ffac5b3e87dce1a9d9643f56"
+    },
+    {
+      "ruta": "assets/bases/templarios/fuentes/interior-templarios_forja.webp",
+      "papel": "interior",
+      "sha256": "3c33edcf67bc14701b4cb3b832f97238eba6b2e0d278858334155314cd3a5ecd"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a159e2-7125-7d42-a657-6fc3fe20e778/call_f7d590941f2d40a29ed1aca09af29e8c.png",
+    "sha256": "2084056dcd5e9fe95c83d9bc444545f6b4f0455fee6e1076489c757af83896ae",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 13 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x1 (1020)",
+    "town_hall: lo recortado toca el borde de su región en x0 (512) y x1 (1020)",
+    "city_hall: lo recortado toca el borde de su región en x0 (512) y x1 (1020)",
+    "castle: lo recortado toca el borde de su región en x0 (1020)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (476)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (476)",
+    "tavern: lo recortado toca el borde de su región en x0 (476)",
+    "templarios_establos: lo recortado toca el borde de su región en x0 (755)",
+    "templarios_establos abierta: lo recortado toca el borde de su región en x0 (755)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/templarios/fuentes/abierta-templarios_forja.webp",
+    "sha256": "bdf703874bcc717f97e1aeb93fbb0381669d454061ffcdbc468d5d6c3da8ed77"
+  }
+}

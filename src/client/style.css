@@ -391,9 +391,10 @@ button.primary:hover:not(:disabled) { background: var(--boton-primario-encima); 
 /* Los botones que quitan lo que lleva, en su propia línea y a la medida del texto. */
 .stack .quitar-equipo { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.2rem; }
 .stack .quitar-equipo button { font-size: 0.75em; padding: 0.1rem 0.4rem; }
-/* La escena de la tropa: el motivo de un botón apagado va escrito, no en un `title`
-   (en el móvil no hay ratón que lo enseñe), y lo de serie dice que lo es. */
-.stack .motivo-apagado { display: block; font-size: 0.75em; color: var(--ink-dim); }
+/* El motivo de un botón apagado va escrito debajo, no en un `title` (en el móvil
+   no hay ratón que lo enseñe): el mismo en la tropa y en la morada
+   (`motivoApagado`, `views/cifras.ts`). Y en la tropa lo de serie dice que lo es. */
+.motivo-apagado { display: block; font-size: 0.8em; color: var(--ink-dim); }
 .stack .de-serie { font-size: 0.78em; color: var(--ink-dim); }
 
 progress.liderazgo {
@@ -463,21 +464,13 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
 .log .lose { color: var(--danger); }
 
 /*
- * La base en el escritorio: un marco apaisado (alto = 0,55 × ancho), no el alto
- * entero de la columna. Con el paso del combate (`pasoDeLaBase`) un tramo de la
- * plaza mide 8 pasos de alto, y en un lienzo de 1080×773 (8,7 pasos) cabía entero
- * con cielo encima: la plaza se leía como un descampado. A 0,55 se ven las
- * puertas y lo que entre de alto, y los edificios altos se cortan por arriba. No
- * baja de 0,495, donde el combate deja de ir por el ancho: así el paso es el
- * mismo que el de una batalla en el lienzo entero. La escena de la tropa va en el
- * mismo marco, con su propia cámara a la escala del combate (`encuadrarLaTropa`).
+ * La base, la tropa y la morada van en el marco del mapa, a todo el alto
+ * (20-10-2026, decisión del usuario: «al hacer la pantalla más estrecha se encoge
+ * la parte donde se ve la base; eso no pasa en el mapa»). Hasta entonces iban en un
+ * marco 20:11 que encogía con el ancho; su escala se quedó (`pasoDeLaBase`: la de
+ * una batalla en un marco 20:11 de ese alto), y lo que cambia con el ancho es
+ * cuánta plaza se ve.
  */
-#app[data-escena='town'] .map-wrap,
-#app[data-escena='tropa'] .map-wrap {
-  align-self: start;
-  aspect-ratio: 20 / 11;
-  max-height: 100%;
-}
 
 /*
  * Móvil: se apila todo y la página se desplaza. El tablero de batalla a 25° es
@@ -501,18 +494,11 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
   .map-wrap { height: 62dvh; }
   #app[data-escena='battle'] .map-wrap { overflow-x: auto; overflow-y: hidden; }
   #app[data-escena='battle'] #canvas { width: 860px; }
-  /* La base va en el marco del combate, 380 px de alto, y su figura mide lo que
-     en una batalla de 860 px (`pasoDeLaBase`, `ANCHO_DEL_COMBATE_EN_MOVIL`). El
-     marco no se desplaza: el escenario ya se recorre con su cámara, que sigue a
-     quien camina (`render/base/camara.ts`). */
-  /* La tropa, igual: a la escala de la batalla (decisión del usuario del
-     20-10-2026; agrandadas, las hojas pixelaban). En el marco apaisado de 349 px
-     el paso del combate salía de su alto y las figuras medían la mitad. */
-  #app[data-escena='battle'] .map-wrap,
-  #app[data-escena='town'] .map-wrap,
-  #app[data-escena='tropa'] .map-wrap { height: 380px; }
-  #app[data-escena='town'] .map-wrap,
-  #app[data-escena='tropa'] .map-wrap { aspect-ratio: auto; }
+  /* La base, la tropa y la morada, al alto del mapa también aquí (QA I2 de la
+     vuelta 2, 20-10-2026: «no debe pasar en la base. Que se ajuste a máxima
+     altura»); su marco no se desplaza: el escenario se recorre con su cámara, que
+     sigue a quien camina (`render/base/camara.ts`). La batalla, a su marco de 380. */
+  #app[data-escena='battle'] .map-wrap { height: 380px; }
   .map-tools button { min-width: 44px; min-height: 44px; }
   #lateral { border-left: 0; padding: 12px 0 0; }
   .atlas-panel { max-width: 150px; }
@@ -553,7 +539,8 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .conversacion .linea { font-family: var(--letra-titulo); font-size: 1.05em; margin: 0.4rem 0 0.6rem; }
 .abierto-en-la-base { border-bottom: 1px solid var(--borde-oscuro); padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
 .abierto-en-la-base .motivo { color: var(--rechazo); }
-.abierto-en-la-base .reclutar { grid-template-columns: 1fr 1fr; margin: 0.4rem 0; }
+/* La escena de la morada: «+1» y «Todo» uno al lado del otro. */
+.ficha-de-la-morada .reclutar { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin: 0.4rem 0; }
 
 /*
  * Lo que suma una pieza (`modificadoresEnPantalla`): una pastilla por cifra, la

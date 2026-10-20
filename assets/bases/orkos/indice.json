@@ -9,5 +9,6 @@
   "suelo": null,
   "cielo": null,
   "edificios": {},
+  "abiertas": {},
   "derivadoPor": "tools/taller/recorte-base.ts"
 }

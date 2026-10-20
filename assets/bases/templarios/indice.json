@@ -161,13 +161,13 @@
     "templarios_pueblo": {
       "imagen": "templarios_pueblo.webp",
       "ancho": 404,
-      "alto": 396,
-      "sha256": "112dd4c5c194dac2d13928f8c59c93e2f4a4a3dd39519e5acbcbd4ccbd238359",
-      "origen": "255bcda1cef2390482a8576f6226e3426ffa7e539c470bc957677f140a0e094e",
+      "alto": 390,
+      "sha256": "f479259f187625c97f6e9c43aeb9ce6443c712aca7f5c0d2c2c3d9d65d2cb3c0",
+      "origen": "a6c61f2573cb4815f57358e2246c0be33e10ce906247db10cbb4747b557644d1",
       "tramo": 3,
       "en": [
         108,
-        273
+        234
       ]
     },
     "templarios_forja": {
@@ -203,6 +203,56 @@
       "tramo": 1,
       "en": [
         14,
+        0
+      ]
+    }
+  },
+  "abiertas": {
+    "templarios_pueblo": {
+      "imagen": "abierta-templarios_pueblo.webp",
+      "ancho": 404,
+      "alto": 469,
+      "sha256": "a6441c9ab419928ded880f073bcf9e5aec4429d0f28f5ba1db2f449025e92411",
+      "origen": "e5aa7e8e8b5c177ed944aad879d466a6c64cf9b164e703368a5fd952a7438e60",
+      "tramo": 3,
+      "en": [
+        108,
+        155
+      ]
+    },
+    "templarios_forja": {
+      "imagen": "abierta-templarios_forja.webp",
+      "ancho": 678,
+      "alto": 502,
+      "sha256": "93e4c4b1ed88c7f3a7eef848e8e083f73c29bd25fc68ddb5838331f0e89b4603",
+      "origen": "157baf0f6f164316116425bd4b56d4c6c0392d444eed97a49e852cc4d99dbdc0",
+      "tramo": 5,
+      "en": [
+        77,
+        211
+      ]
+    },
+    "templarios_establos": {
+      "imagen": "abierta-templarios_establos.webp",
+      "ancho": 781,
+      "alto": 461,
+      "sha256": "4447cc5a049501512797667202eca10c8ef8184508f9f179d245739138d67683",
+      "origen": "089fc9b5a163f2bec0ab763907524ce944cbe44a0ad22d617389d50ff832b56a",
+      "tramo": 5,
+      "en": [
+        755,
+        243
+      ]
+    },
+    "templarios_monasterio": {
+      "imagen": "abierta-templarios_monasterio.webp",
+      "ancho": 647,
+      "alto": 799,
+      "sha256": "3f41309e1a26e24aea0f835741b44daac3de73540fa6ca584302424177bf3de4",
+      "origen": "9c8b7b46452b6ba2789accdb1027fa255287286451d7c46d72a528b41d850248",
+      "tramo": 1,
+      "en": [
+        17,
         0
       ]
     }

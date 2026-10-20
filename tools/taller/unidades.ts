@@ -286,7 +286,7 @@ export const UNIDADES: readonly Unidad[] = [
   {
     id: 'templario-hermano-de-carga',
     faccion: 'templarios',
-    nombre: 'Hermano de carga (montado; antes Caballero montado)',
+    nombre: 'Hermano de carga',
     perfil: 'montado-lanza',
     concepto: 'assets/art/templarios/caballero-montado.png',
     aspecto:
@@ -375,7 +375,7 @@ export const UNIDADES: readonly Unidad[] = [
   {
     id: 'jinete-de-plaga',
     faccion: 'no-muertos',
-    nombre: 'Jinete de plaga (a caballo)',
+    nombre: 'Jinete de plaga',
     perfil: 'montado-lanza',
     concepto: 'assets/art/no-muertos/jinete-de-plaga.png',
     aspecto:
@@ -549,7 +549,7 @@ export const UNIDADES: readonly Unidad[] = [
   {
     id: 'elfo-jinete',
     faccion: 'elfos',
-    nombre: 'Jinete (a caballo)',
+    nombre: 'Jinete',
     perfil: 'montado-lanza',
     perfilEnLaArena: 'montado-arco',
     concepto: 'assets/art/elfos/jinete.png',
@@ -669,7 +669,7 @@ export const UNIDADES: readonly Unidad[] = [
   {
     id: 'goblin-jinete-de-hiena',
     faccion: 'orkos',
-    nombre: 'Jinete de hiena (goblin)',
+    nombre: 'Jinete de hiena',
     perfil: 'montado-lanza',
     concepto: 'assets/art/orkos/jinete-de-hiena.png',
     talla: 0.7,

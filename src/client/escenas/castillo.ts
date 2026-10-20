@@ -5,7 +5,8 @@
  * la franja lo lleva andando hasta allí en recta (fuera de ella, al punto más
  * cercano dentro: `alaFranja`), resbalando por el borde de atrás, que sigue los
  * umbrales pintados y no es convexo; un clic en un edificio lo lleva a su puerta y, al llegar, abre lo
- * suyo —el ayuntamiento y el castillo, «Ampliar»; una morada, su reclutamiento—;
+ * suyo —el ayuntamiento y el castillo, «Ampliar»; una morada, su escena, donde se
+ * recluta (`Session.abrirLaMorada`, `escenas/morada.ts`)—;
  * un clic en una persona lo lleva a su lado y abre la conversación. Un clic en
  * el suelo cierra lo abierto. Desde la lista de edificios del panel (`irA`) se
  * llega a una puerta sin cruzar la plaza: el escenario mide 58 pasos y a la vista
@@ -18,7 +19,7 @@
  * base no es una regla, no viaja en el estado y no lo ve el agente. Las reglas
  * —construir, reclutar— van por los botones del panel a la sesión, como siempre.
  */
-import { abreAmpliar, type SitioId } from '@core/town/sitios.js';
+import { abreAmpliar, moradaEn, type SitioId } from '@core/town/sitios.js';
 import type { FactionId } from '@core/types.js';
 import {
   alaFranja,
@@ -30,7 +31,7 @@ import {
 import { porElCamino } from '../anim.js';
 import { direccionHacia } from '../direccion.js';
 import { msPorCasilla } from '../marcha.js';
-import { arteDeLaBase } from '../render/base/arte.js';
+import { abiertaDe, arteDeLaBase, conLaAbierta } from '../render/base/arte.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../render/base/camara.js';
 import {
   componerBase,
@@ -41,6 +42,7 @@ import {
 import { type Golpe, queHayBajo } from '../render/base/golpe.js';
 import { pintarBase } from '../render/base/pintar.js';
 import { animarHasta } from '../render/figura.js';
+import { dondeEsperaEnLaMorada } from '../render/morada/fila.js';
 import { playerColor } from '../render/palette.js';
 import { ALTO_DE_FIGURA, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, type Session } from '../session.js';
@@ -59,7 +61,10 @@ export type Abierto =
   | { readonly tipo: 'sitio'; readonly sitio: SitioId }
   | { readonly tipo: 'pnj'; readonly id: string };
 
-/** Lo que se abre al llegar a la puerta de un sitio: «Ampliar» o lo suyo. */
+/**
+ * Lo que se abre al llegar a la puerta de un sitio: «Ampliar» o lo suyo. En una
+ * morada, lo suyo es su escena (`llegar`).
+ */
 function abiertoAlLlegar(sitio: SitioId): Abierto {
   return abreAmpliar(sitio) ? { tipo: 'ampliar' } : { tipo: 'sitio', sitio };
 }
@@ -231,10 +236,26 @@ export class EscenaBase {
     if (m.miraAlLlegar !== null) this.mira = m.miraAlLlegar;
     this.marcha = null;
     this.quietoDesde = ahora;
-    this.abiertoAhora = m.alLlegar;
+    this.llegar(m.alLlegar);
   }
 
-  private elementos(vista: VistaDeLaBase, d: Disposicion, ahora: number): Elemento[] {
+  /**
+   * Lo que pasa al llegar, andando o desde la lista (`irA`): la puerta de una
+   * morada (`moradaEn`) cambia de escena —la sesión la abre y aquí no queda nada
+   * abierto, así que al volver quien anduvo está quieto en su puerta—; lo demás
+   * se abre en el panel.
+   */
+  private llegar(a: Abierto | null): void {
+    const town = this.sesion().activeTown;
+    if (a?.tipo === 'sitio' && town !== null && moradaEn(town, a.sitio).edificio !== null) {
+      this.abiertoAhora = null;
+      this.sesion().abrirLaMorada(a.sitio);
+      return;
+    }
+    this.abiertoAhora = a;
+  }
+
+  private elementos(vista: VistaDeLaBase, d: Disposicion, ahora: number, gente = true): Elemento[] {
     const andando = this.marcha !== null;
     return componerBase(
       d,
@@ -246,6 +267,7 @@ export class EscenaBase {
         tiempo: andando ? ahora - (this.marcha?.empieza ?? 0) : ahora - this.quietoDesde,
       },
       ahora,
+      { gente },
     );
   }
 
@@ -263,6 +285,33 @@ export class EscenaBase {
       arte: this.arte(b.vista),
       color: playerColor(b.vista.owner),
       señalado: this.señalado,
+    });
+  }
+
+  /**
+   * La base detrás de la morada de `edificio` (`escenas/morada.ts`), con la cámara
+   * de la morada (`encuadrarLaMorada`): la plaza de siempre, ese edificio cambiado
+   * por su versión abierta si la hay (`conLaAbierta`; si no, su exterior), quien
+   * anduvo quieto en su puerta y nadie más. No toca la cámara de la base ni su
+   * lienzo: al volver, la base está como se dejó.
+   */
+  pintarLaMorada(
+    ctx: CanvasRenderingContext2D,
+    lienzo: { readonly ancho: number; readonly alto: number },
+    camara: Tablero,
+    edificio: string,
+    ahora: number,
+  ): void {
+    const b = this.base();
+    if (b === null) return;
+    pintarBase(ctx, {
+      d: b.d,
+      t: camara,
+      lienzo,
+      elementos: this.elementos(b.vista, b.d, ahora, false),
+      arte: conLaAbierta(this.arte(b.vista), edificio, abiertaDe(b.vista.faccion, edificio)),
+      color: playerColor(b.vista.owner),
+      señalado: null,
     });
   }
 
@@ -331,7 +380,7 @@ export class EscenaBase {
         this.andar(d, vista, alaFranja(d, g.en), null, null, ahora);
         return;
       case 'sitio': {
-        this.andar(d, vista, d.sitios[g.sitio].puerta, abiertoAlLlegar(g.sitio), 'N', ahora);
+        this.andar(d, vista, this.adondeVa(d, g.sitio), abiertoAlLlegar(g.sitio), 'N', ahora);
         return;
       }
       case 'pnj': {
@@ -354,10 +403,15 @@ export class EscenaBase {
 
   /**
    * Desde la lista de edificios: quien camina aparece en la puerta de `sitio`,
-   * la cámara salta a ella y se abre lo suyo, igual que al llegar andando. Lanza
-   * si el sitio no tiene nada construido: la lista solo ofrece lo construido.
+   * la cámara salta a ella y se abre lo suyo (o se entra en la morada), igual que
+   * al llegar andando. Lanza si el sitio no tiene nada construido: la lista solo
+   * ofrece lo construido.
    */
   irA(sitio: string, ahora: number): void {
+    // Desde la morada (o la tropa) no se va a otro sitio de la base: la lista que
+    // lo pide es la de la base, y un clic que llega tarde (el segundo de un doble
+    // clic) no saca de donde ya se está (QA I3 de la vuelta 2).
+    if (this.sesion().scene !== 'town') return;
     const b = this.base();
     if (b === null) throw new Error(`no se puede ir a "${sitio}": no hay ninguna base abierta`);
     const e = b.vista.edificios.find((x) => x.sitio === sitio);
@@ -365,13 +419,24 @@ export class EscenaBase {
       throw new Error(`no se puede ir a "${sitio}": en esta base no hay nada construido ahí`);
     }
     this.marcha = null;
-    this.en = alaFranja(b.d, b.d.sitios[e.sitio].puerta);
+    this.en = alaFranja(b.d, this.adondeVa(b.d, e.sitio));
     this.mira = 'N';
     this.quietoDesde = ahora;
     this.camaraX = camaraQuieta(b.d, this.lienzo, this.en.x);
     this.camaraEn = ahora;
-    this.abiertoAhora = abiertoAlLlegar(e.sitio);
     this.sesion().status = AYUDA_DE_LA_BASE;
+    this.llegar(abiertoAlLlegar(e.sitio));
+  }
+
+  /**
+   * Adónde va quien camina al pulsar el sitio: a su puerta o, en una morada, a
+   * esperar delante de la fila de los reclutas (`dondeEsperaEnLaMorada`).
+   */
+  private adondeVa(d: Disposicion, sitio: SitioId): Plano {
+    const town = this.sesion().activeTown;
+    return town !== null && moradaEn(town, sitio).edificio !== null
+      ? dondeEsperaEnLaMorada(d, sitio)
+      : d.sitios[sitio].puerta;
   }
 
   private andar(

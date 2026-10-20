@@ -55,6 +55,20 @@ describe('la carpeta pública en el build', () => {
     }
   });
 
+  it('de la versión abierta de una morada, copia el recorte y deja fuera lo que pintó Codex, el retoque y su identidad', () => {
+    // La morada pide `abierta-<id>.webp` (`abiertaDe`); el cuadro de Codex, el
+    // retoque, su identidad y la sala de referencia solo los lee el taller.
+    expect(seCopiaAlBuild('bases/templarios/abierta-templarios_pueblo.webp')).toBe(true);
+    for (const f of [
+      'abierta-templarios_pueblo.webp',
+      'retoque-templarios_pueblo.webp',
+      'identidad-retoque-templarios_pueblo.png',
+      'interior-templarios_pueblo.webp',
+    ]) {
+      expect(seCopiaAlBuild(`bases/templarios/fuentes/${f}`), f).toBe(false);
+    }
+  });
+
   it('copia las letras de los temas con su licencia y deja fuera `art/` entero', () => {
     // Las letras viven en `letras/`: en `fuentes/` el build las dejaría fuera.
     for (const f of [

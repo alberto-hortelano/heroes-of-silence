@@ -115,6 +115,11 @@ const ESCENAS: readonly Escena[] = [
     url: '/?seed=7',
     hojas: PARTIDA,
     llegar: async (page) => {
+      // La partida abre en la base (19-10-2026): se sale al mapa, y la escena
+      // siguiente vuelve a ella por la lista de castillos.
+      await page.waitForSelector('#app[data-escena="town"]', { timeout: 60_000 });
+      await page.click('[data-action="close-town"]');
+      await page.waitForSelector('#app[data-escena="adventure"]');
       await esperarElSuelo(page, 'partida', 120_000, () => {}, 'esbozado');
     },
   },

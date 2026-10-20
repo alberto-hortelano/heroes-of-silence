@@ -197,6 +197,27 @@ export const CREATURE_TRAITS = [
 export type CreatureTrait = (typeof CREATURE_TRAITS)[number];
 
 /**
+ * Qué hace cada rasgo del motor, dicho en corto: la casilla de la ficha de la
+ * arena, el parte y la ficha de la morada. Vive junto a los rasgos y no en
+ * `core/arena.ts` porque la partida también los nombra, y la arena no la importa
+ * nadie más (`invariantes.test.ts`).
+ */
+export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
+  undead: 'no-muerto',
+  flying: 'vuela',
+  no_retaliation: 'sin contraataque',
+  double_attack: 'ataque doble',
+  double_shot: 'disparo doble',
+  life_drain: 'drena vida',
+  splash_shot: 'disparo con salpicadura',
+  charge: 'carga',
+  curse_on_hit: 'maldice al golpear',
+  bane_undead: 'azote de no-muertos',
+  fear: 'terror',
+  escalar: 'escala murallas',
+};
+
+/**
  * Lo que el motor de batalla necesita saber de una unidad para jugarla: las
  * cifras de combate, sin nada de economía.
  *

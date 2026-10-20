@@ -1,10 +1,10 @@
 /**
  * Dónde se pone cada uno en la escena de la tropa y con qué cámara se mira.
  *
- * Es un escenario lateral con el suelo a 25° (`COMPRESION_SUELO`) y **a la escala
- * del combate** como mucho (`pasoDeLaBase`, decisión del usuario del 20-10-2026):
- * las hojas no tienen resolución para más y, agrandadas para llenar la escena,
- * pixelaban. Solo se encoge si el arco no cabe (siete figuras en un móvil). Lo que
+ * Es un escenario lateral con el suelo a 25° (`COMPRESION_SUELO`) y **a la
+ * resolución de las hojas** como mucho (`pasoDeLaHoja`; decisiones del usuario del
+ * 20-10-2026: agrandadas para llenar la escena pixelaban, y a la escala del combate
+ * se veían muy pequeñas). Solo se encoge si el arco no cabe (siete figuras en un móvil). Lo que
  * sobra de alto se reparte con el grupo en la parte de abajo y el horizonte del
  * campo detrás del héroe, así que el grupo pisa suelo y no flota bajo el cielo.
  *
@@ -18,7 +18,17 @@
 import { COMPRESION_SUELO } from '../../../shared/arte.js';
 import type { Plano } from '../../../shared/base.js';
 import { type CajaDeFigura, cajaDeFiguraEn } from '../batalla.js';
-import { pasoDeLaBase, type Tablero } from '../proyeccion.js';
+import {
+  AL_PIE,
+  HORIZONTE_EN_LA_FIGURA,
+  LIBRE_DEBAJO,
+  type LienzoDePie,
+  MARGEN,
+  pasoDeLaHoja,
+  SEPARACION_MINIMA,
+  UNA,
+} from '../de-pie.js';
+import type { Tablero } from '../proyeccion.js';
 
 /** Lo que el héroe se mete hacia el fondo respecto a los extremos del arco, en pasos. */
 export const HONDO_DEL_ARCO = 1.5;
@@ -29,35 +39,10 @@ export const HONDO_DEL_ARCO = 1.5;
 export const PERSPECTIVA = 0.16;
 /**
  * La separación entre dos vecinos del lado largo del arco, en pasos: nunca más ni
- * menos. La caja de una figura mide 0,40 de ancho; con 0,43 queda un dedo entre
- * los dos extremos, que van delante y enteros, y entre los de dentro, más
- * pequeños, queda más.
+ * menos. Entre los dos extremos, que van delante y enteros, queda un dedo con la
+ * mínima, y entre los de dentro, más pequeños, queda más.
  */
-export const SEPARACION = { minima: 0.43, maxima: 0.75 } as const;
-/**
- * Lo que sobra de alto con las figuras a la escala del combate, cuánto va debajo
- * de los pies de delante: el resto queda encima del héroe, en el fondo del campo.
- */
-export const LIBRE_DEBAJO = 0.35;
-/**
- * El aire del encuadre, en partes del lienzo: encima del héroe, debajo de los
- * pies de delante (y además su aro, `AL_PIE`) y a cada lado.
- */
-const MARGEN = { arriba: 0.07, abajo: 0.04, lados: 0.04 } as const;
-/** Lo que el aro y la sombra bajan de los pies, en partes del alto de la figura. */
-const AL_PIE = 0.12;
-/**
- * El horizonte del campo del fondo, desde la cabeza del héroe hacia abajo, en
- * partes de su alto: detrás de los hombros. Así el grupo pisa suelo de punta a
- * punta y lo de arriba es la linde del bosque del campo, no cielo.
- */
-const HORIZONTE_EN_EL_HEROE = 0.3;
-
-/** Una figura de pie a un paso de un píxel: de ella salen el alto y el ancho en pasos. */
-const UNA = cajaDeFiguraEn(
-  { paso: 1, origenX: 0, origenY: 0, compresion: COMPRESION_SUELO },
-  { x: 0, y: 0 },
-);
+export const SEPARACION = { minima: SEPARACION_MINIMA, maxima: 0.75 } as const;
 
 /**
  * Cuántos de los `tropa` van a la izquierda del héroe y cuántos a la derecha: la
@@ -178,15 +163,12 @@ function pasoQueCabe(
 
 /**
  * La cámara de la escena para el héroe y `tropa` de los suyos en `lienzo`: el
- * héroe en el medio, el paso el del combate (`pasoDeLaBase`) o, si el arco no
+ * héroe en el medio, el paso el de la hoja (`pasoDeLaHoja`) o, si el arco no
  * cabe con él, el más grande con que cabe, y lo que sobra de alto repartido con
  * `LIBRE_DEBAJO` debajo de los pies. Con ese paso, la separación más abierta que quepa.
  */
-export function encuadrarLaTropa(
-  lienzo: { readonly ancho: number; readonly alto: number },
-  tropa: number,
-): EncuadreDeLaTropa {
-  const paso = Math.min(pasoDeLaBase(lienzo.ancho, lienzo.alto), pasoQueCabe(lienzo, tropa));
+export function encuadrarLaTropa(lienzo: LienzoDePie, tropa: number): EncuadreDeLaTropa {
+  const paso = Math.min(pasoDeLaHoja(lienzo.densidad), pasoQueCabe(lienzo, tropa));
   const libre = Math.max(
     0,
     lienzo.alto * (1 - MARGEN.arriba - MARGEN.abajo) - altoDelArco(tropa) * paso,
@@ -208,5 +190,5 @@ export function encuadrarLaTropa(
       bajoLosPies(colocarLaTropa(delArco(tropa), 1)) * paso,
   };
   const heroe = cajaEnLaTropa(camara, en[0]!);
-  return { camara, en, horizonte: heroe.suelo - heroe.alto * (1 - HORIZONTE_EN_EL_HEROE) };
+  return { camara, en, horizonte: heroe.suelo - heroe.alto * (1 - HORIZONTE_EN_LA_FIGURA) };
 }

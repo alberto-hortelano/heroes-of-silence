@@ -113,7 +113,8 @@ import {
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import { building } from '@core/town/buildings.js';
-import { construidoEn, sitiosConstruidos } from '@core/town/sitios.js';
+import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
+import type { Town } from '@core/town/town.js';
 import { alcaideDe, vecinosDeLaBase, vozDe } from '@core/town/voces.js';
 import {
   esHueco,
@@ -126,6 +127,7 @@ import {
   type UnitInfo,
 } from '@core/types.js';
 import { quienesDe } from './desenlace.js';
+import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
 
@@ -136,15 +138,30 @@ import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tr
 export const AYUDA_DEL_MAPA =
   'Haz clic en el mapa para mover a tu héroe; arrastra para mirar. Espacio pasa el turno.';
 
+/*
+ * Las ayudas de la barra nombran el botón de salir y, entre paréntesis, Escape: en
+ * un móvil no hay teclado (QA M7 de la morada, 20-10-2026).
+ */
+
 /** Lo que dice la barra en la base cuando el ratón no señala nada. */
 export const AYUDA_DE_LA_BASE =
-  'Pulsa el suelo para andar, un edificio para entrar o a alguien para hablar. Escape vuelve al mapa.';
+  'Pulsa el suelo para andar, un edificio para entrar o a alguien para hablar. «Volver al mapa» (o Escape) sale.';
 
 /** Lo que dice la barra en la escena de la tropa cuando el ratón no señala a nadie. */
 export const AYUDA_DE_LA_TROPA =
-  'Pulsa a alguien de la tropa para ver su ficha y repartirle equipo. Escape vuelve al mapa.';
+  'Pulsa a alguien de la tropa para ver su ficha y repartirle equipo. «Volver al mapa» (o Escape) sale.';
 
-export type Scene = 'adventure' | 'town' | 'battle' | 'tropa';
+/** Lo que dice la barra en la escena de una morada cuando el ratón no señala a nadie. */
+export const AYUDA_DE_LA_MORADA =
+  'Pulsa una figura para ver su ficha y reclutar. «Volver a la base» (o Escape) sale.';
+
+export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada';
+
+/** La morada de la base abierta en que se está y a quién se mira (`null`: la primera que produce). */
+interface MoradaAbierta {
+  readonly sitio: SitioId;
+  readonly elegida: string | null;
+}
 
 /**
  * Un paso de la ruta previsualizada: `hoy` si lo alcanza el movimiento del día;
@@ -1641,6 +1658,86 @@ export class Session implements ControlDeBatalla {
       );
     });
   }
+
+  // ------------------------------------------------------------ la morada en escena
+
+  /**
+   * Entra en la morada levantada en `sitio` de la base abierta, con su primera
+   * unidad elegida. Lo llama la base al llegar a su puerta (`EscenaBase`). Lanza,
+   * diciéndolo, fuera de la base o si en ese sitio no hay una morada construida
+   * (lo dice la vista, `componerVistaDeLaMorada`, que se compone antes de cambiar
+   * de escena). La base sigue abierta debajo (`openTownId` no cambia), así que
+   * reclutar va por las acciones de siempre y volver la encuentra como estaba.
+   */
+  abrirLaMorada(sitio: SitioId): void {
+    const town = this.activeTown;
+    if (this.scene !== 'town' || town === null) {
+      throw new Error('no se puede entrar en la morada: no hay ninguna base abierta');
+    }
+    this.enLaMorada(town, { sitio, elegida: null });
+    this.scene = 'morada';
+    this.status = AYUDA_DE_LA_MORADA;
+  }
+
+  /** Vuelve de la morada a la base, que sigue abierta. */
+  cerrarLaMorada(): void {
+    if (this.scene !== 'morada') {
+      throw new Error('no se puede salir de la morada: no se está en ninguna');
+    }
+    this.scene = 'town';
+    this.status = AYUDA_DE_LA_BASE;
+  }
+
+  /**
+   * Elegir una unidad de la morada (un clic en su figura o en su botón del
+   * panel). Una que no es de esta morada lanza (la vista lo dice).
+   */
+  elegirEnLaMorada(id: string): void {
+    const m = this.moradaAbierta;
+    const town = this.activeTown;
+    if (this.scene !== 'morada' || town === null) {
+      throw new Error('no se puede elegir en la morada: no se está en ninguna');
+    }
+    this.tocar();
+    this.enLaMorada(town, { sitio: m.sitio, elegida: id });
+  }
+
+  /**
+   * Dónde se está y a quién se mira en la morada (`elegida`: `null`, la primera).
+   * Vale solo con la escena en `'morada'`, que es la que manda: no se suelta al
+   * salir, se sustituye al entrar.
+   */
+  private moradaAbierta: MoradaAbierta = { sitio: 'lvl1', elegida: null };
+
+  /** Compone la vista de `m` (lanza si no vale) y solo entonces la deja abierta. */
+  private enLaMorada(town: Town, m: MoradaAbierta): void {
+    const vista = componerVistaDeLaMorada(town, m.sitio, m.elegida, (id) => ({
+      plan: this.recruitPlan(id),
+      motivo: this.motivoParaNoReclutar(id),
+    }));
+    this.moradaAbierta = m;
+    this.cacheDeLaMorada = { version: this.version, abierta: m, vista };
+  }
+
+  /**
+   * Lo que se ve en la escena de la morada (`morada/vista.ts`), o `null` fuera de
+   * ella. Se rehace cuando cambia algo que se ve (`version`: reclutar, el oro) o
+   * a quién se mira, no en cada fotograma.
+   */
+  vistaDeLaMorada(): VistaDeLaMorada | null {
+    const town = this.activeTown;
+    if (this.scene !== 'morada' || town === null) return null;
+    const c = this.cacheDeLaMorada;
+    if (c === null || c.version !== this.version || c.abierta !== this.moradaAbierta) {
+      this.enLaMorada(town, this.moradaAbierta);
+    }
+    return this.cacheDeLaMorada!.vista;
+  }
+  private cacheDeLaMorada: {
+    readonly version: number;
+    readonly abierta: MoradaAbierta;
+    readonly vista: VistaDeLaMorada;
+  } | null = null;
 
   // ------------------------------------------------------------ la tropa en escena
 

@@ -2,12 +2,13 @@
  * El semicírculo de la escena de la tropa (C2): de 1 a 7 figuras —el héroe y hasta
  * seis de su tropa— se ven enteras y sin pisarse en los lienzos de la escena, el
  * héroe en el centro y al fondo, los extremos delante (más abajo y más grandes), y
- * nadie más grande que en una batalla (decisión del usuario del 20-10-2026: las
- * hojas no tienen resolución para más y pixelaban).
+ * nadie más grande que su hoja a la densidad de la pantalla (decisiones del usuario
+ * del 20-10-2026: agrandadas a toda la escena pixelaban, y a la escala del combate
+ * se veían muy pequeñas).
  */
 import { describe, expect, it } from 'vitest';
 import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
-import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
+import { pasoDeLaHoja } from '../src/client/render/de-pie.js';
 import {
   cajaEnLaTropa,
   colocarLaTropa,
@@ -20,11 +21,10 @@ import {
 import { CUPO_HEROE } from '../src/core/hero/troop.js';
 import { COMPRESION_SUELO } from '../src/shared/arte.js';
 
-/** El alto de una figura de pie en una batalla en ese lienzo. */
-function altoEnLaBatalla(lienzo: { readonly ancho: number; readonly alto: number }): number {
-  const paso = pasoDeLaBase(lienzo.ancho, lienzo.alto);
+/** El alto de una figura de pie a la resolución de su hoja con esa densidad. */
+function altoDeLaHoja(densidad: number): number {
   return cajaDeFiguraEn(
-    { paso, origenX: 0, origenY: 0, compresion: COMPRESION_SUELO },
+    { paso: pasoDeLaHoja(densidad), origenX: 0, origenY: 0, compresion: COMPRESION_SUELO },
     { x: 0, y: 0 },
   ).alto;
 }
@@ -32,14 +32,17 @@ function altoEnLaBatalla(lienzo: { readonly ancho: number; readonly alto: number
 /**
  * Los lienzos de la escena, medidos con Playwright (19-10-2026): el marco de 20/11
  * a 1440×900, 1280×720 y 1024×768, y el del móvil a 375 de ancho; y el de 380 px
- * de alto que tenía el móvil antes, por si vuelve.
+ * de alto del móvil de hoy. Con la densidad de una pantalla normal y, en dos, de
+ * una retina, donde el tope de la hoja es la mitad.
  */
 const LIENZOS = [
-  { ancho: 1080, alto: 588 },
-  { ancho: 920, alto: 500 },
-  { ancho: 664, alto: 359 },
-  { ancho: 349, alto: 187 },
-  { ancho: 349, alto: 370 },
+  { ancho: 1080, alto: 588, densidad: 1 },
+  { ancho: 1080, alto: 588, densidad: 2 },
+  { ancho: 920, alto: 500, densidad: 1 },
+  { ancho: 664, alto: 359, densidad: 1 },
+  { ancho: 349, alto: 187, densidad: 1 },
+  { ancho: 349, alto: 370, densidad: 1 },
+  { ancho: 349, alto: 370, densidad: 2 },
 ] as const;
 
 describe('el semicírculo de la tropa', () => {
@@ -49,7 +52,7 @@ describe('el semicírculo de la tropa', () => {
 
   for (const lienzo of LIENZOS) {
     for (let tropa = 0; tropa <= 6; tropa++) {
-      it(`${tropa + 1} figuras en ${lienzo.ancho}×${lienzo.alto}: enteras, sin pisarse, el héroe en medio y al fondo, nadie mayor que en la batalla`, () => {
+      it(`${tropa + 1} figuras en ${lienzo.ancho}×${lienzo.alto} a ×${lienzo.densidad}: enteras, sin pisarse, el héroe en medio y al fondo, nadie mayor que su hoja`, () => {
         const e = encuadrarLaTropa(lienzo, tropa);
         expect(e.en).toHaveLength(tropa + 1);
         const cajas = e.en.map((p) => cajaEnLaTropa(e.camara, p));
@@ -73,8 +76,8 @@ describe('el semicírculo de la tropa', () => {
           expect(c.suelo).toBeGreaterThan(heroe.suelo);
           expect(c.alto).toBeGreaterThan(heroe.alto);
         }
-        // Nadie más grande que en una batalla en ese lienzo: los de delante, como allí.
-        const tope = altoEnLaBatalla(lienzo);
+        // Nadie más grande que su hoja: la ampliaría y pixelaría.
+        const tope = altoDeLaHoja(lienzo.densidad);
         for (const c of cajas) expect(c.alto).toBeLessThanOrEqual(tope + 1e-9);
         // El horizonte del campo, detrás del héroe y no bajo sus pies (E3).
         expect(e.horizonte).toBeGreaterThan(heroe.suelo - heroe.alto);
@@ -82,18 +85,20 @@ describe('el semicírculo de la tropa', () => {
       });
     }
 
-    it(`en ${lienzo.ancho}×${lienzo.alto}, el paso es el del combate y con más figuras no crece`, () => {
+    it(`en ${lienzo.ancho}×${lienzo.alto} a ×${lienzo.densidad}, el paso es el de la hoja si cabe y con más figuras no crece`, () => {
       const pasos = Array.from({ length: 7 }, (_, t) => encuadrarLaTropa(lienzo, t).camara.paso);
-      expect(pasos[0]).toBe(pasoDeLaBase(lienzo.ancho, lienzo.alto));
+      expect(pasos[0]).toBeLessThanOrEqual(pasoDeLaHoja(lienzo.densidad));
       for (let t = 1; t < 7; t++) expect(pasos[t]).toBeLessThanOrEqual(pasos[t - 1]!);
     });
 
-    it(`en ${lienzo.ancho}×${lienzo.alto}, el héroe solo pisa donde pisa con su tropa`, () => {
+    it(`en ${lienzo.ancho}×${lienzo.alto} a ×${lienzo.densidad}, el héroe solo pisa donde pisa con su tropa`, () => {
       const solo = encuadrarLaTropa(lienzo, 0);
       const con = encuadrarLaTropa(lienzo, 4);
-      expect(cajaEnLaTropa(solo.camara, solo.en[0]!).suelo).toBeCloseTo(
-        cajaEnLaTropa(con.camara, con.en[0]!).suelo,
-      );
+      const pies = (e: typeof solo): number => cajaEnLaTropa(e.camara, e.en[0]!).suelo;
+      // Con el mismo paso, en el mismo píxel; si el arco de cinco no cabe de ancho
+      // y encoge (el móvil), el héroe solo se mueve lo que encoge: menos del 1 % del alto.
+      if (solo.camara.paso === con.camara.paso) expect(pies(solo)).toBeCloseTo(pies(con));
+      else expect(Math.abs(pies(solo) - pies(con))).toBeLessThan(lienzo.alto * 0.01);
     });
   }
 

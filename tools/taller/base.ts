@@ -14,7 +14,14 @@
  *   que el juego pinta (`tramo-<n>.webp`) se deriva de ella: solo lo que hay por
  *   encima de su pie (`recorte-base.ts`);
  * - **edición** (`fuentes/edicion-<id>`): el eslabón anterior editado cambiando
- *   solo ese edificio.
+ *   solo ese edificio;
+ * - **retoque** (`fuentes/retoque-<id>`): un primer eslabón que salió mal en su
+ *   maestro, pintado otra vez sobre la placa (la choza del pueblo, en tres cuartos
+ *   y con un halo verde, 20-10-2026). Si está en disco, es su cuadro (`cuadroDe`);
+ * - **versión abierta** (`fuentes/abierta-<id>`): el cuadro de una morada editado
+ *   con ese edificio abierto como una casa de muñecas, sin la pared de delante y
+ *   con su sala dentro (vuelta 2 de la morada, 20-10-2026). Se ve mientras se
+ *   recluta en ella (`escenas/morada.ts`).
  *
  * Cada edificio se recorta luego por la diferencia con la placa, en su región
  * (`recorte-base.ts`). La geometría no se impone: dónde quedó cada puerta se mide
@@ -55,7 +62,7 @@ const RAIZ = resolve(import.meta.dirname, '../..');
 /** Dónde va el arte de la base de una facción (servido en `/bases/<facción>/`). */
 export const dirDeLaBase = (f: FactionId): string => `assets/bases/${f}`;
 /** Lo que solo lee el taller: maestros, ediciones, guías e identidades. No va al build. */
-const dirDeFuentes = (f: FactionId): string => `${dirDeLaBase(f)}/fuentes`;
+export const dirDeFuentes = (f: FactionId): string => `${dirDeLaBase(f)}/fuentes`;
 
 /** El adulto de la vara de medir, en píxeles del tramo: 0,95 pasos, el mismo de la batalla. */
 export const ADULTO_EN_EL_CUADRO = Math.round(ALTO_DE_FIGURA * TRAMO.pxPorPaso);
@@ -117,6 +124,44 @@ const NOMBRE_EN_EL_CUADRO: Readonly<Record<string, string>> = {
   templarios_establos: 'los establos de la caballería',
   templarios_monasterio: 'la iglesia de los paladines (el monasterio)',
 };
+
+/**
+ * Los primeros eslabones que se vuelven a pintar sobre la placa, por su id, con lo
+ * que estaba mal en su maestro (mirado el 20-10-2026): el resto de la plaza va de
+ * frente, y ellos no.
+ */
+export const RETOQUES_DE_LOS_TEMPLARIOS: Readonly<Record<string, string>> = {
+  templarios_pueblo:
+    'está en TRES CUARTOS (se le ven la pared del lado derecho y el faldón del tejado en escorzo, y el zócalo de piedra va en diagonal) y lleva un halo verdoso alrededor',
+};
+const RETOQUES: Partial<Record<FactionId, Readonly<Record<string, string>>>> = {
+  templarios: RETOQUES_DE_LOS_TEMPLARIOS,
+};
+
+/**
+ * Lo que se ve dentro de cada morada templaria al abrirla, por su id del catálogo:
+ * lo lee su versión abierta (`encargoDeLaAbierta`). Las moradas son las del
+ * caballero que heredaron (`NOMBRE_EN_EL_CUADRO`): la choza, el cuartel de
+ * piqueros, los establos y la iglesia. Las salas de pantalla entera de la vuelta 1
+ * se pidieron con estos mismos textos (`salaPintada`).
+ */
+export const SALA_DE_LOS_TEMPLARIOS: Readonly<Record<string, string>> = {
+  templarios_pueblo:
+    'la choza de los campesinos: una sala baja de madera y adobe con vigas a la vista, un hogar de piedra al fondo con el fuego bajo, aperos de labranza colgados de la pared (horcas, hoces, mayales), sacos de grano y un banco de madera contra el muro, y un estandarte blanco con cruz roja',
+  templarios_forja:
+    'la forja del cuartel de piqueros: una nave de piedra con la fragua encendida al fondo, un yunque y un barril de templar junto a ella, y contra la pared armeros con picas, lanzas y escudos blancos con cruz roja',
+  templarios_establos:
+    'los establos de la caballería: una nave de madera con los pesebres y el heno al fondo, sillas de montar, bridas y gualdrapas blancas con cruz roja colgadas de la pared, y lanzas de caballería apoyadas en un armero; sin caballos',
+  templarios_monasterio:
+    'la iglesia de los paladines: una nave de piedra con columnas y arcos, vidrieras en la pared del fondo, un altar sencillo con un estandarte blanco con cruz roja, cirios encendidos y escudos de armas colgados',
+};
+
+/** Las moradas de la base de `f` que pueden llevar versión abierta: todo edificio de un sitio de morada. */
+export function moradasDeLaBase(f: FactionId): readonly string[] {
+  return sitiosDeLaBase(f)
+    .filter((s) => s.morada !== undefined)
+    .flatMap((s) => s.cadena);
+}
 
 /**
  * El edificio de la vuelta 1 que da la identidad de cada uno: el crudo de Codex,
@@ -214,15 +259,42 @@ export const placaDelTramo = (f: FactionId, n: number): string => `${dirDeFuente
 export const tramoDelJuego = (f: FactionId, n: number): string => `${dirDeLaBase(f)}/tramo-${n}`;
 /** El empedrado repetible de toda la plaza, sacado de una placa (`recorte-base.ts`). */
 export const sueloDeLaBase = (f: FactionId): string => `${dirDeLaBase(f)}/suelo`;
+/** El recorte de un edificio, derivado de su cuadro y su placa (`recorte-base.ts`), con extensión. */
+export const recorteDelJuego = (f: FactionId, id: string): string => `${dirDeLaBase(f)}/${id}.webp`;
 const edicionDe = (f: FactionId, id: string): string => `${dirDeFuentes(f)}/edicion-${id}`;
+/** El retoque de un primer eslabón, pintado otra vez sobre la placa (`encargoDelRetoque`). */
+export const retoqueDe = (f: FactionId, id: string): string => `${dirDeFuentes(f)}/retoque-${id}`;
+const identidadDelRetoque = (f: FactionId, id: string): string =>
+  `${dirDeFuentes(f)}/identidad-retoque-${id}.png`;
+/** La versión abierta de una morada que pinta Codex: su cuadro editado (`encargoDeLaAbierta`). */
+export const abiertaPintada = (f: FactionId, id: string): string =>
+  `${dirDeFuentes(f)}/abierta-${id}`;
+/** Lo que pinta el juego de la versión abierta: su recorte (`recorte-base.ts`), con extensión. */
+export const abiertaDelJuego = (f: FactionId, id: string): string =>
+  `${dirDeLaBase(f)}/abierta-${id}.webp`;
+/**
+ * La sala de cada morada que pintó Codex en la vuelta 1 (una pantalla entera): la
+ * versión abierta la lleva como referencia de cómo es por dentro (papel `interior`).
+ */
+export const salaPintada = (f: FactionId, id: string): string =>
+  `${dirDeFuentes(f)}/interior-${id}.webp`;
 
-/** La imagen (sin extensión) en la que está pintado un edificio: su maestro o su edición. */
+/**
+ * La imagen (sin extensión) en la que está pintado un edificio: su maestro, su
+ * edición o, si está en disco, su retoque («manda lo que hay en fuentes», como
+ * `encargosDeLaBase`): mientras no llega, el primer eslabón sigue con su maestro.
+ */
 export function cuadroDe(f: FactionId, id: string): string {
   const s = sitioDeEdificio(f, id);
-  return s.cadena[0] === id
-    ? maestroDelTramo(f, disposicionDe(f).sitios[s.id].tramo)
-    : edicionDe(f, id);
+  if (s.cadena[0] !== id) return edicionDe(f, id);
+  if (RETOQUES[f]?.[id] !== undefined && enDisco(`${retoqueDe(f, id)}.webp`)) {
+    return retoqueDe(f, id);
+  }
+  return maestroDelTramo(f, disposicionDe(f).sitios[s.id].tramo);
 }
+
+/** El gris de fondo de las hojas de identidad: el de los edificios y el del retoque. */
+const GRIS_DE_LA_IDENTIDAD = '#c8c8c8';
 
 const ESTILO = (f: FactionId) => [
   { ruta: MUESTRA_ELEGIDA, papel: 'estilo' as const },
@@ -340,12 +412,90 @@ export function encargoDeEdicion(f: FactionId, id: string): Encargo {
   };
 }
 
+/**
+ * Lo que el retoque deja libre a cada lado de su región, en píxeles del cuadro:
+ * con solo «dentro de esas columnas», la choza salió de frente pero 50 px más
+ * ancha que su hueco y pisaba el sitio del ayuntamiento (20-10-2026).
+ */
+const AIRE_DEL_RETOQUE = 30;
+
+/**
+ * Un primer eslabón pintado otra vez, de frente (C15 de la morada, 20-10-2026):
+ * se EDITA LA PLACA de su tramo, no el maestro, porque alrededor es lo que pinta
+ * el juego, así que la diferencia con la placa es solo el edificio y no queda halo.
+ * La identidad es su trozo del maestro (`identidadDelRetoque`): de ahí salen su
+ * diseño y sus materiales, no su ángulo.
+ */
+export function encargoDelRetoque(f: FactionId, id: string): Encargo {
+  const mal = RETOQUES[f]?.[id];
+  if (mal === undefined)
+    throw new Error(
+      `"${id}" de ${f} no tiene retoque: hay ${Object.keys(RETOQUES[f] ?? {}).join(', ') || 'ninguno'}`,
+    );
+  const d = disposicionDe(f);
+  const s = sitioDeEdificio(f, id).id;
+  const { tramo, region, umbral } = d.sitios[s];
+  const [px, fila] = umbral.enElCuadro;
+  const nombre = NOMBRE_EN_EL_CUADRO[id] ?? id;
+  return {
+    id: `base-${f}-retoque-${id.replace(/_/g, '-')}`,
+    tipo: 'imagen',
+    descripcion: [
+      `El único cambio: en el hueco que hay entre las columnas ${region.x0} y ${region.x1} se levanta ${nombre}, el edificio de la imagen 2. La imagen 2 es como salió la primera vez, y está mal: ${mal}. Aquí va DE FRENTE, como los demás edificios de la plaza, con la FACHADA PARALELA al plano del cuadro, sin pared lateral ni faldón del tejado en escorzo, el zócalo de piedra HORIZONTAL y el alero recto. Cámara ORTOGRÁFICA elevada 25 grados, de frente, como el resto de la imagen 1. Paredes verticales, nada inclinado.`,
+      `El umbral de su puerta, en la columna ${px} y la fila ${fila}, a ras del borde de atrás del empedrado; el pie de toda la fachada sobre ese mismo borde. A la escala de la plaza: un adulto mide ${ADULTO_EN_EL_CUADRO} px, y la puerta es un poco más alta (unos ${PUERTA_EN_EL_CUADRO[0]}-${PUERTA_EN_EL_CUADRO[1]} px). Su mismo diseño, materiales, colores, tejado de paja y heráldica que en la imagen 2, con proporciones normales. CABE ENTERO en su hueco, con aire: todo lo suyo (alero, tejado, chimenea, estandarte, esquinas de piedra) entre las columnas ${region.x0 + AIRE_DEL_RETOQUE} y ${region.x1 - AIRE_DEL_RETOQUE}, así que la fachada no pasa de ${region.x1 - region.x0 - 2 * AIRE_DEL_RETOQUE} px de ancho; más estrecho que en la imagen 2 si hace falta. Pasada la columna ${region.x1 - AIRE_DEL_RETOQUE}, nada suyo: ahí empieza el sitio de otro edificio.`,
+      'SIN HALO NI CONTORNO: alrededor del edificio, lo que ya hay en la imagen 1, sin brillo, sin borde de otro color y sin árboles nuevos pegados a él. NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.',
+      `Mismo tamaño: ${TRAMO.ancho}×${TRAMO.alto}.`,
+    ].join('\n'),
+    referencias: [
+      { ruta: `${placaDelTramo(f, tramo)}.webp`, papel: 'edita' },
+      { ruta: identidadDelRetoque(f, id), papel: 'edificios' },
+    ],
+    salida: retoqueDe(f, id),
+    ...CUADRO_DE_LA_BASE(f),
+  };
+}
+
+/**
+ * La versión abierta de una morada (C14 de la morada, 20-10-2026): su cuadro
+ * editado como una mejora, con ese edificio abierto como una casa de muñecas. La
+ * sala de la vuelta 1 (`salaPintada`) va de segunda referencia, solo para lo de
+ * dentro. Se recorta como cualquier edición (`recortar-base`).
+ */
+export function encargoDeLaAbierta(f: FactionId, id: string): Encargo {
+  const sala = f === 'templarios' ? SALA_DE_LOS_TEMPLARIOS[id] : undefined;
+  if (sala === undefined) throw sinNada(`la versión abierta de ${id}`, f);
+  const d = disposicionDe(f);
+  const s = sitioDeEdificio(f, id).id;
+  const { x0, x1 } = d.sitios[s].region;
+  const numero = sitiosDelTramo(d, d.sitios[s].tramo).indexOf(s) + 1;
+  const nombre = NOMBRE_EN_EL_CUADRO[id] ?? id;
+  return {
+    id: `base-${f}-abierta-${id.replace(/_/g, '-')}`,
+    tipo: 'imagen',
+    descripcion: [
+      `El único cambio: el edificio ${numero} empezando por la izquierda (${nombre}, el que está entre las columnas ${x0} y ${x1}) se ABRE como una CASA DE MUÑECAS: se le quita la PARED DE DELANTE (la fachada entera, con su puerta y sus ventanas) y se ve su sala por dentro: ${sala}. La imagen 2 dice cómo es la sala por dentro.`,
+      'Es el MISMO edificio, en el MISMO sitio, con el MISMO tamaño y el MISMO contorno: el tejado y los muros de los lados se quedan, cortados limpios donde estaba la fachada, y se ve el grueso de la pared en el corte. El suelo de la sala va a ras del borde de atrás del empedrado, donde estaba el umbral de la puerta, y la sala se ve desde la plaza con la misma cámara que todo el cuadro (ortográfica, elevada 25 grados, de frente). La luz de dentro, la de su fuego, sus ventanas o sus cirios, sobria.',
+      `A la escala de la plaza: un adulto mide ${ADULTO_EN_EL_CUADRO} px de alto en este cuadro, y los muebles van a su medida (un banco o un saco, a su rodilla; una mesa, un yunque o un altar, a su cadera). La sala va VACÍA: ninguna persona ni animal, que la gente del juego se pone delante, en el empedrado.`,
+      `Fuera de ese edificio, NADA cambia: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza. Lo nuevo no pasa de las columnas ${x0} y ${x1}.`,
+      `Mismo tamaño: ${TRAMO.ancho}×${TRAMO.alto}.`,
+    ].join('\n'),
+    referencias: [
+      { ruta: `${cuadroDe(f, id)}.webp`, papel: 'edita' },
+      { ruta: salaPintada(f, id), papel: 'interior' },
+    ],
+    salida: abiertaPintada(f, id),
+    ...CUADRO_DE_LA_BASE(f),
+  };
+}
+
 const enDisco = (ruta: string): boolean => existsSync(join(RAIZ, ruta));
 
 /**
  * Lo que se puede encolar ya: el maestro de cada tramo (no dependen unos de
  * otros: la junta es un árbol y el suelo es del juego), su placa cuando está él,
- * y cada mejora cuando está su eslabón de antes. Lo demás se dice como pendiente.
+ * cada mejora cuando está su eslabón de antes, cada retoque cuando está su placa
+ * y la versión abierta de cada morada cuando está su cuadro (y su retoque, si lo
+ * lleva). Lo demás se dice como pendiente.
  */
 export function encargosDeLaBase(f: FactionId): { listos: Encargo[]; esperan: string[] } {
   if (f !== 'templarios') throw sinNada('la base', f);
@@ -360,6 +510,20 @@ export function encargosDeLaBase(f: FactionId): { listos: Encargo[]; esperan: st
   for (const { id, antes } of mejorasDe(f)) {
     if (enDisco(`${cuadroDe(f, antes)}.webp`)) listos.push(encargoDeEdicion(f, id));
     else esperan.push(`edicion-${id.replace(/_/g, '-')} (espera a ${antes})`);
+  }
+  for (const id of Object.keys(RETOQUES[f] ?? {})) {
+    const tramo = d.sitios[sitioDeEdificio(f, id).id].tramo;
+    if (enDisco(`${placaDelTramo(f, tramo)}.webp`)) listos.push(encargoDelRetoque(f, id));
+    else esperan.push(`retoque-${id.replace(/_/g, '-')} (espera a placa-t${tramo})`);
+  }
+  // La versión abierta, sobre el cuadro que queda: la de un edificio con retoque,
+  // sobre el retoque, así que espera a que llegue.
+  for (const id of moradasDeLaBase(f)) {
+    const corto = `abierta-${id.replace(/_/g, '-')}`;
+    if (RETOQUES[f]?.[id] !== undefined && !enDisco(`${retoqueDe(f, id)}.webp`)) {
+      esperan.push(`${corto} (espera a retoque-${id.replace(/_/g, '-')})`);
+    } else if (enDisco(`${cuadroDe(f, id)}.webp`)) listos.push(encargoDeLaAbierta(f, id));
+    else esperan.push(`${corto} (espera a ${cuadroDe(f, id).slice(dirDeFuentes(f).length + 1)})`);
   }
   return { listos, esperan };
 }
@@ -444,7 +608,7 @@ async function edificioSuelto(id: string, alto: number): Promise<Buffer> {
   return sharp(join(IMAGENES, crudo))
     .trim()
     .resize({ height: alto })
-    .flatten({ background: '#c8c8c8' })
+    .flatten({ background: GRIS_DE_LA_IDENTIDAD })
     .png()
     .toBuffer();
 }
@@ -471,8 +635,32 @@ async function hojaDeIdentidad(ids: readonly string[]): Promise<Buffer> {
     x += p.ancho + hueco;
   }
   const rotulos = `<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto + 140}">${textos.join('')}</svg>`;
-  return sharp({ create: { width: ancho, height: alto + 140, channels: 3, background: '#c8c8c8' } })
+  return sharp({
+    create: { width: ancho, height: alto + 140, channels: 3, background: GRIS_DE_LA_IDENTIDAD },
+  })
     .composite([...capas, { input: Buffer.from(rotulos), left: 0, top: 0 }])
+    .png()
+    .toBuffer();
+}
+
+/**
+ * La identidad de un retoque: el trozo del maestro en la región de su sitio, de
+ * arriba a su pie, sobre gris. Del maestro y no de su recorte, para que no cambie
+ * al llegar el retoque (el recorte sale entonces de él).
+ */
+async function trozoDelMaestro(f: FactionId, id: string): Promise<Buffer> {
+  const { tramo, region } = disposicionDe(f).sitios[sitioDeEdificio(f, id).id];
+  const maestro = join(RAIZ, `${maestroDelTramo(f, tramo)}.webp`);
+  if (!existsSync(maestro)) {
+    throw new Error(
+      `no está el maestro del tramo ${tramo} de ${f}: sin él no hay identidad del retoque de "${id}"`,
+    );
+  }
+  const aire = 40;
+  return sharp(maestro)
+    .extract({ left: region.x0, top: 0, width: region.x1 - region.x0, height: region.pie })
+    .flatten({ background: GRIS_DE_LA_IDENTIDAD })
+    .extend({ top: aire, bottom: aire, left: aire, right: aire, background: GRIS_DE_LA_IDENTIDAD })
     .png()
     .toBuffer();
 }
@@ -516,6 +704,10 @@ export async function escribirFuentesDeLaBase(f: FactionId): Promise<string[]> {
   for (const { id } of mejorasDe(f)) {
     if (await escribir(identidadDeEdicion(f, id), () => hojaDeIdentidad([id]), true))
       escritas.push(identidadDeEdicion(f, id));
+  }
+  for (const id of Object.keys(RETOQUES[f] ?? {})) {
+    if (await escribir(identidadDelRetoque(f, id), () => trozoDelMaestro(f, id), true))
+      escritas.push(identidadDelRetoque(f, id));
   }
   return escritas;
 }

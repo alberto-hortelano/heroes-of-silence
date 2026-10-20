@@ -26,7 +26,7 @@ import { primeraSemillaCon } from './helpers.js';
 
 const d = disposicionDe('templarios');
 const lienzo = { ancho: 1086, alto: 778 };
-const vista = lienzo.ancho / pasoDeLaBase(lienzo.ancho, lienzo.alto);
+const vista = lienzo.ancho / pasoDeLaBase(lienzo.alto);
 
 describe('la cámara de la base', () => {
   it('se centra en quien camina y para en los dos bordes', () => {

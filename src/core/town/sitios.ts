@@ -15,7 +15,7 @@
  * datos y la cadena, que es una regla del catálogo, bajó aquí.
  */
 import type { FactionId } from '../types.js';
-import { type Building, buildingsOfFaction } from './buildings.js';
+import { type Building, building, buildingsOfFaction } from './buildings.js';
 import { hasBuilding, type Town } from './town.js';
 
 /** Los doce sitios, en el orden en que los lee el panel de «Ampliar». */
@@ -100,6 +100,28 @@ export function construidoEn(town: Town, sitio: SitioId): string | null {
   let hecho: string | null = null;
   for (const id of sitioDe(town.faction, sitio).cadena) if (hasBuilding(town, id)) hecho = id;
   return hecho;
+}
+
+/**
+ * La morada levantada en `sitio` de `town`: su edificio, o por qué ahí no hay
+ * ninguna, dicho para la persona (sin nada construido, o lo construido no es una
+ * morada). Es la única pregunta de «¿se recluta aquí?» del cliente: la base
+ * entra por ella en la escena de la morada, el panel de la base la lee para no
+ * abrir ahí lo suyo y la vista de la morada lanza con su motivo.
+ */
+export function moradaEn(
+  town: Town,
+  sitio: SitioId,
+):
+  | { readonly edificio: string; readonly motivo: null }
+  | { readonly edificio: null; readonly motivo: string } {
+  const hecho = construidoEn(town, sitio);
+  if (hecho === null)
+    return { edificio: null, motivo: `en ${town.name} no hay nada construido ahí` };
+  const b = building(hecho);
+  return b.morada === undefined
+    ? { edificio: null, motivo: `${b.name} no es una morada, ahí no se recluta` }
+    : { edificio: hecho, motivo: null };
 }
 
 /** El siguiente eslabón por construir del sitio, o `null` si está completo. */

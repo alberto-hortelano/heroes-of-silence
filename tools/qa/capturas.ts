@@ -35,12 +35,15 @@ import { LA_LLEVA_EL_HEROE } from '../../src/client/arena/paneles.js';
 import { EscenaAventura } from '../../src/client/escenas/aventura.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
+import { cajasDeLaMorada, EscenaMorada } from '../../src/client/escenas/morada.js';
 import { EscenaTropa } from '../../src/client/escenas/tropa.js';
 import { msPorCasilla } from '../../src/client/marcha.js';
+import type { VistaDeLaMorada } from '../../src/client/morada/vista.js';
 import { camaraDeLaBase, camaraQuieta } from '../../src/client/render/base/camara.js';
 import { dondePulsarElSitio } from '../../src/client/render/base/recortes.js';
 import {
   ARO_DE_LA_RUEDA,
+  type CajaDeFigura,
   COLOR_BANDO,
   cabezaDe,
   cajaDeFigura,
@@ -48,7 +51,9 @@ import {
   galonesDe,
 } from '../../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, type Encuadre } from '../../src/client/render/camara-mapa.js';
+import { pasoDeLaHoja } from '../../src/client/render/de-pie.js';
 import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
+import { dondeEsperaEnLaMorada } from '../../src/client/render/morada/fila.js';
 import { registrarUnidad } from '../../src/client/render/personajes.js';
 import {
   centroDeStack,
@@ -58,7 +63,8 @@ import {
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
-import { cajaEnLaTropa, encuadrarLaTropa } from '../../src/client/render/tropa/arco.js';
+import { encuadrarLaTropa } from '../../src/client/render/tropa/arco.js';
+import { cajasDeLaTropa } from '../../src/client/render/tropa/pintar.js';
 import {
   anguloDe,
   MEDIDAS_DE_LA_RUEDA,
@@ -266,6 +272,11 @@ async function captura(page: Page, nombre: string): Promise<void> {
   const ruta = join(DESTINO, `${nombre}.png`);
   await page.screenshot({ path: ruta });
   log(`captura ${nombre}.png`);
+}
+
+/** La densidad de la pantalla de la página: con ella encuadran las escenas de pie (`pasoDeLaHoja`). */
+async function densidadDe(page: Page): Promise<number> {
+  return page.evaluate(() => window.devicePixelRatio || 1);
 }
 
 async function caja(page: Page): Promise<Caja> {
@@ -1714,20 +1725,21 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   await esperarLaBase(page, 'quieto');
   await captura(page, 'desktop-04-castillo');
 
-  // La base es una escena: se camina a la morada de nivel 1 y, al llegar, el
-  // panel ofrece «+1» y «Todo». «Todo» pide lo que cabe, no lo que hay.
+  // La base es una escena: se camina a la morada de nivel 1 y, al llegar, se
+  // entra en ella (otra escena): la figura de la recluta, pulsada en el lienzo,
+  // enseña su ficha y «+1» y «Todo». «Todo» pide lo que cabe, no lo que hay.
   const town = espejo.activeTown!;
   const d = disposicionDe(town.faction);
   const recluta = reclutaDeNivel1(town.faction);
   await pulsarEnLaBase(page, d, d.entrada, laPuerta(d, 'lvl1'));
-  await esperarLaBase(page, 'sitio:lvl1');
-  // La morada ofrece varias unidades (la del pueblo orko, cuatro): el botón de la que se recluta.
+  await entrarEnLaMorada(page, espejo, 'lvl1', 'escritorio');
+  await pulsarEnLaMorada(page, espejo, recluta, 'escritorio');
   const deLaRecluta = `#side button[data-action="recruit"][data-creature="${recluta}"]`;
   const todo = page.locator(`${deLaRecluta}[data-todo="si"]`);
   const plan = espejo.recruitPlan(recluta);
   await todo.hover();
   await sleep(150);
-  await captura(page, 'desktop-05-castillo-todo-es-lo-que-cabe');
+  await captura(page, 'desktop-05-morada-todo-es-lo-que-cabe');
   // Con el ejército lleno no cabe ninguno: el botón sale deshabilitado y no se
   // pulsa (pasa con los mapas de 42×42 de main, semilla 27: la base se escribió
   // contra los de 34×34, donde el héroe de la semilla buscada tenía sitio).
@@ -1742,14 +1754,18 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   );
   await sleep(200);
   await comprobar(page, espejo, 'reclutar todo');
+  if ((await page.locator('#app').getAttribute('data-escena')) !== 'morada') {
+    throw new Error('tras reclutar, la página ha salido de la morada');
+  }
 
   // «+1» con el ejército ya en sus seis (fase 1b): no recluta, y la barra dice
   // por qué con la frase del núcleo. El espejo dice lo mismo, y el oro no se mueve.
   const uno = page.locator(`${deLaRecluta}[data-todo="no"]`);
   if ((espejo.selectedHero?.army.length ?? 0) >= 6) {
-    // La base apaga «+1» con la frase del núcleo en su `title` cuando no cabe ni
-    // uno (`motivoParaNoReclutar`); antes se pulsaba y la frase salía en la barra.
-    const motivo = await uno.getAttribute('title');
+    // La morada apaga «+1» con la frase del núcleo escrita debajo cuando no cabe
+    // ni uno (`motivoParaNoReclutar`): sin `title`, que en el móvil no se ve.
+    const escrito = page.locator('#side .ficha-de-la-morada .motivo-apagado');
+    const motivo = (await escrito.count()) === 1 ? (await escrito.innerText()).trim() : null;
     const delNucleo = espejo.motivoParaNoReclutar(recluta);
     if (
       (await uno.isEnabled()) ||
@@ -1758,17 +1774,19 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
       !motivo.includes('ya lleva 6 de 6 individuos')
     ) {
       throw new Error(
-        `el séptimo debía salir apagado con la frase del núcleo («${delNucleo}»); el botón dice «${motivo}»`,
+        `el séptimo debía salir apagado con la frase del núcleo («${delNucleo}») escrita debajo; dice «${motivo}»`,
       );
     }
     log(`el séptimo se rechaza: «${motivo}»`);
-    await captura(page, 'desktop-05b-castillo-el-septimo-no-cabe');
+    await captura(page, 'desktop-05b-morada-el-septimo-no-cabe');
     await comprobar(page, espejo, 'reclutar el séptimo');
 
-    // Y licenciando uno, el séptimo cabe: el «−1» de la tropa del héroe, pulsado
-    // en la página, y el «+1» otra vez. Es el gesto para cambiar tropa, y deja el
-    // ejército como estaba —el licenciado es el último, y el recluta entra al
-    // final—, así que el resto de la pasada no se entera.
+    // Y licenciando uno, el séptimo cabe: se vuelve a la base («Volver a la
+    // base»), se pulsa el «−1» de la tropa del héroe y se entra otra vez en la
+    // morada desde la lista de edificios, a por el «+1». Es el gesto para cambiar
+    // tropa, y deja el ejército como estaba —el licenciado es el último, y el
+    // recluta entra al final—, así que el resto de la pasada no se entera.
+    await salirDeLaMorada(page, espejo, 'boton', 'escritorio');
     const heroe = espejo.selectedHero!;
     const antes = heroe.army.length;
     const menos = page.locator(`#side button[data-action="dismiss"][data-creature="${recluta}"]`);
@@ -1786,6 +1804,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     await captura(page, 'desktop-05c-castillo-licenciado-uno');
     log(`licenciado un ${recluta}: la tropa pasa de ${antes} a ${antes - 1}`);
     if ((espejo.activeTown?.available[recluta] ?? 0) > 0) {
+      await page.locator('#side [data-action="ir-a-sitio"][data-sitio="lvl1"]').click();
+      await entrarEnLaMorada(page, espejo, 'lvl1', 'escritorio');
+      await pulsarEnLaMorada(page, espejo, recluta, 'escritorio');
       await uno.click();
       espejo.recruit(recluta, 1);
       await sleep(200);
@@ -1796,6 +1817,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     }
     await comprobar(page, espejo, 'licenciar y volver a reclutar');
   }
+  // De vuelta a la base con Escape, quieto en la puerta de la morada.
+  if (espejo.vistaDeLaMorada() !== null)
+    await salirDeLaMorada(page, espejo, 'escape', 'escritorio');
 
   // El ayuntamiento abre «Ampliar»: lo construible con su coste o su motivo.
   await pulsarEnLaBase(page, d, d.sitios.lvl1.puerta, laPuerta(d, 'hall'));
@@ -1847,7 +1871,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     let en = dondeHablarCon(d, vecino.en);
     for (
       let i = 0;
-      i < 6 && camaraQuieta(d, lienzo, en.x) < camaraQuieta(d, lienzo, d.ancho);
+      // A todo el alto (20-10-2026) la vista mide unos 10 pasos y no 12,6: de
+      // punta a punta, hasta seis tramos.
+      i < 10 && camaraQuieta(d, lienzo, en.x) < camaraQuieta(d, lienzo, d.ancho);
       i++
     ) {
       const vista = bb.width / camaraDeLaBase(lienzo, 0).paso;
@@ -2010,8 +2036,10 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   );
   await finContadoPorSuCausa(page, espejo);
   await captura(page, 'desktop-12-fin-de-partida');
-  // «Partida nueva» vuelve al menú de inicio, sin nada en la URL (19-10-2026).
-  await page.locator('[data-action="restart"]').first().click();
+  // «Partida nueva» vuelve al menú de inicio, sin nada en la URL (19-10-2026). El
+  // de la barra de abajo: el primer `restart` de la página es el «Abandonar la
+  // partida» del diálogo «Menú», cerrado (e390cc30), y el clic esperaba 30 s.
+  await page.locator('#actions [data-action="restart"]').click();
   await page.waitForSelector('#inicio:not([hidden]) [data-inicio="nuevo"]', { timeout: 15_000 });
   exigir(
     await estadoDelArranque(page),
@@ -2880,6 +2908,28 @@ function cuantoCambia(a: readonly number[], b: readonly number[]): number {
 }
 
 /**
+ * Pulsa (o toca) en el lienzo el medio del cuerpo de la figura de caja `c`, y
+ * devuelve el píxel pulsado en el lienzo: lo que pulsa luego el espejo. El ratón
+ * llega moviéndose, como una persona, para que la escena vea la señalada.
+ */
+async function pulsarLaFigura(
+  page: Page,
+  b: Caja,
+  c: CajaDeFigura,
+  toque = false,
+): Promise<{ x: number; y: number }> {
+  const x = Math.round(b.x + c.x);
+  const y = Math.round(b.y + c.suelo - c.alto * 0.5);
+  if (toque) await page.touchscreen.tap(x, y);
+  else {
+    await page.mouse.move(x - 4, y);
+    await page.mouse.move(x, y);
+    await page.mouse.click(x, y);
+  }
+  return { x: x - b.x, y: y - b.y };
+}
+
+/**
  * Pulsa en el lienzo a la figura `i` de la escena de la tropa, y lo mismo en el
  * espejo con la MISMA clase que lee el clic en la página (`EscenaTropa`), así que
  * a quién elige el espejo es por construcción a quién elige la página.
@@ -2887,18 +2937,14 @@ function cuantoCambia(a: readonly number[], b: readonly number[]): number {
 async function pulsarEnLaTropa(page: Page, espejo: Session, i: number): Promise<void> {
   const b = await caja(page);
   const escena = new EscenaTropa(() => espejo);
-  escena.encuadrar(b.width, b.height);
+  escena.encuadrar(b.width, b.height, await densidadDe(page));
   const vista = espejo.vistaDeLaTropa();
   if (vista === null) throw new Error('tropa: el espejo no está en la escena de la tropa');
-  const f = escena.figuras(vista)[i];
-  if (f === undefined) throw new Error(`tropa: no hay figura ${i} en la escena`);
-  const c = cajaEnLaTropa(escena.camara(vista), f.en);
-  const x = Math.round(b.x + c.x);
-  const y = Math.round(b.y + c.suelo - c.alto * 0.5);
-  await page.mouse.move(x - 4, y);
-  await page.mouse.move(x, y);
-  await page.mouse.click(x, y);
-  escena.pulsar(x - b.x, y - b.y);
+  const e = escena.encuadre(vista);
+  const en = e.en[i];
+  if (en === undefined) throw new Error(`tropa: no hay figura ${i} en la escena`);
+  const p = await pulsarLaFigura(page, b, cajasDeLaTropa(e.camara)(en));
+  escena.pulsar(p.x, p.y);
 }
 
 /** Espera a que el lienzo diga que la elegida es la del espejo (`canvas[data-tropa]`). */
@@ -2918,29 +2964,39 @@ async function esperarLaElegida(page: Page, espejo: Session, paso: string): Prom
   }
 }
 
-/** La barra de la página dice lo mismo que la del espejo. */
-async function mismaBarra(page: Page, espejo: Session, paso: string): Promise<void> {
+/** La barra de la página dice lo mismo que la del espejo; si no, lanza con `quien` delante. */
+async function mismaBarra(
+  page: Page,
+  espejo: Session,
+  paso: string,
+  quien = 'tropa',
+): Promise<void> {
   const dice = (await page.locator('#status').innerText()).trim();
   if (dice !== espejo.status) {
     throw new Error(
-      `tropa: tras «${paso}» la barra dice «${dice}» y la del espejo «${espejo.status}»`,
+      `${quien}: tras «${paso}» la barra dice «${dice}» y la del espejo «${espejo.status}»`,
     );
   }
 }
 
 /**
- * La cota del encuadre (E1 del ciclo de corrección): en el lienzo de la página, el
- * héroe del centro mide del 45 al 55 % de su alto y nadie se sale. Con la misma
- * cuenta que pinta la página (`encuadrarLaTropa`) y el lienzo medido en ella.
+ * La cota del encuadre de una escena de pie (E1 del ciclo de corrección de la
+ * tropa; C2 de la morada), con las cajas de la misma cuenta que pinta la página y
+ * el lienzo medido en ella: nadie más grande que su hoja a la densidad de la página
+ * (`pasoDeLaHoja`; decisión del usuario del 20-10-2026: agrandadas pixelaban) ni fuera
+ * del lienzo, y en una fila (`enFila`, de izquierda a derecha) ninguna pisa a la
+ * de al lado. `dice` es lo que va al registro tras el número de figuras.
  */
-async function cotaDelEncuadre(page: Page, quien: string, tropa: number): Promise<void> {
-  const b = await caja(page);
-  const e = encuadrarLaTropa({ ancho: b.width, alto: b.height }, tropa);
-  const cajas = e.en.map((p) => cajaEnLaTropa(e.camara, p));
-  // Nadie más grande que en una batalla en ese lienzo (decisión del usuario del
-  // 20-10-2026: agrandadas, las hojas pixelaban).
+function cotaDelEncuadre(
+  b: Caja,
+  densidad: number,
+  quien: string,
+  cajas: readonly CajaDeFigura[],
+  dice: (alto: number, tope: number) => string,
+  enFila = false,
+): void {
   const tope = cajaDeFiguraEn(
-    { paso: pasoDeLaBase(b.width, b.height), origenX: 0, origenY: 0, compresion: COMPRESION_SUELO },
+    { paso: pasoDeLaHoja(densidad), origenX: 0, origenY: 0, compresion: COMPRESION_SUELO },
     { x: 0, y: 0 },
   ).alto;
   const grandes = cajas.filter((c) => c.alto > tope + 1e-6).length;
@@ -2951,14 +3007,32 @@ async function cotaDelEncuadre(page: Page, quien: string, tropa: number): Promis
       c.suelo - c.alto < 0 ||
       c.suelo > b.height,
   ).length;
+  const pisadas = enFila
+    ? cajas.filter((c, i) => i > 0 && c.x - cajas[i - 1]!.x < c.ancho).length
+    : 0;
   log(
-    `${quien}: ${tropa + 1} figuras en ${Math.round(b.width)}×${Math.round(b.height)}, el de delante mide ${Math.round(Math.max(...cajas.map((c) => c.alto)))} px (en la batalla, ${Math.round(tope)})`,
+    `${quien}: ${dice(Math.round(Math.max(...cajas.map((c) => c.alto))), Math.round(tope))} en ${Math.round(b.width)}×${Math.round(b.height)}`,
   );
-  if (grandes > 0 || fuera > 0) {
+  if (grandes > 0 || fuera > 0 || pisadas > 0) {
     throw new Error(
-      `${quien}: ${grandes} figuras más grandes que en la batalla y ${fuera} que se salen del lienzo`,
+      `${quien}: ${grandes} figuras más grandes que su hoja, ${fuera} fuera del lienzo y ${pisadas} pisando a la de al lado`,
     );
   }
+}
+
+/** La cota del arco de la tropa: con `tropa` de los suyos y el héroe, en el lienzo de la página. */
+async function cotaDeLaTropa(page: Page, quien: string, tropa: number): Promise<void> {
+  const b = await caja(page);
+  const densidad = await densidadDe(page);
+  const e = encuadrarLaTropa({ ancho: b.width, alto: b.height, densidad }, tropa);
+  cotaDelEncuadre(
+    b,
+    densidad,
+    quien,
+    e.en.map((p) => cajasDeLaTropa(e.camara)(p)),
+    (alto, tope) =>
+      `${tropa + 1} figuras, el de delante mide ${alto} px (tope de la hoja, ${tope}),`,
+  );
 }
 
 /**
@@ -3012,7 +3086,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     );
   }
   await sleep(400);
-  await cotaDelEncuadre(page, 'tropa', heroe.army.length);
+  await cotaDeLaTropa(page, 'tropa', heroe.army.length);
   await captura(page, 'tropa-01-escena');
 
   // Pulsar en el lienzo al segundo de la tropa.
@@ -3151,8 +3225,303 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     await p.waitForSelector(`#app[data-escena="tropa"]`, { timeout: 5000 });
     await p.waitForSelector(`#canvas[data-tropa="${heroe.id}"]`, { timeout: 3000 });
     await sleep(600);
-    await cotaDelEncuadre(p, v.nombre, heroe.army.length);
+    await cotaDeLaTropa(p, v.nombre, heroe.army.length);
     await captura(p, `${v.nombre}-escena`);
+    await contexto.close();
+  }
+}
+
+// ------------------------------------------------------------------ la morada en escena
+
+/**
+ * La escena de la morada del espejo en el lienzo de la página: la MISMA clase que
+ * lee el clic en la página (`EscenaMorada`). En Node no pinta: su fondo, la base,
+ * no hace falta para encuadrar.
+ */
+async function escenaDeLaMorada(
+  page: Page,
+  espejo: Session,
+): Promise<{ b: Caja; densidad: number; vista: VistaDeLaMorada; escena: EscenaMorada }> {
+  const vista = espejo.vistaDeLaMorada();
+  if (vista === null) throw new Error('morada: el espejo no está en la escena de la morada');
+  const b = await caja(page);
+  const escena = new EscenaMorada(
+    () => espejo,
+    () => {},
+  );
+  const densidad = await densidadDe(page);
+  escena.encuadrar(b.width, b.height, densidad);
+  return { b, densidad, vista, escena };
+}
+
+/**
+ * Espera a que la página entre en la morada de `sitio` (`canvas[data-morada]`,
+ * `<edificio>:<unidad>`), la abre en el espejo y comprueba que la página la abre
+ * con el lateral arriba y la misma elegida y la misma barra que él.
+ */
+async function entrarEnLaMorada(
+  page: Page,
+  espejo: Session,
+  sitio: SitioId,
+  quien: string,
+): Promise<void> {
+  espejo.abrirLaMorada(sitio);
+  const vista = espejo.vistaDeLaMorada()!;
+  await esperarLaElegidaDeLaMorada(page, espejo, `${quien}: entrar en ${vista.nombre}`);
+  const escena = await page.locator('#app').getAttribute('data-escena');
+  if (escena !== 'morada')
+    throw new Error(`${quien}: la página está en «${escena}» y no en la morada`);
+  const lateral = await page.evaluate(
+    () => (document.getElementById('lateral') as HTMLElement).scrollTop,
+  );
+  if (lateral !== 0) {
+    throw new Error(`${quien}: el panel de la morada abre bajado ${lateral} px: la lista no se ve`);
+  }
+  await mismaBarra(page, espejo, 'entrar', quien);
+  // El fondo y la fila, ya con lo que haya de arte.
+  await sleep(500);
+}
+
+/** Espera a que el lienzo diga que la elegida es la del espejo, y su ficha en el panel. */
+async function esperarLaElegidaDeLaMorada(
+  page: Page,
+  espejo: Session,
+  paso: string,
+): Promise<void> {
+  const vista = espejo.vistaDeLaMorada()!;
+  const marca = `${vista.edificio}:${vista.figuras[vista.elegida]!.id}`;
+  await page
+    .waitForSelector(`#canvas[data-morada="${marca}"]`, { timeout: 8000 })
+    .catch(async () => {
+      const tiene = await page.locator('#canvas').getAttribute('data-morada');
+      throw new Error(`${paso}: la página está en «${tiene}» y el espejo en «${marca}»`);
+    });
+  const titulo = (await page.locator('#side .ficha-de-la-morada h3').first().innerText()).trim();
+  if (titulo.toUpperCase() !== vista.ficha.nombre.toUpperCase()) {
+    throw new Error(
+      `${paso}: la ficha de la página es «${titulo}» y la del espejo «${vista.ficha.nombre}»`,
+    );
+  }
+}
+
+/**
+ * Pulsa (o toca) en el lienzo la figura de `unidad` y la elige en el espejo con la
+ * misma escena que lee el clic en la página (`EscenaMorada`), en el píxel pulsado.
+ */
+async function pulsarEnLaMorada(
+  page: Page,
+  espejo: Session,
+  unidad: string,
+  quien: string,
+  toque = false,
+): Promise<void> {
+  const { b, vista, escena } = await escenaDeLaMorada(page, espejo);
+  const i = vista.figuras.findIndex((f) => f.id === unidad);
+  if (i < 0) throw new Error(`${quien}: ${unidad} no se recluta en ${vista.nombre}`);
+  const e = escena.encuadre(vista);
+  const p = await pulsarLaFigura(page, b, cajasDeLaMorada(e.camara)(e.en[i]!), toque);
+  escena.pulsar(p.x, p.y);
+  if (espejo.vistaDeLaMorada()!.figuras[espejo.vistaDeLaMorada()!.elegida]!.id !== unidad) {
+    throw new Error(`${quien}: pulsar la figura de ${unidad} no la elige en el espejo`);
+  }
+  await esperarLaElegidaDeLaMorada(page, espejo, `${quien}: pulsar la figura de ${unidad}`);
+}
+
+/**
+ * Vuelve de la morada a la base con «Volver a la base» (clic o toque) o con
+ * Escape, en la página y en el espejo, y comprueba que una sola pulsación deja
+ * la base —no el mapa— con quien anduvo quieto.
+ */
+async function salirDeLaMorada(
+  page: Page,
+  espejo: Session,
+  gesto: 'boton' | 'toque' | 'escape',
+  quien: string,
+): Promise<void> {
+  const volver = page.locator('[data-action="cerrar-morada"]');
+  if (gesto === 'escape') await page.keyboard.press('Escape');
+  else if (gesto === 'toque') await volver.tap();
+  else await volver.click();
+  espejo.cerrarLaMorada();
+  await esperarLaBase(page, 'quieto');
+  // Un fotograma más: un Escape que cerrara también la base se vería ahora.
+  await sleep(300);
+  const escena = await page.locator('#app').getAttribute('data-escena');
+  if (escena !== 'town' || (await page.locator('#canvas').getAttribute('data-morada')) !== null) {
+    throw new Error(`${quien}: al salir de la morada con ${gesto} la página está en «${escena}»`);
+  }
+}
+
+/**
+ * La cota de la fila de la morada (C2, C12): enteras, sin pisarse y no más grandes
+ * que su hoja, y quien anduvo, delante de la fila, no tapa a ninguna (su cabeza
+ * queda por debajo de los pies de todas). Dice cuánto se acercó la cámara a la de la base.
+ */
+async function cotaDeLaFila(page: Page, espejo: Session, quien: string): Promise<void> {
+  const { b, densidad, vista, escena } = await escenaDeLaMorada(page, espejo);
+  const e = escena.encuadre(vista);
+  const cajas = e.en.map(cajasDeLaMorada(e.camara));
+  const d = disposicionDe(vista.faccion);
+  // Quien anduvo espera delante de la fila (`dondeEsperaEnLaMorada`): su cabeza,
+  // por debajo de los pies de todos los reclutas.
+  const suya = cajaDeFiguraEn(e.camara, dondeEsperaEnLaMorada(d, vista.sitio));
+  const tapados = cajas.filter((c) => suya.suelo - suya.alto < c.suelo).length;
+  if (tapados > 0) {
+    throw new Error(`${quien}: quien anduvo tapa a ${tapados} reclutas, delante de la fila`);
+  }
+  const base = pasoDeLaBase(b.height);
+  cotaDelEncuadre(
+    b,
+    densidad,
+    quien,
+    cajas,
+    (alto, tope) =>
+      `${vista.nombre} con ${e.en.length} figuras de ${alto} px (tope de la hoja, ${tope}), con la base acercada ×${(e.camara.paso / base).toFixed(2)} (${Math.round(base)} → ${Math.round(e.camara.paso)} px por paso),`,
+    true,
+  );
+}
+
+/**
+ * Reclutar dentro de la morada (20-10-2026), en el escritorio y en el móvil: los
+ * templarios (su edificio, abierto si su versión abierta está en el índice) y los
+ * orkos (su marcador, con las cuatro figuras de su pueblo delante).
+ * Se entra pulsando el edificio en la base (en el móvil, tocándolo en la lista),
+ * se elige la segunda figura en el lienzo y se sale: en el escritorio con un solo
+ * Escape, que deja la base y no el mapa; en el móvil, tocando «Volver a la base».
+ */
+async function moradaEnEscena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const semilla = 12;
+  for (const faccion of ['templarios', 'orkos'] as const) {
+    for (const movil of [false, true]) {
+      const nombre = `morada-${faccion}${movil ? '-movil' : ''}`;
+      const contexto = await browser.newContext(
+        movil
+          ? {
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 2,
+              isMobile: true,
+              hasTouch: true,
+            }
+          : { viewport: { width: 1440, height: 900 } },
+      );
+      const page = await contexto.newPage();
+      vigilarConsola(page, nombre, problemas);
+      const espejo = new Session(semilla, faccion);
+      espejo.abrirSuBase();
+      await page.goto(`${url}/?seed=${semilla}&faccion=${faccion}`, { waitUntil: 'networkidle' });
+      await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
+      await esperarLaBase(page, 'quieto');
+      const d = disposicionDe(faccion);
+      if (movil) {
+        await page.locator('#side [data-action="ir-a-sitio"][data-sitio="lvl1"]').tap();
+      } else {
+        await pulsarEnLaBase(page, d, d.entrada, laPuerta(d, 'lvl1'));
+      }
+      await entrarEnLaMorada(page, espejo, 'lvl1', nombre);
+      const vista = espejo.vistaDeLaMorada()!;
+      const esperadas = faccion === 'orkos' ? 4 : 2;
+      if (vista.figuras.length !== esperadas) {
+        throw new Error(
+          `${nombre}: ${vista.nombre} tiene ${vista.figuras.length} unidades y no ${esperadas}`,
+        );
+      }
+      await cotaDeLaFila(page, espejo, nombre);
+      await captura(page, `${nombre}-01-entrar`);
+      await pulsarEnLaMorada(page, espejo, vista.figuras[1]!.id, nombre, movil);
+      await captura(page, `${nombre}-02-la-segunda`);
+      // El panel de la elegida: sus cifras, su reclutamiento y, si no se puede, por qué.
+      const f = espejo.vistaDeLaMorada()!.ficha;
+      const ficha = (await page.locator('#side .ficha-de-la-morada').innerText()).replace(
+        /\s+/g,
+        ' ',
+      );
+      for (const texto of [`Índice ${f.indice} · nivel ${f.nivel}`, `${f.precio} cada uno`]) {
+        if (!ficha.includes(texto))
+          throw new Error(`${nombre}: la ficha no dice «${texto}»: ${ficha}`);
+      }
+      if (f.motivo !== null && !ficha.includes(f.motivo)) {
+        throw new Error(`${nombre}: la ficha no escribe por qué no se recluta («${f.motivo}»)`);
+      }
+      log(`${nombre}: ${f.nombre}, ${f.motivo === null ? `caben ${f.plan?.maximo}` : f.motivo}`);
+      await salirDeLaMorada(page, espejo, movil ? 'toque' : 'escape', nombre);
+      await captura(page, `${nombre}-03-de-vuelta-en-la-base`);
+      await contexto.close();
+    }
+  }
+}
+
+// ------------------------------------------------------------------ la base a varios anchos
+
+/**
+ * La base a todo el alto (C16 de la vuelta 2 de la morada, 20-10-2026: «al hacer
+ * la pantalla más estrecha se encoge la parte donde se ve la base; eso no pasa en
+ * el mapa»): a 1440, 1100 y 800 de ancho, el lienzo de la base, el de la morada y
+ * el del mapa miden lo mismo de alto (a 800 la barra de arriba ocupa dos líneas y
+ * los tres pierden lo mismo), y el adulto, 0,95 pasos de la base de ese alto
+ * (`pasoDeLaBase`, que no lee el ancho); en el móvil, el marco de 380 del
+ * combate. Deja la base y la morada de cada ancho en captura.
+ */
+async function baseAVariosAnchos(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+): Promise<void> {
+  const semilla = 12;
+  for (const ancho of [1440, 1100, 800, 390]) {
+    const movil = ancho < 760;
+    const nombre = `base-anchos-${ancho}`;
+    const contexto = await browser.newContext(
+      movil
+        ? {
+            viewport: { width: 390, height: 844 },
+            deviceScaleFactor: 2,
+            isMobile: true,
+            hasTouch: true,
+          }
+        : { viewport: { width: ancho, height: 900 } },
+    );
+    const page = await contexto.newPage();
+    vigilarConsola(page, nombre, problemas);
+    const espejo = new Session(semilla, 'templarios');
+    espejo.abrirSuBase();
+    await page.goto(`${url}/?seed=${semilla}&faccion=templarios`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
+    await esperarLaBase(page, 'quieto');
+    // El arte de la base, ya llegado: la captura es para mirarla.
+    await sleep(800);
+    const enLaBase = await caja(page);
+    const marco = await page.locator('.map-wrap').boundingBox();
+    if (marco === null) throw new Error(`${nombre}: no hay marco del lienzo`);
+    const paso = pasoDeLaBase(enLaBase.height);
+    log(
+      `${nombre}: la base en ${Math.round(enLaBase.width)}×${Math.round(enLaBase.height)} (marco de ${Math.round(marco.height)} de alto), el adulto de ${Math.round(0.95 * paso)} px`,
+    );
+    await captura(page, `${nombre}-01-base`);
+    const lista = page.locator('#side [data-action="ir-a-sitio"][data-sitio="lvl1"]');
+    if (movil) await lista.tap();
+    else await lista.click();
+    await entrarEnLaMorada(page, espejo, 'lvl1', nombre);
+    const enLaMorada = await caja(page);
+    if (Math.abs(enLaMorada.height - enLaBase.height) > 0.5) {
+      throw new Error(
+        `${nombre}: la morada mide ${enLaMorada.height} de alto y la base ${enLaBase.height}`,
+      );
+    }
+    await cotaDeLaFila(page, espejo, nombre);
+    await sleep(500);
+    await captura(page, `${nombre}-02-morada`);
+    await salirDeLaMorada(page, espejo, movil ? 'toque' : 'escape', nombre);
+    // La base, al alto del mapa, también en el móvil (QA I2 de la vuelta 2).
+    const volver = page.locator('[data-action="close-town"]');
+    if (movil) await volver.tap();
+    else await volver.click();
+    await page.waitForSelector('#app[data-escena="adventure"]', { timeout: 10_000 });
+    const enElMapa = await caja(page);
+    if (Math.abs(enElMapa.height - enLaBase.height) > 0.5) {
+      throw new Error(
+        `${nombre}: la base mide ${enLaBase.height} de alto y el mapa ${enElMapa.height}`,
+      );
+    }
     await contexto.close();
   }
 }
@@ -7257,6 +7626,8 @@ const PASADAS: readonly (readonly [string, Paso])[] = [
   ['tactil', jugarTactil],
   ['sin-arte', sinArte],
   ['tropa', tropaEnEscena],
+  ['morada', moradaEnEscena],
+  ['base-anchos', baseAVariosAnchos],
   ['espectador', espectador],
   ['arena', arena],
   ['edicion', (b, u, p) => conLosCatalogosDevueltos('edicion', () => edicionDeLaArena(b, u, p))],

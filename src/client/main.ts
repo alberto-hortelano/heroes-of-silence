@@ -13,6 +13,7 @@ import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaBatalla } from './escenas/batalla.js';
 import { EscenaBase } from './escenas/castillo.js';
+import { EscenaMorada } from './escenas/morada.js';
 import { EscenaTropa } from './escenas/tropa.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
@@ -200,7 +201,24 @@ const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
-const tropa = new EscenaTropa(sesion);
+/**
+ * Las escenas de dentro: se entra en ellas desde otra (la tropa desde el mapa, la
+ * morada desde la base), abren con el lateral arriba y, al salir, reponen el de la
+ * escena de la que se vino. Cada una con su escena de pie, el `data-*` que deja en
+ * el lienzo para `pnpm capturas` y su salida, la de la sesión.
+ */
+const DENTRO = {
+  tropa: { de: new EscenaTropa(sesion), cerrar: (s: Session) => s.cerrarLaTropa() },
+  morada: {
+    // Detrás de la fila, la base con su edificio abierto: no se sale de ella.
+    de: new EscenaMorada(sesion, (ctx, lienzo, camara, vista, ahora) =>
+      castillo.pintarLaMorada(ctx, lienzo, camara, vista.edificio, ahora),
+    ),
+    cerrar: (s: Session) => s.cerrarLaMorada(),
+  },
+} as const;
+type EscenaDeDentro = keyof typeof DENTRO;
+const esDeDentro = (escena: string): escena is EscenaDeDentro => escena in DENTRO;
 /**
  * La rueda del golpe de la partida, la misma de la arena (F5, 19-10-2026). De los
  * dos que se cruzan, su figura, su chapa y su nombre, y quién es «tú»
@@ -268,8 +286,12 @@ cargarArte(() => {
 apuntarElSueloEn(app);
 
 let escenaPintada = '';
-/** Lo bajado en el lateral del mapa al abrir la tropa, y lo que toca poner tras repintar los paneles. */
-let lateralDelMapa = 0;
+/**
+ * La escena de donde se entró en una de dentro (el mapa o la base) y lo bajado
+ * en su lateral, y lo que toca poner tras repintar los paneles.
+ */
+let escenaDeAntes = '';
+let lateralDeAntes = 0;
 let lateralPendiente: number | null = null;
 
 /**
@@ -299,16 +321,18 @@ function dibujarFotograma(ahora: number): void {
   if (escena !== escenaPintada) {
     // El lateral se desplaza solo, y la tropa heredaba lo bajado en el panel del
     // mapa: abría con la lista de a quién elegir por encima de la vista (QA, H3).
-    // Abre arriba, y al volver el mapa se encuentra su panel como lo dejó. Se lee
-    // antes de cambiar `data-escena` (con el marco de la tropa el lateral mide
-    // otra cosa y el navegador ya lo recorta) y se pone después de repintar los
-    // paneles, por lo mismo.
-    if (escena === 'tropa') {
-      lateralDelMapa = lateral.scrollTop;
+    // La tropa y la morada abren arriba, y al volver el mapa o la base se
+    // encuentran su panel como lo dejaron. Se lee antes de cambiar `data-escena`
+    // (con el marco de la tropa el lateral mide otra cosa y el navegador ya lo
+    // recorta) y se pone después de repintar los paneles, por lo mismo.
+    if (esDeDentro(escena)) {
+      escenaDeAntes = escenaPintada;
+      lateralDeAntes = lateral.scrollTop;
       lateralPendiente = 0;
-    } else if (escenaPintada === 'tropa') {
-      lateralPendiente = escena === 'adventure' ? lateralDelMapa : 0;
-      lateralDelMapa = 0;
+    } else if (esDeDentro(escenaPintada)) {
+      // A la escena de donde se entró, como estaba; a otra, arriba.
+      lateralPendiente = escena === escenaDeAntes ? lateralDeAntes : 0;
+      lateralDeAntes = 0;
     }
     app.dataset.escena = escena;
     principal.remedir();
@@ -324,11 +348,11 @@ function dibujarFotograma(ahora: number): void {
 
   const enCastillo = escena === 'town' && session.activeTown !== null;
   const enBatalla = escena === 'battle' && session.battle !== null;
-  const enTropa = escena === 'tropa';
+  const dentro = esDeDentro(escena) ? DENTRO[escena].de : null;
   // Solo el mapa tiene presupuesto de píxeles: es la única pantalla que pinta
   // miles de sprites a cada fotograma. Depende del zoom: acercando, plena.
   const rect = principal.preparar(
-    enCastillo || enBatalla || enTropa ? undefined : aventura.presupuesto,
+    enCastillo || enBatalla || dentro !== null ? undefined : aventura.presupuesto,
   );
   ctx.clearRect(0, 0, rect.width, rect.height);
   // Lo abierto en la base o si se anda: lo leen la página (`canvas[data-base]`)
@@ -342,8 +366,8 @@ function dibujarFotograma(ahora: number): void {
     batalla.sincronizar(ahora);
     batalla.dibujar(ctx, rect.width, rect.height);
     seguirALaActiva();
-  } else if (enTropa) {
-    tropa.dibujar(ctx, rect.width, rect.height, ahora);
+  } else if (dentro !== null) {
+    dentro.dibujar(ctx, rect.width, rect.height, window.devicePixelRatio || 1, ahora);
   } else {
     aventura.dibujar(ctx, rect.width, rect.height, ahora);
     desarrollo?.dibujar(ctx);
@@ -356,11 +380,15 @@ function dibujarFotograma(ahora: number): void {
   rueda.animar(ahora);
 
   if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
-  // A quién se mira en la escena de la tropa: por donde esperan `pnpm capturas`.
-  const marcaDeLaTropa = enTropa ? tropa.marca : '';
-  if (marcaDeLaTropa === '') {
-    if (canvas.dataset.tropa !== undefined) delete canvas.dataset.tropa;
-  } else if (canvas.dataset.tropa !== marcaDeLaTropa) canvas.dataset.tropa = marcaDeLaTropa;
+  // A quién se mira en cada escena de dentro (`canvas[data-tropa]`, el id de la
+  // elegida; `canvas[data-morada]`, `<edificio>:<unidad>`): por donde esperan
+  // `pnpm capturas` y los tests del navegador. Fuera de ella, sin la marca.
+  for (const nombre of Object.keys(DENTRO) as EscenaDeDentro[]) {
+    const marca = escena === nombre ? DENTRO[nombre].de.marca : '';
+    if (marca === '') {
+      if (canvas.dataset[nombre] !== undefined) delete canvas.dataset[nombre];
+    } else if (canvas.dataset[nombre] !== marca) canvas.dataset[nombre] = marca;
+  }
 
   // Después de `batalla.sincronizar`: es la cola de ESTE fotograma.
   const contando = enBatalla && batalla.ocupada;
@@ -502,8 +530,8 @@ canvas.addEventListener('pointermove', (ev) => {
     canvas.style.cursor = castillo.mover(p.x, p.y, performance.now()) ? 'pointer' : 'default';
   } else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
-  } else if (session.scene === 'tropa') {
-    canvas.style.cursor = tropa.mover(p.x, p.y) ? 'pointer' : 'default';
+  } else if (esDeDentro(session.scene)) {
+    canvas.style.cursor = DENTRO[session.scene].de.mover(p.x, p.y) ? 'pointer' : 'default';
   } else {
     aventura.mover(p.x, p.y);
   }
@@ -514,7 +542,7 @@ canvas.addEventListener('pointerup', (ev) => {
   if (ev.button !== 0) return;
   const p = enLienzo(ev);
   if (session.scene === 'town') castillo.pulsar(p.x, p.y, performance.now());
-  else if (session.scene === 'tropa') tropa.pulsar(p.x, p.y);
+  else if (esDeDentro(session.scene)) DENTRO[session.scene].de.pulsar(p.x, p.y);
   else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
     if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
@@ -530,7 +558,7 @@ canvas.addEventListener('pointerleave', () => {
   aventura.salir();
   batalla.salir();
   castillo.salir();
-  tropa.salir();
+  for (const d of Object.values(DENTRO)) d.de.salir();
   pedirFotograma();
 });
 
@@ -582,12 +610,18 @@ function abrirLaTropa(): void {
   session.abrirLaTropa();
 }
 
-/** Vuelve de la tropa al mapa: el héroe elegido y la cámara del mapa no se han movido. */
-function cerrarLaTropa(): void {
-  if (session.scene !== 'tropa') return;
-  tropa.salir();
+/**
+ * Sale de la escena de dentro en que se esté a la de donde se entró: de la tropa
+ * al mapa, con el héroe elegido y la cámara del mapa como estaban; de la morada a
+ * la base, con quien anduvo quieto en su puerta, porque la base no se ha cerrado
+ * (`EscenaBase` no se reinicia sin otra apertura).
+ */
+function cerrarDentro(): void {
+  const escena = session.scene;
+  if (!esDeDentro(escena)) return;
+  DENTRO[escena].de.salir();
   canvas.style.cursor = 'default';
-  session.cerrarLaTropa();
+  DENTRO[escena].cerrar(session);
 }
 
 /** «Siguiente héroe», por el botón o por la H: lo elige la sesión y aquí se le mira. */
@@ -656,7 +690,8 @@ document.addEventListener('click', (ev) => {
       abrirLaTropa();
       break;
     case 'cerrar-tropa':
-      cerrarLaTropa();
+    case 'cerrar-morada':
+      cerrarDentro();
       break;
     case 'tropa-elegir': {
       const quien = target.getAttribute('data-quien');
@@ -675,7 +710,16 @@ document.addEventListener('click', (ev) => {
       // El hueco lo valida la sesión (`esHueco`), como en `unequip`.
       session.quitarALaElegida(target.getAttribute('data-slot') as string);
       break;
+    case 'morada-elegir': {
+      const unidad = target.getAttribute('data-unidad');
+      if (unidad === null) throw new Error('el botón de la morada no dice qué unidad elige');
+      session.elegirEnLaMorada(unidad);
+      break;
+    }
     case 'ir-a-sitio':
+      // El segundo clic de un doble clic cae ya en la morada que abrió el primero
+      // (QA I3 de la vuelta 2): solo cuenta el primero, como en «Poner».
+      if (ev.detail > 1) break;
       castillo.irA(target.getAttribute('data-sitio') as string, performance.now());
       break;
     case 'build':
@@ -782,11 +826,18 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('keydown', (ev) => {
   // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un atajo.
   if (ev.target instanceof Element && ev.target.closest('textarea, input, dialog') !== null) return;
+  // Escape mantenido se repite: cada repetición cerraría un nivel más (la morada,
+  // la base…). Solo cuenta la primera pulsación (QA M5 de la morada, 20-10-2026).
+  if (ev.key === 'Escape' && ev.repeat) return;
   if (desarrollo?.tecla(ev) === true) {
     pedirFotograma();
     return;
   }
-  if (ev.key === 'Escape' && session.scene === 'town') {
+  if (ev.key === 'Escape' && esDeDentro(session.scene)) {
+    cerrarDentro();
+  } else if (ev.key === 'Escape' && session.scene === 'town') {
+    // Con `else`: la misma pulsación que saca de la morada a la base no la cierra
+    // también, que es lo que pasaría mirando la escena otra vez tras cambiarla.
     // Escape cierra primero lo abierto en la base y, si no hay nada, la base.
     if (castillo.abierto !== null) {
       castillo.cerrar();
@@ -795,7 +846,6 @@ document.addEventListener('keydown', (ev) => {
       castillo.salir();
     }
   }
-  if (ev.key === 'Escape' && session.scene === 'tropa') cerrarLaTropa();
   // Escape suelta el hechizo elegido o el poder que espera aliado.
   if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
     session.soltarLoApuntado();

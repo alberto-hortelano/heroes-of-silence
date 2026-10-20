@@ -6,9 +6,10 @@
  * el motivo del núcleo (`tropa/vista.ts`), y el motivo va **escrito debajo**, no
  * en un `title`: en el móvil no hay ratón que lo enseñe.
  */
-import { conMiles, NOMBRE_DE_HUECO, SPEED_TO_HEXES } from '@core/types.js';
+import { conMiles, NOMBRE_DE_HUECO } from '@core/types.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
 import type { FichaDeLaTropa, HuecoDeLaFicha, VistaDeLaTropa } from '../tropa/vista.js';
+import { filaDeCifra, filasDeCombate, motivoApagado } from './cifras.js';
 import { modificadoresEnPantalla, nota } from './panels.js';
 
 /** Lo que dice un botón de elegir: «heroe» o el puesto en la tropa. */
@@ -31,12 +32,7 @@ export function renderPanelDeLaTropa(vista: VistaDeLaTropa | null): Html {
     ${renderFicha(vista.ficha)}`;
 }
 
-function filaDeCifra(rotulo: string, valor: string): Html {
-  return html`<div class="row"><span class="label">${rotulo}</span><span>${valor}</span></div>`;
-}
-
 function renderFicha(f: FichaDeLaTropa): Html {
-  const u = f.cifras;
   const experiencia =
     f.siguiente === null
       ? `${conMiles(f.experiencia)} · rango máximo`
@@ -53,22 +49,12 @@ function renderFicha(f: FichaDeLaTropa): Html {
     <div class="row"><span class="label">Experiencia ${nota('La que lleva y, detrás, la que pide el rango siguiente: se gana quitando vida en batalla.')}</span><span>${experiencia}</span></div>
     ${servicio}
     <h3>Características ${nota('Las de pelear, con lo de serie de su unidad y lo suyo puesto: cambian al momento al equipar o quitar.')}</h3>
-    ${filaDeCifra('Vida', `${conMiles(u.hp)} PV`)}
-    ${filaDeCifra('Ataque', String(u.attack))}
-    ${filaDeCifra('Defensa', String(u.defense))}
-    ${filaDeCifra('Daño', `${conMiles(u.damage[0])}–${conMiles(u.damage[1])}`)}
-    ${filaDeCifra('Armadura', String(f.armadura))}
-    ${filaDeCifra('Velocidad', `${SPEED_TO_HEXES[u.speed]} casillas`)}
+    ${filasDeCombate(f.cifras, f.armadura)}
     <h3>Equipo</h3>
     <div class="stack-list tropa-equipo">${unir(f.huecos.map(filaDeHueco))}</div>
     <h3>Mochila del héroe · ${f.mochila.length}</h3>
     <div class="stack-list tropa-mochila">${renderMochila(f)}</div>
   </section>`;
-}
-
-/** El motivo de un botón apagado, escrito debajo de él. */
-function motivo(m: string | null): Html {
-  return m === null ? NADA : html`<span class="motivo-apagado">${m}</span>`;
 }
 
 function filaDeHueco(h: HuecoDeLaFicha): Html {
@@ -83,7 +69,7 @@ function filaDeHueco(h: HuecoDeLaFicha): Html {
     h.quitar === null
       ? NADA
       : html`<button data-action="tropa-quitar" data-slot="${h.hueco}" ${h.quitar.motivo === null ? NADA : DESHABILITADO} aria-label="Quitar ${h.pieza.nombre} y guardarla en la mochila">×</button>`;
-  return html`<div class="stack" data-hueco="${h.hueco}"><span>${nombre}: ${h.pieza.nombre}${serie}<span class="veterania">${modificadoresEnPantalla(h.pieza)}</span>${motivo(h.quitar?.motivo ?? null)}</span><span class="count">${quitar}</span></div>`;
+  return html`<div class="stack" data-hueco="${h.hueco}"><span>${nombre}: ${h.pieza.nombre}${serie}<span class="veterania">${modificadoresEnPantalla(h.pieza)}</span>${motivoApagado(h.quitar?.motivo ?? null)}</span><span class="count">${quitar}</span></div>`;
 }
 
 function renderMochila(f: FichaDeLaTropa): Html {
@@ -93,7 +79,7 @@ function renderMochila(f: FichaDeLaTropa): Html {
   return unir(
     f.mochila.map(
       ({ pieza, poner }) =>
-        html`<div class="stack" data-item="${pieza.id}"><span>${pieza.nombre}<span class="veterania">${NOMBRE_DE_HUECO[pieza.hueco]} · ${modificadoresEnPantalla(pieza)}</span>${motivo(poner)}</span><span class="count"><button data-action="tropa-poner" data-item="${pieza.id}" ${poner === null ? NADA : DESHABILITADO}>Poner</button></span></div>`,
+        html`<div class="stack" data-item="${pieza.id}"><span>${pieza.nombre}<span class="veterania">${NOMBRE_DE_HUECO[pieza.hueco]} · ${modificadoresEnPantalla(pieza)}</span>${motivoApagado(poner)}</span><span class="count"><button data-action="tropa-poner" data-item="${pieza.id}" ${poner === null ? NADA : DESHABILITADO}>Poner</button></span></div>`,
     ),
   );
 }

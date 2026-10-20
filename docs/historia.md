@@ -5442,3 +5442,40 @@ hoja, y el héroe se pinta con esa hoja en el mapa, la base caminable, la batall
 - **El cable del espectador lleva `faction` y `tipo`** del héroe en vez del nombre del tipo ya
   redactado: de ese par salen el nombre y la figura, con las mismas funciones del núcleo.
 
+## La morada dentro de la base y la base a todo el alto (20-10-2026)
+
+«En el ordenador se ve muy pequeño. Queda una sala en el vacío. Que se muestre integrada en la
+base… al hacer la pantalla más estrecha se encoge la parte donde se ve la base. Eso no pasa en el
+mapa y no debe pasar en la base» (el usuario, tras la vuelta 1 de la morada,
+`docs/agents/2026-10-20-recluta-en-la-morada/`).
+
+- **Cambia un invariante, a propósito: la escala de la base.** Desde la vuelta 2 de la base
+  (09-10-2026) el adulto medía lo que en una batalla **del mismo lienzo**, y el lienzo del
+  escritorio iba en un marco 20:11 (`align-self: start`, `aspect-ratio`) para que se vieran 6,9
+  pasos de alto y no «un descampado»: al estrechar la ventana, el marco encogía en alto. Ahora el
+  lienzo va a todo el alto, como el mapa, y el paso es el de una batalla **en un marco 20:11 de ese
+  alto** (`pasoDeLaBase(alto)`, `MARCO_DE_LA_BASE`): a 1080×594 da 85,7, como antes; a todo el alto
+  de 1440×900 (1080×756), 109,1, y lo mismo a 1100 de ancho; a 800 la barra de arriba ocupa dos líneas, y el mapa y la
+  base miden los dos 720 de alto (103,9). En el móvil, también al alto del mapa (QA I2 de la
+  vuelta 2: con el marco de 380 del combate, a menos de 760 de ancho la base medía 370 y el mapa
+  548, y estrechar de 770 a 750 la encogía de 720 a 370): 513 en 390×844, con el paso de una
+  batalla de 860 de ancho (`ANCHO_DEL_COMBATE_EN_MOVIL`). La batalla sigue en su marco de 380. Se
+  queda el encuadre aprobado; lo que cambia con el ancho es cuánta plaza se ve. La tropa y la
+  morada van en el mismo marco que la base, y la morada se acerca menos si en un lienzo bajo no se
+  vería la sala (`ALTO_DE_LA_SALA`, QA I1).
+- **La morada no saca de la base.** La vuelta 1 abría una pantalla aparte con el interior pintado a
+  pantalla entera, encogido a la escala de las figuras y con los bordes fundidos a oscuro: «una
+  sala en el vacío». Ahora es la base con la cámara acercada al paso de la hoja (`pasoDeLaHoja`:
+  168 a densidad 1, 112 a 1,5, 84 a 2; nunca se aleja, así que en una pantalla de densidad 1,5 a
+  todo el alto la morada casi no se acerca: es la regla de no pasar de la hoja) y centrada en el
+  edificio, que se cambia por su versión abierta (una edición del cuadro, como las mejoras: el mismo
+  edificio sin la pared de delante y con su sala) y, delante, la fila de reclutas en el empedrado, a
+  2,9 pasos de hondo: con la puerta a 0,15, sus cabezas quedan por debajo de los pies de quien
+  anduvo. Se retiraron los interiores de pantalla entera, sus medidas a mano y su guía; las salas de
+  Codex se quedan en `fuentes/` como referencia de la versión abierta (papel `interior`).
+- **El exterior del pueblo, otra vez y sobre la placa** (`retoque`). En su maestro la choza salió en
+  tres cuartos (la pared del lado derecho y el faldón del tejado en escorzo, el zócalo en diagonal)
+  y con un halo verdoso, que es el árbol del maestro que la placa no tiene. El retoque edita la
+  placa, no el maestro: alrededor es lo que pinta el juego y la diferencia es solo el edificio.
+  Mientras no llega, manda el maestro (`cuadroDe`).
+

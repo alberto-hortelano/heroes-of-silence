@@ -43,6 +43,10 @@ export const PAPELES = {
   // puertas salían de medio adulto (pruebas de la vuelta 3).
   plaza:
     'es la GUÍA DE LA PLAZA: el gris CLARO de abajo es el empedrado por el que se anda, solo esa franja baja; cada punto oscuro numerado sobre su borde de atrás es donde va el UMBRAL de la PUERTA del edificio con ese número; y junto a cada punto hay una SILUETA OSCURA DE UN ADULTO de pie, a su tamaño real en este cuadro: es la VARA DE MEDIR de todo. No pintes sus grises lisos, sus puntos, sus números ni sus siluetas',
+  // La sala de una morada pintada a pantalla entera (la vuelta 1 de la morada),
+  // para su versión abierta: lo de dentro, no el encuadre (`encargoDeLaAbierta`).
+  interior:
+    'es la SALA de ese edificio por dentro: de ella salen los muebles, los materiales, la luz y la heráldica de lo que se ve al abrirlo. NO manda en el encuadre ni en la escala: va DENTRO del edificio de la imagen 1, a la escala de su plaza, no a pantalla entera',
   // La hoja de los edificios que van en el cuadro: los de la primera vuelta, que
   // salieron proporcionados (las fachadas giradas de la vuelta 2, no).
   edificios:
