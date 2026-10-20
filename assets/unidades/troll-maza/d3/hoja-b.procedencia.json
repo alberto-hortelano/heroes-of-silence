@@ -1,18 +1,19 @@
 {
-  "encargo": "troll-maza-d3-b",
+  "encargo": "troll-maza-d3-b-c1",
   "tipo": "atlas",
-  "fecha": "2026-10-05T15:01:14.457Z",
+  "fecha": "2026-10-20T09:30:48.685Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a10c79-5be0-7111-a24c-62fc7da2c743",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn troll: gigante de piel gris azulada con musgo, cabeza pequeña, colmillos, grilletes rotos con cadenas en las muñecas, taparrabos, maza de madera con clavos de hierro empuñada a dos manos.\nEn la lámina de giro (imagen 2), la figura 4 en orden de lectura es la que mira hacia «espalda-derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 232 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a158a2-8988-7c11-bee3-452c22c9db28",
+  "reanuda": "01a158a2-8988-7c11-bee3-452c22c9db28",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nLas figuras son demasiado grandes y se meten unas en otras: en la fila 1 la maza del fotograma 4 entra en la columna del 5 y la del 5 en la del 6, y en la fila 3 los cuerpos caídos se solapan; el recorte los junta. Repite la hoja con las mismas poses y las figuras al 80 % de su tamaño: cada figura, con su maza, cabe entera en su propia celda, y nada de una figura entra en la columna ni en la fila de otra, con una franja de fondo vacío entre celdas. En el fotograma 3 de la fila 1 la cabeza y la maza se funden en una mancha: que se lean las dos. Lo demás de la hoja está bien: no lo cambies.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 232 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/troll-maza-8d/d3-b.png",
-      "papel": "pose",
-      "sha256": "0fda09b6b370e2f8b487cf3b59ad7fd74ed92e9decb92b4bef9f5130468109b4"
+      "ruta": "assets/unidades/_poses/unidades/troll-maza-8d/d3-b.profundidad.png",
+      "papel": "pose-profundidad",
+      "sha256": "c09ef5765a10727ab393864df02a9473cc31d94b3c6ed35679fe7e1f515e71fd"
     },
     {
       "ruta": "assets/unidades/troll-maza/giro.webp",
@@ -26,26 +27,26 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a10c79-5be0-7111-a24c-62fc7da2c743/exec-e3e5edb7-af1d-4405-b091-f95d2d68bd6d.png",
-    "sha256": "0887b87790634c6573adea28f114b29d9b54bc17832fd1faead8c0239e79b350",
+    "fichero": "~/.codex/generated_images/01a158a2-8988-7c11-bee3-452c22c9db28/call_0958ec539b754154a550330b8e37148d.png",
+    "sha256": "b9a793dd2a2b70f2557b7eace6ff27f75086134c0ce0ab26486514a79c232f50",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.3164, pies en y=342, reposo reducido de 232 a 214 px para que el fotograma más ancho quepa con margen",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.3635, pies en y=342, reposo a 232 px",
     "WebP calidad 92, alfa sin pérdida",
     "dirección completa: assets/unidades/troll-maza/d3/atlas.webp"
   ],
   "validacion": {
-    "visibles": 0.09965200272817461,
-    "opacos": 0.9537202670296195,
-    "haloSuelto": 0,
+    "visibles": 0.13706041770006613,
+    "opacos": 0.9670160078036275,
+    "haloSuelto": 0.000002356167740293767,
     "ancho": 2688,
     "alto": 1152
   },
   "deLaPose": {
-    "k": 1.423867984693877,
+    "k": 1.5466666666666666,
     "origen": [
       192,
       342
@@ -63,6 +64,6 @@
   },
   "salida": {
     "ruta": "assets/unidades/troll-maza/d3/hoja-b.webp",
-    "sha256": "fc1468d4562558e93696a906e73169e113373da1e8192d9c266aa933c54b4b9a"
+    "sha256": "5243be9afdac10cdae46a88960f999f20385f71a2c01b964e0b18758b6625ba6"
   }
 }

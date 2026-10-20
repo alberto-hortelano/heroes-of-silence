@@ -1,6 +1,6 @@
 {
   "atlas": "atlas.webp",
-  "sha256": "1d11db8152b61f8eba4e366d1939feea832d7e9da18311ff113923460f8a24ed",
+  "sha256": "372c10732e3d3870f995dc8442ca495ca1934c9ede427128766201aa9f19b536",
   "hojas": [
     {
       "imagen": "hoja-a.webp",
@@ -22,7 +22,7 @@
     },
     {
       "imagen": "hoja-c.webp",
-      "sha256": "c6284439bbd2f01195db8f5e9775e8639ba457730dfcbd5ba5b50eff9dc610cb",
+      "sha256": "71d9e9a4cb2e4396f807e3f9e8b62b3b6fa9b2f50ff511540025dc824bcd411e",
       "filas": [
         "shoot"
       ]
