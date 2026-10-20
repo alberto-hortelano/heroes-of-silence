@@ -27,12 +27,14 @@ import {
   oroDelIndice,
 } from './data.js';
 import {
+  aDosManos,
   conEquipo,
   EQUIPO_DEL_JUEGO,
   type EquipoAtado,
   equipoDe,
   manosBlocker,
   type Portador,
+  pieza,
 } from './hero/equipo.js';
 import { cifrasVeteranas, rangoDeTropa } from './hero/experiencia.js';
 import type { Hero } from './hero/hero.js';
@@ -179,10 +181,21 @@ export function equipoPuestoDe(
   quien: Portador,
   propio: Equipo = equipoDe(hero, quien),
 ): Equipo {
-  if ('heroe' in quien) return propio;
+  return { ...equipoDeSerieDe(hero, quien), ...propio };
+}
+
+/**
+ * **Lo de serie del portador `quien`** de `hero`: el equipo de su unidad si es un
+ * individuo del catálogo (`equipoPuesto` lo lleva debajo de lo suyo); el héroe y
+ * un personaje no llevan nada de serie. Lo de serie no se quita: lo leen
+ * `equipoPuestoDe` y el motivo de ponerse (`equipoDelPortadorBlocker`), que no
+ * pide quitar lo que no se puede.
+ */
+export function equipoDeSerieDe(hero: Pick<Hero, 'army'>, quien: Portador): Equipo {
+  if ('heroe' in quien) return {};
   const t = hero.army[quien.indice];
   if (t === undefined) throw new Error(`la tropa no tiene un individuo ${quien.indice}`);
-  return t.member === undefined ? equipoPuesto(t.creature, propio) : propio;
+  return t.member === undefined ? (unidadDelJuego(t.creature).equipo ?? {}) : {};
 }
 
 /**
@@ -192,12 +205,25 @@ export function equipoPuestoDe(
  * a cuerpo, que sin ella nadie pelea (`armaDeCuerpoBlocker`). **La única pregunta
  * de ponerse y quitar en el juego** (`ponerseBlocker`, `unequipBlocker`), como
  * `equipoValido` en la arena.
+ *
+ * `deSerie` es lo de serie de su unidad (`equipoDeSerieDe`). Un arma a dos manos
+ * sobre quien lleva escudo de serie no entra nunca: `manosBlocker` decía «quita
+ * antes el escudo», y ese no tiene ×; con una rodela encima, quitarla deja el de
+ * serie debajo (QA de la tropa en escena, H4, 20-10-2026). La regla es la misma
+ * (`REGLA_DEL_ESCUDO`); cambia lo que se le pide a quien lo lee.
  */
 export function equipoDelPortadorBlocker(
   nombre: string,
   equipo: Equipo,
   puesta: string | null,
+  deSerie: Equipo = {},
 ): string | null {
+  if (puesta !== null && deSerie.escudo !== undefined) {
+    const p = pieza(puesta);
+    if (p.hueco === 'arma' && aDosManos(p)) {
+      return `${nombre} no admite ${p.nombre}: es un arma a dos manos y su ${pieza(deSerie.escudo).nombre} es de serie, que no se quita`;
+    }
+  }
   const manos = puesta === null ? null : manosBlocker(equipo, puesta);
   if (manos !== null) return manos;
   return armaDeCuerpoBlocker(equipo) === null

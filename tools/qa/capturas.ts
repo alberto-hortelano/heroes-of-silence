@@ -2956,8 +2956,10 @@ async function cotaDelEncuadre(page: Page, quien: string, tropa: number): Promis
 /**
  * La tropa del héroe en escena (19-10-2026): con la T se abre, pulsar a uno lo
  * elige (el aro en el lienzo y su ficha en el panel), se le quita el gambesón al
- * héroe y se le pone a un novato —con el espejo a la par: el oro, la barra y a
- * quién se elige—, y «Volver al mapa» deja el mapa con la cámara de antes (la
+ * héroe y se le pone, con doble clic, a un novato que no es el primero de su tipo
+ * —con el espejo a la par: el oro, la barra y a quién se elige, que no salta—, el
+ * panel abre arriba aunque el del mapa estuviera bajado, y «Volver al mapa» deja
+ * el mapa con la cámara de antes y su panel donde estaba (la
  * vista movida con la rueda y un arrastre, para que volver a la de siempre no
  * pase por igual). Y la escena a 1280×720, a 1024×768 y en el móvil, con la cota del
  * encuadre (`cotaDelEncuadre`) en cada uno.
@@ -2975,12 +2977,32 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
   await sleep(300);
   const cajaAntes = await caja(page);
   const huellaAntes = await huellaDelLienzo(page);
+  // El panel del mapa, bajado del todo: la tropa abre arriba igual y, al volver,
+  // el mapa lo encuentra donde lo dejó (QA, H3).
+  const lateralDelMapa = await page.evaluate(() => {
+    const l = document.getElementById('lateral') as HTMLElement;
+    l.scrollTop = l.scrollHeight;
+    return l.scrollTop;
+  });
+  if (lateralDelMapa <= 0) {
+    throw new Error(
+      'tropa: el panel del mapa no se desplaza y no se puede ver si la tropa abre arriba',
+    );
+  }
 
   await page.keyboard.press('t');
   espejo.abrirLaTropa();
   await page.waitForSelector('#app[data-escena="tropa"]', { timeout: 5000 });
   await esperarLaElegida(page, espejo, 'abrir con la T');
   await mismaBarra(page, espejo, 'abrir con la T');
+  const lateralDeLaTropa = await page.evaluate(
+    () => (document.getElementById('lateral') as HTMLElement).scrollTop,
+  );
+  if (lateralDeLaTropa !== 0) {
+    throw new Error(
+      `tropa: el panel de la tropa abre bajado ${lateralDeLaTropa} px (el del mapa estaba en ${lateralDelMapa}): la lista de a quién elegir no se ve`,
+    );
+  }
   await sleep(400);
   await cotaDelEncuadre(page, 'tropa', heroe.army.length);
   await captura(page, 'tropa-01-escena');
@@ -3011,26 +3033,45 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
   }
   await captura(page, 'tropa-03-sin-gambeson');
 
-  // Ponérselo al primero de la tropa, pulsado en el lienzo.
-  await pulsarEnLaTropa(page, espejo, 1);
-  await esperarLaElegida(page, espejo, 'pulsar al primero de la tropa');
+  // Ponérselo a un novato que no es el primero de su tipo, pulsado en el lienzo:
+  // lo lleva ÉL y la elección no salta al primero (QA, H2). Con doble clic en
+  // «Poner»: juega una vez y la barra no dice que algo falló (QA, H6).
+  const otro = heroe.army.findIndex(
+    (t, i) =>
+      t.veterania === undefined &&
+      t.member === undefined &&
+      heroe.army.slice(0, i).some((u) => u.creature === t.creature && u.veterania === undefined),
+  );
+  if (otro < 0) {
+    throw new Error(
+      `tropa: la semilla ${semilla} no lleva dos novatos del mismo tipo para ver a quién se le pone`,
+    );
+  }
+  await pulsarEnLaTropa(page, espejo, otro + 1);
+  await esperarLaElegida(page, espejo, `pulsar al ${otro + 1}.º de la tropa`);
   const poner = page.locator('#side [data-action="tropa-poner"][data-item="gambeson"]');
   if (!(await poner.isEnabled())) {
     throw new Error(
       `tropa: «Poner» el gambesón sale apagado: ${espejo.vistaDeLaTropa()!.ficha.mochila[0]?.poner}`,
     );
   }
-  await poner.click();
+  await poner.dblclick();
+  espejo.ponerALaElegida('gambeson');
   espejo.ponerALaElegida('gambeson');
   await sleep(200);
-  await mismaBarra(page, espejo, 'ponerle el gambesón al primero');
-  await esperarLaElegida(page, espejo, 'ponerle el gambesón al primero');
-  if (heroe.army[0]?.veterania?.equipo?.armadura !== 'gambeson') {
-    throw new Error(`tropa: el gambesón no lo lleva el primero de la tropa: ${espejo.status}`);
+  await mismaBarra(page, espejo, `ponerle el gambesón al ${otro + 1}.º con doble clic`);
+  await esperarLaElegida(page, espejo, `ponerle el gambesón al ${otro + 1}.º`);
+  if (heroe.army[otro]?.veterania?.equipo?.armadura !== 'gambeson') {
+    throw new Error(
+      `tropa: el gambesón no lo lleva el ${otro + 1}.º de la tropa: ${espejo.status}`,
+    );
   }
-  await comprobar(page, espejo, 'ponerle el gambesón al primero');
+  if (!espejo.status.endsWith('lleva ahora Gambesón.')) {
+    throw new Error(`tropa: tras el doble clic en «Poner» la barra dice «${espejo.status}»`);
+  }
+  await comprobar(page, espejo, `ponerle el gambesón al ${otro + 1}.º`);
   await captura(page, 'tropa-04-gambeson-puesto');
-  log(`tropa: ${espejo.status}`);
+  log(`tropa: ${espejo.status} (el ${otro + 1}.º de la tropa, con doble clic)`);
 
   // «Volver al mapa»: el mismo héroe y la misma cámara.
   await page.locator('[data-action="cerrar-tropa"]').click();
@@ -3058,6 +3099,21 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     );
   }
   await comprobar(page, espejo, 'volver al mapa');
+  // Como lo dejó: bajado lo mismo, o hasta el fondo si el panel ha encogido (el
+  // gambesón ya no está en la mochila del héroe).
+  const alVolver = await page.evaluate(() => {
+    const l = document.getElementById('lateral') as HTMLElement;
+    return { en: l.scrollTop, fondo: l.scrollHeight - l.clientHeight };
+  });
+  const esperado = Math.min(lateralDelMapa, alVolver.fondo);
+  log(
+    `tropa: el panel del mapa, bajado ${lateralDelMapa} px; en la tropa, 0; al volver, ${alVolver.en} (fondo ${alVolver.fondo})`,
+  );
+  if (Math.abs(alVolver.en - esperado) > 2) {
+    throw new Error(
+      `tropa: el panel del mapa estaba bajado ${lateralDelMapa} px y al volver está en ${alVolver.en} (su fondo, ${alVolver.fondo})`,
+    );
+  }
   const elegido = await page.locator('#side h2').first().innerText();
   if (elegido.trim().toUpperCase() !== heroe.name.toUpperCase()) {
     throw new Error(`tropa: al volver al mapa el panel enseña a «${elegido}» y no a ${heroe.name}`);

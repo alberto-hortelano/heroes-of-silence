@@ -34,6 +34,7 @@ import { COMPRESION_SUELO } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
 import { temaDelLienzo } from '../temas.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
+import { aroDeFigura, type PiesDeLaFigura } from './aro.js';
 import { asset } from './assets.js';
 import { type CharacterClip, clipEnCurso } from './character.js';
 import {
@@ -1357,17 +1358,23 @@ export function cajaDeFiguraEn(t: Tablero, en: Plano): CajaDeFigura {
 /**
  * El aro dorado a los pies de una figura de pie: el de quien señala el ratón en
  * la base y el de la elegida en la escena de la tropa (`grueso` dice cuál pesa más).
+ * Centrado en sus pies y del tamaño que los abarque (`aroDeFigura`, con `pies` de
+ * `piesDeFigura`; sin ellos, el de siempre). Va encima de la sombra y debajo de
+ * la figura (`pintarFiguraConSombra` con él en medio): la sombra es del suelo y el
+ * aro se lee encima.
  */
 export function pintarAroDeFigura(
   ctx: CanvasRenderingContext2D,
   c: CajaDeFigura,
+  pies: PiesDeLaFigura | null,
   grueso = 2,
 ): void {
+  const aro = aroDeFigura(c, pies);
   ctx.save();
   ctx.strokeStyle = '#f5d973';
   ctx.lineWidth = grueso;
   ctx.beginPath();
-  ctx.ellipse(c.x, c.suelo, c.alto * 0.3, c.alto * 0.11, 0, 0, Math.PI * 2);
+  ctx.ellipse(aro.x, aro.y, aro.rx, aro.ry, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }

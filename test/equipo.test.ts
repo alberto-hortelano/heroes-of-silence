@@ -46,6 +46,7 @@ import {
   PIEZAS_DE_BOTIN,
   PIEZAS_DEL_CATALOGO,
   pedidoDeEquipo,
+  pedidoDelPuesto,
   pieza,
   ponerPieza,
   textoDeModificador,
@@ -809,6 +810,89 @@ describe('cómo se nombra a un portador: `pedidoDeEquipo`, la inversa de `destin
     });
     expect(() => pedidoDeEquipo(hero, { indice: 3 })).toThrow(
       'la tropa no tiene a nadie en el puesto 3',
+    );
+  });
+});
+
+describe('por su puesto: `pedidoDelPuesto`, la inversa exacta de `destinoDeEquipo` (QA de la tropa, H2)', () => {
+  it('cada portador vuelve a sí mismo, también el tercer novato de un tipo; el personaje sin hoja da su motivo', () => {
+    const { hero } = enLaArmeria();
+    hero.army = [
+      { creature: TROPA_BARATA },
+      { creature: TROPA, veterania: hoja('veterano-1', 30) },
+      { creature: TROPA_BARATA },
+      { creature: CHARACTER_BODY, member: 'aren', veterania: hoja('veterano-2', 0) },
+      { creature: CHARACTER_BODY, member: 'brisa' },
+    ];
+    expect(destinoDeEquipo(hero, pedidoDelPuesto({ heroe: true }))).toEqual({ heroe: true });
+    for (const indice of [0, 1, 2, 3]) {
+      expect(destinoDeEquipo(hero, pedidoDelPuesto({ indice })), `el puesto ${indice}`).toEqual({
+        indice,
+      });
+    }
+    expect(destinoDeEquipo(hero, pedidoDelPuesto({ indice: 4 }))).toEqual({
+      motivo: 'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo',
+    });
+  });
+
+  it('un puesto que no hay, o el puesto con un nombre a la vez, no nombra a nadie y lo dice', () => {
+    const { hero } = enLaArmeria();
+    hero.army = [{ creature: TROPA_BARATA }];
+    expect(destinoDeEquipo(hero, { puesto: 3 })).toEqual({
+      motivo: `${hero.name} no lleva a nadie en el puesto 3 de su tropa`,
+    });
+    expect(destinoDeEquipo(hero, { puesto: 0.5 })).toEqual({
+      motivo: `${hero.name} no lleva a nadie en el puesto 0.5 de su tropa`,
+    });
+    expect(destinoDeEquipo(hero, { puesto: 0, creature: TROPA_BARATA })).toEqual({
+      motivo: 'di a quién se la pones por su puesto o por su nombre, no por los dos',
+    });
+  });
+
+  it('`equip` y `unequip` por el puesto visten y desvisten a ese, no al primero de su tipo', () => {
+    const { state, c, hero } = enLaArmeria();
+    hero.army = [{ creature: TROPA_BARATA }, { creature: TROPA_BARATA }];
+    hero.mochila = ['gambeson'];
+    accion(state, { type: 'equip', hero: hero.id, item: 'gambeson', puesto: 1 }, c);
+    expect(hero.army[0]).toEqual({ creature: TROPA_BARATA });
+    expect(hero.army[1]!.veterania?.equipo).toEqual({ armadura: 'gambeson' });
+    // Al primero, que no lleva nada suyo, no hay nada que quitarle.
+    expect(() =>
+      accion(state, { type: 'unequip', hero: hero.id, slot: 'armadura', puesto: 0 }, c),
+    ).toThrow('no se puede desequipar:');
+    accion(state, { type: 'unequip', hero: hero.id, slot: 'armadura', puesto: 1 }, c);
+    expect(hero.army[1]!.veterania?.equipo).toEqual({});
+    expect(hero.mochila).toEqual(['gambeson']);
+  });
+});
+
+describe('un arma a dos manos sobre un escudo de serie (QA de la tropa, H4)', () => {
+  it('el motivo no pide quitar el escudo, que es de serie: tampoco con otro encima', () => {
+    const { state, c, hero } = enLaArmeria();
+    hero.army = [{ creature: TROPA }];
+    const deSerie = unidadDelJuego(TROPA).equipo?.escudo;
+    expect(deSerie).toBeDefined();
+    const escudo = pieza(deSerie!).nombre;
+    hero.mochila = ['mandoble', 'rodela'];
+    const motivo = `esa unidad de ${unidadDelJuego(TROPA).name} no admite Mandoble: es un arma a dos manos y su ${escudo} es de serie, que no se quita`;
+    const mandoble: AdventureAction = {
+      type: 'equip',
+      hero: hero.id,
+      item: 'mandoble',
+      creature: TROPA,
+    };
+    expect(equipBlocker(state, 0, mandoble)).toBe(motivo);
+    expect(() => accion(state, mandoble, c)).toThrow(`no se puede equipar: ${motivo}`);
+    // Con una rodela suya encima del de serie, igual: quitarla deja el de serie.
+    accion(state, { type: 'equip', hero: hero.id, item: 'rodela', creature: TROPA }, c);
+    const id = hero.army[0]!.veterania!.id;
+    expect(
+      equipBlocker(state, 0, { type: 'equip', hero: hero.id, item: 'mandoble', veteran: id }),
+    ).toBe(motivo);
+    // Al héroe, cuyo escudo es suyo, sí se le pide quitarlo (la regla es la de siempre).
+    hero.equipo = { ...hero.equipo, escudo: 'escudo' };
+    expect(equipBlocker(state, 0, { type: 'equip', hero: hero.id, item: 'mandoble' })).toBe(
+      'Mandoble es un arma a dos manos y no se puede llevar con Escudo: quita antes el escudo',
     );
   });
 });

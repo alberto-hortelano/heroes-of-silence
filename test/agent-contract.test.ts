@@ -148,6 +148,20 @@ describe('contrato con el agente', () => {
     expect(
       adventureActionSchema.safeParse({ type: 'unequip', hero: hero.id, slot: 'casco' }).success,
     ).toBe(true);
+    // El puesto en la tropa es de la escena de la tropa, no del contrato (QA de la
+    // tropa, H2): el agente sigue nombrando con `veteran` o `creature`, y un
+    // `puesto` que escriba no llega al núcleo.
+    for (const type of ['equip', 'unequip'] as const) {
+      const r = adventureActionSchema.safeParse({
+        type,
+        hero: hero.id,
+        item: 'maza',
+        slot: 'armor',
+        puesto: 0,
+      });
+      expect(r.success).toBe(true);
+      expect(r.data).not.toHaveProperty('puesto');
+    }
     // Los huecos viajan en inglés (12-10-2026) y se traducen al entrar
     // (`accionDelAgente`, dentro del `try` del director): el nombre de dentro,
     // «arma», ya no es un hueco del contrato, y se dice con los cinco que valen.

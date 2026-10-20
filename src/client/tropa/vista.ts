@@ -11,7 +11,13 @@
 import { armaduraDe } from '@core/battle/armas.js';
 import { equipoPuestoDe, unidadDelJuego } from '@core/catalogo.js';
 import { figuraDelHeroe, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
-import { equipoDe, type Portador, pedidoDeEquipo, pieza } from '@core/hero/equipo.js';
+import {
+  destinoDeEquipo,
+  equipoDe,
+  type Portador,
+  pedidoDelPuesto,
+  pieza,
+} from '@core/hero/equipo.js';
 import {
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
@@ -145,8 +151,11 @@ function fichaDe(
   quien: Portador,
   bloqueo: string | null,
 ): FichaDeLaTropa {
-  const pedido = pedidoDeEquipo(hero, quien);
-  const sinNombre = 'motivo' in pedido ? pedido.motivo : null;
+  // Se le nombra por su puesto, como lo hace la sesión al ponérsela
+  // (`pedidoDelPuesto`): el motivo de no poder nombrarlo, el del núcleo.
+  const pedido = pedidoDelPuesto(quien);
+  const destino = destinoDeEquipo(hero, pedido);
+  const sinNombre = 'motivo' in destino ? destino.motivo : null;
   const propio = equipoDe(hero, quien);
   const puesto = equipoPuestoDe(hero, quien);
   const huecos = HUECOS.map((hueco): HuecoDeLaFicha => {
@@ -154,7 +163,7 @@ function fichaDe(
     const suyo = propio[hueco] !== undefined;
     // Lo suyo solo lo lleva quien tiene hoja (o el héroe): un novato nunca entra aquí.
     const quitar =
-      !suyo || 'motivo' in pedido || 'creature' in pedido
+      !suyo || sinNombre !== null
         ? null
         : {
             motivo:

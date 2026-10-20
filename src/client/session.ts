@@ -64,13 +64,7 @@ import type {
 } from '@core/battle/types.js';
 import { cuerpoDe } from '@core/catalogo.js';
 import { figuraDelHeroe } from '@core/data.js';
-import {
-  type CatalogoDeEquipo,
-  destinoDeEquipo,
-  type Portador,
-  pedidoDeEquipo,
-  pieza,
-} from '@core/hero/equipo.js';
+import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import {
   armyLeadership,
@@ -1746,59 +1740,46 @@ export class Session implements ControlDeBatalla {
   } | null = null;
 
   /**
-   * Ponerle `item` de la mochila del héroe al elegido de la tropa, por `equip`.
-   * A un novato se le nombra por su tipo y el núcleo se la pone al **primero** sin
-   * hoja de ese tipo (`destinoDeEquipo`): son iguales, así que la elección pasa a
-   * él y la barra lo dice. El motivo de un rechazo, el del núcleo, en la barra.
+   * Ponerle `item` de la mochila del héroe al elegido de la tropa, por `equip`. Se
+   * le nombra por su puesto (`pedidoDelPuesto`): en la escena cada uno tiene su
+   * sitio, y por su tipo la pieza iba al primer novato igual, en el otro extremo
+   * del arco (QA, H2). El motivo de un rechazo, el del núcleo, en la barra.
    */
   ponerALaElegida(item: string): void {
     const hero = this.heroeDeLaTropa();
     const quien = this.elegidoEnLaTropa;
+    if (this.repiteLaJugada(`poner|${item}`, quien)) return;
     let dicho = '';
     const bien = this.run(() => {
-      const pedido = pedidoDeEquipo(hero, quien);
-      if ('motivo' in pedido) throw new Error(pedido.motivo);
-      const destino = destinoDeEquipo(hero, pedido);
       applyAdventureAction(
         this.state,
-        { type: 'equip', hero: hero.id, item, ...pedido },
+        { type: 'equip', hero: hero.id, item, ...pedidoDelPuesto(quien) },
         this.ctx,
         this.viewer,
       );
-      // Si llegó a la acción, el núcleo ya dijo que `destino` es un portador.
-      if ('motivo' in destino) throw new Error(destino.motivo);
-      this.elegidoEnLaTropaAhora = destino;
-      const nombre = pieza(item).nombre;
       const unidad =
-        'heroe' in destino
+        'heroe' in quien
           ? hero.name
-          : troopUnit(hero.army[destino.indice]!, this.state.characters).name;
-      dicho = mismoPortador(destino, quien)
-        ? `${unidad} lleva ahora ${nombre}.`
-        : `${nombre} va al primer ${unidad} sin equipar, que es igual que el que mirabas: ahora es el elegido.`;
+          : troopUnit(hero.army[quien.indice]!, this.state.characters).name;
+      dicho = `${unidad} lleva ahora ${pieza(item).nombre}.`;
     });
-    if (bien) this.status = dicho;
+    if (bien) this.recordarLaJugada(`poner|${item}`, quien, dicho);
   }
 
   /** Quitarle al elegido de la tropa lo suyo del hueco `slot`, a la mochila del héroe, por `unequip`. */
   quitarALaElegida(slot: string): void {
     const hero = this.heroeDeLaTropa();
     const quien = this.elegidoEnLaTropa;
+    if (this.repiteLaJugada(`quitar|${slot}`, quien)) return;
     let dicho = '';
     const bien = this.run(() => {
       if (!esHueco(slot)) throw new Error(huecoDesconocido(slot, HUECOS));
-      const pedido = pedidoDeEquipo(hero, quien);
-      if ('motivo' in pedido) throw new Error(pedido.motivo);
-      // `unequip` no nombra novatos: uno sin hoja no lleva nada suyo, solo lo de serie.
-      if ('creature' in pedido) {
-        throw new Error(
-          'un novato no lleva nada suyo que quitar: lo de serie de su unidad no se quita',
-        );
-      }
+      // Por su puesto también: a un novato, que no lleva nada suyo, el núcleo le
+      // dice que no hay nada que quitar (`nadaEnElHueco`).
       const antes = hero.mochila.length;
       applyAdventureAction(
         this.state,
-        { type: 'unequip', hero: hero.id, slot, ...pedido },
+        { type: 'unequip', hero: hero.id, slot, ...pedidoDelPuesto(quien) },
         this.ctx,
         this.viewer,
       );
@@ -1806,8 +1787,31 @@ export class Session implements ControlDeBatalla {
       if (vuelta !== undefined)
         dicho = `${pieza(vuelta).nombre} vuelve a la mochila de ${hero.name}.`;
     });
-    if (bien) this.status = dicho;
+    if (bien) this.recordarLaJugada(`quitar|${slot}`, quien, dicho);
   }
+
+  /**
+   * Si `jugada` sobre `quien` es la que acaba de salir bien sin que nada haya
+   * cambiado desde entonces (la misma `version`): el segundo clic de un doble clic,
+   * que llega al botón de antes de repintar (QA, H6). Repetida así, o falla —ya no
+   * está en la mochila, ya no hay nada en el hueco— o no cambia nada, así que se
+   * ignora sin decir nada y la barra sigue con lo que dijo la primera. El núcleo
+   * no se toca: lo que sí le llega sigue fallando con su motivo.
+   */
+  private repiteLaJugada(jugada: string, quien: Portador): boolean {
+    const u = this.ultimaDeLaTropa;
+    return (
+      u !== null &&
+      u.jugada === jugada &&
+      u.version === this.version &&
+      mismoPortador(u.quien, quien)
+    );
+  }
+  private recordarLaJugada(jugada: string, quien: Portador, dicho: string): void {
+    this.status = dicho;
+    this.ultimaDeLaTropa = { jugada, quien, version: this.version };
+  }
+  private ultimaDeLaTropa: { jugada: string; quien: Portador; version: number } | null = null;
 
   hireHero(): void {
     if (this.openTownId === null) return;

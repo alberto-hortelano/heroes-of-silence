@@ -10,7 +10,7 @@
  */
 import type { Plano } from '../../../shared/base.js';
 import { dentroDeLaFigura, pintarAroDeFigura, pintarFondo } from '../batalla.js';
-import { pintarFiguraConSombra } from '../figura.js';
+import { type FiguraColocada, piesDeFigura, pintarFiguraConSombra } from '../figura.js';
 import type { Tablero } from '../proyeccion.js';
 import { cajaEnLaTropa } from './arco.js';
 
@@ -62,19 +62,26 @@ export function pintarLaTropa(ctx: CanvasRenderingContext2D, v: PintadoDeLaTropa
   for (const i of deAtrasAdelante(v.figuras)) {
     const f = v.figuras[i]!;
     const c = cajaEnLaTropa(v.t, f.en);
-    if (i === v.elegida) pintarAroDeFigura(ctx, c, 3);
-    else if (i === v.señalada) pintarAroDeFigura(ctx, c, 1.5);
-    pintarFiguraConSombra(ctx, {
-      id: f.id,
-      body: f.cuerpo,
-      clip: 'idle',
-      tiempo: v.ahora,
-      x: c.x,
-      suelo: c.suelo,
-      alto: c.alto,
-      mira: 'S',
-      color: v.color,
-      rotulo: f.nombre.charAt(0).toUpperCase(),
-    });
+    const grueso = i === v.elegida ? 3 : i === v.señalada ? 1.5 : null;
+    const aro =
+      grueso === null
+        ? undefined
+        : (colocada: FiguraColocada) => pintarAroDeFigura(ctx, c, piesDeFigura(colocada), grueso);
+    pintarFiguraConSombra(
+      ctx,
+      {
+        id: f.id,
+        body: f.cuerpo,
+        clip: 'idle',
+        tiempo: v.ahora,
+        x: c.x,
+        suelo: c.suelo,
+        alto: c.alto,
+        mira: 'S',
+        color: v.color,
+        rotulo: f.nombre.charAt(0).toUpperCase(),
+      },
+      aro,
+    );
   }
 }

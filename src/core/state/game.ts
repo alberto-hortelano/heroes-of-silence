@@ -12,6 +12,7 @@ import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types
 import { personajeDe, SIDES } from '../battle/types.js';
 import {
   equipoDelPortadorBlocker,
+  equipoDeSerieDe,
   equipoPuestoDe,
   unidadDelJuego,
   unidadDelJuegoSiExiste,
@@ -409,8 +410,10 @@ export type AdventureAction =
   /**
    * Ponerle a alguien una pieza de la mochila del héroe `hero`: al héroe si no se
    * dice a quién; a `veteran`, el individuo de su tropa con esa hoja; o a
-   * `creature`, el primer novato sin hoja de ese tipo, que pasa a tenerla. Lo que
-   * ocupaba el hueco vuelve a la mochila (`equipBlocker`).
+   * `creature`, el primer novato sin hoja de ese tipo, que pasa a tenerla; o a
+   * `puesto`, el individuo de ese puesto de su tropa (la escena de la tropa, donde
+   * se pulsa a uno: el contrato del agente no lo lleva). Lo que ocupaba el hueco
+   * vuelve a la mochila (`equipBlocker`).
    */
   | {
       readonly type: 'equip';
@@ -418,6 +421,7 @@ export type AdventureAction =
       readonly item: string;
       readonly veteran?: string;
       readonly creature?: string;
+      readonly puesto?: number;
     }
   /**
    * Quitarle a alguien la pieza de `slot` y devolverla a la mochila
@@ -430,6 +434,8 @@ export type AdventureAction =
       readonly hero: string;
       readonly slot: Hueco;
       readonly veteran?: string;
+      /** El individuo de ese puesto de la tropa, como en `equip`. */
+      readonly puesto?: number;
     }
   | { readonly type: 'end_turn' };
 
@@ -1596,7 +1602,12 @@ export function equipBlocker(
  */
 export function ponerseBlocker(hero: Hero, quien: Portador, id: string): string | null {
   const llevaria = equipoPuestoDe(hero, quien, { ...equipoDe(hero, quien), [pieza(id).hueco]: id });
-  return equipoDelPortadorBlocker(nombreDelPortador(hero, quien), llevaria, id);
+  return equipoDelPortadorBlocker(
+    nombreDelPortador(hero, quien),
+    llevaria,
+    id,
+    equipoDeSerieDe(hero, quien),
+  );
 }
 
 /** Cómo se nombra al portador `quien` de `hero` en un motivo: el héroe, la unidad o el personaje. */

@@ -15,6 +15,7 @@ import { colorDeSombra, FIGURA, PROYECCION_DE_SOMBRA } from '../../shared/arte.j
 import { relojDeFigura } from '../compas.js';
 import type { Direccion } from '../direccion.js';
 import { temaDelLienzo } from '../temas.js';
+import { type PiesDeLaFigura, piesEn } from './aro.js';
 import { cargarHojaDeFigura, hayFiguraCargada, imagenDeFigura } from './assets.js';
 import {
   type CharacterAtlas,
@@ -363,14 +364,65 @@ export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): 
 
 /**
  * La sombra y la figura, resuelta una sola vez: lo que pintan el mapa, el
- * castillo, la arena y el cadáver, que no meten nada entre las dos. La batalla,
- * que pone el aro en medio, llama a las dos por separado con la misma
- * `colocarFigura`.
+ * castillo, la arena y el cadáver. `enMedio` es lo que va entre las dos —el aro
+ * de la base y de la tropa (`pintarAroDeFigura`, con `piesDeFigura` de la figura
+ * resuelta)—: encima de la sombra, que es del suelo, y debajo de la figura. La
+ * batalla, que pone varios aros en medio, llama a las dos por separado con la
+ * misma `colocarFigura`.
  */
-export function pintarFiguraConSombra(ctx: CanvasRenderingContext2D, f: Figura): void {
+export function pintarFiguraConSombra(
+  ctx: CanvasRenderingContext2D,
+  f: Figura,
+  enMedio?: (c: FiguraColocada) => void,
+): void {
   const c = colocarFigura(f);
   pintarSombraDeFigura(ctx, c);
+  enMedio?.(c);
   pintarFigura(ctx, c);
+}
+
+/** Los pies medidos de cada fotograma (`claveDeCelda` sin el tamaño): se miden una vez. */
+const piesMedidos = new Map<string, PiesDeLaFigura | null>();
+/** Las celdas que se recuerdan: las de las pocas figuras que llevan aro, con holgura. */
+const PIES_QUE_SE_RECUERDAN = 256;
+let lienzoDeLosPies: CanvasRenderingContext2D | null = null;
+
+/**
+ * Los pies del fotograma que se pinta (`piesEn`, en altos de adulto respecto al
+ * apoyo), o `null` sin arte: el aro va en ellos (`aroDeFigura`). Se leen del alfa
+ * de la celda una vez por fotograma de la hoja; solo lo piden las figuras que
+ * llevan aro, que son una o dos.
+ */
+export function piesDeFigura({ p }: FiguraColocada): PiesDeLaFigura | null {
+  if (p === null) return null;
+  const clave = `${p.imagen}|${p.celda.x}|${p.celda.y}`;
+  const guardados = piesMedidos.get(clave);
+  if (guardados !== undefined) return guardados;
+  const lado = p.celda.size;
+  if (lienzoDeLosPies === null || lienzoDeLosPies.canvas.width < lado) {
+    const lienzo = document.createElement('canvas');
+    lienzo.width = lado;
+    lienzo.height = lado;
+    // Se lee de vuelta cada vez: sin esto, Chrome avisa en la consola.
+    lienzoDeLosPies = lienzo.getContext('2d', { willReadFrequently: true });
+    if (lienzoDeLosPies === null) {
+      throw new Error('este navegador no tiene canvas 2D para medir los pies de una figura');
+    }
+  }
+  const c = lienzoDeLosPies;
+  c.clearRect(0, 0, lado, lado);
+  c.drawImage(p.celda.image, p.celda.x, p.celda.y, lado, lado, 0, 0, lado, lado);
+  const { data } = c.getImageData(0, 0, lado, lado);
+  const pies = piesEn(
+    (x, y) => data[(y * lado + x) * 4 + 3] as number,
+    lado,
+    p.celda.anchor,
+    // En píxeles de la celda un adulto mide siempre lo mismo (`colocarFigura`).
+    FIGURA.alturaAdulto,
+  );
+  if (piesMedidos.size >= PIES_QUE_SE_RECUERDAN) piesMedidos.clear();
+  piesMedidos.set(clave, pies);
+  return pies;
 }
 
 /** El último respaldo: un óvalo del color del bando con su rótulo. */

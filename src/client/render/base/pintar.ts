@@ -31,7 +31,7 @@ import {
 } from '../../../shared/base.js';
 import { temaDelLienzo } from '../../temas.js';
 import { cajaDeFiguraEn, pintarAroDeFigura } from '../batalla.js';
-import { type Figura, pintarFiguraConSombra } from '../figura.js';
+import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
 import { enPantalla, type Tablero } from '../proyeccion.js';
 import { type ArteDeLaBase, CIELO_SIN_ARTE } from './arte.js';
@@ -272,7 +272,7 @@ function pintarPersona(
 ): void {
   const c = cajaDeFiguraEn(v.t, e.en);
   if (c.x + c.ancho < 0 || c.x - c.ancho > v.lienzo.ancho) return;
-  if (v.señalado?.tipo === 'pnj' && v.señalado.id === e.id) pintarAroDeFigura(ctx, c);
+  const señalado = v.señalado?.tipo === 'pnj' && v.señalado.id === e.id;
   const figura: Figura = {
     id: e.id,
     body: e.cuerpo,
@@ -288,7 +288,11 @@ function pintarPersona(
     color: e.pnj ? COLOR_NEUTRO : v.color,
     rotulo: e.nombre.charAt(0).toUpperCase(),
   };
-  pintarFiguraConSombra(ctx, figura);
+  pintarFiguraConSombra(
+    ctx,
+    figura,
+    señalado ? (colocada) => pintarAroDeFigura(ctx, c, piesDeFigura(colocada)) : undefined,
+  );
 }
 
 /**

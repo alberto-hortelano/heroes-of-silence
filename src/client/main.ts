@@ -55,6 +55,7 @@ const elRueda = document.getElementById('rueda') as HTMLDialogElement;
 /** «¿Volver al menú?» (botón «Menú» de la barra de arriba): «Abandonar la partida» es el `restart`. */
 const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElement;
 const stage = document.getElementById('stage') as HTMLElement;
+const lateral = document.getElementById('lateral') as HTMLElement;
 
 /**
  * La semilla que pide la URL, o `null` si no pide ninguna. Lanza si pide una
@@ -267,6 +268,9 @@ cargarArte(() => {
 apuntarElSueloEn(app);
 
 let escenaPintada = '';
+/** Lo bajado en el lateral del mapa al abrir la tropa, y lo que toca poner tras repintar los paneles. */
+let lateralDelMapa = 0;
+let lateralPendiente: number | null = null;
 
 /**
  * El bucle de dibujo, con red: el fallo se escribe en la barra y el siguiente
@@ -293,6 +297,19 @@ function render(ahora: number): void {
 function dibujarFotograma(ahora: number): void {
   const escena = session.scene;
   if (escena !== escenaPintada) {
+    // El lateral se desplaza solo, y la tropa heredaba lo bajado en el panel del
+    // mapa: abría con la lista de a quién elegir por encima de la vista (QA, H3).
+    // Abre arriba, y al volver el mapa se encuentra su panel como lo dejó. Se lee
+    // antes de cambiar `data-escena` (con el marco de la tropa el lateral mide
+    // otra cosa y el navegador ya lo recorta) y se pone después de repintar los
+    // paneles, por lo mismo.
+    if (escena === 'tropa') {
+      lateralDelMapa = lateral.scrollTop;
+      lateralPendiente = 0;
+    } else if (escenaPintada === 'tropa') {
+      lateralPendiente = escena === 'adventure' ? lateralDelMapa : 0;
+      lateralDelMapa = 0;
+    }
     app.dataset.escena = escena;
     principal.remedir();
     // El tablero de batalla es más ancho que un móvil: se empieza mirando el
@@ -368,6 +385,10 @@ function dibujarFotograma(ahora: number): void {
     );
     pintar(elActions, renderActions(session, contando));
     mostrarConversacion(enCastillo);
+  }
+  if (lateralPendiente !== null) {
+    lateral.scrollTop = lateralPendiente;
+    lateralPendiente = null;
   }
   if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
 }
