@@ -54,6 +54,7 @@ import {
   centroDeStack,
   centroHex,
   enPantalla,
+  pasoDeLaBase,
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
@@ -123,6 +124,7 @@ import type {
   AgentResponseMsg,
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
+import { COMPRESION_SUELO } from '../../src/shared/arte.js';
 import {
   type Disposicion,
   disposicionDe,
@@ -2935,7 +2937,13 @@ async function cotaDelEncuadre(page: Page, quien: string, tropa: number): Promis
   const b = await caja(page);
   const e = encuadrarLaTropa({ ancho: b.width, alto: b.height }, tropa);
   const cajas = e.en.map((p) => cajaEnLaTropa(e.camara, p));
-  const parte = cajas[0]!.alto / b.height;
+  // Nadie más grande que en una batalla en ese lienzo (decisión del usuario del
+  // 20-10-2026: agrandadas, las hojas pixelaban).
+  const tope = cajaDeFiguraEn(
+    { paso: pasoDeLaBase(b.width, b.height), origenX: 0, origenY: 0, compresion: COMPRESION_SUELO },
+    { x: 0, y: 0 },
+  ).alto;
+  const grandes = cajas.filter((c) => c.alto > tope + 1e-6).length;
   const fuera = cajas.filter(
     (c) =>
       c.x - c.ancho / 2 < 0 ||
@@ -2944,11 +2952,11 @@ async function cotaDelEncuadre(page: Page, quien: string, tropa: number): Promis
       c.suelo > b.height,
   ).length;
   log(
-    `${quien}: ${tropa + 1} figuras en ${Math.round(b.width)}×${Math.round(b.height)}, el héroe mide el ${(parte * 100).toFixed(1)} % del alto`,
+    `${quien}: ${tropa + 1} figuras en ${Math.round(b.width)}×${Math.round(b.height)}, el de delante mide ${Math.round(Math.max(...cajas.map((c) => c.alto)))} px (en la batalla, ${Math.round(tope)})`,
   );
-  if (parte < 0.45 || parte > 0.55 || fuera > 0) {
+  if (grandes > 0 || fuera > 0) {
     throw new Error(
-      `${quien}: el héroe mide el ${(parte * 100).toFixed(1)} % del alto del lienzo (del 45 al 55) y ${fuera} figuras se salen`,
+      `${quien}: ${grandes} figuras más grandes que en la batalla y ${fuera} que se salen del lienzo`,
     );
   }
 }

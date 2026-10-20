@@ -1,13 +1,14 @@
 /**
- * El semicírculo de la escena de la tropa (C2, con el cambio del coordinador del
- * 19-10-2026: la cámara encuadra al grupo): de 1 a 7 figuras —el héroe y hasta
+ * El semicírculo de la escena de la tropa (C2): de 1 a 7 figuras —el héroe y hasta
  * seis de su tropa— se ven enteras y sin pisarse en los lienzos de la escena, el
- * héroe en el centro y al fondo midiendo del 45 al 55 % del alto del lienzo, y
- * los extremos delante: más abajo y más grandes.
+ * héroe en el centro y al fondo, los extremos delante (más abajo y más grandes), y
+ * nadie más grande que en una batalla (decisión del usuario del 20-10-2026: las
+ * hojas no tienen resolución para más y pixelaban).
  */
 import { describe, expect, it } from 'vitest';
+import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
+import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
 import {
-  ALTO_DEL_HEROE,
   cajaEnLaTropa,
   colocarLaTropa,
   encuadrarLaTropa,
@@ -15,9 +16,18 @@ import {
   HONDO_DEL_ARCO,
   ladosDelArco,
   SEPARACION,
-  TOPE_DEL_GRUPO,
 } from '../src/client/render/tropa/arco.js';
 import { CUPO_HEROE } from '../src/core/hero/troop.js';
+import { COMPRESION_SUELO } from '../src/shared/arte.js';
+
+/** El alto de una figura de pie en una batalla en ese lienzo. */
+function altoEnLaBatalla(lienzo: { readonly ancho: number; readonly alto: number }): number {
+  const paso = pasoDeLaBase(lienzo.ancho, lienzo.alto);
+  return cajaDeFiguraEn(
+    { paso, origenX: 0, origenY: 0, compresion: COMPRESION_SUELO },
+    { x: 0, y: 0 },
+  ).alto;
+}
 
 /**
  * Los lienzos de la escena, medidos con Playwright (19-10-2026): el marco de 20/11
@@ -39,7 +49,7 @@ describe('el semicírculo de la tropa', () => {
 
   for (const lienzo of LIENZOS) {
     for (let tropa = 0; tropa <= 6; tropa++) {
-      it(`${tropa + 1} figuras en ${lienzo.ancho}×${lienzo.alto}: enteras, sin pisarse, el héroe en medio, al fondo y grande`, () => {
+      it(`${tropa + 1} figuras en ${lienzo.ancho}×${lienzo.alto}: enteras, sin pisarse, el héroe en medio y al fondo, nadie mayor que en la batalla`, () => {
         const e = encuadrarLaTropa(lienzo, tropa);
         expect(e.en).toHaveLength(tropa + 1);
         const cajas = e.en.map((p) => cajaEnLaTropa(e.camara, p));
@@ -63,24 +73,19 @@ describe('el semicírculo de la tropa', () => {
           expect(c.suelo).toBeGreaterThan(heroe.suelo);
           expect(c.alto).toBeGreaterThan(heroe.alto);
         }
-        // El encuadre, en el marco apaisado: el héroe del 45 al 55 % del alto (E1).
-        // En el de 380 de alto del móvil no cabe tanto por el ancho; se mide que
-        // tampoco se corte, y el tope por arriba.
-        const parte = heroe.alto / lienzo.alto;
-        expect(parte).toBeLessThanOrEqual(ALTO_DEL_HEROE + 1e-9);
-        if (lienzo.ancho / lienzo.alto > 1.5) expect(parte).toBeGreaterThanOrEqual(0.45);
+        // Nadie más grande que en una batalla en ese lienzo: los de delante, como allí.
+        const tope = altoEnLaBatalla(lienzo);
+        for (const c of cajas) expect(c.alto).toBeLessThanOrEqual(tope + 1e-9);
         // El horizonte del campo, detrás del héroe y no bajo sus pies (E3).
         expect(e.horizonte).toBeGreaterThan(heroe.suelo - heroe.alto);
         expect(e.horizonte).toBeLessThan(heroe.suelo);
       });
     }
 
-    it(`en ${lienzo.ancho}×${lienzo.alto}, de 1 a ${TOPE_DEL_GRUPO + 1} figuras miden lo mismo, y con más no crecen`, () => {
+    it(`en ${lienzo.ancho}×${lienzo.alto}, el paso es el del combate y con más figuras no crece`, () => {
       const pasos = Array.from({ length: 7 }, (_, t) => encuadrarLaTropa(lienzo, t).camara.paso);
-      for (let t = 0; t <= TOPE_DEL_GRUPO; t++) expect(pasos[t]).toBe(pasos[TOPE_DEL_GRUPO]);
-      for (let t = TOPE_DEL_GRUPO + 1; t < 7; t++) {
-        expect(pasos[t]).toBeLessThanOrEqual(pasos[TOPE_DEL_GRUPO]!);
-      }
+      expect(pasos[0]).toBe(pasoDeLaBase(lienzo.ancho, lienzo.alto));
+      for (let t = 1; t < 7; t++) expect(pasos[t]).toBeLessThanOrEqual(pasos[t - 1]!);
     });
 
     it(`en ${lienzo.ancho}×${lienzo.alto}, el héroe solo pisa donde pisa con su tropa`, () => {

@@ -470,7 +470,7 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
  * puertas y lo que entre de alto, y los edificios altos se cortan por arriba. No
  * baja de 0,495, donde el combate deja de ir por el ancho: así el paso es el
  * mismo que el de una batalla en el lienzo entero. La escena de la tropa va en el
- * mismo marco, con su propia cámara, que encuadra al grupo (`encuadrarLaTropa`).
+ * mismo marco, con su propia cámara a la escala del combate (`encuadrarLaTropa`).
  */
 #app[data-escena='town'] .map-wrap,
 #app[data-escena='tropa'] .map-wrap {
@@ -505,13 +505,14 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
      en una batalla de 860 px (`pasoDeLaBase`, `ANCHO_DEL_COMBATE_EN_MOVIL`). El
      marco no se desplaza: el escenario ya se recorre con su cámara, que sigue a
      quien camina (`render/base/camara.ts`). */
+  /* La tropa, igual: a la escala de la batalla (decisión del usuario del
+     20-10-2026; agrandadas, las hojas pixelaban). En el marco apaisado de 349 px
+     el paso del combate salía de su alto y las figuras medían la mitad. */
   #app[data-escena='battle'] .map-wrap,
-  #app[data-escena='town'] .map-wrap { height: 380px; }
-  #app[data-escena='town'] .map-wrap { aspect-ratio: auto; }
-  /* La tropa, en el marco apaisado del escritorio: siete en fila en 349 px miden
-     lo que miden, y con 380 de alto el grupo era un cuarto del lienzo bajo media
-     escena de cielo. Lo que sobra de alto es para la ficha, debajo. */
-  #app[data-escena='tropa'] .map-wrap { height: auto; aspect-ratio: 20 / 11; }
+  #app[data-escena='town'] .map-wrap,
+  #app[data-escena='tropa'] .map-wrap { height: 380px; }
+  #app[data-escena='town'] .map-wrap,
+  #app[data-escena='tropa'] .map-wrap { aspect-ratio: auto; }
   .map-tools button { min-width: 44px; min-height: 44px; }
   #lateral { border-left: 0; padding: 12px 0 0; }
   .atlas-panel { max-width: 150px; }

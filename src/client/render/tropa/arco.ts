@@ -1,13 +1,12 @@
 /**
  * Dónde se pone cada uno en la escena de la tropa y con qué cámara se mira.
  *
- * Es un escenario lateral con el suelo a 25° (`COMPRESION_SUELO`), pero no a la
- * escala del combate: la cámara **encuadra al grupo**, con las figuras tan
- * grandes como quepan (cambio del coordinador, 19-10-2026). A la escala de una
- * batalla las seis figuras ocupaban una franja baja de un octavo del lienzo con
- * dos tercios de cielo encima, y no se leía como la tropa posando ante la cámara.
- * El alto de una figura sigue siendo el de `cajaDeFiguraEn` en pasos; lo que
- * cambia es cuántos píxeles mide el paso.
+ * Es un escenario lateral con el suelo a 25° (`COMPRESION_SUELO`) y **a la escala
+ * del combate** como mucho (`pasoDeLaBase`, decisión del usuario del 20-10-2026):
+ * las hojas no tienen resolución para más y, agrandadas para llenar la escena,
+ * pixelaban. Solo se encoge si el arco no cabe (siete figuras en un móvil). Lo que
+ * sobra de alto se reparte con el grupo en la parte de abajo y el horizonte del
+ * campo detrás del héroe, así que el grupo pisa suelo y no flota bajo el cielo.
  *
  * El héroe va al fondo y en el centro, y su tropa en arco a los dos lados, con
  * los extremos delante: un semicírculo que mira hacia la cámara. En el orden del
@@ -19,7 +18,7 @@
 import { COMPRESION_SUELO } from '../../../shared/arte.js';
 import type { Plano } from '../../../shared/base.js';
 import { type CajaDeFigura, cajaDeFiguraEn } from '../batalla.js';
-import type { Tablero } from '../proyeccion.js';
+import { pasoDeLaBase, type Tablero } from '../proyeccion.js';
 
 /** Lo que el héroe se mete hacia el fondo respecto a los extremos del arco, en pasos. */
 export const HONDO_DEL_ARCO = 1.5;
@@ -36,12 +35,10 @@ export const PERSPECTIVA = 0.16;
  */
 export const SEPARACION = { minima: 0.43, maxima: 0.75 } as const;
 /**
- * Hasta dónde crece el héroe: este tanto del alto del lienzo. Con pocas figuras
- * no se agrandan sin tope: tampoco más de lo que medirían con `TOPE_DEL_GRUPO`
- * (el héroe y cuatro), así que de 1 a 5 miden lo mismo.
+ * Lo que sobra de alto con las figuras a la escala del combate, cuánto va debajo
+ * de los pies de delante: el resto queda encima del héroe, en el fondo del campo.
  */
-export const ALTO_DEL_HEROE = 0.52;
-export const TOPE_DEL_GRUPO = 4;
+export const LIBRE_DEBAJO = 0.35;
 /**
  * El aire del encuadre, en partes del lienzo: encima del héroe, debajo de los
  * pies de delante (y además su aro, `AL_PIE`) y a cada lado.
@@ -154,41 +151,46 @@ function anchoLibre(lienzo: { readonly ancho: number }): number {
   return (lienzo.ancho * (1 - 2 * MARGEN.lados)) / 2;
 }
 
+/** Lo que el arco pide en vertical por paso: de la cabeza del héroe a lo de bajo los pies de delante. */
+function altoDelArco(tropa: number): number {
+  // No depende de la separación: el hondo va por `x / radio`. Y es el de un arco
+  // con sus extremos aunque no los haya (`delArco`): el héroe solo se queda donde
+  // estaría con su tropa.
+  const en = colocarLaTropa(delArco(tropa), 1);
+  const cabeza = Math.max(
+    ...en.map((p) => -p.y * COMPRESION_SUELO + UNA.alto * escalaDelHondo(p.y)),
+  );
+  return cabeza + bajoLosPies(en);
+}
+
 /**
  * El paso más grande con que el arco de `tropa` cabe en el lienzo: por el alto
- * (el héroe arriba con su aire y los de delante abajo), por el tope del héroe y
- * por el ancho, con la separación cerrada hasta `SEPARACION.minima` antes de
- * encoger a nadie.
+ * (el héroe arriba con su aire y los de delante abajo) y por el ancho, con la
+ * separación cerrada hasta `SEPARACION.minima` antes de encoger a nadie.
  */
 function pasoQueCabe(
   lienzo: { readonly ancho: number; readonly alto: number },
   tropa: number,
 ): number {
-  // Lo que el arco pide en vertical no depende de la separación: el hondo va por
-  // `x / radio`. Y es el de un arco con sus extremos aunque no los haya
-  // (`delArco`): el héroe solo se queda donde estaría con su tropa.
-  const en = colocarLaTropa(delArco(tropa), 1);
-  const cabeza = Math.max(
-    ...en.map((p) => -p.y * COMPRESION_SUELO + UNA.alto * escalaDelHondo(p.y)),
-  );
-  const porElAlto = Math.min(
-    (lienzo.alto * (1 - MARGEN.arriba - MARGEN.abajo)) / (cabeza + bajoLosPies(en)),
-    (ALTO_DEL_HEROE * lienzo.alto) / (UNA.alto * escalaDelHondo(-HONDO_DEL_ARCO)),
-  );
+  const porElAlto = (lienzo.alto * (1 - MARGEN.arriba - MARGEN.abajo)) / altoDelArco(tropa);
   return Math.min(porElAlto, anchoLibre(lienzo) / mitadDelArco(tropa, SEPARACION.minima));
 }
 
 /**
  * La cámara de la escena para el héroe y `tropa` de los suyos en `lienzo`: el
- * héroe en el medio, los de delante abajo con su aire, y el paso el más grande
- * con que cabe el arco, sin pasar del de un grupo de `TOPE_DEL_GRUPO`. Con ese
- * paso, la separación más abierta que quepa.
+ * héroe en el medio, el paso el del combate (`pasoDeLaBase`) o, si el arco no
+ * cabe con él, el más grande con que cabe, y lo que sobra de alto repartido con
+ * `LIBRE_DEBAJO` debajo de los pies. Con ese paso, la separación más abierta que quepa.
  */
 export function encuadrarLaTropa(
   lienzo: { readonly ancho: number; readonly alto: number },
   tropa: number,
 ): EncuadreDeLaTropa {
-  const paso = Math.min(pasoQueCabe(lienzo, tropa), pasoQueCabe(lienzo, TOPE_DEL_GRUPO));
+  const paso = Math.min(pasoDeLaBase(lienzo.ancho, lienzo.alto), pasoQueCabe(lienzo, tropa));
+  const libre = Math.max(
+    0,
+    lienzo.alto * (1 - MARGEN.arriba - MARGEN.abajo) - altoDelArco(tropa) * paso,
+  );
   const { izquierda, derecha } = ladosDelArco(tropa);
   const lado = Math.max(1, izquierda, derecha);
   const separacion = Math.max(
@@ -201,7 +203,9 @@ export function encuadrarLaTropa(
     compresion: COMPRESION_SUELO,
     origenX: lienzo.ancho / 2,
     origenY:
-      lienzo.alto * (1 - MARGEN.abajo) - bajoLosPies(colocarLaTropa(delArco(tropa), 1)) * paso,
+      lienzo.alto * (1 - MARGEN.abajo) -
+      libre * LIBRE_DEBAJO -
+      bajoLosPies(colocarLaTropa(delArco(tropa), 1)) * paso,
   };
   const heroe = cajaEnLaTropa(camara, en[0]!);
   return { camara, en, horizonte: heroe.suelo - heroe.alto * (1 - HORIZONTE_EN_EL_HEROE) };
