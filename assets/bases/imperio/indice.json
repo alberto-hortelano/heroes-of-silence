@@ -1,14 +1,285 @@
 {
   "tramos": [
-    null,
-    null,
-    null,
-    null,
-    null
+    {
+      "imagen": "tramo-1.webp",
+      "ancho": 1536,
+      "alto": 827,
+      "sha256": "0d4060b5eed25c7424bf2e73b7f9732116e29a354bfe34a16e39f235560f9a0b",
+      "origen": "eb143048ed0296ac85eaa45a9c6e19355ea56dd2d39240b823ff7ac8405a5a24"
+    },
+    {
+      "imagen": "tramo-2.webp",
+      "ancho": 1536,
+      "alto": 854,
+      "sha256": "6ad941a9f0d452b42d72efa0e5b4224aa734c08ca766946e0281fa6a0645acec",
+      "origen": "c8b46683c0f7266889abc8b0b9e2d5ad4f4c4a91e676757dbf924dbab71d9763"
+    },
+    {
+      "imagen": "tramo-3.webp",
+      "ancho": 1536,
+      "alto": 801,
+      "sha256": "689a5356f1336378feab371767a6ab8a34931a3739ddad31ce096b29787c3adb",
+      "origen": "97128ce639604980b13c987a23d7f3aeb65714931228a5e80d3ee09d89163415"
+    },
+    {
+      "imagen": "tramo-4.webp",
+      "ancho": 1536,
+      "alto": 768,
+      "sha256": "3ec370e43a93d84b44c89c1a33865990476417f038d6959f210e13926a525f76",
+      "origen": "979f6c0f05288c22a3376d2b1344ea43b48d64e20650124ba07841c66a8aae42"
+    },
+    {
+      "imagen": "tramo-5.webp",
+      "ancho": 1536,
+      "alto": 810,
+      "sha256": "e648213603ff1cdd867de95095a6f694a48e14d408b24d9ad8f27a11e843244e",
+      "origen": "b46a41debf74d5867e016d67d4af54b1a5a0f703c9e823c32571e3a08bf5a234"
+    }
   ],
-  "suelo": null,
-  "cielo": null,
-  "edificios": {},
-  "abiertas": {},
+  "suelo": {
+    "imagen": "suelo.webp",
+    "ancho": 768,
+    "alto": 157,
+    "sha256": "f0a7afc8a13aa7af06a5c031c5177d400af289e4b8272dcc3bc821ff0cece602",
+    "origen": "9d39e10a00d2aa8fc0c8e02c619558e1ec30ae6f7b134a8f83cad3fa2b15c3d9",
+    "tramo": 4
+  },
+  "cielo": [
+    112,
+    120,
+    125
+  ],
+  "edificios": {
+    "village_hall": {
+      "imagen": "village_hall.webp",
+      "ancho": 475,
+      "alto": 669,
+      "sha256": "fa7c80d70a91f79823010dcb7114b1ef9d16eb6fae70db9a93d42cd96cdab1c2",
+      "origen": "98515af437ee3c3168d7079c14b045d5480a374d41f64cdaaa6b8e481cd25a8c",
+      "tramo": 3,
+      "en": [
+        515,
+        62
+      ]
+    },
+    "town_hall": {
+      "imagen": "town_hall.webp",
+      "ancho": 475,
+      "alto": 730,
+      "sha256": "171d68b1bf9368e58df2ad928657f69d219d598e611465aa224b44989da04d6e",
+      "origen": "162ee94308e2c90aa96bd2d03b346f6fa010672df4d97b92890cf989b22095c2",
+      "tramo": 3,
+      "en": [
+        515,
+        0
+      ]
+    },
+    "city_hall": {
+      "imagen": "city_hall.webp",
+      "ancho": 475,
+      "alto": 745,
+      "sha256": "aff6491702fcac5f274b05ac2e0ee14f59781bfbeff9b51110d40e527d7ca0c2",
+      "origen": "18af7992385b737fd56a19bcb95e15832aee56c2dd0db22d2648b556a9f686b2",
+      "tramo": 3,
+      "en": [
+        515,
+        0
+      ]
+    },
+    "castle": {
+      "imagen": "castle.webp",
+      "ancho": 546,
+      "alto": 670,
+      "sha256": "02578dce16aa346560cb88b17b1619083a74f3af5a279c489b021d9d83328a05",
+      "origen": "b42c64d766eb3524849502e280039ee83ed412bb0f083976533839dcbfd56c07",
+      "tramo": 3,
+      "en": [
+        990,
+        60
+      ]
+    },
+    "mage_guild_1": {
+      "imagen": "mage_guild_1.webp",
+      "ancho": 438,
+      "alto": 814,
+      "sha256": "7a874dc5ffe23554edb286128cf251684ca719c3b9f7705f7acbf5ec032a5509",
+      "origen": "dd9b43a9843f794c1dcb9e15e8c820c533e852794286cb15c21323c6ded34a73",
+      "tramo": 2,
+      "en": [
+        74,
+        0
+      ]
+    },
+    "mage_guild_2": {
+      "imagen": "mage_guild_2.webp",
+      "ancho": 354,
+      "alto": 803,
+      "sha256": "95cb8b2a2a2ce1e9d56f23bcad03d22ce596b1afd4abd758c0250b14cba112c4",
+      "origen": "68900eca9f60e55a4cf2fbfc3fb0a910669a3453b3523c4f83d43987ae170189",
+      "tramo": 2,
+      "en": [
+        158,
+        0
+      ]
+    },
+    "tavern": {
+      "imagen": "tavern.webp",
+      "ancho": 428,
+      "alto": 683,
+      "sha256": "121c63d6409e62762f26912d51a62a667887401d7906ece2865ca3d987706ed7",
+      "origen": "9d6fee33bee65beb710af897561859142854f6003ea75af0da5827c1bc06abe3",
+      "tramo": 2,
+      "en": [
+        512,
+        127
+      ]
+    },
+    "marketplace": {
+      "imagen": "marketplace.webp",
+      "ancho": 481,
+      "alto": 496,
+      "sha256": "c83bfb5997bfc78e568b967f93066244301189a6179444a031d00a88f500995d",
+      "origen": "a037d8102b23b65fd0f200083c4d3edba18a1c9d3393df17a2b995786142d539",
+      "tramo": 4,
+      "en": [
+        236,
+        242
+      ]
+    },
+    "armory": {
+      "imagen": "armory.webp",
+      "ancho": 403,
+      "alto": 579,
+      "sha256": "908a99970929db31c180f1cc2f01f350bd857c091ef48cbef399a56faa3e8b0e",
+      "origen": "b108310d0a909264522218e9d95bdaf91b028f3ed862e19c790995ff23ff4e54",
+      "tramo": 4,
+      "en": [
+        899,
+        157
+      ]
+    },
+    "imperio_pueblo": {
+      "imagen": "imperio_pueblo.webp",
+      "ancho": 447,
+      "alto": 639,
+      "sha256": "a79d73773821517585c082681793778c68fe1f92bb84f0714a524b4eb78a6d0d",
+      "origen": "c14fbb7bd0d3b148f27aa3a7af7cfc8949df523dc586cbacabf9bcae5d9257f0",
+      "tramo": 3,
+      "en": [
+        68,
+        91
+      ]
+    },
+    "imperio_taller": {
+      "imagen": "imperio_taller.webp",
+      "ancho": 596,
+      "alto": 813,
+      "sha256": "195fdc33b277226d92a99d2c9e287f8550c6e9a131c2fbaf006fe3b92a1ec1c3",
+      "origen": "91146685e6086e76545d8fea5d573fd5e0f03f3433adb0a531fb6034f95aec6b",
+      "tramo": 2,
+      "en": [
+        940,
+        0
+      ]
+    },
+    "imperio_armeria": {
+      "imagen": "imperio_armeria.webp",
+      "ancho": 468,
+      "alto": 498,
+      "sha256": "d74bae9c004061d7d6015676a1913e0a7361800bbf027577b96f42e5120f54cd",
+      "origen": "e9133769b6cf8f04045feb6bd0b95dd01a754a57982952ed73985559e5ef8f10",
+      "tramo": 5,
+      "en": [
+        312,
+        297
+      ]
+    },
+    "imperio_fundicion": {
+      "imagen": "imperio_fundicion.webp",
+      "ancho": 590,
+      "alto": 544,
+      "sha256": "fb6f7062db23ee9961f67632a9b8956829f54b214f5a2abb697ee3a49cc69a3f",
+      "origen": "039ae0a87987f06eca9ec4a29fc16d680c3f7e66611f900a142a8e6f68405ec5",
+      "tramo": 1,
+      "en": [
+        467,
+        256
+      ]
+    },
+    "imperio_caballerizas": {
+      "imagen": "imperio_caballerizas.webp",
+      "ancho": 497,
+      "alto": 487,
+      "sha256": "730ca99dc2abd0653bd395e6036574430c033b0b7819280a133ec1079a43c99d",
+      "origen": "31e42a63159388a242c519c90e20c708f448867bef732bd80abaa947d63d1796",
+      "tramo": 5,
+      "en": [
+        976,
+        306
+      ]
+    }
+  },
+  "abiertas": {
+    "imperio_pueblo": {
+      "imagen": "abierta-imperio_pueblo.webp",
+      "ancho": 389,
+      "alto": 563,
+      "sha256": "e03f61b78a9ee786abd2a8d87c6aec720f681e421978df8a1221c797cffa5b32",
+      "origen": "f0e20944f7875557cb0464f66066179e133fa0445a3794a9017985abe1df3649",
+      "tramo": 3,
+      "en": [
+        126,
+        168
+      ]
+    },
+    "imperio_taller": {
+      "imagen": "abierta-imperio_taller.webp",
+      "ancho": 473,
+      "alto": 667,
+      "sha256": "30bd4cf21bc7ae82756b4b9a310254e8022f346c1f97b83b9d6dab12ea29c5c8",
+      "origen": "8bb2b09d34a726bed7b3b1d089bf24012fe3dcad02ed4f1c57d25c0c400aa830",
+      "tramo": 2,
+      "en": [
+        940,
+        139
+      ]
+    },
+    "imperio_armeria": {
+      "imagen": "abierta-imperio_armeria.webp",
+      "ancho": 481,
+      "alto": 500,
+      "sha256": "44bc5ef6a20c8476ac69ebec975ef692c9fbf0ef2d43ade60d380ee055aa244f",
+      "origen": "23f296bf10b017bc2ef97aa43b139747ff543ffb63377623f15348ac96e4dae8",
+      "tramo": 5,
+      "en": [
+        311,
+        296
+      ]
+    },
+    "imperio_fundicion": {
+      "imagen": "abierta-imperio_fundicion.webp",
+      "ancho": 594,
+      "alto": 548,
+      "sha256": "f654387ad64111453750fd7832851c42c2b0fa382f03cdfa37d108cacb24aa9d",
+      "origen": "26202c5fecbbceb7f133deb8ea79be36eb6f255eea3c37dbc6e7163ee2ac019a",
+      "tramo": 1,
+      "en": [
+        466,
+        255
+      ]
+    },
+    "imperio_caballerizas": {
+      "imagen": "abierta-imperio_caballerizas.webp",
+      "ancho": 503,
+      "alto": 493,
+      "sha256": "f3909a6d997adbe6ec4d7e2903fee11931949a1a8004b42fc74302b1f53fcfdc",
+      "origen": "19ec5330a7ca4a6dcde2b22efe9293efa3bf4bbbabb743feda1829f4a8bd6b91",
+      "tramo": 5,
+      "en": [
+        975,
+        303
+      ]
+    }
+  },
   "derivadoPor": "tools/taller/recorte-base.ts"
 }

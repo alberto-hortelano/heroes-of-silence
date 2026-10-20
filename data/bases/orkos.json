@@ -1,5 +1,5 @@
 {
-  "_comment": "La base de orkos (19-10-2026, la disposición de marcadores de la de los no muertos, sin arte) como escenario lateral (vuelta 3, 09-10-2026). La plaza son `tramos` cuadros de 1536×1024 a 128 px por paso, cosidos a tope; `fuera` [izquierda, derecha]: los pasos que se recortan por fuera del primer tramo y del último (de 0 a 6), medidos sobre el cuadro; cada tramo desde el segundo se monta SOLAPE (256 px) sobre el anterior, así que el escenario mide 12 + (tramos − 1) × 10 − izquierda − derecha; las columnas de un tramo van de SOLAPE a 1536 (el primero, desde lo de fuera). Cada sitio lleva su `tramo` (1 a tramos), el umbral de su `puerta` [x, fila] y su `region` [x0, x1, pie] (banda de columnas hasta la fila del pie, con la sombra) en PÍXELES DE SU TRAMO. Sin arte este ciclo: las puertas son las PEDIDAS (fila 790, `puertasPedidas` de tools/taller/base.ts) y cada región, la banda entre los puntos medios; se pinta con marcadores. Lo demás se deriva en src/shared/base.ts (`planoDelCuadro`, `bordeDeAtras`, `bajar`). La entrada y los vecinos, en PASOS del escenario. El núcleo NO lee este fichero.",
+  "_comment": "La base de orkos como escenario lateral (vuelta 3, 09-10-2026), con su arte desde el 20-10-2026. La plaza son `tramos` cuadros de 1536×1024 a 128 px por paso, pedidos a Codex cada uno por separado y cosidos por una JUNTA (`JUNTA` de tools/taller/base.ts); cada tramo desde el segundo se monta SOLAPE (64 px) sobre el anterior. `fuera` [izquierda, derecha]: los pasos que se recortan por fuera del primer tramo y del último (de 0 a 6). Cada sitio lleva su `tramo` (1 a tramos), el umbral de su `puerta` [x, fila] y su `region` [x0, x1, pie] en PÍXELES DE SU TRAMO. MANDA EL CUADRO: la puerta, a ojo sobre el maestro (la columna) y por la línea del pie alrededor de ella (la fila); la región, entre los edificios de al lado. Los edificios que Codex pintó grandes se encogieron sobre la placa con su puerta y su pie quietos (`encoger`, ARTE_DE_LA_BASE; `pnpm taller encoger-base orkos`), y lo medido es sobre el maestro encogido. Un sitio sin edificio de esta facción es plaza: una región de 10 px al final de su tramo, con la puerta a la fila de las de su tramo. Lo demás se deriva en src/shared/base.ts (`planoDelCuadro`, `bordeDeAtras`, `bajar`). La entrada y los vecinos, en PASOS del escenario. El núcleo NO lee este fichero.",
   "tramos": 5,
   "fuera": [
     0,
@@ -13,145 +13,145 @@
     "lvl6": {
       "tramo": 1,
       "puerta": [
-        480,
-        790
+        1305,
+        802
       ],
       "region": [
-        128,
-        832,
-        810
+        1300,
+        1310,
+        827
       ]
     },
     "lvl4": {
       "tramo": 1,
       "puerta": [
-        1184,
-        790
+        645,
+        802
       ],
       "region": [
-        832,
-        1536,
-        810
+        0,
+        1300,
+        827
       ]
     },
     "guild": {
       "tramo": 2,
       "puerta": [
-        469,
-        790
+        285,
+        775
       ],
       "region": [
-        256,
-        682,
-        810
+        64,
+        500,
+        800
       ]
     },
     "tavern": {
       "tramo": 2,
       "puerta": [
-        896,
-        790
+        800,
+        775
       ],
       "region": [
-        682,
-        1110,
-        810
+        500,
+        1100,
+        800
       ]
     },
     "lvl2": {
       "tramo": 2,
       "puerta": [
-        1323,
-        790
+        1350,
+        775
       ],
       "region": [
-        1110,
+        1100,
         1536,
-        810
+        790
       ]
     },
     "lvl1": {
       "tramo": 3,
       "puerta": [
-        469,
-        790
+        328,
+        745
       ],
       "region": [
-        256,
-        682,
-        810
+        64,
+        545,
+        788
       ]
     },
     "hall": {
       "tramo": 3,
       "puerta": [
-        896,
-        790
+        768,
+        745
       ],
       "region": [
-        682,
-        1110,
-        810
+        545,
+        1000,
+        788
       ]
     },
     "fort": {
       "tramo": 3,
       "puerta": [
-        1323,
-        790
+        1250,
+        745
       ],
       "region": [
-        1110,
+        1000,
         1536,
-        810
+        788
       ]
     },
     "market": {
       "tramo": 4,
       "puerta": [
-        576,
-        790
+        475,
+        755
       ],
       "region": [
-        256,
-        896,
-        810
+        64,
+        845,
+        784
       ]
     },
     "armory": {
       "tramo": 4,
       "puerta": [
-        1216,
-        790
+        1160,
+        759
       ],
       "region": [
-        896,
+        845,
         1536,
-        810
+        784
       ]
     },
     "lvl3": {
       "tramo": 5,
       "puerta": [
-        544,
-        790
+        895,
+        706
       ],
       "region": [
-        256,
-        832,
-        810
+        64,
+        1430,
+        731
       ]
     },
     "lvl5": {
       "tramo": 5,
       "puerta": [
-        1120,
-        790
+        1435,
+        706
       ],
       "region": [
-        832,
-        1408,
-        810
+        1430,
+        1440,
+        731
       ]
     }
   },

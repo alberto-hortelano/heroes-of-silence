@@ -1,0 +1,41 @@
+{
+  "encargo": "base-orkos-edicion-mage-guild-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:21:16.861Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a8a-c13a-77a2-ba51-b12195203c27",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (la torre del gremio de magos, el que está entre las columnas 64 y 500) se MEJORA y pasa a ser el mismo gremio de magia crecido EN ALTO, con el MISMO ANCHO: la torre con una planta más, más cráneos y un caldero en lo alto que echa humo verde; sin anexos ni alas a los lados. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 64 y 500: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/orkos/fuentes/maestro-t2.webp",
+      "papel": "edita",
+      "sha256": "cf35e6a03e8a95c47250c36afb6db6c426bac5cab9b46201adc55e170563d6ea"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a8a-c13a-77a2-ba51-b12195203c27/call_83df156d90e742e09ccdfc2f5a87de15.png",
+    "sha256": "77f780d777ea8bac2dfc94684fc01fd36200493856ed45d73b2d6c6f05d361ff",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 11 edificios, placas 5 de 5",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (500)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (500)",
+    "tavern: lo recortado toca el borde de su región en x0 (500)",
+    "orkos_cueva: lo recortado toca el borde de su región en x0 (1100)",
+    "orkos_cueva abierta: lo recortado toca el borde de su región en x0 (1100)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/orkos/fuentes/edicion-mage_guild_2.webp",
+    "sha256": "a0253f205b6b5d670e4164db1a338085409718b1bd97ea64430255fc4d903298"
+  }
+}

@@ -22,7 +22,7 @@ export type Golpe =
   | { readonly tipo: 'suelo'; readonly en: Plano };
 
 /** El alfa a partir del cual un píxel de un recorte cuenta como suyo. */
-const ALFA_QUE_TOCA = 40;
+export const ALFA_QUE_TOCA = 40;
 
 function tocaElEdificio(
   t: Tablero,

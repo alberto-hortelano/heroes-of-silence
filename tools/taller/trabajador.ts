@@ -95,7 +95,7 @@ import {
   escribirGuiasDeBajadas,
   NIVELES_DE_BAJADA,
 } from './bajadas.js';
-import { encargosDeLaBase, escribirFuentesDeLaBase } from './base.js';
+import { ARTE_DE_LA_BASE, encargosDeLaBase, escribirFuentesDeLaBase } from './base.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import {
@@ -128,6 +128,7 @@ import {
   recortarAlContenido,
 } from './empaquetar.js';
 import { alturaDelReposo, type Encargo, filasDeAtlas, promptDe } from './encargo.js';
+import { encogerElTramo } from './encoger-base.js';
 import { escribirCatalogo } from './escenario/catalogo-disco.js';
 import { escenario, recortesDeSemilla } from './escenario/escenario.js';
 import {
@@ -1039,6 +1040,16 @@ switch (orden) {
       `placas: ${indice.tramos.map((t, i) => `T${i + 1} ${t === null ? 'falta' : 'sí'}`).join(' · ')}`,
     );
     for (const a of avisos) console.log(`aviso: ${a}`);
+    break;
+  }
+  case 'encoger-base': {
+    const uso = 'pnpm taller encoger-base <facción> [tramo]';
+    const faccion = faccionDe(resto[0], uso);
+    const tramos =
+      resto[1] === undefined
+        ? Object.keys(ARTE_DE_LA_BASE[faccion].encoger).map(Number)
+        : [Number(resto[1])];
+    for (const n of tramos) console.log(`→ ${await encogerElTramo(faccion, n)}`);
     break;
   }
   case 'medir-base': {

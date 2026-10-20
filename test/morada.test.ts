@@ -75,7 +75,8 @@ const sinPisarse = (a: { x: number; ancho: number }, b: { x: number; ancho: numb
 describe('la morada dentro de la base: la cámara y la fila (C12, C13)', () => {
   for (const f of FACTION_IDS) {
     const d = disposicionDe(f);
-    const sitios = sitiosDeLaBase(f).filter((s) => s.morada !== undefined);
+    // Las moradas que se levantan: un sitio sin nada que construir es plaza (el 5 de los no muertos).
+    const sitios = sitiosDeLaBase(f).filter((s) => s.morada !== undefined && s.cadena.length > 0);
     for (const [ancho, alto] of LIENZOS) {
       it(`${f}, ${ancho}×${alto}: la base acercada a la hoja y centrada en la morada, y la fila entera, sin pisarse ni tapar a quien anduvo`, () => {
         for (const densidad of DENSIDADES) {

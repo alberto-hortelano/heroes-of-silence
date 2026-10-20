@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-placa-t5",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:51:34.638Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a6f-9b58-7b40-a34f-6275f5c6852a",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (la cripta). En su sitio pon lo mismo que ya cierra la plaza entre ellos: traseras de casas de piedra negra medio en ruinas, muros de piedra con hiedra seca, cipreses oscuros y alguna lápida; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "412f7b7c970a9a95920d7eb1efa544a5739310ebb9f05854158be497226c57eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a6f-9b58-7b40-a34f-6275f5c6852a/call_878f3c53c8214586a3486344a5767738.png",
+    "sha256": "1c3a28c9852bbfa90973c4eedc8ca1af705e973c6ccce2cc4284124549aff9bd",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 7 edificios, placas 4 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/placa-t5.webp",
+    "sha256": "fd96fb06577d1e19bfb673267453ecccabc3521f8e536255e675caa42a1c401e"
+  }
+}

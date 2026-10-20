@@ -119,6 +119,9 @@ function desenfocarUmbral(c: Pixeles, sigma: number, umbral: number): Pixeles {
  * parecidos, un muro de piedra sobre un muro de piedra— y un fundido de 2 px.
  * Fuera de la región, 0.
  */
+/** Lo más ancho que puede ser un agujero que se tapa por los dos lados (`mascaraDeLaDiferencia`): una puerta. */
+const HUECO_CERRADO = 96;
+
 export function mascaraDeLaDiferencia(
   ancho: number,
   alto: number,
@@ -150,16 +153,34 @@ export function mascaraDeLaDiferencia(
   // quitó la apertura, que no caen dentro de la dilatación.
   for (let i = 0; i < m.v.length; i++) if (en(crudo.v, i) && en(dilatada.v, i)) m.v[i] = 255;
   const v = new Uint8Array(W * H);
-  for (let x = Math.max(0, r.x0); x < Math.min(W, r.x1); x++) {
-    let ini = -1;
-    let fin = -1;
+  const x0 = Math.max(0, r.x0);
+  const x1 = Math.min(W, r.x1);
+  const ini = new Int32Array(W).fill(-1);
+  const fin = new Int32Array(W).fill(-1);
+  for (let x = x0; x < x1; x++)
     for (let y = 0; y < Math.min(H, r.pie); y++)
       if (en(m.v, y * W + x)) {
-        if (ini < 0) ini = y;
-        fin = y;
+        if (ini[x] === -1) ini[x] = y;
+        fin[x] = y;
       }
-    if (ini >= 0) for (let y = ini; y <= fin; y++) v[y * W + x] = 255;
+  // Una columna baja hasta donde bajan las de sus DOS lados (`HUECO_CERRADO`):
+  // la puerta oscura de un muro oscuro se parecía a la placa y dejaba un agujero
+  // bajo el arco (el ayuntamiento de los no muertos, 20-10-2026), por el que el
+  // clic caía al suelo. El alero, con pared solo a un lado, no baja.
+  const hasta = Int32Array.from(fin);
+  for (let x = x0; x < x1; x++) {
+    if (ini[x] === -1) continue;
+    let izq = -1;
+    let der = -1;
+    for (let k = 1; k <= HUECO_CERRADO; k++) {
+      if (x - k >= x0) izq = Math.max(izq, fin[x - k] as number);
+      if (x + k < x1) der = Math.max(der, fin[x + k] as number);
+    }
+    hasta[x] = Math.max(fin[x] as number, Math.min(izq, der));
   }
+  for (let x = x0; x < x1; x++)
+    if (ini[x] !== -1)
+      for (let y = ini[x] as number; y <= (hasta[x] as number); y++) v[y * W + x] = 255;
   // El fundido de 2 px, y fuera de la región nada: el fundido no derrama por
   // fuera de su banda ni por debajo de su pie.
   const fundida = desenfocar({ ancho: W, alto: H, v }, 2);

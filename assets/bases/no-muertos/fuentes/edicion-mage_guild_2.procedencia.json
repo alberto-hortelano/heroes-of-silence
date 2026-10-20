@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-edicion-mage-guild-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:18:42.316Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a88-4bbb-7372-bd9b-acc7632b455e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (la torre del gremio de magos, el que está entre las columnas 64 y 760) se MEJORA y pasa a ser el mismo gremio de magia crecido EN ALTO, con el MISMO ANCHO: la torre con una planta más, un balcón con un orbe verde que brilla y más runas; sin anexos ni alas a los lados. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 64 y 760: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/maestro-t2.webp",
+      "papel": "edita",
+      "sha256": "30a17b68a7b89be8d445da65a8442c0787d1e0302a69ed2089ef1e866cbb535a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a88-4bbb-7372-bd9b-acc7632b455e/call_b875b7da739c4e3ab191083c2ce1a700.png",
+    "sha256": "d1a8325be580e4be366e7d992ecaa8e9f8688a6bfe4e5665f97c52a7bf90db33",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 11 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/edicion-mage_guild_2.webp",
+    "sha256": "f5562b24eae641fd0e35a4dc7d3ac56acc0489cb75659c18eabd609c732d1de4"
+  }
+}

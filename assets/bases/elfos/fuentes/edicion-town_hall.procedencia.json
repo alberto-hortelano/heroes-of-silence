@@ -1,0 +1,36 @@
+{
+  "encargo": "base-elfos-edicion-town-hall",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:12:50.627Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a82-e9c1-7733-843a-ccd539bb2fd2",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 2 empezando por la izquierda (el ayuntamiento, el que está entre las columnas 540 y 1000) se MEJORA y pasa a ser el salón crecido: el mismo, con una torre de madera tallada encima, un balcón de raíces y estandartes verdes con el árbol plateado. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 540 y 1000: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/elfos/fuentes/maestro-t3.webp",
+      "papel": "edita",
+      "sha256": "f1e0e46cb1f42ff070369a740cb390d7a05a4a260f295d550dc95241ac93f20b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a82-e9c1-7733-843a-ccd539bb2fd2/call_a84f3eb360bb40db93bdceeca91f9b14.png",
+    "sha256": "91edcace5dac1ab70b532c8471cba2ff70fda914d1f03ff930e90acd67f72cab",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 11 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/elfos/fuentes/edicion-town_hall.webp",
+    "sha256": "a8de4f3e27e83eff686d20de2d1224d7a20444cd09b5474e1935a53278758191"
+  }
+}

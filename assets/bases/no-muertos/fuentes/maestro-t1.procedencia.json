@@ -1,0 +1,57 @@
+{
+  "encargo": "base-no-muertos-maestro-t1",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:44:36.364Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a65-a168-7be0-8a9d-e6b8a4e12120",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 3 es la GUÍA DE LA PLAZA: el gris CLARO de abajo es el empedrado por el que se anda, solo esa franja baja; cada punto oscuro numerado sobre su borde de atrás es donde va el UMBRAL de la PUERTA del edificio con ese número; y junto a cada punto hay una SILUETA OSCURA DE UN ADULTO de pie, a su tamaño real en este cuadro: es la VARA DE MEDIR de todo. No pintes sus grises lisos, sus puntos, sus números ni sus siluetas.\n\nLa imagen 2 da además la heráldica de la facción (una calavera blanca sobre negro, en telas negras raídas).\nEl TRAMO 1 de 5, de izquierda a derecha, de la PLAZA de una villa medieval muerta de los no muertos, una necrópolis amurallada, vista DE CERCA. Formato apaisado de 1536×1024. Cámara ORTOGRÁFICA elevada 25 grados sobre la horizontal, DE FRENTE, como el escenario de un combate visto de lado. Nunca cenital ni de perfil. Paredes verticales, nada inclinado.\nLA SILUETA DE LA GUÍA ES LA VARA DE MEDIR: un adulto de 122 px de alto da la escala de TODO el cuadro. La PUERTA de cada edificio es un poco MÁS ALTA que la silueta que tiene al lado (la puerta, unos 154-166 px), y las ventanas, plantas, aleros y tejados a esa misma escala, como para gente de ese tamaño. Con esa escala los edificios son GRANDES en el cuadro: llenan el alto de la imagen por encima de la franja del suelo, y los que de verdad son altos se salen por el borde de arriba, cortados. Eso está bien: no los encojas para que quepan.\nLos 1 edificios, numerados de izquierda a derecha como los puntos de la guía (1: el mausoleo: un panteón de mármol gris ennegrecido, con columnas en la fachada, una cúpula y dos estatuas de dolientes encapuchados a los lados de la puerta), cada uno con el umbral de su puerta en su punto, a ras del borde de atrás del suelo. Cada uno con PROPORCIONES NORMALES, ni estirado en alto ni estrechado, y con la heráldica y los materiales de la facción. CADA EDIFICIO CABE EN SU RECUADRO DE LA GUÍA (el 1, entre las columnas 420 y 940): ese es su ancho entero, con el tejado, las torres y los aleros, y los edificios NO llenan el tramo: a los lados de su recuadro va lo que cierra la plaza. Cada edificio DE FRENTE, con la fachada PARALELA al plano del cuadro: sin pared lateral ni faldón del tejado en escorzo, el zócalo horizontal. Entre ellos queda aire: se lee como una plaza, no como una calle.\nSOLO el edificio de cada uno: sin carretas, huertos, cercas, mesas ni objetos sueltos delante.\nNO AÑADAS PLAZA DELANTE: el suelo (las losas de piedra oscura agrietadas) es solo la franja gris clara de abajo, poco honda y PLANA, con su borde de atrás RECTO y a la MISMA ALTURA de punta a punta de la imagen; el pie de cada edificio, de cada muro y de cada pilar va justo en ese borde. Nada de terreno vacío entre esa franja y los edificios, ni escalones, ni aceras.\nLA JUNTA, en el borde derecho de la imagen: la franja VERDE OSCURA de la guía (las 176 columnas pegadas a ese borde) es UN CIPRÉS ALTO Y DENSO, de follaje verde muy oscuro, casi negro, que sube desde lo alto del muro hasta el BORDE DE ARRIBA de la imagen y queda CORTADO por el borde lateral, como si el árbol siguiera fuera. El rectángulo PARDO a su pie es un PILAR de piedra negra del muro, recto y vertical, con su pie en el borde de atrás del suelo, y detrás de él asoma el tronco. En esas columnas no hay cielo, ni casas, ni tejados: solo el pilar, el tronco y las hojas, de arriba abajo hasta el suelo.\nDetrás de los edificios y en los huecos que dejen entre ellos, lo que cierra la plaza: traseras de casas de piedra negra medio en ruinas, muros de piedra con hiedra seca, cipreses oscuros y alguna lápida; sin puertas principales, ni carteles, ni banderas. Por encima de los tejados, algo de cielo.\nNADA de campo abierto, horizonte ni muralla. Ninguna persona, animal, carro, puesto suelto ni texto. Una sola luz para toda la imagen: un solo cuadro pintado de una vez. No pintes los grises lisos, los puntos, los números, las siluetas, los recuadros de trazos ni las franjas de color de la guía: son indicaciones.\nPALETA: SOBRIA y fría, como la imagen 1 pero más apagada: piedra negra y gris verdosa, madera ennegrecida, pizarra, hierro oxidado, telas negras raídas; como único color vivo, una luz verde pálida en algunas ventanas. Luz de crepúsculo NEUTRA y fría: cielo gris plomizo nublado, sin puesta de sol ni luna. Sombras suaves.\nEstilo: ilustración pintada de fantasía medieval oscura, materiales gastados.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "estilo",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    },
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/guia-t1.png",
+      "papel": "plaza",
+      "sha256": "a2fad99fa9aa64ae1c6d43964ac1f9556f50f9bf86f837ded285b9a64b3a989a"
+    },
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/pintado-t1.webp",
+      "papel": "encoge",
+      "sha256": "dcec9c0852c84e7d79c4fbe5d2812684c98166ce66808bc6307c355398f1726d"
+    },
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/placa-t1.webp",
+      "papel": "placa",
+      "sha256": "3f4ceef7df5fcb314c22c171ef9de8525e3e56303cde2dc8a01f6921589e8832"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a65-a168-7be0-8a9d-e6b8a4e12120/call_ac208ac574074627b4489fb30ea066eb.png",
+    "sha256": "1f52c4c68d130b10ce190a05e92a78f92889da6eb1e858f751b0683e5241a202",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 5 edificios, placas 2 de 5",
+    "encogido sobre la placa (encoger-base): 340-1050 ×0.64 (puerta 700)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/maestro-t1.webp",
+    "sha256": "20028dae47e4c6337c27fc2cde5bef9320a0264fa20fdc7b0dfc40cfd6ab5f7b"
+  }
+}

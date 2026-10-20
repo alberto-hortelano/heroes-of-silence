@@ -1,0 +1,41 @@
+{
+  "encargo": "base-imperio-edicion-mage-guild-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:15:52.201Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a85-8777-7fa1-8d40-4c304de8f69c",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (la torre del gremio de magos, el que está entre las columnas 64 y 512) se MEJORA y pasa a ser el mismo gremio de magia crecido EN ALTO, con el MISMO ANCHO: la torre con una planta más, un anteojo de latón en la cúpula y vidrieras; sin anexos ni alas a los lados. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 64 y 512: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/imperio/fuentes/maestro-t2.webp",
+      "papel": "edita",
+      "sha256": "394d757003fbecaddd4a0cea170c4d23acbfca48210b60cd73333b2ed8742ffe"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a85-8777-7fa1-8d40-4c304de8f69c/call_f8624e50da83452499e25168477f4163.png",
+    "sha256": "941f4c7884785d22f727411e7f5331957c10ad523b272abe7272503337c49d75",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 12 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "castle: lo recortado toca el borde de su región en x0 (990)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (512)",
+    "imperio_pueblo: lo recortado toca el borde de su región en x1 (515)",
+    "imperio_pueblo abierta: lo recortado toca el borde de su región en x1 (515)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/imperio/fuentes/edicion-mage_guild_2.webp",
+    "sha256": "20cf7214ec7fc02ce8e0161b358c0f44785c8fe228c4940fde279b0fe5e3dbd8"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-placa-t1",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:50:45.997Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a6e-bbfc-7e40-ab49-6f92285e47e2",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (el mausoleo). En su sitio pon lo mismo que ya cierra la plaza entre ellos: traseras de casas de piedra negra medio en ruinas, muros de piedra con hiedra seca, cipreses oscuros y alguna lápida; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/maestro-t1.webp",
+      "papel": "edita",
+      "sha256": "dcec9c0852c84e7d79c4fbe5d2812684c98166ce66808bc6307c355398f1726d"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a6e-bbfc-7e40-ab49-6f92285e47e2/call_cc604034d1be4ed38c31fc4c2f16d33e.png",
+    "sha256": "1aa32bea2e646d3c6ef75684d013a534c2f371b27986d3c4928405a6d4c96390",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 6 edificios, placas 3 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/placa-t1.webp",
+    "sha256": "3f4ceef7df5fcb314c22c171ef9de8525e3e56303cde2dc8a01f6921589e8832"
+  }
+}

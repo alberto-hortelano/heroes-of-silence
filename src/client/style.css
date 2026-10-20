@@ -657,9 +657,8 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 }
 /* La elección mide lo mismo con cualquier tema: el título y el nombre de cada
    facción, en una línea de alto fijo, y lo demás de la lista con la letra del
-   neutro. Si cambiara de medidas al pasar por una facción, el navegador avisaría
-   de otro `pointerover` con el ratón quieto (`inicio.ts`) y el tema saltaría a la
-   que hubiera quedado debajo. */
+   neutro. Así, marcar otra facción cambia su tema sin mover la lista bajo el
+   ratón. */
 .titulo-de-inicio {
   margin: 0 0 1.1rem;
   text-align: center;

@@ -16,7 +16,7 @@ import { relojDeFigura } from '../compas.js';
 import type { Direccion } from '../direccion.js';
 import { temaDelLienzo } from '../temas.js';
 import { type PiesDeLaFigura, piesEn } from './aro.js';
-import { cargarHojaDeFigura, hayFiguraCargada, imagenDeFigura } from './assets.js';
+import { cargarHojaDeFigura, figuraEnCamino, hayFiguraCargada, imagenDeFigura } from './assets.js';
 import {
   type CharacterAtlas,
   type CharacterClip,
@@ -169,6 +169,12 @@ interface Colocada {
 export interface FiguraColocada {
   readonly f: Figura;
   readonly p: Colocada | null;
+  /**
+   * Sin fotograma porque su hoja aún no ha llegado (o no se sabe aún qué hoja
+   * lleva): no se pinta nada, ni el marcador ni la sombra. El marcador queda para
+   * la figura que de verdad no tiene arte: su imagen falló o no existe.
+   */
+  readonly cargando: boolean;
 }
 
 /**
@@ -199,10 +205,13 @@ function hojaQueSePinta(
 export function colocarFigura(f: Figura): FiguraColocada {
   // Sin la lista de hojas aún, el marcador: no el Y Bot de quien todavía no se
   // sabe qué hoja lleva (`arteSabido`).
-  if (!arteSabido(f.body)) return { f, p: null };
+  if (!arteSabido(f.body)) return { f, p: null, cargando: true };
   const arte = arteDe(f.body);
   const hoja = hojaQueSePinta(arte, f);
-  if (hoja === null) return { f, p: null };
+  if (hoja === null) {
+    const pedida = (hojasPorCercania(arte, f.mira)[0] as CharacterAtlas).clips[f.clip].imagen;
+    return { f, p: null, cargando: figuraEnCamino(pedida) };
+  }
   const { atlas, clip, url, imagen } = hoja;
   const frame =
     clip === 'death'
@@ -217,6 +226,7 @@ export function colocarFigura(f: Figura): FiguraColocada {
   const escala = lado / atlas.cell;
   return {
     f,
+    cargando: false,
     p: {
       arte,
       celda,
@@ -234,8 +244,10 @@ export function colocarFigura(f: Figura): FiguraColocada {
  * tamaño. Quien repinta un lienzo solo para una figura (las miniaturas de la
  * arena) se lo salta si no ha cambiado.
  */
-export function claveDelDibujo({ f, p }: FiguraColocada): string {
+export function claveDelDibujo(c: FiguraColocada): string {
+  const { f, p } = c;
   const donde = `${f.x}|${f.suelo}|${f.alto}|${f.color}|${f.destello ?? 0}`;
+  if (c.cargando) return `cargando|${donde}`;
   return p === null
     ? `marcador|${donde}|${f.alfaSinArte ?? 1}`
     : `${p.imagen}|${p.celda.x}|${p.celda.y}|${donde}`;
@@ -254,6 +266,7 @@ function claveDeCelda(p: Colocada, w: number): string {
  */
 export function pintarSombraDeFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): void {
   const { f, p } = c;
+  if (c.cargando) return;
   if (p === null) {
     const alfa = f.alfaSinArte ?? 1;
     if (alfa <= 0) return;
@@ -323,6 +336,7 @@ function celdaTeñida(p: Colocada, color: string, w: number): HTMLCanvasElement 
  */
 export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): void {
   const { f, p } = c;
+  if (c.cargando) return;
   const destello = f.destello ?? 0;
   const alfa = p === null ? (f.alfaSinArte ?? 1) : 1;
   if (alfa <= 0) return;

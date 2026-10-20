@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-abierta-no-muertos-mausoleo",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:17:27.830Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a87-0a9a-7f21-9f4e-95cfb3add283",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (el mausoleo, el que está entre las columnas 0 y 1300) se ABRE como una CASA DE MUÑECAS: se le quita la PARED DE DELANTE (la fachada entera, con su puerta y sus ventanas) y se ve su sala por dentro: un panteón: sarcófagos de piedra con las tapas talladas, nichos en las paredes, telarañas, y la luz fría verdosa de dos braseros.\nEs el MISMO edificio, en el MISMO sitio, con el MISMO tamaño y el MISMO contorno: el tejado y los muros de los lados se quedan, cortados limpios donde estaba la fachada, y se ve el grueso de la pared en el corte. El suelo de la sala va a ras del borde de atrás del empedrado, donde estaba el umbral de la puerta, y la sala se ve desde la plaza con la misma cámara que todo el cuadro (ortográfica, elevada 25 grados, de frente). La luz de dentro, la de su fuego, sus ventanas o sus cirios, sobria.\nA la escala de la plaza: un adulto mide 122 px de alto en este cuadro, y los muebles van a su medida (un banco o un saco, a su rodilla; una mesa, un yunque o un altar, a su cadera). La sala va VACÍA: ninguna persona ni animal, que la gente del juego se pone delante, en el empedrado.\nFuera de ese edificio, NADA cambia: ni los otros edificios, ni el suelo, la luz, el cielo, el encuadre o lo que cierra la plaza. Lo nuevo no pasa de las columnas 0 y 1300.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/maestro-t1.webp",
+      "papel": "edita",
+      "sha256": "20028dae47e4c6337c27fc2cde5bef9320a0264fa20fdc7b0dfc40cfd6ab5f7b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a87-0a9a-7f21-9f4e-95cfb3add283/call_ca30efffac5c4961bf1d43e0e6a5806f.png",
+    "sha256": "62d7cafe235f943cbf5f0ccb16774c3150f970e6c607354aa7a3886cbebff7a0",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 9 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/abierta-no-muertos_mausoleo.webp",
+    "sha256": "237ef56e74d1d2d1f5128cd2f2d719ab819f44451ae7bc0e758be6ea27b861e9"
+  }
+}

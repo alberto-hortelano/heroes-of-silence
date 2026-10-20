@@ -1245,7 +1245,8 @@ function exigir<T>(cosa: T, vale: (x: T) => boolean, paso: string): void {
  * La pantalla de inicio (19-10-2026): `/` sin nada pide qué jugar y no monta la
  * partida hasta elegir (ni escena ni suelo); «Cargar partida» no hace nada, ni
  * con el teclado; «Nuevo juego» lleva a la elección, que viste la página con la
- * facción que se mira (ratón y foco) y vuelve al neutro con Escape; «Siguiente»
+ * facción marcada (el clic o las flechas; pasar el ratón o el foco, no) y vuelve
+ * al neutro con Escape; «Siguiente»
  * lleva a la elección del héroe (vuelta 2), con el tema de la facción y el retrato
  * de cada tipo, de la que «Volver» y Escape retroceden un paso; «Empezar» escribe
  * `?seed=N&faccion=<id>&heroe=<tipo>` y abre la base de esa facción con su héroe
@@ -1291,8 +1292,7 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   if (!/no hay partidas guardadas/i.test(motivo))
     throw new Error(`arranque: «Cargar partida» no dice por qué: «${motivo}»`);
 
-  // «Nuevo juego», con el teclado y el ratón fuera (encima de una facción, la
-  // vestiría: es su vista previa): la elección, con la marcada vestida; Escape
+  // «Nuevo juego», con el teclado: la elección, con la marcada vestida; Escape
   // vuelve al neutro.
   await page.mouse.move(5, 5);
   await page.locator('[data-inicio="nuevo"]').focus();
@@ -1314,61 +1314,45 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
     (e) => e.tema === null,
     'Escape vuelve al menú y al neutro',
   );
-  // «Nuevo juego» con el ratón, y el ratón quieto donde pulsó: la elección se
-  // pinta con una facción debajo (si no, la comprobación no muerde) y el
-  // navegador avisa de un `pointerover` sin que nada se mueva. La página sigue
-  // con el tema de la marcada (QA, H2).
-  const nuevo = await page.locator('[data-inicio="nuevo"]').boundingBox();
-  if (nuevo === null) throw new Error('arranque: «Nuevo juego» no se ve');
-  const clic = { x: nuevo.x + nuevo.width / 2, y: nuevo.y + nuevo.height / 2 };
-  await page.mouse.click(clic.x, clic.y);
+  // Pasar el ratón o el foco por una facción no la viste (20-10-2026: «que no
+  // cambie de tema en hover sino en click»); marcarla con el clic, sí.
+  await page.locator('[data-inicio="nuevo"]').click();
   await page.waitForSelector('[data-inicio="eleccion"]');
-  await sleep(300);
-  const debajo = await page.evaluate(
-    ({ x, y }) =>
-      document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-faccion]')?.dataset.faccion ??
-      null,
-    clic,
-  );
-  if (debajo === null || debajo === FACTION_IDS[0])
-    throw new Error(
-      `arranque: tras pulsar «Nuevo juego» el ratón queda sobre ${debajo ?? 'ninguna facción'}: así no se ve si la de debajo viste la página`,
-    );
+  await page.locator('[data-faccion="elfos"]').hover();
+  await sleep(200);
   exigir(
     await estadoDelArranque(page),
     (e) => e.tema === FACTION_IDS[0],
-    `abierta con un clic y el ratón quieto, la elección va con el tema de ${FACTION_IDS[0]}, la marcada, y no con el de la que queda debajo`,
+    `pasar el ratón por los elfos no los viste: sigue ${FACTION_IDS[0]}, la marcada`,
   );
-  await page.locator('[data-faccion="elfos"]').hover();
+  await page.locator('[data-faccion="orkos"] input').focus();
+  await sleep(200);
   exigir(
     await estadoDelArranque(page),
-    (e) => e.tema === 'elfos',
-    'pasar el ratón por los elfos los viste',
+    (e) => e.tema === FACTION_IDS[0],
+    `el foco en los orkos no los viste: sigue ${FACTION_IDS[0]}, la marcada`,
   );
-  // Con el ratón quieto encima de los elfos, el foco en los orkos los viste y
-  // ahí se queda: la lista mide lo mismo con los dos temas, y el navegador no
-  // avisa de otro `pointerover` que devuelva el de los elfos.
-  await page.locator('[data-faccion="orkos"] input').focus();
-  await sleep(400);
+  await page.locator('[data-faccion="orkos"]').click();
   exigir(
     await estadoDelArranque(page),
     (e) => e.tema === 'orkos',
-    'el foco en los orkos los viste, con el ratón quieto sobre los elfos',
+    'el clic en los orkos los viste',
   );
-  await page.locator('[data-faccion="orkos"]').click();
   await page.locator('[data-faccion="imperio"]').hover();
-  exigir(
-    await estadoDelArranque(page),
-    (e) => e.tema === 'imperio',
-    'pasar por el imperio lo viste',
-  );
-  await page.mouse.move(5, 5);
   await sleep(200);
   exigir(
     await estadoDelArranque(page),
     (e) => e.tema === 'orkos',
-    'marcados los orkos, salir de la lista con el ratón vuelve a su tema',
+    'marcados los orkos, pasar por el imperio no lo viste',
   );
+  await page.locator('[data-faccion="orkos"] input').focus();
+  await page.keyboard.press('ArrowDown');
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.tema !== 'orkos' && e.tema !== null,
+    'las flechas marcan la siguiente y la visten',
+  );
+  await page.locator('[data-faccion="orkos"]').click();
   await captura(page, 'inicio-02b-eleccion-orkos');
 
   // «Siguiente»: la elección del héroe de los orkos, con su tema, el de por defecto
@@ -1457,6 +1441,8 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
     );
   await esperarLaBase(page, 'quieto');
   const delTipo = new RegExp(`^/unidades/${hojaDelTipo}/d[0-7]/atlas\\.webp$`);
+  // La hoja se pide detrás del arte de la base (tramos y recortes): se le da tiempo.
+  for (let t = 0; t < 40 && !pedidas.some((p) => delTipo.test(p)); t++) await sleep(200);
   if (!pedidas.some((p) => delTipo.test(p)))
     throw new Error(
       `arranque: la base no pidió ninguna dirección de ${hojaDelTipo}: el héroe no se pinta con su hoja`,

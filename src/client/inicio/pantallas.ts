@@ -42,8 +42,8 @@ function opcionDeFaccion(f: FactionId, elegida: FactionId): Html {
 }
 
 /**
- * La elección de facción: las cinco del juego, una marcada (`elegida`). Pasar
- * por una, enfocarla o marcarla viste la página con su tema (`inicio.ts`).
+ * La elección de facción: las cinco del juego, una marcada (`elegida`). Marcarla
+ * viste la página con su tema (`inicio.ts`); pasar el puntero, no.
  * «Siguiente» lleva a la elección del héroe.
  */
 export function renderEleccion(elegida: FactionId): Html {

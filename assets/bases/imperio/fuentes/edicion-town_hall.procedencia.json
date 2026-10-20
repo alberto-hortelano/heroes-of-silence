@@ -1,0 +1,42 @@
+{
+  "encargo": "base-imperio-edicion-town-hall",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:16:01.526Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a85-cc0d-75f0-84b4-b51d5c6a06b5",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 2 empezando por la izquierda (el ayuntamiento, el que está entre las columnas 515 y 990) se MEJORA y pasa a ser la casa consistorial crecida: la misma, con una torre del reloj de piedra arenisca, un balcón de hierro forjado y estandartes rojos y negros. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 515 y 990: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/imperio/fuentes/maestro-t3.webp",
+      "papel": "edita",
+      "sha256": "0815c372b376eafa7d6f54db3287bb383d7bbd3aedf4b3c648653eebf0a5b67f"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a85-cc0d-75f0-84b4-b51d5c6a06b5/call_86827bb9913b408483bfa540a8377774.png",
+    "sha256": "ba9f410dde707038d134b002f38dea1393c82426bb3da16383df2791ca737a25",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 13 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "town_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "castle: lo recortado toca el borde de su región en x0 (990)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (512)",
+    "imperio_pueblo: lo recortado toca el borde de su región en x1 (515)",
+    "imperio_pueblo abierta: lo recortado toca el borde de su región en x1 (515)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/imperio/fuentes/edicion-town_hall.webp",
+    "sha256": "10b20bcb13c06b87d57144aa7394f3a63923334b410581f7f8b91cda6c4f5db8"
+  }
+}

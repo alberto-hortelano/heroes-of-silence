@@ -1,14 +1,237 @@
 {
   "tramos": [
-    null,
-    null,
-    null,
-    null,
-    null
+    {
+      "imagen": "tramo-1.webp",
+      "ancho": 1536,
+      "alto": 821,
+      "sha256": "952a487c56c1a3ddfe8abc4615fcee41e84ea0e5507fcc36c533f965cdcafddf",
+      "origen": "f59e764c8a23ebdfca9c6bbde331131f98553b9d198b6a4d48a61833a8f08a80"
+    },
+    {
+      "imagen": "tramo-2.webp",
+      "ancho": 1536,
+      "alto": 871,
+      "sha256": "e97f9577c9d593c35986d2e7f98e7b0c3298f2c5797ecbdc118aa163ca47073c",
+      "origen": "a595dd89a78460b90b0ff22e9750d77b0515ec092cd392a5d6e37040e3c610c6"
+    },
+    {
+      "imagen": "tramo-3.webp",
+      "ancho": 1536,
+      "alto": 776,
+      "sha256": "42a1d612a1f648b622c2855fa1e76c23f441cc9b5d50d6785761831ec8d02114",
+      "origen": "25e94eb7aeacee850517645bceea78ca74f950f804caea1be262a1cab9a4f925"
+    },
+    {
+      "imagen": "tramo-4.webp",
+      "ancho": 1536,
+      "alto": 810,
+      "sha256": "6e080ae82a368a14685fa7c5ba778f270737b01531beaae825cec21073f2c8b8",
+      "origen": "b48899041f0be47378508f8e77cec7629495d2dff4fae0c059757e51e5c989af"
+    },
+    {
+      "imagen": "tramo-5.webp",
+      "ancho": 1536,
+      "alto": 786,
+      "sha256": "bd9a4d3a6c394a3a62b8f0fee9069df59102acb7d33e101bcfb65999cf6237bf",
+      "origen": "bab493141a78932c58b5afd65f8455c35b954ef7e9cf1629358b16afc2790c53"
+    }
   ],
-  "suelo": null,
-  "cielo": null,
-  "edificios": {},
-  "abiertas": {},
+  "suelo": {
+    "imagen": "suelo.webp",
+    "ancho": 768,
+    "alto": 149,
+    "sha256": "2fff13f5ee4172ec0727003541000a1b2076f6f12735a31e5256633fed2d19c5",
+    "origen": "fce4cfdf742d9236e25e65eebe88dbb8d1ea82d1f79cb31fdbf1e0fadc0e5e37",
+    "tramo": 3
+  },
+  "cielo": [
+    81,
+    85,
+    92
+  ],
+  "edificios": {
+    "village_hall": {
+      "imagen": "village_hall.webp",
+      "ancho": 450,
+      "alto": 608,
+      "sha256": "f5e61dbf05ca3db9cfa5afdf019d1863323a6fac149b69776f3a07158f9409c5",
+      "origen": "c2c6dcfcc578adcd08fa52bab2034156ee8069ce378f217329ee366a619e4c53",
+      "tramo": 3,
+      "en": [
+        535,
+        117
+      ]
+    },
+    "town_hall": {
+      "imagen": "town_hall.webp",
+      "ancho": 447,
+      "alto": 727,
+      "sha256": "a83c8340dba8655c57ce5077d1e093e14375e71d7760c91e80272021bdfe604e",
+      "origen": "019d13b772e03dd97420b287a297970c8ea7a7690da74a94bd4aee34f873ce4c",
+      "tramo": 3,
+      "en": [
+        535,
+        0
+      ]
+    },
+    "city_hall": {
+      "imagen": "city_hall.webp",
+      "ancho": 450,
+      "alto": 733,
+      "sha256": "9736fb07b773aa07dce694a860bc9f471397d7f230696944520fec102c8cc043",
+      "origen": "921933a33ea00992ee57dd3f94894686cf4625ccc078ec9846c20f736390f8fc",
+      "tramo": 3,
+      "en": [
+        535,
+        0
+      ]
+    },
+    "castle": {
+      "imagen": "castle.webp",
+      "ancho": 464,
+      "alto": 731,
+      "sha256": "fe705d3fa8483b85d93e46abdc05611299a8f1ab3a967787f06526c877b450cb",
+      "origen": "d6befcfab3dc3982f123b38b36b41a93f2f97b2083240d8b88e6ff02b498267a",
+      "tramo": 3,
+      "en": [
+        1000,
+        0
+      ]
+    },
+    "mage_guild_1": {
+      "imagen": "mage_guild_1.webp",
+      "ancho": 334,
+      "alto": 638,
+      "sha256": "a0be0e3b930f0583d59cd59c9785d5ca7b163f75e56d00557ba08f9cf62c154a",
+      "origen": "b5835a1958fe3c5485605dd5d31d7d133a2eae30e0635db94d9c8fa1f122f328",
+      "tramo": 2,
+      "en": [
+        319,
+        188
+      ]
+    },
+    "mage_guild_2": {
+      "imagen": "mage_guild_2.webp",
+      "ancho": 342,
+      "alto": 823,
+      "sha256": "e191e61f153a2a8e77cda4636fdcbbafcd9d364e558b7ec0aad54d2d701bc46d",
+      "origen": "eb8a986b2eb0f178d328266bf4369ce5b0337d327324b09b1de07562a6e31f15",
+      "tramo": 2,
+      "en": [
+        318,
+        0
+      ]
+    },
+    "tavern": {
+      "imagen": "tavern.webp",
+      "ancho": 574,
+      "alto": 782,
+      "sha256": "4c8acabb5695333fee47ced80fa512165510624e0f0e88966093b8231a4ee1a4",
+      "origen": "92e29708191830adde9518abfa69fc81471d2a1f4b68d82cd6240f2009f2f198",
+      "tramo": 2,
+      "en": [
+        869,
+        40
+      ]
+    },
+    "marketplace": {
+      "imagen": "marketplace.webp",
+      "ancho": 495,
+      "alto": 464,
+      "sha256": "38e1b89e0ec81b8ef922639709c87133bda4e7f9776e17679c7bffeec6848f38",
+      "origen": "5c44ed7c3cdf0f779cbf3d09650fb0bd4607548c1f9cda55467095f52d22c337",
+      "tramo": 4,
+      "en": [
+        161,
+        307
+      ]
+    },
+    "armory": {
+      "imagen": "armory.webp",
+      "ancho": 358,
+      "alto": 497,
+      "sha256": "3cb58fc4a80f0669343ee7f384e84052240b1f5995a48c2aa1cc8c86b44ac11e",
+      "origen": "c4ec185e4476da67c257ea89bb6c74f03f546a6bbf18a4826fa18977bbcc3cde",
+      "tramo": 4,
+      "en": [
+        934,
+        276
+      ]
+    },
+    "no-muertos_cadaveres": {
+      "imagen": "no-muertos_cadaveres.webp",
+      "ancho": 407,
+      "alto": 400,
+      "sha256": "a49246ad21171b4bcad106923510e210c0e59070c8059e8c547392216ddf2c28",
+      "origen": "1c707c2110dc8d4bfb7a2d9adcfc2d9c7d12f6c8c752b50fdc1c020db4f528d3",
+      "tramo": 3,
+      "en": [
+        128,
+        326
+      ]
+    },
+    "no-muertos_mausoleo": {
+      "imagen": "no-muertos_mausoleo.webp",
+      "ancho": 435,
+      "alto": 488,
+      "sha256": "7079d42f08f72069ac411d8e260ab0cddfcbad7b56db73baf869a562f5d30366",
+      "origen": "54fc7f9ef7b8efcf6233f3b1ad2d0a2dadc144949034626c61ec92dbccf766cf",
+      "tramo": 1,
+      "en": [
+        480,
+        281
+      ]
+    },
+    "no-muertos_cripta": {
+      "imagen": "no-muertos_cripta.webp",
+      "ancho": 437,
+      "alto": 478,
+      "sha256": "b8c7e593433c36d22b3ffd5d81b54db8ca2c4ba311e902c9fb9f93142d72663a",
+      "origen": "6a3661e2d1073913bc2713499603c95bf2c727a98df65ff7a6c5762b9f75ba12",
+      "tramo": 5,
+      "en": [
+        637,
+        274
+      ]
+    }
+  },
+  "abiertas": {
+    "no-muertos_cadaveres": {
+      "imagen": "abierta-no-muertos_cadaveres.webp",
+      "ancho": 406,
+      "alto": 390,
+      "sha256": "64cee145c70f9d4cd44719478e02d383e7cc029a5d2cf921c4fde1480c75d886",
+      "origen": "036a95ade08984fc39300c15e243780ff75cc8f4195aae13e8497bca3d436cb7",
+      "tramo": 3,
+      "en": [
+        129,
+        346
+      ]
+    },
+    "no-muertos_mausoleo": {
+      "imagen": "abierta-no-muertos_mausoleo.webp",
+      "ancho": 438,
+      "alto": 492,
+      "sha256": "4d601d1c8bb3458d0163a1de6278d35db38a110f1b653c1c3a52653be2d9e46a",
+      "origen": "20d27e435be714c6df0bdb77f020959df3b3d7cff954af511fbd269c1436c7de",
+      "tramo": 1,
+      "en": [
+        477,
+        279
+      ]
+    },
+    "no-muertos_cripta": {
+      "imagen": "abierta-no-muertos_cripta.webp",
+      "ancho": 563,
+      "alto": 496,
+      "sha256": "0337687a61f8b915727e9bc9237262e3b2b7caac670531959bc8f5af878616bf",
+      "origen": "14de6956dad65b2162b96a728606ccfbae4fd23ee5d04ffc3ae2df08399cddef",
+      "tramo": 5,
+      "en": [
+        569,
+        274
+      ]
+    }
+  },
   "derivadoPor": "tools/taller/recorte-base.ts"
 }

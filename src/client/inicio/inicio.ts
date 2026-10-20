@@ -9,8 +9,10 @@
  * `Session`, ni el mapa, ni su Worker del suelo: `main.ts` se carga después
  * (`entrada.ts`).
  *
- * Lo que se ve lo pinta `pantallas.ts`; aquí solo se conduce. Al mirar una
- * facción se viste la página con su tema (`ponerTema`); el menú va en el neutro
+ * Lo que se ve lo pinta `pantallas.ts`; aquí solo se conduce. Al marcar una
+ * facción (el clic, el dedo o las flechas) se viste la página con su tema
+ * (`ponerTema`); pasar el puntero o el foco por otra no la viste (20-10-2026: «que
+ * no cambie de tema en hover sino en click»). El menú va en el neutro
  * (`quitarTema`); la elección del héroe va con el de la facción elegida.
  */
 import { tipoDeHeroe, tipoDeHeroePorDefecto } from '@core/data.js';
@@ -49,17 +51,6 @@ export function pedirPartida(): Promise<void> {
       tipo: tipoDeHeroePorDefecto(elegida),
     };
     let pantalla: 'menu' | 'eleccion' | 'heroe' = 'menu';
-    /**
-     * Dónde estaba el puntero la última vez que se supo, y dónde estaba al abrir
-     * la elección. El puntero solo viste la facción de debajo tras moverse de
-     * verdad desde que se abrió (`punteroVivo`): al pulsar «Nuevo juego» con el
-     * ratón y dejarlo quieto, la elección se pinta con «No muertos» bajo él, el
-     * navegador avisa de un `pointerover` sin que nadie mueva nada, y la página
-     * se vestía de no muertos con «Templarios» marcado (QA, H2).
-     */
-    let punto: { readonly x: number; readonly y: number } | null = null;
-    let alAbrir: { readonly x: number; readonly y: number } | null = null;
-    let punteroVivo = false;
     /** Lo que escucha el menú, que se suelta de una vez al empezar. */
     const escucha = new AbortController();
     const { signal } = escucha;
@@ -75,8 +66,6 @@ export function pedirPartida(): Promise<void> {
     };
     const aEleccion = (): void => {
       pantalla = 'eleccion';
-      punteroVivo = false;
-      alAbrir = punto;
       pintar(inicio, renderEleccion(elegida));
       ponerTema(elegida);
       enfocar('input[name="faccion"]:checked');
@@ -110,13 +99,6 @@ export function pedirPartida(): Promise<void> {
       app.hidden = false;
       empezar();
     };
-    /** La facción de `el` (o de lo que lo contiene) en la elección, si es una. */
-    const faccionDe = (el: EventTarget | null): FactionId | null => {
-      if (!(el instanceof Element)) return null;
-      const f = el.closest<HTMLElement>('[data-faccion]')?.dataset.faccion;
-      return f !== undefined && esFaccion(f) ? f : null;
-    };
-
     inicio.addEventListener(
       'click',
       (ev) => {
@@ -156,64 +138,6 @@ export function pedirPartida(): Promise<void> {
           ev.preventDefault();
           atras();
         }
-      },
-      { signal },
-    );
-    // La facción con el foco o bajo el puntero: su tema, ya. La lista mide lo
-    // mismo con cualquier tema (`.opcion-de-faccion`, `style.css`): si cambiara
-    // de medidas, el navegador avisaría de otro `pointerover` con el ratón quieto
-    // y el tema de la que se elige con el teclado volvería a la de debajo.
-    const alMirar = (ev: Event): void => {
-      const f = faccionDe(ev.target);
-      if (f !== null) ponerTema(f);
-    };
-    inicio.addEventListener('focusin', alMirar, { signal });
-    inicio.addEventListener(
-      'pointerover',
-      (ev) => {
-        if (punteroVivo && ev.pointerType !== 'touch') alMirar(ev);
-      },
-      { signal },
-    );
-    // Un movimiento cuenta si su punto no es el de antes de abrir la elección.
-    // Sin punto conocido (se abrió con el teclado y el ratón no había dado
-    // señales), el primero solo lo apunta: un `pointermove` sintético en el mismo
-    // sitio no basta para despertarlo. El dedo no tiene vista previa: deslizar
-    // para bajar hasta «Empezar» vestiría cada facción por la que pasa; con él,
-    // viste la que se toca (`change`).
-    document.addEventListener(
-      'pointermove',
-      (ev) => {
-        if (ev.pointerType === 'touch') return;
-        const aqui = { x: ev.clientX, y: ev.clientY };
-        punto = aqui;
-        if (pantalla !== 'eleccion' || punteroVivo) return;
-        if (alAbrir === null) {
-          alAbrir = aqui;
-          return;
-        }
-        if (aqui.x === alAbrir.x && aqui.y === alAbrir.y) return;
-        punteroVivo = true;
-        alMirar(ev);
-      },
-      { signal },
-    );
-    document.addEventListener(
-      'pointerdown',
-      (ev) => {
-        punto = { x: ev.clientX, y: ev.clientY };
-      },
-      { signal },
-    );
-    // Al salir el puntero de las facciones, el tema vuelve al de la marcada.
-    inicio.addEventListener(
-      'pointerout',
-      (ev) => {
-        const lista = inicio.querySelector('.facciones');
-        if (lista === null || !(ev.target instanceof Node) || !lista.contains(ev.target)) return;
-        const hacia = ev.relatedTarget;
-        if (hacia instanceof Node && lista.contains(hacia)) return;
-        ponerTema(elegida);
       },
       { signal },
     );

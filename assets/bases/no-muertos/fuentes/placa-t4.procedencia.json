@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-placa-t4",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:51:48.554Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a6f-8e0d-7102-90c7-4f7c45948765",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (el mercado cubierto, la armería). En su sitio pon lo mismo que ya cierra la plaza entre ellos: traseras de casas de piedra negra medio en ruinas, muros de piedra con hiedra seca, cipreses oscuros y alguna lápida; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/maestro-t4.webp",
+      "papel": "edita",
+      "sha256": "0467ba3bf1d6dfa927cd89935a59ae9083418207ec410a9c177b66cd5c45f42a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a6f-8e0d-7102-90c7-4f7c45948765/call_6b5cc4b19b1449fc96cd9b25d4516d38.png",
+    "sha256": "ab97411b252ad46a74c110f14cbb4574aad6d3b363124d0a0f84f3769a2bc6bb",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 9 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/placa-t4.webp",
+    "sha256": "53cb9930bb2b3006ab6cfaf7f6d0498c7ae04668c0798a9e29def4a1959b725f"
+  }
+}

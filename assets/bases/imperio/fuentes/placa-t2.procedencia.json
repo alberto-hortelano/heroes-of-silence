@@ -1,0 +1,43 @@
+{
+  "encargo": "base-imperio-placa-t2",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:49:18.685Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a61-8841-70b3-9cea-23010bbbc8ab",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (la torre del gremio de magos, la taberna, el taller). En su sitio pon lo mismo que ya cierra la plaza entre ellos: traseras de casas de revoco y ladrillo con tejado de teja, muros de piedra arenisca, algún árbol; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/imperio/fuentes/maestro-t2.webp",
+      "papel": "edita",
+      "sha256": "394d757003fbecaddd4a0cea170c4d23acbfca48210b60cd73333b2ed8742ffe"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a61-8841-70b3-9cea-23010bbbc8ab/call_05c926b6c1c84e9e9ba34dd8329c3e74.png",
+    "sha256": "8023936e8265879f4451ba9f2b236c5b4da4f9025b8792eababdc9ed669fe615",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 14 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "town_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "city_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "castle: lo recortado toca el borde de su región en x0 (990)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (512)",
+    "imperio_pueblo: lo recortado toca el borde de su región en x1 (515)",
+    "imperio_pueblo abierta: lo recortado toca el borde de su región en x1 (515)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/imperio/fuentes/placa-t2.webp",
+    "sha256": "4ba1f8978230660e79dc303ae7c4e2f56d466e7b7df786ff450e4bd7f1611a19"
+  }
+}

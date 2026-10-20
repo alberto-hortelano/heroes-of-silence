@@ -32,7 +32,7 @@ npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (goo
   (`parseSeed`, `parseFaccion`, en `core`; repetido, `unaVezEnLaURL`), y un tipo de héroe que no es
   de la facción que se juega, también (`problemaDeTipo`, el mismo de `newGame`). `?seed=` vacío =
   sin semilla. **Sin ninguna de las tres, la página pregunta** (19-10-2026, `inicio/`): «Nuevo
-  juego» (elegir facción, con su tema al mirarla, y luego el héroe), «Cargar partida» (apagado: no
+  juego» (elegir facción, con su tema al marcarla, y luego el héroe), «Cargar partida» (apagado: no
   hay guardado) o «Partida rápida» (semilla al azar, la facción que saque y su héroe por defecto);
   hasta elegir no hay `Session` ni mapa. La partida abre en la base
   del jugador, con su héroe dentro; «Partida nueva», al acabar, vuelve al menú. Si el agente diseña
@@ -607,7 +607,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   partidas sin terminar.
 - **Base**: nace con guarnición de su facción (`data/ciudades.json`, `guarnicionDeBase`; la de una
   ciudad neutral, `guarnicionNeutral`). Con el héroe del dueño dentro, la defiende solo él con su
-  tropa. Las bases de templarios heredan el arte de los caballeros; las otras cuatro, marcadores.
+  tropa. Las bases de templarios heredan el arte de los caballeros; las otras cuatro, el suyo (20-10-2026).
   **El héroe de salida nace dentro de su base** (19-10-2026, «empieza en la base»): en la casilla
   del castillo (`newGame`, con `basesDelPlan`), sin recoger la guarnición; los jugadores son los
   dueños de ciudad y el plan no lleva inicios (`MapPlan.heroStarts` se retiró: el esquema del agente
@@ -697,7 +697,7 @@ antes del destino (`battle_started` con `faltan`).
   `DIRECCION_DE_HOJA`. Una tropa del catálogo se pinta con la hoja de su unidad (`hojaDeUnidad`; el
   `body` de su stack es esa hoja) y un héroe con la de su tipo (`figuraDelHeroe`), que registra
   `registrarLasHojas` al arrancar (`cargarArte`) en la partida, el espectador y la arena; hasta que
-  contesta, lo que no está registrado se pinta con su marcador y no con el Y Bot (`arteSabido`). Anclas del Y Bot en `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
+  contesta, lo que no está registrado no se pinta, ni con el Y Bot (`arteSabido`). **Una figura cuya hoja va en camino no se pinta** (20-10-2026, «quita unos círculos rojos con una letra que aparecen antes de cargar»: `FiguraColocada.cargando`, `figuraEnCamino`); el óvalo de color con su inicial queda para la que no tiene arte, porque su imagen falló o no existe. Anclas del Y Bot en `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
 - Ritmo: `marcha.ts` (`PRISA_DE_LA_MARCHA`), compás propio por figura con hash
   del id (`compas.ts`), sombra por silueta, carga hoja a hoja con cachés LRU.
 - **La batalla se cuenta en cola** (`anim.ts`): el estado ya trae el final de lo que se cuenta,
@@ -871,9 +871,10 @@ antes del destino (`battle_started` con `faltan`).
   en `<section id="inicio">` con `#app` oculto): pregunta solo si la URL no pide nada
   (`hayQuePreguntar`) y deja lo elegido en la URL, que lee `main.ts` como un enlace o una recarga. La
   elección enseña de cada facción su nombre, su rasgo del cuaderno (`rasgoDeFaccion`) y el héroe con
-  que se empieza (`nombreDeSalida`); el foco o el puntero encima la viste (`ponerTema`; la lista
-  mide lo mismo con cualquier tema, para que el ratón quieto no la vuelva a vestir), salir con el
-  puntero vuelve a la marcada y Escape al menú, en el neutro (`quitarTema`). «Siguiente» lleva a la
+  que se empieza (`nombreDeSalida`); marcarla (el clic, el dedo o las flechas) la viste
+  (`ponerTema`); pasar el puntero o el foco, no (20-10-2026, «que no cambie de tema en hover sino en
+  click»; la lista mide lo mismo con cualquier tema), y Escape vuelve al menú, en el neutro
+  (`quitarTema`). «Siguiente» lleva a la
   del héroe (vuelta 2, 19-10-2026): los tipos de la facción, con el retrato de su hoja
   (`identidad.webp`), su nombre y su descripción del cuaderno, ya con su tema; «Volver» y Escape
   retroceden un paso. Mientras se está en la
@@ -933,8 +934,18 @@ antes del destino (`battle_started` con `faltan`).
   `assets/bases/<f>/fuentes/`, fuera del build. Sin placa, un tramo pinta su marcador. **Los
   templarios heredan el arte de los caballeros** (19-10-2026): sus moradas van en los sitios que
   ese arte pinta (Pueblo 1, Forja 3, Establos 5 y Monasterio 6; el 2 y el 4, sin edificio) y su
-  índice está rederivado; no muertos, imperio, elfos y orkos van con marcadores enteros (índice
-  vacío). Una morada ofrece cada unidad que produce.
+  índice está rederivado. **No muertos, imperio, elfos y orkos, con su arte** (20-10-2026): sin
+  crudos de la vuelta 1 no hay hoja de identidad, así que cada edificio va descrito en el prompt,
+  con la villa, la heráldica, el suelo, la junta y la paleta de su facción (`ARTE_DE_LA_BASE`,
+  `tools/taller/base.ts`). Un sitio sin edificio no se pide (`sitiosPintados`): es plaza, con una
+  región estrecha en su tramo. Cada tramo necesita alguna puerta, así que la morada 2 de no muertos
+  y elfos va en el tramo 1. La guía dibuja el recuadro de cada edificio (`huecosPedidos`, como mucho
+  `ANCHO_MAXIMO_DEL_EDIFICIO`, 520 px), porque con uno o dos por tramo Codex llenaba el tramo. Aun
+  así pinta la puerta de 190-275 px, y no de los 154-166 que se piden: lo que sale grande se
+  **encoge sobre la placa**, con la puerta y el pie quietos (`pnpm taller encoger-base <f>`,
+  `tools/taller/encoger-base.ts`, con los factores en `ARTE_DE_LA_BASE[f].encoger`). Lo que pintó
+  Codex queda en `fuentes/pintado-t<n>.webp`, y el maestro sale de ahí y de la placa, con su
+  procedencia. Una morada ofrece cada unidad que produce.
 - **Arena** (`pnpm arena`): **edita el catálogo del juego** (19-10-2026, decisión del usuario) y
   monta peleas con sus reglas. Las unidades son las de `data/unidades.json` y las piezas, las de
   `data/equipo.json`: «Guardar» escribe los dos en una operación (`escribirCatalogo`,

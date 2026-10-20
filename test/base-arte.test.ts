@@ -13,15 +13,18 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
+import { ALFA_QUE_TOCA } from '../src/client/render/base/golpe.js';
+import { sitioDe, sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
 import { FACTION_IDS } from '../src/core/types.js';
-import { disposicionDe, type IndiceDeLaBase, SOLAPE } from '../src/shared/base.js';
+import { disposicionDe, type IndiceDeLaBase, SOLAPE, TRAMO } from '../src/shared/base.js';
 import {
+  ARTE_DE_LA_BASE,
   abiertaPintada,
   cuadroDe,
-  DESCRIPCION_DE_LOS_TEMPLARIOS,
   dirDeLaBase,
+  edificiosConArte,
   encargoDeEdicion,
   encargoDeLaAbierta,
   encargoDeLaPlaca,
@@ -34,10 +37,9 @@ import {
   mejorasDe,
   moradasDeLaBase,
   placaDelTramo,
-  RETOQUES_DE_LOS_TEMPLARIOS,
   retoqueDe,
-  SALA_DE_LOS_TEMPLARIOS,
   salaPintada,
+  sitiosPintados,
 } from '../tools/taller/base.js';
 import { encargoSchema } from '../tools/taller/encargo.js';
 import {
@@ -105,17 +107,39 @@ describe('el arte de la base', () => {
     }
   });
 
-  it('las cuatro facciones sin arte van con marcadores: índice vacío, sin un 404 que pedir', () => {
-    for (const f of FACCIONES.filter((x) => x !== 'templarios')) {
+  it('las cinco facciones llevan su arte entero: cada tramo con placa, cada edificio con su recorte y cada morada abierta (20-10-2026)', () => {
+    for (const f of FACCIONES) {
       const indice = indiceDe(f);
       expect(
-        indice.tramos.every((t) => t === null),
-        f,
+        indice.tramos.every((t) => t !== null),
+        `${f}: un tramo sin placa`,
       ).toBe(true);
-      expect(indice.suelo, f).toBeNull();
-      expect(indice.cielo, f).toBeNull();
-      expect(indice.edificios, f).toEqual({});
-      expect(indice.abiertas, f).toEqual({});
+      expect(indice.suelo, f).not.toBeNull();
+      expect(Object.keys(indice.edificios).sort(), f).toEqual([...edificiosConArte(f)].sort());
+      expect(Object.keys(indice.abiertas).sort(), f).toEqual([...moradasDeLaBase(f)].sort());
+    }
+  });
+
+  it('cada puerta tiene su edificio bajo el punto donde se pulsa (`dondePulsarElSitio`: medio paso sobre el umbral)', async () => {
+    // El ayuntamiento de los no muertos tenía un agujero bajo el arco de la puerta
+    // y el clic caía al suelo: el héroe llegaba y no se abría «Ampliar» (20-10-2026).
+    for (const f of FACCIONES) {
+      const d = disposicionDe(f);
+      const indice = indiceDe(f);
+      for (const s of sitiosDeLaBase(f)) {
+        const id = s.cadena[0];
+        const e = id === undefined ? undefined : indice.edificios[id];
+        if (e === undefined) continue;
+        const [px, fila] = d.sitios[s.id].umbral.enElCuadro;
+        const x = px - e.en[0];
+        const y = Math.round(fila - 0.5 * TRAMO.pxPorPaso) - e.en[1];
+        const { data, info } = await sharp(join(RAIZ, dirDeLaBase(f), e.imagen))
+          .ensureAlpha()
+          .extractChannel(3)
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        expect(data[y * info.width + x] ?? 0, `${f}/${id}`).toBeGreaterThanOrEqual(ALFA_QUE_TOCA);
+      }
     }
   });
 
@@ -256,14 +280,14 @@ describe('el arte de la base', () => {
     expect(cuadroDe('templarios', id)).toBe(
       hay ? retoqueDe('templarios', id) : maestroDelTramo('templarios', tramo),
     );
-    expect(Object.keys(RETOQUES_DE_LOS_TEMPLARIOS)).toEqual([id]);
+    expect(Object.keys(ARTE_DE_LA_BASE.templarios.retoques)).toEqual([id]);
     expect(() => encargoDelRetoque('templarios', 'templarios_forja')).toThrow(/no tiene retoque/);
   });
 
   it('la versión abierta de cada morada edita su cuadro con su sala de referencia; la del pueblo espera al retoque (C14)', () => {
     const d = disposicionDe('templarios');
     const moradas = moradasDeLaBase('templarios');
-    expect([...moradas].sort()).toEqual(Object.keys(SALA_DE_LOS_TEMPLARIOS).sort());
+    expect([...moradas].sort()).toEqual(Object.keys(ARTE_DE_LA_BASE.templarios.salas).sort());
     for (const id of moradas) {
       const e = encargoDeLaAbierta('templarios', id);
       expect(() => encargoSchema.parse(e), id).not.toThrow();
@@ -277,7 +301,7 @@ describe('el arte de la base', () => {
       const { region } = d.sitios[sitioDeEdificio('templarios', id).id];
       expect(e.descripcion, id).toContain(`columnas ${region.x0} y ${region.x1}`);
       expect(e.descripcion, id).toContain('CASA DE MUÑECAS');
-      expect(e.descripcion, id).toContain(SALA_DE_LOS_TEMPLARIOS[id]!);
+      expect(e.descripcion, id).toContain(ARTE_DE_LA_BASE.templarios.salas[id]!);
     }
     const { listos, esperan } = encargosDeLaBase('templarios');
     const ids = listos.map((e) => e.id);
@@ -289,13 +313,41 @@ describe('el arte de la base', () => {
     expect(esperan.some((e) => e.startsWith('abierta-templarios-pueblo (espera a retoque-'))).toBe(
       !retoque,
     );
-    expect(() => encargoDeLaAbierta('orkos', 'orkos_pueblo')).toThrow(/solo los templarios/);
+    // Sin sala pintada de la vuelta 1 (las otras cuatro), solo su cuadro.
+    expect(encargoDeLaAbierta('orkos', 'orkos_pueblo').referencias).toEqual([
+      { ruta: `${cuadroDe('orkos', 'orkos_pueblo')}.webp`, papel: 'edita' },
+    ]);
   });
 
-  it('el taller describe exactamente las mejoras de los templarios, ni una más', () => {
-    expect(Object.keys(DESCRIPCION_DE_LOS_TEMPLARIOS).sort()).toEqual(
-      [...mejorasDe('templarios')].map((m) => m.id).sort(),
-    );
+  it('el taller describe de cada facción sus edificios, sus mejoras y sus salas, ni uno más', () => {
+    for (const f of FACTION_IDS) {
+      const arte = ARTE_DE_LA_BASE[f];
+      const primeros = sitiosDeLaBase(f).flatMap((s) => s.cadena.slice(0, 1));
+      expect(Object.keys(arte.edificios).sort(), f).toEqual([...primeros].sort());
+      expect(Object.keys(arte.mejoras).sort(), f).toEqual(
+        [...mejorasDe(f)].map((m) => m.id).sort(),
+      );
+      expect(Object.keys(arte.salas).sort(), f).toEqual([...moradasDeLaBase(f)].sort());
+    }
+  });
+
+  it('sin hoja de identidad, el maestro lleva cada edificio descrito y ningún edificio sale de un tramo vacío', () => {
+    for (const f of FACTION_IDS.filter((x) => !ARTE_DE_LA_BASE[x].conIdentidad)) {
+      const d = disposicionDe(f);
+      for (let n = 1; n <= d.tramos; n++) {
+        const m = encargoDelMaestro(f, n);
+        expect(() => encargoSchema.parse(m), `${f} T${n}`).not.toThrow();
+        expect(
+          m.referencias.map((r) => r.papel),
+          `${f} T${n}`,
+        ).toEqual(['estilo', 'estilo', 'plaza']);
+        for (const s of sitiosPintados(f, d, n))
+          expect(m.descripcion, `${f} T${n}`).toContain(
+            ARTE_DE_LA_BASE[f].edificios[sitioDe(f, s).cadena[0]!]!,
+          );
+        expect(m.descripcion, `${f} T${n}`).toContain(ARTE_DE_LA_BASE[f].heraldica);
+      }
+    }
   });
 
   /**
