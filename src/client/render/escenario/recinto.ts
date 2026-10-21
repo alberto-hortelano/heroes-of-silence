@@ -192,6 +192,23 @@ export const EJE_DE_LA_CARA: Readonly<Record<Cara, EjeDelRecinto>> = {
   se: 'no-se',
 };
 
+const S = Math.SQRT1_2;
+
+/**
+ * Cómo va cada eje en el suelo: `u` a lo largo del muro y `v` hacia la cara
+ * que se ve, la de la boca del arco (con la del noroeste y la del noreste, por
+ * dentro del recinto). Lo leen la guía de las piezas (`tools/taller/recinto.ts`)
+ * y el vano del arco (`vanoDelArco`).
+ */
+export const MARCO_DEL_EJE: Readonly<Record<EjeDelRecinto, { u: Par; v: Par }>> = {
+  'n-s': { u: [1, 0], v: [0, 1] },
+  'e-o': { u: [0, 1], v: [1, 0] },
+  // Las caras noreste y suroeste: el muro baja hacia la derecha y enseña la que mira al suroeste.
+  'ne-so': { u: [S, S], v: [-S, S] },
+  // Las caras noroeste y sureste: el muro sube hacia la derecha y enseña la que mira al sureste.
+  'no-se': { u: [S, -S], v: [S, S] },
+};
+
 /** La hoja de las piezas que no tiene la muralla del mapa: las cuatro puertas y los dos tramos en diagonal. */
 export const HOJA_DEL_RECINTO = 'recinto';
 
@@ -231,6 +248,20 @@ export const LUZ_DEL_ARCO = 0.4;
 
 /** El grueso del muro del recinto, en casillas (la guía de `tools/taller/recinto.ts` lo dibuja así). */
 export const GRUESO_DEL_MURO = 0.3;
+
+/**
+ * Lo que el arco de una puerta arranca sobre el suelo, en casillas: su boca, de
+ * medio punto, sube hasta esto más media luz (0,4). La guía lo dibuja así, y
+ * de ella sale el vano que ninguna casa tapa (`vanoDelArco`).
+ */
+export const ARRANQUE_DEL_ARCO = 0.2;
+
+/**
+ * El grueso del torreón de una puerta, en casillas: sale por los dos lados del
+ * muro, y la boca del arco se abre en su cara que se ve, a la mitad de esto de
+ * su eje (`MARCO_DEL_EJE`).
+ */
+export const GRUESO_DEL_TORREON = 0.44;
 
 /** Una cara del octógono: de `a` a `b` en el sentido de las agujas del reloj. */
 export interface CaraDelContorno {
@@ -391,6 +422,12 @@ export interface ModuloDelRecinto {
    * se coloca poniéndolas en los dos vértices de su cara.
    */
   readonly junta?: readonly [Par, Par];
+  /**
+   * De dónde a dónde va lo opaco de su imagen, por franjas de columnas de
+   * izquierda a derecha, en fracciones del alto (`Modulo.silueta`, las casas):
+   * lo que mira `tapaElArco`. Sin ella (el marcador sin arte), su caja.
+   */
+  readonly silueta?: readonly (readonly [number, number])[];
 }
 
 /** Qué es cada pieza del recinto: lo dice la regla, y lo leen los guardias. */
@@ -549,11 +586,12 @@ function deVerticeAVertice<M extends ModuloDelRecinto>(
  * diagonal van de vértice a vértice por sus juntas (`deVerticeAVertice`).
  *
  * Las casas, por filas de norte a sur, de oeste a este desde el muro, con el pie
- * dentro del octógono (`filaDelContorno`) y sin tapar donde pisa el héroe
- * (`tapaElPieDelHeroe`): la siguiente de una baraja de la hoja
- * que no sea la de su izquierda ni una de la fila de detrás que se le solape; si
- * no entra (la calle de una puerta, el pie del héroe), la siguiente de la baraja
- * que entre, y si ninguna, la fila avanza.
+ * dentro del octógono (`filaDelContorno`), sin tapar donde pisa el héroe
+ * (`tapaElPieDelHeroe`) ni el vano de un arco (`tapaElArco`): la siguiente de
+ * una baraja de la hoja que no sea la de su izquierda ni una de la fila de
+ * detrás que se le solape; si no entra (la calle de una puerta, el pie del
+ * héroe, un arco), la siguiente de la baraja que entre, y si ninguna, la fila
+ * avanza.
  */
 export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): Recinto<M> {
   const { modulos } = e;
@@ -631,6 +669,10 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
   }
 
   // Las casas, apiñadas: por filas, de oeste a este.
+  const vanos = arcos.map((a) => ({
+    vano: vanoDelArco(caraDelContorno(contorno, a.cara as Cara)),
+    clave: a.clave ?? a.y,
+  }));
   const casas: PiezaDelRecinto<M>[] = [];
   const ms = modulos.casas;
   let baraja: number[] = [];
@@ -688,7 +730,12 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
           y,
           alto: m.nh / PX_POR_CASILLA_DEL_PUEBLO,
         };
-        if (tapaElPieDelHeroe(contorno, c) || !e.entraLaCasa(c)) continue;
+        if (
+          tapaElPieDelHeroe(contorno, c) ||
+          vanos.some((a) => tapaElArco(a.vano, a.clave, c)) ||
+          !e.entraLaCasa(c)
+        )
+          continue;
         puesta = c;
         baraja.splice(baraja.indexOf(k), 1);
         break;
@@ -1073,14 +1120,15 @@ export function tapaElPieDelHeroe(
 }
 
 /**
- * Lo que la calle de una puerta entra en el recinto desde su cara, en casillas,
- * por dónde mira la cara. Por detrás y de lado, la casa de delante de la puerta
- * se pinta después del arco y lo taparía con su tejado: lo que tapa una casa de
- * la segunda fila. Por delante (sur, sureste y suroeste) la casa queda detrás
- * del arco, y basta lo que entra la senda (`DENTRO_DE_LA_PUERTA`) y su media
- * anchura.
+ * Lo que la calle de una puerta entra en el recinto desde su cara, en casillas:
+ * lo que entra la senda (`DENTRO_DE_LA_PUERTA`) y su media anchura. Por detrás
+ * y de lado era 0,6, un margen para que el tejado de la casa de delante no
+ * tapara el arco; no lo hacía en las diagonales (H1 del QA de la ciudad llena,
+ * 21-10-2026), y ahora lo dice lo que se ve (`tapaElArco`). Con los dos, las
+ * casas por ciudad de 1-40 se quedaban en una mediana de 14 (media 14,27); con
+ * la calle corta, 15 (14,44; eran 14,60 tapando arcos).
  */
-export const FONDO_DE_LA_CALLE = { detras: 0.6, delante: 0.35 } as const;
+export const FONDO_DE_LA_CALLE = 0.35;
 
 /**
  * Lo que el pie de una casa del recinto queda del eje de la calle de una puerta
@@ -1092,21 +1140,183 @@ export const MEDIA_CALLE = 0.15;
 /**
  * La calle de cada puerta: de fuera de su arco a `FONDO_DE_LA_CALLE` dentro, por
  * su normal, lo que no lleva casas en el pie (`entraLaCasa`). Lo justo para que
- * la senda entre (su tendido entra `DENTRO_DE_LA_PUERTA`) y el arco no quede
- * tapado; más allá, la ciudad va llena.
+ * la senda entre (su tendido entra `DENTRO_DE_LA_PUERTA`); que el arco no quede
+ * tapado lo dice `tapaElArco`, y más allá, la ciudad va llena.
  */
 export function callesDeLasPuertas(r: Pick<Recinto, 'contorno' | 'puertas'>): Senda[] {
   return r.contorno.caras
     .filter((k) => r.puertas.includes(k.cara))
     .map((k): Senda => {
       const [nx, ny] = k.normal;
-      const fondo = ny > 0 ? FONDO_DE_LA_CALLE.delante : FONDO_DE_LA_CALLE.detras;
       return [
         [k.medio[0] + nx * 0.2, k.medio[1] + ny * 0.2],
-        [k.medio[0] - nx * fondo, k.medio[1] - ny * fondo],
+        [k.medio[0] - nx * FONDO_DE_LA_CALLE, k.medio[1] - ny * FONDO_DE_LA_CALLE],
       ];
     });
 }
+
+/**
+ * Un rectángulo del mapa tal como se ve, en casillas: con lo alto restado de la
+ * fila (la proyección del mapa, `y − z`), de `x0` a `x1` y de `y0`, lo de
+ * arriba, a `y1`.
+ */
+export interface CajaEnPantalla {
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+}
+
+/** En cuántas columnas se mide el vano de un arco (`vanoDelArco`): cada una, de 0,03 casillas. */
+const COLUMNAS_DEL_VANO = 12;
+
+/**
+ * El vano del arco de la puerta de la cara `k`, tal como se ve: la boca que
+ * dibuja la guía (`arco`, `tools/taller/recinto.ts`), en la cara del torreón
+ * que se ve (`MARCO_DEL_EJE`), de media luz a cada lado de su medio y del suelo
+ * a lo alto del arco. Es el paso por el que entra el camino: puesta sobre las
+ * cuatro puertas de la hoja `recinto`, cubre su hueco oscuro y el suelo del
+ * paso.
+ *
+ * En `COLUMNAS_DEL_VANO` columnas, cada una la caja de su trozo de boca: en las
+ * diagonales la boca va inclinada 45° (el suelo del paso sube a lo largo de la
+ * cara) y su caja entera se come un triángulo de muro debajo y otro encima; la
+ * casa de delante a la derecha del arco del noroeste, que solo tapa la base del
+ * torreón, contaba como que tapaba el vano: cada puerta de detrás costaba 0,7
+ * casas de media en 1-40, y con las columnas la media de casas por ciudad
+ * sube de 14,04 a 14,27. La del este y el oeste se ve de canto, y su vano es la
+ * línea de esa cara.
+ */
+export function vanoDelArco(k: CaraDelContorno): readonly CajaEnPantalla[] {
+  const { u, v } = MARCO_DEL_EJE[EJE_DE_LA_CARA[k.cara]];
+  const r = LUZ_DEL_ARCO / 2;
+  const cx = k.medio[0] + (GRUESO_DEL_TORREON / 2) * v[0];
+  const cy = k.medio[1] + (GRUESO_DEL_TORREON / 2) * v[1];
+  // Un punto `a` de la boca, a lo largo del muro: el suelo en `a·u` y lo alto
+  // del arco a `ARRANQUE + √(r² − a²)` sobre él. Lo alto, `a·u_y − √(r² − a²)`
+  // en la fila, es convexo en `a`: en cada trozo, en su mínimo o en una punta.
+  const alto = (a: number) => a * u[1] - Math.sqrt(Math.max(0, r * r - a * a));
+  const minimo = (-u[1] * r) / Math.hypot(1, u[1]);
+  return Array.from({ length: COLUMNAS_DEL_VANO }, (_, j): CajaEnPantalla => {
+    const a0 = -r + (2 * r * j) / COLUMNAS_DEL_VANO;
+    const a1 = -r + (2 * r * (j + 1)) / COLUMNAS_DEL_VANO;
+    const cima = Math.min(
+      alto(a0),
+      alto(a1),
+      minimo > a0 && minimo < a1 ? alto(minimo) : Number.POSITIVE_INFINITY,
+    );
+    return {
+      x0: cx + Math.min(a0 * u[0], a1 * u[0]),
+      x1: cx + Math.max(a0 * u[0], a1 * u[0]),
+      y0: cy - ARRANQUE_DEL_ARCO + cima,
+      y1: cy + Math.max(a0 * u[1], a1 * u[1]),
+    };
+  });
+}
+
+/** La caja de la imagen de una pieza del recinto, tal como se ve: de su ancho, y de lo alto de su imagen a lo bajo. */
+export function cajaEnPantalla(
+  p: Pick<PiezaDelRecinto, 'x' | 'y' | 'alto' | 'nw' | 'nh' | 'ax' | 'ay'>,
+): CajaEnPantalla {
+  const escala = p.alto / p.nh;
+  return {
+    x0: p.x - p.ax * escala,
+    x1: p.x + (p.nw - p.ax) * escala,
+    y0: p.y - p.ay * escala,
+    y1: p.y + (p.nh - p.ay) * escala,
+  };
+}
+
+/** Lo que mira `tapaElArco` de una casa: dónde va, su imagen y, si la trae, su silueta. */
+export type CasaQueTapa = Pick<
+  PiezaDelRecinto,
+  'x' | 'y' | 'alto' | 'nw' | 'nh' | 'ax' | 'ay' | 'clave' | 'silueta'
+>;
+
+const seCruzan = (a: CajaEnPantalla, b: CajaEnPantalla) =>
+  a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+/**
+ * Si la casa `casa` tapa el vano `vano` del arco cuya clave del pintor es
+ * `claveDelArco`: se pinta después de él (su clave, que es su pie, va más al
+ * sur; la de antes la tapa el arco) y lo opaco de su imagen entra en el vano:
+ * alguna franja de su silueta (`Modulo.silueta`), o sin ella, su caja.
+ *
+ * Es la regla por lo que se ve, la que cumple `recintoDe` y vigila
+ * `arcosTapados` (QA de la ciudad llena, H1, 21-10-2026). La calle de la puerta
+ * (`callesDeLasPuertas`) mira el pie de la casa a lo largo de la normal de la
+ * cara, y en una diagonal esa normal no es la vertical de la pantalla, que es
+ * por donde sube el tejado: la casa `1` quedaba a 0,63 por la normal de la
+ * puerta del noroeste, pasado el fondo de 0,6, y justo bajo el arco, y su
+ * tejado tapaba el vano en 25 de 553 ciudades (s16 (10, 7)). Por la silueta y
+ * no por la caja: las esquinas de arriba de un tejado en punta son
+ * transparentes, y con la caja la casa de al lado de la calle de una puerta
+ * contaba como que tapaba (con la calle de entonces y el vano en una caja,
+ * la media de casas por ciudad de 1-40 era 13,86 con la caja de la casa y
+ * 14,04 con su silueta).
+ */
+export function tapaElArco(
+  vano: readonly CajaEnPantalla[],
+  claveDelArco: number,
+  casa: CasaQueTapa,
+): boolean {
+  // La clave del pintor (`claveDe`, `pintar.ts`, que aquí no se importa: pinta
+  // la plaza con `huella.ts`, que importa este módulo).
+  if ((casa.clave ?? casa.y) <= claveDelArco) return false;
+  const caja = cajaEnPantalla(casa);
+  // Estrictas: el vano de canto, una línea, entra si la casa la cruza.
+  const cruzadas = vano.filter((c) => seCruzan(caja, c));
+  if (cruzadas.length === 0) return false;
+  const franjas = casa.silueta;
+  if (franjas === undefined) return true;
+  const escala = casa.alto / casa.nh;
+  const n = franjas.length;
+  return franjas.some(([arriba, abajo], k) => {
+    if (abajo <= arriba) return false;
+    // Las columnas de la franja, como las cuenta `siluetaDeModulo`.
+    const a = Math.floor((k * casa.nw) / n);
+    const b = Math.max(a + 1, Math.floor(((k + 1) * casa.nw) / n));
+    const franja = {
+      x0: caja.x0 + a * escala,
+      x1: caja.x0 + b * escala,
+      y0: caja.y0 + arriba * casa.alto,
+      y1: caja.y0 + abajo * casa.alto,
+    };
+    return cruzadas.some((c) => seCruzan(franja, c));
+  });
+}
+
+/** Un arco tal como lo pinta la escena: su cara y su clave del pintor (`claveDe`). */
+export interface ArcoPintado {
+  readonly cara: Cara;
+  readonly clave: number;
+}
+
+/**
+ * Las casas que tapan el vano del arco de una puerta del recinto de `contorno`
+ * (`tapaElArco`), cada una dicha: es `informe.arcosTapados`, «ninguna casa tapa
+ * un arco», y tiene que estar vacío.
+ */
+export function arcosTapados(
+  contorno: Contorno,
+  arcos: readonly ArcoPintado[],
+  casas: readonly (CasaQueTapa & Pick<PiezaDelRecinto, 'nombre'>)[],
+): string[] {
+  const tapados: string[] = [];
+  for (const a of arcos) {
+    const vano = vanoDelArco(caraDelContorno(contorno, a.cara));
+    for (const casa of casas)
+      if (tapaElArco(vano, a.clave, casa))
+        tapados.push(
+          `la casa «${casa.nombre}» en ${casa.x.toFixed(2)},${casa.y.toFixed(2)} tapa el arco de la puerta ${NOMBRE_DE_LA_CARA[a.cara]}`,
+        );
+  }
+  return tapados;
+}
+
+/** La cara `cara` del octógono `c`. */
+const caraDelContorno = (c: Contorno, cara: Cara): CaraDelContorno =>
+  c.caras[CARAS.indexOf(cara)] as CaraDelContorno;
 
 /** Lo que el cruce de una senda con el anillo puede apartarse del medio del arco: media luz y la holgura de las rampas. */
 export const HOLGURA_DEL_ARCO = LUZ_DEL_ARCO / 2 + 0.06;

@@ -14,6 +14,7 @@ import {
   type CatalogoEnBruto,
   catalogoValidado,
   conPerfil,
+  conSilueta,
   type JuntasDeBajada,
   type JuntasDeDiagonal,
   type JuntasDeLadera,
@@ -23,7 +24,7 @@ import {
   type Pieza,
   RUTA_DEL_CATALOGO,
 } from '../../../src/client/render/escenario/catalogo.js';
-import { derivarPieza, perfilDeModulo } from '../derivar.js';
+import { derivarPieza, perfilDeModulo, siluetaDeModulo } from '../derivar.js';
 
 const RAIZ = resolve(import.meta.dirname, '../../..');
 const MAPA = join(RAIZ, 'assets/mapa');
@@ -86,6 +87,12 @@ export async function leerCatalogo(): Promise<Catalogo> {
           j.modulos.map((m) => perfilDeModulo(join(MAPA, 'modulos', hoja, m.imagen))),
         )
       : undefined;
+    // La silueta, igual: lo que tapa una casa sale de su imagen.
+    const siluetas = conSilueta(hoja)
+      ? await Promise.all(
+          j.modulos.map((m) => siluetaDeModulo(join(MAPA, 'modulos', hoja, m.imagen))),
+        )
+      : undefined;
     hojas[hoja] = j.modulos
       .map((m, k) => ({
         src: `modulos/${hoja}/${m.imagen}`,
@@ -100,6 +107,7 @@ export async function leerCatalogo(): Promise<Catalogo> {
         ...(m.rampa === undefined ? {} : { rampa: m.rampa }),
         ...(m.junta === undefined ? {} : { junta: m.junta }),
         ...(perfiles === undefined ? {} : { perfil: perfiles[k] as number[] }),
+        ...(siluetas === undefined ? {} : { silueta: siluetas[k] as [number, number][] }),
       }))
       .sort((a, b) => a.ay - b.ay);
   }
@@ -131,11 +139,16 @@ export async function leerCatalogo(): Promise<Catalogo> {
 }
 
 export function textoDelCatalogo(c: Catalogo): string {
-  // El perfil, en una línea: con una por número eran 9 000 líneas más en el diff.
-  return `${JSON.stringify(c, null, 1).replace(
-    /"perfil": \[([^\]]*)\]/g,
-    (_, numeros: string) => `"perfil": [${numeros.replace(/\s+/g, '')}]`,
-  )}\n`;
+  // El perfil y la silueta, en una línea: con una por número eran 9 000 líneas más en el diff.
+  return `${JSON.stringify(c, null, 1)
+    .replace(
+      /"perfil": \[([^\]]*)\]/g,
+      (_, numeros: string) => `"perfil": [${numeros.replace(/\s+/g, '')}]`,
+    )
+    .replace(
+      /"silueta": \[((?:\s*\[[^\]]*\],?)*)\s*\]/g,
+      (_, pares: string) => `"silueta": [${pares.replace(/\s+/g, '')}]`,
+    )}\n`;
 }
 
 /** Rehace `assets/mapa/escena.json` y devuelve el catálogo. */

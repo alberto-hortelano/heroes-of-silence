@@ -161,7 +161,9 @@ import {
   ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
   ANCHO_DEL_PUEBLO,
   ANCHO_DEL_TRAMO_DEL_RECINTO,
+  type ArcoPintado,
   anilloSobreLaSenda,
+  arcosTapados,
   CARA_DEL_RECINTO,
   type CaraDelContorno,
   type Cara as CaraDelRecinto,
@@ -469,6 +471,12 @@ export interface Escena {
      * (`casasRepetidasJuntas`): tiene que ser 0.
      */
     readonly casasRepetidasJuntas: number;
+    /**
+     * Casas de un recinto que se pintan después del arco de una puerta y tapan
+     * su vano (`arcosTapados`): el camino acababa contra un tejado. Tiene que
+     * ser 0.
+     */
+    readonly arcosTapados: number;
     /**
      * Casillas de barrera que no tapa su formación, un objeto ni una pared
      * del desnivel por su centro (#222): tiene que ser 0.
@@ -2690,6 +2698,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // casas, que dejan la calle a la senda que se pintará.
   /** Lo que puso cada recinto, por el id de su ciudad: lo que miran sus guardias. */
   const recintosPuestos = new Map<string, Recinto<ModuloConSrc>>();
+  /** Los arcos de cada recinto con la clave con que se pintan, la de su sprite: lo que mira `arcosTapados`. */
+  const arcosPintados = new Map<string, ArcoPintado[]>();
   {
     const modulos = modulosDelRecinto(catalogo, faltan);
     for (const r of puertasDe.values()) {
@@ -2727,8 +2737,14 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         // El anillo cuyo pie cae en la reserva de otro objeto pasa por detrás
         // de él, como la muralla; las casas ya la dejaron (`entraLaCasa`).
         const otro = p.que === 'casa' ? undefined : reservaEn(s.x, s.y, r.id);
+        const puesto = otro === undefined ? s : detrasDe(s, otro);
         if (otro === undefined) meter(s);
-        else sprites.push(detrasDe(s, otro));
+        else sprites.push(puesto);
+        if (p.que === 'puerta' && p.cara !== undefined)
+          arcosPintados.set(r.id, [
+            ...(arcosPintados.get(r.id) ?? []),
+            { cara: p.cara, clave: claveDe(puesto) },
+          ]);
       }
     }
   }
@@ -4464,6 +4480,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         puentes,
       ).length,
       casasRepetidasJuntas: puestos.reduce((n, r) => n + casasRepetidasJuntas(r.casas).length, 0),
+      arcosTapados: [...recintosPuestos].reduce(
+        (n, [id, r]) => n + arcosTapados(r.contorno, arcosPintados.get(id) ?? [], r.casas).length,
+        0,
+      ),
       casillasDeBarreraSinFormacion: sinFormacion,
       spritesSobreSenda: sobreLaSenda(sprites, trazos).length,
       // Recontadas desde lo puesto, con cualquier módulo del catálogo y no solo

@@ -191,7 +191,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Por qué una marcha no llegó (veredicto del agente) | `paradaDeLaMarcha` → `notaMarchaParcial` (`server/notas.ts`) |
 | Qué lleva la labranza (campos, atrezo, casas) | `labranzaDe` (`render/escenario/labranza.ts`); las hojas que pone su regla y no el sorteo, `HOJAS_DE_SU_REGLA` (`colocar.ts`); si una pieza va al suelo o es volumen, `Sprite.plano` (lo lee `esVolumen`) |
 | El recinto de una ciudad, en el núcleo (dónde está su 3 × 3, qué no va dentro y por dónde se entra) | `core/map/recinto.ts`, puro: `LADO_DEL_RECINTO`, `recintoDeLaCiudad` (con la ciudad en el medio, también la ciudad-puente; lanza si no cabe: una ciudad va a una casilla del borde o más; nunca se corre), `SEPARACION_DE_CIUDADES` (5, Chebyshev), las seis puertas con sus accesos, `PUERTAS_DE_LA_CIUDAD` (ni este ni oeste), las que puede llevar, `puertasPosibles`, y las que **tiene**, `puertasDeLaCiudad` (donde llega un tramo de `GameMap.caminos` de un acceso a su casilla, `RedDeCaminos.une`; la del río, siempre), el puente de una ciudad-puente, `rioAnteLaCiudad` (la casilla del río a dos de ella, que se pisa: el acceso de su puerta del río, también al este o al oeste); **el paso**, `pasosDelRecinto` → `pasoPermitido` (de un acceso a su puerta y de la puerta a la ciudad; la muralla no se pisa), que lee solo `map.ts` (`pasosDelMapa`: el Dijkstra, `stepCost`, `isEnterable`, `sePasa`; lo vigila `invariantes.test.ts`) y el trazado del generador con las puertas posibles (`EntradaDeCaminos.recintos`); las regiones de una ciudad, las de los accesos de sus puertas posibles, `regionesDeLaCiudad` (la lee `estructura`; un nodo no toca la región por la muralla); el puente no se une al recinto al etiquetar (`componentes`, `componentesDelMapa`); por qué no se pisa, `muroBlocker` (lo dicen `porQueNoLlega` y `stepCost`); qué tramo de las casillas del agente entra, `tramoDelRecinto` (`tramosDeCasillas`); dónde nace el héroe, `ORDEN_DEL_INICIO`, y lo que lo impide dicho para la persona, `problemasDeRecintos` (borde, separación, nada dentro, una ciudad sobre el río, un camino que cruza la muralla o que entra por la puerta y no sigue, una región que llega a un acceso sin camino que entre: sin camino no hay puerta, y una región que el recinto parte; lo llaman `validateMapPlan` y el final de `vestirRed`). Lo leen la escena, la prosa del agente y los tests; lo declara solo él (lo vigila `invariantes.test.ts`) |
-| La ciudad del mapa: su recinto (octógono, puertas, anillo y casas) | `render/escenario/recinto.ts`, puro: el 3 × 3 es el del núcleo (`recintoDeLaCiudad`); el octógono, `contornoDelRecinto`; lo que roza, fuera, `sendasSinRoces`; qué caras llevan puerta, las del núcleo, `puertasDelNucleo` (→ `puertasDeLaCiudad`: la escena no las deduce); el paso por el arco, `tendidosDeLasPuertas` (la puerta del núcleo de cada cruce, con su salida, `salidaDe`) → `sendasPorLosTendidos` (`celdas.ts`, la misma mecánica que las rampas, `tendidoDeBajada`); anillo y casas, `recintoDe` (llena: libres solo donde pisa el héroe, `LIBRE_BAJO_EL_HEROE`/`tapaElPieDelHeroe`, y la calle corta de cada puerta, `callesDeLasPuertas`, `FONDO_DE_LA_CALLE`, `MEDIA_CALLE`), y el papel de cada pieza, `Sprite.recinto`; sus módulos y sprites, `modulosDelRecinto` y `spriteDelRecinto` (`colocar.ts`); la huella, `casillasDeLaHuella`; lo de dentro, `celdasBajoLosRecintos` y `pintarPlazas` (`huella.ts`), la plaza con sus lados, `ladosDeLaPlaza` y `enLaPlaza`; el óvalo del dueño, `Escenario.claveDeLaMarca`; el fuego, `luzDelRecinto`; los guardias, `huecosDelAnillo`, `anilloSobreLaSenda`, `sendasFueraDeLaPuerta`, `puertasSinSuCamino`, `casasRepetidasJuntas` y `puentesSobreElAnillo`. Lo que pisa un puente en el suelo, `ejesDeLosPuentes`; el de la ciudad-puente, acortado al pie de la cara del río, `puenteDeLaCiudad` (`puentes.ts`) |
+| La ciudad del mapa: su recinto (octógono, puertas, anillo y casas) | `render/escenario/recinto.ts`, puro: el 3 × 3 es el del núcleo (`recintoDeLaCiudad`); el octógono, `contornoDelRecinto`; lo que roza, fuera, `sendasSinRoces`; qué caras llevan puerta, las del núcleo, `puertasDelNucleo` (→ `puertasDeLaCiudad`: la escena no las deduce); el paso por el arco, `tendidosDeLasPuertas` (la puerta del núcleo de cada cruce, con su salida, `salidaDe`) → `sendasPorLosTendidos` (`celdas.ts`, la misma mecánica que las rampas, `tendidoDeBajada`); anillo y casas, `recintoDe` (llena: libres solo donde pisa el héroe, `LIBRE_BAJO_EL_HEROE`/`tapaElPieDelHeroe`, y la calle corta de cada puerta, `callesDeLasPuertas`, `FONDO_DE_LA_CALLE`, `MEDIA_CALLE`; ninguna casa tapa el vano de un arco, `vanoDelArco`/`tapaElArco`, por la silueta de su imagen, `Modulo.silueta`), y el papel de cada pieza, `Sprite.recinto`; sus módulos y sprites, `modulosDelRecinto` y `spriteDelRecinto` (`colocar.ts`); la huella, `casillasDeLaHuella`; lo de dentro, `celdasBajoLosRecintos` y `pintarPlazas` (`huella.ts`), la plaza con sus lados, `ladosDeLaPlaza` y `enLaPlaza`; el óvalo del dueño, `Escenario.claveDeLaMarca`; el fuego, `luzDelRecinto`; los guardias, `huecosDelAnillo`, `anilloSobreLaSenda`, `sendasFueraDeLaPuerta`, `puertasSinSuCamino`, `casasRepetidasJuntas`, `arcosTapados` y `puentesSobreElAnillo`. Lo que pisa un puente en el suelo, `ejesDeLosPuentes`; el de la ciudad-puente, acortado al pie de la cara del río, `puenteDeLaCiudad` (`puentes.ts`) |
 | Material de una cara (pared, ladera, pedregal) | `materialDeCara` (`render/escenario/colocar.ts`) |
 | Roca de lo alto de un acantilado (picos, peñascos, reborde) | `materialDeLaCima` (`render/escenario/bordes.ts`) |
 | Suelo de la meseta de una barrera (roca de pared, cima y macizo, y el suelo que se pinta) | `sueloDeLaMeseta` (`render/escenario/bordes.ts`); en la escena, `sueloQueSePinta` |
@@ -825,11 +825,20 @@ antes del destino (`battle_started` con `faltan`).
   (`PX_POR_CASILLA_DEL_PUEBLO`, de `ANCHO_DEL_PUEBLO`), apiñadas en filas repartidas de muro a muro,
   pegadas a él, sin la misma al lado, por todo el recinto y sin plaza mayor (decisión del usuario
   tras la fase 3: con ella y una calle de cada puerta hasta ella se veía vacía). Libre, solo lo justo:
-  la calle corta de cada puerta (`callesDeLasPuertas`, `FONDO_DE_LA_CALLE`: 0,6 por detrás y de lado,
-  donde la casa de delante taparía el arco, y 0,35 por delante; `MEDIA_CALLE`, 0,15) y donde pisa
-  quien está en la ciudad (`tapaElPieDelHeroe`, la elipse de `LIBRE_BAJO_EL_HEROE`, 0,2 a cada lado y
-  0,1 de hondo: sus pies sobre la piedra y no sobre un tejado); casas por ciudad en 1-40, fase 2
-  13 / 15 / 18, con la plaza mayor 11 / 13 / 15, llena 13 / 15 / 16 (mín. / mediana / máx.). Debajo, la plaza (`pintarPlazas`), que por
+  la calle corta de cada puerta (`callesDeLasPuertas`, `FONDO_DE_LA_CALLE`, 0,35, lo que entra la
+  senda; `MEDIA_CALLE`, 0,15) y donde pisa quien está en la ciudad (`tapaElPieDelHeroe`, la elipse de
+  `LIBRE_BAJO_EL_HEROE`, 0,2 a cada lado y 0,1 de hondo: sus pies sobre la piedra y no sobre un
+  tejado). **Ninguna casa tapa el vano de un arco** (`tapaElArco`, H1 del QA de la ciudad llena,
+  21-10-2026): la que se pinta después de una puerta no mete nada de su silueta (`Modulo.silueta`,
+  de dónde a dónde va lo opaco por franja de columnas, `siluetaDeModulo`; solo la hoja `casas`,
+  `conSilueta`) en su vano, la boca de la guía en doce columnas (`vanoDelArco`: inclinada en las
+  diagonales, de canto al este y al oeste). Era una calle de 0,6 por detrás, a lo largo de la normal
+  de la cara, y en una diagonal el tejado sube por la vertical de la pantalla: la casa `1` quedaba a
+  0,63 bajo el arco del noroeste y lo tapaba en 25 de 553 ciudades (s16 (10, 7)); con la regla de
+  antes, una casa mete su silueta en un vano 355 veces en 1-40 (casa y arco). Casas por ciudad en 1-40, fase 2
+  13 / 15 / 18, con la plaza mayor 11 / 13 / 15, llena 13 / 15 / 16, sin tapar arcos 12 / 15 / 16,
+  media 14,60 → 14,44 (mín. / mediana / máx.; con la caja en vez de la silueta, o con la calle de 0,6
+  y la regla, la mediana era 14). Debajo, la plaza (`pintarPlazas`), que por
   delante no pasa de `PLAZA_AL_SUR` (0,05) del pie de las caras sureste, sur y suroeste (H9: con el
   rectángulo asomaba de 0,15 a 0,25 bajo el muro sur), y ni paredes del relieve, ni bajadas, ni masa
   (`celdasBajoLosRecintos`). La reserva es el rectángulo y la ocupa `envolturaDelRecinto`; el óvalo
@@ -837,16 +846,17 @@ antes del destino (`battle_started` con `faltan`).
   teñía la fachada de una casa, H8), la bandera va encima de todo, quien está en una casilla del
   recinto, delante, y el fuego, en su medio
   (`luzDelRecinto`; el clic y la marca siguen en la casilla del núcleo). `recintoSobreSenda`,
-  `sendaFueraDeLaPuerta`, `puertaSinCamino`, `anilloAbierto`, `puenteSobreElAnillo` y
-  `casasRepetidasJuntas` = 0 en 1-40. **El 3 × 3 es del núcleo** (vuelta 3, fase 1, `core/map/recinto.ts`): ninguno en el borde,
+  `sendaFueraDeLaPuerta`, `puertaSinCamino`, `anilloAbierto`, `puenteSobreElAnillo`,
+  `casasRepetidasJuntas` y `arcosTapados` = 0 en 1-40. **El 3 × 3 es del núcleo** (vuelta 3, fase 1, `core/map/recinto.ts`): ninguno en el borde,
   ninguno a menos de 5 de otro y nada dentro, así que ya no hay recintos que se toquen (eran s2, s3,
   s13, s16, s21, s36 en 1-40 y s50, s62, s105 fuera) ni nodos entre las casas (s98, s105), y el héroe
   de salida nace delante de una puerta (antes, dentro, en 80 de 80). La senda que pasa junto a un
   recinto sin entrar, también sin cruzar el octógono, se corre a `FUERA_DEL_ROCE` con los puntos de
   en medio (`sinRoces`; la que bajaba por la columna de al lado pisaba la torre de la esquina, s3,
   s36). Medido en 1-40 (21-10-2026): 205 ciudades (48 ciudades-puente), de 11 a 19 casas (mediana
-  16), con 1/2/3/4 puertas 12/104/86/3; generar, mediana 40 → 46 ms. Fuera de 1-40, en 41-110, queda
-  `recintoSobreSenda` 1 en s53 y s91. **Y se entra por sus puertas** (fase 2, 21-10-2026): el núcleo
+  16), con 1/2/3/4 puertas 12/104/86/3; generar, mediana 40 → 46 ms. Fuera de 1-40 queda `recintoSobreSenda`
+  en s54 (4), s77 (1), s82 (3) y s90 (10) de 41-110 y en s27 (5) y s30 (1) del 26×26 1-30 (medido el
+  21-10-2026; s53 y s91, que eran los de antes, ya salen a 0). **Y se entra por sus puertas** (fase 2, 21-10-2026): el núcleo
   dice qué puertas hay (donde llega un camino) y el héroe solo pisa del recinto la puerta y la
   ciudad.
   Medido en 1-40: 208 ciudades (46 ciudades-puente), todos los guardias de la escena a 0 (también

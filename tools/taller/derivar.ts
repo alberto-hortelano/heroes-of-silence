@@ -422,6 +422,42 @@ export async function perfilDeModulo(rutaImagen: string): Promise<number[]> {
   });
 }
 
+/**
+ * La silueta de un módulo (`Modulo.silueta`, las casas): por cada una de
+ * `FRANJAS_DEL_PERFIL` franjas de columnas, de izquierda a derecha, de dónde a
+ * dónde va lo opaco (`ALFA_FIGURA`), en fracciones del alto de la imagen. De la
+ * columna de la franja que más alto empieza a la que más abajo acaba, y
+ * redondeado hacia fuera: lo que se pregunta con ella es si la imagen tapa algo
+ * (`tapaElArco`), y una silueta una milésima corta dejaría tapar. Una franja
+ * sin nada opaco va de 1 a 0 (vacía).
+ *
+ * El perfil (`perfilDeModulo`) no sirve: es lo alto de la columna que más abajo
+ * empieza, lo que nunca asoma, y el tejado de una casa sube en punta.
+ */
+export async function siluetaDeModulo(rutaImagen: string): Promise<[number, number][]> {
+  const { data, info } = await sharp(await readFile(rutaImagen))
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width: w, height: h } = info;
+  const arriba = new Array<number>(w).fill(h);
+  const abajo = new Array<number>(w).fill(0);
+  for (let x = 0; x < w; x++)
+    for (let y = 0; y < h; y++)
+      if ((data[(y * w + x) * 4 + 3] as number) >= ALFA_FIGURA) {
+        arriba[x] = Math.min(arriba[x] as number, y);
+        abajo[x] = y + 1;
+      }
+  return Array.from({ length: FRANJAS_DEL_PERFIL }, (_, k): [number, number] => {
+    const a = Math.floor((k * w) / FRANJAS_DEL_PERFIL);
+    const b = Math.max(a + 1, Math.floor(((k + 1) * w) / FRANJAS_DEL_PERFIL));
+    const de = Math.min(...arriba.slice(a, b));
+    const hasta = Math.max(...abajo.slice(a, b));
+    if (hasta <= de) return [1, 0];
+    return [Math.floor((de / h) * 1000) / 1000, Math.ceil((hasta / h) * 1000) / 1000];
+  });
+}
+
 /** Lo que `registrarLadera` lee de una pieza de la guía: su caja y sus juntas (`laderas.ts`). */
 export type PiezaDeGuia = Pick<GeometriaDeLadera, 'nombre' | 'filoNorte' | 'pieSur' | 'caja'>;
 

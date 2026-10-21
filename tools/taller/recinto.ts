@@ -27,12 +27,15 @@ import sharp from 'sharp';
 import {
   ALTO_DE_LA_PUERTA_DEL_RECINTO,
   ALTO_DEL_MURO_DEL_RECINTO,
+  ARRANQUE_DEL_ARCO,
   CARA_DEL_RECINTO,
   EJES_DEL_RECINTO,
   type EjeDelRecinto,
   GRUESO_DEL_MURO,
+  GRUESO_DEL_TORREON,
   HOJA_DEL_RECINTO,
   LUZ_DEL_ARCO,
+  MARCO_DEL_EJE,
   MODULOS_DEL_RECINTO,
   puertaDelEje,
   tramoDelEje,
@@ -56,26 +59,18 @@ const ALMENA = 0.1;
 const PARAMENTO = ALTO_DEL_MURO_DEL_RECINTO - ALMENA;
 const TORREON = {
   largo: 0.68,
-  grueso: 0.44,
+  grueso: GRUESO_DEL_TORREON,
   alto: ALTO_DE_LA_PUERTA_DEL_RECINTO - ALMENA,
 } as const;
 /** Donde arranca el arco (sobre el suelo); su radio es media luz. */
-const ARRANQUE = 0.2;
+const ARRANQUE = ARRANQUE_DEL_ARCO;
 
 const HUECO = '#262626';
 const RASTRILLO = '#8c8c8c';
 const CAMINO = '#d4cfc4';
 
-/** Cómo va cada eje en el suelo: `u` a lo largo del muro y `v` hacia la cara que se ve. */
-const S = Math.SQRT1_2;
-const MARCO: Readonly<Record<EjeDelRecinto, { u: P2; v: P2 }>> = {
-  'n-s': { u: [1, 0], v: [0, 1] },
-  'e-o': { u: [0, 1], v: [1, 0] },
-  // Las caras noreste y suroeste: el muro baja hacia la derecha y enseña la que mira al suroeste.
-  'ne-so': { u: [S, S], v: [-S, S] },
-  // Las caras noroeste y sureste: el muro sube hacia la derecha y enseña la que mira al sureste.
-  'no-se': { u: [S, -S], v: [S, S] },
-};
+/** Cómo va cada eje en el suelo: el del vano que ninguna casa tapa (`vanoDelArco`). */
+const MARCO = MARCO_DEL_EJE;
 
 /** Un punto del muro (`a` a lo largo, `b` de través, alto `z`) en el mapa. */
 const en = (eje: EjeDelRecinto, a: number, b: number, z: number): P3 => {

@@ -160,6 +160,15 @@ export interface Modulo extends Pieza {
    * imagen `pnpm taller catalogo-escena` (`perfilDeModulo`).
    */
   readonly perfil?: readonly number[];
+  /**
+   * De dónde a dónde va lo opaco de su imagen, por franja de columnas de
+   * izquierda a derecha, en fracciones del alto (`[arriba, abajo]`; una franja
+   * vacía, `[1, 0]`): lo que tapa. Solo en las hojas que tapan algo que se tiene
+   * que ver (`conSilueta`: las casas, que no tapan el arco de una puerta del
+   * recinto, `tapaElArco`), y en todas ellas. Lo deriva de la imagen `pnpm
+   * taller catalogo-escena` (`siluetaDeModulo`).
+   */
+  readonly silueta?: readonly (readonly [number, number])[];
 }
 
 /**
@@ -168,6 +177,9 @@ export interface Modulo extends Pieza {
  */
 export const conPerfil = (hoja: string): boolean =>
   /^(paredes|laderas|diagonales|bajadas|rampa)-/.test(hoja) || hoja === 'rocas-caidas';
+
+/** Si los módulos de una hoja llevan su silueta (`Modulo.silueta`): las casas del recinto. */
+export const conSilueta = (hoja: string): boolean => hoja === 'casas';
 
 /** Un módulo de ladera con sus juntas. */
 export type ModuloDeLadera = Modulo & { readonly ladera: JuntasDeLadera };
@@ -236,8 +248,9 @@ export interface CatalogoEnBruto {
   readonly hojas: Readonly<
     Record<
       string,
-      readonly (Omit<Modulo, 'ladera' | 'diagonal' | 'bajada' | 'rampa' | 'junta'> & {
+      readonly (Omit<Modulo, 'ladera' | 'diagonal' | 'bajada' | 'rampa' | 'junta' | 'silueta'> & {
         readonly junta?: readonly (readonly number[])[];
+        readonly silueta?: readonly (readonly number[])[];
         readonly ladera?: {
           readonly filo: readonly number[];
           readonly pie: readonly number[];
@@ -283,6 +296,34 @@ const perfilValidado =
         `${donde}: su perfil son fracciones del alto entre 0 y 1, y trae ${JSON.stringify(m.perfil)}`,
       );
     return m;
+  };
+
+/** Comprueba la silueta de un módulo de `hoja` (`Modulo.silueta`), o lanza diciendo cómo rehacerla. */
+const siluetaValidada =
+  (hoja: string) =>
+  <M extends { readonly nombre: string; readonly silueta?: readonly (readonly number[])[] }>(
+    m: M,
+  ): Omit<M, 'silueta'> & { readonly silueta?: readonly (readonly [number, number])[] } => {
+    const donde = `el módulo «${m.nombre}» de «${hoja}»`;
+    const { silueta, ...resto } = m;
+    if (!conSilueta(hoja)) {
+      if (silueta !== undefined) throw new Error(`${donde} trae silueta y su hoja no la lleva`);
+      return resto;
+    }
+    if (silueta === undefined)
+      throw new Error(
+        `${donde} no trae la silueta de su imagen: rehaz el catálogo (pnpm taller catalogo-escena)`,
+      );
+    const fraccion = (v: number | undefined): v is number =>
+      v !== undefined && Number.isFinite(v) && v >= 0 && v <= 1;
+    const pares = silueta.flatMap(([a, b, ...mas]) =>
+      fraccion(a) && fraccion(b) && mas.length === 0 ? [[a, b] as [number, number]] : [],
+    );
+    if (pares.length === 0 || pares.length !== silueta.length)
+      throw new Error(
+        `${donde}: su silueta son pares [arriba, abajo] de fracciones del alto entre 0 y 1, y trae ${JSON.stringify(silueta)}`,
+      );
+    return { ...resto, silueta: pares };
   };
 
 const esPar = (p: readonly number[]): p is Par =>
@@ -392,7 +433,8 @@ function juntaValidada(
  * módulo de diagonal sus dos filos y su papel, toda bajada su arriba, su abajo y
  * su rumbo, toda pieza de rampa su filo, su pieza y su rumbo, todo módulo del
  * recinto el pie de sus dos puntas dentro de su imagen, y ningún otro las trae; todo módulo de una hoja que tapa una cara trae su perfil, de
- * fracciones entre 0 y 1, y ningún otro lo trae; todo puente trae sus medidas,
+ * fracciones entre 0 y 1, y ningún otro lo trae; toda casa, su silueta, y nada
+ * más la trae; todo puente trae sus medidas,
  * positivas, y ninguna otra pieza las trae. Lanza diciendo qué módulo y qué
  * hacer: sin esto, la falta solo salía al componer el primer mapa con esa ladera.
  */
@@ -401,6 +443,7 @@ export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
   for (const [hoja, ms] of Object.entries(c.hojas))
     hojas[hoja] = ms
       .map(perfilValidado(hoja))
+      .map(siluetaValidada(hoja))
       .map(({ ladera, diagonal, bajada, rampa, junta, ...m }): Modulo => {
         const donde = `el módulo «${m.nombre}» de «${hoja}»`;
         if (!esHojaDelRecinto(hoja) && junta !== undefined)

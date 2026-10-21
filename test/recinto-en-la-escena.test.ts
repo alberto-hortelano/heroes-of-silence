@@ -9,7 +9,8 @@
  * - Lo de dentro es la plaza (criterio 8b): ni paredes del relieve, ni bajadas,
  *   ni rampas, ni masa, cubierta o rocas con el pie en sus casillas.
  * - Las puertas pintadas son las del núcleo (`puertasDeLaCiudad`, vuelta 3,
- *   fase 3), y ninguna casa tapa donde pisa el héroe (llena, sin plaza mayor).
+ *   fase 3), y ninguna casa tapa donde pisa el héroe (llena, sin plaza mayor)
+ *   ni el vano de un arco (H1 del QA de la ciudad llena, s16 (10, 7)).
  * - El óvalo del dueño, en el suelo de la plaza (`claveDeLaMarca`, H8), y quien
  *   está en una de sus casillas, delante del recinto entero (`claveDeFigura`).
  * - Los guardias del recinto, a 0: ninguna senda por el anillo, ninguna fuera
@@ -20,14 +21,23 @@
  *   vigilan sus tests.
  *
  * En `pnpm verify`, s10 (la del desnivel dentro de un recinto, (27, 17)), s13
- * (la ciudad-puente de (25, 5)), s15 (la de la queja, (12, 16)) y s21, s25 y
- * s32 (una barrera junto a una puerta); en la orden lenta, 1-40.
+ * (la ciudad-puente de (25, 5)), s15 (la de la queja, (12, 16)), s16 (los arcos
+ * tapados de H1) y s21, s25 y s32 (una barrera junto a una puerta); en la orden
+ * lenta, 1-40.
  */
 import { describe, expect, it } from 'vitest';
 import { celdasDeLaRampa, claveDeCelda } from '../src/client/render/escenario/celdas.js';
-import { componer, luzDelRecinto, puntosDeCelda } from '../src/client/render/escenario/colocar.js';
+import {
+  componer,
+  luzDelRecinto,
+  puntosDeCelda,
+  type Sprite,
+} from '../src/client/render/escenario/colocar.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import {
+  arcosTapados,
+  type Cara,
+  type CaraDelContorno,
   casillasDelRecinto,
   contornoDelRecinto,
   EJE_DE_LA_CARA,
@@ -44,7 +54,30 @@ import { rango, segunPrisa } from './lento.js';
 // Y s21, s25 y s32: la salida recta de una puerta pisaba la barrera de al lado.
 // Y s3 y s36 (vuelta 3): la senda que baja por la columna de al lado del 3 × 3
 // pisaba la torre de la esquina, y en s36 dos ciudades-puente con el río al sur.
-const SEMILLAS = segunPrisa([3, 10, 13, 15, 21, 25, 32, 36], [...rango(1, 40)]);
+/** Los módulos de la hoja `casas` por su imagen: su silueta, que el sprite no lleva. */
+const MODULOS_DE_CASAS = new Map(
+  (catalogoDelDisco().hojas.casas ?? []).flatMap((m) =>
+    m.silueta === undefined ? [] : [[m.src, { nombre: m.nombre, silueta: m.silueta }] as const],
+  ),
+);
+
+/** Lo que el pie de una pieza `s` queda de un punto de su cara `k` (el medio, o el vértice de abajo). */
+const cerca = (s: Sprite, k: CaraDelContorno) =>
+  Math.min(...[k.medio, k.a, k.b].map(([x, y]) => Math.hypot(s.x - x, s.y - y)));
+
+/** El sprite tal como lo lee `tapaElArco`: sin `ancho` ni marcador. */
+const pie = (s: Sprite) => ({
+  x: s.x,
+  y: s.y,
+  alto: s.alto,
+  nw: s.nw,
+  nh: s.nh,
+  ax: s.ax,
+  ay: s.ay,
+});
+
+// Y s16: tres casas tapaban el arco del noroeste (H1 del QA de la ciudad llena).
+const SEMILLAS = segunPrisa([3, 10, 13, 15, 16, 21, 25, 32, 36], [...rango(1, 40)]);
 
 describe('la ciudad amurallada en los mapas del juego', () => {
   for (const semilla of SEMILLAS)
@@ -136,6 +169,33 @@ describe('la ciudad amurallada en los mapas del juego', () => {
         }
       });
 
+      it('ninguna casa tapa el vano del arco de una puerta (H1), con la clave con que se pintan', () => {
+        for (const r of e.recintos) {
+          const c = contornoDelRecinto(r.rect);
+          const piezas = e.sprites.filter((s) => s.objeto?.id === r.id && s.puente === undefined);
+          const casas = piezas
+            .filter((s) => s.recinto === 'casa')
+            .map((s) => {
+              const m = MODULOS_DE_CASAS.get(s.src ?? '');
+              if (m === undefined) throw new Error(`${r.id}: la casa ${s.src} no es de la hoja`);
+              return { ...pie(s), ...m };
+            });
+          const arcos = r.puertas.map((cara: Cara) => {
+            // La pieza de su eje con el pie más cerca del medio de su cara (o
+            // de su vértice de abajo, `deVerticeAVertice`).
+            const k = c.caras.find((q) => q.cara === cara);
+            if (k === undefined) throw new Error(cara);
+            const src = `modulos/recinto/${puertaDelEje(EJE_DE_LA_CARA[cara])}.webp`;
+            const [p] = piezas
+              .filter((s) => s.recinto === 'puerta' && s.src === src)
+              .sort((a, b) => cerca(a, k) - cerca(b, k));
+            if (p === undefined) throw new Error(`s${semilla} ${r.id}: sin la puerta ${cara}`);
+            return { cara, clave: claveDe(p) };
+          });
+          expect(arcosTapados(c, arcos, casas), r.id).toEqual([]);
+        }
+      });
+
       it('el óvalo del dueño, en el suelo de la plaza (H8); quien está dentro, delante', () => {
         const esc = escenarioDe(map, semilla);
         for (const r of e.recintos) {
@@ -178,6 +238,7 @@ describe('la ciudad amurallada en los mapas del juego', () => {
           anilloAbierto: i.anilloAbierto,
           puenteSobreElAnillo: i.puenteSobreElAnillo,
           casasRepetidasJuntas: i.casasRepetidasJuntas,
+          arcosTapados: i.arcosTapados,
           casillasDeBarreraSinFormacion: i.casillasDeBarreraSinFormacion,
           puertaSinCamino: i.puertaSinCamino,
         }).toEqual({
@@ -186,6 +247,7 @@ describe('la ciudad amurallada en los mapas del juego', () => {
           anilloAbierto: 0,
           puenteSobreElAnillo: 0,
           casasRepetidasJuntas: 0,
+          arcosTapados: 0,
           casillasDeBarreraSinFormacion: 0,
           puertaSinCamino: 0,
         });
