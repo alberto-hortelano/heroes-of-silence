@@ -34,12 +34,13 @@ export const DIAS_POR_DEFECTO = 300;
 /**
  * Semillas y partidas de la tanda por defecto de cada informe.
  *
- * El banco juega 200 porque su sha256 tiene que cubrir suficientes desempates;
- * el barrido juega 40 porque lo que cuenta —cuántas no terminan— ya se ve ahí y
- * se corre a mano muchas veces.
+ * Pocas a propósito (decisión del usuario, 21-10-2026: «estamos en pleno
+ * desarrollo y tantos tests no tienen sentido»): el banco, 20 —su sha256 caza
+ * igual que una regla mueve las partidas; lo que deja de ver es el raro de 1 en
+ * 200—, y el barrido, 4. Eran 200 y 40. Para medir más, se pasan por argumento.
  */
-export const SEMILLAS_DEL_BANCO = 200;
-export const SEMILLAS_DEL_BARRIDO = 40;
+export const SEMILLAS_DEL_BANCO = 20;
+export const SEMILLAS_DEL_BARRIDO = 4;
 
 /**
  * De semilla de partida a semilla de batalla espejo.

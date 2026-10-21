@@ -32,7 +32,7 @@
  * herramienta en el commit ANTERIOR no es un criterio, es una costumbre — y era
  * lo único que cazaba una frontera compartida entre búsquedas.
  *
- * Uso: pnpm banco [semillas=200] [dias=300] [--dump <fichero>]
+ * Uso: pnpm banco [semillas=20] [dias=300] [--dump <fichero>]
  */
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
@@ -59,13 +59,13 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
 /**
  * El volcado que TIENE que salir con los valores por defecto.
  *
- * Es el suelo del núcleo: mientras este sha no cambie, las 200 partidas se
+ * Es el suelo del núcleo: mientras este sha no cambie, las 20 partidas se
  * juegan hexágono a hexágono igual que antes de la refactorización. Cambiarlo
  * no está prohibido —una regla nueva mueve las partidas a propósito—, pero
  * cambiarlo **en silencio** sí: si sale otro, la orden se pone en rojo y hay
  * que anclar el nuevo diciendo cuál era el viejo y por qué se movió.
  *
- * Solo se comprueba con `200 300`, que es lo que corre CI: con otros argumentos
+ * Solo se comprueba con `20 300`, que es lo que corre CI: con otros argumentos
  * esto sigue siendo lo que dice ser, una medida.
  *
  * **Historial de anclas**, que es lo que dice si un cambio se hizo a la vista:
@@ -1118,11 +1118,15 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (todas las ciudades se alcanzan desde el día 1; ya pasó con los templarios:
  *   4 / 9 / 36). Batallas 971 → 1 081, días 973 → 1 049, `hero_moved` 24 701 →
  *   27 631, `town_captured` 760 → 849, `node_captured` 969 → 935.
+ * - `29a7efe6…` (21-10-2026): **las mismas partidas, 20 en vez de 200**
+ *   (decisión del usuario: «estamos en pleno desarrollo y tantos tests no tienen
+ *   sentido»). No cambia el juego: son las 20 primeras de `5d95869b…`. El
+ *   historial de arriba habla de 200.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '5d95869b97c8877bb183fad65d1b8138c0ece37d5b55ca5bb22522dad11e36ad',
+  sha: '29a7efe6e1aaa2c872c1aa9fa6fcb811b5ff05d3bcbc22608b4535d93b02b2ea',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
@@ -1161,7 +1165,7 @@ if (fichero !== null) console.log(`volcado:       ${fichero}`);
 
 if (SEMILLAS === ANCLA.semillas && DIAS === ANCLA.dias) {
   if (sha === ANCLA.sha) {
-    console.log('ancla:         igual — las 200 partidas se juegan hexágono a hexágono igual');
+    console.log(`ancla:         igual — las ${ANCLA.semillas} partidas se juegan hexágono a hexágono igual`);
   } else {
     // Se sigue midiendo hasta el final a propósito: el tiempo de `autoResolve`
     // interesa igual, y con `exitCode` el rojo llega de todas formas.

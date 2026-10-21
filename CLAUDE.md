@@ -17,11 +17,11 @@ pnpm arena      # /arena/: edita el catálogo del juego (unidades y equipo) y mo
 pnpm verify     # typecheck + lint + tests, ~17 s: el bucle rápido
 pnpm verify:lento  # lo mismo con todas las semillas y todo el arte rederivado, ~75 s; corre en CI
 pnpm test | pnpm typecheck | pnpm lint | pnpm format
-pnpm banco      # 200 partidas: tiempo y sha256 del volcado, anclado en el fichero
+pnpm banco      # 20 partidas: tiempo y sha256 del volcado, anclado en el fichero
 pnpm marcas     # fallos del mapa marcados en pnpm dev (M o «Marcar»): lista, ver <id>, resolver <id> <ref>, recorte <id>
 pnpm qa         # circuito entero del agente (mapa, servidor, puente MCP), ~3 s
 pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales, ~245 s; deja los PNG en .cache/capturas/ o en la carpeta que se le pase
-npx tsx tools/qa/barrido-semillas.ts   # cuántas partidas no terminan (hoy 0)
+npx tsx tools/qa/barrido-semillas.ts   # cuántas de 4 partidas no terminan (hoy 0)
 npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión anterior
 ```
 
@@ -1083,8 +1083,8 @@ ocupado por algo ajeno no se libera: se reporta.**
 | El navegador / el espectador | minutos | si el cambio se ve, o tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | ~3 s | si tocas `src/server/` o el contrato |
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
-| `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
-| `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
+| `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: 4 semillas; una sola sin terminar es regresión |
+| `pnpm banco` | ~2 s | si tocas el núcleo sin querer cambiar el juego: 20 partidas (eran 200; decisión del usuario, 21-10-2026: «estamos en pleno desarrollo»); para medir más, `pnpm banco 200` |
 | `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10, y con el río de lago de 20, 121 / 0 / 12; con el recinto de las ciudades en el núcleo, 98 / 0 / 6; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 | `npx tsx tools/qa/arena-ia.ts` | ~2 s | si tocas el movimiento de la batalla, salir del contacto, la carga, la rueda o la armadura: 100 peleas por variante con unidades del catálogo, IA contra IA (peleas sin terminar, rondas, tiempo, cargas, cruces y golpes parados) |
