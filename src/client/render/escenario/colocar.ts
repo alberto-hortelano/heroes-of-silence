@@ -160,7 +160,6 @@ import {
   ALTO_DEL_MURO_DEL_RECINTO,
   ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
   ANCHO_DEL_PUEBLO,
-  ANCHO_DEL_TRAMO_DEL_RECINTO,
   type ArcoPintado,
   anilloMalOrdenado,
   anilloSobreLaSenda,
@@ -179,6 +178,7 @@ import {
   huecosDelAnillo,
   MEDIA_CALLE,
   MODULOS_DEL_RECINTO,
+  type ModuloDeLaHojaDelRecinto,
   type ModuloDelRecinto,
   type ModulosDelRecinto,
   type PapelEnElRecinto,
@@ -5221,9 +5221,9 @@ export function moduloNorteSur(p: Pieza): Pieza & ModuloDeTirada {
 const PASO_SIN_ARTE = 1 / 3;
 
 /**
- * Los módulos del recinto de una ciudad, del catálogo: las torres, el tramo
- * ancho y los de norte a sur de la muralla del mapa, las puertas y los tramos
- * en diagonal de la hoja `recinto` y las casas sueltas. Lo que falte va con su
+ * Los módulos del recinto de una ciudad, del catálogo: las torres y los tramos
+ * de norte a sur de la muralla del mapa, las puertas y los tramos lisos (el
+ * recto y los dos en diagonal) de la hoja `recinto` y las casas sueltas. Lo que falte va con su
  * marcador, a la medida de la pieza, y se apunta en `faltan`.
  */
 export function modulosDelRecinto(
@@ -5252,7 +5252,7 @@ export function modulosDelRecinto(
         );
       return [n, m];
     }),
-  ) as Record<(typeof MODULOS_DEL_RECINTO)[number], ModuloConSrc>;
+  ) as Record<ModuloDeLaHojaDelRecinto, ModuloConSrc>;
   const casas: ModuloConSrc[] = [...hoja(HOJA_DE_CASAS)];
   if (casas.length === 0) {
     faltan.add(HOJA_DE_CASAS);
@@ -5261,12 +5261,6 @@ export function modulosDelRecinto(
   return {
     torres: TORRES_DEL_MURO.map((n) =>
       deLaHoja('muro', n, altoDeTorre * PROPORCION_DE_TORRE, altoDeTorre),
-    ),
-    horizontal: deLaHoja(
-      'muro',
-      'horizontal',
-      ANCHO_DEL_TRAMO_DEL_RECINTO,
-      ALTO_DEL_MURO_DEL_RECINTO,
     ),
     norteSur: TRAMOS_NORTE_SUR.map((id): ModuloConSrc & ModuloDeTirada => {
       const p = catalogo.piezas[id];

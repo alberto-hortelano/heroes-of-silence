@@ -856,11 +856,17 @@ antes del destino (`battle_started` con `faltan`).
   la hoja `ciudades`, una maqueta de otra escala, se borró): cada ciudad se compone en la escena con
   una regla pura, `recintoDe` (`recinto.ts`), con su propia corriente. Un octógono regular inscrito
   en su 3 × 3 (`contornoDelRecinto`, cara de 1,226), con una torre de la hoja `muro` en cada vértice
-  y en cada cara su tramo liso (`horizontal`, la tirada de dos `muro-ns` o los `tramo-*` en diagonal) o su puerta
-  (`puerta-n-s`, `-e-o`, `-ne-so`, `-no-se`: arco de medio punto con el rastrillo alzado, hoja
-  `recinto` de Codex por la suscripción, `pnpm taller derivar-recinto`), a `ESCALA_DEL_RECINTO`
-  (0,8) de la muralla del mapa; puertas y diagonales van de vértice a vértice por sus juntas
-  (`Modulo.junta`). Las puertas son las del núcleo (`puertasDelNucleo`, vuelta 3, fase 3): hay
+  y en cada cara su tramo liso (`tramo-n-s` al norte y al sur, la tirada de dos `muro-ns` al este y
+  al oeste, los `tramo-*` en diagonal) o su puerta (`puerta-n-s`, `-e-o`, `-ne-so`, `-no-se`: arco
+  de medio punto con el rastrillo alzado), a `ESCALA_DEL_RECINTO` (0,8) de la muralla del mapa. La
+  hoja `recinto` (puertas y tramos, Codex por la suscripción con su guía, `pnpm taller encolar
+  --recinto` y `derivar-recinto`) va de vértice a vértice por sus juntas (`Modulo.junta`), a la
+  escala propia de cada módulo (`ESCALA_DEL_MODULO`, alrededor del medio de su cara). **Manda el
+  muro del tramo en diagonal** (vuelta 4, 21-10-2026, decisión del usuario): todas las caras con
+  ~72 px del pie a la coronación a 200 px por casilla (`ALTO_DEL_MURO_DEL_RECINTO`; el `muro-ns`,
+  ×`ESCALA_DEL_MURO_NORTE_SUR`, con sus almenas, más pequeñas), y la puerta baja, con el torreón a
+  ~1,3 veces el muro (`ALTO_DE_LA_PUERTA_DEL_RECINTO`) y un arco por el que cabe el puente de una
+  ciudad-puente (`LUZ_DEL_ARCO`). Las puertas son las del núcleo (`puertasDelNucleo`, vuelta 3, fase 3): hay
   puerta donde un camino llega de un acceso a su casilla, y la del río de una ciudad-puente;
   `puerta-e-o` solo en la cara del puente de una ciudad-puente con el puente al este o al oeste. Hasta
   la fase 3 la escena las deducía de las sendas pintadas, y en 19 de 208 ciudades de 1-40 pintaba otras

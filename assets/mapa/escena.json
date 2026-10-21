@@ -9641,110 +9641,128 @@
   ],
   "recinto": [
    {
+    "src": "modulos/recinto/tramo-n-s.webp",
+    "nw": 393,
+    "nh": 212,
+    "ax": 196,
+    "ay": 207,
+    "nombre": "tramo-n-s",
+    "junta": [
+     [
+      8,
+      160
+     ],
+     [
+      385,
+      160
+     ]
+    ]
+   },
+   {
     "src": "modulos/recinto/puerta-n-s.webp",
-    "nw": 438,
-    "nh": 286,
-    "ax": 218,
-    "ay": 281,
+    "nw": 414,
+    "nh": 254,
+    "ax": 206,
+    "ay": 249,
     "nombre": "puerta-n-s",
     "junta": [
      [
-      55,
-      230
+      47,
+      200
      ],
      [
-      378,
-      230
-     ]
-    ]
-   },
-   {
-    "src": "modulos/recinto/tramo-no-se.webp",
-    "nw": 316,
-    "nh": 389,
-    "ax": 59,
-    "ay": 384,
-    "nombre": "tramo-no-se",
-    "junta": [
-     [
-      40,
-      368
-     ],
-     [
-      278,
-      130
-     ]
-    ]
-   },
-   {
-    "src": "modulos/recinto/tramo-ne-so.webp",
-    "nw": 325,
-    "nh": 398,
-    "ax": 266,
-    "ay": 393,
-    "nombre": "tramo-ne-so",
-    "junta": [
-     [
-      51,
-      135
-     ],
-     [
-      289,
-      372
-     ]
-    ]
-   },
-   {
-    "src": "modulos/recinto/puerta-no-se.webp",
-    "nw": 331,
-    "nh": 428,
-    "ax": 62,
-    "ay": 423,
-    "nombre": "puerta-no-se",
-    "junta": [
-     [
-      77,
-      380
-     ],
-     [
-      295,
-      162
+      370,
+      200
      ]
     ]
    },
    {
     "src": "modulos/recinto/puerta-ne-so.webp",
-    "nw": 339,
-    "nh": 436,
-    "ax": 280,
-    "ay": 431,
+    "nw": 357,
+    "nh": 421,
+    "ax": 289,
+    "ay": 416,
     "nombre": "puerta-ne-so",
     "junta": [
      [
-      51,
-      159
+      55,
+      147
      ],
      [
-      269,
-      377
+      307,
+      399
+     ]
+    ]
+   },
+   {
+    "src": "modulos/recinto/puerta-no-se.webp",
+    "nw": 333,
+    "nh": 423,
+    "ax": 62,
+    "ay": 418,
+    "nombre": "puerta-no-se",
+    "junta": [
+     [
+      42,
+      398
+     ],
+     [
+      289,
+      150
+     ]
+    ]
+   },
+   {
+    "src": "modulos/recinto/tramo-ne-so.webp",
+    "nw": 337,
+    "nh": 425,
+    "ax": 271,
+    "ay": 420,
+    "nombre": "tramo-ne-so",
+    "junta": [
+     [
+      36,
+      142
+     ],
+     [
+      293,
+      399
+     ]
+    ]
+   },
+   {
+    "src": "modulos/recinto/tramo-no-se.webp",
+    "nw": 337,
+    "nh": 425,
+    "ax": 65,
+    "ay": 420,
+    "nombre": "tramo-no-se",
+    "junta": [
+     [
+      41,
+      398
+     ],
+     [
+      298,
+      140
      ]
     ]
    },
    {
     "src": "modulos/recinto/puerta-e-o.webp",
-    "nw": 145,
-    "nh": 450,
-    "ax": 67,
-    "ay": 445,
+    "nw": 136,
+    "nh": 430,
+    "ax": 46,
+    "ay": 425,
     "nombre": "puerta-e-o",
     "junta": [
      [
-      61,
-      116
+      59,
+      110
      ],
      [
-      61,
-      431
+      59,
+      420
      ]
     ]
    }

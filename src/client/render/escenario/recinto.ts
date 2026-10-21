@@ -41,7 +41,7 @@ import {
 import { hashDeTexto } from '../../../core/rng.js';
 import type { TendidoDeSenda } from './celdas.js';
 import { azarDe, barajar } from './esparcir.js';
-import { ALTO_DE_TORRE, ALTO_DEL_TRAMO_NORTE_SUR, ANCHO_DEL_TRAMO_HORIZONTAL } from './muralla.js';
+import { ALTO_DE_TORRE, ALTO_DEL_TRAMO_NORTE_SUR } from './muralla.js';
 import { varianteDeId } from './nodos.js';
 import { SEMIANCHO_DE_LA_HUELLA, type Senda } from './sendas.js';
 import { FONDO_DEL_ADARVE, type ModuloDeTirada, tiradaNorteSur } from './tirada.js';
@@ -65,10 +65,20 @@ export type Par = readonly [number, number];
  */
 export const ESCALA_DEL_RECINTO = 0.8;
 
+/**
+ * Lo que el tramo de norte a sur de la muralla del mapa (`muro-ns-1`, `-2`) se
+ * escala en el recinto sobre `ESCALA_DEL_RECINTO`, para que su muro tenga el
+ * alto del de las otras caras, el de la hoja `recinto` (vuelta 4, 21-10-2026:
+ * el usuario eligió que mande el tramo en diagonal). Medido a 200 px por
+ * casilla, del pie a la coronación de su muro: 63 px frente a los 72 del
+ * tramo en diagonal. Sus almenas no se tocan: son las de su hoja.
+ */
+export const ESCALA_DEL_MURO_NORTE_SUR = 72 / 63;
+
 /** Lo que miden las piezas del anillo, en casillas: las del mapa a `ESCALA_DEL_RECINTO`. */
 export const ALTO_DE_TORRE_DEL_RECINTO = ALTO_DE_TORRE * ESCALA_DEL_RECINTO;
-export const ANCHO_DEL_TRAMO_DEL_RECINTO = ANCHO_DEL_TRAMO_HORIZONTAL * ESCALA_DEL_RECINTO;
-export const ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO = ALTO_DEL_TRAMO_NORTE_SUR * ESCALA_DEL_RECINTO;
+export const ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO =
+  ALTO_DEL_TRAMO_NORTE_SUR * ESCALA_DEL_RECINTO * ESCALA_DEL_MURO_NORTE_SUR;
 
 /**
  * Lo ancho de una torre del muro en veces su alto (la redonda, 210 × 379 px):
@@ -81,12 +91,21 @@ export const PROPORCION_DE_TORRE = 0.55;
 export const RADIO_DE_TORRE = (ALTO_DE_TORRE_DEL_RECINTO * PROPORCION_DE_TORRE) / 2;
 
 /**
- * Lo alto del muro de un tramo liso, con sus almenas (la pieza `horizontal` a
- * `ANCHO_DEL_TRAMO_DEL_RECINTO`, 489 × 214 px), y lo de una puerta, con su
- * torreón: el marcador sin arte y la guía del taller (`tools/taller/recinto.ts`).
+ * Lo alto del muro de un tramo liso, con sus almenas: el de los tramos en
+ * diagonal de la hoja `recinto`, que manda en todas las caras (vuelta 4,
+ * 21-10-2026). Lo dibuja así la guía del taller (`tools/taller/recinto.ts`,
+ * 0,34 de paramento y 0,1 de almena), lo mide el marcador sin arte y lo leen
+ * los sólidos del orden del anillo (`solidoDe`).
  */
 export const ALTO_DEL_MURO_DEL_RECINTO = 0.44;
-export const ALTO_DE_LA_PUERTA_DEL_RECINTO = 0.74;
+
+/**
+ * Lo alto del torreón de una puerta, con sus almenas: unas 1,3 veces el muro, y
+ * muy por debajo de las torres (vuelta 4: a 0,74 la casa de la puerta subía
+ * tanto como las torres de su cara, y en diagonal más). Como el muro, lo
+ * dibuja la guía y lo leen el marcador y los sólidos.
+ */
+export const ALTO_DE_LA_PUERTA_DEL_RECINTO = 0.57;
 
 /**
  * Lo que mide el pueblo en el mapa (`colocar.ts`), en casillas: su variante de
@@ -210,19 +229,48 @@ export const MARCO_DEL_EJE: Readonly<Record<EjeDelRecinto, { u: Par; v: Par }>> 
   'no-se': { u: [S, -S], v: [S, S] },
 };
 
-/** La hoja de las piezas que no tiene la muralla del mapa: las cuatro puertas y los dos tramos en diagonal. */
+/**
+ * La hoja de las piezas que no tiene la muralla del mapa: las cuatro puertas,
+ * los dos tramos en diagonal y el tramo recto de las caras norte y sur.
+ */
 export const HOJA_DEL_RECINTO = 'recinto';
 
-/** La puerta de cada eje (`puerta-n-s`…) y el tramo liso de una diagonal (`tramo-ne-so`). */
-export const puertaDelEje = (eje: EjeDelRecinto) => `puerta-${eje}` as const;
-export const tramoDelEje = (eje: 'ne-so' | 'no-se') => `tramo-${eje}` as const;
+/** Los ejes con tramo liso en la hoja `recinto`: el este y el oeste van con la tirada de norte a sur. */
+export type EjeConTramo = Exclude<EjeDelRecinto, 'e-o'>;
 
-/** Los módulos de la hoja `recinto`, en el orden de su rejilla: cuatro puertas y dos tramos. */
+/** La puerta de cada eje (`puerta-n-s`…) y el tramo liso de los demás (`tramo-n-s`, `tramo-ne-so`). */
+export const puertaDelEje = (eje: EjeDelRecinto) => `puerta-${eje}` as const;
+export const tramoDelEje = (eje: EjeConTramo) => `tramo-${eje}` as const;
+
+/**
+ * Los módulos de la hoja `recinto`, en el orden de su rejilla: cuatro puertas y
+ * tres tramos. El tramo recto (`tramo-n-s`, vuelta 4) sustituye en el recinto
+ * al `horizontal` de la hoja `muro`, que tenía un muro de dos tercios del de
+ * las diagonales y otras almenas; la muralla de paso del mapa sigue con aquel.
+ */
 export const MODULOS_DEL_RECINTO = [
   ...EJES_DEL_RECINTO.map(puertaDelEje),
   tramoDelEje('ne-so'),
+  tramoDelEje('n-s'),
   tramoDelEje('no-se'),
 ] as const;
+export type ModuloDeLaHojaDelRecinto = (typeof MODULOS_DEL_RECINTO)[number];
+
+/**
+ * La escala propia de cada módulo de la hoja `recinto` sobre la que le dan sus
+ * juntas (`deVerticeAVertice`): el pintor calca la silueta de la guía pero no
+ * siempre su alto, y una pieza cuyo muro sale más alto o más bajo que el de las
+ * otras se corrige aquí, medida a 200 px por casilla del pie a la coronación.
+ * Va alrededor del medio de su cara: las juntas se corren con ella hacia
+ * dentro o hacia fuera, y la torre de cada vértice tapa lo que sobra o falta.
+ * Sin entrada, 1.
+ */
+export const ESCALA_DEL_MODULO: Readonly<Partial<Record<ModuloDeLaHojaDelRecinto, number>>> = {
+  // Las alas, 90 px por sus juntas frente a los 72 de los tramos (21-10-2026).
+  'puerta-n-s': 72 / 90,
+  // El corte de delante, 85 px.
+  'puerta-e-o': 72 / 85,
+};
 
 /**
  * Lo que el octógono entra desde el borde de su rectángulo: así ningún pie del
@@ -243,33 +291,40 @@ export const CHAFLAN = (LADO_DEL_RECINTO - 2 * DENTRO_DEL_BORDE - CARA_DEL_RECIN
 
 /**
  * La luz del arco de una puerta, en casillas: la senda mide 0,32
- * (`ANCHO_DE_SENDA`) y pasa por él con holgura. La guía la dibuja así.
+ * (`ANCHO_DE_SENDA`) y pasa por él con 0,09 de holgura a cada lado, y el
+ * tablero del puente de una ciudad-puente, con sus pretiles (0,43 a la escala
+ * de `puenteDeLaCiudad`, s9 town-2), cabe en él. La guía la dibuja así. Con
+ * 0,4, el puente entraba más ancho que su arco.
  */
-export const LUZ_DEL_ARCO = 0.4;
+export const LUZ_DEL_ARCO = 0.5;
 
 /** El grueso del muro del recinto, en casillas (la guía de `tools/taller/recinto.ts` lo dibuja así). */
 export const GRUESO_DEL_MURO = 0.3;
 
 /**
  * Lo que el arco de una puerta arranca sobre el suelo, en casillas: su boca, de
- * medio punto, sube hasta esto más media luz (0,4). La guía lo dibuja así, y
- * de ella sale el vano que ninguna casa tapa (`vanoDelArco`).
+ * medio punto, sube hasta esto más media luz (0,35), y sobre la clave quedan
+ * 0,12 de paramento del torreón. La guía lo dibuja así, y de ella sale el vano
+ * que ninguna casa tapa (`vanoDelArco`).
  */
-export const ARRANQUE_DEL_ARCO = 0.2;
+export const ARRANQUE_DEL_ARCO = 0.1;
 
 /**
  * El grueso del torreón de una puerta, en casillas: sale por los dos lados del
  * muro, y la boca del arco se abre en su cara que se ve, a la mitad de esto de
- * su eje (`MARCO_DEL_EJE`).
+ * su eje (`MARCO_DEL_EJE`). Poco más que el muro: lo alto de un torreón en
+ * diagonal sube en pantalla lo que mide su planta, y con 0,44 la casa de una
+ * puerta del noroeste pasaba de las torres.
  */
-export const GRUESO_DEL_TORREON = 0.44;
+export const GRUESO_DEL_TORREON = 0.38;
 
 /**
  * Lo largo del torreón de una puerta a lo largo de su muro, en casillas,
- * centrado en el medio de su cara: la guía lo dibuja así, y de él sale lo que
- * la puerta tiene delante de la torre de su vértice (`ordenDelAnillo`).
+ * centrado en el medio de su cara: la luz del arco y 0,1 de jamba a cada lado.
+ * La guía lo dibuja así, y de él sale lo que la puerta tiene delante de la
+ * torre de su vértice (`ordenDelAnillo`).
  */
-export const LARGO_DEL_TORREON = 0.68;
+export const LARGO_DEL_TORREON = LUZ_DEL_ARCO + 0.2;
 
 /** Una cara del octógono: de `a` a `b` en el sentido de las agujas del reloj. */
 export interface CaraDelContorno {
@@ -456,15 +511,13 @@ export type PiezaDelRecinto<M extends ModuloDelRecinto = ModuloDelRecinto> = M &
 export interface ModulosDelRecinto<M extends ModuloDelRecinto> {
   /** Las torres de la hoja `muro` (redonda y cuadrada): una por ciudad. */
   readonly torres: readonly M[];
-  /** El tramo ancho de la hoja `muro`: las caras norte y sur. */
-  readonly horizontal: M;
   /**
    * Los tramos de norte a sur (`muro-ns-1`, `muro-ns-2`), por su ancla del
    * medio y con el paso de su tirada (`tiradaNorteSur`): las caras este y oeste.
    */
   readonly norteSur: readonly (M & ModuloDeTirada)[];
   /** Las piezas de la hoja `recinto` por su nombre (`MODULOS_DEL_RECINTO`), con sus juntas. */
-  readonly delRecinto: Readonly<Record<(typeof MODULOS_DEL_RECINTO)[number], M>>;
+  readonly delRecinto: Readonly<Record<ModuloDeLaHojaDelRecinto, M>>;
   readonly casas: readonly M[];
 }
 
@@ -540,7 +593,8 @@ const DE_DETRAS: ReadonlySet<Cara> = new Set(['n', 'ne', 'no']);
 
 /**
  * La pieza `m` de vértice a vértice de la cara `k`: sus dos juntas en `a` y `b`,
- * sin escala propia. Basta una junta en su vértice (o el medio de las dos en el
+ * a su escala propia (`ESCALA_DEL_MODULO`, 1 si no la tiene) alrededor del
+ * medio de la cara. Basta una junta en su sitio (o el medio de las dos en el
  * medio de la cara) y lo que van de una a otra (la escala); su rumbo es el de
  * la imagen, que se pidió en el de su cara. Sin juntas (el marcador sin arte),
  * de su ancho a lo largo de la cara.
@@ -555,15 +609,21 @@ function deVerticeAVertice<M extends ModuloDelRecinto>(
     [0, m.nh],
     [m.nw, m.nh],
   ];
-  const escala = largo / Math.hypot(j1[0] - j0[0], j1[1] - j0[1]);
+  const propia = ESCALA_DEL_MODULO[m.nombre as ModuloDeLaHojaDelRecinto] ?? 1;
+  const escala = (propia * largo) / Math.hypot(j1[0] - j0[0], j1[1] - j0[1]);
   const ys = [k.a[1], k.b[1]];
   const base = { ...m, que, alto: m.nh * escala, cara: k.cara };
   // La de una cara de detrás, por el medio y antes que lo de su vértice de
   // arriba; la de una de delante que baja (en diagonal, o la del este y el
-  // oeste), por su junta de abajo en su vértice de abajo: se pinta tras todo lo
-  // que tapa, y la clave del pintor no pasa de su pie (con el pie en el medio y
-  // la clave abajo, `separar` la tenía por mal ordenada).
-  const abajo = k.a[1] >= k.b[1] ? k.a : k.b;
+  // oeste), por su junta de abajo, que con su escala propia cae en su vértice
+  // de abajo corrido hacia el medio: se pinta tras todo lo que tapa, y la clave
+  // del pintor no pasa de su pie (con el pie en el medio y la clave abajo,
+  // `separar` la tenía por mal ordenada).
+  const vertice = k.a[1] >= k.b[1] ? k.a : k.b;
+  const abajo: Par = [
+    k.medio[0] + propia * (vertice[0] - k.medio[0]),
+    k.medio[1] + propia * (vertice[1] - k.medio[1]),
+  ];
   const jAbajo = j0[1] >= j1[1] ? j0 : j1;
   if (!DE_DETRAS.has(k.cara) && Math.abs(k.a[1] - k.b[1]) > 1e-9 && Math.abs(j0[1] - j1[1]) > 1e-9)
     return {
@@ -588,10 +648,10 @@ function deVerticeAVertice<M extends ModuloDelRecinto>(
  * El anillo y las casas de un recinto.
  *
  * En cada vértice del octógono, una torre (del tipo de la ciudad, por su id);
- * en cada cara, su puerta o su tramo liso: al norte y al sur el tramo ancho de
- * la hoja `muro`, al este y al oeste una tirada de norte a sur (`tiradaNorteSur`), y
- * en las diagonales los de la hoja `recinto`. Las puertas y los tramos en
- * diagonal van de vértice a vértice por sus juntas (`deVerticeAVertice`).
+ * en cada cara, su puerta o su tramo liso: al este y al oeste una tirada de
+ * norte a sur (`tiradaNorteSur`), y en las demás los de la hoja `recinto`, que
+ * van de vértice a vértice por sus juntas (`deVerticeAVertice`), como las
+ * puertas.
  *
  * Las casas, por filas de norte a sur, de oeste a este desde el muro, con el pie
  * dentro del octógono (`filaDelContorno`), sin tapar donde pisa el héroe
@@ -630,22 +690,8 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
       arcos.push(deVerticeAVertice(modulos.delRecinto[puertaDelEje(eje)], k, 'puerta'));
       continue;
     }
-    if (eje === 'ne-so' || eje === 'no-se') {
+    if (eje !== 'e-o') {
       tramos.push(deVerticeAVertice(modulos.delRecinto[tramoDelEje(eje)], k, 'tramo'));
-      continue;
-    }
-    if (eje === 'n-s') {
-      // Una pieza a lo ancho de la cara: las torres de las puntas tapan sus extremos.
-      const h = modulos.horizontal;
-      tramos.push({
-        ...h,
-        que: 'tramo',
-        x: k.medio[0],
-        y: k.medio[1],
-        alto: (ANCHO_DEL_TRAMO_DEL_RECINTO * h.nh) / h.nw,
-        clave: k.medio[1] - 0.005,
-        cara: k.cara,
-      });
       continue;
     }
     // Este u oeste: una tirada de norte a sur (`tiradaNorteSur`), un solo

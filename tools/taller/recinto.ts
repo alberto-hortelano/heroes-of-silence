@@ -12,6 +12,18 @@
  * `-hondo`) traen sus propias torres y no caben en una cara de 1,23; los tramos
  * en diagonal de la hoja `muro` suben ~24° en pantalla y no 45°.
  *
+ * Vuelta 4 (21-10-2026, el usuario eligió que mande el tramo en diagonal): un
+ * séptimo módulo, el tramo recto de las caras norte y sur (`tramo-n-s`), que
+ * en el recinto sustituye al `horizontal` de la hoja `muro` (su muro medía dos
+ * tercios del de las diagonales); y las cuatro puertas otra vez, con las alas
+ * al alto de ese muro, el torreón bajo (`ALTO_DE_LA_PUERTA_DEL_RECINTO`, unas
+ * 1,3 veces el muro) y el arco ancho (`LUZ_DEL_ARCO`, por el que cabe el puente
+ * de una ciudad-puente). Se pidieron los siete juntos, con los tramos en
+ * diagonal de la vuelta 2 de identidad, y se quedan los siete: los tramos en
+ * diagonal nuevos tienen el muro de los de antes (71 frente a 72 px a 200 px
+ * por casilla) y el tono de las puertas nuevas, que con los de antes desentonaba.
+ * Lo que una pieza sale más alta que su guía lo corrige `ESCALA_DEL_MODULO`.
+ *
  * Cada módulo va de vértice a vértice de su cara, cortado limpio en sus dos
  * puntas, donde lo tapa la torre del vértice: lo dice la guía, dibujada con la
  * proyección del mapa (`Guia`, el suelo tal cual y lo alto hacia arriba), y la
@@ -291,10 +303,10 @@ export interface GeometriaDelRecinto {
   readonly caja: readonly [number, number, number, number];
 }
 
-/** Las filas de la hoja: las cuatro puertas y los dos tramos. */
+/** Las filas de la hoja: las cuatro puertas y los tres tramos, el recto entre los dos en diagonal. */
 const FILAS = [
   EJES_DEL_RECINTO.map(puertaDelEje),
-  [tramoDelEje('ne-so'), tramoDelEje('no-se')],
+  [tramoDelEje('ne-so'), tramoDelEje('n-s'), tramoDelEje('no-se')],
 ] as const;
 const LIENZO: readonly [number, number] = [1536, 1024];
 const HUECO_ENTRE_PIEZAS = 0.45;
@@ -369,39 +381,57 @@ export async function escribirGuiaDelRecinto(): Promise<string> {
 
 const DICHO: Readonly<Record<(typeof MODULOS_DEL_RECINTO)[number], string>> = {
   'puerta-n-s':
-    'fila 1, columna 1: la PUERTA de un muro que corre de izquierda a derecha, DE CARA a la cámara: el arco se ve de frente, en el centro, en un torreón algo más alto y más grueso que el muro.',
+    'fila 1, columna 1: la PUERTA de un muro que corre de izquierda a derecha, DE CARA a la cámara: el arco se ve de frente, en el centro del torreón.',
   'puerta-e-o':
-    'fila 1, columna 2: la PUERTA de un muro que corre hacia el FONDO, de abajo arriba de la imagen, estrecho y en escorzo como el tramo 2 de la imagen 2: el camino lo cruza DE LADO, de izquierda a derecha, por debajo del torreón, y el arco solo asoma en escorzo en su cara derecha.',
+    'fila 1, columna 2: la PUERTA de un muro que corre hacia el FONDO, de abajo arriba de la imagen, estrecho y en escorzo: el torreón es el trozo del MEDIO del muro, más alto y algo más ancho que lo de delante y lo de detrás; el camino lo cruza DE LADO, de izquierda a derecha, por debajo del torreón, y el arco solo asoma en escorzo en su cara derecha.',
   'puerta-ne-so':
     'fila 1, columna 3: la PUERTA de un muro en DIAGONAL que BAJA hacia la DERECHA a 45 grados exactos: se ve su cara iluminada, la que mira abajo a la izquierda, y en ella el arco.',
   'puerta-no-se':
     'fila 1, columna 4: la PUERTA de un muro en DIAGONAL que SUBE hacia la DERECHA a 45 grados exactos: se ve su cara en penumbra, la que mira abajo a la derecha, y en ella el arco.',
   'tramo-ne-so':
-    'fila 2, columna 1: un TRAMO LISO del mismo muro en DIAGONAL que BAJA hacia la DERECHA a 45 grados exactos, sin puerta: su cara iluminada, la que mira abajo a la izquierda.',
+    'fila 2, columna 1: un TRAMO LISO del muro en DIAGONAL que BAJA hacia la DERECHA a 45 grados exactos, sin puerta: su cara iluminada, la que mira abajo a la izquierda. Es el tramo 1 de la imagen 2, tal cual.',
+  'tramo-n-s':
+    'fila 2, columna 2: un TRAMO LISO RECTO del mismo muro, que corre de izquierda a derecha DE CARA a la cámara, sin puerta: se ve su cara de delante y, encima, su paso de ronda entre las dos hileras de almenas, como el tramo en diagonal de al lado pero de frente. El mismo alto de muro, las mismas almenas y el mismo grueso que los tramos en diagonal de su fila.',
   'tramo-no-se':
-    'fila 2, columna 2: un TRAMO LISO del mismo muro en DIAGONAL que SUBE hacia la DERECHA a 45 grados exactos, sin puerta: su cara en penumbra, la que mira abajo a la derecha.',
+    'fila 2, columna 3: un TRAMO LISO del muro en DIAGONAL que SUBE hacia la DERECHA a 45 grados exactos, sin puerta: su cara en penumbra, la que mira abajo a la derecha. Es el tramo 2 de la imagen 2, tal cual.',
 };
 
+/**
+ * Los dos tramos en diagonal de la hoja del recinto de la vuelta 2
+ * (20-10-2026), que mandan en el alto del muro (vuelta 4), juntos en una
+ * imagen: la identidad de las piezas nuevas. Fuera de `assets/` para que no la
+ * pise la hoja nueva cuando se corrija.
+ */
+const TRAMOS_DE_LA_VUELTA_2 =
+  'docs/agents/2026-10-20-ciudad-amurallada/recinto-tramos-vuelta2.webp';
+
+/**
+ * La hoja del recinto (vuelta 4, 21-10-2026): las cuatro puertas, más bajas y
+ * con el arco más ancho, y el tramo recto de las caras norte y sur, todo con el
+ * muro de los tramos en diagonal de la vuelta 2. Se piden los siete módulos
+ * para que el pintor vea en la misma hoja el muro que manda.
+ */
 export function encargoDelRecinto(): Encargo {
   const orden = FILAS.flat()
     .map((n) => DICHO[n])
     .join('\n');
   return {
-    id: `modulos-${HOJA_DEL_RECINTO}`,
+    id: `modulos-${HOJA_DEL_RECINTO}-5`,
     tipo: 'modulos',
     descripcion: [
-      'Una hoja de 6 módulos de la MURALLA DE UNA CIUDAD para el mapa de aventura de un juego de estrategia: cuatro PUERTAS y dos TRAMOS LISOS de UNA misma muralla de piedra gris con musgo, la de la imagen 2 (la misma piedra, los mismos sillares, las mismas almenas, el mismo alto de muro y el mismo musgo), para juntarlos en un recinto de ocho caras con una torre redonda en cada esquina.',
-      'Cada módulo es UN tramo de muro de una esquina a la otra, CORTADO LIMPIO en sus dos puntas, sin torres, sin pilares, sin contrafuertes ni remates en las puntas: ahí va una torre del juego que tapa el corte. El muro, con sus almenas arriba y su paso de ronda, es tan alto como el tramo 1 de la imagen 2.',
-      'Cada PUERTA es un torreón en el CENTRO del tramo, algo más alto y más grueso que el muro, con almenas, y en él un ARCO DE MEDIO PUNTO por el que pasa un camino: dovelas de piedra alrededor del arco, el paso oscuro dentro y, arriba, el RASTRILLO de hierro ALZADO, del que solo asoman las puntas de sus barrotes bajo el arco, como en la imagen 3. Sin hojas de puerta cerradas, sin bandera, sin poste, sin estandarte, sin antorchas y sin torres a los lados del arco.',
-      'LA SILUETA DE CADA MÓDULO ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo largo, mismo alto y el MISMO RUMBO del muro, sin girarlo ni torcerlo; las diagonales van a 45 GRADOS EXACTOS en la imagen, como en la guía, NO más tumbadas. En la guía: lo gris claro es lo alto del muro y las almenas, lo gris medio la cara a la luz, lo gris oscuro la cara en penumbra, lo negro la boca del arco, lo claro dentro de él el suelo del paso, y los palos grises los barrotes del rastrillo.',
+      'Una hoja de 7 módulos de la MURALLA DE UNA CIUDAD para el mapa de aventura de un juego de estrategia: cuatro PUERTAS y tres TRAMOS LISOS de UNA misma muralla de piedra gris con musgo, la de los dos tramos en diagonal de la imagen 2 (la misma piedra, los mismos sillares, las mismas almenas cuadradas, el mismo grueso, el mismo alto de muro y el mismo musgo), para juntarlos en un recinto de ocho caras con una torre redonda en cada esquina.',
+      'Cada módulo es UN tramo de muro de una esquina a la otra, CORTADO LIMPIO en sus dos puntas, sin torres, sin pilares, sin contrafuertes ni remates en las puntas: ahí va una torre del juego que tapa el corte.',
+      'EL MURO DE TODOS LOS MÓDULOS ES EL MISMO: en las siete piezas, el muro, con su paso de ronda y sus dos hileras de almenas, mide de alto lo mismo que los tramos en diagonal de la imagen 2, con almenas del mismo tamaño y a la misma distancia. En las puertas, el muro a los dos lados del torreón también: ni más alto ni más bajo que el de los tramos lisos.',
+      'Cada PUERTA es un torreón BAJO y ACHAPARRADO en el CENTRO del tramo: solo UN TERCIO más alto que el muro de al lado (no el doble), apenas más grueso que él, y mucho más bajo que una torre de esquina. Pero SOBRESALE por encima de las alas en las cuatro puertas, también en las de muro en diagonal y en la de muro hacia el fondo: su hilera de almenas va MÁS ARRIBA que la de las alas, con un escalón claro entre las dos, como en la guía; no sigue la misma línea de almenas que el muro. En él, un ARCO DE MEDIO PUNTO ANCHO, casi tan ancho como el torreón (solo un pilar estrecho a cada lado) y que sube casi hasta lo alto del torreón, por el que pasa un camino ancho: dovelas de piedra alrededor del arco, el paso oscuro dentro y, arriba, el RASTRILLO ALZADO, de HIERRO oscuro gris negruzco (ni rojo ni de cobre), del que solo asoman las puntas de sus barrotes bajo el arco, como en la imagen 3. Sin hojas de puerta cerradas, sin bandera, sin poste, sin estandarte, sin antorchas, sin ventanas ni saeteras y sin torres a los lados del arco.',
+      'LA SILUETA DE CADA MÓDULO ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo largo, mismo alto y el MISMO RUMBO del muro, sin girarlo ni torcerlo; las diagonales van a 45 GRADOS EXACTOS en la imagen, como en la guía, NO más tumbadas. En la guía: lo gris claro es lo alto del muro y las almenas, lo gris medio la cara a la luz, lo gris oscuro la cara en penumbra, lo negro la boca del arco, lo claro dentro de él el suelo del paso, y los palos grises los barrotes del rastrillo. El alto de cada muro y de cada torreón en la guía es el que tiene que tener.',
       orden,
       'Sin suelo debajo ni alrededor: ni hierba, ni camino fuera del arco, ni peana; cada módulo es el muro solo, para posarlo sobre el terreno. La luz viene de arriba a la izquierda; las sombras propias caen hacia la derecha y hacia abajo.',
       ESTILO_DEL_MAPA,
     ].join('\n'),
     referencias: [
       { ruta: REFERENCIA_DE_MAPAS, papel: 'estilo' },
-      // La muralla con la que casa: su piedra, sus almenas y el alto de su tramo.
-      { ruta: 'assets/mapa/modulos/muro.webp', papel: 'identidad' },
+      // La muralla con la que casa: los tramos en diagonal de la vuelta 2, que mandan.
+      { ruta: TRAMOS_DE_LA_VUELTA_2, papel: 'identidad' },
       // El arco y el rastrillo alzado de la puerta de la muralla del mapa.
       { ruta: 'assets/mapa/nodo-puerta-ancho.webp', papel: 'material' },
       { ruta: `${DIR_GUIAS}/${HOJA_DEL_RECINTO}.png`, papel: 'guia' },
@@ -409,7 +439,7 @@ export function encargoDelRecinto(): Encargo {
     salida: `assets/mapa/modulos/${HOJA_DEL_RECINTO}`,
     fondo: 'transparente',
     cuantos: MODULOS_DEL_RECINTO.length,
-    nombres: [...MODULOS_DEL_RECINTO],
+    nombres: [...FILAS.flat()],
   };
 }
 
