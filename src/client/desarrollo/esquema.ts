@@ -35,7 +35,7 @@ export const esquemaDeQueHay = z.object({
       /** La hoja y el módulo del catálogo de los que sale, si sale de una hoja. */
       hoja: z.string().nullable(),
       modulo: z.string().nullable(),
-      /** La pieza suelta del catálogo (`puente-piedra-ns`, `atlas/mina`…), si es una. */
+      /** La pieza suelta del catálogo (`puente-piedra-ns`, `cofre`…), si es una. */
       pieza: z.string().nullable(),
       /** Si es un módulo de ladera (`laderas-*`). */
       ladera: z.boolean(),

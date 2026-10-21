@@ -543,12 +543,8 @@ function queEs(o: GameMap['objects'][number]): string {
       return `la ciudad ${o.id}`;
     case 'node':
       return `el nodo ${o.id}`;
-    case 'mine':
-      return `la mina de ${o.resource}`;
     case 'village':
       return `el pueblo "${o.name}"`;
-    case 'resource':
-      return `el recurso ${o.resource}`;
     case 'monster':
       return `el monstruo ${o.creature}`;
     case 'chest':
@@ -564,7 +560,7 @@ function queEs(o: GameMap['objects'][number]): string {
  *   una cuyo recinto no cabe (está en el borde), y dos a menos de
  *   `SEPARACION_DE_CIUDADES`;
  * - cualquier cosa dentro de un recinto que no sea su ciudad —un nodo, otra
- *   ciudad, una mina, un pueblo, un recurso, un monstruo, un cofre, y lo de
+ *   ciudad, un pueblo, un monstruo, un cofre, y lo de
  *   `otros`: los asaltantes—;
  * - un camino que cruza la muralla: a una ciudad se llega de un acceso a su
  *   puerta y de la puerta a ella (`PUERTAS_DE_LA_CIUDAD`), y el que entra por

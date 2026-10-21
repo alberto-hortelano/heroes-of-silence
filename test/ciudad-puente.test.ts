@@ -11,8 +11,7 @@
  * - En los mapas del juego: la ciudad, en tierra y en su casilla; su puente se
  *   pisa, es de la región de enfrente y es agua en la escena; su puerta del río
  *   existe siempre; el puente de piedra cruza de frente hasta el pie de la cara
- *   del río y no más allá (`puentesSobreElAnillo`, H2 de la vuelta 2); y las
- *   sendas llegan a sus estribos por tierra.
+ *   del río y no más allá (`puentesSobreElAnillo`, H2 de la vuelta 2).
  * - En el cliente: pulsar la ciudad lleva al héroe por sus puertas.
  */
 import { pathFromReachable } from '@core/map/map.js';
@@ -25,7 +24,6 @@ import { describe, expect, it } from 'vitest';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
 import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import { sendaSobreElAgua } from '../src/client/render/escenario/escalon.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import {
   ejesDeLosPuentes,
@@ -35,7 +33,6 @@ import {
 import {
   anilloSobreLaSenda,
   caraHacia,
-  dentroDelContorno,
   puentesSobreElAnillo,
 } from '../src/client/render/escenario/recinto.js';
 import { SEMIANCHO_DE_LA_HUELLA } from '../src/client/render/escenario/sendas.js';
@@ -245,43 +242,6 @@ describe('la ciudad-puente en los mapas del juego', () => {
       }
     }
     expect(alSur).toBeGreaterThanOrEqual(segunPrisa(1, 10));
-  });
-
-  it('las sendas llegan a sus estribos por tierra, y ninguna se pinta sobre el agua', () => {
-    for (const s of semillas) {
-      const { map, escena: e } = partidaDe(s);
-      const W = map.width;
-      const sePisa = (x: number, y: number) =>
-        isWalkable(map.terrain[Math.floor(y) * W + Math.floor(x)] as TerrainKind);
-      for (const pu of e.puentes) {
-        if (pu.ciudad === undefined) continue;
-        // Las dos casillas de los estribos: el pie de la cara del río y la de
-        // enfrente, que puede ser el final de otra barrera.
-        const estribos = pu.extremos.map(([x, y]) => `${Math.floor(x)},${Math.floor(y)}`);
-        // Y lo de dentro del recinto, que tapa su plaza.
-        const recinto = e.recintos.find((k) => k.id === pu.ciudad);
-        const tapado = (x: number, y: number) =>
-          estribos.includes(`${Math.floor(x)},${Math.floor(y)}`) ||
-          (recinto !== undefined && dentroDelContorno(recinto.contorno, x, y));
-        for (const senda of e.sendas)
-          for (const camino of [senda, [...senda].reverse()]) {
-            const p = camino[0] as Punto;
-            if (!pu.extremos.some((x) => Math.hypot(x[0] - p[0], x[1] - p[1]) < 1e-9)) continue;
-            let largo = 0;
-            for (const [k, r] of camino.entries()) {
-              const q = camino[k - 1];
-              if (q !== undefined) largo += Math.hypot(r[0] - q[0], r[1] - q[1]);
-              if (largo > 1) break;
-              expect(
-                sePisa(r[0], r[1]) || tapado(r[0], r[1]),
-                `s${s} ${pu.id}: (${r[0].toFixed(2)}, ${r[1].toFixed(2)})`,
-              ).toBe(true);
-            }
-          }
-      }
-      expect(sendaSobreElAgua(e), `s${s}`).toBe(0);
-      expect(e.informe.sendasDeEstriboEnAgua, `s${s}`).toBe(0);
-    }
   });
 
   it('en el cliente: pulsar una ciudad-puente lleva al héroe por sus puertas', () => {

@@ -97,12 +97,12 @@ export type NombreDeArte = keyof typeof ARTE_RPG;
 
 /**
  * Las piezas sueltas que el juego pinta él (`assets/mapa/`), por el nombre con el
- * que se piden a `asset('mapa', …)`: los recursos y el cofre, que se recogen en la
+ * que se piden a `asset('mapa', …)`: el cofre, que se recoge en la
  * partida y no se hornean en la escena. Se colocan por su `ancla`, que viene en el `.json` de
  * al lado y lee `render/piezas.ts`. Todo lo demás del mapa lo pone el
  * escenógrafo (`cargarArteDeEscena`).
  */
-export const PIEZAS_DEL_MAPA = ['oro', 'piedra', 'madera', 'cofre'] as const;
+export const PIEZAS_DEL_MAPA = ['cofre'] as const;
 
 export type PiezaDelMapa = (typeof PIEZAS_DEL_MAPA)[number];
 
@@ -185,7 +185,7 @@ function loadRpgArt(mapa: boolean): Promise<unknown> {
 }
 
 /**
- * Los grupos del manifiesto que se pintan: los iconos de recursos. Ni
+ * Los grupos del manifiesto que se pintan: el icono del oro. Ni
  * `creatures` —la batalla es de figuras a 25°— ni `terrains`: el suelo del mapa
  * lo pinta el escenógrafo con sus texturas. Los edificios y el fondo del
  * castillo de fal.ai se retiraron con la base caminable: su arte es el del
@@ -323,7 +323,7 @@ export function cargarArte(
       ),
     );
   }
-  // La arena no pinta ni recursos ni edificios ni castillo: sin el manifiesto se
+  // La arena no pinta ni el oro ni edificios ni castillo: sin el manifiesto se
   // ahorra sus decenas de peticiones y se queda con las figuras y el tablero.
   if (manifiesto) {
     tandaDeArte(

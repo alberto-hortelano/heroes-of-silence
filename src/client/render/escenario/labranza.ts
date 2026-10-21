@@ -132,14 +132,12 @@ export const CASA_LEJOS_DEL_CAMINO = 2;
 
 /**
  * Los objetos del mapa de los que se apartan las casas, el almiar y la carreta:
- * pegada a una mina, una casa se leía como su caseta (QA, H3: s15 (30, 34), al
- * norte de la mina de (30, 35)). Los monstruos no: son figuras, no edificios.
+ * pegada a un edificio, una casa se leía como su caseta (QA, H3: s15 (30, 34)).
+ * Los monstruos no: son figuras, no edificios.
  */
 export const APARTAN_LA_LABRANZA: ReadonlySet<MapObject['kind']> = new Set([
-  'mine',
   'town',
   'village',
-  'resource',
   'chest',
   'node',
 ]);

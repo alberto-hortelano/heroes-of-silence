@@ -47,7 +47,7 @@ export function ponArmeriaEnLaBase(state: GameState, player: PlayerId): string {
   if (base === null) throw new Error(`el jugador ${player} no tiene base donde poner la armería`);
   if (!base.buildings.includes('armory')) base.buildings.push('armory');
   const jugador = state.players.find((p) => p.id === player)!;
-  jugador.resources = { ...jugador.resources, gold: jugador.resources.gold + 10000 };
+  jugador.oro = jugador.oro + 10000;
   return base.id;
 }
 

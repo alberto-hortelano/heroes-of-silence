@@ -1,22 +1,18 @@
 {
   "_comment": "Edificios del castillo. Un castillo solo puede construir UN edificio por día. Los de villa (sin `faction`) valen para las cinco facciones; las MORADAS llevan `faction` y su id es `<facción>_<lo que es>`. `morada` es el sitio que ocupa en la base (1-6, el `lvlN` de data/bases/<facción>.json) y NO un nivel (decisión del usuario, 19-10-2026: «el edificio no implica nivel»). Qué unidades produce cada morada lo dice cada unidad (`edificio`, data/unidades.json), y una morada produce varias. Su coste NO se escribe: sale del nivel de lo mejor que produce (core/nivel.ts, con el equipo puesto) por la tabla de data/economia.json, y lo calcula src/core/town/buildings.ts al cargar. Los nombres y el reparto de las moradas salen de NuevaJugabilidad.md (§Ciudades, «Una posible asignación de edificios por facción»): Templarios, pueblos (guerrero con escudo, escudero), Monasterio (monje, penitente), Establos (caballero montado: el hermano de carga), Forja (guerrero a dos manos); Imperio, pueblos (alabardero, piquero), Taller (ballestero, arcabucero), Armería (coracero, rodelero: aquí «Armería imperial», para no confundirla con la armería de villa, `armory`, que vende equipo), Fundición (culebrina; exige el Taller, como dice el cuaderno); Elfos, pueblos (arquero, guardia del bosque), Pabellón de caza (explorador, jinete); Orkos, pueblos (goblins lanceros y arqueros, orkos), Cueva (troll), Pocilga (el cuaderno dice jinetes de jabalí; aquí, el jinete de hiena); No muertos, cadáveres (esqueletos, zombi), Mausoleo (espectro), Cripta (el cuaderno dice necrófagos y gólems, que no hay). INVENTADO, porque el cuaderno no lo asigna: el granadero en la Fundición, el pistolero montado en unas Caballerizas, el asesino en el Pabellón de caza, la sacerdotisa en la Arboleda (el cuaderno la da a los ents, que no hay), el orko con armadura pesada en el Tótem (el cuaderno: goblins fanáticos, que no hay), y el caballero de la muerte y el jinete de plaga en la Cripta; las moradas del cuaderno sin ninguna unidad (Biblioteca, Cubil, Torre oscura) no se escriben. El «pueblo» de cada facción (Cadáveres en los no muertos) es la morada de la tropa básica, ya construida al fundar el castillo: en el cuaderno los pueblos son sitios del mapa, y aquí son un edificio INVENTADO. Toda morada exige su pueblo (`requires`, INVENTADO). Los sitios de los Templarios son los del arte de base que heredan de los caballeros (19-10-2026): el pueblo en la choza (1), la Forja en el cuartel (3), los Establos en los establos (5) y el Monasterio en la iglesia (6); el 2 y el 4 se quedan sin edificio. La armería (`armory`, `sellsEquipment`) NO viene de fheroes2: la pidió el usuario en NuevaJugabilidad.md («En las ciudades puedes construir armería y comprar equipo mejorado para la tropa»), su coste es INVENTADO y vende el mismo surtido en las cinco facciones (`seConsigue` de data/equipo.json); no tiene PNG, y la pantalla de castillo pinta su marcador. Ya no hay mejoras de morada (18-10-2026: ninguna unidad tiene versión mejorada).",
-  "_fuente_de_los_costes": "Los costes de los edificios DE VILLA salen de `_buildingStats` en `buildinginfo.cpp` de ihhub/fheroes2 (filas Race::KNGT, iguales en las dos razas que se copiaron), sobre `Cost {gold, wood, mercury, ore, sulfur, crystal, gems}` (`resource/resource.h`); los tres ayuntamientos no tienen equivalente allí y son de cosecha propia. Las moradas ya no se copian de ninguna fila (19-10-2026): sus costes salen de data/economia.json, cuya tabla por nivel es la de las seis moradas del caballero de fheroes2. La armería es la excepción declarada: no existe en el original y su coste es inventado (ver `_comment`).",
+  "_fuente_de_los_costes": "Los costes de los edificios DE VILLA salen de `_buildingStats` en `buildinginfo.cpp` de ihhub/fheroes2 (filas Race::KNGT, iguales en las dos razas que se copiaron), sobre su `Cost` de siete recursos (`resource/resource.h`), **pasados a oro** (21-10-2026, decisión del usuario, «solo oro»; precio INVENTADO): la madera y el mineral a 250 de oro cada unidad, y el mercurio, el azufre, el cristal y las gemas a 500 (el castillo, 5000 + 20 de madera + 20 de mineral, cuesta 15 000); los tres ayuntamientos no tienen equivalente allí y son de cosecha propia. Las moradas ya no se copian de ninguna fila (19-10-2026): sus costes salen de data/economia.json, cuya tabla por nivel es la de las seis moradas del caballero de fheroes2. La armería es la excepción declarada: no existe en el original y su coste es inventado (ver `_comment`).",
   "buildings": [
     {
       "id": "village_hall",
       "name": "Ayuntamiento",
-      "cost": {
-        "gold": 0
-      },
+      "cost": 0,
       "income": 500,
       "prebuilt": true
     },
     {
       "id": "town_hall",
       "name": "Casa consistorial",
-      "cost": {
-        "gold": 2500
-      },
+      "cost": 2500,
       "income": 1000,
       "requires": [
         "village_hall"
@@ -25,9 +21,7 @@
     {
       "id": "city_hall",
       "name": "Palacio municipal",
-      "cost": {
-        "gold": 5000
-      },
+      "cost": 5000,
       "income": 2000,
       "requires": [
         "town_hall"
@@ -36,11 +30,7 @@
     {
       "id": "castle",
       "name": "Castillo",
-      "cost": {
-        "gold": 5000,
-        "wood": 20,
-        "ore": 20
-      },
+      "cost": 15000,
       "requires": [
         "village_hall"
       ],
@@ -49,25 +39,13 @@
     {
       "id": "mage_guild_1",
       "name": "Gremio de magia I",
-      "cost": {
-        "gold": 2000,
-        "wood": 5,
-        "ore": 5
-      },
+      "cost": 4500,
       "mageGuildLevel": 1
     },
     {
       "id": "mage_guild_2",
       "name": "Gremio de magia II",
-      "cost": {
-        "gold": 1000,
-        "wood": 5,
-        "ore": 5,
-        "crystal": 4,
-        "gems": 4,
-        "mercury": 4,
-        "sulfur": 4
-      },
+      "cost": 11500,
       "mageGuildLevel": 2,
       "requires": [
         "mage_guild_1"
@@ -76,28 +54,18 @@
     {
       "id": "tavern",
       "name": "Taberna",
-      "cost": {
-        "gold": 500,
-        "wood": 5
-      },
+      "cost": 1750,
       "moraleBonus": 1
     },
     {
       "id": "marketplace",
       "name": "Mercado",
-      "cost": {
-        "gold": 500,
-        "wood": 5
-      }
+      "cost": 1750
     },
     {
       "id": "armory",
       "name": "Armería",
-      "cost": {
-        "gold": 2000,
-        "wood": 5,
-        "ore": 5
-      },
+      "cost": 4500,
       "sellsEquipment": true
     },
     {

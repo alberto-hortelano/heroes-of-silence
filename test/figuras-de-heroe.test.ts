@@ -154,7 +154,7 @@ describe('el héroe de la partida pisa el tablero con la hoja de su tipo (criter
 
   it('el contratado, con la hoja del tipo de por defecto de su facción', () => {
     const state = newGame({ seed: 7, faccionDelJugador: 'orkos', tipoDelHeroe: 'chaman_goblin' });
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 100_000 };
+    state.players[0]!.oro = 100_000;
     const base = state.towns.find((t) => t.owner === 0)!;
     // El inicial está dentro: se le saca para que la base deje contratar.
     state.heroes[0]!.at = { x: base.at.x, y: base.at.y + 1 };

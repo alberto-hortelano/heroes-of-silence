@@ -84,9 +84,7 @@ const PLANO: MapPlan = {
     { id: 'mio', name: 'Valdeluz', faction: FACCION_A, at: MI_CASTILLO, owner: 0 },
     { id: 'suyo', name: 'Osario', faction: FACCION_B, at: SU_CASTILLO, owner: 1 },
   ],
-  mines: [],
   villages: [],
-  resources: [],
   monsters: [],
   chests: [],
   // A una ciudad se entra por las puertas de su recinto a las que llega un
@@ -643,9 +641,9 @@ describe('la crónica de la pantalla deja de mentir', () => {
     expect(linea({ kind: 'node_captured', node: 'n', from: 0, actor: 1, ...en })).toContain(
       '<div class="lose">El jugador 1 te ha quitado un paso en\u00a0(12,\u00a05)</div>',
     );
-    expect(
-      linea({ kind: 'resource_gained', resource: 'wood', amount: 2, actor: 0, ...en }),
-    ).toContain('+2 madera en\u00a0(12,\u00a05)');
+    expect(linea({ kind: 'gold_gained', amount: 1500, actor: 0, ...en })).toContain(
+      '+1500 de oro en\u00a0(12,\u00a05)',
+    );
     expect(linea({ kind: 'town_captured', town: 't', from: null, actor: 1, ...en })).toContain(
       'El jugador 1 captura un castillo neutral en\u00a0(12,\u00a05)',
     );

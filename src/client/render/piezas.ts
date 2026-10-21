@@ -1,5 +1,5 @@
 /**
- * Las piezas sueltas que pinta el juego —los recursos y el cofre— colocadas por su pie.
+ * La pieza suelta que pinta el juego —el cofre— colocada por su pie.
  *
  * Cada `assets/mapa/<pieza>.json` está **derivado de la imagen** por el taller
  * (`ancho`, `alto` y `ancla`: el centro de su base, en píxeles de la imagen), y
@@ -7,9 +7,6 @@
  * pinta nada y quien llama pone su marcador.
  */
 import cofre from '../../../assets/mapa/cofre.json' with { type: 'json' };
-import madera from '../../../assets/mapa/madera.json' with { type: 'json' };
-import oro from '../../../assets/mapa/oro.json' with { type: 'json' };
-import piedra from '../../../assets/mapa/piedra.json' with { type: 'json' };
 import { asset, type PiezaDelMapa } from './assets.js';
 import { copiaReducida } from './copias.js';
 import { densidadDe } from './lienzo.js';
@@ -20,12 +17,7 @@ interface Medidas {
   readonly ancla: readonly number[];
 }
 
-const MEDIDAS: Readonly<Record<PiezaDelMapa, Medidas>> = {
-  oro,
-  piedra,
-  madera,
-  cofre,
-};
+const MEDIDAS: Readonly<Record<PiezaDelMapa, Medidas>> = { cofre };
 
 /**
  * Pinta `pieza` con su ancla en (`x`, `suelo`) y `ancho` píxeles de ancho.

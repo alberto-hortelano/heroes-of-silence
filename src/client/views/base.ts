@@ -28,9 +28,8 @@ export interface PiezasDelCastillo {
 /** La fila de construir un edificio: su nombre, su coste y el botón, o el motivo por el que no. */
 function filaDeConstruir(session: Session, town: Town, id: string, hoyEnCabecera = false): Html {
   const b = building(id);
-  const motivo = buildBlocker(town, id, session.resources);
-  const coste = describirCoste(b.cost);
-  return html`<div class="stack"><span>${b.name}<span class="veterania">${coste === '' ? 'gratis' : coste}</span>${
+  const motivo = buildBlocker(town, id, session.oro);
+  return html`<div class="stack"><span>${b.name}<span class="veterania">${describirCoste(b.cost)}</span>${
     // «Ya se ha construido hoy» lo dice la cabecera de «Ampliar» una vez: repetido
     // en cada fila tapaba los motivos que sí distinguen una de otra.
     motivo === null || (hoyEnCabecera && town.builtToday)

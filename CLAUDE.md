@@ -176,7 +176,8 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Qué es un árbol (la regla «árbol = no se pasa») | `esArbol`: las hojas de `ARBOLES` y los módulos de `ARBOLES_DE_LA_CUBIERTA` (`render/escenario/colocar.ts`) |
 | Lo que la copa de la masa no tapa de lo que se pisa | `topeDeLoPisable` (`altoPorLosLados`, `altoSobreLosPasillos` con `pasillosEstrechos`); el contador, `sobreLoPisable` |
 | Los módulos de la cubierta que no van en lo que se pisa (los peñascos grises de la nieve) | `FUERA_DE_LO_QUE_SE_PISA`, que lee `modulosDe(hoja, true)`; los pide la `mata` de lo que se pisa (`sePisa`) |
-| Formatear un precio | `describirCoste`; un entero con miles («176 000»), `conMiles` |
+| Formatear un precio | `describirCoste(oro)` («15 000 oro», o «gratis»); un entero con miles («176 000»), `conMiles` |
+| La renta del día (solo oro, 21-10-2026) | `rentaDelDia` (`state/renta.ts`: el ayuntamiento de cada ciudad propia unida a la base y `ECONOMIA.rentaDelPueblo` por pueblo de región propia unida, con de dónde sale cada moneda), que leen solo `startTurn`, el contrato (`you.income`) y `Session.renta` (la barra y el lateral); lo de una región, `rentaDeLaRegion` (la IA). El monedero es `Player.oro`, un número; el motivo de no poder pagar, `oroBlocker` (`town/town.ts`: «no alcanza el oro: cuesta … y tienes …») |
 | Camino de un héroe (con lo hostil) | `alcanceDelHeroe`, `caminoHasta`; nadie fuera de `game.ts` llama a `findPath`/`reachableFrom` |
 | Territorio y renta | `territorio(state)`, `dueñoComun` |
 | Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed`; los jugadores y la base de cada uno, `basesDelPlan` (los dueños de ciudad por id, con su primera ciudad: lo leen la validación, `newGame` y el servidor) |
@@ -203,7 +204,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Lo que se anda hoy (marcha y ruta) | `pasosDeHoy` (`state/game.ts`) |
 | Qué héroe se ve y qué se sabe de un objeto (agente, lienzo, minimapa, barra) | `heroesALaVista` (lo mirado ahora), `objetosConocidos` (vivo si se mira, si no el recuerdo de `memory`); el cliente, por `Session` |
 | Qué grupo de asaltantes se ve | `asaltantesALaVista` (lista con la marca `AsaltantesALaVista`; sin niebla, `todosALaVista`); para un grupo suelto, `grupoALaVistaDesde` |
-| Por dónde se entra en una mina o un pueblo | `puertasDe`, `rodeosParaEntrar` (`map/puertas.ts`, #230; la ciudad no: sus puertas son las de su recinto, lo vigila `invariantes.test.ts`) |
+| Por dónde se entra en un pueblo | `puertaDe`, `rodeosParaEntrar` (`map/puertas.ts`: la casilla de debajo; la mina, con dos, se fue el 21-10-2026; la ciudad no: sus puertas son las de su recinto, lo vigila `invariantes.test.ts`) |
 | Por qué una marcha no llegó (veredicto del agente) | `paradaDeLaMarcha` → `notaMarchaParcial` (`server/notas.ts`) |
 | Qué lleva la labranza (campos, atrezo, casas) | `labranzaDe` (`render/escenario/labranza.ts`); las hojas que pone su regla y no el sorteo, `HOJAS_DE_SU_REGLA` (`colocar.ts`); si una pieza va al suelo o es volumen, `Sprite.plano` (lo lee `esVolumen`) |
 | El recinto de una ciudad, en el núcleo (dónde está su 3 × 3, qué no va dentro y por dónde se entra) | `core/map/recinto.ts`, puro: `LADO_DEL_RECINTO`, `recintoDeLaCiudad` (con la ciudad en el medio, también la ciudad-puente; lanza si no cabe: una ciudad va a una casilla del borde o más; nunca se corre), `SEPARACION_DE_CIUDADES` (5, Chebyshev), las seis puertas con sus accesos, `PUERTAS_DE_LA_CIUDAD` (ni este ni oeste), las que puede llevar, `puertasPosibles`, y las que **tiene**, `puertasDeLaCiudad` (donde llega un tramo de `GameMap.caminos` de un acceso a su casilla, `RedDeCaminos.une`; la del río, siempre), el puente de una ciudad-puente, `rioAnteLaCiudad` (la casilla del río a dos de ella, que se pisa: el acceso de su puerta del río, también al este o al oeste); **el paso**, `pasosDelRecinto` → `pasoPermitido` (de un acceso a su puerta y de la puerta a la ciudad; la muralla no se pisa), que lee solo `map.ts` (`pasosDelMapa`: el Dijkstra, `stepCost`, `isEnterable`, `sePasa`; lo vigila `invariantes.test.ts`) y el trazado del generador con las puertas posibles (`EntradaDeCaminos.recintos`); las regiones de una ciudad, las de los accesos de sus puertas posibles, `regionesDeLaCiudad` (la lee `estructura`; un nodo no toca la región por la muralla); el puente no se une al recinto al etiquetar (`componentes`, `componentesDelMapa`); por qué no se pisa, `muroBlocker` (lo dicen `porQueNoLlega` y `stepCost`); qué tramo de las casillas del agente entra, `tramoDelRecinto` (`tramosDeCasillas`); lo que lo impide dicho para la persona, `problemasDeRecintos` (borde, separación, nada dentro, una ciudad sobre el río, un camino que cruza la muralla o que entra por la puerta y no sigue, una región que llega a un acceso sin camino que entre: sin camino no hay puerta, y una región que el recinto parte; lo llaman `validateMapPlan` y el final de `vestirRed`). Lo leen la escena, la prosa del agente y los tests; lo declara solo él (lo vigila `invariantes.test.ts`) |
@@ -237,7 +238,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 |---|---|
 | Rejilla de batalla | **regla nuestra** (fheroes2: 11 × 9 = 99): 9 filas, las pares de 12 y las impares de 11 = 104 hexes, offset odd-r, simétrica de izquierda a derecha (`FORMA_DEL_TABLERO`, `espejo`; el índice es compacto, la posición en `allHexes`). El defensor sale en el espejo del atacante y el tiro pasa si pasa con el empujón (`+3, −1, −2`) o con su espejo (`lineaLibre`): generoso, en todo empate de borde un rayo va por cada casilla; una casilla fuera del tablero tapa su rayo (nunca se tira por el marco a través de un muro) |
 | Tropa | individuos, uno por hex, acotados por el liderazgo (`data/liderazgo.json`, provisional) |
-| Recursos | madera, mercurio, mineral, azufre, cristal, gemas, oro |
+| Recursos | **regla nuestra** (21-10-2026, decisión del usuario, «solo oro»): solo oro. Sin minas ni montones de recursos en el mapa; el oro sale de las ciudades (su ayuntamiento), de los pueblos (250 al día cada uno, `rentaDelPueblo`, inventado) y de los cofres, y solo cobra lo unido a la base (`rentaDelDia`). Se empieza con 27 500 (`oroDeSalida`: el monedero de antes pasado a oro) |
 | Movimiento diario | lo marca la unidad más lenta; se fija al empezar el día. **Regla nuestra** (#226): la tabla de fheroes2 (1000-1500) ×√(`AREA_POR_REGION` / `AREA_DE_REFERENCIA`) = ×√1,5 → 1224-1837 (`marchaALaEscala`, `core/escala.ts`) |
 | Radio de vista | héroe 4 y castillo 5 en fheroes2 (`getFogDiscoveryDistance`); **regla nuestra** (#229): ×√1,5 al entero más cercano, 5 y 6 (`radioALaEscala`, `core/escala.ts`). El cuadrado, no el disco del original |
 | Puntos de hechizo | 10 × Conocimiento |
@@ -263,12 +264,13 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 
 - Lo temporal vive en `BattleStack.effects` y se suma al leer, nunca al stack.
 - **Economía**: costes de la villa de `buildinginfo.cpp` y renta de `ProfitConditions`,
-  copiados de la fuente. **Lo de las unidades se deriva de su índice** (inventado y provisional,
+  copiados de la fuente y **pasados a oro** (21-10-2026, «solo oro»; precio inventado: madera y
+  mineral a 250 de oro la unidad, mercurio, azufre, cristal y gemas a 500; el castillo, 15 000). **Lo de las unidades se deriva de su índice** (inventado y provisional,
   19-10-2026, `data/economia.json`): una unidad cuesta índice² / 500 de oro, redondeado a la
   decena (`oroDelIndice`, `costeDeUnaUnidad`), y crece por semana según su nivel, 12 / 8 / 5 / 4 /
   3 / 2 (`crecimientoDelNivel`: una morada que produce varias suelta el de cada una); una morada
   cuesta según el nivel de lo mejor que produce (`nivelDeMorada`, con la tabla de las seis moradas
-  del caballero de fheroes2) y no tiene mejora. No se ajustan cifras a ojo: se inventa solo lo
+  del caballero de fheroes2 pasada a oro: 200 / 1 000 / 2 250 / 7 000 / 8 000 / 20 000) y no tiene mejora. No se ajustan cifras a ojo: se inventa solo lo
   declarado como inventado.
 - **Un solo nivel, derivado de las cifras con el equipo puesto (regla nuestra, 12-10-2026; con el
   equipo desde el 18-10-2026, «el nivel ve el equipo»)**: el nivel de toda unidad —del catálogo,
@@ -342,11 +344,13 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   ciudad del centro cada día), j0 107 → 96, 0 sin terminar. Con 20 semillas (21-10-2026), fusionado
   con el héroe que nace en su base (`6a66ad51…`): el mismo mapa, y el primer hecho distinto es la
   primera jugada del j0 (cambia o recluta tropa en vez de salir); duración 4 / 12 / 14 → 4 / 6 / 6,
-  j0 10 de 20, 0 sin terminar.
+  j0 10 de 20, 0 sin terminar. Solo oro (`b9dbd8a1…`, 21-10-2026): otro mapa desde el día 1 (sin
+  minas ni montones, el azar llega distinto a los objetos), 4 / 7 / 7, 0 sin terminar; en 1-100,
+  4 / 6 / 17 y j0 46 (antes, medido igual, 3 / 6 / 15 y j0 62).
 - **El mapa es una red de nodos**: regiones cerradas por barrera
   (`mountain`, `water`, `forest`, `cliff`, `wall`), pasos de una casilla entre
-  ellas. Una ciudad es un nodo; un nodo se toma pisándolo. Una mina produce solo
-  si su región está unida a la base. Nada del territorio se guarda: se deriva.
+  ellas. Una ciudad es un nodo; un nodo se toma pisándolo. Un pueblo da su oro solo
+  si su región es del jugador y está unida a su base (`rentaDelDia`). Nada del territorio se guarda: se deriva.
   **Cada nodo guarda la barrera que cruza** (`MapObject.barrera`, #145): la del
   muro que el plan le pone debajo y `buildMap` abre; un nodo sin muro debajo se
   rechaza. El procedimental escribe ahí la que más se ve alrededor, sin el agua
@@ -360,21 +364,18 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   de todas las regiones que llegan a un acceso de su recinto, por la puerta de esa cara (la ciudad
   amurallada, fase 2: hay puerta donde llega un camino; ~1,6 ramas más por mapa), y sale de ella
   igual, como el héroe; la búsqueda no dobla por fuera la esquina de un recinto (la senda pasaba
-  por su torre). **A una mina o un pueblo se
-  entra por su puerta** (#188): la casilla de debajo; **la mina tiene dos**, debajo y a
-  la derecha, por donde salen sus raíles (#230), y su ramal sale por la más barata. Las
-  puertas son un hecho (`puertasDe`, `rodeosParaEntrar`, `map/puertas.ts`) que leen la
+  por su torre). **A un pueblo se
+  entra por su puerta** (#188): la casilla de debajo (la mina llevaba además la de la derecha,
+  #230; se fue con las minas, 21-10-2026). La
+  puerta es un hecho (`puertaDe`, `rodeosParaEntrar`, `map/puertas.ts`) que leen la
   búsqueda, `colocarPar` y `sendasPorObjeto`; el juego no las mira. Son hojas del árbol (no se
   cruzan salvo que sean la única unión, más caro que pisar un monstruo); entrar
   por una puerta no cuesta, a 45° de la más cercana un rodeo, a 90° tres y
-  más allá cuatro (con las dos de la mina, el noreste es diagonal de delante, el norte un
-  costado y solo el noroeste espalda), y sus costados y espalda (`espalda`) cobran dos rectos, así
+  más allá cuatro, y sus costados y espalda (`espalda`) cobran dos rectos, así
   que el radio que sigue de largo pasa por delante y el objeto cuelga de él con
-  un ramal de una casilla. En 1-200, los ramales de mina miden 2,54 → 2,08 pasos, el 46 % sale
-  por la derecha y los que doblan la esquina de su mina (pisan ≥ 3 de sus vecinas) pasan de 99 a
-  20 (`tools/qa/ramales.ts`, `test/ramales-de-minas.test.ts`; 09-10-2026). `colocarPar` guarda las
-  puertas de minas y pueblos (la mina, las dos; si no hay sitio, una; 4 399 de 4 400 con las dos en
-  1-200), y no pone uno delante de la puerta de otro (en la fila que la cruza); si así no sale mapa, `trazarYVestir`
+  un ramal de una casilla (los ramales de mina y su medida, `tools/qa/ramales.ts`, se fueron con
+  las minas). `colocarPar` guarda la
+  puerta de cada pueblo, y no pone uno delante de la puerta de otro (en la fila que la cruza); si así no sale mapa, `trazarYVestir`
   repite sin vetarla a los obstáculos, que es lo que salvaba el 24×24, el lado mínimo hasta el recinto de las ciudades); `ponerObstaculos` no parte una región
   por uno. Una ciudad (nodo) llega desde la mejor fila que toca cada región;
   la de detrás, por detrás. Los planes del agente no cambian (su `advice` lo
@@ -403,7 +404,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   quedaba en la fila de arriba y su puerta, entre dos acantilados, era un barranco de una casilla
   donde la cara acababa en seco; el costado de la puerta con acantilado encima se abre a lo bajo y
   la casilla de la meseta a dos de la ciudad en su fila pasa a acantilado (la línea, en escalera),
-  salvo si es pasillo o toca un nodo. Costados así en 1-1000: 59 → 5 (`test/puertas-sin-muesca.test.ts`).
+  salvo si es pasillo o toca un nodo. Costados así en 1-1000 (09-10-2026): 59 → 5.
   **Ninguna caída al sur va recta 10 casillas** (#231, `quebrarCaidas`, paso 7a'' tras los
   espolones): la línea de 7a copia el borde del lado bajo y la región alta sobre el agua cae en su
   propio borde, y las caras rectas largas que dejaban #229 y #230 eran todas eso. Cada fila que cae
@@ -457,16 +458,15 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   8 / 15 / 21; en 1-1000, 8 / 16 / 34 → 8 / 15 / 41; 0 sin terminar. **La ventaja del jugador 0 no
   cambia** (603 de 1 000): es sobre todo **abrir el día** (+63 de 1 000, medido cambiando de base y de
   facción en 4 000 partidas; la base 0 da +30 y el caballero +16); con el orden en serpiente (quien cierra
-  un día abre el siguiente, «Orden de turnos» en las reglas) se va a +2, y j0 gana 524 de 1 000 (duración 8 / 14 / 29). **Minas por región (regla nuestra)**: la de casa, oro, madera y mineral;
-  cada una de fuera, una rara y una básica por turno (`minasDeLasRegiones`): 2·regiones + 1
-  por bando, 11 con 5 (con tres por región de fuera no cabían: objetos sin puerta 243 → 314
-  de 1 000 y guardias del generador rotos).
+  un día abre el siguiente, «Orden de turnos» en las reglas) se va a +2, y j0 gana 524 de 1 000 (duración 8 / 14 / 29). **Sin minas (21-10-2026, «solo oro»)**: cada región
+  de fuera lleva un pueblo y la de casa, nada más que la base; ni minas (eran 2·regiones + 1 por
+  bando) ni montones de recursos. Un plan del agente con `mines` o `resources` se rechaza diciéndolo.
   El agente sigue recibiendo ancho y alto, con el reparto como consejo. Un plan mide de 8 a 128 por lado
   (`LADO_MINIMO_DEL_PLAN`); el generador solo sabe de 26 a 64 (pedido por lado; por regiones, de 30 a 63)
   (`LADO_MINIMO_DEL_GENERADOR`, 200 de 200 semillas en cada lado) y fuera lanza antes de intentarlo (#102).
   Era 24 hasta el recinto de las ciudades (21-10-2026, decisión del usuario): con dos ciudades a 5 o
   más y ninguna en el borde, el 24×24 se quedaba sin mapa en 15 de 200; el 26, en 0.
-  Ninguna mina ni pueblo lleva una puerta en el borde (`colocarPar`, #189; la de la derecha de la mina tampoco, #230), salvo el respaldo sin puerta.
+  Ningún pueblo lleva su puerta en el borde (`colocarPar`, #189), salvo el respaldo sin puerta.
   **El nivel es de la región** (#143): `MapRegion.nivel` (0 abajo, 1 el llano, 2 la meseta), sin
   efecto en las reglas. El procedimental lo sortea por pareja en espejo justo después del suelo
   (`data/relieve.json`, inventado: ciénaga 0; nieve, lava y áspero 2 una vez de cada tres; el resto
@@ -485,8 +485,8 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   camino de `crucesConCamino`), lo que se pisa por encima de sus dos vecinas de un eje (`espigasDelRelieve`)
   se rellena de la barrera baja de al lado, y si es pasillo de un nodo se le abre la orilla a su
   región (sin otra región a menos de tres pasos) o la orilla pasa a montaña; luego bolsillos, cruces y
-  murallas otra vez, hasta `VUELTAS_SIN_ESPIGAS`; si aún queda una, el vestido no vale (7b', s49 con #222). 0 en 1-200 y en 24 y 64 (eran 112 en este-oeste en 10
-  semillas, `test/espigas.test.ts`). **Ninguna senda corta en diagonal una esquina de agua** salvo junto a un puente (el tramo que
+  murallas otra vez, hasta `VUELTAS_SIN_ESPIGAS`; si aún queda una, el vestido no vale (7b', s49 con #222). 0 en 1-200 y en 24 y 64 hasta el 21-10-2026 (eran 112
+  en este-oeste en 10 semillas); sin minas quedan algunas (s17, s157, s174) y no hay guardia que las mire. **Ninguna senda corta en diagonal una esquina de agua** salvo junto a un puente (el tramo que
   llega a él y su río, sus ocho vecinas: ahí va el vado) (#210): la búsqueda cobra dos rectos por ese
   paso (con un rodeo el camino se iba al borde) y lo que queda —la entrada en diagonal de un nodo o
   una ciudad entre dos barreras— pasa esa esquina a montaña, en espejo (`sinAguaEnLasEsquinas`); si
@@ -604,11 +604,11 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   cara del río del recinto (escala ~0,68), pintado antes que esa cara, que entra por el arco de su
   puerta del río (`puentesSobreElAnillo` = 0). Quien está en él se pinta en su tablero, como en el de
   un nodo, y pulsarlo lleva a esa casilla, que se pisa; la marca y el clic de la ciudad, en su casilla.
-  Las sendas llegan a sus estribos como a los de un nodo; `test/ciudad-puente.test.ts`.
+  Las sendas llegan a sus estribos como a los de un nodo.
   De la senda de un puente del río, «bajo el puente» es solo lo que va sobre el tablero, a menos de
   media casilla de su línea (`tramosHastaLosEstribos`, H4): a los lados se cambiaba por la recta del
   estribo, que pasaba por el agua de al lado (s52, s93, s97, s100) o dejaba una montaña sin pico
-  (s41); `sendaSobreElAgua` = 0 en 1-100.
+  (s41); `sendaSobreElAgua` = 0 en 1-100 (16-10-2026; sin minas, s51 da 1, sin guardia desde el 21-10-2026).
   **Las charcas** (`Escena.charcas`, el agua que toca una sola región: los lagos de obstáculo) se
   pintan turbias (`COLOR_DE_LA_CHARCA`, `multiply`) para no competir con el río: 1 407 de 5 390
   casillas de agua en 1-40.
@@ -695,6 +695,9 @@ antes del destino (`battle_started` con `faltan`).
   casillas de camino se unen en el recinto solo de un acceso a su puerta y de la puerta a la ciudad,
   `tramoDelRecinto`). Si falla por cualquier motivo, se juega el procedimental y se le dice por qué;
   no hay reintento.
+- **El oro en el contrato** (21-10-2026): `you.gold` (un número) y `you.income` (`total`, `towns`
+  y `villages`, de `rentaDelDia`); todo `cost` es un número de oro. Un plan con `mines` o
+  `resources` se rechaza diciéndolo.
 - La partida termina con un `game_over` explícito. `state.finished` es
   `{ winner: PlayerId | null } | null`; el tope de días es `GameState.maxDays`.
 - Del contrato se exportan esquemas, no alias de tipo.
@@ -786,7 +789,7 @@ antes del destino (`battle_started` con `faltan`).
   (`enEsteHilo`, `pintarSueloA`). Otro mapa termina el pintor del anterior y
   cierra lo pintado. **Los volúmenes**
   (árboles, picos, muros, paredes, lo que pase de `UMBRAL_DE_VOLUMEN` = 0,6
-  casillas, las piezas de cada ciudad y pueblo, nodo y mina horneados) se pintan a cada fotograma,
+  casillas, las piezas de cada ciudad y pueblo y nodo horneados) se pintan a cada fotograma,
   en píxeles de dispositivo, desde copias reducidas al tamaño exacto que se
   copian 1:1, de una caché LRU de 80 MB (`render/copias.ts`, la de las piezas
   también; copias por niveles reescaladas costaban 15-20 fps en 2560×1440), como mucho
@@ -802,11 +805,11 @@ antes del destino (`battle_started` con `faltan`).
   `informe.pisablesTapadas` = 0, eran 2 281 en 1-40). El suelo de debajo sigue bajo la cara. Se recortan al
   mapa por los lados y por abajo; por arriba, solo lo que sube desde una casilla sin explorar
   (`recortadoArriba`, #152), porque encima del mapa no hay niebla que lo tape. Lo que dice quién está en una
-  casilla —inicial del héroe, chapa, estandarte, bandera, icono de la mina— va en
+  casilla —inicial del héroe, chapa, estandarte, bandera— va en
   una pasada encima de todo y bajo la niebla; la inicial que taparía a otra figura se
   va a un lado de la cabeza (`asientoDeLaInicial`). **Excepción**: un grupo de
   asaltantes que se ve por su región con la casilla sin explorar se pinta, figura
-  y chapa, encima de la niebla (`cosasDe` → `sobreLaNiebla`). Monstruos, recursos y cofres los
+  y chapa, encima de la niebla (`cosasDe` → `sobreLaNiebla`). Monstruos y cofres los
   pinta el juego (`seHornea`, en `escenario/horneado.ts`). **Las cordilleras** (`macizo.ts`): cada franja de
   montaña crece de la falda a la cresta por la hondura continua del punto (distancia euclídea al
   borde; la cresta en la hondura mayor de la franja, tope 2,5) en dos escalas (#204): la cresta, de
@@ -903,7 +906,8 @@ antes del destino (`battle_started` con `faltan`).
   recinto, delante, y el fuego, en su medio
   (`luzDelRecinto`; el clic y la marca siguen en la casilla del núcleo). `recintoSobreSenda`,
   `sendaFueraDeLaPuerta`, `puertaSinCamino`, `anilloAbierto`, `puenteSobreElAnillo`,
-  `casasRepetidasJuntas`, `arcosTapados` y `testerosAMediaTirada` = 0 en 1-40 (`anilloMalOrdenado`, 0 en los 256 juegos de puertas del octógono con cada torre). **El 3 × 3 es del núcleo** (vuelta 3, fase 1, `core/map/recinto.ts`): ninguno en el borde,
+  `casasRepetidasJuntas`, `arcosTapados` y `testerosAMediaTirada` = 0 en 1-40 (21-10-2026, con minas; sin ellas, s11 da 4 `recintoSobreSenda`, y
+  no hay guardia que los mire; `anilloMalOrdenado`, 0 en los 256 juegos de puertas del octógono con cada torre). **El 3 × 3 es del núcleo** (vuelta 3, fase 1, `core/map/recinto.ts`): ninguno en el borde,
   ninguno a menos de 5 de otro y nada dentro, así que ya no hay recintos que se toquen (eran s2, s3,
   s13, s16, s21, s36 en 1-40 y s50, s62, s105 fuera) ni nodos entre las casas (s98, s105). El héroe
   de salida nace en la casilla de su ciudad, en el medio, con los pies sobre la piedra
@@ -1157,7 +1161,9 @@ pnpm gen -- all --go --budget 4       # genera de verdad (--budget = gasto ACUMU
 Sin `--go` no se gasta nada; caché por hash del payload; gasto en
 `tools/gen/spend.json`. Texturas como material a 90°, liso, sin mencionar agua.
 Atlas de poses: ≤ 10 celdas, rejilla cuadrada, segunda referencia = identidad;
-`cutout.ts` recorta por relleno desde el borde. Las criaturas y sus poses de
+`cutout.ts` recorta por relleno desde el borde. De los iconos de recursos queda el del oro
+(`ICONO_DEL_ORO`, el mismo texto: la caché no lo repaga); los otros seis, con el atlas de la mina
+y los montones del mapa, están en `assets/art/retirado/` (21-10-2026), que no va al build. Las criaturas y sus poses de
 `tools/gen/animate.ts` se retiraron (#139): las figuras son del taller.
 
 ## El equipo de agentes
@@ -1197,7 +1203,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: 4 semillas; una sola sin terminar es regresión |
 | `pnpm banco` | ~2 s | si tocas el núcleo sin querer cambiar el juego: 20 partidas (eran 200; decisión del usuario, 21-10-2026: «estamos en pleno desarrollo»); para medir más, `pnpm banco 200` |
-| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10, y con el río de lago de 20, 121 / 0 / 12; con el recinto de las ciudades en el núcleo, 98 / 0 / 6; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
+| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10, y con el río de lago de 20, 121 / 0 / 12; con el recinto de las ciudades en el núcleo, 98 / 0 / 6; sin minas (21-10-2026), 106 / 0 / 10; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 | `tools/qa/neutro.ts` | ~10 s | si tocas una hoja de estilo: sin `data-tema`, 0 diferencias con HEAD |
 | `tools/qa/temas-con-piezas.ts [carpeta]` | ~5 min | si tocas los temas o sus piezas: rótulos de sección sobre su pieza, el lienzo quieto en 7 ventanas, lo que tapan marco, remate y cartela, y las capturas lado a lado |

@@ -8,13 +8,13 @@ import type { Sprite } from './colocar.js';
 
 /**
  * Lo que se hornea en la escena: lo que no cambia en la partida salvo de dueño.
- * Ciudad, pueblo, nodo y mina los pinta el escenógrafo; el juego pinta encima
- * su bandera. Monstruos, recursos y cofres desaparecen al vencerlos o
- * recogerlos, así que los pinta el juego. Una sola regla con cuatro lectores: la
+ * Ciudad, pueblo y nodo los pinta el escenógrafo; el juego pinta encima su
+ * bandera. Monstruos y cofres desaparecen al vencerlos o recogerlos, así que
+ * los pinta el juego. Una sola regla con cuatro lectores: la
  * pintura, las imágenes que se cargan, el pintor del suelo y `pintarObjeto`.
  */
 export function seHornea(kind: MapObject['kind']): boolean {
-  return kind === 'town' || kind === 'village' || kind === 'node' || kind === 'mine';
+  return kind === 'town' || kind === 'village' || kind === 'node';
 }
 
 /** `seHornea` como el filtro `objeto` de `OpcionesDePintura`. */

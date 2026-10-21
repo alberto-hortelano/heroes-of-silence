@@ -68,7 +68,9 @@ describe('Casillas: la niebla por índice (#146)', () => {
 
   it('en una partida jugada, lo que se mira está explorado y es lo que dice `visibleNowAt`', async () => {
     // La 1: en la 3, con el río de lago de 20 casillas, alguien pierde antes del día 8.
-    const state = newGame({ seed: 1, maxDays: 8 });
+    // Hasta el día 5 desde que no hay minas (21-10-2026): la 1 ya no llega
+    // al 8 sin un eliminado, ni ninguna de 1-12.
+    const state = newGame({ seed: 1, maxDays: 5 });
     await playAiGame(state, { rng: createRng(1) });
     for (const p of state.players) {
       const mirando = visibleNow(state, p.id);

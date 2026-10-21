@@ -431,7 +431,7 @@ describe('enlace con el agente', () => {
     const hero = director.state.heroes.find((h) => h.owner === 0)!;
     hero.at = base.at;
     base.buildings.push('armory');
-    director.state.players[0]!.resources = { ...director.state.players[0]!.resources, gold: 20000 };
+    director.state.players[0]!.oro = 20000;
 
     const informe = await director.playTurn();
 
@@ -685,12 +685,12 @@ function sinAsaltantes(state: { raiders: unknown[] }): void {
 }
 
 /**
- * Sin montones ni cofres: el oro que dicen estos tests es el de antes de la
- * batalla, y el héroe que va al monstruo recogía lo que pillase de camino
- * según cayera el mapa (con los bordes de #169, 824 de oro en la semilla 106).
+ * Sin cofres: el oro que dicen estos tests es el de antes de la batalla, y el
+ * héroe que va al monstruo recogía lo que pillase de camino según cayera el
+ * mapa (con los bordes de #169, 824 de oro en la semilla 106).
  */
 function sinRecogidas(state: GameState): void {
-  const quedan = state.map.objects.filter((o) => o.kind !== 'resource' && o.kind !== 'chest');
+  const quedan = state.map.objects.filter((o) => o.kind !== 'chest');
   state.map.objects.splice(0, state.map.objects.length, ...quedan);
 }
 
@@ -731,7 +731,7 @@ describe('el agente se rinde (fase 1b)', () => {
     const heroe = director.state.heroes[0]!;
     heroe.army = ejercito({ creature: TIRADOR, count: 2 });
     heroe.movePoints = 20000;
-    const oroAntes = director.state.players[0]!.resources.gold;
+    const oroAntes = director.state.players[0]!.oro;
 
     await director.playTurn();
     await respira();
@@ -756,7 +756,7 @@ describe('el agente se rinde (fase 1b)', () => {
     const base = director.state.towns.find((t) => t.id === director.state.players[0]!.base)!;
     expect(pointKey(heroe.at)).toBe(pointKey(base.at));
     expect(heroe.army).toEqual(ejercito({ creature: TIRADOR, count: 2 }));
-    expect(oroAntes - director.state.players[0]!.resources.gold).toBe(precio);
+    expect(oroAntes - director.state.players[0]!.oro).toBe(precio);
     // …y la crónica que le llega después lo cuenta también.
     expect(vuelta).toMatchObject({ surrendered: true, gold: precio });
   });
@@ -798,7 +798,7 @@ describe('el agente se rinde (fase 1b)', () => {
       o.count = 7;
       (o as { creature: string }).creature = 'caballero-de-la-muerte';
     }
-    const oroAntes = director.state.players[0]!.resources.gold;
+    const oroAntes = director.state.players[0]!.oro;
 
     await director.playTurn();
     await respira();
@@ -810,7 +810,7 @@ describe('el agente se rinde (fase 1b)', () => {
     expect(director.state.log.filter((e) => e.kind === 'hero_returned' && e.surrendered)).toEqual(
       [],
     );
-    expect(director.state.players[0]!.resources.gold).toBe(oroAntes);
+    expect(director.state.players[0]!.oro).toBe(oroAntes);
   });
 });
 
@@ -1832,7 +1832,7 @@ describe('el agente sabe cómo le fue', () => {
     // Sin oro para rendirse: si no, la heurística sustituta se rinde en la
     // primera decisión —seis pesados contra su tropa— y la batalla acaba
     // antes de que salgan las ramas del turno y del maná, que es lo que se mide.
-    director.state.players[1]!.resources = { ...director.state.players[1]!.resources, gold: 0 };
+    director.state.players[1]!.oro = 0;
     await director.playTurn();
     await respira();
 
@@ -2573,8 +2573,10 @@ describe('la rueda del golpe por el contrato (F6)', () => {
 
   it('una respuesta que no es un golpe, o que no llega, la elige la IA y la batalla sigue siendo suya', async () => {
     let pedidas = 0;
+    // La 604 desde que no hay minas (21-10-2026): en el mapa nuevo de la 603 el
+    // monstruo no llegaba a pegarle.
     const { agent } = await contraElMonstruo(
-      603,
+      604,
       (kind, payload) => {
         if (kind === 'battle_turn') {
           const acciones = payload.legalActions as any[];

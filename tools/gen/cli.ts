@@ -12,10 +12,9 @@
  */
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { RESOURCE_KINDS } from '@core/types.js';
 import { FalClient } from './fal.js';
 import { ICON_SIZE, processSprite, processTerrain } from './postprocess.js';
-import { RESOURCE_ICON_PROMPTS, TERRAIN_PROMPTS, TERRENOS_CON_TEXTURA } from './prompts.js';
+import { ICONO_DEL_ORO, TERRAIN_PROMPTS, TERRENOS_CON_TEXTURA } from './prompts.js';
 
 const ROOT = process.cwd();
 const CACHE_DIR = join(ROOT, 'tools', 'gen', '.cache');
@@ -88,15 +87,13 @@ function buildJobs(only: string): Job[] {
   }
 
   if (only === 'all' || only === 'icons') {
-    for (const r of RESOURCE_KINDS) {
-      jobs.push({
-        group: 'icons',
-        name: r,
-        kind: 'sprite',
-        prompt: RESOURCE_ICON_PROMPTS[r],
-        out: join('icons', `${r}.png`),
-      });
-    }
+    jobs.push({
+      group: 'icons',
+      name: 'gold',
+      kind: 'sprite',
+      prompt: ICONO_DEL_ORO,
+      out: join('icons', 'gold.png'),
+    });
   }
 
   return jobs;

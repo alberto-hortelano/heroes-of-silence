@@ -75,12 +75,7 @@ export function responderConsulta(
       const vista =
         suyos.size === 0
           ? serializeBattleTurn(pending.battle, 'attacker', 'ajena', null)
-          : serializeBattleTurn(
-              pending.battle,
-              mio,
-              'propia',
-              playerById(state, player).resources.gold,
-            );
+          : serializeBattleTurn(pending.battle, mio, 'propia', playerById(state, player).oro);
       const note = notaDeLaBatalla(vista, player, suyos.size);
       return note === null ? vista : { ...vista, note };
     }

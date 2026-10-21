@@ -82,7 +82,6 @@ import {
   HERO_HIRE_COST,
   heroById,
   heroesOf,
-  MINE_YIELD,
   ordenDelDia,
   resolvePendingBattle,
   townsOf,
@@ -97,19 +96,11 @@ import {
   build,
   buildBlocker,
   createTown,
-  dailyIncome,
   dwellings,
   type Town,
   townSpells,
 } from '../src/core/town/town.js';
-import {
-  EMPTY_RESOURCES as EMPTY,
-  FACTION_IDS,
-  type FactionId,
-  type Point,
-  RESOURCE_KINDS,
-  type Resources,
-} from '../src/core/types.js';
+import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
 import {
   acabarPorLaBase,
   conCaminos,
@@ -147,11 +138,17 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
  * test mediría otra cosa —o reventaría— según la semilla.
  */
 const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
+  // Las diagonales al final: el héroe nace en su base, y de una ciudad solo se
+  // sale por las puertas que tiene, que pueden ser todas de esquina.
   for (const d of [
     { x: 1, y: 0 },
     { x: -1, y: 0 },
     { x: 0, y: 1 },
     { x: 0, y: -1 },
+    { x: 1, y: 1 },
+    { x: -1, y: 1 },
+    { x: 1, y: -1 },
+    { x: -1, y: -1 },
   ]) {
     const at = { x: desde.x + d.x, y: desde.y + d.y };
     const camino = findPath(state.map, desde, at);
@@ -482,45 +479,8 @@ describe('generación de mapas', () => {
     const { map, towns } = buildMap(plan);
     expect(towns).toHaveLength(plan.towns.length);
     expect(map.objects.filter((o) => o.kind === 'monster')).toHaveLength(plan.monsters.length);
-    expect(map.objects.filter((o) => o.kind === 'mine')).toHaveLength(plan.mines.length);
-    for (const mina of plan.mines) expect(objectAt(map, mina.at)).toBeDefined();
-  });
-
-  it('el generador reparte minas de los siete recursos, dos por bando y en espejo (#68)', () => {
-    // La mitad de #68 sigue en pie: con cuatro recursos no existía una sola
-    // mina de gemas, mercurio ni azufre, y seis edificios eran inalcanzables.
-    // Se recorre `RESOURCE_KINDS` y no la lista del generador: compararla
-    // consigo misma no probaría nada.
-    //
-    // El espejo cambió de forma con el mapa de nodos y conviene saber por qué:
-    // los muros de una casilla no se pueden reflejar sin abrir huecos, así que
-    // ya no es «la casilla reflejada» sino **la región reflejada**. Las semillas
-    // 2k y 2k+1 son espejo, y cada mina de una tiene su gemela —mismo recurso—
-    // en la otra. Lo que la simetría protege —que ningún bando nazca con una
-    // mina a mano que el otro no tiene— sigue siendo una aserción.
-    for (let semilla = 1; semilla <= 20; semilla++) {
-      const plan = generateMapPlan(createRng(semilla));
-      const { map } = buildMap(plan);
-      const conMina = new Set(plan.mines.map((m) => m.resource));
-      for (const recurso of RESOURCE_KINDS) {
-        expect(conMina.has(recurso), `la semilla ${semilla} no reparte minas de ${recurso}`).toBe(
-          true,
-        );
-      }
-      const porRegion = new Map<string, number>();
-      const { regionDe } = estructura(map);
-      for (const m of plan.mines) {
-        const r = regionDe[m.at.y * map.width + m.at.x];
-        expect(r, `la mina de (${m.at.x},${m.at.y}) no está en una región`).not.toBe(-1);
-        const clave = `${m.resource}@${r}`;
-        porRegion.set(clave, (porRegion.get(clave) ?? 0) + 1);
-      }
-      for (const [clave, n] of porRegion) {
-        const [recurso, r] = clave.split('@') as [string, string];
-        const pareja = Number(r) % 2 === 0 ? Number(r) + 1 : Number(r) - 1;
-        expect(porRegion.get(`${recurso}@${pareja}`), `semilla ${semilla}: ${clave}`).toBe(n);
-      }
-    }
+    expect(map.objects.filter((o) => o.kind === 'village')).toHaveLength(plan.villages.length);
+    for (const v of plan.villages) expect(objectAt(map, v.at)?.kind).toBe('village');
   });
 });
 
@@ -613,14 +573,14 @@ describe('calendario', () => {
 });
 
 describe('economía', () => {
-  it('el ayuntamiento y las minas ingresan cada día', () => {
+  it('el ayuntamiento ingresa cada día', () => {
     const state = newGame({ seed: 11 });
     const c = ctx(11);
-    const oroInicial = state.players[0]!.resources.gold;
+    const oroInicial = state.players[0]!.oro;
 
     // Su turno siguiente, con su ingreso.
     hastaSuSiguienteTurno(state, c, 0);
-    expect(state.players[0]!.resources.gold).toBeGreaterThan(oroInicial);
+    expect(state.players[0]!.oro).toBeGreaterThan(oroInicial);
   });
 
   it('construir cuesta recursos y solo se puede una vez al día', () => {
@@ -628,7 +588,7 @@ describe('economía', () => {
     const c = ctx(12);
     const town = townsOf(state, 0)[0]!;
     const player = currentPlayer(state);
-    const oroAntes = player.resources.gold;
+    const oroAntes = player.oro;
     // Dos moradas de su facción que solo piden lo que la base trae hecho.
     const [una, otra] = buildingsOfFaction(town.faction)
       .filter((b) => b.morada !== undefined && b.prebuilt !== true)
@@ -638,7 +598,7 @@ describe('economía', () => {
 
     applyAdventureAction(state, { type: 'build', town: town.id, building: una! }, c, state.current);
     expect(town.buildings).toContain(una);
-    expect(player.resources.gold).toBeLessThan(oroAntes);
+    expect(player.oro).toBeLessThan(oroAntes);
 
     expect(() =>
       applyAdventureAction(
@@ -754,51 +714,6 @@ describe('movimiento de héroes', () => {
     expect(state.players[0]!.fog.size).toBeGreaterThan(nieblaAntes);
   });
 
-  it('recoge los recursos que pisa', () => {
-    const state = newGame({ seed: 22 });
-    const c = ctx(22);
-    const hero = heroesOf(state, 0)[0]!;
-    const recurso = state.map.objects.find((o) => o.kind === 'resource' && !o.taken);
-    expect(recurso).toBeDefined();
-
-    // Teletransporte de test: interesa la recogida, no el paseo. A una vecina
-    // desde la que se llegue: la de la izquierda era fija, y en cuanto un mapa
-    // nuevo (#166 H10) le puso una barrera, el test dejó de probar la recogida.
-    const vecina = [
-      { x: -1, y: 0 },
-      { x: 1, y: 0 },
-      { x: 0, y: -1 },
-      { x: 0, y: 1 },
-    ]
-      .map((d) => ({ x: recurso!.at.x + d.x, y: recurso!.at.y + d.y }))
-      .find((p) => findPath(state.map, p, recurso!.at) !== null);
-    expect(vecina, 'el recurso no tiene ninguna vecina en cruz desde la que llegar').toBeDefined();
-    hero.at = vecina!;
-    hero.movePoints = 5000;
-
-    const antes = { ...state.players[0]!.resources };
-    applyAdventureAction(
-      state,
-      { type: 'move_hero', hero: hero.id, to: recurso!.at },
-      c,
-      state.current,
-    );
-    const tipo = (recurso as { resource: keyof typeof antes }).resource;
-    expect(state.players[0]!.resources[tipo]).toBeGreaterThan(antes[tipo]);
-  });
-
-  it('una mina no se toma al pisarla: es de quien tenga su región', () => {
-    // Era «captura las minas que visita». La mina perdió el dueño con el mapa
-    // de nodos, y pisarla no deja ningún hecho en la crónica.
-    const state = newGame({ seed: 0, plan: planDeNodos() });
-    const c = ctx(23);
-    const hero = heroesOf(state, 0)[0]!;
-    hero.movePoints = 5000;
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 2, y: 2 } }, c, 0);
-    expect(hero.at).toEqual({ x: 2, y: 2 });
-    expect(state.log.some((e) => e.kind === 'node_captured')).toBe(false);
-  });
-
   it('capturar un castillo cambia el libro de cuentas Y la bandera del mapa', () => {
     // El mismo hecho vivía en dos sitios y solo se escribía uno. La IA veía el
     // castillo ENEMIGO donde tenía el suyo, y como eso vale 40000 y estaba a un
@@ -901,7 +816,7 @@ describe('batallas del mapa', () => {
     hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
     base.garrison = [];
     // Sin oro no hay rendición: tiene que caer peleando.
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
+    state.players[0]!.oro = 0;
     // Se sustituye por un monstruo imbatible en la misma casilla.
     state.map.objects.splice(state.map.objects.indexOf(monstruo), 1, {
       kind: 'monster',
@@ -954,7 +869,7 @@ describe('IA de respaldo', () => {
     const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
     const player = state.players.find((p) => p.id === 0)!;
     state.heroes = state.heroes.filter((h) => h.owner !== 0);
-    player.resources = { ...player.resources, gold: HERO_HIRE_COST + 400 };
+    player.oro = HERO_HIRE_COST + 400;
     // Con la morada llena, quien manda es el oro: sin la reserva, el
     // reclutamiento se lo lleva hasta el último. Con lo poco que cría la morada
     // el día 1 este test pasaría sin reserva y no guardaría nada.
@@ -965,7 +880,7 @@ describe('IA de respaldo', () => {
     expect(reclutas.some((a) => a.type === 'recruit')).toBe(true); // no se queda parado
     for (const accion of reclutas) applyAdventureAction(state, accion, ctx(41), 0);
 
-    expect(player.resources.gold).toBeGreaterThanOrEqual(HERO_HIRE_COST);
+    expect(player.oro).toBeGreaterThanOrEqual(HERO_HIRE_COST);
     expect(planHires(state, 0).some((a) => a.type === 'hire_hero')).toBe(true);
   });
 
@@ -982,7 +897,7 @@ describe('IA de respaldo', () => {
     const montar = (conHeroe: boolean) => {
       const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
       const player = state.players.find((p) => p.id === 0)!;
-      player.resources = { ...player.resources, gold: HERO_HIRE_COST + 100 };
+      player.oro = HERO_HIRE_COST + 100;
       const town = townsOf(state, 0)[0]!;
       for (const id of Object.keys(town.available)) town.available[id] = 500;
       if (!conHeroe) state.heroes = state.heroes.filter((h) => h.owner !== 0);
@@ -1367,15 +1282,7 @@ describe('partida completa', () => {
 });
 
 describe('catálogo de edificios por facción', () => {
-  const bolsaInfinita: Resources = {
-    wood: 9999,
-    mercury: 9999,
-    ore: 9999,
-    sulfur: 9999,
-    crystal: 9999,
-    gems: 9999,
-    gold: 999999,
-  };
+  const bolsaInfinita = 999_999;
 
   const pueblo = (faction: FactionId): Town =>
     createTown(`t-${faction}`, 'Prueba', faction, { x: 0, y: 0 }, 0);
@@ -1415,62 +1322,6 @@ describe('catálogo de edificios por facción', () => {
     }
   });
 
-  it('ninguna morada de nivel 1 a 4 pide un recurso raro, en ninguna facción', () => {
-    // Regla del original: allí el mercurio, el azufre, el cristal y las gemas no
-    // aparecen hasta el nivel 5. Desde F3 el coste sale de la tabla de
-    // `data/economia.json` por el nivel de la morada (el de lo mejor que
-    // produce), y si alguien vuelve a escribir un raro en la mitad baja, salta esto.
-    const RAROS = ['mercury', 'sulfur', 'crystal', 'gems'] as const;
-    for (const faction of FACTION_IDS) {
-      for (const b of buildingsOfFaction(faction)) {
-        if (b.morada === undefined || nivelDeMorada(b) > 4) continue;
-        for (const raro of RAROS) {
-          expect(b.cost[raro] ?? 0, `${b.id} pide ${raro} y es de nivel ${nivelDeMorada(b)}`).toBe(
-            0,
-          );
-        }
-      }
-    }
-  });
-
-  it('la morada más cara se paga con la bolsa justa, y sin uno de sus materiales se dice', () => {
-    // La de más nivel de todas las facciones, con lo que pide levantado antes.
-    const cara = FACTION_IDS.flatMap((f) => buildingsOfFaction(f))
-      .filter((b) => b.morada !== undefined)
-      .sort((x, y) => nivelDeMorada(y) - nivelDeMorada(x))[0]!;
-    const preparado = (): Town => {
-      const t = pueblo(cara.faction!);
-      levantar(
-        t,
-        (cara.requires ?? []).filter((r) => !t.buildings.includes(r)),
-      );
-      t.builtToday = false;
-      return t;
-    };
-    const bolsa: Resources = {
-      wood: 0,
-      mercury: 0,
-      ore: 0,
-      sulfur: 0,
-      crystal: 0,
-      gems: 0,
-      gold: 0,
-    };
-    const exacta = { ...bolsa, ...cara.cost };
-
-    const t = preparado();
-    expect(build(t, cara.id, exacta)).toEqual(bolsa);
-    // Trae ya la primera hornada de cada unidad que produce.
-    for (const u of unidadesDeMorada(cara.id)) expect(t.available[u.id], u.id).toBe(u.growth);
-
-    // Y con la misma bolsa menos un material, el motivo se escribe para la
-    // persona en vez de dejar el botón muerto sin decir por qué.
-    const material = RESOURCE_KINDS.find((r) => (cara.cost[r] ?? 0) > 0)!;
-    expect(buildBlocker(preparado(), cara.id, { ...exacta, [material]: 0 })).toBe(
-      'recursos insuficientes',
-    );
-  });
-
   // ------------------------------------------------------------------- #46
 
   it('un pueblo no levanta un edificio que no existe ni uno de otra facción', () => {
@@ -1486,15 +1337,17 @@ describe('catálogo de edificios por facción', () => {
     );
   });
 
-  it('intentarlo lanza y no cuesta ni oro ni la construcción del día', () => {
+  it('intentarlo lanza y no cuesta la construcción del día', () => {
+    // El oro es un número que `build` devuelve: si lanza, no devuelve nada que
+    // cobrar.
     const cripta = pueblo(FACCION_B);
     cripta.builtToday = false;
-    const bolsa = { ...bolsaInfinita };
 
-    expect(() => build(cripta, 'mejora_que_no_existe', bolsa)).toThrow(/no se puede construir/);
+    expect(() => build(cripta, 'mejora_que_no_existe', bolsaInfinita)).toThrow(
+      /no se puede construir/,
+    );
     expect(cripta.builtToday).toBe(false);
-    expect(bolsa.gold).toBe(bolsaInfinita.gold);
-    expect(bolsa.gems).toBe(bolsaInfinita.gems);
+    expect(cripta.buildings).not.toContain('mejora_que_no_existe');
   });
 
   // ------------------------------------------------------------------- #13
@@ -1631,9 +1484,11 @@ describe('el gremio enseña (#2)', () => {
     // semillas (la 3 y la 8 de las diez primeras). Con el héroe nacido en su base
     // y el recinto de las ciudades (fusión, 21-10-2026), 3 gremios y 2 hechizos en
     // 1-40, en la 17 (los dos hechizos), la 19 y la 26: se juegan la 17 y la 19.
+    // Sin minas y con todo en oro (21-10-2026, «solo oro»), 2 gremios y 2
+    // hechizos en 1-40, los dos en la 35: se juega la 35.
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [17, 19]) {
+    for (const semilla of [35]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {
@@ -1899,7 +1754,7 @@ describe('los personajes y sus heridas', () => {
       ...ejercito({ creature: 'caballero-de-la-muerte', count: 5 }),
     ];
     // Sin oro no hay rendición: la batalla se pelea hasta el final.
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
+    state.players[0]!.oro = 0;
 
     atacante.army = ejercito({ creature: 'imperio-ballestero', count: 6 });
     // Sin maná: la flecha mágica del héroe va a por el personaje —es el único
@@ -1973,17 +1828,6 @@ function darCiudad(state: GameState, id: string, jugador: number): void {
 }
 
 /** Lo que cobra el jugador 0 al empezar su turno siguiente. */
-function rentaDel0(state: GameState, c: GameContext): Resources {
-  // Los turnos del rival no le tocan los recursos al 0: lo que cambia entre su
-  // turno y el siguiente es la renta, que entra al empezar el suyo.
-  const antes = { ...state.players[0]!.resources };
-  hastaSuSiguienteTurno(state, c, 0);
-  const despues = state.players[0]!.resources;
-  return Object.fromEntries(
-    RESOURCE_KINDS.map((k) => [k, despues[k] - antes[k]]),
-  ) as unknown as Resources;
-}
-
 describe('el mapa de nodos se juega', () => {
   it('cruzar un nodo ajeno lo hace mío y lo cuenta; pasar por casa recoge la guarnición', () => {
     const { state, c } = enLaRed();
@@ -2279,18 +2123,22 @@ describe('el mapa de nodos se juega', () => {
     // nodo ya fuera suyo: si reescribiera la regla, las dos podrían divergir.
     const { state } = enLaRed();
     // node-0 cierra A (la base ya es mía), y no B: le faltan node-1 y node-2.
-    expect(regionesQueCierra(territorio(state), 'node-0', 0)).toBe(1);
-    expect(regionesQueCierra(territorio(state), 'node-0', 1)).toBe(0);
+    const cierra = (jugador: number) =>
+      regionesQueCierra(territorio(state), 'node-0', jugador).map(
+        (r) => territorio(state).red.regiones[r]!.id,
+      );
+    expect(cierra(0)).toEqual(['a']);
+    expect(cierra(1)).toEqual([]);
     nodo(state, 'node-1').owner = 0;
     nodo(state, 'node-2').owner = 0;
-    expect(regionesQueCierra(territorio(state), 'node-0', 0)).toBe(2);
+    expect(cierra(0).sort()).toEqual(['a', 'b']);
     // Y lo que dice se cumple al tomarlo.
     nodo(state, 'node-0').owner = 0;
     expect([regionOwner(state, 'a'), regionOwner(state, 'b')]).toEqual([0, 0]);
     // Un nodo del rival en la región la deja abierta.
     nodo(state, 'node-0').owner = null;
     nodo(state, 'node-2').owner = 1;
-    expect(regionesQueCierra(territorio(state), 'node-0', 0)).toBe(1);
+    expect(cierra(0)).toEqual(['a']);
   });
 
   it('conectado a la base es una cadena de regiones y nodos propios; cortar un nodo lo corta todo detrás', () => {
@@ -2317,35 +2165,6 @@ describe('el mapa de nodos se juega', () => {
     expect(conectadoABase(state, 0, { region: 'c' })).toBe(false);
     expect(conectadoABase(state, 0, { nodo: 'town-2' })).toBe(false);
     expect(state.towns.find((t) => t.id === 'town-2')!.owner).toBe(0);
-  });
-
-  it('la renta sale del territorio unido a la base, y cerrar sin conectar no da nada', () => {
-    const { state, c } = enLaRed();
-    const base = state.towns.find((t) => t.id === 'town-0')!;
-    const neutral = state.towns.find((t) => t.id === 'town-2')!;
-    const soloLaBase = { ...EMPTY, gold: dailyIncome(base) };
-
-    // Al empezar, la base y nada más: A no es mía todavía.
-    expect(rentaDel0(state, c)).toEqual(soloLaBase);
-
-    // C cerrada pero desconectada: ni su mina de madera ni la ciudad cobran.
-    nodo(state, 'node-1').owner = 0;
-    nodo(state, 'node-2').owner = 0;
-    darCiudad(state, 'town-2', 0);
-    expect(rentaDel0(state, c)).toEqual(soloLaBase);
-
-    // Con node-0, A, B y C quedan unidas: las tres minas y la ciudad.
-    nodo(state, 'node-0').owner = 0;
-    expect(rentaDel0(state, c)).toEqual({
-      ...EMPTY,
-      gold: dailyIncome(base) + dailyIncome(neutral) + MINE_YIELD.gold,
-      ore: MINE_YIELD.ore,
-      wood: MINE_YIELD.wood,
-    });
-
-    // Y el rival corta node-2: solo queda A —su mina de mineral— y la base.
-    nodo(state, 'node-2').owner = 1;
-    expect(rentaDel0(state, c)).toEqual({ ...soloLaBase, ore: MINE_YIELD.ore });
   });
 
   it('perder la base elimina en el acto, aunque queden héroes y ciudades', () => {
@@ -2533,7 +2352,7 @@ describe('el id de un héroe contratado no se repite (#126)', () => {
     fueraDeSuBase(state, 0);
     expect(state.players.map((p) => p.id)).toEqual([0, 1, 2]);
     const dia = state.day;
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 10 * HERO_HIRE_COST };
+    state.players[0]!.oro = 10 * HERO_HIRE_COST;
     const casa = state.towns.find((t) => t.id === 'town-0')!;
     const suya = state.towns.find((t) => t.id === 'town-2')!;
     const otro = heroById(state, 'hero-2');

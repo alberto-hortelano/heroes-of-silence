@@ -242,7 +242,7 @@ export type ModuloDeRampa = Modulo & { readonly rampa: JuntasDeRampa };
 export interface Catalogo {
   /** Los módulos de cada hoja, de menor a mayor alto de ancla. */
   readonly hojas: Readonly<Record<string, readonly Modulo[]>>;
-  /** Las piezas sueltas por id (`puente-piedra-ns`, `atlas/mina`…). */
+  /** Las piezas sueltas por id (`puente-piedra-ns`, `cofre`…). */
   readonly piezas: Readonly<Record<string, Pieza>>;
 }
 

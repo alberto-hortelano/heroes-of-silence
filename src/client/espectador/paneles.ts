@@ -108,7 +108,7 @@ function jugadores(v: SpectatorView): Html {
           <span>${bandera(p.id)} jugador ${p.id} · ${p.faction}</span>
           <span class="count">${estado}</span>
         </div>
-        <div class="row"><span class="label">oro</span><span>${p.resources.gold}</span></div>
+        <div class="row"><span class="label">oro</span><span>${p.oro}</span></div>
         <div class="row"><span class="label">explorado</span><span>${p.fog.length} casillas</span></div>
         ${unir(
           v.heroes

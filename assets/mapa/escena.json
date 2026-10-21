@@ -10191,13 +10191,6 @@
    "ax": 398,
    "ay": 1130
   },
-  "madera": {
-   "src": "madera.webp",
-   "nw": 1484,
-   "nh": 979,
-   "ax": 638,
-   "ay": 954
-  },
   "montana-1": {
    "src": "montana-1.webp",
    "nw": 1920,
@@ -10402,13 +10395,6 @@
    "ax": 1512,
    "ay": 694
   },
-  "oro": {
-   "src": "oro.webp",
-   "nw": 1308,
-   "nh": 1024,
-   "ax": 692,
-   "ay": 1002
-  },
   "pena-1": {
    "src": "pena-1.webp",
    "nw": 853,
@@ -10443,13 +10429,6 @@
    "nh": 867,
    "ax": 503,
    "ay": 842
-  },
-  "piedra": {
-   "src": "piedra.webp",
-   "nw": 1445,
-   "nh": 1010,
-   "ax": 845,
-   "ay": 985
   },
   "pinos-nevados-1": {
    "src": "pinos-nevados-1.webp",
@@ -10640,13 +10619,6 @@
    "nh": 987,
    "ax": 1238,
    "ay": 962
-  },
-  "atlas/mina": {
-   "src": "atlas/mina.webp",
-   "nw": 1176,
-   "nh": 1076,
-   "ax": 662,
-   "ay": 1051
   }
  }
 }

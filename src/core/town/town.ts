@@ -1,8 +1,8 @@
 /** Castillos: construcción, moradas y reclutamiento. */
 import { allSpells, ordenDelLibro, type Spell } from '../battle/spells.js';
 import { unidadDelJuego, unidadesDeMorada } from '../catalogo.js';
-import type { Army, FactionId, PlayerId, Point, Resources } from '../types.js';
-import { canAfford, scaleResources, subtractResources } from '../types.js';
+import type { Army, FactionId, PlayerId, Point } from '../types.js';
+import { conMiles, describirCoste } from '../types.js';
 import { building, buildingIfExists, buildingsOfFaction, prebuiltBuildings } from './buildings.js';
 
 export interface Town {
@@ -128,8 +128,19 @@ export function moraleFromBuildings(town: Town): number {
   return town.buildings.reduce((n, id) => n + (building(id).moraleBonus ?? 0), 0);
 }
 
+/**
+ * Por qué no alcanza el oro para pagar `coste`, con lo que cuesta y lo que hay,
+ * o `null` si alcanza: la única frase de todo lo que se paga (construir,
+ * reclutar, comprar en la armería y contratar un héroe).
+ */
+export function oroBlocker(coste: number, oro: number): string | null {
+  return oro >= coste
+    ? null
+    : `no alcanza el oro: cuesta ${describirCoste(coste)} y tienes ${conMiles(oro)} oro`;
+}
+
 /** Motivo por el que no se puede construir, o `null` si sí se puede. */
-export function buildBlocker(town: Town, buildingId: string, purse: Resources): string | null {
+export function buildBlocker(town: Town, buildingId: string, oro: number): string | null {
   const b = buildingIfExists(buildingId);
   // Un id que no existe o que es de la otra facción no es una excepción: es
   // alguien —el agente, un cliente viejo— preguntando, y merece un motivo.
@@ -144,23 +155,22 @@ export function buildBlocker(town: Town, buildingId: string, purse: Resources): 
   for (const req of b.requires ?? []) {
     if (!hasBuilding(town, req)) return `falta construir "${building(req).name}"`;
   }
-  if (!canAfford(purse, b.cost)) return 'recursos insuficientes';
-  return null;
+  return oroBlocker(b.cost, oro);
 }
 
-export function canBuild(town: Town, buildingId: string, purse: Resources): boolean {
-  return buildBlocker(town, buildingId, purse) === null;
+export function canBuild(town: Town, buildingId: string, oro: number): boolean {
+  return buildBlocker(town, buildingId, oro) === null;
 }
 
-/** Construye y devuelve los recursos que quedan. Lanza si no era posible. */
-export function build(town: Town, buildingId: string, purse: Resources): Resources {
+/** Construye y devuelve el oro que queda. Lanza si no era posible. */
+export function build(town: Town, buildingId: string, oro: number): number {
   // El mensaje lo lee una persona: va el nombre del edificio, no su id. Con un
   // id inventado no hay nombre que poner, así que ese caso se separa antes de
   // preguntar por el resto de motivos.
   const b = buildingIfExists(buildingId);
   if (b === null) throw new Error(`no se puede construir: no existe el edificio "${buildingId}"`);
 
-  const blocker = buildBlocker(town, buildingId, purse);
+  const blocker = buildBlocker(town, buildingId, oro);
   if (blocker !== null) throw new Error(`no se puede construir ${b.name}: ${blocker}`);
 
   town.buildings = [...town.buildings, buildingId];
@@ -174,7 +184,7 @@ export function build(town: Town, buildingId: string, purse: Resources): Resourc
     }
   }
 
-  return subtractResources(purse, b.cost);
+  return oro - b.cost;
 }
 
 /**
@@ -205,8 +215,9 @@ export function applyWeeklyGrowth(town: Town, multiplier = 1): void {
   }
 }
 
-export function recruitCost(creatureId: string, count: number): Resources {
-  return scaleResources({ gold: unidadDelJuego(creatureId).oro }, count);
+/** Lo que cuestan `count` de `creatureId`, en oro. */
+export function recruitCost(creatureId: string, count: number): number {
+  return unidadDelJuego(creatureId).oro * count;
 }
 
 /** Motivo por el que no se puede reclutar, o `null`. */
@@ -214,31 +225,25 @@ export function recruitBlocker(
   town: Town,
   creatureId: string,
   count: number,
-  purse: Resources,
+  oro: number,
 ): string | null {
   if (count <= 0) return 'cantidad no válida';
   const available = town.available[creatureId] ?? 0;
   if (available < count) return `solo hay ${available} disponibles`;
-  if (!canAfford(purse, recruitCost(creatureId, count))) return 'recursos insuficientes';
-  return null;
+  return oroBlocker(recruitCost(creatureId, count), oro);
 }
 
-/** Descuenta lo reclutado del pueblo. Devuelve los recursos restantes. */
-export function payRecruit(
-  town: Town,
-  creatureId: string,
-  count: number,
-  purse: Resources,
-): Resources {
-  const blocker = recruitBlocker(town, creatureId, count, purse);
+/** Descuenta lo reclutado del pueblo. Devuelve el oro que queda. */
+export function payRecruit(town: Town, creatureId: string, count: number, oro: number): number {
+  const blocker = recruitBlocker(town, creatureId, count, oro);
   if (blocker !== null) throw new Error(`no se puede reclutar: ${blocker}`);
   town.available[creatureId] = (town.available[creatureId] ?? 0) - count;
-  return subtractResources(purse, recruitCost(creatureId, count));
+  return oro - recruitCost(creatureId, count);
 }
 
 /** Edificios que se podrían construir hoy en este pueblo. */
-export function availableBuildings(town: Town, purse: Resources): string[] {
+export function availableBuildings(town: Town, oro: number): string[] {
   return buildingsOfFaction(town.faction)
-    .filter((b) => canBuild(town, b.id, purse))
+    .filter((b) => canBuild(town, b.id, oro))
     .map((b) => b.id);
 }

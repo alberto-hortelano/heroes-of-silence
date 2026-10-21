@@ -3,9 +3,9 @@
  * figuras del juego entre sus volúmenes y la niebla de dos tonos.
  *
  * El suelo es una superficie fija que se pinta una vez por partida; los
- * volúmenes —árboles, picos, muros y lo horneado: ciudad, pueblo, nodo y mina—
- * se pintan a cada fotograma, solo los que se ven, fundidos por profundidad con
- * los héroes, los monstruos, los asaltantes, los cofres y los recursos.
+ * volúmenes —árboles, picos, muros y lo horneado: ciudad, pueblo y nodo— se
+ * pintan a cada fotograma, solo los que se ven, fundidos por profundidad con
+ * los héroes, los monstruos, los asaltantes y los cofres.
  *
  * Las ideas son las de `aventura/map-view.ts` de la rama `archivo/gpt-rpg`; lo
  * que se pinta es el `GameMap` del núcleo y no el mundo de GPT, con varios héroes
@@ -28,7 +28,7 @@ import type { FactionId, Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla } from '../marcha.js';
 import { temaDelLienzo } from '../temas.js';
-import { asset, imagenDeEscena, type PiezaDelMapa } from './assets.js';
+import { imagenDeEscena } from './assets.js';
 import {
   type CamaraMapa,
   casillaAPixel,
@@ -56,7 +56,7 @@ import {
 } from './escenario/superficie.js';
 import { animarHasta, type Figura, pintarFiguraConSombra } from './figura.js';
 import { densidadDe } from './lienzo.js';
-import { COLOR_SIN_DUEÑO, playerColor, RESOURCE_COLORS } from './palette.js';
+import { COLOR_SIN_DUEÑO, playerColor } from './palette.js';
 import { MIRADA_DE_PRESENTACION } from './personajes.js';
 import { pintarPieza } from './piezas.js';
 import { pintarSombra } from './sombra.js';
@@ -151,13 +151,6 @@ export interface VistaMapa {
   /** Reloj de la animación de reposo, en milisegundos. */
   readonly tiempo: number;
 }
-
-/** Los recursos sueltos que tienen pieza pintada; el resto, su icono. */
-const PIEZA_DE_RECURSO: Partial<Record<keyof typeof RESOURCE_COLORS, PiezaDelMapa>> = {
-  gold: 'oro',
-  ore: 'piedra',
-  wood: 'madera',
-};
 
 /** El marcador del cofre sin su pieza: un ladrillo del color de la madera vieja. */
 export const COLOR_DEL_COFRE = '#a8762c';
@@ -708,8 +701,8 @@ function pintarCosa(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void 
 
 /**
  * Lo que dice quién o qué está en la casilla de una cosa —la inicial del héroe,
- * la chapa de cuántos son, el estandarte del asaltante, la bandera del dueño, lo
- * que da una mina—, encima de todo lo que tiene altura y por debajo de la niebla.
+ * la chapa de cuántos son, el estandarte del asaltante, la bandera del dueño—,
+ * encima de todo lo que tiene altura y por debajo de la niebla.
  * El cuerpo puede quedar detrás de un árbol (decisión del usuario), pero lo que
  * dice que está ahí se ve siempre: un grupo escondido en un bosque sin que nada
  * lo diga es una emboscada que no se ve venir.
@@ -751,7 +744,7 @@ function pintarIdentificador(
 
 function presente(o: MapObject): boolean {
   if (o.kind === 'monster') return !o.defeated;
-  if (o.kind === 'resource' || o.kind === 'chest') return !o.taken;
+  if (o.kind === 'chest') return !o.taken;
   return true;
 }
 
@@ -761,20 +754,12 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
   const c = casillaAPixel(camara, o.at);
   switch (o.kind) {
     case 'chest': {
-      // Su pieza suelta, como los recursos (#147): antes salía de una celda del
+      // Su pieza suelta (#147): antes salía de una celda del
       // atlas viejo, que se cargaba entero y se escalaba en cada fotograma.
       pintarSombra(ctx, c.x, c.y + tile * 0.22, tile * 0.4);
       if (pintarPieza(ctx, 'cofre', c.x, c.y + tile * 0.3, tile * 0.6)) return;
       ctx.fillStyle = COLOR_DEL_COFRE;
       ctx.fillRect(c.x - tile * 0.22, c.y - tile * 0.12, tile * 0.44, tile * 0.3);
-      return;
-    }
-    case 'resource': {
-      pintarSombra(ctx, c.x, c.y + tile * 0.22, tile * 0.5);
-      const pieza = PIEZA_DE_RECURSO[o.resource];
-      if (pieza !== undefined && pintarPieza(ctx, pieza, c.x, c.y + tile * 0.3, tile * 0.95))
-        return;
-      icono(ctx, o.resource, c.x, c.y, tile * 0.56);
       return;
     }
     case 'monster':
@@ -790,7 +775,6 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
     case 'town':
     case 'node':
     case 'village':
-    case 'mine':
       throw new Error(
         `${o.kind} ${o.id} se hornea en la escena: lo suyo es pintarDueñoDeLoHorneado`,
       );
@@ -801,7 +785,7 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
  * El óvalo del dueño bajo la ciudad y el nodo (el del nodo, justo después de
  * su volumen; el de la ciudad, en el suelo de su plaza, `claveDeLaMarca`): se
  * lee de lejos qué es de quién, y el nodo sin dueño, gris, dice qué falta por
- * tomar. El pueblo y la mina no llevan: son de quien tenga su región.
+ * tomar. El pueblo no lleva: es de quien tenga su región.
  */
 function pintarDueñoDeLoHorneado(
   ctx: CanvasRenderingContext2D,
@@ -819,17 +803,15 @@ function pintarDueñoDeLoHorneado(
       // Radio de 0,4: su óvalo baja `OVALO_BAJO_EL_ASIENTO` del asiento.
       base(ctx, a, tile * 0.4, playerColor(o.owner));
       return;
-    case 'mine':
     case 'village':
       return;
     case 'chest':
-    case 'resource':
     case 'monster':
       throw new Error(`${o.kind} ${o.id} no se hornea en la escena: lo pinta pintarObjeto`);
   }
 }
 
-/** La bandera del dueño de la ciudad y del nodo, y en la mina el icono de lo que da. */
+/** La bandera del dueño de la ciudad y del nodo. */
 function pintarBanderaDeLoHorneado(
   ctx: CanvasRenderingContext2D,
   v: VistaMapa,
@@ -851,13 +833,9 @@ function pintarBanderaDeLoHorneado(
       bandera(ctx, m.x, m.y - tile * 0.75 * 0.5, tile * 0.75, playerColor(o.owner));
       return;
     }
-    case 'mine':
-      icono(ctx, o.resource, c.x + tile * 0.32, c.y + tile * 0.12, tile * 0.36);
-      return;
     case 'village':
       return;
     case 'chest':
-    case 'resource':
     case 'monster':
       throw new Error(`${o.kind} ${o.id} no se hornea en la escena: no lleva bandera`);
   }
@@ -1184,26 +1162,6 @@ function bandera(
   ctx.fill();
   ctx.stroke();
   ctx.restore();
-}
-
-function icono(
-  ctx: CanvasRenderingContext2D,
-  recurso: keyof typeof RESOURCE_COLORS,
-  x: number,
-  y: number,
-  lado: number,
-): void {
-  const img = asset('icons', recurso);
-  if (img !== null) {
-    ctx.drawImage(img, x - lado / 2, y - lado / 2, lado, lado);
-    return;
-  }
-  ctx.fillStyle = RESOURCE_COLORS[recurso];
-  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-  ctx.beginPath();
-  ctx.arc(x, y, lado * 0.3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
 }
 
 /** Una cifra en una chapa oscura: cuántos son en un grupo sin dueño. */

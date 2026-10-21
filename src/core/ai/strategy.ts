@@ -51,6 +51,7 @@ import {
   recruitCapacity,
   townsOf,
 } from '../state/game.js';
+import { rentaDeLaRegion } from '../state/renta.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../town/buildings.js';
 import {
   availableBuildings,
@@ -59,8 +60,8 @@ import {
   type Town,
   tieneArmeria,
 } from '../town/town.js';
-import type { Army, Equipo, FactionId, PlayerId, Point, Resources, UnitInfo } from '../types.js';
-import { canAfford, FACTION_IDS, subtractResources } from '../types.js';
+import type { Army, Equipo, FactionId, PlayerId, Point, UnitInfo } from '../types.js';
+import { FACTION_IDS } from '../types.js';
 import { CUERPO_COMUN } from '../unidad.js';
 import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.js';
 
@@ -68,8 +69,14 @@ import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.
 const VALOR_DE_CIUDAD = 40000;
 /** Lo que vale tomar un nodo ajeno, sin contar lo que cierre. */
 const VALOR_DE_NODO = 3000;
-/** Lo que suma cada región que ese nodo dejaría cerrada para mí. */
+/** Lo que suma cada región que ese nodo dejaría cerrada para mí, sin su renta. */
 const VALOR_POR_REGION_CERRADA = 6000;
+/**
+ * Cuántos días de renta de sus pueblos vale cerrar una región. **Inventado**
+ * (21-10-2026): la mediana de la duración de una partida en
+ * 1-100 (6 días, 19-10-2026). Un pueblo da `ECONOMIA.rentaDelPueblo` al día.
+ */
+const DIAS_DE_RENTA = 6;
 /** Lo que vale quitar de en medio a un grupo neutral: un monstruo o un asaltante. */
 const VALOR_DE_NEUTRAL = 2000;
 
@@ -96,13 +103,10 @@ function objectValue(
 ): number {
   const player = hero.owner;
   switch (obj.kind) {
-    case 'resource':
-      return obj.taken ? 0 : obj.resource === 'gold' ? obj.amount : obj.amount * 120;
     case 'chest':
       return obj.taken ? 0 : obj.gold;
-    // Ni la mina ni el pueblo se toman: son de quien cierre su región. Lo que
-    // se persigue es el nodo que la cierra.
-    case 'mine':
+    // El pueblo no se toma: es de quien cierre su región. Lo que se persigue
+    // es el nodo que la cierra, que vale por su renta.
     case 'village':
       return 0;
     case 'node': {
@@ -111,7 +115,12 @@ function objectValue(
       // CIERRA: las que tienen ya todos sus demás nodos en mi mano. Es la
       // valoración mínima de la fase 2a —«no tiene que ser buena; tiene que
       // jugar y acabar»—; cortar al rival y defender lo propio son de la 2b.
-      return VALOR_DE_NODO + VALOR_POR_REGION_CERRADA * regionesQueCierra(foto(), obj.id, player);
+      // Cada región cerrada suma además los días de renta de sus pueblos.
+      const t = foto();
+      let valor = VALOR_DE_NODO;
+      for (const r of regionesQueCierra(t, obj.id, player))
+        valor += VALOR_POR_REGION_CERRADA + DIAS_DE_RENTA * rentaDeLaRegion(state.map, t.red, r);
+      return valor;
     }
     case 'town': {
       // El dueño se lee del LIBRO DE CUENTAS y no de la bandera del mapa. Son
@@ -364,8 +373,8 @@ const ORDEN_DE_CONSTRUCCION: Readonly<Record<FactionId, readonly string[]>> = Ob
 ) as Record<FactionId, readonly string[]>;
 
 /** Qué construir hoy: lo primero de la lista de su facción que se pueda pagar. */
-export function chooseBuilding(town: Town, purse: Resources): string | null {
-  const posibles = availableBuildings(town, purse);
+export function chooseBuilding(town: Town, oro: number): string | null {
+  const posibles = availableBuildings(town, oro);
   if (posibles.length === 0) return null;
 
   const orden = ORDEN_DE_CONSTRUCCION[town.faction];
@@ -401,12 +410,12 @@ export function planBuildings(state: GameState, playerId: PlayerId): AdventureAc
   if (player === undefined) return acciones;
 
   // Simulación del monedero: el plan se construye sin tocar el estado real.
-  let purse = { ...player.resources };
+  let oro = player.oro;
   for (const town of townsOf(state, playerId)) {
-    const edificio = chooseBuilding(town, purse);
+    const edificio = chooseBuilding(town, oro);
     if (edificio !== null) {
       acciones.push({ type: 'build', town: town.id, building: edificio });
-      purse = subtractResources(purse, building(edificio).cost);
+      oro -= building(edificio).cost;
     }
   }
   return acciones;
@@ -429,7 +438,7 @@ export function planHires(state: GameState, playerId: PlayerId): AdventureAction
   if (heroes.length >= 1) return [];
 
   const acciones: AdventureAction[] = [];
-  let oro = player.resources.gold;
+  let oro = player.oro;
   const reserva = heroes.length === 0 ? 0 : 6000; // con héroes vivos, no se malgasta
 
   for (const town of townsOf(state, playerId)) {
@@ -457,7 +466,7 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
   // castillo, hasta el día 300. Hoy no se ve porque la partida acaba el 7;
   // cuadrada la economía eran 15 de 200 partidas eternas, y las 15 esta.
   const reserva = heroesOf(state, playerId).length === 0 ? HERO_HIRE_COST : 0;
-  let purse = { ...player.resources, gold: player.resources.gold - reserva };
+  let oro = player.oro - reserva;
 
   for (const town of townsOf(state, playerId)) {
     // La misma regla que aplica `recruit`: si la IA la copiara, el día que
@@ -481,15 +490,10 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
       // que enseña el botón «todo» del castillo: vive en `recruitCapacity`, y
       // un máximo mayor que cero ya es uno que hay, cabe y se paga — lo mismo
       // que miraban las dos guardas que había aquí alrededor.
-      const cantidad = recruitCapacity(
-        town,
-        id,
-        { army: destino, tope, cupo, quien },
-        purse,
-      ).maximo;
+      const cantidad = recruitCapacity(town, id, { army: destino, tope, cupo, quien }, oro).maximo;
       if (cantidad > 0) {
         acciones.push({ type: 'recruit', town: town.id, creature: id, count: cantidad });
-        purse = subtractResources(purse, recruitCost(id, cantidad));
+        oro -= recruitCost(id, cantidad);
         destino = withTroops(destino, id, cantidad);
         continue;
       }
@@ -499,13 +503,13 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
       // para siempre con lo primero que reclutó: el cupo de 6 se llenaba de
       // lo barato, su fuerza se paraba en 200-300 y el oro se amontonaba.
       if (hero === undefined) continue;
-      const cambio = planCambio(town, id, destino, tope, cupo, purse);
+      const cambio = planCambio(town, id, destino, tope, cupo, oro);
       if (cambio === null) continue;
       for (const [victima, n] of cambio.licencias) {
         acciones.push({ type: 'dismiss', hero: hero.id, creature: victima, count: n });
       }
       acciones.push({ type: 'recruit', town: town.id, creature: id, count: cambio.cuantos });
-      purse = subtractResources(purse, recruitCost(id, cambio.cuantos));
+      oro -= recruitCost(id, cambio.cuantos);
       destino = cambio.army;
     }
   }
@@ -538,7 +542,7 @@ function planCambio(
   army: Army,
   tope: number,
   cupo: number,
-  purse: Resources,
+  oro: number,
 ): Cambio | null {
   const disponibles = town.available[id] ?? 0;
   const poder = unitPower(unidadDelJuego(id));
@@ -552,7 +556,7 @@ function planCambio(
   let sale = 0;
   let saleFirme = 0;
   let firme: Cambio = { licencias: new Map(), cuantos: 0, army };
-  while (cuantos < disponibles && canAfford(purse, recruitCost(id, cuantos + 1))) {
+  while (cuantos < disponibles && oro >= recruitCost(id, cuantos + 1)) {
     if (troopRoom(actual, tope, cupo, id) >= 1) {
       actual = withTroops(actual, id, 1);
       cuantos++;
@@ -806,7 +810,7 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
     if (compradasHoy(state, hero) >= COMPRAS_POR_HEROE_Y_DIA) continue;
     const lista = portadores(hero);
     for (const p of PIEZAS_DE_ARMERIA) {
-      const queda = player.resources.gold - p.precio;
+      const queda = player.oro - p.precio;
       // Tras pagarla queda lo que cuesta un héroe: con eso, también la paga.
       if (queda < HERO_HIRE_COST) continue;
       // Quien la recibiría es el primero al que mejora, con el MISMO orden con

@@ -40,7 +40,7 @@ import {
   HITS,
   SLOT_DE_HUECO,
 } from '../src/core/contract/vocabulario.js';
-import { ASALTANTES, EQUIPO, tiposDeHeroe } from '../src/core/data.js';
+import { ASALTANTES, ECONOMIA, EQUIPO, tiposDeHeroe } from '../src/core/data.js';
 import { deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../src/core/hero/equipo.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import {
@@ -126,7 +126,7 @@ describe('contrato con el agente', () => {
     const base = townsOf(state, 0)[0]!;
     hero.at = base.at;
     base.buildings.push('armory');
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 20000 };
+    state.players[0]!.oro = 20000;
     const deLaIA = siguienteDeEquipo(state, 0);
     expect(deLaIA).toMatchObject({ type: 'buy_item' });
     const acciones = [
@@ -1227,7 +1227,7 @@ describe('lo que ve el agente', () => {
       state.pendingBattle!.battle,
       'attacker',
       'propia',
-      state.players[0]!.resources.gold,
+      state.players[0]!.oro,
     ) as {
       stacks: { side: string; commander?: boolean; name: string }[];
       hero: Record<string, unknown>;
@@ -1440,7 +1440,7 @@ describe('lo que ve el agente', () => {
     expect(payload.palette.terrains).toContain('mountain');
   });
 
-  it('el mapa conocido trae los nodos con su dueño y los pueblos, y no promete minas con bandera', () => {
+  it('el mapa conocido trae los nodos con su dueño y los pueblos, y ni minas ni montones', () => {
     const state = newGame({ seed: 3 });
     revealEverything(state, 0);
     const objetos = (
@@ -1454,8 +1454,9 @@ describe('lo que ve el agente', () => {
     expect(
       objetos.filter((o) => o.kind === 'village').every((v) => typeof v.name === 'string'),
     ).toBe(true);
-    for (const m of objetos.filter((o) => o.kind === 'mine')) expect(m).not.toHaveProperty('owner');
-    expect(COMO_SE_LEE_EL_MAPA).not.toMatch(/mina cambia de dueño/);
+    expect(objetos.filter((o) => o.kind === 'mine' || o.kind === 'resource')).toEqual([]);
+    expect(COMO_SE_LEE_EL_MAPA).not.toMatch(/"mine"|"resource"/);
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/No hay minas ni más recurso que el oro/);
     expect(COMO_SE_LEE_EL_MAPA).toMatch(
       /"mountain", "water", "forest", "cliff", "wall" NO se cruzan/,
     );
@@ -1500,7 +1501,7 @@ describe('lo que ve el agente', () => {
     expect(guardias.has(JINETE)).toBe(false);
   });
 
-  it('la petición de mapa sigue pidiendo ancho y alto, y aconseja las regiones y minas del procedimental (#195)', () => {
+  it('la petición de mapa sigue pidiendo ancho y alto, y aconseja las regiones y pueblos del procedimental (#195)', () => {
     // El agente diseña a mano: el tamaño lo fija el servidor (derivado de las
     // regiones) y el reparto por regiones le llega como consejo, sacado de las
     // mismas funciones que usa el generador.
@@ -1512,8 +1513,9 @@ describe('lo que ve el agente', () => {
     expect(payload.want).toMatchObject({ width: lado, height: lado });
     expect(payload.advice).toContain(
       `En ${lado}×${lado} el mapa procedimental hace ${REGIONES_POR_BANDO} regiones por jugador, en espejo: ` +
-        `la de casa con minas de gold, wood, ore, y cada una de las ${REGIONES_POR_BANDO - 1} de fuera con 2: una de recurso raro y una básica.`,
+        `la de casa con la base, y cada una de las ${REGIONES_POR_BANDO - 1} de fuera con un pueblo, que da ${ECONOMIA.rentaDelPueblo} de oro al día a quien tenga su región unida a su base.`,
     );
+    expect(payload.advice.join(' ')).not.toMatch(/\bminas?\b/);
   });
 
   it('la petición de mapa dice CUÁLES son los jugadores, no cuántos', () => {
@@ -1549,7 +1551,7 @@ describe('respuestas del agente', () => {
         { type: 'build', town: 'town-1', building: 'templarios_monasterio' },
         { type: 'move_hero', hero: 'hero-1', to: { x: 3, y: 4 } },
       ],
-      reasoning: 'Construyo y salgo a por la mina.',
+      reasoning: 'Construyo y salgo a por el pueblo.',
     });
     expect(r.success).toBe(true);
   });
@@ -1583,9 +1585,7 @@ describe('respuestas del agente', () => {
         nodes: [],
         towns: [],
         heroStarts: [{ player: 0, at: { x: 1, y: 1 } }],
-        mines: [],
         villages: [],
-        resources: [],
         monsters: [],
         chests: [],
       },
@@ -1593,6 +1593,44 @@ describe('respuestas del agente', () => {
     expect(r.success).toBe(false);
     expect(JSON.stringify(r.error?.issues)).toMatch(
       /ya no hay \\"heroStarts\\".*dentro de su base/,
+    );
+  });
+
+  it('rechaza un plan con "mines" o con "resources", diciendo que solo hay oro (21-10-2026)', () => {
+    // Sin compatibilidad: un plan de antes no se convierte, se rechaza diciendo
+    // qué quitar. Y aunque vengan vacíos: el agente que aún los mande cree que
+    // hay minas en el juego.
+    const plan = {
+      width: 24,
+      height: 24,
+      baseTerrain: 'grass',
+      patches: [],
+      regions: [],
+      walls: [],
+      nodes: [],
+      towns: [],
+      villages: [],
+      monsters: [],
+      chests: [],
+    };
+    const conMinas = responseSchemas.map_generate.safeParse({ plan: { ...plan, mines: [] } });
+    expect(conMinas.success).toBe(false);
+    expect(JSON.stringify(conMinas.error?.issues)).toMatch(
+      /ya no hay minas.*quita el campo \\"mines\\"/,
+    );
+    const conMontones = responseSchemas.map_generate.safeParse({
+      plan: { ...plan, resources: [{ at: { x: 1, y: 1 }, resource: 'wood', amount: 5 }] },
+    });
+    expect(conMontones.success).toBe(false);
+    expect(JSON.stringify(conMontones.error?.issues)).toMatch(
+      /ya no hay montones de recursos.*quita el campo \\"resources\\"/,
+    );
+    // Y sin ellos, el mismo plan pasa el esquema.
+    expect(responseSchemas.map_generate.safeParse({ plan }).success).toBe(true);
+    // La prosa no los pide y dice lo que da un pueblo.
+    expect(RESPONSE_FORMAT.map_generate).not.toMatch(/mines\[\]|resources\[\]/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(
+      new RegExp(`Cada uno da ${ECONOMIA.rentaDelPueblo} de oro al día`),
     );
   });
 
@@ -1607,9 +1645,7 @@ describe('respuestas del agente', () => {
         walls: [],
         nodes: [],
         towns: [],
-        mines: [],
         villages: [],
-        resources: [],
         monsters: [],
         chests: [],
       },

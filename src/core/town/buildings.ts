@@ -3,7 +3,7 @@ import buildingsJson from '../../../data/buildings.json' with { type: 'json' };
 import { UNIDADES, unidadesDeMorada } from '../catalogo.js';
 import { ECONOMIA } from '../data.js';
 import { nivelDeUnidad } from '../nivel.js';
-import type { FactionId, Resources } from '../types.js';
+import type { FactionId } from '../types.js';
 import { FACTION_IDS } from '../types.js';
 import type { Unidad } from '../unidad.js';
 import { entero, objetoCon, texto } from '../validar.js';
@@ -18,10 +18,11 @@ export interface Building {
    */
   readonly faction?: FactionId;
   /**
-   * Lo que cuesta. El de una morada **no se escribe**: sale del nivel de lo mejor
-   * que produce (`nivelDeMorada`) por la tabla de `data/economia.json`.
+   * Lo que cuesta, en oro. El de una
+   * morada **no se escribe**: sale del nivel de lo mejor que produce
+   * (`nivelDeMorada`) por la tabla de `data/economia.json`.
    */
-  readonly cost: Partial<Resources>;
+  readonly cost: number;
   /** Oro por día que aporta (solo los ayuntamientos). */
   readonly income?: number;
   /** Ya está construido al fundar el pueblo. */
@@ -96,8 +97,13 @@ for (const [i, crudo] of (buildingsJson.buildings as readonly unknown[]).entries
   }
   const cost =
     morada === undefined
-      ? (raw.cost as Partial<Resources>)
-      : (ECONOMIA.costeDeLaMorada[nivelDeLasUnidades(id) - 1] ?? {});
+      ? entero(raw.cost, 'el coste en oro', quien, 0)
+      : ECONOMIA.costeDeLaMorada[nivelDeLasUnidades(id) - 1];
+  if (cost === undefined) {
+    throw new Error(
+      `${quien}: lo mejor que produce es del nivel ${nivelDeLasUnidades(id)}, y data/economia.json no tiene coste de morada para él`,
+    );
+  }
   byId.set(id, {
     id,
     name: texto(raw.name, 'el nombre', quien),

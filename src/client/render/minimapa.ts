@@ -41,7 +41,7 @@ interface VistaMinimapa {
 }
 
 /**
- * El terreno explorado, los castillos y las minas, pintados una vez fuera de
+ * El terreno explorado, los castillos y los nodos, pintados una vez fuera de
  * pantalla. Eran 576 `fillRect` por fotograma para un dibujo que solo cambia al
  * explorar o al cambiar una bandera; encima, a cada fotograma, solo van los
  * héroes y el rectángulo de la cámara.

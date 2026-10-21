@@ -40,7 +40,6 @@ import type {
   FactionId,
   Hueco,
   NivelesDeLaRueda,
-  Resources,
   SpeedTier,
   TipoDeGolpe,
   UnitInfo,
@@ -54,7 +53,6 @@ import {
   HUECOS,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
-  RESOURCE_KINDS,
   SPEED_TIERS,
   TIPOS_DE_GOLPE,
   TIPOS_DEL_ANILLO,
@@ -362,8 +360,15 @@ export interface ReglasDeLaEconomia {
   readonly oroPorIndice: { readonly divisor: number };
   /** Lo que suelta por semana una morada de cada unidad, por su nivel (1 a 6). */
   readonly crecimientoPorNivel: readonly number[];
-  /** El coste de una morada por el nivel de lo mejor que produce (1 a 6). */
-  readonly costeDeLaMorada: readonly Partial<Resources>[];
+  /** El coste en oro de una morada por el nivel de lo mejor que produce (1 a 6). */
+  readonly costeDeLaMorada: readonly number[];
+  /** El oro con que empieza cada jugador (`newGame`). **Inventado** (21-10-2026). */
+  readonly oroDeSalida: number;
+  /**
+   * El oro que da cada día un pueblo a quien tenga su región unida a su base
+   * (`rentaDelDia`). **Inventado** (21-10-2026, decisión del usuario).
+   */
+  readonly rentaDelPueblo: number;
 }
 
 /** Los niveles que tienen fila en las tablas de la economía: del 1 al 6. */
@@ -391,30 +396,30 @@ export function validarEconomia(json: unknown, fichero = 'data/economia.json'): 
     );
   }
   const costes = j.costeDeLaMorada;
-  if (!Array.isArray(costes) || costes.length !== NIVELES_DE_LA_ECONOMIA) {
+  if (
+    !Array.isArray(costes) ||
+    costes.length !== NIVELES_DE_LA_ECONOMIA ||
+    !costes.every((x) => enteroDesde(x, 0))
+  ) {
     problemas.push(
-      `costeDeLaMorada tiene que ser una lista de ${NIVELES_DE_LA_ECONOMIA} costes, uno por nivel`,
+      `costeDeLaMorada tiene que ser una lista de ${NIVELES_DE_LA_ECONOMIA} enteros ≥ 0 de oro, uno por nivel (solo hay oro), y es ${JSON.stringify(costes)}`,
     );
-  } else {
-    for (const [i, c] of (costes as unknown[]).entries()) {
-      const malos =
-        typeof c !== 'object' || c === null
-          ? ['(no es un objeto)']
-          : Object.entries(c).filter(
-              ([k, v]) => !(RESOURCE_KINDS as readonly string[]).includes(k) || !enteroDesde(v, 0),
-            );
-      if (malos.length > 0) {
-        problemas.push(
-          `costeDeLaMorada[${i}] tiene que ser { recurso: entero ≥ 0 } con recursos de ${RESOURCE_KINDS.join(', ')}`,
-        );
-      }
-    }
+  }
+  const oroDeSalida = j.oroDeSalida;
+  if (!enteroDesde(oroDeSalida, 0)) {
+    problemas.push(`oroDeSalida tiene que ser un entero ≥ 0 de oro y es ${oroDeSalida}`);
+  }
+  const rentaDelPueblo = j.rentaDelPueblo;
+  if (!enteroDesde(rentaDelPueblo, 0)) {
+    problemas.push(`rentaDelPueblo tiene que ser un entero ≥ 0 de oro y es ${rentaDelPueblo}`);
   }
   if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
   return {
     oroPorIndice: { divisor: divisor as number },
     crecimientoPorNivel: [...(crece as number[])],
-    costeDeLaMorada: costes as Partial<Resources>[],
+    costeDeLaMorada: [...(costes as number[])],
+    oroDeSalida: oroDeSalida as number,
+    rentaDelPueblo: rentaDelPueblo as number,
   };
 }
 

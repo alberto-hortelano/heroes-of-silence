@@ -1,28 +1,7 @@
 /** Colores del prototipo. Son marcadores: el arte generado llega en la fase 5. */
 
-import { NOMBRE_DE_RECURSO, RESOURCE_KINDS, type ResourceKind } from '@core/types.js';
-
-export const RESOURCE_COLORS: Readonly<Record<ResourceKind, string>> = {
-  wood: '#8b5a2b',
-  mercury: '#b04a86',
-  ore: '#8a8a8a',
-  sulfur: '#c8b32c',
-  crystal: '#7fd4d8',
-  gems: '#4fae5e',
-  gold: '#d9a441',
-};
-
-/**
- * El rótulo de cada recurso: el nombre del núcleo (`NOMBRE_DE_RECURSO`) con
- * mayúscula. Derivado y no escrito: era la segunda lista de los mismos siete
- * nombres.
- */
-export const RESOURCE_NAMES: Readonly<Record<ResourceKind, string>> = Object.fromEntries(
-  RESOURCE_KINDS.map((k) => {
-    const nombre = NOMBRE_DE_RECURSO[k];
-    return [k, nombre.charAt(0).toUpperCase() + nombre.slice(1)];
-  }),
-) as Record<ResourceKind, string>;
+/** La muestra del oro en la barra cuando no hay su icono. */
+export const COLOR_DEL_ORO = '#d9a441';
 
 /**
  * La marca del comandante —el héroe en el tablero, el que si cae pierde la

@@ -445,7 +445,7 @@ function cubrir(cubiertas: Map<number, number>, v: Volumen, W: number, H: number
 
 /**
  * La clave de profundidad de una figura con los pies en (`x`, `y`), en casillas
- * y con la convención de `Sprite.y`. Lo horneado —ciudad, nodo, mina, pueblo— es
+ * y con la convención de `Sprite.y`. Lo horneado —ciudad, nodo, pueblo— es
  * la ficha de su casilla y no un edificio que esconda a nadie: la figura que
  * esté en una casilla que cubre va delante de él, con su misma clave, porque a
  * igual clave se pinta antes el volumen. Un árbol o un pico sí la tapan. Con la

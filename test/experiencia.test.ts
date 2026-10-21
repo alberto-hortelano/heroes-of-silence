@@ -262,7 +262,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     // héroe en la escala única.
     expect(rangoDeHeroe(hero)).toBe(5);
     expect(hero.experience).toBe(umbral(5));
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
+    state.players[0]!.oro = 0;
     ponerMonstruo(state, NO_MUERTO, 1);
     forzarBatalla(state, c, hero);
     const b = state.pendingBattle!.battle;
@@ -770,7 +770,7 @@ describe('la IA no tira a la tropa veterana (C8)', () => {
       .sort((x, y) => unitPower(y) - unitPower(x))[0]!;
     if (!base.buildings.includes(fuerte.edificio!)) base.buildings.push(fuerte.edificio!);
     base.available = { [fuerte.id]: 1 };
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 50_000 };
+    state.players[0]!.oro = 50_000;
     const libre = heroLeadership(hero) - (barato.leadership + 5 * tirador.leadership);
     const fuera = Math.ceil((fuerte.leadership - libre) / tirador.leadership);
     expect(fuera).toBeGreaterThan(0);
@@ -805,7 +805,7 @@ describe('una sola escala de rangos: el héroe empieza donde acaba la tropa', ()
     const hero = heroesOf(state, 0)[0]!;
     const base = baseOf(state, 0)!;
     hero.at = { x: base.at.x + 1, y: base.at.y };
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 50_000 };
+    state.players[0]!.oro = 50_000;
     applyAdventureAction(state, { type: 'hire_hero', town: base.id }, ctx(7), 0);
     const nuevo = heroesOf(state, 0).find((h) => h.id !== hero.id)!;
     expect(nuevo.experience).toBe(umbral(5));

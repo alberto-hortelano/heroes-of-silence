@@ -66,6 +66,7 @@ import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
 import { buyBlocker } from '@core/state/game.js';
+import type { RentaDelDia } from '@core/state/renta.js';
 import { building } from '@core/town/buildings.js';
 import {
   dailyIncome,
@@ -76,20 +77,13 @@ import {
   townSpells,
 } from '@core/town/town.js';
 import type { Army, Point, UnitInfo } from '@core/types.js';
-import {
-  conMiles,
-  describirCoste,
-  HUECOS,
-  NOMBRE_DE_HUECO,
-  NOMBRE_DE_RECURSO,
-  RESOURCE_KINDS,
-} from '@core/types.js';
+import { conMiles, describirCoste, HUECOS, NOMBRE_DE_HUECO } from '@core/types.js';
 import { disposicionDe } from '../../shared/base.js';
 import { quienesDe } from '../desenlace.js';
 import type { Abierto } from '../escenas/castillo.js';
 import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
-import { MARCA_DE_COMANDANTE, RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
+import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
 import type { Session, SpellOption } from '../session.js';
 import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
@@ -151,6 +145,23 @@ export function rotuloDeDia(day: number): string {
   return `Día ${((day - 1) % 7) + 1} · Semana ${Math.floor((day - 1) / 7) + 1}`;
 }
 
+/** Por qué una ciudad propia no cobra (`CiudadDeLaRenta.unida`): la lista del lateral y su panel. */
+const SIN_COBRAR = 'No está unida a tu base: no da oro';
+
+/**
+ * De dónde sale la renta del día, en una frase para la nota de la barra: cada
+ * ciudad con lo que da su ayuntamiento y cada pueblo con lo suyo. Lo que no
+ * está unido a la base no cobra, y la frase lo recuerda.
+ */
+function notaDeLaRenta(renta: RentaDelDia): string {
+  const partes = [
+    ...renta.ciudades.filter((c) => c.unida).map((c) => `${c.nombre} ${conMiles(c.oro)}`),
+    ...renta.pueblos.map((p) => `${p.nombre} ${conMiles(p.oro)}`),
+  ];
+  const de = partes.length === 0 ? 'nada te da oro hoy' : `cobras ${partes.join(', ')}`;
+  return `Oro al día: ${de}. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro.`;
+}
+
 export function renderTopbar(session: Session): {
   day: string;
   resources: Html;
@@ -158,24 +169,22 @@ export function renderTopbar(session: Session): {
 } {
   const state = session.state;
 
-  // Con arte generado se usa el icono; si no, la muestra de color.
+  // El oro, el único recurso: lo que hay, lo que
+  // entrará mañana y, en su nota, de dónde sale (`Session.renta`, la cuenta del
+  // núcleo). Con arte generado se usa el icono; si no, la muestra de color.
   //
   // Los dos únicos huecos de este fichero que caen en `style=` y en `src=` están
   // aquí, y la puerta los rechaza de plano: escapar comillas no para un
   // `javascript:` ni una declaración de estilo de más. Por eso pasan por
   // `srcDeImagen` y `fondoDeColor`, que validan en el idioma del atributo y
   // devuelven el atributo entero ya escrito.
-  const resources = unir(
-    RESOURCE_KINDS.map((k) => {
-      const valor = session.resources[k];
-      const icono = asset('icons', k);
-      const marca =
-        icono === null
-          ? html`<span class="swatch"${fondoDeColor(RESOURCE_COLORS[k])}></span>`
-          : html`<img class="res-icon"${srcDeImagen(icono.src)} alt="">`;
-      return html`<li title="${RESOURCE_NAMES[k]}">${marca}${valor}</li>`;
-    }),
-  );
+  const icono = asset('icons', 'gold');
+  const marca =
+    icono === null
+      ? html`<span class="swatch"${fondoDeColor(COLOR_DEL_ORO)}></span>`
+      : html`<img class="res-icon"${srcDeImagen(icono.src)} alt="">`;
+  const renta = session.renta;
+  const resources = html`<li data-abre-nota>${marca}<span class="oro">${conMiles(session.oro)}</span><span class="renta">+${conMiles(renta.total)}/día</span>${nota(notaDeLaRenta(renta))}</li>`;
 
   const desenlace = session.desenlace;
   const turno =
@@ -372,19 +381,33 @@ function renderAdventurePanel(session: Session): Html {
           }),
         )}</div>`;
 
-  const pueblos = session.myTowns();
+  // Cada ciudad propia con lo que cobra hoy (`Session.renta`): una que han dejado
+  // aislada de la base no da nada, aunque siga siendo suya.
+  const renta = session.renta;
   const listaPueblos =
-    pueblos.length === 0
+    renta.ciudades.length === 0
       ? NADA
       : html`<h3>Castillos</h3><div class="stack-list">${unir(
-          pueblos.map(
-            (t) => html`<button data-action="open-town" data-town="${t.id}" class="stack">
-              <span>${t.name}</span><span class="count">+${dailyIncome(t)}</span>
-            </button>`,
+          renta.ciudades.map((c) => {
+            const cuanto = c.unida
+              ? html`<span class="count">+${conMiles(c.oro)}</span>`
+              : html`<span class="count" title="${SIN_COBRAR}">+0</span>`;
+            return html`<button data-action="open-town" data-town="${c.id}" class="stack">
+              <span>${c.nombre}</span>${cuanto}
+            </button>`;
+          }),
+        )}</div>`;
+  const listaAldeas =
+    renta.pueblos.length === 0
+      ? NADA
+      : html`<h3>Pueblos</h3><div class="stack-list">${unir(
+          renta.pueblos.map(
+            (p) =>
+              html`<div class="stack"><span>${p.nombre}</span><span class="count">+${conMiles(p.oro)}</span></div>`,
           ),
         )}</div>`;
 
-  return html`${fin}${heroPanel}${listaHeroes}${listaPueblos}
+  return html`${fin}${heroPanel}${listaHeroes}${listaPueblos}${listaAldeas}
     <h3>Crónica</h3>${renderLog(session.cronica(60), session.viewer)}`;
 }
 
@@ -632,7 +655,7 @@ function renderArmeria(session: Session, town: Town): Html {
   const filas = unir(
     PIEZAS_DE_ARMERIA.map((p) => {
       const motivo = buyBlocker(session.state, town, p.id, session.viewer);
-      return html`<div class="stack"><span>${p.nombre}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} · ${modificadoresEnPantalla(p)}</span></span><span class="count">${describirCoste({ gold: p.precio })} <button data-action="buy-item" data-item="${p.id}" title="${motivo ?? 'Comprarla para la mochila del héroe que está dentro'}">Comprar</button></span></div>`;
+      return html`<div class="stack"><span>${p.nombre}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} · ${modificadoresEnPantalla(p)}</span></span><span class="count">${describirCoste(p.precio)} <button data-action="buy-item" data-item="${p.id}" title="${motivo ?? 'Comprarla para la mochila del héroe que está dentro'}">Comprar</button></span></div>`;
     }),
   );
   return html`<h3>Armería</h3><div class="stack-list">${filas}</div>
@@ -680,7 +703,7 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
     contratar,
   })}
     <h2>${town.name}</h2>
-    <div class="row"><span class="label">Ingresos</span><span>${dailyIncome(town)} oro/día</span></div>
+    <div class="row"><span class="label">Ingresos</span><span>${conMiles(dailyIncome(town))} oro/día${session.renta.ciudades.some((c) => c.id === town.id && !c.unida) ? ` · ${SIN_COBRAR}` : ''}</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>${mageGuildLevel(town) || '—'}</span></div>
     <div class="row"><span class="label">Construir hoy</span><span>${town.builtToday ? 'ya hecho' : 'disponible'}</span></div>
     <p class="cost">Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.</p>
@@ -1528,10 +1551,8 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
       switch (e.kind) {
         case 'day_start':
           return html`<div>— Día ${e.day} —</div>`;
-        case 'resource_gained':
-          return mio
-            ? html`<div class="win">+${e.amount} ${NOMBRE_DE_RECURSO[e.resource]}${aqui}</div>`
-            : NADA;
+        case 'gold_gained':
+          return mio ? html`<div class="win">+${conMiles(e.amount)} de oro${aqui}</div>` : NADA;
         case 'node_captured':
           return html`<div${clase(mio, e.from === viewer)}>${
             mio

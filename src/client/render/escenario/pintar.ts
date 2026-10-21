@@ -128,7 +128,7 @@ const TEXTURAS = ['agua', 'barro', 'cara-roca', 'cara-arenisca', 'cara-basalto',
 /**
  * Si `s` se pinta con el filtro `objeto`: lo que el filtro deja fuera no se
  * pinta, no se pide y no va a ninguna lista, porque lo pinta quien llama (el
- * juego pinta él los monstruos, los recursos y los cofres).
+ * juego pinta él los monstruos y los cofres).
  */
 function seVe(s: Sprite, objeto: OpcionesDePintura['objeto']): boolean {
   return s.objeto === undefined || objeto === undefined || objeto(s.objeto);

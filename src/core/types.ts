@@ -1,48 +1,19 @@
 /** Tipos compartidos por todo el núcleo. Sin DOM, sin node:*. */
 
-// ---------------------------------------------------------------- recursos
-
-/** Los 7 recursos de HoMM2 (verificado en `resource.h` de fheroes2). */
-export const RESOURCE_KINDS = [
-  'wood',
-  'mercury',
-  'ore',
-  'sulfur',
-  'crystal',
-  'gems',
-  'gold',
-] as const;
-
-export type ResourceKind = (typeof RESOURCE_KINDS)[number];
-
-export type Resources = Readonly<Record<ResourceKind, number>>;
+// ---------------------------------------------------------------- oro
 
 /**
- * El nombre de cada recurso en español, en minúscula: lo que lee una persona y
- * lo que se le escribe al agente. **Una sola lista**: el cliente la capitaliza
- * para sus rótulos en vez de tener la suya.
+ * Un precio en prosa: «15 000 oro» (con `conMiles`), o «gratis» si no cuesta
+ * nada. **El único formateador de precios**: lo leen los motivos del núcleo
+ * (`buildBlocker`, `recruitBlocker`), la prosa del agente y el cliente. Un
+ * precio es un número de oro, el único recurso, y el monedero también
+ * (`Player.oro`).
  */
-export const NOMBRE_DE_RECURSO: Readonly<Record<ResourceKind, string>> = {
-  wood: 'madera',
-  mercury: 'mercurio',
-  ore: 'mineral',
-  sulfur: 'azufre',
-  crystal: 'cristal',
-  gems: 'gemas',
-  gold: 'oro',
-};
-
-/**
- * Un coste en prosa: «2500 oro, 5 madera», en el orden de `RESOURCE_KINDS` y sin
- * los ceros; «gratis» si no cuesta nada. **El único formateador de precios**: lo
- * leen los motivos del núcleo (`buyBlocker`), la prosa del agente y el cliente,
- * que antes lo escribían cada uno a su manera.
- */
-export function describirCoste(coste: Partial<Resources>): string {
-  const partes = RESOURCE_KINDS.filter((k) => (coste[k] ?? 0) > 0).map(
-    (k) => `${coste[k]} ${NOMBRE_DE_RECURSO[k]}`,
-  );
-  return partes.length === 0 ? 'gratis' : partes.join(', ');
+export function describirCoste(oro: number): string {
+  if (!Number.isSafeInteger(oro) || oro < 0) {
+    throw new Error(`describirCoste: ${oro} no es un precio en oro (un entero ≥ 0)`);
+  }
+  return oro === 0 ? 'gratis' : `${conMiles(oro)} oro`;
 }
 
 /**
@@ -604,39 +575,4 @@ export interface Point {
 export interface Hex {
   readonly col: number;
   readonly row: number;
-}
-
-// ---------------------------------------------------------------- utilidades
-
-export const EMPTY_RESOURCES: Resources = Object.freeze({
-  wood: 0,
-  mercury: 0,
-  ore: 0,
-  sulfur: 0,
-  crystal: 0,
-  gems: 0,
-  gold: 0,
-});
-
-export function addResources(a: Resources, b: Partial<Resources>): Resources {
-  const out = { ...a };
-  for (const k of RESOURCE_KINDS) out[k] = a[k] + (b[k] ?? 0);
-  return out;
-}
-
-export function subtractResources(a: Resources, b: Partial<Resources>): Resources {
-  const out = { ...a };
-  for (const k of RESOURCE_KINDS) out[k] = a[k] - (b[k] ?? 0);
-  return out;
-}
-
-export function scaleResources(a: Partial<Resources>, factor: number): Resources {
-  const out = { ...EMPTY_RESOURCES };
-  for (const k of RESOURCE_KINDS) out[k] = (a[k] ?? 0) * factor;
-  return out;
-}
-
-/** ¿Alcanza `have` para pagar `cost`? */
-export function canAfford(have: Resources, cost: Partial<Resources>): boolean {
-  return RESOURCE_KINDS.every((k) => have[k] >= (cost[k] ?? 0));
 }

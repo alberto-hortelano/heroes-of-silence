@@ -134,12 +134,13 @@ describe('la muralla, el cierre de un paso (#232)', () => {
     expect(largas).toEqual([]);
   });
 
-  it('el muro no desaparece: s1 y s3 llevan su fuerte', () => {
+  it('el muro no desaparece: s2 y s3 llevan su fuerte', () => {
     // Quitar el muro del generador pasaría el guardia de arriba sin hacer lo
     // que se pidió, que es que la muralla tenga sentido. La s1 desde el río de
     // una casilla al pie de la meseta (#144, paso 2b): la s5 se quedó sin muro.
-    // La s3 desde el río continuo (#144): la s12 se quedó sin muro.
-    for (const s of [1, 3]) {
+    // La s3 desde el río continuo (#144): la s12 se quedó sin muro. La s2 sin
+    // minas (21-10-2026): la s1 se quedó sin muro.
+    for (const s of [2, 3]) {
       const conPuerta = murallasDelMapa(mapaDe(s)).filter((m) => m.puertas.length > 0);
       expect(conPuerta.length, `s${s}`).toBeGreaterThan(0);
     }

@@ -28,7 +28,7 @@ import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState, week } from '@core/state/game.js';
 import type { Town } from '@core/town/town.js';
 import { vecinosDeLaBase, vozDe } from '@core/town/voces.js';
-import type { FactionId, PlayerId, Point, Resources, UnitInfo, Veterania } from '@core/types.js';
+import type { FactionId, PlayerId, Point, UnitInfo, Veterania } from '@core/types.js';
 
 /**
  * El mapa tal como viaja. Los caminos van como **tramos** (#153), los mismos que
@@ -56,7 +56,8 @@ export interface VistaMapa {
 export interface VistaJugador {
   readonly id: PlayerId;
   readonly faction: FactionId;
-  readonly resources: Resources;
+  /** Su oro, el único recurso. */
+  readonly oro: number;
   readonly defeated: boolean;
   /**
    * Casillas exploradas, por índice `y·W + x` (`Casillas.indices`, #146): la
@@ -241,7 +242,7 @@ export function construirVista(state: GameState, directorLog: readonly string[])
     players: state.players.map((p) => ({
       id: p.id,
       faction: p.faction,
-      resources: p.resources,
+      oro: p.oro,
       defeated: p.defeated,
       fog: p.fog.indices(),
     })),

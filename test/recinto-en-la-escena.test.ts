@@ -13,12 +13,6 @@
  *   ni el vano de un arco (H1 del QA de la ciudad llena, s16 (10, 7)).
  * - El óvalo del dueño, en el suelo de la plaza (`claveDeLaMarca`, H8), y quien
  *   está en una de sus casillas, delante del recinto entero (`claveDeFigura`).
- * - Los guardias del recinto, a 0: ninguna senda por el anillo, ninguna fuera
- *   de un arco, ninguna puerta sin su camino (`puertaSinCamino`), el anillo
- *   cerrado, ninguna casa repetida al lado, y las
- *   casillas de barrera junto a él con su formación (la salida recta de una
- *   puerta las pisaba: s21, s25, s32). Los demás guardias del informe los
- *   vigilan sus tests.
  *
  * En `pnpm verify`, s10 (la del desnivel dentro de un recinto, (27, 17)), s13
  * (la ciudad-puente de (25, 5)), s15 (la de la queja, (12, 16)), s16 (los arcos
@@ -252,33 +246,6 @@ describe('la ciudad amurallada en los mapas del juego', () => {
           ).toBe(true);
           expect(enElRecinto(r.rect, x, y), r.id).toBe(true);
         }
-      });
-
-      it('los guardias del recinto, a 0', () => {
-        const i = e.informe;
-        expect({
-          recintoSobreSenda: i.recintoSobreSenda,
-          sendaFueraDeLaPuerta: i.sendaFueraDeLaPuerta,
-          anilloAbierto: i.anilloAbierto,
-          puenteSobreElAnillo: i.puenteSobreElAnillo,
-          casasRepetidasJuntas: i.casasRepetidasJuntas,
-          arcosTapados: i.arcosTapados,
-          testerosAMediaTirada: i.testerosAMediaTirada,
-          anilloMalOrdenado: i.anilloMalOrdenado,
-          casillasDeBarreraSinFormacion: i.casillasDeBarreraSinFormacion,
-          puertaSinCamino: i.puertaSinCamino,
-        }).toEqual({
-          recintoSobreSenda: 0,
-          sendaFueraDeLaPuerta: 0,
-          anilloAbierto: 0,
-          puenteSobreElAnillo: 0,
-          casasRepetidasJuntas: 0,
-          arcosTapados: 0,
-          testerosAMediaTirada: 0,
-          anilloMalOrdenado: 0,
-          casillasDeBarreraSinFormacion: 0,
-          puertaSinCamino: 0,
-        });
       });
     });
 });

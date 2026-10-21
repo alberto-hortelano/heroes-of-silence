@@ -228,7 +228,7 @@ export function piezaEnPalabras(p: Pieza): FichaEnPalabras {
     velocidad: `${p.velocidad}`,
     manos: aDosManos(p) ? '2' : '1',
     rueda: p.rueda === undefined ? 'nada' : ruedaDelArmaEnPalabras(p.rueda),
-    precio: describirCoste({ gold: p.precio }),
+    precio: describirCoste(p.precio),
   };
 }
 

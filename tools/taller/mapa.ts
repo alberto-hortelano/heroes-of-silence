@@ -2,7 +2,7 @@
  * El arte del mapa nuevo (red de nodos): las piezas y los estilos candidatos.
  *
  * Antes de producir las piezas una a una, el usuario elige estilo: por cada
- * estilo se pide UNA lámina de muestra con las nueve piezas, para compararlas
+ * estilo se pide UNA lámina de muestra con todas las piezas, para compararlas
  * lado a lado (`pnpm taller encolar --muestras-mapa`). El estilo elegido pasará
  * a ser la referencia de estilo de las piezas sueltas.
  */
@@ -41,15 +41,6 @@ export const PIEZAS_DE_MAPA = [
     describe:
       'un pueblo abierto, sin murallas: cuatro o cinco casas de labriegos, un pozo y huertos',
   },
-  {
-    id: 'oro',
-    describe: 'el recurso oro: un montón de monedas y lingotes de oro en un arcón abierto',
-  },
-  {
-    id: 'piedra',
-    describe: 'el recurso piedra: bloques de piedra tallada apilados junto a una pequeña cantera',
-  },
-  { id: 'madera', describe: 'el recurso madera: troncos cortados y apilados, atados con cuerdas' },
 ] as const;
 
 export const ESTILOS_DE_MAPA = [
@@ -80,7 +71,7 @@ export const ESTILOS_DE_MAPA = [
   },
 ] as const;
 
-/** La lámina de muestra de un estilo: las nueve piezas en una rejilla de 3×3. */
+/** La lámina de muestra de un estilo: todas las piezas en una rejilla de tres columnas. */
 export function encargoDeMuestra(estilo: (typeof ESTILOS_DE_MAPA)[number]): Encargo {
   const lista = PIEZAS_DE_MAPA.map((p, i) => `${i + 1}. ${p.describe}.`).join('\n');
   return {
@@ -88,9 +79,9 @@ export function encargoDeMuestra(estilo: (typeof ESTILOS_DE_MAPA)[number]): Enca
     tipo: 'imagen',
     descripcion: [
       `Lámina de muestra de las piezas del mapa de aventura de un juego de estrategia por turnos, en estilo: ${estilo.describe}.`,
-      'Nueve piezas sueltas en una rejilla de 3 por 3, en este orden de lectura, separadas con holgura:',
+      `${PIEZAS_DE_MAPA.length} piezas sueltas en una rejilla de tres columnas, en este orden de lectura, separadas con holgura:`,
       lista,
-      'Todas con la MISMA cámara: ortográfica, elevada 25 grados sobre la horizontal, mirando de frente y algo a la derecha, como se ven las figuras del juego; nunca cenital ni de perfil. Misma escala relativa entre piezas: la montaña y la ciudad son las mayores, los recursos los menores. La luz viene de arriba a la izquierda.',
+      'Todas con la MISMA cámara: ortográfica, elevada 25 grados sobre la horizontal, mirando de frente y algo a la derecha, como se ven las figuras del juego; nunca cenital ni de perfil. Misma escala relativa entre piezas: la montaña y la ciudad son las mayores, el pueblo el menor. La luz viene de arriba a la izquierda.',
     ].join('\n'),
     referencias: 'referencia' in estilo ? [{ ruta: estilo.referencia, papel: 'estilo' }] : [],
     salida: `assets/mapa/muestras/${estilo.id}`,
@@ -307,10 +298,9 @@ export function encargosDeMurallaNS(): Encargo[] {
 }
 
 /**
- * El cofre del mapa (#147), una pieza suelta como los recursos: hasta ahora salía
- * de la celda 8 del atlas viejo. CERRADO a propósito: el recurso oro ya es un
- * arcón abierto rebosante de monedas y lingotes, y dos arcones abiertos en el
- * mismo mapa no se distinguen de un vistazo.
+ * El cofre del mapa (#147), una pieza suelta: hasta ahora salía de la celda 8
+ * del atlas viejo. CERRADO a propósito, para que se lea como cofre y no como un
+ * montón de oro (el que había era un arcón abierto rebosante de monedas).
  */
 export function encargoDeCofre(): Encargo {
   return {
