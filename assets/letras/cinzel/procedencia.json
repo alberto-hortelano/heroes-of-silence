@@ -1,0 +1,22 @@
+{
+  "familia": "Cinzel",
+  "tema": "templarios",
+  "licencia": "SIL Open Font License 1.1 (OFL.txt)",
+  "repositorio": "https://github.com/google/fonts",
+  "commit": "66928797f271fed5ee428544e7229685e2d90127",
+  "ficheros": [
+    {
+      "local": "Cinzel.ttf",
+      "origen": "ofl/cinzel/Cinzel[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/cinzel/Cinzel%5Bwght%5D.ttf",
+      "sha256": "f4d83d34d1f6c741193e4acf4b3dff9531e5a67b6aa65228d00a7db72a4e0f34"
+    },
+    {
+      "local": "OFL.txt",
+      "origen": "ofl/cinzel/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/cinzel/OFL.txt",
+      "sha256": "f2b3029aba64c378bf0963b62945eee15e564fe4330b934c8f2eb058282b5e83"
+    }
+  ],
+  "modificado": "no: los bytes del repositorio de origen, sin subconjunto ni cambio de nombre"
+}

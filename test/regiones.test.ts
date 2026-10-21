@@ -267,10 +267,8 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
     const plan = planDeNodos();
     const cerrada = con({
       walls: [...plan.walls, columna(24)],
-      // El inicio de (24,4) caería en la cordillera nueva; fuera del recinto
-      // de su base, en lo que queda de la E. Y el camino de la E a Cripta
-      // Gris, por (23,2), su otro acceso del noreste.
-      heroStarts: [plan.heroStarts[0]!, { player: 1, at: { x: 23, y: 6 } }],
+      // El camino de la E a Cripta Gris, por (23,2), su otro acceso del
+      // noreste: el de (24,3) caería en la cordillera nueva.
       roads: (plan.roads ?? []).map((p) => (p.x === 24 && p.y === 3 ? { x: 23, y: 2 } : p)),
       regions: [
         ...plan.regions.filter((r) => r.id !== 'e'),
@@ -925,7 +923,8 @@ describe('el generador hace redes como las pidió el usuario', () => {
 
     // Sin base: la base del jugador 0 pierde el tramo de su casa.
     const base = plan.towns.find((t) => t.owner === 0)!;
-    const casa = red.regionDe[indice(plan.heroStarts[0]!.at)]!;
+    // La casa del jugador 0 es la región 0 del procedimental.
+    const casa = 0;
     const sinBase = tramos.filter(
       (t) => !(toca(t, base.at) && t.some((q) => red.regionDe[indice(q)] === casa)),
     );
@@ -1278,6 +1277,27 @@ describe('la barrera que cruza cada nodo del generador (#145, #187)', () => {
     const semillas = segunPrisa([28, 203, 646, 652, 896], rango(1, 1000));
     expect(semillas.flatMap(malCruzados)).toEqual([]);
   });
+});
+
+describe('cada nodo toca las regiones que le llevan camino', () => {
+  it('el 64×64 s8 se genera y vale', () => {
+    // El engorde de las fronteras dejó la ciudad de (7,8) sin la región 4, que le
+    // llevaba camino, y el centro de la región 4 no tenía desde dónde llegar a
+    // ella: `centroDeRegion` lanzaba y tumbaba la generación. Desde el recinto de
+    // las ciudades a una ciudad se llega por los accesos de sus puertas, a dos
+    // casillas, y un objetivo al que no se llega es un vestido que no vale
+    // (`centroOMotivo`); el veto de `vestirRed` queda para los nodos que no son
+    // ciudad. En 1-40 (42×42) y 1-12 (64×64) no tira ningún vestido (fusión con
+    // el inicio en la base, 21-10-2026); con las ciudades dentro tiraba cientos.
+    const tirados: string[] = [];
+    const plan = generateMapPlan(createRng(8), {
+      width: 64,
+      height: 64,
+      alTirarUnVestido: (_fase, motivo) => tirados.push(motivo),
+    });
+    expect(validateMapPlan(plan)).toEqual([]);
+    expect(tirados.filter((m) => /no toca la región \d+, que le lleva camino/.test(m))).toEqual([]);
+  }, 60_000);
 });
 
 describe('los caminos de cada región salen de su centro', () => {

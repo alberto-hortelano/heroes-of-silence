@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-edicion-town-hall",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:18:44.320Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a88-5223-7e40-bc65-1db72efa216e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 2 empezando por la izquierda (el ayuntamiento, el que está entre las columnas 535 y 985) se MEJORA y pasa a ser la casa capitular crecida: la misma, con un campanario de piedra negra encima, una campana rota y estandartes negros raídos con la calavera. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 535 y 985: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/maestro-t3.webp",
+      "papel": "edita",
+      "sha256": "5a7933362aaa4552397eb63be804b5e7f8dcf32483b9902e9499a4d996fa24fd"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a88-5223-7e40-bc65-1db72efa216e/call_f60d5bcc1121429cafa73b7a0bcdf2d8.png",
+    "sha256": "a58e3c529522061db1c6e184ec31705ae6504fb9a4b0c2e862b9180a431f4c63",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 11 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/edicion-town_hall.webp",
+    "sha256": "4f0ab38179eadc72832158371d27a234ed9344e5ee43f66d06b63ae01f752fc0"
+  }
+}

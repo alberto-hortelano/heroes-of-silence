@@ -11,7 +11,7 @@ en `docs/historia.md`.** Antes de deshacer algo que parezca raro, búscalo allí
 
 ```bash
 pnpm install
-pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
+pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas): `/` abre el menú de inicio
 pnpm mirar      # /espectador/: mira la partida del agente contra el servidor
 pnpm arena      # /arena/: edita el catálogo del juego (unidades y equipo) y monta peleas
 pnpm verify     # typecheck + lint + tests, ~17 s: el bucle rápido
@@ -23,14 +23,24 @@ pnpm qa         # circuito entero del agente (mapa, servidor, puente MCP), ~3 s
 pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales, ~245 s; deja los PNG en .cache/capturas/ o en la carpeta que se le pase
 npx tsx tools/qa/barrido-semillas.ts   # cuántas de 4 partidas no terminan (hoy 0)
 npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión anterior
+npx tsx tools/qa/neutro.ts [ref]       # el estilo sin tema, igual que en las hojas de un ref (HEAD), ~10 s
+npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (google/fonts, sha256) y rehace src/client/fuentes.css
 ```
 
-- **`?seed=N` fija la partida**; la barra enseña siempre cuál se juega. Lo que no
-  es semilla se rechaza diciéndolo (`parseSeed`, en `core`). `?seed=` vacío =
-  sin semilla. Si el agente diseña el mapa, la semilla del servidor ya no
-  reproduce la partida, y la consola lo dice.
+- **`?seed=N&faccion=<id>&heroe=<tipo>` fija la partida**; la barra enseña siempre cuál se juega y
+  la URL lleva las tres tras empezar. Lo que no es semilla o facción se rechaza diciéndolo
+  (`parseSeed`, `parseFaccion`, en `core`; repetido, `unaVezEnLaURL`), y un tipo de héroe que no es
+  de la facción que se juega, también (`problemaDeTipo`, el mismo de `newGame`). `?seed=` vacío =
+  sin semilla. **Sin ninguna de las tres, la página pregunta** (19-10-2026, `inicio/`): «Nuevo
+  juego» (elegir facción, con su tema al marcarla, y luego el héroe), «Cargar partida» (apagado: no
+  hay guardado) o «Partida rápida» (semilla al azar, la facción que saque y su héroe por defecto);
+  hasta elegir no hay `Session` ni mapa. La partida abre en la base
+  del jugador, con su héroe dentro; «Partida nueva», al acabar, vuelve al menú. Si el agente diseña
+  el mapa, la semilla del servidor ya no reproduce la partida, y la consola lo dice.
 - **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
-  `unidades/<id>/dN/`, solo `atlas.webp` (`seCopiaAlBuild`, `tools/build/publico.ts`, #137).
+  `unidades/<id>/dN/`, solo `atlas.webp`; ninguna carpeta `fuentes/` ni `_guias/`, a cualquier altura;
+  y nada de `art/` (láminas y referencias de estilo) (`seCopiaAlBuild`, `tools/build/publico.ts`,
+  #137). Por eso las letras de los temas viven en `assets/letras/`.
 - **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
   `vite build` y `pnpm qa`. No gasta un céntimo: nada de `tools/gen/`.
 - Un hook `Stop` (`.claude/hooks/verde.sh`) impide cerrar una tarea con
@@ -78,7 +88,8 @@ tools/qa/          verificación de extremo a extremo y medidas
 tools/datos/       extrae JSON de NuevaJugabilidad.md con expresiones regulares
 tools/arena/ tools/taller/ tools/art/   arena, taller de arte, rig del Y Bot
 data/              unidades, equipo, edificios, economía, hechizos, experiencia… en JSON editable
-assets/            arte (generated/, unidades/, mapa/, _poses/ del Y Bot)
+assets/            arte (generated/, unidades/, mapa/, _poses/ del Y Bot), letras/ y temas/ de los
+                   temas de la interfaz; art/ (láminas y referencias de estilo) no va al build
 docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 ```
 
@@ -104,7 +115,9 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
   El motivo de un rechazo lo escribe un `*Blocker` del núcleo y lo leen
   `legalActions`, la acción y la pantalla.
 - **Una página que no arranca dice por qué** (H5, 19-10-2026): cada página entra por su
-  `entrada.ts`, que carga `main.ts` con un `import()` y, si el núcleo lanza al cargarse (una unidad
+  `entrada.ts`, que carga `main.ts` con un `import()` (la partida, antes, su pantalla de inicio,
+  `inicio/inicio.ts`, también con un `import()` y solo si la URL no pide partida: `hayQuePreguntar`,
+  de `semilla.ts`, que no importa nada) y, si el núcleo lanza al cargarse (una unidad
   rota en `data/unidades.json`), pinta el motivo entero (`arranque.ts`, que no importa el núcleo).
   `vite.config.ts` carga el lado de disco de la arena a demanda, así que `pnpm dev` arranca igual.
   Lo vigila `test/arranque.test.ts`.
@@ -137,15 +150,16 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Cifras = catálogo + veteranía + equipo | `cifrasDeUnidad` (`core/catalogo.ts`: cuerpo + rango + lo de serie con lo propio encima, un solo `conEquipo`; con el catálogo de la pelea, `CatalogoDeUnidades`, por defecto `CATALOGO_DEL_JUEGO`), `cifrasDelIndividuo` (el personaje), `conEquipo`; el oro de una unidad, `costeDeUnaUnidad` (de la vestida) y `oroDeUnidad`; el cuerpo sin equipo de un stack, `cuerpoDe(stack, cat?)` (del origen: igual en el juego y la arena; el héroe lo lleva en `OrigenDelStack`, `desnudo`); qué unidad es un stack, `origen.unidad` o `queEs` (`battle/types.ts`): `body` es el arte |
 | A quién se licencia | `elQueSeIria` (`hero/troop.ts`) |
 | Construir un héroe | `heroeRecienHecho` |
+| Con qué hoja se pinta un héroe (vuelta 2 del arranque, 19-10-2026) | `figuraDelHeroe` (`core/data.ts`): la de su tipo en `data/figuras-de-heroe.json`, comprobada al cargar contra los tipos (`validarFigurasDeHeroe`) y contra el disco en `test/figuras-de-heroe.test.ts` (ocho direcciones, identidad, y ninguna hoja `heroe-*` sin tipo). Derivada, no guardada en el `Hero`: la leen el mapa (`HeroeEnElMapa` lleva `faction` y `tipo`), la base caminable, el retrato del menú, la batalla (`HeroeDelBando.figura`, sin opcional: la arena pone la suya o la genérica) y el espectador, con la facción y el tipo que trae el cable. Lo que el héroe ES para la crónica y el agente es `HERO_BODY` (`battle/types.ts`, `queEs`), no su figura |
 | Qué se levanta en cada sitio de la base | `sitiosDeLaBase`, `siguienteDe`, `construidoEn` (`town/sitios.ts`) |
 | De un píxel del cuadro de la base al escenario | `planoDelCuadro` (`shared/base.ts`); en pantalla, `colocarLaPlaca` y `colocarEnElCuadro` (`render/base/recortes.ts`) |
 | Recortar un edificio de la base de su cuadro | `recortarLaBase`, `derivarRecorte` (`tools/taller/recorte-base.ts`) |
-| Escala del tablero de combate (también la de la base) | `escalaDelCombate` (`render/proyeccion.ts`), que leen `tableroPara` y `pasoDeLaBase` |
+| Escala del tablero de combate (también la de la base) | `escalaDelCombate` (`render/proyeccion.ts`), que leen `tableroPara` y `pasoDeLaBase` (la base: la de una batalla en un marco 20:11 de su alto, `MARCO_DE_LA_BASE`; el ancho no cuenta, 20-10-2026) |
 | Quién hay en una base y qué dice (narrado o de respaldo) | `vecinosDeLaBase`, `vozDe`; las voces del narrador las escribe solo `ponerVoces` (`town/voces.ts`) |
 | Nivel de una unidad (índice de poder, con su equipo) | `nivelDeUnidad`, `indiceDePoder`, `nivelDelIndice` (`core/nivel.ts`, `data/poder.json`), de la unidad vestida (`poderBruto`, memorizado por `UnitInfo`); lo que mide lo lee de `battle/armas.ts` (`golpeDe`, `golpesDe`, `porcientoDelTipo`, `disparosDe`, `trasLaArmadura`), y `nivel.ts` no está en un ciclo de importación (lo vigila `invariantes.test.ts`); qué cifras se pueden medir, `medidaBlocker`. Ni el nivel ni el coste se escriben en `data/unidades.json` (lo vigila `invariantes.test.ts`) |
 | El catálogo de unidades (el juego y la arena) | `data/unidades.json`, que importa solo `core/catalogo.ts` (lo vigila `invariantes.test.ts`): `UNIDADES`, `unidad`, `unidadDelJuego`, `unidadesDelJuego`, `unidadesDeFaccion`, `unidadesDeMorada`, `hojaDeUnidad` (la hoja con que se pinta, `cuerpo.hoja`); el formato, `validarUnidad` y `validarCatalogo` (`core/unidad.ts`); lo que el juego exige a los dos catálogos juntos (equipo base del héroe, unidades y moradas), `leerCatalogos`, que llaman la carga, «Guardar» y el editor de equipo; la forma de un id, `esIdDeUnidad` (`core/validar.ts`) |
 | Moradas: qué producen y qué cuestan | `Unidad.edificio` (la morada que la produce; sin él no se recluta) y `Building.morada` (su sitio en la base, 1-6: no es un nivel); `nivelDeMorada` (el de lo mejor que produce: de él, su coste), `moradasBlocker` (cada `edificio` es una morada de su facción, cada morada produce algo; al cargar y al guardar) (`town/buildings.ts`); una fila por unidad, `dwellings`; el oro y el crecimiento de una unidad, `oroDelIndice`, `crecimientoDelNivel` (`data/economia.json`) |
-| El ejército de salida | `startingArmy` (`state/setup.ts`): la primera unidad del pueblo con su tirada y hasta `DE_LA_SEGUNDA` de la segunda, lo que quepa; que la primera quepa siempre y de la segunda al menos uno se comprueba al cargar (`PUEBLO_DE_SALIDA`); las dos facciones de la partida, `faccionesDeLaSemilla` (con su propia corriente: el mapa de cada semilla no se mueve) |
+| El ejército de salida | `startingArmy` (`state/setup.ts`): la primera unidad del pueblo con su tirada y hasta `DE_LA_SEGUNDA` de la segunda, lo que quepa; que la primera quepa siempre y de la segunda al menos uno se comprueba al cargar (`PUEBLO_DE_SALIDA`); las dos facciones de la partida, `faccionesDeLaSemilla(seed, delJugador?)` (con su propia corriente: el mapa de cada semilla no se mueve; con la elegida en el menú, el rival es otra de las cuatro, y la que la semilla habría sacado da la misma partida; `newGame` la recibe en `faccionDelJugador`), y el nombre del héroe de salida, `nombreDeSalida`; la facción de la URL, `parseFaccion`, y si un texto es una, `esFaccion` (`core/types.ts`); el rasgo de cada una, `rasgoDeFaccion` (`data/facciones.json`, extraído del cuaderno por `tools/datos/facciones.ts`) |
 | Reindexar el rango de héroe | `subidasDeRango` (lanza por debajo del 5) |
 | Añadir a la mochila | `aLaMochila` |
 | A quién va una pieza | `destinoDeEquipo` |
@@ -165,7 +179,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Formatear un precio | `describirCoste`; un entero con miles («176 000»), `conMiles` |
 | Camino de un héroe (con lo hostil) | `alcanceDelHeroe`, `caminoHasta`; nadie fuera de `game.ts` llama a `findPath`/`reachableFrom` |
 | Territorio y renta | `territorio(state)`, `dueñoComun` |
-| Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed` |
+| Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed`; los jugadores y la base de cada uno, `basesDelPlan` (los dueños de ciudad por id, con su primera ciudad: lo leen la validación, `newGame` y el servidor) |
 | Qué barrera cruza un nodo | `MapObject.barrera`, que pone `buildMap` con el muro que abre; el procedimental escribe ese muro con `queCruzaElNodo` |
 | El río del procedimental (antes que las regiones; nadie lo corta) | `trazarRio`, `regionesDelRio`, `nivelesDelRio`, `rioEntero`, `orillaDeLaCiudad` (`core/map/rio.ts`: la ciudad del cruce aún en el río, en la red; el vestido la muda a tierra, `enSuOrilla`); el puente de la ciudad-puente, `rioAnteLaCiudad` (`recinto.ts`), y en la escena, `puenteDeLaCiudad` (`puentes.ts`, `Puente.ciudad`); la única escritura de la rejilla del vestido, `ponerTipo` (`vestir.ts`, que lanza si se toca el río; lo vigila `invariantes.test.ts`); medido sobre el mapa, `riosDelMapa` (`tools/qa/rios.ts`) |
 | Qué línea deja dos regiones a dos pasos (el acantilado entre dos niveles; el agua a ras de la más baja, que se ve) | `lineasQueSeparan`, `separadasDeCerca`, `aguaALaVista` (`vestir.ts`): el paso 7d y todo lo que abre una barrera (`abrirLinea`, `quitarEspigas`, `puertasSinMuesca`, `abrirEsquinasTorcidas`); el agua entre dos niveles, solo el 7d (`aguaEntreNiveles`); en el mapa hecho, `auditarMapaDenso` (`test/helpers.ts`) |
@@ -178,7 +192,9 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Los golpes y los poderes en el contrato (19-10-2026) | `HIT_DE_GOLPE` (`offensive`, `strong`, `feint`, `defensive`, `quick`, `guard_break`, `normal`), `HITS`, `golpeDelHit` (lanza diciendo cuáles valen), `accionDeBatallaDelAgente` (lo que manda el agente: `attack.hit` → el golpe, `power` → el poder), `accionAlAgente` (la lista legal al revés) y `hechoAlAgente` (el `cruce` del registro con `hit` y `response`), en `contract/vocabulario.ts` con los huecos; la petición de respuesta, `serializeBattleResponse` (recibe solo los dos ids: no puede contar el golpe del otro; lo vigila `invariantes.test.ts`, «el agente elige en la rueda») |
 | Quién lleva cada bando | `Player.controller` (`human`, `agent` o `ai`); la batalla que nace en el turno de la IA la toma el controlador de su dueño (`quienLaToma`, con lo que pasa `ConduccionDelTurno.batallas`: la persona, sus defensas; el agente, `BattleTakeover`), y quién no se rinde lo dice `sinLaIA` |
 | Por qué acabó una batalla (arena) | `causaDelFinal` (`battle.ts`, con `bandoVencido`) → `finalDeArena` |
-| Enlace de una pelea de la arena | `montajeALaURL` / `montajeDeLaURL` (`?montaje=`, con `?seed=`); un parámetro repetido, `unaVezEnLaURL`; uno retirado, `retiradosDeLaURL` |
+| Enlace de una pelea de la arena | `montajeALaURL` / `montajeDeLaURL` (`?montaje=`, con `?seed=`); un parámetro repetido, `unaVezEnLaURL` (`core/validar.ts`: la lee también la partida, `?seed=` y `?faccion=`); uno retirado, `retiradosDeLaURL` |
+| Tema de la interfaz (uno por facción, 19-10-2026, traído de `claude/army-game-theme-ui-28d2ad`) | el tema es la facción tal cual (`FactionId`, `FACTION_IDS`, `esFaccion`, sin alias); las fichas, en el `:root` neutro de `style.css` (las que se leen sin tema) y en `temas.css`: un bloque común (`:root[data-tema]`, lo que los cinco derivan igual, también las de la rueda del golpe, `--rueda-*`) y uno por tema con lo medido en su lámina (`MUESTRAS`, `medirPaleta`, `tools/taller/temas/paleta.ts`); `style.css` las importa con `fuentes.css` (generada de `FUENTES`, `tools/fuentes/bajar.ts`), `forma.css` (la única hoja con reglas de tema, todas bajo `:root[data-tema]`) y `piezas-de-tema.css`. Que «común ∪ tema» defina toda ficha que leen las hojas con tema y el neutro las que se leen sin él (salvo las fijas `--info-*`, solo en el neutro: lo que es información, como el calor de la rueda y el nivel de un arma), lo vigila `temas.test.ts`; quién manda, `ponerTema` y `quitarTema` (los únicos que escriben `data-tema`, `src/client/temas.ts`); el lienzo las lee con `temaDelLienzo` y no escribe ninguna familia de letra a mano; ninguna hoja lleva un color fijo fuera del `:root` (los tres, en `invariantes.test.ts`). La partida pone el de su jugador (`main.ts`); la arena y el espectador van en neutro (el selector «Tema» de la arena y los encargos de piezas del taller se quedaron en la rama: backlog) |
+| Piezas en imagen de los temas (marcos en 9 trozos, barra de sección, cartela, remate, sello, texturas) | la lista cerrada y su corte, `PIEZAS`/`DEFINICIONES`, y lo que enseña cada lámina y dónde, `POR_TEMA` (`tools/taller/temas/piezas.ts`); su sitio, su respaldo y todas sus reglas, en `forma.css`; `src/client/piezas-de-tema.css`, **generada** y solo de fichas (`cssDePiezas`, `escribirPiezasDeTema`: las medidas de la tabla y, por pieza en disco, `--pieza-<x>` con su `url()` y la marca vacía `--con-pieza-<x>`; de un marco, su corte medido, `corteDeMarco`; nadie la edita a mano: lo vigila `piezas-de-tema.test.ts`) |
 | Forma del tablero de batalla (qué casillas existen, su espejo, la frase del contrato) | `board.ts`: `isInside`, `allHexes` (la lista congelada; su posición es `indiceDe`), `filasDelTablero`, `espejo`, `desplazamientoDeFila`, `EXTENSION_HORIZONTAL`, `ULTIMA_FILA`, `codigoDeLado`, `FORMA_DEL_TABLERO`, `tableroDelContrato`; fuera de `board.ts` nadie importa `anchoDeFila`, `ANCHO_DE_FILA_*` ni `BOARD_HEIGHT` (lo vigila `invariantes.test.ts`, por importación) |
 | Muros, puertas, niveles y tiro tapado de la batalla | `battle/muralla.ts` (`pasoPermitido`, `hayLinea`, `bonoEnLoAlto`, `validarMuralla`); al montarla, `createBattle(…, muralla)` (solo la arena: las batallas del mapa, `SIN_MURALLA`) |
 | Previsión de daño (barra de la partida y de la arena) | `previsionDe` → `horquillaDeDanio`, `trasElGolpe`; opciones del golpe, `opcionesDeDanio` |
@@ -190,7 +206,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Por dónde se entra en una mina o un pueblo | `puertasDe`, `rodeosParaEntrar` (`map/puertas.ts`, #230; la ciudad no: sus puertas son las de su recinto, lo vigila `invariantes.test.ts`) |
 | Por qué una marcha no llegó (veredicto del agente) | `paradaDeLaMarcha` → `notaMarchaParcial` (`server/notas.ts`) |
 | Qué lleva la labranza (campos, atrezo, casas) | `labranzaDe` (`render/escenario/labranza.ts`); las hojas que pone su regla y no el sorteo, `HOJAS_DE_SU_REGLA` (`colocar.ts`); si una pieza va al suelo o es volumen, `Sprite.plano` (lo lee `esVolumen`) |
-| El recinto de una ciudad, en el núcleo (dónde está su 3 × 3, qué no va dentro y por dónde se entra) | `core/map/recinto.ts`, puro: `LADO_DEL_RECINTO`, `recintoDeLaCiudad` (con la ciudad en el medio, también la ciudad-puente; lanza si no cabe: una ciudad va a una casilla del borde o más; nunca se corre), `SEPARACION_DE_CIUDADES` (5, Chebyshev), las seis puertas con sus accesos, `PUERTAS_DE_LA_CIUDAD` (ni este ni oeste), las que puede llevar, `puertasPosibles`, y las que **tiene**, `puertasDeLaCiudad` (donde llega un tramo de `GameMap.caminos` de un acceso a su casilla, `RedDeCaminos.une`; la del río, siempre), el puente de una ciudad-puente, `rioAnteLaCiudad` (la casilla del río a dos de ella, que se pisa: el acceso de su puerta del río, también al este o al oeste); **el paso**, `pasosDelRecinto` → `pasoPermitido` (de un acceso a su puerta y de la puerta a la ciudad; la muralla no se pisa), que lee solo `map.ts` (`pasosDelMapa`: el Dijkstra, `stepCost`, `isEnterable`, `sePasa`; lo vigila `invariantes.test.ts`) y el trazado del generador con las puertas posibles (`EntradaDeCaminos.recintos`); las regiones de una ciudad, las de los accesos de sus puertas posibles, `regionesDeLaCiudad` (la lee `estructura`; un nodo no toca la región por la muralla); el puente no se une al recinto al etiquetar (`componentes`, `componentesDelMapa`); por qué no se pisa, `muroBlocker` (lo dicen `porQueNoLlega` y `stepCost`); qué tramo de las casillas del agente entra, `tramoDelRecinto` (`tramosDeCasillas`); dónde nace el héroe, `ORDEN_DEL_INICIO`, y lo que lo impide dicho para la persona, `problemasDeRecintos` (borde, separación, nada dentro, una ciudad sobre el río, un camino que cruza la muralla o que entra por la puerta y no sigue, una región que llega a un acceso sin camino que entre: sin camino no hay puerta, y una región que el recinto parte; lo llaman `validateMapPlan` y el final de `vestirRed`). Lo leen la escena, la prosa del agente y los tests; lo declara solo él (lo vigila `invariantes.test.ts`) |
+| El recinto de una ciudad, en el núcleo (dónde está su 3 × 3, qué no va dentro y por dónde se entra) | `core/map/recinto.ts`, puro: `LADO_DEL_RECINTO`, `recintoDeLaCiudad` (con la ciudad en el medio, también la ciudad-puente; lanza si no cabe: una ciudad va a una casilla del borde o más; nunca se corre), `SEPARACION_DE_CIUDADES` (5, Chebyshev), las seis puertas con sus accesos, `PUERTAS_DE_LA_CIUDAD` (ni este ni oeste), las que puede llevar, `puertasPosibles`, y las que **tiene**, `puertasDeLaCiudad` (donde llega un tramo de `GameMap.caminos` de un acceso a su casilla, `RedDeCaminos.une`; la del río, siempre), el puente de una ciudad-puente, `rioAnteLaCiudad` (la casilla del río a dos de ella, que se pisa: el acceso de su puerta del río, también al este o al oeste); **el paso**, `pasosDelRecinto` → `pasoPermitido` (de un acceso a su puerta y de la puerta a la ciudad; la muralla no se pisa), que lee solo `map.ts` (`pasosDelMapa`: el Dijkstra, `stepCost`, `isEnterable`, `sePasa`; lo vigila `invariantes.test.ts`) y el trazado del generador con las puertas posibles (`EntradaDeCaminos.recintos`); las regiones de una ciudad, las de los accesos de sus puertas posibles, `regionesDeLaCiudad` (la lee `estructura`; un nodo no toca la región por la muralla); el puente no se une al recinto al etiquetar (`componentes`, `componentesDelMapa`); por qué no se pisa, `muroBlocker` (lo dicen `porQueNoLlega` y `stepCost`); qué tramo de las casillas del agente entra, `tramoDelRecinto` (`tramosDeCasillas`); lo que lo impide dicho para la persona, `problemasDeRecintos` (borde, separación, nada dentro, una ciudad sobre el río, un camino que cruza la muralla o que entra por la puerta y no sigue, una región que llega a un acceso sin camino que entre: sin camino no hay puerta, y una región que el recinto parte; lo llaman `validateMapPlan` y el final de `vestirRed`). Lo leen la escena, la prosa del agente y los tests; lo declara solo él (lo vigila `invariantes.test.ts`) |
 | La ciudad del mapa: su recinto (octógono, puertas, anillo y casas) | `render/escenario/recinto.ts`, puro: el 3 × 3 es el del núcleo (`recintoDeLaCiudad`); el octógono, `contornoDelRecinto`; lo que roza, fuera, `sendasSinRoces`; qué caras llevan puerta, las del núcleo, `puertasDelNucleo` (→ `puertasDeLaCiudad`: la escena no las deduce); el paso por el arco, `tendidosDeLasPuertas` (la puerta del núcleo de cada cruce, con su salida, `salidaDe`) → `sendasPorLosTendidos` (`celdas.ts`, la misma mecánica que las rampas, `tendidoDeBajada`); anillo y casas, `recintoDe` (llena: libres solo donde pisa el héroe, `LIBRE_BAJO_EL_HEROE`/`tapaElPieDelHeroe`, y la calle corta de cada puerta, `callesDeLasPuertas`, `FONDO_DE_LA_CALLE`, `MEDIA_CALLE`; ninguna casa tapa el vano de un arco, `vanoDelArco`/`tapaElArco`, por la silueta de su imagen, `Modulo.silueta`), y el papel de cada pieza, `Sprite.recinto`; sus módulos y sprites, `modulosDelRecinto` y `spriteDelRecinto` (`colocar.ts`); la huella, `casillasDeLaHuella`; lo de dentro, `celdasBajoLosRecintos` y `pintarPlazas` (`huella.ts`), la plaza con sus lados, `ladosDeLaPlaza` y `enLaPlaza`; el óvalo del dueño, `Escenario.claveDeLaMarca`; el fuego, `luzDelRecinto`; los guardias, `huecosDelAnillo`, `anilloSobreLaSenda`, `sendasFueraDeLaPuerta`, `puertasSinSuCamino`, `casasRepetidasJuntas`, `arcosTapados` y `puentesSobreElAnillo`. Lo que pisa un puente en el suelo, `ejesDeLosPuentes`; el de la ciudad-puente, acortado al pie de la cara del río, `puenteDeLaCiudad` (`puentes.ts`) |
 | Material de una cara (pared, ladera, pedregal) | `materialDeCara` (`render/escenario/colocar.ts`) |
 | Roca de lo alto de un acantilado (picos, peñascos, reborde) | `materialDeLaCima` (`render/escenario/bordes.ts`) |
@@ -236,7 +252,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Carga a pie | **regla nuestra** (#260, 14-10-2026; en toda batalla desde el 19-10-2026): todo el que pega cuerpo a cuerpo sin `charge` (también el tirador y el héroe) carga con la misma recta, +5 %/casilla, tope 5 (inventado, `data/carga.json`); el jinete sigue a +10 %. La IA no busca la recta a pie: en 100 peleas de la IA contra la IA (`tools/qa/arena-ia.ts`, «mezcla», 19-10-2026), 30 cargas a pie y 74 de jinete |
 | `fear` (rasgo del motor; hoy no lo lleva ninguna unidad del catálogo) | **divergencia deliberada**: ataque −2 durante 2 rondas (no aura de moral) |
 | Victoria | **regla nuestra**: perder la base elimina en el acto |
-| Ciudad amurallada | **regla nuestra** (21-10-2026, decisiones del usuario; fases 1 y 2 de 3): cada ciudad es un recinto de 3 × 3 con ella en el medio (`core/map/recinto.ts`). Ninguna en el borde, dos a 5 casillas o más (Chebyshev) y dentro nada más que ella: ni nodo, ni objeto, ni inicio, ni grupo de asaltantes. **Se entra por sus puertas**: de un acceso a la puerta y de la puerta a la ciudad; el resto del recinto no se pisa, aunque sea hierba, y la puerta y la ciudad cuestan como un camino aunque debajo haya barrera. **Hay puerta donde llega un camino** (en la cara del norte, la del sur o una diagonal, nunca al este ni al oeste), y la del puente de una ciudad-puente, siempre. La ciudad-puente está en tierra y su casilla del río, delante, es su puente. Cada región que llega a un acceso de una ciudad lleva su camino hasta ella (el generador lo traza; un plan del agente sin él se rechaza). El héroe de salida nace en el acceso de la puerta por la que entra el camino de su casa |
+| Ciudad amurallada | **regla nuestra** (21-10-2026, decisiones del usuario; fases 1 y 2 de 3): cada ciudad es un recinto de 3 × 3 con ella en el medio (`core/map/recinto.ts`). Ninguna en el borde, dos a 5 casillas o más (Chebyshev) y dentro nada más que ella: ni nodo, ni objeto, ni grupo de asaltantes. **Se entra por sus puertas**: de un acceso a la puerta y de la puerta a la ciudad; el resto del recinto no se pisa, aunque sea hierba, y la puerta y la ciudad cuestan como un camino aunque debajo haya barrera. **Hay puerta donde llega un camino** (en la cara del norte, la del sur o una diagonal, nunca al este ni al oeste), y la del puente de una ciudad-puente, siempre. La ciudad-puente está en tierra y su casilla del río, delante, es su puente. Cada región que llega a un acceso de una ciudad lleva su camino hasta ella (el generador lo traza; un plan del agente sin él se rechaza). El héroe de salida nace en su base (19-10-2026), en el medio del recinto (la casilla de la ciudad, que se pisa), y sale por sus puertas |
 | Rueda del golpe | **regla nuestra** (13-10-2026; en toda batalla y sin interruptor desde el 19-10-2026): al golpear cuerpo a cuerpo, quien pega y quien recibe eligen a ciegas un tipo en un anillo (desde arriba y en el sentido del reloj ofensivo, fuerte, finta, defensivo, rápido, r.guardia: opuestos ofensivo y defensivo, fuerte y rápido, finta y r.guardia; Normal en el centro; #263, 14-10-2026): la persona en el diálogo de la rueda, el agente por su contrato (`hit`, `battle_response`) y la IA de reglas a ciegas. El cruce fija la tirada (`min + ⌊(max − min) · p / 4⌋`, por la distancia en el anillo: 0, 1, 3, 4; con Normal, 2) y la respuesta es el contraataque, en `4 − p`. Fuerte (daño ×) y Rápido (2 golpes de daño ×), también en el contraataque; Normal, siempre ×1; lo demás actúa solo al golpear (**la respuesta no da bonificadores**, `cruceDelGolpe(…, papel)`): Ofensivo suma ataque en ese golpe; Defensivo suma defensa desde ya hasta que **empiece** su próximo turno (también el extra de la moral alta y el que la moral baja le quita); Romper guardia quita ataque al atacado según el éxito del golpe (`p`), ya en su contraataque y hasta que **termine** su próximo turno; Finta deja andar tras golpear lo que le quede menos lo que reste su éxito (`TurnoDeUnidad.finta`, en `pasosQueQuedan`; solo andar o terminar, `faseBlocker`; andar cierra el turno, y con 0 se cierra solo; ese tramo paga el contacto como cualquier otro, y su nota lo dice). Rápido: cada golpe resta la armadura, y su nota dice que contra armadura pierde; con carga, **solo el primer golpe la cobra** (también el del doble golpe; 14-10-2026). Caducidad en `StackEffect.hasta` (`empezar`/`terminar`, tope de 2 rondas); el mismo origen refresca. **Las cifras son las del nivel del arma** (18-10-2026; niveles absolutos en la vuelta 2, «para que sea más fácil ver la diferencia entre armas»): toda arma de cuerpo a cuerpo (`arma`, `lanza`) lleva un nivel de 0 (lo peor) a 6 (lo mejor) en cada tipo del anillo (`Pieza.rueda`), el mismo en toda arma; del 0 al 6, Ofensivo +0 a +6 ataque, Fuerte ×1 a ×2, Defensivo +0 a +6 defensa, Rápido 2 × 0,25 a 2 × 1, Romper guardia quita con el éxito máximo de 0 a 6 (con éxito `p`, `⌊q · p / 4⌋`: con menos éxito, menos) y la Finta resta con el éxito mínimo de 8 a 2 casillas, y cada punto de éxito una menos, sin bajar de 0 (con éxito `p`, `max(0, m − p)`; 18-10-2026: con la anterior, de 10 a 5 con la Espada, una unidad de 2 a 5 casillas no andaba nunca). Cada golpe con su arma (la lanza en el primero de una carga), el contraataque con la del que responde, y lo que no es daño con la del primer golpe. La Espada, todo a 3 (la versátil; con ella, Ofensivo +3, Fuerte ×1,5, Rápido 2 × 0,63, Romper guardia 0 a −3 y la Finta de 5 a 1); la Maza, Fuerte y Romper guardia 5, Rápido y Finta 1. Sin arma no se golpea: toda unidad del catálogo lleva una, el héroe nace con la Espada y el arma de cuerpo a cuerpo no se quita (`unequipBlocker`, 19-10-2026). Cifras inventadas en `data/rueda.json` y `data/equipo.json`; el disparo, con su tirada |
 | Armadura | **regla nuestra** (#262, 14-10-2026; en el juego desde el 19-10-2026): las piezas de armadura dan puntos de armadura y ninguna pieza da PV (la brigantina 7, el arnés 10, el gambesón 4, el jubón 2 y la barda 22, inventados en `data/equipo.json`); cada golpe, disparo, hechizo o poder que llega se queda en `max(0, daño − armadura)`, restado lo último (tras ataque y defensa, multiplicadores, cruce, carga, suerte y redondeo), uno a uno (cada golpe de Rápido o del doble golpe, cada tiro, cada salpicado con la suya). El drenaje, la experiencia y el parte leen lo que llegó. Un golpe en 0 se pinta «parado». Con la barda, en 100 peleas de la IA contra la IA (`tools/qa/arena-ia.ts`, 19-10-2026): 2 de 100 de 3 contra 3 sin terminar (s13, s43; 0 sin ella) y un jinete contra tres flojos gana 92 de 100 (0 sin ella, 76 con los 220 PV de antes). En el juego no hay barda que lo provoque: 0 sin terminar en el barrido y el banco |
 | Orden de turnos | **regla nuestra** (fheroes2 lo tiene fijo): en serpiente, quien cierra un día abre el siguiente (día 1 j0, j1; día 2 j1, j0…; `ordenDelDia`, que leen el paso de turno y el `you.turnOrder` del agente). Con el fijo, j0 ganaba 603 de 1 000 y abrir el día valía +65; en serpiente, 534 y +2 (09-10-2026); con las fronteras onduladas de #229, 524 de 1 000 y duración 8 / 14 / 29 |
@@ -321,7 +337,10 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   49, duración 8 / 14 / 24. El banco (200 semillas, `1c496b88…`): 4 / 8 / 21 días; con el recinto de
   las ciudades en el núcleo (`0e2d0632…`, 21-10-2026), 4 / 8 / 20, j0 99 → 107, 0 sin terminar; con
   sus puertas (`5d95869b…`, 21-10-2026), 4 / 9 / 37 (dos semillas en que los héroes se cambian una
-  ciudad del centro cada día), j0 107 → 96, 0 sin terminar.
+  ciudad del centro cada día), j0 107 → 96, 0 sin terminar. Con 20 semillas (21-10-2026), fusionado
+  con el héroe que nace en su base (`6a66ad51…`): el mismo mapa, y el primer hecho distinto es la
+  primera jugada del j0 (cambia o recluta tropa en vez de salir); duración 4 / 12 / 14 → 4 / 6 / 6,
+  j0 10 de 20, 0 sin terminar.
 - **El mapa es una red de nodos**: regiones cerradas por barrera
   (`mountain`, `water`, `forest`, `cliff`, `wall`), pasos de una casilla entre
   ellas. Una ciudad es un nodo; un nodo se toma pisándolo. Una mina produce solo
@@ -604,7 +623,21 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   partidas sin terminar.
 - **Base**: nace con guarnición de su facción (`data/ciudades.json`, `guarnicionDeBase`; la de una
   ciudad neutral, `guarnicionNeutral`). Con el héroe del dueño dentro, la defiende solo él con su
-  tropa. Las bases de templarios heredan el arte de los caballeros; las otras cuatro, marcadores.
+  tropa. Las bases de templarios heredan el arte de los caballeros; las otras cuatro, el suyo (20-10-2026).
+  **El héroe de salida nace dentro de su base** (19-10-2026, «empieza en la base»): en la casilla
+  del castillo (`newGame`, con `basesDelPlan`), sin recoger la guarnición; los jugadores son los
+  dueños de ciudad y el plan no lleva inicios (`MapPlan.heroStarts` se retiró: el esquema del agente
+  lo rechaza diciéndolo). Dentro, lo que se recluta va a su tropa y no se contrata hasta que sale.
+  Medido (19-10-2026): en 1-100, duración 4 / 7 / 15 → 4 / 6 / 15, j0 50 → 45, 0 sin terminar; el
+  banco (`3daacbe6…`), 4 / 8 / 21 → 4 / 6 / 23. La IA recluta y cambia tropa el día 1 en vez de
+  salir: `dismissed` 387 → 1 159. Con la IA reclutando del más fuerte al más flojo (`planRecruits`,
+  por `unitPower`: la morada no es un nivel, y por ella del revés licenciaba en la misma jugada lo que
+  acababa de reclutar, 180 veces en el banco), `3406f518…`: 1-100, 4 / 6 / 19, j0 46, 0 sin terminar;
+  el banco, 4 / 6 / 22, `dismissed` 977. Las batallas contra monstruos y asaltantes del banco pasan
+  de 23 y 6 a 0 porque el héroe sale de casa más fuerte (fuerza mediana el día 3, 460 → 960): ninguna
+  región lo embosca, siempre llega a una ciudad que tomar y una ciudad (40 000) gana a un neutral
+  (2 000); en 1-100 la IA iba a por un monstruo solo cuando no llegaba a ninguna ciudad ajena (32 de
+  32 veces), y eso pasaba en el 11,5 % de los turnos de héroe y ahora en el 0,3 % (`docs/historia.md`).
 - **Magia**: el gremio enseña por derivación (`townSpells`), `syncSpellbooks`
   aprende al final de cada acción, `cast` no consume el turno, `castBlocker`
   escribe el motivo.
@@ -653,24 +686,38 @@ antes del destino (`battle_started` con `faltan`).
   el turno y la tool) y batallas ajenas.
 - El agente **defiende** sus batallas (`BattleTakeover`: si te la quedas, la
   cierras) y **diseña el mapa**: un plan declarativo, con el nivel de cada región
-  si quiere (#209), que valida `validateMapPlan` (también el recinto de cada ciudad: ni en el borde,
-  ni dos a menos de 5, ni nada dentro, y cada región que llega a una ciudad con su camino por una de
-  sus puertas, `problemasDeRecintos`; la prosa se lo dice con las cifras del núcleo, y sus casillas de
-  camino se unen en el recinto solo de un acceso a su puerta y de la puerta a la ciudad,
-  `tramoDelRecinto`). Si falla por cualquier motivo, se juega el procedimental y se le dice por qué; no hay reintento.
+  si quiere (#209) y sin posiciones de inicio (cada jugador de `want.players` con su ciudad, y su
+  héroe empieza dentro), que valida `validateMapPlan` (también el recinto de cada ciudad: ni en el
+  borde, ni dos a menos de 5, ni nada dentro, y cada región que llega a una ciudad con su camino por
+  una de sus puertas, `problemasDeRecintos`; la prosa se lo dice con las cifras del núcleo, y sus
+  casillas de camino se unen en el recinto solo de un acceso a su puerta y de la puerta a la ciudad,
+  `tramoDelRecinto`). Si falla por cualquier motivo, se juega el procedimental y se le dice por qué;
+  no hay reintento.
 - La partida termina con un `game_over` explícito. `state.finished` es
   `{ winner: PlayerId | null } | null`; el tope de días es `GameState.maxDays`.
 - Del contrato se exportan esquemas, no alias de tipo.
 
 ## El cliente
 
+- **Tema por facción** (13-10-2026 en su rama; en el juego desde el 19-10-2026): cinco, uno por
+  facción, **como sus láminas** (`assets/art/temas/<tema>.png`): la paleta se mide en la lámina y
+  `temas.css` la copia (`paleta-de-las-laminas.test.ts`); la forma (barras de sección con su adorno,
+  botones, el día en su cartela, los emblemas, el marco del mapa con anillos de `box-shadow` que no
+  mueven el lienzo), en `forma.css`; los títulos, con una OFL por tema (Cinzel, IM Fell English SC,
+  Marcellus, Almendra, Germania One) desde `assets/letras/`; las piezas en imagen de Codex (43, ya
+  hechas) encima de su respaldo de CSS. Sin tema nada cambia: `npx tsx tools/qa/neutro.ts main`, 0
+  diferencias (19-10-2026). En la partida, el de la facción de quien juega; en el lienzo, solo lo que
+  es interfaz (chapas, fondo de la vida, galones, la corona, rótulos de la base, recuadro del
+  minimapa, letras). La historia y el porqué, en `docs/historia.md` y
+  `docs/agents/2026-10-13-tema-por-ejercito/`, `docs/agents/2026-10-13-temas-de-las-laminas/`.
 - **Figuras**: 8 direcciones y 6 acciones (`idle`, `ready`, `attack`, `hit`,
   `die`, `win`). Arte propio (`dN/atlas.webp`) o el Y Bot de su juego de armas
   teñido del color del bando; lo sin dueño, en gris. **Nunca se espeja.** Tablas:
-  `JUEGO_SIN_HOJA` (héroe, personaje y vecino), `JUEGO_DEL_YBOT`, `DIRECCION_DE_HOJA`. Una tropa
-  del catálogo se pinta con la hoja de su unidad (`hojaDeUnidad`; el `body` de su stack es esa
-  hoja), que registra `registrarLasHojas` al arrancar (`cargarArte`) en la partida, el espectador y
-  la arena. Anclas del Y Bot en `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
+  `JUEGO_SIN_HOJA` (el héroe genérico de la arena, el personaje y el vecino), `JUEGO_DEL_YBOT`,
+  `DIRECCION_DE_HOJA`. Una tropa del catálogo se pinta con la hoja de su unidad (`hojaDeUnidad`; el
+  `body` de su stack es esa hoja) y un héroe con la de su tipo (`figuraDelHeroe`), que registra
+  `registrarLasHojas` al arrancar (`cargarArte`) en la partida, el espectador y la arena; hasta que
+  contesta, lo que no está registrado no se pinta, ni con el Y Bot (`arteSabido`). **Una figura cuya hoja va en camino no se pinta** (20-10-2026, «quita unos círculos rojos con una letra que aparecen antes de cargar»: `FiguraColocada.cargando`, `figuraEnCamino`); el óvalo de color con su inicial queda para la que no tiene arte, porque su imagen falló o no existe. Anclas del Y Bot en `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
 - Ritmo: `marcha.ts` (`PRISA_DE_LA_MARCHA`), compás propio por figura con hash
   del id (`compas.ts`), sombra por silueta, carga hoja a hoja con cachés LRU.
 - **La batalla se cuenta en cola** (`anim.ts`): el estado ya trae el final de lo que se cuenta,
@@ -849,8 +896,10 @@ antes del destino (`battle_started` con `faltan`).
   `sendaFueraDeLaPuerta`, `puertaSinCamino`, `anilloAbierto`, `puenteSobreElAnillo`,
   `casasRepetidasJuntas` y `arcosTapados` = 0 en 1-40. **El 3 × 3 es del núcleo** (vuelta 3, fase 1, `core/map/recinto.ts`): ninguno en el borde,
   ninguno a menos de 5 de otro y nada dentro, así que ya no hay recintos que se toquen (eran s2, s3,
-  s13, s16, s21, s36 en 1-40 y s50, s62, s105 fuera) ni nodos entre las casas (s98, s105), y el héroe
-  de salida nace delante de una puerta (antes, dentro, en 80 de 80). La senda que pasa junto a un
+  s13, s16, s21, s36 en 1-40 y s50, s62, s105 fuera) ni nodos entre las casas (s98, s105). El héroe
+  de salida nace en la casilla de su ciudad, en el medio, con los pies sobre la piedra
+  (`LIBRE_BAJO_EL_HEROE`), y sale por una puerta (en la fase 1 nacía delante de una puerta: antes,
+  en una vecina de la ciudad, de pie sobre las casas, en 80 de 80). La senda que pasa junto a un
   recinto sin entrar, también sin cruzar el octógono, se corre a `FUERA_DEL_ROCE` con los puntos de
   en medio (`sinRoces`; la que bajaba por la columna de al lado pisaba la torre de la esquina, s3,
   s36). Medido en 1-40 (21-10-2026): 205 ciudades (48 ciudades-puente), de 11 a 19 casas (mediana
@@ -914,6 +963,19 @@ antes del destino (`battle_started` con `faltan`).
   **Las laderas** (§20): cada cadena E u O lleva `laderas-<material>-<lado>-<caída>` (nunca espejada; caída > 3 usa la de 3), corrida media fila, con `inicio` al norte y `fin` al sur donde remata —sigue de espaldas o con una caída menor; en el borde del mapa no remata, el desnivel sigue fuera del marco (#212)— y `medio`/`largo` sin repetir el vecino. La `esquina` de §20 ya no entra (dobla la diagonal). Cada módulo trae sus `JuntasDeLadera`, registradas sobre la guía por `pnpm taller derivar-relieve` (también las de las diagonales y las bajadas) y comprobadas al cargar el catálogo (`catalogoValidado`); `colocarLadera` pone el filo en `bordeDeLadera` y el pie en `pieDeLadera`, sin correrse ni encogerse; lo que no entra se prueba con un `medio`. Un barranco de una casilla no lleva laderas (`sinBarrancos`): van los peñascos del canto. `informe.laderasEnfrentadas` = 0.
   **Los acantilados y el relieve** (`relieve`, #143): el nivel es del mapa y la escena lo aplica sin inventar nada. Lo que se pisa va al de su región; un nodo, al de sus regiones y, entre dos niveles, el paso sin camino al alto: es un hueco en el borde de la meseta y su rampa baja de él (al bajo era un pozo con paredes a los lados, s443 (25,10)); el nodo con camino y la ciudad, al bajo (al alto, las rampas de camino dejaban lo alto del acantilado sin roca); cada casilla de barrera, al más alto de **las dos regiones que separa ahí** (las más cercanas por dentro de su franja 8-conexa; `nivelesDelRelieve`, en `core`, la misma regla que mira el generador): **el acantilado es el borde de la meseta**, a su nivel y cubierto de roca, y la cara cae a su pie del lado bajo (por franja, el trozo entre un 1 y un 0 de una franja que tocaba un 2 lejos subía a 2, una cresta: s1 (14-18, 1-9)); **el agua, plana y sin encajar** (#210): cada franja a ras de la más baja de las regiones que toca, la de dentro de una región a ras de ella (encajada un nivel bajo su orilla más baja dejaba toda lengua de la orilla baja y toda ciudad del cruce por encima del agua, y entre dos mesetas cañones de caída 3: 351 lados en 10 semillas; ahora la caída máxima es 2 y entre dos regiones al mismo nivel el río va en el llano). Ninguna barrera ni nodo de una casilla de ancho queda por encima de sus dos vecinas de un eje: baja a lo más alto de ellas (el espolón de una montaña o un acantilado en lo bajo; el paso sin camino con agua a los lados, que entonces baja y su rampa sube de él). Fuera las crestas por encima de las dos orillas, los cañones entre dos llanos, las mesas, la escalera que subía lo que se pisa y el «+1 a ras» (`acantiladosARas`, #174, se retira con ellos; eran 98 de 258 franjas de acantilado entre dos llanos y 250 mesas en 1-40). `informe.nivelFueraDeSuRegion` y `desnivelesSinBarrera` (dos casillas vecinas que se pisan a distinto nivel sin ser la rampa de un nodo) = 0. **El borde de la meseta, entero** (#212, `bordes.ts`): la espalda (el reborde al norte, que la cámara no ve) de **toda** meseta, no solo del acantilado, lleva una hilera de peñascos de la roca de lo alto y la sombra del desnivel (abajo, #211); **el canto** (#219, `cantoDeLaEspalda`, `CANTO_DE_LA_ESPALDA`): cuatro por casilla, seguidos a lo largo del filo, el pie a 0,04-0,1 del lado y de 0,42-0,58 de alto, con su propia corriente de azar (también el módulo: con la de siempre movía toda la cubierta); en el acantilado, encima de su hilera de siempre. En 1-40, de 2,45 a 4,17 peñascos por casilla de reborde que se pisa o de acantilado (09-10-2026); donde no cabe ni el peñasco más bajo (una senda por el canto, la reserva de un objeto) queda como razón declarada; `informe.espaldasSinReborde` = 0 (eran 795 en 1-40). Las mesas de arenisca (`esMesa`: más anchas que `ANCHO_DE_MESA` = 1,3 veces su alto) son del acantilado y la cordillera de arena va con agujas (`informe.mesasEnLaCordillera` = 0, eran 1 444). La ladera sigue leyéndose como cresta por su dibujo: el arte está pedido (`docs/art/peticiones.md` §34). **Lo alto lleva roca** (#205) **de su cara** (#212, `materialDeLaCima`: la de la casilla más cercana de su franja que cae a la vista; con la de su suelo, s57 llevaba picos grises sobre un cantil de arenisca; `informe.cimaDeOtroMaterial` = 0, eran 1 431 en 1-40): cada casilla de acantilado, un pico de esa roca de `ALTO_DE_LO_ALTO` (0,4) o más, y dos en el borde de una meseta y tres dentro (`cimaDeRoca`, `picosDeLaCima`), donde quepan sin pisar senda, paso ni reserva; en lo alto de la arena y la lava (`comoLaBarrera`) la cubierta del relleno se cambia por roca (`rocaEnLoAlto`). Todo eso, con su propia corriente de azar (`azarDeLoAlto`): con la de siempre movía las cordilleras que se visten después. `informe.acantiladosLisos` (casillas de acantilado sin roca ni masa de 0,4, fuera de la huella de un objeto) = 0 salvo 2 en 1-40, entre dos sendas (eran 1 167 de 4 016). **La pared, de la roca de su meseta y entera por delante de la cordillera** (#216, `bordes.ts`): la casilla de barrera alta lleva el nivel de su lado alto pero su suelo (`Analisis.suelo`) es el más cercano de cualquier nivel, a menudo el de abajo; la roca de la pared, de lo alto (`materialDeLaCima`) y de cada macizo (`materialDeLosMacizos`) sale de `sueloDeLaMeseta`: lo que se pisa más cercano **a su nivel**, sin los nodos (la meseta de arena de s5 (2-8, 27-31) acababa en una pared gris; `informe.caraDeOtroMaterial` = 0, eran 806 de 2 506 paredes en 1-40). El suelo pintado bajo la barrera sigue siendo el más cercano. Y ninguna masa (pico o árbol) que se pinte después de una pared del desnivel cubre su silueta (`formasDeLasParedes`, en `obstaculos`: columnas por el perfil, `MARGEN_DE_LA_PARED` 0,05): se encoge o no va; lo de detrás no se mira, lo tapa la pared. `informe.paredesTapadas` (`paredesTapadasPorLaMasa`, frontales, laderas y diagonales sin pedregal ni bajadas) = 0 en 1-40 (eran 653 de 1 939; bajo una montaña, 424 de 757, un 24 % de su silueta). Las casillas de montaña sin un pico de 0,6 pasan del 26,9 al 28,0 % (08-10-2026). **El agua se lee al alejar** (#205): más clara y azul (`FILTRO_DEL_AGUA`, `pintar.ts`), la ciénaga algo más oscura y su niebla a 0,1.
   **Los puentes** (`puentes.ts`): `analizar` decide qué nodos llevan puente (`Analisis.puentes`: los de barrera `water` del mapa; `pasos`, esa barrera y el eje, sobre el terreno del mapa) y su casilla es agua en la escena (`Analisis.terreno`). La pieza `puente-<piedra|troncos>-<eje>[-sube]` sale de las orillas que une (`puenteDe`), de piedra si lleva camino; los quebrados —los planes del agente y el ~1 % del procedimental sin eje— se asientan con `asentar` (escala 0,7-1,15, el medio del tablero como se ve en la casilla del nodo). Se apoya por el centro del tablero con las medidas de su JSON (`pxPorCasilla`, `alturaDelTablero`, `largoDelTablero`, `pnpm taller derivar-puentes`). La senda acaba en sus estribos (`tramosHastaLosEstribos`) y llega por tierra (`Escena.vados`, `informe.sendasDeEstriboEnAgua` = 0). La pared que cruza la línea del puente por dentro de su filo no lleva pieza (`celdasBajoLosPuentes`); la que solo toca, por detrás del puente (#222). **Qué tapa un tablero** es una regla, la del pintor (`vaDelante`: `esVolumen` y `ordenDeVolumenes` de `separar`), en el pasillo de lo que se aparta y en `ponerPared`; la cara se pinta solo bajo la silueta de su pared (`CaraDeEscena.pintada`, `caras.ts`). `informe.puentesTapados` = 0, contado desde el orden del pintor. La marca del dueño cuelga de `Escenario.asientoDeObjeto`, siempre un punto, y la bandera se planta en el tablero (`Puente.mastil`); quien pisa un puente se pinta en él (`pisada`). Un clic sobre el tablero va al nodo (`puenteBajo`) solo si debajo hay agua o la casilla del nodo: la tierra de una orilla manda.
+- **La pantalla de inicio** (`inicio/inicio.ts` conduce, `inicio/pantallas.ts` pinta por `html.ts`,
+  en `<section id="inicio">` con `#app` oculto): pregunta solo si la URL no pide nada
+  (`hayQuePreguntar`) y deja lo elegido en la URL, que lee `main.ts` como un enlace o una recarga. La
+  elección enseña de cada facción su nombre, su rasgo del cuaderno (`rasgoDeFaccion`) y el héroe con
+  que se empieza (`nombreDeSalida`); marcarla (el clic, el dedo o las flechas) la viste
+  (`ponerTema`); pasar el puntero o el foco, no (20-10-2026, «que no cambie de tema en hover sino en
+  click»; la lista mide lo mismo con cualquier tema), y Escape vuelve al menú, en el neutro
+  (`quitarTema`). «Siguiente» lleva a la
+  del héroe (vuelta 2, 19-10-2026): los tipos de la facción, con el retrato de su hoja
+  (`identidad.webp`), su nombre y su descripción del cuaderno, ya con su tema; «Volver» y Escape
+  retroceden un paso. Mientras se está en la
+  base de arranque, el suelo del mapa ya se pinta (`calentarElMapa`, `main.ts`). Lo juega la pasada
+  «arranque» de `pnpm capturas`.
 - **La base es un escenario lateral** (`escenas/castillo.ts`, `render/base/`), como el de
   combate sin casillas: delante una franja de 3,5 pasos de fondo (la mitad de la rejilla) por
   la que se anda en recta con el ratón, resbalando por el borde de atrás (`alaFranja` en cada
@@ -937,21 +999,49 @@ antes del destino (`battle_started` con `faltan`).
   escenario. El
   borde de atrás de lo que se pisa une los umbrales (`bordeDeAtras`) y no es convexo.
   `leerDisposicion` lanza con regiones que salen de su tramo o se pisan, puertas fuera de su
-  región o a más de 1,5 pasos de la raya, y lo que no se pisa. El paso es el del combate en ese
-  lienzo (`pasoDeLaBase` → `escalaDelCombate`) y el suelo va a 25°: un adulto mide lo mismo en la
-  base que en una batalla. Toda figura va delante de todo edificio. Un sitio sin construir enseña
-  la placa. Camina el héroe si está dentro y, si no, el alcaide; un clic lleva a la puerta y, al
-  llegar, el ayuntamiento o el castillo abren «Ampliar», una morada su reclutamiento y una
-  persona la conversación (`<dialog id="conversacion">`). La gente se pinta con el Y Bot sin
+  región o a más de 1,5 pasos de la raya, y lo que no se pisa. **El lienzo va a todo el alto, como
+  el mapa** (20-10-2026, decisión del usuario: «al hacer la pantalla más estrecha se encoge la parte
+  donde se ve la base»; iba en un marco 20:11 que encogía con el ancho): el paso es el de una
+  batalla en un marco 20:11 de ese alto (`pasoDeLaBase(alto)` → `escalaDelCombate`, el encuadre
+  aprobado el 09-10: 85,7 a 594 de alto, 111,5 a 773; en el móvil, al alto del mapa, 513 en 390×844, con el
+  ancho de 860 de la batalla del móvil) y lo que
+  cambia con el ancho es cuánta plaza se ve. El suelo va a 25°. Toda figura va delante de todo
+  edificio. Un sitio sin construir enseña la placa. Camina el héroe si está dentro y, si no, el
+  alcaide; un clic lleva a la puerta y, al llegar, el ayuntamiento o el castillo abren «Ampliar»,
+  una morada su escena y una persona la conversación (`<dialog id="conversacion">`). **La morada
+  es la base misma** (`Scene = 'morada'`, `escenas/morada.ts`, vuelta 2 del 20-10-2026: «queda una
+  sala en el vacío»): la cámara de la base se acerca hasta que las figuras miden lo de su hoja
+  (`pasoDeLaHoja`; nunca se aleja, así que a densidad 1,5 casi no se mueve) y se centra en el
+  edificio con su tope (`encuadrarLaMorada`), el edificio se cambia por su **versión abierta**
+  (casa de muñecas, sin la pared de delante: `abierta-<id>.webp`, `abiertaDe`; la única
+  sustitución, `conLaAbierta`; sin ella, su exterior) y delante, en el empedrado
+  (`FILA_DE_LOS_RECLUTAS`), una figura por unidad que produce, que se elige con el clic o su botón
+  del lateral (la ficha y «+1»/«Todo» con el motivo del núcleo escrito, `views/morada.ts`); quien
+  anduvo, quieto en la puerta, y la gente, fuera (`componerBase(…, { gente: false })`). Escape o
+  «Volver a la base» vuelven con la cámara de antes. La gente se pinta con el Y Bot sin
   armas (`CUERPO_DE_VECINO`). Qué se levanta en cada sitio es del núcleo (`sitiosDeLaBase`);
   dónde, del JSON, que **el núcleo no lee**. Contratar no pide taberna. Taller: `encolar --base
-  templarios`, `recortar-base`, `medir-base`, `vista-base`; las fuentes (maestros,
-  ediciones, guías con la silueta del adulto como vara de medir, hojas de identidad) en
+  templarios` (también `--solo=retoque-<id>`: un primer eslabón pintado otra vez sobre la placa,
+  que manda en su cuadro si está en disco, `cuadroDe`; y `--solo=abierta-<id>`: la versión abierta
+  de una morada, su cuadro editado), `recortar-base`, `medir-base`, `vista-base`; las fuentes
+  (maestros, ediciones, retoques, versiones abiertas, guías con la silueta del adulto como vara de
+  medir, hojas de identidad y las salas de la vuelta 1 de la morada, `interior-<id>.webp`, que la
+  versión abierta lleva de referencia) en
   `assets/bases/<f>/fuentes/`, fuera del build. Sin placa, un tramo pinta su marcador. **Los
   templarios heredan el arte de los caballeros** (19-10-2026): sus moradas van en los sitios que
   ese arte pinta (Pueblo 1, Forja 3, Establos 5 y Monasterio 6; el 2 y el 4, sin edificio) y su
-  índice está rederivado; no muertos, imperio, elfos y orkos van con marcadores enteros (índice
-  vacío). Una morada ofrece cada unidad que produce.
+  índice está rederivado. **No muertos, imperio, elfos y orkos, con su arte** (20-10-2026): sin
+  crudos de la vuelta 1 no hay hoja de identidad, así que cada edificio va descrito en el prompt,
+  con la villa, la heráldica, el suelo, la junta y la paleta de su facción (`ARTE_DE_LA_BASE`,
+  `tools/taller/base.ts`). Un sitio sin edificio no se pide (`sitiosPintados`): es plaza, con una
+  región estrecha en su tramo. Cada tramo necesita alguna puerta, así que la morada 2 de no muertos
+  y elfos va en el tramo 1. La guía dibuja el recuadro de cada edificio (`huecosPedidos`, como mucho
+  `ANCHO_MAXIMO_DEL_EDIFICIO`, 520 px), porque con uno o dos por tramo Codex llenaba el tramo. Aun
+  así pinta la puerta de 190-275 px, y no de los 154-166 que se piden: lo que sale grande se
+  **encoge sobre la placa**, con la puerta y el pie quietos (`pnpm taller encoger-base <f>`,
+  `tools/taller/encoger-base.ts`, con los factores en `ARTE_DE_LA_BASE[f].encoger`). Lo que pintó
+  Codex queda en `fuentes/pintado-t<n>.webp`, y el maestro sale de ahí y de la placa, con su
+  procedencia. Una morada ofrece cada unidad que produce.
 - **Arena** (`pnpm arena`): **edita el catálogo del juego** (19-10-2026, decisión del usuario) y
   monta peleas con sus reglas. Las unidades son las de `data/unidades.json` y las piezas, las de
   `data/equipo.json`: «Guardar» escribe los dos en una operación (`escribirCatalogo`,
@@ -1100,6 +1190,8 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm banco` | ~2 s | si tocas el núcleo sin querer cambiar el juego: 20 partidas (eran 200; decisión del usuario, 21-10-2026: «estamos en pleno desarrollo»); para medir más, `pnpm banco 200` |
 | `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10, y con el río de lago de 20, 121 / 0 / 12; con el recinto de las ciudades en el núcleo, 98 / 0 / 6; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
+| `tools/qa/neutro.ts` | ~10 s | si tocas una hoja de estilo: sin `data-tema`, 0 diferencias con HEAD |
+| `tools/qa/temas-con-piezas.ts [carpeta]` | ~5 min | si tocas los temas o sus piezas: rótulos de sección sobre su pieza, el lienzo quieto en 7 ventanas, lo que tapan marco, remate y cartela, y las capturas lado a lado |
 | `npx tsx tools/qa/arena-ia.ts` | ~2 s | si tocas el movimiento de la batalla, salir del contacto, la carga, la rueda o la armadura: 100 peleas por variante con unidades del catálogo, IA contra IA (peleas sin terminar, rondas, tiempo, cargas, cruces y golpes parados) |
 
 - **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y

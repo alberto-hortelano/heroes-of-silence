@@ -1,0 +1,42 @@
+{
+  "encargo": "base-orkos-placa-t1",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:51:56.564Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a6f-ea75-77f1-b7e1-7682c998f361",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (el tótem). En su sitio pon lo mismo que ya cierra la plaza entre ellos: la empalizada de troncos aguzados, chozas de troncos y pieles, rocas grandes y algún pino; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/orkos/fuentes/maestro-t1.webp",
+      "papel": "edita",
+      "sha256": "42d34ae00e0997017834ebd2746923004ea3367c41ed3c80c1c080f38f5bd9c9"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a6f-ea75-77f1-b7e1-7682c998f361/call_1f21841290c144b4a445c1f237e936f5.png",
+    "sha256": "a12beb0a701146a397c6a60b3087a4bb1edb03bba63c05a3146e9d5c93c9c332",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 7 edificios, placas 3 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (545) y x1 (1000)",
+    "castle: lo recortado toca el borde de su región en x0 (1000)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (500)",
+    "tavern: lo recortado toca el borde de su región en x0 (500)",
+    "orkos_pueblo: lo recortado toca el borde de su región en x1 (545)",
+    "orkos_cueva: lo recortado toca el borde de su región en x0 (1100)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/orkos/fuentes/placa-t1.webp",
+    "sha256": "e8e4abdde65042c14ed5b8986254d866b39ee65337a1e1ace6dd8056f5929938"
+  }
+}

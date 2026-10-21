@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-placa-t3",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:45:35.960Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a5c-86ec-7ed3-a707-9bd554d7dfdf",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (el osario (los cadáveres), el ayuntamiento, el castillo). En su sitio pon lo mismo que ya cierra la plaza entre ellos: traseras de casas de piedra negra medio en ruinas, muros de piedra con hiedra seca, cipreses oscuros y alguna lápida; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/maestro-t3.webp",
+      "papel": "edita",
+      "sha256": "5a7933362aaa4552397eb63be804b5e7f8dcf32483b9902e9499a4d996fa24fd"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a5c-86ec-7ed3-a707-9bd554d7dfdf/call_4827dcd42f62420b988651dcb2efa199.png",
+    "sha256": "f628276fb8137e057ab8428b1c0954069fce87d556570268a0ad6438f0ad3c2c",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 5 edificios, placas 2 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/placa-t3.webp",
+    "sha256": "4c30eb69526101db04213ad652800982c5dfb591d286bf80042913619fa1b134"
+  }
+}

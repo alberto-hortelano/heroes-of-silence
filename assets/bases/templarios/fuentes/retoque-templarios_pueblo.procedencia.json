@@ -1,0 +1,52 @@
+{
+  "encargo": "base-templarios-retoque-templarios-pueblo",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T15:33:56.745Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a159f0-e2a8-7ec0-84c2-9988a379fa78",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\nLa imagen 2 es la hoja de IDENTIDAD de los edificios: cada uno suelto y con su número, que es el de la guía. Manda en su diseño, sus materiales, sus colores, su tejado, su heráldica y sus PROPORCIONES. No manda en el encuadre, la escala ni el atrezo suelto que lleva alrededor.\n\nEl único cambio: en el hueco que hay entre las columnas 108 y 512 se levanta la choza de los campesinos (el pueblo), el edificio de la imagen 2. La imagen 2 es como salió la primera vez, y está mal: está en TRES CUARTOS (se le ven la pared del lado derecho y el faldón del tejado en escorzo, y el zócalo de piedra va en diagonal) y lleva un halo verdoso alrededor. Aquí va DE FRENTE, como los demás edificios de la plaza, con la FACHADA PARALELA al plano del cuadro, sin pared lateral ni faldón del tejado en escorzo, el zócalo de piedra HORIZONTAL y el alero recto. Cámara ORTOGRÁFICA elevada 25 grados, de frente, como el resto de la imagen 1. Paredes verticales, nada inclinado.\nEl umbral de su puerta, en la columna 420 y la fila 656, a ras del borde de atrás del empedrado; el pie de toda la fachada sobre ese mismo borde. A la escala de la plaza: un adulto mide 122 px, y la puerta es un poco más alta (unos 154-166 px). Su mismo diseño, materiales, colores, tejado de paja y heráldica que en la imagen 2, con proporciones normales. CABE ENTERO en su hueco, con aire: todo lo suyo (alero, tejado, chimenea, estandarte, esquinas de piedra) entre las columnas 138 y 482, así que la fachada no pasa de 344 px de ancho; más estrecho que en la imagen 2 si hace falta. Pasada la columna 482, nada suyo: ahí empieza el sitio de otro edificio.\nSIN HALO NI CONTORNO: alrededor del edificio, lo que ya hay en la imagen 1, sin brillo, sin borde de otro color y sin árboles nuevos pegados a él. NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/templarios/fuentes/placa-t3.webp",
+      "papel": "edita",
+      "sha256": "c90fdf452ffa9f2dd6aa4bc5f572da395e91997f4cc8a5df671837fb677081a0"
+    },
+    {
+      "ruta": "assets/bases/templarios/fuentes/identidad-retoque-templarios_pueblo.png",
+      "papel": "edificios",
+      "sha256": "74c17a319b95a050a3f805564bcc3facb210d760f096f2346aee174c01d9d81a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a159f0-e2a8-7ec0-84c2-9988a379fa78/call_1965c75908f6414eba14563c23b778d9.png",
+    "sha256": "7fea6303ccb1bae27b4d088eb41712183afa964ab6c895731d73347696a9c6e7",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 13 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x1 (1020)",
+    "town_hall: lo recortado toca el borde de su región en x0 (512) y x1 (1020)",
+    "city_hall: lo recortado toca el borde de su región en x0 (512) y x1 (1020)",
+    "castle: lo recortado toca el borde de su región en x0 (1020)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (476)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (476)",
+    "tavern: lo recortado toca el borde de su región en x0 (476)",
+    "templarios_pueblo: lo recortado toca el borde de su región en x1 (512)",
+    "templarios_establos: lo recortado toca el borde de su región en x0 (755)",
+    "templarios_pueblo abierta: lo recortado toca el borde de su región en x1 (512)",
+    "templarios_establos abierta: lo recortado toca el borde de su región en x0 (755)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/templarios/fuentes/retoque-templarios_pueblo.webp",
+    "sha256": "b3cdc026ec89385cf595af66afee3270a059a60741e2c1360d662db3eae4c498"
+  }
+}

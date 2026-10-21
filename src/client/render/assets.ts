@@ -130,6 +130,15 @@ export function imagenDeFigura(url: string): HTMLImageElement | null {
   return imagenes.get(`figura/${url}`) ?? null;
 }
 
+/**
+ * Si la hoja de figura de esa URL sigue en camino: pedida y sin llegar ni fallar.
+ * Mientras, la figura no se pinta (20-10-2026: «quita unos círculos rojos con una
+ * letra que aparecen antes de cargar las animaciones»); si falla, su marcador.
+ */
+export function figuraEnCamino(url: string): boolean {
+  return pendientes.has(`figura/${url}`);
+}
+
 /** ¿Hay alguna figura con su arte cargado? */
 export function hayFiguraCargada(): boolean {
   return hayFigura;

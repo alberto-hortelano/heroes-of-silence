@@ -134,6 +134,9 @@ describe('la política del arnés de QA (#44)', () => {
     );
     // Y los jugadores son los de la partida: un plan con otros es jugable y deja
     // al agente sin un solo turno, en silencio.
-    expect(respuesta.plan.heroStarts.map((h) => h.player).sort()).toEqual([0, 1]);
+    const dueños = new Set(
+      respuesta.plan.towns.flatMap((t) => (t.owner === null ? [] : [t.owner])),
+    );
+    expect([...dueños].sort()).toEqual([0, 1]);
   });
 });

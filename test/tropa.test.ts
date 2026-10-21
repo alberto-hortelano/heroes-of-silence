@@ -49,6 +49,7 @@ import { FACTION_IDS, SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
 import {
   copiaDePartida,
   ejercito,
+  fueraDeSuBase,
   hastaSuSiguienteTurno,
   JINETE,
   PESADA,
@@ -548,6 +549,30 @@ describe('licenciar: cambiar tropa barata por otra mejor', () => {
     state.players[0]!.resources = { ...state.players[0]!.resources, gold: 50_000 };
     expect(planRecruits(state, 0).some((a) => a.type === 'dismiss')).toBe(false);
   });
+
+  it('no licencia lo que recluta en la misma jugada: recorre lo que se ofrece del más fuerte al más flojo', () => {
+    // Por la morada del revés (que no es un nivel), el día 1 de los orkos de s2
+    // reclutaba goblins y los licenciaba en el mismo plan para meter a un orko:
+    // 8 de 80 planes del día 1 en 1-40.
+    const malos: string[] = [];
+    for (let seed = 1; seed <= 40; seed++) {
+      const state = newGame({ seed });
+      for (const p of [0, 1] as const) {
+        const plan = planRecruits(state, p);
+        const reclutados = plan.flatMap((a) => (a.type === 'recruit' ? [a.creature] : []));
+        for (const a of plan) {
+          if (a.type === 'dismiss' && reclutados.includes(a.creature))
+            malos.push(`s${seed} j${p}: recluta y licencia ${a.creature}`);
+        }
+        const poderes = reclutados.map((id) => unitPower(unidadDelJuego(id)));
+        if (poderes.some((x, i) => i > 0 && x > (poderes[i - 1] as number)))
+          malos.push(
+            `s${seed} j${p}: recluta ${reclutados.join(', ')}, no del más fuerte al más flojo`,
+          );
+      }
+    }
+    expect(malos).toEqual([]);
+  });
 });
 
 describe('`recruitCapacity`: lo máximo que el núcleo acepta, ni uno más ni uno menos', () => {
@@ -564,6 +589,8 @@ describe('`recruitCapacity`: lo máximo que el núcleo acepta, ni uno más ni un
       // Con la base llena de salida el máximo sería 0 en las 40 y el test no
       // probaría el `while`: se mide sobre una guarnición con sitio.
       const state = sinGuarnicionDeSalida(newGame({ seed }));
+      // El héroe nace dentro (19-10-2026) y recluta en su tropa: se mide la guarnición.
+      fueraDeSuBase(state, 0);
       const town = townsOf(state, 0)[0]!;
       // Variedad: unas semillas con mucha oferta, otras con poco oro, para que
       // el tope lo pongan las tres cosas en semillas distintas.

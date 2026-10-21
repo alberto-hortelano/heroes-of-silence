@@ -20,8 +20,6 @@ import {
   type Lado,
   ladoDe,
   lecturaDelNivel,
-  NOMBRE_DE_RASGO,
-  nombreDeHabilidad,
   opcionesDelHueco,
   quitarBlocker,
 } from '@core/arena.js';
@@ -49,7 +47,13 @@ import {
   type MurallaDeBatalla,
   type PiezaDeMuralla,
 } from '@core/battle/muralla.js';
-import { type Poder, poder, poderDeHabilidad, queHaceElPoder } from '@core/battle/poderes.js';
+import {
+  nombreDeHabilidad,
+  type Poder,
+  poder,
+  poderDeHabilidad,
+  queHaceElPoder,
+} from '@core/battle/poderes.js';
 import {
   filasDeLaRueda,
   NIVEL_MAXIMO,
@@ -99,6 +103,7 @@ import {
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_FACCION,
   NOMBRE_DE_HUECO,
+  NOMBRE_DE_RASGO,
   SPEED_TO_HEXES,
   type UnitInfo,
   type UsoDeArma,

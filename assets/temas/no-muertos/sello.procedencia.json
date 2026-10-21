@@ -1,0 +1,53 @@
+{
+  "encargo": "tema-07-sello-no-muertos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:30:00.618Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b56-b45a-7222-923f-579efb28e0c4",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\n\nTema NO MUERTOS: hierro negro forjado con calaveras, telarañas y velas de llama verde-cian, acentos cian y hueso, y estandartes morados con la cruz invertida. El SELLO o medallón redondo que abre la barra de abajo, a la izquierda del aviso: se ve a 36 px, así que con la silueta clara. Un medallón de hierro negro con una calavera en relieve.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/no-muertos.png",
+      "papel": "estilo",
+      "sha256": "0a063843bbdb6ee1655c7554d3366c3aff7acc5c5aedd27027d9d2c8a5429956"
+    },
+    {
+      "ruta": "assets/art/temas/no-muertos.png",
+      "papel": "pieza",
+      "sha256": "0a063843bbdb6ee1655c7554d3366c3aff7acc5c5aedd27027d9d2c8a5429956",
+      "recorte": {
+        "x": 15,
+        "y": 1120,
+        "w": 70,
+        "h": 76
+      }
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b56-b45a-7222-923f-579efb28e0c4/exec-99952238-846c-4441-8d19-42bcd4a93aac.png",
+    "sha256": "3650d0c1c3d6733450a1ac2c6794e66874d974a162c086942b1da56164d7917d",
+    "ancho": 1278,
+    "alto": 1230
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 1219×1216 a 256×255, dentro de 256×256",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 31 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.5189905467129788,
+    "opacos": 0.9961609272610937,
+    "haloSuelto": 0,
+    "ancho": 1278,
+    "alto": 1230
+  },
+  "salida": {
+    "ruta": "assets/temas/no-muertos/sello.webp",
+    "sha256": "343d1f9992545d81f0ce8aa0d0016226b8a5d46195b0cb677febd90dc91a802d"
+  }
+}

@@ -17,8 +17,8 @@ import {
   juegosDelYBot,
   registrarUnidad,
 } from '../src/client/render/personajes.js';
+import { HERO_BODY } from '../src/core/battle/types.js';
 import { hojaDeUnidad, UNIDADES } from '../src/core/catalogo.js';
-import { HERO_BODY } from '../src/core/hero/hero.js';
 import { CHARACTER_BODY } from '../src/core/rpg/character.js';
 import {
   CLIPS_DE_FIGURA,

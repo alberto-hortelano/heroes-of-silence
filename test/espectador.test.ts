@@ -35,7 +35,7 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { applyAction, createBattle } from '../src/core/battle/battle.js';
 import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
-import { tiposDeHeroe } from '../src/core/data.js';
+import { figuraDelHeroe, tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { aPunto, pointKey, reachableFrom } from '../src/core/map/map.js';
@@ -229,8 +229,8 @@ describe('adaptar: la vuelta del cable', () => {
   });
 
   it('el héroe nacido de la tropa cruza el cable con su tipo y su historia', () => {
-    // El tipo viaja por su NOMBRE —el espectador no sabe la facción del héroe
-    // para buscarlo— y la historia tal cual; los demás, con la suya a `null`.
+    // El tipo viaja con su facción, por los ids (de ellos saca el espectador su
+    // nombre y su figura), y la historia tal cual; los demás, con la suya a `null`.
     const state = newGame({ seed: 5 });
     const id = ponVeteranoEnLaBase(state, 1);
     // Un tipo que no es el de por defecto (el primero) de su facción.
@@ -249,15 +249,20 @@ describe('adaptar: la vuelta del cable', () => {
     const nacida = heroes.find((h) => h.id === `hero-${id}`) as VistaHeroe;
     expect(nacida).toMatchObject({
       name: 'Ana <la> Paciente',
-      nombreDelTipo: tipo.nombre,
+      faction: state.players[1]!.faction,
+      tipo: tipo.id,
       historia: 'Guardó la puerta & no se movió.',
     });
+    // De la facción y el tipo saca el espectador la hoja con que lo pinta en el mapa.
+    expect(figuraDelHeroe(nacida)).toBe(
+      figuraDelHeroe(state.heroes.find((h) => h.id === nacida.id)!),
+    );
     const otros = heroes.filter((h) => h.id !== nacida.id);
     expect(otros.map((h) => h.historia)).toEqual(otros.map(() => null));
     // Los demás, con el tipo de por defecto de su facción.
     const porDefecto = (h: VistaHeroe): string =>
-      tiposDeHeroe(state.heroes.find((x) => x.id === h.id)!.faction)[0]!.nombre;
-    expect(otros.map((h) => h.nombreDelTipo)).toEqual(otros.map(porDefecto));
+      tiposDeHeroe(state.heroes.find((x) => x.id === h.id)!.faction)[0]!.id;
+    expect(otros.map((h) => h.tipo)).toEqual(otros.map(porDefecto));
   });
 
   it('el terreno que no cambia vuelve como EL MISMO array, para no rehacer la superficie', () => {
@@ -598,6 +603,9 @@ describe('la batalla en la vista', () => {
       // Lo puesto (`UnitInfo.equipo`) viaja con sus cifras (F6): la Espada del héroe.
       expect(c.unit.equipo?.arma, c.id).toBeDefined();
       expect(viaja).toEqual(c.unit);
+      // Y con la hoja de su tipo, que el espectador pinta tal cual (vuelta 2).
+      expect(c.body).toMatch(/^heroe-/);
+      expect(state.heroes.map((h) => figuraDelHeroe(h))).toContain(c.body);
     }
     expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
   });

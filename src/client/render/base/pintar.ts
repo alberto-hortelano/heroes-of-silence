@@ -12,15 +12,16 @@
  * un tramo que aún no está, o mientras llega—, un cielo, un muro bajo recto, el
  * suelo entonado y cada edificio un bloque con su nombre: la escena se juega igual.
  *
- * La plaza y lo construido no cambian de un fotograma a otro mientras la cámara
- * está quieta: se pintan en un lienzo aparte (`Fondo`) y se copia entero; se
- * rehace cuando cambia algo de su clave (la cámara, el tamaño, el arte, lo
- * construido o lo señalado). El resaltado del edificio señalado va en él.
+ * La plaza y lo construido no cambian de un fotograma a otro, ni al desplazarse
+ * la cámara: se pintan en teselas pegadas al escenario (`pintarElFondo`) que se
+ * copian 1:1; se rehacen cuando cambia algo de su clave (el tamaño, el arte o lo
+ * construido). El edificio señalado va encima, en su propio lienzo.
  *
  * Las figuras son las de siempre (`pintarFiguraConSombra`), del alto de una
  * figura de combate (`cajaDeFiguraEn`): el héroe o el alcaide anda con su
  * clip `walk`, y la gente respira en `idle`.
  */
+import type { SitioId } from '@core/town/sitios.js';
 import type { FactionId } from '@core/types.js';
 import {
   bordeDeAtras,
@@ -29,8 +30,10 @@ import {
   FONDO_DE_LA_FRANJA,
   planoDelCuadro,
 } from '../../../shared/base.js';
-import { cajaDeFiguraEn } from '../batalla.js';
-import { type Figura, pintarFiguraConSombra } from '../figura.js';
+import { temaDelLienzo } from '../../temas.js';
+import { cajaDeFiguraEn, pintarAroDeFigura } from '../batalla.js';
+import { CacheDeLienzos } from '../copias.js';
+import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
 import { enPantalla, type Tablero } from '../proyeccion.js';
 import { type ArteDeLaBase, CIELO_SIN_ARTE } from './arte.js';
@@ -245,7 +248,7 @@ function pintarEdificio(
   if (caja.x > v.lienzo.ancho || caja.x + caja.ancho < 0) return;
   if (pieza !== null) {
     ctx.save();
-    // En el fondo cacheado (`Fondo`): el filtro se paga al rehacerlo, no en cada fotograma.
+    // En su lienzo (`pintarResaltado`): el filtro se paga al señalarlo, no en cada fotograma.
     if (señalado) ctx.filter = 'brightness(1.18) drop-shadow(0 0 6px rgba(245, 217, 115, 0.85))';
     ctx.drawImage(pieza.imagen, caja.x, caja.y, caja.ancho, caja.alto);
     ctx.restore();
@@ -256,8 +259,9 @@ function pintarEdificio(
   ctx.strokeStyle = señalado ? '#f5d973' : 'rgba(0,0,0,0.6)';
   ctx.lineWidth = señalado ? 3 : 1.5;
   ctx.strokeRect(caja.x, caja.y, caja.ancho, caja.alto);
-  ctx.fillStyle = '#e8dcc4';
-  ctx.font = `bold ${Math.max(10, Math.round(v.t.paso * 0.16))}px system-ui, sans-serif`;
+  const tema = temaDelLienzo();
+  ctx.fillStyle = tema.rotulo;
+  ctx.font = `bold ${Math.max(10, Math.round(v.t.paso * 0.16))}px ${tema.letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(e.nombre, caja.x + caja.ancho / 2, caja.y + caja.alto / 2, caja.ancho - 8);
@@ -270,15 +274,7 @@ function pintarPersona(
 ): void {
   const c = cajaDeFiguraEn(v.t, e.en);
   if (c.x + c.ancho < 0 || c.x - c.ancho > v.lienzo.ancho) return;
-  if (v.señalado?.tipo === 'pnj' && v.señalado.id === e.id) {
-    ctx.save();
-    ctx.strokeStyle = '#f5d973';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(c.x, c.suelo, c.alto * 0.3, c.alto * 0.11, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
+  const señalado = v.señalado?.tipo === 'pnj' && v.señalado.id === e.id;
   const figura: Figura = {
     id: e.id,
     body: e.cuerpo,
@@ -294,65 +290,196 @@ function pintarPersona(
     color: e.pnj ? COLOR_NEUTRO : v.color,
     rotulo: e.nombre.charAt(0).toUpperCase(),
   };
-  pintarFiguraConSombra(ctx, figura);
+  pintarFiguraConSombra(
+    ctx,
+    figura,
+    señalado ? (colocada) => pintarAroDeFigura(ctx, c, piesDeFigura(colocada)) : undefined,
+  );
 }
 
 /**
- * La plaza y lo construido, pintados una vez en un lienzo del tamaño del de la
- * escena en píxeles de dispositivo, y la clave con que se pintaron. Con la
- * cámara quieta, un fotograma de la base es copiar este lienzo y pintar las
- * figuras: el patrón del suelo, los degradados del cielo y el filtro del
- * resaltado ya no se rehacen en cada uno.
+ * La plaza y lo construido, pintados una vez en teselas de `ANCHO_DE_TESELA`
+ * píxeles de dispositivo del alto del lienzo, pegadas al escenario y no a la
+ * cámara. Un fotograma de la base es copiar 1:1 las que se ven, desplazadas por
+ * la cámara —que cae en un píxel entero (`camaraDeLaBase`)—, y pintar las
+ * figuras. Antes era un solo lienzo del tamaño de la vista con la cámara en su
+ * clave: al desplazarse se rehacía en cada fotograma, con cada cuadro reducido
+ * en otra fase de subpíxel, y la plaza temblaba.
+ *
+ * Una tesela vale mientras no cambie su clave: el paso y la altura del suelo,
+ * la densidad, el alto, el arte (cada recorte que llega es un `ArteDeLaBase`
+ * nuevo) y lo construido. Lo señalado no entra: va encima, en su propio lienzo
+ * (`Resaltado`); con él en la clave, pulsar un edificio tiraba todas y la marcha
+ * que salía del clic las rehacía por el camino, a tirones. Y no se esperan a
+ * que entren en la vista: en cada fotograma sin tesela nueva se pinta una más,
+ * la que falta más cerca, hasta tener el escenario entero o `BYTES_DE_LAS_TESELAS`.
  */
-interface Fondo {
+const ANCHO_DE_TESELA = 512;
+const BYTES_DE_LAS_TESELAS = 128 * 1024 * 1024;
+/** Lo que el lienzo del resaltado sobra de su caja, en píxeles CSS: el halo de su `drop-shadow`. */
+const HALO = 12;
+
+/** El edificio señalado, pintado con su resaltado en su sitio del escenario (píxeles de dispositivo). */
+interface Resaltado {
+  readonly sitio: SitioId;
+  readonly x: number;
+  readonly y: number;
   readonly lienzo: HTMLCanvasElement;
-  clave: readonly unknown[];
 }
-let fondo: Fondo | null = null;
+
+let teselas: {
+  clave: readonly unknown[];
+  cache: CacheDeLienzos<number, HTMLCanvasElement>;
+  resaltado: Resaltado | null;
+} | null = null;
 
 const mismaClave = (a: readonly unknown[], b: readonly unknown[]): boolean =>
   a.length === b.length && a.every((x, i) => x === b[i]);
 
-/** Pinta la plaza y lo construido en `ctx`: lo copia del fondo, o lo rehace si cambió su clave. */
+/**
+ * Un lienzo de `ancho × alto` píxeles de dispositivo con lo que se ve de la base
+ * desde el píxel `(x, y)` del escenario: la cámara en su esquina, así que todo
+ * cae en los mismos píxeles de dispositivo que en el lienzo de al lado.
+ */
+function lienzoDelEscenario(
+  v: PintadoDeLaBase,
+  x: number,
+  y: number,
+  ancho: number,
+  alto: number,
+  densidad: number,
+  pintar: (f: CanvasRenderingContext2D, aqui: PintadoDeLaBase) => void,
+): HTMLCanvasElement {
+  const l = document.createElement('canvas');
+  l.width = ancho;
+  l.height = alto;
+  const f = l.getContext('2d');
+  if (f === null) throw new Error('el navegador no da un lienzo 2D para el fondo de la base');
+  f.setTransform(densidad, 0, 0, densidad, 0, 0);
+  pintar(f, {
+    ...v,
+    t: { ...v.t, origenX: -x / densidad, origenY: v.t.origenY - y / densidad },
+    lienzo: { ancho: ancho / densidad, alto: alto / densidad },
+  });
+  return l;
+}
+
+/** La tesela `i` del escenario: la plaza y lo construido, sin nada señalado. */
+function pintarTesela(
+  v: PintadoDeLaBase,
+  edificios: readonly Extract<Elemento, { tipo: 'edificio' }>[],
+  i: number,
+  densidad: number,
+  alto: number,
+): HTMLCanvasElement {
+  const sinSeñalar = { ...v, señalado: null };
+  return lienzoDelEscenario(
+    sinSeñalar,
+    i * ANCHO_DE_TESELA,
+    0,
+    ANCHO_DE_TESELA,
+    alto,
+    densidad,
+    (f, aqui) => {
+      pintarLaPlaza(f, aqui);
+      for (const e of edificios) pintarEdificio(f, aqui, e);
+    },
+  );
+}
+
+/** El edificio de `sitio` con su resaltado, en un lienzo de su caja y su halo. */
+function pintarResaltado(
+  v: PintadoDeLaBase,
+  e: Extract<Elemento, { tipo: 'edificio' }>,
+  densidad: number,
+): Resaltado {
+  // Su caja en el escenario: con la cámara en su píxel 0.
+  const { caja } = cajaDelEdificio({ ...v.t, origenX: 0 }, v.d, e, v.arte);
+  const x = Math.floor((caja.x - HALO) * densidad);
+  const y = Math.floor((caja.y - HALO) * densidad);
+  const ancho = Math.ceil((caja.x + caja.ancho + HALO) * densidad) - x;
+  const alto = Math.ceil((caja.y + caja.alto + HALO) * densidad) - y;
+  const lienzo = lienzoDelEscenario(v, x, y, ancho, alto, densidad, (f, aqui) =>
+    pintarEdificio(f, aqui, e),
+  );
+  return { sitio: e.sitio, x, y, lienzo };
+}
+
+/** Pinta la plaza y lo construido en `ctx`, copiando las teselas que se ven. */
 function pintarElFondo(
   ctx: CanvasRenderingContext2D,
   v: PintadoDeLaBase,
   edificios: readonly Extract<Elemento, { tipo: 'edificio' }>[],
 ): void {
   const m = ctx.getTransform();
-  const ancho = Math.max(1, Math.round(v.lienzo.ancho * m.a));
-  const alto = Math.max(1, Math.round(v.lienzo.alto * m.d));
-  const señalado = v.señalado?.tipo === 'sitio' ? v.señalado.sitio : null;
-  // Lo que cambia lo pintado: la vista, el arte (cada recorte que llega es un
-  // `ArteDeLaBase` nuevo), lo construido y lo señalado. Los elementos se
-  // rehacen en cada fotograma: entran por lo que tienen dentro.
+  const densidad = m.a;
+  const ancho = Math.ceil(v.lienzo.ancho * densidad);
+  const alto = Math.max(1, Math.ceil(v.lienzo.alto * m.d));
   const clave = [
-    v.t.origenX,
-    v.t.origenY,
     v.t.paso,
-    ancho,
+    v.t.origenY,
+    densidad,
     alto,
     v.d,
     v.arte,
-    señalado,
     ...edificios.map((e) => e.edificio),
   ];
-  fondo ??= { lienzo: document.createElement('canvas'), clave: [] };
-  if (!mismaClave(fondo.clave, clave)) {
-    const l = fondo.lienzo;
-    if (l.width !== ancho || l.height !== alto) {
-      l.width = ancho;
-      l.height = alto;
+  if (teselas === null || !mismaClave(teselas.clave, clave))
+    teselas = { clave, cache: new CacheDeLienzos(BYTES_DE_LAS_TESELAS), resaltado: null };
+  const t = teselas;
+  // Dónde cae el píxel 0 del escenario en el lienzo, en píxeles de dispositivo.
+  const desde = Math.round(v.t.origenX * densidad);
+  const primera = Math.floor(-desde / ANCHO_DE_TESELA);
+  const ultima = Math.floor((ancho - 1 - desde) / ANCHO_DE_TESELA);
+  let nuevas = 0;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (let i = primera; i <= ultima; i++) {
+    let tesela = t.cache.get(i);
+    if (tesela === undefined) {
+      tesela = pintarTesela(v, edificios, i, densidad, alto);
+      t.cache.set(i, tesela);
+      nuevas++;
     }
-    const f = l.getContext('2d');
-    if (f === null) throw new Error('el navegador no da un lienzo 2D para el fondo de la base');
-    f.setTransform(m.a, 0, 0, m.d, 0, 0);
-    f.clearRect(0, 0, v.lienzo.ancho, v.lienzo.alto);
-    pintarLaPlaza(f, v);
-    for (const e of edificios) pintarEdificio(f, v, e);
-    fondo.clave = clave;
+    ctx.drawImage(tesela, desde + i * ANCHO_DE_TESELA, 0);
   }
-  ctx.drawImage(fondo.lienzo, 0, 0, v.lienzo.ancho, v.lienzo.alto);
+  const señalado = v.señalado?.tipo === 'sitio' ? v.señalado.sitio : null;
+  const e = edificios.find((e) => e.sitio === señalado);
+  if (e === undefined) t.resaltado = null;
+  else {
+    if (t.resaltado?.sitio !== e.sitio) t.resaltado = pintarResaltado(v, e, densidad);
+    ctx.drawImage(t.resaltado.lienzo, desde + t.resaltado.x, t.resaltado.y);
+  }
+  ctx.restore();
+  if (nuevas === 0) adelantarUnaTesela(v, edificios, densidad, alto, desde, ancho);
+}
+
+/**
+ * Pinta la tesela del escenario que falta más cerca de la vista, si cabe en
+ * `BYTES_DE_LAS_TESELAS` contando desde ella: así, al echar a andar, las que
+ * entran ya están hechas.
+ */
+function adelantarUnaTesela(
+  v: PintadoDeLaBase,
+  edificios: readonly Extract<Elemento, { tipo: 'edificio' }>[],
+  densidad: number,
+  alto: number,
+  desde: number,
+  ancho: number,
+): void {
+  if (teselas === null) return;
+  const { cache } = teselas;
+  const total = Math.ceil((v.d.ancho * v.t.paso * densidad) / ANCHO_DE_TESELA);
+  const caben = Math.floor(BYTES_DE_LAS_TESELAS / (ANCHO_DE_TESELA * alto * 4));
+  const medio = Math.floor((ancho / 2 - desde) / ANCHO_DE_TESELA);
+  const radio = Math.floor((caben - 1) / 2);
+  for (let r = 1; r <= radio; r++) {
+    for (const i of [medio + r, medio - r]) {
+      if (i < 0 || i >= total || cache.tiene(i)) continue;
+      cache.set(i, pintarTesela(v, edificios, i, densidad, alto));
+      return;
+    }
+  }
 }
 
 export function pintarBase(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): void {

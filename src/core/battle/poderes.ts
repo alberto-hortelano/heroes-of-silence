@@ -116,6 +116,25 @@ export function esDeCura(p: Poder): boolean {
   return p.hechizo.kind === 'heal';
 }
 
+/**
+ * Cómo se dice un poder: el de cura con lo que cura («Curar (4 PV)»; M3 de QA de
+ * la arena: el chip decía «Curar (X)», la del cuaderno); los demás, por su nombre.
+ * Lo leen la arena (`nombreDeHabilidad`) y la ficha de la morada.
+ */
+export function nombreDelPoder(p: Poder): string {
+  return esDeCura(p) ? `${p.nombre} (${p.lanzador.cantidad} PV)` : p.nombre;
+}
+
+/**
+ * Cómo se dice una habilidad: la que da un poder, como el poder
+ * (`nombreDelPoder`); las demás, tal cual. El valor guardado sigue siendo el
+ * nombre del cuaderno.
+ */
+export function nombreDeHabilidad(h: string): string {
+  const id = poderDeHabilidad(h);
+  return id === null ? h : nombreDelPoder(poder(id));
+}
+
 /** El poder que da una habilidad, o `null` si la habilidad no tiene efecto todavía. */
 export function poderDeHabilidad(habilidad: string): PoderId | null {
   return CATALOGO.poderes.find((p) => p.habilidad === habilidad)?.id ?? null;

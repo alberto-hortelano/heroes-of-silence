@@ -6,15 +6,20 @@
  * Hasta la vuelta 2 eso era solo de la escena, y el núcleo ponía cosas donde la
  * escena levantaba la muralla: dos ciudades a tres casillas, con los recintos
  * fundidos en un solo castillo (s2, cuatro en uno); un nodo entre las casas de
- * una ciudad-puente (s98, s105); y el héroe de salida dentro de su base, de pie
+ * una ciudad-puente (s98, s105); y el héroe de salida dentro del recinto, de pie
  * sobre los tejados. «Dos ciudades no quedan tan cerca que sus recintos se
- * toquen», «el héroe de salida no nace dentro de su recinto» y «el héroe no
- * atraviesa la muralla» son decisiones del usuario (21-10-2026), así que **el
- * recinto es del núcleo**, y aquí, una vez: dónde está, por dónde se entra y
+ * toquen» y «el héroe no atraviesa la muralla» son decisiones del usuario
+ * (21-10-2026), así que **el recinto es del núcleo**, y aquí, una vez: dónde está, por dónde se entra y
  * qué lo impide. Lo leen el movimiento (`map.ts`: el Dijkstra, `stepCost`,
  * `isEnterable`), la red (`regiones.ts`: las regiones de una ciudad), el
  * generador (para no poner nada dentro y trazar los caminos por las puertas),
  * la puerta de los planes (`validateMapPlan`) y la escena.
+ *
+ * **El héroe de salida nace en su base** (19-10-2026, decisión del usuario):
+ * en la casilla de la ciudad, que es el medio del recinto y se pisa, y sale por
+ * sus puertas. Hasta la fusión con eso (21-10-2026) nacía fuera, en el acceso
+ * de una puerta, porque lo que se pisaba antes del recinto era una casilla
+ * vecina de la ciudad, entre las casas.
  *
  * **Se entra por las puertas** (fase 2): en el 3 × 3 solo se pisan la ciudad
  * (el medio) y sus puertas, y de fuera solo se pasa a una puerta desde uno de
@@ -166,12 +171,13 @@ const RUMBO_DEL_RIO: Readonly<Record<CaraDelRio, Paso>> = {
 const CARAS_DEL_RIO = Object.keys(RUMBO_DEL_RIO) as CaraDelRio[];
 
 /**
- * En qué orden se mira dónde empieza el héroe de una base: delante de la puerta
- * por la que entra el camino de su región, y si entra por varias, la primera de
- * esta lista. Las de abajo antes: la cámara mira desde el sur y el héroe queda
- * delante de su muralla, no detrás.
+ * En qué orden se miran las caras con puerta de una ciudad cuando hay que
+ * elegir una (`abrirUnAcceso`, en el generador): las de abajo antes, que la
+ * cámara mira desde el sur. Era el orden en que se buscaba el inicio del héroe
+ * delante de una puerta, hasta que nació en su base; se queda tal cual para no
+ * mover los mapas.
  */
-export const ORDEN_DEL_INICIO: readonly CaraConPuerta[] = ['s', 'se', 'so', 'n', 'ne', 'no'];
+export const ORDEN_DE_LAS_CARAS: readonly CaraConPuerta[] = ['s', 'se', 'so', 'n', 'ne', 'no'];
 
 /** Cómo se dice cada cara, para la persona. */
 const NOMBRE_DE_CARA: Readonly<Record<CaraDeLaPuerta, string>> = {
@@ -524,7 +530,7 @@ export interface CiudadConNombre {
   readonly at: Point;
 }
 
-/** Algo que ocupa una casilla y no es un objeto del mapa (un inicio, un grupo de asaltantes), dicho para la persona. */
+/** Algo que ocupa una casilla y no es un objeto del mapa (un grupo de asaltantes), dicho para la persona. */
 export interface OcupaUnaCasilla {
   readonly quien: string;
   readonly at: Point;
@@ -559,7 +565,7 @@ function queEs(o: GameMap['objects'][number]): string {
  *   `SEPARACION_DE_CIUDADES`;
  * - cualquier cosa dentro de un recinto que no sea su ciudad —un nodo, otra
  *   ciudad, una mina, un pueblo, un recurso, un monstruo, un cofre, y lo de
- *   `otros`: los inicios y los asaltantes—;
+ *   `otros`: los asaltantes—;
  * - un camino que cruza la muralla: a una ciudad se llega de un acceso a su
  *   puerta y de la puerta a ella (`PUERTAS_DE_LA_CIUDAD`), y el que entra por
  *   la puerta sigue a la ciudad;

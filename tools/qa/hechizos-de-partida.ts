@@ -9,7 +9,7 @@
  *
  * Uso: npx tsx tools/qa/hechizos-de-partida.ts [partidas=100]
  */
-import { HERO_BODY } from '../../src/core/hero/hero.js';
+import { HERO_BODY } from '../../src/core/battle/types.js';
 import { DIAS_POR_DEFECTO, partidaDeSemilla } from './partidas.js';
 
 const N = Number(process.argv[2] ?? 100);

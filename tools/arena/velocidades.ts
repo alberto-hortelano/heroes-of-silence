@@ -69,7 +69,6 @@ export const VELOCIDAD_DEL_CUERPO: Readonly<
   'heroe-templario-caballero': [5, 'líder de primera línea a pie'],
   'heroe-templario-abad': [4, 'sanador con cota de malla bajo el hábito'],
   'heroe-templario-inquisidor': [6, 'cazador con coraza ligera'],
-  'heroe-templario-gran-maestre': [3, 'placas ornamentadas y arma a dos manos'],
   'heroe-nigromante': [4, 'mago humano: como un humano'],
   'heroe-vampiro': [6, 'noble con coraza ligera: rápido para un no muerto'],
   'heroe-lich': [3, 'esqueleto de mago: lento'],

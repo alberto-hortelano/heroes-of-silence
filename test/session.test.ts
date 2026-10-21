@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
-import { Session } from '../src/client/session.js';
+import { AYUDA_DEL_MAPA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
@@ -30,13 +30,13 @@ import {
   anteLaBase,
   costesDelAlcance,
   ejercito,
+  fueraDeSuBase,
   PESADA,
   pegadoA,
   planDeNodos,
   primeraMarchaQueSePara,
   primeraSemillaCon,
   SANADOR,
-  TROPA,
   TROPA_BARATA,
 } from './helpers.js';
 
@@ -205,8 +205,10 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
   it('«todo» pide lo que cabe: con el liderazgo casi lleno, el máximo es menor que lo disponible', () => {
     const s = new Session(7);
     const town = s.myTowns()[0]!;
-    // La base nace llena (`guarnicionBase`): aquí se mide «todo» con sitio.
+    // La base nace llena (`guarnicionBase`): aquí se mide «todo» con sitio. Y el
+    // héroe nace dentro (19-10-2026), donde reclutaría en su tropa: fuera.
     town.garrison = [];
+    fueraDeSuBase(s.state, 0);
     s.openTown(town.id);
     // Lo primero que cría la morada que la base trae hecha.
     const recluta = dwellings(town)[0]!.creature;
@@ -536,8 +538,11 @@ describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
     // Hasta F6 el panel de la partida decía «su tropa no tiene poderes» aunque el
     // monje los trajera (`poderes: NADA`). Ahora son los botones de la arena
     // (`botonesDePoder`) y el gesto, el mismo (`PoderesDeLaActiva`).
+    // Con dos pesados y no dos de tropa: en la batalla que se halla desde que el
+    // héroe nace en su base (19-10-2026), los seis del monstruo mataban al monje
+    // antes de su primer turno.
     const s = sesionContraMonstruoCon(
-      ejercito({ creature: SANADOR, count: 1 }, { creature: TROPA, count: 2 }),
+      ejercito({ creature: SANADOR, count: 1 }, { creature: PESADA, count: 2 }),
     );
     const conPoderes = () => (s.turnoPropio?.stack.unit.poderes?.length ?? 0) > 0;
     for (let i = 0; i < 40 && !conPoderes(); i++) {
@@ -772,6 +777,8 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     // guarnición se defiende sola (lo reprodujo el QA del 19-10-2026). El panel
     // decía «Este héroe no conoce ninguno» de un héroe que no está.
     const s = new Session(1);
+    // El héroe nace en la base (19-10-2026): fuera, que aquí se defiende sola.
+    fueraDeSuBase(s.state, 0);
     // Una función y no `s.scene` a pelo: el compilador no sabe que `endTurn` la cambia.
     const enBatalla = () => s.scene === 'battle';
     for (let dia = 0; dia < 5 && !enBatalla(); dia++) {
@@ -787,5 +794,54 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     const panel = marcadoDe(renderSide(s));
     expect(panel).not.toContain('Este héroe');
     expect(panel).toContain('Sin héroe en esta batalla: nadie lanza hechizos');
+  });
+});
+
+describe('la partida empieza en la base (19-10-2026)', () => {
+  it('abrirSuBase abre la base con el héroe dentro; al salir, el mapa, y el héroe anda', () => {
+    const s = new Session(5, 'orkos');
+    expect(s.jugador.faction).toBe('orkos');
+    s.abrirSuBase();
+    expect(s.scene).toBe('town');
+    expect(s.activeTown?.id).toBe(s.jugador.base);
+    const heroe = s.heroeEnLaBase();
+    expect(heroe?.faction).toBe('orkos');
+    expect(heroe?.at).toEqual(s.activeTown?.at);
+    expect(s.vistaDeLaBase()!.caminante.id).toBe(heroe!.id);
+    // Pasea con la hoja de su tipo, no con el Y Bot (vuelta 2).
+    expect(s.vistaDeLaBase()!.caminante.cuerpo).toBe('heroe-orko-kaudillo');
+
+    s.closeTown();
+    expect(s.scene).toBe('adventure');
+    // La primera salida dice cómo se anda; las demás, nada.
+    expect(s.status).toBe(AYUDA_DEL_MAPA);
+    s.openTown(s.jugador.base!);
+    s.closeTown();
+    expect(s.status).toBe('');
+    const fuera = pegadoA(s.state, heroe!.at);
+    s.clickTile(fuera);
+    expect(heroe!.at).toEqual(fuera);
+  });
+
+  it('sin facción, la de la semilla: la misma partida que con la que la semilla saca', () => {
+    const sola = new Session(9);
+    const conLaSuya = new Session(9, sola.jugador.faction);
+    expect(JSON.stringify(conLaSuya.state)).toBe(JSON.stringify(sola.state));
+  });
+});
+
+describe('el héroe elegido en el menú (vuelta 2, 19-10-2026)', () => {
+  it('la sesión abre con el tipo pedido, y la base lo pinta con su hoja', () => {
+    const s = new Session(5, 'no-muertos', 'vampiro');
+    const heroe = s.myHeroes()[0]!;
+    expect(heroe.tipo).toBe('vampiro');
+    s.abrirSuBase();
+    expect(s.vistaDeLaBase()!.caminante).toMatchObject({ id: heroe.id, cuerpo: 'heroe-vampiro' });
+  });
+
+  it('un tipo de otra facción no abre partida, y lo dice', () => {
+    expect(() => new Session(5, 'no-muertos', 'cantora')).toThrow(
+      '"cantora" no es un tipo de héroe de no-muertos: valen nigromante, vampiro, lich',
+    );
   });
 });

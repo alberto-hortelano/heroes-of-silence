@@ -12,7 +12,7 @@ import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { bandaDeCara } from '../src/client/render/escenario/relieve.js';
 import { escenarioDe } from '../src/client/render/escenario/superficie.js';
 import { Session } from '../src/client/session.js';
-import { puenteSobreElAgua } from './helpers.js';
+import { primeraSemillaCon, puenteSobreElAgua } from './helpers.js';
 
 describe('queHayEn', () => {
   // La 7 (la 2 hasta el río de lago de 20 casillas, que la dejó sin mesetas;
@@ -125,17 +125,23 @@ describe('la escena del mapa en el modo «marcar fallo»', () => {
   it('soltar solo dice si fue un clic: no mueve a nadie, y el clic lo reparte quien lo recibe', () => {
     // `main.ts` da el clic al modo «marcar fallo» o a `pulsar`: la escena no
     // sabe nada del modo, y soltar no puede andar por su cuenta.
-    // Semilla 1: la casilla a dos al este del héroe se pisa (en la 2 era así
-    // hasta el río continuo, #144; en la 4
-    // hasta los ríos, #144; en la 2, hasta la muralla como cierre de un paso, #232; en la 3
-    // hasta las dos puertas de la mina, #230; en la 1, hasta las fronteras onduladas, #229; en la 12, hasta el mapa de 42×42,
-    // #226; en la 10, hasta el acantilado en línea, #215; en la 5, hasta los
-    // niveles del mapa, #143; en la 7, hasta #161).
-    const s = new Session(1);
+    // Una semilla cuya casilla a dos al este del héroe se pisa y se alcanza hoy:
+    // se busca. Escrita a mano se la llevaba cada cambio del mapa (la 7 hasta
+    // #161, la 5 hasta #143, la 10 hasta #215, la 12 hasta #226, la 1 hasta
+    // #229, la 3 hasta #230, la 2 hasta #232, la 4 y la 2 hasta #144, y la 1
+    // hasta que el héroe nació en su base, 19-10-2026).
+    const { semilla } = primeraSemillaCon('la casilla a dos al este del héroe, a mano hoy', (n) => {
+      const sesion = new Session(n);
+      const h = sesion.selectedHero;
+      if (h === null) return undefined;
+      const ruta = sesion.previewPath({ x: h.at.x + 2, y: h.at.y });
+      return ruta.length > 0 && ruta.every((p) => p.hoy && !p.peligro) ? true : undefined;
+    });
+    const s = new Session(semilla);
     const escena = new EscenaAventura(() => s);
     escena.encuadrar(1200, 800);
     const heroe = s.selectedHero;
-    if (heroe === null) throw new Error('la semilla 1 no da héroe');
+    if (heroe === null) throw new Error(`la semilla ${semilla} no da héroe`);
     const antes = { ...heroe.at };
     // Un arrastre no es un clic.
     escena.bajar(600, 400);

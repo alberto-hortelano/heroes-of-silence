@@ -57,7 +57,7 @@ import {
 } from '../src/core/hero/equipo.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
-import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
+import { basesDelPlan, type MapPlan, type PlanConCasillas } from '../src/core/map/generate.js';
 import {
   casillaDelIndice,
   findPath,
@@ -362,7 +362,10 @@ export function primeraSemillaCon<T>(
  * pie de la cara de su recinto; luego, el de `node-2` de la 216 (al 80 %), y
  * desde que la ciudad-puente está en tierra (fase 2), el de la ciudad-puente
  * `town-3` de la 64 (al 70 %), que lleva a su casilla del río, que se pisa: en
- * 1-500 no hay otro. Se busca desde ella: componer cada escena cuesta ~0,3 s.
+ * 1-500 no hay otro. El héroe nacido en su base no lo mueve: con el recinto, el
+ * inicio se ponía tras los caminos y después no se colocaba nada (fusión,
+ * 21-10-2026; sin el recinto, la primera era la 566). Se busca desde ella:
+ * componer cada escena cuesta ~0,3 s.
  */
 export function puenteSobreElAgua(): {
   semilla: number;
@@ -464,15 +467,29 @@ export function primeraMarchaQueSePara(state: GameState, heroe: Hero): Point | n
  * de una punta a otra del mapa cruzaba la base rival vacía y acababa la
  * partida antes de llegar a la batalla que el test quería ver.
  */
-export function pegadoA(state: GameState, desde: Point): Point {
-  // Las ocho y no solo las rectas: con fronteras gruesas, el inicio está en el
-  // pasillo de la base y a veces solo tiene libres las diagonales.
+export function pegadoA(state: GameState, desde: Point, salvo: readonly Point[] = []): Point {
+  // Las ocho y no solo las rectas: con fronteras gruesas, la base está en un
+  // pasillo y a veces solo tiene libres las diagonales.
   for (const [dx, dy] of VECINAS) {
     const at = { x: desde.x + dx, y: desde.y + dy };
+    if (salvo.some((p) => pointKey(p) === pointKey(at))) continue;
     const camino = findPath(state.map, desde, at);
     if (camino?.length === 1 && objectAt(state.map, at) === undefined) return at;
   }
   throw new Error(`(${desde.x},${desde.y}) no tiene ninguna casilla vecina libre`);
+}
+
+/**
+ * Saca al héroe de salida de `quien` de su base a una casilla pegada a ella, y
+ * lo devuelve. El héroe nace DENTRO de su base; las pruebas que miden otra cosa
+ * con él fuera (recoger la guarnición al pasar, que sin él dentro no se recluta,
+ * contratar en casa) lo sacan con esto en vez de suponer dónde empieza.
+ */
+export function fueraDeSuBase(state: GameState, quien: PlayerId): Hero {
+  const heroe = heroesOf(state, quien)[0]!;
+  const otros = state.heroes.filter((h) => h !== heroe).map((h) => h.at);
+  heroe.at = pegadoA(state, baseOf(state, quien)!.at, otros);
+  return heroe;
 }
 
 /**
@@ -716,10 +733,6 @@ export function planDeNodos(): PlanConCasillas {
         owner: null,
       },
     ],
-    heroStarts: [
-      { player: 0, at: { x: 3, y: 4 } },
-      { player: 1, at: { x: 24, y: 4 } },
-    ],
     mines: [
       { at: { x: 2, y: 2 }, resource: 'ore' },
       { at: { x: 8, y: 4 }, resource: 'gold' },
@@ -788,10 +801,6 @@ export function planDeMesetas(): PlanConCasillas {
       // bosque pasa a agua y Valdeluz es una ciudad-puente, con el recinto en
       // su orilla (`problemasDeRecintos`).
       { id: 'town-1', name: 'Cripta Gris', faction: 'no-muertos', at: { x: 3, y: 7 }, owner: 1 },
-    ],
-    heroStarts: [
-      { player: 0, at: { x: 7, y: 13 } },
-      { player: 1, at: { x: 5, y: 5 } },
     ],
     mines: [],
     villages: [],
@@ -1038,7 +1047,6 @@ export function auditarMapaDenso(
   }
   const sitios = [
     ...map.objects.filter((o) => o.kind !== 'node' && o.kind !== 'town').map((o) => o.at),
-    ...plan.heroStarts.map((s) => s.at),
     ...(plan.raiders ?? []).map((r) => r.at),
   ];
   for (const p of sitios) {
@@ -1100,19 +1108,20 @@ export function auditarMapaDenso(
     }
   }
   // Toda ciudad, en la red de alguna de sus regiones; la base, en la de su
-  // casa, que es la región donde empieza su héroe.
+  // casa. La casa del jugador `p` es la región `p`: el procedimental saca su
+  // base de los nodos de esa región (`intentarRed`) y le da camino desde ella
+  // (`crucesConCamino`). No es un hecho del mapa que se pueda leer de otra
+  // forma: la base toca dos o tres regiones y nada distingue la de casa.
   for (const n of red.nodos) {
     const i = n.at.y * W + n.at.x;
     if (n.ciudad && !n.regiones.some((k) => leLlegaDe(i, k)))
       fallos.push(`la ciudad ${en(i)} no está en un camino de ninguna de sus regiones`);
   }
-  for (const inicio of plan.heroStarts) {
-    const base = plan.towns.find((t) => t.owner === inicio.player);
-    if (base === undefined) continue;
-    const casa = red.regionDe[inicio.at.y * W + inicio.at.x]!;
+  for (const [player, base] of basesDelPlan(plan)) {
+    const casa = player;
     if (!leLlegaDe(base.at.y * W + base.at.x, casa))
       fallos.push(
-        `la base del jugador ${inicio.player} en (${base.at.x},${base.at.y}) no está en la red de su región de casa, ${red.regiones[casa]?.id}`,
+        `la base del jugador ${player} en (${base.at.x},${base.at.y}) no está en la red de su región de casa, ${red.regiones[casa]?.id}`,
       );
   }
   // Un cruce con camino por pareja de vecinas: un nodo común al que le llega

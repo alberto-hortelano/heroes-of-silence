@@ -1,0 +1,36 @@
+{
+  "encargo": "base-elfos-abierta-elfos-pabellon-de-caza",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:11:27.375Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a81-8845-77a0-80d6-d99a218d59b6",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (el pabellón de caza, el que está entre las columnas 0 y 1300) se ABRE como una CASA DE MUÑECAS: se le quita la PARED DE DELANTE (la fachada entera, con su puerta y sus ventanas) y se ve su sala por dentro: un pabellón de caza: pieles de ciervo en el suelo, cornamentas en la pared, arcos y cuchillos largos, sillas de montar y un mapa sobre una mesa.\nEs el MISMO edificio, en el MISMO sitio, con el MISMO tamaño y el MISMO contorno: el tejado y los muros de los lados se quedan, cortados limpios donde estaba la fachada, y se ve el grueso de la pared en el corte. El suelo de la sala va a ras del borde de atrás del empedrado, donde estaba el umbral de la puerta, y la sala se ve desde la plaza con la misma cámara que todo el cuadro (ortográfica, elevada 25 grados, de frente). La luz de dentro, la de su fuego, sus ventanas o sus cirios, sobria.\nA la escala de la plaza: un adulto mide 122 px de alto en este cuadro, y los muebles van a su medida (un banco o un saco, a su rodilla; una mesa, un yunque o un altar, a su cadera). La sala va VACÍA: ninguna persona ni animal, que la gente del juego se pone delante, en el empedrado.\nFuera de ese edificio, NADA cambia: ni los otros edificios, ni el suelo, la luz, el cielo, el encuadre o lo que cierra la plaza. Lo nuevo no pasa de las columnas 0 y 1300.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/elfos/fuentes/maestro-t1.webp",
+      "papel": "edita",
+      "sha256": "e409d07d011f3189807d644c12e4b17e236d612795418698032815b1bede306d"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a81-8845-77a0-80d6-d99a218d59b6/call_5be3f217bfc040cb9eea9adce22ae405.png",
+    "sha256": "1a1b66bf986558d9fa689867ff326242ae8bb6c76a8b1be1563a6c41d6fe482a",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 9 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/elfos/fuentes/abierta-elfos_pabellon_de_caza.webp",
+    "sha256": "7eec8d683a64223501555de4a6eba1b8a8b4ffe98897fece4a5d1876bd06985b"
+  }
+}

@@ -41,7 +41,7 @@ import {
 } from './battle/battle.js';
 import type { StackEffect } from './battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
-import { esDeCura, poder, poderDeHabilidad } from './battle/poderes.js';
+import { nombreDeHabilidad } from './battle/poderes.js';
 import { ruedaDelArmaEnPalabras } from './battle/rueda.js';
 import {
   allSpells,
@@ -59,6 +59,7 @@ import type {
   OrigenDelStack,
   Side,
 } from './battle/types.js';
+import { HERO_BODY } from './battle/types.js';
 import { type CatalogoDeUnidades, cuerpoDe } from './catalogo.js';
 import {
   baseBlocker,
@@ -82,7 +83,7 @@ import {
   quitarPieza,
 } from './hero/equipo.js';
 import { cifrasDelIndividuo, EXPERIENCIA_INICIAL_DE_HEROE } from './hero/experiencia.js';
-import { CIFRAS_DEL_HEROE_INICIAL, cuerpoDelHeroe, HERO_BODY, maxMana } from './hero/hero.js';
+import { CIFRAS_DEL_HEROE_INICIAL, cuerpoDelHeroe, maxMana } from './hero/hero.js';
 import { indiceDePoder, nivelDelIndice } from './nivel.js';
 import type { Rng } from './rng.js';
 import {
@@ -96,6 +97,7 @@ import {
   type Hueco,
   NOMBRE_DE_FACCION,
   NOMBRE_DE_HUECO,
+  NOMBRE_DE_RASGO,
   type UnitInfo,
 } from './types.js';
 import {
@@ -751,7 +753,7 @@ export function heroeDeArena(datos: HeroeDeArena, eq: EquipoAtado): HeroeDelBand
       },
       { blocked: 'en la arena no hay huida' },
     ),
-    ...(h.figura === null ? {} : { figura: h.figura }),
+    figura: h.figura ?? HERO_BODY,
   };
 }
 
@@ -975,35 +977,6 @@ export function tipoDelStack(
 }
 
 // ------------------------------------------------------------- la ficha en palabras
-
-/** Qué hace cada rasgo del motor, dicho en corto: la casilla de la ficha y el parte. */
-export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
-  undead: 'no-muerto',
-  flying: 'vuela',
-  no_retaliation: 'sin contraataque',
-  double_attack: 'ataque doble',
-  double_shot: 'disparo doble',
-  life_drain: 'drena vida',
-  splash_shot: 'disparo con salpicadura',
-  charge: 'carga',
-  curse_on_hit: 'maldice al golpear',
-  bane_undead: 'azote de no-muertos',
-  fear: 'terror',
-  escalar: 'escala murallas',
-};
-
-/**
- * Cómo se dice una habilidad: la que da un poder de cura, con lo que cura en vez
- * de la X del cuaderno («Curar (4 PV)»; M3 de QA: el chip decía «Curar (X)»); la
- * de otro poder, por su nombre; las demás, tal cual. El valor guardado sigue
- * siendo el nombre del cuaderno.
- */
-export function nombreDeHabilidad(h: string): string {
-  const id = poderDeHabilidad(h);
-  if (id === null) return h;
-  const p = poder(id);
-  return esDeCura(p) ? `${p.nombre} (${p.lanzador.cantidad} PV)` : p.nombre;
-}
 
 /** La clave de una ficha en `BattleState.fichasDeArena`: un tipo del montaje o el héroe de un lado. */
 function claveDeFicha(t: TipoDeArena | { readonly kind: 'heroe'; readonly lado: Lado }): string {
@@ -1329,7 +1302,7 @@ function retocarElHeroe(
   if (antes === null || cuerpo === undefined) {
     return `el bando ${LADOS[lado].adjetivo} no lleva héroe en esta pelea`;
   }
-  if ((nuevo.figura ?? HERO_BODY) !== cuerpo.body) {
+  if (nuevo.figura !== cuerpo.body) {
     return 'la figura del héroe no se cambia a media pelea: eso, en el montaje';
   }
   const clave = claveDeFicha({ kind: 'heroe', lado });
@@ -1515,21 +1488,6 @@ export function retiradosDeLaURL(
     nombre,
     motivo: `la arena pelea con las reglas del juego: quita «?${nombre}=» de la dirección`,
   }));
-}
-
-/**
- * El único valor de un parámetro de la URL (`URLSearchParams.getAll`), o `null`
- * si no está. Repetido se rechaza diciéndolo, como lo que no es una semilla:
- * quedarse con el primero en silencio repetía otra pelea que la que dice la URL
- * (H4 de QA del banco).
- */
-export function unaVezEnLaURL(valores: readonly string[], nombre: string): string | null {
-  if (valores.length > 1) {
-    throw new Error(
-      `«${nombre}» va ${valores.length} veces en la URL (${valores.map((v) => `«${v}»`).join(', ')}): pon uno solo`,
-    );
-  }
-  return valores[0] ?? null;
 }
 
 /**

@@ -63,9 +63,15 @@ import type {
   TipoDePuerta,
 } from '@core/battle/types.js';
 import { cuerpoDe } from '@core/catalogo.js';
-import type { CatalogoDeEquipo } from '@core/hero/equipo.js';
-import { HERO_BODY, type Hero, maxMana } from '@core/hero/hero.js';
-import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
+import { figuraDelHeroe } from '@core/data.js';
+import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
+import { type Hero, maxMana } from '@core/hero/hero.js';
+import {
+  armyLeadership,
+  GARRISON_LEADERSHIP,
+  heroLeadership,
+  troopUnit,
+} from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
 import { createRng, type Rng } from '@core/rng.js';
@@ -107,10 +113,12 @@ import {
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import { building } from '@core/town/buildings.js';
-import { construidoEn, sitiosConstruidos } from '@core/town/sitios.js';
+import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
+import type { Town } from '@core/town/town.js';
 import { alcaideDe, vecinosDeLaBase, vozDe } from '@core/town/voces.js';
 import {
   esHueco,
+  type FactionId,
   type Hex,
   HUECOS,
   huecoDesconocido,
@@ -119,13 +127,41 @@ import {
   type UnitInfo,
 } from '@core/types.js';
 import { quienesDe } from './desenlace.js';
+import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
+import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
+
+/**
+ * Lo que dice la barra en el mapa la primera vez: al salir de la base en que
+ * empieza la partida (`abrirSuBase`).
+ */
+export const AYUDA_DEL_MAPA =
+  'Haz clic en el mapa para mover a tu héroe; arrastra para mirar. Espacio pasa el turno.';
+
+/*
+ * Las ayudas de la barra nombran el botón de salir y, entre paréntesis, Escape: en
+ * un móvil no hay teclado (QA M7 de la morada, 20-10-2026).
+ */
 
 /** Lo que dice la barra en la base cuando el ratón no señala nada. */
 export const AYUDA_DE_LA_BASE =
-  'Pulsa el suelo para andar, un edificio para entrar o a alguien para hablar. Escape vuelve al mapa.';
+  'Pulsa el suelo para andar, un edificio para entrar o a alguien para hablar. «Volver al mapa» (o Escape) sale.';
 
-export type Scene = 'adventure' | 'town' | 'battle';
+/** Lo que dice la barra en la escena de la tropa cuando el ratón no señala a nadie. */
+export const AYUDA_DE_LA_TROPA =
+  'Pulsa a alguien de la tropa para ver su ficha y repartirle equipo. «Volver al mapa» (o Escape) sale.';
+
+/** Lo que dice la barra en la escena de una morada cuando el ratón no señala a nadie. */
+export const AYUDA_DE_LA_MORADA =
+  'Pulsa una figura para ver su ficha y reclutar. «Volver a la base» (o Escape) sale.';
+
+export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada';
+
+/** La morada de la base abierta en que se está y a quién se mira (`null`: la primera que produce). */
+interface MoradaAbierta {
+  readonly sitio: SitioId;
+  readonly elegida: string | null;
+}
 
 /**
  * Un paso de la ruta previsualizada: `hoy` si lo alcanza el movimiento del día;
@@ -860,12 +896,25 @@ export class Session implements ControlDeBatalla {
    */
   private readonly rueda: CruceDeLaRueda;
 
-  constructor(seed: number) {
+  /**
+   * @param faccion la de la persona (la elegida en el menú o la de `?faccion=`);
+   *   sin ella, la que saque la semilla. El rival, otra: lo decide el núcleo
+   *   (`faccionesDeLaSemilla`), no la sesión.
+   * @param tipoDelHeroe el tipo de su héroe (el elegido en el menú o el de
+   *   `?heroe=`); sin él, el de por defecto de su facción. Uno que no es de su
+   *   facción lo rechaza el núcleo (`newGame`) diciendo cuáles valen.
+   */
+  constructor(seed: number, faccion?: FactionId, tipoDelHeroe?: string) {
     // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
     // de donde la lee quien la enseña. Un hecho en dos sitios se desincroniza
     // el día que esta capa hable por WebSocket —`this.seed` sería la que pidió
     // el cliente y `state.seed` la que abrió el servidor—.
-    this.state = newGame({ seed, controllers: { 0: 'human', 1: 'ai' } });
+    this.state = newGame({
+      seed,
+      controllers: { 0: 'human', 1: 'ai' },
+      faccionDelJugador: faccion,
+      tipoDelHeroe,
+    });
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
     this.rueda = new CruceDeLaRueda(
       {
@@ -1374,12 +1423,27 @@ export class Session implements ControlDeBatalla {
   }
   private aperturas = 0;
 
+  /**
+   * Abre la base de la persona, donde nace su héroe: así empieza la partida
+   * (19-10-2026, «empieza en la base»). Salir de ella (`closeTown`) lleva al mapa.
+   */
+  abrirSuBase(): void {
+    const base = this.jugador.base;
+    if (base === null) throw new Error('no se puede abrir tu base: no tienes ninguna');
+    this.openTown(base);
+    this.ayudaAlSalir = AYUDA_DEL_MAPA;
+  }
+
+  /** La ayuda del mapa, para la primera salida de la base en que empieza la partida. */
+  private ayudaAlSalir: string | null = null;
+
   closeTown(): void {
     this.openTownId = null;
     this.scene = 'adventure';
     // El último rótulo del castillo hablaba de solares y reclutas: fuera de
-    // allí no significa nada.
-    this.status = '';
+    // allí no significa nada. Al salir por primera vez, cómo se anda.
+    this.status = this.ayudaAlSalir ?? '';
+    this.ayudaAlSalir = null;
   }
 
   /** El castillo abierto ahora mismo, o `null` si no hay ninguno. */
@@ -1433,7 +1497,7 @@ export class Session implements ControlDeBatalla {
       caminante:
         heroe === null
           ? { id: `alcaide-${town.id}`, nombre: alcaide.nombre, cuerpo: alcaide.cuerpo }
-          : { id: heroe.id, nombre: heroe.name, cuerpo: HERO_BODY },
+          : { id: heroe.id, nombre: heroe.name, cuerpo: figuraDelHeroe(heroe) },
     };
     this.cacheDeLaBase = { version: this.version, townId: town.id, vista };
     return vista;
@@ -1594,6 +1658,257 @@ export class Session implements ControlDeBatalla {
       );
     });
   }
+
+  // ------------------------------------------------------------ la morada en escena
+
+  /**
+   * Entra en la morada levantada en `sitio` de la base abierta, con su primera
+   * unidad elegida. Lo llama la base al llegar a su puerta (`EscenaBase`). Lanza,
+   * diciéndolo, fuera de la base o si en ese sitio no hay una morada construida
+   * (lo dice la vista, `componerVistaDeLaMorada`, que se compone antes de cambiar
+   * de escena). La base sigue abierta debajo (`openTownId` no cambia), así que
+   * reclutar va por las acciones de siempre y volver la encuentra como estaba.
+   */
+  abrirLaMorada(sitio: SitioId): void {
+    const town = this.activeTown;
+    if (this.scene !== 'town' || town === null) {
+      throw new Error('no se puede entrar en la morada: no hay ninguna base abierta');
+    }
+    this.enLaMorada(town, { sitio, elegida: null });
+    this.scene = 'morada';
+    this.status = AYUDA_DE_LA_MORADA;
+  }
+
+  /** Vuelve de la morada a la base, que sigue abierta. */
+  cerrarLaMorada(): void {
+    if (this.scene !== 'morada') {
+      throw new Error('no se puede salir de la morada: no se está en ninguna');
+    }
+    this.scene = 'town';
+    this.status = AYUDA_DE_LA_BASE;
+  }
+
+  /**
+   * Elegir una unidad de la morada (un clic en su figura o en su botón del
+   * panel). Una que no es de esta morada lanza (la vista lo dice).
+   */
+  elegirEnLaMorada(id: string): void {
+    const m = this.moradaAbierta;
+    const town = this.activeTown;
+    if (this.scene !== 'morada' || town === null) {
+      throw new Error('no se puede elegir en la morada: no se está en ninguna');
+    }
+    this.tocar();
+    this.enLaMorada(town, { sitio: m.sitio, elegida: id });
+  }
+
+  /**
+   * Dónde se está y a quién se mira en la morada (`elegida`: `null`, la primera).
+   * Vale solo con la escena en `'morada'`, que es la que manda: no se suelta al
+   * salir, se sustituye al entrar.
+   */
+  private moradaAbierta: MoradaAbierta = { sitio: 'lvl1', elegida: null };
+
+  /** Compone la vista de `m` (lanza si no vale) y solo entonces la deja abierta. */
+  private enLaMorada(town: Town, m: MoradaAbierta): void {
+    const vista = componerVistaDeLaMorada(town, m.sitio, m.elegida, (id) => ({
+      plan: this.recruitPlan(id),
+      motivo: this.motivoParaNoReclutar(id),
+    }));
+    this.moradaAbierta = m;
+    this.cacheDeLaMorada = { version: this.version, abierta: m, vista };
+  }
+
+  /**
+   * Lo que se ve en la escena de la morada (`morada/vista.ts`), o `null` fuera de
+   * ella. Se rehace cuando cambia algo que se ve (`version`: reclutar, el oro) o
+   * a quién se mira, no en cada fotograma.
+   */
+  vistaDeLaMorada(): VistaDeLaMorada | null {
+    const town = this.activeTown;
+    if (this.scene !== 'morada' || town === null) return null;
+    const c = this.cacheDeLaMorada;
+    if (c === null || c.version !== this.version || c.abierta !== this.moradaAbierta) {
+      this.enLaMorada(town, this.moradaAbierta);
+    }
+    return this.cacheDeLaMorada!.vista;
+  }
+  private cacheDeLaMorada: {
+    readonly version: number;
+    readonly abierta: MoradaAbierta;
+    readonly vista: VistaDeLaMorada;
+  } | null = null;
+
+  // ------------------------------------------------------------ la tropa en escena
+
+  /**
+   * Por qué no se puede abrir ahora la escena de la tropa, o `null`: hace falta un
+   * héroe propio elegido y que sea tu turno (el motivo del turno, del núcleo). Lo
+   * leen el botón «Tropa» (apagado con él) y la tecla T (a la barra).
+   */
+  tropaBlocker(): string | null {
+    const hero = this.selectedHero;
+    if (hero === null || hero.owner !== this.viewer) {
+      return 'Elige antes a uno de tus héroes para ver su tropa.';
+    }
+    return this.bloqueoDeTurno();
+  }
+
+  /**
+   * Abre la escena de la tropa del héroe elegido, con él elegido. No guarda otro
+   * héroe: la tropa es la del `selectedHero`, que volver al mapa no toca.
+   */
+  abrirLaTropa(): void {
+    const motivo = this.tropaBlocker();
+    if (motivo !== null) throw new Error(`no se puede abrir la tropa: ${motivo}`);
+    this.elegidoEnLaTropaAhora = { heroe: true };
+    this.scene = 'tropa';
+    this.status = AYUDA_DE_LA_TROPA;
+  }
+
+  /** Vuelve al mapa con el mismo héroe elegido. */
+  cerrarLaTropa(): void {
+    this.scene = 'adventure';
+    this.status = '';
+  }
+
+  /**
+   * A quién se mira en la escena de la tropa. Se valida al leer, como
+   * `selectedItem`: el elegido puede dejar de estar (no hoy, pero un licenciar o
+   * una batalla que se lo lleve no tendrían que acordarse de soltarlo) y entonces
+   * vuelve a ser el héroe.
+   */
+  get elegidoEnLaTropa(): Portador {
+    const q = this.elegidoEnLaTropaAhora;
+    if ('heroe' in q) return q;
+    return this.selectedHero?.army[q.indice] === undefined ? { heroe: true } : q;
+  }
+  private elegidoEnLaTropaAhora: Portador = { heroe: true };
+
+  /** Elegir a alguien de la tropa (un clic en su figura o en su botón del panel). */
+  elegirEnLaTropa(q: Portador): void {
+    const hero = this.heroeDeLaTropa();
+    if (!('heroe' in q) && hero.army[q.indice] === undefined) {
+      throw new Error(`${hero.name} no lleva a nadie en el puesto ${q.indice} de su tropa`);
+    }
+    this.elegidoEnLaTropaAhora = q;
+    this.tocar();
+  }
+
+  /** El héroe de la escena de la tropa: el elegido, que es propio (`abrirLaTropa` lo exige). */
+  private heroeDeLaTropa(): Hero {
+    const hero = this.selectedHero;
+    if (hero === null || hero.owner !== this.viewer) {
+      throw new Error('la escena de la tropa no tiene héroe: elige antes a uno de los tuyos');
+    }
+    return hero;
+  }
+
+  /**
+   * Lo que se ve en la escena de la tropa (`tropa/vista.ts`), o `null` fuera de
+   * ella. Se rehace cuando cambia algo que se ve (`version`) o el turno, no en
+   * cada fotograma.
+   */
+  vistaDeLaTropa(): VistaDeLaTropa | null {
+    if (this.scene !== 'tropa') return null;
+    const hero = this.heroeDeLaTropa();
+    const elegido = this.elegidoEnLaTropa;
+    const bloqueo = this.bloqueoDeTurno();
+    const c = this.cacheDeLaTropa;
+    if (
+      c !== null &&
+      c.version === this.version &&
+      c.heroId === hero.id &&
+      c.bloqueo === bloqueo &&
+      mismoPortador(c.elegido, elegido)
+    ) {
+      return c.vista;
+    }
+    const vista = componerVistaDeLaTropa(this.state, this.viewer, hero, elegido, bloqueo);
+    this.cacheDeLaTropa = { version: this.version, heroId: hero.id, bloqueo, elegido, vista };
+    return vista;
+  }
+  private cacheDeLaTropa: {
+    version: number;
+    heroId: string;
+    bloqueo: string | null;
+    elegido: Portador;
+    vista: VistaDeLaTropa;
+  } | null = null;
+
+  /**
+   * Ponerle `item` de la mochila del héroe al elegido de la tropa, por `equip`. Se
+   * le nombra por su puesto (`pedidoDelPuesto`): en la escena cada uno tiene su
+   * sitio, y por su tipo la pieza iba al primer novato igual, en el otro extremo
+   * del arco (QA, H2). El motivo de un rechazo, el del núcleo, en la barra.
+   */
+  ponerALaElegida(item: string): void {
+    const hero = this.heroeDeLaTropa();
+    const quien = this.elegidoEnLaTropa;
+    if (this.repiteLaJugada(`poner|${item}`, quien)) return;
+    let dicho = '';
+    const bien = this.run(() => {
+      applyAdventureAction(
+        this.state,
+        { type: 'equip', hero: hero.id, item, ...pedidoDelPuesto(quien) },
+        this.ctx,
+        this.viewer,
+      );
+      const unidad =
+        'heroe' in quien
+          ? hero.name
+          : troopUnit(hero.army[quien.indice]!, this.state.characters).name;
+      dicho = `${unidad} lleva ahora ${pieza(item).nombre}.`;
+    });
+    if (bien) this.recordarLaJugada(`poner|${item}`, quien, dicho);
+  }
+
+  /** Quitarle al elegido de la tropa lo suyo del hueco `slot`, a la mochila del héroe, por `unequip`. */
+  quitarALaElegida(slot: string): void {
+    const hero = this.heroeDeLaTropa();
+    const quien = this.elegidoEnLaTropa;
+    if (this.repiteLaJugada(`quitar|${slot}`, quien)) return;
+    let dicho = '';
+    const bien = this.run(() => {
+      if (!esHueco(slot)) throw new Error(huecoDesconocido(slot, HUECOS));
+      // Por su puesto también: a un novato, que no lleva nada suyo, el núcleo le
+      // dice que no hay nada que quitar (`nadaEnElHueco`).
+      const antes = hero.mochila.length;
+      applyAdventureAction(
+        this.state,
+        { type: 'unequip', hero: hero.id, slot, ...pedidoDelPuesto(quien) },
+        this.ctx,
+        this.viewer,
+      );
+      const vuelta = hero.mochila[antes];
+      if (vuelta !== undefined)
+        dicho = `${pieza(vuelta).nombre} vuelve a la mochila de ${hero.name}.`;
+    });
+    if (bien) this.recordarLaJugada(`quitar|${slot}`, quien, dicho);
+  }
+
+  /**
+   * Si `jugada` sobre `quien` es la que acaba de salir bien sin que nada haya
+   * cambiado desde entonces (la misma `version`): el segundo clic de un doble clic,
+   * que llega al botón de antes de repintar (QA, H6). Repetida así, o falla —ya no
+   * está en la mochila, ya no hay nada en el hueco— o no cambia nada, así que se
+   * ignora sin decir nada y la barra sigue con lo que dijo la primera. El núcleo
+   * no se toca: lo que sí le llega sigue fallando con su motivo.
+   */
+  private repiteLaJugada(jugada: string, quien: Portador): boolean {
+    const u = this.ultimaDeLaTropa;
+    return (
+      u !== null &&
+      u.jugada === jugada &&
+      u.version === this.version &&
+      mismoPortador(u.quien, quien)
+    );
+  }
+  private recordarLaJugada(jugada: string, quien: Portador, dicho: string): void {
+    this.status = dicho;
+    this.ultimaDeLaTropa = { jugada, quien, version: this.version };
+  }
+  private ultimaDeLaTropa: { jugada: string; quien: Portador; version: number } | null = null;
 
   hireHero(): void {
     if (this.openTownId === null) return;
@@ -1862,19 +2177,24 @@ export class Session implements ControlDeBatalla {
    * que no lo es sí. El núcleo también las rechaza —lo cierran los dos lados—,
    * pero aquí se dice antes y sin excepción.
    */
-  private run(fn: () => void): void {
+  private run(fn: () => void): boolean {
     const bloqueo = this.bloqueoDeTurno();
     if (bloqueo !== null) {
       this.status = bloqueo;
-      return;
+      return false;
     }
+    let bien = false;
     try {
       fn();
       this.status = '';
+      bien = true;
     } catch (err) {
       this.status = mensaje(err);
     }
     this.tocar();
+    // Quien lo llama puede decir en la barra qué pasó si salió bien («El gambesón
+    // vuelve a la mochila»): lo de un rechazo ya lo ha escrito el núcleo.
+    return bien;
   }
 
   /**

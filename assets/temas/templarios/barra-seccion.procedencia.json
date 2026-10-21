@@ -1,0 +1,58 @@
+{
+  "encargo": "tema-04-barra-seccion-templarios",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:21:00.695Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b4e-60df-79c1-9c3b-f7bce9c78651",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema TEMPLARIOS: piedra gótica gris oscura tallada con tracería y pináculos, madera oscura, pergamino claro y el rojo de la cruz paté de los templarios, con remates de latón viejo. La BARRA DE SECCIÓN sobre la que el juego escribe el título de cada sección del panel («HECHIZOS», «EQUIPO», «TROPA»): una tira horizontal y baja, unas once veces más ancha que alta, con un remate en cada punta y el centro liso para el texto. Tira de pergamino claro con un filo de piedra fino abajo y una cruz paté roja pequeña en cada punta.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs una TIRA que el juego estira a lo ancho: el 14 % de la izquierda y el 14 % de la derecha son sus REMATES, que se pintan una vez y llevan los adornos; lo de en medio se estira, así que va liso y uniforme de punta a punta, sin adornos sueltos ni nada centrado.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/templarios.png",
+      "papel": "estilo",
+      "sha256": "d2dd32d800395f7f14c8e16a1edaedf88438cdaa4a349ff6b2dc6c8ae28188cb"
+    },
+    {
+      "ruta": "assets/art/temas/templarios.png",
+      "papel": "pieza",
+      "sha256": "d2dd32d800395f7f14c8e16a1edaedf88438cdaa4a349ff6b2dc6c8ae28188cb",
+      "recorte": {
+        "x": 950,
+        "y": 588,
+        "w": 330,
+        "h": 36
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/barra.png",
+      "papel": "corte",
+      "sha256": "f67a9e5070fbeeb1454e38f2b83abe540f96ad7cb7f2d8091b3a2cf7c5b7d3f8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b4e-60df-79c1-9c3b-f7bce9c78651/exec-ca27f55e-9e6f-4d0c-aba5-90ea06e1b635.png",
+    "sha256": "e70402131ee3e4449636a03f67c1dd17a0d1eefc3b44102f4351e419b6df3a78",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 2170×168 a 768×59, dentro de 768×64",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 21 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.22005140766968856,
+    "opacos": 0.9973528842291431,
+    "haloSuelto": 0,
+    "ancho": 2172,
+    "alto": 724
+  },
+  "salida": {
+    "ruta": "assets/temas/templarios/barra-seccion.webp",
+    "sha256": "35282b21e1e02db2d1d7c6244b9f2de16260f811466ed9d0fae7f9dddacf1afa"
+  }
+}

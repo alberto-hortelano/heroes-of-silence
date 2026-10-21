@@ -1,13 +1,261 @@
 {
   "tramos": [
-    null,
-    null,
-    null,
-    null,
-    null
+    {
+      "imagen": "tramo-1.webp",
+      "ancho": 1536,
+      "alto": 854,
+      "sha256": "07ac866e4884a49c49d4d8025d904c4593116dd17927f211fc9ddb354d089842",
+      "origen": "7c0bb5f998abec82703aac6adbcdc19fcc9a8f7cfea570c3f1abf3214ae9548c"
+    },
+    {
+      "imagen": "tramo-2.webp",
+      "ancho": 1536,
+      "alto": 799,
+      "sha256": "35bb53ebcf738db163f5038d6c69934c27c7542c87b15dec65da2d43f0c0df59",
+      "origen": "0c0bc1878e64b75a8928509dca316825116e21422ee0b1eefbbe27bc4e333f1e"
+    },
+    {
+      "imagen": "tramo-3.webp",
+      "ancho": 1536,
+      "alto": 785,
+      "sha256": "e39632d3d326c1f22ffcf79dba6d140be3b0cd811b80cef4e25acd82bd2c49e8",
+      "origen": "fbb0ace969cf0890e5660617d7595f3efd9ae0a819463fc0a2e0542d04f22779"
+    },
+    {
+      "imagen": "tramo-4.webp",
+      "ancho": 1536,
+      "alto": 783,
+      "sha256": "653c7a97f44a8563ccadf99176203ca162ed87ebdeb9af47ea41f882a7fea021",
+      "origen": "02465e37c8fa2535c3e075b80788728160f70eccc8a9110c3bb8bc7ef71b4b89"
+    },
+    {
+      "imagen": "tramo-5.webp",
+      "ancho": 1536,
+      "alto": 754,
+      "sha256": "ea2dafd2017ed89ed4b0a260be0ea92fc41e65b029f1e56f3eba1d55529c8859",
+      "origen": "784ce9aa967125d3072ab43bd6f1b6e5422925d3b173f5259de5de950e3db386"
+    }
   ],
-  "suelo": null,
-  "cielo": null,
-  "edificios": {},
+  "suelo": {
+    "imagen": "suelo.webp",
+    "ancho": 768,
+    "alto": 171,
+    "sha256": "5f7105090f726b45cf59e0846230faa2253dda2d5e11c845a2fc45c734b48eda",
+    "origen": "47d20689c92edd10a9ba53af61efffa4305a121fee8938b681bd3b44a7370e8d",
+    "tramo": 5
+  },
+  "cielo": [
+    125,
+    129,
+    135
+  ],
+  "edificios": {
+    "village_hall": {
+      "imagen": "village_hall.webp",
+      "ancho": 358,
+      "alto": 484,
+      "sha256": "bd7edd1791577d7b54f7dcb8eabdb34931ed1cff90ab524c98e3d22ddd0c2ab4",
+      "origen": "6cd86c69fe214b2c3832426bfea9f8286dfebbc54e0e2e1a0f383fe731d06f2a",
+      "tramo": 3,
+      "en": [
+        592,
+        252
+      ]
+    },
+    "town_hall": {
+      "imagen": "town_hall.webp",
+      "ancho": 377,
+      "alto": 733,
+      "sha256": "f3a071fe884d1aaa68109d8a1c96c9ce48ed9a4f126f489cd13a02d8d0b3802d",
+      "origen": "d717339239c99d166e62e85c65b89d4dfc2982a74ebe8e3b937b34a0932e0d63",
+      "tramo": 3,
+      "en": [
+        579,
+        3
+      ]
+    },
+    "city_hall": {
+      "imagen": "city_hall.webp",
+      "ancho": 455,
+      "alto": 733,
+      "sha256": "883153c6b227cb25abe1e1f529c79b7a5e0713602ada9c8d740ef9e5fda2af85",
+      "origen": "0bfec170cb238d8c7c0fcd82cfb159020216008b4640a2e6fb48b5871174dc91",
+      "tramo": 3,
+      "en": [
+        545,
+        3
+      ]
+    },
+    "castle": {
+      "imagen": "castle.webp",
+      "ancho": 503,
+      "alto": 703,
+      "sha256": "fe9548f947086b8c6836fb3903339567844c61c07862e6567d64e7e1cf189bcd",
+      "origen": "d7c023936223f3cff3baf4fb568f01df2d32061857e125cf1fabf29e2f208f8a",
+      "tramo": 3,
+      "en": [
+        1000,
+        31
+      ]
+    },
+    "mage_guild_1": {
+      "imagen": "mage_guild_1.webp",
+      "ancho": 416,
+      "alto": 766,
+      "sha256": "f0421c4d68246a6b2b8875787f0ea1843e04b8c0656a0ebf7f57da75e3eb6a00",
+      "origen": "f9134cae1a15b94ff3a21a37ad8dd04ff70a923907b05041d79df8eb514e10fd",
+      "tramo": 2,
+      "en": [
+        84,
+        0
+      ]
+    },
+    "mage_guild_2": {
+      "imagen": "mage_guild_2.webp",
+      "ancho": 414,
+      "alto": 768,
+      "sha256": "358a38e142ab0b4725514d3111e0b8f74d42d2054a7b3bab2bd884be02b1de65",
+      "origen": "192505d1073c42e2c839ba99437ee1726611af46d76081cbeb936844442725f0",
+      "tramo": 2,
+      "en": [
+        86,
+        0
+      ]
+    },
+    "tavern": {
+      "imagen": "tavern.webp",
+      "ancho": 600,
+      "alto": 766,
+      "sha256": "7c2b82aec3c70585225256de4083fa1966a5bec557565e8ac108d18734e966ac",
+      "origen": "002bc5f1c131644f7dbe7366ff51fa5e1f38b5059a8a9d825858fc2bffa415f8",
+      "tramo": 2,
+      "en": [
+        500,
+        0
+      ]
+    },
+    "marketplace": {
+      "imagen": "marketplace.webp",
+      "ancho": 590,
+      "alto": 385,
+      "sha256": "3bcbb0ac8ee2b40491e4e8daff26b6e3739dec61c6738962b8970eed6f474152",
+      "origen": "019bdc2aa511da9c8302c3ac07490711849fa8a92de32a4eaefed4c53596508c",
+      "tramo": 4,
+      "en": [
+        181,
+        377
+      ]
+    },
+    "armory": {
+      "imagen": "armory.webp",
+      "ancho": 482,
+      "alto": 529,
+      "sha256": "4c369912464bb1f9b4d23efee82262112faafe9c55165a8d3ef42164d780cc52",
+      "origen": "9cc714a880d9274f2e202849dc9b4954a59bb22f6b9bf5429727e56c5594a21e",
+      "tramo": 4,
+      "en": [
+        916,
+        235
+      ]
+    },
+    "orkos_pueblo": {
+      "imagen": "orkos_pueblo.webp",
+      "ancho": 459,
+      "alto": 536,
+      "sha256": "024244ffbb270ac89e1823ba994d42a276cbb301685add9331f5ebbef9e4c072",
+      "origen": "1f025f0169dd81edc7d4e091749604e685e15cd57f480fc4eb1d5c81f3f00710",
+      "tramo": 3,
+      "en": [
+        86,
+        197
+      ]
+    },
+    "orkos_cueva": {
+      "imagen": "orkos_cueva.webp",
+      "ancho": 384,
+      "alto": 413,
+      "sha256": "154cf7768a361afaded7a5dcc5bf138c0637cd9013838158e6673605dfd26ec8",
+      "origen": "6b81cc6772a84b91bbe39b7b253f64639b2d02160839641d2798292584010ed1",
+      "tramo": 2,
+      "en": [
+        1100,
+        359
+      ]
+    },
+    "orkos_pocilga": {
+      "imagen": "orkos_pocilga.webp",
+      "ancho": 1063,
+      "alto": 437,
+      "sha256": "1121b9385b2e98c8859134bd4fb35762c1f81b0cc5848bd4e3580c680cb813ae",
+      "origen": "0f634961a03916ee7c053a6623586c4cb0098bda89112836ed4e74fd191c4931",
+      "tramo": 5,
+      "en": [
+        366,
+        279
+      ]
+    },
+    "orkos_totem": {
+      "imagen": "orkos_totem.webp",
+      "ancho": 654,
+      "alto": 511,
+      "sha256": "5d625277520e65fe11be930ade56894411c2528339a6ab02bd7af5809152255d",
+      "origen": "96bf011dfd1a03b615880a44e8809c646d9fd4a2ea13e574dbaa5c2ae2b86907",
+      "tramo": 1,
+      "en": [
+        318,
+        299
+      ]
+    }
+  },
+  "abiertas": {
+    "orkos_pueblo": {
+      "imagen": "abierta-orkos_pueblo.webp",
+      "ancho": 458,
+      "alto": 537,
+      "sha256": "6ecac0fcb7993f56b437e2bb289cc021d2865a644858952b6bb74c966da2ded0",
+      "origen": "0d0567deb1545457dd22114a13f25d138fc4da7bf174b00376444a88d94e7cef",
+      "tramo": 3,
+      "en": [
+        87,
+        197
+      ]
+    },
+    "orkos_cueva": {
+      "imagen": "abierta-orkos_cueva.webp",
+      "ancho": 389,
+      "alto": 430,
+      "sha256": "166c6fef246750c4ea83c77ae66e66ec63728d993c3a6ce86092402a3f1ff172",
+      "origen": "db75d312903932cf52e486f30bb715072b748e8d09c3ca951c21f46d9f39fb9d",
+      "tramo": 2,
+      "en": [
+        1100,
+        360
+      ]
+    },
+    "orkos_pocilga": {
+      "imagen": "abierta-orkos_pocilga.webp",
+      "ancho": 1066,
+      "alto": 437,
+      "sha256": "ff37ca3b265069dd5e033f063288e3e2bdb9bd86144e8536cf660943ea9f2315",
+      "origen": "eb6b1654a90d6e87635fbf2f8fe8a1219518ac3d698d6dbd7cdc98d8554020af",
+      "tramo": 5,
+      "en": [
+        364,
+        278
+      ]
+    },
+    "orkos_totem": {
+      "imagen": "abierta-orkos_totem.webp",
+      "ancho": 655,
+      "alto": 525,
+      "sha256": "5f3460cbd9c92ae3c08b29cb904007ba12272f8356ff36aac67f291513ce562f",
+      "origen": "e1ee494ac84852539c9cae88d34c799b80be37d3468f8a244fb01dedffa0516f",
+      "tramo": 1,
+      "en": [
+        318,
+        298
+      ]
+    }
+  },
   "derivadoPor": "tools/taller/recorte-base.ts"
 }

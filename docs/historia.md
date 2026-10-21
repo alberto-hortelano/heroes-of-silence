@@ -5356,3 +5356,126 @@ sustituyendo a lo que hay, que no se limiten a la arena». Ciclo entero en
   pie las batallas del mapa duran menos; cada ronda de `autoResolve` cuesta un 28 % más (F4), y el
   /simplify lo bajó un 19 %. #265 (la IA pega por 0 teniendo otro blanco): 7 golpes a 0 de 6 153 en
   el banco, ninguno elegido por la IA esperando 0: los pone el punto bajo de la rueda.
+
+## Sin figuras en los márgenes (18-10-2026)
+
+Los temas llevaban dos piezas más, `figura-izquierda` y `figura-derecha`: la columna de adornos del
+margen de cada lámina, en dos canales de `#stage` (`izq mapa panel der`) que se abrían desde 1820 px
+de ventana con lo que pasaba de 1600 (`--canal`, de 96 a 180 px), así que el mapa no bajaba de lo que
+medía a 1600 (1254 px). Sin pieza, un estandarte de CSS con el emblema (`--estandarte-*`).
+
+- **Por qué se quitaron** (decisión del usuario): no funcionaban. A poco más de 1820 los canales
+  medían ~100 px y la figura salía pequeña; en una ventana mucho más ancha el canal se quedaba en
+  180 px y el mapa crecía igual, así que no limitaban su ancho, solo le quitaban un poco. «Elimínalas,
+  siempre ancho total».
+- **Qué se fue**: las dos piezas de la lista (`PIEZAS`, `DEFINICIONES`, `POR_TEMA`), sus diez imágenes
+  con su procedencia, la guía de corte `figura`, los canales y su `@media`, el estandarte de respaldo
+  con sus fichas medidas y los dos `<div>` de la partida. Los encargos pasan de 53 a 43.
+- **Qué queda igual**: `--fondo-escenario` se sigue midiendo en la lámina entre sus figuras: es el
+  fondo de su margen, el color de lo que rodea el mapa también sin ellas. El lienzo mide con tema lo
+  mismo que sin él en toda ventana (`tools/qa/temas-con-piezas.ts`, de 390 a 2560).
+
+## El héroe nace dentro de su base (19-10-2026)
+
+«Empieza en la base» (decisión del usuario): el héroe de salida nace en la casilla de su castillo y
+la partida abre en la base caminable. Lo que se retiró con eso y lo que destapó:
+
+- **`MapPlan.heroStarts`**: el plan escribía dónde empezaba cada héroe y `validateMapPlan` comprobaba
+  que cada inicio tuviera ciudad y cada ciudad inicio, que no se repitieran y que cayeran en una región:
+  el mismo hecho que la base, dos veces. Ahora los jugadores son los dueños de ciudad y la base, la
+  primera suya (`basesDelPlan`), y el esquema del agente rechaza `heroStarts` diciéndolo.
+- **La regla de asaltantes «donde empieza un héroe»**: un grupo encima de un inicio era una emboscada
+  antes del primer turno. Con el héroe dentro de la base, que no es región, esa emboscada no puede
+  pasar. No se sustituyó por «la región de casa»: no es un hecho del mapa. La base toca dos o tres
+  regiones (2 en 393 de 400 bases de 1-200) y nada las distingue: su puerta, la casilla de debajo,
+  es barrera en 262 de 400, otra región en 72 y la de casa en 66; la región con más vecinas de la
+  base es la de casa en 243 de 400, y la de centro más cercano, en 140 de 600 (1-300). Es de cómo
+  construye el procedimental (la semilla `p` es la casa del jugador `p`: de ella salen su base, sus
+  minas y su suelo), que sigue sin sembrar asaltantes en las dos de casa.
+- **El inicio paraba de rebote un vestido roto**: buscaba una vecina de la base en la región de casa
+  y, sin ella, tiraba el vestido. Sin esa búsqueda, el 64×64 s8 llegó al trazado con la ciudad de
+  (7,8) apartada por el engorde de la región 4, que le llevaba camino, y `centroDeRegion` lanzaba. La
+  primera corrección lo trataba como un vestido que no vale desde dentro del trazado (una excepción
+  tipada y su `instanceof`); ahora `vestirRed` pregunta lo que hace falta antes de colocar nada: cada
+  nodo toca las regiones que le dan camino (`crucesConCamino`), o el vestido se tira. Salta 1 vez en
+  64×64 1-40 (la s8) y 0 en 42×42 1-200 y 24×24 1-200; el banco no se mueve.
+- **La IA licenciaba lo que acababa de reclutar** (`planRecruits`): recorría las moradas del revés,
+  como si la morada fuera un nivel (es su sitio en la base, 1-6), así que reclutaba algo flojo y,
+  al llegar a algo más fuerte que no cabía, lo licenciaba para meterlo (`planCambio`): el día 1 de
+  los orkos de s2, dos tandas de goblins reclutadas y licenciadas en la misma jugada. 76 veces en el
+  banco de `1c496b88…`, 180 con el héroe dentro de la base. Ahora recorre lo que se ofrece del más
+  fuerte al más flojo (`unitPower`, la cuenta de `planCambio`): 1 en el banco, y esa es otra tropa.
+- **Por qué la IA dejó de pelear contra monstruos y asaltantes** (23 y 6 batallas en el banco de
+  `1c496b88…`, 0 desde el héroe dentro; se contaban 46 y 12 porque cada batalla escribe dos hechos con
+  el neutral). No es un fallo: el héroe sale de casa más fuerte, con lo reclutado el día 1 en su tropa
+  (fuerza mediana de los héroes el día 3, 460 → 960, en las 200 del banco). Un neutral vale 2 000 y una
+  ciudad 40 000, por punto de movimiento (`chooseHeroDestination`), así que la IA solo iba a por un
+  monstruo cuando no llegaba a ninguna ciudad ajena por el alcance prudente (`evitarEmboscadas`): 32
+  de las 32 veces en 1-100, en partidas largas donde los grupos que le sacaban el margen le cerraban el
+  paso. Turnos de héroe sin ninguna ciudad ajena a la que llegar: 183 de 1 592 (11,5 %) antes, 4 de
+  1 400 (0,3 %) ahora (medido ya con el arreglo de arriba; el banco sin él ya daba 0 y 0).
+
+## Elegir el héroe y su figura (19-10-2026)
+
+«Al empezar la partida nueva no he elegido al heroe y la imagen es el y_bot» (el usuario, tras jugar
+la fase 1 del arranque). Tras la facción, el menú pide el héroe por su tipo, con el retrato de su
+hoja, y el héroe se pinta con esa hoja en el mapa, la base caminable, la batalla y el espectador.
+
+- **La figura se deriva del tipo** (`figuraDelHeroe`, `data/figuras-de-heroe.json`), no se guarda en
+  el `Hero`: el tipo ya estaba en él. La tabla la escribe una persona —el cuaderno no sabe de
+  hojas— y se comprueba contra los tipos al cargar y contra el disco en un test. Los dos tipos sin
+  arte (Señor de las bestias, Señor de la guerra montado en jabalí) salieron del cuaderno y del
+  JSON regenerado, y la hoja sin tipo (Gran maestre templario) se borró con sus poses: «no deberían
+  existir».
+- **`HERO_BODY` dejó de ser el arte del héroe del juego** y quedó como lo que el héroe ES para quien
+  cuenta una batalla (`queEs`: la crónica, el `creature` y el `target` del agente) y la figura
+  genérica de la arena. Con la figura en `body`, la crónica habría escrito «heroe-lich» donde
+  escribía «hero», y el banco se habría movido sin cambiar ninguna regla. Se mudó a
+  `battle/types.ts` porque desde allí importarlo de `hero/hero.ts` cerraba un ciclo.
+- **`HeroeDelBando.figura` sin opcional**: con `figura ?? HERO_BODY` el juego no la ponía nunca y
+  el Y Bot salía sin que nada lo dijera.
+- **El Y Bot de un instante** (lo cazó la pasada «arranque» de `pnpm capturas`, que apunta lo que
+  pide la página): la base abre con el héroe en pantalla antes de que conteste la lista de hojas
+  (`/__arena/hojas`), y `arteDe` daba el Y Bot por defecto a lo no registrado, así que se pintaba y
+  se pedía el de espada y escudo. A las tropas les pasaba igual desde siempre. Ahora, hasta que la
+  lista contesta, lo no registrado se pinta con su marcador (`arteSabido`).
+- **El cable del espectador lleva `faction` y `tipo`** del héroe en vez del nombre del tipo ya
+  redactado: de ese par salen el nombre y la figura, con las mismas funciones del núcleo.
+
+## La morada dentro de la base y la base a todo el alto (20-10-2026)
+
+«En el ordenador se ve muy pequeño. Queda una sala en el vacío. Que se muestre integrada en la
+base… al hacer la pantalla más estrecha se encoge la parte donde se ve la base. Eso no pasa en el
+mapa y no debe pasar en la base» (el usuario, tras la vuelta 1 de la morada,
+`docs/agents/2026-10-20-recluta-en-la-morada/`).
+
+- **Cambia un invariante, a propósito: la escala de la base.** Desde la vuelta 2 de la base
+  (09-10-2026) el adulto medía lo que en una batalla **del mismo lienzo**, y el lienzo del
+  escritorio iba en un marco 20:11 (`align-self: start`, `aspect-ratio`) para que se vieran 6,9
+  pasos de alto y no «un descampado»: al estrechar la ventana, el marco encogía en alto. Ahora el
+  lienzo va a todo el alto, como el mapa, y el paso es el de una batalla **en un marco 20:11 de ese
+  alto** (`pasoDeLaBase(alto)`, `MARCO_DE_LA_BASE`): a 1080×594 da 85,7, como antes; a todo el alto
+  de 1440×900 (1080×756), 109,1, y lo mismo a 1100 de ancho; a 800 la barra de arriba ocupa dos líneas, y el mapa y la
+  base miden los dos 720 de alto (103,9). En el móvil, también al alto del mapa (QA I2 de la
+  vuelta 2: con el marco de 380 del combate, a menos de 760 de ancho la base medía 370 y el mapa
+  548, y estrechar de 770 a 750 la encogía de 720 a 370): 513 en 390×844, con el paso de una
+  batalla de 860 de ancho (`ANCHO_DEL_COMBATE_EN_MOVIL`). La batalla sigue en su marco de 380. Se
+  queda el encuadre aprobado; lo que cambia con el ancho es cuánta plaza se ve. La tropa y la
+  morada van en el mismo marco que la base, y la morada se acerca menos si en un lienzo bajo no se
+  vería la sala (`ALTO_DE_LA_SALA`, QA I1).
+- **La morada no saca de la base.** La vuelta 1 abría una pantalla aparte con el interior pintado a
+  pantalla entera, encogido a la escala de las figuras y con los bordes fundidos a oscuro: «una
+  sala en el vacío». Ahora es la base con la cámara acercada al paso de la hoja (`pasoDeLaHoja`:
+  168 a densidad 1, 112 a 1,5, 84 a 2; nunca se aleja, así que en una pantalla de densidad 1,5 a
+  todo el alto la morada casi no se acerca: es la regla de no pasar de la hoja) y centrada en el
+  edificio, que se cambia por su versión abierta (una edición del cuadro, como las mejoras: el mismo
+  edificio sin la pared de delante y con su sala) y, delante, la fila de reclutas en el empedrado, a
+  2,9 pasos de hondo: con la puerta a 0,15, sus cabezas quedan por debajo de los pies de quien
+  anduvo. Se retiraron los interiores de pantalla entera, sus medidas a mano y su guía; las salas de
+  Codex se quedan en `fuentes/` como referencia de la versión abierta (papel `interior`).
+- **El exterior del pueblo, otra vez y sobre la placa** (`retoque`). En su maestro la choza salió en
+  tres cuartos (la pared del lado derecho y el faldón del tejado en escorzo, el zócalo en diagonal)
+  y con un halo verdoso, que es el árbol del maestro que la placa no tiene. El retoque edita la
+  placa, no el maestro: alrededor es lo que pinta el juego y la diferencia es solo el edificio.
+  Mientras no llega, manda el maestro (`cuadroDe`).
+

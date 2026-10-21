@@ -4,21 +4,28 @@
  * La sesión decide, `render/` pinta, `views/` monta los paneles y cada escena
  * (`escenas/`) traduce el puntero de su pantalla. Aquí solo se conecta todo.
  */
+import { problemaDeTipo } from '@core/hero/ascenso.js';
 import { parseSeed } from '@core/rng.js';
+import { faccionesDeLaSemilla } from '@core/state/setup.js';
+import { type FactionId, parseFaccion } from '@core/types.js';
+import { unaVezEnLaURL } from '@core/validar.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaBatalla } from './escenas/batalla.js';
 import { EscenaBase } from './escenas/castillo.js';
+import { EscenaMorada } from './escenas/morada.js';
+import { EscenaTropa } from './escenas/tropa.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
 import { cargarArte } from './render/assets.js';
-import { apuntarElSueloEn } from './render/escenario/superficie.js';
+import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
 import { ajustarLienzo } from './render/lienzo.js';
 import { repartirClic } from './reparto-del-clic.js';
 import { DialogoDeLaRueda } from './rueda/dialogo.js';
-import { semillaSorteada } from './semilla.js';
+import { aLaBarra, semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
+import { ponerTema } from './temas.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
 import { renderConversacion } from './views/base.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
@@ -46,52 +53,172 @@ const haciaEnemigo = document.getElementById('hacia-enemigo') as HTMLElement;
 const conversacion = document.getElementById('conversacion') as HTMLDialogElement;
 /** La rueda del golpe (`rueda/dialogo.ts`): modal sobre el lienzo, mientras se elige y se cuenta un cruce. */
 const elRueda = document.getElementById('rueda') as HTMLDialogElement;
+/** «¿Volver al menú?» (botón «Menú» de la barra de arriba): «Abandonar la partida» es el `restart`. */
+const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElement;
 const stage = document.getElementById('stage') as HTMLElement;
+const lateral = document.getElementById('lateral') as HTMLElement;
 
 /**
  * La semilla que pide la URL, o `null` si no pide ninguna. Lanza si pide una
- * que no lo es: la regla entera —incluido que `?seed=` vacío es no pedir— la
- * escribe el núcleo (`parseSeed`), aquí solo se lee la barra de direcciones.
+ * que no lo es, o si la pide dos veces: la regla entera —incluido que `?seed=`
+ * vacío es no pedir— la escribe el núcleo (`parseSeed`, `unaVezEnLaURL`), aquí
+ * solo se lee la barra de direcciones.
  */
 function semillaDeLaUrl(): number | null {
-  return parseSeed(new URLSearchParams(location.search).get('seed'));
+  return parseSeed(unaVezEnLaURL(new URLSearchParams(location.search).getAll('seed'), 'seed'));
 }
 
 /**
- * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla juega.
- * Se cambia SOLO `seed` sobre la URL de ahora: escribir `?seed=N` a pelo
- * sustituía la query entera y el fragmento.
+ * La facción que pide la URL (`?faccion=`, la que escribe el menú de inicio), o
+ * `null` si no pide ninguna. Como la semilla: vacío es no pedir, lo que no sea
+ * una facción lanza nombrando las cinco (`parseFaccion`) y repetido también.
  */
-function abrePartida(seed: number): Session {
-  const url = new URL(location.href);
-  url.searchParams.set('seed', String(seed));
-  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
-  const abierta = new Session(seed);
+function faccionDeLaUrl(): FactionId | null {
+  return parseFaccion(
+    unaVezEnLaURL(new URLSearchParams(location.search).getAll('faccion'), 'faccion'),
+  );
+}
+
+/**
+ * El tipo de héroe que pide la URL (`?heroe=`, el que escribe el menú), o `null`
+ * si no pide ninguno. Como la facción: vacío es no pedir, y uno que no es de
+ * `faccion` —la que se jugará— lanza diciendo cuáles valen, con la regla del
+ * núcleo (`problemaDeTipo`, la misma que aplica `newGame`).
+ */
+function heroeDeLaUrl(faccion: FactionId): string | null {
+  const tipo = unaVezEnLaURL(new URLSearchParams(location.search).getAll('heroe'), 'heroe');
+  if (tipo === null || tipo.trim() === '') return null;
+  const problema = problemaDeTipo(faccion, tipo);
+  if (problema !== null) throw new Error(problema);
+  return tipo;
+}
+
+/** Lo que la URL puede pedir de una partida. */
+type Pedido = 'seed' | 'faccion' | 'heroe';
+
+/**
+ * Cómo salir de una URL que no abre partida: quitar lo que pidió. Sin la semilla
+ * se juega otra al azar; sin nada, vuelve el menú de inicio.
+ */
+function salidaDe(pedidos: readonly Pedido[]): string | null {
+  if (pedidos.length === 0) return null;
+  return `quita ${pedidos.map((p) => `"?${p}=…"`).join(' y ')} de la barra de direcciones`;
+}
+
+/**
+ * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla, con qué
+ * facción y con qué héroe juega: los tres se escriben siempre, también si los sacó
+ * la semilla (la partida rápida), para que la URL la reproduzca entera.
+ */
+function abrePartida(seed: number, faccion: FactionId | null, heroe: string | null): Session {
+  const abierta = new Session(seed, faccion ?? undefined, heroe ?? undefined);
+  const suyo = abierta.myHeroes()[0];
+  if (suyo === undefined) throw new Error('la partida abre sin héroe para quien juega');
+  aLaBarra((url) => {
+    url.searchParams.set('seed', String(seed));
+    url.searchParams.set('faccion', abierta.jugador.faction);
+    url.searchParams.set('heroe', suyo.tipo);
+  });
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
   elSeed.textContent = `semilla ${abierta.state.seed}`;
+  // La interfaz, con el tema de la facción de quien juega (`temas.ts`).
+  ponerTema(abierta.jugador.faction);
   return abierta;
 }
 
+/** Por qué no arranca la partida y, si es por la URL, cómo salir: quitar lo que pidió. */
+interface Fallo {
+  readonly motivo: unknown;
+  readonly salida: string | null;
+}
+
+/**
+ * Sin sesión no arranca el bucle y la página se queda en blanco: los motivos se
+ * escriben para la persona, cada uno con su salida, y se relanza igual: un fallo
+ * no se tapa con una barra bonita. Con dos (`?seed=abc&faccion=xyz`) se dicen
+ * los dos: diciendo solo el primero, arreglarlo destapaba el segundo en otra
+ * recarga (H4 de QA del tema por ejército, en su rama).
+ */
+function sinArrancar(fallos: readonly Fallo[]): never {
+  const texto = fallos
+    .map(({ motivo, salida }) => {
+      const m = motivo instanceof Error ? motivo.message : String(motivo);
+      return salida === null ? m : `${m} — ${salida}`;
+    })
+    .join('. ');
+  elStatus.textContent = texto;
+  // Sin partida no hay lienzo que se mueva: la barra suelta sus dos líneas y se
+  // lee entera también en el móvil.
+  elStatus.dataset.sinArrancar = 'si';
+  // Con la salida en el mensaje: lo que se lanza lo pinta entero la página que
+  // no arranca (`arranque.ts`), encima de la barra.
+  throw new Error(texto, {
+    cause: fallos.length === 1 ? fallos[0]?.motivo : fallos.map((f) => f.motivo),
+  });
+}
+
 let session: Session;
-try {
-  session = abrePartida(semillaDeLaUrl() ?? semillaSorteada());
-} catch (err) {
-  // Sin sesión no arranca el bucle y la página se queda en blanco: el motivo se
-  // escribe para la persona, con la salida si lo que falla es la semilla. Y se
-  // relanza igual: un fallo no se tapa con una barra bonita.
-  const motivo = err instanceof Error ? err.message : String(err);
-  const pideSemilla = new URLSearchParams(location.search).get('seed') !== null;
-  elStatus.textContent = pideSemilla
-    ? `${motivo} — quita "?seed=…" de la barra de direcciones para jugar una partida al azar`
-    : motivo;
-  throw err;
+{
+  // Lo que pide la URL, leído entero antes de decir nada: cada parámetro que no
+  // vale, con su salida, y todos a la vez.
+  const fallos: Fallo[] = [];
+  const leer = <T>(nombre: Pedido, leerlo: () => T | null): T | null => {
+    try {
+      return leerlo();
+    } catch (motivo) {
+      fallos.push({ motivo, salida: salidaDe([nombre]) });
+      return null;
+    }
+  };
+  const semilla = leer('seed', semillaDeLaUrl);
+  const faccion = leer('faccion', faccionDeLaUrl);
+  const seed = semilla ?? semillaSorteada();
+  // El héroe se juzga contra la facción que se jugará: la pedida o la que saque
+  // la semilla, que la dice la misma función que usa `newGame`. Así el motivo
+  // nombra solo `?heroe=` como salida. Con la semilla o la facción rotas no se
+  // juzga: sería contra otra.
+  const heroe =
+    fallos.length > 0
+      ? null
+      : leer('heroe', () => heroeDeLaUrl(faccionesDeLaSemilla(seed, faccion ?? undefined)[0]));
+  if (fallos.length > 0) sinArrancar(fallos);
+  try {
+    session = abrePartida(seed, faccion, heroe);
+  } catch (motivo) {
+    // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso.
+    // Sin nada pedido no hay salida que dar.
+    const pedidos = [
+      ...(semilla === null ? [] : (['seed'] as const)),
+      ...(faccion === null ? [] : (['faccion'] as const)),
+      ...(heroe === null ? [] : (['heroe'] as const)),
+    ];
+    sinArrancar([{ motivo, salida: salidaDe(pedidos) }]);
+  }
 }
 
 const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
+/**
+ * Las escenas de dentro: se entra en ellas desde otra (la tropa desde el mapa, la
+ * morada desde la base), abren con el lateral arriba y, al salir, reponen el de la
+ * escena de la que se vino. Cada una con su escena de pie, el `data-*` que deja en
+ * el lienzo para `pnpm capturas` y su salida, la de la sesión.
+ */
+const DENTRO = {
+  tropa: { de: new EscenaTropa(sesion), cerrar: (s: Session) => s.cerrarLaTropa() },
+  morada: {
+    // Detrás de la fila, la base con su edificio abierto: no se sale de ella.
+    de: new EscenaMorada(sesion, (ctx, lienzo, camara, vista, ahora) =>
+      castillo.pintarLaMorada(ctx, lienzo, camara, vista.edificio, ahora),
+    ),
+    cerrar: (s: Session) => s.cerrarLaMorada(),
+  },
+} as const;
+type EscenaDeDentro = keyof typeof DENTRO;
+const esDeDentro = (escena: string): escena is EscenaDeDentro => escena in DENTRO;
 /**
  * La rueda del golpe de la partida, la misma de la arena (F5, 19-10-2026). De los
  * dos que se cruzan, su figura, su chapa y su nombre, y quién es «tú»
@@ -159,6 +286,13 @@ cargarArte(() => {
 apuntarElSueloEn(app);
 
 let escenaPintada = '';
+/**
+ * La escena de donde se entró en una de dentro (el mapa o la base) y lo bajado
+ * en su lateral, y lo que toca poner tras repintar los paneles.
+ */
+let escenaDeAntes = '';
+let lateralDeAntes = 0;
+let lateralPendiente: number | null = null;
 
 /**
  * El bucle de dibujo, con red: el fallo se escribe en la barra y el siguiente
@@ -185,6 +319,21 @@ function render(ahora: number): void {
 function dibujarFotograma(ahora: number): void {
   const escena = session.scene;
   if (escena !== escenaPintada) {
+    // El lateral se desplaza solo, y la tropa heredaba lo bajado en el panel del
+    // mapa: abría con la lista de a quién elegir por encima de la vista (QA, H3).
+    // La tropa y la morada abren arriba, y al volver el mapa o la base se
+    // encuentran su panel como lo dejaron. Se lee antes de cambiar `data-escena`
+    // (con el marco de la tropa el lateral mide otra cosa y el navegador ya lo
+    // recorta) y se pone después de repintar los paneles, por lo mismo.
+    if (esDeDentro(escena)) {
+      escenaDeAntes = escenaPintada;
+      lateralDeAntes = lateral.scrollTop;
+      lateralPendiente = 0;
+    } else if (esDeDentro(escenaPintada)) {
+      // A la escena de donde se entró, como estaba; a otra, arriba.
+      lateralPendiente = escena === escenaDeAntes ? lateralDeAntes : 0;
+      lateralDeAntes = 0;
+    }
     app.dataset.escena = escena;
     principal.remedir();
     // El tablero de batalla es más ancho que un móvil: se empieza mirando el
@@ -199,9 +348,12 @@ function dibujarFotograma(ahora: number): void {
 
   const enCastillo = escena === 'town' && session.activeTown !== null;
   const enBatalla = escena === 'battle' && session.battle !== null;
+  const dentro = esDeDentro(escena) ? DENTRO[escena].de : null;
   // Solo el mapa tiene presupuesto de píxeles: es la única pantalla que pinta
   // miles de sprites a cada fotograma. Depende del zoom: acercando, plena.
-  const rect = principal.preparar(enCastillo || enBatalla ? undefined : aventura.presupuesto);
+  const rect = principal.preparar(
+    enCastillo || enBatalla || dentro !== null ? undefined : aventura.presupuesto,
+  );
   ctx.clearRect(0, 0, rect.width, rect.height);
   // Lo abierto en la base o si se anda: lo leen la página (`canvas[data-base]`)
   // y los paneles. Una lectura por fotograma, después de dibujar.
@@ -214,6 +366,8 @@ function dibujarFotograma(ahora: number): void {
     batalla.sincronizar(ahora);
     batalla.dibujar(ctx, rect.width, rect.height);
     seguirALaActiva();
+  } else if (dentro !== null) {
+    dentro.dibujar(ctx, rect.width, rect.height, window.devicePixelRatio || 1, ahora);
   } else {
     aventura.dibujar(ctx, rect.width, rect.height, ahora);
     desarrollo?.dibujar(ctx);
@@ -226,6 +380,15 @@ function dibujarFotograma(ahora: number): void {
   rueda.animar(ahora);
 
   if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
+  // A quién se mira en cada escena de dentro (`canvas[data-tropa]`, el id de la
+  // elegida; `canvas[data-morada]`, `<edificio>:<unidad>`): por donde esperan
+  // `pnpm capturas` y los tests del navegador. Fuera de ella, sin la marca.
+  for (const nombre of Object.keys(DENTRO) as EscenaDeDentro[]) {
+    const marca = escena === nombre ? DENTRO[nombre].de.marca : '';
+    if (marca === '') {
+      if (canvas.dataset[nombre] !== undefined) delete canvas.dataset[nombre];
+    } else if (canvas.dataset[nombre] !== marca) canvas.dataset[nombre] = marca;
+  }
 
   // Después de `batalla.sincronizar`: es la cola de ESTE fotograma.
   const contando = enBatalla && batalla.ocupada;
@@ -250,6 +413,10 @@ function dibujarFotograma(ahora: number): void {
     );
     pintar(elActions, renderActions(session, contando));
     mostrarConversacion(enCastillo);
+  }
+  if (lateralPendiente !== null) {
+    lateral.scrollTop = lateralPendiente;
+    lateralPendiente = null;
   }
   if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
 }
@@ -363,6 +530,8 @@ canvas.addEventListener('pointermove', (ev) => {
     canvas.style.cursor = castillo.mover(p.x, p.y, performance.now()) ? 'pointer' : 'default';
   } else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
+  } else if (esDeDentro(session.scene)) {
+    canvas.style.cursor = DENTRO[session.scene].de.mover(p.x, p.y) ? 'pointer' : 'default';
   } else {
     aventura.mover(p.x, p.y);
   }
@@ -373,6 +542,7 @@ canvas.addEventListener('pointerup', (ev) => {
   if (ev.button !== 0) return;
   const p = enLienzo(ev);
   if (session.scene === 'town') castillo.pulsar(p.x, p.y, performance.now());
+  else if (esDeDentro(session.scene)) DENTRO[session.scene].de.pulsar(p.x, p.y);
   else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
     if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
@@ -388,6 +558,7 @@ canvas.addEventListener('pointerleave', () => {
   aventura.salir();
   batalla.salir();
   castillo.salir();
+  for (const d of Object.values(DENTRO)) d.de.salir();
   pedirFotograma();
 });
 
@@ -422,6 +593,35 @@ function pasarTurno(confirmado = false): void {
   void finDeTurno
     .pasar(session, animando, confirmado, () => aventura.olvidarRuta())
     .then(pedirFotograma);
+}
+
+/**
+ * «Tropa», por el botón o por la T: la escena de la tropa del héroe elegido. Si no
+ * se puede (sin héroe, fuera de tu turno), el motivo va a la barra.
+ */
+function abrirLaTropa(): void {
+  if (session.scene !== 'adventure') return;
+  const motivo = session.tropaBlocker();
+  if (motivo !== null) {
+    session.status = motivo;
+    return;
+  }
+  aventura.salir();
+  session.abrirLaTropa();
+}
+
+/**
+ * Sale de la escena de dentro en que se esté a la de donde se entró: de la tropa
+ * al mapa, con el héroe elegido y la cámara del mapa como estaban; de la morada a
+ * la base, con quien anduvo quieto en su puerta, porque la base no se ha cerrado
+ * (`EscenaBase` no se reinicia sin otra apertura).
+ */
+function cerrarDentro(): void {
+  const escena = session.scene;
+  if (!esDeDentro(escena)) return;
+  DENTRO[escena].de.salir();
+  canvas.style.cursor = 'default';
+  DENTRO[escena].cerrar(session);
 }
 
 /** «Siguiente héroe», por el botón o por la H: lo elige la sesión y aquí se le mira. */
@@ -486,7 +686,40 @@ document.addEventListener('click', (ev) => {
       session.closeTown();
       castillo.salir();
       break;
+    case 'abrir-tropa':
+      abrirLaTropa();
+      break;
+    case 'cerrar-tropa':
+    case 'cerrar-morada':
+      cerrarDentro();
+      break;
+    case 'tropa-elegir': {
+      const quien = target.getAttribute('data-quien');
+      if (quien === null) throw new Error('el botón de la tropa no dice a quién elige');
+      session.elegirEnLaTropa(quien === 'heroe' ? { heroe: true } : { indice: Number(quien) });
+      break;
+    }
+    case 'tropa-poner':
+      // El segundo clic de un doble clic cae ya en el panel repintado, a menudo sobre
+      // OTRO «Poner» (la mochila tiene una fila menos y el panel baja): solo cuenta el primero.
+      if (ev.detail > 1) break;
+      session.ponerALaElegida(target.getAttribute('data-item') as string);
+      break;
+    case 'tropa-quitar':
+      if (ev.detail > 1) break;
+      // El hueco lo valida la sesión (`esHueco`), como en `unequip`.
+      session.quitarALaElegida(target.getAttribute('data-slot') as string);
+      break;
+    case 'morada-elegir': {
+      const unidad = target.getAttribute('data-unidad');
+      if (unidad === null) throw new Error('el botón de la morada no dice qué unidad elige');
+      session.elegirEnLaMorada(unidad);
+      break;
+    }
     case 'ir-a-sitio':
+      // El segundo clic de un doble clic cae ya en la morada que abrió el primero
+      // (QA I3 de la vuelta 2): solo cuenta el primero, como en «Poner».
+      if (ev.detail > 1) break;
       castillo.irA(target.getAttribute('data-sitio') as string, performance.now());
       break;
     case 'build':
@@ -570,11 +803,20 @@ document.addEventListener('click', (ev) => {
     case 'centrar':
       aventura.centrar();
       break;
+    case 'menu':
+      salirAlMenu.showModal();
+      break;
+    case 'seguir-jugando':
+      salirAlMenu.close();
+      break;
     case 'restart':
-      // Reiniciar es partida NUEVA: se sortea aunque la URL traiga una semilla.
-      session = abrePartida(semillaSorteada());
-      aventura.olvidarRuta();
-      aventura.centrar();
+      // «Partida nueva» vuelve al menú de inicio: la página sin nada pedido.
+      // Recargando y no montando otra sesión aquí: así se suelta la partida
+      // entera, el Worker del suelo incluido.
+      aLaBarra((url) => {
+        url.search = '';
+      });
+      location.reload();
       break;
     default:
       return;
@@ -584,11 +826,18 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('keydown', (ev) => {
   // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un atajo.
   if (ev.target instanceof Element && ev.target.closest('textarea, input, dialog') !== null) return;
+  // Escape mantenido se repite: cada repetición cerraría un nivel más (la morada,
+  // la base…). Solo cuenta la primera pulsación (QA M5 de la morada, 20-10-2026).
+  if (ev.key === 'Escape' && ev.repeat) return;
   if (desarrollo?.tecla(ev) === true) {
     pedirFotograma();
     return;
   }
-  if (ev.key === 'Escape' && session.scene === 'town') {
+  if (ev.key === 'Escape' && esDeDentro(session.scene)) {
+    cerrarDentro();
+  } else if (ev.key === 'Escape' && session.scene === 'town') {
+    // Con `else`: la misma pulsación que saca de la morada a la base no la cierra
+    // también, que es lo que pasaría mirando la escena otra vez tras cambiarla.
     // Escape cierra primero lo abierto en la base y, si no hay nada, la base.
     if (castillo.abierto !== null) {
       castillo.cerrar();
@@ -632,15 +881,42 @@ document.addEventListener('keydown', (ev) => {
   if ((ev.key === 'h' || ev.key === 'H') && !conModificador && session.scene === 'adventure') {
     if (!ev.repeat) siguienteHeroe();
   }
+  if ((ev.key === 't' || ev.key === 'T') && !conModificador && session.scene === 'adventure') {
+    if (!ev.repeat) abrirLaTropa();
+  }
   if ((ev.key === '+' || ev.key === '-') && session.scene === 'adventure') {
     aventura.zoom(ev.key === '+' ? 1 : -1);
   }
   pedirFotograma();
 });
 
-session.status =
-  'Haz clic en el mapa para mover a tu héroe; arrastra para mirar. Espacio pasa el turno.';
+/**
+ * Compone el escenario del mapa y encarga su suelo mientras se está en la base,
+ * cuando el hilo quede libre: el suelo lo pinta un Worker en 2-12 s y, si se
+ * encargaba al salir de la base, el mapa se veía ese rato con el sucedáneo o el
+ * esbozo. Son las mismas llamadas que hace el primer fotograma del mapa
+ * (`escenarioListo`, `sueloDelMapa`), así que lo que se adelanta es lo que luego
+ * se pinta.
+ */
+function calentarElMapa(): void {
+  const cuandoQuedeLibre = (fn: () => void): void => {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1000 });
+    else setTimeout(fn, 100);
+  };
+  const paso = (): void => {
+    const esc = escenarioListo(session.state.map, session.state.seed);
+    // Se compone en una tarea aparte: hasta que esté, otra vuelta.
+    if (esc === null) cuandoQuedeLibre(paso);
+    else sueloDelMapa(esc, 1, devicePixelRatio);
+  };
+  cuandoQuedeLibre(paso);
+}
+
+// La partida empieza en la base, con el héroe dentro: salir de ella lleva al
+// mapa, y la barra dice entonces cómo se anda (`AYUDA_DEL_MAPA`).
+session.abrirSuBase();
 pedirFotograma();
+calentarElMapa();
 
 if (HERRAMIENTAS_DE_DESARROLLO) {
   void import('./desarrollo/herramientas.js')

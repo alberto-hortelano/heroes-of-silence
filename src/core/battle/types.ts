@@ -88,12 +88,38 @@ export function personajeDe(origen: OrigenDelStack): string | null {
 }
 
 /**
+ * Qué es el héroe para quien cuenta una batalla —la crónica (`resumenDeBatalla`),
+ * el agente (`creature` de su stack, el `target` de un hechizo)— y su figura
+ * genérica: la de la arena cuando no se elige ninguna (`FIGURA_GENERICA`), el
+ * Y Bot de espada y escudo (`render/personajes.ts`).
+ *
+ * Como `CHARACTER_BODY`, no está en el catálogo a propósito: un lector que lo
+ * buscara con `creature()` lanza en vez de leer cifras prestadas. Las cifras
+ * del héroe salen de `heroUnit`. **No es su arte en el juego**: desde el
+ * 19-10-2026 (vuelta 2 del arranque) el héroe de la partida pisa el tablero y el
+ * mapa con la hoja de su tipo (`figuraDelHeroe`), y por eso `queEs` no lo saca
+ * de `body`: con la figura, la crónica habría contado «heroe-lich» donde contaba
+ * «hero».
+ *
+ * Vive aquí y no en `hero/hero.ts`, donde estaba, porque lo lee `queEs`: desde
+ * aquí, importarlo de allí cerraba un ciclo (`hero` → `troop` → `catalogo` → …).
+ */
+export const HERO_BODY = 'hero';
+
+/**
  * Qué es un stack para quien lo cuenta —la crónica (`resumenDeBatalla`) y el
- * agente—: la unidad del catálogo que es; el héroe y el personaje, por su cuerpo
- * (`HERO_BODY`, `CHARACTER_BODY`), que no están en él.
+ * agente—: la unidad del catálogo que es; el héroe, `HERO_BODY`, sea cual sea su
+ * figura, y el personaje, por su cuerpo (`CHARACTER_BODY`).
  */
 export function queEs(s: Pick<BattleStack, 'origen' | 'body'>): string {
-  return s.origen.kind === 'catalogo' ? s.origen.unidad : s.body;
+  switch (s.origen.kind) {
+    case 'catalogo':
+      return s.origen.unidad;
+    case 'heroe':
+      return HERO_BODY;
+    case 'personaje':
+      return s.body;
+  }
 }
 
 /**

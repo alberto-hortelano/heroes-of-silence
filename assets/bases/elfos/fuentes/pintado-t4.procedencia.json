@@ -1,0 +1,47 @@
+{
+  "encargo": "base-elfos-maestro-t4",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:50:30.434Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a63-4c2c-7b01-a41a-9d70bae104a4",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 3 es la GUÍA DE LA PLAZA: el gris CLARO de abajo es el empedrado por el que se anda, solo esa franja baja; cada punto oscuro numerado sobre su borde de atrás es donde va el UMBRAL de la PUERTA del edificio con ese número; y junto a cada punto hay una SILUETA OSCURA DE UN ADULTO de pie, a su tamaño real en este cuadro: es la VARA DE MEDIR de todo. No pintes sus grises lisos, sus puntos, sus números ni sus siluetas.\n\nLa imagen 2 da además la heráldica de la facción (un árbol plateado sobre verde).\nEl TRAMO 4 de 5, de izquierda a derecha, de la PLAZA de una ciudad élfica en el bosque, vista DE CERCA. Formato apaisado de 1536×1024. Cámara ORTOGRÁFICA elevada 25 grados sobre la horizontal, DE FRENTE, como el escenario de un combate visto de lado. Nunca cenital ni de perfil. Paredes verticales, nada inclinado.\nLA SILUETA DE LA GUÍA ES LA VARA DE MEDIR: un adulto de 122 px de alto da la escala de TODO el cuadro. La PUERTA de cada edificio es un poco MÁS ALTA que la silueta que tiene al lado (la puerta, unos 154-166 px), y las ventanas, plantas, aleros y tejados a esa misma escala, como para gente de ese tamaño. Con esa escala los edificios son GRANDES en el cuadro: llenan el alto de la imagen por encima de la franja del suelo, y los que de verdad son altos se salen por el borde de arriba, cortados. Eso está bien: no los encojas para que quepan.\nLos 2 edificios, numerados de izquierda a derecha como los puntos de la guía (1: el mercado: un pabellón abierto de madera tallada con columnas de troncos y un tejado de hojas; 2: la armería: una casa de madera con arcos ojivales y lanzas de hoja talladas en la fachada), cada uno con el umbral de su puerta en su punto, a ras del borde de atrás del suelo. Cada uno con PROPORCIONES NORMALES, ni estirado en alto ni estrechado, y con la heráldica y los materiales de la facción. CADA EDIFICIO CABE EN SU RECUADRO DE LA GUÍA (el 1, entre las columnas 212 y 732; el 2, entre las columnas 804 y 1324): ese es su ancho entero, con el tejado, las torres y los aleros, y los edificios NO llenan el tramo: a los lados de su recuadro va lo que cierra la plaza. Cada edificio DE FRENTE, con la fachada PARALELA al plano del cuadro: sin pared lateral ni faldón del tejado en escorzo, el zócalo horizontal. Entre ellos queda aire: se lee como una plaza, no como una calle.\nSOLO el edificio de cada uno: sin carretas, huertos, cercas, mesas ni objetos sueltos delante.\nNO AÑADAS PLAZA DELANTE: el suelo (las losas de piedra clara con musgo entre las juntas) es solo la franja gris clara de abajo, poco honda y PLANA, con su borde de atrás RECTO y a la MISMA ALTURA de punta a punta de la imagen; el pie de cada edificio, de cada muro y de cada pilar va justo en ese borde. Nada de terreno vacío entre esa franja y los edificios, ni escalones, ni aceras.\nLA JUNTA, en los dos bordes de la imagen: la franja VERDE OSCURA de la guía (las 176 columnas pegadas a cada borde) es UN ÁRBOL ENORME Y FRONDOSO, de tronco grueso de corteza gris plata y copa densa verde oscura, que sube desde lo alto del muro hasta el BORDE DE ARRIBA de la imagen y queda CORTADO por el borde lateral, como si el árbol siguiera fuera. El rectángulo PARDO a su pie es un PILAR de piedra blanca del muro, recto y vertical, con su pie en el borde de atrás del suelo, y detrás de él asoma el tronco. En esas columnas no hay cielo, ni casas, ni tejados: solo el pilar, el tronco y las hojas, de arriba abajo hasta el suelo.\nDetrás de los edificios y en los huecos que dejen entre ellos, lo que cierra la plaza: troncos enormes de árboles con raíces, casas de madera tallada en los árboles al fondo y muros bajos de piedra blanca con musgo; sin puertas principales, ni carteles, ni banderas. Por encima de los tejados, algo de cielo.\nNADA de campo abierto, horizonte ni muralla. Ninguna persona, animal, carro, puesto suelto ni texto. Una sola luz para toda la imagen: un solo cuadro pintado de una vez. No pintes los grises lisos, los puntos, los números, las siluetas, los recuadros de trazos ni las franjas de color de la guía: son indicaciones.\nPALETA: SOBRIA, como la imagen 1: piedra blanca gastada con musgo, madera parda y gris plata, verde oliva y verde bosque oscuro, algo de oro viejo en las linternas. Luz de TARDE NEUTRA, ni dorada ni naranja: cielo gris azulado nublado entre las copas, sin hojas de otoño. Sombras suaves.\nEstilo: ilustración pintada de fantasía medieval oscura, materiales gastados.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/elfos/guardia-del-bosque.png",
+      "papel": "estilo",
+      "sha256": "782609dddae805c994ede85fbfc5a72236884072af1209636f302e5b92a71ac1"
+    },
+    {
+      "ruta": "assets/bases/elfos/fuentes/guia-t4.png",
+      "papel": "plaza",
+      "sha256": "21c0807c8194ebaa8ab3a24fc804c0392d64639f93f6139df2b89d53de518e9d"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a63-4c2c-7b01-a41a-9d70bae104a4/call_fb730fdcbfb346ad884d2865e4fd8b13.png",
+    "sha256": "475ffd7ff516061382c3b6b41163d2e3264e411ebbd3fbddc401a37c741ce087",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 12 edificios, placas 5 de 5",
+    "city_hall: lo recortado toca el borde de su región en x0 (540)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/elfos/fuentes/pintado-t4.webp",
+    "sha256": "759da1758e7cd236fab3ccd93c953c52db2d4fa9b7e30b5725d19e6ba66ade03"
+  }
+}

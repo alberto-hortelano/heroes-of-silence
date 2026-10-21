@@ -1,0 +1,58 @@
+{
+  "encargo": "tema-05-cartela-templarios",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:23:22.148Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b50-f3b2-7c71-bbc4-09e97ab455d6",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema TEMPLARIOS: piedra gótica gris oscura tallada con tracería y pináculos, madera oscura, pergamino claro y el rojo de la cruz paté de los templarios, con remates de latón viejo. La CARTELA VACÍA que cuelga sobre el borde de arriba del mapa: una cinta o placa horizontal, unas seis veces más ancha que alta, con sus remates en las puntas y el centro liso donde el juego escribe el lema. Cinta de tela roja oscura con los bordes dorados y las puntas plegadas en cola de golondrina, sin letras.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs una TIRA que el juego estira a lo ancho: el 15 % de la izquierda y el 15 % de la derecha son sus REMATES, que se pintan una vez y llevan los adornos; lo de en medio se estira, así que va liso y uniforme de punta a punta, sin adornos sueltos ni nada centrado.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/templarios.png",
+      "papel": "estilo",
+      "sha256": "d2dd32d800395f7f14c8e16a1edaedf88438cdaa4a349ff6b2dc6c8ae28188cb"
+    },
+    {
+      "ruta": "assets/art/temas/templarios.png",
+      "papel": "pieza",
+      "sha256": "d2dd32d800395f7f14c8e16a1edaedf88438cdaa4a349ff6b2dc6c8ae28188cb",
+      "recorte": {
+        "x": 225,
+        "y": 58,
+        "w": 490,
+        "h": 48
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/cartela.png",
+      "papel": "corte",
+      "sha256": "2ba87d0ded43c1885dbd14632e6776c5f864e7a0f9dadf5f9e5b4ce7b7c75d8a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b50-f3b2-7c71-bbc4-09e97ab455d6/exec-439b5ba2-65e6-4522-9fad-7e7bfe5b0c87.png",
+    "sha256": "32bca001501d192fbe73b9520929b195b6c947bfb2765c4072b49fbf0e6a02f9",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 2138×255 a 768×92, dentro de 768×128",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 24 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.2893760874210189,
+    "opacos": 0.9913086856007665,
+    "haloSuelto": 0,
+    "ancho": 2172,
+    "alto": 724
+  },
+  "salida": {
+    "ruta": "assets/temas/templarios/cartela.webp",
+    "sha256": "71816eb83b17f8525ae0c6a0cc6ab2711716f37d39cb9bebeb5c37f9f707989d"
+  }
+}

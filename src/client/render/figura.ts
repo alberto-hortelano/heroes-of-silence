@@ -14,7 +14,9 @@
 import { colorDeSombra, FIGURA, PROYECCION_DE_SOMBRA } from '../../shared/arte.js';
 import { relojDeFigura } from '../compas.js';
 import type { Direccion } from '../direccion.js';
-import { cargarHojaDeFigura, hayFiguraCargada, imagenDeFigura } from './assets.js';
+import { temaDelLienzo } from '../temas.js';
+import { type PiesDeLaFigura, piesEn } from './aro.js';
+import { cargarHojaDeFigura, figuraEnCamino, hayFiguraCargada, imagenDeFigura } from './assets.js';
 import {
   type CharacterAtlas,
   type CharacterClip,
@@ -25,7 +27,7 @@ import {
 } from './character.js';
 import { CacheDeLienzos } from './copias.js';
 import { densidadDe } from './lienzo.js';
-import { type ArteDeFigura, arteDe, hojaDe, hojasPorCercania } from './personajes.js';
+import { type ArteDeFigura, arteDe, arteSabido, hojaDe, hojasPorCercania } from './personajes.js';
 import { pintarSombra } from './sombra.js';
 
 /** Hasta cuándo hay alguna figura en marcha, en el reloj de `performance.now()`. */
@@ -167,6 +169,12 @@ interface Colocada {
 export interface FiguraColocada {
   readonly f: Figura;
   readonly p: Colocada | null;
+  /**
+   * Sin fotograma porque su hoja aún no ha llegado (o no se sabe aún qué hoja
+   * lleva): no se pinta nada, ni el marcador ni la sombra. El marcador queda para
+   * la figura que de verdad no tiene arte: su imagen falló o no existe.
+   */
+  readonly cargando: boolean;
 }
 
 /**
@@ -195,9 +203,15 @@ function hojaQueSePinta(
 
 /** Resuelve la figura: qué fotograma de qué hoja y cómo cae en pantalla. */
 export function colocarFigura(f: Figura): FiguraColocada {
+  // Sin la lista de hojas aún, el marcador: no el Y Bot de quien todavía no se
+  // sabe qué hoja lleva (`arteSabido`).
+  if (!arteSabido(f.body)) return { f, p: null, cargando: true };
   const arte = arteDe(f.body);
   const hoja = hojaQueSePinta(arte, f);
-  if (hoja === null) return { f, p: null };
+  if (hoja === null) {
+    const pedida = (hojasPorCercania(arte, f.mira)[0] as CharacterAtlas).clips[f.clip].imagen;
+    return { f, p: null, cargando: figuraEnCamino(pedida) };
+  }
   const { atlas, clip, url, imagen } = hoja;
   const frame =
     clip === 'death'
@@ -212,6 +226,7 @@ export function colocarFigura(f: Figura): FiguraColocada {
   const escala = lado / atlas.cell;
   return {
     f,
+    cargando: false,
     p: {
       arte,
       celda,
@@ -229,8 +244,10 @@ export function colocarFigura(f: Figura): FiguraColocada {
  * tamaño. Quien repinta un lienzo solo para una figura (las miniaturas de la
  * arena) se lo salta si no ha cambiado.
  */
-export function claveDelDibujo({ f, p }: FiguraColocada): string {
+export function claveDelDibujo(c: FiguraColocada): string {
+  const { f, p } = c;
   const donde = `${f.x}|${f.suelo}|${f.alto}|${f.color}|${f.destello ?? 0}`;
+  if (c.cargando) return `cargando|${donde}`;
   return p === null
     ? `marcador|${donde}|${f.alfaSinArte ?? 1}`
     : `${p.imagen}|${p.celda.x}|${p.celda.y}|${donde}`;
@@ -249,6 +266,7 @@ function claveDeCelda(p: Colocada, w: number): string {
  */
 export function pintarSombraDeFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): void {
   const { f, p } = c;
+  if (c.cargando) return;
   if (p === null) {
     const alfa = f.alfaSinArte ?? 1;
     if (alfa <= 0) return;
@@ -318,6 +336,7 @@ function celdaTeñida(p: Colocada, color: string, w: number): HTMLCanvasElement 
  */
 export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): void {
   const { f, p } = c;
+  if (c.cargando) return;
   const destello = f.destello ?? 0;
   const alfa = p === null ? (f.alfaSinArte ?? 1) : 1;
   if (alfa <= 0) return;
@@ -359,14 +378,65 @@ export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): 
 
 /**
  * La sombra y la figura, resuelta una sola vez: lo que pintan el mapa, el
- * castillo, la arena y el cadáver, que no meten nada entre las dos. La batalla,
- * que pone el aro en medio, llama a las dos por separado con la misma
- * `colocarFigura`.
+ * castillo, la arena y el cadáver. `enMedio` es lo que va entre las dos —el aro
+ * de la base y de la tropa (`pintarAroDeFigura`, con `piesDeFigura` de la figura
+ * resuelta)—: encima de la sombra, que es del suelo, y debajo de la figura. La
+ * batalla, que pone varios aros en medio, llama a las dos por separado con la
+ * misma `colocarFigura`.
  */
-export function pintarFiguraConSombra(ctx: CanvasRenderingContext2D, f: Figura): void {
+export function pintarFiguraConSombra(
+  ctx: CanvasRenderingContext2D,
+  f: Figura,
+  enMedio?: (c: FiguraColocada) => void,
+): void {
   const c = colocarFigura(f);
   pintarSombraDeFigura(ctx, c);
+  enMedio?.(c);
   pintarFigura(ctx, c);
+}
+
+/** Los pies medidos de cada fotograma (`claveDeCelda` sin el tamaño): se miden una vez. */
+const piesMedidos = new Map<string, PiesDeLaFigura | null>();
+/** Las celdas que se recuerdan: las de las pocas figuras que llevan aro, con holgura. */
+const PIES_QUE_SE_RECUERDAN = 256;
+let lienzoDeLosPies: CanvasRenderingContext2D | null = null;
+
+/**
+ * Los pies del fotograma que se pinta (`piesEn`, en altos de adulto respecto al
+ * apoyo), o `null` sin arte: el aro va en ellos (`aroDeFigura`). Se leen del alfa
+ * de la celda una vez por fotograma de la hoja; solo lo piden las figuras que
+ * llevan aro, que son una o dos.
+ */
+export function piesDeFigura({ p }: FiguraColocada): PiesDeLaFigura | null {
+  if (p === null) return null;
+  const clave = `${p.imagen}|${p.celda.x}|${p.celda.y}`;
+  const guardados = piesMedidos.get(clave);
+  if (guardados !== undefined) return guardados;
+  const lado = p.celda.size;
+  if (lienzoDeLosPies === null || lienzoDeLosPies.canvas.width < lado) {
+    const lienzo = document.createElement('canvas');
+    lienzo.width = lado;
+    lienzo.height = lado;
+    // Se lee de vuelta cada vez: sin esto, Chrome avisa en la consola.
+    lienzoDeLosPies = lienzo.getContext('2d', { willReadFrequently: true });
+    if (lienzoDeLosPies === null) {
+      throw new Error('este navegador no tiene canvas 2D para medir los pies de una figura');
+    }
+  }
+  const c = lienzoDeLosPies;
+  c.clearRect(0, 0, lado, lado);
+  c.drawImage(p.celda.image, p.celda.x, p.celda.y, lado, lado, 0, 0, lado, lado);
+  const { data } = c.getImageData(0, 0, lado, lado);
+  const pies = piesEn(
+    (x, y) => data[(y * lado + x) * 4 + 3] as number,
+    lado,
+    p.celda.anchor,
+    // En píxeles de la celda un adulto mide siempre lo mismo (`colocarFigura`).
+    FIGURA.alturaAdulto,
+  );
+  if (piesMedidos.size >= PIES_QUE_SE_RECUERDAN) piesMedidos.clear();
+  piesMedidos.set(clave, pies);
+  return pies;
 }
 
 /** El último respaldo: un óvalo del color del bando con su rótulo. */
@@ -381,7 +451,7 @@ function pintarMarcador(ctx: CanvasRenderingContext2D, f: Figura): void {
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#14110d';
-  ctx.font = `bold ${Math.max(9, Math.round(ancho * 0.42))}px system-ui, sans-serif`;
+  ctx.font = `bold ${Math.max(9, Math.round(ancho * 0.42))}px ${temaDelLienzo().letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(f.rotulo, f.x, f.suelo - alto / 2, ancho * 2);

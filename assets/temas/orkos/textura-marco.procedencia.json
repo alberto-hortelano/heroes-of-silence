@@ -1,0 +1,49 @@
+{
+  "encargo": "tema-09-textura-marco-orkos",
+  "tipo": "textura",
+  "fecha": "2026-10-18T09:43:05.951Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b60-04a5-7db0-923b-d095324563db",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\n\nTema ORKOS: hierro oscuro remachado y oxidado, colmillos y cuernos de hueso, cadenas, cráneos con cuernos y estandartes rojos de la Horda con goterones de sangre. La TEXTURA del material del marco, que cubre las barras de arriba y de abajo y el hueco alrededor del mapa: tranquila y de poco contraste, porque el juego la mezcla con el color de su ficha. Hierro oscuro oxidado, liso.\n\nUna muestra plana de MATERIAL vista exactamente desde arriba, a 90 grados, como una muestra de una biblioteca de texturas: sin perspectiva, sin horizonte y sin sombras proyectadas.\nLisa y uniforme en toda la superficie: sin un motivo central, sin objetos sueltos, sin caminos, sin bordes ni marco, sin figuras y sin texto. Que se pueda repetir en mosaico por los cuatro lados sin que se note.\nFormato cuadrado, imagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "estilo",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85"
+    },
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "pieza",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85",
+      "recorte": {
+        "x": 330,
+        "y": 1105,
+        "w": 280,
+        "h": 30
+      }
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b60-04a5-7db0-923b-d095324563db/exec-8d221e53-8fd4-458a-bb30-5c25779b7775.png",
+    "sha256": "1a1de488e59091425fa3c9ce9f1f1e64e227192af4c4481b72fd2495b65800a3",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "cuadrado central a 512×512 y repetible: mezclada eje a eje con su copia desplazada medio lado; costura 1.03 (1 es invisible)",
+    "en gris y con la media de 61.1 a 128, para mezclarse en soft-light sin mover el color de su ficha",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 53 piezas en disco"
+  ],
+  "validacion": {
+    "ancho": 512,
+    "alto": 512
+  },
+  "salida": {
+    "ruta": "assets/temas/orkos/textura-marco.webp",
+    "sha256": "9bbc1af58c7f4aefd82b51d277c0f4dfcaf533a5d977b507a990dcbda93f5cc9"
+  }
+}

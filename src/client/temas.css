@@ -1,0 +1,541 @@
+/*
+ * Un tema de interfaz por ejército (13-10-2026), **como su lámina**
+ * (`assets/art/temas/<tema>.png`). Sin `data-tema` (el espectador) manda el
+ * `:root` neutro de `style.css`.
+ *
+ * Lo pone `ponerTema` (`temas.ts`), el único que escribe `data-tema`: en la
+ * partida, el de la facción de quien juega; en la arena, el de su selector.
+ *
+ * **Un bloque común y uno por tema.** El común (`:root[data-tema]`) va delante:
+ * pesa lo mismo que cada tema, así que el tema, que va después, gana. Lleva lo que
+ * los cinco derivan igual (`--panel-alt` del panel y la tinta, las letras de
+ * encabezado y de interfaz…), lo que comparten tres o cuatro (el tema que difiere
+ * lo escribe) y lo que solo lee `forma.css`, que el neutro no necesita. Cada tema
+ * escribe lo medido y lo que difiere. Que «común ∪ tema» defina toda ficha que
+ * leen las hojas, y que la tinta se lea sobre su fondo (`PAREJAS`), lo vigila
+ * `test/temas.test.ts`.
+ *
+ * **Los colores con «medida» se midieron en la lámina** (`tools/taller/temas/paleta.ts`,
+ * que dice dónde y cómo) y no se tocan a ojo: los vigila
+ * `test/paleta-de-las-laminas.test.ts` (ΔE OKLab ≤ 0,03). Si una muestra cambia,
+ * se vuelve a medir y se copia. Lo demás se deriva de ellos con `var()`,
+ * `rgb(from …)` y `color-mix()`, o es lo que la lámina no enseña (el verde de una
+ * victoria, el aviso de una emboscada), y se dice.
+ *
+ * **Las letras**: los títulos y rótulos (`--letra-titulo`), una OFL por tema
+ * servida desde `assets/letras/` (`fuentes.css`, generada), con una cadena de
+ * respaldo del sistema que se ve mientras carga; el texto corrido y la interfaz,
+ * del sistema y con serifa, como en las láminas. Ninguna con cifras de caja baja
+ * (EB Garamond, Georgia, Candara…): «Día 1» se leía «Día ı», y en el lienzo no
+ * hay `font-variant-numeric` que lo arregle (lo vigila `temas.test.ts`).
+ *
+ * Las fichas de forma (`--radio-boton`, `--seccion-*`, `--marco-anillos`,
+ * `--adorno`…) las lee `forma.css`; `--lema`, `--cartela-*` y `--emblema` son
+ * para las piezas sobre el mapa y en la barra de abajo (la cartela con el lema,
+ * el sello), que se ponen en su ranura con su respaldo de CSS.
+ *
+ * Aquí no va ninguna regla, solo fichas: lo que cambia de aspecto lo dicen
+ * `style.css` y `forma.css` leyéndolas.
+ */
+
+/* Lo común a los cinco: va antes que ellos, y lo que un tema escribe gana. */
+:root[data-tema] {
+  /* Derivado igual en los cinco. */
+  --panel-alt: color-mix(in oklab, var(--panel), var(--ink) 10%);
+  --ink-dim: color-mix(in oklab, var(--ink) 72%, var(--panel));
+  --fondo-lienzo: var(--bg);
+  --boton-encima: color-mix(in oklab, var(--boton), white 10%);
+  --boton-primario-encima: color-mix(in oklab, var(--boton-primario), white 12%);
+  --herramienta: rgb(from var(--boton) r g b / 0.93);
+  --fondo-cronica: color-mix(in oklab, var(--panel), black 25%);
+  --fondo-dialogo: rgb(from var(--panel) r g b / 0.95);
+  --fondo-campo: color-mix(in oklab, var(--panel), black 30%);
+  --fondo-figura: var(--bg);
+  --etiqueta: var(--panel-alt);
+  --etiqueta-borde: var(--boton-borde);
+  --fin-gana-filo: var(--resalte);
+  --letra-encabezado: var(--letra-titulo);
+  --letra-ui: var(--letra-cuerpo);
+  --rotulo-espaciado: 0.16em;
+  /* Los símbolos que no son letra: los emblemas (✠ ☠ ❖ ❦ ⚔), que no están en
+     ninguna letra de título, y la «×» de quitar, que en la serifa del tema se
+     quedaba en un punto (QA, 13-10-2026, H4 y H6). Una cadena de los tres sistemas
+     (Windows, macOS y Linux), dicha aquí y no dejada al respaldo de cada máquina. */
+  --letra-simbolos: 'Segoe UI Symbol', 'Apple Symbols', 'Noto Sans Symbols', 'Noto Sans Symbols 2',
+    'Noto Sans Symbols2', 'DejaVu Sans', sans-serif;
+  --chapa-fondo: var(--panel);
+  --vida-fondo: var(--fondo-lienzo);
+  --galon: var(--resalte);
+  --rotulo: var(--boton-tinta);
+  --lateral-tenue: color-mix(in oklab, var(--lateral-tinta) 78%, var(--lateral));
+
+  /* Lo de tres o cuatro: el tema que difiere lo escribe. Los filos y bordes, del
+     latón (en imperio, del oro; en orkos, del hierro). */
+  --border: rgb(from var(--brass) r g b / 0.4);
+  --marco-sombra: 0 12px 30px #000a;
+  --resalte: var(--gold);
+  --herramienta-borde: var(--brass);
+  --tinta-clara: var(--ink);
+  --borde-estado: rgb(from var(--brass) r g b / 0.5);
+  --borde-tenue: rgb(from var(--brass) r g b / 0.25);
+  --borde-oscuro: color-mix(in oklab, var(--marco), black 40%);
+  --dialogo-borde: var(--brass);
+  --barra-fondo: color-mix(in oklab, var(--bg), var(--panel));
+  --filo: var(--brass);
+  --sello-arena: var(--accent);
+  --fin-borde: rgb(from var(--brass) r g b / 0.4);
+  --chapa-borde: var(--gold);
+  --chapa-tinta: var(--titulo);
+  --lateral-acento: var(--accent);
+  --lateral-peligro: var(--danger);
+  /* El día, sin cartela propia: sobre el panel (templarios y orkos la llevan). */
+  --dia-fondo: var(--panel);
+  --dia-tinta: var(--titulo);
+  --dia-filo: transparent;
+  /* Botones cuadrados (los elfos, redondeados), el rótulo de sección a la
+     izquierda (el imperio, al centro), sin glifo delante (templarios y elfos
+     llevan su emblema) y la cartela del color del panel. */
+  --radio-boton: 0;
+  --seccion-alinear: start;
+  --adorno: none;
+  --cartela-fondo: var(--panel);
+  /* El rótulo de una barra de sección con su pieza en imagen encima (afinado,
+     18-10-2026): la tinta y el adorno de siempre en tres temas; los elfos y los
+     orkos la escriben, porque su barra no es del tono que había detrás del rótulo
+     (la vigila `tools/qa/temas-con-piezas.ts`, sobre los píxeles de la pieza). */
+  --seccion-tinta: var(--lateral-rotulo);
+  --seccion-adorno: var(--adorno-tinta);
+  /* El lema, partido a los lados del remate como en las láminas de los templarios
+     y los no muertos (`--lema` a la izquierda y `--lema-tras` a la derecha); el
+     imperio lo lleva entero debajo (`--cartela-partida: 0`). */
+  --lema-tras: none;
+  --cartela-partida: 1;
+
+  /* La rueda del golpe, de las fichas de cada tema: su madera, su latón y su
+     mesa. En el neutro, los valores de siempre (`style.css`). */
+  --rueda-caja: color-mix(in srgb, var(--panel) 90%, transparent);
+  --rueda-sombra: var(--dialogo-sombra);
+  --rueda-sombra-previa: var(--dialogo-sombra);
+  --rueda-sombra-plato: var(--sombra-honda);
+  --rueda-sombra-del-texto: var(--fondo-lienzo);
+  --rueda-oscuro: var(--fondo-figura);
+  --rueda-sector: color-mix(in oklab, var(--panel), black 15%);
+  --rueda-sector-encima: color-mix(in oklab, var(--panel), var(--gold) 25%);
+  --rueda-filo-del-sector: var(--contorno);
+  --rueda-mesa: var(--panel-alt);
+  --rueda-centro: color-mix(in srgb, var(--borde-oscuro) 70%, var(--fondo-figura));
+  --rueda-radio: color-mix(in srgb, var(--gold) 33%, transparent);
+  --rueda-tinta: var(--ink);
+  --rueda-tinta-encima: var(--tinta-clara);
+  --rueda-marca: var(--boton-tinta);
+  --rueda-pista: var(--borde-oscuro);
+  --rueda-muesca: var(--panel);
+  --rueda-filo-de-la-muesca: color-mix(in srgb, var(--gold) 60%, transparent);
+  --rueda-velo: color-mix(in srgb, var(--fondo-figura) 85%, transparent);
+}
+
+/* Templarios: piedra gótica, pergamino claro con tinta oscura, madera oscura, el rojo de la cruz; Cinzel. */
+:root[data-tema='templarios'] {
+  --bg: #08090b; /* medida */
+  --panel: #221f1a; /* medida */
+  --ink: #dec495; /* medida */
+  --gold: #d9b673; /* medida */
+  --brass: #997c54; /* medida */
+  --accent: #b5cf8a;
+  --danger: #e48a6a;
+
+  --marco: #745b40; /* medida */
+  --fondo-escenario: #322517; /* medida: el margen de la lámina, no el material */
+  --marco-estilo: ridge;
+  --foco-lienzo: #f3d36b;
+
+  --boton: #2e2922; /* medida */
+  --boton-borde: rgb(from var(--brass) r g b / 0.8);
+  --boton-tinta: #c4b79d; /* medida */
+  --boton-primario: #540708; /* medida */
+  --boton-primario-tinta: #e6d3b9; /* medida */
+  --foco: #f4da8e;
+  --alerta: #3c1a14ee;
+  --alerta-borde: #c4604c;
+  --alerta-tinta: #ffe2cc;
+
+  --titulo: #c98f33; /* medida */
+  --tinta-estado: #2a1f15; /* medida */
+  --veterania: var(--gold);
+  --rechazo: #ea9070;
+  --aviso: #f2b070;
+
+  --fondo-estado: #d2b999; /* medida */
+  --contorno: rgba(0, 0, 0, 0.45);
+  --dialogo-sombra: 0 6px 18px rgba(0, 0, 0, 0.55);
+  --sombra-honda: 0 12px 40px #000b;
+  --velo: #0a080699;
+  --barra: #e7bd5a; /* medida */
+  --hex: color-mix(in oklab, var(--marco), black 45%);
+  --hex-encima: color-mix(in oklab, var(--marco), black 15%);
+  --sello-arena: #a6d4ae;
+  --sello-arena-borde: #6fa07088;
+
+  --fin-gana: linear-gradient(110deg, #4a3a22, var(--panel));
+  --fin-pierde: linear-gradient(110deg, #5a1a14, var(--panel));
+
+  --letra-titulo: Cinzel, 'Trajan Pro', 'Palatino Linotype', 'Book Antiqua', Palatino, P052, serif;
+  --letra-cuerpo: 'Palatino Linotype', 'Book Antiqua', Palatino, 'URW Palladio L', P052, 'TeX Gyre Pagella', serif;
+
+  --chapa-tinta: var(--ink);
+  --vista-minimapa: #f4da8eaa;
+
+  --lateral: #e1cdb2; /* medida */
+  --lateral-alt: #dac5a8; /* medida */
+  --lateral-alt-tinta: #372b22; /* medida */
+  --lateral-tinta: #251c15; /* medida */
+  --lateral-titulo: #530502; /* medida */
+  --lateral-rotulo: #1e1510; /* medida */
+  --lateral-borde: rgb(from var(--lateral-tinta) r g b / 0.3);
+  --lateral-acento: #2f5b26;
+  --lateral-peligro: #8a1f12;
+  --lateral-aviso: #6b4a0e;
+  --dia-fondo: #cbb08c; /* medida */
+  --dia-tinta: #19120a; /* medida */
+  --dia-filo: var(--brass);
+
+  --boton-relieve: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 0 0 1px #0d0a07;
+  --boton-primario-relieve: inset 0 0 0 1px rgb(0 0 0 / 0.5), 0 0 0 1px var(--brass);
+  --seccion-fondo: linear-gradient(to bottom, rgb(from var(--lateral-tinta) r g b / 0.08), transparent);
+  --seccion-filo: var(--brass);
+  --marco-anillos: 0 0 0 2px #1a130c, 0 0 0 4px var(--brass), 0 0 0 6px #1a130c;
+  --adorno: var(--emblema);
+  --adorno-tinta: #9c1a14;
+
+  --lema: 'IN HOC';
+  --lema-tras: 'SIGNO VINCES';
+  --cartela-fondo: var(--boton-primario);
+  --cartela-tinta: var(--titulo);
+  --emblema: '✠';
+}
+
+/* No muertos: hierro negro con plata, panel oscuro verdoso, tinta hueso y acentos cian; IM Fell English SC. */
+:root[data-tema='no-muertos'] {
+  --bg: #16191c; /* medida */
+  --panel: #0a0e11; /* medida */
+  --ink: #8fbec3; /* medida */
+  --gold: #93adb8; /* medida */
+  --brass: #72757c; /* medida */
+  --accent: #8fe4b4;
+  --danger: #e48e9a;
+
+  --marco: #212328; /* medida */
+  --fondo-escenario: #111317; /* medida: el margen de la lámina, no el material */
+  --marco-estilo: groove;
+  --marco-sombra: 0 0 22px #3fa06a55, 0 12px 30px #000b;
+  --foco-lienzo: #a2ecc0;
+
+  --boton: #1a3d39; /* medida */
+  --boton-borde: rgb(from var(--lateral-rotulo) r g b / 0.55);
+  --boton-tinta: #c9d9d8; /* medida */
+  --boton-primario: #54a392; /* medida */
+  --boton-primario-tinta: #071611; /* medida */
+  --resalte: var(--lateral-rotulo);
+  --foco: #bcf2cc;
+  --tinta-clara: var(--boton-tinta);
+  --alerta: #2a1632ee;
+  --alerta-borde: #8c5cac;
+  --alerta-tinta: #f2def8;
+
+  --titulo: #e6e6de; /* medida */
+  --tinta-estado: #70bfc7; /* medida */
+  --veterania: #bcdca2;
+  --rechazo: #da8ea4;
+  --aviso: #d8a4e2;
+
+  --fondo-estado: #0a1419; /* medida */
+  --contorno: rgba(0, 0, 0, 0.5);
+  --dialogo-sombra: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 14px rgba(63, 160, 106, 0.25);
+  --sombra-honda: 0 12px 40px #000c;
+  --velo: #000a;
+  --barra: #cdb989; /* medida */
+  --hex: color-mix(in oklab, var(--marco), black 30%);
+  --hex-encima: color-mix(in oklab, var(--marco), white 12%);
+  --sello-arena-borde: #6fa07088;
+
+  --fin-gana: linear-gradient(110deg, #1e3a2c, var(--panel));
+  --fin-pierde: linear-gradient(110deg, #3a2244, var(--panel));
+
+  --letra-titulo: 'IM Fell English SC', Junicode, Didot, 'Bodoni MT', 'Bodoni 72', 'GFS Didot', serif;
+  /* Más ancha que las otras: el rótulo del héroe se partía en dos a 1440 (H6). */
+  --rotulo-espaciado: 0.12em;
+  --letra-cuerpo: 'Gentium Book Plus', 'Gentium Plus', Cambria, 'Linux Libertine O', serif;
+
+  --vista-minimapa: #a2ecc0aa;
+
+  --lateral: #12161c; /* medida */
+  --lateral-alt: #192e30; /* medida */
+  --lateral-alt-tinta: #9ed3d2; /* medida */
+  --lateral-tinta: #8fb4c4; /* medida */
+  --lateral-titulo: #d5ebee; /* medida */
+  --lateral-rotulo: #63bdbf; /* medida */
+  --lateral-borde: rgb(from var(--lateral-rotulo) r g b / 0.25);
+  --lateral-aviso: var(--veterania);
+
+  --boton-relieve: inset 0 0 0 1px rgb(from var(--lateral-rotulo) r g b / 0.3), 0 0 0 1px #050708;
+  /* El brillo verde de «Fin de turno» en la lámina. */
+  --boton-primario-relieve: 0 0 14px rgb(from var(--boton-primario) r g b / 0.6), inset 0 0 0 1px #b8f0e0;
+  --seccion-fondo: none;
+  --seccion-filo: rgb(from var(--lateral-rotulo) r g b / 0.3);
+  --marco-anillos: 0 0 0 2px #050607, 0 0 0 4px var(--brass), 0 0 0 6px #050607;
+  --adorno-tinta: var(--lateral-rotulo);
+
+  --lema: 'MEMENTO';
+  --lema-tras: 'MORI';
+  --cartela-tinta: var(--lateral-rotulo);
+  --emblema: '☠';
+}
+
+/* Imperio: mármol y oro, panel de mármol oscuro, tinta dorada, púrpura en botones y colgaduras; Marcellus. */
+:root[data-tema='imperio'] {
+  --bg: #070805; /* medida */
+  --panel: #101115; /* medida */
+  --ink: #c4ba94; /* medida */
+  --gold: #e3cb83; /* medida */
+  --brass: #755425; /* medida */
+  --accent: #b0d090;
+  --danger: #f49080;
+  --border: rgb(from var(--gold) r g b / 0.35);
+
+  --marco: #917c66; /* medida */
+  --fondo-escenario: #221d14; /* medida: el margen de la lámina, no el material */
+  --marco-estilo: double;
+  --foco-lienzo: #f2cc92;
+
+  --boton: #181727; /* medida */
+  --boton-borde: rgb(from var(--gold) r g b / 0.85);
+  --boton-tinta: #b09e80; /* medida */
+  --boton-primario: #2a0f2e; /* medida */
+  --boton-primario-tinta: #e4cb7f; /* medida */
+  --foco: #f2d2a2;
+  --herramienta-borde: var(--gold);
+  --alerta: #4c1012ee;
+  --alerta-borde: #d2523c;
+  --alerta-tinta: #ffe2d2;
+
+  --titulo: #d6c68a; /* medida */
+  --tinta-estado: #c6b68d; /* medida */
+  --veterania: var(--resalte);
+  --rechazo: #f4907c;
+  --aviso: #f6b272;
+
+  --fondo-estado: #0c1516; /* medida */
+  --borde-estado: rgb(from var(--gold) r g b / 0.45);
+  --borde-tenue: rgb(from var(--gold) r g b / 0.2);
+  --borde-oscuro: color-mix(in oklab, var(--brass), black 40%);
+  --contorno: rgba(0, 0, 0, 0.45);
+  --dialogo-borde: var(--gold);
+  --dialogo-sombra: 0 6px 18px rgba(0, 0, 0, 0.55);
+  --sombra-honda: 0 12px 40px #000b;
+  --velo: #0a060c99;
+  --barra: #b28d49; /* medida */
+  --filo: var(--gold);
+  --hex: color-mix(in oklab, var(--lateral-alt), black 20%);
+  --hex-encima: color-mix(in oklab, var(--lateral-alt), white 12%);
+  --sello-arena-borde: #7a9a6088;
+
+  --fin-borde: rgb(from var(--gold) r g b / 0.4);
+  --fin-gana: linear-gradient(110deg, #4c3a18, var(--panel));
+  --fin-pierde: linear-gradient(110deg, #4a1430, var(--panel));
+
+  --letra-titulo: Marcellus, 'Trajan Pro', Baskerville, 'Libre Baskerville', 'Linux Libertine Display O', 'Linux Libertine O', serif;
+  --letra-cuerpo: Baskerville, 'Baskerville Old Face', 'Libre Baskerville', 'Linux Libertine O', 'Times New Roman', serif;
+
+  --vista-minimapa: #f2d2a2aa;
+
+  --lateral: #10181c; /* medida */
+  --lateral-alt: #22342c; /* medida */
+  --lateral-alt-tinta: #d4c88a; /* medida */
+  --lateral-tinta: #d7c38a; /* medida */
+  --lateral-titulo: #f2e2ad; /* medida */
+  --lateral-rotulo: #b9a571; /* medida */
+  --lateral-borde: rgb(from var(--gold) r g b / 0.35);
+  --lateral-aviso: var(--gold);
+
+  --boton-relieve: inset 0 0 0 1px rgb(0 0 0 / 0.6), 0 0 0 1px #050505;
+  --boton-primario-relieve: inset 0 0 0 1px rgb(0 0 0 / 0.6), 0 0 0 1px var(--gold);
+  /* La cartela de cada sección: el rótulo al centro, entre dos filos de oro. */
+  --seccion-fondo: linear-gradient(to bottom, var(--panel), var(--lateral));
+  --seccion-filo: var(--gold);
+  --seccion-alinear: center;
+  --marco-anillos: 0 0 0 2px #050505, 0 0 0 4px var(--gold), 0 0 0 6px #050505;
+  --adorno-tinta: var(--gold);
+
+  --lema: 'VIRTUS · DISCIPLINA · AETERNA VICTORIA';
+  --cartela-partida: 0;
+  --cartela-tinta: var(--lateral-titulo);
+  --emblema: '❖';
+}
+
+/* Elfos: marfil y plata con hiedra, pergamino claro con tinta oscura, verde azulado y botones redondeados; Almendra. */
+:root[data-tema='elfos'] {
+  --bg: #060f14; /* medida */
+  --panel: #0d2527; /* medida */
+  --ink: #cce5e4; /* medida */
+  --gold: #dbd091; /* medida */
+  --brass: #c6ac8f; /* medida */
+  --accent: #a9e2a1;
+  --danger: #eaa28a;
+
+  --marco: #c9b196; /* medida */
+  --fondo-escenario: #796e52; /* medida: el margen de la lámina, no el material */
+  --marco-estilo: solid;
+  --marco-sombra: 0 10px 26px #0007;
+  --foco-lienzo: #daf2e2;
+
+  --boton: #254d44; /* medida */
+  --boton-borde: rgb(from var(--brass) r g b / 0.9);
+  --boton-tinta: #c5c69d; /* medida */
+  --boton-primario: #b19b63; /* medida */
+  --boton-primario-tinta: #192b2b; /* medida */
+  --foco: #e2f5ea;
+  --alerta: #3a2018ee;
+  --alerta-borde: #c27c5c;
+  --alerta-tinta: #ffe7d8;
+
+  --titulo: #d9d6af; /* medida */
+  --tinta-estado: #c3cdbc; /* medida */
+  --veterania: #d4e2a2;
+  --rechazo: #e29c82;
+  --aviso: #eac282;
+
+  --fondo-estado: #11393c; /* medida */
+  --borde-oscuro: color-mix(in oklab, var(--panel), black 30%);
+  --contorno: rgba(0, 0, 0, 0.35);
+  --dialogo-sombra: 0 6px 18px rgba(0, 0, 0, 0.45);
+  --sombra-honda: 0 12px 40px #0009;
+  --velo: #050c0f88;
+  --barra-fondo: color-mix(in oklab, var(--lateral), var(--lateral-tinta) 18%);
+  --barra: #51af7e; /* medida */
+  --hex: color-mix(in oklab, var(--lateral-alt), black 35%);
+  --hex-encima: var(--lateral-alt);
+  --sello-arena-borde: #78b07088;
+
+  --fin-gana: linear-gradient(110deg, #2a5246, var(--panel));
+  --fin-pierde: linear-gradient(110deg, #4a3020, var(--panel));
+
+  --letra-titulo: Almendra, 'Iowan Old Style', 'Charis SIL', 'Bitstream Charter', Cambria, serif;
+  --letra-cuerpo: 'Iowan Old Style', 'Charis SIL', 'Bitstream Charter', Cambria, serif;
+
+  --chapa-tinta: var(--ink);
+  --vista-minimapa: #e2f5eaaa;
+
+  --lateral: #ede8dc; /* medida */
+  --lateral-alt: #32675f; /* medida */
+  --lateral-alt-tinta: #d4e0d8; /* medida */
+  --lateral-tinta: #2f414a; /* medida */
+  --lateral-titulo: #0f2935; /* medida */
+  --lateral-rotulo: #22363f; /* medida */
+  --lateral-borde: rgb(from var(--lateral-alt) r g b / 0.35);
+  --lateral-acento: #1f6a3a;
+  --lateral-peligro: #8f2a14;
+  --lateral-aviso: #6a5310;
+
+  --radio-boton: 0.9em;
+  --boton-relieve: inset 0 1px 0 rgb(255 255 255 / 0.15), 0 0 0 1px #0a1a1a;
+  --boton-primario-relieve: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 0 0 2px var(--marco);
+  --seccion-fondo: none;
+  --seccion-filo: rgb(from var(--lateral-alt) r g b / 0.45);
+  --marco-anillos: 0 0 0 2px var(--bg), 0 0 0 5px var(--brass), 0 0 0 6px rgb(0 0 0 / 0.4);
+  --adorno: var(--emblema);
+  --adorno-tinta: var(--lateral-alt);
+  /* Su barra de sección es verde azulada (la de las filas): el rótulo, con la
+     tinta clara de las filas. Con la oscura del pergamino daba 1,35. */
+  --seccion-tinta: var(--lateral-alt-tinta);
+  --seccion-adorno: var(--lateral-alt-tinta);
+
+  --lema: none;
+  --cartela-fondo: var(--lateral-alt);
+  --cartela-tinta: var(--lateral-alt-tinta);
+  --emblema: '❦';
+}
+
+/* Orkos: hierro remachado, hueso y sangre, panel oscuro con tinta clara y títulos rojos; Germania One. */
+:root[data-tema='orkos'] {
+  --bg: #14120f; /* medida */
+  --panel: #261911; /* medida */
+  --ink: #9f9384; /* medida */
+  --gold: #ea4d3b; /* medida (#d13324, aclarada para leerse) */
+  --brass: #ead7ba; /* medida */
+  --accent: #bcd472;
+  --danger: #ff7056;
+  --border: rgb(from var(--marco) r g b / 0.6);
+
+  --marco: #453d36; /* medida */
+  --fondo-escenario: #251e19; /* medida: el margen de la lámina, no el material */
+  --marco-estilo: outset;
+  --foco-lienzo: #ffb272;
+
+  --boton: #402918; /* medida */
+  --boton-borde: rgb(from var(--marco) r g b / 0.9);
+  --boton-tinta: #ccbf96; /* medida */
+  --boton-primario: #531611; /* medida */
+  --boton-primario-tinta: #eee8db; /* medida */
+  --resalte: #f2a252;
+  --foco: #ffc282;
+  --herramienta-borde: var(--marco);
+  --tinta-clara: var(--titulo);
+  --alerta: #5c0e0aee;
+  --alerta-borde: #e24c32;
+  --alerta-tinta: #ffe2d2;
+
+  --titulo: #e4d9b5; /* medida */
+  --tinta-estado: #cec1a4; /* medida */
+  --veterania: #f2a252;
+  --rechazo: #ff7c5c;
+  --aviso: #ffa262;
+
+  --fondo-estado: #1c1510; /* medida */
+  --borde-estado: rgb(from var(--marco) r g b / 0.8);
+  --borde-tenue: rgb(from var(--marco) r g b / 0.5);
+  --contorno: rgba(0, 0, 0, 0.55);
+  --dialogo-borde: var(--marco);
+  --dialogo-sombra: 0 6px 18px rgba(0, 0, 0, 0.6);
+  --sombra-honda: 0 12px 40px #000c;
+  --velo: #0a050399;
+  --barra: #dc3d2e; /* medida */
+  --filo: var(--marco);
+  --hex: color-mix(in oklab, var(--marco), black 30%);
+  --hex-encima: color-mix(in oklab, var(--marco), white 10%);
+  --sello-arena-borde: #8aa04a88;
+
+  --fin-borde: rgb(from var(--marco) r g b / 0.6);
+  --fin-gana: linear-gradient(110deg, #5c3c1a, var(--panel));
+  --fin-pierde: linear-gradient(110deg, #6c100c, var(--panel));
+
+  --letra-titulo: 'Germania One', Rockwell, 'Rockwell Extra Bold', 'URW Bookman', 'URW Bookman L', serif;
+  --letra-cuerpo: Rockwell, 'Century Schoolbook', C059, 'Bitstream Charter', serif;
+
+  --chapa-borde: var(--marco);
+  --vista-minimapa: #ffc282aa;
+
+  --lateral: #1a1611; /* medida */
+  --lateral-alt: #223123; /* medida */
+  --lateral-alt-tinta: #c3c5b9; /* medida */
+  --lateral-tinta: #c0bba5; /* medida */
+  --lateral-titulo: #f54f3e; /* medida */
+  --lateral-rotulo: #e44737; /* medida (#d73a2c, aclarada para leerse) */
+  --lateral-borde: rgb(from var(--marco) r g b / 0.7);
+  --lateral-aviso: var(--veterania);
+  --dia-filo: var(--marco);
+
+  --boton-relieve: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 0 0 1px #0a0806;
+  --boton-primario-relieve: 0 0 0 1px #c03020, inset 0 0 6px rgb(0 0 0 / 0.6);
+  /* Los goterones de sangre bajo cada sección. */
+  --seccion-fondo: radial-gradient(circle at 50% 0, #8e1c14 0 2.5px, transparent 3.5px) 0 100% / 19px 7px repeat-x, linear-gradient(to bottom, #2c1d14, #1a1410);
+  --seccion-filo: #6c1610;
+  --marco-anillos: 0 0 0 2px #0a0806, 0 0 0 4px #6c1610, 0 0 0 6px #0a0806;
+  --adorno-tinta: var(--lateral-rotulo);
+  /* Sobre su barra de hierro rojizo el rojo del rótulo daba 4,28: el de los
+     títulos, también medido y más claro. */
+  --seccion-tinta: var(--lateral-titulo);
+
+  --lema: none;
+  --cartela-tinta: var(--titulo);
+  --emblema: '⚔';
+}

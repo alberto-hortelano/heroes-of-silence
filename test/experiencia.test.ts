@@ -27,6 +27,7 @@ import {
 import { herir, stackHp } from '../src/core/battle/damage.js';
 import { castSpell, delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleHero, BattleState } from '../src/core/battle/types.js';
+import { HERO_BODY } from '../src/core/battle/types.js';
 import { cifrasDeUnidad, unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
 import { serializeAdventureTurn, serializeBattleTurn } from '../src/core/contract/serialize.js';
 import {
@@ -114,6 +115,7 @@ const conHeroe = (army: BattleSide['army'], rango = RANGO_INICIAL_DE_HEROE): Bat
   army,
   hero: {
     mando: mando(),
+    figura: HERO_BODY,
     ...cuerposDelHeroe({
       name: 'Prueba',
       attack: 1,

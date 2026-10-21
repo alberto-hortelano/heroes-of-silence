@@ -1,0 +1,58 @@
+{
+  "encargo": "tema-05-cartela-imperio",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:21:45.029Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b4f-756e-7270-9123-a15aafdf7b95",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema IMPERIO: mármol claro con capiteles y molduras doradas, colgaduras moradas con flecos de oro, laureas, águilas y grifos dorados, al estilo de Roma. La CARTELA VACÍA que cuelga sobre el borde de arriba del mapa: una cinta o placa horizontal, unas seis veces más ancha que alta, con sus remates en las puntas y el centro liso donde el juego escribe el lema. Placa oscura con un marco dorado y un remate de voluta en cada punta, sin letras.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs una TIRA que el juego estira a lo ancho: el 15 % de la izquierda y el 15 % de la derecha son sus REMATES, que se pintan una vez y llevan los adornos; lo de en medio se estira, así que va liso y uniforme de punta a punta, sin adornos sueltos ni nada centrado.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/imperio.png",
+      "papel": "estilo",
+      "sha256": "803df1df8c741579af365f0f5f7b652323466dcaa387d2aad2cdc293952f2f0d"
+    },
+    {
+      "ruta": "assets/art/temas/imperio.png",
+      "papel": "pieza",
+      "sha256": "803df1df8c741579af365f0f5f7b652323466dcaa387d2aad2cdc293952f2f0d",
+      "recorte": {
+        "x": 300,
+        "y": 102,
+        "w": 360,
+        "h": 40
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/cartela.png",
+      "papel": "corte",
+      "sha256": "2ba87d0ded43c1885dbd14632e6776c5f864e7a0f9dadf5f9e5b4ce7b7c75d8a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b4f-756e-7270-9123-a15aafdf7b95/exec-8bfac449-89e9-43d8-9fa2-36e01bc077b1.png",
+    "sha256": "37ca2730dd188562d346e20d7d5888ae2bb9e7fec4bf4a0ff6de2f9a11e08aea",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 2128×257 a 768×93, dentro de 768×128",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 22 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.322730024521026,
+    "opacos": 0.9929340179940177,
+    "haloSuelto": 0,
+    "ancho": 2172,
+    "alto": 724
+  },
+  "salida": {
+    "ruta": "assets/temas/imperio/cartela.webp",
+    "sha256": "e646f76e88f72f4dfba07c9e5929eb4261cbd83c98f6f68e6bf27fcfcc040c7a"
+  }
+}

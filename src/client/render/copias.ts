@@ -25,6 +25,11 @@ export class CacheDeLienzos<K, L extends { readonly width: number; readonly heig
     return c;
   }
 
+  /** Si está, sin contarlo como un uso. */
+  tiene(clave: K): boolean {
+    return this.lienzos.has(clave);
+  }
+
   set(clave: K, lienzo: L): void {
     this.lienzos.set(clave, lienzo);
     this.bytes += lienzo.width * lienzo.height * 4;

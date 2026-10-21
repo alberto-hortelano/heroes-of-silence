@@ -1,0 +1,42 @@
+{
+  "encargo": "base-imperio-placa-t5",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:50:22.285Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a6e-8bac-7b72-8f30-2e114cd8b112",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (la armería imperial, las caballerizas). En su sitio pon lo mismo que ya cierra la plaza entre ellos: traseras de casas de revoco y ladrillo con tejado de teja, muros de piedra arenisca, algún árbol; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/imperio/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "907a67d004f9e4bb845186960b6228349685155ce20c166db291c73bc12d226e"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a6e-8bac-7b72-8f30-2e114cd8b112/call_109bf6e34fad431daf6f7891710a47c8.png",
+    "sha256": "03837c4d2123e45d01b8473c339a9fc0409de7676936e866583c589c65c2ad11",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 11 edificios, placas 4 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "castle: lo recortado toca el borde de su región en x0 (990)",
+    "marketplace: lo recortado toca el borde de su región en x1 (768)",
+    "imperio_pueblo: lo recortado toca el borde de su región en x1 (515)",
+    "imperio_armeria: lo recortado toca el borde de su región en x1 (856)",
+    "imperio_caballerizas: lo recortado toca el borde de su región en x0 (856)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/imperio/fuentes/placa-t5.webp",
+    "sha256": "7f816f0639ab586b698fd5eef02a210312cee6bfafdec4c07ad46bc363ba6799"
+  }
+}

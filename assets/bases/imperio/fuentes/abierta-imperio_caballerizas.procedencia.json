@@ -1,0 +1,39 @@
+{
+  "encargo": "base-imperio-abierta-imperio-caballerizas",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:14:22.254Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a84-2183-7d93-9eda-f1cbd77b7107",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 2 empezando por la izquierda (las caballerizas, el que está entre las columnas 880 y 1536) se ABRE como una CASA DE MUÑECAS: se le quita la PARED DE DELANTE (la fachada entera, con su puerta y sus ventanas) y se ve su sala por dentro: unas caballerizas: los pesebres con heno al fondo, sillas de montar, bridas y pistolas de rueda colgadas de la pared; sin caballos.\nEs el MISMO edificio, en el MISMO sitio, con el MISMO tamaño y el MISMO contorno: el tejado y los muros de los lados se quedan, cortados limpios donde estaba la fachada, y se ve el grueso de la pared en el corte. El suelo de la sala va a ras del borde de atrás del empedrado, donde estaba el umbral de la puerta, y la sala se ve desde la plaza con la misma cámara que todo el cuadro (ortográfica, elevada 25 grados, de frente). La luz de dentro, la de su fuego, sus ventanas o sus cirios, sobria.\nA la escala de la plaza: un adulto mide 122 px de alto en este cuadro, y los muebles van a su medida (un banco o un saco, a su rodilla; una mesa, un yunque o un altar, a su cadera). La sala va VACÍA: ninguna persona ni animal, que la gente del juego se pone delante, en el empedrado.\nFuera de ese edificio, NADA cambia: ni los otros edificios, ni el suelo, la luz, el cielo, el encuadre o lo que cierra la plaza. Lo nuevo no pasa de las columnas 880 y 1536.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/imperio/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "d4b70ccd7c65151a796fb16e542dc7220f3cedeadcf716ade136361c524e0f99"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a84-2183-7d93-9eda-f1cbd77b7107/call_f652a9516b004396af9cf8bad3c601b9.png",
+    "sha256": "143ca9a5958f7dec89a727026f7e0e92620f86f5a7561ce862081780ee4f6c23",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 11 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "castle: lo recortado toca el borde de su región en x0 (990)",
+    "imperio_pueblo: lo recortado toca el borde de su región en x1 (515)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/imperio/fuentes/abierta-imperio_caballerizas.webp",
+    "sha256": "2de4f9d43c58a9b8e624b118dbf8dcb2edbfb4de26cf893843d5b69d50fd6d33"
+  }
+}

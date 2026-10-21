@@ -84,10 +84,6 @@ const PLANO: MapPlan = {
     { id: 'mio', name: 'Valdeluz', faction: FACCION_A, at: MI_CASTILLO, owner: 0 },
     { id: 'suyo', name: 'Osario', faction: FACCION_B, at: SU_CASTILLO, owner: 1 },
   ],
-  heroStarts: [
-    { player: 0, at: { x: 4, y: 6 } },
-    { player: 1, at: { x: 35, y: 6 } },
-  ],
   mines: [],
   villages: [],
   resources: [],
@@ -122,10 +118,6 @@ const ESQUINAS: MapPlan = {
   towns: [
     { id: 'mio', name: 'Valdeluz', faction: FACCION_A, at: { x: 1, y: 5 }, owner: 0 },
     { id: 'suyo', name: 'Osario', faction: FACCION_B, at: { x: 38, y: 5 }, owner: 1 },
-  ],
-  heroStarts: [
-    { player: 0, at: { x: 2, y: 2 } },
-    { player: 1, at: { x: 37, y: 8 } },
   ],
   // Por la puerta del norte y la del sur de cada una.
   roads: [3, 4, 5, 6, 7].flatMap((y) => [
@@ -224,7 +216,7 @@ describe('la crónica pasa por la niebla', () => {
     // Mi héroe se planta en (28,6): ve de 28 − r a 28 + r (r = 5 en el 42×42, #229).
     pasear(state, ctx, 0, [{ x: 28, y: 6 }]);
     pasarTurno(state, ctx, 0);
-    // El rival viene hacia mí desde la 35. Entra en mi vista en la 28 + r.
+    // El rival viene hacia mí desde su castillo (37). Entra en mi vista en la 28 + r.
     pasear(state, ctx, 1, [{ x: 31, y: 6 }]);
     pasarTurno(state, ctx, 1);
 
@@ -235,9 +227,11 @@ describe('la crónica pasa por la niebla', () => {
     // «Entero o nada» se aplica a cada paso, que es lo que es un `hero_moved`:
     // el mismo viaje llega recortado por donde deja de vérsele.
     const borde = 28 + HERO_SCOUT_RADIUS;
-    expect(borde).toBeLessThan(35); // si no, el rival nacería a la vista
+    expect(borde).toBeLessThan(SU_CASTILLO.x); // si no, el rival nacería a la vista
     expect(pasos).toEqual(Array.from({ length: borde - 30 }, (_, i) => borde - i));
-    expect(state.log.filter((e) => e.kind === 'hero_moved' && e.actor === 1)).toHaveLength(4);
+    expect(state.log.filter((e) => e.kind === 'hero_moved' && e.actor === 1)).toHaveLength(
+      SU_CASTILLO.x - 31,
+    );
   });
 
   it('lo que vi el día 3 me sigue constando el día 4: la crónica es memoria', () => {

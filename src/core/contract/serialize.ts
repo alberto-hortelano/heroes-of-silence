@@ -1098,7 +1098,7 @@ export function serializeMapRequest(opts: MapRequestOptions) {
       'Deja el centro del mapa disputado y los bordes seguros.',
       'Pon las ciudades en los cruces de tres regiones o más, y que cada base tenga dos caminos distintos hasta las ciudades que le quedan cerca: así aislarlas es posible pero no trivial.',
       'Un camino entra en una mina o un pueblo por la casilla de debajo, que es su puerta, y no lo atraviesa: si sigue hacia otro sitio, pasa por la fila de delante y deja un ramal de una casilla hasta la puerta.',
-      `A una ciudad, en cambio, se entra por las puertas de su recinto de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO}: lleva el camino de cada región que la toque de un acceso a dos casillas (al norte, al sur o en diagonal) a la puerta de esa cara y de ahí a la ciudad; deja ${SEPARACION_DE_CIUDADES} casillas entre dos ciudades, nada dentro de un recinto, y el inicio de cada jugador en un acceso de su base.`,
+      `A una ciudad, en cambio, se entra por las puertas de su recinto de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO}: lleva el camino de cada región que la toque de un acceso a dos casillas (al norte, al sur o en diagonal) a la puerta de esa cara y de ahí a la ciudad; deja ${SEPARACION_DE_CIUDADES} casillas entre dos ciudades y nada dentro de un recinto. El héroe de cada jugador empieza en su base y sale por sus puertas.`,
     ],
   };
 }

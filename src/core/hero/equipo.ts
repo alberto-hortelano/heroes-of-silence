@@ -680,11 +680,26 @@ export function cifrasDePieza(p: Pieza): string {
 /** A quién de un héroe se le pone o se le quita una pieza: a él, o a un individuo de su tropa. */
 export type Portador = { readonly heroe: true } | { readonly indice: number };
 
-/** Cómo se nombra a quién: nada es el héroe; `veteran`, un id de hoja; `creature`, un novato de ese tipo. */
+/**
+ * Cómo se nombra a quién: nada es el héroe; `veteran`, un id de hoja; `creature`,
+ * un novato de ese tipo; `puesto`, el individuo de ese puesto de la tropa (lo que
+ * escribe la escena de la tropa, donde cada uno tiene su sitio; el contrato del
+ * agente no lo lleva: su esquema no lo declara y zod lo quita).
+ */
 export interface DestinoPedido {
   readonly veteran?: string | undefined;
   readonly creature?: string | undefined;
+  readonly puesto?: number | undefined;
 }
+
+/**
+ * Por qué a un personaje sin hoja no se le pone nada. Sus cifras salen de su
+ * perfil (`troopUnit`, `combatProfile`), que no lee equipo: vestirlo abriría una
+ * hoja con un equipo que no contaría. Lo dicen `destinoDeEquipo` (por su puesto)
+ * y `pedidoDeEquipo` (que no tiene con qué nombrarlo).
+ */
+const PERSONAJE_SIN_HOJA =
+  'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo';
 
 /**
  * A quién de `hero` va la pieza que se pide así, o por qué no hay nadie. **La
@@ -696,15 +711,28 @@ export interface DestinoPedido {
  * con esa hoja. Con `creature`, **el primer novato sin hoja de ese tipo**: un
  * novato sin hoja es fungible —cuál de tres piqueros recibe la espada no
  * importa— y uno con hoja ya tiene nombre (su id) y se nombra con `veteran`. Un
- * personaje no entra por `creature`: es uno y tiene nombre.
+ * personaje no entra por `creature`: es uno y tiene nombre. Con `puesto`, el de
+ * ese puesto de la tropa, sea quien sea: la escena de la tropa nombra al que se
+ * pulsó, y la pieza no se va a otro novato igual en otro sitio del arco.
  */
 export function destinoDeEquipo(
   hero: Pick<Hero, 'name' | 'army'>,
   pedido: DestinoPedido,
 ): Portador | { readonly motivo: string } {
-  const { veteran, creature: especieId } = pedido;
+  const { veteran, creature: especieId, puesto } = pedido;
   if (veteran !== undefined && especieId !== undefined) {
     return { motivo: 'di a quién se la pones con "veteran" o con "creature", no con los dos' };
+  }
+  if (puesto !== undefined) {
+    if (veteran !== undefined || especieId !== undefined) {
+      return { motivo: 'di a quién se la pones por su puesto o por su nombre, no por los dos' };
+    }
+    const t = Number.isInteger(puesto) ? hero.army[puesto] : undefined;
+    if (t === undefined) {
+      return { motivo: `${hero.name} no lleva a nadie en el puesto ${puesto} de su tropa` };
+    }
+    if (t.member !== undefined && t.veterania === undefined) return { motivo: PERSONAJE_SIN_HOJA };
+    return { indice: puesto };
   }
   if (veteran !== undefined) {
     const indice = hero.army.findIndex((t) => t.veterania?.id === veteran);
@@ -733,6 +761,46 @@ export function destinoDeEquipo(
     return { indice };
   }
   return { heroe: true };
+}
+
+/** Cómo se nombra a un portador en una acción: lo que escribe `pedidoDeEquipo`, sin campos a `undefined`. */
+export type PedidoDeEquipo =
+  | Record<string, never>
+  | { readonly veteran: string }
+  | { readonly creature: string };
+
+/**
+ * **La inversa de `destinoDeEquipo`**: cómo se nombra en una acción `equip` o
+ * `unequip` al portador `quien` de `hero`, o por qué no se le puede nombrar. El
+ * héroe, sin nada; el de hoja, por su id; el novato, por su tipo —y entonces la
+ * pieza va al **primer** novato de ese tipo, que no tiene por qué ser `quien`:
+ * son fungibles, y quien la pide lo sabe preguntándole a `destinoDeEquipo`—. Un
+ * personaje sin hoja no entra por `creature` (es uno y tiene nombre) y todavía no
+ * tiene id: no hay forma de nombrarlo. La lee la IA; la escena de la tropa nombra
+ * por el puesto (`pedidoDelPuesto`).
+ */
+export function pedidoDeEquipo(
+  hero: Pick<Hero, 'army'>,
+  quien: Portador,
+): PedidoDeEquipo | { readonly motivo: string } {
+  if ('heroe' in quien) return {};
+  const t = individuo(hero, quien);
+  if (t.veterania !== undefined) return { veteran: t.veterania.id };
+  if (t.member === undefined) return { creature: t.creature };
+  return { motivo: PERSONAJE_SIN_HOJA };
+}
+
+/**
+ * **La inversa exacta de `destinoDeEquipo`** por el puesto: cómo se nombra a
+ * `quien` para que la pieza le llegue a él y no a otro novato de su tipo
+ * (`destinoDeEquipo(hero, pedidoDelPuesto(quien))` es `quien`, salvo el personaje
+ * sin hoja, que da su motivo). La lee la escena de la tropa; la IA y el agente
+ * siguen nombrando por tipo (`pedidoDeEquipo`).
+ */
+export function pedidoDelPuesto(
+  quien: Portador,
+): Record<string, never> | { readonly puesto: number } {
+  return 'heroe' in quien ? {} : { puesto: quien.indice };
 }
 
 /** Lo que lleva puesto el portador `quien` de `hero`. */

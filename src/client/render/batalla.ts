@@ -32,7 +32,9 @@ import { isShooter } from '@core/data.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { COMPRESION_SUELO } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
+import { temaDelLienzo } from '../temas.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
+import { aroDeFigura, type PiesDeLaFigura } from './aro.js';
 import { asset } from './assets.js';
 import { type CharacterClip, clipEnCurso } from './character.js';
 import {
@@ -188,7 +190,7 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   const { battle, tablero } = v;
   ctx.save();
   ctx.imageSmoothingEnabled = true;
-  pintarFondo(ctx, v);
+  pintarFondo(ctx, { ancho: v.ancho, alto: v.alto, horizonte: horizonteDelCampo(v.tablero) });
 
   const movibles = new Set(v.movibles.map(hexKey));
   // La figura de cada uno, una vez por fotograma: de ella salen también la
@@ -1306,7 +1308,7 @@ function pintarCargas(
   angulo: Angulo | null,
 ): void {
   ctx.save();
-  ctx.font = `bold ${Math.max(9, Math.round(t.paso * 0.22))}px sans-serif`;
+  ctx.font = `bold ${Math.max(9, Math.round(t.paso * 0.22))}px ${temaDelLienzo().letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (const { target, at, hexes, porciento } of cargas) {
@@ -1353,6 +1355,30 @@ export function cajaDeFiguraEn(t: Tablero, en: Plano): CajaDeFigura {
   return { x: p.x, suelo: p.y, alto, ancho: alto * 0.42 };
 }
 
+/**
+ * El aro dorado a los pies de una figura de pie: el de quien señala el ratón en
+ * la base y el de la elegida en la escena de la tropa (`grueso` dice cuál pesa más).
+ * Centrado en sus pies y del tamaño que los abarque (`aroDeFigura`, con `pies` de
+ * `piesDeFigura`; sin ellos, el de siempre). Va encima de la sombra y debajo de
+ * la figura (`pintarFiguraConSombra` con él en medio): la sombra es del suelo y el
+ * aro se lee encima.
+ */
+export function pintarAroDeFigura(
+  ctx: CanvasRenderingContext2D,
+  c: CajaDeFigura,
+  pies: PiesDeLaFigura | null,
+  grueso = 2,
+): void {
+  const aro = aroDeFigura(c, pies);
+  ctx.save();
+  ctx.strokeStyle = '#f5d973';
+  ctx.lineWidth = grueso;
+  ctx.beginPath();
+  ctx.ellipse(aro.x, aro.y, aro.rx, aro.ry, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** Lo que se cuenta por debajo del suelo como pulsar la figura, en píxeles: la sombra de los pies. */
 const BAJO_LOS_PIES = 4;
 
@@ -1375,10 +1401,31 @@ let fondo: {
   lienzo: HTMLCanvasElement;
 } | null = null;
 
-function pintarFondo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
+/** Lo que mira el fondo del campo: el tamaño del lienzo y dónde cae su horizonte, en píxeles. */
+export interface LienzoDelCampo {
+  readonly ancho: number;
+  readonly alto: number;
+  readonly horizonte: number;
+}
+
+/**
+ * El horizonte del campo en una batalla: un poco por encima de la fila de atrás
+ * del tablero, a la cabeza de quien está en ella. Así el tablero entero pisa
+ * suelo y no flota sobre el cielo.
+ */
+function horizonteDelCampo(t: Tablero): number {
+  return t.origenY - t.paso * 0.9;
+}
+
+/**
+ * El campo de batalla detrás de todo, con su horizonte en `v.horizonte`. Lo
+ * pintan la batalla (`horizonteDelCampo`) y la escena de la tropa, que se alza en
+ * el mismo campo y pone el suyo detrás del héroe.
+ */
+export function pintarFondo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
   const campo = asset('rpg', 'campo');
   const dpr = densidadDe(ctx);
-  const clave = `${v.ancho}|${v.alto}|${dpr}|${v.tablero.paso}|${v.tablero.origenY}|${v.tablero.compresion}`;
+  const clave = `${v.ancho}|${v.alto}|${dpr}|${v.horizonte}`;
   if (fondo === null || fondo.clave !== clave || fondo.campo !== campo) {
     const lienzo = fondo?.lienzo ?? document.createElement('canvas');
     lienzo.width = Math.max(1, Math.ceil(v.ancho * dpr));
@@ -1396,19 +1443,18 @@ function pintarFondo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
 
 function componerFondo(
   ctx: CanvasRenderingContext2D,
-  v: VistaBatalla,
+  v: LienzoDelCampo,
   campo: HTMLImageElement | null,
 ): void {
   if (campo !== null) {
     pintarCielo(ctx, v);
-    // El horizonte del fondo (el 47 % de su alto, donde acaba el empedrado) se
-    // pone un poco por encima de la fila de atrás: así el tablero entero pisa
-    // suelo y no flota sobre el cielo. Y la escala nunca deja el fondo más
-    // estrecho que el lienzo ni corto por abajo.
+    // El horizonte del fondo (el 47 % de su alto, donde acaba el empedrado) va
+    // en `v.horizonte`. Y la escala nunca deja el fondo más estrecho que el
+    // lienzo ni corto por abajo.
     const HORIZONTE = 0.47;
     const W = campo.naturalWidth;
     const H = campo.naturalHeight;
-    const arriba = v.tablero.origenY - v.tablero.paso * 0.9;
+    const arriba = v.horizonte;
     const escala = Math.max(v.ancho / W, (v.alto - arriba) / ((1 - HORIZONTE) * H));
     const w = W * escala;
     const h = H * escala;
@@ -1432,8 +1478,8 @@ function componerFondo(
  * del azul pizarra arriba al ocre de la bruma en la línea de los árboles, que es
  * la luz que ya tiene el empedrado.
  */
-function pintarCielo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
-  const linea = Math.max(1, v.tablero.origenY - v.tablero.paso * 0.9);
+function pintarCielo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
+  const linea = Math.max(1, v.horizonte);
   const cielo = ctx.createLinearGradient(0, 0, 0, linea);
   cielo.addColorStop(0, '#27303b');
   cielo.addColorStop(0.55, '#5b5e58');
@@ -1627,8 +1673,8 @@ function pintarGalones(
   const hueco = 3;
   const total = n * ancho + (n - 1) * hueco;
   const abajo = y - 4;
+  const tema = temaDelLienzo();
   ctx.save();
-  ctx.globalAlpha = f.alfaDelAro;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (let i = 0; i < n; i++) {
@@ -1637,11 +1683,15 @@ function pintarGalones(
     ctx.moveTo(izq, abajo);
     ctx.lineTo(izq + ancho / 2, abajo - alto);
     ctx.lineTo(izq + ancho, abajo);
+    // El contorno lleva su transparencia encima de la del aro: el tema da el
+    // color opaco.
+    ctx.globalAlpha = f.alfaDelAro * 0.9;
     ctx.lineWidth = 5;
-    ctx.strokeStyle = 'rgba(12,10,6,0.9)';
+    ctx.strokeStyle = tema.vidaFondo;
     ctx.stroke();
+    ctx.globalAlpha = f.alfaDelAro;
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = '#e8c35a';
+    ctx.strokeStyle = tema.galon;
     ctx.stroke();
   }
   ctx.restore();
@@ -1682,16 +1732,21 @@ export function pintarCorona(
   f: EstadoFigura,
 ): void {
   const c = cajaDeCorona(v, f);
+  const tema = temaDelLienzo();
   ctx.save();
-  ctx.globalAlpha = f.alfaDelAro;
-  ctx.font = `bold ${c.alto}px system-ui, "DejaVu Sans", sans-serif`;
+  // La letra del tema: si no trae el glifo, el navegador lo saca de otra del
+  // sistema, como con cualquier carácter que le falte a una fuente.
+  ctx.font = `bold ${c.alto}px ${tema.letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineWidth = 4;
-  ctx.strokeStyle = 'rgba(12,10,6,0.9)';
+  // El contorno, del oscuro de la barra de vida (opaco en el tema) a 0,9.
+  ctx.globalAlpha = f.alfaDelAro * 0.9;
+  ctx.strokeStyle = tema.vidaFondo;
   const cx = c.x + c.ancho / 2;
   const cy = c.y + c.alto / 2;
   ctx.strokeText(MARCA_DE_COMANDANTE, cx, cy);
+  ctx.globalAlpha = f.alfaDelAro;
   ctx.fillStyle = COLOR_DE_COMANDANTE;
   ctx.fillText(MARCA_DE_COMANDANTE, cx, cy);
   ctx.restore();
@@ -1714,10 +1769,12 @@ function pintarVida(
   // La vida que se ve (`EstadoFigura.pv`), no la del estado: con la cola llena,
   // la del estado es la de después de todo lo que aún no se ha enseñado.
   const vida = Math.max(0, Math.min(1, f.pv / Math.max(1, s.unit.hp * s.initialCount)));
+  const tema = temaDelLienzo();
   ctx.save();
-  ctx.globalAlpha = f.alfaDelAro;
-  ctx.fillStyle = 'rgba(12,10,6,0.85)';
+  ctx.globalAlpha = f.alfaDelAro * 0.85;
+  ctx.fillStyle = tema.vidaFondo;
   ctx.fillRect(x - anchoBarra / 2 - 1, y - 1, anchoBarra + 2, 6);
+  ctx.globalAlpha = f.alfaDelAro;
   ctx.fillStyle = vida > 0.5 ? '#9fc49a' : vida > 0.25 ? '#e0c060' : '#e3735a';
   ctx.fillRect(x - anchoBarra / 2, y, anchoBarra * vida, 4);
   ctx.restore();
@@ -1730,16 +1787,19 @@ function pintarNombre(
   s: BattleStack,
   f: EstadoFigura,
 ): void {
+  const tema = temaDelLienzo();
   ctx.save();
   ctx.globalAlpha = f.alfaDelAro;
-  ctx.font = `${cuerpoDelNombre(v)}px system-ui, sans-serif`;
+  ctx.font = `${cuerpoDelNombre(v)}px ${tema.letraUi}`;
   // Con la letra de los homónimos («Piquero B»): es la misma que dice el parte,
   // y pasar el ratón por la figura es como se casa una línea con su unidad (#198).
   const nombre = nombreEnElCampo(v.battle, s);
   const caja = cajaDeNombre(v, f, ctx.measureText(nombre).width);
-  ctx.fillStyle = 'rgba(25,21,9,0.9)';
+  ctx.globalAlpha = f.alfaDelAro * 0.9;
+  ctx.fillStyle = tema.chapaFondo;
   ctx.fillRect(caja.x, caja.y, caja.ancho, caja.alto);
-  ctx.fillStyle = '#fbe8b5';
+  ctx.globalAlpha = f.alfaDelAro;
+  ctx.fillStyle = tema.chapaTinta;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(nombre, caja.x + caja.ancho / 2, caja.y + 2);
@@ -1796,7 +1856,7 @@ function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): voi
       ctx.fillStyle = '#ffe1c2';
       ctx.strokeStyle = '#2a0e06';
       ctx.lineWidth = 3;
-      ctx.font = `bold ${Math.max(14, Math.round(t.paso * 0.28))}px Georgia, serif`;
+      ctx.font = `bold ${Math.max(14, Math.round(t.paso * 0.28))}px ${temaDelLienzo().letraTitulo}`;
       ctx.textAlign = 'center';
       const y = p.y - alto - e.t * t.paso * 0.45;
       ctx.strokeText(`−${e.cifra}`, p.x, y);
@@ -1811,7 +1871,10 @@ function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): voi
       ctx.fillStyle = '#d6e2ee';
       ctx.strokeStyle = '#10202e';
       ctx.lineWidth = 3;
-      ctx.font = `bold ${Math.max(13, Math.round(t.paso * 0.24))}px Georgia, serif`;
+      // Con la letra de la interfaz y no la de título: de esa, el lienzo solo
+      // pide las cifras (`cargarLetraDeTitulo`), y estas letras saldrían con el
+      // respaldo hasta que otra cosa la bajara.
+      ctx.font = `bold ${Math.max(13, Math.round(t.paso * 0.24))}px ${temaDelLienzo().letraUi}`;
       ctx.textAlign = 'center';
       const y = p.y - alto - e.t * t.paso * 0.45;
       ctx.strokeText('parado', p.x, y);

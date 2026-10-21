@@ -1,0 +1,68 @@
+/*
+ * GENERADO por `npx tsx tools/fuentes/bajar.ts` (la tabla `FUENTES`): no se
+ * edita a mano. Lo compara con la tabla `test/fuentes.test.ts`.
+ *
+ * Las letras de título de los temas: una OFL por tema (13-10-2026), bajada de
+ * `github.com/google/fonts` y servida tal cual desde `assets/letras/<familia>/`,
+ * con su `OFL.txt` y su procedencia al lado. Nada de CDN: la página no pide nada
+ * fuera de su origen.
+ *
+ * Un `@font-face` no baja nada hasta que alguna regla pinta texto con su
+ * familia, y solo la nombra la `--letra-titulo` de su tema: el neutro y los otros
+ * cuatro no la piden. `swap` pinta en el acto con la cadena de respaldo del tema
+ * y cambia a la buena al llegar; el lienzo la espera aparte (`ponerTema`).
+ *
+ * TrueType y no woff2: el navegador las lee igual y un codificador propio no
+ * compensaba. Una letra cuyas cifras no sirven (de caja baja, o un «1» que es una
+ * I versal) no las cubre: salen de la letra de respaldo del tema.
+ */
+
+/* templarios: las versales romanas de «IN HOC SIGNO VINCES». Variable, de 400 a 900. No cubre las cifras. */
+@font-face {
+  font-family: Cinzel;
+  src: url('/letras/cinzel/Cinzel.ttf') format('truetype');
+  font-weight: 400 900;
+  font-display: swap;
+  unicode-range: U+0-2F, U+3A-10FFFF;
+}
+
+/* no-muertos: versalitas de imprenta vieja. No cubre las cifras. */
+@font-face {
+  font-family: 'IM Fell English SC';
+  src: url('/letras/imfellenglishsc/IMFeENsc28P.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0-2F, U+3A-10FFFF;
+}
+
+/* imperio: romana abierta, con minúsculas, como «Aldo de Valdeluz» en su lámina. */
+@font-face {
+  font-family: Marcellus;
+  src: url('/letras/marcellus/Marcellus-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* elfos: humanista caligráfica, con su negrita. No cubre las cifras. */
+@font-face {
+  font-family: Almendra;
+  src: url('/letras/almendra/Almendra-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0-2F, U+3A-10FFFF;
+}
+@font-face {
+  font-family: Almendra;
+  src: url('/letras/almendra/Almendra-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0-2F, U+3A-10FFFF;
+}
+
+/* orkos: maciza, como el rótulo «HEROES SILENCE». */
+@font-face {
+  font-family: 'Germania One';
+  src: url('/letras/germaniaone/GermaniaOne-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}

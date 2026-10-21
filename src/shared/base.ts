@@ -497,5 +497,27 @@ export interface IndiceDeLaBase {
    */
   readonly cielo: readonly [number, number, number] | null;
   readonly edificios: Readonly<Record<string, RecorteEnElIndice>>;
+  /**
+   * La versión abierta de cada morada que la tiene, por el id de su edificio: el
+   * mismo edificio sin la pared de delante, con su sala dentro (la «casa de
+   * muñecas», 20-10-2026), que sustituye a su recorte mientras se recluta en ella
+   * (`escenas/morada.ts`, `conLaAbierta`). Se recorta como cualquier edición, por
+   * la diferencia con la placa en la región de su sitio, y va en la raíz de la
+   * base (`abierta-<id>.webp`).
+   */
+  readonly abiertas: Readonly<Record<string, RecorteEnElIndice>>;
   readonly derivadoPor: 'tools/taller/recorte-base.ts';
 }
+
+/**
+ * El índice de una base sin arte: el de las facciones con marcadores, el que se
+ * escribe sin fuentes y el que usa el cliente si no llega el suyo.
+ */
+export const INDICE_VACIO: IndiceDeLaBase = {
+  tramos: [],
+  suelo: null,
+  cielo: null,
+  edificios: {},
+  abiertas: {},
+  derivadoPor: 'tools/taller/recorte-base.ts',
+};

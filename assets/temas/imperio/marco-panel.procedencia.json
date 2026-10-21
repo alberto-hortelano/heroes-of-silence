@@ -1,0 +1,53 @@
+{
+  "encargo": "tema-02-marco-panel-imperio",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:09:16.312Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b43-e6a6-7302-ab91-3e1027212960",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema IMPERIO: mármol claro con capiteles y molduras doradas, colgaduras moradas con flecos de oro, laureas, águilas y grifos dorados, al estilo de Roma. El MARCO del panel lateral (el del héroe, el equipo y la tropa): más fino que el del mapa, con las esquinas rematadas. Moldura oscura con un filo dorado y una roseta dorada en cada esquina.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs un MARCO que el juego corta en 9 trozos para rodear un rectángulo de cualquier tamaño: las cuatro ESQUINAS (el 12,5 % de cada lado, como en la guía) llevan los adornos y se pintan una vez; las cuatro BANDAS entre ellas se estiran a lo largo y van lisas, uniformes y continuas, sin adornos sueltos, y casan con sus esquinas sin costura. El marco ocupa EXACTAMENTE la banda de la guía, de borde a borde de la imagen, y el centro es un fondo oscuro liso que no se ve.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nImagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/imperio.png",
+      "papel": "estilo",
+      "sha256": "803df1df8c741579af365f0f5f7b652323466dcaa387d2aad2cdc293952f2f0d"
+    },
+    {
+      "ruta": "assets/art/temas/imperio.png",
+      "papel": "pieza",
+      "sha256": "803df1df8c741579af365f0f5f7b652323466dcaa387d2aad2cdc293952f2f0d",
+      "recorte": {
+        "x": 940,
+        "y": 400,
+        "w": 345,
+        "h": 240
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/marco.png",
+      "papel": "corte",
+      "sha256": "9008a793b573c19143be4f7bc01562bbd2bdb5f10a1d53d4d15b194f725c0a4a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b43-e6a6-7302-ab91-3e1027212960/exec-a8c5ee0d-f47c-4380-bde1-8c667b0cdbe0.png",
+    "sha256": "7190725f3524afc4230ef5425ee524c552f0e2014f689c390582f1476279b352",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "llevado de 1254×1254 a 512×512, el tamaño que pide",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 8 piezas en disco"
+  ],
+  "validacion": {
+    "ancho": 512,
+    "alto": 512
+  },
+  "salida": {
+    "ruta": "assets/temas/imperio/marco-panel.webp",
+    "sha256": "e13bc7cf289dc93dfc26eb1de30af40b95a9bd9b323c45013889d298ab193ed3"
+  }
+}

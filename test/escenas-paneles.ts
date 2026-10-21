@@ -27,7 +27,7 @@ import { isEnterable, objectAt } from '../src/core/map/map.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
 import type { Army, Point, Veterania } from '../src/core/types.js';
-import { aCiegas, agresiva, avanzarHasta, TIRADOR, TROPA } from './helpers.js';
+import { aCiegas, agresiva, avanzarHasta, fueraDeSuBase, TIRADOR, TROPA } from './helpers.js';
 
 /** Una hoja de servicios de prueba: lo justo para que el panel la pinte. */
 function hoja(id: string, experiencia: number): Veterania {
@@ -61,7 +61,9 @@ function vecinaLibre(s: Session, p: Point): Point {
 
 export function meAtacan(semilla: number, ejercitoMio?: Army): Session {
   const s = new Session(semilla);
-  const mio = heroesOf(s.state, 0)[0]!;
+  // Fuera de su base, donde nace (19-10-2026): dentro, la batalla sería la de
+  // la base, que no deja rendirse, y la escena enseña la rendición.
+  const mio = fueraDeSuBase(s.state, 0);
   const suyo = heroesOf(s.state, 1)[0]!;
   if (ejercitoMio !== undefined) mio.army = ejercitoMio;
   s.state.current = 1;
@@ -88,9 +90,9 @@ export async function escenas(): Promise<readonly Escena[]> {
   // 2 · El castillo con el héroe dentro: gremio construido —para que
   //     `renderTownSpells` tenga lista que enseñar— y ejército del héroe en vez
   //     del botón de contratar.
+  //     El héroe nace dentro (19-10-2026): no hace falta llevarlo.
   const castillo = new Session(12);
   const pueblo = castillo.myTowns()[0]!;
-  castillo.moveHeroTo(castillo.myHeroes()[0]!.id, pueblo.at);
   castillo.openTown(pueblo.id);
   castillo.build('mage_guild_1');
   out.push({ nombre: 'castillo · con héroe dentro y gremio', session: castillo });
@@ -98,6 +100,7 @@ export async function escenas(): Promise<readonly Escena[]> {
   // 3 · El mismo castillo sin héroe encima: la otra rama, la del botón de
   //     contratar, y el gremio todavía sin construir.
   const castilloVacio = new Session(12);
+  fueraDeSuBase(castilloVacio.state, castilloVacio.viewer);
   castilloVacio.openTown(castilloVacio.myTowns()[0]!.id);
   out.push({ nombre: 'castillo · sin héroe y sin gremio', session: castilloVacio });
 
@@ -105,6 +108,7 @@ export async function escenas(): Promise<readonly Escena[]> {
   //     solo se pinta con dos o más) y el libro de hechizos VACÍO, que es la
   //     rama que el héroe inicial nunca enseña.
   const contratado = new Session(12);
+  fueraDeSuBase(contratado.state, contratado.viewer);
   contratado.openTown(contratado.myTowns()[0]!.id);
   contratado.hireHero();
   contratado.closeTown();
@@ -273,8 +277,8 @@ export async function escenas(): Promise<readonly Escena[]> {
   //      su tipo.
   const veteranos = new Session(12);
   const casa = veteranos.myTowns()[0]!;
+  // Nace dentro de su base (19-10-2026).
   const capitan = veteranos.myHeroes()[0]!;
-  veteranos.moveHeroTo(capitan.id, casa.at);
   capitan.army = [
     { creature: 'goblin-lancero' },
     { creature: 'templario-escudo', veterania: hoja('veterano-1', 70) },
@@ -300,8 +304,8 @@ export async function escenas(): Promise<readonly Escena[]> {
   //      le ha puesto otra (los dos en su fila, con su «Lleva:»).
   const armeria = new Session(12);
   const conArmeria = armeria.myTowns()[0]!;
+  // Nace dentro de su base (19-10-2026).
   const armero = armeria.myHeroes()[0]!;
-  armeria.moveHeroTo(armero.id, conArmeria.at);
   conArmeria.buildings.push('armory');
   armero.army = [
     {

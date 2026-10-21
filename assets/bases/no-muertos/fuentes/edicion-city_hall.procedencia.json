@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-edicion-city-hall",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:25:16.997Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a8e-1d6c-7101-b82d-f65f85131ba7",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 2 empezando por la izquierda (el ayuntamiento, el que está entre las columnas 535 y 985) se MEJORA y pasa a ser el palacio de los muertos: el mismo edificio hecho palacio, EXACTAMENTE DEL MISMO ANCHO que el edificio que sustituye: sus dos alas se levantan en dos torres (encima de las alas, no a los lados) rematadas en agujas, escalinata de piedra negra y vidrieras de luz verdosa. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 535 y 985: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/edicion-town_hall.webp",
+      "papel": "edita",
+      "sha256": "4f0ab38179eadc72832158371d27a234ed9344e5ee43f66d06b63ae01f752fc0"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a8e-1d6c-7101-b82d-f65f85131ba7/call_de17c5c8491641f1b0012722b557f330.png",
+    "sha256": "29be0de3bdd3455a37123dff67f27cd90044fee31bcd34cca4f8db1e0e19621f",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 12 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/edicion-city_hall.webp",
+    "sha256": "86d0de9b5ad0c0e14030572e42d0e88715a30f74590c841bc4ec65e6be9d8a1f"
+  }
+}

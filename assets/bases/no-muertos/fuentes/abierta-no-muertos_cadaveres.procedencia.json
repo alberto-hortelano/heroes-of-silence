@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-abierta-no-muertos-cadaveres",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:17:23.685Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a86-e4cb-7651-a572-98ae58f71c33",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (el osario (los cadáveres), el que está entre las columnas 64 y 535) se ABRE como una CASA DE MUÑECAS: se le quita la PARED DE DELANTE (la fachada entera, con su puerta y sus ventanas) y se ve su sala por dentro: un osario: paredes de nichos con huesos apilados y cráneos en fila, una mesa de piedra con huesos, tierra removida en el suelo y velas de luz verdosa.\nEs el MISMO edificio, en el MISMO sitio, con el MISMO tamaño y el MISMO contorno: el tejado y los muros de los lados se quedan, cortados limpios donde estaba la fachada, y se ve el grueso de la pared en el corte. El suelo de la sala va a ras del borde de atrás del empedrado, donde estaba el umbral de la puerta, y la sala se ve desde la plaza con la misma cámara que todo el cuadro (ortográfica, elevada 25 grados, de frente). La luz de dentro, la de su fuego, sus ventanas o sus cirios, sobria.\nA la escala de la plaza: un adulto mide 122 px de alto en este cuadro, y los muebles van a su medida (un banco o un saco, a su rodilla; una mesa, un yunque o un altar, a su cadera). La sala va VACÍA: ninguna persona ni animal, que la gente del juego se pone delante, en el empedrado.\nFuera de ese edificio, NADA cambia: ni los otros edificios, ni el suelo, la luz, el cielo, el encuadre o lo que cierra la plaza. Lo nuevo no pasa de las columnas 64 y 535.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/maestro-t3.webp",
+      "papel": "edita",
+      "sha256": "5a7933362aaa4552397eb63be804b5e7f8dcf32483b9902e9499a4d996fa24fd"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a86-e4cb-7651-a572-98ae58f71c33/call_9b74b525d81348cd81f3eec0f0595b86.png",
+    "sha256": "51876ee13ebda2edb7146f37a5a63fd4e68820a3171f7d54e9623a9f029519cc",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 9 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/abierta-no-muertos_cadaveres.webp",
+    "sha256": "aa2d9dc75f6783ccf0f497f33b8c4b8338e4e61d68eddb596980fd4c6f47d4ed"
+  }
+}

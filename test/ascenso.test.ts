@@ -30,7 +30,7 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import { FACTION_IDS, type Troop, type Veterania } from '../src/core/types.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import { TROPA_BARATA } from './helpers.js';
+import { fueraDeSuBase, TROPA_BARATA } from './helpers.js';
 
 /**
  * El tipo de héroe `i` de la facción del jugador 1, en el orden de
@@ -282,6 +282,8 @@ describe('la tropa se hace héroe: la base no se queda sin defensa (I1)', () => 
 
   it('el nacido en la casilla del castillo recoge la guarnición, como el contratado', () => {
     const state = newGame({ seed: 11 });
+    // El héroe de salida nace en la base (19-10-2026): fuera, para que la ocupe el nacido.
+    fueraDeSuBase(state, 1);
     const base = baseOf(state, 1)!;
     const id = ponVeteranoEnLaBase(state, 1);
     const resto = base.garrison.length - 1;

@@ -972,8 +972,8 @@ describe('qué tapa a qué en el mapa', () => {
   it('el héroe al norte de su castillo, en su recinto, se pinta delante de él', () => {
     // La premisa: está justo encima de su castillo, en la casilla de la puerta
     // del norte de su recinto. Antes nacía ahí (era la 1 hasta que #169 cambió
-    // los mapas, y luego se buscaba); desde el recinto de las ciudades del núcleo
-    // (vuelta 3) nace fuera, delante de una puerta, y se le pone a mano.
+    // los mapas, y luego se buscaba); desde el 19-10-2026 nace en la casilla de
+    // su castillo, así que se le pone a mano.
     const state = newGame({ seed: 1 });
     const heroe = state.heroes[0]!;
     const castillo = state.map.objects.find(

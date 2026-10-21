@@ -1,0 +1,53 @@
+{
+  "encargo": "tema-03-marco-minimapa-orkos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:15:51.937Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b4a-05d2-7702-a131-e6b73e7d3950",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema ORKOS: hierro oscuro remachado y oxidado, colmillos y cuernos de hueso, cadenas, cráneos con cuernos y estandartes rojos de la Horda con goterones de sangre. El MARCO pequeño del minimapa («Tierras exploradas»): una moldura fina y cuadrada. Hierro oscuro fino con remaches y un pequeño colmillo en cada esquina.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs un MARCO que el juego corta en 9 trozos para rodear un rectángulo de cualquier tamaño: las cuatro ESQUINAS (el 12,5 % de cada lado, como en la guía) llevan los adornos y se pintan una vez; las cuatro BANDAS entre ellas se estiran a lo largo y van lisas, uniformes y continuas, sin adornos sueltos, y casan con sus esquinas sin costura. El marco ocupa EXACTAMENTE la banda de la guía, de borde a borde de la imagen, y el centro es un fondo oscuro liso que no se ve.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nImagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "estilo",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85"
+    },
+    {
+      "ruta": "assets/art/temas/orkos.png",
+      "papel": "pieza",
+      "sha256": "7776bce63ddf28b1f8fd29714e2520cd2ddcd8ec443372662c5e6ffcef716a85",
+      "recorte": {
+        "x": 985,
+        "y": 85,
+        "w": 290,
+        "h": 270
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/marco.png",
+      "papel": "corte",
+      "sha256": "9008a793b573c19143be4f7bc01562bbd2bdb5f10a1d53d4d15b194f725c0a4a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b4a-05d2-7702-a131-e6b73e7d3950/exec-00304044-1cad-455e-90ef-dffbc9cb3f47.png",
+    "sha256": "14e0389faa0e9ef285e0b947a20906968113eb7150d957e3526b7f07a23d144e",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "llevado de 1254×1254 a 256×256, el tamaño que pide",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 15 piezas en disco"
+  ],
+  "validacion": {
+    "ancho": 256,
+    "alto": 256
+  },
+  "salida": {
+    "ruta": "assets/temas/orkos/marco-minimapa.webp",
+    "sha256": "3f28f880951230813a6cd3e9e1858b93170b198bb5337b3042689d489cc157f5"
+  }
+}

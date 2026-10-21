@@ -1,0 +1,10 @@
+{
+  "_comment": "GENERADO por tools/datos/facciones.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea): el rasgo de cada facción es la primera línea con texto bajo su título, tal cual, con una expresión regular y sin teclear nada. No se edita a mano: se regenera. Lo enseña la elección de facción del menú.",
+  "rasgos": {
+    "templarios": "Caballeros con armaduras y monjes que curan y protegen. Se definen por su habilidad y su equipamiento, escudo y arma de una mano o arma de dos manos. Habilidades especiales. Muy duros",
+    "no-muertos": "Nigromantes y vampiros con esqueletos y zombies. Pueden resucitarles y resuzitar a los enemigos caidos",
+    "imperio": "Alabarderos, piqueros, ballesteros... Muy variados y especializados, habilidades de formacion",
+    "elfos": "Rapidos, ligeros, buenos arqueros y magos",
+    "orkos": "Los orcos con diferente armamento, goblins con lanzas o arcos, trolls con mazas"
+  }
+}

@@ -5,7 +5,7 @@
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
         <h2>Grommash Dientenegro</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="Ver a la tropa en escena y repartirle equipo (tecla T)" >Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>20 / 20</span></div>
     <progress class="liderazgo" max="20" value="20"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1482 / 1482</span></div>
@@ -32,7 +32,7 @@
           Fin de turno
         </button>
 ### aventura · renderLog
-<div class="log" data-al-final="cronica"><div>El jugador 1 construye en (32, 35): Pabellón de caza</div><div>El jugador 1 toma un paso en (39, 28)</div><div>— Día 2 —</div><div>El jugador 1 construye en (32, 35): Arboleda</div><div>Batalla en (27, 12): un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 3 rondas; pierde la guarnición 3 × Goblin lancero, 2 × Goblin arquero</div><div>Un Arquero del jugador 1 sube a veterano de rango 2 en (27, 12)</div><div>Un Arquero del jugador 1 sube a veterano de rango 2 en (27, 12)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (27, 12)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (27, 12)</div><div>El jugador 1 captura un castillo neutral en (27, 12)</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (27, 12): Espada de herrería</div><div>Batalla en (25, 6): un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 3 rondas; pierde la guarnición 3 × Goblin lancero, 2 × Goblin arquero</div><div>Un héroe del jugador 1 sube a rango 6 en (25, 6)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 3 en (25, 6)</div><div>El jugador 1 captura un castillo neutral en (25, 6)</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (25, 6): Pavés</div><div>— Día 3 —</div></div>
+<div class="log" data-al-final="cronica"><div>El jugador 1 construye en (32, 35): Pabellón de caza</div><div>El jugador 1 recluta 1 × Jinete en (32, 35)</div><div>El jugador 1 licencia 2 × Arquero en (32, 35)</div><div>El jugador 1 recluta 2 × Guardia del bosque en (32, 35)</div><div>Batalla en (27, 25): un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 3 rondas; pierde el jugador 1 1 × Guardia del bosque; pierde la guarnición 2 × Arquero, 2 × Guardia del bosque</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (27, 25)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (27, 25)</div><div>El jugador 1 captura un castillo neutral en (27, 25)</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (27, 25): Espada de herrería</div><div>— Día 2 —</div><div>El jugador 1 construye en (32, 35): Arboleda</div><div>El jugador 1 construye en (27, 25): Pabellón de caza</div><div>El jugador 1 recluta 2 × Jinete en (27, 25)</div><div>El jugador 1 recluta 1 × Guardia del bosque en (27, 25)</div><div>El jugador 1 toma un paso en (19, 12)</div><div>— Día 3 —</div></div>
 ### castillo · con héroe dentro y gremio · renderTopbar.resources
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>15</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>15</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>6000</li>
 ### castillo · con héroe dentro y gremio · renderSide
@@ -54,7 +54,7 @@
     <progress class="liderazgo" max="20" value="17"></progress>
     <div class="stack-list"><div class="stack"><span>Goblin lancero</span><span class="count">3</span></div><div class="stack"><span>Goblin arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Orko con hacha y escudo</span><span class="count">2</span></div></div>
 
-    <h3>Libro de Grommash Dientenegro</h3><div class="stack-list"><div class="stack"><span>Prisa</span><span class="count">3</span></div><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div><div class="stack"><span>Lentitud</span><span class="count">3</span></div></div><p class="cost">Aprendió aquí: Prisa, Lentitud.</p><h3>Tropa de Grommash Dientenegro</h3>
+    <h3>Libro del héroe</h3><p class="cost">Grommash Dientenegro está dentro.</p><div class="stack-list"><div class="stack"><span>Prisa</span><span class="count">3</span></div><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div><div class="stack"><span>Lentitud</span><span class="count">3</span></div></div><p class="cost">Aprendió aquí: Prisa, Lentitud.</p><h3>Tropa del héroe</h3>
           <div class="row"><span class="label">Liderazgo</span><span>20 / 20</span></div>
     <progress class="liderazgo" max="20" value="20"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
@@ -97,7 +97,7 @@
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
         <h2>Capitán de Valdeluz</h2>
         <button data-action="sleep-hero" data-hero="hero-0-c1" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="Ver a la tropa en escena y repartirle equipo (tecla T)" >Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>13 / 20</span></div>
     <progress class="liderazgo" max="20" value="13"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1837 / 1347</span></div>
@@ -209,79 +209,77 @@
 ### batalla · terminada · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### partida ganada · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>3</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>1</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>3</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>1</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>1</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>1</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>3279</li>
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>10</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>0</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>170</li>
 ### partida ganada · renderSide
 <div class="fin ganada">
     <p class="eyebrow">FIN DE LA PARTIDA</p>
     <h2>Partida ganada</h2>
     <p>Has tomado la base rival: sin ella, el rival queda eliminado.</p>
   </div>
-        <p class="eyebrow">HÉROE · RANGO 6 · NIVEL 4 · Orko (Kaudillo)</p>
-        <h2>Grommash Dientenegro</h2>
+        <p class="eyebrow">HÉROE · RANGO 6 · NIVEL 4 · Duelista</p>
+        <h2>Konstanz von Adler</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
-        <div class="row"><span class="label">Liderazgo</span><span>20 / 25</span></div>
-    <progress class="liderazgo" max="25" value="20"></progress>
-        <div class="row"><span class="label">Movimiento</span><span>1047 / 1482</span></div>
-        <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="la partida ya ha terminado" disabled>Tropa</button>
+        <div class="row"><span class="label">Liderazgo</span><span>3 / 25</span></div>
+    <progress class="liderazgo" max="25" value="3"></progress>
+        <div class="row"><span class="label">Movimiento</span><span>131 / 1616</span></div>
+        <div class="row"><span class="label">Maná</span><span>14 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>3 (+3) / 3 (+1)</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>237 159 / 288 000</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>249 654 / 288 000</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada de herrería<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="ataque">+3 Ataque</span><span class="modificador" data-cifra="danio">+15–35 Daño</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Arma a distancia: —</span></div><div class="stack empty"><span>Arma de carga: —</span></div><div class="stack"><span>Armadura: Gambesón<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="defensa">+1 Defensa</span><span class="modificador" data-cifra="armadura">+4 Armadura</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Escudo: —</span></div></div>
     <h3>Mochila · 1</h3><div class="stack-list"><button data-action="select-item" data-item="espada" class="stack" title="Elegirla para ponérsela a alguien">
               <span>Espada<span class="veterania">Arma · <span class="modificadores"><span class="modificador" data-cifra="ataque">+2 Ataque</span><span class="modificador" data-cifra="danio">+10–30 Daño</span></span></span></span>
             </button></div>
-        <h3>Tropa · 5 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Orko con hacha y escudo<span class="veterania">Veterano · rango 3 · nivel 3 · 38 929 / 54 000 exp</span></span><span class="count">1</span></div><div class="stack"><span>Orko con hacha y escudo<span class="veterania">Veterano · rango 4 · nivel 3 · 70 079 / 99 000 exp</span></span><span class="count">1</span></div><div class="stack"><span>Orko con armadura pesada<span class="veterania">Veterano · rango 2 · nivel 3 · 18 971 / 27 000 exp</span></span><span class="count">1</span></div><div class="stack"><span>Orko con armadura pesada<span class="veterania">Veterano · rango 3 · nivel 3 · 43 102 / 54 000 exp</span></span><span class="count">1</span></div><div class="stack"><span>Orko con armadura pesada<span class="veterania">Veterano · rango 3 · nivel 3 · 38 875 / 54 000 exp</span></span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
-              <span>Grommash Dientenegro</span><span class="count">1047</span>
+        <h3>Tropa · 1 individuo</h3>
+        <div class="stack-list"><div class="stack"><span>Alabardero<span class="veterania">Veterano · rango 5 · nivel 3 · 106 190 exp · rango máximo</span></span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+              <span>Konstanz von Adler</span><span class="count">131</span>
             </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
-              <span>Valdeluz</span><span class="count">+2000</span>
+              <span>Valdeluz</span><span class="count">+1000</span>
             </button><button data-action="open-town" data-town="town-1" class="stack">
-              <span>Cripta Gris</span><span class="count">+2000</span>
+              <span>Cripta Gris</span><span class="count">+500</span>
             </button><button data-action="open-town" data-town="town-2" class="stack">
-              <span>Torreblanca</span><span class="count">+2000</span>
+              <span>Torreblanca</span><span class="count">+500</span>
             </button></div>
-    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 9 —</div><div class="win">Construido en (11, 5): Gremio de magia II</div><div class="win">Construido en (16, 14): Palacio municipal</div><div class="win">Reclutados 4 × Orko con armadura pesada en (16, 14)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (25, 27), en 3 rondas; pierdes 1 × Orko con armadura pesada; pierde el enemigo 5 × Escudero, 1 × Guerrero con escudo</div><div class="win">Un Orko con armadura pesada tuyo sube a veterano de rango 2 en (25, 27)</div><div class="win">Un Orko con armadura pesada tuyo sube a veterano de rango 2 en (25, 27)</div><div class="win">Un Orko con armadura pesada tuyo sube a veterano de rango 2 en (25, 27)</div><div class="win">Has capturado un castillo del jugador 1 en (25, 27)</div><div>El jugador 1 construye en (30, 36): Mercado</div><div>— Día 10 —</div><div>El jugador 1 construye en (30, 36): Armería</div><div>El jugador 1 incorpora una guarnición en (30, 36)</div><div>El jugador 1 aprende en (30, 36): Prisa, Lentitud, Bendición, Maldición</div><div class="lose">El jugador 1 te ha capturado un castillo en (25, 27)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (30, 36), en 2 rondas; pierde el enemigo 1 × Escudero, 1 × Monje</div><div class="win">Un Orko con armadura pesada tuyo sube a veterano de rango 3 en (30, 36)</div><div class="win">Un Orko con armadura pesada tuyo sube a veterano de rango 3 en (30, 36)</div><div class="win">Has capturado un castillo del jugador 1 en (30, 36)</div><div class="win">Fin de la partida</div></div>
+    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 2 —</div><div class="win">Construido en (9, 2): Armería imperial</div><div class="win">Construido en (8, 7): Armería imperial</div><div class="win">Reclutados 5 × Alabardero en (8, 7)</div><div class="win">Reclutados 1 × Piquero en (8, 7)</div><div class="win">Paso tomado en (14, 18)</div><div>— Día 3 —</div><div class="win">Construido en (9, 2): Casa consistorial</div><div class="win">Paso tomado en (20, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 39), en 4 rondas; pierde el enemigo 3 × Esqueleto guerrero, 2 × Esqueleto arquero, 2 × Zombie; lanzas Flecha mágica sobre Zombie (mata 1); lanzas Flecha mágica sobre Zombie (mata 1)</div><div class="win">Un héroe tuyo sube a rango 6 en (32, 39)</div><div class="win">Un Alabardero tuyo sube a veterano de rango 4 en (32, 39)</div><div class="win">Un Alabardero tuyo sube a veterano de rango 5 en (32, 39)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 39)</div><div class="win">Fin de la partida</div></div>
 ### partida ganada · renderActions
 <button data-action="restart" class="primary">Partida nueva</button>
 ### partida ganada · renderLog
-<div class="log" data-al-final="cronica"><div class="win">Un Orko con armadura pesada tuyo sube a veterano de rango 2 en (25, 27)</div><div class="win">Has capturado un castillo del jugador 1 en (25, 27)</div><div>El jugador 1 construye en (30, 36): Mercado</div><div>— Día 10 —</div><div>El jugador 1 construye en (30, 36): Armería</div><div>El jugador 1 incorpora una guarnición en (30, 36)</div><div>El jugador 1 aprende en (30, 36): Prisa, Lentitud, Bendición, Maldición</div><div class="lose">El jugador 1 te ha capturado un castillo en (25, 27)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (30, 36), en 2 rondas; pierde el enemigo 1 × Escudero, 1 × Monje</div><div class="win">Un Orko con armadura pesada tuyo sube a veterano de rango 3 en (30, 36)</div><div class="win">Un Orko con armadura pesada tuyo sube a veterano de rango 3 en (30, 36)</div><div class="win">Has capturado un castillo del jugador 1 en (30, 36)</div><div class="win">Fin de la partida</div></div>
+<div class="log" data-al-final="cronica"><div class="win">Construido en (9, 2): Armería imperial</div><div class="win">Construido en (8, 7): Armería imperial</div><div class="win">Reclutados 5 × Alabardero en (8, 7)</div><div class="win">Reclutados 1 × Piquero en (8, 7)</div><div class="win">Paso tomado en (14, 18)</div><div>— Día 3 —</div><div class="win">Construido en (9, 2): Casa consistorial</div><div class="win">Paso tomado en (20, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 39), en 4 rondas; pierde el enemigo 3 × Esqueleto guerrero, 2 × Esqueleto arquero, 2 × Zombie; lanzas Flecha mágica sobre Zombie (mata 1); lanzas Flecha mágica sobre Zombie (mata 1)</div><div class="win">Un héroe tuyo sube a rango 6 en (32, 39)</div><div class="win">Un Alabardero tuyo sube a veterano de rango 4 en (32, 39)</div><div class="win">Un Alabardero tuyo sube a veterano de rango 5 en (32, 39)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 39)</div><div class="win">Fin de la partida</div></div>
 ### partida perdida · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>10</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>0</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>5000</li>
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>12</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>0</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>60</li>
 ### partida perdida · renderSide
 <div class="fin perdida">
     <p class="eyebrow">FIN DE LA PARTIDA</p>
     <h2>Partida perdida</h2>
     <p>Has perdido tu base: sin ella quedas eliminado, aunque te queden héroes o ciudades.</p>
   </div>
-        <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Caballero</p>
+        <p class="eyebrow">HÉROE · RANGO 8 · NIVEL 5 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
-        <div class="row"><span class="label">Liderazgo</span><span>18 / 20</span></div>
-    <progress class="liderazgo" max="20" value="18"></progress>
-        <div class="row"><span class="label">Movimiento</span><span>12 / 1482</span></div>
-        <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>2 (+2) / 2 (+1)</span></div>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="la partida ya ha terminado" disabled>Tropa</button>
+        <div class="row"><span class="label">Liderazgo</span><span>32 / 35</span></div>
+    <progress class="liderazgo" max="35" value="32"></progress>
+        <div class="row"><span class="label">Movimiento</span><span>1 / 1616</span></div>
+        <div class="row"><span class="label">Maná</span><span>11 / 20</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>5 (+2) / 5 (+1)</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>99 000 / 171 000</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>572 040 / 783 000</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="ataque">+2 Ataque</span><span class="modificador" data-cifra="danio">+10–30 Daño</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Arma a distancia: —</span></div><div class="stack empty"><span>Arma de carga: —</span></div><div class="stack"><span>Armadura: Gambesón<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="defensa">+1 Defensa</span><span class="modificador" data-cifra="armadura">+4 Armadura</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Escudo: —</span></div></div>
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 6 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Guerrero con escudo</span><span class="count">4</span></div><div class="stack"><span>Escudero</span><span class="count">2</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
-              <span>Aldo de Valdeluz</span><span class="count">12</span>
-            </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-3" class="stack">
-              <span>Puenteroto</span><span class="count">+500</span>
+        <div class="stack-list"><div class="stack"><span>Hermano de carga</span><span class="count">2</span></div><div class="stack"><span>Guerrero con arma a dos manos</span><span class="count">4</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+              <span>Aldo de Valdeluz</span><span class="count">1</span>
             </button></div>
-    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 2 —</div><div class="win">Construido en (9, 9): Monasterio</div><div class="win">Paso tomado en (24, 15)</div><div>— Día 3 —</div><div class="win">Construido en (9, 9): Forja</div><div class="win">Has capturado un castillo del jugador 1 en (38, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>— Día 4 —</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 4 rondas; pierde el enemigo 2 × Esqueleto guerrero; pierdes 3 × Guerrero con escudo, 2 × Escudero, 1 × Monje</div><div>Un héroe del jugador 1 sube a rango 7 en (9, 9)</div><div>Un Esqueleto arquero del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div>Un Esqueleto arquero del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div>Un Esqueleto guerrero del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
+    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div class="win">Reclutados 2 × Hermano de carga en (9, 9)</div><div class="win">Licenciados 2 × Guerrero con escudo en (9, 9)</div><div class="win">Licenciados 2 × Escudero en (9, 9)</div><div class="win">Reclutados 4 × Guerrero con arma a dos manos en (9, 9)</div><div>— Día 5 —</div><div class="win">Construido en (9, 9): Taberna</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 1 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>— Día 6 —</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 3 rondas; pierde el enemigo 2 × Jinete de plaga; pierdes 1 × Guerrero con arma a dos manos, 1 × Penitente</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
 ### partida perdida · renderActions
 <button data-action="restart" class="primary">Partida nueva</button>
 ### partida perdida · renderLog
-<div class="log" data-al-final="cronica"><div>— Día 3 —</div><div class="win">Construido en (9, 9): Forja</div><div class="win">Has capturado un castillo del jugador 1 en (38, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>El jugador 1 construye en (32, 32): Casa consistorial</div><div class="lose">El jugador 1 te ha quitado un paso en (24, 15)</div><div>— Día 4 —</div><div>El jugador 1 construye en (32, 32): Gremio de magia I</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 4 rondas; pierde el enemigo 2 × Esqueleto guerrero; pierdes 3 × Guerrero con escudo, 2 × Escudero, 1 × Monje</div><div>Un héroe del jugador 1 sube a rango 7 en (9, 9)</div><div>Un Esqueleto arquero del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div>Un Esqueleto arquero del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div>Un Esqueleto guerrero del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
+<div class="log" data-al-final="cronica"><div>— Día 5 —</div><div class="win">Construido en (9, 9): Taberna</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 1 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>El jugador 1 construye en (32, 32): Gremio de magia I</div><div>El jugador 1 recluta 1 × Espectro en (38, 15)</div><div>— Día 6 —</div><div>El jugador 1 construye en (38, 15): Casa consistorial</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 3 rondas; pierde el enemigo 2 × Jinete de plaga; pierdes 1 × Guerrero con arma a dos manos, 1 × Penitente</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
 ### aventura · turno del rival · renderTopbar.resources
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
 ### aventura · turno del rival · renderSide
@@ -289,7 +287,7 @@
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
         <h2>Grommash Dientenegro</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="todavía no es tu turno: ahora juega el jugador 1 (elfos)" disabled>Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>20 / 20</span></div>
     <progress class="liderazgo" max="20" value="20"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1482 / 1482</span></div>
@@ -688,7 +686,7 @@
     <progress class="liderazgo" max="20" value="17"></progress>
     <div class="stack-list"><div class="stack"><span>Goblin lancero</span><span class="count">3</span></div><div class="stack"><span>Goblin arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Orko con hacha y escudo</span><span class="count">2</span></div></div>
 
-    <h3>Libro de Grommash Dientenegro</h3><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3>Tropa de Grommash Dientenegro</h3>
+    <h3>Libro del héroe</h3><p class="cost">Grommash Dientenegro está dentro.</p><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3>Tropa del héroe</h3>
           <div class="row"><span class="label">Liderazgo</span><span>11 / 20</span></div>
     <progress class="liderazgo" max="20" value="11"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
@@ -761,7 +759,7 @@
     <progress class="liderazgo" max="20" value="17"></progress>
     <div class="stack-list"><div class="stack"><span>Goblin lancero</span><span class="count">3</span></div><div class="stack"><span>Goblin arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Orko con hacha y escudo</span><span class="count">2</span></div></div>
 
-    <h3>Libro de Grommash Dientenegro</h3><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3>Tropa de Grommash Dientenegro</h3>
+    <h3>Libro del héroe</h3><p class="cost">Grommash Dientenegro está dentro.</p><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3>Tropa del héroe</h3>
           <div class="row"><span class="label">Liderazgo</span><span>5 / 20</span></div>
     <progress class="liderazgo" max="20" value="5"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
@@ -777,7 +775,7 @@
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
         <h2>Grommash Dientenegro</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
-    title="No se le esperará al pasar el turno">Dormir</button>
+    title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="Ver a la tropa en escena y repartirle equipo (tecla T)" >Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>5 / 20</span></div>
     <progress class="liderazgo" max="20" value="5"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1482 / 1482</span></div>

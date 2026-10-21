@@ -66,15 +66,14 @@ lámina de su facción (`ESTILO_DE_FACCION` en `tools/taller/unidades.ts`).
 | `heroe-templario-caballero` | Caballero | espada-escudo |
 | `heroe-templario-abad` | Monje (Abad) | baston |
 | `heroe-templario-inquisidor` | Inquisidor | espada-escudo |
-| `heroe-templario-gran-maestre` | Gran Maestre | dos-manos |
 | `heroe-nigromante` | Nigromante | baston |
 | `heroe-vampiro` | Vampiro | espada-escudo |
 | `heroe-lich` | Lich | baston |
 
 Lote 2 (héroes): **aprobado por el usuario el 01-10-2026**, visto animado.
 Correcciones en su hilo: `heroe-templario-caballero` y
-`heroe-caballero-de-la-muerte` (`-c1`) y `heroe-templario-gran-maestre` (`-c2`),
-todas por la espada invadiendo la celda vecina en el ataque.
+`heroe-caballero-de-la-muerte` (`-c1`), las dos por la espada invadiendo la celda vecina en el
+ataque.
 
 ## Imperio
 

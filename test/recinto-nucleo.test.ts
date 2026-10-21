@@ -1,10 +1,11 @@
 /**
  * El recinto de una ciudad, del núcleo (`core/map/recinto.ts`; la ciudad
  * amurallada, vuelta 3). Dónde está el 3 × 3 de cada ciudad lo dice el núcleo,
- * y él no pone nada dentro, ni dos que se toquen, ni una ciudad en el borde, ni
- * el héroe de salida dentro de su base: decisiones del usuario del 21-10-2026
- * tras el QA de la vuelta 2 (H4, H5, H6). La escena lo lee y lo pinta
- * (`recinto-en-la-escena.test.ts`).
+ * y él no pone nada dentro, ni dos que se toquen, ni una ciudad en el borde:
+ * decisiones del usuario del 21-10-2026 tras el QA de la vuelta 2 (H4, H5). El
+ * héroe de salida nace en la casilla de su base, el medio del recinto, y sale
+ * por sus puertas (19-10-2026, decisión del usuario). La escena lo lee y lo
+ * pinta (`recinto-en-la-escena.test.ts`).
  *
  * Y por dónde se entra (fase 2): la muralla no se pisa, a la ciudad se pasa de
  * un acceso a su puerta y de la puerta a ella (`pasoPermitido`), y hay puerta
@@ -33,7 +34,7 @@ import {
   LADO_DEL_RECINTO,
   MURO,
   muroBlocker,
-  ORDEN_DEL_INICIO,
+  ORDEN_DE_LAS_CARAS,
   PUERTA,
   PUERTAS_DE_LA_CIUDAD,
   pasoPermitido,
@@ -187,7 +188,7 @@ describe('por dónde se entra en una ciudad (`pasoPermitido`, fase 2)', () => {
 describe('las puertas de una ciudad (`PUERTAS_DE_LA_CIUDAD`)', () => {
   it('seis: la del norte, la del sur y las diagonales; ni la del este ni la del oeste', () => {
     expect(Object.keys(PUERTAS_DE_LA_CIUDAD).sort()).toEqual(['n', 'ne', 'no', 's', 'se', 'so']);
-    expect([...ORDEN_DEL_INICIO].sort()).toEqual(Object.keys(PUERTAS_DE_LA_CIUDAD).sort());
+    expect([...ORDEN_DE_LAS_CARAS].sort()).toEqual(Object.keys(PUERTAS_DE_LA_CIUDAD).sort());
     for (const [cara, { casilla, accesos }] of Object.entries(PUERTAS_DE_LA_CIUDAD)) {
       const puerta = { x: casilla[0], y: casilla[1] };
       // La puerta, en el anillo; sus accesos, fuera, pegados a ella.
@@ -293,7 +294,7 @@ describe('lo que impide un recinto (`problemasDeRecintos`), dicho para quien hiz
     );
   });
 
-  it('cualquier cosa dentro: una mina, un inicio o un grupo de asaltantes', () => {
+  it('cualquier cosa dentro: una mina o un grupo de asaltantes', () => {
     const plan = planDeNodos();
     expect(
       validateMapPlan({
@@ -302,14 +303,6 @@ describe('lo que impide un recinto (`problemasDeRecintos`), dicho para quien hiz
       }),
     ).toEqual([
       'la mina de gems de (6,5) cae dentro del recinto de la ciudad "Valdeluz" (town-0, en (5,4)), de (4,3) a (6,5): dentro de su muralla solo va ella',
-    ]);
-    expect(
-      validateMapPlan({
-        ...plan,
-        heroStarts: [{ player: 0, at: { x: 4, y: 4 } }, plan.heroStarts[1]!],
-      }),
-    ).toEqual([
-      'el inicio del jugador 0 de (4,4) cae dentro del recinto de la ciudad "Valdeluz" (town-0, en (5,4)), de (4,3) a (6,5): dentro de su muralla solo va ella',
     ]);
     const valdeluz = { id: 'town-0', name: 'Valdeluz', at: { x: 5, y: 4 } };
     expect(
@@ -384,32 +377,35 @@ describe('el generador deja sitio a cada recinto y entra por sus puertas', () =>
   // s13, s16, s21) y la del pasillo de s31; en la lenta, 1-40.
   const semillas = segunPrisa([2, 13, 16, 21, 31], rango(1, 40));
 
-  it('ninguno en el borde, ninguno a menos de 5 de otro, nada dentro y cada camino por una puerta; el héroe, en el acceso del camino de su casa', () => {
+  it('ninguno en el borde, ninguno a menos de 5 de otro, nada dentro y cada camino por una puerta; el héroe, en su base, con una puerta por la que salir', () => {
     for (const s of semillas) {
       const state = newGame({ seed: s });
       const { map } = state;
       const red = estructura(map);
       const ciudades = state.towns.map((t) => ({ id: t.id, name: t.name, at: t.at }));
       expect(
-        problemasDeRecintos(map, red, ciudades, [
-          ...state.heroes.map((h) => ({ quien: `el héroe ${h.id}`, at: h.at })),
-          ...state.raiders.map((r) => ({ quien: `el grupo ${r.id}`, at: r.at })),
-        ]),
+        problemasDeRecintos(
+          map,
+          red,
+          ciudades,
+          state.raiders.map((r) => ({ quien: `el grupo ${r.id}`, at: r.at })),
+        ),
         `s${s}`,
       ).toEqual([]);
-      // El héroe de salida, en el acceso de la puerta por la que entra el
-      // camino de su región de casa: fuera de su recinto y pegado a él.
+      // El héroe de salida, en la casilla de su base (el medio del recinto,
+      // que se pisa), y la base con un camino que entra por una puerta: por
+      // ella sale.
       for (const p of state.players) {
         const base = baseOf(state, p.id);
         const heroe = state.heroes.find((h) => h.owner === p.id);
         if (base === null || heroe === undefined)
           throw new Error(`s${s}: el ${p.id} sin base o sin héroe`);
-        const puerta = puertasDeLaCiudad(map, base.at).find((pu) =>
-          pu.accesos.some((a) => a.x === heroe.at.x && a.y === heroe.at.y),
-        );
+        expect(heroe.at, `s${s}: el héroe del ${p.id}`).toEqual(base.at);
         expect(
-          puerta !== undefined && map.caminos.une(heroe.at, puerta.casilla),
-          `s${s}: el héroe del ${p.id} nace en (${heroe.at.x},${heroe.at.y}), fuera del acceso del camino de su base (${base.at.x},${base.at.y})`,
+          puertasDeLaCiudad(map, base.at).some((pu) =>
+            pu.accesos.some((a) => map.caminos.une(a, pu.casilla)),
+          ),
+          `s${s}: la base del ${p.id} en (${base.at.x},${base.at.y}) sin una puerta con camino`,
         ).toBe(true);
       }
     }

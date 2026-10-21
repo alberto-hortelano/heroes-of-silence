@@ -16,7 +16,12 @@
  * héroe con un personaje no podía ni pasar de día: `maxMovePoints` lanzaba
  * «criatura desconocida: "character"» en el `advanceDay`.
  */
-import { cifrasDeUnidad, unidadDelJuego } from '../catalogo.js';
+import {
+  CATALOGO_DEL_JUEGO,
+  type CatalogoDeUnidades,
+  cifrasDeUnidad,
+  unidadDelJuego,
+} from '../catalogo.js';
 import { type GrupoDeTropa, LIDERAZGO } from '../data.js';
 import type { Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
@@ -61,6 +66,19 @@ export function troopUnit(t: Troop, characters: Personajes): UnitInfo {
   if (t.member === undefined) return cifrasDeUnidad(t.creature, t.veterania);
   const perfil = combatProfile(characterOf(characters, t.member, 'el ejército lleva'));
   return cifrasDelIndividuo(perfil.unit, t.veterania);
+}
+
+/**
+ * La hoja con que se pinta un individuo: la de su unidad en el catálogo
+ * (`cuerpo.hoja`) o, un personaje, la de su cuerpo (`creature`, que en él es la
+ * hoja). La leen el tablero (`resolveUnit`, que la pone en `body`) y la escena de
+ * la tropa: escrita en los dos, un día uno pintaría al piquero con otra hoja.
+ */
+export function hojaDeLaTropa(
+  t: Pick<Troop, 'creature' | 'member'>,
+  cat: CatalogoDeUnidades = CATALOGO_DEL_JUEGO,
+): string {
+  return t.member === undefined ? cat.unidad(t.creature).cuerpo.hoja : t.creature;
 }
 
 /** Lo que ocupa un individuo en el liderazgo. */
