@@ -1,15 +1,15 @@
 {
   "imagen": "muro-ns-2.webp",
-  "sha256": "204fd86358b31442722f24958a206692f0fba21a9c60d01103a15c76fe2d7343",
-  "ancho": 540,
-  "alto": 1429,
+  "sha256": "3fac4e0ef52ce350aa57f5a47c29e6a9831f9b124d8de38f8562053ccf4d962f",
+  "ancho": 412,
+  "alto": 1452,
   "ancla": [
-    189,
-    1404
+    180,
+    1426
   ],
   "derivadoPor": "tools/taller/muros.ts",
   "tirada": [
-    100,
-    -336
+    -1,
+    -757
   ]
 }

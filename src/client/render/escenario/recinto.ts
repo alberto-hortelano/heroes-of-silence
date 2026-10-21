@@ -651,8 +651,18 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
     const m = modulos.norteSur[varianteDeId(`${e.id}:${k.cara}`, modulos.norteSur.length)] as M &
       ModuloDeTirada;
     const alto = ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO;
-    for (const p of tiradaNorteSur(m, alto, k.a[0], yNorte, ySur, HOLGURA_DE_LA_CARA))
-      tramos.push({ ...m, que: 'tramo', x: p.x, y: p.y, alto, clave: p.y - 0.005, cara: k.cara });
+    // La de atrás, a un paso entero de la de delante, mete su adarve en la torre
+    // del norte, y con el arte recto se pintaba encima de ella y la tapaba hasta
+    // las almenas (s16, town-0): la que pasa del pie de esa torre va detrás de
+    // ella, que tapa su punta como la del sur tapa el corte de la de delante.
+    const pieDeLaTorre = yNorte + RADIO_DE_TORRE;
+    tiradaNorteSur(m, alto, k.a[0], yNorte, ySur, HOLGURA_DE_LA_CARA).forEach((p, j) => {
+      const clave =
+        p.y - alto * FONDO_DEL_ADARVE < pieDeLaTorre
+          ? Math.min(p.y - 0.005, pieDeLaTorre - 0.01 - 0.001 * j)
+          : p.y - 0.005;
+      tramos.push({ ...m, que: 'tramo', x: p.x, y: p.y, alto, clave, cara: k.cara });
+    });
   }
 
   // Las casas, apiñadas: por filas, de oeste a este.

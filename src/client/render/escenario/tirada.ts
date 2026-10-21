@@ -2,16 +2,18 @@
  * La tirada de muralla de norte a sur (§29): las piezas `muro-ns-*` de un muro
  * que se aleja de la cámara, una detrás de otra, leídas como un solo muro.
  *
- * Cada pieza es un tramo entero con su testero delantero (el bloque de piedra
- * con almenas que cierra el adarve), y el arte no sube recto: se aleja hacia
- * arriba y algo a la derecha. Puestas en la misma columna y a una casilla (la
- * muralla del mapa) o a media cara (el recinto de una ciudad), la de atrás
- * enseñaba su testero a media tirada y su adarve arrancaba corrido del de la de
- * delante: «los muros perpendiculares están mal, están como partidos por el
- * medio» (el usuario, 21-10-2026; s16, town-0, y s41 (20, 25-27)). Aquí cada
- * pieza va a un paso de la de delante, el de su imagen (`Pieza.tirada`, que
- * deriva `pnpm taller derivar-muros`): su testero cae dentro de la de delante,
- * que se pinta encima, y sus almenas siguen a las de esa donde acaba.
+ * Cada pieza es un tramo RECTO (el adarve sube en vertical en pantalla) con sus
+ * dos puntas cortadas en limpio y sin testeros, pedido con su guía
+ * (`tools/taller/muros.ts`). Puestas una por paso en la misma columna (la
+ * muralla del mapa) o a media cara (el recinto de una ciudad), el corte de la
+ * de atrás asomaba a media tirada: «los muros perpendiculares están mal, están
+ * como partidos por el medio» (el usuario, 21-10-2026; s16, town-0, y s41 (20,
+ * 25-27)). Aquí cada pieza va a un paso de la de delante, el que casa sus
+ * almenas con las de esa (`Pieza.tirada`, que deriva `pnpm taller
+ * derivar-muros` desde las juntas de la guía): su corte cae dentro de la de
+ * delante, que se pinta encima. Las piezas de antes no iban rectas y el paso
+ * las corría de lado: en la muralla de paso de tres casillas el muro quedaba
+ * torcido ~0,4 casillas (s105 (31, 36-39)).
  *
  * Es puro: medidas entran y piezas salen.
  */
@@ -48,8 +50,9 @@ export function pasoEnCasillas(m: ModuloDeTirada, alto: number): readonly [numbe
  * la tapa igual), y detrás las que hagan falta para que su adarve (de cada pie
  * hacia el norte, `FONDO_DEL_ADARVE` de su alto) llegue a `norte` salvo
  * `2 · holgura` (lo que cubre la torre o la puerta de la punta norte, que la
- * tirada pisa por delante). De lado, centrada en `x`: el sesgo del arte,
- * repartido a los dos lados. Con una pieza, la de siempre.
+ * tirada pisa por delante). De lado, centrada en `x`: lo poco que el paso se
+ * corre (el arte es recto, `TORCIDO_MAXIMO` del taller), repartido a los dos
+ * lados. Con una pieza, la de siempre.
  */
 export function tiradaNorteSur(
   m: ModuloDeTirada,
@@ -92,7 +95,9 @@ export interface SpriteDeTirada {
 const TOLERANCIA = 1e-6;
 
 /**
- * Las piezas de norte a sur que enseñan su testero a media tirada: la que tiene
+ * Las piezas de norte a sur que enseñan su testero a media tirada (la cara de
+ * su punta de delante, el corte del muro: con las piezas de antes, un bloque
+ * almenado que cruzaba el adarve): la que tiene
  * el pie bajo el adarve de otra del mismo muro que se pinta después (de su
  * ancho, `|Δx|` menos de la mitad del de la de delante) y no va a un paso de
  * esa (`tiradaNorteSur`: mismo módulo y alto, corrida su paso o menos y por su

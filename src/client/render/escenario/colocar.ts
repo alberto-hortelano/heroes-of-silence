@@ -5158,10 +5158,10 @@ export const TORRES_DEL_MURO = ['torre-redonda', 'torre-cuadrada'] as const;
 export type ModuloConSrc = ModuloDelRecinto & { readonly src: string | null };
 
 /**
- * Lo ancho del tramo de norte a sur (`muro-ns-1`, 540 × 1 500 px) en veces su
+ * Lo ancho del tramo de norte a sur (`muro-ns-1`, 384 × 1 426 px) en veces su
  * alto: su marcador sin arte.
  */
-const PROPORCION_DEL_TRAMO_NORTE_SUR = 0.36;
+const PROPORCION_DEL_TRAMO_NORTE_SUR = 0.27;
 
 /**
  * Un módulo sin arte para el recinto, de `ancho × alto` casillas: la regla lo
@@ -5179,16 +5179,17 @@ function sinArte(nombre: string, ancho: number, alto: number): ModuloConSrc {
 }
 
 /**
- * Un tramo de norte a sur (§29) anclado por el medio: el adarve se corre algo
- * al este según se aleja, y con el ancla derivada (el pie del extremo cercano)
- * toda la tirada quedaba al este. Lo leen la muralla del mapa y el recinto.
+ * Un tramo de norte a sur (§29) con el paso de su tirada. Su ancla es la junta
+ * de delante de su guía, en el eje del muro (`pnpm taller derivar-muros`), no
+ * el medio de la imagen, que la tira de la cara del este corre a un lado. Lo
+ * leen la muralla del mapa y el recinto.
  */
 export function moduloNorteSur(p: Pieza): Pieza & ModuloDeTirada {
   if (p.tirada === undefined)
     throw new Error(
       `el tramo de norte a sur ${p.src} no trae el paso de su tirada: derívalo (pnpm taller derivar-muros)`,
     );
-  return { src: p.src, nw: p.nw, nh: p.nh, ax: p.nw / 2, ay: p.ay, tirada: p.tirada };
+  return { src: p.src, nw: p.nw, nh: p.nh, ax: p.ax, ay: p.ay, tirada: p.tirada };
 }
 
 /**

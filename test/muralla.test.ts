@@ -26,7 +26,7 @@ import {
   torresDe,
   trazaDeMuralla,
 } from '../src/client/render/escenario/muralla.js';
-import { escenaDe, partidaDe } from './helpers.js';
+import { catalogoDelDisco, escenaDe, partidaDe } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
 type Casilla = readonly [number, number];
@@ -627,7 +627,7 @@ describe('en las partidas', () => {
 });
 
 describe('la muralla de norte a sur, de lado (§29)', () => {
-  it('sus tramos son las piezas muro-ns, de 1,6 de alto y por el medio, y no la tira de la hoja', () => {
+  it('sus tramos son las piezas muro-ns, de 1,6 de alto y por su junta, y no la tira de la hoja', () => {
     // s105 lleva tramos N-S de las dos piezas (5). Antes, s141 (7; de 1-200 solo la 182 pasa
     // de 4, con 5). Era s118 hasta el recinto de las ciudades del núcleo (vuelta
     // 3, 21-10-2026: le quedan 0); s67 hasta el río continuo (#144: le quedan 4); s75 hasta los ríos (#144:
@@ -653,7 +653,8 @@ describe('la muralla de norte a sur, de lado (§29)', () => {
     for (const s of ns) {
       expect(s.clase).toBe('muro');
       expect(s.alto).toBe(1.6);
-      expect(s.ax).toBe(s.nw / 2);
+      // Por la junta de delante de su guía, en el eje del muro (`muros.ts`).
+      expect(s.ax).toBe(catalogoDelDisco().piezas[(s.src ?? '').replace(/\.webp$/, '')]?.ax);
     }
     expect(e.sprites.filter((s) => s.src === 'modulos/muro/profundidad.webp')).toEqual([]);
   });

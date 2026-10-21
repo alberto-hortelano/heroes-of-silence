@@ -1,28 +1,33 @@
 {
   "encargo": "mapa-muro-ns-2",
   "tipo": "imagen",
-  "fecha": "2026-10-08T07:51:12.305Z",
+  "fecha": "2026-10-21T17:18:35.708Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a11a7d-29fe-7a73-8ff8-55250a1e1942",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos: UN tramo recto de muralla almenada que corre de NORTE a SUR, algo más gastado que otro igual: arranca abajo en la imagen, cerca de la cámara, y se aleja en línea recta hacia ARRIBA, hacia el fondo, sin girar a ningún lado. Se ve algo de lado: el adarve de arriba con las almenas de sus dos parapetos y la cara de piedra del lado DERECHO en escorzo, iluminada, con alguna piedra suelta y musgo; la cara izquierda no se ve. Sus dos extremos son cortes limpios del muro, sin torre, para empalmar con otro tramo igual por arriba y por abajo. La pieza es mucho más alta que ancha: unas dos veces y media más alta que ancha.\nLa piedra gris con musgo, los sillares, las almenas y el alto del muro son los del tramo de la imagen 2, que corre de izquierda a derecha: aquí el mismo muro corre hacia el fondo.\nSin peana ni trozo de suelo debajo: el muro solo, para posarlo sobre el terreno. Sin estandartes ni banderas.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a15f77-2e0c-7072-9e35-282a4483e748",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos: UN TRAMO RECTO de la muralla almenada de la imagen 2 (la misma piedra gris con musgo, los mismos sillares, las mismas almenas y el mismo alto de muro que el tramo largo de arriba a la izquierda de esa hoja), que corre de NORTE a SUR: arranca abajo en la imagen, cerca de la cámara, y se aleja hacia ARRIBA, hacia el fondo.\nLA SILUETA ES LA DE LA GUÍA (imagen 3), CALCADA: el muro va VERTICAL en la imagen y perfectamente RECTO; sus bordes izquierdo y derecho son dos líneas VERTICALES paralelas que no se inclinan ni a la derecha ni a la izquierda al subir: la punta de arriba queda JUSTO encima de la de abajo. El mismo ancho de arriba abajo, sin escorzo: las almenas de arriba son del mismo tamaño y van al mismo paso que las de abajo.\nLo que se ve, como en la guía: arriba, el paso de ronda (el adarve), una franja larga de losas entre dos hileras de almenas, una en cada borde, OCHO almenas iguales por hilera y al mismo paso; a la derecha, una tira estrecha de la cara del muro en penumbra, que arriba acaba A RAS del borde del adarve, cortada en seco, sin asomar por encima; abajo, la cara de la punta de delante: el corte del muro, de sillares, con encima solo las dos almenas de sus bordes. En la guía, lo gris claro es lo alto (el adarve y la tapa de las almenas), lo gris medio la cara de delante a la luz y lo gris oscuro la tira de la cara derecha.\nLa pieza se REPITE: se ponen varias copias en fila, una detrás de otra hacia el fondo, para hacer un muro largo, y no se tiene que notar dónde acaba una y empieza la otra. Así que sus dos puntas son CORTES LIMPIOS: arriba, el adarve, la tira de la derecha y las dos hileras de almenas se cortan en seco a la misma altura, sin que nada sobresalga ni haga escalón, y las almenas de la punta son iguales a las demás (de un solo bloque) y siguen igual en la copia de detrás; abajo, el corte de delante. NADA de testeros: ni una fila de almenas, ni un bloque, remate, torre, pilar ni contrafuerte cruza el adarve de lado a lado, ni en las puntas ni en medio. Sin puertas, escaleras ni torretas.\nAlgo más gastado que el tramo de la muralla de la imagen 2: alguna piedra desconchada y más musgo en las juntas, sin huecos ni piedras caídas.\nSin suelo debajo ni alrededor, sin peana, sin estandartes ni banderas: el muro solo, para posarlo sobre el terreno. Cámara ortográfica elevada 25 grados, la del juego, que es la de la guía. La luz viene de arriba a la izquierda.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/mapa/muestras/pintado.webp",
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
       "papel": "estilo",
-      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
     },
     {
-      "ruta": "assets/mapa/modulos/muro/horizontal.webp",
+      "ruta": "assets/mapa/modulos/muro.webp",
       "papel": "identidad",
-      "sha256": "2bb6389cc5d1514f42f7609203b111829bcd32eca5fc515848cfe7ffd0f438fa"
+      "sha256": "8b68d2843604978ecb9c5ad221fe52be3c8556a54c17074eb222708f2f207402"
+    },
+    {
+      "ruta": "assets/mapa/guias/muro-ns.png",
+      "papel": "guia",
+      "sha256": "eb0170566302aef4aa8b0993d86e89f15272b52a1df6ffbca6cbc8051aed334c"
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a11a7d-29fe-7a73-8ff8-55250a1e1942/exec-6c38c139-2a0c-47aa-a44f-aa282ed0a1a4.png",
-    "sha256": "d55cca80ca78af57fcdd0e16bdb9abde74c9d87a62b10580f9253750ecf2bebe",
+    "fichero": "~/.codex/generated_images/01a15f77-2e0c-7072-9e35-282a4483e748/exec-e7020040-d7e9-405a-8354-f32fd263ebf6.png",
+    "sha256": "e70f9d927d20ceb33b1744248eb95807fb754ca6983c25371113bdcb8e740035",
     "ancho": 1024,
     "alto": 1536
   },
@@ -30,17 +35,18 @@
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
     "recortado al contenido con 24 px de margen",
     "WebP calidad 92, alfa sin pérdida",
-    "JSON derivado: 540×1429, ancla en (189,1404)"
+    "JSON derivado: 412×1452, ancla en (206,1427)",
+    "ancla y paso de la tirada, registrados sobre la guía y afinados por las almenas"
   ],
   "validacion": {
-    "visibles": 0.5964699479045176,
-    "opacos": 0.9954092362776793,
+    "visibles": 0.8100644574607505,
+    "opacos": 0.9959905076351631,
     "haloSuelto": 0,
-    "ancho": 540,
-    "alto": 1429
+    "ancho": 412,
+    "alto": 1452
   },
   "salida": {
     "ruta": "assets/mapa/muro-ns-2.webp",
-    "sha256": "204fd86358b31442722f24958a206692f0fba21a9c60d01103a15c76fe2d7343"
+    "sha256": "3fac4e0ef52ce350aa57f5a47c29e6a9831f9b124d8de38f8562053ccf4d962f"
   }
 }

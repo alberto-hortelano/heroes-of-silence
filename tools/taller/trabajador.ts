@@ -25,7 +25,7 @@
  *   pnpm taller encolar --hitos          los hitos de los nodos sin pieza de paso (#176, `mapa.ts`)
  *   pnpm taller encolar --cofre          el cofre del mapa, pieza suelta (#147, `mapa.ts`)
  *   pnpm taller encolar --tablillas | --muralla-ns [--solo=…]
- *                                        las tablillas por rumbo y la muralla norte-sur (§29, `mapa.ts`)
+ *                                        las tablillas por rumbo y la muralla norte-sur (§29, `mapa.ts`; los tramos, con su guía, `muros.ts`)
  *   pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
  *                                        el arte de los mapas densos (`mapa-denso.ts`)
  *   pnpm taller vista-mapa [semilla]     un mapa denso del generador pintado con ese arte
@@ -175,7 +175,7 @@ import {
   encargosDeTablillas,
 } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
-import { escribirMurosDerivados } from './muros.js';
+import { escribirGuiaDelMuro, escribirMurosDerivados, esMuroNorteSur } from './muros.js';
 import {
   encargosDeParedesYPuentes,
   escribirGuias,
@@ -444,6 +444,14 @@ async function postprocesar(
     ) {
       const d = await escribirPiezaDerivada(rutaSalida);
       pasos.push(`JSON derivado: ${d.ancho}×${d.alto}, ancla en (${d.ancla})`);
+      // Un tramo de norte a sur se ancla y se encadena por las juntas de su guía (§29).
+      const id = basename(encargo.salida);
+      if (esMuroNorteSur(id)) {
+        await escribirMurosDerivados([id]);
+        pasos.push(
+          'ancla y paso de la tirada, registrados sobre la guía y afinados por las almenas',
+        );
+      }
       // Un puente se ancla en el centro del tablero, no en la base (§17).
       if (encargo.referencias.some((r) => r.papel === 'guia') && /\/puente-/.test(encargo.salida)) {
         await escribirPuenteDerivado(rutaSalida);
@@ -729,6 +737,7 @@ async function encolar(args: readonly string[]): Promise<void> {
   // o `--solo=muro-ns-1`, por el id sin el prefijo del encargo. Lo que ya está en
   // la cola no se repite.
   if (args.includes('--tablillas') || args.includes('--muralla-ns')) {
+    if (args.includes('--muralla-ns')) console.log(`guía → ${await escribirGuiaDelMuro()}`);
     const todos = args.includes('--tablillas') ? encargosDeTablillas() : encargosDeMurallaNS();
     await encolarConSolo(args, todos, (id) => id.replace(/^mapa-(nodo-hito-tablilla-)?/, ''));
     return;
@@ -1168,6 +1177,7 @@ switch (orden) {
       ...(await escribirGuiasDeBajadas()),
       ...(await escribirGuiasDeRampas()),
       await escribirGuiaDelRecinto(),
+      await escribirGuiaDelMuro(),
     ])
       console.log(`→ ${g}`);
     break;
