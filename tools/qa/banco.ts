@@ -1165,7 +1165,9 @@ if (fichero !== null) console.log(`volcado:       ${fichero}`);
 
 if (SEMILLAS === ANCLA.semillas && DIAS === ANCLA.dias) {
   if (sha === ANCLA.sha) {
-    console.log(`ancla:         igual — las ${ANCLA.semillas} partidas se juegan hexágono a hexágono igual`);
+    console.log(
+      `ancla:         igual — las ${ANCLA.semillas} partidas se juegan hexágono a hexágono igual`,
+    );
   } else {
     // Se sigue midiendo hasta el final a propósito: el tiempo de `autoResolve`
     // interesa igual, y con `exitCode` el rojo llega de todas formas.
