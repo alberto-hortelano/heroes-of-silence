@@ -266,10 +266,11 @@ const ctx = principal.ctx;
 
 /**
  * Los paneles se rehacen cuando la sesión dice que algo ha cambiado (`version`),
- * cuando llega arte (los iconos de recursos), cuando la partida es otra o
+ * cuando la partida es otra o
  * cuando el tablero de batalla empieza o acaba de contar una jugada (sus botones
- * van apagados mientras tanto, #165). Antes se generaba su marcado en cada
- * fotograma para compararlo con el anterior.
+ * van apagados mientras tanto, #165); la barra, además, cuando llega arte (los
+ * iconos de recursos). Antes se generaba su marcado en cada fotograma para
+ * compararlo con el anterior.
  */
 let paneles: {
   sesion: Session;
@@ -394,19 +395,23 @@ function dibujarFotograma(ahora: number): void {
   const contando = enBatalla && batalla.ocupada;
   // Lo abierto en la base cambia el panel sin cambiar la partida: al llegar a
   // una puerta se abre su panel, y eso no sube la versión de la sesión.
-  if (
+  const cambiaLaPartida =
     paneles === null ||
     paneles.sesion !== session ||
     paneles.version !== session.version ||
-    paneles.arte !== arteLlegado ||
     paneles.contando !== contando ||
-    paneles.base !== base
-  ) {
-    paneles = { sesion: session, version: session.version, arte: arteLlegado, contando, base };
+    paneles.base !== base;
+  // El arte que llega solo cambia la barra (los iconos de recursos). El lateral
+  // y las acciones no lo leen, y repintarlos con cada hoja o tramo que llegaba
+  // perdía el toque que caía en medio: el botón tocado ya no existía al llegar
+  // su clic (1 de cada 10 en la morada del móvil, 21-10-2026).
+  if (cambiaLaPartida || paneles?.arte !== arteLlegado) {
     const top = renderTopbar(session);
     elDay.textContent = top.day;
     pintar(elResources, top.resources);
     elTurn.textContent = top.turn;
+  }
+  if (cambiaLaPartida) {
     pintarSiguiendoElFinal(
       elSide,
       renderSide(session, contando, enCastillo ? castillo.abierto : null),
@@ -414,6 +419,7 @@ function dibujarFotograma(ahora: number): void {
     pintar(elActions, renderActions(session, contando));
     mostrarConversacion(enCastillo);
   }
+  paneles = { sesion: session, version: session.version, arte: arteLlegado, contando, base };
   if (lateralPendiente !== null) {
     lateral.scrollTop = lateralPendiente;
     lateralPendiente = null;
