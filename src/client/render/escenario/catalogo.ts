@@ -21,7 +21,18 @@ export interface Pieza {
   readonly ay: number;
   /** Solo los puentes (`puente-*`, §17), y todos ellos (`catalogoValidado`). */
   readonly puente?: MedidasDePuente;
+  /**
+   * Solo los tramos de norte a sur (`muro-ns-*`, §29), y todos ellos: lo que se
+   * corre cada pieza de una tirada respecto de la de delante, en píxeles de su
+   * imagen (`dy` < 0), para que su testero caiga dentro de esa y no a media
+   * tirada (`tiradaNorteSur`). Lo lleva al JSON `pnpm taller derivar-muros`; no
+   * se escribe a mano.
+   */
+  readonly tirada?: readonly [number, number];
 }
+
+/** Las piezas que son un tramo de muralla de norte a sur, y las que llevan `Pieza.tirada`. */
+export const esTramoNorteSur = (id: string): boolean => /^muro-ns-\d+$/.test(id);
 
 /**
  * Lo que un puente (`puente-<clase>-<eje>`, §17, #157) sabe de sí mismo, de su
@@ -274,7 +285,9 @@ export interface CatalogoEnBruto {
       })[]
     >
   >;
-  readonly piezas: Readonly<Record<string, Pieza>>;
+  readonly piezas: Readonly<
+    Record<string, Omit<Pieza, 'tirada'> & { readonly tirada?: readonly number[] }>
+  >;
 }
 
 /** Comprueba el perfil de un módulo de `hoja` (`Modulo.perfil`), o lanza diciendo cómo rehacerlo. */
@@ -478,10 +491,30 @@ export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
       });
   const piezas: Record<string, Pieza> = {};
   for (const [id, p] of Object.entries(c.piezas)) {
+    const { tirada: t, ...sinTirada } = p;
+    let tirada: readonly [number, number] | undefined;
+    if (esTramoNorteSur(id)) {
+      if (t === undefined)
+        throw new Error(
+          `el tramo de norte a sur «${id}» no trae el paso de su tirada: derívalo (pnpm taller derivar-muros) y rehaz el catálogo (pnpm taller catalogo-escena)`,
+        );
+      const [dx, dy] = t;
+      if (
+        !(t.length === 2 && Number.isFinite(dx) && Number.isFinite(dy) && (dy as number) < 0) ||
+        -(dy as number) >= p.nh
+      )
+        throw new Error(
+          `el tramo de norte a sur «${id}»: el paso de su tirada son dos números, hacia arriba y dentro de la imagen, y dice [${t.join(', ')}]`,
+        );
+      tirada = [dx as number, dy as number];
+    } else if (t !== undefined)
+      throw new Error(
+        `la pieza «${id}» trae el paso de una tirada y no es un tramo de norte a sur`,
+      );
     if (!esPiezaDePuente(id)) {
       if (p.puente !== undefined)
         throw new Error(`la pieza «${id}» trae medidas de puente y no es un puente`);
-      piezas[id] = p;
+      piezas[id] = tirada === undefined ? sinTirada : { ...sinTirada, tirada };
       continue;
     }
     const m = p.puente;
@@ -492,7 +525,7 @@ export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
     for (const k of ['pxPorCasilla', 'altura', 'largo'] as const)
       if (!(Number.isFinite(m[k]) && m[k] > 0))
         throw new Error(`el puente «${id}»: su ${k} es un número positivo, y dice ${m[k]}`);
-    piezas[id] = p;
+    piezas[id] = sinTirada;
   }
   return { hojas, piezas };
 }

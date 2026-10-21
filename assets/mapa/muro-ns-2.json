@@ -7,5 +7,9 @@
     189,
     1404
   ],
-  "derivadoPor": "tools/taller/derivar.ts"
+  "derivadoPor": "tools/taller/muros.ts",
+  "tirada": [
+    100,
+    -336
+  ]
 }

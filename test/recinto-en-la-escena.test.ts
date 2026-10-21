@@ -35,6 +35,7 @@ import {
 } from '../src/client/render/escenario/colocar.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import {
+  ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
   arcosTapados,
   type Cara,
   type CaraDelContorno,
@@ -60,6 +61,20 @@ const MODULOS_DE_CASAS = new Map(
     m.silueta === undefined ? [] : [[m.src, { nombre: m.nombre, silueta: m.silueta }] as const],
   ),
 );
+
+/**
+ * Lo que el pie de un tramo de norte a sur del recinto puede quedar de lado de
+ * su cara: medio paso de su tirada (`tiradaNorteSur`, dos piezas), el mayor de
+ * los dos módulos.
+ */
+const MEDIO_PASO_DE_LADO =
+  Math.max(
+    ...['muro-ns-1', 'muro-ns-2'].map((id) => {
+      const p = catalogoDelDisco().piezas[id];
+      if (p?.tirada === undefined) throw new Error(`falta ${id} en el catálogo, con su tirada`);
+      return (p.tirada[0] * ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO) / p.nh / 2;
+    }),
+  ) + 1e-9;
 
 /** Lo que el pie de una pieza `s` queda de un punto de su cara `k` (el medio, o el vértice de abajo). */
 const cerca = (s: Sprite, k: CaraDelContorno) =>
@@ -114,7 +129,14 @@ describe('la ciudad amurallada en los mapas del juego', () => {
             expect(s.objeto, donde).toEqual({ id: o.id, kind: 'town' });
             // La torre, por el centro de su base (su vértice): su pie es lo de delante.
             const y = s.recinto === 'torre' ? s.y - RADIO_DE_TORRE : s.y;
-            expect(enElRecinto(r.rect, s.x, y), `${donde}: ${s.src} en ${s.x},${s.y}`).toBe(true);
+            // La tirada de norte a sur de las caras del este y del oeste va
+            // centrada en su cara con el sesgo del arte a los dos lados
+            // (`tiradaNorteSur`): sus pies, a medio paso de la cara como mucho.
+            const sesgo = /^muro-ns-/.test(s.src ?? '') ? MEDIO_PASO_DE_LADO : 0;
+            expect(
+              [-sesgo, sesgo].some((d) => enElRecinto(r.rect, s.x + d, y)),
+              `${donde}: ${s.src} en ${s.x},${s.y}`,
+            ).toBe(true);
           }
         }
       });
@@ -239,6 +261,7 @@ describe('la ciudad amurallada en los mapas del juego', () => {
           puenteSobreElAnillo: i.puenteSobreElAnillo,
           casasRepetidasJuntas: i.casasRepetidasJuntas,
           arcosTapados: i.arcosTapados,
+          testerosAMediaTirada: i.testerosAMediaTirada,
           casillasDeBarreraSinFormacion: i.casillasDeBarreraSinFormacion,
           puertaSinCamino: i.puertaSinCamino,
         }).toEqual({
@@ -248,6 +271,7 @@ describe('la ciudad amurallada en los mapas del juego', () => {
           puenteSobreElAnillo: 0,
           casasRepetidasJuntas: 0,
           arcosTapados: 0,
+          testerosAMediaTirada: 0,
           casillasDeBarreraSinFormacion: 0,
           puertaSinCamino: 0,
         });

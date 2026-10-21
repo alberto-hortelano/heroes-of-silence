@@ -63,6 +63,8 @@ interface PiezaDerivadaEnDisco {
   readonly pxPorCasilla?: number;
   readonly alturaDelTablero?: number;
   readonly largoDelTablero?: number;
+  /** Solo los tramos de norte a sur (§29): `pnpm taller derivar-muros` (`muroDerivado`). */
+  readonly tirada?: readonly [number, number];
 }
 
 const porNombre = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -128,6 +130,7 @@ export async function leerCatalogo(): Promise<Catalogo> {
       ...(pxPorCasilla === undefined && altura === undefined && largo === undefined
         ? {}
         : { puente: { pxPorCasilla, altura, largo } as MedidasDePuente }),
+      ...(j.tirada === undefined ? {} : { tirada: j.tirada }),
     };
   }
   for (const id of DEL_ATLAS) {

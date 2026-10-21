@@ -10248,14 +10248,22 @@
    "nw": 541,
    "nh": 1489,
    "ax": 196,
-   "ay": 1464
+   "ay": 1464,
+   "tirada": [
+    79,
+    -381
+   ]
   },
   "muro-ns-2": {
    "src": "muro-ns-2.webp",
    "nw": 540,
    "nh": 1429,
    "ax": 189,
-   "ay": 1404
+   "ay": 1404,
+   "tirada": [
+    100,
+    -336
+   ]
   },
   "nodo-empalizada": {
    "src": "nodo-empalizada.webp",

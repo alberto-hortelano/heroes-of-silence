@@ -44,6 +44,7 @@ import { azarDe, barajar } from './esparcir.js';
 import { ALTO_DE_TORRE, ALTO_DEL_TRAMO_NORTE_SUR, ANCHO_DEL_TRAMO_HORIZONTAL } from './muralla.js';
 import { varianteDeId } from './nodos.js';
 import { SEMIANCHO_DE_LA_HUELLA, type Senda } from './sendas.js';
+import { FONDO_DEL_ADARVE, type ModuloDeTirada, tiradaNorteSur } from './tirada.js';
 
 /** El rectángulo de casillas de un recinto, el del núcleo (`recintoDeLaCiudad`). */
 export type Rect = RectDelRecinto;
@@ -450,8 +451,11 @@ export interface ModulosDelRecinto<M extends ModuloDelRecinto> {
   readonly torres: readonly M[];
   /** El tramo ancho de la hoja `muro`: las caras norte y sur. */
   readonly horizontal: M;
-  /** Los tramos de norte a sur (`muro-ns-1`, `muro-ns-2`), por su ancla del medio: las caras este y oeste. */
-  readonly norteSur: readonly M[];
+  /**
+   * Los tramos de norte a sur (`muro-ns-1`, `muro-ns-2`), por su ancla del
+   * medio y con el paso de su tirada (`tiradaNorteSur`): las caras este y oeste.
+   */
+  readonly norteSur: readonly (M & ModuloDeTirada)[];
   /** Las piezas de la hoja `recinto` por su nombre (`MODULOS_DEL_RECINTO`), con sus juntas. */
   readonly delRecinto: Readonly<Record<(typeof MODULOS_DEL_RECINTO)[number], M>>;
   readonly casas: readonly M[];
@@ -478,15 +482,12 @@ export interface Recinto<M extends ModuloDelRecinto = ModuloDelRecinto> {
   readonly casas: readonly PiezaDelRecinto<M>[];
 }
 
-/** Lo que una pieza de tramo de norte a sur pasa de su trecho por cada lado: lo tapa la torre de la punta. */
-const SOLAPE_DEL_TRAMO = 0.15;
-
 /**
- * Lo que mide de fondo el adarve de un tramo de norte a sur, en veces su alto:
- * los dos tercios de arriba de la pieza (el de abajo es el muro que se ve de
- * frente; a 1,6 el adarve cubre 1,07 casillas, `ALTO_DEL_TRAMO_NORTE_SUR`).
+ * Lo que el adarve de una cara del este o del oeste puede quedarse corto de cada
+ * vértice: lo tapa la torre, de `RADIO_DE_TORRE`, hasta la mitad. Con él, la
+ * cara (1,23) va en dos piezas de su tirada y no en tres.
  */
-export const FONDO_DEL_ADARVE = 2 / 3;
+const HOLGURA_DE_LA_CARA = RADIO_DE_TORRE / 2;
 
 /** Lo que el pie de la primera fila de casas queda por debajo del muro norte. */
 const PRIMERA_FILA = 0.3;
@@ -581,7 +582,7 @@ function deVerticeAVertice<M extends ModuloDelRecinto>(
  *
  * En cada vértice del octógono, una torre (del tipo de la ciudad, por su id);
  * en cada cara, su puerta o su tramo liso: al norte y al sur el tramo ancho de
- * la hoja `muro`, al este y al oeste los de norte a sur (dos, por su adarve), y
+ * la hoja `muro`, al este y al oeste una tirada de norte a sur (`tiradaNorteSur`), y
  * en las diagonales los de la hoja `recinto`. Las puertas y los tramos en
  * diagonal van de vértice a vértice por sus juntas (`deVerticeAVertice`).
  *
@@ -640,32 +641,18 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
       });
       continue;
     }
-    // Este u oeste: de norte a sur, cada pieza cubre con su adarve su trozo y
-    // apoya el pie en la punta sur del trozo.
+    // Este u oeste: una tirada de norte a sur (`tiradaNorteSur`), un solo
+    // módulo al mismo alto y cada pieza a un paso de la de delante, que tapa su
+    // testero. Con dos piezas en la misma columna, partidas a media cara, el de
+    // la de atrás asomaba a media cara y el muro se leía partido (el usuario,
+    // 21-10-2026; s16, town-0).
     const yNorte = Math.min(k.a[1], k.b[1]);
     const ySur = Math.max(k.a[1], k.b[1]);
-    const piezas = Math.ceil(
-      (ySur - yNorte) / (ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO * FONDO_DEL_ADARVE),
-    );
-    const trozo = (ySur - yNorte) / piezas;
-    for (let j = 0; j < piezas; j++) {
-      const m = modulos.norteSur[
-        varianteDeId(`${e.id}:${k.cara}:${j}`, modulos.norteSur.length)
-      ] as M;
-      const pie = yNorte + (j + 1) * trozo;
-      tramos.push({
-        ...m,
-        que: 'tramo',
-        x: k.a[0],
-        y: pie,
-        alto: Math.min(
-          ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
-          (trozo + 2 * SOLAPE_DEL_TRAMO) / FONDO_DEL_ADARVE,
-        ),
-        clave: pie - 0.005,
-        cara: k.cara,
-      });
-    }
+    const m = modulos.norteSur[varianteDeId(`${e.id}:${k.cara}`, modulos.norteSur.length)] as M &
+      ModuloDeTirada;
+    const alto = ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO;
+    for (const p of tiradaNorteSur(m, alto, k.a[0], yNorte, ySur, HOLGURA_DE_LA_CARA))
+      tramos.push({ ...m, que: 'tramo', x: p.x, y: p.y, alto, clave: p.y - 0.005, cara: k.cara });
   }
 
   // Las casas, apiñadas: por filas, de oeste a este.

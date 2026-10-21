@@ -13,6 +13,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { derivarEfecto, derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
+import { muroDerivado } from '../tools/taller/muros.js';
 import { puenteDerivado } from '../tools/taller/paredes-puentes.js';
 import { sha256 } from './helpers.js';
 import { segunPrisa } from './lento.js';
@@ -90,32 +91,43 @@ describe('las hojas del taller', () => {
 /** Un puente se ancla en el centro del tablero, no en la base (§17). */
 const esPuente = (p: string): boolean => /\/puente-[^/]+\.webp$/.test(p);
 
+/** Un tramo de norte a sur lleva además el paso de su tirada (§29, `muros.ts`). */
+const esMuroNorteSur = (p: string): boolean => /\/muro-ns-\d+\.webp$/.test(p);
+
 /**
  * Las que se vuelven a derivar en `pnpm verify`: la primera pieza suelta, el
- * primer puente y el primer edificio, que son las tres cuentas distintas (#167).
- * Derivarlas todas eran ~100 imágenes y 10 s con la máquina cargada; eso queda
- * en `pnpm verify:lento`. El sha256 del JSON, que caza la imagen sustituida sin
- * volver a derivar, lo miran todas en las dos.
+ * primer puente, el primer tramo de norte a sur y el primer edificio, que son
+ * las cuatro cuentas distintas (#167). Derivarlas todas eran ~100 imágenes y
+ * 10 s con la máquina cargada; eso queda en `pnpm verify:lento`. El sha256 del
+ * JSON, que caza la imagen sustituida sin volver a derivar, lo miran todas en
+ * las dos.
  */
 const derivadas = new Set(
   segunPrisa(
-    [piezas.find((p) => !esPuente(p)), piezas.find(esPuente), edificios[0]].filter(
-      (p) => p !== undefined,
-    ),
+    [
+      piezas.find((p) => !esPuente(p) && !esMuroNorteSur(p)),
+      piezas.find(esPuente),
+      piezas.find(esMuroNorteSur),
+      edificios[0],
+    ].filter((p) => p !== undefined),
     [...piezas, ...edificios],
   ),
 );
 
 describe('las piezas del mapa', () => {
-  it('el bucle rápido deriva una de cada cuenta: pieza suelta, puente y edificio', () => {
-    expect(derivadas.size).toBe(segunPrisa(3, piezas.length + edificios.length));
+  it('el bucle rápido deriva una de cada cuenta: pieza suelta, puente, tramo de norte a sur y edificio', () => {
+    expect(derivadas.size).toBe(segunPrisa(4, piezas.length + edificios.length));
   });
 
   it.each([...piezas, ...edificios])('%s: el JSON es lo que mide la imagen', async (p) => {
     const json = leer(rutaDelJson(p));
     expect(json.sha256, 'la imagen cambió sin volver a derivar su JSON').toBe(sha256(p));
     if (!derivadas.has(p)) return;
-    const esperado = esPuente(p) ? await puenteDerivado(p) : await derivarPieza(p);
+    const esperado = esPuente(p)
+      ? await puenteDerivado(p)
+      : esMuroNorteSur(p)
+        ? await muroDerivado(p)
+        : await derivarPieza(p);
     expect(json).toEqual(JSON.parse(JSON.stringify(esperado)));
   });
 

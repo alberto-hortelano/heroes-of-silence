@@ -85,7 +85,7 @@ import {
   tendidoDeBajada,
 } from './celdas.js';
 import { azarDe, esparcir } from './esparcir.js';
-import { ejeDe } from './esqueleto.js';
+import { ejeDe, type Paso } from './esqueleto.js';
 import { pisablesTapadas } from './figuras.js';
 import { seHornea } from './horneado.js';
 import {
@@ -220,6 +220,12 @@ import {
   type Senda,
   sendas,
 } from './sendas.js';
+import {
+  FONDO_DEL_ADARVE,
+  type ModuloDeTirada,
+  testerosAMediaTirada,
+  tiradaNorteSur,
+} from './tirada.js';
 
 /** Qué puede ser un sprite: de aquí salen `Sprite['clase']` y lo que valida una marca de fallo. */
 export const CLASES_DE_SPRITE = [
@@ -477,6 +483,13 @@ export interface Escena {
      * ser 0.
      */
     readonly arcosTapados: number;
+    /**
+     * Tramos de muralla de norte a sur (`muro-ns-*`, de la muralla del mapa y
+     * del recinto de una ciudad) que enseñan su testero a media tirada
+     * (`testerosAMediaTirada`): el muro se leía partido por el medio. Tiene que
+     * ser 0.
+     */
+    readonly testerosAMediaTirada: number;
     /**
      * Casillas de barrera que no tapa su formación, un objeto ni una pared
      * del desnivel por su centro (#222): tiene que ser 0.
@@ -1363,6 +1376,13 @@ const PUERTA_NORTE_SUR = { alto: 2.6, pieDelArco: 0.625 } as const;
 
 /** Las piezas del tramo de muralla de norte a sur (§29), de lado. */
 const TRAMOS_NORTE_SUR = ['muro-ns-1', 'muro-ns-2'] as const;
+
+/**
+ * Lo que una tirada de norte a sur de la muralla del mapa puede quedarse corta
+ * en cada punta (`tiradaNorteSur`): ahí va una torre o una puerta, que lo tapa.
+ * Con él, dos pasos van en tres piezas y no en cuatro.
+ */
+const HOLGURA_DE_LA_TIRADA = 0.125;
 
 /**
  * Lo más que se encoge la torre de una casilla de muralla sin tramos para no
@@ -3468,7 +3488,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    *   y el lienzo sale de debajo de ella.
    * - Si su pie cae en la reserva de otro objeto, pasa por detrás de él igual.
    */
-  function meterEnLaMuralla(s: Sprite, puerta: PuertaDeMuralla | undefined): boolean {
+  function meterEnLaMuralla(s: Sprite, puerta: PuertaDeMuralla | undefined, antes = 0): boolean {
     const delante =
       puerta === undefined
         ? entraria('muro', s.x, s.y, s.alto)
@@ -3478,7 +3498,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (puerta !== undefined && delante === undefined)
       throw new Error(`la puerta ${puerta.id} no está en la escena`);
     if (delante === undefined) return entraria('muro', s.x, s.y, s.alto) && meter(s);
-    sprites.push(detrasDe(s, delante));
+    sprites.push(detrasDe(s, delante, antes));
     return true;
   }
 
@@ -3522,6 +3542,66 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       capa: 0,
       sombra: true,
     };
+  }
+
+  /**
+   * Una tirada de muralla de norte a sur: los pasos de norte a sur seguidos en
+   * una columna (`pasos`, de norte a sur), en piezas del mismo módulo a un paso
+   * de su tirada unas de otras (`tiradaNorteSur`), que es lo que tapa el testero
+   * de cada una con la de delante. Una por paso, en la misma columna y a una
+   * casilla, la de atrás enseñaba su testero en la junta (s41 (20, 25-27)). La
+   * tirada cubre lo que cubrían ellas, salvo `HOLGURA_DE_LA_TIRADA` en cada
+   * punta, que es una torre o una puerta; de un solo paso, la pieza de siempre.
+   * Cada pieza va con el paso más cercano (`paso`) y, si su adarve pasa del pie
+   * de la puerta de la punta norte, detrás de ella (`detrasDeLaPuerta`). Sin
+   * arte, null.
+   */
+  function tiradaDelMapa(
+    pasos: readonly Paso[],
+    sitio: string,
+    color: string,
+    puertaNorte: PuertaDeMuralla | undefined,
+  ): { tramo: Sprite; paso: number; detrasDeLaPuerta: boolean }[] | null {
+    const id = TRAMOS_NORTE_SUR[varianteDeId(sitio, TRAMOS_NORTE_SUR.length)] as string;
+    const p = pieza(id);
+    if (p === null) return null;
+    const m = moduloNorteSur(p);
+    const alto = ALTO_DEL_TRAMO_NORTE_SUR;
+    const fondo = alto * FONDO_DEL_ADARVE;
+    /** El pie de la pieza de siempre de un paso: el del medio, como la torre, `+ 0.75`. */
+    const pieDe = (q: Paso) => (q.a[1] + q.b[1]) / 2 + 0.75;
+    const primero = pasos[0] as Paso;
+    const pie0 = pieDe(primero);
+    const sur = pieDe(pasos.at(-1) as Paso);
+    const piezas = tiradaNorteSur(
+      m,
+      alto,
+      primero.a[0] + 0.5,
+      pie0 - fondo,
+      sur,
+      pasos.length === 1 ? 0 : HOLGURA_DE_LA_TIRADA,
+    );
+    // La puerta de la punta norte, si la hay: la de atrás de la tirada pasa por detrás de ella.
+    const laPuerta =
+      puertaNorte === undefined ? undefined : sprites.find((o) => o.objeto?.id === puertaNorte.id);
+    return piezas.map((q) => ({
+      tramo: {
+        src: m.src,
+        nw: m.nw,
+        nh: m.nh,
+        ax: m.ax,
+        ay: m.ay,
+        x: q.x,
+        y: q.y,
+        alto,
+        clase: 'muro',
+        color,
+        capa: 0,
+        sombra: true,
+      },
+      paso: Math.min(pasos.length - 1, Math.max(0, Math.round(q.y - pie0))),
+      detrasDeLaPuerta: laPuerta !== undefined && q.y - fondo < laPuerta.y,
+    }));
   }
 
   /** La línea de una franja de muro (`trazaDeMuralla`), con sus puertas y cómo entra su torre. */
@@ -3609,9 +3689,60 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
             !enPuerta.some((p) => Math.max(Math.abs(p[0] - x), Math.abs(p[1] - y)) <= 1),
         );
       });
+    const puertaDe = (p: Paso) =>
+      suyas.find((q) => [p.a, p.b].some(([x, y]) => x === q.at[0] && y === q.at[1]));
+    // Los pasos de norte a sur, en tiradas: los seguidos en una columna, sin una
+    // puerta en la junta (la puerta, que va delante, ya es una punta).
+    const deFondo = (p: Paso) => hoja === 'muro' && ejeDe(p) === 'profundidad';
+    const yNorte = (p: Paso) => Math.min(p.a[1], p.b[1]);
+    const tiradas: Paso[][] = [];
+    for (const p of e.pasos
+      .filter(deFondo)
+      .sort((p, q) => p.a[0] - q.a[0] || yNorte(p) - yNorte(q))) {
+      const t = tiradas.at(-1);
+      const ultimo = t?.at(-1);
+      const junta = yNorte(p);
+      if (
+        t !== undefined &&
+        ultimo !== undefined &&
+        ultimo.a[0] === p.a[0] &&
+        yNorte(ultimo) + 1 === junta &&
+        !suyas.some((q) => q.at[0] === p.a[0] && q.at[1] === junta)
+      )
+        t.push(p);
+      else tiradas.push([p]);
+    }
+    const tiradaDe = new Map(tiradas.flatMap((t) => t.map((p) => [p, t] as const)));
+    const vestidas = new Set<Paso[]>();
     for (const p of e.pasos) {
       const eje = ejeDe(p);
-      const puerta = suyas.find((q) => [p.a, p.b].some(([x, y]) => x === q.at[0] && y === q.at[1]));
+      const puerta = puertaDe(p);
+      const tirada = tiradaDe.get(p);
+      if (tirada !== undefined) {
+        // La tirada entera, en el sitio del primero de sus pasos que llega.
+        if (vestidas.has(tirada)) continue;
+        vestidas.add(tirada);
+        const primero = tirada[0] as Paso;
+        const norte = Math.min(primero.a[1], primero.b[1]);
+        const puertaNorte = suyas.find((q) => q.at[0] === primero.a[0] && q.at[1] === norte);
+        const piezas = tiradaDelMapa(tirada, `${f.id}:${primero.a}`, color, puertaNorte);
+        if (piezas !== null) {
+          const entraron = tirada.map(() => true);
+          // Las de detrás de la puerta, en su orden: de delante atrás, cada una
+          // un poco antes que la anterior.
+          let detras = 0;
+          for (const { tramo, paso, detrasDeLaPuerta } of piezas) {
+            const ok = detrasDeLaPuerta
+              ? meterEnLaMuralla(tramo, puertaNorte, 0.001 * detras++)
+              : meterEnLaMuralla(tramo, puertaDe(tirada[paso] as Paso));
+            if (!ok) entraron[paso] = false;
+          }
+          tirada.forEach((q, i) => {
+            if (entraron[i]) pintados.push({ franja: f.id, a: q.a, b: q.b });
+          });
+          continue;
+        }
+      }
       // El tramo recto se apoya por el medio del paso. El diagonal lleva el
       // ancla en su punta baja (la que deriva el taller): puesto en el medio, el
       // lienzo quedaba medio paso corrido hacia arriba y no llegaba a la casilla
@@ -4484,6 +4615,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         (n, [id, r]) => n + arcosTapados(r.contorno, arcosPintados.get(id) ?? [], r.casas).length,
         0,
       ),
+      testerosAMediaTirada: testerosDeLaEscena(sprites, catalogo).length,
       casillasDeBarreraSinFormacion: sinFormacion,
       spritesSobreSenda: sobreLaSenda(sprites, trazos).length,
       // Recontadas desde lo puesto, con cualquier módulo del catálogo y no solo
@@ -5051,9 +5183,20 @@ function sinArte(nombre: string, ancho: number, alto: number): ModuloConSrc {
  * al este según se aleja, y con el ancla derivada (el pie del extremo cercano)
  * toda la tirada quedaba al este. Lo leen la muralla del mapa y el recinto.
  */
-export function moduloNorteSur(p: Pieza): Pieza {
-  return { src: p.src, nw: p.nw, nh: p.nh, ax: p.nw / 2, ay: p.ay };
+export function moduloNorteSur(p: Pieza): Pieza & ModuloDeTirada {
+  if (p.tirada === undefined)
+    throw new Error(
+      `el tramo de norte a sur ${p.src} no trae el paso de su tirada: derívalo (pnpm taller derivar-muros)`,
+    );
+  return { src: p.src, nw: p.nw, nh: p.nh, ax: p.nw / 2, ay: p.ay, tirada: p.tirada };
 }
+
+/**
+ * El paso de la tirada del marcador de un tramo de norte a sur sin arte, en
+ * veces su alto: recto hacia el fondo y a un tercio, para que su testero quede
+ * dentro de la de delante como con el arte.
+ */
+const PASO_SIN_ARTE = 1 / 3;
 
 /**
  * Los módulos del recinto de una ciudad, del catálogo: las torres, el tramo
@@ -5103,15 +5246,16 @@ export function modulosDelRecinto(
       ANCHO_DEL_TRAMO_DEL_RECINTO,
       ALTO_DEL_MURO_DEL_RECINTO,
     ),
-    norteSur: TRAMOS_NORTE_SUR.map((id): ModuloConSrc => {
+    norteSur: TRAMOS_NORTE_SUR.map((id): ModuloConSrc & ModuloDeTirada => {
       const p = catalogo.piezas[id];
       if (p !== undefined) return { nombre: id, ...moduloNorteSur(p) };
       faltan.add(id);
-      return sinArte(
+      const m = sinArte(
         id,
         ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO * PROPORCION_DEL_TRAMO_NORTE_SUR,
         ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
       );
+      return { ...m, tirada: [0, -m.nh * PASO_SIN_ARTE] };
     }),
     delRecinto,
     casas,
@@ -6860,8 +7004,29 @@ function ordenadoEn(s: Sprite, y: number): Sprite {
 }
 
 /** `s` en su sitio, por detrás de `delante` si no lo estaba ya: el muro que cae en la reserva de un objeto. */
-function detrasDe(s: Sprite, delante: Sprite): Sprite {
-  return claveDe(s) < claveDe(delante) ? s : ordenadoEn(s, claveDe(delante) - 0.01);
+/**
+ * Los tramos de norte a sur de la escena que enseñan su testero a media tirada
+ * (`testerosAMediaTirada`): lo que tapa una junta son las torres de la hoja
+ * `muro` (las del mapa y las del recinto) y las puertas de la muralla del mapa
+ * (`nodo-puerta-*`: la de norte a sur y la de este a oeste que cruza).
+ */
+export function testerosDeLaEscena(sprites: readonly Sprite[], catalogo: Catalogo): string[] {
+  const conClave = (s: Sprite) => ({ ...s, clave: claveDe(s) });
+  return testerosAMediaTirada(
+    sprites.filter((s) => /^muro-ns-\d+\.webp$/.test(s.src ?? '')).map(conClave),
+    sprites
+      .filter(
+        (s) =>
+          (TORRES_DEL_MURO as readonly string[]).some((t) => s.src === `modulos/muro/${t}.webp`) ||
+          /^nodo-puerta-[a-z-]+\.webp$/.test(s.src ?? ''),
+      )
+      .map(conClave),
+    (src) => catalogo.piezas[src.replace(/\.webp$/, '')]?.tirada,
+  );
+}
+
+function detrasDe(s: Sprite, delante: Sprite, antes = 0): Sprite {
+  return claveDe(s) < claveDe(delante) ? s : ordenadoEn(s, claveDe(delante) - 0.01 - antes);
 }
 
 export type { Analisis };

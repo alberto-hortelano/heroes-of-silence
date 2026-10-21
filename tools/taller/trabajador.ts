@@ -44,6 +44,7 @@
  *   pnpm taller derivar-recinto          apunta el pie de las dos puntas de cada módulo del recinto desde su guía
  *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts`, `bajadas.ts`, `rampas.ts` y `recinto.ts`
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
+ *   pnpm taller derivar-muros            el paso de la tirada de los tramos de norte a sur (`muros.ts`)
  *   pnpm taller escenario [semilla…] [--px=N]  el escenógrafo: compone, pinta, captura y mide
  *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
  *   pnpm taller derivar-casas [--vista]  recorta las casas sueltas de la labranza de la hoja de pueblos (`casas.ts`); con --vista, cada casa teñida y numerada
@@ -174,6 +175,7 @@ import {
   encargosDeTablillas,
 } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
+import { escribirMurosDerivados } from './muros.js';
 import {
   encargosDeParedesYPuentes,
   escribirGuias,
@@ -1176,6 +1178,10 @@ switch (orden) {
       console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
     }
     break;
+  case 'derivar-muros':
+    // El paso con que una pieza de norte a sur va detrás de otra sin enseñar su testero.
+    for (const f of await escribirMurosDerivados()) console.log(`→ ${f}`);
+    break;
   case 'derivar-relieve':
     // Las juntas de cada módulo del relieve, desde su guía: laderas (§20),
     // diagonales y bajadas (§23). Sin hojas, todas las que hay en disco.
@@ -1371,6 +1377,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-casas, maniqui, experimento, experimento-medir, vista-versiones, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-casas, maniqui, experimento, experimento-medir, vista-versiones, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar`,
     );
 }
