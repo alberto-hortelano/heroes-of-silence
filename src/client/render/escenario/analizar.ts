@@ -6,8 +6,8 @@
  *
  * Es puro: un mapa entra y un análisis sale, sin DOM y sin ficheros.
  */
-import type { MapObject, MapRegion, TramoDeCamino } from '@core/map/map.js';
-import { rioAnteLaCiudad } from '@core/map/recinto.js';
+import type { MapObject, MapRegion, RedDeCaminos } from '@core/map/map.js';
+import { type CaraDelRio, rioAnteLaCiudad } from '@core/map/recinto.js';
 import { type Estructura, estructura } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
@@ -26,12 +26,11 @@ export interface MapaDeEscena {
   readonly terrain: readonly TerrainKind[];
   /**
    * Los tramos y las casillas sueltas (un camino de una casilla, que no se
-   * pinta): las dos caras de `RedDeCaminos` que lee la escena.
+   * pinta), y si un tramo une dos casillas: lo que lee la escena de
+   * `RedDeCaminos`. Con `une` salen las puertas de cada ciudad
+   * (`puertasDeLaCiudad`): hay puerta donde llega un camino.
    */
-  readonly caminos: {
-    readonly tramos: readonly TramoDeCamino[];
-    readonly sueltas: readonly Point[];
-  };
+  readonly caminos: Pick<RedDeCaminos, 'tramos' | 'sueltas' | 'une'>;
   readonly objects: readonly MapObject[];
   /**
    * Las regiones de la red, con su nivel de altura: el relieve es un dato del
@@ -96,7 +95,13 @@ export interface Analisis {
    */
   readonly ciudadesPuente: ReadonlyMap<
     string,
-    { readonly rio: Point; readonly orilla: Point; readonly enfrente: Point }
+    {
+      readonly rio: Point;
+      readonly orilla: Point;
+      readonly enfrente: Point;
+      /** La cara del recinto que mira al río: la de su puerta del río. */
+      readonly cara: CaraDelRio;
+    }
   >;
   /**
    * Los nodos y ciudades a los que llega un camino, por su id: entre dos
@@ -185,7 +190,12 @@ export function analizar(map: MapaDeEscena): Analisis {
         : [
             [
               o.id,
-              { rio: puente.acceso, orilla: puente.puerta, enfrente: puente.enfrente },
+              {
+                rio: puente.acceso,
+                orilla: puente.puerta,
+                enfrente: puente.enfrente,
+                cara: puente.cara,
+              },
             ] as const,
           ];
     }),

@@ -8,10 +8,13 @@
  *   (`Sprite.recinto`) y el pie dentro.
  * - Lo de dentro es la plaza (criterio 8b): ni paredes del relieve, ni bajadas,
  *   ni rampas, ni masa, cubierta o rocas con el pie en sus casillas.
- * - La marca del dueño va encima del recinto entero, y quien está en una de sus
- *   casillas, delante (`claveDeObjeto`, `claveDeFigura`).
+ * - Las puertas pintadas son las del núcleo (`puertasDeLaCiudad`), y ninguna
+ *   casa tapa la plaza mayor (vuelta 3, fase 3).
+ * - El óvalo del dueño, en el suelo de la plaza (`claveDeLaMarca`, H8), y quien
+ *   está en una de sus casillas, delante del recinto entero (`claveDeFigura`).
  * - Los guardias del recinto, a 0: ninguna senda por el anillo, ninguna fuera
- *   de un arco, el anillo cerrado, ninguna casa repetida al lado, y las
+ *   de un arco, ninguna puerta sin su camino (`puertaSinCamino`), el anillo
+ *   cerrado, ninguna casa repetida al lado, y las
  *   casillas de barrera junto a él con su formación (la salida recta de una
  *   puerta las pisaba: s21, s25, s32). Los demás guardias del informe los
  *   vigilan sus tests.
@@ -26,13 +29,15 @@ import { componer, luzDelRecinto, puntosDeCelda } from '../src/client/render/esc
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import {
   casillasDelRecinto,
+  contornoDelRecinto,
   EJE_DE_LA_CARA,
   enElRecinto,
   puertaDelEje,
   RADIO_DE_TORRE,
+  tapaLaPlazaMayor,
 } from '../src/client/render/escenario/recinto.js';
 import { claveDeFigura, escenarioDe } from '../src/client/render/escenario/superficie.js';
-import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
+import { puertasDeLaCiudad, recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { catalogoDelDisco, partidaDe } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
@@ -111,12 +116,40 @@ describe('la ciudad amurallada en los mapas del juego', () => {
         }
       });
 
-      it('la marca, encima de todo el recinto, y quien está dentro, delante', () => {
+      it('las puertas pintadas son las del núcleo: donde llega un camino, y la del río', () => {
+        for (const o of ciudades) {
+          const r = e.recintos.find((k) => k.id === o.id);
+          expect([...(r?.puertas ?? [])].sort(), `s${semilla} ${o.id}`).toEqual(
+            puertasDeLaCiudad(map, o.at)
+              .map((p) => p.cara)
+              .sort(),
+          );
+        }
+      });
+
+      it('la plaza mayor, libre: ninguna casa la tapa', () => {
+        for (const r of e.recintos) {
+          const c = contornoDelRecinto(r.rect);
+          const casas = e.sprites.filter((s) => s.objeto?.id === r.id && s.recinto === 'casa');
+          for (const s of casas)
+            expect(tapaLaPlazaMayor(c, s), `${r.id}: ${s.src} en ${s.x},${s.y}`).toBe(false);
+        }
+      });
+
+      it('el óvalo del dueño, en el suelo de la plaza (H8); quien está dentro, delante', () => {
         const esc = escenarioDe(map, semilla);
         for (const r of e.recintos) {
           const piezas = e.sprites.filter((s) => s.objeto?.id === r.id && s.puente === undefined);
           const ultima = Math.max(...piezas.map(claveDe));
           expect(esc.claveDeObjeto.get(r.id), r.id).toBe(ultima);
+          // El óvalo cuelga de su asiento hacia el sur: lo que se levanta más al
+          // sur se pinta después y lo tapa; lo de más al norte no llega a él.
+          const asiento = esc.asientoDeObjeto.get(r.id) as readonly [number, number];
+          const marca = esc.claveDeLaMarca.get(r.id) as number;
+          expect(marca, r.id).toBe(asiento[1]);
+          expect(marca, r.id).toBeLessThan(ultima);
+          for (const s of piezas.filter((p) => p.recinto === 'casa' && p.y > asiento[1]))
+            expect(claveDe(s), `${r.id}: ${s.src}`).toBeGreaterThan(marca);
           // Con los pies de quien está en la casilla, como `pisada`: la columna y la fila más los pies.
           for (const [x, y] of casillasDelRecinto(r.rect))
             expect(claveDeFigura(esc, x, y + 0.5), `${r.id} (${x}, ${y})`).toBeGreaterThanOrEqual(
@@ -146,6 +179,7 @@ describe('la ciudad amurallada en los mapas del juego', () => {
           puenteSobreElAnillo: i.puenteSobreElAnillo,
           casasRepetidasJuntas: i.casasRepetidasJuntas,
           casillasDeBarreraSinFormacion: i.casillasDeBarreraSinFormacion,
+          puertaSinCamino: i.puertaSinCamino,
         }).toEqual({
           recintoSobreSenda: 0,
           sendaFueraDeLaPuerta: 0,
@@ -153,6 +187,7 @@ describe('la ciudad amurallada en los mapas del juego', () => {
           puenteSobreElAnillo: 0,
           casasRepetidasJuntas: 0,
           casillasDeBarreraSinFormacion: 0,
+          puertaSinCamino: 0,
         });
       });
     });

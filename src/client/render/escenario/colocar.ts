@@ -163,10 +163,10 @@ import {
   ANCHO_DEL_TRAMO_DEL_RECINTO,
   anilloSobreLaSenda,
   CARA_DEL_RECINTO,
+  type CaraDelContorno,
   type Cara as CaraDelRecinto,
   type Contorno,
   callesDeLasPuertas,
-  caraHacia,
   casasRepetidasJuntas,
   casillasDelRecinto,
   contornoDelRecinto,
@@ -174,7 +174,7 @@ import {
   enLaPlaza,
   HOJA_DEL_RECINTO,
   huecosDelAnillo,
-  LUZ_DEL_ARCO,
+  MEDIA_CALLE,
   MODULOS_DEL_RECINTO,
   type ModuloDelRecinto,
   type ModulosDelRecinto,
@@ -185,13 +185,14 @@ import {
   PX_POR_CASILLA_DEL_PUEBLO,
   pisaElAnillo,
   puentesSobreElAnillo,
-  puertasDelRecinto,
+  puertasDelNucleo,
+  puertasSinSuCamino,
   type Recinto,
   type Rect,
   recintoDe,
   type Sitio,
   sendasFueraDeLaPuerta,
-  sendasPorDentro,
+  sendasSinRoces,
   tendidosDeLasPuertas,
 } from './recinto.js';
 import {
@@ -456,6 +457,13 @@ export interface Escena {
      * puerta. Tiene que ser 0.
      */
     readonly sendaFueraDeLaPuerta: number;
+    /**
+     * Puertas de un recinto que no casan con los caminos del núcleo
+     * (`puertasSinSuCamino`): pintada sin camino que llegue a ella, del núcleo
+     * y sin pintar, sin senda por su arco o la del río sin su puente. Tiene que
+     * ser 0.
+     */
+    readonly puertaSinCamino: number;
     /**
      * Casas de un recinto con la misma casa al lado o detrás, solapadas
      * (`casasRepetidasJuntas`): tiene que ser 0.
@@ -1665,10 +1673,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           : puenteDeLaCiudad(
               o,
               deLaCiudad,
-              caraHacia(
-                contornoDelRecinto(recintos.get(o.id) as Rect),
-                deLaCiudad.rio.x + 0.5,
-                deLaCiudad.rio.y + 0.5,
+              (
+                contornoDelRecinto(recintos.get(o.id) as Rect).caras.find(
+                  (k) => k.cara === deLaCiudad.cara,
+                ) as CaraDelContorno
               ).medio,
               W,
               nivel,
@@ -1829,39 +1837,27 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
     return true;
   };
-  // Lo que va dentro de un recinto, una cuerda: la plaza lo tapa, y así cada
-  // senda cruza la muralla una vez por puerta (`sendasPorDentro`).
+  // La senda que pasa junto a una ciudad sin ir a ella, fuera de sus torres
+  // (`sendasSinRoces`); la que va a ella entra de un acceso a su puerta.
   const contornos = new Map(
     [...recintos].map(([id, rect]) => [id, contornoDelRecinto(rect)] as const),
   );
-  const sinPuertas = sendasPorDentro(
+  const sinPuertas = sendasSinRoces(
     sendas(tramosHastaLosEstribos(caminos, puentes), semilla, (x, y) => deUnNodo.has(`${x},${y}`)),
     [...contornos.values()],
     (x, y) => x >= 0 && y >= 0 && x <= W && y <= H,
   );
   /**
-   * Por dónde se entra en cada recinto: su octógono, las caras con puerta (las
-   * que cruzan las sendas, `puertasDelRecinto`) y la del río de una
-   * ciudad-puente, a la que llega el puente.
+   * Por dónde se entra en cada recinto: su octógono y las puertas del núcleo
+   * (`puertasDelNucleo`: donde llega un camino, y la del río de una
+   * ciudad-puente, a la que llega el puente).
    */
   const puertasDe = new Map(
-    [...recintos].map(([id, rect]) => {
-      const contorno = contornos.get(id) as Contorno;
-      const puente = a.ciudadesPuente.get(id);
-      const rio =
-        puente === undefined
-          ? undefined
-          : caraHacia(contorno, puente.rio.x + 0.5, puente.rio.y + 0.5).cara;
-      return [
-        id,
-        {
-          id,
-          rect,
-          contorno,
-          puertas: puertasDelRecinto(contorno, sinPuertas, rio, sePisaJuntoAlRecinto),
-          ...(rio === undefined ? {} : { rio }),
-        },
-      ] as const;
+    a.objetos.flatMap((o) => {
+      const rect = recintos.get(o.id);
+      if (rect === undefined) return [];
+      const contorno = contornos.get(o.id) as Contorno;
+      return [[o.id, { id: o.id, rect, contorno, ...puertasDelNucleo(map, o.at) }] as const];
     }),
   );
   // Y entra en cada recinto por el arco de una puerta (`tendidosDeLasPuertas`),
@@ -2698,14 +2694,14 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const modulos = modulosDelRecinto(catalogo, faltan);
     for (const r of puertasDe.values()) {
       const objeto = { id: r.id, kind: 'town' } as const;
-      const calle = pasilloDe<ConImagen>(callesDeLasPuertas(r), CALLE);
+      const calle = pasilloDe<ConImagen>(callesDeLasPuertas(r), MEDIA_CALLE);
       const recinto = recintoDe({
         id: r.id,
         rect: r.rect,
         semilla,
         puertas: r.puertas,
         modulos,
-        // La casa, por su pie de su ancho: a `CALLE` de la calle de cada puerta
+        // La casa, por su pie de su ancho: a `MEDIA_CALLE` de la calle de cada puerta
         // y fuera de la reserva de otro objeto. Lo de encima puede tapar la
         // calle de detrás: es una ciudad apiñada.
         entraLaCasa: (p) => {
@@ -3126,11 +3122,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   }
   for (let i = 0; i < W * H; i++) if (bajoLaHuella[i]) cubiertas[i] = 1;
   // Y la casilla de barrera por la que sale recta la senda del arco de una
-  // ciudad (`tendidosDeLasPuertas`): solo cuando ninguna cara tiene delante lo
-  // que se pisa (`caraDelCruce`), el camino del núcleo que entra en diagonal
-  // entre dos barreras por la casilla de la esquina del 3 × 3. Es el umbral de
-  // la ciudad: sin la salida recta, la senda pasa por el pie de la torre del
-  // vértice. En 1-40, una: s21 (27,34).
+  // ciudad (`tendidosDeLasPuertas`): solo cuando ni la salida más corta acaba
+  // en lo que se pisa, la puerta diagonal cuyo camino llega por un acceso de
+  // lado con la casilla de la esquina de barrera. Es el umbral de la ciudad:
+  // sin la salida recta, la senda pasa por el pie de la torre del vértice.
   for (const t of tendidosDePuertas)
     for (let k = 0; k <= 10; k++) {
       const x = Math.floor(t.p0[0] + ((t.p1[0] - t.p0[0]) * k) / 10);
@@ -4452,6 +4447,22 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       anilloAbierto: puestos.reduce((n, r) => n + huecosDelAnillo(r).length, 0),
       puenteSobreElAnillo: puentesSobreElAnillo([...contornos.values()], puentes).length,
       sendaFueraDeLaPuerta: sendasFueraDeLaPuerta(trazos, [...puertasDe.values()]).length,
+      puertaSinCamino: puertasSinSuCamino(
+        a.objetos.flatMap((o) => {
+          const r = recintosPuestos.get(o.id);
+          if (r === undefined) return [];
+          return [
+            {
+              id: o.id,
+              contorno: r.contorno,
+              pintadas: r.arcos.map((p) => p.cara as CaraDelRecinto),
+              delNucleo: puertasDelNucleo(map, o.at),
+            },
+          ];
+        }),
+        trazos,
+        puentes,
+      ).length,
       casasRepetidasJuntas: puestos.reduce((n, r) => n + casasRepetidasJuntas(r.casas).length, 0),
       casillasDeBarreraSinFormacion: sinFormacion,
       spritesSobreSenda: sobreLaSenda(sprites, trazos).length,
@@ -4981,13 +4992,6 @@ export function celdasBajoLosRecintos(cs: readonly Celda[], rects: readonly Rect
   }
   return fuera;
 }
-
-/**
- * Lo que el pie de una casa del recinto queda del eje de la calle de una puerta
- * (`callesDeLasPuertas`): media luz del arco, para que ninguna casa tape la
- * entrada.
- */
-const CALLE = LUZ_DEL_ARCO / 2;
 
 /** Lo alto con que se mide el pie de una casa contra la calle: su base, de su ancho. */
 const ALTO_DEL_PIE_DE_CASA = 0.05;

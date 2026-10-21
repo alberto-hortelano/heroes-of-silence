@@ -20,15 +20,23 @@
  *   senda que llega en diagonal (el 75 %) abría de 1 a 1,6 casillas de muro
  *   (s15 (12,16)), y el usuario pidió puertas («cierralo con puertas»).
  * - Cada cara lleva su puerta o su tramo liso, siempre entre dos torres: una
- *   regla para las ocho. Qué caras llevan puerta lo dicen los caminos del núcleo
- *   (`puertasDelRecinto`); la senda pintada se lleva luego por el arco
- *   (`tendidosDeLasPuertas`, `sendasPorLosTendidos` en `celdas.ts`).
+ *   regla para las ocho. Qué caras llevan puerta lo dice el núcleo
+ *   (`puertasDelNucleo` → `puertasDeLaCiudad`: donde llega un camino, y la del
+ *   río de una ciudad-puente), y la escena no lo deduce de nada (vuelta 3, fase
+ *   3); la senda pintada se lleva luego por el arco (`tendidosDeLasPuertas`,
+ *   `sendasPorLosTendidos` en `celdas.ts`). Dentro, la plaza mayor
+ *   (`PLAZA_MAYOR`) y una calle de cada puerta hasta ella.
  *
  * Es puro y determinista, con su propia corriente de azar: no sabe de sprites
  * ni de la escena; `componer` le da los módulos y la calle de las casas
  * (`entraLaCasa`) y pone lo que devuelve.
  */
-import { LADO_DEL_RECINTO, type RectDelRecinto } from '../../../core/map/recinto.js';
+import {
+  LADO_DEL_RECINTO,
+  type MapaConCaminos,
+  puertasDeLaCiudad,
+  type RectDelRecinto,
+} from '../../../core/map/recinto.js';
 import { hashDeTexto } from '../../../core/rng.js';
 import type { TendidoDeSenda } from './celdas.js';
 import { azarDe, barajar } from './esparcir.js';
@@ -93,19 +101,58 @@ export const ANCHO_DEL_PUEBLO = 1.9;
 export const PX_POR_CASILLA_DEL_PUEBLO = 364 / ANCHO_DEL_PUEBLO;
 
 /**
- * Lo que la plaza de un recinto pasa de su rectángulo por cada lado
- * (`pintarPlazas`): la muralla se apoya en tierra de la ciudad, no en el suelo
- * de fuera. Lo que va por dentro de la plaza, la plaza lo tapa: también la
- * senda que corta las esquinas que deja fuera el octógono.
+ * Lo que la plaza de un recinto pasa de su rectángulo por detrás y por los
+ * lados (`pintarPlazas`): la muralla se apoya en tierra de la ciudad, no en el
+ * suelo de fuera, y por ahí la tapa.
  */
 export const PLAZA_FUERA = 0.12;
 
-/** Si `(x, y)` cae en la plaza del recinto `r`: su rectángulo con `PLAZA_FUERA` de más. */
+/**
+ * Lo que la plaza pasa, como mucho, del pie de las caras de delante del
+ * octógono (la del sur y las dos diagonales de abajo), que la cámara ve por
+ * fuera: con el rectángulo, la plaza asomaba de 0,15 a 0,25 casillas bajo el
+ * muro sur, una franja de tierra vacía (H9 del QA de la vuelta 2).
+ */
+export const PLAZA_AL_SUR = 0.05;
+
+/** Un lado de la plaza: los puntos `p` con `n · p < c` quedan dentro. */
+export interface LadoDeLaPlaza {
+  readonly n: Par;
+  readonly c: number;
+}
+
+const LADOS_DE_LA_PLAZA = new WeakMap<Rect, readonly LadoDeLaPlaza[]>();
+
+/**
+ * Los seis lados de la plaza del recinto `r`, en el sentido de las agujas del
+ * reloj desde el norte: el norte, el este y el oeste de su rectángulo con
+ * `PLAZA_FUERA` de más, y al sur las caras sureste, sur y suroeste del
+ * octógono con `PLAZA_AL_SUR`. Es la plaza que pinta `pintarPlazas` y la que
+ * mira `enLaPlaza`.
+ */
+export function ladosDeLaPlaza(r: Rect): readonly LadoDeLaPlaza[] {
+  const hecho = LADOS_DE_LA_PLAZA.get(r);
+  if (hecho !== undefined) return hecho;
+  const caras = contornoDelRecinto(r).caras;
+  const deLaCara = (k: Cara): LadoDeLaPlaza => {
+    const { normal: n, a } = caras.find((c) => c.cara === k) as CaraDelContorno;
+    return { n, c: n[0] * a[0] + n[1] * a[1] + PLAZA_AL_SUR };
+  };
+  const lados: LadoDeLaPlaza[] = [
+    { n: [0, -1], c: -(r.j0 - PLAZA_FUERA) },
+    { n: [1, 0], c: r.i1 + 1 + PLAZA_FUERA },
+    deLaCara('se'),
+    deLaCara('s'),
+    deLaCara('so'),
+    { n: [-1, 0], c: -(r.i0 - PLAZA_FUERA) },
+  ];
+  LADOS_DE_LA_PLAZA.set(r, lados);
+  return lados;
+}
+
+/** Si `(x, y)` cae en la plaza del recinto `r` (`ladosDeLaPlaza`). */
 export const enLaPlaza = (r: Rect, x: number, y: number): boolean =>
-  x > r.i0 - PLAZA_FUERA &&
-  x < r.i1 + 1 + PLAZA_FUERA &&
-  y > r.j0 - PLAZA_FUERA &&
-  y < r.j1 + 1 + PLAZA_FUERA;
+  ladosDeLaPlaza(r).every((l) => l.n[0] * x + l.n[1] * y < l.c);
 
 /** Las casillas de un recinto, fila a fila. */
 export function casillasDelRecinto(r: Rect): Par[] {
@@ -305,123 +352,27 @@ export function caraHacia(c: Contorno, x: number, y: number): CaraDelContorno {
   return mejor;
 }
 
-/** Lo que se mira de la senda por fuera de un cruce, a lo largo de ella, para saber por dónde sigue. */
-const RUMBO_DE_LA_SENDA = 2;
-
-/**
- * Lo que se prueba de la salida de una puerta (`SALIDA_DE_LA_PUERTA`) cuando
- * entera no acaba en lo que se pisa: el camino del núcleo que pasa por la
- * casilla de al lado de una esquina, entre el recinto y el río, salía del arco
- * por encima del agua (s37 (40,22)).
- */
-const PARTES_DE_LA_SALIDA = [1, 0.85, 0.7, 0.55] as const;
-
-/**
- * La salida de la puerta cuando delante de ninguna cara cabe (`caraDelCruce`):
- * lo justo para pasar el arco, y la senda vuelve a su trazo en seguida. Con la
- * entera, la del noreste de s37 (39,23), entre la esquina y el río, se metía en
- * el agua.
- */
-const SALIDA_SIN_SITIO = 0.2;
-
-/**
- * Lo que la salida de la puerta de una cara vecina puede quedar de la senda
- * (`caraDelCruce`): más lejos, la senda tenía que rodear la muralla hasta ella
- * (s21 (28,34), por encima de la montaña).
- */
-const VECINA_JUNTO_A_LA_SENDA = 1;
-
-/**
- * La cara por la que entra la senda que cruza el octógono en `cruce` y sigue
- * por fuera por `fuera` (sus puntos, `RUMBO_DE_LA_SENDA` a lo largo de ella):
- * la de su sitio (`caraHacia`) o una de sus dos vecinas, la que acaba más cerca
- * de la senda con su senda recta de salida (`SALIDA_DE_LA_PUERTA`, por su
- * normal) en lo que se pisa (`sePisa`), y la vecina solo a
- * `VECINA_JUNTO_A_LA_SENDA` de ella; si ninguna, lo mismo con la salida más
- * corta (`PARTES_DE_LA_SALIDA`), y si tampoco, la de su sitio. Con su salida. El camino que
- * sale en diagonal por un vértice con una barrera delante de su cara salía del
- * arco de frente por encima de ella (s25 (19,28)), que se quedaba sin pico; y
- * el que baja junto a una cara y entra por la de al lado, igual (s32 (5,9)).
- * Acortar la salida le hacía pasar por el pie de la torre.
- */
-export function caraDelCruce(
-  c: Contorno,
-  cruce: Par,
-  fuera: readonly Par[],
-  sePisa: (x: number, y: number) => boolean,
-): CaraDelContorno & { readonly salida: number } {
-  const suya = caraHacia(c, cruce[0], cruce[1]);
-  const n = CARAS.indexOf(suya.cara);
-  const candidatas = [suya, c.caras[(n + 7) % 8], c.caras[(n + 1) % 8]] as CaraDelContorno[];
-  // Primero con la salida entera; si ninguna cabe, más corta.
-  for (const parte of PARTES_DE_LA_SALIDA) {
-    let mejor: (CaraDelContorno & { readonly salida: number }) | undefined;
-    let d = Infinity;
-    for (const k of candidatas) {
-      const salida = SALIDA_DE_LA_PUERTA[k.cara] * parte;
-      const x = k.medio[0] + k.normal[0] * salida;
-      const y = k.medio[1] + k.normal[1] * salida;
-      if (!sePisa(x, y)) continue;
-      const dk = Math.min(...fuera.map((q) => Math.hypot(x - q[0], y - q[1])), Infinity);
-      if (k !== suya && dk > VECINA_JUNTO_A_LA_SENDA) continue;
-      if (dk < d - 1e-9) {
-        d = dk;
-        mejor = { ...k, salida };
-      }
-    }
-    if (mejor !== undefined) return mejor;
-  }
-  return { ...suya, salida: SALIDA_SIN_SITIO };
-}
-
-/** Los cruces de `l` con `c` (`crucesConElContorno`), cada uno con los puntos de la senda que siguen por fuera, `RUMBO_DE_LA_SENDA` a lo largo de ella. */
-function crucesConSuRumbo(
-  c: Contorno,
-  l: Senda,
-): { readonly p: Par; readonly fuera: readonly Par[] }[] {
-  return sinExcursiones(c, l, (x, y) => enLaPlaza(c.rect, x, y)).map((k) => {
-    const paso = k.sale ? 1 : -1;
-    const fuera: Par[] = [];
-    let antes = k.p;
-    let largo = 0;
-    for (let j = k.sale ? k.i + 1 : k.i; j >= 0 && j < l.length; j += paso) {
-      const q = l[j] as Par;
-      largo += Math.hypot(q[0] - antes[0], q[1] - antes[1]);
-      if (largo > RUMBO_DE_LA_SENDA) break;
-      fuera.push(q);
-      antes = q;
-    }
-    return { p: k.p, fuera };
-  });
+/** Las caras con puerta de un recinto, y la del río si es una ciudad-puente. */
+export interface PuertasDelNucleo {
+  readonly puertas: readonly Cara[];
+  /** La cara del río de una ciudad-puente: por ella llega el puente, no una senda. */
+  readonly rio?: Cara;
 }
 
 /**
- * Las caras que llevan puerta: las que cruzan las sendas (ya `sendasPorDentro`),
- * cada cruce por la suya (`caraDelCruce`), y la del río de una ciudad-puente
- * (`rio`), a la que llega el puente. Varias sendas por una cara llevan una sola
- * puerta y se abren en Y fuera de ella (decisión del usuario, 20-10-2026). Se
- * miran las sendas y no los caminos del núcleo: el camino que rodea una esquina
- * del 3 × 3 salía y volvía a entrar (una puerta sin senda), y el que corta la
- * casilla de una esquina sin cruzar el octógono pedía una puerta que no cruzaba.
+ * Las puertas que se pintan en la ciudad de `at`: las del núcleo
+ * (`puertasDeLaCiudad`), que hay donde un camino de `GameMap.caminos` llega de
+ * un acceso a la casilla de su puerta, y la del río de una ciudad-puente, que
+ * hay siempre (el puente es su camino). La escena no las deduce de nada: hasta
+ * la vuelta 3 salían de las sendas pintadas, y la que llegaba de lado a una
+ * puerta diagonal se pintaba en la cara del este o del oeste, que el núcleo no
+ * tiene (19 de 208 ciudades de 1-40 con otras puertas que las del juego).
  */
-export function puertasDelRecinto(
-  c: Contorno,
-  sendas: readonly Senda[],
-  rio?: Cara,
-  sePisa: (x: number, y: number) => boolean = () => true,
-): Cara[] {
-  const caras = new Set<Cara>(rio === undefined ? [] : [rio]);
-  const [cx, cy] = c.centro;
-  for (const l of sendas) {
-    if (
-      !l.some(
-        ([x, y]) => Math.abs(x - cx) < LADO_DEL_RECINTO && Math.abs(y - cy) < LADO_DEL_RECINTO,
-      )
-    )
-      continue;
-    for (const k of crucesConSuRumbo(c, l)) caras.add(caraDelCruce(c, k.p, k.fuera, sePisa).cara);
-  }
-  return CARAS.filter((k) => caras.has(k));
+export function puertasDelNucleo(map: MapaConCaminos, at: Sitio): PuertasDelNucleo {
+  const delNucleo = puertasDeLaCiudad(map, at);
+  const rio = delNucleo.find((p) => p.delRio)?.cara;
+  const caras = new Set<Cara>(delNucleo.map((p) => p.cara));
+  return { puertas: CARAS.filter((k) => caras.has(k)), ...(rio === undefined ? {} : { rio }) };
 }
 
 // ------------------------------------------------------------------- el anillo
@@ -472,7 +423,7 @@ export interface EntradaDeRecinto<M extends ModuloDelRecinto> {
   readonly id: string;
   readonly rect: Rect;
   readonly semilla: number;
-  /** Las caras con puerta (`puertasDelRecinto`). */
+  /** Las caras con puerta (`puertasDelNucleo`). */
   readonly puertas: readonly Cara[];
   readonly modulos: ModulosDelRecinto<M>;
   /** Si una casa entra: su pie, de su ancho, lejos de la calle y fuera de la reserva de otro objeto. */
@@ -530,11 +481,13 @@ export const DENTRO_DE_LOS_CHAFLANES = 0.05;
 /** El hueco entre dos casas de una fila. */
 const ENTRE_CASAS = 0.04;
 
-/** Cuánto avanza la fila cuando ninguna casa entra en su sitio (la calle de una senda). */
-const AVANCE_SIN_CASA = 0.1;
-
-/** Cuántos módulos se prueban en un sitio antes de avanzar. */
-const MODULOS_POR_SITIO = 3;
+/**
+ * Cuánto avanza la fila cuando ninguna casa entra en su sitio (la calle de una
+ * puerta, la plaza mayor). Con 0,1 y tres módulos por sitio, las calles hasta
+ * la plaza mayor dejaban la mediana de casas por ciudad de 1-20 en 12; con este
+ * y probando todos, en 13 (vuelta 3).
+ */
+const AVANCE_SIN_CASA = 0.05;
 
 /** Las caras de detrás: su muro se ve por dentro y va detrás de las casas. */
 const DE_DETRAS: ReadonlySet<Cara> = new Set(['n', 'ne', 'no']);
@@ -595,10 +548,11 @@ function deVerticeAVertice<M extends ModuloDelRecinto>(
  * diagonal van de vértice a vértice por sus juntas (`deVerticeAVertice`).
  *
  * Las casas, por filas de norte a sur, de oeste a este desde el muro, con el pie
- * dentro del octógono (`filaDelContorno`): la siguiente de una baraja de la hoja
+ * dentro del octógono (`filaDelContorno`) y sin tapar la plaza mayor
+ * (`tapaLaPlazaMayor`): la siguiente de una baraja de la hoja
  * que no sea la de su izquierda ni una de la fila de detrás que se le solape; si
- * no entra (la calle de una senda), hasta `MODULOS_POR_SITIO` módulos, y si
- * ninguno, la fila avanza.
+ * no entra (la calle de una puerta, la plaza mayor), la siguiente de la baraja
+ * que entre, y si ninguna, la fila avanza.
  */
 export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): Recinto<M> {
   const { modulos } = e;
@@ -713,9 +667,7 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
         ];
       const izquierda = fila.at(-1);
       let puesta: PiezaDelRecinto<M> | undefined;
-      let intentos = 0;
       for (const k of new Set(baraja)) {
-        if (intentos >= MODULOS_POR_SITIO) break;
         const m = ms[k] as M;
         const w = anchoDe(m);
         if (x + w > fin) continue;
@@ -728,7 +680,6 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
           )
         )
           continue;
-        intentos++;
         const c: PiezaDelRecinto<M> = {
           ...m,
           que: 'casa',
@@ -736,7 +687,7 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
           y,
           alto: m.nh / PX_POR_CASILLA_DEL_PUEBLO,
         };
-        if (!e.entraLaCasa(c)) continue;
+        if (tapaLaPlazaMayor(contorno, c) || !e.entraLaCasa(c)) continue;
         puesta = c;
         baraja.splice(baraja.indexOf(k), 1);
         break;
@@ -826,66 +777,23 @@ function crucesEnBruto(c: Contorno, l: Senda): CruceEnBruto[] {
   return cruces;
 }
 
-/**
- * Los cruces de `l` con `c` sin las salidas que vuelven a entrar sin dejar
- * `cerca` (cada punto de la excursión, `cerca(x, y)`): una salida y su vuelta
- * no son dos entradas.
- */
-function sinExcursiones(
-  c: Contorno,
-  l: Senda,
-  cerca: (x: number, y: number) => boolean,
-): CruceEnBruto[] {
-  const cruces = crucesEnBruto(c, l);
-  const fuera: CruceEnBruto[] = [];
-  for (let k = 0; k < cruces.length; k++) {
-    const a = cruces[k] as CruceEnBruto;
-    const b = cruces[k + 1];
-    if (
-      a.sale &&
-      b !== undefined &&
-      !b.sale &&
-      l.slice(a.i + 1, b.i + 1).every(([x, y]) => cerca(x, y))
-    ) {
-      k++;
-      continue;
-    }
-    fuera.push(a);
-  }
-  return fuera;
-}
-
-/**
- * Los puntos donde la senda `l` cruza el octógono `c`, cada uno en su tramo,
- * salvo la salida y la vuelta de la senda que corta una esquina que el octógono
- * deja fuera sin salir de la plaza: la plaza la tapa, y no es una entrada.
- */
+/** Los puntos donde la senda `l` cruza el octógono `c`, cada uno en su tramo. */
 export function crucesConElContorno(c: Contorno, l: Senda): Par[] {
-  return sinExcursiones(c, l, (x, y) => enLaPlaza(c.rect, x, y)).map((k) => k.p);
+  return crucesEnBruto(c, l).map((k) => k.p);
 }
 
-/**
- * Lo que una senda que entra en un recinto puede salirse de él y volver sin que
- * eso sean dos cruces más (`sendasPorDentro`), en casillas desde sus caras: el
- * camino del núcleo que rodea la casilla de una esquina del 3 × 3 (s13 (14,34),
- * la ciudad-puente de (16,36)) salía por una cara y volvía a entrar por ella.
- */
-export const EXCURSION_JUNTO_A_LA_MURALLA = 1;
-
-/** Cada cuánto lleva un punto la cuerda de `sendasPorDentro`, en casillas. */
+/** Cada cuánto lleva un punto la senda corrida de `sinRoces`, en casillas. */
 const PASO_DE_LA_CUERDA = 0.1;
 
 /**
- * Las sendas con lo que va dentro de cada recinto hecho una cuerda: de donde
- * entra (o de su extremo, si empieza dentro) a donde sale (o a su extremo),
- * recta. Lo de dentro lo tapa la plaza, y el octógono es convexo: la cuerda no
- * sale de él. Así cada senda entra y sale de un recinto una vez por cada
- * puerta, y las salidas que vuelven a entrar sin alejarse de la muralla
- * (`EXCURSION_JUNTO_A_LA_MURALLA`) no cuentan: con ellas, la senda entraba por
- * una puerta, salía por otra y volvía a entrar por la misma (s13, la
- * ciudad-puente de (16,36)). Los extremos no se mueven.
+ * Las sendas sin sus roces con cada recinto (`sinRoces`): la que pasa junto a
+ * una ciudad sin ir a ella se queda fuera de sus torres. Lo de dentro no se
+ * toca: el núcleo solo deja entrar un camino de un acceso a su puerta y de la
+ * puerta a la ciudad (`problemasDeRecintos`), así que la senda ya va del arco al
+ * centro. Hasta la vuelta 3 lo de dentro se hacía una cuerda, porque los
+ * caminos entraban por cualquier casilla del 3 × 3.
  */
-export function sendasPorDentro(
+export function sendasSinRoces(
   sendas: readonly Senda[],
   contornos: readonly Contorno[],
   enElMapa: (x: number, y: number) => boolean = () => true,
@@ -901,35 +809,6 @@ export function sendasPorDentro(
       )
         continue;
       l = sinRoces(c, l, enElMapa);
-      const cruces = sinExcursiones(c, l, (x, y) =>
-        dentroDelContorno(c, x, y, -EXCURSION_JUNTO_A_LA_MURALLA),
-      );
-      const empiezaDentro = dentroDelContorno(c, l[0]?.[0] ?? Infinity, l[0]?.[1] ?? Infinity);
-      if (cruces.length === 0 && !empiezaDentro) continue;
-      const nueva: Par[] = [];
-      const cuerda = (a: Par, b: Par) => {
-        const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / PASO_DE_LA_CUERDA));
-        for (let k = 0; k <= n; k++)
-          nueva.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
-      };
-      // Lo de fuera, tal cual; lo de dentro, de una punta a la otra.
-      let desde: Par | null = empiezaDentro ? (l[0] as Par) : null;
-      let i = 0;
-      for (const k of cruces) {
-        if (k.sale) {
-          if (desde !== null) cuerda(desde, k.p);
-          desde = null;
-          i = k.i + 1;
-        } else {
-          for (; i <= k.i; i++) nueva.push(l[i] as Par);
-          desde = k.p;
-        }
-      }
-      if (desde !== null) cuerda(desde, l.at(-1) as Par);
-      else for (; i < l.length; i++) nueva.push(l[i] as Par);
-      l = nueva.filter(
-        (q, k) => k === 0 || q[0] !== nueva[k - 1]?.[0] || q[1] !== nueva[k - 1]?.[1],
-      );
     }
     return l;
   });
@@ -1064,13 +943,55 @@ export function puertaMasCercana(r: PuertasDeUnRecinto, [x, y]: Par): CaraDelCon
 }
 
 /**
+ * Lo más que el cruce de una senda con el octógono se aparta del medio de la
+ * cara de su puerta para llevarla por su arco, en casillas. Un camino del núcleo
+ * entra de un acceso a su puerta (`PUERTAS_DE_LA_CIUDAD`) y la senda cruza a
+ * ≤ 0,1 del arco más lo que ondula; entre el medio de una cara y el de la de al
+ * lado hay 1,13. Más lejos, la senda no es de esa puerta y se queda donde
+ * cruza: la cuenta `sendasFueraDeLaPuerta`.
+ */
+export const CRUCE_DE_LA_PUERTA = 0.6;
+
+/**
+ * Lo que se prueba de la salida de una puerta (`SALIDA_DE_LA_PUERTA`) cuando
+ * entera no acaba en lo que se pisa: la del noreste y la del noroeste salen a
+ * la casilla de la esquina, que es uno de los tres accesos de su puerta y puede
+ * ser barrera si el camino llega por otro.
+ */
+const PARTES_DE_LA_SALIDA = [1, 0.85, 0.7, 0.55] as const;
+
+/**
+ * La salida de la puerta cuando ni la más corta acaba en lo que se pisa: lo
+ * justo para pasar el arco, y la senda vuelve a su trazo en seguida. La puerta
+ * diagonal cuyo camino llega de lado, con el río delante de la esquina, salía
+ * por encima del agua (s37 (39,23); y en la vuelta 3, s26 (40,17), la del
+ * noroeste con el puente al norte).
+ */
+const SALIDA_SIN_SITIO = 0.2;
+
+/**
+ * La salida de la puerta `k` (`SALIDA_DE_LA_PUERTA`), entera o la más larga de
+ * `PARTES_DE_LA_SALIDA` que acaba en lo que se pisa (`sePisa`); si ninguna,
+ * `SALIDA_SIN_SITIO`.
+ */
+function salidaDe(k: CaraDelContorno, sePisa: (x: number, y: number) => boolean): number {
+  const entera = SALIDA_DE_LA_PUERTA[k.cara];
+  for (const parte of PARTES_DE_LA_SALIDA)
+    if (
+      sePisa(k.medio[0] + k.normal[0] * entera * parte, k.medio[1] + k.normal[1] * entera * parte)
+    )
+      return entera * parte;
+  return SALIDA_SIN_SITIO;
+}
+
+/**
  * Por dónde pasa cada senda que cruza un recinto (`sendasPorLosTendidos`): por
- * el arco de la puerta más cercana a su cruce, de `DENTRO_DE_LA_PUERTA` por
- * dentro de la cara a `SALIDA_DE_LA_PUERTA` por fuera, por su normal. Dos
- * sendas de una misma cara salen juntas por el arco y se abren en Y fuera de él;
- * por dentro, la plaza tapa cómo llegan al centro. La cara del río de una
- * ciudad-puente no lleva: el puente llega a su arco y la senda empieza en su
- * estribo.
+ * el arco de la puerta del núcleo de su cruce (la más cercana, a
+ * `CRUCE_DE_LA_PUERTA` como mucho), de `DENTRO_DE_LA_PUERTA` por dentro de la
+ * cara a `SALIDA_DE_LA_PUERTA` por fuera, por su normal. Dos sendas de una
+ * misma cara salen juntas por el arco y se abren en Y fuera de él; por dentro,
+ * la plaza tapa cómo llegan al centro. La cara del río de una ciudad-puente no
+ * lleva: el puente llega a su arco y la senda empieza en su estribo.
  */
 export function tendidosDeLasPuertas(
   sendas: readonly Senda[],
@@ -1080,21 +1001,21 @@ export function tendidosDeLasPuertas(
   const fuera: TendidoDeSenda[] = [];
   for (const r of recintos)
     sendas.forEach((l, senda) => {
-      for (const { p: cruce, fuera: rumbo } of crucesConSuRumbo(r.contorno, l)) {
-        const k = caraDelCruce(r.contorno, cruce, rumbo, sePisa);
-        if (k.cara === r.rio || !r.puertas.includes(k.cara)) continue;
+      for (const cruce of crucesConElContorno(r.contorno, l)) {
+        const k = puertaMasCercana(r, cruce);
+        if (k === undefined || k.cara === r.rio) continue;
+        if (Math.hypot(k.medio[0] - cruce[0], k.medio[1] - cruce[1]) > CRUCE_DE_LA_PUERTA) continue;
         const [nx, ny] = k.normal;
-        const { salida } = k;
-        const p1: Par = [k.medio[0] + nx * salida, k.medio[1] + ny * salida];
+        const salida = salidaDe(k, sePisa);
         fuera.push({
           senda,
           cerca: cruce,
           p0: [k.medio[0] - nx * DENTRO_DE_LA_PUERTA, k.medio[1] - ny * DENTRO_DE_LA_PUERTA],
-          p1,
+          p1: [k.medio[0] + nx * salida, k.medio[1] + ny * salida],
           t: [nx, ny],
           largo: salida,
-          // Hacia fuera por donde cruza: con `p1` de punto, la senda que sale por
-          // una esquina y va a la puerta de al lado parecía ir hacia dentro.
+          // Hacia fuera por donde cruza: con `p1` de punto, la senda que llega
+          // de lado a una puerta diagonal parecía ir hacia dentro.
           hacia: lejosDe(r.contorno, cruce),
           // Por dentro, lejos de la muralla (la plaza lo tapa); por fuera, ya
           // fuera de ella y de las esquinas que corta el octógono.
@@ -1108,24 +1029,66 @@ export function tendidosDeLasPuertas(
   return fuera;
 }
 
-/** Lo que la calle de una puerta entra en el recinto desde su cara, en casillas. */
-const FONDO_DE_LA_CALLE = 0.6;
+/**
+ * Lo que queda bajo el centro del recinto donde pisa quien está en la ciudad,
+ * en casillas: `PIES.heroe` (`render/mapa.ts`) menos media casilla. Es el
+ * centro de la plaza mayor.
+ */
+export const PIE_EN_LA_PLAZA = 0.3;
 
 /**
- * La calle de cada puerta: de su arco hacia dentro, por su normal, lo que no
- * lleva casas (`entraLaCasa`). Lo demás de la senda de dentro lo tapa la plaza:
- * con la senda entera de calle, las de tres puertas se juntaban en el centro y
- * la ciudad se quedaba con una plaza vacía en medio (s15 (12,16), 11 casas).
+ * El radio de la plaza mayor, en casillas: el claro alrededor de donde pisa
+ * quien está en la ciudad (`PIE_EN_LA_PLAZA`), que ninguna casa tapa
+ * (`tapaLaPlazaMayor`): el héroe queda sobre la plaza y no sobre los tejados
+ * (vuelta 3). Con 0,4 alrededor del centro, la mediana de casas por ciudad de
+ * 1-20 bajaba de 15 a 10; con este y calles de 0,3, a 12.
+ */
+export const PLAZA_MAYOR = 0.3;
+
+/** El centro de la plaza mayor del recinto de `c`: donde pisa quien está en la ciudad. */
+export const centroDeLaPlazaMayor = (c: Contorno): Par => [
+  c.centro[0],
+  c.centro[1] + PIE_EN_LA_PLAZA,
+];
+
+/**
+ * Si la casa `p` tapa la plaza mayor del recinto de `c`: su imagen, de su pie a
+ * su alto y de su ancho, toca el círculo de `PLAZA_MAYOR` alrededor de su
+ * centro. La imagen y no solo el pie: la casa de delante, con el pie fuera,
+ * tapaba el claro con su tejado.
+ */
+export function tapaLaPlazaMayor(
+  c: Contorno,
+  p: Pick<PiezaDelRecinto, 'x' | 'y' | 'alto' | 'nw' | 'nh' | 'ax'>,
+): boolean {
+  const ancho = (p.alto * p.nw) / p.nh;
+  const izquierda = p.x - (p.ax * p.alto) / p.nh;
+  const [cx, cy] = centroDeLaPlazaMayor(c);
+  const dx = Math.max(izquierda - cx, 0, cx - (izquierda + ancho));
+  const dy = Math.max(p.y - p.alto - cy, 0, cy - p.y);
+  return Math.hypot(dx, dy) < PLAZA_MAYOR;
+}
+
+/**
+ * Lo que el pie de una casa del recinto queda del eje de la calle de una puerta
+ * (`callesDeLasPuertas`): calles de 0,3 de ancho. Con media luz del arco (0,2),
+ * las calles hasta la plaza mayor dejaban la mediana de casas por ciudad de
+ * 1-20 en 11 (vuelta 3).
+ */
+export const MEDIA_CALLE = 0.15;
+
+/**
+ * La calle de cada puerta: de fuera de su arco a la plaza mayor, por su normal
+ * y luego al centro, lo que no lleva casas en el pie (`entraLaCasa`). Las calles
+ * se juntan en la plaza: es lo que se ve de la ciudad entre los tejados, y por
+ * donde va quien entra (vuelta 3, la plaza mayor con sus calles).
  */
 export function callesDeLasPuertas(r: Pick<Recinto, 'contorno' | 'puertas'>): Senda[] {
   return r.contorno.caras
     .filter((k) => r.puertas.includes(k.cara))
     .map((k): Senda => {
       const [nx, ny] = k.normal;
-      return [
-        [k.medio[0] + nx * 0.2, k.medio[1] + ny * 0.2],
-        [k.medio[0] - nx * FONDO_DE_LA_CALLE, k.medio[1] - ny * FONDO_DE_LA_CALLE],
-      ];
+      return [[k.medio[0] + nx * 0.2, k.medio[1] + ny * 0.2], centroDeLaPlazaMayor(r.contorno)];
     });
 }
 
@@ -1160,6 +1123,91 @@ export function sendasFueraDeLaPuerta(
           `${r.id}: la senda cruza la muralla en ${cruce[0].toFixed(2)},${cruce[1].toFixed(2)}, fuera del arco de una puerta`,
         );
       }
+    }
+  }
+  return fuera;
+}
+
+/**
+ * Lo que el estribo de un puente de ciudad-puente puede quedar del medio de la
+ * cara del río para que se tenga por su camino: el redondeo de su pie
+ * (`puenteDeLaCiudad` lo pone en el medio).
+ */
+const PUENTE_EN_SU_ARCO = 0.05;
+
+/** Cómo se dice cada cara de un recinto, para la persona. */
+const NOMBRE_DE_LA_CARA: Readonly<Record<Cara, string>> = {
+  n: 'del norte',
+  ne: 'del noreste',
+  e: 'del este',
+  se: 'del sureste',
+  s: 'del sur',
+  so: 'del suroeste',
+  o: 'del oeste',
+  no: 'del noroeste',
+};
+
+/** Un recinto tal como lo mira `puertasSinSuCamino`: lo pintado y lo del núcleo. */
+export interface PuertasPintadas {
+  readonly id: string;
+  readonly contorno: Contorno;
+  /** Las caras de las puertas que se pintaron (`Recinto.arcos`). */
+  readonly pintadas: readonly Cara[];
+  /** Las del núcleo, otra vez de los caminos (`puertasDelNucleo`). */
+  readonly delNucleo: PuertasDelNucleo;
+}
+
+/**
+ * Las puertas de los recintos que no casan con los caminos del núcleo, cada una
+ * dicha: una puerta pintada que el núcleo no tiene (sin camino que llegue), una
+ * del núcleo que no se pinta, una pintada por cuyo arco (a `HOLGURA_DEL_ARCO`
+ * de su medio) no cruza ninguna senda y la del río a la que no llega el estribo
+ * de ningún puente. Es `informe.puertaSinCamino`, y tiene que estar vacío: hay
+ * puerta donde llega un camino, y solo ahí (decisión del usuario, 21-10-2026).
+ * Con `sendasFueraDeLaPuerta`, que ninguna senda cruce la muralla fuera de un
+ * arco, las puertas pintadas son las del juego en los dos sentidos.
+ */
+export function puertasSinSuCamino(
+  recintos: readonly PuertasPintadas[],
+  sendas: readonly Senda[],
+  puentes: readonly { readonly extremos: readonly [Par, Par] }[],
+): string[] {
+  const fuera: string[] = [];
+  for (const r of recintos) {
+    const { puertas, rio } = r.delNucleo;
+    for (const k of r.pintadas)
+      if (!puertas.includes(k))
+        fuera.push(
+          `${r.id}: la puerta ${NOMBRE_DE_LA_CARA[k]} se pinta y ningún camino llega a ella`,
+        );
+    for (const k of puertas)
+      if (!r.pintadas.includes(k))
+        fuera.push(`${r.id}: un camino llega a la puerta ${NOMBRE_DE_LA_CARA[k]} y no se pinta`);
+    const [cx, cy] = r.contorno.centro;
+    const cerca = sendas.filter((l) =>
+      l.some(
+        ([x, y]) => Math.abs(x - cx) < LADO_DEL_RECINTO && Math.abs(y - cy) < LADO_DEL_RECINTO,
+      ),
+    );
+    for (const k of r.contorno.caras) {
+      if (!r.pintadas.includes(k.cara)) continue;
+      const enElArco = (p: Par) =>
+        Math.hypot(p[0] - k.medio[0], p[1] - k.medio[1]) <= HOLGURA_DEL_ARCO;
+      if (k.cara === rio) {
+        if (
+          !puentes.some((pu) =>
+            pu.extremos.some(
+              (p) => Math.hypot(p[0] - k.medio[0], p[1] - k.medio[1]) <= PUENTE_EN_SU_ARCO,
+            ),
+          )
+        )
+          fuera.push(`${r.id}: la puerta del río ${NOMBRE_DE_LA_CARA[k.cara]} no lleva su puente`);
+        continue;
+      }
+      if (!cerca.some((l) => crucesConElContorno(r.contorno, l).some(enElArco)))
+        fuera.push(
+          `${r.id}: ninguna senda pasa por el arco de la puerta ${NOMBRE_DE_LA_CARA[k.cara]}`,
+        );
     }
   }
   return fuera;

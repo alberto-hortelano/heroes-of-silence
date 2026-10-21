@@ -1,21 +1,20 @@
 /**
  * La ciudad amurallada (`docs/agents/2026-10-20-ciudad-amurallada/`, vuelta 2:
- * el octógono con una puerta por entrada): la regla pura del recinto
- * (`recinto.ts`), con los módulos del catálogo del repo y sendas escritas a mano.
+ * el octógono con una puerta por entrada; vuelta 3: las puertas son del núcleo):
+ * la regla pura del recinto (`recinto.ts`), con los módulos del catálogo del
+ * repo y sendas escritas a mano.
  *
- * - El rectángulo: el 3 × 3 de la ciudad, corrido hacia dentro junto al borde;
- *   el de la ciudad-puente, con su orilla y sin su puente.
  * - El octógono: ocho caras iguales, cerrado, también contra el borde.
- * - Las puertas: cada senda, por la cara que cruza (y la vecina, si delante de
- *   la suya no se pisa); dos por una cara, una puerta; la del río.
- * - Lo que va dentro, una cuerda; lo que roza, fuera.
+ * - Lo que roza, fuera (`sendasSinRoces`); lo que va a la ciudad, tal cual.
+ * - La plaza: cubre el octógono y por delante no pasa de `PLAZA_AL_SUR` (H9).
  * - El anillo: en los 256 juegos de puertas, una torre en cada vértice, la pieza
  *   de su eje en cada puerta y ningún hueco (el guardia, visto morder).
- * - Las casas: apiñadas, dentro del octógono, fuera de la calle, a la escala
- *   del pueblo y sin la misma al lado.
+ * - Las casas: apiñadas, dentro del octógono, fuera de la calle de cada puerta
+ *   y de la plaza mayor, a la escala del pueblo y sin la misma al lado.
  */
 import { describe, expect, it } from 'vitest';
 import { modulosDelRecinto } from '../src/client/render/escenario/colocar.js';
+import { contornoDeLaPlaza } from '../src/client/render/escenario/huella.js';
 import { type ConImagen, pasilloDe } from '../src/client/render/escenario/pasillo.js';
 import {
   anilloSobreLaSenda,
@@ -23,27 +22,31 @@ import {
   CARAS,
   type Cara,
   callesDeLasPuertas,
-  caraDelCruce,
   casasRepetidasJuntas,
+  centroDeLaPlazaMayor,
   contornoDelRecinto,
   crucesConElContorno,
   DENTRO_DE_LOS_CHAFLANES,
   dentroDelContorno,
   EJE_DE_LA_CARA,
-  EXCURSION_JUNTO_A_LA_MURALLA,
+  enLaPlaza,
   huecosDelAnillo,
-  LUZ_DEL_ARCO,
+  MEDIA_CALLE,
   type Par,
+  PIE_EN_LA_PLAZA,
   type PiezaDelRecinto,
+  PLAZA_AL_SUR,
+  PLAZA_MAYOR,
   PX_POR_CASILLA_DEL_PUEBLO,
   puertaDelEje,
-  puertasDelRecinto,
   RADIO_DE_TORRE,
   ROCE_DEL_RECINTO,
   recintoDe,
-  sendasPorDentro,
+  sendasSinRoces,
+  tapaLaPlazaMayor,
 } from '../src/client/render/escenario/recinto.js';
 import { SEMIANCHO_DE_LA_HUELLA, type Senda } from '../src/client/render/escenario/sendas.js';
+import { PIES } from '../src/client/render/mapa.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { catalogoDelDisco, recta } from './helpers.js';
 
@@ -74,12 +77,9 @@ const DIRECCION: Readonly<Record<Cara, Par>> = {
   no: [-1, -1],
 };
 
-/** La calle de las casas: lo que deja `componer` (media luz del arco del eje de cada puerta). */
+/** La calle de las casas: lo que deja `componer` (`MEDIA_CALLE` del eje de cada puerta). */
 const calleDe = (puertas: readonly Cara[]) => {
-  const calle = pasilloDe<ConImagen>(
-    callesDeLasPuertas({ contorno: C, puertas }),
-    LUZ_DEL_ARCO / 2,
-  );
+  const calle = pasilloDe<ConImagen>(callesDeLasPuertas({ contorno: C, puertas }), MEDIA_CALLE);
   return (p: PiezaDelRecinto) => {
     const ancho = (p.alto * p.nw) / p.nh;
     const izquierda = p.x - (p.ax * p.alto) / p.nh;
@@ -142,70 +142,7 @@ describe('el octógono (`contornoDelRecinto`)', () => {
   });
 });
 
-describe('las puertas (`puertasDelRecinto`, `caraDelCruce`)', () => {
-  it('cada senda, por la cara que cruza: las ocho', () => {
-    for (const cara of CARAS)
-      expect(puertasDelRecinto(C, [haciaFuera(...DIRECCION[cara])]), cara).toEqual([cara]);
-  });
-
-  it('el cruce de (1, −1,5) desde el centro va al noreste, y el de (0,5, −1,5) al norte', () => {
-    expect(puertasDelRecinto(C, [haciaFuera(1, -1.5)])).toEqual(['ne']);
-    expect(puertasDelRecinto(C, [haciaFuera(0.5, -1.5)])).toEqual(['n']);
-  });
-
-  it('dos sendas por una cara, una puerta; la del río va siempre', () => {
-    expect(puertasDelRecinto(C, [haciaFuera(0.1, 1), haciaFuera(-0.1, 1)])).toEqual(['s']);
-    expect(puertasDelRecinto(C, [haciaFuera(1, 0)], 's')).toEqual(['e', 's']);
-    expect(puertasDelRecinto(C, [], 'n')).toEqual(['n']);
-  });
-
-  it('si delante de su cara no se pisa, la vecina por la que sigue la senda; si ninguna, la suya', () => {
-    // La senda sale por el sur pegada al vértice del suroeste y sigue al suroeste
-    // (s25 (19,28)): con lo de debajo de la cara sur sin pisar, la del suroeste.
-    const k = C.caras.find((c) => c.cara === 's');
-    if (k === undefined) throw new Error('sin cara sur');
-    const cruce: Par = [k.a[0] + 0.85 * (k.b[0] - k.a[0]), k.a[1]];
-    const fuera = recta(cruce, [cruce[0] - 1.2, cruce[1] + 1.2]);
-    const sinElSur = (_x: number, y: number) => y < RECT.j1 + 1;
-    expect(caraDelCruce(C, cruce, fuera, () => true).cara).toBe('s');
-    expect(caraDelCruce(C, cruce, fuera, (x, y) => sinElSur(x, y) || x < cruce[0] - 0.3).cara).toBe(
-      'so',
-    );
-    // Si la vecina queda lejos de la senda, no: rodearía la muralla hasta ella.
-    const medio: Par = [k.medio[0], k.medio[1]];
-    const alSur = recta(medio, [medio[0], medio[1] + 2]);
-    expect(caraDelCruce(C, medio, alSur, sinElSur).cara).toBe('s');
-  });
-});
-
-describe('lo que va dentro, una cuerda; lo que roza, fuera (`sendasPorDentro`)', () => {
-  it('la senda que entra, da vueltas y llega al centro cruza una vez, con sus extremos donde estaban', () => {
-    const l: Senda = [
-      ...recta([CX - 4, CY - 2], [CX - 1, CY - 0.8]),
-      ...recta([CX - 0.9, CY - 0.7], [CX + 1, CY + 1]),
-      ...recta([CX + 1, CY + 1.1], [CX, CY]),
-    ];
-    const [d] = sendasPorDentro([l], [C]);
-    if (d === undefined) throw new Error('sin senda');
-    expect(d[0]).toEqual(l[0]);
-    expect(d.at(-1)).toEqual(l.at(-1));
-    expect(crucesConElContorno(C, d)).toHaveLength(1);
-  });
-
-  it('la que sale por una cara y vuelve a entrar sin alejarse cuenta un cruce (s13 (16,36))', () => {
-    // Entra por el norte, sale por el oeste media casilla y vuelve a entrar.
-    const l: Senda = [
-      ...recta([CX - 0.4, CY - 4], [CX - 0.4, CY - 0.5]),
-      ...recta([CX - 0.5, CY - 0.4], [C.vertices[7]?.[0] ?? 0, CY]),
-      ...recta([CX - 2, CY + 0.1], [CX - 0.5, CY + 0.5]),
-      ...recta([CX - 0.4, CY + 0.5], [CX, CY + 1]),
-    ];
-    expect(crucesConElContorno(C, l).length).toBeGreaterThan(1);
-    const [d] = sendasPorDentro([l], [C]);
-    expect(crucesConElContorno(C, d as Senda)).toHaveLength(1);
-    expect(EXCURSION_JUNTO_A_LA_MURALLA).toBeGreaterThanOrEqual(0.6);
-  });
-
+describe('lo que roza, fuera (`sendasSinRoces`)', () => {
   it('la que pasa rozando una cara sin ir a la ciudad se queda fuera, lejos de torres y muro (s38 (11,20))', () => {
     const y = C.vertices[0]?.[1] as number;
     const l: Senda = [
@@ -213,7 +150,7 @@ describe('lo que va dentro, una cuerda; lo que roza, fuera (`sendasPorDentro`)',
       ...recta([CX - 0.4, y + 0.3], [CX + 4, y - 1]),
     ];
     expect(crucesConElContorno(C, l).length).toBe(2);
-    const [d] = sendasPorDentro([l], [C]);
+    const [d] = sendasSinRoces([l], [C]);
     if (d === undefined) throw new Error('sin senda');
     expect(crucesConElContorno(C, d)).toEqual([]);
     expect(d[0]).toEqual(l[0]);
@@ -221,13 +158,18 @@ describe('lo que va dentro, una cuerda; lo que roza, fuera (`sendasPorDentro`)',
     expect(anilloSobreLaSenda({ contorno: C, puertas: [] }, [d], SEMIANCHO_DE_LA_HUELLA)).toEqual(
       [],
     );
-    // La que entra más de `ROCE_DEL_RECINTO` sí pasa por la ciudad, por dos puertas.
+    // La que entra más de `ROCE_DEL_RECINTO` no roza: se queda como está.
     const honda: Senda = [
       ...recta([CX - 4, y - 1], [CX - 0.5, y + ROCE_DEL_RECINTO + 0.3]),
       ...recta([CX - 0.4, y + ROCE_DEL_RECINTO + 0.3], [CX + 4, y - 1]),
     ];
-    const [h] = sendasPorDentro([honda], [C]);
+    const [h] = sendasSinRoces([honda], [C]);
     expect(crucesConElContorno(C, h as Senda)).toHaveLength(2);
+  });
+
+  it('la que va a la ciudad (acaba dentro) no se toca', () => {
+    const l = haciaFuera(1, -1);
+    expect(sendasSinRoces([l], [C])).toEqual([l]);
   });
 
   it('si al correrla se saldría del mapa, no se corre', () => {
@@ -236,8 +178,39 @@ describe('lo que va dentro, una cuerda; lo que roza, fuera (`sendasPorDentro`)',
       ...recta([CX - 4, y - 1], [CX - 0.5, y + 0.3]),
       ...recta([CX - 0.4, y + 0.3], [CX + 4, y - 1]),
     ];
-    const [d] = sendasPorDentro([l], [C], (_x, yy) => yy >= y - 0.2);
+    const [d] = sendasSinRoces([l], [C], (_x, yy) => yy >= y - 0.2);
     expect(crucesConElContorno(C, d as Senda)).toHaveLength(2);
+  });
+});
+
+describe('la plaza (`ladosDeLaPlaza`, `enLaPlaza`, `contornoDeLaPlaza`)', () => {
+  /** Lo que `(x, y)` sale por delante de las caras sureste, sur y suroeste del octógono. */
+  const porDelante = (x: number, y: number) =>
+    Math.max(
+      ...C.caras
+        .filter((k) => k.cara === 'se' || k.cara === 's' || k.cara === 'so')
+        .map((k) => (x - k.a[0]) * k.normal[0] + (y - k.a[1]) * k.normal[1]),
+    );
+
+  it('cubre el octógono entero', () => {
+    for (const [x, y] of C.vertices) expect(enLaPlaza(RECT, x, y), `${x},${y}`).toBe(true);
+    for (const k of C.caras) expect(enLaPlaza(RECT, ...k.medio), k.cara).toBe(true);
+  });
+
+  it('por delante no pasa de `PLAZA_AL_SUR` del pie de la muralla (H9 de la vuelta 2)', () => {
+    for (const semilla of [1, 7, 15, 99]) {
+      const contorno = contornoDeLaPlaza(RECT, semilla);
+      expect(contorno.length).toBeGreaterThan(50);
+      for (const [x, y] of contorno)
+        expect(porDelante(x, y), `${x.toFixed(2)},${y.toFixed(2)}`).toBeLessThanOrEqual(
+          PLAZA_AL_SUR + 1e-9,
+        );
+    }
+    // Lo mismo que mira el pintor lo mira `enLaPlaza`; con el rectángulo de antes
+    // (0,12 de más por el sur), la plaza asomaba bajo el muro.
+    expect(porDelante(CX, RECT.j1 + 1 + 0.12)).toBeGreaterThan(PLAZA_AL_SUR);
+    expect(enLaPlaza(RECT, CX, RECT.j1 + 1 + 0.12)).toBe(false);
+    expect(enLaPlaza(RECT, CX, RECT.j1 + 1 - 0.02 + PLAZA_AL_SUR / 2)).toBe(true);
   });
 });
 
@@ -290,14 +263,44 @@ describe('el anillo (`recintoDe`) en los 256 juegos de puertas', () => {
 });
 
 describe('las casas del recinto', () => {
-  // Medido el 21-10-2026 con el catálogo del repo: 20 sin puertas, 15 con tres.
+  // Medido el 21-10-2026 con el catálogo del repo: 17 sin puertas y 12 con tres
+  // (con la plaza mayor y las calles hasta ella; antes, 20 y 15).
   const sinPuertas = recintoCon([]);
   const conTres = recintoCon(['ne', 'se', 'so']);
 
   it('apiñadas: muchas sin puertas, y las calles dejan sitio', () => {
-    expect(sinPuertas.casas.length).toBeGreaterThanOrEqual(18);
-    expect(conTres.casas.length).toBeGreaterThanOrEqual(13);
+    expect(sinPuertas.casas.length).toBeGreaterThanOrEqual(16);
+    expect(conTres.casas.length).toBeGreaterThanOrEqual(11);
     expect(conTres.casas.length).toBeLessThan(sinPuertas.casas.length);
+  });
+
+  it('la plaza mayor, libre: ninguna casa la tapa, en ningún juego de puertas, y el guardia muerde', () => {
+    for (const puertas of JUEGOS)
+      for (const c of recintoCon(puertas).casas)
+        expect(tapaLaPlazaMayor(C, c), `${puertas.join(',')}: ${c.nombre} en ${c.x},${c.y}`).toBe(
+          false,
+        );
+    const [a] = sinPuertas.casas;
+    if (a === undefined) throw new Error('sin casas');
+    const [px, py] = centroDeLaPlazaMayor(C);
+    // Con el pie justo delante del claro, su tejado lo tapa.
+    expect(tapaLaPlazaMayor(C, { ...a, x: px, y: py + PLAZA_MAYOR + 0.1 })).toBe(true);
+    expect(tapaLaPlazaMayor(C, { ...a, x: px + 2, y: py })).toBe(false);
+  });
+
+  it('la plaza mayor, donde pisa quien está en la ciudad (`PIES.heroe`)', () => {
+    expect(PIE_EN_LA_PLAZA).toBeCloseTo(PIES.heroe - 0.5, 9);
+  });
+
+  it('una calle de cada puerta, de fuera de su arco a la plaza mayor', () => {
+    const puertas: Cara[] = ['n', 'se', 'so'];
+    const calles = callesDeLasPuertas({ contorno: C, puertas });
+    expect(calles).toHaveLength(3);
+    for (const l of calles) {
+      expect(l.at(-1)).toEqual(centroDeLaPlazaMayor(C));
+      const [x, y] = l[0] as Par;
+      expect(dentroDelContorno(C, x, y)).toBe(false);
+    }
   });
 
   it('todas con el pie dentro del octógono, y ninguna en la calle de una puerta', () => {

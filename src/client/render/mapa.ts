@@ -21,7 +21,7 @@ import { hojaDeUnidad } from '@core/catalogo.js';
 import { HERO_BODY } from '@core/hero/hero.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
-import type { MapObject, MapRegion, TramoDeCamino } from '@core/map/map.js';
+import type { MapObject, MapRegion, RedDeCaminos } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.js';
 import type { Point } from '@core/types.js';
@@ -68,18 +68,16 @@ import { pintarSombra } from './sombra.js';
  * espectador también, sin que ninguno tenga que fabricar una partida falsa.
  * La niebla son `Casillas` (un byte por casilla, #146), y es `adaptar.ts`
  * quien las rehace al otro lado del cable desde sus índices. De los caminos se leen
- * los tramos y las sueltas (la labranza no cultiva una casilla con camino):
- * `RedDeCaminos` los cumple y el espectador los trae tal cual.
+ * los tramos, las sueltas (la labranza no cultiva una casilla con camino) y si
+ * un tramo une dos casillas (las puertas de una ciudad): `RedDeCaminos` los
+ * cumple y el espectador la rehace del cable.
  */
 export interface AdventureScene {
   readonly map: {
     readonly width: number;
     readonly height: number;
     readonly terrain: readonly TerrainKind[];
-    readonly caminos: {
-      readonly tramos: readonly TramoDeCamino[];
-      readonly sueltas: readonly Point[];
-    };
+    readonly caminos: Pick<RedDeCaminos, 'tramos' | 'sueltas' | 'une'>;
     readonly objects: readonly MapObject[];
     /** Las regiones del mapa de nodos. Las pintará el territorio de la 2b. */
     readonly regions: readonly MapRegion[];
@@ -510,8 +508,9 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
   for (const o of v.objetos) {
     if (!enVista(o.at) || !presente(o)) continue;
     if (seHornea(o.kind)) {
-      // Su volumen lo pinta la escena; aquí va, justo después de él, lo que cambia.
-      const clave = esc.claveDeObjeto.get(o.id);
+      // Su volumen lo pinta la escena; aquí va lo que cambia, justo después de él
+      // (`claveDeLaMarca`), salvo el óvalo de una ciudad, que es suelo de su plaza.
+      const clave = esc.claveDeLaMarca.get(o.id);
       if (clave === undefined)
         throw new Error(`${o.kind} ${o.id} se hornea y la escena no lo pinta`);
       const asiento = esc.asientoDeObjeto.get(o.id);
@@ -795,7 +794,8 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
 }
 
 /**
- * El óvalo del dueño bajo la ciudad y el nodo, justo después de su volumen: se
+ * El óvalo del dueño bajo la ciudad y el nodo (el del nodo, justo después de
+ * su volumen; el de la ciudad, en el suelo de su plaza, `claveDeLaMarca`): se
  * lee de lejos qué es de quién, y el nodo sin dueño, gris, dice qué falta por
  * tomar. El pueblo y la mina no llevan: son de quien tenga su región.
  */

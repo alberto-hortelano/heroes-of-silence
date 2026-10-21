@@ -27,6 +27,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { RedDeCaminos } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { analizar, type MapaDeEscena } from '../src/client/render/escenario/analizar.js';
@@ -329,7 +330,7 @@ function mapaDe(filas: readonly string[]): MapaDeEscena {
     width: (filas[0] as string).length,
     height: filas.length,
     terrain: filas.flatMap((f) => [...f].map((c) => SUELO[c] as TerrainKind)),
-    caminos: { tramos: [], sueltas: [] },
+    caminos: RedDeCaminos.vacia((filas[0] as string).length, filas.length),
     objects: [],
     regions: [],
   };

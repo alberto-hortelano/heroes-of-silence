@@ -13,7 +13,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import { nodosSinRampa } from '../src/client/render/escenario/colocar.js';
+import { casillasDeLaHuella, nodosSinRampa } from '../src/client/render/escenario/colocar.js';
 import {
   desnivelesSinBarrera,
   nivelFueraDeSuRegion,
@@ -67,6 +67,17 @@ describe('en los mapas reales', () => {
     it(`semilla ${semilla}: la espalda de cada acantilado lleva peñascos, salvo junto a un objeto`, () => {
       const { map, escena: e } = partidaDe(semilla);
       const peñascos = e.sprites.filter((s) => s.src?.includes('rocas-caidas'));
+      const huellas = new Set(
+        e.recintos.flatMap((r) =>
+          casillasDeLaHuella(
+            { kind: 'town' },
+            { x: r.rect.i0 + 1, y: r.rect.j0 + 1 },
+            r.rect,
+            e.W,
+            e.H,
+          ).map(([x, y]) => `${x},${y}`),
+        ),
+      );
       const desnudas = e.relieve.rebordes.filter(([x, y]) => {
         if (map.terrain[y * e.W + x] !== 'cliff') return false;
         if (peñascos.some((s) => s.x >= x && s.x < x + 1 && s.y >= y && s.y < y + 0.6))
@@ -74,6 +85,9 @@ describe('en los mapas reales', () => {
         // La reserva de un objeto aparta las rocas: ahí la espalda queda sin ellas.
         if (map.objects.some((o) => Math.abs(o.at.x - x) <= 1 && Math.abs(o.at.y - y) <= 1))
           return false;
+        // Y la huella de un recinto es la plaza de su ciudad (criterio 8b de la
+        // ciudad amurallada): ni peñascos ni nada del relieve (H1 de su QA, s13).
+        if (huellas.has(`${x},${y}`)) return false;
         // Y el pasillo de una senda que pasa al lado (el pedregal no pisa sendas).
         return !e.sendas.some((sd) =>
           sd.some(([px, py]) => px >= x - 0.5 && px <= x + 1.5 && py >= y - 0.5 && py <= y + 1.1),

@@ -72,7 +72,9 @@ describe('la senda pintada no pasa por el agua (#210, la medida de #211)', () =>
   // los lados, y se cambiaba por la recta del estribo, que pasaba por el agua
   // de al lado (`tramosHastaLosEstribos`: bajo es sobre el tablero, a menos de
   // media casilla de su línea).
-  it.each([1, 10, 19, 37, 52, 93, 97, 100])(
+  // s26 (40,17), ciudad amurallada (vuelta 3): la salida recta de la puerta del
+  // noroeste, con el puente al norte, pasaba por el agua (`SALIDA_SIN_SITIO`).
+  it.each([1, 10, 19, 26, 37, 52, 93, 97, 100])(
     'semilla %i: ningún trozo de senda bajo el agua',
     (semilla) => {
       expect(sendaSobreElAgua(escenaDe(semilla))).toBe(0);

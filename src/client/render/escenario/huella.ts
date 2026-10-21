@@ -21,7 +21,7 @@
 import type { Suelo } from '@core/map/terrain.js';
 import type { Escena } from './colocar.js';
 import type { Imagen, Lienzo } from './pintar.js';
-import { PLAZA_FUERA, type Rect } from './recinto.js';
+import { type LadoDeLaPlaza, ladosDeLaPlaza, type Rect } from './recinto.js';
 import { ANCHO_DE_SENDA, IRREGULARIDAD_DE_SENDA, type Senda } from './sendas.js';
 
 type Contexto = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -297,55 +297,83 @@ const BORDE_DE_LA_PLAZA = 0.05;
  */
 const SOMBRA_DE_LA_PLAZA = 'rgba(40,28,18,0.32)';
 
+/** Donde se cortan los lados `p` y `q` de una plaza (`ladosDeLaPlaza`). */
+function corte(p: LadoDeLaPlaza, q: LadoDeLaPlaza): readonly [number, number] {
+  const det = p.n[0] * q.n[1] - p.n[1] * q.n[0];
+  return [(p.c * q.n[1] - q.c * p.n[1]) / det, (p.n[0] * q.c - q.n[0] * p.c) / det];
+}
+
 /**
- * El contorno de la plaza de un recinto, en casillas: su rectángulo con
- * `PLAZA_FUERA` de más, las esquinas redondeadas y el borde movido por un
- * ruido de la semilla, cada `PASO`; cada punto con su normal hacia fuera, por
- * la que lo saca la orla.
+ * El contorno de la plaza de un recinto, en casillas: sus seis lados
+ * (`ladosDeLaPlaza`), las dos esquinas de detrás redondeadas y el borde movido
+ * por un ruido de la semilla, cada `PASO`; cada punto con su normal hacia
+ * fuera, por la que lo saca la orla. Salvo por detrás, el ruido solo entra:
+ * la plaza no pasa de `PLAZA_AL_SUR` del pie de las caras de delante (y el
+ * este y el oeste, que llegan a ellas, tampoco las pasan). Exportada para su
+ * test.
  */
-function contornoDeLaPlaza(
+export function contornoDeLaPlaza(
   r: Rect,
   semilla: number,
 ): (readonly [number, number, number, number])[] {
-  const x0 = r.i0 - PLAZA_FUERA;
-  const y0 = r.j0 - PLAZA_FUERA;
-  const x1 = r.i1 + 1 + PLAZA_FUERA;
-  const y1 = r.j1 + 1 + PLAZA_FUERA;
+  const lados = ladosDeLaPlaza(r);
+  const [norte, este, sureste, sur, suroeste, oeste] = lados as [
+    LadoDeLaPlaza,
+    LadoDeLaPlaza,
+    LadoDeLaPlaza,
+    LadoDeLaPlaza,
+    LadoDeLaPlaza,
+    LadoDeLaPlaza,
+  ];
   const e = ESQUINA_DE_LA_PLAZA;
   const borde = ruido(semilla * 977 + r.i0 * 131 + r.j0);
-  // Las cuatro esquinas, en el sentido de las agujas del reloj desde el noroeste:
-  // su centro y el ángulo con que empieza su cuarto de círculo.
-  const esquinas: readonly (readonly [number, number, number])[] = [
-    [x1 - e, y0 + e, -Math.PI / 2],
-    [x1 - e, y1 - e, 0],
-    [x0 + e, y1 - e, Math.PI / 2],
-    [x0 + e, y0 + e, Math.PI],
-  ];
+  const [x0, y0] = corte(oeste, norte);
+  const [x1] = corte(norte, este);
   const fuera: (readonly [number, number, number, number])[] = [];
   let s = 0;
-  const punto = (x: number, y: number, nx: number, ny: number) => {
-    const d = BORDE_DE_LA_PLAZA * borde(s / 0.6);
+  const punto = (x: number, y: number, nx: number, ny: number, soloEntra: boolean) => {
+    const b = borde(s / 0.6);
+    const d = BORDE_DE_LA_PLAZA * (soloEntra ? (b - 1) / 2 : b);
     fuera.push([x + nx * d, y + ny * d, nx, ny]);
     s += PASO;
   };
-  let [px, py] = [x0 + e, y0];
-  for (const [cx, cy, a0] of esquinas) {
-    // El lado recto hasta esta esquina…
-    const [qx, qy] = [cx + e * Math.cos(a0), cy + e * Math.sin(a0)];
-    const largo = Math.hypot(qx - px, qy - py);
-    const [nx, ny] = largo === 0 ? [0, 0] : [(qy - py) / largo, -(qx - px) / largo];
+  const recto = (p: readonly [number, number], q: readonly [number, number], soloEntra = false) => {
+    const largo = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (largo === 0) return;
+    const nx = (q[1] - p[1]) / largo;
+    const ny = -(q[0] - p[0]) / largo;
     for (let t = 0; t < largo; t += PASO)
-      punto(px + ((qx - px) * t) / largo, py + ((qy - py) * t) / largo, nx, ny);
-    // …y su cuarto de círculo.
+      punto(
+        p[0] + ((q[0] - p[0]) * t) / largo,
+        p[1] + ((q[1] - p[1]) * t) / largo,
+        nx,
+        ny,
+        soloEntra,
+      );
+  };
+  const cuarto = (cx: number, cy: number, a0: number) => {
     for (let a = 0; a < Math.PI / 2; a += PASO / e)
       punto(
         cx + e * Math.cos(a0 + a),
         cy + e * Math.sin(a0 + a),
         Math.cos(a0 + a),
         Math.sin(a0 + a),
+        false,
       );
-    [px, py] = [cx + e * Math.cos(a0 + Math.PI / 2), cy + e * Math.sin(a0 + Math.PI / 2)];
-  }
+  };
+  // En el sentido de las agujas del reloj desde el noroeste.
+  recto([x0 + e, y0], [x1 - e, y0]);
+  cuarto(x1 - e, y0 + e, -Math.PI / 2);
+  const ese = corte(este, sureste);
+  const ss = corte(sureste, sur);
+  const so = corte(sur, suroeste);
+  const oso = corte(suroeste, oeste);
+  recto([x1, y0 + e], ese, true);
+  recto(ese, ss, true);
+  recto(ss, so, true);
+  recto(so, oso, true);
+  recto(oso, [x0, y0 + e], true);
+  cuarto(x0 + e, y0 + e, Math.PI);
   return fuera;
 }
 

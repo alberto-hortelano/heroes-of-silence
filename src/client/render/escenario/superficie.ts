@@ -157,8 +157,17 @@ export interface Escenario {
   readonly delanteDeParedes: ReadonlyMap<number, number>;
   /** Cuántos volúmenes hay en cada casilla, por su base: de ahí sale el tope de alejar. */
   readonly conteo: ConteoDeVolumenes;
-  /** La clave del volumen de cada objeto horneado, por su id: ahí va el óvalo de su dueño. */
+  /** La clave del volumen de cada objeto horneado, por su id: la mayor de sus piezas. */
   readonly claveDeObjeto: ReadonlyMap<string, number>;
+  /**
+   * La clave del óvalo del dueño de cada objeto horneado, por su id: justo tras
+   * su volumen (`claveDeObjeto`), salvo en una ciudad, cuyo óvalo es suelo de su
+   * plaza: va con la clave de su asiento, y lo que se levanta delante de él (las
+   * casas de más al sur y la muralla de delante) lo tapa. Encima de todo, teñía
+   * la fachada de la casa que le caía debajo (H8 del QA de la vuelta 2). La
+   * bandera sigue encima de todo (`pintarIdentificador`).
+   */
+  readonly claveDeLaMarca: ReadonlyMap<string, number>;
   /**
    * El asiento de la marca del dueño (óvalo y bandera) de cada objeto horneado,
    * por su id, en casillas: el punto que hace de centro de su casilla. Lo es,
@@ -329,6 +338,14 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
       cubiertas.set(i, Math.max(cubiertas.get(i) ?? clave, clave));
     }
   }
+  const asientoDeObjeto = asientosDe(map, claveDeObjeto, escena.puentes);
+  const deUnRecinto = new Set(escena.recintos.map((r) => r.id));
+  const claveDeLaMarca = new Map(
+    [...claveDeObjeto].map(([id, clave]) => {
+      const asiento = asientoDeObjeto.get(id);
+      return [id, deUnRecinto.has(id) && asiento !== undefined ? asiento[1] : clave] as const;
+    }),
+  );
   const imagenes = imagenesDeEscena(escena, horneado);
   const escenario: Escenario = {
     escena,
@@ -345,7 +362,8 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     ),
     conteo: contarVolumenes(escena.W, escena.H, bases),
     claveDeObjeto,
-    asientoDeObjeto: asientosDe(map, claveDeObjeto, escena.puentes),
+    claveDeLaMarca,
+    asientoDeObjeto,
     mastilDeNodo: mastilesDe(map, escena.puentes),
     tableros: tablerosDe(map, escena.puentes, claveDeObjeto, claveDePuente),
     imagenes,

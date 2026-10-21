@@ -1,19 +1,22 @@
 /**
  * La senda entra en la ciudad amurallada por el arco de una puerta (vuelta 2 de
  * `docs/agents/2026-10-20-ciudad-amurallada/`): `tendidosDeLasPuertas` da a cada
- * senda que cruza el octógono el tramo recto de su puerta, y
- * `sendasPorLosTendidos` (`celdas.ts`, la misma mecánica que las rampas de las
- * bajadas) la lleva por él sin mover sus extremos. «Ninguna abertura más ancha
- * que su puerta» es `sendasFueraDeLaPuerta`, y se le ve morder.
+ * senda que cruza el octógono el tramo recto de la puerta del núcleo de su cruce
+ * (vuelta 3: las puertas no se deducen de las sendas), y `sendasPorLosTendidos`
+ * (`celdas.ts`, la misma mecánica que las rampas de las bajadas) la lleva por él
+ * sin mover sus extremos. «Ninguna abertura más ancha que su puerta» es
+ * `sendasFueraDeLaPuerta`, y «hay puerta donde llega un camino, y solo ahí»,
+ * `puertasSinSuCamino`; a los dos se les ve morder.
  */
 import { describe, expect, it } from 'vitest';
 import { sendasPorLosTendidos } from '../src/client/render/escenario/celdas.js';
 import {
   type Cara,
+  CRUCE_DE_LA_PUERTA,
   contornoDelRecinto,
   crucesConElContorno,
   type Par,
-  puertasDelRecinto,
+  puertasSinSuCamino,
   SALIDA_DE_LA_PUERTA,
   sendasFueraDeLaPuerta,
   tendidosDeLasPuertas,
@@ -37,9 +40,8 @@ const haciaFuera = (dx: number, dy: number, largo = 5): Senda => {
 const aLaSenda = (l: Senda, [x, y]: Par) =>
   Math.min(...l.map(([a, b]) => Math.hypot(a - x, b - y)));
 
-/** El recinto con las puertas que piden las sendas, y las sendas por sus arcos. */
-function porLasPuertas(sendas: readonly Senda[], rio?: Cara) {
-  const puertas = puertasDelRecinto(C, sendas, rio);
+/** El recinto con las puertas del núcleo `puertas`, y las sendas por sus arcos. */
+function porLasPuertas(sendas: readonly Senda[], puertas: readonly Cara[], rio?: Cara) {
   const r = { id: 'town-7', contorno: C, puertas, ...(rio === undefined ? {} : { rio }) };
   return { r, pintadas: sendasPorLosTendidos(sendas, tendidosDeLasPuertas(sendas, [r])) };
 }
@@ -47,14 +49,10 @@ function porLasPuertas(sendas: readonly Senda[], rio?: Cara) {
 describe('la senda pasa por el arco de su puerta', () => {
   // Hacia (1, −1,8) cruza el noreste a 0,42 del medio de su cara: lejos del arco.
   const senda = haciaFuera(1, -1.8);
-  const { r, pintadas } = porLasPuertas([senda]);
+  const { r, pintadas } = porLasPuertas([senda], ['n', 'ne']);
   const [l] = pintadas;
   if (l === undefined) throw new Error('sin senda');
   const ne = cara('ne');
-
-  it('la puerta es la del noreste', () => {
-    expect(r.puertas).toEqual(['ne']);
-  });
 
   it('por el medio del arco, y recta por su normal hasta la salida', () => {
     for (let s = 0; s <= SALIDA_DE_LA_PUERTA.ne + 1e-9; s += 0.1)
@@ -81,11 +79,10 @@ describe('la senda pasa por el arco de su puerta', () => {
 
 describe('dos sendas por una cara: una puerta, y se abren en Y fuera de ella', () => {
   const sendas = [haciaFuera(0.25, 1), haciaFuera(-0.25, 1)];
-  const { r, pintadas } = porLasPuertas(sendas);
+  const { r, pintadas } = porLasPuertas(sendas, ['s']);
   const s = cara('s');
 
   it('las dos por el arco del sur', () => {
-    expect(r.puertas).toEqual(['s']);
     for (const l of pintadas) expect(aLaSenda(l, s.medio)).toBeLessThanOrEqual(0.06);
     expect(sendasFueraDeLaPuerta(pintadas, [r])).toEqual([]);
   });
@@ -101,14 +98,60 @@ describe('dos sendas por una cara: una puerta, y se abren en Y fuera de ella', (
 });
 
 describe('la ciudad-puente', () => {
-  it('la cara del río lleva puerta y ningún tendido: el puente llega a su arco', () => {
-    const senda = haciaFuera(0, -1);
-    const puertas = puertasDelRecinto(C, [senda], 's');
-    expect(puertas).toEqual(['n', 's']);
+  it('la cara del río no lleva tendido: el puente llega a su arco', () => {
     const tendidos = tendidosDeLasPuertas(
-      [senda, haciaFuera(0.1, 1)],
-      [{ contorno: C, puertas, rio: 's' }],
+      [haciaFuera(0, -1), haciaFuera(0.1, 1)],
+      [{ contorno: C, puertas: ['n', 's'], rio: 's' }],
     );
     expect(tendidos.map((t) => t.senda)).toEqual([0]);
+  });
+});
+
+describe('una senda que no cruza junto a una puerta se queda donde cruza', () => {
+  it('sin tendido, y el guardia la cuenta', () => {
+    // Por el este, con puertas solo al norte y al sur: el núcleo no la deja así.
+    const senda = haciaFuera(1, 0);
+    const r = { id: 'town-7', contorno: C, puertas: ['n', 's'] as Cara[] };
+    expect(tendidosDeLasPuertas([senda], [r])).toEqual([]);
+    expect(sendasFueraDeLaPuerta([senda], [r])).toHaveLength(1);
+    expect(CRUCE_DE_LA_PUERTA).toBeLessThan(1.13 / 2 + 0.1);
+  });
+});
+
+describe('las puertas pintadas son las del núcleo (`puertasSinSuCamino`)', () => {
+  const sendas = [haciaFuera(0, -1), haciaFuera(1, 1)];
+  const { pintadas } = porLasPuertas(sendas, ['n', 'se']);
+  const delNucleo = { puertas: ['n', 'se'] as Cara[] };
+  const vale = { id: 'town-7', contorno: C, pintadas: ['n', 'se'] as Cara[], delNucleo };
+
+  it('las mismas, y una senda por cada arco: nada', () => {
+    expect(puertasSinSuCamino([vale], pintadas, [])).toEqual([]);
+  });
+
+  it('muerde: una pintada sin camino, una del núcleo sin pintar y un arco sin senda', () => {
+    expect(puertasSinSuCamino([{ ...vale, pintadas: ['n', 'se', 'so'] }], pintadas, [])).toEqual([
+      'town-7: la puerta del suroeste se pinta y ningún camino llega a ella',
+      'town-7: ninguna senda pasa por el arco de la puerta del suroeste',
+    ]);
+    expect(puertasSinSuCamino([{ ...vale, pintadas: ['n'] }], pintadas, [])).toEqual([
+      'town-7: un camino llega a la puerta del sureste y no se pinta',
+    ]);
+    expect(puertasSinSuCamino([vale], pintadas.slice(0, 1), [])).toEqual([
+      'town-7: ninguna senda pasa por el arco de la puerta del sureste',
+    ]);
+  });
+
+  it('la del río, con su puente: el estribo en el medio de su cara', () => {
+    const s = cara('s');
+    const conRio = {
+      ...vale,
+      pintadas: ['n', 's'] as Cara[],
+      delNucleo: { puertas: ['n', 's'] as Cara[], rio: 's' as const },
+    };
+    const puente = { extremos: [s.medio, [s.medio[0], s.medio[1] + 1.2]] as [Par, Par] };
+    expect(puertasSinSuCamino([conRio], pintadas, [puente])).toEqual([]);
+    expect(puertasSinSuCamino([conRio], pintadas, [])).toEqual([
+      'town-7: la puerta del río del sur no lleva su puente',
+    ]);
   });
 });

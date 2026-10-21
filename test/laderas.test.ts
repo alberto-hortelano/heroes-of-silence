@@ -39,6 +39,7 @@ import {
   pieDeLadera,
   TALUD_DE_LADERA,
 } from '../src/client/render/escenario/relieve.js';
+import { RedDeCaminos } from '../src/core/map/map.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { mascaraDeGuia, registrarLadera } from '../tools/taller/derivar.js';
 import {
@@ -299,7 +300,7 @@ describe('un catálogo de laderas sin sus juntas no llega a pintarse', () => {
       terrain: Array.from({ length: W * W }, (_, i) =>
         i % W >= 3 && i % W <= 4 ? 'cliff' : 'grass',
       ),
-      caminos: { tramos: [], sueltas: [] },
+      caminos: RedDeCaminos.vacia(W, W),
       objects: [],
       regions: [
         { id: 'meseta', name: 'Meseta', at: { x: 0, y: 0 }, nivel: 2 },

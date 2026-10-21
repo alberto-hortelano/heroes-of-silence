@@ -6,7 +6,7 @@
  * Las rejillas son a mano y las cuentas, las de las semillas 1-10; las de 1-40
  * (101 puentes) se miden con los guiones de `docs/agents/2026-10-07-puentes/`.
  */
-import type { MapObject } from '@core/map/map.js';
+import { type MapObject, RedDeCaminos } from '@core/map/map.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
@@ -113,8 +113,8 @@ function mapaDe(filas: readonly string[], conCamino = false): MapaDeEscena {
     width: W,
     height: filas.length,
     terrain,
-    caminos: {
-      tramos: conCamino
+    caminos: RedDeCaminos.desdeTramos(
+      conCamino
         ? [
             [
               { x: at.x, y: at.y - 1 },
@@ -126,8 +126,9 @@ function mapaDe(filas: readonly string[], conCamino = false): MapaDeEscena {
             ],
           ]
         : [],
-      sueltas: [],
-    },
+      W,
+      filas.length,
+    ),
     objects: [nodo],
     regions: regionesDe(W, terrain, at),
   };
