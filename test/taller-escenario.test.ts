@@ -18,8 +18,10 @@ import {
   COLOR_DE_BAJADA,
   COLOR_DE_DIAGONAL,
   celdasMalCubiertas,
+  envolturaDelRecinto,
   laderasEnfrentadas,
   modulosDeLadera,
+  RADIO_DEL_RECINTO,
   radioDeLaReserva,
   SEMIANCHO_DE_PARED,
   sendasPorObjeto,
@@ -432,8 +434,12 @@ describe('la escena de un mapa real', () => {
       // Recontado desde lo puesto, sin preguntar a la puerta: el rectángulo de
       // cada árbol, pico, roca o mata alta que se pinta después del objeto
       // (`separar`: por su y, y a igual y de oeste a este) no llega a su reserva.
+      // Los recintos de las ciudades, aparte: su reserva es su rectángulo (abajo).
       const objetos = e.sprites.filter(
-        (s) => s.objeto !== undefined && !e.puentes.some((p) => p.id === s.objeto?.id),
+        (s) =>
+          s.objeto !== undefined &&
+          s.objeto.kind !== 'town' &&
+          !e.puentes.some((p) => p.id === s.objeto?.id),
       );
       const volumenes = e.sprites.filter(
         (s) => s.capa === 0 && APARTE[s.clase] !== null && esVolumen(s),
@@ -458,6 +464,25 @@ describe('la escena de un mapa real', () => {
           const dx = Math.max(x0 - cx, 0, cx - x1);
           const dy = Math.max(y0 - cy, 0, cy - y1);
           if (dx * dx + dy * dy < r * r) tapan.push(`${v.src} en ${v.x},${v.y} tapa ${mo.id}`);
+        }
+      }
+      // Lo que se pinta después del muro sur de un recinto (su envoltura) no
+      // llega con su rectángulo a `RADIO_DEL_RECINTO` de sus casillas.
+      for (const r of e.recintos) {
+        const env = envolturaDelRecinto(r.id, r.rect);
+        const [a0, b0, a1, b1] = [
+          r.rect.i0 + 0.5,
+          r.rect.j0 + 0.5,
+          r.rect.i1 + 0.5,
+          r.rect.j1 + 0.5,
+        ];
+        for (const v of volumenes) {
+          if (v.y < env.y || (v.y === env.y && v.x <= env.x)) continue;
+          const [x0, y0, x1, y1] = cajaDeSprite(v);
+          const dx = Math.max(x0 - a1, 0, a0 - x1);
+          const dy = Math.max(y0 - b1, 0, b0 - y1);
+          if (dx * dx + dy * dy < RADIO_DEL_RECINTO * RADIO_DEL_RECINTO)
+            tapan.push(`${v.src} en ${v.x},${v.y} tapa el recinto de ${r.id}`);
         }
       }
       expect(tapan).toEqual([]);

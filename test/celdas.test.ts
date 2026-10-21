@@ -25,7 +25,8 @@ import {
   porJunta,
   rampaDe,
   rampasDesviadas,
-  sendasPorLasRampas,
+  sendasPorLosTendidos,
+  tendidoDeBajada,
   vecinaEn,
 } from '../src/client/render/escenario/celdas.js';
 import {
@@ -228,7 +229,9 @@ describe('las bajadas (R5)', () => {
     const b = conSenda(l);
     // La suavizada se aparta de la rampa: es lo que mide el guardia.
     expect(rampasDesviadas([b], [l])).toEqual([expect.stringMatching(/la rampa se aparta/)]);
-    const [m] = sendasPorLasRampas([l], [b]) as [readonly (readonly [number, number])[]];
+    const [m] = sendasPorLosTendidos([l], [tendidoDeBajada(b)]) as [
+      readonly (readonly [number, number])[],
+    ];
     expect(rampasDesviadas([b], [m])).toEqual([]);
     expect(m[0]).toEqual(l[0]);
     expect(m.at(-1)).toEqual(l.at(-1));
@@ -243,7 +246,9 @@ describe('las bajadas (R5)', () => {
     const l = recta([2.5, 0.5], [2.5, 2.5]);
     const b = conSenda(l);
     expect(rampaDe(b)[1][1]).toBeGreaterThan(2.5);
-    const [m] = sendasPorLasRampas([l], [b]) as [readonly (readonly [number, number])[]];
+    const [m] = sendasPorLosTendidos([l], [tendidoDeBajada(b)]) as [
+      readonly (readonly [number, number])[],
+    ];
     expect(rampasDesviadas([b], [m])).toEqual([]);
     expect(m.at(-1)).toEqual([2.5, 2.5]);
     expect(m.every(([x]) => Math.abs(x - 2.5) < 1e-9)).toBe(true);
@@ -278,7 +283,7 @@ describe('las bajadas (R5)', () => {
   it('una bajada sin senda que pase por ella no mueve ninguna, y el guardia la cuenta', () => {
     const b = conSenda(recta([2.5, 0.5], [2.5, 3.5]));
     const lejos = recta([5.5, 0.5], [5.5, 3.5]);
-    expect(sendasPorLasRampas([lejos], [b])).toEqual([lejos]);
+    expect(sendasPorLosTendidos([lejos], [tendidoDeBajada(b)])).toEqual([lejos]);
     expect(rampasDesviadas([b], [lejos])).toHaveLength(1);
   });
 
@@ -529,9 +534,9 @@ describe('los guardias del relieve por celdas, mordiendo', () => {
     expect(bajadasTapadas([bajada, mata], [b], catalogo)).toEqual([]);
   });
 
-  /** Lo horneado de una ciudad en la casilla `[x, y]`, como lo pone `componer`. */
+  /** Una pieza horneada del recinto de una ciudad (una casa) con el pie en la casilla `[x, y]`. */
   const ciudad = (x: number, y: number): Sprite => ({
-    src: 'modulos/ciudades/1.webp',
+    src: 'modulos/casas/1.webp',
     nw: 400,
     nh: 300,
     ax: 200,

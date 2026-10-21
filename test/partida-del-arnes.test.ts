@@ -45,6 +45,15 @@ function batalla(turnId: number, accion: string): Peticion {
   };
 }
 
+function respuesta(): Peticion {
+  return {
+    requestId: id(),
+    kind: 'battle_response',
+    payload: {},
+    respuesta: { response: 'normal' },
+  };
+}
+
 function ascenso(): Peticion {
   return { requestId: id(), kind: 'hero_from_troop', payload: {}, respuesta: {} };
 }
@@ -56,6 +65,8 @@ function completa(): Peticion[] {
     batalla(4, 'move'),
     batalla(4, 'move'),
     batalla(5, 'attack'),
+    respuesta(),
+    respuesta(),
     ascenso(),
     turno(['dismiss', 'buy_item', 'equip']),
     turno(['move_hero'], 0, true),
@@ -83,7 +94,7 @@ describe('lo que pnpm qa necesita ver (#131)', () => {
     // El novato equipado que cae en la batalla de antes del turno siguiente: el
     // «equip» tuvo turno después, pero `pnpm qa` no ve a nadie con la pieza.
     const p = completa();
-    p[6] = turno(['move_hero']);
+    p[8] = turno(['move_hero']);
     expect(faltaParaElArnes(p, 3)).toEqual([
       'un «equip» con un turno después donde se vea el individuo equipado',
     ]);
@@ -95,6 +106,24 @@ describe('lo que pnpm qa necesita ver (#131)', () => {
     expect(faltaParaElArnes(p, 3)).toEqual([
       'una unidad del agente que mande dos «move» seguidos en el mismo turno',
     ]);
+  });
+
+  it('la rueda: dos respuestas, la segunda con una petición después (la primera va mala)', () => {
+    // `pnpm qa` manda mala la primera y exige que otra entre (`exigeLaRueda`):
+    // con una sola, la semilla 29 salía buscada y el arnés daba rojo (vuelta 3
+    // de la ciudad amurallada, 21-10-2026).
+    const falta =
+      'dos «battle_response», la segunda con una petición después para ver su veredicto';
+    const p = completa();
+    expect(
+      faltaParaElArnes(
+        p.filter((_, i) => i !== 5),
+        3,
+      ),
+    ).toEqual([falta]);
+    // La segunda, la última: su veredicto no le llega a nadie.
+    expect(faltaParaElArnes(p.slice(0, 6), 3)).toContain(falta);
+    expect(faltaParaElArnes(p.slice(0, 7), 3)).not.toContain(falta);
   });
 
   it('sin asaltantes en ningún knownMap, falta', () => {

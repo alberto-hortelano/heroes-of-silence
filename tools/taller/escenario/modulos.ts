@@ -195,14 +195,8 @@ export const HOJAS: readonly HojaDeModulos[] = [
     describe:
       'dieciséis detalles de ORILLA de río: matas de juncos, piedras redondeadas húmedas, barro, troncos caídos, nenúfares, sin el agua',
   },
-  // Ciudades y pueblos variados: hasta ahora todas las ciudades eran la misma pieza.
-  {
-    id: 'ciudades',
-    cuantos: 8,
-    identidad: 'assets/mapa/ciudad.webp',
-    describe:
-      'ocho CIUDADES amuralladas distintas entre sí, vistas desde arriba en escorzo: murallas de piedra con torres y puerta, y dentro tejados rojos y oscuros, una catedral o una torre mayor; unas en lo alto de un peñasco, otras junto a un río, de plantas distintas (redonda, alargada, escalonada); sin estandartes ni banderas',
-  },
+  // Pueblos variados: hasta ahora todos eran la misma pieza. Las ciudades ya no
+  // tienen hoja: son un recinto que compone la escena (`recinto.ts`, 20-10-2026).
   {
     id: 'pueblos',
     cuantos: 8,

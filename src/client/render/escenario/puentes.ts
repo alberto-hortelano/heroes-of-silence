@@ -208,13 +208,23 @@ export function puenteDe(
 
 /**
  * La ciudad-puente (#144, paso 2): la ciudad se pinta en su orilla (`orilla`) y
- * en su casilla va un puente de piedra que cruza el río de frente, de la orilla
- * a la casilla de `enfrente`. Sube si la orilla de su lado alto es la del arte
- * (al norte en N-S, al este en E-O), como el de un nodo.
+ * en su casilla va un puente de piedra que cruza el río de frente, de la casilla
+ * de `enfrente` al **pie de la cara** de su recinto que da al río (`pie`, el
+ * medio de esa cara: donde va el arco de su puerta). Sube si la orilla de su
+ * lado alto es la del arte (al norte en N-S, al este en E-O), como el de un nodo.
+ *
+ * Acortado (vuelta 3, H2 del QA de la vuelta 2): el estribo de enfrente se queda
+ * donde lo deja la pieza entera, centrada en la casilla del río, y el de la
+ * ciudad pasa al pie de su cara; la escala es lo que mide entonces (de 2,96 a
+ * 2: 0,68). Entero, el tablero entraba casi una casilla en el recinto y, con el
+ * río al sur, se pintaba delante de la muralla: tapaba el muro y la puerta y
+ * llegaba a la mitad de la plaza (15 de 217 ciudades en 1-40). Lo vigila
+ * `puenteSobreElAnillo`.
  */
 export function puenteDeLaCiudad(
   ciudad: { readonly id: string; readonly at: { readonly x: number; readonly y: number } },
   lados: { readonly orilla: Point; readonly enfrente: Point },
+  pie: Punto,
   W: number,
   nivel: ArrayLike<number>,
   catalogo: Catalogo,
@@ -234,8 +244,19 @@ export function puenteDeLaCiudad(
   const np = nivel[p.y * W + p.x] as number;
   const nq = nivel[q.y * W + q.x] as number;
   const sube = (eje === 'ns' && nq > np) || (eje === 'eo' && np > nq);
+  const plana = `puente-piedra-${eje}`;
+  const pieza = sube && catalogo.piezas[`${plana}-sube`] !== undefined ? `${plana}-sube` : plana;
+  const { largo } = catalogo.piezas[pieza]?.puente ?? SIN_ARTE;
+  // De la casilla del río hacia la ciudad, por el eje, y el estribo de enfrente
+  // a medio largo de la pieza entera hacia el otro lado.
+  const hacia: Punto = [Math.sign(orilla.x - x), Math.sign(orilla.y - y)];
+  const lejos: Punto = [x + 0.5 - (hacia[0] * largo) / 2, y + 0.5 - (hacia[1] * largo) / 2];
+  // El pie, sobre el eje: el medio de la cara cae en él, salvo el redondeo.
+  const cerca: Punto = eje === 'ns' ? [x + 0.5, pie[1]] : [pie[0], y + 0.5];
+  const corto = Math.hypot(cerca[0] - lejos[0], cerca[1] - lejos[1]);
+  const centro: Punto = [(cerca[0] + lejos[0]) / 2, (cerca[1] + lejos[1]) / 2];
   return {
-    ...armarPuente(ciudad, eje, [x + 0.5, y + 0.5], 1, sube, 'piedra', catalogo),
+    ...armarPuente(ciudad, eje, centro, corto / largo, sube, 'piedra', catalogo),
     orilla: [orilla.x + 0.5, orilla.y + 0.5],
   };
 }
@@ -732,4 +753,26 @@ export function sendasDeEstriboEnAgua(
       });
     }),
   );
+}
+
+/**
+ * Lo que pisa cada puente en el suelo, de estribo a estribo, y el de una
+ * ciudad-puente (#144), además, hasta el centro de su orilla: por ahí se entra
+ * en el recinto (criterio 8a), por el arco de la cara del río. Es la pisada y
+ * no `Puente.tablero`, que en uno de este a oeste va alzado 0,4 en pantalla:
+ * con él, la torre de la esquina de la cara del río parecía pisar el puente
+ * (s11 (24,9), s14 (28,1)…), y es la base de las torres lo que mira el guardia.
+ */
+export function ejesDeLosPuentes(puentes: readonly Pick<Puente, 'extremos' | 'orilla'>[]): Senda[] {
+  return puentes.flatMap((p) => {
+    const [a, b] = p.extremos;
+    if (p.orilla === undefined) return [[a, b]];
+    const o = p.orilla;
+    const cerca =
+      Math.hypot(a[0] - o[0], a[1] - o[1]) < Math.hypot(b[0] - o[0], b[1] - o[1]) ? a : b;
+    return [
+      [a, b],
+      [cerca, o],
+    ];
+  });
 }

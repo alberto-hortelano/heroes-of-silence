@@ -1324,8 +1324,10 @@ describe('lo que ve el agente', () => {
     // El plan de prueba con cada cordillera de un tipo distinto: el esquema y
     // la validación de los dos productores tienen que dejar pasar las cinco, y
     // la red sale igual porque las cinco bloquean lo mismo.
+    // El agua, en la de los nodos: en la de una ciudad, la ciudad es una
+    // ciudad-puente y su recinto va en su orilla, a tres de la de al lado.
     const plan = planDeNodos();
-    const tipos = ['cliff', 'forest', 'wall', 'water'] as const;
+    const tipos = ['cliff', 'water', 'wall', 'forest'] as const;
     const conBarreras = {
       ...plan,
       walls: plan.walls.map((m, i) => ({ ...m, terrain: tipos[i % tipos.length]! })),

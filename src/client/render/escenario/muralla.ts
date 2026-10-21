@@ -17,6 +17,24 @@ import { componentesDePasos, type Eje, type Esqueleto, ejeDe, type Paso } from '
 
 type Casilla = readonly [number, number];
 
+/**
+ * Lo que miden las piezas de la muralla en el mapa, en casillas: las de las
+ * franjas de muro (`colocar.ts`) y, a `ESCALA_DEL_RECINTO`, las del recinto de
+ * una ciudad (`recinto.ts`).
+ *
+ * - La torre, de alto.
+ * - El tramo de este a oeste, de ancho: cubre su paso de una casilla con un
+ *   poco de solape.
+ * - El tramo de norte a sur (§29), de alto. Su adarve ocupa dos tercios de la
+ *   pieza y el muro que se ve de frente, el tercio de abajo: a 1,6 el adarve
+ *   cubre 1,07 casillas, lo que va de un centro al siguiente con algo de
+ *   solape, y el muro queda a 0,5 de alto, el del tramo de este a oeste con sus
+ *   almenas.
+ */
+export const ALTO_DE_TORRE = 1.4;
+export const ANCHO_DEL_TRAMO_HORIZONTAL = 1.25;
+export const ALTO_DEL_TRAMO_NORTE_SUR = 1.6;
+
 const clave = ([x, y]: Casilla) => `${x},${y}`;
 const deClave = (k: string): Casilla => k.split(',').map(Number) as unknown as Casilla;
 

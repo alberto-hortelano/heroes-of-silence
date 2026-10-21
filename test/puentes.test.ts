@@ -743,8 +743,8 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     const punto = enElTablero(pu, caso.t);
     expect(punto.map(Math.floor)).toEqual([caso.casilla.x, caso.casilla.y]);
     // Lo señala: la barra dice lo mismo que sobre la casilla de su nodo (un
-    // paso; desde el río continuo, la ciudad-puente de la 23, la única de 1-300
-    // con el tablero sobre el agua de otra casilla).
+    // paso; desde el recinto de las ciudades, el nodo 2 de la 216, el único de
+    // 1-300 con el tablero sobre el agua de otra casilla).
     const centro = mundoAPixel(camara, Math.floor(pu.nodo[0]) + 0.5, Math.floor(pu.nodo[1]) + 0.5);
     escena.mover(centro.x, centro.y);
     const sobreElNodo = s.status;

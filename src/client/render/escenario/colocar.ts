@@ -14,6 +14,7 @@
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { APOYOS_DE_MURALLA } from '@core/map/murallas.js';
 import { puertasDe } from '@core/map/puertas.js';
+import { centroDelRecinto, LADO_DEL_RECINTO, recintoDeLaCiudad } from '@core/map/recinto.js';
 import { vecindad } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
@@ -78,9 +79,10 @@ import {
   rampasDeFrente,
   rampasDesviadas,
   rebordesDe,
-  sendasPorLasRampas,
+  sendasPorLosTendidos,
   TRAMO_DE_PIEZA_DE_RAMPA,
   taludDeBajada as taludDeBajadaDe,
+  tendidoDeBajada,
 } from './celdas.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe } from './esqueleto.js';
@@ -107,7 +109,10 @@ import {
   PASO_DEL_RUIDO,
 } from './macizo.js';
 import {
+  ALTO_DE_TORRE,
+  ALTO_DEL_TRAMO_NORTE_SUR,
   type Alrededor,
+  ANCHO_DEL_TRAMO_HORIZONTAL,
   ARRIMO,
   CIUDAD,
   murallaSinLeer,
@@ -141,6 +146,7 @@ import {
 } from './pasillo.js';
 import { claveDe, esVolumen, ordenDeVolumenes, type PreguntaDeVolumen, separar } from './pintar.js';
 import {
+  ejesDeLosPuentes,
   type Puente,
   puenteDe,
   puenteDeLaCiudad,
@@ -148,6 +154,46 @@ import {
   tramosHastaLosEstribos,
   vadosDeLosEstribos,
 } from './puentes.js';
+import {
+  ALTO_DE_LA_PUERTA_DEL_RECINTO,
+  ALTO_DE_TORRE_DEL_RECINTO,
+  ALTO_DEL_MURO_DEL_RECINTO,
+  ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
+  ANCHO_DEL_PUEBLO,
+  ANCHO_DEL_TRAMO_DEL_RECINTO,
+  anilloSobreLaSenda,
+  CARA_DEL_RECINTO,
+  type Cara as CaraDelRecinto,
+  type Contorno,
+  callesDeLasPuertas,
+  caraHacia,
+  casasRepetidasJuntas,
+  casillasDelRecinto,
+  contornoDelRecinto,
+  enElRecinto,
+  enLaPlaza,
+  HOJA_DEL_RECINTO,
+  huecosDelAnillo,
+  LUZ_DEL_ARCO,
+  MODULOS_DEL_RECINTO,
+  type ModuloDelRecinto,
+  type ModulosDelRecinto,
+  type PapelEnElRecinto,
+  type Par,
+  type PiezaDelRecinto,
+  PROPORCION_DE_TORRE,
+  PX_POR_CASILLA_DEL_PUEBLO,
+  pisaElAnillo,
+  puentesSobreElAnillo,
+  puertasDelRecinto,
+  type Recinto,
+  type Rect,
+  recintoDe,
+  type Sitio,
+  sendasFueraDeLaPuerta,
+  sendasPorDentro,
+  tendidosDeLasPuertas,
+} from './recinto.js';
 import {
   ALTO_DE_NIVEL,
   bordeDeLadera,
@@ -264,6 +310,19 @@ export interface Sprite {
    * usuario, 20-10-2026): una figura puede quedar detrás de una casa.
    */
   readonly plano?: boolean;
+  /**
+   * Qué es en el recinto de una ciudad, si es suyo (`recinto.ts`): lo pone la
+   * regla y lo leen los guardias, en vez de deducirlo de su hoja o su sombra.
+   */
+  readonly recinto?: PapelEnElRecinto;
+}
+
+/** El recinto de una ciudad en la escena: su rectángulo, su octógono y las caras con puerta (`recintoDe`). */
+export interface RecintoDeEscena {
+  readonly id: string;
+  readonly rect: Rect;
+  readonly contorno: Contorno;
+  readonly puertas: readonly CaraDelRecinto[];
 }
 
 export interface Luz {
@@ -333,6 +392,12 @@ export interface Escena {
    */
   readonly luces: readonly Luz[];
   readonly sprites: readonly Sprite[];
+  /**
+   * El recinto de cada ciudad (`recinto.ts`): su rectángulo y sus aberturas.
+   * El pintor pone su plaza (`pintarPlazas`) y la superficie cubre sus
+   * casillas: quien está dentro va delante de todo el recinto.
+   */
+  readonly recintos: readonly RecintoDeEscena[];
   readonly informe: {
     /**
      * Lo que de la muralla no cierra, sobre lo pintado (`murallaSinLeer`):
@@ -368,6 +433,34 @@ export interface Escena {
      */
     readonly murallaSobreSenda: number;
     readonly basesSobreReserva: number;
+    /**
+     * Sendas pintadas y tableros de puente que pasan por la base del anillo de
+     * un recinto, una torre o una cara sin puerta (`anilloSobreLaSenda`): se
+     * entra por el arco de una puerta. Tiene que ser 0.
+     */
+    readonly recintoSobreSenda: number;
+    /**
+     * Puntos del octógono de un recinto que no cubre la base de ninguna torre,
+     * tramo o puerta (`huecosDelAnillo`): el anillo va cerrado. Tiene que ser 0.
+     */
+    readonly anilloAbierto: number;
+    /**
+     * Puentes cuya pisada entra en el octógono de un recinto
+     * (`puentesSobreElAnillo`): el de una ciudad-puente acaba al pie de la cara
+     * del río. Tiene que ser 0.
+     */
+    readonly puenteSobreElAnillo: number;
+    /**
+     * Cruces de una senda pintada con el octógono de un recinto lejos del arco
+     * de una puerta (`sendasFueraDeLaPuerta`): ninguna abertura más ancha que su
+     * puerta. Tiene que ser 0.
+     */
+    readonly sendaFueraDeLaPuerta: number;
+    /**
+     * Casas de un recinto con la misma casa al lado o detrás, solapadas
+     * (`casasRepetidasJuntas`): tiene que ser 0.
+     */
+    readonly casasRepetidasJuntas: number;
     /**
      * Casillas de barrera que no tapa su formación, un objeto ni una pared
      * del desnivel por su centro (#222): tiene que ser 0.
@@ -970,16 +1063,13 @@ export function bajoLaCopa(sprites: readonly Sprite[]): (s: ConImagen) => boolea
   };
 }
 
-/** El ancho de un pueblo (el objeto del juego), en casillas. */
-const ANCHO_DEL_PUEBLO = 1.9;
-
 /**
  * Las casas sueltas, a tantos píxeles de su imagen por casilla: al 89 % de lo
- * que miden en su pueblo (el 1 de la hoja mide 364 px para `ANCHO_DEL_PUEBLO`),
- * 215, y de 0,53 a 0,76 casillas de ancho. Más pequeñas que en él y lejos de
+ * que miden en su pueblo (`PX_POR_CASILLA_DEL_PUEBLO`, las de la ciudad), 215,
+ * y de 0,53 a 0,76 casillas de ancho. Más pequeñas que en él y lejos de
  * él, se leen como un caserío y no como otro pueblo.
  */
-const PX_POR_CASILLA_DE_CASA = Math.round(364 / ANCHO_DEL_PUEBLO / 0.89);
+const PX_POR_CASILLA_DE_CASA = Math.round(PX_POR_CASILLA_DEL_PUEBLO / 0.89);
 
 /** El alto de una casa sin su hoja (el marcador). */
 const ALTO_DE_CASA = 0.6;
@@ -1238,7 +1328,7 @@ export function materialDeCara(material: string): MaterialDeCara {
  * hacia el fondo es estrecho y se mide por lo que sube en pantalla.
  */
 const ANCHO_DE_TRAMO: Readonly<Record<string, number>> = {
-  horizontal: 1.25,
+  horizontal: ANCHO_DEL_TRAMO_HORIZONTAL,
   'diagonal-baja': 1.5,
   'diagonal-sube': 1.5,
   profundidad: 0.55,
@@ -1257,14 +1347,6 @@ const PUERTA_NORTE_SUR = { alto: 2.6, pieDelArco: 0.625 } as const;
 
 /** Las piezas del tramo de muralla de norte a sur (§29), de lado. */
 const TRAMOS_NORTE_SUR = ['muro-ns-1', 'muro-ns-2'] as const;
-
-/**
- * Lo alto del tramo de norte a sur, en casillas. Su adarve ocupa dos tercios de
- * la pieza y el muro que se ve de frente, el tercio de abajo: a 1,6 el adarve
- * cubre 1,07 casillas, lo que va de un centro al siguiente con algo de solape, y
- * el muro queda a 0,5 de alto, el del tramo de este a oeste con sus almenas.
- */
-const ALTO_DEL_TRAMO_NORTE_SUR = 1.6;
 
 /**
  * Lo más que se encoge la torre de una casilla de muralla sin tramos para no
@@ -1338,7 +1420,6 @@ const TONO_DE_HITO: Readonly<Record<string, string>> = {
 
 /** El radio de la reserva de cada clase de objeto (`reservaDe`), en casillas. */
 export const RADIO_DE_OBJETO: Readonly<Record<string, number>> = {
-  town: 1.5,
   village: 1.1,
   node: 0.95,
   resource: 0.5,
@@ -1374,6 +1455,8 @@ export function sitioDe(
 }
 
 export function radioDeLaReserva(o: Pick<MapObject, 'kind'> & { barrera?: Barrera }): number {
+  if (o.kind === 'town')
+    throw new Error('la reserva de una ciudad no es un disco: es su recinto (`reservaDelRecinto`)');
   if (o.kind === 'node' && o.barrera !== undefined && PASOS_SIN_PIEZA.includes(o.barrera))
     return RADIO_DEL_PASO_SIN_PIEZA;
   return RADIO_DE_OBJETO[o.kind] ?? 0.5;
@@ -1567,6 +1650,23 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     sombra,
     objeto: { id: o.id, kind: o.kind },
   });
+  /**
+   * El rectángulo del recinto de cada ciudad, el del núcleo (`recintoDeLaCiudad`,
+   * con su medio en la orilla de una ciudad-puente): lo leen su puente, su
+   * reserva, su huella, las paredes que no se ponen y su anillo.
+   */
+  const recintos = new Map(
+    a.objetos.flatMap((o) =>
+      o.kind === 'town'
+        ? [
+            [
+              o.id,
+              recintoDeLaCiudad(centroDelRecinto(o.at, a.ciudadesPuente.get(o.id)?.orilla), W, H),
+            ] as const,
+          ]
+        : [],
+    ),
+  );
   const puentes: Puente[] = [];
   for (const o of a.objetos) {
     // La ciudad-puente (#144) se pinta en su orilla, y en su casilla, su puente.
@@ -1580,7 +1680,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       const pu =
         deLaCiudad === undefined
           ? puenteDe(o, a, nivel, map.caminos.tramos, catalogo)
-          : puenteDeLaCiudad(o, deLaCiudad, W, nivel, catalogo);
+          : puenteDeLaCiudad(
+              o,
+              deLaCiudad,
+              caraHacia(contornoDelRecinto(recintos.get(o.id) as Rect), o.at.x + 0.5, o.at.y + 0.5)
+                .medio,
+              W,
+              nivel,
+              catalogo,
+            );
       puentes.push(pu);
       const p = pieza(pu.pieza);
       const [cx, cy] = pu.centro;
@@ -1600,32 +1708,39 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         sprites.push({ ...s, puente: pu.id });
         continue;
       }
-      // El de la ciudad no es su objeto: lo es la ciudad, que va abajo.
+      // El de la ciudad no es su objeto: lo es la ciudad, su recinto. Acaba al
+      // pie de la cara del río (`puenteDeLaCiudad`) y se pinta antes que ella:
+      // con el río al sur, la puerta y sus torres van delante del tablero, que
+      // entra por el arco; pintado después, el tablero tapaba la puerta.
       const { objeto: _ciudad, ...pieza_ } = s;
-      sprites.push({ ...pieza_, puente: pu.id });
+      const [e0, e1] = pu.extremos;
+      const [ox, oy] = pu.orilla ?? pu.centro;
+      const pie = Math.hypot(e0[0] - ox, e0[1] - oy) < Math.hypot(e1[0] - ox, e1[1] - oy) ? e0 : e1;
+      sprites.push({ ...pieza_, puente: pu.id, clave: Math.min(claveDe(pieza_), pie[1] - 0.01) });
     }
+    // La ciudad es un recinto (`recinto.ts`): su anillo y sus casas se ponen
+    // con la senda pintada (paso 2b), y aquí solo reserva su rectángulo.
+    if (o.kind === 'town') continue;
     const id =
-      o.kind === 'town'
-        ? 'ciudad'
-        : o.kind === 'village'
-          ? 'pueblo'
-          : o.kind === 'node'
-            ? (() => {
-                // El de agua ya salió arriba, con su puente.
-                const paso = a.pasos.get(o.id);
-                if (paso === undefined) throw new Error(`el nodo ${o.id} no está en el análisis`);
-                return piezaDeNodo(o.id, o.at, W, map.terrain, paso.barrera, paso.eje);
-              })()
-            : o.kind === 'resource'
-              ? // Mercurio, azufre, cristal y gemas no tienen pieza: van como tesoro.
-                (({ gold: 'oro', ore: 'piedra', wood: 'madera' } as Record<string, string>)[
-                  o.resource
-                ] ?? 'oro')
-              : o.kind === 'mine'
-                ? 'atlas/mina'
-                : o.kind === 'chest'
-                  ? 'cofre'
-                  : null;
+      o.kind === 'village'
+        ? 'pueblo'
+        : o.kind === 'node'
+          ? (() => {
+              // El de agua ya salió arriba, con su puente.
+              const paso = a.pasos.get(o.id);
+              if (paso === undefined) throw new Error(`el nodo ${o.id} no está en el análisis`);
+              return piezaDeNodo(o.id, o.at, W, map.terrain, paso.barrera, paso.eje);
+            })()
+          : o.kind === 'resource'
+            ? // Mercurio, azufre, cristal y gemas no tienen pieza: van como tesoro.
+              (({ gold: 'oro', ore: 'piedra', wood: 'madera' } as Record<string, string>)[
+                o.resource
+              ] ?? 'oro')
+            : o.kind === 'mine'
+              ? 'atlas/mina'
+              : o.kind === 'chest'
+                ? 'cofre'
+                : null;
     if (o.kind === 'monster') {
       sprites.push({
         ...MONSTRUO,
@@ -1644,17 +1759,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     // hito, más estrecho: con su poste, a 1,7 medía 2,2 casillas de alto, más que una mina.
     const ancho = esHito(id)
       ? ANCHO_DEL_HITO
-      : ({ town: 2.4, village: ANCHO_DEL_PUEBLO, node: 1.7, resource: 0.95, mine: 1.2, chest: 0.6 }[
-          o.kind as 'town'
+      : ({ village: ANCHO_DEL_PUEBLO, node: 1.7, resource: 0.95, mine: 1.2, chest: 0.6 }[
+          o.kind as 'village'
         ] ?? 0.5);
-    // Ciudades y pueblos, cada uno con su variante de la hoja (por su id, siempre
-    // la misma); sin la hoja, la pieza única de antes.
-    const variantes =
-      o.kind === 'town'
-        ? modulosDe('ciudades')
-        : o.kind === 'village'
-          ? modulosDe('pueblos')
-          : null;
+    // Los pueblos, cada uno con su variante de la hoja (por su id, siempre la
+    // misma); sin la hoja, la pieza única de antes.
+    const variantes = o.kind === 'village' ? modulosDe('pueblos') : null;
     const variante =
       variantes !== null && variantes.length > 0
         ? variantes[varianteDeId(o.id, variantes.length)]
@@ -1683,12 +1793,24 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     sprites.push(tono === undefined || s.src === null ? s : { ...s, tono });
   }
 
+  const rectsDeRecintos = [...recintos.values()];
+  /** Las casillas de algún recinto: ni masa, ni un árbol en la reserva. */
+  const bajoUnRecinto = new Uint8Array(W * H);
+  for (const r of recintos.values())
+    for (const [x, y] of casillasDelRecinto(r)) bajoUnRecinto[y * W + x] = 1;
   // Su reserva, salvo la de los puentes: la de un nodo cubre su casilla entera,
-  // que lleva su camino hasta la puerta. Entra en `obstaculos` con lo demás.
+  // que lleva su camino hasta la puerta; la de una ciudad, su recinto, y quien
+  // la ocupa es lo que pintará (`envolturaDelRecinto`). Entra en `obstaculos`
+  // con lo demás.
   const reservas = new Map(
     a.objetos.flatMap((o) => {
       const deLaCiudad = a.ciudadesPuente.get(o.id);
       if (a.puentes.has(o.id) && deLaCiudad === undefined) return [];
+      const rect = recintos.get(o.id);
+      if (rect !== undefined) {
+        const envoltura = envolturaDelRecinto(o.id, rect);
+        return [[reservaDelRecinto(rect, envoltura), envoltura] as const];
+      }
       const s = sprites.find((t) => t.objeto?.id === o.id);
       if (s === undefined) throw new Error(`el objeto ${o.id} no está en la escena`);
       return [[reservaDe({ at: sitioDe(a, o) }, radioDeLaReserva(o), s), s] as const];
@@ -1714,9 +1836,65 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       p.orilla === undefined ? [] : p.extremos.map(([x, y]) => `${x},${y}`),
     ),
   ]);
-  const suavizadas = sendas(tramosHastaLosEstribos(caminos, puentes), semilla, (x, y) =>
-    deUnNodo.has(`${x},${y}`),
+  /** Si la senda puede salir de un arco hasta `(x, y)`: lo que se pisa (ni barrera ni a `CERCA_DEL_AGUA` del agua), o el propio recinto. */
+  const sePisaJuntoAlRecinto = (x: number, y: number) => {
+    const casilla = (px: number, py: number) => {
+      const i = Math.floor(py) * W + Math.floor(px);
+      return px >= 0 && py >= 0 && px < W && py < H ? i : -1;
+    };
+    const i = casilla(x, y);
+    if (i < 0) return false;
+    if (bajoUnRecinto[i] !== 1 && a.franjaDe[i] !== -1) return false;
+    // Ni junto al agua: la orilla pintada entra en lo que se pisa.
+    for (const [dx, dy] of CERCA_DEL_AGUA) {
+      const k = casilla(x + dx, y + dy);
+      if (k >= 0 && a.terreno[k] === 'water' && bajoUnRecinto[k] !== 1) return false;
+    }
+    return true;
+  };
+  // Lo que va dentro de un recinto, una cuerda: la plaza lo tapa, y así cada
+  // senda cruza la muralla una vez por puerta (`sendasPorDentro`).
+  const contornos = new Map(
+    [...recintos].map(([id, rect]) => [id, contornoDelRecinto(rect)] as const),
   );
+  const sinPuertas = sendasPorDentro(
+    sendas(tramosHastaLosEstribos(caminos, puentes), semilla, (x, y) => deUnNodo.has(`${x},${y}`)),
+    [...contornos.values()],
+    (x, y) => x >= 0 && y >= 0 && x <= W && y <= H,
+  );
+  /**
+   * Por dónde se entra en cada recinto: su octógono, las caras con puerta (las
+   * que cruzan las sendas, `puertasDelRecinto`) y la del río de una
+   * ciudad-puente, a la que llega el puente.
+   */
+  const puertasDe = new Map(
+    [...recintos].map(([id, rect]) => {
+      const contorno = contornos.get(id) as Contorno;
+      const ciudad = a.objetos.find((o) => o.id === id) as MapObject;
+      const rio = a.ciudadesPuente.has(id)
+        ? caraHacia(contorno, ciudad.at.x + 0.5, ciudad.at.y + 0.5).cara
+        : undefined;
+      return [
+        id,
+        {
+          id,
+          rect,
+          contorno,
+          puertas: puertasDelRecinto(contorno, sinPuertas, rio, sePisaJuntoAlRecinto),
+          ...(rio === undefined ? {} : { rio }),
+        },
+      ] as const;
+    }),
+  );
+  // Y entra en cada recinto por el arco de una puerta (`tendidosDeLasPuertas`),
+  // antes que nada la mire: las bajadas, las paredes y lo que se aparta ven la
+  // senda que se pintará.
+  const tendidosDePuertas = tendidosDeLasPuertas(
+    sinPuertas,
+    [...puertasDe.values()],
+    sePisaJuntoAlRecinto,
+  );
+  const suavizadas = sendasPorLosTendidos(sinPuertas, tendidosDePuertas);
   // El eje de cada nodo de paso, con camino o sin él: sin camino que abriera
   // hueco, los picos y los árboles de alrededor lo enterraban y el paso no se
   // distinguía de la cordillera (#173).
@@ -1735,6 +1913,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     x >= 0 && y >= 0 && x < W && y < H && a.terreno[y * W + x] !== 'water';
   const todasLasCeldas = celdasDe(nivel, W, H, meseta);
   const bajoLosPuentes = celdasBajoLosPuentes(todasLasCeldas, puentes);
+  /**
+   * Las paredes que no llevan pieza: las que cruza un puente y las de dentro de
+   * un recinto (`celdasBajoLosRecintos`), cuyo suelo es la plaza de la ciudad.
+   */
+  const bajoLosRecintos = celdasBajoLosRecintos(todasLasCeldas, rectsDeRecintos);
+  const sinPared = new Set([...bajoLosPuentes, ...bajoLosRecintos]);
   // Las rampas (#225): donde un camino baja de frente por un borde recto y hay
   // su arte, la pared se abre —el cuerpo en el hueco y un costado a cada lado—
   // en vez de llevar la bajada encima. Se deciden por el tramo del núcleo, antes
@@ -1742,7 +1926,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const rampas = rampasDeFrente(
     nivel,
     W,
-    todasLasCeldas.filter((c) => esVisto(c.tipo) && !bajoLosPuentes.has(claveDeCelda(c))),
+    todasLasCeldas.filter((c) => esVisto(c.tipo) && !sinPared.has(claveDeCelda(c))),
     [
       ...map.caminos.tramos.filter(
         ([p, q]) => !nodosDePuente.has(`${p.x},${p.y}`) && !nodosDePuente.has(`${q.x},${q.y}`),
@@ -1761,7 +1945,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     W,
     H,
     meseta,
-    new Set([...bajoLosPuentes, ...rampas.flatMap(celdasDeLaRampa)]),
+    new Set([...sinPared, ...rampas.flatMap(celdasDeLaRampa)]),
   );
   /**
    * Las paredes que un puente solo toca en una punta de su filo (#222): las de
@@ -1770,7 +1954,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * una celda; las que un barranco o una rampa quitan, no.
    */
   const juntoAlPuente = (() => {
-    const porDentro = celdasBajoLosPuentes(todasLasCeldas, puentes, true);
+    // Las de un recinto, tampoco: lo de dentro es su plaza (s13 (16, 36), la
+    // junta de su ciudad-puente).
+    const porDentro = new Set([
+      ...celdasBajoLosPuentes(todasLasCeldas, puentes, true),
+      ...bajoLosRecintos,
+    ]);
     const junto = new Set([...bajoLosPuentes].filter((k) => !porDentro.has(k)));
     const con = caidas(
       nivel,
@@ -1805,14 +1994,21 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // ella (R4/R5), así que es la senda la que se aparta de su pie. La pared solo
   // mira la reserva de los objetos y los tableros de los puentes.
   const deLaPared = new Obstaculos<Medible>([...formasDeLosTableros(puentes), ...reservas.keys()]);
-  /** El sprite del objeto en cuya reserva cae `(x, y)`, el más cercano si son varios. */
-  const reservaEn = (x: number, y: number): Sprite | undefined => {
-    const f = deLaPared.en(x, y, (f) => reservas.has(f));
+  /**
+   * El sprite del objeto en cuya reserva cae `(x, y)`, el más cercano si son
+   * varios, salvo la del objeto `salvo`: una pieza de un recinto cae en la suya.
+   */
+  const reservaEn = (x: number, y: number, salvo?: string): Sprite | undefined => {
+    const f = deLaPared.en(
+      x,
+      y,
+      (f) => reservas.has(f) && (salvo === undefined || reservas.get(f)?.objeto?.id !== salvo),
+    );
     return f === undefined ? undefined : reservas.get(f);
   };
-  /** Mete `s` en la escena y cuenta si su base pisa una reserva. */
+  /** Mete `s` en la escena y cuenta si su base pisa una reserva que no es la suya. */
   const meter = (s: Sprite): true => {
-    if (reservaEn(s.x, s.y) !== undefined) basesSobreReserva++;
+    if (reservaEn(s.x, s.y, s.objeto?.id) !== undefined) basesSobreReserva++;
     sprites.push(s);
     return true;
   };
@@ -1855,6 +2051,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const m = moduloDeBajada(b);
     return m === undefined ? marcadorDeBajada(b, k) : spriteDeBajada(m, hojaDeBajada(b), b, k);
   };
+  /**
+   * Si `(x, y)` cae en un recinto, con su borde: la bajada que arranca ahí no se
+   * pone, que dentro no hay pared que bajar (`celdasBajoLosRecintos`).
+   */
+  const enUnRecinto = (x: number, y: number) => rectsDeRecintos.some((r) => enElRecinto(r, x, y));
   /** Las bajadas de las sendas `l`, con la de cada rampa por el medio de su hueco (`enSuRampa`). */
   const bajadasDe_ = (l: readonly Senda[]) =>
     bajadasDe(
@@ -1866,22 +2067,17 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       l,
       (p, q) => nodosDePuente.has(`${p.x},${p.y}`) || nodosDePuente.has(`${q.x},${q.y}`),
       pieAdmitido,
-    ).map((b) => enSuRampa(b, rampas));
+    )
+      .filter((b) => !enUnRecinto(...b.arriba))
+      .map((b) => enSuRampa(b, rampas));
   /**
    * Las bajadas de los nodos entre dos niveles sin camino (#143), por su eje y
    * sin senda que seguir: la tierra la lleva la pieza (#227).
    */
   const bajadasDeLosNodos = () =>
-    bajadasDe(
-      nivel,
-      W,
-      meseta,
-      rel.celdas,
-      tramosDeLasRampas(map, a),
-      [],
-      undefined,
-      pieAdmitido,
-    ).map((b): Bajada => enSuRampa({ ...b, deUnNodo: true }, rampas));
+    bajadasDe(nivel, W, meseta, rel.celdas, tramosDeLasRampas(map, a), [], undefined, pieAdmitido)
+      .filter((b) => !enUnRecinto(...b.arriba))
+      .map((b): Bajada => enSuRampa({ ...b, deUnNodo: true }, rampas));
   /** La silueta de cada módulo que tapa una cara: la de las paredes, para lo que pintan encima. */
   const perfilDe = perfilesDelCatalogo(catalogo);
   /**
@@ -1899,7 +2095,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * las suavizadas, el enlace del pie de una rampa a su trazo quedaba bajo la
    * diagonal de al lado (s108 (4, 9)).
    */
-  const porLasRampas = sendasPorLasRampas(suavizadas, bajadasPrevias);
+  const porLasRampas = sendasPorLosTendidos(suavizadas, bajadasPrevias.map(tendidoDeBajada));
   /**
    * Las cajas de las paredes que la puerta no dejó entrar, con el porqué (un
    * puente que taparían): la razón declarada de las celdas que quedan vacías
@@ -2172,7 +2368,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const conTirada = todasLasCeldas.filter(
     (c) =>
       esVisto(c.tipo) &&
-      !bajoLosPuentes.has(claveDeCelda(c)) &&
+      !sinPared.has(claveDeCelda(c)) &&
       c.tipo !== 'S' &&
       c.tipo !== 'E' &&
       c.tipo !== 'O',
@@ -2389,16 +2585,33 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       }
     return d;
   };
-  const juntoALaRampa = pasilloDe(bajadasDe_(suavizadas).map(rampaDe), JUNTO_A_LA_RAMPA);
+  // Lo que va por el arco de una puerta tampoco se aparta: es su paso.
+  const juntoALaRampa = pasilloDe(
+    [...bajadasDe_(suavizadas).map(rampaDe), ...tendidosDePuertas.map((t) => [t.p0, t.p1])],
+    JUNTO_A_LA_RAMPA,
+  );
   const conEdificio = new Set(
     a.objetos
       .filter((o) => o.kind === 'town' || o.kind === 'village' || o.kind === 'mine')
       .map((o) => sitioDe(a, o).y * W + sitioDe(a, o).x),
   );
+  /**
+   * Si la senda que pasa por `(x, y)` pisaría el anillo de un recinto
+   * (`pisaElAnillo`): la que pasa junto a una ciudad sin entrar se aparta de
+   * sus torres como de una pared (s5 (30,36), tangente a la torre del oeste).
+   */
+  const anillos = [...puertasDe.values()];
+  const pisaUnAnillo = (x: number, y: number) =>
+    anillos.some(
+      (r) =>
+        Math.abs(x - r.contorno.centro[0]) < LADO_DEL_RECINTO &&
+        Math.abs(y - r.contorno.centro[1]) < LADO_DEL_RECINTO &&
+        pisaElAnillo(r, x, y, SEMIANCHO_DE_LA_HUELLA, true) !== undefined,
+    );
   const apartar = (l: readonly Senda[]) =>
     apartarDeLoQueTapa(
       l,
-      (x, y) => queTapa(x, y) === 'pared',
+      (x, y) => queTapa(x, y) === 'pared' || pisaUnAnillo(x, y),
       (x, y) => juntoALaRampa.en(x, y, () => true) !== undefined,
       (x, y, [x0, y0]) => {
         // Sin arrimarse a un acantilado, un muro ni una cordillera más de lo
@@ -2407,7 +2620,18 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         // 1-40; la línea de la muralla solo deja cruzar por la puerta, y la
         // corrida hacia un lienzo lo pisaba (s439, #207); y en una cordillera
         // estrecha no cabía una cumbre (#204, s11 (20,11): 7 dominantes).
-        if (aLaBarrera(x, y) < Math.min(aLaBarrera(x0, y0), LEJOS_DE_LA_BARRERA)) return false;
+        // Junto a una ciudad, sí, hasta `CERCA_DE_LA_BARRERA_JUNTO_A_UN_RECINTO`: la
+        // senda que baja entre una cordillera y la torre de una esquina no tenía
+        // a dónde ir más que a la plaza (s5 (28, 35-36)).
+        const tope = pisaUnAnillo(x0, y0)
+          ? Math.min(aLaBarrera(x0, y0), CERCA_DE_LA_BARRERA_JUNTO_A_UN_RECINTO)
+          : Math.min(aLaBarrera(x0, y0), LEJOS_DE_LA_BARRERA);
+        if (aLaBarrera(x, y) < tope) return false;
+        // Ni se mete en la plaza de una ciudad por la que no pasaba: entra por el
+        // arco de una puerta, y la plaza, que no tapa el anillo, la dejaba pasar
+        // por la muralla (s5, la senda de (28, 35) cruzaba la cara del oeste).
+        if (anillos.some((r) => enLaPlaza(r.rect, x, y) && !enLaPlaza(r.rect, x0, y0)))
+          return false;
         if (Math.floor(x) === Math.floor(x0) && Math.floor(y) === Math.floor(y0)) return true;
         if (x < 0 || y < 0 || x >= W || y >= H) return false;
         const i = Math.floor(y) * W + Math.floor(x);
@@ -2418,7 +2642,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const apartadas = apartar(suavizadas);
   const bajadasDeLasSendas = bajadasDe_(apartadas);
   // Y lo que se pinta pasa por la rampa de cada una, de su filo a su pie (#192).
-  const trazos = sendasPorLasRampas(apartadas, bajadasDeLasSendas);
+  const trazos = sendasPorLosTendidos(apartadas, bajadasDeLasSendas.map(tendidoDeBajada));
   // El nodo entre dos niveles sin camino también es una rampa (#143): la pieza
   // va por su eje, sin senda que seguir (la tierra la lleva la pieza). Sin ella, el paso de la meseta al
   // llano no se veía (147 de 257 nodos entre niveles en 1-40).
@@ -2485,6 +2709,54 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    */
   let sinLasReservas: Obstaculos<Medible> | undefined;
   const sendaDeLaMuralla = sendaParaLaMuralla(trazos);
+
+  // 2b · Los recintos de las ciudades (`recinto.ts`): el anillo, con una puerta
+  // en cada cara a la que llega un camino (la senda ya pasa por su arco), y las
+  // casas, que dejan la calle a la senda que se pintará.
+  /** Lo que puso cada recinto, por el id de su ciudad: lo que miran sus guardias. */
+  const recintosPuestos = new Map<string, Recinto<ModuloConSrc>>();
+  {
+    const modulos = modulosDelRecinto(catalogo, faltan);
+    for (const r of puertasDe.values()) {
+      const objeto = { id: r.id, kind: 'town' } as const;
+      const calle = pasilloDe<ConImagen>(callesDeLasPuertas(r), CALLE);
+      const recinto = recintoDe({
+        id: r.id,
+        rect: r.rect,
+        semilla,
+        puertas: r.puertas,
+        modulos,
+        // La casa, por su pie de su ancho: a `CALLE` de la calle de cada puerta
+        // y fuera de la reserva de otro objeto. Lo de encima puede tapar la
+        // calle de detrás: es una ciudad apiñada.
+        entraLaCasa: (p) => {
+          const ancho = (p.alto * p.nw) / p.nh;
+          const izquierda = p.x - (p.ax * p.alto) / p.nh;
+          return (
+            !calle.pisa({
+              nw: 1,
+              nh: 1,
+              ax: 0.5,
+              ay: 1,
+              x: izquierda + ancho / 2,
+              y: p.y,
+              alto: ALTO_DEL_PIE_DE_CASA,
+              ancho,
+            }) && reservaEn(p.x, p.y, r.id) === undefined
+          );
+        },
+      });
+      recintosPuestos.set(r.id, recinto);
+      for (const p of [...recinto.torres, ...recinto.tramos, ...recinto.arcos, ...recinto.casas]) {
+        const s = spriteDelRecinto(p, objeto);
+        // El anillo cuyo pie cae en la reserva de otro objeto pasa por detrás
+        // de él, como la muralla; las casas ya la dejaron (`entraLaCasa`).
+        const otro = p.que === 'casa' ? undefined : reservaEn(s.x, s.y, r.id);
+        if (otro === undefined) meter(s);
+        else sprites.push(detrasDe(s, otro));
+      }
+    }
+  }
   /**
    * El sprite más estrecho de cada clase que se aparta: el que pregunta el
    * dardo. El de la cubierta, de las hojas que esparce: las de una regla (las
@@ -2843,21 +3115,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   /** Las casillas que tapa cada ciudad y cada pueblo: su muralla une lo que llega a ella. */
   const huellas: (readonly [number, number])[][] = [];
   for (const o of a.objetos) {
-    const r =
-      o.kind === 'town' || o.kind === 'village' || o.kind === 'node' ? RADIO_DE_OBJETO[o.kind] : 0;
-    if (r === undefined || r === 0) continue;
-    const at = sitioDe(a, o);
-    const huella: (readonly [number, number])[] = [];
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        const x = at.x + dx;
-        const y = at.y + dy;
-        if (x >= 0 && y >= 0 && x < W && y < H && Math.hypot(dx, dy) < r) {
-          bajoLaHuella[y * W + x] = 1;
-          if (o.kind !== 'node') huella.push([x, y]);
-        }
-      }
-    if (huella.length > 0) huellas.push(huella);
+    const huella = casillasDeLaHuella(o, sitioDe(a, o), recintos.get(o.id), W, H);
+    for (const [x, y] of huella) bajoLaHuella[y * W + x] = 1;
+    if (huella.length > 0 && o.kind !== 'node') huellas.push(huella);
     // Y el puente de la ciudad-puente, en su casilla y en la de enfrente, donde
     // apoya su estribo: puede ser el final de una barrera (en 1-40, la montaña
     // de s18, s26, s36 y s37), y la tapa él.
@@ -2886,6 +3146,18 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     for (const i of f.casillas) if (puestos.has(i)) cubiertas[i] = 1;
   }
   for (let i = 0; i < W * H; i++) if (bajoLaHuella[i]) cubiertas[i] = 1;
+  // Y la casilla de barrera por la que sale recta la senda del arco de una
+  // ciudad (`tendidosDeLasPuertas`): solo cuando ninguna cara tiene delante lo
+  // que se pisa (`caraDelCruce`), el camino del núcleo que entra en diagonal
+  // entre dos barreras por la casilla de la esquina del 3 × 3. Es el umbral de
+  // la ciudad: sin la salida recta, la senda pasa por el pie de la torre del
+  // vértice. En 1-40, una: s21 (27,34).
+  for (const t of tendidosDePuertas)
+    for (let k = 0; k <= 10; k++) {
+      const x = Math.floor(t.p0[0] + ((t.p1[0] - t.p0[0]) * k) / 10);
+      const y = Math.floor(t.p0[1] + ((t.p1[1] - t.p0[1]) * k) / 10);
+      if (x >= 0 && y >= 0 && x < W && y < H) cubiertas[y * W + x] = 1;
+    }
   // Y lo que tapa una pared del desnivel por el centro: la masa no la cubre
   // (#216), así que la casilla de montaña al pie de la diagonal que dobla junto
   // a un nodo se queda sin pico, pero no a la vista (s166 (26, 33), y las tres
@@ -3052,6 +3324,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     // las esquinas por los tramos en diagonal.
     for (const i of f.casillas) {
       if (puestos.has(i)) continue;
+      // En un recinto, nada: lo de dentro es la plaza de la ciudad (criterio 8b),
+      // y su anillo y sus casas la tapan.
+      if (bajoUnRecinto[i] === 1) {
+        puestos.add(i);
+        continue;
+      }
       const cx = i % W;
       const cy = Math.floor(i / W);
       const m = forma.modulo(i, cx + 0.5, cy + 0.65, 0.75 + azar() * 0.25, false);
@@ -3210,7 +3488,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (puerta !== undefined && delante === undefined)
       throw new Error(`la puerta ${puerta.id} no está en la escena`);
     if (delante === undefined) return entraria('muro', s.x, s.y, s.alto) && meter(s);
-    sprites.push(claveDe(s) < claveDe(delante) ? s : ordenadoEn(s, claveDe(delante) - 0.01));
+    sprites.push(detrasDe(s, delante));
     return true;
   }
 
@@ -3285,12 +3563,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         hoja,
         x + 0.5,
         y + 0.75,
-        1.4,
+        ALTO_DE_TORRE,
         0.5,
         'muro',
         color,
         true,
-        (x + y) % 2 === 0 ? 'torre-redonda' : 'torre-cuadrada',
+        TORRES_DEL_MURO[(x + y) % 2],
       );
     // La torre de una casilla tal como entra: entera si no tapa la senda; si no,
     // encogida hasta no taparla, como mucho a `TORRE_MAS_BAJA`, y si ni así
@@ -4140,6 +4418,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     huellas,
   );
   const loPisable = sobreLoPisable(sprites, a.franjaDe, W);
+  const recintosDeEscena: RecintoDeEscena[] = [...puertasDe.values()].map(
+    ({ id, rect, contorno, puertas }) => ({ id, rect, contorno, puertas }),
+  );
+  const puestos = [...recintosPuestos.values()];
   return {
     semilla,
     W,
@@ -4162,8 +4444,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     sendas: trazos,
     puentes,
     vados,
-    luces: luces(a, nivel, azarDe(semilla * 31 + 5)),
+    luces: luces(a, nivel, azarDe(semilla * 31 + 5), recintos),
     sprites,
+    recintos: recintosDeEscena,
     informe: {
       murallasPartidas: muralla.fugas.length + muralla.puertasSueltas.length + muralla.huecos,
       murallaIncoherente:
@@ -4180,6 +4463,17 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         (x, y) => sendaDeLaMuralla.en(x, y, () => true) !== undefined,
       ).length,
       basesSobreReserva,
+      recintoSobreSenda: puestos.reduce(
+        (n, r) =>
+          n +
+          anilloSobreLaSenda(r, [...trazos, ...ejesDeLosPuentes(puentes)], SEMIANCHO_DE_LA_HUELLA)
+            .length,
+        0,
+      ),
+      anilloAbierto: puestos.reduce((n, r) => n + huecosDelAnillo(r).length, 0),
+      puenteSobreElAnillo: puentesSobreElAnillo([...contornos.values()], puentes).length,
+      sendaFueraDeLaPuerta: sendasFueraDeLaPuerta(trazos, [...puertasDe.values()]).length,
+      casasRepetidasJuntas: puestos.reduce((n, r) => n + casasRepetidasJuntas(r.casas).length, 0),
       casillasDeBarreraSinFormacion: sinFormacion,
       spritesSobreSenda: sobreLaSenda(sprites, trazos).length,
       // Recontadas desde lo puesto, con cualquier módulo del catálogo y no solo
@@ -4225,7 +4519,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       masaSobreLoPisable: loPisable.masas.length,
       pasillosTapados: loPisable.pasillos.length,
       cumbresSobreLoPisable: loPisable.cumbres.length,
-      bosqueSinArbol: bosqueSinArbol(sprites, bosque, W, tapaLaPared).length,
+      // Las de un recinto, no: lo de dentro es la plaza (criterio 8b).
+      bosqueSinArbol: bosqueSinArbol(
+        sprites,
+        bosque.filter((i) => bajoUnRecinto[i] !== 1),
+        W,
+        tapaLaPared,
+      ).length,
       espaldasSinReborde: espaldasSinReborde(
         sprites,
         rebordes,
@@ -4479,6 +4779,9 @@ export function sobreLaSenda(sprites: readonly Sprite[], trazos: readonly Senda[
   return sprites.filter((s) => s.capa === 0 && senda.pisa(s));
 }
 
+/** El color del marcador de una casa de un recinto, sin la hoja `casas`. */
+const COLOR_DE_CASA = '#9a6a4a';
+
 const MEDIDA_DE_PARED: Medida = { radio: SEMIANCHO_DE_PARED, soloElPie: false };
 
 /**
@@ -4596,6 +4899,271 @@ export function reservaDe(
     mide: (s, alto) =>
       APARTE[s.clase] === null ? null : vaDelante(conAlto(s, alto), objeto) ? caja : pie,
   };
+}
+
+/**
+ * Lo que la reserva de un recinto pasa de sus casillas: un trazo por fila, del
+ * centro de su primera casilla al de la última, con este radio, cubre sus
+ * esquinas y un cuarto de casilla alrededor.
+ */
+export const RADIO_DEL_RECINTO = 0.75;
+
+/**
+ * Lo que el recinto pinta por los lados de su rectángulo: media torre, la de
+ * sus vértices del este y del oeste.
+ */
+const MARGEN_DE_LA_ENVOLTURA = (ALTO_DE_TORRE_DEL_RECINTO * PROPORCION_DE_TORRE) / 2;
+
+/**
+ * Lo que pintará un recinto, como un sprite sin imagen: su caja, de media torre
+ * por los lados a lo alto de las torres del norte, y la clave de su muro sur,
+ * lo último que se pinta de él. Es quien ocupa su reserva (`reservaEn`): lo
+ * que se mide contra él (la pared que pasa por detrás, el tramo de muralla que
+ * se ordena antes) lo mide contra esto. No entra en la escena.
+ */
+export function envolturaDelRecinto(id: string, r: Rect): Sprite {
+  const ancho = r.i1 + 1 - r.i0 + 2 * MARGEN_DE_LA_ENVOLTURA;
+  const [, y] = contornoDelRecinto(r).vertices[4] as Par;
+  return {
+    src: null,
+    nw: 1,
+    nh: 1,
+    ax: 0.5,
+    ay: 1,
+    x: (r.i0 + r.i1 + 1) / 2,
+    y,
+    alto: y - r.j0 + ALTO_DE_TORRE_DEL_RECINTO,
+    ancho,
+    clase: 'objeto',
+    color: MARCADOR.wall as string,
+    capa: 0,
+    sombra: false,
+    objeto: { id, kind: 'town' },
+  };
+}
+
+/**
+ * La reserva de un recinto (`reservaDe` con su rectángulo): un trazo por fila
+ * de casillas, de `RADIO_DEL_RECINTO`. Lo que se aparta no apoya el pie en ella
+ * y, si se pinta después del recinto, tampoco la cubre con su rectángulo.
+ */
+export function reservaDelRecinto(r: Rect, envoltura: Pick<Sprite, 'x' | 'y'>): Forma<Medible> {
+  const pie: Medida = { radio: RADIO_DEL_RECINTO, soloElPie: true };
+  const caja: Medida = { radio: RADIO_DEL_RECINTO, soloElPie: false };
+  const trazos: Senda[] = [];
+  for (let y = r.j0; y <= r.j1; y++)
+    trazos.push([
+      [r.i0 + 0.5, y + 0.5],
+      [r.i1 + 0.5, y + 0.5],
+    ]);
+  return {
+    trazos,
+    alcance: RADIO_DEL_RECINTO,
+    mide: (s, alto) =>
+      APARTE[s.clase] === null ? null : vaDelante(conAlto(s, alto), envoltura) ? caja : pie,
+  };
+}
+
+/** Lo que se mira alrededor de un recinto en `celdasBajoLosRecintos`, en casillas desde el vértice de la celda. */
+const CERCA_DEL_RECINTO = 4;
+
+/** El fuego de una ciudad: su radio y su clase (`luces`). */
+const LUZ_DE_LA_CIUDAD = { r: 1.6, clase: 'fuego' } as const;
+
+/** Dónde va el fuego de una ciudad: el medio de su recinto, un poco al norte. */
+export function luzDelRecinto(r: Rect): { readonly x: number; readonly y: number } {
+  return { x: (r.i0 + r.i1 + 1) / 2, y: (r.j0 + r.j1 + 1) / 2 - 0.2 };
+}
+
+/**
+ * Las paredes del relieve que tienen algún punto (`puntosDeCelda`: sus filos,
+ * sus pies y lo de en medio) en un recinto, con su borde, como `claveDeCelda`:
+ * no llevan pieza. Lo de dentro es la plaza de la ciudad (criterio 8b): la cara
+ * de un acantilado que cruzaba el recinto (un tercio de las ciudades tiene otro
+ * nivel en su 3 × 3) se leía como una grieta entre las casas.
+ */
+export function celdasBajoLosRecintos(cs: readonly Celda[], rects: readonly Rect[]): Set<string> {
+  const fuera = new Set<string>();
+  if (rects.length === 0) return fuera;
+  for (const c of cs) {
+    if (!esVisto(c.tipo)) continue;
+    // Solo las de cerca de algún recinto: sus puntos caen a una casilla y pico
+    // de su vértice (la caída de 3 cuelga más; cerca es de sobra).
+    const cerca = rects.filter(
+      (r) =>
+        c.vx >= r.i0 - CERCA_DEL_RECINTO &&
+        c.vx <= r.i1 + 1 + CERCA_DEL_RECINTO &&
+        c.vy >= r.j0 - CERCA_DEL_RECINTO &&
+        c.vy <= r.j1 + 1 + CERCA_DEL_RECINTO,
+    );
+    if (cerca.length === 0) continue;
+    if (puntosDeCelda(c).some(([x, y]) => cerca.some((r) => enElRecinto(r, x, y))))
+      fuera.add(claveDeCelda(c));
+  }
+  return fuera;
+}
+
+/**
+ * Lo que el pie de una casa del recinto queda del eje de la calle de una puerta
+ * (`callesDeLasPuertas`): media luz del arco, para que ninguna casa tape la
+ * entrada.
+ */
+const CALLE = LUZ_DEL_ARCO / 2;
+
+/** Lo alto con que se mide el pie de una casa contra la calle: su base, de su ancho. */
+const ALTO_DEL_PIE_DE_CASA = 0.05;
+
+/**
+ * Las torres de la hoja `muro`: una de las dos por casilla en la muralla del mapa
+ * (`torreEn`) y por ciudad en su recinto.
+ */
+export const TORRES_DEL_MURO = ['torre-redonda', 'torre-cuadrada'] as const;
+
+/** Un módulo del recinto con su imagen, o con `src: null` si no hay arte (el marcador). */
+export type ModuloConSrc = ModuloDelRecinto & { readonly src: string | null };
+
+/**
+ * Lo ancho del tramo de norte a sur (`muro-ns-1`, 540 × 1 500 px) en veces su
+ * alto: su marcador sin arte.
+ */
+const PROPORCION_DEL_TRAMO_NORTE_SUR = 0.36;
+
+/**
+ * Un módulo sin arte para el recinto, de `ancho × alto` casillas: la regla lo
+ * mide como uno de verdad y `componer` pinta su marcador de ese tamaño.
+ */
+function sinArte(nombre: string, ancho: number, alto: number): ModuloConSrc {
+  return {
+    nombre,
+    src: null,
+    nw: ancho * PX_POR_CASILLA_DEL_PUEBLO,
+    nh: alto * PX_POR_CASILLA_DEL_PUEBLO,
+    ax: (ancho * PX_POR_CASILLA_DEL_PUEBLO) / 2,
+    ay: alto * PX_POR_CASILLA_DEL_PUEBLO,
+  };
+}
+
+/**
+ * Un tramo de norte a sur (§29) anclado por el medio: el adarve se corre algo
+ * al este según se aleja, y con el ancla derivada (el pie del extremo cercano)
+ * toda la tirada quedaba al este. Lo leen la muralla del mapa y el recinto.
+ */
+export function moduloNorteSur(p: Pieza): Pieza {
+  return { src: p.src, nw: p.nw, nh: p.nh, ax: p.nw / 2, ay: p.ay };
+}
+
+/**
+ * Los módulos del recinto de una ciudad, del catálogo: las torres, el tramo
+ * ancho y los de norte a sur de la muralla del mapa, las puertas y los tramos
+ * en diagonal de la hoja `recinto` y las casas sueltas. Lo que falte va con su
+ * marcador, a la medida de la pieza, y se apunta en `faltan`.
+ */
+export function modulosDelRecinto(
+  catalogo: Catalogo,
+  faltan: Set<string>,
+): ModulosDelRecinto<ModuloConSrc> {
+  const hoja = (h: string) => catalogo.hojas[h] ?? [];
+  const deLaHoja = (h: string, nombre: string, ancho: number, alto: number): ModuloConSrc => {
+    const m = hoja(h).find((k) => k.nombre === nombre);
+    if (m !== undefined) return m;
+    faltan.add(h);
+    return sinArte(nombre, ancho, alto);
+  };
+  const altoDeTorre = ALTO_DE_TORRE_DEL_RECINTO;
+  const delRecinto = Object.fromEntries(
+    MODULOS_DEL_RECINTO.map((n) => {
+      const m = deLaHoja(
+        HOJA_DEL_RECINTO,
+        n,
+        CARA_DEL_RECINTO,
+        n.startsWith('puerta-') ? ALTO_DE_LA_PUERTA_DEL_RECINTO : ALTO_DEL_MURO_DEL_RECINTO,
+      );
+      if (m.src !== null && m.junta === undefined)
+        throw new Error(
+          `el módulo «${n}» de «${HOJA_DEL_RECINTO}» no trae sus juntas: derívalas (pnpm taller derivar-recinto) y rehaz el catálogo (pnpm taller catalogo-escena)`,
+        );
+      return [n, m];
+    }),
+  ) as Record<(typeof MODULOS_DEL_RECINTO)[number], ModuloConSrc>;
+  const casas: ModuloConSrc[] = [...hoja(HOJA_DE_CASAS)];
+  if (casas.length === 0) {
+    faltan.add(HOJA_DE_CASAS);
+    casas.push(sinArte('', 0.69, 0.72));
+  }
+  return {
+    torres: TORRES_DEL_MURO.map((n) =>
+      deLaHoja('muro', n, altoDeTorre * PROPORCION_DE_TORRE, altoDeTorre),
+    ),
+    horizontal: deLaHoja(
+      'muro',
+      'horizontal',
+      ANCHO_DEL_TRAMO_DEL_RECINTO,
+      ALTO_DEL_MURO_DEL_RECINTO,
+    ),
+    norteSur: TRAMOS_NORTE_SUR.map((id): ModuloConSrc => {
+      const p = catalogo.piezas[id];
+      if (p !== undefined) return { nombre: id, ...moduloNorteSur(p) };
+      faltan.add(id);
+      return sinArte(
+        id,
+        ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO * PROPORCION_DEL_TRAMO_NORTE_SUR,
+        ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
+      );
+    }),
+    delRecinto,
+    casas,
+  };
+}
+
+/**
+ * El sprite de una pieza del recinto de la ciudad `objeto`, con su papel
+ * (`Sprite.recinto`): sin arte, su marcador a su medida. Solo las torres llevan
+ * sombra al pie: con unas veinte manchas, la plaza quedaba oscurecida entera.
+ */
+export function spriteDelRecinto(
+  p: PiezaDelRecinto<ModuloConSrc>,
+  objeto: NonNullable<Sprite['objeto']>,
+): Sprite {
+  return {
+    ...(p.src === null
+      ? { src: null, nw: 1, nh: 1, ax: 0.5, ay: 1, ancho: (p.alto * p.nw) / p.nh }
+      : { src: p.src, nw: p.nw, nh: p.nh, ax: p.ax, ay: p.ay }),
+    x: p.x,
+    y: p.y,
+    alto: p.alto,
+    ...(p.clave === undefined ? {} : { clave: p.clave }),
+    clase: 'objeto',
+    color: p.que === 'casa' ? COLOR_DE_CASA : (MARCADOR.wall as string),
+    capa: 0,
+    sombra: p.que === 'torre',
+    objeto,
+    recinto: p.que,
+  };
+}
+
+/**
+ * Las casillas que tapa un objeto en `at` (`sitioDe`): una ciudad, su recinto
+ * (`rect`); un pueblo y un nodo, las de su reserva (`RADIO_DE_OBJETO`). Lo de
+ * debajo lo tapa el propio objeto, y la muralla une lo que llega a ella.
+ */
+export function casillasDeLaHuella(
+  o: Pick<MapObject, 'kind'>,
+  at: Sitio,
+  rect: Rect | undefined,
+  W: number,
+  H: number,
+): Par[] {
+  if (rect !== undefined) return casillasDelRecinto(rect);
+  const r = o.kind === 'village' || o.kind === 'node' ? RADIO_DE_OBJETO[o.kind] : undefined;
+  if (r === undefined) return [];
+  const fuera: Par[] = [];
+  for (let dy = -2; dy <= 2; dy++)
+    for (let dx = -2; dx <= 2; dx++) {
+      const x = at.x + dx;
+      const y = at.y + dy;
+      if (x >= 0 && y >= 0 && x < W && y < H && Math.hypot(dx, dy) < r) fuera.push([x, y]);
+    }
+  return fuera;
 }
 
 /**
@@ -6060,6 +6628,27 @@ const JUNTO_A_LA_RAMPA = 0.45;
 const LEJOS_DE_LA_BARRERA = 1;
 
 /**
+ * Por dónde se mira el agua alrededor del final de la salida recta de una
+ * puerta (`sePisaJuntoAlRecinto`): la senda de 0,16 de media anchura y la orilla
+ * pintada, que entra en lo que se pisa.
+ */
+const CERCA_DEL_AGUA: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.35, 0],
+  [-0.35, 0],
+  [0, 0.35],
+  [0, -0.35],
+];
+
+/**
+ * Lo que la senda que pisaría el anillo de una ciudad puede arrimarse a una
+ * barrera para apartarse de él: un cuarto de casilla de su canto. Entre una
+ * cordillera y la torre de una esquina del recinto queda una casilla, y con
+ * `LEJOS_DE_LA_BARRERA` la senda no cabía (s5 (28, 35-36)).
+ */
+const CERCA_DE_LA_BARRERA_JUNTO_A_UN_RECINTO = 0.75;
+
+/**
  * Qué del relieve tapa el punto `(x, y)` del suelo: `'bajada'` si lo pinta una
  * bajada —la rampa, que es camino—, `'pared'` si cae bajo la silueta de una
  * frontal, una ladera o una diagonal (`tapaElPunto`) y no lo tapa encima un
@@ -6267,6 +6856,11 @@ function ordenadoEn(s: Sprite, y: number): Sprite {
   return { ...s, clave: y };
 }
 
+/** `s` en su sitio, por detrás de `delante` si no lo estaba ya: el muro que cae en la reserva de un objeto. */
+function detrasDe(s: Sprite, delante: Sprite): Sprite {
+  return claveDe(s) < claveDe(delante) ? s : ordenadoEn(s, claveDe(delante) - 0.01);
+}
+
 export type { Analisis };
 
 /**
@@ -6274,11 +6868,21 @@ export type { Analisis };
  * lava, una brasa de cada tantas casillas; el agua y lo más bajo, jirones de
  * niebla. Todo con su propio azar, así que no mueve nada de lo colocado.
  */
-export function luces(a: Analisis, nivel: ArrayLike<number>, azar: () => number): Luz[] {
+export function luces(
+  a: Analisis,
+  nivel: ArrayLike<number>,
+  azar: () => number,
+  recintos: ReadonlyMap<string, Rect>,
+): Luz[] {
   const fuera: Luz[] = [];
   for (const o of a.objetos) {
-    const at = sitioDe(a, o);
-    if (o.kind === 'town') fuera.push({ x: at.x + 0.5, y: at.y + 0.3, r: 1.6, clase: 'fuego' });
+    // La de una ciudad, en el medio de su recinto, donde están sus casas: la de
+    // una ciudad-puente iba a su orilla (`sitioDe`, la casilla del núcleo: la de
+    // la marca, el clic y quien está dentro), que es la puerta del río, y la de
+    // la columna 0, a un lado (hallazgo 16 de /simplify, vuelta 2).
+    const r = recintos.get(o.id);
+    if (o.kind === 'town' && r !== undefined)
+      fuera.push({ ...LUZ_DE_LA_CIUDAD, ...luzDelRecinto(r) });
     if (o.kind === 'village')
       fuera.push({ x: o.at.x + 0.5, y: o.at.y + 0.4, r: 1.1, clase: 'fuego' });
   }

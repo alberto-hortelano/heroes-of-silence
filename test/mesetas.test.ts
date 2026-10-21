@@ -17,10 +17,11 @@ import { analizar } from '../src/client/render/escenario/analizar.js';
 import {
   ALTO_DE_LO_ALTO,
   acantiladosLisos,
-  RADIO_DE_OBJETO,
+  casillasDeLaHuella,
   type Sprite,
   sitioDe,
 } from '../src/client/render/escenario/colocar.js';
+import { centroDelRecinto, recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
 import { partidaDe } from './helpers.js';
 import { itLento, rango } from './lento.js';
@@ -62,27 +63,24 @@ describe('acantiladosLisos: el guardia muerde', () => {
   });
 });
 
-/** Las casillas de la huella de ciudades, pueblos y nodos, contadas por fuera de `componer`. */
+/** Las casillas de la huella de ciudades, pueblos y nodos (`casillasDeLaHuella`, la de `componer`). */
 function huellaDeLosObjetos(semilla: number): Set<number> {
   const { map } = partidaDe(semilla);
   const W = map.width;
   const a = analizar(map);
   const huella = new Set<number>();
   for (const o of map.objects) {
-    if (o.kind !== 'town' && o.kind !== 'village' && o.kind !== 'node') continue;
-    const r = RADIO_DE_OBJETO[o.kind] as number;
     // La ciudad-puente (#144) se pinta en su orilla, y su puente tapa su casilla
     // y la de enfrente.
-    const at = sitioDe(a, o);
     const lados = a.ciudadesPuente.get(o.id);
     if (lados !== undefined) for (const p of [o.at, lados.enfrente]) huella.add(p.y * W + p.x);
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        const x = at.x + dx;
-        const y = at.y + dy;
-        if (x >= 0 && y >= 0 && x < W && y < map.height && Math.hypot(dx, dy) < r)
-          huella.add(y * W + x);
-      }
+    // La ciudad, su recinto entero.
+    const rect =
+      o.kind === 'town'
+        ? recintoDeLaCiudad(centroDelRecinto(o.at, lados?.orilla), W, map.height)
+        : undefined;
+    for (const [x, y] of casillasDeLaHuella(o, sitioDe(a, o), rect, W, map.height))
+      huella.add(y * W + x);
   }
   return huella;
 }

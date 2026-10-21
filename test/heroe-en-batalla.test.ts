@@ -738,7 +738,9 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
     // Lo que reprodujo la QA con el mismo `Session` que usa el navegador. Desde
     // #116 (F5) la defensa la juega la persona: aquí la delega con «Resolver
     // sola», que es la IA peleando por ella, y por ella no se rinde.
-    for (const semilla of [2, 5, 9]) {
+    // La 3 y no la 2: desde el recinto de las ciudades (vuelta 3), en la 2 el
+    // rival asalta además la base el día 2, y el turno espera esa otra defensa.
+    for (const semilla of [3, 5, 9]) {
       const ses = new Session(semilla);
       const st = ses.state;
       const mio = heroesOf(st, 0)[0]!;

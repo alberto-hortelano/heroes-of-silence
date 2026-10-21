@@ -27,11 +27,13 @@ import { LENTO, rango, segunPrisa } from './lento.js';
 // noroeste y al oeste de la puerta de debajo hay bosque): va la s7, otra de las
 // de antes de #230. Sin agua de frontera fuera del río (QA del río continuo,
 // H3) le queda una a la s7 ((3,37), junto al borde, como a s10 de 1-20): va la
-// s1, que vuelve a no tener ninguna.
-const SEMILLAS = segunPrisa([1, 3, 14], rango(1, 200));
+// s1, que vuelve a no tener ninguna. Con el recinto de las ciudades del núcleo
+// (vuelta 3, 21-10-2026) le queda una a la s3 (mine-5 (39,39), junto al borde):
+// va la s4, que vuelve a no tener ninguna.
+const SEMILLAS = segunPrisa([1, 4, 14], rango(1, 200));
 /**
  * En 1-200: 99 antes de #230, 20 después; 21 con los ríos (#144); 24 con el paso 2b; 31 con el río
- * continuo (#144, paso 1 del rediseño, 16-10-2026); 26 sin agua de frontera fuera del río (QA del río continuo, H3). No es el río a la vista: los que se añaden rodean
+ * continuo (#144, paso 1 del rediseño, 16-10-2026); 26 sin agua de frontera fuera del río (QA del río continuo, H3); 25 con el recinto de las ciudades del núcleo (vuelta 3, 21-10-2026). No es el río a la vista: los que se añaden rodean
  * lagos de obstáculo, el borde o la esquina de la casa de abajo (mine-3 y mine-5). Es el veto de las
  * esquinas del río en la búsqueda, que aparta los radios, y los vestidos que se tiran cuando una
  * senda aún la corta, que dan otros mapas: sin ninguno de los dos, 24; con el veto, 27; con los dos, 31. El techo es lo medido más uno.

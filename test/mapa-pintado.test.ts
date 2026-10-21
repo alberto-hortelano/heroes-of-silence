@@ -53,7 +53,6 @@ import {
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { primeraSemillaCon } from './helpers.js';
 
 /**
  * Lo que se espera a que el hilo principal pinte el suelo: el escalón (#211) lo
@@ -970,31 +969,29 @@ describe('qué tapa a qué en el mapa', () => {
     });
   });
 
-  it('el héroe que nace al norte de su castillo se pinta delante de él', () => {
-    // La premisa: nace justo encima de su castillo, que mide casi dos casillas
-    // de alto. Se busca la semilla (era la 1 hasta que #169 cambió los mapas).
-    const { semilla } = primeraSemillaCon('un héroe que nace al norte de su castillo', (s) => {
-      const st = newGame({ seed: s });
-      const h = st.heroes[0]!;
-      return st.map.objects.some(
-        (o) => o.kind === 'town' && o.at.x === h.at.x && o.at.y === h.at.y + 1,
-      )
-        ? true
-        : undefined;
-    });
-    const state = newGame({ seed: semilla });
+  it('el héroe al norte de su castillo, en su recinto, se pinta delante de él', () => {
+    // La premisa: está justo encima de su castillo, en la casilla de la puerta
+    // del norte de su recinto. Antes nacía ahí (era la 1 hasta que #169 cambió
+    // los mapas, y luego se buscaba); desde el recinto de las ciudades del núcleo
+    // (vuelta 3) nace fuera, delante de una puerta, y se le pone a mano.
+    const state = newGame({ seed: 1 });
     const heroe = state.heroes[0]!;
     const castillo = state.map.objects.find(
-      (o) => o.kind === 'town' && o.at.x === heroe.at.x && o.at.y === heroe.at.y + 1,
+      (o) => o.kind === 'town' && state.towns.some((t) => t.id === o.id && t.owner === heroe.owner),
     );
-    expect(castillo).toBeDefined();
+    if (castillo === undefined) throw new Error('s1: el héroe 0 sin castillo');
+    heroe.at = { x: castillo.at.x, y: castillo.at.y - 1 };
     const { esc, registro } = pintarMapa(state, heroe.at);
-    const volumen = esc.separada.volumenes.find((v) => v.s.objeto?.id === castillo!.id);
-    expect(volumen).toBeDefined();
-    // Su figura sube por encima de los pies del héroe: por la base, lo taparía.
-    expect(volumen!.s.y - volumen!.s.alto).toBeLessThan(heroe.at.y + PIES.heroe);
-    expect(volumen!.clave).toBeGreaterThan(heroe.at.y + PIES.heroe);
-    expect(indiceDelHeroe(registro)).toBeGreaterThan(indiceDelVolumen(registro, volumen!.s));
+    // Las piezas de su recinto (la ciudad amurallada, 20-10-2026) que suben por
+    // encima de los pies del héroe con la clave más abajo: por la base, lo
+    // taparían. Está dentro del recinto y va delante de todas.
+    const pies = heroe.at.y + PIES.heroe;
+    const tapan = esc.separada.volumenes.filter(
+      (v) => v.s.objeto?.id === castillo!.id && v.s.y - v.s.alto < pies && v.clave > pies,
+    );
+    expect(tapan.length).toBeGreaterThan(0);
+    for (const v of tapan)
+      expect(indiceDelHeroe(registro)).toBeGreaterThan(indiceDelVolumen(registro, v.s));
   });
 });
 

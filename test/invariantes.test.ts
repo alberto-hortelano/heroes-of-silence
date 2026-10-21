@@ -1459,6 +1459,25 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], cuenta)).not.toEqual([]);
   });
 
+  it('el recinto de una ciudad lo declara solo `core/map/recinto.ts`: su lado, su separación y sus puertas', () => {
+    // La ciudad amurallada, vuelta 3 (21-10-2026): el 3 × 3 era de la escena
+    // (`rectanguloDelRecinto`), que lo corría contra el borde, y el núcleo ponía
+    // nodos, inicios y otras ciudades donde ella levantaba la muralla. Ahora es
+    // del núcleo, y la escena, el generador y la puerta de los planes lo leen de
+    // allí. Roto a mano: `LADO_DEL_RECINTO` declarado otra vez en la escena sale rojo.
+    const PUERTA = 'src/core/map/recinto.ts';
+    const declara =
+      /\b(?:const|let|var)\s+(?:LADO_DEL_RECINTO|SEPARACION_DE_CIUDADES|PUERTAS_DE_LA_CIUDAD)\b/;
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        declara,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], declara)).toHaveLength(3);
+  });
+
   it('el catálogo de unidades lo importa solo `core/catalogo.ts`, que lo valida al cargar', () => {
     // F1 de 2026-10-18: `data/unidades.json` es la lista entera de las cinco
     // facciones. Quien lo importara por su cuenta se saltaría la validación de

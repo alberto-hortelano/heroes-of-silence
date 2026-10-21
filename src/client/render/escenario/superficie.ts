@@ -46,6 +46,7 @@ import {
 } from './pintar.js';
 import { type MensajeDelSuelo, type PeticionDelSuelo, pintarSueloA } from './pintor-del-suelo.js';
 import type { Punto } from './puentes.js';
+import { casillasDelRecinto } from './recinto.js';
 
 /**
  * El catálogo de `assets/mapa/escena.json`, que rehace `pnpm taller
@@ -317,7 +318,9 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
       if (at === undefined)
         throw new Error(`la escena pinta ${s.objeto.kind} ${s.objeto.id} y el mapa no lo tiene`);
       niebla = at.y * map.width + at.x;
-      claveDeObjeto.set(s.objeto.id, v.clave);
+      // La de un recinto, la mayor de sus piezas (su muro sur): la marca del
+      // dueño va encima de todo él.
+      claveDeObjeto.set(s.objeto.id, Math.max(claveDeObjeto.get(s.objeto.id) ?? v.clave, v.clave));
       cubrir(cubiertas, v, escena.W, escena.H);
     }
     // La misma caja con que se pinta (`pintarSprite`), también la del marcador.
@@ -328,6 +331,17 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     (porFila[fila] as VolumenDelMapa[]).push({ ...v, niebla, asomaPorArriba });
     bases.push(s);
     if (s.src !== null) deVolumen.add(s.src);
+  }
+  // Quien está en una casilla de un recinto va delante del recinto entero, como
+  // en la ficha de una pieza (`claveDeFigura`): un héroe que entra por una
+  // abertura se ve dentro, no detrás de las casas de la fila de delante.
+  for (const r of escena.recintos) {
+    const clave = claveDeObjeto.get(r.id);
+    if (clave === undefined) throw new Error(`el recinto de ${r.id} no pinta nada`);
+    for (const [x, y] of casillasDelRecinto(r.rect)) {
+      const i = y * escena.W + x;
+      cubiertas.set(i, Math.max(cubiertas.get(i) ?? clave, clave));
+    }
   }
   const imagenes = imagenesDeEscena(escena, horneado);
   const escenario: Escenario = {

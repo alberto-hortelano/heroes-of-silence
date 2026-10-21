@@ -1086,11 +1086,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 991 → 1 794, `troop_rank_up` 2 642 → 2 529, `hero_defeated` 331 → 264.
  *   Ningún tipo de hecho nuevo; `item_bought` 3 → 0 (era una rareza: no se
  *   retiró nada).
+ * - `0e2d0632…` (42 882 líneas, 21-10-2026): **el recinto de las ciudades, en el
+ *   núcleo** (fase 1 de la vuelta 3 de `docs/agents/2026-10-20-ciudad-amurallada/`,
+ *   decisiones del usuario): ninguna ciudad en el borde, dos recintos a 5 casillas
+ *   o más, nada dentro de un 3 × 3 y el héroe de salida fuera de su base, delante
+ *   de una puerta (antes, pegado a ella y dentro de su recinto en 80 de 80 en
+ *   1-40). Cambia el mapa y el inicio, y eso es lo único que se ve en el diff:
+ *   **1 de 200 idénticas** (la 101), y en las 199 el primer hecho distinto es
+ *   `raider_spawned` (110: otro mapa, los grupos brotan en otro sitio) o
+ *   `hero_moved` (89: el mismo azar de grupos y el héroe sale de otra casilla).
+ *   Ninguna cambia por una batalla, una compra o un hecho nuevo. 64 con otro
+ *   ganador, j0 99 → **107**, duración 4 / 8 / 21 → **4 / 8 / 20** (88 en el
+ *   mismo día, 41 de ±1, el resto repartido: de −18 a +17), 0 sin terminar.
+ *   Batallas 1 041 → 971, `town_captured` 862 → 760, `node_captured` 841 → 969,
+ *   `hero_moved` 24 007 → 24 701. Ningún tipo de hecho nuevo ni retirado.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '1c496b88ca817b7beed16539aa4ced5c918969afd34c55fcc69328490bd31140',
+  sha: '0e2d0632f9022352e7476513747efa3292a2843772e66366844b17e12278ed95',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

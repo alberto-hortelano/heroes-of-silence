@@ -392,7 +392,9 @@ describe.each([15, 19])('la labranza en la escena de la semilla %i', (semilla) =
     const i = Math.floor(s.y) * map.width + Math.floor(s.x);
     return escena.suelo[i] === 'dirt' && !esBarrera(map.terrain[i] as TerrainKind);
   };
-  const de = (hoja: string) => escena.sprites.filter((s) => s.src?.startsWith(`modulos/${hoja}/`));
+  // Las de la labranza: las casas de una ciudad, de la misma hoja, son de su recinto (`recinto.ts`).
+  const de = (hoja: string) =>
+    escena.sprites.filter((s) => s.src?.startsWith(`modulos/${hoja}/`) && s.objeto === undefined);
   const nombre = (src: string | null) => (src as string).replace(/^.*\/(\d+)\.webp$/, '$1');
   const tierra = de('cubierta-dirt');
   const deParcela = new Set(Object.values(PARCELAS).flat());
@@ -407,7 +409,9 @@ describe.each([15, 19])('la labranza en la escena de la semilla %i', (semilla) =
   it('las parcelas, centradas en su casilla o en la junta con la de debajo, y planas', () => {
     /** Si la parte fraccionaria `f` es `v`, también por la vuelta (0,999… es 0). */
     const cerca = (f: number, v: number) => Math.abs(((f - v + 0.5) % 1) - 0.5) < 1e-6;
-    expect(parcelas.length).toBeGreaterThan(100);
+    // Que no pase en vacío: en s15, 95 desde el recinto de las ciudades del
+    // núcleo (vuelta 3, otros mapas); eran más de 100.
+    expect(parcelas.length).toBeGreaterThan(80);
     const sitios = [0.5, 0.5 - (1 - ESCALA_EN_LA_LINDE) / 2, 0.5 + (1 - ESCALA_EN_LA_LINDE) / 2];
     for (const s of parcelas) {
       expect(s.plano).toBe(true);
@@ -497,7 +501,7 @@ describe.each([15, 19])('la labranza en la escena de la semilla %i', (semilla) =
   it('casas, almiares y carretas, lejos de los objetos; las casas, lejos de los caminos (H3, H1)', () => {
     const lejos = escena.sprites.filter(
       (s) =>
-        s.src?.startsWith('modulos/casas/') === true ||
+        (s.src?.startsWith('modulos/casas/') === true && s.objeto === undefined) ||
         (s.src?.startsWith('modulos/cubierta-dirt/') === true &&
           [ATREZO.almiar, ATREZO.carreta].includes(nombre(s.src) as '10')),
     );

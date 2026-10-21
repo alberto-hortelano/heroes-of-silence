@@ -2538,7 +2538,7 @@ describe('el id de un héroe contratado no se repite (#126)', () => {
       plan: {
         ...plan,
         towns: plan.towns.map((t) => (t.id === 'town-2' ? { ...t, owner: 2 } : t)),
-        heroStarts: [...plan.heroStarts, { player: 2, at: { x: 18, y: 4 } }],
+        heroStarts: [...plan.heroStarts, { player: 2, at: { x: 19, y: 4 } }],
       },
     });
     const c = ctx(41);
@@ -2805,6 +2805,13 @@ function marchaQueGanaFuerza(): {
     state.raiders = [];
     const hero = heroesOf(state, 0)[0]!;
     const base = baseOf(state, 0)!;
+    // El héroe nace delante de una puerta de su base, a dos casillas (el
+    // recinto de la ciudad, vuelta 3): se le pone en la casilla de esa puerta,
+    // junto a la base, que es de donde salía esta marcha.
+    hero.at = {
+      x: base.at.x + Math.sign(hero.at.x - base.at.x),
+      y: base.at.y + Math.sign(hero.at.y - base.at.y),
+    };
     // Uno de lo más barato con el héroe y dos de la tropa en casa: con la
     // guarnición de salida, recogerla no movía la fuerza lo bastante para que
     // quepa un grupo entre la de antes y la de después.

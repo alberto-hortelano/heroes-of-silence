@@ -40,7 +40,7 @@ describe('el lado sale de las regiones (#195)', () => {
   });
 
   it('el rango de regiones es el del lado que sabe hacer el generador (#102)', () => {
-    // El lado mínimo (24, medido) da el mínimo de regiones; pedido por regiones,
+    // El lado mínimo (26 desde el recinto de las ciudades, medido) da el mínimo de regiones; pedido por regiones,
     // el mínimo sale más grande (30 desde #226, con 450 casillas por región).
     expect(regionesDelMapa(LADO_MINIMO_DEL_GENERADOR, LADO_MINIMO_DEL_GENERADOR)).toBe(
       REGIONES_MINIMAS_POR_BANDO,

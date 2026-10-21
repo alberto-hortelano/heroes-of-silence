@@ -52,9 +52,12 @@ export const TURNOS_DEL_ARNES = Number(process.env.QA_TURNS ?? 6);
 /**
  * Cuántas semillas se prueban como mucho. Cada una es una partida jugada en el
  * proceso, ~0,1 s (medido el 08-10-2026: 50-140 ms, hasta el sexto turno o
- * hasta el final), así que no encontrar ninguna cuesta unos 5 s.
+ * hasta el final), así que no encontrar ninguna cuesta unos 12 s. Era 40 hasta
+ * el recinto de las ciudades en el núcleo (vuelta 3, 21-10-2026): en 1-40 solo
+ * tres semillas daban ocasión de ver el equipo (28, 29 y 35), y ninguna además
+ * dos respuestas de la rueda; la primera que lo da todo es la 112.
  */
-export const TOPE_DE_SEMILLAS_DEL_ARNES = 40;
+export const TOPE_DE_SEMILLAS_DEL_ARNES = 120;
 
 /** Una petición del servidor, con lo que la política contestó. */
 export interface Peticion {
@@ -198,6 +201,16 @@ export function faltaParaElArnes(
     faltan.push('un «equip» con un turno después donde se vea el individuo equipado');
   if (ascenso < 0 || !turnoDespues(ascenso))
     faltan.push('un «hero_from_troop» con un turno después para ver al nacido');
+  // La rueda, como la exige `pnpm qa` (`exigeLaRueda`): la primera respuesta
+  // va mala a propósito y otra tiene que entrar, así que hacen falta dos, la
+  // segunda con una petición después para leer su veredicto. Con el recinto de
+  // las ciudades en el núcleo (vuelta 3, 21-10-2026) la semilla que salía
+  // primero pedía una sola, y el arnés daba rojo con una semilla que esto daba
+  // por buena.
+  const respuestas = escuchadas.flatMap((p, i) => (p.kind === 'battle_response' ? [i] : []));
+  const segunda = respuestas[1];
+  if (segunda === undefined || segunda >= escuchadas.length - 1)
+    faltan.push('dos «battle_response», la segunda con una petición después para ver su veredicto');
   return faltan;
 }
 

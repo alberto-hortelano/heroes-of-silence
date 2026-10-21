@@ -23,6 +23,7 @@ import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
+import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import {
   BARRERAS,
   BARRERAS_DE_DESNIVEL,
@@ -708,6 +709,15 @@ Reglas que se validan antes de aceptarlo:
   rechazan.
 - Todo lo que no es nodo ni ciudad —minas, pueblos, recursos, monstruos, cofres
   e inicios— va DENTRO de una región, nunca sobre un muro ni sobre un nodo.
+- Cada ciudad es un RECINTO amurallado de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO} casillas con ella en el
+  medio. La de un puente (una ciudad sobre el agua de un río) lo lleva en su
+  orilla de tierra, con el medio a dos casillas de ella. Por eso: una ciudad va
+  a una casilla del borde del mapa o más; dos ciudades, con los medios de sus
+  recintos a ${SEPARACION_DE_CIUDADES} casillas o más, contando la diagonal como una; y dentro de un
+  recinto no va nada más que su ciudad —ni un nodo, ni otra ciudad, ni una
+  mina, un pueblo, un recurso, un monstruo, un cofre, un inicio o un grupo de
+  asaltantes—. Pon el inicio de cada jugador fuera de su base, a dos casillas
+  de ella. Lo que no cumpla se rechaza diciendo cuál y dónde.
 - Un camino ("roads") solo va por casillas que se pisan —una región, un nodo o
   una ciudad—. Uno sobre una barrera se rechaza diciendo la casilla: pintado
   encima de un acantilado diría que por ahí se pasa, y no se pasa.

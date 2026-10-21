@@ -51,7 +51,7 @@ const PAYLOADS: Record<string, unknown> = {
     hits: [{ hit: 'normal' }, { hit: 'strong' }],
   },
   battle_response: { turnId: 4, responses: [{ response: 'normal' }, { response: 'quick' }] },
-  map_generate: { want: { width: 24, height: 24, players: 2 } },
+  map_generate: { want: { width: 26, height: 26, players: 2 } },
   hero_from_troop: {
     veteran: { id: 'veterano-3', creatureName: 'Piquero', battles: 4 },
     heroTypes: [{ id: 'caballero' }, { id: 'monje' }],

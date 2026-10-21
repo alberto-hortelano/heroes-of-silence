@@ -1021,7 +1021,7 @@ export const ENLACE_DE_RAMPA = 0.6;
  */
 const BUSCA_DEL_ENLACE = 1.5;
 
-/** Cada cuánto lleva un punto lo que `sendasPorLasRampas` vuelve a trazar, en casillas. */
+/** Cada cuánto lleva un punto lo que `sendasPorLosTendidos` vuelve a trazar, en casillas. */
 const PASO_DEL_ENLACE = 0.08;
 
 /** De `p0` a `p1` con salida por `t0` y llegada por `t1` (unitarios): un Hermite cúbico. */
@@ -1044,7 +1044,7 @@ function enlace(p0: Punto, t0: Punto, p1: Punto, t1: Punto): Punto[] {
 }
 
 /**
- * La rampa de una bajada sobre su senda, en el sentido en que crece el largo de
+ * Un tendido (`TendidoDeSenda`) sobre su senda, en el sentido en que crece el largo de
  * ella: por dónde se deja el trazo de antes (`desde`), sus dos puntas (`p0`,
  * `p1`) y su rumbo (`t`), y por dónde se vuelve a él (`hasta`).
  */
@@ -1063,55 +1063,119 @@ interface Tendido {
  * largo fijo del pie, cuando la senda giraba el enlace volvía hacia atrás y
  * hacía un gancho bajo la pieza (s5, la puerta de la muralla en 10,27).
  */
-function delanteDe(r: Recorrido, s: number, sentido: 1 | -1, p: Punto, t: Punto): number {
-  for (let k = 0; k * PASO_DEL_ENLACE <= BUSCA_DEL_ENLACE; k++) {
+function delanteDe(
+  r: Recorrido,
+  s: number,
+  sentido: 1 | -1,
+  p: Punto,
+  t: Punto,
+  vale?: (q: Punto) => boolean,
+): number {
+  let primeroQueVale: number | undefined;
+  // Con una condición, hasta el doble: la senda que sale de una puerta y
+  // tuerce a lo largo de la muralla tarda en alejarse de ella.
+  const busca = vale === undefined ? BUSCA_DEL_ENLACE : 2 * BUSCA_DEL_ENLACE;
+  for (let k = 0; k * PASO_DEL_ENLACE <= busca; k++) {
     const a = s + sentido * k * PASO_DEL_ENLACE;
-    if (a < 0 || a > r.largo) return sentido > 0 ? r.largo : 0;
-    const [qx, qy] = r.en(a);
-    const d = Math.hypot(qx - p[0], qy - p[1]);
-    if (d >= ENLACE_DE_RAMPA && (qx - p[0]) * t[0] + (qy - p[1]) * t[1] >= 0.7 * d) return a;
+    if (a < 0 || a > r.largo) return primeroQueVale ?? (sentido > 0 ? r.largo : 0);
+    const q = r.en(a);
+    if (vale !== undefined && !vale(q)) continue;
+    const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (d < ENLACE_DE_RAMPA) continue;
+    primeroQueVale ??= a;
+    if ((q[0] - p[0]) * t[0] + (q[1] - p[1]) * t[1] >= 0.7 * d) return a;
   }
-  return Math.max(0, Math.min(r.largo, s + sentido * BUSCA_DEL_ENLACE));
+  return primeroQueVale ?? Math.max(0, Math.min(r.largo, s + sentido * busca));
 }
 
 /**
- * Las sendas que se pintan, pasando por la rampa de cada bajada (#192): de su
- * `arriba` a su pie, recta y en su rumbo (`rampaDe`), con un enlace suave hasta
- * el trazo de antes por los dos lados (`delanteDe`). La pieza de la bajada va
- * dibujada en un rumbo fijo y la senda suavizada no sabía dónde acababa: giraba
- * al pie y la rampa llevaba a un lado de ella (31 % de las bajadas en 1-40).
- * Los extremos de cada senda no se mueven: son juntas con otras sendas o el
- * centro de un nodo, y si la rampa pasa de ahí (lo que baja a una ciudad), la
- * senda vuelve a él desde el pie, bajo la pieza o lo horneado del nodo.
+ * Un tramo recto por el que tiene que pasar la senda que se pinta, de `p0` a
+ * `p1` en el rumbo `t`: la rampa de una bajada (`tendidoDeBajada`) o el paso por
+ * el arco de la puerta de un recinto (`tendidosDeLasPuertas`, `recinto.ts`).
  */
-export function sendasPorLasRampas(sendas: readonly Senda[], bajadas: readonly Bajada[]): Senda[] {
+export interface TendidoDeSenda {
+  /** La senda que lo lleva, por su índice; sin él, la que pasa por `cerca` (a media casilla como mucho). */
+  readonly senda?: number;
+  /** Un punto de la senda junto al tendido: de ahí se mide por dónde se deja y se vuelve a su trazo. */
+  readonly cerca: Punto;
+  readonly p0: Punto;
+  readonly p1: Punto;
+  readonly t: Punto;
+  /** Lo que va por la senda de `cerca` a `p1`, más o menos: desde ahí se busca la vuelta a su trazo. */
+  readonly largo: number;
+  /** Un punto hacia el que va el tendido de `p0` a `p1`: el sentido de la senda que lo recorre. */
+  readonly hacia: Punto;
+  /**
+   * Dónde puede volver la senda a su trazo por cada lado (`antes` de `p0`,
+   * `despues` de `p1`): sin esto, la de una puerta volvía a un trozo de trazo
+   * pegado a la muralla y el enlace la cruzaba otra vez (s1 (5,8)).
+   */
+  readonly vuelve?: {
+    readonly antes: (q: Punto) => boolean;
+    readonly despues: (q: Punto) => boolean;
+  };
+}
+
+/** El tendido de la rampa de una bajada: de su `arriba` a su pie (`rampaDe`), en su rumbo. */
+export function tendidoDeBajada(b: Bajada): TendidoDeSenda {
+  const [, pie] = rampaDe(b);
+  return {
+    cerca: b.arriba,
+    p0: b.arriba,
+    p1: pie,
+    t: DIRECCION_DE_BAJADA[b.rumbo],
+    largo: largoDeBajada(b.rumbo, b.caida),
+    hacia: [b.bajo[0] + 0.5, b.bajo[1] + 0.5],
+  };
+}
+
+/**
+ * Las sendas que se pintan, pasando por cada tendido: de `p0` a `p1`, recto y en
+ * su rumbo, con un enlace suave hasta el trazo de antes por los dos lados
+ * (`delanteDe`). Lo usan la rampa de cada bajada (#192: la pieza va dibujada en
+ * un rumbo fijo y la senda suavizada no sabía dónde acababa: giraba al pie y la
+ * rampa llevaba a un lado de ella, el 31 % de las bajadas en 1-40) y el arco de
+ * cada puerta de un recinto (la ciudad amurallada, vuelta 2).
+ * Los extremos de cada senda no se mueven: son juntas con otras sendas o el
+ * centro de un nodo, y si el tendido pasa de ahí (lo que baja a una ciudad), la
+ * senda vuelve a él desde su punta, bajo la pieza o lo horneado del nodo.
+ */
+export function sendasPorLosTendidos(
+  sendas: readonly Senda[],
+  todos: readonly TendidoDeSenda[],
+): Senda[] {
   const recorridos = sendas.map((l) => new Recorrido(l));
   const tendidos: Tendido[][] = sendas.map(() => []);
-  for (const b of bajadas) {
-    // La suya es la que pasa por `arriba`; si ninguna cruza el filo
-    // (`bajadasDe` se quedó con la recta), la más cercana a media casilla.
-    let k = -1;
-    let donde = { s: 0, d: 0.5 };
-    recorridos.forEach((r, j) => {
-      const w = r.donde(b.arriba);
-      if (w.d < donde.d) {
-        donde = w;
-        k = j;
-      }
-    });
+  for (const e of todos) {
+    // La suya; sin ella, la que pasa por `cerca`, o la más cercana a media casilla.
+    let k = e.senda ?? -1;
+    let donde = k < 0 ? { s: 0, d: 0.5 } : (recorridos[k] as Recorrido).donde(e.cerca);
+    if (k < 0)
+      recorridos.forEach((r, j) => {
+        const w = r.donde(e.cerca);
+        if (w.d < donde.d) {
+          donde = w;
+          k = j;
+        }
+      });
     if (k < 0) continue;
     const r = recorridos[k] as Recorrido;
-    const sentido = r.sentidoHacia(donde.s, [b.bajo[0] + 0.5, b.bajo[1] + 0.5]);
-    const [, pie] = rampaDe(b);
-    const [dx, dy] = DIRECCION_DE_BAJADA[b.rumbo];
-    const L = largoDeBajada(b.rumbo, b.caida);
-    // Hacia atrás desde el filo, con el rumbo dado la vuelta; hacia delante, desde el pie.
-    const antes = delanteDe(r, donde.s, -sentido as 1 | -1, b.arriba, [-dx, -dy]);
-    const despues = delanteDe(r, donde.s + sentido * L, sentido, pie, [dx, dy]);
+    const sentido = r.sentidoHacia(donde.s, e.hacia);
+    const [dx, dy] = e.t;
+    // Hacia atrás desde `p0`, con el rumbo dado la vuelta; hacia delante, desde `p1`.
+    const antes = delanteDe(r, donde.s, -sentido as 1 | -1, e.p0, [-dx, -dy], e.vuelve?.antes);
+    const despues = delanteDe(
+      r,
+      donde.s + sentido * e.largo,
+      sentido,
+      e.p1,
+      [dx, dy],
+      e.vuelve?.despues,
+    );
     (tendidos[k] as Tendido[]).push(
       sentido > 0
-        ? { desde: antes, p0: b.arriba, p1: pie, t: [dx, dy], hasta: despues }
-        : { desde: despues, p0: pie, p1: b.arriba, t: [-dx, -dy], hasta: antes },
+        ? { desde: antes, p0: e.p0, p1: e.p1, t: [dx, dy], hasta: despues }
+        : { desde: despues, p0: e.p1, p1: e.p0, t: [-dx, -dy], hasta: antes },
     );
   }
   return sendas.map((l, k) => {

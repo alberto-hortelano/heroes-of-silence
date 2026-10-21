@@ -39,7 +39,10 @@
  *                                        las diagonales y las bajadas del relieve por celdas (§23), con su guía
  *   pnpm taller encolar --rampas [--solo=rampa-roca-1,…]
  *                                        las rampas que abren la pared (§35, `rampas.ts`), con su guía
- *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts`, `bajadas.ts` y `rampas.ts`
+ *   pnpm taller encolar --recinto [--rehacer]
+ *                                        las puertas y los tramos en diagonal del recinto de una ciudad (§37, `recinto.ts`), con su guía
+ *   pnpm taller derivar-recinto          apunta el pie de las dos puntas de cada módulo del recinto desde su guía
+ *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts`, `bajadas.ts`, `rampas.ts` y `recinto.ts`
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
  *   pnpm taller escenario [semilla…] [--px=N]  el escenógrafo: compone, pinta, captura y mide
  *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
@@ -76,6 +79,7 @@ import {
   esHojaDeRelieve,
 } from '../../src/client/render/escenario/catalogo.js';
 import type { Escena } from '../../src/client/render/escenario/colocar.js';
+import { HOJA_DEL_RECINTO } from '../../src/client/render/escenario/recinto.js';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
 import { disposicionDe } from '../../src/shared/base.js';
@@ -181,6 +185,7 @@ import {
   RUTA_DEL_ATLAS_8D,
 } from './poses-8d.js';
 import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
+import { encargoDelRecinto, escribirGuiaDelRecinto, escribirRecintoDerivado } from './recinto.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
 import { medirLaBase, recortarLaBase } from './recorte-base.js';
 import { costura, hacerTeselable, LADO_DE_TEXTURA, UMBRAL_DE_COSTURA } from './textura.js';
@@ -460,6 +465,11 @@ async function postprocesar(
         `${JSON.stringify({ hoja: basename(rutaSalida), modulos: extra.indiceDeModulos }, null, 2)}\n`,
       );
       // Una hoja del relieve se coloca y encadena por sus juntas, llevadas desde la guía.
+      // Las puertas del recinto (§37) van de vértice a vértice por sus juntas.
+      if (basename(encargo.salida) === HOJA_DEL_RECINTO) {
+        await escribirRecintoDerivado();
+        pasos.push('el pie de las dos puntas de cada módulo, registrado sobre la guía');
+      }
       if (esHojaDeRelieve(basename(encargo.salida))) {
         await escribirRelieveDerivado([basename(encargo.salida)]);
         pasos.push('las juntas de cada módulo, registradas sobre la guía');
@@ -795,6 +805,14 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
+  // Las puertas y los tramos en diagonal del recinto de una ciudad (§37): primero su guía.
+  if (args.includes('--recinto')) {
+    console.log(`guía → ${await escribirGuiaDelRecinto()}`);
+    const bruto = encargoDelRecinto();
+    if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+    console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    return;
+  }
   // Las rampas (§35): primero su guía.
   if (args.includes('--rampas')) {
     await escribirGuiasDeRampas();
@@ -1125,6 +1143,7 @@ switch (orden) {
       ...(await escribirGuiasDeDiagonales()),
       ...(await escribirGuiasDeBajadas()),
       ...(await escribirGuiasDeRampas()),
+      await escribirGuiaDelRecinto(),
     ])
       console.log(`→ ${g}`);
     break;
@@ -1140,6 +1159,10 @@ switch (orden) {
     // diagonales y bajadas (§23). Sin hojas, todas las que hay en disco.
     for (const f of await escribirRelieveDerivado(resto.length === 0 ? undefined : resto))
       console.log(`→ ${f}`);
+    break;
+  case 'derivar-recinto':
+    // El pie de las dos puntas de cada puerta y tramo del recinto, desde su guía.
+    console.log(`→ ${await escribirRecintoDerivado()}`);
     break;
   case 'derivar-casas':
     // Las casas sueltas de la labranza, de la hoja de pueblos: con --vista, las

@@ -20,6 +20,7 @@ import {
   generateMapPlan,
   INTENTOS_DE_RED,
   LADO_DEL_MAPA,
+  LADO_MINIMO_DEL_GENERADOR,
   type MapPlan,
   type PlanConCasillas,
   trazarYVestir,
@@ -254,6 +255,9 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
     const plan = planDeNodos();
     const cerrada = con({
       walls: [...plan.walls, columna(24)],
+      // El inicio de (24,4) caería en la cordillera nueva; fuera del recinto
+      // de su base, en lo que queda de la E.
+      heroStarts: [plan.heroStarts[0]!, { player: 1, at: { x: 23, y: 6 } }],
       regions: [
         ...plan.regions.filter((r) => r.id !== 'e'),
         { id: 'e', name: 'Este', at: { x: 23, y: 7 } },
@@ -775,7 +779,9 @@ describe('el generador hace redes como las pidió el usuario', () => {
   });
 
   it('la frontera se lee por lo que no es región: dentro es obstáculo; junto a la frontera o a un nodo, frontera (#132)', () => {
-    // Tres casillas de una región pasadas a montaña sobre la semilla 4 (la 2
+    // Tres casillas de una región pasadas a montaña sobre la semilla 2 (la 4
+    // hasta el recinto de las ciudades, vuelta 3, que ya no tiene la pegada solo
+    // a un nodo; la 2
     // hasta el río continuo, #144, que ya no tiene la pegada solo a un nodo; la 1
     // hasta el río de una casilla al pie de la meseta, #144 paso 2b, que ya no
     // tiene la pegada solo a un nodo; la 5
@@ -788,7 +794,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // frontera; y pegada solo a un nodo —el trozo de un lado del paso que no
     // toca más que una región (la semilla 80 en 28×28)— también como frontera,
     // porque el nodo es un agujero de la frontera y la une a la otra región (#132).
-    const { map } = buildMap(generateMapPlan(createRng(4)));
+    const { map } = buildMap(generateMapPlan(createRng(2)));
     const red = estructura(map);
     const W = map.width;
     const { desde, vecinas } = vecindad(W, map.height);
@@ -964,10 +970,12 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // En 24×24 la red fina deja a veces una región de fuera cuyo único nodo es
     // una base: es del dueño de la base desde el primer día y `validateMapPlan`
     // no admite un grupo en ella. El generador lo sembraba igual (469 y 3481,
-    // las dos de 1-4000).
+    // las dos de 1-4000). Desde el recinto de las ciudades (21-10-2026) el lado
+    // mínimo es 26 y esos mapas son otros: el caso queda en el mínimo de hoy.
+    const lado = LADO_MINIMO_DEL_GENERADOR;
     for (const s of [469, 3481]) {
-      const plan = generateMapPlan(createRng(s), { width: 24, height: 24 });
-      expect(validateMapPlan(plan), `24×24 semilla ${s}`).toEqual([]);
+      const plan = generateMapPlan(createRng(s), { width: lado, height: lado });
+      expect(validateMapPlan(plan), `${lado}×${lado} semilla ${s}`).toEqual([]);
     }
   });
 

@@ -7,7 +7,8 @@
  *
  * - `orillaDeLaCiudad` (núcleo): qué lado es su orilla.
  * - En los mapas del juego: su casilla es agua en la escena, su puente cruza de
- *   frente de la orilla a enfrente, la ciudad se pinta en la orilla, su marca
+ *   frente de enfrente al pie de la cara del río de su recinto, y no más allá
+ *   (`puentesSobreElAnillo`, H2 de la vuelta 2), la ciudad se pinta en la orilla, su marca
  *   cuelga de ella, pulsar la orilla (si no se pisa) o el tablero lleva a la
  *   ciudad, y las sendas llegan a sus estribos por tierra: ni por el agua ni
  *   atravesando la barrera de la T.
@@ -19,11 +20,20 @@ import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
 import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { sendaSobreElAgua } from '../src/client/render/escenario/escalon.js';
+import { claveDe } from '../src/client/render/escenario/pintar.js';
 import {
   ciudadEnLaOrilla,
+  ejesDeLosPuentes,
   type Punto,
   puenteEnElTerreno,
 } from '../src/client/render/escenario/puentes.js';
+import {
+  anilloSobreLaSenda,
+  caraHacia,
+  dentroDelContorno,
+  puentesSobreElAnillo,
+} from '../src/client/render/escenario/recinto.js';
+import { SEMIANCHO_DE_LA_HUELLA } from '../src/client/render/escenario/sendas.js';
 import { escenarioDe, pisada, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
 import { PIES } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
@@ -70,12 +80,14 @@ describe('la orilla de una ciudad-puente (`orillaDeLaCiudad`)', () => {
 });
 
 describe('la ciudad-puente en los mapas del juego', () => {
-  // En el bucle rápido, s13 y s37 (dos y cuatro ciudades-puente en 1-40); en la
-  // lenta, 1-40 (s13, s18, s26, s36 y s37 las llevan).
-  const semillas = segunPrisa([13, 37], rango(1, 40));
+  // En el bucle rápido, s36 y s37 (cuatro ciudades-puente cada una, dos con el
+  // río al sur, el caso de H2); en la lenta, 1-40 (48 ciudades-puente en 21
+  // semillas desde el recinto de las ciudades del núcleo, vuelta 3).
+  const semillas = segunPrisa([36, 37], rango(1, 40));
 
-  it('su casilla es agua, su puente cruza de frente, y la ciudad y su marca van en la orilla', () => {
+  it('su casilla es agua, su puente cruza de frente hasta el pie de su cara, y la ciudad y su marca van en la orilla', () => {
     let vistas = 0;
+    let alSur = 0;
     for (const s of semillas) {
       const { map, escena: e } = partidaDe(s);
       const a = analizar(map);
@@ -92,25 +104,76 @@ describe('la ciudad-puente en los mapas del juego', () => {
         expect(a.terreno[o.at.y * W + o.at.x], donde).toBe('water');
         const pu = e.puentes.find((p) => p.id === o.id);
         if (pu === undefined) throw new Error(`${donde}: sin puente`);
-        // De frente, de la orilla a enfrente, por el centro de su casilla.
+        // De frente, de la orilla a enfrente, por el eje de su casilla.
         expect(pu.eje, donde).toBe(orilla.x === o.at.x ? 'ns' : 'eo');
-        expect(pu.centro, donde).toEqual([o.at.x + 0.5, o.at.y + 0.5]);
         expect(pu.clase, donde).toBe('piedra');
         expect(pu.orilla, donde).toEqual([orilla.x + 0.5, orilla.y + 0.5]);
         expect(Math.abs(orilla.x - enfrente.x) + Math.abs(orilla.y - enfrente.y), donde).toBe(2);
-        // La ciudad, en la orilla; su marca, también.
-        const ciudad = e.sprites.find((t) => t.objeto?.id === o.id);
-        expect(ciudad?.x, donde).toBe(orilla.x + 0.5);
+        // La ciudad, su recinto, junto a la orilla: la contiene y no al puente.
+        const recinto = e.recintos.find((k) => k.id === o.id);
+        if (recinto === undefined) throw new Error(`${donde}: sin recinto`);
+        const r = recinto.rect;
+        const dentro = (p: { x: number; y: number }) =>
+          p.x >= r.i0 && p.x <= r.i1 && p.y >= r.j0 && p.y <= r.j1;
+        expect(dentro(orilla), donde).toBe(true);
+        expect(dentro(o.at), donde).toBe(false);
+        expect(dentro(enfrente), donde).toBe(false);
+        // Y se entra desde el puente (criterio 8a): la cara del río lleva puerta,
+        // con su arco en el eje del puente, y nada del anillo pisa el puente ni
+        // lo que va de su estribo a la orilla.
+        const rio = caraHacia(recinto.contorno, o.at.x + 0.5, o.at.y + 0.5);
+        expect(recinto.puertas, donde).toContain(rio.cara);
+        // El puente acaba al pie de esa cara, en el medio, y su otro estribo,
+        // donde lo dejaba la pieza entera centrada en el río: acortado (H2 de
+        // la vuelta 2), no corrido. Entero entraba casi una casilla en el recinto.
+        const hacia = [Math.sign(orilla.x - o.at.x), Math.sign(orilla.y - o.at.y)] as const;
+        const [cerca, lejos] = [...pu.extremos].sort(
+          (p, q) =>
+            Math.hypot(p[0] - rio.medio[0], p[1] - rio.medio[1]) -
+            Math.hypot(q[0] - rio.medio[0], q[1] - rio.medio[1]),
+        ) as [Punto, Punto];
+        expect(Math.hypot(cerca[0] - rio.medio[0], cerca[1] - rio.medio[1]), donde).toBeLessThan(
+          1e-9,
+        );
+        const largo = Math.hypot(lejos[0] - cerca[0], lejos[1] - cerca[1]) / pu.escala;
+        expect(lejos[0], donde).toBeCloseTo(o.at.x + 0.5 - (hacia[0] * largo) / 2, 9);
+        expect(lejos[1], donde).toBeCloseTo(o.at.y + 0.5 - (hacia[1] * largo) / 2, 9);
+        expect(pu.escala, donde).toBeLessThan(1);
+        expect(puentesSobreElAnillo([recinto.contorno], [pu]), donde).toEqual([]);
+        // Y se pinta antes que las piezas de esa cara: con el río al sur, la
+        // puerta y sus torres van delante del tablero, que entra por el arco.
+        const tablero = e.sprites.find((t) => t.puente === o.id);
+        if (tablero === undefined) throw new Error(`${donde}: sin la pieza del puente`);
+        const deLaCara = e.sprites.filter(
+          (t) =>
+            t.objeto?.id === o.id &&
+            t.puente === undefined &&
+            (t.recinto === 'puerta' || t.recinto === 'torre') &&
+            Math.hypot(t.x - rio.medio[0], t.y - rio.medio[1]) < 1,
+        );
+        if (hacia[1] < 0) {
+          alSur++;
+          expect(deLaCara.length, donde).toBeGreaterThan(0);
+          for (const t of deLaCara) expect(claveDe(tablero), donde).toBeLessThan(claveDe(t));
+        }
+        if (pu.eje === 'ns')
+          expect(Math.abs(rio.medio[0] - (o.at.x + 0.5)), donde).toBeLessThanOrEqual(0.06);
+        else expect(Math.abs(rio.medio[1] - (o.at.y + 0.5)), donde).toBeLessThanOrEqual(0.06);
+        expect(
+          anilloSobreLaSenda(recinto, ejesDeLosPuentes([pu]), SEMIANCHO_DE_LA_HUELLA),
+          donde,
+        ).toEqual([]);
         expect(esc.asientoDeObjeto.get(o.id), donde).toEqual([orilla.x + 0.5, orilla.y + 0.5]);
         // Quien está dentro se pinta en la orilla, delante de la ciudad, como en
         // cualquier ciudad (QA, H5: en el puente, sobre los tejados de la de s13).
-        const dentro = pisada(esc, o.at, PIES.heroe);
-        expect([dentro.x, dentro.y], donde).toEqual([orilla.x + 0.5, orilla.y + PIES.heroe]);
-        expect(dentro.clave, donde).toBeGreaterThanOrEqual(esc.claveDeObjeto.get(o.id) as number);
-        // Pulsar el tablero lleva a la ciudad; su orilla, se pise o no, también.
-        const [m0, m1] = [pu.tablero[1] as Punto, pu.tablero[2] as Punto];
-        const medio: Punto = [(m0[0] + m1[0]) / 2, (m0[1] + m1[1]) / 2];
-        expect(puenteEnElTerreno(e.puentes, map.terrain, W, ...medio)?.id, donde).toBe(o.id);
+        const quien = pisada(esc, o.at, PIES.heroe);
+        expect([quien.x, quien.y], donde).toEqual([orilla.x + 0.5, orilla.y + PIES.heroe]);
+        expect(quien.clave, donde).toBeGreaterThanOrEqual(esc.claveDeObjeto.get(o.id) as number);
+        // Pulsar el tablero sobre el río lleva a la ciudad (su `asiento`, el
+        // punto alzado más cercano a su casilla: acortado, el medio del tablero
+        // con el río al norte cae sobre la orilla de enfrente, y la tierra
+        // manda); su orilla, se pise o no, también.
+        expect(puenteEnElTerreno(e.puentes, map.terrain, W, ...pu.asiento)?.id, donde).toBe(o.id);
         for (const [dx, dy] of [
           [0.5, 0.5],
           [0.08, 0.92],
@@ -119,7 +182,8 @@ describe('la ciudad-puente en los mapas del juego', () => {
           expect(ciudadEnLaOrilla(e.puentes, orilla.x + dx, orilla.y + dy)?.id, donde).toBe(o.id);
       }
     }
-    expect(vistas).toBeGreaterThanOrEqual(segunPrisa(6, 11));
+    expect(vistas).toBeGreaterThanOrEqual(segunPrisa(6, 40));
+    expect(alSur).toBeGreaterThanOrEqual(segunPrisa(3, 15));
   });
 
   it('las sendas llegan a sus estribos por tierra, sin atravesar la barrera de la T, y ninguna se pinta sobre el agua', () => {
@@ -134,9 +198,13 @@ describe('la ciudad-puente en los mapas del juego', () => {
         // Las dos casillas de los estribos: la orilla y la de enfrente, que
         // puede ser el final de otra barrera (s37 (32,20), una montaña).
         const estribos = pu.extremos.map(([x, y]) => `${Math.floor(x)},${Math.floor(y)}`);
+        // Y lo de dentro del recinto de la ciudad, que tapa su plaza: la senda va
+        // del estribo a la puerta en cuerda (`sendasPorDentro`, la vuelta 2).
+        const recinto = e.recintos.find((k) => k.id === pu.id);
         const enLaOrilla = (x: number, y: number) =>
           (Math.floor(x) === Math.floor(orilla[0]) && Math.floor(y) === Math.floor(orilla[1])) ||
-          estribos.includes(`${Math.floor(x)},${Math.floor(y)}`);
+          estribos.includes(`${Math.floor(x)},${Math.floor(y)}`) ||
+          (recinto !== undefined && dentroDelContorno(recinto.contorno, x, y));
         for (const senda of e.sendas)
           for (const camino of [senda, [...senda].reverse()]) {
             const p = camino[0] as Punto;
@@ -162,14 +230,15 @@ describe('la ciudad-puente en los mapas del juego', () => {
   });
 
   it('en el cliente: pulsar la ciudad en su orilla la señala y el héroe anda hacia ella', () => {
-    // s13, la ciudad-puente de (25,5): se pinta en (25,6), el final del bosque de
-    // la T, que no se pisa. Sin `ciudadEnLaOrilla`, el puntero señalaba el bosque.
-    const s = new Session(13);
+    // s36, la ciudad-puente de (24,7): se pinta en (24,6), en su recinto. Era s13
+    // (25,5), que se pintaba en el final del bosque de la T, que no se pisa: sin
+    // `ciudadEnLaOrilla`, el puntero señalaba el bosque.
+    const s = new Session(36);
     s.revealAll = true;
     s.state.raiders.splice(0);
     const esc = escenarioDe(s.state.map, s.state.seed);
-    const pu = esc.escena.puentes.find((p) => p.orilla !== undefined && p.nodo[0] === 25.5);
-    if (pu?.orilla === undefined) throw new Error('s13 no compone la ciudad-puente de (25,5)');
+    const pu = esc.escena.puentes.find((p) => p.orilla !== undefined && p.nodo[0] === 24.5);
+    if (pu?.orilla === undefined) throw new Error('s36 no compone la ciudad-puente de (24,7)');
     const escena = new EscenaAventura(() => s);
     const [ancho, alto] = [1600, 1000];
     escena.encuadrar(ancho, alto);

@@ -76,7 +76,7 @@ describe('en los mapas reales', () => {
       expect(cubiertaDeOtroNivel(e.sprites, e.suelo, e.W)).toEqual([]);
     });
 
-  it('s63: lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
+  it('s98: lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
     // Era s13 (16-24, 4-7) en 34×34; desde #226, s51 (17-22, 8-9), y desde
     // las fronteras onduladas (#229), s18 (27-31, 15-24), y desde las dos
     // puertas de la mina (#230, 09-10-2026), s36 (30-34, 0-8). Con los ríos
@@ -84,8 +84,9 @@ describe('en los mapas reales', () => {
     // la nieve como suelo más cercano y lava pintada (17 en s36; con el río de
     // una casilla, #144 paso 2, 0 en s36 y 17 en s24; con el río continuo,
     // #144, 0 en s24, que no tiene meseta, y 20 en s63, la primera de 1-120
-    // con alguna; también s70 y s94).
-    const { map, escena: e } = partidaDe(63);
+    // con alguna; también s70 y s94; con el recinto de las ciudades del
+    // núcleo, vuelta 3, 26 en s98, la única de 1-120).
+    const { map, escena: e } = partidaDe(98);
     const a = analizar(map);
     const casillas = new Set<number>();
     for (let i = 0; i < map.terrain.length; i++)

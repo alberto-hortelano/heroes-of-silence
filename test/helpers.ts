@@ -355,9 +355,11 @@ export function primeraSemillaCon<T>(
  * camino». Era el de (16,1) en la semilla 15 hasta que #169 cambió los mapas,
  * y en 81-120 hasta que fuera del río dejó de haber agua de frontera (QA del
  * río continuo, H3): los puentes del río van de frente sobre un río de una
- * casilla y su tablero no pasa de las orillas. En 1-300 solo queda el de la
- * ciudad-puente de la 23 (town-3, al 90 %), que el clic lleva a la ciudad. Se
- * busca desde la 20, que componer cada escena de 1 a 19 cuesta ~12 s.
+ * casilla y su tablero no pasa de las orillas. En 1-300 quedaba el de la
+ * ciudad-puente de la 23 (town-3, al 90 %), que el clic llevaba a la ciudad,
+ * hasta que el recinto de las ciudades (vuelta 3) acortó ese puente hasta el
+ * pie de la cara de su recinto; ahora, el de `node-2` de la 216 (al 80 %). Se
+ * busca desde ella: componer cada escena de 20 a 215 cuesta ~65 s.
  */
 export function puenteSobreElAgua(): {
   semilla: number;
@@ -386,7 +388,7 @@ export function puenteSobreElAgua(): {
       }
       return undefined;
     },
-    20,
+    216,
     300,
   );
 }
@@ -652,7 +654,8 @@ export const esPersonaje =
  * - `town-1` (22,4): base del jugador 1, entre D y E.
  *
  * Una mina en cada una de A, B y C: ore (2,2), gold (8,4) y wood (14,4).
- * Inicios en (4,4) y (23,4), pegados a cada base.
+ * Inicios en (3,4) y (24,4), delante del recinto de cada base: dentro de su
+ * 3 × 3 no va nada más que la ciudad (`problemasDeRecintos`).
  */
 export function planDeNodos(): PlanConCasillas {
   const columna = (x: number) => ({
@@ -702,8 +705,8 @@ export function planDeNodos(): PlanConCasillas {
       },
     ],
     heroStarts: [
-      { player: 0, at: { x: 4, y: 4 } },
-      { player: 1, at: { x: 23, y: 4 } },
+      { player: 0, at: { x: 3, y: 4 } },
+      { player: 1, at: { x: 24, y: 4 } },
     ],
     mines: [
       { at: { x: 2, y: 2 }, resource: 'ore' },
@@ -749,10 +752,13 @@ export function planDeMesetas(): PlanConCasillas {
     nodes: [{ x: 15, y: 7 }],
     towns: [
       { id: 'town-0', name: 'Valdeluz', faction: 'templarios', at: { x: 10, y: 11 }, owner: 0 },
-      { id: 'town-1', name: 'Cripta Gris', faction: 'no-muertos', at: { x: 5, y: 7 }, owner: 1 },
+      // A cinco casillas o más del recinto de Valdeluz también cuando el
+      // bosque pasa a agua y Valdeluz es una ciudad-puente, con el recinto en
+      // su orilla (`problemasDeRecintos`).
+      { id: 'town-1', name: 'Cripta Gris', faction: 'no-muertos', at: { x: 3, y: 7 }, owner: 1 },
     ],
     heroStarts: [
-      { player: 0, at: { x: 8, y: 12 } },
+      { player: 0, at: { x: 7, y: 13 } },
       { player: 1, at: { x: 5, y: 5 } },
     ],
     mines: [],

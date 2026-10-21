@@ -21,6 +21,7 @@
 import type { Suelo } from '@core/map/terrain.js';
 import type { Escena } from './colocar.js';
 import type { Imagen, Lienzo } from './pintar.js';
+import { PLAZA_FUERA, type Rect } from './recinto.js';
 import { ANCHO_DE_SENDA, IRREGULARIDAD_DE_SENDA, type Senda } from './sendas.js';
 
 type Contexto = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -233,20 +234,33 @@ function tierraEntonada(im: Imagen, nuevo: (ancho: number, alto: number) => Lien
   return lienzo;
 }
 
-/** Pinta en `c` las sendas de `e`, a `T` px por casilla. */
+/**
+ * La tierra de la huella para `c` a `T` px por casilla: la textura entonada
+ * (`tierraEntonada`) en patrón, o su color sin ella. Se hace una vez por
+ * superficie y la comparten la senda (`pintarHuellas`) y la plaza
+ * (`pintarPlazas`).
+ */
+export function tierraDeLaHuella(
+  c: Contexto,
+  T: number,
+  tierra: Imagen | undefined,
+  nuevo: (ancho: number, alto: number) => Lienzo,
+): CanvasPattern | string {
+  if (tierra === undefined) return COLOR_DE_LA_HUELLA;
+  const entonada = tierraEntonada(tierra, nuevo);
+  const patron = c.createPattern(entonada, 'repeat');
+  if (patron === null) return COLOR_DE_LA_HUELLA;
+  patron.setTransform(new DOMMatrix().scale((CASILLAS_POR_VUELTA * T) / entonada.width));
+  return patron;
+}
+
+/** Pinta en `c` las sendas de `e`, a `T` px por casilla, con su tierra (`tierraDeLaHuella`). */
 export function pintarHuellas(
   c: Contexto,
   e: Pick<Escena, 'sendas' | 'semilla' | 'suelo' | 'W' | 'H'>,
   T: number,
-  tierra: Imagen | undefined,
-  nuevo: (ancho: number, alto: number) => Lienzo,
+  tierraDe: CanvasPattern | string,
 ): void {
-  const entonada = tierra === undefined ? null : tierraEntonada(tierra, nuevo);
-  const patron = entonada === null ? null : c.createPattern(entonada, 'repeat');
-  if (patron !== null && entonada !== null)
-    patron.setTransform(new DOMMatrix().scale((CASILLAS_POR_VUELTA * T) / entonada.width));
-  const tierraDe = patron ?? COLOR_DE_LA_HUELLA;
-
   c.save();
   const senda = discosDe(e.sendas, ANCHO_DE_SENDA / 2, IRREGULARIDAD_DE_SENDA, e.semilla);
   for (const [mas, color] of ORLAS) {
@@ -266,6 +280,118 @@ export function pintarHuellas(
   }
   trazarCinta(c, senda, T, LOMO);
   c.fillStyle = COLOR_DEL_LOMO;
+  c.fill();
+  c.restore();
+}
+
+/** El radio de las esquinas de la plaza, en casillas. */
+const ESQUINA_DE_LA_PLAZA = 0.35;
+
+/** Cuánto entra y sale el borde de la plaza con el ruido, en casillas: roto, como el de la senda. */
+const BORDE_DE_LA_PLAZA = 0.05;
+
+/**
+ * Lo que se oscurece la tierra de la plaza: la de la huella es la de las
+ * rampas, clara para que el camino se lea; una plaza de 3 × 3 de ese tono era
+ * una mancha que se comía las casas.
+ */
+const SOMBRA_DE_LA_PLAZA = 'rgba(40,28,18,0.32)';
+
+/**
+ * El contorno de la plaza de un recinto, en casillas: su rectángulo con
+ * `PLAZA_FUERA` de más, las esquinas redondeadas y el borde movido por un
+ * ruido de la semilla, cada `PASO`; cada punto con su normal hacia fuera, por
+ * la que lo saca la orla.
+ */
+function contornoDeLaPlaza(
+  r: Rect,
+  semilla: number,
+): (readonly [number, number, number, number])[] {
+  const x0 = r.i0 - PLAZA_FUERA;
+  const y0 = r.j0 - PLAZA_FUERA;
+  const x1 = r.i1 + 1 + PLAZA_FUERA;
+  const y1 = r.j1 + 1 + PLAZA_FUERA;
+  const e = ESQUINA_DE_LA_PLAZA;
+  const borde = ruido(semilla * 977 + r.i0 * 131 + r.j0);
+  // Las cuatro esquinas, en el sentido de las agujas del reloj desde el noroeste:
+  // su centro y el ángulo con que empieza su cuarto de círculo.
+  const esquinas: readonly (readonly [number, number, number])[] = [
+    [x1 - e, y0 + e, -Math.PI / 2],
+    [x1 - e, y1 - e, 0],
+    [x0 + e, y1 - e, Math.PI / 2],
+    [x0 + e, y0 + e, Math.PI],
+  ];
+  const fuera: (readonly [number, number, number, number])[] = [];
+  let s = 0;
+  const punto = (x: number, y: number, nx: number, ny: number) => {
+    const d = BORDE_DE_LA_PLAZA * borde(s / 0.6);
+    fuera.push([x + nx * d, y + ny * d, nx, ny]);
+    s += PASO;
+  };
+  let [px, py] = [x0 + e, y0];
+  for (const [cx, cy, a0] of esquinas) {
+    // El lado recto hasta esta esquina…
+    const [qx, qy] = [cx + e * Math.cos(a0), cy + e * Math.sin(a0)];
+    const largo = Math.hypot(qx - px, qy - py);
+    const [nx, ny] = largo === 0 ? [0, 0] : [(qy - py) / largo, -(qx - px) / largo];
+    for (let t = 0; t < largo; t += PASO)
+      punto(px + ((qx - px) * t) / largo, py + ((qy - py) * t) / largo, nx, ny);
+    // …y su cuarto de círculo.
+    for (let a = 0; a < Math.PI / 2; a += PASO / e)
+      punto(
+        cx + e * Math.cos(a0 + a),
+        cy + e * Math.sin(a0 + a),
+        Math.cos(a0 + a),
+        Math.sin(a0 + a),
+      );
+    [px, py] = [cx + e * Math.cos(a0 + Math.PI / 2), cy + e * Math.sin(a0 + Math.PI / 2)];
+  }
+  return fuera;
+}
+
+/**
+ * Pinta en `c` la plaza de cada recinto de `e` (criterio 8b de la ciudad
+ * amurallada): su rectángulo de tierra, la de la huella algo más oscura, opaca
+ * y con su orla. Tapa lo que haya debajo —el tono de un nivel, la sombra de un
+ * desnivel, la senda de dentro—: lo de dentro de la muralla es suelo de la
+ * ciudad, y la calle es la plaza. Va tras el canto y antes de las sombras al
+ * pie (`pintarSuelo`, paso 5b).
+ */
+export function pintarPlazas(
+  c: Contexto,
+  e: Pick<Escena, 'recintos' | 'semilla'>,
+  T: number,
+  tierra: CanvasPattern | string,
+): void {
+  if (e.recintos.length === 0) return;
+  // El contorno de cada plaza, una vez: la orla lo saca hacia fuera por su normal.
+  const contornos = e.recintos.map((r) => contornoDeLaPlaza(r.rect, e.semilla));
+  const trazar = (mas: number) => {
+    c.beginPath();
+    for (const contorno of contornos) {
+      const [p0, ...resto] = contorno.map(
+        ([x, y, nx, ny]) => [x + nx * mas, y + ny * mas] as const,
+      );
+      if (p0 === undefined) continue;
+      c.moveTo(p0[0] * T, p0[1] * T);
+      for (const [x, y] of resto) c.lineTo(x * T, y * T);
+      c.closePath();
+    }
+  };
+  c.save();
+  for (const [mas, color] of ORLAS) {
+    trazar(mas);
+    c.fillStyle = color;
+    c.fill();
+  }
+  trazar(0);
+  c.fillStyle = COLOR_DE_LA_HUELLA;
+  c.fill();
+  if (tierra !== COLOR_DE_LA_HUELLA) {
+    c.fillStyle = tierra;
+    c.fill();
+  }
+  c.fillStyle = SOMBRA_DE_LA_PLAZA;
   c.fill();
   c.restore();
 }

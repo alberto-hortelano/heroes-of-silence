@@ -1815,8 +1815,9 @@ describe('el agente sabe cómo le fue', () => {
 
     // Era la 304: con los mapas densos (03-10-2026) la batalla de esa semilla
     // ya no sacaba la rama del maná; luego la 306, que con las fronteras
-    // onduladas (#229) ya no tiene batalla. Lo que se mide es la nota, no el mapa.
-    const director = new Director(link, { seed: 300, agentPlayers: [1] });
+    // onduladas (#229) ya no tiene batalla; luego la 300, que con el recinto de
+    // las ciudades (vuelta 3) tampoco. Lo que se mide es la nota, no el mapa.
+    const director = new Director(link, { seed: 305, agentPlayers: [1] });
     rivalAlAtaque(director.state);
     // Sin oro para rendirse: si no, la heurística sustituta se rinde en la
     // primera decisión —seis pesados contra su tropa— y la batalla acaba

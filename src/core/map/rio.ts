@@ -607,7 +607,7 @@ export function rioEntero(trazado: TrazadoDelRio, esDelRio: (i: number) => boole
 }
 
 /** Lo que se lee de un mapa para saber de una ciudad-puente. */
-interface MapaDelRio {
+export interface MapaDelRio {
   readonly width: number;
   readonly height: number;
   readonly terrain: readonly GameMap['terrain'][number][];

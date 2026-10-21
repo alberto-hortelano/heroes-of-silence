@@ -625,8 +625,9 @@ describe('en las partidas', () => {
 
 describe('la muralla de norte a sur, de lado (§29)', () => {
   it('sus tramos son las piezas muro-ns, de 1,6 de alto y por el medio, y no la tira de la hoja', () => {
-    // s118 lleva tramos N-S de las dos piezas (7; ninguna de 1-80 pasa de 4).
-    // Era s67 hasta el río continuo (#144: le quedan 4); s75 hasta los ríos (#144:
+    // s141 lleva tramos N-S de las dos piezas (7; de 1-200 solo la 182 pasa
+    // de 4, con 5). Era s118 hasta el recinto de las ciudades del núcleo (vuelta
+    // 3, 21-10-2026: le quedan 0); s67 hasta el río continuo (#144: le quedan 4); s75 hasta los ríos (#144:
     // le quedan 4); s1 hasta #232 (la muralla
     // como cierre de un paso: se quedó sin muro); s12 hasta #230 (las dos
     // puertas de la mina: le quedan 0); s7 hasta #229 (las
@@ -637,8 +638,11 @@ describe('la muralla de norte a sur, de lado (§29)', () => {
     // quedó sin ellos; y antes s12, cuyas dos puertas se quedaron con dos
     // casillas de muro a cada lado al partirse su muralla larga (#208): un
     // tramo cada una.
-    const e = escenaDe(118);
-    const ns = e.sprites.filter((s) => /^muro-ns-[12]\.webp$/.test(s.src ?? ''));
+    const e = escenaDe(141);
+    // Los de las murallas del mapa: los del recinto de una ciudad son suyos (`recinto.ts`).
+    const ns = e.sprites.filter(
+      (s) => /^muro-ns-[12]\.webp$/.test(s.src ?? '') && s.objeto?.kind !== 'town',
+    );
     expect(ns.length).toBeGreaterThanOrEqual(5);
     expect(new Set(ns.map((s) => s.src))).toEqual(new Set(['muro-ns-1.webp', 'muro-ns-2.webp']));
     for (const s of ns) {
@@ -650,20 +654,16 @@ describe('la muralla de norte a sur, de lado (§29)', () => {
   });
 
   it('la puerta N-S se mide por el alto y se apoya en el pie de su arco', () => {
-    // s118, la única de 1-120 con más de dos, con cuatro (s28 hasta el río
+    // s22, la única de 1-200 con más de dos, con tres (s118, con cuatro, hasta
+    // el recinto de las ciudades del núcleo, vuelta 3, que la dejó sin ninguna; s28 hasta el río
     // continuo, #144, que la dejó sin ninguna; s79 hasta el río de una casilla al pie de la meseta, #144 paso 2b,
     // que la dejó sin muro: ninguna de 1-160 lleva tres, y la s28 es la primera
     // con dos; s75 hasta los ríos, #144, que le dejaron dos; s25 hasta la muralla como cierre de un paso, #232; s7 hasta #229;
     // s19 hasta #226, que en 42×42 lleva una; s12 hasta los niveles del mapa,
     // #143).
-    const e = escenaDe(118);
+    const e = escenaDe(22);
     const puertas = e.sprites.filter((s) => s.src === 'nodo-puerta-hondo.webp');
-    expect(puertas.map((s) => s.objeto?.id).sort()).toEqual([
-      'node-10',
-      'node-3',
-      'node-4',
-      'node-9',
-    ]);
+    expect(puertas.map((s) => s.objeto?.id).sort()).toEqual(['node-0', 'node-13', 'node-14']);
     for (const s of puertas) {
       expect(s.alto).toBe(2.6);
       expect(s.ay / s.nh).toBeCloseTo(0.625);

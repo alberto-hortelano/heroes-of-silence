@@ -1,0 +1,56 @@
+{
+  "encargo": "modulos-recinto",
+  "tipo": "modulos",
+  "fecha": "2026-10-20T20:55:57.407Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15b17-3825-7702-97b5-7e74854ac1e0",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 4 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna hoja de 6 módulos de la MURALLA DE UNA CIUDAD para el mapa de aventura de un juego de estrategia: cuatro PUERTAS y dos TRAMOS LISOS de UNA misma muralla de piedra gris con musgo, la de la imagen 2 (la misma piedra, los mismos sillares, las mismas almenas, el mismo alto de muro y el mismo musgo), para juntarlos en un recinto de ocho caras con una torre redonda en cada esquina.\nCada módulo es UN tramo de muro de una esquina a la otra, CORTADO LIMPIO en sus dos puntas, sin torres, sin pilares, sin contrafuertes ni remates en las puntas: ahí va una torre del juego que tapa el corte. El muro, con sus almenas arriba y su paso de ronda, es tan alto como el tramo 1 de la imagen 2.\nCada PUERTA es un torreón en el CENTRO del tramo, algo más alto y más grueso que el muro, con almenas, y en él un ARCO DE MEDIO PUNTO por el que pasa un camino: dovelas de piedra alrededor del arco, el paso oscuro dentro y, arriba, el RASTRILLO de hierro ALZADO, del que solo asoman las puntas de sus barrotes bajo el arco, como en la imagen 3. Sin hojas de puerta cerradas, sin bandera, sin poste, sin estandarte, sin antorchas y sin torres a los lados del arco.\nLA SILUETA DE CADA MÓDULO ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo largo, mismo alto y el MISMO RUMBO del muro, sin girarlo ni torcerlo; las diagonales van a 45 GRADOS EXACTOS en la imagen, como en la guía, NO más tumbadas. En la guía: lo gris claro es lo alto del muro y las almenas, lo gris medio la cara a la luz, lo gris oscuro la cara en penumbra, lo negro la boca del arco, lo claro dentro de él el suelo del paso, y los palos grises los barrotes del rastrillo.\nfila 1, columna 1: la PUERTA de un muro que corre de izquierda a derecha, DE CARA a la cámara: el arco se ve de frente, en el centro, en un torreón algo más alto y más grueso que el muro.\nfila 1, columna 2: la PUERTA de un muro que corre hacia el FONDO, de abajo arriba de la imagen, estrecho y en escorzo como el tramo 2 de la imagen 2: el camino lo cruza DE LADO, de izquierda a derecha, por debajo del torreón, y el arco solo asoma en escorzo en su cara derecha.\nfila 1, columna 3: la PUERTA de un muro en DIAGONAL que BAJA hacia la DERECHA a 45 grados exactos: se ve su cara iluminada, la que mira abajo a la izquierda, y en ella el arco.\nfila 1, columna 4: la PUERTA de un muro en DIAGONAL que SUBE hacia la DERECHA a 45 grados exactos: se ve su cara en penumbra, la que mira abajo a la derecha, y en ella el arco.\nfila 2, columna 1: un TRAMO LISO del mismo muro en DIAGONAL que BAJA hacia la DERECHA a 45 grados exactos, sin puerta: su cara iluminada, la que mira abajo a la izquierda.\nfila 2, columna 2: un TRAMO LISO del mismo muro en DIAGONAL que SUBE hacia la DERECHA a 45 grados exactos, sin puerta: su cara en penumbra, la que mira abajo a la derecha.\nSin suelo debajo ni alrededor: ni hierba, ni camino fuera del arco, ni peana; cada módulo es el muro solo, para posarlo sobre el terreno. La luz viene de arriba a la izquierda; las sombras propias caen hacia la derecha y hacia abajo.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nRejilla de 2 filas: 4 módulos por fila y 2 en la última: 6 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/modulos/muro.webp",
+      "papel": "identidad",
+      "sha256": "8b68d2843604978ecb9c5ad221fe52be3c8556a54c17074eb222708f2f207402"
+    },
+    {
+      "ruta": "assets/mapa/nodo-puerta-ancho.webp",
+      "papel": "material",
+      "sha256": "bc9d4be0abc575405759923612795b667363e7eaf580c8ae979703836a24f8ed"
+    },
+    {
+      "ruta": "assets/mapa/guias/recinto.png",
+      "papel": "guia",
+      "sha256": "053a5b49b1e24a892bb51f28c40b9055869f2099557092b0c07a47bb8b69ad87"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15b17-3825-7702-97b5-7e74854ac1e0/exec-bfdde769-38af-400e-b776-93cb44c0f10b.png",
+    "sha256": "42ba61061def67777a2ebc05ac5ffd92327b79b2b1136712b6dbc77575ee0585",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 6 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida",
+    "el pie de las dos puntas de cada módulo, registrado sobre la guía"
+  ],
+  "validacion": {
+    "visibles": 0.2831286468463462,
+    "opacos": 0.9896293352175705,
+    "haloSuelto": 0,
+    "ancho": 1525,
+    "alto": 944
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/recinto.webp",
+    "sha256": "0834337035e4b15892de6f9264a96ac2c2edfb7c6a6ee61d2ecdeaa4a459dfbb"
+  }
+}

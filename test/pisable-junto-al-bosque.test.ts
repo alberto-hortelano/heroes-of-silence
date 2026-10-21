@@ -38,6 +38,7 @@ import {
   altoSobreLosPasillos,
   bosqueSinArbol,
   componer,
+  type Escena,
   esArbol,
   FUERA_DE_LO_QUE_SE_PISA,
   MARGEN_SOBRE_LO_PISABLE,
@@ -49,6 +50,7 @@ import {
 import { nivelPintado, SOTOBOSQUE, sotobosqueDe } from '../src/client/render/escenario/escalon.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { trozosConAlfa } from '../src/client/render/escenario/pintar.js';
+import { enElRecinto } from '../src/client/render/escenario/recinto.js';
 import { catalogoDelDisco, partidaDe } from './helpers.js';
 import { LENTO, rango } from './lento.js';
 
@@ -304,11 +306,11 @@ describe('toda casilla de bosque con su árbol', () => {
     const W = 4;
     const arbol = pieza('pinos', 'masa', 0.5, 0.8, 1);
     const mata = pieza('cubierta-grass', 'cubierta', 1.5, 0.8, 0.4);
-    // Una ciudad de 1 × 1 con el pie en (3,5; 2,4): tapa el 0,6 de la casilla
+    // Un pueblo de 1 × 1 con el pie en (3,5; 2,4): tapa el 0,6 de la casilla
     // (3, 1), que basta, y el 0,4 de (3, 2), que no.
     const ciudad: Sprite = {
-      ...pieza('ciudades', 'objeto', 3.5, 2.4, 1),
-      objeto: { id: 'town-1', kind: 'town' },
+      ...pieza('pueblos', 'objeto', 3.5, 2.4, 1),
+      objeto: { id: 'village-1', kind: 'village' },
     };
     const bosque = [0, 1, 2, 7, 11];
     expect(bosqueSinArbol([arbol, mata, ciudad], bosque, W)).toEqual([1, 2, 11]);
@@ -434,6 +436,7 @@ const BOSQUE = 'forest' as TerrainKind;
 function pisablesJuntoAlBosque(
   a: ReturnType<typeof analizar>,
   map: MapaDeEscena,
+  recintos: Escena['recintos'],
 ): [number, number][] {
   const fuera: [number, number][] = [];
   for (let y = 0; y < map.height; y++)
@@ -442,6 +445,8 @@ function pisablesJuntoAlBosque(
       const izq = a.franjaDe[i - 1] as number;
       if (a.franjaDe[i] !== -1 || izq === -1 || a.franjas[izq]?.barrera !== BOSQUE) continue;
       if (map.objects.some((o) => o.at.x === x && o.at.y === y)) continue;
+      // El bosque de dentro del recinto de una ciudad es su plaza: ni masa ni sotobosque a la vista.
+      if (recintos.some(({ rect }) => enElRecinto(rect, x - 0.5, y + 0.5))) continue;
       fuera.push([x, y]);
     }
   return fuera;
@@ -450,7 +455,7 @@ function pisablesJuntoAlBosque(
 describe('las dos marcas de la semilla 1, por lo que eran', () => {
   const { map, escena: e } = partidaDe(1);
   const a = analizar(map);
-  const pares = pisablesJuntoAlBosque(a, map);
+  const pares = pisablesJuntoAlBosque(a, map, e.recintos);
   const estrechas = pasillosEstrechos(a.franjaDe, e.W);
   // La marca (2,23) era hierba de lo ancho, sin pasillo: la copa la mira por los lados.
   const anchas = pares.filter(([x, y]) => estrechas[y * e.W + x] === 0);
@@ -499,12 +504,6 @@ describe('las dos marcas de la semilla 1, por lo que eran', () => {
 });
 
 describe('lo que vio QA en la semilla 1, por lo que era', () => {
-  const { map, escena: e } = partidaDe(1);
-  const a = analizar(map);
-  const esBosque = (x: number, y: number): boolean => {
-    const f = a.franjaDe[y * e.W + x] as number;
-    return f !== -1 && a.franjas[f]?.barrera === BOSQUE;
-  };
   /**
    * Si alguna masa del sur (sin cumbres) tapa la fila `y` de las columnas `xs`
    * más de lo que deja. La cuenta es cerrada, como la del informe
@@ -604,34 +603,6 @@ describe('lo que vio QA en la semilla 1, por lo que era', () => {
     for (const [x, y] of hondos)
       expect(tapanDesdeElSur(conHondos.e.sprites, [x, x + 1], y + 1), `(${x}, ${y})`).toEqual([]);
   });
-
-  // Las de (14,24) y (28,35): una casilla de bosque justo bajo una ciudad, en
-  // su reserva, donde antes no cabía ni un pie.
-  const bajoCiudad: [number, number][] = [];
-  for (const o of map.objects)
-    if (o.kind === 'town')
-      for (const dx of [-1, 0, 1])
-        if (o.at.y + 1 < e.H && esBosque(o.at.x + dx, o.at.y + 1))
-          bajoCiudad.push([o.at.x + dx, o.at.y + 1]);
-
-  it(`los bosques justo bajo una ciudad (${bajoCiudad.length} en s1) llevan su árbol sin tapar la ciudad`, () => {
-    expect(bajoCiudad.length).toBeGreaterThan(0);
-    for (const [x, y] of bajoCiudad) {
-      const arboles = e.sprites.filter(
-        (s) => esArbol(s.src) && Math.floor(s.x) === x && Math.floor(s.y) === y,
-      );
-      expect(arboles.length, `(${x}, ${y})`).toBeGreaterThan(0);
-      for (const t of arboles) {
-        const c = cajaDeSprite(t);
-        for (const o of e.sprites.filter((o) => o.objeto !== undefined && o.src !== null)) {
-          const d = cajaDeSprite(o);
-          expect(c[0] < d[2] && c[2] > d[0] && c[1] < d[3] && c[3] > d[1], o.objeto?.id).toBe(
-            false,
-          );
-        }
-      }
-    }
-  });
 });
 
 /**
@@ -687,8 +658,10 @@ describe('la nieve que se pisa, sin sus peñascos grises (H9)', () => {
   // de una casilla al pie de la meseta (#144, paso 2b) la s5 no tiene peñascos en
   // lo alto: la s56, 883 casillas de nieve que se pisa y 95 peñascos en lo alto.
   // Con el río continuo (#144) la s56 no tiene mesetas: la s79, la de más
-  // nieve que se pisa de 1-80 con peñascos en lo alto (870 casillas y 81).
-  const { map, escena: e } = partidaDe(79);
+  // nieve que se pisa de 1-80 con peñascos en lo alto (870 casillas y 81). Con
+  // el recinto de las ciudades del núcleo (vuelta 3) la s79 no los tiene: la s4
+  // (617 casillas y 41).
+  const { map, escena: e } = partidaDe(4);
   const a = analizar(map);
   const rocas = e.sprites.filter((s) => s.clase === 'cubierta' && esPeñascoGris(s));
 

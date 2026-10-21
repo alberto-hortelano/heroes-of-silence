@@ -1,0 +1,125 @@
+{
+  "hoja": "recinto.webp",
+  "modulos": [
+    {
+      "imagen": "puerta-n-s.webp",
+      "sha256": "510226dbf9b03e3bb2b5c5f7610d97243f9880293203c45320970bc2f617d35c",
+      "ancho": 438,
+      "alto": 286,
+      "ancla": [
+        218,
+        281
+      ],
+      "junta": [
+        [
+          55,
+          230
+        ],
+        [
+          378,
+          230
+        ]
+      ]
+    },
+    {
+      "imagen": "puerta-e-o.webp",
+      "sha256": "c56375bc84fb5b8411865c26916a199ce73f0b7f35c1665ee6c6427299ac6292",
+      "ancho": 145,
+      "alto": 450,
+      "ancla": [
+        67,
+        445
+      ],
+      "junta": [
+        [
+          61,
+          116
+        ],
+        [
+          61,
+          431
+        ]
+      ]
+    },
+    {
+      "imagen": "puerta-ne-so.webp",
+      "sha256": "d768a48fe0926b9b4e32834f02fd0ca74958f77a9300eb19509bfe9d8b70fce4",
+      "ancho": 339,
+      "alto": 436,
+      "ancla": [
+        280,
+        431
+      ],
+      "junta": [
+        [
+          51,
+          159
+        ],
+        [
+          269,
+          377
+        ]
+      ]
+    },
+    {
+      "imagen": "puerta-no-se.webp",
+      "sha256": "b4d78a893f628258ba5ccb6bd8ffcf104617381134deaf954760411937b15ba5",
+      "ancho": 331,
+      "alto": 428,
+      "ancla": [
+        62,
+        423
+      ],
+      "junta": [
+        [
+          77,
+          380
+        ],
+        [
+          295,
+          162
+        ]
+      ]
+    },
+    {
+      "imagen": "tramo-ne-so.webp",
+      "sha256": "5b6108c9083bf4b0571277655e26d5af98140d477b85862f2e5c81a4ebc0c7f3",
+      "ancho": 325,
+      "alto": 398,
+      "ancla": [
+        266,
+        393
+      ],
+      "junta": [
+        [
+          51,
+          135
+        ],
+        [
+          289,
+          372
+        ]
+      ]
+    },
+    {
+      "imagen": "tramo-no-se.webp",
+      "sha256": "538247a75c5ff51b6ce2232bf73fa38eafe01ce126041e1a8e2afc61bc6ca7dc",
+      "ancho": 316,
+      "alto": 389,
+      "ancla": [
+        59,
+        384
+      ],
+      "junta": [
+        [
+          40,
+          368
+        ],
+        [
+          278,
+          130
+        ]
+      ]
+    }
+  ]
+}

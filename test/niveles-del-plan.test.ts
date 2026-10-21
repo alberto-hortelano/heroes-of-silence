@@ -74,7 +74,7 @@ describe('validateMapPlan exige que cada barrera admita los niveles que separa (
     // La ciudad y el nodo abren la fila 7: son tres tramos, y los tres separan llanos.
     expect(validateMapPlan(conNiveles({ alta: 1 }))).toEqual([
       'el acantilado ("cliff") que pasa por (0,7) separa regiones al mismo nivel, "alta" (nivel 1), "oeste" (nivel 1): un acantilado es el borde de una meseta y va entre dos niveles distintos; dales nivel distinto con "nivel" o usa otra barrera',
-      'el acantilado ("cliff") que pasa por (6,7) separa regiones al mismo nivel, "alta" (nivel 1), "oeste" (nivel 1), "este" (nivel 1): un acantilado es el borde de una meseta y va entre dos niveles distintos; dales nivel distinto con "nivel" o usa otra barrera',
+      'el acantilado ("cliff") que pasa por (4,7) separa regiones al mismo nivel, "alta" (nivel 1), "oeste" (nivel 1), "este" (nivel 1): un acantilado es el borde de una meseta y va entre dos niveles distintos; dales nivel distinto con "nivel" o usa otra barrera',
       'el acantilado ("cliff") que pasa por (16,7) separa regiones al mismo nivel, "alta" (nivel 1), "este" (nivel 1): un acantilado es el borde de una meseta y va entre dos niveles distintos; dales nivel distinto con "nivel" o usa otra barrera',
     ]);
     // Solo el tramo que queda entre dos iguales: con `este` subido a la meseta,

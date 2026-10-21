@@ -53,7 +53,7 @@ import {
   tonoDeLosNiveles,
 } from './escalon.js';
 import { type AlturaDeSuelo, fronterasDelSuelo, PX_DE_LAS_FRONTERAS } from './fronteras.js';
-import { pintarHuellas, TEXTURA_DE_LA_HUELLA } from './huella.js';
+import { pintarHuellas, pintarPlazas, TEXTURA_DE_LA_HUELLA, tierraDeLaHuella } from './huella.js';
 import {
   CASILLAS_POR_TEXTURA,
   type Encaje,
@@ -734,8 +734,10 @@ export function pintarSuelo(
     c.imageSmoothingEnabled = true;
     c.drawImage(arcen(e, pigmentos, nuevo), 0, 0, e.W * T, e.H * T);
     c.globalAlpha = 1;
-    // 3 · Las sendas: tierra con textura y el borde roto (`huella.ts`).
-    pintarHuellas(c, e, T, imagenLista(o.imagen(TEXTURA_DE_LA_HUELLA)), nuevo);
+    // 3 · Las sendas: tierra con textura y el borde roto (`huella.ts`). La
+    //     tierra, entonada una vez: la comparte la plaza (5b).
+    const tierra = tierraDeLaHuella(c, T, imagenLista(o.imagen(TEXTURA_DE_LA_HUELLA)), nuevo);
+    pintarHuellas(c, e, T, tierra);
     // 4 · El agua: una orilla fina de barro y el agua encima, más oscura en el centro.
     c.drawImage(
       rellenar(
@@ -802,6 +804,10 @@ export function pintarSuelo(
       COLOR_DE_LO_BAJO,
       'source-over',
     );
+    // 5b · La plaza de cada recinto (`pintarPlazas`): lo de dentro de la
+    //      muralla es suelo de la ciudad, encima del tono, el agua y la sombra
+    //      de un desnivel; las sombras de sus torres van encima.
+    pintarPlazas(c, e, T, tierra);
     // 6 · Las sombras al pie de lo que tiene volumen: también de los volúmenes,
     //     que se pintan después, cada uno encima de la suya.
     for (const s of e.sprites) {

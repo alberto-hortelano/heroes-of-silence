@@ -96,10 +96,13 @@ const PLANO: MapPlan = {
 };
 
 /**
- * El mismo tamaño con los castillos en los BORDES, para la poda de los límites.
- * En la esquina misma no pueden ir: una casilla de esquina solo tiene tres
- * vecinas y dos de ellas se tocan en diagonal, así que no separa dos regiones.
- * Van en los extremos de una cordillera que parte el mapa en norte y sur.
+ * El mismo tamaño con los castillos junto a los BORDES, para la poda de los
+ * límites. En la esquina misma no pueden ir: una casilla de esquina solo tiene
+ * tres vecinas y dos de ellas se tocan en diagonal, así que no separa dos
+ * regiones. Y en el borde tampoco, desde el recinto de las ciudades (vuelta 3):
+ * su 3 × 3 no cabría (`problemasDeRecintos`). Van a una casilla de los extremos
+ * de una cordillera que parte el mapa en norte y sur: su cuadrado de vista
+ * sigue pasando del borde por tres lados.
  */
 const ESQUINAS: MapPlan = {
   ...PLANO,
@@ -110,8 +113,8 @@ const ESQUINAS: MapPlan = {
   walls: [{ terrain: 'mountain', from: { x: 0, y: 5 }, to: { x: 39, y: 5 } }],
   nodes: [],
   towns: [
-    { id: 'mio', name: 'Valdeluz', faction: FACCION_A, at: { x: 0, y: 5 }, owner: 0 },
-    { id: 'suyo', name: 'Osario', faction: FACCION_B, at: { x: 39, y: 5 }, owner: 1 },
+    { id: 'mio', name: 'Valdeluz', faction: FACCION_A, at: { x: 1, y: 5 }, owner: 0 },
+    { id: 'suyo', name: 'Osario', faction: FACCION_B, at: { x: 38, y: 5 }, owner: 1 },
   ],
   heroStarts: [
     { player: 0, at: { x: 2, y: 2 } },

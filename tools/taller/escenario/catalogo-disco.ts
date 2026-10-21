@@ -49,6 +49,8 @@ interface IndiceDeHoja {
     readonly bajada?: JuntasDeBajada;
     /** Solo las rampas (§35): las corta y las lleva de la guía `derivar-relieve`. */
     readonly rampa?: JuntasDeRampa;
+    /** Solo el recinto (§37): el pie de sus dos puntas, que lleva de la guía `derivar-recinto`. */
+    readonly junta?: readonly [readonly [number, number], readonly [number, number]];
   }[];
 }
 
@@ -96,6 +98,7 @@ export async function leerCatalogo(): Promise<Catalogo> {
         ...(m.diagonal === undefined ? {} : { diagonal: m.diagonal }),
         ...(m.bajada === undefined ? {} : { bajada: m.bajada }),
         ...(m.rampa === undefined ? {} : { rampa: m.rampa }),
+        ...(m.junta === undefined ? {} : { junta: m.junta }),
         ...(perfiles === undefined ? {} : { perfil: perfiles[k] as number[] }),
       }))
       .sort((a, b) => a.ay - b.ay);

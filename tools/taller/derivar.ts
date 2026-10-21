@@ -17,8 +17,8 @@
  * mano —o una imagen cambiada sin volver a derivar— se pone rojo.
  */
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
-import { basename } from 'node:path';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
 import sharp from 'sharp';
 import type { JuntasDeLadera } from '../../src/client/render/escenario/catalogo.js';
 import {
@@ -29,7 +29,9 @@ import {
 } from '../../src/shared/arte.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
 import type { GeometriaDeLadera } from './laderas.js';
-import { esFondoDeGuia } from './paredes-puentes.js';
+import { esFondoDeGuia, type P2 } from './paredes-puentes.js';
+
+const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Las filas de una hoja del taller, en orden, con su reloj. El reloj no sale de la imagen. */
 export const RELOJ = {
@@ -666,4 +668,80 @@ export async function escribirEfectoDerivado(rutaImagen: string): Promise<Efecto
   const d = await derivarEfecto(rutaImagen);
   await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(d, null, 2)}\n`);
   return d;
+}
+
+/** Las escalas que se prueban al registrar una pieza sobre su guía: el pintor la dibuja algo mayor o menor. */
+const ESCALAS = Array.from({ length: 25 }, (_, k) => 0.8 + k * 0.025);
+
+/**
+ * Dónde cae la guía en la imagen de una pieza, con su escala: el pintor calca
+ * la forma pero no el tamaño (el primer lote de rampas salió un 17 % mayor), y
+ * `registrarPieza` solo traslada. Se prueba cada escala de `ESCALAS` —la imagen
+ * reducida o ampliada, registrada por traslación— y se queda la que más solapa
+ * las dos siluetas (intersección entre unión). Devuelve cómo llevar un punto de
+ * la guía a la imagen, con ese solape y esa escala. Lo usan las rampas (`rampas.ts`)
+ * y las piezas del recinto (`recinto.ts`).
+ */
+export async function registrarConEscala(
+  entera: string,
+  guiaPng: string,
+  caja: readonly [number, number, number, number],
+  nombre: string,
+): Promise<{ llevar: (p: P2) => P2; solape: number; escala: number }> {
+  const mascara = await mascaraDeGuia(guiaPng);
+  const original = await sharp(await readFile(entera)).metadata();
+  const ow = original.width as number;
+  const oh = original.height as number;
+  const tmp = join(RAIZ, '.cache', `registro-${nombre.replaceAll('/', '-')}.png`);
+  await mkdir(dirname(tmp), { recursive: true });
+  let mejor: { iou: number; k: number; f: (p: P2) => P2 } | null = null;
+  for (const k of ESCALAS) {
+    const w = Math.round(ow / k);
+    const h = Math.round(oh / k);
+    const { data } = await sharp(await readFile(entera))
+      .resize(w, h)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    await sharp(data, { raw: { width: w, height: h, channels: 4 } })
+      .png()
+      .toFile(tmp);
+    const f = await registrarPieza(tmp, mascara, { nombre, caja });
+    const [ox, oy] = f([0, 0]);
+    let dentro = 0;
+    let ambos = 0;
+    for (let gy = caja[1]; gy <= caja[3]; gy++)
+      for (let gx = caja[0]; gx <= caja[2]; gx++) {
+        if (mascara.dentro[gy * mascara.ancho + gx] !== 1) continue;
+        dentro++;
+        const x = gx + ox;
+        const y = gy + oy;
+        if (
+          x >= 0 &&
+          y >= 0 &&
+          x < w &&
+          y < h &&
+          (data[(y * w + x) * 4 + 3] as number) >= ALFA_FIGURA
+        )
+          ambos++;
+      }
+    let opacos = 0;
+    for (let i = 3; i < data.length; i += 4) if ((data[i] as number) >= ALFA_FIGURA) opacos++;
+    const iou = ambos / (dentro + opacos - ambos);
+    if (mejor === null || iou > mejor.iou)
+      mejor = {
+        iou,
+        k,
+        f: (p: P2): P2 => {
+          const [x, y] = f(p);
+          return [x * k, y * k];
+        },
+      };
+  }
+  await rm(tmp, { force: true });
+  if (mejor === null) throw new Error(`${nombre}: no se pudo registrar sobre la guía`);
+  console.log(
+    `  · ${nombre}: escala ${mejor.k.toFixed(3)}, solape ${(mejor.iou * 100).toFixed(1)} %`,
+  );
+  return { llevar: mejor.f, solape: mejor.iou, escala: mejor.k };
 }

@@ -18,7 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
-import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
+import { buildMap, generateMapPlan, LADO_MINIMO_DEL_GENERADOR } from '../src/core/map/generate.js';
 import { acantiladosSinCaida } from '../src/core/map/regiones.js';
 import { BARRERAS, esBarrera, type Nivel } from '../src/core/map/terrain.js';
 import { ABIERTA, adelgazarAcantilados } from '../src/core/map/vestir.js';
@@ -187,10 +187,10 @@ describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado 
     expect(casillas).toBeGreaterThan(segunPrisa(100, 5000));
   });
 
-  it(`24×24 y 64×64, ${segunPrisa('dos semillas', '1-40')}: lo mismo en las dos puntas del generador`, async () => {
+  it(`el lado mínimo y 64×64, ${segunPrisa('dos semillas', '1-40')}: lo mismo en las dos puntas del generador`, async () => {
     // En 64×64, s74 dejaba (33,37) a 1 en el generador y a 2 en la escena: el
     // nivel del engorde ponía la barrera bajo la ciudad de al lado.
-    for (const lado of [24, 64])
+    for (const lado of [LADO_MINIMO_DEL_GENERADOR, 64])
       for (const semilla of segunPrisa([1, 74], rango(1, 40))) {
         await new Promise((r) => setTimeout(r, 0));
         const { map } = buildMap(

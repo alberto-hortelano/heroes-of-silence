@@ -29,13 +29,15 @@ import { perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
 import { caidas, celdas as celdasDe } from '../src/client/render/escenario/celdas.js';
 import {
   ANCHO_DE_MESA,
+  casillasDeLaHuella,
   esMesa,
   formasDeLasParedes,
   type Medible,
-  RADIO_DE_OBJETO,
   type Sprite,
+  sitioDe,
 } from '../src/client/render/escenario/colocar.js';
 import { Obstaculos } from '../src/client/render/escenario/pasillo.js';
+import { centroDelRecinto, recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
 import { catalogoDelDisco, partidaDe, primeraSemillaCon } from './helpers.js';
 import { itLento, rango } from './lento.js';
@@ -175,21 +177,24 @@ describe('una cadena de laderas no remata en el borde del mapa', () => {
   });
 });
 
-/** Las casillas de la huella de ciudades, pueblos y nodos, contadas por fuera de `componer`. */
+/** Las casillas de la huella de ciudades, pueblos y nodos (`casillasDeLaHuella`, la de `componer`). */
 function huellaDeLosObjetos(semilla: number): Set<number> {
   const { map } = partidaDe(semilla);
   const W = map.width;
   const huella = new Set<number>();
+  const a = analizar(map);
   for (const o of map.objects) {
-    if (o.kind !== 'town' && o.kind !== 'village' && o.kind !== 'node') continue;
-    const r = RADIO_DE_OBJETO[o.kind] as number;
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        const x = o.at.x + dx;
-        const y = o.at.y + dy;
-        if (x >= 0 && y >= 0 && x < W && y < map.height && Math.hypot(dx, dy) < r)
-          huella.add(y * W + x);
-      }
+    // La ciudad, su recinto entero (el de una ciudad-puente, junto a su orilla).
+    const rect =
+      o.kind === 'town'
+        ? recintoDeLaCiudad(
+            centroDelRecinto(o.at, a.ciudadesPuente.get(o.id)?.orilla),
+            W,
+            map.height,
+          )
+        : undefined;
+    for (const [x, y] of casillasDeLaHuella(o, sitioDe(a, o), rect, W, map.height))
+      huella.add(y * W + x);
   }
   return huella;
 }

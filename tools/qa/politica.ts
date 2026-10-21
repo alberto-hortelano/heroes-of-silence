@@ -11,7 +11,11 @@
  * reclutar, comprar y equipar, moverse y, en batalla, pegar a algo.
  */
 
-import { generateMapPlan, planDelAgente } from '../../src/core/map/generate.js';
+import {
+  generateMapPlan,
+  LADO_MINIMO_DEL_GENERADOR,
+  planDelAgente,
+} from '../../src/core/map/generate.js';
 import { createRng } from '../../src/core/rng.js';
 
 /**
@@ -132,8 +136,8 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       // proceso, con lo que el arnés exige ver como criterio (#131).
       const want = payload?.want ?? {};
       const plan = generateMapPlan(createRng(semilla), {
-        width: Number(want.width ?? 24),
-        height: Number(want.height ?? 24),
+        width: Number(want.width ?? LADO_MINIMO_DEL_GENERADOR),
+        height: Number(want.height ?? LADO_MINIMO_DEL_GENERADOR),
       });
       // El generador guarda sus caminos como tramos y el esquema del agente no
       // los tiene: zod los quitaba sin decir nada y el mapa salía sin un camino

@@ -23,7 +23,7 @@
 
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import sharp from 'sharp';
 import {
   formaDeHoja,
@@ -31,7 +31,7 @@ import {
   type PiezaDeRampa,
 } from '../../src/client/render/escenario/catalogo.js';
 import { TRAMO_DE_PIEZA_DE_RAMPA } from '../../src/client/render/escenario/celdas.js';
-import { mascaraDeGuia, registrarPieza } from './derivar.js';
+import { registrarConEscala } from './derivar.js';
 import { ALFA_FIGURA } from './empaquetar.js';
 import type { Encargo } from './encargo.js';
 import { azarDe, MATERIAL, MESETA, type Niveles } from './laderas.js';
@@ -512,81 +512,6 @@ export async function escribirGuiasDeRampas(): Promise<string[]> {
   return escritas;
 }
 
-/** Las escalas que se prueban al registrar una rampa sobre su guía: el pintor la dibuja algo mayor o menor. */
-const ESCALAS = Array.from({ length: 25 }, (_, k) => 0.8 + k * 0.025);
-
-/**
- * Dónde cae la guía en la imagen entera de una rampa, con su escala: el pintor
- * calca la forma pero no el tamaño (el primer lote salió un 17 % mayor), y
- * `registrarPieza` solo traslada. Se prueba cada escala de `ESCALAS` —la imagen
- * reducida o ampliada, registrada por traslación— y se queda la que más solapa
- * las dos siluetas (intersección entre unión). Devuelve cómo llevar un punto de
- * la guía a la imagen, en una lista de uno.
- */
-async function registrarConEscala(
-  entera: string,
-  guiaPng: string,
-  caja: readonly [number, number, number, number],
-  nombre: string,
-): Promise<[(p: P2) => P2]> {
-  const mascara = await mascaraDeGuia(guiaPng);
-  const original = await sharp(await readFile(entera)).metadata();
-  const ow = original.width as number;
-  const oh = original.height as number;
-  const tmp = join(RAIZ, '.cache', `registro-${nombre}.png`);
-  await mkdir(dirname(tmp), { recursive: true });
-  let mejor: { iou: number; k: number; f: (p: P2) => P2 } | null = null;
-  for (const k of ESCALAS) {
-    const w = Math.round(ow / k);
-    const h = Math.round(oh / k);
-    const { data } = await sharp(await readFile(entera))
-      .resize(w, h)
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    await sharp(data, { raw: { width: w, height: h, channels: 4 } })
-      .png()
-      .toFile(tmp);
-    const f = await registrarPieza(tmp, mascara, { nombre, caja });
-    const [ox, oy] = f([0, 0]);
-    let dentro = 0;
-    let ambos = 0;
-    for (let gy = caja[1]; gy <= caja[3]; gy++)
-      for (let gx = caja[0]; gx <= caja[2]; gx++) {
-        if (mascara.dentro[gy * mascara.ancho + gx] !== 1) continue;
-        dentro++;
-        const x = gx + ox;
-        const y = gy + oy;
-        if (
-          x >= 0 &&
-          y >= 0 &&
-          x < w &&
-          y < h &&
-          (data[(y * w + x) * 4 + 3] as number) >= ALFA_FIGURA
-        )
-          ambos++;
-      }
-    let opacos = 0;
-    for (let i = 3; i < data.length; i += 4) if ((data[i] as number) >= ALFA_FIGURA) opacos++;
-    const iou = ambos / (dentro + opacos - ambos);
-    if (mejor === null || iou > mejor.iou)
-      mejor = {
-        iou,
-        k,
-        f: (p: P2): P2 => {
-          const [x, y] = f(p);
-          return [x * k, y * k];
-        },
-      };
-  }
-  await rm(tmp, { force: true });
-  if (mejor === null) throw new Error(`${nombre}: no se pudo registrar sobre la guía`);
-  console.log(
-    `  · ${nombre}: escala ${mejor.k.toFixed(3)}, solape ${(mejor.iou * 100).toFixed(1)} %`,
-  );
-  return [mejor.f];
-}
-
 /** El nombre del módulo de cada pieza: `s-cuerpo`, `s-costado-izq`… */
 export const moduloDePieza = (p: PiezaDeRampa) => `s-${p}`;
 
@@ -609,9 +534,8 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
   const guia = join(RAIZ, DIR_GUIAS, `rampas-${forma === 'muesca' ? 'muesca-' : ''}${m[2]}`);
   const g = JSON.parse(await readFile(`${guia}.json`, 'utf8')) as GeometriaDeRampa;
   const entera = join(dir, `${hoja}.webp`);
-  const cortes = (await registrarConEscala(entera, `${guia}.png`, g.caja, hoja)).map((f) =>
-    g.cortes.map(f),
-  )[0] as P2[];
+  const { llevar } = await registrarConEscala(entera, `${guia}.png`, g.caja, hoja);
+  const cortes = g.cortes.map(llevar);
   const { data, info } = await sharp(await readFile(entera))
     .ensureAlpha()
     .raw()

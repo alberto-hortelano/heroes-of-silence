@@ -169,7 +169,9 @@ describe('el mapa con el dedo', () => {
   });
 
   it('olvidar la ruta borra su frase, y solo la suya: al pasar el turno la barra vuelve vacía (#123)', async () => {
-    const s = new Session(2);
+    // s3: en la 2, desde el recinto de las ciudades (vuelta 3), el héroe del
+    // rival llega a la base de la persona el día 2 y el turno espera su defensa.
+    const s = new Session(3);
     const escena = new EscenaAventura(() => s);
     escena.encuadrar(800, 600);
     const camara = centrarEn({ tile: TILE_INICIAL, x: 0, y: 0 }, focoDe(s), {

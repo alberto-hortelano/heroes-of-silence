@@ -727,7 +727,9 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
   }
 
   it('la persona juega su defensa (#116): el turno del rival espera a que la cierre', async () => {
-    const s = elRivalMeAtaca(2);
+    // s3: en la 2, desde el recinto de las ciudades (vuelta 3), tras esa batalla
+    // el rival asalta también la base, y el turno espera la segunda defensa.
+    const s = elRivalMeAtaca(3);
     let avisos = 0;
     s.alCambiarSinGesto = () => avisos++;
     let acabado = false;

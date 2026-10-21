@@ -1052,72 +1052,6 @@
     "nombre": "1"
    }
   ],
-  "ciudades": [
-   {
-    "src": "modulos/ciudades/8.webp",
-    "nw": 340,
-    "nh": 292,
-    "ax": 166,
-    "ay": 287,
-    "nombre": "8"
-   },
-   {
-    "src": "modulos/ciudades/4.webp",
-    "nw": 412,
-    "nh": 310,
-    "ax": 206,
-    "ay": 305,
-    "nombre": "4"
-   },
-   {
-    "src": "modulos/ciudades/5.webp",
-    "nw": 461,
-    "nh": 337,
-    "ax": 229,
-    "ay": 332,
-    "nombre": "5"
-   },
-   {
-    "src": "modulos/ciudades/2.webp",
-    "nw": 446,
-    "nh": 365,
-    "ax": 120,
-    "ay": 360,
-    "nombre": "2"
-   },
-   {
-    "src": "modulos/ciudades/7.webp",
-    "nw": 462,
-    "nh": 378,
-    "ax": 271,
-    "ay": 373,
-    "nombre": "7"
-   },
-   {
-    "src": "modulos/ciudades/1.webp",
-    "nw": 444,
-    "nh": 402,
-    "ax": 221,
-    "ay": 397,
-    "nombre": "1"
-   },
-   {
-    "src": "modulos/ciudades/3.webp",
-    "nw": 432,
-    "nh": 427,
-    "ax": 181,
-    "ay": 422,
-    "nombre": "3"
-   },
-   {
-    "src": "modulos/ciudades/6.webp",
-    "nw": 375,
-    "nh": 427,
-    "ax": 161,
-    "ay": 422,
-    "nombre": "6"
-   }
-  ],
   "cubierta-dirt": [
    {
     "src": "modulos/cubierta-dirt/13.webp",
@@ -9690,6 +9624,116 @@
      "pieza": "cuerpo",
      "rumbo": "s"
     }
+   }
+  ],
+  "recinto": [
+   {
+    "src": "modulos/recinto/puerta-n-s.webp",
+    "nw": 438,
+    "nh": 286,
+    "ax": 218,
+    "ay": 281,
+    "nombre": "puerta-n-s",
+    "junta": [
+     [
+      55,
+      230
+     ],
+     [
+      378,
+      230
+     ]
+    ]
+   },
+   {
+    "src": "modulos/recinto/tramo-no-se.webp",
+    "nw": 316,
+    "nh": 389,
+    "ax": 59,
+    "ay": 384,
+    "nombre": "tramo-no-se",
+    "junta": [
+     [
+      40,
+      368
+     ],
+     [
+      278,
+      130
+     ]
+    ]
+   },
+   {
+    "src": "modulos/recinto/tramo-ne-so.webp",
+    "nw": 325,
+    "nh": 398,
+    "ax": 266,
+    "ay": 393,
+    "nombre": "tramo-ne-so",
+    "junta": [
+     [
+      51,
+      135
+     ],
+     [
+      289,
+      372
+     ]
+    ]
+   },
+   {
+    "src": "modulos/recinto/puerta-no-se.webp",
+    "nw": 331,
+    "nh": 428,
+    "ax": 62,
+    "ay": 423,
+    "nombre": "puerta-no-se",
+    "junta": [
+     [
+      77,
+      380
+     ],
+     [
+      295,
+      162
+     ]
+    ]
+   },
+   {
+    "src": "modulos/recinto/puerta-ne-so.webp",
+    "nw": 339,
+    "nh": 436,
+    "ax": 280,
+    "ay": 431,
+    "nombre": "puerta-ne-so",
+    "junta": [
+     [
+      51,
+      159
+     ],
+     [
+      269,
+      377
+     ]
+    ]
+   },
+   {
+    "src": "modulos/recinto/puerta-e-o.webp",
+    "nw": 145,
+    "nh": 450,
+    "ax": 67,
+    "ay": 445,
+    "nombre": "puerta-e-o",
+    "junta": [
+     [
+      61,
+      116
+     ],
+     [
+      61,
+      431
+     ]
+    ]
    }
   ],
   "rocas-caidas": [

@@ -181,20 +181,19 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 // agua de frontera fuera del río (QA del río continuo, H3), 4: s28 es otro mapa
 // y su ciudad-puente recorta una cara como la de s14. Con el río de lago de 20
 // casillas (17-10-2026), 5: s36 es otro mapa (de lago).
+//
+// Con la ciudad amurallada (20-10-2026), 2: las de s14, s22 y s28 acababan
+// junto a una ciudad, y dentro de su recinto ya no hay pared (es su plaza); su
+// cara acaba contra la muralla. Quedan s26 y s36. En la muestra rápida, la 26
+// en vez de la 28: que el bucle rápido mire una que no es 0.
 const QUEDAN: Readonly<Record<number, number>> = {
-  // La frontal de una casilla de (14,40), junto a la orilla donde se pinta la ciudad de (13,40), que su reserva recorta.
-  14: 1,
-  // La cara nevada de una casilla de la fila 40, (26,5-27,5), que acaba junto a la ciudad de (28,40).
-  22: 1,
   // (25,5-26,5, 31), lejos de toda ciudad-puente: la reserva de la ciudad en su orilla mueve el azar de la escena.
   26: 1,
-  // La frontal de una casilla de (18,39), junto a la orilla (17,38) donde se pinta la ciudad-puente de (16,38), que su reserva recorta.
-  28: 1,
   // La frontal de una casilla de (38,24), entre la ciudad de (36,23) y el nodo de (40,24), sin sitio para más pared.
   36: 1,
 };
 const SEMILLAS = segunPrisa(
-  [57, 12, 22, 28],
+  [57, 12, 22, 26],
   [...rango(1, 40), 57, 61, 64, 68, 78, 89, 96, 121, 141, 190, 443],
 );
 

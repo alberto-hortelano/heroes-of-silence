@@ -146,6 +146,13 @@ export interface Modulo extends Pieza {
   /** Solo en las hojas de rampas, y en todas ellas. */
   readonly rampa?: JuntasDeRampa;
   /**
+   * Solo en la hoja del recinto de una ciudad (`recinto`, §37), y en todos sus
+   * módulos: el pie de sus dos puntas, en píxeles del módulo. `componer` las
+   * pone en los dos vértices de su cara del octógono (`recinto.ts`). Las lleva
+   * de la guía `pnpm taller derivar-recinto`.
+   */
+  readonly junta?: readonly [Par, Par];
+  /**
    * Lo alto de su silueta, de izquierda a derecha: por franja de columnas, la
    * fracción del alto de la imagen donde empieza lo opaco (la más baja de la
    * franja). Solo en las hojas que tapan una cara (`conPerfil`), y en todas
@@ -195,6 +202,9 @@ export const esHojaDeRampa = (hoja: string): boolean => /^rampa-(muesca-)?[a-z]+
 export const formaDeHoja = (hoja: string): FormaDeRampa =>
   hoja.startsWith('rampa-muesca-') ? 'muesca' : 'recta';
 
+/** Si una hoja es la del recinto de una ciudad (`recinto`, §37): sus módulos llevan el pie de sus dos puntas. */
+export const esHojaDelRecinto = (hoja: string): boolean => hoja === 'recinto';
+
 /** Si una hoja es del relieve y sus módulos llevan juntas: laderas, diagonales, bajadas o rampas. */
 export const esHojaDeRelieve = (hoja: string): boolean =>
   esHojaDeLadera(hoja) || esHojaDeDiagonal(hoja) || esHojaDeBajada(hoja) || esHojaDeRampa(hoja);
@@ -226,7 +236,8 @@ export interface CatalogoEnBruto {
   readonly hojas: Readonly<
     Record<
       string,
-      readonly (Omit<Modulo, 'ladera' | 'diagonal' | 'bajada' | 'rampa'> & {
+      readonly (Omit<Modulo, 'ladera' | 'diagonal' | 'bajada' | 'rampa' | 'junta'> & {
+        readonly junta?: readonly (readonly number[])[];
         readonly ladera?: {
           readonly filo: readonly number[];
           readonly pie: readonly number[];
@@ -350,10 +361,37 @@ function rampaValidada(
 }
 
 /**
+ * Las juntas de un módulo del recinto tal como vienen del JSON, comprobadas: dos
+ * pares dentro de su imagen y separados, o lanza diciendo qué falta.
+ */
+function juntaValidada(
+  donde: string,
+  m: { readonly nw: number; readonly nh: number },
+  j: readonly (readonly number[])[] | undefined,
+): readonly [Par, Par] {
+  if (j === undefined)
+    throw new Error(
+      `${donde} no trae el pie de sus dos puntas: derívalo (pnpm taller derivar-recinto) y rehaz el catálogo (pnpm taller catalogo-escena)`,
+    );
+  const [a, b, ...sobran] = j;
+  if (a === undefined || b === undefined || sobran.length > 0 || !esPar(a) || !esPar(b))
+    throw new Error(`${donde}: la junta son dos pares [x, y], y trae ${JSON.stringify(j)}`);
+  const fuera = [a, b].find(([x, y]) => x < 0 || y < 0 || x > m.nw || y > m.nh);
+  if (fuera !== undefined)
+    throw new Error(
+      `${donde}: la junta ${JSON.stringify(fuera)} cae fuera de su imagen de ${m.nw}×${m.nh}`,
+    );
+  if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1)
+    throw new Error(`${donde}: sus dos puntas caen en el mismo píxel (${JSON.stringify(a)})`);
+  return [a, b];
+}
+
+/**
  * El catálogo, comprobado: todo módulo de una hoja de laderas trae sus juntas
  * enteras (filo y pie como pares, largo 1 o 2, un papel de la cadena), todo
  * módulo de diagonal sus dos filos y su papel, toda bajada su arriba, su abajo y
- * su rumbo, toda pieza de rampa su filo, su pieza y su rumbo, y ningún otro las trae; todo módulo de una hoja que tapa una cara trae su perfil, de
+ * su rumbo, toda pieza de rampa su filo, su pieza y su rumbo, todo módulo del
+ * recinto el pie de sus dos puntas dentro de su imagen, y ningún otro las trae; todo módulo de una hoja que tapa una cara trae su perfil, de
  * fracciones entre 0 y 1, y ningún otro lo trae; todo puente trae sus medidas,
  * positivas, y ninguna otra pieza las trae. Lanza diciendo qué módulo y qué
  * hacer: sin esto, la falta solo salía al componer el primer mapa con esa ladera.
@@ -363,8 +401,11 @@ export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
   for (const [hoja, ms] of Object.entries(c.hojas))
     hojas[hoja] = ms
       .map(perfilValidado(hoja))
-      .map(({ ladera, diagonal, bajada, rampa, ...m }): Modulo => {
+      .map(({ ladera, diagonal, bajada, rampa, junta, ...m }): Modulo => {
         const donde = `el módulo «${m.nombre}» de «${hoja}»`;
+        if (!esHojaDelRecinto(hoja) && junta !== undefined)
+          throw new Error(`${donde} trae junta y no es de la hoja del recinto`);
+        if (esHojaDelRecinto(hoja)) return { ...m, junta: juntaValidada(donde, m, junta) };
         if (!esHojaDeLadera(hoja) && ladera !== undefined)
           throw new Error(`${donde} trae juntas de ladera y no es una ladera`);
         if (!esHojaDeDiagonal(hoja) && diagonal !== undefined)
