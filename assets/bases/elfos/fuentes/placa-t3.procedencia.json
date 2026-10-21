@@ -1,0 +1,37 @@
+{
+  "encargo": "base-elfos-placa-t3",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:48:31.017Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a58-2a3a-7e00-a765-b59e7fe041a6",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (el pueblo, el ayuntamiento, el castillo). En su sitio pon lo mismo que ya cierra la plaza entre ellos: troncos enormes de árboles con raíces, casas de madera tallada en los árboles al fondo y muros bajos de piedra blanca con musgo; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/elfos/fuentes/maestro-t3.webp",
+      "papel": "edita",
+      "sha256": "f1e0e46cb1f42ff070369a740cb390d7a05a4a260f295d550dc95241ac93f20b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a58-2a3a-7e00-a765-b59e7fe041a6/call_7ec32121512b4be8afb68fa6e093b89c.png",
+    "sha256": "87c01ec3ff139ef1c2a423a693ebf69ed22e028424a4ba8ae9d6f106b2c4c43e",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 12 edificios, placas 5 de 5",
+    "city_hall: lo recortado toca el borde de su región en x0 (540)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/elfos/fuentes/placa-t3.webp",
+    "sha256": "59e8b4d69364a3e34c9bc0384af897455e11160f5d3e99652174af779f783012"
+  }
+}

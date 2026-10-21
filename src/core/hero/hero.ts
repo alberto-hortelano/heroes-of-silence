@@ -31,9 +31,10 @@ export interface Hero {
   /**
    * El tipo de héroe, un id de `data/tipos-de-heroe.json` de su facción.
    * **Inerte**: se guarda, se ve y se serializa, pero no da ninguna habilidad
-   * hasta que exista el motor que las aplique. El héroe inicial y el contratado
-   * llevan el de por defecto (`tipoDeHeroePorDefecto`); el que nace de la tropa,
-   * el que eligió el narrador.
+   * hasta que exista el motor que las aplique; sí da su figura (`figuraDelHeroe`).
+   * El inicial de la persona lleva el que eligió en el menú (`NewGameOptions.tipoDelHeroe`);
+   * el de la IA y el contratado, el de por defecto (`tipoDeHeroePorDefecto`); el
+   * que nace de la tropa, el que eligió el narrador.
    */
   readonly tipo: string;
   /**
@@ -117,17 +118,6 @@ export function heroeRecienHecho(datos: {
 export const CIFRAS_DEL_HEROE_INICIAL: Readonly<
   Pick<Hero, 'attack' | 'defense' | 'spellPower' | 'knowledge'>
 > = Object.freeze({ attack: 2, defense: 2, spellPower: 1, knowledge: 2 });
-
-/**
- * El id de ARTE del héroe en el tablero (`BattleStack.body`) y en el mapa.
- *
- * Como `CHARACTER_BODY`, no está en el catálogo a propósito: un lector que lo
- * buscara con `creature()` lanza en vez de leer cifras prestadas. Las cifras
- * del héroe salen de `heroUnit`. Un hecho, un sitio: el mapa del cliente lo
- * pinta con este mismo id (`render/mapa.ts`), y `render/personajes.ts` lo
- * resuelve a la figura que toque.
- */
-export const HERO_BODY = 'hero';
 
 /**
  * El cuerpo del héroe en batalla (fase 1b: el héroe pisa el tablero, pelea y

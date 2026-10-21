@@ -534,15 +534,16 @@ describe('la escena es de la partida entera: no cambia al jugarla', () => {
     while (state.finished === null && state.day <= dias) await playAiTurn(state, ctx);
   }
 
-  it('la semilla 3, tras 10 días de IA, compone la misma escena que el día 1', async () => {
+  it('la semilla 5, tras 10 días de IA, compone la misma escena que el día 1', async () => {
     // Una partida que dura: con el catálogo de las cinco facciones (F3) la de la
-    // semilla 2 acaba el día 3, y lo que se mira es que la escena aguanta días
-    // de juego, no esa semilla.
-    const state = newGame({ seed: 3 });
-    const antes = JSON.stringify(componer(state.map, 3, catalogo));
-    await jugar(state, 10, 3);
+    // semilla 2 acaba el día 3, y con el héroe nacido en su base (19-10-2026), la
+    // 3 también; lo que se mira es que la escena aguanta días de juego, no esa
+    // semilla.
+    const state = newGame({ seed: 5 });
+    const antes = JSON.stringify(componer(state.map, 5, catalogo));
+    await jugar(state, 10, 5);
     expect(state.day).toBeGreaterThan(3);
-    expect(JSON.stringify(componer(state.map, 3, catalogo))).toBe(antes);
+    expect(JSON.stringify(componer(state.map, 5, catalogo))).toBe(antes);
   });
 
   it('el mapa que diseña el agente (el plan de `pnpm qa`) vale igual', async () => {

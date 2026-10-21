@@ -1,0 +1,43 @@
+{
+  "encargo": "base-imperio-edicion-city-hall",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:23:49.487Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a8c-c016-7013-87e8-b57ba27860bc",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 2 empezando por la izquierda (el ayuntamiento, el que está entre las columnas 515 y 990) se MEJORA y pasa a ser el palacio municipal: el mismo edificio hecho palacio, EXACTAMENTE DEL MISMO ANCHO que el edificio que sustituye: sus dos alas se levantan en dos torres (encima de las alas, no a los lados) con chapiteles, escalinata de piedra y estandartes rojos y negros. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 515 y 990: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/imperio/fuentes/edicion-town_hall.webp",
+      "papel": "edita",
+      "sha256": "10b20bcb13c06b87d57144aa7394f3a63923334b410581f7f8b91cda6c4f5db8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a8c-c016-7013-87e8-b57ba27860bc/call_e7d4299b62444908b5ffa1a92c0aefbb.png",
+    "sha256": "deecc190fd98d6cc0168d8fa879aad7d14d3b938d9d83c0e8a5a192b8a38f8c5",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 14 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "town_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "city_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "castle: lo recortado toca el borde de su región en x0 (990)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (512)",
+    "imperio_pueblo: lo recortado toca el borde de su región en x1 (515)",
+    "imperio_pueblo abierta: lo recortado toca el borde de su región en x1 (515)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/imperio/fuentes/edicion-city_hall.webp",
+    "sha256": "0e2ae4660a059062e462287404136315611362667fbf72ae3ea25df49b684541"
+  }
+}

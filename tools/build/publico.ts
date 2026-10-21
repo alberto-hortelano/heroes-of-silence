@@ -15,15 +15,27 @@ import { cpSync } from 'node:fs';
 import { relative, sep } from 'node:path';
 
 /**
- * Lo que hay en una carpeta de dirección de una unidad y no es su atlas. La
- * página lee `unidades/<id>/dN/atlas.webp` (`registrarUnidad`,
- * `src/client/render/personajes.ts`) y nada más de esa carpeta: los
- * `atlas.json` le llegan dentro de la lista de hojas (`/__arena/hojas`). Las
- * poses del Y Bot (`_poses/`) no viven en carpetas `dN/` y van enteras. De la
- * base caminable (vuelta 3), `fuentes/` (maestros, ediciones, guías e
- * identidades) solo la lee el taller: la página pide las placas y los recortes.
+ * Lo que solo lee el taller, en tres reglas:
+ * - En una carpeta de dirección de una unidad, todo menos su atlas. La página
+ *   lee `unidades/<id>/dN/atlas.webp` (`registrarUnidad`,
+ *   `src/client/render/personajes.ts`) y nada más de esa carpeta: los
+ *   `atlas.json` le llegan dentro de la lista de hojas (`/__arena/hojas`). Las
+ *   poses del Y Bot (`_poses/`) no viven en carpetas `dN/` y van enteras.
+ * - Toda carpeta `fuentes/` o `_guias/`, a cualquier altura: las fuentes de las
+ *   que el taller saca lo que la página pide (maestros, ediciones e identidades
+ *   de la base, `bases/<f>/fuentes/`) y las guías de corte de las piezas de los
+ *   temas (`temas/_guias/`). Por eso las letras viven en `letras/` y no en
+ *   `fuentes/`.
+ * - `art/` entero (134 MB): las láminas y referencias de estilo de las que se
+ *   pinta y se mide (la paleta de los temas sale de `art/temas/`). Ni el
+ *   cliente ni el build lo leen (comprobado con grep y con `vite build`,
+ *   13-10-2026).
+ *
+ * La carpeta misma se deja fuera, no solo lo de dentro: si no, el build la crea
+ * vacía.
  */
-const SOLO_DEL_TALLER = /^unidades\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|^bases\/[^/]+\/fuentes\//;
+const SOLO_DEL_TALLER =
+  /^unidades\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^art(?:\/|$)/;
 
 /** ¿Va a `dist/` este fichero, con su ruta relativa a `assets/`? */
 export function seCopiaAlBuild(relativa: string): boolean {

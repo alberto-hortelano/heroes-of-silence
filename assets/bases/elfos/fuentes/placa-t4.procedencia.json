@@ -1,0 +1,36 @@
+{
+  "encargo": "base-elfos-placa-t4",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:48:16.530Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a6c-79b4-7b51-8444-98442ccbebf7",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (el mercado, la armería). En su sitio pon lo mismo que ya cierra la plaza entre ellos: troncos enormes de árboles con raíces, casas de madera tallada en los árboles al fondo y muros bajos de piedra blanca con musgo; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/elfos/fuentes/maestro-t4.webp",
+      "papel": "edita",
+      "sha256": "759da1758e7cd236fab3ccd93c953c52db2d4fa9b7e30b5725d19e6ba66ade03"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a6c-79b4-7b51-8444-98442ccbebf7/call_6d859710f5a54f8cb3a7003b899f6e26.png",
+    "sha256": "aa7b96890b6bb1399efe9663f390bd798f634eda3073e175288d5963660a76f2",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 7 edificios, placas 3 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/elfos/fuentes/placa-t4.webp",
+    "sha256": "ce49667bbde216aa0f07a4d36714fc8670e92c7a19c96e71b2a1c8e0e82e456f"
+  }
+}

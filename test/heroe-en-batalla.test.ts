@@ -23,10 +23,11 @@ import {
   surrenderBlocker,
 } from '../src/core/battle/battle.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
+import { HERO_BODY, queEs } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
-import { HEROE } from '../src/core/data.js';
+import { figuraDelHeroe, HEROE } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
-import { cuerposDelHeroe, HERO_BODY, type Hero, heroUnit } from '../src/core/hero/hero.js';
+import { cuerposDelHeroe, type Hero, heroUnit } from '../src/core/hero/hero.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import {
   isEnterable,
@@ -68,6 +69,7 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 /** Un héroe de batalla con su cuerpo y, si se pide, con monedero para rendirse. */
 function heroeDeBatalla(purse: number | null = null): HeroeDelBando {
   return {
+    figura: HERO_BODY,
     ...cuerposDelHeroe({
       name: 'Prueba',
       attack: 2,
@@ -181,7 +183,11 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
       const suyos = batalla.stacks.filter((s) => s.side === side && s.origen.kind === 'heroe');
       expect(suyos).toHaveLength(1);
       expect(suyos[0]!.id).toBe(`${side}-heroe`);
-      expect(suyos[0]!.body).toBe(HERO_BODY);
+      // Pisa el tablero con la hoja de su tipo, no con el Y Bot (vuelta 2 del
+      // arranque), y la crónica lo sigue contando como el héroe.
+      expect(suyos[0]!.body).toBe(figuraDelHeroe(hero));
+      expect(suyos[0]!.body).not.toBe(HERO_BODY);
+      expect(queEs(suyos[0]!)).toBe(HERO_BODY);
       expect(suyos[0]!.unit).toEqual(heroUnit(hero));
       // Entra sano: sin heridas que arrastrar (decisión del usuario).
       expect(suyos[0]!.topHp).toBe(heroUnit(hero).hp);

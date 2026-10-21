@@ -52,6 +52,7 @@ import type {
   Side,
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
+import { HERO_BODY } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
@@ -147,7 +148,7 @@ const side = (
   }),
 ): BattleSide => ({
   army,
-  hero: hero === null ? null : { mando: hero, cuerpo, desnudo: cuerpo },
+  hero: hero === null ? null : { mando: hero, cuerpo, desnudo: cuerpo, figura: HERO_BODY },
 });
 
 const hero = (over: Partial<BattleHero> = {}): BattleHero => ({

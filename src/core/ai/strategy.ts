@@ -11,8 +11,10 @@ import {
   conEquipo,
   destinoDeEquipo,
   equipoDe,
+  type PedidoDeEquipo,
   PIEZAS_DE_ARMERIA,
   type Portador,
+  pedidoDeEquipo,
   pieza,
 } from '../hero/equipo.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
@@ -457,14 +459,22 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
   const reserva = heroesOf(state, playerId).length === 0 ? HERO_HIRE_COST : 0;
   let purse = { ...player.resources, gold: player.resources.gold - reserva };
 
-  // Reclutar de arriba abajo: las criaturas caras rinden más por moneda.
   for (const town of townsOf(state, playerId)) {
     // La misma regla que aplica `recruit`: si la IA la copiara, el día que
     // cambie una de las dos pediría lo que el motor rechaza.
     const { tope, cupo, army, quien, hero } = destinoDeRecluta(state, town);
     let destino = army;
 
-    for (const { creature: id } of [...dwellings(town)].reverse()) {
+    // De la más fuerte a la más floja (`unitPower`, la cuenta de `planCambio`):
+    // lo que rinde más va primero, y lo que se recluta hoy no lo licencia un
+    // cambio de más tarde, que solo suelta lo más flojo que lo que mete. La
+    // morada no es un nivel (es su sitio en la base, `Building.morada`): por
+    // ella, del revés, los orkos reclutaban goblins y los licenciaban en la
+    // misma jugada para meter a un orko de una morada anterior (s2, día 1).
+    const candidatos = dwellings(town)
+      .map(({ creature }) => ({ id: creature, poder: unitPower(unidadDelJuego(creature)) }))
+      .sort((a, b) => b.poder - a.poder);
+    for (const { id } of candidatos) {
       // Cuántos caben en el liderazgo, y de esos cuántos en el bolsillo. Lo
       // primero sustituye a los cinco huecos: el tope ya no es de tipos
       // distintos sino de lo que ocupa cada individuo. La cuenta es la misma
@@ -683,16 +693,14 @@ function mejora(equipo: Equipo, id: string): number {
 }
 
 /**
- * Cómo se nombra al portador `quien` en una acción `equip`: el héroe sin más, el
- * de hoja por su id y el novato por su tipo —el motor elige al primero sin hoja—.
+ * Cómo se nombra al portador `quien` en una acción `equip`: lo dice el núcleo
+ * (`pedidoDeEquipo`, la inversa de `destinoDeEquipo`). Los personajes no llegan
+ * aquí (`portadores` los aparta), así que un motivo es un fallo y se lanza.
  */
-function nombrar(
-  hero: Hero,
-  quien: Portador,
-): Pick<Extract<AdventureAction, { type: 'equip' }>, 'veteran' | 'creature'> {
-  if ('heroe' in quien) return {};
-  const t = hero.army[quien.indice]!;
-  return t.veterania !== undefined ? { veteran: t.veterania.id } : { creature: t.creature };
+function nombrar(hero: Hero, quien: Portador): PedidoDeEquipo {
+  const pedido = pedidoDeEquipo(hero, quien);
+  if ('motivo' in pedido) throw new Error(pedido.motivo);
+  return pedido;
 }
 
 /**

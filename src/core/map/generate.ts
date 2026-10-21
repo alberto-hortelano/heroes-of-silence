@@ -188,7 +188,6 @@ interface PlanComun {
   /** Los pasos entre regiones que no son ciudad. */
   readonly nodes: readonly Point[];
   readonly towns: readonly PlannedTown[];
-  readonly heroStarts: readonly { readonly player: PlayerId; readonly at: Point }[];
   /** Sin dueño: una mina produce para quien tenga su región (`regionOwner`). */
   readonly mines: readonly { readonly at: Point; readonly resource: ResourceKind }[];
   /** Los pueblos, dentro de una región. Son de quien la tenga. */
@@ -384,6 +383,27 @@ const idDePueblo = (i: number): string => `village-${i}`;
 // ---------------------------------------------------------------- validación
 
 /**
+ * Los jugadores de un plan y la base de cada uno: los dueños de ciudad, por id,
+ * con la primera ciudad suya (`primeraCiudadDe`). El héroe de cada jugador nace
+ * dentro de ella, así que el plan no escribe ni jugadores ni inicios: los leen de
+ * aquí la validación, la partida (`newGame`) y el servidor, que los compara con
+ * los que pidió.
+ *
+ * Por id y no en el orden en que el plan escribe sus ciudades: de este orden
+ * salen `state.players` y quién abre el día 1, y diseñar el mapa no puede ser
+ * también repartirse el turno.
+ */
+export function basesDelPlan(plan: Pick<MapPlan, 'towns'>): ReadonlyMap<PlayerId, PlannedTown> {
+  const dueños = [...new Set(plan.towns.flatMap((t) => (t.owner === null ? [] : [t.owner])))];
+  const bases = new Map<PlayerId, PlannedTown>();
+  for (const p of dueños.sort((a, b) => a - b)) {
+    const base = primeraCiudadDe(plan.towns, p);
+    if (base !== undefined) bases.set(p, base);
+  }
+  return bases;
+}
+
+/**
  * Comprueba que el plan da una partida jugable. Devuelve la lista de problemas;
  * vacía = plan válido. Se aplica igual al plan del agente que al procedural:
  * un mapa con un castillo inalcanzable rompe la partida venga de donde venga.
@@ -466,12 +486,14 @@ export function validateMapPlan(plan: MapPlan): string[] {
   for (const c of plan.chests) ocupar(c.at, 'cofre');
   for (const r of plan.raiders ?? [])
     ocupar(r.at, `el grupo de asaltantes de (${r.at.x},${r.at.y})`);
-  // Los inicios también ocupan casilla: dos héroes en la misma o un héroe
-  // **encima del castillo rival** daban partidas degeneradas sin reventar.
-  for (const i of plan.heroStarts) ocupar(i.at, `el inicio del jugador ${i.player}`);
 
   if (plan.towns.length < 2) problemas.push('hacen falta al menos dos ciudades');
-  if (plan.heroStarts.length < 2) problemas.push('hacen falta al menos dos posiciones de inicio');
+  const jugadores = basesDelPlan(plan).size;
+  if (jugadores < 2) {
+    problemas.push(
+      `hacen falta al menos dos jugadores con ciudad (hay ${jugadores}): cada jugador empieza en su base`,
+    );
+  }
 
   // Un id repetido no choca con nada al construir: `buildMap` crea dos `Town` y
   // dos objetos con el mismo id, y a partir de ahí todo lo que busca por id
@@ -492,37 +514,6 @@ export function validateMapPlan(plan: MapPlan): string[] {
       );
     }
     vistos.add(t.id);
-  }
-
-  // Un jugador con dos inicios da dos héroes `hero-<player>`. La comprobación
-  // es de UNICIDAD, no de cuáles: qué jugadores tenía que haber lo sabe quien
-  // pidió el mapa, y eso no es asunto de `core`.
-  const conInicio = new Set<PlayerId>();
-  for (const inicio of plan.heroStarts) {
-    if (conInicio.has(inicio.player)) {
-      problemas.push(
-        `el jugador ${inicio.player} tiene dos posiciones de inicio: solo puede tener una`,
-      );
-    }
-    conInicio.add(inicio.player);
-  }
-
-  const conPueblo = new Set(plan.towns.filter((t) => t.owner !== null).map((t) => t.owner));
-  for (const inicio of plan.heroStarts) {
-    if (!conPueblo.has(inicio.player)) {
-      problemas.push(`el jugador ${inicio.player} no tiene ninguna ciudad`);
-    }
-  }
-
-  // Y al revés: una ciudad de un jugador que no juega es un tercer bando
-  // fantasma que el reparto de jugadores no ve.
-  const jugadores = new Set<PlayerId>(plan.heroStarts.map((i) => i.player));
-  for (const t of plan.towns) {
-    if (t.owner !== null && !jugadores.has(t.owner)) {
-      problemas.push(
-        `la ciudad "${t.id}" es del jugador ${t.owner}, que no tiene posición de inicio en este mapa: o le pones una, o déjala neutral con "owner": null`,
-      );
-    }
   }
 
   // La unidad de un monstruo es el ÚNICO texto del plan que el motor ejecuta
@@ -589,7 +580,6 @@ export function validateMapPlan(plan: MapPlan): string[] {
   for (const r of plan.resources) sobreRegion(r.at, `el recurso ${r.resource}`);
   for (const m of plan.monsters) sobreRegion(m.at, `el monstruo ${m.creature}`);
   for (const c of plan.chests) sobreRegion(c.at, 'el cofre');
-  for (const i of plan.heroStarts) sobreRegion(i.at, `el inicio del jugador ${i.player}`);
   for (const r of plan.raiders ?? []) sobreRegion(r.at, 'el grupo de asaltantes');
   // Un camino tampoco: `map.ts` no lo abre —la barrera sigue sin pisarse—, pero
   // el cliente lo pinta encima, y una carretera sobre un acantilado le dice a
@@ -624,8 +614,8 @@ export function validateMapPlan(plan: MapPlan): string[] {
   if (problemas.length > 0) return problemas;
 
   // La red, y con ella la conectividad. Aquí había un `findPath` de cada inicio
-  // a cada ciudad, y con el mapa de nodos sobra: cada inicio está en una
-  // región, cada ciudad toca dos y todas las regiones se alcanzan unas desde
+  // a cada ciudad, y con el mapa de nodos sobra: cada héroe nace en una
+  // ciudad, cada ciudad toca dos regiones y todas se alcanzan unas desde
   // otras por nodos que no bloquean, así que no queda ciudad a la que no se
   // llegue. Un guardia que ya no puede morder no se deja de adorno.
   problemas.push(...problemasDeRed(map));
@@ -658,15 +648,19 @@ function enumerarCasillas(casillas: readonly string[]): string {
 /**
  * Lo que impide que los asaltantes de un plan vivan donde se les pone: dentro
  * de una región, sin tocar un nodo —taparía un paso—, en una región sin dueño
- * —se dispersaría antes de empezar— y en una donde no empieza ningún héroe:
- * un grupo encima de un inicio es una emboscada antes del primer turno.
+ * —se dispersaría antes de empezar—.
+ *
+ * Nada más cerca de las bases: el héroe nace dentro de la suya, que no es de
+ * ninguna región, así que no hay emboscada antes del primer turno, y un grupo en
+ * una región que toca una base es tan legal en el plan del agente como en el
+ * procedimental («No, también en casa»). La región de casa no se puede pedir
+ * aquí: no es un hecho del mapa, sino de cómo lo construye el procedimental.
  */
 function problemasDeAsaltantes(plan: MapPlan, map: GameMap, towns: readonly Town[]): string[] {
   const raiders = plan.raiders ?? [];
   if (raiders.length === 0) return [];
   const problemas: string[] = [];
   const t = territorio({ map, towns, players: [] });
-  const conInicio = new Set(plan.heroStarts.map((i) => regionDeCasilla(map, i.at)));
   for (const r of raiders) {
     const quien = `el grupo de asaltantes de (${r.at.x},${r.at.y})`;
     const region = regionDeCasilla(map, r.at);
@@ -683,11 +677,6 @@ function problemasDeAsaltantes(plan: MapPlan, map: GameMap, towns: readonly Town
     if (t.dueñoDeRegion[region] !== null) {
       problemas.push(
         `${quien} está en la región "${nombre}", que ya tiene dueño: un asaltante solo vive en una región sin dueño`,
-      );
-    }
-    if (conInicio.has(region)) {
-      problemas.push(
-        `${quien} está en la región "${nombre}", donde empieza un héroe: los asaltantes no nacen donde hay alguien`,
       );
     }
   }
@@ -2197,22 +2186,27 @@ function vestirRed(
     return [punto(a), punto(b)];
   };
 
-  // Los inicios: pegados a la base, dentro de la región de casa.
-  const inicio = (b: number, casa: number): Point | null => {
-    const at = red.nodos[b]?.at as Point;
+  // Cada nodo, pegado a las regiones que le llevan camino (`crucesConCamino`, que
+  // reparte sobre la red fina): el engorde de las fronteras puede apartarlo de
+  // una, y la búsqueda de esa región no llegaría a él (`centroDeRegion` lanza).
+  // Al 64×64 s8 le pasó con la ciudad de (7,8) y la región 4.
+  {
     const { desde, vecinas } = vecindad(W, H);
-    for (let k = desde[indice(at)]!; k < desde[indice(at) + 1]!; k++) {
-      const j = vecinas[k]!;
-      if (regionGruesa[j] !== casa || ocupadas.has(j)) continue;
-      ocupadas.add(j);
-      return punto(j);
+    for (const [r, ks] of fina.conCamino.entries()) {
+      for (const k of ks) {
+        const n = nodos[k] as number;
+        let toca = false;
+        for (let v = desde[n]!; v < desde[n + 1]! && !toca; v++)
+          toca = regionGruesa[vecinas[v]!] === r;
+        if (!toca) {
+          const p = punto(n);
+          return fallo(
+            'fronteras',
+            `el nodo de (${p.x},${p.y}) no toca la región ${r}, que le lleva camino: el engorde lo apartó de ella`,
+          );
+        }
+      }
     }
-    return null;
-  };
-  const startA = inicio(b0, 0);
-  const startB = inicio(b1, 1);
-  if (startA === null || startB === null) {
-    return fallo('objetos', 'no queda sitio para un inicio junto a su base');
   }
 
   // Las regiones de cada lado: las pares son del jugador 0 y las impares su espejo.
@@ -2287,12 +2281,11 @@ function vestirRed(
     chests.push({ at: par[0], gold }, { at: par[1], gold });
   }
 
-  // Un grupo de asaltantes en cada región donde no empieza nadie, en espejo y
-  // con la misma tropa: lo que se siembra en un lado se siembra en el otro,
-  // igual que las minas. Las dos de casa se quedan sin, porque en ellas está el
-  // héroe y los asaltantes no nacen donde hay alguien; las que TOCAN una base
-  // sí llevan, que es la corrección del usuario al plan («No, también en
-  // casa»). Va después de todo lo demás para no mover ninguna otra casilla.
+  // Un grupo de asaltantes en cada región de fuera, en espejo y con la misma
+  // tropa: lo que se siembra en un lado se siembra en el otro, igual que las
+  // minas. Las dos de casa (las semillas 0 y 1, de las que salen las bases) se
+  // quedan sin, y las que TOCAN una base sí llevan, que es la corrección del
+  // usuario al plan («No, también en casa»). Va después de todo lo demás para no mover ninguna otra casilla.
   // Una región llena se queda sin grupo en vez de tirar el intento: un mapa de
   // nodos bueno no se descarta por no caber un asaltante. Y una con dueño
   // también, con su pareja para no romper el espejo: la de fuera cuyo único
@@ -2719,10 +2712,6 @@ function vestirRed(
     walls,
     nodes: nodos.flatMap((_, k) => (ciudadesEnNodo.has(k) ? [] : [en(k)])),
     towns,
-    heroStarts: [
-      { player: 0, at: startA },
-      { player: 1, at: startB },
-    ],
     mines,
     villages,
     resources,

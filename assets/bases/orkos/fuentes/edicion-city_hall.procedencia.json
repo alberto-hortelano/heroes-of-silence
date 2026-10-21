@@ -1,0 +1,42 @@
+{
+  "encargo": "base-orkos-edicion-city-hall",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:25:15.406Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a8e-2e91-7612-ae00-cd3c03bf559a",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 2 empezando por la izquierda (el ayuntamiento, el que está entre las columnas 545 y 1000) se MEJORA y pasa a ser la fortaleza del kaudillo: el mismo edificio hecho palacio, EXACTAMENTE DEL MISMO ANCHO que el edificio que sustituye: sus dos alas se levantan en dos torres (encima de las alas, no a los lados) de troncos y piedra tosca con cuernos y estandartes rojos. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 545 y 1000: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/orkos/fuentes/edicion-town_hall.webp",
+      "papel": "edita",
+      "sha256": "68cb36dc62820f13c469958240bf875a0371ed8855594984b4fde3a0aea536c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a8e-2e91-7612-ae00-cd3c03bf559a/call_39c2006c6bcc4215a54ad232761b3b21.png",
+    "sha256": "7ef332139ad8de8f1932c7b0854b60ff035c5dee19454a7c722ade0cb78e6797",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 13 edificios, placas 5 de 5",
+    "city_hall: lo recortado toca el borde de su región en x0 (545) y x1 (1000)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (500)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (500)",
+    "tavern: lo recortado toca el borde de su región en x0 (500)",
+    "orkos_cueva: lo recortado toca el borde de su región en x0 (1100)",
+    "orkos_cueva abierta: lo recortado toca el borde de su región en x0 (1100)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/orkos/fuentes/edicion-city_hall.webp",
+    "sha256": "346023a5f04ff445981a65b3598c09718bd44882d2fbe7331b2c2184c21e6bb9"
+  }
+}

@@ -286,7 +286,7 @@ export const UNIDADES: readonly Unidad[] = [
   {
     id: 'templario-hermano-de-carga',
     faccion: 'templarios',
-    nombre: 'Hermano de carga (montado; antes Caballero montado)',
+    nombre: 'Hermano de carga',
     perfil: 'montado-lanza',
     concepto: 'assets/art/templarios/caballero-montado.png',
     aspecto:
@@ -375,7 +375,7 @@ export const UNIDADES: readonly Unidad[] = [
   {
     id: 'jinete-de-plaga',
     faccion: 'no-muertos',
-    nombre: 'Jinete de plaga (a caballo)',
+    nombre: 'Jinete de plaga',
     perfil: 'montado-lanza',
     concepto: 'assets/art/no-muertos/jinete-de-plaga.png',
     aspecto:
@@ -549,7 +549,7 @@ export const UNIDADES: readonly Unidad[] = [
   {
     id: 'elfo-jinete',
     faccion: 'elfos',
-    nombre: 'Jinete (a caballo)',
+    nombre: 'Jinete',
     perfil: 'montado-lanza',
     perfilEnLaArena: 'montado-arco',
     concepto: 'assets/art/elfos/jinete.png',
@@ -669,7 +669,7 @@ export const UNIDADES: readonly Unidad[] = [
   {
     id: 'goblin-jinete-de-hiena',
     faccion: 'orkos',
-    nombre: 'Jinete de hiena (goblin)',
+    nombre: 'Jinete de hiena',
     perfil: 'montado-lanza',
     concepto: 'assets/art/orkos/jinete-de-hiena.png',
     talla: 0.7,
@@ -728,16 +728,6 @@ export const HEROES: readonly Unidad[] = [
     perfil: 'espada-escudo',
     aspecto:
       'Un inquisidor, cazador de magos y no muertos: sombrero de ala ancha negro, abrigo largo de cuero negro sobre coraza ligera, sobrevesta corta blanca con cruz roja, sello y rosario al cinto, maza de pinchos de una mano en la derecha y un pequeño libro sagrado encadenado en la izquierda. Sin escudo.',
-  },
-  {
-    id: 'heroe-templario-gran-maestre',
-    ...PESADO,
-    maniqui: JUEGOS_DE_ARMAS['dos-manos'].atrezo,
-    faccion: 'templarios',
-    nombre: 'Gran Maestre (héroe)',
-    perfil: 'dos-manos',
-    aspecto:
-      'El Gran Maestre de la orden: armadura de placas ornamentada con grabados dorados, sobrevesta blanca larga con cruz roja grande, manto blanco con forro rojo, corona de hierro sobre el yelmo abierto, rostro severo de barba blanca, gran espadón ceremonial empuñado a dos manos.',
   },
   {
     id: 'heroe-nigromante',
@@ -1091,7 +1081,6 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'heroe-templario-caballero': 'espada-escudo',
   'heroe-templario-abad': 'baston',
   'heroe-templario-inquisidor': 'maza',
-  'heroe-templario-gran-maestre': 'dos-manos',
   'heroe-nigromante': 'baston',
   'heroe-vampiro': 'espada-escudo',
   'heroe-lich': 'baston',
@@ -1145,7 +1134,6 @@ const IDS_EN_OCHO_DIRECCIONES = [
   'heroe-templario-caballero',
   'heroe-templario-abad',
   'heroe-templario-inquisidor',
-  'heroe-templario-gran-maestre',
   // Su referencia sale de `tools/art/montura.ts --8d`, no de sprite-forge.
   'templario-hermano-de-carga',
   // El Imperio (04-10-2026).

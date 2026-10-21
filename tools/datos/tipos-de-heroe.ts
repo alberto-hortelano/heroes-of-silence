@@ -25,6 +25,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { TipoDeHeroe } from '../../src/core/data.js';
 import { type FactionId, NOMBRE_DE_FACCION } from '../../src/core/types.js';
+import { seccionDelCuaderno } from './cuaderno.js';
 
 const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
 // El cuaderno vive en la copia principal del repo, sin commitear: desde un
@@ -54,13 +55,10 @@ function idDe(nombre: string): string {
 }
 
 function tiposDeLaSeccion(titulo: string): TipoDeHeroe[] {
-  // De «### Templarios:» a la siguiente cabecera de nivel 3 o 2. El título se
-  // escapa por si algún día lleva un carácter de expresión regular.
-  const escapado = titulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const seccion = new RegExp(`^### ${escapado}:?[ \\t]*$([\\s\\S]*?)(?=^##)`, 'm').exec(texto);
-  if (seccion === null) throw new Error(`${ORIGEN}: no encuentro la sección «### ${titulo}»`);
-  // Dentro, de «- Heroes:» a «- Tropas:».
-  const heroes = /^- Heroes:[ \t]*$([\s\S]*?)(?=^- Tropas:)/m.exec(seccion[1] as string);
+  // De «### Templarios:» a la siguiente cabecera y, dentro, de «- Heroes:» a
+  // «- Tropas:».
+  const seccion = seccionDelCuaderno(texto, titulo, ORIGEN);
+  const heroes = /^- Heroes:[ \t]*$([\s\S]*?)(?=^- Tropas:)/m.exec(seccion);
   if (heroes === null) {
     throw new Error(
       `${ORIGEN}: la sección «${titulo}» no tiene «- Heroes:» seguida de «- Tropas:»`,
@@ -86,7 +84,7 @@ const tipos = Object.fromEntries(
 
 const json = {
   _comment:
-    'GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto del héroe inicial y del contratado. Los tipos todavía NO tienen efecto (no hay motor de habilidades): se guardan en el héroe, se ven y se serializan.',
+    'GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto: el del héroe inicial que nadie eligió (la partida rápida, la IA) y el del contratado. Los tipos todavía NO tienen efecto en las reglas (no hay motor de habilidades): se guardan en el héroe, se ven, se serializan y dan su figura (data/figuras-de-heroe.json).',
   tipos,
 };
 writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);

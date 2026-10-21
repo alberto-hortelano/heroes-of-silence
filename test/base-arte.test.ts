@@ -13,23 +13,35 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
+import { ALFA_QUE_TOCA } from '../src/client/render/base/golpe.js';
+import { sitioDe, sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
 import { FACTION_IDS } from '../src/core/types.js';
-import { disposicionDe, type IndiceDeLaBase, SOLAPE } from '../src/shared/base.js';
+import { disposicionDe, type IndiceDeLaBase, SOLAPE, TRAMO } from '../src/shared/base.js';
 import {
+  ARTE_DE_LA_BASE,
+  abiertaPintada,
   cuadroDe,
-  DESCRIPCION_DE_LOS_TEMPLARIOS,
   dirDeLaBase,
+  edificiosConArte,
   encargoDeEdicion,
+  encargoDeLaAbierta,
   encargoDeLaPlaca,
   encargoDelMaestro,
+  encargoDelRetoque,
+  encargosDeLaBase,
   guiaDelTramo,
   JUNTA,
   maestroDelTramo,
   mejorasDe,
+  moradasDeLaBase,
   placaDelTramo,
+  retoqueDe,
+  salaPintada,
+  sitiosPintados,
 } from '../tools/taller/base.js';
+import { encargoSchema } from '../tools/taller/encargo.js';
 import {
   derivarRecorte,
   derivarSuelo,
@@ -95,16 +107,70 @@ describe('el arte de la base', () => {
     }
   });
 
-  it('las cuatro facciones sin arte van con marcadores: índice vacío, sin un 404 que pedir', () => {
-    for (const f of FACCIONES.filter((x) => x !== 'templarios')) {
+  it('las cinco facciones llevan su arte entero: cada tramo con placa, cada edificio con su recorte y cada morada abierta (20-10-2026)', () => {
+    for (const f of FACCIONES) {
       const indice = indiceDe(f);
       expect(
-        indice.tramos.every((t) => t === null),
-        f,
+        indice.tramos.every((t) => t !== null),
+        `${f}: un tramo sin placa`,
       ).toBe(true);
-      expect(indice.suelo, f).toBeNull();
-      expect(indice.cielo, f).toBeNull();
-      expect(indice.edificios, f).toEqual({});
+      expect(indice.suelo, f).not.toBeNull();
+      expect(Object.keys(indice.edificios).sort(), f).toEqual([...edificiosConArte(f)].sort());
+      expect(Object.keys(indice.abiertas).sort(), f).toEqual([...moradasDeLaBase(f)].sort());
+    }
+  });
+
+  it('cada puerta tiene su edificio bajo el punto donde se pulsa (`dondePulsarElSitio`: medio paso sobre el umbral)', async () => {
+    // El ayuntamiento de los no muertos tenía un agujero bajo el arco de la puerta
+    // y el clic caía al suelo: el héroe llegaba y no se abría «Ampliar» (20-10-2026).
+    for (const f of FACCIONES) {
+      const d = disposicionDe(f);
+      const indice = indiceDe(f);
+      for (const s of sitiosDeLaBase(f)) {
+        const id = s.cadena[0];
+        const e = id === undefined ? undefined : indice.edificios[id];
+        if (e === undefined) continue;
+        const [px, fila] = d.sitios[s.id].umbral.enElCuadro;
+        const x = px - e.en[0];
+        const y = Math.round(fila - 0.5 * TRAMO.pxPorPaso) - e.en[1];
+        const { data, info } = await sharp(join(RAIZ, dirDeLaBase(f), e.imagen))
+          .ensureAlpha()
+          .extractChannel(3)
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        expect(data[y * info.width + x] ?? 0, `${f}/${id}`).toBeGreaterThanOrEqual(ALFA_QUE_TOCA);
+      }
+    }
+  });
+
+  it('cada versión abierta del índice es la que se escribió, de una morada de su base, de su fuente y en el sitio de su exterior', () => {
+    for (const f of FACCIONES) {
+      const d = disposicionDe(f);
+      const indice = indiceDe(f);
+      expect(indice.abiertas, `${f}: el índice no dice qué versiones abiertas hay`).toBeDefined();
+      const moradas = moradasDeLaBase(f);
+      for (const [id, e] of Object.entries(indice.abiertas)) {
+        expect(moradas, `${f}/${id} no es una morada de su base`).toContain(id);
+        expect(e.imagen, `${f}/${id}`).toBe(`abierta-${id}.webp`);
+        expect(
+          sha256(join(RAIZ, dirDeLaBase(f), e.imagen)),
+          `${f}/${id}: la versión abierta cambió sin recortarla`,
+        ).toBe(e.sha256);
+        expect(existsSync(join(RAIZ, `${abiertaPintada(f, id)}.webp`)), `${f}/${id}`).toBe(true);
+        // Dentro de la región de su sitio y con el pie donde el de su exterior
+        // (un Codex que la mueve o la encoge se ve aquí).
+        const sitio = d.sitios[sitioDeEdificio(f, id).id];
+        expect(e.tramo, `${f}/${id}`).toBe(sitio.tramo);
+        expect(e.en[0], `${f}/${id}`).toBeGreaterThanOrEqual(sitio.region.x0);
+        expect(e.en[0] + e.ancho, `${f}/${id}`).toBeLessThanOrEqual(sitio.region.x1);
+        expect(e.en[1] + e.alto, `${f}/${id}`).toBeLessThanOrEqual(sitio.region.pie);
+        const fuera = indice.edificios[id];
+        expect(fuera, `${f}/${id}: abierta sin exterior`).toBeDefined();
+        expect(
+          Math.abs(e.en[1] + e.alto - (fuera!.en[1] + fuera!.alto)),
+          `${f}/${id}: el pie de la versión abierta se aparta del de su exterior`,
+        ).toBeLessThanOrEqual(24);
+      }
     }
   });
 
@@ -187,10 +253,101 @@ describe('el arte de la base', () => {
     );
   });
 
-  it('el taller describe exactamente las mejoras de los templarios, ni una más', () => {
-    expect(Object.keys(DESCRIPCION_DE_LOS_TEMPLARIOS).sort()).toEqual(
-      [...mejorasDe('templarios')].map((m) => m.id).sort(),
+  it('el retoque del pueblo edita la placa, de frente, y manda en su cuadro solo si está en disco (C15)', () => {
+    const d = disposicionDe('templarios');
+    const id = 'templarios_pueblo';
+    const r = encargoDelRetoque('templarios', id);
+    expect(() => encargoSchema.parse(r)).not.toThrow();
+    const { tramo, umbral, region } = d.sitios[sitioDeEdificio('templarios', id).id];
+    // Sobre la placa: alrededor queda lo que pinta el juego, sin el halo del maestro.
+    expect(r.referencias).toEqual([
+      { ruta: `${placaDelTramo('templarios', tramo)}.webp`, papel: 'edita' },
+      { ruta: `assets/bases/templarios/fuentes/identidad-retoque-${id}.png`, papel: 'edificios' },
+    ]);
+    expect(r.salida).toBe(retoqueDe('templarios', id));
+    expect(r.salida).toMatch(/\/fuentes\//);
+    expect(r.despues).toEqual({ orden: 'recortar-base', faccion: 'templarios' });
+    for (const texto of [
+      'DE FRENTE',
+      'FACHADA PARALELA',
+      'SIN HALO',
+      `columna ${umbral.enElCuadro[0]} y la fila ${umbral.enElCuadro[1]}`,
+      `columnas ${region.x0} y ${region.x1}`,
+    ])
+      expect(r.descripcion, texto).toContain(texto);
+    // Un hecho, un sitio: el cuadro del pueblo es el retoque si y solo si está.
+    const hay = existsSync(join(RAIZ, `${retoqueDe('templarios', id)}.webp`));
+    expect(cuadroDe('templarios', id)).toBe(
+      hay ? retoqueDe('templarios', id) : maestroDelTramo('templarios', tramo),
     );
+    expect(Object.keys(ARTE_DE_LA_BASE.templarios.retoques)).toEqual([id]);
+    expect(() => encargoDelRetoque('templarios', 'templarios_forja')).toThrow(/no tiene retoque/);
+  });
+
+  it('la versión abierta de cada morada edita su cuadro con su sala de referencia; la del pueblo espera al retoque (C14)', () => {
+    const d = disposicionDe('templarios');
+    const moradas = moradasDeLaBase('templarios');
+    expect([...moradas].sort()).toEqual(Object.keys(ARTE_DE_LA_BASE.templarios.salas).sort());
+    for (const id of moradas) {
+      const e = encargoDeLaAbierta('templarios', id);
+      expect(() => encargoSchema.parse(e), id).not.toThrow();
+      expect(e.referencias, id).toEqual([
+        { ruta: `${cuadroDe('templarios', id)}.webp`, papel: 'edita' },
+        { ruta: salaPintada('templarios', id), papel: 'interior' },
+      ]);
+      expect(existsSync(join(RAIZ, salaPintada('templarios', id))), id).toBe(true);
+      expect(e.salida).toBe(abiertaPintada('templarios', id));
+      expect(e.despues).toEqual({ orden: 'recortar-base', faccion: 'templarios' });
+      const { region } = d.sitios[sitioDeEdificio('templarios', id).id];
+      expect(e.descripcion, id).toContain(`columnas ${region.x0} y ${region.x1}`);
+      expect(e.descripcion, id).toContain('CASA DE MUÑECAS');
+      expect(e.descripcion, id).toContain(ARTE_DE_LA_BASE.templarios.salas[id]!);
+    }
+    const { listos, esperan } = encargosDeLaBase('templarios');
+    const ids = listos.map((e) => e.id);
+    const retoque = existsSync(join(RAIZ, `${retoqueDe('templarios', 'templarios_pueblo')}.webp`));
+    expect(ids).toContain('base-templarios-retoque-templarios-pueblo');
+    for (const id of ['forja', 'establos', 'monasterio'])
+      expect(ids).toContain(`base-templarios-abierta-templarios-${id}`);
+    expect(ids.includes('base-templarios-abierta-templarios-pueblo')).toBe(retoque);
+    expect(esperan.some((e) => e.startsWith('abierta-templarios-pueblo (espera a retoque-'))).toBe(
+      !retoque,
+    );
+    // Sin sala pintada de la vuelta 1 (las otras cuatro), solo su cuadro.
+    expect(encargoDeLaAbierta('orkos', 'orkos_pueblo').referencias).toEqual([
+      { ruta: `${cuadroDe('orkos', 'orkos_pueblo')}.webp`, papel: 'edita' },
+    ]);
+  });
+
+  it('el taller describe de cada facción sus edificios, sus mejoras y sus salas, ni uno más', () => {
+    for (const f of FACTION_IDS) {
+      const arte = ARTE_DE_LA_BASE[f];
+      const primeros = sitiosDeLaBase(f).flatMap((s) => s.cadena.slice(0, 1));
+      expect(Object.keys(arte.edificios).sort(), f).toEqual([...primeros].sort());
+      expect(Object.keys(arte.mejoras).sort(), f).toEqual(
+        [...mejorasDe(f)].map((m) => m.id).sort(),
+      );
+      expect(Object.keys(arte.salas).sort(), f).toEqual([...moradasDeLaBase(f)].sort());
+    }
+  });
+
+  it('sin hoja de identidad, el maestro lleva cada edificio descrito y ningún edificio sale de un tramo vacío', () => {
+    for (const f of FACTION_IDS.filter((x) => !ARTE_DE_LA_BASE[x].conIdentidad)) {
+      const d = disposicionDe(f);
+      for (let n = 1; n <= d.tramos; n++) {
+        const m = encargoDelMaestro(f, n);
+        expect(() => encargoSchema.parse(m), `${f} T${n}`).not.toThrow();
+        expect(
+          m.referencias.map((r) => r.papel),
+          `${f} T${n}`,
+        ).toEqual(['estilo', 'estilo', 'plaza']);
+        for (const s of sitiosPintados(f, d, n))
+          expect(m.descripcion, `${f} T${n}`).toContain(
+            ARTE_DE_LA_BASE[f].edificios[sitioDe(f, s).cadena[0]!]!,
+          );
+        expect(m.descripcion, `${f} T${n}`).toContain(ARTE_DE_LA_BASE[f].heraldica);
+      }
+    }
   });
 
   /**
@@ -262,6 +419,28 @@ describe('el arte de la base', () => {
       expect(
         createHash('sha256').update(r.rgba).digest('hex'),
         'el recorte no es el de sus fuentes: pnpm taller recortar-base templarios',
+      ).toBe(e.origen);
+    },
+  );
+
+  /** Las versiones abiertas, recortadas otra vez: la primera en el bucle rápido, todas en el lento. */
+  const abiertas = Object.keys(indiceDe('templarios').abiertas);
+  const abiertasADerivar = segunPrisa(abiertas.slice(0, 1), abiertas);
+  it.each(abiertasADerivar.length > 0 ? abiertasADerivar : ['(sin versiones abiertas aún)'])(
+    '%s: la versión abierta es la que sale de su fuente y su placa',
+    async (id) => {
+      if (abiertas.length === 0) return;
+      const e = indiceDe('templarios').abiertas[id]!;
+      const r = await derivarRecorte('templarios', id, `${abiertaPintada('templarios', id)}.webp`);
+      expect({ tramo: r.tramo, en: r.en, ancho: r.ancho, alto: r.alto }).toEqual({
+        tramo: e.tramo,
+        en: e.en,
+        ancho: e.ancho,
+        alto: e.alto,
+      });
+      expect(
+        createHash('sha256').update(r.rgba).digest('hex'),
+        'la versión abierta no es la de sus fuentes: pnpm taller recortar-base templarios',
       ).toBe(e.origen);
     },
   );

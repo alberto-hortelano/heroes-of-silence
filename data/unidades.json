@@ -103,7 +103,7 @@
     },
     {
       "id": "templario-hermano-de-carga",
-      "name": "Hermano de carga (montado; antes Caballero montado)",
+      "name": "Hermano de carga",
       "faction": "templarios",
       "cuerpo": {
         "hoja": "templario-hermano-de-carga"
@@ -288,7 +288,7 @@
     },
     {
       "id": "jinete-de-plaga",
-      "name": "Jinete de plaga (a caballo)",
+      "name": "Jinete de plaga",
       "faction": "no-muertos",
       "cuerpo": {
         "hoja": "jinete-de-plaga"
@@ -616,7 +616,7 @@
     },
     {
       "id": "elfo-jinete",
-      "name": "Jinete (a caballo)",
+      "name": "Jinete",
       "faction": "elfos",
       "cuerpo": {
         "hoja": "elfo-jinete"
@@ -815,7 +815,7 @@
     },
     {
       "id": "goblin-jinete-de-hiena",
-      "name": "Jinete de hiena (goblin)",
+      "name": "Jinete de hiena",
       "faction": "orkos",
       "cuerpo": {
         "hoja": "goblin-jinete-de-hiena"

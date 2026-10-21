@@ -1,0 +1,58 @@
+{
+  "encargo": "tema-04-barra-seccion-no-muertos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:19:01.234Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b4c-e800-7410-bcc6-69d716255adb",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema NO MUERTOS: hierro negro forjado con calaveras, telarañas y velas de llama verde-cian, acentos cian y hueso, y estandartes morados con la cruz invertida. La BARRA DE SECCIÓN sobre la que el juego escribe el título de cada sección del panel («HECHIZOS», «EQUIPO», «TROPA»): una tira horizontal y baja, unas once veces más ancha que alta, con un remate en cada punta y el centro liso para el texto. Tira de hierro negro, lisa, con un filo cian tenue y un pequeño remate de hueso en cada punta.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs una TIRA que el juego estira a lo ancho: el 14 % de la izquierda y el 14 % de la derecha son sus REMATES, que se pintan una vez y llevan los adornos; lo de en medio se estira, así que va liso y uniforme de punta a punta, sin adornos sueltos ni nada centrado.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/no-muertos.png",
+      "papel": "estilo",
+      "sha256": "0a063843bbdb6ee1655c7554d3366c3aff7acc5c5aedd27027d9d2c8a5429956"
+    },
+    {
+      "ruta": "assets/art/temas/no-muertos.png",
+      "papel": "pieza",
+      "sha256": "0a063843bbdb6ee1655c7554d3366c3aff7acc5c5aedd27027d9d2c8a5429956",
+      "recorte": {
+        "x": 995,
+        "y": 604,
+        "w": 280,
+        "h": 26
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/barra.png",
+      "papel": "corte",
+      "sha256": "f67a9e5070fbeeb1454e38f2b83abe540f96ad7cb7f2d8091b3a2cf7c5b7d3f8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b4c-e800-7410-bcc6-69d716255adb/exec-7b291e0c-451d-44e0-b1a7-1bea6be3b318.png",
+    "sha256": "4d415e2af395b1540549e650081969e7b5ca2c9852aee306162b040e47b026c4",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 2148×156 a 768×56, dentro de 768×64",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 19 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.13014267472502875,
+    "opacos": 0.9804449482783052,
+    "haloSuelto": 0,
+    "ancho": 2172,
+    "alto": 724
+  },
+  "salida": {
+    "ruta": "assets/temas/no-muertos/barra-seccion.webp",
+    "sha256": "2b9f0be7733d13a190ee15edf27943d4ae8a3fa8bc8220fd4320726be799bd1c"
+  }
+}

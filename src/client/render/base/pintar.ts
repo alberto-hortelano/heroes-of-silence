@@ -30,9 +30,10 @@ import {
   FONDO_DE_LA_FRANJA,
   planoDelCuadro,
 } from '../../../shared/base.js';
-import { cajaDeFiguraEn } from '../batalla.js';
+import { temaDelLienzo } from '../../temas.js';
+import { cajaDeFiguraEn, pintarAroDeFigura } from '../batalla.js';
 import { CacheDeLienzos } from '../copias.js';
-import { type Figura, pintarFiguraConSombra } from '../figura.js';
+import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
 import { enPantalla, type Tablero } from '../proyeccion.js';
 import { type ArteDeLaBase, CIELO_SIN_ARTE } from './arte.js';
@@ -258,8 +259,9 @@ function pintarEdificio(
   ctx.strokeStyle = señalado ? '#f5d973' : 'rgba(0,0,0,0.6)';
   ctx.lineWidth = señalado ? 3 : 1.5;
   ctx.strokeRect(caja.x, caja.y, caja.ancho, caja.alto);
-  ctx.fillStyle = '#e8dcc4';
-  ctx.font = `bold ${Math.max(10, Math.round(v.t.paso * 0.16))}px system-ui, sans-serif`;
+  const tema = temaDelLienzo();
+  ctx.fillStyle = tema.rotulo;
+  ctx.font = `bold ${Math.max(10, Math.round(v.t.paso * 0.16))}px ${tema.letraUi}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(e.nombre, caja.x + caja.ancho / 2, caja.y + caja.alto / 2, caja.ancho - 8);
@@ -272,15 +274,7 @@ function pintarPersona(
 ): void {
   const c = cajaDeFiguraEn(v.t, e.en);
   if (c.x + c.ancho < 0 || c.x - c.ancho > v.lienzo.ancho) return;
-  if (v.señalado?.tipo === 'pnj' && v.señalado.id === e.id) {
-    ctx.save();
-    ctx.strokeStyle = '#f5d973';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(c.x, c.suelo, c.alto * 0.3, c.alto * 0.11, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
+  const señalado = v.señalado?.tipo === 'pnj' && v.señalado.id === e.id;
   const figura: Figura = {
     id: e.id,
     body: e.cuerpo,
@@ -296,7 +290,11 @@ function pintarPersona(
     color: e.pnj ? COLOR_NEUTRO : v.color,
     rotulo: e.nombre.charAt(0).toUpperCase(),
   };
-  pintarFiguraConSombra(ctx, figura);
+  pintarFiguraConSombra(
+    ctx,
+    figura,
+    señalado ? (colocada) => pintarAroDeFigura(ctx, c, piesDeFigura(colocada)) : undefined,
+  );
 }
 
 /**

@@ -1,0 +1,36 @@
+{
+  "encargo": "base-elfos-edicion-mage-guild-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:12:53.543Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a82-dc3b-7811-8549-049852784f9a",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (la torre del gremio de magos, el que está entre las columnas 64 y 730) se MEJORA y pasa a ser el mismo gremio de magia crecido EN ALTO, con el MISMO ANCHO: la torre con una planta más, un mirador de raíces con un cristal más grande; sin anexos ni alas a los lados. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade.\nLo nuevo cabe entre las columnas 64 y 730: no toca a los edificios de al lado. Las torres, alas o anexos nuevos tampoco pasan de esas columnas: si no caben a los lados, el edificio crece EN ALTO, no a lo ancho (en F3 el palacio y el gremio se salían por los lados y se cortaban al recortarlos). NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/elfos/fuentes/maestro-t2.webp",
+      "papel": "edita",
+      "sha256": "4dcd09aea5b0418ebec0779564bea3b21c870900e7533c4857d5441b8a923460"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a82-dc3b-7811-8549-049852784f9a/call_7e1b375bad524b9dbdc44eed5691a987.png",
+    "sha256": "a4b6a9a77cb4c1ff4c42f53e0af9bc53a77155327b1a05c45420843254f58400",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 11 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/elfos/fuentes/edicion-mage_guild_2.webp",
+    "sha256": "9b1c090ec4ff34012c848d5db240b1685adff7045e4893d6a86aa7cc331f49d5"
+  }
+}

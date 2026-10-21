@@ -54,8 +54,8 @@
       "imagen": "village_hall.webp",
       "ancho": 508,
       "alto": 572,
-      "sha256": "3b197898755a7dd9985bf095614efa252707fbaba9e0eeee365dc043c2c5cc80",
-      "origen": "0eed4c8c710ee31631a30d5d3a4c2f75ef10b210436b00a3eed818cae883a392",
+      "sha256": "c4d546bd32325dd7564f8df3f511f953bddd41a78ea836c6c5110d17fb25cc15",
+      "origen": "4d0dce9b13abb996d4726cf137cccf08fd2f83e1455bbfdcc502e93cd78c4ebe",
       "tramo": 3,
       "en": [
         512,
@@ -66,8 +66,8 @@
       "imagen": "town_hall.webp",
       "ancho": 508,
       "alto": 635,
-      "sha256": "78759ea14d85d252ed84dc3933aacf4f69ed7b8a1c6c2c307e43a49b0ad3c6ec",
-      "origen": "0f678329bffe6aea6c7ae248feb4d6d6309abe1ef911f6ec9b92df92f9c266c8",
+      "sha256": "2d01924d1f571773578e68f0a1a9bac0590a5422a233f4e9adcb4f35df382fa8",
+      "origen": "710a2a892b08729fc25fb2bd41288e3d1dcceb1494bd3c4f730312ba76010d7e",
       "tramo": 3,
       "en": [
         512,
@@ -78,8 +78,8 @@
       "imagen": "city_hall.webp",
       "ancho": 508,
       "alto": 649,
-      "sha256": "d358dede466294ad090b2cb4c519cf76a66ed3a04355ed7dd3fd8070ffca98e9",
-      "origen": "ed867ce86a810133e0684abde17060079ffb0a0a49d3d3eb8bd8829571a2ed22",
+      "sha256": "6aa374c203d7ed3deab808ee3e572f4e0f40f2a2c69dc71a0b38be51d18b085a",
+      "origen": "160eb38d7993b44b83dacbe6c602858a7987292d76f602ab07a68b8bf0530774",
       "tramo": 3,
       "en": [
         512,
@@ -90,8 +90,8 @@
       "imagen": "castle.webp",
       "ancho": 480,
       "alto": 616,
-      "sha256": "e11865484549d066ffe74980db05423e287f309d5ebd9056282e387799b19bdc",
-      "origen": "1ed4eea5712e3daadc5a0896c9e158e1effa49b1cece6a56d80475229bb2333f",
+      "sha256": "3a6aca27d4990d59276234704e98101e97237739d36c267e6351c44738248e8c",
+      "origen": "59444ff57040af191afc12182bbe56081841f6eec5ad4f7a63837babe66d9578",
       "tramo": 3,
       "en": [
         1020,
@@ -102,8 +102,8 @@
       "imagen": "mage_guild_1.webp",
       "ancho": 335,
       "alto": 654,
-      "sha256": "56fb58e7cc27a316493aed33b834107071039cc9c9e29ed681736530f19cd08c",
-      "origen": "a0d89194bcb503632b8881084a0573e0817ebcce07f2801c82a6983110e465ed",
+      "sha256": "3c1a29138606d64baf96e4a372899fa38e33e65b8fff7d167def2dc71493bc48",
+      "origen": "a9acced0680d2bec529104f9942a9e013424b7f834f898e89d351b2fcdf7e604",
       "tramo": 2,
       "en": [
         141,
@@ -114,8 +114,8 @@
       "imagen": "mage_guild_2.webp",
       "ancho": 335,
       "alto": 697,
-      "sha256": "b2a6202e694fbfba857c8a80cf426ec49098d6505a2115731203ba1156a5abed",
-      "origen": "2116dd3b390956cbe23e13a7966bf0154333ab50435cb64f566268a20cdb085f",
+      "sha256": "6322839da384d85e17bc2cd37a51aebe7287b53be56bb476aa28a429a919fa06",
+      "origen": "ba6fc95f3ccc0151150b4f5ce96eb90255fcbae3921b07b41d32822d07422fba",
       "tramo": 2,
       "en": [
         141,
@@ -125,9 +125,9 @@
     "tavern": {
       "imagen": "tavern.webp",
       "ancho": 455,
-      "alto": 449,
-      "sha256": "0fdf9a510d425c42d7475dbc7c88e650bc68b16554b03143184f4705ef579772",
-      "origen": "908a616f0a8b915410b64c1e6d4ad4ad0d09ff639b6faca951fc46d19f8f6171",
+      "alto": 450,
+      "sha256": "1604b738fa9217c9a1bec6fdfcfbbe79376d53ed19311fda9974d366e554ef85",
+      "origen": "4044d175bea6b3a48dfe7a55823c9ba6c278929bb2cbeb3a891b021963006e12",
       "tramo": 2,
       "en": [
         476,
@@ -138,8 +138,8 @@
       "imagen": "marketplace.webp",
       "ancho": 674,
       "alto": 562,
-      "sha256": "3f5341fa05ed4cff83e4faf7886f6978e81d314fb71bdc99bbf675284935ed68",
-      "origen": "adcd4e8aacf4672746bfbe6d56489ad28896cfbb95883f521206a126c8f4750f",
+      "sha256": "c62fa42bc2f8cbc80038569af145ecadb9153c6c7b263197c27277422277bc71",
+      "origen": "b20802d36d919c00ba541e45a9d69341e284e27744a8b1c646d3a83286b68689",
       "tramo": 4,
       "en": [
         76,
@@ -150,8 +150,8 @@
       "imagen": "armory.webp",
       "ancho": 708,
       "alto": 596,
-      "sha256": "d521cb4ba5edb6e35041f668ce751f243954b0208ed579aa143efe523a8cf651",
-      "origen": "5e681fc099466e4cdeb23ca9ba12d9f3f5b441d13bf6a54628b5bd8d0b86a208",
+      "sha256": "fcbc3bc27c15f6c68ac5a1194bd44979e07453408a1100b4ab152ccb86617d91",
+      "origen": "5ab2fa2cb5a974bdf91d4d8227c5d652a9c2fb8096cf6d6dbb40d007ab0b64ee",
       "tramo": 4,
       "en": [
         757,
@@ -161,21 +161,21 @@
     "templarios_pueblo": {
       "imagen": "templarios_pueblo.webp",
       "ancho": 404,
-      "alto": 396,
-      "sha256": "112dd4c5c194dac2d13928f8c59c93e2f4a4a3dd39519e5acbcbd4ccbd238359",
-      "origen": "255bcda1cef2390482a8576f6226e3426ffa7e539c470bc957677f140a0e094e",
+      "alto": 390,
+      "sha256": "fe216c024271cf62af5ef02a186a2cff0b27ba76423a6b76b059a2fb621f39fc",
+      "origen": "e12f6c850aafa4902bdc06152048f6411ee02e573209a2fe7710a771dbd1396d",
       "tramo": 3,
       "en": [
         108,
-        273
+        234
       ]
     },
     "templarios_forja": {
       "imagen": "templarios_forja.webp",
       "ancho": 681,
       "alto": 505,
-      "sha256": "c18181901fa6ac367df258e8c6e29c65677412db88d9d3530687b6b91c6417b2",
-      "origen": "5d16412eb4393ba3ff652e002814bd9aa9fb0d733db19184ae611b7986d3b4b4",
+      "sha256": "4a7f6db9150e0f22512442baae35a42137cf358ea861ef3a01793c496bb504a1",
+      "origen": "f98b286acb7b95ff1a0be35bd157176fff94c95843da190b378d2be0cd0868b1",
       "tramo": 5,
       "en": [
         74,
@@ -186,8 +186,8 @@
       "imagen": "templarios_establos.webp",
       "ancho": 781,
       "alto": 467,
-      "sha256": "fc223d3843be1ca25acdfb6d245b5816e5d008aebf0b355b91dc4f4325c7ee9b",
-      "origen": "3768dded9e0466d0f53dd22ed790a904c64b173b72f8985477bda13c70d61d6e",
+      "sha256": "c63705a82d72139876324f722cec71b4f72d7210012889e5628ee98363b7eb7e",
+      "origen": "10ab2b42cc2fec0c8cfe210c5426690ce04076cf571763b119988e663d5dc600",
       "tramo": 5,
       "en": [
         755,
@@ -198,11 +198,61 @@
       "imagen": "templarios_monasterio.webp",
       "ancho": 650,
       "alto": 803,
-      "sha256": "c56c15c0187e4a41ee68f7ff2d3cc03ae3f0d2679dec294b4554c0fead3d6145",
-      "origen": "a645692a98e741a674888e868b78118a438e328f359c9df545ece7faf0e76138",
+      "sha256": "913c122c69c51679269a781161af701214ee175f6a015bf3dd70c0432f911f44",
+      "origen": "19a9f22146f16d4506c720c8e45cf1b322febf911b32c5b4d1d8b3847f304560",
       "tramo": 1,
       "en": [
         14,
+        0
+      ]
+    }
+  },
+  "abiertas": {
+    "templarios_pueblo": {
+      "imagen": "abierta-templarios_pueblo.webp",
+      "ancho": 404,
+      "alto": 469,
+      "sha256": "9f5f247e9fd0f60c95bf463c107ccf05167a3ea882db80d9ae1d037310000252",
+      "origen": "cf20927ad32e4789ba55aada59bc8381a3a9a61315e43fc485d767a1e547d1ce",
+      "tramo": 3,
+      "en": [
+        108,
+        155
+      ]
+    },
+    "templarios_forja": {
+      "imagen": "abierta-templarios_forja.webp",
+      "ancho": 678,
+      "alto": 502,
+      "sha256": "7fbc30f9994f5838949bb4e41df2cc8cfd9d7c129295a6254d4c23c686240a0d",
+      "origen": "a23552bbcdb350bbdc0555c8d9840dfcab32f6d41ef7ed0e863e268b7ba887a6",
+      "tramo": 5,
+      "en": [
+        77,
+        211
+      ]
+    },
+    "templarios_establos": {
+      "imagen": "abierta-templarios_establos.webp",
+      "ancho": 781,
+      "alto": 461,
+      "sha256": "efd8759c1590d20002a4d5e8cea0d0eef6b449a88741d404481f2676537afa84",
+      "origen": "8e4cb8f793b2b06734552624aeb1f6f692463e438a51441d587df147d7aff845",
+      "tramo": 5,
+      "en": [
+        755,
+        243
+      ]
+    },
+    "templarios_monasterio": {
+      "imagen": "abierta-templarios_monasterio.webp",
+      "ancho": 647,
+      "alto": 799,
+      "sha256": "6693312572b63a42101223bab43df76d83ad0eb68de411344c1fa53c6a65b232",
+      "origen": "912600a4e6599c0c54d21f97181a1a4b6e3cd2a6e04bb266adbdd0a450a69389",
+      "tramo": 1,
+      "en": [
+        17,
         0
       ]
     }

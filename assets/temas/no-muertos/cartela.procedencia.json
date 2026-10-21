@@ -1,0 +1,58 @@
+{
+  "encargo": "tema-05-cartela-no-muertos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:22:38.546Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b50-22a6-7ba1-81ac-05533adf7208",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema NO MUERTOS: hierro negro forjado con calaveras, telarañas y velas de llama verde-cian, acentos cian y hueso, y estandartes morados con la cruz invertida. La CARTELA VACÍA que cuelga sobre el borde de arriba del mapa: una cinta o placa horizontal, unas seis veces más ancha que alta, con sus remates en las puntas y el centro liso donde el juego escribe el lema. Placa de hierro negro con un ribete cian y una calavera pequeña en cada punta, sin runas ni letras.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs una TIRA que el juego estira a lo ancho: el 15 % de la izquierda y el 15 % de la derecha son sus REMATES, que se pintan una vez y llevan los adornos; lo de en medio se estira, así que va liso y uniforme de punta a punta, sin adornos sueltos ni nada centrado.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/no-muertos.png",
+      "papel": "estilo",
+      "sha256": "0a063843bbdb6ee1655c7554d3366c3aff7acc5c5aedd27027d9d2c8a5429956"
+    },
+    {
+      "ruta": "assets/art/temas/no-muertos.png",
+      "papel": "pieza",
+      "sha256": "0a063843bbdb6ee1655c7554d3366c3aff7acc5c5aedd27027d9d2c8a5429956",
+      "recorte": {
+        "x": 80,
+        "y": 95,
+        "w": 870,
+        "h": 40
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/cartela.png",
+      "papel": "corte",
+      "sha256": "2ba87d0ded43c1885dbd14632e6776c5f864e7a0f9dadf5f9e5b4ce7b7c75d8a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b50-22a6-7ba1-81ac-05533adf7208/exec-fc8f9b45-3ded-4a5d-b25b-5bd353b12b38.png",
+    "sha256": "cdd7094210ad0157208c3fb6cf78a18d90323d41c7f68e677f7d19df30c93424",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 2146×307 a 768×110, dentro de 768×128",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 23 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.22970211023269538,
+    "opacos": 0.9878714221248959,
+    "haloSuelto": 0,
+    "ancho": 2172,
+    "alto": 724
+  },
+  "salida": {
+    "ruta": "assets/temas/no-muertos/cartela.webp",
+    "sha256": "10cde924663c6f4c89d439475081cf00aecd0353ae182922d8b17385d1f3184f"
+  }
+}

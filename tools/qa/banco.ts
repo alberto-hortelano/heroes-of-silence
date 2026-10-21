@@ -1086,11 +1086,38 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 991 → 1 794, `troop_rank_up` 2 642 → 2 529, `hero_defeated` 331 → 264.
  *   Ningún tipo de hecho nuevo; `item_bought` 3 → 0 (era una rareza: no se
  *   retiró nada).
+ * - `3daacbe6…` (40 587 líneas, 19-10-2026): **el héroe nace dentro de su base**
+ *   (`docs/agents/2026-10-19-arranque-y-faccion/`): fuera `MapPlan.heroStarts`, y
+ *   el generador ya no reserva la vecina de cada base para el inicio. Cambia
+ *   todo, a propósito: **0 de 200 idénticas**. En 187 el primer hecho distinto es
+ *   el hecho 11, la primera jugada del día 1 del j0: donde antes andaba
+ *   (`hero_moved`), con el héroe dentro la IA recluta en su tropa (`recruited`,
+ *   66) o la cambia (`dismissed`, 121: licencia lo de salida para meter algo
+ *   mejor, `planCambio`). En las otras 13, un `raider_spawned` del día 1 en otra
+ *   casilla: la vecina que ya no se reserva mueve lo que se coloca después. 0 sin
+ *   terminar; j0 99 → 97, duración 4 / 8 / 21 → **4 / 6 / 23**; batallas 1 041 →
+ *   968, días 960 → 862, `recruited` 1 794 → 2 090, `dismissed` 387 → 1 159,
+ *   `garrison_taken` 391 → 271 (el héroe ya no entra en casa el día 1 para
+ *   salir), `hero_defeated` 264 → 245. Ningún tipo de hecho nuevo.
+ * - `3406f518…` (41 434 líneas, 19-10-2026): **la IA recluta del más fuerte al más
+ *   flojo** (`planRecruits`, por `unitPower` y no por la morada del revés: la morada
+ *   no es un nivel). Antes reclutaba algo flojo y lo licenciaba en la misma jugada
+ *   para meter algo más fuerte: 180 veces en el banco (76 en el ancla de
+ *   `1c496b88…`), 1 ahora, y esa no es la misma tropa (recluta en la guarnición de
+ *   su base y licencia de la tropa del héroe en otra ciudad). **9 de 200
+ *   idénticas**; en las otras 191 el primer hecho distinto es un reclutamiento
+ *   (`recruited` → `recruited` 129, → `dismissed` 55; `dismissed` → `dismissed` 7),
+ *   del día 1 al 4. 0 sin terminar; j0 97 → 103, duración 4 / 6 / 23 → 4 / 6 / 22;
+ *   batallas 968 → 998, días 862 → 888, `dismissed` 1 159 → 977, `recruited`
+ *   2 090 → 2 092, `garrison_taken` 271 → 300, `hero_defeated` 245 → 273. Las
+ *   batallas contra monstruos y asaltantes siguen en 0 (eran 23 y 6 en
+ *   `1c496b88…`): no es esto, ver `docs/historia.md` («El héroe nace dentro de
+ *   su base»).
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '1c496b88ca817b7beed16539aa4ced5c918969afd34c55fcc69328490bd31140',
+  sha: '3406f5185d1fe27af3ad9320a84620dffce104e6ab480f8857b4e3dc613d5a94',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

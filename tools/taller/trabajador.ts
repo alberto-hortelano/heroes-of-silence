@@ -46,7 +46,8 @@
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
  *   pnpm taller encolar --base templarios [--solo=maestro-t1,placa-t1,…]
  *                                        la plaza de la base en un solo cuadro (vuelta 3, `base.ts`): maestro, placa y ediciones de cada tramo
- *   pnpm taller recortar-base templarios     deriva los tramos (lo de encima del pie), el suelo y cada recorte, y rehace el índice (`recorte-base.ts`)
+ *                                        y, con `--solo=retoque-<id>,abierta-<id>`, el retoque de un edificio y la versión abierta de cada morada
+ *   pnpm taller recortar-base templarios     deriva los tramos (lo de encima del pie), el suelo, cada recorte y cada versión abierta, y rehace el índice (`recorte-base.ts`)
  *   pnpm taller medir-base templarios [n]    propone las regiones de un tramo, para `data/bases/templarios.json`
  *   pnpm taller vista-base templarios [dir]  la revisión: tramos, máscaras, compuesta, costuras y eslabones
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
@@ -94,7 +95,7 @@ import {
   escribirGuiasDeBajadas,
   NIVELES_DE_BAJADA,
 } from './bajadas.js';
-import { encargosDeLaBase, escribirFuentesDeLaBase } from './base.js';
+import { ARTE_DE_LA_BASE, encargosDeLaBase, escribirFuentesDeLaBase } from './base.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import {
@@ -127,6 +128,7 @@ import {
   recortarAlContenido,
 } from './empaquetar.js';
 import { alturaDelReposo, type Encargo, filasDeAtlas, promptDe } from './encargo.js';
+import { encogerElTramo } from './encoger-base.js';
 import { escribirCatalogo } from './escenario/catalogo-disco.js';
 import { escenario, recortesDeSemilla } from './escenario/escenario.js';
 import {
@@ -656,6 +658,44 @@ async function reprocesar(id: string): Promise<void> {
   }
 }
 
+/**
+ * Encola `todos`, o solo los que nombra `--solo=` por su nombre corto (`corto`),
+ * olvidándolos antes con `--rehacer` y sin repetir lo que ya está en la cola. Un
+ * nombre de `--solo=` que no está lanza diciendo cuáles hay; `tambien` acepta los
+ * que existen pero aún no se pueden encolar (lo que espera en la base). Lo usan
+ * las tablillas y la base.
+ */
+async function encolarConSolo(
+  args: readonly string[],
+  todos: readonly Encargo[],
+  corto: (id: string) => string,
+  tambien: (nombre: string) => boolean = () => false,
+): Promise<void> {
+  const solo = args
+    .find((x) => x.startsWith('--solo='))
+    ?.slice('--solo='.length)
+    .split(',');
+  const desconocidos = (solo ?? []).filter(
+    (s) => !todos.some((e) => corto(e.id) === s) && !tambien(s),
+  );
+  if (desconocidos.length > 0) {
+    throw new Error(
+      `--solo: no hay ${desconocidos.join(', ')}; se pueden pedir ${todos.map((e) => corto(e.id)).join(', ')}`,
+    );
+  }
+  await COLA.preparar();
+  for (const bruto of todos) {
+    if (solo !== undefined && !solo.includes(corto(bruto.id))) continue;
+    if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+    const estado = await COLA.estado();
+    if (Object.values(estado).some((ids) => ids.includes(bruto.id))) {
+      console.log(`ya está en la cola: ${bruto.id}`);
+      continue;
+    }
+    console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+  }
+}
+
 async function encolar(args: readonly string[]): Promise<void> {
   if (args.includes('--piezas-mapa')) {
     for (const bruto of encargosDePiezas()) {
@@ -672,21 +712,11 @@ async function encolar(args: readonly string[]): Promise<void> {
     return;
   }
   // Las tablillas por rumbo y la muralla norte-sur (§29). `--solo=oeste,norte`
-  // o `--solo=muro-ns-1`, por el id sin el prefijo del encargo.
+  // o `--solo=muro-ns-1`, por el id sin el prefijo del encargo. Lo que ya está en
+  // la cola no se repite.
   if (args.includes('--tablillas') || args.includes('--muralla-ns')) {
     const todos = args.includes('--tablillas') ? encargosDeTablillas() : encargosDeMurallaNS();
-    const sinPrefijo = (id: string) => id.replace(/^mapa-(nodo-hito-tablilla-)?/, '');
-    const solo = args
-      .find((x) => x.startsWith('--solo='))
-      ?.slice('--solo='.length)
-      .split(',');
-    const lista = todos.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
-    if (solo !== undefined && lista.length !== solo.length)
-      throw new Error(`--solo: hay ${todos.map((e) => sinPrefijo(e.id)).join(', ')}`);
-    for (const bruto of lista) {
-      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
-      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
-    }
+    await encolarConSolo(args, todos, (id) => id.replace(/^mapa-(nodo-hito-tablilla-)?/, ''));
     return;
   }
   if (args.includes('--cofre')) {
@@ -710,30 +740,12 @@ async function encolar(args: readonly string[]): Promise<void> {
     // `--solo=`: por el id sin `base-<facción>-`. Con `--rehacer`, solo esos se
     // olvidan: sin él, `--rehacer` volvería a pedir la base entera.
     const prefijo = `base-${faccion}-`;
-    const solo = args
-      .find((x) => x.startsWith('--solo='))
-      ?.slice('--solo='.length)
-      .split(',');
-    const desconocidos = (solo ?? []).filter(
-      (s) =>
-        !listos.some((e) => e.id === prefijo + s) && !esperan.some((e) => e.startsWith(`${s} `)),
+    await encolarConSolo(
+      args,
+      listos,
+      (id) => id.slice(prefijo.length),
+      (s) => esperan.some((e) => e.startsWith(`${s} `)),
     );
-    if (desconocidos.length > 0) {
-      throw new Error(
-        `--solo: no hay ${desconocidos.join(', ')}; se pueden pedir ${listos.map((e) => e.id.slice(prefijo.length)).join(', ')}`,
-      );
-    }
-    await COLA.preparar();
-    for (const bruto of listos) {
-      if (solo !== undefined && !solo.includes(bruto.id.slice(prefijo.length))) continue;
-      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
-      const estado = await COLA.estado();
-      if (Object.values(estado).some((ids) => ids.includes(bruto.id))) {
-        console.log(`ya está en la cola: ${bruto.id}`);
-        continue;
-      }
-      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
-    }
     for (const e of esperan) console.log(`espera: ${e}`);
     return;
   }
@@ -1028,6 +1040,16 @@ switch (orden) {
       `placas: ${indice.tramos.map((t, i) => `T${i + 1} ${t === null ? 'falta' : 'sí'}`).join(' · ')}`,
     );
     for (const a of avisos) console.log(`aviso: ${a}`);
+    break;
+  }
+  case 'encoger-base': {
+    const uso = 'pnpm taller encoger-base <facción> [tramo]';
+    const faccion = faccionDe(resto[0], uso);
+    const tramos =
+      resto[1] === undefined
+        ? Object.keys(ARTE_DE_LA_BASE[faccion].encoger).map(Number)
+        : [Number(resto[1])];
+    for (const n of tramos) console.log(`→ ${await encogerElTramo(faccion, n)}`);
     break;
   }
   case 'medir-base': {

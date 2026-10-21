@@ -1,0 +1,40 @@
+{
+  "encargo": "base-imperio-abierta-imperio-pueblo",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:14:39.965Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a84-7b9e-7050-a52b-8ca8d0b42e28",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (el pueblo, el que está entre las columnas 64 y 515) se ABRE como una CASA DE MUÑECAS: se le quita la PARED DE DELANTE (la fachada entera, con su puerta y sus ventanas) y se ve su sala por dentro: una sala de alistamiento: una mesa con un libro de registro y una pluma, picas y alabardas en armeros, morriones en un estante y un estandarte rojo y negro.\nEs el MISMO edificio, en el MISMO sitio, con el MISMO tamaño y el MISMO contorno: el tejado y los muros de los lados se quedan, cortados limpios donde estaba la fachada, y se ve el grueso de la pared en el corte. El suelo de la sala va a ras del borde de atrás del empedrado, donde estaba el umbral de la puerta, y la sala se ve desde la plaza con la misma cámara que todo el cuadro (ortográfica, elevada 25 grados, de frente). La luz de dentro, la de su fuego, sus ventanas o sus cirios, sobria.\nA la escala de la plaza: un adulto mide 122 px de alto en este cuadro, y los muebles van a su medida (un banco o un saco, a su rodilla; una mesa, un yunque o un altar, a su cadera). La sala va VACÍA: ninguna persona ni animal, que la gente del juego se pone delante, en el empedrado.\nFuera de ese edificio, NADA cambia: ni los otros edificios, ni el suelo, la luz, el cielo, el encuadre o lo que cierra la plaza. Lo nuevo no pasa de las columnas 64 y 515.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/imperio/fuentes/maestro-t3.webp",
+      "papel": "edita",
+      "sha256": "0815c372b376eafa7d6f54db3287bb383d7bbd3aedf4b3c648653eebf0a5b67f"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a84-7b9e-7050-a52b-8ca8d0b42e28/call_f4611df0bcbf4eeea60405c7b3645ff4.png",
+    "sha256": "23349bff6d87f9ca38160d04b6b46a278bb8263aaabf59c6bc158918f77d4b70",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 11 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (515) y x1 (990)",
+    "castle: lo recortado toca el borde de su región en x0 (990)",
+    "imperio_pueblo: lo recortado toca el borde de su región en x1 (515)",
+    "imperio_pueblo abierta: lo recortado toca el borde de su región en x1 (515)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/imperio/fuentes/abierta-imperio_pueblo.webp",
+    "sha256": "5c0ed0c03ecceda159c0abdaa05577801aaef6df1fee49b6ad90a7b68ec7fbde"
+  }
+}

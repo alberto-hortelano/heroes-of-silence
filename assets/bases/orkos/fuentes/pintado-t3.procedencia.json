@@ -1,0 +1,46 @@
+{
+  "encargo": "base-orkos-maestro-t3",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:22:23.119Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a54-8506-7a80-bb4d-d17db367a8a6",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 3 es la GUÍA DE LA PLAZA: el gris CLARO de abajo es el empedrado por el que se anda, solo esa franja baja; cada punto oscuro numerado sobre su borde de atrás es donde va el UMBRAL de la PUERTA del edificio con ese número; y junto a cada punto hay una SILUETA OSCURA DE UN ADULTO de pie, a su tamaño real en este cuadro: es la VARA DE MEDIR de todo. No pintes sus grises lisos, sus puntos, sus números ni sus siluetas.\n\nLa imagen 2 da además la heráldica de la facción (una garra roja pintada sobre madera y pieles).\nEl TRAMO 3 de 5, de izquierda a derecha, de la PLAZA de un campamento fortificado de orkos, vista DE CERCA. Formato apaisado de 1536×1024. Cámara ORTOGRÁFICA elevada 25 grados sobre la horizontal, DE FRENTE, como el escenario de un combate visto de lado. Nunca cenital ni de perfil. Paredes verticales, nada inclinado.\nLA SILUETA DE LA GUÍA ES LA VARA DE MEDIR: un adulto de 122 px de alto da la escala de TODO el cuadro. La PUERTA de cada edificio es un poco MÁS ALTA que la silueta que tiene al lado (la puerta, unos 154-166 px), y las ventanas, plantas, aleros y tejados a esa misma escala, como para gente de ese tamaño. Con esa escala los edificios son GRANDES en el cuadro: llenan el alto de la imagen por encima de la franja del suelo, y los que de verdad son altos se salen por el borde de arriba, cortados. Eso está bien: no los encojas para que quepan.\nLos 3 edificios, numerados de izquierda a derecha como los puntos de la guía (1: el pueblo: una choza grande de troncos y pieles, con un tejado de pieles y huesos y una puerta de troncos; 2: el ayuntamiento: el gran salón del jefe, una casa larga de troncos con tejado de pieles y chapa de hierro, y colmillos de bestia sobre la puerta; 3: el castillo: un fuerte de piedra tosca y troncos aguzados, torres de madera con plataformas, un portón de troncos reforzado con chapa oxidada y estandartes rojos con la garra), cada uno con el umbral de su puerta en su punto, a ras del borde de atrás del suelo. Cada uno con PROPORCIONES NORMALES, ni estirado en alto ni estrechado, y con la heráldica y los materiales de la facción. Cada edificio DE FRENTE, con la fachada PARALELA al plano del cuadro: sin pared lateral ni faldón del tejado en escorzo, el zócalo horizontal. Entre ellos queda aire: se lee como una plaza, no como una calle.\nSOLO el edificio de cada uno: sin carretas, huertos, cercas, mesas ni objetos sueltos delante.\nNO AÑADAS PLAZA DELANTE: el suelo (la tierra batida con piedras) es solo la franja gris clara de abajo, poco honda y PLANA, con su borde de atrás RECTO y a la MISMA ALTURA de punta a punta de la imagen; el pie de cada edificio, de cada muro y de cada pilar va justo en ese borde. Nada de terreno vacío entre esa franja y los edificios, ni escalones, ni aceras.\nLA JUNTA, en los dos bordes de la imagen: la franja VERDE OSCURA de la guía (las 176 columnas pegadas a cada borde) es UN PINO ALTO Y FRONDOSO, de copa densa verde oscura, que sube desde lo alto del muro hasta el BORDE DE ARRIBA de la imagen y queda CORTADO por el borde lateral, como si el árbol siguiera fuera. El rectángulo PARDO a su pie es un PILAR de piedra tosca de la empalizada, recto y vertical, con su pie en el borde de atrás del suelo, y detrás de él asoma el tronco. En esas columnas no hay cielo, ni casas, ni tejados: solo el pilar, el tronco y las hojas, de arriba abajo hasta el suelo.\nDetrás de los edificios y en los huecos que dejen entre ellos, lo que cierra la plaza: la empalizada de troncos aguzados, chozas de troncos y pieles, rocas grandes y algún pino; sin puertas principales, ni carteles, ni banderas. Por encima de los tejados, algo de cielo.\nNADA de campo abierto, horizonte ni muralla. Ninguna persona, animal, carro, puesto suelto ni texto. Una sola luz para toda la imagen: un solo cuadro pintado de una vez. No pintes los grises lisos, los puntos, los números, las siluetas ni las franjas de color de la guía: son indicaciones.\nPALETA: SOBRIA y terrosa, como la imagen 1: troncos pardos, pieles, piedra tosca gris, hierro oxidado, barro; la pintura roja de guerra como único color vivo. Luz de TARDE NEUTRA, ni dorada ni naranja: cielo gris nublado, sin puesta de sol. Sombras suaves.\nEstilo: ilustración pintada de fantasía medieval oscura, materiales gastados.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "papel": "estilo",
+      "sha256": "cd64488118da9d64d21496454e5a924b3715dcd0b0bae3baec82912d1e894e63"
+    },
+    {
+      "ruta": "assets/bases/orkos/fuentes/guia-t3.png",
+      "papel": "plaza",
+      "sha256": "9f439e4a79111385acf0ae03fa247dce81bd846ae90a958a6177be5a2186de3f"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a54-8506-7a80-bb4d-d17db367a8a6/call_cde32646d3444d20849204d9ef129bba.png",
+    "sha256": "3891651afa50c2668d4e9de4caeac245799f6b8fe790abd7520a5b0000755657",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 0 edificios, placas 0 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/orkos/fuentes/maestro-t3.webp",
+    "sha256": "6fb7d8d539bd24bc7e257160ddbaadf3ee06c90ce611fdd58600bfab9edfe878"
+  }
+}

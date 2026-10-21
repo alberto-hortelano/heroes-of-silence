@@ -19,9 +19,9 @@ import { z } from 'zod';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
 import { PODERES, queHaceElPoder } from '../battle/poderes.js';
+import { HERO_BODY } from '../battle/types.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
-import { HERO_BODY } from '../hero/hero.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
 import {
   BARRERAS,
@@ -220,7 +220,15 @@ export const mapPlanSchema = z.object({
       owner: z.number().int().nullable(),
     }),
   ),
-  heroStarts: z.array(z.object({ player: z.number().int(), at: pointSchema })),
+  // Retirado el 19-10-2026: el héroe nace en su base. Se rechaza diciéndolo en
+  // vez de dejar que zod lo quite en silencio, que es lo que hace con un campo
+  // que no conoce: el agente que aún lo mande creería que sus inicios valen.
+  heroStarts: z
+    .never({
+      message:
+        'ya no hay "heroStarts": el héroe de cada jugador empieza dentro de su base (su primera ciudad en "towns"); quita el campo',
+    })
+    .optional(),
   mines: z.array(z.object({ at: pointSchema, resource: resourceSchema })),
   villages: z.array(z.object({ name: nombreDeMapa('un pueblo'), at: pointSchema })),
   resources: z.array(
@@ -648,8 +656,9 @@ ${HITS.map((h) => `"${h}"`).join(', ')}.
 
 El plan NO es una imagen ni una rejilla: describe el mapa y el motor lo
 construye. Campos: width, height, baseTerrain, patches[], regions[], walls[],
-nodes[], towns[], heroStarts[], mines[], villages[], resources[], monsters[],
-chests[], roads?, raiders?.
+nodes[], towns[], mines[], villages[], resources[], monsters[], chests[],
+roads?, raiders?. No hay posiciones de inicio: el héroe de cada jugador empieza
+DENTRO de su base.
 
 El mapa es una RED DE NODOS, y eso se comprueba:
 - Una REGIÓN es una zona por la que se anda libre, cerrada por muro. Cada una se
@@ -698,20 +707,20 @@ El mapa es una RED DE NODOS, y eso se comprueba:
   separan nada. Los muros se pintan encima.
 - Una ciudad neutral ("owner": null) nace con guarnición: hay que vencerla para
   tomarla. La base de cada jugador —su PRIMERA ciudad en "towns"— nace también
-  con guarnición, de la facción de su dueño; sus otras ciudades nacen vacías.
+  con guarnición, de la facción de su dueño, y su héroe empieza dentro; sus
+  otras ciudades nacen vacías.
 
 Reglas que se validan antes de aceptarlo:
 - Mínimo ${LADO_MINIMO_DEL_PLAN}×${LADO_MINIMO_DEL_PLAN}, máximo ${LADO_MAXIMO_DEL_PLAN}×${LADO_MAXIMO_DEL_PLAN}.
-- Al menos dos ciudades y dos posiciones de inicio, y cada jugador con una ciudad.
-- Dos cosas no pueden compartir casilla, y las posiciones de inicio TAMBIÉN
-  ocupan la suya: dos héroes juntos, o un héroe encima de una ciudad, se
-  rechazan.
-- Todo lo que no es nodo ni ciudad —minas, pueblos, recursos, monstruos, cofres
-  e inicios— va DENTRO de una región, nunca sobre un muro ni sobre un nodo.
+- Al menos dos ciudades, y cada jugador de "want.players" tiene al menos una
+  ciudad: la primera suya es su base y su héroe empieza dentro.
+- Dos cosas no pueden compartir casilla.
+- Todo lo que no es nodo ni ciudad —minas, pueblos, recursos, monstruos y
+  cofres— va DENTRO de una región, nunca sobre un muro ni sobre un nodo.
 - Un camino ("roads") solo va por casillas que se pisan —una región, un nodo o
   una ciudad—. Uno sobre una barrera se rechaza diciendo la casilla: pintado
   encima de un acantilado diría que por ahí se pasa, y no se pasa.
-- Desde cada inicio se debe poder llegar a pie a todas las ciudades.
+- Desde cada base se debe poder llegar a pie a todas las ciudades.
 - "monsters[].creature" tiene que ser un id de criatura que exista: usa los de
   "palette.creaturesForGuards", que están escritos como los espera el motor.
   Distingue mayúsculas ("zombi" sí, "Zombi" no) y no vale inventarse una:
@@ -729,15 +738,16 @@ Reglas que se validan antes de aceptarlo:
   "palette.raiders.maxStrength" —la fuerza es, sumada por individuo, el daño
   medio por los puntos de vida; los de "palette.raiders.examples" valen todos—.
   Y dónde: dentro de una región, a dos casillas o más de cualquier nodo o
-  ciudad —pegado a uno taparía el paso—, en una región sin dueño y en una donde
-  no empiece ningún héroe. Sí puede ir en las regiones que tocan una base.
-- Un "towns[].owner" tiene que ser un jugador CON posición de inicio en este
-  mismo plan. Para dejar una ciudad neutral, "owner": null.
+  ciudad —pegado a uno taparía el paso— y en una región sin dueño. Sí puede ir
+  en las regiones que tocan una base.
+- Un "towns[].owner" tiene que ser uno de los jugadores de "want.players": ahí
+  van sus números, así que no hay nada que deducir, y una ciudad de otro jugador
+  se rechaza. Para dejar una ciudad neutral, "owner": null.
 - Devuelve el "width" y el "height" que se te piden en "want": el servidor
   compara la partida con agente contra la que jugaría sin él, y un tamaño
   distinto las hace incomparables.
-- El ORDEN en que escribas "heroStarts" no decide nada: el servidor ordena los
-  jugadores por su número, así que el 0 abre la partida lo escribas donde lo
+- El ORDEN en que escribas las ciudades no decide quién abre: el servidor ordena
+  los jugadores por su número, así que el 0 abre la partida lo escribas donde lo
   escribas.
 - El "id" de una ciudad o de una región es un identificador, no un rótulo:
   minúsculas, letras, dígitos, guion y guion bajo, empezando por letra o dígito,
@@ -747,10 +757,6 @@ Reglas que se validan antes de aceptarlo:
   de control ni marcas de dirección, sin empezar por un acento suelto, no en
   blanco, sin caracteres invisibles (salvo los que forman un emoji) ni de uso
   privado, hasta 40 caracteres.
-- "heroStarts" tiene que traer EXACTAMENTE los jugadores de "want.players", uno
-  por jugador: ahí van sus números, así que no hay nada que deducir. Sin repetir
-  ninguno y sin inventarte un tercero. Un inicio de más deja dos héroes con el
-  mismo id; un jugador sin inicio se queda sin héroe y sin turnos.
 Si el plan no vale, se juega el mapa del generador procedimental y te llega la
 lista de problemas como aviso: no se te vuelve a pedir.`,
 

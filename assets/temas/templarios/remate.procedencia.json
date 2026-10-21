@@ -1,0 +1,53 @@
+{
+  "encargo": "tema-06-remate-templarios",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T18:57:07.308Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b38-c8b6-7a51-af79-819cfd975a7b",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\n\nTema TEMPLARIOS: piedra gótica gris oscura tallada con tracería y pináculos, madera oscura, pergamino claro y el rojo de la cruz paté de los templarios, con remates de latón viejo. El REMATE que corona el centro del borde de arriba del mapa: un adorno suelto, más ancho que alto, que se ve entero y pequeño (unos 36 px de alto en pantalla), así que con la silueta clara y sin detalle menudo. Un escudo heráldico de plata con la cruz paté roja, entre dos volutas de piedra tallada.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/templarios.png",
+      "papel": "estilo",
+      "sha256": "d2dd32d800395f7f14c8e16a1edaedf88438cdaa4a349ff6b2dc6c8ae28188cb"
+    },
+    {
+      "ruta": "assets/art/temas/templarios.png",
+      "papel": "pieza",
+      "sha256": "d2dd32d800395f7f14c8e16a1edaedf88438cdaa4a349ff6b2dc6c8ae28188cb",
+      "recorte": {
+        "x": 455,
+        "y": 48,
+        "w": 98,
+        "h": 96
+      }
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b38-c8b6-7a51-af79-819cfd975a7b/exec-962fd2ec-3471-4c83-acd7-32649d480639.png",
+    "sha256": "ef6d07a9f3c6352f15d4a836bcd07b559c790057eace7193ae857349acb234ea",
+    "ancho": 2006,
+    "alto": 784
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 1848×661 a 512×183, dentro de 512×256",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 1 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.33685041813335503,
+    "opacos": 0.9936462513638097,
+    "haloSuelto": 0,
+    "ancho": 2006,
+    "alto": 784
+  },
+  "salida": {
+    "ruta": "assets/temas/templarios/remate.webp",
+    "sha256": "e8e4c5cc98e08049b3b48eeea4057971b655de4e6a05dc6522daea50441e589b"
+  }
+}

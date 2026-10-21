@@ -914,7 +914,8 @@ describe('el generador hace redes como las pidió el usuario', () => {
 
     // Sin base: la base del jugador 0 pierde el tramo de su casa.
     const base = plan.towns.find((t) => t.owner === 0)!;
-    const casa = red.regionDe[indice(plan.heroStarts[0]!.at)]!;
+    // La casa del jugador 0 es la región 0 del procedimental.
+    const casa = 0;
     const sinBase = tramos.filter(
       (t) => !(toca(t, base.at) && t.some((q) => red.regionDe[indice(q)] === casa)),
     );
@@ -1265,6 +1266,25 @@ describe('la barrera que cruza cada nodo del generador (#145, #187)', () => {
     const semillas = segunPrisa([28, 203, 646, 652, 896], rango(1, 1000));
     expect(semillas.flatMap(malCruzados)).toEqual([]);
   });
+});
+
+describe('cada nodo toca las regiones que le llevan camino', () => {
+  it('el vestido que aparta a un nodo de una de ellas se tira y sale otro (64×64 s8)', () => {
+    // El engorde de las fronteras dejó la ciudad de (7,8) sin la región 4, que le
+    // llevaba camino, y el centro de la región 4 no tenía desde dónde llegar a
+    // ella: `centroDeRegion` lanzaba y tumbaba la generación. Sin el
+    // veto de `vestirRed`, este test lanza.
+    const tirados: string[] = [];
+    const plan = generateMapPlan(createRng(8), {
+      width: 64,
+      height: 64,
+      alTirarUnVestido: (_fase, motivo) => tirados.push(motivo),
+    });
+    expect(validateMapPlan(plan)).toEqual([]);
+    expect(tirados.filter((m) => /no toca la región \d+, que le lleva camino/.test(m))).toEqual([
+      'el nodo de (7,8) no toca la región 4, que le lleva camino: el engorde lo apartó de ella',
+    ]);
+  }, 60_000);
 });
 
 describe('los caminos de cada región salen de su centro', () => {

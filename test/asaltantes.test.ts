@@ -601,7 +601,7 @@ describe('el plan de mapa con asaltantes', () => {
     expect(buildMap({ ...plan, raiders: undefined }).raiders).toEqual([]);
   });
 
-  it('se rechazan con su frase: criatura falsa, de más, pegado a un nodo, donde empieza un héroe, sobre un muro', () => {
+  it('se rechazan con su frase: criatura falsa, de más, pegado a un nodo, sobre un muro', () => {
     const plan = base();
     const uno = plan.raiders![0]!;
     const con = (r: { at: Point; troops: readonly { creature: string; count: number }[] }) =>
@@ -640,18 +640,6 @@ describe('el plan de mapa con asaltantes', () => {
       (p) => regionDeCasilla(map, p) >= 0 && objectAt(map, p) === undefined,
     )!;
     expect(con({ at: pegada, troops: uno.troops })).toMatch(/pegado a un nodo/);
-    const inicio = plan.heroStarts[0]!.at;
-    const casa = regionDeCasilla(map, inicio);
-    const enCasa = red.regionDe.findIndex(
-      (r, i) =>
-        r === casa &&
-        !tocaUnNodo(map, { x: i % map.width, y: Math.floor(i / map.width) }) &&
-        objectAt(map, { x: i % map.width, y: Math.floor(i / map.width) }) === undefined &&
-        pointKey({ x: i % map.width, y: Math.floor(i / map.width) }) !== pointKey(inicio),
-    );
-    expect(
-      con({ at: { x: enCasa % map.width, y: Math.floor(enCasa / map.width) }, troops: uno.troops }),
-    ).toMatch(/donde empieza un héroe/);
     const muro = map.terrain.indexOf('mountain');
     expect(
       con({ at: { x: muro % map.width, y: Math.floor(muro / map.width) }, troops: uno.troops }),

@@ -40,6 +40,7 @@ import {
   pasosAPintar,
   SITIOS_DE_LA_INICIAL,
 } from '../src/client/render/mapa.js';
+import { dondeEsperaEnLaMorada } from '../src/client/render/morada/fila.js';
 import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/client/render/palette.js';
 import { CUERPO_DE_VECINO } from '../src/client/render/personajes.js';
 import {
@@ -65,7 +66,6 @@ import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
 import { building } from '../src/core/town/buildings.js';
-import { dwellings } from '../src/core/town/town.js';
 import type { Hex } from '../src/core/types.js';
 import {
   bordeDeAtras,
@@ -80,7 +80,7 @@ import {
   sesionContraMonstruo,
   sesionesContraMonstruo,
 } from './batalla-de-cliente.js';
-import { agresiva, anteLaBase, primeraSemillaCon } from './helpers.js';
+import { agresiva, anteLaBase, fueraDeSuBase, primeraSemillaCon } from './helpers.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca
@@ -269,7 +269,8 @@ describe('el mapa con el dedo', () => {
 
   it('pulsar la casilla del propio héroe dice algo verdadero, no «No hay camino»', () => {
     const s = new Session(2);
-    const heroe = s.selectedHero!;
+    // Fuera de su base, donde nace (19-10-2026): pulsarlo ahí es entrar en ella.
+    const heroe = fueraDeSuBase(s.state, 0);
     s.clickTile(heroe.at);
     expect(s.status).not.toContain('No hay camino');
     expect(s.status).toBe(`${heroe.name} ya está en esa casilla: pulsa otra para moverlo.`);
@@ -847,6 +848,9 @@ describe('la base caminable (escenas/castillo.ts)', () => {
   /** Una sesión con su base abierta y la escena encuadrada en el lienzo del escritorio. */
   function enLaBase(seed = 12): { s: Session; escena: EscenaBase; d: Disposicion } {
     const s = new Session(seed);
+    // El héroe nace dentro (19-10-2026): fuera, para que camine el alcaide y la
+    // guarnición sea la que recluta, que es lo que miden estas pruebas.
+    fueraDeSuBase(s.state, 0);
     s.openTown(s.myTowns()[0]!.id);
     const escena = new EscenaBase(() => s);
     escena.encuadrar(1086, 778);
@@ -913,38 +917,23 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     expect(marcadoDe(renderSide(s, false, escena.abierto))).toContain('ya se ha construido hoy');
   });
 
-  it('una morada abre su reclutamiento al llegar a su puerta: «+1» y «Todo» con lo que calcula el núcleo', () => {
+  it('una morada, al llegar a su puerta, entra en su escena; al volver, quien anduvo está quieto en ella', () => {
     const { s, escena, d } = enLaBase();
     pulsar(escena, laPuerta(d, 'lvl1'), 0);
+    expect(s.scene).toBe('town');
     escena.actualizar(10_000);
-    expect(escena.abierto).toEqual({ tipo: 'sitio', sitio: 'lvl1' });
-    expect(escena.posicion).toEqual(d.sitios.lvl1.puerta);
-    // Lo primero que se recluta en la morada del sitio 1, la que la base trae hecha.
-    const recluta = dwellings(s.activeTown!).find((f) => f.morada === 1)!.creature;
-    const plan = s.recruitPlan(recluta)!;
-    // El primer día la guarnición está llena (20 de 20): no cabe ni uno, y los
-    // dos botones salen apagados con la frase del núcleo (QA, H9).
-    expect(plan.maximo).toBe(0);
-    const motivo = s.motivoParaNoReclutar(recluta)!;
-    expect(motivo).toMatch(/no cabe|liderazgo/);
-    const lleno = marcadoDe(renderSide(s, false, escena.abierto));
-    expect(lleno).toContain(
-      `data-action="recruit" data-creature="${recluta}" data-todo="no" disabled title="${motivo}">+1</button>`,
-    );
-    expect(lleno).toContain(
-      `data-todo="si" class="primary" disabled title="${motivo}">Todo (0)</button>`,
-    );
-    // Con sitio, encendidos y con lo que calcula el núcleo.
-    s.activeTown!.garrison = [];
-    const conSitio = s.recruitPlan(recluta)!;
-    expect(conSitio.maximo).toBeGreaterThan(0);
-    expect(s.motivoParaNoReclutar(recluta)).toBeNull();
-    const panel = marcadoDe(renderSide(s, false, escena.abierto));
-    expect(panel).toContain(
-      `data-action="recruit" data-creature="${recluta}" data-todo="no"  title="Reclutar uno">+1</button>`,
-    );
-    expect(panel).toContain(`data-todo="si" class="primary"  title=`);
-    expect(panel).toContain(`>Todo (${conSitio.maximo})</button>`);
+    // La morada es otra escena (`Session.abrirLaMorada`): en la base no queda nada abierto.
+    expect(s.scene).toBe('morada');
+    expect(escena.abierto).toBeNull();
+    // No en la puerta: delante, más lejos de la casa que la fila de los reclutas.
+    expect(escena.posicion).toEqual(dondeEsperaEnLaMorada(d, 'lvl1'));
+    // El panel de la base ya no recluta: lo hace la escena (`views/morada.ts`).
+    expect(marcadoDe(renderSide(s, false, null))).toContain('data-action="morada-elegir"');
+    s.cerrarLaMorada();
+    expect(s.scene).toBe('town');
+    expect(escena.posicion).toEqual(dondeEsperaEnLaMorada(d, 'lvl1'));
+    expect(escena.marca).toBe('quieto');
+    expect(marcadoDe(renderSide(s, false, escena.abierto))).not.toContain('data-action="recruit"');
   });
 
   it('«Construir» sale apagado, con el motivo de `buildBlocker` en el título, cuando no se puede', () => {
@@ -985,16 +974,18 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     // La morada, lejos de la entrada: no se ve desde ella.
     const lienzo = { ancho: 1086, alto: 778 };
     escena.irA('lvl1', 0);
-    expect(escena.abierto).toEqual({ tipo: 'sitio', sitio: 'lvl1' });
-    expect(escena.posicion).toEqual(d.sitios.lvl1.puerta);
+    expect(s.scene).toBe('morada');
+    expect(escena.abierto).toBeNull();
+    expect(escena.posicion).toEqual(dondeEsperaEnLaMorada(d, 'lvl1'));
     expect(escena.camara()).toEqual(
       camaraDeLaBase(lienzo, camaraQuieta(d, lienzo, d.sitios.lvl1.puerta.x)),
     );
     expect(camaraQuieta(d, lienzo, d.sitios.lvl1.puerta.x)).not.toBe(
       camaraQuieta(d, lienzo, d.entrada.x),
     );
-    expect(escena.marca).toBe('sitio:lvl1');
-    // El ayuntamiento y el castillo abren «Ampliar».
+    expect(escena.marca).toBe('quieto');
+    // El ayuntamiento y el castillo abren «Ampliar» (desde la base: se sale antes de la morada).
+    s.cerrarLaMorada();
     escena.irA('fort', 0);
     expect(escena.abierto).toEqual({ tipo: 'ampliar' });
     expect(escena.posicion).toEqual(d.sitios.fort.puerta);
@@ -1008,9 +999,9 @@ describe('la base caminable (escenas/castillo.ts)', () => {
 
   it('al volver a abrir la base, quien camina está en la entrada y no hay nada abierto (QA, H2)', () => {
     const { s, escena, d } = enLaBase();
-    pulsar(escena, laPuerta(d, 'lvl1'), 0);
+    pulsar(escena, laPuerta(d, 'hall'), 0);
     escena.actualizar(10_000);
-    expect(escena.abierto).toEqual({ tipo: 'sitio', sitio: 'lvl1' });
+    expect(escena.abierto).toEqual({ tipo: 'ampliar' });
     const town = s.activeTown!.id;
     s.closeTown();
     s.openTown(town);

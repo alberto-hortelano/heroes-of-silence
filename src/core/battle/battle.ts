@@ -15,7 +15,8 @@ import {
 } from '../catalogo.js';
 import { HEROE, hasTrait, isShooter, LIDERAZGO } from '../data.js';
 import { cifrasDelIndividuo } from '../hero/experiencia.js';
-import { HERO_BODY, type Hero } from '../hero/hero.js';
+import type { Hero } from '../hero/hero.js';
+import { hojaDeLaTropa } from '../hero/troop.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
 import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo, UsoDeArma } from '../types.js';
@@ -188,11 +189,14 @@ export interface HeroeDelBando {
    */
   readonly desnudo: UnitInfo;
   /**
-   * El id del ARTE con el que pisa el tablero, si no es el del héroe del juego
-   * (`HERO_BODY`). Solo lo pone la arena, que deja elegir la figura entre las
-   * hojas de héroe; el juego no lo pone nunca.
+   * El id del ARTE con el que pisa el tablero (`BattleStack.body`): en la partida,
+   * la hoja de su tipo (`figuraDelHeroe`); en la arena, la que se elija entre las
+   * hojas de héroe o la genérica (`HERO_BODY`). Sin opcional: con un `?? HERO_BODY`
+   * aquí, la partida pintó al héroe con el Y Bot sin que nada lo dijera («la imagen
+   * es el y_bot», 19-10-2026). Lo que el héroe ES para la crónica no sale de aquí
+   * (`queEs`).
    */
-  readonly figura?: string;
+  readonly figura: string;
 }
 
 /**
@@ -544,7 +548,7 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
       slot,
       // El arte, la hoja de su unidad; qué unidad es lo dice su origen, que es lo
       // que leen el agente, el resumen y `settleBattle`.
-      body: cat.unidad(stack.creature).cuerpo.hoja,
+      body: hojaDeLaTropa(stack, cat),
       unit,
       origen: {
         kind: 'catalogo',
@@ -590,7 +594,7 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
   // PV: entra con los que trae.
   return {
     slot,
-    body: stack.creature,
+    body: hojaDeLaTropa(stack),
     unit: cifrasDelIndividuo(miembro.profile.unit, stack.veterania),
     origen: { kind: 'personaje', id, veterania: stack.veterania ?? null },
     count: 1,
@@ -605,7 +609,7 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
 function entradaDelHeroe(heroe: HeroeDelBando, slot: number): Entrada {
   return {
     slot,
-    body: heroe.figura ?? HERO_BODY,
+    body: heroe.figura,
     unit: heroe.cuerpo,
     origen: { kind: 'heroe', desnudo: heroe.desnudo },
     count: 1,

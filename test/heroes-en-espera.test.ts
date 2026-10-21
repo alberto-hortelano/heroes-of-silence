@@ -10,10 +10,13 @@ import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { alcanceDelHeroe, puedeAndarHoy } from '../src/core/state/game.js';
+import { fueraDeSuBase } from './helpers.js';
 
 /** Una sesión con dos héroes propios: el inicial y uno contratado en la base. */
 function conDosHeroes(): Session {
   const s = new Session(12);
+  // El de salida nace en la base (19-10-2026): fuera, para que se pueda contratar.
+  fueraDeSuBase(s.state, 0);
   s.openTown(s.myTowns()[0]!.id);
   s.hireHero();
   s.closeTown();

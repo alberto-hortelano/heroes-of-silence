@@ -1,0 +1,36 @@
+{
+  "encargo": "base-no-muertos-abierta-no-muertos-cripta",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:17:25.321Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a86-e67c-7522-ad23-affeab615815",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (la cripta, el que está entre las columnas 64 y 1300) se ABRE como una CASA DE MUÑECAS: se le quita la PARED DE DELANTE (la fachada entera, con su puerta y sus ventanas) y se ve su sala por dentro: una cripta abovedada: columnas bajas, el sarcófago de un caballero en el centro, armaduras negras oxidadas y lanzas en armeros, y al fondo pesebres vacíos con heno podrido; sin caballos.\nEs el MISMO edificio, en el MISMO sitio, con el MISMO tamaño y el MISMO contorno: el tejado y los muros de los lados se quedan, cortados limpios donde estaba la fachada, y se ve el grueso de la pared en el corte. El suelo de la sala va a ras del borde de atrás del empedrado, donde estaba el umbral de la puerta, y la sala se ve desde la plaza con la misma cámara que todo el cuadro (ortográfica, elevada 25 grados, de frente). La luz de dentro, la de su fuego, sus ventanas o sus cirios, sobria.\nA la escala de la plaza: un adulto mide 122 px de alto en este cuadro, y los muebles van a su medida (un banco o un saco, a su rodilla; una mesa, un yunque o un altar, a su cadera). La sala va VACÍA: ninguna persona ni animal, que la gente del juego se pone delante, en el empedrado.\nFuera de ese edificio, NADA cambia: ni los otros edificios, ni el suelo, la luz, el cielo, el encuadre o lo que cierra la plaza. Lo nuevo no pasa de las columnas 64 y 1300.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/no-muertos/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "9ba5e24fa98bc98daf30eaa3b70c65d37e9147c469174c2e710f2f286236142e"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a86-e67c-7522-ad23-affeab615815/call_8e8d9eb86587443a9222efee1c3de725.png",
+    "sha256": "d743d38f44396db71386debaf897231508322aec35d8fa5fdf58c65eab6a65ec",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 9 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/no-muertos/fuentes/abierta-no-muertos_cripta.webp",
+    "sha256": "2addb20b050a49f2d23ffc38ab65ccb5ce4b6fba647f9f8e254ba4575a74cbe3"
+  }
+}

@@ -43,6 +43,7 @@ import {
   type BattleAction,
   type BattleStack,
   type BattleState,
+  HERO_BODY,
   rangoDeVeterania,
   SIDES,
   type Side,
@@ -57,14 +58,7 @@ import {
   textoDeModificador,
 } from '@core/hero/equipo.js';
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
-import {
-  cuerpoDelHeroe,
-  HERO_BODY,
-  type Hero,
-  heroUnit,
-  maxMana,
-  maxMovePoints,
-} from '@core/hero/hero.js';
+import { cuerpoDelHeroe, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
 import { nivelDeUnidad } from '@core/nivel.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
@@ -99,7 +93,9 @@ import { MARCA_DE_COMANDANTE, RESOURCE_COLORS, RESOURCE_NAMES } from '../render/
 import type { Session, SpellOption } from '../session.js';
 import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
+import { renderPanelDeLaMorada } from './morada.js';
 import { botonesDePoder } from './poderes.js';
+import { renderPanelDeLaTropa } from './tropa.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
 export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
@@ -208,6 +204,10 @@ export function renderSide(
       return renderTownPanel(session, abierto);
     case 'battle':
       return renderBattlePanel(session, contandoAun);
+    case 'tropa':
+      return renderPanelDeLaTropa(session.vistaDeLaTropa());
+    case 'morada':
+      return renderPanelDeLaMorada(session);
     default:
       return renderAdventurePanel(session);
   }
@@ -221,6 +221,10 @@ export function renderActions(session: Session, contandoAun = false): Html {
   switch (session.scene) {
     case 'town':
       return html`<button data-action="close-town">Volver al mapa</button>`;
+    case 'tropa':
+      return html`<button data-action="cerrar-tropa" title="Escape">Volver al mapa</button>`;
+    case 'morada':
+      return html`<button data-action="cerrar-morada" title="Escape">Volver a la base</button>`;
     case 'battle': {
       const battle = session.battle;
       // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,
@@ -305,7 +309,7 @@ function renderFinDePartida(desenlace: Desenlace, causa: DefeatReason | null): H
  * el castillo: es la cifra que decide cuántos más caben, y sin verla «todo»
  * parecía reclutar menos de lo que había por capricho.
  */
-function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number }): Html {
+export function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number }): Html {
   return html`<div class="row"><span class="label">Liderazgo</span><span>${ocupado} / ${tope}</span></div>
     <progress class="liderazgo" max="${tope}" value="${Math.min(ocupado, tope)}"></progress>`;
 }
@@ -338,7 +342,7 @@ function renderAdventurePanel(session: Session): Html {
       : html`
         <p class="eyebrow">HÉROE · RANGO ${rangoDeHeroe(hero)} · NIVEL ${nivelDeUnidad(puesto)} · ${nombreDeTipoDeHeroe(hero.faction, hero.tipo)}</p>
         <h2>${hero.name}</h2>${historiaDelHeroe(hero.origen?.historia ?? null)}
-        ${botonDeSueño(session, hero)}
+        ${botonDeSueño(session, hero)} ${botonDeLaTropa(session)}
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
@@ -392,6 +396,15 @@ function botonDeSueño(session: Session, hero: Hero): Html {
   const duerme = session.estaDormido(hero.id);
   return html`<button data-action="sleep-hero" data-hero="${hero.id}" class="dormir"
     title="${duerme ? 'Vuelve a contar con él al pasar el turno' : 'No se le esperará al pasar el turno'}">${duerme ? 'Despertar' : 'Dormir'}</button>`;
+}
+
+/**
+ * «Tropa»: abre la escena de la tropa del héroe elegido (también con la T). Fuera
+ * de tu turno sale apagado con el motivo del núcleo (`tropaBlocker`).
+ */
+function botonDeLaTropa(session: Session): Html {
+  const motivo = session.tropaBlocker();
+  return html`<button data-action="abrir-tropa" class="abrir-tropa" title="${motivo ?? 'Ver a la tropa en escena y repartirle equipo (tecla T)'}" ${motivo === null ? NADA : DESHABILITADO}>Tropa</button>`;
 }
 
 /**
@@ -584,7 +597,7 @@ function renderArmy(army: Army, characters: Personajes): Html {
  * quien se iría. Sin comprobar reglas: si no se puede,
  * lo dice el núcleo en la barra.
  */
-function renderTropaLicenciable(heroId: string, army: Army, characters: Personajes): Html {
+export function renderTropaLicenciable(heroId: string, army: Army, characters: Personajes): Html {
   if (army.length === 0) return renderArmy(army, characters);
   const grupos = troopSummary(army, characters);
   // `dismiss` licencia POR TIPO, y de cada tipo se va primero quien diga
@@ -686,7 +699,7 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
       heroeAqui === undefined
         ? html`<p class="cost">Sin héroe dentro, lo que reclutes se queda de guarnición.</p>
           ${contratar}`
-        : html`${renderLibroEnElCastillo(session, heroeAqui, town)}<h3>Tropa de ${heroeAqui.name}</h3>
+        : html`${renderLibroEnElCastillo(session, heroeAqui, town)}<h3>Tropa del héroe</h3>
           ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
           ${renderTropaLicenciable(heroeAqui.id, heroeAqui.army, session.state.characters)}`
@@ -726,7 +739,11 @@ function renderLibroEnElCastillo(session: Session, heroe: Hero, town: Town): Htm
       : html`<p class="cost">Aprendió aquí: ${enOrdenDelLibro(aprendido)
           .map((s) => s.name)
           .join(', ')}.</p>`;
-  return html`<h3>Libro de ${heroe.name}</h3>${renderSpellbook(heroe.spells)}${nota}`;
+  // El nombre, en su línea y no en el rótulo: con tema, la barra de sección es
+  // de una línea y «Libro de Aldo de Valdeluz» (como «Tropa de…», o con
+  // Konstanz von Adler y Grommash Dientenegro) salía «LIBRO DE ALDO DE VA…», lo
+  // primero que se ve al empezar en la base (QA del arranque, H3).
+  return html`<h3>Libro del héroe</h3><p class="cost">${heroe.name} está dentro.</p>${renderSpellbook(heroe.spells)}${nota}`;
 }
 
 /**

@@ -183,7 +183,9 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
     const session = new Session(12);
     const pueblo = session.myTowns()[0]!;
     const inicial = session.myHeroes()[0]!;
-    session.moveHeroTo(inicial.id, pueblo.at);
+    // Nace dentro de su castillo (19-10-2026): se abre, sin andar hasta él.
+    expect(inicial.at).toEqual(pueblo.at);
+    session.openTown(pueblo.id);
     session.build('mage_guild_1');
     // El inicial deja el castillo para que el contratado nazca dentro.
     inicial.at = { ...inicial.at, x: inicial.at.x + 1 };
@@ -195,9 +197,12 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
     return { session, inicial, contratado };
   }
 
-  /** Los nombres de la lista que sigue a `<h3>{titulo}</h3>`, en orden. */
+  /** Los nombres de la lista que sigue al rótulo `{titulo}` (con `title` o sin él), en orden. */
   function lista(marcado: string, titulo: string): string[] {
-    const desde = marcado.indexOf(`<h3>${titulo}</h3>`);
+    const desde = Math.max(
+      marcado.indexOf(`<h3>${titulo}</h3>`),
+      marcado.indexOf(`<h3 title="${titulo}">${titulo}</h3>`),
+    );
     expect(desde).toBeGreaterThanOrEqual(0);
     const bloque = marcado.slice(desde).split('</div></div>')[0]!;
     return [...bloque.matchAll(/<div class="stack"><span>([^<]+)</g)].map((m) => m[1]!);
@@ -217,21 +222,20 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
   it('el castillo enseña el libro del que está dentro y lo que aprendió allí', () => {
     const { session, contratado } = dosLibrosIguales();
     const marcado = marcadoDe(renderSide(session));
-    expect(lista(marcado, `Libro de ${contratado.name}`)).toEqual([
-      'Prisa',
-      'Flecha mágica',
-      'Lentitud',
-    ]);
+    expect(marcado).toContain(`<p class="cost">${contratado.name} está dentro.</p>`);
+    expect(lista(marcado, 'Libro del héroe')).toEqual(['Prisa', 'Flecha mágica', 'Lentitud']);
     expect(marcado).toContain('<p class="cost">Aprendió aquí: Prisa, Flecha mágica, Lentitud.</p>');
   });
 
   it('el castillo sin nada aprendido allí no inventa la línea', () => {
     const session = new Session(12);
     const pueblo = session.myTowns()[0]!;
-    session.moveHeroTo(session.myHeroes()[0]!.id, pueblo.at);
     session.openTown(pueblo.id);
     const marcado = marcadoDe(renderSide(session));
-    expect(marcado).toContain(`<h3>Libro de ${session.myHeroes()[0]!.name}</h3>`);
+    // El nombre va en su línea, no en el rótulo: con tema, la barra es de una
+    // línea y no cabía (QA del arranque, H3).
+    expect(marcado).toContain('<h3>Libro del héroe</h3>');
+    expect(marcado).toContain(`<p class="cost">${session.myHeroes()[0]!.name} está dentro.</p>`);
     expect(marcado).not.toContain('Aprendió aquí');
   });
 
@@ -259,5 +263,32 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
     expect(marcadoDe(renderSide(session))).toContain(fila);
     batalla.finished = { winner: 'attacker' };
     expect(marcadoDe(renderSide(session))).not.toContain('Maná');
+  });
+});
+
+describe('el panel de la escena de la tropa', () => {
+  it('cada «Poner» apagado lleva su motivo escrito debajo, y lo de serie no lleva ×', async () => {
+    const { renderPanelDeLaTropa } = await import('../src/client/views/tropa.js');
+    const { TROPA } = await import('./helpers.js');
+    const s = new Session(7);
+    s.abrirLaTropa();
+    const hero = s.selectedHero!;
+    hero.army = [{ creature: TROPA }];
+    hero.mochila = ['mandoble', 'gambeson'];
+    s.elegirEnLaTropa({ indice: 0 });
+    const vista = s.vistaDeLaTropa()!;
+    const m = marcadoDe(renderPanelDeLaTropa(vista));
+    const mandoble = vista.ficha.mochila.find((p) => p.pieza.id === 'mandoble')!;
+    expect(mandoble.poner).not.toBeNull();
+    const fila = m.slice(m.indexOf('data-item="mandoble"'), m.indexOf('data-item="gambeson"'));
+    expect(fila).toContain('disabled>Poner</button>');
+    expect(fila).toContain(`<span class="motivo-apagado">${mandoble.poner}</span>`);
+    // El gambesón sí se le pone: encendido y sin motivo.
+    const gambeson = m.slice(m.indexOf('data-item="gambeson"'));
+    expect(gambeson).not.toContain('motivo-apagado');
+    expect(gambeson).toMatch(/data-action="tropa-poner" data-item="gambeson" >Poner/);
+    // Lo de serie: «de serie» y ningún botón de quitar en todo su equipo (es un novato).
+    expect(m).toContain('class="de-serie"');
+    expect(m).not.toContain('data-action="tropa-quitar"');
   });
 });

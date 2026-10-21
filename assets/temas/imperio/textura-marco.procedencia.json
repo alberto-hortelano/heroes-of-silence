@@ -1,0 +1,49 @@
+{
+  "encargo": "tema-09-textura-marco-imperio",
+  "tipo": "textura",
+  "fecha": "2026-10-18T09:43:04.308Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b5e-93e1-76c3-921e-46ea000df739",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\n\nTema IMPERIO: mármol claro con capiteles y molduras doradas, colgaduras moradas con flecos de oro, laureas, águilas y grifos dorados, al estilo de Roma. La TEXTURA del material del marco, que cubre las barras de arriba y de abajo y el hueco alrededor del mapa: tranquila y de poco contraste, porque el juego la mezcla con el color de su ficha. Mármol claro con vetas suaves.\n\nUna muestra plana de MATERIAL vista exactamente desde arriba, a 90 grados, como una muestra de una biblioteca de texturas: sin perspectiva, sin horizonte y sin sombras proyectadas.\nLisa y uniforme en toda la superficie: sin un motivo central, sin objetos sueltos, sin caminos, sin bordes ni marco, sin figuras y sin texto. Que se pueda repetir en mosaico por los cuatro lados sin que se note.\nFormato cuadrado, imagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/imperio.png",
+      "papel": "estilo",
+      "sha256": "803df1df8c741579af365f0f5f7b652323466dcaa387d2aad2cdc293952f2f0d"
+    },
+    {
+      "ruta": "assets/art/temas/imperio.png",
+      "papel": "pieza",
+      "sha256": "803df1df8c741579af365f0f5f7b652323466dcaa387d2aad2cdc293952f2f0d",
+      "recorte": {
+        "x": 10,
+        "y": 720,
+        "w": 55,
+        "h": 160
+      }
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b5e-93e1-76c3-921e-46ea000df739/exec-8569646e-afb9-420a-acd6-0ae6cf21ba29.png",
+    "sha256": "2699d7b6276cf6522816e6f8c56d0f0306516b1c0e3f523ca2d33b68054f0f2e",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "cuadrado central a 512×512 y repetible: mezclada eje a eje con su copia desplazada medio lado; costura 1.13 (1 es invisible)",
+    "en gris y con la media de 202.1 a 128, para mezclarse en soft-light sin mover el color de su ficha",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 53 piezas en disco"
+  ],
+  "validacion": {
+    "ancho": 512,
+    "alto": 512
+  },
+  "salida": {
+    "ruta": "assets/temas/imperio/textura-marco.webp",
+    "sha256": "20521a84ad686dbe3cd1f4a1f23448225997f96e3a9567c44434f5cd25b24d49"
+  }
+}

@@ -120,11 +120,13 @@ import {
   FACCION_A,
   FACCION_B,
   forzarBatalla,
+  fueraDeSuBase,
   hastaSuSiguienteTurno,
   JINETE,
   monstruoVivo,
   NO_MUERTO,
   PESADA,
+  pegadoA,
   planDeNodos,
   ponerMonstruo,
   primeraMarchaQueSePara,
@@ -273,18 +275,15 @@ describe('generación de mapas', () => {
     expect(validateMapPlan(repetido).join(' ')).toMatch(/dos ciudades con el id "t"/);
   });
 
-  it('rechaza un jugador con dos posiciones de inicio (#97)', () => {
-    // `setup.ts` deriva el id del héroe del jugador y no del orden, así que dos
-    // inicios del 0 dan dos héroes `hero-0`.
+  it('pide al menos dos jugadores con ciudad: cada uno empieza en su base', () => {
+    // Sin `heroStarts` (19-10-2026), los jugadores son los dueños de ciudad: un
+    // plan con un solo dueño es una partida de uno.
     const plan = generateMapPlan(createRng(12));
-    const doble = {
+    const solo = {
       ...plan,
-      heroStarts: [
-        ...plan.heroStarts,
-        { player: 0, at: { x: plan.heroStarts[0]!.at.x + 1, y: plan.heroStarts[0]!.at.y } },
-      ],
+      towns: plan.towns.map((t) => (t.owner === 1 ? { ...t, owner: null } : t)),
     };
-    expect(validateMapPlan(doble).join(' ')).toMatch(/jugador 0 tiene dos posiciones de inicio/);
+    expect(validateMapPlan(solo).join(' ')).toMatch(/al menos dos jugadores con ciudad \(hay 1\)/);
   });
 
   it('rechaza un monstruo de una criatura que no existe, y dice cuáles valen', () => {
@@ -402,59 +401,16 @@ describe('generación de mapas', () => {
     }
   });
 
-  it('los inicios de héroe también ocupan casilla (#97, la puerta de al lado)', () => {
-    const plan = generateMapPlan(createRng(32));
-    // Dos héroes en la misma casilla.
-    const juntos = {
-      ...plan,
-      heroStarts: [plan.heroStarts[0]!, { player: 1, at: plan.heroStarts[0]!.at }],
-    };
-    expect(validateMapPlan(juntos).join(' ')).toMatch(/la ocupan dos cosas.*inicio del jugador 1/);
-
-    // Y un héroe encima del castillo rival, que no revienta y da una partida
-    // degenerada — la peor forma de pasar.
-    const encima = {
-      ...plan,
-      heroStarts: [{ player: 0, at: plan.towns[1]!.at }, plan.heroStarts[1]!],
-    };
-    expect(validateMapPlan(encima).join(' ')).toMatch(/la ocupan dos cosas/);
-  });
-
-  it('una ciudad de un jugador que no juega se rechaza', () => {
-    const plan = generateMapPlan(createRng(33));
-    const fantasma = {
-      ...plan,
-      towns: [
-        ...plan.towns,
-        {
-          id: 'town-9',
-          name: 'Fantasma',
-          faction: 'templarios' as const,
-          at: { x: 12, y: 2 },
-          owner: 7,
-        },
-      ],
-    };
-    expect(validateMapPlan(fantasma).join(' ')).toMatch(
-      /ciudad "town-9" es del jugador 7, que no tiene posición de inicio/,
-    );
-    // La mitad de la mina se fue con su dueño: desde el mapa de nodos una mina
-    // no lleva `owner`, es de quien tenga su región.
-
-    // Neutral sigue valiendo: filtrar no es prohibir.
-    expect(validateMapPlan({ ...plan, towns: plan.towns.map((t) => ({ ...t })) })).toEqual([]);
-  });
-
-  it('el ORDEN de heroStarts no decide quién abre la partida', () => {
+  it('el ORDEN de las ciudades no decide quién abre la partida', () => {
     // `currentPlayer` juega por el índice de `state.players`, y `state.players`
-    // salía del orden en que el plan escribe `heroStarts`. Con el mapa en manos
-    // del agente eso es repartirse la iniciativa: mandando los inicios del revés
-    // abría él el día 1. Comprobado en el circuito real antes de arreglarlo.
+    // salía del orden en que el plan escribía `heroStarts`: mandando los inicios
+    // del revés el agente abría el día 1 (comprobado en el circuito real). Sin
+    // inicios, los jugadores salen de las ciudades, y su orden tampoco manda.
     const plan = generateMapPlan(createRng(34));
     const alDerecho = newGame({ seed: 34, plan });
     const alReves = newGame({
       seed: 34,
-      plan: { ...plan, heroStarts: [...plan.heroStarts].reverse() },
+      plan: { ...plan, towns: [...plan.towns].reverse() },
     });
 
     for (const state of [alDerecho, alReves]) {
@@ -463,7 +419,7 @@ describe('generación de mapas', () => {
       // Y la facción va con el jugador, no con la posición en la lista.
       expect(state.players[0]!.faction).toBe(plan.towns.find((t) => t.owner === 0)!.faction);
     }
-    // Invertir los inicios da la MISMA partida, no una parecida: el orden del
+    // Invertir las ciudades da los MISMOS héroes, no unos parecidos: el orden del
     // plan deja de ser una palanca.
     expect(JSON.stringify(alReves.heroes)).toBe(JSON.stringify(alDerecho.heroes));
   });
@@ -768,10 +724,13 @@ describe('movimiento de héroes', () => {
     const puntosAntes = hero.movePoints;
     const nieblaAntes = state.players[0]!.fog.size;
 
-    // A dos casillas y dentro de la región de casa, buscado y no supuesto: con
-    // el mapa de 28 la casilla dos a la derecha del inicio es montaña, y fuera
-    // de casa puede haber un grupo de asaltantes que pare la marcha.
-    const casa = regionDeCasilla(state.map, hero.at);
+    // A dos casillas de la base, donde nace (19-10-2026), y dentro de la región
+    // de casa, buscado y no supuesto: con el mapa de 28 la casilla dos a la
+    // derecha del inicio era montaña, y fuera de casa puede haber un grupo de
+    // asaltantes que pare la marcha. La casa del 0 es la región 0 del
+    // procedimental (la base es un nodo: no es de ninguna región).
+    expect(hero.at).toEqual(baseOf(state, 0)!.at);
+    const casa = 0;
     const alcance = alcanceDelHeroe(state, hero);
     const destino = [...costesDelAlcance(alcance).entries()]
       .map(([k, coste]) => ({ p: pointFromKey(k), coste }))
@@ -851,9 +810,11 @@ describe('movimiento de héroes', () => {
     const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === suyo.id)!;
     expect((bandera as { owner: number | null }).owner).toBe(1);
 
-    // Sin guarnición no hay batalla: lo que se mide aquí es la captura.
+    // Sin guarnición ni su héroe dentro (nace en ella) no hay batalla: lo que se
+    // mide aquí es la captura.
     suyo.garrison = [];
-    hero.at = { x: suyo.at.x - 1, y: suyo.at.y };
+    const rival = fueraDeSuBase(state, 1);
+    hero.at = pegadoA(state, suyo.at, [rival.at]);
     hero.movePoints = 5000;
     applyAdventureAction(
       state,
@@ -1974,8 +1935,17 @@ describe('los personajes y sus heridas', () => {
 // ---------------------------------------------------------------- mapa de nodos
 
 /** Una partida sobre el mapa de nodos escrito a mano (`planDeNodos`). */
+/**
+ * La partida de `planDeNodos`, con los héroes fuera de su base, en (4,4) y
+ * (23,4): donde empezaban antes de nacer dentro (19-10-2026). Estas pruebas
+ * miden la red —cruzar nodos, recoger la guarnición al pasar, la renta— con
+ * esas casillas en sus cuentas, no por dónde se sale.
+ */
 function enLaRed(): { state: GameState; c: GameContext } {
-  return { state: newGame({ seed: 1, plan: planDeNodos() }), c: ctx(1) };
+  const state = newGame({ seed: 1, plan: planDeNodos() });
+  heroById(state, 'hero-0').at = { x: 4, y: 4 };
+  heroById(state, 'hero-1').at = { x: 23, y: 4 };
+  return { state, c: ctx(1) };
 }
 
 function nodo(state: GameState, id: string): Extract<MapObject, { kind: 'node' }> {
@@ -2234,10 +2204,12 @@ describe('el mapa de nodos se juega', () => {
     // La guarnición de salida llena el cupo o el tope de liderazgo de una
     // guarnición (de 15 a 20 de liderazgo y de 5 a 7 individuos según la
     // facción, `data/ciudades.json`): lo que su pueblo cría ya no cabe. El héroe
-    // no empieza dentro (los inicios no comparten casilla), así que el día 1 se
-    // recluta entrando en casa, no desde fuera.
+    // empieza dentro (19-10-2026) y recluta en su tropa; aquí se le saca para
+    // ver que sin él no cabe nada.
     const state = newGame({ seed: 41 });
     const base = baseOf(state, 0)!;
+    expect(heroesOf(state, 0).some((h) => pointKey(h.at) === pointKey(base.at))).toBe(true);
+    fueraDeSuBase(state, 0);
     expect(heroesOf(state, 0).some((h) => pointKey(h.at) === pointKey(base.at))).toBe(false);
     const recluta = dwellings(base)[0]!.creature;
     base.available[recluta] = 10;
@@ -2538,10 +2510,13 @@ describe('el id de un héroe contratado no se repite (#126)', () => {
       plan: {
         ...plan,
         towns: plan.towns.map((t) => (t.id === 'town-2' ? { ...t, owner: 2 } : t)),
-        heroStarts: [...plan.heroStarts, { player: 2, at: { x: 18, y: 4 } }],
       },
     });
     const c = ctx(41);
+    // Los héroes nacen en su base: el del 2 sale para que no la defienda, y el
+    // del 0 para que se pueda contratar en la suya.
+    heroById(state, 'hero-2').at = { x: 18, y: 4 };
+    fueraDeSuBase(state, 0);
     expect(state.players.map((p) => p.id)).toEqual([0, 1, 2]);
     const dia = state.day;
     state.players[0]!.resources = { ...state.players[0]!.resources, gold: 10 * HERO_HIRE_COST };
@@ -2803,7 +2778,9 @@ function marchaQueGanaFuerza(): {
   for (let seed = 1; seed <= 40; seed++) {
     const state = newGame({ seed });
     state.raiders = [];
-    const hero = heroesOf(state, 0)[0]!;
+    // El héroe nace en su base (19-10-2026) y salir de ella no recoge nada: se
+    // le pone al lado para que la marcha pase por ella.
+    const hero = fueraDeSuBase(state, 0);
     const base = baseOf(state, 0)!;
     // Uno de lo más barato con el héroe y dos de la tropa en casa: con la
     // guarnición de salida, recogerla no movía la fuerza lo bastante para que

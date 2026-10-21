@@ -26,7 +26,7 @@ import { primeraSemillaCon } from './helpers.js';
 
 const d = disposicionDe('templarios');
 const lienzo = { ancho: 1086, alto: 778 };
-const vista = lienzo.ancho / pasoDeLaBase(lienzo.ancho, lienzo.alto);
+const vista = lienzo.ancho / pasoDeLaBase(lienzo.alto);
 
 describe('la cámara de la base', () => {
   it('se centra en quien camina y para en los dos bordes', () => {
@@ -52,7 +52,7 @@ describe('la cámara de la base', () => {
   it('el origen cae en un píxel entero de dispositivo: la plaza se copia 1:1 sin temblar', () => {
     for (const densidad of [1, 1.09375, 1.5, 2])
       for (const camaraX of [0, 0.013, 3.7, 17.41, d.ancho - vista]) {
-        const t = camaraDeLaBase(lienzo, camaraX, densidad);
+        const t = camaraDeLaBase(lienzo, camaraX, pasoDeLaBase(lienzo.alto), densidad);
         const enDispositivo = t.origenX * densidad;
         expect(Math.abs(enDispositivo - Math.round(enDispositivo))).toBeLessThan(1e-6);
         // Lo más que se aparta de la cámara pedida: medio píxel de dispositivo.

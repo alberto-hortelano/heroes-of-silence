@@ -1,0 +1,28 @@
+{
+  "familia": "Almendra",
+  "tema": "elfos",
+  "licencia": "SIL Open Font License 1.1 (OFL.txt)",
+  "repositorio": "https://github.com/google/fonts",
+  "commit": "66928797f271fed5ee428544e7229685e2d90127",
+  "ficheros": [
+    {
+      "local": "Almendra-Regular.ttf",
+      "origen": "ofl/almendra/Almendra-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/almendra/Almendra-Regular.ttf",
+      "sha256": "b127a6121209353b53da9ce73bf9d350f74190d8384c28ede179e4fb9440f946"
+    },
+    {
+      "local": "Almendra-Bold.ttf",
+      "origen": "ofl/almendra/Almendra-Bold.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/almendra/Almendra-Bold.ttf",
+      "sha256": "5895ef04d0d56c60083ec302e72db99b952b044ab2b440ee12283649b5edc971"
+    },
+    {
+      "local": "OFL.txt",
+      "origen": "ofl/almendra/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/almendra/OFL.txt",
+      "sha256": "b7eae5e3c3447f70caa14e0c43f5e0d953f54ee59df406f6362863bcee1a0a95"
+    }
+  ],
+  "modificado": "no: los bytes del repositorio de origen, sin subconjunto ni cambio de nombre"
+}

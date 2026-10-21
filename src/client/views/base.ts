@@ -1,7 +1,7 @@
 /**
  * El panel de lo que se abre en la base: «Ampliar» en los sitios que lo abren
- * (`abreAmpliar`: el ayuntamiento y el castillo), el reclutamiento en una
- * morada, lo suyo en cada edificio de villa.
+ * (`abreAmpliar`: el ayuntamiento y el castillo) y lo suyo en cada edificio de
+ * villa. Una morada no se abre aquí: es su escena (`views/morada.ts`).
  * Va encima de lo general del castillo (`renderTownPanel`), que sigue debajo.
  *
  * Sustituye a los solares vacíos y a la franja de recluta del cuadro viejo:
@@ -10,10 +10,9 @@
  * escribe el núcleo (`buildBlocker`). Las acciones salen por `data-action` y las
  * reparte `main.ts`, como todos los botones.
  */
-import { unidadDelJuego, unidadesDeMorada } from '@core/catalogo.js';
 import { building } from '@core/town/buildings.js';
-import { construidoEn, SITIOS, type SitioId, siguienteDe, sitioDe } from '@core/town/sitios.js';
-import { buildBlocker, recruitCost, type Town } from '@core/town/town.js';
+import { construidoEn, moradaEn, SITIOS, type SitioId, siguienteDe } from '@core/town/sitios.js';
+import { buildBlocker, type Town } from '@core/town/town.js';
 import { describirCoste } from '@core/types.js';
 import type { Abierto } from '../escenas/castillo.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
@@ -50,51 +49,19 @@ function ampliar(session: Session, town: Town): Html {
     <div class="stack-list">${filas.length === 0 ? html`<div class="stack empty">Ya está todo construido.</div>` : unir(filas)}</div>`;
 }
 
-/** La mejora que le queda a un sitio, si le queda alguna. */
-function mejora(session: Session, town: Town, sitio: SitioId): Html {
+/** La mejora que le queda a un sitio, si le queda alguna: la leen lo abierto y la escena de la morada. */
+export function mejora(session: Session, town: Town, sitio: SitioId): Html {
   const id = siguienteDe(town, sitio);
   return id === null
     ? NADA
     : html`<h3>Mejorar</h3><div class="stack-list">${filaDeConstruir(session, town, id)}</div>`;
 }
 
-/**
- * Una morada: las unidades que produce (una morada produce varias), y de cada una
- * cuántas hay, cuánto cuesta y caben, y «+1» y «Todo» (lo que calcula el núcleo).
- */
-function morada(session: Session, town: Town, sitio: SitioId): Html {
-  const hecho = construidoEn(town, sitio);
-  const unidades = hecho === null ? [] : unidadesDeMorada(hecho);
-  return html`${unir(unidades.map(({ id }) => reclutable(session, town, id)))}
-    ${mejora(session, town, sitio)}`;
-}
-
-function reclutable(session: Session, town: Town, id: string): Html {
-  const info = unidadDelJuego(id);
-  const hay = town.available[id] ?? 0;
-  const plan = session.recruitPlan(id);
-  const cupo =
-    plan === null
-      ? NADA
-      : html`<p class="cost">Cada uno ocupa ${plan.ocupaUno}; ${plan.quien} lleva ${plan.ocupado} de ${plan.tope} y caben ${plan.caben}.</p>`;
-  const todo = plan === null ? 'Todo' : `Todo (${plan.maximo})`;
-  // Si no se puede ni uno, los dos botones salen apagados con la frase del
-  // núcleo en el `title`: antes se ofrecían y el clic la daba en la barra.
-  const motivo = session.motivoParaNoReclutar(id);
-  const apagado = motivo === null ? NADA : DESHABILITADO;
-  return html`<h2>${info.name}</h2>
-    <div class="row"><span class="label">Disponibles</span><span>${hay} · +${info.growth}/semana</span></div>
-    <div class="row"><span class="label">Precio</span><span>${describirCoste(recruitCost(id, 1))} cada uno</span></div>
-    ${cupo}
-    <div class="stack-list reclutar">
-      <button data-action="recruit" data-creature="${id}" data-todo="no" ${apagado} title="${motivo ?? 'Reclutar uno'}">+1</button>
-      <button data-action="recruit" data-creature="${id}" data-todo="si" class="primary" ${apagado} title="${motivo ?? 'Reclutar todos los que caben y se pagan'}">${todo}</button>
-    </div>`;
-}
-
 function edificio(session: Session, town: Town, sitio: SitioId, piezas: PiezasDelCastillo): Html {
-  const s = sitioDe(town.faction, sitio);
-  if (s.morada !== undefined) return morada(session, town, sitio);
+  if (moradaEn(town, sitio).edificio !== null) {
+    // La base entra en ella al llegar (`EscenaBase`): no se queda abierta aquí.
+    throw new Error(`una morada se abre en su escena, no en el panel de la base (${sitio})`);
+  }
   const hecho = construidoEn(town, sitio);
   const titulo = hecho === null ? NADA : html`<h2>${building(hecho).name}</h2>`;
   switch (sitio) {

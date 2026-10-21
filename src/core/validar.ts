@@ -173,3 +173,19 @@ export function todasValidas<T>(r: {
   if (mala !== undefined) throw new Error(mala.motivo);
   return r.validas;
 }
+
+/**
+ * El único valor de un parámetro de la URL (`URLSearchParams.getAll`), o `null`
+ * si no está. Repetido se rechaza diciéndolo, como lo que no es una semilla:
+ * quedarse con el primero en silencio repetía otra pelea que la que dice la URL
+ * (H4 de QA del banco). Vive aquí, sin dependencias, porque la leen la arena y la
+ * partida (`?seed=`, `?faccion=`), y la partida no importa `core/arena.ts`.
+ */
+export function unaVezEnLaURL(valores: readonly string[], nombre: string): string | null {
+  if (valores.length > 1) {
+    throw new Error(
+      `«${nombre}» va ${valores.length} veces en la URL (${valores.map((v) => `«${v}»`).join(', ')}): pon uno solo`,
+    );
+  }
+  return valores[0] ?? null;
+}

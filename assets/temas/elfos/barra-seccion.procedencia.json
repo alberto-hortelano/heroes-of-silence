@@ -1,0 +1,58 @@
+{
+  "encargo": "tema-04-barra-seccion-elfos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:17:26.589Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b4b-7524-7e01-b26a-b4801d38f18e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\nLa imagen 3 es la GUÍA DEL CORTE: dice el formato de la pieza y dónde la corta el juego para estirarla. Las zonas marcadas en las ESQUINAS o en los EXTREMOS se pintan una sola vez, tal cual, y llevan los adornos; las BANDAS entre ellas se estiran o se repiten y van lisas y uniformes a lo largo, sin adornos sueltos; lo que la guía deja en gris oscuro en el centro de un marco no se ve en el juego. Respeta su formato y sus proporciones. NO copies sus grises lisos, sus líneas ni sus números.\n\nTema ELFOS: plata clara con hiedra viva, filigrana fina, hojas y cristales cian tallados, verde azulado y pergamino claro, con un aire de luna y bosque. La BARRA DE SECCIÓN sobre la que el juego escribe el título de cada sección del panel («HECHIZOS», «EQUIPO», «TROPA»): una tira horizontal y baja, unas once veces más ancha que alta, con un remate en cada punta y el centro liso para el texto. Tira verde azulada con un filo de plata y una hoja de hiedra en cada punta.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nEs una TIRA que el juego estira a lo ancho: el 14 % de la izquierda y el 14 % de la derecha son sus REMATES, que se pintan una vez y llevan los adornos; lo de en medio se estira, así que va liso y uniforme de punta a punta, sin adornos sueltos ni nada centrado.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/elfos.png",
+      "papel": "estilo",
+      "sha256": "ba3ae923d896b0dabf5460e3e14e1788a2c5a586a061f015569d1f5a752783f8"
+    },
+    {
+      "ruta": "assets/art/temas/elfos.png",
+      "papel": "pieza",
+      "sha256": "ba3ae923d896b0dabf5460e3e14e1788a2c5a586a061f015569d1f5a752783f8",
+      "recorte": {
+        "x": 1015,
+        "y": 617,
+        "w": 275,
+        "h": 26
+      }
+    },
+    {
+      "ruta": "assets/temas/_guias/barra.png",
+      "papel": "corte",
+      "sha256": "f67a9e5070fbeeb1454e38f2b83abe540f96ad7cb7f2d8091b3a2cf7c5b7d3f8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b4b-7524-7e01-b26a-b4801d38f18e/exec-309d031c-ae03-4a19-a7c6-cce499175b9e.png",
+    "sha256": "bccf84ec25c77ec4fe5f62a5456e7d1576a1871a8715bfffb4fe7b8314fd74e2",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 2124×206 a 660×64, dentro de 768×64",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 17 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.22666750607938302,
+    "opacos": 0.9862024851237652,
+    "haloSuelto": 0,
+    "ancho": 2172,
+    "alto": 724
+  },
+  "salida": {
+    "ruta": "assets/temas/elfos/barra-seccion.webp",
+    "sha256": "4e1e5f0a7a63ec0d22306572aad6ba2ff9ece1fa4714fbe03b679c7d2d76467c"
+  }
+}

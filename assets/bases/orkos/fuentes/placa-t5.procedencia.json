@@ -1,0 +1,43 @@
+{
+  "encargo": "base-orkos-placa-t5",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T17:53:02.391Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a70-deea-7fa3-9a56-f0122609d205",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (la pocilga). En su sitio pon lo mismo que ya cierra la plaza entre ellos: la empalizada de troncos aguzados, chozas de troncos y pieles, rocas grandes y algún pino; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el suelo, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/orkos/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "5b440197445f159f5e654fde3e0aaf2612efb1734fc02b5ac8adef3153d2b7eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a70-deea-7fa3-9a56-f0122609d205/call_0bbcc6dbf790434daba239f8ab2044cd.png",
+    "sha256": "5dd17d15172c631938ed28b94f11729258ad0d14f9a637a66e249c3a957950b8",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 10 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (545) y x1 (1000)",
+    "castle: lo recortado toca el borde de su región en x0 (1000)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (500)",
+    "tavern: lo recortado toca el borde de su región en x0 (500)",
+    "orkos_pueblo: lo recortado toca el borde de su región en x1 (545)",
+    "orkos_cueva: lo recortado toca el borde de su región en x0 (1100)",
+    "orkos_pocilga: lo recortado toca el borde de su región en x1 (1328)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/orkos/fuentes/placa-t5.webp",
+    "sha256": "2ceb32e4550987d6e80191f3faebbb18f2a27e41a8d928b18fa48ce70307f62a"
+  }
+}

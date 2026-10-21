@@ -19,7 +19,6 @@
  * dos, lo que junta son dos reglas distintas bajo un solo nombre.
  */
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
-import { nombreDeTipoDeHeroe } from '@core/data.js';
 import { piezasPuestas } from '@core/hero/equipo.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
@@ -73,11 +72,14 @@ export interface VistaHeroe {
   readonly at: Point;
   readonly movePoints: number;
   /**
-   * El NOMBRE del tipo («Monje (Abad)»), no su id: el espectador no tiene la
-   * facción del héroe a mano para buscarlo, y lo único que hace con él es
-   * pintarlo.
+   * Su facción y su tipo, los ids: de ellos saca el espectador, con las mismas
+   * funciones del núcleo que la partida, el nombre del tipo que enseña
+   * (`nombreDeTipoDeHeroe`) y la hoja con que lo pinta (`figuraDelHeroe`).
+   * Hasta la vuelta 2 del arranque (19-10-2026) viajaba el nombre ya redactado;
+   * con la figura, eran dos cosas derivadas del mismo par.
    */
-  readonly nombreDelTipo: string;
+  readonly faction: FactionId;
+  readonly tipo: string;
   /** La historia del héroe nacido de la tropa, o `null` si no tiene. */
   readonly historia: string | null;
   /**
@@ -249,7 +251,8 @@ export function construirVista(state: GameState, directorLog: readonly string[])
       name: h.name,
       at: h.at,
       movePoints: h.movePoints,
-      nombreDelTipo: nombreDeTipoDeHeroe(h.faction, h.tipo),
+      faction: h.faction,
+      tipo: h.tipo,
       historia: h.origen?.historia ?? null,
       equipo: piezasPuestas(h.equipo).map((p) => p.nombre),
       // Sin el ejército: ningún panel del espectador lo lee, y desde la tropa

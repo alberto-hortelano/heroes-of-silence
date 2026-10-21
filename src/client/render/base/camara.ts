@@ -1,8 +1,10 @@
 /**
  * La cámara de la base: el escenario lateral visto como el tablero de combate.
  *
- * El paso es el de una batalla en ese lienzo (`pasoDeLaBase`), así que un adulto
- * mide lo mismo en los dos; el suelo se aplasta a 25° (`COMPRESION_SUELO`), como
+ * El paso es el de una batalla en un marco 20:11 del alto del lienzo
+ * (`pasoDeLaBase`): el ancho no cuenta, y estrechar la ventana enseña menos
+ * plaza a la misma escala, como el mapa. La morada se mira con la misma cámara,
+ * acercada (`paso`, `encuadrarLaMorada`); el suelo se aplasta a 25° (`COMPRESION_SUELO`), como
  * el arte, y no a los 35° a los que el combate sube la cámara cuando sobra alto:
  * con 35°, la raya de atrás de la franja quedaría medio paso por encima del
  * empedrado pintado (pregunta B de la vuelta 2). La vertical es fija, con el
@@ -27,15 +29,20 @@ const SUAVIDAD_MS = 160;
 const PEGADA = 0.01;
 
 /**
- * El tablero de la base con la cámara en `camaraX` (el paso del borde izquierdo
- * de la vista), a `densidad` píxeles de dispositivo por píxel CSS.
+ * El tablero de la base con la cámara en `camaraX` (el paso del borde izquierdo de
+ * la vista) y `paso` píxeles por paso: el de la base o, dentro de una morada, el
+ * acercado; a `densidad` píxeles de dispositivo por píxel CSS.
  *
  * El origen cae en un píxel entero de dispositivo: la plaza se copia 1:1 de sus
  * teselas (`pintar.ts`), y con la cámara entre dos píxeles cada fotograma
  * remuestreaba el cuadro reducido en otra fase y la plaza temblaba al desplazarse.
  */
-export function camaraDeLaBase(lienzo: Lienzo, camaraX: number, densidad = 1): Tablero {
-  const paso = pasoDeLaBase(lienzo.ancho, lienzo.alto);
+export function camaraDeLaBase(
+  lienzo: Lienzo,
+  camaraX: number,
+  paso = pasoDeLaBase(lienzo.alto),
+  densidad = 1,
+): Tablero {
   const compresion = COMPRESION_SUELO;
   return {
     paso,
@@ -50,8 +57,13 @@ export function camaraDeLaBase(lienzo: Lienzo, camaraX: number, densidad = 1): T
  * Dónde se queda la cámara con el foco en `focoX`: centrada en él, con tope en
  * `[0, ancho − vista]`; si el escenario cabe entero, centrado en el lienzo.
  */
-export function camaraQuieta(d: Pick<Disposicion, 'ancho'>, lienzo: Lienzo, focoX: number): number {
-  const vista = lienzo.ancho / pasoDeLaBase(lienzo.ancho, lienzo.alto);
+export function camaraQuieta(
+  d: Pick<Disposicion, 'ancho'>,
+  lienzo: Lienzo,
+  focoX: number,
+  paso = pasoDeLaBase(lienzo.alto),
+): number {
+  const vista = lienzo.ancho / paso;
   if (vista >= d.ancho) return (d.ancho - vista) / 2;
   return Math.max(0, Math.min(d.ancho - vista, focoX - vista / 2));
 }

@@ -1,13 +1,237 @@
 {
   "tramos": [
-    null,
-    null,
-    null,
-    null,
-    null
+    {
+      "imagen": "tramo-1.webp",
+      "ancho": 1536,
+      "alto": 841,
+      "sha256": "2d3b82196aba9013040cbbb5397825d7aeac7db4f2af3a7a92563201a97bf169",
+      "origen": "f9c4c79481609cceb2b834462166ac53b69f31394b7a56c95a94fcc6508e2bef"
+    },
+    {
+      "imagen": "tramo-2.webp",
+      "ancho": 1536,
+      "alto": 855,
+      "sha256": "06974bef5317db4c57ef07059df66e685fb673fcc8c3e4d4c893a630fb52cf26",
+      "origen": "3426a359bdf6e5d003816562d11a471c8a919d7634136ef36134463f79e8ff66"
+    },
+    {
+      "imagen": "tramo-3.webp",
+      "ancho": 1536,
+      "alto": 835,
+      "sha256": "c4582a53a78f47bfbe8ef9f715ea3fe83220c822239df5828263d5fa6b2ff4c1",
+      "origen": "a1b40004522d06f8dc6c032fd84d0236fbd4548b6157568c4ea761c5a0c2ac49"
+    },
+    {
+      "imagen": "tramo-4.webp",
+      "ancho": 1536,
+      "alto": 792,
+      "sha256": "b858f50b9d69b4c6f5e0f1f5572d8eb537514ab84adbf66d2f1ad54a2b1fc825",
+      "origen": "311868c26531fe23fca26c98a0edebf93a7dac40666da4b052513361d5f73c6f"
+    },
+    {
+      "imagen": "tramo-5.webp",
+      "ancho": 1536,
+      "alto": 851,
+      "sha256": "774f0fbcbb218de58a539bbde39f591c8590598364b6411dc4842bd8c7b07e73",
+      "origen": "2a89c64f6f3480df8c37f851b6435f32faeb8fd07041ec1191d5c89589782209"
+    }
   ],
-  "suelo": null,
-  "cielo": null,
-  "edificios": {},
+  "suelo": {
+    "imagen": "suelo.webp",
+    "ancho": 768,
+    "alto": 133,
+    "sha256": "6914d5db6ce5cf9fd5d02cc939302e53062225a6aa8360dc2cc2ea2e24dcb72d",
+    "origen": "fb12e99228c78d8db6528df7226b4ba91af3d12041864b58d251f2a644d436f5",
+    "tramo": 4
+  },
+  "cielo": [
+    74,
+    76,
+    60
+  ],
+  "edificios": {
+    "village_hall": {
+      "imagen": "village_hall.webp",
+      "ancho": 460,
+      "alto": 791,
+      "sha256": "1b2eafc23270ef756b59f4dd9945401453bcc841cad78c11ede0502672ea2c7b",
+      "origen": "df73d5abfe174121bf651245f2c2370312885426b63409149be013a21bd2a9a4",
+      "tramo": 3,
+      "en": [
+        540,
+        5
+      ]
+    },
+    "town_hall": {
+      "imagen": "town_hall.webp",
+      "ancho": 460,
+      "alto": 795,
+      "sha256": "688d2bf5830638079d2fb776a915d49b122296283a4f501c31b0a9340377ceba",
+      "origen": "b2f80712d3c7656ca8b232fab79987feb88d14df03990912a05268b6ba02ed63",
+      "tramo": 3,
+      "en": [
+        540,
+        0
+      ]
+    },
+    "city_hall": {
+      "imagen": "city_hall.webp",
+      "ancho": 460,
+      "alto": 794,
+      "sha256": "6d09f178db3d427f0c7a45e5283c2ec4ecae87d171892841dad200fde9f1678b",
+      "origen": "05d1654bc7002a869c54c97232fb749adc13712135cd1643c020b5eb03cd84a2",
+      "tramo": 3,
+      "en": [
+        540,
+        0
+      ]
+    },
+    "castle": {
+      "imagen": "castle.webp",
+      "ancho": 536,
+      "alto": 794,
+      "sha256": "d0460cf309b97bb2412ec2d391d7196eb018da6e8451c157280134c752d551e9",
+      "origen": "078ce804e572d9f8f9c35d33af679700c87a398a69c92fe1b8145d96ab3791b4",
+      "tramo": 3,
+      "en": [
+        1000,
+        4
+      ]
+    },
+    "mage_guild_1": {
+      "imagen": "mage_guild_1.webp",
+      "ancho": 409,
+      "alto": 569,
+      "sha256": "37415692b6ba7f394c3bbfa50fed932fa4060bf4a994e9fbc5b60543bd32d115",
+      "origen": "e35f216013e2473f020535c2bf1a60d05f65d86bd231ea6b8bb006cd162a6231",
+      "tramo": 2,
+      "en": [
+        232,
+        244
+      ]
+    },
+    "mage_guild_2": {
+      "imagen": "mage_guild_2.webp",
+      "ancho": 424,
+      "alto": 814,
+      "sha256": "fcdd29f86e70845b1e79931626a63f05beaf25d1023b682a24addfacc05c530f",
+      "origen": "5391c8080271ddacdeb1ca53b8775bb5c5f8a726b333b329cbbac551dbe4bb51",
+      "tramo": 2,
+      "en": [
+        230,
+        0
+      ]
+    },
+    "tavern": {
+      "imagen": "tavern.webp",
+      "ancho": 504,
+      "alto": 577,
+      "sha256": "2fade612d4ea15d1de56693c7155e58c5f65d0f209ccc591e875494c862e4229",
+      "origen": "ed079d9a1fd5ad29c46dd0b0be71c439c178210a241b8d8313ea9542e1659ab3",
+      "tramo": 2,
+      "en": [
+        822,
+        238
+      ]
+    },
+    "marketplace": {
+      "imagen": "marketplace.webp",
+      "ancho": 494,
+      "alto": 539,
+      "sha256": "ed16f018fafbc316f1329c15e6de746dcafc59ddafbddb3c8c5677078c43aca3",
+      "origen": "877fdb7e44e07b62a4a2bc84a6b7a9d3a0ab6f10b543d50684a673a5a012e76f",
+      "tramo": 4,
+      "en": [
+        225,
+        221
+      ]
+    },
+    "armory": {
+      "imagen": "armory.webp",
+      "ancho": 485,
+      "alto": 542,
+      "sha256": "e0fa23d8ea5ce8e43e0ba697b1a7bf084171c5b4ca1a06c03559f5d34d975ed1",
+      "origen": "a4688b0aa5484ea97437aeb70adce01e8605af139bc42fea9d58487310eaa1f3",
+      "tramo": 4,
+      "en": [
+        881,
+        217
+      ]
+    },
+    "elfos_pueblo": {
+      "imagen": "elfos_pueblo.webp",
+      "ancho": 469,
+      "alto": 796,
+      "sha256": "57cfc515ca58a42e2260bc1578f911c0ddcc683edc1104c5e7d66e002988de8e",
+      "origen": "64f787fe35ea7b512b2bb2860bcb29c0030db30f31df14e3a4880477b76ee8ad",
+      "tramo": 3,
+      "en": [
+        71,
+        0
+      ]
+    },
+    "elfos_pabellon_de_caza": {
+      "imagen": "elfos_pabellon_de_caza.webp",
+      "ancho": 618,
+      "alto": 549,
+      "sha256": "ea3e3aa21bea747a3f54bcbbf5e74adc20ac7df4d58ac5a79078fb1aa9d2dc67",
+      "origen": "76762d09d473df6f9c3ac13630896ee7e702248d8599b02f415a86ca5288e7f2",
+      "tramo": 1,
+      "en": [
+        505,
+        272
+      ]
+    },
+    "elfos_arboleda": {
+      "imagen": "elfos_arboleda.webp",
+      "ancho": 516,
+      "alto": 491,
+      "sha256": "d0307c4e09b1386084331243c6d5c40d02bfb8fc3510b5144c3b288993023c67",
+      "origen": "84765c7425fc2d3368da2008e03b7c4da4fd937ad00cce29d9025ce35354df0a",
+      "tramo": 5,
+      "en": [
+        586,
+        336
+      ]
+    }
+  },
+  "abiertas": {
+    "elfos_pueblo": {
+      "imagen": "abierta-elfos_pueblo.webp",
+      "ancho": 412,
+      "alto": 599,
+      "sha256": "f30ab36b7005307eeaf248ff12dcc78f5582bb6b966cd77a921ffbeb016464c0",
+      "origen": "617ed0034932f116682f554b5daf9f2997666006b3bf06afb44f60baaf01e68b",
+      "tramo": 3,
+      "en": [
+        128,
+        196
+      ]
+    },
+    "elfos_pabellon_de_caza": {
+      "imagen": "abierta-elfos_pabellon_de_caza.webp",
+      "ancho": 629,
+      "alto": 561,
+      "sha256": "f8e9674bf78ddf1e612f67c0376d160e15db16a91ff7ea275db7c0c06cfb3fa8",
+      "origen": "51f77a6bf8b339673d9e7606a5c77bd43f7841ecf7a656e726654db2e9604b7e",
+      "tramo": 1,
+      "en": [
+        498,
+        270
+      ]
+    },
+    "elfos_arboleda": {
+      "imagen": "abierta-elfos_arboleda.webp",
+      "ancho": 694,
+      "alto": 585,
+      "sha256": "686e52802d41caefd5b1f2e4ddd3e052c666b15351c99a0a009913c127b42d11",
+      "origen": "9428feb02ebf566e86642e03afbfc592db2015d73639a04e991f50f27554d347",
+      "tramo": 5,
+      "en": [
+        528,
+        251
+      ]
+    }
+  },
   "derivadoPor": "tools/taller/recorte-base.ts"
 }

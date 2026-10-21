@@ -1,0 +1,53 @@
+{
+  "encargo": "tema-06-remate-no-muertos",
+  "tipo": "interfaz",
+  "fecha": "2026-10-17T19:25:43.827Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a14b53-033d-7143-bec6-1b422302a489",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es un RECORTE DE LA MAQUETA con esta pieza puesta: copia su diseño, su motivo y sus materiales, pero píntala ENTERA, limpia y a más resolución, sin ningún texto ni nada de lo que la tapa en el recorte (paneles, botones, el mapa, letras).\n\nTema NO MUERTOS: hierro negro forjado con calaveras, telarañas y velas de llama verde-cian, acentos cian y hueso, y estandartes morados con la cruz invertida. El REMATE que corona el centro del borde de arriba del mapa: un adorno suelto, más ancho que alto, que se ve entero y pequeño (unos 36 px de alto en pantalla), así que con la silueta clara y sin detalle menudo. Una calavera de hueso viejo con los ojos de brillo cian, sobre hierro negro con púas.\n\nPieza de INTERFAZ de un juego de estrategia de fantasía, vista exactamente DE FRENTE, sin perspectiva ni cámara elevada: plana como una ilustración de interfaz, con el relieve pintado y la luz desde arriba a la izquierda.\nSIN NINGÚN TEXTO, letra, runa legible, número ni rótulo: el juego escribe encima con su propia letra.\nLa pieza entera cabe en la imagen, y alrededor el fondo tiene alfa real totalmente transparente: sin suelo, sin sombra proyectada, sin halo ni brillo alrededor y sin rejilla.",
+  "referencias": [
+    {
+      "ruta": "assets/art/temas/no-muertos.png",
+      "papel": "estilo",
+      "sha256": "0a063843bbdb6ee1655c7554d3366c3aff7acc5c5aedd27027d9d2c8a5429956"
+    },
+    {
+      "ruta": "assets/art/temas/no-muertos.png",
+      "papel": "pieza",
+      "sha256": "0a063843bbdb6ee1655c7554d3366c3aff7acc5c5aedd27027d9d2c8a5429956",
+      "recorte": {
+        "x": 490,
+        "y": 60,
+        "w": 70,
+        "h": 95
+      }
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a14b53-033d-7143-bec6-1b422302a489/exec-e326dd0e-6f29-4f2a-a643-4be68538cb60.png",
+    "sha256": "1256a0b99732a5c45c99ef0e1c94a6083971703cfe4ec7cb29ad029ecd14d6de",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 0 px de margen",
+    "llevado de 1738×706 a 512×208, dentro de 512×256",
+    "WebP calidad 92, alfa sin pérdida",
+    "src/client/piezas-de-tema.css rehecha: 27 piezas en disco"
+  ],
+  "validacion": {
+    "visibles": 0.23003321178134878,
+    "opacos": 0.9897145035721587,
+    "haloSuelto": 0,
+    "ancho": 1774,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/temas/no-muertos/remate.webp",
+    "sha256": "5dbc3a6f6469f3ee25762da94895e22c5633b62619748535a71ff5a5c265c939"
+  }
+}

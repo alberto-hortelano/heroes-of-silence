@@ -43,6 +43,14 @@ export function colorDeSombra(alfa = 1): string {
 }
 
 /**
+ * Lo que mide un adulto de pie en el tablero, en pasos. Lo leen la caja de la
+ * figura (`cajaDeFigura`), el ritmo de su marcha (`marcha.ts`) y la vara de medir
+ * de los cuadros de la base (`ADULTO_EN_EL_CUADRO`, el taller). Toda unidad
+ * ocupa una casilla (13-10-2026): la figura grande de dos se fue con ellas.
+ */
+export const ALTO_DE_FIGURA = 0.95;
+
+/**
  * Cómo es una hoja de figura del taller (`tools/taller`): la rejilla, la cámara
  * con la que sprite-forge renderiza el maniquí de referencia y dónde caen los
  * pies. Lo leen el renderizador de poses, el que empaqueta lo que devuelve Codex

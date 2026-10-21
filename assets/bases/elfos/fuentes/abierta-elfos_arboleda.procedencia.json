@@ -1,0 +1,36 @@
+{
+  "encargo": "base-elfos-abierta-elfos-arboleda",
+  "tipo": "imagen",
+  "fecha": "2026-10-20T18:11:30.871Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a15a81-7ac4-7bd2-b4d6-377979c4fb95",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: el edificio 1 empezando por la izquierda (la arboleda, el que está entre las columnas 64 y 1300) se ABRE como una CASA DE MUÑECAS: se le quita la PARED DE DELANTE (la fachada entera, con su puerta y sus ventanas) y se ve su sala por dentro: un santuario: un árbol joven que brilla con una luz suave en el centro, un estanque pequeño, cuencos de ofrendas, velas y flores blancas.\nEs el MISMO edificio, en el MISMO sitio, con el MISMO tamaño y el MISMO contorno: el tejado y los muros de los lados se quedan, cortados limpios donde estaba la fachada, y se ve el grueso de la pared en el corte. El suelo de la sala va a ras del borde de atrás del empedrado, donde estaba el umbral de la puerta, y la sala se ve desde la plaza con la misma cámara que todo el cuadro (ortográfica, elevada 25 grados, de frente). La luz de dentro, la de su fuego, sus ventanas o sus cirios, sobria.\nA la escala de la plaza: un adulto mide 122 px de alto en este cuadro, y los muebles van a su medida (un banco o un saco, a su rodilla; una mesa, un yunque o un altar, a su cadera). La sala va VACÍA: ninguna persona ni animal, que la gente del juego se pone delante, en el empedrado.\nFuera de ese edificio, NADA cambia: ni los otros edificios, ni el suelo, la luz, el cielo, el encuadre o lo que cierra la plaza. Lo nuevo no pasa de las columnas 64 y 1300.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/elfos/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "f219e328f3fc346719a9fed89856245931632a48f5e7354f516475de4e602f88"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a15a81-7ac4-7bd2-b4d6-377979c4fb95/call_b065baadc1c3456eb678e8ad23762f42.png",
+    "sha256": "a95c017485a05ddecc78a4226bfff1336266475d27b355f277738f181f5fa1d3",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 9 edificios, placas 5 de 5"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/elfos/fuentes/abierta-elfos_arboleda.webp",
+    "sha256": "1937a2eb11c59bf84a17c781078db71068a24d63ef58f6c5d47783a212a56a1b"
+  }
+}

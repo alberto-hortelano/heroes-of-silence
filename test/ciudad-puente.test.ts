@@ -27,7 +27,7 @@ import {
 import { escenarioDe, pisada, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
 import { PIES } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
-import { partidaDe } from './helpers.js';
+import { fueraDeSuBase, partidaDe } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
 describe('la orilla de una ciudad-puente (`orillaDeLaCiudad`)', () => {
@@ -211,6 +211,9 @@ describe('la ciudad-puente en los mapas del juego', () => {
         if (o.kind === 'town' && o.owner !== null)
           expect(rioBajoLaCiudad(s.state.map, o.at), o.id).toBe(false);
       s.state.raiders.splice(0);
+      // Nace dentro de su base (19-10-2026), y ahí pulsarlo es entrar: lo que se
+      // vigila es que el de FUERA no se meta en ella. Se le saca al lado.
+      fueraDeSuBase(s.state, 0);
       const esc = escenarioDe(s.state.map, s.state.seed);
       const escena = new EscenaAventura(() => s);
       const [ancho, alto] = [1600, 1000];

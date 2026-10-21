@@ -1,6 +1,7 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
 import { unidadesDeMorada } from '../catalogo.js';
 import { tipoDeHeroePorDefecto } from '../data.js';
+import { problemaDeTipo } from '../hero/ascenso.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import {
   CIFRAS_DEL_HEROE_INICIAL,
@@ -10,7 +11,13 @@ import {
   maxMovePoints,
 } from '../hero/hero.js';
 import { CUPO_HEROE, heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
-import { buildMap, generateMapPlan, type MapPlan, validateMapPlan } from '../map/generate.js';
+import {
+  basesDelPlan,
+  buildMap,
+  generateMapPlan,
+  type MapPlan,
+  validateMapPlan,
+} from '../map/generate.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
@@ -47,22 +54,51 @@ export interface NewGameOptions {
    */
   readonly maxDays?: number | undefined;
   /**
-   * Las facciones del jugador 0 y del 1 en el mapa procedimental; sin ellas, dos
-   * distintas de las cinco sorteadas por la semilla (`faccionesDeLaSemilla`).
+   * La facción del jugador 0 en el mapa procedimental (la elección del menú); la
+   * del rival y, sin ella, las dos, las sortea la semilla (`faccionesDeLaSemilla`).
    */
-  readonly factions?: readonly [FactionId, FactionId];
+  readonly faccionDelJugador?: FactionId | undefined;
+  /**
+   * El tipo del héroe con que empieza el jugador 0 (la elección del menú,
+   * `?heroe=`), un id de `data/tipos-de-heroe.json` de **su** facción; sin él, el de
+   * por defecto (`tipoDeHeroePorDefecto`). El rival empieza siempre con el de por
+   * defecto. Un tipo que no es de la facción del jugador 0 lanza diciendo cuáles
+   * valen (`problemaDeTipo`), en vez de jugar con otro. Es presentación hasta que
+   * los tipos den habilidades: cambia la figura del héroe, no la partida.
+   */
+  readonly tipoDelHeroe?: string | undefined;
 }
 
 /**
  * Las facciones de una partida procedimental: dos distintas de las cinco
  * (19-10-2026: «las cinco sustituyen»), sorteadas con **su propia corriente** de
  * la semilla: con la del mapa, pedir facciones movía cada casilla de cada mapa.
+ *
+ * Con `delJugador`, la del jugador 0 es esa y el rival, otra de las cuatro que
+ * quedan (la elección del menú). La primera **se sortea siempre** y luego se
+ * sustituye: así la corriente gasta lo mismo con elección y sin ella, y pedir la
+ * que la semilla habría sacado da la misma partida que no pedir nada
+ * (`?seed=N` ≡ `?seed=N&faccion=<la suya>`). Es la única función que decide la
+ * pareja: el cliente solo le pasa la elegida.
  */
-export function faccionesDeLaSemilla(seed: number): readonly [FactionId, FactionId] {
+export function faccionesDeLaSemilla(
+  seed: number,
+  delJugador?: FactionId,
+): readonly [FactionId, FactionId] {
   const rng = createRng(hashDeTexto(`facciones|${seed}`));
-  const f0 = rng.pick(FACTION_IDS);
+  const sorteada = rng.pick(FACTION_IDS);
+  const f0 = delJugador ?? sorteada;
   const f1 = rng.pick(FACTION_IDS.filter((f) => f !== f0));
   return [f0, f1];
+}
+
+/**
+ * El nombre del héroe con que empieza el jugador del puesto `puesto` (0, 1…) si
+ * es de `faction`: el que le da `newGame` y el que enseña la elección del menú.
+ */
+export function nombreDeSalida(faction: FactionId, puesto: number): string {
+  const nombres = HERO_NAMES[faction];
+  return nombres[puesto % nombres.length] as string;
 }
 
 /**
@@ -141,7 +177,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
   const plan =
     options.plan ??
     generateMapPlan(rng, {
-      factions: options.factions ?? faccionesDeLaSemilla(seed),
+      factions: faccionesDeLaSemilla(seed, options.faccionDelJugador),
       ...(options.regionesPorBando === undefined
         ? {}
         : { regionesPorBando: options.regionesPorBando }),
@@ -156,41 +192,31 @@ export function newGame(options: NewGameOptions = {}): GameState {
 
   const { map, towns, raiders } = buildMap(plan);
 
-  const factionOf = new Map<PlayerId, FactionId>();
-  for (const t of plan.towns) {
-    if (t.owner !== null && !factionOf.has(t.owner)) factionOf.set(t.owner, t.faction);
-  }
+  // Los jugadores y sus bases, por id (`basesDelPlan`): de ese orden salen
+  // `state.players`, `state.heroes` y el nombre de cada héroe.
+  const bases = [...basesDelPlan(plan)];
 
-  // Los inicios, ORDENADOS por jugador, y de aquí salen las tres cosas que el
-  // orden decide: `state.players`, `state.heroes` y el nombre de cada héroe.
-  //
-  // `currentPlayer` juega por el índice de `state.players`, así que derivarlo
-  // del orden en que el plan escribe `heroStarts` le regalaba la iniciativa a
-  // quien diseña el mapa: con los inicios del revés, el agente abría la partida
-  // el día 1. Diseñar el mapa no puede ser también repartirse el turno, y menos
-  // con el equilibrio entre facciones ya declarado frágil (#89).
-  //
-  // Se ordena aquí, en el único sitio donde el plan se convierte en partida, en
-  // vez de exigírselo al agente: una regla que el motor puede cumplir solo no se
-  // delega en quien tiene interés en incumplirla. La prosa del contrato se lo
-  // dice para que no lo intente.
-  const inicios = [...plan.heroStarts].sort((a, b) => a.player - b.player);
-
-  const heroes: Hero[] = inicios.map((inicio, i) => {
-    const faction = factionOf.get(inicio.player) ?? FACTION_IDS[0];
-    const nombres = HERO_NAMES[faction];
+  const heroes: Hero[] = bases.map(([player, base], i) => {
+    const faction = base.faction;
+    const tipo = player === 0 ? options.tipoDelHeroe : undefined;
+    const tipoMalo = tipo === undefined ? null : problemaDeTipo(faction, tipo);
+    if (tipoMalo !== null) throw new Error(tipoMalo);
+    // El héroe nace DENTRO de su base («empieza en la base»): en la casilla del
+    // castillo, que es estado normal (al acabar una marcha en él también está
+    // ahí). No recoge la guarnición al nacer: la base del día 1 se queda con la
+    // suya (decisión del usuario).
     // La construcción de siempre (`heroeRecienHecho`), con lo que el inicial
     // tiene de más encima: mejores cifras, su tropa, Flecha mágica y dos
     // habilidades.
     const hero: Hero = {
       ...heroeRecienHecho({
-        id: `hero-${inicio.player}`,
-        owner: inicio.player,
-        name: nombres[i % nombres.length] as string,
+        id: `hero-${player}`,
+        owner: player,
+        name: nombreDeSalida(faction, i),
         faction,
-        at: inicio.at,
+        at: base.at,
         experience: EXPERIENCIA_INICIAL_DE_HEROE,
-        tipo: tipoDeHeroePorDefecto(faction),
+        tipo: tipo ?? tipoDeHeroePorDefecto(faction),
       }),
       ...CIFRAS_DEL_HEROE_INICIAL,
       army: startingArmy(faction, rng),
@@ -207,10 +233,10 @@ export function newGame(options: NewGameOptions = {}): GameState {
     return hero;
   });
 
-  const players = inicios.map((inicio) => ({
-    id: inicio.player,
-    faction: factionOf.get(inicio.player) ?? FACTION_IDS[0],
-    controller: options.controllers?.[inicio.player] ?? ('ai' as Controller),
+  const players = bases.map(([player, base]) => ({
+    id: player,
+    faction: base.faction,
+    controller: options.controllers?.[player] ?? ('ai' as Controller),
   }));
 
   return createGame({
