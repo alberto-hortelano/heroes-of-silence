@@ -60,9 +60,9 @@ function entrada(
 /** El camino y el pueblo con que se prueban el atrezo y las casas. */
 const CAMINO = (x: number, y: number) => y === 8 && x < 12;
 const PUEBLO = (x: number, y: number) => x >= 12 && y >= 12;
-/** Una mina, un cofre y un monstruo: el monstruo no aparta nada. */
+/** Un pueblo, un cofre y un monstruo: el monstruo no aparta nada. */
 const OBJETOS: readonly ObjetoDelMapa[] = [
-  { kind: 'mine', x: 3, y: 3 },
+  { kind: 'village', x: 3, y: 3 },
   { kind: 'chest', x: 10, y: 12 },
   { kind: 'monster', x: 6, y: 13 },
 ];

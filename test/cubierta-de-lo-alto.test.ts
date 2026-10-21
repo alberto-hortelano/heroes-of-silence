@@ -102,14 +102,14 @@ describe('en los mapas reales', () => {
 });
 
 describe('la frontal de basalto (#220, auditoría 7 §3)', () => {
-  it('s4: lleva tono, como sus laderas y diagonales', () => {
+  it('s8: lleva tono, como sus laderas y diagonales', () => {
     // La s13 desde #226 no lleva basalto; la s51 llevaba las tres piezas,
     // desde #229 la s18, desde #230 (09-10-2026) la s36, y desde el río de una
     // casilla (#144, paso 2) la s24, y desde el río continuo (#144), que la
     // dejó sin meseta, la s63, la de la meseta de lava de arriba; y desde las
     // puertas de las ciudades (fase 2, 21-10-2026), la s4, la primera de 1-120
-    // con las tres.
-    const basalto = partidaDe(4).escena.sprites.filter((s) =>
+    // con las tres; sin minas (21-10-2026), la s8, la primera de 1-60.
+    const basalto = partidaDe(8).escena.sprites.filter((s) =>
       /^modulos\/(paredes|laderas|diagonales)-basalto/.test(s.src ?? ''),
     );
     expect(new Set(basalto.map((s) => s.src?.split('/')[1]?.split('-')[0]))).toEqual(

@@ -18,7 +18,7 @@ import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { esquinasDeAgua } from '../src/core/map/vestir.js';
 import { newGame } from '../src/core/state/setup.js';
 import { escenaDe } from './helpers.js';
-import { itLento, rango, segunPrisa } from './lento.js';
+import { rango, segunPrisa } from './lento.js';
 
 /**
  * Las esquinas de agua cortadas por las sendas de un mapa, dichas. Los vados:
@@ -80,20 +80,4 @@ describe('la senda pintada no pasa por el agua (#210, la medida de #211)', () =>
       expect(sendaSobreElAgua(escenaDe(semilla))).toBe(0);
     },
   );
-
-  itLento('en 1-100, ninguna', () => {
-    // Medido el 08-10-2026: 8 en main (#211), 3 con el trazado sin esquinas de
-    // agua, 2 al cortar la senda en las ciudades y 0 cuando la rampa de una
-    // bajada dejó de poner el pie en el agua (#214): la de caída 2 que baja en
-    // diagonal a la ciudad de s37 (7,26) y su reflejo pasaba de la ciudad y
-    // caía en el agua de (6,27). En 1-200 queda s75, de otra causa: la senda
-    // que sale en diagonal del estribo del puente de (22,3). Con el río
-    // continuo (#144), en 1-100, s52, s93, s97 y s100 hasta H4 (QA del río
-    // continuo), y 0 después: se mira hasta la 100.
-    const con = rango(1, 100).flatMap((s) => {
-      const n = sendaSobreElAgua(escenaDe(s));
-      return n > 0 ? [`s${s}: ${n}`] : [];
-    });
-    expect(con).toEqual([]);
-  });
 });

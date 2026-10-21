@@ -111,6 +111,7 @@ import {
   visibleNow,
   week,
 } from '@core/state/game.js';
+import { type RentaDelDia, rentaDelDia } from '@core/state/renta.js';
 import { newGame } from '@core/state/setup.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
@@ -1065,16 +1066,34 @@ export class Session implements ControlDeBatalla {
     this.tocar();
   }
 
-  /** El jugador de la persona: sus recursos y su niebla. */
+  /** El jugador de la persona: su oro y su niebla. */
   get jugador(): Player {
     const propio = this.state.players.find((p) => p.id === this.viewer);
     if (propio === undefined) throw new Error(`el jugador ${this.viewer} no está en la partida`);
     return propio;
   }
 
-  get resources() {
-    return this.jugador.resources;
+  /** El oro de la persona, el único recurso. */
+  get oro(): number {
+    return this.jugador.oro;
   }
+
+  /**
+   * Lo que cobrará la persona al empezar su turno, y de dónde sale: la cuenta
+   * del núcleo (`rentaDelDia`), la misma que suma `startTurn` y que lee el
+   * agente. La barra la enseña («+N/día») con lo que da cada ciudad y pueblo.
+   *
+   * Se guarda mientras no se mueva `version`, como `objetosConocidos`: la barra
+   * se repinta también al llegar arte, y cada vez rehacía `territorio`.
+   */
+  get renta(): RentaDelDia {
+    const c = this.cacheDeLaRenta;
+    if (c !== null && c.version === this.version) return c.renta;
+    const renta = rentaDelDia(this.state, this.viewer);
+    this.cacheDeLaRenta = { version: this.version, renta };
+    return renta;
+  }
+  private cacheDeLaRenta: { readonly version: number; readonly renta: RentaDelDia } | null = null;
 
   /** Lo explorado por la persona, o `null` si se ha pedido verlo todo. */
   get explorado(): CasillasLeidas | null {
@@ -1525,7 +1544,7 @@ export class Session implements ControlDeBatalla {
   recruitPlan(creatureId: string): RecruitCapacity | null {
     const town = this.activeTown;
     if (town === null || town.owner === null) return null;
-    return recruitCapacity(town, creatureId, destinoDeRecluta(this.state, town), this.resources);
+    return recruitCapacity(town, creatureId, destinoDeRecluta(this.state, town), this.oro);
   }
 
   /**
@@ -1536,7 +1555,7 @@ export class Session implements ControlDeBatalla {
   motivoParaNoReclutar(creatureId: string): string | null {
     const town = this.activeTown;
     if (town === null || town.owner === null) return null;
-    return reclutarBlocker(town, creatureId, 1, destinoDeRecluta(this.state, town), this.resources);
+    return reclutarBlocker(town, creatureId, 1, destinoDeRecluta(this.state, town), this.oro);
   }
 
   /**

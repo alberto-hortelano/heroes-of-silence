@@ -214,7 +214,7 @@ export interface CaraCortada {
  * `CABO_SUELTO` de ancho, con una punta que acaba en el llano —no sigue en otra
  * pared (otra frontal, una ladera, una diagonal, una bajada), ni se mete detrás
  * de un objeto, ni llega al borde del mapa— a `CORTE_JUNTO_A_UN_OBJETO` o menos
- * del centro de un objeto (ciudad, pueblo, mina, nodo). Es el bloque de
+ * del centro de un objeto (ciudad, pueblo, nodo). Es el bloque de
  * columnas suelto sobre el llano, «la elevación que acaba de repente»: la pared
  * que no entraba en la reserva de una ciudad al pie de la cara (s57 (29-33,
  * 25)). Lee lo puesto, no la regla que lo pone.

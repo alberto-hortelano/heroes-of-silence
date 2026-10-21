@@ -20,6 +20,7 @@ import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
 import { PODERES, queHaceElPoder } from '../battle/poderes.js';
 import { HERO_BODY } from '../battle/types.js';
+import { ECONOMIA } from '../data.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
@@ -33,6 +34,7 @@ import {
   TERRAIN_KINDS,
 } from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
+import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { FACTION_IDS, HUECOS, TIPOS_DEL_ANILLO } from '../types.js';
 import { HIT_DE_GOLPE, HITS, SLOT_DE_HUECO, SLOTS } from './vocabulario.js';
@@ -160,16 +162,6 @@ export const battleTurnResponseSchema = z.object({
  */
 export const terrainSchema = z.enum(TERRAIN_KINDS);
 
-export const resourceSchema = z.enum([
-  'wood',
-  'mercury',
-  'ore',
-  'sulfur',
-  'crystal',
-  'gems',
-  'gold',
-]);
-
 /**
  * Un id que el motor usa VERBATIM —en el `MapObject`, en el `Town`, en los
  * mensajes y en la consulta `map`—, así que es un contrato acotado: una `id`
@@ -230,11 +222,21 @@ export const mapPlanSchema = z.object({
         'ya no hay "heroStarts": el héroe de cada jugador empieza dentro de su base (su primera ciudad en "towns"); quita el campo',
     })
     .optional(),
-  mines: z.array(z.object({ at: pointSchema, resource: resourceSchema })),
+  // No hay minas ni más recurso que el oro: un plan que los trae se rechaza
+  // diciéndolo, como `heroStarts`.
+  mines: z
+    .never({
+      message:
+        'ya no hay minas: el oro sale de las ciudades y de los pueblos ("villages") de las regiones unidas a la base; quita el campo "mines"',
+    })
+    .optional(),
   villages: z.array(z.object({ name: nombreDeMapa('un pueblo'), at: pointSchema })),
-  resources: z.array(
-    z.object({ at: pointSchema, resource: resourceSchema, amount: z.number().int().positive() }),
-  ),
+  resources: z
+    .never({
+      message:
+        'ya no hay montones de recursos: el único recurso es el oro, y del mapa solo sale de los cofres ("chests"); quita el campo "resources"',
+    })
+    .optional(),
   monsters: z.array(
     z.object({ at: pointSchema, creature: z.string(), count: z.number().int().positive() }),
   ),
@@ -475,6 +477,15 @@ ${CATALOGO_DE_EQUIPO_EN_PROSA}
   la ciudad cae con su guarnición sin que esta llegue a pelear, y si era tu
   base, pierdes la partida. Lo que el héroe se llevó al entrar sí pelea: ya es
   su tropa.
+- ORO: es el ÚNICO recurso (no hay minas, ni madera, ni mineral). "you.gold"
+  es tu oro y "you.income" lo que cobrarás al empezar tu próximo turno:
+  "total" y de dónde sale, "towns" (cada ciudad tuya, con el "gold" que da su
+  ayuntamiento; tu base es la primera; la que está cortada de tu base lleva
+  "connected": false y da 0) y "villages" (cada
+  pueblo de una región tuya unida a tu base, ${ECONOMIA.rentaDelPueblo} de oro cada uno). Lo
+  que te cortan de la base deja de pagar. Todo "cost" —"canBuildNow",
+  "recruitable", "towns[].armory"— es oro: un número. Un "build" o un
+  "recruit" sin oro bastante se rechaza diciendo cuánto cuesta y cuánto tienes.
 - Cada héroe trae su "type", el TIPO de héroe (un id de los de su facción), y
   el que nació de la tropa trae además su "story". El tipo todavía NO da
   ninguna habilidad: se guarda y se ve.
@@ -657,9 +668,10 @@ ${HITS.map((h) => `"${h}"`).join(', ')}.
 
 El plan NO es una imagen ni una rejilla: describe el mapa y el motor lo
 construye. Campos: width, height, baseTerrain, patches[], regions[], walls[],
-nodes[], towns[], mines[], villages[], resources[], monsters[], chests[],
-roads?, raiders?. No hay posiciones de inicio: el héroe de cada jugador empieza
-DENTRO de su base.
+nodes[], towns[], villages[], monsters[], chests[], roads?, raiders?. No hay
+posiciones de inicio: el héroe de cada jugador empieza DENTRO de su base. Ni
+minas ni montones de recursos: el único recurso es el oro (un plan con "mines"
+o "resources" se rechaza).
 
 El mapa es una RED DE NODOS, y eso se comprueba:
 - Una REGIÓN es una zona por la que se anda libre, cerrada por muro. Cada una se
@@ -685,8 +697,8 @@ El mapa es una RED DE NODOS, y eso se comprueba:
   queda el paso abierto; una zona pisable sin región declarada se rechaza; cada
   región necesita al menos un nodo, y todas tienen que alcanzarse.
 - Una región es de quien tenga TODOS sus nodos, y solo da renta unida a su base.
-  Las minas y los pueblos ("villages": {"name", "at"}) no se toman: son de quien
-  tenga su región, y por eso no llevan dueño.
+  Los pueblos ("villages": {"name", "at"}) no se toman: son de quien tenga su
+  región, y por eso no llevan dueño. Cada uno ${REGLA_DEL_PUEBLO}.
 - Una región puede llevar "terrain": su suelo ENTERO, todas sus casillas
   pisables pintadas de ese terreno (encima de "patches"). Tiene que ser un suelo
   que se pise, no una barrera. Solo pinta: no cambia por dónde se anda.
@@ -717,14 +729,13 @@ Reglas que se validan antes de aceptarlo:
   ciudad: la primera suya es su base y su héroe empieza dentro, en la casilla de
   la ciudad, y sale por sus puertas.
 - Dos cosas no pueden compartir casilla.
-- Todo lo que no es nodo ni ciudad —minas, pueblos, recursos, monstruos y
-  cofres— va DENTRO de una región, nunca sobre un muro ni sobre un nodo.
+- Todo lo que no es nodo ni ciudad —pueblos, monstruos y cofres— va DENTRO de
+  una región, nunca sobre un muro ni sobre un nodo.
 - Cada ciudad es un RECINTO amurallado de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO} casillas con ella en el
   medio. Por eso: una ciudad va a una casilla del borde del mapa o más; dos
   ciudades, a ${SEPARACION_DE_CIUDADES} casillas o más, contando la diagonal como una; y dentro de un
-  recinto no va nada más que su ciudad —ni un nodo, ni otra ciudad, ni una
-  mina, un pueblo, un recurso, un monstruo, un cofre o un grupo de
-  asaltantes—.
+  recinto no va nada más que su ciudad —ni un nodo, ni otra ciudad, ni un
+  pueblo, un monstruo, un cofre o un grupo de asaltantes—.
 - A una ciudad se entra por las PUERTAS de su recinto, y el resto del recinto no
   se pisa. Las puertas posibles son seis, relativas a la ciudad en {x,y}: la
   del norte en {x,y-1}, con su acceso en {x,y-2}; la del sur en {x,y+1}, con el

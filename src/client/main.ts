@@ -268,8 +268,8 @@ const ctx = principal.ctx;
  * Los paneles se rehacen cuando la sesión dice que algo ha cambiado (`version`),
  * cuando la partida es otra o
  * cuando el tablero de batalla empieza o acaba de contar una jugada (sus botones
- * van apagados mientras tanto, #165); la barra, además, cuando llega arte (los
- * iconos de recursos). Antes se generaba su marcado en cada fotograma para
+ * van apagados mientras tanto, #165); la barra, además, cuando llega arte (el
+ * icono del oro). Antes se generaba su marcado en cada fotograma para
  * compararlo con el anterior.
  */
 let paneles: {
@@ -401,7 +401,7 @@ function dibujarFotograma(ahora: number): void {
     paneles.version !== session.version ||
     paneles.contando !== contando ||
     paneles.base !== base;
-  // El arte que llega solo cambia la barra (los iconos de recursos). El lateral
+  // El arte que llega solo cambia la barra (el icono del oro). El lateral
   // y las acciones no lo leen, y repintarlos con cada hoja o tramo que llegaba
   // perdía el toque que caía en medio: el botón tocado ya no existía al llegar
   // su clic (1 de cada 10 en la morada del móvil, 21-10-2026).

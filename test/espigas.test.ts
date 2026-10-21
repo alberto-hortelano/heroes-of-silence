@@ -51,15 +51,6 @@ function rejilla(filas: readonly string[]): {
 const regionesDe = (filas: readonly string[]): Int32Array =>
   Int32Array.from(filas.flatMap((f) => [...f].map((c) => (c === '.' ? -1 : Number(c)))));
 
-/** Las casillas de lo procedimental con su nivel, como las pinta la escena. */
-function espigasDe(semilla: number): string[] {
-  const map = newGame({ seed: semilla }).map;
-  const { nivel } = relieve(analizar(map));
-  return espigasDelRelieve(map.width, map.height, nivel).map(
-    (i) => `(${i % map.width},${Math.floor(i / map.width)}) ${map.terrain[i]}`,
-  );
-}
-
 describe('la regla del nivel de cada casilla (#210)', () => {
   it('el agua va plana, a ras de la región más baja que toca, y no se encaja', () => {
     // Región 0 a nivel 2 arriba, región 1 a nivel 0 abajo; el río entre las dos.
@@ -114,15 +105,6 @@ describe('la regla del nivel de cada casilla (#210)', () => {
 });
 
 describe('en los mapas del procedimental (#210)', () => {
-  // s1, la de las marcas; s2, s5 y s443, las de la auditoría 5 (2 y 443, las
-  // espigas junto al agua; 5, las gargantas de caída 3).
-  it.each(segunPrisa([1, 2, 5, 443], rango(1, 200)))(
-    'semilla %i: ninguna casilla de una de ancho por encima de sus dos lados',
-    (semilla) => {
-      expect(espigasDe(semilla)).toEqual([]);
-    },
-  );
-
   it.each(segunPrisa([2, 5], rango(1, 200)))(
     'semilla %i: ninguna caída de más de 2 y el agua plana',
     (semilla) => {

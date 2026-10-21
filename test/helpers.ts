@@ -364,8 +364,9 @@ export function primeraSemillaCon<T>(
  * `town-3` de la 64 (al 70 %), que lleva a su casilla del río, que se pisa: en
  * 1-500 no hay otro. El héroe nacido en su base no lo mueve: con el recinto, el
  * inicio se ponía tras los caminos y después no se colocaba nada (fusión,
- * 21-10-2026; sin el recinto, la primera era la 566). Se busca desde ella:
- * componer cada escena cuesta ~0,3 s.
+ * 21-10-2026; sin el recinto, la primera era la 566). Sin minas (21-10-2026)
+ * la 64 es otro mapa: en 1-2000 solo queda el `node-2` de la 1469 (al 80 %). Se
+ * busca desde ella: componer cada escena cuesta ~0,3 s.
  */
 export function puenteSobreElAgua(): {
   semilla: number;
@@ -394,8 +395,8 @@ export function puenteSobreElAgua(): {
       }
       return undefined;
     },
-    64,
-    300,
+    1469,
+    1600,
   );
 }
 
@@ -676,9 +677,10 @@ export const esPersonaje =
  *   guarnición de `data/ciudades.json`.
  * - `town-1` (22,4): base del jugador 1, entre D y E.
  *
- * Una mina en cada una de A, B y C: ore (2,2), gold (8,4) y wood (14,4).
- * Inicios en (3,4) y (24,4), delante del recinto de cada base: dentro de su
- * 3 × 3 no va nada más que la ciudad (`problemasDeRecintos`).
+ * Un pueblo en cada una de A, B y C: Los Robles (2,2), Molinar (8,4) y Las
+ * Eras (14,4), donde iban las minas hasta el 21-10-2026, y Aldea del Pozo
+ * (14,1), el segundo de C. Dentro del 3 × 3 de cada ciudad no va nada más que
+ * ella (`problemasDeRecintos`).
  *
  * Cada ciudad, con un camino de cada región que la toca por la puerta de esa
  * cara (la ciudad amurallada, fase 2): hay puerta donde llega un camino, y sin
@@ -733,13 +735,12 @@ export function planDeNodos(): PlanConCasillas {
         owner: null,
       },
     ],
-    mines: [
-      { at: { x: 2, y: 2 }, resource: 'ore' },
-      { at: { x: 8, y: 4 }, resource: 'gold' },
-      { at: { x: 14, y: 4 }, resource: 'wood' },
+    villages: [
+      { name: 'Aldea del Pozo', at: { x: 14, y: 1 } },
+      { name: 'Los Robles', at: { x: 2, y: 2 } },
+      { name: 'Molinar', at: { x: 8, y: 4 } },
+      { name: 'Las Eras', at: { x: 14, y: 4 } },
     ],
-    villages: [{ name: 'Aldea del Pozo', at: { x: 14, y: 1 } }],
-    resources: [],
     monsters: [],
     chests: [],
     roads: [
@@ -802,9 +803,7 @@ export function planDeMesetas(): PlanConCasillas {
       // su orilla (`problemasDeRecintos`).
       { id: 'town-1', name: 'Cripta Gris', faction: 'no-muertos', at: { x: 3, y: 7 }, owner: 1 },
     ],
-    mines: [],
     villages: [],
-    resources: [],
     monsters: [],
     chests: [],
     // Cada ciudad, con el camino de sus regiones por sus puertas: Valdeluz por
@@ -893,7 +892,7 @@ export function barrerasDe(map: GameMap): {
  * - **alcance**: desde las vecinas de los nodos de cada región, sin cruzar un
  *   monstruo, se llega a todas sus casillas pisables —objetos, inicios y
  *   asaltantes incluidos—;
- * - **caminos** (#149, radiales con un cruce por pareja): cada ciudad, mina y
+ * - **caminos** (#149, radiales con un cruce por pareja): cada ciudad y
  *   pueblo está en la red de su región —el camino de la región es una sola
  *   pieza y los lleva—, la base en la de su casa, cada nodo con camino es una
  *   **hoja** de la red de cada región que se lo lleva, entre cada pareja de
@@ -1073,10 +1072,7 @@ export function auditarMapaDenso(
   const nodosDe = red.regiones.map((reg) => new Set(reg.nodos.map((n) => nodos[n]!)));
   for (const [k, reg] of red.regiones.entries()) {
     const destinos = map.objects
-      .filter(
-        (o) =>
-          (o.kind === 'mine' || o.kind === 'village') && red.regionDe[o.at.y * W + o.at.x] === k,
-      )
+      .filter((o) => o.kind === 'village' && red.regionDe[o.at.y * W + o.at.x] === k)
       .map((o) => o.at.y * W + o.at.x);
     // El camino de la región, sin sus nodos: un radio no cruza un nodo, así
     // que tiene que ser de una pieza por las casillas de la región.
@@ -1095,7 +1091,7 @@ export function auditarMapaDenso(
     }
     for (const d of destinos) {
       if (!camino.has(d))
-        fallos.push(`la mina o el pueblo ${en(d)} de la región ${reg.id} no está en un camino`);
+        fallos.push(`el pueblo ${en(d)} de la región ${reg.id} no está en un camino`);
     }
     // Radial: a un nodo se llega, no se cruza, así que es una hoja de la red
     // de cada región que le lleva camino.

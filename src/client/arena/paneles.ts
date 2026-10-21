@@ -1436,7 +1436,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
       </header>
       ${v.rechazo === null ? NADA : html`<p class="aviso-de-pieza rechazo" role="status">${v.rechazo}</p>`}
       <div class="row resumen-de-pieza" data-resumen-de-pieza="si"><span class="label">Suma</span>${modificadoresEnPantalla(p, 'nada')}</div>
-      <div class="row"><span class="label">Precio</span><span>${describirCoste({ gold: p.precio })}</span></div>
+      <div class="row"><span class="label">Precio</span><span>${describirCoste(p.precio)}</span></div>
       <div class="row" data-la-llevan="si"><span class="label">La llevan</span><span>${llevan.length === 0 ? 'ninguna unidad del catálogo' : llevan.join(', ')}</span></div>
       ${seConsigue}
       <div class="botones">${botones}</div>

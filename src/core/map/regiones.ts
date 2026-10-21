@@ -1226,17 +1226,18 @@ function conexionDe(
 }
 
 /**
- * Cuántas regiones serían de `player` si tomara este nodo: las suyas cuyos
- * demás nodos ya son todos de él. Pregunta a `dueñoComun` como si el nodo ya
- * fuera suyo, en vez de reescribir la regla de «región tuya» en la IA.
+ * Las regiones que serían de `player` si tomara este nodo, por su índice en la
+ * red: las suyas cuyos demás nodos ya son todos de él. Pregunta a `dueñoComun`
+ * como si el nodo ya fuera suyo, en vez de reescribir la regla de «región tuya»
+ * en la IA, que las valora por lo que da cada una (`rentaDeLaRegion`).
  */
-export function regionesQueCierra(t: Territorio, nodoId: string, player: PlayerId): number {
+export function regionesQueCierra(t: Territorio, nodoId: string, player: PlayerId): number[] {
   const k = t.red.nodoPorId.get(nodoId);
   if (k === undefined) throw new Error(`el nodo ${nodoId} no está en la red del mapa`);
-  let cerradas = 0;
+  const cerradas: number[] = [];
   for (const r of t.red.nodos[k]?.regiones ?? []) {
     const nodos = t.red.regiones[r]?.nodos ?? [];
-    if (dueñoComun(nodos, t.dueñoDeNodo, { nodo: k, dueño: player }) === player) cerradas++;
+    if (dueñoComun(nodos, t.dueñoDeNodo, { nodo: k, dueño: player }) === player) cerradas.push(r);
   }
   return cerradas;
 }

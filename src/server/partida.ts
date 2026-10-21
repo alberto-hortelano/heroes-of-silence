@@ -232,7 +232,9 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
           (tropas === '' ? '' : ` — ${tropas}`),
       );
     }
-    console.log(`  minas en juego: ${state.map.objects.filter((o) => o.kind === 'mine').length}`);
+    console.log(
+      `  pueblos en juego: ${state.map.objects.filter((o) => o.kind === 'village').length}`,
+    );
     console.log(`  nodos en juego: ${state.map.objects.filter((o) => o.kind === 'node').length}`);
     console.log(`  casillas exploradas por el agente: ${state.players[1]?.fog.size ?? 0}`);
     broadcast();

@@ -549,8 +549,9 @@ describe('lo que vio QA en la semilla 1, por lo que era', () => {
   // (#144, paso 2), que la dejó sin ninguno: la s30, tres. Con el río de una
   // casilla al pie de la meseta (#144, paso 2b) la s30 no tiene ninguno: la
   // s11, tres. Con el río continuo (#144) la s11 no tiene ninguno y la s1, dos.
-  it('los pasos de una casilla entre dos bosques (s1): la copa de su sur deja su 0,6 de arriba', () => {
-    const { e: e1, a: a1, est: est1, bosque: bosque1 } = deLaSemilla(1);
+  // Sin minas (21-10-2026) la s1 no tiene ninguno: la s4, dos.
+  it('los pasos de una casilla entre dos bosques (s4): la copa de su sur deja su 0,6 de arriba', () => {
+    const { e: e1, a: a1, est: est1, bosque: bosque1 } = deLaSemilla(4);
     const W1 = e1.W;
     const pasos: [number, number][] = [];
     for (let y = 1; y < e1.H - 1; y++)
@@ -583,9 +584,11 @@ describe('lo que vio QA en la semilla 1, por lo que era', () => {
   // La de (11-12, 8-9): un pasillo de dos de hondo y dos de ancho, con bosque
   // al sur. La s1 no tiene ninguno desde el río de una casilla (#144, paso 2):
   // la s36, seis. Con el río de una casilla al pie de la meseta (#144, paso 2b)
-  // la s36 no tiene ninguno: la s12, ocho, la que más de 1-60.
+  // la s36 no tiene ninguno: la s12, ocho, la que más de 1-60. Sin minas
+  // (21-10-2026) la s12 no tiene ninguno: la s13, siete, la que más de 1-60
+  // con la s54.
   const hondos: [number, number][] = [];
-  const conHondos = deLaSemilla(12);
+  const conHondos = deLaSemilla(13);
   {
     const { e: eh, est, bosque } = conHondos;
     for (let y = 0; y + 2 < eh.H; y++)
@@ -599,7 +602,7 @@ describe('lo que vio QA en la semilla 1, por lo que era', () => {
           hondos.push([x, y]);
   }
 
-  it(`los pasillos de dos de hondo con bosque al sur (${hondos.length} en s12): la copa deja el 0,6 de arriba de su fila de abajo`, () => {
+  it(`los pasillos de dos de hondo con bosque al sur (${hondos.length} en s13): la copa deja el 0,6 de arriba de su fila de abajo`, () => {
     expect(hondos.length).toBeGreaterThan(0);
     for (const [x, y] of hondos)
       expect(tapanDesdeElSur(conHondos.e.sprites, [x, x + 1], y + 1), `(${x}, ${y})`).toEqual([]);
@@ -662,8 +665,9 @@ describe('la nieve que se pisa, sin sus peñascos grises (H9)', () => {
   // nieve que se pisa de 1-80 con peñascos en lo alto (870 casillas y 81). Con
   // el recinto de las ciudades del núcleo (vuelta 3) la s79 no los tiene: la s4
   // (617 casillas y 41). Con las puertas de las ciudades (fase 2) la s4 no
-  // tiene nieve que se pise: la s61 (464 casillas y 101 peñascos).
-  const { map, escena: e } = partidaDe(61);
+  // tiene nieve que se pise: la s61 (464 casillas y 101 peñascos). Sin minas
+  // (21-10-2026) la s61 no tiene peñascos en lo alto: la s37 (418 casillas y 53).
+  const { map, escena: e } = partidaDe(37);
   const a = analizar(map);
   const rocas = e.sprites.filter((s) => s.clase === 'cubierta' && esPeñascoGris(s));
 

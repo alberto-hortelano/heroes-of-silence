@@ -37,7 +37,6 @@ const ANCHO_EN_CASILLAS = {
   nodo: 1.7,
   ciudad: 2.4,
   pueblo: 1.9,
-  recurso: 0.95,
 } as const;
 
 /** Una casilla de mancha interior tiene a lo sumo este tamaño: las fronteras son más largas. */
@@ -209,12 +208,6 @@ function rgb(c: readonly [number, number, number]): string {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
-const PIEZA_DE_RECURSO: Readonly<Record<string, string>> = {
-  gold: 'oro',
-  ore: 'piedra',
-  wood: 'madera',
-};
-
 function cosaDeObjeto(o: MapObject, W: number, terreno: readonly TerrainKind[]): Cosa[] {
   const x = o.at.x + 0.5;
   const y = o.at.y + 0.85;
@@ -255,18 +248,6 @@ function cosaDeObjeto(o: MapObject, W: number, terreno: readonly TerrainKind[]):
           etiqueta: 'pueblo',
         },
       ];
-    case 'resource':
-      return [
-        {
-          pieza: PIEZA_DE_RECURSO[o.resource] ?? null,
-          x,
-          y,
-          ancho: ANCHO_EN_CASILLAS.recurso,
-          color: '#e0c050',
-          etiqueta: o.resource,
-        },
-      ];
-    case 'mine':
     case 'monster':
     case 'chest':
       return [
@@ -292,9 +273,6 @@ export async function vistaMapa(semilla = 1): Promise<string> {
     ...HITOS,
     'ciudad',
     'pueblo',
-    'oro',
-    'piedra',
-    'madera',
   ];
   const piezas = Object.fromEntries(
     [...new Set([...catalogo, ...usadas])].map((id) => [id, medidas(id)]),

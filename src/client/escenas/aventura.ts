@@ -5,9 +5,11 @@
  * Guarda solo estado de píxel —dónde mira la cámara, qué casilla está señalada,
  * si se está arrastrando—, igual que hacía `main.ts` antes de partirse.
  */
+
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import { inBounds, pointKey } from '@core/map/map.js';
+import { REGLA_DEL_PUEBLO } from '@core/state/renta.js';
 import type { Point } from '@core/types.js';
 import {
   acotar,
@@ -370,14 +372,12 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
     que = `${t?.name ?? 'Castillo'} (${dueño})`;
   } else if (objeto?.kind === 'node') {
     que = `Paso ${objeto.owner === s.viewer ? 'tuyo' : objeto.owner === null ? 'sin dueño' : 'enemigo'}`;
-  } else if (objeto?.kind === 'mine') {
-    que = 'Mina: produce para quien tenga la región';
   } else if (objeto?.kind === 'village') {
-    que = `${objeto.name}: es de quien tenga la región`;
+    const paga = s.renta.pueblos.some((p) => p.id === objeto.id);
+    que = `${objeto.name}: ${REGLA_DEL_PUEBLO} (${paga ? 'ya te paga' : 'a ti no te paga'})`;
   } else if (objeto?.kind === 'monster' && !objeto.defeated)
     que = `${objeto.count} monstruos de guardia`;
   else if (objeto?.kind === 'chest' && !objeto.taken) que = 'Un cofre';
-  else if (objeto?.kind === 'resource' && !objeto.taken) que = 'Recursos sueltos';
   if (ruta.length === 0) return que === '' ? '' : `${que}.`;
   const llegada = llegadaDeLaRuta(ruta, s.explorado);
   // La emboscada va DELANTE: es lo que cambia la decisión, y una barra larga se

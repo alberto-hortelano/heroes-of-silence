@@ -44,36 +44,6 @@
     },
     {
       "group": "icons",
-      "name": "wood",
-      "path": "icons/wood.png"
-    },
-    {
-      "group": "icons",
-      "name": "mercury",
-      "path": "icons/mercury.png"
-    },
-    {
-      "group": "icons",
-      "name": "ore",
-      "path": "icons/ore.png"
-    },
-    {
-      "group": "icons",
-      "name": "sulfur",
-      "path": "icons/sulfur.png"
-    },
-    {
-      "group": "icons",
-      "name": "crystal",
-      "path": "icons/crystal.png"
-    },
-    {
-      "group": "icons",
-      "name": "gems",
-      "path": "icons/gems.png"
-    },
-    {
-      "group": "icons",
       "name": "gold",
       "path": "icons/gold.png"
     }

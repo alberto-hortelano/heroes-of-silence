@@ -1,8 +1,7 @@
 /**
  * El catálogo de la escena leído del disco (`catalogo.ts`): los índices de cada
- * hoja de `assets/mapa/modulos/`, los JSON derivados de cada pieza de
- * `assets/mapa/` y, para la pieza del atlas viejo que no trae JSON (la mina), su
- * medida sacada de la imagen.
+ * hoja de `assets/mapa/modulos/` y los JSON derivados de cada pieza de
+ * `assets/mapa/`.
  *
  * `pnpm taller catalogo-escena` lo escribe en `assets/mapa/escena.json`, que es
  * lo que leerá el juego: un solo fichero en vez de setenta.
@@ -24,16 +23,10 @@ import {
   type Pieza,
   RUTA_DEL_CATALOGO,
 } from '../../../src/client/render/escenario/catalogo.js';
-import { derivarPieza, perfilDeModulo, siluetaDeModulo } from '../derivar.js';
+import { perfilDeModulo, siluetaDeModulo } from '../derivar.js';
 
 const RAIZ = resolve(import.meta.dirname, '../../..');
 const MAPA = join(RAIZ, 'assets/mapa');
-
-/**
- * Las piezas del atlas viejo que el escenógrafo usa y no traen su JSON. El cofre
- * ya tiene la suya, `cofre` (#147).
- */
-const DEL_ATLAS = ['atlas/mina'] as const;
 
 interface IndiceDeHoja {
   readonly modulos: readonly {
@@ -129,10 +122,6 @@ export async function leerCatalogo(): Promise<Catalogo> {
         ? {}
         : { puente: { pxPorCasilla, altura, largo } as MedidasDePuente }),
     };
-  }
-  for (const id of DEL_ATLAS) {
-    const d = await derivarPieza(join(MAPA, `${id}.webp`));
-    piezas[id] = { src: `${id}.webp`, nw: d.ancho, nh: d.alto, ax: d.ancla[0], ay: d.ancla[1] };
   }
   // Lo que lee el juego: una pieza del relieve sin sus juntas lanza aquí, no al pintar.
   return catalogoValidado({ hojas, piezas } satisfies CatalogoEnBruto);

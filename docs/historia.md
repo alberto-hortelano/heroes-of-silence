@@ -5479,3 +5479,45 @@ mapa y no debe pasar en la base» (el usuario, tras la vuelta 1 de la morada,
   placa, no el maestro: alrededor es lo que pinta el juego y la diferencia es solo el edificio.
   Mientras no llega, manda el maestro (`cuadroDe`).
 
+
+## Solo oro: sin minas ni recursos (21-10-2026)
+
+Petición del usuario: «Elimina las minas y el sistema de minerales, solo oro que sale de las
+ciudades y pueblos que se controlan, la base produce tambien oro». Ciclo en
+`docs/agents/2026-10-21-solo-oro/`.
+
+- **El oro es un número.** `Player.oro`, `Building.cost`, `recruitCost` y `describirCoste(oro)`
+  son enteros de oro; se fueron `Resources`, `RESOURCE_KINDS`, `NOMBRE_DE_RECURSO` y las cuatro
+  utilidades del monedero, y con ellas el `while` de `recruitCapacity`, que bajaba de uno en uno
+  porque un coste de varios recursos no se dividía. El de un registro de un solo recurso
+  (`{ gold }`) se descartó: abstracción para un caso que ya no existe (como `Pieza.precio`).
+- **Los costes se pasan a oro, no se borran** (decisión del usuario): madera y mineral a 250 la
+  unidad, mercurio, azufre, cristal y gemas a 500. El castillo (5000 + 20 + 20) cuesta 15 000; las
+  moradas, 200 / 1 000 / 2 250 / 7 000 / 8 000 / 20 000. El monedero de salida de fheroes2 (7 500 de
+  oro, 20 de madera y de mineral, 5 de cada raro) pasa a 27 500 (`oroDeSalida`), para que el
+  castillo siga cabiendo el día 1. Un coste escrito con varios recursos tumba la carga diciéndolo.
+- **La renta, un hecho en un sitio** (`rentaDelDia`, `state/renta.ts`): el ayuntamiento de cada
+  ciudad propia unida a la base y 250 por pueblo de región propia unida (`rentaDelPueblo`,
+  inventado). Sustituye al bucle de minas de `startTurn`; lo leen el agente (`you.income`, con cada
+  ciudad y cada pueblo) y la barra («+N/día» y la nota con de dónde sale). La mina de oro de casa
+  (1 000 al día) no se compensa: se mide (decisión del usuario).
+- **Sin minas ni montones en el mapa.** El generador ya no coloca las minas por región ni los
+  recursos sueltos; los pueblos, cofres, monstruos y asaltantes siguen con `colocarPar`. La puerta
+  de un objeto es solo la del pueblo (la segunda puerta de la mina, #230, se fue con ella, y con
+  ella `tools/qa/ramales.ts` y `test/ramales-de-minas.test.ts`). Un plan del agente con `mines` o
+  `resources` se rechaza diciéndolo (`z.never`, como `heroStarts`). La IA valora el nodo que cierra
+  una región por 6 días de la renta de sus pueblos (`DIAS_DE_RENTA`, inventado: la mediana de
+  duración).
+- **Los mapas cambian desde los objetos**: con menos tiradas antes de los obstáculos, todo lo de
+  después es otro, y los vestidos que se repiten dan otra red. El banco (`b9dbd8a1…`) cambia en
+  las 20 desde el hecho 1, un `raider_spawned` en otra casilla; 4 / 6 / 6 → 4 / 7 / 7 días. En
+  1-100, 4 / 6 / 17 y j0 46 (antes, medido igual, 3 / 6 / 15 y j0 62). Rectitud en 1-3000,
+  98 / 0 / 6 → 106 / 0 / 10, dentro de sus techos. Las semillas escritas en los guardias del
+  mapa se buscaron otra vez (cada una dice la de antes); el caso del tablero de un puente sobre el
+  agua de otra casilla solo queda en la 1469 de 1-2000.
+- **El arte retirado no se borra**: el atlas de la mina, los montones de oro, piedra y madera y los
+  seis iconos que no son el oro van a `assets/art/retirado/`, que no va al build.
+- **El guardia** (`invariantes.test.ts`, «no queda más recurso que el oro»): ningún nombre de
+  recurso de antes, ni `'mine'`, ni un `kind` `'resource'` en `src/`, `data/` ni `tools/`. Roto a
+  mano con un `'wood'` en `town/town.ts` y un `kind: 'mine'` en `map/map.ts`: rojo; y mordió de
+  verdad a un comentario del propio banco.

@@ -1,5 +1,5 @@
 ### aventura · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>9000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">29 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### aventura · renderSide
 
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
@@ -18,7 +18,7 @@
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="ataque">+2 Ataque</span><span class="modificador" data-cifra="danio">+10–30 Daño</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Arma a distancia: —</span></div><div class="stack empty"><span>Arma de carga: —</span></div><div class="stack"><span>Armadura: Gambesón<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="defensa">+1 Defensa</span><span class="modificador" data-cifra="armadura">+4 Armadura</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Escudo: —</span></div></div>
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 5 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Orko con hacha y escudo</span><span class="count">3</span></div><div class="stack"><span>Orko con dos armas</span><span class="count">2</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+        <div class="stack-list"><div class="stack"><span>Orko con hacha y escudo</span><span class="count">4</span></div><div class="stack"><span>Orko con dos armas</span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
               <span>Grommash Dientenegro</span><span class="count">1482</span>
             </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
@@ -32,9 +32,9 @@
           Fin de turno
         </button>
 ### aventura · renderLog
-<div class="log" data-al-final="cronica"><div>El jugador 1 construye en (32, 35): Pabellón de caza</div><div>El jugador 1 recluta 1 × Jinete en (32, 35)</div><div>El jugador 1 licencia 2 × Arquero en (32, 35)</div><div>El jugador 1 recluta 2 × Guardia del bosque en (32, 35)</div><div>Batalla en (27, 25): un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 3 rondas; pierde el jugador 1 1 × Guardia del bosque; pierde la guarnición 2 × Arquero, 2 × Guardia del bosque</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (27, 25)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (27, 25)</div><div>El jugador 1 captura un castillo neutral en (27, 25)</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (27, 25): Espada de herrería</div><div>— Día 2 —</div><div>El jugador 1 construye en (32, 35): Arboleda</div><div>El jugador 1 construye en (27, 25): Pabellón de caza</div><div>El jugador 1 recluta 2 × Jinete en (27, 25)</div><div>El jugador 1 recluta 1 × Guardia del bosque en (27, 25)</div><div>El jugador 1 toma un paso en (19, 12)</div><div>— Día 3 —</div></div>
+<div class="log" data-al-final="cronica"><div>El jugador 1 recluta 2 × Guardia del bosque en (34, 38)</div><div>Batalla en (24, 34): un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 3 rondas; pierde el jugador 1 1 × Guardia del bosque; pierde la guarnición 2 × Arquero, 2 × Guardia del bosque</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (24, 34)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (24, 34)</div><div>El jugador 1 captura un castillo neutral en (24, 34)</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (24, 34): Espada de herrería</div><div>— Día 2 —</div><div>El jugador 1 construye en (34, 38): Arboleda</div><div>El jugador 1 construye en (24, 34): Pabellón de caza</div><div>El jugador 1 recluta 2 × Jinete en (24, 34)</div><div>El jugador 1 recluta 1 × Guardia del bosque en (24, 34)</div><div>Batalla en (29, 21): un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 3 rondas; pierde la guarnición 3 × Goblin lancero, 2 × Goblin arquero</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 3 en (29, 21)</div><div>Un Jinete del jugador 1 sube a veterano de rango 2 en (29, 21)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (29, 21)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 3 en (29, 21)</div><div>El jugador 1 captura un castillo neutral en (29, 21)</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (29, 21): Pavés</div><div>— Día 3 —</div></div>
 ### castillo · con héroe dentro y gremio · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>15</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>15</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>6000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">23 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### castillo · con héroe dentro y gremio · renderSide
 
     <h2>Valdeluz</h2>
@@ -58,13 +58,13 @@
           <div class="row"><span class="label">Liderazgo</span><span>20 / 20</span></div>
     <progress class="liderazgo" max="20" value="20"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
-          <div class="stack-list"><div class="stack"><span>Orko con hacha y escudo</span><span class="count">3 <button data-action="dismiss" data-hero="hero-0" data-creature="orko-hacha-escudo" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div><div class="stack"><span>Orko con dos armas</span><span class="count">2 <button data-action="dismiss" data-hero="hero-0" data-creature="orko-dos-armas" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div></div>
+          <div class="stack-list"><div class="stack"><span>Orko con hacha y escudo</span><span class="count">4 <button data-action="dismiss" data-hero="hero-0" data-creature="orko-hacha-escudo" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div><div class="stack"><span>Orko con dos armas</span><span class="count">1 <button data-action="dismiss" data-hero="hero-0" data-creature="orko-dos-armas" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div></div>
 ### castillo · con héroe dentro y gremio · renderActions
 <button data-action="close-town">Volver al mapa</button>
 ### castillo · con héroe dentro y gremio · renderLog
-<div class="log" data-al-final="cronica"><div>— Día 1 —</div><div class="win">Construido en (10, 6): Gremio de magia I</div><div class="win">Aprendido en (10, 6): Prisa, Lentitud</div></div>
+<div class="log" data-al-final="cronica"><div>— Día 1 —</div><div class="win">Construido en (7, 3): Gremio de magia I</div><div class="win">Aprendido en (7, 3): Prisa, Lentitud</div></div>
 ### castillo · sin héroe y sin gremio · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### castillo · sin héroe y sin gremio · renderSide
 
     <h2>Valdeluz</h2>
@@ -91,7 +91,7 @@
 ### castillo · sin héroe y sin gremio · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### aventura · héroe recién contratado · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>5500</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### aventura · héroe recién contratado · renderSide
 
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
@@ -117,7 +117,7 @@
             </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
             </button></div>
-    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 1 —</div><div class="win">Héroe contratado en (10, 6)</div><div class="win">Guarnición incorporada en (10, 6)</div></div>
+    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 1 —</div><div class="win">Héroe contratado en (7, 3)</div><div class="win">Guarnición incorporada en (7, 3)</div></div>
 ### aventura · héroe recién contratado · renderActions
 
         <button data-action="toggle-fog">Ver mapa entero</button>
@@ -126,9 +126,9 @@
           Fin de turno
         </button>
 ### aventura · héroe recién contratado · renderLog
-<div class="log" data-al-final="cronica"><div>— Día 1 —</div><div class="win">Héroe contratado en (10, 6)</div><div class="win">Guarnición incorporada en (10, 6)</div></div>
+<div class="log" data-al-final="cronica"><div>— Día 1 —</div><div class="win">Héroe contratado en (7, 3)</div><div class="win">Guarnición incorporada en (7, 3)</div></div>
 ### batalla · en marcha · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · en marcha · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -142,7 +142,7 @@
          <button data-action="battle-end-turn">Terminar turno</button>
          <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" >Esperar</button>
-         <button data-action="battle-surrender">Rendirse (360 oro)</button>
+         <button data-action="battle-surrender">Rendirse (530 oro)</button>
        </div>
        <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
         class="stack"
@@ -165,9 +165,6 @@
           <span>◀ Esqueleto guerrero B</span>
           <span class="count">1</span>
         </div><div class="stack empty">
-          <span>◀ Esqueleto guerrero C</span>
-          <span class="count">1</span>
-        </div><div class="stack empty">
           <span>◀ Esqueleto arquero A</span>
           <span class="count">1</span>
         </div><div class="stack empty">
@@ -181,6 +178,12 @@
           <span class="count">1</span>
         </div><div class="stack empty">
           <span>▶ Guerrero con escudo B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo C</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo D</span>
           <span class="count">1</span>
         </div><div class="stack">
           <span>▶ Escudero A</span>
@@ -198,58 +201,60 @@
 ### batalla · en marcha · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · terminada · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · terminada · renderSide
 <h2>Victoria</h2>
       <p>El campo es tuyo.</p>
       <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
-      <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>Serena la Pálida → Escudero A (contraataque): 30 de daño (−7 armadura), 1 baja</div><div class="lose">Aniquilada la unidad Escudero A, de tu bando</div><div>Se disipa Defensivo de Escudero B, de tu bando</div><div class="cruce">Escudero B → Esqueleto arquero A, Normal contra Finta: medio; contraataque medio</div><div>Escudero B → Esqueleto arquero A: 34 de daño (−2 armadura), 0 bajas</div><div>Esqueleto arquero A → Escudero B (contraataque): 7 de daño (−7 armadura), 0 bajas</div><div class="cruce">Serena la Pálida → Aldo de Valdeluz, Romper guardia contra Ofensivo: bajo; contraataque alto</div><div>Serena la Pálida → Aldo de Valdeluz: 40 de daño (−4 armadura), 0 bajas</div><div>Aldo de Valdeluz → Serena la Pálida (contraataque): 62 de daño (−4 armadura), 0 bajas</div><div class="cruce">Aldo de Valdeluz → Serena la Pálida, Normal contra Rápido: medio</div><div>Aldo de Valdeluz → Serena la Pálida: 51 de daño (−4 armadura), 0 bajas</div><div class="cruce">Esqueleto arquero A → Escudero B, Finta contra Ofensivo: alto; contraataque bajo</div><div>Esqueleto arquero A → Escudero B: 9 de daño (−7 armadura), 0 bajas</div><div>Escudero B → Esqueleto arquero A (contraataque): 28 de daño (−2 armadura), 0 bajas</div><div>Esqueleto arquero B → Escudero B (disparo): 13 de daño (−7 armadura), 0 bajas</div><div>— Ronda 5 —</div><div class="cruce">Escudero B → Esqueleto arquero A, Normal contra Ofensivo: medio</div><div>Escudero B → Esqueleto arquero A: 34 de daño (−2 armadura), 1 baja</div><div class="win">Aniquilada la unidad Esqueleto arquero A, del enemigo</div><div class="cruce">Serena la Pálida → Aldo de Valdeluz, Fuerte contra Defensivo: alto; contraataque bajo</div><div>Serena la Pálida → Aldo de Valdeluz: 95 de daño (−4 armadura), 0 bajas</div><div>Aldo de Valdeluz → Serena la Pálida (contraataque): 40 de daño (−4 armadura), 0 bajas</div><div class="cruce">Aldo de Valdeluz → Serena la Pálida, Finta contra Fuerte: bajo; contraataque alto</div><div>Aldo de Valdeluz → Serena la Pálida: 40 de daño (−4 armadura), 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz (contraataque): 95 de daño (−4 armadura), 0 bajas</div><div>Esqueleto arquero B → Escudero B (disparo): 17 de daño (−7 armadura), 0 bajas</div><div>— Ronda 6 —</div><div class="cruce">Escudero B → Esqueleto arquero B, Defensivo contra Ofensivo: máximo; contraataque mínimo</div><div class="win">Defensivo sobre Escudero B, de tu bando: defensa +3 hasta que empiece su próximo turno</div><div>Escudero B → Esqueleto arquero B: 46 de daño (−2 armadura), 0 bajas</div><div>Esqueleto arquero B → Escudero B (contraataque): 2 de daño (−7 armadura), 0 bajas</div><div class="cruce">Serena la Pálida → Aldo de Valdeluz, Ofensivo contra Fuerte: bajo; contraataque alto</div><div>Serena la Pálida → Aldo de Valdeluz: 52 de daño (−4 armadura), 0 bajas</div><div>Aldo de Valdeluz → Serena la Pálida (contraataque): 95 de daño (−4 armadura), 1 baja</div><div class="win">Aniquilada la unidad Serena la Pálida, del enemigo</div><div class="win">Fin: gana el defensor</div></div>
+      <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div class="cruce">Aldo de Valdeluz → Esqueleto arquero A, Ofensivo contra Ofensivo: mínimo</div><div>Aldo de Valdeluz → Esqueleto arquero A (carga de 3 casillas a pie, +15 %): 46 de daño (−2 armadura), 0 bajas</div><div class="cruce">Esqueleto arquero A → Escudero B, Ofensivo contra Rápido: alto; contraataque bajo</div><div>Esqueleto arquero A → Escudero B: 10 de daño (−7 armadura), 0 bajas</div><div>Escudero B → Esqueleto arquero A (contraataque): 17 de daño (−2 armadura), 1 baja</div><div class="win">Aniquilada la unidad Esqueleto arquero A, del enemigo</div><div class="cruce">Guerrero con escudo B → Serena la Pálida, Finta contra Fuerte: bajo; contraataque alto</div><div>Guerrero con escudo B → Serena la Pálida: 24 de daño (−4 armadura), 0 bajas</div><div>Serena la Pálida → Guerrero con escudo B (contraataque): 74 de daño (−7 armadura), 1 baja</div><div class="lose">Aniquilada la unidad Guerrero con escudo B, de tu bando</div><div>Esqueleto arquero B → Guerrero con escudo C (disparo): 4 de daño (−7 armadura), 0 bajas</div><div class="cruce">Guerrero con escudo C → Serena la Pálida, Finta contra Fuerte: bajo</div><div>Guerrero con escudo C → Serena la Pálida: 24 de daño (−4 armadura), 0 bajas</div><div class="cruce">Guerrero con escudo D → Serena la Pálida, Defensivo contra Defensivo: mínimo</div><div class="win">Defensivo sobre Guerrero con escudo D, de tu bando: defensa +3 hasta que empiece su próximo turno</div><div>Guerrero con escudo D → Serena la Pálida: 18 de daño (−4 armadura), 0 bajas</div><div>— Ronda 5 —</div><div class="cruce">Escudero B → Esqueleto arquero B, Defensivo contra Fuerte: alto; contraataque bajo</div><div class="win">Defensivo sobre Escudero B, de tu bando: defensa +3 hasta que empiece su próximo turno</div><div>Escudero B → Esqueleto arquero B: 40 de daño (−2 armadura), 0 bajas</div><div>Esqueleto arquero B → Escudero B (contraataque): 5 de daño (−7 armadura), 0 bajas</div><div class="cruce">Serena la Pálida → Guerrero con escudo C, Rápido contra Defensivo: bajo; contraataque alto</div><div>Serena la Pálida → Guerrero con escudo C: 16 de daño (−7 armadura), 0 bajas</div><div>Serena la Pálida → Guerrero con escudo C: 16 de daño (−7 armadura), 0 bajas</div><div>Guerrero con escudo C → Serena la Pálida (contraataque): 37 de daño (−4 armadura), 0 bajas</div><div class="cruce">Aldo de Valdeluz → Esqueleto arquero B, Defensivo contra Rápido: bajo</div><div class="win">Defensivo sobre Aldo de Valdeluz, de tu bando: defensa +3 hasta que empiece su próximo turno</div><div>Aldo de Valdeluz → Esqueleto arquero B: 42 de daño (−2 armadura), 1 baja</div><div class="win">Aniquilada la unidad Esqueleto arquero B, del enemigo</div><div class="cruce">Guerrero con escudo C → Serena la Pálida, Rápido contra Finta: alto; contraataque bajo</div><div>Guerrero con escudo C → Serena la Pálida: 22 de daño (−4 armadura), 0 bajas</div><div>Guerrero con escudo C → Serena la Pálida: 22 de daño (−4 armadura), 0 bajas</div><div>Serena la Pálida → Guerrero con escudo C (contraataque): 29 de daño (−7 armadura), 0 bajas</div><div>Se disipa Defensivo de Guerrero con escudo D, de tu bando</div><div class="cruce">Guerrero con escudo D → Serena la Pálida, Finta contra Romper guardia: máximo</div><div>Guerrero con escudo D → Serena la Pálida: 44 de daño (−4 armadura), 1 baja</div><div class="win">Aniquilada la unidad Serena la Pálida, del enemigo</div><div class="win">Fin: gana el defensor</div></div>
 ### batalla · terminada · renderActions
 <button data-action="finish-battle" class="primary">Continuar</button>
 ### batalla · terminada · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### partida ganada · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>10</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>0</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>170</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">2748</span><span class="renta">+1500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 1000, Torreblanca 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### partida ganada · renderSide
 <div class="fin ganada">
     <p class="eyebrow">FIN DE LA PARTIDA</p>
     <h2>Partida ganada</h2>
     <p>Has tomado la base rival: sin ella, el rival queda eliminado.</p>
   </div>
-        <p class="eyebrow">HÉROE · RANGO 6 · NIVEL 4 · Duelista</p>
-        <h2>Konstanz von Adler</h2>
+        <p class="eyebrow">HÉROE · RANGO 7 · NIVEL 5 · Guerrero (Danzante de espadas)</p>
+        <h2>Aerin del Roble</h2>
         <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
     title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="la partida ya ha terminado" disabled>Tropa</button>
-        <div class="row"><span class="label">Liderazgo</span><span>3 / 25</span></div>
-    <progress class="liderazgo" max="25" value="3"></progress>
-        <div class="row"><span class="label">Movimiento</span><span>131 / 1616</span></div>
-        <div class="row"><span class="label">Maná</span><span>14 / 20</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>3 (+3) / 3 (+1)</span></div>
+        <div class="row"><span class="label">Liderazgo</span><span>16 / 30</span></div>
+    <progress class="liderazgo" max="30" value="16"></progress>
+        <div class="row"><span class="label">Movimiento</span><span>486 / 1751</span></div>
+        <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>4 (+3) / 4 (+1)</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>249 654 / 288 000</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>308 734 / 477 000</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
-        <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada de herrería<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="ataque">+3 Ataque</span><span class="modificador" data-cifra="danio">+15–35 Daño</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Arma a distancia: —</span></div><div class="stack empty"><span>Arma de carga: —</span></div><div class="stack"><span>Armadura: Gambesón<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="defensa">+1 Defensa</span><span class="modificador" data-cifra="armadura">+4 Armadura</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Escudo: —</span></div></div>
+        <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Maza<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="ataque">+3 Ataque</span><span class="modificador" data-cifra="danio">+20–40 Daño</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Arma a distancia: —</span></div><div class="stack empty"><span>Arma de carga: —</span></div><div class="stack"><span>Armadura: Gambesón<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="defensa">+1 Defensa</span><span class="modificador" data-cifra="armadura">+4 Armadura</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Escudo: —</span></div></div>
     <h3>Mochila · 1</h3><div class="stack-list"><button data-action="select-item" data-item="espada" class="stack" title="Elegirla para ponérsela a alguien">
               <span>Espada<span class="veterania">Arma · <span class="modificadores"><span class="modificador" data-cifra="ataque">+2 Ataque</span><span class="modificador" data-cifra="danio">+10–30 Daño</span></span></span></span>
             </button></div>
-        <h3>Tropa · 1 individuo</h3>
-        <div class="stack-list"><div class="stack"><span>Alabardero<span class="veterania">Veterano · rango 5 · nivel 3 · 106 190 exp · rango máximo</span></span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
-              <span>Konstanz von Adler</span><span class="count">131</span>
+        <h3>Tropa · 2 individuos</h3>
+        <div class="stack-list"><div class="stack"><span>Jinete ↑<span class="veterania">Veterano · rango 4 · nivel 5 · 58 942 / 99 000 exp</span><span class="veterania">Lleva: Espada de herrería</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="arma" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Espada de herrería</button></span></span><span class="count">1</span></div><div class="stack"><span>Jinete ↑<span class="veterania">Veterano · rango 3 · nivel 4 · 53 105 / 54 000 exp</span></span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+              <span>Aerin del Roble</span><span class="count">486</span>
             </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+1000</span>
             </button><button data-action="open-town" data-town="town-1" class="stack">
-              <span>Cripta Gris</span><span class="count">+500</span>
+              <span>Cripta Gris</span><span class="count" title="No está unida a tu base: no da oro">+0</span>
             </button><button data-action="open-town" data-town="town-2" class="stack">
               <span>Torreblanca</span><span class="count">+500</span>
+            </button><button data-action="open-town" data-town="town-4" class="stack">
+              <span>Alcázar Hondo</span><span class="count" title="No está unida a tu base: no da oro">+0</span>
             </button></div>
-    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 2 —</div><div class="win">Construido en (9, 2): Armería imperial</div><div class="win">Construido en (8, 7): Armería imperial</div><div class="win">Reclutados 5 × Alabardero en (8, 7)</div><div class="win">Reclutados 1 × Piquero en (8, 7)</div><div class="win">Paso tomado en (14, 18)</div><div>— Día 3 —</div><div class="win">Construido en (9, 2): Casa consistorial</div><div class="win">Paso tomado en (20, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 39), en 4 rondas; pierde el enemigo 3 × Esqueleto guerrero, 2 × Esqueleto arquero, 2 × Zombie; lanzas Flecha mágica sobre Zombie (mata 1); lanzas Flecha mágica sobre Zombie (mata 1)</div><div class="win">Un héroe tuyo sube a rango 6 en (32, 39)</div><div class="win">Un Alabardero tuyo sube a veterano de rango 4 en (32, 39)</div><div class="win">Un Alabardero tuyo sube a veterano de rango 5 en (32, 39)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 39)</div><div class="win">Fin de la partida</div></div>
+    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 2 —</div><div class="win">Construido en (9, 5): Arboleda</div><div class="win">Construido en (5, 13): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (5, 13)</div><div class="win">Reclutados 1 × Guardia del bosque en (5, 13)</div><div class="win">Batalla ganada contra la guarnición de una ciudad neutral en (12, 30), en 4 rondas; pierde el enemigo 2 × Arquero, 2 × Guardia del bosque</div><div class="win">Un héroe tuyo sube a rango 6 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Has capturado un castillo neutral en (12, 30)</div><div class="win">Botín de una ciudad neutral en (12, 30): Maza</div><div>— Día 3 —</div><div class="win">Construido en (9, 5): Casa consistorial</div><div class="win">Construido en (5, 13): Arboleda</div><div class="win">Construido en (12, 30): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (12, 30)</div><div class="win">Reclutados 1 × Guardia del bosque en (12, 30)</div><div class="win">Paso tomado en (24, 35)</div><div class="win">+1328 de oro en (26, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 36), en 5 rondas; pierde el enemigo 3 × Guerrero con escudo, 2 × Escudero, 1 × Monje</div><div class="win">Un héroe tuyo sube a rango 7 en (32, 36)</div><div class="win">Un Jinete tuyo sube a veterano de rango 4 en (32, 36)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 36)</div><div class="win">Fin de la partida</div></div>
 ### partida ganada · renderActions
 <button data-action="restart" class="primary">Partida nueva</button>
 ### partida ganada · renderLog
-<div class="log" data-al-final="cronica"><div class="win">Construido en (9, 2): Armería imperial</div><div class="win">Construido en (8, 7): Armería imperial</div><div class="win">Reclutados 5 × Alabardero en (8, 7)</div><div class="win">Reclutados 1 × Piquero en (8, 7)</div><div class="win">Paso tomado en (14, 18)</div><div>— Día 3 —</div><div class="win">Construido en (9, 2): Casa consistorial</div><div class="win">Paso tomado en (20, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 39), en 4 rondas; pierde el enemigo 3 × Esqueleto guerrero, 2 × Esqueleto arquero, 2 × Zombie; lanzas Flecha mágica sobre Zombie (mata 1); lanzas Flecha mágica sobre Zombie (mata 1)</div><div class="win">Un héroe tuyo sube a rango 6 en (32, 39)</div><div class="win">Un Alabardero tuyo sube a veterano de rango 4 en (32, 39)</div><div class="win">Un Alabardero tuyo sube a veterano de rango 5 en (32, 39)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 39)</div><div class="win">Fin de la partida</div></div>
+<div class="log" data-al-final="cronica"><div class="win">Construido en (9, 5): Arboleda</div><div class="win">Construido en (5, 13): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (5, 13)</div><div class="win">Reclutados 1 × Guardia del bosque en (5, 13)</div><div class="win">Batalla ganada contra la guarnición de una ciudad neutral en (12, 30), en 4 rondas; pierde el enemigo 2 × Arquero, 2 × Guardia del bosque</div><div class="win">Un héroe tuyo sube a rango 6 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Has capturado un castillo neutral en (12, 30)</div><div class="win">Botín de una ciudad neutral en (12, 30): Maza</div><div>— Día 3 —</div><div class="win">Construido en (9, 5): Casa consistorial</div><div class="win">Construido en (5, 13): Arboleda</div><div class="win">Construido en (12, 30): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (12, 30)</div><div class="win">Reclutados 1 × Guardia del bosque en (12, 30)</div><div class="win">Paso tomado en (24, 35)</div><div class="win">+1328 de oro en (26, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 36), en 5 rondas; pierde el enemigo 3 × Guerrero con escudo, 2 × Escudero, 1 × Monje</div><div class="win">Un héroe tuyo sube a rango 7 en (32, 36)</div><div class="win">Un Jinete tuyo sube a veterano de rango 4 en (32, 36)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 36)</div><div class="win">Fin de la partida</div></div>
 ### partida perdida · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>12</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>0</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>60</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">60</span><span class="renta">+0/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: nada te da oro hoy. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### partida perdida · renderSide
 <div class="fin perdida">
     <p class="eyebrow">FIN DE LA PARTIDA</p>
@@ -262,7 +267,7 @@
     title="No se le esperará al pasar el turno">Dormir</button> <button data-action="abrir-tropa" class="abrir-tropa" title="la partida ya ha terminado" disabled>Tropa</button>
         <div class="row"><span class="label">Liderazgo</span><span>32 / 35</span></div>
     <progress class="liderazgo" max="35" value="32"></progress>
-        <div class="row"><span class="label">Movimiento</span><span>1 / 1616</span></div>
+        <div class="row"><span class="label">Movimiento</span><span>36 / 1616</span></div>
         <div class="row"><span class="label">Maná</span><span>11 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>5 (+2) / 5 (+1)</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
@@ -273,15 +278,15 @@
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 6 individuos</h3>
         <div class="stack-list"><div class="stack"><span>Hermano de carga</span><span class="count">2</span></div><div class="stack"><span>Guerrero con arma a dos manos</span><span class="count">4</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
-              <span>Aldo de Valdeluz</span><span class="count">1</span>
+              <span>Aldo de Valdeluz</span><span class="count">36</span>
             </button></div>
-    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div class="win">Reclutados 2 × Hermano de carga en (9, 9)</div><div class="win">Licenciados 2 × Guerrero con escudo en (9, 9)</div><div class="win">Licenciados 2 × Escudero en (9, 9)</div><div class="win">Reclutados 4 × Guerrero con arma a dos manos en (9, 9)</div><div>— Día 5 —</div><div class="win">Construido en (9, 9): Taberna</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 1 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>— Día 6 —</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 3 rondas; pierde el enemigo 2 × Jinete de plaga; pierdes 1 × Guerrero con arma a dos manos, 1 × Penitente</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
+    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 4 —</div><div class="win">Construido en (9, 9): Castillo</div><div class="win">Licenciados 1 × Monje en (9, 9)</div><div class="win">Licenciados 1 × Guerrero con escudo en (9, 9)</div><div class="win">Reclutados 2 × Hermano de carga en (9, 9)</div><div class="win">Licenciados 2 × Guerrero con escudo en (9, 9)</div><div class="win">Licenciados 2 × Escudero en (9, 9)</div><div class="win">Reclutados 4 × Guerrero con arma a dos manos en (9, 9)</div><div>— Día 5 —</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 1 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>El jugador 1 recluta 4 × Zombie en (38, 15)</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 2 rondas; pierde el enemigo 1 × Esqueleto guerrero; pierdes 1 × Guerrero con arma a dos manos, 1 × Penitente</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
 ### partida perdida · renderActions
 <button data-action="restart" class="primary">Partida nueva</button>
 ### partida perdida · renderLog
-<div class="log" data-al-final="cronica"><div>— Día 5 —</div><div class="win">Construido en (9, 9): Taberna</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 1 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>El jugador 1 construye en (32, 32): Gremio de magia I</div><div>El jugador 1 recluta 1 × Espectro en (38, 15)</div><div>— Día 6 —</div><div>El jugador 1 construye en (38, 15): Casa consistorial</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 3 rondas; pierde el enemigo 2 × Jinete de plaga; pierdes 1 × Guerrero con arma a dos manos, 1 × Penitente</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
+<div class="log" data-al-final="cronica"><div class="win">Reclutados 2 × Hermano de carga en (9, 9)</div><div class="win">Licenciados 2 × Guerrero con escudo en (9, 9)</div><div class="win">Licenciados 2 × Escudero en (9, 9)</div><div class="win">Reclutados 4 × Guerrero con arma a dos manos en (9, 9)</div><div>— Día 5 —</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 1 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>El jugador 1 recluta 1 × Esqueleto guerrero en (32, 32)</div><div>El jugador 1 recluta 4 × Zombie en (38, 15)</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 2 rondas; pierde el enemigo 1 × Esqueleto guerrero; pierdes 1 × Guerrero con arma a dos manos, 1 × Penitente</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
 ### aventura · turno del rival · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### aventura · turno del rival · renderSide
 
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
@@ -300,7 +305,7 @@
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="ataque">+2 Ataque</span><span class="modificador" data-cifra="danio">+10–30 Daño</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Arma a distancia: —</span></div><div class="stack empty"><span>Arma de carga: —</span></div><div class="stack"><span>Armadura: Gambesón<span class="veterania"><span class="modificadores"><span class="modificador" data-cifra="defensa">+1 Defensa</span><span class="modificador" data-cifra="armadura">+4 Armadura</span></span></span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack empty"><span>Escudo: —</span></div></div>
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 5 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Orko con hacha y escudo</span><span class="count">3</span></div><div class="stack"><span>Orko con dos armas</span><span class="count">2</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+        <div class="stack-list"><div class="stack"><span>Orko con hacha y escudo</span><span class="count">4</span></div><div class="stack"><span>Orko con dos armas</span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
               <span>Grommash Dientenegro</span><span class="count">1482</span>
             </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
@@ -316,7 +321,7 @@
 ### aventura · turno del rival · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · turno del enemigo · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · turno del enemigo · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -330,7 +335,7 @@
          <button data-action="battle-end-turn">Terminar turno</button>
          <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" >Esperar</button>
-         <button data-action="battle-surrender">Rendirse (360 oro)</button>
+         <button data-action="battle-surrender">Rendirse (530 oro)</button>
        </div>
        <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
         class="stack"
@@ -353,9 +358,6 @@
           <span>◀ Esqueleto guerrero B</span>
           <span class="count">1</span>
         </div><div class="stack empty">
-          <span>◀ Esqueleto guerrero C</span>
-          <span class="count">1</span>
-        </div><div class="stack empty">
           <span>◀ Esqueleto arquero A</span>
           <span class="count">1</span>
         </div><div class="stack empty">
@@ -369,6 +371,12 @@
           <span class="count">1</span>
         </div><div class="stack empty">
           <span>▶ Guerrero con escudo B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo C</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo D</span>
           <span class="count">1</span>
         </div><div class="stack">
           <span>▶ Escudero A</span>
@@ -386,7 +394,7 @@
 ### batalla · turno del enemigo · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · en espera y sin maná · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · en espera y sin maná · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -400,7 +408,7 @@
          <button data-action="battle-end-turn">Terminar turno</button>
          <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" disabled>Esperar</button>
-         <button data-action="battle-surrender">Rendirse (360 oro)</button>
+         <button data-action="battle-surrender">Rendirse (530 oro)</button>
        </div>
        <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
         class="stack"
@@ -423,9 +431,6 @@
           <span>◀ Esqueleto guerrero B</span>
           <span class="count">1</span>
         </div><div class="stack empty">
-          <span>◀ Esqueleto guerrero C</span>
-          <span class="count">1</span>
-        </div><div class="stack empty">
           <span>◀ Esqueleto arquero A</span>
           <span class="count">1</span>
         </div><div class="stack empty">
@@ -439,6 +444,12 @@
           <span class="count">1</span>
         </div><div class="stack empty">
           <span>▶ Guerrero con escudo B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo C</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo D</span>
           <span class="count">1</span>
         </div><div class="stack">
           <span>▶ Escudero A</span>
@@ -456,7 +467,7 @@
 ### batalla · en espera y sin maná · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · tirador activo · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · tirador activo · renderSide
 <h2>Arquero</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -493,9 +504,6 @@
           <span>◀ Esqueleto guerrero B</span>
           <span class="count">1</span>
         </div><div class="stack empty">
-          <span>◀ Esqueleto guerrero C</span>
-          <span class="count">1</span>
-        </div><div class="stack empty">
           <span>◀ Esqueleto arquero A</span>
           <span class="count">1</span>
         </div><div class="stack empty">
@@ -520,7 +528,7 @@
 ### batalla · tirador activo · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · parte de guerra completo · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · parte de guerra completo · renderSide
 <h2>Victoria</h2>
       <p>El campo es tuyo.</p>
@@ -531,7 +539,7 @@
 ### batalla · parte de guerra completo · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · hechizo elegido · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · hechizo elegido · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -545,7 +553,7 @@
          <button data-action="battle-end-turn">Terminar turno</button>
          <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" >Esperar</button>
-         <button data-action="battle-surrender">Rendirse (360 oro)</button>
+         <button data-action="battle-surrender">Rendirse (530 oro)</button>
        </div>
        <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
         class="stack primary"
@@ -568,9 +576,6 @@
           <span>◀ Esqueleto guerrero B</span>
           <span class="count">1</span>
         </div><div class="stack empty">
-          <span>◀ Esqueleto guerrero C</span>
-          <span class="count">1</span>
-        </div><div class="stack empty">
           <span>◀ Esqueleto arquero A</span>
           <span class="count">1</span>
         </div><div class="stack empty">
@@ -584,6 +589,12 @@
           <span class="count">1</span>
         </div><div class="stack empty">
           <span>▶ Guerrero con escudo B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo C</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo D</span>
           <span class="count">1</span>
         </div><div class="stack">
           <span>▶ Escudero A</span>
@@ -601,7 +612,7 @@
 ### batalla · hechizo elegido · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · héroe sin libro · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · héroe sin libro · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -615,7 +626,7 @@
          <button data-action="battle-end-turn">Terminar turno</button>
          <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" >Esperar</button>
-         <button data-action="battle-surrender">Rendirse (360 oro)</button>
+         <button data-action="battle-surrender">Rendirse (530 oro)</button>
        </div>
        <h3>Hechizos</h3>
       <div class="stack-list"><div class="stack empty">Este héroe no conoce ninguno</div></div>
@@ -633,9 +644,6 @@
           <span>◀ Esqueleto guerrero B</span>
           <span class="count">1</span>
         </div><div class="stack empty">
-          <span>◀ Esqueleto guerrero C</span>
-          <span class="count">1</span>
-        </div><div class="stack empty">
           <span>◀ Esqueleto arquero A</span>
           <span class="count">1</span>
         </div><div class="stack empty">
@@ -649,6 +657,12 @@
           <span class="count">1</span>
         </div><div class="stack empty">
           <span>▶ Guerrero con escudo B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo C</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guerrero con escudo D</span>
           <span class="count">1</span>
         </div><div class="stack">
           <span>▶ Escudero A</span>
@@ -666,7 +680,7 @@
 ### batalla · héroe sin libro · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### castillo · con veteranos · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### castillo · con veteranos · renderSide
 
     <h2>Valdeluz</h2>
@@ -696,7 +710,7 @@
 ### castillo · con veteranos · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · con un veterano · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · con un veterano · renderSide
 <h2>Serena la Pálida</h2>
         <div class="row"><span class="label">Bando</span><span>Enemigo</span></div>
@@ -710,9 +724,6 @@
           <span class="count">1</span>
         </div><div class="stack empty">
           <span>◀ Esqueleto guerrero B</span>
-          <span class="count">1</span>
-        </div><div class="stack empty">
-          <span>◀ Esqueleto guerrero C</span>
           <span class="count">1</span>
         </div><div class="stack empty">
           <span>◀ Esqueleto arquero A</span>
@@ -739,7 +750,7 @@
 ### batalla · con un veterano · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### castillo · con armería y tropa equipada · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### castillo · con armería y tropa equipada · renderSide
 
     <h2>Valdeluz</h2>
@@ -769,7 +780,7 @@
 ### castillo · con armería y tropa equipada · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### aventura · mochila y pieza elegida · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### aventura · mochila y pieza elegida · renderSide
 
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
@@ -809,4 +820,4 @@
 ### aventura · mochila y pieza elegida · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### crónica completa · renderLog
-<div class="log" data-al-final="cronica"><div>— Día 4 —</div><div class="win">+2 madera en (3, 4)</div><div class="win">Paso tomado en (3, 4)</div><div class="win">Paso tomado al jugador 1 en (3, 4)</div><div class="lose">El jugador 1 te ha quitado un paso en (3, 4)</div><div>El jugador 1 toma un paso en (3, 4)</div><div class="win">Has capturado un castillo neutral en (3, 4)</div><div class="win">Has capturado un castillo del jugador 1 en (3, 4)</div><div class="lose">El jugador 1 te ha capturado un castillo en (3, 4)</div><div>El jugador 1 captura un castillo neutral en (3, 4)</div><div class="win">Construido en (3, 4): Casa consistorial</div><div>El jugador 1 construye en (3, 4): Gremio de magia I</div><div class="win">Reclutados 12 × Goblin lancero en (3, 4)</div><div>El jugador 1 recluta 8 × Esqueleto guerrero en (3, 4)</div><div class="win">Héroe contratado en (3, 4)</div><div>El jugador 1 contrata un héroe en (3, 4)</div><div class="win">Botín de unos asaltantes en (3, 4): Maza</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (3, 4): Espada bendita</div><div class="win">Comprado en la armería en (3, 4): Brigantina</div><div>El jugador 1 compra en la armería en (3, 4): Arco</div><div class="win">Un Guerrero con escudo tuyo se hace héroe en (3, 4): Sir &lt;b&gt;Ana&lt;/b&gt; &amp; "Co"</div><div>Un Esqueleto guerrero del jugador 1 se hace héroe en (3, 4): Hueso</div><div class="win">Guarnición incorporada en (3, 4)</div><div>El jugador 1 incorpora una guarnición en (3, 4)</div><div class="win">Aprendido en (3, 4): Prisa, Lentitud</div><div>El jugador 1 aprende en (3, 4): Flecha mágica</div><div class="win">Batalla ganada contra un héroe del jugador 1 en (3, 4), en 4 rondas; pierdes 2 × Goblin lancero; pierde el enemigo 3 × Esqueleto guerrero; lanzas Flecha mágica sobre Esqueleto guerrero (mata 1)</div><div class="lose">Un héroe tuyo ha caído en (3, 4)</div><div class="win">Ha caído un héroe del jugador 1 en (3, 4)</div><div class="lose">Un héroe tuyo vuelve a la base en (3, 4)</div><div class="win">Un héroe del jugador 1 vuelve a su base en (3, 4) tras rendirse por 190 de oro</div><div class="win">Un héroe tuyo sube a rango 6 en (3, 4)</div><div>Un héroe del jugador 1 sube a rango 7 en (3, 4)</div><div class="win">Un Guerrero con escudo tuyo sube a veterano de rango 2 en (3, 4)</div><div>Un Esqueleto guerrero del jugador 1 sube a veterano de rango 4 en (3, 4)</div><div class="win">Fin de la partida</div></div>
+<div class="log" data-al-final="cronica"><div>— Día 4 —</div><div class="win">+1500 de oro en (3, 4)</div><div class="win">Paso tomado en (3, 4)</div><div class="win">Paso tomado al jugador 1 en (3, 4)</div><div class="lose">El jugador 1 te ha quitado un paso en (3, 4)</div><div>El jugador 1 toma un paso en (3, 4)</div><div class="win">Has capturado un castillo neutral en (3, 4)</div><div class="win">Has capturado un castillo del jugador 1 en (3, 4)</div><div class="lose">El jugador 1 te ha capturado un castillo en (3, 4)</div><div>El jugador 1 captura un castillo neutral en (3, 4)</div><div class="win">Construido en (3, 4): Casa consistorial</div><div>El jugador 1 construye en (3, 4): Gremio de magia I</div><div class="win">Reclutados 12 × Goblin lancero en (3, 4)</div><div>El jugador 1 recluta 8 × Esqueleto guerrero en (3, 4)</div><div class="win">Héroe contratado en (3, 4)</div><div>El jugador 1 contrata un héroe en (3, 4)</div><div class="win">Botín de unos asaltantes en (3, 4): Maza</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (3, 4): Espada bendita</div><div class="win">Comprado en la armería en (3, 4): Brigantina</div><div>El jugador 1 compra en la armería en (3, 4): Arco</div><div class="win">Un Guerrero con escudo tuyo se hace héroe en (3, 4): Sir &lt;b&gt;Ana&lt;/b&gt; &amp; "Co"</div><div>Un Esqueleto guerrero del jugador 1 se hace héroe en (3, 4): Hueso</div><div class="win">Guarnición incorporada en (3, 4)</div><div>El jugador 1 incorpora una guarnición en (3, 4)</div><div class="win">Aprendido en (3, 4): Prisa, Lentitud</div><div>El jugador 1 aprende en (3, 4): Flecha mágica</div><div class="win">Batalla ganada contra un héroe del jugador 1 en (3, 4), en 4 rondas; pierdes 2 × Goblin lancero; pierde el enemigo 3 × Esqueleto guerrero; lanzas Flecha mágica sobre Esqueleto guerrero (mata 1)</div><div class="lose">Un héroe tuyo ha caído en (3, 4)</div><div class="win">Ha caído un héroe del jugador 1 en (3, 4)</div><div class="lose">Un héroe tuyo vuelve a la base en (3, 4)</div><div class="win">Un héroe del jugador 1 vuelve a su base en (3, 4) tras rendirse por 190 de oro</div><div class="win">Un héroe tuyo sube a rango 6 en (3, 4)</div><div>Un héroe del jugador 1 sube a rango 7 en (3, 4)</div><div class="win">Un Guerrero con escudo tuyo sube a veterano de rango 2 en (3, 4)</div><div>Un Esqueleto guerrero del jugador 1 sube a veterano de rango 4 en (3, 4)</div><div class="win">Fin de la partida</div></div>

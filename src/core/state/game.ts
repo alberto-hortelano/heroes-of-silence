@@ -17,7 +17,7 @@ import {
   unidadDelJuego,
   unidadDelJuegoSiExiste,
 } from '../catalogo.js';
-import { figuraDelHeroe, tipoDeHeroePorDefecto } from '../data.js';
+import { ECONOMIA, figuraDelHeroe, tipoDeHeroePorDefecto } from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
@@ -86,16 +86,15 @@ import {
   sePasa,
 } from '../map/map.js';
 import { muroBlocker } from '../map/recinto.js';
-import { territorio } from '../map/regiones.js';
 import { createRng, type Rng } from '../rng.js';
 import { CHARACTER_BODY, type Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
 import {
   applyWeeklyGrowth,
   build as buildInTown,
-  dailyIncome,
   mageGuildLevel,
   moraleFromBuildings,
+  oroBlocker,
   payRecruit,
   primeraCiudadDe,
   recruitBlocker,
@@ -104,26 +103,8 @@ import {
   tieneArmeria,
   townSpells,
 } from '../town/town.js';
-import type {
-  Army,
-  Controller,
-  FactionId,
-  PlayerId,
-  Point,
-  ResourceKind,
-  Resources,
-  Troop,
-  Veterania,
-} from '../types.js';
-import {
-  addResources,
-  canAfford,
-  describirCoste,
-  EMPTY_RESOURCES,
-  enumerar,
-  type Hueco,
-  subtractResources,
-} from '../types.js';
+import type { Army, Controller, FactionId, PlayerId, Point, Troop, Veterania } from '../types.js';
+import { enumerar, type Hueco } from '../types.js';
 import {
   type AsaltanteRecordado,
   casillasPeligrosas,
@@ -144,21 +125,27 @@ import {
   type GameEventDraft,
   SE_VE_POR,
 } from './events.js';
+import { rentaDelDia } from './renta.js';
 
 export interface Player {
   readonly id: PlayerId;
   readonly faction: FactionId;
   controller: Controller;
-  resources: Resources;
+  /**
+   * Su oro, el único recurso. Entra por la renta del
+   * día (`rentaDelDia`) y los cofres, y sale al construir, reclutar, comprar,
+   * contratar y rendirse.
+   */
+  oro: number;
   /** Casillas ya exploradas (`Casillas`, un byte por casilla, #146). */
   readonly fog: Casillas;
   /**
    * Lo último OBSERVADO de cada objeto del mapa, por id de objeto.
    *
    * La niebla filtraba el espacio pero no el tiempo: bastaba haber pisado una
-   * casilla el día 3 para ver, el día 20, quién posee la mina AHORA. Lo que se
+   * casilla el día 3 para ver, el día 20, quién posee el nodo AHORA. Lo que se
    * recuerda es lo que se vio, con el día en que se vio, así que hay algo que
-   * reconocer — y una mina que dejó de dar oro sin cambiar de dueño en el mapa
+   * reconocer — y un pueblo que dejó de dar oro sin que cambie nada en el mapa
    * conocido es justo la señal de que allí ha pasado algo.
    */
   memory: Map<string, RememberedObject>;
@@ -188,20 +175,6 @@ export interface RememberedObject {
   readonly day: number;
   readonly object: MapObject;
 }
-
-/**
- * Producción diaria de cada tipo de mina, para el dueño de su región si está
- * unida a su base (`startTurn`).
- */
-export const MINE_YIELD: Readonly<Record<ResourceKind, number>> = {
-  gold: 1000,
-  wood: 2,
-  ore: 2,
-  mercury: 1,
-  sulfur: 1,
-  crystal: 1,
-  gems: 1,
-};
 
 /**
  * Radio de visión de un héroe: el 4 de fheroes2 a la escala del mapa
@@ -549,7 +522,7 @@ export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta
 }
 
 /**
- * Por qué no se pueden reclutar `count` de `creatureId` en `town` con `purse`,
+ * Por qué no se pueden reclutar `count` de `creatureId` en `town` con `oro`,
  * o `null`: primero lo que el pueblo puede dar —hay tantos, alcanza el oro— y
  * luego si caben en `destino`. Lo leen la acción `recruit`, que lanza con él, y
  * el panel de la morada, que apaga «+1» y «Todo» y pone el motivo en su `title`.
@@ -559,10 +532,10 @@ export function reclutarBlocker(
   creatureId: string,
   count: number,
   destino: Pick<DestinoDeRecluta, 'army' | 'tope' | 'cupo' | 'quien'>,
-  purse: Resources,
+  oro: number,
 ): string | null {
   return (
-    recruitBlocker(town, creatureId, count, purse) ??
+    recruitBlocker(town, creatureId, count, oro) ??
     troopBlocker(destino.army, destino.tope, destino.cupo, creatureId, count, destino.quien)
   );
 }
@@ -573,7 +546,7 @@ export interface RecruitCapacity {
   readonly disponibles: number;
   /** Los que caben en el liderazgo del destino. */
   readonly caben: number;
-  /** De los que hay y caben, cuántos se pueden pagar con `purse`. */
+  /** De los que hay y caben, cuántos se pueden pagar con `oro`. */
   readonly maximo: number;
   /** Lo que ocupa uno en el liderazgo. */
   readonly ocupaUno: number;
@@ -585,15 +558,12 @@ export interface RecruitCapacity {
 }
 
 /**
- * Lo máximo que se puede reclutar de `creatureId` hacia `destino` con `purse`.
+ * Lo máximo que se puede reclutar de `creatureId` hacia `destino` con `oro`.
  *
  * Es la cuenta que hacía `planRecruits` por dentro, sacada aquí para que la
  * lean la IA y la pantalla: el botón «todo» del castillo reclutaba
  * `town.available` sin mirar el liderazgo ni el oro, y el núcleo lo rechazaba
- * entero —«no cabe»— en vez de dar lo que cabía. **Es la misma cuenta, línea a
- * línea, incluido el `while` que baja de uno en uno hasta que se puede pagar**:
- * con un coste de varios recursos la división no es trivial, y cambiarla por
- * otra fórmula movería el ancla del banco si alguna vez discrepara.
+ * entero —«no cabe»— en vez de dar lo que cabía.
  *
  * Toma el destino y no el estado porque la IA planifica varias criaturas
  * seguidas sobre un ejército que va creciendo y un monedero que va menguando;
@@ -603,12 +573,13 @@ export function recruitCapacity(
   town: Town,
   creatureId: string,
   destino: Pick<DestinoDeRecluta, 'army' | 'tope' | 'cupo' | 'quien'>,
-  purse: Resources,
+  oro: number,
 ): RecruitCapacity {
   const disponibles = town.available[creatureId] ?? 0;
   const caben = troopRoom(destino.army, destino.tope, destino.cupo, creatureId);
-  let maximo = Math.min(disponibles, caben);
-  while (maximo > 0 && !canAfford(purse, recruitCost(creatureId, maximo))) maximo--;
+  const uno = recruitCost(creatureId, 1);
+  const pagables = uno === 0 ? Number.POSITIVE_INFINITY : Math.floor(oro / uno);
+  const maximo = Math.max(0, Math.min(disponibles, caben, pagables));
   return {
     disponibles,
     caben,
@@ -637,29 +608,7 @@ export interface GameConfig {
   readonly towns: readonly Town[];
   /** Los asaltantes con los que empieza la partida; ninguno si falta. */
   readonly raiders?: readonly Raider[];
-  readonly startingResources?: Partial<Resources>;
 }
-
-/**
- * Con qué empieza cada reino, copiado de `Kingdom::_getKingdomStartingResources`
- * (fheroes2, `kingdom/kingdom.cpp`), dificultad NORMAL: `{7500, 20, 5, 20, 5, 5,
- * 5}` sobre `Cost {gold, wood, mercury, ore, sulfur, crystal, gems}`.
- *
- * Antes decía `7500 oro, 10 madera, 10 mineral, 2 de cada raro`, que **no es
- * ninguna fila del original**: el oro sale de NORMAL y el material de HARD
- * (`{5000, 10, 2, 10, 2, 2, 2}`). Media fila de cada, sin declararlo — la misma
- * divergencia silenciosa que el coste de las moradas, y en la misma dirección:
- * oro de sobra y materia prima a la mitad.
- */
-export const DEFAULT_STARTING_RESOURCES: Resources = {
-  wood: 20,
-  ore: 20,
-  mercury: 5,
-  sulfur: 5,
-  crystal: 5,
-  gems: 5,
-  gold: 7500,
-};
 
 export function createGame(config: GameConfig): GameState {
   // El tope se valida AQUÍ y no solo en el borde del entorno, porque la regla es
@@ -678,7 +627,7 @@ export function createGame(config: GameConfig): GameState {
     id: p.id,
     faction: p.faction,
     controller: p.controller,
-    resources: addResources(DEFAULT_STARTING_RESOURCES, config.startingResources ?? {}),
+    oro: ECONOMIA.oroDeSalida,
     fog: Casillas.vacias(config.map),
     memory: new Map<string, RememberedObject>(),
     asaltantesVistos: new Map<string, AsaltanteRecordado>(),
@@ -997,34 +946,15 @@ function startTurn(state: GameState): void {
   const player = currentPlayer(state);
   emit(state, { kind: 'turn_start', actor: player.id, at: null });
 
-  // Ingresos del día: lo que está UNIDO A LA BASE, y nada más (fase 2a).
-  //
-  // Una ciudad cobra su ayuntamiento solo si sigue conectada; una mina produce
-  // para el dueño de su región solo si esa región es suya **y** está conectada
-  // —el usuario corrigió aquí el plan: «una región cerrada pero desconectada de
-  // la base NO da renta»—. Las dos preguntas salen de UNA búsqueda desde la
-  // base (la foto de `territorio`), y por eso cortar un nodo se nota en todo
-  // lo que colgaba detrás a la vez, sin que nadie tenga que apuntar nada.
-  const { red, conexion: conexiones } = territorio(state);
-  const conexion = conexiones.get(player.id);
-  if (conexion === undefined)
-    throw new Error(`el jugador ${player.id} no está en la foto del territorio`);
-  let income = { ...EMPTY_RESOURCES };
+  // Ingresos del día: lo que está UNIDO A LA BASE, y nada más (`rentaDelDia`).
+  const renta = rentaDelDia(state, player.id);
   for (const town of townsOf(state, player.id)) {
-    if (conexion.nodos.has(town.id)) income = addResources(income, { gold: dailyIncome(town) });
     town.builtToday = false;
     // Su recuerdo de lo que tiene alrededor es de hoy, igual que el de un héroe
     // quieto: un grupo que patrulla junto a casa se ve donde está.
     revealAroundTown(state, town);
   }
-  for (const obj of state.map.objects) {
-    if (obj.kind !== 'mine') continue;
-    const region = red.regionDe[obj.at.y * state.map.width + obj.at.x] as number;
-    if (conexion.regiones.has(region)) {
-      income = addResources(income, { [obj.resource]: MINE_YIELD[obj.resource] });
-    }
-  }
-  player.resources = addResources(player.resources, income);
+  player.oro += renta.total;
 
   for (const hero of heroesOf(state, player.id)) {
     hero.movePoints = maxMovePoints(hero, state.characters);
@@ -1034,7 +964,7 @@ function startTurn(state: GameState): void {
     );
     hero.mana = enPueblo ? maxMana(hero) : Math.min(maxMana(hero), hero.mana + 1);
     // Y mira alrededor al levantarse: un héroe quieto también ve. Sin esto, su
-    // recuerdo de la mina que tiene al lado sería del día en que llegó.
+    // recuerdo del nodo que tiene al lado sería del día en que llegó.
     revealAround(state, hero);
   }
 }
@@ -1370,7 +1300,7 @@ function aplicar(
       const town = townById(state, action.town);
       const player = currentPlayer(state);
       if (town.owner !== player.id) throw new Error('ese pueblo no es tuyo');
-      player.resources = buildInTown(town, action.building, player.resources);
+      player.oro = buildInTown(town, action.building, player.oro);
       emit(state, {
         kind: 'built',
         town: town.id,
@@ -1390,17 +1320,11 @@ function aplicar(
       // Lo que el pueblo puede dar y lo que cabe (`reclutarBlocker`), ANTES de
       // cobrar: `payRecruit` descuenta las criaturas del pueblo y el oro del
       // monedero, y un rechazo después de pagar sería tropa pagada y perdida.
-      const motivo = reclutarBlocker(
-        town,
-        action.creature,
-        action.count,
-        destino,
-        player.resources,
-      );
+      const motivo = reclutarBlocker(town, action.creature, action.count, destino, player.oro);
       if (motivo !== null) throw new Error(`no se puede reclutar: ${motivo}`);
       const ampliado = withTroops(destino.army, action.creature, action.count);
 
-      player.resources = payRecruit(town, action.creature, action.count, player.resources);
+      player.oro = payRecruit(town, action.creature, action.count, player.oro);
       const hero = destino.hero;
       // Reclutar no toca los puntos de hoy: se fijan al empezar el día
       // (`startTurn`), y la tropa nueva cuenta a partir de mañana.
@@ -1450,7 +1374,7 @@ function aplicar(
       // `buyBlocker` ya ha mirado que el héroe está y que la pieza existe.
       const hero = heroeEnElPueblo(state, town) as Hero;
       const pieza = piezaSiExiste(action.item)!;
-      player.resources = subtractResources(player.resources, { gold: pieza.precio });
+      player.oro -= pieza.precio;
       aLaMochila(hero, pieza.id);
       emit(state, {
         kind: 'item_bought',
@@ -1554,11 +1478,8 @@ export function buyBlocker(
   if (!seVende(pieza)) {
     return `la armería no vende ${pieza.nombre}: ${deDondeSale(pieza)}`;
   }
-  const jugador = playerById(state, player);
-  if (!canAfford(jugador.resources, { gold: pieza.precio })) {
-    return `${pieza.nombre} cuesta ${describirCoste({ gold: pieza.precio })} y no te alcanza`;
-  }
-  return null;
+  const sinOro = oroBlocker(pieza.precio, playerById(state, player).oro);
+  return sinOro === null ? null : `${pieza.nombre}: ${sinOro}`;
 }
 
 /** El héroe `heroId`, si existe y es de `player`; o por qué no. */
@@ -1700,7 +1621,8 @@ function hireHero(state: GameState, townId: string): void {
   if (!hayHuecoDeHeroe(state, player.id)) {
     throw new Error('ya tienes el máximo de héroes');
   }
-  if (player.resources.gold < HERO_HIRE_COST) throw new Error('oro insuficiente');
+  const sinOro = oroBlocker(HERO_HIRE_COST, player.oro);
+  if (sinOro !== null) throw new Error(`no se puede contratar un héroe: ${sinOro}`);
   if (state.heroes.some((h) => pointKey(h.at) === pointKey(town.at))) {
     throw new Error('ya hay un héroe en el pueblo');
   }
@@ -1719,7 +1641,7 @@ function hireHero(state: GameState, townId: string): void {
   });
   hero.movePoints = maxMovePoints(hero, state.characters);
 
-  player.resources = addResources(player.resources, { gold: -HERO_HIRE_COST });
+  player.oro -= HERO_HIRE_COST;
   state.heroes.push(hero);
   emit(state, {
     kind: 'hero_hired',
@@ -2224,12 +2146,12 @@ function enemyAt(state: GameState, at: Point, player: PlayerId): BattleFoe | nul
 }
 
 /**
- * Lo que pasa al pisar una casilla: se recogen recursos y cofres, se toma el
- * nodo y se toma el castillo vacío (o se recoge su tropa, si es tuyo).
+ * Lo que pasa al pisar una casilla: se recoge el cofre, se toma el nodo y se
+ * toma el castillo vacío (o se recoge su tropa, si es tuyo).
  *
  * Corre en **cada casilla del camino**, no solo en la última, y es lo que hace
- * que un nodo se tome cruzándolo y que la tropa de casa se recoja al pasar. La
- * mina y el pueblo ya no hacen nada aquí: son de quien tenga su región.
+ * que un nodo se tome cruzándolo y que la tropa de casa se recoja al pasar. El
+ * pueblo no hace nada aquí: es de quien tenga su región.
  */
 function collectAt(state: GameState, hero: Hero, at: Point): void {
   const player = playerById(state, hero.owner);
@@ -2237,26 +2159,12 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
 
   if (obj !== undefined) {
     switch (obj.kind) {
-      case 'resource':
-        if (!obj.taken) {
-          obj.taken = true;
-          player.resources = addResources(player.resources, { [obj.resource]: obj.amount });
-          emit(state, {
-            kind: 'resource_gained',
-            resource: obj.resource,
-            amount: obj.amount,
-            actor: player.id,
-            at,
-          });
-        }
-        break;
       case 'chest':
         if (!obj.taken) {
           obj.taken = true;
-          player.resources = addResources(player.resources, { gold: obj.gold });
+          player.oro += obj.gold;
           emit(state, {
-            kind: 'resource_gained',
-            resource: 'gold',
+            kind: 'gold_gained',
             amount: obj.gold,
             actor: player.id,
             at,
@@ -2397,7 +2305,7 @@ function retiradaDe(
   if (side === 'defender' && pointKey(base.at) === pointKey(hero.at)) {
     return { blocked: 'defiendes tu base: no hay a dónde huir' };
   }
-  return { purse: playerById(state, hero.owner).resources.gold };
+  return { purse: playerById(state, hero.owner).oro };
 }
 
 function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide {
@@ -2879,7 +2787,7 @@ function heroeVencido(state: GameState, hero: Hero, precio: number | null, at: P
   const rendido = precio !== null;
   if (rendido) {
     const jugador = playerById(state, dueño);
-    jugador.resources = addResources(jugador.resources, { gold: -precio });
+    jugador.oro -= precio;
   }
 
   const base = baseOf(state, dueño);

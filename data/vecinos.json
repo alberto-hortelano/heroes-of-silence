@@ -53,7 +53,7 @@
         "cuerpo": "templario-escudero",
         "frases": [
           "Todavía no hay a quién venderle. Ya llegarán las caravanas.",
-          "La madera sube, el mineral baja. O al revés, según quién pregunte.",
+          "El oro sube, el pan baja. O al revés, según quién pregunte.",
           "Un buen trato es el que los dos creen haber ganado."
         ]
       },
@@ -619,7 +619,7 @@
         "cuerpo": "goblin-lancero",
         "frases": [
           "Tres para el jefe, uno para mí. Así se cuenta.",
-          "Si quieres construir algo, trae piedras. Muchas."
+          "Si quieres construir algo, trae oro. Mucho."
         ]
       },
       "fort": {

@@ -362,21 +362,22 @@ describe('sueloQueSePinta: la barrera y el nodo pintan el suelo de su meseta', (
     ).toEqual(['grass', 'grass', 'grass', 'swamp']);
   });
 
-  it('s8 (9,11): el nodo sin camino que va a la meseta de nieve pinta nieve, no la hierba de abajo (#220)', () => {
+  it('s3 (32,8): el nodo sin camino que va a la meseta de nieve pinta nieve, no la lava de abajo (#220)', () => {
     // Era s13 (18,7), con la nieve abajo; desde #226 (42×42), s40 (8,12), con
     // la ciénaga abajo. Con las fronteras onduladas (#229, 09-10-2026), s1
     // (11,34), con la hierba; con los ríos (#144, 16-10-2026), s6 (34,6), otra
     // vez con la ciénaga. Con el río continuo (#144), s66 (12,30), la primera
     // de 1-80 con la nieve arriba y la ciénaga abajo. Con las puertas de las
-    // ciudades (fase 2, 21-10-2026), s8 (9,11), con la hierba abajo.
-    const { map, escena: e } = partidaDe(8);
+    // ciudades (fase 2, 21-10-2026), s8 (9,11), con la hierba abajo. Sin minas
+    // (21-10-2026), s3 (32,8), con la lava abajo.
+    const { map, escena: e } = partidaDe(3);
     const a = analizar(map);
-    const i = 11 * a.W + 9;
-    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 9 && o.at.y === 11)).toBe(true);
-    expect(map.caminos.tiene({ x: 9, y: 11 })).toBe(false);
+    const i = 8 * a.W + 32;
+    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 32 && o.at.y === 8)).toBe(true);
+    expect(map.caminos.tiene({ x: 32, y: 8 })).toBe(false);
     expect(e.nivel[i]).toBe(2);
-    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la hierba.
-    expect(a.suelo[i]).toBe('grass');
+    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la lava.
+    expect(a.suelo[i]).toBe('lava');
     expect(e.suelo[i]).toBe('snow');
   });
 

@@ -1,6 +1,6 @@
 /**
  * El borde de la meseta no acaba en un bloque suelto junto a un objeto (#221):
- * la pared del desnivel pasa por detrás de las minas, los pueblos, las
+ * la pared del desnivel pasa por detrás de los pueblos, las
  * ciudades y los nodos de su pie (`ponerPared`) mientras no los tape a ellos
  * ni a su camino, y el contador (`carasCortadas`) cuenta las tiradas de
  * frontal de no más de `CABO_SUELTO` casillas con una punta que acaba en el
@@ -11,7 +11,7 @@
  * muestra del bucle rápido 2, 1, 2 y 1 (s57, s443, s10 y s37); con la de
  * ahora, 4, 18 y 1, 0, 1 y 0. La muesca de una casilla de la puerta de una
  * ciudad en la línea del acantilado (s57) la quita el generador
- * (`puertasSinMuesca`, #222; `test/puertas-sin-muesca.test.ts`).
+ * (`puertasSinMuesca`, #222).
  *
  * El resto de #222, en la escena (09-10-2026): la frontal y la ladera también
  * pasan por detrás del objeto de su pie, y la diagonal por detrás del que pinta
@@ -65,12 +65,12 @@ const frontal = (x: number, src = roca.src): Sprite => ({
 describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
   const bloque = frontal(6);
   const [a, , b] = cajaDeSprite(bloque);
-  /** Una mina a la derecha del bloque, al pie de la cara. */
-  const mina: readonly [number, number] = [7, 5];
+  /** Un pueblo a la derecha del bloque, al pie de la cara. */
+  const pueblo: readonly [number, number] = [7, 5];
 
-  it('el bloque suelto, con nada a los lados y una mina al lado, cuenta', () => {
+  it('el bloque suelto, con nada a los lados y un pueblo al lado, cuenta', () => {
     expect(b - a).toBeLessThanOrEqual(CABO_SUELTO);
-    expect(carasCortadas([CARA], [bloque], [mina], W)).toEqual([{ cara: 0, a, b }]);
+    expect(carasCortadas([CARA], [bloque], [pueblo], W)).toEqual([{ cara: 0, a, b }]);
   });
 
   it('lejos de todo objeto, no: es otra cosa', () => {
@@ -81,26 +81,26 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
   it('si sus dos puntas siguen en otra pared (la diagonal de cada esquina), no', () => {
     const otra = (x: number): Sprite => ({ ...frontal(x, 'otra/diagonal.webp'), filaAlta: 3 });
     const diagonales = [otra(a - 0.4), otra(b + 0.4)];
-    expect(carasCortadas([CARA], [bloque, ...diagonales], [mina], W)).toEqual([]);
+    expect(carasCortadas([CARA], [bloque, ...diagonales], [pueblo], W)).toEqual([]);
     // Una sola no basta: la otra punta sigue en el llano.
-    expect(carasCortadas([CARA], [bloque, diagonales[0] as Sprite], [mina], W)).toHaveLength(1);
+    expect(carasCortadas([CARA], [bloque, diagonales[0] as Sprite], [pueblo], W)).toHaveLength(1);
   });
 
   it('el pedregal no sigue la pared: un peñasco al lado no la remata', () => {
     const peñasco: Sprite = { ...frontal(b + 0.3, 'modulos/rocas-caidas/1.webp'), filaAlta: 3 };
-    expect(carasCortadas([CARA], [bloque, peñasco], [mina], W)).toHaveLength(1);
+    expect(carasCortadas([CARA], [bloque, peñasco], [pueblo], W)).toHaveLength(1);
   });
 
   it('si la punta se mete detrás de un objeto, sigue: la pared no acaba a la vista', () => {
     const ciudad: Sprite = { ...frontal(b + 0.6), src: null, clase: 'objeto', y: PIE - 0.2 };
     const izquierda: Sprite = { ...ciudad, x: a - 0.6 };
-    expect(carasCortadas([CARA], [bloque, ciudad, izquierda], [mina], W)).toEqual([]);
+    expect(carasCortadas([CARA], [bloque, ciudad, izquierda], [pueblo], W)).toEqual([]);
   });
 
   it('una tirada más ancha que CABO_SUELTO no cuenta, ni la que llega al borde del mapa', () => {
     const larga = { ...CARA, x0: 2.5, x1: 5.5 };
     const tres = [frontal(3), frontal(4), frontal(5), frontal(6)];
-    expect(carasCortadas([larga], tres, [mina], W)).toEqual([]);
+    expect(carasCortadas([larga], tres, [pueblo], W)).toEqual([]);
     // Junto al borde la cara empieza a media casilla: el vértice del borde no se mira.
     const remate = (x: number): Sprite => ({ ...frontal(x, 'otra/diagonal.webp'), filaAlta: 3 });
     const enElBorde = { ...CARA, x0: 0.5, x1: 0.5 };

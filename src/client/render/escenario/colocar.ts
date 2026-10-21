@@ -13,7 +13,7 @@
  */
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { APOYOS_DE_MURALLA } from '@core/map/murallas.js';
-import { puertasDe } from '@core/map/puertas.js';
+import { puertaDe } from '@core/map/puertas.js';
 import { LADO_DEL_RECINTO, recintoDeLaCiudad } from '@core/map/recinto.js';
 import { vecindad } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
@@ -263,7 +263,7 @@ export interface Sprite {
   readonly tono?: string;
   /**
    * El objeto del mapa que pinta, si pinta uno. Lo que cambia en la partida (un
-   * monstruo vencido, un recurso o un cofre recogidos) no se hornea en la escena:
+   * monstruo vencido, un cofre recogido) no se hornea en la escena:
    * quien la pinte lo deja fuera con `pintarEscena({ objeto })` y lo pinta él.
    */
   readonly objeto?: { readonly id: string; readonly kind: MapObject['kind'] };
@@ -505,7 +505,7 @@ export interface Escena {
      */
     readonly bajadasTapadas: number;
     /**
-     * Bajadas que se pintan encima de lo horneado (ciudad, pueblo, mina, nodo)
+     * Bajadas que se pintan encima de lo horneado (ciudad, pueblo, nodo)
      * de la casilla a la que bajan, con el que se solapan, desde el orden del
      * pintor (`bajadasSobreNodo`): tiene que ser 0.
      */
@@ -1438,8 +1438,6 @@ const TONO_DE_HITO: Readonly<Record<string, string>> = {
 export const RADIO_DE_OBJETO: Readonly<Record<string, number>> = {
   village: 1.1,
   node: 0.95,
-  resource: 0.5,
-  mine: 0.6,
   chest: 0.4,
   monster: 0.45,
 };
@@ -1732,16 +1730,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
               if (paso === undefined) throw new Error(`el nodo ${o.id} no está en el análisis`);
               return piezaDeNodo(o.id, o.at, W, map.terrain, paso.barrera, paso.eje);
             })()
-          : o.kind === 'resource'
-            ? // Mercurio, azufre, cristal y gemas no tienen pieza: van como tesoro.
-              (({ gold: 'oro', ore: 'piedra', wood: 'madera' } as Record<string, string>)[
-                o.resource
-              ] ?? 'oro')
-            : o.kind === 'mine'
-              ? 'atlas/mina'
-              : o.kind === 'chest'
-                ? 'cofre'
-                : null;
+          : o.kind === 'chest'
+            ? 'cofre'
+            : null;
     if (o.kind === 'monster') {
       sprites.push({
         ...MONSTRUO,
@@ -1757,12 +1748,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       continue;
     }
     // Ancho en casillas: los de la composición de prueba, que se veían bien. El
-    // hito, más estrecho: con su poste, a 1,7 medía 2,2 casillas de alto, más que una mina.
+    // hito, más estrecho: con su poste, a 1,7 medía 2,2 casillas de alto.
     const ancho = esHito(id)
       ? ANCHO_DEL_HITO
-      : ({ village: ANCHO_DEL_PUEBLO, node: 1.7, resource: 0.95, mine: 1.2, chest: 0.6 }[
-          o.kind as 'village'
-        ] ?? 0.5);
+      : ({ village: ANCHO_DEL_PUEBLO, node: 1.7, chest: 0.6 }[o.kind as 'village'] ?? 0.5);
     // Los pueblos, cada uno con su variante de la hoja (por su id, siempre la
     // misma); sin la hoja, la pieza única de antes.
     const variantes = o.kind === 'village' ? modulosDe('pueblos') : null;
@@ -2575,7 +2564,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   );
   const conEdificio = new Set(
     a.objetos
-      .filter((o) => o.kind === 'town' || o.kind === 'village' || o.kind === 'mine')
+      .filter((o) => o.kind === 'town' || o.kind === 'village')
       .map((o) => o.at.y * W + o.at.x),
   );
   /**
@@ -4507,7 +4496,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         carasDeEscena,
         sprites,
         a.objetos.flatMap((o) =>
-          o.kind === 'town' || o.kind === 'village' || o.kind === 'mine' || o.kind === 'node'
+          o.kind === 'town' || o.kind === 'village' || o.kind === 'node'
             ? [[o.at.x, o.at.y] as const]
             : [],
         ),
@@ -5496,10 +5485,9 @@ export function pasosAtravesados(
 }
 
 /**
- * Las minas y los pueblos a los que la senda no llega como en el HoMM (#188):
- * con un solo tramo, que sale de una de sus puertas (`puertasDe`: la casilla de
- * debajo y, en la mina, también la de la derecha, #230). Si ninguna se pisa o
- * caen fuera del mapa, vale cualquier tramo, pero uno. Se mide
+ * Los pueblos a los que la senda no llega como en el HoMM (#188): con un solo
+ * tramo, que sale de su puerta (`puertaDe`: la casilla de debajo). Si no se
+ * pisa o cae fuera del mapa, vale cualquier tramo, pero uno. Se mide
  * sobre los tramos que se pintan, de centro a centro de casilla, no sobre el
  * plan: si el trazado se equivoca, esto lo ve.
  */
@@ -5511,18 +5499,17 @@ export function sendasPorObjeto(
   H: number,
 ): MapObject[] {
   return objetos.filter((o) => {
-    if (o.kind !== 'mine' && o.kind !== 'village') return false;
+    if (o.kind !== 'village') return false;
     const cx = o.at.x + 0.5;
     const cy = o.at.y + 0.5;
     const llegan = caminos.flatMap(([x0, y0, x1, y1]) =>
       x0 === cx && y0 === cy ? [[x1, y1]] : x1 === cx && y1 === cy ? [[x0, y0]] : [],
     );
     if (llegan.length !== 1) return true;
-    const puertas = puertasDe(o.kind, o.at, W, H).filter(
-      (p) => !esBarrera(terreno[p.y * W + p.x] as TerrainKind),
-    );
+    const puerta = puertaDe(o.at, W, H);
+    if (puerta === null || esBarrera(terreno[puerta.y * W + puerta.x] as TerrainKind)) return false;
     const [x, y] = llegan[0] as number[];
-    return puertas.length > 0 && !puertas.some((p) => x === p.x + 0.5 && y === p.y + 0.5);
+    return x !== puerta.x + 0.5 || y !== puerta.y + 0.5;
   });
 }
 
@@ -6571,7 +6558,7 @@ export function bajadasTapadas(
   return fuera;
 }
 
-/** Lo horneado de un nodo: ciudad, pueblo, mina o nodo (`seHornea`). */
+/** Lo horneado de un nodo: ciudad, pueblo o nodo (`seHornea`). */
 const esNodoHorneado = (s: Sprite): boolean =>
   s.clase === 'objeto' && s.objeto !== undefined && seHornea(s.objeto.kind);
 

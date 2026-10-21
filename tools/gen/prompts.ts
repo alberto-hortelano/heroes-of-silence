@@ -11,8 +11,6 @@
  *   - "pixel art" contamina el estilo aunque no se quiera, así que no aparece.
  */
 import { SUELOS_PISABLES, type Suelo } from '@core/map/terrain.js';
-import type { ResourceKind } from '@core/types.js';
-
 /** La dirección de arte del proyecto: ilustración pintada, no pixel art. */
 export const STYLE_TOKEN =
   'painted fantasy illustration, oil painting texture, rich saturated color, ' +
@@ -46,18 +44,12 @@ export const TERRAIN_PROMPTS: Readonly<Record<TerrenoConTextura, string>> = {
   water: `Deep blue-green sea water with gentle rolling waves seen from directly above. ${SWATCH_RULE} ${STYLE_TOKEN}`,
 };
 
-export const RESOURCE_ICON_PROMPTS: Readonly<Record<ResourceKind, string>> = {
-  wood: 'A neat stack of cut timber logs, game resource icon, centered, transparent background',
-  ore: 'A pile of raw grey iron ore chunks, game resource icon, centered, transparent background',
-  mercury:
-    'A sealed glass flask of shimmering silver quicksilver, game resource icon, centered, transparent background',
-  sulfur:
-    'A cluster of bright yellow sulfur crystals, game resource icon, centered, transparent background',
-  crystal:
-    'A cluster of glowing pale cyan crystals, game resource icon, centered, transparent background',
-  gems: 'A handful of cut green emerald gems, game resource icon, centered, transparent background',
-  gold: 'A stack of shining gold coins, game resource icon, centered, transparent background',
-};
+/**
+ * El icono del oro. El texto no se toca: la caché va por hash del payload, y
+ * cambiarlo repagaría una imagen que ya está.
+ */
+export const ICONO_DEL_ORO =
+  'A stack of shining gold coins, game resource icon, centered, transparent background';
 
 /** Retrato de busto para el panel del héroe. */
 export function heroPortraitPrompt(descripcion: string): string {

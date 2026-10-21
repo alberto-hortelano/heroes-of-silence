@@ -179,24 +179,50 @@ function esTextoDeMaquina(ruta: string): boolean {
   }
 }
 
+let rutasGuardadas: readonly string[] | null = null;
+
 /**
  * Lo que hay en el repo, indexado o no: `-o --exclude-standard` es la mitad que
- * faltaba.
+ * faltaba. Una sola llamada a git por corrida: la leen `ficherosDeMaquina` y los
+ * guardias de lo retirado (`lineasCon`).
  *
  * `git ls-files` a secas lista solo lo indexado, y un fichero nuevo sin
  * `git add` —que es como nacen las presas, y como está el árbol justo cuando
  * corre el hook `Stop`— pasaba por debajo. Es la misma llamada que ya hacía
  * `.claude/hooks/verde.sh` dos ficheros más allá.
  */
-function ficherosDeMaquina(): string[] {
-  return execFileSync('git', ['ls-files', '-c', '-o', '--exclude-standard', '-z'], { cwd: RAIZ })
+function rutasDelRepo(): readonly string[] {
+  rutasGuardadas ??= execFileSync('git', ['ls-files', '-c', '-o', '--exclude-standard', '-z'], {
+    cwd: RAIZ,
+  })
     .toString('utf8')
     .split('\0')
-    .filter(
-      (f) =>
-        f !== '' &&
-        !CLASES_QUE_LEE_UNA_PERSONA.includes(extname(f).toLowerCase()) &&
-        esTextoDeMaquina(f),
+    // `ls-files -c` sigue listando lo borrado del árbol hasta que se indexa el borrado.
+    .filter((f) => f !== '' && existsSync(join(RAIZ, f)));
+  return rutasGuardadas;
+}
+
+function ficherosDeMaquina(): string[] {
+  return rutasDelRepo().filter(
+    (f) => !CLASES_QUE_LEE_UNA_PERSONA.includes(extname(f).toLowerCase()) && esTextoDeMaquina(f),
+  );
+}
+
+/** Lo que se lee como código o datos en los guardias de lo retirado. */
+const TEXTO_DE_CODIGO = new Set(['.ts', '.json', '.html', '.css', '.js', '.mjs']);
+
+/**
+ * Cada línea de `src/`, `data/` y `tools/` en que casa `viejo`, como
+ * `ruta:línea → texto`, comentarios incluidos: lo que leen los guardias de lo
+ * que se retiró (los caballeros, los recursos de antes del oro).
+ */
+function lineasCon(viejo: RegExp): string[] {
+  return rutasDelRepo()
+    .filter((f) => /^(?:src|data|tools)\//.test(f) && TEXTO_DE_CODIGO.has(extname(f)))
+    .flatMap((f) =>
+      leer(f)
+        .split('\n')
+        .flatMap((l, i) => (viejo.test(l) ? [`${f}:${i + 1} → ${l.trim().slice(0, 120)}`] : [])),
     );
 }
 
@@ -1157,24 +1183,25 @@ describe('invariantes del proyecto', () => {
     // comentario con `necromancer` en `server/partida.ts` y un
     // `assets/bases/templarios/knight_dwelling_9.webp` sin indexar salen rojos.
     const viejo = /knight|necromancer/i;
-    const rutas = execFileSync('git', ['ls-files', '-c', '-o', '--exclude-standard', '-z'], {
-      cwd: RAIZ,
-    })
-      .toString('utf8')
-      .split('\0')
-      .filter((f) => /^(?:src|data|tools|assets\/bases)\//.test(f))
-      // `ls-files -c` sigue listando lo borrado del árbol hasta que se indexa el borrado.
-      .filter((f) => existsSync(join(RAIZ, f)));
-    const conElNombre = rutas.filter((f) => viejo.test(f));
-    const TEXTO = new Set(['.ts', '.json', '.html', '.css', '.js', '.mjs']);
-    const enElTexto = rutas
-      .filter((f) => /^(?:src|data|tools)\//.test(f) && TEXTO.has(extname(f)))
-      .flatMap((f) =>
-        leer(f)
-          .split('\n')
-          .flatMap((l, i) => (viejo.test(l) ? [`${f}:${i + 1} → ${l.trim().slice(0, 120)}`] : [])),
-      );
-    expect([...conElNombre, ...enElTexto]).toEqual([]);
+    const conElNombre = rutasDelRepo().filter(
+      (f) => /^(?:src|data|tools|assets\/bases)\//.test(f) && viejo.test(f),
+    );
+    expect([...conElNombre, ...lineasCon(viejo)]).toEqual([]);
+  });
+
+  it('no queda más recurso que el oro: ni minas ni montones en src/, data/ ni tools/', () => {
+    // «Solo oro» (21-10-2026): sin minas ni más recurso que el oro, y sin
+    // compatibilidad hacia atrás. Lo que quedara con el nombre de un recurso
+    // de antes —un `'wood'` en un coste, un `kind: 'mine'` en un `switch`, la
+    // tabla de las minas por región, el evento de los montones— es código muerto
+    // o un sitio que aún los lee. Mira el texto entero, comentarios incluidos
+    // (la historia se cuenta en español, «la madera», no con el id). Lo que no
+    // mira: el `'resource'` de `performance.getEntriesByType`, que es del
+    // navegador; solo un `kind` que lo sea. Roto a mano (21-10-2026): un
+    // `'wood'` en `town/town.ts` y un `kind: 'mine'` en `map/map.ts` salen rojos.
+    const viejo =
+      /\b(?:wood|mercury|ore|sulfur|crystal|gems)\b|['"]mine['"]|\bkind\s*(?::|===?|!==?)\s*['"]resource['"]|MINE_YIELD|minasDeLasRegiones|RESOURCE_KINDS|resource_gained/;
+    expect(lineasCon(viejo)).toEqual([]);
   });
 
   it('el agente elige en la rueda: manda `hit` y `response` y la petición de respuesta no lleva el golpe del otro', () => {
@@ -1782,8 +1809,13 @@ describe('invariantes del proyecto', () => {
     // 19 se quedó en 355 hechos, y fijarla a mano por cuarta vez era esperar a
     // la quinta. Los umbrales son los mismos; se juega desde la 19 hasta la
     // primera partida que los cumple (~100 ms cada una).
+    //
+    // **Y desde la 1 hasta la 120** sin minas (21-10-2026, «solo oro»): las
+    // partidas son más cortas y de la 19 a la 58 ninguna llega; en 1-200 cumplen
+    // 12, la primera la 2 (615 hechos de diecinueve tipos, 571 con sello, día
+    // 13). Los umbrales, los mismos.
     let state: GameState | undefined;
-    for (let semilla = 19; semilla < 59 && state === undefined; semilla++) {
+    for (let semilla = 1; semilla <= 120 && state === undefined; semilla++) {
       const jugada = newGame({ seed: semilla, width: 48, height: 48, maxDays: 60 });
       await playAiGame(jugada, { rng: createRng(semilla) });
       const { log } = jugada;
@@ -1794,10 +1826,7 @@ describe('invariantes del proyecto', () => {
       )
         state = jugada;
     }
-    expect(
-      state,
-      'ninguna de cuarenta semillas en 48×48 da una partida larga y variada',
-    ).toBeDefined();
+    expect(state, 'ninguna de 1-120 en 48×48 da una partida larga y variada').toBeDefined();
     expect(JSON.parse(JSON.stringify(state!.log))).toEqual(state!.log);
   });
 

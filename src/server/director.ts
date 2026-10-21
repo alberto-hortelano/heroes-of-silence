@@ -703,7 +703,7 @@ export class Director {
   private oroDe(dueño: PlayerId | null): number {
     if (dueño === null)
       throw new Error('un bando del agente sin dueño: el agente no lleva monstruos');
-    return playerById(this.state, dueño).resources.gold;
+    return playerById(this.state, dueño).oro;
   }
 
   private note(line: string): void {

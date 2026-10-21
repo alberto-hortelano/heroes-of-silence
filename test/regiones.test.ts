@@ -33,7 +33,7 @@ import {
   RedDeCaminos,
   type TramoDeCamino,
 } from '../src/core/map/map.js';
-import { type ConPuerta, puertasDe, rodeosParaEntrar } from '../src/core/map/puertas.js';
+import { puertaDe, rodeosParaEntrar } from '../src/core/map/puertas.js';
 import { puertasDeLaCiudad } from '../src/core/map/recinto.js';
 import {
   aPunto,
@@ -283,9 +283,11 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
 
   it('nada que no sea nodo se pone sobre un muro: ya no se sanea en silencio', () => {
     const plan = planDeNodos();
-    const enLaSierra = con({ mines: [...plan.mines, { at: { x: 11, y: 0 }, resource: 'gems' }] });
+    const enLaSierra = con({
+      villages: [...plan.villages, { name: 'Peñas', at: { x: 11, y: 0 } }],
+    });
     expect(validateMapPlan(enLaSierra)).toEqual([
-      'la mina de gems en (11,0) cae sobre mountain: tiene que estar dentro de una región',
+      'el pueblo "Peñas" en (11,0) cae sobre mountain: tiene que estar dentro de una región',
     ]);
     // Y sobre un nodo tampoco: ocupa casilla.
     const enElPaso = con({ chests: [{ at: { x: 11, y: 2 }, gold: 100 }] });
@@ -494,7 +496,7 @@ function auditar(plan: MapPlan): string[] {
  * pintor de antes de #153 no daba ninguna de las dos.
  *
  * La única Y que se admite es la **obligada**: la esquina es una hoja —un
- * nodo, o una ciudad, una mina o un pueblo (#188)— de la que colgar la haría
+ * nodo, o una ciudad o un pueblo (#188)— de la que colgar la haría
  * dejar de serlo, y la otra esquina es barrera o tiene un monstruo, así que el
  * radio no tenía otra forma de pasar que en diagonal junto a ella. La búsqueda
  * cobra de más ese paso. Con nodos salía en 4 de los 223 mapas (60, 64, 177 y
@@ -574,13 +576,12 @@ const DE_LADO_POR_LA_ESQUINA: Readonly<Record<number, string>> = {};
  * (#188). La ciudad ya no (la ciudad amurallada, fase 2): se entra por las
  * puertas de su recinto, y eso lo mira `problemasDeRecintos`.
  */
-const conPuerta = (kind: string): boolean => kind === 'mine' || kind === 'village';
+const conPuerta = (kind: string): boolean => kind === 'village';
 
 /**
- * Las puertas mal entradas (#188, «como en el HoMM»): una mina o un pueblo
- * lleva un solo tramo, y desde una de sus puertas (`puertasDe`: la casilla de
- * debajo y, en la mina, también la de la derecha, #230) —salvo si no tiene
- * ninguna, fuera del mapa o de otra región, que en un mapa apretado se coloca
+ * Las puertas mal entradas (#188, «como en el HoMM»): un pueblo lleva un solo
+ * tramo, y desde su puerta (`puertaDe`: la casilla de debajo) —salvo si no la
+ * tiene, fuera del mapa o de otra región, que en un mapa apretado se coloca
  * sin ella (`libresConPuerta`; en 1-300, s139)—. A una ciudad, que es un nodo
  * y le llega un radio de cada región, ninguno le llega por detrás si su región
  * toca la fila de delante.
@@ -604,12 +605,14 @@ function puertasMalEntradas(map: GameMap): string[] {
   for (const o of map.objects) {
     if (!conPuerta(o.kind)) continue;
     const llegan = vecinas.get(pointKey(o.at)) ?? [];
-    if (o.kind === 'mine' || o.kind === 'village') {
-      const puertas = puertasDe(o.kind, o.at, W, map.height).filter(
-        (p) =>
-          regionDe[p.y * W + p.x] === regionDe[o.at.y * W + o.at.x] &&
-          isWalkable(map.terrain[p.y * W + p.x]!),
-      );
+    if (o.kind === 'village') {
+      const puerta = puertaDe(o.at, W, map.height);
+      const puertas =
+        puerta !== null &&
+        regionDe[puerta.y * W + puerta.x] === regionDe[o.at.y * W + o.at.x] &&
+        isWalkable(map.terrain[puerta.y * W + puerta.x]!)
+          ? [puerta]
+          : [];
       if (llegan.length !== 1)
         fallos.push(`${o.kind} ${en(o.at)}: le llegan ${llegan.length} tramos, y es una hoja`);
       else if (puertas.length > 0 && !puertas.some((p) => pointKey(p) === pointKey(llegan[0]!)))
@@ -622,7 +625,7 @@ function puertasMalEntradas(map: GameMap): string[] {
 /**
  * Las aspas: una casilla con sus cuatro diagonales de camino, que se pinta como
  * dos sendas rectas cruzadas (auditoría 3, §7: s2 en (1,31) y (32,2), el centro
- * de la región con tres minas y un nodo, uno en cada diagonal). No es un 2×2
+ * de la región con tres minas y un nodo, uno en cada diagonal, cuando las había). No es un 2×2
  * con las dos diagonales —eso ya lo caza `horquillasNuevas`—: los cuatro
  * tramos comparten la casilla del medio. Antes del arreglo, 37 en 31 mapas de
  * 1-1000.
@@ -634,7 +637,7 @@ function puertasMalEntradas(map: GameMap): string[] {
  * por él: la entrada al nodo es obligada (s850, (12,6), una ciudad entre agua,
  * #188). Y cuando un brazo no tiene otra forma de ir: sus dos esquinas son
  * barrera y no hay L que cambiarle, la misma regla con la que el generador lo
- * cobra (`cerrariaUnAspa`): una esquina que es hoja (mina, pueblo o nodo) o
+ * cobra (`cerrariaUnAspa`): una esquina que es hoja (pueblo o nodo) o
  * monstruo no vale de esquina. Con los niveles del mapa (#143), s682 (6,20): una
  * región en cintura de avispa entre agua, unida en diagonal.
  */
@@ -644,7 +647,7 @@ function aspas(map: GameMap): string[] {
   const hojas = new Set([
     ...nodos,
     ...map.objects
-      .filter((o) => o.kind === 'mine' || o.kind === 'village' || o.kind === 'monster')
+      .filter((o) => o.kind === 'village' || o.kind === 'monster')
       .map((o) => pointKey(o.at)),
   ]);
   const W = map.width;
@@ -673,8 +676,8 @@ function aspas(map: GameMap): string[] {
     .filter(([c, brazos]) => {
       if (brazos.length !== 4 || nodos.has(c)) return false;
       const centro = pointFromKey(c);
-      // Una esquina vale si se pisa y no es una hoja ni un monstruo: una mina,
-      // un pueblo o un nodo nunca hacen de esquina (`ArbolDeCaminos`) y un
+      // Una esquina vale si se pisa y no es una hoja ni un monstruo: un
+      // pueblo o un nodo nunca hacen de esquina (`ArbolDeCaminos`) y un
       // monstruo no se cruza (`Busqueda`), así que con la otra esquina de
       // barrera el brazo no tiene otra forma de ir (#210: s864 (22,19), la
       // puerta de una mina entre un muro y una montaña; s944 (15,26), un
@@ -754,7 +757,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // con holgura (las cifras y su historia, en historia.md, «Caminos»): lo
     // que guardan es que no vuelvan la malla ni los anillos de #149. El del
     // camino subió de 0,33 a 0,40 con las puertas (#188): el ramal de cada
-    // mina y cada pueblo y el rodeo por delante llevan la mediana de 1-200 de
+    // pueblo (y de cada mina, cuando las había) y el rodeo por delante llevan la mediana de 1-200 de
     // 0,293 a 0,362 (08-10-2026).
     const mediana = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1]!;
     expect(mediana(conCamino)).toBeLessThan(0.4);
@@ -864,7 +867,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
     expect(conMontaña(juntoANodo!)).toEqual({ frontera: 1, obstaculo: 0 });
   });
 
-  it('la auditoría de caminos muerde: sin cruce, con dos, sin hoja, sin base, una mina suelta y la red partida', () => {
+  it('la auditoría de caminos muerde: sin cruce, con dos, sin hoja, sin base, un pueblo suelto y la red partida', () => {
     // Un mapa que la pasa, y cada rotura a mano sobre una copia de sus tramos.
     const plan = generateMapPlan(createRng(1));
     const { map } = buildMap(plan);
@@ -921,21 +924,31 @@ describe('el generador hace redes como las pidió el usuario', () => {
       ),
     );
 
-    // Sin base: la base del jugador 0 pierde el tramo de su casa.
+    // Sin base: la base del jugador 0 pierde el tramo de su casa, el que va de
+    // la ciudad a la puerta cuyos accesos son de la casa (o a una casilla suya).
     const base = plan.towns.find((t) => t.owner === 0)!;
     // La casa del jugador 0 es la región 0 del procedimental.
     const casa = 0;
+    const puertasDeCasa = new Set(
+      puertasDeLaCiudad(map, base.at)
+        .filter((pu) => pu.accesos.some((a) => red.regionDe[indice(a)] === casa))
+        .map((pu) => pointKey(pu.casilla)),
+    );
     const sinBase = tramos.filter(
-      (t) => !(toca(t, base.at) && t.some((q) => red.regionDe[indice(q)] === casa)),
+      (t) =>
+        !(
+          toca(t, base.at) &&
+          t.some((q) => red.regionDe[indice(q)] === casa || puertasDeCasa.has(pointKey(q)))
+        ),
     );
     expect(caminos(sinBase).join('\n')).toMatch(
       /la base del jugador 0 .* no está en la red de su región de casa/,
     );
 
-    // Una mina sin camino.
-    const mina = map.objects.find((o) => o.kind === 'mine')!;
-    expect(caminos(tramos.filter((t) => !toca(t, mina.at))).join('\n')).toMatch(
-      new RegExp(`la mina o el pueblo \\(${mina.at.x},${mina.at.y}\\) .* no está en un camino`),
+    // Un pueblo sin camino.
+    const pueblo = map.objects.find((o) => o.kind === 'village')!;
+    expect(caminos(tramos.filter((t) => !toca(t, pueblo.at))).join('\n')).toMatch(
+      new RegExp(`el pueblo \\(${pueblo.at.x},${pueblo.at.y}\\) .* no está en un camino`),
     );
 
     // Un camino de una casilla, suelto y lejos de todo: ni su región ni el mapa
@@ -1199,9 +1212,13 @@ describe('el generador hace redes como las pidió el usuario', () => {
     islote[4] = 'MMM.M..';
     islote[5] = 'MMMM...';
     expect(entradasDeNodo(mapa(islote)).join()).toMatch(/\(3,3\) .*en cruz/);
-    // Una mina en (3,5), delante de la entrada sur.
-    const mina = { id: 'mine-0', kind: 'mine', at: { x: 3, y: 5 } } as GameMap['objects'][number];
-    expect(entradasDeNodo(mapa(base, [mina])).join()).toMatch(/mine en \(3,5\), delante/);
+    // Un cofre en (3,5), delante de la entrada sur.
+    const cofre = {
+      id: 'chest-0',
+      kind: 'chest',
+      at: { x: 3, y: 5 },
+    } as GameMap['objects'][number];
+    expect(entradasDeNodo(mapa(base, [cofre])).join()).toMatch(/chest en \(3,5\), delante/);
     // Un pueblo en (4,5), bajo la entrada diagonal (4,4): el estribo de abajo
     // de un puente diagonal (#166 H10, s49 node-12). Y en (4,1), su reflejo,
     // que se veta para no negar el espejo a lo que se siembra en pareja.
@@ -1356,8 +1373,8 @@ describe('los caminos de cada región salen de su centro', () => {
   });
 
   it('un radio pegado a un nodo que su región no lleva no lo toca: los tramos son los trazados', () => {
-    // La mina de la izquierda, junto al paso de abajo, que lleva solo la
-    // derecha. Antes de #153 el pintor unía por adyacencia la mina con el nodo
+    // El objetivo de la izquierda, junto al paso de abajo, que lleva solo la
+    // derecha. Antes de #153 el pintor unía por adyacencia el objetivo con el nodo
     // y este vestido se tiraba; con tramos no hay unión que no se trazara.
     const tramos = trazarCaminos(
       entrada([
@@ -1457,17 +1474,16 @@ describe('los caminos de cada región salen de su centro', () => {
   });
 });
 
-describe('a una mina, un pueblo o una ciudad se entra por su puerta (#188)', () => {
+describe('a un pueblo se entra por su puerta (#188)', () => {
   // Una región de 9×6 con un nodo a la izquierda, en (0,2), y la columna 0
-  // de barrera. Los objetivos son el nodo, una mina en (4,2) y un pueblo a la
-  // derecha, en (8,2): en línea recta, el radio al pueblo cruzaría la mina.
-  // La «mina» va aquí con una sola puerta, la de debajo (la de un pueblo): la
-  // de la derecha (#230) caería en el radio, y eso se mira aparte.
+  // de barrera. Los objetivos son el nodo, un pueblo en (4,2) y otro a la
+  // derecha, en (8,2): en línea recta, el radio al de la derecha cruzaría el
+  // de en medio.
   const W = 9;
   const H = 6;
   const i = (x: number, y: number) => y * W + x;
   const nodo = i(0, 2);
-  const mina = i(4, 2);
+  const aldea = i(4, 2);
   const pueblo = i(8, 2);
   const entrada = (barrera: number[] = []): EntradaDeCaminos => {
     const tipos = new Int8Array(W * H).fill(ABIERTA);
@@ -1488,13 +1504,10 @@ describe('a una mina, un pueblo o una ciudad se entra por su puerta (#188)', () 
       regiones: 1,
       suelos: ['grass'],
       nodosDeRegion: [[nodo]],
-      objetivos: [[nodo, mina, pueblo]],
-      puertas: [
-        { at: mina, kind: 'village' },
-        { at: pueblo, kind: 'village' },
-      ],
+      objetivos: [[nodo, aldea, pueblo]],
+      puertas: [aldea, pueblo],
       monstruos: new Uint8Array(W * H),
-      ocupadas: new Set([nodo, mina, pueblo]),
+      ocupadas: new Set([nodo, aldea, pueblo]),
       nivel: new Int8Array(W * H).fill(1),
       puentes: new Set(),
     };
@@ -1503,109 +1516,51 @@ describe('a una mina, un pueblo o una ciudad se entra por su puerta (#188)', () 
   const llegan = (tramos: [number, number][], c: number) =>
     tramos.flatMap(([p, q]) => (p === c ? [q] : q === c ? [p] : []));
 
-  it('el radio que sigue de largo pasa por delante y la mina cuelga de él por su puerta', () => {
+  it('el radio que sigue de largo pasa por delante y el pueblo cuelga de él por su puerta', () => {
     const tramos = trazarCaminos(entrada());
-    expect(llegan(tramos, mina)).toEqual([i(4, 3)]);
+    expect(llegan(tramos, aldea)).toEqual([i(4, 3)]);
     expect(llegan(tramos, pueblo)).toEqual([i(8, 3)]);
     // La puerta es un cruce: le llega el radio de un lado y sigue al otro.
     expect(llegan(tramos, i(4, 3)).length).toBe(3);
-    // Y nada pasa por detrás de la mina ni pegado a sus costados.
+    // Y nada pasa por detrás del pueblo ni pegado a sus costados.
     const casillas = new Set(tramos.flat());
     for (const c of [i(3, 1), i(4, 1), i(5, 1), i(3, 2), i(5, 2)])
       expect(casillas.has(c)).toBe(false);
   });
 
   it('con la puerta tapada se entra por una diagonal de delante, y con la fila tapada, de lado', () => {
-    expect(llegan(trazarCaminos(entrada([i(4, 3)])), mina)).toEqual([
+    expect(llegan(trazarCaminos(entrada([i(4, 3)])), aldea)).toEqual([
       expect.toSatisfy((c: number) => c === i(3, 3) || c === i(5, 3)),
     ]);
-    const deLado = llegan(trazarCaminos(entrada([i(3, 3), i(4, 3), i(5, 3)])), mina);
+    const deLado = llegan(trazarCaminos(entrada([i(3, 3), i(4, 3), i(5, 3)])), aldea);
     expect(deLado).toHaveLength(1);
     expect([i(3, 2), i(5, 2)]).toContain(deLado[0]);
   });
 
-  it('solo se cruza si no hay otra: una mina en un pasillo de una casilla', () => {
-    // Todo es barrera menos la fila 2: el pueblo solo se alcanza cruzando la mina.
+  it('solo se cruza si no hay otra: un pueblo en un pasillo de una casilla', () => {
+    // Todo es barrera menos la fila 2: el de la derecha solo se alcanza cruzando el de en medio.
     const barrera = rango(1, 8).flatMap((x) => [0, 1, 3, 4, 5].map((y) => i(x, y)));
     const tramos = trazarCaminos(entrada(barrera));
-    expect(llegan(tramos, mina).sort((a, b) => a - b)).toEqual([i(3, 2), i(5, 2)]);
+    expect(llegan(tramos, aldea).sort((a, b) => a - b)).toEqual([i(3, 2), i(5, 2)]);
     expect(llegan(tramos, pueblo)).toEqual([i(7, 2)]);
   });
 });
 
-describe('la mina tiene dos puertas, debajo y a la derecha, y su ramal sale por la más barata (#230)', () => {
-  // Una región de 7×7 con un nodo arriba, en (5,0), y otro abajo, en (5,6), en
-  // las filas 0 y 6 de barrera: el radio que los une baja por la columna 5. La
-  // mina, en (4,3), lo tiene a la derecha (s26000 (23,4): el ramal salía por
-  // debajo y daba la vuelta para llegar a él).
-  const W = 7;
-  const H = 7;
-  const i = (x: number, y: number) => y * W + x;
-  const arriba = i(5, 0);
-  const abajo = i(5, 6);
-  const mina = i(4, 3);
-  const entrada = (kind: ConPuerta, barrera: number[] = []): EntradaDeCaminos => {
-    const tipos = new Int8Array(W * H).fill(ABIERTA);
-    const regionDe = new Int32Array(W * H);
-    for (let x = 0; x < W; x++)
-      for (const y of [0, H - 1]) {
-        if (i(x, y) === arriba || i(x, y) === abajo) continue;
-        tipos[i(x, y)] = 0;
-        regionDe[i(x, y)] = -1;
-      }
-    for (const b of barrera) {
-      tipos[b] = 0;
-      regionDe[b] = -1;
-    }
-    return {
-      W,
-      H,
-      tipos,
-      regionDe,
-      regiones: 1,
-      suelos: ['grass'],
-      nodosDeRegion: [[arriba, abajo]],
-      objetivos: [[arriba, abajo, mina]],
-      puertas: [{ at: mina, kind }],
-      monstruos: new Uint8Array(W * H),
-      ocupadas: new Set([arriba, abajo, mina]),
-      nivel: new Int8Array(W * H).fill(1),
-      puentes: new Set(),
-    };
-  };
-  const llegan = (tramos: [number, number][], c: number) =>
-    tramos.flatMap(([p, q]) => (p === c ? [q] : q === c ? [p] : []));
-
-  it('con el radio a la derecha, la mina cuelga de él por su puerta de la derecha', () => {
-    const tramos = trazarCaminos(entrada('mine'));
-    expect(llegan(tramos, mina)).toEqual([i(5, 3)]);
-    // Un pueblo en el mismo sitio, con su puerta de siempre, sale por debajo.
-    expect(llegan(trazarCaminos(entrada('village')), mina)).toEqual([i(4, 4)]);
-  });
-
-  it('con la de la derecha tapada sale por la de debajo, y nunca por detrás', () => {
-    const tramos = trazarCaminos(entrada('mine', [i(5, 3)]));
-    expect(llegan(tramos, mina)).toEqual([i(4, 4)]);
-    const casillas = new Set(tramos.flat());
-    for (const c of [i(3, 2), i(4, 2), i(3, 3)]) expect(casillas.has(c)).toBe(false);
-  });
-
-  it('cuánto cuesta entrar por cada vecina: las dos puertas a 0 y solo el noroeste es la espalda', () => {
-    const rodeos = (kind: ConPuerta) =>
-      [
-        [-1, -1],
-        [0, -1],
-        [1, -1],
-        [-1, 0],
-        [1, 0],
-        [-1, 1],
-        [0, 1],
-        [1, 1],
-      ].map(([dx, dy]) => rodeosParaEntrar(kind, dx as number, dy as number));
+describe('cuánto cuesta entrar en un pueblo por cada vecina (#188)', () => {
+  it('la puerta a 0, las diagonales de delante a 1, de lado 3 y por detrás 4', () => {
+    const rodeos = [
+      [-1, -1],
+      [0, -1],
+      [1, -1],
+      [-1, 0],
+      [1, 0],
+      [-1, 1],
+      [0, 1],
+      [1, 1],
+    ].map(([dx, dy]) => rodeosParaEntrar(dx as number, dy as number));
     // no, n, ne, o, e, so, s, se
-    expect(rodeos('village')).toEqual([4, 4, 4, 3, 3, 1, 0, 1]);
-    expect(rodeos('mine')).toEqual([4, 3, 1, 3, 0, 1, 0, 1]);
-    expect(() => rodeosParaEntrar('mine', 2, 0)).toThrow(/no es una vecina/);
+    expect(rodeos).toEqual([4, 4, 4, 3, 3, 1, 0, 1]);
+    expect(() => rodeosParaEntrar(2, 0)).toThrow(/no es una vecina/);
   });
 });
 
@@ -1753,7 +1708,7 @@ describe('la tabla de barreras se valida al cargar', () => {
  *    regiones distintas;
  *  - que cada una siga por tierra **en cruz**: una vecina en cruz pisable de su
  *    región, sin contar el nodo (si no, es un islote unido en diagonal);
- *  - y **nada delante**: ni mina, ni pueblo, ni ciudad, ni cofre, ni recurso, ni
+ *  - y **nada delante**: ni pueblo, ni ciudad, ni cofre, ni
  *    monstruo en `n ± 2d`, en ninguna de las ocho direcciones, ni bajo las dos
  *    entradas diagonales del sur, `n + (±1, 2)`: se pinta delante de la entrada
  *    y, en un puente diagonal, tapa el estribo de abajo. Ni en su reflejo,
@@ -1771,7 +1726,7 @@ function entradasDeNodo(map: GameMap): string[] {
       ? (regionDe[y * W + x] as number)
       : -1;
   const fallos: string[] = [];
-  const delante = new Set(['mine', 'village', 'town', 'chest', 'resource', 'monster']);
+  const delante = new Set(['village', 'town', 'chest', 'monster']);
   for (const nodo of map.objects) {
     if (nodo.kind !== 'node' && nodo.kind !== 'town') continue;
     const { x, y } = nodo.at;

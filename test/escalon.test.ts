@@ -181,9 +181,11 @@ describe('el canto de la espalda (#219)', () => {
  con el río de una casilla (#144, paso 2): va la 16, la de más rebordes de 1-20
  (65; la 3, 38). Con el río continuo (#144) la 3 y la 16 se quedan sin meseta:
  van la 17 y la 13, las de más rebordes de 1-20 (56 y 45; la 13 tiene 12 371
- píxeles de agua en lo alto sin el escalón).
+ píxeles de agua en lo alto sin el escalón). Sin minas (21-10-2026) la 13 se
+ queda sin meseta: van la 17 y la 1, las de más rebordes de 1-20 (44 y 40; la
+ 1 tiene 5 738 píxeles de agua en lo alto sin el escalón).
  */
-const SEMILLAS = LENTO ? rango(1, 40) : [13, 12];
+const SEMILLAS = LENTO ? rango(1, 40) : [17, 1];
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
@@ -197,8 +199,7 @@ describe('en los mapas reales', () => {
     });
 
   it('la muestra del bucle rápido tiene espaldas que mirar', () => {
-    for (const s of [13, 12])
-      expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
+    for (const s of [17, 1]) expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
   });
 
   for (const semilla of SEMILLAS)
@@ -206,8 +207,8 @@ describe('en los mapas reales', () => {
       expect(espaldasSinCanto(partidaDe(semilla).escena)).toEqual([]);
     });
 
-  it('el guardia del canto muerde: sin canto, la s13 tiene espaldas sin él', () => {
-    const e = partidaDe(13).escena;
+  it('el guardia del canto muerde: sin canto, la s1 tiene espaldas sin él', () => {
+    const e = partidaDe(1).escena;
     const np = nivelPintado(e);
     const vacio = {
       ancho: np.ancho,
@@ -218,8 +219,8 @@ describe('en los mapas reales', () => {
     expect(espaldasSinCanto(e, vacio).length).toBeGreaterThan(0);
   });
 
-  it('el guardia del labio muerde: sin labio, la s13 tiene espaldas sin él', () => {
-    const e = partidaDe(13).escena;
+  it('el guardia del labio muerde: sin labio, la s1 tiene espaldas sin él', () => {
+    const e = partidaDe(1).escena;
     const np = nivelPintado(e);
     const vacio = {
       ancho: np.ancho,
@@ -230,8 +231,8 @@ describe('en los mapas reales', () => {
     expect(espaldasSinLabio(e, vacio).length).toBeGreaterThan(0);
   });
 
-  it('el guardia muerde: sin el escalón, la s13 tenía agua en lo alto', () => {
-    expect(aguaEnLoAlto(partidaDe(13).escena, true)).toBeGreaterThan(0);
+  it('el guardia muerde: sin el escalón, la s1 tenía agua en lo alto', () => {
+    expect(aguaEnLoAlto(partidaDe(1).escena, true)).toBeGreaterThan(0);
   });
 });
 
@@ -241,9 +242,9 @@ describe('en los mapas reales', () => {
  * los ríos, #144; la 16 es la de más espaldas con oscuro de 1-20, 65) y la 3
  * (la 2 hasta #230, que la dejó sin meseta). Con el río continuo (#144) las dos
  * se quedan sin meseta: la 17, la de más espaldas con oscuro de 1-20 (56), y
- * la 13 (45).
+ * la 13 (45). Sin minas (21-10-2026), la 17 (44) y la 1 (40).
  */
-const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [12, 13];
+const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [17, 1];
 
 describe('la espalda, una línea nítida (#223)', () => {
   for (const semilla of SEMILLAS_DEL_OSCURO)
@@ -257,13 +258,13 @@ describe('la espalda, una línea nítida (#223)', () => {
   it('la muestra del bucle rápido mide espaldas con oscuro', () => {
     // Si el guardia no encontrara ningún oscuro que medir, pasaría sin mirar.
     // Más de 10 por semilla: con los mapas de #224 una de las dos da 17.
-    for (const s of [12, 13])
+    for (const s of [17, 1])
       expect(
         oscuroAlNorteDeLasEspaldas(partidaDe(s).escena).filter((q) => q.ancho > 0).length,
       ).toBeGreaterThan(10);
   });
 
-  it('s4 (12,31): al norte, el hoyo del nodo de acantilado; al norte del hoyo, la sombra de la ladera de (11,29), que no es de la espalda', () => {
+  it('s17 (31,16): al norte, el hoyo del nodo de acantilado; al norte del hoyo, la sombra de la ladera de (30,14), que no es de la espalda', () => {
     // Con los ríos (#144, 16-10-2026) era s36 (10,33): el nodo de (10,32), con
     // camino, va a lo bajo (0) entre dos acantilados a 2, y lo alto se lo come
     // casi entero. La tirada de oscuro subía del canto, por el hoyo, a la
@@ -274,9 +275,10 @@ describe('la espalda, una línea nítida (#223)', () => {
     // Con el río continuo (#144), s26 (13,11): el nodo de acantilado de (13,10),
     // con camino, a 1 entre dos a 2. Con las puertas de las ciudades (fase 2,
     // 21-10-2026), s4 (12,31): el mismo dibujo, buscado en 1-200 con la sombra
-    // de su ladera en la fila del norte; s4 es la primera.
-    const [X, Y] = [12, 31];
-    const e = partidaDe(4).escena;
+    // de su ladera en la fila del norte; s4 es la primera. Sin minas
+    // (21-10-2026), s17 (31,16), la primera de 1-80 con el nodo de acantilado.
+    const [X, Y] = [31, 16];
+    const e = partidaDe(17).escena;
     const n = (x: number, y: number) => e.nivel[y * e.W + x];
     // Que el caso siga ahí: el hoyo y, al norte, la sombra de la ladera.
     expect([

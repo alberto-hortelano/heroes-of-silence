@@ -418,7 +418,7 @@ describe('los tipos de héroe, en datos', () => {
     const jugador = state.players[state.current]!;
     const base = baseOf(state, jugador.id)!;
     for (const h of heroesOf(state, jugador.id)) h.at = { x: 0, y: 0 };
-    jugador.resources = { ...jugador.resources, gold: 10_000 };
+    jugador.oro = 10_000;
     applyAdventureAction(
       state,
       { type: 'hire_hero', town: base.id },

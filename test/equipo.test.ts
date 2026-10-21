@@ -119,7 +119,7 @@ function enLaArmeria(seed = 7): {
   const hero = heroesOf(state, 0)[0]!;
   hero.at = base.at;
   base.buildings.push('armory');
-  state.players[0]!.resources = { ...state.players[0]!.resources, gold: 20000 };
+  state.players[0]!.oro = 20000;
   return { state, c: ctx(seed), hero };
 }
 
@@ -901,10 +901,10 @@ describe('la armería (C4)', () => {
   it('compra una pieza que se vende para la mochila del héroe que está dentro, y la cobra', () => {
     const { state, c, hero } = enLaArmeria();
     const base = baseOf(state, 0)!;
-    const oro = state.players[0]!.resources.gold;
+    const oro = state.players[0]!.oro;
     accion(state, { type: 'buy_item', town: base.id, item: 'brigantina' }, c);
     expect(hero.mochila).toEqual(['brigantina']);
-    expect(state.players[0]!.resources.gold).toBe(oro - pieza('brigantina').precio);
+    expect(state.players[0]!.oro).toBe(oro - pieza('brigantina').precio);
     expect(state.log.at(-1)).toMatchObject({
       kind: 'item_bought',
       hero: hero.id,
@@ -919,9 +919,9 @@ describe('la armería (C4)', () => {
     expect(buyBlocker(state, base, 'brigantina', 0)).toBeNull();
     expect(buyBlocker(state, base, 'paves', 0)).toBe('la armería no vende Pavés: cae como botín');
     expect(buyBlocker(state, base, 'nada', 0)).toMatch(/no existe ninguna pieza "nada"/);
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 10 };
+    state.players[0]!.oro = 10;
     expect(buyBlocker(state, base, 'brigantina', 0)).toMatch(
-      /Brigantina cuesta 700 oro y no te alcanza/,
+      /Brigantina: no alcanza el oro: cuesta 700 oro y tienes 10 oro/,
     );
     expect(buyBlocker(state, base, 'brigantina', 1)).toMatch(/no es de tu bando/);
     hero.at = { x: 0, y: 0 };
@@ -1133,7 +1133,7 @@ describe('la IA compra y equipa (C5)', () => {
     // `COMPRAS_POR_HEROE_Y_DIA` en el día: sin tope compraba 18 al día (I2).
     const compradas = state.log.filter((e) => e.kind === 'item_bought');
     expect(compradas).toHaveLength(COMPRAS_POR_HEROE_Y_DIA);
-    expect(state.players[0]!.resources.gold).toBeGreaterThanOrEqual(ORO_DE_SOBRA_PARA_NOVATOS);
+    expect(state.players[0]!.oro).toBeGreaterThanOrEqual(ORO_DE_SOBRA_PARA_NOVATOS);
   });
 
   it('a un novato solo le compra si le sobra mucho oro; al veterano, con lo que cuesta un héroe (I2)', () => {
@@ -1142,7 +1142,7 @@ describe('la IA compra y equipa (C5)', () => {
     // antes que nadie y la pieza con ella. El héroe ya lleva lo mejor de cada
     // hueco, para que no sea él quien compre.
     const { state, c, hero } = enLaArmeria();
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 5000 };
+    state.players[0]!.oro = 5000;
     hero.equipo = LO_MEJOR;
     hero.army = [{ creature: TROPA_BARATA }, { creature: TROPA }];
     expect(siguienteDeEquipo(state, 0)).toBeNull();
@@ -1193,7 +1193,7 @@ describe('la IA compra y equipa (C5)', () => {
 
   it('una pieza de botín mejora al héroe, y lo que se quita lo hereda la tropa', () => {
     const { state, c, hero } = enLaArmeria();
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
+    state.players[0]!.oro = 0;
     // El sanador pega con el bastón de serie, que vale menos que la Espada.
     hero.army = [{ creature: SANADOR }];
     expect(valorDePieza(pieza(unidadDelJuego(SANADOR).equipo!.arma!))).toBeLessThan(

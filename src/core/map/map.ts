@@ -4,7 +4,7 @@
  * A diferencia de la batalla (hexágonos), el mapa es cuadrado y se recorre en
  * ocho direcciones, como HoMM2.
  */
-import type { Point, ResourceKind } from '../types.js';
+import type { Point } from '../types.js';
 import { Frontera } from './frontera.js';
 import {
   enAlgunRecinto,
@@ -26,23 +26,9 @@ import {
 export type MapObject =
   | {
       /**
-       * Una mina **no tiene dueño propio**: produce para el dueño de la región
-       * en la que está (`regionOwner`), si esa región sigue conectada a su base.
-       * Antes se tomaba pisando la bandera; desde el mapa de nodos el territorio
-       * se gana cerrando la región, y una bandera aquí sería una segunda copia
-       * de un hecho que ya se deriva de los nodos.
-       */
-      readonly kind: 'mine';
-      readonly id: string;
-      readonly at: Point;
-      readonly resource: ResourceKind;
-    }
-  | {
-      /**
        * Un paso entre regiones (`regiones.ts`). Se toma **pisándolo**, de camino
-       * o parando en él, igual que se tomaba antes la bandera de una mina, y
-       * `owner` es el único sitio donde vive su dueño: lo escribe `captureNode`
-       * y nadie más. No bloquea el paso: es un paso.
+       * o parando en él, y `owner` es el único sitio donde vive su dueño: lo
+       * escribe `captureNode` y nadie más. No bloquea el paso: es un paso.
        */
       readonly kind: 'node';
       readonly id: string;
@@ -59,20 +45,15 @@ export type MapObject =
   | {
       /**
        * Un pueblo: está DENTRO de una región y es de quien la tenga. Sin dueño
-       * guardado, por la misma razón que la mina. Lo que produce es de la fase 3.
+       * guardado: el territorio se gana cerrando la región, y un dueño aquí
+       * sería una segunda copia de un hecho que ya se deriva de los nodos. Da
+       * `ECONOMIA.rentaDelPueblo` de oro al día a quien tenga su región unida a
+       * su base (`rentaDelDia`).
        */
       readonly kind: 'village';
       readonly id: string;
       readonly name: string;
       readonly at: Point;
-    }
-  | {
-      readonly kind: 'resource';
-      readonly id: string;
-      readonly at: Point;
-      readonly resource: ResourceKind;
-      readonly amount: number;
-      taken: boolean;
     }
   | { readonly kind: 'town'; readonly id: string; readonly at: Point; owner: number | null }
   | {
@@ -394,9 +375,8 @@ export function objectAt(map: GameMap, p: Point): MapObject | undefined {
 /**
  * ¿Bloquea el paso este objeto? Solo un monstruo en pie.
  *
- * Bloqueaban también el castillo y la mina, y con el mapa de nodos los dos
- * dejan de hacerlo por motivos distintos. La mina ya no se toma —no hay nada
- * que hacer en ella—. Y el castillo **es un nodo**: es el paso entre dos o más
+ * Bloqueaba también el castillo, y con el mapa de nodos dejó de hacerlo: el
+ * castillo **es un nodo**: es el paso entre dos o más
  * regiones, así que si bloqueara cortaría la red justo donde la red pasa; las
  * regiones de detrás solo se alcanzarían parando en él y volviendo a salir.
  * Pisarlo de camino hace lo que hacía pisarlo de destino: batalla contra la
@@ -472,7 +452,7 @@ export interface PathStep {
  * Camino más barato de `from` a `to` con Dijkstra.
  *
  * Los objetos que bloquean paso no se pueden atravesar, pero SÍ pueden ser el
- * destino: así se interactúa con una mina o se ataca a un monstruo.
+ * destino: así se recoge un cofre o se ataca a un monstruo.
  *
  * Las tres guardias se quedan aquí delante, incluida la de `isEnterable(to)`
  * que `pathFromReachable` sabría contestar sola: sin ella, un destino no
@@ -604,7 +584,7 @@ export function reachableFrom(
  *
  * El merge al revés —imponerle a `reachableFrom` la regla de `findPath`— **no**
  * sale igual: dejaría de asentar las bloqueadas, y de eso cuelga que la IA
- * pueda ir a por una mina o un monstruo. Se probó a mano: pone en rojo los dos
+ * pueda ir a por un pueblo o un monstruo. Se probó a mano: pone en rojo los dos
  * tests que comparan `findPath` con el retroceso por `prev` (#55 y #65), las
  * tres partidas completas, y saca 120 discrepancias en un barrido de 43 160
  * pares. Lo que **no** lo cazaba era ninguno de los dos goldens de
@@ -620,7 +600,7 @@ export function reachableFrom(
  * la primera vez ya con su coste final. Después del `continue` de las
  * bloqueadas también es equivalente, y ahí lo que se paga es tiempo: un destino
  * bloqueado no cortaría nunca y recorrería el mapa entero — y el destino de la
- * IA es casi siempre una mina, un pueblo o un monstruo.
+ * IA es casi siempre un nodo, un pueblo o un monstruo.
  *
  * Los dos `throw` de `Frontera` siguen intactos y no había por qué tocarlos:
  * no miran la clave, y sigue habiendo **una frontera por búsqueda**.
@@ -646,7 +626,7 @@ function dijkstra(
 
   // Las cuatro tablas por casilla, **reconstruidas en cada llamada**: `GameMap`
   // es dato y cachearlas allí obligaría a invalidarlas cuando un monstruo cae o
-  // una mina cambia de dueño, que es la clase de estado que este repositorio no
+  // un nodo cambia de dueño, que es la clase de estado que este repositorio no
   // quiere. Se pagan enteras en cada búsqueda y aun así sale a cuenta: medido
   // en `pnpm banco`, 3402 → 1611 ms de mediana en tres pasadas intercaladas,
   // **2,11×**, con el sha256 del volcado intacto.

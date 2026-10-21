@@ -405,7 +405,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const vivos = batalla.stacks.filter(
       (s) => s.side === 'attacker' && s.origen.kind !== 'heroe' && s.count > 0,
     ).length;
-    const oroAntes = state.players[0]!.resources.gold;
+    const oroAntes = state.players[0]!.oro;
     const desde = state.log.length;
     applyAction(batalla, { type: 'surrender' }, c.rng);
     const precio = batalla.finished!.surrender!.gold;
@@ -416,7 +416,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     expect(vuelto.at).toEqual(base.at);
     expect(vuelto.army).toEqual(ejercito({ creature: TIRADOR, count: vivos }));
     expect(vuelto.movePoints).toBe(0);
-    expect(state.players[0]!.resources.gold).toBe(oroAntes - precio);
+    expect(state.players[0]!.oro).toBe(oroAntes - precio);
     const hechos = state.log.slice(desde);
     expect(hechos.some((e) => e.kind === 'hero_defeated')).toBe(false);
     expect(hechos.find((e) => e.kind === 'hero_returned')).toMatchObject({
@@ -434,7 +434,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const base = baseOf(state, 0)!;
     base.garrison = [];
     // Sin oro: tiene que caer peleando.
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
+    state.players[0]!.oro = 0;
     const { atacante } = batallaDeHeroes(
       state,
       c,
@@ -488,7 +488,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const c = ctx(9);
     const base = baseOf(state, 0)!;
     base.garrison = [];
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
+    state.players[0]!.oro = 0;
     const { atacante } = batallaDeHeroes(
       state,
       c,
@@ -516,7 +516,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const c = ctx(9);
     const base = baseOf(state, 0)!;
     base.garrison = [];
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
+    state.players[0]!.oro = 0;
     const { atacante } = batallaDeHeroes(
       state,
       c,
@@ -534,11 +534,10 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
         const vecina = dx !== 0 || dy !== 0;
         if (vecina && !conOro && isEnterable(state.map, at) && !objectAt(state.map, at)) {
           state.map.objects.push({
-            kind: 'resource',
+            kind: 'chest',
             id: 'oro-en-la-puerta',
             at,
-            resource: 'gold',
-            amount: 100,
+            gold: 100,
             taken: false,
           });
           conOro = true;
@@ -620,7 +619,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     (bandera as { owner: number | null }).owner = 1;
     // Sin oro, para que caiga peleando y no se rinda (la rendición entrega el
     // castillo igual: lo que decide es la casilla).
-    state.players[1]!.resources = { ...state.players[1]!.resources, gold: 0 };
+    state.players[1]!.oro = 0;
     const { atacante, defensor } = batallaDeHeroes(
       state,
       c,
@@ -731,13 +730,13 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
     );
 
     const vetada = perdidaDelJugador0(semilla);
-    const oro = vetada.state.players[0]!.resources.gold;
+    const oro = vetada.state.players[0]!.oro;
     // El jugador 0, de la persona: la IA pelea por él sin rendirse (`sinLaIA`).
     (vetada.state.players[0] as { controller: string }).controller = 'human';
     resolvePendingBattle(vetada.state, vetada.c);
     expect(rendiciones(vetada.state)).toBe(0);
     expect(vetada.state.log.some((e) => e.kind === 'hero_defeated')).toBe(true);
-    expect(vetada.state.players[0]!.resources.gold).toBe(oro);
+    expect(vetada.state.players[0]!.oro).toBe(oro);
   });
 
   it('en el navegador: el turno del rival ataca a la persona y la IA no se rinde por ella', async () => {

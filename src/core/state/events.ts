@@ -18,7 +18,7 @@
 import type { ResumenDeBatalla } from '../battle/resumen.js';
 import type { Side } from '../battle/types.js';
 import type { GrupoDeTropa } from '../data.js';
-import type { PlayerId, Point, ResourceKind } from '../types.js';
+import type { PlayerId, Point } from '../types.js';
 
 /**
  * Contra qué se libra una batalla del mapa.
@@ -112,11 +112,9 @@ type Cuerpo =
    * cuenta no tiene que preguntar por `null`.
    */
   | { kind: 'march_cut'; hero: string; faltan: number; at: Point }
-  | { kind: 'resource_gained'; resource: ResourceKind; amount: number }
-  /**
-   * Un nodo de la red cambia de dueño al pisarlo (fase 2a). Sustituye a
-   * `mine_captured`: la mina ya no se toma, es de quien tenga su región.
-   */
+  /** El oro de un cofre: lo único que se recoge del mapa. */
+  | { kind: 'gold_gained'; amount: number }
+  /** Un nodo de la red cambia de dueño al pisarlo (fase 2a). */
   | { kind: 'node_captured'; node: string; from: PlayerId | null }
   | { kind: 'town_captured'; town: string; from: PlayerId | null }
   | { kind: 'built'; town: string; building: string }
@@ -260,7 +258,7 @@ export const SE_VE_POR: Readonly<
   turn_start: 'casilla',
   hero_moved: 'casilla',
   march_cut: 'casilla',
-  resource_gained: 'casilla',
+  gold_gained: 'casilla',
   node_captured: 'casilla',
   town_captured: 'casilla',
   built: 'casilla',
@@ -322,9 +320,9 @@ export const SE_VE_POR: Readonly<
  * muerto, que ya no está en `state.heroes`, y por eso los dos van por las
  * cláusulas de «siempre».
  *
- * Un nodo propio tomado lejos **no** entra en esa excepción, como no entraba la
- * mina a la que sustituye: no te avisa nadie, y la señal es la renta —una
- * región que deja de dar recursos es que alguien ha cortado un paso—.
+ * Un nodo propio tomado lejos **no** entra en esa excepción: no te avisa nadie,
+ * y la señal es la renta —un pueblo o una ciudad que deja de darte oro es que
+ * alguien ha cortado un paso—.
  */
 export function visibleTo(e: GameEvent, p: PlayerId): boolean {
   switch (e.kind) {
@@ -339,7 +337,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
 
     case 'hero_moved':
     case 'march_cut':
-    case 'resource_gained':
+    case 'gold_gained':
     case 'node_captured':
     case 'built':
     case 'recruited':

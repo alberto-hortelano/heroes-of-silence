@@ -107,7 +107,7 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   el plan predijo, no el destino.
  * - `cf7b8d3b…` (26 444 líneas): las minas de los siete recursos, cuarta y
  *   última palanca. Aquí el primer hecho distinto ya **no** es `built` sino
- *   `hero_moved` (173/200), `resource_gained` (21) y `mine_captured` (3), que
+ *   `hero_moved` (173/200), un recurso recogido (21) y una mina tomada (3), que
  *   es lo que predice añadir objetos al mapa: la ruta del héroe cambia antes
  *   que lo que se construye. **146 de las 200 partidas se acortan** y solo 16
  *   se alargan. Cierre del ciclo, contra el suelo `299b1a7c…` de antes: mediana
@@ -620,7 +620,7 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  * - `fdf6959c…` (67 623 líneas): **las minas van por región** (#195,
  *   08-10-2026). El dato del mapa pasa a ser `REGIONES_POR_BANDO` (5) y el lado
  *   se deriva (`ladoDelMapa(5)` = 34, el de antes); las minas, de 14 fijas por
- *   bando a 3 en casa y 2 por región de fuera (`minasDeLasRegiones`: 11 por
+ *   bando a 3 en casa y 2 por región de fuera (las minas por región: 11 por
  *   bando), colocadas en el orden de antes (casa, y por rondas las de fuera).
  *   Con el reparto de minas de antes sale `c53c353b…` exacto: el lado derivado
  *   no mueve nada y el cambio es el de las minas. **0 semillas idénticas**,
@@ -1167,11 +1167,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `garrison_taken` 43 → 19 (el héroe ya no entra en casa el día 1 para salir).
  *   Ningún tipo de hecho nuevo; en estas 20 ya no sale ningún `march_halted`
  *   (las partidas son más cortas) ni el `item_bought` de main.
+ * - `b9dbd8a1…` (4 337 líneas, 20 semillas, 21-10-2026): **solo oro**. Sin minas
+ *   ni montones de recursos; el oro, el único recurso (`Player.oro`), con los
+ *   costes pasados a oro (madera y mineral a 250, los raros a 500), 27 500 de
+ *   salida y 250 al día por pueblo de región unida a la base (`rentaDelDia`).
+ *   Contra `6a66ad51…`, **0 de 20 idénticas**, y en las 20 el primer hecho
+ *   distinto es el 1, un `raider_spawned` del día 1 en otra casilla: sin las
+ *   minas ni los montones, el azar del generador llega distinto a los objetos y
+ *   el mapa es otro desde ahí (como #195). 0 sin terminar; j0 gana 9 de 20 (9
+ *   antes); duración 4 / 6 / 6 → **4 / 7 / 7**; días 75 → 90, batallas 80 → 99,
+ *   `built` 180 → 231, `recruited` 167 → 235, `dismissed` 89 → 114. Sale
+ *   el hecho de los recursos recogidos (17 → 0) y entra `gold_gained` (0 → 5, los cofres); ya no
+ *   sale el `spells_learned` (1 → 0). Ningún otro tipo nuevo ni que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '6a66ad5198ec27716d04de851f8a94c7d12ffc7718f62e7c34d181f9939f09c5',
+  sha: 'b9dbd8a10f5982abd06aaec3b9303ddcc145343ff54e0219842ecee4cb0fe032',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

@@ -60,7 +60,7 @@ import {
   type Personajes,
   troopSummary,
 } from '../hero/troop.js';
-import { minasDeLasRegiones, regionesDelMapa } from '../map/generate.js';
+import { regionesDelMapa } from '../map/generate.js';
 import { pointFromKey } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import {
@@ -89,6 +89,7 @@ import {
   visibleNow,
   week,
 } from '../state/game.js';
+import { REGLA_DEL_PUEBLO, rentaDelDia } from '../state/renta.js';
 import { building } from '../town/buildings.js';
 import { construidoEn } from '../town/sitios.js';
 import {
@@ -102,7 +103,7 @@ import {
 } from '../town/town.js';
 import { vecinosDeLaBase, vozDe } from '../town/voces.js';
 import type { Army, Equipo, PlayerId } from '../types.js';
-import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS, TIPOS_DE_GOLPE } from '../types.js';
+import { describirCoste, FACTION_IDS, HUECOS, TIPOS_DE_GOLPE } from '../types.js';
 import {
   accionAlAgente,
   HIT_DE_GOLPE,
@@ -184,9 +185,24 @@ function equipoView(equipo: Equipo | undefined): Readonly<Record<Slot, string | 
  * interpola `RESPONSE_FORMAT.adventure_turn`.
  */
 export const CATALOGO_DE_EQUIPO_EN_PROSA: string = EQUIPO.map((p) => {
-  const venta = seVende(p) ? ` por ${describirCoste({ gold: p.precio })}` : '';
+  const venta = seVende(p) ? ` por ${describirCoste(p.precio)}` : '';
   return `    ${p.id} (${SLOT_DE_HUECO[p.hueco]}): ${cifrasDePieza(p)} · ${deDondeSale(p)}${venta}`;
 }).join('\n');
+
+/**
+ * La renta del día como la lee el agente (`you.income`): el total y de dónde
+ * sale, cada ciudad suya con lo que da su ayuntamiento (0 y `connected: false`
+ * si está cortada de la base) y cada pueblo de sus regiones unidas con lo suyo
+ * (`rentaDelDia`, un hecho en un sitio).
+ */
+function incomeView(state: GameState, playerId: PlayerId) {
+  const r = rentaDelDia(state, playerId);
+  return {
+    total: r.total,
+    towns: r.ciudades.map((c) => ({ id: c.id, gold: c.oro, connected: c.unida })),
+    villages: r.pueblos.map((p) => ({ id: p.id, name: p.nombre, gold: p.oro })),
+  };
+}
 
 /**
  * Los objetos del mapa **tal como los recuerda un jugador**, cada uno con la
@@ -222,22 +238,10 @@ function knownObjects(state: GameState, playerId: PlayerId) {
   return conocidos.map(({ day, object: o }) => {
     const cuando = { lastSeen: day };
     switch (o.kind) {
-      case 'mine':
-        return { kind: o.kind, id: o.id, at: o.at, resource: o.resource, ...cuando };
       case 'node':
         return { kind: o.kind, id: o.id, at: o.at, owner: o.owner, ...cuando };
       case 'village':
         return { kind: o.kind, id: o.id, at: o.at, name: o.name, ...cuando };
-      case 'resource':
-        return {
-          kind: o.kind,
-          id: o.id,
-          at: o.at,
-          resource: o.resource,
-          amount: o.amount,
-          taken: o.taken,
-          ...cuando,
-        };
       case 'town':
         return { kind: o.kind, id: o.id, at: o.at, owner: o.owner, ...cuando };
       case 'monster':
@@ -427,9 +431,9 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     parando; una ciudad ("town") es un nodo con guarnición que se toma
     venciéndola, o entrando si está vacía. Una región es tuya cuando lo son TODOS
     los nodos que la rodean, y solo produce si además está unida a tu base por
-    regiones y nodos tuyos: las minas ("mine") y los pueblos ("village") no se
-    toman, son de quien tenga su región. Una región que deja de darte recursos es
-    que alguien te ha cortado un paso.
+    regiones y nodos tuyos: los pueblos ("village") no se toman, son de quien
+    tenga su región, y cada uno ${REGLA_DEL_PUEBLO}. Un pueblo que deja de darte oro es
+    que alguien te ha cortado un paso. No hay minas ni más recurso que el oro.
   - Tu base ("yourBase") es la partida: si la pierdes quedas eliminado en el
     acto, aunque te queden héroes y ciudades. Lo mismo le pasa al rival. Las
     dos nacen con guarnición, así que tomarla es una batalla mientras le quede
@@ -492,7 +496,11 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       turnOrder: ordenDelDia(state.players, state.day).filter(
         (id) => !playerById(state, id).defeated,
       ),
-      resources: Object.fromEntries(RESOURCE_KINDS.map((k) => [k, player.resources[k]])),
+      // El oro, el único recurso, y lo que cobrará al empezar su
+      // próximo turno con de dónde sale: la cuenta del núcleo (`rentaDelDia`),
+      // la misma que suma `startTurn`.
+      gold: player.oro,
+      income: incomeView(state, playerId),
     },
     // A dónde vuelve un héroe derrotado o rendido, o `null` si ya no tiene base:
     // decide si rendirse existe y qué cuesta perder un héroe.
@@ -550,7 +558,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       teaches: townSpells(t).map((s) => s.id),
       builtToday: t.builtToday,
       buildings: t.buildings,
-      canBuildNow: availableBuildings(t, player.resources).map((id) => ({
+      canBuildNow: availableBuildings(t, player.oro).map((id) => ({
         id,
         name: building(id).name,
         cost: building(id).cost,
@@ -558,7 +566,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       recruitable: dwellings(t).map(({ creature: id }) => ({
         creature: id,
         available: t.available[id] ?? 0,
-        cost: { gold: unidadDelJuego(id).oro },
+        cost: unidadDelJuego(id).oro,
         leadership: unidadDelJuego(id).leadership,
       })),
       garrison: armyView(t.garrison, state.characters),
@@ -570,7 +578,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
             armory: PIEZAS_DE_ARMERIA.map((p) => ({
               item: p.id,
               slot: SLOT_DE_HUECO[p.hueco],
-              cost: { gold: p.precio },
+              cost: p.precio,
             })),
           }
         : {}),
@@ -975,23 +983,22 @@ export interface MapRequestOptions {
 
 /**
  * Cómo haría el procedimental un mapa de ese lado (#195): cuántas regiones y
- * qué minas lleva cada una. Es un consejo y no una regla: el plan del agente se
- * sigue validando por su red (`validateMapPlan`), no por cuántas regiones o
- * minas trae. Sale de las mismas funciones que usa el generador.
+ * qué lleva cada una. Es un consejo y no una regla: el plan del agente se sigue
+ * validando por su red (`validateMapPlan`), no por cuántas regiones o pueblos
+ * trae. Sale de las mismas funciones que usa el generador.
  */
 function comoRepartePorRegiones(width: number, height: number): string {
   const regiones = regionesDelMapa(width, height);
-  const [casa = [], ...fuera] = minasDeLasRegiones(regiones);
   return (
     `En ${width}×${height} el mapa procedimental hace ${regiones} regiones por jugador, en espejo: ` +
-    `la de casa con minas de ${casa.join(', ')}, y cada una de las ${fuera.length} de fuera con ${fuera[0]?.length ?? 0}: una de recurso raro y una básica.`
+    `la de casa con la base, y cada una de las ${regiones - 1} de fuera con un pueblo, que ${REGLA_DEL_PUEBLO}.`
   );
 }
 
 /**
  * El reparto de alturas del procedimental (#209), en una frase: la de casa al
  * llano y las demás por su suelo, con los pesos de `data/relieve.json`. Un
- * consejo, como el de las minas: el plan se valida por sus barreras
+ * consejo, como el de los pueblos: el plan se valida por sus barreras
  * (`problemasDeNiveles`), no por qué nivel elige. Sale de la tabla que sortea el
  * generador, así que no se queda atrás si se retoca.
  */
@@ -1035,7 +1042,7 @@ export function fichaDeCriatura(c: UnidadDelJuego) {
     speed: c.speed,
     ...(c.traits === undefined ? {} : { traits: c.traits }),
     leadership: c.leadership,
-    cost: { gold: c.oro },
+    cost: c.oro,
     growth: c.growth,
     dwelling: c.edificio,
     equipment: equipoView(c.equipo),
@@ -1069,7 +1076,6 @@ export function serializeMapRequest(opts: MapRequestOptions) {
       // Con qué se levanta un muro. Derivado igual que los terrenos: es la lista
       // que valida `validateMapPlan`, no una copia.
       wallTerrains: [...BARRERAS],
-      resources: RESOURCE_KINDS,
       factions: [...FACTION_IDS],
       // Lo que un plan puede poner en `raiders`: el techo y los grupos con los
       // que brotan en partida, que valen todos. Sale de los datos y no se
@@ -1091,13 +1097,13 @@ export function serializeMapRequest(opts: MapRequestOptions) {
       ),
     },
     advice: [
-      'Reparte las minas para que ningún jugador nazca sin madera ni mineral.',
+      'Reparte los pueblos para que los dos jugadores tengan renta que ganar cerca de casa.',
       comoRepartePorRegiones(opts.width, opts.height),
       comoRepartenLosNiveles(),
       'Los monstruos custodian lo bueno: cuanto mejor el premio, más dura la guardia.',
       'Deja el centro del mapa disputado y los bordes seguros.',
       'Pon las ciudades en los cruces de tres regiones o más, y que cada base tenga dos caminos distintos hasta las ciudades que le quedan cerca: así aislarlas es posible pero no trivial.',
-      'Un camino entra en una mina o un pueblo por la casilla de debajo, que es su puerta, y no lo atraviesa: si sigue hacia otro sitio, pasa por la fila de delante y deja un ramal de una casilla hasta la puerta.',
+      'Un camino entra en un pueblo por la casilla de debajo, que es su puerta, y no lo atraviesa: si sigue hacia otro sitio, pasa por la fila de delante y deja un ramal de una casilla hasta la puerta.',
       `A una ciudad, en cambio, se entra por las puertas de su recinto de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO}: lleva el camino de cada región que la toque de un acceso a dos casillas (al norte, al sur o en diagonal) a la puerta de esa cara y de ahí a la ciudad; deja ${SEPARACION_DE_CIUDADES} casillas entre dos ciudades y nada dentro de un recinto. El héroe de cada jugador empieza en su base y sale por sus puertas.`,
     ],
   };

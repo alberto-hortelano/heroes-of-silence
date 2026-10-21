@@ -364,7 +364,7 @@ async function esperarLaBase(page: Page, marca: string): Promise<void> {
 
 /** Comprueba que la página y el espejo juegan la misma partida. */
 async function comprobar(page: Page, espejo: Session, paso: string): Promise<void> {
-  const oro = await page.locator('#resources li[title="Oro"]').innerText();
+  const oro = await page.locator('#resources .oro').innerText();
   const dia = await page.locator('#day').innerText();
   const esperadoDia = rotuloDeDia(espejo.state.day);
   // En el mapa, además, el movimiento que le queda al héroe: es lo que se separa
@@ -379,10 +379,11 @@ async function comprobar(page: Page, espejo: Session, paso: string): Promise<voi
       );
     }
   }
-  if (oro.trim() !== String(espejo.resources.gold) || dia.trim() !== esperadoDia) {
+  // Con separador de miles (`conMiles`): las cifras, sin él.
+  if (oro.replace(/\s/g, '') !== String(espejo.oro) || dia.trim() !== esperadoDia) {
     throw new Error(
       `tras «${paso}» la página y el espejo se han separado: la página dice ${dia} y ${oro} de oro; ` +
-        `el espejo, ${esperadoDia} y ${espejo.resources.gold}`,
+        `el espejo, ${esperadoDia} y ${espejo.oro}`,
     );
   }
 }
@@ -1914,7 +1915,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
       : primera.stacks
           .filter((s) => s.side === espejo.miBando && s.origen.kind !== 'heroe' && s.count > 0)
           .map(queEs);
-  const oroAntes = espejo.resources.gold;
+  const oroAntes = espejo.oro;
   const bando = espejo.miBando;
   if (espejo.battle !== null && espejo.battle.finished === null) {
     await page.getByRole('button', { name: 'Resolver sola' }).click();
@@ -1946,9 +1947,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
         `tras rendirse el héroe debía estar en (${base.at.x},${base.at.y}) con ${supervivientes.join(',')} y está en (${heroe.at.x},${heroe.at.y}) con ${heroe.army.map((t) => t.creature).join(',')}`,
       );
     }
-    if (espejo.resources.gold !== oroAntes - rendicion.gold) {
+    if (espejo.oro !== oroAntes - rendicion.gold) {
       throw new Error(
-        `la rendición costaba ${rendicion.gold} y el oro pasó de ${oroAntes} a ${espejo.resources.gold}`,
+        `la rendición costaba ${rendicion.gold} y el oro pasó de ${oroAntes} a ${espejo.oro}`,
       );
     }
     log(

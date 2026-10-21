@@ -294,15 +294,15 @@ describe('lo que impide un recinto (`problemasDeRecintos`), dicho para quien hiz
     );
   });
 
-  it('cualquier cosa dentro: una mina o un grupo de asaltantes', () => {
+  it('cualquier cosa dentro: un pueblo o un grupo de asaltantes', () => {
     const plan = planDeNodos();
     expect(
       validateMapPlan({
         ...plan,
-        mines: [...plan.mines, { at: { x: 6, y: 5 }, resource: 'gems' }],
+        villages: [...plan.villages, { name: 'Intrusa', at: { x: 6, y: 5 } }],
       }),
     ).toEqual([
-      'la mina de gems de (6,5) cae dentro del recinto de la ciudad "Valdeluz" (town-0, en (5,4)), de (4,3) a (6,5): dentro de su muralla solo va ella',
+      'el pueblo "Intrusa" de (6,5) cae dentro del recinto de la ciudad "Valdeluz" (town-0, en (5,4)), de (4,3) a (6,5): dentro de su muralla solo va ella',
     ]);
     const valdeluz = { id: 'town-0', name: 'Valdeluz', at: { x: 5, y: 4 } };
     expect(

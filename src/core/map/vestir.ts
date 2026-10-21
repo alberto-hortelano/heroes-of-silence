@@ -28,7 +28,7 @@ import {
   muroDeLaLinea,
   type RejillaDeMuralla,
 } from './murallas.js';
-import { type ConPuerta, rodeosParaEntrar } from './puertas.js';
+import { rodeosParaEntrar } from './puertas.js';
 import { CIUDAD, FUERA, type PasosDelRecinto, PUERTA } from './recinto.js';
 import {
   acantiladosSinCaida,
@@ -2403,10 +2403,11 @@ export interface EntradaDeObstaculos {
   /** Los monstruos: se alcanzan pero no se cruzan. */
   readonly monstruos: Uint8Array;
   /**
-   * Las minas y los pueblos: el camino entra en ellos y no los atraviesa
-   * (#188), así que una mancha no puede dejar nada al otro lado de uno.
+   * Los pueblos, por índice plano, como en `EntradaDeCaminos.puertas`: el camino
+   * entra en ellos y no los atraviesa (#188), así que una mancha no puede dejar
+   * nada al otro lado de uno.
    */
-  readonly puertas: Uint8Array;
+  readonly puertas: readonly number[];
   readonly rng: Rng;
 }
 
@@ -2438,8 +2439,10 @@ const INTENTOS_DE_MANCHA = 60;
  * la densidad mínima, ninguna mancha la va a llevar ahí.
  */
 export function ponerObstaculos(e: EntradaDeObstaculos): boolean {
-  const { W, H, tipos, regionDe, rng, vetadas, monstruos, puertas } = e;
+  const { W, H, tipos, regionDe, rng, vetadas, monstruos } = e;
   const N = W * H;
+  const puertas = new Uint8Array(N);
+  for (const p of e.puertas) puertas[p] = 1;
   const { densidadPorCiento, mancha } = BARRERAS_DEL_MAPA;
   const { desde, vecinas } = vecindad(W, H);
   const tocaFrontera = new Uint8Array(N);
@@ -2489,16 +2492,16 @@ export function ponerObstaculos(e: EntradaDeObstaculos): boolean {
       }
     };
     const quedan = total[r]! - puestos[r]! - celdas.length;
-    // Desde los nodos, sin cruzar un monstruo, una mina ni un pueblo.
+    // Desde los nodos, sin cruzar un monstruo ni un pueblo.
     for (const n of e.nodosDeRegion[r] ?? []) expandir(n);
     for (let q = 0; q < cola.length; q++) {
       const a = cola[q]!;
       if (monstruos[a] === 0 && puertas[a] === 0) expandir(a);
     }
     let vale = cola.length === quedan;
-    // Y de una pieza sin cruzar una mina ni un pueblo, aunque sí un monstruo:
-    // desde los nodos, cada mitad de una región partida por una mina se
-    // alcanzaba desde el suyo, y su camino tenía que cruzarla (s17, (4,28)).
+    // Y de una pieza sin cruzar un pueblo, aunque sí un monstruo: desde los
+    // nodos, cada mitad de una región partida por un objeto con puerta se
+    // alcanzaba desde el suyo, y su camino tenía que cruzarlo (s17, (4,28)).
     const primera = casillas[r]!.find(
       (i) => tipos[i] === ABIERTA && enMancha[i] === 0 && puertas[i] === 0,
     );
@@ -2597,15 +2600,15 @@ export interface EntradaDeCaminos {
   readonly nodosDeRegion: readonly (readonly number[])[];
   /**
    * Adónde lleva camino cada región, por índice plano: los nodos que le tocan
-   * en el reparto de la red (`crucesConCamino`), sus minas y sus pueblos.
+   * en el reparto de la red (`crucesConCamino`) y sus pueblos.
    */
   readonly objetivos: readonly (readonly number[])[];
   /**
-   * Los objetos con puerta —minas y pueblos—, por índice plano y con su clase.
-   * Son hojas: se llega a ellos y no se cruzan, y se entra por una de sus
-   * puertas (#188; la mina, por debajo o por la derecha, #230: `puertas.ts`).
+   * Los objetos con puerta —los pueblos—, por índice plano. Son hojas: se llega
+   * a ellos y no se cruzan, y se entra por su puerta, la de debajo (#188,
+   * `puertas.ts`).
    */
-  readonly puertas: readonly { readonly at: number; readonly kind: ConPuerta }[];
+  readonly puertas: readonly number[];
   /**
    * Los recintos de las ciudades (`recinto.ts`), con sus puertas **posibles**:
    * el camino de una región llega a su ciudad de un acceso a una puerta suya y
@@ -2697,9 +2700,6 @@ function recargosDelTrazado(e: EntradaDeCaminos, casillas: readonly number[]): U
   return recargo;
 }
 
-/** Las clases de objeto con puerta, en el orden en que las marca `Busqueda.puerta`. */
-const CLASES_CON_PUERTA: readonly ConPuerta[] = ['mine', 'village'];
-
 /** Los pasos torcidos, en el orden de la caché de `Busqueda.torcidoEn`. */
 const TORCIDOS: readonly PasoTorcido[] = ['silla', 'diagonal', 'costado'];
 
@@ -2718,9 +2718,7 @@ const SIN_RECINTOS = (N: number): PasosDelRecinto => ({
  *
  * **Un objeto con puerta se entra por delante** (#188, «como en el HoMM»): la
  * cámara mira desde el sur y la puerta del sprite está en su pie, así que se
- * llega desde la fila de debajo; a una mina, también desde la derecha, por
- * donde salen sus raíles (#230, `puertas.ts`), y su ramal sale por la que menos
- * cueste. Entrar de lado cuesta `rodeo` y por detrás el
+ * llega desde la fila de debajo (`puertas.ts`). Entrar de lado cuesta `rodeo` y por detrás el
  * doble, más que cualquier camino sin monstruos: se entra por la mejor fila
  * que se alcance, que es un coste y no una prohibición, porque una ciudad es un
  * nodo y la región que solo la toca por detrás tiene que llegar por ahí. Salir
@@ -2737,10 +2735,7 @@ class Busqueda {
   private readonly nodo: Uint8Array;
   /** Los nodos y los objetos con puerta: las hojas del árbol (`ArbolDeCaminos`). */
   readonly hoja: Uint8Array;
-  /**
-   * Los objetos con puerta: se entran por delante. La clase de cada uno, +1, en
-   * `CLASES_CON_PUERTA`; 0 si no lleva.
-   */
+  /** Los objetos con puerta, con un 1: se entran por delante. */
   private readonly puerta: Uint8Array;
   /** Los objetivos de la región (`EntradaDeCaminos.objetivos`): acaban todos en la red. */
   private readonly objetivo: Uint8Array;
@@ -2821,9 +2816,9 @@ class Busqueda {
       }
     }
     const { desde, vecinas } = vecindad(e.W, e.H);
-    for (const { at: p, kind } of e.puertas) {
+    for (const p of e.puertas) {
       this.hoja[p] = 1;
-      this.puerta[p] = CLASES_CON_PUERTA.indexOf(kind) + 1;
+      this.puerta[p] = 1;
       for (let k = desde[p]!; k < desde[p + 1]!; k++) {
         const v = vecinas[k]!;
         if (this.rodeosEntre(p, v) >= 3) this.espalda[v] = 1;
@@ -2853,8 +2848,7 @@ class Busqueda {
   /** Los rodeos de pasar entre el objeto con puerta `d` y su vecina `v` (`rodeosParaEntrar`). */
   private rodeosEntre(d: number, v: number): number {
     const W = this.e.W;
-    const kind = CLASES_CON_PUERTA[(this.puerta[d] as number) - 1] as ConPuerta;
-    return rodeosParaEntrar(kind, (v % W) - (d % W), (v - (v % W)) / W - (d - (d % W)) / W);
+    return rodeosParaEntrar((v % W) - (d % W), (v - (v % W)) / W - (d - (d % W)) / W);
   }
 
   /**
@@ -2921,7 +2915,7 @@ class Busqueda {
     const { coste, previo, nodo, hoja, puerta, espalda, celda } = this;
     const { rol, ciudadDe } = this.rec;
     // Lo que cuesta pasar entre el objeto con puerta `d` y su vecina `v`: por
-    // una puerta (la de debajo, y en una mina también la de la derecha), nada;
+    // su puerta (la de debajo), nada;
     // por las diagonales de delante, un rodeo; de lado, tres; por detrás,
     // cuatro (`rodeosParaEntrar`). Pisar un monstruo (dos) va en medio: se
     // llega a la puerta por encima del guardia antes que por el costado, que es
@@ -2932,7 +2926,7 @@ class Busqueda {
     // esté en la red, porque siempre acaba en ella (es objetivo de su región) y
     // la Y saldría al colgar después su ramal. Cuatro y no dos porque la L de
     // al lado suele pasar por el costado de otra (`espalda`, dos rectos más:
-    // una mina y un pueblo vecinos, s195 (11,15)). El nodo que es objetivo y
+    // dos objetos con puerta vecinos, s195 (11,15)). El nodo que es objetivo y
     // aún no está en la red, también dos, por lo mismo: con las fronteras
     // onduladas de #229 un radio pasó en diagonal junto a un nodo que se colgó
     // después (42×42 s15 (1,21)-(2,22)).
@@ -2952,13 +2946,13 @@ class Busqueda {
       if (hastaAqui > (coste[a] as number)) continue;
       if (a === hasta) return;
       // Un nodo es final de tramo: se llega, no se cruza (llevaría a otra
-      // región). Una mina o un pueblo se rodean (#188): el radio que sigue de
+      // región). Un pueblo se rodea (#188): el radio que sigue de
       // largo pasa por delante, porque el ramal ya es red a mitad de precio.
       // Antes de #153 eso daba radios paralelos y ciclos por adyacencia
       // (historia.md, «Caminos»); con tramos, no. Los obstáculos no parten
-      // una región por una mina (`ponerObstaculos`), pero un monstruo al lado
-      // de una sí (s28, (13,3)): se cruza antes el monstruo, que es una figura
-      // que se va, que la mina, que se queda; y la mina solo si no hay otra.
+      // una región por un pueblo (`ponerObstaculos`), pero un monstruo al lado
+      // de uno sí (s28, (13,3)): se cruza antes el monstruo, que es una figura
+      // que se va, que el pueblo, que se queda; y el pueblo solo si no hay otra.
       if (nodo[a] === 1 && a !== origen) continue;
       // Más que la peor cuenta de puertas: salir de una por detrás y entrar en
       // otra por detrás, ocho rodeos.
@@ -3058,12 +3052,12 @@ class Busqueda {
           }
           // La cuarta diagonal de una casilla dibuja un aspa: dos sendas rectas
           // que se cruzan, y se lee como trazado a regla (s2, (1,31): el centro
-          // de la región en medio de tres minas y un nodo, uno en cada
+          // de la región en medio de tres objetos y un nodo, uno en cada
           // diagonal; 37 en 31 mapas de 1-1000, auditoría 3 §7). Seis pasos
           // rectos: más que la vuelta por la casilla de al lado, que la parte
-          // en T, aunque esa casilla sea el costado de una mina (`espalda`, dos
-          // más) y la T pase por otra; con dos, como la Y, salían 5 aspas en
-          // 1-1000 entre minas y pueblos (#188, s376 y s850).
+          // en T, aunque esa casilla sea el costado de un objeto (`espalda`, dos
+          // más) y la T pase por otro; con dos, como la Y, salían 5 aspas en
+          // 1-1000 entre objetos con puerta (#188, s376 y s850).
           if (arbol?.cerrariaUnAspa(a, j) === true) paso += 6 * this.recto;
         }
         // Ni dobla en diagonal la esquina de un recinto por fuera, con su
@@ -3166,9 +3160,9 @@ function centroOMotivo(e: EntradaDeCaminos, r: number, b: Busqueda): number | st
  * comprobar.
  *
  * Un nodo es final de tramo, así que no hay tramo de paso a paso: cada nodo con
- * camino es una hoja de la red de su región. **Una ciudad, una mina o un pueblo
+ * camino es una hoja de la red de su región. **Una ciudad o un pueblo
  * también, y se entra por su puerta** (#188): desde la fila de delante si se
- * alcanza, y a una mina también desde la derecha (#230) (`Busqueda`); el radio que sigue de largo pasa por delante y el
+ * alcanza (`Busqueda`); el radio que sigue de largo pasa por delante y el
  * objeto cuelga de él con un ramal de una casilla. El coste es el del héroe, así que
  * un camino va por donde se anda. **Rodea a los monstruos si puede, y si no,
  * pasa por encima**: un guardia que corta la región en dos deja cada mitad

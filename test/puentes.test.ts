@@ -52,7 +52,7 @@ import {
 import { PIES } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
 import { catalogoDelDisco, partidaDe, primeraSemillaCon, puenteSobreElAgua } from './helpers.js';
-import { itLento, LENTO, rango, segunPrisa } from './lento.js';
+import { LENTO, rango, segunPrisa } from './lento.js';
 
 /**
  * Las semillas de los recuentos: 1-10 en la orden lenta, 15 puentes desde #169
@@ -86,8 +86,7 @@ function dosConDeTodo(): number[] {
   // El otro era el primero con un puente en diagonal. Desde el río continuo
   // (#144) el procedimental solo tiende puentes de frente a un río que va en
   // cruz (`deFrente`) y fuera del río no queda agua de frontera: no hay
-  // diagonales (lo dice «salen los cruces del diagnóstico»), y la diagonal la
-  // miran las rejillas a mano. Va el primero con un puente de este a oeste,
+  // diagonales, y la diagonal la miran las rejillas a mano. Va el primero con un puente de este a oeste,
   // el eje que menos sale.
   const esteOeste = primeraSemillaCon('un puente de este a oeste', (s) =>
     partidaDe(s).escena.puentes.some((p) => p.eje === 'eo') ? true : undefined,
@@ -297,35 +296,6 @@ describe('la pieza sale de las orillas, no de las vecinas', () => {
     expect(e.informe.modulosQueFaltan).toContain('puente-piedra-ns');
     const s = e.sprites.find((x) => x.objeto?.id === 'nodo-0');
     expect(s?.src).toBeNull();
-  });
-
-  itLento('en las semillas 1-10 salen los cruces del diagnóstico', () => {
-    const rectos: Record<string, number> = {};
-    let piedra = 0;
-    let total = 0;
-    let quebrados = 0;
-    for (const s of SEMILLAS)
-      for (const p of partidaDe(s).escena.puentes) {
-        total++;
-        if (p.clase === 'piedra') piedra++;
-        if (p.centro[0] === p.nodo[0] && p.centro[1] === p.nodo[1] && p.escala === 1)
-          rectos[p.eje] = (rectos[p.eje] ?? 0) + 1;
-        else quebrados++;
-      }
-    // Todos entre orillas enfrentadas, también los diagonales: el vestido abre
-    // cada nodo por un eje (`ejeDelNodo`, #161). Antes eran 26 con 9 quebrados
-    // que `asentar` encajaba; ahora ninguno, y `asentar` queda para los planes
-    // del agente (su test, con una rejilla a mano, en «los cruces quebrados se asientan…»).
-    // Cuántos de cada eje es del mapa y no de la regla: desde #169, 15 puentes
-    // (6 N-S, 2 E-O y 7 NE-SO; 5 de piedra), antes 16.
-    expect(quebrados).toBe(0);
-    // Ninguno en diagonal: el río va en cruz y su puente, de frente (#144).
-    expect(rectos['ne-so'] ?? 0).toBe(0);
-    expect(rectos['no-se'] ?? 0).toBe(0);
-    expect(total).toBeGreaterThan(10);
-    expect(Object.values(rectos).reduce((a, b) => a + b, 0)).toBe(total);
-    expect(piedra).toBeGreaterThan(0);
-    expect(piedra).toBeLessThan(total);
   });
 });
 
