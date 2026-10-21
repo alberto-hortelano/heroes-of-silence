@@ -18,8 +18,10 @@ import {
 } from '../src/client/render/escenario/catalogo.js';
 import { type Sprite, testerosDeLaEscena } from '../src/client/render/escenario/colocar.js';
 import { ALTO_DEL_TRAMO_NORTE_SUR } from '../src/client/render/escenario/muralla.js';
-import { claveDe } from '../src/client/render/escenario/pintar.js';
-import { ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO } from '../src/client/render/escenario/recinto.js';
+import {
+  ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
+  ESCALA_DEL_MURO_NORTE_SUR,
+} from '../src/client/render/escenario/recinto.js';
 import {
   FONDO_DEL_ADARVE,
   pasoEnCasillas,
@@ -62,8 +64,17 @@ describe('tiradaNorteSur', () => {
     ]);
   });
 
-  it('la cara del recinto (1,23), en dos piezas a un paso, centradas en la cara', () => {
+  it('la cara del recinto (1,23), en una pieza: su adarve llega de la torre del sur a la del norte', () => {
+    // Desde la vuelta 4 (21-10-2026) el muro de norte a sur del recinto va a la
+    // altura del de las diagonales (`ESCALA_DEL_MURO_NORTE_SUR`), y su adarve,
+    // más largo, cubre la cara con la holgura de las dos torres.
     const alto = ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO;
+    expect(tiradaNorteSur(M, alto, 9, 6.887, 8.113, 0.155)).toEqual([{ x: 9, y: 8.113 }]);
+    expect(8.113 - alto * FONDO_DEL_ADARVE).toBeLessThanOrEqual(6.887 + 2 * 0.155);
+  });
+
+  it('con el muro de antes, más bajo, la misma cara en dos piezas a un paso, centradas en la cara', () => {
+    const alto = ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO / ESCALA_DEL_MURO_NORTE_SUR;
     const [px, py] = pasoEnCasillas(M, alto);
     const ps = tiradaNorteSur(M, alto, 9, 6.887, 8.113, 0.155);
     expect(ps).toHaveLength(2);
@@ -117,7 +128,8 @@ describe('testerosAMediaTirada', () => {
 
   it('no dice nada de una tirada (`tiradaNorteSur`) ni del testero de delante', () => {
     for (const [alto, norte, sur, holgura] of [
-      [ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO, 6.887, 8.113, 0.155],
+      // Una cara del recinto el doble de larga: la de (1,23) va en una pieza.
+      [ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO, 5.887, 8.113, 0.155],
       [ALTO_DEL_TRAMO_NORTE_SUR, 25.25 - 1.6 * FONDO_DEL_ADARVE, 27.25, 0.125],
     ] as const) {
       const ps = tiradaNorteSur(M, alto, 9, norte, sur, holgura).map((p) => tramo(p.x, p.y, alto));
@@ -192,37 +204,35 @@ describe('en la escena', () => {
     expect(testerosDeLaEscena(comoIban, catalogo).length).toBeGreaterThan(0);
   });
 
-  it('el recinto de s16, town-0: sus caras del este y del oeste en su tirada; corridas, muerde', () => {
+  it('el recinto de s16, town-0: sus caras del este y del oeste, una pieza de su tirada en la x de su cara; con otra corrida detrás, muerde', () => {
     const e = escenaDe(16);
-    const caras = [0, 1].map(() => [] as Sprite[]);
+    const r = e.recintos.find((q) => q.id === 'town-0');
+    if (r === undefined) throw new Error('s16 sin town-0');
     const ns = e.sprites.filter(
       (s) => /^muro-ns-\d\.webp$/.test(s.src ?? '') && s.objeto?.id === 'town-0',
     );
-    const medio = ns.reduce((m, s) => m + s.x, 0) / ns.length;
-    for (const s of ns) caras[s.x < medio ? 0 : 1]?.push(s);
-    for (const c of caras) expect(c).toHaveLength(2);
-    // Rectas: las dos de cada cara, casi en la misma x (el paso apenas se corre).
-    for (const [a, b] of caras as [Sprite, Sprite][])
-      expect(Math.abs(a.x - b.x)).toBeLessThan(0.02);
-    expect(testerosDeLaEscena(e.sprites, catalogo)).toEqual([]);
-    // Romper a mano: la de atrás un paso y una décima detrás de la de delante,
-    // con el pie aún bajo su adarve: su corte asoma a media cara.
-    const corridas = new Map<Sprite, Sprite>();
-    for (const c of caras) {
-      const sur = Math.max(...c.map((s) => s.y));
-      for (const s of c) {
-        const t = pasoDe(s.src ?? '');
-        if (t === undefined) throw new Error(`${s.src} sin tirada`);
-        const [, py] = pasoEnCasillas({ nh: s.nh, tirada: t }, s.alto);
-        const y = s.y === sur ? sur : sur + py * 1.1;
-        corridas.set(s, { ...s, y, clave: y - 0.005 });
-      }
+    // Una por cara (vuelta 4: el adarve cubre la cara), recta en la x de su cara.
+    expect(ns).toHaveLength(2);
+    for (const cara of ['e', 'o'] as const) {
+      const k = r.contorno.caras.find((q) => q.cara === cara);
+      if (k === undefined) throw new Error(`sin la cara ${cara}`);
+      expect(
+        ns.filter((s) => Math.abs(s.x - k.a[0]) < 0.02),
+        cara,
+      ).toHaveLength(1);
     }
-    const rotos = testerosDeLaEscena(
-      e.sprites.map((s) => corridas.get(s) ?? s),
-      catalogo,
-    );
-    expect(rotos).toHaveLength(2);
+    expect(testerosDeLaEscena(e.sprites, catalogo)).toEqual([]);
+    // Romper a mano: otra pieza un paso y una décima detrás de la de cada cara,
+    // con el pie aún bajo su adarve: su corte asoma a media cara, como las dos
+    // piezas partidas de antes.
+    const corridas = ns.map((s): Sprite => {
+      const t = pasoDe(s.src ?? '');
+      if (t === undefined) throw new Error(`${s.src} sin tirada`);
+      const [, py] = pasoEnCasillas({ nh: s.nh, tirada: t }, s.alto);
+      const y = s.y + py * 1.1;
+      return { ...s, y, clave: y - 0.005 };
+    });
+    expect(testerosDeLaEscena([...e.sprites, ...corridas], catalogo)).toHaveLength(2);
   });
 });
 
@@ -253,23 +263,5 @@ describe('el arte recto (tools/taller/muros.ts)', () => {
       .webp({ lossless: true })
       .toFile(torcida);
     await expect(juntasDelMuro(torcida)).rejects.toThrow(/no va recto/);
-  });
-});
-
-describe('en el recinto, la punta de atrás de la tirada va detrás de la torre del norte', () => {
-  it('s16, town-0: la pieza de atrás de cada cara se pinta antes que la torre de su vértice norte', () => {
-    const e = escenaDe(16);
-    const delRecinto = e.sprites.filter((s) => s.objeto?.id === 'town-0');
-    const ns = delRecinto.filter((s) => /^muro-ns-\d\.webp$/.test(s.src ?? ''));
-    const torres = delRecinto.filter((s) => s.recinto === 'torre');
-    const medio = ns.reduce((m, s) => m + s.x, 0) / ns.length;
-    for (const lado of [true, false]) {
-      const cara = ns.filter((s) => s.x < medio === lado);
-      const atras = cara.reduce((a, s) => (s.y < a.y ? s : a));
-      const norte = torres
-        .filter((t) => Math.abs(t.x - atras.x) < 0.1)
-        .reduce((a, t) => (t.y < a.y ? t : a));
-      expect(claveDe(atras)).toBeLessThan(claveDe(norte));
-    }
   });
 });

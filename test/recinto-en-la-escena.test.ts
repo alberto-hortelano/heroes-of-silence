@@ -200,7 +200,9 @@ describe('la ciudad amurallada en los mapas del juego', () => {
             .map((s) => {
               const m = MODULOS_DE_CASAS.get(s.src ?? '');
               if (m === undefined) throw new Error(`${r.id}: la casa ${s.src} no es de la hoja`);
-              return { ...pie(s), ...m };
+              // Con su clave: la que baja con una pieza del anillo
+              // (`techoDeLaCasa`) se pinta antes de lo que su pie diría.
+              return { ...pie(s), ...m, clave: claveDe(s) };
             });
           const arcos = r.puertas.map((cara: Cara) => {
             // La pieza de su eje con el pie más cerca del medio de su cara (o

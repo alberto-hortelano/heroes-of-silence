@@ -545,7 +545,8 @@ export interface Recinto<M extends ModuloDelRecinto = ModuloDelRecinto> {
 /**
  * Lo que el adarve de una cara del este o del oeste puede quedarse corto de cada
  * vértice: lo tapa la torre, de `RADIO_DE_TORRE`, hasta la mitad. Con él, la
- * cara (1,23) va en dos piezas de su tirada y no en tres.
+ * cara (1,23) iba en dos piezas de su tirada y no en tres; con el muro a la
+ * altura del de las diagonales (`ESCALA_DEL_MURO_NORTE_SUR`, vuelta 4), en una.
  */
 const HOLGURA_DE_LA_CARA = RADIO_DE_TORRE / 2;
 
@@ -717,6 +718,15 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
   const torres = orden.torres;
   tramos.splice(0, tramos.length, ...orden.piezas.filter((p) => p.que === 'tramo'));
   arcos.splice(0, arcos.length, ...orden.piezas.filter((p) => p.que === 'puerta'));
+  // Lo que el orden bajó por delante, con su clave de antes y la de ahora: la
+  // casa que se pintaba antes que una de ellas se sigue pintando antes
+  // (`techoDeLaCasa`).
+  const ordenadas = [...orden.torres, ...orden.piezas];
+  const bajadas = orden.porDelante.map(({ i, vieja, nueva }) => ({
+    caja: cajaEnPantalla(ordenadas[i] as PiezaDelRecinto<M>),
+    vieja,
+    nueva,
+  }));
 
   // Las casas, apiñadas: por filas, de oeste a este.
   const vanos = arcos.map((a) => ({
@@ -773,13 +783,15 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
           )
         )
           continue;
-        const c: PiezaDelRecinto<M> = {
+        const enSuSitio: PiezaDelRecinto<M> = {
           ...m,
           que: 'casa',
           x: x + m.ax / PX_POR_CASILLA_DEL_PUEBLO,
           y,
           alto: m.nh / PX_POR_CASILLA_DEL_PUEBLO,
         };
+        const techo = techoDeLaCasa(enSuSitio, bajadas);
+        const c = techo < y ? { ...enSuSitio, clave: techo } : enSuSitio;
         if (
           tapaElPieDelHeroe(contorno, c) ||
           vanos.some((a) => tapaElArco(a.vano, a.clave, c)) ||
@@ -801,7 +813,60 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
     detras = fila;
   }
 
+  casasEnSuOrden(casas);
   return { contorno, puertas: e.puertas, torres, tramos, arcos, casas };
+}
+
+/** Lo que una casa queda por debajo de la clave de la pieza del anillo que el orden bajó (`techoDeLaCasa`). */
+const ENTRE_CASA_Y_PIEZA = 0.001;
+
+/**
+ * La clave del pintor más alta que puede llevar la casa `c`: la de cada pieza
+ * del anillo que `ordenDelAnillo` bajó por debajo de su pie y con la que se
+ * solapa en pantalla, un poco menos. Sin ninguna, `Infinity`.
+ *
+ * El tramo en diagonal de delante va por su vértice de abajo (su clave, en la
+ * fila del muro sur) para pintarse después de las casas que tapa, y el orden lo
+ * baja detrás de la torre de su vértice de arriba, 0,56 más al norte: las casas
+ * de la última fila que su caja toca, junto a ese vértice de abajo, se
+ * pintarían encima de él. Bajan con él, y quedan delante de la fila de detrás
+ * (`casasEnSuOrden` lo comprueba).
+ */
+function techoDeLaCasa(
+  c: PiezaDelRecinto,
+  bajadas: readonly {
+    readonly caja: CajaEnPantalla;
+    readonly vieja: number;
+    readonly nueva: number;
+  }[],
+): number {
+  const caja = cajaEnPantalla(c);
+  let techo = Number.POSITIVE_INFINITY;
+  for (const b of bajadas)
+    if (c.y > b.nueva && c.y <= b.vieja && seCruzan(caja, b.caja))
+      techo = Math.min(techo, b.nueva - ENTRE_CASA_Y_PIEZA);
+  return techo;
+}
+
+/**
+ * Lanza si dos casas que se solapan en pantalla no se pintan en el orden de
+ * sus pies (de norte a sur y, en la misma fila, de oeste a este): lo que
+ * `techoDeLaCasa` baje no puede pasar a una casa detrás de la de su fila de
+ * detrás.
+ */
+function casasEnSuOrden(casas: readonly PiezaDelRecinto[]): void {
+  const porElPie = (p: PiezaDelRecinto, q: PiezaDelRecinto) => p.y - q.y || p.x - q.x;
+  const porLaClave = (p: PiezaDelRecinto, q: PiezaDelRecinto) =>
+    (p.clave ?? p.y) - (q.clave ?? q.y) || p.x - q.x;
+  for (const [i, a] of casas.entries())
+    for (const b of casas.slice(i + 1))
+      if (
+        seCruzan(cajaEnPantalla(a), cajaEnPantalla(b)) &&
+        Math.sign(porElPie(a, b)) !== Math.sign(porLaClave(a, b))
+      )
+        throw new Error(
+          `las casas de ${a.x.toFixed(2)},${a.y.toFixed(2)} y ${b.x.toFixed(2)},${b.y.toFixed(2)} se solapan y se pintarían al revés de sus pies: el techo de la una (${(a.clave ?? a.y).toFixed(3)}) o de la otra (${(b.clave ?? b.y).toFixed(3)}) pasa de la fila de detrás`,
+        );
 }
 
 // ------------------------------------------------------------ las sendas
@@ -1894,20 +1959,35 @@ const VUELTAS_DEL_ORDEN = 32;
  * una de sus dos caras, la que tiene más cerca de la cámara donde se solapan
  * en pantalla (`loQueSeTapan`) va después.
  *
- * Lo que no cumple se mueve lo justo, y hacia donde no cruza las casas: lo de
- * detrás (el pie al norte del medio del recinto, donde las casas van delante
- * del muro) baja la clave de la que va antes; lo de delante (el muro que se ve
- * por fuera, delante de las casas) sube la de la que va después. Así la
- * torre del vértice de arriba de una puerta del norte pasa detrás de ella, y
- * la de un vértice de abajo, delante del tramo en diagonal que la toca, sin
- * que ninguna casa cambie de lado. Si en `VUELTAS_DEL_ORDEN` no queda en
- * orden, no hay claves que lo cumplan: lanza diciéndolo.
+ * Lo que no cumple se mueve lo justo, y solo hacia atrás: baja la clave de la
+ * que va antes, nunca sube la de la que va después (la clave del pintor no
+ * pasa de su pie, `Sprite.clave`). Así la torre del vértice de arriba de una
+ * puerta del norte pasa detrás de ella, y el tramo en diagonal de delante, detrás
+ * de la torre de su vértice de arriba. Subir la torre a la clave de ese tramo
+ * (su vértice de abajo, 0,56 más al sur) la pintaba encima de lo que tiene
+ * delante fuera del recinto: 119 pinos y picos de 1-40 con su caja sobre la
+ * suya (20dbc295, s34 town-2). La casa que con eso cambiaría de lado baja con
+ * la pieza (`techoDeLaCasa`, en `recintoDe`). Si en `VUELTAS_DEL_ORDEN` no
+ * queda en orden, no hay claves que lo cumplan: lanza diciéndolo.
  */
 export function ordenDelAnillo<M extends ModuloDelRecinto>(
   contorno: Contorno,
   torres: readonly PiezaDelRecinto<M>[],
   piezas: readonly PiezaDelRecinto<M>[],
-): { readonly torres: PiezaDelRecinto<M>[]; readonly piezas: PiezaDelRecinto<M>[] } {
+): {
+  readonly torres: PiezaDelRecinto<M>[];
+  readonly piezas: PiezaDelRecinto<M>[];
+  /**
+   * Las que bajó para ir antes de algo de delante del medio del recinto, por
+   * su sitio en `[...torres, ...piezas]`, con su clave de antes y la de ahora:
+   * las casas que se pintaban antes que ellas bajan con ellas (`techoDeLaCasa`).
+   */
+  readonly porDelante: readonly {
+    readonly i: number;
+    readonly vieja: number;
+    readonly nueva: number;
+  }[];
+} {
   const aristas: Antes<M>[] = [];
   for (const p of piezas) {
     const suyo = solidoDe(p, contorno);
@@ -1920,7 +2000,10 @@ export function ordenDelAnillo<M extends ModuloDelRecinto>(
   const clave = new Map<PiezaDelRecinto<M>, number>(
     [...torres, ...piezas].map((p) => [p, p.clave ?? p.y] as const),
   );
+  // Lo de detrás del medio del recinto va detrás de las casas, y bajarlo no
+  // cruza ninguna; lo que baja para ir antes de algo de delante, sí.
   const deDetras = (p: PiezaDelRecinto<M>) => (p.clave ?? p.y) < contorno.centro[1];
+  const porDelante = new Set<PiezaDelRecinto<M>>();
   for (let vuelta = 0; ; vuelta++) {
     const mal = aristas.filter(
       (a) => (clave.get(a.antes) as number) >= (clave.get(a.despues) as number),
@@ -1939,15 +2022,21 @@ export function ordenDelAnillo<M extends ModuloDelRecinto>(
       const ca = clave.get(antes) as number;
       const cd = clave.get(despues) as number;
       if (ca < cd) continue;
-      if (deDetras(despues)) clave.set(antes, cd - ENTRE_TORRE_Y_PIEZA);
-      else clave.set(despues, ca + ENTRE_TORRE_Y_PIEZA);
+      clave.set(antes, cd - ENTRE_TORRE_Y_PIEZA);
+      if (!deDetras(despues)) porDelante.add(antes);
     }
   }
   const conSuClave = (p: PiezaDelRecinto<M>): PiezaDelRecinto<M> => {
     const c = clave.get(p) as number;
     return c === (p.clave ?? p.y) ? p : { ...p, clave: c };
   };
-  return { torres: torres.map(conSuClave), piezas: piezas.map(conSuClave) };
+  return {
+    torres: torres.map(conSuClave),
+    piezas: piezas.map(conSuClave),
+    porDelante: [...torres, ...piezas].flatMap((p, i) =>
+      porDelante.has(p) ? [{ i, vieja: p.clave ?? p.y, nueva: clave.get(p) as number }] : [],
+    ),
+  };
 }
 
 /** Una pieza del anillo tal como se pinta: con la clave y el `x` de su sprite (`ordenDeVolumenes`). */

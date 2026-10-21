@@ -22,11 +22,14 @@ import { contornoDeLaPlaza } from '../src/client/render/escenario/huella.js';
 import { type ConImagen, pasilloDe } from '../src/client/render/escenario/pasillo.js';
 import {
   ARRANQUE_DEL_ARCO,
+  anilloMalOrdenado,
   anilloSobreLaSenda,
   arcosTapados,
   CARA_DEL_RECINTO,
   CARAS,
+  type CajaEnPantalla,
   type Cara,
+  cajaEnPantalla,
   callesDeLasPuertas,
   casasRepetidasJuntas,
   contornoDelRecinto,
@@ -34,6 +37,7 @@ import {
   DENTRO_DE_LOS_CHAFLANES,
   dentroDelContorno,
   EJE_DE_LA_CARA,
+  ESCALA_DEL_MODULO,
   enLaPlaza,
   FONDO_DE_LA_CALLE,
   GRUESO_DEL_TORREON,
@@ -226,6 +230,9 @@ describe('la plaza (`ladosDeLaPlaza`, `enLaPlaza`, `contornoDeLaPlaza`)', () => 
   });
 });
 
+const seSolapan = (a: CajaEnPantalla, b: CajaEnPantalla) =>
+  a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
 /** Los 256 juegos de caras con puerta. */
 const JUEGOS: Cara[][] = Array.from({ length: 256 }, (_, m) =>
   CARAS.filter((_c, k) => (m >> k) & 1),
@@ -256,21 +263,80 @@ describe('el anillo (`recintoDe`) en los 256 juegos de puertas', () => {
     expect(huecosDelAnillo({ ...r, arcos: r.arcos.slice(1) }).length).toBeGreaterThan(0);
   });
 
-  it('las puertas, de vértice a vértice: su pie en el medio de su cara, o en el vértice de abajo de una de delante que baja', () => {
+  it('las puertas, de vértice a vértice: su pie en el medio de su cara, o en el vértice de abajo de una de delante que baja (a su escala, hacia el medio)', () => {
     for (const p of recintoCon([...CARAS]).arcos) {
       const k = C.caras.find((c) => c.cara === p.cara);
       if (k === undefined) throw new Error(`sin la cara ${p.cara}`);
       const baja = Math.abs(k.a[1] - k.b[1]) > 1e-9 && !['n', 'ne', 'no'].includes(k.cara);
+      // Con su escala propia (`ESCALA_DEL_MODULO`, vuelta 4), la pieza encoge
+      // alrededor del medio de su cara y su junta de abajo se corre con ella.
+      const propia = ESCALA_DEL_MODULO[puertaDelEje(EJE_DE_LA_CARA[p.cara as Cara])] ?? 1;
       const abajo = k.a[1] >= k.b[1] ? k.a : k.b;
-      const [x, y] = baja ? abajo : k.medio;
-      expect([p.x, p.y], p.cara).toEqual([x, y]);
+      const [x, y] = baja
+        ? [
+            k.medio[0] + propia * (abajo[0] - k.medio[0]),
+            k.medio[1] + propia * (abajo[1] - k.medio[1]),
+          ]
+        : k.medio;
+      expect(p.x, p.cara).toBeCloseTo(x, 9);
+      expect(p.y, p.cara).toBeCloseTo(y, 9);
     }
+    // La del este y el oeste baja y tiene escala propia: el caso se mira.
+    expect(ESCALA_DEL_MODULO['puerta-e-o']).toBeLessThan(1);
   });
 
   it('ninguna pieza con la clave del pintor más abajo que su pie (`separar`)', () => {
+    // También las casas, que bajan con el tramo de delante (`techoDeLaCasa`).
+    // Con la torre de abajo del este o del oeste subida a la clave del tramo en
+    // diagonal que la toca (20dbc295), se pintaba encima de los pinos y picos
+    // que tiene delante fuera del recinto (s34 town-2).
     for (const { r } of todos)
-      for (const p of [...r.torres, ...r.tramos, ...r.arcos])
+      for (const p of [...r.torres, ...r.tramos, ...r.arcos, ...r.casas])
         expect(p.clave ?? p.y, `${p.que} ${p.cara}`).toBeLessThanOrEqual(p.y);
+  });
+
+  it('el orden de cada torre con las piezas de sus caras es el de la geometría (`anilloMalOrdenado`); al revés, muerde', () => {
+    const pintadas = (r: (typeof todos)[number]['r']) =>
+      [...r.torres, ...r.tramos, ...r.arcos].map((pieza) => ({
+        pieza,
+        clave: pieza.clave ?? pieza.y,
+        x: pieza.x,
+      }));
+    for (const { puertas, r } of todos)
+      expect(anilloMalOrdenado(C, pintadas(r)), puertas.join(',')).toEqual([]);
+    // Romper a mano: la torre de arriba del sureste otra vez detrás del tramo en
+    // diagonal que la toca, con la clave de su pie y el tramo con la de su
+    // vértice de abajo (20dbc295 sin el orden del anillo).
+    const r = recintoCon([]);
+    const se = r.tramos.find((p) => p.cara === 'se');
+    const torre = r.torres.find((p) => p.cara === 'se');
+    if (se === undefined || torre === undefined)
+      throw new Error('sin el tramo o la torre del sureste');
+    const rotas = pintadas(r).map((p) =>
+      p.pieza === se ? { ...p, clave: Math.max(se.y, torre.y) + 0.5 } : p,
+    );
+    expect(anilloMalOrdenado(C, rotas).length).toBeGreaterThan(0);
+  });
+
+  it('ninguna casa se pinta después del tramo o la puerta de una cara de delante en diagonal o del sur con que se solapa', () => {
+    // El muro que se ve por fuera va delante de las casas que tapa; el que el
+    // orden del anillo baja detrás de la torre de su vértice de arriba se las
+    // lleva con él (`techoDeLaCasa`).
+    let solapadas = 0;
+    for (const { puertas, r } of todos)
+      for (const p of [...r.tramos, ...r.arcos].filter((q) =>
+        ['se', 's', 'so'].includes(q.cara ?? ''),
+      ))
+        for (const c of r.casas)
+          if (seSolapan(cajaEnPantalla(p), cajaEnPantalla(c))) {
+            solapadas++;
+            expect(
+              c.clave ?? c.y,
+              `${puertas.join(',')}: casa en ${c.x},${c.y} y ${p.que} ${p.cara}`,
+            ).toBeLessThan(p.clave ?? p.y);
+          }
+    // Las hay: la regla se mira.
+    expect(solapadas).toBeGreaterThan(0);
   });
 });
 
