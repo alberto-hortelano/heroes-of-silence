@@ -26,14 +26,22 @@ const SUAVIDAD_MS = 160;
 /** Por debajo de esto, en pasos, la cámara se pega a su meta. */
 const PEGADA = 0.01;
 
-/** El tablero de la base con la cámara en `camaraX` (el paso del borde izquierdo de la vista). */
-export function camaraDeLaBase(lienzo: Lienzo, camaraX: number): Tablero {
+/**
+ * El tablero de la base con la cámara en `camaraX` (el paso del borde izquierdo
+ * de la vista), a `densidad` píxeles de dispositivo por píxel CSS.
+ *
+ * El origen cae en un píxel entero de dispositivo: la plaza se copia 1:1 de sus
+ * teselas (`pintar.ts`), y con la cámara entre dos píxeles cada fotograma
+ * remuestreaba el cuadro reducido en otra fase y la plaza temblaba al desplazarse.
+ */
+export function camaraDeLaBase(lienzo: Lienzo, camaraX: number, densidad = 1): Tablero {
   const paso = pasoDeLaBase(lienzo.ancho, lienzo.alto);
   const compresion = COMPRESION_SUELO;
   return {
     paso,
     compresion,
-    origenX: -camaraX * paso,
+    // `+ 0`: sin el −0 de redondear una cámara en 0.
+    origenX: Math.round(-camaraX * paso * densidad) / densidad + 0,
     origenY: lienzo.alto - (MARGEN_ABAJO + FONDO_DE_LA_FRANJA * compresion) * paso,
   };
 }

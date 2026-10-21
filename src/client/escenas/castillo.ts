@@ -41,6 +41,7 @@ import {
 import { type Golpe, queHayBajo } from '../render/base/golpe.js';
 import { pintarBase } from '../render/base/pintar.js';
 import { animarHasta } from '../render/figura.js';
+import { densidadDe } from '../render/lienzo.js';
 import { playerColor } from '../render/palette.js';
 import { ALTO_DE_FIGURA, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, type Session } from '../session.js';
@@ -112,6 +113,8 @@ export class EscenaBase {
   /** El paso del borde izquierdo de la vista, y cuándo se movió por última vez. */
   private camaraX: number | null = null;
   private camaraEn: number | null = null;
+  /** Píxeles de dispositivo por píxel CSS del último lienzo dibujado: la cámara cae en uno entero. */
+  private densidad = 1;
 
   constructor(
     private readonly sesion: () => Session,
@@ -193,7 +196,11 @@ export class EscenaBase {
   }
 
   private camaraDe(b: BaseAbierta): Tablero {
-    return camaraDeLaBase(this.lienzo, this.camaraX ?? camaraQuieta(b.d, this.lienzo, this.en.x));
+    return camaraDeLaBase(
+      this.lienzo,
+      this.camaraX ?? camaraQuieta(b.d, this.lienzo, this.en.x),
+      this.densidad,
+    );
   }
 
   /** Lleva la cámara hacia quien camina hasta `ahora`. */
@@ -251,6 +258,7 @@ export class EscenaBase {
 
   dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number, ahora: number): void {
     this.encuadrar(ancho, alto);
+    this.densidad = densidadDe(ctx);
     const b = this.base();
     if (b === null) return;
     this.actualizar(ahora, b);

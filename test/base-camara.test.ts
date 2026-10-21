@@ -49,6 +49,17 @@ describe('la cámara de la base', () => {
     expect(lienzo.alto - abajo).toBeCloseTo(0.35 * t.paso);
   });
 
+  it('el origen cae en un píxel entero de dispositivo: la plaza se copia 1:1 sin temblar', () => {
+    for (const densidad of [1, 1.09375, 1.5, 2])
+      for (const camaraX of [0, 0.013, 3.7, 17.41, d.ancho - vista]) {
+        const t = camaraDeLaBase(lienzo, camaraX, densidad);
+        const enDispositivo = t.origenX * densidad;
+        expect(Math.abs(enDispositivo - Math.round(enDispositivo))).toBeLessThan(1e-6);
+        // Lo más que se aparta de la cámara pedida: medio píxel de dispositivo.
+        expect(Math.abs(t.origenX + camaraX * t.paso)).toBeLessThanOrEqual(0.5 / densidad + 1e-9);
+      }
+  });
+
   it('`seguir` se acerca sin pasarse y acaba pegada a su meta', () => {
     const meta = camaraQuieta(d, lienzo, 20);
     let x = 0;
