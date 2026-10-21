@@ -96,15 +96,22 @@ beforeAll(() => {
   usarPintorDelSuelo(null);
 });
 
-/** La semilla 7 tiene un cofre en (9, 17) (`generate.ts`; en la 3, (9, 12) hasta el río de lago de 20 casillas, que la cambió; (13, 12) hasta el río continuo, #144; (12, 15) hasta el río de una casilla al pie de la meseta, #144 paso 2b; (14, 13) hasta el río de una casilla, #144 paso 2; (34, 18) hasta #144, los ríos; (13, 15) hasta #230, las dos puertas de la mina; (17, 7) hasta #229, las fronteras onduladas; (19, 5) hasta #226, el mapa de 42×42; (18, 9) hasta #222, (21, 17) hasta #215, (23, 19) hasta #210, (18, 10) hasta #143, (29, 15) hasta #208, (22, 21) hasta #195); la cámara lo deja en el centro. */
+/**
+ * El primer cofre de la semilla 7, en el centro de la cámara. Era el de (9, 17)
+ * escrito a mano, y cada cambio del mapa lo movía (en la 3, (9, 12) hasta el
+ * río de lago de 20 casillas; (13, 12) hasta el río continuo, #144; …; (22, 21)
+ * hasta #195): las puertas de las ciudades (la ciudad amurallada, fase 2) se lo
+ * llevaron otra vez, y ahora se busca.
+ */
 const state = newGame({ seed: 7 });
-const COFRE = state.map.objects.find((o) => o.kind === 'chest' && o.at.x === 9 && o.at.y === 17);
+const COFRE = state.map.objects.find((o) => o.kind === 'chest');
+const EN = COFRE?.at ?? { x: 0, y: 0 };
 const TILE = 70;
-const camara = { tile: TILE, x: 9 - 6, y: 17 - 4 };
+const camara = { tile: TILE, x: EN.x - 6, y: EN.y - 4 };
 
 /** Pinta el mapa con el cofre en el centro y devuelve el registro. */
 function pintar(): Llamada[] {
-  if (COFRE === undefined) throw new Error('la semilla 7 ya no tiene el cofre en (9, 17)');
+  if (COFRE === undefined) throw new Error('la semilla 7 no tiene ningún cofre');
   const esc = escenarioDe(state.map, state.seed);
   sueloDelMapa(esc, TILE, 1);
   llamadas.length = 0;
@@ -128,7 +135,7 @@ function pintar(): Llamada[] {
 }
 
 /** El centro de la casilla del cofre, en píxeles del lienzo. */
-const centro = () => casillaAPixel(camara, { x: 9, y: 17 });
+const centro = () => casillaAPixel(camara, EN);
 
 /** El ladrillo del marcador, en la casilla del cofre. */
 const marcadores = (registro: readonly Llamada[]) =>

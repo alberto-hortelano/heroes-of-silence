@@ -34,10 +34,9 @@ import {
   formasDeLasParedes,
   type Medible,
   type Sprite,
-  sitioDe,
 } from '../src/client/render/escenario/colocar.js';
 import { Obstaculos } from '../src/client/render/escenario/pasillo.js';
-import { centroDelRecinto, recintoDeLaCiudad } from '../src/core/map/recinto.js';
+import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
 import { catalogoDelDisco, partidaDe, primeraSemillaCon } from './helpers.js';
 import { itLento, rango } from './lento.js';
@@ -182,19 +181,10 @@ function huellaDeLosObjetos(semilla: number): Set<number> {
   const { map } = partidaDe(semilla);
   const W = map.width;
   const huella = new Set<number>();
-  const a = analizar(map);
   for (const o of map.objects) {
-    // La ciudad, su recinto entero (el de una ciudad-puente, junto a su orilla).
-    const rect =
-      o.kind === 'town'
-        ? recintoDeLaCiudad(
-            centroDelRecinto(o.at, a.ciudadesPuente.get(o.id)?.orilla),
-            W,
-            map.height,
-          )
-        : undefined;
-    for (const [x, y] of casillasDeLaHuella(o, sitioDe(a, o), rect, W, map.height))
-      huella.add(y * W + x);
+    // La ciudad, su recinto entero, con ella en el medio (también la ciudad-puente).
+    const rect = o.kind === 'town' ? recintoDeLaCiudad(o.at, W, map.height) : undefined;
+    for (const [x, y] of casillasDeLaHuella(o, o.at, rect, W, map.height)) huella.add(y * W + x);
   }
   return huella;
 }
@@ -372,20 +362,21 @@ describe('sueloQueSePinta: la barrera y el nodo pintan el suelo de su meseta', (
     ).toEqual(['grass', 'grass', 'grass', 'swamp']);
   });
 
-  it('s66 (12,30): el nodo sin camino que va a la meseta de nieve pinta nieve, no la ciénaga de abajo (#220)', () => {
+  it('s8 (9,11): el nodo sin camino que va a la meseta de nieve pinta nieve, no la hierba de abajo (#220)', () => {
     // Era s13 (18,7), con la nieve abajo; desde #226 (42×42), s40 (8,12), con
     // la ciénaga abajo. Con las fronteras onduladas (#229, 09-10-2026), s1
     // (11,34), con la hierba; con los ríos (#144, 16-10-2026), s6 (34,6), otra
     // vez con la ciénaga. Con el río continuo (#144), s66 (12,30), la primera
-    // de 1-80 con la nieve arriba y la ciénaga abajo.
-    const { map, escena: e } = partidaDe(66);
+    // de 1-80 con la nieve arriba y la ciénaga abajo. Con las puertas de las
+    // ciudades (fase 2, 21-10-2026), s8 (9,11), con la hierba abajo.
+    const { map, escena: e } = partidaDe(8);
     const a = analizar(map);
-    const i = 30 * a.W + 12;
-    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 12 && o.at.y === 30)).toBe(true);
-    expect(map.caminos.tiene({ x: 12, y: 30 })).toBe(false);
+    const i = 11 * a.W + 9;
+    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 9 && o.at.y === 11)).toBe(true);
+    expect(map.caminos.tiene({ x: 9, y: 11 })).toBe(false);
     expect(e.nivel[i]).toBe(2);
-    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la ciénaga.
-    expect(a.suelo[i]).toBe('swamp');
+    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la hierba.
+    expect(a.suelo[i]).toBe('grass');
     expect(e.suelo[i]).toBe('snow');
   });
 
@@ -423,10 +414,11 @@ describe('caraDeOtroMaterial: el guardia muerde', () => {
   });
 
   it('en un mapa real: con la roca del suelo de cada casilla, como antes de #216, cuenta', () => {
-    // s12: la s5 dejó de tenerla con el acantilado en línea (#215), la s2 se
+    // s2: la s5 dejó de tenerla con el acantilado en línea (#215), la s2 se
     // quedó sin meseta con las dos puertas de la mina (#230) y la s3 con el río
-    // continuo (#144); la s12 da 21 caras de otro material con la roca de antes.
-    const { map, escena: e } = partidaDe(12);
+    // continuo (#144); la s12 daba 21 caras de otro material con la roca de
+    // antes, y con las puertas de las ciudades (fase 2), otra vez la s2, 11.
+    const { map, escena: e } = partidaDe(2);
     const a = analizar(map);
     const antes = celdasDe(e.nivel, e.W, e.H, a.suelo).filter((c) =>
       e.relieve.celdas.some((v) => v.vx === c.vx && v.vy === c.vy && v.tipo === c.tipo),

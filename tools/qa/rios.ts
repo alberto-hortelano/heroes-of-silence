@@ -7,8 +7,9 @@
  *
  * Las definiciones, las del plan de `docs/agents/2026-10-14-rios-entre-regiones/`:
  *
- * - **Casilla de río**: agua, un nodo de agua (un puente) o una ciudad con agua
- *   en dos vecinas opuestas en cruz (`rioBajoLaCiudad`: la ciudad-puente).
+ * - **Casilla de río**: agua, un nodo de agua (un puente) o el puente de una
+ *   ciudad-puente, la casilla del río a dos de ella que se pisa
+ *   (`rioAnteLaCiudad`; la ciudad, en tierra, desde la ciudad amurallada).
  * - **Río**: una componente **4-conexa** de casillas de río que toca el marco
  *   del mapa (con el trazado del generador, la que lleva sus casillas: el agua
  *   de una ciénaga puede salir al marco). El puente y la ciudad-puente cuentan
@@ -35,8 +36,9 @@
 import { resolve } from 'node:path';
 import { buildMap, generateMapPlan } from '../../src/core/map/generate.js';
 import type { GameMap } from '../../src/core/map/map.js';
+import { rioAnteLaCiudad } from '../../src/core/map/recinto.js';
 import { estructura, franjasDeBarrera, nivelesDelRelieve } from '../../src/core/map/regiones.js';
-import { rioBajoLaCiudad, rioEntero, type TrazadoDelRio } from '../../src/core/map/rio.js';
+import { rioEntero, type TrazadoDelRio } from '../../src/core/map/rio.js';
 import type { TerrainKind } from '../../src/core/map/terrain.js';
 import { createRng } from '../../src/core/rng.js';
 
@@ -86,8 +88,9 @@ export function riosDelMapa(map: GameMap, trazado?: TrazadoDelRio): RiosDelMapa 
     if (o.kind === 'town') {
       ciudades++;
       esNodo[i] = 1;
-      if (rioBajoLaCiudad(map, o.at)) {
-        esDelRio[i] = 1;
+      const puente = rioAnteLaCiudad(map, o.at);
+      if (puente !== null) {
+        esDelRio[puente.acceso.y * W + puente.acceso.x] = 1;
         ciudadesPuente++;
       }
     }

@@ -167,7 +167,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Territorio y renta | `territorio(state)`, `dueñoComun` |
 | Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed` |
 | Qué barrera cruza un nodo | `MapObject.barrera`, que pone `buildMap` con el muro que abre; el procedimental escribe ese muro con `queCruzaElNodo` |
-| El río del procedimental (antes que las regiones; nadie lo corta) | `trazarRio`, `regionesDelRio`, `nivelesDelRio`, `rioEntero`, `rioBajoLaCiudad`, `orillaDeLaCiudad` (`core/map/rio.ts`); la ciudad-puente en la escena, `puenteDeLaCiudad`, `ciudadEnLaOrilla` (`puentes.ts`) y `sitioDe` (`colocar.ts`); la única escritura de la rejilla del vestido, `ponerTipo` (`vestir.ts`, que lanza si se toca el río; lo vigila `invariantes.test.ts`); medido sobre el mapa, `riosDelMapa` (`tools/qa/rios.ts`) |
+| El río del procedimental (antes que las regiones; nadie lo corta) | `trazarRio`, `regionesDelRio`, `nivelesDelRio`, `rioEntero`, `orillaDeLaCiudad` (`core/map/rio.ts`: la ciudad del cruce aún en el río, en la red; el vestido la muda a tierra, `enSuOrilla`); el puente de la ciudad-puente, `rioAnteLaCiudad` (`recinto.ts`), y en la escena, `puenteDeLaCiudad` (`puentes.ts`, `Puente.ciudad`); la única escritura de la rejilla del vestido, `ponerTipo` (`vestir.ts`, que lanza si se toca el río; lo vigila `invariantes.test.ts`); medido sobre el mapa, `riosDelMapa` (`tools/qa/rios.ts`) |
 | Qué línea deja dos regiones a dos pasos (el acantilado entre dos niveles; el agua a ras de la más baja, que se ve) | `lineasQueSeparan`, `separadasDeCerca`, `aguaALaVista` (`vestir.ts`): el paso 7d y todo lo que abre una barrera (`abrirLinea`, `quitarEspigas`, `puertasSinMuesca`, `abrirEsquinasTorcidas`); el agua entre dos niveles, solo el 7d (`aguaEntreNiveles`); en el mapa hecho, `auditarMapaDenso` (`test/helpers.ts`) |
 | Caminos de un plan al mapa | `caminosDelPlan` |
 | Carga: cuándo, quién y cuánto | cuándo, `cargaDesde` (la recta: con el objetivo en ella, libre y que quepa lo que cuesta salir del contacto; lo de muchas preguntas, `medirCargas`, con la carrera que se anda, `CargaMedida.carrera`); quién y cuánto, `cifrasDeCarga(unit)` (`battle/carga.ts`, cifras en `data/carga.json`: con el rasgo `charge`, la del jinete; sin él, a pie; nunca `null`); el tope, `cargaEfectiva`; la del índice, `porcientoDeLaCarga`; lo que se enseña, `casillasDeCarga` (con `CasillaDeCarga.porciento`); las frases, `dichoDeLaCarga` (la carga cobrada: parte y previsión) y `dichoDeLasCifras` (la ficha); la recta mínima, `CARGA_MINIMA` (de `carga.ts`). La carga la cobra solo el primer golpe (`intercambio`) |
@@ -187,10 +187,10 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Lo que se anda hoy (marcha y ruta) | `pasosDeHoy` (`state/game.ts`) |
 | Qué héroe se ve y qué se sabe de un objeto (agente, lienzo, minimapa, barra) | `heroesALaVista` (lo mirado ahora), `objetosConocidos` (vivo si se mira, si no el recuerdo de `memory`); el cliente, por `Session` |
 | Qué grupo de asaltantes se ve | `asaltantesALaVista` (lista con la marca `AsaltantesALaVista`; sin niebla, `todosALaVista`); para un grupo suelto, `grupoALaVistaDesde` |
-| Por dónde se entra en una ciudad, una mina o un pueblo | `puertasDe`, `rodeosParaEntrar` (`map/puertas.ts`, #230) |
+| Por dónde se entra en una mina o un pueblo | `puertasDe`, `rodeosParaEntrar` (`map/puertas.ts`, #230; la ciudad no: sus puertas son las de su recinto, lo vigila `invariantes.test.ts`) |
 | Por qué una marcha no llegó (veredicto del agente) | `paradaDeLaMarcha` → `notaMarchaParcial` (`server/notas.ts`) |
 | Qué lleva la labranza (campos, atrezo, casas) | `labranzaDe` (`render/escenario/labranza.ts`); las hojas que pone su regla y no el sorteo, `HOJAS_DE_SU_REGLA` (`colocar.ts`); si una pieza va al suelo o es volumen, `Sprite.plano` (lo lee `esVolumen`) |
-| El recinto de una ciudad, en el núcleo (dónde está su 3 × 3 y qué no va dentro) | `core/map/recinto.ts`, puro: `LADO_DEL_RECINTO`, `recintoDeLaCiudad` (lanza si no cabe: una ciudad va a una casilla del borde o más; nunca se corre), su medio, `centroDelRecinto`/`centroDeLaCiudad` (la ciudad-puente, en su orilla, con el medio a dos casillas), `SEPARACION_DE_CIUDADES` (5, Chebyshev), las seis puertas con sus accesos, `PUERTAS_DE_LA_CIUDAD` (ni este ni oeste), dónde nace el héroe, `ORDEN_DEL_INICIO`, y lo que lo impide dicho para la persona, `problemasDeRecintos` (lo llaman `validateMapPlan` y el final de `vestirRed`; el generador tira antes la red en `intentarRed` y veta el 3 × 3 a objetos y obstáculos). Lo leen la escena, la prosa del agente y los tests; lo declara solo él (lo vigila `invariantes.test.ts`) |
+| El recinto de una ciudad, en el núcleo (dónde está su 3 × 3, qué no va dentro y por dónde se entra) | `core/map/recinto.ts`, puro: `LADO_DEL_RECINTO`, `recintoDeLaCiudad` (con la ciudad en el medio, también la ciudad-puente; lanza si no cabe: una ciudad va a una casilla del borde o más; nunca se corre), `SEPARACION_DE_CIUDADES` (5, Chebyshev), las seis puertas con sus accesos, `PUERTAS_DE_LA_CIUDAD` (ni este ni oeste), las que puede llevar, `puertasPosibles`, y las que **tiene**, `puertasDeLaCiudad` (donde llega un tramo de `GameMap.caminos` de un acceso a su casilla, `RedDeCaminos.une`; la del río, siempre), el puente de una ciudad-puente, `rioAnteLaCiudad` (la casilla del río a dos de ella, que se pisa: el acceso de su puerta del río, también al este o al oeste); **el paso**, `pasosDelRecinto` → `pasoPermitido` (de un acceso a su puerta y de la puerta a la ciudad; la muralla no se pisa), que lee solo `map.ts` (`pasosDelMapa`: el Dijkstra, `stepCost`, `isEnterable`, `sePasa`; lo vigila `invariantes.test.ts`) y el trazado del generador con las puertas posibles (`EntradaDeCaminos.recintos`); las regiones de una ciudad, las de los accesos de sus puertas posibles, `regionesDeLaCiudad` (la lee `estructura`; un nodo no toca la región por la muralla); el puente no se une al recinto al etiquetar (`componentes`, `componentesDelMapa`); por qué no se pisa, `muroBlocker` (lo dicen `porQueNoLlega` y `stepCost`); qué tramo de las casillas del agente entra, `tramoDelRecinto` (`tramosDeCasillas`); dónde nace el héroe, `ORDEN_DEL_INICIO`, y lo que lo impide dicho para la persona, `problemasDeRecintos` (borde, separación, nada dentro, una ciudad sobre el río, un camino que cruza la muralla o que entra por la puerta y no sigue, una región que llega a un acceso sin camino que entre: sin camino no hay puerta, y una región que el recinto parte; lo llaman `validateMapPlan` y el final de `vestirRed`). Lo leen la escena, la prosa del agente y los tests; lo declara solo él (lo vigila `invariantes.test.ts`) |
 | La ciudad del mapa: su recinto (octógono, puertas, anillo y casas) | `render/escenario/recinto.ts`, puro: el 3 × 3 es el del núcleo (`recintoDeLaCiudad`); el octógono, `contornoDelRecinto`; lo que va dentro, una cuerda, y lo que roza, fuera, `sendasPorDentro`; qué caras llevan puerta, `puertasDelRecinto` con `caraDelCruce` (la suya o la vecina con sitio delante); el paso por el arco, `tendidosDeLasPuertas` → `sendasPorLosTendidos` (`celdas.ts`, la misma mecánica que las rampas, `tendidoDeBajada`); anillo y casas, `recintoDe`, y el papel de cada pieza, `Sprite.recinto`; sus módulos y sprites, `modulosDelRecinto` y `spriteDelRecinto` (`colocar.ts`); la huella, `casillasDeLaHuella`; lo de dentro, `celdasBajoLosRecintos` y `pintarPlazas` (`huella.ts`); el fuego, `luzDelRecinto`; los guardias, `huecosDelAnillo`, `anilloSobreLaSenda`, `sendasFueraDeLaPuerta`, `casasRepetidasJuntas` y `puentesSobreElAnillo`. Lo que pisa un puente en el suelo, `ejesDeLosPuentes`; el de la ciudad-puente, acortado al pie de la cara del río, `puenteDeLaCiudad` (`puentes.ts`) |
 | Material de una cara (pared, ladera, pedregal) | `materialDeCara` (`render/escenario/colocar.ts`) |
 | Roca de lo alto de un acantilado (picos, peñascos, reborde) | `materialDeLaCima` (`render/escenario/bordes.ts`) |
@@ -236,7 +236,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Carga a pie | **regla nuestra** (#260, 14-10-2026; en toda batalla desde el 19-10-2026): todo el que pega cuerpo a cuerpo sin `charge` (también el tirador y el héroe) carga con la misma recta, +5 %/casilla, tope 5 (inventado, `data/carga.json`); el jinete sigue a +10 %. La IA no busca la recta a pie: en 100 peleas de la IA contra la IA (`tools/qa/arena-ia.ts`, «mezcla», 19-10-2026), 30 cargas a pie y 74 de jinete |
 | `fear` (rasgo del motor; hoy no lo lleva ninguna unidad del catálogo) | **divergencia deliberada**: ataque −2 durante 2 rondas (no aura de moral) |
 | Victoria | **regla nuestra**: perder la base elimina en el acto |
-| Ciudad amurallada | **regla nuestra** (21-10-2026, decisiones del usuario; fase 1 de 3): cada ciudad es un recinto de 3 × 3 con ella en el medio (la ciudad-puente, en su orilla; `core/map/recinto.ts`). Ninguna en el borde, dos a 5 casillas o más (Chebyshev) y dentro nada más que ella: ni nodo, ni objeto, ni inicio, ni grupo de asaltantes; el héroe de salida nace delante de una de sus seis puertas (N, S y diagonales). **Pendiente** (fase 2): que el recinto solo se pise por sus puertas; hoy se pisa entero |
+| Ciudad amurallada | **regla nuestra** (21-10-2026, decisiones del usuario; fases 1 y 2 de 3): cada ciudad es un recinto de 3 × 3 con ella en el medio (`core/map/recinto.ts`). Ninguna en el borde, dos a 5 casillas o más (Chebyshev) y dentro nada más que ella: ni nodo, ni objeto, ni inicio, ni grupo de asaltantes. **Se entra por sus puertas**: de un acceso a la puerta y de la puerta a la ciudad; el resto del recinto no se pisa, aunque sea hierba, y la puerta y la ciudad cuestan como un camino aunque debajo haya barrera. **Hay puerta donde llega un camino** (en la cara del norte, la del sur o una diagonal, nunca al este ni al oeste), y la del puente de una ciudad-puente, siempre. La ciudad-puente está en tierra y su casilla del río, delante, es su puente. Cada región que llega a un acceso de una ciudad lleva su camino hasta ella (el generador lo traza; un plan del agente sin él se rechaza). El héroe de salida nace en el acceso de la puerta por la que entra el camino de su casa |
 | Rueda del golpe | **regla nuestra** (13-10-2026; en toda batalla y sin interruptor desde el 19-10-2026): al golpear cuerpo a cuerpo, quien pega y quien recibe eligen a ciegas un tipo en un anillo (desde arriba y en el sentido del reloj ofensivo, fuerte, finta, defensivo, rápido, r.guardia: opuestos ofensivo y defensivo, fuerte y rápido, finta y r.guardia; Normal en el centro; #263, 14-10-2026): la persona en el diálogo de la rueda, el agente por su contrato (`hit`, `battle_response`) y la IA de reglas a ciegas. El cruce fija la tirada (`min + ⌊(max − min) · p / 4⌋`, por la distancia en el anillo: 0, 1, 3, 4; con Normal, 2) y la respuesta es el contraataque, en `4 − p`. Fuerte (daño ×) y Rápido (2 golpes de daño ×), también en el contraataque; Normal, siempre ×1; lo demás actúa solo al golpear (**la respuesta no da bonificadores**, `cruceDelGolpe(…, papel)`): Ofensivo suma ataque en ese golpe; Defensivo suma defensa desde ya hasta que **empiece** su próximo turno (también el extra de la moral alta y el que la moral baja le quita); Romper guardia quita ataque al atacado según el éxito del golpe (`p`), ya en su contraataque y hasta que **termine** su próximo turno; Finta deja andar tras golpear lo que le quede menos lo que reste su éxito (`TurnoDeUnidad.finta`, en `pasosQueQuedan`; solo andar o terminar, `faseBlocker`; andar cierra el turno, y con 0 se cierra solo; ese tramo paga el contacto como cualquier otro, y su nota lo dice). Rápido: cada golpe resta la armadura, y su nota dice que contra armadura pierde; con carga, **solo el primer golpe la cobra** (también el del doble golpe; 14-10-2026). Caducidad en `StackEffect.hasta` (`empezar`/`terminar`, tope de 2 rondas); el mismo origen refresca. **Las cifras son las del nivel del arma** (18-10-2026; niveles absolutos en la vuelta 2, «para que sea más fácil ver la diferencia entre armas»): toda arma de cuerpo a cuerpo (`arma`, `lanza`) lleva un nivel de 0 (lo peor) a 6 (lo mejor) en cada tipo del anillo (`Pieza.rueda`), el mismo en toda arma; del 0 al 6, Ofensivo +0 a +6 ataque, Fuerte ×1 a ×2, Defensivo +0 a +6 defensa, Rápido 2 × 0,25 a 2 × 1, Romper guardia quita con el éxito máximo de 0 a 6 (con éxito `p`, `⌊q · p / 4⌋`: con menos éxito, menos) y la Finta resta con el éxito mínimo de 8 a 2 casillas, y cada punto de éxito una menos, sin bajar de 0 (con éxito `p`, `max(0, m − p)`; 18-10-2026: con la anterior, de 10 a 5 con la Espada, una unidad de 2 a 5 casillas no andaba nunca). Cada golpe con su arma (la lanza en el primero de una carga), el contraataque con la del que responde, y lo que no es daño con la del primer golpe. La Espada, todo a 3 (la versátil; con ella, Ofensivo +3, Fuerte ×1,5, Rápido 2 × 0,63, Romper guardia 0 a −3 y la Finta de 5 a 1); la Maza, Fuerte y Romper guardia 5, Rápido y Finta 1. Sin arma no se golpea: toda unidad del catálogo lleva una, el héroe nace con la Espada y el arma de cuerpo a cuerpo no se quita (`unequipBlocker`, 19-10-2026). Cifras inventadas en `data/rueda.json` y `data/equipo.json`; el disparo, con su tirada |
 | Armadura | **regla nuestra** (#262, 14-10-2026; en el juego desde el 19-10-2026): las piezas de armadura dan puntos de armadura y ninguna pieza da PV (la brigantina 7, el arnés 10, el gambesón 4, el jubón 2 y la barda 22, inventados en `data/equipo.json`); cada golpe, disparo, hechizo o poder que llega se queda en `max(0, daño − armadura)`, restado lo último (tras ataque y defensa, multiplicadores, cruce, carga, suerte y redondeo), uno a uno (cada golpe de Rápido o del doble golpe, cada tiro, cada salpicado con la suya). El drenaje, la experiencia y el parte leen lo que llegó. Un golpe en 0 se pinta «parado». Con la barda, en 100 peleas de la IA contra la IA (`tools/qa/arena-ia.ts`, 19-10-2026): 2 de 100 de 3 contra 3 sin terminar (s13, s43; 0 sin ella) y un jinete contra tres flojos gana 92 de 100 (0 sin ella, 76 con los 220 PV de antes). En el juego no hay barda que lo provoque: 0 sin terminar en el barrido y el banco |
 | Orden de turnos | **regla nuestra** (fheroes2 lo tiene fijo): en serpiente, quien cierra un día abre el siguiente (día 1 j0, j1; día 2 j1, j0…; `ordenDelDia`, que leen el paso de turno y el `you.turnOrder` del agente). Con el fijo, j0 ganaba 603 de 1 000 y abrir el día valía +65; en serpiente, 534 y +2 (09-10-2026); con las fronteras onduladas de #229, 524 de 1 000 y duración 8 / 14 / 29 |
@@ -319,7 +319,9 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   (ganadas / jugadas), imperio 26/35, elfos 23/41, no muertos 22/55, orkos 20/38 y templarios 9/31,
   sin equilibrar (decisión del usuario). Con caballeros y nigromantes (18-10-2026): 3,17 rondas, j0
   49, duración 8 / 14 / 24. El banco (200 semillas, `1c496b88…`): 4 / 8 / 21 días; con el recinto de
-  las ciudades en el núcleo (`0e2d0632…`, 21-10-2026), 4 / 8 / 20, j0 99 → 107, 0 sin terminar.
+  las ciudades en el núcleo (`0e2d0632…`, 21-10-2026), 4 / 8 / 20, j0 99 → 107, 0 sin terminar; con
+  sus puertas (`5d95869b…`, 21-10-2026), 4 / 9 / 37 (dos semillas en que los héroes se cambian una
+  ciudad del centro cada día), j0 107 → 96, 0 sin terminar.
 - **El mapa es una red de nodos**: regiones cerradas por barrera
   (`mountain`, `water`, `forest`, `cliff`, `wall`), pasos de una casilla entre
   ellas. Una ciudad es un nodo; un nodo se toma pisándolo. Una mina produce solo
@@ -333,7 +335,11 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   Los caminos del procedimental son **radiales** desde el centro de cada región
   y entre dos vecinas **solo un nodo lleva camino**, que elige la red
   (`crucesConCamino`) y traza `trazarCaminos`; los demás pasos se cruzan sin
-  él, y los pasos van a Chebyshev ≥ 3 de todo nodo. **A una ciudad, una mina o un pueblo se
+  él, y los pasos van a Chebyshev ≥ 3 de todo nodo. **Las ciudades, no**: cada una lleva el camino
+  de todas las regiones que llegan a un acceso de su recinto, por la puerta de esa cara (la ciudad
+  amurallada, fase 2: hay puerta donde llega un camino; ~1,6 ramas más por mapa), y sale de ella
+  igual, como el héroe; la búsqueda no dobla por fuera la esquina de un recinto (la senda pasaba
+  por su torre). **A una mina o un pueblo se
   entra por su puerta** (#188): la casilla de debajo; **la mina tiene dos**, debajo y a
   la derecha, por donde salen sus raíles (#230), y su ramal sale por la más barata. Las
   puertas son un hecho (`puertasDe`, `rodeosParaEntrar`, `map/puertas.ts`) que leen la
@@ -541,8 +547,9 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   casilla a la semilla no lo pisa; si no ve ninguna, la más cercana de su orilla), así que el río
   separa regiones también donde nace en un lago. En él solo van **puentes** (río recto, una región
   distinta a cada lado y dos casillas suyas de frente; si no, la pareja va sin puente) y
-  **ciudades-puente** (río recto donde toca tres regiones: la frontera de una orilla llega a él;
-  `rioBajoLaCiudad`). Niveles (`nivelesDelRio`, sin tirada): el río va al llano, la ciénaga que lo
+  **ciudades-puente** (río recto donde toca tres regiones: la frontera de una orilla llega a él; el
+  vestido la muda a su orilla, `enSuOrilla`, y su casilla del río queda como su puente,
+  `rioAnteLaCiudad`). Niveles (`nivelesDelRio`, sin tirada): el río va al llano, la ciénaga que lo
   toca sube al 1 y de una pareja que lo cruza con las dos orillas a 2 baja la de menor índice
   (`regionesDelRio`, `ladosDelRio`). En el engorde el río es agua fija (`conElRio`): no engorda ni
   se toca, salvo con lo alto justo al norte (paso 7e: la casilla del sur también es agua, se vea
@@ -569,19 +576,14 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   1-200 31 → 26 (techo 27); la ciénaga (agua 4, bosque 2) pierde su barrera y sus vestidos se tiran
   más: es el 10,7 % de las regiones de 1-200 y el 11,2 % de 1-1000 (eran 13,2 y 12,7; el suelo del
   guardia de `desniveles`, de 11 a 10). Duración en 1-100 8 / 15 / 24 → 8 / 14 / 24, j0 48 → 45;
-  el banco, 8 / 15 / 30 → 8 / 14 / 30. **En la escena** (paso 2): la
-  ciudad-puente se pinta en su orilla (`orillaDeLaCiudad`, el lado de las dos regiones de la T: el
-  final de su frontera) y su casilla es agua con un puente de piedra que cruza de frente hasta la de
-  enfrente (`puenteDeLaCiudad`, `Puente.orilla`); su reserva, su huella, su resplandor y lo que no se
-  tapa van en la orilla (`sitioDe`), su marca cuelga de ella, y pulsarla (aunque se pise: a esa
-  casilla se va por su lado) o el tablero lleva a la ciudad (`ciudadEnLaOrilla`, `puenteBajo`); quien
-  está dentro se pinta en la orilla, como en una ciudad (`pisada`, H5). Desde el recinto de las
-  ciudades (vuelta 3, H2), el puente acaba al pie de la cara del río del recinto, con el estribo de
-  enfrente donde lo dejaba la pieza entera (escala 0,68), y se pinta antes que esa cara: entra por el
-  arco; entero, con el río al sur, tapaba la muralla y llegaba a media plaza (15 de 217 en 1-40;
-  `puentesSobreElAnillo` = 0, y muerde en las 48 ciudades-puente de 1-40 sin acortar). Las sendas de las dos regiones de la T llegan al
-  estribo de la orilla, sin repartirse ni saltar lo que «queda bajo el puente», cortadas en él y en su
-  sitio de la lista (las sendas se suavizan con un solo azar en orden); `test/ciudad-puente.test.ts`.
+  el banco, 8 / 15 / 30 → 8 / 14 / 30. **En la escena** (paso 2; en tierra desde la ciudad
+  amurallada, fase 2): la ciudad-puente está en el medio de su recinto, en tierra, y la casilla del
+  río que tiene delante es agua en la escena con un puente de piedra que cruza de frente
+  (`puenteDeLaCiudad`, `Puente.ciudad`, id `<ciudad>:puente`): de la orilla de enfrente al pie de la
+  cara del río del recinto (escala ~0,68), pintado antes que esa cara, que entra por el arco de su
+  puerta del río (`puentesSobreElAnillo` = 0). Quien está en él se pinta en su tablero, como en el de
+  un nodo, y pulsarlo lleva a esa casilla, que se pisa; la marca y el clic de la ciudad, en su casilla.
+  Las sendas llegan a sus estribos como a los de un nodo; `test/ciudad-puente.test.ts`.
   De la senda de un puente del río, «bajo el puente» es solo lo que va sobre el tablero, a menos de
   media casilla de su línea (`tramosHastaLosEstribos`, H4): a los lados se cambiaba por la recta del
   estribo, que pasaba por el agua de al lado (s52, s93, s97, s100) o dejaba una montaña sin pico
@@ -652,8 +654,10 @@ antes del destino (`battle_started` con `faltan`).
 - El agente **defiende** sus batallas (`BattleTakeover`: si te la quedas, la
   cierras) y **diseña el mapa**: un plan declarativo, con el nivel de cada región
   si quiere (#209), que valida `validateMapPlan` (también el recinto de cada ciudad: ni en el borde,
-  ni dos a menos de 5, ni nada dentro, `problemasDeRecintos`, y la prosa se lo dice con las cifras del
-  núcleo). Si falla por cualquier motivo, se juega el procedimental y se le dice por qué; no hay reintento.
+  ni dos a menos de 5, ni nada dentro, y cada región que llega a una ciudad con su camino por una de
+  sus puertas, `problemasDeRecintos`; la prosa se lo dice con las cifras del núcleo, y sus casillas de
+  camino se unen en el recinto solo de un acceso a su puerta y de la puerta a la ciudad,
+  `tramoDelRecinto`). Si falla por cualquier motivo, se juega el procedimental y se le dice por qué; no hay reintento.
 - La partida termina con un `game_over` explícito. `state.finished` es
   `{ winner: PlayerId | null } | null`; el tope de días es `GameState.maxDays`.
 - Del contrato se exportan esquemas, no alias de tipo.
@@ -830,7 +834,12 @@ antes del destino (`battle_started` con `faltan`).
   en medio (`sinRoces`; la que bajaba por la columna de al lado pisaba la torre de la esquina, s3,
   s36). Medido en 1-40 (21-10-2026): 205 ciudades (48 ciudades-puente), de 11 a 19 casas (mediana
   16), con 1/2/3/4 puertas 12/104/86/3; generar, mediana 40 → 46 ms. Fuera de 1-40, en 41-110, queda
-  `recintoSobreSenda` 1 en s53 y s91. Sin la hoja `recinto`, marcadores y `modulosQueFaltan` lo dice.
+  `recintoSobreSenda` 1 en s53 y s91. **Y se entra por sus puertas** (fase 2, 21-10-2026): el núcleo
+  dice qué puertas hay (donde llega un camino) y el héroe solo pisa del recinto la puerta y la
+  ciudad; la escena aún saca sus puertas de las sendas pintadas (la fase 3 leerá las del núcleo).
+  Medido en 1-40: 208 ciudades (46 ciudades-puente), todos los guardias de la escena a 0 (también
+  en la lista de `caras-cortadas`); generar, mediana 45 → ~58 ms y total +16 %, 0 sin mapa, y el
+  26×26 en 200 de 200. Sin la hoja `recinto`, marcadores y `modulosQueFaltan` lo dice.
   **Árbol = no se pasa** (14-10-2026, marcas de s1 (2,23) y (1,23)): lo que se pisa, de cualquier
   suelo, no lleva árboles (`APARTE.cubierta` no admite `ARBOLES`; la mancha es de matas), y en las 8
   vecinas de un bosque va en mancha de matas, tupida y baja (`orillaDelBosque`; el `lindeDeBosque` que

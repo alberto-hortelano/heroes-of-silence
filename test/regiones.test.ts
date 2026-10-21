@@ -34,6 +34,7 @@ import {
   type TramoDeCamino,
 } from '../src/core/map/map.js';
 import { type ConPuerta, puertasDe, rodeosParaEntrar } from '../src/core/map/puertas.js';
+import { puertasDeLaCiudad } from '../src/core/map/recinto.js';
 import {
   aPunto,
   type Estructura,
@@ -56,7 +57,7 @@ import {
   type EntradaDeCaminos,
   engordarFronteras,
   TIPOS_POR_MAPA,
-  trazarCaminos,
+  trazarCaminos as trazarOMotivo,
 } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
@@ -90,6 +91,17 @@ function delGenerador(semilla: number): { plan: MapPlan; map: GameMap; rio: Uint
 }
 
 /** El plan de prueba con una cosa cambiada. */
+/**
+ * `trazarCaminos`, que lanza si no hay por dónde: devuelve el motivo para que el
+ * generador tire ese vestido (con los recintos de las ciudades, una región
+ * puede quedar partida), y en estos mapas a mano no se da.
+ */
+function trazarCaminos(e: EntradaDeCaminos): [number, number][] {
+  const t = trazarOMotivo(e);
+  if (typeof t === 'string') throw new Error(t);
+  return t;
+}
+
 function con(cambio: Partial<PlanConCasillas>): MapPlan {
   return { ...planDeNodos(), ...cambio };
 }
@@ -256,8 +268,10 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
     const cerrada = con({
       walls: [...plan.walls, columna(24)],
       // El inicio de (24,4) caería en la cordillera nueva; fuera del recinto
-      // de su base, en lo que queda de la E.
+      // de su base, en lo que queda de la E. Y el camino de la E a Cripta
+      // Gris, por (23,2), su otro acceso del noreste.
       heroStarts: [plan.heroStarts[0]!, { player: 1, at: { x: 23, y: 6 } }],
+      roads: (plan.roads ?? []).map((p) => (p.x === 24 && p.y === 3 ? { x: 23, y: 2 } : p)),
       regions: [
         ...plan.regions.filter((r) => r.id !== 'e'),
         { id: 'e', name: 'Este', at: { x: 23, y: 7 } },
@@ -295,10 +309,12 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
       'el camino de (40,2) se sale del mapa',
     ]);
     // El nodo abre su casilla de muro: un camino que lo cruza es lo normal.
+    // Con los de las ciudades, que entran por sus puertas.
     expect(
       validateMapPlan(
         con({
           roads: [
+            ...(planDeNodos().roads ?? []),
             { x: 10, y: 2 },
             { x: 11, y: 2 },
             { x: 12, y: 2 },
@@ -493,12 +509,21 @@ function horquillasNuevas(map: GameMap): string[] {
   const nodos = new Set([
     ...estructura(map).nodos.map((n) => pointKey(n.at)),
     ...map.objects.filter((o) => conPuerta(o.kind)).map((o) => pointKey(o.at)),
+    // Y las puertas de las ciudades, que tampoco hacen de esquina (fase 2).
+    ...map.objects.flatMap((o) =>
+      o.kind === 'town' ? puertasDeLaCiudad(map, o.at).map((p) => pointKey(p.casilla)) : [],
+    ),
   ]);
   const monstruos = new Set(
     map.objects.filter((o) => o.kind === 'monster').map((o) => pointKey(o.at)),
   );
+  // Ni la muralla de una ciudad, que no se pisa (la ciudad amurallada, fase 2):
+  // de una puerta del recinto a la ciudad no hay L.
+  const ciudades = map.objects.filter((o) => o.kind === 'town').map((o) => o.at);
   const pisable = (p: Point) =>
-    isWalkable(map.terrain[p.y * map.width + p.x]!) && !monstruos.has(pointKey(p));
+    isWalkable(map.terrain[p.y * map.width + p.x]!) &&
+    !monstruos.has(pointKey(p)) &&
+    !ciudades.some((c) => Math.max(Math.abs(c.x - p.x), Math.abs(c.y - p.y)) <= 1);
   const diagonales = map.caminos.tramos.filter(([p, q]) => p.x !== q.x && p.y !== q.y);
   const fallos: string[] = [];
   const en = (p: Point) => `(${p.x},${p.y})`;
@@ -546,9 +571,12 @@ function horquillasNuevas(map: GameMap): string[] {
  */
 const DE_LADO_POR_LA_ESQUINA: Readonly<Record<number, string>> = {};
 
-/** Los objetos con puerta: se entran por la casilla de debajo y no se cruzan (#188). */
-const conPuerta = (kind: string): boolean =>
-  kind === 'town' || kind === 'mine' || kind === 'village';
+/**
+ * Los objetos con puerta: se entran por la casilla de debajo y no se cruzan
+ * (#188). La ciudad ya no (la ciudad amurallada, fase 2): se entra por las
+ * puertas de su recinto, y eso lo mira `problemasDeRecintos`.
+ */
+const conPuerta = (kind: string): boolean => kind === 'mine' || kind === 'village';
 
 /**
  * Las puertas mal entradas (#188, «como en el HoMM»): una mina o un pueblo
@@ -588,20 +616,6 @@ function puertasMalEntradas(map: GameMap): string[] {
         fallos.push(`${o.kind} ${en(o.at)}: le llegan ${llegan.length} tramos, y es una hoja`);
       else if (puertas.length > 0 && !puertas.some((p) => pointKey(p) === pointKey(llegan[0]!)))
         fallos.push(`${o.kind} ${en(o.at)}: se entra desde ${en(llegan[0]!)} y no por su puerta`);
-      continue;
-    }
-    for (const q of llegan) {
-      if (q.y >= o.at.y) continue;
-      const r = regionDe[q.y * W + q.x];
-      const tocaDelante = [-1, 0, 1].some((dx) => {
-        const x = o.at.x + dx;
-        const y = o.at.y + 1;
-        return x >= 0 && x < W && y < map.height && regionDe[y * W + x] === r;
-      });
-      if (tocaDelante)
-        fallos.push(
-          `ciudad ${en(o.at)}: se entra por detrás desde ${en(q)} y su región toca la fila de delante`,
-        );
     }
   }
   return fallos;
@@ -869,33 +883,24 @@ describe('el generador hace redes como las pidió el usuario', () => {
     const indice = (p: Point) => p.y * W + p.x;
     const vecinasDe = (i: number) => [...vecinas.subarray(desde[i]!, desde[i + 1]!)];
     const toca = (t: TramoDeCamino, p: Point) => t.some((q) => pointKey(q) === pointKey(p));
-    const pasos = red.nodos.filter((n) => !n.ciudad && n.regiones.length === 2);
 
-    // Una pareja con un paso sin camino: la que se rompe.
-    const sinCamino = pasos.find((n) => !map.caminos.casillas.has(pointKey(n.at)));
-    expect(sinCamino, 'la semilla 1 tiene que dejar algún paso sin camino').toBeDefined();
-    const [a, b] = sinCamino!.regiones as [number, number];
-    const pareja = new RegExp(
-      `entre las regiones ${red.regiones[a]!.id} y ${red.regiones[b]!.id} hay (\\d) cruces`,
-    );
-    const cuantos = (ts: readonly TramoDeCamino[]) => caminos(ts).join('\n').match(pareja)?.[1];
-
-    // Sin cruce: el nodo con camino de esa pareja pierde sus tramos.
-    const cruce = red.nodos.find(
-      (n) =>
-        n.regiones.includes(a) &&
-        n.regiones.includes(b) &&
-        map.caminos.casillas.has(pointKey(n.at)),
-    )!;
-    expect(cuantos(tramos.filter((t) => !toca(t, cruce.at)))).toBe('0');
-
-    // Dos cruces: el paso sin camino, con un tramo a cada lado.
-    const dos: TramoDeCamino[] = [...tramos];
-    for (const r of [a, b]) {
-      const lado = vecinasDe(indice(sinCamino!.at)).find((j) => red.regionDe[j] === r)!;
-      dos.push([sinCamino!.at, aPunto(lado, W)]);
-    }
-    expect(cuantos(dos)).toBe('2');
+    // Los cruces, sobre el plan a mano (`planDeNodos`): B y C, con dos pasos
+    // entre ellas y ninguna ciudad. En los mapas del generador no queda una
+    // pareja así con un paso sin camino: cada ciudad lleva el camino de todas
+    // sus regiones (la ciudad amurallada, fase 2) y es otro cruce de cada
+    // pareja suya.
+    const aMano = planDeNodos();
+    const cruces = (paso: { x: number; y: number }[]) => {
+      const conCaminos = { ...aMano, roads: [...(aMano.roads ?? []), ...paso] };
+      const hecho = buildMap(conCaminos).map;
+      return auditarMapaDenso(conCaminos, hecho)
+        .fallos.join('\n')
+        .match(/entre las regiones b y c hay (\d) cruces/)?.[1];
+    };
+    const por = (y: number) => [10, 11, 12].map((x) => ({ x, y }));
+    expect(cruces(por(2))).toBe(undefined);
+    expect(cruces([])).toBe('0');
+    expect(cruces([...por(2), ...por(6)])).toBe('2');
 
     // Sin hoja: a un nodo le llegan dos tramos de la misma región.
     const hoja = red.nodos.flatMap((n) =>
@@ -1579,7 +1584,6 @@ describe('la mina tiene dos puertas, debajo y a la derecha, y su ramal sale por 
       ].map(([dx, dy]) => rodeosParaEntrar(kind, dx as number, dy as number));
     // no, n, ne, o, e, so, s, se
     expect(rodeos('village')).toEqual([4, 4, 4, 3, 3, 1, 0, 1]);
-    expect(rodeos('town')).toEqual(rodeos('village'));
     expect(rodeos('mine')).toEqual([4, 3, 1, 3, 0, 1, 0, 1]);
     expect(() => rodeosParaEntrar('mine', 2, 0)).toThrow(/no es una vecina/);
   });

@@ -19,6 +19,7 @@
 import type { Town } from '../town/town.js';
 import type { PlayerId, Point } from '../types.js';
 import { aPunto, type GameMap, inBounds, type MapObject, type MapRegion } from './map.js';
+import { regionesDeLaCiudad, rioAnteLaCiudad } from './recinto.js';
 import {
   admiteLosNiveles,
   BARRERAS,
@@ -161,20 +162,56 @@ export function rellenar(
  * barrido. Determinista: la misma rejilla da siempre la misma numeración.
  */
 function componentes(r: Rejilla): { comp: Int32Array; total: number } {
-  const { width, height } = r;
+  const { width, height, puenteDe } = r;
   const comp = new Int32Array(width * height).fill(-1);
+  const v = vecindad(width, height);
   let total = 0;
-  const toma = (i: number): boolean => {
-    if (comp[i] !== -1 || r.pisable[i] !== 1 || r.nodoEn[i] !== -1) return false;
-    comp[i] = total;
-    return true;
+  const libre = (i: number): boolean => comp[i] === -1 && r.pisable[i] === 1 && r.nodoEn[i] === -1;
+  /**
+   * El puente de una ciudad-puente (`rioAnteLaCiudad`) no se une con el
+   * recinto de su ciudad: es tierra de la orilla de enfrente, y por sus
+   * esquinas tocaba las casillas de las dos regiones de la orilla de la ciudad.
+   * Es el paso del recinto (`pasoPermitido`), que del puente solo deja ir a su
+   * puerta; lo demás del recinto se etiqueta como siempre.
+   */
+  const cortado = (a: number, j: number): boolean => {
+    const ca = puenteDe[a] as number;
+    const cj = puenteDe[j] as number;
+    return (ca >= 0 && cercaDe(width, ca, j)) || (cj >= 0 && cercaDe(width, cj, a));
   };
   for (let i = 0; i < width * height; i++) {
-    if (!toma(i)) continue;
-    rellenar(width, height, i, toma);
+    if (!libre(i)) continue;
+    comp[i] = total;
+    const pila = [i];
+    while (pila.length > 0) {
+      const a = pila.pop() as number;
+      for (let k = v.desde[a] as number; k < (v.desde[a + 1] as number); k++) {
+        const j = v.vecinas[k] as number;
+        if (!libre(j) || cortado(a, j)) continue;
+        comp[j] = total;
+        pila.push(j);
+      }
+    }
     total++;
   }
   return { comp, total };
+}
+
+/** Si las casillas `a` y `b` de un mapa de ancho `width` están a una o menos (Chebyshev): la de `b`, en el 3 × 3 de `a`. */
+function cercaDe(width: number, a: number, b: number): boolean {
+  const ax = a % width;
+  const bx = b % width;
+  return Math.abs(ax - bx) <= 1 && Math.abs((a - ax) / width - (b - bx) / width) <= 1;
+}
+
+/**
+ * Las componentes de lo pisable sin nodos de un mapa, aunque no sea válido: lo
+ * que pinta el suelo de cada región (`buildMap`) antes de que nadie lo valide.
+ * La misma cuenta que `estructura`, con el corte del puente de cada
+ * ciudad-puente.
+ */
+export function componentesDelMapa(map: MapaDeRed): { comp: Int32Array; total: number } {
+  return componentes(rejillaDe(map));
 }
 
 /** Lo que hace falta de un mapa para leerle la red: terreno, regiones y nodos. */
@@ -185,6 +222,8 @@ interface Rejilla {
   /** Índice del nodo en cada casilla, o −1. */
   readonly nodoEn: Int32Array;
   readonly nodos: readonly { readonly id: string; readonly at: Point; readonly ciudad: boolean }[];
+  /** En el puente de cada ciudad-puente, el índice de la casilla de su ciudad; −1 en las demás. */
+  readonly puenteDe: Int32Array;
 }
 
 /**
@@ -206,7 +245,14 @@ function rejillaDe(map: MapaDeRed): Rejilla {
     nodoEn[o.at.y * map.width + o.at.x] = nodos.length;
     nodos.push({ id: o.id, at: o.at, ciudad: o.kind === 'town' });
   }
-  return { width: map.width, height: map.height, pisable, nodoEn, nodos };
+  const puenteDe = new Int32Array(n).fill(-1);
+  for (const c of nodos) {
+    if (!c.ciudad) continue;
+    const puente = rioAnteLaCiudad(map, c.at);
+    if (puente !== null)
+      puenteDe[puente.acceso.y * map.width + puente.acceso.x] = c.at.y * map.width + c.at.x;
+  }
+  return { width: map.width, height: map.height, pisable, nodoEn, nodos, puenteDe };
 }
 
 /**
@@ -279,9 +325,22 @@ function construir(
     if (c !== -1) regionDe[i] = regionDeComp[c] as number;
   }
 
+  // Las casillas de algún recinto: un nodo no toca la región por ellas, que
+  // son la muralla de una ciudad (`recinto.ts`) y no se pisan.
+  const enRecinto = new Uint8Array(r.width * r.height);
+  for (const n of r.nodos)
+    if (n.ciudad)
+      for (const [dx, dy] of VECINAS) {
+        const p = { x: n.at.x + dx, y: n.at.y + dy };
+        if (inBounds(map, p)) enRecinto[p.y * r.width + p.x] = 1;
+      }
   const nodosDeRegion: number[][] = map.regions.map(() => []);
   const nodos: NodoDeRed[] = r.nodos.map((n, k) => {
-    const regiones = regionesQueToca(r.width, r.height, regionDe, n.at);
+    // Una ciudad toca las regiones de los accesos de sus puertas, no las de su
+    // muralla (`regionesDeLaCiudad`); un nodo, las de sus vecinas de fuera.
+    const regiones = n.ciudad
+      ? regionesDeLaCiudad(map, n.at, regionDe)
+      : regionesQueToca(r.width, r.height, regionDe, n.at, enRecinto);
     for (const reg of regiones) nodosDeRegion[reg]?.push(k);
     return { id: n.id, at: n.at, ciudad: n.ciudad, regiones };
   });
@@ -307,12 +366,14 @@ export function regionesQueToca(
   height: number,
   regionDe: Int32Array,
   at: Point,
+  sinContar?: Uint8Array,
 ): number[] {
   const out = new Set<number>();
   for (const [dx, dy] of VECINAS) {
     const nx = at.x + dx;
     const ny = at.y + dy;
     if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+    if (sinContar?.[ny * width + nx] === 1) continue;
     const reg = regionDe[ny * width + nx] as number;
     if (reg !== -1) out.add(reg);
   }

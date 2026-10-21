@@ -70,6 +70,7 @@ import {
   type Reachable,
   RedDeCaminos,
 } from '../src/core/map/map.js';
+import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import {
   estructura,
   nivelesDelRelieve,
@@ -358,8 +359,10 @@ export function primeraSemillaCon<T>(
  * casilla y su tablero no pasa de las orillas. En 1-300 quedaba el de la
  * ciudad-puente de la 23 (town-3, al 90 %), que el clic llevaba a la ciudad,
  * hasta que el recinto de las ciudades (vuelta 3) acortó ese puente hasta el
- * pie de la cara de su recinto; ahora, el de `node-2` de la 216 (al 80 %). Se
- * busca desde ella: componer cada escena de 20 a 215 cuesta ~65 s.
+ * pie de la cara de su recinto; luego, el de `node-2` de la 216 (al 80 %), y
+ * desde que la ciudad-puente está en tierra (fase 2), el de la ciudad-puente
+ * `town-3` de la 64 (al 70 %), que lleva a su casilla del río, que se pisa: en
+ * 1-500 no hay otro. Se busca desde ella: componer cada escena cuesta ~0,3 s.
  */
 export function puenteSobreElAgua(): {
   semilla: number;
@@ -388,7 +391,7 @@ export function puenteSobreElAgua(): {
       }
       return undefined;
     },
-    216,
+    64,
     300,
   );
 }
@@ -420,11 +423,14 @@ export function hastaSuSiguienteTurno(state: GameState, ctx: GameContext, jugado
  *
  * `structuredClone` copia los datos y no el prototipo, así que la niebla
  * (`Casillas`, #146) volvía como un objeto sin `has` ni `marcarCuadrado` y la
- * primera marcha lanzaba. Se rehace desde sus índices; lo demás es la copia de
- * siempre.
+ * primera marcha lanzaba. Se rehace desde sus índices. Los caminos
+ * (`RedDeCaminos`), igual, sin `une` (las puertas de una ciudad, fase 2 de la
+ * ciudad amurallada): no cambian en una partida y se comparten. Lo demás es la
+ * copia de siempre.
  */
 export function copiaDePartida(state: GameState): GameState {
   const copia = structuredClone(state);
+  copia.map = { ...copia.map, caminos: state.map.caminos };
   copia.players = copia.players.map((p, i) => ({
     ...p,
     fog: Casillas.deIndices(
@@ -656,6 +662,12 @@ export const esPersonaje =
  * Una mina en cada una de A, B y C: ore (2,2), gold (8,4) y wood (14,4).
  * Inicios en (3,4) y (24,4), delante del recinto de cada base: dentro de su
  * 3 × 3 no va nada más que la ciudad (`problemasDeRecintos`).
+ *
+ * Cada ciudad, con un camino de cada región que la toca por la puerta de esa
+ * cara (la ciudad amurallada, fase 2): hay puerta donde llega un camino, y sin
+ * él la región se quedaría sin la ciudad. Las del norte y el sur dan al muro,
+ * así que entran por las diagonales de arriba: Valdeluz, de (3,3) por (4,3) y
+ * de (7,3) por (6,3); Torreblanca y Cripta Gris, igual.
  */
 export function planDeNodos(): PlanConCasillas {
   const columna = (x: number) => ({
@@ -717,7 +729,27 @@ export function planDeNodos(): PlanConCasillas {
     resources: [],
     monsters: [],
     chests: [],
+    roads: [
+      ...caminoPorLasDiagonales({ x: 5, y: 4 }),
+      ...caminoPorLasDiagonales({ x: 17, y: 4 }),
+      ...caminoPorLasDiagonales({ x: 22, y: 4 }),
+    ],
   };
+}
+
+/**
+ * El camino de las dos regiones de una ciudad en un muro de norte a sur: de la
+ * casilla a dos al oeste y una arriba, por la puerta del noroeste, a la ciudad,
+ * y de ahí por la del noreste a la de dos al este y una arriba.
+ */
+function caminoPorLasDiagonales(at: { x: number; y: number }): { x: number; y: number }[] {
+  return [
+    { x: at.x - 2, y: at.y - 1 },
+    { x: at.x - 1, y: at.y - 1 },
+    at,
+    { x: at.x + 1, y: at.y - 1 },
+    { x: at.x + 2, y: at.y - 1 },
+  ];
 }
 
 /**
@@ -766,6 +798,17 @@ export function planDeMesetas(): PlanConCasillas {
     resources: [],
     monsters: [],
     chests: [],
+    // Cada ciudad, con el camino de sus regiones por sus puertas: Valdeluz por
+    // las diagonales de arriba (el norte y el sur dan al bosque), y Cripta Gris
+    // de norte a sur, de la meseta a la vega.
+    roads: [
+      ...caminoPorLasDiagonales({ x: 10, y: 11 }),
+      { x: 3, y: 5 },
+      { x: 3, y: 6 },
+      { x: 3, y: 7 },
+      { x: 3, y: 8 },
+      { x: 3, y: 9 },
+    ],
   };
 }
 
@@ -864,13 +907,20 @@ export function auditarMapaDenso(
   const en = (i: number) => `(${i % W},${(i - (i % W)) / W})`;
   const nodos = red.nodos.map((n) => n.at.y * W + n.at.x);
 
-  // Grosor.
+  // Grosor. Cerca de un nodo, y del puente de una ciudad-puente, que es su paso
+  // como el de un nodo de agua: la red pone ahí la ciudad (en el río) y el
+  // vestido la muda a tierra, a dos casillas (la ciudad amurallada, fase 2).
+  const puentesDeCiudad = map.objects.flatMap((o) => {
+    const p = o.kind === 'town' ? rioAnteLaCiudad(map, o.at) : null;
+    return p === null ? [] : [p.acceso];
+  });
+  const esPuenteDeCiudad = new Set(puentesDeCiudad.map((p) => p.y * W + p.x));
   const cercaDeNodo = new Uint8Array(N);
-  for (const n of red.nodos) {
+  for (const n of [...red.nodos.map((k) => k.at), ...puentesDeCiudad]) {
     for (let dy = -3; dy <= 3; dy++)
       for (let dx = -3; dx <= 3; dx++) {
-        const x = n.at.x + dx;
-        const y = n.at.y + dy;
+        const x = n.x + dx;
+        const y = n.y + dy;
         if (x >= 0 && y >= 0 && x < W && y < H) cercaDeNodo[y * W + x] = 1;
       }
   }
@@ -923,14 +973,23 @@ export function auditarMapaDenso(
   if (finas > 0)
     fallos.push(`frontera de menos de 2 casillas en ${finas} parejas, la primera ${primera}`);
 
-  // Suelo y densidad: una sola pasada por el mapa para las dos.
+  // Suelo y densidad: una sola pasada por el mapa para las dos. La densidad,
+  // sobre lo que se pisa de la región: sin la muralla de una ciudad, que es de
+  // su recinto (la ciudad amurallada, fase 2) y el generador no cuenta.
+  const enRecinto = (i: number) =>
+    map.objects.some(
+      (o) =>
+        o.kind === 'town' &&
+        Math.max(Math.abs(o.at.x - (i % W)), Math.abs(o.at.y - Math.floor(i / W))) <= 1,
+    );
   const suelos = map.regions.map(() => new Set<TerrainKind>());
   const pisables = map.regions.map(() => 0);
   for (let i = 0; i < N; i++) {
     const k = red.regionDe[i]!;
     if (k < 0) continue;
     suelos[k]!.add(map.terrain[i] as TerrainKind);
-    pisables[k]!++;
+    // Ni el puente de una ciudad-puente: es río con su tablero, como el de un nodo.
+    if (!enRecinto(i) && !esPuenteDeCiudad.has(i)) pisables[k]!++;
   }
   for (const [k, reg] of plan.regions.entries()) {
     const deAqui = suelos[k]!;
@@ -988,11 +1047,20 @@ export function auditarMapaDenso(
   }
 
   // Caminos, por sus tramos (#153): a un nodo le «llega el camino» de una
-  // región si un tramo lo une a una casilla de ella.
+  // región si un tramo lo une a una casilla de ella. A una ciudad, por una
+  // puerta de su recinto (la ciudad amurallada, fase 2): la puerta es de la
+  // región de sus accesos, aunque su casilla sea barrera.
   const { todas, unidas } = grafoDeCaminos(map);
   const camino = new Set(todas);
+  const deLaPuerta = new Map<number, number>();
+  for (const o of map.objects)
+    if (o.kind === 'town')
+      for (const pu of puertasDeLaCiudad(map, o.at)) {
+        const a = pu.accesos[0]!;
+        deLaPuerta.set(pu.casilla.y * W + pu.casilla.x, red.regionDe[a.y * W + a.x]!);
+      }
   const tramosDesde = (n: number, k: number): number =>
-    (unidas.get(n) ?? []).filter((j) => red.regionDe[j] === k).length;
+    (unidas.get(n) ?? []).filter((j) => (deLaPuerta.get(j) ?? red.regionDe[j]) === k).length;
   const leLlegaDe = (n: number, k: number): boolean => tramosDesde(n, k) > 0;
   const nodosDe = red.regiones.map((reg) => new Set(reg.nodos.map((n) => nodos[n]!)));
   for (const [k, reg] of red.regiones.entries()) {
@@ -1047,16 +1115,20 @@ export function auditarMapaDenso(
         `la base del jugador ${inicio.player} en (${base.at.x},${base.at.y}) no está en la red de su región de casa, ${red.regiones[casa]?.id}`,
       );
   }
-  // Un solo cruce con camino por pareja de vecinas: un nodo común al que le
-  // llega el camino de las dos.
+  // Un cruce con camino por pareja de vecinas: un nodo común al que le llega
+  // el camino de las dos. Uno de los nodos, como mucho (`crucesConCamino`); una
+  // ciudad lleva el de todas sus regiones (la ciudad amurallada, fase 2: hay
+  // puerta donde llega un camino), así que la pareja puede tener además la suya.
+  const ciudades = new Set(red.nodos.filter((n) => n.ciudad).map((n) => n.at.y * W + n.at.x));
   for (let a = 0; a < red.regiones.length; a++) {
     for (let b = a + 1; b < red.regiones.length; b++) {
       const comunes = [...nodosDe[a]!].filter((n) => nodosDe[b]!.has(n));
       if (comunes.length === 0) continue;
       const cruces = comunes.filter((n) => leLlegaDe(n, a) && leLlegaDe(n, b));
-      if (cruces.length !== 1) {
+      const deNodos = cruces.filter((n) => !ciudades.has(n));
+      if (cruces.length === 0 || deNodos.length > 1) {
         fallos.push(
-          `entre las regiones ${red.regiones[a]!.id} y ${red.regiones[b]!.id} hay ${cruces.length} cruces con camino (${cruces.map(en).join(', ')}), y tiene que haber uno`,
+          `entre las regiones ${red.regiones[a]!.id} y ${red.regiones[b]!.id} hay ${cruces.length} cruces con camino (${cruces.map(en).join(', ')}), y tiene que haber uno, y de los nodos que no son ciudad, uno como mucho`,
         );
       }
     }

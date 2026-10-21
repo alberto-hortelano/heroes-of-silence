@@ -20,6 +20,7 @@ import {
   planDelAgente,
   validateMapPlan,
 } from '../src/core/map/generate.js';
+import { problemasDeNiveles } from '../src/core/map/regiones.js';
 import { BARRERAS_DE_DESNIVEL, type Nivel, QUE_ES_UN_NIVEL } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import { catalogoDelDisco, planDeMesetas } from './helpers.js';
@@ -125,7 +126,9 @@ describe('validateMapPlan exige que cada barrera admita los niveles que separa (
       'el muro ("wall") que pasa por (10,12) toca regiones a distinto nivel, "oeste" (nivel 0), "este" (nivel 1): un muro solo va entre regiones al mismo nivel; entre dos niveles van "cliff", "mountain", "water"',
     ]);
     expect(validateMapPlan(conColumna('mountain'))).toEqual([]);
-    expect(validateMapPlan(conColumna('water'))).toEqual([]);
+    // Con agua, Valdeluz quedaría sobre el río, y eso se rechaza antes (una
+    // ciudad va en tierra; la ciudad amurallada, fase 2): los niveles, solos.
+    expect(problemasDeNiveles(buildMap(conColumna('water')).map)).toEqual([]);
   });
 
   it('un nivel fuera de rango se rechaza también en la puerta de los dos productores', () => {

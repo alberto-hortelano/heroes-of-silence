@@ -660,8 +660,9 @@ describe('la nieve que se pisa, sin sus peñascos grises (H9)', () => {
   // Con el río continuo (#144) la s56 no tiene mesetas: la s79, la de más
   // nieve que se pisa de 1-80 con peñascos en lo alto (870 casillas y 81). Con
   // el recinto de las ciudades del núcleo (vuelta 3) la s79 no los tiene: la s4
-  // (617 casillas y 41).
-  const { map, escena: e } = partidaDe(4);
+  // (617 casillas y 41). Con las puertas de las ciudades (fase 2) la s4 no
+  // tiene nieve que se pise: la s61 (464 casillas y 101 peñascos).
+  const { map, escena: e } = partidaDe(61);
   const a = analizar(map);
   const rocas = e.sprites.filter((s) => s.clase === 'cubierta' && esPeñascoGris(s));
 

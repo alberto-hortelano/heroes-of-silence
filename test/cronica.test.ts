@@ -93,6 +93,13 @@ const PLANO: MapPlan = {
   resources: [],
   monsters: [],
   chests: [],
+  // A una ciudad se entra por las puertas de su recinto a las que llega un
+  // camino (la ciudad amurallada, fase 2): el de cada región que la toca, por
+  // la diagonal de arriba de su lado.
+  roads: [
+    ...[0, 1, 2, 3, 4].map((x) => ({ x, y: x === 2 ? 6 : 5 })),
+    ...[35, 36, 37, 38, 39].map((x) => ({ x, y: x === 37 ? 6 : 5 })),
+  ],
 };
 
 /**
@@ -120,6 +127,11 @@ const ESQUINAS: MapPlan = {
     { player: 0, at: { x: 2, y: 2 } },
     { player: 1, at: { x: 37, y: 8 } },
   ],
+  // Por la puerta del norte y la del sur de cada una.
+  roads: [3, 4, 5, 6, 7].flatMap((y) => [
+    { x: 1, y },
+    { x: 38, y },
+  ]),
 };
 
 /** El nodo de la franja, para dárselo a quien haga falta. */
@@ -423,14 +435,15 @@ describe('la crónica pasa por la niebla', () => {
     // rival: lo único que mira hacia mi capital es la capital.
     pasear(state, ctx, 0, [{ x: 20, y: 0 }]);
     pasarTurno(state, ctx, 0);
-    // Y el rival cruza los 32 de la franja y acampa pegado a mi castillo.
-    pasear(state, ctx, 1, [{ x: 3, y: 6 }]);
+    // Y el rival cruza los 32 de la franja y acampa pegado a la muralla de mi
+    // castillo, que no se pisa (`recinto.ts`): a dos casillas de él.
+    pasear(state, ctx, 1, [{ x: 4, y: 6 }]);
     pasarTurno(state, ctx, 1);
 
     const suyos = leer(state, 0).recentEvents.filter(
       (e) => e.kind === 'hero_moved' && e.actor === 1,
     );
-    expect(suyos.some((e) => e.to.x === 3 && e.to.y === 6)).toBe(true);
+    expect(suyos.some((e) => e.to.x === 4 && e.to.y === 6)).toBe(true);
 
     // Y solo lo que alcanza el castillo, no el viaje entero: la niebla sigue
     // siendo niebla. Si llegara todo, el test pasaría por no filtrar nada.

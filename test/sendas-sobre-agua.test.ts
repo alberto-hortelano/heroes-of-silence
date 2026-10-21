@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import { sendaSobreElAgua } from '../src/client/render/escenario/escalon.js';
 import type { GameMap } from '../src/core/map/map.js';
-import { rioBajoLaCiudad } from '../src/core/map/rio.js';
+import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { esquinasDeAgua } from '../src/core/map/vestir.js';
 import { newGame } from '../src/core/state/setup.js';
 import { escenaDe } from './helpers.js';
@@ -22,19 +22,18 @@ import { itLento, rango, segunPrisa } from './lento.js';
 
 /**
  * Las esquinas de agua cortadas por las sendas de un mapa, dichas. Los vados:
- * los puentes y las ciudades-puente (#144, río continuo): a la ciudad del cruce
- * que toca el río llegan dos regiones de su orilla, a los dos lados del muro
- * de la T, y solo en diagonal.
+ * los puentes y el de cada ciudad-puente (#144, río continuo; desde la ciudad
+ * amurallada, la casilla del río delante de la ciudad, `rioAnteLaCiudad`), al
+ * que se puede llegar en diagonal desde la orilla de enfrente.
  */
 function cortadas(map: GameMap): string[] {
   const W = map.width;
   const puentes = new Set(
-    map.objects.flatMap((o) =>
-      (o.kind === 'node' && o.barrera === 'water') ||
-      (o.kind === 'town' && rioBajoLaCiudad(map, o.at))
-        ? [o.at.y * W + o.at.x]
-        : [],
-    ),
+    map.objects.flatMap((o) => {
+      if (o.kind === 'node' && o.barrera === 'water') return [o.at.y * W + o.at.x];
+      const puente = o.kind === 'town' ? rioAnteLaCiudad(map, o.at) : null;
+      return puente === null ? [] : [puente.acceso.y * W + puente.acceso.x];
+    }),
   );
   const tramos = map.caminos.tramos.map(([p, q]) => [p.y * W + p.x, q.y * W + q.x] as const);
   return esquinasDeAgua(W, (i) => map.terrain[i] === 'water', tramos, puentes).map(

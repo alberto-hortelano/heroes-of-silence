@@ -21,7 +21,7 @@ import {
   topeDe,
   zoom,
 } from '../render/camara-mapa.js';
-import { ciudadEnLaOrilla, puenteEnElTerreno } from '../render/escenario/puentes.js';
+import { puenteEnElTerreno } from '../render/escenario/puentes.js';
 import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { type Medida, pixelesDe } from '../render/lienzo.js';
 import { drawMapa, type PasoDeRuta, pasosAPintar, presupuestoConHolgura } from '../render/mapa.js';
@@ -249,9 +249,7 @@ export class EscenaAventura {
     const { x, y } = pixelAMundo(this.camara, px, py);
     const { map } = s.state;
     // La orilla donde se pinta una ciudad-puente (#144), aunque se pise, o un puente.
-    const puente =
-      ciudadEnLaOrilla(esc.escena.puentes, x, y) ??
-      puenteEnElTerreno(esc.escena.puentes, map.terrain, map.width, x, y);
+    const puente = puenteEnElTerreno(esc.escena.puentes, map.terrain, map.width, x, y);
     if (puente === null) return debajo;
     const nodo = { x: Math.floor(puente.nodo[0]), y: Math.floor(puente.nodo[1]) };
     // Bajo la niebla no se pinta, y pulsar ahí no puede decir que hay un puente.

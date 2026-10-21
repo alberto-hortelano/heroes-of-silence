@@ -14,7 +14,7 @@
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { APOYOS_DE_MURALLA } from '@core/map/murallas.js';
 import { puertasDe } from '@core/map/puertas.js';
-import { centroDelRecinto, LADO_DEL_RECINTO, recintoDeLaCiudad } from '@core/map/recinto.js';
+import { LADO_DEL_RECINTO, recintoDeLaCiudad } from '@core/map/recinto.js';
 import { vecindad } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
@@ -1442,18 +1442,6 @@ export const RADIO_DEL_PASO_SIN_PIEZA = 0.5;
 const PASOS_SIN_PIEZA: readonly Barrera[] = ['forest', 'mountain'];
 
 /** El radio de la reserva de un objeto (`reservaDe`): el de su clase, salvo el nodo de bosque o de montaña. */
-/**
- * Dónde se pinta un objeto: su casilla, salvo la ciudad-puente (#144), que va
- * en su orilla (`Analisis.ciudadesPuente`) y deja su casilla al río y a su
- * puente. La huella, la reserva, el resplandor y lo que no se tapa salen de ahí.
- */
-export function sitioDe(
-  a: Pick<Analisis, 'ciudadesPuente'>,
-  o: Pick<MapObject, 'id' | 'at'>,
-): { readonly x: number; readonly y: number } {
-  return a.ciudadesPuente.get(o.id)?.orilla ?? o.at;
-}
-
 export function radioDeLaReserva(o: Pick<MapObject, 'kind'> & { barrera?: Barrera }): number {
   if (o.kind === 'town')
     throw new Error('la reserva de una ciudad no es un disco: es su recinto (`reservaDelRecinto`)');
@@ -1652,28 +1640,22 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   });
   /**
    * El rectángulo del recinto de cada ciudad, el del núcleo (`recintoDeLaCiudad`,
-   * con su medio en la orilla de una ciudad-puente): lo leen su puente, su
+   * con la ciudad en el medio, también la ciudad-puente): lo leen su puente, su
    * reserva, su huella, las paredes que no se ponen y su anillo.
    */
   const recintos = new Map(
     a.objetos.flatMap((o) =>
-      o.kind === 'town'
-        ? [
-            [
-              o.id,
-              recintoDeLaCiudad(centroDelRecinto(o.at, a.ciudadesPuente.get(o.id)?.orilla), W, H),
-            ] as const,
-          ]
-        : [],
+      o.kind === 'town' ? [[o.id, recintoDeLaCiudad(o.at, W, H)] as const] : [],
     ),
   );
   const puentes: Puente[] = [];
   for (const o of a.objetos) {
-    // La ciudad-puente (#144) se pinta en su orilla, y en su casilla, su puente.
+    // La ciudad-puente (#144) lleva su puente en la casilla del río que tiene
+    // delante (`Analisis.ciudadesPuente`).
     const deLaCiudad = a.ciudadesPuente.get(o.id);
-    const x = sitioDe(a, o).x + 0.5;
-    const y = sitioDe(a, o).y + 0.5;
-    if (a.puentes.has(o.id)) {
+    const x = o.at.x + 0.5;
+    const y = o.at.y + 0.5;
+    if (a.puentes.has(o.id) || deLaCiudad !== undefined) {
       // El puente se apoya por el centro de su tablero, bajado al suelo: el
       // ancla de la pieza es ese centro (§17), y su escala, la casilla de la
       // guía. Sin sombra: la mancha de su pie, en el centro, oscurecía el arco.
@@ -1683,8 +1665,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           : puenteDeLaCiudad(
               o,
               deLaCiudad,
-              caraHacia(contornoDelRecinto(recintos.get(o.id) as Rect), o.at.x + 0.5, o.at.y + 0.5)
-                .medio,
+              caraHacia(
+                contornoDelRecinto(recintos.get(o.id) as Rect),
+                deLaCiudad.rio.x + 0.5,
+                deLaCiudad.rio.y + 0.5,
+              ).medio,
               W,
               nivel,
               catalogo,
@@ -1714,7 +1699,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       // entra por el arco; pintado después, el tablero tapaba la puerta.
       const { objeto: _ciudad, ...pieza_ } = s;
       const [e0, e1] = pu.extremos;
-      const [ox, oy] = pu.orilla ?? pu.centro;
+      const [ox, oy] = [x, y];
       const pie = Math.hypot(e0[0] - ox, e0[1] - oy) < Math.hypot(e1[0] - ox, e1[1] - oy) ? e0 : e1;
       sprites.push({ ...pieza_, puente: pu.id, clave: Math.min(claveDe(pieza_), pie[1] - 0.01) });
     }
@@ -1804,8 +1789,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // con lo demás.
   const reservas = new Map(
     a.objetos.flatMap((o) => {
-      const deLaCiudad = a.ciudadesPuente.get(o.id);
-      if (a.puentes.has(o.id) && deLaCiudad === undefined) return [];
+      if (a.puentes.has(o.id)) return [];
       const rect = recintos.get(o.id);
       if (rect !== undefined) {
         const envoltura = envolturaDelRecinto(o.id, rect);
@@ -1813,7 +1797,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       }
       const s = sprites.find((t) => t.objeto?.id === o.id);
       if (s === undefined) throw new Error(`el objeto ${o.id} no está en la escena`);
-      return [[reservaDe({ at: sitioDe(a, o) }, radioDeLaReserva(o), s), s] as const];
+      return [[reservaDe({ at: o.at }, radioDeLaReserva(o), s), s] as const];
     }),
   );
 
@@ -1828,14 +1812,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // senda ondula y entre dos casillas no hay centro que reservar. La senda llega
   // a los estribos de cada puente y no sigue por encima (#157).
   // Y acaba en cada ciudad o nodo que atraviesa: llega recta a su puerta (#210).
-  // Y en el estribo de cada puente: el de una ciudad-puente (#144) recibe las
-  // dos sendas de su orilla, que sin cortarlas ahí salían en una.
-  const deUnNodo = new Set([
-    ...a.red.nodos.map((n) => `${n.at.x + 0.5},${n.at.y + 0.5}`),
-    ...puentes.flatMap((p) =>
-      p.orilla === undefined ? [] : p.extremos.map(([x, y]) => `${x},${y}`),
-    ),
-  ]);
+  const deUnNodo = new Set(a.red.nodos.map((n) => `${n.at.x + 0.5},${n.at.y + 0.5}`));
   /** Si la senda puede salir de un arco hasta `(x, y)`: lo que se pisa (ni barrera ni a `CERCA_DEL_AGUA` del agua), o el propio recinto. */
   const sePisaJuntoAlRecinto = (x: number, y: number) => {
     const casilla = (px: number, py: number) => {
@@ -1870,10 +1847,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const puertasDe = new Map(
     [...recintos].map(([id, rect]) => {
       const contorno = contornos.get(id) as Contorno;
-      const ciudad = a.objetos.find((o) => o.id === id) as MapObject;
-      const rio = a.ciudadesPuente.has(id)
-        ? caraHacia(contorno, ciudad.at.x + 0.5, ciudad.at.y + 0.5).cara
-        : undefined;
+      const puente = a.ciudadesPuente.get(id);
+      const rio =
+        puente === undefined
+          ? undefined
+          : caraHacia(contorno, puente.rio.x + 0.5, puente.rio.y + 0.5).cara;
       return [
         id,
         {
@@ -1901,9 +1879,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const pasos = pasosALaVista(map, a.puentes);
   // Por dónde bajan las sendas (R5): una pieza encima de la pared cada una. La
   // que llega a un puente no: el puente es su paso.
-  const nodosDePuente = new Set(
-    a.objetos.filter((o) => a.puentes.has(o.id)).map((o) => `${o.at.x},${o.at.y}`),
-  );
+  const nodosDePuente = new Set([
+    ...a.objetos.filter((o) => a.puentes.has(o.id)).map((o) => `${o.at.x},${o.at.y}`),
+    ...[...a.ciudadesPuente.values()].map(({ rio }) => `${rio.x},${rio.y}`),
+  ]);
   /**
    * Dónde puede caer el pie de la rampa de una bajada (#214): nunca en el agua
    * (la de los puentes incluida). En diagonal, la rampa de caída 2 mide 1,65
@@ -2593,7 +2572,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const conEdificio = new Set(
     a.objetos
       .filter((o) => o.kind === 'town' || o.kind === 'village' || o.kind === 'mine')
-      .map((o) => sitioDe(a, o).y * W + sitioDe(a, o).x),
+      .map((o) => o.at.y * W + o.at.x),
   );
   /**
    * Si la senda que pasa por `(x, y)` pisaría el anillo de un recinto
@@ -3115,15 +3094,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   /** Las casillas que tapa cada ciudad y cada pueblo: su muralla une lo que llega a ella. */
   const huellas: (readonly [number, number])[][] = [];
   for (const o of a.objetos) {
-    const huella = casillasDeLaHuella(o, sitioDe(a, o), recintos.get(o.id), W, H);
+    const huella = casillasDeLaHuella(o, o.at, recintos.get(o.id), W, H);
     for (const [x, y] of huella) bajoLaHuella[y * W + x] = 1;
     if (huella.length > 0 && o.kind !== 'node') huellas.push(huella);
-    // Y el puente de la ciudad-puente, en su casilla y en la de enfrente, donde
-    // apoya su estribo: puede ser el final de una barrera (en 1-40, la montaña
-    // de s18, s26, s36 y s37), y la tapa él.
+    // Y el puente de la ciudad-puente, en su casilla del río y en la de
+    // enfrente, donde apoya su estribo: puede ser el final de una barrera (en
+    // 1-40, la montaña de s18, s26, s36 y s37), y la tapa él.
     const deLaCiudad = a.ciudadesPuente.get(o.id);
     if (deLaCiudad !== undefined)
-      for (const p of [o.at, deLaCiudad.enfrente]) bajoLaHuella[p.y * W + p.x] = 1;
+      for (const p of [deLaCiudad.rio, deLaCiudad.enfrente]) bajoLaHuella[p.y * W + p.x] = 1;
   }
   /** Dónde se apoya cada muralla y de qué lado es cada casilla (`alrededorDeMurallas`). */
   const alrededorDeLaMuralla = alrededorDeMurallas(a, huellas, nivel);
@@ -4248,7 +4227,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const cercaDePueblo = new Uint8Array(W * H);
   for (const o of a.objetos) {
     if (o.kind !== 'town' && o.kind !== 'village') continue;
-    const at = sitioDe(a, o);
+    const { at } = o;
     for (let dy = -3; dy <= 3; dy++)
       for (let dx = -3; dx <= 3; dx++) {
         const x = at.x + dx;
@@ -4320,7 +4299,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     enLaLabranza,
     camino,
     cercaDePueblo,
-    objetos: a.objetos.map((o) => ({ kind: o.kind, ...sitioDe(a, o) })),
+    objetos: a.objetos.map((o) => ({ kind: o.kind, x: o.at.x, y: o.at.y })),
     escalaQueEntra: escalaDeLaParcela(copa),
     entraLaPieza: entraLaPieza(copa),
     semilla,
@@ -4498,7 +4477,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         sprites,
         a.objetos.flatMap((o) =>
           o.kind === 'town' || o.kind === 'village' || o.kind === 'mine' || o.kind === 'node'
-            ? [[sitioDe(a, o).x, sitioDe(a, o).y] as const]
+            ? [[o.at.x, o.at.y] as const]
             : [],
         ),
         W,
@@ -5142,7 +5121,7 @@ export function spriteDelRecinto(
 }
 
 /**
- * Las casillas que tapa un objeto en `at` (`sitioDe`): una ciudad, su recinto
+ * Las casillas que tapa un objeto en `at` (su casilla): una ciudad, su recinto
  * (`rect`); un pueblo y un nodo, las de su reserva (`RADIO_DE_OBJETO`). Lo de
  * debajo lo tapa el propio objeto, y la muralla une lo que llega a ella.
  */
@@ -6876,10 +6855,8 @@ export function luces(
 ): Luz[] {
   const fuera: Luz[] = [];
   for (const o of a.objetos) {
-    // La de una ciudad, en el medio de su recinto, donde están sus casas: la de
-    // una ciudad-puente iba a su orilla (`sitioDe`, la casilla del núcleo: la de
-    // la marca, el clic y quien está dentro), que es la puerta del río, y la de
-    // la columna 0, a un lado (hallazgo 16 de /simplify, vuelta 2).
+    // La de una ciudad, en el medio de su recinto, donde están sus casas (la
+    // ciudad-puente también: desde la fase 2 está en el medio de su recinto).
     const r = recintos.get(o.id);
     if (o.kind === 'town' && r !== undefined)
       fuera.push({ ...LUZ_DE_LA_CIUDAD, ...luzDelRecinto(r) });

@@ -226,11 +226,13 @@ describe('la casilla del nodo de agua es agua (#157)', () => {
 
   it('en las semillas 1-10, toda casilla de puente está en el agua de la escena', () => {
     for (const s of SEMILLAS) {
-      const { map, escena: e } = partidaDe(s);
+      const { escena: e } = partidaDe(s);
       const agua = new Set(e.agua);
       for (const pu of e.puentes) {
-        const o = map.objects.find((x) => x.id === pu.id) as MapObject;
-        expect(agua.has(o.at.y * e.W + o.at.x), `s${s} ${pu.id}`).toBe(true);
+        // La casilla que cruza: la de su nodo, o la del río delante de una
+        // ciudad-puente (`Puente.nodo`).
+        const [x, y] = pu.nodo.map(Math.floor) as [number, number];
+        expect(agua.has(y * e.W + x), `s${s} ${pu.id}`).toBe(true);
       }
     }
   });
@@ -389,9 +391,9 @@ describe('la senda llega a los estribos y no cruza por encima', () => {
         for (const senda of e.sendas)
           for (const [x, y] of senda)
             expect(Math.hypot(x - cx, y - cy), `s${s} ${pu.id}`).toBeGreaterThanOrEqual(0.3);
-        const o = map.objects.find((x) => x.id === pu.id) as MapObject;
+        const at = { x: Math.floor(pu.nodo[0]), y: Math.floor(pu.nodo[1]) };
         const llegan = map.caminos.tramos.filter(([p, q]) =>
-          [p, q].some((r) => r.x === o.at.x && r.y === o.at.y),
+          [p, q].some((r) => r.x === at.x && r.y === at.y),
         ).length;
         const enUnEstribo = e.sendas
           .flatMap((senda) => [senda[0], senda.at(-1)])
@@ -583,10 +585,9 @@ describe('los cruces quebrados se asientan con los dos estribos en tierra', () =
       const { map, escena: e } = partidaDe(s);
       const a = analizar(map);
       for (const pu of e.puentes) {
-        // El de una ciudad-puente (#144) cruza de frente de su orilla, que es el
-        // final de la barrera de la T, a la casilla de enfrente: lo mira
-        // `ciudad-puente.test.ts`.
-        if (pu.orilla !== undefined) continue;
+        // El de una ciudad-puente (#144) acaba al pie de la cara de su recinto:
+        // lo mira `ciudad-puente.test.ts`.
+        if (pu.ciudad !== undefined) continue;
         const regiones = pu.extremos.map(([x, y]) => regionPisable(a, x, y));
         expect(Math.min(...regiones), `s${s} ${pu.id}`).toBeGreaterThanOrEqual(0);
         expect(regiones[0], `s${s} ${pu.id}`).not.toBe(regiones[1]);
@@ -602,6 +603,9 @@ describe('la marca del dueño va sobre el tablero, no en el río', () => {
     for (const s of SEMILLAS) {
       const { map, escena } = partidaDe(s);
       for (const pu of escena.puentes) {
+        // El de una ciudad-puente no es de ningún objeto: su ciudad lleva la
+        // marca en su casilla.
+        if (pu.ciudad !== undefined) continue;
         const o = map.objects.find((x) => x.id === pu.id) as MapObject;
         const [[x0, y0], , , [x1, y1]] = pu.tablero as [Punto, Punto, Punto, Punto];
         const altura = y0 - (pu.tablero[1] as Punto)[1];
@@ -627,14 +631,8 @@ describe('el asiento de la marca es siempre un punto', () => {
         const a = esc.asientoDeObjeto.get(o.id);
         if (!esc.claveDeObjeto.has(o.id)) continue;
         const p = puentes.get(o.id);
-        // La ciudad-puente (#144), en su orilla: donde se pinta la ciudad.
-        const orilla = esc.escena.puentes.find((x) => x.id === o.id)?.orilla;
         expect(a, `s${s} ${o.id}`).toEqual(
-          orilla !== undefined
-            ? orilla
-            : p === undefined
-              ? [o.at.x + 0.5, o.at.y + 0.5]
-              : [p[0], p[1] - OVALO_BAJO_EL_ASIENTO],
+          p === undefined ? [o.at.x + 0.5, o.at.y + 0.5] : [p[0], p[1] - OVALO_BAJO_EL_ASIENTO],
         );
       }
     }
@@ -705,6 +703,9 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     for (const s of segunPrisa(SEMILLAS, rango(1, 40))) {
       const { map, escena } = partidaDe(s);
       for (const pu of escena.puentes) {
+        // El de una ciudad-puente no es de ningún objeto: su ciudad lleva la
+        // marca en su casilla.
+        if (pu.ciudad !== undefined) continue;
         const o = map.objects.find((x) => x.id === pu.id) as MapObject;
         const [x, y] = enElTablero(pu, 0);
         expect([Math.floor(x), Math.floor(y)], `s${s} ${pu.id}`).toEqual([o.at.x, o.at.y]);
@@ -855,8 +856,8 @@ describe('la bandera del dueño se planta en el tablero (H1 del QA de #157)', ()
           ? 0
           : (pu.eje === 'eo' ? 1 : -1) * 0.28 * 0.6 * pu.escala;
         expect(my, `s${s} ${pu.id}`).toBeCloseTo(py - subida, 9);
-        // La ciudad-puente no es un nodo: su bandera va por su asiento, en la orilla.
-        if (pu.orilla === undefined) expect(esc.mastilDeNodo.get(pu.id)).toEqual(pu.mastil);
+        // La ciudad-puente no es un nodo: su bandera va por su asiento, en su casilla.
+        if (pu.ciudad === undefined) expect(esc.mastilDeNodo.get(pu.id)).toEqual(pu.mastil);
       }
       // Los demás nodos, como siempre: sobre el centro de su casilla.
       for (const o of map.objects) {
@@ -878,11 +879,13 @@ describe('quien pisa un puente se pinta en su tablero (H3 del QA de #157)', () =
       for (const pu of esc.escena.puentes) {
         const at = { x: Math.floor(pu.nodo[0]), y: Math.floor(pu.nodo[1]) };
         const p = pisada(esc, at, PIES.heroe);
-        // En una ciudad-puente (#144), en su orilla: lo mira `ciudad-puente.test.ts`.
-        if (pu.orilla !== undefined) continue;
         expect([p.x, p.y], `s${s} ${pu.id}`).toEqual(pu.asiento);
         // A igual clave se pinta antes el volumen: la figura va encima del puente.
-        expect(p.clave).toBeGreaterThanOrEqual(esc.claveDeObjeto.get(pu.id) as number);
+        // La del de una ciudad-puente (#144) es la de su pieza, que no es de
+        // ningún objeto.
+        const clave = esc.tableros.get(at.y * esc.escena.W + at.x)?.clave as number;
+        if (pu.ciudad === undefined) expect(clave).toBe(esc.claveDeObjeto.get(pu.id));
+        expect(p.clave).toBeGreaterThanOrEqual(clave);
       }
       // Fuera de los puentes, como antes.
       const p = pisada(esc, { x: 0, y: 0 }, PIES.heroe);

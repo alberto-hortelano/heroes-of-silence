@@ -409,9 +409,10 @@ describe.each([15, 19])('la labranza en la escena de la semilla %i', (semilla) =
   it('las parcelas, centradas en su casilla o en la junta con la de debajo, y planas', () => {
     /** Si la parte fraccionaria `f` es `v`, también por la vuelta (0,999… es 0). */
     const cerca = (f: number, v: number) => Math.abs(((f - v + 0.5) % 1) - 0.5) < 1e-6;
-    // Que no pase en vacío: en s15, 95 desde el recinto de las ciudades del
-    // núcleo (vuelta 3, otros mapas); eran más de 100.
-    expect(parcelas.length).toBeGreaterThan(80);
+    // Que no pase en vacío: en s15, 73 desde las puertas de las ciudades (fase
+    // 2, otros mapas); 95 desde el recinto de las ciudades del núcleo (vuelta
+    // 3); eran más de 100.
+    expect(parcelas.length).toBeGreaterThan(60);
     const sitios = [0.5, 0.5 - (1 - ESCALA_EN_LA_LINDE) / 2, 0.5 + (1 - ESCALA_EN_LA_LINDE) / 2];
     for (const s of parcelas) {
       expect(s.plano).toBe(true);

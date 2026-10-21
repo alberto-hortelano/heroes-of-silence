@@ -16,9 +16,11 @@ import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { CARGA } from '../src/core/battle/carga.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { isShooter } from '../src/core/data.js';
 
 import type { Hex, UnitInfo } from '../src/core/types.js';
 import { sesionContraMonstruo } from './batalla-de-cliente.js';
+import { PESADA } from './helpers.js';
 
 /**
  * Elegir desde dónde golpear (decisión del usuario, 02-10-2026): al pasar por un
@@ -113,13 +115,23 @@ function sesionConEnemigoALaVista(
   turno.stack.hex = { col: 5, row: 6 };
   rival.hex = enRival;
   // Antes de la primera lectura de la lista legal: la sesión la guarda por jugada.
-  if (criatura !== undefined) (turno.stack as { unit: UnitInfo }).unit = unidadDelJuego(criatura);
+  // Sin una pedida, la que pega cuerpo a cuerpo de los helpers si la activa
+  // dispara: la batalla que se halla depende del mapa (con las puertas de las
+  // ciudades, la ciudad amurallada, la primera era de un arquero).
+  const unidad = criatura ?? (disparaLaActiva(s) ? PESADA : undefined);
+  if (unidad !== undefined) (turno.stack as { unit: UnitInfo }).unit = unidadDelJuego(unidad);
   if (isShooterActivo(s)) throw new Error('la unidad activa dispara: el ángulo no se ve');
   return { s, activo: turno.stack.id, objetivo: rival.id };
 }
 
 function isShooterActivo(s: Session): boolean {
   return s.battleLegalActions().some((a) => a.type === 'shoot');
+}
+
+/** Si la activa dispara, sin leer la lista legal (que la sesión guarda por jugada). */
+function disparaLaActiva(s: Session): boolean {
+  const activa = s.turnoPropio?.stack;
+  return activa !== undefined && isShooter(activa.unit);
 }
 
 describe('el clic sobre un enemigo elige el ángulo', () => {

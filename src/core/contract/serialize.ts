@@ -62,6 +62,7 @@ import {
 } from '../hero/troop.js';
 import { minasDeLasRegiones, regionesDelMapa } from '../map/generate.js';
 import { pointFromKey } from '../map/map.js';
+import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import {
   BARRERAS,
   BARRERAS_DE_DESNIVEL,
@@ -433,6 +434,12 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     acto, aunque te queden héroes y ciudades. Lo mismo le pasa al rival. Las
     dos nacen con guarnición, así que tomarla es una batalla mientras le quede
     tropa dentro.
+  - Cada ciudad ocupa un RECINTO amurallado de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO} casillas con ella en el medio,
+    y se entra por sus puertas: las de las caras a las que llega un camino (al
+    norte, al sur o en las esquinas, nunca al este ni al oeste) y la del puente
+    de una ciudad junto a un río. El resto de su recinto no se pisa aunque sea
+    hierba: desde fuera se pasa de un acceso a la puerta y de la puerta a la
+    ciudad. La puerta y la ciudad cuestan como un camino.
   - Un héroe enemigo o una ciudad ajena con guarnición se alcanzan pero no se
     cruzan: pedirlos de destino es pedir la batalla, y un "move_hero" a otro
     sitio los rodea por otro paso si lo hay. Si no lo hay, no hay camino.
@@ -462,7 +469,7 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     - Si la casilla tiene camino cuesta ${COSTE_CON_CAMINO} sea cual sea su suelo,
       y por eso un rodeo por carretera sale a menudo más barato que la línea
       recta por el barro. Un camino solo está en casillas que se pisan: nunca
-      atraviesa una barrera.
+      atraviesa una barrera, salvo por la puerta de una ciudad.
     - Compáralo con los puntos de movimiento que le queden hoy al héroe
       ("movePoints") para saber hasta dónde llegas.`;
 
@@ -1090,7 +1097,8 @@ export function serializeMapRequest(opts: MapRequestOptions) {
       'Los monstruos custodian lo bueno: cuanto mejor el premio, más dura la guardia.',
       'Deja el centro del mapa disputado y los bordes seguros.',
       'Pon las ciudades en los cruces de tres regiones o más, y que cada base tenga dos caminos distintos hasta las ciudades que le quedan cerca: así aislarlas es posible pero no trivial.',
-      'Un camino entra en una ciudad, una mina o un pueblo por la casilla de debajo, que es su puerta, y no lo atraviesa: si sigue hacia otro sitio, pasa por la fila de delante y deja un ramal de una casilla hasta la puerta.',
+      'Un camino entra en una mina o un pueblo por la casilla de debajo, que es su puerta, y no lo atraviesa: si sigue hacia otro sitio, pasa por la fila de delante y deja un ramal de una casilla hasta la puerta.',
+      `A una ciudad, en cambio, se entra por las puertas de su recinto de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO}: lleva el camino de cada región que la toque de un acceso a dos casillas (al norte, al sur o en diagonal) a la puerta de esa cara y de ahí a la ciudad; deja ${SEPARACION_DE_CIUDADES} casillas entre dos ciudades, nada dentro de un recinto, y el inicio de cada jugador en un acceso de su base.`,
     ],
   };
 }

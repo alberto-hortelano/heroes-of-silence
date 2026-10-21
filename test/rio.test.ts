@@ -15,12 +15,12 @@
 import { describe, expect, it } from 'vitest';
 import { FORMAS_DEL_RIO, RIOS, validarRios } from '../src/core/data.js';
 import { buildMap, generateMapPlan, LADO_DEL_MAPA } from '../src/core/map/generate.js';
+import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura } from '../src/core/map/regiones.js';
 import {
   alOtroLado,
   ladosDelRio,
   nivelesDelRio,
-  rioBajoLaCiudad,
   rioEntero,
   type TrazadoDelRio,
   trazarRio,
@@ -275,10 +275,19 @@ describe('el río de los mapas del juego, entero (el guardia de continuidad)', (
         malos.push(`s${s}: ${r.aguaFueraDelRio} casillas de agua de frontera fuera del río`);
       // El río de la forma lago mide como poco 20 casillas del lago al borde
       // (decisión del usuario, 17-10-2026; `cursoDelLago`): contadas en el mapa
-      // hecho, el agua del río fuera de su lago y sus puentes y ciudades-puente.
+      // hecho, el agua del río fuera de su lago y sus puentes y ciudades-puente
+      // (el puente de cada una).
       // Escrito aquí y no leído de los datos: con el dato a 1 el guardia
       // también se callaría.
-      const conObjeto = new Set(map.objects.map((o) => o.at.y * W + o.at.x));
+      // El puente de una ciudad-puente, en tierra desde la ciudad amurallada
+      // (fase 2), también es del río: la casilla del río delante de la ciudad.
+      const conObjeto = new Set([
+        ...map.objects.map((o) => o.at.y * W + o.at.x),
+        ...map.objects.flatMap((o) => {
+          const p = o.kind === 'town' ? rioAnteLaCiudad(map, o.at) : null;
+          return p === null ? [] : [p.acceso.y * W + p.acceso.x];
+        }),
+      ]);
       if (trazado.forma === 'lago')
         for (const rio of trazado.rios) {
           const curso = rio.filter(
@@ -297,10 +306,10 @@ describe('el río de los mapas del juego, entero (el guardia de continuidad)', (
         // se pinta y pulsarlo lo metía en el castillo (s7, s30).
         if (o.kind === 'town' && o.owner !== null)
           malos.push(`s${s}: la base ${o.id} de (${o.at.x},${o.at.y}) está en el río`);
-        if (o.kind === 'town' && !rioBajoLaCiudad(map, o.at))
-          malos.push(
-            `s${s}: la ciudad de (${o.at.x},${o.at.y}) está en el río sin que pase por debajo`,
-          );
+        // Ni una ciudad: la ciudad-puente va en tierra, con su puente delante
+        // (`rioAnteLaCiudad`; la ciudad amurallada, fase 2).
+        if (o.kind === 'town')
+          malos.push(`s${s}: la ciudad ${o.id} de (${o.at.x},${o.at.y}) está en el río`);
         if (o.kind === 'node' && (o.barrera !== 'water' || !puenteConDosOrillas(map, o.at)))
           malos.push(
             `s${s}: el nodo de (${o.at.x},${o.at.y}) está en el río y no es un puente entre dos orillas`,

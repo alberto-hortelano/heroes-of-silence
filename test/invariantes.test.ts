@@ -1478,6 +1478,30 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], declara)).toHaveLength(3);
   });
 
+  it('por dónde se entra en una ciudad lo dice su recinto, no las puertas de minas y pueblos', () => {
+    // La ciudad amurallada, fase 2 (21-10-2026): la ciudad se entraba por la
+    // casilla de debajo (`puertas.ts`, #188) y solo para el trazado; ahora tiene
+    // las puertas de su recinto (`PUERTAS_DE_LA_CIUDAD`), que mira el juego. Si
+    // `puertas.ts` volviera a nombrar la ciudad, habría dos reglas para la
+    // misma puerta. Roto a mano: `town: [[0, 1]]` en `RUMBOS` sale rojo.
+    expect(infractoresDeCodigo(['src/core/map/puertas.ts'], /\btown\b/)).toEqual([]);
+    // Y el paso por el recinto lo lee solo `map.ts` (el Dijkstra, `stepCost`,
+    // `sePasa`): nadie más decide por su cuenta qué casilla del recinto se pisa.
+    // El de la batalla (`battle/`) es otro: el de los muros de la muralla.
+    const lee = /\bpasoPermitido\s*\(/;
+    expect(
+      infractoresDeCodigo(
+        [...CORE, ...CLIENTE, ...SERVIDOR].filter(
+          (r) =>
+            r !== 'src/core/map/map.ts' &&
+            r !== 'src/core/map/recinto.ts' &&
+            !r.startsWith('src/core/battle/'),
+        ),
+        lee,
+      ),
+    ).toEqual([]);
+  });
+
   it('el catálogo de unidades lo importa solo `core/catalogo.ts`, que lo valida al cargar', () => {
     // F1 de 2026-10-18: `data/unidades.json` es la lista entera de las cinco
     // facciones. Quien lo importara por su cuenta se saltaría la validación de

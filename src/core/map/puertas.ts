@@ -1,7 +1,7 @@
 /**
  * Las puertas de lo que se entra por delante (#188): por dónde llega el camino a
- * una ciudad, una mina o un pueblo. Es un hecho, aquí: lo leen la búsqueda de
- * los caminos (`Busqueda`, `vestir.ts`), quien coloca los objetos (`colocarPar`,
+ * una mina o a un pueblo. Es un hecho, aquí: lo leen la búsqueda de los caminos
+ * (`Busqueda`, `vestir.ts`), quien coloca los objetos (`colocarPar`,
  * `generate.ts`) y quien mide lo pintado (`sendasPorObjeto`, en el escenógrafo).
  *
  * La cámara mira desde el sur y la puerta del sprite está en su pie, así que
@@ -9,19 +9,22 @@
  * la vagoneta y los raíles de `mapa/atlas/mina.webp` salen al este, y con una
  * sola puerta el ramal de una mina con el radio al lado salía por debajo y daba
  * la vuelta para llegar a él (marca del usuario en s26000 (23,4): «para poder
- * usar el que menos forzado quede»). Ciudad y pueblo siguen con una.
+ * usar el que menos forzado quede»). El pueblo sigue con una.
  *
- * El juego no mira las puertas: un héroe entra en una mina por donde llegue. Son
- * del trazado y de la escena.
+ * **La ciudad ya no está aquí** (la ciudad amurallada, vuelta 3, fase 2): sus
+ * puertas son las de su recinto (`PUERTAS_DE_LA_CIUDAD`, `recinto.ts`), y esas
+ * sí las mira el juego: su muralla no se pisa.
+ *
+ * El juego no mira estas puertas: un héroe entra en una mina por donde llegue.
+ * Son del trazado y de la escena.
  */
 import type { Point } from '../types.js';
 
 /** Lo que se entra por su puerta. */
-export type ConPuerta = 'town' | 'mine' | 'village';
+export type ConPuerta = 'mine' | 'village';
 
 /** El rumbo de cada puerta, desde el objeto: la primera es la de debajo. */
 const RUMBOS: Readonly<Record<ConPuerta, readonly (readonly [number, number])[]>> = {
-  town: [[0, 1]],
   village: [[0, 1]],
   mine: [
     [0, 1],

@@ -263,7 +263,7 @@ describe('la espalda, una línea nítida (#223)', () => {
       ).toBeGreaterThan(10);
   });
 
-  it('s26 (13,11): al norte, el hoyo del nodo de acantilado; al norte del hoyo, la sombra de la ladera de (12,9), que no es de la espalda', () => {
+  it('s4 (12,31): al norte, el hoyo del nodo de acantilado; al norte del hoyo, la sombra de la ladera de (11,29), que no es de la espalda', () => {
     // Con los ríos (#144, 16-10-2026) era s36 (10,33): el nodo de (10,32), con
     // camino, va a lo bajo (0) entre dos acantilados a 2, y lo alto se lo come
     // casi entero. La tirada de oscuro subía del canto, por el hoyo, a la
@@ -272,23 +272,30 @@ describe('la espalda, una línea nítida (#223)', () => {
     // la de su norte. Con el río de una casilla (#144, paso 2), s41 (19,10): el
     // nodo de acantilado de (19,9), con camino, a 1 entre dos acantilados a 2.
     // Con el río continuo (#144), s26 (13,11): el nodo de acantilado de (13,10),
-    // con camino, a 1 entre dos a 2 (el mismo dibujo, buscado en 1-120 con la
-    // sombra de su ladera en la fila del norte; s26 es la primera).
-    const e = partidaDe(26).escena;
+    // con camino, a 1 entre dos a 2. Con las puertas de las ciudades (fase 2,
+    // 21-10-2026), s4 (12,31): el mismo dibujo, buscado en 1-200 con la sombra
+    // de su ladera en la fila del norte; s4 es la primera.
+    const [X, Y] = [12, 31];
+    const e = partidaDe(4).escena;
     const n = (x: number, y: number) => e.nivel[y * e.W + x];
-    // Que el caso siga ahí: el hoyo y, al norte, la sombra de la ladera de (12,9).
-    expect([n(13, 11), n(13, 10), n(12, 10), n(14, 10), n(12, 9), n(13, 9)]).toEqual([
-      2, 1, 2, 2, 2, 1,
-    ]);
+    // Que el caso siga ahí: el hoyo y, al norte, la sombra de la ladera.
+    expect([
+      n(X, Y),
+      n(X, Y - 1),
+      n(X - 1, Y - 1),
+      n(X + 1, Y - 1),
+      n(X - 1, Y - 2),
+      n(X, Y - 2),
+    ]).toEqual([2, 1, 2, 2, 2, 1]);
     const np = nivelPintado(e);
     const sombra = sombraAlPie(e, np);
     const enLaDelNorte = (px: number) =>
-      Array.from({ length: R }, (_, k) => sombra.alfa[(9 * R + k) * np.ancho + px] as number);
-    const columnas = Array.from({ length: R }, (_, k) => 13 * R + k).filter((px) =>
+      Array.from({ length: R }, (_, k) => sombra.alfa[((Y - 2) * R + k) * np.ancho + px] as number);
+    const columnas = Array.from({ length: R }, (_, k) => X * R + k).filter((px) =>
       enLaDelNorte(px).some((a) => a / 255 >= OSCURO_DE_LA_ESPALDA.umbral),
     );
     expect(columnas.length).toBeGreaterThan(0);
-    const espalda = oscuroAlNorteDeLasEspaldas(e).find((q) => q.x === 13 && q.y === 11);
+    const espalda = oscuroAlNorteDeLasEspaldas(e).find((q) => q.x === X && q.y === Y);
     expect(espalda?.ancho).toBeGreaterThan(0);
     expect(espalda?.ancho).toBeLessThanOrEqual(OSCURO_DE_LA_ESPALDA.ancho);
   });

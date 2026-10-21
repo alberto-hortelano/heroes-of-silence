@@ -45,6 +45,7 @@ import {
   reachableFrom,
   stepCost,
 } from '../src/core/map/map.js';
+import { puertasDeLaCiudad } from '../src/core/map/recinto.js';
 import {
   conectadoABase,
   estructura,
@@ -249,7 +250,9 @@ describe('generación de mapas', () => {
     const neutral = plan.towns.find((t) => t.owner === null)!;
     const aislado = {
       ...plan,
-      patches: [...plan.patches, { terrain: 'water' as const, center: neutral.at, radius: 1.5 }],
+      // Su recinto y sus accesos, los 5×5: una ciudad toca las regiones de los
+      // accesos de sus puertas (`regionesDeLaCiudad`), a dos casillas.
+      patches: [...plan.patches, { terrain: 'water' as const, center: neutral.at, radius: 2.9 }],
       // Sin caminos: los que llegaban a la ciudad quedarían sobre el agua, y un
       // camino sobre una barrera se rechaza antes de mirar la red. El
       // procedimental los escribe como tramos (#153).
@@ -853,7 +856,8 @@ describe('movimiento de héroes', () => {
 
     // Sin guarnición no hay batalla: lo que se mide aquí es la captura.
     suyo.garrison = [];
-    hero.at = { x: suyo.at.x - 1, y: suyo.at.y };
+    // En una de sus puertas: su muralla no se pisa (`recinto.ts`).
+    hero.at = { ...(puertasDeLaCiudad(state.map, suyo.at)[0]?.casilla as Point) };
     hero.movePoints = 5000;
     applyAdventureAction(
       state,
@@ -2199,7 +2203,8 @@ describe('el mapa de nodos se juega', () => {
     // Y entrar en la del rival ya no es tomarla: es batalla contra esa tropa.
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
-    suyo.at = { x: 6, y: 4 };
+    // En la puerta del noreste de Valdeluz: su muralla no se pisa (`recinto.ts`).
+    suyo.at = { x: 6, y: 3 };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 5, y: 4 } }, c, 1);
     expect(state.pendingBattle?.foe).toEqual({ kind: 'town', townId: 'town-0' });
@@ -2378,7 +2383,8 @@ describe('el mapa de nodos se juega', () => {
     expect(heroesOf(state, 0)).toHaveLength(1);
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
-    suyo.at = { x: 6, y: 4 };
+    // En la puerta del noreste de Valdeluz: su muralla no se pisa (`recinto.ts`).
+    suyo.at = { x: 6, y: 3 };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 5, y: 4 } }, c, 1);
     expect(state.towns.find((t) => t.id === 'town-0')!.owner).toBe(1);
@@ -2401,7 +2407,8 @@ describe('el mapa de nodos se juega', () => {
     state.heroes = state.heroes.filter((h) => h.owner !== 0);
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
-    suyo.at = { x: 6, y: 4 };
+    // En la puerta del noreste de Valdeluz: su muralla no se pisa (`recinto.ts`).
+    suyo.at = { x: 6, y: 3 };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 5, y: 4 } }, c, 1);
     expect(state.finished).toEqual({ winner: 1 });
@@ -2444,7 +2451,8 @@ describe('el mapa de nodos se juega', () => {
     // Cinco con mandoble: con dos esqueletos, el héroe solo los paraba (19-10-2026,
     // la rueda y su Espada).
     suyo.army = ejercito({ creature: PESADA, count: 5 });
-    suyo.at = { x: base.at.x + 1, y: base.at.y };
+    // En la puerta del noreste: la muralla no se pisa (`recinto.ts`).
+    suyo.at = { x: base.at.x + 1, y: base.at.y - 1 };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: base.at }, c, 1);
 
@@ -2470,7 +2478,8 @@ describe('el mapa de nodos se juega', () => {
     state.towns.find((t) => t.id === 'town-2')!.garrison = [];
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
-    suyo.at = { x: 18, y: 4 };
+    // En la puerta del noreste de Torreblanca: su muralla no se pisa.
+    suyo.at = { x: 18, y: 3 };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 17, y: 4 } }, c, 1);
     expect(state.towns.find((t) => t.id === 'town-2')!.owner).toBe(1);
@@ -2486,7 +2495,9 @@ describe('el mapa de nodos se juega', () => {
     state.heroes = state.heroes.filter((h) => h.owner !== 1);
     state.towns.find((t) => t.id === 'town-1')!.garrison = [];
     const hero = heroById(state, 'hero-0');
-    hero.at = { x: 21, y: 4 };
+    // Delante de la puerta del noroeste de Cripta Gris: por ella entra, y de la
+    // ciudad sale por la del noreste hacia (24,4).
+    hero.at = { x: 20, y: 3 };
     hero.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 24, y: 4 } }, c, 0);
     expect(state.finished).toEqual({ winner: 0 });

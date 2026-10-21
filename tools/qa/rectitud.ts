@@ -134,6 +134,7 @@ export { largoALaEscala };
  * | las caídas largas partidas (#231) | 48 / 0 / 5 | 44 / 0 / 4 | 51 / 0 / 3 | 143 / 0 / 12 |
  * | la muralla como cierre de un paso (#232) | 61 / 0 / 7 | 50 / 0 / 3 | 53 / 0 / 4 | 164 / 0 / 14 |
  * | el recinto de las ciudades en el núcleo (vuelta 3, 21-10-2026) | 24 / 0 / 2 | 38 / 0 / 2 | 36 / 0 / 2 | 98 / 0 / 6 |
+ * | por dónde se entra en una ciudad (vuelta 3, fase 2, 21-10-2026) | 28 / 0 / 2 | 37 / 0 / 1 | 38 / 0 / 2 | 103 / 0 / 5 |
  *
  * La tercera fila es una perturbación neutra (las mismas reglas, otra tirada):
  * ±10 tramos por bloque, y las caras de 7 a 13 sin tocar nada que las haga.

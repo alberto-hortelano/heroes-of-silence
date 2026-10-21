@@ -82,7 +82,9 @@ import {
   pointKey,
   type Reachable,
   reachableFrom,
+  sePasa,
 } from '../map/map.js';
+import { muroBlocker } from '../map/recinto.js';
 import { territorio } from '../map/regiones.js';
 import { createRng, type Rng } from '../rng.js';
 import { CHARACTER_BODY, type Character } from '../rpg/character.js';
@@ -2002,6 +2004,12 @@ export function puedeAndarHoy(state: GameState, hero: Hero): boolean {
  *     guardando los dos pasos de una región—, son todos los de delante.
  */
 export function porQueNoLlega(state: GameState, hero: Hero, to: Point): string {
+  // La muralla de una ciudad no se pisa: se dice, con sus puertas.
+  const muro = muroBlocker(state.map, to, (at) => {
+    const ciudad = state.towns.find((t) => pointKey(t.at) === pointKey(at));
+    return ciudad === undefined ? `la ciudad de (${at.x},${at.y})` : ciudad.name;
+  });
+  if (muro !== null) return muro;
   const frase = `no hay camino hasta (${to.x},${to.y})`;
   if (caminoEsquivando(state, hero, to, []) === null) return frase;
   const hostiles = casillasHostiles(state, hero.owner);
@@ -2936,7 +2944,8 @@ function casillaDeVuelta(state: GameState, hero: Hero, base: Town): Point {
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
         const p = { x: desde.x + dx, y: desde.y + dy };
-        if (!isEnterable(state.map, p) || vistas.has(pointKey(p))) continue;
+        if (!isEnterable(state.map, p) || !sePasa(state.map, desde, p) || vistas.has(pointKey(p)))
+          continue;
         vistas.add(pointKey(p));
         if (!ocupada(p) && objectAt(state.map, p) === undefined) return p;
         cola.push(p);

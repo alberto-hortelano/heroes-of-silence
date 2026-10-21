@@ -710,17 +710,32 @@ Reglas que se validan antes de aceptarlo:
 - Todo lo que no es nodo ni ciudad —minas, pueblos, recursos, monstruos, cofres
   e inicios— va DENTRO de una región, nunca sobre un muro ni sobre un nodo.
 - Cada ciudad es un RECINTO amurallado de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO} casillas con ella en el
-  medio. La de un puente (una ciudad sobre el agua de un río) lo lleva en su
-  orilla de tierra, con el medio a dos casillas de ella. Por eso: una ciudad va
-  a una casilla del borde del mapa o más; dos ciudades, con los medios de sus
-  recintos a ${SEPARACION_DE_CIUDADES} casillas o más, contando la diagonal como una; y dentro de un
+  medio. Por eso: una ciudad va a una casilla del borde del mapa o más; dos
+  ciudades, a ${SEPARACION_DE_CIUDADES} casillas o más, contando la diagonal como una; y dentro de un
   recinto no va nada más que su ciudad —ni un nodo, ni otra ciudad, ni una
   mina, un pueblo, un recurso, un monstruo, un cofre, un inicio o un grupo de
-  asaltantes—. Pon el inicio de cada jugador fuera de su base, a dos casillas
-  de ella. Lo que no cumpla se rechaza diciendo cuál y dónde.
+  asaltantes—.
+- A una ciudad se entra por las PUERTAS de su recinto, y el resto del recinto no
+  se pisa. Las puertas posibles son seis, relativas a la ciudad en {x,y}: la
+  del norte en {x,y-1}, con su acceso en {x,y-2}; la del sur en {x,y+1}, con el
+  suyo en {x,y+2}; y las de las diagonales en las esquinas del recinto
+  ({x±1,y±1}), cada una con sus tres casillas de fuera pegadas a ella (la del
+  noreste, {x+1,y-1}, desde {x+1,y-2}, {x+2,y-2} o {x+2,y-1}). Ni al este ni al
+  oeste. Y HAY PUERTA SOLO DONDE LLEGA UN CAMINO: un camino entra de un acceso a
+  su puerta y de la puerta a la ciudad, y cada región que toca un acceso de una
+  ciudad tiene que llevar su camino hasta ella por una de sus puertas, o el
+  plan se rechaza. Un camino que cruza la muralla por otro sitio, también.
+- Una ciudad junto a un río (una ciudad-puente) va en tierra, y a dos casillas,
+  en cruz, deja una casilla del río que se pisa, con agua a sus dos lados a lo
+  largo del río: es su puente, tierra de la orilla de enfrente y el acceso de su
+  puerta del río, que existe siempre (también al este o al oeste). Una ciudad
+  sobre el agua del río se rechaza.
+- Pon el inicio de cada jugador en un acceso de una puerta de su base, a dos
+  casillas de ella. Lo que no cumpla todo esto se rechaza diciendo cuál y dónde.
 - Un camino ("roads") solo va por casillas que se pisan —una región, un nodo o
-  una ciudad—. Uno sobre una barrera se rechaza diciendo la casilla: pintado
-  encima de un acantilado diría que por ahí se pasa, y no se pasa.
+  una ciudad, y las puertas de una ciudad aunque debajo haya barrera—. Uno
+  sobre una barrera se rechaza diciendo la casilla: pintado encima de un
+  acantilado diría que por ahí se pasa, y no se pasa.
 - Desde cada inicio se debe poder llegar a pie a todas las ciudades.
 - "monsters[].creature" tiene que ser un id de criatura que exista: usa los de
   "palette.creaturesForGuards", que están escritos como los espera el motor.

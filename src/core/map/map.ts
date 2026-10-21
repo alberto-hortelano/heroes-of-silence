@@ -7,6 +7,15 @@
 import type { Point, ResourceKind } from '../types.js';
 import { Frontera } from './frontera.js';
 import {
+  enAlgunRecinto,
+  FUERA,
+  MURO,
+  muroBlocker,
+  pasoPermitido,
+  pasosDelMapa,
+  tramoDelRecinto,
+} from './recinto.js';
+import {
   type Barrera,
   costeDeEntrada,
   isWalkable,
@@ -187,6 +196,8 @@ export class RedDeCaminos {
   private readonly marca: Uint8Array;
   /** Las casillas con camino por índice plano, en el orden de `casillas`. */
   readonly indices: readonly number[];
+  /** Los tramos por sus dos índices planos, el menor delante (`i·N + j`): `une` no recorre la lista. */
+  private readonly unidas: ReadonlySet<number>;
 
   private constructor(
     readonly tramos: readonly TramoDeCamino[],
@@ -207,6 +218,27 @@ export class RedDeCaminos {
     this.claves = claves;
     this.marca = marca;
     this.indices = indices;
+    const N = width * height;
+    this.unidas = new Set(
+      tramos.map(([p, q]) => {
+        const a = p.y * width + p.x;
+        const b = q.y * width + q.x;
+        return Math.min(a, b) * N + Math.max(a, b);
+      }),
+    );
+  }
+
+  /**
+   * ¿Va un tramo de `p` a `q` (en cualquier sentido)? Es la pregunta de las
+   * puertas de una ciudad (`puertasDeLaCiudad`): hay puerta donde llega un
+   * camino. Fuera del mapa no hay tramo.
+   */
+  une(p: Point, q: Point): boolean {
+    const fuera = (r: Point) => r.x < 0 || r.x >= this.width || r.y < 0 || r.y >= this.height;
+    if (fuera(p) || fuera(q)) return false;
+    const a = p.y * this.width + p.x;
+    const b = q.y * this.width + q.x;
+    return this.unidas.has(Math.min(a, b) * this.width * this.height + Math.max(a, b));
   }
 
   /** Las casillas con camino, por clave "x,y": las de algún tramo y las sueltas. */
@@ -297,11 +329,18 @@ function comparaEnLectura(p: Point, q: Point): number {
  * es, el trazo pasa por ella). Una casilla sin vecina de camino va en
  * `sueltas`, para que siga abaratando el paso. **Lanza** con una casilla fuera
  * del mapa, como `RedDeCaminos.desdeTramos`: `validateMapPlan` la rechaza antes.
+ *
+ * En el recinto de una de `ciudades` (la ciudad amurallada, fase 2), solo se
+ * unen un acceso con su puerta y la puerta con la ciudad (`tramoDelRecinto`):
+ * dos puertas vecinas, o una puerta y el acceso de la de al lado, no. Y lo del
+ * recinto no hace de esquina para un tramo que entra en él: la puerta del
+ * noreste llega a la ciudad en diagonal aunque la del norte también sea camino.
  */
 export function tramosDeCasillas(
   puntos: readonly Point[],
   width: number,
   height: number,
+  ciudades: readonly Point[] = [],
 ): { tramos: TramoDeCamino[]; sueltas: Point[] } {
   const caminos = new Set<number>();
   for (const p of puntos) {
@@ -318,8 +357,12 @@ export function tramosDeCasillas(
       const ny = y + dy;
       const j = ny * width + nx;
       if (nx < 0 || nx >= width || ny >= height || !caminos.has(j)) continue;
-      if (dx !== 0 && dy !== 0 && (caminos.has(y * width + nx) || caminos.has(ny * width + x)))
-        continue;
+      const delRecinto = tramoDelRecinto(ciudades, { x, y }, { x: nx, y: ny });
+      if (delRecinto === false) continue;
+      const esquina = (ex: number, ey: number): boolean =>
+        caminos.has(ey * width + ex) &&
+        (delRecinto === null || !enAlgunRecinto(ciudades, { x: ex, y: ey }));
+      if (dx !== 0 && dy !== 0 && (esquina(nx, y) || esquina(x, ny))) continue;
       tramos.push([aPunto(i, width), aPunto(j, width)]);
       conTramo.add(i).add(j);
     }
@@ -365,11 +408,29 @@ export function blocksMovement(o: MapObject): boolean {
 
 /**
  * ¿Se puede terminar el movimiento aquí? Un objeto recogible se pisa (y se
- * recoge); un monstruo se "pisa" para desencadenar la batalla.
+ * recoge); un monstruo se "pisa" para desencadenar la batalla. En el recinto de
+ * una ciudad, solo la ciudad y sus puertas, aunque debajo haya barrera; su
+ * muralla no, aunque debajo haya pradera (`recinto.ts`).
  */
 export function isEnterable(map: GameMap, p: Point): boolean {
   if (!inBounds(map, p)) return false;
+  const rol = pasosDelMapa(map)?.rol[p.y * map.width + p.x] ?? FUERA;
+  if (rol !== FUERA) return rol !== MURO;
   return isWalkable(terrainAt(map, p));
+}
+
+/**
+ * ¿Se pasa de `desde` a su vecina `hasta`? Fuera de los recintos de las
+ * ciudades, siempre; en uno, solo de un acceso a su puerta y de la puerta a la
+ * ciudad (`pasoPermitido`). Lo que no se pisa lo dice `isEnterable`. Es la regla
+ * del Dijkstra para quien recorre las vecinas por su cuenta (`casillaDeVuelta`).
+ */
+export function sePasa(map: GameMap, desde: Point, hasta: Point): boolean {
+  const pasos = pasosDelMapa(map);
+  return (
+    pasos === null ||
+    pasoPermitido(pasos, desde.y * map.width + desde.x, hasta.y * map.width + hasta.x)
+  );
 }
 
 /**
@@ -381,10 +442,24 @@ export function isEnterable(map: GameMap, p: Point): boolean {
  */
 export function stepCost(map: GameMap, from: Point, to: Point): number {
   const terreno = terrainAt(map, to);
+  const diagonal = from.x !== to.x && from.y !== to.y;
+  const pasos = pasosDelMapa(map);
+  if (pasos !== null) {
+    const i = from.y * map.width + from.x;
+    const j = to.y * map.width + to.x;
+    if (!pasoPermitido(pasos, i, j)) {
+      throw new Error(
+        muroBlocker(map, to) ??
+          `no se pasa de (${from.x},${from.y}) a (${to.x},${to.y}): a una ciudad se entra desde un acceso de una de sus puertas, y de la puerta a ella`,
+      );
+    }
+    // La puerta y la ciudad, como una calle, aunque debajo haya barrera.
+    if (pasos.rol[j] !== FUERA) return costeDeEntrada('grass', true, diagonal);
+  }
   if (!isWalkable(terreno)) {
     throw new Error(`no se entra en (${to.x},${to.y}): es ${terreno}, y una barrera no se pisa`);
   }
-  return costeDeEntrada(terreno, map.caminos.tiene(to), from.x !== to.x && from.y !== to.y);
+  return costeDeEntrada(terreno, map.caminos.tiene(to), diagonal);
 }
 
 export interface PathStep {
@@ -594,6 +669,20 @@ function dijkstra(
     recto[i] = costeDeEntrada(terreno, true, false);
     oblicuo[i] = costeDeEntrada(terreno, true, true);
   }
+  // El recinto de cada ciudad (`recinto.ts`): su muralla no se pisa, aunque
+  // debajo haya pradera, y la ciudad y sus puertas sí, aunque haya barrera, y
+  // cuestan como una calle. Por dónde se pasa lo dice `pasoPermitido` en el
+  // bucle de las vecinas.
+  const recinto = pasosDelMapa(map);
+  for (const i of recinto?.delRecinto ?? []) {
+    if (recinto?.rol[i] === MURO) {
+      pisable[i] = 0;
+      continue;
+    }
+    pisable[i] = 1;
+    recto[i] = costeDeEntrada('grass', true, false);
+    oblicuo[i] = costeDeEntrada('grass', true, true);
+  }
   const bloqueada = new Uint8Array(casillas);
   for (const o of map.objects) {
     if (!blocksMovement(o) || !inBounds(map, o.at)) continue;
@@ -674,6 +763,7 @@ function dijkstra(
 
         const vecina = ny * ancho + nx;
         if (cerrada[vecina] === 1 || pisable[vecina] === 0) continue;
+        if (recinto !== null && !pasoPermitido(recinto, actual, vecina)) continue;
 
         const paso = dx !== 0 && dy !== 0 ? (oblicuo[vecina] as number) : (recto[vecina] as number);
         const nuevo = nodo.cost + paso;

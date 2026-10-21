@@ -248,6 +248,10 @@ describe('la emboscada', () => {
   it('gana el héroe atacando: el grupo desaparece', () => {
     const { state, ctx, hero, grupo } = enSuRegion(11);
     hero.army = ejercito({ creature: PESADA, count: 6 });
+    // El grupo, fijo y flojo: el más fuerte de la semilla depende del mapa, y
+    // con las puertas de las ciudades (la ciudad amurallada) eran cuatro orkos
+    // de armadura pesada que ganaban. Aquí se mide qué pasa si gana el héroe.
+    (grupo as { troops: unknown }).troops = [{ creature: TROPA_BARATA, count: 2 }];
     hero.at = libresDeSuRegion(state, grupo).find(
       (p) => Math.max(Math.abs(p.x - grupo.at.x), Math.abs(p.y - grupo.at.y)) === 1,
     )!;

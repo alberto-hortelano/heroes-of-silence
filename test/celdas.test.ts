@@ -374,8 +374,9 @@ describe('las piezas en su sitio, con el arte del repo', () => {
     // río de una casilla al pie de la meseta (#144, paso 2b) la s8 ya no lleva
     // basalto: otra vez la s1, con 18 laderas y 25 diagonales y bajadas. Con el
     // río continuo (#144) la s1 no tiene mesetas: la s8, la primera con
-    // basalto, con 16 laderas y 25 diagonales y bajadas.
-    const enS1 = componer(newGame({ seed: 8 }).map, 8, catalogo).sprites;
+    // basalto, con 16 laderas y 25 diagonales y bajadas. Con las puertas de las
+    // ciudades (fase 2, 21-10-2026), la s4, la primera de 1-120 con basalto.
+    const enS1 = componer(newGame({ seed: 4 }).map, 4, catalogo).sprites;
     const deLadera = new Set(
       enS1.filter((s) => s.src?.includes('/laderas-basalto-') === true).map((s) => s.tono),
     );

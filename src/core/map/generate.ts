@@ -57,14 +57,17 @@ import { murallasDeLaRejilla } from './murallas.js';
 import { type ConPuerta, rumbosDePuerta } from './puertas.js';
 import {
   cabeElRecinto,
-  centroDeLaCiudad,
+  type MapaDelRecinto,
   ORDEN_DEL_INICIO,
   PUERTAS_DE_LA_CIUDAD,
+  pasosDelRecinto,
   problemasDeRecintos,
+  puertasPosibles,
   SEPARACION_DE_CIUDADES,
 } from './recinto.js';
 import {
   aPunto,
+  componentesDelMapa,
   type Estructura,
   estructura,
   juntoANodo,
@@ -72,7 +75,6 @@ import {
   problemasDeNiveles,
   problemasDeRed,
   regionesQueToca,
-  rellenar,
   territorio,
   tramosTorcidos,
   VECINAS,
@@ -80,7 +82,9 @@ import {
 } from './regiones.js';
 import {
   ladosDelRio,
+  type MapaDelRio,
   nivelesDelRio,
+  orillaDeLaCiudad,
   orillas,
   regionesDelRio,
   rioEntero,
@@ -109,6 +113,7 @@ import {
   CASILLAS_DE_UNA_MURALLA,
   caidasLargas,
   conEjePleno,
+  type EntradaDeCaminos,
   engordarFronteras,
   esDelRio,
   espejoDe,
@@ -117,8 +122,10 @@ import {
   nivelesDeLoEngordado,
   parejaDe,
   ponerObstaculos,
+  ponerTipo,
   sinAguaEnLasEsquinas,
   TIPOS_POR_MAPA,
+  type Tipos,
   trazarCaminos,
 } from './vestir.js';
 
@@ -611,9 +618,13 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // «mapas densos», H4). Y uno fuera del mapa se tiraba sin decirlo.
   // Agrupados: un plan con 500 caminos fuera del mapa devolvía 500 frases, y el
   // agente las recibe todas en su rechazo (QA de «mapas densos», vuelta 2, N4).
+  // Salvo en el recinto de una ciudad: su puerta se pisa aunque debajo haya
+  // barrera, y lo que un camino haga ahí lo juzga `problemasDeRecintos`.
+  const enUnRecinto = (p: Point): boolean =>
+    plan.towns.some((t) => Math.max(Math.abs(t.at.x - p.x), Math.abs(t.at.y - p.y)) <= 1);
   const caminosSobreBarrera: { p: Point; terreno: TerrainKind }[] = [];
   for (const p of casillasDelPlan(plan)) {
-    if (!inBounds(plan, p)) continue;
+    if (!inBounds(plan, p) || enUnRecinto(p)) continue;
     const terreno = map.terrain[p.y * map.width + p.x] as TerrainKind;
     if (!isWalkable(terreno)) caminosSobreBarrera.push({ p, terreno });
   }
@@ -649,7 +660,7 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // de una ciudad-puente se lee de sus regiones. Ni en el borde, ni dos que se
   // toquen, ni nada dentro: ni un nodo, ni un objeto, ni un inicio, ni un grupo.
   problemas.push(
-    ...problemasDeRecintos(map, plan.towns, [
+    ...problemasDeRecintos(map, estructura(map), plan.towns, [
       ...plan.heroStarts.map((i) => ({ quien: `el inicio del jugador ${i.player}`, at: i.at })),
       ...(plan.raiders ?? []).map((r) => ({ quien: 'el grupo de asaltantes', at: r.at })),
     ]),
@@ -755,7 +766,12 @@ function casillasDelPlan(plan: MapPlan): readonly Point[] {
 export function caminosDelPlan(plan: MapPlan): RedDeCaminos {
   const { width, height } = plan;
   if (plan.tramos !== undefined) return RedDeCaminos.desdeTramos(plan.tramos, width, height);
-  const { tramos, sueltas } = tramosDeCasillas(plan.roads ?? [], width, height);
+  const { tramos, sueltas } = tramosDeCasillas(
+    plan.roads ?? [],
+    width,
+    height,
+    plan.towns.map((t) => t.at),
+  );
   return RedDeCaminos.desdeTramos(tramos, width, height, sueltas);
 }
 
@@ -847,8 +863,6 @@ export function buildMap(plan: MapPlan): BuiltMap {
     }
   }
 
-  pintarSuelosDeRegion(map, plan);
-
   const objects: MapObject[] = [];
   for (const t of plan.towns) objects.push({ kind: 'town', id: t.id, at: t.at, owner: t.owner });
   for (const [i, n] of plan.nodes.entries()) {
@@ -885,6 +899,7 @@ export function buildMap(plan: MapPlan): BuiltMap {
     objects.push({ kind: 'chest', id: `chest-${i}`, at: c.at, gold: c.gold, taken: false });
   }
   map.objects.push(...objects);
+  pintarSuelosDeRegion(map, plan);
 
   const towns = plan.towns.map((t) => {
     const town = createTown(t.id, t.name, t.faction, t.at, t.owner);
@@ -905,37 +920,29 @@ export function buildMap(plan: MapPlan): BuiltMap {
 }
 
 /**
- * El suelo entero de cada región que lo declara: un relleno 8-conexo desde su
- * casilla por lo pisable que no es nodo, que es exactamente la definición de
- * región de `regiones.ts`. Va después de abrir los nodos y no pinta ninguno, así
- * que lo que se pisa no cambia y la red tampoco: solo el color del suelo.
+ * El suelo entero de cada región que lo declara: su componente de lo pisable
+ * sin nodos (`componentesDelMapa`), que es exactamente la definición de región
+ * de `regiones.ts`, con el corte del puente de una ciudad-puente. Va después de
+ * abrir los nodos y de poner los objetos, y no pinta ningún nodo, así que lo
+ * que se pisa no cambia y la red tampoco: solo el color del suelo. Si dos
+ * regiones caen en la misma componente, pinta la primera.
  *
  * Una región declarada sobre un muro no pinta nada, y no se calla: la rechaza
  * `problemasDeRed` al validar, que es quien sabe decir por qué.
  */
 function pintarSuelosDeRegion(map: GameMap, plan: MapPlan): void {
   const W = map.width;
-  const esNodo = new Uint8Array(W * map.height);
-  for (const p of [...plan.nodes, ...plan.towns.map((t) => t.at)]) {
-    if (inBounds(map, p)) esNodo[p.y * W + p.x] = 1;
-  }
-  const libre = (i: number): boolean =>
-    esNodo[i] === 0 && isWalkable(map.terrain[i] as TerrainKind);
-  // Una marca compartida por todas las regiones: dos regiones distintas no se
-  // tocan sin nodo, así que un relleno nunca entra en lo pintado por otro.
-  const visto = new Uint8Array(W * map.height);
+  const { comp, total } = componentesDelMapa(map);
+  const sueloDe = new Array<Suelo | undefined>(total);
   for (const r of plan.regions) {
-    const suelo = r.terrain;
-    if (suelo === undefined || !inBounds(map, r.at)) continue;
-    const origen = r.at.y * W + r.at.x;
-    if (visto[origen] === 1 || !libre(origen)) continue;
-    visto[origen] = 1;
-    const toma = (j: number): boolean => {
-      if (visto[j] === 1 || !libre(j)) return false;
-      visto[j] = 1;
-      return true;
-    };
-    for (const i of rellenar(W, map.height, origen, toma)) map.terrain[i] = suelo;
+    if (r.terrain === undefined || !inBounds(map, r.at)) continue;
+    const c = comp[r.at.y * W + r.at.x] as number;
+    if (c === -1 || sueloDe[c] !== undefined) continue;
+    sueloDe[c] = r.terrain as Suelo;
+  }
+  for (let i = 0; i < comp.length; i++) {
+    const suelo = sueloDe[comp[i] as number];
+    if (suelo !== undefined) map.terrain[i] = suelo;
   }
 }
 
@@ -1823,7 +1830,7 @@ function intentarRed(rng: Rng, W: number, H: number, forma: FormaDelRio): RedFin
   //     nodo podía quedar entre sus casas (s98, s105).
   const enCiudad = [b0, b1, ...cruceros];
   const centros = enCiudad.map((k) =>
-    centroDeLaCiudad(conNodos, red.nodos[k]?.at as Point, red.regionDe),
+    enSuOrilla(conNodos, red.nodos[k]?.at as Point, red.regionDe),
   );
   if (centros.some((c) => !cabeElRecinto(c, W, H))) return null;
   for (const [k, c] of centros.entries()) {
@@ -2013,8 +2020,12 @@ function vestirRed(
   opts: ProceduralOptions,
   guardarPuertas = true,
 ): PlanConTramos | VestidoFallido {
-  const { W, H, semillas, etiqueta, muro, nodos, regions, conNodos, red, b0, b1 } = fina;
+  const { W, H, semillas, etiqueta, muro, regions, conNodos, red, b0, b1 } = fina;
   const { neutrales, d0, d1 } = fina;
+  // Los nodos de la red fina. La ciudad-puente se muda a su orilla en cuanto
+  // está la frontera gruesa (abajo, «la ciudad-puente, en tierra»), y desde
+  // ahí `nodos` y `ciudades` la tienen en su casilla nueva.
+  let nodos: readonly number[] = fina.nodos;
   // Sin facciones pedidas, las dos primeras de las cinco, sin tirada: el sorteo lo
   // hace la partida (`newGame`) con su propia corriente, para que pedir dos
   // facciones no mueva ni una casilla del mapa de una semilla.
@@ -2048,7 +2059,7 @@ function vestirRed(
 
   // 9. Las fronteras, gruesas y de su tipo. El mapa grueso se vuelve a validar
   //    entero: lo que se puede haber roto es una región partida o raquítica.
-  const ciudades = [b0, b1, ...neutrales].map((k) => nodos[k] as number);
+  let ciudades = [b0, b1, ...neutrales].map((k) => nodos[k] as number);
   const grueso = engordarFronteras({
     W,
     H,
@@ -2110,8 +2121,9 @@ function vestirRed(
   // gruesa: la orilla de una ciudad-puente sale de sus regiones, y el engorde
   // le puede cambiar el lado que la red fina le dio. Lo de dentro no se usa
   // para nada: ni objetos, ni obstáculos, ni un inicio.
-  const centros = [b0, b1, ...neutrales].map((k) =>
-    centroDeLaCiudad(mapaGrueso, red.nodos[k]?.at as Point, regionGruesa),
+  const enCiudad = [b0, b1, ...neutrales];
+  const centros = enCiudad.map((k) =>
+    enSuOrilla(mapaGrueso, red.nodos[k]?.at as Point, regionGruesa),
   );
   const enUnRecinto = new Uint8Array(N);
   for (const [k, c] of centros.entries()) {
@@ -2132,7 +2144,130 @@ function vestirRed(
       `el nodo de (${nodoDentro % W},${Math.floor(nodoDentro / W)}) cae en el recinto de una ciudad`,
     );
 
-  const ocupadas = new Set<number>(nodos);
+  // La ciudad-puente, en tierra (fase 2): la ciudad pasa al medio de su
+  // recinto, en su orilla, y la casilla del río en que estaba se queda abierta:
+  // es su puente, tierra de la región de enfrente (`rioAnteLaCiudad`) y el
+  // acceso de su puerta del río. La red no cambia —la ciudad sigue entre sus
+  // tres regiones—, así que la red gruesa se queda como está (con la ciudad en
+  // el río) y lo que se viste desde aquí la tiene en su casilla nueva.
+  /** Los puentes de las ciudades-puente: el índice de su casilla y la región de enfrente. */
+  const puentesDeCiudad = new Map<number, number>();
+  for (const [k, c] of centros.entries()) {
+    const n = enCiudad[k] as number;
+    const enElRio = nodos[n] as number;
+    if (indice(c) === enElRio) continue;
+    // La región de enfrente: la de lo que se pisa alrededor del puente fuera
+    // del recinto. Una sola, o el puente uniría dos.
+    const deEnfrente = new Set<number>();
+    const ex = enElRio % W;
+    const ey = (enElRio - ex) / W;
+    for (const [dx, dy] of VECINAS) {
+      const x = ex + dx;
+      const y = ey + dy;
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      if (Math.max(Math.abs(x - c.x), Math.abs(y - c.y)) <= 1) continue;
+      const r = regionGruesa[y * W + x] as number;
+      if (r >= 0) deEnfrente.add(r);
+    }
+    if (deEnfrente.size !== 1)
+      return fallo(
+        'objetos',
+        `el puente de la ciudad de (${c.x},${c.y}) toca ${deEnfrente.size} regiones al otro lado del río: tiene que dar a una`,
+      );
+    puentesDeCiudad.set(enElRio, [...deEnfrente][0] as number);
+  }
+  nodos = nodos.map((n, k) => {
+    const j = enCiudad.indexOf(k);
+    return j === -1 ? n : indice(centros[j] as Point);
+  });
+  ciudades = enCiudad.map((k) => nodos[k] as number);
+  /** Las casillas del río que se pisan: los puentes de las ciudades-puente. */
+  const abiertas: ReadonlySet<number> = new Set(puentesDeCiudad.keys());
+  /**
+   * La región de cada casilla para lo que se viste desde aquí: la de la red
+   * gruesa con el puente de cada ciudad-puente en la de enfrente. Se rehace al
+   * pedirla, porque `abrirEsquinasTorcidas` abre casillas a su región.
+   */
+  const regionDelVestido = (): Int32Array => {
+    const r = Int32Array.from(regionGruesa);
+    for (const [i, reg] of puentesDeCiudad) r[i] = reg;
+    return r;
+  };
+  /**
+   * Lo que se lee del vestido como un mapa (`MapaDelRecinto`): el terreno de
+   * `tipos` con el puente de cada ciudad-puente pisable, y dónde están las
+   * ciudades y los nodos. Es lo que dice por qué puertas puede entrar un camino
+   * en cada ciudad (`puertasPosibles`), con la regla de la partida.
+   */
+  const mapaDelVestido = (): MapaDelRecinto => ({
+    width: W,
+    height: H,
+    terrain: Array.from({ length: N }, (_, i) =>
+      abiertas.has(i) ? ('grass' as const) : (barreraDe(tipos, i) ?? ('grass' as const)),
+    ),
+    objects: nodos.map((n, k) => ({
+      kind: enCiudad.includes(k) ? ('town' as const) : ('node' as const),
+      at: punto(n),
+    })),
+  });
+  /** Las puertas por las que puede entrar un camino en cada ciudad, con las tablas del paso. */
+  const puertasDelVestido = () => {
+    const m = mapaDelVestido();
+    const puertas = ciudades.map((c) => ({ at: punto(c), puertas: puertasPosibles(m, punto(c)) }));
+    return { puertas, pasos: pasosDelRecinto(W, H, puertas) };
+  };
+  // Cada región de cada ciudad, con una puerta por la que entrar, y ninguna
+  // más: el recinto no cambia la red. La que llega a la ciudad por un pasillo
+  // de una casilla de este a oeste (el engorde abre en cruz la entrada de cada
+  // nodo) la toca solo por la cara del este o la del oeste, que no llevan
+  // puerta: se le abre a la región un acceso de una diagonal pegado al pasillo
+  // (`abrirUnAcceso`). Si no se puede, o una región llega a un acceso sin
+  // tocar el anillo (la ganaría), el vestido no vale.
+  {
+    /** Las regiones de cada ciudad a las que se llega por sus puertas, ascendentes. */
+    const porSusPuertas = (): number[][] => {
+      const { puertas } = puertasDelVestido();
+      const regionV = regionDelVestido();
+      return puertas.map(({ puertas: suyas }) =>
+        [...new Set(suyas.flatMap((p) => p.accesos.map((a) => regionV[indice(a)] as number)))]
+          .filter((r) => r >= 0)
+          .sort((a, b) => a - b),
+      );
+    };
+    const especial = (i: number): number | null =>
+      nodos.includes(i) ? -2 : (puentesDeCiudad.get(i) ?? null);
+    let llegan = porSusPuertas();
+    for (const [j, c] of ciudades.entries()) {
+      const planeadas = redGruesa.nodos[enCiudad[j] as number]?.regiones ?? [];
+      const faltan = planeadas.filter((r) => !(llegan[j] ?? []).includes(r));
+      if (faltan.some((r) => abrirUnAcceso(punto(c), r, tipos, regionGruesa, W, H, especial)))
+        llegan = porSusPuertas();
+      const deLaRed = planeadas.join();
+      const porPuertas = (llegan[j] ?? []).join();
+      if (deLaRed !== porPuertas)
+        return fallo(
+          'objetos',
+          `la ciudad de (${c % W},${Math.floor(c / W)}) toca las regiones ${deLaRed} y por sus puertas se llega a ${porPuertas}`,
+        );
+    }
+  }
+  // Ni nada en sus accesos ni en el puente: son su entrada.
+  const enUnAcceso = new Uint8Array(N);
+  for (const c of ciudades) {
+    const cx = c % W;
+    const cy = (c - cx) / W;
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        const x = cx + dx;
+        const y = cy + dy;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== 2 || x < 0 || y < 0 || x >= W || y >= H)
+          continue;
+        enUnAcceso[y * W + x] = 1;
+      }
+  }
+  for (const i of abiertas) enUnAcceso[i] = 1;
+
+  const ocupadas = new Set<number>([...nodos, ...abiertas]);
   // Lo pegado a un nodo no se usa, para que nada tape la entrada a la región.
   const junto = juntoANodo(mapaGrueso);
   // Ni lo que se ve delante de una entrada (`n + 2d` y, bajo las diagonales
@@ -2144,7 +2279,11 @@ function vestirRed(
   // nodo, fuera del pasillo de entrada y de su eje. Lo ocupado se descuenta al
   // pedirlas.
   const sinUsar = (i: number): boolean =>
-    junto[i] === 0 && pasillo[i] === 0 && delante[i] === 0 && enUnRecinto[i] === 0;
+    junto[i] === 0 &&
+    pasillo[i] === 0 &&
+    delante[i] === 0 &&
+    enUnRecinto[i] === 0 &&
+    enUnAcceso[i] === 0;
   const candidatas: number[][] = semillas.map(() => []);
   for (let i = 0; i < N; i++) {
     const r = regionGruesa[i] as number;
@@ -2368,14 +2507,29 @@ function vestirRed(
   for (const i of ocupadas) vetadas[i] = 1;
   for (const r of regionsGruesas) vetadas[indice(r.at)] = 1;
   for (let i = 0; i < N; i++)
-    if (junto[i] === 1 || pasillo[i] === 1 || enUnRecinto[i] === 1) vetadas[i] = 1;
+    if (junto[i] === 1 || pasillo[i] === 1 || enUnRecinto[i] === 1 || enUnAcceso[i] === 1)
+      vetadas[i] = 1;
   const monstruos = new Uint8Array(N);
   for (const m of monsters) monstruos[indice(m.at)] = 1;
   const conPuerta = new Uint8Array(N);
   for (const o of [...mines, ...villages]) conPuerta[indice(o.at)] = 1;
-  const nodosDeRegion = redGruesa.regiones.map((reg) =>
-    reg.nodos.map((n) => indice(redGruesa.nodos[n]?.at as Point)),
-  );
+  // Los nodos de cada región, con cada ciudad en su casilla: el índice de un
+  // nodo de la red gruesa es el de `nodos`.
+  const nodosDeRegion = redGruesa.regiones.map((reg) => reg.nodos.map((n) => nodos[n] as number));
+  // Y para los obstáculos, de una ciudad no su casilla sino los accesos de sus
+  // puertas en la región, que es por donde se entra en ella: lo de dentro del
+  // recinto no se pisa, así que no cuenta para ninguna región.
+  const regionSinRecintos = regionDelVestido();
+  for (let i = 0; i < N; i++) if (enUnRecinto[i] === 1) regionSinRecintos[i] = -1;
+  const accesosDeRegion: number[][] = semillas.map(() => []);
+  for (const { puertas } of puertasDelVestido().puertas)
+    for (const p of puertas)
+      for (const a of p.accesos)
+        accesosDeRegion[regionSinRecintos[indice(a)] as number]?.push(indice(a));
+  const nodosParaLosObstaculos = nodosDeRegion.map((ns, r) => [
+    ...ns.filter((n) => !ciudades.includes(n)),
+    ...(accesosDeRegion[r] ?? []),
+  ]);
   // La puerta de cada mina y cada pueblo no lleva obstáculo, salvo en la
   // segunda tanda de `trazarYVestir`: en un 24×24 la casilla de cada puerta le
   // quita a una región apretada justo lo que le faltaba. Un obstáculo en la
@@ -2388,10 +2542,10 @@ function vestirRed(
     W,
     H,
     tipos,
-    regionDe: regionGruesa,
+    regionDe: regionSinRecintos,
     regiones: semillas.length,
     suelos,
-    nodosDeRegion,
+    nodosDeRegion: nodosParaLosObstaculos,
     vetadas,
     monstruos,
     puertas: conPuerta,
@@ -2408,6 +2562,22 @@ function vestirRed(
   const objetivos = fina.conCamino.map((ks) => ks.map((k) => nodos[k] as number));
   for (const o of [...mines, ...villages]) {
     objetivos[regionGruesa[indice(o.at)] as number]?.push(indice(o.at));
+  }
+  // Y cada ciudad, de cada región que llega a ella por una puerta de su
+  // recinto (fase 2): hay puerta donde llega un camino (decisión del usuario,
+  // 21-10-2026), y sin camino la región se quedaría sin la ciudad. La regla de
+  // un cruce con camino por pareja (`crucesConCamino`) queda para los nodos.
+  // La puerta del río no lo pide: el puente es su camino.
+  {
+    const regionV = regionDelVestido();
+    for (const { at, puertas } of puertasDelVestido().puertas)
+      for (const p of puertas) {
+        if (p.delRio) continue;
+        for (const a of p.accesos) {
+          const lista = objetivos[regionV[indice(a)] as number];
+          if (lista !== undefined && !lista.includes(indice(at))) lista.push(indice(at));
+        }
+      }
   }
   // El nivel de cada casilla como lo pintará la escena, con los nodos que
   // llevarán camino al bajo (`crucesConCamino`): la búsqueda no pasa por una
@@ -2431,50 +2601,59 @@ function vestirRed(
       alBajoAlTrazar,
       new Set(ciudades),
     );
-  const trazar = (nivel: ArrayLike<number>) =>
-    trazarCaminos({
-      W,
-      H,
-      tipos,
-      regionDe: regionGruesa,
-      regiones: semillas.length,
-      suelos,
-      nodosDeRegion,
-      objetivos,
-      puertas: [
-        ...[...ciudadesEnNodo].map((k) => ({ at: nodos[k] as number, kind: 'town' as const })),
-        ...mines.map((o) => ({ at: indice(o.at), kind: 'mine' as const })),
-        ...villages.map((o) => ({ at: indice(o.at), kind: 'village' as const })),
-      ],
-      monstruos,
-      ocupadas,
-      nivel,
-      puentes: puentesDeLaRed,
-      vados,
-    });
+  // A las ciudades se llega por las puertas de su recinto (`recinto.ts`), las
+  // que pueden llevar un camino: el trazado las mira con la regla del héroe.
+  const entradaDeCaminos = (nivel: ArrayLike<number>): EntradaDeCaminos => ({
+    W,
+    H,
+    tipos,
+    regionDe: regionDelVestido(),
+    regiones: semillas.length,
+    suelos,
+    nodosDeRegion,
+    objetivos,
+    puertas: [
+      ...mines.map((o) => ({ at: indice(o.at), kind: 'mine' as const })),
+      ...villages.map((o) => ({ at: indice(o.at), kind: 'village' as const })),
+    ],
+    monstruos,
+    ocupadas,
+    nivel,
+    puentes: puentesDeLaRed,
+    vados,
+    recintos: puertasDelVestido().pasos,
+    abiertas,
+  });
+  const trazar = (nivel: ArrayLike<number>) => trazarCaminos(entradaDeCaminos(nivel));
   const puentesDeLaRed = new Set(
     nodos.filter((_n, k) => !ciudadesEnNodo.has(k) && grueso.barreraDeNodo[k] === 'water'),
   );
-  // Los vados del río: sus ciudades-puente. Junto a ellas la senda corta la
-  // esquina del río: llegan a ellas dos regiones de su orilla, una a cada lado
-  // del muro de la T, y solo por la diagonal (sin el vado, 0,1 ciudades-puente
-  // por mapa en 1-40 y el triple de vestidos tirados). Que la senda no se pinte
-  // por el agua ahí es de la escena (paso 2: la ciudad, en su orilla, con su
-  // puente). Al puente se llega de frente: en diagonal, la senda pasaba por el
-  // agua junto a él (s8 (37,16)).
-  const vados = new Set(ciudades.filter((c) => mascara[c] === 1));
+  // Los vados del río: los puentes de sus ciudades-puente. Junto a ellos la
+  // senda puede cortar la esquina del río, para llegar al puente desde la
+  // orilla de enfrente en diagonal si de frente no hay tierra. Era el vado de
+  // la ciudad en el río, a la que llegaban en diagonal las dos regiones de su
+  // orilla (sin él, 0,1 ciudades-puente por mapa en 1-40 y el triple de
+  // vestidos tirados); con la ciudad en tierra, esas entran por sus puertas.
+  const vados = abiertas;
   let nivelDelTrazado = nivelAlTrazar();
-  let trazado = trazar(nivelDelTrazado);
+  const primero = trazar(nivelDelTrazado);
+  // Una región que el recinto de una ciudad deja partida no tiene por dónde
+  // trazar (`trazarCaminos` dice por qué): ese vestido no vale.
+  if (typeof primero === 'string') return fallo('objetos', primero);
+  let trazado: [number, number][] = primero;
   // Lo que la búsqueda no pudo evitar —la región que toca un nodo o una ciudad
   // solo por un vértice— se endereza abriendo esa esquina a la región, y se
   // vuelve a trazar (`abrirEsquinasTorcidas`).
+  // Lo que entra en un recinto o cruza el puente de una ciudad-puente no se
+  // mira torcido: lo pinta la muralla, o es el puente.
+  const conRecinto = (i: number): boolean => enUnRecinto[i] === 1 || abiertas.has(i);
   for (let vuelta = 0; vuelta < VUELTAS_DE_ESQUINAS; vuelta++) {
-    const abiertas = abrirEsquinasTorcidas({
+    const abiertasAhora = abrirEsquinasTorcidas({
       W,
       H,
       tipos,
       regionDe: regionGruesa,
-      nodos: nodosDeLaRed,
+      nodos: new Set(nodos),
       nivel: nivelDelTrazado,
       niveles,
       puentes: puentesDeLaRed,
@@ -2499,11 +2678,13 @@ function vestirRed(
           obstaculos * 100 >= BARRERAS_DEL_MAPA.densidadPorCiento.min * (pisables + obstaculos + 1)
         );
       },
-      tramos: trazado,
+      tramos: trazado.filter(([p, q]) => !conRecinto(p) && !conRecinto(q)),
     });
-    if (abiertas === 0) break;
+    if (abiertasAhora === 0) break;
     nivelDelTrazado = nivelAlTrazar();
-    trazado = trazar(nivelDelTrazado);
+    const otro = trazar(nivelDelTrazado);
+    if (typeof otro === 'string') return fallo('objetos', otro);
+    trazado = otro;
   }
   const tramos = trazado.map(([p, q]): TramoDeCamino => [punto(p), punto(q)]);
 
@@ -2511,11 +2692,10 @@ function vestirRed(
   // entra el camino de su región de casa (`PUERTAS_DE_LA_CIUDAD`), la primera
   // de `ORDEN_DEL_INICIO`. Fuera del recinto: pegado a la base, el héroe del
   // día 1 se pintaba dentro de la muralla, de pie sobre las casas (H6 del QA de
-  // la vuelta 2). Si no, el primer acceso de una puerta que se pise en la
-  // región de casa, y si tampoco lo hay, el vestido no vale. En 1-40 los 80
-  // nacen en un acceso, y 40 en el del tramo por el que entra su camino: el
-  // camino aún no está obligado a entrar por una puerta (eso es la fase 2) y la
-  // otra mitad cruza el anillo en diagonal, de un acceso a la puerta de al lado.
+  // la vuelta 2). Desde la fase 2 el camino de casa entra siempre por una
+  // puerta, así que el héroe nace en el acceso del tramo por el que llega; si
+  // no, el primer acceso de una puerta que se pise en la región de casa, y si
+  // tampoco lo hay, el vestido no vale.
   const conCaminoEntre = new Set(trazado.map(([p, q]) => `${Math.min(p, q)}-${Math.max(p, q)}`));
   const inicio = (base: Point, casa: number): Point | null => {
     for (const porSuCamino of [true, false]) {
@@ -2543,6 +2723,20 @@ function vestirRed(
   if (startA === null || startB === null) {
     return fallo('objetos', 'no queda sitio para un inicio delante de una puerta de su base');
   }
+  // Ninguna senda dobla en diagonal la esquina de un recinto por fuera: se
+  // pintaría sobre la torre de su vértice. La búsqueda lo cobra como un veto;
+  // si queda, es que no había otro camino, y el vestido no vale.
+  for (const [p, q] of trazado) {
+    if (enUnRecinto[p] === 1 || enUnRecinto[q] === 1) continue;
+    const px = p % W;
+    const qx = q % W;
+    if (px === qx || p - px === q - qx) continue;
+    if (enUnRecinto[p - px + qx] === 1 || enUnRecinto[q - qx + px] === 1)
+      return fallo(
+        'obstáculos',
+        `la senda de (${px},${Math.floor(p / W)}) a (${qx},${Math.floor(q / W)}) dobla en diagonal la esquina de un recinto`,
+      );
+  }
   // Y ninguna senda corta en diagonal la esquina de una casilla de agua, salvo
   // la que llega a un puente (#210): esas esquinas pasan a montaña.
   sinAguaEnLasEsquinas(W, H, tipos, trazado, puentesDeLaRed, nodosDeLaRed);
@@ -2563,11 +2757,14 @@ function vestirRed(
   // llega en cruz, porque dos casillas de regiones distintas no se tocan ni por
   // un vértice (`soloPorUnVertice`, en `regiones.ts`). Los puentes, fuera: el
   // puente es su paso.
-  const ciudadesDeLaRed = new Set(ciudades);
+  // Por el recinto de una ciudad y el puente de una ciudad-puente, igual: lo de
+  // dentro lo tapa la muralla y no se mira, y lo que llega a una puerta solo
+  // no puede ser una silla.
   for (const { tramo, como } of tramosTorcidos(W, H, nivelAlTrazar(), trazado)) {
     const [p, q] = tramo;
     if (puentesDeLaRed.has(p) || puentesDeLaRed.has(q)) continue;
-    if (como !== 'silla' && (ciudadesDeLaRed.has(p) || ciudadesDeLaRed.has(q))) continue;
+    if (conRecinto(p) && conRecinto(q)) continue;
+    if (como !== 'silla' && (conRecinto(p) || conRecinto(q))) continue;
     const [a, b] = [punto(p), punto(q)];
     return fallo(
       'obstáculos',
@@ -2773,7 +2970,10 @@ function vestirRed(
       ciudadesEnNodo.has(k) ? [] : [[n, grueso.barreraDeNodo[k] as Barrera] as const],
     ),
   );
-  const muroEn = (i: number): Barrera | null => bajoElNodo.get(i) ?? barreraDe(tipos, i);
+  // El puente de una ciudad-puente, sin muro: es tierra de la orilla de
+  // enfrente, y su suelo lo pinta `buildMap` con el de su región.
+  const muroEn = (i: number): Barrera | null =>
+    abiertas.has(i) ? null : (bajoElNodo.get(i) ?? barreraDe(tipos, i));
   const walls: PlannedWall[] = [];
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -2787,7 +2987,7 @@ function vestirRed(
   }
 
   // Cada ciudad neutral, de la facción del bando que la tiene más cerca.
-  const en = (k: number): Point => red.nodos[k]?.at as Point;
+  const en = (k: number): Point => punto(nodos[k] as number);
   const towns: PlannedTown[] = [
     { id: 'town-0', name: 'Valdeluz', faction: f0, at: en(b0), owner: 0 },
     { id: 'town-1', name: 'Cripta Gris', faction: f1, at: en(b1), owner: 1 },
@@ -2827,14 +3027,90 @@ function vestirRed(
   // esquinas abiertas y los obstáculos aún podían mover. Lo que rechace se tira
   // aquí, como otro vestido, y no llega a `validadoPorLaPuerta`, que lanzaría.
   const { map: hecho } = buildMap(plan);
-  if (problemasDeRed(hecho).length === 0) {
-    const [recinto] = problemasDeRecintos(hecho, towns, [
-      ...plan.heroStarts.map((i) => ({ quien: `el inicio del jugador ${i.player}`, at: i.at })),
-      ...raiders.map((r) => ({ quien: 'el grupo de asaltantes', at: r.at })),
-    ]);
-    if (recinto !== undefined) return fallo('objetos', recinto);
+  const [deRed] = problemasDeRed(hecho);
+  if (deRed !== undefined) return fallo('objetos', deRed);
+  // Con la ciudad-puente en tierra, su puente es tierra de la orilla de
+  // enfrente, y la barrera de su orilla que lo toca (la de la T, bajo la puerta
+  // del río) toca también esa región, que puede ir a otro nivel.
+  const [deNiveles] = problemasDeNiveles(hecho);
+  if (deNiveles !== undefined) return fallo('objetos', deNiveles);
+  const redHecha = estructura(hecho);
+  const [recinto] = problemasDeRecintos(hecho, redHecha, towns, [
+    ...plan.heroStarts.map((i) => ({ quien: `el inicio del jugador ${i.player}`, at: i.at })),
+    ...raiders.map((r) => ({ quien: 'el grupo de asaltantes', at: r.at })),
+  ]);
+  if (recinto !== undefined) return fallo('objetos', recinto);
+  // Y la red del mapa hecho es la que se planeó: cada ciudad, entre las
+  // regiones de su cruce, ahora por las puertas de su recinto.
+  for (const [j, k] of enCiudad.entries()) {
+    const planeadas = (redGruesa.nodos[k]?.regiones ?? []).join();
+    const id = towns[j]?.id as string;
+    const hechas = (redHecha.nodos[redHecha.nodoPorId.get(id) as number]?.regiones ?? []).join();
+    if (planeadas !== hechas)
+      return fallo(
+        'objetos',
+        `la ciudad ${id} toca en el mapa hecho las regiones ${hechas}, y la red planeaba ${planeadas}`,
+      );
   }
   return plan;
+}
+
+/**
+ * Dónde va la ciudad del cruce `at`: ahí, salvo la ciudad-puente (#144), que en
+ * la red está en el río y va en su orilla (`orillaDeLaCiudad`), en el medio de
+ * su recinto, a dos casillas del río: `at + 2·(orilla − at)`. Su casilla del río
+ * se queda como su puente (`rioAnteLaCiudad`).
+ */
+function enSuOrilla(map: MapaDelRio, at: Point, regionDe: Int32Array): Point {
+  const orilla = orillaDeLaCiudad(map, at, regionDe)?.orilla;
+  return orilla === undefined ? at : { x: 2 * orilla.x - at.x, y: 2 * orilla.y - at.y };
+}
+
+/**
+ * Abre a la región `r` un acceso de una puerta de la ciudad de `at`: la primera
+ * casilla de barrera de los accesos de sus caras (`PUERTAS_DE_LA_CIUDAD`, en su
+ * orden) que toca la región y nada más que la región —ni otra región, ni una
+ * casilla de su muralla de otra región, ni el río, ni un nodo— y no está en el
+ * borde. Es la que tapa el pasillo de una casilla por el que la región llega a
+ * la ciudad de este a oeste: abierta, la región llega por la diagonal de ese
+ * lado. No une nada (todo lo que se pisa alrededor es de `r`) y lo demás del
+ * vestido lo miran después las comprobaciones de siempre (caídas, mesas, la
+ * red). Devuelve si abrió alguna.
+ */
+function abrirUnAcceso(
+  at: Point,
+  r: number,
+  tipos: Tipos,
+  regionDe: Int32Array,
+  W: number,
+  H: number,
+  /** Lo que `tipos` no dice: −2 en un nodo, la región del puente de una ciudad-puente, `null` en lo demás. */
+  especial: (i: number) => number | null,
+): boolean {
+  for (const cara of ORDEN_DEL_INICIO) {
+    for (const [dx, dy] of PUERTAS_DE_LA_CIUDAD[cara].accesos) {
+      const x = at.x + dx;
+      const y = at.y + dy;
+      if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
+      const k = y * W + x;
+      if (tipos[k] === ABIERTA || esDelRio(tipos, k)) continue;
+      let toca = false;
+      let otra = false;
+      for (const [vx, vy] of VECINAS) {
+        const j = (y + vy) * W + x + vx;
+        const suya = especial(j);
+        if (suya === null && tipos[j] !== ABIERTA) continue;
+        const reg = suya ?? (regionDe[j] as number);
+        if (reg === r) toca = true;
+        else otra = true;
+      }
+      if (!toca || otra) continue;
+      ponerTipo(tipos, k, ABIERTA);
+      regionDe[k] = r;
+      return true;
+    }
+  }
+  return false;
 }
 
 /** El nivel de una pareja de regiones de suelo `suelo`, por los pesos de `data/relieve.json`. */

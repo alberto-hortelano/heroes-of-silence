@@ -16,6 +16,7 @@ import {
   generateMapPlan,
   LADO_DEL_MAPA,
   type MapPlan,
+  planDelAgente,
   validateMapPlan,
 } from '../src/core/map/generate.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
@@ -1460,7 +1461,10 @@ describe('el agente diseña el mapa', () => {
   }
 
   it('un plan bueno se acepta, se le acusa, y la partida se juega en él', async () => {
-    const suyo = generateMapPlan(createRng(21));
+    // Con sus caminos escritos como casillas, como los escribe el agente: el
+    // esquema quita los tramos, y sin caminos una ciudad no tiene puertas
+    // (la ciudad amurallada, fase 2).
+    const suyo = planDelAgente(generateMapPlan(createRng(21)));
     const { link, agent } = await montar(() => ({ plan: suyo }));
 
     const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);

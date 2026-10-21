@@ -177,14 +177,15 @@ describe('notas para el agente', () => {
   it('en partidas de verdad, cada marcha del día 1 que no llega lo dice, y la que llega no (#130)', () => {
     // Lo que el director contaría como parcial tiene que ser exactamente lo que
     // no llegó. Una de cada dos casillas que el héroe alcanza en las semillas 1
-    // y 6 (3 y 4 hasta el río de lago de 20 casillas, que les quitó las
-    // paradas; 1 y 2 hasta los ríos, #144, por lo mismo), hoy o en
+    // y 5 (1 y 6 hasta las puertas de las ciudades, la ciudad amurallada, que
+    // movieron sus inicios; 3 y 4 hasta el río de lago de 20 casillas, que les
+    // quitó las paradas; 1 y 2 hasta los ríos, #144, por lo mismo), hoy o en
     // días: salen las cuatro cosas —llegar, cortarse, pararse y
     // emboscado antes— y cuesta medio segundo. Todas en 6 semillas eran 3,5 s
     // de clonar y andar, y filtrar por las rutas que pisan una región peligrosa
     // no ahorraba nada: lo son nueve de cada diez.
     const vistas = { halted: 0, emboscada: 0, enteras: 0 };
-    for (const seed of [1, 6]) {
+    for (const seed of [1, 5]) {
       const inicio = newGame({ seed });
       const heroe = heroesOf(inicio, 0)[0]!;
       let n = 0;

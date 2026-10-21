@@ -10,7 +10,7 @@ import type { CaraAhi, QueHay, SpriteAhi } from '../../desarrollo/tipos.js';
 import { columnasDeCara } from './caras.js';
 import { type Catalogo, esHojaDeLadera } from './catalogo.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
-import { ciudadEnLaOrilla, puenteEnElTerreno } from './puentes.js';
+import { puenteEnElTerreno } from './puentes.js';
 import { bandaDeCara, type CaraDeEscena } from './relieve.js';
 import type { Escenario } from './superficie.js';
 
@@ -137,7 +137,6 @@ export function queHayEn(
   // El puente que se pulsaría en el punto (como `casillaBajo`), o si no, el
   // del nodo de esta casilla: un tablero alzado no cae encima de su nodo.
   const bajo =
-    ciudadEnLaOrilla(escena.puentes, punto.x, punto.y) ??
     puenteEnElTerreno(escena.puentes, esc.terreno, W, punto.x, punto.y) ??
     escena.puentes.find(
       (p) => Math.floor(p.nodo[0]) === casilla.x && Math.floor(p.nodo[1]) === casilla.y,

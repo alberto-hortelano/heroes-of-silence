@@ -387,8 +387,10 @@ describe('la escena de un mapa real', () => {
   // 7 y la 9 en vez de la 3 y la 5 desde el río continuo (#144), por lo mismo;
   // la 5 en vez de la 6 sin agua de frontera fuera del río (QA del río
   // continuo, H3), por lo mismo; la 12 y la 14 en vez de la 5 y la 2 desde el
-  // río de lago de 20 casillas (17-10-2026), por lo mismo.
-  for (const semilla of [7, 12, 14, 9]) {
+  // río de lago de 20 casillas (17-10-2026), por lo mismo; la 4 y la 17 en
+  // vez de la 14 y la 9 desde las puertas de las ciudades (fase 2,
+  // 21-10-2026), por lo mismo.
+  for (const semilla of [7, 12, 4, 17]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 

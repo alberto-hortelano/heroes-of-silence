@@ -21,7 +21,6 @@
  * s32 (una barrera junto a una puerta); en la orden lenta, 1-40.
  */
 import { describe, expect, it } from 'vitest';
-import { analizar } from '../src/client/render/escenario/analizar.js';
 import { celdasDeLaRampa, claveDeCelda } from '../src/client/render/escenario/celdas.js';
 import { componer, luzDelRecinto, puntosDeCelda } from '../src/client/render/escenario/colocar.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
@@ -33,7 +32,7 @@ import {
   RADIO_DE_TORRE,
 } from '../src/client/render/escenario/recinto.js';
 import { claveDeFigura, escenarioDe } from '../src/client/render/escenario/superficie.js';
-import { centroDelRecinto, recintoDeLaCiudad } from '../src/core/map/recinto.js';
+import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { catalogoDelDisco, partidaDe } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
@@ -46,7 +45,6 @@ describe('la ciudad amurallada en los mapas del juego', () => {
   for (const semilla of SEMILLAS)
     describe(`semilla ${semilla}`, () => {
       const { map, escena: e } = partidaDe(semilla);
-      const a = analizar(map);
       const ciudades = map.objects.filter((o) => o.kind === 'town');
 
       it('cada ciudad es su recinto: ocho torres, sus puertas, tramos y casas, con su objeto y el pie dentro', () => {
@@ -54,13 +52,7 @@ describe('la ciudad amurallada en los mapas del juego', () => {
         for (const o of ciudades) {
           const r = e.recintos.find((k) => k.id === o.id);
           if (r === undefined) throw new Error(`s${semilla} ${o.id}: sin recinto`);
-          expect(r.rect).toEqual(
-            recintoDeLaCiudad(
-              centroDelRecinto(o.at, a.ciudadesPuente.get(o.id)?.orilla),
-              map.width,
-              map.height,
-            ),
-          );
+          expect(r.rect).toEqual(recintoDeLaCiudad(o.at, map.width, map.height));
           const piezas = e.sprites.filter((s) => s.objeto?.id === o.id && s.puente === undefined);
           const de = (que: string) => piezas.filter((s) => s.recinto === que);
           const donde = `s${semilla} ${o.id}`;

@@ -1100,11 +1100,29 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   mismo día, 41 de ±1, el resto repartido: de −18 a +17), 0 sin terminar.
  *   Batallas 1 041 → 971, `town_captured` 862 → 760, `node_captured` 841 → 969,
  *   `hero_moved` 24 007 → 24 701. Ningún tipo de hecho nuevo ni retirado.
+ * - `5d95869b…` (47 110 líneas, 21-10-2026): **por dónde se entra en una
+ *   ciudad** (fase 2 de la vuelta 3, decisiones del usuario): su muralla no se
+ *   pisa (`pasoPermitido`), hay puerta donde llega un camino, el generador traza
+ *   el de cada región de cada ciudad por una puerta, y la ciudad-puente pasa a
+ *   tierra. Cambia el mapa y las rutas, y eso es lo que se ve: **0 de 200
+ *   idénticas**; el primer hecho distinto es `raider_spawned` en 183 (otro
+ *   mapa), `hero_moved` en 12 (el mismo azar de grupos y otra ruta: a la base y
+ *   desde ella se pasa por una puerta), `battle_ended` en 3 (s25, s100, s111: la
+ *   misma batalla contra la misma guarnición, con otro azar, que la IA gastó en
+ *   decidir con otros costes) y `garrison_taken` en 2 (s89, s163: el héroe que
+ *   cruzaba su base en diagonal, por la muralla, ahora para en ella). Ningún
+ *   tipo de hecho nuevo ni retirado. 87 con otro ganador, j0 107 → 96, duración
+ *   4 / 8 / 20 → **4 / 9 / 37** (48 en el mismo día, 58 de ±1; de −16 a +32),
+ *   0 sin terminar. El máximo son s189 (5 → 37 días) y s141 (5 → 32): los dos
+ *   héroes se cambian una ciudad del centro y se derrotan uno a otro cada día
+ *   (todas las ciudades se alcanzan desde el día 1; ya pasó con los templarios:
+ *   4 / 9 / 36). Batallas 971 → 1 081, días 973 → 1 049, `hero_moved` 24 701 →
+ *   27 631, `town_captured` 760 → 849, `node_captured` 969 → 935.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '0e2d0632f9022352e7476513747efa3292a2843772e66366844b17e12278ed95',
+  sha: '5d95869b97c8877bb183fad65d1b8138c0ece37d5b55ca5bb22522dad11e36ad',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

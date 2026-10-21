@@ -613,16 +613,6 @@ export interface MapaDelRio {
   readonly terrain: readonly GameMap['terrain'][number][];
 }
 
-/**
- * Si la ciudad de `at` es una ciudad-puente: con agua en dos vecinas opuestas en
- * cruz, el río pasa por debajo de ella. Es la regla, una vez: la leen la medida
- * del río (`tools/qa/rios.ts`) y la escena, que la pinta en su orilla
- * (`orillaDeLaCiudad`).
- */
-export function rioBajoLaCiudad(map: MapaDelRio, at: Point): boolean {
-  return rumboDelRio(map, at) !== null;
-}
-
 /** Por dónde va el río bajo la ciudad de `at`: de este a oeste, de norte a sur, o `null` si no pasa. */
 function rumboDelRio(map: MapaDelRio, at: Point): 'eo' | 'ns' | null {
   const agua = (dx: number, dy: number): boolean => {
@@ -635,9 +625,11 @@ function rumboDelRio(map: MapaDelRio, at: Point): 'eo' | 'ns' | null {
 }
 
 /**
- * La orilla de una ciudad-puente (#144, paso 2): la casilla de al lado, en cruz
- * y de través al río, donde se pinta la ciudad, y la de enfrente, adonde cruza
- * su puente. La ciudad va en el cruce de tres regiones: dos a un lado del río,
+ * La orilla de una ciudad-puente (#144, paso 2), con la ciudad en el río, como
+ * la deja la red del generador: la casilla de al lado, en cruz y de través al
+ * río, y la de enfrente. El generador la muda a tierra con ella (`enSuOrilla`,
+ * `generate.ts`: el medio de su recinto, a dos casillas del río), y en el mapa
+ * hecho la casilla del río es su puente (`rioAnteLaCiudad`). La ciudad va en el cruce de tres regiones: dos a un lado del río,
  * separadas por la frontera que llega a él (la T), y la tercera enfrente. Su
  * orilla es el lado de las dos: la casilla del final de esa frontera. Se elige
  * el lado con más regiones en su fila de tres (`regionDe`, −1 lo que no es

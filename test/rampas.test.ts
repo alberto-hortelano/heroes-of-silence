@@ -358,7 +358,9 @@ describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
 // en s88, s134 y s153 la pieza de la muesca quitaba caras cortadas (1-2 → 0), y el
 // test pide las mismas con y sin ella. Era s16 (30, 11) desde #226 (mapa de
 // 42×42) y s3 (4, 20) en 34×34.
-const [MS, MX, MY] = [11, 32, 9];
+// Con las puertas de las ciudades (fase 2, 21-10-2026), s78 (23, 9), de roca y
+// la única muesca de 1-120 (era s11 (32, 9) desde el recinto del núcleo).
+const [MS, MX, MY] = [78, 23, 9];
 describe(`la rampa de muesca en un mapa real: s${MS}, (${MX}, ${MY}) (§36)`, () => {
   const map = newGame({ seed: MS }).map;
   const e = componer(map, MS, catalogo);

@@ -178,10 +178,7 @@ export interface Escenario {
    * el punto del tablero (`Puente.asiento`) y la clave del volumen del puente,
    * para pintarlo encima de él. Lo lee `pisada`.
    */
-  readonly tableros: ReadonlyMap<
-    number,
-    { readonly asiento: Punto; readonly clave: number; readonly orilla?: Punto }
-  >;
+  readonly tableros: ReadonlyMap<number, { readonly asiento: Punto; readonly clave: number }>;
   /** Las imágenes que pinta la escena: se piden una vez por partida. */
   readonly imagenes: readonly string[];
   /** De ellas, las que solo pinta el suelo: se sueltan en cuanto está pintado. */
@@ -225,18 +222,14 @@ function tablerosDe(
   map: MapaDeEscena,
   puentes: Escena['puentes'],
   claveDeObjeto: ReadonlyMap<string, number>,
-): Map<number, { readonly asiento: Punto; readonly clave: number; readonly orilla?: Punto }> {
+  claveDePuente: ReadonlyMap<string, number>,
+): Map<number, { readonly asiento: Punto; readonly clave: number }> {
   return new Map(
     puentes.map((p) => {
       const [x, y] = p.nodo.map(Math.floor) as [number, number];
-      // Quien está en una ciudad-puente (#144) está en la ciudad, que se pinta
-      // en su orilla: ahí se le pinta, como en una ciudad (`pisada`).
-      if (p.orilla !== undefined)
-        return [
-          y * map.width + x,
-          { asiento: p.asiento, clave: p.centro[1], orilla: p.orilla },
-        ] as const;
-      const clave = claveDeObjeto.get(p.id);
+      // El de una ciudad-puente no es de ningún objeto: su clave es la de su
+      // pieza, y quien está en él se pinta en su tablero como en otro puente.
+      const clave = claveDeObjeto.get(p.id) ?? claveDePuente.get(p.id);
       if (clave === undefined) throw new Error(`el puente ${p.id} no tiene volumen en la escena`);
       return [y * map.width + x, { asiento: p.asiento, clave }] as const;
     }),
@@ -257,13 +250,6 @@ export function pisada(
   pies: number,
 ): { readonly x: number; readonly y: number; readonly clave: number } {
   const t = esc.tableros.get(at.y * esc.escena.W + at.x);
-  // En una ciudad-puente, en su orilla, delante de la ciudad como en cualquier
-  // ciudad: en su puente se pintaba sobre los tejados del castillo de una
-  // orilla sur (QA, H5: s13 (25,5)).
-  if (t?.orilla !== undefined) {
-    const [ox, oy] = [Math.floor(t.orilla[0]), Math.floor(t.orilla[1])];
-    return { x: ox + 0.5, y: oy + pies, clave: claveDeFigura(esc, ox, oy + pies) };
-  }
   const clave = claveDeFigura(esc, at.x, at.y + pies);
   if (t === undefined) return { x: at.x + 0.5, y: at.y + pies, clave };
   return { x: t.asiento[0], y: t.asiento[1], clave: Math.max(clave, t.clave) };
@@ -280,13 +266,10 @@ function asientosDe(
     map.objects.flatMap((o) => {
       if (!horneados.has(o.id)) return [];
       const p = enUnPuente.get(o.id);
-      // La ciudad-puente (#144), en su orilla: donde se pinta.
       const asiento: readonly [number, number] =
         p === undefined
           ? [o.at.x + 0.5, o.at.y + 0.5]
-          : p.orilla !== undefined
-            ? p.orilla
-            : [p.asiento[0], p.asiento[1] - OVALO_BAJO_EL_ASIENTO];
+          : [p.asiento[0], p.asiento[1] - OVALO_BAJO_EL_ASIENTO];
       return [[o.id, asiento] as const];
     }),
   );
@@ -306,6 +289,8 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
   const casillas = new Map(map.objects.map((o) => [o.id, o.at]));
   const porFila: VolumenDelMapa[][] = Array.from({ length: escena.H }, () => []);
   const claveDeObjeto = new Map<string, number>();
+  /** La de cada pieza de puente, por su id: la del de una ciudad-puente no es de ningún objeto. */
+  const claveDePuente = new Map<string, number>();
   const deVolumen = new Set<string>();
   const bases: Sprite[] = [];
   const cubiertas = new Map<number, number>();
@@ -313,6 +298,7 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     const { s } = v;
     const fila = Math.min(escena.H - 1, Math.max(0, Math.floor(v.clave)));
     let niebla: number | null = null;
+    if (s.puente !== undefined) claveDePuente.set(s.puente, v.clave);
     if (s.objeto !== undefined) {
       const at = casillas.get(s.objeto.id);
       if (at === undefined)
@@ -361,7 +347,7 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     claveDeObjeto,
     asientoDeObjeto: asientosDe(map, claveDeObjeto, escena.puentes),
     mastilDeNodo: mastilesDe(map, escena.puentes),
-    tableros: tablerosDe(map, escena.puentes, claveDeObjeto),
+    tableros: tablerosDe(map, escena.puentes, claveDeObjeto, claveDePuente),
     imagenes,
     soloDelSuelo: imagenes.filter((src) => !deVolumen.has(src)),
     deVolumenes: [...deVolumen],

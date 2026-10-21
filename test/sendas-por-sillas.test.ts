@@ -39,6 +39,7 @@ import { analizar } from '../src/client/render/escenario/analizar.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
 import type { GameMap } from '../src/core/map/map.js';
+import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { pasoTorcido, soloPorUnVertice } from '../src/core/map/regiones.js';
 import { ABIERTA, abrirEsquinasTorcidas } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
@@ -50,12 +51,24 @@ function torcidasDe(map: GameMap): string[] {
   const H = map.height;
   const a = analizar(map);
   const { nivel } = relieve(a);
-  const regionDe = a.red.regionDe;
   const en = (o: { at: { x: number; y: number } }) => o.at.y * W + o.at.x;
-  const puentes = new Set(
-    map.objects.filter((o) => o.kind === 'node' && o.barrera === 'water').map(en),
-  );
-  const ciudades = new Set(map.objects.filter((o) => o.kind === 'town').map(en));
+  // Los puentes: los de los nodos de agua y el de cada ciudad-puente, la casilla
+  // del río que tiene delante (`rioAnteLaCiudad`).
+  const ciudades = map.objects.filter((o) => o.kind === 'town');
+  const puentes = new Set([
+    ...map.objects.filter((o) => o.kind === 'node' && o.barrera === 'water').map(en),
+    ...ciudades.flatMap((o) => {
+      const p = rioAnteLaCiudad(map, o.at);
+      return p === null ? [] : [p.acceso.y * W + p.acceso.x];
+    }),
+  ]);
+  // Lo que entra en el recinto de una ciudad (la ciudad amurallada, fase 2) lo
+  // pinta su muralla y no se mira, como hace el generador; solo que lo que llega
+  // a una puerta no sea una silla.
+  const enUnRecinto = (i: number) =>
+    ciudades.some(
+      (o) => Math.max(Math.abs(o.at.x - (i % W)), Math.abs(o.at.y - Math.floor(i / W))) <= 1,
+    );
   const fuera: string[] = [];
   for (const [P, Q] of map.caminos.tramos) {
     const p = P.y * W + P.x;
@@ -63,12 +76,8 @@ function torcidasDe(map: GameMap): string[] {
     if (puentes.has(p) || puentes.has(q)) continue;
     const como = pasoTorcido(W, H, nivel, p, q);
     if (como === null) continue;
-    const ciudad = ciudades.has(p) ? p : ciudades.has(q) ? q : -1;
-    if (como === 'costado' && ciudad !== -1) continue;
-    if (como === 'diagonal' && ciudad !== -1) {
-      const otra = ciudad === p ? q : p;
-      if (soloPorUnVertice(W, H, regionDe, regionDe[otra] as number, ciudad)) continue;
-    }
+    if (enUnRecinto(p) && enUnRecinto(q)) continue;
+    if (como !== 'silla' && (enUnRecinto(p) || enUnRecinto(q))) continue;
     fuera.push(`${como} (${P.x},${P.y})-(${Q.x},${Q.y})`);
   }
   return fuera;

@@ -76,7 +76,7 @@ describe('en los mapas reales', () => {
       expect(cubiertaDeOtroNivel(e.sprites, e.suelo, e.W)).toEqual([]);
     });
 
-  it('s98: lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
+  it('s146: lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
     // Era s13 (16-24, 4-7) en 34×34; desde #226, s51 (17-22, 8-9), y desde
     // las fronteras onduladas (#229), s18 (27-31, 15-24), y desde las dos
     // puertas de la mina (#230, 09-10-2026), s36 (30-34, 0-8). Con los ríos
@@ -85,8 +85,9 @@ describe('en los mapas reales', () => {
     // una casilla, #144 paso 2, 0 en s36 y 17 en s24; con el río continuo,
     // #144, 0 en s24, que no tiene meseta, y 20 en s63, la primera de 1-120
     // con alguna; también s70 y s94; con el recinto de las ciudades del
-    // núcleo, vuelta 3, 26 en s98, la única de 1-120).
-    const { map, escena: e } = partidaDe(98);
+    // núcleo, vuelta 3, 26 en s98, la única de 1-120; con las puertas de las
+    // ciudades, fase 2, 26 en s146 y s163, y 10 en s104, en 1-200).
+    const { map, escena: e } = partidaDe(146);
     const a = analizar(map);
     const casillas = new Set<number>();
     for (let i = 0; i < map.terrain.length; i++)
@@ -101,12 +102,14 @@ describe('en los mapas reales', () => {
 });
 
 describe('la frontal de basalto (#220, auditoría 7 §3)', () => {
-  it('s63: lleva tono, como sus laderas y diagonales', () => {
+  it('s4: lleva tono, como sus laderas y diagonales', () => {
     // La s13 desde #226 no lleva basalto; la s51 llevaba las tres piezas,
     // desde #229 la s18, desde #230 (09-10-2026) la s36, y desde el río de una
     // casilla (#144, paso 2) la s24, y desde el río continuo (#144), que la
-    // dejó sin meseta, la s63, la de la meseta de lava de arriba.
-    const basalto = partidaDe(63).escena.sprites.filter((s) =>
+    // dejó sin meseta, la s63, la de la meseta de lava de arriba; y desde las
+    // puertas de las ciudades (fase 2, 21-10-2026), la s4, la primera de 1-120
+    // con las tres.
+    const basalto = partidaDe(4).escena.sprites.filter((s) =>
       /^modulos\/(paredes|laderas|diagonales)-basalto/.test(s.src ?? ''),
     );
     expect(new Set(basalto.map((s) => s.src?.split('/')[1]?.split('-')[0]))).toEqual(

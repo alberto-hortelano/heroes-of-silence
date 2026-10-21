@@ -29,6 +29,7 @@ import {
   type RejillaDeMuralla,
 } from './murallas.js';
 import { type ConPuerta, rodeosParaEntrar } from './puertas.js';
+import { CIUDAD, FUERA, type PasosDelRecinto, PUERTA } from './recinto.js';
 import {
   acantiladosSinCaida,
   aPunto,
@@ -2600,11 +2601,24 @@ export interface EntradaDeCaminos {
    */
   readonly objetivos: readonly (readonly number[])[];
   /**
-   * Los objetos con puerta —ciudades, minas y pueblos—, por índice plano y con
-   * su clase. Son hojas: se llega a ellos y no se cruzan, y se entra por una de
-   * sus puertas (#188; la mina, por debajo o por la derecha, #230: `puertas.ts`).
+   * Los objetos con puerta —minas y pueblos—, por índice plano y con su clase.
+   * Son hojas: se llega a ellos y no se cruzan, y se entra por una de sus
+   * puertas (#188; la mina, por debajo o por la derecha, #230: `puertas.ts`).
    */
   readonly puertas: readonly { readonly at: number; readonly kind: ConPuerta }[];
+  /**
+   * Los recintos de las ciudades (`recinto.ts`), con sus puertas **posibles**:
+   * el camino de una región llega a su ciudad de un acceso a una puerta suya y
+   * de la puerta a la ciudad, y sale igual, como el héroe (`pasoPermitido`).
+   * Lo demás del recinto no se traza. Las ciudades van en `nodosDeRegion`.
+   */
+  readonly recintos?: PasosDelRecinto;
+  /**
+   * Lo que se pisa aunque `tipos` diga barrera: el puente de cada ciudad-puente,
+   * una casilla del río que es tierra de la orilla de enfrente
+   * (`rioAnteLaCiudad`). Su región la dice `regionDe`.
+   */
+  readonly abiertas?: ReadonlySet<number>;
   readonly monstruos: Uint8Array;
   /** Lo ya puesto —nodos, inicios, objetos, asaltantes—: el centro no cae encima. */
   readonly ocupadas: ReadonlySet<number>;
@@ -2684,7 +2698,18 @@ function recargosDelTrazado(e: EntradaDeCaminos, casillas: readonly number[]): U
 }
 
 /** Las clases de objeto con puerta, en el orden en que las marca `Busqueda.puerta`. */
-const CLASES_CON_PUERTA: readonly ConPuerta[] = ['town', 'mine', 'village'];
+const CLASES_CON_PUERTA: readonly ConPuerta[] = ['mine', 'village'];
+
+/** Los pasos torcidos, en el orden de la caché de `Busqueda.torcidoEn`. */
+const TORCIDOS: readonly PasoTorcido[] = ['silla', 'diagonal', 'costado'];
+
+/** Sin ciudades: todo fuera de un recinto. */
+const SIN_RECINTOS = (N: number): PasosDelRecinto => ({
+  rol: new Uint8Array(N),
+  ciudadDe: new Int32Array(N).fill(-1),
+  puertaDelAcceso: new Int32Array(N).fill(-1),
+  delRecinto: [],
+});
 
 /**
  * El Dijkstra de una región con el coste del héroe: lo de `red` a mitad de
@@ -2737,12 +2762,35 @@ class Busqueda {
   private readonly antesDelEstribo: Int32Array;
   /** Si una casilla es de una ciudad-puente o una de sus ocho vecinas: el vado del río. */
   private readonly junto: (k: number) => boolean;
+  /** Los recintos de las ciudades (`EntradaDeCaminos.recintos`). */
+  private readonly rec: PasosDelRecinto;
+  /** Las puertas de un recinto por las que entra esta región: las que tienen un acceso suyo. */
+  private readonly suya: Uint8Array;
+  /** Lo que se pisa de la región, con un 1: abierto (o el puente de una ciudad-puente) y fuera de todo recinto. */
+  private readonly celda: Uint8Array;
+  /**
+   * `pasoTorcido` de cada arista de `vecindad`, por su posición: −1 sin mirar,
+   * 0 recto, y 1 + su índice en `TORCIDOS`. El relieve no cambia mientras vive
+   * la búsqueda y cada objetivo de la región la repite entera: con la ciudad
+   * de objetivo en cada región que llega a ella (la ciudad amurallada, vuelta
+   * 3, fase 2), mirarlo cada vez era el 5 % de generar un mapa.
+   */
+  private readonly torcidos: Int8Array;
 
   constructor(
     private readonly e: EntradaDeCaminos,
-    private readonly r: number,
+    r: number,
   ) {
     const N = e.W * e.H;
+    this.rec = e.recintos ?? SIN_RECINTOS(N);
+    const { rol, puertaDelAcceso } = this.rec;
+    this.celda = new Uint8Array(N);
+    for (let i = 0; i < N; i++)
+      if (e.regionDe[i] === r && e.tipos[i] === ABIERTA && rol[i] === FUERA) this.celda[i] = 1;
+    for (const i of e.abiertas ?? [])
+      if (e.regionDe[i] === r && rol[i] === FUERA) this.celda[i] = 1;
+    this.suya = new Uint8Array(N);
+    this.torcidos = new Int8Array(vecindad(e.W, e.H).vecinas.length).fill(-1);
     this.coste = new Int32Array(N);
     this.previo = new Int32Array(N);
     this.nodo = new Uint8Array(N);
@@ -2783,7 +2831,12 @@ class Busqueda {
     }
     const casillas: number[] = [];
     for (let i = 0; i < N; i++) {
-      if (e.regionDe[i] === r && e.tipos[i] === ABIERTA) casillas.push(i);
+      if (this.celda[i] === 1) casillas.push(i);
+      // La puerta de un acceso de la región es suya; toda puerta, una hoja: se
+      // llega a ella para seguir a la ciudad, y nunca hace de esquina.
+      const pu = puertaDelAcceso[i] as number;
+      if (pu >= 0 && this.celda[i] === 1) this.suya[pu] = 1;
+      if (rol[i] === PUERTA) this.hoja[i] = 1;
     }
     this.casillas = casillas;
     this.recargo = recargosDelTrazado(e, casillas);
@@ -2805,6 +2858,28 @@ class Busqueda {
   }
 
   /**
+   * Si el trazado de la región pasa de `a` a su vecina `j`. Fuera de los
+   * recintos, a lo que se pisa de la región y a sus nodos (que se llegan y no
+   * se cruzan). En un recinto, como el héroe (`pasoPermitido`) y solo por las
+   * puertas de la región: de un acceso a su puerta, de la puerta a su ciudad
+   * (si se llegó desde fuera) o a sus accesos (si se viene de la ciudad), y de
+   * la ciudad a sus puertas.
+   */
+  private entra(a: number, j: number, deLaCiudad: boolean): boolean {
+    const { rol, ciudadDe, puertaDelAcceso } = this.rec;
+    const ra = rol[a];
+    const rj = rol[j];
+    if (ra === PUERTA)
+      return deLaCiudad
+        ? rj === FUERA && puertaDelAcceso[j] === a && this.celda[j] === 1
+        : rj === CIUDAD && ciudadDe[a] === j;
+    if (ra === CIUDAD) return rj === PUERTA && ciudadDe[j] === a && this.suya[j] === 1;
+    if (rj === PUERTA) return puertaDelAcceso[a] === j && this.suya[j] === 1;
+    if (rj !== FUERA) return false;
+    return this.celda[j] === 1 || this.nodo[j] === 1;
+  }
+
+  /**
    * Lo que cuesta de más un paso torcido por el relieve (`pasoTorcido`, #224).
    * Cambiar de nivel en diagonal —solo se puede entre un nodo o una ciudad y
    * su región— cuesta más que cualquier entrada en cruz, también que entrar
@@ -2816,6 +2891,16 @@ class Busqueda {
    * de #210: más que la vuelta por la L de una esquina, sin echar el camino al
    * borde por un vértice.
    */
+  private torcidoEn(k: number, a: number, j: number): PasoTorcido | null {
+    let t = this.torcidos[k] as number;
+    if (t < 0) {
+      const como = pasoTorcido(this.e.W, this.e.H, this.e.nivel, a, j);
+      t = como === null ? 0 : 1 + TORCIDOS.indexOf(como);
+      this.torcidos[k] = t;
+    }
+    return t === 0 ? null : (TORCIDOS[t - 1] as PasoTorcido);
+  }
+
   private cobroDelTorcido(torcido: PasoTorcido, conNodo: boolean): number {
     if (torcido === 'costado') return 2 * this.rodeo;
     if (torcido === 'diagonal' || conNodo) return 5 * this.rodeo;
@@ -2831,9 +2916,10 @@ class Busqueda {
   buscar(origen: number, arbol?: ArbolDeCaminos, hasta?: number): void {
     const red = arbol?.red;
     const pegada = arbol?.pegada;
-    const { W, H, regionDe, tipos, monstruos } = this.e;
+    const { W, H, tipos, monstruos } = this.e;
     const { desde, vecinas } = vecindad(W, H);
-    const { coste, previo, nodo, hoja, puerta, espalda } = this;
+    const { coste, previo, nodo, hoja, puerta, espalda, celda } = this;
+    const { rol, ciudadDe } = this.rec;
     // Lo que cuesta pasar entre el objeto con puerta `d` y su vecina `v`: por
     // una puerta (la de debajo, y en una mina también la de la derecha), nada;
     // por las diagonales de delante, un rodeo; de lado, tres; por detrás,
@@ -2853,7 +2939,6 @@ class Busqueda {
     const { objetivo } = this;
     const yEnLaEsquina = (k: number): number =>
       puerta[k] !== 0 ? 4 : hoja[k] === 1 && (red?.[k] === 1 || objetivo[k] === 1) ? 2 : 0;
-    const r = this.r;
     const AGUA = indiceDe('water');
     const rio = RIO_DE_LOS_TIPOS.get(tipos)?.rio;
     coste.fill(-1);
@@ -2881,9 +2966,17 @@ class Busqueda {
       const x = a % W;
       const y = (a - x) / W;
       const enLaRed = red?.[a] === 1;
+      // En el recinto de una ciudad (`recinto.ts`): de la puerta a la que se
+      // llegó desde fuera solo se sigue a la ciudad, y a la que se llegó desde
+      // la ciudad (o de la que se sale), a sus accesos. El camino entra por una
+      // puerta y llega a la ciudad; no la usa de atajo entre dos accesos.
+      const deLaCiudad = rol[a] === PUERTA && (a === origen || previo[a] === ciudadDe[a]);
+      const fuera = rol[a] === FUERA;
       for (let k = desde[a]!; k < desde[a + 1]!; k++) {
         const j = vecinas[k]!;
-        if (!((regionDe[j] === r && tipos[j] === ABIERTA) || nodo[j] === 1)) continue;
+        if (fuera && rol[j] === FUERA) {
+          if (celda[j] === 0 && nodo[j] === 0) continue;
+        } else if (!this.entra(a, j, deLaCiudad)) continue;
         const enDiagonal = j % W !== x && (j - (j % W)) / W !== y;
         let paso =
           monstruos[j] === 1 ? this.pisarMonstruo : enDiagonal ? this.diagonal : this.recto;
@@ -2939,10 +3032,17 @@ class Busqueda {
           if ((rio[k1] === 1 && !this.junto(k1)) || (rio[k2] === 1 && !this.junto(k2)))
             paso += 5 * this.rodeo;
         }
+        // Ni el paso por un recinto (lo pinta su muralla) ni el del puente de
+        // una ciudad-puente: son su entrada, como el puente de un nodo.
         const torcido =
-          this.e.puentes.has(a) || this.e.puentes.has(j)
+          this.e.puentes.has(a) ||
+          this.e.puentes.has(j) ||
+          rol[a] !== FUERA ||
+          rol[j] !== FUERA ||
+          this.e.abiertas?.has(a) === true ||
+          this.e.abiertas?.has(j) === true
             ? null
-            : pasoTorcido(W, H, this.e.nivel, a, j);
+            : this.torcidoEn(k, a, j);
         if (torcido !== null) paso += this.cobroDelTorcido(torcido, nodo[a] === 1 || nodo[j] === 1);
         if (enDiagonal && red !== undefined) {
           const jx = j % W;
@@ -2966,6 +3066,15 @@ class Busqueda {
           // 1-1000 entre minas y pueblos (#188, s376 y s850).
           if (arbol?.cerrariaUnAspa(a, j) === true) paso += 6 * this.recto;
         }
+        // Ni dobla en diagonal la esquina de un recinto por fuera, con su
+        // muralla en la esquina del paso: la senda pintada pasaba por la torre
+        // de ese vértice (s36 (19,37)-(18,38), junto a la de la cara del
+        // sureste de town-5). Más que cualquier otro camino, como la esquina
+        // del río; si aun así no hay otro, el vestido no vale.
+        if (enDiagonal && fuera && rol[j] === FUERA) {
+          const jx = j % W;
+          if (rol[y * W + jx] !== FUERA || rol[j - jx + x] !== FUERA) paso += 5 * this.rodeo;
+        }
         const c = hastaAqui + paso;
         if (coste[j] !== -1 && (coste[j] as number) <= c) continue;
         coste[j] = c;
@@ -2988,11 +3097,30 @@ export function centroDeRegion(
   r: number,
   b: Busqueda = new Busqueda(e, r),
 ): number {
+  const centro = centroOMotivo(e, r, b);
+  if (typeof centro === 'string') throw new Error(centro);
+  return centro;
+}
+
+/**
+ * `centroDeRegion`, o por qué no lo hay: un objetivo al que no se llega desde
+ * otro, o ninguna casilla libre desde la que se llegue a todos. Con los recintos
+ * de las ciudades (`recinto.ts`) pasa: la muralla no se pisa, y una región que
+ * solo se unía por las casillas del 3 × 3 se queda partida (26×26, s108 y
+ * s162). Es un vestido que no vale, y no un fallo de programa.
+ */
+function centroOMotivo(e: EntradaDeCaminos, r: number, b: Busqueda): number | string {
   const objetivos = e.objetivos[r] ?? [];
   if (objetivos.length === 0) return -1;
+  const donde = (i: number) => `(${i % e.W},${Math.floor(i / e.W)})`;
   const suma = new Map<number, number>(b.casillas.map((i) => [i, 0]));
-  for (const o of objetivos) {
+  for (const [k, o] of objetivos.entries()) {
     b.buscar(o);
+    if (k === 0) {
+      const suelto = objetivos.find((p) => (b.coste[p] as number) < 0);
+      if (suelto !== undefined)
+        return `en la región ${r} no se llega de ${donde(o)} a ${donde(suelto)}`;
+    }
     for (const [i, t] of suma) {
       const v = b.coste[i] as number;
       if (v < 0) suma.delete(i);
@@ -3004,11 +3132,8 @@ export function centroDeRegion(
     if (e.monstruos[i] === 1 || e.ocupadas.has(i)) continue;
     if (mejor === -1 || t < (suma.get(mejor) as number)) mejor = i;
   }
-  if (mejor === -1) {
-    throw new Error(
-      `la región ${r} no tiene una casilla libre desde la que se llegue a todos sus objetivos: no hay dónde poner el centro de sus caminos`,
-    );
-  }
+  if (mejor === -1)
+    return `la región ${r} no tiene una casilla libre desde la que se llegue a todos sus objetivos: no hay dónde poner el centro de sus caminos`;
   return mejor;
 }
 
@@ -3427,11 +3552,12 @@ export function abrirEsquinasTorcidas(e: {
   return abiertas;
 }
 
-export function trazarCaminos(e: EntradaDeCaminos): [number, number][] {
+export function trazarCaminos(e: EntradaDeCaminos): [number, number][] | string {
   const tramos: [number, number][] = [];
   for (let r = 0; r < e.regiones; r++) {
     const b = new Busqueda(e, r);
-    const centro = centroDeRegion(e, r, b);
+    const centro = centroOMotivo(e, r, b);
+    if (typeof centro === 'string') return centro;
     if (centro === -1) continue;
     b.buscar(centro);
     const hastaElCentro = Int32Array.from(b.coste);
