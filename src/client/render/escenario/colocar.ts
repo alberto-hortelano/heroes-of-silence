@@ -162,6 +162,7 @@ import {
   ANCHO_DEL_PUEBLO,
   ANCHO_DEL_TRAMO_DEL_RECINTO,
   type ArcoPintado,
+  anilloMalOrdenado,
   anilloSobreLaSenda,
   arcosTapados,
   CARA_DEL_RECINTO,
@@ -183,6 +184,7 @@ import {
   type PapelEnElRecinto,
   type Par,
   type PiezaDelRecinto,
+  type PiezaPintada,
   PROPORCION_DE_TORRE,
   PX_POR_CASILLA_DEL_PUEBLO,
   pisaElAnillo,
@@ -490,6 +492,14 @@ export interface Escena {
      * ser 0.
      */
     readonly testerosAMediaTirada: number;
+    /**
+     * Torres de un recinto y piezas de una de sus dos caras (tramos y puertas)
+     * que el pintor pone al revés de la geometría: se pinta después la que
+     * está más lejos de la cámara donde se solapan (`anilloMalOrdenado`; la
+     * torre del vértice de arriba de la puerta del noreste de s16 tapaba el
+     * pilar del torreón). Tiene que ser 0.
+     */
+    readonly anilloMalOrdenado: number;
     /**
      * Casillas de barrera que no tapa su formación, un objeto ni una pared
      * del desnivel por su centro (#222): tiene que ser 0.
@@ -2720,6 +2730,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const recintosPuestos = new Map<string, Recinto<ModuloConSrc>>();
   /** Los arcos de cada recinto con la clave con que se pintan, la de su sprite: lo que mira `arcosTapados`. */
   const arcosPintados = new Map<string, ArcoPintado[]>();
+  /** Las torres, tramos y puertas de cada recinto con la clave y el `x` de su sprite: lo que mira `anilloMalOrdenado`. */
+  const anillosPintados = new Map<string, PiezaPintada[]>();
   {
     const modulos = modulosDelRecinto(catalogo, faltan);
     for (const r of puertasDe.values()) {
@@ -2760,6 +2772,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         const puesto = otro === undefined ? s : detrasDe(s, otro);
         if (otro === undefined) meter(s);
         else sprites.push(puesto);
+        if (p.que !== 'casa')
+          anillosPintados.set(r.id, [
+            ...(anillosPintados.get(r.id) ?? []),
+            { pieza: p, clave: claveDe(puesto), x: puesto.x },
+          ]);
         if (p.que === 'puerta' && p.cara !== undefined)
           arcosPintados.set(r.id, [
             ...(arcosPintados.get(r.id) ?? []),
@@ -4616,6 +4633,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         0,
       ),
       testerosAMediaTirada: testerosDeLaEscena(sprites, catalogo).length,
+      anilloMalOrdenado: [...recintosPuestos].reduce(
+        (n, [id, r]) => n + anilloMalOrdenado(r.contorno, anillosPintados.get(id) ?? []).length,
+        0,
+      ),
       casillasDeBarreraSinFormacion: sinFormacion,
       spritesSobreSenda: sobreLaSenda(sprites, trazos).length,
       // Recontadas desde lo puesto, con cualquier módulo del catálogo y no solo

@@ -262,6 +262,7 @@ describe('la ciudad amurallada en los mapas del juego', () => {
           casasRepetidasJuntas: i.casasRepetidasJuntas,
           arcosTapados: i.arcosTapados,
           testerosAMediaTirada: i.testerosAMediaTirada,
+          anilloMalOrdenado: i.anilloMalOrdenado,
           casillasDeBarreraSinFormacion: i.casillasDeBarreraSinFormacion,
           puertaSinCamino: i.puertaSinCamino,
         }).toEqual({
@@ -272,6 +273,7 @@ describe('la ciudad amurallada en los mapas del juego', () => {
           casasRepetidasJuntas: 0,
           arcosTapados: 0,
           testerosAMediaTirada: 0,
+          anilloMalOrdenado: 0,
           casillasDeBarreraSinFormacion: 0,
           puertaSinCamino: 0,
         });
