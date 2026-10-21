@@ -24,8 +24,9 @@
  *   (`puertasDelNucleo` → `puertasDeLaCiudad`: donde llega un camino, y la del
  *   río de una ciudad-puente), y la escena no lo deduce de nada (vuelta 3, fase
  *   3); la senda pintada se lleva luego por el arco (`tendidosDeLasPuertas`,
- *   `sendasPorLosTendidos` en `celdas.ts`). Dentro, la plaza mayor
- *   (`PLAZA_MAYOR`) y una calle de cada puerta hasta ella.
+ *   `sendasPorLosTendidos` en `celdas.ts`). Dentro, casas por todo el
+ *   recinto, sin plaza mayor: libre solo la calle junto a cada puerta y donde
+ *   pisa quien está en la ciudad (`tapaElPieDelHeroe`).
  *
  * Es puro y determinista, con su propia corriente de azar: no sabe de sprites
  * ni de la escena; `componer` le da los módulos y la calle de las casas
@@ -483,9 +484,9 @@ const ENTRE_CASAS = 0.04;
 
 /**
  * Cuánto avanza la fila cuando ninguna casa entra en su sitio (la calle de una
- * puerta, la plaza mayor). Con 0,1 y tres módulos por sitio, las calles hasta
- * la plaza mayor dejaban la mediana de casas por ciudad de 1-20 en 12; con este
- * y probando todos, en 13 (vuelta 3).
+ * puerta, donde pisa el héroe). Con 0,1 y tres módulos por sitio, las calles
+ * hasta la plaza mayor de la fase 3 dejaban la mediana de casas por ciudad de
+ * 1-20 en 12; con este y probando todos, en 13 (vuelta 3).
  */
 const AVANCE_SIN_CASA = 0.05;
 
@@ -548,10 +549,10 @@ function deVerticeAVertice<M extends ModuloDelRecinto>(
  * diagonal van de vértice a vértice por sus juntas (`deVerticeAVertice`).
  *
  * Las casas, por filas de norte a sur, de oeste a este desde el muro, con el pie
- * dentro del octógono (`filaDelContorno`) y sin tapar la plaza mayor
- * (`tapaLaPlazaMayor`): la siguiente de una baraja de la hoja
+ * dentro del octógono (`filaDelContorno`) y sin tapar donde pisa el héroe
+ * (`tapaElPieDelHeroe`): la siguiente de una baraja de la hoja
  * que no sea la de su izquierda ni una de la fila de detrás que se le solape; si
- * no entra (la calle de una puerta, la plaza mayor), la siguiente de la baraja
+ * no entra (la calle de una puerta, el pie del héroe), la siguiente de la baraja
  * que entre, y si ninguna, la fila avanza.
  */
 export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): Recinto<M> {
@@ -687,7 +688,7 @@ export function recintoDe<M extends ModuloDelRecinto>(e: EntradaDeRecinto<M>): R
           y,
           alto: m.nh / PX_POR_CASILLA_DEL_PUEBLO,
         };
-        if (tapaLaPlazaMayor(contorno, c) || !e.entraLaCasa(c)) continue;
+        if (tapaElPieDelHeroe(contorno, c) || !e.entraLaCasa(c)) continue;
         puesta = c;
         baraja.splice(baraja.indexOf(k), 1);
         break;
@@ -1031,64 +1032,79 @@ export function tendidosDeLasPuertas(
 
 /**
  * Lo que queda bajo el centro del recinto donde pisa quien está en la ciudad,
- * en casillas: `PIES.heroe` (`render/mapa.ts`) menos media casilla. Es el
- * centro de la plaza mayor.
+ * en casillas: `PIES.heroe` (`render/mapa.ts`) menos media casilla.
  */
 export const PIE_EN_LA_PLAZA = 0.3;
 
 /**
- * El radio de la plaza mayor, en casillas: el claro alrededor de donde pisa
- * quien está en la ciudad (`PIE_EN_LA_PLAZA`), que ninguna casa tapa
- * (`tapaLaPlazaMayor`): el héroe queda sobre la plaza y no sobre los tejados
- * (vuelta 3). Con 0,4 alrededor del centro, la mediana de casas por ciudad de
- * 1-20 bajaba de 15 a 10; con este y calles de 0,3, a 12.
+ * Lo que queda libre de casas alrededor de donde pisa quien está en la ciudad,
+ * en casillas, a cada lado (`ancho`) y por delante y por detrás (`hondo`)
+ * (`tapaElPieDelHeroe`): sus pies van sobre la piedra de la plaza y no sobre un
+ * tejado. Es lo justo, el sitio de sus pies (decisión del usuario tras la fase 3
+ * de la vuelta 3: «llena, sin plaza mayor»): con las piernas abiertas, del pie
+ * izquierdo al derecho mide unas 0,4 casillas (s13, en el navegador). Con una
+ * plaza mayor de 0,3 alrededor y una calle de cada puerta hasta ella, la mediana
+ * de casas por ciudad de 1-40 bajaba de 15 a 13 y la ciudad se veía vacía; con
+ * un círculo de 0,1 se ganaba media casa de media, pero el pie izquierdo quedaba
+ * al filo de la casa de al lado y el aro del héroe la pisaba.
  */
-export const PLAZA_MAYOR = 0.3;
+export const LIBRE_BAJO_EL_HEROE = { ancho: 0.2, hondo: 0.1 } as const;
 
-/** El centro de la plaza mayor del recinto de `c`: donde pisa quien está en la ciudad. */
-export const centroDeLaPlazaMayor = (c: Contorno): Par => [
-  c.centro[0],
-  c.centro[1] + PIE_EN_LA_PLAZA,
-];
+/** Donde pisa quien está en la ciudad del recinto de `c`. */
+export const pieDelHeroe = (c: Contorno): Par => [c.centro[0], c.centro[1] + PIE_EN_LA_PLAZA];
 
 /**
- * Si la casa `p` tapa la plaza mayor del recinto de `c`: su imagen, de su pie a
- * su alto y de su ancho, toca el círculo de `PLAZA_MAYOR` alrededor de su
- * centro. La imagen y no solo el pie: la casa de delante, con el pie fuera,
- * tapaba el claro con su tejado.
+ * Si la casa `p` tapa donde pisa quien está en la ciudad del recinto de `c`: su
+ * imagen, de su pie a su alto y de su ancho, entra en la elipse de
+ * `LIBRE_BAJO_EL_HEROE` alrededor de su pie. La imagen y no solo el pie: quien
+ * está dentro se pinta delante del recinto entero (`Escenario.cubiertas`), así
+ * que el tejado de la casa de delante le quedaba bajo los pies.
  */
-export function tapaLaPlazaMayor(
+export function tapaElPieDelHeroe(
   c: Contorno,
   p: Pick<PiezaDelRecinto, 'x' | 'y' | 'alto' | 'nw' | 'nh' | 'ax'>,
 ): boolean {
   const ancho = (p.alto * p.nw) / p.nh;
   const izquierda = p.x - (p.ax * p.alto) / p.nh;
-  const [cx, cy] = centroDeLaPlazaMayor(c);
+  const [cx, cy] = pieDelHeroe(c);
   const dx = Math.max(izquierda - cx, 0, cx - (izquierda + ancho));
   const dy = Math.max(p.y - p.alto - cy, 0, cy - p.y);
-  return Math.hypot(dx, dy) < PLAZA_MAYOR;
+  return Math.hypot(dx / LIBRE_BAJO_EL_HEROE.ancho, dy / LIBRE_BAJO_EL_HEROE.hondo) < 1;
 }
 
 /**
+ * Lo que la calle de una puerta entra en el recinto desde su cara, en casillas,
+ * por dónde mira la cara. Por detrás y de lado, la casa de delante de la puerta
+ * se pinta después del arco y lo taparía con su tejado: lo que tapa una casa de
+ * la segunda fila. Por delante (sur, sureste y suroeste) la casa queda detrás
+ * del arco, y basta lo que entra la senda (`DENTRO_DE_LA_PUERTA`) y su media
+ * anchura.
+ */
+export const FONDO_DE_LA_CALLE = { detras: 0.6, delante: 0.35 } as const;
+
+/**
  * Lo que el pie de una casa del recinto queda del eje de la calle de una puerta
- * (`callesDeLasPuertas`): calles de 0,3 de ancho. Con media luz del arco (0,2),
- * las calles hasta la plaza mayor dejaban la mediana de casas por ciudad de
- * 1-20 en 11 (vuelta 3).
+ * (`callesDeLasPuertas`): la media anchura de la senda (0,16), que es lo que
+ * entra por el arco. La fase 2 dejaba media luz del arco (0,2).
  */
 export const MEDIA_CALLE = 0.15;
 
 /**
- * La calle de cada puerta: de fuera de su arco a la plaza mayor, por su normal
- * y luego al centro, lo que no lleva casas en el pie (`entraLaCasa`). Las calles
- * se juntan en la plaza: es lo que se ve de la ciudad entre los tejados, y por
- * donde va quien entra (vuelta 3, la plaza mayor con sus calles).
+ * La calle de cada puerta: de fuera de su arco a `FONDO_DE_LA_CALLE` dentro, por
+ * su normal, lo que no lleva casas en el pie (`entraLaCasa`). Lo justo para que
+ * la senda entre (su tendido entra `DENTRO_DE_LA_PUERTA`) y el arco no quede
+ * tapado; más allá, la ciudad va llena.
  */
 export function callesDeLasPuertas(r: Pick<Recinto, 'contorno' | 'puertas'>): Senda[] {
   return r.contorno.caras
     .filter((k) => r.puertas.includes(k.cara))
     .map((k): Senda => {
       const [nx, ny] = k.normal;
-      return [[k.medio[0] + nx * 0.2, k.medio[1] + ny * 0.2], centroDeLaPlazaMayor(r.contorno)];
+      const fondo = ny > 0 ? FONDO_DE_LA_CALLE.delante : FONDO_DE_LA_CALLE.detras;
+      return [
+        [k.medio[0] + nx * 0.2, k.medio[1] + ny * 0.2],
+        [k.medio[0] - nx * fondo, k.medio[1] - ny * fondo],
+      ];
     });
 }
 

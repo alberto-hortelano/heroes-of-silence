@@ -9,8 +9,9 @@
  * - La plaza: cubre el octógono y por delante no pasa de `PLAZA_AL_SUR` (H9).
  * - El anillo: en los 256 juegos de puertas, una torre en cada vértice, la pieza
  *   de su eje en cada puerta y ningún hueco (el guardia, visto morder).
- * - Las casas: apiñadas, dentro del octógono, fuera de la calle de cada puerta
- *   y de la plaza mayor, a la escala del pueblo y sin la misma al lado.
+ * - Las casas: apiñadas por todo el recinto, dentro del octógono, fuera de la
+ *   calle de cada puerta y de donde pisa el héroe, a la escala del pueblo y sin
+ *   la misma al lado.
  */
 import { describe, expect, it } from 'vitest';
 import { modulosDelRecinto } from '../src/client/render/escenario/colocar.js';
@@ -23,27 +24,28 @@ import {
   type Cara,
   callesDeLasPuertas,
   casasRepetidasJuntas,
-  centroDeLaPlazaMayor,
   contornoDelRecinto,
   crucesConElContorno,
   DENTRO_DE_LOS_CHAFLANES,
   dentroDelContorno,
   EJE_DE_LA_CARA,
   enLaPlaza,
+  FONDO_DE_LA_CALLE,
   huecosDelAnillo,
+  LIBRE_BAJO_EL_HEROE,
   MEDIA_CALLE,
   type Par,
   PIE_EN_LA_PLAZA,
   type PiezaDelRecinto,
   PLAZA_AL_SUR,
-  PLAZA_MAYOR,
   PX_POR_CASILLA_DEL_PUEBLO,
+  pieDelHeroe,
   puertaDelEje,
   RADIO_DE_TORRE,
   ROCE_DEL_RECINTO,
   recintoDe,
   sendasSinRoces,
-  tapaLaPlazaMayor,
+  tapaElPieDelHeroe,
 } from '../src/client/render/escenario/recinto.js';
 import { SEMIANCHO_DE_LA_HUELLA, type Senda } from '../src/client/render/escenario/sendas.js';
 import { PIES } from '../src/client/render/mapa.js';
@@ -263,43 +265,63 @@ describe('el anillo (`recintoDe`) en los 256 juegos de puertas', () => {
 });
 
 describe('las casas del recinto', () => {
-  // Medido el 21-10-2026 con el catálogo del repo: 17 sin puertas y 12 con tres
-  // (con la plaza mayor y las calles hasta ella; antes, 20 y 15).
+  // Medido el 21-10-2026 con el catálogo del repo: 18 sin puertas y 15 con tres
+  // (llena, sin plaza mayor; con ella y las calles hasta ella, 17 y 12).
   const sinPuertas = recintoCon([]);
   const conTres = recintoCon(['ne', 'se', 'so']);
 
   it('apiñadas: muchas sin puertas, y las calles dejan sitio', () => {
-    expect(sinPuertas.casas.length).toBeGreaterThanOrEqual(16);
-    expect(conTres.casas.length).toBeGreaterThanOrEqual(11);
+    expect(sinPuertas.casas.length).toBeGreaterThanOrEqual(18);
+    expect(conTres.casas.length).toBeGreaterThanOrEqual(15);
     expect(conTres.casas.length).toBeLessThan(sinPuertas.casas.length);
   });
 
-  it('la plaza mayor, libre: ninguna casa la tapa, en ningún juego de puertas, y el guardia muerde', () => {
+  it('donde pisa el héroe, libre: ninguna casa lo tapa, en ningún juego de puertas, y el guardia muerde', () => {
     for (const puertas of JUEGOS)
       for (const c of recintoCon(puertas).casas)
-        expect(tapaLaPlazaMayor(C, c), `${puertas.join(',')}: ${c.nombre} en ${c.x},${c.y}`).toBe(
+        expect(tapaElPieDelHeroe(C, c), `${puertas.join(',')}: ${c.nombre} en ${c.x},${c.y}`).toBe(
           false,
         );
     const [a] = sinPuertas.casas;
     if (a === undefined) throw new Error('sin casas');
-    const [px, py] = centroDeLaPlazaMayor(C);
-    // Con el pie justo delante del claro, su tejado lo tapa.
-    expect(tapaLaPlazaMayor(C, { ...a, x: px, y: py + PLAZA_MAYOR + 0.1 })).toBe(true);
-    expect(tapaLaPlazaMayor(C, { ...a, x: px + 2, y: py })).toBe(false);
+    const [px, py] = pieDelHeroe(C);
+    // Con el pie justo delante, su tejado queda bajo los pies del héroe; justo
+    // detrás, su fachada; y más allá, nada.
+    const { ancho, hondo } = LIBRE_BAJO_EL_HEROE;
+    expect(tapaElPieDelHeroe(C, { ...a, x: px, y: py + 0.2 })).toBe(true);
+    expect(tapaElPieDelHeroe(C, { ...a, x: px, y: py - hondo / 2 })).toBe(true);
+    expect(tapaElPieDelHeroe(C, { ...a, x: px, y: py - hondo - 0.01 })).toBe(false);
+    // De lado, a lo que abre las piernas: la imagen empieza en `izquierda`.
+    const izquierda = (x: number) => x + (a.ax * a.alto) / a.nh;
+    expect(tapaElPieDelHeroe(C, { ...a, x: izquierda(px + ancho / 2), y: py })).toBe(true);
+    expect(tapaElPieDelHeroe(C, { ...a, x: izquierda(px + ancho + 0.01), y: py })).toBe(false);
   });
 
-  it('la plaza mayor, donde pisa quien está en la ciudad (`PIES.heroe`)', () => {
+  it('el héroe pisa donde lo pinta el mapa (`PIES.heroe`)', () => {
     expect(PIE_EN_LA_PLAZA).toBeCloseTo(PIES.heroe - 0.5, 9);
+    expect(pieDelHeroe(C)).toEqual([CX, CY + PIE_EN_LA_PLAZA]);
   });
 
-  it('una calle de cada puerta, de fuera de su arco a la plaza mayor', () => {
-    const puertas: Cara[] = ['n', 'se', 'so'];
+  it('una calle corta en cada puerta: de fuera de su arco a lo justo dentro, más honda por detrás', () => {
+    const puertas: Cara[] = ['n', 'se', 'so', 'o'];
     const calles = callesDeLasPuertas({ contorno: C, puertas });
-    expect(calles).toHaveLength(3);
-    for (const l of calles) {
-      expect(l.at(-1)).toEqual(centroDeLaPlazaMayor(C));
-      const [x, y] = l[0] as Par;
-      expect(dentroDelContorno(C, x, y)).toBe(false);
+    expect(calles).toHaveLength(4);
+    for (const [i, cara] of puertas.entries()) {
+      const l = calles[i] as Senda;
+      const k = C.caras.find((q) => q.cara === cara);
+      if (k === undefined) throw new Error(cara);
+      const [x0, y0] = l[0] as Par;
+      const [x1, y1] = l.at(-1) as Par;
+      expect(dentroDelContorno(C, x0, y0)).toBe(false);
+      expect(dentroDelContorno(C, x1, y1)).toBe(true);
+      const fondo = Math.hypot(x1 - k.medio[0], y1 - k.medio[1]);
+      expect(fondo, cara).toBeCloseTo(
+        k.normal[1] > 0 ? FONDO_DE_LA_CALLE.delante : FONDO_DE_LA_CALLE.detras,
+        9,
+      );
+      // Ninguna llega a donde pisa el héroe: la ciudad no lleva plaza mayor.
+      const [hx, hy] = pieDelHeroe(C);
+      expect(Math.hypot(x1 - hx, y1 - hy), cara).toBeGreaterThan(0.5);
     }
   });
 

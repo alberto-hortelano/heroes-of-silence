@@ -90,6 +90,10 @@ Decisiones del usuario tras la parada de la fase 1 (21-10-2026):
 - **Lado mínimo del generador, 26** (`LADO_MINIMO_DEL_GENERADOR`, hoy 24): con la separación de 5, el 24×24 se quedaba sin mapa en 15 de 200 semillas; en 26, 200 de 200. Por regiones y el plan del agente, lo que se derive de ese mínimo (y su prosa).
 - **La ciudad-puente se mueve a tierra en la fase 2**, junto con el paso por las puertas. En la fase 1 sigue en el río con su recinto tierra adentro; H2 se arregla en la escena acortando el puente de la ciudad hasta el pie de su cara, con el guardia `puenteSobreElAnillo`.
 
+Decisiones del usuario tras la fase 3 (21-10-2026):
+- **Llena, sin plaza mayor**: con la plaza mayor y las calles de cada puerta al centro la ciudad bajaba a ~13 casas y se veía vacía; se vuelve al reparto apretado de la fase 2 (casas por todo el recinto), dejando libre solo lo justo junto a cada puerta y donde pisa el héroe.
+- **El bucle de la IA** (dos héroes que se quitan una ciudad del centro, hasta 37 días en el banco): va a una issue aparte; no se arregla aquí.
+
 ## Preguntas abiertas (con la suposición por defecto)
 
 - ¿El recinto tapa casillas vecinas que se pisan? Lo que pinta la ciudad hoy ya desborda su casilla; no se añade más desborde del que hay sin decirlo.

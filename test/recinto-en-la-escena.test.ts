@@ -8,8 +8,8 @@
  *   (`Sprite.recinto`) y el pie dentro.
  * - Lo de dentro es la plaza (criterio 8b): ni paredes del relieve, ni bajadas,
  *   ni rampas, ni masa, cubierta o rocas con el pie en sus casillas.
- * - Las puertas pintadas son las del núcleo (`puertasDeLaCiudad`), y ninguna
- *   casa tapa la plaza mayor (vuelta 3, fase 3).
+ * - Las puertas pintadas son las del núcleo (`puertasDeLaCiudad`, vuelta 3,
+ *   fase 3), y ninguna casa tapa donde pisa el héroe (llena, sin plaza mayor).
  * - El óvalo del dueño, en el suelo de la plaza (`claveDeLaMarca`, H8), y quien
  *   está en una de sus casillas, delante del recinto entero (`claveDeFigura`).
  * - Los guardias del recinto, a 0: ninguna senda por el anillo, ninguna fuera
@@ -34,7 +34,7 @@ import {
   enElRecinto,
   puertaDelEje,
   RADIO_DE_TORRE,
-  tapaLaPlazaMayor,
+  tapaElPieDelHeroe,
 } from '../src/client/render/escenario/recinto.js';
 import { claveDeFigura, escenarioDe } from '../src/client/render/escenario/superficie.js';
 import { puertasDeLaCiudad, recintoDeLaCiudad } from '../src/core/map/recinto.js';
@@ -127,12 +127,12 @@ describe('la ciudad amurallada en los mapas del juego', () => {
         }
       });
 
-      it('la plaza mayor, libre: ninguna casa la tapa', () => {
+      it('donde pisa el héroe, libre: ninguna casa lo tapa', () => {
         for (const r of e.recintos) {
           const c = contornoDelRecinto(r.rect);
           const casas = e.sprites.filter((s) => s.objeto?.id === r.id && s.recinto === 'casa');
           for (const s of casas)
-            expect(tapaLaPlazaMayor(c, s), `${r.id}: ${s.src} en ${s.x},${s.y}`).toBe(false);
+            expect(tapaElPieDelHeroe(c, s), `${r.id}: ${s.src} en ${s.x},${s.y}`).toBe(false);
         }
       });
 
