@@ -651,7 +651,8 @@ describe('la muralla de norte a sur, de lado (§29)', () => {
       (s) => /^muro-ns-[12]\.webp$/.test(s.src ?? '') && s.objeto?.kind !== 'town',
     );
     expect(ns.length).toBeGreaterThanOrEqual(5);
-    expect(new Set(ns.map((s) => s.src))).toEqual(new Set(['muro-ns-1.webp', 'muro-ns-2.webp']));
+    // Una tirada va con un solo módulo (`tiradaNorteSur`): cuál, lo sortea; los dos son de la hoja.
+    for (const s of ns) expect(['muro-ns-1.webp', 'muro-ns-2.webp']).toContain(s.src);
     for (const s of ns) {
       expect(s.clase).toBe('muro');
       expect(s.alto).toBe(1.6);
