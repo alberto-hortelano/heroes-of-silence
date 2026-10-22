@@ -17,7 +17,8 @@
  *
  * No toca el DOM ni recibe clics: pinta en el lienzo que le dan. No lee la
  * sesión (`invariantes.test.ts`): le dan el clima del sitio. Lee él mismo si
- * quien mira pidió menos movimiento (`movimientoReducido`): quieto, sin rayos.
+ * quien mira pidió menos movimiento (`movimientoReducido`): la lluvia y la niebla,
+ * despacio (`PRISA_CON_MOVIMIENTO_REDUCIDO`) y sin rayos.
  *
  * **Por qué así** (lo caro es componer una capa del tamaño del lienzo, y el mapa
  * tiene un presupuesto de píxeles: `PIXELES_DEL_MAPA`):
@@ -70,6 +71,13 @@ const DURACION_DEL_RAYO = 160;
 const GROSOR_DE_LA_GOTA = 1;
 /** Cuántas gotas como mucho por fotograma: en una pantalla enorme, la lluvia no crece sin tope. */
 const TOPE_DE_GOTAS = 2400;
+/**
+ * A qué fracción del reloj va lo que se mueve (la lluvia y los bancos de niebla)
+ * con movimiento reducido: despacio, sin partículas que corran (criterio 5 del
+ * clima), pero sin quedarse quieto («la lluvia debería estar animada», el usuario,
+ * 22-10-2026: congelada parecía rota).
+ */
+const PRISA_CON_MOVIMIENTO_REDUCIDO = 0.2;
 /** Cuánto ilumina el destello de un rayo en el mapa, en casillas: unas seis. */
 const RADIO_DEL_RAYO_EN_EL_MAPA = 6;
 
@@ -646,16 +654,16 @@ function pintarLluvia(
   { lluvia, dentro }: CampoDelClima['lluvias'][number],
   m: MarcoDelClima,
   ahora: number,
-  quieto: boolean,
+  lento: boolean,
   semilla: number,
 ): void {
   const { a, d, e, f } = ctx.getTransform();
   const W = m.ancho * a;
   const H = m.alto * d;
-  // Quieta, menos gotas: se ve que llueve sin una cortina fija delante.
+  // Lenta (movimiento reducido), la mitad de gotas: se ve que llueve sin una cortina delante.
   const n = Math.min(
     TOPE_DE_GOTAS,
-    Math.round(((lluvia.densidad * m.ancho * m.alto) / 10_000) * (quieto ? 0.5 : 1)),
+    Math.round(((lluvia.densidad * m.ancho * m.alto) / 10_000) * (lento ? 0.5 : 1)),
   );
   const planos = [
     { parte: 0.6, largo: 10, velocidad: 0.62, alfa: 0.55 },
@@ -771,6 +779,10 @@ function pintarRayo(
 const seMueve = (campo: CampoDelClima): boolean =>
   campo.bancos !== null || campo.lluvias.length > 0 || campo.rayos.length > 0;
 
+/** El reloj de lo que se mueve: el de verdad, o más lento con movimiento reducido. */
+const relojDelClima = (ahora: number, lento: boolean): number =>
+  lento ? ahora * PRISA_CON_MOVIMIENTO_REDUCIDO : ahora;
+
 /**
  * Lo de abajo del clima: lo que aclara (bruma y bancos) y lo que oscurece (la
  * luz, con sus fuegos). En la batalla va detrás de las casillas y las figuras;
@@ -781,11 +793,9 @@ export function pintarSueloDelClima(
   campo: CampoDelClima,
   m: MarcoDelClima,
 ): void {
-  const quieto = movimientoReducido();
-  const ahora = quieto ? 0 : m.ahora;
-  pintarLoQueAclara(ctx, campo, m, ahora);
+  pintarLoQueAclara(ctx, campo, m, relojDelClima(m.ahora, movimientoReducido()));
   pintarLaLuz(ctx, campo, m);
-  if (!quieto && campo.bancos !== null) animarHasta(m.ahora + 100);
+  if (campo.bancos !== null) animarHasta(m.ahora + 100);
 }
 
 /**
@@ -798,10 +808,11 @@ export function pintarAireDelClima(
   campo: CampoDelClima,
   m: MarcoDelClima,
 ): void {
-  const quieto = movimientoReducido();
-  const ahora = quieto ? 0 : m.ahora;
-  for (const [j, l] of campo.lluvias.entries()) pintarLluvia(ctx, l, m, ahora, quieto, j * 9973);
-  if (!quieto) {
+  const lento = movimientoReducido();
+  const ahora = relojDelClima(m.ahora, lento);
+  for (const [j, l] of campo.lluvias.entries()) pintarLluvia(ctx, l, m, ahora, lento, j * 9973);
+  // Con movimiento reducido, sin rayos: un destello es lo que no se pide.
+  if (!lento) {
     for (const foco of campo.rayos) {
       const rayo = rayoAhora(foco.id, m.ahora, foco.cada);
       if (rayo === null) continue;
@@ -810,7 +821,7 @@ export function pintarAireDelClima(
         pintarRayo(ctx, donde, rayo.fuerza, rayo.ciclo * 31 + hashDeTexto(foco.id));
     }
   }
-  if (!quieto && seMueve(campo)) animarHasta(m.ahora + 100);
+  if (seMueve(campo)) animarHasta(m.ahora + 100);
 }
 
 // -------------------------------------------------------- una escena entera

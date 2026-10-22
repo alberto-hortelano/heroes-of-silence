@@ -18,7 +18,8 @@
  * - **la niebla de guerra no cambia** (criterio 3): todo píxel que con el
  *   despejado es lo inexplorado (`#080a10`) lo sigue siendo con cada clima;
  * - **movimiento reducido** (criterio 5): con `prefers-reduced-motion: reduce` y
- *   tormenta, dos fotogramas a 600 ms se parecen y ninguno lleva un destello;
+ *   tormenta, la lluvia cae despacio: dos fotogramas a 600 ms se parecen y ninguno
+ *   lleva un destello;
  * - **fps** (criterio 6): en 2560×1440, el mapa al tope de alejar arrastrándolo
  *   3 s, la batalla y la base, por clima y con el despejado intercalado; y el
  *   mapa una vez más en 3840×2160. Imprime la tabla con la fecha y sale con 1 si
@@ -241,7 +242,7 @@ async function capturas(browser: Browser, url: string): Promise<void> {
   await ctx.close();
 }
 
-/** Criterio 5: con movimiento reducido, la tormenta queda quieta y sin destellos. */
+/** Criterio 5: con movimiento reducido, la tormenta va despacio (casi quieta) y sin destellos. */
 async function movimientoReducido(browser: Browser, url: string): Promise<void> {
   const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
