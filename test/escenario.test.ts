@@ -294,14 +294,17 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     // con la muralla como cierre de un paso (#232, 10-10-2026), la 17, la 177
     // y la 182; con los ríos (#144, 16-10-2026), la 61, la 103 y la 125 (de
     // 1-125); con las puertas de las ciudades (fase 2, 21-10-2026), en 1-200
-    // solo la 198: se busca desde ella.
+    // solo la 198; desde «solo oro» (sin minas, 21-10-2026), de la 198 a la 300
+    // la primera es la 240 (medido el 22-10-2026, igual en e9a3c595): buscar
+    // desde la 198 eran ~17 s solo y pasaba del plazo de 60 s con todo el suite
+    // en paralelo. Se busca desde ella.
     const { caso: conVados } = primeraSemillaCon(
       'vados junto a un puente',
       (s) => {
         const e = escenaDe(s);
         return e.vados.length > 0 ? e : undefined;
       },
-      198,
+      240,
       300,
     );
     const r = registro();

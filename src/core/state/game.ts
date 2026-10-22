@@ -17,7 +17,12 @@ import {
   unidadDelJuego,
   unidadDelJuegoSiExiste,
 } from '../catalogo.js';
-import { combateBlocker, loNeutralAlTope, type ReglasDelCombate } from '../combate.js';
+import {
+  combateBlocker,
+  gruposAlTope,
+  loNeutralAlTope,
+  type ReglasDelCombate,
+} from '../combate.js';
 import { ECONOMIA, figuraDelHeroe, tipoDeHeroePorDefecto, tiposDeHeroe } from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
@@ -86,6 +91,21 @@ import {
   sePasa,
 } from '../map/map.js';
 import { muroBlocker } from '../map/recinto.js';
+import {
+  batallaDe,
+  type Cobro as CobroDelMundo,
+  claveDeEncuentro,
+  claveDeOpcion,
+  daPremio,
+  type Efecto,
+  type EstadoDelMundo,
+  esPremio,
+  type Lugar,
+  lugarDe,
+  type Opcion,
+  recordarLaConversacion,
+} from '../mundo/formato.js';
+import { mundoDe, opcionBlocker, opcionDe, type RefDeOpcion } from '../mundo/reglas.js';
 import { createRng, type Rng } from '../rng.js';
 import { CHARACTER_BODY, type Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
@@ -341,6 +361,15 @@ export interface GameState {
    */
   characters?: Record<string, Character>;
   /**
+   * El mundo de la partida (`core/mundo/`): su historia y lo que cambia de ella
+   * —el estado de cada lugar y las marcas puestas—. **Ausente sin mundo**, como
+   * `characters`: `newGame` solo lo escribe con una historia, y nada del
+   * procedimental lo lee, así que su presencia no puede mover una partida del banco.
+   * Lo escriben solo las acciones de los lugares (`elegir_en_lugar`) y el cierre
+   * de sus batallas.
+   */
+  mundo?: EstadoDelMundo;
+  /**
    * El número del próximo veterano (`Veterania.id`). Un contador del estado y
    * no un id derivado de dónde está el individuo: se mueve de héroe a
    * guarnición y vuelve, y su identidad tiene que sobrevivir a eso. Se lleva
@@ -444,6 +473,21 @@ export type AdventureAction =
       readonly veteran?: string;
       /** El individuo de ese puesto de la tropa, como en `equip`. */
       readonly puesto?: number;
+    }
+  /**
+   * Elegir una opción de la conversación de un punto de un lugar de un mundo
+   * (`core/mundo/`), con el héroe que está en él. Solo las opciones que hacen algo
+   * (`hace`): ir de un nodo a otro es de quien conversa, no del núcleo. Aplica sus
+   * efectos todos o ninguno (`opcionBlocker` antes), cada uno con su hecho; una
+   * batalla, la última, queda pendiente como cualquier otra.
+   */
+  | {
+      readonly type: 'elegir_en_lugar';
+      readonly hero: string;
+      readonly lugar: string;
+      readonly punto: string;
+      readonly nodo: string;
+      readonly opcion: number;
     }
   | { readonly type: 'end_turn' };
 
@@ -650,6 +694,8 @@ export interface GameConfig {
   readonly towns: readonly Town[];
   /** Los asaltantes con los que empieza la partida; ninguno si falta. */
   readonly raiders?: readonly Raider[];
+  /** El mundo, si la partida es de uno (`GameState.mundo`). */
+  readonly mundo?: EstadoDelMundo;
 }
 
 export function createGame(config: GameConfig): GameState {
@@ -712,6 +758,16 @@ export function createGame(config: GameConfig): GameState {
     siguienteBotin: 0,
     siguienteHeroe: 1,
   };
+  if (config.mundo !== undefined) {
+    state.mundo = {
+      historia: config.mundo.historia,
+      estados: { ...config.mundo.estados },
+      marcas: [...config.mundo.marcas],
+      cobradas: { ...config.mundo.cobradas },
+      vencidos: { ...config.mundo.vencidos },
+      conversaciones: { ...config.mundo.conversaciones },
+    };
+  }
 
   // Los pueblos arrancan con la hornada de la primera semana.
   for (const town of state.towns) applyWeeklyGrowth(town);
@@ -1471,6 +1527,26 @@ function aplicar(
       return;
     }
 
+    case 'elegir_en_lugar': {
+      // Antes que la pregunta de la opción, que mira el turno del dueño del héroe:
+      // con el héroe del rival diría «todavía no es tu turno», y sí lo es.
+      const deOtro = state.heroes.find((h) => h.id === action.hero);
+      if (deOtro !== undefined && deOtro.owner !== currentPlayer(state).id) {
+        throw new Error('no se puede elegir eso: ese héroe no es tuyo');
+      }
+      const noSe = opcionBlocker(state, action.hero, action);
+      if (noSe !== null) throw new Error(`no se puede elegir eso: ${noSe}`);
+      const hero = heroById(state, action.hero);
+      const { lugar, opcion } = opcionDe(state, action.hero, action);
+      anotarLaEleccion(mundoDe(state), action, opcion, hero);
+      // Con batalla, lo que da la opción se da al ganarla, entero (`applyVictory`; M1
+      // de la vuelta 2 de QA de la F1a): perder no da nada y deja volver a pelear.
+      const hace = opcion.hace ?? [];
+      const ahora = batallaDe(opcion) === null ? hace : hace.filter((e) => !esPremio(e));
+      aplicarEfectos(state, hero.owner, hero, lugar, ahora, ctx, action);
+      return;
+    }
+
     case 'unequip': {
       const hero = heroById(state, action.hero);
       const noSe = unequipBlocker(state, currentPlayer(state).id, action);
@@ -1483,6 +1559,165 @@ function aplicar(
       return;
     }
   }
+}
+
+/**
+ * Aplica los efectos de un lugar, en orden, cada uno con su hecho en la crónica.
+ * **La única escritura** de lo que da o quita un lugar y del estado y las marcas
+ * de `GameState.mundo` (lo cobrado y la conversación, `anotarLaEleccion`): la
+ * llaman la opción elegida (`elegir_en_lugar`) y el cierre de una batalla de un
+ * lugar (`alGanar`, `alPerder`). Quien llama ya ha comprobado que se puede
+ * (`opcionBlocker`, o la validación del mundo, que en `alGanar` no deja pagos ni
+ * tropa y en `alPerder` solo deja estado y marca): aquí no se falla a medias.
+ *
+ * `hero` es quien recibe lo que se da; al perder puede haber caído ya, y entonces
+ * es `null` (`alPerder` no da nada). `dueño` es el protagonista de los hechos.
+ * `ctx` y `ref` (la opción elegida) solo hacen falta si hay batalla: la abre
+ * `abrirBatalla`, como un ataque, y la batalla recuerda qué opción la abrió.
+ */
+function aplicarEfectos(
+  state: GameState,
+  dueño: PlayerId,
+  hero: Hero | null,
+  lugar: Lugar,
+  efectos: readonly Efecto[],
+  ctx: GameContext | null,
+  ref: RefDeOpcion | null = null,
+): void {
+  const mundo = mundoDe(state);
+  const at = lugar.at;
+  const player = playerById(state, dueño);
+  const delHeroe = (que: string): Hero => {
+    if (hero === null) throw new Error(`«${que}» en ${lugar.nombre} sin héroe que lo reciba`);
+    return hero;
+  };
+  for (const e of efectos) {
+    if ('estado' in e) {
+      const from = mundo.estados[lugar.id] as string;
+      if (from === e.estado) continue;
+      mundo.estados[lugar.id] = e.estado;
+      emit(state, {
+        kind: 'place_state',
+        lugar: lugar.id,
+        nombre: lugar.nombre,
+        estado: e.estado,
+        from,
+        dicho: lugar.estados[e.estado] ?? e.estado,
+        actor: dueño,
+        at,
+      });
+    } else if ('marca' in e) {
+      if (mundo.marcas.includes(e.marca)) continue;
+      mundo.marcas.push(e.marca);
+      emit(state, { kind: 'world_mark', marca: e.marca, lugar: lugar.id, actor: dueño, at });
+    } else if ('oro' in e) {
+      player.oro += e.oro;
+      emit(
+        state,
+        e.oro > 0
+          ? { kind: 'gold_gained', amount: e.oro, from: 'lugar', lugar: lugar.id, actor: dueño, at }
+          : { kind: 'gold_paid', amount: -e.oro, lugar: lugar.id, actor: dueño, at },
+      );
+    } else if ('pieza' in e) {
+      const h = delHeroe('pieza');
+      aLaMochila(h, e.pieza);
+      emit(state, {
+        kind: 'loot_found',
+        hero: h.id,
+        item: e.pieza,
+        from: 'lugar',
+        lugar: lugar.id,
+        actor: dueño,
+        at,
+      });
+    } else if ('quitar' in e) {
+      const h = delHeroe('quitar');
+      h.mochila = sacarDeLaMochila(h.mochila, e.quitar);
+      emit(state, {
+        kind: 'item_given',
+        hero: h.id,
+        item: e.quitar,
+        lugar: lugar.id,
+        actor: dueño,
+        at,
+      });
+    } else if ('tropa' in e) {
+      const h = delHeroe('tropa');
+      h.army = withTroops(h.army, e.tropa.unidad, e.tropa.n);
+      emit(state, {
+        kind: 'troops_joined',
+        hero: h.id,
+        creature: e.tropa.unidad,
+        count: e.tropa.n,
+        lugar: lugar.id,
+        actor: dueño,
+        at,
+      });
+    } else {
+      const h = delHeroe('batalla');
+      if (ctx === null || ref === null)
+        throw new Error(`una batalla de ${lugar.nombre} sin la opción que la abra`);
+      abrirBatalla(
+        state,
+        {
+          attacker: { kind: 'hero', heroId: h.id },
+          foe: {
+            kind: 'lugar',
+            lugar: lugar.id,
+            encuentro: e.batalla,
+            opcion: { punto: ref.punto, nodo: ref.nodo, opcion: ref.opcion },
+          },
+        },
+        ctx,
+      );
+    }
+  }
+}
+
+/**
+ * Lo que el mundo recuerda de una opción elegida, antes de aplicarla: su premio,
+ * cobrado por el dueño de `hero` (`cobradas`; el de una opción con batalla, al
+ * ganarla, `applyVictory`), y dónde queda la conversación de ese jugador con su
+ * punto (`recordarLaConversacion`). Con lo de `aplicarEfectos` y el encuentro
+ * ganado, lo único que escribe `GameState.mundo`.
+ */
+function anotarLaEleccion(
+  mundo: EstadoDelMundo,
+  ref: RefDeOpcion,
+  opcion: Opcion,
+  hero: Hero,
+): void {
+  if (daPremio(opcion) && batallaDe(opcion) === null)
+    mundo.cobradas[claveDeOpcion(ref)] ??= cobroDe(hero);
+  recordarLaConversacion(mundo.conversaciones, hero.owner, ref, opcion);
+}
+
+/** Quién cobra: el dueño de `hero` y su nombre, que dicen las frases del otro jugador. */
+function cobroDe(hero: Hero): CobroDelMundo {
+  return { jugador: hero.owner, heroe: hero.name };
+}
+
+/** La opción que abrió la batalla de un lugar, o lanza. */
+function opcionDeLaBatalla(lugar: Lugar, foe: Extract<BattleFoe, { kind: 'lugar' }>): Opcion {
+  const punto = lugar.puntos.find((p) => p.id === foe.opcion.punto);
+  const opcion =
+    lugar.dialogos[punto?.dialogo ?? '']?.nodos[foe.opcion.nodo]?.opciones[foe.opcion.opcion];
+  if (opcion === undefined) {
+    throw new Error(
+      `la batalla de «${lugar.nombre}» no sabe qué opción la abrió (${foe.opcion.punto}/${foe.opcion.nodo}/${foe.opcion.opcion})`,
+    );
+  }
+  return opcion;
+}
+
+/** El encuentro de una batalla de un lugar, o lanza. */
+function encuentroDe(state: GameState, foe: Extract<BattleFoe, { kind: 'lugar' }>) {
+  const lugar = lugarDe(mundoDe(state).historia, foe.lugar);
+  const encuentro = lugar.encuentros[foe.encuentro];
+  if (encuentro === undefined) {
+    throw new Error(`«${lugar.nombre}» no tiene ningún encuentro "${foe.encuentro}"`);
+  }
+  return { lugar, encuentro };
 }
 
 /**
@@ -2574,6 +2809,15 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
     }
     case 'raider':
       return ladoDeAsaltante(state, foe.raiderId);
+    case 'lugar':
+      // La tropa del encuentro, como un grupo de asaltantes: sin héroe ni dueño, y
+      // en el tope de tropa de la partida (`gruposAlTope`), como todo lo neutral.
+      return {
+        army: troopsAsStacks(
+          ejercitoDe(gruposAlTope(encuentroDe(state, foe).encuentro.tropa, state.combate.tope)),
+        ),
+        hero: null,
+      };
   }
 }
 
@@ -2631,6 +2875,7 @@ export function battleOwners(
   switch (foe.kind) {
     case 'monster':
     case 'raider':
+    case 'lugar':
       defender = null;
       break;
     case 'hero':
@@ -2675,6 +2920,8 @@ export function lugarDelRival(state: GameState, foe: BattleFoe): Point {
       return townById(state, foe.townId).at;
     case 'raider':
       return raiderById(state, foe.raiderId).at;
+    case 'lugar':
+      return encuentroDe(state, foe).lugar.at;
   }
 }
 
@@ -3210,6 +3457,25 @@ function applyVictory(
       // Un grupo sin héroe no se rinde: perder es caer entero.
       dejarAsaltante(state, foe.raiderId, []);
       break;
+    case 'lugar': {
+      // Lo que da ganar: lo que da la opción que la abrió (oro, pieza, tropa: la tropa
+      // se comprobó al elegirla, y tras ganar el ejército no es mayor) y su `alGanar`
+      // (estado, marca, oro o una pieza: la validación no deja más).
+      const { lugar, encuentro } = encuentroDe(state, foe);
+      // Ganado una vez, no se vuelve a cobrar (`yaCobrado`, `core/mundo/reglas.ts`).
+      const mundo = mundoDe(state);
+      mundo.vencidos[claveDeEncuentro(lugar.id, foe.encuentro)] ??= cobroDe(hero);
+      // Lo que da la opción que la abrió se da ahora, entero, y se cobra ahora (M1
+      // de la vuelta 2): antes se daba al elegirla y, al perder, la opción quedaba
+      // cobrada y el encuentro no se volvía a pelear.
+      const opcion = opcionDeLaBatalla(lugar, foe);
+      if (daPremio(opcion)) {
+        mundo.cobradas[claveDeOpcion({ lugar: lugar.id, ...foe.opcion })] ??= cobroDe(hero);
+      }
+      const premios = (opcion.hace ?? []).filter(esPremio);
+      aplicarEfectos(state, hero.owner, hero, lugar, [...premios, ...encuentro.alGanar], null);
+      break;
+    }
   }
 }
 
@@ -3266,5 +3532,16 @@ function applyDefenderSurvivors(state: GameState, pending: PendingBattle, army: 
       // Repele al héroe y sigue patrullando con lo que le quede.
       dejarAsaltante(state, foe.raiderId, army);
       break;
+    case 'lugar': {
+      // El encuentro no queda en el mapa: si se vuelve, es entero. Lo que cambia
+      // es el mundo (`alPerder`: estado o marca), y lo protagoniza quien perdió,
+      // que quizá ya no esté en el mapa (sin base cae del todo): por su dueño.
+      const { lugar, encuentro } = encuentroDe(state, foe);
+      const dueño = battleOwners(state, pending).attacker;
+      if (dueño === null)
+        throw new Error(`la batalla de ${lugar.nombre} sin dueño que la perdiera`);
+      aplicarEfectos(state, dueño, null, lugar, encuentro.alPerder, null);
+      break;
+    }
   }
 }

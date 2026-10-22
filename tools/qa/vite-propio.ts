@@ -65,15 +65,8 @@ export async function arrancarVite(): Promise<{ proceso: ChildProcess; url: stri
   return { proceso, url };
 }
 
-export function matarGrupo(p: ChildProcess | null, log: (msg: string) => void): void {
-  if (p?.pid === undefined || p.exitCode !== null) return;
-  try {
-    process.kill(-p.pid, 'SIGTERM');
-  } catch (err) {
-    // El grupo ya no existe: se dice, no se calla, pero no es un fallo del guion.
-    log(`el grupo ya había terminado: ${err instanceof Error ? err.message : err}`);
-  }
-}
+/** Matarlo, por su grupo: lo comparte con el motor de mundos (`grupo.ts`). */
+export { matarGrupo } from './grupo.js';
 
 /**
  * El Chromium que haya. Playwright pide una revisión concreta y la descarga si

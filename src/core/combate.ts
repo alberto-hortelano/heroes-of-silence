@@ -143,8 +143,16 @@ export function loNeutralAlTope<T extends LoQueNaceSinHeroe>(x: T, tope: number)
   };
 }
 
-/** La tropa en grupos de un asaltante, de los primeros grupos hasta `tope` individuos. */
-function gruposAlTope(grupos: readonly GrupoDeTropa[], tope: number): readonly GrupoDeTropa[] {
+/**
+ * La tropa en grupos de lo neutral (un asaltante, el encuentro de un lugar de un
+ * mundo), de los primeros grupos hasta `tope` individuos. La de un encuentro se
+ * recorta al pelearlo (`defenderSide`) y al medirlo la IA (`ai/lugares.ts`): la
+ * historia del mundo no depende del tope, como el mapa.
+ */
+export function gruposAlTope(
+  grupos: readonly GrupoDeTropa[],
+  tope: number,
+): readonly GrupoDeTropa[] {
   if (grupos.reduce((n, g) => n + g.count, 0) <= tope) return grupos;
   const out: GrupoDeTropa[] = [];
   let quedan = tope;

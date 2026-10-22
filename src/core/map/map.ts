@@ -70,6 +70,20 @@ export type MapObject =
       readonly at: Point;
       readonly gold: number;
       taken: boolean;
+    }
+  | {
+      /**
+       * Un lugar de un mundo (`core/mundo/`): un sitio que se visita, con su escena
+       * lateral, su gente y sus diálogos. Lo pone `newGame` tras `buildMap`, desde la
+       * historia del mundo; el procedimental no los hace. **Estático**: lo que cambia
+       * (su estado, las marcas) vive en `GameState.mundo`, no aquí, así que la memoria
+       * de la niebla no tiene nada que recordar mal. Se pisa como un cofre y no
+       * bloquea; se entra al acabar la marcha en él.
+       */
+      readonly kind: 'lugar';
+      readonly id: string;
+      readonly at: Point;
+      readonly name: string;
     };
 
 /**

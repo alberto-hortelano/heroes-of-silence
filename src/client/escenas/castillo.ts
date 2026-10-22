@@ -72,6 +72,11 @@ function abiertoAlLlegar(sitio: SitioId): Abierto {
   return abreAmpliar(sitio) ? { tipo: 'ampliar' } : { tipo: 'sitio', sitio };
 }
 
+/** Lo que dice la barra con el ratón sobre alguien con quien se habla: en la base y en un lugar. */
+export function pulsaParaHablar(nombre: string, papel: string): string {
+  return `${nombre}, ${papel}: pulsa para hablar.`;
+}
+
 /** Lo que se aparta quien camina de la persona con la que va a hablar, en pasos. */
 const AL_LADO = { x: -0.6, y: 0.1 } as const;
 
@@ -390,7 +395,7 @@ export class EscenaBase {
     this.señalado = g;
     if (g.tipo === 'pnj') {
       const p = b.vista.gente.find((x) => x.id === g.id);
-      s.status = p === undefined ? '' : `${p.nombre}, ${p.papel}: pulsa para hablar.`;
+      s.status = p === undefined ? '' : pulsaParaHablar(p.nombre, p.papel);
       return true;
     }
     const e = b.vista.edificios.find((x) => x.sitio === g.sitio);

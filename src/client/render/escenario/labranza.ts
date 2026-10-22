@@ -140,6 +140,7 @@ export const APARTAN_LA_LABRANZA: ReadonlySet<MapObject['kind']> = new Set([
   'village',
   'chest',
   'node',
+  'lugar',
 ]);
 
 /** Una casa, un almiar o una carreta, a esta distancia de Chebyshev o más de un objeto (`APARTAN_LA_LABRANZA`). */

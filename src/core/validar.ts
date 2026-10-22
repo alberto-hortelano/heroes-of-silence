@@ -2,29 +2,43 @@
  * Las piezas con que se valida un JSON a mano en el núcleo: un entero con su
  * mínimo, un texto no vacío, un objeto con sus campos, una lista y lo repetido.
  * Cada una lanza diciendo de quién y qué campo (`quien`, `campo`), para la
- * persona que editó el fichero.
+ * persona que editó el fichero; las que acumulan todos los problemas de un
+ * fichero (la validación de un mundo) usan su versión que devuelve el motivo
+ * (`enteroBlocker`, `problemasDeObjeto`, `listaBlocker`, `deLaListaBlocker`), y la
+ * que lanza la envuelve: la frase es la misma.
  *
  * Sin dependencias: las usan la arena (`arena.ts`, `arena-murallas.ts`), los
  * poderes (`battle/poderes.ts`) y la rueda del golpe (`battle/rueda.ts`), que
  * antes llevaban cada uno su copia.
  */
 
-/** Un número entero de `minimo` en adelante. */
-export function entero(valor: unknown, campo: string, quien: string, minimo: number): number {
+/**
+ * Por qué `valor` no es un entero de `minimo` en adelante (y, con `maximo`, hasta
+ * él), o `null`. Sin quién ni campo delante: lo pone quien lo dice. Es la versión
+ * que no lanza, para quien acumula todos los problemas de un fichero (la
+ * validación de un mundo, `mundo/validar.ts`); la que lanza es `entero`.
+ */
+export function enteroBlocker(valor: unknown, minimo: number, maximo?: number): string | null {
   // `NaN` es lo que da un campo vacío en la página, y `JSON.stringify(NaN)` diría
   // «null», que nadie ha escrito (M2 de QA).
   if (typeof valor === 'number' && Number.isNaN(valor)) {
-    throw new Error(`${quien}: ${campo} no tiene valor, el campo está vacío`);
+    return 'no tiene valor, el campo está vacío';
   }
   if (typeof valor !== 'number' || !Number.isSafeInteger(valor)) {
-    throw new Error(
-      `${quien}: ${campo} tiene que ser un número entero, y es ${typeof valor === 'number' ? valor : JSON.stringify(valor)}`,
-    );
+    return `tiene que ser un número entero, y es ${typeof valor === 'number' ? valor : JSON.stringify(valor)}`;
   }
-  if (valor < minimo) {
-    throw new Error(`${quien}: ${campo} tiene que ser ${minimo} o más, y es ${valor}`);
+  if (maximo !== undefined && (valor < minimo || valor > maximo)) {
+    return `tiene que ser un entero de ${minimo} a ${maximo}, y es ${valor}`;
   }
-  return valor;
+  if (valor < minimo) return `tiene que ser ${minimo} o más, y es ${valor}`;
+  return null;
+}
+
+/** Un número entero de `minimo` en adelante, o lanza (`enteroBlocker`). */
+export function entero(valor: unknown, campo: string, quien: string, minimo: number): number {
+  const motivo = enteroBlocker(valor, minimo);
+  if (motivo !== null) throw new Error(`${quien}: ${campo} ${motivo}`);
+  return valor as number;
 }
 
 /**
@@ -45,27 +59,51 @@ export function texto(valor: unknown, campo: string, quien: string): string {
   return valor;
 }
 
+/** Si `valor` es un objeto `{…}`: ni `null` ni una lista. */
+export function esObjeto(valor: unknown): valor is Record<string, unknown> {
+  return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
+}
+
+/**
+ * Lo que no vale de `valor` como un objeto con los campos `campos`: que no sea un
+ * objeto, cada campo que sobra y cada uno de `obligatorios` que falta. Vacío, vale.
+ * La versión que no lanza (`enteroBlocker`); la que lanza es `objetoCon`.
+ */
+export function problemasDeObjeto(
+  valor: unknown,
+  campos: readonly string[],
+  obligatorios: readonly string[] = [],
+): string[] {
+  if (!esObjeto(valor)) return ['tiene que ser un objeto'];
+  return [
+    ...Object.keys(valor)
+      .filter((k) => !campos.includes(k))
+      .map((k) => `«${k}» no es un campo; valen ${campos.join(', ')}`),
+    ...obligatorios.filter((k) => !(k in valor)).map((k) => `falta «${k}»`),
+  ];
+}
+
 /** Un objeto con solo los campos `campos` (no mira si están todos), o lanza diciendo cuál sobra. */
 export function objetoCon(
   valor: unknown,
   campos: readonly string[],
   quien: string,
 ): Record<string, unknown> {
-  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
-    throw new Error(`${quien}: tiene que ser un objeto`);
-  }
-  const o = valor as Record<string, unknown>;
-  const ajeno = Object.keys(o).find((k) => !campos.includes(k));
-  if (ajeno !== undefined) {
-    throw new Error(`${quien}: «${ajeno}» no es un campo; valen ${campos.join(', ')}`);
-  }
-  return o;
+  const [motivo] = problemasDeObjeto(valor, campos);
+  if (motivo !== undefined) throw new Error(`${quien}: ${motivo}`);
+  return valor as Record<string, unknown>;
+}
+
+/** Por qué `valor` no es una lista, o `null` (la que lanza es `lista`). */
+export function listaBlocker(valor: unknown): string | null {
+  return Array.isArray(valor) ? null : 'tiene que ser una lista';
 }
 
 /** Una lista, sin mirar lo de dentro. */
 export function lista(valor: unknown, campo: string, quien: string): readonly unknown[] {
-  if (!Array.isArray(valor)) throw new Error(`${quien}: ${campo} tiene que ser una lista`);
-  return valor;
+  const motivo = listaBlocker(valor);
+  if (motivo !== null) throw new Error(`${quien}: ${campo} ${motivo}`);
+  return valor as readonly unknown[];
 }
 
 /** El primer elemento que sale dos veces en `lista`, o `undefined` si ninguno. */
@@ -104,6 +142,13 @@ export function esIdDePieza(id: string): boolean {
   return /^[a-z0-9_-]+$/.test(id);
 }
 
+/** Por qué `valor` no es uno de `lista`, diciendo cuáles valen, o `null` (la que lanza es `deLaLista`). */
+export function deLaListaBlocker(valor: unknown, lista: readonly string[]): string | null {
+  return lista.includes(valor as string)
+    ? null
+    : `"${String(valor)}" no existe; valen ${lista.join(', ')}`;
+}
+
 /** El valor si es uno de `lista`; si no, lanza diciendo de quién y cuáles valen. */
 export function deLaLista<T extends string>(
   valor: unknown,
@@ -111,11 +156,9 @@ export function deLaLista<T extends string>(
   campo: string,
   quien: string,
 ): T {
-  const hallado = lista.find((x) => x === valor);
-  if (hallado === undefined) {
-    throw new Error(`${quien}: ${campo} "${String(valor)}" no existe; valen ${lista.join(', ')}`);
-  }
-  return hallado;
+  const motivo = deLaListaBlocker(valor, lista);
+  if (motivo !== null) throw new Error(`${quien}: ${campo} ${motivo}`);
+  return valor as T;
 }
 
 /** Lanza si `lista` trae algo dos veces, diciendo qué y de quién. */

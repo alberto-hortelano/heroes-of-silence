@@ -75,6 +75,9 @@ import {
 } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
+import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
+import { partidaDelMundo } from '@core/mundo/partida.js';
+import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
 import { createRng, type Rng } from '@core/rng.js';
 import {
   type AsaltantesALaVista,
@@ -97,6 +100,7 @@ import {
 import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
 import { cronicaPara, type DefeatReason, type GameEventDraft } from '@core/state/events.js';
 import {
+  type AdventureAction,
   applyAdventureAction,
   battleOwners,
   caminoHasta,
@@ -144,6 +148,7 @@ import {
 } from '@core/types.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
 import { quienesDe } from './desenlace.js';
+import { EnElLugar, type TrasElegir } from './lugar/sesion.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
@@ -180,7 +185,11 @@ export const AYUDA_DEL_AYUNTAMIENTO =
 export const AYUDA_DE_LA_SALIDA =
   'Elige a tu héroe: pulsa una figura para ver su ficha y contrátalo. Hasta entonces no se puede hacer nada más.';
 
-export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada' | 'ayuntamiento';
+/** Lo que dice la barra en la escena de un lugar cuando el ratón no señala nada. */
+export const AYUDA_DEL_LUGAR =
+  'Pulsa el suelo para andar, o a alguien o algo para hablar o mirar. «Volver al mapa» (o Escape) sale.';
+
+export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada' | 'ayuntamiento' | 'lugar';
 
 /** La morada de la base abierta en que se está y a quién se mira (`null`: la primera que produce). */
 interface MoradaAbierta {
@@ -947,6 +956,17 @@ export class Session implements ControlDeBatalla {
   }
 
   /**
+   * El lugar de un mundo en que se está y la conversación abierta
+   * (`lugar/sesion.ts`): estado del cliente; lo que cambia la partida lo aplica
+   * esta sesión por su puerta (`aplicarEnElLugar`).
+   */
+  readonly lugar: EnElLugar = new EnElLugar(
+    () => this.state,
+    (a) => this.aplicarEnElLugar(a),
+    () => this.tocar(),
+  );
+
+  /**
    * @param faccion la de la persona (la elegida en el menú o la de `?faccion=`);
    *   sin ella, la que saque la semilla. El rival, otra: lo decide el núcleo
    *   (`faccionesDeLaSemilla`), no la sesión.
@@ -967,19 +987,27 @@ export class Session implements ControlDeBatalla {
     tipoDelHeroe?: string | null,
     combate?: ReglasDelCombate,
     soloRuedaDelHeroe = false,
+    mundo?: MundoLeido,
   ) {
     this.soloRuedaDelHeroe = soloRuedaDelHeroe;
     // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
     // de donde la lee quien la enseña. Un hecho en dos sitios se desincroniza
     // el día que esta capa hable por WebSocket —`this.seed` sería la que pidió
     // el cliente y `state.seed` la que abrió el servidor—.
-    this.state = newGame({
-      seed,
-      controllers: { 0: 'human', 1: 'ai' },
-      faccionDelJugador: faccion,
-      tipoDelHeroe,
-      combate,
-    });
+    //
+    // Con un mundo (`?mundo=`), la partida es la suya: su plan, su semilla, su
+    // facción, su héroe y sus lugares (`partidaDelMundo`); de lo demás, solo la
+    // complejidad del combate, que es de quien juega y no del mundo.
+    this.state =
+      mundo === undefined
+        ? newGame({
+            seed,
+            controllers: { 0: 'human', 1: 'ai' },
+            faccionDelJugador: faccion,
+            tipoDelHeroe,
+            combate,
+          })
+        : partidaDelMundo(mundo, { 0: 'human', 1: 'ai' }, undefined, combate);
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
     this.rueda = new CruceDeLaRueda(
       {
@@ -1334,6 +1362,12 @@ export class Session implements ControlDeBatalla {
       return;
     }
 
+    // Pulsar el lugar en que ya está el héroe es entrar en él, como en un pueblo.
+    if (sameTile(heroSeleccionado.at, p) && lugarEn(this.state, p) !== null) {
+      this.abrirElLugar(heroSeleccionado.id);
+      return;
+    }
+
     this.moveHeroTo(heroSeleccionado.id, p);
   }
 
@@ -1390,6 +1424,79 @@ export class Session implements ControlDeBatalla {
     // Donde se quedó, que es el destino o el último paso pagable del día.
     const pueblo = this.myTowns().find((t) => sameTile(t.at, hero.at));
     if (pueblo !== undefined) this.openTown(pueblo.id);
+    // Se entra en un lugar al ACABAR la marcha en él (no al pasar, como el cofre).
+    else if (lugarEn(this.state, hero.at) !== null) this.abrirElLugar(heroId);
+  }
+
+  // ------------------------------------------------------------ lugares
+
+  /** El título del mundo que se juega, o `null` sin mundo. */
+  get tituloDelMundo(): string | null {
+    return this.state.mundo?.historia.titulo ?? null;
+  }
+
+  /** El lugar `lugarId` del mundo de la partida, o `null`: la crónica lo nombra por él. */
+  lugarDelMundo(lugarId: string): Lugar | null {
+    const m = this.state.mundo;
+    return m === undefined ? null : lugarSiExiste(m.historia, lugarId);
+  }
+
+  /** El nombre del estado de ahora de un lugar, para el rótulo del mapa. */
+  estadoDelLugar(lugarId: string): string | null {
+    const m = this.state.mundo;
+    const l = m === undefined ? null : lugarSiExiste(m.historia, lugarId);
+    return m === undefined || l === null ? null : estadoDicho(m, l);
+  }
+
+  /** Entra en la escena del lugar donde está el héroe `heroId`. */
+  abrirElLugar(heroId: string): void {
+    const hero = heroById(this.state, heroId);
+    const l = lugarEn(this.state, hero.at);
+    if (l === null) {
+      this.status = `${hero.name} no está en ningún lugar.`;
+      return;
+    }
+    this.selectedHeroId = heroId;
+    this.lugar.abrir(heroId);
+    this.scene = 'lugar';
+    this.status = AYUDA_DEL_LUGAR;
+  }
+
+  /** Sale del lugar al mapa, con la ayuda del mapa en la barra (M8 de la vuelta 2: quedaba en blanco). */
+  salirDelLugar(): void {
+    this.lugar.cerrar();
+    this.scene = 'adventure';
+    this.status = AYUDA_DEL_MAPA;
+  }
+
+  /**
+   * Elige la opción `i` de la conversación abierta (`EnElLugar.elegir`); si abre
+   * una batalla, se pasa a ella como desde el mapa.
+   */
+  elegirEnElLugar(i: number): TrasElegir {
+    const tras = this.lugar.elegir(i);
+    if (tras === 'batalla') {
+      this.scene = 'battle';
+      this.status = '¡Batalla!';
+      this.advanceEnemyTurns();
+    } else if (tras !== 'apagada') {
+      // La acción deja la barra en blanco (`run`) y en el lugar no se mueve el
+      // ratón por el lienzo mientras se elige: lo que toca allí (M8 de la vuelta 2).
+      this.status = AYUDA_DEL_LUGAR;
+    }
+    return tras;
+  }
+
+  /** La puerta del lugar al núcleo: una opción con efectos, con la guarda de turno. */
+  private aplicarEnElLugar(a: AdventureAction): boolean {
+    return this.run(() => applyAdventureAction(this.state, a, this.ctx, this.viewer));
+  }
+
+  /** El lugar y el héroe de la batalla pendiente, si es de un lugar: al cerrarla se vuelve a él. */
+  private lugarDeLaBatalla(): { readonly heroe: string } | null {
+    const p = this.state.pendingBattle;
+    if (p === null || p.foe.kind !== 'lugar' || p.attacker.kind !== 'hero') return null;
+    return { heroe: p.attacker.heroId };
   }
 
   /** La frase de la barra al acabarse el mapa, por la causa que selló el núcleo. */
@@ -2408,19 +2515,21 @@ export class Session implements ControlDeBatalla {
       return;
     }
     // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona.
+    const delLugar = this.lugarDeLaBatalla();
     resolvePendingBattle(this.state, this.ctx);
-    this.afterBattle();
+    this.afterBattle(delLugar);
   }
 
-  /** Cierra la batalla terminada y vuelve al mapa. */
+  /** Cierra la batalla terminada y vuelve al mapa (o al lugar donde se peleó). */
   finishBattle(): void {
     const battle = this.battle;
     if (battle === null || battle.finished === null) return;
+    const delLugar = this.lugarDeLaBatalla();
     settleBattle(this.state, this.ctx);
-    this.afterBattle();
+    this.afterBattle(delLugar);
   }
 
-  private afterBattle(): void {
+  private afterBattle(delLugar: { readonly heroe: string } | null = null): void {
     // Si era una defensa (#116), el turno del rival sigue desde aquí.
     const defensa = this.alCerrarLaDefensa;
     this.alCerrarLaDefensa = null;
@@ -2434,6 +2543,16 @@ export class Session implements ControlDeBatalla {
     // la batalla cerró la partida, la barra dice cómo sin que se escriba aquí
     // (`status`); antes era un «¡Victoria!» a secas, sin la causa.
     this.status = '';
+    // La de un lugar vuelve a su escena, ya en su estado nuevo (P-d del usuario),
+    // si el héroe sigue en él: vencido, vuelve a su base y se queda en el mapa.
+    const hero =
+      delLugar === null ? undefined : this.state.heroes.find((h) => h.id === delLugar.heroe);
+    const l = hero === undefined ? null : lugarEn(this.state, hero.at);
+    if (hero !== undefined && l !== null && this.desenlace === null) {
+      this.lugar.abrir(hero.id, false);
+      this.scene = 'lugar';
+      this.status = AYUDA_DEL_LUGAR;
+    }
   }
 
   // ------------------------------------------------------------ interno

@@ -1190,6 +1190,10 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   12** (s1, de 6 a 12 días); días 90 → 96, batallas 99 → 104, `built` 231 →
  *   215, `recruited` 235 → 252, `garrison_taken` 30 → 35. Ningún tipo de hecho
  *   nuevo ni que desaparezca.
+ *   Fusionado (22-10-2026) con la complejidad del combate (a 7 / 7, que no movía
+ *   `b9dbd8a1…`), el clima (presentación: ni crónica ni banco) y la F1a del mapa
+ *   vivo (sin mundo no hay lugares), **el mismo sha**, comprobado tras cada fusión:
+ *   ninguno de los tres mueve una partida sin mundo, sin agente y a 7 / 7.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,

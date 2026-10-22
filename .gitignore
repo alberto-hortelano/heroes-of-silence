@@ -36,3 +36,8 @@ NuevaJugabilidad.md.backup
 # Marcas de fallo del mapa (pnpm dev → «Marcar»): bandeja de entrada de la
 # revisión, la leen y resuelven `pnpm marcas` y el coordinador.
 docs/revision/
+
+# Los mundos que genera el servidor de desarrollo desde el menú (F1a del mapa
+# vivo): se juegan con ?mundo=<id> en esta máquina. Solo «prueba» y «ejemplo» se
+# commitean.
+assets/mundos/gen-*/

@@ -539,6 +539,12 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 }
 .conversacion h3 { margin: 0 0 0.1rem; }
 .conversacion .linea { font-family: var(--letra-titulo); font-size: 1.05em; margin: 0.4rem 0 0.6rem; }
+/* La conversación en árbol de un lugar de un mundo: una opción por fila; la que no
+   se puede elegir, apagada y con su motivo debajo. */
+.opciones-del-lugar { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.opciones-del-lugar button { width: 100%; text-align: left; }
+.opciones-del-lugar button[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
+.opciones-del-lugar .motivo { display: block; color: var(--rechazo); margin: 0.1rem 0 0 0.4rem; }
 .abierto-en-la-base { border-bottom: 1px solid var(--borde-oscuro); padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
 .abierto-en-la-base .motivo { color: var(--rechazo); }
 /* La escena de la morada: «+1» y «Todo» uno al lado del otro. */
@@ -667,7 +673,9 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   font-family: var(--letra-cuerpo);
 }
 .menu-de-inicio,
-.eleccion-de-faccion {
+.eleccion-de-faccion,
+.eleccion-del-mundo,
+.espera-del-mundo {
   box-sizing: border-box;
   width: min(100%, 44rem);
   padding: 1.5rem;
@@ -726,6 +734,48 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .rasgo-de-faccion { font-size: 0.92rem; color: var(--ink); }
 .heroe-de-faccion { font-size: 0.85rem; font-style: italic; color: var(--ink-dim); }
 .botones-de-inicio { display: flex; justify-content: space-between; gap: 0.6rem; }
+/* El subtítulo de una pantalla del menú («El mundo» y su espera). */
+.quien-de-inicio { margin: -0.6rem 0 0.9rem; text-align: center; color: var(--ink-dim); }
+/* «El mundo» y su espera (solo en pnpm dev, `desarrollo/mundo.ts`), con el marco
+   de las otras pantallas del menú y sus opciones como las de la facción. */
+.tamanos-del-mundo {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1.1rem;
+  padding: 0;
+  border: 0;
+}
+.tamanos-del-mundo legend { padding: 0 0 0.4rem; color: var(--ink-dim); }
+.opcion-de-tamano {
+  display: flex;
+  gap: 0.7rem;
+  align-items: baseline;
+  padding: 0.5rem 0.8rem;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.opcion-de-tamano input { accent-color: var(--gold); align-self: center; }
+.opcion-de-tamano:has(input:checked) { border-color: var(--resalte); }
+.opcion-de-tamano:has(input:focus-visible) { outline: 2px solid var(--foco); outline-offset: 1px; }
+.nombre-de-tamano { font: 600 1.05rem/1.4rem var(--letra-titulo); color: var(--titulo); }
+/* Fijo, y que se vea: un valor apagado con su nota, no una casilla que parece escribirse (H11 del QA). */
+.rivales-del-mundo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.7rem;
+  align-items: baseline;
+  margin: 0 0 1.1rem;
+  color: var(--ink-dim);
+}
+.rivales-del-mundo .valor-fijo {
+  padding: 0.1rem 0.6rem;
+  border: 1px dashed var(--border);
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.lineas-del-motor { font-size: 0.85em; color: var(--ink-dim); max-height: 18rem; overflow: auto; }
+.motivo-del-mundo, .problemas-del-mundo { color: var(--rechazo); }
 /* La complejidad del combate (22-10-2026): el tope de tropa y la rueda, cada uno
    en su grupo, y «Solo la rueda del héroe»; en «Nuevo juego» y en el montaje de la
    arena (`views/combate.ts`). Con la letra del neutro, como la lista de facciones:

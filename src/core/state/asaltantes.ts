@@ -82,33 +82,40 @@ export interface RaiderPlaneado {
 }
 
 /**
- * Lo que impide que unos grupos de tropa sean un asaltante: individuos de un
- * bando, el techo de liderazgo y el techo de fuerza de `data/asaltantes.json`.
- * Una sola comprobación para los dos sitios donde se escribe un grupo: los
- * datos y el plan de mapa del agente (`validateMapPlan`).
+ * Lo que impide que unos grupos de tropa sean un grupo neutral sin héroe: de 1
+ * individuo en adelante, el techo de liderazgo y el techo de fuerza de
+ * `data/asaltantes.json`. `queEs` lo nombra en la frase —«un grupo de
+ * asaltantes», «un encuentro»—. Una sola comprobación para los sitios donde se
+ * escribe uno: los datos de los asaltantes, el plan de mapa del agente
+ * (`validateMapPlan`) y los encuentros de un mundo (`problemasDelMundo`), que
+ * así no llevan una cifra propia.
  */
-export function problemasDeAsaltante(grupos: readonly GrupoDeTropa[], quien: string): string[] {
+export function problemasDeGrupoNeutral(
+  grupos: readonly GrupoDeTropa[],
+  quien: string,
+  queEs: string,
+): string[] {
   // Un grupo de cero individuos no es un grupo: ocupaba casilla, era hostil y no
   // emboscaba, y atacarlo daba una batalla de 0 rondas ganada al instante. Aquí y
   // no en `problemasDeGrupo`, porque una guarnición vacía SÍ es un estado de
   // juego —la que queda al tomar un castillo—.
   if (grupos.length === 0) {
-    return [`${quien} no lleva a nadie: un grupo de asaltantes es de 1 individuo en adelante`];
+    return [`${quien} no lleva a nadie: ${queEs} es de 1 individuo en adelante`];
   }
-  const problemas = problemasDeTopeDeLiderazgo(
-    grupos,
-    quien,
-    ASALTANTES.liderazgoMax,
-    'un grupo de asaltantes',
-  );
+  const problemas = problemasDeTopeDeLiderazgo(grupos, quien, ASALTANTES.liderazgoMax, queEs);
   if (problemas.length > 0) return problemas;
   const fuerza = poderDe({ troops: grupos });
   if (fuerza > ASALTANTES.fuerzaMax) {
     problemas.push(
-      `${quien} suma ${fuerza} de fuerza y un grupo de asaltantes lleva como mucho ${ASALTANTES.fuerzaMax}: más fuerte que eso es un muro que ningún héroe cruza`,
+      `${quien} suma ${fuerza} de fuerza y ${queEs} lleva como mucho ${ASALTANTES.fuerzaMax}: más fuerte que eso es un muro que ningún héroe cruza`,
     );
   }
   return problemas;
+}
+
+/** Lo que impide que unos grupos de tropa sean un asaltante (`problemasDeGrupoNeutral`). */
+export function problemasDeAsaltante(grupos: readonly GrupoDeTropa[], quien: string): string[] {
+  return problemasDeGrupoNeutral(grupos, quien, 'un grupo de asaltantes');
 }
 
 // El techo de fuerza se comprueba AL CARGAR, como el resto del fichero en

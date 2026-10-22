@@ -20,6 +20,7 @@ import {
   resolvePendingBattle,
 } from '../state/game.js';
 import type { Controller, Point } from '../types.js';
+import { jugadaEnElLugar, MAX_JUGADAS_EN_UN_LUGAR } from './lugares.js';
 import { turnosEnLaMismaCasilla, vueltaDelVaiven } from './memoria.js';
 import {
   chooseHeroDestination,
@@ -211,6 +212,47 @@ function quienLaToma(
   return undefined;
 }
 
+/**
+ * Las opciones que la IA elige seguidas en el lugar en que está `hero`
+ * (`jugadaEnElLugar`), hasta que no quede ninguna o `MAX_JUGADAS_EN_UN_LUGAR`;
+ * una batalla se cierra como cualquier otra del turno (`quienLaToma`).
+ */
+async function jugarEnElLugar(
+  state: GameState,
+  hero: Hero,
+  ctx: GameContext,
+  batallas: ConduccionDelTurno['batallas'],
+): Promise<void> {
+  for (let n = 0; n < MAX_JUGADAS_EN_UN_LUGAR && state.finished === null; n++) {
+    if (!state.heroes.includes(hero)) return;
+    const ref = jugadaEnElLugar(state, hero);
+    if (ref === null) return;
+    applyAdventureAction(
+      state,
+      { type: 'elegir_en_lugar', hero: hero.id, ...ref },
+      ctx,
+      hero.owner,
+    );
+    if (state.pendingBattle !== null) await cerrarLaBatallaDelTurno(state, ctx, batallas);
+  }
+}
+
+/**
+ * La batalla que abrió la última jugada del turno: la toma quien le
+ * toque (`quienLaToma`) y, si sigue ahí —quien la tomó pudo cerrarla, o no
+ * haberla querido—, la cierra la IA como toda la vida. La leen la marcha y las
+ * jugadas en un lugar.
+ */
+async function cerrarLaBatallaDelTurno(
+  state: GameState,
+  ctx: GameContext,
+  batallas: ConduccionDelTurno['batallas'],
+): Promise<void> {
+  const takeover = quienLaToma(state, batallas);
+  if (takeover !== undefined) await takeover(state, ctx);
+  if (state.pendingBattle !== null) resolvePendingBattle(state, ctx);
+}
+
 export async function playAiTurn(
   state: GameState,
   ctx: GameContext,
@@ -249,6 +291,13 @@ export async function playAiTurn(
       if (state.finished !== null) break;
       if (!state.heroes.includes(hero)) continue;
 
+      // En un lugar de un mundo, lo que haya que hacer allí, antes de andar
+      // (`ai/lugares.ts`): llega al acabar una marcha y lo hace en la pasada
+      // siguiente. Sin mundo no hay lugares y no cambia nada.
+      await jugarEnElLugar(state, hero, ctx, batallas);
+      if (state.finished !== null) break;
+      if (!state.heroes.includes(hero)) continue;
+
       // Por debajo del paso más barato que existe no hay Dijkstra que valga:
       // `ROAD_COST` son 75 y el terreno más barato son 100, así que ningún
       // paso cabe y `stepTowards` iba a devolver `null` seguro. Es el mismo
@@ -273,13 +322,7 @@ export async function playAiTurn(
         player.id,
         marcha.alcance,
       );
-      if (state.pendingBattle !== null) {
-        const takeover = quienLaToma(state, batallas);
-        if (takeover !== undefined) await takeover(state, ctx);
-        // Se vuelve a preguntar: quien la tomó pudo cerrarla, o no haberla
-        // querido. Si sigue ahí, la cierra la IA como toda la vida.
-        if (state.pendingBattle !== null) resolvePendingBattle(state, ctx);
-      }
+      if (state.pendingBattle !== null) await cerrarLaBatallaDelTurno(state, ctx, batallas);
       seMovio = true;
       movimientos++;
     }

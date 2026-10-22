@@ -250,6 +250,7 @@ function cosaDeObjeto(o: MapObject, W: number, terreno: readonly TerrainKind[]):
       ];
     case 'monster':
     case 'chest':
+    case 'lugar':
       return [
         {
           pieza: null,

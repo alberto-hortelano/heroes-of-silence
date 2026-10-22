@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "id": "prueba",
+  "semilla": 2026,
+  "jugador": {
+    "heroe": "duelista"
+  },
+  "rivales": 1
+}

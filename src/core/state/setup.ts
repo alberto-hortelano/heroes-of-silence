@@ -19,6 +19,8 @@ import {
   type MapPlan,
   validateMapPlan,
 } from '../map/generate.js';
+import type { EstadoDelMundo, MundoLeido } from '../mundo/formato.js';
+import { estadoInicialDelMundo, objetosDeLosLugares } from '../mundo/validar.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
@@ -83,6 +85,15 @@ export interface NewGameOptions {
    * siempre (`COMBATE_COMPLETO`, 7 / 7). No cambia el mapa: misma semilla, mismo mapa.
    */
   readonly combate?: ReglasDelCombate | undefined;
+  /**
+   * Un mundo leído (`core/mundo/`, `leerMundo`): su plan es el de la partida, sus
+   * lugares van al mapa tras `buildMap` y su estado, a `GameState.mundo`; sin él,
+   * la partida es la de siempre y no lleva lugares. **No se juzga otra vez**: un
+   * `MundoLeido` solo lo produce la lectura, que ya lo juzgó entero (plan e
+   * historia), así que un estado de partida no nace con uno que la página
+   * rechazaría. Excluye `plan`.
+   */
+  readonly mundo?: MundoLeido | undefined;
 }
 
 /**
@@ -220,7 +231,11 @@ export function newGame(options: NewGameOptions = {}): GameState {
   const combate = options.combate ?? COMBATE_COMPLETO;
   const rng = createRng(seed);
 
+  if (options.mundo !== undefined && options.plan !== undefined) {
+    throw new Error('un mundo trae su plan: no se le pasa otro');
+  }
   const plan =
+    options.mundo?.plan ??
     options.plan ??
     generateMapPlan(rng, {
       factions: faccionesDeLaSemilla(seed, options.faccionDelJugador),
@@ -231,12 +246,21 @@ export function newGame(options: NewGameOptions = {}): GameState {
       ...(options.height === undefined ? {} : { height: options.height }),
     });
 
-  const problemas = validateMapPlan(plan);
+  // El plan de un mundo ya lo juzgó su lectura (`leerMundo`), con la historia.
+  const problemas = options.mundo === undefined ? validateMapPlan(plan) : [];
   if (problemas.length > 0) {
     throw new Error(`el plan de mapa no es jugable:\n- ${problemas.join('\n- ')}`);
   }
 
+  // El mapa se construye aquí también con un mundo: `buildMap` da estado que la
+  // partida cambia (objetos, ciudades), y una misma lectura juega varias partidas.
   const { map, towns, raiders } = buildMap(plan);
+
+  let mundo: EstadoDelMundo | undefined;
+  if (options.mundo !== undefined) {
+    map.objects.push(...objetosDeLosLugares(options.mundo.historia));
+    mundo = estadoInicialDelMundo(options.mundo.historia);
+  }
 
   // Los jugadores y sus bases, por id (`basesDelPlan`): de ese orden salen
   // `state.players`, `state.heroes` y el nombre de cada héroe.
@@ -295,5 +319,6 @@ export function newGame(options: NewGameOptions = {}): GameState {
     towns,
     raiders,
     porElegir: options.tipoDelHeroe === null ? 0 : undefined,
+    ...(mundo === undefined ? {} : { mundo }),
   });
 }

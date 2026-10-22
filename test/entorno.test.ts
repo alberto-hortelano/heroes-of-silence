@@ -18,6 +18,7 @@ import {
   ESPERA_AL_AGENTE_POR_DEFECTO,
   esperaAlAgente,
   maxDiasDelEntorno,
+  ordenDelMotor,
   puertoAgente,
   puertoEspectadores,
   SPECTATOR_PORT_POR_DEFECTO,
@@ -30,6 +31,7 @@ const VARIABLES = [
   'HEROES_WAIT_AGENT_MS',
   'HEROES_TROPA',
   'HEROES_RUEDA',
+  'HEROES_MOTOR',
 ] as const;
 
 afterEach(() => {
@@ -37,6 +39,14 @@ afterEach(() => {
 });
 
 describe('la configuración de entorno del servidor', () => {
+  it('el motor de mundos es claude, otra orden si se pide, y nunca una línea de shell', () => {
+    expect(ordenDelMotor()).toBe('claude');
+    process.env.HEROES_MOTOR = 'false';
+    expect(ordenDelMotor()).toBe('false');
+    process.env.HEROES_MOTOR = 'claude --dangerously-skip-permissions';
+    expect(() => ordenDelMotor()).toThrow(/HEROES_MOTOR=.* no es una orden/);
+  });
+
   it('sin variable son los de siempre: quien no sepa que esto existe no nota nada', () => {
     expect(puertoAgente()).toBe(9881);
     expect(puertoEspectadores()).toBe(9880);

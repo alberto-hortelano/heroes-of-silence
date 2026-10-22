@@ -1608,6 +1608,24 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
   });
 
+  it('un mundo leído lo produce solo su lectura', () => {
+    // Simplify de la F1a del mapa vivo (H2, 22-10-2026): `newGame` juega un
+    // `MundoLeido` sin juzgarlo otra vez, y eso vale porque el tipo lleva una
+    // marca que solo pone `leerMundo`, después de `problemasDelMundo`. Un
+    // `as MundoLeido` en otro sitio colaría un mundo sin juzgar en una partida.
+    // Roto a mano: un `as MundoLeido` en `client/mundo/cargar.ts` sale rojo.
+    const LECTURA = 'src/core/mundo/validar.ts';
+    const produceUno = /\bas\s+MundoLeido\b|<MundoLeido>/;
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== LECTURA),
+        produceUno,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([LECTURA], produceUno)).not.toEqual([]);
+  });
+
   it('los huecos del contrato se traducen en un sitio y la regla de las manos vive en otro', () => {
     // El escudo (12-10-2026): los huecos van en inglés en el contrato del agente
     // (cinco desde el 18-10-2026, simétricos por uso desde el simplify de F2) y en

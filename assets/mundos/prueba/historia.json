@@ -1,0 +1,180 @@
+{
+  "titulo": "El paso de la Hoya",
+  "resumen": "Mundo de prueba escrito a mano para los tests y el navegador: un puente con su guardián viejo y un pozo con algo dentro, junto a la base del Imperio.",
+  "marcas": {
+    "peaje-pagado": { "falta": "aún no has pagado el peaje", "ya": "ya pagaste el peaje" },
+    "carta-leida": {
+      "falta": "no tienes nada con que convencerle",
+      "ya": "ya has leído la carta del capitán"
+    },
+    "lanza-cogida": { "falta": "no has cogido la lanza", "ya": "ya te llevaste la lanza" },
+    "cubo-sacado": { "falta": "no has sacado el cubo", "ya": "el cubo ya está fuera, vacío" },
+    "derrota-en-el-pozo": {
+      "falta": "nada ha salido aún del pozo",
+      "ya": "lo del pozo ya te venció una vez"
+    }
+  },
+  "lugares": [
+    {
+      "id": "puente-de-corvo",
+      "nombre": "El puente del viejo Corvo",
+      "at": { "x": 10, "y": 12 },
+      "fondo": { "plaza": "imperio" },
+      "estados": {
+        "guardado": "guardado",
+        "pagado": "con el peaje pagado",
+        "libre": "libre"
+      },
+      "estadoInicial": "guardado",
+      "puntos": [
+        {
+          "id": "garita",
+          "x": 0.25,
+          "cosa": { "nombre": "La garita" },
+          "dialogo": "garita"
+        },
+        {
+          "id": "corvo",
+          "x": 0.65,
+          "si": [{ "estado": "guardado" }],
+          "persona": {
+            "nombre": "Corvo",
+            "papel": "soldado del puente",
+            "cuerpo": "imperio-alabardero"
+          },
+          "dialogo": "corvo"
+        }
+      ],
+      "dialogos": {
+        "garita": {
+          "inicio": "dentro",
+          "nodos": {
+            "dentro": {
+              "texto": "En la garita hay un catre, una lanza vieja colgada de un clavo y una carta sin enviar, con el sello del capitán.",
+              "opciones": [
+                {
+                  "texto": "Leer la carta",
+                  "si": [{ "no": { "marca": "carta-leida" } }],
+                  "hace": [{ "marca": "carta-leida" }],
+                  "ir": "carta"
+                },
+                {
+                  "texto": "Coger la lanza",
+                  "si": [{ "no": { "marca": "lanza-cogida" } }],
+                  "hace": [{ "pieza": "lanza_de_jinete" }, { "marca": "lanza-cogida" }]
+                },
+                { "texto": "Salir" }
+              ]
+            },
+            "carta": {
+              "texto": "«Corvo: la guerra acabó hace veinte años. Vuelve a casa. Arnulfo, capitán.» Nunca llegó a mandarla.",
+              "opciones": [{ "texto": "Guardar la carta", "ir": "dentro" }]
+            }
+          }
+        },
+        "corvo": {
+          "inicio": "alto",
+          "nodos": {
+            "alto": {
+              "texto": "¡Alto! Por orden del capitán Arnulfo, cruzar cuesta trescientas de oro. Ni una menos.",
+              "opciones": [
+                {
+                  "texto": "Pagar el peaje (300 de oro)",
+                  "si": [{ "no": { "marca": "peaje-pagado" } }],
+                  "hace": [{ "oro": -300 }, { "estado": "pagado" }, { "marca": "peaje-pagado" }],
+                  "ir": "gracias"
+                },
+                { "texto": "Tu capitán murió hace veinte años", "ir": "muerto" },
+                { "texto": "Apártate o te aparto", "hace": [{ "batalla": "corvo" }] },
+                { "texto": "Nada, me voy" }
+              ]
+            },
+            "gracias": {
+              "texto": "Corvo guarda las monedas en una bolsa vieja, sin contarlas. «Pase, pase, que el capitán no tarda.»",
+              "opciones": [{ "texto": "Seguir" }]
+            },
+            "muerto": {
+              "texto": "«Mentira. El capitán vuelve en primavera, lo dijo él.» Corvo aprieta la lanza, pero le tiembla la mano.",
+              "opciones": [
+                {
+                  "texto": "Enseñarle la carta del capitán",
+                  "si": [{ "marca": "carta-leida" }],
+                  "hace": [{ "estado": "libre" }, { "tropa": { "unidad": "imperio-alabardero", "n": 1 } }],
+                  "ir": "se-une"
+                },
+                { "texto": "Volver", "ir": "alto" }
+              ]
+            },
+            "se-une": {
+              "texto": "Corvo lee la carta dos veces. Se cuadra. «Entonces sirvo a quien la trae.» Y se pone detrás de ti.",
+              "opciones": [{ "texto": "Bienvenido" }]
+            }
+          }
+        }
+      },
+      "encuentros": {
+        "corvo": {
+          "nombre": "Corvo y sus reclutas",
+          "tropa": [
+            { "creature": "imperio-alabardero", "count": 1 },
+            { "creature": "imperio-coracero", "count": 2 }
+          ],
+          "alGanar": [{ "estado": "libre" }, { "oro": 200 }],
+          "alPerder": []
+        }
+      }
+    },
+    {
+      "id": "pozo-de-valdesombra",
+      "nombre": "El pozo de Valdesombra",
+      "at": { "x": 16, "y": 13 },
+      "fondo": { "plaza": "no-muertos" },
+      "estados": { "quieto": "en calma", "despierto": "despierto", "limpio": "limpio" },
+      "estadoInicial": "quieto",
+      "puntos": [
+        {
+          "id": "pozo",
+          "x": 0.5,
+          "cosa": { "nombre": "El pozo" },
+          "dialogo": "pozo"
+        }
+      ],
+      "dialogos": {
+        "pozo": {
+          "inicio": "brocal",
+          "nodos": {
+            "brocal": {
+              "texto": "El brocal está frío. Del fondo sube un olor a hierro y, muy abajo, algo que suena como una voz.",
+              "opciones": [
+                {
+                  "texto": "Sacar el cubo",
+                  "si": [{ "no": { "marca": "cubo-sacado" } }],
+                  "hace": [{ "oro": 150 }, { "marca": "cubo-sacado" }, { "estado": "despierto" }],
+                  "ir": "cubo"
+                },
+                {
+                  "texto": "Bajar a ver qué hay",
+                  "si": [{ "estado": "despierto" }],
+                  "hace": [{ "batalla": "ahogados" }]
+                },
+                { "texto": "Irse" }
+              ]
+            },
+            "cubo": {
+              "texto": "El cubo sube lleno de monedas negras. La voz del fondo se ha callado; ahora se oyen pasos.",
+              "opciones": [{ "texto": "Apartarse del brocal", "ir": "brocal" }]
+            }
+          }
+        }
+      },
+      "encuentros": {
+        "ahogados": {
+          "nombre": "Los ahogados del pozo",
+          "tropa": [{ "creature": "esqueleto-guerrero", "count": 4 }],
+          "alGanar": [{ "estado": "limpio" }, { "pieza": "gambeson" }],
+          "alPerder": [{ "marca": "derrota-en-el-pozo" }]
+        }
+      }
+    }
+  ]
+}

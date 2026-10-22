@@ -62,6 +62,7 @@ import {
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { cuerpoDelHeroe, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
+import type { Lugar } from '@core/mundo/formato.js';
 import { nivelDeUnidad } from '@core/nivel.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
@@ -90,6 +91,7 @@ import type { Session, SpellOption } from '../session.js';
 import { renderPanelDelAyuntamiento } from './ayuntamiento.js';
 import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
+import { renderPanelDelLugar } from './lugar.js';
 import { renderPanelDeLaMorada } from './morada.js';
 import { botonesDePoder } from './poderes.js';
 import { renderPanelDeLaTropa } from './tropa.js';
@@ -222,6 +224,8 @@ export function renderSide(
       return renderPanelDeLaMorada(session);
     case 'ayuntamiento':
       return renderPanelDelAyuntamiento(session);
+    case 'lugar':
+      return renderPanelDelLugar(session);
     default:
       return renderAdventurePanel(session);
   }
@@ -252,6 +256,8 @@ export function renderActions(session: Session, contandoAun = false): Html {
       return html`<button data-action="cerrar-morada" title="Escape">Volver a la base</button>`;
     case 'ayuntamiento':
       return html`<button data-action="cerrar-ayuntamiento" title="Escape">Volver a la base</button>`;
+    case 'lugar':
+      return html`<button data-action="salir-del-lugar" title="Escape">Volver al mapa</button>`;
     case 'battle': {
       const battle = session.battle;
       // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,
@@ -430,7 +436,7 @@ function renderAdventurePanel(session: Session): Html {
         )}</div>`;
 
   return html`${fin}${heroPanel}${listaHeroes}${listaPueblos}${listaAldeas}
-    <h3>Crónica</h3>${renderLog(session.cronica(60), session.viewer)}`;
+    <h3>Crónica</h3>${renderLog(session.cronica(60), session.viewer, (id) => session.lugarDelMundo(id))}`;
 }
 
 /**
@@ -1477,6 +1483,8 @@ function nombreDeCuerpo(body: string): string {
 function fraseDeBatalla(
   e: Extract<GameEventDraft, { kind: 'battle_ended' }>,
   suyo: Side | null,
+  /** El lugar de la batalla, si es de uno que se conoce: se nombran él y su encuentro. */
+  lugar: Lugar | null = null,
 ): string {
   /**
    * Contra quién (#18), con lo que trae el hecho: el atacante es un héroe (con
@@ -1499,6 +1507,13 @@ function fraseDeBatalla(
         return { uno: 'un monstruo', el: 'el monstruo' };
       case 'raider':
         return { uno: 'un grupo de asaltantes', el: 'el grupo de asaltantes' };
+      case 'lugar': {
+        const encuentro =
+          e.foe.kind === 'lugar' && lugar !== null ? lugar.encuentros[e.foe.encuentro] : undefined;
+        return encuentro === undefined
+          ? { uno: 'los de un lugar', el: 'los del lugar' }
+          : { uno: `«${encuentro.nombre}»`, el: `«${encuentro.nombre}»` };
+      }
     }
   };
   // En tercera persona, cada bando por quién es —el jugador, o el monstruo, el
@@ -1507,7 +1522,7 @@ function fraseDeBatalla(
   const bando = (s: Side): string =>
     suyo === null ? quienLucha(s).el : s === suyo ? 'tú' : 'el enemigo';
   const rondas = enRondas(e.rounds);
-  const donde = enLaCasilla(e.at);
+  const donde = lugar === null ? enLaCasilla(e.at) : ` en\u00a0«${lugar.nombre}»`;
   const cabeza =
     suyo === null
       ? `Batalla${donde}: ${quienLucha('attacker').uno} contra ${quienLucha('defender').uno}; gana ${bando(e.winner)} en ${rondas}`
@@ -1561,7 +1576,26 @@ function fraseDeBatalla(
  * eso pasa un id que no es de ningún jugador: entonces toda la crónica se lee en
  * tercera persona, que es lo correcto para quien mira desde fuera.
  */
-export function renderLog(log: readonly GameEventDraft[], viewer: number): Html {
+export function renderLog(
+  log: readonly GameEventDraft[],
+  viewer: number,
+  /**
+   * El lugar de un mundo por su id, para nombrarlo: los hechos de un lugar llevan
+   * su id y no su casilla, que no dice nada a quien juega. Sin mundo (el
+   * espectador), ninguno, y la frase dice la casilla.
+   */
+  lugarDe: (id: string) => Lugar | null = () => null,
+): Html {
+  /** «El osario», con sus comillas, si se conoce; si no, `null`. */
+  const nombreDelLugar = (lugar: string): string | null => {
+    const l = lugarDe(lugar);
+    return l === null ? null : `«${l.nombre}»`;
+  };
+  /** «en «El osario»» si el hecho es de un lugar que se conoce; si no, la casilla. */
+  const enElLugar = (lugar: string | undefined, at: Point | null): string => {
+    const l = lugar === undefined ? null : lugarDe(lugar);
+    return l === null ? enLaCasilla(at) : ` en\u00a0«${l.nombre}»`;
+  };
   /**
    * Quién, en las tres formas que pide la frase: sujeto, genitivo y dativo.
    * Son tres y no una porque componer «de» o «a» con el sujeto no vale en
@@ -1592,7 +1626,28 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
         case 'day_start':
           return html`<div>— Día ${e.day} —</div>`;
         case 'gold_gained':
-          return mio ? html`<div class="win">+${conMiles(e.amount)} de oro${aqui}</div>` : NADA;
+          return mio
+            ? html`<div class="win">+${conMiles(e.amount)} de oro${enElLugar(
+                e.from === 'lugar' ? e.lugar : undefined,
+                e.at,
+              )}</div>`
+            : NADA;
+        case 'gold_paid':
+          return mio
+            ? html`<div class="lose">−${conMiles(e.amount)} de oro${enElLugar(e.lugar, e.at)}</div>`
+            : NADA;
+        case 'place_state':
+          // El nombre del lugar y el de su estado los escribió el motor: van en
+          // huecos de texto y la plantilla los escapa.
+          return html`<div${clase(mio, false)}>«${e.nombre}» queda ${e.dicho}</div>`;
+        case 'item_given':
+          return html`<div${clase(false, mio)}>${
+            mio ? 'Entregado' : `${jugador(e.actor)} entrega`
+          }${enElLugar(e.lugar, e.at)}: ${pieza(e.item).nombre}</div>`;
+        case 'troops_joined':
+          return html`<div${clase(mio, false)}>${
+            mio ? 'Se te unen' : `Se unen ${alJugador(e.actor)}`
+          } ${e.count} × ${unidadDelJuego(e.creature).name}${enElLugar(e.lugar, e.at)}</div>`;
         case 'node_captured':
           return html`<div${clase(mio, e.from === viewer)}>${
             mio
@@ -1634,9 +1689,13 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           // sin esta línea la pieza aparecería en el panel sin saber de dónde.
           return html`<div${clase(mio, false)}>${
             mio ? 'Botín' : `${jugador(e.actor)} se lleva un botín`
-          } ${e.from === 'raider' ? 'de unos asaltantes' : 'de una ciudad neutral'}${aqui}: ${
-            pieza(e.item).nombre
-          }</div>`;
+          } ${
+            e.from === 'lugar'
+              ? `de ${nombreDelLugar(e.lugar) ?? `un lugar${aqui}`}`
+              : e.from === 'raider'
+                ? `de unos asaltantes${aqui}`
+                : `de una ciudad neutral${aqui}`
+          }: ${pieza(e.item).nombre}</div>`;
         case 'item_bought':
           return html`<div${clase(mio, false)}>${
             mio ? 'Comprado en la armería' : `${jugador(e.actor)} compra en la armería`
@@ -1665,7 +1724,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
               : e.owners.defender === viewer
                 ? 'defender'
                 : null;
-          return html`<div${clase(suyo === e.winner, suyo !== null && suyo !== e.winner)}>${fraseDeBatalla(e, suyo)}</div>`;
+          return html`<div${clase(suyo === e.winner, suyo !== null && suyo !== e.winner)}>${fraseDeBatalla(e, suyo, e.foe.kind === 'lugar' ? lugarDe(e.foe.lugar) : null)}</div>`;
         }
         case 'hero_defeated':
           // `actor` es el dueño del MUERTO, así que aquí «mío» es la derrota y
@@ -1749,6 +1808,9 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
         // contarlo aquí eran catorce líneas el día 1, y esta crónica no pasa por
         // la niebla. Uno solo —ni los de salida ni los que brotan—, para que la
         // regla no dependa de cuándo nació el grupo.
+        // Una marca del mundo es contabilidad del motor de narrativa: lo que se ve
+        // es lo que hace (el estado del lugar, lo que se da), que va en su línea.
+        case 'world_mark':
         case 'raider_spawned':
         case 'turn_start':
         case 'hero_moved':

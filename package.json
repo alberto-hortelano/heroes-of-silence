@@ -27,6 +27,7 @@
     "capturas": "tsx tools/qa/capturas.ts",
     "banco": "tsx tools/qa/banco.ts",
     "marcas": "tsx tools/marcas/cli.ts",
+    "mundo": "tsx tools/mundo/cli.ts",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "verify:lento": "pnpm typecheck && pnpm lint && pnpm test:lento"
   },

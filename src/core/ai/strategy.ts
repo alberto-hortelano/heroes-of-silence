@@ -30,6 +30,8 @@ import {
 } from '../hero/troop.js';
 import { casillaDelIndice, costeEnElAlcance, type MapObject, type Reachable } from '../map/map.js';
 import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
+import { lugarDe } from '../mundo/formato.js';
+import { mundoDe } from '../mundo/reglas.js';
 import { indiceDePoder } from '../nivel.js';
 import { grupoALaVistaDesde } from '../state/asaltantes.js';
 import {
@@ -58,6 +60,7 @@ import type { Army, Equipo, FactionId, PlayerId, Point, UnitInfo } from '../type
 import { FACTION_IDS } from '../types.js';
 import { CUERPO_COMUN } from '../unidad.js';
 import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.js';
+import { hariaAlgoEn, VALOR_DE_LUGAR } from './lugares.js';
 
 /** Lo que vale tomar una ciudad ajena que no es la base de nadie. */
 const VALOR_DE_CIUDAD = 40000;
@@ -103,6 +106,12 @@ function objectValue(
     // es el nodo que la cierra, que vale por su renta.
     case 'village':
       return 0;
+    // Un lugar de un mundo vale si haría algo en él (`ai/lugares.ts`, la regla
+    // simple de P4). Sin mundo no hay ninguno, así que el procedimental no cambia.
+    case 'lugar':
+      return hariaAlgoEn(state, hero, lugarDe(mundoDe(state).historia, obj.id), miPoder)
+        ? VALOR_DE_LUGAR
+        : 0;
     case 'node': {
       if (obj.owner === player) return 0;
       // Un nodo ajeno vale por sí mismo y, sobre todo, por las regiones que
@@ -213,6 +222,9 @@ export function chooseHeroDestination(
   };
 
   for (const obj of state.map.objects) {
+    // Lo que no se alcanza no se valora: `considerar` lo descartaría igual, y
+    // valorar un lugar es recorrer su diálogo.
+    if (costeHasta(obj.at) === null) continue;
     const valor = objectValue(state, foto, obj, hero, miPoder);
     if (valor > 0) considerar(obj.at, valor);
   }

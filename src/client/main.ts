@@ -6,6 +6,7 @@
  */
 import { combateCon, type ReglasDelCombate } from '@core/combate.js';
 import { problemaDeTipo } from '@core/hero/ascenso.js';
+import type { MundoLeido } from '@core/mundo/formato.js';
 import { parseSeed } from '@core/rng.js';
 import { faccionesDeLaSemilla } from '@core/state/setup.js';
 import { type FactionId, parseFaccion } from '@core/types.js';
@@ -17,10 +18,12 @@ import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaAyuntamiento } from './escenas/ayuntamiento.js';
 import { EscenaBatalla } from './escenas/batalla.js';
 import { EscenaBase } from './escenas/castillo.js';
+import { EscenaLugar } from './escenas/lugar.js';
 import { EscenaMorada } from './escenas/morada.js';
 import { EscenaTropa } from './escenas/tropa.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
+import { mundoPedido } from './mundo/cargar.js';
 import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
@@ -32,6 +35,7 @@ import { Session } from './session.js';
 import { ponerTema } from './temas.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
 import { renderConversacion } from './views/base.js';
+import { renderConversacionDelLugar } from './views/lugar.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 
 /**
@@ -132,12 +136,36 @@ function abrePartida(
     if (heroe !== null) url.searchParams.set('heroe', heroe);
     combateALaURL(url, abierta.state.combate, abierta.soloRuedaDelHeroe);
   });
+  return prepararLaPartida(abierta, `semilla ${abierta.state.seed}`);
+}
+
+/** Lo que toda partida abierta deja hecho: su rótulo en la barra y su tema. */
+function prepararLaPartida(abierta: Session, rotulo: string): Session {
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
-  elSeed.textContent = `semilla ${abierta.state.seed}`;
+  elSeed.textContent = rotulo;
   // La interfaz, con el tema de la facción de quien juega (`temas.ts`).
   ponerTema(abierta.jugador.faction);
   return abierta;
+}
+
+/**
+ * Abre la partida de un mundo (`?mundo=`, ya cargado y validado por
+ * `mundo/cargar.ts`): su semilla, su facción y su héroe son los suyos. La URL ya
+ * es la que la repite: `?mundo=` solo, que `mundoDeLaUrl` no deja ir con nada de
+ * eso, más la complejidad del combate, que es de quien juega y no del mundo.
+ */
+function abrePartidaDelMundo(
+  mundo: MundoLeido,
+  combate: ReglasDelCombate,
+  soloHeroe: boolean,
+): Session {
+  const abierta = new Session(mundo.mundo.semilla, undefined, undefined, combate, soloHeroe, mundo);
+  aLaBarra((url) => combateALaURL(url, abierta.state.combate, abierta.soloRuedaDelHeroe));
+  return prepararLaPartida(
+    abierta,
+    `mundo «${mundo.historia.titulo}» · semilla ${abierta.state.seed}`,
+  );
 }
 
 /** Por qué no arranca la partida y, si es por la URL, cómo salir: quitar lo que pidió. */
@@ -184,35 +212,50 @@ let session: Session;
       return null;
     }
   };
-  const semilla = leer('seed', semillaDeLaUrl);
-  const faccion = leer('faccion', faccionDeLaUrl);
+  // Un mundo trae su semilla, su facción y su héroe (`mundoDeLaUrl` no los deja
+  // ir con él); de la URL, solo la complejidad del combate y el clima.
+  const mundo = mundoPedido();
+  const semilla = mundo === null ? leer('seed', semillaDeLaUrl) : null;
+  const faccion = mundo === null ? leer('faccion', faccionDeLaUrl) : null;
   const { tope, rueda, soloHeroe } = combateDeLaURL(location.search, (parametro, motivo) =>
     fallos.push({ motivo, salida: salidaDe([parametro]) }),
   );
   const clima = leer('clima', () => leerElClimaDeLaURL(new URLSearchParams(location.search)));
-  const seed = semilla ?? semillaSorteada();
-  // El héroe se juzga contra la facción que se jugará: la pedida o la que saque
-  // la semilla, que la dice la misma función que usa `newGame`. Así el motivo
-  // nombra solo `?heroe=` como salida. Con la semilla o la facción rotas no se
-  // juzga: sería contra otra.
-  const heroe =
-    fallos.length > 0
-      ? null
-      : leer('heroe', () => heroeDeLaUrl(faccionesDeLaSemilla(seed, faccion ?? undefined)[0]));
-  if (fallos.length > 0) sinArrancar(fallos);
-  try {
-    session = abrePartida(seed, faccion, heroe, combateCon(tope, rueda), soloHeroe);
-  } catch (motivo) {
-    // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso.
-    // Sin nada pedido no hay salida que dar.
-    const pedidos = [
-      ...(semilla === null ? [] : (['seed'] as const)),
-      ...(faccion === null ? [] : (['faccion'] as const)),
-      ...(heroe === null ? [] : (['heroe'] as const)),
-      ...(tope === null ? [] : (['tropa'] as const)),
-      ...(rueda === null ? [] : (['rueda'] as const)),
-    ];
-    sinArrancar([{ motivo, salida: salidaDe(pedidos) }]);
+  const delCombate = [
+    ...(tope === null ? [] : (['tropa'] as const)),
+    ...(rueda === null ? [] : (['rueda'] as const)),
+  ];
+  if (mundo !== null) {
+    if (fallos.length > 0) sinArrancar(fallos);
+    try {
+      session = abrePartidaDelMundo(mundo, combateCon(tope, rueda), soloHeroe);
+    } catch (motivo) {
+      sinArrancar([{ motivo, salida: salidaDe(delCombate) }]);
+    }
+  } else {
+    const seed = semilla ?? semillaSorteada();
+    // El héroe se juzga contra la facción que se jugará: la pedida o la que saque
+    // la semilla, que la dice la misma función que usa `newGame`. Así el motivo
+    // nombra solo `?heroe=` como salida. Con la semilla o la facción rotas no se
+    // juzga: sería contra otra.
+    const heroe =
+      fallos.length > 0
+        ? null
+        : leer('heroe', () => heroeDeLaUrl(faccionesDeLaSemilla(seed, faccion ?? undefined)[0]));
+    if (fallos.length > 0) sinArrancar(fallos);
+    try {
+      session = abrePartida(seed, faccion, heroe, combateCon(tope, rueda), soloHeroe);
+    } catch (motivo) {
+      // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso.
+      // Sin nada pedido no hay salida que dar.
+      const pedidos = [
+        ...(semilla === null ? [] : (['seed'] as const)),
+        ...(faccion === null ? [] : (['faccion'] as const)),
+        ...(heroe === null ? [] : (['heroe'] as const)),
+        ...delCombate,
+      ];
+      sinArrancar([{ motivo, salida: salidaDe(pedidos) }]);
+    }
   }
   // Una región de `?clima=` que este mapa no tiene lanza aquí, diciendo cuáles
   // hay, y la salida es quitar solo `?clima=`: la semilla está bien, y quitarla
@@ -228,6 +271,8 @@ const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
+/** La escena de un lugar de un mundo (`escenas/lugar.ts`): se entra desde el mapa, como en la tropa. */
+const lugar = new EscenaLugar(sesion);
 /**
  * Las escenas de dentro: se entra en ellas desde otra (la tropa desde el mapa, la
  * morada desde la base), abren con el lateral arriba y, al salir, reponen el de la
@@ -250,6 +295,12 @@ const DENTRO = {
       castillo.pintarLaMorada(ctx, lienzo, camara, vista.edificio, ahora, { caminante: false }),
     ),
     cerrar: (s: Session) => s.cerrarElAyuntamiento(),
+  },
+  // Escape cierra primero la conversación y, sin ella, sale al mapa.
+  lugar: {
+    de: lugar,
+    cerrar: (s: Session) =>
+      s.lugar.hablando !== null ? s.lugar.dejarDeHablar() : s.salirDelLugar(),
   },
 } as const;
 type EscenaDeDentro = keyof typeof DENTRO;
@@ -484,7 +535,7 @@ function dibujarFotograma(ahora: number): void {
       renderSide(session, contando, enCastillo ? castillo.abierto : null),
     );
     pintar(elActions, renderActions(session, contando));
-    mostrarConversacion(enCastillo);
+    mostrarConversacion(enCastillo, escena === 'lugar');
   }
   paneles = { sesion: session, version: session.version, arte: arteLlegado, contando, base };
   if (lateralPendiente !== null) {
@@ -516,7 +567,18 @@ function llevarLaFichaALaVista(): void {
  * «Seguir», con Escape o con un clic en el suelo. Se rellena por la puerta del
  * marcado, como los paneles: el nombre y la línea los puede escribir el agente.
  */
-function mostrarConversacion(enCastillo: boolean): void {
+function mostrarConversacion(enCastillo: boolean, enUnLugar: boolean): void {
+  // La de un lugar de un mundo: su árbol, con las opciones (`views/lugar.ts`).
+  if (enUnLugar) {
+    const c = session.lugar.conversacion();
+    if (c === null) {
+      if (conversacion.open) conversacion.close();
+      return;
+    }
+    pintar(conversacion, renderConversacionDelLugar(c));
+    if (!conversacion.open) conversacion.show();
+    return;
+  }
   const a = enCastillo ? castillo.abierto : null;
   if (a === null || a.tipo !== 'pnj') {
     if (conversacion.open) conversacion.close();
@@ -796,6 +858,28 @@ document.addEventListener('click', (ev) => {
       fichaALaVista = true;
       break;
     }
+    case 'salir-del-lugar':
+      // El botón sale del todo, hable o no: sin la conversación, `cerrarDentro`
+      // (con el cursor) saca al mapa, como Escape la segunda vez.
+      session.lugar.dejarDeHablar();
+      cerrarDentro();
+      break;
+    case 'lugar-ir':
+      if (ev.detail > 1) break;
+      lugar.irA(target.getAttribute('data-punto') as string, performance.now());
+      break;
+    case 'lugar-al-principio':
+      if (ev.detail > 1) break;
+      session.lugar.alPrincipio();
+      break;
+    case 'lugar-opcion': {
+      // El segundo clic de un doble clic cae ya en el nodo siguiente: solo el primero.
+      if (ev.detail > 1) break;
+      // Apagada: su motivo ya se lee debajo; el clic no hace nada.
+      if (target.getAttribute('aria-disabled') === 'true') break;
+      session.elegirEnElLugar(Number(target.getAttribute('data-indice')));
+      break;
+    }
     case 'tropa-elegir': {
       const quien = target.getAttribute('data-quien');
       if (quien === null) throw new Error('el botón de la tropa no dice a quién elige');
@@ -944,8 +1028,19 @@ document.addEventListener('click', (ev) => {
 });
 
 document.addEventListener('keydown', (ev) => {
-  // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un atajo.
-  if (ev.target instanceof Element && ev.target.closest('textarea, input, dialog') !== null) return;
+  // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un
+  // atajo. Salvo Escape en la conversación: al abrirse se queda el foco (su primera
+  // opción), y sin esto Escape no la cerraba nunca, aunque la barra lo anuncia
+  // (H3 del QA de la F1a). Lo demás —Intro, espacio— sigue siendo de su botón.
+  const enLaConversacion =
+    ev.target instanceof Element && ev.target.closest('#conversacion') !== null;
+  if (enLaConversacion && ev.key !== 'Escape') return;
+  if (
+    !enLaConversacion &&
+    ev.target instanceof Element &&
+    ev.target.closest('textarea, input, dialog') !== null
+  )
+    return;
   // Escape mantenido se repite: cada repetición cerraría un nivel más (la morada,
   // la base…). Solo cuenta la primera pulsación (QA M5 de la morada, 20-10-2026).
   if (ev.key === 'Escape' && ev.repeat) return;

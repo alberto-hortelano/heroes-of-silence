@@ -364,9 +364,12 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
     que = `${individuosDe(asaltante.troops)} asaltantes: emboscan a quien pise su región si le sacan ventaja`;
   // Lo desconocido se dice, pero la ruta también: el héroe puede ir a explorarlo.
   else if (!explorada) que = 'Tierras desconocidas';
-  else if (heroe !== undefined)
+  else if (heroe !== undefined) {
     que = heroe.owner === s.viewer ? heroe.name : `${heroe.name}, héroe enemigo`;
-  else if (objeto?.kind === 'town') {
+    // El héroe propio en un lugar tapa su rombo: la barra dice dónde está y cómo se entra.
+    if (heroe.owner === s.viewer && objeto?.kind === 'lugar')
+      que = `${heroe.name}, en ${objeto.name}: pulsa para entrar`;
+  } else if (objeto?.kind === 'town') {
     const t = s.state.towns.find((x) => x.id === objeto.id);
     const dueño =
       objeto.owner === null ? 'neutral' : objeto.owner === s.viewer ? 'tuyo' : 'enemigo';
@@ -379,6 +382,10 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
   } else if (objeto?.kind === 'monster' && !objeto.defeated)
     que = `${objeto.count} monstruos de guardia`;
   else if (objeto?.kind === 'chest' && !objeto.taken) que = 'Un cofre';
+  else if (objeto?.kind === 'lugar') {
+    const estado = s.estadoDelLugar(objeto.id);
+    que = `${objeto.name}${estado === null ? '' : ` (${estado})`}: acaba la marcha allí para entrar`;
+  }
   if (ruta.length === 0) return que === '' ? '' : `${que}.`;
   const llegada = llegadaDeLaRuta(ruta, s.explorado);
   // La emboscada va DELANTE: es lo que cambia la decisión, y una barra larga se

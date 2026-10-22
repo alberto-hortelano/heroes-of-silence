@@ -138,3 +138,21 @@ export function combateDelEntorno(): ReglasDelCombate {
   };
   return combateCon(leer('HEROES_TROPA', parseTope), leer('HEROES_RUEDA', parseRueda));
 }
+
+/**
+ * La orden que lanza el motor de narrativa al generar un mundo desde el menú de
+ * `pnpm dev` (`tools/mundo/motor.ts`): `claude` por defecto, Claude Code con la
+ * suscripción. `HEROES_MOTOR=false` lo hace fallar a propósito (la orden `false`
+ * sale 1): así se prueba la pantalla del fallo sin gastar nada. Un texto con
+ * espacios no vale: es una orden, no una línea de shell (no se interpreta).
+ */
+export function ordenDelMotor(): string {
+  const valor = process.env.HEROES_MOTOR;
+  if (valor === undefined || valor.trim() === '') return 'claude';
+  if (/\s/.test(valor.trim())) {
+    throw new Error(
+      `HEROES_MOTOR="${valor}" no es una orden: tiene que ser un ejecutable sin argumentos, como claude o /ruta/a/claude`,
+    );
+  }
+  return valor.trim();
+}

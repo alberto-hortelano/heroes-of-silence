@@ -521,6 +521,15 @@ export function pintarBase(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): v
       { ...v.lienzo, ahora: v.clima.ahora },
     );
   }
+  pintarLasFiguras(ctx, v);
+}
+
+/**
+ * Solo las figuras de `v.elementos`, sin la plaza, y el aire del clima encima
+ * (salvo con `sinAire`): la escena de un lugar (`escenas/lugar.ts`) pinta entre
+ * el fondo y la gente el mojón de sus cosas.
+ */
+export function pintarLasFiguras(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): void {
   for (const e of v.elementos) if (e.tipo === 'figura') pintarPersona(ctx, v, e);
   if (v.sinAire !== true) pintarElAireDeLaBase(ctx, v);
 }

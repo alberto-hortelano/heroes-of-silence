@@ -1267,6 +1267,32 @@ function exigir<T>(cosa: T, vale: (x: T) => boolean, paso: string): void {
 }
 
 /**
+ * En `pnpm dev` (y aquí se corre `vite` en modo desarrollo), «Empezar» lleva a «El
+ * mundo» (`desarrollo/mundo.ts`, F1a del mapa vivo), que generaría uno con el motor
+ * de narrativa: estas pasadas juegan el procedimental, por su botón, «Jugar sin
+ * historia». La pantalla **se exige**: si «Empezar» fuera derecho a la partida, el
+ * flujo de `pnpm dev` habría cambiado sin que nadie lo dijera, y aceptar las dos
+ * lo callaba. Con `nombre`, se captura antes la pantalla.
+ */
+async function sinHistoria(page: Page, nombre: string | null, tocar = false): Promise<void> {
+  await page
+    .waitForSelector('[data-mundo="eleccion"]', { timeout: 30_000 })
+    .catch((err: unknown) => {
+      throw new Error(
+        `arranque: «Empezar» en pnpm dev no lleva a «El mundo» (desarrollo/mundo.ts): ${err instanceof Error ? err.message : err}`,
+      );
+    });
+  if (nombre !== null) await captura(page, nombre);
+  const boton = page.locator('[data-mundo="sin-historia"]');
+  if (tocar) {
+    await boton.scrollIntoViewIfNeeded();
+    const caja = await boton.boundingBox();
+    if (caja === null) throw new Error('«Jugar sin historia» no se ve');
+    await page.touchscreen.tap(caja.x + caja.width / 2, caja.y + caja.height / 2);
+  } else await boton.click();
+}
+
+/**
  * La pantalla de inicio (19-10-2026): `/` sin nada pide qué jugar y no monta la
  * partida hasta elegir (ni escena ni suelo); «Cargar partida» no hace nada, ni
  * con el teclado; «Nuevo juego» lleva a la elección, que viste la página con la
@@ -1393,6 +1419,7 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   const pedidas: string[] = [];
   page.on('request', (r) => pedidas.push(new URL(r.url()).pathname));
   await page.locator('[data-inicio="empezar"]').click();
+  await sinHistoria(page, 'inicio-02d-el-mundo');
   await page.waitForSelector('#app[data-escena="ayuntamiento"]', { timeout: 30_000 });
   const pedida = new URL(page.url()).searchParams;
   const semilla = parseSeed(pedida.get('seed'));
@@ -1742,6 +1769,7 @@ async function eleccionConElDedo(
   await captura(page, 'inicio-07-eleccion-movil');
   const empezar = await centro(EMPEZAR);
   await page.touchscreen.tap(empezar.x, empezar.y);
+  await sinHistoria(page, null, true);
   await page.waitForSelector('#app[data-escena="ayuntamiento"]', { timeout: 30_000 });
   await sleep(300);
   // Tocar una figura del lienzo trae su ficha con «Contratar» a la vista, sin
