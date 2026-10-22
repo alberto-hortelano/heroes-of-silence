@@ -531,6 +531,7 @@ export function pintarElSueloDeLaBase(
     campoDeEscena(v.clima.sitio, {
       ...v.lienzo,
       luces: v.clima.sitio.noche ? lucesDeLaBase(v, edificios) : [],
+      origen: origenDeLaEscena(v),
     }),
     { ...v.lienzo, ahora: v.clima.ahora },
   );
@@ -546,13 +547,26 @@ export function pintarLasFiguras(ctx: CanvasRenderingContext2D, v: PintadoDeLaBa
   if (v.sinAire !== true) pintarElAireDeLaBase(ctx, v);
 }
 
+/**
+ * Dónde cae en el lienzo el origen del escenario, con la cámara de ahora: la
+ * lluvia y la niebla van con la plaza al hacer scroll, no con la pantalla.
+ */
+const origenDeLaEscena = (v: PintadoDeLaBase): { readonly x: number; readonly y: number } => ({
+  x: v.t.origenX,
+  y: v.t.origenY,
+});
+
 /** La lluvia y el rayo de la base, encima de todo lo que ya se pintó. */
 export function pintarElAireDeLaBase(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): void {
   if (v.clima === null) return;
-  pintarAireDelClima(ctx, campoDeEscena(v.clima.sitio, v.lienzo), {
-    ...v.lienzo,
-    ahora: v.clima.ahora,
-  });
+  pintarAireDelClima(
+    ctx,
+    campoDeEscena(v.clima.sitio, { ...v.lienzo, origen: origenDeLaEscena(v) }),
+    {
+      ...v.lienzo,
+      ahora: v.clima.ahora,
+    },
+  );
 }
 
 /**

@@ -135,10 +135,15 @@ export interface CampoDelClima {
     readonly lado: number;
     readonly tinte: Rgb | null;
   } | null;
-  /** Cada lluvia y dónde cae (en px CSS); sin `dentro`, en todo el lienzo. */
+  /**
+   * Cada lluvia, dónde cae (en px CSS; sin `dentro`, en todo el lienzo) y dónde
+   * cae el origen del mundo en el lienzo (px CSS): las gotas van con el mundo, y
+   * al mover la cámara se corren con el suelo en vez de seguir a la pantalla.
+   */
   readonly lluvias: readonly {
     readonly lluvia: Lluvia;
     readonly dentro: ((x: number, y: number) => boolean) | null;
+    readonly origen: { readonly x: number; readonly y: number };
   }[];
   readonly rayos: readonly FocoDeRayo[];
   /** Los fuegos que se encienden, ya solo los de donde es de noche. */
@@ -643,7 +648,7 @@ function luzSinGuardar(ctx: CanvasRenderingContext2D, luz: LuzDelMundo, m: Marco
  */
 function pintarLluvia(
   ctx: CanvasRenderingContext2D,
-  { lluvia, dentro }: CampoDelClima['lluvias'][number],
+  { lluvia, dentro, origen }: CampoDelClima['lluvias'][number],
   m: MarcoDelClima,
   ahora: number,
   semilla: number,
@@ -672,8 +677,10 @@ function pintarLluvia(
     ctx.beginPath();
     for (let q = 0; q < cuantas; q++) {
       const i = semilla + i0 + q;
-      const y = (((azar(i * 2 + 1) * vuelta + ahora * p.velocidad * d) % vuelta) + vuelta) % vuelta;
-      const x = (((azar(i * 2) * W + y * lluvia.viento) % W) + W) % W;
+      const y =
+        (((azar(i * 2 + 1) * vuelta + ahora * p.velocidad * d + origen.y * d) % vuelta) + vuelta) %
+        vuelta;
+      const x = (((azar(i * 2) * W + y * lluvia.viento + origen.x * a) % W) + W) % W;
       const y0 = Math.round(y - largo);
       if (dentro !== null && !dentro(x / a, y / d)) continue;
       const x0 = Math.round(x + e) + medio;
@@ -811,12 +818,19 @@ export interface Escena {
   readonly cielo?: number;
   /** Los fuegos que se encienden si es de noche (las puertas de la base). */
   readonly luces?: readonly LuzDeNoche[];
+  /**
+   * Dónde cae en el lienzo el origen del escenario (px CSS), si la cámara se
+   * mueve (la base y los lugares, con su scroll): la lluvia y los bancos de
+   * niebla van con él. Sin él, quietos en la pantalla (la batalla).
+   */
+  readonly origen?: { readonly x: number; readonly y: number };
 }
 
 /** El campo de una escena: el clima de su sitio en todo el lienzo. */
 export function campoDeEscena(sitio: ClimaDelSitio, e: Escena): CampoDelClima {
   const r = EFECTOS[sitio.tiempo];
   const cielo = e.cielo ?? e.alto / 3;
+  const origen = e.origen ?? { x: 0, y: 0 };
   return {
     luz: luzDe(sitio),
     alza: alzaDe(sitio),
@@ -826,11 +840,11 @@ export function campoDeEscena(sitio: ClimaDelSitio, e: Escena): CampoDelClima {
         ? null
         : {
             alfa: r.bancos,
-            origen: { x: 0, y: 0 },
+            origen,
             lado: Math.max(e.ancho, e.alto) * 0.9,
             tinte: null,
           },
-    lluvias: r.lluvia === null ? [] : [{ lluvia: r.lluvia, dentro: null }],
+    lluvias: r.lluvia === null ? [] : [{ lluvia: r.lluvia, dentro: null, origen }],
     rayos:
       r.rayos === null
         ? []
@@ -1002,6 +1016,7 @@ function campoDelMapa(m: ClimaDelMapa): CampoDelClima | null {
         : { alfa: colocada(mk.bancos), origen: o, lado: 9 * t, tinte: null },
     lluvias: mk.lluvias.map(({ lluvia, dentro }) => ({
       lluvia,
+      origen: o,
       dentro:
         dentro === null
           ? null
