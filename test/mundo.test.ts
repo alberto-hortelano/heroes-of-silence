@@ -11,12 +11,13 @@ import { describe, expect, it } from 'vitest';
 import { mundoDeLaUrl } from '../src/client/mundo/cargar.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
 import { jugadaEnElLugar } from '../src/core/ai/lugares.js';
+import { CUPO_HEROE } from '../src/core/hero/troop.js';
 import { buildMap, type MapPlan } from '../src/core/map/generate.js';
 import { isEnterable } from '../src/core/map/map.js';
 import { CLAVES_DE_CONDICION, CLAVES_DE_EFECTO, VOCABULARIO } from '../src/core/mundo/formato.js';
 import { lecturaParaElMotor } from '../src/core/mundo/lectura.js';
 import { partidaDelMundo } from '../src/core/mundo/partida.js';
-import { opcionBlocker } from '../src/core/mundo/reglas.js';
+import { anteDelHeroe, opcionBlocker, opcionesDe } from '../src/core/mundo/reglas.js';
 import {
   type CrudosDelMundo,
   leerMundo,
@@ -131,20 +132,6 @@ describe('la validación de un mundo', () => {
     );
   });
 
-  it('un nodo con opciones que hacen algo, al que solo se llega tras otra que hace algo', () => {
-    // A «carta» solo se llega leyéndola (`dentro`, con «hace»): tras eso la
-    // conversación sigue en ella, pero el núcleo no dejaría elegir lo de dentro.
-    const p = conHistoria((h) => {
-      puente(h).dialogos.garita!.nodos.carta!.opciones.push({
-        texto: 'Romper el sello',
-        hace: [{ marca: 'lanza-cogida' }],
-      });
-    });
-    expect(p).toContainEqual(
-      'historia.json: lugares[0].dialogos.garita.nodos.carta: tiene opciones que hacen algo y solo se llega a él tras otra que también hace algo: no se podrían elegir; a un nodo con «hace» se llega desde el inicio («dentro») por opciones que solo navegan',
-    );
-  });
-
   it('dos puntos con el mismo diálogo', () => {
     const p = conHistoria((h) => {
       (puente(h) as unknown as { puntos: { dialogo: string }[] }).puntos[1]!.dialogo = 'garita';
@@ -166,22 +153,44 @@ describe('la validación de un mundo', () => {
     );
   });
 
-  it('un lugar en una barrera, en un recinto o pegado a un pueblo', () => {
+  it('un lugar en el borde, en una barrera, en un recinto o pegado a un pueblo', () => {
     const plan = crudos('prueba').plan as MapPlan;
     const { map } = buildMap(plan);
-    const barrera = map.terrain.findIndex(
-      (_, i) => !isEnterable(map, { x: i % map.width, y: Math.floor(i / map.width) }),
-    );
+    const dentro = (x: number, y: number) =>
+      x > 0 && y > 0 && x < map.width - 1 && y < map.height - 1;
+    const barrera = map.terrain.findIndex((_, i) => {
+      const at = { x: i % map.width, y: Math.floor(i / map.width) };
+      return dentro(at.x, at.y) && !isEnterable(map, at);
+    });
     const enBarrera = { x: barrera % map.width, y: Math.floor(barrera / map.width) };
     const base = plan.towns.find((t) => t.owner === 0)!.at;
-    const pueblo = plan.villages[0]!.at;
+    // Una casilla a dos de un pueblo que no caiga en el borde ni en una barrera.
+    const pegado = plan.villages
+      .flatMap((v) =>
+        [
+          [0, -2],
+          [0, 2],
+          [-2, 0],
+          [2, 0],
+        ].map(([dx, dy]) => ({ x: v.at.x + (dx as number), y: v.at.y + (dy as number) })),
+      )
+      .find((at) => / del pueblo /.test(lugarBlocker(map, at) ?? ''))!;
     const enLaMuralla = { x: base.x, y: base.y - 1 };
-    const pegado = { x: pueblo.x, y: pueblo.y - 2 };
 
     const en = (at: { x: number; y: number }) =>
       conHistoria((h) => {
         puente(h).at = at;
       });
+    // Ninguna casilla del borde, aunque se pise (el motor recibía (0, 0) de muestra).
+    for (const borde of [
+      { x: 0, y: 0 },
+      { x: 5, y: map.height - 1 },
+      { x: map.width - 1, y: 9 },
+    ]) {
+      expect(lugarBlocker(map, borde)).toBe(
+        `(${borde.x}, ${borde.y}) está en el borde del mapa: un lugar va a una casilla del borde o más`,
+      );
+    }
     expect(en(enBarrera)).toContainEqual(
       expect.stringMatching(/lugares\[0\]\.at: .* y eso no se pisa$/),
     );
@@ -264,7 +273,17 @@ describe('la lectura para el motor', () => {
   const lectura = lecturaParaElMotor(leido.mundo, leido.plan);
 
   it('la facción de quien juega sale del plan', () => {
-    expect(lectura.jugador).toEqual({ id: 0, faccion: 'imperio', heroe: 'duelista' });
+    expect(lectura.jugador).toMatchObject({ id: 0, faccion: 'imperio', heroe: 'duelista' });
+  });
+
+  it('dice con qué tropa sale el héroe y cuánta le cabe, la de la partida', () => {
+    const hero = partidaDelMundo(leido).heroes.find((h) => h.owner === 0)!;
+    const t = lectura.jugador.tropa;
+    expect(t.individuos).toBe(hero.army.length);
+    expect(t.lleva.reduce((n, x) => n + x.n, 0)).toBe(hero.army.length);
+    expect(t.cupo).toBe(CUPO_HEROE);
+    // En `prueba` le cabe uno más (5 de 6, 17 de 20), y el motor lo lee.
+    expect(t.nota).toContain('le caben 1 más y 3 de liderazgo');
   });
 
   it('cada casilla de muestra admite un lugar', () => {
@@ -405,6 +424,144 @@ describe('elegir en un lugar', () => {
       'no se puede elegir eso: a esa parte de la conversación con Corvo no se llega ahora',
     );
     expect(state.mundo!.estados['puente-de-corvo']).toBe('guardado');
+    // Y la pantalla dice lo mismo: la opción sale apagada con ese motivo, no
+    // encendida y muda (H2 del QA de la F1a).
+    const a = anteDelHeroe(state, hero.id);
+    if ('motivo' in a) throw new Error(a.motivo);
+    const corvo = a.lugar.puntos.find((p) => p.id === 'corvo')!;
+    expect(opcionesDe(a, corvo, 'muerto')[0]!.motivo).toMatch(
+      /^a esa parte de la conversación con Corvo no se llega ahora/,
+    );
+  });
+
+  /**
+   * El pozo con dos cosas más, de los ejemplos del QA de la F1a: una opción que da
+   * oro y otra sin premio que la vuelve a encender (H1), otra que vuelve a despertar
+   * el pozo ya limpio, y una cuerda con una opción que marca e `ir fondo` y otra sin
+   * efectos que también va allí, y en el fondo un premio (H2). Las tres validan.
+   */
+  const conElPozoDelQA = leerMundo(
+    prueba((h) => {
+      h.marcas = {
+        ...(h.marcas as Record<string, unknown>),
+        bajado: { falta: 'aún no has bajado', ya: 'ya bajaste por la cuerda' },
+        subido: { falta: 'aún no has subido el cubo', ya: 'el cubo ya está arriba' },
+      };
+      const pozo = h.lugares[1] as unknown as {
+        puntos: Record<string, unknown>[];
+        dialogos: Record<string, unknown>;
+      };
+      (
+        pozo.dialogos.pozo as { nodos: Record<string, { opciones: unknown[] }> }
+      ).nodos.brocal!.opciones.push(
+        {
+          texto: 'Rebuscar',
+          si: [{ estado: 'quieto' }],
+          hace: [{ oro: 100 }, { estado: 'despierto' }],
+        },
+        { texto: 'Esperar', si: [{ estado: 'despierto' }], hace: [{ estado: 'quieto' }] },
+        { texto: 'Gritar al fondo', si: [{ estado: 'limpio' }], hace: [{ estado: 'despierto' }] },
+      );
+      pozo.puntos.push({ id: 'cuerda', x: 0.85, cosa: { nombre: 'La cuerda' }, dialogo: 'cuerda' });
+      pozo.dialogos.cuerda = {
+        inicio: 'arriba',
+        nodos: {
+          arriba: {
+            texto: 'Una cuerda baja al fondo.',
+            opciones: [
+              {
+                texto: 'Bajar y marcar el sitio',
+                si: [{ no: { marca: 'bajado' } }],
+                hace: [{ marca: 'bajado' }],
+                ir: 'fondo',
+              },
+              { texto: 'Bajar sin más', si: [{ no: { marca: 'bajado' } }], ir: 'fondo' },
+              { texto: 'Dejarla' },
+            ],
+          },
+          fondo: {
+            texto: 'Abajo hay un cubo.',
+            opciones: [
+              {
+                texto: 'Subir el cubo',
+                si: [{ no: { marca: 'subido' } }],
+                hace: [{ oro: 50 }, { marca: 'subido' }],
+              },
+              { texto: 'Salir' },
+            ],
+          },
+        },
+      };
+    }),
+    'prueba',
+  );
+  /** Una partida de `conElPozoDelQA` con el héroe del jugador 0 en el pozo. */
+  function enElPozoDelQA(): { state: GameState; hero: string } {
+    const state = partidaDelMundo(conElPozoDelQA);
+    const hero = state.heroes.find((h) => h.owner === 0)!;
+    hero.at = { x: 16, y: 13 };
+    return { state, hero: hero.id };
+  }
+  const POZO = 'pozo-de-valdesombra';
+
+  it('cada premio se cobra una vez, aunque otra opción vuelva a encender la suya (H1 del QA)', () => {
+    const { state, hero } = enElPozoDelQA();
+    const oro = state.players[0]!.oro;
+    elegir(state, hero, POZO, 'pozo', 'brocal', 3);
+    elegir(state, hero, POZO, 'pozo', 'brocal', 4);
+    expect(state.mundo!.estados[POZO]).toBe('quieto');
+    const ref = { lugar: POZO, punto: 'pozo', nodo: 'brocal', opcion: 3 };
+    expect(opcionBlocker(state, hero, ref)).toBe('ya te llevaste 100 oro de aquí');
+    expect(() => elegir(state, hero, POZO, 'pozo', 'brocal', 3)).toThrow(
+      'no se puede elegir eso: ya te llevaste 100 oro de aquí',
+    );
+    expect(state.players[0]!.oro).toBe(oro + 100);
+    const a = anteDelHeroe(state, hero);
+    if ('motivo' in a) throw new Error(a.motivo);
+    expect(opcionesDe(a, a.lugar.puntos[0]!, 'brocal')[3]!.motivo).toBe(
+      'ya te llevaste 100 oro de aquí',
+    );
+  });
+
+  it('un encuentro ganado no se vuelve a pelear, aunque el lugar vuelva a su estado', () => {
+    const { state, hero } = enElPozoDelQA();
+    elegir(state, hero, POZO, 'pozo', 'brocal', 0);
+    elegir(state, hero, POZO, 'pozo', 'brocal', 1);
+    const pending = state.pendingBattle!;
+    for (const s of pending.battle.stacks) if (s.side === 'defender') s.count = 0;
+    pending.battle.finished = { winner: 'attacker' };
+    settleBattle(state, ctx);
+    expect(state.mundo!.estados[POZO]).toBe('limpio');
+    elegir(state, hero, POZO, 'pozo', 'brocal', 5);
+    expect(state.mundo!.estados[POZO]).toBe('despierto');
+    expect(
+      opcionBlocker(state, hero, { lugar: POZO, punto: 'pozo', nodo: 'brocal', opcion: 1 }),
+    ).toBe('ya venciste a «Los ahogados del pozo»');
+  });
+
+  it('tras una opción que hace algo e «ir», lo de su nodo se elige (H2 del QA)', () => {
+    const { state, hero } = enElPozoDelQA();
+    const oro = state.players[0]!.oro;
+    elegir(state, hero, POZO, 'cuerda', 'arriba', 0);
+    // «Bajar sin más» ya no se cumple: al fondo se llega porque ahí quedó la conversación.
+    const ref = { lugar: POZO, punto: 'cuerda', nodo: 'fondo', opcion: 0 };
+    expect(opcionBlocker(state, hero, ref)).toBeNull();
+    const a = anteDelHeroe(state, hero);
+    if ('motivo' in a) throw new Error(a.motivo);
+    const cuerda = a.lugar.puntos.find((p) => p.id === 'cuerda')!;
+    expect(opcionesDe(a, cuerda, 'fondo')[0]!.motivo).toBeNull();
+    elegir(state, hero, POZO, 'cuerda', 'fondo', 0);
+    expect(state.players[0]!.oro).toBe(oro + 50);
+    expect(state.mundo!.conversaciones).toEqual({});
+  });
+
+  it('con el héroe del rival, «ese héroe no es tuyo» (no «no es tu turno»)', () => {
+    const { state } = enElLugar('puente-de-corvo');
+    const rival = state.heroes.find((h) => h.owner === 1)!;
+    rival.at = { x: 10, y: 12 };
+    expect(() => elegir(state, rival.id, 'puente-de-corvo', 'garita', 'dentro', 1)).toThrow(
+      'no se puede elegir eso: ese héroe no es tuyo',
+    );
   });
 
   it('fuera del lugar, o con una opción que solo navega, no se elige nada', () => {

@@ -11,11 +11,13 @@
  */
 import { unidadesDelJuego } from '../catalogo.js';
 import { PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
+import { armyLeadership, capacidadDe } from '../hero/troop.js';
 import { buildMap, type MapPlan } from '../map/generate.js';
 import { estructura, franjasDeBarrera } from '../map/regiones.js';
 import { isWalkable } from '../map/terrain.js';
 import { nivelDeUnidad } from '../nivel.js';
 import { regionDeCasilla } from '../state/asaltantes.js';
+import { newGame } from '../state/setup.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
 import { type Mundo, VOCABULARIO } from './formato.js';
 import { lugarBlocker } from './validar.js';
@@ -50,10 +52,57 @@ export interface RegionLeida {
   readonly admitenUnLugar: readonly Point[];
 }
 
+/**
+ * La tropa del héroe de salida, para que el motor sepa si un premio de tropa le
+ * cabe: sale con el ejército lleno, así que una `tropa` al principio sale apagada
+ * («no cabe») hasta que haya bajas o licencie a alguien. No es una regla nueva:
+ * lo que dice es lo que mira `troopBlocker` al elegir.
+ */
+export interface TropaDeSalida {
+  /** Lo que lleva, por unidad. */
+  readonly lleva: readonly { readonly unidad: string; readonly n: number }[];
+  /** Individuos que lleva y cuántos le caben como mucho. */
+  readonly individuos: number;
+  readonly cupo: number;
+  /** Liderazgo que ocupa y su tope. */
+  readonly liderazgo: number;
+  readonly tope: number;
+  readonly nota: string;
+}
+
+/** La tropa con que sale el héroe del jugador 0 en la partida de ese mundo. */
+function tropaDeSalida(mundo: Mundo, plan: MapPlan): TropaDeSalida {
+  const partida = newGame({ seed: mundo.semilla, plan, tipoDelHeroe: mundo.jugador.heroe });
+  const hero = partida.heroes.find((h) => h.owner === 0);
+  if (hero === undefined) throw new Error('la partida del mundo no tiene héroe del jugador 0');
+  const lleva = new Map<string, number>();
+  for (const t of hero.army) lleva.set(t.creature, (lleva.get(t.creature) ?? 0) + 1);
+  const { tope, cupo } = capacidadDe(hero);
+  const individuos = hero.army.length;
+  const liderazgo = armyLeadership(hero.army);
+  return {
+    lleva: [...lleva].map(([unidad, n]) => ({ unidad, n })),
+    individuos,
+    cupo,
+    liderazgo,
+    tope,
+    nota:
+      individuos >= cupo || liderazgo >= tope
+        ? `sale lleno (${individuos} de ${cupo} individuos, ${liderazgo} de ${tope} de liderazgo): un premio de «tropa» saldrá apagado («no cabe») hasta que pierda a alguien en una batalla o licencie; ponlo tras una pelea o no lo pongas`
+        : `lleva ${individuos} de ${cupo} individuos y ${liderazgo} de ${tope} de liderazgo: le caben ${cupo - individuos} más y ${tope - liderazgo} de liderazgo (el de cada una, en «unidades»); una «tropa» que pida más saldrá apagada («no cabe») hasta que pierda a alguien`,
+  };
+}
+
 export interface LecturaParaElMotor {
   readonly mundo: string;
   readonly mapa: { readonly ancho: number; readonly alto: number };
-  readonly jugador: { readonly id: 0; readonly faccion: FactionId; readonly heroe: string };
+  readonly jugador: {
+    readonly id: 0;
+    readonly faccion: FactionId;
+    readonly heroe: string;
+    /** La tropa con que sale el héroe y lo que le cabe (H10 del QA de la F1a). */
+    readonly tropa: TropaDeSalida;
+  };
   readonly rival: { readonly id: 1; readonly faccion: FactionId };
   readonly regiones: readonly RegionLeida[];
   readonly ciudades: readonly {
@@ -150,7 +199,12 @@ export function lecturaParaElMotor(
   return {
     mundo: mundo.id,
     mapa: { ancho: map.width, alto: map.height },
-    jugador: { id: 0, faccion: faccionDe(0), heroe: mundo.jugador.heroe },
+    jugador: {
+      id: 0,
+      faccion: faccionDe(0),
+      heroe: mundo.jugador.heroe,
+      tropa: tropaDeSalida(mundo, plan),
+    },
     rival: { id: 1, faccion: faccionDe(1) },
     regiones: red.regiones.map((reg, r) => ({
       id: reg.id,

@@ -67,8 +67,8 @@ export const LARGO = {
 } as const;
 
 /**
- * Por qué no puede ir un lugar en `at`, o `null`: dentro del mapa, en algo que se
- * pisa, dentro de una región (ni nodo, ni barrera, ni el río), fuera de todo
+ * Por qué no puede ir un lugar en `at`, o `null`: dentro del mapa y fuera de su
+ * borde, en algo que se pisa, dentro de una región (ni nodo, ni barrera, ni el río), fuera de todo
  * recinto de ciudad y a `SEPARACION_DE_UN_LUGAR` o más de todo objeto del mapa
  * —con sus puertas y sus reservas, que caben en ese radio— y de los lugares
  * `otros`. Sin camino nuevo hasta él (P3 del usuario). La leen la validación del
@@ -82,6 +82,11 @@ export function lugarBlocker(
   const donde = `(${at.x}, ${at.y})`;
   if (!inBounds(map, at)) {
     return `${donde} está fuera del mapa, que mide ${map.width} × ${map.height}`;
+  }
+  // En el borde, la escena del mapa recorta lo que va pegado al marco, y ninguna
+  // ciudad ni pueblo va ahí (`recintoDeLaCiudad`, `colocarPar`).
+  if (at.x === 0 || at.y === 0 || at.x === map.width - 1 || at.y === map.height - 1) {
+    return `${donde} está en el borde del mapa: un lugar va a una casilla del borde o más`;
   }
   const rol = pasosDelMapa(map)?.rol[at.y * map.width + at.x] ?? FUERA;
   if (rol !== FUERA) return `${donde} está en el recinto de una ciudad: un lugar va fuera`;
@@ -610,11 +615,10 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
       `${JSON.stringify(d.inicio)} no es uno de sus nodos (${[...nodos.keys()].join(', ') || 'ninguno'})`,
     );
   }
-  // Las salidas de cada nodo: todas, y las de las opciones que solo navegan.
+  // Las salidas de cada nodo, también las de las opciones que hacen algo: tras
+  // elegir una, la conversación sigue en su nodo y desde él se alcanza lo de
+  // después (`nodosAlcanzables`, con `EstadoDelMundo.conversaciones`).
   const lleva = new Map<string, string[]>();
-  const navega = new Map<string, string[]>();
-  /** Los nodos con alguna opción que hace algo. */
-  const conEfectos = new Set<string>();
   for (const [k, n] of nodos) {
     const r = `${ruta}.nodos.${k}`;
     const on = objeto(j, n, r, ['texto', 'opciones']);
@@ -625,7 +629,6 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
       j.mal(`${r}.opciones`, 'no hay ninguna: la conversación se quedaría ahí sin salida');
     }
     const destinos: string[] = [];
-    const navegando: string[] = [];
     opciones.forEach((op, i) => {
       const ro = `${r}.opciones[${i}]`;
       const oo = objeto(j, op, ro, ['texto'], ['si', 'hace', 'ir']);
@@ -633,13 +636,11 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
       texto(j, oo.texto, `${ro}.texto`, LARGO.opcion);
       const si = condiciones(j, oo.si, `${ro}.si`, ctx.delLugar, ctx.apuntes);
       const hace = efectos(j, oo.hace, `${ro}.hace`, ctx.delLugar, ctx.apuntes, CLAVES_DE_EFECTO);
-      if (hace.length > 0) conEfectos.add(k);
       if ('ir' in oo) {
         if (typeof oo.ir !== 'string' || !nodos.has(oo.ir)) {
           j.mal(`${ro}.ir`, `${JSON.stringify(oo.ir)} no es uno de los nodos de este diálogo`);
         } else {
           destinos.push(oo.ir);
-          if (hace.length === 0) navegando.push(oo.ir);
         }
       }
       for (const e of hace) if ('batalla' in e) ctx.encuentrosUsados.add(e.batalla);
@@ -647,25 +648,14 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
       if (motivo !== null) j.mal(ro, motivo);
     });
     lleva.set(k, destinos);
-    navega.set(k, navegando);
   }
-  // Todo nodo se alcanza desde el inicio: uno suelto es texto que nadie lee. Y
-  // lo que hace algo, navegando: el núcleo solo deja elegir en los nodos a los que
-  // se llega así (`nodosAlcanzables`, el mismo recorrido con las condiciones de
-  // ahora), y uno al que solo se llega tras otra opción que hace algo tendría sus
-  // opciones a la vista y sin poder elegirse.
+  // Todo nodo se alcanza desde el inicio: uno suelto es texto que nadie lee.
   if (typeof d.inicio === 'string' && nodos.has(d.inicio)) {
     const inicio = d.inicio;
-    const leidos = recorrido(inicio, (n) => lleva.get(n) ?? []);
-    const navegados = recorrido(inicio, (n) => navega.get(n) ?? []);
+    const leidos = recorrido([inicio], (n) => lleva.get(n) ?? []);
     for (const k of nodos.keys()) {
       if (!leidos.includes(k)) {
         j.mal(`${ruta}.nodos.${k}`, `no se llega a él desde el inicio («${inicio}»)`);
-      } else if (conEfectos.has(k) && !navegados.includes(k)) {
-        j.mal(
-          `${ruta}.nodos.${k}`,
-          `tiene opciones que hacen algo y solo se llega a él tras otra que también hace algo: no se podrían elegir; a un nodo con «hace» se llega desde el inicio («${inicio}») por opciones que solo navegan`,
-        );
       }
     }
   }
@@ -675,8 +665,11 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
  * La regla de la opción que se apaga (P-c del usuario): si da algo —oro, una
  * pieza, tropa— o abre una batalla, lo que aplica (sus efectos y, si pelea, los de
  * ganar) tiene que dejar de cumplir alguna de sus condiciones (las suyas o las de su
- * punto). Si no, la persona y la IA la elegirían una vez tras otra y cada premio se
- * cobraría sin fin. `null`: se apaga, o no da nada.
+ * punto). `null`: se apaga, o no da nada. **Es un aviso temprano y no la regla**:
+ * que cada premio se cobre una vez lo hace cumplir el núcleo (`EstadoDelMundo.cobradas`
+ * y `vencidos`), también cuando otra opción vuelve a encenderla. Esto pide que la
+ * historia lo diga con su propia condición, que es la que pone la frase del motor
+ * («ya te llevaste la lanza») debajo de la opción apagada.
  */
 function noSeApaga(
   si: readonly Condicion[],
@@ -893,11 +886,14 @@ export function objetosDeLosLugares(historia: Historia): MapObject[] {
   }));
 }
 
-/** El estado con que empieza una partida de ese mundo: cada lugar en su estado inicial, sin marcas. */
+/** El estado con que empieza una partida de ese mundo: cada lugar en su estado inicial, sin marcas ni nada cobrado. */
 export function estadoInicialDelMundo(historia: Historia): EstadoDelMundo {
   return {
     historia,
     estados: Object.fromEntries(historia.lugares.map((l) => [l.id, l.estadoInicial])),
     marcas: [],
+    cobradas: [],
+    vencidos: [],
+    conversaciones: {},
   };
 }

@@ -86,8 +86,18 @@ import {
   sePasa,
 } from '../map/map.js';
 import { muroBlocker } from '../map/recinto.js';
-import { type Efecto, type EstadoDelMundo, type Lugar, lugarDe } from '../mundo/formato.js';
-import { mundoDe, opcionBlocker, opcionDe } from '../mundo/reglas.js';
+import {
+  claveDeEncuentro,
+  claveDeOpcion,
+  claveDePunto,
+  daPremio,
+  type Efecto,
+  type EstadoDelMundo,
+  type Lugar,
+  lugarDe,
+  type Opcion,
+} from '../mundo/formato.js';
+import { mundoDe, opcionBlocker, opcionDe, type RefDeOpcion } from '../mundo/reglas.js';
 import { createRng, type Rng } from '../rng.js';
 import { CHARACTER_BODY, type Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
@@ -694,6 +704,9 @@ export function createGame(config: GameConfig): GameState {
       historia: config.mundo.historia,
       estados: { ...config.mundo.estados },
       marcas: [...config.mundo.marcas],
+      cobradas: [...config.mundo.cobradas],
+      vencidos: [...config.mundo.vencidos],
+      conversaciones: { ...config.mundo.conversaciones },
     };
   }
 
@@ -1440,10 +1453,17 @@ function aplicar(
     }
 
     case 'elegir_en_lugar': {
+      // Antes que la pregunta de la opción, que mira el turno del dueño del héroe:
+      // con el héroe del rival diría «todavía no es tu turno», y sí lo es.
+      const deOtro = state.heroes.find((h) => h.id === action.hero);
+      if (deOtro !== undefined && deOtro.owner !== currentPlayer(state).id) {
+        throw new Error('no se puede elegir eso: ese héroe no es tuyo');
+      }
       const noSe = opcionBlocker(state, action.hero, action);
       if (noSe !== null) throw new Error(`no se puede elegir eso: ${noSe}`);
       const hero = heroById(state, action.hero);
       const { lugar, opcion } = opcionDe(state, action.hero, action);
+      anotarLaEleccion(mundoDe(state), action, opcion);
       aplicarEfectos(state, hero.owner, hero, lugar, opcion.hace ?? [], ctx);
       return;
     }
@@ -1464,7 +1484,8 @@ function aplicar(
 
 /**
  * Aplica los efectos de un lugar, en orden, cada uno con su hecho en la crónica.
- * **La única escritura** de `GameState.mundo` y de lo que da o quita un lugar: la
+ * **La única escritura** de lo que da o quita un lugar y del estado y las marcas
+ * de `GameState.mundo` (lo cobrado y la conversación, `anotarLaEleccion`): la
  * llaman la opción elegida (`elegir_en_lugar`) y el cierre de una batalla de un
  * lugar (`alGanar`, `alPerder`). Quien llama ya ha comprobado que se puede
  * (`opcionBlocker`, o la validación del mundo, que en `alGanar` no deja pagos ni
@@ -1564,6 +1585,21 @@ function aplicarEfectos(
       );
     }
   }
+}
+
+/**
+ * Lo que el mundo recuerda de una opción elegida, antes de aplicarla: su premio,
+ * cobrado (`cobradas`), y dónde queda la conversación de su punto
+ * (`conversaciones`, el nodo al que lleva; sin «ir», ninguno). Con lo de
+ * `aplicarEfectos` y el encuentro ganado (`applyVictory`), lo único que escribe
+ * `GameState.mundo`.
+ */
+function anotarLaEleccion(mundo: EstadoDelMundo, ref: RefDeOpcion, opcion: Opcion): void {
+  const clave = claveDeOpcion(ref);
+  if (daPremio(opcion) && !mundo.cobradas.includes(clave)) mundo.cobradas.push(clave);
+  const punto = claveDePunto(ref.lugar, ref.punto);
+  if (opcion.ir === undefined) delete mundo.conversaciones[punto];
+  else mundo.conversaciones[punto] = opcion.ir;
 }
 
 /** El encuentro de una batalla de un lugar, o lanza. */
@@ -3182,6 +3218,10 @@ function applyVictory(
     case 'lugar': {
       // Lo que da ganar: estado, marca, oro o una pieza (la validación no deja más).
       const { lugar, encuentro } = encuentroDe(state, foe);
+      // Ganado una vez, no se vuelve a cobrar (`yaCobrado`, `core/mundo/reglas.ts`).
+      const vencidos = mundoDe(state).vencidos;
+      const clave = claveDeEncuentro(lugar.id, foe.encuentro);
+      if (!vencidos.includes(clave)) vencidos.push(clave);
       aplicarEfectos(state, hero.owner, hero, lugar, encuentro.alGanar, null);
       break;
     }

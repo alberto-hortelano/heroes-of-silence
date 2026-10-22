@@ -10,6 +10,8 @@
  * `game.ts` lee el turno y el dueño (`turnBlocker`, `playerById`) solo dentro de
  * sus funciones: `game.ts` lo importa a él, y el ciclo no se toca al cargar.
  */
+
+import { unidadDelJuego } from '../catalogo.js';
 import { idsPuestos, piezaSiExiste } from '../hero/equipo.js';
 import type { Hero } from '../hero/hero.js';
 import { CUPO_HEROE, heroLeadership, troopBlocker, withTroops } from '../hero/troop.js';
@@ -19,8 +21,13 @@ import { oroBlocker } from '../town/town.js';
 import { conMiles, describirCoste, type Point } from '../types.js';
 import {
   type Condicion,
+  claveDeEncuentro,
+  claveDeOpcion,
+  claveDePunto,
   type Dialogo,
+  daPremio,
   type EstadoDelMundo,
+  efectosDe,
   type Lugar,
   lugarSiExiste,
   type NodoDeDialogo,
@@ -125,13 +132,53 @@ function condicionesBlocker(a: Ante, si: readonly Condicion[] | undefined): stri
 }
 
 /**
- * Por qué no se puede elegir `opcion` ahora, o `null`: sus condiciones escritas y
- * las que llevan sus efectos —pagar sin oro, entregar lo que no está en la
- * mochila, tropa que no cabe—. Es lo que se escribe debajo de una opción apagada.
+ * Si el premio de una opción ya se cobró, lo que se dice; si no, `null`. **La regla
+ * de que cada premio se cobre una vez** (P-c del usuario), del núcleo: el encuentro
+ * ganado (`vencidos`) y la opción con premio ya elegida (`cobradas`).
  */
-export function motivoDeLaOpcion(a: Ante, opcion: Opcion): string | null {
+function yaCobrado(a: Ante, ref: RefDeOpcion, opcion: Opcion): string | null {
+  for (const e of efectosDe(opcion.hace, 'batalla')) {
+    if (a.mundo.vencidos.includes(claveDeEncuentro(a.lugar.id, e.batalla))) {
+      return `ya venciste a «${a.lugar.encuentros[e.batalla]?.nombre ?? e.batalla}»`;
+    }
+  }
+  if (!daPremio(opcion) || !a.mundo.cobradas.includes(claveDeOpcion(ref))) return null;
+  const pieza = efectosDe(opcion.hace, 'pieza')[0];
+  if (pieza !== undefined) return `ya te llevaste ${nombreDePieza(pieza.pieza)}`;
+  const tropa = efectosDe(opcion.hace, 'tropa')[0];
+  if (tropa !== undefined) {
+    const quien = unidadDelJuego(tropa.tropa.unidad).name;
+    return `ya se te unieron ${tropa.tropa.n} × ${quien}`;
+  }
+  const oro = efectosDe(opcion.hace, 'oro').reduce((n, e) => n + Math.max(0, e.oro), 0);
+  return `ya te llevaste ${describirCoste(oro)} de aquí`;
+}
+
+/**
+ * Por qué no se puede elegir ahora la opción de `ref` (que hace algo), o `null`. Lo
+ * que mira, en el orden en que se entiende: que su punto esté, que a su nodo se
+ * llegue ahora (`nodosAlcanzables`), sus condiciones escritas, que su premio no se
+ * haya cobrado ya (`yaCobrado`) y lo que piden sus efectos —pagar sin oro,
+ * entregar lo que no está en la mochila, tropa que no cabe—. **La única
+ * pregunta**: la leen la acción (`opcionBlocker`), la pantalla (`opcionesDe`, que
+ * la escribe debajo de la opción apagada) y la IA, así que no hay opción
+ * encendida que el núcleo rechace (H2 del QA de la F1a).
+ */
+function motivoAlElegir(a: Ante, punto: Punto, ref: RefDeOpcion, opcion: Opcion): string | null {
+  const fuera = condicionesBlocker(a, punto.si);
+  if (fuera !== null) return fuera;
+  if (!nodosAlcanzables(a, punto).includes(ref.nodo)) {
+    return `a esa parte de la conversación con ${nombreDelPunto(punto)} no se llega ahora: lo que lleva hasta ella no se cumple`;
+  }
   const escrita = condicionesBlocker(a, opcion.si);
   if (escrita !== null) return escrita;
+  const cobrado = yaCobrado(a, ref, opcion);
+  if (cobrado !== null) return cobrado;
+  return loQuePidenSusEfectos(a, opcion);
+}
+
+/** Lo que piden los efectos de `opcion` y no hay, o `null`: el oro, la pieza que se entrega, sitio en la tropa. */
+function loQuePidenSusEfectos(a: Ante, opcion: Opcion): string | null {
   let paga = 0;
   // La mochila se copia solo si algo se entrega: dos «quitar» de la misma pieza
   // piden dos en ella.
@@ -220,16 +267,17 @@ export function soloNavega(o: Opcion): boolean {
 }
 
 /**
- * Los nodos a los que se llega desde `inicio` por las salidas que da `salidas`,
+ * Los nodos a los que se llega desde `inicios` por las salidas que da `salidas`,
  * en el orden en que se descubren (en anchura, cada nodo con sus salidas en su
  * orden). **El único recorrido** de un diálogo: lo leen los nodos alcanzables
  * ahora (`nodosAlcanzables`) y la validación, sin condiciones (`validar.ts`).
  */
 export function recorrido(
-  inicio: string,
+  inicios: readonly string[],
   salidas: (nodo: string) => readonly string[],
 ): readonly string[] {
-  const vistos = [inicio];
+  const vistos: string[] = [];
+  for (const i of inicios) if (!vistos.includes(i)) vistos.push(i);
   for (let i = 0; i < vistos.length; i++) {
     for (const sig of salidas(vistos[i] as string)) if (!vistos.includes(sig)) vistos.push(sig);
   }
@@ -237,18 +285,20 @@ export function recorrido(
 }
 
 /**
- * Los nodos del diálogo de `punto` a los que se llega **ahora** desde su inicio,
- * por las opciones que solo navegan y cuyo `si` se cumple, en el orden en que se
- * descubren. Es lo que se puede elegir: una opción con efectos de otro nodo la
- * rechaza `opcionBlocker`, que si no se cobraría un premio detrás de una
- * condición sin cumplirla con solo nombrar su nodo (H1 del simplify de la F1a).
- * Lo de después de una opción con efectos no cuenta: tras aplicarla, la
- * conversación puede seguir allí para leer y navegar, y lo que haga algo tiene
- * que ir donde se llega navegando (lo exige la validación).
+ * Los nodos del diálogo de `punto` a los que se llega **ahora** desde su inicio y
+ * desde donde quedó su conversación (`EstadoDelMundo.conversaciones`: el nodo al
+ * que llevó la última opción con efectos elegida en él), por las opciones que
+ * solo navegan y cuyo `si` se cumple, en el orden en que se descubren. Es lo que
+ * se puede elegir: una opción con efectos de otro nodo la rechaza `opcionBlocker`,
+ * que si no se cobraría un premio detrás de una condición sin cumplirla con solo
+ * nombrar su nodo (H1 del simplify de la F1a). Las opciones con efectos no son
+ * aristas (contarlas dejaría saltarse un pago): a lo que hay tras una se llega
+ * porque se eligió, y su nodo es el que se recuerda.
  */
 export function nodosAlcanzables(a: Ante, punto: Punto): readonly string[] {
   const d = dialogoDe(a, punto);
-  return recorrido(d.inicio, (n) =>
+  const quedo = a.mundo.conversaciones[claveDePunto(a.lugar.id, punto.id)];
+  return recorrido(quedo === undefined ? [d.inicio] : [d.inicio, quedo], (n) =>
     (d.nodos[n]?.opciones ?? []).flatMap((o) =>
       o.ir !== undefined && soloNavega(o) && condicionesBlocker(a, o.si) === null ? [o.ir] : [],
     ),
@@ -268,12 +318,30 @@ export interface OpcionALaVista {
   readonly ir: string | null;
 }
 
+/**
+ * Por qué no se puede elegir ahora la opción `indice` del nodo `nodo` de `punto`, o
+ * `null`: la que hace algo, con la pregunta de la acción (`motivoAlElegir`); la que
+ * solo navega, con su `si`. Lo que se escribe debajo de una opción apagada y lo
+ * que mira la IA.
+ */
+export function motivoDeLaOpcion(
+  a: Ante,
+  punto: Punto,
+  nodo: string,
+  indice: number,
+): string | null {
+  const o = nodoDe(a, punto, nodo).opciones[indice];
+  if (o === undefined) throw new Error(`el nodo ${nodo} no tiene la opción ${indice}`);
+  if (soloNavega(o)) return condicionesBlocker(a, o.si);
+  return motivoAlElegir(a, punto, { lugar: a.lugar.id, punto: punto.id, nodo, opcion: indice }, o);
+}
+
 /** Las opciones de un nodo con su motivo (`motivoDeLaOpcion`). */
 export function opcionesDe(a: Ante, punto: Punto, nodo: string): readonly OpcionALaVista[] {
   return nodoDe(a, punto, nodo).opciones.map((o, indice) => ({
     indice,
     texto: o.texto,
-    motivo: motivoDeLaOpcion(a, o),
+    motivo: motivoDeLaOpcion(a, punto, nodo, indice),
     hace: !soloNavega(o),
     pelea: (o.hace ?? []).some((e) => 'batalla' in e),
     ir: o.ir ?? null,
@@ -281,10 +349,10 @@ export function opcionesDe(a: Ante, punto: Punto, nodo: string): readonly Opcion
 }
 
 /**
- * La opción de una referencia, desde el héroe en su lugar (`a`), o por qué no:
- * el punto que está ahora, el nodo de su diálogo, que se alcance ahora
- * (`nodosAlcanzables`) y la opción. **La única resolución** de una referencia:
- * la leen la pregunta (`opcionBlocker`) y la acción (`opcionDe`).
+ * La opción de una referencia, desde el héroe en su lugar (`a`), o por qué no: el
+ * punto, el nodo de su diálogo y la opción, que existan. **La única resolución**
+ * de una referencia: la leen la pregunta (`opcionBlocker`) y la acción
+ * (`opcionDe`). Si se puede elegir lo dice `motivoAlElegir`.
  */
 export function resolverOpcion(
   a: Ante,
@@ -294,15 +362,8 @@ export function resolverOpcion(
   if (punto === undefined) {
     return { motivo: `en «${a.lugar.nombre}» no hay ningún punto "${ref.punto}"` };
   }
-  const fuera = condicionesBlocker(a, punto.si);
-  if (fuera !== null) return { motivo: fuera };
   const nodo = dialogoDe(a, punto).nodos[ref.nodo];
   if (nodo === undefined) return { motivo: `esa conversación no tiene ningún nodo "${ref.nodo}"` };
-  if (!nodosAlcanzables(a, punto).includes(ref.nodo)) {
-    return {
-      motivo: `a esa parte de la conversación con ${nombreDelPunto(punto)} no se llega ahora: lo que lleva hasta ella no se cumple`,
-    };
-  }
   const opcion = nodo.opciones[ref.opcion];
   if (opcion === undefined) return { motivo: `ese nodo no tiene la opción ${ref.opcion}` };
   return { punto, opcion };
@@ -311,9 +372,8 @@ export function resolverOpcion(
 /**
  * Por qué no se puede elegir esa opción ahora, o `null`. Lo que mira, en el orden
  * en que se entiende: el héroe en el lugar, el turno de su dueño (`turnBlocker`:
- * también que la partida siga), la referencia (`resolverOpcion`: el punto que
- * está, el nodo al que se llega ahora y la opción), que haga algo y lo de
- * `motivoDeLaOpcion`. La batalla pendiente la rechaza la puerta de toda acción
+ * también que la partida siga), la referencia (`resolverOpcion`), que haga algo y
+ * lo de `motivoAlElegir`. La batalla pendiente la rechaza la puerta de toda acción
  * (`applyAdventureAction`), como en las demás. La lee la acción, que lanza con él.
  */
 export function opcionBlocker(state: GameState, heroId: string, ref: RefDeOpcion): string | null {
@@ -324,7 +384,7 @@ export function opcionBlocker(state: GameState, heroId: string, ref: RefDeOpcion
   const r = resolverOpcion(a, ref);
   if ('motivo' in r) return r.motivo;
   if (soloNavega(r.opcion)) return 'esa opción no cambia nada en la partida: es de la conversación';
-  return motivoDeLaOpcion(a, r.opcion);
+  return motivoAlElegir(a, r.punto, ref, r.opcion);
 }
 
 /** La opción de una referencia ya comprobada (`opcionBlocker`), o lanza con lo que no vale. */

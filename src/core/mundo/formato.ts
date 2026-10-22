@@ -185,10 +185,11 @@ export const VOCABULARIO: {
   alPerder: EFECTOS_AL_PERDER,
   reglas: [
     'una lista de condiciones es un «y»; para «o», dos opciones',
-    'una opción con «hace» que da algo (oro > 0, pieza, tropa) o abre una batalla tiene que apagarse a sí misma: sus efectos (o los de «alGanar», si pelea) cambian el estado del lugar o ponen una marca que su condición («si» de la opción o de su punto) deja de cumplir. Cada premio se cobra una vez',
+    'cada premio se cobra una vez: el juego recuerda cada opción que dio oro, una pieza o tropa, y cada encuentro ganado, y no deja cobrarlos otra vez aunque otra opción vuelva a cumplir su «si»',
+    'aun así, una opción con «hace» que da algo (oro > 0, pieza, tropa) o abre una batalla tiene que apagarse a sí misma: sus efectos (o los de «alGanar», si pelea) cambian el estado del lugar o ponen una marca que su condición («si» de la opción o de su punto) deja de cumplir; así la opción apagada dice tu frase («ya» de la marca)',
     'sin «ir», una opción cierra la conversación',
     'todo nodo de un diálogo se alcanza desde su «inicio»; cada punto lleva su propio diálogo',
-    'una opción con «hace» solo se puede elegir en un nodo al que se llega desde el «inicio» por opciones sin «hace» cuyo «si» se cumple ahora: tras una que hace algo, la conversación puede seguir para leer o navegar, pero lo que haga algo va en un nodo alcanzable navegando',
+    'una opción con «hace» se elige en un nodo al que se llega desde el «inicio» por opciones sin «hace» cuyo «si» se cumple ahora, o desde el nodo al que llevó la última opción con «hace» elegida en ese punto: tras pagar un peaje con «ir», lo de su nodo se puede elegir aunque el pago ya no se cumpla',
     'un encuentro es tropa del catálogo, sin héroe, con el tope de liderazgo y de fuerza de un grupo neutral',
   ],
 };
@@ -281,7 +282,8 @@ export interface MundoLeido {
 
 /**
  * Lo que una partida lleva de su mundo (`GameState.mundo`): la historia, que no
- * cambia, y lo que sí, que es estado de la partida.
+ * cambia, y lo que sí, que es estado de la partida. El mundo es uno para los dos
+ * jugadores: lo que uno cambia o se lleva, el otro ya no lo encuentra.
  */
 export interface EstadoDelMundo {
   readonly historia: Historia;
@@ -289,6 +291,51 @@ export interface EstadoDelMundo {
   readonly estados: Record<string, string>;
   /** Las marcas puestas, en el orden en que se pusieron. */
   readonly marcas: string[];
+  /**
+   * Las opciones con premio ya elegidas (`daPremio`), por `claveDeOpcion`. **Cada
+   * premio se cobra una vez** por regla del núcleo y no por cómo esté escrita la
+   * historia: una opción sin premio que vuelve a encender otra que sí lo da
+   * (Rebuscar ↔ Esperar, H1 del QA de la F1a) ya no la deja cobrar dos veces.
+   */
+  readonly cobradas: string[];
+  /** Los encuentros ganados, por `claveDeEncuentro`: lo de «alGanar» se cobra una vez. */
+  readonly vencidos: string[];
+  /**
+   * Dónde quedó la conversación de cada punto (`claveDePunto`): el nodo al que llevó
+   * la última opción con efectos que se eligió en él; sin «ir», el punto no está.
+   * De ahí también se alcanza lo que se elige (`nodosAlcanzables`): la conversación
+   * sigue donde la dejó esa opción aunque lo que llevaba hasta allí ya no se cumpla
+   * (H2 del QA de la F1a).
+   */
+  readonly conversaciones: Record<string, string>;
+}
+
+/** La clave de una opción en `EstadoDelMundo.cobradas`. */
+export function claveDeOpcion(ref: {
+  readonly lugar: string;
+  readonly punto: string;
+  readonly nodo: string;
+  readonly opcion: number;
+}): string {
+  return `${ref.lugar}/${ref.punto}/${ref.nodo}/${ref.opcion}`;
+}
+
+/** La clave de un punto en `EstadoDelMundo.conversaciones`. */
+export function claveDePunto(lugar: string, punto: string): string {
+  return `${lugar}/${punto}`;
+}
+
+/** La clave de un encuentro en `EstadoDelMundo.vencidos`. */
+export function claveDeEncuentro(lugar: string, encuentro: string): string {
+  return `${lugar}/${encuentro}`;
+}
+
+/**
+ * Si una opción da algo al elegirla: oro (no pagarlo), una pieza o tropa. Abrir una
+ * batalla no es premio en sí: lo es ganarla (`EstadoDelMundo.vencidos`).
+ */
+export function daPremio(o: Opcion): boolean {
+  return (o.hace ?? []).some((e) => ('oro' in e && e.oro > 0) || 'pieza' in e || 'tropa' in e);
 }
 
 /** El lugar `id` de una historia, o `null` si no está: la búsqueda por id de quien pregunta. */

@@ -85,24 +85,32 @@ enseña entero):
   y orgulloso, elfos distantes, orkos brutos y directos.
 - **Premios medidos**: oro de 100 a 500, una pieza del catálogo, 1-3 de tropa. Los
   encuentros, de 3 a 6 individuos de unidades de nivel 2-3 (el validador pone el tope).
+- **La tropa tiene que caber**: `jugador.tropa` de la lectura dice con qué sale el héroe,
+  cuántos individuos y cuánto liderazgo le caben, y su `nota` lo resume. Si sale lleno,
+  una `tropa` ofrecida al principio sale apagada («no cabe»): ponla donde tenga sentido
+  que haya bajas (tras una pelea) o no la pongas.
 
 Las reglas que más fallan (todas las dice el vocabulario):
 
-- **Cada premio se cobra una vez**: una opción que da algo (oro > 0, `pieza`, `tropa`) o
-  abre una `batalla` tiene que apagarse sola. Lo normal: la opción pide un estado
-  (`"si": [{"estado": "guardado"}]`, o el `si` de su punto) y sus efectos (o los de
-  `alGanar`) cambian a otro; o pide `{"no": {"marca": "x"}}` y pone la marca `x`.
+- **Cada premio se cobra una vez**: el juego recuerda cada opción que dio algo y cada
+  encuentro ganado, y no deja cobrarlos otra vez. Aun así, una opción que da algo (oro > 0,
+  `pieza`, `tropa`) o abre una `batalla` tiene que apagarse sola, para que salga apagada
+  con tu frase. Lo normal: la opción pide un estado (`"si": [{"estado": "guardado"}]`, o
+  el `si` de su punto) y sus efectos (o los de `alGanar`) cambian a otro; o pide
+  `{"no": {"marca": "x"}}` y pone la marca `x`.
 - La `batalla` va la **última** de su lista. `alGanar` admite estado, marca, oro > 0 y
   pieza; `alPerder`, solo estado y marca.
 - Toda marca se declara en `marcas` (con su `falta` y su `ya`) y algún efecto la pone.
 - Todo nodo se alcanza desde el `inicio`; cada punto lleva su propio diálogo (dos
   puntos no comparten uno) y todo diálogo es de algún punto; todo encuentro lo abre
   alguna opción.
-- Una opción que **hace algo** va en un nodo al que se llega desde el `inicio` por
-  opciones **sin `hace`**: el juego solo deja elegirla si se llega a su nodo navegando, con
-  el `si` de cada opción del camino cumplido ahora. Tras una opción que hace algo, la
-  conversación puede seguir (un nodo que cuenta lo que pasó, con «Seguir» o «Volver»),
-  pero lo que haga algo no va ahí.
+- Una opción que **hace algo** se elige en un nodo al que se llega ahora desde el
+  `inicio` por opciones sin `hace` cuyo `si` se cumple, o desde el nodo al que llevó la
+  última opción con `hace` elegida en ese punto (pagar el peaje con `"ir": "dentro"` deja
+  elegir lo de `dentro`). Si quien juega se va y vuelve, empieza en el `inicio`: para que
+  pueda volver a `dentro`, pon en el `inicio` una opción que lleve allí con la marca del pago.
+- Un lugar va en una de las casillas que `admitenUnLugar` de su región: nunca en el borde
+  del mapa, ni pegado a otro objeto, ni en un recinto.
 
 ## El bucle
 

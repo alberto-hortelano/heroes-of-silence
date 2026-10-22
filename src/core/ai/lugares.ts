@@ -4,8 +4,8 @@
  * anchura desde el inicio —por las opciones que solo navegan y valen—, y se queda
  * con la primera opción que **hace algo** y se puede elegir. Si abre una batalla,
  * solo con ventaja clara (`ventajaClara`, la regla de los neutrales). Que cada
- * premio se cobre una vez lo garantiza la validación del mundo (cada opción que da
- * se apaga a sí misma), así que jugar en bucle acaba.
+ * premio se cobre una vez lo garantiza el núcleo (`EstadoDelMundo.cobradas` y
+ * `vencidos`), así que jugar en bucle acaba.
  *
  * El agente no entra en los lugares (F4): esto es solo de la IA de reglas. Sin
  * mundo no hay lugares y nada de aquí cambia una partida del banco.
@@ -47,7 +47,7 @@ function primera(a: Ante, miPoder: number): RefDeOpcion | null {
   for (const p of puntosDe(a)) {
     for (const nodo of nodosAlcanzables(a, p)) {
       for (const [i, o] of nodoDe(a, p, nodo).opciones.entries()) {
-        if (soloNavega(o) || motivoDeLaOpcion(a, o) !== null) continue;
+        if (soloNavega(o) || motivoDeLaOpcion(a, p, nodo, i) !== null) continue;
         const batalla = (o.hace ?? []).find((e): e is { batalla: string } => 'batalla' in e);
         if (batalla !== undefined && !conVentaja(a, batalla.batalla, miPoder)) continue;
         return { lugar: a.lugar.id, punto: p.id, nodo, opcion: i };
