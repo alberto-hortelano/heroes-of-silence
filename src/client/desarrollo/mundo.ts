@@ -39,7 +39,7 @@ export interface AlElegirMundo {
 const FASES: Readonly<Record<Fase, string>> = {
   congelar: 'Congelando el plan del mapa',
   pintar: 'Leyendo y pintando el mapa para el motor',
-  motor: 'El motor de narrativa escribe la historia',
+  motor: 'El motor escribe la trama',
   validar: 'Comprobando la historia',
   listo: 'El mundo está listo',
   fallido: 'No se ha podido generar el mundo',
@@ -48,14 +48,14 @@ const FASES: Readonly<Record<Fase, string>> = {
 function renderMundo(tamaño: number): Html {
   return html`<form class="eleccion-del-mundo" data-mundo="eleccion">
     <h1 class="titulo-de-inicio">El mundo</h1>
-    <p class="quien-de-inicio">El motor de narrativa escribe lugares, gente y encuentros para tu mapa. Tarda unos minutos y queda guardado.</p>
+    <p class="quien-de-inicio">El motor de narrativa escribe la trama de tu mapa, con sus lugares, su gente y sus encuentros, y la deja guardada. Tarda de 5 a 15 minutos.</p>
     <fieldset class="tamanos-del-mundo">
       <legend>Tamaño del mapa</legend>
       ${unir(
         TAMAÑOS_DE_UN_MUNDO.map(
           (t) => html`<label class="opcion-de-tamano">
             <input type="radio" name="tamano" value="${String(t.regiones)}" ${t.regiones === tamaño ? html`checked` : NADA} />
-            <span class="nombre-de-tamano">${t.nombre}</span> <span class="cost">${t.que}</span>
+            <span class="nombre-de-tamano">${t.nombre}</span> <span class="cost">${t.que} · de ${String(t.lugares.de)} a ${String(t.lugares.a)} lugares</span>
           </label>`,
         ),
       )}
@@ -71,13 +71,20 @@ function renderMundo(tamaño: number): Html {
   </form>`;
 }
 
+/** Un rato en minutos y segundos («7 min 05 s»; por debajo del minuto, solo segundos). */
+function minutosYSegundos(segundos: number): string {
+  const m = Math.floor(segundos / 60);
+  const s = segundos % 60;
+  return m === 0 ? `${s} s` : `${m} min ${String(s).padStart(2, '0')} s`;
+}
+
 function renderEspera(p: Progreso, ahora: number): Html {
   const segundos = Math.round((ahora - p.empezo) / 1000);
   const callado = Math.round((ahora - p.ultima) / 1000);
   const final = terminada(p.fase);
   return html`<section class="espera-del-mundo" data-mundo="espera" data-fase="${p.fase}" aria-live="polite">
     <h1 class="titulo-de-inicio">${FASES[p.fase]}</h1>
-    <p class="quien-de-inicio">${p.id} · ${String(segundos)} s${
+    <p class="quien-de-inicio">${p.id} · ${minutosYSegundos(segundos)}${
       p.fase === 'motor' && callado > 20
         ? ` · sin noticias del motor desde hace ${callado} s (piensa)`
         : ''

@@ -8,12 +8,26 @@
  *       .cache/mundos/<id>/lectura.json y mapa.png: el mapa por regiones, las
  *       casillas que admiten un lugar, el vocabulario y el catálogo
  *   pnpm mundo validar <id>
- *       la misma validación que la página; sale 1 con los problemas
+ *       la misma validación que la página y, además, la biblia (`biblia.md`, que la
+ *       página no carga); sale 1 con los problemas
+ *   pnpm mundo medir <id>…
+ *       cuánta trama lleva cada mundo: lugares y regiones, marcas que cruzan,
+ *       lugares encadenados, desenlaces que se excluyen y, por persona, nodos y
+ *       hondura de su conversación. Una medida, no una regla: no exige la biblia,
+ *       para medir también los mundos de antes
  */
 import { REGIONES_POR_BANDO } from '../../src/core/map/generate.js';
+import { leerMundo } from '../../src/core/mundo/validar.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
-import { escribirLectura, escribirMundoNuevo, validarEnDisco } from './disco.js';
+import {
+  escribirLectura,
+  escribirMundoNuevo,
+  leerBiblia,
+  leerCrudos,
+  validarEnDisco,
+} from './disco.js';
+import { medirMundo } from './medida.js';
 
 function bandera(args: readonly string[], nombre: string): string | undefined {
   const a = args.find((x) => x.startsWith(`--${nombre}=`));
@@ -27,10 +41,15 @@ function entero(texto: string | undefined, nombre: string, defecto: number): num
   return n;
 }
 
+/** «1 lugar», «3 lugares». */
+function cuantos(n: number, uno: string, varios: string): string {
+  return `${n} ${n === 1 ? uno : varios}`;
+}
+
 async function main(argv: readonly string[]): Promise<number> {
   const [orden, id, ...resto] = argv;
   if (id === undefined || orden === undefined) {
-    console.error('uso: pnpm mundo nuevo|leer|validar <id> (mira tools/mundo/cli.ts)');
+    console.error('uso: pnpm mundo nuevo|leer|validar|medir <id> (mira tools/mundo/cli.ts)');
     return 2;
   }
   switch (orden) {
@@ -70,8 +89,33 @@ async function main(argv: readonly string[]): Promise<number> {
       for (const p of problemas) console.log(`- ${p}`);
       return 1;
     }
+    case 'medir': {
+      for (const uno of [id, ...resto]) {
+        const leido = await leerCrudos(uno);
+        if ('problemas' in leido) {
+          throw new Error(`el mundo "${uno}" no se mide: ${leido.problemas.join('; ')}`);
+        }
+        const m = medirMundo(leerMundo(leido.crudos, uno), await leerBiblia(uno));
+        const cruzan = m.marcasQueCruzan;
+        console.log(
+          [
+            `${uno}: ${cuantos(m.lugares, 'lugar', 'lugares')} en ${cuantos(m.regiones, 'región', 'regiones')}`,
+            `${cuantos(m.marcas, 'marca', 'marcas')}, ${cruzan.length} ${cruzan.length === 1 ? 'cruza' : 'cruzan'} lugares${cruzan.length === 0 ? '' : ` (${cruzan.join(', ')})`}`,
+            `${cuantos(m.encadenados, 'lugar encadenado', 'lugares encadenados')}`,
+            `${cuantos(m.exclusiones.length, 'desenlace que se excluye', 'desenlaces que se excluyen')}${m.exclusiones.length === 0 ? '' : ` (${m.exclusiones.map(([a, b]) => `${a} / ${b}`).join(', ')})`}`,
+            `biblia: ${m.palabrasDeLaBiblia === null ? 'no tiene' : cuantos(m.palabrasDeLaBiblia, 'palabra', 'palabras')}`,
+          ].join(' · '),
+        );
+        for (const p of m.personas) {
+          console.log(
+            `  ${p.lugar} · ${p.nombre}: ${cuantos(p.nodos, 'nodo', 'nodos')}, hondura ${p.hondura}, ${cuantos(p.conHace, 'opción que hace algo', 'opciones que hacen algo')}`,
+          );
+        }
+      }
+      return 0;
+    }
     default:
-      console.error(`orden desconocida «${orden}»: nuevo, leer o validar`);
+      console.error(`orden desconocida «${orden}»: nuevo, leer, validar o medir`);
       return 2;
   }
 }

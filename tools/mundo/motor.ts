@@ -1,9 +1,10 @@
 /**
  * Generar un mundo desde el menú de `pnpm dev` (F1a del mapa vivo, C3): congela el
  * plan procedimental que se pide, lo lee para el motor (con el PNG del taller) y
- * lanza Claude Code sin pantalla (`claude -p`, con la suscripción) con la skill
- * `motor-de-mundos`, que escribe `historia.json` y la valida con `pnpm mundo
- * validar` hasta que no tenga problemas. Al salir el motor, se valida otra vez con
+ * lanza Claude Code sin pantalla (`claude -p`, con la suscripción, Opus con
+ * esfuerzo `xhigh`) con la skill `motor-de-mundos`, que escribe primero la trama en
+ * prosa (`biblia.md`) y después `historia.json`, y valida las dos con `pnpm mundo
+ * validar` hasta que no tengan problemas. Al salir el motor, se valida otra vez con
  * la misma función que la página: sin reintento (el patrón de `map_generate`: el
  * motor ya itera con `validar`).
  *
@@ -40,8 +41,13 @@ import {
  */
 export { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
 
-/** Lo más que se espera al motor: un mundo se genera una vez y despacio, pero no sin fin. */
-export const TOPE_DEL_MOTOR_MS = 15 * 60_000;
+/**
+ * Lo más que se espera al motor: un mundo se genera una vez y despacio, pero no sin
+ * fin. **Provisional hasta la primera generación medida** con la biblia y de 4 a 8
+ * lugares (la trama de los mundos, 22-10-2026): con 3 lugares y sin biblia tardaba
+ * ~1,5 min, y lo de ahora puede pasar de los 15 de antes. Se fija con lo medido.
+ */
+export const TOPE_DEL_MOTOR_MS = 30 * 60_000;
 /** Cuántas líneas de progreso se guardan (las últimas). */
 const LINEAS = 40;
 
@@ -269,10 +275,19 @@ async function generar(
 
 /** Los argumentos de `claude -p` para un mundo: la skill, sus permisos y nada más. */
 export function argumentosDelMotor(id: string): string[] {
+  const biblia = `assets/mundos/${id}/biblia.md`;
   const historia = `assets/mundos/${id}/historia.json`;
   return [
     '-p',
     `/motor-de-mundos ${id}`,
+    // Fijos para que no dependan de los ajustes de quien lo lanza: en esta máquina
+    // ya eran estos (`~/.claude/settings.json`), así que no es el arreglo de lo
+    // plano (era la skill, `critica.md` de la trama de los mundos), sino que en otra
+    // salga lo mismo.
+    '--model',
+    'opus',
+    '--effort',
+    'xhigh',
     '--output-format',
     'stream-json',
     '--verbose',
@@ -283,7 +298,7 @@ export function argumentosDelMotor(id: string): string[] {
     '--permission-prompts',
     'none',
     '--allowedTools',
-    `Read Glob Grep Write(${historia}) Edit(${historia}) Bash(pnpm mundo validar ${id})`,
+    `Read Glob Grep Write(${biblia}) Edit(${biblia}) Write(${historia}) Edit(${historia}) Bash(pnpm mundo validar ${id})`,
     // Sin el MCP «heroes» de `.mcp.json` (el del agente que juega) y sin el hook
     // `Stop` del repo, que correría `pnpm verify` al acabar.
     '--strict-mcp-config',
@@ -307,24 +322,27 @@ function queHace(
   const ruta = String(input?.file_path ?? '');
   const fichero = ruta.split('/').pop() ?? '';
   const suHistoria = ruta.endsWith(`assets/mundos/${id}/historia.json`);
+  const suBiblia = ruta.endsWith(`assets/mundos/${id}/biblia.md`);
   switch (nombre) {
     case 'Read':
       if (fichero === 'lectura.json') return 'lee el mapa por regiones';
       if (fichero === 'mapa.png') return 'mira el mapa';
       if (fichero === 'SKILL.md') return 'lee sus instrucciones';
+      if (suBiblia) return 'relee la biblia';
       if (suHistoria) return 'relee su historia';
+      if (fichero === 'biblia.md') return 'lee una biblia de ejemplo';
       if (fichero === 'historia.json') return 'lee una historia de ejemplo';
       return 'lee un fichero del repositorio';
     case 'Glob':
     case 'Grep':
       return 'busca en el repositorio';
     case 'Write':
-      return suHistoria ? 'escribe la historia' : null;
+      return suBiblia ? 'escribe la biblia' : suHistoria ? 'escribe la historia' : null;
     case 'Edit':
-      return suHistoria ? 'corrige la historia' : null;
+      return suBiblia ? 'corrige la biblia' : suHistoria ? 'corrige la historia' : null;
     case 'Bash':
       return String(input?.command ?? '').trim() === `pnpm mundo validar ${id}`
-        ? 'valida la historia'
+        ? 'valida el mundo'
         : null;
     default:
       return null;
@@ -407,7 +425,8 @@ export function esSuValidacion(crudo: string, id: string): boolean {
 
 /**
  * Lo que respondió el validador a una llamada del motor, si la línea es eso: los
- * problemas (las líneas «<fichero>.json: …» que escribe `pnpm mundo validar`), vacío
+ * problemas (las líneas «<fichero>.json: …» y «biblia.md: …» que escribe `pnpm mundo
+ * validar`; sin la biblia, una corta no contaba como problema en la espera), vacío
  * si dijo que vale, o `null` si la línea no es una respuesta del validador.
  */
 export function respuestaDelValidador(crudo: string): readonly string[] | null {
@@ -425,10 +444,12 @@ export function respuestaDelValidador(crudo: string): readonly string[] | null {
       ? c.content.map((x: { text?: unknown }) => String(x.text ?? '')).join('\n')
       : String(c.content ?? '');
     if (/el mundo "[^"]+" vale/.test(texto)) return [];
+    // `pnpm mundo validar` escribe cada problema tras «- » (`cli.ts`): sin quitarlo,
+    // ninguna línea de verdad casaba y la espera nunca enseñaba el último problema.
     const problemas = texto
       .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => /^(mundo|plan|historia)\.json: /.test(l));
+      .map((l) => l.trim().replace(/^- /, ''))
+      .filter((l) => /^(mundo|plan|historia)\.json: |^biblia\.md: /.test(l));
     if (problemas.length > 0) return problemas.map(sinRutas);
   }
   return null;

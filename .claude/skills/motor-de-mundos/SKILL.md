@@ -1,15 +1,21 @@
 ---
 name: motor-de-mundos
-description: El motor de narrativa de Heroes of Silence. Dado el id de un mundo (assets/mundos/<id>/, con su mundo.json y su plan congelado), escribe su historia.json —lugares con gente, diálogos en árbol, encuentros— que tengan sentido en ese mapa, y la valida con `pnpm mundo validar <id>` hasta que no tenga problemas. Úsala con «/motor-de-mundos <id>».
+description: El motor de narrativa de Heroes of Silence. Dado el id de un mundo (assets/mundos/<id>/, con su mundo.json y su plan congelado), escribe primero su biblia.md —la trama en prosa: qué pasó, quién es quién, cómo se cruzan los sitios y sus desenlaces— y después su historia.json, que la traduce —lugares con gente, diálogos en árbol hondos, encuentros— con sentido en ese mapa; valida las dos con `pnpm mundo validar <id>` hasta que no tengan problemas y relee la historia contra la biblia. Úsala con «/motor-de-mundos <id>».
 ---
 
 # El motor de mundos
 
-Escribes la **historia** de un mundo del juego: los sitios con historia que el jugador
-se encuentra en el mapa al andar —un puente con un guardián viejo, un pozo con algo
-dentro, unos desertores en un campamento—, cada uno con su gente, sus conversaciones en
-árbol, lo que se puede encontrar y lo que se puede pelear. Es lo que sustituye a recoger
-recursos: el juego quiere un mapa vivo con sitios que visitar.
+Escribes la **trama** de un mundo del juego y los sitios donde se juega: los lugares con
+historia que el jugador se encuentra en el mapa al andar —un puente con un guardián viejo,
+un pozo con algo dentro, unos desertores en un campamento—, cada uno con su gente, sus
+conversaciones en árbol, lo que se puede encontrar y lo que se puede pelear. Es lo que
+sustituye a recoger recursos: el juego quiere un mapa vivo con sitios que visitar.
+
+Y no sueltos: **detrás tiene que verse una historia**. Cada persona con un secreto, una
+decisión que se nota en otro sitio (el que ayuda a los orkos es un traidor para la Orden;
+la aldea se levanta esa noche si alguien abre la cripta) y gente que habla como quien es.
+Un mundo de tres sitios sueltos con diálogos de dos frases es justo lo que no hay que
+escribir.
 
 El mapa ya está hecho (lo hizo el generador). Tú no lo cambias: lees dónde está cada
 cosa y pones encima lugares que tengan sentido allí.
@@ -32,14 +38,45 @@ El argumento es el id del mundo (`<id>`). Con él:
    - `unidades` y `piezas`: el catálogo por id. Solo existe lo que está ahí.
    - `vocabulario`: **las condiciones, los efectos y las reglas**. Es cerrado: no inventes
      claves.
+   - `lugares`: **de cuántos a cuántos lugares** lleva este mundo (`de`, `a`), los de su
+     tamaño de mapa.
 4. `.cache/mundos/<id>/mapa.png`: el mapa pintado, para verlo (el norte arriba). Las
    coordenadas buenas son las de la lectura, no las de los píxeles.
-5. `assets/mundos/prueba/historia.json`: **un ejemplo completo** del formato. Léelo.
+5. `assets/mundos/prueba/historia.json`: **un ejemplo completo** del formato. Léelo. Su
+   `biblia.md` enseña las secciones de una biblia, no su largo ni su hondura: `prueba` es un
+   mundo de dos lugares escrito a mano para los tests. No copies su tamaño.
 
 ## Lo que escribes
 
-Un solo fichero: `assets/mundos/<id>/historia.json`, con esta forma (el ejemplo lo
-enseña entero):
+**Dos ficheros, en este orden**: primero `assets/mundos/<id>/biblia.md` (la trama en prosa)
+y después `assets/mundos/<id>/historia.json` (la biblia traducida al formato del juego). La
+biblia se escribe entera antes de tocar la historia: decidir qué pasa y quién es quién en
+prosa es lo que hace que la historia no salga plana.
+
+### Primero, la biblia
+
+`biblia.md`, en español, en prosa y **sin JSON**: de 1 500 a 4 000 palabras (el validador
+rechaza una de menos de 400, y una de 400 sigue siendo poca). Con estas secciones, en este
+orden:
+
+- `## Antes de que llegue el héroe`: qué pasó en esta tierra —la guerra, el crimen, la
+  promesa rota, lo que se enterró— y por qué hoy hay algo pendiente.
+- `## Quién es quién`: por cada persona de la trama, qué quiere, qué esconde, cómo habla
+  (dos o tres giros suyos) y a quién conoce de **otros** lugares.
+- `## Los lugares`: cada lugar, en qué región de la lectura y por qué ahí (el suelo, la
+  ciudad de al lado, el río, el pueblo).
+- `## La trama`: el hilo principal, que cruza **al menos tres lugares**: qué se sabe o se
+  hace en cada uno y qué abre, cierra o cambia en el siguiente.
+- `## Desenlaces`: **al menos dos**, excluyentes: cómo se llega a cada uno, qué lo cierra,
+  qué se gana y qué se pierde, y qué encuentra quien llega si el rival eligió antes.
+- `## Marcas`: cada marca de la historia, por su id: quién la pone y quién la lee.
+
+La biblia no repite lo que el validador ya mira (casillas, cifras de tropa): cuenta la
+historia.
+
+### Después, la historia
+
+`historia.json`, con esta forma (el ejemplo lo enseña entero):
 
 ```json
 {
@@ -68,17 +105,29 @@ enseña entero):
 
 ## Qué historia escribir
 
-- **De 2 a 4 lugares**, cortos: cada uno se juega en unos minutos. Repártelos por el
-  mapa —al menos uno cerca de la base del jugador (`casaDe: 0` o sus vecinas) para que se
-  encuentre pronto— y en regiones distintas.
+- **Entre `lugares.de` y `lugares.a` lugares** (de la lectura), **cada uno en una región
+  distinta**. Repártelos por el mapa —al menos uno cerca de la base del jugador
+  (`casaDe: 0` o sus vecinas) para que se encuentre pronto—.
+- **Una trama principal** que encadena al menos tres de ellos por marcas: lo que se hace
+  o se sabe en uno abre, cierra o cambia algo en otro (quién está, qué ofrece, qué se le
+  puede decir). Los demás pueden ser lugares de paso, más cortos, con su propia historia
+  pequeña, mejor si tocan la grande de refilón.
+- **Conversaciones hondas con la gente de la trama**: preguntarle por su pasado, por los
+  otros lugares y su gente, mentirle, presionarla, y que conteste distinto según lo que ya
+  se sepa (`si` con marcas). Ramas que vuelven a un tronco, no una lista de preguntas
+  sueltas. Orientativo: la gente principal, **seis nodos o más y tres niveles de hondo**.
+  **Sin relleno**: cada nodo dice algo nuevo —un dato, un secreto, una mentira, un cambio
+  de tono—; nada de «¿y qué más?» para llegar a la cifra. Mentir y presionar son opciones
+  que ponen una marca sin premio o llevan a otro nodo; la gente de paso puede ser más
+  corta.
 - **Con sentido en el mapa**: lee la facción de las ciudades cercanas, el suelo (una
   ciénaga, una meseta de lava), el río, los pueblos. Un puente donde el río corta el
   paso, un cementerio de no muertos junto a su ciudad, unos desertores orkos en la
   frontera. Nombra los sitios con nombres propios y usa los de las regiones y ciudades.
 - **Cada lugar con algo que hacer**: hablar con alguien (con elecciones de verdad),
   encontrar algo y, en al menos uno, pelear. Y que lo que se elija cambie el lugar
-  (`estado`) o deje una `marca` que otro lugar lea: los lugares pueden conectarse (la
-  carta que se encuentra en uno convence al guardián de otro).
+  (`estado`) o deje una `marca` que otro lugar lea (la carta que se encuentra en uno
+  convence al guardián de otro).
 - **Gente con personalidad**: cada persona habla como quien es (un soldado viejo que no
   sabe que la guerra acabó, un sirviente no muerto que llama «amo» al héroe). El tono, el
   de la facción: templarios solemnes, no muertos lúgubres e irónicos, imperio burocrático
@@ -121,14 +170,67 @@ Las reglas que más fallan (todas las dice el vocabulario):
 - Un lugar va en una de las casillas que `admitenUnLugar` de su región: nunca en el borde
   del mapa, ni pegado a otro objeto, ni en un recinto.
 
+## Desenlaces excluyentes
+
+La trama se resuelve de al menos dos maneras, y **elegir una cierra la otra**. No hace falta
+nada nuevo: dos marcas, y cada opción pide que no esté ninguna de las dos y pone la suya, con
+su premio distinto. En otro lugar, lo que cambia se lee con la marca (un punto que solo está
+con ella, una opción que solo se ofrece con ella). Así, con el sello del abad (`nodo` va en
+un diálogo de un lugar; `enOtroLugar`, un punto y su diálogo en otro):
+
+```json
+{
+  "marcas": {
+    "sello-a-la-orden": { "falta": "nadie ha llevado aún el sello del abad a la Orden", "ya": "el sello del abad ya está en manos de la Orden" },
+    "sello-a-los-orkos": { "falta": "nadie ha vendido aún el sello del abad a los orkos", "ya": "el sello del abad ya está en manos de los orkos" }
+  },
+  "nodo": {
+    "texto": "El abad te pone el sello en la mano. «Solo hay uno. Llévaselo a la Orden o véndeselo a Gruk; los dos no pueden tenerlo.»",
+    "opciones": [
+      { "texto": "Llevárselo a la Orden", "si": [{ "no": { "marca": "sello-a-la-orden" } }, { "no": { "marca": "sello-a-los-orkos" } }], "hace": [{ "marca": "sello-a-la-orden" }, { "pieza": "brigantina" }] },
+      { "texto": "Vendérselo a Gruk (400 de oro)", "si": [{ "no": { "marca": "sello-a-los-orkos" } }, { "no": { "marca": "sello-a-la-orden" } }], "hace": [{ "marca": "sello-a-los-orkos" }, { "oro": 400 }] }
+    ]
+  },
+  "enOtroLugar": {
+    "punto": { "id": "estandarte", "x": 0.5, "si": [{ "marca": "sello-a-los-orkos" }], "cosa": { "nombre": "El estandarte de Gruk" }, "dialogo": "estandarte" },
+    "dialogo": { "inicio": "asta", "nodos": { "asta": { "texto": "Del asta cuelga el sello del abad, atado con tripa. Los orkos ya no te dejan pasar.", "opciones": [{ "texto": "Seguir" }] } } }
+  }
+}
+```
+
+- Cada opción pide primero que no esté **su** marca: apagada tras elegirla, dice su propio
+  `ya`; apagada por la otra, el `ya` de la otra.
+- El premio va en la misma opción que pone la marca: así se apaga sola y el validador no
+  protesta («da algo y no se apaga a sí misma»).
+- Lo que se gana y lo que se pierde tiene que ser **distinto** en cada desenlace (aliados
+  distintos, una pieza o el oro, un lugar que se abre y otro que se cierra).
+
+## El mundo es de los dos
+
+Los estados y las marcas son de la partida, no de cada jugador: **el rival también entra en
+los lugares**, y si elige un desenlace primero, el otro se le cierra a quien juega. Por eso:
+
+- El `ya` de una marca de desenlace **describe el mundo**, nunca a quien la puso: «el sello
+  del abad ya está en manos de los orkos», no «ya se lo vendiste a Gruk» ni «tú». El juego
+  no dice quién puso una marca.
+- La biblia dice, en `## Desenlaces`, qué encuentra quien llega tarde.
+- La IA del rival elige **la primera opción con premio** en el orden escrito: el desenlace
+  que va primero es el que tomará si llega antes.
+
 ## El bucle
 
 1. Lee `lectura.json`, mira `mapa.png` y el ejemplo.
-2. Escribe `assets/mundos/<id>/historia.json` entero.
-3. Corre `pnpm mundo validar <id>`. Si da problemas, cada uno dice el fichero, la ruta
-   y qué falla: corrígelos (con Edit) y vuelve a validar.
-4. Para cuando diga «el mundo "<id>" vale». Como mucho seis vueltas; si a la sexta sigue
-   fallando, para y di qué queda.
+2. Escribe `assets/mundos/<id>/biblia.md` entera, con sus seis secciones.
+3. Escribe `assets/mundos/<id>/historia.json` entero, traduciendo la biblia.
+4. Corre `pnpm mundo validar <id>` (juzga también la biblia). Si da problemas, cada uno dice
+   el fichero, la ruta y qué falla: corrígelos (con Edit) y vuelve a validar. Como mucho
+   **ocho vueltas**; si a la octava sigue fallando, para y di qué queda.
+5. Cuando diga «el mundo "<id>" vale», **relee la biblia contra la historia**:
+   - cada lugar y cada persona de la biblia están en la historia, y al revés;
+   - la trama cruza al menos tres lugares por las marcas de `## Marcas`;
+   - hay al menos dos desenlaces y cada uno pide `no` de la marca del otro;
+   - nada de la historia contradice la biblia (nombres, quién sabe qué, qué pasó).
+   Lo que no case se arregla en el fichero que esté mal, y se vuelve a validar.
 
 No toques nada más del repositorio. Al acabar, di en una línea qué lugares has puesto y
-dónde.
+dónde, y cuáles son los desenlaces.

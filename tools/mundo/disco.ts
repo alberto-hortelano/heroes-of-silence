@@ -1,7 +1,8 @@
 /**
  * Los mundos en disco (`assets/mundos/<id>/`): leerlos, juzgarlos con la misma
- * función que la página (`problemasDelMundo`), escribir uno nuevo (su `mundo.json`
- * y su plan congelado) y su lectura para el motor (`.cache/mundos/<id>/`).
+ * función que la página (`problemasDelMundo`) y, además, su biblia
+ * (`problemaDeLaBiblia`), escribir uno nuevo (su `mundo.json` y su plan congelado)
+ * y su lectura para el motor (`.cache/mundos/<id>/`).
  *
  * Lo comparten la orden `pnpm mundo` y el servidor de desarrollo que genera un
  * mundo desde el menú (`tools/mundo/motor.ts`).
@@ -68,10 +69,60 @@ export async function leerCrudos(
   return { crudos: { mundo, plan, historia } };
 }
 
-/** Todos los problemas de un mundo en disco: vacío, se juega. */
+/**
+ * Cuántas palabras lleva como poco una biblia. Lo justo para que no sea un
+ * resumen disfrazado: la skill pide de 1 500 a 4 000, y una de 400 ya no cabe en
+ * un párrafo (qué pasó antes, quién es quién, la trama y sus desenlaces). Es un
+ * suelo contra la biblia vacía o ridícula, no una medida de calidad: esa la mira
+ * quien lee la biblia (el QA), no el validador.
+ */
+export const PALABRAS_MINIMAS_DE_LA_BIBLIA = 400;
+
+/** Las palabras de un texto: lo que va entre blancos. La cuenta de la biblia y de su medida. */
+export function palabrasDe(texto: string): number {
+  return texto.split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Lo que le falta a la biblia de un mundo (`biblia.md`, la trama en prosa que el
+ * motor escribe antes que `historia.json`), o `null` si vale. `texto` es lo que hay
+ * en el fichero, o `null` si no está. Solo en disco: el juego no la lee, la página
+ * no la carga (`client/mundo/cargar.ts`) y ningún mundo va al build; la piden
+ * `pnpm mundo validar` y el servidor que genera, por `validarEnDisco`.
+ */
+export function problemaDeLaBiblia(texto: string | null, id: string): string | null {
+  if (texto === null) {
+    return `biblia.md: no está; la escribe el motor antes que la historia (assets/mundos/${id}/biblia.md)`;
+  }
+  const palabras = palabrasDe(texto);
+  if (palabras === 0) {
+    return 'biblia.md: está vacía; lleva la trama en prosa: qué pasó antes, quién es quién, la trama y sus desenlaces';
+  }
+  if (palabras < PALABRAS_MINIMAS_DE_LA_BIBLIA) {
+    return `biblia.md: tiene ${palabras} palabra${palabras === 1 ? '' : 's'} y una biblia lleva al menos ${PALABRAS_MINIMAS_DE_LA_BIBLIA}: qué pasó antes, quién es quién, la trama y sus desenlaces`;
+  }
+  return null;
+}
+
+/** El texto de la biblia de un mundo, o `null` si no está. */
+export async function leerBiblia(id: string): Promise<string | null> {
+  const ruta = join(carpetaDe(id), 'biblia.md');
+  return existsSync(ruta) ? readFile(ruta, 'utf8') : null;
+}
+
+/**
+ * Todos los problemas de un mundo en disco: vacío, se juega. **La biblia primero**:
+ * es lo primero que escribe el motor, y se juzga aunque falten los JSON.
+ */
 export async function validarEnDisco(id: string): Promise<string[]> {
   const leido = await leerCrudos(id);
-  return 'problemas' in leido ? leido.problemas : problemasDelMundo(leido.crudos, id);
+  const dir = carpetaDe(id);
+  if (!existsSync(dir)) return 'problemas' in leido ? leido.problemas : [];
+  const biblia = problemaDeLaBiblia(await leerBiblia(id), id);
+  return [
+    ...(biblia === null ? [] : [biblia]),
+    ...('problemas' in leido ? leido.problemas : problemasDelMundo(leido.crudos, id)),
+  ];
 }
 
 /** Si hay un mundo con ese id: su `mundo.json`. Lo que se pide con él no se genera (409). */

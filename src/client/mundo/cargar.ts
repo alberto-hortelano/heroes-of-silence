@@ -50,7 +50,13 @@ async function pedir(id: string, fichero: string): Promise<unknown> {
 
 let pedido: MundoLeido | null = null;
 
-/** Carga y valida el mundo que pide la URL, si pide alguno. Lanza con todos sus problemas. */
+/**
+ * Carga y valida el mundo que pide la URL, si pide alguno. Lanza con todos sus problemas.
+ * **La biblia (`biblia.md`) no se pide**: el juego no la lee (es la trama en prosa para el
+ * motor y para fases futuras) y ningún mundo va al build; la exige `pnpm mundo validar`
+ * y el servidor que genera (`problemaDeLaBiblia`, `tools/mundo/disco.ts`). Pedirla aquí
+ * sería pedir un fichero solo para decir que falta.
+ */
 export async function cargarElMundoPedido(search: string): Promise<void> {
   const id = mundoDeLaUrl(search);
   if (id === null) return;

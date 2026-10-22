@@ -19,7 +19,7 @@ import { nivelDeUnidad } from '../nivel.js';
 import { regionDeCasilla } from '../state/asaltantes.js';
 import { newGame } from '../state/setup.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
-import { type Mundo, VOCABULARIO } from './formato.js';
+import { type LugaresDeUnMundo, lugaresDelPlan, type Mundo, VOCABULARIO } from './formato.js';
 import { lugarBlocker } from './validar.js';
 
 /** Cuántas casillas de muestra se dan por región. */
@@ -97,6 +97,8 @@ function tropaDeSalida(mundo: Mundo, plan: MapPlan): TropaDeSalida {
 export interface LecturaParaElMotor {
   readonly mundo: string;
   readonly mapa: { readonly ancho: number; readonly alto: number };
+  /** De cuántos a cuántos lugares lleva este mundo: los de su tamaño (`lugaresDelPlan`). */
+  readonly lugares: LugaresDeUnMundo;
   readonly jugador: {
     readonly id: 0;
     readonly faccion: FactionId;
@@ -200,6 +202,7 @@ export function lecturaParaElMotor(
   return {
     mundo: mundo.id,
     mapa: { ancho: map.width, alto: map.height },
+    lugares: lugaresDelPlan(plan.regions.length),
     jugador: {
       id: 0,
       faccion: faccionDe(0),

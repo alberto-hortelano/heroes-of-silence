@@ -7,7 +7,17 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { mundoNuevo } from '../src/core/mundo/partida.js';
-import { borrarMundoGenerado, borrarSinHistoria, RAIZ } from '../tools/mundo/disco.js';
+import { leerMundo } from '../src/core/mundo/validar.js';
+import {
+  borrarMundoGenerado,
+  borrarSinHistoria,
+  leerBiblia,
+  leerCrudos,
+  PALABRAS_MINIMAS_DE_LA_BIBLIA,
+  problemaDeLaBiblia,
+  RAIZ,
+} from '../tools/mundo/disco.js';
+import { medirMundo } from '../tools/mundo/medida.js';
 import {
   argumentosDelMotor,
   Conflicto,
@@ -21,13 +31,16 @@ import {
 } from '../tools/mundo/motor.js';
 
 describe('el motor de mundos', () => {
-  it('solo puede escribir la historia de su mundo y validar ese mundo, sin preguntar a nadie', () => {
+  it('solo puede escribir la biblia y la historia de su mundo y validar ese mundo, sin preguntar a nadie', () => {
     const a = argumentosDelMotor('gen-20261022-7');
     expect(a.slice(0, 2)).toEqual(['-p', '/motor-de-mundos gen-20261022-7']);
+    // Opus con esfuerzo alto, fijos: que no dependa de los ajustes de quien lo lanza.
+    expect(a[a.indexOf('--model') + 1]).toBe('opus');
+    expect(a[a.indexOf('--effort') + 1]).toBe('xhigh');
     expect(a[a.indexOf('--permission-mode') + 1]).toBe('dontAsk');
     expect(a[a.indexOf('--permission-prompts') + 1]).toBe('none');
     expect(a[a.indexOf('--allowedTools') + 1]).toBe(
-      'Read Glob Grep Write(assets/mundos/gen-20261022-7/historia.json) Edit(assets/mundos/gen-20261022-7/historia.json) Bash(pnpm mundo validar gen-20261022-7)',
+      'Read Glob Grep Write(assets/mundos/gen-20261022-7/biblia.md) Edit(assets/mundos/gen-20261022-7/biblia.md) Write(assets/mundos/gen-20261022-7/historia.json) Edit(assets/mundos/gen-20261022-7/historia.json) Bash(pnpm mundo validar gen-20261022-7)',
     );
     expect(a).toContain('--strict-mcp-config');
     expect(a[a.indexOf('--settings') + 1]).toBe('{"disableAllHooks":true}');
@@ -41,7 +54,7 @@ describe('el motor de mundos', () => {
       { type: 'text', text: 'Leo el mapa.' },
       { type: 'tool_use', name: 'Bash', input: { command: `pnpm mundo validar ${id}` } },
     );
-    expect(lineaDelMotor(uso, id)).toBe('Leo el mapa. · valida la historia');
+    expect(lineaDelMotor(uso, id)).toBe('Leo el mapa. · valida el mundo');
     expect(esSuValidacion(uso, id)).toBe(true);
     // Lo que no tiene permiso no es noticia, y una ruta de la máquina no sale.
     expect(
@@ -63,6 +76,19 @@ describe('el motor de mundos', () => {
     expect(lineaDelMotor(usa({ type: 'text', text: `Escribo ${RAIZ}/assets/x` }), id)).toBe(
       'Escribo assets/x',
     );
+    // La biblia se cuenta como la historia: escribirla, corregirla y releerla.
+    const conFichero = (name: string, fichero: string) =>
+      lineaDelMotor(
+        usa({ type: 'tool_use', name, input: { file_path: `${RAIZ}/assets/mundos/${fichero}` } }),
+        id,
+      );
+    expect(conFichero('Write', `${id}/biblia.md`)).toBe('escribe la biblia');
+    expect(conFichero('Edit', `${id}/biblia.md`)).toBe('corrige la biblia');
+    expect(conFichero('Read', `${id}/biblia.md`)).toBe('relee la biblia');
+    expect(conFichero('Read', 'prueba/biblia.md')).toBe('lee una biblia de ejemplo');
+    expect(conFichero('Write', `${id}/historia.json`)).toBe('escribe la historia');
+    // La de otro mundo no tiene permiso: no es noticia.
+    expect(conFichero('Write', 'prueba/biblia.md')).toBeNull();
     expect(lineaDelMotor(JSON.stringify({ type: 'system', subtype: 'init' }), id)).toBe(
       'el motor ha arrancado',
     );
@@ -102,8 +128,67 @@ describe('el motor de mundos', () => {
       'historia.json: lugares[0].at: (0, 0) está en el borde del mapa',
       'historia.json: marcas.x: sobra',
     ]);
+    // Una biblia corta también es un problema de la espera.
+    expect(
+      respuestaDelValidador(
+        contesta(
+          'el mundo "x" tiene 2 problemas:\n- biblia.md: tiene 12 palabras y una biblia lleva al menos 400: qué pasó antes, quién es quién, la trama y sus desenlaces\n- historia.json: marcas.x: sobra',
+        ),
+      ),
+    ).toEqual([
+      'biblia.md: tiene 12 palabras y una biblia lleva al menos 400: qué pasó antes, quién es quién, la trama y sus desenlaces',
+      'historia.json: marcas.x: sobra',
+    ]);
     expect(respuestaDelValidador(contesta('el mundo "x" vale: se juega con ?mundo=x'))).toEqual([]);
     expect(respuestaDelValidador(contesta('Permission denied'))).toBeNull();
+  });
+
+  it('una biblia que no está, vacía o corta no vale, y lo dice con su fichero', () => {
+    expect(problemaDeLaBiblia(null, 'gen-1')).toBe(
+      'biblia.md: no está; la escribe el motor antes que la historia (assets/mundos/gen-1/biblia.md)',
+    );
+    expect(problemaDeLaBiblia(' \n\t ', 'gen-1')).toMatch(/^biblia\.md: está vacía; /);
+    const palabras = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`).join(' \n');
+    expect(problemaDeLaBiblia(palabras(PALABRAS_MINIMAS_DE_LA_BIBLIA - 1), 'gen-1')).toBe(
+      'biblia.md: tiene 399 palabras y una biblia lleva al menos 400: qué pasó antes, quién es quién, la trama y sus desenlaces',
+    );
+    expect(problemaDeLaBiblia(palabras(1), 'gen-1')).toMatch(/^biblia\.md: tiene 1 palabra y/);
+    expect(problemaDeLaBiblia(palabras(PALABRAS_MINIMAS_DE_LA_BIBLIA), 'gen-1')).toBeNull();
+  });
+
+  it('«pnpm mundo medir» cuenta la trama de un mundo (prueba: dos lugares sueltos)', async () => {
+    const leido = await leerCrudos('prueba');
+    if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
+    const m = medirMundo(leerMundo(leido.crudos, 'prueba'), await leerBiblia('prueba'));
+    expect(m).toMatchObject({
+      lugares: 2,
+      regiones: 1,
+      marcas: 5,
+      marcasQueCruzan: [],
+      encadenados: 1,
+      exclusiones: [],
+    });
+    expect(m.palabrasDeLaBiblia).toBeGreaterThanOrEqual(PALABRAS_MINIMAS_DE_LA_BIBLIA);
+    expect(m.personas).toEqual([
+      {
+        lugar: 'puente-de-corvo',
+        punto: 'corvo',
+        nombre: 'Corvo',
+        nodos: 4,
+        hondura: 2,
+        conHace: 3,
+      },
+    ]);
+  });
+
+  it('«pnpm mundo medir» ve las marcas que cruzan lugares (ejemplo: el libro de Tobías)', async () => {
+    const leido = await leerCrudos('ejemplo');
+    if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
+    const m = medirMundo(leerMundo(leido.crudos, 'ejemplo'), null);
+    expect(m.marcasQueCruzan).toEqual(['acta-de-defuncion', 'libro-leido']);
+    expect(m.encadenados).toBe(3);
+    expect(m.regiones).toBe(3);
+    expect(m.palabrasDeLaBiblia).toBeNull();
   });
 
   it('rechaza lo que el menú no puede pedir', () => {
