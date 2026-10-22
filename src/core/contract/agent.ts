@@ -508,6 +508,9 @@ ${CATALOGO_DE_EQUIPO_EN_PROSA}
   que devuelve la tool "map": para elegir el "to" de un "move_hero" no hace
   falta pedirla, ya lo tienes delante.
 ${COMO_SE_LEE_EL_MAPA}
+- Un objeto "lugar" del mapa (con su "name") es un sitio de la historia del
+  mundo, con su gente y sus diálogos. Tú todavía NO entras en ellos: no hay
+  jugada para eso. Se puede pisar y cruzar como cualquier casilla.
 - "enemyHeroes" son los que ves AHORA: si no aparece ninguno, no significa que
   no haya, solo que nadie tuyo los tiene a la vista.
 - "recentEvents" es lo que OBSERVABAS cuando ocurrió, no todo lo que pasó. Lo

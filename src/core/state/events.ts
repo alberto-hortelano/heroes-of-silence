@@ -32,7 +32,13 @@ export type BattleFoe =
   | { readonly kind: 'hero'; readonly heroId: string }
   | { readonly kind: 'town'; readonly townId: string }
   /** Un grupo de asaltantes al que ataca un héroe (`state/asaltantes.ts`). */
-  | { readonly kind: 'raider'; readonly raiderId: string };
+  | { readonly kind: 'raider'; readonly raiderId: string }
+  /**
+   * Un encuentro de un lugar de un mundo (`core/mundo/`): la tropa del encuentro,
+   * sin héroe ni dueño, que abre una opción del diálogo. Al cerrarla se aplican sus
+   * `alGanar` o `alPerder`.
+   */
+  | { readonly kind: 'lugar'; readonly lugar: string; readonly encuentro: string };
 
 /**
  * Quién abre una batalla del mapa.
@@ -112,8 +118,32 @@ type Cuerpo =
    * cuenta no tiene que preguntar por `null`.
    */
   | { kind: 'march_cut'; hero: string; faltan: number; at: Point }
-  /** El oro de un cofre: lo único que se recoge del mapa. */
-  | { kind: 'gold_gained'; amount: number }
+  /**
+   * El oro de un cofre, o el que da una opción de un lugar o su encuentro ganado
+   * (`lugar`, su id; sin él, un cofre).
+   */
+  | { kind: 'gold_gained'; amount: number; lugar?: string }
+  /** El oro que cobra una opción de un lugar (un peaje, un soborno). */
+  | { kind: 'gold_paid'; amount: number; lugar: string }
+  /**
+   * Un lugar de un mundo cambia de estado. Lleva su nombre y el del estado nuevo
+   * (`dicho`), escritos por el motor, porque la crónica es lo que sobrevive y el
+   * espectador no tiene la historia para buscarlos; los ids, para quien cuenta.
+   */
+  | {
+      kind: 'place_state';
+      lugar: string;
+      nombre: string;
+      estado: string;
+      from: string;
+      dicho: string;
+    }
+  /** Se pone una marca del mundo. La crónica de la pantalla no la pinta: es contabilidad del motor. */
+  | { kind: 'world_mark'; marca: string; lugar: string }
+  /** Un héroe entrega una pieza de su mochila en un lugar. */
+  | { kind: 'item_given'; hero: string; item: string; lugar: string }
+  /** Se le une tropa del catálogo a un héroe en un lugar. */
+  | { kind: 'troops_joined'; hero: string; creature: string; count: number; lugar: string }
   /** Un nodo de la red cambia de dueño al pisarlo (fase 2a). */
   | { kind: 'node_captured'; node: string; from: PlayerId | null }
   | { kind: 'town_captured'; town: string; from: PlayerId | null }
@@ -128,6 +158,8 @@ type Cuerpo =
    * `from` dice de qué: es lo que la crónica cuenta y lo que mide el arnés.
    */
   | { kind: 'loot_found'; hero: string; item: string; from: 'raider' | 'town' }
+  /** Lo mismo, de una opción de un lugar o de su encuentro ganado. */
+  | { kind: 'loot_found'; hero: string; item: string; from: 'lugar'; lugar: string }
   /** Un héroe compra una pieza en la armería de un pueblo suyo. Equipar no es un hecho: es estado. */
   | { kind: 'item_bought'; hero: string; town: string; item: string }
   /**
@@ -259,6 +291,11 @@ export const SE_VE_POR: Readonly<
   hero_moved: 'casilla',
   march_cut: 'casilla',
   gold_gained: 'casilla',
+  gold_paid: 'casilla',
+  place_state: 'casilla',
+  world_mark: 'casilla',
+  item_given: 'casilla',
+  troops_joined: 'casilla',
   node_captured: 'casilla',
   town_captured: 'casilla',
   built: 'casilla',
@@ -338,6 +375,11 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'hero_moved':
     case 'march_cut':
     case 'gold_gained':
+    case 'gold_paid':
+    case 'place_state':
+    case 'world_mark':
+    case 'item_given':
+    case 'troops_joined':
     case 'node_captured':
     case 'built':
     case 'recruited':

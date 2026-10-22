@@ -907,6 +907,10 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
       return `unequip ${accion.slot} de ${accion.veteran ?? accion.hero}`;
     case 'end_turn':
       return 'end_turn';
+    // El agente aún no entra en los lugares (F4): su contrato no la lleva, pero la
+    // unión es la del núcleo y se dice por si un día la ve.
+    case 'elegir_en_lugar':
+      return `elección ${accion.opcion} del nodo ${accion.nodo} de ${accion.punto} en ${accion.lugar}, con ${accion.hero}`;
     // Hoy solo en la arena, que no tiene agente; se dicen por si un día los ve.
     case 'poner_escalera':
       return `escalera contra el muro de (${accion.muro.col},${accion.muro.row})`;

@@ -19,12 +19,20 @@ import {
 } from '../src/core/mundo/formato.js';
 import { lecturaParaElMotor } from '../src/core/mundo/lectura.js';
 import { partidaDelMundo } from '../src/core/mundo/partida.js';
+import { opcionBlocker } from '../src/core/mundo/reglas.js';
 import {
   type CrudosDelMundo,
   leerMundo,
   lugarBlocker,
   problemasDelMundo,
 } from '../src/core/mundo/validar.js';
+import { createRng } from '../src/core/rng.js';
+import {
+  type AdventureAction,
+  applyAdventureAction,
+  type GameState,
+  settleBattle,
+} from '../src/core/state/game.js';
 
 function crudos(id: string): CrudosDelMundo {
   const leer = (f: string): unknown =>
@@ -240,5 +248,148 @@ describe('la lectura para el motor', () => {
   it('el vocabulario dice cada clave de condición y de efecto', () => {
     expect(Object.keys(VOCABULARIO.condiciones).sort()).toEqual([...CLAVES_DE_CONDICION].sort());
     expect(Object.keys(VOCABULARIO.efectos).sort()).toEqual([...CLAVES_DE_EFECTO].sort());
+  });
+});
+
+describe('elegir en un lugar', () => {
+  const leido = leerMundo(crudos('prueba'), 'prueba');
+  const ctx = { rng: createRng(7) };
+
+  /** Una partida del mundo de prueba con el héroe del jugador 0 plantado en `lugar`. */
+  function enElLugar(lugar: string): { state: GameState; hero: string } {
+    const state = partidaDelMundo(leido);
+    const hero = state.heroes.find((h) => h.owner === 0)!;
+    hero.at = { ...state.mundo!.historia.lugares.find((l) => l.id === lugar)!.at };
+    return { state, hero: hero.id };
+  }
+  const elegir = (
+    state: GameState,
+    hero: string,
+    lugar: string,
+    punto: string,
+    nodo: string,
+    opcion: number,
+  ): AdventureAction => {
+    const a: AdventureAction = { type: 'elegir_en_lugar', hero, lugar, punto, nodo, opcion };
+    applyAdventureAction(state, a, ctx, 0);
+    return a;
+  };
+  const nuevos = (state: GameState, desde: number) =>
+    state.log.slice(desde).map(({ seen: _s, at: _a, ...e }) => e);
+
+  it('coger la pieza la da, escribe sus hechos y deja la opción apagada', () => {
+    const { state, hero } = enElLugar('puente-de-corvo');
+    const antes = state.log.length;
+    elegir(state, hero, 'puente-de-corvo', 'garita', 'dentro', 1);
+    expect(nuevos(state, antes)).toEqual([
+      {
+        kind: 'loot_found',
+        hero,
+        item: 'lanza_de_jinete',
+        from: 'lugar',
+        lugar: 'puente-de-corvo',
+        actor: 0,
+      },
+      { kind: 'world_mark', marca: 'lanza-cogida', lugar: 'puente-de-corvo', actor: 0 },
+    ]);
+    expect(state.heroes.find((h) => h.id === hero)!.mochila).toContain('lanza_de_jinete');
+    const ref = { lugar: 'puente-de-corvo', punto: 'garita', nodo: 'dentro', opcion: 1 };
+    expect(opcionBlocker(state, hero, ref)).toBe('ya te llevaste la lanza');
+    expect(() => elegir(state, hero, 'puente-de-corvo', 'garita', 'dentro', 1)).toThrow(
+      'no se puede elegir eso: ya te llevaste la lanza',
+    );
+  });
+
+  it('pagar cobra, cambia el estado y quien pedía el peaje deja de estar', () => {
+    const { state, hero } = enElLugar('puente-de-corvo');
+    const oro = state.players[0]!.oro;
+    const antes = state.log.length;
+    elegir(state, hero, 'puente-de-corvo', 'corvo', 'alto', 0);
+    expect(state.players[0]!.oro).toBe(oro - 300);
+    expect(nuevos(state, antes).map((e) => e.kind)).toEqual([
+      'gold_paid',
+      'place_state',
+      'world_mark',
+    ]);
+    expect(state.mundo!.estados['puente-de-corvo']).toBe('pagado');
+    expect(
+      opcionBlocker(state, hero, {
+        lugar: 'puente-de-corvo',
+        punto: 'corvo',
+        nodo: 'alto',
+        opcion: 2,
+      }),
+    ).toBe('«El puente del viejo Corvo» está con el peaje pagado, no guardado');
+  });
+
+  it('sin el oro, el pago sale apagado con el motivo del núcleo', () => {
+    const { state, hero } = enElLugar('puente-de-corvo');
+    state.players[0]!.oro = 100;
+    expect(
+      opcionBlocker(state, hero, {
+        lugar: 'puente-de-corvo',
+        punto: 'corvo',
+        nodo: 'alto',
+        opcion: 0,
+      }),
+    ).toBe('no alcanza el oro: cuesta 300 oro y tienes 100 oro');
+  });
+
+  it('fuera del lugar, o con una opción que solo navega, no se elige nada', () => {
+    const { state, hero } = enElLugar('puente-de-corvo');
+    expect(
+      opcionBlocker(state, hero, {
+        lugar: 'pozo-de-valdesombra',
+        punto: 'pozo',
+        nodo: 'brocal',
+        opcion: 0,
+      }),
+    ).toMatch(/no está en «El pozo de Valdesombra»$/);
+    expect(
+      opcionBlocker(state, hero, {
+        lugar: 'puente-de-corvo',
+        punto: 'corvo',
+        nodo: 'alto',
+        opcion: 1,
+      }),
+    ).toBe('esa opción no cambia nada en la partida: es de la conversación');
+  });
+
+  it('una batalla ganada aplica «alGanar»', () => {
+    const { state, hero } = enElLugar('puente-de-corvo');
+    elegir(state, hero, 'puente-de-corvo', 'corvo', 'alto', 2);
+    const pending = state.pendingBattle!;
+    expect(pending.foe).toEqual({ kind: 'lugar', lugar: 'puente-de-corvo', encuentro: 'corvo' });
+    expect(pending.battle.stacks.filter((s) => s.side === 'defender').length).toBe(3);
+    for (const s of pending.battle.stacks) if (s.side === 'defender') s.count = 0;
+    pending.battle.finished = { winner: 'attacker' };
+    const oro = state.players[0]!.oro;
+    const antes = state.log.length;
+    settleBattle(state, ctx);
+    expect(state.mundo!.estados['puente-de-corvo']).toBe('libre');
+    expect(state.players[0]!.oro).toBe(oro + 200);
+    expect(nuevos(state, antes).map((e) => e.kind)).toContain('place_state');
+    expect(state.heroes.find((h) => h.id === hero)!.at).toEqual({ x: 10, y: 12 });
+  });
+
+  it('una batalla perdida aplica «alPerder», aunque el héroe vuelva a su base', () => {
+    const { state, hero } = enElLugar('pozo-de-valdesombra');
+    elegir(state, hero, 'pozo-de-valdesombra', 'pozo', 'brocal', 0);
+    expect(state.mundo!.estados['pozo-de-valdesombra']).toBe('despierto');
+    elegir(state, hero, 'pozo-de-valdesombra', 'pozo', 'brocal', 1);
+    const pending = state.pendingBattle!;
+    for (const s of pending.battle.stacks) if (s.side === 'attacker') s.count = 0;
+    pending.battle.finished = { winner: 'defender' };
+    const antes = state.log.length;
+    settleBattle(state, ctx);
+    expect(state.mundo!.marcas).toContain('derrota-en-el-pozo');
+    expect(state.mundo!.estados['pozo-de-valdesombra']).toBe('despierto');
+    expect(nuevos(state, antes).map((e) => e.kind)).toEqual([
+      'battle_ended',
+      'hero_defeated',
+      'hero_returned',
+      'garrison_taken',
+      'world_mark',
+    ]);
   });
 });

@@ -1459,6 +1459,8 @@ function fraseDeBatalla(
         return { uno: 'un monstruo', el: 'el monstruo' };
       case 'raider':
         return { uno: 'un grupo de asaltantes', el: 'el grupo de asaltantes' };
+      case 'lugar':
+        return { uno: 'los de un lugar', el: 'los del lugar' };
     }
   };
   // En tercera persona, cada bando por quién es —el jugador, o el monstruo, el
@@ -1553,6 +1555,20 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return html`<div>— Día ${e.day} —</div>`;
         case 'gold_gained':
           return mio ? html`<div class="win">+${conMiles(e.amount)} de oro${aqui}</div>` : NADA;
+        case 'gold_paid':
+          return mio ? html`<div class="lose">−${conMiles(e.amount)} de oro${aqui}</div>` : NADA;
+        case 'place_state':
+          // El nombre del lugar y el de su estado los escribió el motor: van en
+          // huecos de texto y la plantilla los escapa.
+          return html`<div${clase(mio, false)}>«${e.nombre}» queda ${e.dicho}${aqui}</div>`;
+        case 'item_given':
+          return html`<div${clase(false, mio)}>${
+            mio ? 'Entregado' : `${jugador(e.actor)} entrega`
+          }${aqui}: ${pieza(e.item).nombre}</div>`;
+        case 'troops_joined':
+          return html`<div${clase(mio, false)}>${
+            mio ? 'Se te unen' : `Se unen ${alJugador(e.actor)}`
+          } ${e.count} × ${unidadDelJuego(e.creature).name}${aqui}</div>`;
         case 'node_captured':
           return html`<div${clase(mio, e.from === viewer)}>${
             mio
@@ -1594,9 +1610,13 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           // sin esta línea la pieza aparecería en el panel sin saber de dónde.
           return html`<div${clase(mio, false)}>${
             mio ? 'Botín' : `${jugador(e.actor)} se lleva un botín`
-          } ${e.from === 'raider' ? 'de unos asaltantes' : 'de una ciudad neutral'}${aqui}: ${
-            pieza(e.item).nombre
-          }</div>`;
+          } ${
+            e.from === 'raider'
+              ? 'de unos asaltantes'
+              : e.from === 'town'
+                ? 'de una ciudad neutral'
+                : 'de un lugar'
+          }${aqui}: ${pieza(e.item).nombre}</div>`;
         case 'item_bought':
           return html`<div${clase(mio, false)}>${
             mio ? 'Comprado en la armería' : `${jugador(e.actor)} compra en la armería`
@@ -1709,6 +1729,9 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
         // contarlo aquí eran catorce líneas el día 1, y esta crónica no pasa por
         // la niebla. Uno solo —ni los de salida ni los que brotan—, para que la
         // regla no dependa de cuándo nació el grupo.
+        // Una marca del mundo es contabilidad del motor de narrativa: lo que se ve
+        // es lo que hace (el estado del lugar, lo que se da), que va en su línea.
+        case 'world_mark':
         case 'raider_spawned':
         case 'turn_start':
         case 'hero_moved':
