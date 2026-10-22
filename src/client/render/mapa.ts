@@ -154,6 +154,11 @@ export interface VistaMapa {
 
 /** El marcador del cofre sin su pieza: un ladrillo del color de la madera vieja. */
 export const COLOR_DEL_COFRE = '#a8762c';
+/**
+ * El rombo de un lugar de un mundo (F1a del mapa vivo), sin arte nuevo (P5): la
+ * pieza del exterior va con el arte bajo demanda (F2), que la hornea en la escena.
+ */
+export const COLOR_DEL_LUGAR = '#d8b25a';
 
 /**
  * El suelo y el estandarte de los asaltantes: la figura es del gris de lo que no
@@ -762,6 +767,37 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
       ctx.fillRect(c.x - tile * 0.22, c.y - tile * 0.12, tile * 0.44, tile * 0.3);
       return;
     }
+    case 'lugar': {
+      // Un rombo en un poste, con la inicial del lugar: se ve de lejos y no se
+      // confunde con un cofre ni con un pueblo.
+      const r = tile * 0.26;
+      const cy = c.y - tile * 0.32;
+      pintarSombra(ctx, c.x, c.y + tile * 0.22, tile * 0.3);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(30, 22, 12, 0.85)';
+      ctx.lineWidth = Math.max(2, tile * 0.05);
+      ctx.beginPath();
+      ctx.moveTo(c.x, cy + r);
+      ctx.lineTo(c.x, c.y + tile * 0.22);
+      ctx.stroke();
+      ctx.fillStyle = COLOR_DEL_LUGAR;
+      ctx.beginPath();
+      ctx.moveTo(c.x, cy - r);
+      ctx.lineTo(c.x + r, cy);
+      ctx.lineTo(c.x, cy + r);
+      ctx.lineTo(c.x - r, cy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      const tema = temaDelLienzo();
+      ctx.fillStyle = 'rgba(30, 22, 12, 0.95)';
+      ctx.font = `bold ${Math.max(9, Math.round(r * 1.1))}px ${tema.letraUi}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(o.name.charAt(0).toUpperCase(), c.x, cy + 1);
+      ctx.restore();
+      return;
+    }
     case 'monster':
       pintarGrupoNeutral(ctx, tile, c, {
         id: o.id,
@@ -807,6 +843,7 @@ function pintarDueñoDeLoHorneado(
       return;
     case 'chest':
     case 'monster':
+    case 'lugar':
       throw new Error(`${o.kind} ${o.id} no se hornea en la escena: lo pinta pintarObjeto`);
   }
 }
@@ -837,6 +874,7 @@ function pintarBanderaDeLoHorneado(
       return;
     case 'chest':
     case 'monster':
+    case 'lugar':
       throw new Error(`${o.kind} ${o.id} no se hornea en la escena: no lleva bandera`);
   }
 }

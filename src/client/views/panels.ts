@@ -87,6 +87,7 @@ import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
 import type { Session, SpellOption } from '../session.js';
 import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
+import { renderPanelDelLugar } from './lugar.js';
 import { renderPanelDeLaMorada } from './morada.js';
 import { botonesDePoder } from './poderes.js';
 import { renderPanelDeLaTropa } from './tropa.js';
@@ -217,6 +218,8 @@ export function renderSide(
       return renderPanelDeLaTropa(session.vistaDeLaTropa());
     case 'morada':
       return renderPanelDeLaMorada(session);
+    case 'lugar':
+      return renderPanelDelLugar(session);
     default:
       return renderAdventurePanel(session);
   }
@@ -234,6 +237,8 @@ export function renderActions(session: Session, contandoAun = false): Html {
       return html`<button data-action="cerrar-tropa" title="Escape">Volver al mapa</button>`;
     case 'morada':
       return html`<button data-action="cerrar-morada" title="Escape">Volver a la base</button>`;
+    case 'lugar':
+      return html`<button data-action="salir-del-lugar" title="Escape">Volver al mapa</button>`;
     case 'battle': {
       const battle = session.battle;
       // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,

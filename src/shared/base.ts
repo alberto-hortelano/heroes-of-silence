@@ -278,6 +278,38 @@ export function disposicionDe(faccion: FactionId): Disposicion {
 }
 const CACHE = new Map<FactionId, Disposicion>();
 
+/** Cuántos tramos de la plaza de una base sirven de fondo a la escena de un lugar. */
+export const TRAMOS_DE_UN_LUGAR = 2;
+
+/**
+ * La disposición del fondo de la escena de un lugar de un mundo (F1a del mapa
+ * vivo, sin arte nuevo): los primeros `tramos` de la plaza de la base de esa
+ * facción, con su ancho recalculado y solo los umbrales que caen dentro (por ellos
+ * pasa el borde de atrás de lo que se pisa). Los sitios se quedan, pero el lugar
+ * no pinta edificios. Se camina por ella con la cámara y la franja de la base.
+ */
+export function disposicionDelLugar(faccion: FactionId, tramos = TRAMOS_DE_UN_LUGAR): Disposicion {
+  const clave = `${faccion}:${tramos}`;
+  const hecha = DEL_LUGAR.get(clave);
+  if (hecha !== undefined) return hecha;
+  const d = disposicionDe(faccion);
+  const n = Math.max(1, Math.min(tramos, d.tramos));
+  const der = n === d.tramos ? d.fuera.der : 0;
+  const ancho = PASOS_POR_TRAMO + (n - 1) * PASO_DE_TRAMO - d.fuera.izq - der;
+  const lugar: Disposicion = {
+    ...d,
+    tramos: n,
+    ancho,
+    fuera: { izq: d.fuera.izq, der },
+    bajar: d.bajar.slice(0, n),
+    entrada: alaFranja({ ancho, umbrales: d.umbrales }, { x: 1, y: FONDO_DE_LA_FRANJA / 2 }),
+    umbrales: d.umbrales.filter((u) => u.x <= ancho),
+  };
+  DEL_LUGAR.set(clave, lugar);
+  return lugar;
+}
+const DEL_LUGAR = new Map<string, Disposicion>();
+
 /** La mediana de una lista no vacía. */
 export function mediana(v: readonly number[]): number {
   const o = [...v].sort((a, b) => a - b);

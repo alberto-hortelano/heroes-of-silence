@@ -378,6 +378,10 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
   } else if (objeto?.kind === 'monster' && !objeto.defeated)
     que = `${objeto.count} monstruos de guardia`;
   else if (objeto?.kind === 'chest' && !objeto.taken) que = 'Un cofre';
+  else if (objeto?.kind === 'lugar') {
+    const estado = s.estadoDelLugar(objeto.id);
+    que = `${objeto.name}${estado === null ? '' : ` (${estado})`}: acaba la marcha en él para entrar`;
+  }
   if (ruta.length === 0) return que === '' ? '' : `${que}.`;
   const llegada = llegadaDeLaRuta(ruta, s.explorado);
   // La emboscada va DELANTE: es lo que cambia la decisión, y una barra larga se

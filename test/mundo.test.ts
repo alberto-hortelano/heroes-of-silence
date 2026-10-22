@@ -9,6 +9,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { mundoDeLaUrl } from '../src/client/mundo/cargar.js';
+import { hayQuePreguntar } from '../src/client/semilla.js';
 import { buildMap, type MapPlan } from '../src/core/map/generate.js';
 import { isEnterable } from '../src/core/map/map.js';
 import {
@@ -391,5 +393,19 @@ describe('elegir en un lugar', () => {
       'garrison_taken',
       'world_mark',
     ]);
+  });
+});
+
+describe('el mundo en la URL', () => {
+  it('«?mundo=» abre la partida sin preguntar y no va con lo que el mundo ya trae', () => {
+    expect(hayQuePreguntar('?mundo=prueba')).toBe(false);
+    expect(hayQuePreguntar('?mundo=')).toBe(true);
+    expect(mundoDeLaUrl('?mundo=prueba')).toBe('prueba');
+    expect(mundoDeLaUrl('?seed=3')).toBeNull();
+    expect(() => mundoDeLaUrl('?mundo=prueba&seed=1&heroe=x')).toThrow(
+      '«?mundo=» no va con «?seed=» ni «?heroe=»: el mundo trae su semilla, su facción y su héroe. Quita esos parámetros de la barra de direcciones',
+    );
+    expect(() => mundoDeLaUrl('?mundo=../plan')).toThrow('no es el id de un mundo');
+    expect(() => mundoDeLaUrl('?mundo=a&mundo=b')).toThrow('«mundo» va 2 veces en la URL');
   });
 });

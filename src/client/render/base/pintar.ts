@@ -490,5 +490,13 @@ export function pintarBase(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): v
     v,
     v.elementos.filter((e): e is Extract<Elemento, { tipo: 'edificio' }> => e.tipo === 'edificio'),
   );
+  pintarLasFiguras(ctx, v);
+}
+
+/**
+ * Solo las figuras de `v.elementos`, sin la plaza: la escena de un lugar
+ * (`escenas/lugar.ts`) pinta entre el fondo y la gente el mojón de sus cosas.
+ */
+export function pintarLasFiguras(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): void {
   for (const e of v.elementos) if (e.tipo === 'figura') pintarPersona(ctx, v, e);
 }

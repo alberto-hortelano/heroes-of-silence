@@ -13,10 +13,12 @@ import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaBatalla } from './escenas/batalla.js';
 import { EscenaBase } from './escenas/castillo.js';
+import { EscenaLugar } from './escenas/lugar.js';
 import { EscenaMorada } from './escenas/morada.js';
 import { EscenaTropa } from './escenas/tropa.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
+import { mundoPedido } from './mundo/cargar.js';
 import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
@@ -28,6 +30,7 @@ import { Session } from './session.js';
 import { ponerTema } from './temas.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
 import { renderConversacion } from './views/base.js';
+import { renderConversacionDelLugar } from './views/lugar.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 
 /**
@@ -127,6 +130,25 @@ function abrePartida(seed: number, faccion: FactionId | null, heroe: string | nu
   return abierta;
 }
 
+/**
+ * Abre la partida de un mundo (`?mundo=`, ya cargado y validado por
+ * `mundo/cargar.ts`): su semilla, su facción y su héroe son los suyos, y la URL
+ * se queda solo con `?mundo=`, que es lo que la repite.
+ */
+function abrePartidaDelMundo(): Session | null {
+  const mundo = mundoPedido();
+  if (mundo === null) return null;
+  const abierta = new Session(mundo.mundo.semilla, undefined, undefined, mundo);
+  aLaBarra((url) => {
+    for (const p of ['seed', 'faccion', 'heroe']) url.searchParams.delete(p);
+    url.searchParams.set('mundo', mundo.mundo.id);
+  });
+  abierta.alCambiarSinGesto = pedirFotograma;
+  elSeed.textContent = `mundo «${mundo.historia.titulo}» · semilla ${abierta.state.seed}`;
+  ponerTema(abierta.jugador.faction);
+  return abierta;
+}
+
 /** Por qué no arranca la partida y, si es por la URL, cómo salir: quitar lo que pidió. */
 interface Fallo {
   readonly motivo: unknown;
@@ -159,7 +181,9 @@ function sinArrancar(fallos: readonly Fallo[]): never {
 }
 
 let session: Session;
-{
+const delMundo = abrePartidaDelMundo();
+if (delMundo !== null) session = delMundo;
+else {
   // Lo que pide la URL, leído entero antes de decir nada: cada parámetro que no
   // vale, con su salida, y todos a la vez.
   const fallos: Fallo[] = [];
@@ -201,6 +225,8 @@ const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
+/** La escena de un lugar de un mundo (`escenas/lugar.ts`): se entra desde el mapa, como en la tropa. */
+const lugar = new EscenaLugar(sesion);
 /**
  * Las escenas de dentro: se entra en ellas desde otra (la tropa desde el mapa, la
  * morada desde la base), abren con el lateral arriba y, al salir, reponen el de la
@@ -215,6 +241,12 @@ const DENTRO = {
       castillo.pintarLaMorada(ctx, lienzo, camara, vista.edificio, ahora),
     ),
     cerrar: (s: Session) => s.cerrarLaMorada(),
+  },
+  // Escape cierra primero la conversación y, sin ella, sale al mapa.
+  lugar: {
+    de: lugar,
+    cerrar: (s: Session) =>
+      s.lugar.hablando !== null ? s.lugar.dejarDeHablar() : s.salirDelLugar(),
   },
 } as const;
 type EscenaDeDentro = keyof typeof DENTRO;
@@ -417,7 +449,7 @@ function dibujarFotograma(ahora: number): void {
       renderSide(session, contando, enCastillo ? castillo.abierto : null),
     );
     pintar(elActions, renderActions(session, contando));
-    mostrarConversacion(enCastillo);
+    mostrarConversacion(enCastillo, escena === 'lugar');
   }
   paneles = { sesion: session, version: session.version, arte: arteLlegado, contando, base };
   if (lateralPendiente !== null) {
@@ -433,7 +465,17 @@ function dibujarFotograma(ahora: number): void {
  * «Seguir», con Escape o con un clic en el suelo. Se rellena por la puerta del
  * marcado, como los paneles: el nombre y la línea los puede escribir el agente.
  */
-function mostrarConversacion(enCastillo: boolean): void {
+function mostrarConversacion(enCastillo: boolean, enUnLugar: boolean): void {
+  // La de un lugar de un mundo: su árbol, con las opciones (`views/lugar.ts`).
+  if (enUnLugar) {
+    if (session.lugar.conversacion() === null) {
+      if (conversacion.open) conversacion.close();
+      return;
+    }
+    pintar(conversacion, renderConversacionDelLugar(session));
+    if (!conversacion.open) conversacion.show();
+    return;
+  }
   const a = enCastillo ? castillo.abierto : null;
   if (a === null || a.tipo !== 'pnj') {
     if (conversacion.open) conversacion.close();
@@ -699,6 +741,22 @@ document.addEventListener('click', (ev) => {
     case 'cerrar-morada':
       cerrarDentro();
       break;
+    case 'salir-del-lugar':
+      lugar.salir();
+      session.salirDelLugar();
+      break;
+    case 'lugar-ir':
+      if (ev.detail > 1) break;
+      lugar.irA(target.getAttribute('data-punto') as string, performance.now());
+      break;
+    case 'lugar-opcion': {
+      // El segundo clic de un doble clic cae ya en el nodo siguiente: solo el primero.
+      if (ev.detail > 1) break;
+      // Apagada: su motivo ya se lee debajo; el clic no hace nada.
+      if (target.getAttribute('aria-disabled') === 'true') break;
+      session.elegirEnElLugar(Number(target.getAttribute('data-indice')));
+      break;
+    }
     case 'tropa-elegir': {
       const quien = target.getAttribute('data-quien');
       if (quien === null) throw new Error('el botón de la tropa no dice a quién elige');

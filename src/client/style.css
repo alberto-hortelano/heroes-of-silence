@@ -539,6 +539,12 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 }
 .conversacion h3 { margin: 0 0 0.1rem; }
 .conversacion .linea { font-family: var(--letra-titulo); font-size: 1.05em; margin: 0.4rem 0 0.6rem; }
+/* La conversación en árbol de un lugar de un mundo: una opción por fila; la que no
+   se puede elegir, apagada y con su motivo debajo. */
+.opciones-del-lugar { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.opciones-del-lugar button { width: 100%; text-align: left; }
+.opciones-del-lugar button[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
+.opciones-del-lugar .motivo { display: block; color: var(--rechazo); margin: 0.1rem 0 0 0.4rem; }
 .abierto-en-la-base { border-bottom: 1px solid var(--borde-oscuro); padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
 .abierto-en-la-base .motivo { color: var(--rechazo); }
 /* La escena de la morada: «+1» y «Todo» uno al lado del otro. */

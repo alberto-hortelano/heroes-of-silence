@@ -27,11 +27,27 @@ export function aLaBarra(cambiar: (url: URL) => void): void {
 
 /**
  * Si la página tiene que preguntar qué jugar: solo cuando la URL no pide nada,
- * ni semilla, ni facción, ni héroe. `?seed=` vacío es no pedir (la regla de `parseSeed`), y
+ * ni semilla, ni facción, ni héroe, ni mundo. `?seed=` vacío es no pedir (la regla de `parseSeed`), y
  * lo que pida algo, aunque no valga, va a la partida, que dice por qué no vale.
  */
 export function hayQuePreguntar(search: string): boolean {
-  const q = new URLSearchParams(search);
-  const pide = (nombre: string): boolean => q.getAll(nombre).some((v) => v.trim() !== '');
-  return !pide('seed') && !pide('faccion') && !pide('heroe');
+  return (
+    !pide(search, 'seed') &&
+    !pide(search, 'faccion') &&
+    !pide(search, 'heroe') &&
+    !pideMundo(search)
+  );
+}
+
+/** Si la URL pide algo en `nombre` (vacío es no pedir). */
+function pide(search: string, nombre: string): boolean {
+  return new URLSearchParams(search).getAll(nombre).some((v) => v.trim() !== '');
+}
+
+/**
+ * Si la URL pide un mundo (`?mundo=<id>`, F1a del mapa vivo): entonces `entrada.ts`
+ * lo carga antes que la partida (`mundo/cargar.ts`), que dice por qué si no vale.
+ */
+export function pideMundo(search: string): boolean {
+  return pide(search, 'mundo');
 }
