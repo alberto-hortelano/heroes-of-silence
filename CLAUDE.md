@@ -19,6 +19,7 @@ pnpm verify:lento  # lo mismo con todas las semillas y todo el arte rederivado, 
 pnpm test | pnpm typecheck | pnpm lint | pnpm format
 pnpm banco      # 20 partidas: tiempo y sha256 del volcado, anclado en el fichero
 pnpm marcas     # fallos del mapa marcados en pnpm dev (M o «Marcar»): lista, ver <id>, resolver <id> <ref>, recorte <id>
+pnpm mundo nuevo|leer|validar <id>   # los mundos (assets/mundos/<id>/): plan congelado, lectura para el motor, la validación de la página
 pnpm qa         # circuito entero del agente (mapa, servidor, puente MCP), ~3 s
 pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales, ~245 s; deja los PNG en .cache/capturas/ o en la carpeta que se le pase
 npx tsx tools/qa/barrido-semillas.ts   # cuántas de 4 partidas no terminan (hoy 0)
@@ -37,6 +38,15 @@ npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (goo
   hasta elegir no hay `Session` ni mapa. La partida abre en la base
   del jugador, con su héroe dentro; «Partida nueva», al acabar, vuelve al menú. Si el agente diseña
   el mapa, la semilla del servidor ya no reproduce la partida, y la consola lo dice.
+- **`?mundo=<id>` juega un mundo** (F1a del mapa vivo, 22-10-2026, `core/mundo/`): su plan
+  congelado, su semilla, su facción, su héroe y sus lugares. Lo carga y lo valida `entrada.ts` antes
+  que `main.ts` (`mundo/cargar.ts`); uno roto lo pinta `arranque.ts` con todos sus problemas, y con
+  `?seed=`, `?faccion=` o `?heroe=` al lado se rechaza diciéndolo. En `pnpm dev`, «Empezar» lleva a
+  «El mundo» (`desarrollo/mundo.ts`): tamaño y rivales (fijos en 1); «Generar el mundo» congela el
+  plan y lanza Claude Code sin pantalla con la skill `motor-de-mundos` (`POST /__mundos`,
+  `tools/mundo/motor.ts`, la orden de `HEROES_MOTOR`, `claude` por defecto), con una espera que
+  enseña el progreso; si falla, «Jugar el procedimental». Los generados (`gen-*`) no van a git ni
+  ningún mundo al build; `prueba` (a mano, para los tests) y `ejemplo` (generado así) se commitean.
 - **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
   `unidades/<id>/dN/`, solo `atlas.webp`; ninguna carpeta `fuentes/` ni `_guias/`, a cualquier altura;
   y nada de `art/` (láminas y referencias de estilo) (`seCopiaAlBuild`, `tools/build/publico.ts`,
@@ -74,6 +84,8 @@ src/core/          TypeScript puro: las reglas. Sin DOM y sin node:*
   state/           GameState, turnos, batallas del mapa, asaltantes
   ai/              IA de respaldo: táctica y estratégica
   contract/        esquemas zod, serialización y vocabulario (huecos, golpes) del agente
+  mundo/           los mundos: formato y vocabulario cerrado, validación, reglas de los lugares,
+                   lectura para el motor
 src/server/        bridge WebSocket + puente MCP (partida.ts, director, entorno.ts)
 src/client/        Vite + Canvas 2D. Solo pinta y manda intents
   html.ts          LA PUERTA del marcado
@@ -84,6 +96,7 @@ src/client/        Vite + Canvas 2D. Solo pinta y manda intents
   arena/           edita el catálogo del juego y monta peleas con sus reglas
 src/shared/        contrato visual (cámara a 25°, luz) de cliente y taller
 tools/gen/         generación de assets con fal.ai
+tools/mundo/       pnpm mundo y el motor de narrativa que genera un mundo desde el menú de pnpm dev
 tools/qa/          verificación de extremo a extremo y medidas
 tools/datos/       extrae JSON de NuevaJugabilidad.md con expresiones regulares
 tools/arena/ tools/taller/ tools/art/   arena, taller de arte, rig del Y Bot
@@ -227,6 +240,11 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Dónde responde cada sector de la rueda y dónde va lo suyo | `formas` (un `<clipPath>` por tipo con la forma de `sector`, la que pinta el disco) y `ajustarLaRueda`, que recorta a ella cada botón, del tamaño del plato (#258); el rótulo y el «ⓘ», por el ángulo del sector, `sitioEnLaRueda`, y hacia dónde abre su nota, `haciaDe` (`client/rueda/rueda.ts`): nada se coloca por tipo |
 | Los dos que se cruzan en la rueda | `contrincante` (`rueda/rueda.ts`), con su figura (`figuraDelContrincante`, `FigurasDeLaRueda`, `rueda/figuras.ts`, que anima `DialogoDeLaRueda`) y quién mira, de la sesión (`SesionConRueda.quienMira`: con uno, «Tu golpe», «Tu respuesta», «(tú)» y «(rival)»; el espectador, nadie); lo que cada página pone alrededor, `CaraDeLosContrincantes` (la arena, `caraDeLaArena`: el botón de su ficha de solo lectura, `abrirEditor(…, true)` en `arena/main.ts`, y su vista previa, `vistaPrevia` y `filasDelStack`, las mismas filas del panel de la activa, con `efectoEnCurso` de `views/panels.ts`); en el tablero, `EscenaBatalla.enLaRueda` → `VistaBatalla.enLaRueda` (#261; el espectador, de `BattleAnimator.losDelCruce`) |
 
+| Un mundo: si vale y dónde no (F1a del mapa vivo, 22-10-2026) | `problemasDelMundo` (todos de una vez, con fichero y ruta, para el motor) y `leerMundo` (lanza con ellos), `core/mundo/validar.ts`: la misma para `pnpm mundo validar`, el servidor que lo genera y la página; `newGame({ historia })` vuelve a juzgar la historia (`problemasDeLaHistoria`). Las palabras del vocabulario, cerradas y con su frase para el motor, `VOCABULARIO` (`core/mundo/formato.ts`; la lectura las saca de ahí, no de la skill) |
+| Dónde puede ir un lugar | `lugarBlocker` (`core/mundo/validar.ts`): dentro, que se pisa, en una región, fuera de todo recinto y a `SEPARACION_DE_UN_LUGAR` (3) de todo objeto y de otro lugar; lo leen la validación y la lectura para el motor (`lecturaParaElMotor`, sus casillas de muestra) |
+| Si una opción de un lugar se puede elegir | `opcionBlocker` y `motivoDeLaOpcion` (`core/mundo/reglas.ts`): las condiciones escritas (`condicionBlocker`) y las de sus efectos (pagar, entregar, que quepa la tropa); lo leen la acción `elegir_en_lugar`, la pantalla del lugar (la opción apagada con su motivo) y la IA (`ai/lugares.ts`) |
+| Lo que hace un lugar | `aplicarEfectos` (`state/game.ts`, privada): la única escritura de `GameState.mundo` y de lo que da o quita un lugar, cada efecto con su hecho; la llaman `elegir_en_lugar` y el cierre de su batalla (`alGanar`, `alPerder`) |
+
 `test/invariantes.test.ts` vigila las fronteras de esta sección. Todos nacen en
 verde.
 
@@ -255,6 +273,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Carga a pie | **regla nuestra** (#260, 14-10-2026; en toda batalla desde el 19-10-2026): todo el que pega cuerpo a cuerpo sin `charge` (también el tirador y el héroe) carga con la misma recta, +5 %/casilla, tope 5 (inventado, `data/carga.json`); el jinete sigue a +10 %. La IA no busca la recta a pie: en 100 peleas de la IA contra la IA (`tools/qa/arena-ia.ts`, «mezcla», 19-10-2026), 30 cargas a pie y 74 de jinete |
 | `fear` (rasgo del motor; hoy no lo lleva ninguna unidad del catálogo) | **divergencia deliberada**: ataque −2 durante 2 rondas (no aura de moral) |
 | Victoria | **regla nuestra**: perder la base elimina en el acto |
+| Lugares | **regla nuestra** (F1a del mapa vivo, 22-10-2026, decisiones del usuario): un mundo lleva de 1 a 8 lugares (`MapObject` `lugar`, que pone `newGame` desde su historia; el procedimental no los hace), cada uno con estados, puntos (gente o cosas), diálogos en árbol y encuentros. Se entra **al acabar la marcha** en él (no al pasar): su escena lateral, por la que se anda. Las opciones con efectos son una acción del núcleo (`elegir_en_lugar`), todo o nada, con un vocabulario cerrado de condiciones (estado, marca, oro, lleva, facción, no) y efectos (estado, marca, oro ±, pieza, quitar, tropa del catálogo, batalla); cada efecto, su hecho (`place_state`, `world_mark`, `gold_gained`/`gold_paid`, `loot_found` de un lugar, `item_given`, `troops_joined`). **Cada premio se cobra una vez**: una opción que da algo o abre batalla se apaga a sí misma, y la validación lo exige. El encuentro es la batalla de siempre (`BattleFoe` `lugar`, sin héroe ni dueño, con el tope de un grupo neutral); al ganar, `alGanar` (estado, marca, oro, pieza), al perder, `alPerder` (estado, marca), y se vuelve a la escena del lugar si el héroe sigue en él. La IA de reglas entra con una regla simple (`ai/lugares.ts`: la primera opción que hace algo; una batalla, con ventaja clara; `VALOR_DE_LUGAR`, inventado). **El agente no entra (F4)**: los ve en su mapa y su prosa se lo dice. Sin mundo no hay lugares y el banco no cambia |
 | Ciudad amurallada | **regla nuestra** (21-10-2026, decisiones del usuario; fases 1 y 2 de 3): cada ciudad es un recinto de 3 × 3 con ella en el medio (`core/map/recinto.ts`). Ninguna en el borde, dos a 5 casillas o más (Chebyshev) y dentro nada más que ella: ni nodo, ni objeto, ni grupo de asaltantes. **Se entra por sus puertas**: de un acceso a la puerta y de la puerta a la ciudad; el resto del recinto no se pisa, aunque sea hierba, y la puerta y la ciudad cuestan como un camino aunque debajo haya barrera. **Hay puerta donde llega un camino** (en la cara del norte, la del sur o una diagonal, nunca al este ni al oeste), y la del puente de una ciudad-puente, siempre. La ciudad-puente está en tierra y su casilla del río, delante, es su puente. Cada región que llega a un acceso de una ciudad lleva su camino hasta ella (el generador lo traza; un plan del agente sin él se rechaza). El héroe de salida nace en su base (19-10-2026), en el medio del recinto (la casilla de la ciudad, que se pisa), y sale por sus puertas |
 | Rueda del golpe | **regla nuestra** (13-10-2026; en toda batalla y sin interruptor desde el 19-10-2026): al golpear cuerpo a cuerpo, quien pega y quien recibe eligen a ciegas un tipo en un anillo (desde arriba y en el sentido del reloj ofensivo, fuerte, finta, defensivo, rápido, r.guardia: opuestos ofensivo y defensivo, fuerte y rápido, finta y r.guardia; Normal en el centro; #263, 14-10-2026): la persona en el diálogo de la rueda, el agente por su contrato (`hit`, `battle_response`) y la IA de reglas a ciegas. El cruce fija la tirada (`min + ⌊(max − min) · p / 4⌋`, por la distancia en el anillo: 0, 1, 3, 4; con Normal, 2) y la respuesta es el contraataque, en `4 − p`. Fuerte (daño ×) y Rápido (2 golpes de daño ×), también en el contraataque; Normal, siempre ×1; lo demás actúa solo al golpear (**la respuesta no da bonificadores**, `cruceDelGolpe(…, papel)`): Ofensivo suma ataque en ese golpe; Defensivo suma defensa desde ya hasta que **empiece** su próximo turno (también el extra de la moral alta y el que la moral baja le quita); Romper guardia quita ataque al atacado según el éxito del golpe (`p`), ya en su contraataque y hasta que **termine** su próximo turno; Finta deja andar tras golpear lo que le quede menos lo que reste su éxito (`TurnoDeUnidad.finta`, en `pasosQueQuedan`; solo andar o terminar, `faseBlocker`; andar cierra el turno, y con 0 se cierra solo; ese tramo paga el contacto como cualquier otro, y su nota lo dice). Rápido: cada golpe resta la armadura, y su nota dice que contra armadura pierde; con carga, **solo el primer golpe la cobra** (también el del doble golpe; 14-10-2026). Caducidad en `StackEffect.hasta` (`empezar`/`terminar`, tope de 2 rondas); el mismo origen refresca. **Las cifras son las del nivel del arma** (18-10-2026; niveles absolutos en la vuelta 2, «para que sea más fácil ver la diferencia entre armas»): toda arma de cuerpo a cuerpo (`arma`, `lanza`) lleva un nivel de 0 (lo peor) a 6 (lo mejor) en cada tipo del anillo (`Pieza.rueda`), el mismo en toda arma; del 0 al 6, Ofensivo +0 a +6 ataque, Fuerte ×1 a ×2, Defensivo +0 a +6 defensa, Rápido 2 × 0,25 a 2 × 1, Romper guardia quita con el éxito máximo de 0 a 6 (con éxito `p`, `⌊q · p / 4⌋`: con menos éxito, menos) y la Finta resta con el éxito mínimo de 8 a 2 casillas, y cada punto de éxito una menos, sin bajar de 0 (con éxito `p`, `max(0, m − p)`; 18-10-2026: con la anterior, de 10 a 5 con la Espada, una unidad de 2 a 5 casillas no andaba nunca). Cada golpe con su arma (la lanza en el primero de una carga), el contraataque con la del que responde, y lo que no es daño con la del primer golpe. La Espada, todo a 3 (la versátil; con ella, Ofensivo +3, Fuerte ×1,5, Rápido 2 × 0,63, Romper guardia 0 a −3 y la Finta de 5 a 1); la Maza, Fuerte y Romper guardia 5, Rápido y Finta 1. Sin arma no se golpea: toda unidad del catálogo lleva una, el héroe nace con la Espada y el arma de cuerpo a cuerpo no se quita (`unequipBlocker`, 19-10-2026). Cifras inventadas en `data/rueda.json` y `data/equipo.json`; el disparo, con su tirada |
 | Armadura | **regla nuestra** (#262, 14-10-2026; en el juego desde el 19-10-2026): las piezas de armadura dan puntos de armadura y ninguna pieza da PV (la brigantina 7, el arnés 10, el gambesón 4, el jubón 2 y la barda 22, inventados en `data/equipo.json`); cada golpe, disparo, hechizo o poder que llega se queda en `max(0, daño − armadura)`, restado lo último (tras ataque y defensa, multiplicadores, cruce, carga, suerte y redondeo), uno a uno (cada golpe de Rápido o del doble golpe, cada tiro, cada salpicado con la suya). El drenaje, la experiencia y el parte leen lo que llegó. Un golpe en 0 se pinta «parado». Con la barda, en 100 peleas de la IA contra la IA (`tools/qa/arena-ia.ts`, 19-10-2026): 2 de 100 de 3 contra 3 sin terminar (s13, s43; 0 sin ella) y un jinete contra tres flojos gana 92 de 100 (0 sin ella, 76 con los 220 PV de antes). En el juego no hay barda que lo provoque: 0 sin terminar en el barrido y el banco |
@@ -698,6 +717,10 @@ antes del destino (`battle_started` con `faltan`).
 - **El oro en el contrato** (21-10-2026): `you.gold` (un número) y `you.income` (`total`, `towns`
   y `villages`, de `rentaDelDia`); todo `cost` es un número de oro. Un plan con `mines` o
   `resources` se rechaza diciéndolo.
+- **Los lugares de un mundo, aún no** (F4): el agente los ve en `knownMap` (`kind: "lugar"`, con
+  su `name`; su estado no viaja) y su prosa le dice que no hay jugada para entrar. La acción del núcleo
+  (`elegir_en_lugar`) no está en su contrato. El espectador los pinta con su marcador y tampoco ve su
+  estado.
 - La partida termina con un `game_over` explícito. `state.finished` es
   `{ winner: PlayerId | null } | null`; el tope de días es `GameState.maxDays`.
 - Del contrato se exportan esquemas, no alias de tipo.
