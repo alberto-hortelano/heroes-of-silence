@@ -1390,11 +1390,11 @@ export class Session implements ControlDeBatalla {
     this.status = AYUDA_DEL_LUGAR;
   }
 
-  /** Sale del lugar al mapa. */
+  /** Sale del lugar al mapa, con la ayuda del mapa en la barra (M8 de la vuelta 2: quedaba en blanco). */
   salirDelLugar(): void {
     this.lugar.cerrar();
     this.scene = 'adventure';
-    this.status = '';
+    this.status = AYUDA_DEL_MAPA;
   }
 
   /**
@@ -1407,6 +1407,10 @@ export class Session implements ControlDeBatalla {
       this.scene = 'battle';
       this.status = '¡Batalla!';
       this.advanceEnemyTurns();
+    } else if (tras !== 'apagada') {
+      // La acción deja la barra en blanco (`run`) y en el lugar no se mueve el
+      // ratón por el lienzo mientras se elige: lo que toca allí (M8 de la vuelta 2).
+      this.status = AYUDA_DEL_LUGAR;
     }
     return tras;
   }

@@ -48,7 +48,12 @@ export function renderConversacionDelLugar(c: VistaDeLaConversacion): Html {
         }</li>`,
     ),
   );
+  // De la pantalla, sin efecto: al volver a hablar se sigue donde quedó (H14 de la
+  // vuelta 2), y esto deja empezar otra vez.
+  const alPrincipio = c.lejosDelInicio
+    ? html`<li><button data-action="lugar-al-principio" class="al-principio">Volver al principio</button></li>`
+    : NADA;
   return html`<h3>${c.quien}</h3>${c.papel === null ? NADA : html`<p class="cost">${c.papel}</p>`}
     <p class="linea">${c.texto}</p>
-    <ol class="opciones-del-lugar">${opciones}</ol>`;
+    <ol class="opciones-del-lugar">${opciones}${alPrincipio}</ol>`;
 }

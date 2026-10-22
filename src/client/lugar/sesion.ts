@@ -20,6 +20,7 @@ import {
   estadoDicho,
   inicioDe,
   nodoDe,
+  nodoDeEntrada,
   type OpcionALaVista,
   opcionesDe,
   puntosDe,
@@ -61,6 +62,8 @@ export interface VistaDeLaConversacion {
   readonly papel: string | null;
   readonly texto: string;
   readonly opciones: readonly OpcionALaVista[];
+  /** Si no se está en el inicio de la conversación: la pantalla ofrece «Volver al principio». */
+  readonly lejosDelInicio: boolean;
 }
 
 /** Lo que pasó al elegir una opción. */
@@ -136,12 +139,28 @@ export class EnElLugar {
     };
   }
 
-  /** Empieza a hablar con un punto (o a mirar una cosa): su nodo de inicio. */
+  /**
+   * Empieza a hablar con un punto (o a mirar una cosa): donde quedó la conversación de
+   * quien juega con él, o su inicio (`nodoDeEntrada`, del núcleo; H14 de la vuelta 2).
+   */
   hablar(punto: string): void {
     const a = this.ante();
     const p = a === null ? undefined : puntosDe(a).find((x) => x.id === punto);
     if (a === null || p === undefined) return;
-    this.conversando = { punto, nodo: inicioDe(a, p) };
+    this.conversando = { punto, nodo: nodoDeEntrada(a, p) };
+    this.tocar();
+  }
+
+  /**
+   * «Volver al principio»: la conversación abierta, a su inicio. Es de la pantalla
+   * y no cambia nada de la partida: el núcleo sigue recordando dónde quedó.
+   */
+  alPrincipio(): void {
+    const a = this.ante();
+    const c = this.conversando;
+    const p = a === null || c === null ? undefined : a.lugar.puntos.find((x) => x.id === c.punto);
+    if (a === null || c === null || p === undefined) return;
+    c.nodo = inicioDe(a, p);
     this.tocar();
   }
 
@@ -165,6 +184,7 @@ export class EnElLugar {
       papel: p.persona?.papel ?? null,
       texto: nodoDe(a, p, c.nodo).texto,
       opciones: opcionesDe(a, p, c.nodo),
+      lejosDelInicio: c.nodo !== inicioDe(a, p),
     };
   }
 

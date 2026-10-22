@@ -753,6 +753,10 @@ document.addEventListener('click', (ev) => {
       if (ev.detail > 1) break;
       lugar.irA(target.getAttribute('data-punto') as string, performance.now());
       break;
+    case 'lugar-al-principio':
+      if (ev.detail > 1) break;
+      session.lugar.alPrincipio();
+      break;
     case 'lugar-opcion': {
       // El segundo clic de un doble clic cae ya en el nodo siguiente: solo el primero.
       if (ev.detail > 1) break;
