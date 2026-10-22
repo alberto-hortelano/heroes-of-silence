@@ -14,6 +14,7 @@ import { disposicionDe } from '../../shared/base.js';
 import type { VistaDeLaMorada } from '../morada/vista.js';
 import { cajaDeFiguraEn } from '../render/batalla.js';
 import { type CajaEn, type LienzoDePie, pintarDePie } from '../render/de-pie.js';
+import type { LuzSobreLaFigura } from '../render/figura.js';
 import { type EncuadreDeLaMorada, encuadrarLaMorada } from '../render/morada/fila.js';
 import type { Tablero } from '../render/proyeccion.js';
 import { AYUDA_DE_LA_MORADA, type Session } from '../session.js';
@@ -24,11 +25,19 @@ export function cajasDeLaMorada(t: Tablero): CajaEn {
   return (en) => cajaDeFiguraEn(t, en);
 }
 
+/** Lo que el fondo de la morada deja para la fila: la luz que cae sobre ella y lo que va delante. */
+export interface ClimaDeLaFila {
+  /** La luz del clima de la base sobre las figuras (`Figura.luz`). */
+  readonly luz: LuzSobreLaFigura | undefined;
+  /** La lluvia y el rayo de la base, delante de la fila. */
+  readonly delante: () => void;
+}
+
 /**
  * Lo que va detrás de la fila: la base con la cámara de la morada y su edificio
- * abierto (`EscenaBase.pintarLaMorada`). Devuelve lo que va delante de la fila
- * (la lluvia y el rayo de la base), o `null`. En `pnpm capturas`, que encuadra en
- * Node, nada.
+ * abierto (`EscenaBase.pintarLaMorada`). Devuelve el clima de la fila (la luz
+ * sobre las figuras y lo que va delante de ellas), o `null`. En `pnpm capturas`,
+ * que encuadra en Node, nada.
  */
 export type FondoDeLaMorada = (
   ctx: CanvasRenderingContext2D,
@@ -36,7 +45,7 @@ export type FondoDeLaMorada = (
   camara: Tablero,
   vista: VistaDeLaMorada,
   ahora: number,
-) => (() => void) | null;
+) => ClimaDeLaFila | null;
 
 function deLaMorada(fondo: FondoDeLaMorada): DePie<VistaDeLaMorada, EncuadreDeLaMorada> {
   return {
@@ -54,9 +63,9 @@ function deLaMorada(fondo: FondoDeLaMorada): DePie<VistaDeLaMorada, EncuadreDeLa
     marca: (vista) => `${vista.edificio}:${vista.figuras[vista.elegida]?.id ?? ''}`,
     elegir: (s, vista, i) => s.elegirEnLaMorada(vista.figuras[i]!.id),
     pintar: (ctx, { lienzo, vista, encuadre, pie }) => {
-      const delante = fondo(ctx, lienzo, encuadre.camara, vista, pie.ahora);
-      pintarDePie(ctx, pie);
-      delante?.();
+      const clima = fondo(ctx, lienzo, encuadre.camara, vista, pie.ahora);
+      pintarDePie(ctx, { ...pie, luz: clima?.luz });
+      clima?.delante();
     },
   };
 }

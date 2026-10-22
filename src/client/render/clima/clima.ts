@@ -49,6 +49,7 @@ import { type Lienzo, lienzoCon } from '../escenario/pintar.js';
 import { animarHasta } from '../figura.js';
 import { casillaDelRayo, mascarasDelMapa, regionEnElFrente } from './mascaras.js';
 import {
+  alzaDe,
   COLOR_DE_LOS_BANCOS,
   css,
   EFECTOS,
@@ -65,6 +66,8 @@ import { bancosDeNiebla } from './texturas.js';
 const ESCALA_DEL_AIRE = 1 / 4;
 /** Cuánto dura el destello de un rayo, en ms: breve, y no ciega. */
 const DURACION_DEL_RAYO = 160;
+/** El grueso de una gota, en px CSS: en píxeles de dispositivo, el entero más cercano (como poco, uno). */
+const GROSOR_DE_LA_GOTA = 1;
 /** Cuántas gotas como mucho por fotograma: en una pantalla enorme, la lluvia no crece sin tope. */
 const TOPE_DE_GOTAS = 2400;
 /** Cuánto ilumina el destello de un rayo en el mapa, en casillas: unas seis. */
@@ -99,12 +102,26 @@ export interface FocoDeRayo {
 }
 
 /**
+ * La luz del mapa: la máscara del mundo colocada y los huecos que le abren los
+ * fuegos de noche (todos los de las regiones de noche, no solo los que se ven),
+ * en px CSS desde el origen del mundo: no se mueven al arrastrar.
+ */
+export interface LuzDelMundo {
+  readonly mascara: Colocada;
+  /** Lo que suma la noche (`lighter`) donde es de noche, o `null`. */
+  readonly alza: Colocada | null;
+  readonly huecos: readonly LuzDeNoche[];
+}
+
+/**
  * Qué clima hay bajo cada píxel, campo a campo de la receta: un valor para todo
  * el lienzo (una escena) o una máscara del mundo colocada (el mapa).
  */
 export interface CampoDelClima {
   /** Lo que oscurece, multiplicando (`multiply`). */
-  readonly luz: Rgb | Colocada | null;
+  readonly luz: Rgb | LuzDelMundo | null;
+  /** Lo que suma la noche en una escena tras la luz (`lighter`), o `null`; en el mapa va en la luz del mundo. */
+  readonly alza: Rgb | null;
   /** Lo que aclara, encima. */
   readonly bruma: Rgba | Colocada | null;
   /**
@@ -136,7 +153,9 @@ export interface MarcoDelClima {
 }
 
 const esMascara = <T>(v: T | Colocada): v is Colocada =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
+  typeof v === 'object' && v !== null && !Array.isArray(v) && 'lienzo' in v;
+
+const esLuzDelMundo = (v: Rgb | LuzDelMundo): v is LuzDelMundo => 'mascara' in v;
 
 /** Un número de [0, 1) de un entero: las gotas y los rayos, sin `Math.random`. */
 const azar = (n: number): number => mezclar(n, 0x2545f491) / 4294967296;
@@ -170,17 +189,30 @@ function capa(i: 0 | 1 | 2, ancho: number, alto: number): Capa {
   return hecha;
 }
 
-/** La capa, ya hecha, sobre el lienzo con `op`: sin suavizado (ver la cabecera). */
+/**
+ * La capa, ya hecha, sobre el lienzo con `op`: sin suavizado (ver la cabecera).
+ * Con `solo`, solo esa caja (px CSS: el mundo en el mapa), que es lo que cuesta:
+ * fuera del mapa no hay clima que componer, y al tope de alejar es un tercio del
+ * lienzo.
+ */
 function componer(
   ctx: CanvasRenderingContext2D,
   capa: Lienzo,
   m: MarcoDelClima,
   op: GlobalCompositeOperation,
+  solo?: Colocada,
 ): void {
+  const x0 = Math.max(0, Math.floor(solo?.x ?? 0));
+  const y0 = Math.max(0, Math.floor(solo?.y ?? 0));
+  const x1 = Math.min(m.ancho, Math.ceil(solo === undefined ? m.ancho : solo.x + solo.ancho));
+  const y1 = Math.min(m.alto, Math.ceil(solo === undefined ? m.alto : solo.y + solo.alto));
+  if (x1 <= x0 || y1 <= y0) return;
+  const k = capa.width / Math.max(1, m.ancho);
+  const q = capa.height / Math.max(1, m.alto);
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.globalCompositeOperation = op;
-  ctx.drawImage(capa, 0, 0, m.ancho, m.alto);
+  ctx.drawImage(capa, x0 * k, y0 * q, (x1 - x0) * k, (y1 - y0) * q, x0, y0, x1 - x0, y1 - y0);
   ctx.restore();
 }
 
@@ -230,9 +262,9 @@ function bancosDe(lado: number): Lienzo {
 }
 
 /**
- * Un degradado radial de `radio` px, pintado una vez: el hueco de un fuego en la
- * luz (blanco, que en `multiply` no oscurece) o su resplandor cálido, más fuerte
- * en el farol de una escena, que no lleva hueco.
+ * Un degradado radial de `radio` px (de dispositivo, para el resplandor), pintado
+ * una vez: el hueco de un fuego en la luz (blanco, que en `multiply` no oscurece)
+ * o su resplandor cálido, más fuerte en el farol de una escena, que no lleva hueco.
  */
 function fuegoDe(cual: 'hueco' | 'luz' | 'farol', r: number): Lienzo {
   const radio = Math.max(2, Math.round(r));
@@ -343,7 +375,13 @@ function pintarLoQueAclara(
     }
   }
   if (bruma !== null) enLaCapa(c, bruma, lienzo.width, lienzo.height);
-  componer(ctx, lienzo, m, 'source-over');
+  // En el mapa, solo sobre el mundo: fuera no hay ni bruma ni bancos.
+  const mundo = esMascara(bruma)
+    ? bruma
+    : bancos !== null && esMascara(bancos.alfa)
+      ? bancos.alfa
+      : undefined;
+  componer(ctx, lienzo, m, 'source-over', mundo);
 }
 
 // --------------------------------------------------------------- la luz
@@ -353,56 +391,255 @@ function pintarLoQueAclara(
  * cálido (`lighter`).
  *
  * En una escena, la luz es lisa: un `fillRect` y, encima, cada fuego con el
- * resplandor fuerte (`farol`). En el mapa va por regiones, en su capa, y los
- * fuegos además le abren un hueco, que es lo que hace que la ciudad se vea
- * entera. En la base, la capa con sus huecos costaba 8,8 ms por fotograma en
- * 2560×1440 (componerla con `multiply` desde un cuarto), y el `fillRect`, lo que
- * la tormenta: 2,6 ms (medido el 22-10-2026, `tools/qa/clima.ts`).
+ * resplandor fuerte (`farol`). En el mapa va por regiones y los fuegos además le
+ * abren un hueco, que es lo que hace que la ciudad se vea entera
+ * (`pintarLaLuzDelMundo`). En la base, la capa con sus huecos costaba 8,8 ms por
+ * fotograma en 2560×1440 (componerla con `multiply` desde un cuarto), y el
+ * `fillRect`, lo que la tormenta: 2,6 ms (medido el 22-10-2026, `tools/qa/clima.ts`).
  */
 function pintarLaLuz(ctx: CanvasRenderingContext2D, campo: CampoDelClima, m: MarcoDelClima): void {
   const { luz, luces } = campo;
   if (luz === null) return;
-  if (esMascara(luz)) {
-    const k = ESCALA_DEL_AIRE;
-    const { lienzo, c } = capa(2, m.ancho, m.alto);
-    // Fuera del mundo, blanco: lo que no oscurece.
-    c.fillStyle = '#fff';
-    c.fillRect(0, 0, lienzo.width, lienzo.height);
-    enLaCapa(c, luz, lienzo.width, lienzo.height);
-    for (const l of luces) {
-      const hueco = fuegoDe('hueco', l.r * k);
-      c.drawImage(
-        hueco,
-        Math.round(l.x * k - hueco.width / 2),
-        Math.round(l.y * k - hueco.height / 2),
-      );
-    }
-    componer(ctx, lienzo, m, 'multiply');
+  if (esLuzDelMundo(luz)) {
+    pintarLaLuzDelMundo(ctx, luz, m);
   } else {
     ctx.save();
     ctx.globalCompositeOperation = 'multiply';
     ctx.fillStyle = css(luz);
     ctx.fillRect(0, 0, m.ancho, m.alto);
+    if (campo.alza !== null) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = css(campo.alza);
+      ctx.fillRect(0, 0, m.ancho, m.alto);
+    }
     ctx.restore();
   }
+  pintarBrillos(ctx, luces, esLuzDelMundo(luz) ? 'luz' : 'farol');
+}
+
+/**
+ * El resplandor de cada fuego, en `lighter` y **en píxeles de dispositivo**: el
+ * degradado ya a su tamaño, copiado sin escalar a un píxel entero. Copiado por la
+ * escala del lienzo (la densidad del mapa no es 1) eran 1,2 ms por fotograma con
+ * los siete fuegos de la base del jugador (medido el 22-10-2026, vuelta de QA 1).
+ */
+function pintarBrillos(
+  ctx: CanvasRenderingContext2D,
+  luces: readonly LuzDeNoche[],
+  cual: 'luz' | 'farol',
+): void {
   if (luces.length === 0) return;
-  const cual = esMascara(luz) ? 'luz' : 'farol';
+  const t = ctx.getTransform();
   ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalCompositeOperation = 'lighter';
   for (const l of luces) {
-    const brillo = fuegoDe(cual, l.r);
-    ctx.drawImage(brillo, Math.round(l.x - brillo.width / 2), Math.round(l.y - brillo.height / 2));
+    const brillo = fuegoDe(cual, l.r * t.a);
+    ctx.drawImage(
+      brillo,
+      Math.round(t.a * l.x + t.e - brillo.width / 2),
+      Math.round(t.d * l.y + t.f - brillo.height / 2),
+    );
   }
   ctx.restore();
+}
+
+/** Cuánto más que lo que se ve cubre la luz guardada del mapa, por cada lado: un cuarto de la pantalla. */
+const MARGEN_DE_LA_LUZ = 0.25;
+/** Lo más grande que se guarda la luz del mapa, en píxeles de dispositivo (64 MB). */
+const TOPE_DE_LA_LUZ = 16_000_000;
+
+/**
+ * La luz del mapa ya hecha, a resolución de dispositivo y pegada al mundo: la
+ * máscara ampliada y los huecos de los fuegos, de lo que se ve más un margen. Al
+ * arrastrar no cambia —el mundo solo se desplaza—, así que cada fotograma es una
+ * copia **sin escalar** a un píxel entero, que es el camino rápido del
+ * rasterizador. Se rehace al cambiar el clima, el zoom o la densidad, o al salir
+ * lo que se ve de lo que cubre.
+ */
+let luzGuardada: {
+  readonly lienzo: Lienzo;
+  readonly c: Capa['c'];
+  /** Lo que suma la noche, igual de grande, o `null` sin noche a la vista. */
+  readonly alza: Capa | null;
+  readonly mascara: Lienzo;
+  readonly huecos: readonly LuzDeNoche[];
+  /** El mundo a esta escala, en px de dispositivo: cambia con el zoom y la densidad. */
+  readonly mundo: { readonly w: number; readonly h: number };
+  /** Lo que cubre, en px de dispositivo desde el origen del mundo. */
+  readonly x0: number;
+  readonly y0: number;
+  readonly w: number;
+  readonly h: number;
+} | null = null;
+/** El mundo a la escala del fotograma de antes: con el zoom en marcha, no se guarda. */
+let mundoDeAntes: { readonly w: number; readonly h: number } | null = null;
+
+/**
+ * La luz del mapa con sus fuegos, por regiones. Lo caro era componer la capa a un
+ * cuarto ampliándola a todo el lienzo: 5,3 ms por fotograma con la noche en
+ * 2560×1440 al tope de alejar (2,85 M píxeles), de 8,6 que costaba todo el clima
+ * (medido en la página el 22-10-2026, vuelta de QA 1). Guardada a resolución de
+ * dispositivo y copiada sin escalar, y solo lo que cae sobre el mundo, es una
+ * fracción. Mientras cambia el zoom no se guarda (se rehará en cuanto pare): se
+ * compone como antes, desde la capa a un cuarto.
+ */
+function pintarLaLuzDelMundo(
+  ctx: CanvasRenderingContext2D,
+  luz: LuzDelMundo,
+  m: MarcoDelClima,
+): void {
+  const t = ctx.getTransform();
+  const mk = luz.mascara;
+  const mundo = { w: Math.round(mk.ancho * t.a), h: Math.round(mk.alto * t.d) };
+  // El origen del mundo en el lienzo, en px de dispositivo enteros: la máscara es
+  // blanda y medio píxel no se ve.
+  const ox = Math.round(t.a * mk.x + t.e);
+  const oy = Math.round(t.d * mk.y + t.f);
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  // Lo que se ve del mundo, desde su origen.
+  const vx0 = Math.max(0, -ox);
+  const vy0 = Math.max(0, -oy);
+  const vx1 = Math.min(mundo.w, W - ox);
+  const vy1 = Math.min(mundo.h, H - oy);
+  if (vx1 <= vx0 || vy1 <= vy0) return;
+  const quieto = mundoDeAntes !== null && mundoDeAntes.w === mundo.w && mundoDeAntes.h === mundo.h;
+  mundoDeAntes = mundo;
+  const mx = Math.ceil(W * MARGEN_DE_LA_LUZ);
+  const my = Math.ceil(H * MARGEN_DE_LA_LUZ);
+  const x0 = Math.max(0, vx0 - mx);
+  const y0 = Math.max(0, vy0 - my);
+  const w = Math.min(mundo.w, vx1 + mx) - x0;
+  const h = Math.min(mundo.h, vy1 + my) - y0;
+  if (!quieto || w * h > TOPE_DE_LA_LUZ) {
+    luzSinGuardar(ctx, luz, m);
+    return;
+  }
+  let g = luzGuardada;
+  const vale =
+    g !== null &&
+    g.mascara === mk.lienzo &&
+    (g.alza !== null) === (luz.alza !== null) &&
+    g.huecos === luz.huecos &&
+    g.mundo.w === mundo.w &&
+    g.mundo.h === mundo.h &&
+    vx0 >= g.x0 &&
+    vy0 >= g.y0 &&
+    vx1 <= g.x0 + g.w &&
+    vy1 <= g.y0 + g.h;
+  if (!vale) {
+    // Los lienzos se reutilizan: rehacerla no pide memoria nueva.
+    const lienzo = g === null ? lienzoCon(w, h) : { lienzo: g.lienzo, c: g.c };
+    const alza = luz.alza === null ? null : (g?.alza ?? lienzoCon(w, h));
+    g = { ...lienzo, alza, mascara: mk.lienzo, huecos: luz.huecos, mundo, x0, y0, w, h };
+    luzGuardada = g;
+    hacerLaLuz(g, luz, t.a);
+  }
+  if (g === null) return;
+  // Entera, sin escalar y sin recortar la fuente: el lienzo recorta lo que no se
+  // ve gratis, y copiar un trozo (`drawImage` con nueve argumentos) costaba el
+  // doble por píxel (2,2 ms frente a 1,0 por 1,1 M píxeles, 22-10-2026).
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.drawImage(g.lienzo, ox + g.x0, oy + g.y0);
+  if (g.alza !== null) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(g.alza.lienzo, ox + g.x0, oy + g.y0);
+  }
+  ctx.restore();
+}
+
+/**
+ * Pinta la luz guardada (y lo que suma la noche, si lo hay): cada máscara a un
+ * cuarto con suavizado (barato) y de ahí ampliada sin suavizado, como se
+ * componía cada fotograma, y los huecos de los fuegos a su tamaño: blancos en la
+ * luz (no oscurece) y fuera de lo que suma (no azulea).
+ */
+function hacerLaLuz(g: NonNullable<typeof luzGuardada>, luz: LuzDelMundo, d: number): void {
+  ampliarEn(g, g.mascara, g.lienzo, g.c, 'source-over', d);
+  if (g.alza !== null && luz.alza !== null) {
+    ampliarEn(g, luz.alza.lienzo, g.alza.lienzo, g.alza.c, 'destination-out', d);
+  }
+}
+
+/** Una máscara del mundo ampliada en `lienzo` (lo que cubre `g`), con los huecos de los fuegos en `op`. */
+function ampliarEn(
+  g: NonNullable<typeof luzGuardada>,
+  mascara: Lienzo,
+  lienzo: Lienzo,
+  c: Capa['c'],
+  op: GlobalCompositeOperation,
+  d: number,
+): void {
+  if (lienzo.width !== g.w || lienzo.height !== g.h) {
+    lienzo.width = g.w;
+    lienzo.height = g.h;
+  }
+  const k = ESCALA_DEL_AIRE;
+  const cuarto = capa(2, g.w, g.h);
+  cuarto.c.imageSmoothingEnabled = true;
+  cuarto.c.drawImage(mascara, -g.x0 * k, -g.y0 * k, g.mundo.w * k, g.mundo.h * k);
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.globalCompositeOperation = 'copy';
+  c.imageSmoothingEnabled = false;
+  const { width: cw, height: ch } = cuarto.lienzo;
+  c.drawImage(cuarto.lienzo, 0, 0, cw, ch, 0, 0, cw / k, ch / k);
+  c.globalCompositeOperation = op;
+  for (const l of g.huecos) {
+    const hueco = fuegoDe('hueco', l.r * d);
+    c.drawImage(
+      hueco,
+      Math.round(l.x * d - g.x0 - hueco.width / 2),
+      Math.round(l.y * d - g.y0 - hueco.height / 2),
+    );
+  }
+  c.globalCompositeOperation = 'source-over';
+}
+
+/** La luz del mapa sin guardarla (con el zoom en marcha): la capa a un cuarto, compuesta sobre el mundo. */
+function luzSinGuardar(ctx: CanvasRenderingContext2D, luz: LuzDelMundo, m: MarcoDelClima): void {
+  const k = ESCALA_DEL_AIRE;
+  const { lienzo, c } = capa(2, m.ancho, m.alto);
+  c.fillStyle = '#fff';
+  c.fillRect(0, 0, lienzo.width, lienzo.height);
+  enLaCapa(c, luz.mascara, lienzo.width, lienzo.height);
+  const mk = luz.mascara;
+  for (const l of luz.huecos) {
+    const hueco = fuegoDe('hueco', l.r * k);
+    c.drawImage(
+      hueco,
+      Math.round((mk.x + l.x) * k - hueco.width / 2),
+      Math.round((mk.y + l.y) * k - hueco.height / 2),
+    );
+  }
+  componer(ctx, lienzo, m, 'multiply', mk);
+  if (luz.alza === null) return;
+  const z = capa(1, m.ancho, m.alto);
+  enLaCapa(z.c, luz.alza, z.lienzo.width, z.lienzo.height);
+  z.c.globalCompositeOperation = 'destination-out';
+  for (const l of luz.huecos) {
+    const hueco = fuegoDe('hueco', l.r * k);
+    z.c.drawImage(
+      hueco,
+      Math.round((mk.x + l.x) * k - hueco.width / 2),
+      Math.round((mk.y + l.y) * k - hueco.height / 2),
+    );
+  }
+  componer(ctx, z.lienzo, m, 'lighter', mk);
 }
 
 // ------------------------------------------------------------ la lluvia
 
 /**
  * Las gotas de una lluvia, en dos planos (lejos: cortas, tenues y lentas; cerca:
- * más largas), directo en `ctx` y **en píxeles de dispositivo**: líneas de un
- * píxel de verdad, alineadas a él, que es el camino rápido del rasterizador.
- * `dentro` dice si una gota cae donde llueve (en px CSS).
+ * más largas), directo en `ctx` y **en píxeles de dispositivo**, alineadas a
+ * ellos, que es el camino rápido del rasterizador: del grueso de un píxel CSS
+ * (`GROSOR_DE_LA_GOTA`), en píxeles enteros, y del largo que manda el plano por
+ * la densidad. De un píxel de dispositivo, con dpr 3 eran un tercio de píxel y no
+ * se veían (H7 del QA del clima, 22-10-2026). `dentro` dice si una gota cae donde
+ * llueve (en px CSS).
  */
 function pintarLluvia(
   ctx: CanvasRenderingContext2D,
@@ -424,10 +661,13 @@ function pintarLluvia(
     { parte: 0.6, largo: 10, velocidad: 0.62, alfa: 0.55 },
     { parte: 0.4, largo: 18, velocidad: 0.95, alfa: 1 },
   ];
+  const grueso = Math.max(1, Math.round(GROSOR_DE_LA_GOTA * d));
+  // Una línea de grueso impar va por el medio de un píxel; de grueso par, por su borde.
+  const medio = grueso % 2 === 1 ? 0.5 : 0;
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.lineCap = 'butt';
-  ctx.lineWidth = 1;
+  ctx.lineWidth = grueso;
   let i0 = 0;
   for (const p of planos) {
     const cuantas = Math.round(n * p.parte);
@@ -441,7 +681,7 @@ function pintarLluvia(
       const x = (((azar(i * 2) * W + y * lluvia.viento) % W) + W) % W;
       const y0 = Math.round(y - largo);
       if (dentro !== null && !dentro(x / a, y / d)) continue;
-      const x0 = Math.round(x + e) + 0.5;
+      const x0 = Math.round(x + e) + medio;
       ctx.moveTo(x0, y0 + f);
       ctx.lineTo(x0 + dx, y0 + f + largo);
     }
@@ -591,6 +831,7 @@ export function campoDeEscena(sitio: ClimaDelSitio, e: Escena): CampoDelClima {
   const cielo = e.cielo ?? e.alto / 3;
   return {
     luz: luzDe(sitio),
+    alza: alzaDe(sitio),
     bruma: r.bruma,
     bancos:
       r.bancos === null
@@ -636,9 +877,14 @@ export function hornearElVelo(
     ctx.fillStyle = css(campo.bruma);
     ctx.fillRect(0, 0, ancho, alto);
   }
-  if (campo.luz !== null && !esMascara(campo.luz)) {
+  if (campo.luz !== null && !esLuzDelMundo(campo.luz)) {
     ctx.globalCompositeOperation = 'multiply';
     ctx.fillStyle = css(campo.luz);
+    ctx.fillRect(0, 0, ancho, alto);
+  }
+  if (campo.alza !== null) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = css(campo.alza);
     ctx.fillRect(0, 0, ancho, alto);
   }
   ctx.restore();
@@ -650,10 +896,11 @@ export function hornearElVelo(
  * es oscura). Solo para una escena sin fuegos: la luz con fuegos no se hornea.
  */
 export function sinElVelo(campo: CampoDelClima): CampoDelClima {
-  const luz = campo.luz !== null && !esMascara(campo.luz) ? campo.luz : null;
+  const luz = campo.luz !== null && !esLuzDelMundo(campo.luz) ? campo.luz : null;
   return {
     ...campo,
     luz: null,
+    alza: null,
     bruma: null,
     bancos: campo.bancos === null ? null : { ...campo.bancos, tinte: luz },
   };
@@ -671,6 +918,37 @@ export interface ClimaDelMapa {
   readonly alto: number;
   /** Los fuegos de ciudades y pueblos, en casillas del mundo (`Escena.luces` de clase `fuego`). */
   readonly fuegos: readonly { readonly x: number; readonly y: number; readonly r: number }[];
+}
+
+let huecosHechos: {
+  readonly fuegos: ClimaDelMapa['fuegos'];
+  /** Qué regiones son de noche: el espectador trae un clima nuevo con cada fotograma del cable. */
+  readonly noches: string;
+  readonly t: number;
+  readonly huecos: readonly LuzDeNoche[];
+} | null = null;
+
+/**
+ * Los fuegos de ciudades y pueblos que caen en una región de noche (por el
+ * frente), en px CSS desde el origen del mundo y con su radio a este zoom. Se
+ * hacen al cambiar el clima o el zoom, y la misma lista mientras no cambian: es
+ * lo que mira la luz guardada para saber si sigue valiendo.
+ */
+function huecosDeNoche(m: ClimaDelMapa, t: number): readonly LuzDeNoche[] {
+  const regiones = m.clima.regiones;
+  const noches = regiones.map((r) => (r.noche ? 1 : 0)).join('');
+  const h = huecosHechos;
+  if (h !== null && h.fuegos === m.fuegos && h.noches === noches && h.t === t) return h.huecos;
+  const huecos: LuzDeNoche[] = [];
+  if (regiones.some((r) => r.noche)) {
+    const enFrente = regionEnElFrente(m.mapa, m.semilla);
+    for (const f of m.fuegos) {
+      if (regiones[enFrente(f.x, f.y)]?.noche === true)
+        huecos.push({ x: f.x * t, y: f.y * t, r: f.r * 1.7 * t });
+    }
+  }
+  huecosHechos = { fuegos: m.fuegos, noches, t, huecos };
+  return huecos;
 }
 
 /**
@@ -691,19 +969,18 @@ function campoDelMapa(m: ClimaDelMapa): CampoDelClima | null {
     alto: mapa.height * t,
   });
   const regiones = m.clima.regiones;
-  const enFrente = regionEnElFrente(mapa, m.semilla);
   const k = mk.px / t;
+  // Los fuegos de las regiones de noche: los huecos, todos y desde el origen del
+  // mundo (la luz guardada los lleva aunque no se vean aún); el resplandor, solo
+  // los que se ven, en px del lienzo.
+  const huecos = huecosDeNoche(m, t);
+  const margen = 3 * t;
   const luces: LuzDeNoche[] = [];
-  if (regiones.some((r) => r.noche)) {
-    // Los fuegos que se ven y caen en una región de noche, en px del lienzo.
-    const margen = 3 * t;
-    for (const f of m.fuegos) {
-      const p = mundoAPixel(camara, f.x, f.y);
-      if (p.x < -margen || p.y < -margen || p.x > m.ancho + margen || p.y > m.alto + margen)
-        continue;
-      if (regiones[enFrente(f.x, f.y)]?.noche === true)
-        luces.push({ x: p.x, y: p.y, r: f.r * 1.7 * t });
-    }
+  for (const f of huecos) {
+    const x = o.x + f.x;
+    const y = o.y + f.y;
+    if (x < -margen || y < -margen || x > m.ancho + margen || y > m.alto + margen) continue;
+    luces.push({ x, y, r: f.r });
   }
   const radio = RADIO_DEL_RAYO_EN_EL_MAPA * t;
   const rayos: FocoDeRayo[] = [];
@@ -725,7 +1002,11 @@ function campoDelMapa(m: ClimaDelMapa): CampoDelClima | null {
     });
   }
   return {
-    luz: mk.luz === null ? null : colocada(mk.luz),
+    luz:
+      mk.luz === null
+        ? null
+        : { mascara: colocada(mk.luz), alza: mk.alza === null ? null : colocada(mk.alza), huecos },
+    alza: null,
     bruma: mk.bruma === null ? null : colocada(mk.bruma),
     bancos:
       mk.bancos === null

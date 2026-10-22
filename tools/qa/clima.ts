@@ -61,21 +61,31 @@ const ESCENAS_DE_FPS = args
 
 /** La semilla de la partida: el héroe nace en `region-0`, junto a `region-5` y `region-8`. */
 const SEMILLA = 7;
-/** Los climas que se miran; el último, por región, con su frente a la vista. */
+/**
+ * Los climas que se miran; el último, por región, con su frente a la vista. Cada
+ * tiempo **con su noche dicha** (`dia` o `noche`): un `?clima=despejado` solo
+ * fija el tiempo, y la noche sigue saliendo de la semilla (la 7 abre el día 1
+ * con tres regiones de noche). Sin `dia`, el «despejado» de la tabla de fps
+ * pintaba la luz de esas noches, y la `noche` era la niebla de la semilla de
+ * noche (vuelta de QA 1, 22-10-2026).
+ */
 const CLIMAS = [
-  'despejado',
-  'niebla',
-  'lluvia',
-  'tormenta',
-  'noche',
+  'despejado,dia',
+  'niebla,dia',
+  'lluvia,dia',
+  'tormenta,dia',
+  'despejado,noche',
   'tormenta,noche',
-  'despejado,region-0:tormenta,region-5:niebla,region-8:lluvia,region-4:noche',
+  'despejado,dia,region-0:tormenta,region-5:niebla,region-8:lluvia,region-4:noche',
 ] as const;
+/** El despejado de día: contra el que se comparan los fps y lo inexplorado. */
+const DESPEJADO = CLIMAS[0];
 /** Lo que se mide de fps: los cuatro tiempos, la noche y la mezcla. */
-const CLIMAS_DE_FPS: readonly string[] = args
-  .find((a) => a.startsWith('--climas='))
-  ?.slice('--climas='.length)
-  .split(';') ?? ['niebla', 'lluvia', 'tormenta', 'noche', CLIMAS[6]];
+const CLIMAS_DE_FPS: readonly string[] =
+  args
+    .find((a) => a.startsWith('--climas='))
+    ?.slice('--climas='.length)
+    .split(';') ?? CLIMAS.slice(1);
 /** Cuánto pueden perder los fps con clima frente al despejado (criterio 6). */
 const PERDIDA_MAXIMA = 0.1;
 
@@ -84,7 +94,11 @@ function log(msg: string): void {
 }
 
 const nombreDe = (clima: string): string =>
-  clima.includes(':') ? 'mezcla' : clima.replace(',', '-');
+  clima.includes(':')
+    ? 'mezcla'
+    : clima === 'despejado,noche'
+      ? 'noche'
+      : clima.replace(/,dia$/, '').replace(',', '-');
 
 const errores: string[] = [];
 function vigilar(page: Page, quien: string): void {
@@ -162,7 +176,7 @@ async function capturas(browser: Browser, url: string): Promise<void> {
     vigilar(page, n);
     await abrirLaPartida(page, url, clima);
     await guardar(page, `base-${n}`);
-    if (clima === 'noche' || clima === 'lluvia') {
+    if (n === 'noche' || n === 'lluvia') {
       await page.click('[data-action="ir-a-sitio"][data-sitio="lvl1"]');
       await page
         .waitForSelector('#app[data-escena="morada"]', { timeout: 15_000 })
@@ -480,7 +494,9 @@ async function fps(browser: Browser, url: string): Promise<void> {
     escena: string;
     clima: string;
     fps: number;
+    mejor: number;
     despejado: number;
+    mejorDespejado: number;
     cpu: number;
     cpuDespejado: number;
   }[] = [];
@@ -545,7 +561,7 @@ async function fps(browser: Browser, url: string): Promise<void> {
       escena: 'mapa 4K',
       ancho: 3840,
       alto: 2160,
-      climas: ['tormenta'],
+      climas: ['tormenta,dia'],
       hacer: (clima) => async (page) => {
         await abrirLaPartida(page, url, clima);
         await page.click('[data-action="close-town"]');
@@ -563,7 +579,7 @@ async function fps(browser: Browser, url: string): Promise<void> {
     if (ESCENAS_DE_FPS !== undefined && !ESCENAS_DE_FPS.includes(e.escena)) continue;
     const todas = new Map<string, Medida[]>();
     for (let vuelta = 0; vuelta < 2; vuelta++) {
-      for (const clima of ['despejado', ...e.climas]) {
+      for (const clima of [DESPEJADO, ...e.climas]) {
         const m = await medir(e.escena, e.ancho, e.alto, clima, e.hacer(clima));
         todas.set(clima, [...(todas.get(clima) ?? []), ...m]);
       }
@@ -573,32 +589,34 @@ async function fps(browser: Browser, url: string): Promise<void> {
       filas.push({
         escena: `${e.escena} ${e.ancho}×${e.alto}`,
         clima,
-        fps: Math.max(...de(clima).map((m) => m.fps)),
-        despejado: Math.max(...de('despejado').map((m) => m.fps)),
+        fps: mediana(de(clima).map((m) => m.fps)),
+        mejor: Math.max(...de(clima).map((m) => m.fps)),
+        despejado: mediana(de(DESPEJADO).map((m) => m.fps)),
+        mejorDespejado: Math.max(...de(DESPEJADO).map((m) => m.fps)),
         cpu: mediana(de(clima).map((m) => m.cpu)),
-        cpuDespejado: mediana(de('despejado').map((m) => m.cpu)),
+        cpuDespejado: mediana(de(DESPEJADO).map((m) => m.cpu)),
       });
     }
   }
   console.log(`\nfps del clima, ${fecha} (Chromium sin GPU de Playwright, máquina compartida)`);
   console.log(
-    '| escena | clima | fps despejado | fps con clima | CPU/fotograma despejado | con clima | fps que deja la CPU |',
+    '| escena | clima | fps despejado (mediana · mejor) | fps con clima (mediana · mejor) | CPU/fotograma despejado | con clima |',
   );
-  console.log('|---|---|---|---|---|---|---|');
+  console.log('|---|---|---|---|---|---|');
   for (const f of filas) {
-    // Lo que se juzga es el criterio tal cual: los fps, el mejor de seis
-    // ventanas contra el mejor del despejado. La CPU por fotograma va al lado
-    // porque baila menos con la carga ajena: lo que el clima añade, sobre el
-    // fotograma del despejado, da los fps que quedarían si la página fuera
-    // solo CPU (es pesimista: el tope de 60 deja holgura).
+    // Lo que se juzga es la **mediana** de las seis ventanas contra la del
+    // despejado (H9 de la vuelta de QA 1: con el mejor de seis, una noche que
+    // perdía un 22 % en dos de cada tres ventanas pasaba). El mejor va al lado,
+    // que dice lo que da la página cuando la máquina la deja, y la CPU por
+    // fotograma, que baila menos con la carga ajena.
     const dif = (f.fps - f.despejado) / f.despejado;
-    const estimada = 1000 / (1000 / f.despejado + Math.max(0, f.cpu - f.cpuDespejado));
-    const difCpu = (estimada - f.despejado) / f.despejado;
+    const difMejor = (f.mejor - f.mejorDespejado) / f.mejorDespejado;
+    const pc = (x: number): string => `${(x * 100).toFixed(1)} %`;
     console.log(
-      `| ${f.escena} | ${nombreDe(f.clima)} | ${f.despejado.toFixed(1)} | ${f.fps.toFixed(1)} (${(dif * 100).toFixed(1)} %) | ${f.cpuDespejado.toFixed(1)} ms | ${f.cpu.toFixed(1)} ms | ${estimada.toFixed(1)} (${(difCpu * 100).toFixed(1)} %) |`,
+      `| ${f.escena} | ${nombreDe(f.clima)} | ${f.despejado.toFixed(1)} · ${f.mejorDespejado.toFixed(1)} | ${f.fps.toFixed(1)} (${pc(dif)}) · ${f.mejor.toFixed(1)} (${pc(difMejor)}) | ${f.cpuDespejado.toFixed(1)} ms | ${f.cpu.toFixed(1)} ms |`,
     );
     if (!f.escena.includes('3840') && dif < -PERDIDA_MAXIMA) {
-      errores.push(`${f.escena} con ${nombreDe(f.clima)}: ${(dif * 100).toFixed(1)} % de fps`);
+      errores.push(`${f.escena} con ${nombreDe(f.clima)}: ${pc(dif)} de fps (mediana)`);
     }
   }
 }

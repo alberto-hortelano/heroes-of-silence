@@ -29,6 +29,7 @@ import {
   type Side,
 } from '@core/battle/types.js';
 import { isShooter } from '@core/data.js';
+import { createRng, hashDeTexto } from '@core/rng.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { COMPRESION_SUELO } from '../../shared/arte.js';
@@ -45,7 +46,7 @@ import {
   pintarSueloDelClima,
   sinElVelo,
 } from './clima/clima.js';
-import { cieloDe } from './clima/recetas.js';
+import { cieloDe, EFECTOS, luzDeLasFiguras, type Receta } from './clima/recetas.js';
 import {
   colocarFigura,
   type Figura,
@@ -1470,6 +1471,7 @@ export function pintarFondo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): v
     c.imageSmoothingEnabled = true;
     componerFondo(c, v, campo);
     hornearElVelo(c, campoDeEscena(clima, v), v.ancho, v.alto);
+    if (clima.noche && campo !== null) pintarAstros(c, v, campo, EFECTOS[clima.tiempo].astros, dpr);
     fondo = { clave, campo, lienzo };
   }
   ctx.drawImage(fondo.lienzo, 0, 0, v.ancho, v.alto);
@@ -1485,14 +1487,8 @@ function componerFondo(
     // El horizonte del fondo (el 47 % de su alto, donde acaba el empedrado) va
     // en `v.horizonte`. Y la escala nunca deja el fondo más estrecho que el
     // lienzo ni corto por abajo.
-    const HORIZONTE = 0.47;
-    const W = campo.naturalWidth;
-    const H = campo.naturalHeight;
-    const arriba = v.horizonte;
-    const escala = Math.max(v.ancho / W, (v.alto - arriba) / ((1 - HORIZONTE) * H));
-    const w = W * escala;
-    const h = H * escala;
-    ctx.drawImage(campo, (v.ancho - w) / 2, arriba - HORIZONTE * h, w, h);
+    const r = dondeVaElCampo(v, campo);
+    ctx.drawImage(campo, r.x, r.y, r.w, r.h);
     ctx.fillStyle = 'rgba(10,12,8,0.22)';
     ctx.fillRect(0, 0, v.ancho, v.alto);
     return;
@@ -1503,6 +1499,24 @@ function componerFondo(
   degradado.addColorStop(1, '#4d4630');
   ctx.fillStyle = degradado;
   ctx.fillRect(0, 0, v.ancho, v.alto);
+}
+
+/**
+ * Dónde va la imagen del campo: el horizonte del fondo (el 47 % de su alto,
+ * donde acaba el empedrado) en `v.horizonte`, y la escala que nunca deja el
+ * fondo más estrecho que el lienzo ni corto por abajo.
+ */
+function dondeVaElCampo(
+  v: LienzoDelCampo,
+  campo: HTMLImageElement,
+): { x: number; y: number; w: number; h: number } {
+  const HORIZONTE = 0.47;
+  const W = campo.naturalWidth;
+  const H = campo.naturalHeight;
+  const escala = Math.max(v.ancho / W, (v.alto - v.horizonte) / ((1 - HORIZONTE) * H));
+  const w = W * escala;
+  const h = H * escala;
+  return { x: (v.ancho - w) / 2, y: v.horizonte - HORIZONTE * h, w, h };
 }
 
 /**
@@ -1523,6 +1537,98 @@ function pintarCielo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
   cielo.addColorStop(1, abajo);
   ctx.fillStyle = cielo;
   ctx.fillRect(0, 0, v.ancho, v.alto);
+  const nubes = EFECTOS[(v.clima ?? DESPEJADO).tiempo].nubes;
+  if (nubes !== null) pintarNubesBajas(ctx, v, nubes);
+}
+
+/**
+ * Las nubes bajas de la lluvia y la tormenta: bancos de óvalos difuminados a lo
+ * largo del horizonte, más densos abajo, con su propia corriente de azar (son
+ * las mismas cada vez). Van bajo la luz del clima, que las oscurece con el cielo.
+ */
+function pintarNubesBajas(
+  ctx: CanvasRenderingContext2D,
+  v: LienzoDelCampo,
+  nubes: NonNullable<Receta['nubes']>,
+): void {
+  const linea = Math.max(1, v.horizonte);
+  const rng = createRng(hashDeTexto(`nubes|${nubes.cuantas}`));
+  const n = Math.round(10 + 22 * nubes.cuantas);
+  const [r, g, b] = nubes.color;
+  for (let i = 0; i < n; i++) {
+    const x = rng.next() * v.ancho;
+    // Más abajo cuanto más avanzan: las del fondo, sobre la línea de los árboles.
+    const y = linea * (0.25 + 0.75 * (i / n) * (0.6 + 0.4 * rng.next()));
+    const rx = v.ancho * (0.08 + 0.12 * rng.next());
+    const ry = linea * (0.1 + 0.12 * rng.next());
+    const a = 0.45 + 0.4 * rng.next();
+    const d = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    d.addColorStop(0, `rgba(${r},${g},${b},${a})`);
+    d.addColorStop(0.6, `rgba(${r},${g},${b},${a * 0.6})`);
+    d.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(rx, ry);
+    ctx.fillStyle = d;
+    ctx.fillRect(-1, -1, 2, 2);
+    ctx.restore();
+  }
+}
+
+/**
+ * La luna y las estrellas de la noche, encima de la luz del clima (no la
+ * oscurecen: brillan) y detrás de los árboles: se pintan aparte y se recortan
+ * por la silueta del campo. Con niebla, solo la luna, velada.
+ */
+function pintarAstros(
+  ctx: CanvasRenderingContext2D,
+  v: LienzoDelCampo,
+  campo: HTMLImageElement,
+  astros: Receta['astros'],
+  dpr: number,
+): void {
+  if (astros === null) return;
+  const linea = Math.max(1, v.horizonte);
+  const capa = document.createElement('canvas');
+  capa.width = Math.max(1, Math.ceil(v.ancho * dpr));
+  capa.height = Math.max(1, Math.ceil(v.alto * dpr));
+  const c = capa.getContext('2d');
+  if (c === null) throw new Error('este navegador no tiene canvas 2D para el cielo de la batalla');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const rng = createRng(hashDeTexto('estrellas'));
+  if (astros === 'luna-y-estrellas') {
+    for (let i = 0; i < 140; i++) {
+      const x = rng.next() * v.ancho;
+      // Más y más claras arriba, que el horizonte tiene aún algo de luz.
+      const alto = rng.next() * rng.next();
+      const y = linea * 0.95 * alto;
+      const brillo = (0.35 + 0.6 * rng.next()) * (1 - alto * 0.6);
+      const lado = rng.next() < 0.12 ? 1.8 : 1.1;
+      c.fillStyle = `rgba(225,232,255,${brillo})`;
+      c.fillRect(x, y, lado, lado);
+    }
+  }
+  const radio = Math.max(6, Math.min(v.ancho * 0.015, linea * 0.12));
+  const lx = v.ancho * 0.78;
+  const ly = linea * 0.3;
+  const velada = astros === 'luna';
+  const halo = c.createRadialGradient(lx, ly, radio * 0.8, lx, ly, radio * (velada ? 7 : 4.5));
+  halo.addColorStop(0, `rgba(200,214,255,${velada ? 0.3 : 0.22})`);
+  halo.addColorStop(1, 'rgba(200,214,255,0)');
+  c.fillStyle = halo;
+  c.fillRect(0, 0, v.ancho, linea * 1.2);
+  c.fillStyle = velada ? 'rgba(226,232,246,0.55)' : '#eef1fa';
+  c.beginPath();
+  c.arc(lx, ly, radio, 0, Math.PI * 2);
+  c.fill();
+  // Detrás de los árboles: fuera lo que tapa el campo.
+  const r = dondeVaElCampo(v, campo);
+  c.globalCompositeOperation = 'destination-out';
+  c.drawImage(campo, r.x, r.y, r.w, r.h);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(capa, 0, 0);
+  ctx.restore();
 }
 
 /**
@@ -1564,6 +1670,9 @@ function figuraDe(
     // El destello del golpe, que se apaga en el primer 60 % de lo que dura.
     destello: f.golpe > 0 && f.golpe < 0.6 ? 1 - f.golpe / 0.6 : 0,
     rotulo: s.unit.name.slice(0, 3),
+    // La luz del clima, en parte (`luzDeLasFiguras`): de noche no van con la de
+    // la tarde. El aro, las casillas y las barras, sin teñir.
+    luz: luzDeLasFiguras(v.clima.sitio),
   };
 }
 

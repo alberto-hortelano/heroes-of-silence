@@ -44,6 +44,7 @@ import {
   pintarAireDelClima,
   pintarSueloDelClima,
 } from '../clima/clima.js';
+import { luzDeLasFiguras } from '../clima/recetas.js';
 import { CacheDeLienzos } from '../copias.js';
 import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
@@ -308,6 +309,8 @@ function pintarPersona(
     // el alcaide se perdía entre los vecinos.
     color: e.pnj ? COLOR_NEUTRO : v.color,
     rotulo: e.nombre.charAt(0).toUpperCase(),
+    // La luz de la noche o de la tormenta, en parte: que no parezcan pegadas.
+    luz: v.clima === null ? undefined : luzDeLasFiguras(v.clima.sitio),
   };
   pintarFiguraConSombra(
     ctx,

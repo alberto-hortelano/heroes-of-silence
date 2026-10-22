@@ -46,7 +46,8 @@ npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (goo
   `clima-de-la-url.ts`). Fuerza lo que se pinta, no la noche que leen las reglas, y
   `hayQuePreguntar` no lo mira: con el menú, lo que no se entiende se dice al cargar (`pedirPartida`)
   y una región que el mapa no tiene, al abrir la partida, pidiendo quitar solo `?clima=`. `pnpm capturas` abre toda partida y todo espectador con
-  `clima=despejado`, decidido una vez para su navegador (`conElClimaDespejado`).
+  `clima=despejado,dia`, decidido una vez para su navegador (`conElClimaDespejado`): `despejado`
+  solo fija el tiempo, y la noche de la semilla seguía en sus regiones.
 - **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
   `unidades/<id>/dN/`, solo `atlas.webp`; ninguna carpeta `fuentes/` ni `_guias/`, a cualquier altura;
   y nada de `art/` (láminas y referencias de estilo) (`seCopiaAlBuild`, `tools/build/publico.ts`,

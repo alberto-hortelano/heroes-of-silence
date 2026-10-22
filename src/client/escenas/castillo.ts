@@ -41,12 +41,14 @@ import {
 } from '../render/base/escena.js';
 import { type Golpe, queHayBajo } from '../render/base/golpe.js';
 import { type PintadoDeLaBase, pintarBase, pintarElAireDeLaBase } from '../render/base/pintar.js';
+import { luzDeLasFiguras } from '../render/clima/recetas.js';
 import { animarHasta } from '../render/figura.js';
 import { densidadDe } from '../render/lienzo.js';
 import { dondeEsperaEnLaMorada } from '../render/morada/fila.js';
 import { playerColor } from '../render/palette.js';
 import { ALTO_DE_FIGURA, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, type Session } from '../session.js';
+import type { ClimaDeLaFila } from './morada.js';
 
 /**
  * Cuánto más deprisa se anda en la base que en una batalla. Con el paso del
@@ -308,8 +310,8 @@ export class EscenaBase {
    * de la morada (`encuadrarLaMorada`): la plaza de siempre, ese edificio cambiado
    * por su versión abierta si la hay (`conLaAbierta`; si no, su exterior), quien
    * anduvo quieto en su puerta y nadie más. No toca la cámara de la base ni su
-   * lienzo: al volver, la base está como se dejó. Devuelve lo que va encima de
-   * la fila de reclutas: la lluvia y el rayo de la base.
+   * lienzo: al volver, la base está como se dejó. Devuelve el clima de la fila
+   * de reclutas: la luz que les cae y lo que va delante (la lluvia y el rayo).
    */
   pintarLaMorada(
     ctx: CanvasRenderingContext2D,
@@ -317,7 +319,7 @@ export class EscenaBase {
     camara: Tablero,
     edificio: string,
     ahora: number,
-  ): (() => void) | null {
+  ): ClimaDeLaFila | null {
     const b = this.base();
     if (b === null) return null;
     const v: PintadoDeLaBase = {
@@ -332,7 +334,10 @@ export class EscenaBase {
       sinAire: true,
     };
     pintarBase(ctx, v);
-    return () => pintarElAireDeLaBase(ctx, v);
+    return {
+      luz: v.clima === null ? undefined : luzDeLasFiguras(v.clima.sitio),
+      delante: () => pintarElAireDeLaBase(ctx, v),
+    };
   }
 
   /** El arte de la base de `vista`, con los recortes de lo construido. */

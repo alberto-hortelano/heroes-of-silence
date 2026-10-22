@@ -18,7 +18,7 @@ import { type ClimaDeLaPartida, regionDelClima } from '@core/state/clima.js';
 import { desenfocar } from '../escenario/escalon.js';
 import { fbm, ruidoDe } from '../escenario/fronteras.js';
 import { type Lienzo, lienzoCon } from '../escenario/pintar.js';
-import { EFECTOS, type Lluvia, luzDe } from './recetas.js';
+import { alzaDe, EFECTOS, type Lluvia, luzDe } from './recetas.js';
 
 /** Píxeles por casilla de las máscaras del mundo. */
 const PX_DE_LA_MASCARA = 8;
@@ -111,6 +111,8 @@ export interface MascarasDelMapa {
   readonly alto: number;
   /** La luz de cada región (blanco donde no oscurece), opaca: se pinta con `multiply`. */
   readonly luz: Lienzo | null;
+  /** Lo que suma la noche de cada región (negro donde no es de noche), opaca: se pinta con `lighter`. */
+  readonly alza: Lienzo | null;
   /** La bruma de cada región, en color. */
   readonly bruma: Lienzo | null;
   /** Los bancos de niebla: su opacidad en el alfa. */
@@ -160,7 +162,9 @@ function hacerMascaras(
   const regiones = clima.regiones;
   const recetas = regiones.map((r) => EFECTOS[r.tiempo]);
   const luces = regiones.map(luzDe);
+  const alzas = regiones.map(alzaDe);
   const hayLuz = luces.some((l) => l !== null);
+  const hayAlza = alzas.some((l) => l !== null);
   const hayBruma = recetas.some((r) => r.bruma !== null);
   const hayBancos = recetas.some((r) => r.bancos !== null);
   // Una máscara de lluvia por lluvia distinta (cada tiempo con la suya).
@@ -176,6 +180,7 @@ function hacerMascaras(
   // el escalón. La bruma, premultiplicada: así el desenfoque no saca un cerco del
   // color de la región de al lado donde una de las dos no lleva bruma.
   const luz = hayLuz ? [0, 1, 2].map(() => new Float32Array(N).fill(255)) : null;
+  const alza = hayAlza ? [0, 1, 2].map(() => new Float32Array(N)) : null;
   const bruma = hayBruma ? [0, 1, 2, 3].map(() => new Float32Array(N)) : null;
   const bancos = hayBancos ? new Float32Array(N) : null;
   const llueve = lluvias.map(() => new Uint8Array(N));
@@ -187,6 +192,10 @@ function hacerMascaras(
       const l = luces[k];
       if (luz !== null && l !== null && l !== undefined) {
         for (let c = 0; c < 3; c++) (luz[c] as Float32Array)[i] = l[c] as number;
+      }
+      const z = alzas[k];
+      if (alza !== null && z !== null && z !== undefined) {
+        for (let c = 0; c < 3; c++) (alza[c] as Float32Array)[i] = z[c] as number;
       }
       const r = recetas[k];
       if (r === undefined) continue;
@@ -206,6 +215,7 @@ function hacerMascaras(
     ancho: w,
     alto: h,
     luz: luz === null ? null : lienzoDeLaLuz(w, h, luz.map(blando)),
+    alza: alza === null ? null : lienzoDeLaLuz(w, h, alza.map(blando)),
     bruma: bruma === null ? null : lienzoDeLaBruma(w, h, bruma.map(blando)),
     bancos: bancos === null ? null : lienzoDeLosBancos(w, h, blando(bancos)),
     lluvias: lluvias.map((lluvia, j) => ({
@@ -216,7 +226,7 @@ function hacerMascaras(
   };
 }
 
-/** La luz, opaca: blanco donde no oscurece. */
+/** La luz (blanco donde no oscurece) o lo que suma la noche (negro donde no suma), opaca. */
 function lienzoDeLaLuz(w: number, h: number, planos: readonly Float32Array[]): Lienzo {
   const [R, G, B] = planos as [Float32Array, Float32Array, Float32Array];
   return aLienzo(w, h, (img, i) => {

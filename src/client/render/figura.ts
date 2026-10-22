@@ -119,6 +119,20 @@ export interface Figura {
   readonly destello?: number;
   /** Rótulo del marcador sin arte: la inicial o la abreviatura. */
   readonly rotulo: string;
+  /**
+   * La luz que le cae del clima (`luzDeLasFiguras`), o nada a plena luz. Solo la
+   * figura: su sombra, su aro y lo que se escribe encima van sin teñir. El mapa no
+   * la usa: allí el clima se pinta encima de todo lo que tiene altura.
+   */
+  readonly luz?: LuzSobreLaFigura | undefined;
+}
+
+/** La luz del clima sobre una figura: un color que se multiplica y, de noche, uno que se suma. */
+export interface LuzSobreLaFigura {
+  /** Color CSS que se multiplica (`multiply`): la noche, la lluvia. */
+  readonly por: string;
+  /** Color CSS que se suma después (`lighter`): la luna; `null` de día. */
+  readonly mas: string | null;
 }
 
 /**
@@ -312,15 +326,34 @@ export function pintarSombraDeFigura(ctx: CanvasRenderingContext2D, c: FiguraCol
  * relleno había tapado entera. Sobre UNA celda, no sobre la hoja: teñir la hoja
  * entera por color eran ~200 MB más por color.
  */
-function celdaTeñida(p: Colocada, color: string, w: number): HTMLCanvasElement {
-  const clave = `${claveDeCelda(p, w)}|${color}`;
+function celdaTeñida(
+  p: Colocada,
+  color: string | null,
+  w: number,
+  luz: LuzSobreLaFigura | undefined,
+): HTMLCanvasElement {
+  const clave = `${claveDeCelda(p, w)}|${color ?? ''}|${luz?.por ?? ''}|${luz?.mas ?? ''}`;
   const guardada = teñidas.get(clave);
   if (guardada !== undefined) return guardada;
   const c = lienzoNuevo(w);
   copiarCelda(c, p.celda, w);
-  c.globalCompositeOperation = 'color';
-  c.fillStyle = color;
-  c.fillRect(0, 0, w, w);
+  if (color !== null) {
+    c.globalCompositeOperation = 'color';
+    c.fillStyle = color;
+    c.fillRect(0, 0, w, w);
+  }
+  // La luz del clima, multiplicada como en el suelo (`render/clima/`), en la
+  // misma celda guardada: de noche, teñir no cuesta nada por fotograma.
+  if (luz !== undefined) {
+    c.globalCompositeOperation = 'multiply';
+    c.fillStyle = luz.por;
+    c.fillRect(0, 0, w, w);
+    if (luz.mas !== null) {
+      c.globalCompositeOperation = 'lighter';
+      c.fillStyle = luz.mas;
+      c.fillRect(0, 0, w, w);
+    }
+  }
   c.globalCompositeOperation = 'destination-in';
   copiarCelda(c, p.celda, w);
   teñidas.set(clave, c.canvas);
@@ -346,9 +379,11 @@ export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): 
   } else {
     let fuente: CanvasImageSource = p.celda.image;
     let origen = { x: p.celda.x, y: p.celda.y, lado: p.celda.size };
-    if (!p.arte.propio) {
+    // El Y Bot, teñido del color de su bando; con arte propio, solo si le cae
+    // la luz del clima.
+    if (!p.arte.propio || f.luz !== undefined) {
       const w = Math.max(1, Math.ceil(p.lado * Math.max(1, densidadDe(ctx))));
-      fuente = celdaTeñida(p, f.color, w);
+      fuente = celdaTeñida(p, p.arte.propio ? null : f.color, w, f.luz);
       origen = { x: 0, y: 0, lado: w };
     }
     const { lado, dx, dy } = p;

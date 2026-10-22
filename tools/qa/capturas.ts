@@ -1228,7 +1228,7 @@ async function estadoDelArranque(page: Page): Promise<{
       escena: app.dataset.escena ?? null,
       escenario: app.dataset.escenario ?? null,
       tema: document.documentElement.dataset.tema ?? null,
-      // Sin el `clima=despejado` que pone el arnés (`conElClimaDespejado`): lo
+      // Sin el `clima=despejado,dia` que pone el arnés (`conElClimaDespejado`): lo
       // que se mira es lo que escribe la página.
       search: ((): string => {
         const p = new URLSearchParams(location.search);
@@ -7673,8 +7673,9 @@ function registrarLasHojasDelEspejo(): void {
  * lienzo (la lluvia, la niebla a la deriva, un rayo) y las medidas de píxeles de
  * aquí —la barra de vida, la huella del lienzo, los colores del aro— se
  * escribieron sin él. Se decide **una vez**, aquí: toda página que se abra por
- * este navegador va a la partida o al espectador con `clima=despejado` (si no
- * pide otro), también el menú de inicio, que lo conserva al empezar
+ * este navegador va a la partida o al espectador con `clima=despejado,dia` (si
+ * no pide otro: `despejado` solo fija el tiempo, y la noche de la semilla seguía
+ * oscureciendo sus regiones), también el menú de inicio, que lo conserva al empezar
  * (`estadoDelArranque` no lo cuenta como algo que escribió la página). La arena
  * ya pelea en despejado sin él. El clima lo mira `tools/qa/clima.ts`.
  */
@@ -7682,7 +7683,7 @@ function conElClimaDespejado(browser: Browser): Browser {
   const despejada = (destino: string): string => {
     const u = new URL(destino);
     const esDelJuego = u.pathname === '/' || u.pathname.startsWith('/espectador');
-    if (esDelJuego && !u.searchParams.has('clima')) u.searchParams.set('clima', 'despejado');
+    if (esDelJuego && !u.searchParams.has('clima')) u.searchParams.set('clima', 'despejado,dia');
     return u.toString();
   };
   const conLaPagina = (page: Page): Page => {
