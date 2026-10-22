@@ -64,6 +64,7 @@ import type { Army, Equipo, FactionId, PlayerId, Point, UnitInfo } from '../type
 import { FACTION_IDS } from '../types.js';
 import { CUERPO_COMUN } from '../unidad.js';
 import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.js';
+import { hariaAlgoEn, VALOR_DE_LUGAR } from './lugares.js';
 
 /** Lo que vale tomar una ciudad ajena que no es la base de nadie. */
 const VALOR_DE_CIUDAD = 40000;
@@ -109,10 +110,12 @@ function objectValue(
     // es el nodo que la cierra, que vale por su renta.
     case 'village':
       return 0;
-    // Un lugar de un mundo: la IA aún no los visita (llega con la regla simple de
-    // `ai/lugares.ts`). Sin mundo no hay ninguno, así que el procedimental no cambia.
-    case 'lugar':
-      return 0;
+    // Un lugar de un mundo vale si haría algo en él (`ai/lugares.ts`, la regla
+    // simple de P4). Sin mundo no hay ninguno, así que el procedimental no cambia.
+    case 'lugar': {
+      const lugar = state.mundo?.historia.lugares.find((l) => l.id === obj.id);
+      return lugar !== undefined && hariaAlgoEn(state, hero, lugar) ? VALOR_DE_LUGAR : 0;
+    }
     case 'node': {
       if (obj.owner === player) return 0;
       // Un nodo ajeno vale por sí mismo y, sobre todo, por las regiones que

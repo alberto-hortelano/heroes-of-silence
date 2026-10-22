@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { mundoDeLaUrl } from '../src/client/mundo/cargar.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
+import { jugadaEnElLugar } from '../src/core/ai/lugares.js';
 import { buildMap, type MapPlan } from '../src/core/map/generate.js';
 import { isEnterable } from '../src/core/map/map.js';
 import {
@@ -407,5 +408,31 @@ describe('el mundo en la URL', () => {
     );
     expect(() => mundoDeLaUrl('?mundo=../plan')).toThrow('no es el id de un mundo');
     expect(() => mundoDeLaUrl('?mundo=a&mundo=b')).toThrow('«mundo» va 2 veces en la URL');
+  });
+});
+
+describe('la IA de reglas en un lugar', () => {
+  it('elige la primera opción que hace algo, hasta que no queda ninguna, y cada premio una vez', () => {
+    const leido = leerMundo(crudos('prueba'), 'prueba');
+    const state = partidaDelMundo(leido, { 0: 'ai', 1: 'ai' });
+    const hero = state.heroes.find((h) => h.owner === 0)!;
+    hero.at = { x: 10, y: 12 };
+    const elegidas: string[] = [];
+    for (let n = 0; n < 20; n++) {
+      const ref = jugadaEnElLugar(state, hero);
+      if (ref === null) break;
+      elegidas.push(`${ref.punto}/${ref.nodo}/${ref.opcion}`);
+      applyAdventureAction(
+        state,
+        { type: 'elegir_en_lugar', hero: hero.id, ...ref },
+        { rng: createRng(1) },
+        0,
+      );
+      if (state.pendingBattle !== null) break;
+    }
+    // Lee la carta, coge la lanza y paga el peaje (la batalla, sin ventaja, no la abre).
+    expect(elegidas).toEqual(['garita/dentro/0', 'garita/dentro/1', 'corvo/alto/0']);
+    expect(new Set(elegidas).size).toBe(elegidas.length);
+    expect(state.log.filter((e) => e.kind === 'loot_found').length).toBe(1);
   });
 });
