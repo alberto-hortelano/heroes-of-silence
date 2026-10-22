@@ -459,12 +459,17 @@ const MARGEN_DE_COSA: Margen = { lados: 2, arriba: 2, abajo: 2 };
  * Dónde apoya los pies cada figura, en casillas bajo el borde de arriba de su
  * casilla: la misma convención que `Sprite.y` de la escena —la `y` de la base—,
  * que es lo que deja ordenar figuras y volúmenes juntos. Un pino con la base en
- * y + 0,9 tapa al héroe de esa casilla, que la tiene en y + 0,8. El rombo de un
- * lugar, por detrás de quien está en él:
- * con el pie de lo suelto tapaba al héroe y solo se veía su chapa (H4 del QA de la
- * F1a), y el lugar, como un pueblo, es el sitio donde está.
+ * y + 0,9 tapa al héroe de esa casilla, que la tiene en y + 0,8.
  */
-export const PIES = { heroe: 0.8, grupo: 0.82, suelto: 0.85, lugar: 0.78 } as const;
+export const PIES = { heroe: 0.8, grupo: 0.82, suelto: 0.85 } as const;
+
+/**
+ * Dónde se ordena el rombo de un lugar: por detrás de quien está en él. Con el pie
+ * de lo suelto tapaba al héroe y solo se veía su chapa (H4 del QA de la F1a); el
+ * lugar, como un pueblo, es el sitio donde está. No va en `PIES`: no es una figura,
+ * y la de pies más altos de `PIES` es la que mide `pisablesTapadas`.
+ */
+const PIE_DEL_LUGAR = PIES.heroe - 0.02;
 
 /** Algo del juego que se pinta entre los volúmenes, con su clave de profundidad. */
 type Cosa =
@@ -526,7 +531,7 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
       lista.push({ tipo: 'horneado', clave, objeto: o, asiento, mastil });
     } else {
       const pies =
-        o.kind === 'monster' ? PIES.grupo : o.kind === 'lugar' ? PIES.lugar : PIES.suelto;
+        o.kind === 'monster' ? PIES.grupo : o.kind === 'lugar' ? PIE_DEL_LUGAR : PIES.suelto;
       lista.push({ tipo: 'objeto', clave: claveDeFigura(esc, o.at.x, o.at.y + pies), objeto: o });
     }
   }
