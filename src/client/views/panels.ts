@@ -51,7 +51,7 @@ import {
   type Side,
 } from '@core/battle/types.js';
 import { unidadDelJuego } from '@core/catalogo.js';
-import { isShooter, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
+import { ECONOMIA, isShooter, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
 import {
   destinoDeEquipo,
   modificadoresDePieza,
@@ -87,6 +87,7 @@ import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen, unir }
 import { asset } from '../render/assets.js';
 import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
 import type { Session, SpellOption } from '../session.js';
+import { renderPanelDelAyuntamiento } from './ayuntamiento.js';
 import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
 import { renderPanelDeLaMorada } from './morada.js';
@@ -219,9 +220,22 @@ export function renderSide(
       return renderPanelDeLaTropa(session.vistaDeLaTropa());
     case 'morada':
       return renderPanelDeLaMorada(session);
+    case 'ayuntamiento':
+      return renderPanelDelAyuntamiento(session);
     default:
       return renderAdventurePanel(session);
   }
+}
+
+/**
+ * El `title` del fin de turno cuando no se puede jugar (`bloqueoDeTurno`: el turno
+ * o el héroe de salida por elegir), que lo apaga: el motivo que también deja en la
+ * barra pulsar Espacio (`endTurn`). Con el héroe de salida por elegir lo dice
+ * además el panel del mapa, para el móvil, que no enseña un `title`.
+ */
+function tituloDelFinDeTurno(session: Session): Html {
+  const motivo = session.bloqueoDeTurno();
+  return motivo === null ? NADA : html` title="${motivo}"`;
 }
 
 /** @param contandoAun lo mismo que en `renderSide`. */
@@ -236,6 +250,8 @@ export function renderActions(session: Session, contandoAun = false): Html {
       return html`<button data-action="cerrar-tropa" title="Escape">Volver al mapa</button>`;
     case 'morada':
       return html`<button data-action="cerrar-morada" title="Escape">Volver a la base</button>`;
+    case 'ayuntamiento':
+      return html`<button data-action="cerrar-ayuntamiento" title="Escape">Volver a la base</button>`;
     case 'battle': {
       const battle = session.battle;
       // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,
@@ -256,7 +272,7 @@ export function renderActions(session: Session, contandoAun = false): Html {
       return html`
         <button data-action="toggle-fog">${session.revealAll ? 'Ocultar mapa' : 'Ver mapa entero'}</button>
         <button data-action="next-hero" title="Tecla H" ${session.isPlayersTurn ? NADA : DESHABILITADO}>Siguiente héroe</button>
-        <button data-action="end-turn" class="primary" ${session.isPlayersTurn ? NADA : DESHABILITADO}>
+        <button data-action="end-turn" class="primary" ${session.bloqueoDeTurno() === null ? NADA : DESHABILITADO}${tituloDelFinDeTurno(session)}>
           Fin de turno
         </button>`;
     }
@@ -351,7 +367,9 @@ function renderAdventurePanel(session: Session): Html {
   const puesto = hero === null ? null : heroUnit(hero);
   const heroPanel =
     hero === null || puesto === null
-      ? html`<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p>`
+      ? session.heroeDeSalidaPendiente
+        ? html`<p>Aún no tienes héroe: elige el de salida ante el ayuntamiento de tu base (púlsala en el mapa o en «Castillos»). Hasta entonces no se pasa el turno.</p>`
+        : html`<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p>`
       : html`
         <p class="eyebrow">HÉROE · RANGO ${rangoDeHeroe(hero)} · NIVEL ${nivelDeUnidad(puesto)} · ${nombreDeTipoDeHeroe(hero.faction, hero.tipo)}</p>
         <h2>${hero.name}</h2>${historiaDelHeroe(hero.origen?.historia ?? null)}
@@ -609,7 +627,7 @@ function renderTropaEquipable(hero: Hero, elegida: string | null, characters: Pe
  * una por personaje o por veterano, con su nivel y lo que le falta. Agrupa
  * `troopSummary`, no este panel.
  */
-function renderArmy(army: Army, characters: Personajes): Html {
+export function renderArmy(army: Army, characters: Personajes): Html {
   if (army.length === 0) {
     return html`<div class="stack-list"><div class="stack empty"><span>—</span></div></div>`;
   }
@@ -680,10 +698,12 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
 
   // Solo los héroes PROPIOS: un rival parado en tu castillo no te enseña su
   // ejército, y sobre todo no esconde tu guarnición.
+  // Contratar abre los candidatos ante el ayuntamiento (D3), donde se elige el
+  // tipo y se paga; con el de salida por elegir, es elegirlo (el mismo sitio).
   const heroeAqui = session.heroeEnLaBase() ?? undefined;
   const contratar =
     heroeAqui === undefined
-      ? html`<button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
+      ? html`<button data-action="abrir-ayuntamiento" class="primary" style="margin-top:.7rem">${session.heroeDeSalidaPendiente ? 'Elige a tu héroe' : 'Contratar héroe'} (${describirCoste(ECONOMIA.precioDelHeroe)})</button>`
       : html`<p class="cost">${heroeAqui.name} ya está dentro: contrata otro cuando salga.</p>`;
 
   // El `crecimiento || '<div…>Sin moradas</div>'` de antes no vale con marcado:
@@ -709,8 +729,8 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
     <h2>${town.name}</h2>
     <div class="row"><span class="label">Ingresos</span><span>${conMiles(dailyIncome(town))} oro/día${session.renta.ciudades.some((c) => c.id === town.id && !c.unida) ? ` · ${SIN_COBRAR}` : ''}</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>${mageGuildLevel(town) || '—'}</span></div>
-    <div class="row"><span class="label">Construir hoy</span><span>${town.builtToday ? 'ya hecho' : 'disponible'}</span></div>
-    <p class="cost">Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.</p>
+    <div class="row"><span class="label">Construir hoy</span><span>${session.heroeDeSalidaPendiente ? 'tras elegir a tu héroe' : town.builtToday ? 'ya hecho' : 'disponible'}</span></div>
+    <p class="cost">${session.heroeDeSalidaPendiente ? 'Pulsa el ayuntamiento para elegir a tu héroe; hasta entonces no se amplía ni se recluta.' : 'Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.'}</p>
 
     <h3>Edificios</h3>
     <div class="stack-list ir-a-sitio">${renderListaDeEdificios(session)}</div>
@@ -724,7 +744,11 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
 
     ${
       heroeAqui === undefined
-        ? html`<p class="cost">Sin héroe dentro, lo que reclutes se queda de guarnición.</p>
+        ? html`<p class="cost">${
+            session.heroeDeSalidaPendiente
+              ? 'Antes de reclutar o construir, elige a tu héroe de salida ante el ayuntamiento.'
+              : 'Sin héroe dentro, lo que reclutes se queda de guarnición.'
+          }</p>
           ${contratar}`
         : html`${renderLibroEnElCastillo(session, heroeAqui, town)}<h3>Tropa del héroe</h3>
           ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}

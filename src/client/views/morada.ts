@@ -20,13 +20,9 @@ export function renderPanelDeLaMorada(session: Session): Html {
   const vista = session.vistaDeLaMorada();
   const town = session.activeTown;
   if (vista === null || town === null) return NADA;
-  const unidades = unir(
-    vista.figuras.map((f, i) => {
-      const elegida = i === vista.elegida;
-      return html`<button data-action="morada-elegir" data-unidad="${f.id}" class="stack${elegida ? ' primary' : ''}" aria-pressed="${elegida ? 'true' : 'false'}">
-        <span>${f.nombre}</span>${elegida ? html`<span class="count">◆</span>` : NADA}
-      </button>`;
-    }),
+  const unidades = botonesDeLaFila(
+    vista,
+    (id) => html`data-action="morada-elegir" data-unidad="${id}"`,
   );
   return html`<p class="eyebrow">MORADA · ${town.name.toUpperCase()}</p>
     <h2>${vista.nombre}</h2>
@@ -34,6 +30,28 @@ export function renderPanelDeLaMorada(session: Session): Html {
     ${renderFicha(vista.ficha)}
     ${renderTropaDelHeroe(session)}
     ${mejora(session, town, vista.sitio)}`;
+}
+
+/**
+ * Los botones de la fila de una escena de pie ante un edificio de la base (la
+ * morada, el ayuntamiento): uno por figura, que la elige como el clic en ella, con
+ * la elegida marcada. `elige` pone en cada uno su acción y a quién elige.
+ */
+export function botonesDeLaFila(
+  vista: {
+    readonly figuras: readonly { readonly id: string; readonly nombre: string }[];
+    readonly elegida: number;
+  },
+  elige: (id: string) => Html,
+): Html {
+  return unir(
+    vista.figuras.map((f, i) => {
+      const elegida = i === vista.elegida;
+      return html`<button ${elige(f.id)} class="stack${elegida ? ' primary' : ''}" aria-pressed="${elegida ? 'true' : 'false'}">
+        <span>${f.nombre}</span>${elegida ? html`<span class="count">◆</span>` : NADA}
+      </button>`;
+    }),
+  );
 }
 
 /**

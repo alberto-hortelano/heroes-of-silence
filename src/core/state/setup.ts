@@ -66,8 +66,17 @@ export interface NewGameOptions {
    * defecto. Un tipo que no es de la facción del jugador 0 lanza diciendo cuáles
    * valen (`problemaDeTipo`), en vez de jugar con otro. Es presentación hasta que
    * los tipos den habilidades: cambia la figura del héroe, no la partida.
+   *
+   * Sea cual sea, **se paga** (`ECONOMIA.precioDelHeroe`), como todo héroe.
+   *
+   * Con `null`, **por elegir en la base**, ante el ayuntamiento (la persona que
+   * empieza sin `?heroe=`): su héroe queda pendiente (`Player.heroeDeSalida`) hasta
+   * que lo paga con `hire_hero` y un `tipo`, y hasta entonces no hace nada más
+   * (`salidaPendienteBlocker`). El pendiente es el mismo que daría un tipo (la
+   * misma tirada de tropa), así que elegir el tipo X da la partida de
+   * `{ tipoDelHeroe: X }`.
    */
-  readonly tipoDelHeroe?: string | undefined;
+  readonly tipoDelHeroe?: string | null | undefined;
   /**
    * La complejidad del combate (`?tropa=`, `?rueda=`, `HEROES_TROPA`,
    * `HEROES_RUEDA`): el tope de tropa por bando y la rueda. Sin ella, la de
@@ -97,6 +106,16 @@ export function faccionesDeLaSemilla(
   const f0 = delJugador ?? sorteada;
   const f1 = rng.pick(FACTION_IDS.filter((f) => f !== f0));
   return [f0, f1];
+}
+
+/**
+ * El tipo de héroe de salida por defecto del jugador 0 en la partida de `seed`
+ * (con `faccion`, la elegida): el de su facción (`tipoDeHeroePorDefecto`). Es el
+ * que lleva al `?heroe=` la partida rápida y las herramientas que abren una
+ * partida con el héroe ya elegido (`tools/qa/url-de-partida.ts`).
+ */
+export function heroePorDefectoDeLaSemilla(seed: number, faccion?: FactionId): string {
+  return tipoDeHeroePorDefecto(faccionesDeLaSemilla(seed, faccion)[0]);
 }
 
 /**
@@ -225,7 +244,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
 
   const heroes: Hero[] = bases.map(([player, base], i) => {
     const faction = base.faction;
-    const tipo = player === 0 ? options.tipoDelHeroe : undefined;
+    const tipo = player === 0 ? (options.tipoDelHeroe ?? undefined) : undefined;
     const tipoMalo = tipo === undefined ? null : problemaDeTipo(faction, tipo);
     if (tipoMalo !== null) throw new Error(tipoMalo);
     // El héroe nace DENTRO de su base («empieza en la base»): en la casilla del
@@ -275,5 +294,6 @@ export function newGame(options: NewGameOptions = {}): GameState {
     heroes,
     towns,
     raiders,
+    porElegir: options.tipoDelHeroe === null ? 0 : undefined,
   });
 }

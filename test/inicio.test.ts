@@ -6,15 +6,11 @@
 
 import { describe, expect, it } from 'vitest';
 import { combateParaElMenu } from '../src/client/combate-en-la-url.js';
-import { html, marcadoDe } from '../src/client/html.js';
-import {
-  renderEleccion,
-  renderEleccionDeHeroe,
-  renderMenu,
-} from '../src/client/inicio/pantallas.js';
+import { marcadoDe } from '../src/client/html.js';
+import { renderEleccion, renderMenu } from '../src/client/inicio/pantallas.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { figuraDelHeroe, rasgoDeFaccion, tiposDeHeroe } from '../src/core/data.js';
+import { rasgoDeFaccion } from '../src/core/data.js';
 import { nombreDeSalida } from '../src/core/state/setup.js';
 import { FACTION_IDS, NOMBRE_DE_FACCION } from '../src/core/types.js';
 
@@ -71,9 +67,11 @@ describe('la elección de facción', () => {
       (m) => m[1],
     );
     expect(marcadas).toEqual(['elfos']);
-    // De la facción se pasa al héroe: «Siguiente», no «Empezar» (vuelta 2).
-    expect(eleccion).toContain('data-inicio="siguiente"');
-    expect(eleccion).not.toContain('data-inicio="empezar"');
+    // De la facción se va a la partida: el héroe se elige en la base, ante el
+    // ayuntamiento (22-10-2026), y no hay paso del héroe en el menú.
+    expect(eleccion).toContain('data-inicio="empezar"');
+    expect(eleccion).not.toContain('data-inicio="siguiente"');
+    expect(eleccion).not.toContain('name="heroe"');
     expect(eleccion).toContain('data-inicio="volver"');
   });
 });
@@ -116,33 +114,6 @@ describe('«Nuevo juego» parte de la complejidad de la URL (QA de la complejida
     // Lo que no vale lo dice la partida al arrancar (`main.ts`), con su salida.
     for (const mal of ['?rueda=4', '?tropa=6', '?solo-heroe=si', '?tropa=3&tropa=5']) {
       expect(combateParaElMenu(mal), mal).toBeNull();
-    }
-  });
-});
-
-describe('la elección del héroe (vuelta 2: «no he elegido al heroe»)', () => {
-  it('los tipos de la facción, en el orden del cuaderno, con su retrato, su nombre y su descripción', () => {
-    for (const f of FACTION_IDS) {
-      const tipos = tiposDeHeroe(f);
-      const eleccion = marcadoDe(renderEleccionDeHeroe(f, tipos[1]!.id));
-      const opciones = [...eleccion.matchAll(/data-heroe="([a-z_]+)"/g)].map((m) => m[1]);
-      expect(opciones).toEqual(tipos.map((t) => t.id));
-      for (const t of tipos) {
-        expect(eleccion).toContain(t.nombre);
-        expect(eleccion).toContain(marcadoDe(html`${t.descripcion}`));
-        // El retrato es la identidad de la misma hoja con que se pinta.
-        expect(eleccion).toContain(
-          `src="/unidades/${figuraDelHeroe({ faction: f, tipo: t.id })}/identidad.webp"`,
-        );
-      }
-      const marcados = [...eleccion.matchAll(/<input[^>]*value="([a-z_]+)"[^>]*checked/g)].map(
-        (m) => m[1],
-      );
-      expect(marcados).toEqual([tipos[1]!.id]);
-      // Quién será: el nombre de salida de la facción.
-      expect(eleccion).toContain(`se llamará ${nombreDeSalida(f, 0)}`);
-      expect(eleccion).toContain('data-inicio="empezar"');
-      expect(eleccion).toContain('data-inicio="volver"');
     }
   });
 });

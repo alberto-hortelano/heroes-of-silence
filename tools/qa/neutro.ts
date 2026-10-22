@@ -23,6 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, normalize, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
+import { urlDePartida } from './url-de-partida.js';
 import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -112,7 +113,7 @@ const ARENA = ['src/client/style.css', 'src/client/arena/arena.css'];
 const ESCENAS: readonly Escena[] = [
   {
     nombre: 'partida, mapa',
-    url: '/?seed=7',
+    url: urlDePartida(7),
     hojas: PARTIDA,
     llegar: async (page) => {
       // La partida abre en la base (19-10-2026): se sale al mapa, y la escena
@@ -125,7 +126,7 @@ const ESCENAS: readonly Escena[] = [
   },
   {
     nombre: 'partida, base',
-    url: '/?seed=7',
+    url: urlDePartida(7),
     hojas: PARTIDA,
     enLaMisma: true,
     llegar: async (page) => {

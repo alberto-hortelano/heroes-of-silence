@@ -24,6 +24,7 @@ import {
   FONDO_DE_LA_FRANJA,
   type Plano,
   planoDelCuadro,
+  TRAMO,
 } from '../../../shared/base.js';
 import { camaraDeLaBase, camaraQuieta } from '../base/camara.js';
 import { type LienzoDePie, MARGEN, pasoDeLaHoja, SEPARACION_MINIMA, UNA } from '../de-pie.js';
@@ -112,29 +113,93 @@ export function encuadrarLaMorada(
   n: number,
 ): EncuadreDeLaMorada {
   if (n < 1) throw new Error(`no se puede encuadrar una morada con ${n} unidades`);
-  const fila = filaDeLosReclutas(d, sitio);
   const paso = Math.min(
     Math.max(pasoDeLaBase(lienzo.alto), pasoDeLaHoja(lienzo.densidad)),
     pasoQueCabe(lienzo, n, d.sitios[sitio].puerta.y),
   );
+  const camaraX = camaraQuieta(d, lienzo, focoDelSitio(d, sitio), paso);
+  const en = enFila(d, sitio, n, camaraX, lienzo.ancho / paso, AIRE);
+  return { camara: camaraDeLaBase(lienzo, camaraX, paso, lienzo.densidad), camaraX, en };
+}
+
+/** El medio de la región de `sitio`, en pasos del escenario: adonde mira la cámara. */
+function focoDelSitio(d: Disposicion, sitio: SitioId): number {
   const s = d.sitios[sitio];
-  const foco = planoDelCuadro(d, s.tramo, [(s.region.x0 + s.region.x1) / 2, s.region.pie]).x;
-  const camaraX = camaraQuieta(d, lienzo, foco, paso);
-  const vista = lienzo.ancho / paso;
+  return planoDelCuadro(d, s.tramo, [(s.region.x0 + s.region.x1) / 2, s.region.pie]).x;
+}
+
+/**
+ * Dónde pisa cada una de las `n` de la fila de `sitio` con la cámara en `camaraX`
+ * y `vista` pasos a la vista: la separación más abierta que quepa, centrada en la
+ * puerta y corrida para caber con `aire` a cada lado.
+ */
+function enFila(
+  d: Disposicion,
+  sitio: SitioId,
+  n: number,
+  camaraX: number,
+  vista: number,
+  aire: number,
+): Plano[] {
   const separacion =
     n === 1
       ? 0
-      : Math.max(SEPARACION.minima, Math.min(SEPARACION.maxima, (vista - 2 * AIRE) / (n - 1)));
+      : Math.max(SEPARACION.minima, Math.min(SEPARACION.maxima, (vista - 2 * aire) / (n - 1)));
   // Centrada en la puerta y corrida para caber: en el tope de la base (el
   // monasterio, en x ≈ 3) la puerta queda cerca del borde de la vista.
-  const centro = alaFranja(d, s.puerta).x;
+  const centro = alaFranja(d, d.sitios[sitio].puerta).x;
   const medio = ((n - 1) * separacion) / 2;
-  const desde = camaraX + AIRE + medio;
-  const hasta = camaraX + vista - AIRE - medio;
+  const desde = camaraX + aire + medio;
+  const hasta = camaraX + vista - aire - medio;
   const x = Math.max(desde, Math.min(hasta, centro));
-  const en = Array.from({ length: n }, (_, i) => ({
-    x: x - medio + i * separacion,
-    y: fila,
-  }));
-  return { camara: camaraDeLaBase(lienzo, camaraX, paso, lienzo.densidad), camaraX, en };
+  const fila = filaDeLosReclutas(d, sitio);
+  return Array.from({ length: n }, (_, i) => ({ x: x - medio + i * separacion, y: fila }));
+}
+
+/**
+ * El aire de la fila del ayuntamiento a cada lado de la vista, en pasos, desde el
+ * centro de la de la punta: medio alto de figura. El aro de la elegida abarca sus
+ * pies, que en guardia se abren y se corren del centro, y con el de la morada
+ * (`AIRE`, el ancho de su caja) el del duelista tocaba el marco en el móvil (QA H5,
+ * 22-10-2026).
+ */
+const AIRE_DEL_AYUNTAMIENTO = UNA.alto / 2;
+
+/**
+ * La cámara del ayuntamiento de la base `d` para `n` candidatos en `lienzo` (QA H5,
+ * 22-10-2026). No es una sala abierta, como la morada, sino un exterior: se ve el
+ * edificio entero, del alto de su cuadro (la fila 0 de su tramo, arriba del lienzo:
+ * el tejado de las mejoras llega a ella) a los pies de los candidatos, en la fila
+ * de delante de la puerta, con su aro (`MARGEN_ABAJO`) encima del borde de abajo.
+ * Con la cámara de la morada se cortaba por el balcón y la mitad de abajo era
+ * empedrado vacío, donde espera quien anduvo, que aquí no se pinta.
+ *
+ * El paso es el más grande con que caben el alto, la región del edificio y la fila
+ * a lo ancho, sin pasar del de la hoja (`pasoDeLaHoja`). Lo que sobre de alto queda
+ * debajo de los pies: encima del cuadro no hay nada pintado.
+ */
+export function encuadrarElAyuntamiento(
+  lienzo: LienzoDePie,
+  d: Disposicion,
+  sitio: SitioId,
+  n: number,
+): EncuadreDeLaMorada {
+  if (n < 1) throw new Error(`no se puede encuadrar un ayuntamiento con ${n} candidatos`);
+  const s = d.sitios[sitio];
+  const arriba = planoDelCuadro(d, s.tramo, [0, 0]).y;
+  const fila = filaDeLosReclutas(d, sitio);
+  const alto = (fila - arriba) * COMPRESION_SUELO + MARGEN_ABAJO;
+  const ancho = Math.max(
+    (s.region.x1 - s.region.x0) / TRAMO.pxPorPaso,
+    (n - 1) * SEPARACION.minima + 2 * AIRE_DEL_AYUNTAMIENTO,
+  );
+  const paso = Math.min(lienzo.alto / alto, lienzo.ancho / ancho, pasoDeLaHoja(lienzo.densidad));
+  const camaraX = camaraQuieta(d, lienzo, focoDelSitio(d, sitio), paso);
+  const en = enFila(d, sitio, n, camaraX, lienzo.ancho / paso, AIRE_DEL_AYUNTAMIENTO);
+  const base = camaraDeLaBase(lienzo, camaraX, paso, lienzo.densidad);
+  // Lo alto del cuadro, en la fila de arriba del lienzo, en un píxel entero de
+  // dispositivo como el origen de la base (`camaraDeLaBase`).
+  const origenY =
+    Math.round(-arriba * COMPRESION_SUELO * paso * lienzo.densidad) / lienzo.densidad + 0;
+  return { camara: { ...base, origenY }, camaraX, en };
 }

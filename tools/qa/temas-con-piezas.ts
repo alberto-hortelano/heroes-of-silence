@@ -38,6 +38,7 @@ import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import sharp from 'sharp';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
+import { urlDePartida } from './url-de-partida.js';
 import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -357,7 +358,7 @@ try {
     page.on('response', (r) => {
       if (r.status() >= 400) errores.push(`${ventana}: ${r.status()} ${r.url()}`);
     });
-    await page.goto(`${vite.url}/?seed=42644`);
+    await page.goto(`${vite.url}${urlDePartida(42644)}`);
     await esperarElSuelo(page, ventana, 180_000, log);
     // El del neutro en esta misma página: con tema, el lienzo es ese y el anotado.
     let delNeutro: string | null = null;

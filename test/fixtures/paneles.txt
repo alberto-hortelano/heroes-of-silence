@@ -1,5 +1,5 @@
 ### aventura · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">29 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">26 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### aventura · renderSide
 
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
@@ -34,7 +34,7 @@
 ### aventura · renderLog
 <div class="log" data-al-final="cronica"><div>El jugador 1 recluta 2 × Guardia del bosque en (34, 38)</div><div>Batalla en (24, 34): un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 3 rondas; pierde el jugador 1 1 × Guardia del bosque; pierde la guarnición 2 × Arquero, 2 × Guardia del bosque</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (24, 34)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (24, 34)</div><div>El jugador 1 captura un castillo neutral en (24, 34)</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (24, 34): Espada de herrería</div><div>— Día 2 —</div><div>El jugador 1 construye en (34, 38): Arboleda</div><div>El jugador 1 construye en (24, 34): Pabellón de caza</div><div>El jugador 1 recluta 2 × Jinete en (24, 34)</div><div>El jugador 1 recluta 1 × Guardia del bosque en (24, 34)</div><div>Batalla en (29, 21): un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 3 rondas; pierde la guarnición 3 × Goblin lancero, 2 × Goblin arquero</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 3 en (29, 21)</div><div>Un Jinete del jugador 1 sube a veterano de rango 2 en (29, 21)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 2 en (29, 21)</div><div>Un Guardia del bosque del jugador 1 sube a veterano de rango 3 en (29, 21)</div><div>El jugador 1 captura un castillo neutral en (29, 21)</div><div>El jugador 1 se lleva un botín de una ciudad neutral en (29, 21): Pavés</div><div>— Día 3 —</div></div>
 ### castillo · con héroe dentro y gremio · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">23 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">21 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### castillo · con héroe dentro y gremio · renderSide
 
     <h2>Valdeluz</h2>
@@ -64,7 +64,7 @@
 ### castillo · con héroe dentro y gremio · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div><div class="win">Construido en (7, 3): Gremio de magia I</div><div class="win">Aprendido en (7, 3): Prisa, Lentitud</div></div>
 ### castillo · sin héroe y sin gremio · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### castillo · sin héroe y sin gremio · renderSide
 
     <h2>Valdeluz</h2>
@@ -85,13 +85,13 @@
     <div class="stack-list"><div class="stack"><span>Goblin lancero</span><span class="count">3</span></div><div class="stack"><span>Goblin arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Orko con hacha y escudo</span><span class="count">2</span></div></div>
 
     <p class="cost">Sin héroe dentro, lo que reclutes se queda de guarnición.</p>
-          <button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>
+          <button data-action="abrir-ayuntamiento" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>
 ### castillo · sin héroe y sin gremio · renderActions
 <button data-action="close-town">Volver al mapa</button>
 ### castillo · sin héroe y sin gremio · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### aventura · héroe recién contratado · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">23 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### aventura · héroe recién contratado · renderSide
 
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
@@ -128,7 +128,7 @@
 ### aventura · héroe recién contratado · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div><div class="win">Héroe contratado en (7, 3)</div><div class="win">Guarnición incorporada en (7, 3)</div></div>
 ### batalla · en marcha · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · en marcha · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -201,7 +201,7 @@
 ### batalla · en marcha · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · terminada · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · terminada · renderSide
 <h2>Victoria</h2>
       <p>El campo es tuyo.</p>
@@ -212,7 +212,7 @@
 ### batalla · terminada · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### partida ganada · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">2748</span><span class="renta">+1500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 1000, Torreblanca 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">1338</span><span class="renta">+1500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 1000, Torreblanca 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### partida ganada · renderSide
 <div class="fin ganada">
     <p class="eyebrow">FIN DE LA PARTIDA</p>
@@ -248,13 +248,13 @@
             </button><button data-action="open-town" data-town="town-4" class="stack">
               <span>Alcázar Hondo</span><span class="count" title="No está unida a tu base: no da oro">+0</span>
             </button></div>
-    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 2 —</div><div class="win">Construido en (9, 5): Arboleda</div><div class="win">Construido en (5, 13): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (5, 13)</div><div class="win">Reclutados 1 × Guardia del bosque en (5, 13)</div><div class="win">Batalla ganada contra la guarnición de una ciudad neutral en (12, 30), en 4 rondas; pierde el enemigo 2 × Arquero, 2 × Guardia del bosque</div><div class="win">Un héroe tuyo sube a rango 6 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Has capturado un castillo neutral en (12, 30)</div><div class="win">Botín de una ciudad neutral en (12, 30): Maza</div><div>— Día 3 —</div><div class="win">Construido en (9, 5): Casa consistorial</div><div class="win">Construido en (5, 13): Arboleda</div><div class="win">Construido en (12, 30): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (12, 30)</div><div class="win">Reclutados 1 × Guardia del bosque en (12, 30)</div><div class="win">Paso tomado en (24, 35)</div><div class="win">+1328 de oro en (26, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 36), en 5 rondas; pierde el enemigo 3 × Guerrero con escudo, 2 × Escudero, 1 × Monje</div><div class="win">Un héroe tuyo sube a rango 7 en (32, 36)</div><div class="win">Un Jinete tuyo sube a veterano de rango 4 en (32, 36)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 36)</div><div class="win">Fin de la partida</div></div>
+    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 2 —</div><div class="win">Construido en (9, 5): Arboleda</div><div class="win">Construido en (5, 13): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (5, 13)</div><div class="win">Reclutados 1 × Guardia del bosque en (5, 13)</div><div class="win">Batalla ganada contra la guarnición de una ciudad neutral en (12, 30), en 4 rondas; pierde el enemigo 2 × Arquero, 2 × Guardia del bosque</div><div class="win">Un héroe tuyo sube a rango 6 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Has capturado un castillo neutral en (12, 30)</div><div class="win">Botín de una ciudad neutral en (12, 30): Maza</div><div>— Día 3 —</div><div class="win">Construido en (9, 5): Casa consistorial</div><div class="win">Construido en (5, 13): Arboleda</div><div class="win">Construido en (12, 30): Pabellón de caza</div><div class="win">Paso tomado en (24, 35)</div><div class="win">+1328 de oro en (26, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 36), en 5 rondas; pierde el enemigo 3 × Guerrero con escudo, 2 × Escudero, 1 × Monje</div><div class="win">Un héroe tuyo sube a rango 7 en (32, 36)</div><div class="win">Un Jinete tuyo sube a veterano de rango 4 en (32, 36)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 36)</div><div class="win">Fin de la partida</div></div>
 ### partida ganada · renderActions
 <button data-action="restart" class="primary">Partida nueva</button>
 ### partida ganada · renderLog
-<div class="log" data-al-final="cronica"><div class="win">Construido en (9, 5): Arboleda</div><div class="win">Construido en (5, 13): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (5, 13)</div><div class="win">Reclutados 1 × Guardia del bosque en (5, 13)</div><div class="win">Batalla ganada contra la guarnición de una ciudad neutral en (12, 30), en 4 rondas; pierde el enemigo 2 × Arquero, 2 × Guardia del bosque</div><div class="win">Un héroe tuyo sube a rango 6 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Has capturado un castillo neutral en (12, 30)</div><div class="win">Botín de una ciudad neutral en (12, 30): Maza</div><div>— Día 3 —</div><div class="win">Construido en (9, 5): Casa consistorial</div><div class="win">Construido en (5, 13): Arboleda</div><div class="win">Construido en (12, 30): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (12, 30)</div><div class="win">Reclutados 1 × Guardia del bosque en (12, 30)</div><div class="win">Paso tomado en (24, 35)</div><div class="win">+1328 de oro en (26, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 36), en 5 rondas; pierde el enemigo 3 × Guerrero con escudo, 2 × Escudero, 1 × Monje</div><div class="win">Un héroe tuyo sube a rango 7 en (32, 36)</div><div class="win">Un Jinete tuyo sube a veterano de rango 4 en (32, 36)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 36)</div><div class="win">Fin de la partida</div></div>
+<div class="log" data-al-final="cronica"><div class="win">Construido en (9, 5): Arboleda</div><div class="win">Construido en (5, 13): Pabellón de caza</div><div class="win">Reclutados 2 × Jinete en (5, 13)</div><div class="win">Reclutados 1 × Guardia del bosque en (5, 13)</div><div class="win">Batalla ganada contra la guarnición de una ciudad neutral en (12, 30), en 4 rondas; pierde el enemigo 2 × Arquero, 2 × Guardia del bosque</div><div class="win">Un héroe tuyo sube a rango 6 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Un Jinete tuyo sube a veterano de rango 3 en (12, 30)</div><div class="win">Has capturado un castillo neutral en (12, 30)</div><div class="win">Botín de una ciudad neutral en (12, 30): Maza</div><div>— Día 3 —</div><div class="win">Construido en (9, 5): Casa consistorial</div><div class="win">Construido en (5, 13): Arboleda</div><div class="win">Construido en (12, 30): Pabellón de caza</div><div class="win">Paso tomado en (24, 35)</div><div class="win">+1328 de oro en (26, 36)</div><div class="win">Batalla ganada contra la guarnición de un castillo del jugador 1 en (32, 36), en 5 rondas; pierde el enemigo 3 × Guerrero con escudo, 2 × Escudero, 1 × Monje</div><div class="win">Un héroe tuyo sube a rango 7 en (32, 36)</div><div class="win">Un Jinete tuyo sube a veterano de rango 4 en (32, 36)</div><div class="win">Has capturado un castillo del jugador 1 en (32, 36)</div><div class="win">Fin de la partida</div></div>
 ### partida perdida · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">60</span><span class="renta">+0/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: nada te da oro hoy. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">4840</span><span class="renta">+0/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: nada te da oro hoy. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### partida perdida · renderSide
 <div class="fin perdida">
     <p class="eyebrow">FIN DE LA PARTIDA</p>
@@ -280,13 +280,13 @@
         <div class="stack-list"><div class="stack"><span>Hermano de carga</span><span class="count">2</span></div><div class="stack"><span>Guerrero con arma a dos manos</span><span class="count">4</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
               <span>Aldo de Valdeluz</span><span class="count">36</span>
             </button></div>
-    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 4 —</div><div class="win">Construido en (9, 9): Castillo</div><div class="win">Licenciados 1 × Monje en (9, 9)</div><div class="win">Licenciados 1 × Guerrero con escudo en (9, 9)</div><div class="win">Reclutados 2 × Hermano de carga en (9, 9)</div><div class="win">Licenciados 2 × Guerrero con escudo en (9, 9)</div><div class="win">Licenciados 2 × Escudero en (9, 9)</div><div class="win">Reclutados 4 × Guerrero con arma a dos manos en (9, 9)</div><div>— Día 5 —</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 1 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>El jugador 1 recluta 4 × Zombie en (38, 15)</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 2 rondas; pierde el enemigo 1 × Esqueleto guerrero; pierdes 1 × Guerrero con arma a dos manos, 1 × Penitente</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
+    <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 4 —</div><div class="win">Construido en (9, 9): Casa consistorial</div><div class="win">Licenciados 1 × Monje en (9, 9)</div><div class="win">Licenciados 1 × Guerrero con escudo en (9, 9)</div><div class="win">Reclutados 2 × Hermano de carga en (9, 9)</div><div class="win">Licenciados 2 × Guerrero con escudo en (9, 9)</div><div class="win">Licenciados 2 × Escudero en (9, 9)</div><div class="win">Reclutados 4 × Guerrero con arma a dos manos en (9, 9)</div><div>— Día 5 —</div><div class="win">Construido en (9, 9): Palacio municipal</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 4 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>El jugador 1 recluta 3 × Zombie en (38, 15)</div><div>El jugador 1 recluta 1 × Esqueleto guerrero en (38, 15)</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 4 rondas; pierde el enemigo 1 × Esqueleto guerrero, 3 × Jinete de plaga, 1 × Caballero de la muerte; pierdes 1 × Guerrero con arma a dos manos, 4 × Penitente</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
 ### partida perdida · renderActions
 <button data-action="restart" class="primary">Partida nueva</button>
 ### partida perdida · renderLog
-<div class="log" data-al-final="cronica"><div class="win">Reclutados 2 × Hermano de carga en (9, 9)</div><div class="win">Licenciados 2 × Guerrero con escudo en (9, 9)</div><div class="win">Licenciados 2 × Escudero en (9, 9)</div><div class="win">Reclutados 4 × Guerrero con arma a dos manos en (9, 9)</div><div>— Día 5 —</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 1 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>El jugador 1 recluta 1 × Esqueleto guerrero en (32, 32)</div><div>El jugador 1 recluta 4 × Zombie en (38, 15)</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 2 rondas; pierde el enemigo 1 × Esqueleto guerrero; pierdes 1 × Guerrero con arma a dos manos, 1 × Penitente</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div>Un Jinete de plaga del jugador 1 sube a veterano de rango 2 en (9, 9)</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
+<div class="log" data-al-final="cronica"><div class="win">Licenciados 2 × Guerrero con escudo en (9, 9)</div><div class="win">Licenciados 2 × Escudero en (9, 9)</div><div class="win">Reclutados 4 × Guerrero con arma a dos manos en (9, 9)</div><div>— Día 5 —</div><div class="win">Construido en (9, 9): Palacio municipal</div><div class="win">Reclutados 1 × Guerrero con arma a dos manos en (9, 9)</div><div class="win">Reclutados 4 × Penitente en (9, 9)</div><div class="win">Paso tomado al jugador 1 en (24, 15)</div><div class="win">Paso tomado al jugador 1 en (35, 20)</div><div>El jugador 1 recluta 1 × Zombie en (32, 32)</div><div>El jugador 1 recluta 3 × Zombie en (38, 15)</div><div>El jugador 1 recluta 1 × Esqueleto guerrero en (38, 15)</div><div class="lose">Batalla perdida contra un héroe del jugador 1 en (9, 9), en 4 rondas; pierde el enemigo 1 × Esqueleto guerrero, 3 × Jinete de plaga, 1 × Caballero de la muerte; pierdes 1 × Guerrero con arma a dos manos, 4 × Penitente</div><div class="lose">El jugador 1 te ha capturado un castillo en (9, 9)</div><div class="lose">Fin de la partida</div></div>
 ### aventura · turno del rival · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### aventura · turno del rival · renderSide
 
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>
@@ -315,13 +315,13 @@
 
         <button data-action="toggle-fog">Ver mapa entero</button>
         <button data-action="next-hero" title="Tecla H" disabled>Siguiente héroe</button>
-        <button data-action="end-turn" class="primary" disabled>
+        <button data-action="end-turn" class="primary" disabled title="todavía no es tu turno: ahora juega el jugador 1 (elfos)">
           Fin de turno
         </button>
 ### aventura · turno del rival · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · turno del enemigo · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · turno del enemigo · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -394,7 +394,7 @@
 ### batalla · turno del enemigo · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · en espera y sin maná · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · en espera y sin maná · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -467,7 +467,7 @@
 ### batalla · en espera y sin maná · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · tirador activo · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · tirador activo · renderSide
 <h2>Arquero</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -528,7 +528,7 @@
 ### batalla · tirador activo · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · parte de guerra completo · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · parte de guerra completo · renderSide
 <h2>Victoria</h2>
       <p>El campo es tuyo.</p>
@@ -539,7 +539,7 @@
 ### batalla · parte de guerra completo · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · hechizo elegido · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · hechizo elegido · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -612,7 +612,7 @@
 ### batalla · hechizo elegido · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · héroe sin libro · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · héroe sin libro · renderSide
 <h2>Escudero A</h2>
         <div class="row"><span class="label">Bando</span><span>Tú</span></div>
@@ -680,7 +680,7 @@
 ### batalla · héroe sin libro · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### castillo · con veteranos · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### castillo · con veteranos · renderSide
 
     <h2>Valdeluz</h2>
@@ -710,7 +710,7 @@
 ### castillo · con veteranos · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · con un veterano · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### batalla · con un veterano · renderSide
 <h2>Serena la Pálida</h2>
         <div class="row"><span class="label">Bando</span><span>Enemigo</span></div>
@@ -750,7 +750,7 @@
 ### batalla · con un veterano · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### castillo · con armería y tropa equipada · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### castillo · con armería y tropa equipada · renderSide
 
     <h2>Valdeluz</h2>
@@ -780,7 +780,7 @@
 ### castillo · con armería y tropa equipada · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### aventura · mochila y pieza elegida · renderTopbar.resources
-<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">28 000</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### aventura · mochila y pieza elegida · renderSide
 
         <p class="eyebrow">HÉROE · RANGO 5 · NIVEL 4 · Orko (Kaudillo)</p>

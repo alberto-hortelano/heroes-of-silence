@@ -34,6 +34,7 @@ import WebSocket from 'ws';
 import { DURACION, duracionDeLaJugada, IMPACTO } from '../../src/client/anim.js';
 import { LA_LLEVA_EL_HEROE } from '../../src/client/arena/paneles.js';
 import { EscenaAventura } from '../../src/client/escenas/aventura.js';
+import { EscenaAyuntamiento } from '../../src/client/escenas/ayuntamiento.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
 import { cajasDeLaMorada, EscenaMorada } from '../../src/client/escenas/morada.js';
@@ -106,6 +107,7 @@ import {
 import { UNIDADES, unidad } from '../../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import {
+  ECONOMIA,
   figuraDelHeroe,
   nombreDeTipoDeHeroe,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
@@ -121,7 +123,7 @@ import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import { faccionesDeLaSemilla } from '../../src/core/state/setup.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
-import { FACTION_IDS, type FactionId, type Point } from '../../src/core/types.js';
+import { describirCoste, FACTION_IDS, type FactionId, type Point } from '../../src/core/types.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
@@ -165,6 +167,7 @@ import {
 import { entornoDelArnes, semillaDelEspectador } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
+import { urlDePartida } from './url-de-partida.js';
 import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
 
 /**
@@ -1205,7 +1208,7 @@ async function abrir(
     await page.route(p.sinImagenes, (r) => r.fulfill({ status: 404, body: '' }));
   }
   const espejo = new Session(p.semilla);
-  await page.goto(`${url}/?seed=${p.semilla}`, { waitUntil: 'networkidle' });
+  await page.goto(`${url}${urlDePartida(p.semilla)}`, { waitUntil: 'networkidle' });
   await salirDeLaBase(page, p.nombre);
   if (p.sinSuelo !== true) await esperarElSuelo(page, p.nombre, 60_000, log);
   await sleep(450);
@@ -1261,13 +1264,14 @@ function exigir<T>(cosa: T, vale: (x: T) => boolean, paso: string): void {
  * partida hasta elegir (ni escena ni suelo); «Cargar partida» no hace nada, ni
  * con el teclado; «Nuevo juego» lleva a la elección, que viste la página con la
  * facción marcada (el clic o las flechas; pasar el ratón o el foco, no) y vuelve
- * al neutro con Escape; «Siguiente»
- * lleva a la elección del héroe (vuelta 2), con el tema de la facción y el retrato
- * de cada tipo, de la que «Volver» y Escape retroceden un paso; «Empezar» escribe
- * `?seed=N&faccion=<id>&heroe=<tipo>` y abre la base de esa facción con su héroe
- * dentro, pintado con la hoja de su tipo (no el Y Bot); al salir, el mapa con el
- * tema; recargar entra sin menú en la misma partida. Y la rápida, una facción que
- * no existe y un héroe que no es de la facción.
+ * al neutro con Escape; «Empezar» escribe `?seed=N&faccion=<id>` y abre la base de
+ * esa facción ante el ayuntamiento (22-10-2026), con un candidato a héroe por tipo
+ * y el oro entero; pulsar uno en el lienzo cambia la ficha (su retrato, su precio);
+ * recargar a media elección vuelve a preguntar igual; «Contratar» lo cobra, vuelve
+ * a la base con él dentro, pintado con la hoja de su tipo (no el Y Bot), y deja
+ * `&heroe=<tipo>` en la URL; al salir, el mapa con el tema; recargar entra sin menú
+ * y sin elegir en la misma partida. Y la rápida (con su héroe por defecto en la
+ * URL), una facción que no existe y un héroe que no es de la facción.
  */
 async function arranque(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   // Las tres páginas de la pasada en un contexto: lo que cambia entre ellas es la
@@ -1370,86 +1374,97 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   await page.locator('[data-faccion="orkos"]').click();
   await captura(page, 'inicio-02b-eleccion-orkos');
 
-  // «Siguiente»: la elección del héroe de los orkos, con su tema, el de por defecto
-  // marcado y el retrato de cada tipo cargado. Escape vuelve a la facción, con los
-  // orkos marcados; «Volver», lo mismo.
+  // «Empezar»: la URL dice semilla y facción, sin héroe, y la partida abre en la
+  // base de los orkos, ante el ayuntamiento, con un candidato por tipo, el de por
+  // defecto elegido y el oro entero (22-10-2026: el héroe se elige y se paga en la
+  // base). Lo que pide la página se apunta desde aquí: la hoja del tipo elegido
+  // tiene que llegar, y el Y Bot de espada y escudo (el de `HERO_BODY`, con que se
+  // pintaba el héroe) no.
   const TIPO = 'chaman_goblin';
   const tiposOrkos = tiposDeHeroe('orkos');
-  await page.locator('[data-inicio="siguiente"]').click();
-  await page.waitForSelector('[data-inicio="heroe"]');
-  exigir(
-    await estadoDelArranque(page),
-    (e) => e.tema === 'orkos' && e.foco === `heroe:${tipoDeHeroePorDefecto('orkos')}`,
-    'la elección del héroe va con el tema de los orkos y el de por defecto enfocado',
-  );
-  const retratos = await page.evaluate(async () => {
-    const imgs = [...document.querySelectorAll<HTMLImageElement>('.retrato-de-heroe')];
-    await Promise.all(imgs.map((i) => i.decode().catch(() => undefined)));
-    return imgs.map((i) => ({ src: new URL(i.src).pathname, ancho: i.naturalWidth }));
-  });
-  const esperados = tiposOrkos.map(
-    (t) => `/unidades/${figuraDelHeroe({ faction: 'orkos', tipo: t.id })}/identidad.webp`,
-  );
-  if (
-    JSON.stringify(retratos.map((r) => r.src)) !== JSON.stringify(esperados) ||
-    retratos.some((r) => r.ancho === 0)
-  )
-    throw new Error(
-      `arranque: los retratos de la elección del héroe no son los de sus hojas, o no cargan: ${JSON.stringify(retratos)}`,
-    );
-  await page.keyboard.press('Escape');
-  await page.waitForSelector('[data-inicio="eleccion"]');
-  exigir(
-    await estadoDelArranque(page),
-    (e) => e.tema === 'orkos' && e.foco === 'faccion:orkos',
-    'Escape en el héroe vuelve a la facción, con los orkos marcados',
-  );
-  await page.locator('[data-inicio="siguiente"]').click();
-  await page.waitForSelector('[data-inicio="heroe"]');
-  await page.locator(`[data-heroe="${TIPO}"]`).click();
-  await page.locator('[data-inicio="volver"]').click();
-  await page.waitForSelector('[data-inicio="eleccion"]');
-  await page.locator('[data-inicio="siguiente"]').click();
-  await page.waitForSelector('[data-inicio="heroe"]');
-  exigir(
-    await page.evaluate(
-      () => document.querySelector<HTMLInputElement>('input[name="heroe"]:checked')?.value ?? null,
-    ),
-    (v) => v === TIPO,
-    `«Volver» y «Siguiente» con la misma facción conservan el héroe marcado (${TIPO})`,
-  );
-  await captura(page, 'inicio-02c-heroe-orkos');
-
-  // «Empezar»: la URL dice la partida y abre la base de los orkos con su héroe,
-  // pintado con la hoja de su tipo. Lo que pide la página se apunta desde aquí:
-  // la hoja del chamán tiene que llegar, y el Y Bot de espada y escudo (el de
-  // `HERO_BODY`, con que se pintaba el héroe) no.
   const hojaDelTipo = figuraDelHeroe({ faction: 'orkos', tipo: TIPO });
   const pedidas: string[] = [];
   page.on('request', (r) => pedidas.push(new URL(r.url()).pathname));
   await page.locator('[data-inicio="empezar"]').click();
-  await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
+  await page.waitForSelector('#app[data-escena="ayuntamiento"]', { timeout: 30_000 });
   const pedida = new URL(page.url()).searchParams;
   const semilla = parseSeed(pedida.get('seed'));
-  if (semilla === null || pedida.get('faccion') !== 'orkos' || pedida.get('heroe') !== TIPO)
-    throw new Error(`arranque: «Empezar» no deja la partida en la URL: ${page.url()}`);
+  if (semilla === null || pedida.get('faccion') !== 'orkos' || pedida.has('heroe'))
+    throw new Error(
+      `arranque: «Empezar» no deja en la URL la semilla y la facción sin héroe: ${page.url()}`,
+    );
   exigir(
     await estadoDelArranque(page),
     (e) => !e.menu && e.app && e.tema === 'orkos',
     'la partida, con el tema de los orkos y sin menú',
   );
-  const espejo = new Session(semilla, 'orkos', TIPO);
+  let espejo = new Session(semilla, 'orkos', null);
+  espejo.abrirSuBase();
+  if (espejo.scene !== 'ayuntamiento')
+    throw new Error(`arranque: el espejo abre en «${espejo.scene}» y no ante el ayuntamiento`);
+  await esperarElElegidoDelAyuntamiento(page, espejo, 'arranque: abrir la partida');
+  await comprobar(page, espejo, 'arranque: ante el ayuntamiento, sin pagar aún');
+  const candidatos = await page.locator('#side [data-action="ayuntamiento-elegir"]').count();
+  if (candidatos !== tiposOrkos.length)
+    throw new Error(
+      `arranque: el ayuntamiento de los orkos ofrece ${candidatos} héroes y son ${tiposOrkos.length}`,
+    );
+  const ficha = (await page.locator('#side .ficha-del-ayuntamiento').innerText()).replace(
+    /\s+/g,
+    ' ',
+  );
+  if (!ficha.includes(describirCoste(ECONOMIA.precioDelHeroe)))
+    throw new Error(`arranque: la ficha del candidato no dice su precio: «${ficha}»`);
+  await captura(page, 'inicio-03-ayuntamiento-orkos');
+
+  // El chamán, pulsado en el lienzo: su ficha y su retrato, el de su hoja.
+  await pulsarEnElAyuntamiento(page, espejo, TIPO, 'arranque');
+  const retrato = await page.evaluate(async () => {
+    const img = document.querySelector<HTMLImageElement>(
+      '.ficha-del-ayuntamiento .retrato-de-heroe',
+    );
+    await img?.decode().catch(() => undefined);
+    return img === null ? null : { src: new URL(img.src).pathname, ancho: img.naturalWidth };
+  });
+  if (retrato?.src !== `/unidades/${hojaDelTipo}/identidad.webp` || retrato.ancho === 0)
+    throw new Error(
+      `arranque: el retrato del ${TIPO} no es el de su hoja, o no carga: ${JSON.stringify(retrato)}`,
+    );
+  await captura(page, 'inicio-03b-ayuntamiento-chaman');
+
+  // Recargar a media elección vuelve a preguntar, igual: la misma URL, el mismo
+  // oro y el de por defecto elegido otra vez.
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('#app[data-escena="ayuntamiento"]', { timeout: 30_000 });
+  espejo = new Session(semilla, 'orkos', null);
+  espejo.abrirSuBase();
+  await esperarElElegidoDelAyuntamiento(page, espejo, 'arranque: recargar a media elección');
+  await comprobar(page, espejo, 'arranque: recargar a media elección');
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.search === `?seed=${semilla}&faccion=orkos`,
+    'recargar a media elección no escribe ningún héroe en la URL',
+  );
+  await pulsarEnElAyuntamiento(page, espejo, TIPO, 'arranque, tras recargar');
+
+  // «Contratar»: cobra, vuelve a la base con él dentro y la URL lo lleva.
+  await page.locator(`#side [data-action="hire-hero"][data-tipo="${TIPO}"]`).click();
+  espejo.hireHero(TIPO);
+  await page.waitForSelector('#app[data-escena="town"]', { timeout: 10_000 });
+  await comprobar(page, espejo, 'arranque: contratar al chamán');
+  exigir(
+    await estadoDelArranque(page),
+    (e) => e.search === `?seed=${semilla}&faccion=orkos&heroe=${TIPO}`,
+    'elegido el héroe, la URL lo lleva',
+  );
   const heroe = espejo.myHeroes()[0];
   if (heroe === undefined || espejo.jugador.faction !== 'orkos' || heroe.tipo !== TIPO)
     throw new Error(`arranque: el espejo no juega con los orkos y un ${TIPO}`);
   const suBase = baseOf(espejo.state, espejo.jugador.id);
   if (heroe.at.x !== suBase?.at.x || heroe.at.y !== suBase.at.y)
-    throw new Error('arranque: el héroe del espejo no nace dentro de su base');
-  // Quien camina por la base es él (lo pinta el lienzo: se lee del espejo, que
-  // abre su base como la página y la cierra, sin tocar la partida).
-  espejo.abrirSuBase();
+    throw new Error('arranque: el héroe del espejo no está dentro de su base');
+  // Quien camina por la base es él (lo pinta el lienzo: se lee del espejo).
   const caminante = espejo.vistaDeLaBase()?.caminante;
-  espejo.closeTown();
   if (caminante?.id !== heroe.id || caminante.cuerpo !== hojaDelTipo)
     throw new Error(
       `arranque: por la base camina ${caminante?.id} con ${caminante?.cuerpo}, y no ${heroe.id} con ${hojaDelTipo}`,
@@ -1471,8 +1486,9 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   );
   if (cortados.length > 0)
     throw new Error(`arranque: en el panel de la base salen cortados «${cortados.join('», «')}»`);
-  await captura(page, 'inicio-03-base-orkos');
-  log(`arranque: semilla ${semilla}, orkos, en su base con ${heroe.name} dentro`);
+  await captura(page, 'inicio-04-base-orkos');
+  log(`arranque: semilla ${semilla}, orkos, ${heroe.name} elegido ante el ayuntamiento y pagado`);
+  espejo.closeTown();
 
   // Salir de la base con Escape: el mapa, con el tema, y la partida es la del espejo.
   await salirDeLaBase(page, 'arranque', 'escape');
@@ -1485,7 +1501,7 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   const ybot = pedidas.filter((p) => p.startsWith('/unidades/_poses/espada-escudo-8d/'));
   if (ybot.length > 0)
     throw new Error(`arranque: la base o el mapa pintan el Y Bot del héroe: ${ybot.join(', ')}`);
-  await captura(page, 'inicio-04-mapa-orkos');
+  await captura(page, 'inicio-05-mapa-orkos');
   log(`arranque: el ${TIPO} se pinta con ${hojaDelTipo} en la base y el mapa, sin el Y Bot`);
 
   // La URL reproduce la partida: recargar entra sin menú, en su base, con la misma semilla.
@@ -1538,7 +1554,7 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
       deLaRapida.get('heroe') === tipoDeHeroePorDefecto(suya),
     `la rápida juega con la de la semilla ${sRapida} (${suya}) y su héroe por defecto, y lo deja en la URL`,
   );
-  await captura(rapida, 'inicio-05-partida-rapida');
+  await captura(rapida, 'inicio-06-partida-rapida');
   log(`arranque: partida rápida, semilla ${sRapida} con ${suya}`);
   await rapida.close();
 
@@ -1569,11 +1585,14 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
 
 /**
  * La elección en un teléfono pequeño (375×667), con el dedo: no cabe, así que
- * hay que bajar hasta «Siguiente» deslizando, con toques de verdad por CDP. El
+ * hay que bajar hasta «Empezar» deslizando, con toques de verdad por CDP. El
  * `tap()` de Playwright no vale para esto: desplaza la página por programa hasta
  * el botón, y así escondía que no había forma de llegar (QA, H1). Deslizar no
- * viste ninguna facción: el dedo no tiene vista previa. Luego la del héroe
- * (vuelta 2), con el dedo también: se toca un tipo y se baja hasta «Empezar».
+ * viste ninguna facción: el dedo no tiene vista previa. Luego el héroe, ante el
+ * ayuntamiento (22-10-2026), con el dedo también: tocar una figura del lienzo trae
+ * su ficha con «Contratar» a la vista (QA H2); se vuelve arriba deslizando sobre el
+ * panel, se baja hasta el botón del último candidato, se toca, y su «Contratar»
+ * llega solo.
  */
 async function eleccionConElDedo(
   browser: Browser,
@@ -1603,23 +1622,78 @@ async function eleccionConElDedo(
       selector,
     );
   const cdp = await contexto.newCDPSession(page);
+  /**
+   * Dónde se puede apoyar el dedo para desplazar lo que contiene a `selector`: la
+   * franja de abajo arriba que se ve de lo que se desplaza (su primer antepasado
+   * con `overflow-y` que desplaza, o la página), sin el lienzo (`touch-action:
+   * none`) ni lo que tiene encima. En la partida es `#stage`, entre el lienzo y la
+   * barra de abajo: con una «y» fija el dedo caía en `#statusbar`, que no desplaza
+   * nada (QA H1, 22-10-2026).
+   */
+  const franjaPara = (
+    selector: string,
+  ): Promise<{ readonly x: number; readonly arriba: number; readonly abajo: number } | null> =>
+    page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (el === null) return null;
+      let quien = el.parentElement;
+      while (
+        quien !== null &&
+        !(
+          /(auto|scroll)/.test(getComputedStyle(quien).overflowY) &&
+          quien.scrollHeight > quien.clientHeight
+        )
+      )
+        quien = quien.parentElement;
+      const r = quien?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
+      const x = Math.round(innerWidth / 2);
+      // Sin funciones con nombre aquí dentro: tsx les pone `__name`, que en la
+      // página no existe.
+      let abajo: number | null = null;
+      let arriba = 0;
+      const tope = Math.ceil(Math.max(r.top, 0));
+      for (let y = Math.floor(Math.min(r.bottom, innerHeight)) - 2; y > tope; y -= 2) {
+        const bajo = document.elementFromPoint(x, y);
+        const vale =
+          bajo !== null &&
+          (quien === null || quien.contains(bajo)) &&
+          bajo.closest('canvas') === null &&
+          getComputedStyle(bajo).touchAction !== 'none';
+        if (vale) {
+          abajo ??= y;
+          arriba = y;
+        } else if (abajo !== null) break;
+      }
+      return abajo === null ? null : { x, arriba, abajo };
+    }, selector);
+  /** Un dedo de `y0` a `y1` en `x`, a toques de CDP. */
+  const deslizar = async (x: number, y0: number, y1: number): Promise<void> => {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x, y: y0 }],
+    });
+    const paso = y1 < y0 ? -20 : 20;
+    for (let y = y0 + paso; paso < 0 ? y >= y1 : y <= y1; y += paso) {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x, y }],
+      });
+      await sleep(16);
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await sleep(400);
+  };
   /** Desliza hacia arriba, como un dedo, hasta que `selector` se vea entero. */
   const bajarHasta = async (selector: string): Promise<void> => {
-    const alto = (await abajo(selector)).alto;
-    for (let vez = 0; vez < 4 && (await abajo(selector)).bajo > alto; vez++) {
-      await cdp.send('Input.dispatchTouchEvent', {
-        type: 'touchStart',
-        touchPoints: [{ x: 187, y: 560 }],
-      });
-      for (let y = 540; y >= 160; y -= 20) {
-        await cdp.send('Input.dispatchTouchEvent', {
-          type: 'touchMove',
-          touchPoints: [{ x: 187, y }],
-        });
-        await sleep(16);
-      }
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await sleep(400);
+    for (let vez = 0; vez < 4; vez++) {
+      const { bajo, alto } = await abajo(selector);
+      if (bajo <= alto) return;
+      const f = await franjaPara(selector);
+      if (f === null)
+        throw new Error(
+          `arranque, con el dedo: a 375×667 no hay dónde apoyar el dedo para bajar hasta ${selector}`,
+        );
+      await deslizar(f.x, f.abajo, Math.max(5, f.abajo - 380));
     }
     const despues = await abajo(selector);
     if (despues.bajo > despues.alto)
@@ -1627,38 +1701,86 @@ async function eleccionConElDedo(
         `arranque, con el dedo: a 375×667 no se llega a ${selector} deslizando: sigue en ${Math.round(despues.bajo)} de ${despues.alto}`,
       );
   };
+  /** Desliza hacia abajo, como un dedo, hasta que `#stage` vuelva arriba (el lienzo entero). */
+  const volverArriba = async (): Promise<void> => {
+    const arriba = () => page.evaluate(() => document.getElementById('stage')!.scrollTop);
+    // Con el lienzo bajando a la vista, la franja del panel se estrecha y cada
+    // pasada sube menos: hasta diez.
+    for (let vez = 0; vez < 10 && (await arriba()) > 0; vez++) {
+      const f = await franjaPara('#side');
+      if (f === null)
+        throw new Error('arranque, con el dedo: a 375×667 no hay dónde apoyar el dedo para subir');
+      await deslizar(f.x, f.arriba, 660);
+    }
+    const queda = await arriba();
+    if (queda > 0)
+      throw new Error(`arranque, con el dedo: deslizando no se vuelve arriba (#stage en ${queda})`);
+  };
   const nuevo = await centro('[data-inicio="nuevo"]');
   await page.touchscreen.tap(nuevo.x, nuevo.y);
   await page.waitForSelector('[data-inicio="eleccion"]');
   await sleep(300);
-  const SIGUIENTE = '[data-inicio="siguiente"]';
-  const antes = await abajo(SIGUIENTE);
+  const EMPEZAR = '[data-inicio="empezar"]';
+  const antes = await abajo(EMPEZAR);
   if (antes.bajo <= antes.alto)
     throw new Error(
-      `arranque, con el dedo: a 375×667 «Siguiente» ya se ve sin bajar (${Math.round(antes.bajo)} de ${antes.alto}): así no se prueba que se llegue deslizando`,
+      `arranque, con el dedo: a 375×667 «Empezar» ya se ve sin bajar (${Math.round(antes.bajo)} de ${antes.alto}): así no se prueba que se llegue deslizando`,
     );
-  await bajarHasta(SIGUIENTE);
+  await bajarHasta(EMPEZAR);
   exigir(
     await estadoDelArranque(page),
     (e) => e.tema === FACTION_IDS[0],
     `deslizar no viste ninguna facción: sigue la de ${FACTION_IDS[0]}, la marcada`,
   );
-  await captura(page, 'inicio-06-eleccion-movil');
-  const siguiente = await centro(SIGUIENTE);
-  await page.touchscreen.tap(siguiente.x, siguiente.y);
-  await page.waitForSelector('[data-inicio="heroe"]');
+  await captura(page, 'inicio-07-eleccion-movil');
+  const empezar = await centro(EMPEZAR);
+  await page.touchscreen.tap(empezar.x, empezar.y);
+  await page.waitForSelector('#app[data-escena="ayuntamiento"]', { timeout: 30_000 });
   await sleep(300);
-  // El último tipo, tocado: hay que bajar hasta él y luego hasta «Empezar».
-  const ultimo = tiposDeHeroe(FACTION_IDS[0]).at(-1)!.id;
-  const DEL_ULTIMO = `[data-heroe="${ultimo}"]`;
+  // Tocar una figura del lienzo trae su ficha con «Contratar» a la vista, sin
+  // deslizar (QA H2, 22-10-2026: el panel asoma una franja bajo el lienzo y no
+  // se veía pasar nada).
+  const semilla = parseSeed(new URL(page.url()).searchParams.get('seed'));
+  if (semilla === null)
+    throw new Error(`arranque, con el dedo: «Empezar» no deja semilla: ${page.url()}`);
+  const espejo = new Session(semilla, FACTION_IDS[0], null);
+  espejo.abrirSuBase();
+  const tipos = tiposDeHeroe(FACTION_IDS[0]).map((t) => t.id);
+  const contratarA = (tipo: string) => `#side [data-action="hire-hero"][data-tipo="${tipo}"]`;
+  const seVe = async (selector: string): Promise<boolean> => {
+    const { bajo, alto } = await abajo(selector);
+    return bajo <= alto;
+  };
+  if (await seVe(contratarA(tipos[0]!)))
+    throw new Error(
+      'arranque, con el dedo: a 375×667 «Contratar» ya se ve al entrar: así no se prueba que tocar una figura lo traiga',
+    );
+  await pulsarEnElAyuntamiento(page, espejo, tipos[1]!, 'arranque, con el dedo', true);
+  for (let vez = 0; vez < 20 && !(await seVe(contratarA(tipos[1]!))); vez++) await sleep(100);
+  if (!(await seVe(contratarA(tipos[1]!))))
+    throw new Error(
+      `arranque, con el dedo: tocar la figura de ${tipos[1]} en el lienzo no trae su «Contratar» a la vista`,
+    );
+  await captura(page, 'inicio-08-ayuntamiento-movil-toque');
+  // De vuelta arriba deslizando sobre el panel, y el último candidato, tocado en
+  // el panel: hay que bajar hasta él, y su ficha llega sola.
+  await volverArriba();
+  const ultimo = tipos.at(-1)!;
+  const DEL_ULTIMO = `#side [data-action="ayuntamiento-elegir"][data-tipo="${ultimo}"]`;
   await bajarHasta(DEL_ULTIMO);
   const elUltimo = await centro(DEL_ULTIMO);
   await page.touchscreen.tap(elUltimo.x, elUltimo.y);
-  await bajarHasta('[data-inicio="empezar"]');
-  await captura(page, 'inicio-07-heroe-movil');
-  const empezar = await centro('[data-inicio="empezar"]');
-  await page.touchscreen.tap(empezar.x, empezar.y);
-  await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
+  await page.waitForSelector(`#canvas[data-ayuntamiento="${ultimo}"]`, { timeout: 8000 });
+  const CONTRATAR = contratarA(ultimo);
+  for (let vez = 0; vez < 20 && !(await seVe(CONTRATAR)); vez++) await sleep(100);
+  if (!(await seVe(CONTRATAR)))
+    throw new Error(
+      `arranque, con el dedo: tocar el botón de ${ultimo} no trae su «Contratar» a la vista`,
+    );
+  await captura(page, 'inicio-09-ayuntamiento-movil');
+  const contratar = await centro(CONTRATAR);
+  await page.touchscreen.tap(contratar.x, contratar.y);
+  await page.waitForSelector('#app[data-escena="town"]', { timeout: 10_000 });
   exigir(
     await estadoDelArranque(page),
     (e) => {
@@ -1669,10 +1791,10 @@ async function eleccionConElDedo(
         q.get('heroe') === ultimo
       );
     },
-    `«Empezar», tocado tras deslizar, abre la base de ${FACTION_IDS[0]} con un ${ultimo}`,
+    `«Contratar», tocado tras deslizar, deja la base de ${FACTION_IDS[0]} con un ${ultimo}`,
   );
   log(
-    `arranque: con el dedo, a 375×667 se baja hasta «Siguiente» y «Empezar» y abre la base con un ${ultimo}`,
+    `arranque: con el dedo, a 375×667 se baja hasta «Empezar», tocar una figura trae su «Contratar», se sube y se baja por el panel y abre la base con un ${ultimo}`,
   );
   await contexto.close();
 }
@@ -2361,7 +2483,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   const semilla = await semillaDelMovil(browser, url, problemas);
   const medida = await cajaDeMovil(browser, url, problemas);
   const espejo = new Session(semilla);
-  await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
+  await page.goto(`${url}${urlDePartida(semilla)}`, { waitUntil: 'networkidle' });
   await salirDeLaBase(page, 'táctil', 'toque');
   await esperarElSuelo(page, 'táctil', 60_000, log);
   await sleep(450);
@@ -2438,7 +2560,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
 
   // A la batalla de la semilla, desde el principio otra vez (el héroe ya ha
   // andado), con dos toques: el primero enseña, el segundo va.
-  await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
+  await page.goto(`${url}${urlDePartida(semilla)}`, { waitUntil: 'networkidle' });
   await salirDeLaBase(page, 'táctil, otra vez', 'toque');
   await sleep(450);
   const otra = new Session(semilla);
@@ -3222,7 +3344,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     );
     const p = await contexto.newPage();
     vigilarConsola(p, v.nombre, problemas);
-    await p.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
+    await p.goto(`${url}${urlDePartida(semilla)}`, { waitUntil: 'networkidle' });
     await salirDeLaBase(p, v.nombre, v.movil ? 'toque' : 'clic');
     const boton = p.locator('#side [data-action="abrir-tropa"]');
     if (v.movil) await boton.tap();
@@ -3332,6 +3454,68 @@ async function pulsarEnLaMorada(
   await esperarLaElegidaDeLaMorada(page, espejo, `${quien}: pulsar la figura de ${unidad}`);
 }
 
+// ------------------------------------------------------------------ el ayuntamiento en escena
+
+/**
+ * Espera a que el lienzo diga que el elegido del ayuntamiento es el del espejo
+ * (`canvas[data-ayuntamiento]`, su tipo), y su ficha en el panel.
+ */
+async function esperarElElegidoDelAyuntamiento(
+  page: Page,
+  espejo: Session,
+  paso: string,
+): Promise<void> {
+  const vista = espejo.vistaDelAyuntamiento();
+  if (vista === null) throw new Error(`${paso}: el espejo no está ante el ayuntamiento`);
+  const marca = vista.figuras[vista.elegida]!.id;
+  await page
+    .waitForSelector(`#canvas[data-ayuntamiento="${marca}"]`, { timeout: 8000 })
+    .catch(async () => {
+      const tiene = await page.locator('#canvas').getAttribute('data-ayuntamiento');
+      throw new Error(`${paso}: la página está en «${tiene}» y el espejo en «${marca}»`);
+    });
+  const tipo = (
+    await page.locator('#side .ficha-del-ayuntamiento .tipo-de-heroe').innerText()
+  ).trim();
+  if (tipo.toUpperCase() !== vista.ficha.nombreDelTipo.toUpperCase()) {
+    throw new Error(
+      `${paso}: la ficha de la página es de «${tipo}» y la del espejo de «${vista.ficha.nombreDelTipo}»`,
+    );
+  }
+}
+
+/**
+ * Pulsa en el lienzo la figura del tipo `tipo` y la elige en el espejo con
+ * la misma escena que lee el clic en la página (`EscenaAyuntamiento`), en el píxel
+ * pulsado. En Node no pinta: su fondo, la base, no hace falta para encuadrar.
+ */
+async function pulsarEnElAyuntamiento(
+  page: Page,
+  espejo: Session,
+  tipo: string,
+  quien: string,
+  toque = false,
+): Promise<void> {
+  const vista = espejo.vistaDelAyuntamiento();
+  if (vista === null) throw new Error(`${quien}: el espejo no está ante el ayuntamiento`);
+  const b = await caja(page);
+  const escena = new EscenaAyuntamiento(
+    () => espejo,
+    () => {},
+  );
+  escena.encuadrar(b.width, b.height, await densidadDe(page));
+  const i = vista.figuras.findIndex((f) => f.id === tipo);
+  if (i < 0) throw new Error(`${quien}: ${tipo} no se contrata en ${vista.nombre}`);
+  const e = escena.encuadre(vista);
+  const p = await pulsarLaFigura(page, b, cajasDeLaMorada(e.camara)(e.en[i]!), toque);
+  escena.pulsar(p.x, p.y);
+  const ahora = espejo.vistaDelAyuntamiento()!;
+  if (ahora.figuras[ahora.elegida]!.id !== tipo) {
+    throw new Error(`${quien}: pulsar la figura de ${tipo} no la elige en el espejo`);
+  }
+  await esperarElElegidoDelAyuntamiento(page, espejo, `${quien}: pulsar la figura de ${tipo}`);
+}
+
 /**
  * Vuelve de la morada a la base con «Volver a la base» (clic o toque) o con
  * Escape, en la página y en el espejo, y comprueba que una sola pulsación deja
@@ -3413,7 +3597,7 @@ async function moradaEnEscena(browser: Browser, url: string, problemas: Problema
       vigilarConsola(page, nombre, problemas);
       const espejo = new Session(semilla, faccion);
       espejo.abrirSuBase();
-      await page.goto(`${url}/?seed=${semilla}&faccion=${faccion}`, { waitUntil: 'networkidle' });
+      await page.goto(`${url}${urlDePartida(semilla, faccion)}`, { waitUntil: 'networkidle' });
       await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
       await esperarLaBase(page, 'quieto');
       const d = disposicionDe(faccion);
@@ -3489,7 +3673,7 @@ async function baseAVariosAnchos(
     vigilarConsola(page, nombre, problemas);
     const espejo = new Session(semilla, 'templarios');
     espejo.abrirSuBase();
-    await page.goto(`${url}/?seed=${semilla}&faccion=templarios`, { waitUntil: 'networkidle' });
+    await page.goto(`${url}${urlDePartida(semilla, 'templarios')}`, { waitUntil: 'networkidle' });
     await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
     await esperarLaBase(page, 'quieto');
     // El arte de la base, ya llegado: la captura es para mirarla.

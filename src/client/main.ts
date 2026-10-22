@@ -13,6 +13,7 @@ import { unaVezEnLaURL } from '@core/validar.js';
 import { combateALaURL, combateDeLaURL, type ParametroDelCombate } from './combate-en-la-url.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
+import { EscenaAyuntamiento } from './escenas/ayuntamiento.js';
 import { EscenaBatalla } from './escenas/batalla.js';
 import { EscenaBase } from './escenas/castillo.js';
 import { EscenaMorada } from './escenas/morada.js';
@@ -111,7 +112,10 @@ function salidaDe(pedidos: readonly Pedido[]): string | null {
  * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla, con qué
  * facción, con qué héroe y con qué complejidad juega: se escriben siempre, también
  * si los sacó la semilla (la partida rápida, 7 / 7), para que la URL la
- * reproduzca entera. «Solo la rueda del héroe», solo si se marcó.
+ * reproduzca entera. «Solo la rueda del héroe», solo si se marcó. Sin `heroe`
+ * (`null`), el héroe de salida está por elegir en la base (22-10-2026) y `?heroe=`
+ * no se escribe hasta que se elige (el clic de `hire-hero`): una recarga a media
+ * elección vuelve a preguntar.
  */
 function abrePartida(
   seed: number,
@@ -120,13 +124,11 @@ function abrePartida(
   combate: ReglasDelCombate,
   soloHeroe: boolean,
 ): Session {
-  const abierta = new Session(seed, faccion ?? undefined, heroe ?? undefined, combate, soloHeroe);
-  const suyo = abierta.myHeroes()[0];
-  if (suyo === undefined) throw new Error('la partida abre sin héroe para quien juega');
+  const abierta = new Session(seed, faccion ?? undefined, heroe, combate, soloHeroe);
   aLaBarra((url) => {
     url.searchParams.set('seed', String(seed));
     url.searchParams.set('faccion', abierta.jugador.faction);
-    url.searchParams.set('heroe', suyo.tipo);
+    if (heroe !== null) url.searchParams.set('heroe', heroe);
     combateALaURL(url, abierta.state.combate, abierta.soloRuedaDelHeroe);
   });
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
@@ -231,6 +233,14 @@ const DENTRO = {
     ),
     cerrar: (s: Session) => s.cerrarLaMorada(),
   },
+  ayuntamiento: {
+    // Detrás de la fila, la base con el ayuntamiento por fuera (no tiene versión
+    // abierta) y sin quien anduvo: delante solo van los candidatos.
+    de: new EscenaAyuntamiento(sesion, (ctx, lienzo, camara, vista, ahora) =>
+      castillo.pintarLaMorada(ctx, lienzo, camara, vista.edificio, ahora, { caminante: false }),
+    ),
+    cerrar: (s: Session) => s.cerrarElAyuntamiento(),
+  },
 } as const;
 type EscenaDeDentro = keyof typeof DENTRO;
 const esDeDentro = (escena: string): escena is EscenaDeDentro => escena in DENTRO;
@@ -309,6 +319,38 @@ let escenaPintada = '';
 let escenaDeAntes = '';
 let lateralDeAntes = 0;
 let lateralPendiente: number | null = null;
+
+/**
+ * Tras elegir un candidato del ayuntamiento (en el lienzo o en su botón), su ficha
+ * con «Contratar» se trae a la vista si no se veía (QA H2, 22-10-2026). En un
+ * teléfono pequeño el panel va debajo del lienzo y asoma una franja: quien tocaba
+ * una figura no veía pasar nada. Se lee en el fotograma que repinta el panel, con
+ * la ficha ya nueva.
+ */
+let fichaALaVista = false;
+
+/**
+ * `fichaALaVista` tras el `click` que el navegador saca de este mismo toque, que
+ * llega después de `pointerup` y se apunta donde esté el dedo entonces: con el
+ * panel ya desplazado, en un teléfono de 375×667 caía sobre «Contratar» y
+ * contrataba sin que nadie viera la ficha (QA H6, 22-10-2026). Si el `click` no
+ * llega (el dedo se arrastró), a los `ESPERA_DEL_CLIC` ms.
+ */
+function fichaTrasElClic(): void {
+  let hecho = false;
+  const traer = (): void => {
+    if (hecho) return;
+    hecho = true;
+    window.removeEventListener('click', traer, true);
+    fichaALaVista = true;
+    pedirFotograma();
+  };
+  // En la captura: el `click` ya tiene su blanco y el desplazamiento llega en el
+  // fotograma siguiente, cuando ya se ha repartido.
+  window.addEventListener('click', traer, true);
+  setTimeout(traer, ESPERA_DEL_CLIC);
+}
+const ESPERA_DEL_CLIC = 400;
 
 /**
  * El bucle de dibujo, con red: el fallo se escribe en la barra y el siguiente
@@ -439,7 +481,23 @@ function dibujarFotograma(ahora: number): void {
     lateral.scrollTop = lateralPendiente;
     lateralPendiente = null;
   }
+  if (fichaALaVista) {
+    fichaALaVista = false;
+    llevarLaFichaALaVista();
+  }
   if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
+}
+
+/** Trae a la vista la ficha del elegido del ayuntamiento y su «Contratar» (`fichaALaVista`). */
+function llevarLaFichaALaVista(): void {
+  const ficha = elSide.querySelector('.ficha-del-ayuntamiento');
+  const contratar = ficha?.querySelector('[data-action="hire-hero"]');
+  if (ficha == null || contratar == null) return;
+  // Primero la ficha desde arriba y luego el botón: si la ficha entera no cabe,
+  // manda que se vea «Contratar». `nearest` no mueve nada si ya se ve (el
+  // escritorio, con el panel al lado).
+  ficha.scrollIntoView({ block: 'nearest' });
+  contratar.scrollIntoView({ block: 'nearest' });
 }
 
 /**
@@ -563,8 +621,10 @@ canvas.addEventListener('pointerup', (ev) => {
   if (ev.button !== 0) return;
   const p = enLienzo(ev);
   if (session.scene === 'town') castillo.pulsar(p.x, p.y, performance.now());
-  else if (esDeDentro(session.scene)) DENTRO[session.scene].de.pulsar(p.x, p.y);
-  else if (session.scene === 'battle') {
+  else if (esDeDentro(session.scene)) {
+    const escena = session.scene;
+    if (DENTRO[escena].de.pulsar(p.x, p.y) && escena === 'ayuntamiento') fichaTrasElClic();
+  } else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
     if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
   } else if (aventura.soltar()) {
@@ -712,8 +772,20 @@ document.addEventListener('click', (ev) => {
       break;
     case 'cerrar-tropa':
     case 'cerrar-morada':
+    case 'cerrar-ayuntamiento':
       cerrarDentro();
       break;
+    case 'abrir-ayuntamiento':
+      castillo.cerrar();
+      session.abrirElAyuntamiento();
+      break;
+    case 'ayuntamiento-elegir': {
+      const tipo = target.getAttribute('data-tipo');
+      if (tipo === null) throw new Error('el botón del ayuntamiento no dice qué héroe elige');
+      session.elegirEnElAyuntamiento(tipo);
+      fichaALaVista = true;
+      break;
+    }
     case 'tropa-elegir': {
       const quien = target.getAttribute('data-quien');
       if (quien === null) throw new Error('el botón de la tropa no dice a quién elige');
@@ -756,9 +828,20 @@ document.addEventListener('click', (ev) => {
     case 'cerrar-conversacion':
       castillo.cerrar();
       break;
-    case 'hire-hero':
-      session.hireHero();
+    case 'hire-hero': {
+      // Solo cuenta el primer clic: el segundo de un doble clic caería en la base.
+      if (ev.detail > 1) break;
+      const tipo = target.getAttribute('data-tipo');
+      if (tipo === null) throw new Error('el botón de contratar no dice qué héroe contrata');
+      const eraElDeSalida = session.heroeDeSalidaPendiente;
+      session.hireHero(tipo);
+      // Elegido el de salida, la URL lo lleva: la recarga entra con él («ya elegido
+      // y pagado»). Uno contratado después no la cambia.
+      if (eraElDeSalida && !session.heroeDeSalidaPendiente) {
+        aLaBarra((url) => url.searchParams.set('heroe', tipo));
+      }
       break;
+    }
     case 'dismiss':
       session.dismiss(
         target.getAttribute('data-hero') as string,

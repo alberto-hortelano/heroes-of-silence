@@ -97,13 +97,18 @@ export function dondeEsta(
  * Edificios (lo de detrás primero) y luego gente y quien camina, por su pie. Sin
  * `gente`, solo quien camina: dentro de una morada (`EscenaBase.pintarLaMorada`)
  * el encargado esperaría donde van los reclutas, y dentro no se habla con nadie.
+ * Sin `caminante`, tampoco él: ante el ayuntamiento se plantaba en medio de los
+ * candidatos a héroe, una figura más que no se elige (22-10-2026).
  */
 export function componerBase(
   d: Disposicion,
   vista: VistaDeLaBase,
   caminante: EstadoDelCaminante,
   tiempo: number,
-  { gente = true }: { readonly gente?: boolean } = {},
+  {
+    gente = true,
+    caminante: conCaminante = true,
+  }: { readonly gente?: boolean; readonly caminante?: boolean } = {},
 ): Elemento[] {
   const elementos: Elemento[] = [
     ...vista.edificios.map((e): Elemento => {
@@ -128,18 +133,22 @@ export function componerBase(
         pie: en.y,
       };
     }),
-    {
-      tipo: 'figura',
-      id: vista.caminante.id,
-      cuerpo: vista.caminante.cuerpo,
-      nombre: vista.caminante.nombre,
-      en: caminante.en,
-      mira: caminante.mira,
-      clip: caminante.clip,
-      tiempo: caminante.tiempo,
-      pnj: false,
-      pie: caminante.en.y,
-    },
+    ...(conCaminante
+      ? [
+          {
+            tipo: 'figura',
+            id: vista.caminante.id,
+            cuerpo: vista.caminante.cuerpo,
+            nombre: vista.caminante.nombre,
+            en: caminante.en,
+            mira: caminante.mira,
+            clip: caminante.clip,
+            tiempo: caminante.tiempo,
+            pnj: false,
+            pie: caminante.en.y,
+          } satisfies Elemento,
+        ]
+      : []),
   ];
   const capa = (e: Elemento): number => (e.tipo === 'edificio' ? 0 : 1);
   return elementos.sort((a, b) => capa(a) - capa(b) || a.pie - b.pie);

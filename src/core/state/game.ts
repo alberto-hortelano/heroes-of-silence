@@ -18,7 +18,7 @@ import {
   unidadDelJuegoSiExiste,
 } from '../catalogo.js';
 import { combateBlocker, loNeutralAlTope, type ReglasDelCombate } from '../combate.js';
-import { ECONOMIA, figuraDelHeroe, tipoDeHeroePorDefecto } from '../data.js';
+import { ECONOMIA, figuraDelHeroe, tipoDeHeroePorDefecto, tiposDeHeroe } from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
@@ -168,6 +168,18 @@ export interface Player {
    * (`captureTown`) y una segunda copia es lo que ya costó #47.
    */
   readonly base: string | null;
+  /**
+   * El héroe de salida **que aún no se ha elegido**, o `null` si no hay ninguno
+   * pendiente (lo normal). Lo hace `newGame` como siempre —nombre, cifras, tropa de
+   * su tirada— y se queda aquí, fuera de `state.heroes`, hasta que su jugador lo
+   * elige y lo paga en su base (`hire_hero` con `tipo`, `hireHero`): solo la
+   * persona que empieza sin `?heroe=` (`NewGameOptions.tipoDelHeroe` a `null`); la
+   * IA, el agente y `newGame` por defecto lo pagan al crear la partida, por la
+   * misma puerta. Mientras está pendiente, su jugador no hace nada más
+   * (`salidaPendienteBlocker`). Es «el de salida», no «sin héroes»: un jugador que
+   * pierde al suyo a media partida sigue pasando el turno.
+   */
+  heroeDeSalida: Hero | null;
 }
 
 /** Un objeto del mapa tal y como se vio, y cuándo. */
@@ -358,14 +370,18 @@ export interface GameContext {
   readonly rng: Rng;
 }
 
-/** Lo que cuesta contratar a un héroe nuevo en un pueblo propio. */
-export const HERO_HIRE_COST = 2500;
 /** Héroes simultáneos por jugador. */
 export const MAX_HEROES_PER_PLAYER = 4;
 
 export type AdventureAction =
   | { readonly type: 'move_hero'; readonly hero: string; readonly to: Point }
-  | { readonly type: 'hire_hero'; readonly town: string }
+  /**
+   * Contratar en `town` un héroe del tipo `tipo` (de la facción del pueblo; sin él,
+   * el de por defecto), al precio de todo héroe (`ECONOMIA.precioDelHeroe`). Con el
+   * héroe de salida pendiente, es elegirlo y pagarlo en la base (`hireHero`). El
+   * contrato del agente no lleva `tipo`: contrata el de por defecto.
+   */
+  | { readonly type: 'hire_hero'; readonly town: string; readonly tipo?: string }
   | {
       readonly type: 'recruit';
       readonly town: string;
@@ -614,7 +630,14 @@ export interface GameConfig {
   readonly combate: ReglasDelCombate;
   readonly map: GameMap;
   readonly players: readonly { id: PlayerId; faction: FactionId; controller: Controller }[];
+  /**
+   * El héroe de salida de cada jugador, ya hecho (`newGame`). Cada uno se paga y se
+   * asienta en su base por la puerta de contratar (`hireHero`), salvo el de
+   * `porElegir`, que queda pendiente (`Player.heroeDeSalida`).
+   */
   readonly heroes: readonly Hero[];
+  /** El jugador que elige su héroe de salida en la base; ninguno si falta. */
+  readonly porElegir?: PlayerId | undefined;
   readonly towns: readonly Town[];
   /** Los asaltantes con los que empieza la partida; ninguno si falta. */
   readonly raiders?: readonly Raider[];
@@ -649,6 +672,7 @@ export function createGame(config: GameConfig): GameState {
     asaltantesVistos: new Map<string, AsaltanteRecordado>(),
     defeated: false,
     base: primeraCiudadDe(config.towns, p.id)?.id ?? null,
+    heroeDeSalida: null,
   }));
 
   const state: GameState = {
@@ -658,7 +682,8 @@ export function createGame(config: GameConfig): GameState {
     combate: config.combate,
     map,
     players,
-    heroes: config.heroes.map((h) => ({ ...h, army: [...h.army] })),
+    // Los de salida entran por `hireHero`, abajo: pagados como todo héroe.
+    heroes: [],
     towns: towns.map((t) => ({
       ...t,
       available: { ...t.available },
@@ -682,9 +707,20 @@ export function createGame(config: GameConfig): GameState {
   // Los pueblos arrancan con la hornada de la primera semana.
   for (const town of state.towns) applyWeeklyGrowth(town);
 
-  for (const hero of state.heroes) {
-    hero.movePoints = maxMovePoints(hero, state.characters);
-    revealAround(state, hero);
+  // Cada héroe de salida, pagado y asentado en su base por la puerta de todo
+  // héroe, en el sitio donde antes solo se fijaban sus puntos y miraba: antes que
+  // los castillos y que el primer hecho, así que la niebla y lo apuntado salen
+  // en el mismo orden que cuando nacía gratis.
+  for (const hero of config.heroes) {
+    const player = playerById(state, hero.owner);
+    player.heroeDeSalida = { ...hero, army: [...hero.army] };
+    if (hero.owner === config.porElegir) continue;
+    if (player.base === null) {
+      throw new Error(
+        `el ${describePlayer(state, player.id)} no tiene base donde asentar a su héroe de salida`,
+      );
+    }
+    hireHero(state, player.id, player.base, hero.tipo);
   }
   for (const town of state.towns) revealAroundTown(state, town);
 
@@ -1243,6 +1279,11 @@ export function applyAdventureAction(
   // vive la frase: aquí no se reescribe ninguna de las dos.
   const bloqueo = turnBlocker(state, quien);
   if (bloqueo !== null) throw new Error(bloqueo);
+  // Con el héroe de salida por elegir, lo único que se hace es elegirlo.
+  if (action.type !== 'hire_hero') {
+    const pendiente = salidaPendienteBlocker(state, quien);
+    if (pendiente !== null) throw new Error(pendiente);
+  }
 
   // Quién actúa se anota ANTES de la acción: `end_turn` cambia `state.current`,
   // y el que acaba de meter su héroe en el castillo es el jugador saliente.
@@ -1309,7 +1350,7 @@ function aplicar(
       return;
 
     case 'hire_hero': {
-      hireHero(state, action.town);
+      hireHero(state, currentPlayer(state).id, action.town, action.tipo);
       return;
     }
 
@@ -1625,23 +1666,97 @@ function dismissBlocker(
 }
 
 /**
- * Contrata un héroe nuevo en un pueblo propio.
+ * Por qué `quien` no puede contratar en `townId` un héroe del tipo `tipo` (sin él,
+ * el de por defecto de la facción del pueblo), o `null` si puede. **La única
+ * regla de contratar**, también la del héroe de salida: la leen `hireHero` (que
+ * lanza con ella), la IA (`planHires`) y los candidatos de la pantalla
+ * (`candidatosAHeroe`). No mira
+ * el turno: eso es de `turnBlocker`.
+ *
+ * Con el de salida pendiente, solo en su base y con el oro; sin él, lo de
+ * siempre: el tope de héroes y que no haya nadie dentro.
+ */
+export function contratarBlocker(
+  state: GameState,
+  quien: PlayerId,
+  townId: string,
+  tipo?: string,
+): string | null {
+  const town = townById(state, townId);
+  const player = playerById(state, quien);
+  if (town.owner !== player.id) return `${town.name} no es tuyo`;
+  if (player.heroeDeSalida !== null) {
+    if (player.base !== town.id) {
+      return `tu héroe de salida se elige en tu base, ${baseDe(state, player)}`;
+    }
+  } else {
+    if (!hayHuecoDeHeroe(state, player.id)) {
+      return `ya tienes el máximo de héroes (${MAX_HEROES_PER_PLAYER})`;
+    }
+    if (state.heroes.some((h) => pointKey(h.at) === pointKey(town.at))) {
+      return `ya hay un héroe en ${town.name}`;
+    }
+  }
+  if (tipo !== undefined) {
+    const tipoMalo = problemaDeTipo(town.faction, tipo);
+    if (tipoMalo !== null) return tipoMalo;
+  }
+  return oroBlocker(ECONOMIA.precioDelHeroe, player.oro);
+}
+
+/** El nombre de la base de `player`, o «ninguna» (para las frases). */
+function baseDe(state: GameState, player: Player): string {
+  return player.base === null ? 'que no tienes' : townById(state, player.base).name;
+}
+
+/**
+ * Por qué `quien` no puede hacer nada más que elegir su héroe de salida, o `null`
+ * si no lo tiene pendiente. La mira `applyAdventureAction` para toda acción salvo
+ * `hire_hero`, y la enseña la pantalla en lo que apaga (reclutar, construir,
+ * pasar el turno). Solo mira el de salida: sin héroes a media partida se juega.
+ */
+export function salidaPendienteBlocker(state: GameState, quien: PlayerId): string | null {
+  const player = playerById(state, quien);
+  if (player.heroeDeSalida === null) return null;
+  return `antes de nada, elige a tu héroe de salida ante el ayuntamiento de ${baseDe(state, player)}`;
+}
+
+/**
+ * Contrata en `townId` un héroe del tipo `tipo` para `quien`, pagando el precio de
+ * todo héroe (`ECONOMIA.precioDelHeroe`). **La única puerta por la que entra un
+ * héroe pagado**: la de salida y la de después.
+ *
+ * Con el de salida pendiente lo asienta: el que hizo `newGame` (nombre, cifras y
+ * tropa de su tirada), con el tipo elegido, en su base, **sin hecho en la
+ * crónica** (el de salida nunca lo tuvo) y **sin recoger la guarnición** (la
+ * base del día 1 se queda con la suya, decisión del usuario). Sin él, uno nuevo,
+ * 1/1 y sin tropa, que recoge la guarnición.
  *
  * Sin esto, perder al único héroe deja al jugador inerte para siempre: conserva
  * el castillo, así que no está derrotado, pero no puede volver a mover una sola
  * pieza. La partida se quedaba encallada hasta el límite de días.
  */
-function hireHero(state: GameState, townId: string): void {
+function hireHero(state: GameState, quien: PlayerId, townId: string, tipo?: string): void {
+  const motivo = contratarBlocker(state, quien, townId, tipo);
+  if (motivo !== null) throw new Error(`no se puede contratar un héroe: ${motivo}`);
   const town = townById(state, townId);
-  const player = currentPlayer(state);
-  if (town.owner !== player.id) throw new Error('ese pueblo no es tuyo');
-  if (!hayHuecoDeHeroe(state, player.id)) {
-    throw new Error('ya tienes el máximo de héroes');
-  }
-  const sinOro = oroBlocker(HERO_HIRE_COST, player.oro);
-  if (sinOro !== null) throw new Error(`no se puede contratar un héroe: ${sinOro}`);
-  if (state.heroes.some((h) => pointKey(h.at) === pointKey(town.at))) {
-    throw new Error('ya hay un héroe en el pueblo');
+  const player = playerById(state, quien);
+  player.oro -= ECONOMIA.precioDelHeroe;
+
+  const pendiente = player.heroeDeSalida;
+  if (pendiente !== null) {
+    const hero: Hero = { ...pendiente, tipo: tipo ?? pendiente.tipo };
+    hero.movePoints = maxMovePoints(hero, state.characters);
+    // En el orden de los jugadores, como cuando nacían todos juntos: quien lee
+    // `state.heroes` (la IA, los paneles) ve lo mismo eligiendo que sin elegir.
+    const puesto = state.players.findIndex((p) => p.id === player.id);
+    const detras = state.heroes.findIndex(
+      (h) => state.players.findIndex((p) => p.id === h.owner) > puesto,
+    );
+    state.heroes.splice(detras === -1 ? state.heroes.length : detras, 0, hero);
+    player.heroeDeSalida = null;
+    revealAround(state, hero);
+    return;
   }
 
   // La `c` (de «contratado») lo separa del inicial, `hero-<jugador>`, y del
@@ -1650,15 +1765,14 @@ function hireHero(state: GameState, townId: string): void {
   const hero = heroeRecienHecho({
     id,
     owner: player.id,
-    name: `Capitán de ${town.name}`,
+    name: nombreDelContratado(town),
     faction: town.faction,
     at: town.at,
     experience: EXPERIENCIA_INICIAL_DE_HEROE,
-    tipo: tipoDeHeroePorDefecto(town.faction),
+    tipo: tipo ?? tipoDeHeroePorDefecto(town.faction),
   });
   hero.movePoints = maxMovePoints(hero, state.characters);
 
-  player.oro -= HERO_HIRE_COST;
   state.heroes.push(hero);
   emit(state, {
     kind: 'hero_hired',
@@ -1670,6 +1784,63 @@ function hireHero(state: GameState, townId: string): void {
 
   takeGarrison(state, hero, town);
   revealAround(state, hero);
+}
+
+/** El nombre de un héroe contratado en `town`: lo leen `hireHero` y los candidatos. */
+function nombreDelContratado(town: Town): string {
+  return `Capitán de ${town.name}`;
+}
+
+/** Un tipo de héroe que se puede contratar en un pueblo: lo que enseña su ficha. */
+export interface CandidatoAHeroe {
+  /** El id de su tipo (`data/tipos-de-heroe.json`), el que lleva `hire_hero`. */
+  readonly tipo: string;
+  /** El nombre de su tipo y lo que dice de él el cuaderno. */
+  readonly nombreDelTipo: string;
+  readonly descripcion: string;
+  readonly precio: number;
+  /** Por qué no se puede contratar (`contratarBlocker`; el turno no), o `null`. */
+  readonly motivo: string | null;
+}
+
+/** La elección de héroe en un pueblo: lo que no depende del tipo, una vez, y los candidatos. */
+export interface EleccionDeHeroe {
+  /** El nombre que llevará, sea cual sea el tipo: el del de salida o el del contratado. */
+  readonly nombre: string;
+  /**
+   * La tropa con que sale el de salida, la misma con cualquier tipo; `null`: es
+   * una contratación, y el contratado sale sin ninguna.
+   */
+  readonly tropa: Army | null;
+  readonly candidatos: readonly CandidatoAHeroe[];
+}
+
+/**
+ * Los héroes que `quien` puede contratar en `townId`: **uno por tipo** de la
+ * facción del pueblo, en el orden del cuaderno (el de por defecto, el primero),
+ * sin sorteo. La única lista de candidatos: la leen la escena del ayuntamiento y
+ * su panel. Mientras los tipos sean inertes todos cuestan lo mismo y salen con lo
+ * mismo; lo que cambia es la figura y el texto. No mira el turno: eso lo pone
+ * quien enseña la lista (la sesión sabe además del turno del rival en curso).
+ */
+export function candidatosAHeroe(
+  state: GameState,
+  quien: PlayerId,
+  townId: string,
+): EleccionDeHeroe {
+  const town = townById(state, townId);
+  const pendiente = playerById(state, quien).heroeDeSalida;
+  return {
+    nombre: pendiente?.name ?? nombreDelContratado(town),
+    tropa: pendiente?.army ?? null,
+    candidatos: tiposDeHeroe(town.faction).map((t) => ({
+      tipo: t.id,
+      nombreDelTipo: t.nombre,
+      descripcion: t.descripcion,
+      precio: ECONOMIA.precioDelHeroe,
+      motivo: contratarBlocker(state, quien, townId, t.id),
+    })),
+  };
 }
 
 /**

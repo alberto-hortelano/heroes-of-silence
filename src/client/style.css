@@ -543,6 +543,25 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .abierto-en-la-base .motivo { color: var(--rechazo); }
 /* La escena de la morada: «+1» y «Todo» uno al lado del otro. */
 .ficha-de-la-morada .reclutar { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin: 0.4rem 0; }
+/* La escena del ayuntamiento (22-10-2026): la ficha del héroe elegido, con el
+   retrato de su hoja (la identidad con que se pinta) junto a su nombre y su tipo. */
+.ficha-del-ayuntamiento .retrato-y-nombre { display: flex; gap: 0.7rem; align-items: center; margin: 0.4rem 0; }
+/* El nombre, sin `<h3>`: con tema, un `<h3>` es una barra de sección con su adorno, y
+   junto al retrato se salía del panel. */
+.ficha-del-ayuntamiento .nombre-de-heroe { margin: 0; font: 600 1.1rem/1.4rem var(--letra-titulo); color: var(--titulo); }
+.ficha-del-ayuntamiento .tipo-de-heroe { margin: 0.1rem 0 0; color: var(--ink-dim); }
+.ficha-del-ayuntamiento .reclutar { display: grid; margin: 0.4rem 0; }
+.retrato-de-heroe {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+.descripcion-de-heroe { font-size: 0.92rem; color: var(--ink); margin: 0.3rem 0 0.5rem; }
+/* La descripción es la del cuaderno, que empieza en minúscula tras «Nombre:». */
+.descripcion-de-heroe::first-letter { text-transform: uppercase; }
 
 /*
  * Lo que suma una pieza (`modificadoresEnPantalla`): una pastilla por cifra, la
@@ -648,8 +667,7 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   font-family: var(--letra-cuerpo);
 }
 .menu-de-inicio,
-.eleccion-de-faccion,
-.eleccion-de-heroe {
+.eleccion-de-faccion {
   box-sizing: border-box;
   width: min(100%, 44rem);
   padding: 1.5rem;
@@ -676,8 +694,7 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 /* Apagado pero enfocable: con `disabled` no llegaría el teclado ni se leería por qué. */
 .opciones-de-inicio button[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
 #sin-partidas { margin: -0.3rem 0 0.2rem; text-align: center; }
-.facciones,
-.heroes {
+.facciones {
   display: grid;
   gap: 0.5rem;
   margin: 0 0 1.1rem;
@@ -686,8 +703,7 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   font-family: Georgia, 'Times New Roman', serif;
   line-height: 1.25;
 }
-.facciones legend,
-.heroes legend { padding: 0 0 0.4rem; color: var(--ink-dim); }
+.facciones legend { padding: 0 0 0.4rem; color: var(--ink-dim); }
 .opcion-de-faccion {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -739,38 +755,6 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .solo-heroe { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
 .solo-heroe label { display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer; }
 .solo-heroe input { accent-color: var(--gold); margin: 0; }
-/* La elección del héroe (vuelta 2, 19-10-2026): ya con el tema de la facción, que
-   no cambia mientras se elige, así que no necesita las medidas fijas de la de
-   facción. El retrato es la identidad de la hoja con que se pinta el héroe. */
-.quien-de-inicio { margin: -0.6rem 0 0.9rem; text-align: center; color: var(--ink-dim); }
-.opcion-de-heroe {
-  /* Con el dedo, el marco de la marcada ya dice cuál es: el resalte azul del toque
-     del navegador se quedaba encima del retrato (captura del móvil). */
-  -webkit-tap-highlight-color: transparent;
-  display: grid;
-  grid-template-columns: auto 72px 1fr;
-  gap: 0.15rem 0.7rem;
-  align-items: start;
-  padding: 0.5rem 0.8rem;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-  cursor: pointer;
-}
-.opcion-de-heroe input { grid-row: span 2; align-self: center; accent-color: var(--gold); }
-.opcion-de-heroe:has(input:checked) { border-color: var(--resalte); }
-.opcion-de-heroe:has(input:focus-visible) { outline: 2px solid var(--foco); outline-offset: 1px; }
-.retrato-de-heroe {
-  grid-row: span 2;
-  width: 72px;
-  height: 72px;
-  object-fit: cover;
-  border: 1px solid var(--border);
-  background: var(--panel);
-}
-.nombre-de-heroe { font: 600 1.1rem/1.4rem var(--letra-titulo); color: var(--titulo); }
-.descripcion-de-heroe { font-size: 0.92rem; color: var(--ink); }
-/* La descripción es la del cuaderno, que empieza en minúscula tras «Nombre:». */
-.descripcion-de-heroe::first-letter { text-transform: uppercase; }
 
 /* La página que no arranca (`arranque.ts`): el motivo entero, en lugar de la página. */
 #app[data-escena='no-arranca'] { display: block; overflow: auto; }

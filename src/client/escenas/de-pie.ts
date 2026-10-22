@@ -163,12 +163,13 @@ export class EscenaDePie<V extends VistaDePie, E extends EncuadreDePie> {
     this.señalada = null;
   }
 
-  /** Un clic: elige a quien esté debajo. En el suelo no hace nada. */
-  pulsar(px: number, py: number): void {
+  /** Un clic: elige a quien esté debajo y dice si había alguien. En el suelo no hace nada. */
+  pulsar(px: number, py: number): boolean {
     const b = this.bajo(px, py);
-    if (b === null) return;
+    if (b === null) return false;
     const s = this.sesion();
     this.de.elegir(s, b.vista, b.i);
     s.status = `${b.vista.figuras[b.i]!.nombre}: ${this.de.frases.elegida}`;
+    return true;
   }
 }
