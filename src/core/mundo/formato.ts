@@ -141,7 +141,7 @@ export const VOCABULARIO: {
     'una lista de condiciones es un «y»; para «o», dos opciones',
     'una opción con «hace» que da algo (oro > 0, pieza, tropa) o abre una batalla tiene que apagarse a sí misma: sus efectos (o los de «alGanar», si pelea) cambian el estado del lugar o ponen una marca que su condición («si» de la opción o de su punto) deja de cumplir. Cada premio se cobra una vez',
     'sin «ir», una opción cierra la conversación',
-    'todo nodo de un diálogo se alcanza desde su «inicio»',
+    'todo nodo de un diálogo se alcanza desde su «inicio»; cada punto lleva su propio diálogo',
     'un encuentro es tropa del catálogo, sin héroe, con el tope de liderazgo y de fuerza de un grupo neutral',
   ],
 };

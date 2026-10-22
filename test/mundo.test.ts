@@ -116,6 +116,15 @@ describe('la validación de un mundo', () => {
     );
   });
 
+  it('dos puntos con el mismo diálogo', () => {
+    const p = conHistoria((h) => {
+      (puente(h) as unknown as { puntos: { dialogo: string }[] }).puntos[1]!.dialogo = 'garita';
+    });
+    expect(p).toContainEqual(
+      'historia.json: lugares[0].puntos[1].dialogo: "garita" ya es el diálogo del punto "garita": cada punto lleva el suyo',
+    );
+  });
+
   it('una pieza que no existe', () => {
     const p = conHistoria((h) => {
       puente(h).dialogos.garita!.nodos.dentro!.opciones[1]!.hace = [

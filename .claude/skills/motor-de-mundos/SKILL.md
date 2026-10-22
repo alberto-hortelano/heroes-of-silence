@@ -94,8 +94,9 @@ Las reglas que más fallan (todas las dice el vocabulario):
 - La `batalla` va la **última** de su lista. `alGanar` admite estado, marca, oro > 0 y
   pieza; `alPerder`, solo estado y marca.
 - Toda marca se declara en `marcas` (con su `falta` y su `ya`) y algún efecto la pone.
-- Todo nodo se alcanza desde el `inicio`; todo diálogo lo usa algún punto; todo
-  encuentro lo abre alguna opción.
+- Todo nodo se alcanza desde el `inicio`; cada punto lleva su propio diálogo (dos
+  puntos no comparten uno) y todo diálogo es de algún punto; todo encuentro lo abre
+  alguna opción.
 
 ## El bucle
 

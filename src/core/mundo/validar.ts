@@ -475,7 +475,7 @@ function juzgarLugar(
     const od = objeto(j, d, `${ruta}.dialogos.${k}`, ['inicio', 'nodos']);
     if (od !== null) dialogos.set(k, od);
   }
-  const usados = new Set<string>();
+  const usadoPor = new Map<string, string>();
   const encuentrosUsados = new Set<string>();
   const puntos = lista(j, o.puntos, `${ruta}.puntos`);
   if (Array.isArray(o.puntos) && puntos.length === 0) {
@@ -526,10 +526,18 @@ function juzgarLugar(
       );
       return;
     }
-    // Un diálogo lo juzgan sus puntos; dos puntos con el mismo, una vez, con el
-    // «si» del primero (la regla de la opción que se apaga mira el del punto).
-    if (usados.has(op.dialogo)) return;
-    usados.add(op.dialogo);
+    // Cada punto lleva su diálogo: la regla de la opción que se apaga mira el «si»
+    // del punto, y con dos puntos en el mismo diálogo, el que no lo lleva cobraría
+    // otra vez lo que el otro ya dio.
+    const dueño = usadoPor.get(op.dialogo);
+    if (dueño !== undefined) {
+      j.mal(
+        `${r}.dialogo`,
+        `"${op.dialogo}" ya es el diálogo del punto "${dueño}": cada punto lleva el suyo`,
+      );
+      return;
+    }
+    usadoPor.set(op.dialogo, String(op.id));
     juzgarDialogo(
       j,
       dialogos.get(op.dialogo) as Record<string, unknown>,
@@ -544,7 +552,7 @@ function juzgarLugar(
     );
   });
   for (const k of dialogos.keys()) {
-    if (!usados.has(k)) j.mal(`${ruta}.dialogos.${k}`, 'no lo usa ningún punto');
+    if (!usadoPor.has(k)) j.mal(`${ruta}.dialogos.${k}`, 'no lo usa ningún punto');
   }
   for (const k of delLugar.encuentros) {
     if (!encuentrosUsados.has(k)) j.mal(`${ruta}.encuentros.${k}`, 'no lo abre ninguna opción');
