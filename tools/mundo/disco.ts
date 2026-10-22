@@ -7,10 +7,10 @@
  * mundo desde el menú (`tools/mundo/motor.ts`).
  */
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { buildMap, type MapPlan } from '../../src/core/map/generate.js';
-import { idDeMundoBlocker, type Mundo } from '../../src/core/mundo/formato.js';
+import { idDeMundoBlocker, type Mundo, noEsJson } from '../../src/core/mundo/formato.js';
 import { type LecturaParaElMotor, lecturaParaElMotor } from '../../src/core/mundo/lectura.js';
 import { mundoNuevo, type PedidoDeMundo } from '../../src/core/mundo/partida.js';
 import { type CrudosDelMundo, problemasDelMundo } from '../../src/core/mundo/validar.js';
@@ -58,7 +58,7 @@ export async function leerCrudos(
       try {
         return { crudo: JSON.parse(await readFile(ruta, 'utf8')) };
       } catch (err) {
-        return { problema: `${f}.json: no es JSON: ${err instanceof Error ? err.message : err}` };
+        return { problema: noEsJson(f, err) };
       }
     }),
   );
@@ -72,6 +72,21 @@ export async function leerCrudos(
 export async function validarEnDisco(id: string): Promise<string[]> {
   const leido = await leerCrudos(id);
   return 'problemas' in leido ? leido.problemas : problemasDelMundo(leido.crudos, id);
+}
+
+/**
+ * Borra un mundo a medias —su carpeta y su lectura— si no tiene historia: lo que
+ * deja una generación cancelada o fallida antes de que el motor escribiera nada,
+ * que no se juega y no se puede arreglar (H11 del QA de la F1a). Uno con historia
+ * se queda: aunque no valga, se puede mirar y corregir con `pnpm mundo validar`.
+ * Lo llama solo quien creó la carpeta (`tools/mundo/motor.ts`). `true` si borró.
+ */
+export async function borrarSinHistoria(id: string): Promise<boolean> {
+  const dir = carpetaDe(id);
+  if (existsSync(join(dir, 'historia.json'))) return false;
+  await rm(dir, { recursive: true, force: true });
+  await rm(lecturaDe(id), { recursive: true, force: true });
+  return true;
 }
 
 /**

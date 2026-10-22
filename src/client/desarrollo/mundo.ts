@@ -16,7 +16,7 @@ import { type Html, html, NADA, pintar, unir } from '../html.js';
 import { type Fase, type Progreso, terminada } from './progreso.js';
 
 /** Por qué los rivales están fijos en 1. */
-const UN_RIVAL = 'Por ahora, un rival: el generador aún no sabe de más bandos.';
+const UN_RIVAL = 'de momento, uno: el generador aún no sabe de más bandos';
 
 /** Cada cuánto se pregunta por el progreso. */
 const CADA_MS = 1500;
@@ -52,15 +52,14 @@ function renderMundo(tamaño: number): Html {
         TAMAÑOS_DE_UN_MUNDO.map(
           (t) => html`<label class="opcion-de-tamano">
             <input type="radio" name="tamano" value="${String(t.regiones)}" ${t.regiones === tamaño ? html`checked` : NADA} />
-            <span>${t.nombre}</span> <span class="cost">${t.que}</span>
+            <span class="nombre-de-tamano">${t.nombre}</span> <span class="cost">${t.que}</span>
           </label>`,
         ),
       )}
     </fieldset>
-    <label class="rivales-del-mundo">Rivales de la IA
-      <input type="number" name="rivales" value="1" min="1" max="1" aria-disabled="true" readonly aria-describedby="un-rival" />
-    </label>
-    <p id="un-rival" class="cost">${UN_RIVAL}</p>
+    <p class="rivales-del-mundo" aria-disabled="true">
+      <span>Rivales de la IA</span> <span class="valor-fijo">1</span> <span class="cost">${UN_RIVAL}</span>
+    </p>
     <div class="botones-de-inicio">
       <button type="button" data-inicio="volver">Volver</button>
       <button type="button" data-mundo="sin-historia">Jugar sin historia</button>
@@ -79,7 +78,12 @@ function renderEspera(p: Progreso, ahora: number): Html {
       p.fase === 'motor' && callado > 20
         ? ` · sin noticias del motor desde hace ${callado} s (piensa)`
         : ''
-    }${p.validaciones > 0 ? ` · ${p.validaciones} validaciones` : ''}</p>
+    }${p.validaciones > 0 ? ` · ${p.validaciones} ${p.validaciones === 1 ? 'validación' : 'validaciones'}` : ''}</p>
+    ${
+      p.ultimoProblema === undefined || terminada(p.fase)
+        ? NADA
+        : html`<p class="cost">La última validación no pasó: ${p.ultimoProblema}</p>`
+    }
     ${p.motivo === undefined ? NADA : html`<p class="motivo-del-mundo">${p.motivo}</p>`}
     ${
       p.problemas === undefined || p.problemas.length === 0

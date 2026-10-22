@@ -17,6 +17,11 @@ export interface Progreso {
   readonly ultima: number;
   /** Cuántas veces ha validado el motor. */
   readonly validaciones: number;
+  /**
+   * Lo que dijo la última validación del motor que no pasó: cuántos problemas y el
+   * primero. Se borra cuando una pasa. Es lo que se lee de su trabajo, no sus órdenes.
+   */
+  readonly ultimoProblema?: string | undefined;
   /** Lo que no valió, si falló al validar. */
   readonly problemas?: readonly string[];
   /** Por qué falló, para la persona. */

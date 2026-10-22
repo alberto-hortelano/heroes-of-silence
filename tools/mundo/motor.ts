@@ -17,12 +17,18 @@ import { randomInt } from 'node:crypto';
 import { type Progreso, terminada } from '../../src/client/desarrollo/progreso.js';
 import { tipoDeHeroePorDefecto } from '../../src/core/data.js';
 import { TAMAÑOS_DE_UN_MUNDO } from '../../src/core/mundo/formato.js';
-import type { PedidoDelMenu } from '../../src/core/mundo/partida.js';
+import { type PedidoDelMenu, pedidoBlocker } from '../../src/core/mundo/partida.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
 import { ordenDelMotor } from '../../src/server/entorno.js';
 import { matarGrupo } from '../qa/grupo.js';
-import { escribirLectura, escribirMundoNuevo, RAIZ, validarEnDisco } from './disco.js';
+import {
+  borrarSinHistoria,
+  escribirLectura,
+  escribirMundoNuevo,
+  RAIZ,
+  validarEnDisco,
+} from './disco.js';
 
 /**
  * La regla de un id de mundo, para la ruta del servidor de desarrollo: `vite.config.ts`
@@ -40,6 +46,8 @@ interface Generacion {
   progreso: Progreso;
   proceso: ChildProcess | null;
   cancelado: boolean;
+  /** Si esta generación creó la carpeta del mundo: solo entonces la borra al fallar. */
+  creada: boolean;
 }
 
 const generaciones = new Map<string, Generacion>();
@@ -70,6 +78,10 @@ export function leerPedido(crudo: unknown): PedidoDelMenu {
   if (o.semilla !== undefined && typeof o.semilla !== 'number') {
     throw new Error('«semilla» tiene que ser un número');
   }
+  // El héroe, antes de gastar el motor: si no es de la facción, el `mundo.json`
+  // no valdría y el motor no lo puede tocar (`pedidoBlocker`).
+  const motivo = pedidoBlocker({ faccion, heroe: o.heroe as string | undefined });
+  if (motivo !== null) throw new Error(motivo);
   return {
     faccion,
     heroe: o.heroe as string | undefined,
@@ -101,6 +113,7 @@ export function empezar(pedido: PedidoDelMenu): string {
     progreso: { id, fase: 'congelar', lineas: [], empezo: ahora, ultima: ahora, validaciones: 0 },
     proceso: null,
     cancelado: false,
+    creada: false,
   };
   generaciones.set(id, g);
   void generar(g, {
@@ -153,6 +166,7 @@ async function generar(
       heroe: pedido.heroe,
       regionesPorBando: pedido.regionesPorBando,
     });
+    g.creada = true;
     linea(
       g,
       `plan del mapa congelado (semilla ${pedido.semilla}, ${pedido.regionesPorBando} regiones por bando)`,
@@ -183,6 +197,19 @@ async function generar(
   } catch (err) {
     if (!g.cancelado)
       poner(g, { fase: 'fallido', motivo: err instanceof Error ? err.message : String(err) });
+  } finally {
+    // Cancelada o fallida sin historia, no deja una carpeta que no se juega. Al
+    // cancelar se llega aquí cuando el motor ya ha cerrado (`lanzarMotor` espera a
+    // su `close`), así que no se borra con él aún escribiendo.
+    if (g.creada && (g.cancelado || g.progreso.fase === 'fallido')) {
+      try {
+        if (await borrarSinHistoria(id)) linea(g, `el mundo "${id}" no tenía historia: se borra`);
+      } catch (err) {
+        avisar(
+          `no se pudo borrar el mundo a medias "${id}": ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
   }
 }
 
@@ -212,17 +239,65 @@ export function argumentosDelMotor(id: string): string[] {
   ];
 }
 
-/** Una línea del `stream-json` del motor, dicha corta: qué herramienta usa o qué dice. */
-export function lineaDelMotor(crudo: string): string | null {
+/**
+ * Lo que hace una herramienta del motor, dicho para la persona, o `null` si no se
+ * cuenta. Solo lo que tiene permiso (`argumentosDelMotor`): lo demás se le deniega,
+ * no es noticia, y su orden llevaba rutas absolutas de esta máquina (H11 del QA de
+ * la F1a). Ni rutas ni órdenes: qué hace.
+ */
+function queHace(
+  id: string,
+  nombre: string | undefined,
+  input: Record<string, unknown> | undefined,
+): string | null {
+  const ruta = String(input?.file_path ?? '');
+  const fichero = ruta.split('/').pop() ?? '';
+  const suHistoria = ruta.endsWith(`assets/mundos/${id}/historia.json`);
+  switch (nombre) {
+    case 'Read':
+      if (fichero === 'lectura.json') return 'lee el mapa por regiones';
+      if (fichero === 'mapa.png') return 'mira el mapa';
+      if (fichero === 'SKILL.md') return 'lee sus instrucciones';
+      if (suHistoria) return 'relee su historia';
+      if (fichero === 'historia.json') return 'lee una historia de ejemplo';
+      return 'lee un fichero del repositorio';
+    case 'Glob':
+    case 'Grep':
+      return 'busca en el repositorio';
+    case 'Write':
+      return suHistoria ? 'escribe la historia' : null;
+    case 'Edit':
+      return suHistoria ? 'corrige la historia' : null;
+    case 'Bash':
+      return String(input?.command ?? '').trim() === `pnpm mundo validar ${id}`
+        ? 'valida la historia'
+        : null;
+    default:
+      return null;
+  }
+}
+
+/** Un texto del motor, sin las rutas de esta máquina y en una línea. */
+function sinRutas(texto: string): string {
+  return texto.replaceAll(`${RAIZ}/`, '').replaceAll(RAIZ, '.');
+}
+
+/**
+ * Una línea del `stream-json` del motor del mundo `id`, dicha corta: lo que dice y
+ * lo que hace (`queHace`), o `null` si no hay nada que contar.
+ */
+export function lineaDelMotor(crudo: string, id: string): string | null {
   let e: { type?: string; subtype?: string; message?: { content?: unknown }; result?: unknown };
   try {
     e = JSON.parse(crudo);
   } catch {
-    return crudo.trim() === '' ? null : crudo;
+    return crudo.trim() === '' ? null : sinRutas(crudo);
   }
   if (e.type === 'system' && e.subtype === 'init') return 'el motor ha arrancado';
   if (e.type === 'result') {
-    return typeof e.result === 'string' ? `el motor acaba: ${e.result}` : 'el motor acaba';
+    return typeof e.result === 'string'
+      ? `el motor acaba: ${sinRutas(e.result)}`
+      : 'el motor acaba';
   }
   if (e.type !== 'assistant' || !Array.isArray(e.message?.content)) return null;
   const partes: string[] = [];
@@ -232,13 +307,59 @@ export function lineaDelMotor(crudo: string): string | null {
     name?: string;
     input?: Record<string, unknown>;
   }[]) {
-    if (c.type === 'text' && typeof c.text === 'string') partes.push(c.text);
+    if (c.type === 'text' && typeof c.text === 'string') partes.push(sinRutas(c.text));
     if (c.type === 'tool_use') {
-      const que = c.input?.file_path ?? c.input?.command ?? c.input?.pattern ?? '';
-      partes.push(`${c.name ?? 'herramienta'} ${String(que).replace(`${RAIZ}/`, '')}`);
+      const que = queHace(id, c.name, c.input);
+      if (que !== null) partes.push(que);
     }
   }
   return partes.length === 0 ? null : partes.join(' · ');
+}
+
+/** Si una línea del motor es su llamada a `pnpm mundo validar <id>`. */
+export function esSuValidacion(crudo: string, id: string): boolean {
+  if (!crudo.includes('"tool_use"')) return false;
+  try {
+    const e = JSON.parse(crudo) as { message?: { content?: unknown } };
+    const contenido = Array.isArray(e.message?.content) ? e.message.content : [];
+    return contenido.some(
+      (c: { type?: string; name?: string; input?: { command?: unknown } }) =>
+        c.type === 'tool_use' &&
+        c.name === 'Bash' &&
+        String(c.input?.command ?? '').trim() === `pnpm mundo validar ${id}`,
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Lo que respondió el validador a una llamada del motor, si la línea es eso: los
+ * problemas (las líneas «<fichero>.json: …» que escribe `pnpm mundo validar`), vacío
+ * si dijo que vale, o `null` si la línea no es una respuesta del validador.
+ */
+export function respuestaDelValidador(crudo: string): readonly string[] | null {
+  if (!crudo.includes('"tool_result"')) return null;
+  let e: { type?: string; message?: { content?: unknown } };
+  try {
+    e = JSON.parse(crudo);
+  } catch {
+    return null;
+  }
+  if (e.type !== 'user' || !Array.isArray(e.message?.content)) return null;
+  for (const c of e.message.content as { type?: string; content?: unknown }[]) {
+    if (c.type !== 'tool_result') continue;
+    const texto = Array.isArray(c.content)
+      ? c.content.map((x: { text?: unknown }) => String(x.text ?? '')).join('\n')
+      : String(c.content ?? '');
+    if (/el mundo "[^"]+" vale/.test(texto)) return [];
+    const problemas = texto
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => /^(mundo|plan|historia)\.json: /.test(l));
+    if (problemas.length > 0) return problemas.map(sinRutas);
+  }
+  return null;
 }
 
 async function lanzarMotor(
@@ -246,7 +367,8 @@ async function lanzarMotor(
   id: string,
 ): Promise<{ codigo: number | null; porTope: boolean; error: string }> {
   const orden = ordenDelMotor();
-  linea(g, `lanzando ${orden} -p /motor-de-mundos ${id}`);
+  // Sin la orden: con `HEROES_MOTOR` puede ser una ruta de esta máquina.
+  linea(g, 'lanza el motor de narrativa');
   const p = spawn(orden, argumentosDelMotor(id), {
     cwd: RAIZ,
     detached: true,
@@ -267,13 +389,21 @@ async function lanzarMotor(
     const lineas = resto.split('\n');
     resto = lineas.pop() ?? '';
     for (const l of lineas) {
-      const dicha = lineaDelMotor(l);
-      if (dicha === null) continue;
       // Una validación es una llamada a la herramienta, no el texto que la nombra.
-      if (l.includes('"tool_use"') && l.includes(`pnpm mundo validar ${id}`)) {
-        poner(g, { validaciones: g.progreso.validaciones + 1 });
+      if (esSuValidacion(l, id)) poner(g, { validaciones: g.progreso.validaciones + 1 });
+      const respuesta = respuestaDelValidador(l);
+      if (respuesta !== null) {
+        const n = respuesta.length;
+        poner(g, {
+          ultimoProblema:
+            n === 0
+              ? undefined
+              : `${n} ${n === 1 ? 'problema' : 'problemas'}; el primero, ${respuesta[0]}`,
+        });
+        linea(g, n === 0 ? 'la historia vale' : `la historia aún no vale (${n})`);
       }
-      linea(g, dicha);
+      const dicha = lineaDelMotor(l, id);
+      if (dicha !== null) linea(g, dicha);
     }
   });
   p.stderr?.setEncoding('utf8');
