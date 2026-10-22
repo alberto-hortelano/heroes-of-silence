@@ -1245,14 +1245,19 @@ function exigir<T>(cosa: T, vale: (x: T) => boolean, paso: string): void {
 /**
  * En `pnpm dev` (y aquí se corre `vite` en modo desarrollo), «Empezar» lleva a «El
  * mundo» (`desarrollo/mundo.ts`, F1a del mapa vivo), que generaría uno con el motor
- * de narrativa: estas pasadas juegan el procedimental, «Jugar sin historia». Con
- * `nombre`, se captura antes la pantalla.
+ * de narrativa: estas pasadas juegan el procedimental, por su botón, «Jugar sin
+ * historia». La pantalla **se exige**: si «Empezar» fuera derecho a la partida, el
+ * flujo de `pnpm dev` habría cambiado sin que nadie lo dijera, y aceptar las dos
+ * lo callaba. Con `nombre`, se captura antes la pantalla.
  */
 async function sinHistoria(page: Page, nombre: string | null, tocar = false): Promise<void> {
-  await page.waitForSelector('[data-mundo="eleccion"], #app[data-escena="town"]', {
-    timeout: 30_000,
-  });
-  if ((await page.locator('[data-mundo="eleccion"]').count()) === 0) return;
+  await page
+    .waitForSelector('[data-mundo="eleccion"]', { timeout: 30_000 })
+    .catch((err: unknown) => {
+      throw new Error(
+        `arranque: «Empezar» en pnpm dev no lleva a «El mundo» (desarrollo/mundo.ts): ${err instanceof Error ? err.message : err}`,
+      );
+    });
   if (nombre !== null) await captura(page, nombre);
   const boton = page.locator('[data-mundo="sin-historia"]');
   if (tocar) {

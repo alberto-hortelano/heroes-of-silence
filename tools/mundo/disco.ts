@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { buildMap, type MapPlan } from '../../src/core/map/generate.js';
-import { esIdDeMundo, type Mundo } from '../../src/core/mundo/formato.js';
+import { idDeMundoBlocker, type Mundo } from '../../src/core/mundo/formato.js';
 import { type LecturaParaElMotor, lecturaParaElMotor } from '../../src/core/mundo/lectura.js';
 import { mundoNuevo, type PedidoDeMundo } from '../../src/core/mundo/partida.js';
 import { type CrudosDelMundo, problemasDelMundo } from '../../src/core/mundo/validar.js';
@@ -23,9 +23,8 @@ export const FICHEROS = ['mundo', 'plan', 'historia'] as const;
 
 /** La carpeta de un mundo, o lanza si el id no tiene la forma: va en una ruta de disco. */
 export function carpetaDe(id: string): string {
-  if (!esIdDeMundo(id)) {
-    throw new Error(`"${id}" no es el id de un mundo: minúsculas, cifras y «-», de 1 a 48`);
-  }
+  const motivo = idDeMundoBlocker(id);
+  if (motivo !== null) throw new Error(motivo);
   return join(DIR_MUNDOS, id);
 }
 
@@ -44,26 +43,29 @@ export async function leerCrudos(
 ): Promise<{ crudos: CrudosDelMundo } | { problemas: string[] }> {
   const dir = carpetaDe(id);
   if (!existsSync(dir)) return { problemas: [`no hay ningún mundo "${id}" en assets/mundos/`] };
-  const problemas: string[] = [];
-  const leidos: Record<string, unknown> = {};
-  for (const f of FICHEROS) {
-    const ruta = join(dir, `${f}.json`);
-    if (!existsSync(ruta)) {
-      problemas.push(
-        f === 'historia'
-          ? `historia.json: no está; la escribe el motor (assets/mundos/${id}/historia.json)`
-          : `${f}.json: no está en assets/mundos/${id}/`,
-      );
-      continue;
-    }
-    try {
-      leidos[f] = JSON.parse(await readFile(ruta, 'utf8'));
-    } catch (err) {
-      problemas.push(`${f}.json: no es JSON: ${err instanceof Error ? err.message : err}`);
-    }
-  }
+  // Los tres a la vez, cada uno con su problema o su contenido, en el orden de `FICHEROS`.
+  const leidos = await Promise.all(
+    FICHEROS.map(async (f): Promise<{ problema: string } | { crudo: unknown }> => {
+      const ruta = join(dir, `${f}.json`);
+      if (!existsSync(ruta)) {
+        return {
+          problema:
+            f === 'historia'
+              ? `historia.json: no está; la escribe el motor (assets/mundos/${id}/historia.json)`
+              : `${f}.json: no está en assets/mundos/${id}/`,
+        };
+      }
+      try {
+        return { crudo: JSON.parse(await readFile(ruta, 'utf8')) };
+      } catch (err) {
+        return { problema: `${f}.json: no es JSON: ${err instanceof Error ? err.message : err}` };
+      }
+    }),
+  );
+  const problemas = leidos.flatMap((l) => ('problema' in l ? [l.problema] : []));
   if (problemas.length > 0) return { problemas };
-  return { crudos: { mundo: leidos.mundo, plan: leidos.plan, historia: leidos.historia } };
+  const [mundo, plan, historia] = leidos.map((l) => ('crudo' in l ? l.crudo : undefined));
+  return { crudos: { mundo, plan, historia } };
 }
 
 /** Todos los problemas de un mundo en disco: vacío, se juega. */
@@ -101,7 +103,9 @@ export async function escribirLectura(
   const dir = carpetaDe(id);
   const mundo = JSON.parse(await readFile(join(dir, 'mundo.json'), 'utf8')) as Mundo;
   const plan = JSON.parse(await readFile(join(dir, 'plan.json'), 'utf8')) as MapPlan;
-  const lectura = lecturaParaElMotor(mundo, plan);
+  // Un mapa para la lectura y para el PNG: construirlo es lo más caro de leer.
+  const hecho = buildMap(plan);
+  const lectura = lecturaParaElMotor(mundo, plan, hecho);
   const salida = lecturaDe(id);
   await mkdir(salida, { recursive: true });
   await writeFile(join(salida, 'lectura.json'), `${JSON.stringify(lectura, null, 2)}\n`);
@@ -109,13 +113,7 @@ export async function escribirLectura(
     alPintar?.();
     // A demanda: Playwright y el escenógrafo solo hacen falta para el PNG.
     const { escenarioDeMapa } = await import('../taller/escenario/escenario.js');
-    await escenarioDeMapa(
-      buildMap(plan).map,
-      mundo.semilla,
-      `mundo-${id}`,
-      32,
-      join(salida, 'mapa.png'),
-    );
+    await escenarioDeMapa(hecho.map, mundo.semilla, `mundo-${id}`, 32, join(salida, 'mapa.png'));
   }
   return { lectura, dir: salida };
 }

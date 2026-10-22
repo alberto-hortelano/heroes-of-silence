@@ -11,7 +11,8 @@
  *       la misma validación que la página; sale 1 con los problemas
  */
 import { REGIONES_POR_BANDO } from '../../src/core/map/generate.js';
-import { esFaccion, type FactionId } from '../../src/core/types.js';
+import { parseSeed } from '../../src/core/rng.js';
+import { parseFaccion } from '../../src/core/types.js';
 import { escribirLectura, escribirMundoNuevo, validarEnDisco } from './disco.js';
 
 function bandera(args: readonly string[], nombre: string): string | undefined {
@@ -34,12 +35,11 @@ async function main(argv: readonly string[]): Promise<number> {
   }
   switch (orden) {
     case 'nuevo': {
-      const faccion = bandera(resto, 'faccion') ?? 'imperio';
-      if (!esFaccion(faccion)) throw new Error(`--faccion=${faccion} no es una facción`);
+      // La semilla y la facción, con las reglas de la URL (`parseSeed`, `parseFaccion`).
       const mundo = await escribirMundoNuevo({
         id,
-        semilla: entero(bandera(resto, 'semilla'), 'semilla', Date.now() % 1_000_000),
-        faccion: faccion as FactionId,
+        semilla: parseSeed(bandera(resto, 'semilla')) ?? Date.now() % 1_000_000,
+        faccion: parseFaccion(bandera(resto, 'faccion')) ?? 'imperio',
         heroe: bandera(resto, 'heroe'),
         regionesPorBando: entero(bandera(resto, 'regiones'), 'regiones', REGIONES_POR_BANDO),
       });

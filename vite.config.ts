@@ -30,6 +30,16 @@ async function leerCuerpo(
   }
 }
 
+/** Responde `cuerpo` en JSON con `estado`: lo comparten todas las rutas de desarrollo. */
+function responder(res: ServerResponse, estado: number, cuerpo: unknown): void {
+  res.statusCode = estado;
+  res.setHeader('content-type', 'application/json');
+  res.end(JSON.stringify(cuerpo));
+}
+
+/** La frase de un fallo, para la respuesta. */
+const motivoDe = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
 /** El lado de disco de la arena (`tools/arena/borrador.ts`), que esto carga a demanda. */
 type Borrador = typeof import('./tools/arena/borrador.js');
 
@@ -45,39 +55,34 @@ function servirBorrador(b: {
   readonly escribir: (cuerpo: unknown) => Promise<Record<string, unknown>>;
 }): (req: IncomingMessage, res: ServerResponse) => void {
   return (req, res) => {
-    const responder = (estado: number, cuerpo: unknown): void => {
-      res.statusCode = estado;
-      res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify(cuerpo));
-    };
     if (req.method === 'GET') {
       // Siempre 200: lo que no valida va con su motivo en `invalidas`, y un
       // archivo que no se puede leer, en `ilegible`. Un 500 dejaba un error en
       // la consola por algo que la página sí explica, y `pnpm capturas` no
       // podía ensayarlo (M13 de QA).
       b.leer()
-        .then((leido) => responder(200, { guardado: true, ruta: b.ruta, ...leido }))
+        .then((leido) => responder(res, 200, { guardado: true, ruta: b.ruta, ...leido }))
         .catch((err: unknown) =>
-          responder(200, {
+          responder(res, 200, {
             guardado: true,
             ruta: b.ruta,
             ...b.vacio,
-            ilegible: err instanceof Error ? err.message : String(err),
+            ilegible: motivoDe(err),
           }),
         );
       return;
     }
     if (req.method !== 'POST') {
-      responder(405, {
+      responder(res, 405, {
         error: `el borrador se lee con GET y se guarda con POST, no con ${req.method}`,
       });
       return;
     }
     leerCuerpo(req)
-      .then(async (cuerpo) => responder(200, { ruta: b.ruta, ...(await b.escribir(cuerpo)) }))
+      .then(async (cuerpo) => responder(res, 200, { ruta: b.ruta, ...(await b.escribir(cuerpo)) }))
       .catch((err: unknown) => {
         // Lo que no valida no se escribe: 400 con la frase de la regla.
-        responder(400, { error: err instanceof Error ? err.message : String(err) });
+        responder(res, 400, { error: motivoDe(err) });
       });
   };
 }
@@ -248,33 +253,28 @@ function marcas(): Plugin {
         )) as typeof import('./src/client/desarrollo/esquema.js')),
       });
       const atender = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-        const { guardarMarca, leerMarca, motivoDe } = await cargar();
-        const responder = (estado: number, cuerpo: unknown): void => {
-          res.statusCode = estado;
-          res.setHeader('content-type', 'application/json');
-          res.end(JSON.stringify(cuerpo));
-        };
+        const { guardarMarca, leerMarca } = await cargar();
         // `use('/__marcas')` deja en `req.url` lo que va detrás: `/` o `/<id>`.
         const id = decodeURIComponent((req.url ?? '/').split('?')[0]?.slice(1) ?? '');
         if (req.method === 'GET' && id !== '') {
           try {
-            responder(200, leerMarca(raiz, id));
+            responder(res, 200, leerMarca(raiz, id));
           } catch (err) {
-            responder(404, { error: motivoDe(err) });
+            responder(res, 404, { error: motivoDe(err) });
           }
           return;
         }
         if (req.method !== 'POST' || id !== '') {
-          responder(405, {
+          responder(res, 405, {
             error: `una marca se guarda con POST /__marcas y se lee con GET /__marcas/<id>, no con ${req.method} ${req.url}`,
           });
           return;
         }
         try {
-          responder(200, guardarMarca(raiz, await leerCuerpo(req, MARCA_MAXIMA, 'la marca')));
+          responder(res, 200, guardarMarca(raiz, await leerCuerpo(req, MARCA_MAXIMA, 'la marca')));
         } catch (err) {
           // Lo que no valida no se escribe: 400 con la frase del esquema.
-          responder(400, { error: motivoDe(err) });
+          responder(res, 400, { error: motivoDe(err) });
         }
       };
       // Si el almacén no carga, el error va a Vite, que responde 500 y lo escribe.
@@ -307,39 +307,40 @@ function mundos(): Plugin {
         >);
       const atender = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
         const m = await cargar();
-        const responder = (estado: number, cuerpo: unknown): void => {
-          res.statusCode = estado;
-          res.setHeader('content-type', 'application/json');
-          res.end(JSON.stringify(cuerpo));
-        };
         const ruta = (req.url ?? '/').split('?')[0] ?? '/';
-        const progreso = /^\/([a-z0-9-]+)\/progreso$/.exec(ruta);
-        const uno = /^\/([a-z0-9-]+)$/.exec(ruta);
+        const progreso = /^\/([^/]+)\/progreso$/.exec(ruta)?.[1];
+        const uno = /^\/([^/]+)$/.exec(ruta)?.[1];
+        // El id de la ruta, con la regla de un id de mundo (`idDeMundoBlocker`): 400 con su frase.
+        const id = progreso ?? uno;
+        const malId = id === undefined ? null : m.idDeMundoBlocker(decodeURIComponent(id));
+        if (malId !== null) {
+          responder(res, 400, { error: malId });
+          return;
+        }
         if (req.method === 'POST' && ruta === '/') {
           try {
-            responder(200, {
+            responder(res, 200, {
               id: m.empezar(m.leerPedido(await leerCuerpo(req, 10_000, 'el pedido'))),
             });
           } catch (err) {
-            responder(err instanceof m.EnMarcha ? 409 : 400, {
-              error: err instanceof Error ? err.message : String(err),
-            });
+            responder(res, err instanceof m.EnMarcha ? 409 : 400, { error: motivoDe(err) });
           }
           return;
         }
-        if (req.method === 'GET' && progreso !== null) {
-          const p = m.progresoDe(progreso[1] as string);
+        if (req.method === 'GET' && progreso !== undefined) {
+          const p = m.progresoDe(progreso);
           responder(
+            res,
             p === null ? 404 : 200,
-            p ?? { error: `no se está generando "${progreso[1]}"` },
+            p ?? { error: `no se está generando "${progreso}"` },
           );
           return;
         }
-        if (req.method === 'DELETE' && uno !== null) {
-          responder(200, { cancelado: m.cancelar(uno[1] as string) });
+        if (req.method === 'DELETE' && uno !== undefined) {
+          responder(res, 200, { cancelado: m.cancelar(uno) });
           return;
         }
-        responder(405, {
+        responder(res, 405, {
           error: `un mundo se genera con POST /__mundos, se sigue con GET /__mundos/<id>/progreso y se cancela con DELETE /__mundos/<id>, no con ${req.method} ${req.url}`,
         });
       };

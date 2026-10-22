@@ -14,45 +14,27 @@
  */
 import { type ChildProcess, spawn } from 'node:child_process';
 import { randomInt } from 'node:crypto';
+import { type Progreso, terminada } from '../../src/client/desarrollo/progreso.js';
 import { tipoDeHeroePorDefecto } from '../../src/core/data.js';
-import { esFaccion, type FactionId } from '../../src/core/types.js';
+import { TAMAÑOS_DE_UN_MUNDO } from '../../src/core/mundo/formato.js';
+import type { PedidoDelMenu } from '../../src/core/mundo/partida.js';
+import { parseSeed } from '../../src/core/rng.js';
+import { parseFaccion } from '../../src/core/types.js';
 import { ordenDelMotor } from '../../src/server/entorno.js';
+import { matarGrupo } from '../qa/grupo.js';
 import { escribirLectura, escribirMundoNuevo, RAIZ, validarEnDisco } from './disco.js';
+
+/**
+ * La regla de un id de mundo, para la ruta del servidor de desarrollo: `vite.config.ts`
+ * no importa el núcleo al arrancar (`arranque.test.ts`), así que la lee de aquí, que
+ * carga a demanda.
+ */
+export { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
 
 /** Lo más que se espera al motor: un mundo se genera una vez y despacio, pero no sin fin. */
 export const TOPE_DEL_MOTOR_MS = 15 * 60_000;
 /** Cuántas líneas de progreso se guardan (las últimas). */
 const LINEAS = 40;
-/** Las regiones por bando que admite el menú: pequeño, mediano y grande. */
-export const TAMAÑOS = [4, 5, 7] as const;
-
-export type Fase = 'congelar' | 'pintar' | 'motor' | 'validar' | 'listo' | 'fallido';
-
-/** Lo que pregunta la pantalla de espera. */
-export interface Progreso {
-  readonly id: string;
-  readonly fase: Fase;
-  readonly lineas: readonly string[];
-  readonly empezo: number;
-  /** Cuándo llegó la última línea del motor (ms de época). */
-  readonly ultima: number;
-  /** Cuántas veces ha validado el motor. */
-  readonly validaciones: number;
-  /** Lo que no valió, si falló al validar. */
-  readonly problemas?: readonly string[];
-  /** Por qué falló, para la persona. */
-  readonly motivo?: string;
-}
-
-/** Lo que pide el menú. */
-export interface PedidoDelMenu {
-  readonly faccion: FactionId;
-  readonly heroe?: string | undefined;
-  readonly regionesPorBando: number;
-  /** El id del mundo; sin él, `gen-<AAAAMMDD>-<semilla>`. */
-  readonly id?: string | undefined;
-  readonly semilla?: number | undefined;
-}
 
 interface Generacion {
   progreso: Progreso;
@@ -64,39 +46,36 @@ const generaciones = new Map<string, Generacion>();
 
 /** La que está en marcha, si alguna. */
 function enMarcha(): Generacion | undefined {
-  return [...generaciones.values()].find(
-    (g) => g.progreso.fase !== 'listo' && g.progreso.fase !== 'fallido',
-  );
+  return [...generaciones.values()].find((g) => !terminada(g.progreso.fase));
 }
 
 /** Lee y comprueba lo que manda el menú: lanza con una frase si no vale. */
 export function leerPedido(crudo: unknown): PedidoDelMenu {
   const o = (typeof crudo === 'object' && crudo !== null ? crudo : {}) as Record<string, unknown>;
-  if (typeof o.faccion !== 'string' || !esFaccion(o.faccion)) {
+  // La facción y la semilla, con las mismas reglas que la URL (`parseFaccion`, `parseSeed`).
+  const faccion = parseFaccion(typeof o.faccion === 'string' ? o.faccion : null);
+  if (faccion === null)
     throw new Error(`«faccion» no es una facción: ${JSON.stringify(o.faccion)}`);
-  }
   const regiones = o.regionesPorBando;
-  if (!TAMAÑOS.some((t) => t === regiones)) {
+  const tamaños = TAMAÑOS_DE_UN_MUNDO.map((t) => t.regiones);
+  if (!tamaños.some((t) => t === regiones)) {
     throw new Error(
-      `«regionesPorBando» tiene que ser ${TAMAÑOS.join(', ')}; es ${JSON.stringify(regiones)}`,
+      `«regionesPorBando» tiene que ser ${tamaños.join(', ')}; es ${JSON.stringify(regiones)}`,
     );
   }
   if (o.heroe !== undefined && typeof o.heroe !== 'string')
     throw new Error('«heroe» tiene que ser un texto');
   if (o.id !== undefined && typeof o.id !== 'string')
     throw new Error('«id» tiene que ser un texto');
-  if (
-    o.semilla !== undefined &&
-    (typeof o.semilla !== 'number' || !Number.isSafeInteger(o.semilla))
-  ) {
-    throw new Error('«semilla» tiene que ser un entero');
+  if (o.semilla !== undefined && typeof o.semilla !== 'number') {
+    throw new Error('«semilla» tiene que ser un número');
   }
   return {
-    faccion: o.faccion,
+    faccion,
     heroe: o.heroe as string | undefined,
     regionesPorBando: regiones as number,
     id: o.id as string | undefined,
-    semilla: o.semilla as number | undefined,
+    semilla: o.semilla === undefined ? undefined : (parseSeed(String(o.semilla)) ?? undefined),
   };
 }
 
@@ -138,36 +117,15 @@ export class EnMarcha extends Error {}
 /** Cancela una generación: mata el grupo del motor. */
 export function cancelar(id: string): boolean {
   const g = generaciones.get(id);
-  if (g === undefined || g.progreso.fase === 'listo' || g.progreso.fase === 'fallido') return false;
+  if (g === undefined || terminada(g.progreso.fase)) return false;
   g.cancelado = true;
-  matarGrupo(g.proceso);
+  matarGrupo(g.proceso, avisar);
   poner(g, { fase: 'fallido', motivo: 'cancelado desde el menú' });
   return true;
 }
 
-/** Lo que se espera a que el motor salga tras `SIGTERM` antes de `SIGKILL` (medido: ~7 s). */
-const GRACIA_AL_MATAR_MS = 15_000;
-
-function matarGrupo(p: ChildProcess | null): void {
-  if (p === null || p.pid === undefined || p.exitCode !== null) return;
-  const pid = p.pid;
-  const senal = (s: NodeJS.Signals): void => {
-    try {
-      // El guion: el grupo entero (el `claude` y lo que lance), y solo ese.
-      process.kill(-pid, s);
-    } catch (err) {
-      // Ya no existe el grupo: salió entre la pregunta y la señal. Se dice, no se calla.
-      console.warn(
-        `[mundos] el grupo ${pid} ya no estaba (${s}): ${err instanceof Error ? err.message : err}`,
-      );
-    }
-  };
-  senal('SIGTERM');
-  // Si no ha salido, a la fuerza: un motor colgado no se queda en la máquina.
-  setTimeout(() => {
-    if (p.exitCode === null && p.signalCode === null) senal('SIGKILL');
-  }, GRACIA_AL_MATAR_MS).unref();
-}
+/** Lo que se dice al matar el grupo del motor (el `claude` y lo que lance, `matarGrupo`). */
+const avisar = (msg: string): void => console.warn(`[mundos] ${msg}`);
 
 function poner(g: Generacion, cambio: Partial<Progreso>): void {
   g.progreso = { ...g.progreso, ...cambio };
@@ -299,7 +257,7 @@ async function lanzarMotor(
   const tope = setTimeout(() => {
     porTope = true;
     linea(g, 'el motor pasa del tope de tiempo: se corta');
-    matarGrupo(p);
+    matarGrupo(p, avisar);
   }, TOPE_DEL_MOTOR_MS);
   let resto = '';
   let error = '';
