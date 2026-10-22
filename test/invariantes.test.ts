@@ -2201,6 +2201,36 @@ describe('invariantes del proyecto', () => {
     expect(escrituras).toHaveLength(1);
   });
 
+  it('el clima que pide el narrador lo escribe `pedirClima` y nadie más', () => {
+    // `GameState.climaPedido` es presentación, como las voces: quien lo
+    // escribiera por su cuenta se saltaría el juicio pedido a pedido, el tope de
+    // días y el de cada turno. Roto a mano: un `state.climaPedido = {}` en
+    // `director.ts` sale rojo con su línea.
+    const escrituras = infractoresDeCodigo(
+      [...CORE, ...CLIENTE, ...SERVIDOR],
+      /\.climaPedido\s*=(?!=)|\[\s*['"`]climaPedido['"`]\s*\]\s*=(?!=)|\.climaPedido\s*\[[^\]]*\]\s*=(?!=)/,
+    );
+    const ajenas = escrituras.filter((e) => !e.startsWith('src/core/state/clima.ts:'));
+    expect(ajenas).toEqual([]);
+    expect(escrituras).toHaveLength(1);
+  });
+
+  it('`data/clima.json` lo importa solo `core/state/clima.ts`, que lo valida al cargar', () => {
+    // Las cifras del clima (pesos, rachas, topes del narrador) se leen validadas
+    // en un sitio (`validarClima`). Roto a mano: un `import c from
+    // '../../data/clima.json'` en `render/clima/recetas.ts` sale rojo.
+    const PUERTA = 'src/core/state/clima.ts';
+    const importa = importaDe(/[^'"]*data\/clima\.json/);
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        importa,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
+  });
+
   it('el tema de la interfaz lo pone `ponerTema`: nadie más escribe `data-tema`', () => {
     // Un `data-tema` escrito por otro sitio no borraría lo que el lienzo leyó del
     // tema anterior (`temaDelLienzo`, en caché): CSS de un tema y chapas de otro.
