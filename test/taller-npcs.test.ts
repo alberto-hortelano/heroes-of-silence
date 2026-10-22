@@ -7,6 +7,7 @@
  * Todo en una raíz temporal con su propio `data/npcs.json`, su `assets/npcs/` y su
  * cola: nada de esto toca el repo.
  */
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -18,6 +19,7 @@ import { estadoDeFigura, loQueSeSirve } from '../tools/npcs/banco.js';
 import {
   esEncargoDeNpc,
   fotoDelTaller,
+  fraseDelTaller,
   REINTENTOS_DE_NPC,
   reintentarSiQueda,
 } from '../tools/npcs/en-el-taller.js';
@@ -298,7 +300,7 @@ describe('una figura no se queda a medias para siempre (QA del banco de NPC, H2)
     });
   });
 
-  it('el estado dice si el taller la está pintando o se quedó a medias, y con qué orden se arregla', async () => {
+  it('el estado dice si el taller la está pintando o se paró en ella, y con qué orden se arregla', async () => {
     const r = await raiz();
     await aMediasSinD7(r);
     const cola = colaDelTaller(r);
@@ -315,14 +317,14 @@ describe('una figura no se queda a medias para siempre (QA del banco de NPC, H2)
     expect(motivo()).toBe(`${faltaD7}: el taller la está pintando`);
     await fallar(r, D7);
     expect(motivo()).toBe(
-      `${faltaD7}: se quedó a medias: falló ${D7} (la imagen está casi vacía tras el recorte); se reintenta sola al arrancar \`pnpm npcs trabajar\` (le quedan 2 reintentos), o ya con \`pnpm npcs encolar vecina-de-prueba\``,
+      `${faltaD7}: el taller se paró porque falló ${D7} (la imagen está casi vacía tras el recorte); se reintenta sola al arrancar \`pnpm npcs trabajar\` (le quedan 2 reintentos), o ya con \`pnpm npcs encolar vecina-de-prueba\``,
     );
     await cola.reintentar(D7);
     await fallar(r, D7);
     await cola.reintentar(D7);
     await fallar(r, D7);
     expect(motivo()).toBe(
-      `${faltaD7}: se quedó a medias: falló ${D7} (la imagen está casi vacía tras el recorte); agotó sus 2 reintentos: se reintenta con \`pnpm npcs encolar vecina-de-prueba\``,
+      `${faltaD7}: el taller se paró porque falló ${D7} (la imagen está casi vacía tras el recorte); agotó sus 2 reintentos: se reintenta con \`pnpm npcs encolar vecina-de-prueba\``,
     );
     // Lo mismo dice `/__npcs` (y el aviso de `vite build`), y de la que no tiene nada pintado.
     const servido = loQueSeSirve(r).hojas;
@@ -331,6 +333,94 @@ describe('una figura no se queda a medias para siempre (QA del banco de NPC, H2)
       'guardia-de-prueba está pedida y sin pintar: no hay nada suyo en la cola del taller (pedida en otro clon, o la cola se borró): se encola con `pnpm npcs encolar guardia-de-prueba`',
     );
     expect(fotoDelTaller(r)('guardia-de-prueba')).toEqual({ que: 'nada' });
+  });
+
+  it('una figura sin nada pintado y con un fallo no dice «sin pintar» y «a medias» a la vez', async () => {
+    const r = await raiz();
+    const identidad = 'npc-vecina-de-prueba-identidad';
+    await encolarLoQueSigue(VECINA, r);
+    await fallar(r, identidad, 'Codex no devolvió imagen');
+    expect(estadoDeFigura('vecina-de-prueba', r)).toEqual({
+      estado: 'pendiente',
+      motivo: `vecina-de-prueba está pedida y sin pintar: el taller se paró porque falló ${identidad} (Codex no devolvió imagen); se reintenta sola al arrancar \`pnpm npcs trabajar\` (le quedan 2 reintentos), o ya con \`pnpm npcs encolar vecina-de-prueba\``,
+    });
+  });
+
+  // QA del banco de NPC, H6: el trabajador que muere a mitad de un encargo lo dejaba en
+  // curso para siempre, y la figura decía «el taller la está pintando».
+  it('lo que dejó en curso un trabajador muerto se dice, y lo recogen el rescate y «encolar»', async () => {
+    const r = await raiz();
+    await aMediasSinD7(r);
+    const cola = colaDelTaller(r);
+    await encolarLoQueSigue(VECINA, r);
+    await fallar(r, D7, 'fallo 1');
+    await cola.reintentar(D7);
+    await cola.tomar(D7);
+    const enCurso = join(r, 'tools/taller/cola/en-curso', `${D7}.json`);
+    const ficha = JSON.parse(await readFile(enCurso, 'utf8'));
+    const { pid: muerto } = spawnSync(process.execPath, ['-e', '']);
+    await writeFile(enCurso, JSON.stringify({ ...ficha, pid: muerto }));
+
+    expect(fotoDelTaller(r)('vecina-de-prueba')).toEqual({
+      que: 'huerfano',
+      encargo: D7,
+      pid: muerto,
+    });
+    const faltaD7 = 'vecina-de-prueba tiene 7 de sus 8 direcciones (le faltan d7)';
+    expect(estadoDeFigura('vecina-de-prueba', r)).toEqual({
+      estado: 'a-medias',
+      motivo: `${faltaD7}: el taller se paró porque murió el trabajador que llevaba ${D7} (pid ${muerto}); se recoge sola al arrancar \`pnpm npcs trabajar\`, o ya con \`pnpm npcs encolar vecina-de-prueba\``,
+    });
+    // El rescate de `pnpm npcs trabajar` lo devuelve con su cuenta, y el trabajador nuevo lo toma.
+    expect(await rescatar(VECINA, r)).toEqual({ encolados: [D7], agotados: [] });
+    expect((await cola.leer('pendiente', D7)).fallos).toHaveLength(1);
+    expect(fotoDelTaller(r)('vecina-de-prueba')).toEqual({ que: 'pintando' });
+    expect((await cola.tomar(undefined, esEncargoDeNpc))?.id).toBe(D7);
+    // «pnpm npcs encolar» también.
+    await writeFile(enCurso, JSON.stringify({ ...ficha, pid: muerto }));
+    expect(await encolarLoQueSigue(VECINA, r, { repescar: true })).toEqual([D7]);
+  });
+
+  it('lo que tomó un trabajador de antes, sin pid, se da por vivo: no se roba, y se dice cómo sacarlo', async () => {
+    const r = await raiz();
+    await aMediasSinD7(r);
+    const cola = colaDelTaller(r);
+    await encolarLoQueSigue(VECINA, r);
+    await cola.tomar(D7);
+    const enCurso = join(r, 'tools/taller/cola/en-curso', `${D7}.json`);
+    const { pid: _, ...sinPid } = JSON.parse(await readFile(enCurso, 'utf8'));
+    await writeFile(enCurso, JSON.stringify(sinPid));
+    expect(await rescatar(VECINA, r)).toEqual({ encolados: [], agotados: [] });
+    expect(await encolarLoQueSigue(VECINA, r, { repescar: true })).toEqual([]);
+    expect((await cola.estado())['en-curso']).toEqual([D7]);
+    expect(fraseDelTaller('vecina-de-prueba', fotoDelTaller(r)('vecina-de-prueba'))).toBe(
+      `el taller la está pintando (${D7} lo lleva un trabajador de antes, sin pid apuntado: si no queda ninguno vivo, se devuelve con \`pnpm taller devolver ${D7}\`)`,
+    );
+  });
+
+  // QA del banco de NPC, H7: `lanzarElTaller` de `pnpm dev` y otro a mano rescatan a la vez.
+  it('dos «pnpm npcs trabajar» que rescatan a la vez no chocan: uno encola y el otro se lo salta', async () => {
+    const r = await raiz();
+    const res = await Promise.allSettled([rescatar(VECINA, r), rescatar(VECINA, r)]);
+    expect(res.map((x) => x.status)).toEqual(['fulfilled', 'fulfilled']);
+    const encolados = res.flatMap((x) => (x.status === 'fulfilled' ? x.value.encolados : []));
+    expect(encolados).toEqual(['npc-vecina-de-prueba-identidad']);
+    expect((await colaDelTaller(r).estado()).pendiente).toEqual(['npc-vecina-de-prueba-identidad']);
+    // Y lo fallido que el trabajador reintenta mientras otro rescata: se reintenta una vez.
+    await fallar(r, 'npc-vecina-de-prueba-identidad');
+    const cola = colaDelTaller(r);
+    const [vez, rescate] = await Promise.allSettled([
+      reintentarSiQueda(cola, 'npc-vecina-de-prueba-identidad'),
+      rescatar(VECINA, r),
+    ]);
+    expect(rescate.status).toBe('fulfilled');
+    // El que llega tarde del trabajador lanza `NoEstaEn`, y su bucle lo dice y sigue (`trabajador.ts`).
+    if (vez.status === 'rejected') expect(String(vez.reason)).toMatch(/no está en fallido\//);
+    expect(await cola.estado()).toMatchObject({
+      pendiente: ['npc-vecina-de-prueba-identidad'],
+      fallido: [],
+    });
+    expect((await cola.leer('pendiente', 'npc-vecina-de-prueba-identidad')).fallos).toHaveLength(1);
   });
 
   it('reprocesar toma lo fallido sin pasar por pendiente (`Cola.retomar`): ningún trabajador se lo lleva', async () => {

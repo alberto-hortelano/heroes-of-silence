@@ -26,7 +26,7 @@ import {
   NOMBRES_DE_DIRECCION,
 } from '../../src/shared/arte.js';
 import { prefijoDeLaFigura, quedanReintentos } from '../npcs/en-el-taller.js';
-import { colaDelTaller } from './cola.js';
+import { type Cola, colaDelTaller, NoEstaEn, YaEnLaCola } from './cola.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DE_FACCION } from './unidades.js';
 
@@ -136,11 +136,28 @@ export function encargosQueSiguen(f: FiguraDeNpc, raiz: string): Encargo[] {
 }
 
 /**
+ * Encola en `cola` un encargo, o `false` si otro proceso lo acaba de encolar: dos
+ * `pnpm npcs trabajar` que rescatan a la vez miran la cola y encolan lo mismo, y al
+ * segundo eso no es un fallo (QA del banco de NPC, H7).
+ */
+async function encolarSiNoEsta(cola: Cola, e: Encargo): Promise<boolean> {
+  try {
+    await cola.encolar(e);
+    return true;
+  } catch (err) {
+    if (err instanceof YaEnLaCola) return false;
+    throw err;
+  }
+}
+
+/**
  * Encola lo que sigue de una figura (`encargosQueSiguen`) y devuelve los ids
  * encolados. Lo que ya está en la cola —pendiente, en curso, hecho o fallido— no se
  * repite: al encadenar, cada hoja que acaba volvería a pedir las otras siete. Con
  * `repescar`, lo hecho o fallido cuya imagen no está se olvida y se encola otra vez
- * (`pnpm npcs encolar` y `rehacer`): lo pedido en otro clon, o lo que falló.
+ * (`pnpm npcs encolar` y `rehacer`): lo pedido en otro clon, o lo que falló. Lo suyo en
+ * curso cuyo trabajador murió vuelve antes a la cola (`Cola.devolverHuerfanos`, QA del
+ * banco de NPC, H6), y cuenta como encolado.
  */
 export async function encolarLoQueSigue(
   f: FiguraDeNpc,
@@ -149,22 +166,24 @@ export async function encolarLoQueSigue(
 ): Promise<string[]> {
   const cola = colaDelTaller(raiz);
   await cola.preparar();
+  const encolados = await cola.devolverHuerfanos((i) => i.startsWith(prefijoDeLaFigura(f.id)));
   // Una vez: lo que se encola aquí son ids distintos, y ninguno estaba.
   const estado = await cola.estado();
-  const encolados: string[] = [];
   for (const e of encargosQueSiguen(f, raiz)) {
     const vivo = estado.pendiente.includes(e.id) || estado['en-curso'].includes(e.id);
     const cerrado = estado.hecho.includes(e.id) || estado.fallido.includes(e.id);
     if (vivo || (cerrado && !repescar)) continue;
     if (cerrado) await cola.olvidar(e.id);
-    encolados.push((await cola.encolar(e)).id);
+    if (await encolarSiNoEsta(cola, e)) encolados.push(e.id);
   }
   return encolados;
 }
 
 /**
- * Rescata una figura que se quedó a medias (QA del banco de NPC, H2, 22-10-2026): si no
- * tiene nada pendiente ni en curso, encola lo que le falte (`encargosQueSiguen`). Lo
+ * Rescata una figura que se quedó a medias (QA del banco de NPC, H2, 22-10-2026). Lo suyo
+ * en curso cuyo trabajador murió vuelve a la cola con sus fallos (`Cola.devolverHuerfanos`,
+ * H6). Luego, si no tiene nada pendiente ni en curso, encola lo que le falte
+ * (`encargosQueSiguen`). Lo
  * fallido se reintenta **llevando la cuenta** (`Cola.reintentar`) mientras le queden
  * reintentos (`quedanReintentos`), y lo que los agotó se queda en `fallido/` y se
  * devuelve en `agotados`: eso ya lo arregla una persona, con `pnpm npcs encolar`. Lo
@@ -172,7 +191,8 @@ export async function encolarLoQueSigue(
  *
  * Lo llama `pnpm npcs trabajar` al arrancar, para toda figura del banco: así un reinicio,
  * o el trabajador que lanza un mundo nuevo (`lanzarElTaller`), recogen lo que se quedó a
- * medias sin que nadie lo pida.
+ * medias sin que nadie lo pida. Dos a la vez no chocan (H7): lo que el otro ya encoló,
+ * reintentó u olvidó se salta.
  */
 export async function rescatar(
   f: FiguraDeNpc,
@@ -180,22 +200,27 @@ export async function rescatar(
 ): Promise<{ readonly encolados: readonly string[]; readonly agotados: readonly string[] }> {
   const cola = colaDelTaller(raiz);
   await cola.preparar();
-  const estado = await cola.estado();
   const suyo = (i: string): boolean => i.startsWith(prefijoDeLaFigura(f.id));
+  const devueltos = await cola.devolverHuerfanos(suyo);
+  const estado = await cola.estado();
   if ([...estado.pendiente, ...estado['en-curso']].some(suyo))
-    return { encolados: [], agotados: [] };
+    return { encolados: devueltos, agotados: [] };
   const encolados: string[] = [];
   const agotados: string[] = [];
   for (const e of encargosQueSiguen(f, raiz)) {
     if (estado.fallido.includes(e.id)) {
-      if (quedanReintentos(await cola.leer('fallido', e.id))) {
-        await cola.reintentar(e.id);
-        encolados.push(e.id);
-      } else agotados.push(e.id);
+      try {
+        if (quedanReintentos(await cola.leer('fallido', e.id))) {
+          await cola.reintentar(e.id);
+          encolados.push(e.id);
+        } else agotados.push(e.id);
+      } catch (err) {
+        if (!(err instanceof NoEstaEn)) throw err; // otro rescate, o su trabajador, lo reintentó
+      }
       continue;
     }
     if (estado.hecho.includes(e.id)) await cola.olvidar(e.id);
-    encolados.push((await cola.encolar(e)).id);
+    if (await encolarSiNoEsta(cola, e)) encolados.push(e.id);
   }
   return { encolados, agotados };
 }

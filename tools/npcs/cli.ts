@@ -11,14 +11,15 @@
  *       `pnpm npcs pedir tools/npcs/semilla.json`
  *   pnpm npcs encolar [id…]
  *       vuelve a encolar lo que falta de esas figuras (o de todas las que no están
- *       pintadas): lo pedido en otro clon, o lo que falló
+ *       pintadas): lo pedido en otro clon, lo que falló, o lo que dejó en curso un
+ *       trabajador que murió
  *   pnpm npcs rehacer <id>
  *       borra el arte de una figura mala y la vuelve a encolar desde la identidad
  *   pnpm npcs trabajar
  *       el trabajador del taller, solo con los encargos de NPC (Codex por la
- *       suscripción); antes rescata lo que se quedó a medias (lo que falta y lo
- *       fallido con reintentos; un encargo que falla se reintenta solo dos veces) y
- *       acaba al vaciarlos
+ *       suscripción); antes rescata lo que se quedó a medias (lo que falta, lo
+ *       fallido con reintentos —un encargo que falla se reintenta solo dos veces— y lo
+ *       que dejó en curso un trabajador que murió) y acaba al vaciarlos
  *
  * Nada gasta dinero: el taller pinta con Codex por la suscripción, nunca con fal.ai.
  */
@@ -118,12 +119,14 @@ async function rehacer(id: string | undefined): Promise<void> {
   const f = figuraDelBanco(leerBancoDeDisco(), id);
   if (f === undefined) throw new Error(`"${id}" no está en el banco`);
   const cola = colaDelTaller(RAIZ);
-  const estado = await cola.estado();
   const suyo = (i: string): boolean => i.startsWith(prefijoDeLaFigura(id));
+  // Lo que dejó en curso un trabajador muerto vuelve a pendiente/, donde se retira.
+  const devueltos = await cola.devolverHuerfanos(suyo);
+  const estado = await cola.estado();
   const vivos = [...estado.pendiente, ...estado['en-curso']].filter(suyo);
   if (vivos.length > 0)
     throw new Error(
-      `"${id}" tiene encargos en la cola (${vivos.join(', ')}): espera a que acaben o retíralos con pnpm taller retirar`,
+      `"${id}" tiene encargos en la cola (${vivos.join(', ')}${devueltos.length > 0 ? `; ${devueltos.join(', ')} los dejó en curso un trabajador que murió y ya están en pendiente/` : ''}): espera a que acaben o retíralos con pnpm taller retirar`,
     );
   await rm(join(RAIZ, CARPETA_DE_LAS_FIGURAS, id), { recursive: true, force: true });
   for (const i of [...estado.hecho, ...estado.fallido].filter(suyo)) await cola.olvidar(i);

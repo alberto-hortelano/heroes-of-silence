@@ -656,8 +656,17 @@ async function trabajar(soloNpc = false): Promise<void> {
       });
       console.log(`  ✘ ${motivo}`);
       // Una figura del banco de NPC no se queda a medias por una tirada mala: se
-      // vuelve a pedir, con la cuenta en su ficha (QA del banco de NPC, H2).
-      const vez = await reintentarSiQueda(COLA, encargo.id);
+      // vuelve a pedir, con la cuenta en su ficha (QA del banco de NPC, H2). Si no se
+      // puede (otro `pnpm npcs trabajar` lo reintentó a la vez, H7), se dice y la cola
+      // sigue: tumbar el trabajador dejaría lo demás sin pintar.
+      let vez: number | null = null;
+      try {
+        vez = await reintentarSiQueda(COLA, encargo.id);
+      } catch (err) {
+        console.log(
+          `  ! no se reintenta ${encargo.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
       if (vez !== null) {
         console.log(
           `  ↻ ${encargo.id} vuelve a pendiente/ (reintento ${vez} de ${REINTENTOS_DE_NPC})`,

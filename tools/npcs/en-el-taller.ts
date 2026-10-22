@@ -1,8 +1,10 @@
 /**
  * Lo que el taller está haciendo con una figura del banco de NPC, **leído de la cola en
  * disco** (`tools/taller/cola/`): sus encargos se llaman `npc-<id>-…`, y si alguno está
- * pendiente o en curso, el taller la está pintando; si no, y alguno falló, se quedó a
- * medias. Nada de esto se escribe: se deriva, como si está pintada (`estadoDeFigura`).
+ * pendiente, o en curso con su trabajador vivo, el taller la está pintando; si no, y su
+ * trabajador murió con uno en curso (QA del banco de NPC, H6) o alguno falló, el taller
+ * se paró en ella. Nada de esto se escribe: se deriva, como si está pintada
+ * (`estadoDeFigura`).
  *
  * Aparte de `tools/taller/npcs.ts` porque lo lee `/__npcs` (`banco.ts`, que carga vite al
  * arrancar `pnpm dev` y el build): aquel trae el estilo de cada facción y, con él, el
@@ -15,7 +17,7 @@
  * al arrancar (`rescatar`, `tools/taller/npcs.ts`). Pasado el tope queda fallido, y el
  * estado lo dice con la orden que lo arregla.
  */
-import { type Cola, colaDelTaller, type Ficha } from '../taller/cola.js';
+import { type Cola, colaDelTaller, type Ficha, type TrabajadorDelEncargo } from '../taller/cola.js';
 
 /** Los encargos de NPC llevan este prefijo: `pnpm npcs trabajar` toma solo esos. */
 export const PREFIJO_DE_NPC = 'npc-';
@@ -52,8 +54,14 @@ export async function reintentarSiQueda(cola: Cola, id: string): Promise<number 
 
 /** Lo que hace el taller con una figura que aún no está pintada. */
 export type EnElTaller =
-  /** Algo suyo está pendiente o en curso. */
-  | { readonly que: 'pintando' }
+  /**
+   * Algo suyo está pendiente, o en curso con su trabajador vivo. `sinPid`: lo único vivo
+   * es un encargo en curso sin pid apuntado (lo tomó un trabajador de antes), que se da
+   * por vivo y no se sabe; se nombra para que quien lo lea sepa cómo sacarlo.
+   */
+  | { readonly que: 'pintando'; readonly sinPid?: string }
+  /** Nada suyo vivo y un encargo en curso cuyo trabajador (`pid`) ya no vive. */
+  | { readonly que: 'huerfano'; readonly encargo: string; readonly pid: number }
   /** Nada suyo vivo y un encargo fallido: `reintentos`, los que ya gastó. */
   | {
       readonly que: 'fallo';
@@ -71,11 +79,25 @@ export type EnElTaller =
  */
 export function fotoDelTaller(raiz: string): (id: string) => EnElTaller {
   const cola = colaDelTaller(raiz);
-  const vivos = [...cola.idsAhora('pendiente'), ...cola.idsAhora('en-curso')];
+  const pendientes = cola.idsAhora('pendiente');
+  const enCurso = cola
+    .idsAhora('en-curso')
+    .filter(esEncargoDeNpc)
+    .flatMap((encargo): { encargo: string; quien: TrabajadorDelEncargo }[] => {
+      const quien = cola.trabajadorAhora(encargo);
+      return quien === undefined ? [] : [{ encargo, quien }]; // se acaba de cerrar
+    });
   const fallidos = cola.idsAhora('fallido');
   return (id) => {
     const suyo = (i: string): boolean => i.startsWith(prefijoDeLaFigura(id));
-    if (vivos.some(suyo)) return { que: 'pintando' };
+    const suyosEnCurso = enCurso.filter((e) => suyo(e.encargo));
+    const vivos = suyosEnCurso.filter((e) => e.quien.vivo);
+    if (pendientes.some(suyo) || vivos.some((e) => e.quien.pid !== undefined))
+      return { que: 'pintando' };
+    const [sinPid] = vivos;
+    if (sinPid !== undefined) return { que: 'pintando', sinPid: sinPid.encargo };
+    for (const { encargo, quien } of suyosEnCurso)
+      if (!quien.vivo) return { que: 'huerfano', encargo, pid: quien.pid };
     for (const encargo of fallidos.filter(suyo)) {
       const ficha = cola.leerAhora('fallido', encargo);
       if (ficha === undefined) continue; // un trabajador lo acaba de reintentar
@@ -90,14 +112,22 @@ export function fotoDelTaller(raiz: string): (id: string) => EnElTaller {
   };
 }
 
-/** Lo que se dice de una figura sin pintar según el taller: si se espera o hay que intervenir. */
+/**
+ * Lo que se dice de una figura sin pintar según el taller: si se espera o hay que
+ * intervenir. Va detrás de «está pedida y sin pintar» y de «le faltan d6», así que no
+ * dice «a medias»: con nada pintado, se contradecía.
+ */
 export function fraseDelTaller(id: string, e: EnElTaller): string {
   switch (e.que) {
     case 'pintando':
-      return 'el taller la está pintando';
+      return e.sinPid === undefined
+        ? 'el taller la está pintando'
+        : `el taller la está pintando (${e.sinPid} lo lleva un trabajador de antes, sin pid apuntado: si no queda ninguno vivo, se devuelve con \`pnpm taller devolver ${e.sinPid}\`)`;
+    case 'huerfano':
+      return `el taller se paró porque murió el trabajador que llevaba ${e.encargo} (pid ${e.pid}); se recoge sola al arrancar \`pnpm npcs trabajar\`, o ya con \`pnpm npcs encolar ${id}\``;
     case 'fallo': {
       const quedan = REINTENTOS_DE_NPC - e.reintentos;
-      return `se quedó a medias: falló ${e.encargo} (${e.motivo}); ${
+      return `el taller se paró porque falló ${e.encargo} (${e.motivo}); ${
         quedan > 0
           ? `se reintenta sola al arrancar \`pnpm npcs trabajar\` (le quedan ${quedan} reintentos), o ya con \`pnpm npcs encolar ${id}\``
           : `agotó sus ${REINTENTOS_DE_NPC} reintentos: se reintenta con \`pnpm npcs encolar ${id}\``
