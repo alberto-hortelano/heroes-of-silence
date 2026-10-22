@@ -6,10 +6,10 @@
  * (`mundoPedido`): así `main.ts` no espera nada al cargarse y un mundo roto lo
  * pinta `arranque.ts`, entero, como un catálogo roto.
  */
-import type { MundoLeido } from '@core/mundo/formato.js';
-import { esIdDeMundo } from '@core/mundo/formato.js';
+import { type MundoLeido, parseMundo } from '@core/mundo/formato.js';
 import { leerMundo } from '@core/mundo/validar.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import { pide } from '../semilla.js';
 
 /** Lo que trae un mundo y no puede ir con él en la URL: lo fija el mundo. */
 const LO_QUE_FIJA_EL_MUNDO = ['seed', 'faccion', 'heroe'] as const;
@@ -20,19 +20,15 @@ const LO_QUE_FIJA_EL_MUNDO = ['seed', 'faccion', 'heroe'] as const;
  * repetido o con una forma que no es la de un id.
  */
 export function mundoDeLaUrl(search: string): string | null {
-  const q = new URLSearchParams(search);
-  const id = unaVezEnLaURL(q.getAll('mundo'), 'mundo');
-  if (id === null || id.trim() === '') return null;
-  const juntos = LO_QUE_FIJA_EL_MUNDO.filter((p) => q.getAll(p).some((v) => v.trim() !== ''));
+  const pedido = unaVezEnLaURL(new URLSearchParams(search).getAll('mundo'), 'mundo');
+  if (!pide(search, 'mundo')) return null;
+  const juntos = LO_QUE_FIJA_EL_MUNDO.filter((p) => pide(search, p));
   if (juntos.length > 0) {
     throw new Error(
       `«?mundo=» no va con ${juntos.map((p) => `«?${p}=»`).join(' ni ')}: el mundo trae su semilla, su facción y su héroe. Quita ${juntos.length === 1 ? 'ese parámetro' : 'esos parámetros'} de la barra de direcciones`,
     );
   }
-  if (!esIdDeMundo(id)) {
-    throw new Error(`"${id}" no es el id de un mundo: minúsculas, cifras y «-», de 1 a 48`);
-  }
-  return id;
+  return parseMundo(pedido);
 }
 
 /** Un fichero del mundo, o lanza diciendo cuál falta: vite responde la página a lo que no existe. */

@@ -10,15 +10,10 @@
  * Solo en `pnpm dev`: lo carga `inicio.ts` con un `import()` tras
  * `HERRAMIENTAS_DE_DESARROLLO`. En el build, «Empezar» juega como siempre.
  */
+import { TAMAÑO_POR_DEFECTO, TAMAÑOS_DE_UN_MUNDO } from '@core/mundo/formato.js';
 import type { FactionId } from '@core/types.js';
 import { type Html, html, NADA, pintar, unir } from '../html.js';
-
-/** Las regiones por bando del menú, con su nombre (las que admite el servidor, `TAMAÑOS`). */
-const TAMAÑOS = [
-  { regiones: 4, nombre: 'Pequeño', que: 'cuatro regiones por bando' },
-  { regiones: 5, nombre: 'Mediano', que: 'cinco regiones por bando, el de siempre' },
-  { regiones: 7, nombre: 'Grande', que: 'siete regiones por bando' },
-] as const;
+import { type Fase, type Progreso, terminada } from './progreso.js';
 
 /** Por qué los rivales están fijos en 1. */
 const UN_RIVAL = 'Por ahora, un rival: el generador aún no sabe de más bandos.';
@@ -38,18 +33,7 @@ export interface AlElegirMundo {
   readonly volver: () => void;
 }
 
-interface Progreso {
-  readonly id: string;
-  readonly fase: 'congelar' | 'pintar' | 'motor' | 'validar' | 'listo' | 'fallido';
-  readonly lineas: readonly string[];
-  readonly empezo: number;
-  readonly ultima: number;
-  readonly validaciones: number;
-  readonly problemas?: readonly string[];
-  readonly motivo?: string;
-}
-
-const FASES: Readonly<Record<Progreso['fase'], string>> = {
+const FASES: Readonly<Record<Fase, string>> = {
   congelar: 'Congelando el plan del mapa',
   pintar: 'Leyendo y pintando el mapa para el motor',
   motor: 'El motor de narrativa escribe la historia',
@@ -65,7 +49,7 @@ function renderMundo(tamaño: number): Html {
     <fieldset class="tamanos-del-mundo">
       <legend>Tamaño del mapa</legend>
       ${unir(
-        TAMAÑOS.map(
+        TAMAÑOS_DE_UN_MUNDO.map(
           (t) => html`<label class="opcion-de-tamano">
             <input type="radio" name="tamano" value="${String(t.regiones)}" ${t.regiones === tamaño ? html`checked` : NADA} />
             <span>${t.nombre}</span> <span class="cost">${t.que}</span>
@@ -88,7 +72,7 @@ function renderMundo(tamaño: number): Html {
 function renderEspera(p: Progreso, ahora: number): Html {
   const segundos = Math.round((ahora - p.empezo) / 1000);
   const callado = Math.round((ahora - p.ultima) / 1000);
-  const final = p.fase === 'listo' || p.fase === 'fallido';
+  const final = terminada(p.fase);
   return html`<section class="espera-del-mundo" data-mundo="espera" data-fase="${p.fase}" aria-live="polite">
     <h1 class="titulo-de-inicio">${FASES[p.fase]}</h1>
     <p class="quien-de-inicio">${p.id} · ${String(segundos)} s${
@@ -126,11 +110,11 @@ async function pedir(
  * escucha cuando el menú se va (empezar, o volver a la elección del héroe).
  */
 export function elegirMundo(inicio: HTMLElement, a: AlElegirMundo, signal: AbortSignal): void {
-  let tamaño = 5;
+  let tamaño: number = TAMAÑO_POR_DEFECTO;
   let enCurso: string | null = null;
-  let reloj: ReturnType<typeof setInterval> | null = null;
+  let reloj: ReturnType<typeof setTimeout> | null = null;
   const parar = (): void => {
-    if (reloj !== null) clearInterval(reloj);
+    if (reloj !== null) clearTimeout(reloj);
     reloj = null;
   };
   // Salir de la espera (Escape, «Volver») cancela la generación: si no, seguiría
@@ -164,6 +148,10 @@ export function elegirMundo(inicio: HTMLElement, a: AlElegirMundo, signal: Abort
     } else if (p.fase === 'fallido') {
       parar();
       enCurso = null;
+    } else {
+      // La siguiente pregunta, cuando ha llegado esta respuesta: con un intervalo,
+      // un servidor lento acumulaba preguntas en vuelo.
+      reloj = setTimeout(() => void seguir(id), CADA_MS);
     }
   };
 
@@ -213,9 +201,6 @@ export function elegirMundo(inicio: HTMLElement, a: AlElegirMundo, signal: Abort
         }
         enCurso = (cuerpo as { id: string }).id;
         void seguir(enCurso);
-        reloj = setInterval(() => {
-          if (enCurso !== null) void seguir(enCurso);
-        }, CADA_MS);
       })();
     },
     { signal, capture: true },

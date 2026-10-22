@@ -9,6 +9,7 @@
  * (`motivoDeLaOpcion`): la persona lee por qué, no un botón gris mudo.
  */
 import { type Html, html, NADA, unir } from '../html.js';
+import type { VistaDeLaConversacion } from '../lugar/sesion.js';
 import type { Session } from '../session.js';
 
 export function renderPanelDelLugar(session: Session): Html {
@@ -32,10 +33,11 @@ export function renderPanelDelLugar(session: Session): Html {
     <div class="stack-list">${vista.puntos.length === 0 ? html`<div class="stack empty">No queda nadie ni nada.</div>` : puntos}</div>`;
 }
 
-/** La conversación abierta: quién, lo que dice y las opciones, cada una con su motivo si no vale. */
-export function renderConversacionDelLugar(session: Session): Html {
-  const c = session.lugar.conversacion();
-  if (c === null) return NADA;
+/**
+ * La conversación abierta (`EnElLugar.conversacion`, que ya ha calculado quien la
+ * enseña): quién, lo que dice y las opciones, cada una con su motivo si no vale.
+ */
+export function renderConversacionDelLugar(c: VistaDeLaConversacion): Html {
   const opciones = unir(
     c.opciones.map(
       (o) =>

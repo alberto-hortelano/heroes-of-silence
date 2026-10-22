@@ -39,8 +39,8 @@ export function hayQuePreguntar(search: string): boolean {
   );
 }
 
-/** Si la URL pide algo en `nombre` (vacío es no pedir). */
-function pide(search: string, nombre: string): boolean {
+/** Si la URL pide algo en `nombre` (vacío es no pedir): la regla de `hayQuePreguntar` y de `?mundo=`. */
+export function pide(search: string, nombre: string): boolean {
   return new URLSearchParams(search).getAll(nombre).some((v) => v.trim() !== '');
 }
 

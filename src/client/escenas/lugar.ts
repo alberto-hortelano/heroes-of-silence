@@ -10,15 +10,15 @@
  * que pinta el `<dialog id="conversacion">` de `main.ts`.
  *
  * Caminar por un escenario lateral está aquí y en `castillo.ts` dos veces: unificarlo
- * es del backlog, tras *heroe-en-la-base*, que toca la base. La cámara, la franja y
- * el pintor son los de la base (`render/base/`).
+ * es del backlog, tras *heroe-en-la-base*, que toca la base. La cámara, la franja,
+ * el pintor y el golpe son los de la base (`render/base/`), y dónde se para quien
+ * va a hablar con alguien, el de la base (`dondeHablarCon`).
  */
 import {
   alaFranja,
   bordeDeAtras,
   type Disposicion,
   disposicionDelLugar,
-  FONDO_DE_LA_FRANJA,
   MARGEN_DE_LA_FRANJA,
   type Mirada,
   type Plano,
@@ -30,32 +30,27 @@ import { msPorCasilla } from '../marcha.js';
 import { arteDeLaBase } from '../render/base/arte.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../render/base/camara.js';
 import type { Elemento } from '../render/base/escena.js';
+import { queHayBajo } from '../render/base/golpe.js';
 import { pintarBase, pintarLasFiguras } from '../render/base/pintar.js';
-import { cajaDeFiguraEn, dentroDeLaFigura } from '../render/batalla.js';
 import { animarHasta } from '../render/figura.js';
 import { densidadDe } from '../render/lienzo.js';
 import { playerColor } from '../render/palette.js';
-import {
-  ALTO_DE_FIGURA,
-  enPantalla,
-  pasoDeLaBase,
-  planoDePixel,
-  type Tablero,
-} from '../render/proyeccion.js';
+import { ALTO_DE_FIGURA, enPantalla, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DEL_LUGAR, type Session } from '../session.js';
 import { temaDelLienzo } from '../temas.js';
-import { PRISA_EN_LA_BASE } from './castillo.js';
+import { dondeHablarCon, PRISA_EN_LA_BASE, pulsaParaHablar } from './castillo.js';
 
 /** Cuánto por delante del borde de atrás está cada punto, en pasos: en la franja, no pegado al fondo. */
 const DELANTE_DEL_FONDO = 0.7;
-/** Lo que se aparta quien camina del punto con el que va a hablar, en pasos (a su izquierda). */
-const AL_LADO = 0.8;
+/** Lo que se meten los puntos de los extremos (`x` 0 y 1) desde el margen de la franja, en pasos. */
+const DENTRO_DEL_MARGEN = 0.6;
 /** El mojón de una cosa, en pasos de pantalla: ancho y alto. */
 const MOJON = { ancho: 0.42, alto: 0.62 } as const;
 
 /** Dónde está un punto en el escenario: su `x` de 0 a 1 entre los márgenes, un poco por delante del fondo. */
 export function dondeEstaElPunto(d: Disposicion, x: number): Plano {
-  const px = MARGEN_DE_LA_FRANJA + 0.6 + x * (d.ancho - 2 * (MARGEN_DE_LA_FRANJA + 0.6));
+  const margen = MARGEN_DE_LA_FRANJA + DENTRO_DEL_MARGEN;
+  const px = margen + x * (d.ancho - 2 * margen);
   return alaFranja(d, { x: px, y: bordeDeAtras(d, px) + DELANTE_DEL_FONDO });
 }
 
@@ -74,10 +69,31 @@ type Golpe =
   | { readonly tipo: 'punto'; readonly id: string }
   | { readonly tipo: 'suelo'; readonly en: Plano };
 
+/** Un punto con su sitio en el escenario. */
+interface PuntoEnSuSitio {
+  readonly p: PuntoALaVista;
+  readonly en: Plano;
+}
+
+/** El lugar abierto: su vista, su disposición y sus puntos en su sitio, de atrás adelante (por su pie). */
+interface Abierto {
+  readonly vista: VistaDelLugar;
+  readonly d: Disposicion;
+  readonly puntos: readonly PuntoEnSuSitio[];
+}
+
 export class EscenaLugar {
   private lienzo = { ancho: 1, alto: 1 };
   private densidad = 1;
   private de: { sesion: Session; apertura: number } | null = null;
+  /**
+   * Lo abierto, memorizado por la versión de la sesión (sube con todo lo que se
+   * ve) y la apertura: cada fotograma lo pedía, y era la vista entera del núcleo.
+   */
+  private memo: { sesion: Session; version: number; apertura: number; abierto: Abierto } | null =
+    null;
+  /** El sitio de cada punto en esta apertura: no cambia mientras se está en el lugar. */
+  private sitios = new Map<string, Plano>();
   private en: Plano = { x: 0, y: 0 };
   private mira: Mirada = 'E';
   private quietoDesde = 0;
@@ -88,14 +104,27 @@ export class EscenaLugar {
 
   constructor(private readonly sesion: () => Session) {}
 
-  /** El lugar abierto, su vista y su disposición; recoloca a la izquierda en cada apertura. */
-  private abierto(): { vista: VistaDelLugar; d: Disposicion } | null {
+  /** El lugar abierto; recoloca a la izquierda en cada apertura. */
+  private abierto(): Abierto | null {
     const s = this.sesion();
+    const m = this.memo;
+    if (
+      m !== null &&
+      m.sesion === s &&
+      m.version === s.version &&
+      m.apertura === s.lugar.apertura
+    ) {
+      return m.abierto;
+    }
     const vista = s.lugar.vista();
-    if (vista === null) return null;
+    if (vista === null) {
+      this.memo = null;
+      return null;
+    }
     const d = disposicionDelLugar(vista.fondo);
     if (this.de === null || this.de.sesion !== s || this.de.apertura !== vista.apertura) {
       this.de = { sesion: s, apertura: vista.apertura };
+      this.sitios = new Map();
       this.en = d.entrada;
       this.mira = 'E';
       this.marcha = null;
@@ -103,7 +132,20 @@ export class EscenaLugar {
       this.camaraEn = null;
       this.señalado = null;
     }
-    return { vista, d };
+    const puntos = vista.puntos
+      .map((p) => ({ p, en: this.sitioDe(d, p) }))
+      .sort((a, b) => a.en.y - b.en.y);
+    const abierto = { vista, d, puntos };
+    this.memo = { sesion: s, version: s.version, apertura: vista.apertura, abierto };
+    return abierto;
+  }
+
+  private sitioDe(d: Disposicion, p: PuntoALaVista): Plano {
+    const hecho = this.sitios.get(p.id);
+    if (hecho !== undefined) return hecho;
+    const en = dondeEstaElPunto(d, p.x);
+    this.sitios.set(p.id, en);
+    return en;
   }
 
   /**
@@ -157,31 +199,35 @@ export class EscenaLugar {
     if (!this.camaraLlegada(d)) animarHasta(ahora + 50);
   }
 
-  private elementos(vista: VistaDelLugar, d: Disposicion, ahora: number): Elemento[] {
+  /**
+   * Las figuras en el orden en que se pintan (por su pie): la gente ya viene en
+   * orden (`Abierto.puntos`), y quien camina se mete en su sitio.
+   */
+  private elementos(a: Abierto, ahora: number): Elemento[] {
     const andando = this.marcha !== null;
-    const gente: Elemento[] = vista.puntos.flatMap((p): Elemento[] => {
-      if (p.cuerpo === null) return [];
-      const en = dondeEstaElPunto(d, p.x);
-      return [
-        {
-          tipo: 'figura',
-          id: p.id,
-          cuerpo: p.cuerpo,
-          nombre: p.nombre,
-          en,
-          mira: 'O',
-          clip: 'idle',
-          tiempo: ahora,
-          pnj: true,
-          pie: en.y,
-        },
-      ];
-    });
+    const gente: Elemento[] = a.puntos.flatMap(({ p, en }): Elemento[] =>
+      p.cuerpo === null
+        ? []
+        : [
+            {
+              tipo: 'figura',
+              id: p.id,
+              cuerpo: p.cuerpo,
+              nombre: p.nombre,
+              en,
+              mira: 'O',
+              clip: 'idle',
+              tiempo: ahora,
+              pnj: true,
+              pie: en.y,
+            },
+          ],
+    );
     const caminante: Elemento = {
       tipo: 'figura',
-      id: vista.caminante.id,
-      cuerpo: vista.caminante.cuerpo,
-      nombre: vista.caminante.nombre,
+      id: a.vista.caminante.id,
+      cuerpo: a.vista.caminante.cuerpo,
+      nombre: a.vista.caminante.nombre,
       en: this.en,
       mira: this.mira,
       clip: andando ? 'walk' : 'idle',
@@ -189,7 +235,10 @@ export class EscenaLugar {
       pnj: false,
       pie: this.en.y,
     };
-    return [...gente, caminante].sort((a, b) => a.pie - b.pie);
+    // Detrás de quien tenga el pie más abajo, como el `sort` estable de antes.
+    const i = gente.findIndex((e) => e.pie > caminante.pie);
+    gente.splice(i < 0 ? gente.length : i, 0, caminante);
+    return gente;
   }
 
   dibujar(
@@ -206,7 +255,7 @@ export class EscenaLugar {
     this.actualizar(ahora, a.d);
     const t = this.camara(a.d);
     // Las cosas, debajo de las figuras: son del suelo.
-    const elementos = this.elementos(a.vista, a.d, ahora);
+    const elementos = this.elementos(a, ahora);
     pintarBase(ctx, {
       d: a.d,
       t,
@@ -216,9 +265,8 @@ export class EscenaLugar {
       color: playerColor(a.vista.owner),
       señalado: null,
     });
-    for (const p of a.vista.puntos) {
-      if (p.cuerpo === null)
-        pintarMojon(ctx, t, dondeEstaElPunto(a.d, p.x), p, this.señalado === p.id);
+    for (const { p, en } of a.puntos) {
+      if (p.cuerpo === null) pintarMojon(ctx, t, en, p, this.señalado === p.id);
     }
     pintarLasFiguras(ctx, {
       d: a.d,
@@ -231,23 +279,22 @@ export class EscenaLugar {
     });
   }
 
-  private golpe(a: { vista: VistaDelLugar; d: Disposicion }, px: number, py: number): Golpe {
+  /**
+   * Qué hay bajo un píxel: la gente, como en la base (`queHayBajo`, de delante a
+   * atrás; quien camina no es un golpe), y si no, una cosa por su mojón, que va
+   * pintado debajo de las figuras.
+   */
+  private golpe(a: Abierto, px: number, py: number, ahora = performance.now()): Golpe {
     const t = this.camara(a.d);
-    // De delante a atrás: lo de más abajo en pantalla tapa lo de detrás.
-    const puntos = [...a.vista.puntos].sort(
-      (x, y) => dondeEstaElPunto(a.d, y.x).y - dondeEstaElPunto(a.d, x.x).y,
-    );
-    for (const p of puntos) {
-      const en = dondeEstaElPunto(a.d, p.x);
-      if (
-        p.cuerpo !== null
-          ? dentroDeLaFigura(cajaDeFiguraEn(t, en), px, py)
-          : enElMojon(t, en, px, py)
-      ) {
-        return { tipo: 'punto', id: p.id };
-      }
+    const g = queHayBajo(a.d, this.elementos(a, ahora), null, t, px, py);
+    if (g.tipo === 'pnj') return { tipo: 'punto', id: g.id };
+    for (let i = a.puntos.length - 1; i >= 0; i--) {
+      const { p, en } = a.puntos[i] as PuntoEnSuSitio;
+      if (p.cuerpo === null && enElMojon(t, en, px, py)) return { tipo: 'punto', id: p.id };
     }
-    return { tipo: 'suelo', en: planoDePixel(t, px, py) };
+    if (g.tipo === 'sitio')
+      throw new Error(`un lugar no tiene edificios, y el clic dio en ${g.sitio}`);
+    return g;
   }
 
   /** El ratón encima: resalta y dice en la barra qué es. Verdadero si se puede pulsar algo. */
@@ -264,9 +311,7 @@ export class EscenaLugar {
     const p = a.vista.puntos.find((x) => x.id === g.id);
     if (p !== undefined) {
       s.status =
-        p.papel === null
-          ? `${p.nombre}: pulsa para mirar.`
-          : `${p.nombre}, ${p.papel}: pulsa para hablar.`;
+        p.papel === null ? `${p.nombre}: pulsa para mirar.` : pulsaParaHablar(p.nombre, p.papel);
     }
     return true;
   }
@@ -280,37 +325,29 @@ export class EscenaLugar {
     const a = this.abierto();
     if (a === null) return;
     this.actualizar(ahora, a.d);
-    const g = this.golpe(a, px, py);
+    const g = this.golpe(a, px, py, ahora);
     const s = this.sesion();
     if (g.tipo === 'suelo') {
       s.lugar.dejarDeHablar();
       this.andar(a.d, a.vista, alaFranja(a.d, g.en), null, ahora);
       return;
     }
-    const p = a.vista.puntos.find((x) => x.id === g.id);
+    const p = a.puntos.find((x) => x.p.id === g.id);
     if (p !== undefined) this.irAlPunto(a, p, ahora);
   }
 
   /** Desde la lista del panel: quien camina va al punto y, al llegar, habla con él. */
   irA(punto: string, ahora: number): void {
     const a = this.abierto();
-    const p = a?.vista.puntos.find((x) => x.id === punto);
+    const p = a?.puntos.find((x) => x.p.id === punto);
     if (a === null || p === undefined) return;
     this.irAlPunto(a, p, ahora);
   }
 
-  private irAlPunto(
-    a: { vista: VistaDelLugar; d: Disposicion },
-    p: PuntoALaVista,
-    ahora: number,
-  ): void {
-    const en = dondeEstaElPunto(a.d, p.x);
-    const hasta = alaFranja(a.d, {
-      x: en.x - AL_LADO,
-      y: Math.min(FONDO_DE_LA_FRANJA, en.y + 0.15),
-    });
+  /** Quien camina va al lado del punto, donde se habla con alguien en la base (`dondeHablarCon`). */
+  private irAlPunto(a: Abierto, { p, en }: PuntoEnSuSitio, ahora: number): void {
     this.sesion().lugar.dejarDeHablar();
-    this.andar(a.d, a.vista, hasta, p.id, ahora);
+    this.andar(a.d, a.vista, dondeHablarCon(a.d, en), p.id, ahora);
   }
 
   private andar(

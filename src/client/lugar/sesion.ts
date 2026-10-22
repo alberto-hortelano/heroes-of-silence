@@ -2,6 +2,9 @@
  * El lugar de un mundo en que está la persona (F1a del mapa vivo): cuál, con qué
  * héroe y, si habla con alguien, en qué nodo de la conversación va.
  *
+ * Guarda solo con qué héroe: el lugar es el de su casilla (`anteDelHeroe`), así
+ * que no hay dos sitios que puedan decir cosas distintas.
+ *
  * Es estado del cliente y no del núcleo, como dónde está la figura en la base:
  * navegar por un árbol de diálogo no cambia la partida. Lo que sí la cambia —una
  * opción con efectos— sale por `aplicar`, que le da `Session`: la única puerta
@@ -10,10 +13,11 @@
  */
 import { hojaDeUnidad } from '@core/catalogo.js';
 import { figuraDelHeroe } from '@core/data.js';
-import type { Lugar } from '@core/mundo/formato.js';
+import { nombreDelPunto } from '@core/mundo/formato.js';
 import {
   type Ante,
-  anteDelLugar,
+  anteDelHeroe,
+  estadoDicho,
   inicioDe,
   nodoDe,
   type OpcionALaVista,
@@ -63,7 +67,8 @@ export interface VistaDeLaConversacion {
 export type TrasElegir = 'sigue' | 'cerrada' | 'batalla' | 'apagada';
 
 export class EnElLugar {
-  private abierto: { readonly lugar: string; readonly heroe: string } | null = null;
+  /** El héroe que está en el lugar abierto, o `null`. */
+  private heroe: string | null = null;
   private conversando: { readonly punto: string; nodo: string } | null = null;
   private aperturas = 0;
 
@@ -75,9 +80,9 @@ export class EnElLugar {
     private readonly tocar: () => void,
   ) {}
 
-  /** El id del lugar abierto, o `null`. */
-  get lugar(): string | null {
-    return this.abierto?.lugar ?? null;
+  /** Cuántas veces se ha abierto un lugar: lo que cambia al empezar de nuevo. */
+  get apertura(): number {
+    return this.aperturas;
   }
 
   /** Si se está hablando con alguien. */
@@ -85,46 +90,44 @@ export class EnElLugar {
     return this.conversando?.punto ?? null;
   }
 
-  abrir(lugar: string, heroe: string): void {
-    this.abierto = { lugar, heroe };
+  /**
+   * Abre la escena del lugar en que está `heroe`, sin conversación. `deNuevo`: otra
+   * apertura, que empieza a la izquierda; sin él, vuelve a la que había (tras una
+   * batalla en el lugar).
+   */
+  abrir(heroe: string, deNuevo = true): void {
+    this.heroe = heroe;
     this.conversando = null;
-    this.aperturas++;
-    this.tocar();
-  }
-
-  /** Vuelve a la escena del lugar sin empezar de nuevo (tras una batalla). */
-  volver(lugar: string, heroe: string): void {
-    this.abierto = { lugar, heroe };
-    this.conversando = null;
+    if (deNuevo) this.aperturas++;
     this.tocar();
   }
 
   cerrar(): void {
-    this.abierto = null;
+    this.heroe = null;
     this.conversando = null;
     this.tocar();
   }
 
   private ante(): Ante | null {
-    if (this.abierto === null) return null;
-    const a = anteDelLugar(this.estado(), this.abierto.heroe, this.abierto.lugar);
+    if (this.heroe === null) return null;
+    const a = anteDelHeroe(this.estado(), this.heroe);
     return 'motivo' in a ? null : a;
   }
 
   vista(): VistaDelLugar | null {
     const a = this.ante();
     if (a === null) return null;
-    const l: Lugar = a.lugar;
+    const l = a.lugar;
     return {
       lugar: l.id,
       nombre: l.nombre,
-      estado: l.estados[a.mundo.estados[l.id] ?? ''] ?? '',
+      estado: estadoDicho(a.mundo, l),
       fondo: l.fondo.plaza,
       owner: a.hero.owner,
       puntos: puntosDe(a).map((p) => ({
         id: p.id,
         x: p.x,
-        nombre: p.persona?.nombre ?? p.cosa?.nombre ?? p.id,
+        nombre: nombreDelPunto(p),
         papel: p.persona?.papel ?? null,
         cuerpo: p.persona === undefined ? null : hojaDeUnidad(p.persona.cuerpo),
       })),
@@ -158,7 +161,7 @@ export class EnElLugar {
     if (p === undefined) return null;
     return {
       punto: p.id,
-      quien: p.persona?.nombre ?? p.cosa?.nombre ?? p.id,
+      quien: nombreDelPunto(p),
       papel: p.persona?.papel ?? null,
       texto: nodoDe(a, p, c.nodo).texto,
       opciones: opcionesDe(a, p, c.nodo),
@@ -172,7 +175,7 @@ export class EnElLugar {
   elegir(i: number): TrasElegir {
     const a = this.ante();
     const c = this.conversando;
-    if (a === null || c === null || this.abierto === null) return 'cerrada';
+    if (a === null || c === null) return 'cerrada';
     const p = a.lugar.puntos.find((x) => x.id === c.punto);
     if (p === undefined) return 'cerrada';
     const op = opcionesDe(a, p, c.nodo)[i];
@@ -181,8 +184,8 @@ export class EnElLugar {
     if (op.hace) {
       const hecho = this.aplicar({
         type: 'elegir_en_lugar',
-        hero: this.abierto.heroe,
-        lugar: this.abierto.lugar,
+        hero: a.hero.id,
+        lugar: a.lugar.id,
         punto: c.punto,
         nodo: c.nodo,
         opcion: i,

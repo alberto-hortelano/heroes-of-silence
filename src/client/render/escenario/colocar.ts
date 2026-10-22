@@ -1470,7 +1470,14 @@ export const RADIO_DE_OBJETO: Readonly<Record<string, number>> = {
   node: 0.95,
   chest: 0.4,
   monster: 0.45,
+  lugar: 0.5,
 };
+
+/**
+ * El sitio que aparta un lugar de un mundo, en casillas (el lado de su sprite sin
+ * pieza): sin arte en la F1a, su rombo lo pinta el juego (`pintarObjeto`).
+ */
+const LADO_DEL_LUGAR = 0.5;
 
 /**
  * La reserva de un nodo de bosque o de montaña, que lleva un hito y no pieza
@@ -1763,6 +1770,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           : o.kind === 'chest'
             ? 'cofre'
             : null;
+    // Un lugar no lleva pieza ni se hornea: aquí solo aparta su sitio.
+    if (o.kind === 'lugar') {
+      sprites.push(deObjeto(o, null, x, y + 0.35, LADO_DEL_LUGAR));
+      continue;
+    }
     if (o.kind === 'monster') {
       sprites.push({
         ...MONSTRUO,

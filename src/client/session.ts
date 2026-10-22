@@ -74,9 +74,9 @@ import {
 } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
-import type { MundoLeido } from '@core/mundo/formato.js';
+import { lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
 import { partidaDelMundo } from '@core/mundo/partida.js';
-import { lugarEn } from '@core/mundo/reglas.js';
+import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
 import { createRng, type Rng } from '@core/rng.js';
 import {
   type AsaltantesALaVista,
@@ -1366,8 +1366,8 @@ export class Session implements ControlDeBatalla {
   /** El nombre del estado de ahora de un lugar, para el rótulo del mapa. */
   estadoDelLugar(lugarId: string): string | null {
     const m = this.state.mundo;
-    const l = m?.historia.lugares.find((x) => x.id === lugarId);
-    return l === undefined || m === undefined ? null : (l.estados[m.estados[l.id] ?? ''] ?? null);
+    const l = m === undefined ? null : lugarSiExiste(m.historia, lugarId);
+    return m === undefined || l === null ? null : estadoDicho(m, l);
   }
 
   /** Entra en la escena del lugar donde está el héroe `heroId`. */
@@ -1379,7 +1379,7 @@ export class Session implements ControlDeBatalla {
       return;
     }
     this.selectedHeroId = heroId;
-    this.lugar.abrir(l.id, heroId);
+    this.lugar.abrir(heroId);
     this.scene = 'lugar';
     this.status = AYUDA_DEL_LUGAR;
   }
@@ -2287,7 +2287,7 @@ export class Session implements ControlDeBatalla {
       delLugar === null ? undefined : this.state.heroes.find((h) => h.id === delLugar.heroe);
     const l = hero === undefined ? null : lugarEn(this.state, hero.at);
     if (hero !== undefined && l !== null && this.desenlace === null) {
-      this.lugar.volver(l.id, hero.id);
+      this.lugar.abrir(hero.id, false);
       this.scene = 'lugar';
       this.status = AYUDA_DEL_LUGAR;
     }

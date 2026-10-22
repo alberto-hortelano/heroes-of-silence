@@ -122,9 +122,14 @@ function abrePartida(seed: number, faccion: FactionId | null, heroe: string | nu
     url.searchParams.set('faccion', abierta.jugador.faction);
     url.searchParams.set('heroe', suyo.tipo);
   });
+  return prepararLaPartida(abierta, `semilla ${abierta.state.seed}`);
+}
+
+/** Lo que toda partida abierta deja hecho: su rótulo en la barra y su tema. */
+function prepararLaPartida(abierta: Session, rotulo: string): Session {
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
-  elSeed.textContent = `semilla ${abierta.state.seed}`;
+  elSeed.textContent = rotulo;
   // La interfaz, con el tema de la facción de quien juega (`temas.ts`).
   ponerTema(abierta.jugador.faction);
   return abierta;
@@ -132,21 +137,17 @@ function abrePartida(seed: number, faccion: FactionId | null, heroe: string | nu
 
 /**
  * Abre la partida de un mundo (`?mundo=`, ya cargado y validado por
- * `mundo/cargar.ts`): su semilla, su facción y su héroe son los suyos, y la URL
- * se queda solo con `?mundo=`, que es lo que la repite.
+ * `mundo/cargar.ts`): su semilla, su facción y su héroe son los suyos. La URL ya
+ * es la que la repite: `?mundo=` solo, que `mundoDeLaUrl` no deja ir con nada de eso.
  */
 function abrePartidaDelMundo(): Session | null {
   const mundo = mundoPedido();
   if (mundo === null) return null;
   const abierta = new Session(mundo.mundo.semilla, undefined, undefined, mundo);
-  aLaBarra((url) => {
-    for (const p of ['seed', 'faccion', 'heroe']) url.searchParams.delete(p);
-    url.searchParams.set('mundo', mundo.mundo.id);
-  });
-  abierta.alCambiarSinGesto = pedirFotograma;
-  elSeed.textContent = `mundo «${mundo.historia.titulo}» · semilla ${abierta.state.seed}`;
-  ponerTema(abierta.jugador.faction);
-  return abierta;
+  return prepararLaPartida(
+    abierta,
+    `mundo «${mundo.historia.titulo}» · semilla ${abierta.state.seed}`,
+  );
 }
 
 /** Por qué no arranca la partida y, si es por la URL, cómo salir: quitar lo que pidió. */
@@ -468,11 +469,12 @@ function dibujarFotograma(ahora: number): void {
 function mostrarConversacion(enCastillo: boolean, enUnLugar: boolean): void {
   // La de un lugar de un mundo: su árbol, con las opciones (`views/lugar.ts`).
   if (enUnLugar) {
-    if (session.lugar.conversacion() === null) {
+    const c = session.lugar.conversacion();
+    if (c === null) {
       if (conversacion.open) conversacion.close();
       return;
     }
-    pintar(conversacion, renderConversacionDelLugar(session));
+    pintar(conversacion, renderConversacionDelLugar(c));
     if (!conversacion.open) conversacion.show();
     return;
   }
@@ -742,8 +744,10 @@ document.addEventListener('click', (ev) => {
       cerrarDentro();
       break;
     case 'salir-del-lugar':
-      lugar.salir();
-      session.salirDelLugar();
+      // El botón sale del todo, hable o no: sin la conversación, `cerrarDentro`
+      // (con el cursor) saca al mapa, como Escape la segunda vez.
+      session.lugar.dejarDeHablar();
+      cerrarDentro();
       break;
     case 'lugar-ir':
       if (ev.detail > 1) break;

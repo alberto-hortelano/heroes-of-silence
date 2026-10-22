@@ -97,35 +97,32 @@ export function pedirPartida(): Promise<void> {
       else if (pantalla === 'heroe') aEleccion();
       else if (pantalla === 'eleccion') aMenu();
     };
-    /** Escribe lo elegido en la URL y deja paso a la partida. */
+    /** Escribe en la URL lo que se juega (`escribir`) y deja paso a la partida. */
+    const dejarPaso = (escribir: (url: URL) => void): void => {
+      aLaBarra(escribir);
+      soltarElMundo();
+      escucha.abort();
+      inicio.hidden = true;
+      app.hidden = false;
+      empezar();
+    };
+    /** La partida de lo elegido: semilla, facción y héroe. */
     const jugar = (pedido: {
       readonly seed: number;
       readonly faccion?: FactionId;
       readonly heroe?: string;
-    }): void => {
-      aLaBarra((url) => {
+    }): void =>
+      dejarPaso((url) => {
         url.searchParams.set('seed', String(pedido.seed));
         if (pedido.faccion !== undefined) url.searchParams.set('faccion', pedido.faccion);
         if (pedido.heroe !== undefined) url.searchParams.set('heroe', pedido.heroe);
       });
-      soltarElMundo();
-      escucha.abort();
-      inicio.hidden = true;
-      app.hidden = false;
-      empezar();
-    };
-    /** Deja paso a la partida del mundo `id` (`?mundo=`, que lee `entrada.ts`). */
-    const jugarElMundo = (id: string): void => {
-      aLaBarra((url) => {
+    /** La partida del mundo `id` (`?mundo=`, que lee `entrada.ts`). */
+    const jugarElMundo = (id: string): void =>
+      dejarPaso((url) => {
         url.search = '';
         url.searchParams.set('mundo', id);
       });
-      soltarElMundo();
-      escucha.abort();
-      inicio.hidden = true;
-      app.hidden = false;
-      empezar();
-    };
     inicio.addEventListener(
       'click',
       (ev) => {
