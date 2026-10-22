@@ -1,16 +1,20 @@
 {
-  "_comment": "INVENTADO. La gente de la base de cada facción: el alcaide (quien camina por la base si no hay héroe dentro), un encargado por sitio (sale solo si su sitio está construido) y los vecinos (siempre). `cuerpo` es una unidad del catálogo (data/unidades.json) de la facción. Templarios y No muertos heredan la gente de caballeros y nigromantes (19-10-2026), con los encargados de sus moradas reescritos; Imperio, Elfos y Orkos son nuevos y sencillos. Un sitio de morada que la facción no usa también tiene encargado (no sale nunca: su sitio no se construye). `frases` son las de respaldo: las que se dicen sin agente, o hasta que el narrador (`town_voices`) escriba las suyas. Son presentación, nunca reglas: ninguna frase promete una cifra. Los ids de `vecinos` son los de `data/bases/<facción>.json`.",
+  "_comment": "INVENTADO. La gente de la base de cada facción: el alcaide (quien camina por la base si no hay héroe dentro), un encargado por sitio (sale solo si su sitio está construido) y los vecinos (siempre). `oficio`, `sexo` y `especie` son etiquetas del banco de figuras de NPC (`ETIQUETAS`, src/core/npcs.ts): con ellas cada persona toma su figura del banco (`figurasDeLaGente`, 22-10-2026); antes llevaban `cuerpo`, una unidad del catálogo que no se pintaba. Templarios y No muertos heredan la gente de caballeros y nigromantes (19-10-2026), con los encargados de sus moradas reescritos; Imperio, Elfos y Orkos son nuevos y sencillos. Un sitio de morada que la facción no usa también tiene encargado (no sale nunca: su sitio no se construye). `frases` son las de respaldo: las que se dicen sin agente, o hasta que el narrador (`town_voices`) escriba las suyas. Son presentación, nunca reglas: ninguna frase promete una cifra. Los ids de `vecinos` son los de `data/bases/<facción>.json`.",
   "templarios": {
     "alcaide": {
       "nombre": "Rodrigo",
       "papel": "alcaide de la villa",
-      "cuerpo": "templario-escudo"
+      "oficio": "autoridad",
+      "sexo": "hombre",
+      "especie": "humano"
     },
     "encargados": {
       "hall": {
         "nombre": "Doña Elvira",
         "papel": "regidora del ayuntamiento",
-        "cuerpo": "templario-escudero",
+        "oficio": "autoridad",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Las cuentas cuadran, que no es poco con lo que cuesta la piedra.",
           "Si quieres levantar algo, ya sabes dónde estoy: aquí, con los planos.",
@@ -20,7 +24,9 @@
       "fort": {
         "nombre": "Sir Godofredo",
         "papel": "castellano",
-        "cuerpo": "templario-hermano-de-carga",
+        "oficio": "noble",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Desde la torre se ve hasta el río. Nadie llega sin que lo veamos.",
           "Los muros aguantan. Los hombres, si se les da de comer.",
@@ -30,7 +36,9 @@
       "guild": {
         "nombre": "Maese Anselmo",
         "papel": "maestro del gremio de magia",
-        "cuerpo": "templario-monje",
+        "oficio": "mago",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Los libros no muerden. Casi nunca.",
           "Tráeme a alguien con cabeza y le enseñaré lo que sé.",
@@ -40,7 +48,9 @@
       "tavern": {
         "nombre": "Marta",
         "papel": "tabernera",
-        "cuerpo": "templario-escudero",
+        "oficio": "tabernero",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Cerveza, pan y noticias. Las noticias, gratis.",
           "Por aquí pasa gente que busca a quien seguir.",
@@ -50,7 +60,9 @@
       "market": {
         "nombre": "Bertrán",
         "papel": "mercader",
-        "cuerpo": "templario-escudero",
+        "oficio": "mercader",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Todavía no hay a quién venderle. Ya llegarán las caravanas.",
           "El oro sube, el pan baja. O al revés, según quién pregunte.",
@@ -60,7 +72,9 @@
       "armory": {
         "nombre": "Gonzalo",
         "papel": "armero",
-        "cuerpo": "templario-mandoble",
+        "oficio": "artesano",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Hoja templada tres veces. No se mella ni contra un escudo.",
           "Trae al héroe y le pruebo la cota.",
@@ -70,7 +84,9 @@
       "lvl1": {
         "nombre": "Pedro",
         "papel": "capataz del pueblo",
-        "cuerpo": "templario-escudero",
+        "oficio": "campesino",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Los escuderos aprenden rápido; los guerreros, a fuerza de escudo.",
           "Esta semana han venido más mozos de las aldeas.",
@@ -80,7 +96,9 @@
       "lvl2": {
         "nombre": "Íñigo",
         "papel": "maestro de obras",
-        "cuerpo": "templario-escudero",
+        "oficio": "artesano",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Este solar está vacío. Ya veremos qué se levanta.",
           "Piedra hay. Lo que falta es quien la pague."
@@ -89,7 +107,9 @@
       "lvl3": {
         "nombre": "Álvaro",
         "papel": "maestro de la forja",
-        "cuerpo": "templario-mandoble",
+        "oficio": "artesano",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Un mandoble bien templado parte un escudo por la mitad.",
           "Primero se aprende a parar; a pegar, cualquiera.",
@@ -99,7 +119,9 @@
       "lvl4": {
         "nombre": "Sancha",
         "papel": "guardesa del solar",
-        "cuerpo": "templario-escudo",
+        "oficio": "soldado",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Aquí no hay nada todavía. Solo hierba y planos.",
           "Si un día se construye algo, yo lo vigilaré."
@@ -108,7 +130,9 @@
       "lvl5": {
         "nombre": "Leonor",
         "papel": "caballeriza mayor",
-        "cuerpo": "templario-hermano-de-carga",
+        "oficio": "sirviente",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Los caballos están herrados y con ganas de correr.",
           "Una carga a tiempo vale más que diez escaramuzas.",
@@ -118,7 +142,9 @@
       "lvl6": {
         "nombre": "Fray Tomé",
         "papel": "prior del monasterio",
-        "cuerpo": "templario-monje",
+        "oficio": "sacerdote",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Rezamos al alba y curamos hasta el anochecer.",
           "La fe no detiene una flecha. El escudo, sí.",
@@ -130,7 +156,9 @@
       "pregonero": {
         "nombre": "Ramiro",
         "papel": "pregonero",
-        "cuerpo": "templario-escudero",
+        "oficio": "escribano",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "¡Se hace saber que el mercado abre cuando haya mercado!",
           "Dicen que hay asaltantes en los caminos del este.",
@@ -140,7 +168,9 @@
       "lavandera": {
         "nombre": "Juana",
         "papel": "lavandera",
-        "cuerpo": "templario-escudero",
+        "oficio": "campesino",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Con tanto soldado, no doy abasto con la colada.",
           "El agua del pozo baja fría esta semana.",
@@ -150,7 +180,9 @@
       "mozo": {
         "nombre": "Nuño",
         "papel": "mozo de cuadra",
-        "cuerpo": "templario-escudero",
+        "oficio": "sirviente",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Algún día tendré mi propio caballo.",
           "Me han dicho que el héroe lleva capa nueva.",
@@ -160,7 +192,9 @@
       "herrera": {
         "nombre": "Urraca",
         "papel": "herrera",
-        "cuerpo": "templario-escudero",
+        "oficio": "artesano",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Herraduras, clavos, bisagras. Las espadas, para el armero.",
           "El fuego no se apaga nunca en esta fragua.",
@@ -170,12 +204,20 @@
     }
   },
   "no-muertos": {
-    "alcaide": { "nombre": "Morvan", "papel": "guardián de la necrópolis", "cuerpo": "zombi" },
+    "alcaide": {
+      "nombre": "Morvan",
+      "papel": "guardián de la necrópolis",
+      "oficio": "autoridad",
+      "sexo": "hombre",
+      "especie": "zombi"
+    },
     "encargados": {
       "hall": {
         "nombre": "Ysolde",
         "papel": "escribana de los muertos",
-        "cuerpo": "caballero-de-la-muerte",
+        "oficio": "escribano",
+        "sexo": "mujer",
+        "especie": "espectro",
         "frases": [
           "Cada tumba, un nombre. Cada nombre, un tributo.",
           "Los vivos pagan impuestos. Los muertos, obediencia.",
@@ -185,7 +227,9 @@
       "fort": {
         "nombre": "Lord Varnak",
         "papel": "señor del bastión",
-        "cuerpo": "jinete-de-plaga",
+        "oficio": "noble",
+        "sexo": "hombre",
+        "especie": "esqueleto",
         "frases": [
           "Las murallas no duermen. Nosotros tampoco.",
           "Que vengan. Habrá sitio para ellos en la cripta.",
@@ -195,7 +239,9 @@
       "guild": {
         "nombre": "Maestre Oskar",
         "papel": "maestre del gremio",
-        "cuerpo": "espectro",
+        "oficio": "mago",
+        "sexo": "hombre",
+        "especie": "espectro",
         "frases": [
           "Los muertos recuerdan conjuros que los vivos olvidaron.",
           "Trae un aprendiz. Vivo, a ser posible.",
@@ -205,7 +251,9 @@
       "tavern": {
         "nombre": "Grethe",
         "papel": "posadera",
-        "cuerpo": "zombi",
+        "oficio": "tabernero",
+        "sexo": "mujer",
+        "especie": "zombi",
         "frases": [
           "Aquí se sirve vino tinto. Muy tinto.",
           "Los clientes no hablan mucho. Ni comen.",
@@ -215,7 +263,9 @@
       "market": {
         "nombre": "Silas",
         "papel": "trapero",
-        "cuerpo": "zombi",
+        "oficio": "mercader",
+        "sexo": "hombre",
+        "especie": "zombi",
         "frases": [
           "Huesos, telas, anillos. Todo tiene su precio.",
           "Todavía no hay a quién venderle.",
@@ -225,7 +275,9 @@
       "armory": {
         "nombre": "Brann",
         "papel": "forjador de hierro negro",
-        "cuerpo": "esqueleto-guerrero",
+        "oficio": "artesano",
+        "sexo": "hombre",
+        "especie": "esqueleto",
         "frases": [
           "El hierro negro no se oxida ni se olvida.",
           "Trae al héroe y le ajusto la coraza.",
@@ -235,7 +287,9 @@
       "lvl1": {
         "nombre": "Huesos",
         "papel": "capataz de los cadáveres",
-        "cuerpo": "esqueleto-guerrero",
+        "oficio": "campesino",
+        "sexo": "indistinto",
+        "especie": "esqueleto",
         "frases": [
           "No se cansan, no se quejan, no cobran.",
           "Otra fosa abierta esta semana: más esqueletos y algún zombi.",
@@ -245,7 +299,9 @@
       "lvl2": {
         "nombre": "Sacerdote Imhet",
         "papel": "guardián del mausoleo",
-        "cuerpo": "espectro",
+        "oficio": "sacerdote",
+        "sexo": "hombre",
+        "especie": "espectro",
         "frases": [
           "Los espectros cruzan los muros como si no estuvieran.",
           "Llevan siglos esperando una orden."
@@ -254,7 +310,9 @@
       "lvl3": {
         "nombre": "Condesa Mirela",
         "papel": "dama de la cripta",
-        "cuerpo": "caballero-de-la-muerte",
+        "oficio": "noble",
+        "sexo": "mujer",
+        "especie": "espectro",
         "frases": [
           "Mis caballeros no duermen. Esperan.",
           "La plaga cabalga cuando se lo ordeno.",
@@ -264,7 +322,9 @@
       "lvl4": {
         "nombre": "Vigía del osario",
         "papel": "custodio de lo que no se ha levantado",
-        "cuerpo": "esqueleto-arquero",
+        "oficio": "soldado",
+        "sexo": "indistinto",
+        "especie": "esqueleto",
         "frases": [
           "Aquí no hay nada todavía. Paciencia: la muerte no tiene prisa.",
           "Algún día se levantará una torre en este solar."
@@ -273,7 +333,9 @@
       "lvl5": {
         "nombre": "Archiliche Dov",
         "papel": "señor de la torre que no existe",
-        "cuerpo": "espectro",
+        "oficio": "mago",
+        "sexo": "hombre",
+        "especie": "espectro",
         "frases": [
           "La torre oscura sigue en los planos. Los planos también se pudren.",
           "Mis discípulos aprenden despacio. Tienen tiempo."
@@ -282,7 +344,9 @@
       "lvl6": {
         "nombre": "Madre Ruth",
         "papel": "cuidadora del solar",
-        "cuerpo": "zombi",
+        "oficio": "campesino",
+        "sexo": "mujer",
+        "especie": "zombi",
         "frases": [
           "Este solar está vacío. Hay que vigilar que no se lo coman.",
           "Ya llegará quien levante algo aquí."
@@ -293,7 +357,9 @@
       "planidera": {
         "nombre": "Agnes",
         "papel": "plañidera",
-        "cuerpo": "zombi",
+        "oficio": "sacerdote",
+        "sexo": "mujer",
+        "especie": "zombi",
         "frases": [
           "Lloro por oficio. Hoy hay mucho trabajo.",
           "Los cuervos han vuelto al campanario.",
@@ -303,7 +369,9 @@
       "sepulturero": {
         "nombre": "Wendel",
         "papel": "sepulturero",
-        "cuerpo": "esqueleto-guerrero",
+        "oficio": "campesino",
+        "sexo": "hombre",
+        "especie": "esqueleto",
         "frases": [
           "Cavo hoy lo que marchará mañana.",
           "La tierra de aquí es blanda y obediente.",
@@ -313,7 +381,9 @@
       "acolito": {
         "nombre": "Pell",
         "papel": "acólito",
-        "cuerpo": "esqueleto-guerrero",
+        "oficio": "sirviente",
+        "sexo": "hombre",
+        "especie": "esqueleto",
         "frases": [
           "Algún día me enseñarán a levantar a los muertos.",
           "Barro el templo y escucho a los maestros.",
@@ -323,7 +393,9 @@
       "osario": {
         "nombre": "Ilse",
         "papel": "guardiana del osario",
-        "cuerpo": "zombi",
+        "oficio": "soldado",
+        "sexo": "mujer",
+        "especie": "zombi",
         "frases": [
           "Cada hueso en su sitio.",
           "El osario está lleno. Habrá que ampliarlo.",
@@ -336,13 +408,17 @@
     "alcaide": {
       "nombre": "Konrad",
       "papel": "alcaide de la plaza",
-      "cuerpo": "imperio-alabardero"
+      "oficio": "autoridad",
+      "sexo": "hombre",
+      "especie": "humano"
     },
     "encargados": {
       "hall": {
         "nombre": "Burgomaestre Hilde",
         "papel": "burgomaestre",
-        "cuerpo": "imperio-rodelero",
+        "oficio": "autoridad",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Cada edicto, sellado por triplicado.",
           "Las arcas aguantan. Por ahora."
@@ -351,7 +427,9 @@
       "fort": {
         "nombre": "Capitán Ulrich",
         "papel": "capitán de la ciudadela",
-        "cuerpo": "imperio-coracero",
+        "oficio": "soldado",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "La ciudadela no cae mientras haya pólvora seca.",
           "Los cañones apuntan al camino. Siempre."
@@ -360,7 +438,9 @@
       "guild": {
         "nombre": "Magister Albrecht",
         "papel": "magister del gremio",
-        "cuerpo": "imperio-ballestero",
+        "oficio": "mago",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "La magia también tiene reglamento.",
           "Un libro bien leído vale por una batería."
@@ -369,7 +449,9 @@
       "tavern": {
         "nombre": "Greta",
         "papel": "posadera",
-        "cuerpo": "imperio-piquero",
+        "oficio": "tabernero",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Cerveza negra y salchichas. Lo demás, si sobra.",
           "Los mercenarios pagan bien y beben mejor."
@@ -378,7 +460,9 @@
       "market": {
         "nombre": "Matthias",
         "papel": "prestamista",
-        "cuerpo": "imperio-arcabucero",
+        "oficio": "mercader",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Todo se compra. Algunas cosas, a plazos.",
           "El interés no duerme."
@@ -387,7 +471,9 @@
       "armory": {
         "nombre": "Gunther",
         "papel": "armero mayor",
-        "cuerpo": "imperio-coracero",
+        "oficio": "artesano",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Placas de acero y pólvora fina: no hay más secreto.",
           "Trae al héroe y le ajusto la coraza."
@@ -396,7 +482,9 @@
       "lvl1": {
         "nombre": "Sargento Pohl",
         "papel": "sargento del pueblo",
-        "cuerpo": "imperio-alabardero",
+        "oficio": "soldado",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Alabarda arriba, pica baja, y nadie rompe la fila.",
           "Los mozos de las aldeas llegan cada semana."
@@ -405,7 +493,9 @@
       "lvl2": {
         "nombre": "Maestre Kessler",
         "papel": "maestro del taller",
-        "cuerpo": "imperio-ballestero",
+        "oficio": "artesano",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Ballestas tensadas y arcabuces limpios.",
           "Una buena descarga vale por diez espadas."
@@ -414,7 +504,9 @@
       "lvl3": {
         "nombre": "Frau Brandt",
         "papel": "intendente de la armería imperial",
-        "cuerpo": "imperio-rodelero",
+        "oficio": "escribano",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Rodela, espada y coraza: así sale un soldado de aquí.",
           "Los coraceros no se rinden; se oxidan."
@@ -423,7 +515,9 @@
       "lvl4": {
         "nombre": "Meister Rauch",
         "papel": "fundidor",
-        "cuerpo": "imperio-artillero-culebrina",
+        "oficio": "artesano",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "La culebrina pide bronce y paciencia.",
           "Las granadas, lejos del horno. Siempre."
@@ -432,7 +526,9 @@
       "lvl5": {
         "nombre": "Rittmeister Vogt",
         "papel": "maestro de las caballerizas",
-        "cuerpo": "imperio-pistolero-montado",
+        "oficio": "noble",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Se acercan, disparan y se van. Así se gana una batalla.",
           "Los caballos no se asustan del trueno de las pistolas."
@@ -441,7 +537,9 @@
       "lvl6": {
         "nombre": "Hans",
         "papel": "vigilante del solar",
-        "cuerpo": "imperio-piquero",
+        "oficio": "soldado",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "Este solar está vacío. Ya vendrán los ingenieros.",
           "Aquí se levantará algo grande, dicen."
@@ -452,7 +550,9 @@
       "pregonero": {
         "nombre": "Wilhelm",
         "papel": "pregonero",
-        "cuerpo": "imperio-alabardero",
+        "oficio": "escribano",
+        "sexo": "hombre",
+        "especie": "humano",
         "frases": [
           "¡Se hace saber que la leva sigue abierta!",
           "Dicen que hay asaltantes en los caminos."
@@ -461,7 +561,9 @@
       "aprendiz": {
         "nombre": "Lotte",
         "papel": "aprendiz de armero",
-        "cuerpo": "imperio-piquero",
+        "oficio": "artesano",
+        "sexo": "mujer",
+        "especie": "humano",
         "frases": [
           "Algún día haré mi propia coraza.",
           "Huele a pólvora hasta en el pan."
@@ -473,13 +575,17 @@
     "alcaide": {
       "nombre": "Aelar",
       "papel": "guardián del claro",
-      "cuerpo": "elfo-guardia-del-bosque"
+      "oficio": "autoridad",
+      "sexo": "hombre",
+      "especie": "elfo"
     },
     "encargados": {
       "hall": {
         "nombre": "Ilyana",
         "papel": "consejera del claro",
-        "cuerpo": "elfo-sacerdotisa",
+        "oficio": "autoridad",
+        "sexo": "mujer",
+        "especie": "elfo",
         "frases": [
           "El consejo decide despacio. El bosque, más.",
           "Si quieres levantar algo, que no sea a costa de un árbol."
@@ -488,7 +594,9 @@
       "fort": {
         "nombre": "Thalion",
         "papel": "señor de la empalizada",
-        "cuerpo": "elfo-guardia-del-bosque",
+        "oficio": "noble",
+        "sexo": "hombre",
+        "especie": "elfo",
         "frases": [
           "Las raíces sostienen la muralla mejor que la piedra.",
           "Nadie entra en el claro sin que lo sepamos."
@@ -497,7 +605,9 @@
       "guild": {
         "nombre": "Maestra Sylwen",
         "papel": "maestra del círculo",
-        "cuerpo": "elfo-sacerdotisa",
+        "oficio": "mago",
+        "sexo": "mujer",
+        "especie": "elfo",
         "frases": [
           "La magia del bosque se escucha, no se lee.",
           "Tráeme a alguien que sepa callar."
@@ -506,7 +616,9 @@
       "tavern": {
         "nombre": "Nimue",
         "papel": "tabernera",
-        "cuerpo": "elfo-arquero",
+        "oficio": "tabernero",
+        "sexo": "mujer",
+        "especie": "elfo",
         "frases": [
           "Vino de bayas y canciones antiguas.",
           "Los cazadores cuentan más de lo que cazan."
@@ -515,7 +627,9 @@
       "market": {
         "nombre": "Faelan",
         "papel": "trueque",
-        "cuerpo": "elfo-explorador",
+        "oficio": "mercader",
+        "sexo": "hombre",
+        "especie": "elfo",
         "frases": [
           "Aquí no se vende: se cambia.",
           "Una pluma de halcón vale más que el oro."
@@ -524,7 +638,9 @@
       "armory": {
         "nombre": "Caradoc",
         "papel": "arquero mayor",
-        "cuerpo": "elfo-arquero",
+        "oficio": "cazador",
+        "sexo": "hombre",
+        "especie": "elfo",
         "frases": [
           "Arcos de tejo, cuerdas de seda.",
           "Trae al héroe y le ajusto el carcaj."
@@ -533,7 +649,9 @@
       "lvl1": {
         "nombre": "Elowen",
         "papel": "guía del pueblo",
-        "cuerpo": "elfo-arquero",
+        "oficio": "cazador",
+        "sexo": "mujer",
+        "especie": "elfo",
         "frases": [
           "Arqueros en las ramas y lanzas en el sendero.",
           "Esta semana han bajado más jóvenes de los árboles."
@@ -542,7 +660,9 @@
       "lvl2": {
         "nombre": "Ruadan",
         "papel": "montero del pabellón de caza",
-        "cuerpo": "elfo-jinete",
+        "oficio": "cazador",
+        "sexo": "hombre",
+        "especie": "elfo",
         "frases": [
           "Los ciervos corren; los jinetes, más.",
           "Quien no se ve, no se teme. Hasta que es tarde."
@@ -551,7 +671,9 @@
       "lvl3": {
         "nombre": "Madre Oonagh",
         "papel": "cuidadora de la arboleda",
-        "cuerpo": "elfo-sacerdotisa",
+        "oficio": "sacerdote",
+        "sexo": "mujer",
+        "especie": "elfo",
         "frases": [
           "Los árboles viejos aún recuerdan las guerras.",
           "Una herida se cierra mejor con savia."
@@ -560,7 +682,9 @@
       "lvl4": {
         "nombre": "Brenna",
         "papel": "vigía del solar",
-        "cuerpo": "elfo-guardia-del-bosque",
+        "oficio": "soldado",
+        "sexo": "mujer",
+        "especie": "elfo",
         "frases": [
           "Aquí no hay nada todavía. Solo musgo.",
           "El bosque decidirá qué crece aquí."
@@ -569,7 +693,9 @@
       "lvl5": {
         "nombre": "Cian",
         "papel": "guardabosques",
-        "cuerpo": "elfo-explorador",
+        "oficio": "cazador",
+        "sexo": "hombre",
+        "especie": "elfo",
         "frases": [
           "Este claro está vacío. Que siga así un tiempo.",
           "He visto huellas de lobo cerca."
@@ -578,7 +704,9 @@
       "lvl6": {
         "nombre": "Lir",
         "papel": "pastor de árboles",
-        "cuerpo": "elfo-guardia-del-bosque",
+        "oficio": "campesino",
+        "sexo": "hombre",
+        "especie": "elfo",
         "frases": [
           "Algún día un ent dormirá aquí.",
           "Paciencia. Los árboles no tienen prisa."
@@ -589,7 +717,9 @@
       "cantor": {
         "nombre": "Fiora",
         "papel": "cantora",
-        "cuerpo": "elfo-sacerdotisa",
+        "oficio": "sacerdote",
+        "sexo": "mujer",
+        "especie": "elfo",
         "frases": [
           "La canción de hoy es para los que no volvieron.",
           "Los pájaros cantan antes que yo."
@@ -598,7 +728,9 @@
       "cazador": {
         "nombre": "Oisin",
         "papel": "cazador",
-        "cuerpo": "elfo-arquero",
+        "oficio": "cazador",
+        "sexo": "hombre",
+        "especie": "elfo",
         "frases": [
           "Hoy, liebre. Mañana, quién sabe.",
           "Los asaltantes no saben moverse en el bosque."
@@ -610,13 +742,17 @@
     "alcaide": {
       "nombre": "Gorbag",
       "papel": "jefe del campamento",
-      "cuerpo": "orko-hacha-escudo"
+      "oficio": "autoridad",
+      "sexo": "hombre",
+      "especie": "orko"
     },
     "encargados": {
       "hall": {
         "nombre": "Snaga",
         "papel": "contador de botín",
-        "cuerpo": "goblin-lancero",
+        "oficio": "escribano",
+        "sexo": "hombre",
+        "especie": "goblin",
         "frases": [
           "Tres para el jefe, uno para mí. Así se cuenta.",
           "Si quieres construir algo, trae oro. Mucho."
@@ -625,7 +761,9 @@
       "fort": {
         "nombre": "Uglúk",
         "papel": "jefe de la empalizada",
-        "cuerpo": "orko-armadura-pesada",
+        "oficio": "soldado",
+        "sexo": "hombre",
+        "especie": "orko",
         "frases": [
           "Que vengan. Hay estacas para todos.",
           "La empalizada aguanta. Los que la atacan, no."
@@ -634,7 +772,9 @@
       "guild": {
         "nombre": "Zog",
         "papel": "chamán",
-        "cuerpo": "goblin-arquero",
+        "oficio": "mago",
+        "sexo": "hombre",
+        "especie": "goblin",
         "frases": [
           "La magia sale bien una de cada tres veces.",
           "No toques eso. Explota."
@@ -643,7 +783,9 @@
       "tavern": {
         "nombre": "Grishna",
         "papel": "tabernera",
-        "cuerpo": "orko-dos-armas",
+        "oficio": "tabernero",
+        "sexo": "mujer",
+        "especie": "orko",
         "frases": [
           "Hay grog. Lo que lleva el grog, mejor no preguntarlo.",
           "Las peleas, fuera. O dentro, si pagan."
@@ -652,7 +794,9 @@
       "market": {
         "nombre": "Nazg",
         "papel": "trapichero",
-        "cuerpo": "goblin-lancero",
+        "oficio": "mercader",
+        "sexo": "hombre",
+        "especie": "goblin",
         "frases": [
           "Todo es mío hasta que lo pagas.",
           "Esto lo encontré. No preguntes dónde."
@@ -661,7 +805,9 @@
       "armory": {
         "nombre": "Lugdush",
         "papel": "herrero",
-        "cuerpo": "orko-hacha-escudo",
+        "oficio": "artesano",
+        "sexo": "hombre",
+        "especie": "orko",
         "frases": [
           "Hachas grandes, escudos gordos.",
           "Trae al jefe y le machaco una armadura a medida."
@@ -670,7 +816,9 @@
       "lvl1": {
         "nombre": "Muzgash",
         "papel": "capataz del pueblo",
-        "cuerpo": "goblin-lancero",
+        "oficio": "campesino",
+        "sexo": "hombre",
+        "especie": "goblin",
         "frases": [
           "Muchos goblins y algunos orkos. Los goblins huyen; los orkos, no.",
           "Esta semana han llegado más. Siempre llegan más."
@@ -679,7 +827,9 @@
       "lvl2": {
         "nombre": "Bolg",
         "papel": "cuidador de la cueva",
-        "cuerpo": "troll-maza",
+        "oficio": "sirviente",
+        "sexo": "hombre",
+        "especie": "troll",
         "frases": [
           "El troll come mucho y piensa poco.",
           "No le despiertes antes del mediodía."
@@ -688,7 +838,9 @@
       "lvl3": {
         "nombre": "Ratbag",
         "papel": "mozo de la pocilga",
-        "cuerpo": "goblin-jinete-de-hiena",
+        "oficio": "sirviente",
+        "sexo": "hombre",
+        "especie": "goblin",
         "frases": [
           "Las hienas muerden. A mí, también.",
           "Ríen cuando corren. No es buena señal."
@@ -697,7 +849,9 @@
       "lvl4": {
         "nombre": "Shagrat",
         "papel": "guardián del tótem",
-        "cuerpo": "orko-armadura-pesada",
+        "oficio": "sacerdote",
+        "sexo": "hombre",
+        "especie": "orko",
         "frases": [
           "El tótem da fuerza a quien lleva mucho hierro.",
           "Los fanáticos no han llegado todavía."
@@ -706,7 +860,9 @@
       "lvl5": {
         "nombre": "Gash",
         "papel": "vigía del solar",
-        "cuerpo": "goblin-arquero",
+        "oficio": "soldado",
+        "sexo": "hombre",
+        "especie": "goblin",
         "frases": [
           "Aquí no hay nada. Por ahora.",
           "Si alguien construye aquí, yo lo vi primero."
@@ -715,7 +871,9 @@
       "lvl6": {
         "nombre": "Durbag",
         "papel": "guardián del barro",
-        "cuerpo": "orko-hacha-escudo",
+        "oficio": "campesino",
+        "sexo": "hombre",
+        "especie": "orko",
         "frases": [
           "Este solar es mío. Hasta que el jefe diga.",
           "Barro y piedras. Nada más."
@@ -726,7 +884,9 @@
       "tamborilero": {
         "nombre": "Krag",
         "papel": "tamborilero",
-        "cuerpo": "orko-dos-armas",
+        "oficio": "soldado",
+        "sexo": "hombre",
+        "especie": "orko",
         "frases": [
           "¡Waaagh! Así se empieza el día.",
           "Cuanto más fuerte el tambor, más corren los goblins."
@@ -735,7 +895,9 @@
       "recogedor": {
         "nombre": "Skrit",
         "papel": "recogedor de huesos",
-        "cuerpo": "goblin-lancero",
+        "oficio": "sirviente",
+        "sexo": "hombre",
+        "especie": "goblin",
         "frases": [
           "Huesos para el chamán, chapas para mí.",
           "Dicen que hay asaltantes cerca. Mejor me escondo."

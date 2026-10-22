@@ -41,7 +41,7 @@
           "persona": {
             "nombre": "Tobías",
             "papel": "sepulturero del camposanto",
-            "cuerpo": "esqueleto-guerrero"
+            "figura": "necropolis-forjador-esqueleto"
           },
           "dialogo": "tobias"
         },
@@ -148,7 +148,7 @@
           "persona": {
             "nombre": "Prudencio Aldama",
             "papel": "sargento desertor del Imperio",
-            "cuerpo": "imperio-ballestero"
+            "figura": "imperio-armero"
           },
           "dialogo": "aldama"
         },
@@ -272,7 +272,7 @@
           "persona": {
             "nombre": "Anselmo",
             "papel": "barquero del lago",
-            "cuerpo": "espectro"
+            "figura": "necropolis-guardian-viejo"
           },
           "dialogo": "anselmo"
         },
