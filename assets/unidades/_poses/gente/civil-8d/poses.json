@@ -1,0 +1,244 @@
+{
+  "perfil": "civil-8d",
+  "juegoDeArmas": "civil",
+  "unidad": "civil",
+  "atrezo": null,
+  "piernasDeColor": true,
+  "model": "y_bot",
+  "renderer": "sprite-forge",
+  "spriteForgeCommit": "b2d9ba97384c4f78b53aee2903471a70492ecb34",
+  "camera": {
+    "pitchDegrees": -25,
+    "directions": 8,
+    "projection": "orthographic",
+    "ortho": 4.199999999999999,
+    "target": 0.95
+  },
+  "light": {
+    "x": 0.28396044362490236,
+    "y": -0.8699660369241592,
+    "z": -0.40314459075475784
+  },
+  "deathStartsFrom": {
+    "clip": "hurt",
+    "blendSeconds": 0.4,
+    "at": 0
+  },
+  "cell": 384,
+  "columns": 7,
+  "sheets": {
+    "a": [
+      {
+        "clip": "idle",
+        "anim": "reposo_civil",
+        "enBucle": true,
+        "indices": [
+          0,
+          15,
+          30,
+          45,
+          60,
+          75,
+          90
+        ]
+      },
+      {
+        "clip": "walk",
+        "anim": "andar_civil",
+        "enBucle": true,
+        "indices": [
+          0,
+          1,
+          3,
+          5,
+          6,
+          8,
+          10
+        ]
+      },
+      {
+        "clip": "charge",
+        "anim": "run",
+        "enBucle": true,
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    ],
+    "b": [
+      {
+        "clip": "attack",
+        "anim": "quick",
+        "enBucle": false,
+        "indices": [
+          0,
+          2,
+          4,
+          6,
+          7,
+          9,
+          11
+        ]
+      },
+      {
+        "clip": "hurt",
+        "anim": "impact3",
+        "enBucle": false,
+        "indices": [
+          0,
+          1,
+          2,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      {
+        "clip": "death",
+        "anim": "death",
+        "enBucle": false,
+        "indices": [
+          0,
+          5,
+          9,
+          14,
+          18,
+          23,
+          27
+        ]
+      }
+    ]
+  },
+  "sourceMetadata": {
+    "idle": {
+      "angle": "tactical_25",
+      "anim": "reposo_civil",
+      "directions": 8,
+      "duration": 8.766666666666667,
+      "fps": 12,
+      "frame_count": 105,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-22T18:10:15",
+      "model": "y_bot"
+    },
+    "walk": {
+      "angle": "tactical_25",
+      "anim": "andar_civil",
+      "directions": 8,
+      "duration": 1.0333333333333334,
+      "fps": 12,
+      "frame_count": 12,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-22T18:10:18",
+      "model": "y_bot"
+    },
+    "charge": {
+      "angle": "tactical_25",
+      "anim": "run",
+      "directions": 8,
+      "duration": 0.7,
+      "fps": 12,
+      "frame_count": 8,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-22T18:10:20",
+      "model": "y_bot"
+    },
+    "attack": {
+      "angle": "tactical_25",
+      "anim": "quick",
+      "directions": 8,
+      "duration": 1,
+      "fps": 12,
+      "frame_count": 12,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-22T18:10:23",
+      "model": "y_bot"
+    },
+    "hurt": {
+      "angle": "tactical_25",
+      "anim": "impact3",
+      "directions": 8,
+      "duration": 0.7,
+      "fps": 12,
+      "frame_count": 8,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-22T18:10:25",
+      "model": "y_bot"
+    },
+    "death": {
+      "angle": "tactical_25",
+      "anim": "death",
+      "directions": 8,
+      "duration": 2.3,
+      "fps": 12,
+      "frame_count": 28,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-22T18:10:30",
+      "model": "y_bot"
+    }
+  },
+  "sha256": {
+    "d0-a.png": "8fddc630e0e9d3ce39dfc2e1ea6c281d0e3b5fe82413ae46eaebd50263c29f87",
+    "d0-a.profundidad.png": "bd112f4075df98f9ca380dbf67102f10737a32c375f10f1540b82ecdc0d8f0bf",
+    "d0-a.mezcla.png": "f60c0f9dcd3574a33843549d87933e5c5daebcd85585f941a1eb01a2711ad97e",
+    "d0-b.png": "4be160582a77a38224849ab1d3d8173952af5b7b7feb3586832d837972eb29bd",
+    "d0-b.profundidad.png": "8f8a1ddf87c8dd7375272e8b4a9f492f75ee6184fde81ac71c8ad13f4ac26435",
+    "d0-b.mezcla.png": "85bca5ef8d2e8c0e613ec68cb2e2825574276213598774dc72d6df66dfc8568b",
+    "d1-a.png": "fe9de5cba8cc07d9182e668ec5c6ffc005ad842532ccd3d154075297914b28a8",
+    "d1-a.profundidad.png": "a1a9388680c75de2efa9dcdaeb301ad20272324c63451b6062d04b475f41364e",
+    "d1-a.mezcla.png": "c751c208a737789ff6fd82991cf6c5991ccb88ba54e5475dad44c5d1180e6395",
+    "d1-b.png": "a113778100c1f6c3654fd430d9292c10326731dd5a1e0a6f68c48cd1f69ee7c4",
+    "d1-b.profundidad.png": "f1e525138fd8186b31246892885609d811cb21ca07b0c297958765129d138a86",
+    "d1-b.mezcla.png": "45b867981cb233d53a5768e6f52cf0497b763e2206aa6fc1e0501a1bbf277020",
+    "d2-a.png": "f56228d96e6bbccdd154abeee3d58dcf814d8c90ee514e8b1e3d647e31623847",
+    "d2-a.profundidad.png": "1622e536141adf800f38ab574ad25c7ec0f5793e85c6eb998ceaf19d1e9e16aa",
+    "d2-a.mezcla.png": "8608e4817dc62e7a8eafb54f8e2d411832460839b5bf1c493fec3c552ac43e14",
+    "d2-b.png": "f227ea376745a6886ff35bee15bacd0af0ae4a9add8dccc6f0bed5359731257a",
+    "d2-b.profundidad.png": "149ce6a0b0ddfa8503c73d9fd478768b5e78b95cf9670960a6988b6abce9f085",
+    "d2-b.mezcla.png": "e72ae5fc3e9b0350afbd1f644793f48f7b8608834d993ef4ca674397315f54fe",
+    "d3-a.png": "7ce795d1fce4654b5bfcf5df776be48a54f1f25515239a804256eee74944e042",
+    "d3-a.profundidad.png": "953f5f35d281c4a31bc1fdfa6e7fd1a1678fc3af86386fae2be6ee3b17c7c9f0",
+    "d3-a.mezcla.png": "f9182b210e480a648fcb897624ab68a6c485b1373d520b75f67e2085144e0219",
+    "d3-b.png": "0eae654ff0472ee3898b2f2dcd764fe21c789ef807e1f2fae0e4ab6fe7713b02",
+    "d3-b.profundidad.png": "8ac759fa9ede28f58679a50766b3a2f691d1797094b1ecbaae3e3d46db09115e",
+    "d3-b.mezcla.png": "a23c0bb1073d598ade7cc2f1a934f1351cb5d814b4bf0be3ff0ed5c7d855a53f",
+    "d4-a.png": "88cc91a19412b0665b16497f19b1c5dba5bae515566090e5c45646037cf30408",
+    "d4-a.profundidad.png": "28915358f27ff05ca4c85e395c4a0d790c5a83a1a910f853f9931af14450c24a",
+    "d4-a.mezcla.png": "99f073ee43c672cdf11a2bf0e1b1ea28b82d12bfff4cf9a2607540a0ed461ab6",
+    "d4-b.png": "64bd6989e304b191ef7643cee7bba1d391db6a510b56ee6e1ea81c0517e18c50",
+    "d4-b.profundidad.png": "c2f45312c5e33dca0d3e711595fdb9dcec3f30332df671c03978f5ee5d1ee6c2",
+    "d4-b.mezcla.png": "900f9461e16e44df2f0c2db0041721d6debe3ab32a7fed282fa09a7a32b9c080",
+    "d5-a.png": "328bd8cd6b9529cea271c732cee25b92ab5660f3f56374e80fde4b2c9d505513",
+    "d5-a.profundidad.png": "28696ef7f3c7d35a1d1f739a98c59a9778bf8819e3d70645d9596cbbb5a3c808",
+    "d5-a.mezcla.png": "23516fff60ead9a5a7bcd8ee052219ec0927b4c19b3a58eadd814f4167b46f48",
+    "d5-b.png": "e5a67370ee19386059226271b008ee49108afaaed873737bb20e22e616114fdf",
+    "d5-b.profundidad.png": "7c752462b7c80ee7d300f0e13d7110eb601378578d0ef89c93557807848ce421",
+    "d5-b.mezcla.png": "29c43f8dce4b78b871f45f630dc5c3bbdd2af422b8953666a5905e4fe6bd1e81",
+    "d6-a.png": "8c0aa72f0b65f3da4916f95fcb334ba0a96f0c4360d8b48776b852b750dedc91",
+    "d6-a.profundidad.png": "c23271d938b56aa3b45fb9c99575e4f26fa20dfc503ba0c1d1ae38dece1dd2eb",
+    "d6-a.mezcla.png": "54b8a4846d009560a3ec8aeeb0fe112a835ad16cb1ce2330c6aa671833a726fc",
+    "d6-b.png": "22da9fdbc233915ba926ca8d7d05117b6b7a8484311c5f76e41c99ecb8ffe322",
+    "d6-b.profundidad.png": "8d836abb798f115d76fb0fe0fa4d5326279fdd7abc16749c941d2db25ae208ba",
+    "d6-b.mezcla.png": "c786bc8a5116a26c12993cdd186fc4a4512dfeeda62fb961f88bea4b0f255da7",
+    "d7-a.png": "dfa66ef09b582eaba66989b1785cf7e8b3a390b30eb68fd9f6904e85635c11f2",
+    "d7-a.profundidad.png": "c4b6b31db9fcac459099a1cc567e4d029054c5e1b9020dbd1811440a44e3799f",
+    "d7-a.mezcla.png": "9d50d88af082f7e9a1954ea92d023c53e514811769e84ea5158ffb5b5ebc4ca1",
+    "d7-b.png": "2d62c8aadb00490cdcf2384f878c570593b897d2455e5e2eee805ceb399dcafb",
+    "d7-b.profundidad.png": "ad5463a641c0632543fa9cfefdf7d22bd067af228581a48bb385d22d0689f565",
+    "d7-b.mezcla.png": "f4bd7219b8c86a971f952e06aa2554cba67a3c90eff5478fe52315e16fb29c68",
+    "giro.png": "36b6b21af5b818e42836ec50f2c538687e49b6dcdccdc83ba8dca5ded770f0aa"
+  }
+}
