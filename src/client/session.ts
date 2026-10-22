@@ -1708,6 +1708,12 @@ export class Session implements ControlDeBatalla {
     return town === null ? null : climaDelSitio(this.clima, this.state.map, town.at);
   }
 
+  /** El clima del lugar abierto (la región de su casilla), o `null` sin lugar abierto. */
+  get climaDelLugar(): ClimaDelSitio | null {
+    const vista = this.lugar.vista();
+    return vista === null ? null : climaDelSitio(this.clima, this.state.map, vista.at);
+  }
+
   /** El castillo abierto ahora mismo, o `null` si no hay ninguno. */
   get activeTown(): ReturnType<typeof townById> | null {
     if (this.openTownId === null) return null;

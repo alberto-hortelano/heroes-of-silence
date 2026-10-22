@@ -511,17 +511,29 @@ export function pintarBase(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): v
     (e): e is Extract<Elemento, { tipo: 'edificio' }> => e.tipo === 'edificio',
   );
   pintarElFondo(ctx, v, edificios);
-  if (v.clima !== null) {
-    pintarSueloDelClima(
-      ctx,
-      campoDeEscena(v.clima.sitio, {
-        ...v.lienzo,
-        luces: v.clima.sitio.noche ? lucesDeLaBase(v, edificios) : [],
-      }),
-      { ...v.lienzo, ahora: v.clima.ahora },
-    );
-  }
+  pintarElSueloDeLaBase(ctx, v, edificios);
   pintarLasFiguras(ctx, v);
+}
+
+/**
+ * Lo de abajo del clima (la luz, la niebla y, de noche, los fuegos de `edificios`)
+ * sobre lo que ya se pintó: la escena de un lugar lo pone después de sus mojones,
+ * que si no quedarían con luz de día.
+ */
+export function pintarElSueloDeLaBase(
+  ctx: CanvasRenderingContext2D,
+  v: PintadoDeLaBase,
+  edificios: readonly Extract<Elemento, { tipo: 'edificio' }>[] = [],
+): void {
+  if (v.clima === null) return;
+  pintarSueloDelClima(
+    ctx,
+    campoDeEscena(v.clima.sitio, {
+      ...v.lienzo,
+      luces: v.clima.sitio.noche ? lucesDeLaBase(v, edificios) : [],
+    }),
+    { ...v.lienzo, ahora: v.clima.ahora },
+  );
 }
 
 /**

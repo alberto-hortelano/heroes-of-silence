@@ -32,7 +32,12 @@ import { arteDeLaBase } from '../render/base/arte.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../render/base/camara.js';
 import type { Elemento } from '../render/base/escena.js';
 import { queHayBajo } from '../render/base/golpe.js';
-import { pintarBase, pintarLasFiguras } from '../render/base/pintar.js';
+import {
+  type PintadoDeLaBase,
+  pintarBase,
+  pintarElSueloDeLaBase,
+  pintarLasFiguras,
+} from '../render/base/pintar.js';
 import { animarHasta } from '../render/figura.js';
 import { densidadDe } from '../render/lienzo.js';
 import { playerColor } from '../render/palette.js';
@@ -288,7 +293,12 @@ export class EscenaLugar {
     const t = this.camara(a.d);
     // Las cosas, debajo de las figuras: son del suelo.
     const elementos = this.elementos(a, ahora);
-    pintarBase(ctx, {
+    // El clima de la región del lugar, como el de la base: lo de abajo (luz y
+    // niebla) sobre el fondo y los mojones, y el aire (la lluvia, el rayo) con las
+    // figuras, encima de todo.
+    const sitio = this.sesion().climaDelLugar;
+    const clima = sitio === null ? null : { sitio, ahora };
+    const fondo: PintadoDeLaBase = {
       d: a.d,
       t,
       lienzo: this.lienzo,
@@ -296,13 +306,13 @@ export class EscenaLugar {
       arte: arteDeLaBase(a.vista.fondo, []),
       color: playerColor(a.vista.owner),
       señalado: null,
-      // Sin clima: la pieza del clima de las escenas laterales aún no se ha
-      // enchufado a los lugares (la rama del clima los dejó fuera de alcance).
       clima: null,
-    });
+    };
+    pintarBase(ctx, fondo);
     for (const { p, en } of a.puntos) {
       if (p.cuerpo === null) pintarMojon(ctx, t, en, p, this.señalado === p.id);
     }
+    pintarElSueloDeLaBase(ctx, { ...fondo, clima });
     pintarLasFiguras(ctx, {
       d: a.d,
       t,
@@ -311,7 +321,7 @@ export class EscenaLugar {
       arte: null,
       color: playerColor(a.vista.owner),
       señalado: this.señalado === null ? null : { tipo: 'pnj', id: this.señalado },
-      clima: null,
+      clima,
     });
   }
 

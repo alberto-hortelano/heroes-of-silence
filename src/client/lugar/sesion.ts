@@ -26,7 +26,7 @@ import {
   puntosDe,
 } from '@core/mundo/reglas.js';
 import type { AdventureAction, GameState } from '@core/state/game.js';
-import type { FactionId, PlayerId } from '@core/types.js';
+import type { FactionId, PlayerId, Point } from '@core/types.js';
 
 /** Un punto de interés como lo pinta la escena y lo lista el panel. */
 export interface PuntoALaVista {
@@ -44,6 +44,8 @@ export interface PuntoALaVista {
 export interface VistaDelLugar {
   readonly lugar: string;
   readonly nombre: string;
+  /** Su casilla del mapa: la que lee su clima (`Session.climaDelLugar`). */
+  readonly at: Point;
   /** El nombre de su estado de ahora. */
   readonly estado: string;
   /** La facción de la plaza que le sirve de fondo. */
@@ -124,6 +126,7 @@ export class EnElLugar {
     return {
       lugar: l.id,
       nombre: l.nombre,
+      at: l.at,
       estado: estadoDicho(a.mundo, l),
       fondo: l.fondo.plaza,
       owner: a.hero.owner,
