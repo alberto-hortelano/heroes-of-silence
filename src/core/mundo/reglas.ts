@@ -18,12 +18,14 @@ import { CUPO_HEROE, heroLeadership, troopBlocker, withTroops } from '../hero/tr
 import { pointKey } from '../map/map.js';
 import { type GameState, playerById, turnBlocker } from '../state/game.js';
 import { oroBlocker } from '../town/town.js';
-import { conMiles, describirCoste, type Point } from '../types.js';
+import { conMiles, describirCoste, NOMBRE_DE_FACCION, type Point } from '../types.js';
 import {
+  batallaDe,
+  type Cobro,
   type Condicion,
+  claveDeConversacion,
   claveDeEncuentro,
   claveDeOpcion,
-  claveDePunto,
   type Dialogo,
   daPremio,
   type EstadoDelMundo,
@@ -132,37 +134,66 @@ function condicionesBlocker(a: Ante, si: readonly Condicion[] | undefined): stri
 }
 
 /**
- * Si el premio de una opción ya se cobró, lo que se dice; si no, `null`. **La regla
- * de que cada premio se cobre una vez** (P-c del usuario), del núcleo: el encuentro
- * ganado (`vencidos`) y la opción con premio ya elegida (`cobradas`).
+ * Si el premio de una opción ya se cobró, lo que se dice y si fue quien juega; si
+ * no, `null`. **La regla de que cada premio se cobre una vez** (P-c del usuario),
+ * del núcleo: el encuentro ganado (`vencidos`) y la opción con premio ya cobrada
+ * (`cobradas`). El mundo es de los dos (M2 de la vuelta 2): lo que se llevó el otro
+ * se dice con su nombre y su facción, no con «te».
  */
-function yaCobrado(a: Ante, ref: RefDeOpcion, opcion: Opcion): string | null {
-  for (const e of efectosDe(opcion.hace, 'batalla')) {
-    if (a.mundo.vencidos.includes(claveDeEncuentro(a.lugar.id, e.batalla))) {
-      return `ya venciste a «${a.lugar.encuentros[e.batalla]?.nombre ?? e.batalla}»`;
+function yaCobrado(
+  a: Ante,
+  ref: RefDeOpcion,
+  opcion: Opcion,
+): { readonly frase: string; readonly mio: boolean } | null {
+  const batalla = batallaDe(opcion);
+  if (batalla !== null) {
+    const quien = a.mundo.vencidos[claveDeEncuentro(a.lugar.id, batalla)];
+    if (quien !== undefined) {
+      const nombre = `«${a.lugar.encuentros[batalla]?.nombre ?? batalla}»`;
+      return esMio(a, quien)
+        ? { frase: `ya venciste a ${nombre}`, mio: true }
+        : { frase: `${otro(a, quien)} ya venció a ${nombre}`, mio: false };
     }
   }
-  if (!daPremio(opcion) || !a.mundo.cobradas.includes(claveDeOpcion(ref))) return null;
+  const quien = daPremio(opcion) ? a.mundo.cobradas[claveDeOpcion(ref)] : undefined;
+  if (quien === undefined) return null;
+  const mio = esMio(a, quien);
   const pieza = efectosDe(opcion.hace, 'pieza')[0];
-  if (pieza !== undefined) return `ya te llevaste ${nombreDePieza(pieza.pieza)}`;
   const tropa = efectosDe(opcion.hace, 'tropa')[0];
-  if (tropa !== undefined) {
-    const quien = unidadDelJuego(tropa.tropa.unidad).name;
-    return `ya se te unieron ${tropa.tropa.n} × ${quien}`;
-  }
   const oro = efectosDe(opcion.hace, 'oro').reduce((n, e) => n + Math.max(0, e.oro), 0);
-  return `ya te llevaste ${describirCoste(oro)} de aquí`;
+  const que = pieza !== undefined ? nombreDePieza(pieza.pieza) : `${describirCoste(oro)} de aquí`;
+  if (tropa !== undefined && pieza === undefined) {
+    const unidos = `${tropa.tropa.n} × ${unidadDelJuego(tropa.tropa.unidad).name}`;
+    return mio
+      ? { frase: `ya se te unieron ${unidos}`, mio }
+      : { frase: `ya se le unieron a ${otro(a, quien)} ${unidos}`, mio };
+  }
+  return mio
+    ? { frase: `ya te llevaste ${que}`, mio }
+    : { frase: `${otro(a, quien)} ya se llevó ${que}`, mio };
+}
+
+/** Si lo cobró el dueño del héroe que pregunta. */
+function esMio(a: Ante, quien: Cobro): boolean {
+  return quien.jugador === a.hero.owner;
+}
+
+/** Quien cobró, si no fue quien pregunta: su héroe y su facción («Grishnak (Orkos)»). */
+function otro(a: Ante, quien: Cobro): string {
+  return `${quien.heroe} (${NOMBRE_DE_FACCION[playerById(a.state, quien.jugador).faction]})`;
 }
 
 /**
  * Por qué no se puede elegir ahora la opción de `ref` (que hace algo), o `null`. Lo
  * que mira, en el orden en que se entiende: que su punto esté, que a su nodo se
- * llegue ahora (`nodosAlcanzables`), sus condiciones escritas, que su premio no se
- * haya cobrado ya (`yaCobrado`) y lo que piden sus efectos —pagar sin oro,
- * entregar lo que no está en la mochila, tropa que no cabe—. **La única
- * pregunta**: la leen la acción (`opcionBlocker`), la pantalla (`opcionesDe`, que
- * la escribe debajo de la opción apagada) y la IA, así que no hay opción
- * encendida que el núcleo rechace (H2 del QA de la F1a).
+ * llegue ahora (`nodosAlcanzables`), que no se lo haya llevado otro jugador, sus
+ * condiciones escritas, que su premio no se haya cobrado ya (`yaCobrado`) y lo que
+ * piden sus efectos —pagar sin oro, entregar lo que no está en la mochila, tropa
+ * que no cabe—. Lo del otro va antes que lo escrito: la frase del motor habla de
+ * «tú» («ya te llevaste la lanza») y fue el rival. **La única pregunta**: la leen
+ * la acción (`opcionBlocker`), la pantalla (`opcionesDe`, que la escribe debajo de
+ * la opción apagada) y la IA, así que no hay opción encendida que el núcleo
+ * rechace (H2 del QA de la F1a).
  */
 function motivoAlElegir(a: Ante, punto: Punto, ref: RefDeOpcion, opcion: Opcion): string | null {
   const fuera = condicionesBlocker(a, punto.si);
@@ -170,10 +201,11 @@ function motivoAlElegir(a: Ante, punto: Punto, ref: RefDeOpcion, opcion: Opcion)
   if (!nodosAlcanzables(a, punto).includes(ref.nodo)) {
     return `a esa parte de la conversación con ${nombreDelPunto(punto)} no se llega ahora: lo que lleva hasta ella no se cumple`;
   }
+  const cobrado = yaCobrado(a, ref, opcion);
+  if (cobrado !== null && !cobrado.mio) return cobrado.frase;
   const escrita = condicionesBlocker(a, opcion.si);
   if (escrita !== null) return escrita;
-  const cobrado = yaCobrado(a, ref, opcion);
-  if (cobrado !== null) return cobrado;
+  if (cobrado !== null) return cobrado.frase;
   return loQuePidenSusEfectos(a, opcion);
 }
 
@@ -286,23 +318,42 @@ export function recorrido(
 
 /**
  * Los nodos del diálogo de `punto` a los que se llega **ahora** desde su inicio y
- * desde donde quedó su conversación (`EstadoDelMundo.conversaciones`: el nodo al
- * que llevó la última opción con efectos elegida en él), por las opciones que
- * solo navegan y cuyo `si` se cumple, en el orden en que se descubren. Es lo que
- * se puede elegir: una opción con efectos de otro nodo la rechaza `opcionBlocker`,
- * que si no se cobraría un premio detrás de una condición sin cumplirla con solo
- * nombrar su nodo (H1 del simplify de la F1a). Las opciones con efectos no son
- * aristas (contarlas dejaría saltarse un pago): a lo que hay tras una se llega
- * porque se eligió, y su nodo es el que se recuerda.
+ * desde donde quedó la conversación de quien juega (`EstadoDelMundo.conversaciones`:
+ * el nodo al que llevó la última opción con efectos que eligió en él), por las
+ * opciones que solo navegan y cuyo `si` se cumple, en el orden en que se descubren.
+ * Es lo que se puede elegir: una opción con efectos de otro nodo la rechaza
+ * `opcionBlocker`, que si no se cobraría un premio detrás de una condición sin
+ * cumplirla con solo nombrar su nodo (H1 del simplify de la F1a). Las opciones con
+ * efectos no son aristas (contarlas dejaría saltarse un pago): a lo que hay tras
+ * una se llega porque se eligió, y su nodo es el que se recuerda.
  */
 export function nodosAlcanzables(a: Ante, punto: Punto): readonly string[] {
   const d = dialogoDe(a, punto);
-  const quedo = a.mundo.conversaciones[claveDePunto(a.lugar.id, punto.id)];
+  const quedo = dondeQuedo(a, punto);
   return recorrido(quedo === undefined ? [d.inicio] : [d.inicio, quedo], (n) =>
     (d.nodos[n]?.opciones ?? []).flatMap((o) =>
       o.ir !== undefined && soloNavega(o) && condicionesBlocker(a, o.si) === null ? [o.ir] : [],
     ),
   );
+}
+
+/** El nodo en que quedó la conversación de quien juega con `punto`, si quedó en alguno. */
+function dondeQuedo(a: Ante, punto: Punto): string | undefined {
+  return a.mundo.conversaciones[claveDeConversacion(a.hero.owner, a.lugar.id, punto.id)];
+}
+
+/**
+ * Por dónde se abre la conversación con `punto` al hablarle: **donde quedó** la de
+ * quien juega, si quedó en algún nodo al que se llega ahora; si no, su inicio
+ * (decisión del usuario tras la vuelta 2 de QA de la F1a, H14: quien paga el peaje,
+ * se va y vuelve, sigue ante el arcón). La lee la pantalla del lugar, que ofrece
+ * además «Volver al principio».
+ */
+export function nodoDeEntrada(a: Ante, punto: Punto): string {
+  const quedo = dondeQuedo(a, punto);
+  return quedo !== undefined && nodosAlcanzables(a, punto).includes(quedo)
+    ? quedo
+    : inicioDe(a, punto);
 }
 
 /** Una opción de un nodo, dicha para la pantalla y la IA. */

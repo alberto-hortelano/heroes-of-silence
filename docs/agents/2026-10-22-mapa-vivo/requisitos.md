@@ -241,3 +241,11 @@ puede sustituirla.
 - P-d: tras una batalla en un lugar, **se vuelve a la escena del lugar**, ya en su estado nuevo.
 - P-a y P-b, por defecto del arquitecto: `?heroe=` junto a `?mundo=` se rechaza; los mundos
   generados (`gen-*`) no van a git; solo `prueba` y `ejemplo` se commitean.
+
+## Decisiones del usuario tras la vuelta 2 de QA (22-10-2026)
+
+- H14, dónde empieza una conversación al volver: **«Donde quedó»**. Se abre en el nodo donde se
+  dejó (el que recuerda el núcleo), con una opción «volver al principio»; la validación simula cada
+  opción con efectos y rechaza la que corta su propio camino (el pago que apaga al propio punto).
+- M2, el mundo es de los dos jugadores: **«Sí, un mundo compartido»**. Si el rival llega antes, se lo
+  lleva; las frases dicen quién; dónde se quedó cada conversación se recuerda por jugador.

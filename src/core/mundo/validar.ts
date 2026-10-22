@@ -47,6 +47,7 @@ import {
   type Lugar,
   type Mundo,
   type MundoLeido,
+  trasLosEfectos,
   VERSION_DEL_MUNDO,
 } from './formato.js';
 import { recorrido } from './reglas.js';
@@ -619,6 +620,7 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
   // elegir una, la conversación sigue en su nodo y desde él se alcanza lo de
   // después (`nodosAlcanzables`, con `EstadoDelMundo.conversaciones`).
   const lleva = new Map<string, string[]>();
+  const juzgadas = new Map<string, OpcionJuzgada[]>();
   for (const [k, n] of nodos) {
     const r = `${ruta}.nodos.${k}`;
     const on = objeto(j, n, r, ['texto', 'opciones']);
@@ -629,6 +631,7 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
       j.mal(`${r}.opciones`, 'no hay ninguna: la conversación se quedaría ahí sin salida');
     }
     const destinos: string[] = [];
+    const deEste: OpcionJuzgada[] = [];
     opciones.forEach((op, i) => {
       const ro = `${r}.opciones[${i}]`;
       const oo = objeto(j, op, ro, ['texto'], ['si', 'hace', 'ir']);
@@ -636,18 +639,22 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
       texto(j, oo.texto, `${ro}.texto`, LARGO.opcion);
       const si = condiciones(j, oo.si, `${ro}.si`, ctx.delLugar, ctx.apuntes);
       const hace = efectos(j, oo.hace, `${ro}.hace`, ctx.delLugar, ctx.apuntes, CLAVES_DE_EFECTO);
+      let ir: string | null = null;
       if ('ir' in oo) {
         if (typeof oo.ir !== 'string' || !nodos.has(oo.ir)) {
           j.mal(`${ro}.ir`, `${JSON.stringify(oo.ir)} no es uno de los nodos de este diálogo`);
         } else {
           destinos.push(oo.ir);
+          ir = oo.ir;
         }
       }
+      deEste.push({ ruta: ro, texto: String(oo.texto), si, hace, ir });
       for (const e of hace) if ('batalla' in e) ctx.encuentrosUsados.add(e.batalla);
       const motivo = noSeApaga([...ctx.siDelPunto, ...si], hace, ctx.alGanar);
       if (motivo !== null) j.mal(ro, motivo);
     });
     lleva.set(k, destinos);
+    juzgadas.set(k, deEste);
   }
   // Todo nodo se alcanza desde el inicio: uno suelto es texto que nadie lee.
   if (typeof d.inicio === 'string' && nodos.has(d.inicio)) {
@@ -658,7 +665,92 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
         j.mal(`${ruta}.nodos.${k}`, `no se llega a él desde el inicio («${inicio}»)`);
       }
     }
+    noCortaSuCamino(j, inicio, juzgadas, ctx.siDelPunto);
   }
+}
+
+/** Una opción ya juzgada, con lo que de ella lee `noCortaSuCamino`. */
+interface OpcionJuzgada {
+  readonly ruta: string;
+  readonly texto: string;
+  readonly si: readonly Condicion[];
+  readonly hace: readonly Efecto[];
+  /** El nodo al que lleva, si es uno del diálogo. */
+  readonly ir: string | null;
+}
+
+/**
+ * Que ninguna opción con «hace» e «ir» corte su propio camino (H14 de la vuelta 2
+ * de QA de la F1a): tras ella, la conversación sigue en su «ir» —también al volver,
+ * que se abre donde quedó (`nodoDeEntrada`)—, así que lo que hay allí tiene que
+ * poderse elegir. Se simula lo determinista de elegirla, el estado y las marcas
+ * (`trasLosEfectos`; lo que da y cobra depende de la partida), y se rechaza:
+ *
+ * - si deja de cumplirse el «si» de su punto y tras ella hay opciones con «hace»:
+ *   el punto sale de la escena y ellas ya no se eligen (el pago que pasa el puente a
+ *   «pagado» con Corvo en `si: guardado` y lleva a abrir el arcón);
+ * - si una opción con «hace» a la que solo se llega por ella pide lo que ella deja de
+ *   cumplir (el arcón con `si: guardado`). Una a la que también se llega desde el
+ *   inicio no: dejar de poder elegirla tras otra es una elección (pagar o pelear).
+ *
+ * Una opción que lleva a un nodo de despedida (sin opciones con «hace») puede sacar
+ * a su punto de la escena: no se pierde nada (Corvo, «Pase, pase»).
+ */
+function noCortaSuCamino(
+  j: Juez,
+  inicio: string,
+  juzgadas: ReadonlyMap<string, readonly OpcionJuzgada[]>,
+  siDelPunto: readonly Condicion[],
+): void {
+  const navegando =
+    (corta: (c: Condicion) => boolean) =>
+    (n: string): readonly string[] =>
+      (juzgadas.get(n) ?? []).flatMap((o) =>
+        o.hace.length === 0 && o.ir !== null && !o.si.some(corta) ? [o.ir] : [],
+      );
+  const desdeElInicio = recorrido(
+    [inicio],
+    navegando(() => false),
+  );
+  for (const o of [...juzgadas.values()].flat()) {
+    if (o.hace.length === 0 || o.ir === null) continue;
+    const tras = trasLosEfectos(undefined, [], o.hace);
+    const corta = (c: Condicion) => seIncumpleTras(c, tras);
+    const detras = recorrido([o.ir], navegando(corta));
+    const conHace = (nodos: readonly string[]) =>
+      nodos.flatMap((n) => juzgadas.get(n) ?? []).filter((x) => x !== o && x.hace.length > 0);
+    const despues = conHace(detras);
+    const delPunto = siDelPunto.find(corta);
+    if (delPunto !== undefined && despues.length > 0) {
+      j.mal(
+        o.ruta,
+        `lleva a «${o.ir}», pero sus efectos sacan de la escena a su punto (deja de cumplirse ${JSON.stringify(delPunto)}, de su «si») y lo que hay tras ella ya no se elegiría nunca («${(despues[0] as OpcionJuzgada).texto}»): quítale el «ir», llévala a un nodo de despedida sin opciones con «hace» o no cambies lo que pide el punto`,
+      );
+      continue;
+    }
+    for (const x of conHace(detras.filter((n) => !desdeElInicio.includes(n)))) {
+      const c = x.si.find(corta);
+      if (c === undefined) continue;
+      j.mal(
+        x.ruta,
+        `pide ${JSON.stringify(c)}, y solo se llega a ella tras «${o.texto}», que lo deja de cumplir: no se elegiría nunca`,
+      );
+    }
+  }
+}
+
+/** Si `c` deja de cumplirse tras el estado y las marcas `tras` (`trasLosEfectos`): solo lo que se sabe. */
+function seIncumpleTras(
+  c: Condicion,
+  tras: { readonly estado: string | undefined; readonly marcas: readonly string[] },
+): boolean {
+  if ('estado' in c) return tras.estado !== undefined && tras.estado !== c.estado;
+  if ('no' in c) {
+    const n = c.no;
+    if ('estado' in n) return tras.estado === n.estado;
+    if ('marca' in n) return tras.marcas.includes(n.marca);
+  }
+  return false;
 }
 
 /**
@@ -892,8 +984,8 @@ export function estadoInicialDelMundo(historia: Historia): EstadoDelMundo {
     historia,
     estados: Object.fromEntries(historia.lugares.map((l) => [l.id, l.estadoInicial])),
     marcas: [],
-    cobradas: [],
-    vencidos: [],
+    cobradas: {},
+    vencidos: {},
     conversaciones: {},
   };
 }

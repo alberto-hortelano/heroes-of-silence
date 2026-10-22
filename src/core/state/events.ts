@@ -35,10 +35,15 @@ export type BattleFoe =
   | { readonly kind: 'raider'; readonly raiderId: string }
   /**
    * Un encuentro de un lugar de un mundo (`core/mundo/`): la tropa del encuentro,
-   * sin héroe ni dueño, que abre una opción del diálogo. Al cerrarla se aplican sus
-   * `alGanar` o `alPerder`.
+   * sin héroe ni dueño, que abre una opción del diálogo (`opcion`). Al ganarla se da
+   * lo que da esa opción y su `alGanar`; al perderla, su `alPerder`.
    */
-  | { readonly kind: 'lugar'; readonly lugar: string; readonly encuentro: string };
+  | {
+      readonly kind: 'lugar';
+      readonly lugar: string;
+      readonly encuentro: string;
+      readonly opcion: { readonly punto: string; readonly nodo: string; readonly opcion: number };
+    };
 
 /**
  * Quién abre una batalla del mapa.

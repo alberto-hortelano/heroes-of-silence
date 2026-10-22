@@ -93,7 +93,10 @@ enseña entero):
 Las reglas que más fallan (todas las dice el vocabulario):
 
 - **Cada premio se cobra una vez**: el juego recuerda cada opción que dio algo y cada
-  encuentro ganado, y no deja cobrarlos otra vez. Aun así, una opción que da algo (oro > 0,
+  encuentro ganado, y no deja cobrarlos otra vez. El mundo es de los dos jugadores: lo
+  que se lleva el rival ya no lo encuentra quien juega (el juego dice quién se lo llevó).
+  Una opción con `batalla` da lo suyo (oro, pieza, tropa) **al ganarla**, junto con
+  `alGanar`; si se pierde, no da nada y se puede volver a pelear. Aun así, una opción que da algo (oro > 0,
   `pieza`, `tropa`) o abre una `batalla` tiene que apagarse sola, para que salga apagada
   con tu frase. Lo normal: la opción pide un estado (`"si": [{"estado": "guardado"}]`, o
   el `si` de su punto) y sus efectos (o los de `alGanar`) cambian a otro; o pide
@@ -107,8 +110,14 @@ Las reglas que más fallan (todas las dice el vocabulario):
 - Una opción que **hace algo** se elige en un nodo al que se llega ahora desde el
   `inicio` por opciones sin `hace` cuyo `si` se cumple, o desde el nodo al que llevó la
   última opción con `hace` elegida en ese punto (pagar el peaje con `"ir": "dentro"` deja
-  elegir lo de `dentro`). Si quien juega se va y vuelve, empieza en el `inicio`: para que
-  pueda volver a `dentro`, pon en el `inicio` una opción que lleve allí con la marca del pago.
+  elegir lo de `dentro`). Si quien juega se va y vuelve, la conversación **sigue donde
+  quedó** (en `dentro`), con una opción «Volver al principio» que pone el juego.
+- **Una opción con `hace` e `ir` no corta su propio camino**: si tras ella hay opciones con
+  `hace`, su estado y sus marcas no pueden sacar de la escena a su punto (su `si`) ni
+  dejar de cumplir el `si` de las opciones a las que solo se llega por ella. Si el pago
+  pasa el lugar a `pagado`, el arcón de detrás pide `pagado` (no `guardado`), y quien lo
+  guarda no puede llevar `"si": [{"estado": "guardado"}]` si tras pagar se abre algo con
+  él; o el pago lleva a un nodo de despedida sin `hace` (Corvo, «Pase, pase»).
 - Un lugar va en una de las casillas que `admitenUnLugar` de su región: nunca en el borde
   del mapa, ni pegado a otro objeto, ni en un recinto.
 

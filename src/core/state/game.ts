@@ -87,15 +87,18 @@ import {
 } from '../map/map.js';
 import { muroBlocker } from '../map/recinto.js';
 import {
+  batallaDe,
+  type Cobro as CobroDelMundo,
   claveDeEncuentro,
   claveDeOpcion,
-  claveDePunto,
   daPremio,
   type Efecto,
   type EstadoDelMundo,
+  esPremio,
   type Lugar,
   lugarDe,
   type Opcion,
+  recordarLaConversacion,
 } from '../mundo/formato.js';
 import { mundoDe, opcionBlocker, opcionDe, type RefDeOpcion } from '../mundo/reglas.js';
 import { createRng, type Rng } from '../rng.js';
@@ -704,8 +707,8 @@ export function createGame(config: GameConfig): GameState {
       historia: config.mundo.historia,
       estados: { ...config.mundo.estados },
       marcas: [...config.mundo.marcas],
-      cobradas: [...config.mundo.cobradas],
-      vencidos: [...config.mundo.vencidos],
+      cobradas: { ...config.mundo.cobradas },
+      vencidos: { ...config.mundo.vencidos },
       conversaciones: { ...config.mundo.conversaciones },
     };
   }
@@ -1463,8 +1466,12 @@ function aplicar(
       if (noSe !== null) throw new Error(`no se puede elegir eso: ${noSe}`);
       const hero = heroById(state, action.hero);
       const { lugar, opcion } = opcionDe(state, action.hero, action);
-      anotarLaEleccion(mundoDe(state), action, opcion);
-      aplicarEfectos(state, hero.owner, hero, lugar, opcion.hace ?? [], ctx);
+      anotarLaEleccion(mundoDe(state), action, opcion, hero);
+      // Con batalla, lo que da la opción se da al ganarla, entero (`applyVictory`; M1
+      // de la vuelta 2 de QA de la F1a): perder no da nada y deja volver a pelear.
+      const hace = opcion.hace ?? [];
+      const ahora = batallaDe(opcion) === null ? hace : hace.filter((e) => !esPremio(e));
+      aplicarEfectos(state, hero.owner, hero, lugar, ahora, ctx, action);
       return;
     }
 
@@ -1493,7 +1500,8 @@ function aplicar(
  *
  * `hero` es quien recibe lo que se da; al perder puede haber caído ya, y entonces
  * es `null` (`alPerder` no da nada). `dueño` es el protagonista de los hechos.
- * `ctx` solo hace falta si hay batalla: la abre `abrirBatalla`, como un ataque.
+ * `ctx` y `ref` (la opción elegida) solo hacen falta si hay batalla: la abre
+ * `abrirBatalla`, como un ataque, y la batalla recuerda qué opción la abrió.
  */
 function aplicarEfectos(
   state: GameState,
@@ -1502,6 +1510,7 @@ function aplicarEfectos(
   lugar: Lugar,
   efectos: readonly Efecto[],
   ctx: GameContext | null,
+  ref: RefDeOpcion | null = null,
 ): void {
   const mundo = mundoDe(state);
   const at = lugar.at;
@@ -1574,12 +1583,18 @@ function aplicarEfectos(
       });
     } else {
       const h = delHeroe('batalla');
-      if (ctx === null) throw new Error(`una batalla de ${lugar.nombre} sin contexto que la abra`);
+      if (ctx === null || ref === null)
+        throw new Error(`una batalla de ${lugar.nombre} sin la opción que la abra`);
       abrirBatalla(
         state,
         {
           attacker: { kind: 'hero', heroId: h.id },
-          foe: { kind: 'lugar', lugar: lugar.id, encuentro: e.batalla },
+          foe: {
+            kind: 'lugar',
+            lugar: lugar.id,
+            encuentro: e.batalla,
+            opcion: { punto: ref.punto, nodo: ref.nodo, opcion: ref.opcion },
+          },
         },
         ctx,
       );
@@ -1589,17 +1604,38 @@ function aplicarEfectos(
 
 /**
  * Lo que el mundo recuerda de una opción elegida, antes de aplicarla: su premio,
- * cobrado (`cobradas`), y dónde queda la conversación de su punto
- * (`conversaciones`, el nodo al que lleva; sin «ir», ninguno). Con lo de
- * `aplicarEfectos` y el encuentro ganado (`applyVictory`), lo único que escribe
- * `GameState.mundo`.
+ * cobrado por el dueño de `hero` (`cobradas`; el de una opción con batalla, al
+ * ganarla, `applyVictory`), y dónde queda la conversación de ese jugador con su
+ * punto (`recordarLaConversacion`). Con lo de `aplicarEfectos` y el encuentro
+ * ganado, lo único que escribe `GameState.mundo`.
  */
-function anotarLaEleccion(mundo: EstadoDelMundo, ref: RefDeOpcion, opcion: Opcion): void {
-  const clave = claveDeOpcion(ref);
-  if (daPremio(opcion) && !mundo.cobradas.includes(clave)) mundo.cobradas.push(clave);
-  const punto = claveDePunto(ref.lugar, ref.punto);
-  if (opcion.ir === undefined) delete mundo.conversaciones[punto];
-  else mundo.conversaciones[punto] = opcion.ir;
+function anotarLaEleccion(
+  mundo: EstadoDelMundo,
+  ref: RefDeOpcion,
+  opcion: Opcion,
+  hero: Hero,
+): void {
+  if (daPremio(opcion) && batallaDe(opcion) === null)
+    mundo.cobradas[claveDeOpcion(ref)] ??= cobroDe(hero);
+  recordarLaConversacion(mundo.conversaciones, hero.owner, ref, opcion);
+}
+
+/** Quién cobra: el dueño de `hero` y su nombre, que dicen las frases del otro jugador. */
+function cobroDe(hero: Hero): CobroDelMundo {
+  return { jugador: hero.owner, heroe: hero.name };
+}
+
+/** La opción que abrió la batalla de un lugar, o lanza. */
+function opcionDeLaBatalla(lugar: Lugar, foe: Extract<BattleFoe, { kind: 'lugar' }>): Opcion {
+  const punto = lugar.puntos.find((p) => p.id === foe.opcion.punto);
+  const opcion =
+    lugar.dialogos[punto?.dialogo ?? '']?.nodos[foe.opcion.nodo]?.opciones[foe.opcion.opcion];
+  if (opcion === undefined) {
+    throw new Error(
+      `la batalla de «${lugar.nombre}» no sabe qué opción la abrió (${foe.opcion.punto}/${foe.opcion.nodo}/${foe.opcion.opcion})`,
+    );
+  }
+  return opcion;
 }
 
 /** El encuentro de una batalla de un lugar, o lanza. */
@@ -3216,13 +3252,22 @@ function applyVictory(
       dejarAsaltante(state, foe.raiderId, []);
       break;
     case 'lugar': {
-      // Lo que da ganar: estado, marca, oro o una pieza (la validación no deja más).
+      // Lo que da ganar: lo que da la opción que la abrió (oro, pieza, tropa: la tropa
+      // se comprobó al elegirla, y tras ganar el ejército no es mayor) y su `alGanar`
+      // (estado, marca, oro o una pieza: la validación no deja más).
       const { lugar, encuentro } = encuentroDe(state, foe);
       // Ganado una vez, no se vuelve a cobrar (`yaCobrado`, `core/mundo/reglas.ts`).
-      const vencidos = mundoDe(state).vencidos;
-      const clave = claveDeEncuentro(lugar.id, foe.encuentro);
-      if (!vencidos.includes(clave)) vencidos.push(clave);
-      aplicarEfectos(state, hero.owner, hero, lugar, encuentro.alGanar, null);
+      const mundo = mundoDe(state);
+      mundo.vencidos[claveDeEncuentro(lugar.id, foe.encuentro)] ??= cobroDe(hero);
+      // Lo que da la opción que la abrió se da ahora, entero, y se cobra ahora (M1
+      // de la vuelta 2): antes se daba al elegirla y, al perder, la opción quedaba
+      // cobrada y el encuentro no se volvía a pelear.
+      const opcion = opcionDeLaBatalla(lugar, foe);
+      if (daPremio(opcion)) {
+        mundo.cobradas[claveDeOpcion({ lugar: lugar.id, ...foe.opcion })] ??= cobroDe(hero);
+      }
+      const premios = (opcion.hace ?? []).filter(esPremio);
+      aplicarEfectos(state, hero.owner, hero, lugar, [...premios, ...encuentro.alGanar], null);
       break;
     }
   }

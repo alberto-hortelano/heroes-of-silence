@@ -12,7 +12,7 @@ import { marcadoDe } from '../src/client/html.js';
 import { mundoDeLaUrl } from '../src/client/mundo/cargar.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
 import { renderLog } from '../src/client/views/panels.js';
-import { jugadaEnElLugar } from '../src/core/ai/lugares.js';
+import { hariaAlgoEn, jugadaEnElLugar } from '../src/core/ai/lugares.js';
 import { CUPO_HEROE } from '../src/core/hero/troop.js';
 import { buildMap, type MapPlan } from '../src/core/map/generate.js';
 import { isEnterable } from '../src/core/map/map.js';
@@ -25,7 +25,12 @@ import {
 } from '../src/core/mundo/formato.js';
 import { lecturaParaElMotor } from '../src/core/mundo/lectura.js';
 import { partidaDelMundo } from '../src/core/mundo/partida.js';
-import { anteDelHeroe, opcionBlocker, opcionesDe } from '../src/core/mundo/reglas.js';
+import {
+  anteDelHeroe,
+  nodoDeEntrada,
+  opcionBlocker,
+  opcionesDe,
+} from '../src/core/mundo/reglas.js';
 import {
   type CrudosDelMundo,
   leerMundo,
@@ -39,6 +44,7 @@ import {
   type GameState,
   settleBattle,
 } from '../src/core/state/game.js';
+import { NOMBRE_DE_FACCION } from '../src/core/types.js';
 import { leerCrudos } from '../tools/mundo/disco.js';
 
 /** Los tres ficheros de un mundo, como los lee `pnpm mundo validar` (`leerCrudos`). */
@@ -84,6 +90,30 @@ const puente = (h: { lugares: Record<string, unknown>[] }) =>
     >;
     encuentros: Record<string, { tropa: unknown; alPerder: unknown[] }>;
   };
+
+/**
+ * El peaje de Corvo con un arcón detrás (H14 de la vuelta 2 de QA): pagar lleva a
+ * «gracias», y allí «Abrir el arcón» da 500. `delPunto`: Corvo sigue con su «si»
+ * de siempre (`estado guardado`, que el pago apaga); sin él, sus opciones se apagan
+ * con su propio «si». `siDelArcon`: lo que pide el arcón.
+ */
+function conElArcon(
+  h: { lugares: Record<string, unknown>[] },
+  { delPunto = false, siDelArcon = [{ estado: 'pagado' }] as unknown[] } = {},
+): void {
+  const l = h.lugares[0] as unknown as { puntos: Record<string, unknown>[] };
+  const corvo = l.puntos.find((p) => p.id === 'corvo')!;
+  if (!delPunto) {
+    delete corvo.si;
+    const nodos = puente(h).dialogos.corvo!.nodos;
+    nodos.alto!.opciones[2]!.si = [{ estado: 'guardado' }];
+    nodos.muerto!.opciones[0]!.si = [{ marca: 'carta-leida' }, { estado: 'guardado' }];
+  }
+  puente(h).dialogos.corvo!.nodos.gracias!.opciones = [
+    { texto: 'Abrir el arcón', si: siDelArcon, hace: [{ oro: 500 }, { estado: 'libre' }] },
+    { texto: 'Seguir' },
+  ];
+}
 
 describe('la validación de un mundo', () => {
   it('el mundo de prueba (a mano) y el de ejemplo (del motor) no tienen problemas', () => {
@@ -246,6 +276,21 @@ describe('la validación de un mundo', () => {
     );
     expect(p).toContainEqual(
       'historia.json: lugares[0].encuentros.corvo.alPerder[0]: «pieza» no vale aquí; valen estado, marca',
+    );
+  });
+
+  it('una opción con «ir» que corta su propio camino (H14 de la vuelta 2)', () => {
+    // El arcón tras el peaje, con Corvo sin «si» y el arcón pidiendo «pagado»: vale.
+    expect(conHistoria((h) => conElArcon(h))).toEqual([]);
+    // Con Corvo en «si: guardado», pagar le saca de la escena y el arcón se pierde.
+    expect(conHistoria((h) => conElArcon(h, { delPunto: true }))).toContainEqual(
+      'historia.json: lugares[0].dialogos.corvo.nodos.alto.opciones[0]: lleva a «gracias», pero sus efectos sacan de la escena a su punto (deja de cumplirse {"estado":"guardado"}, de su «si») y lo que hay tras ella ya no se elegiría nunca («Abrir el arcón»): quítale el «ir», llévala a un nodo de despedida sin opciones con «hace» o no cambies lo que pide el punto',
+    );
+    // Y un arcón que pide lo que el pago quita, solo detrás del pago.
+    expect(
+      conHistoria((h) => conElArcon(h, { siDelArcon: [{ estado: 'guardado' }] })),
+    ).toContainEqual(
+      'historia.json: lugares[0].dialogos.corvo.nodos.gracias.opciones[0]: pide {"estado":"guardado"}, y solo se llega a ella tras «Pagar el peaje (300 de oro)», que lo deja de cumplir: no se elegiría nunca',
     );
   });
 
@@ -563,6 +608,84 @@ describe('elegir en un lugar', () => {
     expect(state.mundo!.conversaciones).toEqual({});
   });
 
+  /** El héroe de cada jugador en el puente de Corvo, y el turno de `turno`. */
+  function losDosEnElPuente(mundo: typeof leido, turno = 0) {
+    const state = partidaDelMundo(mundo);
+    const [yo, rival] = [0, 1].map((o) => state.heroes.find((h) => h.owner === o)!);
+    for (const h of [yo!, rival!]) h.at = { x: 10, y: 12 };
+    state.current = turno;
+    return { state, yo: yo!, rival: rival! };
+  }
+  const elegirComo = (state: GameState, jugador: number, hero: string, nodo: string, i: number) =>
+    applyAdventureAction(
+      state,
+      { type: 'elegir_en_lugar', hero, lugar: 'puente-de-corvo', punto: 'corvo', nodo, opcion: i },
+      ctx,
+      jugador,
+    );
+  const ARCON = { lugar: 'puente-de-corvo', punto: 'corvo', nodo: 'gracias', opcion: 0 };
+  const corvoDe = (state: GameState, hero: string) => {
+    const a = anteDelHeroe(state, hero);
+    if ('motivo' in a) throw new Error(a.motivo);
+    return { a, corvo: a.lugar.puntos.find((p) => p.id === 'corvo')! };
+  };
+
+  it('pagado el peaje con «ir», la conversación se abre donde quedó, la de cada jugador (H14, M2)', () => {
+    const conArcon = leerMundo(
+      prueba((h) => conElArcon(h)),
+      'prueba',
+    );
+    const { state, yo, rival } = losDosEnElPuente(conArcon);
+    expect(nodoDeEntrada(corvoDe(state, yo.id).a, corvoDe(state, yo.id).corvo)).toBe('alto');
+    elegirComo(state, 0, yo.id, 'alto', 0);
+    // Se va y vuelve (la pantalla abre por `nodoDeEntrada`): sigue ante el arcón.
+    const { a, corvo } = corvoDe(state, yo.id);
+    expect(nodoDeEntrada(a, corvo)).toBe('gracias');
+    expect(opcionesDe(a, corvo, 'gracias')[0]!.motivo).toBeNull();
+    // El rival no ha pagado: para él la conversación empieza en el inicio y el
+    // arcón no se le abre por el peaje del otro.
+    state.current = 1;
+    const delRival = corvoDe(state, rival.id);
+    expect(nodoDeEntrada(delRival.a, delRival.corvo)).toBe('alto');
+    expect(opcionBlocker(state, rival.id, ARCON)).toBe(
+      'a esa parte de la conversación con Corvo no se llega ahora: lo que lleva hasta ella no se cumple',
+    );
+    state.current = 0;
+    const oro = state.players[0]!.oro;
+    elegirComo(state, 0, yo.id, 'gracias', 0);
+    expect(state.players[0]!.oro).toBe(oro + 500);
+    expect(state.mundo!.conversaciones).toEqual({});
+  });
+
+  it('lo que se llevó el otro jugador se dice con su nombre y su facción (M2)', () => {
+    const { state, yo, rival } = losDosEnElPuente(leido, 1);
+    applyAdventureAction(
+      state,
+      {
+        type: 'elegir_en_lugar',
+        hero: rival.id,
+        lugar: 'puente-de-corvo',
+        punto: 'garita',
+        nodo: 'dentro',
+        opcion: 1,
+      },
+      ctx,
+      1,
+    );
+    const lanza = { lugar: 'puente-de-corvo', punto: 'garita', nodo: 'dentro', opcion: 1 };
+    // A quien la cogió, la frase del motor; al otro, quién se la llevó.
+    expect(opcionBlocker(state, rival.id, lanza)).toBe('ya te llevaste la lanza');
+    state.current = 0;
+    const faccion = NOMBRE_DE_FACCION[state.players[1]!.faction];
+    expect(opcionBlocker(state, yo.id, lanza)).toBe(
+      `${rival.name} (${faccion}) ya se llevó Lanza de jinete`,
+    );
+    expect(state.mundo!.cobradas['puente-de-corvo/garita/dentro/1']).toEqual({
+      jugador: 1,
+      heroe: rival.name,
+    });
+  });
+
   it('con el héroe del rival, «ese héroe no es tuyo» (no «no es tu turno»)', () => {
     const { state } = enElLugar('puente-de-corvo');
     const rival = state.heroes.find((h) => h.owner === 1)!;
@@ -596,7 +719,12 @@ describe('elegir en un lugar', () => {
     const { state, hero } = enElLugar('puente-de-corvo');
     elegir(state, hero, 'puente-de-corvo', 'corvo', 'alto', 2);
     const pending = state.pendingBattle!;
-    expect(pending.foe).toEqual({ kind: 'lugar', lugar: 'puente-de-corvo', encuentro: 'corvo' });
+    expect(pending.foe).toEqual({
+      kind: 'lugar',
+      lugar: 'puente-de-corvo',
+      encuentro: 'corvo',
+      opcion: { punto: 'corvo', nodo: 'alto', opcion: 2 },
+    });
     expect(pending.battle.stacks.filter((s) => s.side === 'defender').length).toBe(3);
     for (const s of pending.battle.stacks) if (s.side === 'defender') s.count = 0;
     pending.battle.finished = { winner: 'attacker' };
@@ -626,6 +754,51 @@ describe('elegir en un lugar', () => {
     );
     expect(texto).toContain('Botín de «El pozo de Valdesombra»: Gambesón');
     expect(texto).not.toMatch(/en\u00a0\(16,\u00a013\)/);
+  });
+
+  it('una opción con batalla da lo suyo al ganarla, entera; perderla deja volver (M1 de la vuelta 2)', () => {
+    const conPremio = leerMundo(
+      prueba((h) => {
+        const pozo = h.lugares[1] as unknown as {
+          dialogos: Record<
+            string,
+            { nodos: Record<string, { opciones: Record<string, unknown>[] }> }
+          >;
+        };
+        pozo.dialogos.pozo!.nodos.brocal!.opciones[1]!.hace = [
+          { oro: 100 },
+          { batalla: 'ahogados' },
+        ];
+      }),
+      'prueba',
+    );
+    const state = partidaDelMundo(conPremio);
+    const hero = state.heroes.find((h) => h.owner === 0)!;
+    hero.at = { x: 16, y: 13 };
+    const bajar = { lugar: 'pozo-de-valdesombra', punto: 'pozo', nodo: 'brocal', opcion: 1 };
+    const pelear = (gana: boolean) => {
+      applyAdventureAction(state, { type: 'elegir_en_lugar', hero: hero.id, ...bajar }, ctx, 0);
+      const pending = state.pendingBattle!;
+      for (const s of pending.battle.stacks)
+        if (s.side === (gana ? 'defender' : 'attacker')) s.count = 0;
+      pending.battle.finished = { winner: gana ? 'attacker' : 'defender' };
+      settleBattle(state, ctx);
+    };
+    elegir(state, hero.id, 'pozo-de-valdesombra', 'pozo', 'brocal', 0);
+    const oro = state.players[0]!.oro;
+    pelear(false);
+    // Perdida: no da nada y se puede volver a bajar.
+    expect(state.players[0]!.oro).toBe(oro);
+    expect(Object.keys(state.mundo!.cobradas)).not.toContain('pozo-de-valdesombra/pozo/brocal/1');
+    const deVuelta = state.heroes.find((h) => h.owner === 0)!;
+    deVuelta.at = { x: 16, y: 13 };
+    expect(opcionBlocker(state, deVuelta.id, bajar)).toBeNull();
+    pelear(true);
+    // Ganada: los 100 de la opción y lo de «alGanar», y ya no se repite.
+    expect(state.players[0]!.oro).toBe(oro + 100);
+    expect(state.heroes.find((h) => h.id === deVuelta.id)!.mochila).toContain('gambeson');
+    expect(Object.keys(state.mundo!.cobradas)).toContain('pozo-de-valdesombra/pozo/brocal/1');
+    expect(Object.keys(state.mundo!.vencidos)).toEqual(['pozo-de-valdesombra/ahogados']);
   });
 
   it('una batalla perdida aplica «alPerder», aunque el héroe vuelva a su base', () => {
@@ -694,9 +867,82 @@ describe('la IA de reglas en un lugar', () => {
       );
       if (state.pendingBattle !== null) break;
     }
-    // Lee la carta, coge la lanza y paga el peaje (la batalla, sin ventaja, no la abre).
-    expect(elegidas).toEqual(['garita/dentro/0', 'garita/dentro/1', 'corvo/alto/0']);
+    // Primero lo que da algo: la lanza y, con ventaja, la pelea con Corvo (que cierra
+    // la tanda). Leer la carta y pagar el peaje no dan nada por sí mismos.
+    expect(elegidas).toEqual(['garita/dentro/1', 'corvo/alto/2']);
     expect(new Set(elegidas).size).toBe(elegidas.length);
     expect(state.log.filter((e) => e.kind === 'loot_found').length).toBe(1);
+  });
+
+  it('sin ventaja, va por el camino a un premio y no paga lo que no lleva a nada (M3 de la vuelta 2)', () => {
+    // Sin la pelea con Corvo (solo para orkos), que si no la elegiría antes.
+    const sinPelea = leerMundo(
+      prueba((h) => {
+        puente(h).dialogos.corvo!.nodos.alto!.opciones[2]!.si = [{ faccion: 'orkos' }];
+      }),
+      'prueba',
+    );
+    const state = partidaDelMundo(sinPelea, { 0: 'ai', 1: 'ai' });
+    const hero = state.heroes.find((h) => h.owner === 0)!;
+    hero.at = { x: 10, y: 12 };
+    const elegidas: string[] = [];
+    for (let n = 0; n < 20; n++) {
+      const ref = jugadaEnElLugar(state, hero);
+      if (ref === null) break;
+      elegidas.push(`${ref.punto}/${ref.nodo}/${ref.opcion}`);
+      applyAdventureAction(
+        state,
+        { type: 'elegir_en_lugar', hero: hero.id, ...ref },
+        { rng: createRng(1) },
+        0,
+      );
+    }
+    // La lanza; leer la carta, que no da nada pero convence a Corvo; y enseñársela.
+    // Pagar el peaje no lleva a ningún premio: no lo paga.
+    expect(elegidas).toEqual(['garita/dentro/1', 'garita/dentro/0', 'corvo/muerto/0']);
+  });
+
+  it('un interruptor sin premio no la atrapa ni hace que el lugar le valga (M3 de la vuelta 2)', () => {
+    const conPalanca = leerMundo(
+      prueba((h) => {
+        h.marcas = {
+          'peaje-pagado': (h.marcas as Record<string, unknown>)['peaje-pagado'],
+          'carta-leida': (h.marcas as Record<string, unknown>)['carta-leida'],
+          'lanza-cogida': (h.marcas as Record<string, unknown>)['lanza-cogida'],
+        };
+        const pozo = h.lugares[1] as unknown as Record<string, unknown>;
+        pozo.encuentros = {};
+        pozo.dialogos = {
+          pozo: {
+            inicio: 'brocal',
+            nodos: {
+              brocal: {
+                texto: 'Una palanca junto al brocal.',
+                opciones: [
+                  {
+                    texto: 'Bajar la palanca',
+                    si: [{ estado: 'quieto' }],
+                    hace: [{ estado: 'despierto' }],
+                  },
+                  {
+                    texto: 'Subir la palanca',
+                    si: [{ estado: 'despierto' }],
+                    hace: [{ estado: 'quieto' }],
+                  },
+                  { texto: 'Irse' },
+                ],
+              },
+            },
+          },
+        };
+      }),
+      'prueba',
+    );
+    const state = partidaDelMundo(conPalanca, { 0: 'ai', 1: 'ai' });
+    const hero = state.heroes.find((h) => h.owner === 0)!;
+    hero.at = { x: 16, y: 13 };
+    expect(jugadaEnElLugar(state, hero)).toBeNull();
+    const pozo = state.mundo!.historia.lugares[1]!;
+    expect(hariaAlgoEn(state, hero, pozo, 1_000_000)).toBe(false);
   });
 });

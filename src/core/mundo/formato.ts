@@ -19,7 +19,7 @@
 import type { GrupoDeTropa } from '../data.js';
 import { type MapPlan, REGIONES_POR_BANDO } from '../map/generate.js';
 import type { Persona } from '../town/voces.js';
-import type { FactionId, Point } from '../types.js';
+import type { FactionId, PlayerId, Point } from '../types.js';
 import { esIdDePieza, esIdDeUnidad } from '../validar.js';
 
 /** La versión del formato. Otra se rechaza diciéndolo: sin compatibilidad hacia atrás. */
@@ -195,11 +195,13 @@ export const VOCABULARIO: {
   alPerder: EFECTOS_AL_PERDER,
   reglas: [
     'una lista de condiciones es un «y»; para «o», dos opciones',
-    'cada premio se cobra una vez: el juego recuerda cada opción que dio oro, una pieza o tropa, y cada encuentro ganado, y no deja cobrarlos otra vez aunque otra opción vuelva a cumplir su «si»',
+    'cada premio se cobra una vez: el juego recuerda cada opción que dio oro, una pieza o tropa, y cada encuentro ganado, y no deja cobrarlos otra vez aunque otra opción vuelva a cumplir su «si»; el mundo es de los dos jugadores: lo que se lleva uno ya no lo encuentra el otro',
+    'una opción con «batalla» da lo suyo (oro > 0, pieza, tropa) al ganarla, con lo de «alGanar»; si se pierde, no da nada y se puede volver a pelear',
     'aun así, una opción con «hace» que da algo (oro > 0, pieza, tropa) o abre una batalla tiene que apagarse a sí misma: sus efectos (o los de «alGanar», si pelea) cambian el estado del lugar o ponen una marca que su condición («si» de la opción o de su punto) deja de cumplir; así la opción apagada dice tu frase («ya» de la marca)',
     'sin «ir», una opción cierra la conversación',
     'todo nodo de un diálogo se alcanza desde su «inicio»; cada punto lleva su propio diálogo',
-    'una opción con «hace» se elige en un nodo al que se llega desde el «inicio» por opciones sin «hace» cuyo «si» se cumple ahora, o desde el nodo al que llevó la última opción con «hace» elegida en ese punto: tras pagar un peaje con «ir», lo de su nodo se puede elegir aunque el pago ya no se cumpla',
+    'una opción con «hace» se elige en un nodo al que se llega desde el «inicio» por opciones sin «hace» cuyo «si» se cumple ahora, o desde el nodo al que llevó la última opción con «hace» elegida en ese punto: tras pagar un peaje con «ir», lo de su nodo se puede elegir aunque el pago ya no se cumpla, y si quien juega se va y vuelve, la conversación sigue allí',
+    'una opción con «hace» e «ir» no corta su propio camino: si tras ella hay opciones con «hace» a las que solo se llega por ella, su estado y sus marcas no sacan de la escena a su punto (su «si») ni dejan de cumplir el «si» de esas opciones; el pago que pasa el lugar a «pagado» no puede llevar a un arcón que pide «guardado», ni echar a quien lo guarda',
     'un encuentro es tropa del catálogo, sin héroe, con el tope de liderazgo y de fuerza de un grupo neutral',
   ],
 };
@@ -291,9 +293,22 @@ export interface MundoLeido {
 }
 
 /**
+ * Quién cobró un premio o venció un encuentro: su jugador y el nombre de su héroe.
+ * El mundo es uno para los dos jugadores (decisión del usuario tras la vuelta 2 de
+ * QA de la F1a, «un mundo compartido»): lo que se lleva uno, el otro ya no lo
+ * encuentra, y la frase dice quién fue («ya te llevaste…» o «Grishnak (Orkos) ya se
+ * llevó…», `yaCobrado`).
+ */
+export interface Cobro {
+  readonly jugador: PlayerId;
+  readonly heroe: string;
+}
+
+/**
  * Lo que una partida lleva de su mundo (`GameState.mundo`): la historia, que no
  * cambia, y lo que sí, que es estado de la partida. El mundo es uno para los dos
- * jugadores: lo que uno cambia o se lleva, el otro ya no lo encuentra.
+ * jugadores: lo que uno cambia o se lleva, el otro ya no lo encuentra. Lo único de
+ * cada jugador es dónde quedó su conversación con cada punto.
  */
 export interface EstadoDelMundo {
   readonly historia: Historia;
@@ -302,20 +317,23 @@ export interface EstadoDelMundo {
   /** Las marcas puestas, en el orden en que se pusieron. */
   readonly marcas: string[];
   /**
-   * Las opciones con premio ya elegidas (`daPremio`), por `claveDeOpcion`. **Cada
-   * premio se cobra una vez** por regla del núcleo y no por cómo esté escrita la
-   * historia: una opción sin premio que vuelve a encender otra que sí lo da
-   * (Rebuscar ↔ Esperar, H1 del QA de la F1a) ya no la deja cobrar dos veces.
+   * Las opciones con premio ya cobradas (`daPremio`), por `claveDeOpcion`, con quién.
+   * **Cada premio se cobra una vez** por regla del núcleo y no por cómo esté escrita
+   * la historia: una opción sin premio que vuelve a encender otra que sí lo da
+   * (Rebuscar ↔ Esperar, H1 del QA de la F1a) ya no la deja cobrar dos veces. La de
+   * una opción con batalla se cobra al ganarla (M1 de la vuelta 2).
    */
-  readonly cobradas: string[];
-  /** Los encuentros ganados, por `claveDeEncuentro`: lo de «alGanar» se cobra una vez. */
-  readonly vencidos: string[];
+  readonly cobradas: Record<string, Cobro>;
+  /** Los encuentros ganados, por `claveDeEncuentro`, con quién: lo de «alGanar» se cobra una vez. */
+  readonly vencidos: Record<string, Cobro>;
   /**
-   * Dónde quedó la conversación de cada punto (`claveDePunto`): el nodo al que llevó
-   * la última opción con efectos que se eligió en él; sin «ir», el punto no está.
-   * De ahí también se alcanza lo que se elige (`nodosAlcanzables`): la conversación
-   * sigue donde la dejó esa opción aunque lo que llevaba hasta allí ya no se cumpla
-   * (H2 del QA de la F1a).
+   * Dónde quedó la conversación de cada jugador con cada punto
+   * (`claveDeConversacion`): el nodo al que llevó la última opción con efectos que
+   * ese jugador eligió en él; sin «ir», no está. De ahí también se alcanza lo que se
+   * elige (`nodosAlcanzables`), y ahí se abre la conversación al volver
+   * (`nodoDeEntrada`): sigue donde la dejó esa opción aunque lo que llevaba hasta
+   * allí ya no se cumpla (H2 del QA de la F1a, H14 de la vuelta 2). **Por jugador**
+   * (M2 de la vuelta 2): el peaje que pagó el rival no le abre el arcón a otro.
    */
   readonly conversaciones: Record<string, string>;
 }
@@ -330,9 +348,9 @@ export function claveDeOpcion(ref: {
   return `${ref.lugar}/${ref.punto}/${ref.nodo}/${ref.opcion}`;
 }
 
-/** La clave de un punto en `EstadoDelMundo.conversaciones`. */
-export function claveDePunto(lugar: string, punto: string): string {
-  return `${lugar}/${punto}`;
+/** La clave de la conversación de un jugador con un punto en `EstadoDelMundo.conversaciones`. */
+export function claveDeConversacion(jugador: PlayerId, lugar: string, punto: string): string {
+  return `${jugador}:${lugar}/${punto}`;
 }
 
 /** La clave de un encuentro en `EstadoDelMundo.vencidos`. */
@@ -340,12 +358,62 @@ export function claveDeEncuentro(lugar: string, encuentro: string): string {
   return `${lugar}/${encuentro}`;
 }
 
+/** Si un efecto es un premio: dar oro (no pagarlo), una pieza o tropa. */
+export function esPremio(e: Efecto): boolean {
+  return ('oro' in e && e.oro > 0) || 'pieza' in e || 'tropa' in e;
+}
+
 /**
- * Si una opción da algo al elegirla: oro (no pagarlo), una pieza o tropa. Abrir una
- * batalla no es premio en sí: lo es ganarla (`EstadoDelMundo.vencidos`).
+ * Si una opción da algo: oro (no pagarlo), una pieza o tropa. Abrir una batalla no
+ * es premio en sí: lo es ganarla (`EstadoDelMundo.vencidos`), y lo que da una opción
+ * con batalla se da al ganarla (`aplicarEfectos`).
  */
 export function daPremio(o: Opcion): boolean {
-  return (o.hace ?? []).some((e) => ('oro' in e && e.oro > 0) || 'pieza' in e || 'tropa' in e);
+  return (o.hace ?? []).some(esPremio);
+}
+
+/** Si una opción abre una batalla, el encuentro; si no, `null`. */
+export function batallaDe(o: Opcion): string | null {
+  return efectosDe(o.hace, 'batalla')[0]?.batalla ?? null;
+}
+
+/**
+ * El estado de un lugar y sus marcas tras unos efectos: lo determinista de elegir
+ * una opción (lo que da o cobra depende de quién y con qué, y una batalla, de
+ * cómo acabe). `estado` es el de partida, o `undefined` si no se sabe (la
+ * validación, que juzga sin partida): sale el último que pongan los efectos, o el
+ * de partida. Lo leen la validación (lo que corta una opción con «ir», H14) y la
+ * IA (lo que abriría una opción sin premio, M3).
+ */
+export function trasLosEfectos(
+  estado: string | undefined,
+  marcas: readonly string[],
+  efectos: readonly Efecto[] | undefined,
+): { readonly estado: string | undefined; readonly marcas: readonly string[] } {
+  let e = estado;
+  const m = [...marcas];
+  for (const x of efectos ?? []) {
+    if ('estado' in x) e = x.estado;
+    if ('marca' in x && !m.includes(x.marca)) m.push(x.marca);
+  }
+  return { estado: e, marcas: m };
+}
+
+/**
+ * Lo que recuerda la conversación de `jugador` con el punto de `ref` tras elegir
+ * en él una opción con efectos: el nodo de su «ir»; sin «ir», la conversación se
+ * cerró y no se recuerda nada. La escriben la acción (`anotarLaEleccion`) y la IA
+ * cuando prueba lo que abriría una opción (`ai/lugares.ts`).
+ */
+export function recordarLaConversacion(
+  conversaciones: Record<string, string>,
+  jugador: PlayerId,
+  ref: { readonly lugar: string; readonly punto: string },
+  opcion: Opcion,
+): void {
+  const clave = claveDeConversacion(jugador, ref.lugar, ref.punto);
+  if (opcion.ir === undefined) delete conversaciones[clave];
+  else conversaciones[clave] = opcion.ir;
 }
 
 /** El lugar `id` de una historia, o `null` si no está: la búsqueda por id de quien pregunta. */
