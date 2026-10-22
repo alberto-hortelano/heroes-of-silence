@@ -237,9 +237,12 @@ export const VOCABULARIO: {
 
 /** Una marca del mundo, con lo que se dice cuando falta y cuando ya está. */
 export interface Marca {
-  /** Por qué una opción que pide la marca sale apagada: «aún no conoces al capitán». */
+  /** Por qué una opción que pide la marca sale apagada: «la carta del capitán sigue cerrada». */
   readonly falta: string;
-  /** Por qué una opción que pide que NO esté sale apagada: «ya le has pagado el peaje». */
+  /**
+   * Por qué una opción que pide que NO esté sale apagada: «el peaje ya está pagado».
+   * Describe el mundo, que es de los dos: puede haberla puesto el rival.
+   */
   readonly ya: string;
 }
 

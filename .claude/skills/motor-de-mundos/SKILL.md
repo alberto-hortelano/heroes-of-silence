@@ -115,7 +115,8 @@ historia.
 - **Conversaciones hondas con la gente de la trama**: preguntarle por su pasado, por los
   otros lugares y su gente, mentirle, presionarla, y que conteste distinto según lo que ya
   se sepa (`si` con marcas). Ramas que vuelven a un tronco, no una lista de preguntas
-  sueltas. Orientativo: la gente principal, **seis nodos o más y tres niveles de hondo**.
+  sueltas. Orientativo: la gente principal, **seis nodos o más y tres niveles de hondo** (el
+  inicio es el primero: inicio → pregunta → respuesta son tres).
   **Sin relleno**: cada nodo dice algo nuevo —un dato, un secreto, una mentira, un cambio
   de tono—; nada de «¿y qué más?» para llegar a la cifra. Mentir y presionar son opciones
   que ponen una marca sin premio o llevan a otro nodo; la gente de paso puede ser más

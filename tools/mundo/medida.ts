@@ -4,7 +4,7 @@
  * hondas son las conversaciones de su gente, qué marcas cruzan de un lugar a otro,
  * cuántos lugares encadenan y qué desenlaces se excluyen.
  *
- * **Es una medida, no una regla**: la hondura y los desenlaces los pide la skill y
+ * **Es una medida, no una regla**: los niveles y los desenlaces los pide la skill y
  * no el validador (un motor que tiene que llegar a una cifra la cumple con relleno,
  * `critica.md`). Lo que dice si es plano es leer la biblia y un diálogo entero.
  */
@@ -28,8 +28,13 @@ export interface MedidaDePersona {
   readonly nombre: string;
   /** Nodos de su diálogo. */
   readonly nodos: number;
-  /** La distancia más larga desde el `inicio` por `ir`, sin mirar condiciones (0: solo el inicio). */
-  readonly hondura: number;
+  /**
+   * Los niveles del camino más largo desde el `inicio` por `ir`, sin mirar condiciones:
+   * el inicio es el nivel 1 (inicio → pregunta → respuesta, 3). Es como lo cuenta la
+   * skill («tres niveles de hondo»); antes eran aristas y el mismo árbol daba 2 (H5 del
+   * QA de la trama).
+   */
+  readonly niveles: number;
   /** Opciones que hacen algo (`hace`). */
   readonly conHace: number;
 }
@@ -86,21 +91,22 @@ function opcionesConEfectos(lugar: Lugar): { si: Condicion[]; efectos: Efecto[] 
 }
 
 /**
- * La distancia más larga desde el inicio de un diálogo por sus `ir` (en anchura: la
- * más corta a cada nodo). No usa `recorrido` (`reglas.ts`): da el orden, no la distancia.
+ * Los niveles de un diálogo: los del camino más corto al nodo más lejano desde el
+ * inicio por sus `ir` (en anchura), contando el inicio como el 1. No usa `recorrido`
+ * (`reglas.ts`): da el orden, no la distancia.
  */
-function honduraDe(d: Dialogo): number {
-  const distancia = new Map<string, number>([[d.inicio, 0]]);
+function nivelesDe(d: Dialogo): number {
+  const nivel = new Map<string, number>([[d.inicio, 1]]);
   const cola = [d.inicio];
   for (let i = 0; i < cola.length; i++) {
     const id = cola[i] as string;
     for (const o of d.nodos[id]?.opciones ?? []) {
-      if (o.ir === undefined || distancia.has(o.ir)) continue;
-      distancia.set(o.ir, (distancia.get(id) ?? 0) + 1);
+      if (o.ir === undefined || nivel.has(o.ir)) continue;
+      nivel.set(o.ir, (nivel.get(id) ?? 1) + 1);
       cola.push(o.ir);
     }
   }
-  return Math.max(...distancia.values());
+  return Math.max(...nivel.values());
 }
 
 /** Cuántos nodos tiene la mayor componente de un grafo (union-find; 0 sin nodos). */
@@ -177,7 +183,7 @@ export function medirMundo(leido: MundoLeido, biblia: string | null): MedidaDelM
           punto: p.id,
           nombre: p.persona.nombre,
           nodos: nodos.length,
-          hondura: honduraDe(d),
+          niveles: nivelesDe(d),
           conHace: nodos.reduce(
             (n, x) => n + x.opciones.filter((o) => o.hace !== undefined).length,
             0,
@@ -218,7 +224,7 @@ export function describirMedida(id: string, m: MedidaDelMundo): string[] {
     ].join(' · '),
     ...m.personas.map(
       (p) =>
-        `  ${p.lugar} · ${p.nombre}: nodos: ${p.nodos} · hondura: ${p.hondura} · opciones que hacen algo: ${p.conHace}`,
+        `  ${p.lugar} · ${p.nombre}: nodos: ${p.nodos} · niveles: ${p.niveles} · opciones que hacen algo: ${p.conHace}`,
     ),
   ];
 }

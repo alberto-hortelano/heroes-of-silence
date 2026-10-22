@@ -190,7 +190,7 @@ function otro(a: Ante, quien: Cobro): string {
  * llegue ahora (`nodosAlcanzables`), que no se lo haya llevado otro jugador, sus
  * condiciones escritas, que su premio no se haya cobrado ya (`yaCobrado`) y lo que
  * piden sus efectos —pagar sin oro, entregar lo que no está en la mochila, tropa
- * que no cabe—. Lo del otro va antes que lo escrito: la frase del motor habla de
+ * que no cabe—. Lo del otro va antes que lo escrito: la frase del motor puede hablar de
  * «tú» («ya te llevaste la lanza») y fue el rival. **La única pregunta**: la leen
  * la acción (`opcionBlocker`), la pantalla (`opcionesDe`, que la escribe debajo de
  * la opción apagada) y la IA, así que no hay opción encendida que el núcleo

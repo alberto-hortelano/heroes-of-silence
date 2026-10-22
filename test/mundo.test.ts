@@ -419,9 +419,9 @@ describe('elegir en un lugar', () => {
     ]);
     expect(state.heroes.find((h) => h.id === hero)!.mochila).toContain('lanza_de_jinete');
     const ref = { lugar: 'puente-de-corvo', punto: 'garita', nodo: 'dentro', opcion: 1 };
-    expect(opcionBlocker(state, hero, ref)).toBe('ya te llevaste la lanza');
+    expect(opcionBlocker(state, hero, ref)).toBe('la lanza ya no cuelga en la garita');
     expect(() => elegir(state, hero, 'puente-de-corvo', 'garita', 'dentro', 1)).toThrow(
-      'no se puede elegir eso: ya te llevaste la lanza',
+      'no se puede elegir eso: la lanza ya no cuelga en la garita',
     );
   });
 
@@ -689,7 +689,7 @@ describe('elegir en un lugar', () => {
     );
     const lanza = { lugar: 'puente-de-corvo', punto: 'garita', nodo: 'dentro', opcion: 1 };
     // A quien la cogió, la frase del motor; al otro, quién se la llevó.
-    expect(opcionBlocker(state, rival.id, lanza)).toBe('ya te llevaste la lanza');
+    expect(opcionBlocker(state, rival.id, lanza)).toBe('la lanza ya no cuelga en la garita');
     state.current = 0;
     const faccion = NOMBRE_DE_FACCION[state.players[1]!.faction];
     expect(opcionBlocker(state, yo.id, lanza)).toBe(

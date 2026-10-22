@@ -3,24 +3,24 @@
   "resumen": "Entre Valdeluz y el lago de Puenteroto quedan cuentas pendientes de la guerra: un sepulturero que guarda el libro de los difuntos, unos desertores del Imperio que no quieren volver y un barquero que lleva cien años esperando su pago.",
   "marcas": {
     "acta-de-defuncion": {
-      "falta": "no tienes ningún papel que diga que esos hombres murieron",
-      "ya": "llevas el acta que da por muertos a los desertores"
+      "falta": "nadie ha sacado aún del libro de Valdeluz un papel que dé por muertos a esos hombres",
+      "ya": "el acta que da por muertos a los desertores ya salió del libro de Tobías"
     },
     "libro-leido": {
-      "falta": "no sabes dónde está enterrada Remedios",
-      "ya": "leíste en el libro de difuntos dónde yace Remedios"
+      "falta": "nadie ha buscado aún a Remedios en el libro de difuntos",
+      "ya": "el libro de difuntos ya dijo dónde yace Remedios"
     },
     "cepillo-vaciado": {
       "falta": "el cepillo de las ánimas sigue lleno",
-      "ya": "ya vaciaste el cepillo de las ánimas"
+      "ya": "el cepillo de las ánimas ya está vacío"
     },
     "carros-saqueados": {
       "falta": "nadie ha tocado los carros de intendencia",
-      "ya": "ya registraste los carros de intendencia"
+      "ya": "los carros de intendencia ya están registrados"
     },
     "derrota-en-el-lago": {
-      "falta": "los ahogados no te han vencido nunca",
-      "ya": "los ahogados del lago ya te vencieron una vez"
+      "falta": "los ahogados del lago aún no han vencido a nadie",
+      "ya": "los ahogados del lago ya vencieron a alguien"
     }
   },
   "lugares": [

@@ -13,7 +13,7 @@
  *   pnpm mundo medir <id>…
  *       cuánta trama lleva cada mundo: lugares y regiones, marcas que cruzan,
  *       lugares encadenados, desenlaces que se excluyen y, por persona, nodos y
- *       hondura de su conversación. Una medida, no una regla: no exige la biblia,
+ *       niveles de su conversación (el inicio es el 1). Una medida, no una regla: no exige la biblia,
  *       para medir también los mundos de antes
  */
 import { REGIONES_POR_BANDO } from '../../src/core/map/generate.js';

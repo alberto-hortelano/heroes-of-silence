@@ -56,12 +56,16 @@ cuanto el puente cambia de estado:
 1. **Pagar el peaje** (trescientas de oro): el puente queda pagado, Corvo dice «Pase, pase, que el
    capitán no tarda» y se retira. Se pierde el oro y no se gana nada más.
 2. **Convencerle con la carta**: el puente queda libre y Corvo se une a la tropa como alabardero.
-   Solo se llega habiendo leído la carta en la garita antes de hablar de su capitán.
+   Solo se puede enseñar si la carta de la garita ya está leída; da igual leerla antes o después de
+   decirle que su capitán murió: se va a la garita, se vuelve y se enseña. Como las marcas son del
+   mundo, también vale si la leyó el rival.
 3. **Apartarle a la fuerza**: se pelea con Corvo y sus reclutas; al ganar, el puente queda libre y
    se cobran doscientas de oro. Corvo no se une.
 
 El pozo acaba limpio si se vence a los ahogados (con un gambesón de premio), o se queda despierto si
-se pierde, y entonces el mundo recuerda que lo del pozo ya venció una vez.
+se pierde, y entonces el mundo recuerda que lo del pozo ya ha vencido a alguien. Quien llega tarde a
+cualquiera de los dos sitios encuentra lo que dejó el otro: el puente pagado o libre, la lanza que ya
+no cuelga en la garita, el cubo fuera y vacío.
 
 ## Marcas
 

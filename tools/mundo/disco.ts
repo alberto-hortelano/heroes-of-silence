@@ -8,7 +8,7 @@
  * mundo desde el menú (`tools/mundo/motor.ts`).
  */
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { buildMap, type MapPlan } from '../../src/core/map/generate.js';
 import {
@@ -113,16 +113,59 @@ export function problemaDeLaLinea(linea: string): string | null {
   return FICHEROS_DEL_MUNDO.some((f) => problema.startsWith(`${f.nombre}: `)) ? problema : null;
 }
 
-/** Un mundo en disco: su biblia (o `null` si no está) y sus JSON, o los problemas de leerlos. */
-export type MundoEnDisco = { readonly biblia: string | null } & (
+/**
+ * Un fichero que está pero no se lee: un directorio con su nombre, o uno sin
+ * permiso. Dicho con su nombre y sin rutas absolutas (H4 del QA de la trama: un
+ * `biblia.md` que era un directorio daba el `EISDIR` de Node con la ruta entera).
+ */
+export interface NoSeLee {
+  readonly noSeLee: string;
+}
+
+/** Si lo leído de un fichero es que no se lee. */
+export function noSeLee(x: string | null | NoSeLee): x is NoSeLee {
+  return typeof x === 'object' && x !== null;
+}
+
+/** El texto de un fichero de un mundo: `null` si no está, o por qué no se lee (`NoSeLee`). */
+async function leerTexto(
+  id: string,
+  nombre: FicheroDelMundo['nombre'],
+): Promise<string | null | NoSeLee> {
+  const ruta = rutaDelFichero(id, nombre);
+  const motivo = (err: unknown): NoSeLee => ({
+    noSeLee: `${nombre}: no se puede leer, ${(err as NodeJS.ErrnoException).code ?? 'sin código'} (${enElRepo(ruta)})`,
+  });
+  let datos: Awaited<ReturnType<typeof stat>>;
+  try {
+    datos = await stat(ruta);
+  } catch (err) {
+    // Un enlace roto también es un fichero que no está.
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    return motivo(err);
+  }
+  if (!datos.isFile()) return { noSeLee: `${nombre}: no es un fichero (${enElRepo(ruta)})` };
+  try {
+    return await readFile(ruta, 'utf8');
+  } catch (err) {
+    return motivo(err);
+  }
+}
+
+/**
+ * Un mundo en disco: su biblia (su texto, `null` si no está, o por qué no se lee) y
+ * sus JSON, o los problemas de leerlos.
+ */
+export type MundoEnDisco = { readonly biblia: string | null | NoSeLee } & (
   | { readonly crudos: CrudosDelMundo }
   | { readonly problemas: readonly string[] }
 );
 
 /**
- * Un mundo en disco, leído una vez y todo a la vez. Un JSON que falta o no es JSON se
- * dice con su nombre, como los problemas de dentro; la biblia que falta no es un
- * problema de leer, la juzga `problemaDeLaBiblia`. Sin carpeta, `sinMundo`.
+ * Un mundo en disco, leído una vez y todo a la vez. Un JSON que falta, no se lee o
+ * no es JSON se dice con su nombre, como los problemas de dentro; la biblia que falta
+ * o no se lee no es un problema de leer, la juzga `problemaDeLaBiblia`. Sin carpeta,
+ * `sinMundo`.
  */
 export async function leerCrudos(
   id: string,
@@ -130,10 +173,7 @@ export async function leerCrudos(
   if (!existsSync(carpetaDe(id)))
     return { sinMundo: `no hay ningún mundo "${id}" en assets/mundos/` };
   const textos = await Promise.all(
-    FICHEROS_DEL_MUNDO.map(async (f) => {
-      const ruta = rutaDelFichero(id, f.nombre);
-      return [f.nombre, existsSync(ruta) ? await readFile(ruta, 'utf8') : null] as const;
-    }),
+    FICHEROS_DEL_MUNDO.map(async (f) => [f.nombre, await leerTexto(id, f.nombre)] as const),
   );
   const texto = new Map(textos);
   const problemas: string[] = [];
@@ -141,6 +181,10 @@ export async function leerCrudos(
     const t = texto.get(nombre) ?? null;
     if (t === null) {
       problemas.push(noEsta(id, fichero(nombre)));
+      return undefined;
+    }
+    if (noSeLee(t)) {
+      problemas.push(t.noSeLee);
       return undefined;
     }
     try {
@@ -169,12 +213,18 @@ export async function leerMundoDeDisco(
 ): Promise<{ readonly mundo: MundoLeido; readonly biblia: string | null }> {
   const leido = await leerCrudos(id);
   if ('sinMundo' in leido) throw new Error(leido.sinMundo);
-  if ('problemas' in leido) {
+  const { biblia } = leido;
+  // La biblia que no se lee, también: medirla diría «no tiene biblia», y la tiene.
+  const problemas = [
+    ...(noSeLee(biblia) ? [biblia.noSeLee] : []),
+    ...('problemas' in leido ? leido.problemas : []),
+  ];
+  if ('problemas' in leido || noSeLee(biblia)) {
     throw new Error(
-      `el mundo "${id}" no se puede leer:\n${leido.problemas.map(lineaDeProblema).join('\n')}`,
+      `el mundo "${id}" no se puede leer:\n${problemas.map(lineaDeProblema).join('\n')}`,
     );
   }
-  return { mundo: leerMundo(leido.crudos, id), biblia: leido.biblia };
+  return { mundo: leerMundo(leido.crudos, id), biblia };
 }
 
 /**
@@ -194,12 +244,13 @@ export function palabrasDe(texto: string): number {
 /**
  * Lo que le falta a la biblia de un mundo (`biblia.md`, la trama en prosa que el
  * motor escribe antes que `historia.json`), o `null` si vale. `texto` es lo que hay
- * en el fichero, o `null` si no está. Solo en disco: el juego no la lee, la página
+ * en el fichero, `null` si no está, o por qué no se lee (`NoSeLee`). Solo en disco: el juego no la lee, la página
  * no la carga (`client/mundo/cargar.ts`) y ningún mundo va al build; la piden
  * `pnpm mundo validar` y el servidor que genera, por `validarEnDisco`.
  */
-export function problemaDeLaBiblia(texto: string | null, id: string): string | null {
+export function problemaDeLaBiblia(texto: string | null | NoSeLee, id: string): string | null {
   if (texto === null) return noEsta(id, fichero('biblia.md'));
+  if (noSeLee(texto)) return texto.noSeLee;
   const palabras = palabrasDe(texto);
   return palabras < PALABRAS_MINIMAS_DE_LA_BIBLIA
     ? `biblia.md: tiene ${palabras} palabras y una biblia lleva al menos ${PALABRAS_MINIMAS_DE_LA_BIBLIA}: qué pasó antes, quién es quién, la trama y sus desenlaces`
@@ -240,18 +291,20 @@ function soloGenerado(id: string): void {
 }
 
 /**
- * Borra un mundo a medias —su carpeta y su lectura— si no tiene historia: lo que
- * deja una generación fallida antes de que el motor escribiera nada, que no se
- * juega y no se puede arreglar (H11 del QA de la F1a). Uno con historia se queda:
- * aunque no valga, se puede mirar y corregir con `pnpm mundo validar`. Lo llama
- * solo quien creó la carpeta (`tools/mundo/motor.ts`), y solo con un `gen-*`. `true`
- * si borró.
+ * Borra un mundo a medias —su carpeta y su lectura— si el motor no escribió nada en
+ * él: lo que deja una generación fallida antes de la biblia, que no se juega ni se
+ * puede arreglar (H11 del QA de la F1a). Lo que escribió el motor se queda aunque no
+ * valga, para mirarlo: la historia se corrige con `pnpm mundo validar`, y **la biblia
+ * sola también se queda** (H2 del QA de la trama: son minutos de Opus, y el motor
+ * puede morir entre la biblia y la historia). Devuelve lo que queda del motor (vacío:
+ * borró). Lo llama solo quien creó la carpeta (`tools/mundo/motor.ts`), y solo con un
+ * `gen-*`.
  */
-export async function borrarSinHistoria(id: string): Promise<boolean> {
+export async function borrarSiElMotorNoEscribio(id: string): Promise<readonly FicheroDelMotor[]> {
   soloGenerado(id);
-  if (existsSync(rutaDelFichero(id, 'historia.json'))) return false;
-  await borrarMundoGenerado(id);
-  return true;
+  const quedan = FICHEROS_DEL_MOTOR.filter((f) => existsSync(rutaDelFichero(id, f.nombre)));
+  if (quedan.length === 0) await borrarMundoGenerado(id);
+  return quedan;
 }
 
 /**

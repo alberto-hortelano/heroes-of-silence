@@ -36,11 +36,12 @@ export interface AlElegirMundo {
   readonly volver: () => void;
 }
 
-const FASES: Readonly<Record<Fase, string>> = {
+/** El título de cada fase de la espera. */
+export const FASES: Readonly<Record<Fase, string>> = {
   congelar: 'Congelando el plan del mapa',
   pintar: 'Leyendo y pintando el mapa para el motor',
   motor: 'El motor escribe la trama',
-  validar: 'Comprobando la historia',
+  validar: 'Comprobando el mundo',
   listo: 'El mundo está listo',
   fallido: 'No se ha podido generar el mundo',
 };

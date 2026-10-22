@@ -761,7 +761,7 @@ function seIncumpleTras(
  * que cada premio se cobre una vez lo hace cumplir el núcleo (`EstadoDelMundo.cobradas`
  * y `vencidos`), también cuando otra opción vuelve a encenderla. Esto pide que la
  * historia lo diga con su propia condición, que es la que pone la frase del motor
- * («ya te llevaste la lanza») debajo de la opción apagada.
+ * («la lanza ya no cuelga en la garita») debajo de la opción apagada.
  */
 function noSeApaga(
   si: readonly Condicion[],

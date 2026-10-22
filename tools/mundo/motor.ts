@@ -25,12 +25,13 @@ import { ordenDelMotor } from '../../src/server/entorno.js';
 import { matarGrupo } from '../qa/grupo.js';
 import {
   borrarMundoGenerado,
-  borrarSinHistoria,
+  borrarSiElMotorNoEscribio,
   enElRepo,
   escribirLectura,
   escribirMundoNuevo,
   esGenerado,
   FICHEROS_DEL_MOTOR,
+  type FicheroDelMotor,
   hayMundo,
   problemaDeLaLinea,
   RAIZ,
@@ -73,6 +74,13 @@ interface Generacion {
    * pinta no se lanza otra (M6 de la vuelta 2: había dos pintores a la vez).
    */
   viva: boolean;
+  /**
+   * Las llamadas del motor a `pnpm mundo validar <id>` que aún no tienen respuesta, por
+   * su `tool_use_id`: solo la respuesta a una de ellas es lo que dijo el validador (H1
+   * del QA de la trama: la skill lleva la frase «el mundo "<id>" vale», y leerla con
+   * `Read` hacía decir a la espera que el mundo valía con la biblia corta).
+   */
+  readonly validando: Set<string>;
 }
 
 const generaciones = new Map<string, Generacion>();
@@ -165,6 +173,7 @@ export function empezar(pedido: PedidoDelMenu): string {
     cancelado: false,
     creada: false,
     viva: true,
+    validando: new Set(),
   };
   generaciones.set(id, g);
   void generar(g, {
@@ -247,21 +256,15 @@ async function generar(
       poner(g, { fase: 'listo' });
       return;
     }
-    poner(g, {
-      fase: 'fallido',
-      problemas,
-      motivo:
-        salida.codigo === 0
-          ? 'el motor acabó, pero su historia no vale'
-          : `el motor salió con código ${salida.codigo}${salida.porTope ? ' (pasó el tope de tiempo)' : ''}${salida.error === '' ? '' : `: ${salida.error}`}`,
-    });
+    poner(g, { fase: 'fallido', problemas, motivo: motivoDelFallo(salida) });
   } catch (err) {
     if (!g.cancelado)
       poner(g, { fase: 'fallido', motivo: err instanceof Error ? err.message : String(err) });
   } finally {
     // Cancelada, no deja nada: quien cancela no quiere ese mundo, tenga historia o no
-    // (M7 de la vuelta 2). Fallida, deja la historia que no vale para mirarla, y sin
-    // historia no deja una carpeta que no se juega. Solo un `gen-*` creado aquí: un
+    // (M7 de la vuelta 2). Fallida, deja lo que escribió el motor para mirarlo —la
+    // biblia sola también, H2 del QA de la trama—, y si no escribió nada no deja una
+    // carpeta que no se juega. Solo un `gen-*` creado aquí: un
     // id puesto a mano (`ejemplo`) no se borra nunca. Al cancelar se llega aquí cuando
     // el motor ya ha cerrado (`lanzarMotor` espera a su `close`) o el pintor ha
     // acabado, así que no se borra con nadie aún escribiendo.
@@ -270,8 +273,8 @@ async function generar(
         if (g.cancelado) {
           await borrarMundoGenerado(id);
           linea(g, `el mundo "${id}" se ha cancelado: se borra`);
-        } else if (await borrarSinHistoria(id)) {
-          linea(g, `el mundo "${id}" no tenía historia: se borra`);
+        } else {
+          linea(g, dichoDeLoQueQueda(id, await borrarSiElMotorNoEscribio(id)));
         }
       } catch (err) {
         avisar(
@@ -281,6 +284,18 @@ async function generar(
     }
     g.viva = false;
   }
+}
+
+/**
+ * Lo que se dice de un mundo fallido tras borrar lo que no escribió el motor
+ * (`borrarSiElMotorNoEscribio`): que se borra, o qué queda para mirar.
+ */
+export function dichoDeLoQueQueda(id: string, quedan: readonly FicheroDelMotor[]): string {
+  if (quedan.length === 0) return `el mundo "${id}" no tenía ni biblia ni historia: se borra`;
+  const que = quedan.map((f) => f.motor.la).join(' y ');
+  return quedan.length === 1
+    ? `queda ${que} en assets/mundos/${id}/ para mirarla`
+    : `quedan ${que} en assets/mundos/${id}/ para mirarlas`;
 }
 
 /** Los argumentos de `claude -p` para un mundo: la skill, sus permisos y nada más. */
@@ -415,29 +430,43 @@ export function lineaDelMotor(crudo: string, id: string): string | null {
   return partes.length === 0 ? null : partes.join(' · ');
 }
 
-/** Si una línea del motor es su llamada a `pnpm mundo validar <id>`. */
-export function esSuValidacion(crudo: string, id: string): boolean {
-  if (!crudo.includes('"tool_use"')) return false;
+/**
+ * Las llamadas de una línea del motor a `pnpm mundo validar <id>`, por su
+ * `tool_use_id`: una validación es una llamada a la herramienta, no el texto que la
+ * nombra. Vacío si la línea no lleva ninguna.
+ */
+export function llamadasAlValidador(crudo: string, id: string): string[] {
+  if (!crudo.includes('"tool_use"')) return [];
+  let e: { message?: { content?: unknown } };
   try {
-    const e = JSON.parse(crudo) as { message?: { content?: unknown } };
-    const contenido = Array.isArray(e.message?.content) ? e.message.content : [];
-    return contenido.some(
-      (c: { type?: string; name?: string; input?: { command?: unknown } }) =>
-        c.type === 'tool_use' &&
-        c.name === 'Bash' &&
-        String(c.input?.command ?? '').trim() === `pnpm mundo validar ${id}`,
-    );
+    e = JSON.parse(crudo);
   } catch {
-    return false;
+    return [];
   }
+  const contenido = Array.isArray(e.message?.content) ? e.message.content : [];
+  return contenido.flatMap(
+    (c: { type?: string; id?: unknown; name?: string; input?: { command?: unknown } }) =>
+      c.type === 'tool_use' &&
+      c.name === 'Bash' &&
+      typeof c.id === 'string' &&
+      String(c.input?.command ?? '').trim() === `pnpm mundo validar ${id}`
+        ? [c.id]
+        : [],
+  );
 }
 
 /**
- * Lo que respondió el validador a una llamada del motor, si la línea es eso: los
- * problemas (cada línea de `pnpm mundo validar` que lo es, `problemaDeLaLinea`),
- * vacío si dijo que vale, o `null` si la línea no es una respuesta del validador.
+ * Lo que respondió el validador, si la línea es la respuesta a una de sus `llamadas`
+ * (`llamadasAlValidador`): de cuál y los problemas (cada línea de `pnpm mundo
+ * validar` que lo es, `problemaDeLaLinea`), vacío si dijo que vale; `null` si no es
+ * eso. **Solo la respuesta a esas llamadas**: la frase «el mundo "<id>" vale» la
+ * lleva también la skill, y otra herramienta que la lea (un `Read` de `SKILL.md`) no
+ * es el validador (H1 del QA de la trama).
  */
-export function respuestaDelValidador(crudo: string): readonly string[] | null {
+export function respuestaDelValidador(
+  crudo: string,
+  llamadas: ReadonlySet<string>,
+): { readonly llamada: string; readonly problemas: readonly string[] } | null {
   if (!crudo.includes('"tool_result"')) return null;
   let e: { type?: string; message?: { content?: unknown } };
   try {
@@ -446,16 +475,51 @@ export function respuestaDelValidador(crudo: string): readonly string[] | null {
     return null;
   }
   if (e.type !== 'user' || !Array.isArray(e.message?.content)) return null;
-  for (const c of e.message.content as { type?: string; content?: unknown }[]) {
-    if (c.type !== 'tool_result') continue;
+  for (const c of e.message.content as {
+    type?: string;
+    tool_use_id?: unknown;
+    content?: unknown;
+  }[]) {
+    if (c.type !== 'tool_result' || typeof c.tool_use_id !== 'string') continue;
+    if (!llamadas.has(c.tool_use_id)) continue;
     const texto = Array.isArray(c.content)
       ? c.content.map((x: { text?: unknown }) => String(x.text ?? '')).join('\n')
       : String(c.content ?? '');
-    if (/el mundo "[^"]+" vale/.test(texto)) return [];
+    if (/el mundo "[^"]+" vale/.test(texto)) return { llamada: c.tool_use_id, problemas: [] };
     const problemas = texto.split('\n').flatMap((l) => problemaDeLaLinea(l) ?? []);
-    if (problemas.length > 0) return problemas.map(sinRutas);
+    // Una llamada denegada o que no llegó a validar no dice nada del mundo.
+    if (problemas.length > 0) return { llamada: c.tool_use_id, problemas: problemas.map(sinRutas) };
   }
   return null;
+}
+
+/**
+ * Lo que la espera dice de una respuesta del validador: su línea y el último
+ * problema (cuántos y el primero), o nada si vale. **Del mundo**, no de la historia:
+ * lo que no vale puede ser la biblia (H3 del QA de la trama).
+ */
+export function dichoDeLaValidacion(problemas: readonly string[]): {
+  readonly linea: string;
+  readonly ultimoProblema: string | undefined;
+} {
+  const n = problemas.length;
+  return n === 0
+    ? { linea: 'el mundo vale', ultimoProblema: undefined }
+    : {
+        linea: `el mundo aún no vale (${n})`,
+        ultimoProblema: `${n} ${n === 1 ? 'problema' : 'problemas'}; el primero, ${problemas[0]}`,
+      };
+}
+
+/** Por qué falló una generación cuyo mundo no vale al salir el motor, según cómo salió. */
+export function motivoDelFallo(salida: {
+  readonly codigo: number | null;
+  readonly porTope: boolean;
+  readonly error: string;
+}): string {
+  return salida.codigo === 0
+    ? 'el motor acabó, pero el mundo no vale'
+    : `el motor salió con código ${salida.codigo}${salida.porTope ? ' (pasó el tope de tiempo)' : ''}${salida.error === '' ? '' : `: ${salida.error}`}`;
 }
 
 async function lanzarMotor(
@@ -485,18 +549,17 @@ async function lanzarMotor(
     const lineas = resto.split('\n');
     resto = lineas.pop() ?? '';
     for (const l of lineas) {
-      // Una validación es una llamada a la herramienta, no el texto que la nombra.
-      if (esSuValidacion(l, id)) poner(g, { validaciones: g.progreso.validaciones + 1 });
-      const respuesta = respuestaDelValidador(l);
+      const llamadas = llamadasAlValidador(l, id);
+      for (const llamada of llamadas) g.validando.add(llamada);
+      if (llamadas.length > 0) {
+        poner(g, { validaciones: g.progreso.validaciones + llamadas.length });
+      }
+      const respuesta = respuestaDelValidador(l, g.validando);
       if (respuesta !== null) {
-        const n = respuesta.length;
-        poner(g, {
-          ultimoProblema:
-            n === 0
-              ? undefined
-              : `${n} ${n === 1 ? 'problema' : 'problemas'}; el primero, ${respuesta[0]}`,
-        });
-        linea(g, n === 0 ? 'la historia vale' : `la historia aún no vale (${n})`);
+        g.validando.delete(respuesta.llamada);
+        const dicho = dichoDeLaValidacion(respuesta.problemas);
+        poner(g, { ultimoProblema: dicho.ultimoProblema });
+        linea(g, dicho.linea);
       }
       const dicha = lineaDelMotor(l, id);
       if (dicha !== null) linea(g, dicha);
