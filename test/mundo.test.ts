@@ -974,3 +974,106 @@ describe('la IA de reglas en un lugar', () => {
     expect(hariaAlgoEn(state, hero, pozo, 1_000_000)).toBe(false);
   });
 });
+
+describe('las figuras de la gente de un mundo (el banco de NPC)', () => {
+  /** Una petición que vale: la de una figura del banco sin su id ni quién la pidió. */
+  const PETICION = {
+    descripcion: 'Un barquero viejo: capa de hule, gorro de lana, botas altas y una pértiga corta.',
+    etiquetas: {
+      oficio: 'vagabundo',
+      sexo: 'hombre',
+      edad: 'anciano',
+      especie: 'humano',
+      faccion: 'imperio',
+      clase: 'baja',
+    },
+    talla: 1,
+    acciones: 'reposo-y-marcha',
+  };
+  const corvo = (h: { lugares: Record<string, unknown>[] }) =>
+    (h.lugares[0] as { puntos: { id: string; persona?: Record<string, unknown> }[] }).puntos.find(
+      (p) => p.id === 'corvo',
+    )!.persona!;
+
+  it('una persona nombra una figura del banco o una de las que pide; otra cosa se dice', () => {
+    expect(conHistoria((h) => (corvo(h).figura = 'imperio-alabardero'))).toContainEqual(
+      expect.stringMatching(
+        /^historia\.json: lugares\[0\]\.puntos\[1\]\.persona\.figura: "imperio-alabardero" no es una figura del banco de NPC/,
+      ),
+    );
+    expect(
+      conHistoria((h) => {
+        corvo(h).figura = 'barquero';
+        h.figuras = { barquero: PETICION };
+      }),
+    ).toEqual([]);
+    // El cuerpo del catálogo se retiró: ya no vale.
+    expect(
+      conHistoria((h) => {
+        corvo(h).cuerpo = 'imperio-alabardero';
+      }),
+    ).toContainEqual(expect.stringMatching(/persona: .*cuerpo/));
+  });
+
+  it('lo que pide: un id libre en el banco, que valga como petición, usado y como mucho cuatro', () => {
+    const pide = (figuras: Record<string, unknown>) =>
+      conHistoria((h) => {
+        h.figuras = figuras;
+        corvo(h).figura = Object.keys(figuras)[0];
+      });
+    expect(pide({ 'imperio-armero': PETICION })).toContainEqual(
+      'historia.json: figuras.imperio-armero: "imperio-armero" ya es una figura del banco: nómbrala sin pedirla',
+    );
+    expect(pide({ barquero: { ...PETICION, talla: 0 } })).toContainEqual(
+      expect.stringMatching(/^historia\.json: figuras\.barquero\.talla: tiene que ser un número/),
+    );
+    expect(pide({ barquero: PETICION, sobra: PETICION })).toContainEqual(
+      'historia.json: figuras.sobra: no la nombra ninguna persona ni la gente de la base: una figura pedida se pinta para alguien',
+    );
+    const cinco = Object.fromEntries(['a', 'b', 'c', 'd', 'e'].map((k) => [`fig-${k}`, PETICION]));
+    expect(pide(cinco)).toContainEqual(
+      'historia.json: figuras: pide 5 figuras y un mundo pide como mucho 4: reutiliza las del banco que se parezcan',
+    );
+  });
+
+  it('«base» asigna figura a la gente de la base de quien juega, y a nadie más', () => {
+    expect(
+      conHistoria((h) => {
+        h.base = { 'encargado-hall': 'imperio-posadera', 'vecino-pregonero': 'imperio-armero' };
+      }),
+    ).toEqual([]);
+    expect(
+      conHistoria((h) => {
+        h.base = { 'vecino-tamborilero': 'imperio-armero' };
+      }),
+    ).toContainEqual(
+      expect.stringMatching(
+        /^historia\.json: base\.vecino-tamborilero: "vecino-tamborilero" no es de la gente de la base de quien juega \(imperio\)/,
+      ),
+    );
+    expect(
+      conHistoria((h) => {
+        h.base = { alcaide: 'nadie' };
+      }),
+    ).toContainEqual(
+      expect.stringMatching(/^historia\.json: base\.alcaide: "nadie" no es una figura/),
+    );
+  });
+
+  it('la lectura para el motor trae el banco: etiquetas, tope, figuras y la gente de su base', () => {
+    const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
+    const { npcs } = lecturaParaElMotor(leido.mundo, leido.plan, BANCO);
+    expect(npcs.tope).toBe(4);
+    expect(Object.keys(npcs.etiquetas)).toEqual([
+      'oficio',
+      'sexo',
+      'edad',
+      'especie',
+      'faccion',
+      'clase',
+    ]);
+    expect(npcs.figuras.map((f) => f.id)).toContain('imperio-armero');
+    expect(npcs.gente[0]).toMatchObject({ id: 'alcaide', nombre: 'Konrad', especie: 'humano' });
+    expect(npcs.gente.map((p) => p.id)).toContain('vecino-pregonero');
+  });
+});

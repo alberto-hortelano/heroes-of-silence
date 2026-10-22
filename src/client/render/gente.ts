@@ -35,13 +35,23 @@ async function pedir(): Promise<BancoPintado> {
     );
     return SIN_BANCO;
   }
-  if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) {
+  // El build lo emite como un fichero sin extensión: el tipo que diga el servidor no
+  // cuenta, cuenta que sea JSON. Lo que no lo es (una página de «no está») no es banco.
+  let respuesta: RespuestaDelBanco | null = null;
+  if (r.ok) {
+    try {
+      respuesta = (await r.json()) as RespuestaDelBanco;
+    } catch {
+      respuesta = null;
+    }
+  }
+  if (respuesta === null) {
     console.warn(
-      `[npcs] sin banco de figuras (/__npcs responde ${r.status}): la gente sale con el Y Bot`,
+      `[npcs] sin banco de figuras (/__npcs responde ${r.status} y no es JSON): la gente sale con el Y Bot`,
     );
     return SIN_BANCO;
   }
-  const { banco: crudo, hojas } = (await r.json()) as RespuestaDelBanco;
+  const { banco: crudo, hojas } = respuesta;
   const banco = leerBanco(crudo);
   const pintadas = new Set<string>();
   for (const f of banco.figuras) {
