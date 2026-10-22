@@ -16,9 +16,9 @@
  * `hornearElVelo` y `sinElVelo`).
  *
  * No toca el DOM ni recibe clics: pinta en el lienzo que le dan. No lee la
- * sesión (`invariantes.test.ts`): le dan el clima del sitio. Lee él mismo si
- * quien mira pidió menos movimiento (`movimientoReducido`): la lluvia y la niebla,
- * despacio (`PRISA_CON_MOVIMIENTO_REDUCIDO`) y sin rayos.
+ * sesión (`invariantes.test.ts`): le dan el clima del sitio. No mira
+ * `prefers-reduced-motion`: es para leer una página, no para un juego (el
+ * usuario, 22-10-2026); la lluvia y el rayo van siempre.
  *
  * **Por qué así** (lo caro es componer una capa del tamaño del lienzo, y el mapa
  * tiene un presupuesto de píxeles: `PIXELES_DEL_MAPA`):
@@ -42,7 +42,6 @@
 import type { MapaDeRed } from '@core/map/regiones.js';
 import { hashDeTexto } from '@core/rng.js';
 import type { ClimaDeLaPartida, ClimaDelSitio } from '@core/state/clima.js';
-import { movimientoReducido } from '../../movimiento.js';
 import { type CamaraMapa, mundoAPixel } from '../camara-mapa.js';
 import { CacheDeLienzos } from '../copias.js';
 import { mezclar } from '../escenario/fronteras.js';
@@ -71,13 +70,6 @@ const DURACION_DEL_RAYO = 160;
 const GROSOR_DE_LA_GOTA = 1;
 /** Cuántas gotas como mucho por fotograma: en una pantalla enorme, la lluvia no crece sin tope. */
 const TOPE_DE_GOTAS = 2400;
-/**
- * A qué fracción del reloj va lo que se mueve (la lluvia y los bancos de niebla)
- * con movimiento reducido: despacio, sin partículas que corran (criterio 5 del
- * clima), pero sin quedarse quieto («la lluvia debería estar animada», el usuario,
- * 22-10-2026: congelada parecía rota).
- */
-const PRISA_CON_MOVIMIENTO_REDUCIDO = 0.2;
 /** Cuánto ilumina el destello de un rayo en el mapa, en casillas: unas seis. */
 const RADIO_DEL_RAYO_EN_EL_MAPA = 6;
 
@@ -654,17 +646,12 @@ function pintarLluvia(
   { lluvia, dentro }: CampoDelClima['lluvias'][number],
   m: MarcoDelClima,
   ahora: number,
-  lento: boolean,
   semilla: number,
 ): void {
   const { a, d, e, f } = ctx.getTransform();
   const W = m.ancho * a;
   const H = m.alto * d;
-  // Lenta (movimiento reducido), la mitad de gotas: se ve que llueve sin una cortina delante.
-  const n = Math.min(
-    TOPE_DE_GOTAS,
-    Math.round(((lluvia.densidad * m.ancho * m.alto) / 10_000) * (lento ? 0.5 : 1)),
-  );
+  const n = Math.min(TOPE_DE_GOTAS, Math.round((lluvia.densidad * m.ancho * m.alto) / 10_000));
   const planos = [
     { parte: 0.6, largo: 10, velocidad: 0.62, alfa: 0.55 },
     { parte: 0.4, largo: 18, velocidad: 0.95, alfa: 1 },
@@ -779,10 +766,6 @@ function pintarRayo(
 const seMueve = (campo: CampoDelClima): boolean =>
   campo.bancos !== null || campo.lluvias.length > 0 || campo.rayos.length > 0;
 
-/** El reloj de lo que se mueve: el de verdad, o más lento con movimiento reducido. */
-const relojDelClima = (ahora: number, lento: boolean): number =>
-  lento ? ahora * PRISA_CON_MOVIMIENTO_REDUCIDO : ahora;
-
 /**
  * Lo de abajo del clima: lo que aclara (bruma y bancos) y lo que oscurece (la
  * luz, con sus fuegos). En la batalla va detrás de las casillas y las figuras;
@@ -793,7 +776,7 @@ export function pintarSueloDelClima(
   campo: CampoDelClima,
   m: MarcoDelClima,
 ): void {
-  pintarLoQueAclara(ctx, campo, m, relojDelClima(m.ahora, movimientoReducido()));
+  pintarLoQueAclara(ctx, campo, m, m.ahora);
   pintarLaLuz(ctx, campo, m);
   if (campo.bancos !== null) animarHasta(m.ahora + 100);
 }
@@ -808,18 +791,12 @@ export function pintarAireDelClima(
   campo: CampoDelClima,
   m: MarcoDelClima,
 ): void {
-  const lento = movimientoReducido();
-  const ahora = relojDelClima(m.ahora, lento);
-  for (const [j, l] of campo.lluvias.entries()) pintarLluvia(ctx, l, m, ahora, lento, j * 9973);
-  // Con movimiento reducido, sin rayos: un destello es lo que no se pide.
-  if (!lento) {
-    for (const foco of campo.rayos) {
-      const rayo = rayoAhora(foco.id, m.ahora, foco.cada);
-      if (rayo === null) continue;
-      const donde = foco.donde(rayo.ciclo);
-      if (donde !== null)
-        pintarRayo(ctx, donde, rayo.fuerza, rayo.ciclo * 31 + hashDeTexto(foco.id));
-    }
+  for (const [j, l] of campo.lluvias.entries()) pintarLluvia(ctx, l, m, m.ahora, j * 9973);
+  for (const foco of campo.rayos) {
+    const rayo = rayoAhora(foco.id, m.ahora, foco.cada);
+    if (rayo === null) continue;
+    const donde = foco.donde(rayo.ciclo);
+    if (donde !== null) pintarRayo(ctx, donde, rayo.fuerza, rayo.ciclo * 31 + hashDeTexto(foco.id));
   }
   if (seMueve(campo)) animarHasta(m.ahora + 100);
 }

@@ -459,9 +459,6 @@
 @keyframes llenar { from { transform: scaleX(0); } to { transform: none; } }
 @keyframes latir { 50% { opacity: 0.35; } }
 @keyframes latir-halo { 50% { transform: scale(1.35); opacity: 0.15; } }
-@media (prefers-reduced-motion: reduce) {
-  #rueda *, #rueda *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
-}
 /* En un móvil la rueda pisa el panel de debajo del lienzo: un velo lo tapa y las
    cajas van opacas, que a través de ellas se leía el panel. */
 @media (max-width: 760px) {

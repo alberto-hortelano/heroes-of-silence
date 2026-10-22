@@ -25,7 +25,7 @@ pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales
 npx tsx tools/qa/barrido-semillas.ts   # cuántas de 4 partidas no terminan (hoy 0)
 npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión anterior
 npx tsx tools/qa/neutro.ts [ref]       # el estilo sin tema, igual que en las hojas de un ref (HEAD), ~10 s
-npx tsx tools/qa/clima.ts [carpeta]    # el clima en los tres escenarios, la niebla de guerra, el movimiento reducido y los fps (.cache/clima/)
+npx tsx tools/qa/clima.ts [carpeta]    # el clima en los tres escenarios, la niebla de guerra, el rayo y los fps (.cache/clima/)
 npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (google/fonts, sha256) y rehace src/client/fuentes.css
 ```
 
@@ -792,9 +792,9 @@ antes del destino (`battle_started` con `faltan`).
   `ClimaDelSitio` (`campoDeEscena`): `pintarSueloDelClima` entre lo suyo y las figuras y
   `pintarAireDelClima` al final; la base y la morada (`pintarBase`) heredan el de la región de su
   ciudad, y la tropa no lleva (es una ficha). Lo blando va en una capa a un cuarto que se compone
-  **sin suavizado** (con el bilineal, 7-10 ms por fotograma sin GPU; con el vecino, 1 ms). Con
-  `prefers-reduced-motion: reduce`, quieto (`movimientoReducido`, que lee la pieza): sin rayos y sin
-  nada que corra. Medido con `tools/qa/clima.ts` (la tabla, en
+  **sin suavizado** (con el bilineal, 7-10 ms por fotograma sin GPU; con el vecino, 1 ms). El juego no
+  mira `prefers-reduced-motion` (decisión del usuario, 22-10-2026: «eso es para páginas web donde
+  estás leyendo, no para un videojuego»): la lluvia, el rayo y la rueda se animan siempre. Medido con `tools/qa/clima.ts` (la tabla, en
   `docs/agents/2026-10-22-clima/implementacion.md`).
 - **Tema por facción** (13-10-2026 en su rama; en el juego desde el 19-10-2026): cinco, uno por
   facción, **como sus láminas** (`assets/art/temas/<tema>.png`): la paleta se mide en la lámina y
@@ -1298,7 +1298,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10, y con el río de lago de 20, 121 / 0 / 12; con el recinto de las ciudades en el núcleo, 98 / 0 / 6; sin minas (21-10-2026), 106 / 0 / 10; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 | `tools/qa/neutro.ts` | ~10 s | si tocas una hoja de estilo: sin `data-tema`, 0 diferencias con HEAD |
-| `tools/qa/clima.ts [carpeta]` | ~15-30 min (con fps) | si tocas el clima: capturas de cada clima en el mapa, la batalla, la base, la morada y el espectador, lo inexplorado intacto, el movimiento reducido y los fps (`--sin-fps` para solo mirar) |
+| `tools/qa/clima.ts [carpeta]` | ~15-30 min (con fps) | si tocas el clima: capturas de cada clima en el mapa, la batalla, la base, la morada y el espectador, lo inexplorado intacto, el rayo y los fps (`--sin-fps` para solo mirar) |
 | `tools/qa/temas-con-piezas.ts [carpeta]` | ~5 min | si tocas los temas o sus piezas: rótulos de sección sobre su pieza, el lienzo quieto en 7 ventanas, lo que tapan marco, remate y cartela, y las capturas lado a lado |
 | `npx tsx tools/qa/arena-ia.ts` | ~2 s | si tocas el movimiento de la batalla, salir del contacto, la carga, la rueda o la armadura: 100 peleas por variante con unidades del catálogo, IA contra IA (peleas sin terminar, rondas, tiempo, cargas, cruces y golpes parados) |
 

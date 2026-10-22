@@ -1,6 +1,6 @@
 /**
  * El clima en pantalla, con un Chromium de verdad: capturas de cada clima en los
- * tres escenarios, la niebla de guerra intacta, el movimiento reducido y los fps.
+ * tres escenarios, la niebla de guerra intacta, el rayo y los fps.
  *
  *     npx tsx tools/qa/clima.ts [carpeta] [--sin-fps] [--solo-fps] [--escenas=mapa,…] [--climas=a;b] [--solo-espectador] [--solo-rayo]
  *
@@ -17,9 +17,6 @@
  *   vista, y una batalla de la arena;
  * - **la niebla de guerra no cambia** (criterio 3): todo píxel que con el
  *   despejado es lo inexplorado (`#080a10`) lo sigue siendo con cada clima;
- * - **movimiento reducido** (criterio 5): con `prefers-reduced-motion: reduce` y
- *   tormenta, la lluvia cae despacio: dos fotogramas a 600 ms se parecen y ninguno
- *   lleva un destello;
  * - **fps** (criterio 6): en 2560×1440, el mapa al tope de alejar arrastrándolo
  *   3 s, la batalla y la base, por clima y con el despejado intercalado; y el
  *   mapa una vez más en 3840×2160. Imprime la tabla con la fecha y sale con 1 si
@@ -242,56 +239,10 @@ async function capturas(browser: Browser, url: string): Promise<void> {
   await ctx.close();
 }
 
-/** Criterio 5: con movimiento reducido, la tormenta va despacio (casi quieta) y sin destellos. */
-async function movimientoReducido(browser: Browser, url: string): Promise<void> {
-  const ctx = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
-    reducedMotion: 'reduce',
-  });
-  const page = await ctx.newPage();
-  vigilar(page, 'reducido');
-  await abrirLaBatalla(page, url, 'tormenta');
-  // Las figuras respiran: se mira el cielo de detrás, donde caería el rayo
-  // (el lienzo, bajo la barra de arriba).
-  const lienzo = await page.locator('#canvas').boundingBox();
-  if (lienzo === null) throw new Error('reducido: no hay lienzo');
-  const clip = { x: lienzo.x, y: lienzo.y, width: lienzo.width, height: 160 };
-  const brillo = async (): Promise<{ data: Buffer }> => pixeles(await page.screenshot({ clip }));
-  // Un destello sube la luz de muchos píxeles a la vez: se cuenta qué parte del
-  // cielo sube más de 40 de un fotograma al siguiente.
-  let destello = 0;
-  let diferencia = 0;
-  let antes = await brillo();
-  for (let i = 0; i < 12; i++) {
-    await sleep(600);
-    const ahora = await brillo();
-    let suma = 0;
-    let suben = 0;
-    for (let k = 0; k < ahora.data.length; k += 4) {
-      const d = (ahora.data[k + 2] ?? 0) - (antes.data[k + 2] ?? 0);
-      suma += Math.abs(d);
-      if (d > 40) suben++;
-    }
-    diferencia = Math.max(diferencia, suma / (ahora.data.length / 4));
-    destello = Math.max(destello, suben / (ahora.data.length / 4));
-    antes = ahora;
-  }
-  await guardar(page, 'batalla-tormenta-reducido');
-  log(
-    `movimiento reducido: diferencia media entre fotogramas ${diferencia.toFixed(2)}, parte del cielo que se enciende ${(destello * 100).toFixed(2)} %`,
-  );
-  if (diferencia > 2)
-    errores.push(`reducido: dos fotogramas a 600 ms difieren ${diferencia.toFixed(2)} de media`);
-  if (destello > 0.01)
-    errores.push(`reducido: hay un destello (${(destello * 100).toFixed(1)} % del cielo)`);
-  await ctx.close();
-}
-
 /**
- * El rayo, sin movimiento reducido: la tormenta de la arena fotografiada hasta
- * pillar un destello (uno cada 4-9 s). Guarda el fotograma con más luz en el
- * cielo y dice qué parte del cielo se encendió: es también lo que demuestra que
- * la prueba de `movimientoReducido` muerde.
+ * El rayo: la tormenta de la arena fotografiada hasta pillar un destello (uno
+ * cada 4-9 s). Guarda el fotograma con más luz en el cielo y dice qué parte del
+ * cielo se encendió.
  */
 async function rayo(browser: Browser, url: string): Promise<void> {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -640,7 +591,6 @@ async function main(): Promise<void> {
     } else {
       if (!SOLO_FPS) {
         await capturas(browser, vite.url);
-        await movimientoReducido(browser, vite.url);
         await rayo(browser, vite.url);
         await espectador(browser, vite.url);
       }
