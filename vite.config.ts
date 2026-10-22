@@ -286,8 +286,73 @@ function marcas(): Plugin {
 }
 
 /**
+ * Generar un mundo desde el menú (F1a del mapa vivo, `tools/mundo/motor.ts`):
+ * `POST /__mundos` con lo elegido empieza una generación y devuelve su id (409 si
+ * ya hay otra en marcha); `GET /__mundos/<id>/progreso` dice por qué fase va y lo
+ * último que hizo el motor; `DELETE /__mundos/<id>` la cancela (mata el grupo del
+ * motor). Solo en `pnpm dev`: el motor es Claude Code con la suscripción, en esta
+ * máquina, y el mundo queda en `assets/mundos/<id>/`.
+ */
+function mundos(): Plugin {
+  const raiz = __dirname;
+  return {
+    name: 'heroes-mundos',
+    apply: 'serve',
+    configureServer(server) {
+      // Una vez: las generaciones en marcha viven en el estado del módulo.
+      let motor: Promise<typeof import('./tools/mundo/motor.js')> | null = null;
+      const cargar = () =>
+        (motor ??= server.ssrLoadModule(resolve(raiz, 'tools/mundo/motor.ts')) as Promise<
+          typeof import('./tools/mundo/motor.js')
+        >);
+      const atender = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+        const m = await cargar();
+        const responder = (estado: number, cuerpo: unknown): void => {
+          res.statusCode = estado;
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify(cuerpo));
+        };
+        const ruta = (req.url ?? '/').split('?')[0] ?? '/';
+        const progreso = /^\/([a-z0-9-]+)\/progreso$/.exec(ruta);
+        const uno = /^\/([a-z0-9-]+)$/.exec(ruta);
+        if (req.method === 'POST' && ruta === '/') {
+          try {
+            responder(200, {
+              id: m.empezar(m.leerPedido(await leerCuerpo(req, 10_000, 'el pedido'))),
+            });
+          } catch (err) {
+            responder(err instanceof m.EnMarcha ? 409 : 400, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+          return;
+        }
+        if (req.method === 'GET' && progreso !== null) {
+          const p = m.progresoDe(progreso[1] as string);
+          responder(
+            p === null ? 404 : 200,
+            p ?? { error: `no se está generando "${progreso[1]}"` },
+          );
+          return;
+        }
+        if (req.method === 'DELETE' && uno !== null) {
+          responder(200, { cancelado: m.cancelar(uno[1] as string) });
+          return;
+        }
+        responder(405, {
+          error: `un mundo se genera con POST /__mundos, se sigue con GET /__mundos/<id>/progreso y se cancela con DELETE /__mundos/<id>, no con ${req.method} ${req.url}`,
+        });
+      };
+      server.middlewares.use('/__mundos', (req, res, next) => {
+        atender(req, res).catch(next);
+      });
+    },
+  };
+}
+
+/**
  * Que nada de las herramientas de desarrollo llegue a `dist/`: ni el módulo de
- * `desarrollo/` ni la ruta `/__marcas`. Las aparta `HERRAMIENTAS_DE_DESARROLLO`
+ * `desarrollo/` ni las rutas `/__marcas` y `/__mundos`. Las aparta `HERRAMIENTAS_DE_DESARROLLO`
  * = `false`, que deja su `import()` en una rama muerta; si un día Rollup lo
  * conserva o alguien lo importa sin la guarda, el build se rompe aquí y no se
  * publica una página que escribe en disco.
@@ -304,7 +369,12 @@ function sinDesarrollo(): Plugin {
             : typeof trozo.source === 'string'
               ? trozo.source
               : '';
-        for (const huella of ['__marcas', 'client/desarrollo/', 'HERRAMIENTAS_DE_DESARROLLO'])
+        for (const huella of [
+          '__marcas',
+          '__mundos',
+          'client/desarrollo/',
+          'HERRAMIENTAS_DE_DESARROLLO',
+        ])
           if (texto.includes(huella))
             this.error(
               `el build lleva herramientas de desarrollo: «${huella}» en ${nombre}. Solo pueden entrar con un import() detrás de HERRAMIENTAS_DE_DESARROLLO (src/client/main.ts)`,
@@ -333,7 +403,7 @@ function publico(): Plugin {
 
 export default defineConfig(({ command }) => ({
   root: 'src/client',
-  plugins: [arena(), marcas(), sinDesarrollo(), publico()],
+  plugins: [arena(), marcas(), mundos(), sinDesarrollo(), publico()],
   publicDir: resolve(__dirname, 'assets'),
   resolve: {
     alias: { '@core': resolve(__dirname, 'src/core') },

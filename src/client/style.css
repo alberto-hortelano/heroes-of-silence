@@ -720,6 +720,13 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
    no cambia mientras se elige, así que no necesita las medidas fijas de la de
    facción. El retrato es la identidad de la hoja con que se pinta el héroe. */
 .quien-de-inicio { margin: -0.6rem 0 0.9rem; text-align: center; color: var(--ink-dim); }
+/* «El mundo» y su espera (solo en pnpm dev, `desarrollo/mundo.ts`). */
+.eleccion-del-mundo, .espera-del-mundo { max-width: 40rem; margin: 0 auto; }
+.tamanos-del-mundo { display: grid; gap: 0.4rem; margin-bottom: 0.8rem; }
+.rivales-del-mundo { display: flex; gap: 0.6rem; align-items: center; }
+.rivales-del-mundo input { width: 4rem; }
+.lineas-del-motor { font-size: 0.85em; color: var(--ink-dim); max-height: 18rem; overflow: auto; }
+.motivo-del-mundo, .problemas-del-mundo { color: var(--rechazo); }
 .opcion-de-heroe {
   /* Con el dedo, el marco de la marcada ya dice cuál es: el resalte azul del toque
      del navegador se quedaba encima del retrato (captura del móvil). */

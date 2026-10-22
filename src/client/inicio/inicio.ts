@@ -22,6 +22,12 @@ import { aLaBarra, semillaSorteada } from '../semilla.js';
 import { ponerTema, quitarTema } from '../temas.js';
 import { renderEleccion, renderEleccionDeHeroe, renderMenu } from './pantallas.js';
 
+/**
+ * `true` en `pnpm dev`: «Empezar» lleva a «El mundo» (`desarrollo/mundo.ts`), que
+ * lo genera con el motor de narrativa. En `vite build`, `false`: juega como siempre.
+ */
+declare const HERRAMIENTAS_DE_DESARROLLO: boolean;
+
 function deLaPagina<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
   if (el === null) throw new Error(`la página no tiene #${id}: ¿es el index.html de la partida?`);
@@ -50,7 +56,13 @@ export function pedirPartida(): Promise<void> {
       faccion: elegida,
       tipo: tipoDeHeroePorDefecto(elegida),
     };
-    let pantalla: 'menu' | 'eleccion' | 'heroe' = 'menu';
+    let pantalla: 'menu' | 'eleccion' | 'heroe' | 'mundo' = 'menu';
+    /** Lo que escucha «El mundo» (solo en `pnpm dev`): se suelta al salir de ella. */
+    let delMundo: AbortController | null = null;
+    const soltarElMundo = (): void => {
+      delMundo?.abort();
+      delMundo = null;
+    };
     /** Lo que escucha el menú, que se suelta de una vez al empezar. */
     const escucha = new AbortController();
     const { signal } = escucha;
@@ -71,6 +83,7 @@ export function pedirPartida(): Promise<void> {
       enfocar('input[name="faccion"]:checked');
     };
     const aHeroe = (): void => {
+      soltarElMundo();
       pantalla = 'heroe';
       if (heroe.faccion !== elegida)
         heroe = { faccion: elegida, tipo: tipoDeHeroePorDefecto(elegida) };
@@ -78,9 +91,10 @@ export function pedirPartida(): Promise<void> {
       ponerTema(elegida);
       enfocar('input[name="heroe"]:checked');
     };
-    /** Un paso atrás: del héroe a la facción, y de la facción al menú. */
+    /** Un paso atrás: del mundo al héroe, del héroe a la facción, y de la facción al menú. */
     const atras = (): void => {
-      if (pantalla === 'heroe') aEleccion();
+      if (pantalla === 'mundo') aHeroe();
+      else if (pantalla === 'heroe') aEleccion();
       else if (pantalla === 'eleccion') aMenu();
     };
     /** Escribe lo elegido en la URL y deja paso a la partida. */
@@ -94,6 +108,19 @@ export function pedirPartida(): Promise<void> {
         if (pedido.faccion !== undefined) url.searchParams.set('faccion', pedido.faccion);
         if (pedido.heroe !== undefined) url.searchParams.set('heroe', pedido.heroe);
       });
+      soltarElMundo();
+      escucha.abort();
+      inicio.hidden = true;
+      app.hidden = false;
+      empezar();
+    };
+    /** Deja paso a la partida del mundo `id` (`?mundo=`, que lee `entrada.ts`). */
+    const jugarElMundo = (id: string): void => {
+      aLaBarra((url) => {
+        url.search = '';
+        url.searchParams.set('mundo', id);
+      });
+      soltarElMundo();
       escucha.abort();
       inicio.hidden = true;
       app.hidden = false;
@@ -126,7 +153,26 @@ export function pedirPartida(): Promise<void> {
         ev.preventDefault();
         if (pantalla === 'eleccion') aHeroe();
         else if (pantalla === 'heroe') {
-          jugar({ seed: semillaSorteada(), faccion: elegida, heroe: heroe.tipo });
+          const pedido = { seed: semillaSorteada(), faccion: elegida, heroe: heroe.tipo };
+          if (HERRAMIENTAS_DE_DESARROLLO) {
+            void import('../desarrollo/mundo.js').then((m) => {
+              pantalla = 'mundo';
+              delMundo = new AbortController();
+              m.elegirMundo(
+                inicio,
+                {
+                  faccion: pedido.faccion,
+                  heroe: pedido.heroe,
+                  sinHistoria: () => jugar(pedido),
+                  conMundo: (id) => jugarElMundo(id),
+                  volver: aHeroe,
+                },
+                delMundo.signal,
+              );
+            });
+            return;
+          }
+          jugar(pedido);
         }
       },
       { signal },

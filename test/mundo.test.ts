@@ -71,8 +71,9 @@ const puente = (h: { lugares: Record<string, unknown>[] }) =>
   };
 
 describe('la validación de un mundo', () => {
-  it('el mundo de prueba no tiene problemas', () => {
+  it('el mundo de prueba (a mano) y el de ejemplo (del motor) no tienen problemas', () => {
     expect(problemasDelMundo(crudos('prueba'), 'prueba')).toEqual([]);
+    expect(problemasDelMundo(crudos('ejemplo'), 'ejemplo')).toEqual([]);
   });
 
   it('un mundo de otra versión o con dos rivales se rechaza diciéndolo', () => {

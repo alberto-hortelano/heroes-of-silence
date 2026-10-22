@@ -1,0 +1,353 @@
+{
+  "titulo": "Los que no se fueron",
+  "resumen": "Entre Valdeluz y el lago de Puenteroto quedan cuentas pendientes de la guerra: un sepulturero que guarda el libro de los difuntos, unos desertores del Imperio que no quieren volver y un barquero que lleva cien años esperando su pago.",
+  "marcas": {
+    "acta-de-defuncion": {
+      "falta": "no tienes ningún papel que diga que esos hombres murieron",
+      "ya": "llevas el acta que da por muertos a los desertores"
+    },
+    "libro-leido": {
+      "falta": "no sabes dónde está enterrada Remedios",
+      "ya": "leíste en el libro de difuntos dónde yace Remedios"
+    },
+    "cepillo-vaciado": {
+      "falta": "el cepillo de las ánimas sigue lleno",
+      "ya": "ya vaciaste el cepillo de las ánimas"
+    },
+    "carros-saqueados": {
+      "falta": "nadie ha tocado los carros de intendencia",
+      "ya": "ya registraste los carros de intendencia"
+    },
+    "derrota-en-el-lago": {
+      "falta": "los ahogados no te han vencido nunca",
+      "ya": "los ahogados del lago ya te vencieron una vez"
+    }
+  },
+  "lugares": [
+    {
+      "id": "capilla-de-valdeluz",
+      "nombre": "La capilla del camposanto de Valdeluz",
+      "at": { "x": 7, "y": 3 },
+      "fondo": { "plaza": "no-muertos" },
+      "estados": {
+        "cerrada": "con la cripta cerrada",
+        "despoblada": "con la cripta vacía"
+      },
+      "estadoInicial": "cerrada",
+      "puntos": [
+        {
+          "id": "tobias",
+          "x": 0.35,
+          "persona": {
+            "nombre": "Tobías",
+            "papel": "sepulturero del camposanto",
+            "cuerpo": "esqueleto-guerrero"
+          },
+          "dialogo": "tobias"
+        },
+        {
+          "id": "cepillo",
+          "x": 0.75,
+          "cosa": { "nombre": "El cepillo de las ánimas" },
+          "dialogo": "cepillo"
+        }
+      ],
+      "dialogos": {
+        "tobias": {
+          "inicio": "saludo",
+          "nodos": {
+            "saludo": {
+              "texto": "Tobías se inclina tanto que le cruje el espinazo. «¡Amo! Ya pensaba que tendría que morirme otra vez de aburrimiento. ¿En qué puede servirle este pobre hueso?»",
+              "opciones": [
+                { "texto": "¿Qué guardas aquí, Tobías?", "ir": "libro" },
+                {
+                  "texto": "Despierta a los de la cripta (100 de oro)",
+                  "si": [{ "estado": "cerrada" }],
+                  "hace": [
+                    { "oro": -100 },
+                    { "tropa": { "unidad": "esqueleto-guerrero", "n": 2 } },
+                    { "estado": "despoblada" }
+                  ],
+                  "ir": "cripta"
+                },
+                { "texto": "Nada, sigue cavando" }
+              ]
+            },
+            "libro": {
+              "texto": "«El libro de difuntos, amo. Todo el que entra aquí queda apuntado, con letra bonita. Hasta los que se apuntan solos, que los hay.»",
+              "opciones": [
+                {
+                  "texto": "Buscar a los soldados del Imperio",
+                  "si": [{ "no": { "marca": "acta-de-defuncion" } }],
+                  "hace": [{ "marca": "acta-de-defuncion" }],
+                  "ir": "acta"
+                },
+                {
+                  "texto": "Buscar a una tal Remedios",
+                  "si": [{ "no": { "marca": "libro-leido" } }],
+                  "hace": [{ "marca": "libro-leido" }],
+                  "ir": "remedios"
+                },
+                { "texto": "Cerrar el libro", "ir": "saludo" }
+              ]
+            },
+            "acta": {
+              "texto": "«Pelotón del sargento Aldama, caídos en los Llanos del Cierzo hace un invierno.» Tobías arranca la hoja y la sella. «Que conste, amo: están muertos. Lo dice el libro.»",
+              "opciones": [{ "texto": "Guardar el acta", "ir": "libro" }]
+            },
+            "remedios": {
+              "texto": "«Remedios, mujer de Anselmo el barquero. Tercera fila, bajo el ciprés torcido. Muy tranquila, de las que no se levantan.»",
+              "opciones": [{ "texto": "Apuntarlo", "ir": "libro" }]
+            },
+            "cripta": {
+              "texto": "Tobías baja la escalera dando palmadas. Al rato suben dos esqueletos sacudiéndose la tierra. «Están algo oxidados, amo, pero tienen muchas ganas.»",
+              "opciones": [{ "texto": "En marcha" }]
+            }
+          }
+        },
+        "cepillo": {
+          "inicio": "caja",
+          "nodos": {
+            "caja": {
+              "texto": "Una caja de roble clavada a la pared, con una ranura gastada. Dentro suenan monedas: limosnas por las almas del camposanto.",
+              "opciones": [
+                {
+                  "texto": "Vaciar el cepillo",
+                  "si": [{ "no": { "marca": "cepillo-vaciado" } }],
+                  "hace": [{ "oro": 150 }, { "marca": "cepillo-vaciado" }],
+                  "ir": "vacio"
+                },
+                { "texto": "Dejarlo estar" }
+              ]
+            },
+            "vacio": {
+              "texto": "Ciento cincuenta monedas. Las almas no protestan; Tobías, desde lejos, aplaude.",
+              "opciones": [{ "texto": "Seguir" }]
+            }
+          }
+        }
+      },
+      "encuentros": {}
+    },
+    {
+      "id": "campamento-del-cierzo",
+      "nombre": "El campamento de los desertores del Cierzo",
+      "at": { "x": 15, "y": 14 },
+      "fondo": { "plaza": "imperio" },
+      "estados": {
+        "acampados": "con los desertores acampados",
+        "en-paz": "en paz",
+        "dispersos": "abandonado"
+      },
+      "estadoInicial": "acampados",
+      "puntos": [
+        {
+          "id": "aldama",
+          "x": 0.4,
+          "si": [{ "estado": "acampados" }],
+          "persona": {
+            "nombre": "Prudencio Aldama",
+            "papel": "sargento desertor del Imperio",
+            "cuerpo": "imperio-ballestero"
+          },
+          "dialogo": "aldama"
+        },
+        {
+          "id": "carros",
+          "x": 0.8,
+          "cosa": { "nombre": "Los carros de intendencia" },
+          "dialogo": "carros"
+        }
+      ],
+      "dialogos": {
+        "aldama": {
+          "inicio": "alto",
+          "nodos": {
+            "alto": {
+              "texto": "«Alto. Este campamento es zona de intendencia imperial. Presente salvoconducto sellado por triplicado o dé media vuelta.» Detrás de él, nadie lleva el uniforme abrochado.",
+              "opciones": [
+                { "texto": "Vosotros no sois del Imperio, sois desertores", "ir": "desertores" },
+                {
+                  "texto": "Contratar sus ballestas (300 de oro)",
+                  "si": [{ "estado": "acampados" }],
+                  "hace": [
+                    { "oro": -300 },
+                    { "tropa": { "unidad": "imperio-ballestero", "n": 1 } },
+                    { "estado": "en-paz" }
+                  ],
+                  "ir": "contrato"
+                },
+                {
+                  "texto": "Desenvainar",
+                  "si": [{ "estado": "acampados" }],
+                  "hace": [{ "batalla": "desertores" }]
+                },
+                { "texto": "Dar media vuelta" }
+              ]
+            },
+            "desertores": {
+              "texto": "Aldama se pone rojo. «Somos personal en tránsito pendiente de destino. Si volvemos a Cripta Gris sin papeles nos ahorcan por el reglamento, artículo cuarto.»",
+              "opciones": [
+                {
+                  "texto": "Enseñarle el acta de Valdeluz que os da por muertos",
+                  "si": [{ "marca": "acta-de-defuncion" }, { "estado": "acampados" }],
+                  "hace": [
+                    { "tropa": { "unidad": "imperio-alabardero", "n": 2 } },
+                    { "estado": "en-paz" }
+                  ],
+                  "ir": "muertos"
+                },
+                { "texto": "Volver", "ir": "alto" }
+              ]
+            },
+            "muertos": {
+              "texto": "Aldama lee el acta, la huele y la vuelve a leer. «Sellada y con fecha. Entonces estamos muertos y nadie puede ahorcarnos.» Dos alabarderos se ponen a tu paso.",
+              "opciones": [{ "texto": "Bienvenidos al otro lado" }]
+            },
+            "contrato": {
+              "texto": "Aldama cuenta las monedas dos veces y te firma un recibo. «Le cedo al cabo Ruperto. Dispara recto y no hace preguntas.»",
+              "opciones": [{ "texto": "Trato hecho" }]
+            }
+          }
+        },
+        "carros": {
+          "inicio": "lonas",
+          "nodos": {
+            "lonas": {
+              "texto": "Tres carros con el águila imperial raspada a cuchillo. Bajo las lonas, cajas con el sello de la intendencia.",
+              "opciones": [
+                {
+                  "texto": "Registrar los carros",
+                  "si": [{ "estado": "dispersos" }, { "no": { "marca": "carros-saqueados" } }],
+                  "hace": [{ "pieza": "brigantina" }, { "marca": "carros-saqueados" }],
+                  "ir": "brigantina"
+                },
+                {
+                  "texto": "Pedir permiso para registrarlos",
+                  "si": [{ "no": { "estado": "dispersos" } }],
+                  "ir": "permiso"
+                },
+                { "texto": "Dejarlos" }
+              ]
+            },
+            "brigantina": {
+              "texto": "Entre mantas apolilladas, una brigantina nueva con su recibo de entrega. Nadie va a reclamarla.",
+              "opciones": [{ "texto": "Llevársela" }]
+            },
+            "permiso": {
+              "texto": "Un desertor se sienta encima de la caja. «Material inventariado. Solicitud por escrito al sargento.»",
+              "opciones": [{ "texto": "Volver", "ir": "lonas" }]
+            }
+          }
+        }
+      },
+      "encuentros": {
+        "desertores": {
+          "nombre": "Los desertores del sargento Aldama",
+          "tropa": [
+            { "creature": "imperio-ballestero", "count": 2 },
+            { "creature": "imperio-coracero", "count": 2 }
+          ],
+          "alGanar": [{ "estado": "dispersos" }, { "oro": 250 }],
+          "alPerder": []
+        }
+      }
+    },
+    {
+      "id": "orilla-de-puenteroto",
+      "nombre": "La barca de Puenteroto",
+      "at": { "x": 24, "y": 21 },
+      "fondo": { "plaza": "no-muertos" },
+      "estados": {
+        "esperando": "con el barquero esperando",
+        "en-paz": "con el barquero en paz",
+        "limpia": "con el lago limpio"
+      },
+      "estadoInicial": "esperando",
+      "puntos": [
+        {
+          "id": "anselmo",
+          "x": 0.3,
+          "si": [{ "no": { "estado": "limpia" } }],
+          "persona": {
+            "nombre": "Anselmo",
+            "papel": "barquero del lago",
+            "cuerpo": "espectro"
+          },
+          "dialogo": "anselmo"
+        },
+        {
+          "id": "aguas",
+          "x": 0.75,
+          "cosa": { "nombre": "Las aguas del lago" },
+          "dialogo": "aguas"
+        }
+      ],
+      "dialogos": {
+        "anselmo": {
+          "inicio": "barca",
+          "nodos": {
+            "barca": {
+              "texto": "Un espectro con una pértiga podrida flota junto a la barca. «Cien años esperando a que alguien me pague el último viaje. Y llega uno que ya va muerto por dentro. Qué suerte la mía.»",
+              "opciones": [
+                {
+                  "texto": "Pagarle el viaje (100 de oro)",
+                  "si": [{ "estado": "esperando" }],
+                  "hace": [{ "oro": -100 }, { "estado": "en-paz" }],
+                  "ir": "pagado"
+                },
+                {
+                  "texto": "Remedios te espera bajo el ciprés de Valdeluz",
+                  "si": [{ "marca": "libro-leido" }, { "estado": "esperando" }],
+                  "hace": [{ "oro": 200 }, { "estado": "en-paz" }],
+                  "ir": "remedios"
+                },
+                { "texto": "¿Por qué no te vas?", "ir": "por-que" },
+                { "texto": "Dejarle flotando" }
+              ]
+            },
+            "por-que": {
+              "texto": "«Porque el puente se hundió con la mitad del pueblo encima, y ahí abajo siguen, de mal humor. Y porque mi Remedios se fue a enterrar a otro sitio y nadie me dijo dónde.»",
+              "opciones": [{ "texto": "Volver", "ir": "barca" }]
+            },
+            "pagado": {
+              "texto": "Anselmo muerde una moneda por costumbre; los dientes le atraviesan el oro. «Cobrado. Ahora sí puedo decírtelo: los del fondo guardan lo que llevaban al cruzar.»",
+              "opciones": [{ "texto": "Mirar el agua" }]
+            },
+            "remedios": {
+              "texto": "El espectro se queda quieto mucho rato. Luego suelta la pértiga y te tiende una bolsa mojada. «Mi paga de cien años. Ya no me hace falta: tengo a dónde ir.»",
+              "opciones": [{ "texto": "Que tengas buen viaje, Anselmo" }]
+            }
+          }
+        },
+        "aguas": {
+          "inicio": "orilla",
+          "nodos": {
+            "orilla": {
+              "texto": "El agua es negra junto a los pilares del puente roto. Algo se mueve debajo, despacio, como quien no tiene prisa.",
+              "opciones": [
+                {
+                  "texto": "Meterse en el agua",
+                  "si": [{ "no": { "estado": "limpia" } }],
+                  "hace": [{ "batalla": "ahogados" }]
+                },
+                { "texto": "Apartarse de la orilla" }
+              ]
+            }
+          }
+        }
+      },
+      "encuentros": {
+        "ahogados": {
+          "nombre": "Los ahogados del puente",
+          "tropa": [
+            { "creature": "zombi", "count": 3 },
+            { "creature": "esqueleto-arquero", "count": 2 }
+          ],
+          "alGanar": [{ "estado": "limpia" }, { "oro": 300 }, { "pieza": "escudo" }],
+          "alPerder": [{ "marca": "derrota-en-el-lago" }]
+        }
+      }
+    }
+  ]
+}
