@@ -9,7 +9,7 @@ import { createRng } from '../rng.js';
 import type { GameState } from '../state/game.js';
 import { faccionesDeLaSemilla, newGame } from '../state/setup.js';
 import type { Controller, FactionId, PlayerId } from '../types.js';
-import { type Mundo, type MundoLeido, VERSION_DEL_MUNDO } from './formato.js';
+import { type Mundo, type MundoLeido, TAMAÑOS_DE_UN_MUNDO, VERSION_DEL_MUNDO } from './formato.js';
 
 /** Lo que se pide para un mundo nuevo (`pnpm mundo nuevo`, el menú de `pnpm dev`). */
 export interface PedidoDeMundo {
@@ -30,13 +30,21 @@ export type PedidoDelMenu = Omit<PedidoDeMundo, 'id' | 'semilla'> & {
 };
 
 /**
- * Por qué no se puede pedir ese mundo, o `null`: el héroe, que sea de la facción
- * (`problemaDeTipo`, la regla de `newGame`). Se mira **antes** de lanzar el motor:
- * antes salía al validar lo que había escrito, tras ~100 s de suscripción, y el
- * motor no puede arreglar el `mundo.json` (H7 del QA de la F1a). La facción y el
- * tamaño los mira quien lee el pedido (`parseFaccion`, `leerPedido`).
+ * Por qué no se puede pedir ese mundo, o `null`: el tamaño, uno de los del menú
+ * (`TAMAÑOS_DE_UN_MUNDO`: la orden admitía cualquiera, M5 de la vuelta 2), y el
+ * héroe, que sea de la facción (`problemaDeTipo`, la regla de `newGame`). Se mira
+ * **antes** de lanzar el motor: antes salía al validar lo que había escrito, tras
+ * ~100 s de suscripción, y el motor no puede arreglar el `mundo.json` (H7 del QA de
+ * la F1a). La facción la mira quien lee el pedido (`parseFaccion`). Lo leen
+ * `leerPedido` (el menú) y `mundoNuevo` (la orden).
  */
-export function pedidoBlocker(p: Pick<PedidoDeMundo, 'faccion' | 'heroe'>): string | null {
+export function pedidoBlocker(
+  p: Pick<PedidoDeMundo, 'faccion' | 'heroe' | 'regionesPorBando'>,
+): string | null {
+  const tamaños = TAMAÑOS_DE_UN_MUNDO.map((t) => t.regiones);
+  if (!tamaños.some((t) => t === p.regionesPorBando)) {
+    return `«regionesPorBando» tiene que ser ${tamaños.join(', ')}; es ${JSON.stringify(p.regionesPorBando)}`;
+  }
   if (p.heroe === undefined) return null;
   const motivo = problemaDeTipo(p.faccion, p.heroe);
   return motivo === null ? null : `«heroe»: ${motivo}`;

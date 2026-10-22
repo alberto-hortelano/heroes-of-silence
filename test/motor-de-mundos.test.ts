@@ -3,14 +3,21 @@
  * deja hacer al motor y cómo se cuenta lo que hace. Lanzarlo de verdad es la
  * verificación en el navegador (C3), no un test: gasta la suscripción.
  */
+
+import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { RAIZ } from '../tools/mundo/disco.js';
+import { mundoNuevo } from '../src/core/mundo/partida.js';
+import { borrarMundoGenerado, borrarSinHistoria, RAIZ } from '../tools/mundo/disco.js';
 import {
   argumentosDelMotor,
+  Conflicto,
+  empezar,
   esSuValidacion,
   leerPedido,
   lineaDelMotor,
+  progresoDe,
   respuestaDelValidador,
+  sinRutas,
 } from '../tools/mundo/motor.js';
 
 describe('el motor de mundos', () => {
@@ -64,6 +71,21 @@ describe('el motor de mundos', () => {
     ).toBeNull();
   });
 
+  it('ninguna ruta absoluta, tampoco las de fuera del repositorio (M4 de la vuelta 2)', () => {
+    expect(sinRutas('… y miro /home/al/.claude/skills.')).toBe('… y miro skills.');
+    expect(sinRutas('leo ~/.claude/skills/motor/SKILL.md, y sigo')).toBe('leo SKILL.md, y sigo');
+    expect(sinRutas(`(${RAIZ}/assets/mundos/x/historia.json)`)).toBe(
+      '(assets/mundos/x/historia.json)',
+    );
+    // Ni una URL ni una fracción son rutas de la máquina.
+    expect(sinRutas('mira https://x.com/a/b y 1/2')).toBe('mira https://x.com/a/b y 1/2');
+    const usa = JSON.stringify({
+      type: 'assistant',
+      message: { content: [{ type: 'text', text: 'Busco en /home/al/.claude/skills/x' }] },
+    });
+    expect(lineaDelMotor(usa, 'gen-1')).toBe('Busco en x');
+  });
+
   it('lee lo que le contesta el validador: sus problemas, o que vale', () => {
     const contesta = (texto: string) =>
       JSON.stringify({
@@ -96,5 +118,38 @@ describe('el motor de mundos', () => {
     expect(() => leerPedido({ faccion: 'imperio', heroe: 'orko', regionesPorBando: 5 })).toThrow(
       '«heroe»: "orko" no es un tipo de héroe de imperio',
     );
+    // Lo que no lleva un pedido no se ignora (M5 de la vuelta 2), ni lo que no es un objeto.
+    expect(() => leerPedido({ faccion: 'elfos', regionesPorBando: 5, rivales: 2 })).toThrow(
+      'el pedido no lleva «rivales»: lleva «faccion», «regionesPorBando», «heroe», «id», «semilla»',
+    );
+    expect(() => leerPedido([])).toThrow('el pedido tiene que ser un objeto');
+    expect(() => leerPedido({ faccion: 'elfos', regionesPorBando: 5, id: '../x' })).toThrow(
+      '«id»: "../x" no es el id de un mundo',
+    );
+  });
+
+  it('la orden admite los tamaños del menú, y no otros (M5 de la vuelta 2)', () => {
+    expect(() =>
+      mundoNuevo({ id: 'gen-x', semilla: 1, faccion: 'elfos', regionesPorBando: 6 }),
+    ).toThrow('«regionesPorBando» tiene que ser 4, 5, 7; es 6');
+  });
+
+  it('un id que ya existe es un conflicto, antes de lanzar nada (M5 de la vuelta 2)', () => {
+    expect(() => empezar({ faccion: 'imperio', regionesPorBando: 5, id: 'prueba' })).toThrow(
+      Conflicto,
+    );
+    expect(() => empezar({ faccion: 'imperio', regionesPorBando: 5, id: 'prueba' })).toThrow(
+      'ya hay un mundo "prueba": pide otro id u otra semilla, o bórralo a mano',
+    );
+    expect(progresoDe('prueba')).toBeNull();
+  });
+
+  it('un mundo que no es «gen-*» no se borra nunca (M7 de la vuelta 2)', async () => {
+    // Con un id que no está en disco: si el guardia fallara, no borraría nada de nadie.
+    expect(existsSync(`${RAIZ}/assets/mundos/de-nadie`)).toBe(false);
+    await expect(borrarMundoGenerado('de-nadie')).rejects.toThrow(
+      'el mundo "de-nadie" no es uno generado («gen-…»): no se borra',
+    );
+    await expect(borrarSinHistoria('de-nadie')).rejects.toThrow('no se borra');
   });
 });

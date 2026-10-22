@@ -74,19 +74,49 @@ export async function validarEnDisco(id: string): Promise<string[]> {
   return 'problemas' in leido ? leido.problemas : problemasDelMundo(leido.crudos, id);
 }
 
+/** Si hay un mundo con ese id: su `mundo.json`. Lo que se pide con él no se genera (409). */
+export function hayMundo(id: string): boolean {
+  return existsSync(join(carpetaDe(id), 'mundo.json'));
+}
+
+/**
+ * Si un id es de un mundo generado desde el menú (`gen-<AAAAMMDD>-<semilla>`): el
+ * único que se borra solo. Uno puesto a mano (`prueba`, `ejemplo`) no se borra nunca.
+ */
+export function esGenerado(id: string): boolean {
+  return id.startsWith('gen-');
+}
+
+/** Lanza si `id` no es de un mundo generado: lo que no lo es no se borra (`esGenerado`). */
+function soloGenerado(id: string): void {
+  if (!esGenerado(id))
+    throw new Error(`el mundo "${id}" no es uno generado («gen-…»): no se borra`);
+}
+
 /**
  * Borra un mundo a medias —su carpeta y su lectura— si no tiene historia: lo que
- * deja una generación cancelada o fallida antes de que el motor escribiera nada,
- * que no se juega y no se puede arreglar (H11 del QA de la F1a). Uno con historia
- * se queda: aunque no valga, se puede mirar y corregir con `pnpm mundo validar`.
- * Lo llama solo quien creó la carpeta (`tools/mundo/motor.ts`). `true` si borró.
+ * deja una generación fallida antes de que el motor escribiera nada, que no se
+ * juega y no se puede arreglar (H11 del QA de la F1a). Uno con historia se queda:
+ * aunque no valga, se puede mirar y corregir con `pnpm mundo validar`. Lo llama
+ * solo quien creó la carpeta (`tools/mundo/motor.ts`), y solo con un `gen-*`. `true`
+ * si borró.
  */
 export async function borrarSinHistoria(id: string): Promise<boolean> {
-  const dir = carpetaDe(id);
-  if (existsSync(join(dir, 'historia.json'))) return false;
-  await rm(dir, { recursive: true, force: true });
-  await rm(lecturaDe(id), { recursive: true, force: true });
+  soloGenerado(id);
+  if (existsSync(join(carpetaDe(id), 'historia.json'))) return false;
+  await borrarMundoGenerado(id);
   return true;
+}
+
+/**
+ * Borra un mundo generado entero, con su historia y su lectura: lo que deja una
+ * generación cancelada (M7 de la vuelta 2: quien cancela no quiere ese mundo). Lanza
+ * con un id que no es `gen-*`.
+ */
+export async function borrarMundoGenerado(id: string): Promise<void> {
+  soloGenerado(id);
+  await rm(carpetaDe(id), { recursive: true, force: true });
+  await rm(lecturaDe(id), { recursive: true, force: true });
 }
 
 /**
@@ -95,7 +125,7 @@ export async function borrarSinHistoria(id: string): Promise<boolean> {
  */
 export async function escribirMundoNuevo(pedido: PedidoDeMundo): Promise<Mundo> {
   const dir = carpetaDe(pedido.id);
-  if (existsSync(join(dir, 'mundo.json'))) {
+  if (hayMundo(pedido.id)) {
     throw new Error(`ya hay un mundo "${pedido.id}": bórralo a mano si quieres rehacerlo`);
   }
   const { mundo, plan } = mundoNuevo(pedido);

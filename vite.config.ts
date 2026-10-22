@@ -26,7 +26,8 @@ async function leerCuerpo(
   try {
     return JSON.parse(texto) as unknown;
   } catch {
-    throw new Error('lo que ha llegado para guardar no es JSON');
+    // Con lo que se esperaba: «el pedido no es JSON» no es «para guardar» (M5).
+    throw new Error(`${que} no es JSON`);
   }
 }
 
@@ -288,7 +289,7 @@ function marcas(): Plugin {
 /**
  * Generar un mundo desde el menú (F1a del mapa vivo, `tools/mundo/motor.ts`):
  * `POST /__mundos` con lo elegido empieza una generación y devuelve su id (409 si
- * ya hay otra en marcha); `GET /__mundos/<id>/progreso` dice por qué fase va y lo
+ * ya hay otra en marcha o ya hay un mundo con ese id); `GET /__mundos/<id>/progreso` dice por qué fase va y lo
  * último que hizo el motor; `DELETE /__mundos/<id>` la cancela (mata el grupo del
  * motor). Solo en `pnpm dev`: el motor es Claude Code con la suscripción, en esta
  * máquina, y el mundo queda en `assets/mundos/<id>/`.
@@ -323,7 +324,7 @@ function mundos(): Plugin {
               id: m.empezar(m.leerPedido(await leerCuerpo(req, 10_000, 'el pedido'))),
             });
           } catch (err) {
-            responder(res, err instanceof m.EnMarcha ? 409 : 400, { error: motivoDe(err) });
+            responder(res, err instanceof m.Conflicto ? 409 : 400, { error: motivoDe(err) });
           }
           return;
         }

@@ -16,16 +16,19 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { randomInt } from 'node:crypto';
 import { type Progreso, terminada } from '../../src/client/desarrollo/progreso.js';
 import { tipoDeHeroePorDefecto } from '../../src/core/data.js';
-import { TAMAÑOS_DE_UN_MUNDO } from '../../src/core/mundo/formato.js';
+import { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
 import { type PedidoDelMenu, pedidoBlocker } from '../../src/core/mundo/partida.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
 import { ordenDelMotor } from '../../src/server/entorno.js';
 import { matarGrupo } from '../qa/grupo.js';
 import {
+  borrarMundoGenerado,
   borrarSinHistoria,
   escribirLectura,
   escribirMundoNuevo,
+  esGenerado,
+  hayMundo,
   RAIZ,
   validarEnDisco,
 } from './disco.js';
@@ -48,44 +51,66 @@ interface Generacion {
   cancelado: boolean;
   /** Si esta generación creó la carpeta del mundo: solo entonces la borra al fallar. */
   creada: boolean;
+  /**
+   * Hasta que `generar` acaba de verdad, también cancelada: el pintor del mapa no se
+   * para a medias (es una página de Playwright dentro de este proceso), y mientras
+   * pinta no se lanza otra (M6 de la vuelta 2: había dos pintores a la vez).
+   */
+  viva: boolean;
 }
 
 const generaciones = new Map<string, Generacion>();
 
-/** La que está en marcha, si alguna. */
+/** La que está en marcha, o cancelada y aún sin acabar, si alguna. */
 function enMarcha(): Generacion | undefined {
-  return [...generaciones.values()].find((g) => !terminada(g.progreso.fase));
+  return [...generaciones.values()].find((g) => g.viva);
 }
+
+/** Lo que puede llevar un pedido del menú: lo demás se rechaza diciéndolo. */
+const CLAVES_DEL_PEDIDO = ['faccion', 'regionesPorBando', 'heroe', 'id', 'semilla'] as const;
 
 /** Lee y comprueba lo que manda el menú: lanza con una frase si no vale. */
 export function leerPedido(crudo: unknown): PedidoDelMenu {
-  const o = (typeof crudo === 'object' && crudo !== null ? crudo : {}) as Record<string, unknown>;
+  if (typeof crudo !== 'object' || crudo === null || Array.isArray(crudo)) {
+    throw new Error(
+      `el pedido tiene que ser un objeto con ${CLAVES_DEL_PEDIDO.map((k) => `«${k}»`).join(', ')}; es ${JSON.stringify(crudo)}`,
+    );
+  }
+  const o = crudo as Record<string, unknown>;
+  // Una clave de más no se ignora en silencio: quien la manda cree que cuenta (M5).
+  const sobran = Object.keys(o).filter(
+    (k) => !(CLAVES_DEL_PEDIDO as readonly string[]).includes(k),
+  );
+  if (sobran.length > 0) {
+    throw new Error(
+      `el pedido no lleva ${sobran.map((k) => `«${k}»`).join(', ')}: lleva ${CLAVES_DEL_PEDIDO.map((k) => `«${k}»`).join(', ')}`,
+    );
+  }
   // La facción y la semilla, con las mismas reglas que la URL (`parseFaccion`, `parseSeed`).
   const faccion = parseFaccion(typeof o.faccion === 'string' ? o.faccion : null);
   if (faccion === null)
     throw new Error(`«faccion» no es una facción: ${JSON.stringify(o.faccion)}`);
-  const regiones = o.regionesPorBando;
-  const tamaños = TAMAÑOS_DE_UN_MUNDO.map((t) => t.regiones);
-  if (!tamaños.some((t) => t === regiones)) {
-    throw new Error(
-      `«regionesPorBando» tiene que ser ${tamaños.join(', ')}; es ${JSON.stringify(regiones)}`,
-    );
-  }
   if (o.heroe !== undefined && typeof o.heroe !== 'string')
     throw new Error('«heroe» tiene que ser un texto');
-  if (o.id !== undefined && typeof o.id !== 'string')
-    throw new Error('«id» tiene que ser un texto');
+  if (o.id !== undefined) {
+    if (typeof o.id !== 'string') throw new Error('«id» tiene que ser un texto');
+    const malId = idDeMundoBlocker(o.id);
+    if (malId !== null) throw new Error(`«id»: ${malId}`);
+  }
   if (o.semilla !== undefined && typeof o.semilla !== 'number') {
     throw new Error('«semilla» tiene que ser un número');
   }
-  // El héroe, antes de gastar el motor: si no es de la facción, el `mundo.json`
-  // no valdría y el motor no lo puede tocar (`pedidoBlocker`).
-  const motivo = pedidoBlocker({ faccion, heroe: o.heroe as string | undefined });
-  if (motivo !== null) throw new Error(motivo);
-  return {
+  // El tamaño y el héroe, antes de gastar el motor: si el héroe no es de la
+  // facción, el `mundo.json` no valdría y el motor no lo puede tocar (`pedidoBlocker`).
+  const pedido = {
     faccion,
     heroe: o.heroe as string | undefined,
-    regionesPorBando: regiones as number,
+    regionesPorBando: o.regionesPorBando as number,
+  };
+  const motivo = pedidoBlocker(pedido);
+  if (motivo !== null) throw new Error(motivo);
+  return {
+    ...pedido,
     id: o.id as string | undefined,
     semilla: o.semilla === undefined ? undefined : (parseSeed(String(o.semilla)) ?? undefined),
   };
@@ -97,23 +122,33 @@ export function progresoDe(id: string): Progreso | null {
 }
 
 /**
- * Empieza una generación y devuelve su id; la sigue `progresoDe`. Lanza si ya hay
- * otra en marcha (el plugin responde 409) o si el pedido no vale.
+ * Empieza una generación y devuelve su id; la sigue `progresoDe`. Lanza `Conflicto`
+ * (el plugin responde 409) si ya hay otra en marcha —o cancelada que aún pinta— o si
+ * ya hay un mundo con ese id, antes de lanzar nada (M5 de la vuelta 2: antes daba 200
+ * y fallaba después).
  */
 export function empezar(pedido: PedidoDelMenu): string {
   const otra = enMarcha();
   if (otra !== undefined) {
-    throw new EnMarcha(`ya se está generando el mundo "${otra.progreso.id}": espera o cancélalo`);
+    throw new Conflicto(
+      otra.cancelado
+        ? `el mundo "${otra.progreso.id}" se está cancelando: acaba de pintar el mapa y se borra; espera un momento`
+        : `ya se está generando el mundo "${otra.progreso.id}": espera o cancélalo`,
+    );
   }
   const semilla = pedido.semilla ?? randomInt(1, 1_000_000);
   const hoy = new Date().toISOString().slice(0, 10).replaceAll('-', '');
   const id = pedido.id ?? `gen-${hoy}-${semilla}`;
+  if (hayMundo(id)) {
+    throw new Conflicto(`ya hay un mundo "${id}": pide otro id u otra semilla, o bórralo a mano`);
+  }
   const ahora = Date.now();
   const g: Generacion = {
     progreso: { id, fase: 'congelar', lineas: [], empezo: ahora, ultima: ahora, validaciones: 0 },
     proceso: null,
     cancelado: false,
     creada: false,
+    viva: true,
   };
   generaciones.set(id, g);
   void generar(g, {
@@ -124,16 +159,26 @@ export function empezar(pedido: PedidoDelMenu): string {
   return id;
 }
 
-/** La generación en marcha que se pide sin que haya hueco. */
-export class EnMarcha extends Error {}
+/** Un pedido que choca con lo que hay: otra generación en marcha, o un mundo con ese id. */
+export class Conflicto extends Error {}
 
-/** Cancela una generación: mata el grupo del motor. */
+/**
+ * Cancela una generación: mata el grupo del motor y, al acabar, borra su mundo
+ * (`generar`). Mientras pinta el mapa no se puede parar: acaba de pintar, se borra y
+ * hasta entonces no se lanza otra (`Generacion.viva`).
+ */
 export function cancelar(id: string): boolean {
   const g = generaciones.get(id);
   if (g === undefined || terminada(g.progreso.fase)) return false;
   g.cancelado = true;
+  const pintando = g.progreso.fase === 'pintar';
   matarGrupo(g.proceso, avisar);
-  poner(g, { fase: 'fallido', motivo: 'cancelado desde el menú' });
+  poner(g, {
+    fase: 'fallido',
+    motivo: pintando
+      ? 'cancelado desde el menú: acaba de pintar el mapa y se borra'
+      : 'cancelado desde el menú',
+  });
   return true;
 }
 
@@ -198,18 +243,27 @@ async function generar(
     if (!g.cancelado)
       poner(g, { fase: 'fallido', motivo: err instanceof Error ? err.message : String(err) });
   } finally {
-    // Cancelada o fallida sin historia, no deja una carpeta que no se juega. Al
-    // cancelar se llega aquí cuando el motor ya ha cerrado (`lanzarMotor` espera a
-    // su `close`), así que no se borra con él aún escribiendo.
-    if (g.creada && (g.cancelado || g.progreso.fase === 'fallido')) {
+    // Cancelada, no deja nada: quien cancela no quiere ese mundo, tenga historia o no
+    // (M7 de la vuelta 2). Fallida, deja la historia que no vale para mirarla, y sin
+    // historia no deja una carpeta que no se juega. Solo un `gen-*` creado aquí: un
+    // id puesto a mano (`ejemplo`) no se borra nunca. Al cancelar se llega aquí cuando
+    // el motor ya ha cerrado (`lanzarMotor` espera a su `close`) o el pintor ha
+    // acabado, así que no se borra con nadie aún escribiendo.
+    if (g.creada && esGenerado(id) && (g.cancelado || g.progreso.fase === 'fallido')) {
       try {
-        if (await borrarSinHistoria(id)) linea(g, `el mundo "${id}" no tenía historia: se borra`);
+        if (g.cancelado) {
+          await borrarMundoGenerado(id);
+          linea(g, `el mundo "${id}" se ha cancelado: se borra`);
+        } else if (await borrarSinHistoria(id)) {
+          linea(g, `el mundo "${id}" no tenía historia: se borra`);
+        }
       } catch (err) {
         avisar(
           `no se pudo borrar el mundo a medias "${id}": ${err instanceof Error ? err.message : err}`,
         );
       }
     }
+    g.viva = false;
   }
 }
 
@@ -277,9 +331,27 @@ function queHace(
   }
 }
 
-/** Un texto del motor, sin las rutas de esta máquina y en una línea. */
-function sinRutas(texto: string): string {
-  return texto.replaceAll(`${RAIZ}/`, '').replaceAll(RAIZ, '.');
+/**
+ * Una ruta absoluta de esta máquina (`/home/…`, `~/.claude/…`) que empieza tras un
+ * blanco, unas comillas o un paréntesis: lo de dentro de una URL (`https://x/y`) no,
+ * porque va tras «:». Hasta el primer blanco o cierre.
+ */
+const RUTA_ABSOLUTA = /(^|[\s"'`(«])(~?\/[^\s"'`)»,;]+)/g;
+
+/**
+ * Un texto del motor sin las rutas de esta máquina: las del repositorio, relativas
+ * a él; las de fuera (`/home/al/.claude/skills`, M4 de la vuelta 2), solo su último
+ * nombre, que dice qué mira sin decir dónde vive.
+ */
+export function sinRutas(texto: string): string {
+  return texto
+    .replaceAll(`${RAIZ}/`, '')
+    .replaceAll(RAIZ, '.')
+    .replace(RUTA_ABSOLUTA, (_, antes: string, ruta: string) => {
+      const sinPunto = /[.:]+$/.exec(ruta)?.[0] ?? '';
+      const limpia = ruta.slice(0, ruta.length - sinPunto.length).replace(/\/+$/, '');
+      return `${antes}${limpia.split('/').pop() || '…'}${sinPunto}`;
+    });
 }
 
 /**
