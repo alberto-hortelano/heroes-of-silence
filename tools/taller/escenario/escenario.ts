@@ -10,7 +10,7 @@
  *     sobre una reserva, casillas de barrera sin formación y módulos que faltan.
  */
 import { globSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
@@ -20,6 +20,7 @@ import type { Marca } from '../../../src/client/desarrollo/tipos.js';
 import { cajaEnPixeles } from '../../../src/client/render/camara-mapa.js';
 import { componer } from '../../../src/client/render/escenario/colocar.js';
 import { MARGEN } from '../../../src/client/render/escenario/pintar.js';
+import type { GameMap } from '../../../src/core/map/map.js';
 import { newGame } from '../../../src/core/state/setup.js';
 import { leerCatalogo } from './catalogo-disco.js';
 import { paginaDeEscena } from './pintor.js';
@@ -132,28 +133,67 @@ export async function escenario(semillas: readonly number[], tile = 48): Promise
   return conPaginasDeEscena(async (abrir) => {
     const fuera: Resultado[] = [];
     for (const semilla of semillas) {
-      const escena = componer(newGame({ seed: semilla }).map, semilla, catalogo);
-      const html = join(DIR_ESCENARIO, `${semilla}.html`);
-      await writeFile(html, await paginaDeEscena(escena, '../../../assets/mapa/', tile));
-      const { pagina, errores } = await abrir(`${semilla}.html`, { width: 1800, height: 1800 });
-      const informe = {
-        ...((await pagina.evaluate(
-          () => (window as unknown as { __informe: object }).__informe,
-        )) as Record<string, unknown>),
-        sprites: escena.sprites.length,
-        errores,
-      };
-      const png = join(DIR_ESCENARIO, `${semilla}.png`);
-      await pagina.locator('#lienzo').screenshot({ path: png });
-      await pagina.close();
-      await writeFile(
-        join(DIR_ESCENARIO, `${semilla}.json`),
-        `${JSON.stringify(informe, null, 2)}\n`,
+      fuera.push(
+        await pintarUnMapa(
+          abrir,
+          catalogo,
+          newGame({ seed: semilla }).map,
+          semilla,
+          `${semilla}`,
+          tile,
+        ),
       );
-      fuera.push({ html, png, informe });
     }
     return fuera;
   });
+}
+
+/**
+ * Un mapa ya construido, pintado como `pnpm taller escenario` pinta una semilla:
+ * lo usa la lectura de un mundo para el motor (`pnpm mundo leer`), cuyo mapa sale
+ * de un plan congelado y no de una semilla. `nombre` es el de sus ficheros en
+ * `.cache/taller/escenario/`; con `png`, la captura se copia también allí.
+ */
+export async function escenarioDeMapa(
+  map: GameMap,
+  semilla: number,
+  nombre: string,
+  tile = 48,
+  png?: string,
+): Promise<Resultado> {
+  const catalogo = await leerCatalogo();
+  const hecho = await conPaginasDeEscena((abrir) =>
+    pintarUnMapa(abrir, catalogo, map, semilla, nombre, tile),
+  );
+  if (png !== undefined) await copyFile(hecho.png, png);
+  return hecho;
+}
+
+/** Compone, pinta, captura y mide un mapa en una página ya abierta. */
+async function pintarUnMapa(
+  abrir: (nombre: string, lado: { width: number; height: number }) => Promise<PaginaDeEscena>,
+  catalogo: Awaited<ReturnType<typeof leerCatalogo>>,
+  map: GameMap,
+  semilla: number,
+  nombre: string,
+  tile: number,
+): Promise<Resultado> {
+  const escena = componer(map, semilla, catalogo);
+  const html = join(DIR_ESCENARIO, `${nombre}.html`);
+  await writeFile(html, await paginaDeEscena(escena, '../../../assets/mapa/', tile));
+  const { pagina, errores } = await abrir(`${nombre}.html`, { width: 1800, height: 1800 });
+  const informe = {
+    ...((await pagina.evaluate(
+      () => (window as unknown as { __informe: object }).__informe,
+    )) as Record<string, unknown>),
+    sprites: escena.sprites.length,
+    errores,
+  };
+  const png = join(DIR_ESCENARIO, `${nombre}.png`);
+  await pagina.locator('#lienzo').screenshot({ path: png });
+  await pagina.close();
+  await writeFile(join(DIR_ESCENARIO, `${nombre}.json`), `${JSON.stringify(informe, null, 2)}\n`);
+  return { html, png, informe };
 }
 
 /**

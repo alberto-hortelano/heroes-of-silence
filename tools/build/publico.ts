@@ -30,12 +30,15 @@ import { relative, sep } from 'node:path';
  *   pinta y se mide (la paleta de los temas sale de `art/temas/`). Ni el
  *   cliente ni el build lo leen (comprobado con grep y con `vite build`,
  *   13-10-2026).
+ * - `mundos/` entero: los mundos de la F1a (`core/mundo/`) se juegan solo en
+ *   `pnpm dev`, que es quien los genera (decisión P6 del 22-10-2026); llevarlos
+ *   al build es del backlog.
  *
  * La carpeta misma se deja fuera, no solo lo de dentro: si no, el build la crea
  * vacía.
  */
 const SOLO_DEL_TALLER =
-  /^unidades\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^art(?:\/|$)/;
+  /^unidades\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^(?:art|mundos)(?:\/|$)/;
 
 /** ¿Va a `dist/` este fichero, con su ruta relativa a `assets/`? */
 export function seCopiaAlBuild(relativa: string): boolean {

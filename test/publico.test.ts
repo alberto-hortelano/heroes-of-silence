@@ -87,6 +87,13 @@ describe('la carpeta pública en el build', () => {
     expect(seCopiaAlBuild('art/prompts.json')).toBe(false);
   });
 
+  it('deja fuera los mundos: se juegan solo en `pnpm dev` (P6 del mapa vivo)', () => {
+    for (const f of ['mundos/prueba/historia.json', 'mundos/ejemplo/plan.json', 'mundos']) {
+      expect(seCopiaAlBuild(f), f).toBe(false);
+    }
+    expect(seCopiaAlBuild('mapa/cofre.webp')).toBe(true);
+  });
+
   it('copia las piezas finales de los temas y deja fuera sus guías de corte', () => {
     // La página pide `/temas/<tema>/<pieza>.webp` (`piezas-de-tema.css`); las
     // guías solo las lee el taller al encargarlas.
