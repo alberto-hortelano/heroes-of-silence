@@ -138,8 +138,8 @@ describe('una dirección de 6 filas', () => {
     expect(con.clips.shoot).toMatchObject({ row: 6, frames: 7, suelta: 4, loop: false });
     // El ataque es cuerpo a cuerpo: sin suelta y recortado igual que sin disparo.
     for (const c of CLIPS_DE_FIGURA) expect(con.clips[c], c).toEqual(sin.clips[c]);
-    expect(con.clips.attack.frames).toBe(1);
-    expect(con.clips.attack.suelta).toBeUndefined();
+    expect(con.clips.attack?.frames).toBe(1);
+    expect(con.clips.attack?.suelta).toBeUndefined();
     expect(sin.clips.shoot).toBeUndefined();
   });
 
@@ -533,7 +533,7 @@ describe('las anclas del Y Bot en 8 direcciones (`_poses/atlas-8d.json`)', () =>
         readFileSync(join(RAIZ, 'assets/unidades/_poses', `${juego}-8d`, 'poses.json'), 'utf8'),
       ) as { sourceMetadata?: { shoot?: { frame_count: number } } };
       for (const [n, d] of dirs.entries()) {
-        expect(d.clips.attack.suelta, `${juego}/d${n} attack`).toBeUndefined();
+        expect(d.clips.attack?.suelta, `${juego}/d${n} attack`).toBeUndefined();
         const esperada =
           clip === null
             ? undefined

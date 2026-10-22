@@ -13,7 +13,6 @@
 import type { SitioId } from '@core/town/sitios.js';
 import type { FactionId, PlayerId } from '@core/types.js';
 import { type Disposicion, type Mirada, type Plano, planoDelCuadro } from '../../../shared/base.js';
-import { CUERPO_DE_VECINO } from '../personajes.js';
 
 export interface EdificioEnLaBase {
   readonly sitio: SitioId;
@@ -29,6 +28,8 @@ export interface PersonaEnLaBase {
   readonly sitio: SitioId | null;
   /** Un vecino, su clave en `data/vecinos.json` y en `d.vecinos`; un encargado, `null`. */
   readonly clave: string | null;
+  /** Con qué se pinta: su figura del banco de NPC (`figurasDeLaGente`) o el Y Bot civil. */
+  readonly cuerpo: string;
   /** Lo que dice hoy (`vozDe`). */
   readonly linea: string;
 }
@@ -121,9 +122,7 @@ export function componerBase(
       return {
         tipo: 'figura',
         id: p.id,
-        // Se pinta sin armas y en reposo de civil, no con el Y Bot en guardia de
-        // su criatura (`CUERPO_DE_VECINO`).
-        cuerpo: CUERPO_DE_VECINO,
+        cuerpo: p.cuerpo,
         nombre: p.nombre,
         en,
         mira,

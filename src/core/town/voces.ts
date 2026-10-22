@@ -13,8 +13,8 @@
  * eso `ponerVoces` es su único escritor (lo vigila `invariantes.test.ts`).
  */
 import vecinosJson from '../../../data/vecinos.json' with { type: 'json' };
-import { unidadDelJuego } from '../catalogo.js';
 import { motivoDeLinea } from '../contract/linea.js';
+import { type Especie, ETIQUETAS, type Oficio, type Sexo } from '../npcs.js';
 import { createRng, hashDeTexto } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
 import { esSitio, SITIOS, type SitioId, sitiosConstruidos } from './sitios.js';
@@ -30,11 +30,23 @@ export const LINEAS_POR_VECINO = 3;
  */
 export const MAX_VOCES_POR_RESPUESTA = 48;
 
+/**
+ * Una persona de la base. Su figura sale del banco de NPC por sus etiquetas
+ * (`figurasDeLaGente`, `town/figuras.ts`), que son las del vocabulario del banco
+ * (`ETIQUETAS`, `core/npcs.ts`); hasta el 22-10-2026 llevaba un `cuerpo` del
+ * catálogo que no se pintaba.
+ */
 export interface Persona {
   readonly nombre: string;
   readonly papel: string;
-  /** Una criatura del catálogo de su facción: su figura, hasta que haya propias. */
-  readonly cuerpo: string;
+  readonly oficio: Oficio;
+  readonly sexo: Sexo;
+  readonly especie: Especie;
+}
+
+/** Una persona de la gente de una facción, con su id: `alcaide`, `encargado-<sitio>` o `vecino-<id>`. */
+export interface PersonaDeLaFaccion extends Persona {
+  readonly id: string;
 }
 
 export interface Vecino extends Persona {
@@ -59,23 +71,36 @@ interface GenteDeFaccion {
 
 /**
  * `data/vecinos.json`, comprobado al cargar: cada facción con su alcaide, un
- * encargado por sitio, sus cuerpos de su facción y al menos una frase cada uno.
- * Un sitio sin encargado dejaría un edificio construido sin nadie a la puerta, y
- * un cuerpo de la otra facción, un esqueleto atendiendo la iglesia.
+ * encargado por sitio, las etiquetas de cada uno del vocabulario del banco de NPC y
+ * al menos una frase. Un sitio sin encargado dejaría un edificio construido sin
+ * nadie a la puerta.
  */
 function cargarGente(): Readonly<Record<FactionId, GenteDeFaccion>> {
   const crudo = vecinosJson as unknown as Record<string, unknown>;
   const fuera = (faccion: string, quien: string, motivo: string): Error =>
     new Error(`data/vecinos.json: ${faccion}/${quien} ${motivo}`);
   const persona = (faccion: FactionId, quien: string, p: unknown, conFrases: boolean) => {
-    const x = p as { nombre?: unknown; papel?: unknown; cuerpo?: unknown; frases?: unknown };
+    const x = p as {
+      nombre?: unknown;
+      papel?: unknown;
+      oficio?: unknown;
+      sexo?: unknown;
+      especie?: unknown;
+      frases?: unknown;
+    };
     if (typeof x?.nombre !== 'string' || x.nombre === '')
       throw fuera(faccion, quien, 'no tiene nombre');
     if (typeof x.papel !== 'string' || x.papel === '')
       throw fuera(faccion, quien, 'no tiene papel');
-    if (typeof x.cuerpo !== 'string') throw fuera(faccion, quien, 'no tiene cuerpo');
-    if (unidadDelJuego(x.cuerpo).faction !== faccion) {
-      throw fuera(faccion, quien, `tiene el cuerpo de "${x.cuerpo}", que no es de su facción`);
+    for (const k of ['oficio', 'sexo', 'especie'] as const) {
+      const lista: Readonly<Record<string, string>> = ETIQUETAS[k];
+      const v = x[k];
+      if (typeof v !== 'string' || !Object.hasOwn(lista, v))
+        throw fuera(
+          faccion,
+          quien,
+          `tiene ${k} ${JSON.stringify(v)}: es uno de ${Object.keys(lista).join(', ')}`,
+        );
     }
     const frases = x.frases;
     if (conFrases) {
@@ -91,7 +116,9 @@ function cargarGente(): Readonly<Record<FactionId, GenteDeFaccion>> {
     return {
       nombre: x.nombre,
       papel: x.papel,
-      cuerpo: x.cuerpo,
+      oficio: x.oficio as Oficio,
+      sexo: x.sexo as Sexo,
+      especie: x.especie as Especie,
       frases: (frases ?? []) as string[],
     };
   };
@@ -136,6 +163,32 @@ const GENTE = cargarGente();
 export function alcaideDe(faccion: FactionId): Persona {
   return GENTE[faccion].alcaide;
 }
+
+/**
+ * Toda la gente de una facción, en un orden fijo: el alcaide, los doce encargados
+ * (en el de `SITIOS`, se vean o no) y los vecinos. Es la lista que se reparte las
+ * figuras del banco (`figurasDeLaGente`: construir un sitio no le cambia la cara a
+ * nadie), la que lee el motor de narrativa para asignarlas y la que admite
+ * `historia.base`.
+ */
+export function personasDeLaFaccion(faccion: FactionId): readonly PersonaDeLaFaccion[] {
+  const g = GENTE[faccion];
+  const sinFrases = ({ nombre, papel, oficio, sexo, especie }: Persona): Persona => ({
+    nombre,
+    papel,
+    oficio,
+    sexo,
+    especie,
+  });
+  return [
+    { id: ID_DEL_ALCAIDE, ...sinFrases(g.alcaide) },
+    ...SITIOS.map((s) => ({ id: `encargado-${s}`, ...sinFrases(g.encargados[s]) })),
+    ...Object.entries(g.vecinos).map(([k, v]) => ({ id: `vecino-${k}`, ...sinFrases(v) })),
+  ];
+}
+
+/** El id del alcaide en la gente de una facción (`personasDeLaFaccion`, `historia.base`). */
+export const ID_DEL_ALCAIDE = 'alcaide';
 
 /** Los ids de los vecinos de una facción, los de `data/vecinos.json`. */
 export function idsDeVecinos(faccion: FactionId): readonly string[] {

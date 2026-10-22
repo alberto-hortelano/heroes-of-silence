@@ -26,6 +26,7 @@ import {
   type ClipDeFigura,
   FIGURA,
   FILAS_DEL_ATLAS,
+  HOJAS_DE_FIGURA,
 } from '../../src/shared/arte.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
 import type { GeometriaDeLadera } from './laderas.js';
@@ -90,6 +91,13 @@ export const ELEVACION_DEL_CADAVER = 64;
  */
 const FILAS_SIN_DISPARO = CLIPS_DE_FIGURA.length;
 const FILAS_CON_DISPARO = FILAS_DEL_ATLAS.length;
+/**
+ * Las de una figura del banco de NPC que solo está de pie y anda: la hoja A sola,
+ * sin ataque ni cadáver (`soloReposo`; decisión del usuario, 22-10-2026: «lo decide
+ * el motor de narrativa cuando la pide»). Solo se admite pidiéndolo: una hoja de
+ * tropa con tres filas es una a la que le falta la B.
+ */
+const FILAS_DE_SOLO_REPOSO = HOJAS_DE_FIGURA.a.length;
 const CLIPS = FILAS_DEL_ATLAS.map((clip) => ({ clip, ...RELOJ[clip] }));
 
 /** Umbral de alfa con el que se mide la altura: el mismo que en `personajes.ts`. */
@@ -120,9 +128,10 @@ export interface AtlasDerivado {
   readonly altura: number;
   /** Relativa al ancla del reposo: [izquierda, arriba, derecha, abajo]. */
   readonly cajaDeClic: readonly [number, number, number, number];
+  /** El ataque, en toda figura salvo la gente de solo reposo y marcha (`soloReposo`). */
   readonly clips: Readonly<
-    Record<'idle' | 'walk' | 'attack', ClipDerivado> &
-      Partial<Record<'charge' | 'hurt' | 'death' | 'shoot', ClipDerivado>>
+    Record<'idle' | 'walk', ClipDerivado> &
+      Partial<Record<'charge' | 'attack' | 'hurt' | 'death' | 'shoot', ClipDerivado>>
   >;
   /** El fotograma que se queda en el suelo al morir, si la hoja tiene muerte. */
   readonly cadaver?: { readonly clip: 'death'; readonly frame: number };
@@ -201,8 +210,11 @@ export async function derivarAtlas(
     suelta,
     ritmo = {},
     enteros = [],
+    soloReposo = false,
   }: {
     elevacionDeLaMuerte?: number;
+    /** La gente de solo reposo y marcha: la hoja A, de tres filas (`FILAS_DE_SOLO_REPOSO`), y solo ella. */
+    soloReposo?: boolean;
     suelta?: number;
     ritmo?: Ritmo;
     /**
@@ -227,7 +239,16 @@ export async function derivarAtlas(
   const { columnas } = FIGURA;
   const lado = info.width / columnas;
   const filas = info.height / lado;
-  if (!Number.isInteger(lado) || (filas !== FILAS_SIN_DISPARO && filas !== FILAS_CON_DISPARO)) {
+  if (soloReposo) {
+    if (!Number.isInteger(lado) || filas !== FILAS_DE_SOLO_REPOSO) {
+      throw new Error(
+        `${rutaImagen} mide ${info.width}×${info.height}: una figura de solo reposo y marcha son ${columnas} columnas por ${FILAS_DE_SOLO_REPOSO} filas (la hoja A), de celdas cuadradas`,
+      );
+    }
+  } else if (
+    !Number.isInteger(lado) ||
+    (filas !== FILAS_SIN_DISPARO && filas !== FILAS_CON_DISPARO)
+  ) {
     throw new Error(
       `${rutaImagen} mide ${info.width}×${info.height}: una hoja del taller son ${columnas} columnas ` +
         `por ${FILAS_SIN_DISPARO} filas, o ${FILAS_CON_DISPARO} con el disparo (una dirección de 8), de celdas cuadradas`,

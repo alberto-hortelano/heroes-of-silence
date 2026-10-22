@@ -14,6 +14,7 @@ import { idDeMundoBlocker, type Mundo, noEsJson } from '../../src/core/mundo/for
 import { type LecturaParaElMotor, lecturaParaElMotor } from '../../src/core/mundo/lectura.js';
 import { mundoNuevo, type PedidoDeMundo } from '../../src/core/mundo/partida.js';
 import { type CrudosDelMundo, problemasDelMundo } from '../../src/core/mundo/validar.js';
+import { leerBancoDeDisco } from '../npcs/banco.js';
 
 export const RAIZ = resolve(import.meta.dirname, '../..');
 export const DIR_MUNDOS = join(RAIZ, 'assets/mundos');
@@ -71,7 +72,9 @@ export async function leerCrudos(
 /** Todos los problemas de un mundo en disco: vacío, se juega. */
 export async function validarEnDisco(id: string): Promise<string[]> {
   const leido = await leerCrudos(id);
-  return 'problemas' in leido ? leido.problemas : problemasDelMundo(leido.crudos, id);
+  return 'problemas' in leido
+    ? leido.problemas
+    : problemasDelMundo(leido.crudos, id, leerBancoDeDisco());
 }
 
 /** Si hay un mundo con ese id: su `mundo.json`. Lo que se pide con él no se genera (409). */
@@ -150,7 +153,7 @@ export async function escribirLectura(
   const plan = JSON.parse(await readFile(join(dir, 'plan.json'), 'utf8')) as MapPlan;
   // Un mapa para la lectura y para el PNG: construirlo es lo más caro de leer.
   const hecho = buildMap(plan);
-  const lectura = lecturaParaElMotor(mundo, plan, hecho);
+  const lectura = lecturaParaElMotor(mundo, plan, leerBancoDeDisco(), hecho);
   const salida = lecturaDe(id);
   await mkdir(salida, { recursive: true });
   await writeFile(join(salida, 'lectura.json'), `${JSON.stringify(lectura, null, 2)}\n`);

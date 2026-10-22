@@ -79,10 +79,13 @@ export class Cola {
 
   /**
    * Toma el primer pendiente por orden de id —o ese `id` concreto—, o `null` si
-   * no queda ninguno (o si otro trabajador se lo llevó antes).
+   * no queda ninguno (o si otro trabajador se lo llevó antes). Con `filtro`, solo
+   * de los que lo pasan: `pnpm npcs trabajar` toma solo los de NPC y no se lleva
+   * un encargo ajeno que alguien dejó en la cola.
    */
-  async tomar(id?: string): Promise<Encargo | null> {
-    for (const candidato of id === undefined ? await this.ids('pendiente') : [id]) {
+  async tomar(id?: string, filtro: (id: string) => boolean = () => true): Promise<Encargo | null> {
+    const candidatos = id === undefined ? (await this.ids('pendiente')).filter(filtro) : [id];
+    for (const candidato of candidatos) {
       try {
         await rename(
           join(this.dir('pendiente'), `${candidato}.json`),

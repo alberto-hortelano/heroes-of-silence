@@ -82,8 +82,14 @@ import {
 } from '../../src/client/render/escenario/catalogo.js';
 import type { Escena } from '../../src/client/render/escenario/colocar.js';
 import { HOJA_DEL_RECINTO } from '../../src/client/render/escenario/recinto.js';
+import { figuraDelBanco } from '../../src/core/npcs.js';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
-import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
+import {
+  type ClipDeFigura,
+  FIGURA,
+  HOJAS_DE_FIGURA,
+  NOMBRES_DE_DIRECCION,
+} from '../../src/shared/arte.js';
 import { disposicionDe } from '../../src/shared/base.js';
 import {
   CANDIDATOS_DEL_MUESTRARIO,
@@ -95,6 +101,7 @@ import {
   renderizarOchoDirecciones,
 } from '../art/poses.js';
 import { cutoutBackground } from '../gen/cutout.js';
+import { leerBancoDeDisco } from '../npcs/banco.js';
 import {
   encargoDeBajadas,
   escribirBajadasDerivadas,
@@ -176,6 +183,13 @@ import {
 } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
 import { escribirGuiaDelMuro, escribirMurosDerivados, esMuroNorteSur } from './muros.js';
+import {
+  DIR_DEL_MANIQUI_CIVIL,
+  derivacionDeNpc,
+  encolarLoQueSigue,
+  esEncargoDeNpc,
+  POSE_DE_LA_IDENTIDAD,
+} from './npcs.js';
 import {
   encargosDeParedesYPuentes,
   escribirGuias,
@@ -539,6 +553,19 @@ async function postprocesar(
       join(RAIZ, `${encargo.salida}.procedencia.json`),
       `${JSON.stringify(procedencia, null, 2)}\n`,
     );
+    // Una figura del banco de NPC se encadena sola (decisión del usuario, «se
+    // encadena sola»): la identidad pide el giro, el giro las hojas, y cada hoja
+    // nada más (las otras ya están en la cola). Sin revisión humana: una mala se
+    // rehace con `pnpm npcs rehacer`.
+    if (encargo.despues?.orden === 'encadenar-npc') {
+      const figura = figuraDelBanco(leerBancoDeDisco(), encargo.despues.npc);
+      if (figura === undefined)
+        throw new Error(
+          `«${encargo.despues.npc}» ya no está en el banco de NPC (data/npcs.json): no se encadena nada`,
+        );
+      const siguen = await encolarLoQueSigue(figura, RAIZ);
+      if (siguen.length > 0) console.log(`  · encadena ${siguen.join(', ')}`);
+    }
     return { hilo: gen.hilo, salida: relative(RAIZ, rutaSalida) };
   }
 }
@@ -607,12 +634,17 @@ async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
   };
 }
 
-async function trabajar(): Promise<void> {
+/**
+ * Vacía la cola. Con `soloNpc` (`pnpm npcs trabajar`, el que lanza `pnpm dev` al
+ * aceptar un mundo), solo los encargos del banco de NPC: acaba al vaciar esos y no
+ * se lleva lo que otro dejó en la cola.
+ */
+async function trabajar(soloNpc = false): Promise<void> {
   await COLA.preparar();
   let hechos = 0;
   let fallidos = 0;
   for (;;) {
-    const encargo = await COLA.tomar();
+    const encargo = await COLA.tomar(undefined, soloNpc ? esEncargoDeNpc : undefined);
     if (encargo === null) break;
     console.log(`→ ${encargo.id} (${encargo.tipo})`);
     const t0 = Date.now();
@@ -1018,11 +1050,39 @@ async function escribirRelieveDerivado(hojas?: readonly string[]): Promise<strin
   return escritas;
 }
 
+/**
+ * El maniquí de la gente del banco de NPC (`DIR_DEL_MANIQUI_CIVIL`): el juego
+ * `civil` del Y Bot, sin nada en las manos, en 8 direcciones y **con su
+ * profundidad** (la pose con que se pinta la tropa desde el 10-10-2026), y la pose
+ * de la identidad: el primer reposo de la dirección SE, solo en su celda, para que
+ * la lámina de identidad pinte una figura y no veintiuna. Se renderiza una vez:
+ * `_poses/civil-8d/`, el Y Bot sin profundidad con que el cliente pinta a quien no
+ * tiene figura, no se toca.
+ */
+async function renderizarElManiquiCivil(): Promise<string> {
+  const carpeta = await renderizarOchoDirecciones(
+    'civil',
+    join(RAIZ, dirname(DIR_DEL_MANIQUI_CIVIL)),
+    {
+      id: 'civil',
+      atrezo: null,
+      profundidad: true,
+    },
+  );
+  const { celda } = OCHO_DIRECCIONES;
+  const d = NOMBRES_DE_DIRECCION.indexOf('frente-derecha');
+  await sharp(join(carpeta, `d${d}-a.png`))
+    .extract({ left: 0, top: 0, width: celda, height: celda })
+    .png()
+    .toFile(join(RAIZ, POSE_DE_LA_IDENTIDAD));
+  return carpeta;
+}
+
 const [orden, ...resto] = process.argv.slice(2);
 switch (orden) {
   case undefined:
   case 'trabajar':
-    await trabajar();
+    await trabajar(resto.includes('--npcs'));
     break;
   case 'encolar':
     await encolar(resto);
@@ -1325,6 +1385,12 @@ switch (orden) {
     break;
   }
   case 'maniqui':
+    // El de la gente (el banco de NPC): el juego civil del Y Bot, sin armas, con
+    // su profundidad y la pose sola de la identidad.
+    if (resto.includes('--civil')) {
+      console.log(`→ ${relative(RAIZ, await renderizarElManiquiCivil())}`);
+      break;
+    }
     // El maniquí propio de cada unidad que lo declara (`maniqui` en unidades.ts).
     for (const id of resto.filter((r) => !r.startsWith('--'))) {
       const u = unidad(id);
@@ -1374,9 +1440,15 @@ switch (orden) {
       // Con la suelta del maniquí y el ritmo de su unidad, la carpeta de encima
       // de `dN/`: `derivarAtlas` lanza si la hoja no tiene la fila del disparo
       // que la unidad dispara, o al revés.
+      // Una figura del banco de NPC, con la derivación de sus acciones.
+      const id = basename(dirname(dirname(resolve(r))));
+      const npc =
+        basename(dirname(dirname(dirname(resolve(r))))) === 'npcs'
+          ? figuraDelBanco(leerBancoDeDisco(), id)
+          : undefined;
       const d = await escribirDerivado(
         r,
-        await derivacionDeUnidad(basename(dirname(dirname(resolve(r))))),
+        npc === undefined ? await derivacionDeUnidad(id) : derivacionDeNpc(npc),
       );
       console.log(
         `${r}: altura ${d.altura}, fotogramas ${Object.values(d.clips)

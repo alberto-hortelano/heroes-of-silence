@@ -223,6 +223,66 @@ function arena(): Plugin {
 }
 
 /**
+ * El banco de figuras de NPC (`/__npcs`): el banco crudo de `data/npcs.json` y, por
+ * figura, sus ocho `dN/atlas.json` si está pintada o por qué aún no
+ * (`tools/npcs/banco.ts`, `loQueSeSirve`). La página lo juzga con la regla del
+ * núcleo (`leerBanco`) y registra las pintadas (`render/gente.ts`).
+ *
+ * Como la lista de hojas de la arena: se lee una vez y se olvida al cambiar algo
+ * bajo `assets/npcs/` o el banco (el taller pinta en segundo plano mientras se juega,
+ * y la figura nueva sale al recargar). El banco no lo importa ningún módulo de la
+ * página, así que escribirlo no recarga nada. En `vite build` se emite: una figura a
+ * medias va con su motivo y no se pinta (avisa y no falla, como #140). El lado de
+ * disco se carga a demanda (`ssrLoadModule`), por la misma razón que el de la arena.
+ */
+function npcs(): Plugin {
+  const raiz = __dirname;
+  let banco = (): Promise<typeof import('./tools/npcs/banco.js')> =>
+    import('./tools/npcs/banco.js');
+  let servido: string | null = null;
+  const leer = async (avisar: (aviso: string) => void): Promise<string> => {
+    if (servido === null) {
+      const leido = (await banco()).loQueSeSirve(raiz);
+      for (const [id, h] of Object.entries(leido.hojas))
+        if (h.incompleta !== null) avisar(`[npcs] ${id} se sirve sin pintar: ${h.incompleta}`);
+      servido = JSON.stringify(leido);
+    }
+    return servido;
+  };
+  return {
+    name: 'heroes-npcs',
+    configureServer(server) {
+      banco = async () =>
+        (await server.ssrLoadModule(
+          resolve(raiz, 'tools/npcs/banco.ts'),
+        )) as typeof import('./tools/npcs/banco.js');
+      const arte = resolve(raiz, 'assets/npcs');
+      const fichero = resolve(raiz, 'data/npcs.json');
+      server.watcher.add([arte, fichero]);
+      server.watcher.on('all', (_evento, ruta) => {
+        if (ruta.startsWith(arte) || ruta === fichero) servido = null;
+      });
+      // Si no carga (un banco roto), el error va a vite, que responde 500: la página lo dice.
+      server.middlewares.use('/__npcs', (_req, res, next) => {
+        leer(() => {})
+          .then((texto) => {
+            res.setHeader('content-type', 'application/json');
+            res.end(texto);
+          })
+          .catch(next);
+      });
+    },
+    async generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: '__npcs',
+        source: await leer((aviso) => this.warn(aviso)),
+      });
+    },
+  };
+}
+
+/**
  * Lo más que se acepta de una marca: el recorte de 9×9 casillas a 110 px y
  * densidad 2 es un PNG de unos 2000×2000, y en base64 cabe holgado.
  */
@@ -405,7 +465,7 @@ function publico(): Plugin {
 
 export default defineConfig(({ command }) => ({
   root: 'src/client',
-  plugins: [arena(), marcas(), mundos(), sinDesarrollo(), publico()],
+  plugins: [arena(), npcs(), marcas(), mundos(), sinDesarrollo(), publico()],
   publicDir: resolve(__dirname, 'assets'),
   resolve: {
     alias: { '@core': resolve(__dirname, 'src/core') },

@@ -16,8 +16,16 @@ import { buildMap, type MapPlan } from '../map/generate.js';
 import { estructura, franjasDeBarrera } from '../map/regiones.js';
 import { isWalkable } from '../map/terrain.js';
 import { nivelDeUnidad } from '../nivel.js';
+import {
+  ACCIONES_DE_NPC,
+  type Banco,
+  ETIQUETAS,
+  FIGURAS_NUEVAS_POR_MUNDO,
+  type FiguraDeNpc,
+} from '../npcs.js';
 import { regionDeCasilla } from '../state/asaltantes.js';
 import { newGame } from '../state/setup.js';
+import { type PersonaDeLaFaccion, personasDeLaFaccion } from '../town/voces.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
 import { type Mundo, VOCABULARIO } from './formato.js';
 import { lugarBlocker } from './validar.js';
@@ -136,6 +144,19 @@ export interface LecturaParaElMotor {
     readonly precio: number;
   }[];
   readonly vocabulario: typeof VOCABULARIO;
+  /**
+   * El banco de figuras de NPC, para reutilizar o pedir: sus etiquetas (cerradas,
+   * con su frase), lo que puede llevar una figura, cuántas nuevas puede pedir un
+   * mundo, las que ya hay y la gente de la base de quien juega (los ids que admite
+   * `base`), con sus etiquetas.
+   */
+  readonly npcs: {
+    readonly etiquetas: typeof ETIQUETAS;
+    readonly acciones: typeof ACCIONES_DE_NPC;
+    readonly tope: number;
+    readonly figuras: readonly FiguraDeNpc[];
+    readonly gente: readonly PersonaDeLaFaccion[];
+  };
 }
 
 /**
@@ -145,6 +166,7 @@ export interface LecturaParaElMotor {
 export function lecturaParaElMotor(
   mundo: Mundo,
   plan: MapPlan,
+  banco: Banco,
   hecho: Pick<ReturnType<typeof buildMap>, 'map' | 'towns'> = buildMap(plan),
 ): LecturaParaElMotor {
   const { map, towns } = hecho;
@@ -244,6 +266,13 @@ export function lecturaParaElMotor(
       precio: p.precio,
     })),
     vocabulario: VOCABULARIO,
+    npcs: {
+      etiquetas: ETIQUETAS,
+      acciones: ACCIONES_DE_NPC,
+      tope: FIGURAS_NUEVAS_POR_MUNDO,
+      figuras: banco.figuras,
+      gente: personasDeLaFaccion(faccionDe(0)),
+    },
   };
 }
 

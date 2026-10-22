@@ -131,9 +131,19 @@ export const encargoSchema = z
     tamano: z
       .object({ ancho: z.number().int().positive(), alto: z.number().int().positive() })
       .optional(),
-    /** Lo que se rehace después de escribir la salida: los recortes de la base de esa facción. */
+    /**
+     * Lo que se hace después de escribir la salida: rehacer los recortes de la base
+     * de esa facción, o encolar lo que sigue de una figura del banco de NPC
+     * (`encargosQueSiguen`, `tools/taller/npcs.ts`: la identidad, el giro, las hojas).
+     */
     despues: z
-      .object({ orden: z.literal('recortar-base'), faccion: z.enum(FACTION_IDS) })
+      .discriminatedUnion('orden', [
+        z.object({ orden: z.literal('recortar-base'), faccion: z.enum(FACTION_IDS) }),
+        z.object({
+          orden: z.literal('encadenar-npc'),
+          npc: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+        }),
+      ])
       .optional(),
     /** Corrige una generación anterior en su mismo hilo de Codex, que conserva la identidad. */
     reanudar: z.object({ hilo: z.string().uuid(), correccion: z.string().min(10) }).optional(),

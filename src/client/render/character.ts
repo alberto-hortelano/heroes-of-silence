@@ -9,7 +9,7 @@
  * nadie que lee un clip pregunta si está. `ArteDeFigura.dispara` dice si el
  * disparo es suyo.
  */
-import type { ClipDeFigura } from '../../shared/arte.js';
+import type { ClipDeFigura, HOJAS_DE_FIGURA } from '../../shared/arte.js';
 
 /** Las siete acciones que se pintan: las seis de toda figura y el disparo. */
 export type CharacterClip = ClipDeFigura;
@@ -49,6 +49,34 @@ export interface CharacterAtlas {
   readonly cadaver: { readonly clip: 'death'; readonly frame: number };
 }
 
+/**
+ * Las acciones de la gente del banco de NPC (`ArteDeGente`, `personajes.ts`): las de
+ * la hoja A, quieto, andando y la carrera. Es la excepción a «toda figura tiene las
+ * seis» (decisión del usuario, 22-10-2026): no pelea, así que no tiene ataque, ni
+ * daño, ni cadáver.
+ */
+export type ClipDeGente = (typeof HOJAS_DE_FIGURA.a)[number];
+
+/** Un atlas de una dirección de la gente: solo sus acciones (`ClipDeGente`). */
+export interface AtlasDeGente {
+  readonly cell: number;
+  readonly columns: number;
+  readonly clips: Readonly<Record<ClipDeGente, ClipInfo>>;
+}
+
+/** Lo que se pinta de pie: el atlas de toda figura o el de la gente (`colocarFigura`). */
+export type AtlasQueSePinta = CharacterAtlas | AtlasDeGente;
+
+/**
+ * El clip `clip` de un atlas que se pinta, o lanza: la gente no tiene más que los
+ * suyos, y quien la pinta ya lo ha preguntado (`arteParaPintar`).
+ */
+export function infoDelClip(atlas: AtlasQueSePinta, clip: CharacterClip): ClipInfo {
+  const info = (atlas.clips as Readonly<Partial<Record<CharacterClip, ClipInfo>>>)[clip];
+  if (info === undefined) throw new Error(`el atlas no tiene el clip "${clip}"`);
+  return info;
+}
+
 export interface CharacterFrame {
   readonly image: CanvasImageSource;
   readonly x: number;
@@ -57,8 +85,8 @@ export interface CharacterFrame {
   readonly anchor: readonly [number, number];
 }
 
-export function clipFrame(atlas: CharacterAtlas, clip: CharacterClip, elapsedMs: number): number {
-  const info = atlas.clips[clip];
+export function clipFrame(atlas: AtlasQueSePinta, clip: CharacterClip, elapsedMs: number): number {
+  const info = infoDelClip(atlas, clip);
   const elapsed = Math.max(0, Math.floor((elapsedMs * info.fps) / 1000));
   return info.loop ? elapsed % info.frames : Math.min(elapsed, info.frames - 1);
 }
@@ -66,11 +94,11 @@ export function clipFrame(atlas: CharacterAtlas, clip: CharacterClip, elapsedMs:
 /** La celda de un fotograma concreto de un clip, ya resuelta su imagen. */
 export function celdaDe(
   image: CanvasImageSource,
-  atlas: CharacterAtlas,
+  atlas: AtlasQueSePinta,
   clip: CharacterClip,
   frame: number,
 ): CharacterFrame {
-  const info = atlas.clips[clip];
+  const info = infoDelClip(atlas, clip);
   return {
     image,
     x: frame * atlas.cell,

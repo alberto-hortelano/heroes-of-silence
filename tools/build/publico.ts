@@ -16,7 +16,8 @@ import { relative, sep } from 'node:path';
 
 /**
  * Lo que solo lee el taller, en tres reglas:
- * - En una carpeta de dirección de una unidad, todo menos su atlas. La página
+ * - En una carpeta de dirección de una unidad o de una figura del banco de NPC
+ *   (`npcs/<id>/dN/`, cuyos `atlas.json` llegan en `/__npcs`), todo menos su atlas. La página
  *   lee `unidades/<id>/dN/atlas.webp` (`registrarUnidad`,
  *   `src/client/render/personajes.ts`) y nada más de esa carpeta: los
  *   `atlas.json` le llegan dentro de la lista de hojas (`/__arena/hojas`). Las
@@ -38,7 +39,7 @@ import { relative, sep } from 'node:path';
  * vacía.
  */
 const SOLO_DEL_TALLER =
-  /^unidades\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^(?:art|mundos)(?:\/|$)/;
+  /^(?:unidades|npcs)\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^(?:art|mundos)(?:\/|$)/;
 
 /** ¿Va a `dist/` este fichero, con su ruta relativa a `assets/`? */
 export function seCopiaAlBuild(relativa: string): boolean {

@@ -46,6 +46,10 @@ import {
 } from '../src/core/state/game.js';
 import { NOMBRE_DE_FACCION } from '../src/core/types.js';
 import { leerCrudos } from '../tools/mundo/disco.js';
+import { leerBancoDeDisco } from '../tools/npcs/banco.js';
+
+/** El banco de figuras de NPC del repo: contra él se miran las figuras de los mundos. */
+const BANCO = leerBancoDeDisco();
 
 /** Los tres ficheros de un mundo, como los lee `pnpm mundo validar` (`leerCrudos`). */
 async function crudosDe(id: string): Promise<CrudosDelMundo> {
@@ -74,7 +78,7 @@ function prueba(
 function conHistoria(
   cambio: (h: { lugares: Record<string, unknown>[] } & Record<string, unknown>) => void,
 ): string[] {
-  return problemasDelMundo(prueba(cambio), 'prueba');
+  return problemasDelMundo(prueba(cambio), 'prueba', BANCO);
 }
 
 /** El primer lugar de la historia, para tocarlo. */
@@ -117,8 +121,8 @@ function conElArcon(
 
 describe('la validación de un mundo', () => {
   it('el mundo de prueba (a mano) y el de ejemplo (del motor) no tienen problemas', () => {
-    expect(problemasDelMundo(crudos('prueba'), 'prueba')).toEqual([]);
-    expect(problemasDelMundo(crudos('ejemplo'), 'ejemplo')).toEqual([]);
+    expect(problemasDelMundo(crudos('prueba'), 'prueba', BANCO)).toEqual([]);
+    expect(problemasDelMundo(crudos('ejemplo'), 'ejemplo', BANCO)).toEqual([]);
   });
 
   it('un mundo de otra versión o con dos rivales se rechaza diciéndolo', () => {
@@ -127,7 +131,7 @@ describe('la validación de un mundo', () => {
     } & CrudosDelMundo;
     c.mundo.version = 2;
     c.mundo.rivales = 2;
-    const p = problemasDelMundo(c, 'prueba');
+    const p = problemasDelMundo(c, 'prueba', BANCO);
     expect(p).toContainEqual(
       expect.stringContaining('mundo.json: version: es 2 y este juego lee la 1'),
     );
@@ -135,7 +139,7 @@ describe('la validación de un mundo', () => {
   });
 
   it('el id de la carpeta y el del mundo tienen que coincidir', () => {
-    expect(problemasDelMundo(crudos('prueba'), 'otro')).toContainEqual(
+    expect(problemasDelMundo(crudos('prueba'), 'otro', BANCO)).toContainEqual(
       expect.stringContaining('mundo.json: id: dice "prueba" y el mundo está en la carpeta "otro"'),
     );
   });
@@ -152,10 +156,10 @@ describe('la validación de un mundo', () => {
   it('lo que el plan ya sabe no se escribe en el mundo.json: la facción es la de su base', () => {
     const c = crudos('prueba') as { mundo: { jugador: Record<string, unknown> } } & CrudosDelMundo;
     c.mundo.jugador.faccion = 'imperio';
-    expect(problemasDelMundo(c, 'prueba')).toEqual([
+    expect(problemasDelMundo(c, 'prueba', BANCO)).toEqual([
       'mundo.json: jugador: «faccion» no es un campo; valen heroe',
     ]);
-    expect(leerMundo(crudos('prueba'), 'prueba').faccion).toBe('imperio');
+    expect(leerMundo(crudos('prueba'), 'prueba', BANCO).faccion).toBe('imperio');
   });
 
   it('un nodo al que no se llega desde el inicio', () => {
@@ -300,12 +304,12 @@ describe('la validación de un mundo', () => {
     } & CrudosDelMundo;
     c.mundo.version = 2;
     c.mundo.rivales = 3;
-    expect(() => leerMundo(c, 'prueba')).toThrow(/no se puede jugar \(2 problemas\)/);
+    expect(() => leerMundo(c, 'prueba', BANCO)).toThrow(/no se puede jugar \(2 problemas\)/);
   });
 });
 
 describe('la partida de un mundo', () => {
-  const leido = leerMundo(crudos('prueba'), 'prueba');
+  const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
 
   it('pone sus lugares en el mapa y su estado en la partida', () => {
     const state = partidaDelMundo(leido);
@@ -322,8 +326,8 @@ describe('la partida de un mundo', () => {
 });
 
 describe('la lectura para el motor', () => {
-  const leido = leerMundo(crudos('prueba'), 'prueba');
-  const lectura = lecturaParaElMotor(leido.mundo, leido.plan);
+  const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
+  const lectura = lecturaParaElMotor(leido.mundo, leido.plan, BANCO);
 
   it('la facción de quien juega sale del plan', () => {
     expect(lectura.jugador).toMatchObject({ id: 0, faccion: 'imperio', heroe: 'duelista' });
@@ -362,7 +366,7 @@ describe('la lectura para el motor', () => {
 });
 
 describe('elegir en un lugar', () => {
-  const leido = leerMundo(crudos('prueba'), 'prueba');
+  const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
   const ctx = { rng: createRng(7) };
 
   /** Una partida del mundo de prueba con el héroe del jugador 0 plantado en `lugar`. */
@@ -454,6 +458,7 @@ describe('elegir en un lugar', () => {
         puente(h).dialogos.corvo!.nodos.alto!.opciones[1]!.si = [{ faccion: 'orkos' }];
       }),
       'prueba',
+      BANCO,
     );
     const ref = { lugar: 'puente-de-corvo', punto: 'corvo', nodo: 'muerto', opcion: 0 };
     for (const [mundo, motivo] of [
@@ -547,6 +552,7 @@ describe('elegir en un lugar', () => {
       };
     }),
     'prueba',
+    BANCO,
   );
   /** Una partida de `conElPozoDelQA` con el héroe del jugador 0 en el pozo. */
   function enElPozoDelQA(): { state: GameState; hero: string } {
@@ -634,6 +640,7 @@ describe('elegir en un lugar', () => {
     const conArcon = leerMundo(
       prueba((h) => conElArcon(h)),
       'prueba',
+      BANCO,
     );
     const { state, yo, rival } = losDosEnElPuente(conArcon);
     expect(nodoDeEntrada(corvoDe(state, yo.id).a, corvoDe(state, yo.id).corvo)).toBe('alto');
@@ -789,6 +796,7 @@ describe('elegir en un lugar', () => {
         ];
       }),
       'prueba',
+      BANCO,
     );
     const state = partidaDelMundo(conPremio);
     const hero = state.heroes.find((h) => h.owner === 0)!;
@@ -868,7 +876,7 @@ describe('el mundo en la URL', () => {
 
 describe('la IA de reglas en un lugar', () => {
   it('elige la primera opción que hace algo, hasta que no queda ninguna, y cada premio una vez', () => {
-    const leido = leerMundo(crudos('prueba'), 'prueba');
+    const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
     const state = partidaDelMundo(leido, { 0: 'ai', 1: 'ai' });
     const hero = state.heroes.find((h) => h.owner === 0)!;
     hero.at = { x: 10, y: 12 };
@@ -899,6 +907,7 @@ describe('la IA de reglas en un lugar', () => {
         puente(h).dialogos.corvo!.nodos.alto!.opciones[2]!.si = [{ faccion: 'orkos' }];
       }),
       'prueba',
+      BANCO,
     );
     const state = partidaDelMundo(sinPelea, { 0: 'ai', 1: 'ai' });
     const hero = state.heroes.find((h) => h.owner === 0)!;
@@ -955,6 +964,7 @@ describe('la IA de reglas en un lugar', () => {
         };
       }),
       'prueba',
+      BANCO,
     );
     const state = partidaDelMundo(conPalanca, { 0: 'ai', 1: 'ai' });
     const hero = state.heroes.find((h) => h.owner === 0)!;

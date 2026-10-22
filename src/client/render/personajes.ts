@@ -3,7 +3,11 @@
  *
  * Toda figura tiene 8 direcciones y las 6 acciones (decisión del usuario,
  * 03-10-2026: «la imagen por defecto debería ser el Y Bot, el arte antiguo se
- * elimina»). Dos niveles y un respaldo:
+ * elimina»), **salvo la gente** del banco de NPC (22-10-2026): la de la base y la de
+ * los lugares, que no pelea y solo está de pie y anda (`ArteDeGente`, cuerpos
+ * `npc:<id>`). Su arte no es un `ArteDeFigura`: `arteDe`, lo que leen la batalla, el
+ * animador y la rueda, lanza con ella, y solo la pinta `arteParaPintar`. Para el
+ * resto, dos niveles y un respaldo:
  *
  *  1. **Su arte propio**: una unidad de `assets/unidades/<id>/` con sus ocho
  *     `dN/atlas.webp` (los templarios, hoy). Se registra a demanda
@@ -30,12 +34,23 @@ import {
   type CLIPS_DE_FIGURA,
   CLIPS_OPCIONALES,
   FILAS_DEL_ATLAS,
+  HOJAS_DE_FIGURA,
   hojaDeLaFila,
   JUEGO_POR_DEFECTO,
   NOMBRES_DE_DIRECCION,
 } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
-import type { CharacterAtlas, ClipInfo } from './character.js';
+import { CUERPO_DE_VECINO, cuerpoDeGente, esCuerpoDeGente } from './cuerpo-de-gente.js';
+
+export { CUERPO_DE_VECINO, cuerpoDeGente, esCuerpoDeGente };
+
+import type {
+  AtlasDeGente,
+  CharacterAtlas,
+  CharacterClip,
+  ClipDeGente,
+  ClipInfo,
+} from './character.js';
 
 /** Una figura entera: sus ocho direcciones y con qué se escala. */
 export interface ArteDeFigura {
@@ -267,15 +282,6 @@ function ybot(juego: string): ArteDeFigura {
 }
 
 /**
- * El cuerpo con que se pinta la gente de la base (encargados y vecinos): el Y Bot
- * sin armas y en reposo de civil (`civil`). Su `cuerpo` de `data/vecinos.json`
- * —una criatura de la facción— se queda para cuando haya figuras propias; con
- * el Y Bot de esa criatura, un vecino que habla en la plaza estaba en guardia con
- * el arma en la mano (ajuste tras la vuelta 2 de la base caminable).
- */
-export const CUERPO_DE_VECINO = 'vecino-de-la-base';
-
-/**
  * El juego de armas de lo que se pinta **sin hoja de unidad**: el héroe, el
  * personaje y la gente de la base. Las tropas no van aquí: desde el 19-10-2026
  * (F3 de `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`) toda tropa
@@ -339,7 +345,132 @@ export function registrarUnidad(
  * registró).
  */
 export function arteDe(body: string): ArteDeFigura {
+  if (esCuerpoDeGente(body)) {
+    throw new Error(
+      `«${body}» es una figura de gente del banco de NPC: no pelea, solo se pinta de pie`,
+    );
+  }
   return CUERPOS.get(body) ?? ybot(JUEGO_POR_DEFECTO);
+}
+
+// ---------------------------------------------------------------- la gente
+
+/** Las acciones que tiene la gente: las de la hoja A. */
+const CLIPS_DE_GENTE: readonly ClipDeGente[] = HOJAS_DE_FIGURA.a;
+
+/**
+ * Una figura de la gente: sus ocho direcciones, cada una con solo sus acciones
+ * (`ClipDeGente`). No se tiñe (`propio`): dice quién es por sí misma.
+ */
+export interface ArteDeGente {
+  readonly direcciones: readonly AtlasDeGente[];
+  readonly propio: true;
+  readonly nombre: string;
+  readonly alturaPropia: number;
+  readonly imagenes: readonly string[];
+}
+
+/** Lo que se pinta de pie (`colocarFigura`): una figura de toda la vida o una de la gente. */
+export type ArteQueSePinta = ArteDeFigura | ArteDeGente;
+
+/**
+ * Un JSON de una dirección de la gente, comprobado: sus acciones con fotogramas y
+ * ancla, y la altura. Lo de la hoja B, si lo trae (una figura pedida con `todas`),
+ * se ignora: hoy ninguna escena lo pinta.
+ */
+export function comoDireccionDeGente(
+  valor: unknown,
+  nombre: string,
+  imagen: string,
+): AtlasDeGente & { readonly altura: number } {
+  const a = valor as
+    | {
+        cell?: unknown;
+        columns?: unknown;
+        altura?: unknown;
+        clips?: Record<string, Partial<Omit<ClipInfo, 'imagen'>> | undefined>;
+      }
+    | undefined;
+  if (a === undefined || typeof a.cell !== 'number' || typeof a.columns !== 'number') {
+    throw new Error(`el atlas ${nombre} no dice el tamaño de celda ni las columnas`);
+  }
+  if (typeof a.altura !== 'number' || !(a.altura > 0)) {
+    throw new Error(`el atlas ${nombre} no dice cuánto mide su figura (altura)`);
+  }
+  const clips: Partial<Record<ClipDeGente, ClipInfo>> = {};
+  for (const clip of CLIPS_DE_GENTE) {
+    const c = a.clips?.[clip];
+    if (
+      c === undefined ||
+      typeof c.row !== 'number' ||
+      typeof c.frames !== 'number' ||
+      !(c.frames > 0) ||
+      typeof c.fps !== 'number' ||
+      typeof c.loop !== 'boolean' ||
+      c.anchor?.length !== 2
+    ) {
+      throw new Error(`el atlas ${nombre} no tiene un clip "${clip}" con fotogramas y ancla`);
+    }
+    clips[clip] = {
+      imagen,
+      row: c.row,
+      frames: c.frames,
+      fps: c.fps,
+      loop: c.loop,
+      anchor: c.anchor,
+    };
+  }
+  return {
+    cell: a.cell,
+    columns: a.columns,
+    clips: clips as AtlasDeGente['clips'],
+    altura: a.altura,
+  };
+}
+
+/** La gente registrada, por su cuerpo (`cuerpoDeGente`). */
+const GENTE = new Map<string, ArteDeGente>();
+
+/**
+ * Registra la figura `id` del banco de NPC con sus ocho `dN/atlas.json` (los de
+ * `/__npcs`). Lanza si no son ocho o si una no trae sus acciones: con siete se
+ * mezclarían luces de dos artes.
+ */
+export function registrarGente(id: string, direcciones: readonly unknown[]): ArteDeGente {
+  if (direcciones.length !== NOMBRES_DE_DIRECCION.length) {
+    throw new Error(
+      `la figura de gente ${id} trae ${direcciones.length} direcciones y una figura tiene ${NOMBRES_DE_DIRECCION.length}`,
+    );
+  }
+  const dirs = direcciones.map((d, n) =>
+    comoDireccionDeGente(d, `npcs/${id}/d${n}`, `/npcs/${id}/d${n}/atlas.webp`),
+  );
+  const arte: ArteDeGente = {
+    direcciones: dirs,
+    propio: true,
+    nombre: `la figura de gente ${id}`,
+    alturaPropia: (dirs[INDICE_DE_HOJA[MIRADA_DE_PRESENTACION]] as { altura: number }).altura,
+    imagenes: dirs.map((d) => d.clips.idle.imagen),
+  };
+  GENTE.set(cuerpoDeGente(id), arte);
+  return arte;
+}
+
+/**
+ * El arte con que se pinta `body` de pie en el clip `clip`: el de `arteDe` o, con
+ * un cuerpo de la gente, su `ArteDeGente`. **Lanza** con la gente si el clip no es
+ * de los suyos (un ataque, una muerte: no pelea) o si no está registrada.
+ */
+export function arteParaPintar(body: string, clip: CharacterClip): ArteQueSePinta {
+  if (!esCuerpoDeGente(body)) return arteDe(body);
+  if (!(CLIPS_DE_GENTE as readonly string[]).includes(clip)) {
+    throw new Error(
+      `«${body}» es una figura de gente: no tiene el clip "${clip}", solo ${CLIPS_DE_GENTE.join(', ')}`,
+    );
+  }
+  const arte = GENTE.get(body);
+  if (arte === undefined) throw new Error(`la figura de gente «${body}» no está registrada`);
+  return arte;
 }
 
 /**
@@ -357,7 +488,7 @@ let hojasSabidas = false;
  * cazó `pnpm capturas`, vuelta 2 del arranque; a las tropas les pasaba igual).
  */
 export function arteSabido(body: string): boolean {
-  return hojasSabidas || CUERPOS.has(body);
+  return hojasSabidas || CUERPOS.has(body) || GENTE.has(body);
 }
 
 /**
@@ -385,8 +516,8 @@ export async function registrarLasHojas(): Promise<readonly Hoja[]> {
 }
 
 /** El atlas de la dirección en la que mira la figura. No se espeja nunca. */
-export function hojaDe(arte: ArteDeFigura, mira: Direccion): CharacterAtlas {
-  return arte.direcciones[INDICE_DE_HOJA[mira]] as CharacterAtlas;
+export function hojaDe<A>(arte: { readonly direcciones: readonly A[] }, mira: Direccion): A {
+  return arte.direcciones[INDICE_DE_HOJA[mira]] as A;
 }
 
 /**
@@ -394,7 +525,10 @@ export function hojaDe(arte: ArteDeFigura, mira: Direccion): CharacterAtlas {
  * un lado y a otro: el respaldo de una dirección cuya imagen aún no ha llegado
  * es la más parecida que ya esté, no el marcador.
  */
-export function hojasPorCercania(arte: ArteDeFigura, mira: Direccion): CharacterAtlas[] {
+export function hojasPorCercania<A>(
+  arte: { readonly direcciones: readonly A[] },
+  mira: Direccion,
+): A[] {
   const n = arte.direcciones.length;
   const i = INDICE_DE_HOJA[mira];
   const orden = [i];
@@ -402,5 +536,5 @@ export function hojasPorCercania(arte: ArteDeFigura, mira: Direccion): Character
     orden.push((i + k) % n);
     if (k < n / 2) orden.push((i - k + n) % n);
   }
-  return orden.map((j) => arte.direcciones[j] as CharacterAtlas);
+  return orden.map((j) => arte.direcciones[j] as A);
 }

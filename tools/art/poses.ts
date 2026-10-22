@@ -1696,7 +1696,12 @@ export async function renderizarOchoDirecciones(
   destino = DIR_POSES,
   maniqui?: {
     readonly id: string;
-    readonly atrezo: Atrezo;
+    /**
+     * `null`: sin nada en las manos, el maniquí civil de la gente (`pnpm taller
+     * maniqui --civil`, el banco de NPC): el de `_poses/civil-8d/` sin
+     * profundidad, que es el Y Bot del cliente y no se toca.
+     */
+    readonly atrezo: Atrezo | null;
     readonly clips?: ClipsDeManiqui;
     /** Además, cada hoja en mapa de profundidad y en color sombreado por él. */
     readonly profundidad?: boolean;
@@ -1716,7 +1721,8 @@ export async function renderizarOchoDirecciones(
   if (maniqui?.clips?.tramos?.hurt !== undefined)
     throw new Error(`${maniqui.id}: el daño no admite tramo, la muerte arranca de su final`);
   const perfil = maniqui ? `${maniqui.id}-8d` : `${juego}-8d`;
-  const atrezo: Atrezo | null = maniqui?.atrezo ?? JUEGOS_DE_ARMAS[juego].atrezo;
+  const atrezo: Atrezo | null =
+    maniqui === undefined ? JUEGOS_DE_ARMAS[juego].atrezo : maniqui.atrezo;
   const { piernasDeColor } = JUEGOS_DE_ARMAS[juego];
   const { columnas } = FIGURA;
   const pasadas = pasadasDelRender(juego, hojas, atrezo);

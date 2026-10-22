@@ -9,6 +9,7 @@
 import { type MundoLeido, noEsJson, parseMundo } from '@core/mundo/formato.js';
 import { leerMundo } from '@core/mundo/validar.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import { genteCargada } from '../render/gente.js';
 import { pide } from '../semilla.js';
 
 /** Lo que trae un mundo y no puede ir con él en la URL: lo fija el mundo. */
@@ -57,7 +58,8 @@ export async function cargarElMundoPedido(search: string): Promise<void> {
   const [mundo, plan, historia] = await Promise.all(
     ['mundo', 'plan', 'historia'].map((f) => pedir(id, f)),
   );
-  pedido = leerMundo({ mundo, plan, historia }, id);
+  // El banco ya está cargado (`entrada.ts`): contra él se miran las figuras que nombra.
+  pedido = leerMundo({ mundo, plan, historia }, id, genteCargada().banco);
 }
 
 /** El mundo cargado por `cargarElMundoPedido`, o `null` si la URL no pedía ninguno. */
