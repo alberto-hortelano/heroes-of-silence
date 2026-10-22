@@ -3,9 +3,7 @@
   "id": "prueba",
   "semilla": 2026,
   "jugador": {
-    "faccion": "imperio",
     "heroe": "duelista"
   },
-  "rivales": 1,
-  "regionesPorBando": 4
+  "rivales": 1
 }

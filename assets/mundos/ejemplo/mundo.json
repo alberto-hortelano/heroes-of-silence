@@ -3,9 +3,7 @@
   "id": "ejemplo",
   "semilla": 299810,
   "jugador": {
-    "faccion": "no-muertos",
     "heroe": "nigromante"
   },
-  "rivales": 1,
-  "regionesPorBando": 5
+  "rivales": 1
 }

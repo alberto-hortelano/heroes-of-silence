@@ -18,12 +18,8 @@ import {
   type MapPlan,
   validateMapPlan,
 } from '../map/generate.js';
-import type { EstadoDelMundo, Historia } from '../mundo/formato.js';
-import {
-  estadoInicialDelMundo,
-  objetosDeLosLugares,
-  problemasDeLaHistoria,
-} from '../mundo/validar.js';
+import type { EstadoDelMundo, MundoLeido } from '../mundo/formato.js';
+import { estadoInicialDelMundo, objetosDeLosLugares } from '../mundo/validar.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
@@ -74,13 +70,14 @@ export interface NewGameOptions {
    */
   readonly tipoDelHeroe?: string | undefined;
   /**
-   * La historia de un mundo (`core/mundo/`): sus lugares van al mapa tras
-   * `buildMap` y su estado, a `GameState.mundo`. Pide el `plan` del mundo, que es
-   * donde se escribió; sin ella, la partida es la de siempre y no lleva lugares.
-   * Se juzga otra vez aquí (`problemasDeLaHistoria`) y lanza con todo lo que no
-   * vale: un estado de partida no nace con una historia que la página rechazaría.
+   * Un mundo leído (`core/mundo/`, `leerMundo`): su plan es el de la partida, sus
+   * lugares van al mapa tras `buildMap` y su estado, a `GameState.mundo`; sin él,
+   * la partida es la de siempre y no lleva lugares. **No se juzga otra vez**: un
+   * `MundoLeido` solo lo produce la lectura, que ya lo juzgó entero (plan e
+   * historia), así que un estado de partida no nace con uno que la página
+   * rechazaría. Excluye `plan`.
    */
-  readonly historia?: Historia | undefined;
+  readonly mundo?: MundoLeido | undefined;
 }
 
 /**
@@ -188,7 +185,11 @@ export function newGame(options: NewGameOptions = {}): GameState {
   const seed = options.seed ?? 1;
   const rng = createRng(seed);
 
+  if (options.mundo !== undefined && options.plan !== undefined) {
+    throw new Error('un mundo trae su plan: no se le pasa otro');
+  }
   const plan =
+    options.mundo?.plan ??
     options.plan ??
     generateMapPlan(rng, {
       factions: faccionesDeLaSemilla(seed, options.faccionDelJugador),
@@ -199,29 +200,20 @@ export function newGame(options: NewGameOptions = {}): GameState {
       ...(options.height === undefined ? {} : { height: options.height }),
     });
 
-  const problemas = validateMapPlan(plan);
+  // El plan de un mundo ya lo juzgó su lectura (`leerMundo`), con la historia.
+  const problemas = options.mundo === undefined ? validateMapPlan(plan) : [];
   if (problemas.length > 0) {
     throw new Error(`el plan de mapa no es jugable:\n- ${problemas.join('\n- ')}`);
   }
 
+  // El mapa se construye aquí también con un mundo: `buildMap` da estado que la
+  // partida cambia (objetos, ciudades), y una misma lectura juega varias partidas.
   const { map, towns, raiders } = buildMap(plan);
 
   let mundo: EstadoDelMundo | undefined;
-  if (options.historia !== undefined) {
-    if (options.plan === undefined) {
-      throw new Error('una historia se juega sobre el plan de su mundo: falta el plan');
-    }
-    const base0 = basesDelPlan(plan).get(0);
-    if (base0 === undefined) throw new Error('el plan del mundo no tiene base del jugador 0');
-    const malos = problemasDeLaHistoria(options.historia, {
-      map,
-      faccionDelJugador: base0.faction,
-    });
-    if (malos.length > 0) {
-      throw new Error(`la historia del mundo no se puede jugar:\n- ${malos.join('\n- ')}`);
-    }
-    map.objects.push(...objetosDeLosLugares(options.historia));
-    mundo = estadoInicialDelMundo(options.historia);
+  if (options.mundo !== undefined) {
+    map.objects.push(...objetosDeLosLugares(options.mundo.historia));
+    mundo = estadoInicialDelMundo(options.mundo.historia);
   }
 
   // Los jugadores y sus bases, por id (`basesDelPlan`): de ese orden salen

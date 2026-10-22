@@ -87,7 +87,7 @@ import {
 } from '../map/map.js';
 import { muroBlocker } from '../map/recinto.js';
 import { type Efecto, type EstadoDelMundo, type Lugar, lugarDe } from '../mundo/formato.js';
-import { opcionBlocker, opcionDe } from '../mundo/reglas.js';
+import { mundoDe, opcionBlocker, opcionDe } from '../mundo/reglas.js';
 import { createRng, type Rng } from '../rng.js';
 import { CHARACTER_BODY, type Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
@@ -1443,7 +1443,7 @@ function aplicar(
       const noSe = opcionBlocker(state, action.hero, action);
       if (noSe !== null) throw new Error(`no se puede elegir eso: ${noSe}`);
       const hero = heroById(state, action.hero);
-      const { lugar, opcion } = opcionDe(state, action);
+      const { lugar, opcion } = opcionDe(state, action.hero, action);
       aplicarEfectos(state, hero.owner, hero, lugar, opcion.hace ?? [], ctx);
       return;
     }
@@ -1482,8 +1482,7 @@ function aplicarEfectos(
   efectos: readonly Efecto[],
   ctx: GameContext | null,
 ): void {
-  const mundo = state.mundo;
-  if (mundo === undefined) throw new Error('esta partida no es de un mundo');
+  const mundo = mundoDe(state);
   const at = lugar.at;
   const player = playerById(state, dueño);
   const delHeroe = (que: string): Hero => {
@@ -1510,13 +1509,13 @@ function aplicarEfectos(
       mundo.marcas.push(e.marca);
       emit(state, { kind: 'world_mark', marca: e.marca, lugar: lugar.id, actor: dueño, at });
     } else if ('oro' in e) {
-      if (e.oro > 0) {
-        player.oro += e.oro;
-        emit(state, { kind: 'gold_gained', amount: e.oro, lugar: lugar.id, actor: dueño, at });
-      } else {
-        player.oro += e.oro;
-        emit(state, { kind: 'gold_paid', amount: -e.oro, lugar: lugar.id, actor: dueño, at });
-      }
+      player.oro += e.oro;
+      emit(
+        state,
+        e.oro > 0
+          ? { kind: 'gold_gained', amount: e.oro, from: 'lugar', lugar: lugar.id, actor: dueño, at }
+          : { kind: 'gold_paid', amount: -e.oro, lugar: lugar.id, actor: dueño, at },
+      );
     } else if ('pieza' in e) {
       const h = delHeroe('pieza');
       aLaMochila(h, e.pieza);
@@ -1575,11 +1574,6 @@ function encuentroDe(state: GameState, foe: Extract<BattleFoe, { kind: 'lugar' }
     throw new Error(`«${lugar.nombre}» no tiene ningún encuentro "${foe.encuentro}"`);
   }
   return { lugar, encuentro };
-}
-
-function mundoDe(state: GameState): EstadoDelMundo {
-  if (state.mundo === undefined) throw new Error('esta partida no es de un mundo');
-  return state.mundo;
 }
 
 /**

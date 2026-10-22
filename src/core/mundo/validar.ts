@@ -1,6 +1,7 @@
 /**
  * La validación de un mundo: **la única**, para `pnpm mundo validar <id>`, el
- * servidor de desarrollo que lo genera, la página que lo carga y `newGame`.
+ * servidor de desarrollo que lo genera y la página que lo carga. Lo que pasa sale
+ * con la marca de leído (`MundoLeido`), y `newGame` lo juega sin juzgarlo otra vez.
  *
  * Devuelve **todos** los problemas de una vez, cada uno con su ruta dentro del
  * fichero y escrito para el motor de narrativa, que es quien tiene que corregirlo
@@ -11,7 +12,8 @@
  * existe) se deriva aquí.
  *
  * A mano y en español, como `validarUnidad` y `leerPiezas`, sin zod: los mensajes
- * de zod salen en inglés y el trozo de la página no lo necesita.
+ * de zod salen en inglés y el trozo de la página no lo necesita. Las piezas son
+ * las del núcleo que devuelven el motivo (`core/validar.ts`), que aquí se acumula.
  */
 import { problemasDeGrupo, unidadDelJuegoSiExiste } from '../catalogo.js';
 import { motivoDeLinea } from '../contract/linea.js';
@@ -22,7 +24,14 @@ import { basesDelPlan, buildMap, type MapPlan, validateMapPlan } from '../map/ge
 import { type GameMap, inBounds, isEnterable, type MapObject, terrainAt } from '../map/map.js';
 import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
 import { problemasDeGrupoNeutral, regionDeCasilla } from '../state/asaltantes.js';
-import { esFaccion, FACTION_IDS, type FactionId, type Point } from '../types.js';
+import { FACTION_IDS, type FactionId, type Point } from '../types.js';
+import {
+  deLaListaBlocker,
+  enteroBlocker,
+  esObjeto,
+  listaBlocker,
+  problemasDeObjeto,
+} from '../validar.js';
 import {
   CLAVES_DE_CONDICION,
   CLAVES_DE_EFECTO,
@@ -33,13 +42,14 @@ import {
   type Efecto,
   type EstadoDelMundo,
   esIdDeHistoria,
-  esIdDeMundo,
   type Historia,
+  idDeMundoBlocker,
   type Lugar,
   type Mundo,
   type MundoLeido,
   VERSION_DEL_MUNDO,
 } from './formato.js';
+import { recorrido } from './reglas.js';
 
 /** A cuántas casillas (Chebyshev) va un lugar, como poco, de todo objeto del mapa y de otro lugar. */
 export const SEPARACION_DE_UN_LUGAR = 3;
@@ -111,10 +121,6 @@ class Juez {
   }
 }
 
-function esObjeto(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
 /** Un objeto con esos campos: dice lo que sobra y lo que falta. `null` si no es un objeto. */
 function objeto(
   j: Juez,
@@ -123,19 +129,10 @@ function objeto(
   obligatorios: readonly string[],
   opcionales: readonly string[] = [],
 ): Record<string, unknown> | null {
-  if (!esObjeto(v)) {
-    j.mal(
-      ruta,
-      `tiene que ser un objeto {…}, y es ${Array.isArray(v) ? 'una lista' : JSON.stringify(v)}`,
-    );
-    return null;
+  for (const m of problemasDeObjeto(v, [...obligatorios, ...opcionales], obligatorios)) {
+    j.mal(ruta, m);
   }
-  const valen = [...obligatorios, ...opcionales];
-  for (const k of Object.keys(v)) {
-    if (!valen.includes(k)) j.mal(ruta, `«${k}» no es un campo; valen ${valen.join(', ')}`);
-  }
-  for (const k of obligatorios) if (!(k in v)) j.mal(ruta, `falta «${k}»`);
-  return v;
+  return esObjeto(v) ? v : null;
 }
 
 /** Un texto legible de una línea, de hasta `max` caracteres. */
@@ -161,19 +158,21 @@ function id(j: Juez, v: unknown, ruta: string): string | null {
 }
 
 function entero(j: Juez, v: unknown, ruta: string, min: number, max: number): number | null {
-  if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < min || v > max) {
-    j.mal(ruta, `tiene que ser un entero de ${min} a ${max}, y es ${JSON.stringify(v)}`);
+  const motivo = enteroBlocker(v, min, max);
+  if (motivo !== null) {
+    j.mal(ruta, motivo);
     return null;
   }
-  return v;
+  return v as number;
 }
 
 function lista(j: Juez, v: unknown, ruta: string): readonly unknown[] {
-  if (!Array.isArray(v)) {
-    j.mal(ruta, 'tiene que ser una lista […]');
+  const motivo = listaBlocker(v);
+  if (motivo !== null) {
+    j.mal(ruta, motivo);
     return [];
   }
-  return v;
+  return v as readonly unknown[];
 }
 
 /** Un objeto usado como diccionario: sus claves, ids. */
@@ -194,11 +193,42 @@ function punto(j: Juez, v: unknown, ruta: string): Point | null {
 }
 
 function faccion(j: Juez, v: unknown, ruta: string): FactionId | null {
-  if (typeof v !== 'string' || !esFaccion(v)) {
-    j.mal(ruta, `${JSON.stringify(v)} no es una facción; valen ${FACTION_IDS.join(', ')}`);
+  const motivo = deLaListaBlocker(v, FACTION_IDS);
+  if (motivo !== null) {
+    j.mal(ruta, `la facción ${motivo}`);
     return null;
   }
-  return v;
+  return v as FactionId;
+}
+
+/** Un estado de este lugar, o `null` diciéndolo: lo nombran las condiciones y los efectos. */
+function estadoDelLugar(j: Juez, x: unknown, ruta: string, delLugar: DelLugar): string | null {
+  if (typeof x !== 'string' || !delLugar.estados.has(x)) {
+    j.mal(
+      ruta,
+      `el estado ${JSON.stringify(x)} no es de este lugar (${[...delLugar.estados].join(', ')})`,
+    );
+    return null;
+  }
+  return x;
+}
+
+/** Una marca declarada en «marcas», o `null` diciéndolo. */
+function marcaDeclarada(j: Juez, x: unknown, ruta: string, apuntes: Apuntes): string | null {
+  if (typeof x !== 'string' || !apuntes.marcas.has(x)) {
+    j.mal(ruta, `la marca ${JSON.stringify(x)} no está declarada en «marcas»`);
+    return null;
+  }
+  return x;
+}
+
+/** Una pieza del catálogo de equipo, o `null` diciéndolo. */
+function piezaDelCatalogo(j: Juez, x: unknown, ruta: string): string | null {
+  if (typeof x !== 'string' || piezaSiExiste(x) === null) {
+    j.mal(ruta, `la pieza ${JSON.stringify(x)} no existe en el catálogo de equipo`);
+    return null;
+  }
+  return x;
 }
 
 // ---------------------------------------------------------------- el mundo
@@ -210,63 +240,67 @@ export interface CrudosDelMundo {
   readonly historia: unknown;
 }
 
-/** Lo que una historia necesita saber del resto del mundo para juzgarse entera. */
-export interface ContextoDeLaHistoria {
-  /** El mapa construido del plan, donde van los lugares. */
-  readonly map: GameMap;
-  /** La facción de quien juega (la del jugador 0). */
-  readonly faccionDelJugador: FactionId;
+/**
+ * Todos los problemas de un mundo, con su fichero y su ruta, y el mundo leído si
+ * no hay ninguno. `id` es el de su carpeta, que el `mundo.json` tiene que repetir.
+ * El plan se juzga antes que el `mundo.json` porque el héroe se mira contra la
+ * facción de la base del jugador 0, que es suya; los problemas salen en el orden
+ * de los ficheros.
+ */
+function juzgarMundo(
+  crudos: CrudosDelMundo,
+  idEsperado: string,
+): { readonly problemas: readonly string[]; readonly leido: MundoLeido | null } {
+  const delPlan: string[] = [];
+  const plan = juzgarPlan(crudos.plan, delPlan);
+  const delMundo: string[] = [];
+  const mundo = juzgarMundoJson(crudos.mundo, idEsperado, plan?.faccion ?? null, delMundo);
+  const malId = idDeMundoBlocker(idEsperado);
+  const problemas = [
+    ...(malId === null ? [] : [malId]),
+    ...delMundo,
+    ...delPlan,
+    ...problemasDeLaHistoria(crudos.historia, plan?.map ?? null),
+  ];
+  const leido =
+    problemas.length === 0 && mundo !== null && plan !== null
+      ? ({
+          mundo,
+          plan: plan.plan,
+          historia: crudos.historia as Historia,
+          faccion: plan.faccion,
+        } as MundoLeido)
+      : null;
+  return { problemas, leido };
+}
+
+/** Todos los problemas de un mundo, con su fichero y su ruta. Vacío: se juega. */
+export function problemasDelMundo(crudos: CrudosDelMundo, idEsperado: string): string[] {
+  return [...juzgarMundo(crudos, idEsperado).problemas];
 }
 
 /**
- * Todos los problemas de un mundo, con su fichero y su ruta. Vacío: se juega.
- * `id` es el de su carpeta, que el `mundo.json` tiene que repetir.
+ * El mundo leído, o lanza con todos sus problemas (la página lo pinta:
+ * `arranque.ts`). **La única que da un `MundoLeido`.**
  */
-export function problemasDelMundo(crudos: CrudosDelMundo, idEsperado: string): string[] {
-  const problemas: string[] = [];
-  if (!esIdDeMundo(idEsperado)) {
-    problemas.push(`"${idEsperado}" no es el id de un mundo: minúsculas, cifras y «-», de 1 a 48`);
-  }
-  const mundo = juzgarMundoJson(crudos.mundo, idEsperado, problemas);
-  const { map, faccion0 } = juzgarPlan(crudos.plan, problemas);
-  if (mundo !== null && faccion0 !== null && mundo.jugador.faccion !== faccion0) {
-    problemas.push(
-      `mundo.json: jugador.faccion es ${mundo.jugador.faccion} y la base del jugador 0 del plan es de ${faccion0}`,
-    );
-  }
-  const ctx =
-    map === null
-      ? null
-      : { map, faccionDelJugador: mundo?.jugador.faccion ?? faccion0 ?? 'imperio' };
-  problemas.push(...problemasDeLaHistoria(crudos.historia, ctx));
-  return problemas;
-}
-
-/** El mundo leído, o lanza con todos sus problemas (la página lo pinta: `arranque.ts`). */
 export function leerMundo(crudos: CrudosDelMundo, idEsperado: string): MundoLeido {
-  const problemas = problemasDelMundo(crudos, idEsperado);
-  if (problemas.length > 0) {
+  const { problemas, leido } = juzgarMundo(crudos, idEsperado);
+  if (leido === null) {
     throw new Error(
       `el mundo "${idEsperado}" no se puede jugar (${problemas.length} problema${problemas.length === 1 ? '' : 's'}):\n- ${problemas.join('\n- ')}`,
     );
   }
-  return {
-    mundo: crudos.mundo as Mundo,
-    plan: crudos.plan,
-    historia: crudos.historia as Historia,
-  };
+  return leido;
 }
 
-function juzgarMundoJson(crudo: unknown, idEsperado: string, problemas: string[]): Mundo | null {
+function juzgarMundoJson(
+  crudo: unknown,
+  idEsperado: string,
+  faccionDelPlan: FactionId | null,
+  problemas: string[],
+): Mundo | null {
   const j = new Juez('mundo.json');
-  const o = objeto(j, crudo, '', [
-    'version',
-    'id',
-    'semilla',
-    'jugador',
-    'rivales',
-    'regionesPorBando',
-  ]);
+  const o = objeto(j, crudo, '', ['version', 'id', 'semilla', 'jugador', 'rivales']);
   if (o !== null) {
     if (o.version !== VERSION_DEL_MUNDO) {
       j.mal(
@@ -278,12 +312,13 @@ function juzgarMundoJson(crudo: unknown, idEsperado: string, problemas: string[]
       j.mal('id', `dice ${JSON.stringify(o.id)} y el mundo está en la carpeta "${idEsperado}"`);
     }
     entero(j, o.semilla, 'semilla', 0, 0xffff_ffff);
-    const jug = objeto(j, o.jugador, 'jugador', ['faccion', 'heroe']);
+    const jug = objeto(j, o.jugador, 'jugador', ['heroe']);
     if (jug !== null) {
-      const f = faccion(j, jug.faccion, 'jugador.faccion');
+      // Su facción es la de la base del jugador 0 del plan: con el plan roto, el
+      // héroe no tiene contra qué mirarse (el plan ya dice su problema).
       if (typeof jug.heroe !== 'string') j.mal('jugador.heroe', 'tiene que ser un texto');
-      else if (f !== null) {
-        const malo = problemaDeTipo(f, jug.heroe);
+      else if (faccionDelPlan !== null) {
+        const malo = problemaDeTipo(faccionDelPlan, jug.heroe);
         if (malo !== null) j.mal('jugador.heroe', malo);
       }
     }
@@ -293,25 +328,24 @@ function juzgarMundoJson(crudo: unknown, idEsperado: string, problemas: string[]
         `es ${JSON.stringify(o.rivales)}: este juego aún juega contra un solo rival (el generador no sabe de más bandos)`,
       );
     }
-    entero(j, o.regionesPorBando, 'regionesPorBando', 2, 20);
   }
   problemas.push(...j.problemas);
   return j.problemas.length === 0 ? (crudo as Mundo) : null;
 }
 
+/** El plan válido, su mapa y la facción de quien juega (la de la base del jugador 0), o `null`. */
 function juzgarPlan(
   crudo: unknown,
   problemas: string[],
-): { readonly map: GameMap | null; readonly faccion0: FactionId | null } {
-  const nada = { map: null, faccion0: null };
+): { readonly plan: MapPlan; readonly map: GameMap; readonly faccion: FactionId } | null {
   if (!esObjeto(crudo)) {
     problemas.push('plan.json: tiene que ser el objeto de un plan de mapa');
-    return nada;
+    return null;
   }
   for (const k of ['regions', 'walls', 'nodes', 'towns', 'villages', 'monsters', 'chests']) {
     if (!Array.isArray(crudo[k])) {
       problemas.push(`plan.json: «${k}» tiene que ser una lista: no es el plan de un mapa`);
-      return nada;
+      return null;
     }
   }
   const plan = crudo as unknown as MapPlan;
@@ -319,19 +353,20 @@ function juzgarPlan(
     const delPlan = validateMapPlan(plan);
     if (delPlan.length > 0) {
       problemas.push(...delPlan.map((p) => `plan.json: ${p}`));
-      return nada;
+      return null;
     }
     const bases = basesDelPlan(plan);
-    if (bases.size !== 2 || !bases.has(0) || !bases.has(1)) {
+    const base0 = bases.get(0);
+    if (bases.size !== 2 || base0 === undefined || !bases.has(1)) {
       problemas.push(
         `plan.json: tiene las bases de ${[...bases.keys()].join(', ') || 'nadie'} y un mundo de hoy es de los jugadores 0 y 1`,
       );
-      return nada;
+      return null;
     }
-    return { map: buildMap(plan).map, faccion0: (bases.get(0) as { faction: FactionId }).faction };
+    return { plan, map: buildMap(plan).map, faccion: base0.faction };
   } catch (err) {
     problemas.push(`plan.json: no se puede construir: ${err instanceof Error ? err.message : err}`);
-    return nada;
+    return null;
   }
 }
 
@@ -350,12 +385,11 @@ interface Apuntes {
 }
 
 /**
- * Los problemas de un `historia.json`. Con `ctx`, también lo que depende del mapa
- * (la casilla de cada lugar); sin él (el plan no se pudo construir), solo lo suyo.
- * La llama también `newGame` con una historia ya escrita, para que un estado de
- * partida no pueda nacer con una que la página rechazaría.
+ * Los problemas de un `historia.json`. Con `map` (el del plan), también lo que
+ * depende del mapa (la casilla de cada lugar); sin él (el plan no se pudo
+ * construir), solo lo suyo.
  */
-export function problemasDeLaHistoria(crudo: unknown, ctx: ContextoDeLaHistoria | null): string[] {
+function problemasDeLaHistoria(crudo: unknown, map: GameMap | null): string[] {
   const j = new Juez('historia.json');
   const o = objeto(j, crudo, '', ['titulo', 'resumen', 'marcas', 'lugares']);
   if (o === null) return j.problemas;
@@ -387,12 +421,12 @@ export function problemasDeLaHistoria(crudo: unknown, ctx: ContextoDeLaHistoria 
     if (hecho === null) return;
     if (ids.has(hecho.id)) j.mal(`lugares[${i}].id`, `"${hecho.id}" ya es el id de otro lugar`);
     ids.add(hecho.id);
-    if (ctx === null || hecho.at === null) return;
-    const choca = ctx.map.objects.find((x) => x.id === hecho.id);
+    if (map === null || hecho.at === null) return;
+    const choca = map.objects.find((x) => x.id === hecho.id);
     if (choca !== undefined) {
       j.mal(`lugares[${i}].id`, `"${hecho.id}" ya es el id ${deLo(queEsElObjeto(choca))} del mapa`);
     }
-    const motivo = lugarBlocker(ctx.map, hecho.at, colocados);
+    const motivo = lugarBlocker(map, hecho.at, colocados);
     if (motivo !== null) j.mal(`lugares[${i}].at`, motivo);
     colocados.push({ at: hecho.at, name: hecho.nombre });
   });
@@ -465,7 +499,7 @@ function juzgarLugar(
       for (const p of problemasDeGrupoNeutral(tropa, 'su tropa', 'un encuentro'))
         j.mal(`${r}.tropa`, p);
     }
-    const g = efectos(j, enc.alGanar, `${r}.alGanar`, delLugar, apuntes, EFECTOS_AL_GANAR);
+    const g = efectos(j, enc.alGanar, `${r}.alGanar`, delLugar, apuntes, EFECTOS_AL_GANAR, true);
     efectos(j, enc.alPerder, `${r}.alPerder`, delLugar, apuntes, EFECTOS_AL_PERDER);
     alGanar.set(k, g);
   }
@@ -576,7 +610,11 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
       `${JSON.stringify(d.inicio)} no es uno de sus nodos (${[...nodos.keys()].join(', ') || 'ninguno'})`,
     );
   }
+  // Las salidas de cada nodo: todas, y las de las opciones que solo navegan.
   const lleva = new Map<string, string[]>();
+  const navega = new Map<string, string[]>();
+  /** Los nodos con alguna opción que hace algo. */
+  const conEfectos = new Set<string>();
   for (const [k, n] of nodos) {
     const r = `${ruta}.nodos.${k}`;
     const on = objeto(j, n, r, ['texto', 'opciones']);
@@ -587,6 +625,7 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
       j.mal(`${r}.opciones`, 'no hay ninguna: la conversación se quedaría ahí sin salida');
     }
     const destinos: string[] = [];
+    const navegando: string[] = [];
     opciones.forEach((op, i) => {
       const ro = `${r}.opciones[${i}]`;
       const oo = objeto(j, op, ro, ['texto'], ['si', 'hace', 'ir']);
@@ -594,32 +633,40 @@ function juzgarDialogo(j: Juez, d: Record<string, unknown>, ruta: string, ctx: D
       texto(j, oo.texto, `${ro}.texto`, LARGO.opcion);
       const si = condiciones(j, oo.si, `${ro}.si`, ctx.delLugar, ctx.apuntes);
       const hace = efectos(j, oo.hace, `${ro}.hace`, ctx.delLugar, ctx.apuntes, CLAVES_DE_EFECTO);
+      if (hace.length > 0) conEfectos.add(k);
       if ('ir' in oo) {
         if (typeof oo.ir !== 'string' || !nodos.has(oo.ir)) {
           j.mal(`${ro}.ir`, `${JSON.stringify(oo.ir)} no es uno de los nodos de este diálogo`);
-        } else destinos.push(oo.ir);
+        } else {
+          destinos.push(oo.ir);
+          if (hace.length === 0) navegando.push(oo.ir);
+        }
       }
       for (const e of hace) if ('batalla' in e) ctx.encuentrosUsados.add(e.batalla);
       const motivo = noSeApaga([...ctx.siDelPunto, ...si], hace, ctx.alGanar);
       if (motivo !== null) j.mal(ro, motivo);
     });
     lleva.set(k, destinos);
+    navega.set(k, navegando);
   }
-  // Todo nodo se alcanza desde el inicio: uno suelto es texto que nadie lee.
+  // Todo nodo se alcanza desde el inicio: uno suelto es texto que nadie lee. Y
+  // lo que hace algo, navegando: el núcleo solo deja elegir en los nodos a los que
+  // se llega así (`nodosAlcanzables`, el mismo recorrido con las condiciones de
+  // ahora), y uno al que solo se llega tras otra opción que hace algo tendría sus
+  // opciones a la vista y sin poder elegirse.
   if (typeof d.inicio === 'string' && nodos.has(d.inicio)) {
-    const vistos = new Set([d.inicio]);
-    const cola = [d.inicio];
-    while (cola.length > 0) {
-      for (const sig of lleva.get(cola.shift() as string) ?? []) {
-        if (!vistos.has(sig)) {
-          vistos.add(sig);
-          cola.push(sig);
-        }
-      }
-    }
+    const inicio = d.inicio;
+    const leidos = recorrido(inicio, (n) => lleva.get(n) ?? []);
+    const navegados = recorrido(inicio, (n) => navega.get(n) ?? []);
     for (const k of nodos.keys()) {
-      if (!vistos.has(k))
-        j.mal(`${ruta}.nodos.${k}`, `no se llega a él desde el inicio («${d.inicio}»)`);
+      if (!leidos.includes(k)) {
+        j.mal(`${ruta}.nodos.${k}`, `no se llega a él desde el inicio («${inicio}»)`);
+      } else if (conEfectos.has(k) && !navegados.includes(k)) {
+        j.mal(
+          `${ruta}.nodos.${k}`,
+          `tiene opciones que hacen algo y solo se llega a él tras otra que también hace algo: no se podrían elegir; a un nodo con «hace» se llega desde el inicio («${inicio}») por opciones que solo navegan`,
+        );
+      }
     }
   }
 }
@@ -707,31 +754,22 @@ function condicion(
   if (par === null) return null;
   const [k, x] = par;
   switch (k) {
-    case 'estado':
-      if (typeof x !== 'string' || !delLugar.estados.has(x)) {
-        j.mal(
-          ruta,
-          `el estado ${JSON.stringify(x)} no es de este lugar (${[...delLugar.estados].join(', ')})`,
-        );
-        return null;
-      }
-      return { estado: x };
-    case 'marca':
-      if (typeof x !== 'string' || !apuntes.marcas.has(x)) {
-        j.mal(ruta, `la marca ${JSON.stringify(x)} no está declarada en «marcas»`);
-        return null;
-      }
-      return { marca: x };
+    case 'estado': {
+      const estado = estadoDelLugar(j, x, ruta, delLugar);
+      return estado === null ? null : { estado };
+    }
+    case 'marca': {
+      const marca = marcaDeclarada(j, x, ruta, apuntes);
+      return marca === null ? null : { marca };
+    }
     case 'oro': {
       const n = entero(j, x, ruta, 1, 1_000_000);
       return n === null ? null : { oro: n };
     }
-    case 'lleva':
-      if (typeof x !== 'string' || piezaSiExiste(x) === null) {
-        j.mal(ruta, `la pieza ${JSON.stringify(x)} no existe en el catálogo de equipo`);
-        return null;
-      }
-      return { lleva: x };
+    case 'lleva': {
+      const lleva = piezaDelCatalogo(j, x, ruta);
+      return lleva === null ? null : { lleva };
+    }
     case 'faccion': {
       const f = faccion(j, x, ruta);
       return f === null ? null : { faccion: f };
@@ -747,6 +785,10 @@ function condicion(
   }
 }
 
+/**
+ * Una lista de efectos de las claves `permitidas`. `alGanar`: es la de ganar un
+ * encuentro, donde no se cobra oro (tras la pelea no hay cómo fallar si no alcanza).
+ */
 function efectos(
   j: Juez,
   v: unknown,
@@ -754,13 +796,14 @@ function efectos(
   delLugar: DelLugar,
   apuntes: Apuntes,
   permitidas: readonly ClaveDeEfecto[],
+  alGanar = false,
 ): Efecto[] {
   if (v === undefined) return [];
   const out: Efecto[] = [];
   const crudos = lista(j, v, ruta);
   crudos.forEach((e, i) => {
     const r = `${ruta}[${i}]`;
-    const hecho = efecto(j, e, r, delLugar, apuntes, permitidas);
+    const hecho = efecto(j, e, r, delLugar, apuntes, permitidas, alGanar);
     if (hecho === null) return;
     if ('batalla' in hecho && i !== crudos.length - 1) {
       j.mal(
@@ -780,6 +823,7 @@ function efecto(
   delLugar: DelLugar,
   apuntes: Apuntes,
   permitidas: readonly ClaveDeEfecto[],
+  alGanar: boolean,
 ): Efecto | null {
   const par = unaClave(j, v, ruta, CLAVES_DE_EFECTO, 'un efecto');
   if (par === null) return null;
@@ -789,25 +833,18 @@ function efecto(
     return null;
   }
   switch (k) {
-    case 'estado':
-      if (typeof x !== 'string' || !delLugar.estados.has(x)) {
-        j.mal(
-          ruta,
-          `el estado ${JSON.stringify(x)} no es de este lugar (${[...delLugar.estados].join(', ')})`,
-        );
-        return null;
-      }
-      return { estado: x };
-    case 'marca':
-      if (typeof x !== 'string' || !apuntes.marcas.has(x)) {
-        j.mal(ruta, `la marca ${JSON.stringify(x)} no está declarada en «marcas»`);
-        return null;
-      }
-      apuntes.marcasPuestas.add(x);
-      return { marca: x };
+    case 'estado': {
+      const estado = estadoDelLugar(j, x, ruta, delLugar);
+      return estado === null ? null : { estado };
+    }
+    case 'marca': {
+      const marca = marcaDeclarada(j, x, ruta, apuntes);
+      if (marca === null) return null;
+      apuntes.marcasPuestas.add(marca);
+      return { marca };
+    }
     case 'oro': {
-      // Al ganar no se cobra: tras la pelea no hay cómo fallar si no alcanza.
-      const min = permitidas === EFECTOS_AL_GANAR ? 1 : -1_000_000;
+      const min = alGanar ? 1 : -1_000_000;
       const n = entero(j, x, ruta, min, 1_000_000);
       if (n === 0) {
         j.mal(ruta, 'un oro de 0 no hace nada');
@@ -816,12 +853,11 @@ function efecto(
       return n === null ? null : { oro: n };
     }
     case 'pieza':
-    case 'quitar':
-      if (typeof x !== 'string' || piezaSiExiste(x) === null) {
-        j.mal(ruta, `la pieza ${JSON.stringify(x)} no existe en el catálogo de equipo`);
-        return null;
-      }
-      return k === 'pieza' ? { pieza: x } : { quitar: x };
+    case 'quitar': {
+      const pieza = piezaDelCatalogo(j, x, ruta);
+      if (pieza === null) return null;
+      return k === 'pieza' ? { pieza } : { quitar: pieza };
+    }
     case 'tropa': {
       const t = objeto(j, x, `${ruta}.tropa`, ['unidad', 'n']);
       if (t === null) return null;

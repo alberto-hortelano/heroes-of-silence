@@ -17,36 +17,82 @@
  * skill: una palabra nueva sin frase no compila.
  */
 import type { GrupoDeTropa } from '../data.js';
+import { type MapPlan, REGIONES_POR_BANDO } from '../map/generate.js';
 import type { Persona } from '../town/voces.js';
 import type { FactionId, Point } from '../types.js';
+import { esIdDePieza, esIdDeUnidad } from '../validar.js';
 
 /** La versión del formato. Otra se rechaza diciéndolo: sin compatibilidad hacia atrás. */
 export const VERSION_DEL_MUNDO = 1;
 
+/** Lo largo de un id de un mundo o de dentro de su historia. */
+const LARGO_DE_UN_ID = 48;
+
 /**
- * La forma del id de un mundo (su carpeta): minúsculas, cifras y guiones. Es lo
- * que va en `?mundo=` y en una ruta de disco, así que nada de puntos ni barras.
+ * La forma del id de un mundo (su carpeta): la de un id de la arena —minúsculas,
+ * cifras y guiones (`esIdDeUnidad`)—, de hasta `LARGO_DE_UN_ID`. Es lo que va en
+ * `?mundo=` y en una ruta de disco, así que nada de puntos ni barras.
  */
 export function esIdDeMundo(id: string): boolean {
-  return /^[a-z0-9-]{1,48}$/.test(id);
+  return id.length <= LARGO_DE_UN_ID && esIdDeUnidad(id);
 }
 
-/** La forma de los ids de dentro de una historia: lugares, puntos, nodos, marcas… */
+/**
+ * Por qué `id` no es el de un mundo, o `null`. **La única frase**: la dicen la
+ * validación, la página (`?mundo=`), el disco y el servidor de desarrollo.
+ */
+export function idDeMundoBlocker(id: string): string | null {
+  return esIdDeMundo(id)
+    ? null
+    : `"${id}" no es el id de un mundo: minúsculas, cifras y «-», de 1 a ${LARGO_DE_UN_ID}`;
+}
+
+/**
+ * El mundo de `?mundo=`: `null` si no pide ninguno (vacío es no pedir, la regla de
+ * `parseSeed`), y lanza con lo que no es un id (`idDeMundoBlocker`).
+ */
+export function parseMundo(texto: string | null | undefined): string | null {
+  if (texto === null || texto === undefined || texto.trim() === '') return null;
+  const motivo = idDeMundoBlocker(texto);
+  if (motivo !== null) throw new Error(motivo);
+  return texto;
+}
+
+/** La forma de los ids de dentro de una historia (lugares, puntos, nodos, marcas…): la de una pieza. */
 export function esIdDeHistoria(id: string): boolean {
-  return /^[a-z0-9_-]{1,48}$/.test(id);
+  return id.length <= LARGO_DE_UN_ID && esIdDePieza(id);
 }
 
-/** `mundo.json`: quién juega y cómo se hizo el plan. Lo escribe el servidor. */
+/**
+ * Los tamaños de mapa con que se pide un mundo nuevo desde el menú, en regiones
+ * por bando, con su nombre: los que admiten el menú y el servidor que lo genera.
+ */
+export const TAMAÑOS_DE_UN_MUNDO = [
+  { regiones: 4, nombre: 'Pequeño', que: 'cuatro regiones por bando' },
+  {
+    regiones: REGIONES_POR_BANDO,
+    nombre: 'Mediano',
+    que: 'cinco regiones por bando, el de siempre',
+  },
+  { regiones: 7, nombre: 'Grande', que: 'siete regiones por bando' },
+] as const;
+
+/** El tamaño que el menú trae marcado: el del procedimental de siempre. */
+export const TAMAÑO_POR_DEFECTO = REGIONES_POR_BANDO;
+
+/**
+ * `mundo.json`: con qué semilla y qué héroe se juega. Lo escribe el servidor. Lo
+ * que el plan ya sabe no se repite aquí: la facción de quien juega es la de la
+ * base del jugador 0 del plan (`basesDelPlan`), y el tamaño, el del plan.
+ */
 export interface Mundo {
   readonly version: typeof VERSION_DEL_MUNDO;
   readonly id: string;
   /** La semilla de la partida: la del procedimental que hizo el plan y la de la escena. */
   readonly semilla: number;
-  readonly jugador: { readonly faccion: FactionId; readonly heroe: string };
+  readonly jugador: { readonly heroe: string };
   /** Cuántos rivales de la IA: 1 en la F1a, hasta que el generador sepa de más bandos. */
   readonly rivales: number;
-  /** Las regiones por bando con que se pidió el plan (lo elige el menú). */
-  readonly regionesPorBando: number;
 }
 
 export const CLAVES_DE_CONDICION = ['estado', 'marca', 'oro', 'lleva', 'faccion', 'no'] as const;
@@ -142,6 +188,7 @@ export const VOCABULARIO: {
     'una opción con «hace» que da algo (oro > 0, pieza, tropa) o abre una batalla tiene que apagarse a sí misma: sus efectos (o los de «alGanar», si pelea) cambian el estado del lugar o ponen una marca que su condición («si» de la opción o de su punto) deja de cumplir. Cada premio se cobra una vez',
     'sin «ir», una opción cierra la conversación',
     'todo nodo de un diálogo se alcanza desde su «inicio»; cada punto lleva su propio diálogo',
+    'una opción con «hace» solo se puede elegir en un nodo al que se llega desde el «inicio» por opciones sin «hace» cuyo «si» se cumple ahora: tras una que hace algo, la conversación puede seguir para leer o navegar, pero lo que haga algo va en un nodo alcanzable navegando',
     'un encuentro es tropa del catálogo, sin héroe, con el tope de liderazgo y de fuerza de un grupo neutral',
   ],
 };
@@ -215,12 +262,21 @@ export interface Historia {
   readonly lugares: readonly Lugar[];
 }
 
-/** Un mundo leído y validado: sus tres ficheros. */
+declare const MARCA_DE_LEIDO: unique symbol;
+
+/**
+ * Un mundo leído y juzgado entero: sus tres ficheros y la facción de quien juega
+ * (la de la base del jugador 0 del plan). **Solo lo produce la lectura**
+ * (`leerMundo`): el tipo lleva una marca que nadie más pone sin un `as`, y eso lo
+ * vigila `test/invariantes.test.ts`. Por eso `newGame` lo juega sin juzgarlo otra
+ * vez: lo que lleva la marca ya pasó por `problemasDelMundo`.
+ */
 export interface MundoLeido {
+  readonly [MARCA_DE_LEIDO]: true;
   readonly mundo: Mundo;
-  /** El plan, tal cual del disco; `validateMapPlan` ya lo ha aceptado. */
-  readonly plan: unknown;
+  readonly plan: MapPlan;
   readonly historia: Historia;
+  readonly faccion: FactionId;
 }
 
 /**
@@ -235,11 +291,21 @@ export interface EstadoDelMundo {
   readonly marcas: string[];
 }
 
-/** El lugar `id` de una historia; lanza si no está. */
+/** El lugar `id` de una historia, o `null` si no está: la búsqueda por id de quien pregunta. */
+export function lugarSiExiste(historia: Historia, id: string): Lugar | null {
+  return historia.lugares.find((x) => x.id === id) ?? null;
+}
+
+/** El lugar `id` de una historia; lanza si no está (`lugarSiExiste`). */
 export function lugarDe(historia: Historia, id: string): Lugar {
-  const l = historia.lugares.find((x) => x.id === id);
-  if (l === undefined) throw new Error(`no hay ningún lugar "${id}" en «${historia.titulo}»`);
+  const l = lugarSiExiste(historia, id);
+  if (l === null) throw new Error(`no hay ningún lugar "${id}" en «${historia.titulo}»`);
   return l;
+}
+
+/** El nombre de un punto para la persona: el de su persona o el de su cosa. */
+export function nombreDelPunto(p: Punto): string {
+  return p.persona?.nombre ?? p.cosa?.nombre ?? p.id;
 }
 
 /** Los efectos de una lista que son de esa clave, ya estrechados. */

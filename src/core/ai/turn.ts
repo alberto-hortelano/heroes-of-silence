@@ -233,12 +233,24 @@ async function jugarEnElLugar(
       ctx,
       hero.owner,
     );
-    if (state.pendingBattle !== null) {
-      const takeover = quienLaToma(state, batallas);
-      if (takeover !== undefined) await takeover(state, ctx);
-      if (state.pendingBattle !== null) resolvePendingBattle(state, ctx);
-    }
+    if (state.pendingBattle !== null) await cerrarLaBatallaDelTurno(state, ctx, batallas);
   }
+}
+
+/**
+ * La batalla que abrió la última jugada del turno: la toma quien le
+ * toque (`quienLaToma`) y, si sigue ahí —quien la tomó pudo cerrarla, o no
+ * haberla querido—, la cierra la IA como toda la vida. La leen la marcha y las
+ * jugadas en un lugar.
+ */
+async function cerrarLaBatallaDelTurno(
+  state: GameState,
+  ctx: GameContext,
+  batallas: ConduccionDelTurno['batallas'],
+): Promise<void> {
+  const takeover = quienLaToma(state, batallas);
+  if (takeover !== undefined) await takeover(state, ctx);
+  if (state.pendingBattle !== null) resolvePendingBattle(state, ctx);
 }
 
 export async function playAiTurn(
@@ -310,13 +322,7 @@ export async function playAiTurn(
         player.id,
         marcha.alcance,
       );
-      if (state.pendingBattle !== null) {
-        const takeover = quienLaToma(state, batallas);
-        if (takeover !== undefined) await takeover(state, ctx);
-        // Se vuelve a preguntar: quien la tomó pudo cerrarla, o no haberla
-        // querido. Si sigue ahí, la cierra la IA como toda la vida.
-        if (state.pendingBattle !== null) resolvePendingBattle(state, ctx);
-      }
+      if (state.pendingBattle !== null) await cerrarLaBatallaDelTurno(state, ctx, batallas);
       seMovio = true;
       movimientos++;
     }

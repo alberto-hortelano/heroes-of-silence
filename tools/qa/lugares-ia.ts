@@ -23,8 +23,7 @@ for (const id of process.argv.slice(2).length > 0 ? process.argv.slice(2) : ['pr
   for (const e of state.log) {
     const esDeLugar =
       LUGAR.has(e.kind) ||
-      (e.kind === 'gold_gained' && e.lugar !== undefined) ||
-      (e.kind === 'loot_found' && e.from === 'lugar') ||
+      ((e.kind === 'gold_gained' || e.kind === 'loot_found') && e.from === 'lugar') ||
       ((e.kind === 'battle_started' || e.kind === 'battle_ended') && e.foe.kind === 'lugar');
     if (!esDeLugar || e.actor === null) continue;
     delLugar++;

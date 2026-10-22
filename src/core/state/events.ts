@@ -118,11 +118,13 @@ type Cuerpo =
    * cuenta no tiene que preguntar por `null`.
    */
   | { kind: 'march_cut'; hero: string; faltan: number; at: Point }
+  /** El oro de un cofre. */
+  | { kind: 'gold_gained'; amount: number; from?: never }
   /**
-   * El oro de un cofre, o el que da una opción de un lugar o su encuentro ganado
-   * (`lugar`, su id; sin él, un cofre).
+   * El que da una opción de un lugar o su encuentro ganado. Con `from` y `lugar`,
+   * como el botín (`loot_found`): lo de un lugar se dice igual en todos sus hechos.
    */
-  | { kind: 'gold_gained'; amount: number; lugar?: string }
+  | { kind: 'gold_gained'; amount: number; from: 'lugar'; lugar: string }
   /** El oro que cobra una opción de un lugar (un peaje, un soborno). */
   | { kind: 'gold_paid'; amount: number; lugar: string }
   /**

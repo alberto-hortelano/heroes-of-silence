@@ -18,8 +18,9 @@ cosa y pones encima lugares que tengan sentido allí.
 
 El argumento es el id del mundo (`<id>`). Con él:
 
-1. `assets/mundos/<id>/mundo.json`: quién juega (`jugador.faccion`, `jugador.heroe`) y la
-   semilla. **No lo toques.**
+1. `assets/mundos/<id>/mundo.json`: el héroe de quien juega (`jugador.heroe`) y la
+   semilla. **No lo toques.** Su facción es la de su base en el plan, y la lectura la dice
+   (`jugador.faccion`).
 2. `assets/mundos/<id>/plan.json`: el mapa congelado. **No lo toques.**
 3. `.cache/mundos/<id>/lectura.json`: **el mapa leído para ti**. Léelo entero antes de
    escribir nada. Trae:
@@ -97,6 +98,11 @@ Las reglas que más fallan (todas las dice el vocabulario):
 - Todo nodo se alcanza desde el `inicio`; cada punto lleva su propio diálogo (dos
   puntos no comparten uno) y todo diálogo es de algún punto; todo encuentro lo abre
   alguna opción.
+- Una opción que **hace algo** va en un nodo al que se llega desde el `inicio` por
+  opciones **sin `hace`**: el juego solo deja elegirla si se llega a su nodo navegando, con
+  el `si` de cada opción del camino cumplido ahora. Tras una opción que hace algo, la
+  conversación puede seguir (un nodo que cuenta lo que pasó, con «Seguir» o «Volver»),
+  pero lo que haga algo no va ahí.
 
 ## El bucle
 

@@ -10,7 +10,7 @@ import { faccionesDeLaSemilla, newGame } from '../state/setup.js';
 import type { Controller, FactionId, PlayerId } from '../types.js';
 import { type Mundo, type MundoLeido, VERSION_DEL_MUNDO } from './formato.js';
 
-/** Lo que se pide en el menú para un mundo nuevo. */
+/** Lo que se pide para un mundo nuevo (`pnpm mundo nuevo`, el menú de `pnpm dev`). */
 export interface PedidoDeMundo {
   readonly id: string;
   readonly semilla: number;
@@ -18,6 +18,15 @@ export interface PedidoDeMundo {
   readonly heroe?: string | undefined;
   readonly regionesPorBando: number;
 }
+
+/**
+ * Lo que pide el menú: lo mismo, con el id y la semilla que pone el servidor si
+ * no los trae (`gen-<AAAAMMDD>-<semilla>`, una al azar).
+ */
+export type PedidoDelMenu = Omit<PedidoDeMundo, 'id' | 'semilla'> & {
+  readonly id?: string | undefined;
+  readonly semilla?: number | undefined;
+};
 
 /**
  * El `mundo.json` y el plan congelado de un mundo nuevo: el plan procedimental de
@@ -34,18 +43,18 @@ export function mundoNuevo(p: PedidoDeMundo): { readonly mundo: Mundo; readonly 
       version: VERSION_DEL_MUNDO,
       id: p.id,
       semilla: p.semilla,
-      jugador: { faccion: p.faccion, heroe: p.heroe ?? tipoDeHeroePorDefecto(p.faccion) },
+      jugador: { heroe: p.heroe ?? tipoDeHeroePorDefecto(p.faccion) },
       rivales: 1,
-      regionesPorBando: p.regionesPorBando,
     },
     plan,
   };
 }
 
 /**
- * La partida de un mundo leído (`leerMundo`): su semilla, su plan congelado, su
- * historia y el héroe que se eligió. Las tiradas de la partida salen de su semilla
- * como en cualquier otra: el mismo mundo da la misma partida.
+ * La partida de un mundo leído (`leerMundo`, sin juzgarlo otra vez): su semilla,
+ * su plan congelado, su historia y el héroe que se eligió. Las tiradas de la
+ * partida salen de su semilla como en cualquier otra: el mismo mundo da la misma
+ * partida.
  */
 export function partidaDelMundo(
   leido: MundoLeido,
@@ -54,8 +63,7 @@ export function partidaDelMundo(
 ): GameState {
   return newGame({
     seed: leido.mundo.semilla,
-    plan: leido.plan as MapPlan,
-    historia: leido.historia,
+    mundo: leido,
     tipoDelHeroe: leido.mundo.jugador.heroe,
     ...(controllers === undefined ? {} : { controllers }),
     maxDays,

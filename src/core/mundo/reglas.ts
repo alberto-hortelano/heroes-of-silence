@@ -6,23 +6,25 @@
  * reglas (`ai/lugares.ts`, que elige la primera que vale).
  *
  * Aplicar los efectos no vive aquí: escribe la crónica, y el único que escribe
- * en ella es `emit`, privado de `game.ts`. Este módulo solo pregunta, y por eso
- * importa el estado como tipo y no a `game.ts`: no hay ciclo.
+ * en ella es `emit`, privado de `game.ts`. Este módulo solo pregunta. De
+ * `game.ts` lee el turno y el dueño (`turnBlocker`, `playerById`) solo dentro de
+ * sus funciones: `game.ts` lo importa a él, y el ciclo no se toca al cargar.
  */
 import { idsPuestos, piezaSiExiste } from '../hero/equipo.js';
 import type { Hero } from '../hero/hero.js';
 import { CUPO_HEROE, heroLeadership, troopBlocker, withTroops } from '../hero/troop.js';
 import { pointKey } from '../map/map.js';
-import type { GameState } from '../state/game.js';
+import { type GameState, playerById, turnBlocker } from '../state/game.js';
 import { oroBlocker } from '../town/town.js';
-import { conMiles, describirCoste } from '../types.js';
+import { conMiles, describirCoste, type Point } from '../types.js';
 import {
   type Condicion,
   type Dialogo,
   type EstadoDelMundo,
   type Lugar,
-  lugarDe,
+  lugarSiExiste,
   type NodoDeDialogo,
+  nombreDelPunto,
   type Opcion,
   type Punto,
 } from './formato.js';
@@ -43,17 +45,31 @@ export interface Ante {
   readonly lugar: Lugar;
 }
 
-function oroDe(state: GameState, hero: Hero): number {
-  return state.players.find((p) => p.id === hero.owner)?.oro ?? 0;
+/** Por qué no hay mundo: la frase de `mundoDe` y de quien pregunta sin lanzar. */
+const SIN_MUNDO = 'esta partida no es de un mundo: no tiene lugares';
+
+/** El mundo de la partida, o lanza: la única que lo dice. */
+export function mundoDe(state: GameState): EstadoDelMundo {
+  if (state.mundo === undefined) throw new Error(SIN_MUNDO);
+  return state.mundo;
 }
 
-/** Lo que lleva el héroe: puesto, en su tropa y en la mochila. */
-function loQueLleva(hero: Hero): ReadonlySet<string> {
-  return new Set([
-    ...hero.mochila,
-    ...idsPuestos(hero.equipo),
-    ...hero.army.flatMap((t) => idsPuestos(t.veterania?.equipo)),
-  ]);
+function oroDe(state: GameState, hero: Hero): number {
+  return playerById(state, hero.owner).oro;
+}
+
+/** Si el héroe lleva la pieza `id`: puesta, en su tropa o en la mochila. */
+function loLleva(hero: Hero, id: string): boolean {
+  return (
+    hero.mochila.includes(id) ||
+    idsPuestos(hero.equipo).includes(id) ||
+    hero.army.some((t) => idsPuestos(t.veterania?.equipo).includes(id))
+  );
+}
+
+/** El nombre del estado de ahora de un lugar, para la persona (el rótulo del mapa, el lateral). */
+export function estadoDicho(mundo: EstadoDelMundo, lugar: Lugar): string {
+  return nombreDeEstado(lugar, mundo.estados[lugar.id] ?? '');
 }
 
 function nombreDePieza(id: string): string {
@@ -84,9 +100,7 @@ export function condicionBlocker(a: Ante, c: Condicion): string | null {
       : `hace falta tener ${describirCoste(c.oro)} y tienes ${conMiles(oro)} oro`;
   }
   if ('lleva' in c) {
-    return loQueLleva(a.hero).has(c.lleva)
-      ? null
-      : `${a.hero.name} no lleva ${nombreDePieza(c.lleva)}`;
+    return loLleva(a.hero, c.lleva) ? null : `${a.hero.name} no lleva ${nombreDePieza(c.lleva)}`;
   }
   if ('faccion' in c) {
     return a.hero.faction === c.faccion ? null : `solo para un héroe de ${c.faccion}`;
@@ -119,7 +133,9 @@ export function motivoDeLaOpcion(a: Ante, opcion: Opcion): string | null {
   const escrita = condicionesBlocker(a, opcion.si);
   if (escrita !== null) return escrita;
   let paga = 0;
-  let mochila = [...a.hero.mochila];
+  // La mochila se copia solo si algo se entrega: dos «quitar» de la misma pieza
+  // piden dos en ella.
+  let mochila: readonly string[] = a.hero.mochila;
   let army = a.hero.army;
   for (const e of opcion.hace ?? []) {
     if ('oro' in e && e.oro < 0) paga -= e.oro;
@@ -156,15 +172,23 @@ export function anteDelLugar(
   lugarId: string,
 ): Ante | { readonly motivo: string } {
   const mundo = state.mundo;
-  if (mundo === undefined) return { motivo: 'esta partida no es de un mundo: no tiene lugares' };
+  if (mundo === undefined) return { motivo: SIN_MUNDO };
   const hero = state.heroes.find((h) => h.id === heroId);
   if (hero === undefined) return { motivo: `no existe ningún héroe "${heroId}"` };
-  const lugar = mundo.historia.lugares.find((l) => l.id === lugarId);
-  if (lugar === undefined) return { motivo: `no hay ningún lugar "${lugarId}"` };
-  if (pointKey(hero.at) !== pointKey(lugar.at)) {
-    return { motivo: `${hero.name} no está en «${lugar.nombre}»` };
-  }
+  const pedido = lugarSiExiste(mundo.historia, lugarId);
+  if (pedido === null) return { motivo: `no hay ningún lugar "${lugarId}"` };
+  const lugar = lugarEn(state, hero.at);
+  if (lugar?.id !== pedido.id) return { motivo: `${hero.name} no está en «${pedido.nombre}»` };
   return { state, mundo, hero, lugar };
+}
+
+/** El héroe `heroId`, el lugar de su casilla y su mundo, o por qué no: lo que ve quien está dentro. */
+export function anteDelHeroe(state: GameState, heroId: string): Ante | { readonly motivo: string } {
+  const hero = state.heroes.find((h) => h.id === heroId);
+  if (hero === undefined) return { motivo: `no existe ningún héroe "${heroId}"` };
+  const lugar = lugarEn(state, hero.at);
+  if (lugar === null) return { motivo: `${hero.name} no está en ningún lugar` };
+  return anteDelLugar(state, heroId, lugar.id);
 }
 
 /** Los puntos del lugar que están ahora, en su orden. */
@@ -190,6 +214,47 @@ export function inicioDe(a: Ante, punto: Punto): string {
   return dialogoDe(a, punto).inicio;
 }
 
+/** Si una opción solo navega: sin efectos, es de la conversación y no de la partida. */
+export function soloNavega(o: Opcion): boolean {
+  return (o.hace ?? []).length === 0;
+}
+
+/**
+ * Los nodos a los que se llega desde `inicio` por las salidas que da `salidas`,
+ * en el orden en que se descubren (en anchura, cada nodo con sus salidas en su
+ * orden). **El único recorrido** de un diálogo: lo leen los nodos alcanzables
+ * ahora (`nodosAlcanzables`) y la validación, sin condiciones (`validar.ts`).
+ */
+export function recorrido(
+  inicio: string,
+  salidas: (nodo: string) => readonly string[],
+): readonly string[] {
+  const vistos = [inicio];
+  for (let i = 0; i < vistos.length; i++) {
+    for (const sig of salidas(vistos[i] as string)) if (!vistos.includes(sig)) vistos.push(sig);
+  }
+  return vistos;
+}
+
+/**
+ * Los nodos del diálogo de `punto` a los que se llega **ahora** desde su inicio,
+ * por las opciones que solo navegan y cuyo `si` se cumple, en el orden en que se
+ * descubren. Es lo que se puede elegir: una opción con efectos de otro nodo la
+ * rechaza `opcionBlocker`, que si no se cobraría un premio detrás de una
+ * condición sin cumplirla con solo nombrar su nodo (H1 del simplify de la F1a).
+ * Lo de después de una opción con efectos no cuenta: tras aplicarla, la
+ * conversación puede seguir allí para leer y navegar, y lo que haga algo tiene
+ * que ir donde se llega navegando (lo exige la validación).
+ */
+export function nodosAlcanzables(a: Ante, punto: Punto): readonly string[] {
+  const d = dialogoDe(a, punto);
+  return recorrido(d.inicio, (n) =>
+    (d.nodos[n]?.opciones ?? []).flatMap((o) =>
+      o.ir !== undefined && soloNavega(o) && condicionesBlocker(a, o.si) === null ? [o.ir] : [],
+    ),
+  );
+}
+
 /** Una opción de un nodo, dicha para la pantalla y la IA. */
 export interface OpcionALaVista {
   readonly indice: number;
@@ -209,57 +274,72 @@ export function opcionesDe(a: Ante, punto: Punto, nodo: string): readonly Opcion
     indice,
     texto: o.texto,
     motivo: motivoDeLaOpcion(a, o),
-    hace: (o.hace ?? []).length > 0,
+    hace: !soloNavega(o),
     pelea: (o.hace ?? []).some((e) => 'batalla' in e),
     ir: o.ir ?? null,
   }));
 }
 
 /**
+ * La opción de una referencia, desde el héroe en su lugar (`a`), o por qué no:
+ * el punto que está ahora, el nodo de su diálogo, que se alcance ahora
+ * (`nodosAlcanzables`) y la opción. **La única resolución** de una referencia:
+ * la leen la pregunta (`opcionBlocker`) y la acción (`opcionDe`).
+ */
+export function resolverOpcion(
+  a: Ante,
+  ref: RefDeOpcion,
+): { readonly punto: Punto; readonly opcion: Opcion } | { readonly motivo: string } {
+  const punto = a.lugar.puntos.find((p) => p.id === ref.punto);
+  if (punto === undefined) {
+    return { motivo: `en «${a.lugar.nombre}» no hay ningún punto "${ref.punto}"` };
+  }
+  const fuera = condicionesBlocker(a, punto.si);
+  if (fuera !== null) return { motivo: fuera };
+  const nodo = dialogoDe(a, punto).nodos[ref.nodo];
+  if (nodo === undefined) return { motivo: `esa conversación no tiene ningún nodo "${ref.nodo}"` };
+  if (!nodosAlcanzables(a, punto).includes(ref.nodo)) {
+    return {
+      motivo: `a esa parte de la conversación con ${nombreDelPunto(punto)} no se llega ahora: lo que lleva hasta ella no se cumple`,
+    };
+  }
+  const opcion = nodo.opciones[ref.opcion];
+  if (opcion === undefined) return { motivo: `ese nodo no tiene la opción ${ref.opcion}` };
+  return { punto, opcion };
+}
+
+/**
  * Por qué no se puede elegir esa opción ahora, o `null`. Lo que mira, en el orden
- * en que se entiende: la partida (que siga, que no haya batalla, tu turno), el
- * héroe en el lugar, el punto que está, la opción que existe y hace algo, y lo de
- * `motivoDeLaOpcion`. La lee la acción, que lanza con él.
- *
- * El camino por el árbol hasta el nodo no se comprueba: navegar es del cliente, y
- * lo que protege los premios es que cada opción que da se apague a sí misma (la
- * regla de la validación, `noSeApaga`).
+ * en que se entiende: el héroe en el lugar, el turno de su dueño (`turnBlocker`:
+ * también que la partida siga), la referencia (`resolverOpcion`: el punto que
+ * está, el nodo al que se llega ahora y la opción), que haga algo y lo de
+ * `motivoDeLaOpcion`. La batalla pendiente la rechaza la puerta de toda acción
+ * (`applyAdventureAction`), como en las demás. La lee la acción, que lanza con él.
  */
 export function opcionBlocker(state: GameState, heroId: string, ref: RefDeOpcion): string | null {
-  if (state.finished !== null) return 'la partida ya ha terminado';
-  if (state.pendingBattle !== null) return 'hay una batalla pendiente de resolver';
   const a = anteDelLugar(state, heroId, ref.lugar);
   if ('motivo' in a) return a.motivo;
-  if (a.hero.owner !== state.current) return 'todavía no es tu turno';
-  const punto = a.lugar.puntos.find((p) => p.id === ref.punto);
-  if (punto === undefined) return `en «${a.lugar.nombre}» no hay ningún punto "${ref.punto}"`;
-  const fuera = condicionesBlocker(a, punto.si);
-  if (fuera !== null) return fuera;
-  const nodo = dialogoDe(a, punto).nodos[ref.nodo];
-  if (nodo === undefined) return `esa conversación no tiene ningún nodo "${ref.nodo}"`;
-  const opcion = nodo.opciones[ref.opcion];
-  if (opcion === undefined) return `ese nodo no tiene la opción ${ref.opcion}`;
-  if ((opcion.hace ?? []).length === 0) {
-    return 'esa opción no cambia nada en la partida: es de la conversación';
-  }
-  return motivoDeLaOpcion(a, opcion);
+  const turno = turnBlocker(state, a.hero.owner);
+  if (turno !== null) return turno;
+  const r = resolverOpcion(a, ref);
+  if ('motivo' in r) return r.motivo;
+  if (soloNavega(r.opcion)) return 'esa opción no cambia nada en la partida: es de la conversación';
+  return motivoDeLaOpcion(a, r.opcion);
 }
 
-/** La opción de una referencia ya comprobada (`opcionBlocker`). */
-export function opcionDe(state: GameState, ref: RefDeOpcion): { lugar: Lugar; opcion: Opcion } {
-  const mundo = state.mundo;
-  if (mundo === undefined) throw new Error('esta partida no es de un mundo');
-  const lugar = lugarDe(mundo.historia, ref.lugar);
-  const punto = lugar.puntos.find((p) => p.id === ref.punto);
-  const opcion =
-    punto === undefined
-      ? undefined
-      : lugar.dialogos[punto.dialogo]?.nodos[ref.nodo]?.opciones[ref.opcion];
-  if (opcion === undefined) throw new Error(`no hay opción en ${JSON.stringify(ref)}`);
-  return { lugar, opcion };
+/** La opción de una referencia ya comprobada (`opcionBlocker`), o lanza con lo que no vale. */
+export function opcionDe(
+  state: GameState,
+  heroId: string,
+  ref: RefDeOpcion,
+): { readonly lugar: Lugar; readonly opcion: Opcion } {
+  const a = anteDelLugar(state, heroId, ref.lugar);
+  const r = 'motivo' in a ? a : resolverOpcion(a, ref);
+  if ('motivo' in r) throw new Error(r.motivo);
+  return { lugar: (a as Ante).lugar, opcion: r.opcion };
 }
 
-/** El lugar del mundo en esa casilla, si lo hay. */
-export function lugarEn(state: GameState, at: { x: number; y: number }): Lugar | null {
+/** El lugar del mundo en esa casilla, si lo hay: la búsqueda por casilla. */
+export function lugarEn(state: GameState, at: Point): Lugar | null {
   return state.mundo?.historia.lugares.find((l) => pointKey(l.at) === pointKey(at)) ?? null;
 }

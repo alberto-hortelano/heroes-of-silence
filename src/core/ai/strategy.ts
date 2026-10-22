@@ -36,6 +36,8 @@ import {
   type Reachable,
 } from '../map/map.js';
 import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
+import { lugarDe } from '../mundo/formato.js';
+import { mundoDe } from '../mundo/reglas.js';
 import { indiceDePoder } from '../nivel.js';
 import { grupoALaVistaDesde } from '../state/asaltantes.js';
 import {
@@ -112,10 +114,10 @@ function objectValue(
       return 0;
     // Un lugar de un mundo vale si haría algo en él (`ai/lugares.ts`, la regla
     // simple de P4). Sin mundo no hay ninguno, así que el procedimental no cambia.
-    case 'lugar': {
-      const lugar = state.mundo?.historia.lugares.find((l) => l.id === obj.id);
-      return lugar !== undefined && hariaAlgoEn(state, hero, lugar) ? VALOR_DE_LUGAR : 0;
-    }
+    case 'lugar':
+      return hariaAlgoEn(state, hero, lugarDe(mundoDe(state).historia, obj.id), miPoder)
+        ? VALOR_DE_LUGAR
+        : 0;
     case 'node': {
       if (obj.owner === player) return 0;
       // Un nodo ajeno vale por sí mismo y, sobre todo, por las regiones que
@@ -226,6 +228,9 @@ export function chooseHeroDestination(
   };
 
   for (const obj of state.map.objects) {
+    // Lo que no se alcanza no se valora: `considerar` lo descartaría igual, y
+    // valorar un lugar es recorrer su diálogo.
+    if (costeHasta(obj.at) === null) continue;
     const valor = objectValue(state, foto, obj, hero, miPoder);
     if (valor > 0) considerar(obj.at, valor);
   }

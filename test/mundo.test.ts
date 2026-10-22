@@ -7,19 +7,13 @@
  * caso mira que salga **su** frase, con su ruta, que es lo que lee el motor para
  * corregirse.
  */
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { mundoDeLaUrl } from '../src/client/mundo/cargar.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
 import { jugadaEnElLugar } from '../src/core/ai/lugares.js';
 import { buildMap, type MapPlan } from '../src/core/map/generate.js';
 import { isEnterable } from '../src/core/map/map.js';
-import {
-  CLAVES_DE_CONDICION,
-  CLAVES_DE_EFECTO,
-  type Historia,
-  VOCABULARIO,
-} from '../src/core/mundo/formato.js';
+import { CLAVES_DE_CONDICION, CLAVES_DE_EFECTO, VOCABULARIO } from '../src/core/mundo/formato.js';
 import { lecturaParaElMotor } from '../src/core/mundo/lectura.js';
 import { partidaDelMundo } from '../src/core/mundo/partida.js';
 import { opcionBlocker } from '../src/core/mundo/reglas.js';
@@ -36,24 +30,36 @@ import {
   type GameState,
   settleBattle,
 } from '../src/core/state/game.js';
+import { leerCrudos } from '../tools/mundo/disco.js';
 
-function crudos(id: string): CrudosDelMundo {
-  const leer = (f: string): unknown =>
-    JSON.parse(readFileSync(new URL(`../assets/mundos/${id}/${f}.json`, import.meta.url), 'utf8'));
-  return { mundo: leer('mundo'), plan: leer('plan'), historia: leer('historia') };
+/** Los tres ficheros de un mundo, como los lee `pnpm mundo validar` (`leerCrudos`). */
+async function crudosDe(id: string): Promise<CrudosDelMundo> {
+  const leido = await leerCrudos(id);
+  if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
+  return leido.crudos;
 }
+const CRUDOS = { prueba: await crudosDe('prueba'), ejemplo: await crudosDe('ejemplo') };
+/** Una copia de los de `id`, para tocarla sin tocar los de los demás casos. */
+const crudos = (id: keyof typeof CRUDOS): CrudosDelMundo => structuredClone(CRUDOS[id]);
 
 /** Los crudos de `prueba` con la historia cambiada por `cambio`. */
-function conHistoria(
+function prueba(
   cambio: (h: { lugares: Record<string, unknown>[] } & Record<string, unknown>) => void,
-): string[] {
-  const c = structuredClone(crudos('prueba')) as {
+): CrudosDelMundo {
+  const c = crudos('prueba') as {
     mundo: unknown;
     plan: unknown;
     historia: { lugares: Record<string, unknown>[] } & Record<string, unknown>;
   };
   cambio(c.historia);
-  return problemasDelMundo(c, 'prueba');
+  return c;
+}
+
+/** Los problemas de `prueba` con la historia cambiada por `cambio`. */
+function conHistoria(
+  cambio: (h: { lugares: Record<string, unknown>[] } & Record<string, unknown>) => void,
+): string[] {
+  return problemasDelMundo(prueba(cambio), 'prueba');
 }
 
 /** El primer lugar de la historia, para tocarlo. */
@@ -77,7 +83,7 @@ describe('la validación de un mundo', () => {
   });
 
   it('un mundo de otra versión o con dos rivales se rechaza diciéndolo', () => {
-    const c = structuredClone(crudos('prueba')) as {
+    const c = crudos('prueba') as {
       mundo: Record<string, unknown>;
     } & CrudosDelMundo;
     c.mundo.version = 2;
@@ -104,6 +110,15 @@ describe('la validación de un mundo', () => {
     );
   });
 
+  it('lo que el plan ya sabe no se escribe en el mundo.json: la facción es la de su base', () => {
+    const c = crudos('prueba') as { mundo: { jugador: Record<string, unknown> } } & CrudosDelMundo;
+    c.mundo.jugador.faccion = 'imperio';
+    expect(problemasDelMundo(c, 'prueba')).toEqual([
+      'mundo.json: jugador: «faccion» no es un campo; valen heroe',
+    ]);
+    expect(leerMundo(crudos('prueba'), 'prueba').faccion).toBe('imperio');
+  });
+
   it('un nodo al que no se llega desde el inicio', () => {
     const p = conHistoria((h) => {
       puente(h).dialogos.garita!.nodos.suelto = {
@@ -113,6 +128,20 @@ describe('la validación de un mundo', () => {
     });
     expect(p).toContainEqual(
       'historia.json: lugares[0].dialogos.garita.nodos.suelto: no se llega a él desde el inicio («dentro»)',
+    );
+  });
+
+  it('un nodo con opciones que hacen algo, al que solo se llega tras otra que hace algo', () => {
+    // A «carta» solo se llega leyéndola (`dentro`, con «hace»): tras eso la
+    // conversación sigue en ella, pero el núcleo no dejaría elegir lo de dentro.
+    const p = conHistoria((h) => {
+      puente(h).dialogos.garita!.nodos.carta!.opciones.push({
+        texto: 'Romper el sello',
+        hace: [{ marca: 'lanza-cogida' }],
+      });
+    });
+    expect(p).toContainEqual(
+      'historia.json: lugares[0].dialogos.garita.nodos.carta: tiene opciones que hacen algo y solo se llega a él tras otra que también hace algo: no se podrían elegir; a un nodo con «hace» se llega desde el inicio («dentro») por opciones que solo navegan',
     );
   });
 
@@ -204,7 +233,7 @@ describe('la validación de un mundo', () => {
   });
 
   it('leerMundo lanza con todos los problemas a la vez', () => {
-    const c = structuredClone(crudos('prueba')) as {
+    const c = crudos('prueba') as {
       mundo: Record<string, unknown>;
     } & CrudosDelMundo;
     c.mundo.version = 2;
@@ -228,22 +257,18 @@ describe('la partida de un mundo', () => {
     expect(state.players[0]!.faction).toBe('imperio');
     expect(state.heroes.find((h) => h.owner === 0)!.tipo).toBe('duelista');
   });
-
-  it('newGame vuelve a juzgar la historia que recibe', () => {
-    const rota = structuredClone(leido.historia) as Historia & { lugares: { at: unknown }[] };
-    (rota.lugares[0] as { at: unknown }).at = { x: 0, y: -1 };
-    expect(() => partidaDelMundo({ ...leido, historia: rota })).toThrow(
-      /la historia del mundo no se puede jugar/,
-    );
-  });
 });
 
 describe('la lectura para el motor', () => {
   const leido = leerMundo(crudos('prueba'), 'prueba');
-  const lectura = lecturaParaElMotor(leido.mundo, leido.plan as MapPlan);
+  const lectura = lecturaParaElMotor(leido.mundo, leido.plan);
+
+  it('la facción de quien juega sale del plan', () => {
+    expect(lectura.jugador).toEqual({ id: 0, faccion: 'imperio', heroe: 'duelista' });
+  });
 
   it('cada casilla de muestra admite un lugar', () => {
-    const { map } = buildMap(leido.plan as MapPlan);
+    const { map } = buildMap(leido.plan);
     const muestras = lectura.regiones.flatMap((r) => r.admitenUnLugar);
     expect(muestras.length).toBeGreaterThan(8);
     for (const p of muestras) expect(lugarBlocker(map, p)).toBeNull();
@@ -346,6 +371,40 @@ describe('elegir en un lugar', () => {
         opcion: 0,
       }),
     ).toBe('no alcanza el oro: cuesta 300 oro y tienes 100 oro');
+  });
+
+  it('lo de un nodo al que no se llega ahora no se elige, aunque se nombre', () => {
+    // «Tu capitán murió» (`alto`, sin «hace») es lo único que lleva a «muerto»: con
+    // un «si» de otra facción, a «muerto» no se llega y enseñarle la carta no se
+    // cobra mandando la acción sin pasar por ahí (otro cliente, el agente en F4).
+    const conLaPuerta = leerMundo(
+      prueba((h) => {
+        puente(h).dialogos.corvo!.nodos.alto!.opciones[1]!.si = [{ faccion: 'orkos' }];
+      }),
+      'prueba',
+    );
+    const ref = { lugar: 'puente-de-corvo', punto: 'corvo', nodo: 'muerto', opcion: 0 };
+    for (const [mundo, motivo] of [
+      [
+        conLaPuerta,
+        'a esa parte de la conversación con Corvo no se llega ahora: lo que lleva hasta ella no se cumple',
+      ],
+      [leido, null],
+    ] as const) {
+      const state = partidaDelMundo(mundo);
+      const hero = state.heroes.find((h) => h.owner === 0)!;
+      hero.at = { x: 10, y: 12 };
+      state.mundo!.marcas.push('carta-leida');
+      expect(opcionBlocker(state, hero.id, ref)).toBe(motivo);
+    }
+    const state = partidaDelMundo(conLaPuerta);
+    const hero = state.heroes.find((h) => h.owner === 0)!;
+    hero.at = { x: 10, y: 12 };
+    state.mundo!.marcas.push('carta-leida');
+    expect(() => elegir(state, hero.id, 'puente-de-corvo', 'corvo', 'muerto', 0)).toThrow(
+      'no se puede elegir eso: a esa parte de la conversación con Corvo no se llega ahora',
+    );
+    expect(state.mundo!.estados['puente-de-corvo']).toBe('guardado');
   });
 
   it('fuera del lugar, o con una opción que solo navega, no se elige nada', () => {

@@ -12,10 +12,10 @@
 import { unidadesDelJuego } from '../catalogo.js';
 import { PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
 import { buildMap, type MapPlan } from '../map/generate.js';
-import { pointKey } from '../map/map.js';
 import { estructura, franjasDeBarrera } from '../map/regiones.js';
 import { isWalkable } from '../map/terrain.js';
 import { nivelDeUnidad } from '../nivel.js';
+import { regionDeCasilla } from '../state/asaltantes.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
 import { type Mundo, VOCABULARIO } from './formato.js';
 import { lugarBlocker } from './validar.js';
@@ -88,11 +88,24 @@ export interface LecturaParaElMotor {
   readonly vocabulario: typeof VOCABULARIO;
 }
 
-/** La lectura del mapa de un mundo para el motor. El plan, ya válido. */
-export function lecturaParaElMotor(mundo: Mundo, plan: MapPlan): LecturaParaElMotor {
-  const { map, towns } = buildMap(plan);
+/**
+ * La lectura del mapa de un mundo para el motor. El plan, ya válido; `hecho`, su
+ * mapa construido, si quien llama ya lo tiene (`escribirLectura` lo pinta después).
+ */
+export function lecturaParaElMotor(
+  mundo: Mundo,
+  plan: MapPlan,
+  hecho: Pick<ReturnType<typeof buildMap>, 'map' | 'towns'> = buildMap(plan),
+): LecturaParaElMotor {
+  const { map, towns } = hecho;
   const red = estructura(map);
   const bases = towns.filter((t) => t.owner !== null);
+  /** La facción de la base de `owner`: la de quien juega sale del plan, no del `mundo.json`. */
+  const faccionDe = (owner: PlayerId): FactionId => {
+    const base = bases.find((b) => b.owner === owner);
+    if (base === undefined) throw new Error(`el plan del mundo no tiene base del jugador ${owner}`);
+    return base.faction;
+  };
   // La casa de cada base: de las regiones que toca, la de menos nodos.
   const casa = new Map<number, PlayerId>();
   for (const b of bases) {
@@ -128,20 +141,17 @@ export function lecturaParaElMotor(mundo: Mundo, plan: MapPlan): LecturaParaElMo
       };
     });
 
-  const pueblos = map.objects.flatMap((o) =>
-    o.kind === 'village'
-      ? [{ nombre: o.name, at: o.at, region: regionDe(red.regionDe, map.width, o.at, nombreDe) }]
-      : [],
-  );
+  const pueblos = map.objects.flatMap((o) => {
+    if (o.kind !== 'village') return [];
+    const r = regionDeCasilla(map, o.at);
+    return [{ nombre: o.name, at: o.at, region: r < 0 ? null : nombreDe(r) }];
+  });
 
   return {
     mundo: mundo.id,
     mapa: { ancho: map.width, alto: map.height },
-    jugador: { id: 0, faccion: mundo.jugador.faccion, heroe: mundo.jugador.heroe },
-    rival: {
-      id: 1,
-      faccion: (bases.find((b) => b.owner === 1)?.faction ?? 'imperio') as FactionId,
-    },
+    jugador: { id: 0, faccion: faccionDe(0), heroe: mundo.jugador.heroe },
+    rival: { id: 1, faccion: faccionDe(1) },
     regiones: red.regiones.map((reg, r) => ({
       id: reg.id,
       nombre: reg.name,
@@ -182,16 +192,6 @@ export function lecturaParaElMotor(mundo: Mundo, plan: MapPlan): LecturaParaElMo
   };
 }
 
-function regionDe(
-  regionDe: Int32Array,
-  W: number,
-  at: Point,
-  nombreDe: (r: number) => string,
-): string | null {
-  const r = regionDe[at.y * W + at.x] as number;
-  return r < 0 ? null : nombreDe(r);
-}
-
 /**
  * Hasta `MUESTRAS_POR_REGION` casillas que pasan `vale`, repartidas por la
  * región: se recorre en orden y se toma una de cada tanto, para que no salgan
@@ -200,14 +200,9 @@ function regionDe(
 function muestras(casillas: readonly Point[], vale: (p: Point) => boolean): Point[] {
   const buenas = casillas.filter(vale);
   if (buenas.length <= MUESTRAS_POR_REGION) return buenas;
-  const out: Point[] = [];
-  const vistas = new Set<string>();
-  for (let k = 0; k < MUESTRAS_POR_REGION; k++) {
-    const p = buenas[Math.floor((k * buenas.length) / MUESTRAS_POR_REGION)] as Point;
-    if (!vistas.has(pointKey(p))) {
-      vistas.add(pointKey(p));
-      out.push(p);
-    }
-  }
-  return out;
+  // Con más buenas que muestras, los índices crecen de uno en uno o más: ninguna sale dos veces.
+  return Array.from(
+    { length: MUESTRAS_POR_REGION },
+    (_, k) => buenas[Math.floor((k * buenas.length) / MUESTRAS_POR_REGION)] as Point,
+  );
 }
