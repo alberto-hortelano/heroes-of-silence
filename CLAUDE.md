@@ -732,14 +732,22 @@ antes del destino (`battle_started` con `faltan`).
 - **El clima** (22-10-2026, `docs/agents/2026-10-22-clima/`): niebla (bancos claros y fríos que
   van a la deriva y una bruma clara), lluvia (gotas de un píxel de dispositivo en dos planos y la luz
   algo más baja), tormenta (más lluvia, la luz pizarra y un rayo cada 4-9 s por región: un destello
-  local de 160 ms con su trazo) y la noche (una luz azul oscura **multiplicada**, que conserva el
-  contraste —con un velo encima se leía como bruma gris—, con los fuegos de ciudades y pueblos y las
-  puertas de la base encendidos: un hueco en esa luz y un resplandor cálido). Un solo pintor
+  local de 160 ms con su trazo) y la noche (una luz azul **multiplicada**, que conserva el
+  contraste —con un velo encima se leía como bruma gris—, y un azul de luna **sumado** encima,
+  `NOCHE.alza`: multiplicar por azul no vuelve azul un bosque pardo, y la noche se parecía al velo de
+  lo que no se mira; con los fuegos de ciudades y pueblos y las puertas de la base encendidos: un
+  hueco en esa luz y un resplandor cálido). En las escenas (base, morada, batalla) las figuras llevan
+  siete décimas de esa luz (`luzDeLasFiguras`, `Figura.luz`, en la celda teñida guardada; aro,
+  casillas, barras y chapas sin teñir). En el mapa, la luz por regiones se **guarda** a resolución de
+  dispositivo pegada al mundo (`pintarLaLuzDelMundo`) y cada fotograma es una copia entera sin escalar:
+  componerla desde un cuarto costaba 5,3 ms por fotograma de noche al tope de alejar en 2560×1440 (QA
+  del 22-10-2026, H9). Las gotas, del grueso de un píxel CSS en píxeles de dispositivo. Un solo pintor
   (`render/clima/clima.ts`) para el mapa y toda escena: lo que cambia es el campo, qué clima hay bajo
   cada píxel. En el mapa, por región y con el borde ondulado y blando (un frente, no el contorno por
   casillas de la niebla de guerra), tras los volúmenes y **bajo** los identificadores y la niebla de
   guerra: lo inexplorado sigue siendo `#080a10`. En la batalla, el cielo es el del tiempo (con
-  tormenta no se ve el sol), la luz y la bruma van horneadas en el fondo, los bancos bajo las casillas
+  tormenta no se ve el sol: gris pizarra con nubes bajas; de noche despejada, azul con luna y
+  estrellas, `pintarNubesBajas`, `pintarAstros`), la luz y la bruma van horneadas en el fondo, los bancos bajo las casillas
   y la lluvia y el rayo bajo las barras y los nombres. Una escena lateral se enchufa con su
   `ClimaDelSitio` (`campoDeEscena`): `pintarSueloDelClima` entre lo suyo y las figuras y
   `pintarAireDelClima` al final; la base y la morada (`pintarBase`) heredan el de la región de su
