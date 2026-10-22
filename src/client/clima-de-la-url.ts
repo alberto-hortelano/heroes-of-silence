@@ -12,9 +12,14 @@ export function leerElClimaDeLaURL(params: URLSearchParams): ClimaForzado | null
   return parseClima(unaVezEnLaURL(params.getAll('clima'), 'clima'));
 }
 
-/** La frase que dice por qué no vale lo de `?clima=` y cómo salir. */
+/** La frase que dice por qué no vale lo de `?clima=` y cómo salir: la de la partida y el menú. */
+export function salidaDelClima(err: unknown): string {
+  return `${err instanceof Error ? err.message : String(err)} — quita "?clima=…" de la barra de direcciones`;
+}
+
+/** Lo mismo, para la barra de la arena y del espectador, que siguen sin el clima. */
 export function avisoDelClima(err: unknown): string {
-  return `${err instanceof Error ? err.message : String(err)} — quita "?clima=…" de la barra de direcciones. `;
+  return `${salidaDelClima(err)}. `;
 }
 
 /** `?clima=` en una página que sigue sin él si no vale: lo forzado, o nada y el aviso. */

@@ -14,6 +14,7 @@ import {
   esDeNocheEn,
   forzarClima,
   nocheDeLaSemilla,
+  PEDIDOS_QUE_SE_MIRAN,
   parseClima,
   pedirClima,
   regionDelClima,
@@ -154,10 +155,62 @@ describe('lo que pide el narrador', () => {
       '(-1,0): (-1,0) está fuera del mapa',
       `(${a.at.x},${a.at.y}): "granizo" no es un tiempo: valen despejado, niebla, lluvia, tormenta`,
       `(${a.at.x},${a.at.y}): no pide nada: lleva "weather", "night" o los dos`,
-      `(${a.at.x},${a.at.y}): days ${CLIMA.diasMaximos + 2}: va de 1 a ${CLIMA.diasMaximos} días`,
+      `(${a.at.x},${a.at.y}): days ${CLIMA.diasMaximos + 2}: un entero de 1 a ${CLIMA.diasMaximos} días`,
       `(${a.at.x},${a.at.y}): ${a.name} ya tiene su clima más arriba en esta misma respuesta`,
     ]);
     expect(r.aceptados.map((x) => x.region)).toEqual([a.id, b.id]);
+  });
+
+  it('lo mal tipado se rechaza entrada a entrada, con su motivo (H1)', () => {
+    const s = newGame({ seed: 2 });
+    const [a, b] = s.map.regions;
+    if (a === undefined || b === undefined) throw new Error('faltan regiones');
+    const en = `(${a.at.x},${a.at.y})`;
+    const r = pedirClima(s, 0, [
+      { at: a.at, weather: 'tormenta-electrica' },
+      { at: a.at, weather: 'lluvia', days: 1.5 },
+      { at: a.at, weather: 'lluvia', days: '2' },
+      { at: a.at, night: 'si' },
+      { at: a.at, weather: 7 },
+      'tormenta',
+      { at: { x: '3', y: 4 }, weather: 'lluvia' },
+      { at: b.at, weather: 'lluvia', days: 2 },
+    ]);
+    expect(r.rechazos).toEqual([
+      `${en}: "tormenta-electrica" no es un tiempo: valen despejado, niebla, lluvia, tormenta`,
+      `${en}: days 1.5: un entero de 1 a ${CLIMA.diasMaximos} días`,
+      `${en}: days "2": un entero de 1 a ${CLIMA.diasMaximos} días`,
+      `${en}: "night" va true o false, y llega "si"`,
+      `${en}: 7 no es un tiempo: valen despejado, niebla, lluvia, tormenta`,
+      'n.º 6: cada pedido es un objeto { "at", "weather", "night", "days" }, y llega "tormenta"',
+      'n.º 7: "at" es una casilla { "x": N, "y": N } con dos enteros, y llega {"x":"3","y":4}',
+    ]);
+    expect(r.aceptados).toEqual([
+      { region: b.id, nombre: b.name, tiempo: 'lluvia', hasta: s.day + 1 },
+    ]);
+    expect(pedirClima(s, 0, { at: a.at }).rechazos).toEqual([
+      'es una lista de pedidos [ { "at", "weather", … } ], y llega {"at":{"x":' +
+        `${a.at.x},"y":${a.at.y}}}`,
+    ]);
+  });
+
+  it('de más de las que se miran, se descarta lo de después diciéndolo', () => {
+    const s = newGame({ seed: 2 });
+    const reg = s.map.regions[0];
+    if (reg === undefined) throw new Error('el mapa no tiene regiones');
+    const pedidos = [
+      { at: reg.at, weather: 'lluvia' },
+      ...Array.from({ length: PEDIDOS_QUE_SE_MIRAN }, () => ({
+        at: { x: -1, y: -1 },
+        weather: 'lluvia',
+      })),
+    ];
+    const r = pedirClima(s, 0, pedidos);
+    expect(r.aceptados.map((x) => x.region)).toEqual([reg.id]);
+    expect(r.rechazos).toHaveLength(PEDIDOS_QUE_SE_MIRAN);
+    expect(r.rechazos.at(-1)).toBe(
+      `llegan ${PEDIDOS_QUE_SE_MIRAN + 1} pedidos y se miran los ${PEDIDOS_QUE_SE_MIRAN} primeros: el resto (1) se descarta sin mirarlo`,
+    );
   });
 
   it('entran como mucho los de un turno', () => {

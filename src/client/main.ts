@@ -6,7 +6,6 @@
  */
 import { problemaDeTipo } from '@core/hero/ascenso.js';
 import { parseSeed } from '@core/rng.js';
-import type { ClimaForzado } from '@core/state/clima.js';
 import { faccionesDeLaSemilla } from '@core/state/setup.js';
 import { type FactionId, parseFaccion } from '@core/types.js';
 import { unaVezEnLaURL } from '@core/validar.js';
@@ -112,15 +111,8 @@ function salidaDe(pedidos: readonly Pedido[]): string | null {
  * facción y con qué héroe juega: los tres se escriben siempre, también si los sacó
  * la semilla (la partida rápida), para que la URL la reproduzca entera.
  */
-function abrePartida(
-  seed: number,
-  faccion: FactionId | null,
-  heroe: string | null,
-  clima: ClimaForzado | null,
-): Session {
+function abrePartida(seed: number, faccion: FactionId | null, heroe: string | null): Session {
   const abierta = new Session(seed, faccion ?? undefined, heroe ?? undefined);
-  // Una región de `?clima=` que este mapa no tiene lanza aquí, diciendo cuáles hay.
-  abierta.fijarElClima(clima);
   const suyo = abierta.myHeroes()[0];
   if (suyo === undefined) throw new Error('la partida abre sin héroe para quien juega');
   aLaBarra((url) => {
@@ -194,7 +186,7 @@ let session: Session;
       : leer('heroe', () => heroeDeLaUrl(faccionesDeLaSemilla(seed, faccion ?? undefined)[0]));
   if (fallos.length > 0) sinArrancar(fallos);
   try {
-    session = abrePartida(seed, faccion, heroe, clima);
+    session = abrePartida(seed, faccion, heroe);
   } catch (motivo) {
     // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso.
     // Sin nada pedido no hay salida que dar.
@@ -202,10 +194,17 @@ let session: Session;
       ...(semilla === null ? [] : (['seed'] as const)),
       ...(faccion === null ? [] : (['faccion'] as const)),
       ...(heroe === null ? [] : (['heroe'] as const)),
-      ...(clima === null ? [] : (['clima'] as const)),
     ];
     sinArrancar([{ motivo, salida: salidaDe(pedidos) }]);
   }
+  // Una región de `?clima=` que este mapa no tiene lanza aquí, diciendo cuáles
+  // hay, y la salida es quitar solo `?clima=`: la semilla está bien, y quitarla
+  // cambiaría la partida (H6 del QA del clima, 22-10-2026).
+  leer('clima', () => {
+    session.fijarElClima(clima);
+    return null;
+  });
+  if (fallos.length > 0) sinArrancar(fallos);
 }
 
 const sesion = (): Session => session;

@@ -33,7 +33,7 @@ import {
   QUE_ES_UN_NIVEL,
   TERRAIN_KINDS,
 } from '../map/terrain.js';
-import { CLIMA, TIEMPOS } from '../state/clima.js';
+import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
@@ -143,21 +143,14 @@ export const adventureTurnResponseSchema = z.object({
   /** Acciones en orden. No hace falta terminar con `end_turn`: se añade solo. */
   actions: z.array(adventureActionSchema).max(200),
   /**
-   * Opcional: el clima que el narrador pide por región (`pedirClima`). El tiempo
-   * va como texto y no como `z.enum`, como `hit`: uno mal escrito descarta su
-   * pedido con el motivo, no el turno.
+   * Opcional: el clima que el narrador pide por región (`pedirClima`). **Sin
+   * tipar aquí**: lo juzga entrada a entrada `climaBlocker`, y una mal escrita
+   * (un tiempo de 18 letras, `days: 1.5`, `night: "si"`, una entrada de más)
+   * descarta ese pedido con su motivo, no el turno: con los tipos y los topes en
+   * el esquema, la respuesta entera fallaba y el turno lo jugaba la IA (H1 del
+   * QA del clima, 22-10-2026). La forma la dice la prosa (CLIMA).
    */
-  weather: z
-    .array(
-      z.object({
-        at: pointSchema,
-        weather: z.string().max(16).optional(),
-        night: z.boolean().optional(),
-        days: z.number().int().optional(),
-      }),
-    )
-    .max(16)
-    .optional(),
+  weather: z.unknown().optional(),
   /** Opcional: por qué. Se guarda en la crónica, no afecta a las reglas. */
   reasoning: z.string().max(2000).optional(),
 });
@@ -488,7 +481,8 @@ ${CATALOGO_DE_EQUIPO_EN_PROSA}
   "days": N }, con "weather", "night" o los dos; cubre la región de esa casilla
   (cualquiera, aunque no la hayas visto) desde hoy y "days" días (1 si no lo
   dices, ${CLIMA.diasMaximos} como mucho), y sustituye lo que esa región tuviera
-  pedido. Como mucho ${CLIMA.porTurno} por turno, una vez cada región. Se aplica
+  pedido. Como mucho ${CLIMA.porTurno} por turno, una vez cada región (se miran
+  los ${PEDIDOS_QUE_SE_MIRAN} primeros). Se aplica
   ANTES que las acciones: una tormenta pedida hoy cae sobre el asedio de hoy.
   Lo que no pides sale solo, por días y por región. La NOCHE también la pone la
   narrativa: donde no la pides, cae de vez en cuando, y en las tierras de los no

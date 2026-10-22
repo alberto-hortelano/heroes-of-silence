@@ -17,7 +17,12 @@
  *   `seguir` ‰, y cada región que se aparta con `desvio` ‰—, y así salen rachas
  *   y pocos frentes, no un mosaico. La noche, también en cadena, con el peso de
  *   la facción del dueño de la región ahora (los no muertos, mucho más a menudo:
- *   decisión del usuario del 22-10-2026).
+ *   decisión del usuario del 22-10-2026). **Con el dueño de ahora**: tomar una
+ *   región cambia su cadena, y a veces su noche, en el acto, a media jornada
+ *   (medido en 1-40, 10 regiones y días 1-15: el 10,9 % de las tomas, y el 44 %
+ *   si la toma un no muerto). Se acepta: «cae la noche cuando llegan los no
+ *   muertos» es lo que pidió el usuario, y fijar el dueño al empezar el día
+ *   pediría guardar estado solo para eso (H3 del QA del clima, 22-10-2026).
  * - **El narrador** (`pedirClima`, el único que escribe `GameState.climaPedido`),
  *   por región y por días, como las voces de la base: ni crónica ni banco. Lo
  *   pedido se lee solo por `pedidoVigente`, que sabe cuándo caduca.
@@ -416,12 +421,20 @@ export function climaDeLaBatalla(
 
 // --------------------------------------------------------------- el narrador
 
-/** Lo que manda el narrador para una región: un punto suyo y lo que pide. */
-export interface ClimaPedidoPorElAgente {
+/**
+ * Una entrada de `weather` tal como la manda el narrador: **sin tipar**. El
+ * esquema del contrato no la mira (una entrada mal escrita tumbaba el turno
+ * entero, H1 de la vuelta de QA del 22-10-2026); la juzga `climaBlocker`, campo
+ * a campo, y la que no vale se descarta sola con su motivo.
+ */
+export type EntradaDeClima = unknown;
+
+/** Una entrada que `climaBlocker` dio por buena, ya con sus tipos. */
+interface PedidoLeido {
   readonly at: Point;
-  readonly weather?: string | undefined;
-  readonly night?: boolean | undefined;
-  readonly days?: number | undefined;
+  readonly weather?: Tiempo;
+  readonly night?: boolean;
+  readonly days?: number;
 }
 
 /** Lo que entró, por región, para contarlo en el veredicto. */
@@ -436,41 +449,81 @@ export interface ClimaPuesto {
   readonly rechazos: readonly string[];
 }
 
-/** Por qué no se puede pedir ese clima, o `null` si se puede. No mira cuántos van. */
-export function climaBlocker(state: GameState, pedido: ClimaPedidoPorElAgente): string | null {
-  const { at } = pedido;
+/**
+ * Cuántas entradas de `weather` se miran en una respuesta: las de después se
+ * descartan juntas, diciéndolo, sin mirarlas (un veredicto de mil líneas no lo
+ * lee nadie). Es el tope que tenía el esquema, que tumbaba el turno.
+ */
+export const PEDIDOS_QUE_SE_MIRAN = 16;
+
+/** Lo que mandó el narrador, dicho corto: un texto suyo no llena el veredicto. */
+function dicho(v: unknown): string {
+  const t = JSON.stringify(v) ?? String(v);
+  return t.length <= 40 ? t : `${t.slice(0, 39)}…`;
+}
+
+const esPunto = (v: unknown): v is Point =>
+  typeof v === 'object' &&
+  v !== null &&
+  Number.isSafeInteger((v as { x?: unknown }).x) &&
+  Number.isSafeInteger((v as { y?: unknown }).y);
+
+/**
+ * Por qué no se puede pedir esa entrada de clima, o `null` si se puede: la forma
+ * (un objeto con `at`, y `weather`, `night` y `days` de su tipo) y lo que dice
+ * (una casilla del mapa, un tiempo que existe, días dentro del tope). No mira
+ * cuántos van ni si la región se repite: eso es de `pedirClima`.
+ */
+export function climaBlocker(state: GameState, entrada: EntradaDeClima): string | null {
+  if (typeof entrada !== 'object' || entrada === null || Array.isArray(entrada)) {
+    return `cada pedido es un objeto { "at", "weather", "night", "days" }, y llega ${dicho(entrada)}`;
+  }
+  const { at, weather, night, days } = entrada as Record<string, unknown>;
+  if (!esPunto(at)) {
+    return `"at" es una casilla { "x": N, "y": N } con dos enteros, y llega ${dicho(at)}`;
+  }
   if (!inBounds(state.map, at)) return `(${at.x},${at.y}) está fuera del mapa`;
   if (state.map.regions.length === 0) return 'este mapa no tiene regiones: no hay clima que pedir';
-  if (pedido.weather === undefined && pedido.night === undefined) {
+  if (weather === undefined && night === undefined) {
     return 'no pide nada: lleva "weather", "night" o los dos';
   }
-  if (pedido.weather !== undefined && !esTiempo(pedido.weather)) {
-    return `"${pedido.weather}" no es un tiempo: valen ${TIEMPOS.join(', ')}`;
+  if (weather !== undefined && (typeof weather !== 'string' || !esTiempo(weather))) {
+    return `${dicho(weather)} no es un tiempo: valen ${TIEMPOS.join(', ')}`;
+  }
+  if (night !== undefined && typeof night !== 'boolean') {
+    return `"night" va true o false, y llega ${dicho(night)}`;
   }
   if (
-    pedido.days !== undefined &&
-    (!Number.isSafeInteger(pedido.days) || pedido.days < 1 || pedido.days > CLIMA.diasMaximos)
+    days !== undefined &&
+    (typeof days !== 'number' ||
+      !Number.isSafeInteger(days) ||
+      days < 1 ||
+      days > CLIMA.diasMaximos)
   ) {
-    return `days ${pedido.days}: va de 1 a ${CLIMA.diasMaximos} días`;
+    return `days ${dicho(days)}: un entero de 1 a ${CLIMA.diasMaximos} días`;
   }
   return null;
+}
+
+/** Dónde dice el veredicto que cae una entrada: su casilla, si la trae, o su puesto. */
+function dondeDe(entrada: EntradaDeClima, n: number): string {
+  const at =
+    typeof entrada === 'object' && entrada !== null ? (entrada as { at?: unknown }).at : undefined;
+  return esPunto(at) ? `(${at.x},${at.y})` : `n.º ${n + 1}`;
 }
 
 /**
  * Pone el clima que pide el narrador. Es el **único** que escribe
  * `GameState.climaPedido`.
  *
- * Cada pedido se juzga solo (`climaBlocker`): uno malo se rechaza con su motivo
- * sin tirar los demás. Un pedido cubre la región de su casilla desde hoy y
- * `days` días (1 si no lo dice) y sustituye entero al que esa región tuviera:
- * lo que no pide (el tiempo o la noche) vuelve a salir de la semilla. Entran
- * como mucho `porTurno` por turno y una vez cada región. Lo caducado se borra.
+ * Cada entrada se juzga sola (`climaBlocker`): una mala se rechaza con su motivo
+ * sin tirar las demás ni el turno. Un pedido cubre la región de su casilla desde
+ * hoy y `days` días (1 si no lo dice) y sustituye entero al que esa región
+ * tuviera: lo que no pide (el tiempo o la noche) vuelve a salir de la semilla.
+ * Entran como mucho `porTurno` por turno y una vez cada región, y se miran las
+ * `PEDIDOS_QUE_SE_MIRAN` primeras. Lo caducado se borra.
  */
-export function pedirClima(
-  state: GameState,
-  _player: PlayerId,
-  pedidos: readonly ClimaPedidoPorElAgente[],
-): ClimaPuesto {
+export function pedirClima(state: GameState, _player: PlayerId, entradas: unknown): ClimaPuesto {
   const vigente: Record<string, PedidoDeClima> = {};
   for (const reg of state.map.regions) {
     const p = pedidoVigente(state, reg.id);
@@ -478,13 +531,18 @@ export function pedirClima(
   }
   const aceptados: ClimaAceptado[] = [];
   const rechazos: string[] = [];
-  for (const pedido of pedidos) {
-    const donde = `(${pedido.at.x},${pedido.at.y})`;
-    const motivo = climaBlocker(state, pedido);
+  const lista = Array.isArray(entradas) ? (entradas as readonly unknown[]) : null;
+  if (lista === null) {
+    rechazos.push(`es una lista de pedidos [ { "at", "weather", … } ], y llega ${dicho(entradas)}`);
+  }
+  for (const [n, entrada] of (lista ?? []).slice(0, PEDIDOS_QUE_SE_MIRAN).entries()) {
+    const donde = dondeDe(entrada, n);
+    const motivo = climaBlocker(state, entrada);
     if (motivo !== null) {
       rechazos.push(`${donde}: ${motivo}`);
       continue;
     }
+    const pedido = entrada as PedidoLeido;
     if (aceptados.length >= CLIMA.porTurno) {
       rechazos.push(`${donde}: ya han entrado ${CLIMA.porTurno} este turno, que es el máximo`);
       continue;
@@ -498,14 +556,18 @@ export function pedirClima(
       rechazos.push(`${donde}: ${reg.name} ya tiene su clima más arriba en esta misma respuesta`);
       continue;
     }
-    const tiempo = pedido.weather as Tiempo | undefined;
     const puesto: PedidoDeClima = {
-      ...(tiempo === undefined ? {} : { tiempo }),
+      ...(pedido.weather === undefined ? {} : { tiempo: pedido.weather }),
       ...(pedido.night === undefined ? {} : { noche: pedido.night }),
       hasta: state.day + (pedido.days ?? 1) - 1,
     };
     vigente[reg.id] = puesto;
     aceptados.push({ region: reg.id, nombre: reg.name, ...puesto });
+  }
+  if (lista !== null && lista.length > PEDIDOS_QUE_SE_MIRAN) {
+    rechazos.push(
+      `llegan ${lista.length} pedidos y se miran los ${PEDIDOS_QUE_SE_MIRAN} primeros: el resto (${lista.length - PEDIDOS_QUE_SE_MIRAN}) se descarta sin mirarlo`,
+    );
   }
   state.climaPedido = vigente;
   return { aceptados, rechazos };

@@ -476,6 +476,46 @@ describe('enlace con el agente', () => {
     expect(informe.actions).toBe(1);
   });
 
+  it('un pedido de clima mal tipado se descarta solo y el turno sigue siendo del agente (H1)', async () => {
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind !== 'adventure_turn') return {};
+      const town = payload.towns[0];
+      const at = town.at;
+      return {
+        actions: [{ type: 'build', town: town.id, building: town.canBuildNow[0].id }],
+        weather: [
+          { at, weather: 'tormenta-electrica' },
+          { at, weather: 'lluvia', days: 1.5 },
+          { at, weather: 'lluvia', days: '2' },
+          { at, night: 'si' },
+          { at, weather: 'niebla', night: true },
+          // De más: las que pasan del tope se descartan juntas, diciéndolo.
+          ...Array.from({ length: 16 }, () => ({ at, weather: 'lluvia' })),
+        ],
+      };
+    });
+    const director = new Director(link, { seed: 111, agentPlayers: [0] });
+    const antes = director.state.towns[0]!.buildings.length;
+
+    const informe = await director.playTurn();
+
+    expect(informe.by).toBe('agent');
+    expect(informe.actions).toBe(1);
+    expect(director.state.towns[0]!.buildings.length).toBe(antes + 1);
+    await respira();
+    const veredicto = agent.results.find((r) => r.requestId === agent.seen[0]?.requestId);
+    const delClima = (veredicto?.problems ?? []).filter((p) => p.startsWith('weather '));
+    expect(delClima.slice(0, 4)).toEqual([
+      expect.stringMatching(/"tormenta-electrica" no es un tiempo/),
+      expect.stringMatching(/days 1\.5: un entero de 1 a \d+ días/),
+      expect.stringMatching(/days "2": un entero/),
+      expect.stringMatching(/"night" va true o false, y llega "si"/),
+    ]);
+    expect(delClima.at(-1)).toMatch(/llegan 21 pedidos y se miran los 16 primeros: el resto \(5\)/);
+    // La entrada buena entró, y la nota lo cuenta.
+    expect(veredicto?.note).toMatch(/Clima: niebla y de noche en .* hasta el día 1\./);
+  });
+
   it('una respuesta que no cumple el esquema no toca el estado', async () => {
     const { link } = await montar(() => ({ actions: [{ type: 'invocar_dragón' }] }));
     const director = new Director(link, { seed: 103, agentPlayers: [0] });
