@@ -1191,7 +1191,7 @@ async function abrir(
     await page.route(p.sinImagenes, (r) => r.fulfill({ status: 404, body: '' }));
   }
   const espejo = new Session(p.semilla);
-  await page.goto(`${url}/?seed=${p.semilla}`, { waitUntil: 'networkidle' });
+  await page.goto(partidaEn(url, `seed=${p.semilla}`), { waitUntil: 'networkidle' });
   await salirDeLaBase(page, p.nombre);
   if (p.sinSuelo !== true) await esperarElSuelo(page, p.nombre, 60_000, log);
   await sleep(450);
@@ -2343,7 +2343,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   const semilla = await semillaDelMovil(browser, url, problemas);
   const medida = await cajaDeMovil(browser, url, problemas);
   const espejo = new Session(semilla);
-  await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
+  await page.goto(partidaEn(url, `seed=${semilla}`), { waitUntil: 'networkidle' });
   await salirDeLaBase(page, 'táctil', 'toque');
   await esperarElSuelo(page, 'táctil', 60_000, log);
   await sleep(450);
@@ -2420,7 +2420,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
 
   // A la batalla de la semilla, desde el principio otra vez (el héroe ya ha
   // andado), con dos toques: el primero enseña, el segundo va.
-  await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
+  await page.goto(partidaEn(url, `seed=${semilla}`), { waitUntil: 'networkidle' });
   await salirDeLaBase(page, 'táctil, otra vez', 'toque');
   await sleep(450);
   const otra = new Session(semilla);
@@ -3204,7 +3204,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     );
     const p = await contexto.newPage();
     vigilarConsola(p, v.nombre, problemas);
-    await p.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
+    await p.goto(partidaEn(url, `seed=${semilla}`), { waitUntil: 'networkidle' });
     await salirDeLaBase(p, v.nombre, v.movil ? 'toque' : 'clic');
     const boton = p.locator('#side [data-action="abrir-tropa"]');
     if (v.movil) await boton.tap();
@@ -3395,7 +3395,9 @@ async function moradaEnEscena(browser: Browser, url: string, problemas: Problema
       vigilarConsola(page, nombre, problemas);
       const espejo = new Session(semilla, faccion);
       espejo.abrirSuBase();
-      await page.goto(`${url}/?seed=${semilla}&faccion=${faccion}`, { waitUntil: 'networkidle' });
+      await page.goto(partidaEn(url, `seed=${semilla}&faccion=${faccion}`), {
+        waitUntil: 'networkidle',
+      });
       await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
       await esperarLaBase(page, 'quieto');
       const d = disposicionDe(faccion);
@@ -3471,7 +3473,9 @@ async function baseAVariosAnchos(
     vigilarConsola(page, nombre, problemas);
     const espejo = new Session(semilla, 'templarios');
     espejo.abrirSuBase();
-    await page.goto(`${url}/?seed=${semilla}&faccion=templarios`, { waitUntil: 'networkidle' });
+    await page.goto(partidaEn(url, `seed=${semilla}&faccion=templarios`), {
+      waitUntil: 'networkidle',
+    });
     await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
     await esperarLaBase(page, 'quieto');
     // El arte de la base, ya llegado: la captura es para mirarla.
@@ -4791,6 +4795,17 @@ async function esperarBarra(
         `${que}: la barra debía decir «${texto}» y dice «${await page.locator('#status').innerText()}»`,
       );
     });
+}
+
+/**
+ * La dirección de una partida con `query`, siempre con el clima despejado
+ * (`?clima=despejado`): el clima de la semilla anima el lienzo (la lluvia, la
+ * niebla que va a la deriva) y las medidas de píxeles de esta orden —la barra
+ * de vida, la huella del lienzo— se escribieron sin él. El único sitio donde se
+ * arma: el menú de inicio no lo lleva, porque compara la URL entera.
+ */
+function partidaEn(url: string, query: string): string {
+  return `${url}/?${query}&clima=despejado`;
 }
 
 /** La arena con `query` (`?seed=…`), con la lista de unidades ya pintada. */
