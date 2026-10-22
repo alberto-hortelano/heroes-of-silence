@@ -10,6 +10,7 @@
  * cada regla con su caso que se rechaza, que es donde vive el fail-loud. Reglas,
  * no resultados de combate: las cifras salen de las piezas, no del JSON.
  */
+
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -48,6 +49,7 @@ import {
 import { armaduraDe } from '../src/core/battle/armas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { UNIDADES } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
   EQUIPO,
@@ -361,10 +363,11 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
     izquierda: lado(conNueva.id, false),
     derecha: lado('goblin-arquero', true),
     muralla: null,
+    combate: COMBATE_COMPLETO,
   };
 
   it('va y vuelve con todas las piezas que lleva, y monta con ellas en el catálogo de quien lo abre', () => {
-    expect(VERSION_DEL_ENLACE).toBe(13);
+    expect(VERSION_DEL_ENLACE).toBe(14);
     // Lo que llevan el guerrero (la nueva, la brigantina, el escudo) y el arquero
     // (daga, arco, jubón): todas, no solo las cambiadas.
     expect(ENLACE.piezas.map((p) => p.id).sort()).toEqual(
@@ -550,6 +553,7 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
         izquierda: lado(guerrero().id),
         derecha: lado(conNueva.id),
         muralla: null,
+        combate: COMBATE_COMPLETO,
       }),
     );
     // Abrirlo es ponerlas en el catálogo, lo mismo que editarlas a mano…

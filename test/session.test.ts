@@ -8,9 +8,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
+import { renderEleccion } from '../src/client/rueda/rueda.js';
 import { AYUDA_DEL_MAPA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { hexDistance } from '../src/core/battle/board.js';
+import { combateCon } from '../src/core/combate.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { pointFromKey, reachableFrom } from '../src/core/map/map.js';
@@ -38,6 +40,7 @@ import {
   primeraSemillaCon,
   SANADOR,
   TROPA_BARATA,
+  unoDeLaRueda,
 } from './helpers.js';
 
 describe('sesión del cliente: el turno del rival', () => {
@@ -585,7 +588,7 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
    * Juega la batalla con la persona acercando sus unidades al enemigo más cercano
    * (los monstruos guardan su sitio) hasta que `hasta` se cumpla; si no puede
    * acercarse más, cierra el turno, y su respuesta en la rueda, si se la piden, es
-   * Normal. Lanza si la batalla se acaba antes.
+   * `unoDeLaRueda` (Normal, si la rueda lo lleva). Lanza si la batalla se acaba antes.
    */
   function jugarHasta(s: Session, hasta: () => boolean): void {
     for (let i = 0; i < 400; i++) {
@@ -593,7 +596,7 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
       const b = s.battle;
       if (b === null || b.finished !== null) break;
       if (s.ruedaPendiente !== null) {
-        s.elegirEnLaRueda('normal');
+        s.elegirEnLaRueda(unoDeLaRueda(b));
         continue;
       }
       const turno = s.turnoPropio;
@@ -662,6 +665,36 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     if (s.ruedaPendiente === null) {
       expect(marcadoDe(renderActions(s))).not.toContain(APAGADOS_POR_LA_RUEDA);
     }
+  });
+
+  it('con la rueda de 3, el golpe de la persona abre sus tres sectores y se da (QA de la complejidad, vuelta 1)', () => {
+    // Antes, la previsión del golpe suponía Normal: la rueda no se abría, la barra
+    // decía «"normal" no es un golpe de la rueda de 3» y la unidad se quedaba
+    // plantada sin salida (ni Escape, ni «Terminar turno», ni «Defender»).
+    const s = sesionContraMonstruo({ combate: combateCon(7, 3) });
+    jugarHasta(s, () => s.ruedaPendiente === null && golpeLegal(s) !== undefined);
+    s.playBattleAction(golpeLegal(s)!);
+    expect(s.status).toBe('');
+    const p = s.ruedaPendiente;
+    if (p === null) throw new Error('la rueda de 3 no se abre al golpear');
+    expect(p.fase).toBe('golpe');
+    expect(Object.keys(p.prevision.porTipo ?? {})).toEqual([
+      'ofensivoFuerte',
+      'rapidoRomper',
+      'defensivoFinta',
+    ]);
+    // Se pinta con sus tres botones y sin Normal.
+    const m = marcadoDe(renderEleccion(s.battle!, p, s.miBando, null));
+    expect(m.match(/data-golpe="[a-zA-Z]+"/g)).toEqual([
+      'data-golpe="ofensivoFuerte"',
+      'data-golpe="rapidoRomper"',
+      'data-golpe="defensivoFinta"',
+    ]);
+    s.elegirEnLaRueda('rapidoRomper');
+    expect(s.status).toBe('');
+    const cruce = s.battle!.log.find((e) => e.kind === 'cruce' && e.stack === p.atacante.id);
+    expect(cruce).toMatchObject({ kind: 'cruce', golpe: 'rapidoRomper', target: p.objetivo.id });
+    expect(s.battle!.golpeEnCurso).toBeNull();
   });
 
   it('un tipo que no existe se dice en la barra y la rueda sigue esperando', () => {
@@ -843,5 +876,158 @@ describe('el héroe elegido en el menú (vuelta 2, 19-10-2026)', () => {
     expect(() => new Session(5, 'no-muertos', 'cantora')).toThrow(
       '"cantora" no es un tipo de héroe de no-muertos: valen nigromante, vampiro, lich',
     );
+  });
+});
+
+describe('«Solo la rueda del héroe» (complejidad del combate, 22-10-2026)', () => {
+  /**
+   * Juega la batalla de la persona yendo a por el enemigo más cercano y golpeando
+   * en cuanto puede; cada vez que la rueda se abre, `alAbrirse` la mira antes de
+   * elegir `unoDeLaRueda` (Normal, si la rueda lo lleva).
+   */
+  function jugarConRueda(
+    s: Session,
+    alAbrirse: (p: NonNullable<Session['ruedaPendiente']>) => void,
+  ): void {
+    for (let i = 0; i < 600; i++) {
+      const b = s.battle;
+      if (b === null || b.finished !== null) return;
+      const p = s.ruedaPendiente;
+      if (p !== null) {
+        alAbrirse(p);
+        s.elegirEnLaRueda(unoDeLaRueda(b));
+        // Lo elegido vale: la rueda no se queda esperando lo mismo.
+        expect(s.ruedaPendiente, s.status).not.toBe(p);
+        continue;
+      }
+      const turno = s.turnoPropio;
+      if (turno === null) throw new Error('ni le toca a la persona ni espera la rueda');
+      const legales = s.battleLegalActions();
+      const golpe = legales.find((a) => a.type === 'attack');
+      if (golpe !== undefined) {
+        s.playBattleAction(golpe);
+        continue;
+      }
+      const enemigos = b.stacks.filter((x) => x.side !== turno.side && x.count > 0);
+      const lejos = (h: Hex) => Math.min(...enemigos.map((x) => hexDistance(h, x.hex)));
+      const paso = legales
+        .filter((a) => a.type === 'move')
+        .sort((x, y) => lejos(x.to) - lejos(y.to))[0];
+      s.playBattleAction(
+        paso !== undefined && lejos(paso.to) < lejos(turno.stack.hex) ? paso : { type: 'end_turn' },
+      );
+    }
+    throw new Error('la batalla no acaba');
+  }
+
+  /** De la persona en un cruce: quien pega si golpea ella, el golpeado si responde. */
+  const suyo = (p: NonNullable<Session['ruedaPendiente']>) =>
+    p.fase === 'golpe' ? p.atacante : p.objetivo;
+
+  it('activa, la rueda se abre solo para el héroe; la tropa de la persona cruza sin ella, como el rival', () => {
+    const s = sesionContraMonstruo();
+    s.soloRuedaDelHeroe = true;
+    const mio = s.miBando;
+    let delHeroe = 0;
+    jugarConRueda(s, (p) => {
+      expect(suyo(p).origen.kind, `${p.fase} de ${suyo(p).id}`).toBe('heroe');
+      delHeroe++;
+    });
+    const log = s.battle!.log;
+    // La tropa de la persona golpeó o respondió en la rueda, y lo eligió la IA.
+    const deSuTropa = log.filter(
+      (e) =>
+        e.kind === 'cruce' &&
+        [e.stack, e.target].some((id) => {
+          const x = s.battle!.stacks.find((st) => st.id === id);
+          return x?.side === mio && x.origen.kind !== 'heroe';
+        }),
+    );
+    expect(deSuTropa.length).toBeGreaterThan(0);
+    // Y el héroe, por su lado, sí: o golpeó o le golpearon con la rueda abierta.
+    const cruzoElHeroe = log.some(
+      (e) => e.kind === 'cruce' && [e.stack, e.target].includes(`${mio}-heroe`),
+    );
+    expect(delHeroe > 0).toBe(cruzoElHeroe);
+  });
+
+  it('con la rueda de 3, el golpe del héroe abre la rueda y se da; la tropa cruza sin ella (QA, vuelta 1)', () => {
+    // Justo el golpe del héroe era el que se atascaba con la rueda de 3.
+    const s = sesionContraMonstruo({ combate: combateCon(7, 3), soloRuedaDelHeroe: true });
+    const mio = s.miBando;
+    const fases: string[] = [];
+    jugarConRueda(s, (p) => {
+      expect(suyo(p).origen.kind, `${p.fase} de ${suyo(p).id}`).toBe('heroe');
+      expect(Object.keys(p.prevision.porTipo ?? {})).toHaveLength(3);
+      fases.push(p.fase);
+    });
+    expect(fases).toContain('golpe');
+    const log = s.battle!.log;
+    // El héroe golpeó con la rueda de 3, y su tropa cruzó con lo que eligió la IA.
+    expect(
+      log.some(
+        (e) => e.kind === 'cruce' && e.stack === `${mio}-heroe` && e.golpe === 'ofensivoFuerte',
+      ),
+    ).toBe(true);
+    const deSuTropa = log.filter(
+      (e) =>
+        e.kind === 'cruce' &&
+        [e.stack, e.target].some((id) => {
+          const x = s.battle!.stacks.find((st) => st.id === id);
+          return x?.side === mio && x.origen.kind !== 'heroe';
+        }),
+    );
+    expect(deSuTropa.length).toBeGreaterThan(0);
+  });
+
+  it('se cambia a media batalla y vale desde el siguiente golpe', () => {
+    const s = sesionContraMonstruo();
+    expect(s.soloRuedaDelHeroe).toBe(false);
+    let deLaTropa = 0;
+    let trasCambiar = 0;
+    jugarConRueda(s, (p) => {
+      if (s.soloRuedaDelHeroe) {
+        expect(suyo(p).origen.kind).toBe('heroe');
+        trasCambiar++;
+        return;
+      }
+      // Apagada, como siempre: también la tropa. A la primera, se enciende.
+      if (suyo(p).origen.kind !== 'heroe') {
+        deLaTropa++;
+        s.alternarSoloRuedaDelHeroe();
+        expect(s.status).toBe(
+          'Solo eliges en la rueda con tu héroe: la de tu tropa la elige la IA.',
+        );
+      }
+    });
+    expect(deLaTropa).toBe(1);
+    expect(trasCambiar).toBeGreaterThanOrEqual(0);
+    // Y se apaga igual.
+    s.alternarSoloRuedaDelHeroe();
+    expect(s.soloRuedaDelHeroe).toBe(false);
+    expect(marcadoDe(renderActions(s))).not.toContain('data-action="solo-rueda-del-heroe" checked');
+  });
+
+  it('una defensa sin su héroe (la guarnición sola) no le abre ninguna rueda', async () => {
+    const s = new Session(1, undefined, undefined, undefined, true);
+    fueraDeSuBase(s.state, 0);
+    const enBatalla = () => s.scene === 'battle';
+    for (let dia = 0; dia < 5 && !enBatalla(); dia++) {
+      const turno = s.endTurn();
+      for (let i = 0; i < 100 && !enBatalla() && !s.isPlayersTurn; i++) {
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      if (!enBatalla()) await turno;
+    }
+    expect(s.scene).toBe('battle');
+    expect(s.battle!.heroes[s.miBando!]).toBeNull();
+    const cruces = () => s.battle!.log.filter((e) => e.kind === 'cruce').length;
+    for (let i = 0; i < 400 && s.battle!.finished === null; i++) {
+      expect(s.ruedaPendiente).toBeNull();
+      s.playBattleAction({ type: 'end_turn' });
+    }
+    expect(s.battle!.finished).not.toBeNull();
+    // Le golpearon, y respondió la IA por ella.
+    expect(cruces()).toBeGreaterThan(0);
   });
 });

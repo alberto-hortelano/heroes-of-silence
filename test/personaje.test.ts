@@ -8,6 +8,7 @@ import {
 } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { isShooter } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 
@@ -41,7 +42,7 @@ import { aCiegas, esPersonaje } from './helpers.js';
  */
 function duelo(atacante: BattleSide, defensor: BattleSide, semilla: number): BattleState {
   const rng = createRng(semilla);
-  const batalla = createBattle(atacante, defensor, rng);
+  const batalla = createBattle(atacante, defensor, rng, COMBATE_COMPLETO);
   batalla.stacks[0]!.hex = { col: 3, row: 4 };
   batalla.stacks[1]!.hex = { col: 7, row: 4 };
   for (let acciones = 0; batalla.finished === null; acciones++) {
@@ -247,36 +248,36 @@ describe('un personaje en el tablero', () => {
   const zombi = solo('zombi');
 
   it('un personaje en un stack de 2 lanza', () => {
-    expect(() => createBattle(ladoDe(personaje('Guerrero'), 340, 2), zombi, rng())).toThrow(
-      /un personaje es uno solo: "Guerrero" viene en un stack de 2/,
-    );
+    expect(() =>
+      createBattle(ladoDe(personaje('Guerrero'), 340, 2), zombi, rng(), COMBATE_COMPLETO),
+    ).toThrow(/un personaje es uno solo: "Guerrero" viene en un stack de 2/);
   });
 
   it('un personaje que el bando no sabe quién es lanza', () => {
     const lado: BattleSide = { ...ladoDe(personaje('Guerrero')), members: new Map() };
-    expect(() => createBattle(lado, zombi, rng())).toThrow(
+    expect(() => createBattle(lado, zombi, rng(), COMBATE_COMPLETO)).toThrow(
       /el personaje "Guerrero" está en el ejército pero no se sabe quién es/,
     );
   });
 
   it('un personaje a 0 PV no entra, y uno con más PV que su máximo tampoco', () => {
-    expect(() => createBattle(ladoDe(personaje('Guerrero'), 0), zombi, rng())).toThrow(
-      /Aren no puede entrar en batalla: tiene 0 PV/,
-    );
-    expect(() => createBattle(ladoDe(personaje('Guerrero'), 999), zombi, rng())).toThrow(
-      /Aren llega con 999 PV y su máximo es 340/,
-    );
+    expect(() =>
+      createBattle(ladoDe(personaje('Guerrero'), 0), zombi, rng(), COMBATE_COMPLETO),
+    ).toThrow(/Aren no puede entrar en batalla: tiene 0 PV/);
+    expect(() =>
+      createBattle(ladoDe(personaje('Guerrero'), 999), zombi, rng(), COMBATE_COMPLETO),
+    ).toThrow(/Aren llega con 999 PV y su máximo es 340/);
   });
 
   it('unos PV que no son un entero no entran: ni NaN ni 2,5', () => {
     // `NaN` pasaba por delante de las dos comprobaciones de arriba —`NaN <= 0` y
     // `NaN > 340` son los dos falsos— y la batalla empezaba con `topHp: NaN`.
-    expect(() => createBattle(ladoDe(personaje('Guerrero'), Number.NaN), zombi, rng())).toThrow(
-      /Aren llega con NaN PV: los PV son un número entero/,
-    );
-    expect(() => createBattle(ladoDe(personaje('Guerrero'), 2.5), zombi, rng())).toThrow(
-      /Aren llega con 2.5 PV: los PV son un número entero/,
-    );
+    expect(() =>
+      createBattle(ladoDe(personaje('Guerrero'), Number.NaN), zombi, rng(), COMBATE_COMPLETO),
+    ).toThrow(/Aren llega con NaN PV: los PV son un número entero/);
+    expect(() =>
+      createBattle(ladoDe(personaje('Guerrero'), 2.5), zombi, rng(), COMBATE_COMPLETO),
+    ).toThrow(/Aren llega con 2.5 PV: los PV son un número entero/);
   });
 
   it('el mismo personaje dos veces en el ejército lanza', () => {
@@ -291,11 +292,13 @@ describe('un personaje en el tablero', () => {
         { creature: CHARACTER_BODY, count: 1, member: c.id },
       ],
     };
-    expect(() => createBattle(lado, zombi, rng())).toThrow(/Aren aparece dos veces en el ejército/);
+    expect(() => createBattle(lado, zombi, rng(), COMBATE_COMPLETO)).toThrow(
+      /Aren aparece dos veces en el ejército/,
+    );
   });
 
   it('entra herido: 12 de 340 PV es un topHp de 12', () => {
-    const batalla = createBattle(ladoDe(personaje('Guerrero'), 12), zombi, rng());
+    const batalla = createBattle(ladoDe(personaje('Guerrero'), 12), zombi, rng(), COMBATE_COMPLETO);
     const s = batalla.stacks.find(esPersonaje('Guerrero'))!;
     expect(s.topHp).toBe(12);
     expect(s.count).toBe(1);
@@ -307,7 +310,7 @@ describe('un personaje en el tablero', () => {
   it('su moral y su suerte son las suyas más las del bando, recortadas', () => {
     const mago = personaje('Mago'); // moral 1, suerte 1
     const lado: BattleSide = { ...ladoDe(mago), moraleBonus: 3, luckBonus: -1 };
-    const s = createBattle(lado, zombi, rng()).stacks.find(esPersonaje('Mago'))!;
+    const s = createBattle(lado, zombi, rng(), COMBATE_COMPLETO).stacks.find(esPersonaje('Mago'))!;
     // Ejército solo de personajes: ninguna facción, sin el +1 de unidad.
     expect(s.morale).toBe(3); // 0 + 3 + 1 → recortado a 3
     expect(s.luck).toBe(0); // −1 + 1
@@ -322,7 +325,7 @@ describe('un personaje en el tablero', () => {
         { creature: 'goblin-lancero', count: 5 },
       ],
     };
-    const b = createBattle(lado, zombi, rng());
+    const b = createBattle(lado, zombi, rng(), COMBATE_COMPLETO);
     // Solo orkos entre las unidades (el goblin): +1, también para el personaje.
     expect(b.stacks.find((x) => x.body === 'goblin-lancero')!.morale).toBe(1);
     expect(b.stacks.find(esPersonaje(c.id))!.morale).toBe(1);
@@ -346,7 +349,7 @@ describe('un personaje en el tablero', () => {
 
   it('el Guardabosques dispara con su arco, sin munición', () => {
     const c = personaje('Guardabosques');
-    const batalla = createBattle(ladoDe(c), zombi, rng());
+    const batalla = createBattle(ladoDe(c), zombi, rng(), COMBATE_COMPLETO);
     const s = batalla.stacks.find(esPersonaje(c.id))!;
     expect(s.unit.equipo?.distancia).toBe('arco');
     const d = duelo(ladoDe(c), zombi, 91);

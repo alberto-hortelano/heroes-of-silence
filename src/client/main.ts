@@ -4,11 +4,13 @@
  * La sesión decide, `render/` pinta, `views/` monta los paneles y cada escena
  * (`escenas/`) traduce el puntero de su pantalla. Aquí solo se conecta todo.
  */
+import { combateCon, type ReglasDelCombate } from '@core/combate.js';
 import { problemaDeTipo } from '@core/hero/ascenso.js';
 import { parseSeed } from '@core/rng.js';
 import { faccionesDeLaSemilla } from '@core/state/setup.js';
 import { type FactionId, parseFaccion } from '@core/types.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import { combateALaURL, combateDeLaURL, type ParametroDelCombate } from './combate-en-la-url.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaBatalla } from './escenas/batalla.js';
@@ -94,7 +96,7 @@ function heroeDeLaUrl(faccion: FactionId): string | null {
 }
 
 /** Lo que la URL puede pedir de una partida. */
-type Pedido = 'seed' | 'faccion' | 'heroe';
+type Pedido = 'seed' | 'faccion' | 'heroe' | ParametroDelCombate;
 
 /**
  * Cómo salir de una URL que no abre partida: quitar lo que pidió. Sin la semilla
@@ -107,17 +109,25 @@ function salidaDe(pedidos: readonly Pedido[]): string | null {
 
 /**
  * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla, con qué
- * facción y con qué héroe juega: los tres se escriben siempre, también si los sacó
- * la semilla (la partida rápida), para que la URL la reproduzca entera.
+ * facción, con qué héroe y con qué complejidad juega: se escriben siempre, también
+ * si los sacó la semilla (la partida rápida, 7 / 7), para que la URL la
+ * reproduzca entera. «Solo la rueda del héroe», solo si se marcó.
  */
-function abrePartida(seed: number, faccion: FactionId | null, heroe: string | null): Session {
-  const abierta = new Session(seed, faccion ?? undefined, heroe ?? undefined);
+function abrePartida(
+  seed: number,
+  faccion: FactionId | null,
+  heroe: string | null,
+  combate: ReglasDelCombate,
+  soloHeroe: boolean,
+): Session {
+  const abierta = new Session(seed, faccion ?? undefined, heroe ?? undefined, combate, soloHeroe);
   const suyo = abierta.myHeroes()[0];
   if (suyo === undefined) throw new Error('la partida abre sin héroe para quien juega');
   aLaBarra((url) => {
     url.searchParams.set('seed', String(seed));
     url.searchParams.set('faccion', abierta.jugador.faction);
     url.searchParams.set('heroe', suyo.tipo);
+    combateALaURL(url, abierta.state.combate, abierta.soloRuedaDelHeroe);
   });
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
@@ -173,6 +183,9 @@ let session: Session;
   };
   const semilla = leer('seed', semillaDeLaUrl);
   const faccion = leer('faccion', faccionDeLaUrl);
+  const { tope, rueda, soloHeroe } = combateDeLaURL(location.search, (parametro, motivo) =>
+    fallos.push({ motivo, salida: salidaDe([parametro]) }),
+  );
   const seed = semilla ?? semillaSorteada();
   // El héroe se juzga contra la facción que se jugará: la pedida o la que saque
   // la semilla, que la dice la misma función que usa `newGame`. Así el motivo
@@ -184,7 +197,7 @@ let session: Session;
       : leer('heroe', () => heroeDeLaUrl(faccionesDeLaSemilla(seed, faccion ?? undefined)[0]));
   if (fallos.length > 0) sinArrancar(fallos);
   try {
-    session = abrePartida(seed, faccion, heroe);
+    session = abrePartida(seed, faccion, heroe, combateCon(tope, rueda), soloHeroe);
   } catch (motivo) {
     // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso.
     // Sin nada pedido no hay salida que dar.
@@ -192,6 +205,8 @@ let session: Session;
       ...(semilla === null ? [] : (['seed'] as const)),
       ...(faccion === null ? [] : (['faccion'] as const)),
       ...(heroe === null ? [] : (['heroe'] as const)),
+      ...(tope === null ? [] : (['tropa'] as const)),
+      ...(rueda === null ? [] : (['rueda'] as const)),
     ];
     sinArrancar([{ motivo, salida: salidaDe(pedidos) }]);
   }
@@ -799,6 +814,12 @@ document.addEventListener('click', (ev) => {
     }
     case 'auto-battle':
       session.autoResolveBattle();
+      break;
+    case 'solo-rueda-del-heroe':
+      // La casilla de la batalla: vale desde el siguiente golpe, y la URL la
+      // recuerda para la recarga.
+      session.alternarSoloRuedaDelHeroe();
+      aLaBarra((url) => combateALaURL(url, session.state.combate, session.soloRuedaDelHeroe));
       break;
     case 'zoom-in':
       aventura.zoom(1);

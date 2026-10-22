@@ -29,15 +29,10 @@ import {
 } from './battle/armas.js';
 import { cifrasDeCarga, porcientoDeLaCarga } from './battle/carga.js';
 import type { CifrasDeLaRueda } from './battle/cifras-de-la-rueda.js';
+import { RUEDA_DE_REFERENCIA } from './battle/formas-de-la-rueda.js';
 import { isShooter, PODER } from './data.js';
 import { raizEntera } from './escala.js';
-import {
-  SPEED_TO_HEXES,
-  TIPOS_DE_GOLPE,
-  type TipoDeGolpe,
-  type UnitInfo,
-  type UsoDeArma,
-} from './types.js';
+import { SPEED_TO_HEXES, type TipoDeGolpe, type UnitInfo, type UsoDeArma } from './types.js';
 
 /**
  * El poder bruto de unas cifras: la media geométrica de lo que pega y lo que
@@ -171,7 +166,9 @@ function ofensaDelAtaque(
   const pesos = PODER.pesosDeLaRueda;
   let num = 0;
   let suma = 0;
-  for (const tipo of TIPOS_DE_GOLPE) {
+  // Con la rueda de referencia, sea cual sea la de la partida: lo que vale un arma
+  // no depende del nivel de complejidad que se juegue.
+  for (const tipo of RUEDA_DE_REFERENCIA.golpes) {
     num += pesos[tipo] * danioDe(tipo);
     suma += pesos[tipo];
   }

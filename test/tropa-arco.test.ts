@@ -6,6 +6,7 @@
  * del 20-10-2026: agrandadas a toda la escena pixelaban, y a la escala del combate
  * se veían muy pequeñas).
  */
+
 import { describe, expect, it } from 'vitest';
 import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
 import { pasoDeLaHoja } from '../src/client/render/de-pie.js';
@@ -18,8 +19,12 @@ import {
   ladosDelArco,
   SEPARACION,
 } from '../src/client/render/tropa/arco.js';
-import { CUPO_HEROE } from '../src/core/hero/troop.js';
+import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
+
 import { COMPRESION_SUELO } from '../src/shared/arte.js';
+
+/** Los cupos con el tope de siempre (7): un héroe lleva 6 y una guarnición 7. */
+const CUPO_HEROE = cupoDelHeroe(COMBATE_COMPLETO.tope);
 
 /** El alto de una figura de pie a la resolución de su hoja con esa densidad. */
 function altoDeLaHoja(densidad: number): number {

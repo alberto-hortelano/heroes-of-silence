@@ -24,6 +24,7 @@
  *
  * No entra en `pnpm verify`: tarda decenas de segundos (ver `implementacion.md`).
  */
+
 import type { ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -66,10 +67,10 @@ import {
 import { encuadrarLaTropa } from '../../src/client/render/tropa/arco.js';
 import { cajasDeLaTropa } from '../../src/client/render/tropa/pintar.js';
 import {
-  anguloDe,
-  MEDIDAS_DE_LA_RUEDA,
-  sitioEnLaRueda,
-  teclaDe,
+  anguloDe as anguloEnLaRueda,
+  medidasDeLaRueda,
+  sitioEnLaRueda as sitioEnLaRuedaDe,
+  teclaDe as teclaEnLaRueda,
 } from '../../src/client/rueda/rueda.js';
 import { type ControlDeBatalla, SesionDeArena, Session } from '../../src/client/session.js';
 import { nombreEnElCampo } from '../../src/client/views/distintivo.js';
@@ -89,9 +90,9 @@ import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/bo
 import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
 import { poder } from '../../src/core/battle/poderes.js';
 import {
-  NOMBRE_DE_GOLPE,
   NOMBRE_DEL_PUNTO,
-  TIPOS_DE_GOLPE,
+  nombreEnLaRueda,
+  RUEDA_DE_REFERENCIA,
   type TipoDeGolpe,
 } from '../../src/core/battle/rueda.js';
 import { allSpells } from '../../src/core/battle/spells.js';
@@ -103,6 +104,7 @@ import {
   queEs,
 } from '../../src/core/battle/types.js';
 import { UNIDADES, unidad } from '../../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import {
   figuraDelHeroe,
   nombreDeTipoDeHeroe,
@@ -164,6 +166,18 @@ import { entornoDelArnes, semillaDelEspectador } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
+
+/**
+ * Las capturas juegan con la complejidad de siempre (7 / 7): la rueda de la
+ * batalla es la de referencia, la de 7, con su geometría, sus teclas y sus nombres
+ * (complejidad del combate, 22-10-2026).
+ */
+const RUEDA = RUEDA_DE_REFERENCIA;
+const MEDIDAS_DE_LA_RUEDA = medidasDeLaRueda(RUEDA);
+const TIPOS_DE_GOLPE = RUEDA.golpes;
+const anguloDe = (t: TipoDeGolpe): number => anguloEnLaRueda(t, RUEDA);
+const sitioEnLaRueda = (t: TipoDeGolpe) => sitioEnLaRuedaDe(t, RUEDA);
+const teclaDe = (t: TipoDeGolpe): string => teclaEnLaRueda(t, RUEDA);
 
 /**
  * Las semillas cambiaron todas con el mapa de 28 y los asaltantes (ciclo «el
@@ -1480,7 +1494,11 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   exigir(
     await estadoDelArranque(page),
     (e) =>
-      !e.menu && e.tema === 'orkos' && e.search === `?seed=${semilla}&faccion=orkos&heroe=${TIPO}`,
+      // Con la complejidad del combate (22-10-2026), «Nuevo juego» escribe también
+      // el tope y la rueda: los de siempre si no se tocan.
+      !e.menu &&
+      e.tema === 'orkos' &&
+      e.search === `?seed=${semilla}&faccion=orkos&heroe=${TIPO}&tropa=7&rueda=7`,
     'recargar entra sin menú en la misma partida',
   );
   const rotulo = (await page.locator('#seed').innerText()).trim();
@@ -3891,6 +3909,7 @@ function delBorrador(unidad: Unidad): FuenteDeArena {
 function espejoDeLaArena(semilla: number): SesionDeArena {
   const espejo = new SesionDeArena(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: {
         unidades: [delBorrador(delCatalogo('templario-escudo', { attack: ATAQUE_EDITADO }))],
         heroe: null,
@@ -4086,6 +4105,7 @@ const VIDA_DEL_MONJE = 30 * ESCALA_DE_CIFRAS;
 function espejoDeLosPoderes(semilla: number): SesionDeArena {
   const espejo = new SesionDeArena(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: {
         unidades: [
           delBorrador(delCatalogo('templario-monje', { hp: VIDA_DEL_MONJE })),
@@ -4419,6 +4439,7 @@ async function todoIA(
   await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   const espejo = new SesionDeArena(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: { unidades: [delBorrador(izquierda)], heroe: null, ia: true },
       derecha: { unidades: [delBorrador(derecha)], heroe: null, ia: true },
       equipo: EQUIPO_DEL_JUEGO,
@@ -4711,6 +4732,7 @@ const HEROE_DEL_BANCO: HeroeDeArena = {
 function espejoDelBanco(semilla: number): SesionDeArena {
   const espejo = new SesionDeArena(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: {
         unidades: [delBorrador(delCatalogo('templario-hermano-de-carga'))],
         heroe: HEROE_DEL_BANCO,
@@ -5894,6 +5916,7 @@ const CONTRAATAQUE_DEL_ORCO = /Contraataque con Mandoble \(cuerpo a cuerpo\)(, s
 function espejoDeLasArmas(semilla: number): SesionDeArena {
   const espejo = new SesionDeArena(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: { unidades: [delBorrador(delCatalogo('elfo-arquero'))], heroe: null, ia: false },
       derecha: { unidades: [delBorrador(orcoConLanza())], heroe: null, ia: true },
       equipo: EQUIPO_DEL_JUEGO,
@@ -6132,6 +6155,7 @@ const ELECCION_DE_LA_RUEDA = { golpe: 'fuerte', respuesta: 'defensivo' } as cons
 function espejoDeLaRueda(semilla: number): SesionDeArena {
   const espejo = new SesionDeArena(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: {
         unidades: [delBorrador(delCatalogo('templario-escudo'))],
         heroe: null,
@@ -6843,7 +6867,7 @@ async function yoContraYoEnLaRueda(
   // sector (el primero del anillo, con →); Fuerte, bajo el ratón quieto, no. Se
   // compara con uno que no es ninguno de los dos (el orden del anillo cambió con
   // #263: el primero era Rápido y ahora es Ofensivo).
-  const conElFoco = TIPOS_DE_GOLPE[0];
+  const conElFoco = TIPOS_DE_GOLPE[0] as TipoDeGolpe;
   const otro = TIPOS_DE_GOLPE.find((t) => t !== conElFoco && t !== 'fuerte' && t !== 'normal');
   if (otro === undefined) throw new Error('rueda-yo-contra-yo: la rueda no tiene otro sector');
   for (const tecla of ['ArrowRight', 'Tab', 'Shift']) {
@@ -6949,6 +6973,7 @@ function espejoTodoEnIA(semilla: number): {
 } {
   const espejo = new SesionDeArena(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: {
         unidades: [delBorrador(delCatalogo('templario-escudo'))],
         heroe: null,
@@ -7255,6 +7280,7 @@ function espejoYoContraYo(semilla: number, n: number): SesionDeArena {
   const varios = (id: string) => Array.from({ length: n }, () => delBorrador(delCatalogo(id)));
   const espejo = new SesionDeArena(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: { unidades: varios('templario-escudo'), heroe: null, ia: false },
       derecha: { unidades: varios('orko-dos-armas'), heroe: null, ia: false },
       equipo: EQUIPO_DEL_JUEGO,
@@ -7502,7 +7528,8 @@ async function contrincantesEnElEscritorio(
     .waitFor({ state: 'detached', timeout: 100 })
     .catch(() => undefined);
   const parte = await page.locator('#side').innerText();
-  if (!parte.includes(`${NOMBRE_DE_GOLPE.fuerte} contra ${NOMBRE_DE_GOLPE.normal}`)) {
+  const dicho = `${nombreEnLaRueda('fuerte', RUEDA)} contra ${nombreEnLaRueda('normal', RUEDA)}`;
+  if (!parte.includes(dicho)) {
     throw new Error(`${quien}: el parte no cuenta el cruce de Fuerte contra Normal`);
   }
   log(

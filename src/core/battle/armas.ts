@@ -15,7 +15,8 @@ import type { GolpeConArma, TipoDeGolpe, UnitInfo, UsoDeArma } from '../types.js
 import {
   type CifrasDeLaRueda,
   cifrasDeLosNiveles,
-  GOLPES_DEL_RAPIDO,
+  efectoDelTipo,
+  golpesDelTipo,
 } from './cifras-de-la-rueda.js';
 import type { BattleStack } from './types.js';
 
@@ -72,24 +73,25 @@ export function ruedaDelGolpe(unit: UnitInfo, uso: UsoDeArma): CifrasDeLaRueda {
 /**
  * Cuántos golpes da `unit` al golpear (`contraataque` falso) o al devolver el
  * golpe, con el tipo `tipo` de la rueda o sin rueda (`null`). Uno; el doble
- * golpe (`double_attack`) al atacar, no al devolver; y Rápido, por sus golpes
- * (con el doble golpe, cuatro). La única cuenta: la leen el golpe (`melee`) y la
- * previsión.
+ * golpe (`double_attack`) al atacar, no al devolver; y un tipo con Rápido entre sus
+ * partes, por sus golpes (con el doble golpe, cuatro; `golpesDelTipo`). La única
+ * cuenta: la leen el golpe (`melee`) y la previsión.
  */
 export function golpesDe(unit: UnitInfo, tipo: TipoDeGolpe | null, contraataque: boolean): number {
   const base = !contraataque && hasTrait(unit, 'double_attack') ? 2 : 1;
   // El arma cambia el daño de cada golpe del Rápido, no cuántos.
-  return tipo === 'rapido' ? base * GOLPES_DEL_RAPIDO : base;
+  return tipo === null ? base : base * golpesDelTipo(tipo);
 }
 
 /**
  * Lo que multiplica el daño de un golpe de tipo `tipo` con las cifras de su arma
- * `c`, en tanto por ciento entero: Fuerte y Rápido, el suyo; los demás (Normal
- * también), 100. Lo leen la traducción del cruce al daño (`cruceDelGolpe`) y la
- * medida del nivel, que así no repiten qué tipos hacen daño.
+ * `c`, en tanto por ciento entero (`efectoDelTipo`): Fuerte y Rápido, el suyo; un
+ * fusionado con uno de ellos, a la mitad; los demás (Normal también), 100. Lo leen
+ * la traducción del cruce al daño (`cruceDelGolpe`) y la medida del nivel, que así
+ * no repiten qué tipos hacen daño.
  */
 export function porcientoDelTipo(tipo: TipoDeGolpe, c: CifrasDeLaRueda): number {
-  return tipo === 'fuerte' || tipo === 'rapido' ? c[tipo].porcentaje : 100;
+  return efectoDelTipo(tipo, c).porcentaje;
 }
 
 /**

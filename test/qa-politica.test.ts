@@ -42,6 +42,7 @@ const SEMILLA = 1;
 
 const PAYLOADS: Record<string, unknown> = {
   adventure_turn: {
+    you: { combat: { troopCap: 7 } },
     towns: [{ id: 't1', canBuildNow: [{ id: 'town_hall' }], recruitable: [] }],
     heroes: [{ id: 'h1', at: { x: 2, y: 2 } }],
   },
@@ -110,6 +111,48 @@ describe('la política del arnés de QA (#44)', () => {
     );
     expect(heroe.name).toBe('QA veterano-3');
     expect(heroe.heroType).toBe('caballero');
+  });
+
+  it('licencia para reclutar cuando la tropa llega al tope de la partida, sea cual sea (QA de la complejidad, vuelta 1)', () => {
+    // Con un 6 escrito a mano, con tope 3 o 5 no licenciaba nunca y `pnpm qa` salía 1.
+    const turno = (troopCap: number, lleva: number) => ({
+      you: { combat: { troopCap } },
+      towns: [
+        {
+          id: 't1',
+          at: { x: 2, y: 2 },
+          canBuildNow: [],
+          recruitable: [{ creature: 'arquero', available: 3 }],
+        },
+      ],
+      heroes: [{ id: 'h1', at: { x: 2, y: 2 }, army: [{ creature: 'arquero', count: lleva }] }],
+    });
+    const licencia = (troopCap: number, lleva: number) =>
+      (
+        decidir('adventure_turn', turno(troopCap, lleva), SEMILLA) as {
+          actions: { type: string }[];
+        }
+      ).actions.some((a) => a.type === 'dismiss');
+    expect(licencia(3, 2)).toBe(true);
+    expect(licencia(5, 4)).toBe(true);
+    expect(licencia(7, 6)).toBe(true);
+    expect(licencia(5, 3)).toBe(false);
+    expect(licencia(7, 4)).toBe(false);
+    // Sin el tope en el turno, no adivina: lo dice.
+    expect(() => decidir('adventure_turn', { ...turno(3, 2), you: {} }, SEMILLA)).toThrow(
+      /troopCap/,
+    );
+    // Nunca el grupo entero: con tope 3 el de dos se iba con el novato que se
+    // acaba de equipar en el mismo turno, y nadie llegaba equipado a `pnpm qa`
+    // (QA de la complejidad, vuelta 2).
+    const cuantos = (troopCap: number, lleva: number) =>
+      (
+        decidir('adventure_turn', turno(troopCap, lleva), SEMILLA) as {
+          actions: { type: string; count?: number }[];
+        }
+      ).actions.find((a) => a.type === 'dismiss')?.count;
+    expect(cuantos(3, 2)).toBe(1);
+    expect(cuantos(7, 6)).toBe(2);
   });
 
   it('el plan de mapa del arnés es jugable y va FIRMADO (#27)', () => {

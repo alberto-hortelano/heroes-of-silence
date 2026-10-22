@@ -3,6 +3,7 @@
  * la IA mueve solo las unidades que lleva, el borrador se valida antes de
  * escribirse y todas las hojas del taller se pueden pintar en el tablero.
  */
+
 import {
   existsSync,
   mkdirSync,
@@ -78,6 +79,7 @@ import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
   CATALOGO_DE_HABILIDADES,
   EQUIPO_ESCRITO,
@@ -159,6 +161,7 @@ const ia = (...us: Unidad[]): LadoDeSesion => ({
 function pelea(izquierda: readonly Unidad[], derecha: readonly Unidad[], rng: Rng): BattleState {
   return montar(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: { unidades: izquierda.map((u) => delBorrador(u)), heroe: null },
       derecha: { unidades: derecha.map((u) => delBorrador(u)), heroe: null },
       equipo: CON_MANOS,
@@ -991,6 +994,7 @@ describe('corrección de hallazgos de QA', () => {
     });
     const s = new SesionDeArena(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: lado('izquierda'),
         derecha: lado('derecha'),
         equipo: EQUIPO_DEL_JUEGO,
@@ -1258,6 +1262,7 @@ describe('la arena como banco de combate', () => {
       const arena = aLaIA(
         montar(
           {
+            combate: COMBATE_COMPLETO,
             izquierda: { unidades: izquierda.map(deLaHoja), heroe: MAGO },
             derecha: { unidades: derecha.map(deLaHoja), heroe: MAGO },
             equipo: EQUIPO_DEL_JUEGO,
@@ -1275,6 +1280,7 @@ describe('la arena como banco de combate', () => {
   it('C2: el héroe sale con 10 × Conocimiento de maná, y lo que lanza dura su Poder', () => {
     const s = new SesionDeArena(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
         equipo: EQUIPO_DEL_JUEGO,
@@ -1316,6 +1322,7 @@ describe('la arena como banco de combate', () => {
     expect(() =>
       montar(
         {
+          combate: COMBATE_COMPLETO,
           izquierda: { unidades: llenos, heroe: MAGO },
           derecha: { unidades: [deLaHoja('imperio-piquero')], heroe: null },
           equipo: EQUIPO_DEL_JUEGO,
@@ -1349,6 +1356,7 @@ describe('la arena como banco de combate', () => {
   it('C3: un lanzamiento sin maná se rechaza con el motivo de castBlocker', () => {
     const s = new SesionDeArena(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: { ...yo(unidad('templario-escudo')), heroe: { ...MAGO, conocimiento: 0 } },
         derecha: ia(unidad('zombi')),
         equipo: EQUIPO_DEL_JUEGO,
@@ -1371,6 +1379,7 @@ describe('la arena como banco de combate', () => {
     for (const semilla of [1, 2, 3]) {
       const s = new SesionDeArena(
         {
+          combate: COMBATE_COMPLETO,
           izquierda: { ...ia(unidad('templario-escudo')), heroe: MAGO },
           // Con vida que quitar: desde que el arnés da armadura y no 100 PV (#262),
           // el orko de 80 PV no paga los 3 de maná de la Flecha mágica
@@ -1390,6 +1399,7 @@ describe('la arena como banco de combate', () => {
   it('la previsión sale en la sesión para la acción de la persona, y nada para la IA', () => {
     const s = new SesionDeArena(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: yo(unidad('elfo-arquero')),
         derecha: ia(unidad('zombi')),
         equipo: EQUIPO_DEL_JUEGO,
@@ -1478,6 +1488,7 @@ describe('el montaje del banco de combate', () => {
   it('el panel de la pelea lleva el maná y el libro de la persona, sin reglas que elegir', () => {
     const s = new SesionDeArena(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
         equipo: EQUIPO_DEL_JUEGO,
@@ -1533,6 +1544,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     // La muralla viaja también (la integración del banco con la muralla): con
     // puerta, para que vaya y vuelva entera.
     muralla: FORMAS_DE_EJEMPLO[1]!.muralla,
+    combate: COMBATE_COMPLETO,
   };
 
   /** El enlace de `MONTAJE` con algo cambiado a mano, como lo dejaría una errata. */
@@ -1541,6 +1553,32 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     cambiar(o);
     return JSON.stringify(o);
   };
+
+  it('la complejidad de la pelea va y vuelve en el enlace (versión 14) y manda en su batalla', () => {
+    const conCinco = { ...MONTAJE, combate: { tope: 5, rueda: 3 } as const };
+    const leido = montajeDeLaURL(montajeALaURL(conCinco));
+    expect(leido.combate).toEqual({ tope: 5, rueda: 3 });
+    expect(JSON.parse(montajeALaURL(conCinco))).toMatchObject({
+      v: 14,
+      combate: { tope: 5, rueda: 3 },
+    });
+    const b = montar(montajeDeArenaDelEnlace(leido, EQUIPO_DEL_JUEGO), createRng(7));
+    expect(b.rueda).toBe(3);
+  });
+
+  it('con el tope de 3, el cuarto de un bando no cabe, y lo dice', () => {
+    const cuatro = Array.from({ length: 4 }, () => delBorrador(unidad('zombi')));
+    const montaje = (n: number) => ({
+      izquierda: { unidades: cuatro.slice(0, n), heroe: null },
+      derecha: { unidades: [delBorrador(unidad('zombi'))], heroe: null },
+      equipo: CON_MANOS,
+      combate: { tope: 3, rueda: 5 } as const,
+    });
+    expect(() => montar(montaje(4), createRng(1))).toThrow(
+      'el bando izquierdo lleva 4 unidades y caben 3: quita 1',
+    );
+    expect(montar(montaje(3), createRng(1)).rueda).toBe(5);
+  });
 
   it('va y vuelve igual, también por URLSearchParams, y monta su muralla y sus escaleras', () => {
     const texto = montajeALaURL(MONTAJE);
@@ -1598,18 +1636,26 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   it('un enlace mal formado o con lo que no existe se rechaza diciendo qué', () => {
     const casos: [string, string][] = [
       ['{"v":1,', 'el montaje del enlace no se puede leer'],
-      [tocado((o) => (o.v = 14)), 'es de la versión 14 y esta arena lee la 13'],
-      // La versión es la de hoy: ni la de antes de quitar los interruptores (12), ni
-      // 0, ni a medias, ni texto.
+      [tocado((o) => (o.v = 15)), 'es de la versión 15 y esta arena lee la 14'],
+      // La versión es la de hoy: ni la de antes de la complejidad del combate (13),
+      // ni 0, ni a medias, ni texto.
       [
-        tocado((o) => (o.v = 12)),
-        'este enlace es de una versión anterior de la arena (la 12; la de hoy es la 13): vuelve a copiarlo',
+        tocado((o) => (o.v = 13)),
+        'este enlace es de una versión anterior de la arena (la 13; la de hoy es la 14): vuelve a copiarlo',
       ],
-      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 13'],
-      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 13'],
-      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 13'],
-      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 13'],
+      [tocado((o) => (o.v = 0)), 'es de la versión 0 y esta arena lee la 14'],
+      [tocado((o) => (o.v = 4.5)), 'es de la versión 4.5 y esta arena lee la 14'],
+      [tocado((o) => (o.v = '9')), 'es de la versión "9" y esta arena lee la 14'],
+      [tocado((o) => delete o.v), 'es de la versión null y esta arena lee la 14'],
       [tocado((o) => delete o.muralla), 'falta «muralla»'],
+      // La complejidad de la pelea (versión 14): entera, de las que hay, y que quepa.
+      [tocado((o) => delete o.combate), 'falta «combate»'],
+      [tocado((o) => (o.combate.rueda = 4)), '«4» no es una rueda: valen 3, 5 o 7'],
+      [tocado((o) => (o.combate.tope = 6)), '«6» no es un tope de tropa: valen 3, 5 o 7'],
+      [
+        tocado((o) => (o.combate.tope = 3)),
+        'el bando izquierdo del enlace lleva 4 unidades, contando a su héroe, y caben 3: quita 1',
+      ],
       [tocado((o) => o.muralla.muros.push({ col: 99, row: 0 })), 'la muralla del enlace no vale'],
       [
         tocado((o) => (o.derecha.puestos[0].escalera = true)),
@@ -1667,7 +1713,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
             escalera: false,
           }));
         }),
-        `lleva ${LIDERAZGO.maxPorBando + 1} y caben ${LIDERAZGO.maxPorBando}`,
+        `lleva ${LIDERAZGO.maxPorBando + 1} unidades, contando a su héroe, y caben ${LIDERAZGO.maxPorBando}`,
       ],
     ];
     for (const [texto, motivo] of casos) {
@@ -1754,6 +1800,7 @@ describe('los poderes del monje en la arena (A3)', () => {
     const enSuTurno = () => {
       const s = new SesionDeArena(
         {
+          combate: COMBATE_COMPLETO,
           izquierda: { ...yo(unidad('templario-monje'), unidad('templario-escudo')), heroe: MAGO },
           derecha: ia(unidad('orko-dos-armas')),
           equipo: EQUIPO_DEL_JUEGO,
@@ -1803,6 +1850,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
   function conMonjes(): BattleState {
     return montar(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: {
           unidades: [delBorrador(unidad('templario-monje')), delBorrador(unidad('goblin-arquero'))],
           heroe: MAGO,
@@ -1860,6 +1908,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
     const conEscudo = unidadDeArena('templario-escudo');
     const b = montar(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: { unidades: [delBorrador(conEscudo)], heroe: null },
         derecha: { unidades: [delBorrador(unidadDeArena('zombi'))], heroe: null },
         equipo: CON_MANOS,
@@ -1884,6 +1933,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
   it('el tipo de cada stack lo anota el montaje: unidad o héroe', () => {
     const b = montar(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: {
           unidades: [delBorrador(unidad('zombi')), delBorrador(unidad('esqueleto-guerrero'))],
           heroe: MAGO,
@@ -1972,6 +2022,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
     // munición de la arena (13-10-2026).
     const b = montar(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: {
           unidades: [
             delBorrador(unidad('goblin-arquero')),
@@ -2051,6 +2102,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
     // La sesión no dice «Cambiado» de lo que no cambia.
     const s = new SesionDeArena(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: { ...yo(unidad('templario-monje')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
         equipo: CON_MANOS,
@@ -2167,6 +2219,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
   it('lo apuntado es uno solo, y retocar suelta lo que con las cifras nuevas ya no vale', () => {
     const s = new SesionDeArena(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: { ...yo(unidad('templario-monje'), unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('orko-dos-armas')),
         equipo: CON_MANOS,
@@ -2208,6 +2261,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
   it('la sesión: lo malo no entra ni mueve nada; lo bueno entra ya y conserva el turno (B11, B12, B14)', () => {
     const s = new SesionDeArena(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: { ...yo(unidad('templario-escudo')), heroe: MAGO },
         derecha: ia(unidad('zombi')),
         equipo: CON_MANOS,

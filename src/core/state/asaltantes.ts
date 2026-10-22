@@ -30,8 +30,10 @@
  *  - **Se dispersa** cuando su región tiene dueño (`territorio`), y **brota**
  *    los lunes en regiones sin dueño y sin héroe, en una casilla libre.
  */
+
 import { fuerzaDe, poderDe, ventajaClara } from '../ai/fuerza.js';
 import { problemasDeTopeDeLiderazgo } from '../catalogo.js';
+import { loNeutralAlTope } from '../combate.js';
 import { ASALTANTES, type GrupoDeTropa } from '../data.js';
 import { deHoyALaEscala } from '../escala.js';
 import type { Hero } from '../hero/hero.js';
@@ -650,7 +652,8 @@ export function dondeBrotan(state: GameState, rng: Rng): RaiderPlaneado[] {
     const at = aPunto(rng.pick(suyas), map.width);
     out.push({ at, troops: rng.pick(ASALTANTES.composiciones) });
   }
-  return out;
+  // En el tope de tropa de la partida, como los que nacen con el mapa.
+  return loNeutralAlTope({ raiders: out }, state.combate.tope).raiders;
 }
 
 /** Si la casilla toca un nodo: un grupo ahí taparía un paso. */

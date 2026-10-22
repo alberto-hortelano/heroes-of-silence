@@ -9,6 +9,7 @@
  * no se ofrece ni sin héroe ni sin base ni defendiéndola; y el héroe que pierde
  * reaparece en su base, salvo que ya no la tenga.
  */
+
 import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
@@ -25,6 +26,7 @@ import {
 import type { BattleState, Side } from '../src/core/battle/types.js';
 import { HERO_BODY, queEs } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { figuraDelHeroe, HEROE } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { cuerposDelHeroe, type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -218,6 +220,7 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
       lado(ejercito({ creature: TROPA_BARATA, count: 3 }), heroeDeBatalla()),
       lado(ejercito({ creature: NO_MUERTO, count: 3 }), null),
       createRng(1),
+      COMBATE_COMPLETO,
     );
     expect(b.stacks.filter((s) => s.origen.kind === 'heroe').map((s) => s.side)).toEqual([
       'attacker',
@@ -230,6 +233,7 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
       lado(ejercito({ creature: PESADA, count: 2 }), heroeDeBatalla()),
       lado(ejercito({ creature: NO_MUERTO, count: 5 }), heroeDeBatalla()),
       rng,
+      COMBATE_COMPLETO,
     );
     const comandante = stackById(b, 'defender-heroe');
     comandante.topHp = 1;
@@ -251,6 +255,7 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
       lado(ejercito({ creature: TROPA_BARATA, count: 6 }), heroeDeBatalla()),
       lado(ejercito({ creature: NO_MUERTO, count: 7 }), null),
       createRng(1),
+      COMBATE_COMPLETO,
     );
     expect(seis.stacks.filter((s) => s.side === 'attacker')).toHaveLength(7);
     expect(() =>
@@ -258,6 +263,7 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
         lado(ejercito({ creature: TROPA_BARATA, count: 7 }), heroeDeBatalla()),
         lado(ejercito({ creature: NO_MUERTO, count: 3 }), null),
         createRng(1),
+        COMBATE_COMPLETO,
       ),
     ).toThrow('no caben: el atacante trae 8 y un bando lleva como mucho 7');
   });
@@ -281,6 +287,7 @@ function perdidaDeLargo(): BattleState {
     lado(ejercito({ creature: TROPA_BARATA, count: 3 }), heroeDeBatalla(1000)),
     lado(ejercito({ creature: PESADA, count: 6 }), heroeDeBatalla()),
     createRng(6),
+    COMBATE_COMPLETO,
   );
   hastaQueLeToque(b, 'attacker');
   stackById(b, 'attacker-heroe').topHp = 1;
@@ -296,6 +303,7 @@ describe('la rendición (criterio 5)', () => {
       ),
       lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(2),
+      COMBATE_COMPLETO,
     );
     const oro = (n: number) => n * unidadDelJuego(NO_MUERTO).oro;
     const deTiro = (n: number) => n * unidadDelJuego(TIRADOR_NO_MUERTO).oro;
@@ -312,6 +320,7 @@ describe('la rendición (criterio 5)', () => {
       lado(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla(500)),
       lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(3),
+      COMBATE_COMPLETO,
     );
     hastaQueLeToque(b, 'attacker');
     // Con su precio puesto (H-2): quien decide sabe lo que paga antes de pagarlo.
@@ -337,6 +346,7 @@ describe('la rendición (criterio 5)', () => {
       lado(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla(10)),
       lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(3),
+      COMBATE_COMPLETO,
     );
     expect(surrenderBlocker(sinOro, 'attacker').motivo).toBe(`cuesta ${precio} de oro y tienes 10`);
     expect(surrenderBlocker(sinOro, 'defender').motivo).toBe('este bando no tiene héroe');
@@ -344,6 +354,7 @@ describe('la rendición (criterio 5)', () => {
       lado(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla()),
       lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(3),
+      COMBATE_COMPLETO,
     );
     expect(surrenderBlocker(sinBase, 'attacker').motivo).toBe('no tienes base a la que volver');
 
@@ -381,6 +392,7 @@ describe('la rendición (criterio 5)', () => {
       lado([], heroeDeBatalla(1000)),
       lado(ejercito({ creature: PESADA, count: 6 }), heroeDeBatalla()),
       createRng(6),
+      COMBATE_COMPLETO,
     );
     hastaQueLeToque(b, 'attacker');
     stackById(b, 'attacker-heroe').topHp = 1;

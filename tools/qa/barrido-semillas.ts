@@ -20,9 +20,14 @@
  * el día que una de las dos fórmulas cambiara habrían medido batallas distintas
  * sin decirlo.
  *
- * Uso: npx tsx tools/qa/barrido-semillas.ts [semillas] [dias]
+ * Uso: npx tsx tools/qa/barrido-semillas.ts [semillas] [dias] [--tropa N] [--rueda N]
+ *
+ * `--tropa` y `--rueda` juegan con otra complejidad del combate (3, 5 o 7 cada
+ * una; `core/combate.ts`), con la misma regla que `?tropa=` y `?rueda=`: sin
+ * ellas, 7 / 7.
  */
 import { MAX_ROUNDS } from '../../src/core/battle/battle.js';
+import { COMBATE_COMPLETO, parseRueda, parseTope } from '../../src/core/combate.js';
 import { duracion } from './estadistica.js';
 import {
   batallaDeSemilla,
@@ -32,14 +37,30 @@ import {
   SEMILLAS_DEL_BARRIDO,
 } from './partidas.js';
 
-const SEMILLAS = Number(process.argv[2] ?? SEMILLAS_DEL_BARRIDO);
-const DIAS = Number(process.argv[3] ?? DIAS_POR_DEFECTO);
+/** El valor de `--nombre`, o `undefined`; los sueltos (semillas, días) van aparte. */
+function opcion(nombre: string): string | undefined {
+  const i = process.argv.indexOf(`--${nombre}`);
+  if (i < 0) return undefined;
+  const valor = process.argv[i + 1];
+  if (valor === undefined) throw new Error(`--${nombre} sin valor: pon 3, 5 o 7`);
+  return valor;
+}
+const sueltos = process.argv
+  .slice(2)
+  .filter((a, i, todos) => !a.startsWith('--') && !todos[i - 1]?.startsWith('--'));
+const COMBATE = {
+  tope: parseTope(opcion('tropa')) ?? COMBATE_COMPLETO.tope,
+  rueda: parseRueda(opcion('rueda')) ?? COMBATE_COMPLETO.rueda,
+};
+const SEMILLAS = Number(sueltos[0] ?? SEMILLAS_DEL_BARRIDO);
+const DIAS = Number(sueltos[1] ?? DIAS_POR_DEFECTO);
+console.log(`tropa ${COMBATE.tope}, rueda ${COMBATE.rueda}`);
 
 const sinTerminar: number[] = [];
 const dias: number[] = [];
 
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
-  const { state, fin } = await partidaDeSemilla(semilla, DIAS);
+  const { state, fin } = await partidaDeSemilla(semilla, DIAS, undefined, COMBATE);
   dias.push(state.day);
 
   // «No la resolvió nadie en `DIAS` días» es `winner === null` y no
@@ -71,7 +92,7 @@ console.log(`duración (días, mediana / p90 / máximo): ${duracion(dias)}`);
 let peorRonda = 0;
 let enElTope = 0;
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
-  const { rounds } = batallaDeSemilla(semilla);
+  const { rounds } = batallaDeSemilla(semilla, COMBATE);
   if (rounds > peorRonda) peorRonda = rounds;
   if (rounds >= MAX_ROUNDS) enElTope++;
 }

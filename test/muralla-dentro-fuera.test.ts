@@ -5,6 +5,7 @@
  * cuatro veces más altas, el lienzo se alarga para ellas, lo de delante tapa lo
  * de detrás y la puerta es una portada bajo la que se pasa.
  */
+
 import { describe, expect, it } from 'vitest';
 import { renderMuralla } from '../src/client/arena/paneles.js';
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
@@ -39,6 +40,7 @@ import {
   validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
@@ -81,7 +83,13 @@ function duelo(
   enDefensor: Hex,
   turnoDe: 'attacker-0' | 'defender-0' = 'attacker-0',
 ): BattleState {
-  const state = createBattle(deUno(atacante), deUno(defensor), createRng(3), muralla);
+  const state = createBattle(
+    deUno(atacante),
+    deUno(defensor),
+    createRng(3),
+    COMBATE_COMPLETO,
+    muralla,
+  );
   stackById(state, 'attacker-0').hex = en;
   stackById(state, 'defender-0').hex = enDefensor;
   for (const s of state.stacks) s.morale = 0;

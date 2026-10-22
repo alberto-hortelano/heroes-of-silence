@@ -5,7 +5,7 @@
  * pintan lo que devuelve, nunca tocan el `GameState` por su cuenta. Cuando
  * llegue el bridge por WebSocket, lo que cambia es esta capa y solo esta.
  */
-import { pasoDelCruce } from '@core/ai/rueda.js';
+import { type LaIAElige, pasoDelCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
 import {
@@ -47,7 +47,7 @@ import {
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
 import { type PoderId, poder } from '@core/battle/poderes.js';
 import {
-  esTipoDeGolpe,
+  formaDeLaBatalla,
   type PapelEnLaRueda,
   type TipoDeGolpe,
   tipoDeGolpeBlocker,
@@ -63,6 +63,7 @@ import type {
   TipoDePuerta,
 } from '@core/battle/types.js';
 import { cuerpoDe } from '@core/catalogo.js';
+import type { ReglasDelCombate } from '@core/combate.js';
 import { figuraDelHeroe } from '@core/data.js';
 import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
@@ -898,14 +899,44 @@ export class Session implements ControlDeBatalla {
   private readonly rueda: CruceDeLaRueda;
 
   /**
+   * «Solo la rueda del héroe» (22-10-2026, decisión del usuario): la persona sigue
+   * moviendo y atacando con toda su tropa, pero la rueda se le abre solo cuando su
+   * héroe golpea o responde; la del resto de su tropa la elige la IA a ciegas,
+   * como la del rival. Una batalla sin su héroe (la defensa de una guarnición) no
+   * le abre ninguna. Es de quien juega y no del núcleo: no cambia ninguna regla,
+   * solo quién elige.
+   */
+  soloRuedaDelHeroe: boolean;
+
+  /** Cambia «Solo la rueda del héroe»; vale desde el siguiente golpe. */
+  alternarSoloRuedaDelHeroe(): void {
+    this.soloRuedaDelHeroe = !this.soloRuedaDelHeroe;
+    this.status = this.soloRuedaDelHeroe
+      ? 'Solo eliges en la rueda con tu héroe: la de tu tropa la elige la IA.'
+      : 'Eliges en la rueda con toda tu tropa.';
+    this.tocar();
+  }
+
+  /**
    * @param faccion la de la persona (la elegida en el menú o la de `?faccion=`);
    *   sin ella, la que saque la semilla. El rival, otra: lo decide el núcleo
    *   (`faccionesDeLaSemilla`), no la sesión.
    * @param tipoDelHeroe el tipo de su héroe (el elegido en el menú o el de
    *   `?heroe=`); sin él, el de por defecto de su facción. Uno que no es de su
    *   facción lo rechaza el núcleo (`newGame`) diciendo cuáles valen.
+   * @param combate la complejidad del combate (`?tropa=`, `?rueda=`); sin ella, la
+   *   de siempre (7 / 7). Una que no vale la rechaza el núcleo (`createGame`).
+   * @param soloRuedaDelHeroe si la persona lleva solo la rueda de su héroe
+   *   (`?solo-heroe=1`); se puede cambiar en la batalla (`soloRuedaDelHeroe`).
    */
-  constructor(seed: number, faccion?: FactionId, tipoDelHeroe?: string) {
+  constructor(
+    seed: number,
+    faccion?: FactionId,
+    tipoDelHeroe?: string,
+    combate?: ReglasDelCombate,
+    soloRuedaDelHeroe = false,
+  ) {
+    this.soloRuedaDelHeroe = soloRuedaDelHeroe;
     // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
     // de donde la lee quien la enseña. Un hecho en dos sitios se desincroniza
     // el día que esta capa hable por WebSocket —`this.seed` sería la que pidió
@@ -915,6 +946,7 @@ export class Session implements ControlDeBatalla {
       controllers: { 0: 'human', 1: 'ai' },
       faccionDelJugador: faccion,
       tipoDelHeroe,
+      combate,
     });
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
     this.rueda = new CruceDeLaRueda(
@@ -924,7 +956,11 @@ export class Session implements ControlDeBatalla {
         seguirLaIA: () => this.advanceEnemyTurns(),
       },
       this.ctx.rng,
-      (side) => side !== this.miBando,
+      // La IA elige por el rival y, con «Solo la rueda del héroe», también por la
+      // tropa de la persona: a ella se le abre solo para su héroe. Se lee en cada
+      // golpe, así que cambiarla a media batalla vale desde el siguiente.
+      (quien) =>
+        quien.side !== this.miBando || (this.soloRuedaDelHeroe && quien.origen.kind !== 'heroe'),
     );
     this.selectedHeroId = heroesOf(this.state, this.viewer)[0]?.id ?? null;
   }
@@ -2347,6 +2383,8 @@ export class SesionDeArena implements ControlDeBatalla {
       readonly muralla?: MurallaDeBatalla;
       /** El catálogo de equipo con que se pelea, hecho (`catalogoDeEquipo`, o `EQUIPO_DEL_JUEGO`). */
       readonly equipo: CatalogoDeEquipo;
+      /** La complejidad de la pelea (`MontajeDeArena.combate`). */
+      readonly combate: ReglasDelCombate;
     },
     semilla: number,
   ) {
@@ -2357,6 +2395,7 @@ export class SesionDeArena implements ControlDeBatalla {
       derecha: montaje.derecha,
       muralla: montaje.muralla ?? SIN_MURALLA,
       equipo: montaje.equipo,
+      combate: montaje.combate,
     };
     this.catalogo = catalogoDelMontaje(delMontaje);
     this.battle = batallaDeArena(delMontaje, this.rng);
@@ -2367,7 +2406,7 @@ export class SesionDeArena implements ControlDeBatalla {
     this.rueda = new CruceDeLaRueda(
       { sesion: this, alMoverse: () => {}, seguirLaIA: () => this.avanzarIA() },
       this.rng,
-      (side) => this.iaDelBando[side],
+      (quien) => this.iaDelBando[quien.side],
     );
   }
 
@@ -2648,7 +2687,7 @@ export class CruceDeLaRueda {
   constructor(
     private readonly conductor: ConductorDelCruce,
     private readonly rng: Rng,
-    private readonly laLlevaLaIA: (side: Side) => boolean,
+    private readonly laLlevaLaIA: LaIAElige,
   ) {}
 
   /**
@@ -2771,8 +2810,13 @@ export class CruceDeLaRueda {
   elegir(battle: BattleState, tipo: string): BattleAction | null {
     const c = this.cruce;
     if (c === null) throw new Error('La rueda no espera ninguna elección.');
-    if (!esTipoDeGolpe(tipo)) throw new Error(`${tipoDeGolpeBlocker(tipo)}.`);
-    const elegido: Partial<Record<PapelEnLaRueda, TipoDeGolpe>> = { [c.pendiente.fase]: tipo };
+    // Solo los de la rueda de la batalla: un sector de otra lanza con su motivo.
+    const motivo = tipoDeGolpeBlocker(tipo, formaDeLaBatalla(battle));
+    if (motivo !== null) throw new Error(`${motivo}.`);
+    // Sin motivo, `tipo` es un golpe de esta rueda.
+    const elegido: Partial<Record<PapelEnLaRueda, TipoDeGolpe>> = {
+      [c.pendiente.fase]: tipo as TipoDeGolpe,
+    };
     this.cruce = null;
     return this.completar(battle, { ...c.accion, ...elegido });
   }

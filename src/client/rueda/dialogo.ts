@@ -13,7 +13,7 @@
  * objetivo (su `move`) antes de pedir la elección, y esta espera a la marcha
  * (decisión del usuario, 13-10-2026: primero se anda, luego se elige).
  */
-import { contraataqueDelCruce, type HechoDelCruce } from '@core/battle/rueda.js';
+import { contraataqueDelCruce, formaDeLaBatalla, type HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleState, Side } from '@core/battle/types.js';
 import { pintar } from '../html.js';
 import type { RuedaPendiente } from '../session.js';
@@ -131,12 +131,14 @@ export class DialogoDeLaRueda {
       if (ev.detail > 1) return;
       this.elegir(boton.getAttribute('data-golpe') ?? '');
     });
-    // Las teclas: del 1 al 7 elige el sector de su número (`tipoDeLaTecla`, la
-    // misma tabla que pinta las etiquetas), las flechas pasan el foco de uno a
-    // otro e Intro pulsa el que lo tiene (el botón, por sí mismo).
+    // Las teclas: del 1 al número de tipos de la rueda de la batalla elige el
+    // sector de su número (`tipoDeLaTecla`, la misma tabla que pinta las
+    // etiquetas), las flechas pasan el foco de uno a otro e Intro pulsa el que lo
+    // tiene (el botón, por sí mismo).
     el.addEventListener('keydown', (ev) => {
       if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
-      const tipo = tipoDeLaTecla(ev.key);
+      const battle = o.sesion()?.battle ?? null;
+      const tipo = battle === null ? null : tipoDeLaTecla(ev.key, formaDeLaBatalla(battle));
       if (tipo !== null) {
         ev.preventDefault();
         this.elegir(tipo);
@@ -190,7 +192,7 @@ export class DialogoDeLaRueda {
             this.o.cara(),
           ),
         );
-        this.ajustar();
+        this.ajustar(battle);
         this.pintada = cruce.evento;
       }
       const tramos = tramosDelDesenlace(cruce.t);
@@ -199,7 +201,7 @@ export class DialogoDeLaRueda {
       if (this.pintada !== pendiente) {
         delete this.el.dataset.tramo;
         pintar(this.el, renderEleccion(battle, pendiente, s.quienMira, this.o.cara()));
-        this.ajustar();
+        this.ajustar(battle);
         this.aquietar();
         this.pintada = pendiente;
         enfocar = true;
@@ -232,8 +234,8 @@ export class DialogoDeLaRueda {
     return this.el.open && this.figuras.animar(ahora);
   }
 
-  private ajustar(): void {
-    ajustarLaRueda(this.el);
+  private ajustar(battle: BattleState): void {
+    ajustarLaRueda(this.el, formaDeLaBatalla(battle));
     this.figuras.recoger(this.el);
   }
 

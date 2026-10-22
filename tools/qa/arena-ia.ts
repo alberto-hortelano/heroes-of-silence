@@ -24,12 +24,14 @@
  * azar) se fueron con los interruptores. Las variantes se alternan por semilla,
  * para que la carga de la máquina (compartida) caiga igual en todas.
  */
+
 import { resolve } from 'node:path';
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { batallaDeArena, heroePorDefecto, type Lado, quitarEnArena } from '../../src/core/arena.js';
 import { causaDelFinal, MAX_ROUNDS } from '../../src/core/battle/battle.js';
 import { SIN_MURALLA } from '../../src/core/battle/muralla.js';
 import { unidad } from '../../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import { hasTrait, LIDERAZGO } from '../../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
@@ -148,6 +150,7 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
       const rng = createRng(semilla);
       const b = batallaDeArena(
         {
+          combate: COMBATE_COMPLETO,
           izquierda: lado(izquierda, 'izquierda'),
           derecha: lado(derecha, 'derecha'),
           muralla: SIN_MURALLA,

@@ -5,14 +5,15 @@
  *
  * Es un `<dialog id="rueda">` modal sobre el lienzo, con dos caras:
  *
- * - **Elegir** (`renderEleccion`): el anillo con sus seis tipos y Normal en el
- *   centro, en la disposición de la petición, cada sector con su icono, su nombre,
+ * - **Elegir** (`renderEleccion`): el anillo con los tipos de la rueda de la
+ *   batalla (`BattleState.rueda`: 6, 4 o 3) y Normal en el centro si lo lleva, en
+ *   la disposición de la petición, cada sector con su icono, su nombre,
  *   lo que daría (`previsionDeLaRueda`) y su efecto en una nota. Elige quien pega
  *   o quien responde, y nunca se ve lo que eligió el otro: lo que llega aquí es
  *   `RuedaPendiente`, que no lo lleva.
  * - **El desenlace** (`renderDesenlace`): la rueda gira y se para, caen los dos
  *   marcadores del color de cada bando en sus sectores, se enciende el arco entre
- *   ellos, y el medidor de cinco muescas marca el golpe y el contraataque con un
+ *   ellos, y el medidor (una muesca por punto que da el cruce) marca el golpe y el contraataque con un
  *   rótulo. El reloj es el del animador (`DURACION.cruce`): aquí solo se pinta UNA
  *   vez por cruce, y `tramosDelDesenlace` dice qué tramos lleva; el CSS anima
  *   dentro de cada uno, con duraciones en fracciones de ese mismo reloj
@@ -26,17 +27,19 @@
 
 import type { SectorDeLaRueda } from '@core/battle/battle.js';
 import {
-  ANILLO,
+  dichoDelCiclo,
+  dichoDelCruce,
   efectoDeGolpe,
+  type FormaDeLaRueda,
+  formaDeLaBatalla,
+  golpeNeutro,
   type HechoDelCruce,
-  NOMBRE_DE_GOLPE,
   NOMBRE_DEL_PUNTO,
+  nombreEnLaRueda,
   type PapelEnLaRueda,
-  PUNTOS,
   type Punto,
-  TIPOS_DE_GOLPE,
+  puntosDeLaForma,
   type TipoDeGolpe,
-  type TipoDelAnillo,
 } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { DURACION } from '../anim.js';
@@ -47,13 +50,14 @@ import { nombreEnElCampo } from '../views/distintivo.js';
 import { nota } from '../views/panels.js';
 import { horquilla } from '../views/prevision.js';
 import {
+  anchoDelSector,
   anguloDe,
   BORDE,
-  DENTRO,
   icono,
   LADO_DE_LA_CAJA,
   punto,
   RADIO_DEL_CENTRO,
+  radios,
   SITIO_DEL_ROTULO,
   sector,
   xy,
@@ -61,14 +65,16 @@ import {
 import { figuraDelContrincante } from './figuras.js';
 
 // Las medidas y el ángulo de cada sector se leen desde aquí (`pnpm capturas`, los tests).
-export { anguloDe, MEDIDAS_DE_LA_RUEDA } from './disco.js';
+export { anguloDe, medidasDeLaRueda } from './disco.js';
 
 /**
  * Dónde va el «ⓘ» de cada sector del anillo: cerca del borde de fuera y a un
- * lado del centro, donde no pisa el rótulo. Sale del ángulo del sector, no de su
- * tipo: el orden del anillo puede cambiar sin tocar la colocación.
+ * lado del centro, donde no pisa el rótulo: un tercio del ancho del sector (20°
+ * en la de 7, 30° en la de 5, 40° en la de 3; con 20° fijos, el «ⓘ» pisaba
+ * «Romper guardia» abajo en la de 5). Sale del ángulo del sector, no de su tipo:
+ * el orden del anillo puede cambiar sin tocar la colocación.
  */
-const SITIO_DE_LA_NOTA = { r: 88, desvio: 20 } as const;
+const SITIO_DE_LA_NOTA = { r: 88, desvioPorSector: 1 / 3 } as const;
 /** El «ⓘ» de Normal: arriba a la derecha, dentro de su círculo. */
 const NOTA_DEL_CENTRO = { r: 28, grados: -45 } as const;
 /** El id del `<clipPath>` del sector `tipo`, el que recorta su botón. */
@@ -86,46 +92,48 @@ export function idDeLaForma(tipo: TipoDeGolpe): string {
  * otro. Cada `clip-path` lo pone `ajustarLaRueda`. Solo en la rueda para elegir:
  * los ids son únicos en la página.
  */
-function formas(): Html {
+function formas(forma: FormaDeLaRueda): Html {
   const medio = LADO_DE_LA_CAJA / 2;
   const aLaCaja = `scale(${1 / LADO_DE_LA_CAJA}) translate(${medio} ${medio})`;
   return html`<svg class="formas" width="0" height="0" aria-hidden="true" focusable="false"><defs>${unir(
-    TIPOS_DE_GOLPE.map(
+    forma.golpes.map(
       (t) =>
         html`<clipPath id="${idDeLaForma(t)}" clipPathUnits="objectBoundingBox">${
           t === 'normal'
             ? html`<circle transform="${aLaCaja}" r="${String(RADIO_DEL_CENTRO)}"/>`
-            : html`<path transform="${aLaCaja}" d="${sector(t)}"/>`
+            : html`<path transform="${aLaCaja}" d="${sector(t, forma)}"/>`
         }</clipPath>`,
     ),
   )}</defs></svg>`;
 }
 
 /**
- * El disco de debajo: el fondo, los seis sectores, el centro y el aro; con
- * `elige`, el aro del bando que elige, que late.
+ * El disco de debajo: el fondo, los sectores de `forma`, el centro y el aro; con
+ * `elige`, el aro del bando que elige, que late. Sin Normal (la de 3), el centro
+ * es solo madera: ni sector ni botón.
  */
-function disco(elige: Side | null): Html {
+function disco(elige: Side | null, forma: FormaDeLaRueda): Html {
   // La veta alterna por el orden del anillo, no por una lista de tipos en el CSS:
   // con la lista, reordenar el anillo (#263) dejaba dos sectores iguales seguidos.
+  // Con un número impar de sectores (la de 3), el último y el primero quedarían
+  // iguales y juntos: el último lleva la tercera.
+  const n = forma.anillo.length;
+  const veta = (i: number): string =>
+    n % 2 === 1 && i === n - 1 ? 'tercera' : i % 2 === 0 ? 'mesa' : 'madera';
   const sectores = unir(
-    ANILLO.map(
+    forma.anillo.map(
       (t, i) =>
-        html`<path class="sector" data-sector="${t}" data-veta="${i % 2 === 0 ? 'mesa' : 'madera'}" d="${sector(t)}"/>`,
+        html`<path class="sector" data-sector="${t}" data-veta="${veta(i)}" d="${sector(t, forma)}"/>`,
     ),
   );
-  // Las líneas finas del dibujo: los radios entre sectores, como en una rueda.
-  const radios = unir(
-    ANILLO.map((t) => {
-      const g = anguloDe(t) + 30;
-      return html`<path class="radio" d="M${xy(DENTRO - 2, g)}L${xy(BORDE - 1, g)}"/>`;
-    }),
-  );
+  const centro = forma.centro
+    ? html`<circle class="sector centro" data-sector="normal" r="${String(RADIO_DEL_CENTRO)}"/>`
+    : html`<circle class="sin-centro" r="${String(RADIO_DEL_CENTRO)}"/>`;
   return html`<svg class="disco" viewBox="-110 -110 220 220" aria-hidden="true" focusable="false">
       <circle class="fondo" r="108"/>
       <circle class="aro" r="${BORDE}"/>
-      ${sectores}${radios}
-      <circle class="sector centro" data-sector="normal" r="${String(RADIO_DEL_CENTRO)}"/>
+      ${sectores}${radios(forma)}
+      ${centro}
       <circle class="aro-de-dentro" r="${String(RADIO_DEL_CENTRO)}"/>
       ${elige === null ? NADA : html`<circle class="aro-del-bando" r="${String(BORDE + 2.5)}" stroke="${COLOR_BANDO[elige]}"/>`}
     </svg>`;
@@ -143,14 +151,24 @@ function conSusGolpes(s: SectorDeLaRueda): string {
   return s.golpes > 1 ? `${s.golpes} × ${horquilla(s.danio)}` : horquilla(s.danio);
 }
 
-/** La tecla de cada tipo: su puesto en `TIPOS_DE_GOLPE`, del 1 al 7. */
-export function teclaDe(tipo: TipoDeGolpe): string {
-  return String(TIPOS_DE_GOLPE.indexOf(tipo) + 1);
+/**
+ * La tecla de cada tipo de la rueda `forma`: su puesto en sus golpes, del 1
+ * al número de tipos (el anillo desde arriba y Normal la última). Lanza con un
+ * tipo que no es de esa rueda.
+ */
+export function teclaDe(tipo: TipoDeGolpe, forma: FormaDeLaRueda): string {
+  const i = forma.golpes.indexOf(tipo);
+  if (i < 0) throw new Error(`«${tipo}» no es un golpe de la rueda de ${forma.golpes.length}`);
+  return String(i + 1);
 }
 
-/** El tipo de una tecla (`teclaDe` al revés), o `null` si no es la de ninguno. */
-export function tipoDeLaTecla(tecla: string): TipoDeGolpe | null {
-  return TIPOS_DE_GOLPE.find((t) => teclaDe(t) === tecla) ?? null;
+/**
+ * El tipo de una tecla en la rueda `forma` (`teclaDe` al revés), o `null` si no es
+ * la de ninguno: un solo dígito, del 1 al número de tipos.
+ */
+export function tipoDeLaTecla(tecla: string, forma: FormaDeLaRueda): TipoDeGolpe | null {
+  if (!/^[1-9]$/.test(tecla)) return null;
+  return forma.golpes[Number(tecla) - 1] ?? null;
 }
 
 /**
@@ -166,38 +184,45 @@ function loQueDa(p: RuedaPendiente, tipo: TipoDeGolpe): Html {
   return html`<span class="da">${horquilla(s.danio)}</span><span class="da">+ ${resto > 1 ? `${resto} × ` : ''}${horquilla(s.siguientes)}</span>`;
 }
 
-function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe): string {
+function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, forma: FormaDeLaRueda): string {
   const s = p.prevision.porTipo?.[tipo];
-  const nombre = `${NOMBRE_DE_GOLPE[tipo]} (tecla ${teclaDe(tipo)})`;
+  const nombre = `${nombreEnLaRueda(tipo, forma)} (tecla ${teclaDe(tipo, forma)})`;
   // Sin contraataque no hay daño que decir: la nota ya lo cuenta.
-  if (s === undefined) return `${nombre}. ${notaDe(p, tipo)}`;
+  if (s === undefined) return `${nombre}. ${notaDe(p, tipo, forma)}`;
   const dano = `${conSusGolpes(s)} de daño${p.fase === 'respuesta' ? ' al devolver el golpe' : ''}`;
-  return `${nombre}: ${dano}. ${notaDe(p, tipo)}`;
+  return `${nombre}: ${dano}. ${notaDe(p, tipo, forma)}`;
 }
 
 /**
- * La nota del sector: lo que hace el tipo para quien elige ahora, con las cifras
+ * La nota del sector: en una rueda de ciclo, a quién gana y con quién pierde
+ * (`dichoDelCiclo`); lo que hace el tipo para quien elige ahora, con las cifras
  * de su arma (`efectoDeGolpe`, `previsionDeLaRueda().rueda`), y en una respuesta
  * que no devolverá el golpe, solo lo que vale: el cruce. Todo lo demás de la respuesta va con el contraataque.
  */
-function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe): string {
-  return `${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, p.prevision.rueda)}${contraataqueRebajado(p, tipo)}`;
+function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe, forma: FormaDeLaRueda): string {
+  // En un ciclo, primero a quién gana y con quién pierde: es lo que decide el cruce.
+  const ciclo = dichoDelCiclo(tipo, forma);
+  return `${ciclo === '' ? '' : `${ciclo} `}${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, p.prevision.rueda, forma)}${contraataqueRebajado(p, tipo, forma)}`;
 }
 
 /**
  * Al golpear con un tipo que rebaja el contraataque del rival (Romper guardia),
- * en cuánto quedaría con cada éxito que lo cambia, frente al de Normal (R3 de QA
- * de #263: antes de elegir no se veía). Sale de `previsionDeLaRueda`, la misma
- * cuenta que el golpe; si no hay nada que decir, vacío.
+ * en cuánto quedaría con cada éxito que lo cambia, frente al de un golpe que no
+ * deja nada (R3 de QA de #263: antes de elegir no se veía). Sale de
+ * `previsionDeLaRueda`, la misma cuenta que el golpe; si no hay nada que decir,
+ * vacío.
  */
-function contraataqueRebajado(p: RuedaPendiente, tipo: TipoDeGolpe): string {
+function contraataqueRebajado(p: RuedaPendiente, tipo: TipoDeGolpe, forma: FormaDeLaRueda): string {
   const s = p.prevision.porTipo?.[tipo];
   const ahora = p.prevision.contraataque;
   if (s === undefined || ahora === null || s.contraataquePorExito.length === 0) return '';
   const porExito = s.contraataquePorExito
     .map(({ punto, danio }) => `${NOMBRE_DEL_PUNTO[punto]}, ${horquilla(danio)}`)
     .join('; ');
-  return ` Su contraataque (con ${NOMBRE_DE_GOLPE.normal}, ${horquilla(ahora)}) queda, según el éxito, en: ${porExito}.`;
+  // El golpe neutro de la rueda, por su nombre; en la de 3, que no lo tiene, sin nombre.
+  const neutro = golpeNeutro(forma);
+  const con = neutro === null ? 'sin quitarle nada' : `con ${nombreEnLaRueda(neutro, forma)}`;
+  return ` Su contraataque (${con}, ${horquilla(ahora)}) queda, según el éxito, en: ${porExito}.`;
 }
 
 /** El círculo del color de un bando, para decir de quién se habla. */
@@ -286,24 +311,28 @@ export function haciaDe(grados: number): HaciaFuera {
 }
 
 /**
- * Los siete sitios de la rueda, uno por tipo: cada uno, una capa del plato entero
- * con lo que ponga `dentro`. Lo coloca `ajustarLaRueda` desde el ángulo de su
- * sector en el anillo (`sitioEnLaRueda`), y `data-hacia` dice hacia dónde abre su
- * nota. Nada de la colocación va por tipo: si cambia el orden del anillo, todo
+ * Los sitios de la rueda `forma`, uno por tipo: cada uno, una capa del plato
+ * entero con lo que ponga `dentro`. Lo coloca `ajustarLaRueda` desde el ángulo de
+ * su sector en el anillo (`sitioEnLaRueda`), y `data-hacia` dice hacia dónde abre
+ * su nota. Nada de la colocación va por tipo: si cambia el orden del anillo, todo
  * sigue a su sector. `atributos`, lo que lleva cada sitio además de su tipo.
  */
-function sitios(dentro: (t: TipoDeGolpe) => Html, atributos: (t: TipoDeGolpe) => Html): Html {
+function sitios(
+  forma: FormaDeLaRueda,
+  dentro: (t: TipoDeGolpe) => Html,
+  atributos: (t: TipoDeGolpe) => Html,
+): Html {
   return unir(
-    TIPOS_DE_GOLPE.map(
+    forma.golpes.map(
       (t) =>
-        html`<div class="sector-de-rueda" data-sector="${t}"${atributos(t)} data-hacia="${t === 'normal' ? 'abajo' : haciaDe(anguloDe(t))}">${dentro(t)}</div>`,
+        html`<div class="sector-de-rueda" data-sector="${t}"${atributos(t)} data-hacia="${t === 'normal' ? 'abajo' : haciaDe(anguloDe(t, forma))}">${dentro(t)}</div>`,
     ),
   );
 }
 
-/** Lo que se ve de un tipo: su icono y su nombre. */
-function rotuloDe(t: TipoDeGolpe): Html {
-  return html`${icono(t)}<span class="nombre">${NOMBRE_DE_GOLPE[t]}</span>`;
+/** Lo que se ve de un tipo: su icono y su nombre en la rueda `forma`. */
+function rotuloDe(t: TipoDeGolpe, forma: FormaDeLaRueda): Html {
+  return html`${icono(t)}<span class="nombre">${nombreEnLaRueda(t, forma)}</span>`;
 }
 
 /**
@@ -321,6 +350,7 @@ export function renderEleccion(
   cara: CaraDeLosContrincantes | null,
 ): Html {
   const golpe = p.fase === 'golpe';
+  const forma = formaDeLaBatalla(battle);
   // Si quien elige es quien mira: «Tu golpe»; si no (la arena con los dos bandos
   // de la persona), por su lado.
   const titulo =
@@ -330,24 +360,26 @@ export function renderEleccion(
         ? html`Golpe del bando ${LADO[p.bando]}`
         : html`Respuesta del bando ${LADO[p.bando]}`;
   const guia = golpe
-    ? 'Elige cómo golpear. El rival elige a la vez, sin ver el tuyo: cuanto más lejos en la rueda, más daño.'
+    ? `Elige cómo golpear. El rival elige a la vez, sin ver el tuyo; ${dichoDelCruce(forma)}`
     : p.prevision.sinContraataque === null
-      ? 'Elige tu respuesta sin ver su golpe: si lo aciertas recibes el mínimo y devuelves el máximo.'
+      ? `Elige tu respuesta sin ver su golpe; ${dichoDelCruce(forma)} Tu contraataque cae en el punto contrario.`
       : `No devolverá el golpe (${p.prevision.sinContraataque}): la respuesta solo cuenta para el cruce.`;
   // El sector abre su nota también al pasar por él (`[data-abre-nota]`, style.css).
   const sectores = sitios(
+    forma,
     (
       t,
-    ) => html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t)}" aria-keyshortcuts="${teclaDe(t)}">
-          <span class="rotulo-del-sector">${rotuloDe(t)}${loQueDa(p, t)}</span>
-        </button>${nota(notaDe(p, t))}`,
+    ) => html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t, forma)}" aria-keyshortcuts="${teclaDe(t, forma)}">
+          <span class="rotulo-del-sector">${rotuloDe(t, forma)}${loQueDa(p, t)}</span>
+        </button>${nota(notaDe(p, t, forma))}`,
     () => html` data-abre-nota`,
   );
-  return html`<div class="rueda" data-fase="${p.fase}" data-bando="${p.bando}">
+  const ultima = String(forma.golpes.length);
+  return html`<div class="rueda" data-fase="${p.fase}" data-bando="${p.bando}" data-tipos="${String(forma.golpes.length)}">
     ${cabecera(battle, titulo, p.atacante, p.objetivo, quienMira, cara, true)}
     <div class="plato">
-      ${formas()}
-      <div class="giro">${disco(p.bando)}${sectores}</div>
+      ${formas(forma)}
+      <div class="giro">${disco(p.bando, forma)}${sectores}</div>
     </div>
     <footer class="pie-de-rueda">
       <p class="guia">${guia}</p>
@@ -357,7 +389,7 @@ export function renderEleccion(
           ? NADA
           : html`<p class="carga-de-la-rueda" data-carga>Las cifras llevan la ${p.prevision.carga}; con <kbd>Esc</kbd> se pierde.</p>`
       }
-      <p class="teclas"><kbd>1</kbd>–<kbd>7</kbd> o <kbd>←</kbd><kbd>→</kbd> e <kbd>Intro</kbd>${golpe ? html` · <kbd>Esc</kbd> cancela` : NADA}</p>
+      <p class="teclas"><kbd>1</kbd>–<kbd>${ultima}</kbd> o <kbd>←</kbd><kbd>→</kbd> e <kbd>Intro</kbd>${golpe ? html` · <kbd>Esc</kbd> cancela` : NADA}</p>
     </footer>
   </div>`;
 }
@@ -382,14 +414,22 @@ export function tramosDelDesenlace(t: number): string {
 }
 
 /** El ángulo en que se posa el marcador de un papel en un sector del anillo: a un lado del centro. */
-function anguloDeLaMarca(tipo: TipoDelAnillo, papel: 'golpe' | 'respuesta'): number {
-  return anguloDe(tipo) + (papel === 'golpe' ? -13 : 13);
+function anguloDeLaMarca(
+  tipo: TipoDeGolpe,
+  papel: 'golpe' | 'respuesta',
+  forma: FormaDeLaRueda,
+): number {
+  return anguloDe(tipo, forma) + (papel === 'golpe' ? -13 : 13);
 }
 
 /** Dónde se posa el marcador de un papel: en el aro, o en el borde del centro si es Normal. */
-function dondeCae(tipo: TipoDeGolpe, papel: 'golpe' | 'respuesta'): { x: number; y: number } {
+function dondeCae(
+  tipo: TipoDeGolpe,
+  papel: 'golpe' | 'respuesta',
+  forma: FormaDeLaRueda,
+): { x: number; y: number } {
   if (tipo === 'normal') return punto(RADIO_DEL_CENTRO, -90 + (papel === 'golpe' ? -42 : 42));
-  return punto(BORDE, anguloDeLaMarca(tipo, papel));
+  return punto(BORDE, anguloDeLaMarca(tipo, papel, forma));
 }
 
 /**
@@ -397,19 +437,19 @@ function dondeCae(tipo: TipoDeGolpe, papel: 'golpe' | 'respuesta'): { x: number;
  * distancia que fija el punto; con Normal, una recta del centro a la marca del
  * otro; los dos en Normal, el borde del centro. `data-punto` le da el color.
  */
-function arco(golpe: TipoDeGolpe, respuesta: TipoDeGolpe, p: Punto): Html {
+function arco(golpe: TipoDeGolpe, respuesta: TipoDeGolpe, p: Punto, forma: FormaDeLaRueda): Html {
   // Una recta del centro a la marca del que no eligió Normal.
   const desdeElCentro = (g: number): string => `M${xy(RADIO_DEL_CENTRO, g)}L${xy(BORDE, g)}`;
   let d: string;
   if (golpe !== 'normal' && respuesta !== 'normal') {
-    const a = anguloDeLaMarca(golpe, 'golpe');
-    const b = anguloDeLaMarca(respuesta, 'respuesta');
+    const a = anguloDeLaMarca(golpe, 'golpe', forma);
+    const b = anguloDeLaMarca(respuesta, 'respuesta', forma);
     const delta = ((b - a + 540) % 360) - 180;
     d = `M${xy(BORDE, a)}A${BORDE} ${BORDE} 0 0 ${delta >= 0 ? 1 : 0} ${xy(BORDE, b)}`;
   } else if (golpe !== 'normal') {
-    d = desdeElCentro(anguloDeLaMarca(golpe, 'golpe'));
+    d = desdeElCentro(anguloDeLaMarca(golpe, 'golpe', forma));
   } else if (respuesta !== 'normal') {
-    d = desdeElCentro(anguloDeLaMarca(respuesta, 'respuesta'));
+    d = desdeElCentro(anguloDeLaMarca(respuesta, 'respuesta', forma));
   } else {
     const r = RADIO_DEL_CENTRO;
     d = `M${xy(r, -90)}A${r} ${r} 0 0 1 ${xy(r, 90)}A${r} ${r} 0 0 1 ${xy(r, -90)}`;
@@ -418,10 +458,10 @@ function arco(golpe: TipoDeGolpe, respuesta: TipoDeGolpe, p: Punto): Html {
 }
 
 /** El sector elegido, teñido del color de quien lo eligió. */
-function tinte(tipo: TipoDeGolpe, side: Side): Html {
+function tinte(tipo: TipoDeGolpe, side: Side, forma: FormaDeLaRueda): Html {
   return tipo === 'normal'
     ? html`<circle class="tinte" r="${String(RADIO_DEL_CENTRO)}" fill="${COLOR_BANDO[side]}"/>`
-    : html`<path class="tinte" d="${sector(tipo)}" fill="${COLOR_BANDO[side]}"/>`;
+    : html`<path class="tinte" d="${sector(tipo, forma)}" fill="${COLOR_BANDO[side]}"/>`;
 }
 
 /**
@@ -444,16 +484,21 @@ const ROTULO: Readonly<Record<Punto, string>> = {
   4: '¡Máximo!',
 };
 
-/** El medidor de cinco muescas, con la aguja del golpe arriba y la del contraataque abajo. */
+/**
+ * El medidor, con una muesca por punto que da el cruce de la rueda `forma`
+ * (`puntosDeLaForma`: cinco en la de 7, tres en un ciclo, en el mismo sitio de la
+ * pista), y la aguja del golpe arriba y la del contraataque abajo.
+ */
 function medidor(
   e: HechoDelCruce,
   contraataque: Punto | null,
   atacante: Side,
   objetivo: Side,
+  forma: FormaDeLaRueda,
 ): Html {
   const x = (p: Punto): number => 20 + p * 50;
   const muescas = unir(
-    PUNTOS.map(
+    puntosDeLaForma(forma).map(
       (p) =>
         html`<g data-punto="${String(p)}" class="muesca${p === e.punto ? ' del-golpe' : ''}${p === contraataque ? ' del-contraataque' : ''}">
           <circle cx="${String(x(p))}" cy="22" r="5.5"/>
@@ -497,50 +542,57 @@ export function renderDesenlace(
   // comprueban que la respuesta se elige sin verlo.
   const elegido: Partial<Record<TipoDeGolpe, string>> = { [e.golpe]: 'golpe' };
   elegido[e.respuesta] = e.respuesta === e.golpe ? 'los-dos' : 'respuesta';
+  const forma = formaDeLaBatalla(battle);
   const etiquetas = sitios(
-    (t) => html`<span class="rotulo-del-sector">${rotuloDe(t)}</span>`,
+    forma,
+    (t) => html`<span class="rotulo-del-sector">${rotuloDe(t, forma)}</span>`,
     (t) => html` data-elegido="${elegido[t] ?? ''}"`,
   );
   const contra =
     contraataque === null
       ? 'sin contraataque'
       : html`contraataque <strong data-punto="${String(contraataque)}">${NOMBRE_DEL_PUNTO[contraataque]}</strong>`;
-  const titulo = html`<span class="mientras-gira">La rueda gira…</span><span class="cuando-para">${NOMBRE_DE_GOLPE[e.golpe]} contra ${NOMBRE_DE_GOLPE[e.respuesta]}</span>`;
-  return html`<div class="rueda" data-fase="desenlace">
+  const titulo = html`<span class="mientras-gira">La rueda gira…</span><span class="cuando-para">${nombreEnLaRueda(e.golpe, forma)} contra ${nombreEnLaRueda(e.respuesta, forma)}</span>`;
+  return html`<div class="rueda" data-fase="desenlace" data-tipos="${String(forma.golpes.length)}">
     ${cabecera(battle, titulo, atacante, objetivo, quienMira, cara, false)}
     <div class="plato">
-      <div class="giro">${disco(null)}${etiquetas}</div>
+      <div class="giro">${disco(null, forma)}${etiquetas}</div>
       <svg class="marcas" viewBox="-110 -110 220 220" aria-hidden="true" focusable="false">
-        ${tinte(e.golpe, atacante.side)}
-        ${tinte(e.respuesta, objetivo.side)}
-        ${arco(e.golpe, e.respuesta, e.punto)}
-        ${marcador(atacante.side, dondeCae(e.golpe, 'golpe'), 'golpe')}
-        ${marcador(objetivo.side, dondeCae(e.respuesta, 'respuesta'), 'respuesta')}
+        ${tinte(e.golpe, atacante.side, forma)}
+        ${tinte(e.respuesta, objetivo.side, forma)}
+        ${arco(e.golpe, e.respuesta, e.punto, forma)}
+        ${marcador(atacante.side, dondeCae(e.golpe, 'golpe', forma), 'golpe')}
+        ${marcador(objetivo.side, dondeCae(e.respuesta, 'respuesta', forma), 'respuesta')}
       </svg>
     </div>
     <footer class="pie-de-rueda">
       <p class="rotulo" data-punto="${String(e.punto)}" role="status">${ROTULO[e.punto]}</p>
-      ${medidor(e, contraataque, atacante.side, objetivo.side)}
+      ${medidor(e, contraataque, atacante.side, objetivo.side, forma)}
       <p class="contraataque">${contra}</p>
     </footer>
   </div>`;
 }
 
 /**
- * Dónde va lo de cada sector, en el plano de la rueda: el centro de su rótulo y
- * su «ⓘ», desde el ángulo de su sector en `ANILLO` (Normal, en el centro).
+ * Dónde va lo de cada sector de la rueda `forma`, en su plano: el centro de su
+ * rótulo y su «ⓘ», desde el ángulo de su sector en el anillo (Normal, en el
+ * centro). El «ⓘ» va a un lado del centro del sector, `SITIO_DE_LA_NOTA.desvio`
+ * grados: en la de 3 y la de 5 los sectores son más anchos y sigue dentro.
  */
-export function sitioEnLaRueda(tipo: TipoDeGolpe): {
+export function sitioEnLaRueda(
+  tipo: TipoDeGolpe,
+  forma: FormaDeLaRueda,
+): {
   readonly rotulo: { readonly x: number; readonly y: number };
   readonly nota: { readonly x: number; readonly y: number };
 } {
   if (tipo === 'normal') {
     return { rotulo: { x: 0, y: 0 }, nota: punto(NOTA_DEL_CENTRO.r, NOTA_DEL_CENTRO.grados) };
   }
-  const g = anguloDe(tipo);
+  const g = anguloDe(tipo, forma);
   return {
     rotulo: punto(SITIO_DEL_ROTULO, g),
-    nota: punto(SITIO_DE_LA_NOTA.r, g + SITIO_DE_LA_NOTA.desvio),
+    nota: punto(SITIO_DE_LA_NOTA.r, g + anchoDelSector(forma) * SITIO_DE_LA_NOTA.desvioPorSector),
   };
 }
 
@@ -551,15 +603,15 @@ export function sitioEnLaRueda(tipo: TipoDeGolpe): {
  * de lo de cada sector (`sitioEnLaRueda`: `--x`, `--y` el rótulo; `--nx`, `--ny`
  * el «ⓘ») y el recorte de cada botón a su sector (`clip-path`, al `<clipPath>`
  * de `formas`). Un botón sin su forma recibiría el clic en el plato entero y se
- * comería los de debajo: eso lanza.
+ * comería los de debajo: eso lanza. `forma`, la rueda de la batalla que se pintó.
  */
-export function ajustarLaRueda(dialogo: HTMLElement): void {
+export function ajustarLaRueda(dialogo: HTMLElement, forma: FormaDeLaRueda): void {
   dialogo.style.setProperty('--cruce', `${DURACION.cruce}ms`);
   const enPorcentaje = (v: number): string => `${50 + (v * 100) / LADO_DE_LA_CAJA}%`;
-  for (const t of TIPOS_DE_GOLPE) {
+  for (const t of forma.golpes) {
     const sitio = dialogo.querySelector<HTMLElement>(`.sector-de-rueda[data-sector="${t}"]`);
     if (sitio === null) continue;
-    const { rotulo, nota: delInfo } = sitioEnLaRueda(t);
+    const { rotulo, nota: delInfo } = sitioEnLaRueda(t, forma);
     sitio.style.setProperty('--x', enPorcentaje(rotulo.x));
     sitio.style.setProperty('--y', enPorcentaje(rotulo.y));
     sitio.style.setProperty('--nx', enPorcentaje(delInfo.x));
@@ -568,7 +620,9 @@ export function ajustarLaRueda(dialogo: HTMLElement): void {
     if (boton === null) continue;
     const id = idDeLaForma(t);
     if (dialogo.querySelector(`clipPath[id="${id}"]`) === null) {
-      throw new Error(`el sector ${NOMBRE_DE_GOLPE[t]} de la rueda no tiene su forma (#${id})`);
+      throw new Error(
+        `el sector ${nombreEnLaRueda(t, forma)} de la rueda no tiene su forma (#${id})`,
+      );
     }
     boton.style.clipPath = `url(#${id})`;
   }

@@ -26,6 +26,7 @@ import { LADO_DEL_MAPA } from '../../src/core/map/generate.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { AgentLink } from '../../src/server/agent-link.js';
 import { Director } from '../../src/server/director.js';
+import { combateDelEntorno } from '../../src/server/entorno.js';
 import { pedirMapaAlAgente } from '../../src/server/mapa-del-agente.js';
 import type { ServerToAgentMsg } from '../../src/server/protocol.js';
 import { decidir } from './politica.js';
@@ -59,6 +60,65 @@ export const TURNOS_DEL_ARNES = Number(process.env.QA_TURNS ?? 6);
  */
 export const TOPE_DE_SEMILLAS_DEL_ARNES = 120;
 
+/** La respuesta de la rueda que no es un golpe: la que `pnpm qa` manda mala a propósito (`exigeLaRueda`). */
+export const RESPUESTA_MALA = 'mega';
+
+/**
+ * Lo que el arnés lleva hecho de lo que contesta mal a propósito: si ya mandó la
+ * respuesta mala de la rueda y a qué héroe pidió quitar el escudo que no lleva.
+ * Lo escribe solo `contestaElArnes`.
+ */
+export interface TorcidosDelArnes {
+  mala: boolean;
+  escudo: string | null;
+}
+
+/** Sin nada torcido todavía: con lo que empieza cada partida del arnés. */
+export function sinTorcidos(): TorcidosDelArnes {
+  return { mala: false, escudo: null };
+}
+
+/**
+ * Lo que contesta el arnés a una petición: la política (`decidir`), salvo **dos
+ * torcidos a propósito**, una vez cada uno. En el primer turno de mapa con un
+ * héroe sin escudo, quitárselo con el hueco en inglés (`exigeElEscudo`: lo
+ * descarta el núcleo diciéndolo); y la primera respuesta de la rueda, una que no
+ * es un golpe (`RESPUESTA_MALA`, `exigeLaRueda`: la elige la IA en su lugar).
+ *
+ * **La única fuente de lo que contesta el arnés**: la usan `pnpm qa`
+ * (`verify-agent.ts`) y la búsqueda de su semilla (`SocketDelArnes`). La
+ * respuesta mala la elige la IA a ciegas, así que esa batalla sigue otro camino
+ * que con la de la política; con tope 3 bastaba para que la semilla buscada
+ * dejara de dar dos respuestas o de ver el equipo en la partida de verdad (QA de
+ * la complejidad, vuelta 2, 22-10-2026).
+ */
+export function contestaElArnes(
+  kind: string,
+  payload: any,
+  semilla: number,
+  torcidos: TorcidosDelArnes,
+): unknown {
+  const respuesta = decidir(kind, payload, semilla);
+  if (kind === 'battle_response' && !torcidos.mala) {
+    torcidos.mala = true;
+    return { response: RESPUESTA_MALA, reasoning: 'qa: una respuesta que no es un golpe' };
+  }
+  if (kind === 'adventure_turn' && torcidos.escudo === null) {
+    const sinEscudo = (payload.heroes ?? []).find(
+      (h: { equipment?: { shield?: unknown } }) => h.equipment?.shield === null,
+    );
+    if (sinEscudo !== undefined) {
+      torcidos.escudo = String(sinEscudo.id);
+      const { actions } = respuesta as { actions: unknown[] };
+      return {
+        ...(respuesta as object),
+        actions: [{ type: 'unequip', hero: sinEscudo.id, slot: 'shield' }, ...actions],
+      };
+    }
+  }
+  return respuesta;
+}
+
 /** Una petición del servidor, con lo que la política contestó. */
 export interface Peticion {
   readonly requestId: string;
@@ -75,13 +135,16 @@ export interface Peticion {
  */
 class SocketDelArnes extends EventEmitter {
   readonly peticiones: Peticion[] = [];
+  private readonly torcidos = sinTorcidos();
   constructor(private readonly semilla: number) {
     super();
   }
   send(raw: string): void {
     const msg = JSON.parse(raw) as ServerToAgentMsg;
     if (msg.type !== 'request') return;
-    const respuesta = decidir(msg.kind, msg.payload, this.semilla);
+    // Lo mismo que contesta `pnpm qa`, torcidos incluidos: si no, la partida que
+    // se busca no es la que se juega.
+    const respuesta = contestaElArnes(msg.kind, msg.payload, this.semilla, this.torcidos);
     const { requestId, kind, payload } = msg;
     this.peticiones.push({ requestId, kind, payload, respuesta });
     setImmediate(() =>
@@ -101,6 +164,12 @@ class SocketDelArnes extends EventEmitter {
  * llegaron al agente, en orden, con lo que contestó la política.
  * Con `turnos`, para al acabar el turno del jugador en que el agente contesta
  * su `turnos`-ésimo turno de mapa, que es donde `pnpm qa` deja de escuchar.
+ *
+ * Con la complejidad del combate del entorno (`HEROES_TROPA`, `HEROES_RUEDA`,
+ * `combateDelEntorno`), la misma con que el servidor juega la partida de
+ * verdad: con 7 / 7 aquí y 3 / 7 allí, la búsqueda daba por buena la semilla 1,
+ * cuya batalla con tope 3 no deja atacar al agente (QA de la complejidad,
+ * vuelta 2, 22-10-2026).
  */
 export async function jugarPartidaDelArnes(
   semilla: number,
@@ -123,6 +192,7 @@ export async function jugarPartidaDelArnes(
     plan,
     agentPlayers: [1],
     maxDays: DIAS_DEL_ARNES,
+    combate: combateDelEntorno(),
     preparar: prepararPartidaDelArnes,
   });
   const deMapa = () => socket.peticiones.filter((p) => p.kind === 'adventure_turn').length;
@@ -211,6 +281,18 @@ export function faltaParaElArnes(
   const segunda = respuestas[1];
   if (segunda === undefined || segunda >= escuchadas.length - 1)
     faltan.push('dos «battle_response», la segunda con una petición después para ver su veredicto');
+  // Y el golpe del agente con su `hit` (`exigeLaRueda`), con una petición después
+  // que le traiga el veredicto. Con tope 3 la política de la semilla 1 solo
+  // defendía y andaba, y el arnés daba rojo con una semilla que esto daba por
+  // buena (QA de la complejidad, vuelta 2).
+  const golpeConHit = (p: Peticion) =>
+    p.kind === 'battle_turn' &&
+    (p.respuesta as { action: { type: string; hit?: unknown } }).action.type === 'attack' &&
+    (p.respuesta as { action: { hit?: unknown } }).action.hit !== undefined;
+  if (!escuchadas.some((p, i) => golpeConHit(p) && i < escuchadas.length - 1))
+    faltan.push(
+      'un «attack» del agente con su «hit», con una petición después para ver su veredicto',
+    );
   return faltan;
 }
 
@@ -287,7 +369,7 @@ export function semillaDelArnes(): Promise<SemillaDelArnes> {
   return primeraSemilla(
     TURNOS_DEL_ARNES,
     (m) => faltaParaElArnes(m),
-    `la primera que en ${TURNOS_DEL_ARNES} turnos da ocasión de ver dos tramos, asaltantes, licencia, compra, equipo y ascenso`,
+    `la primera que en ${TURNOS_DEL_ARNES} turnos da ocasión de ver dos tramos, asaltantes, licencia, compra, equipo, ascenso, dos respuestas de la rueda y un golpe con su «hit»`,
   );
 }
 

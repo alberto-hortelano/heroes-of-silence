@@ -22,6 +22,7 @@ import type { BattleOutcome } from '../../src/core/ai/tactics.js';
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
 import { createBattle } from '../../src/core/battle/battle.js';
+import { COMBATE_COMPLETO, type ReglasDelCombate } from '../../src/core/combate.js';
 import { troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import type { GameOutcome, GameState } from '../../src/core/state/game.js';
@@ -69,9 +70,10 @@ export async function partidaDeSemilla(
   semilla: number,
   dias: number = DIAS_POR_DEFECTO,
   alAcabarTurno?: (state: GameState) => void,
+  combate: ReglasDelCombate = COMBATE_COMPLETO,
 ): Promise<{ state: GameState; fin: GameOutcome }> {
   // El tope se pide al crear la partida y lo aplica `advanceDay` (`GameState.finished`).
-  const state = newGame({ seed: semilla, maxDays: dias });
+  const state = newGame({ seed: semilla, maxDays: dias, combate });
   const ctx = { rng: createRng(semilla) };
   while (state.finished === null) {
     await playAiTurn(state, ctx);
@@ -93,15 +95,19 @@ export async function partidaDeSemilla(
  * `GameState`, así que ni el barrido puede leerle las rondas ni el banco puede
  * cronometrar `legalActions` sin el ruido del mapa.
  */
-export function batallaDeSemilla(semilla: number): BattleOutcome {
+export function batallaDeSemilla(
+  semilla: number,
+  combate: ReglasDelCombate = COMBATE_COMPLETO,
+): BattleOutcome {
   const rng = createRng(semilla * PRIMO_DE_BATALLA);
   const n = FACTION_IDS.length;
   const a = FACTION_IDS[((semilla % n) + n) % n] as FactionId;
   const b = FACTION_IDS[(((semilla + 1) % n) + n) % n] as FactionId;
   const battle = createBattle(
-    { army: troopsAsStacks(startingArmy(a, rng)), hero: null },
-    { army: troopsAsStacks(startingArmy(b, rng)), hero: null },
+    { army: troopsAsStacks(startingArmy(a, rng, combate.tope)), hero: null },
+    { army: troopsAsStacks(startingArmy(b, rng, combate.tope)), hero: null },
     rng,
+    combate,
   );
   return autoResolve(battle, rng);
 }

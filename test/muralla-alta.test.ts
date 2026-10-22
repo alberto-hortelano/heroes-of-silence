@@ -5,6 +5,7 @@
  * sube y escala, y lo que el cliente hace con ello: la figura subida, el clic en
  * lo alto de la columna y los botones de la arena.
  */
+
 import { describe, expect, it } from 'vitest';
 import { BattleAnimator } from '../src/client/anim.js';
 import { renderBando, renderMuralla, renderPanelDeBatalla } from '../src/client/arena/paneles.js';
@@ -51,6 +52,7 @@ import {
 } from '../src/core/battle/muralla.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { LIDERAZGO, MURALLA } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
@@ -109,7 +111,13 @@ function duelo(
     typeof quien === 'string'
       ? lado([{ creature: quien, count: cuantos }])
       : bandoDePersonajes([quien]);
-  const state = createBattle(deUno(atacante), deUno(defensor), createRng(3), muralla);
+  const state = createBattle(
+    deUno(atacante),
+    deUno(defensor),
+    createRng(3),
+    COMBATE_COMPLETO,
+    muralla,
+  );
   if (escalera) conEscalera(state, 0);
   stackById(state, 'attacker-0').hex = en;
   stackById(state, 'defender-0').hex = enDefensor;
@@ -432,6 +440,7 @@ describe('la escalera', () => {
       ]),
       lado([{ creature: TIRADOR, count: 2 }]),
       createRng(3),
+      COMBATE_COMPLETO,
       LINEA,
     );
     conEscalera(state, 0);
@@ -528,6 +537,7 @@ describe('la IA con la muralla alta', () => {
       ]),
       lado([{ creature: TIRADOR, count: 3 }]),
       createRng(5),
+      COMBATE_COMPLETO,
       LINEA,
     );
     conEscalera(state, 0, 1);
@@ -775,6 +785,7 @@ describe('tras QA', () => {
       ]),
       lado([{ creature: TIRADOR, count: 2 }]),
       createRng(21),
+      COMBATE_COMPLETO,
       CON_PUERTA,
     );
     const pie = { col: 6, row: 3 };

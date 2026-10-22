@@ -11,7 +11,9 @@ import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction, createBattle, legalActions } from '../src/core/battle/battle.js';
 import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../src/core/battle/carga.js';
+import { LAS_TRES_RUEDAS, RUEDAS } from '../src/core/battle/formas-de-la-rueda.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
   adventureActionSchema,
   battleActionSchema,
@@ -37,7 +39,7 @@ import {
   accionDelAgente,
   golpeDelHit,
   HIT_DE_GOLPE,
-  HITS,
+  hitsDeLaRueda,
   SLOT_DE_HUECO,
 } from '../src/core/contract/vocabulario.js';
 import { ASALTANTES, ECONOMIA, EQUIPO, tiposDeHeroe } from '../src/core/data.js';
@@ -69,7 +71,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
-import { FACTION_IDS, SPEED_TO_HEXES, TIPOS_DE_GOLPE } from '../src/core/types.js';
+import { FACTION_IDS, SPEED_TO_HEXES } from '../src/core/types.js';
 import {
   batallaConDos,
   conCaminos,
@@ -296,6 +298,7 @@ describe('contrato con el agente', () => {
       },
       { army: [{ creature: NO_MUERTO, count: 20 }], hero: null },
       rng,
+      COMBATE_COMPLETO,
     );
     for (const accion of legalActions(battle)) {
       expect(battleActionSchema.safeParse(accion).success).toBe(true);
@@ -1086,6 +1089,7 @@ describe('lo que ve el agente', () => {
       { army: [{ creature: PESADA, count: 5 }], hero: null },
       { army: [{ creature: TROPA, count: 5 }], hero: null },
       createRng(3),
+      COMBATE_COMPLETO,
     );
     forzarTurno(battle, 'attacker-0');
     const exactamenteUno = (v: object) =>
@@ -1136,6 +1140,7 @@ describe('lo que ve el agente', () => {
         { army: [{ creature: criatura, count: 5 }], hero: null },
         { army: [{ creature: TROPA, count: 5 }], hero: null },
         createRng(3),
+        COMBATE_COMPLETO,
       );
       battle.stacks.find((x) => x.id === 'attacker-0')!.hex = { col: 0, row: 4 };
       battle.stacks.find((x) => x.id === 'defender-0')!.hex = { col: 5, row: 4 };
@@ -1160,6 +1165,7 @@ describe('lo que ve el agente', () => {
       { army: [{ creature: JINETE, count: 5 }], hero: null },
       { army: [{ creature: TROPA, count: 5 }], hero: null },
       createRng(3),
+      COMBATE_COMPLETO,
     );
     // Anda toda su velocidad en recta y se queda al lado del enemigo.
     const pasos = SPEED_TO_HEXES[unidadDelJuego(JINETE).speed];
@@ -1178,6 +1184,7 @@ describe('lo que ve el agente', () => {
       { army: [{ creature: PESADA, count: 5 }], hero: null },
       { army: [{ creature: TROPA, count: 5 }], hero: null },
       createRng(3),
+      COMBATE_COMPLETO,
     );
     battle.stacks.find((x) => x.id === 'attacker-0')!.hex = { col: 0, row: 4 };
     battle.stacks.find((x) => x.id === 'defender-0')!.hex = { col: 10, row: 4 };
@@ -1204,9 +1211,12 @@ describe('lo que ve el agente', () => {
     expect(prosa).toContain('"turnId"');
   });
 
-  it('la prosa dice el tope de 7 por bando y dónde está tu base', () => {
+  it('la prosa dice el tope por bando de la partida (3, 5 o 7) y dónde está tu base', () => {
     expect(RESPONSE_FORMAT.map_generate).toMatch(/de 1 a 7/);
-    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/6 individuos además del héroe/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(
+      /"you\.combat\.troopCap" − 1 individuos\s+además del\s+héroe/,
+    );
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('(3, 5 o 7)');
     expect(RESPONSE_FORMAT.adventure_turn).toContain('yourBase');
   });
 
@@ -1778,8 +1788,8 @@ describe('las voces de la base (town_voices)', () => {
 });
 
 describe('la rueda y los poderes en el contrato (F6)', () => {
-  it('los siete tipos tienen su nombre en inglés, y uno que no es se rechaza nombrando los que valen', () => {
-    expect(HITS).toEqual([
+  it('los tipos tienen su nombre en inglés, y uno que no es de la rueda se rechaza nombrando los que valen', () => {
+    expect(hitsDeLaRueda(RUEDAS[7])).toEqual([
       'offensive',
       'strong',
       'feint',
@@ -1788,34 +1798,58 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
       'guard_break',
       'normal',
     ]);
-    for (const t of TIPOS_DE_GOLPE) expect(golpeDelHit(HIT_DE_GOLPE[t])).toBe(t);
+    expect(hitsDeLaRueda(RUEDAS[5])).toEqual([
+      'offensive_strong',
+      'quick',
+      'guard_break',
+      'defensive_feint',
+      'normal',
+    ]);
+    expect(hitsDeLaRueda(RUEDAS[3])).toEqual([
+      'offensive_strong',
+      'quick_guard_break',
+      'defensive_feint',
+    ]);
+    for (const forma of LAS_TRES_RUEDAS) {
+      for (const t of forma.golpes) expect(golpeDelHit(HIT_DE_GOLPE[t], forma)).toBe(t);
+    }
     // El nombre de dentro tampoco vale: el contrato es uno.
-    expect(() => golpeDelHit('fuerte')).toThrow(
+    expect(() => golpeDelHit('fuerte', RUEDAS[7])).toThrow(
       '«fuerte» no es un golpe de la rueda; valen offensive, strong, feint, defensive, quick, guard_break, normal',
     );
+    // Uno de otra rueda, tampoco: dice de cuál es la batalla y qué vale en ella.
+    expect(() => golpeDelHit('quick', RUEDAS[3])).toThrow(
+      '«quick» no es un golpe de la rueda de 3 de esta batalla; valen offensive_strong, quick_guard_break, defensive_feint',
+    );
+    expect(() => golpeDelHit('offensive_strong', RUEDAS[7])).toThrow('rueda de 7');
   });
 
   it('lo que manda el agente se traduce a la jugada del núcleo, y la lista legal al revés', () => {
     expect(
-      accionDeBatallaDelAgente({
-        type: 'attack',
-        target: 'd-0',
-        from: { col: 3, row: 2 },
-        hit: 'guard_break',
-      }),
+      accionDeBatallaDelAgente(
+        {
+          type: 'attack',
+          target: 'd-0',
+          from: { col: 3, row: 2 },
+          hit: 'guard_break',
+        },
+        RUEDAS[7],
+      ),
     ).toEqual({ type: 'attack', target: 'd-0', from: { col: 3, row: 2 }, golpe: 'romperGuardia' });
     // Sin `hit`, sin golpe: lo elige la IA (el director).
-    expect(accionDeBatallaDelAgente({ type: 'attack', target: 'd-0' })).toEqual({
+    expect(accionDeBatallaDelAgente({ type: 'attack', target: 'd-0' }, RUEDAS[7])).toEqual({
       type: 'attack',
       target: 'd-0',
     });
-    expect(accionDeBatallaDelAgente({ type: 'power', power: 'curar', target: 'a-1' })).toEqual({
+    expect(
+      accionDeBatallaDelAgente({ type: 'power', power: 'curar', target: 'a-1' }, RUEDAS[7]),
+    ).toEqual({
       type: 'power',
       poder: 'curar',
       target: 'a-1',
     });
     expect(() =>
-      accionDeBatallaDelAgente({ type: 'attack', target: 'd-0', hit: 'Strong' }),
+      accionDeBatallaDelAgente({ type: 'attack', target: 'd-0', hit: 'Strong' }, RUEDAS[7]),
     ).toThrow(/«Strong» no es un golpe de la rueda/);
     expect(accionAlAgente({ type: 'power', poder: 'bendecir', target: 'a-1' })).toEqual({
       type: 'power',
@@ -1841,7 +1875,7 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
   it('el turno trae lo que hace cada golpe con el arma de la activa, la lista en el contrato y el cruce del registro con sus nombres', () => {
     const b = batallaConDos(createRng(11));
     const turno = serializeBattleTurn(b, 'attacker', 'propia', 0) as any;
-    expect(turno.hits.map((h: any) => h.hit)).toEqual([...HITS]);
+    expect(turno.hits.map((h: any) => h.hit)).toEqual([...hitsDeLaRueda(RUEDAS[7])]);
     expect(turno.hits.every((h: any) => typeof h.effect === 'string' && h.effect.length > 0)).toBe(
       true,
     );
@@ -1872,7 +1906,7 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
       target: 'defender-0',
     });
     expect(p.noCounterattack).toBeUndefined();
-    expect(p.responses.map((r: any) => r.response)).toEqual([...HITS]);
+    expect(p.responses.map((r: any) => r.response)).toEqual([...hitsDeLaRueda(RUEDAS[7])]);
     for (const r of p.responses) {
       expect(r.counterDamage.min).toBeLessThanOrEqual(r.counterDamage.max);
       expect(r.strikes).toBeGreaterThanOrEqual(1);
@@ -1881,5 +1915,54 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
     const normal = p.responses.find((r: any) => r.response === 'normal');
     expect(normal.counterDamage.min).toBe(normal.counterDamage.max);
     expect(RESPONSE_FORMAT.battle_response).toContain('"response"');
+  });
+
+  it('con la rueda de 3: «wheel» dice cuál y cómo se cruza, y «hits» y «responses» traen solo los suyos', () => {
+    const b = batallaConDos(createRng(11), { tope: 7, rueda: 3 });
+    const turno = serializeBattleTurn(b, 'attacker', 'propia', 0) as any;
+    expect(turno.wheel).toEqual({
+      types: 3,
+      ring: ['offensive_strong', 'quick_guard_break', 'defensive_feint'],
+      center: false,
+      crossing: 'cycle',
+    });
+    expect(turno.hits.map((h: any) => h.hit)).toEqual([
+      'offensive_strong',
+      'quick_guard_break',
+      'defensive_feint',
+    ]);
+    // Su efecto, el de cada parte a la mitad.
+    expect(turno.hits[0].effect).toMatch(/^La mitad de Ofensivo y de Fuerte:/);
+    const p = serializeBattleResponse(b, { atacante: 'attacker-0', objetivo: 'defender-0' }) as any;
+    expect(p.wheel.types).toBe(3);
+    expect(p.responses.map((r: any) => r.response)).toEqual([
+      'offensive_strong',
+      'quick_guard_break',
+      'defensive_feint',
+    ]);
+    // La de 7 sigue diciendo la suya.
+    expect(
+      (serializeBattleTurn(batallaConDos(createRng(11)), 'attacker', 'propia', 0) as any).wheel,
+    ).toEqual({
+      types: 7,
+      ring: ['offensive', 'strong', 'feint', 'defensive', 'quick', 'guard_break'],
+      center: true,
+      crossing: 'distance',
+    });
+  });
+
+  it('el turno de aventura dice la complejidad de la partida en «you.combat»', () => {
+    const state = newGame({ seed: 3, combate: { tope: 5, rueda: 5 } });
+    const turno = serializeAdventureTurn(state, 1) as any;
+    expect(turno.you.combat).toEqual({
+      troopCap: 5,
+      wheel: {
+        types: 5,
+        ring: ['offensive_strong', 'quick', 'guard_break', 'defensive_feint'],
+        center: true,
+        crossing: 'cycle',
+      },
+    });
+    expect((serializeAdventureTurn(newGame({ seed: 3 }), 1) as any).you.combat.troopCap).toBe(7);
   });
 });

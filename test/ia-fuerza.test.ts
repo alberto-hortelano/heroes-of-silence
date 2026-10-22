@@ -26,6 +26,7 @@ import { autoResolve } from '../src/core/ai/tactics.js';
 import { type BattleSide, createBattle } from '../src/core/battle/battle.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { unidadesDeFaccion } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { tipoDeHeroePorDefecto } from '../src/core/data.js';
 import { RANGO_MAXIMO_DE_TROPA, umbral } from '../src/core/hero/experiencia.js';
 import { cuerposDelHeroe, type Hero, heroeRecienHecho, heroUnit } from '../src/core/hero/hero.js';
@@ -74,7 +75,7 @@ function ganaA(a: Hero, b: Hero, veces: number, rng: Rng): number {
   for (let i = 0; i < veces; i++) {
     for (const aAtaca of [true, false]) {
       const [x, y] = aAtaca ? [a, b] : [b, a];
-      const { winner } = autoResolve(createBattle(bando(x), bando(y), rng), rng);
+      const { winner } = autoResolve(createBattle(bando(x), bando(y), rng, COMBATE_COMPLETO), rng);
       if ((winner === 'attacker') === aAtaca) gana++;
     }
   }

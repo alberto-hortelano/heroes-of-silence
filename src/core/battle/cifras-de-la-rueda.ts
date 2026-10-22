@@ -12,12 +12,17 @@ import ruedaJson from '../../../data/rueda.json' with { type: 'json' };
 import {
   esTipoDelAnillo,
   type NivelesDeLaRueda,
-  TIPOS_DE_GOLPE,
   TIPOS_DEL_ANILLO,
   type TipoDeGolpe,
   type TipoDelAnillo,
+  TODOS_LOS_GOLPES,
 } from '../types.js';
 import { entero, objetoCon } from '../validar.js';
+import { esFusionado, LAS_TRES_RUEDAS, NOMBRE_DE_GOLPE, PARTES } from './formas-de-la-rueda.js';
+
+// La tabla de nombres vive con las formas de la rueda (`nombreEnLaRueda`); aquí se
+// reexporta para la ficha de un arma, que la lee tal cual.
+export { NOMBRE_DE_GOLPE };
 
 /** El punto del cruce, del mínimo (0) al máximo (4). */
 export type Punto = 0 | 1 | 2 | 3 | 4;
@@ -55,17 +60,6 @@ export interface CifrasDeLaRueda {
 export type PesosDeLaRueda = Readonly<
   Record<PapelEnLaRueda, Readonly<Record<TipoDeGolpe, number>>>
 >;
-
-/** Cómo se llama cada tipo para la persona: en la rueda, el parte y la barra. */
-export const NOMBRE_DE_GOLPE: Readonly<Record<TipoDeGolpe, string>> = {
-  rapido: 'Rápido',
-  defensivo: 'Defensivo',
-  finta: 'Finta',
-  fuerte: 'Fuerte',
-  romperGuardia: 'Romper guardia',
-  ofensivo: 'Ofensivo',
-  normal: 'Normal',
-};
 
 /**
  * El nivel más alto de un tipo (el más bajo es 0): siete niveles, del 0 al 6
@@ -157,16 +151,24 @@ function porNivel(
   return cifras;
 }
 
-/** Los pesos de un papel: uno por tipo, enteros ≥ 0, y alguno mayor que 0. */
+/**
+ * Los pesos de un papel: uno por tipo de toda rueda (`TODOS_LOS_GOLPES`), enteros
+ * ≥ 0, y en **cada** rueda alguno mayor que 0: la IA elige solo entre los de la
+ * suya.
+ */
 function pesosDe(valor: unknown, quien: string): Readonly<Record<TipoDeGolpe, number>> {
-  const o = objetoCon(valor, TIPOS_DE_GOLPE, quien);
+  const o = objetoCon(valor, TODOS_LOS_GOLPES, quien);
   const pesos = {} as Record<TipoDeGolpe, number>;
-  for (const t of TIPOS_DE_GOLPE) {
+  for (const t of TODOS_LOS_GOLPES) {
     if (!(t in o)) throw new Error(`${quien}: falta el peso de «${t}»`);
     pesos[t] = entero(o[t], `el peso de «${t}»`, quien, 0);
   }
-  if (TIPOS_DE_GOLPE.every((t) => pesos[t] === 0)) {
-    throw new Error(`${quien}: todos los pesos son 0, y la IA no tendría qué elegir`);
+  for (const forma of LAS_TRES_RUEDAS) {
+    if (forma.golpes.every((t) => pesos[t] === 0)) {
+      throw new Error(
+        `${quien}: en la rueda de ${forma.golpes.length} todos los pesos son 0, y la IA no tendría qué elegir`,
+      );
+    }
   }
   return pesos;
 }
@@ -329,4 +331,108 @@ export function problemasDeNiveles(r: unknown, q: string): string[] {
     }
   }
   return problemas;
+}
+
+/**
+ * Lo que da un tipo de golpe con las cifras de un arma (`cifrasDeLosNiveles`), con
+ * el nombre de lo que es y sin decir de qué tipo sale: **lo que lee el combate**
+ * (el ataque, el daño, lo que se cuelga y la Finta), en vez de preguntar por el
+ * nombre del tipo; cuántos golpes no es del arma (`golpesDelTipo`). Un tipo simple
+ * da lo suyo y lo neutro en lo demás; Normal, todo neutro; un fusionado, lo de cada
+ * parte **a la mitad** (`aMedias`). Se cuenta cada vez: es una pasada por dos partes
+ * con sumas enteras, y las cifras del arma ya van memorizadas (`cifrasDeLosNiveles`).
+ */
+export interface EfectoDelTipo {
+  /** Lo que suma al ataque del golpe que se da (Ofensivo); 0 sin él. */
+  readonly ataque: number;
+  /**
+   * El % del daño de cada golpe (Fuerte, Rápido); 100 sin ellos. Cuántos golpes da
+   * no depende del arma: `golpesDelTipo`.
+   */
+  readonly porcentaje: number;
+  /** La defensa que se pone quien golpea (Defensivo); 0 sin él. */
+  readonly defensa: number;
+  /** Lo que quita al ataque del atacado, por éxito (Romper guardia; 0 o menos). */
+  readonly quitaAtaque: PorExito;
+  /**
+   * La Finta: lo que resta por éxito de lo que le queda por andar y, en la
+   * fusionada (`mitad`), que de lo que quede anda solo la mitad
+   * (`casillasQueQuitaLaFinta`); `null` sin ella.
+   */
+  readonly finta: { readonly casillas: PorExito; readonly mitad: boolean } | null;
+}
+
+/** Una cifra por éxito, la misma en los cinco: lo que no quita nada. */
+const CEROS: PorExito = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+
+/** Lo que da Normal: nada. El punto de partida de todo tipo. */
+const NEUTRO: EfectoDelTipo = {
+  ataque: 0,
+  porcentaje: 100,
+  defensa: 0,
+  quitaAtaque: CEROS,
+  finta: null,
+};
+
+/**
+ * La mitad de lo que separa `v` de lo neutro, en enteros y **truncada hacia lo
+ * neutro**: un fusionado nunca llega a lo que da su parte suelta (decisión del
+ * usuario: «que hagan una media de los dos efectos en lugar de sumarlos»). Con la
+ * Espada (todo a 3): Ofensivo +3 → +1, Fuerte ×1,5 → ×1,25, Defensivo +3 → +1.
+ * Sin `Math.sign`: en `core`, solo las funciones de `Math` que no dependen de la
+ * plataforma.
+ */
+export function aMedias(neutro: number, v: number): number {
+  const d = v - neutro;
+  return d < 0 ? neutro - Math.floor(-d / 2) : neutro + Math.floor(d / 2);
+}
+
+/**
+ * Lo que da `tipo` con las cifras `c` de un arma (`EfectoDelTipo`). La parte de
+ * Rápido de un fusionado va a la mitad entre su % y el neutro de sus golpes
+ * (⌊100 / golpes⌋: 2 × 50 = ×1): con la Espada, 2 × 0,63 → 2 × 0,56. La Finta de
+ * un fusionado resta lo mismo y deja andar la mitad de lo que dejaría.
+ */
+export function efectoDelTipo(tipo: TipoDeGolpe, c: CifrasDeLaRueda): EfectoDelTipo {
+  const media = esFusionado(tipo);
+  const m = (neutro: number, v: number): number => (media ? aMedias(neutro, v) : v);
+  const e: { -readonly [K in keyof EfectoDelTipo]: EfectoDelTipo[K] } = { ...NEUTRO };
+  // La Finta va aparte y entra al final: el campo de un turno con Finta lo
+  // escribe solo el golpe (`melee`; lo vigila `invariantes.test.ts`).
+  let finta: EfectoDelTipo['finta'] = null;
+  for (const parte of PARTES[tipo]) {
+    switch (parte) {
+      case 'ofensivo':
+        e.ataque = m(0, c.ofensivo.ataque);
+        break;
+      case 'fuerte':
+        e.porcentaje = m(100, c.fuerte.porcentaje);
+        break;
+      case 'rapido':
+        e.porcentaje = m(Math.floor(100 / c.rapido.golpes), c.rapido.porcentaje);
+        break;
+      case 'defensivo':
+        e.defensa = m(0, c.defensivo.defensa);
+        break;
+      case 'romperGuardia':
+        e.quitaAtaque = media
+          ? (Object.fromEntries(
+              PUNTOS.map((p) => [p, aMedias(0, c.romperGuardia.ataque[p])]),
+            ) as unknown as PorExito)
+          : c.romperGuardia.ataque;
+        break;
+      case 'finta':
+        finta = { casillas: c.finta.casillas, mitad: media };
+        break;
+    }
+  }
+  return { ...e, finta };
+}
+
+/**
+ * Por cuánto multiplica `tipo` los golpes: los de Rápido si es una de sus partes,
+ * si no 1. No depende del arma (`GOLPES_DEL_RAPIDO`). Lo lee `golpesDe`.
+ */
+export function golpesDelTipo(tipo: TipoDeGolpe): number {
+  return PARTES[tipo].includes('rapido') ? GOLPES_DEL_RAPIDO : 1;
 }

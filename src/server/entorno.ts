@@ -32,6 +32,10 @@
  * variable vacía, no hay nada que rechazar**. No pedir no es un error.
  */
 
+// Relativo y no `@core/…`: `vite.config.ts` importa este módulo para los puertos,
+// y al cargar la configuración el alias no existe.
+import { combateCon, parseRueda, parseTope, type ReglasDelCombate } from '../core/combate.js';
+
 /** Puerto del canal con el puente MCP (el agente). */
 export const AGENT_PORT_POR_DEFECTO = 9881;
 /** Puerto del canal con los clientes que miran la partida. */
@@ -115,4 +119,22 @@ export function esperaAlAgente(): number {
       min: 0,
     }) ?? ESPERA_AL_AGENTE_POR_DEFECTO
   );
+}
+
+/**
+ * La complejidad del combate de la partida del servidor (`HEROES_TROPA`,
+ * `HEROES_RUEDA`), cada una por su lado: el tope de tropa por bando y la rueda
+ * (3, 5 o 7); la que falte, la de siempre (`combateCon`). Las reglas de qué vale
+ * son del núcleo (`parseTope`, `parseRueda`, las mismas de `?tropa=` y `?rueda=`);
+ * aquí se dice qué variable falló.
+ */
+export function combateDelEntorno(): ReglasDelCombate {
+  const leer = <T>(nombre: string, parse: (texto: string | undefined) => T | null): T | null => {
+    try {
+      return parse(process.env[nombre]);
+    } catch (err) {
+      throw new Error(`${nombre}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+  return combateCon(leer('HEROES_TROPA', parseTope), leer('HEROES_RUEDA', parseRueda));
 }

@@ -11,6 +11,7 @@
  * vampiro 4 volando: nadie del catálogo vuela): un test que calculara el esperado
  * con la misma búsqueda solo probaría que la búsqueda es la que es.
  */
+
 import { describe, expect, it } from 'vitest';
 import { marcadoDe, NADA } from '../src/client/html.js';
 import { accionesDeLaUnidad } from '../src/client/views/panels.js';
@@ -36,6 +37,7 @@ import { applyEffect } from '../src/core/battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import { bando } from './batalla-de-prueba.js';
@@ -87,6 +89,7 @@ function pelea(
     bando(de(TROPA, 1)),
     bando(de(o.contra ?? NO_MUERTO, enemigos.length)),
     createRng(1),
+    COMBATE_COMPLETO,
     o.muralla ?? SIN_MURALLA,
   );
   conCifrasAMano(b, 'attacker-0', quien);

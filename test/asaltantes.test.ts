@@ -12,9 +12,10 @@ import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe, ventajaClara } from '../src
 import { planBuildings, planRecruits } from '../src/core/ai/strategy.js';
 import { playAiTurn } from '../src/core/ai/turn.js';
 import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
 import { serializeKnownMap } from '../src/core/contract/serialize.js';
 import { ASALTANTES } from '../src/core/data.js';
-import { CUPO_HEROE, withTroops } from '../src/core/hero/troop.js';
+import { withTroops } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import {
   buildMap,
@@ -69,6 +70,9 @@ import {
   TROPA_BARATA,
 } from './helpers.js';
 import { segunPrisa } from './lento.js';
+
+/** Los cupos con el tope de siempre (7): un héroe lleva 6 y una guarnición 7. */
+const CUPO_HEROE = cupoDelHeroe(COMBATE_COMPLETO.tope);
 
 /**
  * Las casillas libres de la región de `r` con la regla de la patrulla: sin

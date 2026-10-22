@@ -8,6 +8,7 @@
  * hecho `move` lleva el camino de la misma búsqueda que valida el movimiento, y
  * el animador anda por él casilla a casilla mirando a la siguiente.
  */
+
 import { describe, expect, it } from 'vitest';
 import { BattleAnimator, DURACION, porElCamino } from '../src/client/anim.js';
 import { type Direccion, direccionHacia } from '../src/client/direccion.js';
@@ -18,6 +19,7 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { activeStack, createBattle, isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { areAdjacent, hexEquals, hexKey } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { hasTrait } from '../src/core/data.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
@@ -49,6 +51,7 @@ function pelea(semilla: number): BattleState {
       hero: null,
     },
     createRng(semilla),
+    COMBATE_COMPLETO,
   );
 }
 

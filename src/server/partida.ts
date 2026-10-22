@@ -19,7 +19,13 @@ import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
 import { Director, type DirectorOptions } from './director.js';
-import { esperaAlAgente, maxDiasDelEntorno, puertoAgente, puertoEspectadores } from './entorno.js';
+import {
+  combateDelEntorno,
+  esperaAlAgente,
+  maxDiasDelEntorno,
+  puertoAgente,
+  puertoEspectadores,
+} from './entorno.js';
 import { pedirMapaAlAgente } from './mapa-del-agente.js';
 import { notaFinDePartida, SIN_PARTIDA_TODAVIA } from './notas.js';
 import type { ServerToSpectatorMsg } from './protocol.js';
@@ -40,6 +46,7 @@ const SEED = parseSeed(process.env.HEROES_SEED) ?? SEED_POR_DEFECTO;
 // y no al arrancar, como cuando esto era `ws-server.ts`: una variable mala sigue
 // matando el proceso antes de abrir nada.
 const MAX_DAYS = maxDiasDelEntorno();
+const COMBATE = combateDelEntorno();
 const WAIT_FOR_AGENT_MS = esperaAlAgente();
 /**
  * El mapa que se le pide al agente, y el que sale del procedimental si no lo da.
@@ -321,6 +328,8 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
       agentPlayers: [1],
       // Sin `HEROES_MAX_DAYS` esto es `undefined` y manda el tope de `newGame`.
       maxDays: MAX_DAYS,
+      // Sin `HEROES_TROPA` ni `HEROES_RUEDA`, la de siempre: 7 / 7.
+      combate: COMBATE,
       // Un fotograma por acción aplicada, y no uno por turno: una batalla entera
       // caía antes entre dos snapshots. `broadcast()` sale sola si no mira nadie,
       // así que sin espectadores esto no cuesta nada.

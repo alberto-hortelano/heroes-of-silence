@@ -63,13 +63,27 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       if (pieza !== undefined && novato !== undefined) {
         acciones.push({ type: 'equip', hero: portador.id, item: pieza, creature: novato.creature });
       }
-      // Con el héroe dentro y sus 6 individuos llenos, el `recruit` no cabe:
-      // se licencian dos del primero que lleve para hacerle sitio. Es como el
-      // arnés ejercita `dismiss` por el circuito entero.
+      // Con el héroe dentro y su tropa llena, el `recruit` no cabe: se licencian
+      // dos del primero que lleve para hacerle sitio. Es como el arnés ejercita
+      // `dismiss` por el circuito entero. Lleno es lo que dice el contrato: el
+      // tope de la partida menos el héroe (`you.combat.troopCap`). Con un 6 escrito
+      // aquí, `pnpm qa` con tope 3 o 5 no licenciaba nunca y salía 1.
+      const cabe = Number(payload.you?.combat?.troopCap) - 1;
+      if (!Number.isInteger(cabe)) {
+        throw new Error(
+          'el turno no trae "you.combat.troopCap": el arnés no sabe cuánta tropa cabe',
+        );
+      }
       const lleva = (dentro?.army ?? []).reduce((n: number, g: any) => n + g.count, 0);
       const primero = dentro?.army?.find((g: any) => g.member === undefined && g.count >= 2);
-      if (reclutable !== undefined && lleva >= 6 && primero !== undefined) {
-        acciones.push({ type: 'dismiss', hero: dentro.id, creature: primero.creature, count: 2 });
+      // Dos, o uno si el grupo es de dos: se licencia por tipo, y con tope 3 el
+      // grupo de dos se iba entero con el novato que se acaba de equipar en este
+      // mismo turno, y ningún individuo llegaba equipado a `pnpm qa` (QA de la
+      // complejidad, vuelta 2, 22-10-2026). Uno con pieza no se va mientras quede
+      // un novato sin ella (`elQueSeIria`).
+      if (reclutable !== undefined && lleva >= cabe && primero !== undefined) {
+        const count = Math.min(2, primero.count - 1);
+        acciones.push({ type: 'dismiss', hero: dentro.id, creature: primero.creature, count });
       }
       if (reclutable !== undefined) {
         acciones.push({

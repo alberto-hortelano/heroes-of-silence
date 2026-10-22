@@ -18,7 +18,7 @@ import {
   anguloDe,
   haciaDe,
   idDeLaForma,
-  MEDIDAS_DE_LA_RUEDA,
+  medidasDeLaRueda,
   renderDesenlace,
   renderEleccion,
   sitioEnLaRueda,
@@ -29,12 +29,19 @@ import { stackById } from '../src/core/battle/battle.js';
 import {
   contraataqueDelCruce,
   duracion,
-  TIPOS_DE_GOLPE,
+  formaDeLaBatalla,
+  LAS_TRES_RUEDAS,
+  RUEDA_DE_REFERENCIA,
   type TipoDeGolpe,
 } from '../src/core/battle/rueda.js';
 import { spell } from '../src/core/battle/spells.js';
 import { TIPOS_DEL_ANILLO } from '../src/core/types.js';
 import { hastaLaRueda, PESADA, sesionDeArena, TROPA, unidadDeArena } from './helpers.js';
+
+/** Las peleas de estos tests, con la rueda de siempre (7). */
+const RUEDA = RUEDA_DE_REFERENCIA;
+const TIPOS_DE_GOLPE = RUEDA.golpes;
+const MEDIDAS_DE_LA_RUEDA = medidasDeLaRueda(RUEDA);
 
 /** Tres guerreros con escudo contra tres con mandoble, los dos bandos «Yo», con la rueda. */
 function sesion(semilla = 1): SesionDeArena {
@@ -114,7 +121,7 @@ describe('R3 de QA (#263): R. guardia dice en cuánto deja el contraataque antes
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');
     const ahora = p.prevision.contraataque;
-    const porExito = p.prevision.porTipo?.romperGuardia.contraataquePorExito ?? [];
+    const porExito = p.prevision.porTipo?.romperGuardia?.contraataquePorExito ?? [];
     expect(ahora).not.toBeNull();
     // Pega el guerrero con escudo, con la espada: Romper guardia en el nivel 3
     // (quita 0, 0, 1, 2 y 3 del mínimo al máximo). El medio, el alto y el máximo
@@ -160,29 +167,31 @@ describe('#258: la colocación sale del ángulo del sector, no de su tipo', () =
       const sitio = m.indexOf(`<div class="sector-de-rueda" data-sector="${t}"`);
       expect(sitio, t).toBeGreaterThan(-1);
       expect(atributo(m, sitio, 'data-hacia'), t).toBe(
-        t === 'normal' ? 'abajo' : haciaDe(anguloDe(t)),
+        t === 'normal' ? 'abajo' : haciaDe(anguloDe(t, RUEDA)),
       );
     }
   });
 
-  it('el rótulo y el «ⓘ» de cada sector caen dentro de su sector, sea cual sea el orden del anillo', () => {
-    const { dentro, fuera, radioDelCentro, medioSector } = MEDIDAS_DE_LA_RUEDA;
-    for (const t of TIPOS_DE_GOLPE) {
-      const { rotulo, nota } = sitioEnLaRueda(t);
-      for (const [que, q] of [
-        ['rótulo', rotulo],
-        ['nota', nota],
-      ] as const) {
-        const r = Math.hypot(q.x, q.y);
-        if (t === 'normal') {
-          expect(r, `${t}, ${que}`).toBeLessThan(radioDelCentro);
-          continue;
+  it('el rótulo y el «ⓘ» de cada sector caen dentro de su sector, sea cual sea el orden del anillo y en las tres ruedas', () => {
+    for (const forma of LAS_TRES_RUEDAS) {
+      const { dentro, fuera, radioDelCentro, medioSector } = medidasDeLaRueda(forma);
+      for (const t of forma.golpes) {
+        const { rotulo, nota } = sitioEnLaRueda(t, forma);
+        for (const [que, q] of [
+          ['rótulo', rotulo],
+          ['nota', nota],
+        ] as const) {
+          const r = Math.hypot(q.x, q.y);
+          if (t === 'normal') {
+            expect(r, `${t}, ${que}`).toBeLessThan(radioDelCentro);
+            continue;
+          }
+          expect(r, `${t}, ${que}`).toBeGreaterThan(dentro);
+          expect(r, `${t}, ${que}`).toBeLessThan(fuera);
+          const g = (Math.atan2(q.y, q.x) * 180) / Math.PI;
+          const desvio = Math.abs(((g - anguloDe(t, forma) + 540) % 360) - 180);
+          expect(desvio, `${t}, ${que}`).toBeLessThan(medioSector);
         }
-        expect(r, `${t}, ${que}`).toBeGreaterThan(dentro);
-        expect(r, `${t}, ${que}`).toBeLessThan(fuera);
-        const g = (Math.atan2(q.y, q.x) * 180) / Math.PI;
-        const desvio = Math.abs(((g - anguloDe(t) + 540) % 360) - 180);
-        expect(desvio, `${t}, ${que}`).toBeLessThan(medioSector);
       }
     }
   });
@@ -307,7 +316,7 @@ describe('#261: la vista previa', () => {
     expect(v).toContain(`${spell('slow').name}: velocidad -2 durante 3 rondas`);
     expect(v).not.toContain('ninguno');
     // La frase es la de `efectoEnCurso`, la única.
-    for (const e of x.effects) expect(v).toContain(efectoEnCurso(e));
+    for (const e of x.effects) expect(v).toContain(efectoEnCurso(e, formaDeLaBatalla(s.battle)));
   });
 
   it('si ya devolvió un golpe esta ronda', () => {

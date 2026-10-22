@@ -18,8 +18,17 @@
 import { z } from 'zod';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
+import {
+  type CruceDeLaRueda,
+  dichoDelCruce,
+  esFusionado,
+  LAS_TRES_RUEDAS,
+  lasRuedasQue,
+  PARTES,
+} from '../battle/formas-de-la-rueda.js';
 import { PODERES, queHaceElPoder } from '../battle/poderes.js';
 import { HERO_BODY } from '../battle/types.js';
+import { TOPES_DE_TROPA } from '../combate.js';
 import { ECONOMIA } from '../data.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
@@ -36,16 +45,66 @@ import {
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
-import { FACTION_IDS, HUECOS, TIPOS_DEL_ANILLO } from '../types.js';
-import { HIT_DE_GOLPE, HITS, SLOT_DE_HUECO, SLOTS } from './vocabulario.js';
+import { enumerar, FACTION_IDS, HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
+import {
+  CRUCE_AL_AGENTE,
+  HIT_DE_GOLPE,
+  ruedaAlAgente,
+  SLOT_DE_HUECO,
+  SLOTS,
+} from './vocabulario.js';
 
 /** Los poderes de unidad, por su id y con lo que hacen (`queHaceElPoder`, lo que lee el panel). */
 const PODERES_EN_PROSA = PODERES.map((p) => `"${p.id}" (${p.nombre}: ${queHaceElPoder(p)})`).join(
   ', ',
 );
 
-/** El anillo de la rueda en el contrato: «"offensive", "strong"…», en su orden. */
-const ANILLO_EN_PROSA = TIPOS_DEL_ANILLO.map((t) => `"${HIT_DE_GOLPE[t]}"`).join(', ');
+/** Unos tipos en el contrato: «"offensive", "strong"». */
+const enHits = (tipos: readonly (keyof typeof HIT_DE_GOLPE)[]): string[] =>
+  tipos.map((t) => `"${HIT_DE_GOLPE[t]}"`);
+
+/**
+ * Las tres ruedas en el contrato, tal como llegan en `wheel` (`ruedaAlAgente`):
+ * «la de 7, "offensive", "strong"…, con "normal" en el centro y "crossing":
+ * "distance"; …».
+ */
+const RUEDAS_EN_PROSA = LAS_TRES_RUEDAS.map((f) => {
+  const w = ruedaAlAgente(f);
+  const centro = w.center ? 'con "normal" en el centro' : 'sin centro';
+  return `la de ${w.types}, ${w.ring.map((h) => `"${h}"`).join(', ')}, ${centro} y "crossing": "${w.crossing}"`;
+}).join('; ');
+
+/**
+ * Cómo se cruzan dos tipos en cada forma de la rueda (`puntoDelCruce`,
+ * `dichoDelCruce`): una frase por cada una distinta, con las ruedas que la siguen
+ * («Con "cycle" (la de 3), …»). Las de 3 y 5 cruzan igual, pero solo la de 5
+ * tiene un tipo enfrente.
+ */
+const CRUCES_EN_PROSA = (Object.keys(CRUCE_AL_AGENTE) as CruceDeLaRueda[])
+  .flatMap((c) =>
+    [...new Set(LAS_TRES_RUEDAS.filter((f) => f.cruce === c).map((f) => dichoDelCruce(f)))].map(
+      (dicho) => ({ c, dicho }),
+    ),
+  )
+  .map(
+    ({ c, dicho }) =>
+      `Con "${CRUCE_AL_AGENTE[c]}" (${lasRuedasQue((f) => dichoDelCruce(f) === dicho)}), ${dicho}`,
+  )
+  .join(' ');
+
+/** Lo que es un fusionado, con sus partes (`PARTES`), y en qué ruedas los hay. */
+const FUSIONADOS_EN_PROSA = `En ${lasRuedasQue((f) => f.golpes.some(esFusionado))}, ${TIPOS_FUSIONADOS.map(
+  (t) => `"${HIT_DE_GOLPE[t]}" junta ${enumerar(enHits(PARTES[t]))}`,
+).join(', ')}, con el efecto de cada uno A LA MITAD (nunca tanto como el suelto).`;
+
+/** Los golpes tras los que se puede andar: los que llevan la Finta (`PARTES`). */
+const CON_FINTA_EN_PROSA = enumerar(
+  enHits(TODOS_LOS_GOLPES.filter((t) => PARTES[t].includes('finta'))),
+  'o',
+);
+
+/** Los topes de tropa que se pueden elegir: «3, 5 o 7». */
+const TOPES_EN_PROSA = enumerar(TOPES_DE_TROPA.map(String), 'o');
 
 /** Los huecos que el héroe trae puestos al nacer y los que trae vacíos, derivados del equipo base. */
 const HUECOS_DE_SERIE = HUECOS.flatMap((h) => {
@@ -410,14 +469,17 @@ Notas:
   "nextRankAt" (null en el 5). Si muere, se pierde con lo que había ganado.
 - Un ejército son INDIVIDUOS, no stacks: "army[].count" dice cuántos lleva de
   cada criatura, y en batalla cada uno ocupa su hex. Dos límites deciden
-  cuántos lleva: como mucho 6 individuos además del héroe, que pelea en el
-  tablero y es el séptimo; y "heroes[].leadership", donde "used" es lo que
-  ocupa y "max" su tope. Cada criatura ocupa lo que dice
+  cuántos lleva: como mucho "you.combat.troopCap" − 1 individuos además del
+  héroe, que pelea en el tablero y cuenta como uno (con el tope de siempre, 7:
+  6 y él); y "heroes[].leadership", donde "used" es lo que ocupa y "max" su
+  tope. "you.combat.troopCap" es el tope de individuos por bando de esta
+  partida (${TOPES_EN_PROSA}), el de toda batalla: las guarniciones, los
+  monstruos y los asaltantes también se quedan en él. Cada criatura ocupa lo que dice
   "recruitable[].leadership" por individuo. Un "recruit" que no quepa se
   rechaza diciendo cuántos caben, por ejemplo: "no cabe: el ejército ocupa 18
   de 20 de liderazgo y 2 × Piquero piden 8" o "no cabe: el ejército ya lleva 6
   de 6 individuos". Sin héroe en el pueblo se recluta a la guarnición, que
-  guarda como mucho 7 individuos y tiene su propio tope en
+  guarda como mucho "you.combat.troopCap" individuos y tiene su propio tope en
   "towns[].garrisonLeadership". Un héroe que entra en su pueblo se lleva de la
   guarnición lo que le quepa; el resto se queda guardándolo. Tu base NACE con
   la guarnición llena: para reclutar en ella el primer día, entra con el héroe
@@ -601,20 +663,22 @@ Notas:
   (golpea, defiende o espera). La carga se paga por la recta.
 - Cada golpe cuerpo a cuerpo pasa por la RUEDA DEL GOLPE: quien pega elige su
   golpe ("hit" en el "attack") y quien recibe su respuesta, a la vez y sin ver
-  el otro. Valen ${HITS.map((h) => `"${h}"`).join(', ')}. En el anillo, en el
-  sentido del reloj desde arriba: ${ANILLO_EN_PROSA}; "normal" va en el centro.
-  El cruce fija el daño dentro de la horquilla del arma: con "normal" en
-  cualquiera de los dos, el medio; si no, cuanto más lejos en el anillo, más
-  daño (los dos iguales, el mínimo; opuestos, el máximo). La respuesta es
-  además el tipo del contraataque, que cae en el punto contrario: quien acierta
-  la respuesta recibe el mínimo y devuelve el máximo. Lo que hace cada tipo con
+  el otro. La partida juega con una de tres ruedas, la misma en toda batalla
+  ("you.combat.wheel" en el turno de aventura, "wheel" en cada petición de
+  batalla: "types", su anillo "ring" en el sentido del reloj desde arriba,
+  "center" si lleva "normal" en el centro y "crossing"): ${RUEDAS_EN_PROSA}.
+  Solo valen los de su "ring" y "normal" si lleva centro. El cruce fija el daño
+  dentro de la horquilla del arma: con "normal" en cualquiera de los dos, el
+  medio. ${CRUCES_EN_PROSA} La respuesta es además el tipo del contraataque, que
+  cae en el punto contrario: quien acierta la respuesta recibe el mínimo y
+  devuelve el máximo. ${FUSIONADOS_EN_PROSA} Lo que hace cada tipo con
   el arma de tu unidad activa viene en "hits", cuando puede golpear. Sin "hit",
   tu golpe lo elige la IA a ciegas por ti; uno que no es de la lista descarta
   el "attack" como cualquier acción ilegal. Cuando el rival golpea a una unidad
   tuya, se te pide la respuesta con "battle_response". El registro cuenta cada
   cruce con el hecho "cruce" ("hit" de quien pegó, "response" de quien
-  respondió). Tras golpear con "feint", el turno de esa unidad sigue solo para
-  andar (o "end_turn"). El disparo no pasa por la rueda: sigue con su tirada.
+  respondió). Tras golpear con ${CON_FINTA_EN_PROSA}, el turno de esa
+  unidad sigue solo para andar (o "end_turn"). El disparo no pasa por la rueda: sigue con su tirada.
 - "power" usa un PODER de la unidad activa ("stacks[].powers": ${PODERES_EN_PROSA})
   sobre un aliado, incluida ella misma. Gasta su turno entero y solo sin haberse movido; los que
   puede usar ahora vienen en "legalActions".
@@ -642,13 +706,12 @@ Notas:
 
 El rival golpea cuerpo a cuerpo a una unidad tuya ("target", de "attacker") y
 eliges tu RESPUESTA en la rueda del golpe, a la vez que él elige su golpe: NO
-lo ves, ni aquí ni en el registro hasta que se cruzan. Valen
-${HITS.map((h) => `"${h}"`).join(', ')}.
+lo ves, ni aquí ni en el registro hasta que se cruzan. Valen los de la rueda de
+la batalla ("wheel": su "ring" y "normal" si lleva "center"), los mismos que
+trae "responses".
 
 - El cruce fija el daño que recibes dentro de la horquilla de su arma: con
-  "normal" en cualquiera de los dos, el medio; si no, cuanto más lejos esté tu
-  respuesta de su golpe en el anillo (${ANILLO_EN_PROSA}, en el sentido del
-  reloj desde arriba), más daño; la misma, el mínimo.
+  "normal" en cualquiera de los dos, el medio. ${CRUCES_EN_PROSA}
 - Tu respuesta es también el tipo de tu contraataque, que cae en el punto
   contrario: si aciertas, recibes el mínimo y devuelves el máximo.
 - "responses" trae, por cada tipo ("response"), el daño de cada golpe de tu

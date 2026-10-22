@@ -12,6 +12,7 @@
  * cargado en cada punta (`dadoCargado`) el golpe da su mínimo y su máximo, y la
  * cuenta está en el comentario de cada caso.
  */
+
 import { describe, expect, it } from 'vitest';
 import { textoDePrevision } from '../src/client/views/prevision.js';
 import { golpeDe } from '../src/core/battle/armas.js';
@@ -33,8 +34,10 @@ import {
   horquillaDeDanio,
   usoDelGolpe,
 } from '../src/core/battle/damage.js';
+import { RUEDAS } from '../src/core/battle/formas-de-la-rueda.js';
 import { cruceDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { isShooter, type Pieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
@@ -97,6 +100,7 @@ function frente(quien: UnitInfo, en: Hex, contra: Hex): BattleState {
     bandoDe([{ id: 'quien', unit: quien }]),
     bandoDe([{ id: 'muneco', unit: MUNECO }]),
     createRng(1),
+    COMBATE_COMPLETO,
   );
   stackById(b, 'attacker-0').hex = en;
   stackById(b, 'defender-0').hex = contra;
@@ -110,6 +114,7 @@ function recibe(quien: UnitInfo): BattleState {
     bandoDe([{ id: 'muneco', unit: MUNECO }]),
     bandoDe([{ id: 'quien', unit: quien }]),
     createRng(1),
+    COMBATE_COMPLETO,
   );
   stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
   stackById(b, 'defender-0').hex = { col: 6, row: 4 };
@@ -280,14 +285,14 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     // Lanza 50–90: el cuarto 1 es 60; 60 ×1,6 ×1,3 = 124,8 → 125.
     const enUnCuarto = {
       chargeHexes: 3,
-      cruce: cruceDelGolpe('normal', 1, 1, 'golpe', CON_LA_ESPADA),
+      cruce: cruceDelGolpe('normal', 1, 1, 'golpe', CON_LA_ESPADA, RUEDAS[7]),
     };
     expect(computeDamage(jinete, muneco, dadoCargado('maximo'), enUnCuarto).damage).toBe(125);
     // Del cuarto 0 al 2: 50–70 → 104–146; sin carga, los de la espada (20–40 → 22–33).
     const horquilla = (chargeHexes: number) =>
       horquillaDeDanio(jinete, muneco, {
         chargeHexes,
-        cruce: cruceDelGolpe('normal', 0, 2, 'golpe', CON_LA_ESPADA),
+        cruce: cruceDelGolpe('normal', 0, 2, 'golpe', CON_LA_ESPADA, RUEDAS[7]),
       }).danio;
     expect(horquilla(3)).toEqual({ min: 104, max: 146 });
     expect(horquilla(0)).toEqual({ min: 22, max: 33 });

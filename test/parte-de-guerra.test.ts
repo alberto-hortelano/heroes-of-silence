@@ -9,6 +9,7 @@
  * iniciativa. Los hechos de aquí los escribe el motor (`applyAction`), no se
  * fabrican a mano: lo que se comprueba es lo que de verdad llega al parte.
  */
+
 import { describe, expect, it } from 'vitest';
 import { type Html, html, marcadoDe, unir } from '../src/client/html.js';
 import { desplazamientoTrasPintar, pintarSiguiendoElFinal } from '../src/client/views/al-final.js';
@@ -18,6 +19,7 @@ import { autoResolve } from '../src/core/ai/tactics.js';
 import { activeStack, applyAction, createBattle } from '../src/core/battle/battle.js';
 import { effectiveDefense } from '../src/core/battle/damage.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
 import { startingArmy } from '../src/core/state/setup.js';
@@ -28,6 +30,7 @@ function espejo(semilla: number): { battle: BattleState; rng: ReturnType<typeof 
     { army: troopsAsStacks(startingArmy('templarios', rng)), hero: null },
     { army: troopsAsStacks(startingArmy('no-muertos', rng)), hero: null },
     rng,
+    COMBATE_COMPLETO,
   );
   return { battle, rng };
 }

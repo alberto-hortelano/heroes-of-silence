@@ -3,7 +3,7 @@ import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { Paso } from './board.js';
 import type { CuandoVence, EffectKind, StackEffect } from './effects.js';
 import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
-import type { Punto, TipoDeGolpe } from './rueda.js';
+import type { Punto, TipoDeGolpe, TiposDeLaRueda } from './rueda.js';
 
 export type Side = 'attacker' | 'defender';
 
@@ -478,6 +478,12 @@ export interface BattleState {
    * las del mapa, hoy, `SIN_MURALLA`. Solo la arena la pone.
    */
   readonly muralla: MurallaDeBatalla;
+  /**
+   * De cuántos tipos es la rueda del golpe de esta batalla (`RUEDAS`,
+   * `formas-de-la-rueda.ts`): la de la partida o la del montaje de la arena. No
+   * cambia en toda la batalla y viaja tal cual al espectador, que pinta con ella.
+   */
+  readonly rueda: TiposDeLaRueda;
   /**
    * El golpe de quien se ha plantado ante su objetivo y espera la
    * rueda: quién, contra quién y la carga de la carrera con que llegó (medida

@@ -11,29 +11,43 @@
  * Lo que los tests miran es la batalla, no el mapa, así que da igual cuál salga.
  */
 import { Session } from '../src/client/session.js';
+import type { ReglasDelCombate } from '../src/core/combate.js';
 import { objectAt, pointKey } from '../src/core/map/map.js';
 import type { Army, Point } from '../src/core/types.js';
+
+/** Cómo se abre la sesión: la complejidad del combate y «Solo la rueda del héroe». */
+interface ComoSeJuega {
+  readonly combate?: ReglasDelCombate;
+  readonly soloRuedaDelHeroe?: boolean;
+}
 
 let hallada: { readonly semilla: number; readonly at: Point } | null = null;
 let emboscada: { readonly semilla: number; readonly destino: Point } | null = null;
 
-function abrir(semilla: number, at: Point): Session | null {
-  const s = new Session(semilla);
+function abrir(semilla: number, at: Point, como: ComoSeJuega = {}): Session | null {
+  const s = new Session(semilla, undefined, undefined, como.combate, como.soloRuedaDelHeroe);
   s.clickTile(at);
   if (s.battle === null || s.turnoPropio === null) return null;
   return s.state.pendingBattle?.attacker.kind === 'hero' ? s : null;
 }
 
-/** Una sesión nueva, recién entrada en la batalla: cada llamada da la suya. */
-export function sesionContraMonstruo(): Session {
+/**
+ * Una sesión nueva, recién entrada en la batalla: cada llamada da la suya. Con
+ * `como`, la misma batalla con otra rueda o con «Solo la rueda del héroe» (el mapa
+ * no depende de la complejidad; con otro tope de tropa, el monstruo sería otro, y
+ * la búsqueda es con el de siempre).
+ */
+export function sesionContraMonstruo(como: ComoSeJuega = {}): Session {
+  if (hallada === null) {
+    for (const { semilla, at } of sesionesContraMonstruo()) {
+      hallada = { semilla, at };
+      break;
+    }
+  }
   if (hallada !== null) {
-    const s = abrir(hallada.semilla, hallada.at);
+    const s = abrir(hallada.semilla, hallada.at, como);
     if (s === null)
       throw new Error('la batalla hallada no se repite: la sesión no es determinista');
-    return s;
-  }
-  for (const { semilla, at, s } of sesionesContraMonstruo()) {
-    hallada = { semilla, at };
     return s;
   }
   throw new Error('ninguna de 200 semillas abre el día 1 una batalla contra un monstruo');

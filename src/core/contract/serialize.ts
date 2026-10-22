@@ -21,7 +21,7 @@ import {
 import { type Paso, tableroDelContrato } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
-import { type CifrasDeLaRueda, efectoDeGolpe } from '../battle/rueda.js';
+import { type CifrasDeLaRueda, efectoDeGolpe, formaDeLaBatalla } from '../battle/rueda.js';
 import {
   type BattleStack,
   type BattleState,
@@ -103,12 +103,13 @@ import {
 } from '../town/town.js';
 import { vecinosDeLaBase, vozDe } from '../town/voces.js';
 import type { Army, Equipo, PlayerId } from '../types.js';
-import { describirCoste, FACTION_IDS, HUECOS, TIPOS_DE_GOLPE } from '../types.js';
+import { describirCoste, FACTION_IDS, HUECOS } from '../types.js';
 import {
   accionAlAgente,
   HIT_DE_GOLPE,
   type Hit,
   hechoAlAgente,
+  ruedaAlAgente,
   SLOT_DE_HUECO,
   type Slot,
 } from './vocabulario.js';
@@ -501,6 +502,12 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       // la misma que suma `startTurn`.
       gold: player.oro,
       income: incomeView(state, playerId),
+      // La complejidad del combate de la partida: cuántos individuos por bando,
+      // héroe incluido (y lo neutral, recortado a eso), y la rueda de toda batalla.
+      combat: {
+        troopCap: state.combate.tope,
+        wheel: ruedaAlAgente(formaDeLaBatalla(state.combate)),
+      },
     },
     // A dónde vuelve un héroe derrotado o rendido, o `null` si ya no tiene base:
     // decide si rendirse existe y qué cuesta perder un héroe.
@@ -787,6 +794,8 @@ export function serializeBattleTurn(
     // MISMO turno de la misma unidad o uno nuevo (la moral extra), que mirando
     // solo `activeStack` no se distingue.
     turnId: battle.turno?.n ?? null,
+    // La rueda de esta batalla (la de la partida): sus tipos y cómo se cruzan.
+    wheel: ruedaAlAgente(formaDeLaBatalla(battle)),
     board: tableroDelContrato(),
     stacks: stacksVistos(battle),
     hero:
@@ -842,15 +851,22 @@ function delTurnoPropio(battle: BattleState, activo: BattleStack) {
     legalActions: legales.map(accionAlAgente),
     stepsLeft: pasosQueQuedan(battle, activo),
     ...chargeFrom(battle, activo, costs),
-    ...(golpea ? { hits: golpesDeLaRueda(ruedaDelGolpe(activo.unit, 'arma')) } : {}),
+    ...(golpea ? { hits: golpesAlAgente(battle, ruedaDelGolpe(activo.unit, 'arma')) } : {}),
   };
 }
 
-/** Lo que hace cada golpe de la rueda con estas cifras, en los nombres del contrato. */
-function golpesDeLaRueda(rueda: CifrasDeLaRueda): { hit: Hit; effect: string }[] {
-  return TIPOS_DE_GOLPE.map((t) => ({
+/**
+ * Lo que hace cada golpe de la rueda de la batalla con estas cifras, en los
+ * nombres del contrato: solo los de su rueda (`FormaDeLaRueda.golpes`).
+ */
+function golpesAlAgente(
+  battle: BattleState,
+  rueda: CifrasDeLaRueda,
+): { hit: Hit; effect: string }[] {
+  const forma = formaDeLaBatalla(battle);
+  return forma.golpes.map((t) => ({
     hit: HIT_DE_GOLPE[t],
-    effect: efectoDeGolpe(t, 'golpe', true, rueda),
+    effect: efectoDeGolpe(t, 'golpe', true, rueda, forma),
   }));
 }
 
@@ -935,10 +951,11 @@ export function serializeBattleResponse(
     turnId: battle.turno?.n ?? null,
     attacker: atacante.id,
     target: objetivo.id,
+    wheel: ruedaAlAgente(formaDeLaBatalla(battle)),
     ...(contraataca ? {} : { noCounterattack: p.sinContraataque }),
-    responses: TIPOS_DE_GOLPE.map((t) => {
+    responses: formaDeLaBatalla(battle).golpes.map((t) => {
       const response = HIT_DE_GOLPE[t];
-      const effect = efectoDeGolpe(t, 'respuesta', contraataca, p.rueda);
+      const effect = efectoDeGolpe(t, 'respuesta', contraataca, p.rueda, formaDeLaBatalla(battle));
       const sector = p.porTipo?.[t];
       return sector === undefined
         ? { response, effect }

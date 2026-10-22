@@ -141,6 +141,7 @@ import {
 import { allSpells } from '../../src/core/battle/spells.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { HERO_BODY, otroBando } from '../../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import { hasTrait } from '../../src/core/data.js';
 import { EQUIPO_BASE } from '../../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
@@ -336,7 +337,11 @@ function batalla(
     army: ejercitos[side],
     hero: MAGIA ? heroeDeLaMagia(side === 'attacker' ? 'Atacante' : 'Defensor') : null,
   });
-  return jugar(createBattle(lado('attacker'), lado('defender'), rng), rng, tacticas);
+  return jugar(
+    createBattle(lado('attacker'), lado('defender'), rng, COMBATE_COMPLETO),
+    rng,
+    tacticas,
+  );
 }
 
 /**

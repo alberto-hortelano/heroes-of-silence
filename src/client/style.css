@@ -710,6 +710,35 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .rasgo-de-faccion { font-size: 0.92rem; color: var(--ink); }
 .heroe-de-faccion { font-size: 0.85rem; font-style: italic; color: var(--ink-dim); }
 .botones-de-inicio { display: flex; justify-content: space-between; gap: 0.6rem; }
+/* La complejidad del combate (22-10-2026): el tope de tropa y la rueda, cada uno
+   en su grupo, y «Solo la rueda del héroe»; en «Nuevo juego» y en el montaje de la
+   arena (`views/combate.ts`). Con la letra del neutro, como la lista de facciones:
+   marcar otra facción no la mueve. */
+.selectores-del-combate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+  margin: 0 0 1.1rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.92rem;
+}
+.grupo-del-combate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.6rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.grupo-del-combate legend { float: left; padding: 0 0.4rem 0 0; color: var(--ink-dim); }
+.opcion-del-combate { display: inline-flex; align-items: center; gap: 0.25rem; cursor: pointer; white-space: nowrap; }
+.opcion-del-combate input { accent-color: var(--gold); margin: 0; }
+/* «Solo la rueda del héroe», con su nota: en «Nuevo juego» y junto a «Resolver sola». */
+.solo-heroe { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+.solo-heroe label { display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+.solo-heroe input { accent-color: var(--gold); margin: 0; }
 /* La elección del héroe (vuelta 2, 19-10-2026): ya con el tema de la facción, que
    no cambia mientras se elige, así que no necesita las medidas fijas de la de
    facción. El retrato es la identidad de la hoja con que se pinta el héroe. */

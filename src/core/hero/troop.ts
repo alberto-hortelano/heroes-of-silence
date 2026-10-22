@@ -22,6 +22,7 @@ import {
   cifrasDeUnidad,
   unidadDelJuego,
 } from '../catalogo.js';
+import { cupoDelHeroe } from '../combate.js';
 import { type GrupoDeTropa, LIDERAZGO } from '../data.js';
 import type { Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
@@ -116,24 +117,20 @@ export function heroLeadership(hero: { readonly experience: number }): number {
 export const GARRISON_LEADERSHIP: number = LIDERAZGO.guarnicion;
 
 /**
- * Cuántos individuos pisan el tablero con un héroe, sin contarle a él: el
- * héroe ocupa el séptimo puesto de su bando (fase 1b: está en el tablero).
+ * Lo que le cabe a un héroe con el tope de tropa `tope` de la partida
+ * (`GameState.combate.tope`): `tope` de liderazgo y `cupo` de individuos (el tope
+ * sin él, `cupoDelHeroe`: el héroe pisa el tablero). Juntos porque se piden
+ * juntos —reclutar, recoger la guarnición, la IA que mira si merece la pena volver
+ * a casa— y separados se escribían a mano en cada uno.
  */
-export const CUPO_HEROE: number = LIDERAZGO.maxPorBando - 1;
-
-/** Cuántos individuos guarda un castillo sin héroe, o trae un monstruo. */
-export const CUPO_GUARNICION: number = LIDERAZGO.maxPorBando;
-
-/**
- * Lo que le cabe a un héroe: `tope` de liderazgo y `cupo` de individuos. Juntos
- * porque se piden juntos —reclutar, recoger la guarnición, la IA que mira si
- * merece la pena volver a casa— y separados se escribían a mano en cada uno.
- */
-export function capacidadDe(hero: { readonly experience: number }): {
+export function capacidadDe(
+  hero: { readonly experience: number },
+  topeDeTropa: number,
+): {
   readonly tope: number;
   readonly cupo: number;
 } {
-  return { tope: heroLeadership(hero), cupo: CUPO_HEROE };
+  return { tope: heroLeadership(hero), cupo: cupoDelHeroe(topeDeTropa) };
 }
 
 /**

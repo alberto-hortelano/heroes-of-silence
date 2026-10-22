@@ -20,10 +20,11 @@ import {
   BARRERAS_DEL_MAPA,
   FORMAS_DEL_RIO,
   type FormaDelRio,
+  LIDERAZGO,
   NIVEL_POR_SUELO,
 } from '../data.js';
 import { AREA_POR_REGION } from '../escala.js';
-import { CUPO_GUARNICION, ejercitoDe } from '../hero/troop.js';
+import { ejercitoDe } from '../hero/troop.js';
 import { nivelDeUnidad } from '../nivel.js';
 import { createRng, type Rng } from '../rng.js';
 import {
@@ -2365,7 +2366,9 @@ function vestirRed(
   const parejasDeMonstruos = Math.floor((opts.monsterCount ?? 8) / 2);
   for (let i = 0; i < parejasDeMonstruos; i++) {
     const especie = rng.pick(monstruosPosibles);
-    const count = rng.int(3, CUPO_GUARNICION);
+    // El techo de los datos (`maxPorBando`) y no el tope de la partida: el mapa no
+    // depende de él (misma semilla, mismo mapa); la partida lo recorta (`loNeutralAlTope`).
+    const count = rng.int(3, LIDERAZGO.maxPorBando);
     const par = colocarPar(fuera[i % fuera.length] as number);
     if (par === null) return fallo('objetos', 'no hay sitio para los monstruos');
     monsters.push(

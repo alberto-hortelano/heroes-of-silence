@@ -35,8 +35,10 @@ import {
   contraataqueDelCruce,
   duracion,
   esTipoDeGolpe,
-  NOMBRE_DE_GOLPE,
+  type FormaDeLaRueda,
+  formaDeLaBatalla,
   NOMBRE_DEL_PUNTO,
+  nombreEnLaRueda,
 } from '@core/battle/rueda.js';
 import { enOrdenDelLibro, type Spell, spell } from '@core/battle/spells.js';
 import {
@@ -241,10 +243,12 @@ export function renderActions(session: Session, contandoAun = false): Html {
       if (battle !== null && battle.finished !== null) {
         return html`<button data-action="finish-battle" class="primary">Continuar</button>`;
       }
-      return apagadosPor(
+      // «Solo la rueda del héroe» (22-10-2026) se cambia también a media batalla
+      // y vale desde el siguiente golpe: no se apaga mientras se cuenta.
+      return html`${casillaSoloRuedaDelHeroe(html`data-action="solo-rueda-del-heroe"`, session.soloRuedaDelHeroe)}${apagadosPor(
         motivoParaApagar(session, contandoAun),
         html`<button data-action="auto-battle">Resolver sola</button>`,
-      );
+      )}`;
     }
     default: {
       const aviso = session.avisoDeFinDeTurno;
@@ -1059,10 +1063,11 @@ const FUENTE_RASGO: Readonly<Record<string, string>> = {
  * ser un hechizo, y `spell()` lanza con un id desconocido: un origen sin nombre
  * es un fallo nuestro, no algo que disimular con el id crudo en pantalla.
  */
-function nombreFuente(source: string): string {
-  // Lo que deja un golpe de la rueda (Defensivo, Romper guardia, Finta), por el
-  // nombre de su tipo.
-  if (esTipoDeGolpe(source)) return NOMBRE_DE_GOLPE[source];
+function nombreFuente(source: string, forma: FormaDeLaRueda): string {
+  // Lo que deja un golpe de la rueda (Defensivo, Romper guardia…), por el nombre que
+  // le da la rueda de la batalla: en la de 3, «Rápido» aunque quite el ataque su
+  // parte de Romper guardia (`EfectoDeLaRueda.fuente`).
+  if (esTipoDeGolpe(source)) return nombreEnLaRueda(source, forma);
   return FUENTE_RASGO[source] ?? spell(source).name;
 }
 
@@ -1085,9 +1090,9 @@ export function duracionDeEfecto(e: {
  * `duracionDeEfecto`), que lo dice al colgarse; esto lo dice mientras dura (la
  * vista previa de la rueda, #261).
  */
-export function efectoEnCurso(e: StackEffect): string {
+export function efectoEnCurso(e: StackEffect, forma: FormaDeLaRueda): string {
   const dura = duracionDeEfecto({ rounds: e.roundsLeft, vence: e.hasta?.al });
-  return `${nombreFuente(e.source)}: ${cifraDeEfecto(e.kind, e.amount)} ${dura}`;
+  return `${nombreFuente(e.source, forma)}: ${cifraDeEfecto(e.kind, e.amount)} ${dura}`;
 }
 
 /**
@@ -1122,6 +1127,16 @@ export function modificadoresEnPantalla(p: Pieza, vacio = 'no suma nada'): Html 
  */
 export function nota(texto: string, enfocable = true): Html {
   return html`<span class="nota" tabindex="${enfocable ? '0' : '-1'}" role="note" aria-label="${texto}" data-nota="si">ⓘ</span>`;
+}
+
+/**
+ * La casilla «Solo la rueda del héroe» (22-10-2026), con lo que hace en su nota:
+ * la misma en «Nuevo juego» (`selectoresDelCombate`) y en la batalla. `dato`, el
+ * atributo con que la lee quien la pinta (`data-combate` en el menú, `data-action`
+ * en la batalla).
+ */
+export function casillaSoloRuedaDelHeroe(dato: Html, marcada: boolean): Html {
+  return html`<span class="solo-heroe"><label><input type="checkbox" ${dato}${marcada ? html` checked` : NADA} /> Solo la rueda del héroe</label>${nota('La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival.')}</span>`;
 }
 
 /**
@@ -1272,6 +1287,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
 
   const ultimos = battle.log.slice(-40);
   const desde = battle.log.length - ultimos.length;
+  const forma = formaDeLaBatalla(battle);
   const lineas = ultimos
     .map((e, i): Html => {
       switch (e.kind) {
@@ -1329,18 +1345,18 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         case 'luck':
           return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Golpe afortunado' : 'Golpe desafortunado'} de ${quienEs(e.stack)}</div>`;
         case 'effect':
-          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} ${duracionDeEfecto(e)}</div>`;
+          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source, forma)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} ${duracionDeEfecto(e)}</div>`;
         // La rueda del golpe: qué eligió cada uno y dónde cayó,
         // antes de las líneas del golpe. El contraataque, solo si lo hubo.
         case 'cruce': {
           const devuelto = contraataqueDelCruce(battle.log, desde + i);
           const contra = devuelto === null ? '' : `; contraataque ${NOMBRE_DEL_PUNTO[devuelto]}`;
-          return html`<div class="cruce">${golpe(e.stack, e.target)}, ${NOMBRE_DE_GOLPE[e.golpe]} contra ${NOMBRE_DE_GOLPE[e.respuesta]}: ${NOMBRE_DEL_PUNTO[e.punto]}${contra}</div>`;
+          return html`<div class="cruce">${golpe(e.stack, e.target)}, ${nombreEnLaRueda(e.golpe, forma)} contra ${nombreEnLaRueda(e.respuesta, forma)}: ${NOMBRE_DEL_PUNTO[e.punto]}${contra}</div>`;
         }
         case 'effect_end':
-          return html`<div>Se disipa ${nombreFuente(e.source)} de ${quienEs(e.stack)}</div>`;
+          return html`<div>Se disipa ${nombreFuente(e.source, forma)} de ${quienEs(e.stack)}</div>`;
         case 'immune':
-          return html`<div>${quienEs(e.stack)}, inmune a ${nombreFuente(e.source)}: los no-muertos no tienen ánimo que quebrar</div>`;
+          return html`<div>${quienEs(e.stack)}, inmune a ${nombreFuente(e.source, forma)}: los no-muertos no tienen ánimo que quebrar</div>`;
         case 'perished': {
           // Quién cae decide el color, igual que en `hero_defeated` un piso más
           // arriba: lo tuyo es la derrota y lo suyo la victoria. Sin bando —el

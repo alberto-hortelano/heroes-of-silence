@@ -34,6 +34,7 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
+import { formaDeLaBatalla, golpeNeutro } from '../src/core/battle/rueda.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -42,6 +43,7 @@ import type {
 } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
 import { UNIDADES, unidad, unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO, type ReglasDelCombate } from '../src/core/combate.js';
 import {
   BARRERAS_DEL_MAPA,
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
@@ -619,11 +621,12 @@ export function avanzarHasta(
  * `NO_MUERTO` (`defender-0`, en (6,4)), con el turno del atacante: el golpe de la
  * rueda se da sin andar. Para la petición de la respuesta y el contrato.
  */
-export function batallaConDos(rng: Rng): BattleState {
+export function batallaConDos(rng: Rng, combate: ReglasDelCombate = COMBATE_COMPLETO): BattleState {
   const b = createBattle(
     { army: [{ creature: TROPA, count: 1 }], hero: null },
     { army: [{ creature: NO_MUERTO, count: 1 }], hero: null },
     rng,
+    combate,
   );
   stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
   stackById(b, 'defender-0').hex = { col: 6, row: 4 };
@@ -1413,7 +1416,8 @@ export function conManosDePrueba(
 /** Lo común de un montaje de prueba: el catálogo de equipo del juego. */
 export const MONTAJE = {
   equipo: EQUIPO_DEL_JUEGO,
-} as const satisfies Pick<MontajeDeArena, 'equipo'>;
+  combate: COMBATE_COMPLETO,
+} as const satisfies Pick<MontajeDeArena, 'equipo' | 'combate'>;
 
 /** Una unidad del borrador a su puesto de la pelea, con su escalera o sin ella. */
 export interface PuestoDeLaPelea {
@@ -1445,6 +1449,7 @@ export function montajeDePrueba(
     izquierda: lado(izquierda),
     derecha: lado(derecha),
     muralla,
+    combate: COMBATE_COMPLETO,
     equipo: extra.equipo ?? EQUIPO_DEL_JUEGO,
   };
 }
@@ -1531,6 +1536,7 @@ export function peleaDelMotor(
     lado(izquierda, heroes.izquierda),
     lado(derecha, heroes.derecha),
     rng,
+    COMBATE_COMPLETO,
     muralla,
   );
 }
@@ -1545,7 +1551,7 @@ export function sesionDeArena(
   izquierda: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   derecha: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
   semilla: number,
-  o: { readonly muralla?: MurallaDeBatalla } = {},
+  o: { readonly muralla?: MurallaDeBatalla; readonly combate?: ReglasDelCombate } = {},
 ): SesionDeArena {
   const lado = (puestos: readonly (PuestoDeLaPelea & { readonly ia: boolean })[]) => {
     const ia = puestos.every((p) => p.ia);
@@ -1561,6 +1567,7 @@ export function sesionDeArena(
       izquierda: lado(izquierda),
       derecha: lado(derecha),
       ...MONTAJE,
+      combate: o.combate ?? MONTAJE.combate,
       muralla: o.muralla ?? SIN_MURALLA,
     },
     semilla,
@@ -1568,8 +1575,19 @@ export function sesionDeArena(
 }
 
 /**
+ * Un tipo que vale en la rueda de `battle`, para los bucles que la contestan por
+ * contestarla: Normal si la lleva (lo de siempre en estas pruebas); en la de 3, el
+ * primero de su anillo. Con `'normal'` a mano, un bucle con la rueda de 3 se
+ * quedaba contestando un tipo que no es suyo.
+ */
+export function unoDeLaRueda(battle: { readonly rueda: BattleState['rueda'] }): TipoDeGolpe {
+  const forma = formaDeLaBatalla(battle);
+  return golpeNeutro(forma) ?? (forma.golpes[0] as TipoDeGolpe);
+}
+
+/**
  * Juega la sesión hasta que la rueda le pide algo a la persona (`fase`, si se
- * dice; la otra se contesta con Normal y se sigue): si `golpea`, golpea en cuanto
+ * dice; la otra se contesta con `unoDeLaRueda` y se sigue): si `golpea`, golpea en cuanto
  * puede y si no se acerca al enemigo más cercano; si no, se defiende. Siempre
  * igual con la misma semilla. Lo usan las pruebas de la rueda.
  */
@@ -1582,7 +1600,7 @@ export function hastaLaRueda(
     const pendiente = s.ruedaPendiente;
     if (pendiente !== null && (fase === undefined || pendiente.fase === fase)) return;
     if (pendiente !== null) {
-      s.elegirEnLaRueda('normal');
+      s.elegirEnLaRueda(unoDeLaRueda(s.battle));
       continue;
     }
     const turno = s.turnoPropio;

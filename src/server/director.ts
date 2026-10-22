@@ -16,8 +16,9 @@ import {
   mismoTurno,
   pasosQueQuedan,
 } from '@core/battle/battle.js';
-import type { HechoDelCruce } from '@core/battle/rueda.js';
+import { formaDeLaBatalla, type HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleAction, BattleState, Side, TurnoDeUnidad } from '@core/battle/types.js';
+import type { ReglasDelCombate } from '@core/combate.js';
 import {
   serializeAdventureTurn,
   serializeBattleResponse,
@@ -96,6 +97,11 @@ export interface DirectorOptions {
    */
   readonly maxDays?: number | undefined;
   /**
+   * La complejidad del combate (`HEROES_TROPA`, `HEROES_RUEDA`); sin ella, la de
+   * `newGame` (7 / 7).
+   */
+  readonly combate?: ReglasDelCombate;
+  /**
    * Un fotograma: se llama tras CADA acción aplicada, de mapa y de batalla.
    *
    * Existe porque `broadcast()` corría una vez por turno y una batalla se
@@ -155,6 +161,7 @@ export class Director {
       seed,
       ...(options.plan === undefined ? {} : { plan: options.plan }),
       maxDays: options.maxDays,
+      combate: options.combate,
       // Los del agente, por su controlador: el turno de la IA le pasa sus batallas
       // (`ConduccionDelTurno.batallas`) y, si las resuelve ella, no se rinde por él.
       controllers: Object.fromEntries([...this.agentPlayers].map((p) => [p, 'agent' as const])),
@@ -553,7 +560,10 @@ export class Director {
       try {
         // Dentro del `try`: un `hit` que no es un golpe de la rueda descarta esta
         // acción con su motivo (`golpeDelHit`), no la batalla.
-        const accion = accionDeBatallaDelAgente(respuesta.data.action as AccionDeBatallaDelAgente);
+        const accion = accionDeBatallaDelAgente(
+          respuesta.data.action as AccionDeBatallaDelAgente,
+          formaDeLaBatalla(battle),
+        );
         await this.conLaRueda(battle, accion, bandos);
         this.frame();
         this.link.report(
@@ -634,7 +644,7 @@ export class Director {
       battle,
       accion,
       rng,
-      (side, papel) => papel === 'golpe' || !bandos.has(side),
+      (quien, papel) => papel === 'golpe' || !bandos.has(quien.side),
     );
     if ('lista' in paso) {
       applyAction(battle, paso.lista, rng);
@@ -683,19 +693,27 @@ export class Director {
         return null;
       });
     if (respuesta === null) {
-      return { tipo: elegirEnLaRueda('respuesta', rng), requestId: null, motivo: null };
+      return {
+        tipo: elegirEnLaRueda('respuesta', rng, formaDeLaBatalla(battle)),
+        requestId: null,
+        motivo: null,
+      };
     }
     if (respuesta.data.reasoning !== undefined) this.note(`Agente: ${respuesta.data.reasoning}`);
     try {
       return {
-        tipo: golpeDelHit(respuesta.data.response),
+        tipo: golpeDelHit(respuesta.data.response, formaDeLaBatalla(battle)),
         requestId: respuesta.requestId,
         motivo: null,
       };
     } catch (err) {
       const motivo = err instanceof Error ? err.message : String(err);
       this.note(`Respuesta de la rueda rechazada: ${motivo}`);
-      return { tipo: elegirEnLaRueda('respuesta', rng), requestId: respuesta.requestId, motivo };
+      return {
+        tipo: elegirEnLaRueda('respuesta', rng, formaDeLaBatalla(battle)),
+        requestId: respuesta.requestId,
+        motivo,
+      };
     }
   }
 

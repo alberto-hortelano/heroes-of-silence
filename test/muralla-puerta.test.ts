@@ -4,6 +4,7 @@
  * nadie que ande y abierta cualquiera, la abre o la cierra quien defiende al
  * principio del turno de una unidad suya sin gastarlo, y la IA la usa.
  */
+
 import { describe, expect, it } from 'vitest';
 import {
   alzadoDeLaMuralla,
@@ -37,6 +38,7 @@ import {
   validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack } from '../src/core/types.js';
 import { describeAccion } from '../src/server/notas.js';
@@ -70,6 +72,7 @@ function duelo(
     lado([{ creature: atacante[0], count: 3 }]),
     lado(defensores.map(([creature]) => ({ creature, count: 3 }))),
     createRng(3),
+    COMBATE_COMPLETO,
     muralla,
   );
   stackById(state, 'attacker-0').hex = atacante[1];

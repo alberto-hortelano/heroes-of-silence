@@ -216,7 +216,15 @@
 .disco .sector[data-veta="mesa"] {
   fill: var(--rueda-mesa);
 }
+/* Con un número impar de sectores (la rueda de 3), el último lleva una tercera
+   veta, la de la pista del medidor: si no, quedaría igual que el primero y pegado
+   a él. */
+.disco .sector[data-veta="tercera"] {
+  fill: var(--rueda-pista);
+}
 .disco .sector.centro { fill: var(--rueda-centro); }
+/* La rueda de 3 no tiene Normal: el centro es madera, sin botón. */
+.disco .sin-centro { fill: var(--rueda-centro); }
 .disco .radio { stroke: var(--rueda-radio); stroke-width: 1; }
 .disco .aro-de-dentro { fill: none; stroke: var(--gold); stroke-width: 2; }
 
@@ -280,7 +288,8 @@
   transition: transform 140ms;
 }
 .sector-de-rueda .icono path:first-child { fill: currentColor; fill-opacity: 0.22; }
-.sector-de-rueda[data-sector="finta"] .icono path { fill: none; }
+.sector-de-rueda[data-sector="finta"] .icono path,
+.sector-de-rueda .icono [data-parte="finta"] path { fill: none; }
 .sector-de-rueda button:focus-visible .icono,
 #rueda:not([data-quieta]) .sector-de-rueda button:hover .icono { transform: scale(1.14); }
 .sector-de-rueda .nombre {
@@ -333,12 +342,18 @@
 #rueda:not([data-quieta]) .rueda:has([data-golpe="romperGuardia"]:hover) .sector[data-sector="romperGuardia"],
 #rueda:not([data-quieta]) .rueda:has([data-golpe="ofensivo"]:hover) .sector[data-sector="ofensivo"],
 #rueda:not([data-quieta]) .rueda:has([data-golpe="normal"]:hover) .sector[data-sector="normal"],
+#rueda:not([data-quieta]) .rueda:has([data-golpe="ofensivoFuerte"]:hover) .sector[data-sector="ofensivoFuerte"],
+#rueda:not([data-quieta]) .rueda:has([data-golpe="defensivoFinta"]:hover) .sector[data-sector="defensivoFinta"],
+#rueda:not([data-quieta]) .rueda:has([data-golpe="rapidoRomper"]:hover) .sector[data-sector="rapidoRomper"],
 .rueda:has([data-golpe="rapido"]:focus-visible) .sector[data-sector="rapido"],
 .rueda:has([data-golpe="defensivo"]:focus-visible) .sector[data-sector="defensivo"],
 .rueda:has([data-golpe="finta"]:focus-visible) .sector[data-sector="finta"],
 .rueda:has([data-golpe="fuerte"]:focus-visible) .sector[data-sector="fuerte"],
 .rueda:has([data-golpe="romperGuardia"]:focus-visible) .sector[data-sector="romperGuardia"],
 .rueda:has([data-golpe="ofensivo"]:focus-visible) .sector[data-sector="ofensivo"],
+.rueda:has([data-golpe="ofensivoFuerte"]:focus-visible) .sector[data-sector="ofensivoFuerte"],
+.rueda:has([data-golpe="defensivoFinta"]:focus-visible) .sector[data-sector="defensivoFinta"],
+.rueda:has([data-golpe="rapidoRomper"]:focus-visible) .sector[data-sector="rapidoRomper"],
 .rueda:has([data-golpe="normal"]:focus-visible) .sector[data-sector="normal"] {
   fill: var(--rueda-sector-encima);
   stroke: var(--gold);

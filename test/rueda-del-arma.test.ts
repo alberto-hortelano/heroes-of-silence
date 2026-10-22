@@ -27,7 +27,12 @@ import {
 } from '../src/core/battle/battle.js';
 import { cifrasDeLosNiveles, validarRueda } from '../src/core/battle/cifras-de-la-rueda.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { efectoDeGolpe, filasDeLaRueda, ruedaDelArmaEnPalabras } from '../src/core/battle/rueda.js';
+import {
+  efectoDeGolpe,
+  filasDeLaRueda,
+  RUEDAS,
+  ruedaDelArmaEnPalabras,
+} from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { unidad } from '../src/core/catalogo.js';
 import type { Pieza, PiezaEscrita } from '../src/core/data.js';
@@ -260,14 +265,14 @@ describe('las cifras de la rueda por niveles', () => {
   it('las notas de la rueda dicen las cifras del arma de quien elige; Normal, sin modificar', () => {
     if (MAZA.rueda === undefined) throw new Error('la maza no lleva rueda');
     const c = cifrasDeLosNiveles(MAZA.rueda);
-    expect(efectoDeGolpe('fuerte', 'golpe', true, c)).toBe('Daño ×1,83.');
-    expect(efectoDeGolpe('rapido', 'respuesta', true, c)).toContain(
+    expect(efectoDeGolpe('fuerte', 'golpe', true, c, RUEDAS[7])).toBe('Daño ×1,83.');
+    expect(efectoDeGolpe('rapido', 'respuesta', true, c, RUEDAS[7])).toContain(
       'contraatacas con 2 golpes de daño ×0,38 cada uno',
     );
-    expect(efectoDeGolpe('romperGuardia', 'golpe', true, c)).toContain(
+    expect(efectoDeGolpe('romperGuardia', 'golpe', true, c, RUEDAS[7])).toContain(
       '−5 con éxito máximo, −3 alto, −2 medio, −1 bajo, nada mínimo',
     );
-    expect(efectoDeGolpe('normal', 'golpe', true, c)).toBe(
+    expect(efectoDeGolpe('normal', 'golpe', true, c, RUEDAS[7])).toBe(
       'Sin modificar. Contra cualquiera, el cruce cae en el medio.',
     );
   });
@@ -298,14 +303,14 @@ describe('cada golpe de la rueda va con su arma', () => {
     const llana = prevista(MAZA_LISA.id);
     expect(maza.rueda.fuerte.porcentaje).toBe(183);
     expect(llana.rueda).toEqual(cifrasDeLosNiveles(nivelesDeLaEspada()));
-    expect(maza.porTipo?.fuerte.danio.max).toBeGreaterThan(llana.porTipo?.fuerte.danio.max ?? 0);
-    expect(maza.porTipo?.rapido.danio.max).toBeLessThan(llana.porTipo?.rapido.danio.max ?? 0);
-    expect(maza.porTipo?.normal.danio).toEqual(llana.porTipo?.normal.danio);
+    expect(maza.porTipo?.fuerte?.danio.max).toBeGreaterThan(llana.porTipo?.fuerte?.danio.max ?? 0);
+    expect(maza.porTipo?.rapido?.danio.max).toBeLessThan(llana.porTipo?.rapido?.danio.max ?? 0);
+    expect(maza.porTipo?.normal?.danio).toEqual(llana.porTipo?.normal?.danio);
     // Y lo que cae está en lo previsto.
     const b = pelea(guerreroCon('maza'), unidadDeArena(TROPA));
     const previsto = previsionDeLaRueda(b, { type: 'attack', target: 'defender-0' }, 'golpe');
     const [golpe] = dar(b, 'fuerte', 'normal').golpe;
-    const h = previsto.porTipo?.fuerte.danio;
+    const h = previsto.porTipo?.fuerte?.danio;
     expect(golpe?.damage).toBeGreaterThanOrEqual(h?.min ?? Number.POSITIVE_INFINITY);
     expect(golpe?.damage).toBeLessThanOrEqual(h?.max ?? 0);
   });
@@ -352,11 +357,11 @@ describe('cada golpe de la rueda va con su arma', () => {
     // La lanza: Rápido nivel 1 → 38 % en el primero; el segundo, sin carga y con
     // la espada (nivel 3), a 63 % los dos.
     expect(con.previsto.rueda.rapido.porcentaje).toBe(38);
-    expect(con.previsto.porTipo?.rapido.danio.max).toBeLessThan(
-      sin.previsto.porTipo?.rapido.danio.max ?? 0,
+    expect(con.previsto.porTipo?.rapido?.danio.max).toBeLessThan(
+      sin.previsto.porTipo?.rapido?.danio.max ?? 0,
     );
-    expect(con.previsto.porTipo?.rapido.siguientes).toEqual(
-      sin.previsto.porTipo?.rapido.siguientes,
+    expect(con.previsto.porTipo?.rapido?.siguientes).toEqual(
+      sin.previsto.porTipo?.rapido?.siguientes,
     );
     expect(con.golpes).toHaveLength(2);
     expect(con.golpes[0]?.damage).toBeLessThan(sin.golpes[0]?.damage ?? 0);

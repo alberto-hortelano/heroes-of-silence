@@ -1,5 +1,6 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
 import { unidadesDeMorada } from '../catalogo.js';
+import { COMBATE_COMPLETO, cupoDelHeroe, type ReglasDelCombate } from '../combate.js';
 import { tipoDeHeroePorDefecto } from '../data.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
@@ -10,7 +11,7 @@ import {
   maxMana,
   maxMovePoints,
 } from '../hero/hero.js';
-import { CUPO_HEROE, heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
+import { heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
 import {
   basesDelPlan,
   buildMap,
@@ -67,6 +68,12 @@ export interface NewGameOptions {
    * los tipos den habilidades: cambia la figura del héroe, no la partida.
    */
   readonly tipoDelHeroe?: string | undefined;
+  /**
+   * La complejidad del combate (`?tropa=`, `?rueda=`, `HEROES_TROPA`,
+   * `HEROES_RUEDA`): el tope de tropa por bando y la rueda. Sin ella, la de
+   * siempre (`COMBATE_COMPLETO`, 7 / 7). No cambia el mapa: misma semilla, mismo mapa.
+   */
+  readonly combate?: ReglasDelCombate | undefined;
 }
 
 /**
@@ -120,6 +127,12 @@ const DE_LA_SEGUNDA = 2;
 const TOPE_DE_SALIDA = heroLeadership({ experience: EXPERIENCIA_INICIAL_DE_HEROE });
 
 /**
+ * El cupo con que se comprueba al cargar que el ejército de salida cabe: el del
+ * tope de siempre (el más alto). Con un tope menor, `startingArmy` lo recorta.
+ */
+const CUPO_DE_SALIDA = cupoDelHeroe(COMBATE_COMPLETO.tope);
+
+/**
  * Las dos primeras unidades del pueblo de cada facción (la morada del sitio 1,
  * `sitioDe`), **comprobadas al cargar** como las guarniciones: la primera, con su
  * tirada más alta, cabe siempre en el liderazgo y el cupo de un héroe recién hecho,
@@ -137,12 +150,12 @@ const PUEBLO_DE_SALIDA: Readonly<
       throw new Error(`el pueblo de ${f} no cría ninguna unidad: no hay ejército de salida`);
     }
     const lleno = withTroops([], primera.id, DE_LA_PRIMERA.max);
-    if (troopRoom([], TOPE_DE_SALIDA, CUPO_HEROE, primera.id) < DE_LA_PRIMERA.max) {
+    if (troopRoom([], TOPE_DE_SALIDA, CUPO_DE_SALIDA, primera.id) < DE_LA_PRIMERA.max) {
       throw new Error(
         `${DE_LA_PRIMERA.max} × ${primera.name} (el ejército de salida de ${f}) no caben en el liderazgo de un héroe recién hecho (${TOPE_DE_SALIDA})`,
       );
     }
-    if (segunda !== undefined && troopRoom(lleno, TOPE_DE_SALIDA, CUPO_HEROE, segunda.id) < 1) {
+    if (segunda !== undefined && troopRoom(lleno, TOPE_DE_SALIDA, CUPO_DE_SALIDA, segunda.id) < 1) {
       throw new Error(
         `tras ${DE_LA_PRIMERA.max} × ${primera.name}, en el ejército de salida de ${f} no cabe ningún ${segunda.name}`,
       );
@@ -157,21 +170,35 @@ const PUEBLO_DE_SALIDA: Readonly<
  * tras ella en un héroe recién hecho (`troopRoom`): el pueblo de los orkos cría
  * dos unidades de 4 de liderazgo, y cuatro y dos serían 24 de 20 (lo cazó
  * `tropa.test.ts`, 19-10-2026). Lo que siempre tiene que caber se comprueba al
- * cargar (`PUEBLO_DE_SALIDA`). Una sola tirada del `rng`.
+ * cargar (`PUEBLO_DE_SALIDA`). Una sola tirada del `rng`, también con un tope de
+ * tropa menor (`topeDeTropa`, el de la partida): la misma tirada, recortada a lo
+ * que quepa (con tope 3, dos de la primera y ninguno de la segunda), para que la
+ * semilla gaste lo mismo con cualquier tope.
  */
-export function startingArmy(faction: FactionId, rng: Rng): Hero['army'] {
+export function startingArmy(
+  faction: FactionId,
+  rng: Rng,
+  topeDeTropa: number = COMBATE_COMPLETO.tope,
+): Hero['army'] {
   const { primera, segunda } = PUEBLO_DE_SALIDA[faction];
-  const army = withTroops([], primera, rng.int(DE_LA_PRIMERA.min, DE_LA_PRIMERA.max));
+  const cupo = cupoDelHeroe(topeDeTropa);
+  const tirada = rng.int(DE_LA_PRIMERA.min, DE_LA_PRIMERA.max);
+  const army = withTroops(
+    [],
+    primera,
+    Math.min(tirada, troopRoom([], TOPE_DE_SALIDA, cupo, primera)),
+  );
   if (segunda === null) return army;
   return withTroops(
     army,
     segunda,
-    Math.min(DE_LA_SEGUNDA, troopRoom(army, TOPE_DE_SALIDA, CUPO_HEROE, segunda)),
+    Math.min(DE_LA_SEGUNDA, troopRoom(army, TOPE_DE_SALIDA, cupo, segunda)),
   );
 }
 
 export function newGame(options: NewGameOptions = {}): GameState {
   const seed = options.seed ?? 1;
+  const combate = options.combate ?? COMBATE_COMPLETO;
   const rng = createRng(seed);
 
   const plan =
@@ -219,7 +246,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
         tipo: tipo ?? tipoDeHeroePorDefecto(faction),
       }),
       ...CIFRAS_DEL_HEROE_INICIAL,
-      army: startingArmy(faction, rng),
+      army: startingArmy(faction, rng, combate.tope),
       spells: ['magic_arrow'],
       // Sabiduría 1 sube el tope a nivel 3. Hoy no muerde —sin `mage_guild_3`
       // no hay hechizo de nivel 3 que ofrecer—, pero deja la puerta leída y
@@ -242,6 +269,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
   return createGame({
     seed,
     maxDays: options.maxDays ?? MAX_DAYS_POR_DEFECTO,
+    combate,
     map,
     players,
     heroes,

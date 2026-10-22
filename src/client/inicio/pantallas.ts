@@ -6,10 +6,13 @@
  * o su descripción del cuaderno, el héroe con que se empieza y la hoja de su
  * retrato): aquí no se decide nada. Lo conduce `inicio.ts`.
  */
+
+import type { ReglasDelCombate } from '@core/combate.js';
 import { figuraDelHeroe, rasgoDeFaccion, tiposDeHeroe } from '@core/data.js';
 import { nombreDeSalida } from '@core/state/setup.js';
 import { FACTION_IDS, type FactionId, NOMBRE_DE_FACCION } from '@core/types.js';
 import { type Html, html, NADA, srcDeImagen, unir } from '../html.js';
+import { selectoresDelCombate } from '../views/combate.js';
 
 /** Por qué «Cargar partida» no hace nada: no hay guardado (fuera de alcance, 19-10-2026). */
 const SIN_PARTIDAS = 'Aún no hay partidas guardadas.';
@@ -43,16 +46,23 @@ function opcionDeFaccion(f: FactionId, elegida: FactionId): Html {
 
 /**
  * La elección de facción: las cinco del juego, una marcada (`elegida`). Marcarla
- * viste la página con su tema (`inicio.ts`); pasar el puntero, no.
+ * viste la página con su tema (`inicio.ts`); pasar el puntero, no. Debajo, la
+ * complejidad del combate (`selectoresDelCombate`, 22-10-2026), con `combate` y
+ * «Solo la rueda del héroe» (`soloHeroe`).
  * «Siguiente» lleva a la elección del héroe.
  */
-export function renderEleccion(elegida: FactionId): Html {
+export function renderEleccion(
+  elegida: FactionId,
+  combate: ReglasDelCombate,
+  soloHeroe: boolean,
+): Html {
   return html`<form class="eleccion-de-faccion" data-inicio="eleccion">
     <h1 class="titulo-de-inicio">Elige tu facción</h1>
     <fieldset class="facciones">
       <legend>Facción</legend>
       ${unir(FACTION_IDS.map((f) => opcionDeFaccion(f, elegida)))}
     </fieldset>
+    ${selectoresDelCombate(combate, soloHeroe)}
     <div class="botones-de-inicio">
       <button type="button" data-inicio="volver">Volver</button>
       <button type="submit" class="primary" data-inicio="siguiente">Siguiente</button>

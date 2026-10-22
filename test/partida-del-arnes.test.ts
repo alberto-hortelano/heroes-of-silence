@@ -36,12 +36,12 @@ function turno(acciones: readonly string[] = [], raiders = 0, equipado = false):
   };
 }
 
-function batalla(turnId: number, accion: string): Peticion {
+function batalla(turnId: number, accion: string, hit?: string): Peticion {
   return {
     requestId: id(),
     kind: 'battle_turn',
     payload: { turnId },
-    respuesta: { action: { type: accion } },
+    respuesta: { action: hit === undefined ? { type: accion } : { type: accion, hit } },
   };
 }
 
@@ -64,7 +64,7 @@ function completa(): Peticion[] {
     turno(['build', 'move_hero'], 1),
     batalla(4, 'move'),
     batalla(4, 'move'),
-    batalla(5, 'attack'),
+    batalla(5, 'attack', 'strong'),
     respuesta(),
     respuesta(),
     ascenso(),
@@ -124,6 +124,24 @@ describe('lo que pnpm qa necesita ver (#131)', () => {
     // La segunda, la última: su veredicto no le llega a nadie.
     expect(faltaParaElArnes(p.slice(0, 6), 3)).toContain(falta);
     expect(faltaParaElArnes(p.slice(0, 7), 3)).not.toContain(falta);
+  });
+
+  it('el golpe del agente: un «attack» con su «hit» y una petición después (QA de la complejidad, vuelta 2)', () => {
+    // `pnpm qa` exige que un `attack` entre con su `hit` (`exigeLaRueda`): con tope
+    // 3 la semilla 1 salía buscada sin ningún golpe del agente y el arnés daba rojo.
+    const falta =
+      'un «attack» del agente con su «hit», con una petición después para ver su veredicto';
+    const p = completa();
+    expect(faltaParaElArnes(p, 3)).not.toContain(falta);
+    // Sin `hit` (lo elegiría la IA), no vale.
+    p[3] = batalla(5, 'attack');
+    expect(faltaParaElArnes(p, 3)).toEqual([falta]);
+    // Ni un `defend`, ni un golpe que sea la última petición.
+    p[3] = batalla(5, 'defend');
+    expect(faltaParaElArnes(p, 3)).toEqual([falta]);
+    expect(faltaParaElArnes([turno(['dismiss']), batalla(5, 'attack', 'strong')], 3)).toContain(
+      falta,
+    );
   });
 
   it('sin asaltantes en ningún knownMap, falta', () => {

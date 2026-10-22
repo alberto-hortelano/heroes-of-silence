@@ -8,25 +8,36 @@
  */
 import { activeStack, plantarse, stackById } from '../battle/battle.js';
 import {
+  type FormaDeLaRueda,
+  formaDeLaBatalla,
   type PapelEnLaRueda,
   PESOS_DE_LA_RUEDA,
-  TIPOS_DE_GOLPE,
   type TipoDeGolpe,
 } from '../battle/rueda.js';
-import type { BattleAction, BattleState, Side } from '../battle/types.js';
+import type { BattleAction, BattleStack, BattleState, Side } from '../battle/types.js';
 import { type Rng, sortearPorPesos } from '../rng.js';
 
-/** Un tipo al azar con los pesos de su papel: una tirada de `rng.int`. */
-export function elegirEnLaRueda(papel: PapelEnLaRueda, rng: Rng): TipoDeGolpe {
+/**
+ * Un tipo al azar de la rueda `forma`, con los pesos de su papel: una tirada de
+ * `rng.int`. Solo entre los de su rueda: con la de 7, la lista y los pesos de
+ * siempre, y el `Rng` gasta lo mismo.
+ */
+export function elegirEnLaRueda(
+  papel: PapelEnLaRueda,
+  rng: Rng,
+  forma: FormaDeLaRueda,
+): TipoDeGolpe {
   const pesos = PESOS_DE_LA_RUEDA[papel];
-  return sortearPorPesos(rng, TIPOS_DE_GOLPE, (t) => pesos[t]);
+  return sortearPorPesos(rng, forma.golpes, (t) => pesos[t]);
 }
 
 /**
  * Quién elige cada papel de la rueda: `true` si la IA, a ciegas; si no, se espera
- * (la persona, el agente). Recibe el papel y el bando que lo elige.
+ * (la persona, el agente). Recibe **el stack** que elige —quien pega o el
+ * golpeado— y su papel: así la persona puede llevar solo la rueda de su héroe
+ * («Solo la rueda del héroe», 22-10-2026) y dejar la de su tropa a la IA.
  */
-export type LaIAElige = (side: Side, papel: PapelEnLaRueda) => boolean;
+export type LaIAElige = (quien: BattleStack, papel: PapelEnLaRueda) => boolean;
 
 /**
  * Lo que sale de completar un golpe en la rueda: la acción lista para darse
@@ -57,24 +68,25 @@ export function completarCruce(
   laIAElige: LaIAElige = () => true,
 ): CruceCompletado {
   if (accion.type !== 'attack') return { falta: null, accion };
-  const bando = bandosDeLaRueda(state, accion);
+  const quien = quienesEligen(state, accion);
+  const forma = formaDeLaBatalla(state);
   let completa = accion;
   for (const papel of ['golpe', 'respuesta'] as const) {
     if (completa[papel] !== undefined) continue;
-    if (!laIAElige(bando[papel], papel)) return { falta: papel, accion: completa };
-    completa = { ...completa, [papel]: elegirEnLaRueda(papel, rng) };
+    if (!laIAElige(quien[papel], papel)) return { falta: papel, accion: completa };
+    completa = { ...completa, [papel]: elegirEnLaRueda(papel, rng, forma) };
   }
   return { falta: null, accion: completa };
 }
 
-/** Quién elige cada papel: el golpe, el bando del que pega; la respuesta, el del objetivo. */
-function bandosDeLaRueda(
+/** Quién elige cada papel: el golpe, el que pega; la respuesta, el objetivo. */
+function quienesEligen(
   state: BattleState,
   accion: AtaqueEnLaRueda,
-): Readonly<Record<PapelEnLaRueda, Side>> {
+): Readonly<Record<PapelEnLaRueda, BattleStack>> {
   const atacante = activeStack(state);
   if (atacante === null) throw new Error('un golpe en la rueda sin nadie a quien le toque');
-  return { golpe: atacante.side, respuesta: stackById(state, accion.target).side };
+  return { golpe: atacante, respuesta: stackById(state, accion.target) };
 }
 
 /**
@@ -100,7 +112,7 @@ export function pasoDelCruce(
     } {
   const c = completarCruce(state, accion, rng, laIAElige);
   if (c.falta === null) return { lista: c.accion };
-  const bando = bandosDeLaRueda(state, c.accion)[c.falta];
+  const bando = quienesEligen(state, c.accion)[c.falta].side;
   const { from, ...espera } = c.accion;
   // La segunda fase (una respuesta tras un golpe elegido) ya está plantada.
   if (state.golpeEnCurso === null) {

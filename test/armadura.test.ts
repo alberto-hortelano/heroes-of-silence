@@ -8,6 +8,7 @@
  * unidades son el cuerpo común de la arena (3 / 3, 10–10, 80 PV) con lo que se
  * diga; donde el daño no es fijo, el dado va cargado en una punta (`dadoCargado`).
  */
+
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
@@ -34,6 +35,7 @@ import {
 import { expectedDamage, herir } from '../src/core/battle/damage.js';
 import { delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { type Pieza, problemasDePieza, validarPieza } from '../src/core/data.js';
 import { cifrasDePieza, EQUIPO_DEL_JUEGO, pieza, sumaDeEquipo } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
@@ -81,6 +83,7 @@ function frente(
     bandoDe([{ id: 'quien', unit: quien }]),
     bandoDe(contra.map((unit, i) => ({ id: `contra-${i}`, unit }))),
     createRng(1),
+    COMBATE_COMPLETO,
   );
   // En la rueda se golpea con un arma: las manos de prueba, con los niveles de la
   // Espada y sin cifras.
@@ -245,6 +248,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
       bando([{ creature: 'templario-mandoble', count: 5 }], { heroe }),
       bandoDe([{ id: 'muneco', unit: muneco }]),
       createRng(1),
+      COMBATE_COMPLETO,
     );
     b.turno = { n: 1000, stack: 'attacker-0', gastado: 0 };
     // La barra lo dice como el golpe (A1 de QA): el daño que llega y lo que para.
@@ -360,6 +364,7 @@ describe('una pieza con PV no vale: ni se convierte ni se avisa (14-10-2026)', (
       izquierda: lado(guerrero.id, false),
       derecha: lado('goblin-arquero', true),
       muralla: null,
+      combate: COMBATE_COMPLETO,
     };
     const o = JSON.parse(montajeALaURL(ENLACE));
     expect(o.v).toBe(VERSION_DEL_ENLACE);

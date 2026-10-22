@@ -13,8 +13,10 @@ import { describe, expect, it } from 'vitest';
 import { armyPower, fuerzaDe, unitPower } from '../src/core/ai/fuerza.js';
 import { planRecruits } from '../src/core/ai/strategy.js';
 import { playAiGame } from '../src/core/ai/turn.js';
+import { createBattle } from '../src/core/battle/battle.js';
 import { allHexes, BOARD_HEIGHT, bandoDeSalida } from '../src/core/battle/board.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { marchaALaEscala } from '../src/core/escala.js';
@@ -22,8 +24,6 @@ import { RANGO_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js'
 import { maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import {
   armyLeadership,
-  CUPO_GUARNICION,
-  CUPO_HEROE,
   GARRISON_LEADERSHIP,
   heroLeadership,
   troopBlocker,
@@ -58,6 +58,10 @@ import {
   TROPA,
   TROPA_BARATA,
 } from './helpers.js';
+
+/** Los cupos con el tope de siempre (7): un héroe lleva 6 y una guarnición 7. */
+const CUPO_HEROE = cupoDelHeroe(COMBATE_COMPLETO.tope);
+const CUPO_GUARNICION = COMBATE_COMPLETO.tope;
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -326,9 +330,10 @@ describe('los datos garantizan que lo que cabe en un bando cabe en el tablero', 
     }
     expect(LIDERAZGO.maxPorBando).toBeLessThanOrEqual(BOARD_HEIGHT);
     expect(Number.isInteger(LIDERAZGO.maxPorBando)).toBe(true);
-    // Y un héroe deja sitio para algo de tropa: si no, el cupo sería 0.
-    expect(CUPO_HEROE).toBe(LIDERAZGO.maxPorBando - 1);
-    expect(CUPO_HEROE).toBeGreaterThan(0);
+    // Y con cada tope que se puede elegir, un héroe deja sitio para algo de
+    // tropa: si no, el cupo sería 0. El mayor es el de siempre y el techo.
+    for (const tope of LIDERAZGO.topesPorBando) expect(cupoDelHeroe(tope)).toBeGreaterThan(0);
+    expect(LIDERAZGO.topesPorBando.at(-1)).toBe(LIDERAZGO.maxPorBando);
     expect(CUPO_GUARNICION).toBe(LIDERAZGO.maxPorBando);
   });
 
@@ -636,5 +641,95 @@ describe('`recruitCapacity`: lo máximo que el núcleo acepta, ni uno más ni un
     // Que las dos ramas se ejerzan de verdad: si no, el test no prueba el `while`.
     expect(topadoPorLiderazgo).toBeGreaterThan(0);
     expect(topadoPorOro).toBeGreaterThan(0);
+  });
+});
+
+describe('el tope de tropa de la partida (complejidad del combate, 22-10-2026)', () => {
+  const TRES = { tope: 3, rueda: 7 } as const;
+
+  it('con tope 3, un héroe lleva 2: reclutar el tercero falla diciendo «ya lleva 2 de 2»', () => {
+    const state = newGame({ seed: SEMILLA, combate: TRES });
+    expect(state.combate).toEqual(TRES);
+    const hero = heroesOf(state, 0)[0]!;
+    const town = townsOf(state, 0)[0]!;
+    hero.at = { ...town.at };
+    hero.army = ejercito({ creature: RECLUTA, count: 2 });
+    town.available[RECLUTA] = 50;
+    expect(() =>
+      applyAdventureAction(
+        state,
+        { type: 'recruit', town: town.id, creature: RECLUTA, count: 1 },
+        ctx(SEMILLA),
+        0,
+      ),
+    ).toThrow('no se puede reclutar: no cabe: el ejército ya lleva 2 de 2 individuos');
+  });
+
+  it('el ejército de salida cabe en cada tope, con la misma tirada', () => {
+    for (const f of FACTION_IDS) {
+      for (const tope of LIDERAZGO.topesPorBando) {
+        const rng = createRng(11);
+        const army = startingArmy(f, rng, tope);
+        expect(army.length, `${f} con tope ${tope}`).toBeLessThanOrEqual(cupoDelHeroe(tope));
+        expect(army.length, `${f} con tope ${tope}`).toBeGreaterThan(0);
+        // La misma tirada con cualquier tope: el azar de después no se mueve.
+        expect(rng.int(0, 1_000_000)).toBe(
+          (() => {
+            const otro = createRng(11);
+            startingArmy(f, otro);
+            return otro.int(0, 1_000_000);
+          })(),
+        );
+      }
+    }
+  });
+
+  it('lo neutral nace en el tope de la partida, y el mapa es el mismo que con 7', () => {
+    for (const seed of [1, 2]) {
+      const siete = newGame({ seed });
+      const tres = newGame({ seed, combate: TRES });
+      // El mapa no depende del tope: misma semilla, mismo mapa (los monstruos, con su cuenta aparte).
+      const sinCuentas = (s: typeof siete) =>
+        JSON.stringify({
+          ...s.map,
+          objects: s.map.objects.map((o) => (o.kind === 'monster' ? { ...o, count: 0 } : o)),
+        });
+      expect(sinCuentas(tres)).toBe(sinCuentas(siete));
+      for (const t of tres.towns) expect(t.garrison.length, t.name).toBeLessThanOrEqual(3);
+      for (const o of tres.map.objects) {
+        if (o.kind === 'monster') expect(o.count, o.id).toBeLessThanOrEqual(3);
+      }
+      for (const r of tres.raiders) {
+        expect(
+          r.troops.reduce((n, g) => n + g.count, 0),
+          r.id,
+        ).toBeLessThanOrEqual(3);
+      }
+      // Con 7, lo de siempre: alguno lleva más de 3.
+      expect(
+        siete.towns.some((t) => t.garrison.length > 3) ||
+          siete.map.objects.some((o) => o.kind === 'monster' && o.count > 3),
+      ).toBe(true);
+    }
+  });
+
+  it('una batalla con el tope de 3 no monta un bando de 4, y uno que no se puede elegir tampoco', () => {
+    const cuatro = {
+      army: [
+        { creature: RECLUTA, count: 1 },
+        { creature: RECLUTA, count: 1 },
+        { creature: RECLUTA, count: 1 },
+        { creature: RECLUTA, count: 1 },
+      ],
+      hero: null,
+    };
+    const uno = { army: [{ creature: RECLUTA, count: 1 }], hero: null };
+    expect(() => createBattle(cuatro, uno, createRng(1), TRES)).toThrow(
+      'no caben: el atacante trae 4 y un bando lleva como mucho 3',
+    );
+    expect(() => createBattle(uno, uno, createRng(1), { tope: 4, rueda: 7 })).toThrow(
+      'no se puede montar la batalla: «4» no es un tope de tropa: valen 3, 5 o 7',
+    );
+    expect(createBattle(uno, uno, createRng(1), TRES).rueda).toBe(7);
   });
 });

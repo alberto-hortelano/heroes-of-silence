@@ -24,6 +24,7 @@
  */
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { createBattle } from '../../src/core/battle/battle.js';
+import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import { createRng } from '../../src/core/rng.js';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 import { ejercitoDe, tropaDe } from './ejercitos.js';
@@ -51,6 +52,7 @@ for (let i = 1; i <= BATALLAS; i++) {
     { army: ejercito, hero: null },
     { army: ejercito.map((s) => ({ ...s })), hero: null },
     rng,
+    COMBATE_COMPLETO,
   );
   const r = autoResolve(estado, rng);
   if (r.winner === 'attacker') atacante++;

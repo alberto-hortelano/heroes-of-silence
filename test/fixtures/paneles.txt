@@ -197,7 +197,7 @@
         </div></div>
     <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div></div>
 ### batalla · en marcha · renderActions
-<button data-action="auto-battle">Resolver sola</button>
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><button data-action="auto-battle">Resolver sola</button>
 ### batalla · en marcha · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · terminada · renderTopbar.resources
@@ -390,7 +390,7 @@
         </div></div>
     <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div></div>
 ### batalla · turno del enemigo · renderActions
-<button data-action="auto-battle">Resolver sola</button>
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><button data-action="auto-battle">Resolver sola</button>
 ### batalla · turno del enemigo · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · en espera y sin maná · renderTopbar.resources
@@ -463,7 +463,7 @@
         </div></div>
     <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div></div>
 ### batalla · en espera y sin maná · renderActions
-<button data-action="auto-battle">Resolver sola</button>
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><button data-action="auto-battle">Resolver sola</button>
 ### batalla · en espera y sin maná · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · tirador activo · renderTopbar.resources
@@ -524,7 +524,7 @@
         </div></div>
     <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div></div>
 ### batalla · tirador activo · renderActions
-<button data-action="auto-battle">Resolver sola</button>
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><button data-action="auto-battle">Resolver sola</button>
 ### batalla · tirador activo · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · parte de guerra completo · renderTopbar.resources
@@ -608,7 +608,7 @@
         </div></div>
     <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div></div>
 ### batalla · hechizo elegido · renderActions
-<button data-action="auto-battle">Resolver sola</button>
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><button data-action="auto-battle">Resolver sola</button>
 ### batalla · hechizo elegido · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### batalla · héroe sin libro · renderTopbar.resources
@@ -676,7 +676,7 @@
         </div></div>
     <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div></div>
 ### batalla · héroe sin libro · renderActions
-<button data-action="auto-battle">Resolver sola</button>
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><button data-action="auto-battle">Resolver sola</button>
 ### batalla · héroe sin libro · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### castillo · con veteranos · renderTopbar.resources
@@ -746,7 +746,7 @@
         </div></div>
     <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div></div>
 ### batalla · con un veterano · renderActions
-<button data-action="auto-battle">Resolver sola</button>
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><button data-action="auto-battle">Resolver sola</button>
 ### batalla · con un veterano · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### castillo · con armería y tropa equipada · renderTopbar.resources

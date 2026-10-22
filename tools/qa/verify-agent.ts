@@ -45,8 +45,15 @@ import {
   SANGRIA_PROBLEMA,
   type Veredicto,
 } from '../../src/server/notas.js';
-import { entornoDelArnes, semillaDelArnes, TURNOS_DEL_ARNES } from './partida-del-arnes.js';
-import { decidir, FIRMA_DEL_MAPA } from './politica.js';
+import {
+  contestaElArnes,
+  entornoDelArnes,
+  RESPUESTA_MALA,
+  semillaDelArnes,
+  sinTorcidos,
+  TURNOS_DEL_ARNES,
+} from './partida-del-arnes.js';
+import { FIRMA_DEL_MAPA } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 
 const TURNOS = TURNOS_DEL_ARNES;
@@ -109,7 +116,8 @@ const decisionesDeBatalla: {
  * del agente (`hit`) se mira en los veredictos de sus `attack`.
  */
 const rueda: { pedidas: string[]; mala: string | null } = { pedidas: [], mala: null };
-const RESPUESTA_MALA = 'mega';
+/** Lo que el arnés contesta mal a propósito (la respuesta mala y el escudo), apuntado por `contestaElArnes`. */
+const torcidos = sinTorcidos();
 
 /** Qué cambió en la partida por haberlo pedido. `null` = todavía sin comprobar. */
 let cambioAplicado: string | null = null;
@@ -969,21 +977,15 @@ async function main(): Promise<void> {
         );
       }
     }
-    let respuesta = decidir(kind, payload, semilla);
-    // Una vez, el primer turno de mapa con un héroe: quitarle el escudo que no
-    // lleva, con el hueco en inglés. Lo cuenta `exigeElEscudo` con su veredicto.
-    const sinEscudo =
-      kind === 'adventure_turn' && escudo.requestId === null
-        ? (payload.heroes ?? []).find((h: any) => h.equipment?.shield === null)
-        : undefined;
-    if (sinEscudo !== undefined) {
+    // La política, con los dos torcidos a propósito (`contestaElArnes`, la misma
+    // que juega la búsqueda de la semilla): una vez, el primer turno de mapa con
+    // un héroe, quitarle el escudo que no lleva, con el hueco en inglés (lo cuenta
+    // `exigeElEscudo` con su veredicto); y la primera respuesta de la rueda, mala.
+    const yaTorcido = { ...torcidos };
+    const respuesta = contestaElArnes(kind, payload, semilla, torcidos);
+    if (yaTorcido.escudo === null && torcidos.escudo !== null) {
       escudo.requestId = RE_PETICION.exec(texto)?.[1] ?? null;
-      escudo.heroe = String(sinEscudo.id);
-      const { actions } = respuesta as { actions: unknown[] };
-      respuesta = {
-        ...(respuesta as object),
-        actions: [{ type: 'unequip', hero: sinEscudo.id, slot: 'shield' }, ...actions],
-      };
+      escudo.heroe = torcidos.escudo;
     }
     // `map_generate` se cuenta aparte y NO como turno de mapa: mezclarlo movería
     // la cifra del informe y dejaría de ser comparable con los 3 turnos y 9
@@ -1008,10 +1010,7 @@ async function main(): Promise<void> {
       }
       const id = RE_PETICION.exec(texto)?.[1] ?? '';
       rueda.pedidas.push(id);
-      if (rueda.mala === null) {
-        rueda.mala = id;
-        respuesta = { response: RESPUESTA_MALA, reasoning: 'qa: una respuesta que no es un golpe' };
-      }
+      if (!yaTorcido.mala && torcidos.mala) rueda.mala = id;
     } else if (kind === 'map_generate') mapas++;
     else if (kind === 'town_voices') {
       // Tampoco es un turno de mapa: va antes del `adventure_turn`, como el ascenso.

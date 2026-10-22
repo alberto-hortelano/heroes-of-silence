@@ -36,6 +36,7 @@ import {
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
@@ -88,7 +89,13 @@ function duelo(
   enDefensor: Hex,
   turnoDe: 'attacker-0' | 'defender-0' = 'attacker-0',
 ): BattleState {
-  const state = createBattle(deUno(atacante), deUno(defensor), createRng(3), muralla);
+  const state = createBattle(
+    deUno(atacante),
+    deUno(defensor),
+    createRng(3),
+    COMBATE_COMPLETO,
+    muralla,
+  );
   stackById(state, 'attacker-0').hex = en;
   stackById(state, 'defender-0').hex = enDefensor;
   forzarTurno(state, turnoDe);
@@ -197,6 +204,7 @@ describe('validarMuralla', () => {
         lado([{ creature: TROPA_BARATA, count: 1 }]),
         lado([{ creature: TROPA_BARATA, count: 1 }]),
         createRng(1),
+        COMBATE_COMPLETO,
         mala,
       ),
     ).toThrow('fuera del tablero');
@@ -380,8 +388,14 @@ describe('el despliegue esquiva la muralla', () => {
     lado(Array.from({ length: 7 }, () => ({ creature, count: 1 })));
 
   it('sin muralla, el de siempre: pasarla vacía no cambia ni un hex', () => {
-    const sin = createBattle(siete(TROPA_BARATA), siete(NO_MUERTO), createRng(1));
-    const vacia = createBattle(siete(TROPA_BARATA), siete(NO_MUERTO), createRng(1), SIN_MURALLA);
+    const sin = createBattle(siete(TROPA_BARATA), siete(NO_MUERTO), createRng(1), COMBATE_COMPLETO);
+    const vacia = createBattle(
+      siete(TROPA_BARATA),
+      siete(NO_MUERTO),
+      createRng(1),
+      COMBATE_COMPLETO,
+      SIN_MURALLA,
+    );
     expect(vacia.stacks.map((s) => s.hex)).toEqual(sin.stacks.map((s) => s.hex));
     // La instantánea, para que un cambio del orden se vea aquí y no solo en el banco.
     expect(sin.stacks.filter((s) => s.side === 'attacker').map((s) => hexKey(s.hex))).toEqual([
@@ -408,7 +422,13 @@ describe('el despliegue esquiva la muralla', () => {
 
   it('nadie empieza en un muro, tampoco el defensor', () => {
     const m = validarMuralla({ muros: columna(10).filter((h) => h.row !== 4), puertas: [] });
-    const b = createBattle(siete(TROPA_BARATA), siete(TROPA_BARATA), createRng(1), m);
+    const b = createBattle(
+      siete(TROPA_BARATA),
+      siete(TROPA_BARATA),
+      createRng(1),
+      COMBATE_COMPLETO,
+      m,
+    );
     const cerradas = claves(m.muros);
     for (const s of b.stacks) expect(cerradas.has(hexKey(s.hex))).toBe(false);
   });
@@ -425,7 +445,7 @@ describe('el despliegue esquiva la muralla', () => {
     expect(despliegueBlocker(peones, 'attacker', tapia)).toBeNull();
     expect(despliegueBlocker(peones, 'defender', SIN_MURALLA)).toBeNull();
     expect(() =>
-      createBattle(siete(TROPA_BARATA), siete(TROPA_BARATA), createRng(1), tapia),
+      createBattle(siete(TROPA_BARATA), siete(TROPA_BARATA), createRng(1), COMBATE_COMPLETO, tapia),
     ).toThrow('la muralla deja 0 casillas de salida a la derecha y hacen falta 7');
   });
 });
@@ -612,6 +632,7 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
       ]),
       lado([{ creature: TIRADOR, count: 4 }]),
       createRng(7),
+      COMBATE_COMPLETO,
       forma('Línea recta'),
     );
     autoResolve(state, createRng(7));
@@ -649,6 +670,7 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
           { creature: TIRADOR, count: 3 },
         ]),
         createRng(11),
+        COMBATE_COMPLETO,
         forma(nombre),
       );
       autoResolve(state, createRng(11));

@@ -5,6 +5,7 @@
  * sin quitar el turno extra de la moral, la Bendición es suerte +1 y el ataque
  * del héroe no cuenta en su tropa. Se ejercen por el motor.
  */
+
 import { describe, expect, it } from 'vitest';
 import {
   activeStack,
@@ -22,6 +23,7 @@ import {
 } from '../src/core/battle/damage.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidad, unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
 import { cuerpoDeCombate } from '../src/core/unidad.js';
@@ -34,7 +36,7 @@ function batalla(
   semilla = 1,
 ): { b: BattleState; rng: Rng } {
   const rng = createRng(semilla);
-  return { b: createBattle(izquierda, derecha, rng), rng };
+  return { b: createBattle(izquierda, derecha, rng, COMBATE_COMPLETO), rng };
 }
 
 /**

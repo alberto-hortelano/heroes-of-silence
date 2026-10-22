@@ -40,6 +40,7 @@ import {
   type RetoqueDeArena,
   retiradosDeLaURL,
   tipoDelStack,
+  topeDelBandoBlocker,
   unidadNueva,
   validarHeroeDeArena,
 } from '@core/arena.js';
@@ -62,13 +63,13 @@ import {
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import { UNIDADES } from '@core/catalogo.js';
+import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
 import {
   conLosExtras,
   DONDE_SE_CONSIGUE,
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
-  LIDERAZGO,
   type Pieza,
   type PiezaEscrita,
   validarPieza,
@@ -117,6 +118,7 @@ import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { aLaBarra, semillaSorteada } from '../semilla.js';
 import { type LadoDeSesion, SesionDeArena, unaOElegir } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
+import { leerElCombate, selectoresDelCombate } from '../views/combate.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
 import {
@@ -177,6 +179,8 @@ const elSide = document.getElementById('side') as HTMLElement;
 const elFicha = document.getElementById('ficha') as HTMLElement;
 const elCatalogo = document.getElementById('catalogo') as HTMLElement;
 const elMuralla = document.getElementById('muralla') as HTMLElement;
+/** Los selectores de la complejidad de la pelea: tope por bando y rueda. */
+const elCombate = document.getElementById('combate-de-la-arena') as HTMLElement;
 const elMontaje = document.getElementById('montaje') as HTMLElement;
 /** La vista de edición: hasta cuatro fichas abiertas a la vez (`edicion.ts`). */
 const elEdicion = document.getElementById('edicion') as HTMLElement;
@@ -338,7 +342,12 @@ let sinGuardado: string | null = null;
  * la vista de equipo lo cuenta (`sinGuardarEnPalabras`).
  */
 const unidadesSinGuardar = new Set<string>();
-const caben = LIDERAZGO.maxPorBando;
+/**
+ * La complejidad de la pelea que se monta (22-10-2026): el tope por bando y la
+ * rueda, con sus dos selectores encima del montaje (`selectoresDelCombate`). Viaja
+ * en el enlace (versión 14).
+ */
+let combate: ReglasDelCombate = COMBATE_COMPLETO;
 
 /**
  * La muralla que se dibuja y con la que se pelea. Se rehace entera en cada clic
@@ -462,6 +471,7 @@ function montajeDeArena(): MontajeDeArena {
     derecha: lado('derecha'),
     muralla,
     equipo,
+    combate,
   };
 }
 
@@ -920,7 +930,7 @@ function repintarMontaje(): void {
           montaje[lado],
           (p) => describir(p, lado),
           elegida,
-          caben,
+          combate.tope,
           heroes[lado],
           ocupados(lado),
           iaDelBando[lado],
@@ -928,6 +938,7 @@ function repintarMontaje(): void {
       );
     }
     pintar(elFicha, fichaElegida());
+    pintar(elCombate, selectoresDelCombate(combate));
     pintar(
       elCatalogo,
       html`${renderEnlace(enlaceVigente())}${renderCatalogo(
@@ -1410,8 +1421,8 @@ function ocupados(lado: Lado): number {
 
 function añadir(lado: Lado, id: string, escalera = false): void {
   const adjetivo = LADOS[lado].adjetivo;
-  if (ocupados(lado) >= caben) {
-    aviso = `El bando ${adjetivo} ya lleva ${caben}: no cabe ninguna más.`;
+  if (ocupados(lado) >= combate.tope) {
+    aviso = `El bando ${adjetivo} ya lleva ${combate.tope}: no cabe ninguna más.`;
     return;
   }
   const u = unidadDe(id);
@@ -1557,6 +1568,7 @@ function montajeDelEnlace(): MontajeDelEnlace {
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
     muralla: hayMuralla(muralla) ? muralla : null,
+    combate,
   };
 }
 
@@ -1654,6 +1666,7 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     }
     // La muralla del enlace sustituye a la dibujada; sin ella, el tablero va limpio.
     muralla = m.muralla ?? SIN_MURALLA;
+    combate = m.combate;
     nombreDeForma = '';
     // La barra se queda con la semilla: el montaje, si cambia, ya no sería el del
     // enlace.
@@ -1741,6 +1754,7 @@ function luchar(): void {
         derecha: lado('derecha'),
         muralla,
         equipo,
+        combate,
       },
       semilla,
     );
@@ -2163,8 +2177,8 @@ document.addEventListener('click', (ev) => {
         return;
       case 'poner-heroe': {
         const lado = el.getAttribute('data-lado') as Lado;
-        if (ocupados(lado) >= caben) {
-          aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${caben}: no cabe el héroe.`;
+        if (ocupados(lado) >= combate.tope) {
+          aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${combate.tope}: no cabe el héroe.`;
           break;
         }
         heroes[lado] = heroePorDefecto(lado);
@@ -2610,6 +2624,12 @@ document.addEventListener('focusout', (ev) => {
 
 document.addEventListener('change', (ev) => {
   const el = ev.target as Element;
+  // La complejidad de la pelea: no es de ninguna unidad.
+  const delCombate = leerElCombate(el, combate);
+  if (delCombate !== null) {
+    cambiarElCombate(delCombate);
+    return;
+  }
   // Un campo de la ficha de una pieza (vista de equipo): no es de ninguna unidad.
   if (el.getAttribute('data-arena-pieza-campo') !== null) {
     cambiarCampoDePieza(el);
@@ -2626,6 +2646,31 @@ document.addEventListener('change', (ev) => {
   const ficha = fichaDelElemento(el);
   if (ficha !== null) cambiarEnFicha(ficha, el);
 });
+
+/**
+ * Cambia la complejidad de la pelea. Un tope que deja fuera a alguien no entra: lo
+ * dice la regla del núcleo (`topeDelBandoBlocker`, la del montaje y el enlace), y
+ * el selector vuelve a lo de antes (un montaje que no cabe no se puede ni enlazar).
+ */
+function cambiarElCombate(nuevo: ReglasDelCombate): void {
+  const noCabe = (['izquierda', 'derecha'] as const)
+    .map((l) =>
+      topeDelBandoBlocker(
+        `El bando ${LADOS[l].adjetivo}`,
+        montaje[l].length,
+        heroes[l] !== null,
+        nuevo.tope,
+      ),
+    )
+    .find((motivo) => motivo !== null);
+  if (noCabe !== undefined && noCabe !== null) {
+    aviso = `${noCabe} antes de bajar el tope a ${nuevo.tope}.`;
+  } else {
+    combate = nuevo;
+    aviso = `La pelea será con ${combate.tope} por bando y la rueda de ${combate.rueda}.`;
+  }
+  pedirRepintado();
+}
 
 /** Un campo, un rasgo o una habilidad de la ficha `ficha`, y su repintado. */
 function cambiarEnFicha(ficha: Elegida, el: Element): void {

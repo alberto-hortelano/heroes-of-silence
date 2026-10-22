@@ -12,6 +12,7 @@
  * - C18: la columna que tapa la casilla señalada, translúcida, y la figura
  *   tapada, en silueta (lo puro: qué columnas y qué figuras).
  */
+
 import { describe, expect, it } from 'vitest';
 import { renderMuralla } from '../src/client/arena/paneles.js';
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
@@ -45,6 +46,7 @@ import {
   validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack } from '../src/core/types.js';
 import {
@@ -110,6 +112,7 @@ function duelo(
     lado([{ creature: 'templario-mandoble', count: 3 }]),
     lado([{ creature: 'templario-mandoble', count: 3 }]),
     createRng(3),
+    COMBATE_COMPLETO,
     muralla,
   );
   stackById(state, 'attacker-0').hex = en;
@@ -426,6 +429,7 @@ describe('la columna translúcida y la figura en silueta (C18)', () => {
         { creature: 'templario-escudo', count: 3 },
       ]),
       createRng(3),
+      COMBATE_COMPLETO,
       m,
     );
     stackById(state, 'attacker-0').hex = h(0, 8);

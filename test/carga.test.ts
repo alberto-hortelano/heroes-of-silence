@@ -4,6 +4,7 @@
  * rasgo `charge`), +10 % por casilla de 3 a 5 (`data/carga.json`). La recta es la
  * de siempre (`cargaDesde`) y el juego no carga a pie.
  */
+
 import { describe, expect, it } from 'vitest';
 import cargaJson from '../data/carga.json' with { type: 'json' };
 import { marcadoDe } from '../src/client/html.js';
@@ -27,6 +28,7 @@ import {
   validarCarga,
 } from '../src/core/battle/carga.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
@@ -301,6 +303,7 @@ describe('el juego carga a pie, como la arena (19-10-2026)', () => {
         { army: [{ creature: id, count: 1 }], hero: null },
         { army: [{ creature: RIVAL, count: 1 }], hero: null },
         createRng(1),
+        COMBATE_COMPLETO,
       );
       colocar(b, 'attacker-0', 3);
       applyAction(

@@ -56,6 +56,7 @@ import {
 } from '@core/battle/poderes.js';
 import {
   filasDeLaRueda,
+  formaDeLaBatalla,
   NIVEL_MAXIMO,
   NOMBRE_DE_GOLPE,
   NORMAL_SIN_NIVEL,
@@ -1783,7 +1784,12 @@ export function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
   const efectos =
     x.effects.length === 0
       ? html`<span class="sin-efectos">ninguno</span>`
-      : unir(x.effects.map((e) => html`<span class="efecto-en-curso">${efectoEnCurso(e)}</span>`));
+      : unir(
+          x.effects.map(
+            (e) =>
+              html`<span class="efecto-en-curso">${efectoEnCurso(e, formaDeLaBatalla(s.battle))}</span>`,
+          ),
+        );
   return html`<strong class="nombre-de-la-previa">${nombreEnElCampo(s.battle, x)}</strong>
     ${filasDelStack(s, x, false)}
     <div class="row"><span class="label">Efectos</span><span class="efectos-en-curso">${efectos}</span></div>

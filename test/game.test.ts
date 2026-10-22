@@ -22,6 +22,7 @@ import {
   unidadesDelJuego,
   unidadesDeMorada,
 } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { crecimientoDelNivel, ECONOMIA, LIDERAZGO, oroDelIndice } from '../src/core/data.js';
 import {
   type Hero,
@@ -30,7 +31,7 @@ import {
   maxMovePoints,
   slowestSpeed,
 } from '../src/core/hero/hero.js';
-import { CUPO_GUARNICION, GARRISON_LEADERSHIP, troopBlocker } from '../src/core/hero/troop.js';
+import { GARRISON_LEADERSHIP, troopBlocker } from '../src/core/hero/troop.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import {
   blocksMovement,
@@ -126,6 +127,9 @@ import {
   TROPA,
   TROPA_BARATA,
 } from './helpers.js';
+
+/** Los cupos con el tope de siempre (7): un héroe lleva 6 y una guarnición 7. */
+const CUPO_GUARNICION = COMBATE_COMPLETO.tope;
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 

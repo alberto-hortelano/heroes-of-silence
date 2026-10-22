@@ -17,6 +17,7 @@
  * alto se defiende mejor, y la previsión lo cuenta con las mismas opciones que
  * el golpe (`opcionesDeDanio`).
  */
+
 import { describe, expect, it } from 'vitest';
 import { textoDePrevision } from '../src/client/views/prevision.js';
 import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
@@ -43,6 +44,7 @@ import type {
   BattleState,
 } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { MURALLA } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
@@ -417,7 +419,13 @@ const ESCENARIOS: readonly Escenario[] = [
 const ACCIONES = new Map<Escenario, BattleAction>();
 
 function montar(e: Escenario, rng: Rng): Montado {
-  const b = createBattle(e.izquierda(), e.derecha(), rng, e.muralla ?? SIN_MURALLA);
+  const b = createBattle(
+    e.izquierda(),
+    e.derecha(),
+    rng,
+    COMBATE_COMPLETO,
+    e.muralla ?? SIN_MURALLA,
+  );
   stackById(b, 'attacker-0').hex = e.en;
   stackById(b, 'defender-0').hex = e.contra;
   e.antes?.(b);
@@ -730,7 +738,7 @@ describe('con la rueda del golpe, cada sector prevé el daño que cae', () => {
           for (const semilla of SEMILLAS.slice(0, 5)) {
             const que = `${pareja}: ${golpe} contra ${respuesta}, semilla ${semilla}`;
             const rng = createRng(semilla);
-            const b = conManosDePrueba(createBattle(atacante(), defensor(), rng));
+            const b = conManosDePrueba(createBattle(atacante(), defensor(), rng, COMBATE_COMPLETO));
             stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
             stackById(b, 'defender-0').hex = { col: 6, row: 4 };
             b.turno = { n: 1, stack: 'attacker-0', gastado: 0 };

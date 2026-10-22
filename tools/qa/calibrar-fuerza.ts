@@ -36,6 +36,7 @@ import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
 import { type BattleSide, createBattle } from '../../src/core/battle/battle.js';
 import { HERO_BODY } from '../../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import type { GrupoDeTropa } from '../../src/core/data.js';
 import { rangoDeHeroe } from '../../src/core/hero/experiencia.js';
 import {
@@ -157,7 +158,10 @@ interface Fila {
 function pelear(a: BattleSide, b: BattleSide, rng: ReturnType<typeof createRng>): number {
   let gana = 0;
   for (const aAtaca of [true, false]) {
-    const { winner } = autoResolve(createBattle(aAtaca ? a : b, aAtaca ? b : a, rng), rng);
+    const { winner } = autoResolve(
+      createBattle(aAtaca ? a : b, aAtaca ? b : a, rng, COMBATE_COMPLETO),
+      rng,
+    );
     if ((winner === 'attacker') === aAtaca) gana += 0.5;
   }
   return gana;

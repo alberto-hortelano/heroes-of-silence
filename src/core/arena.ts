@@ -61,12 +61,12 @@ import type {
 } from './battle/types.js';
 import { HERO_BODY } from './battle/types.js';
 import { type CatalogoDeUnidades, cuerpoDe } from './catalogo.js';
+import { combateBlocker, type ReglasDelCombate } from './combate.js';
 import {
   baseBlocker,
   diferenciaDe,
   EQUIPO_ESCRITO,
   esPiezaConBase,
-  LIDERAZGO,
   type Pieza,
   type PiezaEscrita,
   validarPieza,
@@ -825,6 +825,12 @@ export interface MontajeDeArena {
   readonly derecha: LadoDeArena;
   readonly muralla?: MurallaDeBatalla;
   /**
+   * La complejidad de la pelea (`core/combate.ts`): el tope por bando y la rueda,
+   * con sus dos selectores en la página (la de siempre, `COMBATE_COMPLETO`, si
+   * nadie los toca). Obligatoria, como en el enlace: nadie la pone por defecto.
+   */
+  readonly combate: ReglasDelCombate;
+  /**
    * El catálogo de equipo con que pelea, hecho (`catalogoDeEquipo`): el que edita
    * la página, con lo que no se ha guardado, o el del juego (`EQUIPO_DEL_JUEGO`).
    * Del montaje y no de cada fuente: dos unidades de la misma pelea con dos espadas
@@ -899,19 +905,36 @@ function unidadDeLaFuente(fuente: FuenteDeArena, eq: EquipoAtado): UnitInfo {
   return unidadDeCombate(validarUnidad(fuente.unidad, eq), eq);
 }
 
-function bandoDeArena(lado: LadoDeArena, nombre: string, catalogo: CatalogoDeUnidades): BattleSide {
+/**
+ * Por qué un bando de `unidades` (y su héroe, si `conHeroe`: cuenta como uno más)
+ * no cabe en el tope de la pelea `tope`, o `null`: **la única regla del tope en la
+ * arena**, la que leen el montaje, el enlace y el selector de la página al bajarlo.
+ */
+export function topeDelBandoBlocker(
+  quien: string,
+  unidades: number,
+  conHeroe: boolean,
+  tope: number,
+): string | null {
+  const cuantos = unidades + (conHeroe ? 1 : 0);
+  if (cuantos <= tope) return null;
+  return `${quien} lleva ${cuantos} unidades${conHeroe ? ', contando a su héroe,' : ''} y caben ${tope}: quita ${cuantos - tope}`;
+}
+
+function bandoDeArena(
+  lado: LadoDeArena,
+  nombre: string,
+  catalogo: CatalogoDeUnidades,
+  tope: number,
+): BattleSide {
   const { unidades, heroe } = lado;
   if (unidades.length === 0 && heroe === null) {
     throw new Error(`el bando ${nombre} está vacío: pon al menos una unidad`);
   }
   // `createBattle` también lo comprueba, pero diciendo «el atacante»: en la arena
-  // no hay atacante, hay izquierda y derecha. El héroe cuenta como uno más.
-  const cuantos = unidades.length + (heroe === null ? 0 : 1);
-  if (cuantos > LIDERAZGO.maxPorBando) {
-    throw new Error(
-      `el bando ${nombre} lleva ${cuantos} unidades${heroe === null ? '' : ', contando a su héroe,'} y caben ${LIDERAZGO.maxPorBando}: quita ${cuantos - LIDERAZGO.maxPorBando}`,
-    );
-  }
+  // no hay atacante, hay izquierda y derecha.
+  const noCabe = topeDelBandoBlocker(`el bando ${nombre}`, unidades.length, heroe !== null, tope);
+  if (noCabe !== null) throw new Error(noCabe);
   // Cada unidad, un individuo de su unidad del catálogo de la pelea: el arte
   // de su hoja (`body`) y las cifras con su equipo, como en el juego.
   const army: StackDeBatalla[] = unidades.map((f) => ({
@@ -933,10 +956,12 @@ function bandoDeArena(lado: LadoDeArena, nombre: string, catalogo: CatalogoDeUni
 export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
   const eq = montaje.equipo;
   const catalogo = catalogoDelMontaje(montaje);
+  const { combate } = montaje;
   const batalla = createBattle(
-    bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, catalogo),
-    bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo, catalogo),
+    bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, catalogo, combate.tope),
+    bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo, catalogo, combate.tope),
     rng,
+    combate,
     montaje.muralla ?? SIN_MURALLA,
   );
   // La ficha de cada tipo y de cada héroe, con la que el retoque compara.
@@ -1464,6 +1489,8 @@ export interface MontajeDelEnlace {
   readonly derecha: LadoDelEnlace;
   /** La muralla del tablero, o `null` sin ella. */
   readonly muralla: MurallaDeBatalla | null;
+  /** La complejidad de la pelea: el tope por bando y la rueda (versión 14). */
+  readonly combate: ReglasDelCombate;
 }
 
 /**
@@ -1498,11 +1525,13 @@ export function retiradosDeLaURL(
  * lleva lo montado, de la única clase que queda, sin calidad ni PV; la 13
  * (19-10-2026) no cambia el formato, cambian las reglas: sin interruptores, con
  * la rueda, el contacto y la carga a pie siempre, el montaje de antes pelearía
- * otra pelea sin decirlo.
+ * otra pelea sin decirlo; la 14 (22-10-2026) trae la complejidad de la pelea
+ * (`combate`: el tope por bando y la rueda).
  */
-export const VERSION_DEL_ENLACE = 13;
+export const VERSION_DEL_ENLACE = 14;
 
-const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla'];
+const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla', 'combate'];
+const CAMPOS_DEL_COMBATE = ['tope', 'rueda'];
 const CAMPOS_DEL_LADO = ['ia', 'puestos', 'heroe'];
 const CAMPOS_DEL_PUESTO = ['unidad', 'escalera'];
 const CAMPOS_DEL_HEROE = [
@@ -1594,8 +1623,12 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
     'la unidad',
     'el montaje del enlace',
   );
-  const izquierda = ladoDelEnlace(o.izquierda, 'izquierda');
-  const derecha = ladoDelEnlace(o.derecha, 'derecha');
+  const c = objetoCon(o.combate, CAMPOS_DEL_COMBATE, 'la complejidad del enlace');
+  const combate = { tope: c.tope, rueda: c.rueda } as ReglasDelCombate;
+  const sinCombate = combateBlocker(combate);
+  if (sinCombate !== null) throw new Error(`la complejidad del enlace no vale: ${sinCombate}`);
+  const izquierda = ladoDelEnlace(o.izquierda, 'izquierda', combate.tope);
+  const derecha = ladoDelEnlace(o.derecha, 'derecha', combate.tope);
   let muralla: MurallaDeBatalla | null = null;
   if (o.muralla !== null) {
     try {
@@ -1635,7 +1668,7 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
       throw new Error(`el montaje del enlace trae la pieza «${p.nombre}» y no la lleva nadie`);
     }
   }
-  const montaje = { unidades, piezas, izquierda, derecha, muralla };
+  const montaje = { unidades, piezas, izquierda, derecha, muralla, combate };
   // Que quepa en sus columnas de salida y que nadie lleve una escalera que no
   // usaría, con las mismas preguntas que el montaje de la página: un enlace no
   // monta lo que la página no dejaría montar.
@@ -1679,12 +1712,13 @@ export function montajeDeArenaDelEnlace(
     izquierda: lado(m.izquierda),
     derecha: lado(m.derecha),
     ...(m.muralla === null ? {} : { muralla: m.muralla }),
+    combate: m.combate,
     equipo,
   };
 }
 
 /** Un lado del enlace, comprobado. */
-function ladoDelEnlace(valor: unknown, lado: Lado): LadoDelEnlace {
+function ladoDelEnlace(valor: unknown, lado: Lado, tope: number): LadoDelEnlace {
   const quien = `el bando ${LADOS[lado].adjetivo} del enlace`;
   const delHeroe = `el héroe del bando ${LADOS[lado].adjetivo} del enlace`;
   const o = objetoCon(valor, CAMPOS_DEL_LADO, quien);
@@ -1704,10 +1738,8 @@ function ladoDelEnlace(valor: unknown, lado: Lado): LadoDelEnlace {
     }
     heroe = validarHeroeDeArena(h as unknown as HeroeDeArena);
   }
-  const cuantos = puestos.length + (heroe === null ? 0 : 1);
-  if (cuantos > LIDERAZGO.maxPorBando) {
-    throw new Error(`${quien} lleva ${cuantos} y caben ${LIDERAZGO.maxPorBando}`);
-  }
+  const noCabe = topeDelBandoBlocker(quien, puestos.length, heroe !== null, tope);
+  if (noCabe !== null) throw new Error(noCabe);
   return { ia: siONo(o.ia, quien), puestos, heroe };
 }
 
@@ -1733,5 +1765,6 @@ function textoDelMontaje(m: MontajeDelEnlace): string {
     izquierda: lado(m.izquierda),
     derecha: lado(m.derecha),
     muralla: m.muralla,
+    combate: { tope: m.combate.tope, rueda: m.combate.rueda },
   });
 }

@@ -10,6 +10,7 @@
 #app:not([data-escena='edicion']) #edicion { display: none; }
 #app[data-escena='edicion'] #montaje,
 #app[data-escena='edicion'] #stage,
+#app[data-escena='edicion'] #combate-de-la-arena,
 #app[data-escena='edicion'] [data-arena='luchar'],
 #app[data-escena='edicion'] [data-arena='enlace'],
 #app[data-escena='edicion'] [data-arena='ir-a-edicion'],
@@ -21,11 +22,14 @@
 #app[data-escena='equipo'] #montaje,
 #app[data-escena='equipo'] #edicion,
 #app[data-escena='equipo'] #stage,
+#app[data-escena='equipo'] #combate-de-la-arena,
 #app[data-escena='equipo'] [data-arena='luchar'],
 #app[data-escena='equipo'] [data-arena='enlace'],
 #app[data-escena='equipo'] [data-arena='ir-a-edicion'],
 #app[data-escena='equipo'] [data-arena='ir-a-equipo'] { display: none; }
 #acciones-arena { display: flex; gap: 0.4rem; }
+/* Los selectores de la pelea en la barra, sin el margen de debajo de «Nuevo juego». */
+#combate-de-la-arena .selectores-del-combate { margin: 0; flex-wrap: nowrap; }
 
 /* Cuatro columnas que se desplazan cada una por su cuenta: la lista de hojas es
    larga y no debe empujar fuera de la vista a los bandos ni a la ficha. */

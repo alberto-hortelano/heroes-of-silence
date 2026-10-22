@@ -7,6 +7,7 @@
  * origen), A5 (cada motivo del rechazo), la lista legal, la previsión, el
  * cargador y A4 (la IA los usa).
  */
+
 import { describe, expect, it } from 'vitest';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { batallaDeArena, type HeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
@@ -22,6 +23,7 @@ import { hexKey, neighbours } from '../src/core/battle/board.js';
 import { poder, poderDeHabilidad, validarPoderes } from '../src/core/battle/poderes.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { avanzarHasta, delBorrador, SANADOR, unidadDeArena as unidad } from './helpers.js';
@@ -30,6 +32,7 @@ import { avanzarHasta, delBorrador, SANADOR, unidadDeArena as unidad } from './h
 function pelea(rng: Rng, heroe: HeroeDeArena | null = null): BattleState {
   return batallaDeArena(
     {
+      combate: COMBATE_COMPLETO,
       izquierda: {
         // El escudero con las cifras del cuerpo común (3 / 3, daño 10–10): los
         // casos de la IA hacen la cuenta con ellas.
@@ -278,6 +281,7 @@ describe('la IA de batalla usa los poderes (A4)', () => {
     const rng = createRng(7);
     const b = batallaDeArena(
       {
+        combate: COMBATE_COMPLETO,
         izquierda: {
           unidades: [
             unidad('templario-monje'),

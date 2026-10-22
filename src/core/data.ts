@@ -24,6 +24,7 @@ import {
   NOMBRE_DE_GOLPE,
   problemasDeNiveles,
 } from './battle/cifras-de-la-rueda.js';
+import { type GolpeDeReferencia, RUEDA_DE_REFERENCIA } from './battle/formas-de-la-rueda.js';
 import {
   BARRERAS,
   type Barrera,
@@ -41,7 +42,6 @@ import type {
   Hueco,
   NivelesDeLaRueda,
   SpeedTier,
-  TipoDeGolpe,
   UnitInfo,
 } from './types.js';
 import {
@@ -54,7 +54,6 @@ import {
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
   SPEED_TIERS,
-  TIPOS_DE_GOLPE,
   TIPOS_DEL_ANILLO,
 } from './types.js';
 import { esIdDePieza, esIdDeUnidad, revisarLista } from './validar.js';
@@ -97,17 +96,47 @@ export interface ReglasDeLiderazgo {
   /** Lo que ocupa un personaje (`Troop.member`), que no está en el catálogo. */
   readonly personaje: number;
   /**
-   * Cuántos individuos pisan el tablero por bando, como mucho: un héroe es él
-   * más `maxPorBando − 1` de tropa; un monstruo o una guarnición, `maxPorBando`.
+   * Los topes de individuos por bando que se pueden elegir (complejidad del
+   * combate, 22-10-2026: 3, 5 y 7), de menos a más. El de cada partida es
+   * `ReglasDelCombate.tope` (`core/combate.ts`).
+   */
+  readonly topesPorBando: readonly number[];
+  /**
+   * El mayor de `topesPorBando`, **derivado**: el techo de los datos (guarniciones,
+   * asaltantes, un plan de mapa) y del generador, que no dependen del tope de la
+   * partida (misma semilla, mismo mapa). Un héroe es él más `maxPorBando − 1` de
+   * tropa; un monstruo o una guarnición, `maxPorBando`.
    */
   readonly maxPorBando: number;
 }
+
+/**
+ * Los topes de `data/liderazgo.json`: enteros ≥ 2 (un héroe y uno de tropa), de
+ * menos a más y sin repetir. Lanza diciendo el fichero.
+ */
+function topesDe(valor: unknown): readonly number[] {
+  const bien =
+    Array.isArray(valor) &&
+    valor.length > 0 &&
+    valor.every(
+      (v, i) => enteroDesde(v, 2) && (i === 0 || (v as number) > (valor[i - 1] as number)),
+    );
+  if (!bien) {
+    throw new Error(
+      `data/liderazgo.json: topesPorBando tiene que ser una lista de enteros ≥ 2, de menos a más y sin repetir, y es ${JSON.stringify(valor)}`,
+    );
+  }
+  return valor as number[];
+}
+
+const TOPES_POR_BANDO = topesDe(liderazgoJson.topesPorBando);
 
 export const LIDERAZGO: ReglasDeLiderazgo = {
   heroe: { ...liderazgoJson.heroe },
   guarnicion: liderazgoJson.guarnicion,
   personaje: liderazgoJson.personaje,
-  maxPorBando: liderazgoJson.maxPorBando,
+  topesPorBando: TOPES_POR_BANDO,
+  maxPorBando: TOPES_POR_BANDO.at(-1) as number,
 };
 
 /**
@@ -457,11 +486,19 @@ export interface ReglasDelPoder {
   readonly armaduraDeReferencia: number;
   /**
    * Cuánto pesa cada tipo de la rueda en lo que pega una unidad (`core/nivel.ts`):
-   * los siete, enteros ≥ 0 y al menos uno > 0. Propios de la medida, no los de
+   * uno por tipo de la rueda de referencia (`GOLPES_DE_LA_MEDIDA`, con la que se mide
+   * todo índice), enteros ≥ 0 y al menos uno > 0. Propios de la medida, no los de
    * la IA (`PESOS_DE_LA_RUEDA`): retocar cómo elige la IA no mueve índices.
    */
-  readonly pesosDeLaRueda: Readonly<Record<TipoDeGolpe, number>>;
+  readonly pesosDeLaRueda: Readonly<Record<GolpeDeReferencia, number>>;
 }
+
+/**
+ * Los tipos con que se mide el índice de poder: los de la rueda de referencia, sea
+ * cual sea la de la partida (decisión del plan de la complejidad del combate,
+ * 22-10-2026: lo que vale un arma no depende del nivel que se juegue).
+ */
+const GOLPES_DE_LA_MEDIDA = RUEDA_DE_REFERENCIA.golpes;
 
 /**
  * Valida las reglas del índice de poder y las devuelve tipadas; lanza con todos
@@ -505,13 +542,13 @@ export function validarPoder(json: unknown, fichero = 'data/poder.json'): Reglas
     typeof pesos === 'object' &&
     pesos !== null &&
     !Array.isArray(pesos) &&
-    Object.keys(pesos).length === TIPOS_DE_GOLPE.length &&
-    TIPOS_DE_GOLPE.every((t) => enteroDesde((pesos as Record<string, unknown>)[t], 0));
+    Object.keys(pesos).length === GOLPES_DE_LA_MEDIDA.length &&
+    GOLPES_DE_LA_MEDIDA.every((t) => enteroDesde((pesos as Record<string, unknown>)[t], 0));
   if (!sonPesos) {
     problemas.push(
-      `pesosDeLaRueda tiene que ser un entero ≥ 0 por cada tipo de la rueda (${TIPOS_DE_GOLPE.join(', ')}), y es ${JSON.stringify(pesos)}`,
+      `pesosDeLaRueda tiene que ser un entero ≥ 0 por cada tipo de la rueda de referencia (${GOLPES_DE_LA_MEDIDA.join(', ')}), y es ${JSON.stringify(pesos)}`,
     );
-  } else if (TIPOS_DE_GOLPE.every((t) => (pesos as Record<string, number>)[t] === 0)) {
+  } else if (GOLPES_DE_LA_MEDIDA.every((t) => (pesos as Record<string, number>)[t] === 0)) {
     problemas.push('pesosDeLaRueda son todos 0: alguno tiene que pesar');
   }
   if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
@@ -519,7 +556,7 @@ export function validarPoder(json: unknown, fichero = 'data/poder.json'): Reglas
     umbralDelNivel2: j.umbralDelNivel2 as number,
     razon: [(r as number[])[0] as number, (r as number[])[1] as number],
     armaduraDeReferencia: j.armaduraDeReferencia as number,
-    pesosDeLaRueda: pesos as Record<TipoDeGolpe, number>,
+    pesosDeLaRueda: pesos as Record<GolpeDeReferencia, number>,
   };
 }
 

@@ -13,7 +13,8 @@ import {
   cifrasDeUnidad,
   oroDeUnidad,
 } from '../catalogo.js';
-import { HEROE, hasTrait, isShooter, LIDERAZGO } from '../data.js';
+import { combateBlocker, type ReglasDelCombate } from '../combate.js';
+import { HEROE, hasTrait, isShooter } from '../data.js';
 import { cifrasDelIndividuo } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
 import { hojaDeLaTropa } from '../hero/troop.js';
@@ -107,14 +108,18 @@ import {
   cruceBlocker,
   cruceDelGolpe,
   type EfectoDeLaRueda,
-  efectoDeLaRueda,
+  efectoDelTipo,
+  efectosDeLaRueda,
+  type FormaDeLaRueda,
+  formaDeLaBatalla,
+  golpeNeutro,
   type HechoDelCruce,
   type PapelEnLaRueda,
   type Punto,
   puntoDelContraataque,
   puntoDelCruce,
   puntosDe,
-  TIPOS_DE_GOLPE,
+  puntosDeLaForma,
   type TipoDeGolpe,
 } from './rueda.js';
 import {
@@ -383,15 +388,20 @@ export function armyMorale(units: readonly UnitInfo[]): number {
 /**
  * Monta una batalla: **la única puerta** (19-10-2026: un solo combate para el
  * juego y la arena, con la rueda, salir del contacto, la carga a pie y la
- * armadura siempre). `muralla` la pone solo la arena (y los tests); toda batalla
- * del mapa va sin ella (`SIN_MURALLA`).
+ * armadura siempre). `combate`, **obligatorio**, es la complejidad de la partida
+ * (`GameState.combate`) o del montaje de la arena: el tope de individuos por bando
+ * y la rueda con que se pelea (`BattleState.rueda`). `muralla` la pone solo la
+ * arena (y los tests); toda batalla del mapa va sin ella (`SIN_MURALLA`).
  */
 export function createBattle(
   attacker: BattleSide,
   defender: BattleSide,
   _rng: Rng,
+  combate: ReglasDelCombate,
   murallaPedida: MurallaDeBatalla = SIN_MURALLA,
 ): BattleState {
+  const sinCombate = combateBlocker(combate);
+  if (sinCombate !== null) throw new Error(`no se puede montar la batalla: ${sinCombate}`);
   const stacks: BattleStack[] = [];
   const muralla = murallaPedida === SIN_MURALLA ? SIN_MURALLA : validarMuralla(murallaPedida);
 
@@ -402,13 +412,13 @@ export function createBattle(
     personajesSinRepetir(setup);
     // El héroe pisa el tablero (fase 1b) y cuenta como uno más del bando.
     const cuantos = setup.army.length + (setup.hero === null ? 0 : 1);
-    // Antes de colocar a nadie. La regla es del juego (`data/liderazgo.json`) y
-    // la respetan todas las puertas —reclutar, la guarnición, el plan de mapa—;
-    // esto es la red, por si un camino nuevo se la salta.
-    if (cuantos > LIDERAZGO.maxPorBando) {
+    // Antes de colocar a nadie. La regla es de la partida (`ReglasDelCombate`) y
+    // la respetan todas las puertas —reclutar, la guarnición, lo neutral al nacer
+    // (`loNeutralAlTope`)—; esto es la red, por si un camino nuevo se la salta.
+    if (cuantos > combate.tope) {
       const bando = side === 'attacker' ? 'el atacante' : 'el defensor';
       throw new Error(
-        `no caben: ${bando} trae ${cuantos} y un bando lleva como mucho ${LIDERAZGO.maxPorBando}`,
+        `no caben: ${bando} trae ${cuantos} y un bando lleva como mucho ${combate.tope}`,
       );
     }
     // Una lista, en el orden de `stacks`: la tropa por su puesto y el héroe el
@@ -472,6 +482,7 @@ export function createBattle(
     turno: null,
     heroes: { attacker: attacker.hero?.mando ?? null, defender: defender.hero?.mando ?? null },
     muralla,
+    rueda: combate.rueda,
     golpeEnCurso: null,
     escaleras: [],
     puertas: puertasAlEmpezar(muralla),
@@ -1175,7 +1186,7 @@ function golpePreparado(
   const target = stackById(state, accion.target);
   const motivo = golpeBlocker(state, s, target, accion.from, costes);
   if (motivo !== null) throw new Error(motivo);
-  const sinCruce = cruceBlocker(accion, completa);
+  const sinCruce = cruceBlocker(accion, completa, formaDeLaBatalla(state));
   if (sinCruce !== null) throw new Error(sinCruce);
   const { from } = accion;
   // La carga se mide ANTES de mover, desde donde empieza este tramo: es la regla
@@ -2407,7 +2418,7 @@ function cruceDeLaRueda(
     target: target.id,
     golpe,
     respuesta,
-    punto: puntoDelCruce(golpe, respuesta),
+    punto: puntoDelCruce(golpe, respuesta, formaDeLaBatalla(state)),
   };
   state.log.push(cruce);
   return cruce;
@@ -2429,9 +2440,9 @@ function enElPunto(tipo: TipoDeGolpe, punto: Punto): GolpeEnLaRueda {
   return { tipo, desde: punto, hasta: punto };
 }
 
-/** Lo que puede dar un sector de la rueda sin saber el cruce: sus puntos posibles. */
-function delSector(tipo: TipoDeGolpe): GolpeEnLaRueda {
-  const [desde, hasta] = puntosDe(tipo);
+/** Lo que puede dar un sector de la rueda `forma` sin saber el cruce: sus puntos posibles. */
+function delSector(tipo: TipoDeGolpe, forma: FormaDeLaRueda): GolpeEnLaRueda {
+  const [desde, hasta] = puntosDe(tipo, forma);
   return { tipo, desde, hasta };
 }
 
@@ -2480,9 +2491,15 @@ function melee(
   }
 
   // La Finta: el resto del turno, un tramo solo de andar con lo que le quede menos
-  // lo que quita su éxito. Si queda en algo lo decide `applyAction`.
-  if (rueda.golpe === 'finta' && isAlive(attacker) && state.turno !== null) {
-    state.turno.finta = casillasQueQuitaLaFinta(rueda.punto, rueda.cifras);
+  // lo que quita su éxito (la fusionada, la mitad de eso). Si queda en algo lo
+  // decide `applyAction`.
+  const efecto = efectoDelTipo(rueda.golpe, rueda.cifras);
+  if (efecto.finta !== null && isAlive(attacker) && state.turno !== null) {
+    state.turno.finta = casillasQueQuitaLaFinta(
+      rueda.punto,
+      efecto,
+      pasosQueQuedan(state, attacker),
+    );
   }
 }
 
@@ -2531,7 +2548,7 @@ function intercambio(
 
 /**
  * Cuelga sobre `s` el efecto de un golpe de tipo `tipo` que cayó en el punto `p`,
- * con las cifras del arma de quien pegó, `c` (`efectoDeLaRueda`), si es para él
+ * con las cifras del arma de quien pegó, `c` (`efectosDeLaRueda`), los que son para él
  * (`a`: quien pega o el atacado): dura hasta que
  * `s` empiece o termine su próximo turno (`StackEffect.hasta`, desde el de ahora)
  * con dos rondas de tope, que cubren siempre ese turno. Del mismo origen,
@@ -2545,22 +2562,24 @@ function colgarDeLaRueda(
   a: EfectoDeLaRueda['a'],
   c: CifrasDeLaRueda,
 ): void {
-  const efecto = efectoDeLaRueda(tipo, p, c);
-  if (efecto === null || efecto.a !== a) return;
-  applyStackEffect(state, s, deLaRueda(state, tipo, efecto));
+  for (const efecto of efectosDeLaRueda(tipo, p, c)) {
+    if (efecto.a === a) applyStackEffect(state, s, deLaRueda(state, efecto));
+  }
 }
 
 /**
  * El `StackEffect` de un efecto de la rueda colgado ahora: lo leen el golpe
  * (`colgarDeLaRueda`) y la previsión del contraataque, que lo cuelga en su copia.
  */
-function deLaRueda(state: BattleState, tipo: TipoDeGolpe, efecto: EfectoDeLaRueda): StackEffect {
+function deLaRueda(state: BattleState, efecto: EfectoDeLaRueda): StackEffect {
   const n = state.turno?.n;
   if (n === undefined) throw new Error('la rueda cuelga un efecto sin turno abierto');
   return {
     kind: efecto.kind,
     amount: efecto.amount,
-    source: tipo,
+    // El tipo con que se golpeó: con la de 7, el de siempre; con un fusionado, él
+    // (el parte lo nombra como la rueda de la batalla).
+    source: efecto.fuente,
     roundsLeft: 2,
     hasta: { turno: n, al: efecto.vence },
   };
@@ -2626,7 +2645,7 @@ export function opcionesDeDanio(
   papel: PapelEnLaRueda = 'golpe',
 ): DamageOptions {
   const o = opcionesDelEstado(state, target, extra);
-  return golpe === null ? o : conElGolpe(o, attacker.unit, golpe, papel);
+  return golpe === null ? o : conElGolpe(o, attacker.unit, golpe, papel, formaDeLaBatalla(state));
 }
 
 /**
@@ -2643,9 +2662,10 @@ function conElGolpe(
   quien: UnitInfo,
   golpe: GolpeEnLaRueda,
   papel: PapelEnLaRueda,
+  forma: FormaDeLaRueda,
   c: CifrasDeLaRueda = ruedaDelGolpe(quien, usoDelGolpe(quien, o)),
 ): DamageOptions {
-  return { ...o, cruce: cruceDelGolpe(golpe.tipo, golpe.desde, golpe.hasta, papel, c) };
+  return { ...o, cruce: cruceDelGolpe(golpe.tipo, golpe.desde, golpe.hasta, papel, c, forma) };
 }
 
 function opcionesDelEstado(
@@ -3150,7 +3170,7 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
         target,
         'golpe',
         { chargeHexes: carga },
-        accion.golpe === undefined ? null : delSector(accion.golpe),
+        accion.golpe === undefined ? null : delSector(accion.golpe, formaDeLaBatalla(state)),
       );
     }
     case 'shoot': {
@@ -3302,10 +3322,13 @@ function previsionDelContraataque(
   const rueda =
     golpe === null ? null : { ...golpe, cifras: ruedaDelIntercambio(state, a, t, carga) };
   const conLaRueda = (x: BattleStack, p: Punto, para: EfectoDeLaRueda['a']): BattleStack => {
-    const efecto = rueda === null ? null : efectoDeLaRueda(rueda.tipo, p, rueda.cifras);
-    if (rueda === null || efecto === null || efecto.a !== para) return x;
+    const suyos =
+      rueda === null
+        ? []
+        : efectosDeLaRueda(rueda.tipo, p, rueda.cifras).filter((e) => e.a === para);
+    if (suyos.length === 0) return x;
     const y: BattleStack = { ...x, effects: [...x.effects] };
-    colgarEfecto(y, deLaRueda(state, rueda.tipo, efecto));
+    for (const efecto of suyos) colgarEfecto(y, deLaRueda(state, efecto));
     return y;
   };
   const copia = (count: number, p: Punto): BattleStack =>
@@ -3339,7 +3362,8 @@ export interface SectorDeLaRueda {
   /**
    * Al golpear con un tipo que deja algo al rival antes de su contraataque (Romper
    * guardia), su contraataque de ahora con cada éxito que lo cambia, del mayor al
-   * menor (R3 de QA de #263); si no, o en la respuesta, o sin contraataque, `[]`.
+   * menor (R3 de QA de #263), solo los que da el cruce de la rueda
+   * (`puntosDeLaForma`); si no, o en la respuesta, o sin contraataque, `[]`.
    */
   readonly contraataquePorExito: readonly { readonly punto: Punto; readonly danio: Horquilla }[];
 }
@@ -3361,12 +3385,15 @@ export function previsionDeLaRueda(
   accion: BattleAction & { type: 'attack' },
   papel: PapelEnLaRueda,
 ): {
-  readonly porTipo: Readonly<Record<TipoDeGolpe, SectorDeLaRueda>> | null;
+  /** Un sector por tipo de la rueda de la batalla (`FormaDeLaRueda.golpes`), y solo esos. */
+  readonly porTipo: Readonly<Partial<Record<TipoDeGolpe, SectorDeLaRueda>>> | null;
   readonly sinContraataque: string | null;
   /**
-   * Al golpear, el contraataque del rival si se golpea con Normal, que no le deja
-   * nada encima (con lo que comparar `contraataquePorExito`); en la respuesta o
-   * sin contraataque, `null`.
+   * Al golpear, el contraataque del rival tras un golpe que no le deja nada encima
+   * (con lo que comparar `contraataquePorExito`): el del golpe neutro de la rueda
+   * (`golpeNeutro`: Normal, en el medio) o, en la que no lo tiene (la de 3), el de
+   * un golpe sin rueda, que cae en cualquier punto. En la respuesta o sin
+   * contraataque, `null`.
    */
   readonly contraataque: Horquilla | null;
   /**
@@ -3404,22 +3431,24 @@ export function previsionDeLaRueda(
     previsionDeGolpe(state, desdeAhi, target, 'golpe', { chargeHexes: carga }, golpe).contraataque
       ?.danio ?? null;
   const conContraataque = papel === 'golpe' && sinContraataque === null;
-  const porTipo = {} as Record<TipoDeGolpe, SectorDeLaRueda>;
-  for (const tipo of TIPOS_DE_GOLPE) {
-    const sector = delSector(tipo);
+  const forma = formaDeLaBatalla(state);
+  const neutro = golpeNeutro(forma);
+  const porTipo: Partial<Record<TipoDeGolpe, SectorDeLaRueda>> = {};
+  for (const tipo of forma.golpes) {
+    const sector = delSector(tipo, forma);
     const h = horquillaDeDanio(
       quien,
       contra,
       // Las mismas opciones que contó `rueda`: el arma del primer golpe.
-      conElGolpe(opciones, quien.unit, sector, papel, rueda),
+      conElGolpe(opciones, quien.unit, sector, papel, forma, rueda),
     );
     const golpes = golpesDe(quien.unit, tipo, devuelve);
     const siguientes =
       golpes > 1 ? danioSinLaCarga(h.danio, quien, contra, extra, sector, state) : null;
     const contraataquePorExito = conContraataque
-      ? [...PUNTOS_DEL_MAYOR_AL_MENOR].flatMap((punto) => {
+      ? [...puntosDeLaForma(forma)].reverse().flatMap((punto) => {
           if (punto < sector.desde || punto > sector.hasta) return [];
-          if (efectoDeLaRueda(tipo, punto, rueda)?.a !== 'rival') return [];
+          if (!efectosDeLaRueda(tipo, punto, rueda).some((e) => e.a === 'rival')) return [];
           const danio = contraataqueCon({ tipo, desde: punto, hasta: punto });
           return danio === null ? [] : [{ punto, danio }];
         })
@@ -3432,14 +3461,13 @@ export function previsionDeLaRueda(
   return {
     porTipo,
     sinContraataque,
-    contraataque: conContraataque ? contraataqueCon(delSector('normal')) : null,
+    contraataque: conContraataque
+      ? contraataqueCon(neutro === null ? null : delSector(neutro, forma))
+      : null,
     carga: cobrada > 0 ? dichoDeLaCarga(cobrada, cifras) : null,
     rueda,
   };
 }
-
-/** Los cinco puntos del cruce, del máximo al mínimo: el orden en que se dice cada éxito. */
-const PUNTOS_DEL_MAYOR_AL_MENOR: readonly Punto[] = [4, 3, 2, 1, 0];
 
 function previsionDeHechizo(
   state: BattleState,

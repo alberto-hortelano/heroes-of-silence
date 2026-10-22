@@ -17,6 +17,7 @@ import {
   unidadDelJuego,
   unidadDelJuegoSiExiste,
 } from '../catalogo.js';
+import { combateBlocker, loNeutralAlTope, type ReglasDelCombate } from '../combate.js';
 import { ECONOMIA, figuraDelHeroe, tipoDeHeroePorDefecto } from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
@@ -54,7 +55,6 @@ import {
 } from '../hero/hero.js';
 import {
   armyLeadership,
-  CUPO_GUARNICION,
   capacidadDe,
   characterOf,
   ejercitoDe,
@@ -258,6 +258,14 @@ export interface GameState {
    * aquí y no en el bucle de cada conductor, en `finished`, tres campos abajo.
    */
   readonly maxDays: number;
+  /**
+   * La complejidad del combate que se eligió al empezar (`core/combate.ts`): el
+   * tope de tropa por bando y la rueda. No cambia en toda la partida; la leen cada
+   * batalla (`createBattle`), lo que se recluta y se recoge, la IA y el agente
+   * (`you.combat`). Ningún hecho de la crónica la lleva: con 7 / 7 el banco no se
+   * mueve.
+   */
+  readonly combate: ReglasDelCombate;
   map: GameMap;
   players: Player[];
   heroes: Hero[];
@@ -493,7 +501,7 @@ export interface DestinoDeRecluta {
   readonly hero: Hero | undefined;
   readonly army: Army;
   readonly tope: number;
-  /** Cuántos individuos caben como mucho: `CUPO_HEROE` o `CUPO_GUARNICION`. */
+  /** Cuántos individuos caben como mucho: el del héroe (`capacidadDe`) o el tope de la partida. */
   readonly cupo: number;
   /** Cómo lo nombra la frase de rechazo: «el ejército» o «la guarnición». */
   readonly quien: string;
@@ -515,10 +523,10 @@ export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta
         hero,
         army: town.garrison,
         tope: GARRISON_LEADERSHIP,
-        cupo: CUPO_GUARNICION,
+        cupo: state.combate.tope,
         quien: 'la guarnición',
       }
-    : { hero, army: hero.army, ...capacidadDe(hero), quien: 'el ejército' };
+    : { hero, army: hero.army, ...capacidadDe(hero, state.combate.tope), quien: 'el ejército' };
 }
 
 /**
@@ -602,6 +610,8 @@ export interface GameConfig {
    * en dos `??` que puedan divergir.
    */
   readonly maxDays: number;
+  /** La complejidad del combate, **obligatoria**: la pone `newGame` (por defecto, `COMBATE_COMPLETO`). */
+  readonly combate: ReglasDelCombate;
   readonly map: GameMap;
   readonly players: readonly { id: PlayerId; faction: FactionId; controller: Controller }[];
   readonly heroes: readonly Hero[];
@@ -622,6 +632,12 @@ export function createGame(config: GameConfig): GameState {
       `una partida de ${config.maxDays} días no es una partida: el tope tiene que ser un entero ≥ 1`,
     );
   }
+  const sinCombate = combateBlocker(config.combate);
+  if (sinCombate !== null) throw new Error(`no se puede jugar ese combate: ${sinCombate}`);
+  // Lo que nace sin héroe, en el tope de la partida (`loNeutralAlTope`, una copia:
+  // el mapa de `config` no se toca). El mapa no depende de él —misma semilla, mismo
+  // mapa—, la partida sí. Con el de siempre, nada cambia.
+  const { map, towns, raiders = [] } = loNeutralAlTope(config, config.combate.tope);
 
   const players: Player[] = config.players.map((p) => ({
     id: p.id,
@@ -639,10 +655,11 @@ export function createGame(config: GameConfig): GameState {
     seed: config.seed,
     day: 1,
     maxDays: config.maxDays,
-    map: config.map,
+    combate: config.combate,
+    map,
     players,
     heroes: config.heroes.map((h) => ({ ...h, army: [...h.army] })),
-    towns: config.towns.map((t) => ({
+    towns: towns.map((t) => ({
       ...t,
       available: { ...t.available },
       buildings: [...t.buildings],
@@ -651,10 +668,10 @@ export function createGame(config: GameConfig): GameState {
     // jugadores, que no juega nadie.
     current: ordenDelDia(config.players, 1)[0] ?? 0,
     pendingBattle: null,
-    // Copia de un nivel, como los héroes: la casilla y la tropa de un grupo se
-    // SUSTITUYEN al moverse o al pelear, nunca se mutan, así que no hace falta
-    // clonar lo que `buildMap` acaba de crear.
-    raiders: (config.raiders ?? []).map((r) => ({ ...r })),
+    // Copia de un nivel, como los héroes (la hace `loNeutralAlTope`): la casilla y
+    // la tropa de un grupo se SUSTITUYEN al moverse o al pelear, nunca se mutan,
+    // así que no hace falta clonar lo que `buildMap` acaba de crear.
+    raiders: [...raiders],
     finished: null,
     log: [],
     siguienteVeterano: 1,
@@ -1807,7 +1824,7 @@ export function ascenderVeterano(
  */
 function takeGarrison(state: GameState, hero: Hero, town: Town): void {
   if (town.owner !== hero.owner) return;
-  const { tope, cupo } = capacidadDe(hero);
+  const { tope, cupo } = capacidadDe(hero, state.combate.tope);
   const { dentro, fuera } = troopsThatFit(hero.army, tope, cupo, town.garrison);
   if (dentro.length === 0) return;
   hero.army = [...hero.army, ...dentro];
@@ -2563,6 +2580,7 @@ function dejarPendiente(
     attackerSide(state, quienes.attacker),
     defenderSide(state, quienes.foe),
     ctx.rng,
+    state.combate,
   );
   const pending: PendingBattle = { ...quienes, battle };
   state.pendingBattle = pending;

@@ -63,6 +63,7 @@
  * al escribirla la primera vez cerró este docstring de verdad y tumbó el `tsc`
  * con seis errores a partir de aquí abajo.
  */
+
 import { execFileSync } from 'node:child_process';
 import {
   closeSync,
@@ -85,6 +86,7 @@ import {
   type EffectKind,
   effectiveLuck,
 } from '../src/core/battle/effects.js';
+import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
@@ -92,7 +94,13 @@ import {
   CATALOGO_DE_EQUIPO_EN_PROSA,
   serializeBattleResponse,
 } from '../src/core/contract/serialize.js';
-import { HITS, SLOT_DE_HUECO, SLOTS, type Slot } from '../src/core/contract/vocabulario.js';
+import {
+  HIT_DE_GOLPE,
+  hitsDeLaRueda,
+  SLOT_DE_HUECO,
+  SLOTS,
+  type Slot,
+} from '../src/core/contract/vocabulario.js';
 import { CAMPOS_DE_PIEZA, EQUIPO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameState } from '../src/core/state/game.js';
@@ -1204,6 +1212,48 @@ describe('invariantes del proyecto', () => {
     expect(lineasCon(viejo)).toEqual([]);
   });
 
+  it('la forma de una batalla se lee en un sitio, y el cliente no fija ninguna salvo la ficha de un arma', () => {
+    // Complejidad del combate (22-10-2026): cada batalla pelea con su rueda (7, 5 o
+    // 3: `BattleState.rueda`). **Una lectura**: `formaDeLaBatalla`
+    // (`formas-de-la-rueda.ts`); en el /simplify se buscaba a mano
+    // (`RUEDAS[x.rueda]`) en ~17 sitios. Nadie fuera de ese módulo indexa `RUEDAS`,
+    // ni con una variable ni con un número: la de 7 fija es `RUEDA_DE_REFERENCIA`.
+    // Y en el cliente, un `TODOS_LOS_GOLPES` pintaría tipos de otra rueda y una
+    // rueda fija, la de 7 en una pelea de 3: la única es la de la ficha de un arma
+    // (`ruedaDeLaPieza`, en `disco.ts`), donde el arma tiene un nivel por tipo del
+    // anillo. Rotos a mano (22-10-2026): un `RUEDAS[battle.rueda]` en
+    // `director.ts`, un `RUEDA_DE_REFERENCIA` en `rueda/rueda.ts` y otro en
+    // `anguloDe` de `disco.ts` salen rojos con su línea.
+    const FORMAS = 'src/core/battle/formas-de-la-rueda.ts';
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== FORMAS),
+        /\bRUEDAS\s*\[/,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(CLIENTE, /\bTODOS_LOS_GOLPES\b/)).toEqual([]);
+    const FICHA = 'src/client/rueda/disco.ts';
+    const fija = /\bRUEDA_DE_REFERENCIA\b/;
+    expect(
+      infractoresDeCodigo(
+        CLIENTE.filter((r) => r !== FICHA),
+        fija,
+      ),
+    ).toEqual([]);
+    // En `disco.ts`, solo su importación y la ficha de un arma.
+    const enLaFicha = lineasDeLasDeclaraciones(FICHA, ['ruedaDeLaPieza']);
+    const fuera = codigoDe(FICHA)
+      .split('\n')
+      .flatMap((linea, i) =>
+        fija.test(linea) && !enLaFicha.has(i + 1) && !/^\s*RUEDA_DE_REFERENCIA,\s*$/.test(linea)
+          ? [`${FICHA}:${i + 1} → ${linea.trim()}`]
+          : [],
+      );
+    expect(fuera).toEqual([]);
+    expect(enLaFicha.size).toBeGreaterThan(0);
+  });
+
   it('el agente elige en la rueda: manda `hit` y `response` y la petición de respuesta no lleva el golpe del otro', () => {
     // Invertido en F6 (19-10-2026): hasta F5 el esquema quitaba `golpe` y
     // `respuesta` y la IA elegía por el agente. Ahora:
@@ -1235,9 +1285,9 @@ describe('invariantes del proyecto', () => {
     expect(RESPONSE_FORMAT.battle_turn).toMatch(/"hit"/);
     expect(RESPONSE_FORMAT.battle_turn).toMatch(/"power"/);
     expect(RESPONSE_FORMAT.battle_response).toMatch(/"response"/);
-    for (const h of HITS) {
+    // Los de las tres ruedas, en la prosa del turno (la de la respuesta remite a "wheel").
+    for (const h of Object.values(HIT_DE_GOLPE)) {
       expect(RESPONSE_FORMAT.battle_turn).toContain(`"${h}"`);
-      expect(RESPONSE_FORMAT.battle_response).toContain(`"${h}"`);
     }
 
     // (2): el golpe de la IA ya elegido y plantado ante el objetivo, como lo deja
@@ -1249,7 +1299,7 @@ describe('invariantes del proyecto', () => {
     const payload = JSON.stringify(serializeBattleResponse(b, ataque));
     expect(payload).not.toMatch(/"(?:hit|golpe)"\s*:/);
     expect(JSON.parse(payload).responses.map((r: { response: string }) => r.response)).toEqual([
-      ...HITS,
+      ...hitsDeLaRueda(formaDeLaBatalla(b)),
     ]);
   });
 

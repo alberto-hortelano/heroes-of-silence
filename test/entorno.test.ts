@@ -11,8 +11,10 @@
  * allí y por eso no las probaba nadie.
  */
 import { afterEach, describe, expect, it } from 'vitest';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
   AGENT_PORT_POR_DEFECTO,
+  combateDelEntorno,
   ESPERA_AL_AGENTE_POR_DEFECTO,
   esperaAlAgente,
   maxDiasDelEntorno,
@@ -26,6 +28,8 @@ const VARIABLES = [
   'HEROES_SPECTATOR_PORT',
   'HEROES_MAX_DAYS',
   'HEROES_WAIT_AGENT_MS',
+  'HEROES_TROPA',
+  'HEROES_RUEDA',
 ] as const;
 
 afterEach(() => {
@@ -139,5 +143,27 @@ describe('el plazo de espera del agente', () => {
     process.env.HEROES_WAIT_AGENT_MS = malo;
     expect(() => esperaAlAgente()).toThrow(/HEROES_WAIT_AGENT_MS/);
     expect(() => esperaAlAgente()).toThrow(/no es un plazo de espera/);
+  });
+});
+
+describe('la complejidad del combate (HEROES_TROPA, HEROES_RUEDA)', () => {
+  it('sin ninguna, la de siempre (7 / 7); con una, la otra es la de siempre', () => {
+    expect(combateDelEntorno()).toEqual(COMBATE_COMPLETO);
+    process.env.HEROES_RUEDA = '5';
+    expect(combateDelEntorno()).toEqual({ tope: 7, rueda: 5 });
+    process.env.HEROES_TROPA = '3';
+    expect(combateDelEntorno()).toEqual({ tope: 3, rueda: 5 });
+  });
+
+  it('lo que no vale se rechaza diciendo la variable y qué vale', () => {
+    process.env.HEROES_TROPA = '4';
+    expect(() => combateDelEntorno()).toThrow(
+      'HEROES_TROPA: «4» no es un tope de tropa: valen 3, 5 o 7',
+    );
+    delete process.env.HEROES_TROPA;
+    process.env.HEROES_RUEDA = 'siete';
+    expect(() => combateDelEntorno()).toThrow(
+      'HEROES_RUEDA: «siete» no es una rueda: valen 3, 5 o 7',
+    );
   });
 });

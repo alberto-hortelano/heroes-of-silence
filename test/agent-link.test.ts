@@ -6,9 +6,10 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
 import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
+import { RUEDAS } from '../src/core/battle/rueda.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
-import { HITS } from '../src/core/contract/vocabulario.js';
+import { hitsDeLaRueda } from '../src/core/contract/vocabulario.js';
 import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -2519,7 +2520,7 @@ describe('la rueda del golpe por el contrato (F6)', () => {
     const conGolpe = turnos.find((p) =>
       (p.payload.legalActions as any[]).some((a) => a.type === 'attack'),
     );
-    expect(conGolpe?.payload.hits.map((h: any) => h.hit)).toEqual([...HITS]);
+    expect(conGolpe?.payload.hits.map((h: any) => h.hit)).toEqual([...hitsDeLaRueda(RUEDAS[7])]);
     // Los poderes: en la lista legal como `power`, y entran.
     const poderes = turnos.filter((p) =>
       (p.payload.legalActions as any[]).some((a) => a.type === 'power'),
@@ -2543,7 +2544,9 @@ describe('la rueda del golpe por el contrato (F6)', () => {
       expect(JSON.stringify(sinElRegistro)).not.toMatch(/"(?:hit|golpe)"\s*:/);
       const suya = r.payload.stacks.find((x: any) => x.id === r.payload.target);
       expect(suya.side).toBe(r.payload.yourSide);
-      expect(r.payload.responses.map((x: any) => x.response)).toEqual([...HITS]);
+      expect(r.payload.responses.map((x: any) => x.response)).toEqual([
+        ...hitsDeLaRueda(RUEDAS[7]),
+      ]);
       expect(nota(r.requestId)).toMatchObject({ ok: true });
       expect(nota(r.requestId)?.note).toMatch(
         new RegExp(

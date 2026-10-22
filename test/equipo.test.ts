@@ -19,6 +19,7 @@ import {
 import { armaduraDe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
 import { cifrasDeUnidad, unidad, unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import {
   EQUIPO,
@@ -564,6 +565,7 @@ describe('las cifras se suman en las puertas de siempre (C1)', () => {
       { army: [{ ...equipado, count: 1 }], hero: null },
       { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
       createRng(1),
+      COMBATE_COMPLETO,
     );
     expect(stackById(b, 'attacker-0').unit).toEqual(troopUnit(equipado, undefined));
     expect(armaduraDe(stackById(b, 'attacker-0').unit)).toBe(pieza('brigantina').armadura);

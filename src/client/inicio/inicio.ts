@@ -15,11 +15,15 @@
  * no cambie de tema en hover sino en click»). El menú va en el neutro
  * (`quitarTema`); la elección del héroe va con el de la facción elegida.
  */
+
+import type { ReglasDelCombate } from '@core/combate.js';
 import { tipoDeHeroe, tipoDeHeroePorDefecto } from '@core/data.js';
 import { esFaccion, FACTION_IDS, type FactionId } from '@core/types.js';
+import { combateALaURL, combateParaElMenu } from '../combate-en-la-url.js';
 import { pintar } from '../html.js';
 import { aLaBarra, semillaSorteada } from '../semilla.js';
 import { ponerTema, quitarTema } from '../temas.js';
+import { leerElCombate, leerSoloHeroe } from '../views/combate.js';
 import { renderEleccion, renderEleccionDeHeroe, renderMenu } from './pantallas.js';
 
 function deLaPagina<T extends HTMLElement>(id: string): T {
@@ -34,6 +38,10 @@ function deLaPagina<T extends HTMLElement>(id: string): T {
  * `entrada.ts`).
  */
 export function pedirPartida(): Promise<void> {
+  // La complejidad que traiga la URL sin semilla es con la que arranca el menú;
+  // si no vale, no se pregunta: la partida dice por qué y cómo quitarla.
+  const deLaURL = combateParaElMenu(location.search);
+  if (deLaURL === null) return Promise.resolve();
   const app = deLaPagina('app');
   const inicio = deLaPagina('inicio');
   quitarTema();
@@ -51,6 +59,10 @@ export function pedirPartida(): Promise<void> {
       tipo: tipoDeHeroePorDefecto(elegida),
     };
     let pantalla: 'menu' | 'eleccion' | 'heroe' = 'menu';
+    /** La complejidad del combate (`views/combate.ts`): la de la URL, o la de siempre. */
+    let combate: ReglasDelCombate = deLaURL.combate;
+    /** «Solo la rueda del héroe»: la de la URL, o apagada. */
+    let soloHeroe = deLaURL.soloHeroe;
     /** Lo que escucha el menú, que se suelta de una vez al empezar. */
     const escucha = new AbortController();
     const { signal } = escucha;
@@ -66,7 +78,7 @@ export function pedirPartida(): Promise<void> {
     };
     const aEleccion = (): void => {
       pantalla = 'eleccion';
-      pintar(inicio, renderEleccion(elegida));
+      pintar(inicio, renderEleccion(elegida, combate, soloHeroe));
       ponerTema(elegida);
       enfocar('input[name="faccion"]:checked');
     };
@@ -88,11 +100,15 @@ export function pedirPartida(): Promise<void> {
       readonly seed: number;
       readonly faccion?: FactionId;
       readonly heroe?: string;
+      readonly combate?: { readonly reglas: ReglasDelCombate; readonly soloHeroe: boolean };
     }): void => {
       aLaBarra((url) => {
         url.searchParams.set('seed', String(pedido.seed));
         if (pedido.faccion !== undefined) url.searchParams.set('faccion', pedido.faccion);
         if (pedido.heroe !== undefined) url.searchParams.set('heroe', pedido.heroe);
+        if (pedido.combate !== undefined) {
+          combateALaURL(url, pedido.combate.reglas, pedido.combate.soloHeroe);
+        }
       });
       escucha.abort();
       inicio.hidden = true;
@@ -126,7 +142,12 @@ export function pedirPartida(): Promise<void> {
         ev.preventDefault();
         if (pantalla === 'eleccion') aHeroe();
         else if (pantalla === 'heroe') {
-          jugar({ seed: semillaSorteada(), faccion: elegida, heroe: heroe.tipo });
+          jugar({
+            seed: semillaSorteada(),
+            faccion: elegida,
+            heroe: heroe.tipo,
+            combate: { reglas: combate, soloHeroe },
+          });
         }
       },
       { signal },
@@ -144,6 +165,16 @@ export function pedirPartida(): Promise<void> {
     inicio.addEventListener(
       'change',
       (ev) => {
+        const delCombate = leerElCombate(ev.target as Element, combate);
+        if (delCombate !== null) {
+          combate = delCombate;
+          return;
+        }
+        const marcada = leerSoloHeroe(ev.target as Element);
+        if (marcada !== null) {
+          soloHeroe = marcada;
+          return;
+        }
         const delHeroe = (ev.target as Element).closest('input[name="heroe"]');
         if (delHeroe !== null) {
           const tipo = delHeroe.getAttribute('value') ?? '';

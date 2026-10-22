@@ -35,6 +35,7 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { applyAction, createBattle } from '../src/core/battle/battle.js';
 import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { figuraDelHeroe, tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import type { Hero } from '../src/core/hero/hero.js';
@@ -652,6 +653,7 @@ describe('la batalla en la vista', () => {
       },
       { army: [{ creature: 'zombi', count: 3 }], hero: null },
       createRng(5),
+      COMBATE_COMPLETO,
     );
     state.pendingBattle = { ...state.pendingBattle!, battle: batalla };
     const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
@@ -686,6 +688,7 @@ describe('la batalla en la vista', () => {
       },
       { army: [{ creature: 'zombi', count: 3 }], hero: null },
       createRng(5),
+      COMBATE_COMPLETO,
     );
     state.pendingBattle = { ...state.pendingBattle!, battle: batalla };
 

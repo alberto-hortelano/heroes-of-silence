@@ -27,6 +27,7 @@ import {
   VERSION_DEL_ENLACE,
 } from '../src/core/arena.js';
 import type { BattleStack } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_ESCRITO, type Pieza, type PiezaConBase, validarPieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
@@ -265,7 +266,7 @@ describe('una pieza sobre otra', () => {
   });
 
   it('el enlace lleva todas las piezas de lo que lleva, con sus bases, y se reabre igual', () => {
-    expect(VERSION_DEL_ENLACE).toBe(13);
+    expect(VERSION_DEL_ENLACE).toBe(14);
     const u = conBendita();
     // El guerrero lleva la bendita, la brigantina y el escudo; con sus bases van la
     // de herrería y la Espada, tal como están en el catálogo con que pelea.
@@ -290,6 +291,7 @@ describe('una pieza sobre otra', () => {
       izquierda: lado(u.id, false),
       derecha: lado('goblin-arquero', true),
       muralla: null,
+      combate: COMBATE_COMPLETO,
     };
     const leido = montajeDeLaURL(montajeALaURL(ENLACE));
     expect(leido).toEqual(ENLACE);
@@ -319,8 +321,8 @@ describe('una pieza sobre otra', () => {
       ),
     ).toThrow(`«Arma 3» toma de base «${nueva.id}», que no existe`);
     // Un enlace de la versión de antes se rechaza: hay que volver a copiarlo.
-    expect(() => montajeDeLaURL(JSON.stringify({ ...o, v: 12 }))).toThrow(
-      'este enlace es de una versión anterior de la arena (la 12; la de hoy es la 13): vuelve a copiarlo',
+    expect(() => montajeDeLaURL(JSON.stringify({ ...o, v: 13 }))).toThrow(
+      'este enlace es de una versión anterior de la arena (la 13; la de hoy es la 14): vuelve a copiarlo',
     );
   });
 });

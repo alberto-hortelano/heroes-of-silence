@@ -17,14 +17,14 @@ export function describirCoste(oro: number): string {
 }
 
 /**
- * Una lista en prosa: «a», «a y b», «a, b y c». **El único enumerador** de los
- * motivos y avisos del núcleo, que antes lo escribían cada uno. Lanza con la
- * lista vacía: «nada» lo dice quien llama, que sabe de qué.
+ * Una lista en prosa: «a», «a y b», «a, b y c» o, con `o`, «3, 5 o 7». **El único
+ * enumerador** de los motivos y avisos del núcleo, que antes lo escribían cada
+ * uno. Lanza con la lista vacía: «nada» lo dice quien llama, que sabe de qué.
  */
-export function enumerar(lista: readonly string[]): string {
+export function enumerar(lista: readonly string[], conjuncion: 'y' | 'o' = 'y'): string {
   const ultimo = lista.at(-1);
   if (ultimo === undefined) throw new Error('enumerar: la lista está vacía');
-  return lista.length === 1 ? ultimo : `${lista.slice(0, -1).join(', ')} y ${ultimo}`;
+  return lista.length === 1 ? ultimo : `${lista.slice(0, -1).join(', ')} ${conjuncion} ${ultimo}`;
 }
 
 /**
@@ -294,17 +294,28 @@ export const TIPOS_DEL_ANILLO = [
 export type TipoDelAnillo = (typeof TIPOS_DEL_ANILLO)[number];
 
 /**
- * Los siete tipos de la rueda del golpe: el anillo (`TIPOS_DEL_ANILLO`) y Normal,
- * el centro, al final. El orden es también el de las teclas: el tipo `i` se elige
- * con la tecla `i + 1`. Viven aquí y no en `rueda.ts` porque los nombra la pieza
+ * Los tres tipos **fusionados** de las ruedas de 3 y de 5 (complejidad del combate,
+ * 22-10-2026, decisión del usuario): cada uno es dos del anillo a la vez, con el
+ * efecto de cada una de sus partes **a la mitad** (`efectoDelTipo`,
+ * `battle/cifras-de-la-rueda.ts`). Sus partes, en `PARTES`
+ * (`battle/formas-de-la-rueda.ts`). No tienen nivel en un arma: sus cifras salen
+ * de las de sus partes.
+ */
+export const TIPOS_FUSIONADOS = ['ofensivoFuerte', 'defensivoFinta', 'rapidoRomper'] as const;
+
+/**
+ * Todos los tipos de golpe que existen: los seis del anillo, Normal (el centro) y
+ * los tres fusionados. **No es una rueda**: cada batalla juega con los de la suya
+ * (`FormaDeLaRueda.golpes`, `battle/formas-de-la-rueda.ts`), y esta lista solo sirve para
+ * validar un texto. Vive aquí y no en `rueda.ts` porque los nombra la pieza
  * (`Pieza.rueda`), y `data.ts` no puede importar `rueda.ts` (que lee `data.ts`).
  */
-export const TIPOS_DE_GOLPE = [...TIPOS_DEL_ANILLO, 'normal'] as const;
-export type TipoDeGolpe = (typeof TIPOS_DE_GOLPE)[number];
+export const TODOS_LOS_GOLPES = [...TIPOS_DEL_ANILLO, 'normal', ...TIPOS_FUSIONADOS] as const;
+export type TipoDeGolpe = (typeof TODOS_LOS_GOLPES)[number];
 
-/** Si `x` es un tipo de golpe de la rueda (`TIPOS_DE_GOLPE`). */
+/** Si `x` es un tipo de golpe de alguna rueda (`TODOS_LOS_GOLPES`). */
 export function esTipoDeGolpe(x: unknown): x is TipoDeGolpe {
-  return typeof x === 'string' && (TIPOS_DE_GOLPE as readonly string[]).includes(x);
+  return typeof x === 'string' && (TODOS_LOS_GOLPES as readonly string[]).includes(x);
 }
 
 /** Si `x` es un tipo del anillo (`TIPOS_DEL_ANILLO`): uno con nivel en un arma. */

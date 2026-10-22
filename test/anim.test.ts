@@ -4,6 +4,7 @@
  *
  * El reloj lo pone `tick`, una vez por fotograma; las lecturas no lo tocan.
  */
+
 import { describe, expect, it, vi } from 'vitest';
 import {
   BattleAnimator,
@@ -27,6 +28,7 @@ import { createBattle } from '../src/core/battle/battle.js';
 import { stackHp } from '../src/core/battle/damage.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
 import { ejercito, NO_MUERTO, TIRADOR, TROPA_BARATA } from './helpers.js';
@@ -56,6 +58,7 @@ function batalla(): BattleState {
     { army: troopsAsStacks(ejercito({ creature: TROPA_BARATA, count: 2 })), hero: null },
     { army: troopsAsStacks(ejercito({ creature: NO_MUERTO, count: 2 })), hero: null },
     createRng(1),
+    COMBATE_COMPLETO,
   );
 }
 
@@ -214,6 +217,7 @@ describe('el animador de batalla', () => {
       { army: troopsAsStacks(ejercito({ creature: TIRADOR, count: 2 })), hero: null },
       { army: troopsAsStacks(ejercito({ creature: NO_MUERTO, count: 2 })), hero: null },
       createRng(1),
+      COMBATE_COMPLETO,
     );
     for (const s of b.stacks) if (s.side === 'attacker') (s as { body: string }).body = cuerpo;
     a.observe(b);

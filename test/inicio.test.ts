@@ -3,7 +3,9 @@
  * como texto (vitest va sin DOM, como `paneles.test.ts`), y cuándo se pregunta.
  * Lo que hace con el ratón y el teclado lo juega `pnpm capturas` («arranque»).
  */
+
 import { describe, expect, it } from 'vitest';
+import { combateParaElMenu } from '../src/client/combate-en-la-url.js';
 import { html, marcadoDe } from '../src/client/html.js';
 import {
   renderEleccion,
@@ -11,6 +13,7 @@ import {
   renderMenu,
 } from '../src/client/inicio/pantallas.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { figuraDelHeroe, rasgoDeFaccion, tiposDeHeroe } from '../src/core/data.js';
 import { nombreDeSalida } from '../src/core/state/setup.js';
 import { FACTION_IDS, NOMBRE_DE_FACCION } from '../src/core/types.js';
@@ -56,7 +59,7 @@ describe('el menú', () => {
 
 describe('la elección de facción', () => {
   it('las cinco, cada una con su nombre, su rasgo y su héroe, y solo la elegida marcada', () => {
-    const eleccion = marcadoDe(renderEleccion('elfos'));
+    const eleccion = marcadoDe(renderEleccion('elfos', COMBATE_COMPLETO, false));
     const opciones = [...eleccion.matchAll(/data-faccion="([a-z-]+)"/g)].map((m) => m[1]);
     expect(opciones).toEqual([...FACTION_IDS]);
     for (const f of FACTION_IDS) {
@@ -72,6 +75,48 @@ describe('la elección de facción', () => {
     expect(eleccion).toContain('data-inicio="siguiente"');
     expect(eleccion).not.toContain('data-inicio="empezar"');
     expect(eleccion).toContain('data-inicio="volver"');
+  });
+});
+
+describe('la complejidad del combate en «Nuevo juego» (22-10-2026)', () => {
+  it('tropa y rueda, 3, 5 o 7 cada una y 7 marcada; y la casilla de «Solo la rueda del héroe»', () => {
+    const eleccion = marcadoDe(renderEleccion('elfos', COMBATE_COMPLETO, false));
+    for (const campo of ['tope', 'rueda']) {
+      const valores = [
+        ...eleccion.matchAll(new RegExp(`data-combate="${campo}" value="(\\d)"`, 'g')),
+      ].map((m) => m[1]);
+      expect(valores, campo).toEqual(['3', '5', '7']);
+      expect(eleccion).toMatch(new RegExp(`data-combate="${campo}" value="7" checked`));
+    }
+    // La casilla, con lo que hace en su nota (la misma de la batalla).
+    expect(eleccion).toMatch(
+      /<input type="checkbox" data-combate="solo-heroe"\s*\/> Solo la rueda del héroe<\/label><span class="nota"[^>]*aria-label="La rueda se te abre solo cuando tu héroe golpea o responde/,
+    );
+    expect(eleccion).not.toMatch(/title=/);
+    const elegido = marcadoDe(renderEleccion('elfos', { tope: 3, rueda: 5 }, true));
+    expect(elegido).toMatch(/data-combate="tope" value="3" checked/);
+    expect(elegido).toMatch(/data-combate="rueda" value="5" checked/);
+    expect(elegido).toMatch(/data-combate="solo-heroe" checked/);
+  });
+});
+
+describe('«Nuevo juego» parte de la complejidad de la URL (QA de la complejidad, vuelta 1)', () => {
+  it('lo que pide, con lo de siempre en lo que no pide; si algo no vale, no pregunta', () => {
+    // Antes «Nuevo juego» enseñaba 7 / 7 y pisaba la URL al empezar, y «Partida
+    // rápida» la conservaba: dos partidas distintas desde la misma dirección.
+    expect(combateParaElMenu('')).toEqual({ combate: COMBATE_COMPLETO, soloHeroe: false });
+    expect(combateParaElMenu('?tropa=3&rueda=5&solo-heroe=1')).toEqual({
+      combate: { tope: 3, rueda: 5 },
+      soloHeroe: true,
+    });
+    expect(combateParaElMenu('?rueda=3')).toEqual({
+      combate: { tope: 7, rueda: 3 },
+      soloHeroe: false,
+    });
+    // Lo que no vale lo dice la partida al arrancar (`main.ts`), con su salida.
+    for (const mal of ['?rueda=4', '?tropa=6', '?solo-heroe=si', '?tropa=3&tropa=5']) {
+      expect(combateParaElMenu(mal), mal).toBeNull();
+    }
   });
 });
 

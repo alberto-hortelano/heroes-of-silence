@@ -136,7 +136,7 @@ function objectValue(
         // pero con el liderazgo lleno la guarnición entera vale cero: sin esta
         // resta, el héroe volvería a casa a por una tropa que no puede
         // llevarse, una y otra vez.
-        const { tope, cupo } = capacidadDe(hero);
+        const { tope, cupo } = capacidadDe(hero, state.combate.tope);
         const { dentro } = troopsThatFit(hero.army, tope, cupo, pueblo.garrison);
         return armyPower(dentro, state.characters) / 10;
       }

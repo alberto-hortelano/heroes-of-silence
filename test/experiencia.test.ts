@@ -29,6 +29,7 @@ import { castSpell, delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleHero, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { cifrasDeUnidad, unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { serializeAdventureTurn, serializeBattleTurn } from '../src/core/contract/serialize.js';
 import {
   CATALOGO_DE_HABILIDADES,
@@ -162,6 +163,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
       { army: [{ creature: PESADA, count: 1 }], hero: null },
       { army: [{ creature: TROPA, count: 1 }], hero: null },
       createRng(1),
+      COMBATE_COMPLETO,
     );
     const autor = stackById(b, 'attacker-0');
     const recibe = stackById(b, 'defender-0');
@@ -187,6 +189,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
         hero: null,
       },
       createRng(1),
+      COMBATE_COMPLETO,
     );
     const novato = stackById(b, 'defender-0').unit;
     const veterano4 = stackById(b, 'defender-1').unit;
@@ -217,6 +220,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
       },
       { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
       createRng(1),
+      COMBATE_COMPLETO,
     );
     const tirador = stackById(b, 'attacker-0');
     const aliado = stackById(b, 'attacker-1');
@@ -232,6 +236,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
       conHeroe([{ creature: JINETE, count: 1 }]),
       { army: [{ creature: 'zombi', count: 1 }], hero: null },
       createRng(4),
+      COMBATE_COMPLETO,
     );
     const cuerpo = stackById(b, 'attacker-heroe');
     const zombi = stackById(b, 'defender-0');
@@ -247,6 +252,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
       conHeroe([{ creature: JINETE, count: 1 }]),
       { army: [{ creature: 'zombi', count: 1 }], hero: null },
       createRng(4),
+      COMBATE_COMPLETO,
     );
     const flecha = spell('magic_arrow');
     castSpell(flecha, delHeroe(flecha, mando()), stackById(otra, 'defender-0'), null);
@@ -543,6 +549,7 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
         },
         { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
         createRng(1),
+        COMBATE_COMPLETO,
       ),
     ).toThrow('el veterano v-1 es uno solo y viene en un stack de 3');
   });
@@ -582,6 +589,7 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
       },
       { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
       createRng(1),
+      COMBATE_COMPLETO,
     );
     const s = stackById(b, 'attacker-0');
     const base = unidadDelJuego(TROPA);
@@ -600,6 +608,7 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
       { army: [{ creature: TROPA, count: 1 }], hero: null },
       { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
       createRng(1),
+      COMBATE_COMPLETO,
     );
     expect(stackById(b, 'attacker-0').unit).toBe(unidadDelJuego(TROPA));
     expect(cifrasVeteranas(unidadDelJuego(TROPA), 1)).toBe(unidadDelJuego(TROPA));
@@ -626,6 +635,7 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
       },
       { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
       createRng(1),
+      COMBATE_COMPLETO,
     );
     expect(stackById(b, 'attacker-0').unit).toEqual(troopUnit(criatura, undefined));
     expect(stackById(b, 'attacker-1').unit).toEqual(troopUnit(personaje, { aren }));
@@ -706,6 +716,7 @@ describe('la veteranía se ve (C7)', () => {
       ]),
       { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
       createRng(1),
+      COMBATE_COMPLETO,
     );
     const ids = ['attacker-0', 'attacker-1', 'attacker-2', 'attacker-3', 'attacker-heroe'];
     expect(ids.map((id) => galonesDe(stackById(b, id)))).toEqual([0, 0, 2, 4, 0]);
