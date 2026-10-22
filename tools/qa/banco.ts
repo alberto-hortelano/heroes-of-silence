@@ -1179,11 +1179,22 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `built` 180 → 231, `recruited` 167 → 235, `dismissed` 89 → 114. Sale
  *   el hecho de los recursos recogidos (17 → 0) y entra `gold_gained` (0 → 5, los cofres); ya no
  *   sale el `spells_learned` (1 → 0). Ningún otro tipo nuevo ni que desaparezca.
+ * - `420d75c9…` (4 586 líneas, 20 semillas, 22-10-2026): **el héroe de salida se
+ *   paga** (`ECONOMIA.precioDelHeroe`, 2 500, por la puerta de contratar,
+ *   `hireHero`, sin hecho en la crónica; `docs/agents/2026-10-22-heroe-en-la-base/`).
+ *   Contra `b9dbd8a1…`, 2 de 20 idénticas (s6, s10): el mismo mapa y los mismos
+ *   hechos hasta que el oro no alcanza, y el primer hecho distinto es una compra
+ *   (`built` o `recruited` de otra cosa o de menos) o lo que la IA hace en su
+ *   lugar (`dismissed`, `hero_moved`) los días 3 (7) y 4 (11), del j1 en 14 de las
+ *   18. 0 sin terminar; j0 gana 10 de 20 (9 antes); duración 4 / 7 / 7 → **4 / 8 /
+ *   12** (s1, de 6 a 12 días); días 90 → 96, batallas 99 → 104, `built` 231 →
+ *   215, `recruited` 235 → 252, `garrison_taken` 30 → 35. Ningún tipo de hecho
+ *   nuevo ni que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'b9dbd8a10f5982abd06aaec3b9303ddcc145343ff54e0219842ecee4cb0fe032',
+  sha: '420d75c9f5757372fcd463e500bc348f3e9ec1afc4a444ee55d21b48f29791de',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

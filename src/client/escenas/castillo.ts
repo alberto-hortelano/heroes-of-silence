@@ -90,6 +90,8 @@ interface Marcha {
   readonly empieza: number;
   readonly dura: number;
   readonly alLlegar: Abierto | null;
+  /** El sitio al que va, si va a uno (no al suelo ni a hablar). */
+  readonly sitio: SitioId | null;
   /** Hacia dónde mira al llegar: al edificio o a la persona. */
   readonly miraAlLlegar: Mirada | null;
 }
@@ -244,7 +246,7 @@ export class EscenaBase {
     if (m.miraAlLlegar !== null) this.mira = m.miraAlLlegar;
     this.marcha = null;
     this.quietoDesde = ahora;
-    this.llegar(m.alLlegar);
+    this.llegar(m.alLlegar, m.sitio);
   }
 
   /**
@@ -253,17 +255,30 @@ export class EscenaBase {
    * abierto, así que al volver quien anduvo está quieto en su puerta—; lo demás
    * se abre en el panel.
    */
-  private llegar(a: Abierto | null): void {
-    const town = this.sesion().activeTown;
+  private llegar(a: Abierto | null, sitio: SitioId | null): void {
+    const s = this.sesion();
+    // Con el héroe de salida por elegir, el ayuntamiento abre la elección y no
+    // «Ampliar», que no deja construir nada hasta entonces (QA H4, 22-10-2026).
+    if (sitio === 'hall' && s.heroeDeSalidaPendiente) {
+      this.abiertoAhora = null;
+      s.abrirElAyuntamiento();
+      return;
+    }
+    const town = s.activeTown;
     if (a?.tipo === 'sitio' && town !== null && moradaEn(town, a.sitio).edificio !== null) {
       this.abiertoAhora = null;
-      this.sesion().abrirLaMorada(a.sitio);
+      s.abrirLaMorada(a.sitio);
       return;
     }
     this.abiertoAhora = a;
   }
 
-  private elementos(vista: VistaDeLaBase, d: Disposicion, ahora: number, gente = true): Elemento[] {
+  private elementos(
+    vista: VistaDeLaBase,
+    d: Disposicion,
+    ahora: number,
+    quien: { readonly gente?: boolean; readonly caminante?: boolean } = {},
+  ): Elemento[] {
     const andando = this.marcha !== null;
     return componerBase(
       d,
@@ -275,7 +290,7 @@ export class EscenaBase {
         tiempo: andando ? ahora - (this.marcha?.empieza ?? 0) : ahora - this.quietoDesde,
       },
       ahora,
-      { gente },
+      quien,
     );
   }
 
@@ -301,8 +316,9 @@ export class EscenaBase {
    * La base detrás de la morada de `edificio` (`escenas/morada.ts`), con la cámara
    * de la morada (`encuadrarLaMorada`): la plaza de siempre, ese edificio cambiado
    * por su versión abierta si la hay (`conLaAbierta`; si no, su exterior), quien
-   * anduvo quieto en su puerta y nadie más. No toca la cámara de la base ni su
-   * lienzo: al volver, la base está como se dejó.
+   * anduvo quieto en su puerta (salvo con `caminante: false`, el ayuntamiento) y
+   * nadie más. No toca la cámara de la base ni su lienzo: al volver, la base está
+   * como se dejó.
    */
   pintarLaMorada(
     ctx: CanvasRenderingContext2D,
@@ -310,6 +326,7 @@ export class EscenaBase {
     camara: Tablero,
     edificio: string,
     ahora: number,
+    { caminante = true }: { readonly caminante?: boolean } = {},
   ): void {
     const b = this.base();
     if (b === null) return;
@@ -317,7 +334,7 @@ export class EscenaBase {
       d: b.d,
       t: camara,
       lienzo,
-      elementos: this.elementos(b.vista, b.d, ahora, false),
+      elementos: this.elementos(b.vista, b.d, ahora, { gente: false, caminante }),
       arte: conLaAbierta(this.arte(b.vista), edificio, abiertaDe(b.vista.faccion, edificio)),
       color: playerColor(b.vista.owner),
       señalado: null,
@@ -389,7 +406,15 @@ export class EscenaBase {
         this.andar(d, vista, alaFranja(d, g.en), null, null, ahora);
         return;
       case 'sitio': {
-        this.andar(d, vista, this.adondeVa(d, g.sitio), abiertoAlLlegar(g.sitio), 'N', ahora);
+        this.andar(
+          d,
+          vista,
+          this.adondeVa(d, g.sitio),
+          abiertoAlLlegar(g.sitio),
+          'N',
+          ahora,
+          g.sitio,
+        );
         return;
       }
       case 'pnj': {
@@ -434,7 +459,7 @@ export class EscenaBase {
     this.camaraX = camaraQuieta(b.d, this.lienzo, this.en.x);
     this.camaraEn = ahora;
     this.sesion().status = AYUDA_DE_LA_BASE;
-    this.llegar(abiertoAlLlegar(e.sitio));
+    this.llegar(abiertoAlLlegar(e.sitio), e.sitio);
   }
 
   /**
@@ -455,6 +480,7 @@ export class EscenaBase {
     alLlegar: Abierto | null,
     miraAlLlegar: Mirada | null,
     ahora: number,
+    sitio: SitioId | null = null,
   ): void {
     // Lo abierto se cierra al echar a andar y se abre al llegar: el panel de la
     // morada de antes no se queda puesto mientras se va a otra.
@@ -473,6 +499,7 @@ export class EscenaBase {
       empieza: ahora,
       dura,
       alLlegar,
+      sitio,
       miraAlLlegar,
     };
     animarHasta(ahora + dura);

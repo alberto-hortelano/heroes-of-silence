@@ -6,7 +6,7 @@
  * a su alcance. Es el listón que el agente tiene que superar.
  */
 import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../catalogo.js';
-import type { Pieza } from '../data.js';
+import { ECONOMIA, type Pieza } from '../data.js';
 import {
   conEquipo,
   destinoDeEquipo,
@@ -28,22 +28,16 @@ import {
   troopUnit,
   withTroops,
 } from '../hero/troop.js';
-import {
-  casillaDelIndice,
-  costeEnElAlcance,
-  type MapObject,
-  pointKey,
-  type Reachable,
-} from '../map/map.js';
+import { casillaDelIndice, costeEnElAlcance, type MapObject, type Reachable } from '../map/map.js';
 import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
 import { indiceDePoder } from '../nivel.js';
 import { grupoALaVistaDesde } from '../state/asaltantes.js';
 import {
   type AdventureAction,
   baseOf,
+  contratarBlocker,
   destinoDeRecluta,
   type GameState,
-  HERO_HIRE_COST,
   heroeEnElPueblo,
   heroesOf,
   miradasDe,
@@ -442,10 +436,12 @@ export function planHires(state: GameState, playerId: PlayerId): AdventureAction
   const reserva = heroes.length === 0 ? 0 : 6000; // con héroes vivos, no se malgasta
 
   for (const town of townsOf(state, playerId)) {
-    if (oro - HERO_HIRE_COST < reserva) break;
-    if (state.heroes.some((h) => pointKey(h.at) === pointKey(town.at))) continue;
+    if (oro - ECONOMIA.precioDelHeroe < reserva) break;
+    // La regla de contratar es la del núcleo (`contratarBlocker`: el oro, quién
+    // está dentro, el tope de héroes), no una copia suya aquí.
+    if (contratarBlocker(state, playerId, town.id) !== null) continue;
     acciones.push({ type: 'hire_hero', town: town.id });
-    oro -= HERO_HIRE_COST;
+    oro -= ECONOMIA.precioDelHeroe;
     break; // uno por turno basta
   }
   return acciones;
@@ -465,7 +461,7 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
   // con 0 héroes y ~25 de oro frente a otro con un millón que no ataca su
   // castillo, hasta el día 300. Hoy no se ve porque la partida acaba el 7;
   // cuadrada la economía eran 15 de 200 partidas eternas, y las 15 esta.
-  const reserva = heroesOf(state, playerId).length === 0 ? HERO_HIRE_COST : 0;
+  const reserva = heroesOf(state, playerId).length === 0 ? ECONOMIA.precioDelHeroe : 0;
   let oro = player.oro - reserva;
 
   for (const town of townsOf(state, playerId)) {
@@ -734,7 +730,7 @@ export const COMPRAS_POR_HEROE_Y_DIA = 3;
  * la pieza se va con él, así que solo se le compra lo que sobra de verdad; al
  * héroe y a los veteranos les basta con no tocar lo que cuesta un héroe. Inventado.
  */
-export const ORO_DE_SOBRA_PARA_NOVATOS = 4 * HERO_HIRE_COST;
+export const ORO_DE_SOBRA_PARA_NOVATOS = 4 * ECONOMIA.precioDelHeroe;
 
 /**
  * Para quién compra la IA: el héroe y los veteranos de rango 2 o más, que son
@@ -812,7 +808,7 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
     for (const p of PIEZAS_DE_ARMERIA) {
       const queda = player.oro - p.precio;
       // Tras pagarla queda lo que cuesta un héroe: con eso, también la paga.
-      if (queda < HERO_HIRE_COST) continue;
+      if (queda < ECONOMIA.precioDelHeroe) continue;
       // Quien la recibiría es el primero al que mejora, con el MISMO orden con
       // el que se reparte la mochila justo después: si ese no vale la pena, no se
       // compra. Mirar si la mejora «alguien» que vale la pena dejaba comprarla

@@ -369,6 +369,13 @@ export interface ReglasDeLaEconomia {
    * (`rentaDelDia`). **Inventado** (21-10-2026, decisión del usuario).
    */
   readonly rentaDelPueblo: number;
+  /**
+   * Lo que cuesta todo héroe: el de salida, que se elige y se paga en la base al
+   * empezar, y el que se contrata después (`hireHero`, `contratarBlocker`). Uno
+   * para todos los tipos, que hoy no difieren en cifras. **Inventado** (22-10-2026,
+   * decisión del usuario: el `HERO_HIRE_COST` de antes); nunca más que `oroDeSalida`.
+   */
+  readonly precioDelHeroe: number;
 }
 
 /** Los niveles que tienen fila en las tablas de la economía: del 1 al 6. */
@@ -413,6 +420,16 @@ export function validarEconomia(json: unknown, fichero = 'data/economia.json'): 
   if (!enteroDesde(rentaDelPueblo, 0)) {
     problemas.push(`rentaDelPueblo tiene que ser un entero ≥ 0 de oro y es ${rentaDelPueblo}`);
   }
+  const precioDelHeroe = j.precioDelHeroe;
+  if (!enteroDesde(precioDelHeroe, 0)) {
+    problemas.push(`precioDelHeroe tiene que ser un entero ≥ 0 de oro y es ${precioDelHeroe}`);
+  } else if (enteroDesde(oroDeSalida, 0) && (precioDelHeroe as number) > (oroDeSalida as number)) {
+    // Todo jugador paga su héroe de salida con el oro de salida: con un precio
+    // mayor, la partida no podría ni empezar.
+    problemas.push(
+      `precioDelHeroe (${precioDelHeroe}) no puede pasar de oroDeSalida (${oroDeSalida}): el héroe de salida se paga con él`,
+    );
+  }
   if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
   return {
     oroPorIndice: { divisor: divisor as number },
@@ -420,6 +437,7 @@ export function validarEconomia(json: unknown, fichero = 'data/economia.json'): 
     costeDeLaMorada: [...(costes as number[])],
     oroDeSalida: oroDeSalida as number,
     rentaDelPueblo: rentaDelPueblo as number,
+    precioDelHeroe: precioDelHeroe as number,
   };
 }
 

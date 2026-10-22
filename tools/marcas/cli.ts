@@ -11,13 +11,18 @@
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { motivoDe } from '../../src/client/desarrollo/esquema.js';
+import { urlDePartida } from '../qa/url-de-partida.js';
 import { CARPETA_DE_MARCAS, leerMarca, listarMarcas, resolverMarca } from './almacen.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 
-/** Lo que se pega en la barra de direcciones de `pnpm dev` para volver a mirar la marca. */
+/**
+ * Lo que se pega en la barra de direcciones de `pnpm dev` para volver a mirar la
+ * marca: con el héroe de salida ya elegido (`urlDePartida`), para no pararse ante
+ * el ayuntamiento.
+ */
 const urlDe = (m: { id: string; semilla: number }): string =>
-  `http://localhost:3100/?seed=${m.semilla}&marca=${m.id}`;
+  `http://localhost:3100${urlDePartida(m.semilla)}&marca=${m.id}`;
 
 const ORDENES = 'lista [--todas], ver <id>, resolver <id> <ref>, recorte <id>';
 

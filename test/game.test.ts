@@ -79,7 +79,6 @@ import {
   dayOfWeek,
   type GameContext,
   type GameState,
-  HERO_HIRE_COST,
   heroById,
   heroesOf,
   ordenDelDia,
@@ -869,7 +868,7 @@ describe('IA de respaldo', () => {
     const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
     const player = state.players.find((p) => p.id === 0)!;
     state.heroes = state.heroes.filter((h) => h.owner !== 0);
-    player.oro = HERO_HIRE_COST + 400;
+    player.oro = ECONOMIA.precioDelHeroe + 400;
     // Con la morada llena, quien manda es el oro: sin la reserva, el
     // reclutamiento se lo lleva hasta el último. Con lo poco que cría la morada
     // el día 1 este test pasaría sin reserva y no guardaría nada.
@@ -880,7 +879,7 @@ describe('IA de respaldo', () => {
     expect(reclutas.some((a) => a.type === 'recruit')).toBe(true); // no se queda parado
     for (const accion of reclutas) applyAdventureAction(state, accion, ctx(41), 0);
 
-    expect(player.oro).toBeGreaterThanOrEqual(HERO_HIRE_COST);
+    expect(player.oro).toBeGreaterThanOrEqual(ECONOMIA.precioDelHeroe);
     expect(planHires(state, 0).some((a) => a.type === 'hire_hero')).toBe(true);
   });
 
@@ -897,7 +896,7 @@ describe('IA de respaldo', () => {
     const montar = (conHeroe: boolean) => {
       const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
       const player = state.players.find((p) => p.id === 0)!;
-      player.oro = HERO_HIRE_COST + 100;
+      player.oro = ECONOMIA.precioDelHeroe + 100;
       const town = townsOf(state, 0)[0]!;
       for (const id of Object.keys(town.available)) town.available[id] = 500;
       if (!conHeroe) state.heroes = state.heroes.filter((h) => h.owner !== 0);
@@ -1485,10 +1484,12 @@ describe('el gremio enseña (#2)', () => {
     // y el recinto de las ciudades (fusión, 21-10-2026), 3 gremios y 2 hechizos en
     // 1-40, en la 17 (los dos hechizos), la 19 y la 26: se juegan la 17 y la 19.
     // Sin minas y con todo en oro (21-10-2026, «solo oro»), 2 gremios y 2
-    // hechizos en 1-40, los dos en la 35: se juega la 35.
+    // hechizos en 1-40, los dos en la 35: se juega la 35. Con el héroe de salida
+    // pagado (22-10-2026, 2 500 menos el día 1), ninguno en 1-40 y 12 gremios y 16
+    // hechizos en 41-200, en 11 semillas: se juega la 54 (uno y dos).
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [35]) {
+    for (const semilla of [54]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {
@@ -2352,7 +2353,7 @@ describe('el id de un héroe contratado no se repite (#126)', () => {
     fueraDeSuBase(state, 0);
     expect(state.players.map((p) => p.id)).toEqual([0, 1, 2]);
     const dia = state.day;
-    state.players[0]!.oro = 10 * HERO_HIRE_COST;
+    state.players[0]!.oro = 10 * ECONOMIA.precioDelHeroe;
     const casa = state.towns.find((t) => t.id === 'town-0')!;
     const suya = state.towns.find((t) => t.id === 'town-2')!;
     const otro = heroById(state, 'hero-2');

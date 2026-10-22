@@ -88,6 +88,7 @@ import {
   applyAdventureAction,
   battleOwners,
   caminoHasta,
+  candidatosAHeroe,
   destinoDeRecluta,
   type GameContext,
   type GameState,
@@ -103,6 +104,7 @@ import {
   reclutarBlocker,
   recruitCapacity,
   resolvePendingBattle,
+  salidaPendienteBlocker,
   settleBattle,
   sidesOwnedBy,
   townById,
@@ -127,6 +129,7 @@ import {
   type Point,
   type UnitInfo,
 } from '@core/types.js';
+import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
 import { quienesDe } from './desenlace.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
@@ -156,7 +159,15 @@ export const AYUDA_DE_LA_TROPA =
 export const AYUDA_DE_LA_MORADA =
   'Pulsa una figura para ver su ficha y reclutar. «Volver a la base» (o Escape) sale.';
 
-export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada';
+/** Lo que dice la barra en la escena del ayuntamiento cuando el ratón no señala a nadie. */
+export const AYUDA_DEL_AYUNTAMIENTO =
+  'Pulsa una figura para ver su ficha y su precio. «Volver a la base» (o Escape) sale.';
+
+/** Lo que dice la barra al empezar, con el héroe de salida por elegir. */
+export const AYUDA_DE_LA_SALIDA =
+  'Elige a tu héroe: pulsa una figura para ver su ficha y contrátalo. Hasta entonces no se puede hacer nada más.';
+
+export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada' | 'ayuntamiento';
 
 /** La morada de la base abierta en que se está y a quién se mira (`null`: la primera que produce). */
 interface MoradaAbierta {
@@ -901,11 +912,14 @@ export class Session implements ControlDeBatalla {
    * @param faccion la de la persona (la elegida en el menú o la de `?faccion=`);
    *   sin ella, la que saque la semilla. El rival, otra: lo decide el núcleo
    *   (`faccionesDeLaSemilla`), no la sesión.
-   * @param tipoDelHeroe el tipo de su héroe (el elegido en el menú o el de
-   *   `?heroe=`); sin él, el de por defecto de su facción. Uno que no es de su
-   *   facción lo rechaza el núcleo (`newGame`) diciendo cuáles valen.
+   * @param tipoDelHeroe el tipo de su héroe de salida, ya elegido y pagado (el de
+   *   `?heroe=`); con `null`, **por elegir en la base**, ante el ayuntamiento (así
+   *   empieza la partida sin `?heroe=`; lo mismo en `NewGameOptions`); sin él
+   *   (`undefined`, lo que pasan los tests), el de por defecto de su facción, ya
+   *   pagado. Uno que no es de su facción lo rechaza el núcleo (`newGame`)
+   *   diciendo cuáles valen.
    */
-  constructor(seed: number, faccion?: FactionId, tipoDelHeroe?: string) {
+  constructor(seed: number, faccion?: FactionId, tipoDelHeroe?: string | null) {
     // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
     // de donde la lee quien la enseña. Un hecho en dos sitios se desincroniza
     // el día que esta capa hable por WebSocket —`this.seed` sería la que pidió
@@ -1236,7 +1250,9 @@ export class Session implements ControlDeBatalla {
 
   /** Selecciona lo que haya en la casilla, o mueve el héroe hasta ella. */
   clickTile(p: Point): void {
-    const bloqueo = this.bloqueoDeTurno();
+    // Solo el turno: con el héroe de salida por elegir, pulsar la base la abre (es
+    // donde se elige); mover no hay a quién.
+    const bloqueo = this.turnoAjeno();
     if (bloqueo !== null) {
       this.status = bloqueo;
       return;
@@ -1423,6 +1439,11 @@ export class Session implements ControlDeBatalla {
     return [];
   }
 
+  /**
+   * Abre la base `townId`. La suya, con el héroe de salida por elegir, abre ante el
+   * ayuntamiento, eligiéndolo: se entre desde el mapa, desde «Castillos» o al
+   * empezar (QA H4, 22-10-2026: desde la lista abría la base y no la elección).
+   */
   openTown(townId: string): void {
     this.aperturas++;
     this.openTownId = townId;
@@ -1430,6 +1451,7 @@ export class Session implements ControlDeBatalla {
     // Lo que decía la barra era del mapa («haz clic en el mapa para mover a tu
     // héroe»): en la base no significa nada.
     this.status = AYUDA_DE_LA_BASE;
+    if (this.heroeDeSalidaPendiente && townId === this.jugador.base) this.abrirElAyuntamiento();
   }
 
   /**
@@ -1449,6 +1471,7 @@ export class Session implements ControlDeBatalla {
   abrirSuBase(): void {
     const base = this.jugador.base;
     if (base === null) throw new Error('no se puede abrir tu base: no tienes ninguna');
+    // Sin héroe de salida elegido, se empieza ante el ayuntamiento (`openTown`).
     this.openTown(base);
     this.ayudaAlSalir = AYUDA_DEL_MAPA;
   }
@@ -1460,7 +1483,13 @@ export class Session implements ControlDeBatalla {
     this.openTownId = null;
     this.scene = 'adventure';
     // El último rótulo del castillo hablaba de solares y reclutas: fuera de
-    // allí no significa nada. Al salir por primera vez, cómo se anda.
+    // allí no significa nada. Al salir por primera vez, cómo se anda; con el
+    // héroe de salida por elegir no se anda, y la ayuda espera a la salida de
+    // después (QA H7, 22-10-2026).
+    if (this.heroeDeSalidaPendiente) {
+      this.status = this.bloqueoDeTurno() ?? '';
+      return;
+    }
     this.status = this.ayudaAlSalir ?? '';
     this.ayudaAlSalir = null;
   }
@@ -1555,7 +1584,10 @@ export class Session implements ControlDeBatalla {
   motivoParaNoReclutar(creatureId: string): string | null {
     const town = this.activeTown;
     if (town === null || town.owner === null) return null;
-    return reclutarBlocker(town, creatureId, 1, destinoDeRecluta(this.state, town), this.oro);
+    return (
+      this.bloqueoDeTurno() ??
+      reclutarBlocker(town, creatureId, 1, destinoDeRecluta(this.state, town), this.oro)
+    );
   }
 
   /**
@@ -1758,6 +1790,97 @@ export class Session implements ControlDeBatalla {
     readonly vista: VistaDeLaMorada;
   } | null = null;
 
+  // ------------------------------------------------------------ el ayuntamiento en escena
+
+  /**
+   * Si la persona tiene aún por elegir su héroe de salida (`Player.heroeDeSalida`):
+   * hasta entonces no se juega nada más (`bloqueoDeTurno`, con la frase del núcleo).
+   */
+  get heroeDeSalidaPendiente(): boolean {
+    return this.jugador.heroeDeSalida !== null;
+  }
+
+  /**
+   * Entra en la escena del ayuntamiento de la base abierta, con el primer
+   * candidato elegido: el héroe de salida si está pendiente, o uno que contratar
+   * («Contratar héroe» del panel de la base, D3). Lanza, diciéndolo, fuera de la
+   * base o si no se puede componer (sin ayuntamiento), sin cambiar nada. La base
+   * sigue abierta debajo, como con la morada.
+   */
+  abrirElAyuntamiento(): void {
+    const town = this.activeTown;
+    if (this.scene !== 'town' || town === null) {
+      throw new Error('no se puede entrar en el ayuntamiento: no hay ninguna base abierta');
+    }
+    // Se compone antes de cambiar nada (si lanza, se sigue en la base) y se guarda
+    // con la versión de después: entrar no la compone otra vez.
+    const vista = this.componerElAyuntamiento(town, null);
+    this.elegidoEnElAyuntamiento = null;
+    this.scene = 'ayuntamiento';
+    this.status = this.heroeDeSalidaPendiente ? AYUDA_DE_LA_SALIDA : AYUDA_DEL_AYUNTAMIENTO;
+    this.cacheDelAyuntamiento = { version: this.version, vista };
+  }
+
+  /**
+   * Vuelve del ayuntamiento a la base, que sigue abierta: también con el de
+   * salida pendiente (no se encierra a nadie; lo demás sale apagado con su motivo).
+   */
+  cerrarElAyuntamiento(): void {
+    if (this.scene !== 'ayuntamiento') {
+      throw new Error('no se puede salir del ayuntamiento: no se está en él');
+    }
+    this.scene = 'town';
+    this.status = AYUDA_DE_LA_BASE;
+  }
+
+  /** Elegir un candidato (un clic en su figura o en su botón del panel). Uno que no lo es lanza. */
+  elegirEnElAyuntamiento(tipo: string): void {
+    const town = this.activeTown;
+    if (this.scene !== 'ayuntamiento' || town === null) {
+      throw new Error('no se puede elegir en el ayuntamiento: no se está en él');
+    }
+    // Compuesta primero: un tipo que no vale lanza sin dejarlo elegido.
+    const vista = this.componerElAyuntamiento(town, tipo);
+    this.elegidoEnElAyuntamiento = tipo;
+    this.tocar();
+    this.cacheDelAyuntamiento = { version: this.version, vista };
+  }
+
+  /** El tipo elegido en el ayuntamiento (`null`: el primero). Lo sustituye cada entrada. */
+  private elegidoEnElAyuntamiento: string | null = null;
+
+  /**
+   * La vista con `elegido`; lanza si no vale. Contratar solo espera al turno: lo
+   * demás de no poder jugar (el de salida pendiente) es justo lo que se elige aquí.
+   */
+  private componerElAyuntamiento(town: Town, elegido: string | null): VistaDelAyuntamiento {
+    return componerVistaDelAyuntamiento(
+      town,
+      candidatosAHeroe(this.state, this.viewer, town.id),
+      elegido,
+      this.turnoAjeno(),
+    );
+  }
+
+  /**
+   * Lo que se ve en la escena del ayuntamiento (`ayuntamiento/vista.ts`), o `null`
+   * fuera de ella. Se rehace cuando cambia algo que se ve (`version`: el oro, el
+   * turno, a quién se mira).
+   */
+  vistaDelAyuntamiento(): VistaDelAyuntamiento | null {
+    const town = this.activeTown;
+    if (this.scene !== 'ayuntamiento' || town === null) return null;
+    const c = this.cacheDelAyuntamiento;
+    if (c !== null && c.version === this.version) return c.vista;
+    const vista = this.componerElAyuntamiento(town, this.elegidoEnElAyuntamiento);
+    this.cacheDelAyuntamiento = { version: this.version, vista };
+    return vista;
+  }
+  private cacheDelAyuntamiento: {
+    readonly version: number;
+    readonly vista: VistaDelAyuntamiento;
+  } | null = null;
+
   // ------------------------------------------------------------ la tropa en escena
 
   /**
@@ -1929,16 +2052,36 @@ export class Session implements ControlDeBatalla {
   }
   private ultimaDeLaTropa: { jugada: string; quien: Portador; version: number } | null = null;
 
-  hireHero(): void {
+  /**
+   * Contrata en la base abierta un héroe del tipo `tipo` (sin él, el de por
+   * defecto), o elige y paga el de salida si está pendiente: la misma acción
+   * (`hire_hero`), la misma regla. Si sale bien, vuelve del ayuntamiento a la base
+   * con el héroe nuevo elegido, que es quien camina en ella.
+   */
+  hireHero(tipo?: string): void {
     if (this.openTownId === null) return;
-    this.run(() =>
-      applyAdventureAction(
-        this.state,
-        { type: 'hire_hero', town: this.openTownId as string },
-        this.ctx,
-        this.viewer,
-      ),
+    // Solo espera al turno: con el de salida pendiente, contratar es elegirlo.
+    const bien = this.run(
+      () =>
+        applyAdventureAction(
+          this.state,
+          {
+            type: 'hire_hero',
+            town: this.openTownId as string,
+            ...(tipo === undefined ? {} : { tipo }),
+          },
+          this.ctx,
+          this.viewer,
+        ),
+      this.turnoAjeno(),
     );
+    if (!bien) return;
+    if (this.scene === 'ayuntamiento') this.cerrarElAyuntamiento();
+    const nuevo = this.heroeEnLaBase();
+    if (nuevo !== null) {
+      this.selectedHeroId = nuevo.id;
+      this.status = `${nuevo.name} se une a ti.`;
+    }
   }
 
   // ------------------------------------------------------------ batalla
@@ -2189,15 +2332,15 @@ export class Session implements ControlDeBatalla {
   // ------------------------------------------------------------ interno
 
   /**
-   * Las acciones del castillo, con la guarda de turno delante.
+   * Las acciones del castillo, con la guarda de turno delante (`bloqueo`, por
+   * defecto `bloqueoDeTurno`; contratar pasa solo la del turno).
    *
    * `build`, `recruit` y `hireHero` no la tenían: mientras el turno fue
    * síncrono no había un instante en el que pulsarlas fuera de turno, y desde
    * que no lo es sí. El núcleo también las rechaza —lo cierran los dos lados—,
    * pero aquí se dice antes y sin excepción.
    */
-  private run(fn: () => void): boolean {
-    const bloqueo = this.bloqueoDeTurno();
+  private run(fn: () => void, bloqueo = this.bloqueoDeTurno()): boolean {
     if (bloqueo !== null) {
       this.status = bloqueo;
       return false;
@@ -2217,7 +2360,19 @@ export class Session implements ControlDeBatalla {
   }
 
   /**
-   * Por qué no se puede jugar ahora, o `null`. **La frase la escribe el núcleo.**
+   * Por qué no se puede jugar ahora, o `null`: el turno (`turnoAjeno`) y, si no, el
+   * héroe de salida por elegir (`salidaPendienteBlocker`). **La compuerta de toda
+   * acción** de la persona: la leen las acciones (`run`), la tropa y lo que se
+   * apaga en pantalla (reclutar, construir, el fin de turno). Contratar mira solo
+   * el turno (`turnoAjeno`): con el de salida pendiente es lo único que se hace.
+   * Abrir y cerrar escenas o pulsar el mapa (`clickTile`) no pasan por aquí.
+   */
+  bloqueoDeTurno(): string | null {
+    return this.turnoAjeno() ?? salidaPendienteBlocker(this.state, this.viewer);
+  }
+
+  /**
+   * Por qué no es el turno de la persona, o `null`. **La frase la escribe el núcleo.**
    *
    * Había tres redacciones de esto —una en `game.ts` y dos aquí— y la única que
    * decía QUIÉN está jugando era la del núcleo, que no se veía nunca porque el
@@ -2229,7 +2384,7 @@ export class Session implements ControlDeBatalla {
    * el nuestro y el núcleo diría que sí es tu turno. Eso el núcleo no lo sabe ni
    * tiene por qué, así que esa frase —y solo esa— la pone el cliente.
    */
-  private bloqueoDeTurno(): string | null {
+  private turnoAjeno(): string | null {
     if (this.isPlayersTurn) return null;
     return (
       turnBlocker(this.state, this.viewer) ?? 'Espera: el turno del rival aún se está resolviendo.'

@@ -28,14 +28,17 @@ npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (goo
 ```
 
 - **`?seed=N&faccion=<id>&heroe=<tipo>` fija la partida**; la barra enseña siempre cuál se juega y
-  la URL lleva las tres tras empezar. Lo que no es semilla o facción se rechaza diciéndolo
+  la URL lleva las tres tras empezar (`?heroe=` = «ya elegido y pagado»; sin él, el héroe de salida
+  se elige en la base y la URL lo lleva en cuanto se elige: una recarga a media elección vuelve a
+  preguntar igual, 22-10-2026). Lo que no es semilla o facción se rechaza diciéndolo
   (`parseSeed`, `parseFaccion`, en `core`; repetido, `unaVezEnLaURL`), y un tipo de héroe que no es
   de la facción que se juega, también (`problemaDeTipo`, el mismo de `newGame`). `?seed=` vacío =
   sin semilla. **Sin ninguna de las tres, la página pregunta** (19-10-2026, `inicio/`): «Nuevo
-  juego» (elegir facción, con su tema al marcarla, y luego el héroe), «Cargar partida» (apagado: no
-  hay guardado) o «Partida rápida» (semilla al azar, la facción que saque y su héroe por defecto);
-  hasta elegir no hay `Session` ni mapa. La partida abre en la base
-  del jugador, con su héroe dentro; «Partida nueva», al acabar, vuelve al menú. Si el agente diseña
+  juego» (elegir facción, con su tema al marcarla), «Cargar partida» (apagado: no
+  hay guardado) o «Partida rápida» (semilla al azar, la facción que saque y su héroe por defecto, ya
+  en la URL); hasta elegir no hay `Session` ni mapa. La partida abre en la base
+  del jugador: sin `?heroe=`, **ante el ayuntamiento, eligiendo y pagando su héroe de salida**
+  (22-10-2026, `ayuntamiento/`); con él, con su héroe dentro; «Partida nueva», al acabar, vuelve al menú. Si el agente diseña
   el mapa, la semilla del servidor ya no reproduce la partida, y la consola lo dice.
 - **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
   `unidades/<id>/dN/`, solo `atlas.webp`; ninguna carpeta `fuentes/` ni `_guias/`, a cualquier altura;
@@ -150,6 +153,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Cifras = catálogo + veteranía + equipo | `cifrasDeUnidad` (`core/catalogo.ts`: cuerpo + rango + lo de serie con lo propio encima, un solo `conEquipo`; con el catálogo de la pelea, `CatalogoDeUnidades`, por defecto `CATALOGO_DEL_JUEGO`), `cifrasDelIndividuo` (el personaje), `conEquipo`; el oro de una unidad, `costeDeUnaUnidad` (de la vestida) y `oroDeUnidad`; el cuerpo sin equipo de un stack, `cuerpoDe(stack, cat?)` (del origen: igual en el juego y la arena; el héroe lo lleva en `OrigenDelStack`, `desnudo`); qué unidad es un stack, `origen.unidad` o `queEs` (`battle/types.ts`): `body` es el arte |
 | A quién se licencia | `elQueSeIria` (`hero/troop.ts`) |
 | Construir un héroe | `heroeRecienHecho` |
+| Contratar un héroe, también el de salida (22-10-2026) | `hireHero` (`hire_hero` con `tipo` opcional; la única puerta de un héroe pagado: el de salida de todos se asienta y se cobra por ella en `createGame`, salvo el de quien lo elige en la base, `Player.heroeDeSalida`, `NewGameOptions.tipoDelHeroe` a `null`); la regla, `contratarBlocker` (con el de salida pendiente, solo en su base; la lee también la IA, `planHires`); los candidatos, uno por tipo de la facción, con el nombre y la tropa una vez, `candidatosAHeroe` (`EleccionDeHeroe`; sin el turno); lo que no se hace mientras, `salidaPendienteBlocker` (solo el de salida: sin héroes a media partida se pasa el turno), que en el cliente es parte de la única compuerta de toda acción, `Session.bloqueoDeTurno` (contratar y `clickTile` miran solo el turno); el tipo por defecto de una semilla, `heroePorDefectoDeLaSemilla` (la rápida y `tools/qa/url-de-partida.ts`); el precio de todo héroe, `ECONOMIA.precioDelHeroe` (`data/economia.json`, inventado; nunca más que `oroDeSalida`). En el cliente, la escena del ayuntamiento (`escenas/ayuntamiento.ts`, `ayuntamiento/vista.ts`, `views/ayuntamiento.ts`; la fila ante un edificio, `anteUnEdificio` y `botonesDeLaFila`, la misma de la morada; sin quien anduvo delante; su cámara, `encuadrarElAyuntamiento`: el edificio entero, del alto de su cuadro a los pies de los candidatos), que abren el arranque sin `?heroe=`, «Contratar héroe» y, con el de salida pendiente, abrir la base propia (`openTown`) y llegar a la puerta del ayuntamiento (`EscenaBase.llegar`) |
 | Con qué hoja se pinta un héroe (vuelta 2 del arranque, 19-10-2026) | `figuraDelHeroe` (`core/data.ts`): la de su tipo en `data/figuras-de-heroe.json`, comprobada al cargar contra los tipos (`validarFigurasDeHeroe`) y contra el disco en `test/figuras-de-heroe.test.ts` (ocho direcciones, identidad, y ninguna hoja `heroe-*` sin tipo). Derivada, no guardada en el `Hero`: la leen el mapa (`HeroeEnElMapa` lleva `faction` y `tipo`), la base caminable, el retrato del menú, la batalla (`HeroeDelBando.figura`, sin opcional: la arena pone la suya o la genérica) y el espectador, con la facción y el tipo que trae el cable. Lo que el héroe ES para la crónica y el agente es `HERO_BODY` (`battle/types.ts`, `queEs`), no su figura |
 | Qué se levanta en cada sitio de la base | `sitiosDeLaBase`, `siguienteDe`, `construidoEn` (`town/sitios.ts`) |
 | De un píxel del cuadro de la base al escenario | `planoDelCuadro` (`shared/base.ts`); en pantalla, `colocarLaPlaca` y `colocarEnElCuadro` (`render/base/recortes.ts`) |
@@ -238,7 +242,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 |---|---|
 | Rejilla de batalla | **regla nuestra** (fheroes2: 11 × 9 = 99): 9 filas, las pares de 12 y las impares de 11 = 104 hexes, offset odd-r, simétrica de izquierda a derecha (`FORMA_DEL_TABLERO`, `espejo`; el índice es compacto, la posición en `allHexes`). El defensor sale en el espejo del atacante y el tiro pasa si pasa con el empujón (`+3, −1, −2`) o con su espejo (`lineaLibre`): generoso, en todo empate de borde un rayo va por cada casilla; una casilla fuera del tablero tapa su rayo (nunca se tira por el marco a través de un muro) |
 | Tropa | individuos, uno por hex, acotados por el liderazgo (`data/liderazgo.json`, provisional) |
-| Recursos | **regla nuestra** (21-10-2026, decisión del usuario, «solo oro»): solo oro. Sin minas ni montones de recursos en el mapa; el oro sale de las ciudades (su ayuntamiento), de los pueblos (250 al día cada uno, `rentaDelPueblo`, inventado) y de los cofres, y solo cobra lo unido a la base (`rentaDelDia`). Se empieza con 27 500 (`oroDeSalida`: el monedero de antes pasado a oro) |
+| Recursos | **regla nuestra** (21-10-2026, decisión del usuario, «solo oro»): solo oro. Sin minas ni montones de recursos en el mapa; el oro sale de las ciudades (su ayuntamiento), de los pueblos (250 al día cada uno, `rentaDelPueblo`, inventado) y de los cofres, y solo cobra lo unido a la base (`rentaDelDia`). Se empieza con 27 500 (`oroDeSalida`: el monedero de antes pasado a oro), y el primer gasto es el héroe de salida (`precioDelHeroe`, 2 500, el de todo héroe; 22-10-2026) |
 | Movimiento diario | lo marca la unidad más lenta; se fija al empezar el día. **Regla nuestra** (#226): la tabla de fheroes2 (1000-1500) ×√(`AREA_POR_REGION` / `AREA_DE_REFERENCIA`) = ×√1,5 → 1224-1837 (`marchaALaEscala`, `core/escala.ts`) |
 | Radio de vista | héroe 4 y castillo 5 en fheroes2 (`getFogDiscoveryDistance`); **regla nuestra** (#229): ×√1,5 al entero más cercano, 5 y 6 (`radioALaEscala`, `core/escala.ts`). El cuadrado, no el disco del original |
 | Puntos de hechizo | 10 × Conocimiento |
@@ -627,7 +631,11 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   ciudad neutral, `guarnicionNeutral`). Con el héroe del dueño dentro, la defiende solo él con su
   tropa. Las bases de templarios heredan el arte de los caballeros; las otras cuatro, el suyo (20-10-2026).
   **El héroe de salida nace dentro de su base** (19-10-2026, «empieza en la base»): en la casilla
-  del castillo (`newGame`, con `basesDelPlan`), sin recoger la guarnición; los jugadores son los
+  del castillo (`newGame`, con `basesDelPlan`), sin recoger la guarnición, **y se paga** (22-10-2026,
+  «con coste que se descuenta de lo que queda para reclutar más tropa»: `precioDelHeroe`, 2 500, el de
+  contratar, por `hireHero`; la persona sin `?heroe=` lo elige ante el ayuntamiento, uno por tipo de
+  su facción, y hasta entonces no recluta, ni construye, ni pasa el turno; la IA y el agente, el de
+  por defecto, sin cambio de contrato; banco `420d75c9…`, 4 / 8 / 12); los jugadores son los
   dueños de ciudad y el plan no lleva inicios (`MapPlan.heroStarts` se retiró: el esquema del agente
   lo rechaza diciéndolo). Dentro, lo que se recluta va a su tropa y no se contrata hasta que sale.
   Medido (19-10-2026): en 1-100, duración 4 / 7 / 15 → 4 / 6 / 15, j0 50 → 45, 0 sin terminar; el
@@ -983,10 +991,10 @@ antes del destino (`battle_started` con `faltan`).
   que se empieza (`nombreDeSalida`); marcarla (el clic, el dedo o las flechas) la viste
   (`ponerTema`); pasar el puntero o el foco, no (20-10-2026, «que no cambie de tema en hover sino en
   click»; la lista mide lo mismo con cualquier tema), y Escape vuelve al menú, en el neutro
-  (`quitarTema`). «Siguiente» lleva a la
-  del héroe (vuelta 2, 19-10-2026): los tipos de la facción, con el retrato de su hoja
-  (`identidad.webp`), su nombre y su descripción del cuaderno, ya con su tema; «Volver» y Escape
-  retroceden un paso. Mientras se está en la
+  (`quitarTema`). «Empezar» abre la partida (22-10-2026: el héroe ya no se elige en el menú sino
+  en la base, ante el ayuntamiento, como la tropa ante su morada: una figura por tipo, la ficha con
+  el retrato de su hoja, `identidad.webp`, su descripción del cuaderno y su precio, y «Contratar»;
+  «Volver a la base» o Escape salen, con todo lo demás apagado y su motivo). Mientras se está en la
   base de arranque, el suelo del mapa ya se pinta (`calentarElMapa`, `main.ts`). Lo juega la pasada
   «arranque» de `pnpm capturas`.
 - **La base es un escenario lateral** (`escenas/castillo.ts`, `render/base/`), como el de
