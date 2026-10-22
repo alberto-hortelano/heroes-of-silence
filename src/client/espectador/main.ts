@@ -15,14 +15,14 @@ import { todosALaVista } from '@core/state/asaltantes.js';
 import {
   type ClimaDeLaPartida,
   type ClimaDelSitio,
-  type ClimaForzado,
+  climaDeLaRegion,
   DESPEJADO,
   forzarClima,
-  parseClima,
+  validarForzado,
 } from '@core/state/clima.js';
-import { unaVezEnLaURL } from '@core/validar.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
+import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
 import { NADA } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { alzadoDeLaMuralla, bandosSinDueño, drawBatalla } from '../render/batalla.js';
@@ -111,34 +111,40 @@ function destino(): Destino {
 
 /**
  * Lo que fuerza `?clima=` (como en la partida y la arena): lo que no se entiende
- * se dice en la barra y se mira con el clima de la partida.
+ * se dice en la barra y se mira con el clima de la partida. Las regiones se
+ * miran contra el mapa una vez, al llegar la vista de una partida
+ * (`fijarElClimaForzado`); pintar no valida nada.
  */
-let climaForzado: ClimaForzado | null = null;
-let avisoDelClima = '';
-try {
-  climaForzado = parseClima(
-    unaVezEnLaURL(new URLSearchParams(location.search).getAll('clima'), 'clima'),
-  );
-} catch (err) {
-  avisoDelClima = `${err instanceof Error ? err.message : String(err)} — quita "?clima=…" de la barra de direcciones. `;
-}
+const pedidoDelClima = climaDeLaURL(new URLSearchParams(location.search));
+let climaForzado = pedidoDelClima.forzado;
+let avisoDeClima = pedidoDelClima.aviso;
+let climaForzadoMirado = false;
 
-/** El clima de la partida que llega por el cable, con lo forzado encima; si no casa con el mapa, sin forzar y dicho. */
-function climaQueSeVe(v: SpectatorView): ClimaDeLaPartida {
+function fijarElClimaForzado(v: SpectatorView): void {
+  if (climaForzadoMirado) return;
+  climaForzadoMirado = true;
   try {
-    return forzarClima(v.clima, climaForzado, v.map);
+    validarForzado(climaForzado, v.map);
   } catch (err) {
-    avisoDelClima = `${err instanceof Error ? err.message : String(err)} — quita "?clima=…" de la barra de direcciones. `;
+    avisoDeClima += avisoDelClima(err);
     climaForzado = null;
-    return v.clima;
+    decirQueSeMira();
   }
 }
 
-/** El clima del tablero: el de la región de su sitio, con lo forzado encima. */
-function climaDeLaBatalla(v: SpectatorView): ClimaDelSitio {
-  const b = v.battle;
-  if (b === null) return DESPEJADO;
-  return climaQueSeVe(v).regiones[b.region] ?? b.tiempo;
+/** El de la última vista: se pinta cada fotograma de pantalla y la vista cambia con cada uno del cable. */
+let climaVisto: { de: SpectatorView; clima: ClimaDeLaPartida } | null = null;
+
+/** El clima de la partida que llega por el cable, con lo forzado encima. */
+function climaQueSeVe(v: SpectatorView): ClimaDeLaPartida {
+  if (climaVisto?.de !== v)
+    climaVisto = { de: v, clima: forzarClima(v.clima, climaForzado, v.map) };
+  return climaVisto.clima;
+}
+
+/** El clima del tablero: el de la región donde se pelea, con la misma cuenta que la partida. */
+function climaDelTablero(v: SpectatorView): ClimaDelSitio {
+  return v.battle === null ? DESPEJADO : climaDeLaRegion(climaQueSeVe(v), v.battle.region);
 }
 
 // --------------------------------------------------------------- estado
@@ -350,7 +356,7 @@ function pintarTodo(ahora: number): void {
         enLaRueda: mirada.reproductor.animador.losDelCruce(),
         efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),
-        clima: { sitio: climaDeLaBatalla(vista), ahora },
+        clima: { sitio: climaDelTablero(vista), ahora },
       });
       apuntarLoQueSePinta(true);
     } else {
@@ -452,7 +458,7 @@ function decirQueSeMira(): void {
         'se empezó de cero.';
   elStatus.textContent =
     ilegible === null
-      ? `${avisoDelClima}Mirando ${cual} en ${urlDelCanal}.${cambio}`
+      ? `${avisoDeClima}Mirando ${cual} en ${urlDelCanal}.${cambio}`
       : `No se entiende el último fotograma que llegó de ${urlDelCanal}: ${ilegible}. ` +
         'Se sigue enseñando el último que se entendió.';
 }
@@ -464,6 +470,8 @@ function decirQueSeMira(): void {
 function empezarDeCero(): void {
   vista = null;
   escena = null;
+  // Otra partida, quizá con otro mapa: lo forzado se mira contra el suyo.
+  climaForzadoMirado = false;
   dia = 0;
   turnoDe = 0;
   finDe = null;
@@ -500,6 +508,7 @@ function aplicar(snapshot: SpectatorSnapshotMsg): void {
   }
   vista = snapshot.view;
   escena = nueva;
+  fijarElClimaForzado(vista);
   if (ilegible !== null) {
     ilegible = null;
     decirQueSeMira();

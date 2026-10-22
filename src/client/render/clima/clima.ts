@@ -1,44 +1,74 @@
 /**
- * La pieza que pinta el clima: niebla, lluvia, tormenta y noche, encima de lo
- * que ya pinta una escena. Una sola, para el mapa (por región, con su frente:
- * `pintarClimaDelMapa`) y para toda escena sin regiones —la batalla, la base, la
- * morada y las escenas laterales que vengan—, que solo tienen que llamarla
- * (`pintarSueloDelClima` y `pintarAireDelClima`, o las dos con `pintarClima`).
+ * La pieza que pinta el clima: niebla, lluvia, tormenta y noche. **Un solo
+ * pintor** para el mapa, la batalla y toda escena lateral (la base, la morada y
+ * las del «mapa vivo»): lo que cambia entre ellas es solo qué clima hay bajo
+ * cada píxel, el **campo** (`CampoDelClima`). En una escena es uno solo, de su
+ * sitio (`campoDeEscena`); en el mapa, el de cada región, con su frente
+ * (`campoDelMapa`, de las máscaras del mundo). Cada campo de la receta se pinta
+ * igual en los dos.
+ *
+ * **Cómo se enchufa una escena lateral**: con el `ClimaDelSitio` de su sitio,
+ * `campoDeEscena` (con sus fuegos, si de noche se encienden), y dos llamadas:
+ * `pintarSueloDelClima` entre lo que es del sitio (los edificios, el suelo) y
+ * las figuras, y `pintarAireDelClima` (la lluvia y el rayo) al final, encima de
+ * todo menos lo que tiene que leerse. Así lo hacen la base (`pintarBase`) y la
+ * batalla (`drawBatalla`, que además hornea en su fondo lo que no se mueve:
+ * `hornearElVelo` y `sinElVelo`).
  *
  * No toca el DOM ni recibe clics: pinta en el lienzo que le dan. No lee la
- * sesión (`invariantes.test.ts`): le dan el clima del sitio.
+ * sesión (`invariantes.test.ts`): le dan el clima del sitio. Lee él mismo si
+ * quien mira pidió menos movimiento (`movimientoReducido`): quieto, sin rayos.
  *
  * **Por qué así** (lo caro es componer una capa del tamaño del lienzo, y el mapa
  * tiene un presupuesto de píxeles: `PIXELES_DEL_MAPA`):
  *
- * - todo lo blando (el velo del tiempo y de la noche, los bancos de niebla, los
- *   huecos de luz de los fuegos) va en **una** capa a un cuarto del lienzo
- *   (`ESCALA_DEL_AIRE`), que se compone una vez por fotograma **sin suavizado**:
- *   ampliar con el bilineal costaba de 7 a 10 ms por fotograma en un lienzo de
- *   1,5 M píxeles sin GPU, y con el vecino más cercano, 1 ms (medido el
- *   22-10-2026); lo de la capa es blando y los bloques de 4 px no se notan;
- * - lo fino (las gotas y el rayo) va a resolución plena y directo, gota a gota,
- *   en líneas de un píxel (las de 1,2 px suavizadas costaban 6,5 ms para 1 200
- *   gotas, las de 1 px, 1 ms): en el mapa, cada gota pregunta la región que
- *   tiene debajo, y así no hace falta recortar nada a pantalla entera;
- * - los fuegos de la noche (el hueco en el velo y su resplandor) y los bancos
- *   de niebla, que se tiñen y escalan una vez por tamaño, van en la capa.
+ * - lo que aclara (la bruma y los bancos de niebla) va en una capa a un cuarto
+ *   del lienzo (`ESCALA_DEL_AIRE`), compuesta una vez **sin suavizado**: ampliar
+ *   con el bilineal costaba de 7 a 10 ms por fotograma en 1,5 M píxeles sin GPU,
+ *   y con el vecino más cercano, 1 ms (medido el 22-10-2026); es blando y los
+ *   bloques de 4 px no se notan;
+ * - lo que oscurece (la luz de la lluvia, la tormenta y la noche) se multiplica
+ *   (`multiply`): en una escena, un `fillRect` sin capa; en el mapa, por
+ *   regiones y con el hueco de cada fuego, en su capa a un cuarto;
+ * - lo fino (las gotas y el rayo) va directo y a resolución plena: las gotas,
+ *   líneas de un píxel de dispositivo (las de 1,2 px suavizadas costaban 6,5 ms
+ *   para 1 200 gotas; las de 1 px, 1 ms), y en el mapa cada una pregunta si
+ *   llueve donde cae.
  *
  * Nada de `Math.random` (`invariantes.test.ts`): las gotas salen de un hash de
- * su número y del reloj, y el rayo, de un hash de su región y de su ciclo.
+ * su número y del reloj, y el rayo, de un hash de su sitio y de su ciclo.
  */
 import type { MapaDeRed } from '@core/map/regiones.js';
+import { hashDeTexto } from '@core/rng.js';
 import type { ClimaDeLaPartida, ClimaDelSitio } from '@core/state/clima.js';
-import { type CamaraMapa, mundoAPixel, pixelAMundo } from '../camara-mapa.js';
+import { movimientoReducido } from '../../movimiento.js';
+import { type CamaraMapa, mundoAPixel } from '../camara-mapa.js';
+import { CacheDeLienzos } from '../copias.js';
+import { mezclar } from '../escenario/fronteras.js';
+import { type Lienzo, lienzoCon } from '../escenario/pintar.js';
 import { animarHasta } from '../figura.js';
-import { mascarasDelMapa, regionEnElFrente } from './mascaras.js';
-import { css, EFECTOS, NOCHE, type Receta, type Rgba, veloDe } from './recetas.js';
+import { casillaDelRayo, mascarasDelMapa, regionEnElFrente } from './mascaras.js';
+import {
+  COLOR_DE_LOS_BANCOS,
+  css,
+  EFECTOS,
+  type Lluvia,
+  luzDe,
+  multiplicar,
+  NOCHE,
+  type Rgb,
+  type Rgba,
+} from './recetas.js';
 import { bancosDeNiebla } from './texturas.js';
 
 /** A qué fracción del lienzo se pinta lo blando del clima antes de ampliarlo. */
-export const ESCALA_DEL_AIRE = 1 / 4;
+const ESCALA_DEL_AIRE = 1 / 4;
 /** Cuánto dura el destello de un rayo, en ms: breve, y no ciega. */
-export const DURACION_DEL_RAYO = 160;
+const DURACION_DEL_RAYO = 160;
+/** Cuántas gotas como mucho por fotograma: en una pantalla enorme, la lluvia no crece sin tope. */
+const TOPE_DE_GOTAS = 2400;
+/** Cuánto ilumina el destello de un rayo en el mapa, en casillas: unas seis. */
+const RADIO_DEL_RAYO_EN_EL_MAPA = 6;
 
 /** Un fuego que se enciende de noche, en píxeles CSS del lienzo y con su radio. */
 export interface LuzDeNoche {
@@ -47,40 +77,86 @@ export interface LuzDeNoche {
   readonly r: number;
 }
 
-/** Lo que necesita el clima de una escena sin regiones. */
-export interface ClimaDeEscena {
-  readonly sitio: ClimaDelSitio;
+/** Una máscara del mundo (`mascaras.ts`) y dónde cae en el lienzo, en px CSS. */
+export interface Colocada {
+  readonly lienzo: Lienzo;
+  readonly x: number;
+  readonly y: number;
   readonly ancho: number;
   readonly alto: number;
-  /** El reloj de la página (`performance.now()`), en ms. */
-  readonly ahora: number;
-  /** `prefers-reduced-motion`: sin destellos y sin nada que corra. */
-  readonly quieto: boolean;
-  /** Los fuegos que se encienden si es de noche (las puertas de la base). */
-  readonly luces?: readonly LuzDeNoche[];
-  /** Hasta dónde baja el rayo, en px desde arriba: el horizonte de la batalla. Sin él, un tercio del alto. */
-  readonly cielo?: number;
 }
+
+/** Un sitio donde caen rayos: uno cada `cada` ms, en el punto que diga `donde` para cada ciclo. */
+export interface FocoDeRayo {
+  readonly id: string;
+  readonly cada: readonly [number, number];
+  readonly donde: (ciclo: number) => {
+    readonly x: number;
+    readonly y: number;
+    readonly arriba: number;
+    readonly radio: number;
+  } | null;
+}
+
+/**
+ * Qué clima hay bajo cada píxel, campo a campo de la receta: un valor para todo
+ * el lienzo (una escena) o una máscara del mundo colocada (el mapa).
+ */
+export interface CampoDelClima {
+  /** Lo que oscurece, multiplicando (`multiply`). */
+  readonly luz: Rgb | Colocada | null;
+  /** Lo que aclara, encima. */
+  readonly bruma: Rgba | Colocada | null;
+  /**
+   * Los bancos de niebla: su opacidad, dónde cae el origen del mundo y cuánto
+   * mide una baldosa (en el mapa van con el mundo al arrastrar; en una escena,
+   * con el lienzo), y el tinte de la luz que ya se pintó debajo (`sinElVelo`).
+   */
+  readonly bancos: {
+    readonly alfa: number | Colocada;
+    readonly origen: { readonly x: number; readonly y: number };
+    readonly lado: number;
+    readonly tinte: Rgb | null;
+  } | null;
+  /** Cada lluvia y dónde cae (en px CSS); sin `dentro`, en todo el lienzo. */
+  readonly lluvias: readonly {
+    readonly lluvia: Lluvia;
+    readonly dentro: ((x: number, y: number) => boolean) | null;
+  }[];
+  readonly rayos: readonly FocoDeRayo[];
+  /** Los fuegos que se encienden, ya solo los de donde es de noche. */
+  readonly luces: readonly LuzDeNoche[];
+}
+
+/** El lienzo donde se pinta: su tamaño en px CSS y el reloj de la página (ms). */
+export interface MarcoDelClima {
+  readonly ancho: number;
+  readonly alto: number;
+  readonly ahora: number;
+}
+
+const esMascara = <T>(v: T | Colocada): v is Colocada =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** Un número de [0, 1) de un entero: las gotas y los rayos, sin `Math.random`. */
+const azar = (n: number): number => mezclar(n, 0x2545f491) / 4294967296;
 
 // ------------------------------------------------------------- las capas
 
 interface Capa {
-  readonly lienzo: HTMLCanvasElement;
-  readonly c: CanvasRenderingContext2D;
+  readonly lienzo: Lienzo;
+  readonly c: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 }
 
-const capas: (Capa | null)[] = [null, null];
+const capas: (Capa | null)[] = [null, null, null];
 
-/** Una de las dos capas que se reutilizan, del tamaño pedido y vacía. */
-function capa(i: 0 | 1, ancho: number, alto: number): Capa {
+/** Una de las capas que se reutilizan, a un cuarto del lienzo y vacía. */
+function capa(i: 0 | 1 | 2, ancho: number, alto: number): Capa {
   const w = Math.max(1, Math.ceil(ancho * ESCALA_DEL_AIRE));
   const h = Math.max(1, Math.ceil(alto * ESCALA_DEL_AIRE));
   let hecha = capas[i] ?? null;
   if (hecha === null) {
-    const lienzo = document.createElement('canvas');
-    const c = lienzo.getContext('2d');
-    if (c === null) throw new Error('este navegador no tiene canvas 2D para el clima');
-    hecha = { lienzo, c };
+    hecha = lienzoCon(w, h);
     capas[i] = hecha;
   }
   if (hecha.lienzo.width !== w || hecha.lienzo.height !== h) {
@@ -94,68 +170,98 @@ function capa(i: 0 | 1, ancho: number, alto: number): Capa {
   return hecha;
 }
 
-/** Un número de [0, 1) de un entero: las gotas y los rayos, sin `Math.random`. */
-function hash01(n: number): number {
-  let t = (n + 0x6d2b79f5) >>> 0;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+/** La capa, ya hecha, sobre el lienzo con `op`: sin suavizado (ver la cabecera). */
+function componer(
+  ctx: CanvasRenderingContext2D,
+  capa: Lienzo,
+  m: MarcoDelClima,
+  op: GlobalCompositeOperation,
+): void {
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalCompositeOperation = op;
+  ctx.drawImage(capa, 0, 0, m.ancho, m.alto);
+  ctx.restore();
 }
 
-/** El texto de un id a un entero, para sembrar el hash de un rayo. */
-function hashDe(texto: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < texto.length; i++) h = Math.imul(h ^ texto.charCodeAt(i), 16777619);
-  return h >>> 0;
+/** Un color en toda la capa o una máscara del mundo en su sitio, a la escala de la capa. */
+function enLaCapa(c: Capa['c'], v: Rgb | Rgba | Colocada, w: number, h: number): void {
+  if (esMascara(v)) {
+    const k = ESCALA_DEL_AIRE;
+    // Con suavizado: la capa es pequeña, y así el frente no sale en escalones de
+    // un píxel de máscara al acercar.
+    c.imageSmoothingEnabled = true;
+    c.drawImage(v.lienzo, v.x * k, v.y * k, v.ancho * k, v.alto * k);
+  } else {
+    c.fillStyle = css(v);
+    c.fillRect(0, 0, w, h);
+  }
 }
 
-// ------------------------------------------------------------- la niebla
+// -------------------------------------------------------------- los sprites
 
-const tenidas = new Map<string, HTMLCanvasElement>();
-/** Cuántas baldosas teñidas y a su tamaño se guardan: una por zoom del mapa que se use. */
-const BALDOSAS_GUARDADAS = 12;
+/** Las baldosas de niebla y los fuegos, a su tamaño: pocos megas, y se rehacen al cambiar de zoom. */
+const sprites = new CacheDeLienzos<string, Lienzo>(24 * 1024 * 1024);
 
-/**
- * Los bancos de niebla del color pedido y a `lado` px por baldosa, hechos una
- * vez: el patrón se pinta luego sin escala, que es lo barato (un patrón que
- * escala muestrea con suavizado cada píxel de la capa).
- */
-function bancosDe(color: Rgba, lado: number): HTMLCanvasElement {
-  const px = Math.min(1024, Math.max(16, Math.round(lado)));
-  const clave = `${color[0]},${color[1]},${color[2]}|${px}`;
-  const hecha = tenidas.get(clave);
-  if (hecha !== undefined) {
-    tenidas.delete(clave);
-    tenidas.set(clave, hecha);
-    return hecha;
-  }
-  const forma = bancosDeNiebla();
-  const lienzo = document.createElement('canvas');
-  lienzo.width = px;
-  lienzo.height = px;
-  const c = lienzo.getContext('2d');
-  if (c === null) throw new Error('este navegador no tiene canvas 2D para la niebla del clima');
-  c.imageSmoothingEnabled = true;
-  c.imageSmoothingQuality = 'high';
-  c.drawImage(forma, 0, 0, px, px);
-  c.globalCompositeOperation = 'source-in';
-  c.fillStyle = css(color, 1);
-  c.fillRect(0, 0, px, px);
-  tenidas.set(clave, lienzo);
-  if (tenidas.size > BALDOSAS_GUARDADAS) {
-    const vieja = tenidas.keys().next().value;
-    if (vieja !== undefined) tenidas.delete(vieja);
-  }
+function sprite(clave: string, lado: number, pintar: (c: Capa['c']) => void): Lienzo {
+  const hecho = sprites.get(clave);
+  if (hecho !== undefined) return hecho;
+  const { lienzo, c } = lienzoCon(lado, lado);
+  pintar(c);
+  sprites.set(clave, lienzo);
   return lienzo;
 }
 
-const patrones = new WeakMap<HTMLCanvasElement, CanvasPattern>();
+/**
+ * Los bancos de niebla, de su color, a `lado` px por baldosa: el patrón se pinta
+ * luego sin escala, que es lo barato (un patrón que escala muestrea con
+ * suavizado cada píxel de la capa).
+ */
+function bancosDe(lado: number): Lienzo {
+  const px = Math.min(1024, Math.max(16, Math.round(lado)));
+  return sprite(`bancos|${px}`, px, (c) => {
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = 'high';
+    c.drawImage(bancosDeNiebla(), 0, 0, px, px);
+    c.globalCompositeOperation = 'source-in';
+    c.fillStyle = css(COLOR_DE_LOS_BANCOS);
+    c.fillRect(0, 0, px, px);
+  });
+}
+
+/**
+ * Un degradado radial de `radio` px, pintado una vez: el hueco de un fuego en la
+ * luz (blanco, que en `multiply` no oscurece) o su resplandor cálido, más fuerte
+ * en el farol de una escena, que no lleva hueco.
+ */
+function fuegoDe(cual: 'hueco' | 'luz' | 'farol', r: number): Lienzo {
+  const radio = Math.max(2, Math.round(r));
+  return sprite(`${cual}|${radio}`, 2 * radio, (c) => {
+    const g = c.createRadialGradient(radio, radio, 0, radio, radio, radio);
+    if (cual === 'hueco') {
+      g.addColorStop(0, 'rgba(255,255,255,0.95)');
+      g.addColorStop(0.45, 'rgba(255,255,255,0.55)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+    } else {
+      // El farol, sin hueco debajo, aclara él solo lo que la noche oscureció.
+      const [rr, gg, b, a] = NOCHE.fuego;
+      const fuerza = cual === 'farol' ? 1.5 : 1;
+      g.addColorStop(0, `rgba(${rr},${gg},${b},${a * fuerza})`);
+      g.addColorStop(0.35, `rgba(${rr},${gg},${b},${a * 0.35 * fuerza})`);
+      g.addColorStop(1, `rgba(${rr},${gg},${b},0)`);
+    }
+    c.fillStyle = g;
+    c.fillRect(0, 0, 2 * radio, 2 * radio);
+  });
+}
+
+const patrones = new WeakMap<Lienzo, CanvasPattern>();
 
 /**
  * El patrón de una baldosa, hecho una vez: `createPattern` copia el lienzo
  * entero cada vez que se llama, y por fotograma eran más de un millón de píxeles.
  */
-function patronDe(c: CanvasRenderingContext2D, tex: HTMLCanvasElement): CanvasPattern {
+function patronDe(c: Capa['c'], tex: Lienzo): CanvasPattern {
   const hecho = patrones.get(tex);
   if (hecho !== undefined) return hecho;
   const patron = c.createPattern(tex, 'repeat');
@@ -164,89 +270,182 @@ function patronDe(c: CanvasRenderingContext2D, tex: HTMLCanvasElement): CanvasPa
   return patron;
 }
 
+// ------------------------------------------------------------- la niebla
+
 /**
- * Dos capas de bancos de niebla que van a la deriva, despacio y en sentidos
- * distintos, sobre la capa `c` (ya a su escala). `origen` y `lado` dicen dónde
- * cae el mundo y cuánto mide una baldosa en esa capa: en el mapa, la niebla va
- * con el mundo al arrastrar; en una escena, con el lienzo.
+ * Dos planos de bancos de niebla que van a la deriva, despacio y en sentidos
+ * distintos, en la capa `c` (ya a su escala), con la opacidad `alfa`.
  */
 function pintarBancos(
-  c: CanvasRenderingContext2D,
-  ancho: number,
-  alto: number,
-  color: Rgba,
+  c: Capa['c'],
+  w: number,
+  h: number,
+  b: NonNullable<CampoDelClima['bancos']>,
+  alfa: number,
   ahora: number,
-  quieto: boolean,
-  origen: { readonly x: number; readonly y: number },
-  lado: number,
 ): void {
-  const t = quieto ? 0 : ahora;
+  const k = ESCALA_DEL_AIRE;
   const planos = [
     { escala: 1, dx: 0.0045, dy: 0.0012, alfa: 0.75 },
     { escala: 1.7, dx: -0.0028, dy: 0.0021, alfa: 0.55 },
   ];
   for (const p of planos) {
-    const tex = bancosDe(color, lado * p.escala);
+    const tex = bancosDe(b.lado * k * p.escala);
     const patron = patronDe(c, tex);
     // La deriva, en baldosas por ms: la misma en el mapa y en una escena. En
     // píxeles enteros: con medio píxel, el patrón se vuelve a muestrear.
-    const ox = Math.round(origen.x + t * p.dx * tex.width * 0.06);
-    const oy = Math.round(origen.y + t * p.dy * tex.width * 0.06);
+    const ox = Math.round(b.origen.x * k + ahora * p.dx * tex.width * 0.06);
+    const oy = Math.round(b.origen.y * k + ahora * p.dy * tex.width * 0.06);
     patron.setTransform(new DOMMatrix().translateSelf(ox, oy));
-    c.globalAlpha = color[3] * p.alfa;
+    c.globalAlpha = alfa * p.alfa;
     c.fillStyle = patron;
-    c.fillRect(0, 0, ancho, alto);
+    c.fillRect(0, 0, w, h);
   }
   c.globalAlpha = 1;
+  if (b.tinte !== null) {
+    // La luz ya está pintada debajo (la batalla la hornea en su fondo): los
+    // bancos, del color que tendrían con ella encima.
+    c.globalCompositeOperation = 'source-atop';
+    c.fillStyle = css(multiplicar(COLOR_DE_LOS_BANCOS, b.tinte));
+    c.fillRect(0, 0, w, h);
+    c.globalCompositeOperation = 'source-over';
+  }
+}
+
+/** Lo que aclara —los bancos y la bruma—, en una capa compuesta encima. */
+function pintarLoQueAclara(
+  ctx: CanvasRenderingContext2D,
+  campo: CampoDelClima,
+  m: MarcoDelClima,
+  ahora: number,
+): void {
+  const { bancos, bruma } = campo;
+  if (bancos === null && bruma !== null && !esMascara(bruma)) {
+    // Una bruma lisa y nada más: un `fillRect`, sin capa.
+    ctx.save();
+    ctx.fillStyle = css(bruma);
+    ctx.fillRect(0, 0, m.ancho, m.alto);
+    ctx.restore();
+    return;
+  }
+  if (bancos === null && bruma === null) return;
+  const { lienzo, c } = capa(0, m.ancho, m.alto);
+  if (bancos !== null) {
+    if (esMascara(bancos.alfa)) {
+      // Por regiones: los bancos en otra capa, recortados por su máscara.
+      const t = capa(1, m.ancho, m.alto);
+      pintarBancos(t.c, t.lienzo.width, t.lienzo.height, bancos, 1, ahora);
+      t.c.globalCompositeOperation = 'destination-in';
+      enLaCapa(t.c, bancos.alfa, t.lienzo.width, t.lienzo.height);
+      c.drawImage(t.lienzo, 0, 0);
+    } else {
+      pintarBancos(c, lienzo.width, lienzo.height, bancos, bancos.alfa, ahora);
+    }
+  }
+  if (bruma !== null) enLaCapa(c, bruma, lienzo.width, lienzo.height);
+  componer(ctx, lienzo, m, 'source-over');
+}
+
+// --------------------------------------------------------------- la luz
+
+/**
+ * Lo que oscurece: la luz multiplicada y, de noche, los fuegos con su resplandor
+ * cálido (`lighter`).
+ *
+ * En una escena, la luz es lisa: un `fillRect` y, encima, cada fuego con el
+ * resplandor fuerte (`farol`). En el mapa va por regiones, en su capa, y los
+ * fuegos además le abren un hueco, que es lo que hace que la ciudad se vea
+ * entera. En la base, la capa con sus huecos costaba 8,8 ms por fotograma en
+ * 2560×1440 (componerla con `multiply` desde un cuarto), y el `fillRect`, lo que
+ * la tormenta: 2,6 ms (medido el 22-10-2026, `tools/qa/clima.ts`).
+ */
+function pintarLaLuz(ctx: CanvasRenderingContext2D, campo: CampoDelClima, m: MarcoDelClima): void {
+  const { luz, luces } = campo;
+  if (luz === null) return;
+  if (esMascara(luz)) {
+    const k = ESCALA_DEL_AIRE;
+    const { lienzo, c } = capa(2, m.ancho, m.alto);
+    // Fuera del mundo, blanco: lo que no oscurece.
+    c.fillStyle = '#fff';
+    c.fillRect(0, 0, lienzo.width, lienzo.height);
+    enLaCapa(c, luz, lienzo.width, lienzo.height);
+    for (const l of luces) {
+      const hueco = fuegoDe('hueco', l.r * k);
+      c.drawImage(
+        hueco,
+        Math.round(l.x * k - hueco.width / 2),
+        Math.round(l.y * k - hueco.height / 2),
+      );
+    }
+    componer(ctx, lienzo, m, 'multiply');
+  } else {
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = css(luz);
+    ctx.fillRect(0, 0, m.ancho, m.alto);
+    ctx.restore();
+  }
+  if (luces.length === 0) return;
+  const cual = esMascara(luz) ? 'luz' : 'farol';
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const l of luces) {
+    const brillo = fuegoDe(cual, l.r);
+    ctx.drawImage(brillo, Math.round(l.x - brillo.width / 2), Math.round(l.y - brillo.height / 2));
+  }
+  ctx.restore();
 }
 
 // ------------------------------------------------------------ la lluvia
 
 /**
- * Las gotas de la lluvia, en dos planos (lejos: finas, tenues y lentas; cerca:
- * más gruesas), directo en `ctx` a resolución plena. `dentro` dice si una gota
- * cae en un sitio con lluvia (el mapa, por región); sin él, en todas partes.
+ * Las gotas de una lluvia, en dos planos (lejos: cortas, tenues y lentas; cerca:
+ * más largas), directo en `ctx` y **en píxeles de dispositivo**: líneas de un
+ * píxel de verdad, alineadas a él, que es el camino rápido del rasterizador.
+ * `dentro` dice si una gota cae donde llueve (en px CSS).
  */
 function pintarLluvia(
   ctx: CanvasRenderingContext2D,
-  receta: NonNullable<Receta['lluvia']>,
-  ancho: number,
-  alto: number,
+  { lluvia, dentro }: CampoDelClima['lluvias'][number],
+  m: MarcoDelClima,
   ahora: number,
   quieto: boolean,
-  dentro: ((x: number, y: number) => boolean) | null,
   semilla: number,
 ): void {
-  const t = quieto ? 0 : ahora;
+  const { a, d, e, f } = ctx.getTransform();
+  const W = m.ancho * a;
+  const H = m.alto * d;
   // Quieta, menos gotas: se ve que llueve sin una cortina fija delante.
-  const n = Math.round(((receta.densidad * ancho * alto) / 10_000) * (quieto ? 0.5 : 1));
+  const n = Math.min(
+    TOPE_DE_GOTAS,
+    Math.round(((lluvia.densidad * m.ancho * m.alto) / 10_000) * (quieto ? 0.5 : 1)),
+  );
   const planos = [
     { parte: 0.6, largo: 10, velocidad: 0.62, alfa: 0.55 },
     { parte: 0.4, largo: 18, velocidad: 0.95, alfa: 1 },
   ];
   ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.lineCap = 'butt';
-  // Un píxel: el camino rápido del rasterizador (ver la cabecera).
   ctx.lineWidth = 1;
   let i0 = 0;
   for (const p of planos) {
     const cuantas = Math.round(n * p.parte);
-    const dx = receta.viento * p.largo;
-    const vuelta = alto + p.largo;
+    const largo = p.largo * d;
+    const dx = lluvia.viento * largo;
+    const vuelta = H + largo;
     ctx.beginPath();
-    for (let k = 0; k < cuantas; k++) {
-      const i = semilla + i0 + k;
-      const u = hash01(i * 2);
-      const v = hash01(i * 2 + 1);
-      const y = ((((v * vuelta + t * p.velocidad) % vuelta) + vuelta) % vuelta) - p.largo;
-      const x = (((u * ancho + y * receta.viento) % ancho) + ancho) % ancho;
-      if (dentro !== null && !dentro(x, y + p.largo)) continue;
-      const x0 = Math.round(x) + 0.5;
-      const y0 = Math.round(y);
-      ctx.moveTo(x0, y0);
-      ctx.lineTo(x0 + dx, y0 + p.largo);
+    for (let q = 0; q < cuantas; q++) {
+      const i = semilla + i0 + q;
+      const y = (((azar(i * 2 + 1) * vuelta + ahora * p.velocidad * d) % vuelta) + vuelta) % vuelta;
+      const x = (((azar(i * 2) * W + y * lluvia.viento) % W) + W) % W;
+      const y0 = Math.round(y - largo);
+      if (dentro !== null && !dentro(x / a, y / d)) continue;
+      const x0 = Math.round(x + e) + 0.5;
+      ctx.moveTo(x0, y0 + f);
+      ctx.lineTo(x0 + dx, y0 + f + largo);
     }
-    ctx.strokeStyle = css(receta.color, receta.color[3] * p.alfa);
+    ctx.strokeStyle = css(lluvia.color, lluvia.color[3] * p.alfa);
     ctx.stroke();
     i0 += cuantas;
   }
@@ -256,21 +455,21 @@ function pintarLluvia(
 // --------------------------------------------------------------- el rayo
 
 /**
- * Si cae un rayo ahora en el sitio de `id`, y con qué fuerza (0 a 1) y qué
- * ciclo: uno cada `cada` ms (entre sus dos cifras, del hash del ciclo), con un
- * destello de `DURACION_DEL_RAYO` de dos golpes.
+ * Si cae un rayo ahora en el foco `id`, y con qué fuerza (0 a 1) y qué ciclo:
+ * uno cada `cada` ms (entre sus dos cifras, del hash del foco), con un destello
+ * de `DURACION_DEL_RAYO` de dos golpes.
  */
 function rayoAhora(
   id: string,
   ahora: number,
   cada: readonly [number, number],
 ): { fuerza: number; ciclo: number } | null {
-  const base = hashDe(id);
-  const periodo = cada[0] + hash01(base) * (cada[1] - cada[0]);
-  const desfase = hash01(base + 1) * periodo;
+  const base = hashDeTexto(id);
+  const periodo = cada[0] + azar(base) * (cada[1] - cada[0]);
+  const desfase = azar(base + 1) * periodo;
   const ciclo = Math.floor((ahora + desfase) / periodo);
   const dentroDelCiclo = ahora + desfase - ciclo * periodo;
-  const cae = hash01(base + ciclo * 7 + 3) * (periodo - DURACION_DEL_RAYO);
+  const cae = azar(base + ciclo * 7 + 3) * (periodo - DURACION_DEL_RAYO);
   const t = dentroDelCiclo - cae;
   if (t < 0 || t > DURACION_DEL_RAYO) return null;
   // Dos golpes: el fuerte, un respiro y el que se apaga.
@@ -284,13 +483,11 @@ function rayoAhora(
  */
 function pintarRayo(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  arriba: number,
-  radio: number,
+  donde: NonNullable<ReturnType<FocoDeRayo['donde']>>,
   fuerza: number,
   semilla: number,
 ): void {
+  const { x, y, arriba, radio } = donde;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   const g = ctx.createRadialGradient(x, y, 0, x, y, radio);
@@ -302,11 +499,11 @@ function pintarRayo(
   // El trazo: tramos quebrados con un hash del ciclo, y una rama.
   const tramos = 9;
   const puntos: { x: number; y: number }[] = [];
-  let px = x + (hash01(semilla) - 0.5) * radio * 0.5;
+  let px = x + (azar(semilla) - 0.5) * radio * 0.5;
   for (let k = 0; k <= tramos; k++) {
     const f = k / tramos;
     const py = arriba + (y - arriba) * f;
-    if (k > 0) px += (hash01(semilla + k * 13) - 0.5) * radio * 0.18;
+    if (k > 0) px += (azar(semilla + k * 13) - 0.5) * radio * 0.18;
     // Que acabe en su sitio: el último tramo se cierra sobre (x, y).
     puntos.push({ x: k === tramos ? x : px + (x - px) * f * f, y: py });
   }
@@ -318,7 +515,7 @@ function pintarRayo(
     }
     const r = puntos[Math.floor(tramos / 2)] as { x: number; y: number };
     ctx.moveTo(r.x, r.y);
-    ctx.lineTo(r.x + (hash01(semilla + 99) - 0.5) * radio * 0.5, r.y + (y - arriba) * 0.22);
+    ctx.lineTo(r.x + (azar(semilla + 99) - 0.5) * radio * 0.5, r.y + (y - arriba) * 0.22);
     ctx.lineWidth = ancho;
     ctx.strokeStyle = color;
     ctx.stroke();
@@ -329,149 +526,137 @@ function pintarRayo(
   ctx.restore();
 }
 
-// -------------------------------------------------------------- los fuegos
+// ------------------------------------------------------------- el pintor
 
-const fuegos = new Map<
-  number,
-  { readonly hueco: HTMLCanvasElement; readonly luz: HTMLCanvasElement }
->();
+const seMueve = (campo: CampoDelClima): boolean =>
+  campo.bancos !== null || campo.lluvias.length > 0 || campo.rayos.length > 0;
 
 /**
- * El hueco y el resplandor de un fuego de radio `r` px de la capa, pintados una
- * vez por radio: dos degradados radiales por fuego y fotograma costaban más que
- * copiarlos (en el mapa al tope se ven una veintena de ciudades y pueblos).
+ * Lo de abajo del clima: lo que aclara (bruma y bancos) y lo que oscurece (la
+ * luz, con sus fuegos). En la batalla va detrás de las casillas y las figuras;
+ * en la base, entre los edificios y las figuras; en el mapa, tras los volúmenes.
  */
-function fuegoDe(r: number): {
-  readonly hueco: HTMLCanvasElement;
-  readonly luz: HTMLCanvasElement;
-} {
-  const radio = Math.max(2, Math.round(r));
-  const hecho = fuegos.get(radio);
-  if (hecho !== undefined) return hecho;
-  const pintado = (parar: (g: CanvasGradient) => void): HTMLCanvasElement => {
-    const lienzo = document.createElement('canvas');
-    lienzo.width = 2 * radio;
-    lienzo.height = 2 * radio;
-    const c = lienzo.getContext('2d');
-    if (c === null)
-      throw new Error('este navegador no tiene canvas 2D para los fuegos de la noche');
-    const g = c.createRadialGradient(radio, radio, 0, radio, radio, radio);
-    parar(g);
-    c.fillStyle = g;
-    c.fillRect(0, 0, 2 * radio, 2 * radio);
-    return lienzo;
-  };
-  const [rr, gg, b, a] = NOCHE.fuego;
-  const hechos = {
-    hueco: pintado((g) => {
-      g.addColorStop(0, 'rgba(0,0,0,0.9)');
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-    }),
-    luz: pintado((g) => {
-      g.addColorStop(0, `rgba(${rr},${gg},${b},${a * 0.55})`);
-      g.addColorStop(0.4, `rgba(${rr},${gg},${b},${a * 0.18})`);
-      g.addColorStop(0.8, `rgba(${rr},${gg},${b},0)`);
-    }),
-  };
-  fuegos.set(radio, hechos);
-  return hechos;
-}
-
-/**
- * Un fuego de noche en la capa del aire (a su escala): abre un hueco en el velo
- * y pone encima su resplandor cálido. En la capa y no en el lienzo: así no
- * cuesta ni una composición más a resolución plena.
- */
-function fuegoEnLaCapa(c: CanvasRenderingContext2D, l: LuzDeNoche): void {
-  const { hueco, luz } = fuegoDe(l.r * ESCALA_DEL_AIRE);
-  const x = Math.round(l.x * ESCALA_DEL_AIRE - hueco.width / 2);
-  const y = Math.round(l.y * ESCALA_DEL_AIRE - hueco.height / 2);
-  c.globalCompositeOperation = 'destination-out';
-  c.drawImage(hueco, x, y);
-  c.globalCompositeOperation = 'source-over';
-  c.drawImage(luz, x, y);
-}
-
-/** La capa del aire, ya hecha, sobre el lienzo: sin suavizado (ver la cabecera). */
-function componer(
+export function pintarSueloDelClima(
   ctx: CanvasRenderingContext2D,
-  capa: HTMLCanvasElement,
+  campo: CampoDelClima,
+  m: MarcoDelClima,
+): void {
+  const quieto = movimientoReducido();
+  const ahora = quieto ? 0 : m.ahora;
+  pintarLoQueAclara(ctx, campo, m, ahora);
+  pintarLaLuz(ctx, campo, m);
+  if (!quieto && campo.bancos !== null) animarHasta(m.ahora + 100);
+}
+
+/**
+ * Lo de arriba del clima: la lluvia y el rayo. Encima de las figuras y debajo
+ * de lo que tiene que leerse (en la batalla, las barras, los nombres y las
+ * cifras; en el mapa, los identificadores y la niebla de guerra).
+ */
+export function pintarAireDelClima(
+  ctx: CanvasRenderingContext2D,
+  campo: CampoDelClima,
+  m: MarcoDelClima,
+): void {
+  const quieto = movimientoReducido();
+  const ahora = quieto ? 0 : m.ahora;
+  for (const [j, l] of campo.lluvias.entries()) pintarLluvia(ctx, l, m, ahora, quieto, j * 9973);
+  if (!quieto) {
+    for (const foco of campo.rayos) {
+      const rayo = rayoAhora(foco.id, m.ahora, foco.cada);
+      if (rayo === null) continue;
+      const donde = foco.donde(rayo.ciclo);
+      if (donde !== null)
+        pintarRayo(ctx, donde, rayo.fuerza, rayo.ciclo * 31 + hashDeTexto(foco.id));
+    }
+  }
+  if (!quieto && seMueve(campo)) animarHasta(m.ahora + 100);
+}
+
+// -------------------------------------------------------- una escena entera
+
+/** Lo que necesita el campo de una escena sin regiones, además de su sitio. */
+export interface Escena {
+  readonly ancho: number;
+  readonly alto: number;
+  /** Hasta dónde baja el rayo, en px desde arriba: el horizonte de la batalla. Sin él, un tercio del alto. */
+  readonly cielo?: number;
+  /** Los fuegos que se encienden si es de noche (las puertas de la base). */
+  readonly luces?: readonly LuzDeNoche[];
+}
+
+/** El campo de una escena: el clima de su sitio en todo el lienzo. */
+export function campoDeEscena(sitio: ClimaDelSitio, e: Escena): CampoDelClima {
+  const r = EFECTOS[sitio.tiempo];
+  const cielo = e.cielo ?? e.alto / 3;
+  return {
+    luz: luzDe(sitio),
+    bruma: r.bruma,
+    bancos:
+      r.bancos === null
+        ? null
+        : {
+            alfa: r.bancos,
+            origen: { x: 0, y: 0 },
+            lado: Math.max(e.ancho, e.alto) * 0.9,
+            tinte: null,
+          },
+    lluvias: r.lluvia === null ? [] : [{ lluvia: r.lluvia, dentro: null }],
+    rayos:
+      r.rayos === null
+        ? []
+        : [
+            {
+              id: 'escena',
+              cada: r.rayos.cada,
+              donde: (ciclo) => ({
+                x: e.ancho * (0.15 + 0.7 * azar(ciclo * 5 + 1)),
+                y: Math.max(12, cielo * (0.45 + 0.4 * azar(ciclo * 5 + 2))),
+                arriba: 0,
+                radio: Math.min(e.ancho, e.alto) * 0.32,
+              }),
+            },
+          ],
+    luces: sitio.noche ? (e.luces ?? []) : [],
+  };
+}
+
+/**
+ * Lo que no se mueve del campo de una escena —la luz y la bruma lisas— pintado
+ * de una vez: la batalla lo hornea en su fondo, que guarda por clima.
+ */
+export function hornearElVelo(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  campo: CampoDelClima,
   ancho: number,
   alto: number,
 ): void {
   ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(capa, 0, 0, ancho, alto);
+  if (campo.bruma !== null && !esMascara(campo.bruma)) {
+    ctx.fillStyle = css(campo.bruma);
+    ctx.fillRect(0, 0, ancho, alto);
+  }
+  if (campo.luz !== null && !esMascara(campo.luz)) {
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = css(campo.luz);
+    ctx.fillRect(0, 0, ancho, alto);
+  }
   ctx.restore();
 }
 
-// --------------------------------------------------- una escena sin regiones
-
-/** ¿Hay algo que se mueva en este clima? Entonces se piden más fotogramas. */
-function seMueve(sitio: ClimaDelSitio): boolean {
-  const r = EFECTOS[sitio.tiempo];
-  return r.niebla !== null || r.lluvia !== null || r.rayos !== null;
-}
-
 /**
- * Lo de abajo del clima de una escena: el velo de su tiempo y de su noche, los
- * bancos de niebla y los fuegos. En la batalla va detrás de las casillas y las
- * figuras; en la base, encima de todo (`pintarClima`).
+ * El campo sin lo que ya horneó `hornearElVelo`: lo que queda por fotograma. Los
+ * bancos se tiñen con la luz que ya tienen debajo (de noche, la niebla también
+ * es oscura). Solo para una escena sin fuegos: la luz con fuegos no se hornea.
  */
-export function pintarSueloDelClima(ctx: CanvasRenderingContext2D, e: ClimaDeEscena): void {
-  const velo = veloDe(e.sitio);
-  const niebla = EFECTOS[e.sitio.tiempo].niebla;
-  const luces = e.sitio.noche ? (e.luces ?? []) : [];
-  if (velo === null && niebla === null) return;
-  const { lienzo, c } = capa(0, e.ancho, e.alto);
-  // Los bancos primero y el velo encima: de noche, la niebla también es oscura.
-  if (niebla !== null) {
-    pintarBancos(
-      c,
-      lienzo.width,
-      lienzo.height,
-      niebla,
-      e.ahora,
-      e.quieto,
-      { x: 0, y: 0 },
-      Math.max(lienzo.width, lienzo.height) * 0.9,
-    );
-  }
-  if (velo !== null) {
-    c.fillStyle = css(velo);
-    c.fillRect(0, 0, lienzo.width, lienzo.height);
-  }
-  for (const l of luces) fuegoEnLaCapa(c, l);
-  componer(ctx, lienzo, e.ancho, e.alto);
-  if (!e.quieto && seMueve(e.sitio)) animarHasta(e.ahora + 100);
-}
-
-/**
- * Lo de arriba del clima de una escena: la lluvia y el rayo. En la batalla va
- * encima de las figuras y debajo de las barras, los nombres y las cifras.
- */
-export function pintarAireDelClima(ctx: CanvasRenderingContext2D, e: ClimaDeEscena): void {
-  const receta = EFECTOS[e.sitio.tiempo];
-  if (receta.lluvia !== null) {
-    pintarLluvia(ctx, receta.lluvia, e.ancho, e.alto, e.ahora, e.quieto, null, 0);
-  }
-  if (receta.rayos !== null && !e.quieto) {
-    const rayo = rayoAhora('escena', e.ahora, receta.rayos.cada);
-    if (rayo !== null) {
-      const cielo = e.cielo ?? e.alto / 3;
-      const x = e.ancho * (0.15 + 0.7 * hash01(rayo.ciclo * 5 + 1));
-      const y = Math.max(12, cielo * (0.45 + 0.4 * hash01(rayo.ciclo * 5 + 2)));
-      const radio = Math.min(e.ancho, e.alto) * 0.32;
-      pintarRayo(ctx, x, y, 0, radio, rayo.fuerza, rayo.ciclo * 31);
-    }
-  }
-  if (!e.quieto && seMueve(e.sitio)) animarHasta(e.ahora + 100);
-}
-
-/** El clima entero de una escena lateral, encima de lo que ya pintó: lo que llama una escena nueva. */
-export function pintarClima(ctx: CanvasRenderingContext2D, e: ClimaDeEscena): void {
-  pintarSueloDelClima(ctx, e);
-  pintarAireDelClima(ctx, e);
+export function sinElVelo(campo: CampoDelClima): CampoDelClima {
+  const luz = campo.luz !== null && !esMascara(campo.luz) ? campo.luz : null;
+  return {
+    ...campo,
+    luz: null,
+    bruma: null,
+    bancos: campo.bancos === null ? null : { ...campo.bancos, tinte: luz },
+  };
 }
 
 // ----------------------------------------------------------------- el mapa
@@ -484,138 +669,103 @@ export interface ClimaDelMapa {
   readonly camara: CamaraMapa;
   readonly ancho: number;
   readonly alto: number;
-  readonly ahora: number;
-  readonly quieto: boolean;
   /** Los fuegos de ciudades y pueblos, en casillas del mundo (`Escena.luces` de clase `fuego`). */
   readonly fuegos: readonly { readonly x: number; readonly y: number; readonly r: number }[];
 }
 
-/** Cuánto ilumina el destello de un rayo en el mapa, en casillas: unas seis. */
-const RADIO_DEL_RAYO_EN_EL_MAPA = 6;
-
 /**
- * El clima del mapa, por región: va **dentro de `drawMapa`**, tras los
- * volúmenes y antes de los identificadores y de la niebla de guerra, así que no
- * tapa ni destapa nada de ella. Cada región con su tiempo y su noche, y el borde
- * entre dos ondulado y blando (`regionEnElFrente`).
+ * El campo del mapa, por región: las máscaras del mundo (`mascarasDelMapa`)
+ * colocadas donde las pone la cámara; o `null` con todo despejado y de día.
  */
-export function pintarClimaDelMapa(ctx: CanvasRenderingContext2D, m: ClimaDelMapa): void {
+function campoDelMapa(m: ClimaDelMapa): CampoDelClima | null {
+  const mk = mascarasDelMapa(m.mapa, m.semilla, m.clima);
+  if (mk === null) return null;
+  const { camara, mapa } = m;
+  const t = camara.tile;
+  const o = mundoAPixel(camara, 0, 0);
+  const colocada = (lienzo: Lienzo): Colocada => ({
+    lienzo,
+    x: o.x,
+    y: o.y,
+    ancho: mapa.width * t,
+    alto: mapa.height * t,
+  });
   const regiones = m.clima.regiones;
-  if (regiones.every((r) => r.tiempo === 'despejado' && !r.noche)) return;
-  const { camara } = m;
-  const enFrente = regionEnElFrente(m.mapa, m.semilla);
-  const regionEnPixel = (x: number, y: number): number => {
-    const p = pixelAMundo(camara, x, y);
-    if (p.x < 0 || p.y < 0 || p.x >= m.mapa.width || p.y >= m.mapa.height) return -1;
-    return enFrente(p.x, p.y);
-  };
-  const mascaras = mascarasDelMapa(m.mapa, m.semilla, m.clima);
-  const origen = mundoAPixel(camara, 0, 0);
-  const W = m.mapa.width * camara.tile;
-  const H = m.mapa.height * camara.tile;
-
-  // Los fuegos que se ven y caen en una región de noche, en px del lienzo.
-  const margen = 3 * camara.tile;
+  const enFrente = regionEnElFrente(mapa, m.semilla);
+  const k = mk.px / t;
   const luces: LuzDeNoche[] = [];
-  for (const f of m.fuegos) {
-    const p = mundoAPixel(camara, f.x, f.y);
-    if (p.x < -margen || p.y < -margen || p.x > m.ancho + margen || p.y > m.alto + margen) continue;
-    const k = enFrente(f.x, f.y);
-    if (k >= 0 && regiones[k]?.noche === true)
-      luces.push({ x: p.x, y: p.y, r: f.r * 1.7 * camara.tile });
-  }
-
-  if (mascaras.velo !== null || mascaras.niebla !== null) {
-    const { lienzo, c } = capa(0, m.ancho, m.alto);
-    const k = ESCALA_DEL_AIRE;
-    // Las máscaras a la capa, sin suavizado: ya son blandas, y a la capa le
-    // toca un píxel de máscara o menos por píxel.
-    c.imageSmoothingEnabled = false;
-    if (mascaras.niebla !== null) {
-      const color = EFECTOS.niebla.niebla as Rgba;
-      const t = capa(1, m.ancho, m.alto);
-      pintarBancos(
-        t.c,
-        t.lienzo.width,
-        t.lienzo.height,
-        color,
-        m.ahora,
-        m.quieto,
-        { x: origen.x * k, y: origen.y * k },
-        9 * camara.tile * k,
-      );
-      t.c.globalCompositeOperation = 'destination-in';
-      t.c.imageSmoothingEnabled = false;
-      t.c.drawImage(mascaras.niebla, origen.x * k, origen.y * k, W * k, H * k);
-      c.drawImage(t.lienzo, 0, 0);
+  if (regiones.some((r) => r.noche)) {
+    // Los fuegos que se ven y caen en una región de noche, en px del lienzo.
+    const margen = 3 * t;
+    for (const f of m.fuegos) {
+      const p = mundoAPixel(camara, f.x, f.y);
+      if (p.x < -margen || p.y < -margen || p.x > m.ancho + margen || p.y > m.alto + margen)
+        continue;
+      if (regiones[enFrente(f.x, f.y)]?.noche === true)
+        luces.push({ x: p.x, y: p.y, r: f.r * 1.7 * t });
     }
-    // El velo encima de los bancos: de noche, la niebla también es oscura.
-    if (mascaras.velo !== null)
-      c.drawImage(mascaras.velo, origen.x * k, origen.y * k, W * k, H * k);
-    for (const l of luces) fuegoEnLaCapa(c, l);
-    componer(ctx, lienzo, m.ancho, m.alto);
   }
-
-  // Las gotas, cada una donde su región llueve.
-  const lluvia = (x: number, y: number): boolean => {
-    const k = regionEnPixel(x, y);
-    return k >= 0 && EFECTOS[regiones[k]?.tiempo ?? 'despejado'].lluvia !== null;
+  const radio = RADIO_DEL_RAYO_EN_EL_MAPA * t;
+  const rayos: FocoDeRayo[] = [];
+  for (const [r, sitio] of regiones.entries()) {
+    const receta = EFECTOS[sitio.tiempo].rayos;
+    const reg = mapa.regions[r];
+    if (receta === null || reg === undefined) continue;
+    rayos.push({
+      id: `${m.semilla}|${reg.id}`,
+      cada: receta.cada,
+      donde: (ciclo) => {
+        const c = casillaDelRayo(mapa, m.semilla, r, ciclo);
+        if (c === null) return null;
+        const p = mundoAPixel(camara, c.x + 0.5, c.y + 0.5);
+        if (p.x < -radio || p.y < -radio || p.x > m.ancho + radio || p.y > m.alto + radio)
+          return null;
+        return { x: p.x, y: p.y, arriba: p.y - 7 * t, radio };
+      },
+    });
+  }
+  return {
+    luz: mk.luz === null ? null : colocada(mk.luz),
+    bruma: mk.bruma === null ? null : colocada(mk.bruma),
+    bancos:
+      mk.bancos === null
+        ? null
+        : { alfa: colocada(mk.bancos), origen: o, lado: 9 * t, tinte: null },
+    lluvias: mk.lluvias.map(({ lluvia, dentro }) => ({
+      lluvia,
+      dentro:
+        dentro === null
+          ? null
+          : (x: number, y: number): boolean => {
+              const px = Math.floor((x - o.x) * k);
+              const py = Math.floor((y - o.y) * k);
+              return (
+                px >= 0 &&
+                py >= 0 &&
+                px < mk.ancho &&
+                py < mk.alto &&
+                dentro[py * mk.ancho + px] === 1
+              );
+            },
+    })),
+    rayos,
+    luces,
   };
-  const conLluvia = regiones.filter((r) => EFECTOS[r.tiempo].lluvia !== null);
-  // La más fuerte manda en la densidad: con tormenta y lluvia a la vez, la de
-  // la tormenta en las dos (la diferencia entre ellas es el velo y el rayo).
-  const receta = conLluvia.some((r) => r.tiempo === 'tormenta')
-    ? EFECTOS.tormenta.lluvia
-    : conLluvia.length > 0
-      ? EFECTOS.lluvia.lluvia
-      : null;
-  if (receta !== null) pintarLluvia(ctx, receta, m.ancho, m.alto, m.ahora, m.quieto, lluvia, 0);
-
-  // Los rayos, uno por región con tormenta, en una casilla suya.
-  if (!m.quieto) {
-    for (const [k, r] of regiones.entries()) {
-      const rayos = EFECTOS[r.tiempo].rayos;
-      if (rayos === null) continue;
-      const reg = m.mapa.regions[k];
-      if (reg === undefined) continue;
-      const rayo = rayoAhora(`${m.semilla}|${reg.id}`, m.ahora, rayos.cada);
-      if (rayo === null) continue;
-      const donde = casillaDelRayo(m.mapa, k, rayo.ciclo, m.semilla);
-      if (donde === null) continue;
-      const p = mundoAPixel(camara, donde.x + 0.5, donde.y + 0.5);
-      const radio = RADIO_DEL_RAYO_EN_EL_MAPA * camara.tile;
-      if (p.x < -radio || p.y < -radio || p.x > m.ancho + radio || p.y > m.alto + radio) continue;
-      pintarRayo(ctx, p.x, p.y, p.y - 7 * camara.tile, radio, rayo.fuerza, rayo.ciclo * 31 + k);
-    }
-  }
-  if (!m.quieto && regiones.some(seMueve)) animarHasta(m.ahora + 100);
 }
 
-const casillasPorRegion = new WeakMap<MapaDeRed, number[][]>();
-
-/** Una casilla de la región `k` donde cae el rayo de este ciclo, del hash: siempre dentro de su región. */
-function casillaDelRayo(
-  mapa: MapaDeRed,
-  k: number,
-  ciclo: number,
-  semilla: number,
-): { x: number; y: number } | null {
-  let porRegion = casillasPorRegion.get(mapa);
-  if (porRegion === undefined) {
-    const enFrente = regionEnElFrente(mapa, semilla);
-    porRegion = mapa.regions.map(() => []);
-    for (let y = 0; y < mapa.height; y++) {
-      for (let x = 0; x < mapa.width; x++) {
-        const r = enFrente(x + 0.5, y + 0.5);
-        if (r >= 0) porRegion[r]?.push(y * mapa.width + x);
-      }
-    }
-    casillasPorRegion.set(mapa, porRegion);
-  }
-  const casillas = porRegion[k];
-  if (casillas === undefined || casillas.length === 0) return null;
-  const i = casillas[
-    Math.floor(hash01(ciclo * 11 + k * 101 + semilla) * casillas.length)
-  ] as number;
-  return { x: i % mapa.width, y: Math.floor(i / mapa.width) };
+/**
+ * El clima del mapa: va **dentro de `drawMapa`**, tras los volúmenes y antes de
+ * los identificadores y de la niebla de guerra, así que no tapa ni destapa nada
+ * de ella. Las dos pasadas seguidas: en el mapa no hay figuras que separen.
+ */
+export function pintarClimaDelMapa(
+  ctx: CanvasRenderingContext2D,
+  m: ClimaDelMapa,
+  ahora: number,
+): void {
+  const campo = campoDelMapa(m);
+  if (campo === null) return;
+  const marco = { ancho: m.ancho, alto: m.alto, ahora };
+  pintarSueloDelClima(ctx, campo, marco);
+  pintarAireDelClima(ctx, campo, marco);
 }

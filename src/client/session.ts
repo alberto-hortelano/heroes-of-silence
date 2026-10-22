@@ -86,11 +86,12 @@ import {
   type ClimaDeLaPartida,
   type ClimaDelSitio,
   type ClimaForzado,
+  climaDeLaBatalla,
   climaDeLaPartida,
+  climaDelSitio,
   DESPEJADO,
   forzarClima,
-  sitioDeLaBatalla,
-  tiempoDelSitio,
+  validarForzado,
 } from '@core/state/clima.js';
 import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
 import { cronicaPara, type DefeatReason, type GameEventDraft } from '@core/state/events.js';
@@ -106,6 +107,7 @@ import {
   heroesALaVista,
   heroesOf,
   objetosConocidos,
+  type PendingBattle,
   type Player,
   pasosDeHoy,
   puedeAndarHoy,
@@ -283,10 +285,10 @@ export interface ControlDeBatalla {
   readonly hechizos: HechizosDeBatalla | null;
   /**
    * El clima del sitio de la batalla (presentación): en la partida, el de la
-   * región donde se pelea (`sitioDeLaBatalla`); en la arena, el despejado o el
+   * región donde se pelea (`climaDeLaBatalla`); en la arena, el despejado o el
    * de `?clima=`.
    */
-  readonly tiempo: ClimaDelSitio;
+  readonly climaDeLaBatalla: ClimaDelSitio;
   battleLegalActions(): readonly BattleAction[];
   battleMovable(): readonly Hex[];
   battleCharges(): readonly CasillaDeCarga[];
@@ -1482,45 +1484,56 @@ export class Session implements ControlDeBatalla {
   }
 
   /**
-   * Lo que fuerza `?clima=` (`parseClima`), o `null`: lo pone `main.ts` al abrir
-   * la partida. Fuerza lo que se pinta, no la noche que leen las reglas.
+   * Fija lo que fuerza `?clima=` (`parseClima`): lo llama `main.ts` al abrir la
+   * partida, y lanza ahí mismo con una región que este mapa no tiene, diciendo
+   * cuáles hay (`validarForzado`). Fuerza lo que se pinta, no la noche que leen
+   * las reglas.
    */
-  get climaForzado(): ClimaForzado | null {
-    return this.forzado;
-  }
-  set climaForzado(f: ClimaForzado | null) {
-    this.forzado = f;
+  fijarElClima(forzado: ClimaForzado | null): void {
+    validarForzado(forzado, this.state.map);
+    this.forzado = forzado;
     this.climaHecho = null;
     this.tocar();
   }
   private forzado: ClimaForzado | null = null;
-  private climaHecho: { clave: string; clima: ClimaDeLaPartida } | null = null;
+  private climaHecho: { de: ClimaDeLaPartida; clima: ClimaDeLaPartida } | null = null;
 
   /**
    * El clima de hoy de cada región, con lo forzado encima: lo pintan el mapa, la
-   * batalla y la base. Se rehace al cambiar la partida (el dueño de una región
-   * cambia su noche) o el día, no en cada fotograma. Lanza con una región de
-   * `?clima=` que el mapa no tiene.
+   * batalla y la base, cada fotograma. El del núcleo (`climaDeLaPartida`) se
+   * rehace solo si cambia algo que lo cambie (el día, lo pedido, el dueño de una
+   * región), y lo forzado encima, solo si cambia él.
    */
   get clima(): ClimaDeLaPartida {
-    const clave = `${this.version}|${this.state.day}`;
-    if (this.climaHecho?.clave === clave) return this.climaHecho.clima;
-    const clima = forzarClima(climaDeLaPartida(this.state), this.forzado, this.state.map);
-    this.climaHecho = { clave, clima };
-    return clima;
+    const de = climaDeLaPartida(this.state);
+    if (this.climaHecho?.de !== de) {
+      this.climaHecho = { de, clima: forzarClima(de, this.forzado, this.state.map) };
+    }
+    return this.climaHecho.clima;
   }
 
-  /** El clima de la batalla pendiente: el de su sitio (`ControlDeBatalla.tiempo`). */
-  get tiempo(): ClimaDelSitio {
+  private climaDeLaPendiente: {
+    pending: PendingBattle;
+    clima: ClimaDeLaPartida;
+    sitio: ClimaDelSitio;
+  } | null = null;
+
+  /** El clima de la batalla pendiente: el de la región donde se pelea (`ControlDeBatalla`). */
+  get climaDeLaBatalla(): ClimaDelSitio {
     const pending = this.state.pendingBattle;
     if (pending === null) return DESPEJADO;
-    return tiempoDelSitio(this.clima, this.state.map, sitioDeLaBatalla(this.state, pending));
+    const clima = this.clima;
+    const hecho = this.climaDeLaPendiente;
+    if (hecho?.pending === pending && hecho.clima === clima) return hecho.sitio;
+    const sitio = climaDeLaBatalla(this.state, clima, pending);
+    this.climaDeLaPendiente = { pending, clima, sitio };
+    return sitio;
   }
 
   /** El clima de la base abierta (la región de su ciudad), o `null` sin base abierta. */
   get climaDeLaBase(): ClimaDelSitio | null {
     const town = this.activeTown;
-    return town === null ? null : tiempoDelSitio(this.clima, this.state.map, town.at);
+    return town === null ? null : climaDelSitio(this.clima, this.state.map, town.at);
   }
 
   /** El castillo abierto ahora mismo, o `null` si no hay ninguno. */
@@ -2339,8 +2352,6 @@ export class SesionDeArena implements ControlDeBatalla {
   readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
   readonly dueños = null;
-  /** La arena no tiene regiones ni días: el despejado, o lo que pida `?clima=` (`arena/main.ts`). */
-  tiempo: ClimaDelSitio = DESPEJADO;
   private readonly rng: Rng;
   /** Qué bandos mueve la IA, enteros: sus unidades y su héroe. */
   private readonly iaDelBando: Readonly<Record<Side, boolean>>;
@@ -2409,6 +2420,8 @@ export class SesionDeArena implements ControlDeBatalla {
       readonly equipo: CatalogoDeEquipo;
     },
     semilla: number,
+    /** La arena no tiene regiones ni días: el despejado, o lo que pida `?clima=` (`arena/main.ts`). */
+    readonly climaDeLaBatalla: ClimaDelSitio = DESPEJADO,
   ) {
     this.semilla = semilla;
     this.rng = createRng(semilla);

@@ -26,8 +26,9 @@ export function cajasDeLaMorada(t: Tablero): CajaEn {
 
 /**
  * Lo que va detrás de la fila: la base con la cámara de la morada y su edificio
- * abierto (`EscenaBase.pintarLaMorada`). En `pnpm capturas`, que encuadra en Node,
- * nada.
+ * abierto (`EscenaBase.pintarLaMorada`). Devuelve lo que va delante de la fila
+ * (la lluvia y el rayo de la base), o `null`. En `pnpm capturas`, que encuadra en
+ * Node, nada.
  */
 export type FondoDeLaMorada = (
   ctx: CanvasRenderingContext2D,
@@ -35,7 +36,7 @@ export type FondoDeLaMorada = (
   camara: Tablero,
   vista: VistaDeLaMorada,
   ahora: number,
-) => void;
+) => (() => void) | null;
 
 function deLaMorada(fondo: FondoDeLaMorada): DePie<VistaDeLaMorada, EncuadreDeLaMorada> {
   return {
@@ -53,8 +54,9 @@ function deLaMorada(fondo: FondoDeLaMorada): DePie<VistaDeLaMorada, EncuadreDeLa
     marca: (vista) => `${vista.edificio}:${vista.figuras[vista.elegida]?.id ?? ''}`,
     elegir: (s, vista, i) => s.elegirEnLaMorada(vista.figuras[i]!.id),
     pintar: (ctx, { lienzo, vista, encuadre, pie }) => {
-      fondo(ctx, lienzo, encuadre.camara, vista, pie.ahora);
+      const delante = fondo(ctx, lienzo, encuadre.camara, vista, pie.ahora);
       pintarDePie(ctx, pie);
+      delante?.();
     },
   };
 }

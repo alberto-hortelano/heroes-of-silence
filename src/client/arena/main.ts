@@ -80,7 +80,7 @@ import {
   idsPuestos,
 } from '@core/hero/equipo.js';
 import { parseSeed } from '@core/rng.js';
-import { type ClimaDelSitio, climaSinRegiones, DESPEJADO, parseClima } from '@core/state/clima.js';
+import { type ClimaDelSitio, climaSinRegiones, DESPEJADO } from '@core/state/clima.js';
 import { type CreatureTrait, esHueco, esTipoDelAnillo, type Hex, type Hueco } from '@core/types.js';
 import {
   type Hoja,
@@ -90,6 +90,7 @@ import {
 } from '@core/unidad.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { FIGURA } from '../../shared/arte.js';
+import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
 import { type Html, html, pintar } from '../html.js';
@@ -423,13 +424,14 @@ try {
  * pelea se monta igual, con el despejado.
  */
 let climaDeLaArena: ClimaDelSitio = DESPEJADO;
-try {
-  climaDeLaArena = climaSinRegiones(
-    parseClima(unaVezEnLaURL(parametros.getAll('clima'), 'clima')),
-    'la arena',
-  );
-} catch (err) {
-  avisoDeSemilla += `${mensaje(err)} — quita "?clima=…" de la barra de direcciones. `;
+{
+  const pedido = climaDeLaURL(parametros);
+  avisoDeSemilla += pedido.aviso;
+  try {
+    climaDeLaArena = climaSinRegiones(pedido.forzado, 'la arena');
+  } catch (err) {
+    avisoDeSemilla += avisoDelClima(err);
+  }
 }
 
 /**
@@ -1760,12 +1762,12 @@ function luchar(): void {
         equipo,
       },
       semilla,
+      climaDeLaArena,
     );
   } catch (err) {
     aviso = `No se puede luchar: ${mensaje(err)}.`;
     return;
   }
-  nueva.tiempo = climaDeLaArena;
   aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
   sesion = nueva;
   elSeed.textContent = `semilla ${semilla}`;

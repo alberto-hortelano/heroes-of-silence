@@ -6,10 +6,11 @@
  */
 import { problemaDeTipo } from '@core/hero/ascenso.js';
 import { parseSeed } from '@core/rng.js';
-import { type ClimaForzado, parseClima } from '@core/state/clima.js';
+import type { ClimaForzado } from '@core/state/clima.js';
 import { faccionesDeLaSemilla } from '@core/state/setup.js';
 import { type FactionId, parseFaccion } from '@core/types.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import { leerElClimaDeLaURL } from './clima-de-la-url.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaBatalla } from './escenas/batalla.js';
@@ -18,9 +19,7 @@ import { EscenaMorada } from './escenas/morada.js';
 import { EscenaTropa } from './escenas/tropa.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
-import { movimientoReducido } from './movimiento.js';
 import { cargarArte } from './render/assets.js';
-import { pintarClima } from './render/clima/clima.js';
 import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
 import { ajustarLienzo } from './render/lienzo.js';
@@ -97,11 +96,6 @@ function heroeDeLaUrl(faccion: FactionId): string | null {
 }
 
 /** Lo que la URL puede pedir de una partida. */
-/** Lo que fuerza `?clima=` para mirarlo (`parseClima`): solo la presentación. */
-function climaDeLaUrl(): ClimaForzado | null {
-  return parseClima(unaVezEnLaURL(new URLSearchParams(location.search).getAll('clima'), 'clima'));
-}
-
 type Pedido = 'seed' | 'faccion' | 'heroe' | 'clima';
 
 /**
@@ -126,8 +120,7 @@ function abrePartida(
 ): Session {
   const abierta = new Session(seed, faccion ?? undefined, heroe ?? undefined);
   // Una región de `?clima=` que este mapa no tiene lanza aquí, diciendo cuáles hay.
-  abierta.climaForzado = clima;
-  void abierta.clima;
+  abierta.fijarElClima(clima);
   const suyo = abierta.myHeroes()[0];
   if (suyo === undefined) throw new Error('la partida abre sin héroe para quien juega');
   aLaBarra((url) => {
@@ -189,7 +182,7 @@ let session: Session;
   };
   const semilla = leer('seed', semillaDeLaUrl);
   const faccion = leer('faccion', faccionDeLaUrl);
-  const clima = leer('clima', climaDeLaUrl);
+  const clima = leer('clima', () => leerElClimaDeLaURL(new URLSearchParams(location.search)));
   const seed = semilla ?? semillaSorteada();
   // El héroe se juzga contra la facción que se jugará: la pedida o la que saque
   // la semilla, que la dice la misma función que usa `newGame`. Así el motivo
@@ -377,23 +370,8 @@ function dibujarFotograma(ahora: number): void {
   // Lo abierto en la base o si se anda: lo leen la página (`canvas[data-base]`)
   // y los paneles. Una lectura por fotograma, después de dibujar.
   let base = '';
-  // El clima de la base (el de la región de su ciudad), encima de la plaza o de
-  // la morada: una escena lateral solo tiene que llamar a `pintarClima`.
-  const climaDeLaBase = (): void => {
-    const sitio = session.climaDeLaBase;
-    if (sitio === null) return;
-    pintarClima(ctx, {
-      sitio,
-      ancho: rect.width,
-      alto: rect.height,
-      ahora,
-      quieto: movimientoReducido(),
-      luces: castillo.lucesDeNoche,
-    });
-  };
   if (enCastillo) {
     castillo.dibujar(ctx, rect.width, rect.height, ahora);
-    climaDeLaBase();
     base = castillo.marca;
     if (canvas.dataset.base !== base) canvas.dataset.base = base;
   } else if (enBatalla) {
@@ -402,8 +380,6 @@ function dibujarFotograma(ahora: number): void {
     seguirALaActiva();
   } else if (dentro !== null) {
     dentro.dibujar(ctx, rect.width, rect.height, window.devicePixelRatio || 1, ahora);
-    // La tropa es una ficha, no un sitio: sin clima. La morada es la base.
-    if (escena === 'morada') climaDeLaBase();
   } else {
     aventura.dibujar(ctx, rect.width, rect.height, ahora);
     desarrollo?.dibujar(ctx);

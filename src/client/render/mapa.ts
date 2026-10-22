@@ -28,7 +28,6 @@ import type { ClimaDeLaPartida } from '@core/state/clima.js';
 import type { FactionId, Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla } from '../marcha.js';
-import { movimientoReducido } from '../movimiento.js';
 import { temaDelLienzo } from '../temas.js';
 import { imagenDeEscena } from './assets.js';
 import {
@@ -431,17 +430,19 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   //      identificadores y de la niebla de guerra: no tapa ni destapa nada de
   //      ella, y lo inexplorado sigue siendo negro (criterio 3 del clima).
   if (v.clima !== null) {
-    pintarClimaDelMapa(ctx, {
-      mapa: escena.map,
-      semilla: v.semilla,
-      clima: v.clima,
-      camara,
-      ancho: v.ancho,
-      alto: v.alto,
-      ahora: v.tiempo,
-      quieto: movimientoReducido(),
-      fuegos: fuegosDe(esc),
-    });
+    pintarClimaDelMapa(
+      ctx,
+      {
+        mapa: escena.map,
+        semilla: v.semilla,
+        clima: v.clima,
+        camara,
+        ancho: v.ancho,
+        alto: v.alto,
+        fuegos: fuegosDe(esc),
+      },
+      v.tiempo,
+    );
   }
 
   // 3 · Lo que dice quién está en cada casilla, encima de todo lo que tiene altura.

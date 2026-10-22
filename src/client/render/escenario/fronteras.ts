@@ -360,21 +360,35 @@ export interface Ruido {
   readonly total: number;
 }
 
-/** El ruido de `semilla` con sus `octavas`, para puntos de [0, W] × [0, H] casillas. */
+/**
+ * El ruido de `semilla` con sus `octavas`, para puntos de [0, W] × [0, H] casillas.
+ * Con `daLaVuelta`, el vértice de `W` es el de 0 (y el de `H`, el de 0): el ruido
+ * se repite, y una baldosa pintada con él casa con su vecina (los bancos de
+ * niebla del clima). Entonces cada onda tiene que caber entera en `W` y en `H`.
+ */
 export function ruidoDe(
   semilla: number,
   octavas: readonly (readonly [number, number])[],
   W: number,
   H: number,
+  daLaVuelta = false,
 ): Ruido {
   return {
     octavas: octavas.map(([onda, amplitud], o) => {
       const s = semilla + o * 0x632be5ab;
       const columnas = Math.ceil(W / onda) + 2;
       const filas = Math.ceil(H / onda) + 2;
+      const enX = Math.round(W / onda);
+      const enY = Math.round(H / onda);
+      if (daLaVuelta && (enX * onda !== W || enY * onda !== H)) {
+        throw new Error(
+          `un ruido que da la vuelta necesita ondas que quepan enteras: ${onda} en ${W}×${H}`,
+        );
+      }
       const vertices = new Float32Array(columnas * filas);
       for (let j = 0; j < filas; j++)
-        for (let i = 0; i < columnas; i++) vertices[j * columnas + i] = vertice(s, i, j);
+        for (let i = 0; i < columnas; i++)
+          vertices[j * columnas + i] = daLaVuelta ? vertice(s, i % enX, j % enY) : vertice(s, i, j);
       return { onda, amplitud, columnas, vertices };
     }),
     total: octavas.reduce((t, [, a]) => t + a, 0),
