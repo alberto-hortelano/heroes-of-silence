@@ -50,10 +50,12 @@ import {
 } from '../src/core/state/game.js';
 import { NOMBRE_DE_FACCION } from '../src/core/types.js';
 import { leerCrudos, RAIZ, validarEnDisco } from '../tools/mundo/disco.js';
+import { medirMundo } from '../tools/mundo/medida.js';
 
-/** Los tres ficheros de un mundo, como los lee `pnpm mundo validar` (`leerCrudos`). */
+/** Los tres JSON de un mundo, como los lee `pnpm mundo validar` (`leerCrudos`). */
 async function crudosDe(id: string): Promise<CrudosDelMundo> {
   const leido = await leerCrudos(id);
+  if ('sinMundo' in leido) throw new Error(leido.sinMundo);
   if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
   return leido.crudos;
 }
@@ -364,7 +366,7 @@ describe('la lectura para el motor', () => {
     expect(lugaresDelPlan(10)).toEqual({ de: 5, a: 6 });
     expect(lugaresDelPlan(14)).toEqual({ de: 6, a: 8 });
     expect(() => lugaresDelPlan(9)).toThrow(
-      'el plan tiene 9 regiones: ningún tamaño del menú (8, 10, 14)',
+      'el plan tiene 9 regiones: ningún tamaño del menú (4, 5, 7 por bando, el doble en el plan)',
     );
   });
 
@@ -1019,6 +1021,13 @@ describe('los desenlaces excluyentes de la skill', () => {
 
   it('vale con el validador de verdad', () => {
     expect(problemasDelMundo(conElSello, 'prueba')).toEqual([]);
+  });
+
+  it('«pnpm mundo medir» lo ve: dos desenlaces que se excluyen y una marca que cruza al pozo', () => {
+    const m = medirMundo(leerMundo(conElSello, 'prueba'), null);
+    expect(m.exclusiones).toEqual([['sello-a-la-orden', 'sello-a-los-orkos']]);
+    expect(m.marcasQueCruzan).toEqual(['sello-a-los-orkos']);
+    expect(m.encadenados).toBe(2);
   });
 
   it('elegir un desenlace cierra el otro con el «ya» del mundo, y el otro lugar lo lee', () => {

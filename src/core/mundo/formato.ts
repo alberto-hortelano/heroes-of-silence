@@ -92,6 +92,9 @@ export const TAMAÑOS_DE_UN_MUNDO = [
   { regiones: 7, nombre: 'Grande', que: 'siete regiones por bando', lugares: { de: 6, a: 8 } },
 ] as const;
 
+/** Los tamaños del menú dichos, en regiones por bando («4, 5, 7»): los mensajes de un tamaño que no es ninguno. */
+export const TAMAÑOS_DICHOS = TAMAÑOS_DE_UN_MUNDO.map((t) => t.regiones).join(', ');
+
 /** De cuántos a cuántos lugares lleva un mundo de un tamaño. */
 export interface LugaresDeUnMundo {
   readonly de: number;
@@ -107,7 +110,7 @@ export function lugaresDelPlan(regionesDelPlan: number): LugaresDeUnMundo {
   const t = TAMAÑOS_DE_UN_MUNDO.find((x) => x.regiones * 2 === regionesDelPlan);
   if (t === undefined) {
     throw new Error(
-      `el plan tiene ${regionesDelPlan} regiones: ningún tamaño del menú (${TAMAÑOS_DE_UN_MUNDO.map((x) => x.regiones * 2).join(', ')})`,
+      `el plan tiene ${regionesDelPlan} regiones: ningún tamaño del menú (${TAMAÑOS_DICHOS} por bando, el doble en el plan)`,
     );
   }
   return t.lugares;

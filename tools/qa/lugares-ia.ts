@@ -9,19 +9,15 @@
  * más lugares y más opciones la encarece. Una medida para comparar mundos, no una
  * regla: incluye la batalla y todo lo demás del turno.
  */
-import { performance } from 'node:perf_hooks';
 import { playAiGame } from '../../src/core/ai/turn.js';
 import { partidaDelMundo } from '../../src/core/mundo/partida.js';
-import { leerMundo } from '../../src/core/mundo/validar.js';
 import { createRng } from '../../src/core/rng.js';
-import { leerCrudos } from '../mundo/disco.js';
+import { leerMundoDeDisco } from '../mundo/disco.js';
 
 const LUGAR = new Set(['place_state', 'world_mark', 'gold_paid', 'item_given', 'troops_joined']);
 
 for (const id of process.argv.slice(2).length > 0 ? process.argv.slice(2) : ['prueba']) {
-  const leido = await leerCrudos(id);
-  if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
-  const mundo = leerMundo(leido.crudos, id);
+  const { mundo } = await leerMundoDeDisco(id);
   const state = partidaDelMundo(mundo, { 0: 'ai', 1: 'ai' }, 300);
   const t0 = performance.now();
   const fin = await playAiGame(state, { rng: createRng(mundo.mundo.semilla ^ 0x5eed) });

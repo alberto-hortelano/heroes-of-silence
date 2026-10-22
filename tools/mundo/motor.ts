@@ -26,11 +26,15 @@ import { matarGrupo } from '../qa/grupo.js';
 import {
   borrarMundoGenerado,
   borrarSinHistoria,
+  enElRepo,
   escribirLectura,
   escribirMundoNuevo,
   esGenerado,
+  FICHEROS_DEL_MOTOR,
   hayMundo,
+  problemaDeLaLinea,
   RAIZ,
+  rutaDelFichero,
   validarEnDisco,
 } from './disco.js';
 
@@ -48,6 +52,12 @@ export { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
  * ~1,5 min, y lo de ahora puede pasar de los 15 de antes. Se fija con lo medido.
  */
 export const TOPE_DEL_MOTOR_MS = 30 * 60_000;
+/**
+ * El modelo y el esfuerzo del motor, fijos para que no dependan de los ajustes de quien
+ * lo lanza (en esta máquina ya eran estos): que en otra salga lo mismo.
+ */
+export const MODELO_DEL_MOTOR = 'opus';
+export const ESFUERZO_DEL_MOTOR = 'xhigh';
 /** Cuántas líneas de progreso se guardan (las últimas). */
 const LINEAS = 40;
 
@@ -275,19 +285,17 @@ async function generar(
 
 /** Los argumentos de `claude -p` para un mundo: la skill, sus permisos y nada más. */
 export function argumentosDelMotor(id: string): string[] {
-  const biblia = `assets/mundos/${id}/biblia.md`;
-  const historia = `assets/mundos/${id}/historia.json`;
+  const escribe = FICHEROS_DEL_MOTOR.flatMap((f) => {
+    const ruta = enElRepo(rutaDelFichero(id, f.nombre));
+    return [`Write(${ruta})`, `Edit(${ruta})`];
+  });
   return [
     '-p',
     `/motor-de-mundos ${id}`,
-    // Fijos para que no dependan de los ajustes de quien lo lanza: en esta máquina
-    // ya eran estos (`~/.claude/settings.json`), así que no es el arreglo de lo
-    // plano (era la skill, `critica.md` de la trama de los mundos), sino que en otra
-    // salga lo mismo.
     '--model',
-    'opus',
+    MODELO_DEL_MOTOR,
     '--effort',
-    'xhigh',
+    ESFUERZO_DEL_MOTOR,
     '--output-format',
     'stream-json',
     '--verbose',
@@ -298,7 +306,7 @@ export function argumentosDelMotor(id: string): string[] {
     '--permission-prompts',
     'none',
     '--allowedTools',
-    `Read Glob Grep Write(${biblia}) Edit(${biblia}) Write(${historia}) Edit(${historia}) Bash(pnpm mundo validar ${id})`,
+    ['Read', 'Glob', 'Grep', ...escribe, `Bash(pnpm mundo validar ${id})`].join(' '),
     // Sin el MCP «heroes» de `.mcp.json` (el del agente que juega) y sin el hook
     // `Stop` del repo, que correría `pnpm verify` al acabar.
     '--strict-mcp-config',
@@ -321,25 +329,26 @@ function queHace(
 ): string | null {
   const ruta = String(input?.file_path ?? '');
   const fichero = ruta.split('/').pop() ?? '';
-  const suHistoria = ruta.endsWith(`assets/mundos/${id}/historia.json`);
-  const suBiblia = ruta.endsWith(`assets/mundos/${id}/biblia.md`);
+  // Uno de los que escribe el motor, y si es el de su mundo o el de otro (un ejemplo).
+  const delMotor = FICHEROS_DEL_MOTOR.find((f) => f.nombre === fichero);
+  const suyo =
+    delMotor !== undefined && ruta.endsWith(enElRepo(rutaDelFichero(id, delMotor.nombre)))
+      ? delMotor.motor
+      : null;
   switch (nombre) {
     case 'Read':
       if (fichero === 'lectura.json') return 'lee el mapa por regiones';
       if (fichero === 'mapa.png') return 'mira el mapa';
       if (fichero === 'SKILL.md') return 'lee sus instrucciones';
-      if (suBiblia) return 'relee la biblia';
-      if (suHistoria) return 'relee su historia';
-      if (fichero === 'biblia.md') return 'lee una biblia de ejemplo';
-      if (fichero === 'historia.json') return 'lee una historia de ejemplo';
-      return 'lee un fichero del repositorio';
+      if (delMotor === undefined) return 'lee un fichero del repositorio';
+      return suyo === null ? `lee ${delMotor.motor.una} de ejemplo` : `relee ${suyo.la}`;
     case 'Glob':
     case 'Grep':
       return 'busca en el repositorio';
     case 'Write':
-      return suBiblia ? 'escribe la biblia' : suHistoria ? 'escribe la historia' : null;
+      return suyo === null ? null : `escribe ${suyo.la}`;
     case 'Edit':
-      return suBiblia ? 'corrige la biblia' : suHistoria ? 'corrige la historia' : null;
+      return suyo === null ? null : `corrige ${suyo.la}`;
     case 'Bash':
       return String(input?.command ?? '').trim() === `pnpm mundo validar ${id}`
         ? 'valida el mundo'
@@ -425,9 +434,8 @@ export function esSuValidacion(crudo: string, id: string): boolean {
 
 /**
  * Lo que respondió el validador a una llamada del motor, si la línea es eso: los
- * problemas (las líneas «<fichero>.json: …» y «biblia.md: …» que escribe `pnpm mundo
- * validar`; sin la biblia, una corta no contaba como problema en la espera), vacío
- * si dijo que vale, o `null` si la línea no es una respuesta del validador.
+ * problemas (cada línea de `pnpm mundo validar` que lo es, `problemaDeLaLinea`),
+ * vacío si dijo que vale, o `null` si la línea no es una respuesta del validador.
  */
 export function respuestaDelValidador(crudo: string): readonly string[] | null {
   if (!crudo.includes('"tool_result"')) return null;
@@ -444,12 +452,7 @@ export function respuestaDelValidador(crudo: string): readonly string[] | null {
       ? c.content.map((x: { text?: unknown }) => String(x.text ?? '')).join('\n')
       : String(c.content ?? '');
     if (/el mundo "[^"]+" vale/.test(texto)) return [];
-    // `pnpm mundo validar` escribe cada problema tras «- » (`cli.ts`): sin quitarlo,
-    // ninguna línea de verdad casaba y la espera nunca enseñaba el último problema.
-    const problemas = texto
-      .split('\n')
-      .map((l) => l.trim().replace(/^- /, ''))
-      .filter((l) => /^(mundo|plan|historia)\.json: |^biblia\.md: /.test(l));
+    const problemas = texto.split('\n').flatMap((l) => problemaDeLaLinea(l) ?? []);
     if (problemas.length > 0) return problemas.map(sinRutas);
   }
   return null;

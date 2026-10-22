@@ -9,13 +9,14 @@
  * `critica.md`). Lo que dice si es plano es leer la biblia y un diálogo entero.
  */
 import { buildMap } from '../../src/core/map/generate.js';
-import type {
-  Condicion,
-  Dialogo,
-  Efecto,
-  Lugar,
-  MundoLeido,
-  Opcion,
+import {
+  batallaDe,
+  type Condicion,
+  type Dialogo,
+  type Efecto,
+  efectosDe,
+  type Lugar,
+  type MundoLeido,
 } from '../../src/core/mundo/formato.js';
 import { regionDeCasilla } from '../../src/core/state/asaltantes.js';
 import { palabrasDe } from './disco.js';
@@ -44,8 +45,8 @@ export interface MedidaDelMundo {
   readonly encadenados: number;
   /**
    * Pares de marcas que se excluyen: una opción pone A y pide «no B», y otra pone B
-   * y pide «no A» (sus efectos y los de su batalla al ganar; su `si` y el de su
-   * punto). Son los desenlaces de la trama, como los escribe la skill.
+   * y pide «no A» (sus efectos y los de su batalla; su `si` y el de su punto). Son
+   * los desenlaces de la trama, como los escribe la skill.
    */
   readonly exclusiones: readonly (readonly [string, string])[];
   /** Palabras de la biblia, o `null` si no la tiene. */
@@ -53,42 +54,41 @@ export interface MedidaDelMundo {
   readonly personas: readonly MedidaDePersona[];
 }
 
-/** Las marcas que lee una condición, también dentro de `no`. */
-function marcasLeidas(c: Condicion): string[] {
-  if ('marca' in c) return [c.marca];
-  if ('no' in c) return marcasLeidas(c.no);
+/** Las marcas que lee una condición, cada una con si se pide que no esté (`no`, que se anula de dos en dos). */
+function marcasDe(c: Condicion, negada = false): { marca: string; negada: boolean }[] {
+  if ('marca' in c) return [{ marca: c.marca, negada }];
+  if ('no' in c) return marcasDe(c.no, !negada);
   return [];
 }
 
-/** Las marcas que pide que NO estén una lista de condiciones (`{"no": {"marca": …}}`). */
-function marcasQueNo(si: readonly Condicion[]): Set<string> {
-  return new Set(si.flatMap((c) => ('no' in c && 'marca' in c.no ? [c.no.marca] : [])));
+/**
+ * Cada opción de un lugar con su `si` entero (el suyo y el de su punto) y lo que pone
+ * en el mundo: sus efectos y, si abre una batalla, los de ganarla y perderla. Un
+ * encuentro que no abre ninguna opción no se pelea: lo suyo no se pone.
+ */
+function opcionesConEfectos(lugar: Lugar): { si: Condicion[]; efectos: Efecto[] }[] {
+  return lugar.puntos.flatMap((p) =>
+    Object.values(lugar.dialogos[p.dialogo]?.nodos ?? {}).flatMap((n) =>
+      n.opciones.map((o) => {
+        const batalla = batallaDe(o);
+        const encuentro = batalla === null ? undefined : lugar.encuentros[batalla];
+        return {
+          si: [...(p.si ?? []), ...(o.si ?? [])],
+          efectos: [
+            ...(o.hace ?? []),
+            ...(encuentro?.alGanar ?? []),
+            ...(encuentro?.alPerder ?? []),
+          ],
+        };
+      }),
+    ),
+  );
 }
 
-function marcasPuestas(efectos: readonly Efecto[]): string[] {
-  return efectos.flatMap((e) => ('marca' in e ? [e.marca] : []));
-}
-
-/** Cada opción de un lugar con su `si` entero (el suyo y el de su punto) y sus efectos (con los de su batalla al ganar). */
-function opcionesDe(lugar: Lugar): { si: Condicion[]; efectos: Efecto[] }[] {
-  const salida: { si: Condicion[]; efectos: Efecto[] }[] = [];
-  for (const p of lugar.puntos) {
-    const d = lugar.dialogos[p.dialogo];
-    if (d === undefined) continue;
-    for (const n of Object.values(d.nodos)) {
-      for (const o of n.opciones as readonly Opcion[]) {
-        const hace = o.hace ?? [];
-        const batalla = hace.find((e): e is { batalla: string } => 'batalla' in e);
-        const alGanar =
-          batalla === undefined ? [] : (lugar.encuentros[batalla.batalla]?.alGanar ?? []);
-        salida.push({ si: [...(p.si ?? []), ...(o.si ?? [])], efectos: [...hace, ...alGanar] });
-      }
-    }
-  }
-  return salida;
-}
-
-/** La distancia más larga desde el inicio de un diálogo por sus `ir` (en anchura: la más corta a cada nodo). */
+/**
+ * La distancia más larga desde el inicio de un diálogo por sus `ir` (en anchura: la
+ * más corta a cada nodo). No usa `recorrido` (`reglas.ts`): da el orden, no la distancia.
+ */
 function honduraDe(d: Dialogo): number {
   const distancia = new Map<string, number>([[d.inicio, 0]]);
   const cola = [d.inicio];
@@ -103,81 +103,68 @@ function honduraDe(d: Dialogo): number {
   return Math.max(...distancia.values());
 }
 
+/** Cuántos nodos tiene la mayor componente de un grafo (union-find; 0 sin nodos). */
+function componenteMayor(
+  nodos: readonly string[],
+  aristas: readonly (readonly [string, string])[],
+): number {
+  const padre = new Map(nodos.map((n) => [n, n]));
+  const raiz = (x: string): string => {
+    const p = padre.get(x) ?? x;
+    return p === x ? x : raiz(p);
+  };
+  for (const [a, b] of aristas) padre.set(raiz(a), raiz(b));
+  const tamaños = new Map<string, number>();
+  for (const n of nodos) tamaños.set(raiz(n), (tamaños.get(raiz(n)) ?? 0) + 1);
+  return Math.max(0, ...tamaños.values());
+}
+
+/** Añade `valor` al conjunto de `clave`. */
+function apuntar(m: Map<string, Set<string>>, clave: string, valor: string): void {
+  const s = m.get(clave) ?? new Set<string>();
+  s.add(valor);
+  m.set(clave, s);
+}
+
 /** Las cifras de la trama de un mundo leído; `biblia`, su texto o `null` si no la tiene. */
 export function medirMundo(leido: MundoLeido, biblia: string | null): MedidaDelMundo {
   const { historia, plan } = leido;
   const { map } = buildMap(plan);
   const regiones = new Set(historia.lugares.map((l) => regionDeCasilla(map, l.at)));
 
-  // Quién pone y quién lee cada marca, por lugar.
+  // Por marca, qué lugares la ponen y cuáles la leen; por marca puesta, las que la
+  // misma opción pide que no estén (los desenlaces que se excluyen).
   const ponen = new Map<string, Set<string>>();
   const leen = new Map<string, Set<string>>();
-  const apuntar = (m: Map<string, Set<string>>, marca: string, lugar: string): void => {
-    const s = m.get(marca) ?? new Set<string>();
-    s.add(lugar);
-    m.set(marca, s);
-  };
+  const poneSinLas = new Map<string, Set<string>>();
   for (const l of historia.lugares) {
-    for (const o of opcionesDe(l)) {
-      for (const m of marcasPuestas(o.efectos)) apuntar(ponen, m, l.id);
-      for (const m of o.si.flatMap(marcasLeidas)) apuntar(leen, m, l.id);
-    }
     for (const p of l.puntos)
-      for (const m of (p.si ?? []).flatMap(marcasLeidas)) apuntar(leen, m, l.id);
-    for (const e of Object.values(l.encuentros)) {
-      for (const m of marcasPuestas([...e.alGanar, ...e.alPerder])) apuntar(ponen, m, l.id);
+      for (const { marca } of (p.si ?? []).flatMap((c) => marcasDe(c))) apuntar(leen, marca, l.id);
+    for (const o of opcionesConEfectos(l)) {
+      const leidas = o.si.flatMap((c) => marcasDe(c));
+      for (const { marca } of leidas) apuntar(leen, marca, l.id);
+      for (const { marca: a } of efectosDe(o.efectos, 'marca')) {
+        apuntar(ponen, a, l.id);
+        for (const b of leidas) if (b.negada && b.marca !== a) apuntar(poneSinLas, a, b.marca);
+      }
     }
   }
 
-  // Las que cruzan y el grafo de lugares que unen, para la mayor cadena.
-  const vecinos = new Map<string, Set<string>>(historia.lugares.map((l) => [l.id, new Set()]));
-  const marcasQueCruzan: string[] = [];
-  for (const marca of Object.keys(historia.marcas)) {
-    let cruza = false;
-    for (const a of ponen.get(marca) ?? []) {
-      for (const b of leen.get(marca) ?? []) {
-        if (a === b) continue;
-        cruza = true;
-        vecinos.get(a)?.add(b);
-        vecinos.get(b)?.add(a);
-      }
-    }
-    if (cruza) marcasQueCruzan.push(marca);
-  }
-  let encadenados = 0;
-  const vistos = new Set<string>();
-  for (const inicio of vecinos.keys()) {
-    if (vistos.has(inicio)) continue;
-    const pila = [inicio];
-    vistos.add(inicio);
-    let n = 0;
-    while (pila.length > 0) {
-      const x = pila.pop() as string;
-      n++;
-      for (const y of vecinos.get(x) ?? []) {
-        if (!vistos.has(y)) {
-          vistos.add(y);
-          pila.push(y);
-        }
-      }
-    }
-    encadenados = Math.max(encadenados, n);
-  }
+  // Las que cruzan: puestas en un lugar y leídas en otro; cada cruce une dos lugares.
+  const cruces = (marca: string): (readonly [string, string])[] =>
+    [...(ponen.get(marca) ?? [])].flatMap((a) =>
+      [...(leen.get(marca) ?? [])].filter((b) => b !== a).map((b) => [a, b] as const),
+    );
+  const marcas = Object.keys(historia.marcas);
+  const marcasQueCruzan = marcas.filter((m) => cruces(m).length > 0);
+  const encadenados = componenteMayor(
+    historia.lugares.map((l) => l.id),
+    marcas.flatMap(cruces),
+  );
 
-  // Exclusiones: una opción que pone A pidiendo «no B» y otra que pone B pidiendo «no A».
-  const ponePidiendoNo = new Set<string>();
-  for (const l of historia.lugares) {
-    for (const o of opcionesDe(l)) {
-      const no = marcasQueNo(o.si);
-      for (const a of marcasPuestas(o.efectos))
-        for (const b of no) if (a !== b) ponePidiendoNo.add(`${a}\n${b}`);
-    }
-  }
-  const exclusiones: [string, string][] = [];
-  for (const par of ponePidiendoNo) {
-    const [a, b] = par.split('\n') as [string, string];
-    if (a < b && ponePidiendoNo.has(`${b}\n${a}`)) exclusiones.push([a, b]);
-  }
+  const exclusiones = [...poneSinLas].flatMap(([a, sinLas]) =>
+    [...sinLas].filter((b) => a < b && poneSinLas.get(b)?.has(a)).map((b) => [a, b] as const),
+  );
 
   const personas: MedidaDePersona[] = historia.lugares.flatMap((l) =>
     l.puntos.flatMap((p) => {
@@ -203,11 +190,35 @@ export function medirMundo(leido: MundoLeido, biblia: string | null): MedidaDelM
   return {
     lugares: historia.lugares.length,
     regiones: regiones.size,
-    marcas: Object.keys(historia.marcas).length,
+    marcas: marcas.length,
     marcasQueCruzan,
     encadenados,
     exclusiones,
     palabrasDeLaBiblia: biblia === null ? null : palabrasDe(biblia),
     personas,
   };
+}
+
+/** Una lista dicha: sus elementos con comas, o «—» si no tiene ninguno. */
+function lista(xs: readonly string[]): string {
+  return xs.length === 0 ? '—' : xs.join(', ');
+}
+
+/** La medida de un mundo para `pnpm mundo medir`: una línea del mundo y una por persona. */
+export function describirMedida(id: string, m: MedidaDelMundo): string[] {
+  return [
+    [
+      `${id}: lugares: ${m.lugares}`,
+      `regiones: ${m.regiones}`,
+      `marcas: ${m.marcas}`,
+      `marcas que cruzan: ${lista(m.marcasQueCruzan)}`,
+      `lugares encadenados: ${m.encadenados}`,
+      `desenlaces que se excluyen: ${lista(m.exclusiones.map(([a, b]) => `${a} / ${b}`))}`,
+      `palabras de la biblia: ${m.palabrasDeLaBiblia ?? 'no tiene biblia'}`,
+    ].join(' · '),
+    ...m.personas.map(
+      (p) =>
+        `  ${p.lugar} · ${p.nombre}: nodos: ${p.nodos} · hondura: ${p.hondura} · opciones que hacen algo: ${p.conHace}`,
+    ),
+  ];
 }

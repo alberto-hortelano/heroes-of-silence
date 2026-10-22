@@ -7,24 +7,26 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { mundoNuevo } from '../src/core/mundo/partida.js';
-import { leerMundo } from '../src/core/mundo/validar.js';
 import {
   borrarMundoGenerado,
   borrarSinHistoria,
-  leerBiblia,
-  leerCrudos,
+  leerMundoDeDisco,
+  lineaDeProblema,
   PALABRAS_MINIMAS_DE_LA_BIBLIA,
   problemaDeLaBiblia,
+  problemaDeLaLinea,
   RAIZ,
 } from '../tools/mundo/disco.js';
-import { medirMundo } from '../tools/mundo/medida.js';
+import { describirMedida, medirMundo } from '../tools/mundo/medida.js';
 import {
   argumentosDelMotor,
   Conflicto,
+  ESFUERZO_DEL_MOTOR,
   empezar,
   esSuValidacion,
   leerPedido,
   lineaDelMotor,
+  MODELO_DEL_MOTOR,
   progresoDe,
   respuestaDelValidador,
   sinRutas,
@@ -35,8 +37,8 @@ describe('el motor de mundos', () => {
     const a = argumentosDelMotor('gen-20261022-7');
     expect(a.slice(0, 2)).toEqual(['-p', '/motor-de-mundos gen-20261022-7']);
     // Opus con esfuerzo alto, fijos: que no dependa de los ajustes de quien lo lanza.
-    expect(a[a.indexOf('--model') + 1]).toBe('opus');
-    expect(a[a.indexOf('--effort') + 1]).toBe('xhigh');
+    expect(a[a.indexOf('--model') + 1]).toBe(MODELO_DEL_MOTOR);
+    expect(a[a.indexOf('--effort') + 1]).toBe(ESFUERZO_DEL_MOTOR);
     expect(a[a.indexOf('--permission-mode') + 1]).toBe('dontAsk');
     expect(a[a.indexOf('--permission-prompts') + 1]).toBe('none');
     expect(a[a.indexOf('--allowedTools') + 1]).toBe(
@@ -118,27 +120,24 @@ describe('el motor de mundos', () => {
         type: 'user',
         message: { content: [{ type: 'tool_result', content: texto, is_error: true }] },
       });
-    expect(
-      respuestaDelValidador(
-        contesta(
-          'historia.json: lugares[0].at: (0, 0) está en el borde del mapa\nhistoria.json: marcas.x: sobra',
-        ),
-      ),
-    ).toEqual([
+    // Tal como lo escribe `pnpm mundo validar` (`lineaDeProblema`), con la biblia: una
+    // corta también es un problema de la espera.
+    const problemas = [
+      problemaDeLaBiblia('doce palabras', 'x') as string,
       'historia.json: lugares[0].at: (0, 0) está en el borde del mapa',
-      'historia.json: marcas.x: sobra',
-    ]);
-    // Una biblia corta también es un problema de la espera.
+      'plan.json: no está en assets/mundos/x/',
+    ];
     expect(
       respuestaDelValidador(
-        contesta(
-          'el mundo "x" tiene 2 problemas:\n- biblia.md: tiene 12 palabras y una biblia lleva al menos 400: qué pasó antes, quién es quién, la trama y sus desenlaces\n- historia.json: marcas.x: sobra',
-        ),
+        contesta(`el mundo "x" tiene 3 problemas:\n${problemas.map(lineaDeProblema).join('\n')}`),
       ),
-    ).toEqual([
-      'biblia.md: tiene 12 palabras y una biblia lleva al menos 400: qué pasó antes, quién es quién, la trama y sus desenlaces',
-      'historia.json: marcas.x: sobra',
-    ]);
+    ).toEqual(problemas);
+    // Una línea suelta que no es de un fichero del mundo, o sin el «- », no es un problema.
+    expect(problemaDeLaLinea('- leo el mapa')).toBeNull();
+    expect(problemaDeLaLinea('historia.json: marcas.x: sobra')).toBeNull();
+    expect(problemaDeLaLinea(`  ${lineaDeProblema('mundo.json: id: sobra')}`)).toBe(
+      'mundo.json: id: sobra',
+    );
     expect(respuestaDelValidador(contesta('el mundo "x" vale: se juega con ?mundo=x'))).toEqual([]);
     expect(respuestaDelValidador(contesta('Permission denied'))).toBeNull();
   });
@@ -147,19 +146,17 @@ describe('el motor de mundos', () => {
     expect(problemaDeLaBiblia(null, 'gen-1')).toBe(
       'biblia.md: no está; la escribe el motor antes que la historia (assets/mundos/gen-1/biblia.md)',
     );
-    expect(problemaDeLaBiblia(' \n\t ', 'gen-1')).toMatch(/^biblia\.md: está vacía; /);
+    expect(problemaDeLaBiblia(' \n\t ', 'gen-1')).toMatch(/^biblia\.md: tiene 0 palabras y /);
     const palabras = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`).join(' \n');
     expect(problemaDeLaBiblia(palabras(PALABRAS_MINIMAS_DE_LA_BIBLIA - 1), 'gen-1')).toBe(
       'biblia.md: tiene 399 palabras y una biblia lleva al menos 400: qué pasó antes, quién es quién, la trama y sus desenlaces',
     );
-    expect(problemaDeLaBiblia(palabras(1), 'gen-1')).toMatch(/^biblia\.md: tiene 1 palabra y/);
     expect(problemaDeLaBiblia(palabras(PALABRAS_MINIMAS_DE_LA_BIBLIA), 'gen-1')).toBeNull();
   });
 
   it('«pnpm mundo medir» cuenta la trama de un mundo (prueba: dos lugares sueltos)', async () => {
-    const leido = await leerCrudos('prueba');
-    if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
-    const m = medirMundo(leerMundo(leido.crudos, 'prueba'), await leerBiblia('prueba'));
+    const { mundo, biblia } = await leerMundoDeDisco('prueba');
+    const m = medirMundo(mundo, biblia);
     expect(m).toMatchObject({
       lugares: 2,
       regiones: 1,
@@ -179,16 +176,22 @@ describe('el motor de mundos', () => {
         conHace: 3,
       },
     ]);
+    expect(describirMedida('prueba', { ...m, palabrasDeLaBiblia: 412 })).toEqual([
+      'prueba: lugares: 2 · regiones: 1 · marcas: 5 · marcas que cruzan: — · lugares encadenados: 1 · desenlaces que se excluyen: — · palabras de la biblia: 412',
+      '  puente-de-corvo · Corvo: nodos: 4 · hondura: 2 · opciones que hacen algo: 3',
+    ]);
   });
 
-  it('«pnpm mundo medir» ve las marcas que cruzan lugares (ejemplo: el libro de Tobías)', async () => {
-    const leido = await leerCrudos('ejemplo');
-    if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
-    const m = medirMundo(leerMundo(leido.crudos, 'ejemplo'), null);
-    expect(m.marcasQueCruzan).toEqual(['acta-de-defuncion', 'libro-leido']);
-    expect(m.encadenados).toBe(3);
-    expect(m.regiones).toBe(3);
-    expect(m.palabrasDeLaBiblia).toBeNull();
+  // Sus cifras no se fijan: `ejemplo` se regenerará con la trama (fase B).
+  it('«pnpm mundo medir» mide «ejemplo» sin lanzar', async () => {
+    const { mundo, biblia } = await leerMundoDeDisco('ejemplo');
+    expect(describirMedida('ejemplo', medirMundo(mundo, biblia))[0]).toMatch(/^ejemplo: lugares: /);
+  });
+
+  it('un mundo que no está o no se lee no se mide: lanza diciéndolo', async () => {
+    await expect(leerMundoDeDisco('no-hay-tal-mundo')).rejects.toThrow(
+      'no hay ningún mundo "no-hay-tal-mundo" en assets/mundos/',
+    );
   });
 
   it('rechaza lo que el menú no puede pedir', () => {

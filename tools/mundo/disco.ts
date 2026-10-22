@@ -9,18 +9,21 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { buildMap, type MapPlan } from '../../src/core/map/generate.js';
-import { idDeMundoBlocker, type Mundo, noEsJson } from '../../src/core/mundo/formato.js';
+import {
+  idDeMundoBlocker,
+  type Mundo,
+  type MundoLeido,
+  noEsJson,
+} from '../../src/core/mundo/formato.js';
 import { type LecturaParaElMotor, lecturaParaElMotor } from '../../src/core/mundo/lectura.js';
 import { mundoNuevo, type PedidoDeMundo } from '../../src/core/mundo/partida.js';
-import { type CrudosDelMundo, problemasDelMundo } from '../../src/core/mundo/validar.js';
+import { type CrudosDelMundo, leerMundo, problemasDelMundo } from '../../src/core/mundo/validar.js';
 
 export const RAIZ = resolve(import.meta.dirname, '../..');
 export const DIR_MUNDOS = join(RAIZ, 'assets/mundos');
 export const DIR_LECTURAS = join(RAIZ, '.cache/mundos');
-
-export const FICHEROS = ['mundo', 'plan', 'historia'] as const;
 
 /** La carpeta de un mundo, o lanza si el id no tiene la forma: va en una ruta de disco. */
 export function carpetaDe(id: string): string {
@@ -36,37 +39,142 @@ export function lecturaDe(id: string): string {
 }
 
 /**
- * Los tres ficheros de un mundo, o los problemas de leerlos: el que falta o no es
- * JSON se dice con su nombre, como los problemas de dentro.
+ * Los ficheros de un mundo, en el orden en que se leen. `mundo.json` y el plan los
+ * escribe `pnpm mundo nuevo` (o el menú); la biblia y la historia, el motor (`motor`:
+ * cómo se dicen en la espera, y lo que se le recuerda si falta uno). De aquí salen lo
+ * que el motor puede escribir (`argumentosDelMotor`), lo que se cuenta que hace
+ * (`queHace`), la frase del que falta (`noEsta`) y qué línea del validador es un
+ * problema (`problemaDeLaLinea`).
+ */
+export const FICHEROS_DEL_MUNDO = [
+  { nombre: 'mundo.json', motor: null },
+  { nombre: 'plan.json', motor: null },
+  {
+    nombre: 'biblia.md',
+    motor: {
+      la: 'la biblia',
+      una: 'una biblia',
+      falta: 'la escribe el motor antes que la historia',
+    },
+  },
+  {
+    nombre: 'historia.json',
+    motor: { la: 'la historia', una: 'una historia', falta: 'la escribe el motor' },
+  },
+] as const;
+
+export type FicheroDelMundo = (typeof FICHEROS_DEL_MUNDO)[number];
+export type FicheroDelMotor = Extract<FicheroDelMundo, { motor: object }>;
+
+/** Los que escribe el motor: la biblia y la historia. */
+export const FICHEROS_DEL_MOTOR: readonly FicheroDelMotor[] = FICHEROS_DEL_MUNDO.filter(
+  (f): f is FicheroDelMotor => f.motor !== null,
+);
+
+/** La ruta de un fichero de un mundo; lanza con un id que no tiene la forma (`carpetaDe`). */
+export function rutaDelFichero(id: string, nombre: FicheroDelMundo['nombre']): string {
+  return join(carpetaDe(id), nombre);
+}
+
+/** Una ruta dentro del repositorio, relativa a él: la que se le dice al motor y a la persona. */
+export function enElRepo(ruta: string): string {
+  return relative(RAIZ, ruta);
+}
+
+/** La fila de la tabla de un fichero del mundo. */
+function fichero<N extends FicheroDelMundo['nombre']>(
+  nombre: N,
+): Extract<FicheroDelMundo, { nombre: N }> {
+  const f = FICHEROS_DEL_MUNDO.find((x) => x.nombre === nombre);
+  if (f === undefined) throw new Error(`«${nombre}» no es un fichero de un mundo`);
+  return f as Extract<FicheroDelMundo, { nombre: N }>;
+}
+
+/** Lo que se dice de un fichero que falta; del motor, que lo escribe él y dónde. */
+function noEsta(id: string, f: FicheroDelMundo): string {
+  return f.motor === null
+    ? `${f.nombre}: no está en assets/mundos/${id}/`
+    : `${f.nombre}: no está; ${f.motor.falta} (${enElRepo(rutaDelFichero(id, f.nombre))})`;
+}
+
+/**
+ * Un problema como lo escribe `pnpm mundo validar`, uno por línea. Su inversa es
+ * `problemaDeLaLinea`, que lee el motor en la respuesta del validador.
+ */
+export function lineaDeProblema(problema: string): string {
+  return `- ${problema}`;
+}
+
+/** El problema de una línea de `pnpm mundo validar` (`lineaDeProblema`), o `null` si no es una. */
+export function problemaDeLaLinea(linea: string): string | null {
+  const l = linea.trim();
+  if (!l.startsWith('- ')) return null;
+  const problema = l.slice(2);
+  return FICHEROS_DEL_MUNDO.some((f) => problema.startsWith(`${f.nombre}: `)) ? problema : null;
+}
+
+/** Un mundo en disco: su biblia (o `null` si no está) y sus JSON, o los problemas de leerlos. */
+export type MundoEnDisco = { readonly biblia: string | null } & (
+  | { readonly crudos: CrudosDelMundo }
+  | { readonly problemas: readonly string[] }
+);
+
+/**
+ * Un mundo en disco, leído una vez y todo a la vez. Un JSON que falta o no es JSON se
+ * dice con su nombre, como los problemas de dentro; la biblia que falta no es un
+ * problema de leer, la juzga `problemaDeLaBiblia`. Sin carpeta, `sinMundo`.
  */
 export async function leerCrudos(
   id: string,
-): Promise<{ crudos: CrudosDelMundo } | { problemas: string[] }> {
-  const dir = carpetaDe(id);
-  if (!existsSync(dir)) return { problemas: [`no hay ningún mundo "${id}" en assets/mundos/`] };
-  // Los tres a la vez, cada uno con su problema o su contenido, en el orden de `FICHEROS`.
-  const leidos = await Promise.all(
-    FICHEROS.map(async (f): Promise<{ problema: string } | { crudo: unknown }> => {
-      const ruta = join(dir, `${f}.json`);
-      if (!existsSync(ruta)) {
-        return {
-          problema:
-            f === 'historia'
-              ? `historia.json: no está; la escribe el motor (assets/mundos/${id}/historia.json)`
-              : `${f}.json: no está en assets/mundos/${id}/`,
-        };
-      }
-      try {
-        return { crudo: JSON.parse(await readFile(ruta, 'utf8')) };
-      } catch (err) {
-        return { problema: noEsJson(f, err) };
-      }
+): Promise<MundoEnDisco | { readonly sinMundo: string }> {
+  if (!existsSync(carpetaDe(id)))
+    return { sinMundo: `no hay ningún mundo "${id}" en assets/mundos/` };
+  const textos = await Promise.all(
+    FICHEROS_DEL_MUNDO.map(async (f) => {
+      const ruta = rutaDelFichero(id, f.nombre);
+      return [f.nombre, existsSync(ruta) ? await readFile(ruta, 'utf8') : null] as const;
     }),
   );
-  const problemas = leidos.flatMap((l) => ('problema' in l ? [l.problema] : []));
-  if (problemas.length > 0) return { problemas };
-  const [mundo, plan, historia] = leidos.map((l) => ('crudo' in l ? l.crudo : undefined));
-  return { crudos: { mundo, plan, historia } };
+  const texto = new Map(textos);
+  const problemas: string[] = [];
+  const json = (nombre: 'mundo.json' | 'plan.json' | 'historia.json'): unknown => {
+    const t = texto.get(nombre) ?? null;
+    if (t === null) {
+      problemas.push(noEsta(id, fichero(nombre)));
+      return undefined;
+    }
+    try {
+      return JSON.parse(t);
+    } catch (err) {
+      problemas.push(noEsJson(nombre.replace(/\.json$/, ''), err));
+      return undefined;
+    }
+  };
+  const crudos = {
+    mundo: json('mundo.json'),
+    plan: json('plan.json'),
+    historia: json('historia.json'),
+  };
+  const biblia = texto.get('biblia.md') ?? null;
+  return problemas.length > 0 ? { biblia, problemas } : { biblia, crudos };
+}
+
+/**
+ * Un mundo en disco ya leído, para jugarlo o medirlo, con el texto de su biblia (o
+ * `null`: no la exige, para medir también los mundos de antes). Lanza con los
+ * problemas de leerlo o de juzgarlo (`leerMundo`).
+ */
+export async function leerMundoDeDisco(
+  id: string,
+): Promise<{ readonly mundo: MundoLeido; readonly biblia: string | null }> {
+  const leido = await leerCrudos(id);
+  if ('sinMundo' in leido) throw new Error(leido.sinMundo);
+  if ('problemas' in leido) {
+    throw new Error(
+      `el mundo "${id}" no se puede leer:\n${leido.problemas.map(lineaDeProblema).join('\n')}`,
+    );
+  }
+  return { mundo: leerMundo(leido.crudos, id), biblia: leido.biblia };
 }
 
 /**
@@ -91,23 +199,11 @@ export function palabrasDe(texto: string): number {
  * `pnpm mundo validar` y el servidor que genera, por `validarEnDisco`.
  */
 export function problemaDeLaBiblia(texto: string | null, id: string): string | null {
-  if (texto === null) {
-    return `biblia.md: no está; la escribe el motor antes que la historia (assets/mundos/${id}/biblia.md)`;
-  }
+  if (texto === null) return noEsta(id, fichero('biblia.md'));
   const palabras = palabrasDe(texto);
-  if (palabras === 0) {
-    return 'biblia.md: está vacía; lleva la trama en prosa: qué pasó antes, quién es quién, la trama y sus desenlaces';
-  }
-  if (palabras < PALABRAS_MINIMAS_DE_LA_BIBLIA) {
-    return `biblia.md: tiene ${palabras} palabra${palabras === 1 ? '' : 's'} y una biblia lleva al menos ${PALABRAS_MINIMAS_DE_LA_BIBLIA}: qué pasó antes, quién es quién, la trama y sus desenlaces`;
-  }
-  return null;
-}
-
-/** El texto de la biblia de un mundo, o `null` si no está. */
-export async function leerBiblia(id: string): Promise<string | null> {
-  const ruta = join(carpetaDe(id), 'biblia.md');
-  return existsSync(ruta) ? readFile(ruta, 'utf8') : null;
+  return palabras < PALABRAS_MINIMAS_DE_LA_BIBLIA
+    ? `biblia.md: tiene ${palabras} palabras y una biblia lleva al menos ${PALABRAS_MINIMAS_DE_LA_BIBLIA}: qué pasó antes, quién es quién, la trama y sus desenlaces`
+    : null;
 }
 
 /**
@@ -116,9 +212,8 @@ export async function leerBiblia(id: string): Promise<string | null> {
  */
 export async function validarEnDisco(id: string): Promise<string[]> {
   const leido = await leerCrudos(id);
-  const dir = carpetaDe(id);
-  if (!existsSync(dir)) return 'problemas' in leido ? leido.problemas : [];
-  const biblia = problemaDeLaBiblia(await leerBiblia(id), id);
+  if ('sinMundo' in leido) return [leido.sinMundo];
+  const biblia = problemaDeLaBiblia(leido.biblia, id);
   return [
     ...(biblia === null ? [] : [biblia]),
     ...('problemas' in leido ? leido.problemas : problemasDelMundo(leido.crudos, id)),
@@ -127,7 +222,7 @@ export async function validarEnDisco(id: string): Promise<string[]> {
 
 /** Si hay un mundo con ese id: su `mundo.json`. Lo que se pide con él no se genera (409). */
 export function hayMundo(id: string): boolean {
-  return existsSync(join(carpetaDe(id), 'mundo.json'));
+  return existsSync(rutaDelFichero(id, 'mundo.json'));
 }
 
 /**
@@ -154,7 +249,7 @@ function soloGenerado(id: string): void {
  */
 export async function borrarSinHistoria(id: string): Promise<boolean> {
   soloGenerado(id);
-  if (existsSync(join(carpetaDe(id), 'historia.json'))) return false;
+  if (existsSync(rutaDelFichero(id, 'historia.json'))) return false;
   await borrarMundoGenerado(id);
   return true;
 }
@@ -181,8 +276,8 @@ export async function escribirMundoNuevo(pedido: PedidoDeMundo): Promise<Mundo> 
   }
   const { mundo, plan } = mundoNuevo(pedido);
   await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, 'mundo.json'), `${JSON.stringify(mundo, null, 2)}\n`);
-  await writeFile(join(dir, 'plan.json'), `${JSON.stringify(plan)}\n`);
+  await writeFile(rutaDelFichero(pedido.id, 'mundo.json'), `${JSON.stringify(mundo, null, 2)}\n`);
+  await writeFile(rutaDelFichero(pedido.id, 'plan.json'), `${JSON.stringify(plan)}\n`);
   return mundo;
 }
 
@@ -196,9 +291,8 @@ export async function escribirLectura(
   conPng: boolean,
   alPintar?: () => void,
 ): Promise<{ lectura: LecturaParaElMotor; dir: string }> {
-  const dir = carpetaDe(id);
-  const mundo = JSON.parse(await readFile(join(dir, 'mundo.json'), 'utf8')) as Mundo;
-  const plan = JSON.parse(await readFile(join(dir, 'plan.json'), 'utf8')) as MapPlan;
+  const mundo = JSON.parse(await readFile(rutaDelFichero(id, 'mundo.json'), 'utf8')) as Mundo;
+  const plan = JSON.parse(await readFile(rutaDelFichero(id, 'plan.json'), 'utf8')) as MapPlan;
   // Un mapa para la lectura y para el PNG: construirlo es lo más caro de leer.
   const hecho = buildMap(plan);
   const lectura = lecturaParaElMotor(mundo, plan, hecho);

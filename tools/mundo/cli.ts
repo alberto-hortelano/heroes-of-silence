@@ -17,17 +17,16 @@
  *       para medir también los mundos de antes
  */
 import { REGIONES_POR_BANDO } from '../../src/core/map/generate.js';
-import { leerMundo } from '../../src/core/mundo/validar.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
 import {
   escribirLectura,
   escribirMundoNuevo,
-  leerBiblia,
-  leerCrudos,
+  leerMundoDeDisco,
+  lineaDeProblema,
   validarEnDisco,
 } from './disco.js';
-import { medirMundo } from './medida.js';
+import { describirMedida, medirMundo } from './medida.js';
 
 function bandera(args: readonly string[], nombre: string): string | undefined {
   const a = args.find((x) => x.startsWith(`--${nombre}=`));
@@ -39,11 +38,6 @@ function entero(texto: string | undefined, nombre: string, defecto: number): num
   const n = Number(texto);
   if (!Number.isSafeInteger(n) || n < 0) throw new Error(`--${nombre}=${texto} no es un entero`);
   return n;
-}
-
-/** «1 lugar», «3 lugares». */
-function cuantos(n: number, uno: string, varios: string): string {
-  return `${n} ${n === 1 ? uno : varios}`;
 }
 
 async function main(argv: readonly string[]): Promise<number> {
@@ -86,31 +80,13 @@ async function main(argv: readonly string[]): Promise<number> {
       console.log(
         `el mundo "${id}" tiene ${problemas.length} problema${problemas.length === 1 ? '' : 's'}:`,
       );
-      for (const p of problemas) console.log(`- ${p}`);
+      for (const p of problemas) console.log(lineaDeProblema(p));
       return 1;
     }
     case 'medir': {
       for (const uno of [id, ...resto]) {
-        const leido = await leerCrudos(uno);
-        if ('problemas' in leido) {
-          throw new Error(`el mundo "${uno}" no se mide: ${leido.problemas.join('; ')}`);
-        }
-        const m = medirMundo(leerMundo(leido.crudos, uno), await leerBiblia(uno));
-        const cruzan = m.marcasQueCruzan;
-        console.log(
-          [
-            `${uno}: ${cuantos(m.lugares, 'lugar', 'lugares')} en ${cuantos(m.regiones, 'región', 'regiones')}`,
-            `${cuantos(m.marcas, 'marca', 'marcas')}, ${cruzan.length} ${cruzan.length === 1 ? 'cruza' : 'cruzan'} lugares${cruzan.length === 0 ? '' : ` (${cruzan.join(', ')})`}`,
-            `${cuantos(m.encadenados, 'lugar encadenado', 'lugares encadenados')}`,
-            `${cuantos(m.exclusiones.length, 'desenlace que se excluye', 'desenlaces que se excluyen')}${m.exclusiones.length === 0 ? '' : ` (${m.exclusiones.map(([a, b]) => `${a} / ${b}`).join(', ')})`}`,
-            `biblia: ${m.palabrasDeLaBiblia === null ? 'no tiene' : cuantos(m.palabrasDeLaBiblia, 'palabra', 'palabras')}`,
-          ].join(' · '),
-        );
-        for (const p of m.personas) {
-          console.log(
-            `  ${p.lugar} · ${p.nombre}: ${cuantos(p.nodos, 'nodo', 'nodos')}, hondura ${p.hondura}, ${cuantos(p.conHace, 'opción que hace algo', 'opciones que hacen algo')}`,
-          );
-        }
+        const { mundo, biblia } = await leerMundoDeDisco(uno);
+        for (const l of describirMedida(uno, medirMundo(mundo, biblia))) console.log(l);
       }
       return 0;
     }

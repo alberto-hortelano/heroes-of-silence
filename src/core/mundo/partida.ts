@@ -10,7 +10,13 @@ import { createRng } from '../rng.js';
 import type { GameState } from '../state/game.js';
 import { faccionesDeLaSemilla, newGame } from '../state/setup.js';
 import type { Controller, FactionId, PlayerId } from '../types.js';
-import { type Mundo, type MundoLeido, TAMAÑOS_DE_UN_MUNDO, VERSION_DEL_MUNDO } from './formato.js';
+import {
+  type Mundo,
+  type MundoLeido,
+  TAMAÑOS_DE_UN_MUNDO,
+  TAMAÑOS_DICHOS,
+  VERSION_DEL_MUNDO,
+} from './formato.js';
 
 /** Lo que se pide para un mundo nuevo (`pnpm mundo nuevo`, el menú de `pnpm dev`). */
 export interface PedidoDeMundo {
@@ -42,9 +48,8 @@ export type PedidoDelMenu = Omit<PedidoDeMundo, 'id' | 'semilla'> & {
 export function pedidoBlocker(
   p: Pick<PedidoDeMundo, 'faccion' | 'heroe' | 'regionesPorBando'>,
 ): string | null {
-  const tamaños = TAMAÑOS_DE_UN_MUNDO.map((t) => t.regiones);
-  if (!tamaños.some((t) => t === p.regionesPorBando)) {
-    return `«regionesPorBando» tiene que ser ${tamaños.join(', ')}; es ${JSON.stringify(p.regionesPorBando)}`;
+  if (!TAMAÑOS_DE_UN_MUNDO.some((t) => t.regiones === p.regionesPorBando)) {
+    return `«regionesPorBando» tiene que ser ${TAMAÑOS_DICHOS}; es ${JSON.stringify(p.regionesPorBando)}`;
   }
   if (p.heroe === undefined) return null;
   const motivo = problemaDeTipo(p.faccion, p.heroe);
