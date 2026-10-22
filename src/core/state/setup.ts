@@ -18,6 +18,12 @@ import {
   type MapPlan,
   validateMapPlan,
 } from '../map/generate.js';
+import type { EstadoDelMundo, Historia } from '../mundo/formato.js';
+import {
+  estadoInicialDelMundo,
+  objetosDeLosLugares,
+  problemasDeLaHistoria,
+} from '../mundo/validar.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
@@ -67,6 +73,14 @@ export interface NewGameOptions {
    * los tipos den habilidades: cambia la figura del héroe, no la partida.
    */
   readonly tipoDelHeroe?: string | undefined;
+  /**
+   * La historia de un mundo (`core/mundo/`): sus lugares van al mapa tras
+   * `buildMap` y su estado, a `GameState.mundo`. Pide el `plan` del mundo, que es
+   * donde se escribió; sin ella, la partida es la de siempre y no lleva lugares.
+   * Se juzga otra vez aquí (`problemasDeLaHistoria`) y lanza con todo lo que no
+   * vale: un estado de partida no nace con una historia que la página rechazaría.
+   */
+  readonly historia?: Historia | undefined;
 }
 
 /**
@@ -192,6 +206,24 @@ export function newGame(options: NewGameOptions = {}): GameState {
 
   const { map, towns, raiders } = buildMap(plan);
 
+  let mundo: EstadoDelMundo | undefined;
+  if (options.historia !== undefined) {
+    if (options.plan === undefined) {
+      throw new Error('una historia se juega sobre el plan de su mundo: falta el plan');
+    }
+    const base0 = basesDelPlan(plan).get(0);
+    if (base0 === undefined) throw new Error('el plan del mundo no tiene base del jugador 0');
+    const malos = problemasDeLaHistoria(options.historia, {
+      map,
+      faccionDelJugador: base0.faction,
+    });
+    if (malos.length > 0) {
+      throw new Error(`la historia del mundo no se puede jugar:\n- ${malos.join('\n- ')}`);
+    }
+    map.objects.push(...objetosDeLosLugares(options.historia));
+    mundo = estadoInicialDelMundo(options.historia);
+  }
+
   // Los jugadores y sus bases, por id (`basesDelPlan`): de ese orden salen
   // `state.players`, `state.heroes` y el nombre de cada héroe.
   const bases = [...basesDelPlan(plan)];
@@ -247,5 +279,6 @@ export function newGame(options: NewGameOptions = {}): GameState {
     heroes,
     towns,
     raiders,
+    ...(mundo === undefined ? {} : { mundo }),
   });
 }

@@ -86,6 +86,7 @@ import {
   sePasa,
 } from '../map/map.js';
 import { muroBlocker } from '../map/recinto.js';
+import type { EstadoDelMundo } from '../mundo/formato.js';
 import { createRng, type Rng } from '../rng.js';
 import { CHARACTER_BODY, type Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
@@ -319,6 +320,15 @@ export interface GameState {
    * miembro.
    */
   characters?: Record<string, Character>;
+  /**
+   * El mundo de la partida (`core/mundo/`): su historia y lo que cambia de ella
+   * —el estado de cada lugar y las marcas puestas—. **Ausente sin mundo**, como
+   * `characters`: `newGame` solo lo escribe con una historia, y nada del
+   * procedimental lo lee, así que su presencia no puede mover una partida del banco.
+   * Lo escriben solo las acciones de los lugares (`elegir_en_lugar`) y el cierre
+   * de sus batallas.
+   */
+  mundo?: EstadoDelMundo;
   /**
    * El número del próximo veterano (`Veterania.id`). Un contador del estado y
    * no un id derivado de dónde está el individuo: se mueve de héroe a
@@ -608,6 +618,8 @@ export interface GameConfig {
   readonly towns: readonly Town[];
   /** Los asaltantes con los que empieza la partida; ninguno si falta. */
   readonly raiders?: readonly Raider[];
+  /** El mundo, si la partida es de uno (`GameState.mundo`). */
+  readonly mundo?: EstadoDelMundo;
 }
 
 export function createGame(config: GameConfig): GameState {
@@ -661,6 +673,13 @@ export function createGame(config: GameConfig): GameState {
     siguienteBotin: 0,
     siguienteHeroe: 1,
   };
+  if (config.mundo !== undefined) {
+    state.mundo = {
+      historia: config.mundo.historia,
+      estados: { ...config.mundo.estados },
+      marcas: [...config.mundo.marcas],
+    };
+  }
 
   // Los pueblos arrancan con la hornada de la primera semana.
   for (const town of state.towns) applyWeeklyGrowth(town);

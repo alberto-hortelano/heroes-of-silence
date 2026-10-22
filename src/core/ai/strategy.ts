@@ -109,6 +109,10 @@ function objectValue(
     // es el nodo que la cierra, que vale por su renta.
     case 'village':
       return 0;
+    // Un lugar de un mundo: la IA aún no los visita (llega con la regla simple de
+    // `ai/lugares.ts`). Sin mundo no hay ninguno, así que el procedimental no cambia.
+    case 'lugar':
+      return 0;
     case 'node': {
       if (obj.owner === player) return 0;
       // Un nodo ajeno vale por sí mismo y, sobre todo, por las regiones que

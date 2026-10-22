@@ -536,8 +536,11 @@ export interface OcupaUnaCasilla {
   readonly at: Point;
 }
 
-/** Cómo se dice un objeto del mapa que cae dentro de un recinto. */
-function queEs(o: GameMap['objects'][number]): string {
+/**
+ * Cómo se dice un objeto del mapa, para una frase de rechazo: lo que cae dentro de
+ * un recinto o lo que queda pegado a un lugar de un mundo (`lugarBlocker`).
+ */
+export function queEsElObjeto(o: GameMap['objects'][number]): string {
   switch (o.kind) {
     case 'town':
       return `la ciudad ${o.id}`;
@@ -549,6 +552,8 @@ function queEs(o: GameMap['objects'][number]): string {
       return `el monstruo ${o.creature}`;
     case 'chest':
       return 'el cofre';
+    case 'lugar':
+      return `el lugar "${o.name}"`;
   }
 }
 
@@ -616,7 +621,7 @@ export function problemasDeRecintos(
     }
   }
   const dentroDe: (OcupaUnaCasilla & { readonly id?: string })[] = [
-    ...map.objects.map((o) => ({ quien: queEs(o), at: o.at, id: o.id })),
+    ...map.objects.map((o) => ({ quien: queEsElObjeto(o), at: o.at, id: o.id })),
     ...otros,
   ];
   for (const { c, r } of conRecinto) {

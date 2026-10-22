@@ -256,6 +256,10 @@ function knownObjects(state: GameState, playerId: PlayerId) {
         };
       case 'chest':
         return { kind: o.kind, id: o.id, at: o.at, gold: o.gold, taken: o.taken, ...cuando };
+      // Un lugar de un mundo: se ve, pero el agente aún no entra (F4); lo que
+      // cambia en él —su estado— no viaja.
+      case 'lugar':
+        return { kind: o.kind, id: o.id, at: o.at, name: o.name, ...cuando };
     }
     // Exhaustivo: con un `kind` nuevo del mapa, `o` deja de ser `never`
     // aquí y esta línea NO compila. Y como termina en `throw`, el linter

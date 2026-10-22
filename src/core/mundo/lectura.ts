@@ -1,0 +1,213 @@
+/**
+ * El mapa leído para el motor de narrativa: lo que necesita para decidir dónde
+ * tiene sentido un lugar y con qué gente, sin leer una rejilla de casillas.
+ *
+ * `serializeKnownMap` es la del agente que juega: pasa por la niebla de un jugador
+ * y sirve para mover un héroe. Esto es lo contrario: el mapa entero, por regiones,
+ * con sus nombres, su suelo, su nivel, sus vecinas, sus ciudades y pueblos, el río
+ * y **casillas de muestra que admiten un lugar** (`lugarBlocker`), que es lo que el
+ * motor no puede comprobar. Con el vocabulario cerrado (`VOCABULARIO`) y el
+ * catálogo de unidades y piezas por id, para que lo que escriba exista.
+ */
+import { unidadesDelJuego } from '../catalogo.js';
+import { PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
+import { buildMap, type MapPlan } from '../map/generate.js';
+import { pointKey } from '../map/map.js';
+import { estructura, franjasDeBarrera } from '../map/regiones.js';
+import { isWalkable } from '../map/terrain.js';
+import { nivelDeUnidad } from '../nivel.js';
+import type { FactionId, PlayerId, Point } from '../types.js';
+import { type Mundo, VOCABULARIO } from './formato.js';
+import { lugarBlocker } from './validar.js';
+
+/** Cuántas casillas de muestra se dan por región. */
+export const MUESTRAS_POR_REGION = 8;
+
+export interface RegionLeida {
+  readonly id: string;
+  readonly nombre: string;
+  /** El suelo con que la pinta el plan (`grass`, `snow`…), o `null` si no lo dice. */
+  readonly suelo: string | null;
+  /** 0 abajo, 1 el llano, 2 la meseta. */
+  readonly nivel: number;
+  /** Las regiones con las que comparte un paso o una ciudad, por id. */
+  readonly vecinas: readonly string[];
+  /**
+   * De quién es la casa: la región de una base con menos pasos de las que la base
+   * toca (la del procedimental se llama «Tierras de <la base>»); `null`, de nadie.
+   * Al empezar no es de nadie más: una región es de quien tenga todos sus nodos.
+   */
+  readonly casaDe: PlayerId | null;
+  /** Las ciudades que la tocan, por id. */
+  readonly ciudades: readonly string[];
+  /** Los pueblos de dentro, por nombre. */
+  readonly pueblos: readonly string[];
+  /** Si la toca el río. */
+  readonly rio: boolean;
+  /** Cuántas casillas se pisan en ella. */
+  readonly casillas: number;
+  /** Casillas que admiten un lugar (`lugarBlocker`), repartidas por la región. */
+  readonly admitenUnLugar: readonly Point[];
+}
+
+export interface LecturaParaElMotor {
+  readonly mundo: string;
+  readonly mapa: { readonly ancho: number; readonly alto: number };
+  readonly jugador: { readonly id: 0; readonly faccion: FactionId; readonly heroe: string };
+  readonly rival: { readonly id: 1; readonly faccion: FactionId };
+  readonly regiones: readonly RegionLeida[];
+  readonly ciudades: readonly {
+    readonly id: string;
+    readonly nombre: string;
+    readonly faccion: FactionId;
+    readonly dueño: PlayerId | null;
+    readonly at: Point;
+    /** Las regiones que toca, por id. */
+    readonly regiones: readonly string[];
+  }[];
+  readonly pueblos: readonly {
+    readonly nombre: string;
+    readonly at: Point;
+    readonly region: string | null;
+  }[];
+  /** Los tramos de agua que separan regiones (el río), con las regiones que tocan. */
+  readonly rio: readonly { readonly casillas: number; readonly regiones: readonly string[] }[];
+  readonly unidades: readonly {
+    readonly id: string;
+    readonly nombre: string;
+    readonly faccion: FactionId;
+    readonly nivel: number;
+    readonly liderazgo: number;
+  }[];
+  readonly piezas: readonly {
+    readonly id: string;
+    readonly nombre: string;
+    readonly hueco: string;
+    readonly precio: number;
+  }[];
+  readonly vocabulario: typeof VOCABULARIO;
+}
+
+/** La lectura del mapa de un mundo para el motor. El plan, ya válido. */
+export function lecturaParaElMotor(mundo: Mundo, plan: MapPlan): LecturaParaElMotor {
+  const { map, towns } = buildMap(plan);
+  const red = estructura(map);
+  const bases = towns.filter((t) => t.owner !== null);
+  // La casa de cada base: de las regiones que toca, la de menos nodos.
+  const casa = new Map<number, PlayerId>();
+  for (const b of bases) {
+    const nodo = red.nodos.find((n) => n.id === b.id);
+    const suyas = [...(nodo?.regiones ?? [])].sort(
+      (a, c) =>
+        (red.regiones[a]?.nodos.length ?? 0) - (red.regiones[c]?.nodos.length ?? 0) || a - c,
+    );
+    if (suyas[0] !== undefined && b.owner !== null) casa.set(suyas[0], b.owner);
+  }
+  const nombreDe = (r: number): string => (red.regiones[r] as { id: string }).id;
+  const suelos = new Map(plan.regions.map((r) => [r.id, r.terrain ?? null]));
+
+  const vecinas = red.regiones.map(() => new Set<number>());
+  for (const n of red.nodos) {
+    for (const a of n.regiones) for (const b of n.regiones) if (a !== b) vecinas[a]?.add(b);
+  }
+  const casillasDe = red.regiones.map((): Point[] => []);
+  for (let i = 0; i < map.width * map.height; i++) {
+    const r = red.regionDe[i] as number;
+    if (r < 0) continue;
+    const p = { x: i % map.width, y: Math.floor(i / map.width) };
+    if (isWalkable(map.terrain[i] as never)) casillasDe[r]?.push(p);
+  }
+  const conRio = new Set<number>();
+  const rio = franjasDeBarrera(map.width, map.height, map.terrain, red.regionDe)
+    .filter((f) => f.barrera === 'water' && f.regiones.size >= 2)
+    .map((f) => {
+      for (const r of f.regiones) conRio.add(r);
+      return {
+        casillas: f.casillas.length,
+        regiones: [...f.regiones].sort((a, b) => a - b).map(nombreDe),
+      };
+    });
+
+  const pueblos = map.objects.flatMap((o) =>
+    o.kind === 'village'
+      ? [{ nombre: o.name, at: o.at, region: regionDe(red.regionDe, map.width, o.at, nombreDe) }]
+      : [],
+  );
+
+  return {
+    mundo: mundo.id,
+    mapa: { ancho: map.width, alto: map.height },
+    jugador: { id: 0, faccion: mundo.jugador.faccion, heroe: mundo.jugador.heroe },
+    rival: {
+      id: 1,
+      faccion: (bases.find((b) => b.owner === 1)?.faction ?? 'imperio') as FactionId,
+    },
+    regiones: red.regiones.map((reg, r) => ({
+      id: reg.id,
+      nombre: reg.name,
+      suelo: suelos.get(reg.id) ?? null,
+      nivel: reg.nivel,
+      vecinas: [...(vecinas[r] ?? [])].sort((a, b) => a - b).map(nombreDe),
+      casaDe: casa.get(r) ?? null,
+      ciudades: red.nodos.filter((n) => n.ciudad && n.regiones.includes(r)).map((n) => n.id),
+      pueblos: pueblos.filter((p) => p.region === reg.id).map((p) => p.nombre),
+      rio: conRio.has(r),
+      casillas: casillasDe[r]?.length ?? 0,
+      admitenUnLugar: muestras(casillasDe[r] ?? [], (p) => lugarBlocker(map, p) === null),
+    })),
+    ciudades: towns.map((t) => ({
+      id: t.id,
+      nombre: t.name,
+      faccion: t.faction,
+      dueño: t.owner,
+      at: t.at,
+      regiones: (red.nodos.find((n) => n.id === t.id)?.regiones ?? []).map(nombreDe),
+    })),
+    pueblos,
+    rio,
+    unidades: unidadesDelJuego().map((u) => ({
+      id: u.id,
+      nombre: u.name,
+      faccion: u.faction,
+      nivel: nivelDeUnidad(u),
+      liderazgo: u.leadership,
+    })),
+    piezas: [...PIEZAS_DEL_CATALOGO.values()].map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      hueco: p.hueco,
+      precio: p.precio,
+    })),
+    vocabulario: VOCABULARIO,
+  };
+}
+
+function regionDe(
+  regionDe: Int32Array,
+  W: number,
+  at: Point,
+  nombreDe: (r: number) => string,
+): string | null {
+  const r = regionDe[at.y * W + at.x] as number;
+  return r < 0 ? null : nombreDe(r);
+}
+
+/**
+ * Hasta `MUESTRAS_POR_REGION` casillas que pasan `vale`, repartidas por la
+ * región: se recorre en orden y se toma una de cada tanto, para que no salgan
+ * todas pegadas a la esquina de arriba. Sin azar: la misma lectura cada vez.
+ */
+function muestras(casillas: readonly Point[], vale: (p: Point) => boolean): Point[] {
+  const buenas = casillas.filter(vale);
+  if (buenas.length <= MUESTRAS_POR_REGION) return buenas;
+  const out: Point[] = [];
+  const vistas = new Set<string>();
+  for (let k = 0; k < MUESTRAS_POR_REGION; k++) {
+    const p = buenas[Math.floor((k * buenas.length) / MUESTRAS_POR_REGION)] as Point;
+    if (!vistas.has(pointKey(p))) {
+      vistas.add(pointKey(p));
+      out.push(p);
+    }
+  }
+  return out;
+}
