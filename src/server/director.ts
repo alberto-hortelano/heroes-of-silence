@@ -415,13 +415,15 @@ export class Director {
     if (plan.reasoning !== undefined) this.note(`Agente: ${plan.reasoning}`);
 
     // El clima va antes que las acciones: la tormenta que pide cae sobre el
-    // asedio de este mismo turno. Es presentación y no cuenta como acción: sus
-    // rechazos van al veredicto aparte, detrás de los de las acciones.
+    // asedio de este mismo turno. Es presentación y no cuenta como acción: lo
+    // aceptado se cuenta una vez (`notaClima`, en el registro y en la nota del
+    // veredicto) y los rechazos van al veredicto, tras «weather», detrás de los
+    // de las acciones.
     const clima =
       plan.weather === undefined ? null : pedirClima(this.state, playerId, plan.weather);
+    const notaDelClima = notaClima(clima?.aceptados ?? []);
     if (clima !== null) {
-      if (clima.aceptados.length > 0)
-        this.note(notaClima({ aceptados: clima.aceptados, rechazos: [] }));
+      if (notaDelClima !== '') this.note(notaDelClima);
       this.frame();
     }
     const rechazosDelClima = (clima?.rechazos ?? []).map((m) => `weather ${m}`);
@@ -505,7 +507,7 @@ export class Director {
       // `continue` miente el día que alguien meta un `break`.
       [
         notaTurnoAventura(dia, aplicadas, aplicadas + problems.length, problems, parciales),
-        notaClima(clima),
+        notaDelClima,
       ]
         .filter((f) => f !== '')
         .join(' '),

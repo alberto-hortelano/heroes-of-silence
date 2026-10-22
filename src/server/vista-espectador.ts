@@ -23,14 +23,7 @@ import { piezasPuestas } from '@core/hero/equipo.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
-import {
-  type ClimaDeLaPartida,
-  type ClimaDelSitio,
-  climaDeLaPartida,
-  regionDelClima,
-  sitioDeLaBatalla,
-  tiempoDelSitio,
-} from '@core/state/clima.js';
+import { type ClimaDeLaPartida, climaDeLaPartida, regionDeLaBatalla } from '@core/state/clima.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState, week } from '@core/state/game.js';
@@ -180,12 +173,11 @@ export interface BatallaEnCable extends Omit<BattleState, 'stacks'> {
 export interface VistaBatalla {
   readonly estado: BatallaEnCable;
   readonly dueños: Readonly<Record<Side, PlayerId | null>>;
-  /** El clima del sitio de la batalla (`sitioDeLaBatalla`), el que hereda su tablero. */
-  readonly tiempo: ClimaDelSitio;
   /**
-   * La región del clima de ese sitio, en `map.regions` (−1 en un mapa sin
-   * regiones): con ella el espectador pone encima lo que fuerce `?clima=` para
-   * esa región, sin rederivar el sitio.
+   * La región del clima donde se pelea (`regionDeLaBatalla`), en `map.regions`
+   * (−1 en un mapa sin regiones): el espectador saca de ella el clima del
+   * tablero con la misma cuenta que la partida (`climaDeLaRegion`), también con
+   * lo que fuerce `?clima=`.
    */
   readonly region: number;
 }
@@ -249,7 +241,6 @@ function vocesNarradas(state: GameState, t: Town): VozEnLaBase[] {
 
 export function construirVista(state: GameState, directorLog: readonly string[]): SpectatorView {
   const pending = state.pendingBattle;
-  const clima = climaDeLaPartida(state);
   const indice = (p: Point): number => p.y * state.map.width + p.x;
   return {
     seed: state.seed,
@@ -304,21 +295,9 @@ export function construirVista(state: GameState, directorLog: readonly string[])
         : {
             estado: { ...pending.battle, stacks: pending.battle.stacks.map(stackAlCable) },
             dueños: battleOwners(state, pending),
-            ...climaDeLaBatalla(state, clima, sitioDeLaBatalla(state, pending)),
+            region: regionDeLaBatalla(state, pending),
           },
-    clima,
-  };
-}
-
-/** El clima del sitio de una batalla y su región del clima. */
-function climaDeLaBatalla(
-  state: GameState,
-  clima: ClimaDeLaPartida,
-  sitio: Point,
-): { tiempo: ClimaDelSitio; region: number } {
-  return {
-    tiempo: tiempoDelSitio(clima, state.map, sitio),
-    region: regionDelClima(state.map)[sitio.y * state.map.width + sitio.x] ?? -1,
+    clima: climaDeLaPartida(state),
   };
 }
 

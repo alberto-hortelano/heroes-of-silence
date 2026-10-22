@@ -72,7 +72,7 @@ import {
 } from '../map/terrain.js';
 import { indiceDePoder, nivelDeUnidad } from '../nivel.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
-import { climaDeLaPartida } from '../state/clima.js';
+import { climaDeLaPartida, pedidoVigente } from '../state/clima.js';
 import { cronicaPara } from '../state/events.js';
 import {
   baseOf,
@@ -486,14 +486,14 @@ function climaALaVista(state: GameState, playerId: PlayerId) {
     if (!fog.has(reg.at)) return [];
     const hoy = clima.regiones[k];
     if (hoy === undefined) return [];
-    const pedido = state.climaPedido?.[reg.id];
+    const pedido = pedidoVigente(state, reg.id);
     return [
       {
         region: reg.name,
         at: reg.at,
         weather: hoy.tiempo,
         night: hoy.noche,
-        ...(pedido !== undefined && pedido.hasta >= state.day ? { until: pedido.hasta } : {}),
+        ...(pedido === undefined ? {} : { until: pedido.hasta }),
       },
     ];
   });

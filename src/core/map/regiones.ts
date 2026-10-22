@@ -129,6 +129,32 @@ export function vecindad(width: number, height: number): Vecindad {
 }
 
 /**
+ * La región más cercana de cada casilla: la de `region` donde no es −1 y, en lo
+ * demás, la de la primera que llega en una búsqueda en anchura desde todas a la
+ * vez, 8-conexa y en el orden de `VECINAS` (así, un empate lo gana siempre la
+ * misma). Devuelve una copia; −1 solo donde no llega ninguna. La usan el relieve
+ * (lo encerrado entre barreras, `nivelesDelRelieve`) y el clima, que da a las
+ * barreras, los nodos y las ciudades el tiempo de la región de al lado
+ * (`regionDelClima`).
+ */
+export function laMasCercana(region: Int32Array, width: number, height: number): Int32Array {
+  const { desde, vecinas } = vecindad(width, height);
+  const c = Int32Array.from(region);
+  const ola: number[] = [];
+  for (let k = 0; k < c.length; k++) if ((c[k] as number) >= 0) ola.push(k);
+  for (let q = 0; q < ola.length; q++) {
+    const j = ola[q] as number;
+    for (let v = desde[j]!; v < desde[j + 1]!; v++) {
+      const k = vecinas[v]!;
+      if (c[k] !== -1) continue;
+      c[k] = c[j] as number;
+      ola.push(k);
+    }
+  }
+  return c;
+}
+
+/**
  * El relleno 8-conexo desde `desde`, que **ya tiene que estar tomada**: cada
  * vecina entra si `toma(j)` dice que sí, y es `toma` quien la marca, así que la
  * misma casilla no se pregunta dos veces por la misma búsqueda sin que el
@@ -686,21 +712,7 @@ export function nivelesDelRelieve(
   // Solo si hace falta, que casi nunca.
   let cercana: Int32Array | null = null;
   const cercanaDe = (i: number): number => {
-    if (cercana === null) {
-      const c = Int32Array.from(region);
-      const ola: number[] = [];
-      for (let k = 0; k < N; k++) if ((c[k] as number) >= 0) ola.push(k);
-      for (let q = 0; q < ola.length; q++) {
-        const j = ola[q] as number;
-        for (let v = desde[j]!; v < desde[j + 1]!; v++) {
-          const k = vecinas[v]!;
-          if (c[k] !== -1) continue;
-          c[k] = c[j] as number;
-          ola.push(k);
-        }
-      }
-      cercana = c;
-    }
+    cercana ??= laMasCercana(region, width, height);
     return cercana[i] as number;
   };
   for (let i = 0; i < N; i++) {
@@ -1138,13 +1150,60 @@ export interface Territorio {
 
 export function territorio(state: EstadoDeRed): Territorio {
   const red = estructura(state.map);
-  const dueñoDeNodo = dueñosDeNodos(state, red);
-  const dueñoDeRegion = red.regiones.map((reg) => dueñoComun(reg.nodos, dueñoDeNodo, null));
+  const { dueñoDeNodo, dueñoDeRegion } = dueñosDe(state, red);
   const conexion = new Map<PlayerId, Conexion>();
   for (const p of state.players) {
     conexion.set(p.id, conexionDe(red, dueñoDeNodo, dueñoDeRegion, p.id, p.base));
   }
   return { red, dueñoDeNodo, dueñoDeRegion, conexion };
+}
+
+/** El dueño de cada nodo y el de cada región: lo de `territorio` sin lo unido a cada base. */
+function dueñosDe(
+  state: EstadoDeRed,
+  red: Estructura,
+): { dueñoDeNodo: (PlayerId | null)[]; dueñoDeRegion: (PlayerId | null)[] } {
+  const dueñoDeNodo = dueñosDeNodos(state, red);
+  return {
+    dueñoDeNodo,
+    dueñoDeRegion: red.regiones.map((reg) => dueñoComun(reg.nodos, dueñoDeNodo, null)),
+  };
+}
+
+/**
+ * El dueño de cada región, por su índice en `map.regions`: `territorio` sin
+ * buscar lo unido a cada base, que es lo que cuesta. Lo lee el clima (la noche
+ * va con la facción del dueño de cada región).
+ */
+export function dueñosDeLasRegiones(state: EstadoDeRed): readonly (PlayerId | null)[] {
+  return dueñosDe(state, estructura(state.map)).dueñoDeRegion;
+}
+
+/**
+ * El dueño de la región `k` (su índice en `map.regions`), preguntando solo por
+ * sus nodos: lo que mira una sola región (`regionOwner`, la noche de un sitio)
+ * sin hacer la foto entera. La misma regla, `dueñoComun`.
+ */
+export function dueñoDeLaRegion(state: EstadoDeRed, k: number): PlayerId | null {
+  const red = estructura(state.map);
+  const reg = red.regiones[k];
+  if (reg === undefined) {
+    throw new Error(`este mapa no tiene región ${k}: tiene ${red.regiones.length}`);
+  }
+  const dueños: (PlayerId | null)[] = [];
+  for (const n of reg.nodos) dueños[n] = dueñoDelNodo(state, red.nodos[n] as NodoDeRed);
+  return dueñoComun(reg.nodos, dueños, null);
+}
+
+/** El dueño de un nodo, preguntado a donde vive: como `dueñosDeNodos`, de uno solo. */
+function dueñoDelNodo(state: EstadoDeRed, n: NodoDeRed): PlayerId | null {
+  if (n.ciudad) {
+    const t = state.towns.find((t) => t.id === n.id);
+    if (t === undefined) throw new Error(`el nodo ${n.id} no tiene dueño que leer`);
+    return t.owner;
+  }
+  for (const o of state.map.objects) if (o.kind === 'node' && o.id === n.id) return o.owner;
+  throw new Error(`el nodo ${n.id} no tiene dueño que leer`);
 }
 
 /**
@@ -1244,13 +1303,14 @@ export function regionesQueCierra(t: Territorio, nodoId: string, player: PlayerI
 
 /**
  * El dueño de una región: el dueño común de **todos** los nodos que la rodean,
- * ciudades incluidas, o `null` si no hay uno. Sale de la foto (`territorio`).
+ * ciudades incluidas, o `null` si no hay uno. Pregunta solo por los suyos
+ * (`dueñoDeLaRegion`): la foto entera (`territorio`) busca además lo unido a
+ * cada base, y aquí no hace falta.
  */
 export function regionOwner(state: EstadoDeRed, regionId: string): PlayerId | null {
-  const t = territorio(state);
-  const k = t.red.regionPorId.get(regionId);
+  const k = estructura(state.map).regionPorId.get(regionId);
   if (k === undefined) throw new Error(`la región "${regionId}" no existe en este mapa`);
-  return t.dueñoDeRegion[k] ?? null;
+  return dueñoDeLaRegion(state, k);
 }
 
 /**

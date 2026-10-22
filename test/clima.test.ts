@@ -8,6 +8,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CLIMA,
   climaDeLaPartida,
+  climaDelSitio,
+  climaEn,
   climaSinRegiones,
   esDeNocheEn,
   forzarClima,
@@ -18,8 +20,8 @@ import {
   TIEMPOS,
   type Tiempo,
   tiempoDeLaSemilla,
-  tiempoDelSitio,
   validarClima,
+  validarForzado,
 } from '../src/core/state/clima.js';
 import { newGame } from '../src/core/state/setup.js';
 
@@ -92,8 +94,23 @@ describe('las regiones del clima', () => {
     expect([...r].every((k) => k >= 0 && k < s.map.regions.length)).toBe(true);
     const clima = climaDeLaPartida(s);
     for (const t of s.towns) {
-      expect(TIEMPOS).toContain(tiempoDelSitio(clima, s.map, t.at).tiempo);
+      expect(TIEMPOS).toContain(climaDelSitio(clima, s.map, t.at).tiempo);
     }
+  });
+
+  it('`climaEn` da lo mismo que el de toda la partida, mirando solo su región', () => {
+    const s = newGame({ seed: 6 });
+    const reg = s.map.regions[2];
+    if (reg === undefined) throw new Error('el mapa no tiene una tercera región');
+    pedirClima(s, 0, [{ at: reg.at, weather: 'niebla', night: true }]);
+    for (let d = 0; d < 6; d++) {
+      const clima = climaDeLaPartida(s);
+      for (const t of [...s.towns.map((x) => x.at), ...s.map.regions.map((r) => r.at)]) {
+        expect(climaEn(s, t)).toEqual(climaDelSitio(clima, s.map, t));
+      }
+      s.day += 1;
+    }
+    expect(() => climaEn(s, { x: -1, y: 0 })).toThrow(/fuera del mapa/);
   });
 });
 
@@ -173,13 +190,15 @@ describe('?clima=', () => {
     expect(() => parseClima('lluvia,')).toThrow(/coma de más/);
   });
 
-  it('forzado, manda sobre la partida; con una región que no hay, lanza', () => {
+  it('forzado, manda sobre la partida; con una región que no hay, lanza al validarlo', () => {
     const s = newGame({ seed: 4 });
     const clima = climaDeLaPartida(s);
-    const forzado = forzarClima(clima, parseClima('niebla,region-0:tormenta'), s.map);
+    const pedido = parseClima('niebla,region-0:tormenta');
+    validarForzado(pedido, s.map);
+    const forzado = forzarClima(clima, pedido, s.map);
     expect(forzado.regiones[0]?.tiempo).toBe('tormenta');
     expect(forzado.regiones.slice(1).every((r) => r.tiempo === 'niebla')).toBe(true);
-    expect(() => forzarClima(clima, parseClima('region-99:lluvia'), s.map)).toThrow(
+    expect(() => validarForzado(parseClima('region-99:lluvia'), s.map)).toThrow(
       /en este mapa no hay "region-99": hay region-0…region-/,
     );
     expect(climaSinRegiones(parseClima('noche'), 'la arena')).toEqual({

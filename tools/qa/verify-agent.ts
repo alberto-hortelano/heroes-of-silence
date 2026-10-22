@@ -521,11 +521,9 @@ async function cruzaElEquipo(client: Client, turno: any): Promise<void> {
 }
 
 /**
- * Que el `unequip` con `slot: "shield"` llegara al núcleo: su veredicto trae el
- * motivo de `unequipBlocker` («no lleva nada en Escudo»), que solo se escribe si
- * el hueco se tradujo. Con el `slot` sin traducir sería «no hay ningún hueco», y
- * con la acción perdida, nada. Y el hueco va por su nombre para la persona
- * («Escudo»), nunca por la clave de dentro («escudo»), que el agente no escribió.
+ * Que el clima pedido cruzara el circuito: el «granizo» vuelve rechazado con su
+ * motivo tras «weather», la nota cuenta la tormenta aceptada y el canal de
+ * espectadores la enseña en su región.
  */
 function exigeElClima(): void {
   if (clima.requestId === null || clima.region === null) {
@@ -559,10 +557,17 @@ function miraElClimaDelEspectador(): void {
   const at = clima.region;
   const k = view.map.regions.findIndex((r) => r.at.x === at.x && r.at.y === at.y);
   if (k >= 0 && view.clima.regiones[k]?.tiempo === 'tormenta') {
-    clima.visto = `el espectador ve tormenta en ${view.map.regions[k]?.name} el día ${view.clima.dia}`;
+    clima.visto = `el espectador ve tormenta en ${view.map.regions[k]?.name} el día ${ultimoFotograma.day}`;
   }
 }
 
+/**
+ * Que el `unequip` con `slot: "shield"` llegara al núcleo: su veredicto trae el
+ * motivo de `unequipBlocker` («no lleva nada en Escudo»), que solo se escribe si
+ * el hueco se tradujo. Con el `slot` sin traducir sería «no hay ningún hueco», y
+ * con la acción perdida, nada. Y el hueco va por su nombre para la persona
+ * («Escudo»), nunca por la clave de dentro («escudo»), que el agente no escribió.
+ */
 function exigeElEscudo(): void {
   if (escudo.requestId === null) {
     throw new Error('ningún turno de mapa ha traído un héroe con "shield": null en su "equipment"');

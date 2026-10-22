@@ -4,9 +4,10 @@
  * el tiro, ni la marcha). Lo pintan el mapa, la batalla y las escenas laterales,
  * y vive en `core` y no en el cliente porque lo que pide el narrador se guarda en
  * el estado y porque el «mapa vivo» quiere leer la noche desde las reglas de sus
- * lugares («un comerciante que solo sale de noche», `esDeNocheEn`).
+ * lugares («un comerciante que solo sale de noche», `esDeNocheEn` y `climaEn`).
  *
- * Dos fuentes, una sola lectura (`climaDeLaPartida`):
+ * Dos fuentes, una sola lectura por región (`climaDeHoy`, que leen
+ * `climaDeLaPartida` para todas y `climaEn` para una):
  *
  * - **La semilla**, sin agente o donde no pide nada: una función pura de la
  *   semilla, el día y la región, en enteros y con **su propia corriente**
@@ -18,17 +19,25 @@
  *   la facción del dueño de la región ahora (los no muertos, mucho más a menudo:
  *   decisión del usuario del 22-10-2026).
  * - **El narrador** (`pedirClima`, el único que escribe `GameState.climaPedido`),
- *   por región y por días, como las voces de la base: ni crónica ni banco.
+ *   por región y por días, como las voces de la base: ni crónica ni banco. Lo
+ *   pedido se lee solo por `pedidoVigente`, que sabe cuándo caduca.
  *
  * Las cifras, inventadas, en `data/clima.json`, que solo importa este módulo.
  */
 import climaJson from '../../../data/clima.json' with { type: 'json' };
 import { enteroDesde } from '../data.js';
 import { inBounds } from '../map/map.js';
-import { estructura, type MapaDeRed, territorio, VECINAS } from '../map/regiones.js';
+import {
+  dueñoDeLaRegion,
+  dueñosDeLasRegiones,
+  estructura,
+  laMasCercana,
+  type MapaDeRed,
+} from '../map/regiones.js';
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
-import type { GameState, PendingBattle } from './game.js';
+import { esIdDeMapa } from '../validar.js';
+import { type GameState, lugarDelRival, type PendingBattle, playerById } from './game.js';
 
 /** Los tiempos que hay, del más claro al más cerrado. Un clima nuevo es una fila más aquí y en las recetas del cliente. */
 export const TIEMPOS = ['despejado', 'niebla', 'lluvia', 'tormenta'] as const;
@@ -48,17 +57,20 @@ export const DESPEJADO: ClimaDelSitio = { tiempo: 'despejado', noche: false };
 
 /** El clima de toda la partida hoy: el de cada región, en el orden de `map.regions`. */
 export interface ClimaDeLaPartida {
-  readonly dia: number;
   readonly regiones: readonly ClimaDelSitio[];
+}
+
+/** Lo que se pone encima del clima de un sitio: el tiempo, la noche o los dos. */
+export interface ClimaForzadoDelSitio {
+  readonly tiempo?: Tiempo;
+  readonly noche?: boolean;
 }
 
 /**
  * Lo que el narrador pidió para una región: su tiempo, su noche o los dos, hasta
  * el día `hasta` incluido. Lo que no pide sale de la semilla.
  */
-export interface PedidoDeClima {
-  readonly tiempo?: Tiempo;
-  readonly noche?: boolean;
+export interface PedidoDeClima extends ClimaForzadoDelSitio {
   readonly hasta: number;
 }
 
@@ -168,6 +180,26 @@ const sortearTiempo = (rng: ReturnType<typeof createRng>): Tiempo =>
   sortearPorPesos(rng, TIEMPOS, (t) => CLIMA.tiempo.pesos[t]);
 
 /**
+ * Lo hecho de las cadenas de UNA semilla: al preguntar por otra se tira todo.
+ * Una página juega una partida y el servidor también, así que la memoria no
+ * crece con el tiempo; los tests que recorren cuarenta semillas rehacen cada una
+ * al pasar, que es lo que ya hacían la primera vez.
+ */
+let cadenas: {
+  readonly semilla: number;
+  readonly generales: Map<string, Tiempo[]>;
+  readonly regionales: Map<string, { tiempo: Tiempo; aparte: boolean }[]>;
+  readonly noches: Map<string, boolean[]>;
+} | null = null;
+
+function cadenasDe(semilla: number): NonNullable<typeof cadenas> {
+  if (cadenas?.semilla !== semilla) {
+    cadenas = { semilla, generales: new Map(), regionales: new Map(), noches: new Map() };
+  }
+  return cadenas;
+}
+
+/**
  * Una cadena por días memorizada: el valor del día `d` sale del de `d − 1` y de
  * una tirada propia del día. Se itera desde el día 1 y se guarda lo hecho, así
  * que preguntar el día 40 no recorre 40 días cada vez.
@@ -192,13 +224,9 @@ function cadena<T>(
   return hechos[dia - 1] as T;
 }
 
-const generales = new Map<string, Tiempo[]>();
-const regionales = new Map<string, { tiempo: Tiempo; aparte: boolean }[]>();
-const noches = new Map<string, boolean[]>();
-
 /** El tiempo general del día `dia` en la partida de `seed`: el de ayer con `seguir` ‰, si no uno sorteado. */
 function tiempoGeneral(seed: number, dia: number): Tiempo {
-  return cadena(generales, `${seed}`, dia, (d, ayer) => {
+  return cadena(cadenasDe(seed).generales, '', dia, (d, ayer) => {
     const rng = createRng(hashDeTexto(`clima|${seed}|${d}`));
     if (ayer !== null && rng.int(1, 1000) <= CLIMA.tiempo.seguir) return ayer;
     return sortearTiempo(rng);
@@ -211,7 +239,7 @@ function tiempoGeneral(seed: number, dia: number): Tiempo {
  * día siguiente con `seguir` ‰: un frente dura unos días y no parpadea.
  */
 export function tiempoDeLaSemilla(seed: number, dia: number, region: string): Tiempo {
-  return cadena(regionales, `${seed}|${region}`, dia, (d, ayer) => {
+  return cadena(cadenasDe(seed).regionales, region, dia, (d, ayer) => {
     const rng = createRng(hashDeTexto(`clima|${seed}|${d}|${region}`));
     if (ayer?.aparte === true && rng.int(1, 1000) <= CLIMA.tiempo.seguir) return ayer;
     if (rng.int(1, 1000) <= CLIMA.tiempo.desvio)
@@ -233,7 +261,7 @@ export function nocheDeLaSemilla(
   dueño: DueñoDelClima,
 ): boolean {
   const peso = CLIMA.noche.pesos[dueño];
-  return cadena(noches, `${seed}|${region}|${peso}`, dia, (d, ayer) => {
+  return cadena(cadenasDe(seed).noches, `${region}|${peso}`, dia, (d, ayer) => {
     const rng = createRng(hashDeTexto(`noche|${seed}|${d}|${region}`));
     if (ayer !== null && rng.int(1, 1000) <= CLIMA.noche.seguir) return ayer;
     return rng.int(1, 1000) <= peso;
@@ -247,77 +275,111 @@ const regionesDelClima = new WeakMap<MapaDeRed, Int32Array>();
 /**
  * La región del clima de cada casilla (índice `y*width+x`, en `map.regions`): la
  * de `estructura` y, en las barreras, los nodos y los recintos, la de la región
- * más cercana (una búsqueda en anchura desde todas a la vez, en el orden de
- * `VECINAS`). Así cada frente cae en una cordillera o un río y una ciudad, que es
- * un nodo, tiene el tiempo de alrededor. −1 solo en un mapa sin regiones.
+ * más cercana (`laMasCercana`). Así cada frente cae en una cordillera o un río y
+ * una ciudad, que es un nodo, tiene el tiempo de alrededor. −1 solo en un mapa
+ * sin regiones.
  */
 export function regionDelClima(map: MapaDeRed): Int32Array {
   const hecha = regionesDelClima.get(map);
   if (hecha !== undefined) return hecha;
-  const { width: W, height: H } = map;
-  const region = Int32Array.from(estructura(map).regionDe);
-  const cola: number[] = [];
-  for (let i = 0; i < region.length; i++) if ((region[i] as number) >= 0) cola.push(i);
-  for (let k = 0; k < cola.length; k++) {
-    const i = cola[k] as number;
-    const x = i % W;
-    const y = (i - x) / W;
-    for (const [dx, dy] of VECINAS) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-      const j = ny * W + nx;
-      if ((region[j] as number) !== -1) continue;
-      region[j] = region[i] as number;
-      cola.push(j);
-    }
-  }
+  const region = laMasCercana(estructura(map).regionDe, map.width, map.height);
   regionesDelClima.set(map, region);
   return region;
 }
 
+/** La región del clima de la casilla `p`, por su índice en `map.regions` (−1 en un mapa sin regiones). Lanza fuera del mapa. */
+export function regionDelSitio(map: MapaDeRed, p: Point): number {
+  if (!inBounds(map, p)) throw new Error(`(${p.x},${p.y}) está fuera del mapa: no tiene clima`);
+  return regionDelClima(map)[p.y * map.width + p.x] as number;
+}
+
+/** El clima de la región `k` del clima de la partida, o el despejado sin región (−1). */
+export function climaDeLaRegion(clima: ClimaDeLaPartida, k: number): ClimaDelSitio {
+  return k < 0 ? DESPEJADO : (clima.regiones[k] ?? DESPEJADO);
+}
+
+/** El clima de la casilla `p` (la región del clima que le toca), o el despejado en un mapa sin regiones. */
+export function climaDelSitio(clima: ClimaDeLaPartida, map: MapaDeRed, p: Point): ClimaDelSitio {
+  return climaDeLaRegion(clima, regionDelSitio(map, p));
+}
+
 // -------------------------------------------------------------- la partida
 
-/** Lo pedido que sigue en vigor hoy en una región, o `undefined`. */
-function pedidoVigente(state: GameState, region: string): PedidoDeClima | undefined {
+/**
+ * Lo pedido que sigue en vigor hoy en una región, o `undefined`: la **única**
+ * lectura de `GameState.climaPedido` (la caducidad, en un sitio).
+ */
+export function pedidoVigente(state: GameState, region: string): PedidoDeClima | undefined {
   const p = state.climaPedido?.[region];
   return p !== undefined && p.hasta >= state.day ? p : undefined;
 }
 
-/**
- * El clima de cada región hoy: lo que pidió el narrador y siga en vigor y, en lo
- * demás, el de la semilla. La noche, con el dueño de ahora de cada región
- * (`territorio`).
- */
-export function climaDeLaPartida(state: GameState): ClimaDeLaPartida {
-  const regiones = state.map.regions;
-  const dueños = regiones.length === 0 ? [] : territorio(state).dueñoDeRegion;
-  const faccion = new Map<PlayerId, FactionId>(state.players.map((p) => [p.id, p.faction]));
+const faccionDe = (state: GameState, dueño: PlayerId | null): DueñoDelClima =>
+  dueño === null ? 'neutral' : playerById(state, dueño).faction;
+
+/** El clima de hoy de la región `k`: lo pedido en vigor y, en lo demás, la semilla con la noche de su dueño. */
+function climaDeHoy(state: GameState, k: number, dueño: DueñoDelClima): ClimaDelSitio {
+  const reg = state.map.regions[k];
+  if (reg === undefined) throw new Error(`este mapa no tiene región ${k}`);
+  const pedido = pedidoVigente(state, reg.id);
   return {
-    dia: state.day,
-    regiones: regiones.map((reg, k) => {
-      const pedido = pedidoVigente(state, reg.id);
-      const dueño = dueños[k] ?? null;
-      return {
-        tiempo: pedido?.tiempo ?? tiempoDeLaSemilla(state.seed, state.day, reg.id),
-        noche:
-          pedido?.noche ??
-          nocheDeLaSemilla(
-            state.seed,
-            state.day,
-            reg.id,
-            dueño === null ? 'neutral' : (faccion.get(dueño) ?? 'neutral'),
-          ),
-      };
-    }),
+    tiempo: pedido?.tiempo ?? tiempoDeLaSemilla(state.seed, state.day, reg.id),
+    noche: pedido?.noche ?? nocheDeLaSemilla(state.seed, state.day, reg.id, dueño),
   };
 }
 
-/** El clima de la casilla `p` (la región del clima que le toca), o el despejado en un mapa sin regiones. */
-export function tiempoDelSitio(clima: ClimaDeLaPartida, map: MapaDeRed, p: Point): ClimaDelSitio {
-  if (!inBounds(map, p)) throw new Error(`(${p.x},${p.y}) está fuera del mapa: no tiene clima`);
-  const k = regionDelClima(map)[p.y * map.width + p.x] as number;
-  return k < 0 ? DESPEJADO : (clima.regiones[k] ?? DESPEJADO);
+/**
+ * Lo último hecho de cada partida, con lo que lo cambia: el día, lo pedido (que
+ * `pedirClima` sustituye entero, así que basta mirar si es el mismo objeto) y la
+ * facción del dueño de cada región. Lo preguntan cada fotograma la página y cada
+ * mensaje el servidor (la petición al agente y la vista del espectador), y la
+ * cuenta de las noches no cambia casi nunca.
+ */
+const hechos = new WeakMap<
+  GameState,
+  {
+    readonly dia: number;
+    readonly pedido: GameState['climaPedido'];
+    readonly dueños: string;
+    readonly clima: ClimaDeLaPartida;
+  }
+>();
+
+/**
+ * El clima de cada región hoy: lo que pidió el narrador y siga en vigor y, en lo
+ * demás, el de la semilla. La noche, con el dueño de ahora de cada región.
+ */
+export function climaDeLaPartida(state: GameState): ClimaDeLaPartida {
+  const dueños = (state.map.regions.length === 0 ? [] : dueñosDeLasRegiones(state)).map((d) =>
+    faccionDe(state, d),
+  );
+  const firma = dueños.join(',');
+  const hecho = hechos.get(state);
+  if (
+    hecho !== undefined &&
+    hecho.dia === state.day &&
+    hecho.pedido === state.climaPedido &&
+    hecho.dueños === firma
+  ) {
+    return hecho.clima;
+  }
+  const clima: ClimaDeLaPartida = {
+    regiones: state.map.regions.map((_, k) => climaDeHoy(state, k, dueños[k] ?? 'neutral')),
+  };
+  hechos.set(state, { dia: state.day, pedido: state.climaPedido, dueños: firma, clima });
+  return clima;
+}
+
+/**
+ * El clima de hoy en la casilla `p`, sin hacer el de todo el mapa: solo su
+ * región, con el dueño de esa región (`dueñoDeLaRegion`). Lo que lee una regla
+ * de `core` sobre un sitio (el «mapa vivo»). En un mapa sin regiones, el
+ * despejado; fuera del mapa, lanza.
+ */
+export function climaEn(state: GameState, p: Point): ClimaDelSitio {
+  const k = regionDelSitio(state.map, p);
+  if (k < 0) return DESPEJADO;
+  return climaDeHoy(state, k, faccionDe(state, dueñoDeLaRegion(state, k)));
 }
 
 /**
@@ -331,36 +393,25 @@ export function esDeNocheEn(state: GameState, regionId: string): boolean {
       `en este mapa no hay "${regionId}": hay ${state.map.regions.map((r) => r.id).join(', ')}`,
     );
   }
-  return (climaDeLaPartida(state).regiones[k] as ClimaDelSitio).noche;
+  return climaDeHoy(state, k, faccionDe(state, dueñoDeLaRegion(state, k))).noche;
 }
 
 /**
- * Dónde se pelea una batalla del mapa: donde está lo atacado (el monstruo, el
- * héroe, la ciudad o el grupo) y, en una emboscada, el héroe emboscado. Es la
- * casilla de la que la batalla hereda el clima.
+ * La región del clima donde se pelea una batalla del mapa: la del sitio de lo
+ * atacado (`lugarDelRival`, la casilla del defensor). Es lo que viaja al
+ * espectador (`VistaBatalla.region`), que saca de ahí el clima de su tablero.
  */
-export function sitioDeLaBatalla(state: GameState, pending: PendingBattle): Point {
-  const foe = pending.foe;
-  const at = ((): Point | undefined => {
-    switch (foe.kind) {
-      case 'monster':
-        return state.map.objects.find((o) => o.id === foe.objectId)?.at;
-      case 'hero':
-        return state.heroes.find((h) => h.id === foe.heroId)?.at;
-      case 'town':
-        return state.towns.find((t) => t.id === foe.townId)?.at;
-      case 'raider':
-        return state.raiders.find((r) => r.id === foe.raiderId)?.at;
-    }
-  })();
-  if (at !== undefined) return at;
-  const quien = pending.attacker;
-  const atacante =
-    quien.kind === 'hero' ? state.heroes.find((h) => h.id === quien.heroId)?.at : undefined;
-  if (atacante !== undefined) return atacante;
-  throw new Error(
-    'la batalla pendiente no tiene sitio: ni lo atacado ni el atacante están en el mapa',
-  );
+export function regionDeLaBatalla(state: GameState, pending: PendingBattle): number {
+  return regionDelSitio(state.map, lugarDelRival(state, pending.foe));
+}
+
+/** El clima que hereda una batalla del mapa: el de la región donde se pelea, con `clima` (lo forzado encima, si lo hay). */
+export function climaDeLaBatalla(
+  state: GameState,
+  clima: ClimaDeLaPartida,
+  pending: PendingBattle,
+): ClimaDelSitio {
+  return climaDeLaRegion(clima, regionDeLaBatalla(state, pending));
 }
 
 // --------------------------------------------------------------- el narrador
@@ -374,12 +425,9 @@ export interface ClimaPedidoPorElAgente {
 }
 
 /** Lo que entró, por región, para contarlo en el veredicto. */
-export interface ClimaAceptado {
+export interface ClimaAceptado extends PedidoDeClima {
   readonly region: string;
   readonly nombre: string;
-  readonly tiempo?: Tiempo;
-  readonly noche?: boolean;
-  readonly hasta: number;
 }
 
 export interface ClimaPuesto {
@@ -424,12 +472,12 @@ export function pedirClima(
   pedidos: readonly ClimaPedidoPorElAgente[],
 ): ClimaPuesto {
   const vigente: Record<string, PedidoDeClima> = {};
-  for (const [id, p] of Object.entries(state.climaPedido ?? {})) {
-    if (p.hasta >= state.day) vigente[id] = p;
+  for (const reg of state.map.regions) {
+    const p = pedidoVigente(state, reg.id);
+    if (p !== undefined) vigente[reg.id] = p;
   }
   const aceptados: ClimaAceptado[] = [];
   const rechazos: string[] = [];
-  const regionDe = pedidos.length === 0 ? null : regionDelClima(state.map);
   for (const pedido of pedidos) {
     const donde = `(${pedido.at.x},${pedido.at.y})`;
     const motivo = climaBlocker(state, pedido);
@@ -441,8 +489,7 @@ export function pedirClima(
       rechazos.push(`${donde}: ya han entrado ${CLIMA.porTurno} este turno, que es el máximo`);
       continue;
     }
-    const k = (regionDe as Int32Array)[pedido.at.y * state.map.width + pedido.at.x] as number;
-    const reg = state.map.regions[k];
+    const reg = state.map.regions[regionDelSitio(state.map, pedido.at)];
     if (reg === undefined) {
       rechazos.push(`${donde}: no es de ninguna región`);
       continue;
@@ -451,12 +498,11 @@ export function pedirClima(
       rechazos.push(`${donde}: ${reg.name} ya tiene su clima más arriba en esta misma respuesta`);
       continue;
     }
-    const hasta = state.day + (pedido.days ?? 1) - 1;
     const tiempo = pedido.weather as Tiempo | undefined;
     const puesto: PedidoDeClima = {
       ...(tiempo === undefined ? {} : { tiempo }),
       ...(pedido.night === undefined ? {} : { noche: pedido.night }),
-      hasta,
+      hasta: state.day + (pedido.days ?? 1) - 1,
     };
     vigente[reg.id] = puesto;
     aceptados.push({ region: reg.id, nombre: reg.name, ...puesto });
@@ -467,12 +513,6 @@ export function pedirClima(
 
 // ------------------------------------------------------- forzarlo para mirar
 
-/** Lo que fuerza `?clima=` en un sitio: el tiempo, la noche o los dos. */
-export interface ClimaForzadoDelSitio {
-  readonly tiempo?: Tiempo;
-  readonly noche?: boolean;
-}
-
 /** Lo que pide `?clima=`: para todo el mapa y, encima, por región. */
 export interface ClimaForzado {
   readonly todo: ClimaForzadoDelSitio;
@@ -481,29 +521,35 @@ export interface ClimaForzado {
 
 const QUE_VALE_EN_CLIMA = `valen ${TIEMPOS.join(', ')}, noche y dia, separados por comas, y cualquiera de ellos para una región, como region-0:tormenta`;
 
+/** Lo de un sitio mientras se lee: se va llenando trozo a trozo. */
+type SitioQueSeLee = { -readonly [K in keyof ClimaForzadoDelSitio]: ClimaForzadoDelSitio[K] };
+
 /**
  * Lo que pide un `?clima=`, `null` si no pide nada (como `parseSeed`: vacío es no
  * pedir), o lanza con lo que no se entiende. Es una lista separada por comas de
  * un tiempo (todo el mapa), `noche` o `dia`, y `<región>:<lo mismo>` para una
- * región. Fuerza la presentación, no la noche de las reglas.
+ * región. Fuerza la presentación, no la noche de las reglas. Que las regiones
+ * sean del mapa lo mira `validarForzado`, que necesita el mapa.
  */
 export function parseClima(texto: string | null | undefined): ClimaForzado | null {
   if (texto === null || texto === undefined || texto.trim() === '') return null;
-  const todo: { tiempo?: Tiempo; noche?: boolean } = {};
-  const regiones: Record<string, { tiempo?: Tiempo; noche?: boolean }> = {};
+  const todo: SitioQueSeLee = {};
+  const regiones: Record<string, SitioQueSeLee> = {};
   for (const bruto of texto.split(',')) {
     const trozo = bruto.trim();
     if (trozo === '') throw new Error(`"${texto}" lleva una coma de más: ${QUE_VALE_EN_CLIMA}`);
     const dos = trozo.lastIndexOf(':');
     const region = dos < 0 ? null : trozo.slice(0, dos);
     const que = dos < 0 ? trozo : trozo.slice(dos + 1);
-    if (region !== null && !/^[a-z0-9][a-z0-9_-]*$/.test(region)) {
+    if (region !== null && !esIdDeMapa(region)) {
       throw new Error(`"${region}" no es una región: ${QUE_VALE_EN_CLIMA}`);
     }
-    if (region !== null && regiones[region] === undefined) regiones[region] = {};
-    const sitio =
-      region === null ? todo : (regiones[region] as { tiempo?: Tiempo; noche?: boolean });
-    const para = region === null ? 'todo el mapa' : region;
+    let sitio = todo;
+    if (region !== null) {
+      sitio = regiones[region] ?? {};
+      regiones[region] = sitio;
+    }
+    const para = region ?? 'todo el mapa';
     if (que === 'noche' || que === 'dia') {
       const noche = que === 'noche';
       if (sitio.noche !== undefined && sitio.noche !== noche) {
@@ -524,20 +570,16 @@ export function parseClima(texto: string | null | undefined): ClimaForzado | nul
   return { todo, regiones };
 }
 
-function encima(sitio: ClimaDelSitio, f: ClimaForzadoDelSitio): ClimaDelSitio {
-  return { tiempo: f.tiempo ?? sitio.tiempo, noche: f.noche ?? sitio.noche };
-}
-
 /**
- * El clima de la partida con lo forzado encima: lo de todo el mapa y, sobre eso,
- * lo de cada región. Lanza con una región que el mapa no tiene, diciendo cuáles.
+ * Que las regiones de lo forzado sean de este mapa: lanza con la que no, diciendo
+ * cuáles hay. Se llama una vez, al fijar lo forzado (la sesión al abrir la
+ * partida, el espectador con la primera vista); pintar no valida nada.
  */
-export function forzarClima(
-  clima: ClimaDeLaPartida,
+export function validarForzado(
   forzado: ClimaForzado | null,
   map: Pick<MapaDeRed, 'regions'>,
-): ClimaDeLaPartida {
-  if (forzado === null) return clima;
+): void {
+  if (forzado === null) return;
   const ids = map.regions.map((r) => r.id);
   for (const id of Object.keys(forzado.regiones)) {
     if (!ids.includes(id)) {
@@ -548,12 +590,27 @@ export function forzarClima(
       );
     }
   }
+}
+
+function encima(sitio: ClimaDelSitio, f: ClimaForzadoDelSitio): ClimaDelSitio {
+  return { tiempo: f.tiempo ?? sitio.tiempo, noche: f.noche ?? sitio.noche };
+}
+
+/**
+ * El clima de la partida con lo forzado encima: lo de todo el mapa y, sobre eso,
+ * lo de cada región. Lo forzado ya está validado contra el mapa
+ * (`validarForzado`).
+ */
+export function forzarClima(
+  clima: ClimaDeLaPartida,
+  forzado: ClimaForzado | null,
+  map: Pick<MapaDeRed, 'regions'>,
+): ClimaDeLaPartida {
+  if (forzado === null) return clima;
   return {
-    dia: clima.dia,
-    regiones: clima.regiones.map((sitio, k) => {
-      const id = ids[k] as string;
-      return encima(encima(sitio, forzado.todo), forzado.regiones[id] ?? {});
-    }),
+    regiones: clima.regiones.map((sitio, k) =>
+      encima(encima(sitio, forzado.todo), forzado.regiones[map.regions[k]?.id ?? ''] ?? {}),
+    ),
   };
 }
 

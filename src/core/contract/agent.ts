@@ -38,6 +38,7 @@ import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { FACTION_IDS, HUECOS, TIPOS_DEL_ANILLO } from '../types.js';
+import { ID_DE_MAPA } from '../validar.js';
 import { HIT_DE_GOLPE, HITS, SLOT_DE_HUECO, SLOTS } from './vocabulario.js';
 
 /** Los poderes de unidad, por su id y con lo que hacen (`queHaceElPoder`, lo que lee el panel). */
@@ -192,7 +193,7 @@ const idDeMapa = (que: string) =>
     .min(1)
     .max(32)
     .regex(
-      /^[a-z0-9][a-z0-9_-]*$/,
+      ID_DE_MAPA,
       `un id de ${que} va en minúsculas y solo lleva letras, dígitos, guion y guion bajo, empezando por letra o dígito (p. ej. "town-0")`,
     );
 const nombreDeMapa = (que: string) => lineaLegible(40, `el nombre de ${que}`);

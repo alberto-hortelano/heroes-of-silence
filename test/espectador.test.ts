@@ -44,10 +44,10 @@ import { createRng } from '../src/core/rng.js';
 import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/character.js';
 import { combatProfile } from '../src/core/rpg/stats.js';
 import {
+  climaDeLaBatalla,
   climaDeLaPartida,
+  climaDeLaRegion,
   pedirClima,
-  sitioDeLaBatalla,
-  tiempoDelSitio,
 } from '../src/core/state/clima.js';
 import {
   applyAdventureAction,
@@ -560,8 +560,9 @@ describe('la batalla en la vista', () => {
     expect(ida.clima.regiones[0]).toEqual({ tiempo: 'tormenta', noche: true });
     const pending = state.pendingBattle;
     if (pending === null) throw new Error('sin batalla');
-    expect(ida.battle?.tiempo).toEqual(
-      tiempoDelSitio(clima, state.map, sitioDeLaBatalla(state, pending)),
+    // La misma cuenta que la partida: de la región que viaja, el clima del tablero.
+    expect(climaDeLaRegion(ida.clima, ida.battle?.region ?? -2)).toEqual(
+      climaDeLaBatalla(state, clima, pending),
     );
   });
 
