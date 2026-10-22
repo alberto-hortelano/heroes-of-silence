@@ -838,6 +838,7 @@ describe('qué tapa a qué en el mapa', () => {
       hover: null,
       semilla: state.seed,
       tiempo: 0,
+      clima: null,
     });
     return { esc, registro: [...llamadas] };
   }
@@ -1021,6 +1022,7 @@ describe('un grupo que vuelve a la vista aparece en su casilla (H3 de QA de #130
       hover: null,
       semilla: state.seed,
       tiempo,
+      clima: null,
     });
     const texto = llamadas.find((l) => l.metodo === 'fillText' && l.args[0] === '13');
     return texto === undefined ? null : { x: texto.args[1] as number, y: texto.args[2] as number };

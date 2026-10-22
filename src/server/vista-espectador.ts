@@ -27,6 +27,7 @@ import {
   type ClimaDeLaPartida,
   type ClimaDelSitio,
   climaDeLaPartida,
+  regionDelClima,
   sitioDeLaBatalla,
   tiempoDelSitio,
 } from '@core/state/clima.js';
@@ -181,6 +182,12 @@ export interface VistaBatalla {
   readonly dueños: Readonly<Record<Side, PlayerId | null>>;
   /** El clima del sitio de la batalla (`sitioDeLaBatalla`), el que hereda su tablero. */
   readonly tiempo: ClimaDelSitio;
+  /**
+   * La región del clima de ese sitio, en `map.regions` (−1 en un mapa sin
+   * regiones): con ella el espectador pone encima lo que fuerce `?clima=` para
+   * esa región, sin rederivar el sitio.
+   */
+  readonly region: number;
 }
 
 export interface SpectatorView {
@@ -297,9 +304,21 @@ export function construirVista(state: GameState, directorLog: readonly string[])
         : {
             estado: { ...pending.battle, stacks: pending.battle.stacks.map(stackAlCable) },
             dueños: battleOwners(state, pending),
-            tiempo: tiempoDelSitio(clima, state.map, sitioDeLaBatalla(state, pending)),
+            ...climaDeLaBatalla(state, clima, sitioDeLaBatalla(state, pending)),
           },
     clima,
+  };
+}
+
+/** El clima del sitio de una batalla y su región del clima. */
+function climaDeLaBatalla(
+  state: GameState,
+  clima: ClimaDeLaPartida,
+  sitio: Point,
+): { tiempo: ClimaDelSitio; region: number } {
+  return {
+    tiempo: tiempoDelSitio(clima, state.map, sitio),
+    region: regionDelClima(state.map)[sitio.y * state.map.width + sitio.x] ?? -1,
   };
 }
 

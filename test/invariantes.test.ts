@@ -2231,6 +2231,17 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
   });
 
+  it('la pieza que pinta el clima no lee la sesión: le dan el clima del sitio', () => {
+    // `render/clima/` la llaman el mapa, la batalla y cualquier escena lateral
+    // (la base, la morada y las del «mapa vivo»): si leyera la sesión de la
+    // partida, la arena y el espectador, que no la tienen, no podrían usarla.
+    // Roto a mano: un `import type { Session } from '../../session.js'` en
+    // `render/clima/clima.ts` sale rojo.
+    const pieza = CLIENTE.filter((r) => r.startsWith('src/client/render/clima/'));
+    expect(pieza.length).toBeGreaterThanOrEqual(4);
+    expect(infractoresDeCodigo(pieza, importaDe(/[^'"]*session(?:\.js)?/))).toEqual([]);
+  });
+
   it('el tema de la interfaz lo pone `ponerTema`: nadie más escribe `data-tema`', () => {
     // Un `data-tema` escrito por otro sitio no borraría lo que el lienzo leyó del
     // tema anterior (`temaDelLienzo`, en caché): CSS de un tema y chapas de otro.

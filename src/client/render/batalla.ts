@@ -29,14 +29,18 @@ import {
   type Side,
 } from '@core/battle/types.js';
 import { isShooter } from '@core/data.js';
+import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { COMPRESION_SUELO } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
+import { movimientoReducido } from '../movimiento.js';
 import { temaDelLienzo } from '../temas.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { aroDeFigura, type PiesDeLaFigura } from './aro.js';
 import { asset } from './assets.js';
 import { type CharacterClip, clipEnCurso } from './character.js';
+import { pintarAireDelClima, pintarSueloDelClima } from './clima/clima.js';
+import { cieloDe } from './clima/recetas.js';
 import {
   colocarFigura,
   type Figura,
@@ -153,6 +157,12 @@ export interface VistaBatalla {
   readonly efectos: readonly Efecto[];
   /** Los bandos sin dueño, que se tiñen de gris (`bandosSinDueño`); en la arena, ninguno. */
   readonly sinDueño: ReadonlySet<Side>;
+  /**
+   * El clima del sitio de la batalla y el reloj con que se anima: el cielo de
+   * detrás, el velo y la niebla bajo las casillas, y la lluvia y el rayo encima
+   * de las figuras y debajo de las barras.
+   */
+  readonly clima: { readonly sitio: ClimaDelSitio; readonly ahora: number };
 }
 
 /**
@@ -190,7 +200,19 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   const { battle, tablero } = v;
   ctx.save();
   ctx.imageSmoothingEnabled = true;
-  pintarFondo(ctx, { ancho: v.ancho, alto: v.alto, horizonte: horizonteDelCampo(v.tablero) });
+  const horizonte = horizonteDelCampo(v.tablero);
+  pintarFondo(ctx, { ancho: v.ancho, alto: v.alto, horizonte, cielo: v.clima.sitio });
+  // El clima de abajo —el velo del tiempo y de la noche, los bancos de niebla—,
+  // detrás de las casillas y de las figuras: se siguen leyendo enteras.
+  const climaDeEscena = {
+    sitio: v.clima.sitio,
+    ancho: v.ancho,
+    alto: v.alto,
+    ahora: v.clima.ahora,
+    quieto: movimientoReducido(),
+    cielo: horizonte,
+  };
+  pintarSueloDelClima(ctx, climaDeEscena);
 
   const movibles = new Set(v.movibles.map(hexKey));
   // La figura de cada uno, una vez por fotograma: de ella salen también la
@@ -364,6 +386,9 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   // línea de norte a sur la puerta queda justo detrás de la columna de la fila
   // siguiente, y abierta o cerrada se veía lo mismo (ampliación 3, criterio 25).
   for (const p of battle.puertas) pintarHojasTapadas(ctx, tablero, battle.muralla, p);
+  // La lluvia y el rayo, encima de las figuras y debajo de las barras, los
+  // nombres y las cifras, que tienen que leerse con cualquier tiempo.
+  pintarAireDelClima(ctx, climaDeEscena);
   // Las barras van en una pasada aparte, por encima de TODAS las figuras: pintadas
   // con su unidad, la figura de la fila de delante tapaba la barra de la de
   // detrás. Y de atrás adelante, para que la de detrás no tape la de delante.
@@ -1406,6 +1431,8 @@ export interface LienzoDelCampo {
   readonly ancho: number;
   readonly alto: number;
   readonly horizonte: number;
+  /** El clima del cielo de detrás (`cieloDe`); sin él, el atardecer despejado (la tropa). */
+  readonly cielo?: ClimaDelSitio;
 }
 
 /**
@@ -1425,7 +1452,8 @@ function horizonteDelCampo(t: Tablero): number {
 export function pintarFondo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
   const campo = asset('rpg', 'campo');
   const dpr = densidadDe(ctx);
-  const clave = `${v.ancho}|${v.alto}|${dpr}|${v.horizonte}`;
+  const cielo = v.cielo ?? DESPEJADO;
+  const clave = `${v.ancho}|${v.alto}|${dpr}|${v.horizonte}|${cielo.tiempo}|${cielo.noche}`;
   if (fondo === null || fondo.clave !== clave || fondo.campo !== campo) {
     const lienzo = fondo?.lienzo ?? document.createElement('canvas');
     lienzo.width = Math.max(1, Math.ceil(v.ancho * dpr));
@@ -1476,14 +1504,17 @@ function componerFondo(
  * sus píxeles, igual que el `clearing.png` del que sale—, y sobre el negro de
  * antes quedaba un hueco negro encima de los árboles. Es un atardecer de otoño,
  * del azul pizarra arriba al ocre de la bruma en la línea de los árboles, que es
- * la luz que ya tiene el empedrado.
+ * la luz que ya tiene el empedrado, con el despejado; con otro tiempo o de
+ * noche, el de su clima (`cieloDe`).
  */
 function pintarCielo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
   const linea = Math.max(1, v.horizonte);
   const cielo = ctx.createLinearGradient(0, 0, 0, linea);
-  cielo.addColorStop(0, '#27303b');
-  cielo.addColorStop(0.55, '#5b5e58');
-  cielo.addColorStop(1, '#a58c5c');
+  // El de despejado es el atardecer de siempre; con tormenta no se ve el sol.
+  const [arriba, medio, abajo] = cieloDe(v.cielo ?? DESPEJADO);
+  cielo.addColorStop(0, arriba);
+  cielo.addColorStop(0.55, medio);
+  cielo.addColorStop(1, abajo);
   ctx.fillStyle = cielo;
   ctx.fillRect(0, 0, v.ancho, v.alto);
 }

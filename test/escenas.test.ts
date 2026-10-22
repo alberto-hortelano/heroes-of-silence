@@ -7,6 +7,7 @@
  * que pintan. Cada bloque nace de un hallazgo de QA del cliente nuevo y lo
  * reproduce antes de comprobar el arreglo.
  */
+
 import { describe, expect, it } from 'vitest';
 import { DURACION, type EstadoFigura } from '../src/client/anim.js';
 import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
@@ -64,6 +65,7 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { Casillas } from '../src/core/map/casillas.js';
+import { DESPEJADO } from '../src/core/state/clima.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
 import { building } from '../src/core/town/buildings.js';
 import type { Hex } from '../src/core/types.js';
@@ -633,6 +635,7 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
       enLaRueda: null,
       efectos: [],
       sinDueño: new Set<Side>(),
+      clima: { sitio: DESPEJADO, ahora: 0 },
     };
     const coronas = (x: BattleStack): number => {
       const { ctx, textos } = contextoQueApunta();

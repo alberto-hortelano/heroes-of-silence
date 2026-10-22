@@ -24,9 +24,11 @@ import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, MapRegion, RedDeCaminos } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.js';
+import type { ClimaDeLaPartida } from '@core/state/clima.js';
 import type { FactionId, Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla } from '../marcha.js';
+import { movimientoReducido } from '../movimiento.js';
 import { temaDelLienzo } from '../temas.js';
 import { imagenDeEscena } from './assets.js';
 import {
@@ -37,6 +39,7 @@ import {
   mundoAPixel,
   ventanaDeCasillas,
 } from './camara-mapa.js';
+import { pintarClimaDelMapa } from './clima/clima.js';
 import { empezarFotogramaDeCopias } from './copias.js';
 import { seHornea } from './escenario/horneado.js';
 import {
@@ -150,6 +153,12 @@ export interface VistaMapa {
   readonly semilla: number;
   /** Reloj de la animación de reposo, en milisegundos. */
   readonly tiempo: number;
+  /**
+   * El clima de hoy de cada región (`climaDeLaPartida`, con lo forzado por
+   * `?clima=` encima), o `null` para no pintar ninguno. Presentación: va bajo la
+   * niebla de guerra (`drawMapa`, paso 2b).
+   */
+  readonly clima: ClimaDeLaPartida | null;
 }
 
 /** El marcador del cofre sin su pieza: un ladrillo del color de la madera vieja. */
@@ -418,6 +427,23 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   const { cosas, sobreLaNiebla } = cosasDe(v, esc);
   pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc), cosas);
 
+  // 2b · El clima de cada región, encima de lo que tiene altura y DEBAJO de los
+  //      identificadores y de la niebla de guerra: no tapa ni destapa nada de
+  //      ella, y lo inexplorado sigue siendo negro (criterio 3 del clima).
+  if (v.clima !== null) {
+    pintarClimaDelMapa(ctx, {
+      mapa: escena.map,
+      semilla: v.semilla,
+      clima: v.clima,
+      camara,
+      ancho: v.ancho,
+      alto: v.alto,
+      ahora: v.tiempo,
+      quieto: movimientoReducido(),
+      fuegos: fuegosDe(esc),
+    });
+  }
+
   // 3 · Lo que dice quién está en cada casilla, encima de todo lo que tiene altura.
   const cuerpos = cuerposDe([...cosas, ...sobreLaNiebla]);
   for (const cosa of cosas) pintarIdentificador(ctx, v, cosa, cuerpos);
@@ -441,6 +467,17 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
     ctx.strokeRect(c.x - tile / 2 + 3, c.y - tile / 2 + 3, tile - 6, tile - 6);
   }
   ctx.restore();
+}
+
+const fuegos = new WeakMap<Escenario, readonly { x: number; y: number; r: number }[]>();
+
+/** Los fuegos de ciudades y pueblos de la escena (`Escena.luces` de clase `fuego`): los que se encienden de noche. */
+function fuegosDe(esc: Escenario): readonly { x: number; y: number; r: number }[] {
+  const hechos = fuegos.get(esc);
+  if (hechos !== undefined) return hechos;
+  const lista = esc.escena.luces.filter((l) => l.clase === 'fuego');
+  fuegos.set(esc, lista);
+  return lista;
 }
 
 /**

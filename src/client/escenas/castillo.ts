@@ -41,11 +41,12 @@ import {
 } from '../render/base/escena.js';
 import { type Golpe, queHayBajo } from '../render/base/golpe.js';
 import { pintarBase } from '../render/base/pintar.js';
+import type { LuzDeNoche } from '../render/clima/clima.js';
 import { animarHasta } from '../render/figura.js';
 import { densidadDe } from '../render/lienzo.js';
 import { dondeEsperaEnLaMorada } from '../render/morada/fila.js';
 import { playerColor } from '../render/palette.js';
-import { ALTO_DE_FIGURA, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
+import { ALTO_DE_FIGURA, enPantalla, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, type Session } from '../session.js';
 
 /**
@@ -120,6 +121,25 @@ export class EscenaBase {
   private camaraEn: number | null = null;
   /** Píxeles de dispositivo por píxel CSS del último lienzo dibujado: la cámara cae en uno entero. */
   private densidad = 1;
+  /** Los fuegos de la última base pintada (la plaza o la morada), en px del lienzo: `lucesDeNoche`. */
+  private luces: readonly LuzDeNoche[] = [];
+
+  /**
+   * Lo que se enciende de noche en la base que se acaba de pintar: una luz en la
+   * puerta de cada edificio levantado, con la cámara con que se pintó (la de la
+   * plaza o la de la morada). Lo lee el clima (`pintarClima`) en `main.ts`.
+   */
+  get lucesDeNoche(): readonly LuzDeNoche[] {
+    return this.luces;
+  }
+
+  private apuntarLuces(b: BaseAbierta, t: Tablero): void {
+    this.luces = b.vista.edificios.map((e) => {
+      const p = enPantalla(t, b.d.sitios[e.sitio].umbral.en);
+      // A la altura del dintel, no en el suelo: es el fuego de la puerta.
+      return { x: p.x, y: p.y - t.paso * 0.5, r: t.paso * 1.6 };
+    });
+  }
 
   constructor(
     private readonly sesion: () => Session,
@@ -286,9 +306,11 @@ export class EscenaBase {
     if (b === null) return;
     this.actualizar(ahora, b);
     this.moverCamara(b, ahora);
+    const t = this.camaraDe(b);
+    this.apuntarLuces(b, t);
     pintarBase(ctx, {
       d: b.d,
-      t: this.camaraDe(b),
+      t,
       lienzo: this.lienzo,
       elementos: this.elementos(b.vista, b.d, ahora),
       arte: this.arte(b.vista),
@@ -313,6 +335,7 @@ export class EscenaBase {
   ): void {
     const b = this.base();
     if (b === null) return;
+    this.apuntarLuces(b, camara);
     pintarBase(ctx, {
       d: b.d,
       t: camara,

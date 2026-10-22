@@ -80,6 +80,7 @@ import {
   idsPuestos,
 } from '@core/hero/equipo.js';
 import { parseSeed } from '@core/rng.js';
+import { type ClimaDelSitio, climaSinRegiones, DESPEJADO, parseClima } from '@core/state/clima.js';
 import { type CreatureTrait, esHueco, esTipoDelAnillo, type Hex, type Hueco } from '@core/types.js';
 import {
   type Hoja,
@@ -413,6 +414,22 @@ try {
 } catch (err) {
   avisoDeSemilla = `${mensaje(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
   parametrosQueNoValen.push('seed');
+}
+
+/**
+ * El clima de las peleas (`?clima=`, como en la partida): la arena no tiene
+ * días ni regiones, así que es el despejado salvo que se pida otro, y una región
+ * se rechaza diciéndolo. Es presentación: un clima que no vale se dice y la
+ * pelea se monta igual, con el despejado.
+ */
+let climaDeLaArena: ClimaDelSitio = DESPEJADO;
+try {
+  climaDeLaArena = climaSinRegiones(
+    parseClima(unaVezEnLaURL(parametros.getAll('clima'), 'clima')),
+    'la arena',
+  );
+} catch (err) {
+  avisoDeSemilla += `${mensaje(err)} — quita "?clima=…" de la barra de direcciones. `;
 }
 
 /**
@@ -1748,6 +1765,7 @@ function luchar(): void {
     aviso = `No se puede luchar: ${mensaje(err)}.`;
     return;
   }
+  nueva.tiempo = climaDeLaArena;
   aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
   sesion = nueva;
   elSeed.textContent = `semilla ${semilla}`;

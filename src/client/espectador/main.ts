@@ -12,6 +12,15 @@
  */
 import { SIN_CARGAS } from '@core/battle/battle.js';
 import { todosALaVista } from '@core/state/asaltantes.js';
+import {
+  type ClimaDeLaPartida,
+  type ClimaDelSitio,
+  type ClimaForzado,
+  DESPEJADO,
+  forzarClima,
+  parseClima,
+} from '@core/state/clima.js';
+import { unaVezEnLaURL } from '@core/validar.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADA } from '../html.js';
@@ -98,6 +107,38 @@ function destino(): Destino {
     };
   }
   return { puerto: PUERTO_ESPECTADORES, motivo: '' };
+}
+
+/**
+ * Lo que fuerza `?clima=` (como en la partida y la arena): lo que no se entiende
+ * se dice en la barra y se mira con el clima de la partida.
+ */
+let climaForzado: ClimaForzado | null = null;
+let avisoDelClima = '';
+try {
+  climaForzado = parseClima(
+    unaVezEnLaURL(new URLSearchParams(location.search).getAll('clima'), 'clima'),
+  );
+} catch (err) {
+  avisoDelClima = `${err instanceof Error ? err.message : String(err)} — quita "?clima=…" de la barra de direcciones. `;
+}
+
+/** El clima de la partida que llega por el cable, con lo forzado encima; si no casa con el mapa, sin forzar y dicho. */
+function climaQueSeVe(v: SpectatorView): ClimaDeLaPartida {
+  try {
+    return forzarClima(v.clima, climaForzado, v.map);
+  } catch (err) {
+    avisoDelClima = `${err instanceof Error ? err.message : String(err)} — quita "?clima=…" de la barra de direcciones. `;
+    climaForzado = null;
+    return v.clima;
+  }
+}
+
+/** El clima del tablero: el de la región de su sitio, con lo forzado encima. */
+function climaDeLaBatalla(v: SpectatorView): ClimaDelSitio {
+  const b = v.battle;
+  if (b === null) return DESPEJADO;
+  return climaQueSeVe(v).regiones[b.region] ?? b.tiempo;
 }
 
 // --------------------------------------------------------------- estado
@@ -309,6 +350,7 @@ function pintarTodo(ahora: number): void {
         enLaRueda: mirada.reproductor.animador.losDelCruce(),
         efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),
+        clima: { sitio: climaDeLaBatalla(vista), ahora },
       });
       apuntarLoQueSePinta(true);
     } else {
@@ -332,6 +374,7 @@ function pintarTodo(ahora: number): void {
         // La de la partida: la escena es la misma que ve quien juega.
         semilla: vista.seed,
         tiempo: ahora,
+        clima: climaQueSeVe(vista),
       });
     }
   }
@@ -409,7 +452,7 @@ function decirQueSeMira(): void {
         'se empezó de cero.';
   elStatus.textContent =
     ilegible === null
-      ? `Mirando ${cual} en ${urlDelCanal}.${cambio}`
+      ? `${avisoDelClima}Mirando ${cual} en ${urlDelCanal}.${cambio}`
       : `No se entiende el último fotograma que llegó de ${urlDelCanal}: ${ilegible}. ` +
         'Se sigue enseñando el último que se entendió.';
 }
