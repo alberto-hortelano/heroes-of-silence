@@ -8,13 +8,21 @@
  * corregirse.
  */
 import { describe, expect, it } from 'vitest';
+import { marcadoDe } from '../src/client/html.js';
 import { mundoDeLaUrl } from '../src/client/mundo/cargar.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
+import { renderLog } from '../src/client/views/panels.js';
 import { jugadaEnElLugar } from '../src/core/ai/lugares.js';
 import { CUPO_HEROE } from '../src/core/hero/troop.js';
 import { buildMap, type MapPlan } from '../src/core/map/generate.js';
 import { isEnterable } from '../src/core/map/map.js';
-import { CLAVES_DE_CONDICION, CLAVES_DE_EFECTO, VOCABULARIO } from '../src/core/mundo/formato.js';
+import {
+  CLAVES_DE_CONDICION,
+  CLAVES_DE_EFECTO,
+  inicialDelNombre,
+  lugarSiExiste,
+  VOCABULARIO,
+} from '../src/core/mundo/formato.js';
 import { lecturaParaElMotor } from '../src/core/mundo/lectura.js';
 import { partidaDelMundo } from '../src/core/mundo/partida.js';
 import { anteDelHeroe, opcionBlocker, opcionesDe } from '../src/core/mundo/reglas.js';
@@ -601,6 +609,25 @@ describe('elegir en un lugar', () => {
     expect(state.heroes.find((h) => h.id === hero)!.at).toEqual({ x: 10, y: 12 });
   });
 
+  it('la crónica nombra el lugar y el encuentro, no su casilla', () => {
+    const { state, hero } = enElLugar('pozo-de-valdesombra');
+    elegir(state, hero, 'pozo-de-valdesombra', 'pozo', 'brocal', 0);
+    elegir(state, hero, 'pozo-de-valdesombra', 'pozo', 'brocal', 1);
+    const pending = state.pendingBattle!;
+    for (const s of pending.battle.stacks) if (s.side === 'defender') s.count = 0;
+    pending.battle.finished = { winner: 'attacker' };
+    settleBattle(state, ctx);
+    const texto = marcadoDe(
+      renderLog(state.log, 0, (id) => lugarSiExiste(state.mundo!.historia, id)),
+    );
+    expect(texto).toContain('+150 de oro en\u00a0«El pozo de Valdesombra»');
+    expect(texto).toContain(
+      'Batalla ganada contra «Los ahogados del pozo» en\u00a0«El pozo de Valdesombra»',
+    );
+    expect(texto).toContain('Botín de «El pozo de Valdesombra»: Gambesón');
+    expect(texto).not.toMatch(/en\u00a0\(16,\u00a013\)/);
+  });
+
   it('una batalla perdida aplica «alPerder», aunque el héroe vuelva a su base', () => {
     const { state, hero } = enElLugar('pozo-de-valdesombra');
     elegir(state, hero, 'pozo-de-valdesombra', 'pozo', 'brocal', 0);
@@ -620,6 +647,17 @@ describe('elegir en un lugar', () => {
       'garrison_taken',
       'world_mark',
     ]);
+  });
+});
+
+describe('la inicial de un lugar o de una cosa', () => {
+  it('es la de su primera palabra que no es un artículo', () => {
+    expect(inicialDelNombre('El osario del viejo amo')).toBe('O');
+    expect(inicialDelNombre('La ermita del Cierzo')).toBe('E');
+    expect(inicialDelNombre('El campamento de Grashnak')).toBe('C');
+    expect(inicialDelNombre('Corvo')).toBe('C');
+    expect(inicialDelNombre('«Las» uñas')).toBe('U');
+    expect(inicialDelNombre('Los')).toBe('');
   });
 });
 

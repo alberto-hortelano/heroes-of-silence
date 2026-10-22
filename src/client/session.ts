@@ -74,7 +74,7 @@ import {
 } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
-import { lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
+import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
 import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
 import { createRng, type Rng } from '@core/rng.js';
@@ -1361,6 +1361,12 @@ export class Session implements ControlDeBatalla {
   /** El título del mundo que se juega, o `null` sin mundo. */
   get tituloDelMundo(): string | null {
     return this.state.mundo?.historia.titulo ?? null;
+  }
+
+  /** El lugar `lugarId` del mundo de la partida, o `null`: la crónica lo nombra por él. */
+  lugarDelMundo(lugarId: string): Lugar | null {
+    const m = this.state.mundo;
+    return m === undefined ? null : lugarSiExiste(m.historia, lugarId);
   }
 
   /** El nombre del estado de ahora de un lugar, para el rótulo del mapa. */

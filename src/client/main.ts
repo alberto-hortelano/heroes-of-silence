@@ -892,8 +892,19 @@ document.addEventListener('click', (ev) => {
 });
 
 document.addEventListener('keydown', (ev) => {
-  // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un atajo.
-  if (ev.target instanceof Element && ev.target.closest('textarea, input, dialog') !== null) return;
+  // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un
+  // atajo. Salvo Escape en la conversación: al abrirse se queda el foco (su primera
+  // opción), y sin esto Escape no la cerraba nunca, aunque la barra lo anuncia
+  // (H3 del QA de la F1a). Lo demás —Intro, espacio— sigue siendo de su botón.
+  const enLaConversacion =
+    ev.target instanceof Element && ev.target.closest('#conversacion') !== null;
+  if (enLaConversacion && ev.key !== 'Escape') return;
+  if (
+    !enLaConversacion &&
+    ev.target instanceof Element &&
+    ev.target.closest('textarea, input, dialog') !== null
+  )
+    return;
   // Escape mantenido se repite: cada repetición cerraría un nivel más (la morada,
   // la base…). Solo cuenta la primera pulsación (QA M5 de la morada, 20-10-2026).
   if (ev.key === 'Escape' && ev.repeat) return;

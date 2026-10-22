@@ -23,6 +23,7 @@ import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, MapRegion, RedDeCaminos } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
+import { inicialDelNombre } from '@core/mundo/formato.js';
 import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.js';
 import type { FactionId, Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
@@ -458,9 +459,12 @@ const MARGEN_DE_COSA: Margen = { lados: 2, arriba: 2, abajo: 2 };
  * Dónde apoya los pies cada figura, en casillas bajo el borde de arriba de su
  * casilla: la misma convención que `Sprite.y` de la escena —la `y` de la base—,
  * que es lo que deja ordenar figuras y volúmenes juntos. Un pino con la base en
- * y + 0,9 tapa al héroe de esa casilla, que la tiene en y + 0,8.
+ * y + 0,9 tapa al héroe de esa casilla, que la tiene en y + 0,8. El rombo de un
+ * lugar, por detrás de quien está en él:
+ * con el pie de lo suelto tapaba al héroe y solo se veía su chapa (H4 del QA de la
+ * F1a), y el lugar, como un pueblo, es el sitio donde está.
  */
-export const PIES = { heroe: 0.8, grupo: 0.82, suelto: 0.85 } as const;
+export const PIES = { heroe: 0.8, grupo: 0.82, suelto: 0.85, lugar: 0.78 } as const;
 
 /** Algo del juego que se pinta entre los volúmenes, con su clave de profundidad. */
 type Cosa =
@@ -521,7 +525,8 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
       if (mastil === undefined) throw new Error(`el nodo ${o.id} se hornea y no tiene mástil`);
       lista.push({ tipo: 'horneado', clave, objeto: o, asiento, mastil });
     } else {
-      const pies = o.kind === 'monster' ? PIES.grupo : PIES.suelto;
+      const pies =
+        o.kind === 'monster' ? PIES.grupo : o.kind === 'lugar' ? PIES.lugar : PIES.suelto;
       lista.push({ tipo: 'objeto', clave: claveDeFigura(esc, o.at.x, o.at.y + pies), objeto: o });
     }
   }
@@ -794,7 +799,7 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
       ctx.font = `bold ${Math.max(9, Math.round(r * 1.1))}px ${tema.letraUi}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(o.name.charAt(0).toUpperCase(), c.x, cy + 1);
+      ctx.fillText(inicialDelNombre(o.name), c.x, cy + 1);
       ctx.restore();
       return;
     }

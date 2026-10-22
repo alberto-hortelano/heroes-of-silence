@@ -12,8 +12,9 @@
  * Caminar por un escenario lateral está aquí y en `castillo.ts` dos veces: unificarlo
  * es del backlog, tras *heroe-en-la-base*, que toca la base. La cámara, la franja,
  * el pintor y el golpe son los de la base (`render/base/`), y dónde se para quien
- * va a hablar con alguien, el de la base (`dondeHablarCon`).
+ * va a hablar con alguien, a su lado (`dondeHablarEnElLugar`).
  */
+import { inicialDelNombre } from '@core/mundo/formato.js';
 import {
   alaFranja,
   bordeDeAtras,
@@ -38,12 +39,41 @@ import { playerColor } from '../render/palette.js';
 import { ALTO_DE_FIGURA, enPantalla, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DEL_LUGAR, type Session } from '../session.js';
 import { temaDelLienzo } from '../temas.js';
-import { dondeHablarCon, PRISA_EN_LA_BASE, pulsaParaHablar } from './castillo.js';
+import { PRISA_EN_LA_BASE, pulsaParaHablar } from './castillo.js';
 
 /** Cuánto por delante del borde de atrás está cada punto, en pasos: en la franja, no pegado al fondo. */
 const DELANTE_DEL_FONDO = 0.7;
 /** Lo que se meten los puntos de los extremos (`x` 0 y 1) desde el margen de la franja, en pasos. */
 const DENTRO_DEL_MARGEN = 0.6;
+/**
+ * Cuánto más deprisa se anda en un lugar que en la base. Sus puntos están
+ * repartidos por dos tramos de plaza, más lejos que dos puertas de la base, y a
+ * paso de base cada «Hablar» del panel hacía esperar ~6 s (de la garita a Corvo, H6
+ * del QA de la F1a): con esto, ~3 s. El clip de andar se acelera lo mismo sobre
+ * el de la base (`elementos`): las piernas van con el paso que se ve en la base, no
+ * patinan más.
+ */
+const PRISA_EN_UN_LUGAR = 3;
+
+/**
+ * Lo que se aparta quien va a hablar con alguien en un lugar, en pasos, de lado y
+ * casi a su altura. En la base quien habla está en su puerta y basta 0,6
+ * (`dondeHablarCon`); aquí, con 0,6, el héroe quedaba encima de la figura.
+ */
+const AL_LADO_EN_UN_LUGAR = 1;
+
+/**
+ * Adónde va quien camina para hablar con el punto que está en `en`, y hacia dónde
+ * mira al llegar: a su izquierda, mirando al este, salvo que el borde no le deje
+ * sitio; entonces a su derecha, mirando al oeste.
+ */
+export function dondeHablarEnElLugar(d: Disposicion, en: Plano): { en: Plano; mira: Mirada } {
+  const y = en.y + 0.05;
+  const izq = alaFranja(d, { x: en.x - AL_LADO_EN_UN_LUGAR, y });
+  if (en.x - izq.x >= AL_LADO_EN_UN_LUGAR * 0.9) return { en: izq, mira: 'E' };
+  return { en: alaFranja(d, { x: en.x + AL_LADO_EN_UN_LUGAR, y }), mira: 'O' };
+}
+
 /** El mojón de una cosa, en pasos de pantalla: ancho y alto. */
 const MOJON = { ancho: 0.42, alto: 0.62 } as const;
 
@@ -60,8 +90,8 @@ interface Marcha {
   readonly mira: Mirada;
   readonly empieza: number;
   readonly dura: number;
-  /** El punto con el que se habla al llegar, o `null`. */
-  readonly alLlegar: string | null;
+  /** El punto con el que se habla al llegar y hacia dónde se le mira, o `null`. */
+  readonly alLlegar: { readonly punto: string; readonly mira: Mirada } | null;
 }
 
 /** Lo que hay bajo un píxel: un punto o el suelo. */
@@ -185,8 +215,8 @@ export class EscenaLugar {
         this.marcha = null;
         this.quietoDesde = ahora;
         if (m.alLlegar !== null) {
-          this.mira = 'E';
-          this.sesion().lugar.hablar(m.alLlegar);
+          this.mira = m.alLlegar.mira;
+          this.sesion().lugar.hablar(m.alLlegar.punto);
         }
       }
     }
@@ -231,7 +261,9 @@ export class EscenaLugar {
       en: this.en,
       mira: this.mira,
       clip: andando ? 'walk' : 'idle',
-      tiempo: andando ? ahora - (this.marcha?.empieza ?? 0) : ahora - this.quietoDesde,
+      tiempo: andando
+        ? (ahora - (this.marcha?.empieza ?? 0)) * (PRISA_EN_UN_LUGAR / PRISA_EN_LA_BASE)
+        : ahora - this.quietoDesde,
       pnj: false,
       pie: this.en.y,
     };
@@ -344,23 +376,24 @@ export class EscenaLugar {
     this.irAlPunto(a, p, ahora);
   }
 
-  /** Quien camina va al lado del punto, donde se habla con alguien en la base (`dondeHablarCon`). */
+  /** Quien camina va al lado del punto (`dondeHablarEnElLugar`) y, al llegar, habla con él. */
   private irAlPunto(a: Abierto, { p, en }: PuntoEnSuSitio, ahora: number): void {
     this.sesion().lugar.dejarDeHablar();
-    this.andar(a.d, a.vista, dondeHablarCon(a.d, en), p.id, ahora);
+    const sitio = dondeHablarEnElLugar(a.d, en);
+    this.andar(a.d, a.vista, sitio.en, { punto: p.id, mira: sitio.mira }, ahora);
   }
 
   private andar(
     d: Disposicion,
     vista: VistaDelLugar,
     hasta: Plano,
-    alLlegar: string | null,
+    alLlegar: Marcha['alLlegar'],
     ahora: number,
   ): void {
     const desde = this.en;
     const meta = alaFranja(d, hasta);
     const msPorPaso =
-      msPorCasilla(vista.caminante.cuerpo, 'walk', ALTO_DE_FIGURA) / PRISA_EN_LA_BASE;
+      msPorCasilla(vista.caminante.cuerpo, 'walk', ALTO_DE_FIGURA) / PRISA_EN_UN_LUGAR;
     const dura = Math.hypot(meta.x - desde.x, meta.y - desde.y) * msPorPaso;
     this.marcha = {
       desde,
@@ -429,7 +462,7 @@ function pintarMojon(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `bold ${Math.max(11, Math.round(c.ancho * 0.5))}px ${tema.letraUi}`;
-  ctx.fillText(p.nombre.charAt(0).toUpperCase(), c.x + c.ancho / 2, c.y + c.alto * 0.55);
+  ctx.fillText(inicialDelNombre(p.nombre), c.x + c.ancho / 2, c.y + c.alto * 0.55);
   ctx.font = `${Math.max(11, Math.round(t.paso * 0.14))}px ${tema.letraUi}`;
   ctx.textBaseline = 'top';
   // Con su contorno oscuro: sobre el empedrado claro, el rótulo solo no se leía.

@@ -6,7 +6,7 @@
  * (`mundoPedido`): así `main.ts` no espera nada al cargarse y un mundo roto lo
  * pinta `arranque.ts`, entero, como un catálogo roto.
  */
-import { type MundoLeido, parseMundo } from '@core/mundo/formato.js';
+import { type MundoLeido, noEsJson, parseMundo } from '@core/mundo/formato.js';
 import { leerMundo } from '@core/mundo/validar.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { pide } from '../semilla.js';
@@ -40,7 +40,12 @@ async function pedir(id: string, fichero: string): Promise<unknown> {
       `el mundo "${id}" no se puede cargar: no está ${fichero}.json en assets/mundos/${id}/${fichero === 'historia' ? ' (la escribe el motor)' : ''}`,
     );
   }
-  return r.json();
+  const texto = await r.text();
+  try {
+    return JSON.parse(texto);
+  } catch (err) {
+    throw new Error(`el mundo "${id}" no se puede cargar: ${noEsJson(fichero, err)}`);
+  }
 }
 
 let pedido: MundoLeido | null = null;

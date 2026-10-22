@@ -58,6 +58,16 @@ export function parseMundo(texto: string | null | undefined): string | null {
   return texto;
 }
 
+/**
+ * Por qué un fichero del mundo no se lee: no es JSON, con lo que dice el parser.
+ * **La única frase**: la dicen `pnpm mundo validar` (`tools/mundo/disco.ts`) y la
+ * página (`client/mundo/cargar.ts`), que antes enseñaba solo el error del parser,
+ * sin decir qué fichero (H5 del QA de la F1a).
+ */
+export function noEsJson(fichero: string, err: unknown): string {
+  return `${fichero}.json: no es JSON: ${err instanceof Error ? err.message : String(err)}`;
+}
+
 /** La forma de los ids de dentro de una historia (lugares, puntos, nodos, marcas…): la de una pieza. */
 export function esIdDeHistoria(id: string): boolean {
   return id.length <= LARGO_DE_UN_ID && esIdDePieza(id);
@@ -353,6 +363,33 @@ export function lugarDe(historia: Historia, id: string): Lugar {
 /** El nombre de un punto para la persona: el de su persona o el de su cosa. */
 export function nombreDelPunto(p: Punto): string {
   return p.persona?.nombre ?? p.cosa?.nombre ?? p.id;
+}
+
+/** Lo que no distingue un nombre de otro al principio: artículos y «de». */
+const SIN_SIGNIFICADO = new Set([
+  'el',
+  'la',
+  'los',
+  'las',
+  'lo',
+  'un',
+  'una',
+  'unos',
+  'unas',
+  'del',
+  'de',
+]);
+
+/**
+ * La inicial de un nombre que lo distingue de otros: la de su primera palabra que
+ * no es un artículo («O» de «El osario», «E» de «La ermita»), en mayúscula; `''` si
+ * no tiene ninguna. La leen el rombo del mapa y el mojón de una cosa: con la del
+ * artículo, «El osario» y «El campamento» llevaban la misma «E» (H4 del QA de la F1a).
+ */
+export function inicialDelNombre(nombre: string): string {
+  const palabras = nombre.match(/[\p{L}\p{N}]+/gu) ?? [];
+  const buena = palabras.find((w) => !SIN_SIGNIFICADO.has(w.toLowerCase()));
+  return buena === undefined ? '' : (buena[0] as string).toUpperCase();
 }
 
 /** Los efectos de una lista que son de esa clave, ya estrechados. */
