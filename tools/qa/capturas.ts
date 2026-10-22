@@ -1191,7 +1191,7 @@ async function abrir(
     await page.route(p.sinImagenes, (r) => r.fulfill({ status: 404, body: '' }));
   }
   const espejo = new Session(p.semilla);
-  await page.goto(partidaEn(url, `seed=${p.semilla}`), { waitUntil: 'networkidle' });
+  await page.goto(`${url}/?seed=${p.semilla}`, { waitUntil: 'networkidle' });
   await salirDeLaBase(page, p.nombre);
   if (p.sinSuelo !== true) await esperarElSuelo(page, p.nombre, 60_000, log);
   await sleep(450);
@@ -1228,7 +1228,14 @@ async function estadoDelArranque(page: Page): Promise<{
       escena: app.dataset.escena ?? null,
       escenario: app.dataset.escenario ?? null,
       tema: document.documentElement.dataset.tema ?? null,
-      search: location.search,
+      // Sin el `clima=despejado` que pone el arnés (`conElClimaDespejado`): lo
+      // que se mira es lo que escribe la página.
+      search: ((): string => {
+        const p = new URLSearchParams(location.search);
+        p.delete('clima');
+        const q = p.toString();
+        return q === '' ? '' : `?${q}`;
+      })(),
       foco:
         foco?.getAttribute('data-inicio') ??
         (foco instanceof HTMLInputElement ? `${foco.name}:${foco.value}` : null),
@@ -2343,7 +2350,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   const semilla = await semillaDelMovil(browser, url, problemas);
   const medida = await cajaDeMovil(browser, url, problemas);
   const espejo = new Session(semilla);
-  await page.goto(partidaEn(url, `seed=${semilla}`), { waitUntil: 'networkidle' });
+  await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
   await salirDeLaBase(page, 'táctil', 'toque');
   await esperarElSuelo(page, 'táctil', 60_000, log);
   await sleep(450);
@@ -2420,7 +2427,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
 
   // A la batalla de la semilla, desde el principio otra vez (el héroe ya ha
   // andado), con dos toques: el primero enseña, el segundo va.
-  await page.goto(partidaEn(url, `seed=${semilla}`), { waitUntil: 'networkidle' });
+  await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
   await salirDeLaBase(page, 'táctil, otra vez', 'toque');
   await sleep(450);
   const otra = new Session(semilla);
@@ -3204,7 +3211,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     );
     const p = await contexto.newPage();
     vigilarConsola(p, v.nombre, problemas);
-    await p.goto(partidaEn(url, `seed=${semilla}`), { waitUntil: 'networkidle' });
+    await p.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
     await salirDeLaBase(p, v.nombre, v.movil ? 'toque' : 'clic');
     const boton = p.locator('#side [data-action="abrir-tropa"]');
     if (v.movil) await boton.tap();
@@ -3234,7 +3241,7 @@ async function escenaDeLaMorada(
   const b = await caja(page);
   const escena = new EscenaMorada(
     () => espejo,
-    () => {},
+    () => null,
   );
   const densidad = await densidadDe(page);
   escena.encuadrar(b.width, b.height, densidad);
@@ -3395,9 +3402,7 @@ async function moradaEnEscena(browser: Browser, url: string, problemas: Problema
       vigilarConsola(page, nombre, problemas);
       const espejo = new Session(semilla, faccion);
       espejo.abrirSuBase();
-      await page.goto(partidaEn(url, `seed=${semilla}&faccion=${faccion}`), {
-        waitUntil: 'networkidle',
-      });
+      await page.goto(`${url}/?seed=${semilla}&faccion=${faccion}`, { waitUntil: 'networkidle' });
       await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
       await esperarLaBase(page, 'quieto');
       const d = disposicionDe(faccion);
@@ -3473,9 +3478,7 @@ async function baseAVariosAnchos(
     vigilarConsola(page, nombre, problemas);
     const espejo = new Session(semilla, 'templarios');
     espejo.abrirSuBase();
-    await page.goto(partidaEn(url, `seed=${semilla}&faccion=templarios`), {
-      waitUntil: 'networkidle',
-    });
+    await page.goto(`${url}/?seed=${semilla}&faccion=templarios`, { waitUntil: 'networkidle' });
     await page.waitForSelector('#app[data-escena="town"]', { timeout: 30_000 });
     await esperarLaBase(page, 'quieto');
     // El arte de la base, ya llegado: la captura es para mirarla.
@@ -4795,17 +4798,6 @@ async function esperarBarra(
         `${que}: la barra debía decir «${texto}» y dice «${await page.locator('#status').innerText()}»`,
       );
     });
-}
-
-/**
- * La dirección de una partida con `query`, siempre con el clima despejado
- * (`?clima=despejado`): el clima de la semilla anima el lienzo (la lluvia, la
- * niebla que va a la deriva) y las medidas de píxeles de esta orden —la barra
- * de vida, la huella del lienzo— se escribieron sin él. El único sitio donde se
- * arma: el menú de inicio no lo lleva, porque compara la URL entera.
- */
-function partidaEn(url: string, query: string): string {
-  return `${url}/?${query}&clima=despejado`;
 }
 
 /** La arena con `query` (`?seed=…`), con la lista de unidades ya pintada. */
@@ -7676,6 +7668,40 @@ function registrarLasHojasDelEspejo(): void {
   }
 }
 
+/**
+ * El clima, despejado en toda página de esta orden: el de la semilla anima el
+ * lienzo (la lluvia, la niebla a la deriva, un rayo) y las medidas de píxeles de
+ * aquí —la barra de vida, la huella del lienzo, los colores del aro— se
+ * escribieron sin él. Se decide **una vez**, aquí: toda página que se abra por
+ * este navegador va a la partida o al espectador con `clima=despejado` (si no
+ * pide otro), también el menú de inicio, que lo conserva al empezar
+ * (`estadoDelArranque` no lo cuenta como algo que escribió la página). La arena
+ * ya pelea en despejado sin él. El clima lo mira `tools/qa/clima.ts`.
+ */
+function conElClimaDespejado(browser: Browser): Browser {
+  const despejada = (destino: string): string => {
+    const u = new URL(destino);
+    const esDelJuego = u.pathname === '/' || u.pathname.startsWith('/espectador');
+    if (esDelJuego && !u.searchParams.has('clima')) u.searchParams.set('clima', 'despejado');
+    return u.toString();
+  };
+  const conLaPagina = (page: Page): Page => {
+    const ir = page.goto.bind(page);
+    page.goto = (destino, opciones) => ir(despejada(destino), opciones);
+    return page;
+  };
+  const nuevaPagina = browser.newPage.bind(browser);
+  browser.newPage = async (opciones) => conLaPagina(await nuevaPagina(opciones));
+  const nuevoContexto = browser.newContext.bind(browser);
+  browser.newContext = async (opciones) => {
+    const contexto = await nuevoContexto(opciones);
+    const nueva = contexto.newPage.bind(contexto);
+    contexto.newPage = async () => conLaPagina(await nueva());
+    return contexto;
+  };
+  return browser;
+}
+
 async function main(): Promise<void> {
   // Antes de arrancar nada: un nombre mal escrito no merece un vite.
   const pasadas = pasadasPedidas();
@@ -7695,7 +7721,9 @@ async function main(): Promise<void> {
     vite = arrancado.proceso;
     log(`vite en ${arrancado.url} (grupo ${vite.pid})`);
     const ejecutable = chromiumInstalado(log);
-    browser = await chromium.launch(ejecutable === undefined ? {} : { executablePath: ejecutable });
+    browser = conElClimaDespejado(
+      await chromium.launch(ejecutable === undefined ? {} : { executablePath: ejecutable }),
+    );
     for (const [nombre, pasada] of pasadas) {
       log(`pasada «${nombre}»`);
       await pasada(browser, arrancado.url, problemas);

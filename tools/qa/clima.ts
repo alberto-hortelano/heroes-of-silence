@@ -2,7 +2,12 @@
  * El clima en pantalla, con un Chromium de verdad: capturas de cada clima en los
  * tres escenarios, la niebla de guerra intacta, el movimiento reducido y los fps.
  *
- *     npx tsx tools/qa/clima.ts [carpeta] [--sin-fps] [--solo-fps] [--escenas=mapa,…] [--climas=a;b] [--solo-espectador]
+ *     npx tsx tools/qa/clima.ts [carpeta] [--sin-fps] [--solo-fps] [--escenas=mapa,…] [--climas=a;b] [--solo-espectador] [--solo-rayo]
+ *
+ * Los modos abaratan repetir una parte (la máquina es compartida): `--sin-fps`,
+ * todo menos los fps; `--solo-fps`, solo los fps, y con `--escenas=` (de
+ * `mapa`, `batalla`, `base` y `mapa 4K`) y `--climas=` (separados por `;`) solo
+ * esas; `--solo-espectador` y `--solo-rayo`, solo esa prueba. El cierre, entero.
  *
  * Arranca su propio vite (`vite-propio.ts`) y deja los PNG en `carpeta` (por
  * defecto `.cache/clima/`):
@@ -27,11 +32,13 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import sharp from 'sharp';
 import WebSocket from 'ws';
+import { FONDO_INEXPLORADO } from '../../src/client/render/minimapa.js';
 import type {
   AgentHelloMsg,
   AgentResponseMsg,
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
+import { mediana } from './estadistica.js';
 import { entornoDelArnes } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
@@ -131,11 +138,14 @@ async function pixeles(png: Buffer): Promise<{ data: Buffer; w: number; h: numbe
   return { data, w: info.width, h: info.height };
 }
 
-/** Los índices de los píxeles que son lo inexplorado (`#080a10`) exacto. */
+const [NEGRO_R, NEGRO_G, NEGRO_B] = FONDO_INEXPLORADO;
+
+/** Los índices de los píxeles que son lo inexplorado (`FONDO_INEXPLORADO`, `#080a10`) exacto. */
 function inexplorados(img: { data: Buffer }): number[] {
   const out: number[] = [];
   for (let i = 0; i < img.data.length; i += 4) {
-    if (img.data[i] === 8 && img.data[i + 1] === 10 && img.data[i + 2] === 16) out.push(i);
+    if (img.data[i] === NEGRO_R && img.data[i + 1] === NEGRO_G && img.data[i + 2] === NEGRO_B)
+      out.push(i);
   }
   return out;
 }
@@ -188,9 +198,9 @@ async function capturas(browser: Browser, url: string): Promise<void> {
       let mayor = 0;
       for (const i of negroDelDespejado) {
         const d = Math.max(
-          Math.abs((mapa.data[i] ?? 0) - 8),
-          Math.abs((mapa.data[i + 1] ?? 0) - 10),
-          Math.abs((mapa.data[i + 2] ?? 0) - 16),
+          Math.abs((mapa.data[i] ?? 0) - NEGRO_R),
+          Math.abs((mapa.data[i + 1] ?? 0) - NEGRO_G),
+          Math.abs((mapa.data[i + 2] ?? 0) - NEGRO_B),
         );
         if (d === 0) exactos++;
         if (d > ASOMA) seVen++;
@@ -463,12 +473,6 @@ async function fpsQuieto(page: Page): Promise<Medida[]> {
   for (let v = 0; v < 3; v++) medidas.push(await ventana(page, 1500));
   return medidas;
 }
-
-const mediana = (xs: readonly number[]): number => {
-  const o = [...xs].sort((a, b) => a - b);
-  const m = Math.floor(o.length / 2);
-  return o.length % 2 === 1 ? (o[m] as number) : ((o[m - 1] as number) + (o[m] as number)) / 2;
-};
 
 async function fps(browser: Browser, url: string): Promise<void> {
   const fecha = new Date().toISOString().slice(0, 10);
