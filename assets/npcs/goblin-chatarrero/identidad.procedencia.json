@@ -1,0 +1,45 @@
+{
+  "encargo": "npc-goblin-chatarrero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-22T19:01:28.381Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a164fc-4f51-7871-baae-e9a80ad0518a",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn goblin chatarrero: pequeño, flaco y astuto, piel verde amarillenta, orejas enormes y nariz larga, gafas de latón sobre la frente, chaleco de remiendos lleno de bolsillos, mandil de cuero quemado, una llave inglesa tosca al cinto y trastos de hierro colgando de una cuerda.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, en la primera pose de reposo de la referencia de pose (de pie o montado, como esté el maniquí).\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/identidad.png",
+      "papel": "pose",
+      "sha256": "55923958c1a31c5f1078b7a1a4589fcee8471d288f4256da920fe5760e02bf29"
+    },
+    {
+      "ruta": "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "papel": "estilo",
+      "sha256": "cd64488118da9d64d21496454e5a924b3715dcd0b0bae3baec82912d1e894e63"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a164fc-4f51-7871-baae-e9a80ad0518a/exec-f8bb1466-9c7d-4cfc-b02d-84329f71c278.png",
+    "sha256": "44390fbbebf0eb81efbd1fd2f57c67094fbc3783c2e8c874d70207c25b9303ff",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.47896134352802083,
+    "opacos": 0.9836788097670858,
+    "haloSuelto": 0.000060698641362077515,
+    "ancho": 531,
+    "alto": 1166
+  },
+  "salida": {
+    "ruta": "assets/npcs/goblin-chatarrero/identidad.webp",
+    "sha256": "281cfa4acc8ab8f48c7e989cf766001e92bd5713ca7b9f85e2efc2633b7fa1d1"
+  }
+}

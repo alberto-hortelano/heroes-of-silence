@@ -1,0 +1,58 @@
+{
+  "encargo": "npc-elfo-consejero-anciano-d7-a",
+  "tipo": "atlas",
+  "fecha": "2026-10-22T18:48:05.031Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a164ef-f279-7bc3-a017-c5c116a6682f",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn anciano consejero elfo de un claro del bosque: alto y delgado, orejas largas, pelo plateado muy largo y liso, diadema fina de plata con una hoja, túnica larga verde oscuro bordada con hojas doradas, manto pardo, cinturón de cuero trenzado y un cayado de madera blanca.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/d7-a.profundidad.png",
+      "papel": "pose-profundidad",
+      "sha256": "c4b6b31db9fcac459099a1cc567e4d029054c5e1b9020dbd1811440a44e3799f"
+    },
+    {
+      "ruta": "assets/npcs/elfo-consejero-anciano/giro.webp",
+      "papel": "identidad",
+      "sha256": "8925a6b8da5633dec751c13225504b05411d4e2333370a5a275b75e2ae07f68a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a164ef-f279-7bc3-a017-c5c116a6682f/exec-10699a19-2059-4087-8e48-7ed9616ee0d5.png",
+    "sha256": "12938589f5d559a2c85c1679b1624622365d79ca3e91a061e797088051c48242",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7233, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/npcs/elfo-consejero-anciano/d7/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.05281833870701058,
+    "opacos": 0.959646848785737,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      192,
+      286
+    ],
+    "posicion": false
+  },
+  "salida": {
+    "ruta": "assets/npcs/elfo-consejero-anciano/d7/hoja-a.webp",
+    "sha256": "f4b21ae475d6db259384736d0b74e9ec9949b75cbcb1e353a362cf8aa0514280"
+  }
+}
