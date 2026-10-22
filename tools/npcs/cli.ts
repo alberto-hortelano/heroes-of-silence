@@ -16,7 +16,9 @@
  *       borra el arte de una figura mala y la vuelve a encolar desde la identidad
  *   pnpm npcs trabajar
  *       el trabajador del taller, solo con los encargos de NPC (Codex por la
- *       suscripción); acaba al vaciarlos
+ *       suscripción); antes rescata lo que se quedó a medias (lo que falta y lo
+ *       fallido con reintentos; un encargo que falla se reintenta solo dos veces) y
+ *       acaba al vaciarlos
  *
  * Nada gasta dinero: el taller pinta con Codex por la suscripción, nunca con fal.ai.
  */
@@ -28,7 +30,7 @@ import { personasDeLaFaccion } from '../../src/core/town/voces.js';
 import { FACTION_IDS } from '../../src/core/types.js';
 import { bandera } from '../argumentos.js';
 import { colaDelTaller } from '../taller/cola.js';
-import { encolarLoQueSigue, esEncargoDeNpc, prefijoDeLaFigura } from '../taller/npcs.js';
+import { encolarLoQueSigue, rescatar } from '../taller/npcs.js';
 import {
   aceptarPeticiones,
   carpetasSinFigura,
@@ -37,6 +39,7 @@ import {
   leerBancoDeDisco,
   RAIZ,
 } from './banco.js';
+import { esEncargoDeNpc, fotoDelTaller, prefijoDeLaFigura } from './en-el-taller.js';
 
 async function estado(): Promise<void> {
   const banco = leerBancoDeDisco();
@@ -44,9 +47,10 @@ async function estado(): Promise<void> {
   const deNpc = Object.fromEntries(
     Object.entries(cola).map(([e, ids]) => [e, ids.filter(esEncargoDeNpc)]),
   ) as typeof cola;
-  // Cada figura, una vez: lo leen su línea y la cuenta de su facción.
+  // Cada figura, una vez y con una foto de la cola: lo leen su línea y la cuenta de su facción.
+  const taller = fotoDelTaller(RAIZ);
   const estados = new Map<string, EstadoDeFigura>(
-    banco.figuras.map((f) => [f.id, estadoDeFigura(f.id)]),
+    banco.figuras.map((f) => [f.id, estadoDeFigura(f.id, RAIZ, taller)]),
   );
   for (const f of banco.figuras) {
     const e = estados.get(f.id) as EstadoDeFigura;
@@ -58,7 +62,7 @@ async function estado(): Promise<void> {
       .map(([k, n]) => `${k} ${n}`)
       .join(', ');
     console.log(
-      `${f.id.padEnd(30)} ${f.etiquetas.faccion.padEnd(10)} ${e.estado}${e.estado === 'a-medias' ? ` (${e.motivo})` : ''}${cuentas === '' ? '' : ` · cola: ${cuentas}`}`,
+      `${f.id.padEnd(30)} ${f.etiquetas.faccion.padEnd(10)} ${e.estado}${e.estado === 'pintada' ? '' : ` (${e.motivo})`}${cuentas === '' ? '' : ` · cola: ${cuentas}`}`,
     );
   }
   for (const [k, ids] of Object.entries(deNpc))
@@ -129,8 +133,22 @@ async function rehacer(id: string | undefined): Promise<void> {
 /**
  * El trabajador del taller con `--npcs`: el mismo proceso de `pnpm taller`, que
  * arranca su cola al importarse, así que va en un hijo con el mismo `tsx`.
+ *
+ * Antes, **rescata** lo que se quedó a medias de toda figura sin pintar que no tiene
+ * nada pendiente ni en curso (`rescatar`): lo que falta se encola y lo fallido se
+ * reintenta mientras le queden reintentos. Así lo recoge un reinicio, o el trabajador
+ * que lanza un mundo nuevo (`lanzarElTaller`), sin que nadie lo pida (QA del banco de
+ * NPC, H2, 22-10-2026).
  */
-function trabajar(): number {
+async function trabajar(): Promise<number> {
+  for (const f of leerBancoDeDisco().figuras) {
+    const { encolados, agotados } = await rescatar(f, RAIZ);
+    if (encolados.length > 0) console.log(`${f.id}: se rescata ${encolados.join(' ')}`);
+    if (agotados.length > 0)
+      console.log(
+        `${f.id}: ${agotados.join(' ')} agotó sus reintentos y sigue en fallido/: se reintenta con \`pnpm npcs encolar ${f.id}\``,
+      );
+  }
   const r = spawnSync(
     process.execPath,
     [...process.execArgv, join(RAIZ, 'tools/taller/trabajador.ts'), 'trabajar', '--npcs'],
@@ -156,7 +174,7 @@ async function main(argv: readonly string[]): Promise<number> {
       await rehacer(resto[0]);
       return 0;
     case 'trabajar':
-      return trabajar();
+      return await trabajar();
     default:
       console.error(
         `orden ${orden === undefined ? 'que falta' : `desconocida «${orden}»`}: estado, pedir, encolar, rehacer o trabajar (mira tools/npcs/cli.ts)`,

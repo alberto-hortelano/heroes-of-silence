@@ -4,8 +4,10 @@
  * la validación son del núcleo (`src/core/npcs.ts`); aquí, el fichero y el arte.
  *
  * Si una figura está pintada **no se escribe**: se deriva de si sus ocho
- * `dN/atlas.json` están en `assets/npcs/<id>/` (`estadoDeFigura`). Una pedida que
- * no tiene cola (pedida en otro clon, o la cola se borró) se vuelve a encolar con
+ * `dN/atlas.json` están en `assets/npcs/<id>/` (`estadoDeFigura`), y la que no lo está
+ * dice qué hace con ella el taller, de su cola en disco (`fotoDelTaller`): si la está
+ * pintando o si se quedó a medias y con qué orden se arregla. Una pedida que no tiene
+ * cola (pedida en otro clon, o la cola se borró) se vuelve a encolar con
  * `pnpm npcs encolar`.
  *
  * Lo lee también `pnpm dev` para servir `/__npcs` (`vite.config.ts`), así que el
@@ -30,14 +32,19 @@ import {
   type CarpetaDeArte,
   direccionesDe,
 } from '../taller/arte-en-disco.js';
+import { type EnElTaller, fotoDelTaller, fraseDelTaller } from './en-el-taller.js';
 
 export const RAIZ = resolve(import.meta.dirname, '../..');
 
-/** El arte del banco en disco, figura a figura: lo que pinta el taller dirección a dirección. */
-export const ARTE_DEL_BANCO: CarpetaDeArte = {
-  dir: CARPETA_DE_LAS_FIGURAS,
-  aMedias: 'el taller la está pintando',
-};
+/**
+ * El arte de la figura `id` en disco, con lo que se dice si está a medias: lo que hace el
+ * taller con ella (`fraseDelTaller`). «El taller la está pintando» solo si algo suyo
+ * está pendiente o en curso: con una hoja fallida y nada vivo, eso era mentira y quien
+ * lo leía no sabía que tenía que intervenir (QA del banco de NPC, H2, 22-10-2026).
+ */
+function arteDeLaFigura(id: string, taller: (id: string) => EnElTaller): CarpetaDeArte {
+  return { dir: CARPETA_DE_LAS_FIGURAS, aMedias: fraseDelTaller(id, taller(id)) };
+}
 
 /** El `_comment` del fichero si no trae uno: el que trae se conserva al escribir. */
 const COMENTARIO =
@@ -55,22 +62,31 @@ export function leerBancoDeDisco(raiz = RAIZ): Banco {
   return leerBanco(crudoDelBanco(raiz));
 }
 
-/** Cuánto arte tiene una figura en disco. */
+/** Cuánto arte tiene una figura en disco y, sin todo, qué hace con ella el taller. */
 export type EstadoDeFigura =
-  | { readonly estado: 'pendiente' }
+  | { readonly estado: 'pendiente'; readonly motivo: string }
   | { readonly estado: 'a-medias'; readonly motivo: string }
   | { readonly estado: 'pintada' };
 
+/** Lo que se dice de una figura pedida sin ninguna dirección pintada. */
+const sinPintar = (id: string, taller: (id: string) => EnElTaller): string =>
+  `${id} está pedida y sin pintar: ${fraseDelTaller(id, taller(id))}`;
+
 /**
  * Cuánto arte tiene la figura `id` (`arteEnOchoDirecciones`): sus ocho
- * `dN/atlas.json` y `atlas.webp` (pintada), ninguno (pendiente: pedida y en el
- * taller) o algunos (a medias, con el motivo: el taller va dirección a dirección).
+ * `dN/atlas.json` y `atlas.webp` (pintada), ninguno (pendiente) o algunos (a medias:
+ * el taller va dirección a dirección), las dos con el motivo, que dice si el taller la
+ * está pintando o se quedó parada (`taller`, una foto de la cola: `fotoDelTaller`).
  * Solo mira si están: sus JSON los lee lo que se sirve (`loQueSeSirve`).
  */
-export function estadoDeFigura(id: string, raiz = RAIZ): EstadoDeFigura {
-  const arte = arteEnOchoDirecciones(raiz, id, ARTE_DEL_BANCO);
+export function estadoDeFigura(
+  id: string,
+  raiz = RAIZ,
+  taller: (id: string) => EnElTaller = fotoDelTaller(raiz),
+): EstadoDeFigura {
+  const arte = arteEnOchoDirecciones(raiz, id, arteDeLaFigura(id, taller));
   if (arte.hecho === 'entero') return { estado: 'pintada' };
-  if (arte.hecho === 'ninguno') return { estado: 'pendiente' };
+  if (arte.hecho === 'ninguno') return { estado: 'pendiente', motivo: sinPintar(id, taller) };
   return { estado: 'a-medias', motivo: arte.motivo };
 }
 
@@ -92,12 +108,13 @@ export function loQueSeSirve(raiz = RAIZ): {
 } {
   const crudo = crudoDelBanco(raiz);
   const banco = leerBanco(crudo);
+  const taller = fotoDelTaller(raiz);
   const hojas: Record<string, HojaDeNpc> = {};
   for (const f of banco.figuras) {
-    const h = direccionesDe(raiz, f.id, ARTE_DEL_BANCO);
+    const h = direccionesDe(raiz, f.id, arteDeLaFigura(f.id, taller));
     hojas[f.id] =
       h.direcciones === null && h.incompleta === null
-        ? { direcciones: null, incompleta: `${f.id} está pedida y sin pintar` }
+        ? { direcciones: null, incompleta: sinPintar(f.id, taller) }
         : h;
   }
   return { banco: crudo, hojas };

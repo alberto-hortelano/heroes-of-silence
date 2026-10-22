@@ -25,6 +25,7 @@ import {
   hojasDeLasAcciones,
   NOMBRES_DE_DIRECCION,
 } from '../../src/shared/arte.js';
+import { prefijoDeLaFigura, quedanReintentos } from '../npcs/en-el-taller.js';
 import { colaDelTaller } from './cola.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DE_FACCION } from './unidades.js';
@@ -41,12 +42,6 @@ export const POSE_DE_LA_IDENTIDAD = `${DIR_DEL_MANIQUI_CIVIL}/identidad.png`;
 
 /** La carpeta de una figura del banco, relativa a la raíz. */
 export const carpetaDeNpc = (id: string): string => `${CARPETA_DE_LAS_FIGURAS}/${id}`;
-
-/** Los encargos de NPC llevan este prefijo: `pnpm npcs trabajar` toma solo esos. */
-export const PREFIJO_DE_NPC = 'npc-';
-export const esEncargoDeNpc = (id: string): boolean => id.startsWith(PREFIJO_DE_NPC);
-/** El principio del id de todo encargo de la figura `id`: `npc-<id>-…`. */
-export const prefijoDeLaFigura = (id: string): string => `${PREFIJO_DE_NPC}${id}-`;
 
 /** Lo que se le dice al pintor de toda figura del banco, además de su descripción. */
 const DE_LA_GENTE =
@@ -165,4 +160,42 @@ export async function encolarLoQueSigue(
     encolados.push((await cola.encolar(e)).id);
   }
   return encolados;
+}
+
+/**
+ * Rescata una figura que se quedó a medias (QA del banco de NPC, H2, 22-10-2026): si no
+ * tiene nada pendiente ni en curso, encola lo que le falte (`encargosQueSiguen`). Lo
+ * fallido se reintenta **llevando la cuenta** (`Cola.reintentar`) mientras le queden
+ * reintentos (`quedanReintentos`), y lo que los agotó se queda en `fallido/` y se
+ * devuelve en `agotados`: eso ya lo arregla una persona, con `pnpm npcs encolar`. Lo
+ * hecho cuya imagen no está se olvida y se pide otra vez, como con `repescar`.
+ *
+ * Lo llama `pnpm npcs trabajar` al arrancar, para toda figura del banco: así un reinicio,
+ * o el trabajador que lanza un mundo nuevo (`lanzarElTaller`), recogen lo que se quedó a
+ * medias sin que nadie lo pida.
+ */
+export async function rescatar(
+  f: FiguraDeNpc,
+  raiz: string,
+): Promise<{ readonly encolados: readonly string[]; readonly agotados: readonly string[] }> {
+  const cola = colaDelTaller(raiz);
+  await cola.preparar();
+  const estado = await cola.estado();
+  const suyo = (i: string): boolean => i.startsWith(prefijoDeLaFigura(f.id));
+  if ([...estado.pendiente, ...estado['en-curso']].some(suyo))
+    return { encolados: [], agotados: [] };
+  const encolados: string[] = [];
+  const agotados: string[] = [];
+  for (const e of encargosQueSiguen(f, raiz)) {
+    if (estado.fallido.includes(e.id)) {
+      if (quedanReintentos(await cola.leer('fallido', e.id))) {
+        await cola.reintentar(e.id);
+        encolados.push(e.id);
+      } else agotados.push(e.id);
+      continue;
+    }
+    if (estado.hecho.includes(e.id)) await cola.olvidar(e.id);
+    encolados.push((await cola.encolar(e)).id);
+  }
+  return { encolados, agotados };
 }

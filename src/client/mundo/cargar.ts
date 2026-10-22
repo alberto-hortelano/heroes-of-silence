@@ -8,8 +8,8 @@
  */
 import { type MundoLeido, noEsJson, parseMundo } from '@core/mundo/formato.js';
 import { leerMundo } from '@core/mundo/validar.js';
-import type { BancoPintado } from '@core/npcs.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import type { GenteCargada } from '../render/gente.js';
 import { pide } from '../semilla.js';
 
 /** Lo que trae un mundo y no puede ir con él en la URL: lo fija el mundo. */
@@ -54,21 +54,31 @@ let pedido: MundoLeido | null = null;
 /**
  * Carga y valida el mundo que pide la URL, si pide alguno. Lanza con todos sus
  * problemas. Las figuras que nombra se miran contra el banco de NPC (`gente`), que
- * se carga a la vez que sus ficheros (`entrada.ts`).
+ * se carga a la vez que sus ficheros (`entrada.ts`); sin él, lanza diciendo que no se
+ * cargó el banco, y por qué (`sinBanco`), no que el mundo nombre figuras que no existen.
  */
 export async function cargarElMundoPedido(
   search: string,
-  gente: Promise<BancoPintado>,
+  gente: Promise<GenteCargada>,
 ): Promise<void> {
   const id = mundoDeLaUrl(search);
   if (id === null) return;
-  const [mundo, plan, historia, { banco }] = await Promise.all([
+  const [mundo, plan, historia, { banco, sinBanco }] = await Promise.all([
     pedir(id, 'mundo'),
     pedir(id, 'plan'),
     pedir(id, 'historia'),
     gente,
   ]);
+  if (sinBanco !== null) throw new Error(mundoSinBanco(id, sinBanco));
   pedido = leerMundo({ mundo, plan, historia }, id, banco);
+}
+
+/**
+ * Por qué no se juega un mundo sin el banco de figuras de NPC: sus personas nombran
+ * figuras del banco y se validan contra él. Sin `?mundo=`, la partida sí se juega.
+ */
+export function mundoSinBanco(id: string, motivo: string): string {
+  return `el mundo "${id}" no se puede jugar: no se pudo cargar el banco de figuras de NPC (${motivo}), y las personas del mundo llevan figuras de ese banco. Sin «?mundo=» la partida se juega, con la gente en el Y Bot`;
 }
 
 /** El mundo cargado por `cargarElMundoPedido`, o `null` si la URL no pedía ninguno. */

@@ -14,11 +14,18 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import type { FiguraDeNpc } from '../src/core/npcs.js';
 import { HOJAS_DE_FIGURA } from '../src/shared/arte.js';
+import { estadoDeFigura, loQueSeSirve } from '../tools/npcs/banco.js';
+import {
+  esEncargoDeNpc,
+  fotoDelTaller,
+  REINTENTOS_DE_NPC,
+  reintentarSiQueda,
+} from '../tools/npcs/en-el-taller.js';
 import { colaDelTaller } from '../tools/taller/cola.js';
 import { derivarAtlas } from '../tools/taller/derivar.js';
 import { encargoSchema } from '../tools/taller/encargo.js';
 import { juntarDireccion } from '../tools/taller/juntar.js';
-import { encargosQueSiguen, encolarLoQueSigue, esEncargoDeNpc } from '../tools/taller/npcs.js';
+import { encargosQueSiguen, encolarLoQueSigue, rescatar } from '../tools/taller/npcs.js';
 import { FIGURA_DE_PRUEBA, raizDeNpcs } from './helpers.js';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -199,5 +206,147 @@ describe('una figura de solo reposo y marcha', () => {
     const dir = join(r, 'assets/npcs/nadie/d0');
     await mkdir(dir, { recursive: true });
     await expect(juntarDireccion(dir)).rejects.toThrow(/"nadie" no es una figura del banco de NPC/);
+  });
+});
+
+/** Toma `id` y lo cierra fallido con `motivo`, como el trabajador cuando una hoja no pasa. */
+async function fallar(
+  r: string,
+  id: string,
+  motivo = 'la imagen está casi vacía tras el recorte',
+): Promise<void> {
+  const cola = colaDelTaller(r);
+  expect((await cola.tomar(id))?.id).toBe(id);
+  await cola.cerrar(id, 'fallido', { cuando: 'ahora', motivo });
+}
+
+/** Una figura con la identidad y el giro en disco, y las hojas de `d` del 0 al 6: le falta d7. */
+async function aMediasSinD7(r: string): Promise<void> {
+  for (const f of ['identidad.webp', 'giro.webp'])
+    await tocar(r, `assets/npcs/vecina-de-prueba/${f}`);
+  for (let d = 0; d < 7; d++) {
+    await tocar(r, `assets/npcs/vecina-de-prueba/d${d}/hoja-a.webp`);
+    await tocar(r, `assets/npcs/vecina-de-prueba/d${d}/atlas.json`);
+    await tocar(r, `assets/npcs/vecina-de-prueba/d${d}/atlas.webp`);
+  }
+}
+
+describe('una figura no se queda a medias para siempre (QA del banco de NPC, H2)', () => {
+  const D7 = 'npc-vecina-de-prueba-d7-a';
+
+  it('un encargo de NPC que falla se reintenta solo dos veces, con la cuenta en su ficha', async () => {
+    const r = await raiz();
+    await aMediasSinD7(r);
+    const cola = colaDelTaller(r);
+    expect(await encolarLoQueSigue(VECINA, r)).toEqual([D7]);
+    expect(REINTENTOS_DE_NPC).toBe(2);
+    for (const vez of [1, 2]) {
+      await fallar(r, D7, `fallo ${vez}`);
+      expect(await reintentarSiQueda(cola, D7)).toBe(vez);
+      expect((await cola.estado()).pendiente).toEqual([D7]);
+      // La cuenta va en el disco: la ficha pendiente lleva los fallos de antes.
+      expect((await cola.leer('pendiente', D7)).fallos?.map((f) => f.motivo)).toEqual(
+        Array.from({ length: vez }, (_, i) => `fallo ${i + 1}`),
+      );
+    }
+    await fallar(r, D7, 'fallo 3');
+    expect(await reintentarSiQueda(cola, D7)).toBeNull();
+    expect((await cola.estado()).fallido).toEqual([D7]);
+    // Sin cuota no es un fallo: devolverlo desde en curso conserva la cuenta.
+    await cola.reintentar(D7);
+    await cola.tomar(D7);
+    await cola.devolver(D7, 'en-curso');
+    expect((await cola.leer('pendiente', D7)).fallos).toHaveLength(3);
+  });
+
+  it('lo que no es de NPC no se reintenta solo', async () => {
+    const r = await raiz();
+    const cola = colaDelTaller(r);
+    await cola.encolar({
+      id: 'aaa-ajeno',
+      tipo: 'imagen',
+      descripcion: 'Un encargo que no es de NPC y que falla.',
+      referencias: [],
+      salida: 'assets/mapa/ajeno',
+    });
+    await fallar(r, 'aaa-ajeno');
+    expect(await reintentarSiQueda(cola, 'aaa-ajeno')).toBeNull();
+    expect((await cola.estado()).fallido).toEqual(['aaa-ajeno']);
+  });
+
+  it('«pnpm npcs trabajar» rescata lo fallido con reintentos y lo que falta, y no toca lo vivo', async () => {
+    const r = await raiz();
+    await aMediasSinD7(r);
+    const cola = colaDelTaller(r);
+    // Lo que falló con el código de antes (sin cuenta): le quedan sus dos reintentos.
+    await encolarLoQueSigue(VECINA, r);
+    await fallar(r, D7);
+    expect(await rescatar(VECINA, r)).toEqual({ encolados: [D7], agotados: [] });
+    expect((await cola.leer('pendiente', D7)).fallos).toHaveLength(1);
+    // Con algo suyo vivo, nada: lo lleva un trabajador.
+    expect(await rescatar(VECINA, r)).toEqual({ encolados: [], agotados: [] });
+    // Agotado: se queda fallido y se dice.
+    await fallar(r, D7);
+    await cola.reintentar(D7);
+    await fallar(r, D7);
+    expect(await rescatar(VECINA, r)).toEqual({ encolados: [], agotados: [D7] });
+    expect((await cola.estado()).fallido).toEqual([D7]);
+    // Una figura sin nada en la cola (pedida en otro clon): se encola lo que le falta.
+    expect(await rescatar(ENTERA, r)).toEqual({
+      encolados: ['npc-guardia-de-prueba-identidad'],
+      agotados: [],
+    });
+  });
+
+  it('el estado dice si el taller la está pintando o se quedó a medias, y con qué orden se arregla', async () => {
+    const r = await raiz();
+    await aMediasSinD7(r);
+    const cola = colaDelTaller(r);
+    const motivo = (): string => {
+      const e = estadoDeFigura('vecina-de-prueba', r);
+      if (e.estado !== 'a-medias') throw new Error(`está ${e.estado}`);
+      return e.motivo;
+    };
+    const faltaD7 = 'vecina-de-prueba tiene 7 de sus 8 direcciones (le faltan d7)';
+    expect(motivo()).toBe(
+      `${faltaD7}: no hay nada suyo en la cola del taller (pedida en otro clon, o la cola se borró): se encola con \`pnpm npcs encolar vecina-de-prueba\``,
+    );
+    await encolarLoQueSigue(VECINA, r);
+    expect(motivo()).toBe(`${faltaD7}: el taller la está pintando`);
+    await fallar(r, D7);
+    expect(motivo()).toBe(
+      `${faltaD7}: se quedó a medias: falló ${D7} (la imagen está casi vacía tras el recorte); se reintenta sola al arrancar \`pnpm npcs trabajar\` (le quedan 2 reintentos), o ya con \`pnpm npcs encolar vecina-de-prueba\``,
+    );
+    await cola.reintentar(D7);
+    await fallar(r, D7);
+    await cola.reintentar(D7);
+    await fallar(r, D7);
+    expect(motivo()).toBe(
+      `${faltaD7}: se quedó a medias: falló ${D7} (la imagen está casi vacía tras el recorte); agotó sus 2 reintentos: se reintenta con \`pnpm npcs encolar vecina-de-prueba\``,
+    );
+    // Lo mismo dice `/__npcs` (y el aviso de `vite build`), y de la que no tiene nada pintado.
+    const servido = loQueSeSirve(r).hojas;
+    expect(servido['vecina-de-prueba']?.incompleta).toBe(motivo());
+    expect(servido['guardia-de-prueba']?.incompleta).toBe(
+      'guardia-de-prueba está pedida y sin pintar: no hay nada suyo en la cola del taller (pedida en otro clon, o la cola se borró): se encola con `pnpm npcs encolar guardia-de-prueba`',
+    );
+    expect(fotoDelTaller(r)('guardia-de-prueba')).toEqual({ que: 'nada' });
+  });
+
+  it('reprocesar toma lo fallido sin pasar por pendiente (`Cola.retomar`): ningún trabajador se lo lleva', async () => {
+    const r = await raiz();
+    await aMediasSinD7(r);
+    const cola = colaDelTaller(r);
+    await encolarLoQueSigue(VECINA, r);
+    await fallar(r, D7);
+    const ficha = await cola.retomar(D7, 'fallido');
+    expect(ficha.resultado?.motivo).toBe('la imagen está casi vacía tras el recorte');
+    expect(await cola.estado()).toEqual({
+      pendiente: [],
+      'en-curso': [D7],
+      hecho: [],
+      fallido: [],
+    });
+    expect((await cola.leer('en-curso', D7)).resultado).toBeUndefined();
   });
 });

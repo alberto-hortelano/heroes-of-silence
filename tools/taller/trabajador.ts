@@ -102,6 +102,7 @@ import {
 } from '../art/poses.js';
 import { cutoutBackground } from '../gen/cutout.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
+import { esEncargoDeNpc, REINTENTOS_DE_NPC, reintentarSiQueda } from '../npcs/en-el-taller.js';
 import {
   encargoDeBajadas,
   escribirBajadasDerivadas,
@@ -141,7 +142,7 @@ import {
   empaquetar,
   recortarAlContenido,
 } from './empaquetar.js';
-import { alturaDelReposo, type Encargo, filasDeAtlas, promptDe } from './encargo.js';
+import { alturaDelReposo, type Encargo, encargoSchema, filasDeAtlas, promptDe } from './encargo.js';
 import { encogerElTramo } from './encoger-base.js';
 import { escribirCatalogo } from './escenario/catalogo-disco.js';
 import { escenario, recortesDeSemilla } from './escenario/escenario.js';
@@ -183,12 +184,7 @@ import {
 } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
 import { escribirGuiaDelMuro, escribirMurosDerivados, esMuroNorteSur } from './muros.js';
-import {
-  DIR_DEL_MANIQUI_CIVIL,
-  encolarLoQueSigue,
-  esEncargoDeNpc,
-  POSE_DE_LA_IDENTIDAD,
-} from './npcs.js';
+import { DIR_DEL_MANIQUI_CIVIL, encolarLoQueSigue, POSE_DE_LA_IDENTIDAD } from './npcs.js';
 import {
   encargosDeParedesYPuentes,
   escribirGuias,
@@ -208,7 +204,7 @@ import {
   juegoDelYBot,
   unidad,
 } from './unidades.js';
-import { validar } from './validar.js';
+import { validarElEncargo } from './validar.js';
 import { carpetaDeFotogramas, generarConVideo } from './video.js';
 import { vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
 import { vista8d, vistaDeVersiones } from './vista-8d.js';
@@ -421,13 +417,7 @@ async function postprocesar(
       }
     }
 
-    const informe = await validar(
-      final,
-      encargo.tipo,
-      encargo.fondo === 'opaco',
-      encargo.celda ?? FIGURA.celda,
-      encargo.tipo === 'atlas' ? filasDeAtlas(encargo) : undefined,
-    );
+    const informe = await validarElEncargo(final, encargo);
     if (informe.problemas.length > 0) {
       // El crudo se queda en `~/.codex`; se dice dónde para poder mirarlo.
       throw new Error(`${informe.problemas.join('; ')} (crudo: ${sinHome(gen.crudo)})`);
@@ -665,6 +655,15 @@ async function trabajar(soloNpc = false): Promise<void> {
         ...(err instanceof FalloTrasGenerar ? { hilo: err.hilo, crudo: sinHome(err.crudo) } : {}),
       });
       console.log(`  ✘ ${motivo}`);
+      // Una figura del banco de NPC no se queda a medias por una tirada mala: se
+      // vuelve a pedir, con la cuenta en su ficha (QA del banco de NPC, H2).
+      const vez = await reintentarSiQueda(COLA, encargo.id);
+      if (vez !== null) {
+        console.log(
+          `  ↻ ${encargo.id} vuelve a pendiente/ (reintento ${vez} de ${REINTENTOS_DE_NPC})`,
+        );
+        continue;
+      }
       fallidos++;
     }
   }
@@ -691,9 +690,9 @@ async function reprocesar(id: string): Promise<void> {
   if (hilo === undefined || crudo === undefined) {
     throw new Error(`«${id}» falló antes de que Codex generara nada: devuélvelo a la cola`);
   }
-  await COLA.devolver(id, desde);
-  const encargo = await COLA.tomar(id);
-  if (encargo === null) throw new Error(`otro trabajador tomó «${id}» mientras se reprocesaba`);
+  // De `fallido/` a `en-curso/` de un golpe: por `pendiente/`, un trabajador vivo
+  // (el de la semilla del banco de NPC, p. ej.) podía llevárselo y pedirlo a Codex.
+  const encargo = encargoSchema.parse((await COLA.retomar(id, desde)).encargo);
   try {
     const r = await procesar(encargo, { hilo, crudo: crudo.replace(/^~/, homedir()), mensaje: '' });
     await COLA.cerrar(id, 'hecho', { cuando: new Date().toISOString(), ...r });

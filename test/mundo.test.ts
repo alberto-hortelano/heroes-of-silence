@@ -7,9 +7,11 @@
  * caso mira que salga **su** frase, con su ruta, que es lo que lee el motor para
  * corregirse.
  */
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
-import { mundoDeLaUrl } from '../src/client/mundo/cargar.js';
+import { cargarElMundoPedido, mundoDeLaUrl, mundoPedido } from '../src/client/mundo/cargar.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { hariaAlgoEn, jugadaEnElLugar } from '../src/core/ai/lugares.js';
@@ -871,6 +873,47 @@ describe('el mundo en la URL', () => {
     );
     expect(() => mundoDeLaUrl('?mundo=../plan')).toThrow('no es el id de un mundo');
     expect(() => mundoDeLaUrl('?mundo=a&mundo=b')).toThrow('«mundo» va 2 veces en la URL');
+  });
+
+  it('sin el banco de figuras, el mundo dice que no se cargó el banco y por qué, no que sus figuras no existen', async () => {
+    // La página: `/__npcs` responde 500 (H3 del QA del banco de NPC) y lo del mundo, de `assets/`.
+    const avisos: string[] = [];
+    vi.spyOn(console, 'warn').mockImplementation((m: string) => avisos.push(m));
+    vi.stubGlobal('fetch', async (url: string) =>
+      url === '/__npcs'
+        ? new Response('<h1>500</h1>', { status: 500 })
+        : new Response(readFileSync(join(import.meta.dirname, '../assets', url)), {
+            headers: { 'content-type': 'application/json' },
+          }),
+    );
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+    vi.resetModules();
+    const { cargarLaGente } = await import('../src/client/render/gente.js');
+    const gente = cargarLaGente();
+    expect((await gente).sinBanco).toBe('/__npcs responde 500 y no es JSON');
+    // El aviso de la consola no dice lo contrario que la página: la base, con el Y Bot; un mundo, no.
+    expect(avisos).toEqual([
+      '[npcs] sin banco de figuras (/__npcs responde 500 y no es JSON): la gente de la base sale con el Y Bot, y un mundo (?mundo=) no se puede jugar sin él',
+    ]);
+    await expect(cargarElMundoPedido('?mundo=prueba', gente)).rejects.toThrow(
+      new Error(
+        'el mundo "prueba" no se puede jugar: no se pudo cargar el banco de figuras de NPC (/__npcs responde 500 y no es JSON), y las personas del mundo llevan figuras de ese banco. Sin «?mundo=» la partida se juega, con la gente en el Y Bot',
+      ),
+    );
+    // Con el banco cargado y sin esas figuras, sí es el mundo el que no vale: la frase de siempre.
+    const vacio = { banco: { figuras: [] }, pintadas: new Set<string>(), sinBanco: null };
+    await expect(cargarElMundoPedido('?mundo=prueba', Promise.resolve(vacio))).rejects.toThrow(
+      /"imperio-armero" no es una figura del banco de NPC/,
+    );
+    // Y con el banco del repo, carga.
+    await cargarElMundoPedido(
+      '?mundo=prueba',
+      Promise.resolve({ banco: BANCO, pintadas: new Set<string>(), sinBanco: null }),
+    );
+    expect(mundoPedido()).not.toBeNull();
   });
 });
 
