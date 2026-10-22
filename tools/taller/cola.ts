@@ -33,6 +33,11 @@ export interface Ficha {
   readonly resultado?: Resultado;
 }
 
+/** La cola del taller de una raíz: la del repo (`COLA`, `trabajador.ts`) o una temporal en los tests. */
+export function colaDelTaller(raiz: string): Cola {
+  return new Cola(join(raiz, 'tools/taller/cola'));
+}
+
 export class Cola {
   constructor(readonly raiz: string) {}
 

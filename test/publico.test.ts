@@ -12,8 +12,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
 import { FACTION_IDS } from '../src/core/types.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
-import { direccionesDe } from '../tools/arena/borrador.js';
 import { copiarPublico, seCopiaAlBuild } from '../tools/build/publico.js';
+import { direccionesDe } from '../tools/taller/arte-en-disco.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 /** Una URL del navegador (`/unidades/…`) a su ruta dentro de `assets/`. */

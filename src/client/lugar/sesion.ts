@@ -125,10 +125,16 @@ export class EnElLugar {
     return 'motivo' in a ? null : a;
   }
 
+  /** La casilla del lugar abierto, o `null`: lo que lee su clima en cada fotograma, sin la vista entera. */
+  casilla(): Point | null {
+    return this.ante()?.lugar.at ?? null;
+  }
+
   vista(): VistaDelLugar | null {
     const a = this.ante();
     if (a === null) return null;
     const l = a.lugar;
+    const gente = this.gente();
     return {
       lugar: l.id,
       nombre: l.nombre,
@@ -146,8 +152,7 @@ export class EnElLugar {
             ? null
             : cuerpoDeLaPersona(
                 figuraQueSePinta(
-                  this.gente().banco,
-                  this.gente().pintadas,
+                  gente,
                   p.persona.figura,
                   `${this.estado().seed}|${l.id}|${p.id}`,
                   a.mundo.historia.figuras,

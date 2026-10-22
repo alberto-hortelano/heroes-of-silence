@@ -1717,8 +1717,8 @@ export class Session implements ControlDeBatalla {
 
   /** El clima del lugar abierto (la región de su casilla), o `null` sin lugar abierto. */
   get climaDelLugar(): ClimaDelSitio | null {
-    const vista = this.lugar.vista();
-    return vista === null ? null : climaDelSitio(this.clima, this.state.map, vista.at);
+    const at = this.lugar.casilla();
+    return at === null ? null : climaDelSitio(this.clima, this.state.map, at);
   }
 
   /** El castillo abierto ahora mismo, o `null` si no hay ninguno. */
@@ -1753,14 +1753,7 @@ export class Session implements ControlDeBatalla {
     const semana = week(this.state);
     const heroe = this.heroeEnLaBase();
     const alcaide = alcaideDe(town.faction);
-    // La figura de cada persona, del banco de NPC (`figurasDeLaGente`); sin ninguna
-    // de su facción, el Y Bot civil.
-    const figuras = figurasDeLaGente(
-      this.state,
-      town.faction,
-      this.gente.banco,
-      this.gente.pintadas,
-    );
+    const figuras = this.figurasDeLaGente(town.faction);
     const cuerpo = (persona: string): string => cuerpoDeLaPersona(figuras.get(persona) ?? null);
     const vista: VistaDeLaBase = {
       faccion: town.faction,
@@ -1792,6 +1785,23 @@ export class Session implements ControlDeBatalla {
     return vista;
   }
   private cacheDeLaBase: { version: number; townId: string; vista: VistaDeLaBase } | null = null;
+
+  /**
+   * La figura de cada persona de la gente de `faccion`, del banco de NPC
+   * (`figurasDeLaGente`; sin ninguna de su facción, el Y Bot civil). Una vez por
+   * facción: no depende de la partida que se juega, sino de la semilla, el mundo y
+   * el banco, que no cambian en una sesión.
+   */
+  private figurasDeLaGente(faccion: FactionId): ReadonlyMap<string, string | null> {
+    let figuras = this.figurasPorFaccion.get(faccion);
+    if (figuras === undefined) {
+      figuras = figurasDeLaGente(this.state, faccion, this.gente);
+      this.figurasPorFaccion.set(faccion, figuras);
+    }
+    return figuras;
+  }
+
+  private readonly figurasPorFaccion = new Map<FactionId, ReadonlyMap<string, string | null>>();
 
   build(buildingId: string): void {
     if (this.openTownId === null) return;

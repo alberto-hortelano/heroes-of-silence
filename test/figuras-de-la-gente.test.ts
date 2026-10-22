@@ -7,7 +7,8 @@
 import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
 import { leerMundo } from '../src/core/mundo/validar.js';
-import { type Banco, type FiguraDeNpc, leerBanco } from '../src/core/npcs.js';
+import { type Banco, type FiguraDeNpc, laMasParecida, leerBanco } from '../src/core/npcs.js';
+import { createRng, hashDeTexto } from '../src/core/rng.js';
 import { figurasDeLaGente } from '../src/core/town/figuras.js';
 import { personasDeLaFaccion } from '../src/core/town/voces.js';
 import type { FactionId } from '../src/core/types.js';
@@ -45,14 +46,22 @@ describe('el reparto de la gente de una base', () => {
   ]);
 
   it('reparte a toda la gente de la facción, la misma semilla da lo mismo y solo con figuras de su facción', () => {
-    const a = figurasDeLaGente(estado(7) as never, 'orkos', ORKOS, todas(ORKOS));
+    const a = figurasDeLaGente(estado(7) as never, 'orkos', {
+      banco: ORKOS,
+      pintadas: todas(ORKOS),
+    });
     expect([...a.keys()]).toEqual(personasDeLaFaccion('orkos').map((p) => p.id));
-    expect(figurasDeLaGente(estado(7) as never, 'orkos', ORKOS, todas(ORKOS))).toEqual(a);
+    expect(
+      figurasDeLaGente(estado(7) as never, 'orkos', { banco: ORKOS, pintadas: todas(ORKOS) }),
+    ).toEqual(a);
     expect([...a.values()].every((f) => f !== null && f !== 'templario')).toBe(true);
   });
 
   it('especie y sexo antes: los goblins, con el goblin; la orka, con la orka', () => {
-    const a = figurasDeLaGente(estado(7) as never, 'orkos', ORKOS, todas(ORKOS));
+    const a = figurasDeLaGente(estado(7) as never, 'orkos', {
+      banco: ORKOS,
+      pintadas: todas(ORKOS),
+    });
     for (const p of personasDeLaFaccion('orkos')) {
       if (p.especie === 'goblin') expect(a.get(p.id), p.id).toBe('chatarrero');
       if (p.especie === 'orko' && p.sexo === 'mujer') expect(a.get(p.id), p.id).toBe('tabernera');
@@ -64,14 +73,17 @@ describe('el reparto de la gente de una base', () => {
     // Una por persona, todas iguales de etiquetas: ninguna se repite.
     const personas = personasDeLaFaccion('elfos');
     const muchas = banco(personas.map((_, i) => figura(`elfo-${i}`, 'elfos', 'elfo', 'hombre')));
-    const a = figurasDeLaGente(estado(3) as never, 'elfos', muchas, todas(muchas));
+    const a = figurasDeLaGente(estado(3) as never, 'elfos', {
+      banco: muchas,
+      pintadas: todas(muchas),
+    });
     expect(new Set(a.values()).size).toBe(personas.length);
     // Dos: todo el mundo lleva una de las dos.
     const dos = banco([
       figura('a', 'elfos', 'elfo', 'hombre'),
       figura('b', 'elfos', 'elfo', 'hombre'),
     ]);
-    const b = figurasDeLaGente(estado(3) as never, 'elfos', dos, todas(dos));
+    const b = figurasDeLaGente(estado(3) as never, 'elfos', { banco: dos, pintadas: todas(dos) });
     expect(new Set(b.values())).toEqual(new Set(['a', 'b']));
   });
 
@@ -81,13 +93,24 @@ describe('el reparto de la gente de una base', () => {
     );
     const repartos = new Set(
       [1, 2, 3, 4, 5].map((s) =>
-        JSON.stringify([...figurasDeLaGente(estado(s) as never, 'elfos', muchas, todas(muchas))]),
+        JSON.stringify([
+          ...figurasDeLaGente(estado(s) as never, 'elfos', {
+            banco: muchas,
+            pintadas: todas(muchas),
+          }),
+        ]),
       ),
     );
     expect(repartos.size).toBeGreaterThan(1);
-    const g = figurasDeLaGente(estado(1) as never, 'templarios', ORKOS, new Set(['jefe']));
+    const g = figurasDeLaGente(estado(1) as never, 'templarios', {
+      banco: ORKOS,
+      pintadas: new Set(['jefe']),
+    });
     expect([...g.values()].filter((f) => f !== 'templario').every((f) => f === null)).toBe(true);
-    const nada = figurasDeLaGente(estado(1) as never, 'orkos', ORKOS, new Set());
+    const nada = figurasDeLaGente(estado(1) as never, 'orkos', {
+      banco: ORKOS,
+      pintadas: new Set(),
+    });
     expect([...nada.values()].every((f) => f === null)).toBe(true);
   });
 
@@ -98,18 +121,86 @@ describe('el reparto de la gente de una base', () => {
         players: [{ id: 0, faction: faccionDe0 }],
         mundo: { historia: { base: { alcaide: 'tabernera' } } },
       }) as never;
-    expect(figurasDeLaGente(conMundo('orkos'), 'orkos', ORKOS, todas(ORKOS)).get('alcaide')).toBe(
-      'tabernera',
-    );
     expect(
-      figurasDeLaGente(conMundo('templarios'), 'orkos', ORKOS, todas(ORKOS)).get('alcaide'),
+      figurasDeLaGente(conMundo('orkos'), 'orkos', { banco: ORKOS, pintadas: todas(ORKOS) }).get(
+        'alcaide',
+      ),
+    ).toBe('tabernera');
+    expect(
+      figurasDeLaGente(conMundo('templarios'), 'orkos', {
+        banco: ORKOS,
+        pintadas: todas(ORKOS),
+      }).get('alcaide'),
     ).toBe('jefe');
     // Mientras la suya se pinta, la más parecida.
     expect(
-      figurasDeLaGente(conMundo('orkos'), 'orkos', ORKOS, new Set(['jefe', 'chatarrero'])).get(
-        'alcaide',
-      ),
+      figurasDeLaGente(conMundo('orkos'), 'orkos', {
+        banco: ORKOS,
+        pintadas: new Set(['jefe', 'chatarrero']),
+      }).get('alcaide'),
     ).toBe('jefe');
+  });
+});
+
+describe('la más parecida (`laMasParecida`)', () => {
+  it('es la primera de ordenar por su nota todas las de su facción: la regla de antes, de una pasada', () => {
+    // La de antes ordenaba todas (especie, sexo, sin usar, oficio, hash) y tomaba
+    // la primera (simplify del 22-10-2026). Al azar, con su semilla: la misma.
+    const rng = createRng(11);
+    const ordenada = (
+      b: Banco,
+      pintadas: Set<string>,
+      buscada: Parameters<typeof laMasParecida>[1],
+      clave: string,
+      usadas: Set<string>,
+    ) => {
+      const nota = (f: FiguraDeNpc): number[] => [
+        f.etiquetas.especie === buscada.especie ? 0 : 1,
+        f.etiquetas.sexo === buscada.sexo ? 0 : 1,
+        usadas.has(f.id) ? 1 : 0,
+        f.etiquetas.oficio === buscada.oficio ? 0 : 1,
+        hashDeTexto(`${clave}|${f.id}`),
+      ];
+      return b.figuras
+        .filter((f) => pintadas.has(f.id) && f.etiquetas.faccion === buscada.faccion)
+        .map((f) => ({ f, n: nota(f) }))
+        .sort((x, y) => {
+          for (let i = 0; i < x.n.length; i++) {
+            const d = (x.n[i] as number) - (y.n[i] as number);
+            if (d !== 0) return d;
+          }
+          return 0;
+        })[0]?.f;
+    };
+    const especies = ['humano', 'elfo', 'orko'] as const;
+    const sexos = ['hombre', 'mujer'] as const;
+    const oficios = ['campesino', 'artesano', 'autoridad'] as const;
+    const facciones = ['orkos', 'elfos'] as const;
+    for (let vuelta = 0; vuelta < 200; vuelta++) {
+      const b = banco(
+        Array.from({ length: rng.int(0, 8) }, (_, i) =>
+          figura(
+            `f-${i}`,
+            rng.pick(facciones),
+            rng.pick(especies),
+            rng.pick(sexos),
+            rng.pick(oficios),
+          ),
+        ),
+      );
+      const pintadas = new Set(b.figuras.filter(() => rng.chance(0.7)).map((f) => f.id));
+      const usadas = new Set(b.figuras.filter(() => rng.chance(0.3)).map((f) => f.id));
+      const buscada = {
+        faccion: rng.pick(facciones),
+        especie: rng.pick(especies),
+        sexo: rng.pick(sexos),
+        oficio: rng.pick(oficios),
+      };
+      const clave = `${vuelta}|persona`;
+      expect(laMasParecida({ banco: b, pintadas }, buscada, clave, usadas), String(vuelta)).toBe(
+        ordenada(b, pintadas, buscada, clave, usadas),
+      );
+    }
   });
 });
 
@@ -168,7 +259,7 @@ describe('la gente de un lugar (el mundo de prueba)', () => {
       banco: real,
       pintadas: new Set(imperio),
     });
-    const g = figurasDeLaGente(s.state, 'imperio', real, new Set(imperio));
+    const g = figurasDeLaGente(s.state, 'imperio', { banco: real, pintadas: new Set(imperio) });
     expect(g.get('alcaide')).toBe('imperio-burgomaestre-anciano');
     expect(g.get('encargado-tavern')).toBe('imperio-posadera');
   });

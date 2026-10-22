@@ -211,7 +211,7 @@ function hojaQueSePinta(
   arte: ArteQueSePinta,
   f: Figura,
 ): { atlas: AtlasQueSePinta; clip: CharacterClip; url: string; imagen: HTMLImageElement } | null {
-  const hojas = hojasPorCercania<AtlasQueSePinta>(arte, f.mira);
+  const hojas = hojasPorCercania(arte, f.mira);
   pedir(infoDelClip(hojas[0] as AtlasQueSePinta, f.clip).imagen);
   for (const clip of [f.clip, 'idle'] as const) {
     for (const atlas of hojas) {
@@ -232,16 +232,12 @@ export function colocarFigura(f: Figura): FiguraColocada {
   const arte = arteParaPintar(f.body, f.clip);
   const hoja = hojaQueSePinta(arte, f);
   if (hoja === null) {
-    const pedida = infoDelClip(
-      hojasPorCercania<AtlasQueSePinta>(arte, f.mira)[0] as AtlasQueSePinta,
-      f.clip,
-    ).imagen;
+    const pedida = infoDelClip(hojasPorCercania(arte, f.mira)[0] as AtlasQueSePinta, f.clip).imagen;
     return { f, p: null, cargando: figuraEnCamino(pedida) };
   }
   const { atlas, clip, url, imagen } = hoja;
-  // La muerte solo llega con un atlas de toda figura: la gente no tiene cadáver.
   const frame =
-    clip === 'death' && 'cadaver' in atlas
+    clip === 'death'
       ? fotogramaDeCaida(atlas, f.tiempo)
       : clipFrame(atlas, clip, relojDeFigura(infoDelClip(atlas, clip), f.tiempo, f.id));
   const celda = celdaDe(imagen, atlas, clip, frame);

@@ -9,6 +9,7 @@
  * palabras, en vez de depender de que cada encargo se acuerde.
  */
 import { z } from 'zod';
+import { esIdDeNpc } from '../../src/core/npcs.js';
 import { FACTION_IDS } from '../../src/core/types.js';
 import {
   FIGURA,
@@ -141,7 +142,7 @@ export const encargoSchema = z
         z.object({ orden: z.literal('recortar-base'), faccion: z.enum(FACTION_IDS) }),
         z.object({
           orden: z.literal('encadenar-npc'),
-          npc: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+          npc: z.string().refine(esIdDeNpc, 'no es el id de una figura del banco de NPC'),
         }),
       ])
       .optional(),

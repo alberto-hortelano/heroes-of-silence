@@ -14,8 +14,7 @@
  *     ese estilo (decisión del usuario, 01-10-2026); el atlas de Liora ya no es
  *     referencia de nada.
  */
-import { existsSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import type { FactionId } from '../../src/core/types.js';
 import type { PerfilDeUnidad } from '../../src/core/unidad.js';
 import {
@@ -39,6 +38,7 @@ import {
   type Tramo,
   UNA_MANO,
 } from '../art/poses.js';
+import { arteEnOchoDirecciones } from './arte-en-disco.js';
 import type { RitmoDeUnidad } from './derivar.js';
 import type { Encargo } from './encargo.js';
 
@@ -1196,34 +1196,6 @@ export const JUEGOS_EN_8D: readonly JuegoEn8d[] = [
 ];
 
 const RAIZ = resolve(import.meta.dirname, '../..');
-
-/**
- * Cuánto arte propio tiene una unidad en las ocho direcciones —`dN/atlas.json`
- * y `dN/atlas.webp` en cada una—: entero, ninguno o a medias, y entonces con el
- * motivo escrito. Una figura no mezcla las luces de dos artes, así que con siete
- * se pintaría entera con el Y Bot, y eso tiene que decirse y no pasar en
- * silencio. A medias es lo normal **mientras el taller genera** una unidad
- * dirección a dirección (#140): por eso esto no lanza y decide quien lo lee.
- */
-export type ArteEnOchoDirecciones =
-  | { readonly hecho: 'entero' }
-  | { readonly hecho: 'ninguno' }
-  | { readonly hecho: 'a-medias'; readonly motivo: string };
-
-export function arteEnOchoDirecciones(raiz: string, id: string): ArteEnOchoDirecciones {
-  const faltan = NOMBRES_DE_DIRECCION.map((_, d) => d).filter(
-    (d) =>
-      !['atlas.json', 'atlas.webp'].every((f) =>
-        existsSync(join(raiz, 'assets/unidades', id, `d${d}`, f)),
-      ),
-  );
-  if (faltan.length === 0) return { hecho: 'entero' };
-  if (faltan.length === NOMBRES_DE_DIRECCION.length) return { hecho: 'ninguno' };
-  return {
-    hecho: 'a-medias',
-    motivo: `${id} tiene ${NOMBRES_DE_DIRECCION.length - faltan.length} de sus ${NOMBRES_DE_DIRECCION.length} direcciones (le faltan ${faltan.map((d) => `d${d}`).join(', ')}): o se terminan o se quitan, porque con menos se pintaría entera con el Y Bot sin decirlo`,
-  };
-}
 
 /**
  * ¿Tiene la unidad su arte propio en las ocho direcciones? `true` con las ocho

@@ -1614,9 +1614,13 @@ describe('invariantes del proyecto', () => {
     // escriben por `banco.ts` (validado entero antes de escribir, de golpe). Quien
     // lo importara metería el banco en el grafo de la página (y una figura nueva la
     // recargaría a media partida); quien lo abriera por su ruta se saltaría la
-    // escritura atómica. Roto a mano: un `import b from '../../data/npcs.json'` en
-    // `session.ts`, o un `readFileSync('data/npcs.json')` en `cli.ts`, salen rojos.
+    // escritura atómica. La ruta se escribe una vez, `RUTA_DEL_BANCO` en
+    // `core/npcs.ts` (que la nombra en sus problemas y no la lee), y en las
+    // herramientas solo la usa la puerta. Rotos a mano: un `import b from
+    // '../../data/npcs.json'` en `session.ts`, un `readFileSync('data/npcs.json')` y
+    // un `jsonDe(RAIZ, RUTA_DEL_BANCO)` en `cli.ts`, salen rojos.
     const PUERTA = 'tools/npcs/banco.ts';
+    const NOMBRE = 'src/core/npcs.ts';
     const HERRAMIENTAS = ficheros('tools');
     expect(
       infractoresDeCodigo(
@@ -1628,18 +1632,27 @@ describe('invariantes del proyecto', () => {
     const ruta = /['"`](?:\.\.\/)*(?:\.\/)?data\/npcs\.json['"`]/;
     expect(
       infractoresDeCodigo(
-        [...SERVIDOR, ...CLIENTE, ...HERRAMIENTAS].filter((r) => r !== PUERTA),
+        [...CORE, ...SERVIDOR, ...CLIENTE, ...HERRAMIENTAS].filter((r) => r !== NOMBRE),
         ruta,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([PUERTA], ruta)).not.toEqual([]);
+    expect(infractoresDeCodigo([NOMBRE], ruta)).not.toEqual([]);
+    const usaLaRuta = /\bRUTA_DEL_BANCO\b/;
+    expect(
+      infractoresDeCodigo(
+        [...SERVIDOR, ...CLIENTE, ...HERRAMIENTAS].filter((r) => r !== PUERTA),
+        usaLaRuta,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], usaLaRuta)).not.toEqual([]);
   });
 
   it('una figura de gente no llega a una batalla: la batalla, el animador, la rueda y la arena no la pintan', () => {
-    // La gente del banco de NPC solo tiene la hoja A (`ArteDeGente`): `arteDe`, lo
-    // que leen la batalla y el animador, lanza con ella, y la pinta solo quien la
-    // pinta de pie (`arteParaPintar`, `colocarFigura`). Roto a mano: un
-    // `cuerpoDeGente` en `render/batalla.ts` sale rojo.
+    // La gente del banco de NPC solo pinta estar de pie y andar (`ArteDeFigura.clips`):
+    // `arteDe`, lo que leen la batalla y el animador, lanza con ella (lo prueba
+    // `npcs.test.ts`), y la pinta solo quien la pinta de pie (`arteParaPintar`,
+    // `colocarFigura`). Aquí, que ninguna pantalla de pelea la nombre siquiera. Roto
+    // a mano: un `cuerpoDeGente` en `render/batalla.ts` sale rojo.
     const PELEA = CLIENTE.filter(
       (r) =>
         r === 'src/client/render/batalla.ts' ||
@@ -1652,7 +1665,7 @@ describe('invariantes del proyecto', () => {
     expect(
       infractoresDeCodigo(
         PELEA,
-        /\b(?:arteParaPintar|registrarGente|cuerpoDeGente|cuerpoDeLaPersona|ArteDeGente)\b/,
+        /\b(?:arteParaPintar|registrarGente|cuerpoDeGente|cuerpoDeLaPersona|ArteQueSePinta|AtlasQueSePinta)\b/,
       ),
     ).toEqual([]);
   });

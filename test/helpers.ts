@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { onTestFinished } from 'vitest';
 import {
   type Catalogo,
   type CatalogoEnBruto,
@@ -82,6 +83,7 @@ import {
 } from '../src/core/map/regiones.js';
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
 import { lineasQueSeparan } from '../src/core/map/vestir.js';
+import { type FiguraDeNpc, RUTA_DEL_BANCO } from '../src/core/npcs.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import {
   alcanceDelHeroe,
@@ -1627,4 +1629,36 @@ export function hastaLaRueda(
 /** Una unidad del borrador como fuente del montaje de la arena. */
 export function delBorrador(unidad: Unidad, escalera = false): FuenteDeArena {
   return escalera ? { unidad, escalera } : { unidad };
+}
+
+/**
+ * Una figura del banco de NPC que vale: para romperla campo a campo, pedirla o
+ * pintarla en una raíz temporal (`raizDeNpcs`).
+ */
+export const FIGURA_DE_PRUEBA: FiguraDeNpc = {
+  id: 'vecino-de-prueba',
+  descripcion: 'Un vecino de prueba: camisa de lino, chaleco de lana parda, calzas y zuecos.',
+  etiquetas: {
+    oficio: 'campesino',
+    sexo: 'hombre',
+    edad: 'adulto',
+    especie: 'humano',
+    faccion: 'templarios',
+    clase: 'baja',
+  },
+  talla: 1,
+  acciones: 'reposo-y-marcha',
+  pedidaPor: 'semilla',
+};
+
+/**
+ * Una raíz de repo temporal con su `data/npcs.json` de `figuras` (y nada más: ni
+ * arte, ni cola, ni mundos), que se borra al acabar el test que la pide.
+ */
+export function raizDeNpcs(figuras: readonly FiguraDeNpc[]): string {
+  const dir = mkdtempSync(join(tmpdir(), 'npcs-'));
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+  mkdirSync(join(dir, 'data'), { recursive: true });
+  writeFileSync(join(dir, RUTA_DEL_BANCO), JSON.stringify({ _comment: 'de prueba', figuras }));
+  return dir;
 }

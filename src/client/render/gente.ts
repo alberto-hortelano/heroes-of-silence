@@ -56,7 +56,7 @@ async function pedir(): Promise<BancoPintado> {
   const pintadas = new Set<string>();
   for (const f of banco.figuras) {
     const h = hojas?.[f.id];
-    if (h?.direcciones === null || h === undefined) continue;
+    if (!h?.direcciones) continue;
     registrarGente(f.id, h.direcciones);
     pintadas.add(f.id);
   }

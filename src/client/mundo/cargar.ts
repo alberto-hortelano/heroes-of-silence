@@ -8,8 +8,8 @@
  */
 import { type MundoLeido, noEsJson, parseMundo } from '@core/mundo/formato.js';
 import { leerMundo } from '@core/mundo/validar.js';
+import type { BancoPintado } from '@core/npcs.js';
 import { unaVezEnLaURL } from '@core/validar.js';
-import { genteCargada } from '../render/gente.js';
 import { pide } from '../semilla.js';
 
 /** Lo que trae un mundo y no puede ir con él en la URL: lo fija el mundo. */
@@ -51,15 +51,24 @@ async function pedir(id: string, fichero: string): Promise<unknown> {
 
 let pedido: MundoLeido | null = null;
 
-/** Carga y valida el mundo que pide la URL, si pide alguno. Lanza con todos sus problemas. */
-export async function cargarElMundoPedido(search: string): Promise<void> {
+/**
+ * Carga y valida el mundo que pide la URL, si pide alguno. Lanza con todos sus
+ * problemas. Las figuras que nombra se miran contra el banco de NPC (`gente`), que
+ * se carga a la vez que sus ficheros (`entrada.ts`).
+ */
+export async function cargarElMundoPedido(
+  search: string,
+  gente: Promise<BancoPintado>,
+): Promise<void> {
   const id = mundoDeLaUrl(search);
   if (id === null) return;
-  const [mundo, plan, historia] = await Promise.all(
-    ['mundo', 'plan', 'historia'].map((f) => pedir(id, f)),
-  );
-  // El banco ya está cargado (`entrada.ts`): contra él se miran las figuras que nombra.
-  pedido = leerMundo({ mundo, plan, historia }, id, genteCargada().banco);
+  const [mundo, plan, historia, { banco }] = await Promise.all([
+    pedir(id, 'mundo'),
+    pedir(id, 'plan'),
+    pedir(id, 'historia'),
+    gente,
+  ]);
+  pedido = leerMundo({ mundo, plan, historia }, id, banco);
 }
 
 /** El mundo cargado por `cargarElMundoPedido`, o `null` si la URL no pedía ninguno. */

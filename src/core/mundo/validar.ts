@@ -25,10 +25,9 @@ import { type GameMap, inBounds, isEnterable, type MapObject, terrainAt } from '
 import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
 import {
   type Banco,
-  esIdDeNpc,
   FIGURAS_NUEVAS_POR_MUNDO,
   figuraDelBanco,
-  problemasDePeticion,
+  problemasDePeticiones,
 } from '../npcs.js';
 import { problemasDeGrupoNeutral, regionDeCasilla } from '../state/asaltantes.js';
 import { personasDeLaFaccion } from '../town/voces.js';
@@ -493,29 +492,16 @@ function problemasDeLaHistoria(
 }
 
 /**
- * Las figuras nuevas que pide la historia (`figuras`): cada una con la regla de una
- * petición (`problemasDePeticion`), con un id libre en el banco (el motor reutiliza
- * antes de pedir) y como mucho `FIGURAS_NUEVAS_POR_MUNDO`. Devuelve los ids pedidos.
+ * Las figuras nuevas que pide la historia (`figuras`), con la regla de unas
+ * peticiones del banco (`problemasDePeticiones`: cada una, un id libre y como mucho
+ * `FIGURAS_NUEVAS_POR_MUNDO`), la misma con que las acepta el banco al pasar el
+ * mundo (`tools/npcs/banco.ts`). Devuelve los ids pedidos.
  */
 function juzgarFigurasPedidas(j: Juez, v: unknown, banco: Banco): ReadonlySet<string> {
-  const pedidas = new Set<string>();
-  if (v === undefined) return pedidas;
-  const entradas = registro(j, v, 'figuras');
-  if (entradas.length > FIGURAS_NUEVAS_POR_MUNDO) {
-    j.mal(
-      'figuras',
-      `pide ${entradas.length} figuras y un mundo pide como mucho ${FIGURAS_NUEVAS_POR_MUNDO}: reutiliza las del banco que se parezcan`,
-    );
-  }
-  for (const [id, p] of entradas) {
-    pedidas.add(id);
-    if (!esIdDeNpc(id))
-      j.mal(`figuras.${id}`, `"${id}" no es el id de una figura: minúsculas, cifras y «-»`);
-    if (figuraDelBanco(banco, id) !== undefined)
-      j.mal(`figuras.${id}`, `"${id}" ya es una figura del banco: nómbrala sin pedirla`);
-    for (const m of problemasDePeticion(p, `figuras.${id}`)) j.mal('', m);
-  }
-  return pedidas;
+  if (v === undefined) return new Set();
+  for (const m of problemasDePeticiones(v, banco, 'figuras', FIGURAS_NUEVAS_POR_MUNDO))
+    j.mal('', m);
+  return new Set(esObjeto(v) ? Object.keys(v) : []);
 }
 
 /**

@@ -14,7 +14,7 @@
  */
 import vecinosJson from '../../../data/vecinos.json' with { type: 'json' };
 import { motivoDeLinea } from '../contract/linea.js';
-import { type Especie, ETIQUETAS, type Oficio, type Sexo } from '../npcs.js';
+import { type Especie, etiquetaBlocker, type Oficio, type Sexo } from '../npcs.js';
 import { createRng, hashDeTexto } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
 import { esSitio, SITIOS, type SitioId, sitiosConstruidos } from './sitios.js';
@@ -93,14 +93,8 @@ function cargarGente(): Readonly<Record<FactionId, GenteDeFaccion>> {
     if (typeof x.papel !== 'string' || x.papel === '')
       throw fuera(faccion, quien, 'no tiene papel');
     for (const k of ['oficio', 'sexo', 'especie'] as const) {
-      const lista: Readonly<Record<string, string>> = ETIQUETAS[k];
-      const v = x[k];
-      if (typeof v !== 'string' || !Object.hasOwn(lista, v))
-        throw fuera(
-          faccion,
-          quien,
-          `tiene ${k} ${JSON.stringify(v)}: es uno de ${Object.keys(lista).join(', ')}`,
-        );
+      const motivo = etiquetaBlocker(k, x[k]);
+      if (motivo !== null) throw fuera(faccion, quien, motivo);
     }
     const frases = x.frases;
     if (conFrases) {
@@ -182,13 +176,19 @@ export function personasDeLaFaccion(faccion: FactionId): readonly PersonaDeLaFac
   });
   return [
     { id: ID_DEL_ALCAIDE, ...sinFrases(g.alcaide) },
-    ...SITIOS.map((s) => ({ id: `encargado-${s}`, ...sinFrases(g.encargados[s]) })),
-    ...Object.entries(g.vecinos).map(([k, v]) => ({ id: `vecino-${k}`, ...sinFrases(v) })),
+    ...SITIOS.map((s) => ({ id: idDeEncargado(s), ...sinFrases(g.encargados[s]) })),
+    ...Object.entries(g.vecinos).map(([k, v]) => ({ id: idDeVecino(k), ...sinFrases(v) })),
   ];
 }
 
-/** El id del alcaide en la gente de una facción (`personasDeLaFaccion`, `historia.base`). */
+/**
+ * Los ids de la gente de una base: los que nombran la conversación, el agente
+ * (`npc` de las voces), las figuras (`figurasDeLaGente`) y `historia.base`. Nadie
+ * más los escribe.
+ */
 export const ID_DEL_ALCAIDE = 'alcaide';
+export const idDeEncargado = (sitio: SitioId): string => `encargado-${sitio}`;
+export const idDeVecino = (clave: string): string => `vecino-${clave}`;
 
 /** Los ids de los vecinos de una facción, los de `data/vecinos.json`. */
 export function idsDeVecinos(faccion: FactionId): readonly string[] {
@@ -200,13 +200,13 @@ export function vecinosDeLaBase(town: Town): readonly Vecino[] {
   const g = GENTE[town.faction];
   return [
     ...sitiosConstruidos(town).map((sitio) => ({
-      id: `encargado-${sitio}`,
+      id: idDeEncargado(sitio),
       sitio,
       clave: null,
       ...g.encargados[sitio],
     })),
     ...Object.entries(g.vecinos).map(([clave, v]) => ({
-      id: `vecino-${clave}`,
+      id: idDeVecino(clave),
       sitio: null,
       clave,
       ...v,

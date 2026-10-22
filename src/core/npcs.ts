@@ -21,7 +21,16 @@
 import { motivoDeLinea } from './contract/linea.js';
 import { hashDeTexto } from './rng.js';
 import type { FactionId } from './types.js';
-import { esIdDeUnidad, esObjeto, problemasDeObjeto } from './validar.js';
+import { deLaListaBlocker, esIdDeUnidad, esObjeto, problemasDeObjeto } from './validar.js';
+
+/**
+ * El índice del banco, relativo a la raíz del repo. El núcleo no lo lee (es puro):
+ * lo nombra en sus problemas, lo lee y lo escribe `tools/npcs/banco.ts` (el único,
+ * lo vigila `invariantes.test.ts`) y lo vigila `pnpm dev` (`vite.config.ts`).
+ */
+export const RUTA_DEL_BANCO = 'data/npcs.json';
+/** El arte del banco, relativo a la raíz: fuera de `assets/unidades/`, que es la tropa de la arena. */
+export const CARPETA_DE_LAS_FIGURAS = 'assets/npcs';
 
 /**
  * Las etiquetas de una figura, cada una con su lista cerrada y la frase de cada
@@ -83,12 +92,12 @@ export const ETIQUETAS = {
 };
 
 export type ClaveDeEtiqueta = keyof typeof ETIQUETAS;
-export const CLAVES_DE_ETIQUETA = Object.keys(ETIQUETAS) as readonly ClaveDeEtiqueta[];
+const CLAVES_DE_ETIQUETA = Object.keys(ETIQUETAS) as readonly ClaveDeEtiqueta[];
 export type Oficio = keyof typeof ETIQUETAS.oficio;
 export type Sexo = keyof typeof ETIQUETAS.sexo;
-export type Edad = keyof typeof ETIQUETAS.edad;
+type Edad = keyof typeof ETIQUETAS.edad;
 export type Especie = keyof typeof ETIQUETAS.especie;
-export type Clase = keyof typeof ETIQUETAS.clase;
+type Clase = keyof typeof ETIQUETAS.clase;
 
 /** Las etiquetas de una figura: una palabra de cada lista de `ETIQUETAS`. */
 export interface EtiquetasDeNpc {
@@ -99,10 +108,6 @@ export interface EtiquetasDeNpc {
   readonly faccion: FactionId;
   readonly clase: Clase;
 }
-
-// Que `faccion` sean justo las facciones del juego: una nueva sin frase no compila.
-const _faccionesConFrase: Readonly<Record<FactionId, string>> = ETIQUETAS.faccion;
-void _faccionesConFrase;
 
 /**
  * Qué acciones lleva una figura, con su frase para el motor. La gente de hoy solo
@@ -119,9 +124,9 @@ export const ACCIONES_DE_NPC = {
 export type AccionesDeNpc = keyof typeof ACCIONES_DE_NPC;
 
 /** Lo largo de la descripción de una figura: un párrafo que dice cómo es de cuerpo entero. */
-export const LARGO_DE_DESCRIPCION = 400;
+const LARGO_DE_DESCRIPCION = 400;
 /** La talla, frente a la de un adulto: un goblin 0,7, un troll 1,3. */
-export const TALLA = { minima: 0.5, maxima: 2.5 } as const;
+const TALLA = { minima: 0.5, maxima: 2.5 } as const;
 /**
  * Cuántas figuras nuevas puede pedir un mundo: cuatro con la hoja A son ~40
  * imágenes de Codex. Un mundo de ocho lugares con su base gastaría 100-150 sin
@@ -153,9 +158,6 @@ export interface Banco {
   readonly figuras: readonly FiguraDeNpc[];
 }
 
-/** El banco vacío: el de una página sin `/__npcs`, que pinta a toda la gente con el Y Bot. */
-export const BANCO_VACIO: Banco = { figuras: [] };
-
 /**
  * El banco con lo que de él está pintado (sus ocho direcciones en disco): lo que
  * necesita quien elige figuras. Lo que está pintado lo dice quien lee el disco
@@ -167,46 +169,52 @@ export interface BancoPintado {
 }
 
 /** Sin banco: toda la gente con el Y Bot (los tests y una página sin `/__npcs`). */
-export const SIN_BANCO: BancoPintado = { banco: BANCO_VACIO, pintadas: new Set() };
+export const SIN_BANCO: BancoPintado = { banco: { figuras: [] }, pintadas: new Set() };
 
 /** Si `id` tiene la forma del id de una figura: la de una carpeta de `assets/` (`esIdDeUnidad`). */
 export function esIdDeNpc(id: string): boolean {
   return id.length <= LARGO_DEL_ID && esIdDeUnidad(id);
 }
 
+/** Por qué `v` no es el id de una figura, o `null`: lo dicen el banco, la historia y el taller. */
+export function idDeNpcBlocker(v: unknown): string | null {
+  return typeof v === 'string' && esIdDeNpc(v)
+    ? null
+    : `${JSON.stringify(v)} no es el id de una figura: minúsculas, cifras y «-», de 1 a ${LARGO_DEL_ID}`;
+}
+
 const CAMPOS_DE_PETICION = ['descripcion', 'etiquetas', 'talla', 'acciones'] as const;
 const CAMPOS_DE_FIGURA = ['id', ...CAMPOS_DE_PETICION, 'pedidaPor'] as const;
 
-/** Lo que no vale de una lista cerrada, para la persona: «"x" no es un oficio: hay …». */
-function deLaLista(
-  lista: Readonly<Record<string, string>>,
-  v: unknown,
-  que: string,
-): string | null {
-  return typeof v === 'string' && Object.hasOwn(lista, v)
-    ? null
-    : `${JSON.stringify(v)} no es ${que}: ${Object.keys(lista).join(', ')}`;
-}
-
 /** Cómo se dice cada clave de etiqueta en un problema. */
-const QUE_ES: Readonly<Record<ClaveDeEtiqueta, string>> = {
-  oficio: 'un oficio',
-  sexo: 'un sexo',
-  edad: 'una edad',
-  especie: 'una especie',
-  faccion: 'una facción',
-  clase: 'una clase',
+const NOMBRE_DE_ETIQUETA: Readonly<Record<ClaveDeEtiqueta, string>> = {
+  oficio: 'el oficio',
+  sexo: 'el sexo',
+  edad: 'la edad',
+  especie: 'la especie',
+  faccion: 'la facción',
+  clase: 'la clase',
 };
 
+/**
+ * Por qué `v` no es una palabra de la etiqueta `clave` (`ETIQUETAS`), diciendo
+ * cuáles valen, o `null`: la regla de las etiquetas de una figura y de la gente de
+ * la base (`data/vecinos.json`, `town/voces.ts`).
+ */
+export function etiquetaBlocker(clave: ClaveDeEtiqueta, v: unknown): string | null {
+  const motivo = deLaListaBlocker(v, Object.keys(ETIQUETAS[clave]));
+  return motivo === null ? null : `${NOMBRE_DE_ETIQUETA[clave]} ${motivo}`;
+}
+
 /** Lo que no vale de unas etiquetas, cada problema con su ruta. */
-export function problemasDeEtiquetas(v: unknown, ruta: string): string[] {
+function problemasDeEtiquetas(v: unknown, ruta: string): string[] {
   const problemas = problemasDeObjeto(v, CLAVES_DE_ETIQUETA, CLAVES_DE_ETIQUETA).map(
     (m) => `${ruta}: ${m}`,
   );
   if (!esObjeto(v)) return problemas;
   for (const k of CLAVES_DE_ETIQUETA) {
     if (!(k in v)) continue;
-    const m = deLaLista(ETIQUETAS[k], v[k], QUE_ES[k]);
+    const m = etiquetaBlocker(k, v[k]);
     if (m !== null) problemas.push(`${ruta}.${k}: ${m}`);
   }
   return problemas;
@@ -249,8 +257,8 @@ function problemasDeLoComun(v: Record<string, unknown>, ruta: string): string[] 
     );
   }
   if ('acciones' in v) {
-    const m = deLaLista(ACCIONES_DE_NPC, v.acciones, 'unas acciones');
-    if (m !== null) problemas.push(`${ruta}.acciones: ${m}`);
+    const m = deLaListaBlocker(v.acciones, Object.keys(ACCIONES_DE_NPC));
+    if (m !== null) problemas.push(`${ruta}.acciones: las acciones ${m}`);
   }
   return problemas;
 }
@@ -261,11 +269,8 @@ export function problemasDeFigura(v: unknown, ruta: string): string[] {
     (m) => `${ruta}: ${m}`,
   );
   if (!esObjeto(v)) return problemas;
-  if ('id' in v && (typeof v.id !== 'string' || !esIdDeNpc(v.id))) {
-    problemas.push(
-      `${ruta}.id: ${JSON.stringify(v.id)} no es el id de una figura: minúsculas, cifras y «-», de 1 a ${LARGO_DEL_ID}`,
-    );
-  }
+  const malId = 'id' in v ? idDeNpcBlocker(v.id) : null;
+  if (malId !== null) problemas.push(`${ruta}.id: ${malId}`);
   if ('pedidaPor' in v && (typeof v.pedidaPor !== 'string' || !esIdDeNpc(v.pedidaPor))) {
     problemas.push(
       `${ruta}.pedidaPor: ${JSON.stringify(v.pedidaPor)} no es el id de un mundo ni «semilla»`,
@@ -278,22 +283,54 @@ export function problemasDeFigura(v: unknown, ruta: string): string[] {
  * Todo lo que no vale del banco crudo (`{ _comment, figuras: [...] }`), con su ruta:
  * cada figura y los ids repetidos. Vacío, vale.
  */
-export function problemasDelBanco(crudo: unknown): string[] {
+function problemasDelBanco(crudo: unknown): string[] {
   if (!esObjeto(crudo) || !Array.isArray(crudo.figuras)) {
-    return ['data/npcs.json: tiene que ser {"_comment": "…", "figuras": [ … ]}'];
+    return [`${RUTA_DEL_BANCO}: tiene que ser {"_comment": "…", "figuras": [ … ]}`];
   }
   const sobran = Object.keys(crudo).filter((k) => k !== '_comment' && k !== 'figuras');
-  const problemas = sobran.map((k) => `data/npcs.json: «${k}» sobra: lleva _comment y figuras`);
+  const problemas = sobran.map((k) => `${RUTA_DEL_BANCO}: «${k}» sobra: lleva _comment y figuras`);
   const vistos = new Map<string, number>();
   crudo.figuras.forEach((f: unknown, i) => {
-    problemas.push(...problemasDeFigura(f, `data/npcs.json: figuras[${i}]`));
+    problemas.push(...problemasDeFigura(f, `${RUTA_DEL_BANCO}: figuras[${i}]`));
     const id = esObjeto(f) && typeof f.id === 'string' ? f.id : null;
     if (id === null) return;
     const antes = vistos.get(id);
     if (antes !== undefined)
-      problemas.push(`data/npcs.json: figuras[${i}].id: "${id}" ya es la figura ${antes}`);
+      problemas.push(`${RUTA_DEL_BANCO}: figuras[${i}].id: "${id}" ya es la figura ${antes}`);
     else vistos.set(id, i);
   });
+  return problemas;
+}
+
+/**
+ * Lo que no vale de unas peticiones de figura (`{ "<id>": petición }`), cada
+ * problema con su ruta: la forma, cada id (con la forma del de una figura y libre en
+ * el banco: se reutiliza antes de pedir), cada petición (`problemasDePeticion`) y,
+ * con `tope`, cuántas (`FIGURAS_NUEVAS_POR_MUNDO` para un mundo; la semilla no lo
+ * lleva). La misma para la historia de un mundo (`core/mundo/validar.ts`) y para
+ * quien las acepta en el banco (`tools/npcs/banco.ts`). Vacío, valen.
+ */
+export function problemasDePeticiones(
+  v: unknown,
+  banco: Banco,
+  ruta: string,
+  tope?: number,
+): string[] {
+  if (!esObjeto(v)) return [`${ruta}: tiene que ser un objeto {"<id>": …}`];
+  const ids = Object.keys(v);
+  const problemas: string[] = [];
+  if (tope !== undefined && ids.length > tope) {
+    problemas.push(
+      `${ruta}: pide ${ids.length} figuras y un mundo pide como mucho ${tope}: reutiliza las del banco que se parezcan`,
+    );
+  }
+  for (const id of ids) {
+    const malId = idDeNpcBlocker(id);
+    if (malId !== null) problemas.push(`${ruta}.${id}: ${malId}`);
+    if (figuraDelBanco(banco, id) !== undefined)
+      problemas.push(`${ruta}.${id}: "${id}" ya es una figura del banco: nómbrala sin pedirla`);
+    problemas.push(...problemasDePeticion(v[id], `${ruta}.${id}`));
+  }
   return problemas;
 }
 
@@ -318,67 +355,61 @@ export function figuraDelBanco(banco: Banco, id: string): FiguraDeNpc | undefine
   return banco.figuras.find((f) => f.id === id);
 }
 
-/** Las etiquetas por las que se busca una figura parecida: las de una persona o una figura. */
-export interface Buscada {
-  readonly faccion: FactionId;
-  readonly especie: Especie;
-  readonly sexo: Sexo;
-  readonly oficio: Oficio;
-}
-
 /**
- * Las figuras pintadas que le valen a `buscada`, de la que más se le parece a la que
- * menos: **de su facción** (solo esas le valen), y por misma especie, mismo sexo,
- * las que no estén en `usadas` (para no repetir en una base mientras haya), mismo
- * oficio y, para desempatar, un hash de `clave` y el id de la figura (sin azar de la
- * partida: misma clave, mismo orden).
+ * La figura pintada que más se le parece a `buscada` (las etiquetas de una persona o
+ * de una figura), o `undefined` si no hay ninguna de su facción, que son las únicas
+ * que le valen. De más a menos importante: misma especie, mismo sexo, sin usar aún
+ * (`usadas`: para no repetir en una base mientras haya), mismo oficio y, para
+ * desempatar, un hash de `clave` y el id de la figura (sin azar de la partida: misma
+ * clave, misma figura). De una pasada: se busca una, no se ordenan todas.
  */
-export function figurasParecidas(
-  banco: Banco,
-  pintadas: ReadonlySet<string>,
-  buscada: Buscada,
+export function laMasParecida(
+  { banco, pintadas }: BancoPintado,
+  buscada: Pick<EtiquetasDeNpc, 'faccion' | 'especie' | 'sexo' | 'oficio'>,
   clave: string,
   usadas: ReadonlySet<string> = new Set(),
-): readonly FiguraDeNpc[] {
-  const nota = (f: FiguraDeNpc): number[] => [
+): FiguraDeNpc | undefined {
+  const nota = (f: FiguraDeNpc): readonly number[] => [
     f.etiquetas.especie === buscada.especie ? 0 : 1,
     f.etiquetas.sexo === buscada.sexo ? 0 : 1,
     usadas.has(f.id) ? 1 : 0,
     f.etiquetas.oficio === buscada.oficio ? 0 : 1,
     hashDeTexto(`${clave}|${f.id}`),
   ];
-  return banco.figuras
-    .filter((f) => pintadas.has(f.id) && f.etiquetas.faccion === buscada.faccion)
-    .map((f) => ({ f, n: nota(f) }))
-    .sort((a, b) => {
-      for (let i = 0; i < a.n.length; i++) {
-        const d = (a.n[i] as number) - (b.n[i] as number);
-        if (d !== 0) return d;
-      }
-      return 0;
-    })
-    .map(({ f }) => f);
+  const antes = (a: readonly number[], b: readonly number[]): boolean => {
+    for (let i = 0; i < a.length; i++) {
+      const d = (a[i] as number) - (b[i] as number);
+      if (d !== 0) return d < 0;
+    }
+    return false;
+  };
+  let mejor: { readonly f: FiguraDeNpc; readonly n: readonly number[] } | undefined;
+  for (const f of banco.figuras) {
+    if (!pintadas.has(f.id) || f.etiquetas.faccion !== buscada.faccion) continue;
+    const n = nota(f);
+    if (mejor === undefined || antes(n, mejor.n)) mejor = { f, n };
+  }
+  return mejor?.f;
 }
 
 /**
  * La figura con que se pinta quien nombra la figura `id`: ella si está pintada; si
- * no (pedida y aún en el taller), la más parecida de las pintadas
- * (`figurasParecidas`, por sus etiquetas); `null` si no hay ninguna de su facción, y
- * entonces va el Y Bot. `peticiones`: las que un mundo pidió y aún no están en el
- * banco (su historia sin aceptar). Lanza si `id` no está en ninguno: la validación
- * del mundo ya lo habría dicho.
+ * no (pedida y aún en el taller), la más parecida de las pintadas (`laMasParecida`,
+ * por sus etiquetas); `null` si no hay ninguna de su facción, y entonces va el Y
+ * Bot. `peticiones`: las que un mundo pidió y aún no están en el banco (su historia
+ * sin aceptar). Lanza si `id` no está en ninguno: la validación del mundo ya lo
+ * habría dicho.
  */
 export function figuraQueSePinta(
-  banco: Banco,
-  pintadas: ReadonlySet<string>,
+  gente: BancoPintado,
   id: string,
   clave: string,
   peticiones: Readonly<Record<string, PeticionDeFigura>> = {},
 ): string | null {
-  if (pintadas.has(id)) return id;
-  const etiquetas = (figuraDelBanco(banco, id) ?? peticiones[id])?.etiquetas;
+  if (gente.pintadas.has(id)) return id;
+  const etiquetas = (figuraDelBanco(gente.banco, id) ?? peticiones[id])?.etiquetas;
   if (etiquetas === undefined) {
     throw new Error(`la figura "${id}" no está en el banco de NPC ni la pide el mundo`);
   }
-  return figurasParecidas(banco, pintadas, etiquetas, `${clave}|${id}`)[0]?.id ?? null;
+  return laMasParecida(gente, etiquetas, `${clave}|${id}`)?.id ?? null;
 }

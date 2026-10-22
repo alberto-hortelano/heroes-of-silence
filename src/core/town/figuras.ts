@@ -6,7 +6,7 @@
  * Se reparten **todas** las personas de la facción (`personasDeLaFaccion`: el
  * alcaide, los doce encargados y los vecinos, en ese orden fijo), no solo las que se
  * ven: así construir un sitio no le cambia la cara a nadie. A cada una, de las
- * figuras pintadas de su facción, la más parecida (`figurasParecidas`: misma
+ * figuras pintadas de su facción, la más parecida (`laMasParecida`: misma
  * especie, mismo sexo, sin usar aún en la base, mismo oficio), desempatando con un
  * hash de la semilla, la facción, la persona y la figura: misma semilla, facción y
  * persona, misma figura. **Sin el pueblo**: Doña Elvira es la misma en toda villa
@@ -17,21 +17,20 @@
  * parecida a ella (`figuraQueSePinta`). Esas se asignan antes que las demás, para
  * que el reparto no se las lleve.
  */
-import { type Banco, figuraQueSePinta, figurasParecidas } from '../npcs.js';
+import { type BancoPintado, figuraQueSePinta, laMasParecida } from '../npcs.js';
 import type { GameState } from '../state/game.js';
 import type { FactionId } from '../types.js';
 import { personasDeLaFaccion } from './voces.js';
 
 /**
  * La figura de cada persona de la gente de `faccion` (por su id de
- * `personasDeLaFaccion`), o `null` para el Y Bot. `pintadas`: las figuras del banco
- * con sus ocho direcciones en disco.
+ * `personasDeLaFaccion`), o `null` para el Y Bot. `gente`: el banco con lo que de él
+ * está pintado (sus ocho direcciones en disco).
  */
 export function figurasDeLaGente(
   state: Pick<GameState, 'seed' | 'players' | 'mundo'>,
   faccion: FactionId,
-  banco: Banco,
-  pintadas: ReadonlySet<string>,
+  gente: BancoPintado,
 ): ReadonlyMap<string, string | null> {
   const personas = personasDeLaFaccion(faccion);
   const historia = state.mundo?.historia;
@@ -45,14 +44,13 @@ export function figurasDeLaGente(
   for (const p of personas) {
     const id = asignadas[p.id];
     if (id === undefined) continue;
-    const f = figuraQueSePinta(banco, pintadas, id, clave(p.id), peticiones);
+    const f = figuraQueSePinta(gente, id, clave(p.id), peticiones);
     fuera.set(p.id, f);
     if (f !== null) usadas.add(f);
   }
   for (const p of personas) {
     if (fuera.has(p.id)) continue;
-    const f =
-      figurasParecidas(banco, pintadas, { faccion, ...p }, clave(p.id), usadas)[0]?.id ?? null;
+    const f = laMasParecida(gente, { faccion, ...p }, clave(p.id), usadas)?.id ?? null;
     fuera.set(p.id, f);
     if (f !== null) usadas.add(f);
   }

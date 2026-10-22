@@ -11,6 +11,7 @@
  * sabe a qué ángulo se mira el tablero, y no tiene por qué.
  */
 import { ULTIMA_FILA } from '../core/battle/board.js';
+import type { AccionesDeNpc } from '../core/npcs.js';
 export const ARTE = {
   /** Proyección ortográfica, 25° hacia abajo: las figuras de Y Bot se renderizaron así. */
   camara: { elevacionGrados: 25 },
@@ -245,6 +246,26 @@ export const esHojaOpcional = (h: HojaDeFigura): boolean =>
  */
 export function hojasDeFigura(dispara: boolean): HojaDeFigura[] {
   return TODAS_LAS_HOJAS.filter((h) => dispara || !esHojaOpcional(h));
+}
+
+/**
+ * Las hojas de una figura del banco de NPC según sus acciones (`ACCIONES_DE_NPC`):
+ * de pie y andando, la A; con `todas`, también la B (ataque, daño y muerte). La
+ * otra mitad de `hojasDeFigura`, en la misma tabla: de aquí leen el taller (qué se
+ * pinta, se junta y se deriva) y el cliente (qué clips se registran de la gente).
+ */
+const HOJAS_DE_LAS_ACCIONES = {
+  'reposo-y-marcha': ['a'],
+  todas: ['a', 'b'],
+} as const satisfies Readonly<Record<AccionesDeNpc, readonly HojaDeFigura[]>>;
+
+export function hojasDeLasAcciones(acciones: AccionesDeNpc): readonly HojaDeFigura[] {
+  return HOJAS_DE_LAS_ACCIONES[acciones];
+}
+
+/** Los clips de unas hojas, en el orden de sus filas: lo que lleva un atlas hecho con ellas. */
+export function clipsDeLasHojas(hojas: readonly HojaDeFigura[]): ClipDeFigura[] {
+  return hojas.flatMap((h) => HOJAS_DE_FIGURA[h]);
 }
 
 /** La fila del atlas (`FILAS_DEL_ATLAS`) en la que empieza la hoja `hoja`. */

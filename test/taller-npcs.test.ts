@@ -8,59 +8,30 @@
  * cola: nada de esto toca el repo.
  */
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { FiguraDeNpc } from '../src/core/npcs.js';
 import { HOJAS_DE_FIGURA } from '../src/shared/arte.js';
+import { colaDelTaller } from '../tools/taller/cola.js';
 import { derivarAtlas } from '../tools/taller/derivar.js';
 import { encargoSchema } from '../tools/taller/encargo.js';
 import { juntarDireccion } from '../tools/taller/juntar.js';
-import {
-  colaDelTaller,
-  encargosQueSiguen,
-  encolarLoQueSigue,
-  esEncargoDeNpc,
-} from '../tools/taller/npcs.js';
+import { encargosQueSiguen, encolarLoQueSigue, esEncargoDeNpc } from '../tools/taller/npcs.js';
+import { FIGURA_DE_PRUEBA, raizDeNpcs } from './helpers.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 
-const TEMPORALES: string[] = [];
-afterAll(async () => {
-  await Promise.all(TEMPORALES.map((d) => rm(d, { recursive: true, force: true })));
-});
-
 const VECINA: FiguraDeNpc = {
+  ...FIGURA_DE_PRUEBA,
   id: 'vecina-de-prueba',
-  descripcion:
-    'Una vecina de prueba: vestido de lana parda, delantal blanco, toca de lino y zuecos de madera.',
-  etiquetas: {
-    oficio: 'campesino',
-    sexo: 'mujer',
-    edad: 'adulto',
-    especie: 'humano',
-    faccion: 'templarios',
-    clase: 'baja',
-  },
-  talla: 1,
-  acciones: 'reposo-y-marcha',
-  pedidaPor: 'semilla',
+  etiquetas: { ...FIGURA_DE_PRUEBA.etiquetas, sexo: 'mujer' },
 };
 const ENTERA: FiguraDeNpc = { ...VECINA, id: 'guardia-de-prueba', acciones: 'todas', talla: 0.7 };
 
 /** Una raíz temporal con un banco de dos figuras. */
-async function raiz(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'taller-npcs-'));
-  TEMPORALES.push(dir);
-  await mkdir(join(dir, 'data'), { recursive: true });
-  await writeFile(
-    join(dir, 'data/npcs.json'),
-    JSON.stringify({ _comment: 'de prueba', figuras: [VECINA, ENTERA] }),
-  );
-  return dir;
-}
+const raiz = async (): Promise<string> => raizDeNpcs([VECINA, ENTERA]);
 
 /** Un fichero vacío en la raíz: lo que mira `encargosQueSiguen` es que esté. */
 async function tocar(r: string, ruta: string): Promise<void> {
@@ -203,19 +174,24 @@ describe('una figura de solo reposo y marcha', () => {
     expect(await juntarDireccion(join(r, 'assets/npcs/guardia-de-prueba/d0'))).toBeNull();
   });
 
-  it('una hoja de tres filas solo se deriva pidiéndolo, y pidiéndolo solo vale una de tres', async () => {
+  it('una hoja de tres filas solo se deriva diciendo sus hojas, y con ellas solo vale una de tres', async () => {
     const r = await raiz();
     const tres = join(r, 'tres.png');
     const seis = join(r, 'seis.png');
     await writeFile(tres, await hojaDeMentira(3));
     await writeFile(seis, await hojaDeMentira(6));
     await expect(derivarAtlas(tres)).rejects.toThrow(/por 6 filas, o 7 con el disparo/);
-    await expect(derivarAtlas(seis, { soloReposo: true })).rejects.toThrow(
-      /una figura de solo reposo y marcha son 7 columnas por 3 filas/,
+    await expect(derivarAtlas(seis, { hojas: ['a'] })).rejects.toThrow(
+      /con las hojas A son 7 columnas por 3 filas \(idle, walk, charge\)/,
     );
-    const d = await derivarAtlas(tres, { soloReposo: true });
+    await expect(derivarAtlas(tres, { hojas: ['a', 'b'] })).rejects.toThrow(
+      /con las hojas A y B son 7 columnas por 6 filas/,
+    );
+    const d = await derivarAtlas(tres, { hojas: ['a'] });
     expect(Object.keys(d.clips)).toEqual(['idle', 'walk', 'charge']);
     expect(d.cadaver).toBeUndefined();
+    // Con la A y la B, lo mismo que una hoja de tropa de seis filas, cadáver incluido.
+    expect(await derivarAtlas(seis, { hojas: ['a', 'b'] })).toEqual(await derivarAtlas(seis));
   });
 
   it('una carpeta de assets/npcs/ que no es del banco no se junta: lanza diciéndolo', async () => {

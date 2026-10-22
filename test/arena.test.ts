@@ -113,8 +113,8 @@ import { unaVezEnLaURL } from '../src/core/validar.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import { escribirCatalogo, hojasDelTaller, leerCatalogo } from '../tools/arena/borrador.js';
 import { VELOCIDAD_DEL_CUERPO } from '../tools/arena/velocidades.js';
+import { arteEnOchoDirecciones } from '../tools/taller/arte-en-disco.js';
 import {
-  arteEnOchoDirecciones,
   EN_OCHO_DIRECCIONES,
   HEROES,
   JUEGO_DEL_YBOT,

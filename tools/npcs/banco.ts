@@ -11,48 +11,43 @@
  * Lo lee también `pnpm dev` para servir `/__npcs` (`vite.config.ts`), así que el
  * taller (pesado: Codex, sharp, el maniquí) se carga a demanda solo al encolar.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { existsSync, readdirSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   type Banco,
+  CARPETA_DE_LAS_FIGURAS,
   FIGURAS_NUEVAS_POR_MUNDO,
   type FiguraDeNpc,
-  figuraDelBanco,
   leerBanco,
   type PeticionDeFigura,
-  problemasDePeticion,
+  problemasDePeticiones,
+  RUTA_DEL_BANCO,
 } from '../../src/core/npcs.js';
-import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
+import { comentarioDe, escribirAtomico, jsonDe } from '../json.js';
+import {
+  arteEnOchoDirecciones,
+  type CarpetaDeArte,
+  direccionesDe,
+} from '../taller/arte-en-disco.js';
 
 export const RAIZ = resolve(import.meta.dirname, '../..');
-/** El índice del banco, relativo a la raíz. */
-export const RUTA_DEL_BANCO = 'data/npcs.json';
-/** El arte del banco, relativo a la raíz. */
-export const DIR_DEL_ARTE = 'assets/npcs';
+
+/** El arte del banco en disco, figura a figura: lo que pinta el taller dirección a dirección. */
+export const ARTE_DEL_BANCO: CarpetaDeArte = {
+  dir: CARPETA_DE_LAS_FIGURAS,
+  aMedias: 'el taller la está pintando',
+};
 
 /** El `_comment` del fichero si no trae uno: el que trae se conserva al escribir. */
 const COMENTARIO =
   'El banco de figuras de NPC (22-10-2026): la gente que no pelea, la de la base y la de los lugares. Lo escribe solo `tools/npcs/banco.ts` (`pnpm npcs pedir` y el motor de narrativa al aceptar un mundo); el arte va en assets/npcs/<id>/ y lo pinta el taller. Si una figura está pintada no se escribe aquí: se deriva del disco.';
 
 /** El fichero crudo, tal cual: lo que sirve `/__npcs` y lo que se reescribe. */
-export function crudoDelBanco(raiz = RAIZ): { _comment?: unknown; figuras: unknown[] } {
-  const ruta = join(raiz, RUTA_DEL_BANCO);
-  let texto: string;
-  try {
-    texto = readFileSync(ruta, 'utf8');
-  } catch (err) {
-    throw new Error(
-      `${RUTA_DEL_BANCO} no se puede leer: ${err instanceof Error ? err.message : err}`,
-    );
-  }
-  try {
-    return JSON.parse(texto) as { _comment?: unknown; figuras: unknown[] };
-  } catch (err) {
-    throw new Error(
-      `${RUTA_DEL_BANCO} no es JSON: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
+export function crudoDelBanco(raiz = RAIZ): unknown {
+  const crudo = jsonDe(raiz, RUTA_DEL_BANCO);
+  if (crudo === undefined) throw new Error(`${RUTA_DEL_BANCO} no existe`);
+  return crudo;
 }
 
 /** El banco leído y juzgado (`leerBanco`), o lanza con todos sus problemas. */
@@ -64,33 +59,19 @@ export function leerBancoDeDisco(raiz = RAIZ): Banco {
 export type EstadoDeFigura =
   | { readonly estado: 'pendiente' }
   | { readonly estado: 'a-medias'; readonly motivo: string }
-  | { readonly estado: 'pintada'; readonly direcciones: readonly unknown[] };
+  | { readonly estado: 'pintada' };
 
 /**
- * Cuánto arte tiene la figura `id`: sus ocho `dN/atlas.json` y `atlas.webp`
- * (pintada, con los JSON leídos), ninguno (pendiente: pedida y en el taller) o
- * algunos (a medias, con el motivo: el taller va dirección a dirección).
+ * Cuánto arte tiene la figura `id` (`arteEnOchoDirecciones`): sus ocho
+ * `dN/atlas.json` y `atlas.webp` (pintada), ninguno (pendiente: pedida y en el
+ * taller) o algunos (a medias, con el motivo: el taller va dirección a dirección).
+ * Solo mira si están: sus JSON los lee lo que se sirve (`loQueSeSirve`).
  */
 export function estadoDeFigura(id: string, raiz = RAIZ): EstadoDeFigura {
-  const dir = join(raiz, DIR_DEL_ARTE, id);
-  const hechas = NOMBRES_DE_DIRECCION.map((_, d) =>
-    ['atlas.json', 'atlas.webp'].every((f) => existsSync(join(dir, `d${d}`, f))),
-  );
-  const n = hechas.filter(Boolean).length;
-  if (n === 0) return { estado: 'pendiente' };
-  if (n < hechas.length) {
-    const faltan = hechas.flatMap((h, d) => (h ? [] : [`d${d}`]));
-    return {
-      estado: 'a-medias',
-      motivo: `${id} tiene ${n} de sus ${hechas.length} direcciones (le faltan ${faltan.join(', ')}): el taller la está pintando`,
-    };
-  }
-  return {
-    estado: 'pintada',
-    direcciones: hechas.map(
-      (_, d) => JSON.parse(readFileSync(join(dir, `d${d}`, 'atlas.json'), 'utf8')) as unknown,
-    ),
-  };
+  const arte = arteEnOchoDirecciones(raiz, id, ARTE_DEL_BANCO);
+  if (arte.hecho === 'entero') return { estado: 'pintada' };
+  if (arte.hecho === 'ninguno') return { estado: 'pendiente' };
+  return { estado: 'a-medias', motivo: arte.motivo };
 }
 
 /** Las hojas del banco como las lee la página: por id, sus direcciones o por qué aún no. */
@@ -113,65 +94,55 @@ export function loQueSeSirve(raiz = RAIZ): {
   const banco = leerBanco(crudo);
   const hojas: Record<string, HojaDeNpc> = {};
   for (const f of banco.figuras) {
-    const e = estadoDeFigura(f.id, raiz);
+    const h = direccionesDe(raiz, f.id, ARTE_DEL_BANCO);
     hojas[f.id] =
-      e.estado === 'pintada'
-        ? { direcciones: e.direcciones, incompleta: null }
-        : {
-            direcciones: null,
-            incompleta: e.estado === 'a-medias' ? e.motivo : `${f.id} está pedida y sin pintar`,
-          };
+      h.direcciones === null && h.incompleta === null
+        ? { direcciones: null, incompleta: `${f.id} está pedida y sin pintar` }
+        : h;
   }
   return { banco: crudo, hojas };
 }
 
-/** Las carpetas de `assets/npcs/` que no son de ninguna figura del banco: arte suelto. */
-export function carpetasSinFigura(raiz = RAIZ): string[] {
-  const dir = join(raiz, DIR_DEL_ARTE);
+/** Las carpetas de `assets/npcs/` que no son de ninguna figura de `banco`: arte suelto. */
+export function carpetasSinFigura(banco: Banco, raiz = RAIZ): string[] {
+  const dir = join(raiz, CARPETA_DE_LAS_FIGURAS);
   if (!existsSync(dir)) return [];
-  const ids = new Set(leerBancoDeDisco(raiz).figuras.map((f) => f.id));
+  const ids = new Set(banco.figuras.map((f) => f.id));
   return readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && !ids.has(e.name))
     .map((e) => e.name);
 }
 
-/** Escribe el banco: juzgado entero antes (`leerBanco`), y de golpe (temporal y `rename`). */
-async function escribirBanco(raiz: string, figuras: readonly FiguraDeNpc[]): Promise<void> {
-  const antes = crudoDelBanco(raiz);
+/** Escribe el banco: juzgado entero antes (`leerBanco`), con el `_comment` del disco y de golpe. */
+function escribirBanco(raiz: string, figuras: readonly FiguraDeNpc[]): void {
   const nuevo = {
-    _comment: typeof antes._comment === 'string' ? antes._comment : COMENTARIO,
+    _comment: comentarioDe(jsonDe(raiz, RUTA_DEL_BANCO), COMENTARIO),
     figuras,
   };
   leerBanco(nuevo);
-  const ruta = join(raiz, RUTA_DEL_BANCO);
-  const temporal = `${ruta}.${process.pid}.tmp`;
-  await writeFile(temporal, `${JSON.stringify(nuevo, null, 2)}\n`);
-  await rename(temporal, ruta);
+  escribirAtomico([{ ruta: join(raiz, RUTA_DEL_BANCO), contenido: nuevo }]);
 }
 
 /**
  * Acepta unas peticiones de figura (las de un mundo, `historia.figuras`, o las de
- * `pnpm npcs pedir`): relee el banco del disco, **lanza sin escribir nada** si
- * alguna no vale o su id ya es de otra figura, las añade con quién las pidió, las
- * escribe y encola lo primero de cada una en el taller (`encolarLoQueSigue`).
- * Devuelve las figuras nuevas y lo encolado.
+ * `pnpm npcs pedir`): relee el banco del disco, **lanza sin escribir nada** si no
+ * valen (`problemasDePeticiones`, la regla con que las juzga la historia; con
+ * `tope`, cuántas), las añade con quién las pidió, las escribe y encola lo primero
+ * de cada una en el taller (`encolarLoQueSigue`). Devuelve las figuras nuevas y lo
+ * encolado.
  */
 export async function aceptarPeticiones(
-  peticiones: Readonly<Record<string, PeticionDeFigura>>,
+  peticiones: unknown,
   pedidaPor: string,
   raiz = RAIZ,
+  tope?: number,
 ): Promise<{ readonly figuras: readonly FiguraDeNpc[]; readonly encolados: readonly string[] }> {
   const banco = leerBancoDeDisco(raiz);
-  const problemas: string[] = [];
-  for (const [id, p] of Object.entries(peticiones)) {
-    problemas.push(...problemasDePeticion(p, `figuras.${id}`));
-    if (figuraDelBanco(banco, id) !== undefined)
-      problemas.push(`figuras.${id}: "${id}" ya es una figura del banco: reutilízala sin pedirla`);
-  }
+  const problemas = problemasDePeticiones(peticiones, banco, 'figuras', tope);
   if (problemas.length > 0) {
     throw new Error(`no se aceptan las figuras pedidas:\n- ${problemas.join('\n- ')}`);
   }
-  const nuevas = Object.entries(peticiones).map(
+  const nuevas = Object.entries(peticiones as Readonly<Record<string, PeticionDeFigura>>).map(
     ([id, p]): FiguraDeNpc => ({
       id,
       descripcion: p.descripcion,
@@ -182,7 +153,7 @@ export async function aceptarPeticiones(
     }),
   );
   if (nuevas.length === 0) return { figuras: [], encolados: [] };
-  await escribirBanco(raiz, [...banco.figuras, ...nuevas]);
+  escribirBanco(raiz, [...banco.figuras, ...nuevas]);
   const { encolarLoQueSigue } = await import('../taller/npcs.js');
   const encolados: string[] = [];
   for (const f of nuevas) encolados.push(...(await encolarLoQueSigue(f, raiz)));
@@ -202,16 +173,8 @@ export async function aceptarElMundo(
   raiz = RAIZ,
 ): Promise<{ readonly figuras: readonly FiguraDeNpc[]; readonly encolados: readonly string[] }> {
   const ruta = join(raiz, 'assets/mundos', id, 'historia.json');
-  const historia = JSON.parse(await readFile(ruta, 'utf8')) as {
-    figuras?: Record<string, PeticionDeFigura>;
-  };
-  const pedidas = historia.figuras ?? {};
-  if (Object.keys(pedidas).length > FIGURAS_NUEVAS_POR_MUNDO) {
-    throw new Error(
-      `el mundo "${id}" pide ${Object.keys(pedidas).length} figuras y el tope es ${FIGURAS_NUEVAS_POR_MUNDO}`,
-    );
-  }
-  const hecho = await aceptarPeticiones(pedidas, id, raiz);
+  const historia = JSON.parse(await readFile(ruta, 'utf8')) as { figuras?: unknown };
+  const hecho = await aceptarPeticiones(historia.figuras ?? {}, id, raiz, FIGURAS_NUEVAS_POR_MUNDO);
   if (historia.figuras !== undefined) {
     const { figuras: _ya, ...sin } = historia;
     await writeFile(ruta, `${JSON.stringify(sin, null, 2)}\n`);

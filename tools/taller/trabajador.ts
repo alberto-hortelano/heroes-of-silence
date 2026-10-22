@@ -111,7 +111,7 @@ import {
 import { ARTE_DE_LA_BASE, encargosDeLaBase, escribirFuentesDeLaBase } from './base.js';
 import { escribirCasas, vistaDeLasCasas } from './casas.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
-import { Cola } from './cola.js';
+import { colaDelTaller } from './cola.js';
 import {
   ELEVACION_DEL_CADAVER,
   escribirDerivado,
@@ -170,7 +170,7 @@ import {
   type Variante,
 } from './experimento.js';
 import { generarConFal } from './fal.js';
-import { juntarDireccion } from './juntar.js';
+import { derivacionDeLaCarpeta, juntarDireccion } from './juntar.js';
 import { encargosDeLaderas, escribirGuiasDeLaderas, escribirLaderasDerivadas } from './laderas.js';
 import {
   ESTILOS_DE_MAPA,
@@ -185,7 +185,6 @@ import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './m
 import { escribirGuiaDelMuro, escribirMurosDerivados, esMuroNorteSur } from './muros.js';
 import {
   DIR_DEL_MANIQUI_CIVIL,
-  derivacionDeNpc,
   encolarLoQueSigue,
   esEncargoDeNpc,
   POSE_DE_LA_IDENTIDAD,
@@ -196,12 +195,7 @@ import {
   escribirPuenteDerivado,
   MATERIALES,
 } from './paredes-puentes.js';
-import {
-  derivacionDeUnidad,
-  escribirAtlasDePoses,
-  hojaDelReposo,
-  RUTA_DEL_ATLAS_8D,
-} from './poses-8d.js';
+import { escribirAtlasDePoses, hojaDelReposo, RUTA_DEL_ATLAS_8D } from './poses-8d.js';
 import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
 import { encargoDelRecinto, escribirGuiaDelRecinto, escribirRecintoDerivado } from './recinto.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
@@ -236,7 +230,7 @@ function faccionDe(arg: string | undefined, uso: string): FactionId {
  * transparente ni gris (el gris claro se confundía con el maniquí).
  */
 export const FONDO_DE_POSE = '#00b140';
-export const COLA = new Cola(join(RAIZ, 'tools/taller/cola'));
+export const COLA = colaDelTaller(RAIZ);
 
 const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 
@@ -1437,19 +1431,11 @@ switch (orden) {
   }
   case 'derivar':
     for (const r of resto) {
-      // Con la suelta del maniquí y el ritmo de su unidad, la carpeta de encima
-      // de `dN/`: `derivarAtlas` lanza si la hoja no tiene la fila del disparo
-      // que la unidad dispara, o al revés.
-      // Una figura del banco de NPC, con la derivación de sus acciones.
-      const id = basename(dirname(dirname(resolve(r))));
-      const npc =
-        basename(dirname(dirname(dirname(resolve(r))))) === 'npcs'
-          ? figuraDelBanco(leerBancoDeDisco(), id)
-          : undefined;
-      const d = await escribirDerivado(
-        r,
-        npc === undefined ? await derivacionDeUnidad(id) : derivacionDeNpc(npc),
-      );
+      // Con la derivación de su carpeta (`derivacionDeLaCarpeta`): la suelta y el
+      // ritmo de su unidad, o las hojas de las acciones de una figura del banco de
+      // NPC. `derivarAtlas` lanza si la hoja no tiene la fila del disparo que la
+      // unidad dispara, o al revés.
+      const d = await escribirDerivado(r, await derivacionDeLaCarpeta(dirname(r)).derivar());
       console.log(
         `${r}: altura ${d.altura}, fotogramas ${Object.values(d.clips)
           .map((c) => c.frames)

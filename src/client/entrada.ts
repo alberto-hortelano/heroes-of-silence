@@ -12,15 +12,16 @@ arrancar(async () => {
     const { pedirPartida } = await import('./inicio/inicio.js');
     await pedirPartida();
   }
-  // El banco de figuras de NPC, antes que el mundo (que lo mira al validarse) y que
-  // la partida (que reparte sus figuras a la gente): uno roto lo pinta `arranque.ts`.
-  const { cargarLaGente } = await import('./render/gente.js');
-  await cargarLaGente();
-  // Un mundo (`?mundo=`) se carga y se valida antes que la partida: `main.ts` lo
-  // lee ya hecho, y uno roto lo pinta `arranque.ts` con todos sus problemas.
-  if (pideMundo(location.search)) {
-    const { cargarElMundoPedido } = await import('./mundo/cargar.js');
-    await cargarElMundoPedido(location.search);
-  }
+  // El banco de figuras de NPC, a la vez que el mundo: este lo espera solo para
+  // validarse (las figuras que nombra), después de pedir sus ficheros. Uno roto lo
+  // pinta `arranque.ts`, como un mundo roto con todos sus problemas. `main.ts` lee
+  // los dos ya hechos (`genteCargada`, `mundoPedido`) al abrir la partida, que es al
+  // cargarse: por eso va después.
+  const gente = import('./render/gente.js').then((g) => g.cargarLaGente());
+  await Promise.all([
+    gente,
+    pideMundo(location.search) &&
+      import('./mundo/cargar.js').then((m) => m.cargarElMundoPedido(location.search, gente)),
+  ]);
   await import('./main.js');
 });

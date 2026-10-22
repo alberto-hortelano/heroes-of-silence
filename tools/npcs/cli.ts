@@ -23,21 +23,20 @@
 import { spawnSync } from 'node:child_process';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/npcs.js';
 import { personasDeLaFaccion } from '../../src/core/town/voces.js';
 import { FACTION_IDS } from '../../src/core/types.js';
-import { colaDelTaller, encolarLoQueSigue, esEncargoDeNpc } from '../taller/npcs.js';
+import { bandera } from '../argumentos.js';
+import { colaDelTaller } from '../taller/cola.js';
+import { encolarLoQueSigue, esEncargoDeNpc, prefijoDeLaFigura } from '../taller/npcs.js';
 import {
   aceptarPeticiones,
   carpetasSinFigura,
-  DIR_DEL_ARTE,
+  type EstadoDeFigura,
   estadoDeFigura,
   leerBancoDeDisco,
   RAIZ,
 } from './banco.js';
-
-function bandera(args: readonly string[], nombre: string): string | undefined {
-  return args.find((x) => x.startsWith(`--${nombre}=`))?.slice(nombre.length + 3);
-}
 
 async function estado(): Promise<void> {
   const banco = leerBancoDeDisco();
@@ -45,9 +44,14 @@ async function estado(): Promise<void> {
   const deNpc = Object.fromEntries(
     Object.entries(cola).map(([e, ids]) => [e, ids.filter(esEncargoDeNpc)]),
   ) as typeof cola;
+  // Cada figura, una vez: lo leen su línea y la cuenta de su facción.
+  const estados = new Map<string, EstadoDeFigura>(
+    banco.figuras.map((f) => [f.id, estadoDeFigura(f.id)]),
+  );
   for (const f of banco.figuras) {
-    const e = estadoDeFigura(f.id);
-    const suyos = (ids: readonly string[]) => ids.filter((i) => i.startsWith(`npc-${f.id}-`));
+    const e = estados.get(f.id) as EstadoDeFigura;
+    const suyos = (ids: readonly string[]) =>
+      ids.filter((i) => i.startsWith(prefijoDeLaFigura(f.id)));
     const cuentas = (['pendiente', 'en-curso', 'hecho', 'fallido'] as const)
       .map((k) => [k, suyos(deNpc[k]).length] as const)
       .filter(([, n]) => n > 0)
@@ -61,7 +65,7 @@ async function estado(): Promise<void> {
     if (ids.length > 0) console.log(`cola ${k.padEnd(9)} ${ids.length}  ${ids.join(' ')}`);
   for (const faccion of FACTION_IDS) {
     const suyas = banco.figuras.filter((f) => f.etiquetas.faccion === faccion);
-    const pintadas = suyas.filter((f) => estadoDeFigura(f.id).estado === 'pintada');
+    const pintadas = suyas.filter((f) => estados.get(f.id)?.estado === 'pintada');
     const especies = new Set(pintadas.map((f) => f.etiquetas.especie));
     const sinSuEspecie = personasDeLaFaccion(faccion).filter((p) => !especies.has(p.especie));
     console.log(
@@ -73,14 +77,14 @@ async function estado(): Promise<void> {
             : ''),
     );
   }
-  for (const c of carpetasSinFigura())
-    console.log(`aviso: ${DIR_DEL_ARTE}/${c} no es de ninguna figura del banco`);
+  for (const c of carpetasSinFigura(banco))
+    console.log(`aviso: ${CARPETA_DE_LAS_FIGURAS}/${c} no es de ninguna figura del banco`);
 }
 
 async function pedir(args: readonly string[]): Promise<void> {
   const fichero = args.find((a) => !a.startsWith('--'));
   if (fichero === undefined) throw new Error('uso: pnpm npcs pedir <fichero.json> [--por=<mundo>]');
-  const peticiones = JSON.parse(await readFile(fichero, 'utf8')) as Record<string, never>;
+  const peticiones: unknown = JSON.parse(await readFile(fichero, 'utf8'));
   const { figuras, encolados } = await aceptarPeticiones(
     peticiones,
     bandera(args, 'por') ?? 'semilla',
@@ -94,7 +98,7 @@ async function pedir(args: readonly string[]): Promise<void> {
 
 async function encolar(ids: readonly string[]): Promise<void> {
   const banco = leerBancoDeDisco();
-  const desconocidas = ids.filter((id) => !banco.figuras.some((f) => f.id === id));
+  const desconocidas = ids.filter((id) => figuraDelBanco(banco, id) === undefined);
   if (desconocidas.length > 0) throw new Error(`no están en el banco: ${desconocidas.join(', ')}`);
   const elegidas = banco.figuras.filter((f) =>
     ids.length === 0 ? estadoDeFigura(f.id).estado !== 'pintada' : ids.includes(f.id),
@@ -107,20 +111,18 @@ async function encolar(ids: readonly string[]): Promise<void> {
 
 async function rehacer(id: string | undefined): Promise<void> {
   if (id === undefined) throw new Error('uso: pnpm npcs rehacer <id>');
-  const f = leerBancoDeDisco().figuras.find((x) => x.id === id);
+  const f = figuraDelBanco(leerBancoDeDisco(), id);
   if (f === undefined) throw new Error(`"${id}" no está en el banco`);
   const cola = colaDelTaller(RAIZ);
   const estado = await cola.estado();
-  const vivos = [...estado.pendiente, ...estado['en-curso']].filter((i) =>
-    i.startsWith(`npc-${id}-`),
-  );
+  const suyo = (i: string): boolean => i.startsWith(prefijoDeLaFigura(id));
+  const vivos = [...estado.pendiente, ...estado['en-curso']].filter(suyo);
   if (vivos.length > 0)
     throw new Error(
       `"${id}" tiene encargos en la cola (${vivos.join(', ')}): espera a que acaben o retíralos con pnpm taller retirar`,
     );
-  await rm(join(RAIZ, DIR_DEL_ARTE, id), { recursive: true, force: true });
-  for (const i of [...estado.hecho, ...estado.fallido].filter((i) => i.startsWith(`npc-${id}-`)))
-    await cola.olvidar(i);
+  await rm(join(RAIZ, CARPETA_DE_LAS_FIGURAS, id), { recursive: true, force: true });
+  for (const i of [...estado.hecho, ...estado.fallido].filter(suyo)) await cola.olvidar(i);
   console.log(`${id}: arte borrado; encolado ${(await encolarLoQueSigue(f, RAIZ)).join(' ')}`);
 }
 

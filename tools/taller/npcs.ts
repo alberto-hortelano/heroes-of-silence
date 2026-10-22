@@ -19,14 +19,16 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AccionesDeNpc, FiguraDeNpc } from '../../src/core/npcs.js';
-import { type HojaDeFigura, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
-import { Cola } from './cola.js';
+import { CARPETA_DE_LAS_FIGURAS, type FiguraDeNpc } from '../../src/core/npcs.js';
+import {
+  type HojaDeFigura,
+  hojasDeLasAcciones,
+  NOMBRES_DE_DIRECCION,
+} from '../../src/shared/arte.js';
+import { colaDelTaller } from './cola.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DE_FACCION } from './unidades.js';
 
-/** Donde vive el arte del banco: fuera de `assets/unidades/`, que es la tropa de la arena. */
-export const DIR_NPCS = 'assets/npcs';
 /**
  * El maniquí de la gente: el juego `civil` del Y Bot (sin armas, reposo y marcha de
  * ambiente) **con su profundidad**, renderizado una vez con `pnpm taller maniqui
@@ -38,31 +40,13 @@ export const DIR_DEL_MANIQUI_CIVIL = 'assets/unidades/_poses/gente/civil-8d';
 export const POSE_DE_LA_IDENTIDAD = `${DIR_DEL_MANIQUI_CIVIL}/identidad.png`;
 
 /** La carpeta de una figura del banco, relativa a la raíz. */
-export const carpetaDeNpc = (id: string): string => `${DIR_NPCS}/${id}`;
-
-/** La cola del taller de una raíz (la del repo, o una temporal en los tests). */
-export function colaDelTaller(raiz: string): Cola {
-  return new Cola(join(raiz, 'tools/taller/cola'));
-}
+export const carpetaDeNpc = (id: string): string => `${CARPETA_DE_LAS_FIGURAS}/${id}`;
 
 /** Los encargos de NPC llevan este prefijo: `pnpm npcs trabajar` toma solo esos. */
 export const PREFIJO_DE_NPC = 'npc-';
 export const esEncargoDeNpc = (id: string): boolean => id.startsWith(PREFIJO_DE_NPC);
-
-/** Las hojas de cada dirección según sus acciones: la A siempre; la B, con `todas`. */
-export function letrasDeNpc(acciones: AccionesDeNpc): readonly HojaDeFigura[] {
-  return acciones === 'todas' ? ['a', 'b'] : ['a'];
-}
-
-/**
- * Con qué se deriva el atlas de una figura del banco: sin suelta (no dispara) ni
- * ritmo propio, y con solo la hoja A, de tres filas y sin cadáver (`soloReposo`).
- */
-export function derivacionDeNpc(f: Pick<FiguraDeNpc, 'acciones'>): {
-  readonly soloReposo: boolean;
-} {
-  return { soloReposo: f.acciones === 'reposo-y-marcha' };
-}
+/** El principio del id de todo encargo de la figura `id`: `npc-<id>-…`. */
+export const prefijoDeLaFigura = (id: string): string => `${PREFIJO_DE_NPC}${id}-`;
 
 /** Lo que se le dice al pintor de toda figura del banco, además de su descripción. */
 const DE_LA_GENTE =
@@ -70,42 +54,51 @@ const DE_LA_GENTE =
 
 const conTalla = (f: FiguraDeNpc): { talla?: number } => (f.talla === 1 ? {} : { talla: f.talla });
 
+/**
+ * Lo de todo encargo de una figura: su id (`npc-<id>-<que>`), su descripción con
+ * lo de la gente, su salida en su carpeta, el fondo y la cadena.
+ */
+function encargoDeLaFigura(
+  f: FiguraDeNpc,
+  que: string,
+): Pick<Encargo, 'id' | 'descripcion' | 'salida' | 'fondo' | 'despues'> {
+  return {
+    id: `${prefijoDeLaFigura(f.id)}${que}`,
+    descripcion: `${f.descripcion}\n${DE_LA_GENTE}`,
+    salida: `${carpetaDeNpc(f.id)}/${que}`,
+    fondo: 'transparente',
+    despues: { orden: 'encadenar-npc', npc: f.id },
+  };
+}
+
 /** El encargo de la identidad: el maniquí en su reposo y el estilo de su facción. */
 function encargoDeIdentidad(f: FiguraDeNpc): Encargo {
   return {
-    id: `${PREFIJO_DE_NPC}${f.id}-identidad`,
+    ...encargoDeLaFigura(f, 'identidad'),
     tipo: 'identidad',
-    descripcion: `${f.descripcion}\n${DE_LA_GENTE}`,
     referencias: [
       { ruta: POSE_DE_LA_IDENTIDAD, papel: 'pose' },
       { ruta: ESTILO_DE_FACCION[f.etiquetas.faccion], papel: 'estilo' },
     ],
-    salida: `${carpetaDeNpc(f.id)}/identidad`,
-    fondo: 'transparente',
-    despues: { orden: 'encadenar-npc', npc: f.id },
   };
 }
 
 /** El giro: el maniquí en el reposo de cada dirección, con la identidad ya pintada. */
 function encargoDeGiro(f: FiguraDeNpc): Encargo {
   return {
-    id: `${PREFIJO_DE_NPC}${f.id}-giro`,
+    ...encargoDeLaFigura(f, 'giro'),
     tipo: 'giro',
-    descripcion: `${f.descripcion}\n${DE_LA_GENTE}`,
     referencias: [
       { ruta: `${DIR_DEL_MANIQUI_CIVIL}/giro.png`, papel: 'pose' },
       { ruta: `${carpetaDeNpc(f.id)}/identidad.webp`, papel: 'identidad' },
     ],
-    salida: `${carpetaDeNpc(f.id)}/giro`,
-    fondo: 'transparente',
-    despues: { orden: 'encadenar-npc', npc: f.id },
   };
 }
 
 /** Una hoja de una dirección, sobre la profundidad del maniquí civil y con el giro como identidad. */
 function encargoDeHoja(f: FiguraDeNpc, d: number, hoja: HojaDeFigura): Encargo {
   return {
-    id: `${PREFIJO_DE_NPC}${f.id}-d${d}-${hoja}`,
+    id: `${prefijoDeLaFigura(f.id)}d${d}-${hoja}`,
     tipo: 'atlas',
     descripcion: [
       f.descripcion,
@@ -141,7 +134,7 @@ export function encargosQueSiguen(f: FiguraDeNpc, raiz: string): Encargo[] {
   if (!hay(`${dir}/identidad.webp`)) return [encargoDeIdentidad(f)];
   if (!hay(`${dir}/giro.webp`)) return [encargoDeGiro(f)];
   return NOMBRES_DE_DIRECCION.flatMap((_, d) =>
-    letrasDeNpc(f.acciones)
+    hojasDeLasAcciones(f.acciones)
       .filter((h) => !hay(`${dir}/d${d}/hoja-${h}.webp`))
       .map((h) => encargoDeHoja(f, d, h)),
   );
@@ -161,9 +154,10 @@ export async function encolarLoQueSigue(
 ): Promise<string[]> {
   const cola = colaDelTaller(raiz);
   await cola.preparar();
+  // Una vez: lo que se encola aquí son ids distintos, y ninguno estaba.
+  const estado = await cola.estado();
   const encolados: string[] = [];
   for (const e of encargosQueSiguen(f, raiz)) {
-    const estado = await cola.estado();
     const vivo = estado.pendiente.includes(e.id) || estado['en-curso'].includes(e.id);
     const cerrado = estado.hecho.includes(e.id) || estado.fallido.includes(e.id);
     if (vivo || (cerrado && !repescar)) continue;

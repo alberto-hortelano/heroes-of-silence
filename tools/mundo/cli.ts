@@ -13,12 +13,8 @@
 import { REGIONES_POR_BANDO } from '../../src/core/map/generate.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
+import { bandera } from '../argumentos.js';
 import { escribirLectura, escribirMundoNuevo, validarEnDisco } from './disco.js';
-
-function bandera(args: readonly string[], nombre: string): string | undefined {
-  const a = args.find((x) => x.startsWith(`--${nombre}=`));
-  return a?.slice(nombre.length + 3);
-}
 
 function entero(texto: string | undefined, nombre: string, defecto: number): number {
   if (texto === undefined) return defecto;

@@ -4,22 +4,16 @@
  * figura de gente no es tropa ni pelea, y aceptar las figuras que pide un mundo.
  */
 import { existsSync, readdirSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import vecinos from '../data/vecinos.json' with { type: 'json' };
-import {
-  arteDe,
-  arteParaPintar,
-  CUERPO_DE_VECINO,
-  cuerpoDeGente,
-  registrarGente,
-} from '../src/client/render/personajes.js';
+import { CUERPO_DE_VECINO, cuerpoDeGente } from '../src/client/render/cuerpo-de-gente.js';
+import { arteDe, arteParaPintar, registrarGente } from '../src/client/render/personajes.js';
 import { hojaDeUnidad, UNIDADES } from '../src/core/catalogo.js';
 import {
   ETIQUETAS,
-  type FiguraDeNpc,
+  figuraDelBanco,
   figuraQueSePinta,
   leerBanco,
   problemasDeFigura,
@@ -32,36 +26,18 @@ import {
   aceptarPeticiones,
   carpetasSinFigura,
   crudoDelBanco,
-  estadoDeFigura,
   leerBancoDeDisco,
+  loQueSeSirve,
 } from '../tools/npcs/banco.js';
 import semilla from '../tools/npcs/semilla.json' with { type: 'json' };
-import { colaDelTaller } from '../tools/taller/npcs.js';
+import { colaDelTaller } from '../tools/taller/cola.js';
+import { FIGURA_DE_PRUEBA, raizDeNpcs } from './helpers.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 const BANCO = leerBancoDeDisco();
 
-const TEMPORALES: string[] = [];
-afterAll(async () => {
-  await Promise.all(TEMPORALES.map((d) => rm(d, { recursive: true, force: true })));
-});
-
 /** Una figura que vale, para romperla campo a campo. */
-const BUENA: FiguraDeNpc = {
-  id: 'vecino-de-prueba',
-  descripcion: 'Un vecino de prueba: camisa de lino, chaleco de lana parda, calzas y zuecos.',
-  etiquetas: {
-    oficio: 'campesino',
-    sexo: 'hombre',
-    edad: 'adulto',
-    especie: 'humano',
-    faccion: 'templarios',
-    clase: 'baja',
-  },
-  talla: 1,
-  acciones: 'reposo-y-marcha',
-  pedidaPor: 'semilla',
-};
+const BUENA = FIGURA_DE_PRUEBA;
 const conCambio = (cambio: Record<string, unknown>) => ({ ...BUENA, ...cambio });
 const conEtiqueta = (k: string, v: unknown) => ({
   ...BUENA,
@@ -84,16 +60,16 @@ describe('el índice del banco (`data/npcs.json`)', () => {
       /figuras\[1\]\.id: "vecino-de-prueba" ya es la figura 0/,
     );
     expect(() => leerBanco(banco([conEtiqueta('oficio', 'pirata')]))).toThrow(
-      /figuras\[0\]\.etiquetas\.oficio: "pirata" no es un oficio: autoridad, escribano/,
+      /figuras\[0\]\.etiquetas\.oficio: el oficio "pirata" no existe; valen autoridad, escribano/,
     );
     expect(() => leerBanco(banco([conEtiqueta('faccion', 'caballeros')]))).toThrow(
-      /etiquetas\.faccion: "caballeros" no es una facción/,
+      /etiquetas\.faccion: la facción "caballeros" no existe/,
     );
     expect(() => leerBanco(banco([conCambio({ talla: 3 })]))).toThrow(
       /talla: tiene que ser un número de 0.5 a 2.5/,
     );
     expect(() => leerBanco(banco([conCambio({ acciones: 'bailar' })]))).toThrow(
-      /acciones: "bailar" no es unas acciones: reposo-y-marcha, todas/,
+      /acciones: las acciones "bailar" no existe; valen reposo-y-marcha, todas/,
     );
     expect(() => leerBanco(banco([conCambio({ pintada: true })]))).toThrow(
       /figuras\[0\]: .*pintada/,
@@ -129,16 +105,12 @@ describe('el índice del banco (`data/npcs.json`)', () => {
 
 describe('el arte del banco en disco (`assets/npcs/`)', () => {
   it('toda carpeta es de una figura del banco, y toda pintada tiene sus ocho atlas y se registra como gente', () => {
-    expect(carpetasSinFigura()).toEqual([]);
-    for (const f of BANCO.figuras) {
-      const e = estadoDeFigura(f.id);
-      if (e.estado !== 'pintada') continue;
-      const arte = registrarGente(f.id, e.direcciones);
-      for (const d of arte.direcciones) {
-        expect(existsSync(join(RAIZ, 'assets', d.clips.idle.imagen)), d.clips.idle.imagen).toBe(
-          true,
-        );
-      }
+    expect(carpetasSinFigura(BANCO)).toEqual([]);
+    for (const [id, h] of Object.entries(loQueSeSirve().hojas)) {
+      if (h.direcciones === null) continue;
+      const arte = registrarGente(id, h.direcciones);
+      for (const imagen of arte.imagenes)
+        expect(existsSync(join(RAIZ, 'assets', imagen)), imagen).toBe(true);
     }
   });
 
@@ -156,15 +128,12 @@ describe('el arte del banco en disco (`assets/npcs/`)', () => {
     // Y lo pintado del banco vive solo en assets/npcs/.
     if (existsSync(join(RAIZ, 'assets/npcs'))) {
       for (const d of readdirSync(join(RAIZ, 'assets/npcs')))
-        expect(
-          BANCO.figuras.some((f) => f.id === d),
-          d,
-        ).toBe(true);
+        expect(figuraDelBanco(BANCO, d), d).toBeDefined();
     }
   });
 });
 
-/** Una dirección de gente de mentira, como la deriva el taller con `soloReposo`. */
+/** Una dirección de gente de mentira, como la deriva el taller con `hojas: ['a']`. */
 const direccion = (extra: Record<string, unknown> = {}) => ({
   cell: 384,
   columns: 7,
@@ -177,13 +146,14 @@ const direccion = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-describe('una figura de gente no pelea (`ArteDeGente`, cuerpos `npc:<id>`)', () => {
+describe('una figura de gente no pelea (`ArteDeFigura.clips`, cuerpos `npc:<id>`)', () => {
   it('se registra con sus tres acciones y se pinta de pie y andando', () => {
     const arte = registrarGente(
       'gente-de-prueba',
       Array.from({ length: 8 }, () => direccion()),
     );
-    expect(arte.direcciones[2]?.clips.walk.imagen).toBe('/npcs/gente-de-prueba/d2/atlas.webp');
+    expect(arte.direcciones[2]?.clips.walk?.imagen).toBe('/npcs/gente-de-prueba/d2/atlas.webp');
+    expect([...arte.clips]).toEqual(['idle', 'walk', 'charge']);
     expect(arteParaPintar(cuerpoDeGente('gente-de-prueba'), 'walk')).toBe(arte);
   });
 
@@ -192,7 +162,9 @@ describe('una figura de gente no pelea (`ArteDeGente`, cuerpos `npc:<id>`)', () 
       'gente-de-prueba',
       Array.from({ length: 8 }, () => direccion()),
     );
-    expect(() => arteDe(cuerpoDeGente('gente-de-prueba'))).toThrow(/es una figura de gente/);
+    expect(() => arteDe(cuerpoDeGente('gente-de-prueba'))).toThrow(
+      /es la figura de gente gente-de-prueba: no pelea \(no tiene attack/,
+    );
     for (const clip of ['attack', 'death', 'hurt', 'shoot'] as const)
       expect(() => arteParaPintar(cuerpoDeGente('gente-de-prueba'), clip)).toThrow(
         new RegExp(`no tiene el clip "${clip}"`),
@@ -232,24 +204,18 @@ describe('la figura que se pinta mientras la suya se pinta (`figuraQueSePinta`)'
     ],
   });
   it('la suya si está pintada; si no, la más parecida de su facción; sin ninguna, el Y Bot', () => {
-    const pintadas = new Set(['vecino-de-prueba', 'vecina']);
-    expect(figuraQueSePinta(banco, pintadas, 'vecina', 'k')).toBe('vecina');
-    expect(figuraQueSePinta(banco, pintadas, 'pedida', 'k')).toBe('vecina');
-    expect(figuraQueSePinta(banco, pintadas, 'orko', 'k')).toBeNull();
-    expect(() => figuraQueSePinta(banco, pintadas, 'nadie', 'k')).toThrow(/no está en el banco/);
+    const gente = { banco, pintadas: new Set(['vecino-de-prueba', 'vecina']) };
+    expect(figuraQueSePinta(gente, 'vecina', 'k')).toBe('vecina');
+    expect(figuraQueSePinta(gente, 'pedida', 'k')).toBe('vecina');
+    expect(figuraQueSePinta(gente, 'orko', 'k')).toBeNull();
+    expect(() => figuraQueSePinta(gente, 'nadie', 'k')).toThrow(/no está en el banco/);
   });
 });
 
 describe('aceptar las figuras que pide un mundo (`tools/npcs/banco.ts`)', () => {
-  /** Una raíz temporal con un banco de una figura y un mundo que pide dos. */
+  /** Una raíz temporal con un banco de una figura y un mundo que pide `pedidas`. */
   async function raiz(pedidas: Record<string, unknown>): Promise<string> {
-    const r = await mkdtemp(join(tmpdir(), 'banco-npcs-'));
-    TEMPORALES.push(r);
-    await mkdir(join(r, 'data'));
-    await writeFile(
-      join(r, 'data/npcs.json'),
-      JSON.stringify({ _comment: 'mío', figuras: [BUENA] }),
-    );
+    const r = raizDeNpcs([BUENA]);
     await mkdir(join(r, 'assets/mundos/gen-1'), { recursive: true });
     await writeFile(
       join(r, 'assets/mundos/gen-1/historia.json'),
@@ -269,7 +235,9 @@ describe('aceptar las figuras que pide un mundo (`tools/npcs/banco.ts`)', () => 
       ['barquero', 'gen-1'],
       ['barquera', 'gen-1'],
     ]);
-    expect(JSON.parse(await readFile(join(r, 'data/npcs.json'), 'utf8'))._comment).toBe('mío');
+    expect(JSON.parse(await readFile(join(r, 'data/npcs.json'), 'utf8'))._comment).toBe(
+      'de prueba',
+    );
     const historia = JSON.parse(
       await readFile(join(r, 'assets/mundos/gen-1/historia.json'), 'utf8'),
     );
@@ -289,6 +257,16 @@ describe('aceptar las figuras que pide un mundo (`tools/npcs/banco.ts`)', () => 
       JSON.parse(await readFile(join(r, 'assets/mundos/gen-1/historia.json'), 'utf8')).figuras,
     ).toBeDefined();
     expect((await colaDelTaller(r).estado()).pendiente).toEqual([]);
+  });
+
+  it('un mundo pide como mucho cuatro, con la regla de su historia; la semilla, sin tope', async () => {
+    const cinco = Object.fromEntries(['a', 'b', 'c', 'd', 'e'].map((k) => [`fig-${k}`, PETICION]));
+    const r = await raiz(cinco);
+    await expect(aceptarElMundo('gen-1', r)).rejects.toThrow(
+      /figuras: pide 5 figuras y un mundo pide como mucho 4/,
+    );
+    expect(leerBancoDeDisco(r).figuras).toHaveLength(1);
+    expect((await aceptarPeticiones(cinco, 'semilla', r)).figuras).toHaveLength(5);
   });
 
   it('`pnpm npcs pedir` entra por la misma puerta', async () => {
