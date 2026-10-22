@@ -434,9 +434,12 @@ async function responderLaRueda(
       });
     await page.keyboard.press(teclaDe(tipo));
     espejo.elegirEnLaRueda(tipo);
-    if (espejo.ruedaPendiente === null) {
-      await page.locator('#rueda .rueda[data-fase="desenlace"]').waitFor({ timeout: 20000 });
-    }
+    // Su desenlace, también cuando el espejo ya pide otra respuesta: con dos
+    // seguidas (dos golpes del rival a la tropa), esperar solo a la «respuesta»
+    // encontraba aún abierta la de antes, la tecla se perdía y la página se
+    // quedaba pidiendo la segunda mientras el espejo seguía (escritorio, en la
+    // fusión del héroe en la base con la complejidad, 22-10-2026).
+    await page.locator('#rueda .rueda[data-fase="desenlace"]').waitFor({ timeout: 20000 });
   }
 }
 
@@ -1293,6 +1296,20 @@ async function sinHistoria(page: Page, nombre: string | null, tocar = false): Pr
 }
 
 /**
+ * Si la query `search` pide exactamente `esperado`, sin mirar el orden: el héroe
+ * se escribe al elegirlo, detrás de la complejidad del combate, que va desde el
+ * principio (fusión del héroe en la base con la complejidad, 22-10-2026).
+ */
+function mismaQuery(search: string, esperado: Readonly<Record<string, string>>): boolean {
+  const q = new URLSearchParams(search);
+  const claves = [...new Set(q.keys())];
+  return (
+    claves.length === Object.keys(esperado).length &&
+    Object.entries(esperado).every(([k, v]) => q.getAll(k).length === 1 && q.get(k) === v)
+  );
+}
+
+/**
  * La pantalla de inicio (19-10-2026): `/` sin nada pide qué jugar y no monta la
  * partida hasta elegir (ni escena ni suelo); «Cargar partida» no hace nada, ni
  * con el teclado; «Nuevo juego» lleva a la elección, que viste la página con la
@@ -1476,7 +1493,7 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   await comprobar(page, espejo, 'arranque: recargar a media elección');
   exigir(
     await estadoDelArranque(page),
-    (e) => e.search === `?seed=${semilla}&faccion=orkos`,
+    (e) => mismaQuery(e.search, { seed: `${semilla}`, faccion: 'orkos', tropa: '7', rueda: '7' }),
     'recargar a media elección no escribe ningún héroe en la URL',
   );
   await pulsarEnElAyuntamiento(page, espejo, TIPO, 'arranque, tras recargar');
@@ -1488,7 +1505,14 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
   await comprobar(page, espejo, 'arranque: contratar al chamán');
   exigir(
     await estadoDelArranque(page),
-    (e) => e.search === `?seed=${semilla}&faccion=orkos&heroe=${TIPO}`,
+    (e) =>
+      mismaQuery(e.search, {
+        seed: `${semilla}`,
+        faccion: 'orkos',
+        heroe: TIPO,
+        tropa: '7',
+        rueda: '7',
+      }),
     'elegido el héroe, la URL lo lleva',
   );
   const heroe = espejo.myHeroes()[0];
@@ -1548,7 +1572,13 @@ async function arranque(browser: Browser, url: string, problemas: Problemas): Pr
       // el tope y la rueda: los de siempre si no se tocan.
       !e.menu &&
       e.tema === 'orkos' &&
-      e.search === `?seed=${semilla}&faccion=orkos&heroe=${TIPO}&tropa=7&rueda=7`,
+      mismaQuery(e.search, {
+        seed: `${semilla}`,
+        faccion: 'orkos',
+        heroe: TIPO,
+        tropa: '7',
+        rueda: '7',
+      }),
     'recargar entra sin menú en la misma partida',
   );
   const rotulo = (await page.locator('#seed').innerText()).trim();
