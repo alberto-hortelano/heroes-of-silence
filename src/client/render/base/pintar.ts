@@ -20,7 +20,13 @@
  * Las figuras son las de siempre (`pintarFiguraConSombra`), del alto de una
  * figura de combate (`cajaDeFiguraEn`): el héroe o el alcaide anda con su
  * clip `walk`, y la gente respira en `idle`.
+ *
+ * El clima de la base es el de la región de su ciudad, y se enchufa como en toda
+ * escena lateral (`render/clima/clima.ts`): lo de abajo (la luz, la niebla y, de
+ * noche, un fuego en la puerta de cada edificio levantado) entre los edificios y
+ * las figuras, y la lluvia y el rayo al final.
  */
+import type { ClimaDelSitio } from '@core/state/clima.js';
 import type { SitioId } from '@core/town/sitios.js';
 import type { FactionId } from '@core/types.js';
 import {
@@ -32,6 +38,13 @@ import {
 } from '../../../shared/base.js';
 import { temaDelLienzo } from '../../temas.js';
 import { cajaDeFiguraEn, pintarAroDeFigura } from '../batalla.js';
+import {
+  campoDeEscena,
+  type LuzDeNoche,
+  pintarAireDelClima,
+  pintarSueloDelClima,
+} from '../clima/clima.js';
+import { luzDeLasFiguras } from '../clima/recetas.js';
 import { CacheDeLienzos } from '../copias.js';
 import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
@@ -51,6 +64,13 @@ export interface PintadoDeLaBase {
   readonly color: string;
   /** Lo que está bajo el ratón, para resaltarlo. */
   readonly señalado: Exclude<Golpe, { tipo: 'suelo' }> | null;
+  /** El clima de la base (el de la región de su ciudad) y el reloj; `null`, sin clima. */
+  readonly clima: { readonly sitio: ClimaDelSitio; readonly ahora: number } | null;
+  /**
+   * Sin la lluvia ni el rayo: los pinta luego quien pone algo más delante (la
+   * morada, su fila de reclutas), con `pintarElAireDeLaBase`.
+   */
+  readonly sinAire?: boolean;
 }
 
 /**
@@ -289,6 +309,8 @@ function pintarPersona(
     // el alcaide se perdía entre los vecinos.
     color: e.pnj ? COLOR_NEUTRO : v.color,
     rotulo: e.nombre.charAt(0).toUpperCase(),
+    // La luz de la noche o de la tormenta, en parte: que no parezcan pegadas.
+    luz: v.clima === null ? undefined : luzDeLasFiguras(v.clima.sitio),
   };
   pintarFiguraConSombra(
     ctx,
@@ -485,10 +507,44 @@ function adelantarUnaTesela(
 export function pintarBase(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): void {
   // Toda figura va delante de todo edificio (`componerBase`): los edificios van
   // en el fondo y las figuras encima.
-  pintarElFondo(
-    ctx,
-    v,
-    v.elementos.filter((e): e is Extract<Elemento, { tipo: 'edificio' }> => e.tipo === 'edificio'),
+  const edificios = v.elementos.filter(
+    (e): e is Extract<Elemento, { tipo: 'edificio' }> => e.tipo === 'edificio',
   );
+  pintarElFondo(ctx, v, edificios);
+  if (v.clima !== null) {
+    pintarSueloDelClima(
+      ctx,
+      campoDeEscena(v.clima.sitio, {
+        ...v.lienzo,
+        luces: v.clima.sitio.noche ? lucesDeLaBase(v, edificios) : [],
+      }),
+      { ...v.lienzo, ahora: v.clima.ahora },
+    );
+  }
   for (const e of v.elementos) if (e.tipo === 'figura') pintarPersona(ctx, v, e);
+  if (v.sinAire !== true) pintarElAireDeLaBase(ctx, v);
+}
+
+/** La lluvia y el rayo de la base, encima de todo lo que ya se pintó. */
+export function pintarElAireDeLaBase(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): void {
+  if (v.clima === null) return;
+  pintarAireDelClima(ctx, campoDeEscena(v.clima.sitio, v.lienzo), {
+    ...v.lienzo,
+    ahora: v.clima.ahora,
+  });
+}
+
+/**
+ * Lo que se enciende de noche en la base: un fuego en la puerta de cada
+ * edificio levantado, a la altura del dintel y no en el suelo, con la cámara con
+ * que se pinta (la de la plaza o la de la morada).
+ */
+function lucesDeLaBase(
+  v: PintadoDeLaBase,
+  edificios: readonly Extract<Elemento, { tipo: 'edificio' }>[],
+): LuzDeNoche[] {
+  return edificios.map((e) => {
+    const p = enPantalla(v.t, v.d.sitios[e.sitio].umbral.en);
+    return { x: p.x, y: p.y - v.t.paso * 0.5, r: v.t.paso * 1.1 };
+  });
 }

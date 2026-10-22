@@ -23,6 +23,7 @@ import { piezasPuestas } from '@core/hero/equipo.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
+import { type ClimaDeLaPartida, climaDeLaPartida, regionDeLaBatalla } from '@core/state/clima.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState, week } from '@core/state/game.js';
@@ -172,6 +173,13 @@ export interface BatallaEnCable extends Omit<BattleState, 'stacks'> {
 export interface VistaBatalla {
   readonly estado: BatallaEnCable;
   readonly dueños: Readonly<Record<Side, PlayerId | null>>;
+  /**
+   * La región del clima donde se pelea (`regionDeLaBatalla`), en `map.regions`
+   * (−1 en un mapa sin regiones): el espectador saca de ella el clima del
+   * tablero con la misma cuenta que la partida (`climaDeLaRegion`), también con
+   * lo que fuerce `?clima=`.
+   */
+  readonly region: number;
 }
 
 export interface SpectatorView {
@@ -201,6 +209,12 @@ export interface SpectatorView {
   readonly directorLog: readonly string[];
   /** `null` la mayor parte de la partida: casi siempre no hay batalla. */
   readonly battle: VistaBatalla | null;
+  /**
+   * El clima de hoy de cada región (`climaDeLaPartida`), derivado aquí y no en el
+   * espectador: lo pedido por el narrador vive en el estado, y así el espectador
+   * ve lo mismo que la partida sin una segunda cuenta. Es JSON plano: viaja tal cual.
+   */
+  readonly clima: ClimaDeLaPartida;
 }
 
 /**
@@ -281,7 +295,9 @@ export function construirVista(state: GameState, directorLog: readonly string[])
         : {
             estado: { ...pending.battle, stacks: pending.battle.stacks.map(stackAlCable) },
             dueños: battleOwners(state, pending),
+            region: regionDeLaBatalla(state, pending),
           },
+    clima: climaDeLaPartida(state),
   };
 }
 

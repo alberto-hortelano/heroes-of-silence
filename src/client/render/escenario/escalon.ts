@@ -149,8 +149,16 @@ function cajaEnColumnas(de: Float32Array, a: Float32Array, ancho: number, alto: 
   }
 }
 
-/** `a` desenfocado con un gaussiano de `sigma` píxeles (tres cajas), los bordes estirados. */
-function desenfocar(a: Float32Array, ancho: number, alto: number, sigma: number): Float32Array {
+/**
+ * `a` desenfocado con un gaussiano de `sigma` píxeles (tres cajas), los bordes
+ * estirados. Lo comparten el escalón y las máscaras del clima (`render/clima/`).
+ */
+export function desenfocar(
+  a: Float32Array,
+  ancho: number,
+  alto: number,
+  sigma: number,
+): Float32Array {
   if (sigma < 0.5) return a;
   let de = a;
   const filas = new Float32Array(a.length);

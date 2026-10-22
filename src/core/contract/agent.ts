@@ -42,10 +42,12 @@ import {
   QUE_ES_UN_NIVEL,
   TERRAIN_KINDS,
 } from '../map/terrain.js';
+import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { enumerar, FACTION_IDS, HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
+import { ID_DE_MAPA } from '../validar.js';
 import {
   CRUCE_AL_AGENTE,
   HIT_DE_GOLPE,
@@ -199,6 +201,15 @@ export const battleResponseResponseSchema = z.object({
 export const adventureTurnResponseSchema = z.object({
   /** Acciones en orden. No hace falta terminar con `end_turn`: se añade solo. */
   actions: z.array(adventureActionSchema).max(200),
+  /**
+   * Opcional: el clima que el narrador pide por región (`pedirClima`). **Sin
+   * tipar aquí**: lo juzga entrada a entrada `climaBlocker`, y una mal escrita
+   * (un tiempo de 18 letras, `days: 1.5`, `night: "si"`, una entrada de más)
+   * descarta ese pedido con su motivo, no el turno: con los tipos y los topes en
+   * el esquema, la respuesta entera fallaba y el turno lo jugaba la IA (H1 del
+   * QA del clima, 22-10-2026). La forma la dice la prosa (CLIMA).
+   */
+  weather: z.unknown().optional(),
   /** Opcional: por qué. Se guarda en la crónica, no afecta a las reglas. */
   reasoning: z.string().max(2000).optional(),
 });
@@ -234,7 +245,7 @@ const idDeMapa = (que: string) =>
     .min(1)
     .max(32)
     .regex(
-      /^[a-z0-9][a-z0-9_-]*$/,
+      ID_DE_MAPA,
       `un id de ${que} va en minúsculas y solo lleva letras, dígitos, guion y guion bajo, empezando por letra o dígito (p. ej. "town-0")`,
     );
 const nombreDeMapa = (que: string) => lineaLegible(40, `el nombre de ${que}`);
@@ -411,6 +422,7 @@ export const RESPONSE_FORMAT: Readonly<Record<RequestKind, string>> = {
   adventure_turn: `Responde con:
 {
   "actions": [ ...acciones en orden... ],
+  "weather": [ ...opcional: el clima que pides, ver CLIMA abajo... ],
   "reasoning": "una línea opcional explicando el plan"
 }
 
@@ -523,6 +535,23 @@ Notas:
   licencias, vuelve a la mochila del héroe. Si un héroe cae sin base, pierde
   equipo y mochila. Las piezas:
 ${CATALOGO_DE_EQUIPO_EN_PROSA}
+- CLIMA: cada región tiene su tiempo (${TIEMPOS.join(', ')}) y puede ser de
+  noche. Es PRESENTACIÓN: no cambia ninguna regla (ni la vista, ni el tiro, ni
+  la marcha), pero quien juega y quien mira lo ven en el mapa, la batalla y la
+  base. Eres el narrador y lo puedes pedir: en "weather", cada entrada es
+  { "at": { "x": N, "y": N }, "weather": "<tiempo>", "night": true|false,
+  "days": N }, con "weather", "night" o los dos; cubre la región de esa casilla
+  (cualquiera, aunque no la hayas visto) desde hoy y "days" días (1 si no lo
+  dices, ${CLIMA.diasMaximos} como mucho), y sustituye lo que esa región tuviera
+  pedido. Como mucho ${CLIMA.porTurno} por turno, una vez cada región (se miran
+  los ${PEDIDOS_QUE_SE_MIRAN} primeros). Se aplica
+  ANTES que las acciones: una tormenta pedida hoy cae sobre el asedio de hoy.
+  Lo que no pides sale solo, por días y por región. La NOCHE también la pone la
+  narrativa: donde no la pides, cae de vez en cuando, y en las tierras de los no
+  muertos mucho más a menudo. "world.weather" dice el clima de hoy en las
+  regiones que has explorado ("until": hasta qué día dura lo que pediste). Un
+  pedido que no vale se rechaza con su motivo en el veredicto, sin tocar el
+  resto del turno.
 - ORDEN DE LOS TURNOS, en serpiente: quien cierra un día abre el siguiente
   (día 1: jugador 0 y luego 1; día 2: 1 y luego 0; día 3: 0 y luego 1…).
   "you.turnOrder" es el orden de HOY. Si cierras el día, tu siguiente turno

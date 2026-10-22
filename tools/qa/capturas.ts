@@ -1245,7 +1245,14 @@ async function estadoDelArranque(page: Page): Promise<{
       escena: app.dataset.escena ?? null,
       escenario: app.dataset.escenario ?? null,
       tema: document.documentElement.dataset.tema ?? null,
-      search: location.search,
+      // Sin el `clima=despejado,dia` que pone el arnés (`conElClimaDespejado`): lo
+      // que se mira es lo que escribe la página.
+      search: ((): string => {
+        const p = new URLSearchParams(location.search);
+        p.delete('clima');
+        const q = p.toString();
+        return q === '' ? '' : `?${q}`;
+      })(),
       foco:
         foco?.getAttribute('data-inicio') ??
         (foco instanceof HTMLInputElement ? `${foco.name}:${foco.value}` : null),
@@ -3374,7 +3381,7 @@ async function escenaDeLaMorada(
   const b = await caja(page);
   const escena = new EscenaMorada(
     () => espejo,
-    () => {},
+    () => null,
   );
   const densidad = await densidadDe(page);
   escena.encuadrar(b.width, b.height, densidad);
@@ -3501,7 +3508,7 @@ async function pulsarEnElAyuntamiento(
   const b = await caja(page);
   const escena = new EscenaAyuntamiento(
     () => espejo,
-    () => {},
+    () => null,
   );
   escena.encuadrar(b.width, b.height, await densidadDe(page));
   const i = vista.figuras.findIndex((f) => f.id === tipo);
@@ -7872,6 +7879,41 @@ function registrarLasHojasDelEspejo(): void {
   }
 }
 
+/**
+ * El clima, despejado en toda página de esta orden: el de la semilla anima el
+ * lienzo (la lluvia, la niebla a la deriva, un rayo) y las medidas de píxeles de
+ * aquí —la barra de vida, la huella del lienzo, los colores del aro— se
+ * escribieron sin él. Se decide **una vez**, aquí: toda página que se abra por
+ * este navegador va a la partida o al espectador con `clima=despejado,dia` (si
+ * no pide otro: `despejado` solo fija el tiempo, y la noche de la semilla seguía
+ * oscureciendo sus regiones), también el menú de inicio, que lo conserva al empezar
+ * (`estadoDelArranque` no lo cuenta como algo que escribió la página). La arena
+ * ya pelea en despejado sin él. El clima lo mira `tools/qa/clima.ts`.
+ */
+function conElClimaDespejado(browser: Browser): Browser {
+  const despejada = (destino: string): string => {
+    const u = new URL(destino);
+    const esDelJuego = u.pathname === '/' || u.pathname.startsWith('/espectador');
+    if (esDelJuego && !u.searchParams.has('clima')) u.searchParams.set('clima', 'despejado,dia');
+    return u.toString();
+  };
+  const conLaPagina = (page: Page): Page => {
+    const ir = page.goto.bind(page);
+    page.goto = (destino, opciones) => ir(despejada(destino), opciones);
+    return page;
+  };
+  const nuevaPagina = browser.newPage.bind(browser);
+  browser.newPage = async (opciones) => conLaPagina(await nuevaPagina(opciones));
+  const nuevoContexto = browser.newContext.bind(browser);
+  browser.newContext = async (opciones) => {
+    const contexto = await nuevoContexto(opciones);
+    const nueva = contexto.newPage.bind(contexto);
+    contexto.newPage = async () => conLaPagina(await nueva());
+    return contexto;
+  };
+  return browser;
+}
+
 async function main(): Promise<void> {
   // Antes de arrancar nada: un nombre mal escrito no merece un vite.
   const pasadas = pasadasPedidas();
@@ -7891,7 +7933,9 @@ async function main(): Promise<void> {
     vite = arrancado.proceso;
     log(`vite en ${arrancado.url} (grupo ${vite.pid})`);
     const ejecutable = chromiumInstalado(log);
-    browser = await chromium.launch(ejecutable === undefined ? {} : { executablePath: ejecutable });
+    browser = conElClimaDespejado(
+      await chromium.launch(ejecutable === undefined ? {} : { executablePath: ejecutable }),
+    );
     for (const [nombre, pasada] of pasadas) {
       log(`pasada «${nombre}»`);
       await pasada(browser, arrancado.url, problemas);

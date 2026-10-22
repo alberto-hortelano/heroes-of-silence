@@ -10,6 +10,7 @@ import { parseSeed } from '@core/rng.js';
 import { faccionesDeLaSemilla } from '@core/state/setup.js';
 import { type FactionId, parseFaccion } from '@core/types.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import { leerElClimaDeLaURL } from './clima-de-la-url.js';
 import { combateALaURL, combateDeLaURL, type ParametroDelCombate } from './combate-en-la-url.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
@@ -97,7 +98,7 @@ function heroeDeLaUrl(faccion: FactionId): string | null {
 }
 
 /** Lo que la URL puede pedir de una partida. */
-type Pedido = 'seed' | 'faccion' | 'heroe' | ParametroDelCombate;
+type Pedido = 'seed' | 'faccion' | 'heroe' | 'clima' | ParametroDelCombate;
 
 /**
  * Cómo salir de una URL que no abre partida: quitar lo que pidió. Sin la semilla
@@ -188,6 +189,7 @@ let session: Session;
   const { tope, rueda, soloHeroe } = combateDeLaURL(location.search, (parametro, motivo) =>
     fallos.push({ motivo, salida: salidaDe([parametro]) }),
   );
+  const clima = leer('clima', () => leerElClimaDeLaURL(new URLSearchParams(location.search)));
   const seed = semilla ?? semillaSorteada();
   // El héroe se juzga contra la facción que se jugará: la pedida o la que saque
   // la semilla, que la dice la misma función que usa `newGame`. Así el motivo
@@ -212,6 +214,14 @@ let session: Session;
     ];
     sinArrancar([{ motivo, salida: salidaDe(pedidos) }]);
   }
+  // Una región de `?clima=` que este mapa no tiene lanza aquí, diciendo cuáles
+  // hay, y la salida es quitar solo `?clima=`: la semilla está bien, y quitarla
+  // cambiaría la partida (H6 del QA del clima, 22-10-2026).
+  leer('clima', () => {
+    session.fijarElClima(clima);
+    return null;
+  });
+  if (fallos.length > 0) sinArrancar(fallos);
 }
 
 const sesion = (): Session => session;

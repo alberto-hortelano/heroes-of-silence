@@ -72,6 +72,7 @@ import {
 } from '../map/terrain.js';
 import { indiceDePoder, nivelDeUnidad } from '../nivel.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
+import { climaDeLaPartida, pedidoVigente } from '../state/clima.js';
 import { cronicaPara } from '../state/events.js';
 import {
   baseOf,
@@ -478,6 +479,27 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     - Compáralo con los puntos de movimiento que le queden hoy al héroe
       ("movePoints") para saber hasta dónde llegas.`;
 
+/** El clima de hoy de las regiones que `playerId` ha explorado (`world.weather`). */
+function climaALaVista(state: GameState, playerId: PlayerId) {
+  const fog = playerById(state, playerId).fog;
+  const clima = climaDeLaPartida(state);
+  return state.map.regions.flatMap((reg, k) => {
+    if (!fog.has(reg.at)) return [];
+    const hoy = clima.regiones[k];
+    if (hoy === undefined) return [];
+    const pedido = pedidoVigente(state, reg.id);
+    return [
+      {
+        region: reg.name,
+        at: reg.at,
+        weather: hoy.tiempo,
+        night: hoy.noche,
+        ...(pedido === undefined ? {} : { until: pedido.hasta }),
+      },
+    ];
+  });
+}
+
 export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
   const player = playerById(state, playerId);
 
@@ -509,6 +531,10 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
         wheel: ruedaAlAgente(formaDeLaBatalla(state.combate)),
       },
     },
+    // El clima de hoy (presentación: `state/clima.ts`), solo de las regiones
+    // cuya casilla de referencia se ha explorado, como el resto del mapa; con
+    // `until` lo que pidió el narrador y hasta cuándo dura.
+    world: { weather: climaALaVista(state, playerId) },
     // A dónde vuelve un héroe derrotado o rendido, o `null` si ya no tiene base:
     // decide si rendirse existe y qué cuesta perder un héroe.
     yourBase: baseOf(state, playerId)?.id ?? null,

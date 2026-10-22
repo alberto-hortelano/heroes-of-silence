@@ -21,6 +21,7 @@
 import type { ReglasDelCombate } from '@core/combate.js';
 import { heroePorDefectoDeLaSemilla } from '@core/state/setup.js';
 import { esFaccion, FACTION_IDS, type FactionId } from '@core/types.js';
+import { leerElClimaDeLaURL, salidaDelClima } from '../clima-de-la-url.js';
 import { combateALaURL, combateParaElMenu } from '../combate-en-la-url.js';
 import { pintar } from '../html.js';
 import { aLaBarra, semillaSorteada } from '../semilla.js';
@@ -40,6 +41,15 @@ function deLaPagina<T extends HTMLElement>(id: string): T {
  * `entrada.ts`).
  */
 export function pedirPartida(): Promise<void> {
+  // Un `?clima=` que no se entiende (que no es un tiempo, o mal escrito) se dice
+  // al cargar, como un `?seed=` malo, y no tras elegir facción y héroe (H5 del QA
+  // del clima, 22-10-2026). Lo que depende del mapa —una región que no tiene— lo
+  // dice la partida al abrirse.
+  try {
+    leerElClimaDeLaURL(new URLSearchParams(location.search));
+  } catch (motivo) {
+    throw new Error(salidaDelClima(motivo), { cause: motivo });
+  }
   // La complejidad que traiga la URL sin semilla es con la que arranca el menú;
   // si no vale, no se pregunta: la partida dice por qué y cómo quitarla.
   const deLaURL = combateParaElMenu(location.search);

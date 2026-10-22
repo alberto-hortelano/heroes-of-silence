@@ -85,6 +85,18 @@ export function esIdDeUnidad(id: string): boolean {
 }
 
 /**
+ * La forma del id de algo del mapa (una región, una ciudad, un nodo): minúsculas,
+ * cifras, guion y guion bajo, empezando por letra o cifra (`region-0`,
+ * `town-0`). Una vez: la piden el plan del agente (`mapPlanSchema`) y `?clima=`
+ * para una región (`parseClima`).
+ */
+export const ID_DE_MAPA = /^[a-z0-9][a-z0-9_-]*$/;
+
+export function esIdDeMapa(id: string): boolean {
+  return ID_DE_MAPA.test(id);
+}
+
+/**
  * Si `id` tiene la forma del id de una pieza de equipo: como uno de la arena, y
  * además con `_`, que llevan las del juego (`espada_de_armeria`).
  */

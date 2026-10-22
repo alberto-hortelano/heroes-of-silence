@@ -81,6 +81,7 @@ import {
   idsPuestos,
 } from '@core/hero/equipo.js';
 import { parseSeed } from '@core/rng.js';
+import { type ClimaDelSitio, climaSinRegiones, DESPEJADO } from '@core/state/clima.js';
 import { type CreatureTrait, esHueco, esTipoDelAnillo, type Hex, type Hueco } from '@core/types.js';
 import {
   type Hoja,
@@ -90,6 +91,7 @@ import {
 } from '@core/unidad.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { FIGURA } from '../../shared/arte.js';
+import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
 import { type Html, html, pintar } from '../html.js';
@@ -422,6 +424,23 @@ try {
 } catch (err) {
   avisoDeSemilla = `${mensaje(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
   parametrosQueNoValen.push('seed');
+}
+
+/**
+ * El clima de las peleas (`?clima=`, como en la partida): la arena no tiene
+ * días ni regiones, así que es el despejado salvo que se pida otro, y una región
+ * se rechaza diciéndolo. Es presentación: un clima que no vale se dice y la
+ * pelea se monta igual, con el despejado.
+ */
+let climaDeLaArena: ClimaDelSitio = DESPEJADO;
+{
+  const pedido = climaDeLaURL(parametros);
+  avisoDeSemilla += pedido.aviso;
+  try {
+    climaDeLaArena = climaSinRegiones(pedido.forzado, 'la arena');
+  } catch (err) {
+    avisoDeSemilla += avisoDelClima(err);
+  }
 }
 
 /**
@@ -1757,6 +1776,7 @@ function luchar(): void {
         combate,
       },
       semilla,
+      climaDeLaArena,
     );
   } catch (err) {
     aviso = `No se puede luchar: ${mensaje(err)}.`;

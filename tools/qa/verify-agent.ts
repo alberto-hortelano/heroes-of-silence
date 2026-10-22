@@ -32,6 +32,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import WebSocket from 'ws';
 import { COMO_SE_LEE_EL_MAPA } from '../../src/core/contract/serialize.js';
 import {
   CABECERA_ESTADO,
@@ -45,6 +46,7 @@ import {
   SANGRIA_PROBLEMA,
   type Veredicto,
 } from '../../src/server/notas.js';
+import type { ServerToSpectatorMsg } from '../../src/server/protocol.js';
 import {
   contestaElArnes,
   entornoDelArnes,
@@ -165,6 +167,19 @@ const escudo: { requestId: string | null; heroe: string | null; visto: string | 
   heroe: null,
   visto: null,
 };
+/**
+ * El clima que pide el narrador (`weather` del `adventure_turn`), cruzado de
+ * verdad: el primer turno de mapa pide una tormenta buena y un «granizo»; el
+ * veredicto tiene que traer el rechazo con su motivo y la nota la aceptada, y el
+ * fotograma del espectador, la tormenta en esa región.
+ */
+const clima: {
+  requestId: string | null;
+  region: { x: number; y: number } | null;
+  visto: string | null;
+} = { requestId: null, region: null, visto: null };
+/** El último fotograma del canal de espectadores: de ahí se lee el clima que ve quien mira. */
+let ultimoFotograma: ServerToSpectatorMsg | null = null;
 /**
  * Cuánto de la ventana de `recentEvents` se llevan los hechos de asaltantes.
  * Era un riesgo del plan —la patrulla podía ahogar los 25 hechos que caben—;
@@ -514,6 +529,47 @@ async function cruzaElEquipo(client: Client, turno: any): Promise<void> {
 }
 
 /**
+ * Que el clima pedido cruzara el circuito: el «granizo» vuelve rechazado con su
+ * motivo tras «weather», la nota cuenta la tormenta aceptada y el canal de
+ * espectadores la enseña en su región.
+ */
+function exigeElClima(): void {
+  if (clima.requestId === null || clima.region === null) {
+    throw new Error('ningún turno de mapa ha pedido clima: "weather" no ha cruzado el circuito');
+  }
+  const v = veredictos.find((x) => x.requestId === clima.requestId);
+  const malo = v?.problemas.find((p) => p.startsWith('weather '));
+  if (
+    malo === undefined ||
+    !/"granizo" no es un tiempo: valen despejado, niebla, lluvia, tormenta/.test(malo)
+  ) {
+    throw new Error(
+      `el pedido de clima «granizo» no se ha descartado con su motivo: ${JSON.stringify(v)}`,
+    );
+  }
+  if (v === undefined || !/Clima: tormenta en .+ hasta el día \d+/.test(v.nota)) {
+    throw new Error(`la nota del turno no cuenta la tormenta aceptada: ${v?.nota}`);
+  }
+  if (clima.visto === null) {
+    throw new Error(
+      'el canal de espectadores no ha enseñado la tormenta pedida en su región ("clima.regiones")',
+    );
+  }
+  log(`clima: «${malo}» — «${v.nota}» — ${clima.visto}`);
+}
+
+/** Si el último fotograma del espectador trae la tormenta pedida en la región de `clima.region`. */
+function miraElClimaDelEspectador(): void {
+  if (clima.region === null || clima.visto !== null || ultimoFotograma === null) return;
+  const { view } = ultimoFotograma;
+  const at = clima.region;
+  const k = view.map.regions.findIndex((r) => r.at.x === at.x && r.at.y === at.y);
+  if (k >= 0 && view.clima.regiones[k]?.tiempo === 'tormenta') {
+    clima.visto = `el espectador ve tormenta en ${view.map.regions[k]?.name} el día ${ultimoFotograma.day}`;
+  }
+}
+
+/**
  * Que el `unequip` con `slot: "shield"` llegara al núcleo: su veredicto trae el
  * motivo de `unequipBlocker` («no lleva nada en Escudo»), que solo se escribe si
  * el hueco se tradujo. Con el `slot` sin traducir sería «no hay ningún hueco», y
@@ -680,6 +736,7 @@ async function terminarBien(
   }
   log(`equipo: ${comprasVistas.size} compras en la crónica; ${equipo.visto}`);
   exigeElEscudo();
+  exigeElClima();
   exigeElAscenso();
   exigeLaRueda();
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
@@ -731,6 +788,13 @@ async function main(): Promise<void> {
   });
   const url = `ws://localhost:${servidor.agente}`;
   log(`el servidor escucha en ${url}`);
+  // Un espectador de verdad, para ver que el clima pedido le llega como a la partida.
+  const espectador = new WebSocket(`ws://localhost:${servidor.espectador}`);
+  espectador.on('message', (raw) => {
+    ultimoFotograma = JSON.parse(String(raw)) as ServerToSpectatorMsg;
+    miraElClimaDelEspectador();
+  });
+  espectador.on('error', (err) => log(`el canal de espectadores falla: ${err.message}`));
 
   log('conectando al puente MCP por stdio…');
   // `tsx` directo y NO `npx tsx`, y la diferencia son **dos segundos de los
@@ -982,10 +1046,24 @@ async function main(): Promise<void> {
     // un héroe, quitarle el escudo que no lleva, con el hueco en inglés (lo cuenta
     // `exigeElEscudo` con su veredicto); y la primera respuesta de la rueda, mala.
     const yaTorcido = { ...torcidos };
-    const respuesta = contestaElArnes(kind, payload, semilla, torcidos);
+    let respuesta = contestaElArnes(kind, payload, semilla, torcidos);
     if (yaTorcido.escudo === null && torcidos.escudo !== null) {
       escudo.requestId = RE_PETICION.exec(texto)?.[1] ?? null;
       escudo.heroe = torcidos.escudo;
+    }
+    // Una vez, el primer turno de mapa: una tormenta en una región que ve y un
+    // «granizo», que no es un tiempo. Lo cuenta `exigeElClima` con su veredicto.
+    const vistas: { at: { x: number; y: number } }[] = payload.world?.weather ?? [];
+    if (kind === 'adventure_turn' && clima.requestId === null && vistas.length > 0) {
+      clima.requestId = RE_PETICION.exec(texto)?.[1] ?? null;
+      clima.region = (vistas[0] as { at: { x: number; y: number } }).at;
+      respuesta = {
+        ...(respuesta as object),
+        weather: [
+          { at: clima.region, weather: 'tormenta', days: 3 },
+          { at: clima.region, weather: 'granizo' },
+        ],
+      };
     }
     // `map_generate` se cuenta aparte y NO como turno de mapa: mezclarlo movería
     // la cifra del informe y dejaría de ser comparable con los 3 turnos y 9

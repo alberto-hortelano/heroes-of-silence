@@ -20,7 +20,12 @@ import {
   dentroDeLaFigura,
   pintarAroDeFigura,
 } from './batalla.js';
-import { type FiguraColocada, piesDeFigura, pintarFiguraConSombra } from './figura.js';
+import {
+  type FiguraColocada,
+  type LuzSobreLaFigura,
+  piesDeFigura,
+  pintarFiguraConSombra,
+} from './figura.js';
 
 /**
  * El aire del encuadre de las dos escenas, en partes del lienzo: encima de la
@@ -115,6 +120,8 @@ export interface PintadoDePie {
   readonly color: string;
   /** Milisegundos para el reloj del reposo. */
   readonly ahora: number;
+  /** La luz del clima que cae sobre las figuras (`Figura.luz`): la morada, la de su base. */
+  readonly luz?: LuzSobreLaFigura | undefined;
 }
 
 export function pintarDePie(ctx: CanvasRenderingContext2D, v: PintadoDePie): void {
@@ -139,6 +146,7 @@ export function pintarDePie(ctx: CanvasRenderingContext2D, v: PintadoDePie): voi
         mira: 'S',
         color: v.color,
         rotulo: f.nombre.charAt(0).toUpperCase(),
+        luz: v.luz,
       },
       aro,
     );

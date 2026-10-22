@@ -12,8 +12,17 @@
  */
 import { SIN_CARGAS } from '@core/battle/battle.js';
 import { todosALaVista } from '@core/state/asaltantes.js';
+import {
+  type ClimaDeLaPartida,
+  type ClimaDelSitio,
+  climaDeLaRegion,
+  DESPEJADO,
+  forzarClima,
+  validarForzado,
+} from '@core/state/clima.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
+import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
 import { NADA } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { alzadoDeLaMuralla, bandosSinDueño, drawBatalla } from '../render/batalla.js';
@@ -98,6 +107,44 @@ function destino(): Destino {
     };
   }
   return { puerto: PUERTO_ESPECTADORES, motivo: '' };
+}
+
+/**
+ * Lo que fuerza `?clima=` (como en la partida y la arena): lo que no se entiende
+ * se dice en la barra y se mira con el clima de la partida. Las regiones se
+ * miran contra el mapa una vez, al llegar la vista de una partida
+ * (`fijarElClimaForzado`); pintar no valida nada.
+ */
+const pedidoDelClima = climaDeLaURL(new URLSearchParams(location.search));
+let climaForzado = pedidoDelClima.forzado;
+let avisoDeClima = pedidoDelClima.aviso;
+let climaForzadoMirado = false;
+
+function fijarElClimaForzado(v: SpectatorView): void {
+  if (climaForzadoMirado) return;
+  climaForzadoMirado = true;
+  try {
+    validarForzado(climaForzado, v.map);
+  } catch (err) {
+    avisoDeClima += avisoDelClima(err);
+    climaForzado = null;
+    decirQueSeMira();
+  }
+}
+
+/** El de la última vista: se pinta cada fotograma de pantalla y la vista cambia con cada uno del cable. */
+let climaVisto: { de: SpectatorView; clima: ClimaDeLaPartida } | null = null;
+
+/** El clima de la partida que llega por el cable, con lo forzado encima. */
+function climaQueSeVe(v: SpectatorView): ClimaDeLaPartida {
+  if (climaVisto?.de !== v)
+    climaVisto = { de: v, clima: forzarClima(v.clima, climaForzado, v.map) };
+  return climaVisto.clima;
+}
+
+/** El clima del tablero: el de la región donde se pelea, con la misma cuenta que la partida. */
+function climaDelTablero(v: SpectatorView): ClimaDelSitio {
+  return v.battle === null ? DESPEJADO : climaDeLaRegion(climaQueSeVe(v), v.battle.region);
 }
 
 // --------------------------------------------------------------- estado
@@ -309,6 +356,7 @@ function pintarTodo(ahora: number): void {
         enLaRueda: mirada.reproductor.animador.losDelCruce(),
         efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),
+        clima: { sitio: climaDelTablero(vista), ahora },
       });
       apuntarLoQueSePinta(true);
     } else {
@@ -332,6 +380,7 @@ function pintarTodo(ahora: number): void {
         // La de la partida: la escena es la misma que ve quien juega.
         semilla: vista.seed,
         tiempo: ahora,
+        clima: climaQueSeVe(vista),
       });
     }
   }
@@ -409,7 +458,7 @@ function decirQueSeMira(): void {
         'se empezó de cero.';
   elStatus.textContent =
     ilegible === null
-      ? `Mirando ${cual} en ${urlDelCanal}.${cambio}`
+      ? `${avisoDeClima}Mirando ${cual} en ${urlDelCanal}.${cambio}`
       : `No se entiende el último fotograma que llegó de ${urlDelCanal}: ${ilegible}. ` +
         'Se sigue enseñando el último que se entendió.';
 }
@@ -421,6 +470,8 @@ function decirQueSeMira(): void {
 function empezarDeCero(): void {
   vista = null;
   escena = null;
+  // Otra partida, quizá con otro mapa: lo forzado se mira contra el suyo.
+  climaForzadoMirado = false;
   dia = 0;
   turnoDe = 0;
   finDe = null;
@@ -457,6 +508,7 @@ function aplicar(snapshot: SpectatorSnapshotMsg): void {
   }
   vista = snapshot.view;
   escena = nueva;
+  fijarElClimaForzado(vista);
   if (ilegible !== null) {
     ilegible = null;
     decirQueSeMira();

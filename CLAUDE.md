@@ -24,6 +24,7 @@ pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales
 npx tsx tools/qa/barrido-semillas.ts   # cuántas de 4 partidas no terminan (hoy 0)
 npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión anterior
 npx tsx tools/qa/neutro.ts [ref]       # el estilo sin tema, igual que en las hojas de un ref (HEAD), ~10 s
+npx tsx tools/qa/clima.ts [carpeta]    # el clima en los tres escenarios, la niebla de guerra, el movimiento reducido y los fps (.cache/clima/)
 npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (google/fonts, sha256) y rehace src/client/fuentes.css
 ```
 
@@ -40,6 +41,16 @@ npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (goo
   del jugador: sin `?heroe=`, **ante el ayuntamiento, eligiendo y pagando su héroe de salida**
   (22-10-2026, `ayuntamiento/`); con él, con su héroe dentro; «Partida nueva», al acabar, vuelve al menú. Si el agente diseña
   el mapa, la semilla del servidor ya no reproduce la partida, y la consola lo dice.
+- **`?clima=` fuerza el clima para mirarlo** (22-10-2026) en la partida, la arena y el espectador:
+  un tiempo (`despejado`, `niebla`, `lluvia`, `tormenta`), `noche` o `dia`, y lo mismo para una
+  región (`region-0:tormenta`), separados por comas (`parseClima`; uno que no existe se rechaza
+  diciendo qué vale, y una región que el mapa no tiene, cuáles hay: `validarForzado`, al fijarlo; en
+  la arena, una región, «la arena no tiene regiones»; las tres páginas lo leen con
+  `clima-de-la-url.ts`). Fuerza lo que se pinta, no la noche que leen las reglas, y
+  `hayQuePreguntar` no lo mira: con el menú, lo que no se entiende se dice al cargar (`pedirPartida`)
+  y una región que el mapa no tiene, al abrir la partida, pidiendo quitar solo `?clima=`. `pnpm capturas` abre toda partida y todo espectador con
+  `clima=despejado,dia`, decidido una vez para su navegador (`conElClimaDespejado`): `despejado`
+  solo fija el tiempo, y la noche de la semilla seguía en sus regiones.
 - **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
   `unidades/<id>/dN/`, solo `atlas.webp`; ninguna carpeta `fuentes/` ni `_guias/`, a cualquier altura;
   y nada de `art/` (láminas y referencias de estilo) (`seCopiaAlBuild`, `tools/build/publico.ts`,
@@ -207,6 +218,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Desenlace y causa del final (barra, crónica y nota del agente) | `finDePartida`, `desenlaceDe` (`state/desenlace.ts`) |
 | Ventaja para atacar/emboscar | `ventajaClara` (`ai/fuerza.ts`) |
 | Lo que se anda hoy (marcha y ruta) | `pasosDeHoy` (`state/game.ts`) |
+| El clima (tiempo y noche por región, 22-10-2026; presentación) | `core/state/clima.ts`, el único que importa `data/clima.json` (inventado, `validarClima`; lo vigila `invariantes.test.ts`): de la semilla, `tiempoDeLaSemilla` y `nocheDeLaSemilla` (puras, en cadena y con su propia corriente: ni una tirada de la partida; la noche con el peso de la facción del dueño de la región ahora, `dueñosDeLasRegiones`); **la noche va con el dueño de AHORA**: tomar una región cambia su cadena y, a veces, su noche en el acto (10,9 % de las tomas en 1-40, 44 % si la toma un no muerto; se acepta, «cae la noche cuando llegan los no muertos», y fijarla al empezar el día pediría guardar estado solo para eso: QA del 22-10-2026, H3); lo de hoy de una región, `climaDeHoy` (privada), que leen `climaDeLaPartida` (todas, memorizado por día, lo pedido y los dueños) y `climaEn` (una casilla, solo su región: `dueñoDeLaRegion`), y `esDeNocheEn`, lo que lee `core`; de una casilla, `regionDelSitio` (`regionDelClima`: las barreras, los nodos y las ciudades, con la región más cercana, `laMasCercana`) y `climaDelSitio`; de una batalla, `regionDeLaBatalla` (la casilla de `lugarDelRival`) y `climaDeLaBatalla`, y lo que viaja al espectador es la región, que lee con `climaDeLaRegion`; lo que pide el narrador, `pedirClima`, el único que escribe `GameState.climaPedido` (lo vigila `invariantes.test.ts`), con `climaBlocker`, y su única lectura, `pedidoVigente`; `?clima=`, `parseClima`, `validarForzado`, `forzarClima` y `climaSinRegiones`. Lo pinta `render/clima/`, un solo pintor para el mapa y toda escena (`pintarSueloDelClima` y `pintarAireDelClima` sobre un `CampoDelClima`: `campoDeEscena` o, por región y con su frente, `campoDelMapa`; el frente, `regionEnElFrente`; las recetas, una fila por tiempo en `EFECTOS`), que no lee la sesión (lo vigila `invariantes.test.ts`) |
 | Qué héroe se ve y qué se sabe de un objeto (agente, lienzo, minimapa, barra) | `heroesALaVista` (lo mirado ahora), `objetosConocidos` (vivo si se mira, si no el recuerdo de `memory`); el cliente, por `Session` |
 | Qué grupo de asaltantes se ve | `asaltantesALaVista` (lista con la marca `AsaltantesALaVista`; sin niebla, `todosALaVista`); para un grupo suelto, `grupoALaVistaDesde` |
 | Por dónde se entra en un pueblo | `puertaDe`, `rodeosParaEntrar` (`map/puertas.ts`: la casilla de debajo; la mina, con dos, se fue el 21-10-2026; la ciudad no: sus puertas son las de su recinto, lo vigila `invariantes.test.ts`) |
@@ -707,12 +719,52 @@ antes del destino (`battle_started` con `faltan`).
 - **El oro en el contrato** (21-10-2026): `you.gold` (un número) y `you.income` (`total`, `towns`
   y `villages`, de `rentaDelDia`); todo `cost` es un número de oro. Un plan con `mines` o
   `resources` se rechaza diciéndolo.
+- **El clima** (22-10-2026, decisiones del usuario: por región, lo pide el narrador y la noche
+  también): el `adventure_turn` admite `weather`, una lista de `{ at, weather?, night?, days? }`
+  (con el tiempo, la noche o los dos; de 1 a `diasMaximos` días, como mucho `porTurno` por turno y
+  una vez cada región), que el director aplica **antes** que las acciones (`pedirClima`); cada pedido
+  malo se descarta con su motivo en el veredicto (tras `weather`) y lo aceptado va en la nota
+  (`notaClima`, una vez para el registro y la nota). **El esquema no tipa las entradas**
+  (`weather: z.unknown()`): una mal escrita —un tiempo de 18 letras, `days: 1.5`, `night: "si"`— la
+  juzga `climaBlocker` y se descarta sola, y de las que pasan de `PEDIDOS_QUE_SE_MIRAN` (16) se dice
+  que no se miran; con los tipos en el esquema, una tumbaba el turno entero (H1 del QA, 22-10-2026). Es presentación, como las voces: ni crónica ni
+  banco. La petición trae
+  `world.weather` (el clima de hoy de las regiones exploradas, con `until` lo pedido), y la prosa le
+  dice que la noche la pone la narrativa y que las tierras de los no muertos son más nocturnas. Lo
+  cruza `pnpm qa` (una tormenta y un «granizo», y el fotograma del espectador).
 - La partida termina con un `game_over` explícito. `state.finished` es
   `{ winner: PlayerId | null } | null`; el tope de días es `GameState.maxDays`.
 - Del contrato se exportan esquemas, no alias de tipo.
 
 ## El cliente
 
+- **El clima** (22-10-2026, `docs/agents/2026-10-22-clima/`): niebla (bancos claros y fríos que
+  van a la deriva y una bruma clara), lluvia (gotas de un píxel de dispositivo en dos planos y la luz
+  algo más baja), tormenta (más lluvia, la luz pizarra y un rayo cada 4-9 s por región: un destello
+  local de 160 ms con su trazo) y la noche (una luz azul **multiplicada**, que conserva el
+  contraste —con un velo encima se leía como bruma gris—, y un azul de luna **sumado** encima,
+  `NOCHE.alza`: multiplicar por azul no vuelve azul un bosque pardo, y la noche se parecía al velo de
+  lo que no se mira; con los fuegos de ciudades y pueblos y las puertas de la base encendidos: un
+  hueco en esa luz y un resplandor cálido). En las escenas (base, morada, batalla) las figuras llevan
+  siete décimas de esa luz (`luzDeLasFiguras`, `Figura.luz`, en la celda teñida guardada; aro,
+  casillas, barras y chapas sin teñir). En el mapa, la luz por regiones se **guarda** a resolución de
+  dispositivo pegada al mundo (`pintarLaLuzDelMundo`) y cada fotograma es una copia entera sin escalar:
+  componerla desde un cuarto costaba 5,3 ms por fotograma de noche al tope de alejar en 2560×1440 (QA
+  del 22-10-2026, H9). Las gotas, del grueso de un píxel CSS en píxeles de dispositivo. Un solo pintor
+  (`render/clima/clima.ts`) para el mapa y toda escena: lo que cambia es el campo, qué clima hay bajo
+  cada píxel. En el mapa, por región y con el borde ondulado y blando (un frente, no el contorno por
+  casillas de la niebla de guerra), tras los volúmenes y **bajo** los identificadores y la niebla de
+  guerra: lo inexplorado sigue siendo `#080a10`. En la batalla, el cielo es el del tiempo (con
+  tormenta no se ve el sol: gris pizarra con nubes bajas; de noche despejada, azul con luna y
+  estrellas, `pintarNubesBajas`, `pintarAstros`), la luz y la bruma van horneadas en el fondo, los bancos bajo las casillas
+  y la lluvia y el rayo bajo las barras y los nombres. Una escena lateral se enchufa con su
+  `ClimaDelSitio` (`campoDeEscena`): `pintarSueloDelClima` entre lo suyo y las figuras y
+  `pintarAireDelClima` al final; la base y la morada (`pintarBase`) heredan el de la región de su
+  ciudad, y la tropa no lleva (es una ficha). Lo blando va en una capa a un cuarto que se compone
+  **sin suavizado** (con el bilineal, 7-10 ms por fotograma sin GPU; con el vecino, 1 ms). Con
+  `prefers-reduced-motion: reduce`, quieto (`movimientoReducido`, que lee la pieza): sin rayos y sin
+  nada que corra. Medido con `tools/qa/clima.ts` (la tabla, en
+  `docs/agents/2026-10-22-clima/implementacion.md`).
 - **Tema por facción** (13-10-2026 en su rama; en el juego desde el 19-10-2026): cinco, uno por
   facción, **como sus láminas** (`assets/art/temas/<tema>.png`): la paleta se mide en la lámina y
   `temas.css` la copia (`paleta-de-las-laminas.test.ts`); la forma (barras de sección con su adorno,
@@ -1215,6 +1267,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10, y con el río de lago de 20, 121 / 0 / 12; con el recinto de las ciudades en el núcleo, 98 / 0 / 6; sin minas (21-10-2026), 106 / 0 / 10; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 | `tools/qa/neutro.ts` | ~10 s | si tocas una hoja de estilo: sin `data-tema`, 0 diferencias con HEAD |
+| `tools/qa/clima.ts [carpeta]` | ~15-30 min (con fps) | si tocas el clima: capturas de cada clima en el mapa, la batalla, la base, la morada y el espectador, lo inexplorado intacto, el movimiento reducido y los fps (`--sin-fps` para solo mirar) |
 | `tools/qa/temas-con-piezas.ts [carpeta]` | ~5 min | si tocas los temas o sus piezas: rótulos de sección sobre su pieza, el lienzo quieto en 7 ventanas, lo que tapan marco, remate y cartela, y las capturas lado a lado |
 | `npx tsx tools/qa/arena-ia.ts` | ~2 s | si tocas el movimiento de la batalla, salir del contacto, la carga, la rueda o la armadura: 100 peleas por variante con unidades del catálogo, IA contra IA (peleas sin terminar, rondas, tiempo, cargas, cruces y golpes parados) |
 

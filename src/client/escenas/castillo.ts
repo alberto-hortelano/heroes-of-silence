@@ -40,13 +40,15 @@ import {
   type VistaDeLaBase,
 } from '../render/base/escena.js';
 import { type Golpe, queHayBajo } from '../render/base/golpe.js';
-import { pintarBase } from '../render/base/pintar.js';
+import { type PintadoDeLaBase, pintarBase, pintarElAireDeLaBase } from '../render/base/pintar.js';
+import { luzDeLasFiguras } from '../render/clima/recetas.js';
 import { animarHasta } from '../render/figura.js';
 import { densidadDe } from '../render/lienzo.js';
 import { dondeEsperaEnLaMorada } from '../render/morada/fila.js';
 import { playerColor } from '../render/palette.js';
 import { ALTO_DE_FIGURA, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, type Session } from '../session.js';
+import type { ClimaDeLaFila } from './morada.js';
 
 /**
  * Cuánto más deprisa se anda en la base que en una batalla. Con el paso del
@@ -122,7 +124,6 @@ export class EscenaBase {
   private camaraEn: number | null = null;
   /** Píxeles de dispositivo por píxel CSS del último lienzo dibujado: la cámara cae en uno entero. */
   private densidad = 1;
-
   constructor(
     private readonly sesion: () => Session,
     /** De dónde sale la disposición de cada facción: la de `data/bases/`, o la que pase un test. */
@@ -309,7 +310,14 @@ export class EscenaBase {
       arte: this.arte(b.vista),
       color: playerColor(b.vista.owner),
       señalado: this.señalado,
+      clima: this.climaDe(ahora),
     });
+  }
+
+  /** El clima de la base abierta (el de la región de su ciudad), con el reloj. */
+  private climaDe(ahora: number): PintadoDeLaBase['clima'] {
+    const sitio = this.sesion().climaDeLaBase;
+    return sitio === null ? null : { sitio, ahora };
   }
 
   /**
@@ -318,7 +326,8 @@ export class EscenaBase {
    * por su versión abierta si la hay (`conLaAbierta`; si no, su exterior), quien
    * anduvo quieto en su puerta (salvo con `caminante: false`, el ayuntamiento) y
    * nadie más. No toca la cámara de la base ni su lienzo: al volver, la base está
-   * como se dejó.
+   * como se dejó. Devuelve el clima de la fila (de reclutas o de candidatos): la
+   * luz que les cae y lo que va delante (la lluvia y el rayo).
    */
   pintarLaMorada(
     ctx: CanvasRenderingContext2D,
@@ -327,10 +336,10 @@ export class EscenaBase {
     edificio: string,
     ahora: number,
     { caminante = true }: { readonly caminante?: boolean } = {},
-  ): void {
+  ): ClimaDeLaFila | null {
     const b = this.base();
-    if (b === null) return;
-    pintarBase(ctx, {
+    if (b === null) return null;
+    const v: PintadoDeLaBase = {
       d: b.d,
       t: camara,
       lienzo,
@@ -338,7 +347,14 @@ export class EscenaBase {
       arte: conLaAbierta(this.arte(b.vista), edificio, abiertaDe(b.vista.faccion, edificio)),
       color: playerColor(b.vista.owner),
       señalado: null,
-    });
+      clima: this.climaDe(ahora),
+      sinAire: true,
+    };
+    pintarBase(ctx, v);
+    return {
+      luz: v.clima === null ? undefined : luzDeLasFiguras(v.clima.sitio),
+      delante: () => pintarElAireDeLaBase(ctx, v),
+    };
   }
 
   /** El arte de la base de `vista`, con los recortes de lo construido. */

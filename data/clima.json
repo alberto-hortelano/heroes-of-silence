@@ -1,0 +1,21 @@
+{
+  "_comment": "INVENTADO y PROVISIONAL (22-10-2026, docs/agents/2026-10-22-clima/). El tiempo y la noche de cada región, que son PRESENTACIÓN: no cambian ninguna regla. Lo lee solo src/core/state/clima.ts, que lo valida al cargar. «tiempo.pesos»: en ‰, con qué peso sale cada tiempo cuando el del día cambia (despejado, niebla, lluvia, tormenta; suman lo que sumen, se sortea por pesos). «tiempo.seguir»: en ‰, cuántas veces el tiempo general de un día sigue el de ayer (las rachas). «tiempo.desvio»: en ‰, cuántas veces una región se aparta del tiempo general con una tirada suya (los frentes); una región apartada sigue apartada al día siguiente con «tiempo.seguir». «noche.pesos»: en ‰, cuántas veces es de noche en una región según la facción de su dueño de ahora (decisión del usuario del 22-10-2026: «en no muertos habrá muchos más nocturnos»), y «neutral» la de una región sin dueño. «noche.seguir»: en ‰, cuántas veces la noche de una región sigue como la de ayer; con rachas, la proporción de noches a la larga es la de su peso. Sin agente, o donde no lo pide, todo esto sale de la semilla; el agente puede pedir tiempo y noche por región. «diasMaximos»: cuántos días dura como mucho un pedido del agente. «porTurno»: cuántos pedidos entran como mucho en un turno.",
+  "tiempo": {
+    "pesos": { "despejado": 520, "niebla": 170, "lluvia": 200, "tormenta": 110 },
+    "seguir": 650,
+    "desvio": 60
+  },
+  "noche": {
+    "pesos": {
+      "neutral": 120,
+      "templarios": 80,
+      "no-muertos": 550,
+      "imperio": 100,
+      "elfos": 150,
+      "orkos": 130
+    },
+    "seguir": 500
+  },
+  "diasMaximos": 3,
+  "porTurno": 4
+}

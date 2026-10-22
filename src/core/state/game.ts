@@ -118,6 +118,7 @@ import {
   recordarAsaltantes,
   vigiaDeLaMarcha,
 } from './asaltantes.js';
+import type { PedidoDeClima } from './clima.js';
 import {
   type Atacante,
   type BattleFoe,
@@ -364,6 +365,14 @@ export interface GameState {
    * mismo id que la primera (#126). Un contador no depende de cuántos quedan.
    */
   siguienteHeroe: number;
+  /**
+   * El clima que pidió el narrador, por id de región, hasta el día `hasta`
+   * (`state/clima.ts`). **Presentación**, como `Town.voces`: ninguna regla lo
+   * lee, no escribe en la crónica y el banco no lo ve. Ausente sin agente: el
+   * clima sale entero de la semilla. Lo escribe solo `pedirClima` y lo lee
+   * `climaDeLaPartida`.
+   */
+  climaPedido?: Record<string, PedidoDeClima>;
 }
 
 export interface GameContext {

@@ -45,6 +45,12 @@ import { createRng } from '../src/core/rng.js';
 import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/character.js';
 import { combatProfile } from '../src/core/rpg/stats.js';
 import {
+  climaDeLaBatalla,
+  climaDeLaPartida,
+  climaDeLaRegion,
+  pedirClima,
+} from '../src/core/state/clima.js';
+import {
   applyAdventureAction,
   ascenderVeterano,
   type GameState,
@@ -542,6 +548,23 @@ describe('la batalla en la vista', () => {
     // rederivar `battleOwners` — una tercera copia de algo que ya discrepó una vez.
     expect(vista.battle?.dueños).toEqual({ attacker: 0, defender: 1 });
     expect(vista.battle?.estado.stacks.length).toBeGreaterThan(0);
+  });
+
+  it('el clima viaja derivado: el de la partida con lo pedido, y la batalla el de su sitio', () => {
+    const { state } = conBatalla();
+    const [reg] = state.map.regions;
+    if (reg === undefined) throw new Error('el mapa no tiene regiones');
+    pedirClima(state, 1, [{ at: reg.at, weather: 'tormenta', night: true }]);
+    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    const clima = climaDeLaPartida(state);
+    expect(ida.clima).toEqual(clima);
+    expect(ida.clima.regiones[0]).toEqual({ tiempo: 'tormenta', noche: true });
+    const pending = state.pendingBattle;
+    if (pending === null) throw new Error('sin batalla');
+    // La misma cuenta que la partida: de la región que viaja, el clima del tablero.
+    expect(climaDeLaRegion(ida.clima, ida.battle?.region ?? -2)).toEqual(
+      climaDeLaBatalla(state, clima, pending),
+    );
   });
 
   it('el `BattleState` viaja entero por JSON: no lleva ni un `Set` ni un `Map`', () => {

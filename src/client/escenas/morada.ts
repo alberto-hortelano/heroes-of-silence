@@ -16,6 +16,7 @@ import { disposicionDe } from '../../shared/base.js';
 import type { VistaDeLaMorada } from '../morada/vista.js';
 import { cajaDeFiguraEn } from '../render/batalla.js';
 import { type CajaEn, type LienzoDePie, pintarDePie } from '../render/de-pie.js';
+import type { LuzSobreLaFigura } from '../render/figura.js';
 import { type EncuadreDeLaMorada, encuadrarLaMorada } from '../render/morada/fila.js';
 import type { Tablero } from '../render/proyeccion.js';
 import { AYUDA_DE_LA_MORADA, type Session } from '../session.js';
@@ -26,10 +27,20 @@ export function cajasDeLaMorada(t: Tablero): CajaEn {
   return (en) => cajaDeFiguraEn(t, en);
 }
 
+/** Lo que el fondo de la morada deja para la fila: la luz que cae sobre ella y lo que va delante. */
+export interface ClimaDeLaFila {
+  /** La luz del clima de la base sobre las figuras (`Figura.luz`). */
+  readonly luz: LuzSobreLaFigura | undefined;
+  /** La lluvia y el rayo de la base, delante de la fila. */
+  readonly delante: () => void;
+}
+
 /**
  * Lo que va detrás de la fila: la base con la cámara de la morada y su edificio
- * abierto (`EscenaBase.pintarLaMorada`). En `pnpm capturas`, que encuadra en Node,
- * nada. Lo usa también el ayuntamiento (`escenas/ayuntamiento.ts`), con su vista.
+ * abierto (`EscenaBase.pintarLaMorada`). Devuelve el clima de la fila (la luz
+ * sobre las figuras y lo que va delante de ellas), o `null`. En `pnpm capturas`,
+ * que encuadra en Node, nada. Lo usa también el ayuntamiento
+ * (`escenas/ayuntamiento.ts`), con su vista.
  */
 export type FondoDeLaMorada<V extends { readonly edificio: string } = VistaDeLaMorada> = (
   ctx: CanvasRenderingContext2D,
@@ -37,7 +48,7 @@ export type FondoDeLaMorada<V extends { readonly edificio: string } = VistaDeLaM
   camara: Tablero,
   vista: V,
   ahora: number,
-) => void;
+) => ClimaDeLaFila | null;
 
 /** Lo que la fila ante un edificio lee de su vista: dónde está y qué edificio es. */
 type VistaAnteUnEdificio = VistaDePie & {
@@ -67,8 +78,9 @@ export function anteUnEdificio<V extends VistaAnteUnEdificio>(
       encuadre(lienzo, disposicionDe(vista.faccion), vista.sitio, vista.figuras.length),
     caja: cajasDeLaMorada,
     pintar: (ctx, { lienzo, vista, encuadre, pie }) => {
-      fondo(ctx, lienzo, encuadre.camara, vista, pie.ahora);
-      pintarDePie(ctx, pie);
+      const clima = fondo(ctx, lienzo, encuadre.camara, vista, pie.ahora);
+      pintarDePie(ctx, { ...pie, luz: clima?.luz });
+      clima?.delante();
     },
   };
 }

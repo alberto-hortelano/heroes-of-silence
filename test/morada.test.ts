@@ -244,7 +244,7 @@ function enLaBase(faccion: FactionId = 'templarios', seed = 12) {
   escena.encuadrar(1086, 778);
   const morada = new EscenaMorada(
     () => s,
-    () => {},
+    () => null,
   );
   morada.encuadrar(1086, 778, 1);
   return { s, escena, morada, d: disposicionDe(faccion) };

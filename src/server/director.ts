@@ -38,6 +38,7 @@ import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/experiencia.js';
 import type { MapPlan } from '@core/map/generate.js';
 import { pointKey } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
+import { pedirClima } from '@core/state/clima.js';
 import {
   applyAdventureAction,
   ascenderVeterano,
@@ -66,6 +67,7 @@ import {
   notaAccionSustituida,
   notaAscenso,
   notaAscensoRechazado,
+  notaClima,
   notaMarchaParcial,
   notaRespuestaAceptada,
   notaRespuestaSustituida,
@@ -419,6 +421,20 @@ export class Director {
     const plan = respuesta.data;
     if (plan.reasoning !== undefined) this.note(`Agente: ${plan.reasoning}`);
 
+    // El clima va antes que las acciones: la tormenta que pide cae sobre el
+    // asedio de este mismo turno. Es presentación y no cuenta como acción: lo
+    // aceptado se cuenta una vez (`notaClima`, en el registro y en la nota del
+    // veredicto) y los rechazos van al veredicto, tras «weather», detrás de los
+    // de las acciones.
+    const clima =
+      plan.weather === undefined ? null : pedirClima(this.state, playerId, plan.weather);
+    const notaDelClima = notaClima(clima?.aceptados ?? []);
+    if (clima !== null) {
+      if (notaDelClima !== '') this.note(notaDelClima);
+      this.frame();
+    }
+    const rechazosDelClima = (clima?.rechazos ?? []).map((m) => `weather ${m}`);
+
     const problems: string[] = [];
     // Las marchas que anduvieron sin llegar (#121): entran, y van aparte de los
     // rechazos para no mezclar en `problems` un veredicto con un descarte.
@@ -488,14 +504,20 @@ export class Director {
     if (problems.length > 0) this.note(`Acciones rechazadas: ${problems.length}`);
     // El veredicto sale SIEMPRE, también cuando salió perfecto: un silencio es
     // ambiguo en un canal que puede perder mensajes.
+    const todos = [...problems, ...rechazosDelClima];
     this.link.report(
       respuesta.requestId,
       true,
-      problems.length > 0 ? problems : undefined,
+      todos.length > 0 ? todos : undefined,
       // Intentadas es exactamente lo que entró más lo que se rechazó: un
       // segundo contador que subir en el orden correcto dentro de un bucle con
       // `continue` miente el día que alguien meta un `break`.
-      notaTurnoAventura(dia, aplicadas, aplicadas + problems.length, problems, parciales),
+      [
+        notaTurnoAventura(dia, aplicadas, aplicadas + problems.length, problems, parciales),
+        notaDelClima,
+      ]
+        .filter((f) => f !== '')
+        .join(' '),
     );
     return { player: playerId, by: 'agent', actions: aplicadas, problems };
   }

@@ -130,6 +130,7 @@ function pintar(): Llamada[] {
     hover: null,
     semilla: state.seed,
     tiempo: 0,
+    clima: null,
   });
   return [...llamadas];
 }

@@ -189,6 +189,7 @@ export class EscenaAventura {
       hover: this.hover,
       semilla: state.seed,
       tiempo: ahora,
+      clima: s.clima,
     });
   }
 

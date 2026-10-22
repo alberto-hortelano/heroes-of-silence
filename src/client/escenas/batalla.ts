@@ -269,6 +269,8 @@ export class EscenaBatalla {
       enLaRueda: this.enLaRueda(),
       efectos: this.animador.efectos(battle),
       sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
+      // El de su sitio: la región donde se pelea, o el de la arena.
+      clima: { sitio: s.climaDeLaBatalla, ahora: performance.now() },
     });
   }
 

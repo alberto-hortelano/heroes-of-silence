@@ -25,6 +25,7 @@ import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
 import { type AccionDelAgente, HIT_DE_GOLPE } from '@core/contract/vocabulario.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
+import type { ClimaAceptado } from '@core/state/clima.js';
 import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEvent } from '@core/state/events.js';
 import {
@@ -287,6 +288,24 @@ export function notaTurnoAventura(
   }
   if (rechazos.length > 0) frases.push(consejoTrasRechazos(rechazos));
   return frases.join(' ');
+}
+
+/**
+ * El clima que entró de lo que pidió el narrador (`pedirClima`), en una frase que
+ * va detrás de la del turno y en el registro; vacía si no entró nada. Se dice
+ * con el nombre de su región y hasta qué día: es lo que verá quien mira. Lo
+ * rechazado no va aquí: va en el veredicto, cada uno con su motivo.
+ */
+export function notaClima(aceptados: readonly ClimaAceptado[]): string {
+  if (aceptados.length === 0) return '';
+  const dichos = aceptados.map((a) => {
+    const que = [
+      ...(a.tiempo === undefined ? [] : [a.tiempo]),
+      ...(a.noche === undefined ? [] : [a.noche ? 'de noche' : 'de día']),
+    ].join(' y ');
+    return `${que} en ${a.nombre} hasta el día ${a.hasta}`;
+  });
+  return `Clima: ${dichos.join('; ')}.`;
 }
 
 /** Qué hacer con lo descartado. */
