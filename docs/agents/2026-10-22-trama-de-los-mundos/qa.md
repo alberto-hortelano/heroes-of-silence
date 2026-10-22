@@ -183,3 +183,165 @@ vale» como una validación que pasó.**
   - H2 (la biblia se pierde si el motor muere antes de la historia) conviene resolverlo, o al menos
     abrir su issue, **antes de la fase B**, que es cuando se gastan minutos de Opus;
   - H5 hay que alinearlo antes de medir.
+
+---
+
+# Vuelta 2 — re-verificación de los hallazgos de «Se arregla» (commit 5f804a24)
+
+Alcance: H1, H2, H3, H4, H5, H6 y H9, los criterios que tocan y una pasada adversarial nueva sobre
+lo cambiado. H7 y H8 se dejaron por decisión (`hallazgos-qa.md`). El criterio 9 sigue pendiente de
+la fase B y no cuenta.
+
+Cómo se probó:
+
+- **`pnpm verify`: no se repite.** Salió verde en 5f804a24 (3959 tests, según `implementacion.md`)
+  y desde entonces no ha cambiado nada (`git status` limpio antes y después).
+- **La CLI:** `pnpm mundo validar|medir` sobre `prueba`, `ejemplo` y cinco mundos `gen-qa2-*` hechos
+  a mano. Se borraron todos después.
+- **La espera de verdad, entrando por el menú:**
+  - Servidor: `npx vite --port 3291 --strictPort` con `HEROES_MOTOR` apuntando a un motor falso,
+    arrancado con `set -m` en su propia línea y matado por su grupo. Después, `ss`: «3291 libre», y
+    el grupo, vacío.
+  - Navegador: Playwright sin pantalla. Nuevo juego → imperio → Empezar → Pequeño → Generar. El
+    `POST` se interceptó para añadir `semilla: 2026`, como en la vuelta 1.
+  - **El motor falso no es `motor-falso-qa.mjs` tal cual.** Esa copia lleva `tool_use_id` fijos
+    (`x`, `y`, `z`) que no casan con sus `tool_use`, y Claude Code sí los casa. Con ella, ninguna
+    respuesta del validador se reconoce, que es el caso «sin id» de abajo.
+  - Usé una copia del `motor-falso.mjs` corregido por el ingeniero, con cuatro modos adversariales
+    más: `scratchpad/qa2/motor-qa2.mjs`.
+  - No se lanzó el motor real.
+
+## Hallazgos de «Se arregla»
+
+| Hallazgo | Estado | Evidencia |
+|---|---|---|
+| **H1** — la espera solo cree lo que contesta su llamada al validador | ✅ | **Modo `lee-skill-tarde`, de punta a punta:**<br>· a los 14 s, «1 validación», «el mundo aún no vale (1)» y «La última validación no pasó: 1 problema; el primero, biblia.md: tiene 312 palabras…»;<br>· a los 20 s, «lee sus instrucciones», con la `SKILL.md` entera (que trae la frase) en su `tool_result`. **El aviso sigue** a los 20 s y a los 26 s;<br>· a los 27 s, la segunda validación da «el mundo vale» y la partida arranca en `?mundo=gen-20261022-2026&tropa=7&rueda=7`;<br>· consola sin errores.<br>Ver además la pasada adversarial (id repetido, `grep` con la frase, varias en un mensaje). |
+| **H2** — la biblia sola se queda | ✅ | **`muere-sin-historia`** (biblia de 312 palabras, salida 1): espera «el motor salió con código 1: se acabó el contexto», los dos problemas y la última línea «queda la biblia en assets/mundos/gen-20261022-2026/ para mirarla». En disco quedan `biblia.md` (312 palabras), `mundo.json` y `plan.json`.<br>**`muere-sin-nada`** (modo nuevo: sale 1 sin escribir nada): «el mundo "gen-20261022-2026" no tenía ni biblia ni historia: se borra». La carpeta desaparece.<br>**`biblia-corta`** (biblia e historia, salida 0): «quedan la biblia y la historia en assets/mundos/gen-20261022-2026/ para mirarlas».<br>**Carrera del aviso** (ver la pasada adversarial): la línea de la biblia no se puede perder; la de «se borra», sí. |
+| **H3** — la espera habla del mundo | ✅ | Las líneas «el mundo aún no vale (1)» y «el mundo vale» salen en los modos `lee-skill-tarde`, `biblia-corta` y `paralelo`.<br>Con `biblia-corta`, el motivo final es «el motor acabó, pero el mundo no vale».<br>El título de la fase `validar` es «Comprobando el mundo» (en el `h1` de las 10 capturas de móvil de esa fase).<br>`grep historia` en `tools/mundo/motor.ts` y `src/client/desarrollo/mundo.ts` solo da tres cosas que hablan de verdad del fichero o del modo: «no tenía ni biblia ni historia», «Jugar sin historia» y `data-mundo="sin-historia"`. |
+| **H4** — un fichero que no se lee se dice con su nombre, sin ruta absoluta | ✅ | Salida 1 en todos los casos, y `medir` da lo mismo que `validar`:<br>· `biblia.md` directorio → «biblia.md: no es un fichero (assets/mundos/gen-qa2-a/biblia.md)»;<br>· `historia.json` directorio → «historia.json: no es un fichero (…)»;<br>· `biblia.md` con `chmod 000` → «biblia.md: no se puede leer, EACCES (assets/mundos/gen-qa2-c/biblia.md)»;<br>· `biblia.md` enlace a `/tmp` → «no es un fichero»;<br>· `historia.json` enlazado a sí mismo → «historia.json: no se puede leer, ELOOP (…)»;<br>· `plan.json` directorio → «plan.json: no es un fichero (…)».<br>Ninguno saca una ruta de la máquina. Todos empiezan por «<fichero>: », así que `problemaDeLaLinea` los pasa a la espera. |
+| **H5** — `medir` cuenta niveles, como la skill | ✅ (con una nota menor, M2) | `pnpm mundo medir prueba ejemplo` da:<br>· Corvo, nodos 4 · niveles 3;<br>· Tobías 5 · 3;<br>· Aldama 4 · 3;<br>· Anselmo 4 · 2.<br>Es la hondura de la vuelta 1 más uno.<br>La skill (l. 118) dice «el inicio es el primero: inicio → pregunta → respuesta son tres».<br>`plan.md` §7 (fase B) pide «≥ 3 niveles (el inicio es el 1)».<br>`CLAUDE.md` y `cli.ts` dicen «niveles». |
+| **H6** — las marcas de `prueba` y `ejemplo` describen el mundo | ✅ | Leí uno a uno los 10 `falta` y los 10 `ya`. Ninguno habla a «tú», por ninguna forma: ni pronombre, ni pretérito, ni futuro, ni imperativo, ni «os» o «vuestro». Por ejemplo, «el peaje del puente ya está pagado», «la lanza ya no cuelga en la garita», «los ahogados del lago ya vencieron a alguien».<br>La sección «Marcas» de las dos biblias no cita frases en segunda persona. La de `prueba` corrige lo de la carta («también vale si la leyó el rival») y dice qué encuentra quien llega tarde.<br>Los «ya te llevaste…» que quedan en `core/mundo/reglas.ts` y en `test/mundo.test.ts` son la frase del núcleo para quien sí se lo llevó (`mio`): están bien.<br>El fragmento de desenlaces de la skill («el sello del abad ya está en manos de…») también es neutro. `pnpm mundo validar prueba` y `… ejemplo` → «vale», salida 0. |
+| **H9** — la espera cabe en 390 px | ✅ | **Mediciones:** 390×844 y, además, 320×844, con las 5 facciones. «El mundo» y las cinco fases de la espera (congelar, pintar, motor, validar, fallido) con progreso servido por `page.route`: 59 min 59 s, 12 validaciones, un problema de 230 caracteres, una ruta de 90 sin espacios y la línea «queda la biblia…».<br>**Resultado, en las 60 pantallas:**<br>· el marco va de 16 a 374 px (de 16 a 304 en 320 px);<br>· `scrollWidth` del documento y de `#inicio` igual al ancho;<br>· ningún hijo pasa del marco y ningún texto queda cortado;<br>· la consola, sin errores.<br>**El título parte la línea:** «Leyendo y pintando el mapa para el motor», en 2-3 líneas (en 4 a 320 px); «No se ha podido generar el mundo», en 2-4.<br>**Capturas:** `scratchpad/qa2/m390-*-pintar.png` y `m320-*-fallido.png`.<br>**Pero** ver M1: el cambio de `#inicio` corta el título de **otra** pantalla por debajo de 390. |
+
+### Criterios de la vuelta 1 que tocan
+
+- **Criterio 2** (la biblia se exige y se dice bien) sigue ✅.
+  - Se reforzó con H4: una biblia que no se lee también se dice con su fichero.
+  - En el servidor, `biblia-corta` termina en `fallido` con «biblia.md: tiene 312 palabras…».
+- **Criterio 4** (hondura medida) pasa a medir en las mismas unidades que pide la skill (H5).
+- **Criterio 5** (el mundo es de los dos) gana coherencia: el ejemplo de formato ya no contradice
+  la regla del `ya` (H6).
+- **Criterio 7** (progreso en la espera): las líneas «escribe la biblia», «escribe la historia»,
+  «valida el mundo», «corrige la biblia», «relee la biblia» y «relee la historia» salen igual, con
+  el contador de validaciones.
+- **Criterio 8** (`ejemplo` y `prueba` valen; biblias fieles) sigue ✅.
+  - La biblia de `prueba` sube a 883 palabras.
+  - La inexactitud de la carta está corregida.
+
+## Pasada adversarial (lo nuevo)
+
+| Caso | Qué pasa | Veredicto |
+|---|---|---|
+| **Dos validaciones en un mensaje y sus dos respuestas en otro** (`paralelo`, dos `tool_use` con ids distintos y dos `tool_result` en un mismo mensaje `user`) | El contador dice «2 validaciones», pero sale **una sola** línea «el mundo aún no vale (1)». `respuestaDelValidador` vuelve con la primera respuesta que casa, y la segunda id se queda en `validando` para siempre. | Menor (M3). En la práctica las dos respuestas dicen lo mismo, porque es el mismo disco. |
+| **Un `Read` de la skill y una validación en un mismo mensaje**, primero el `Read` | El `Read` se salta y la validación da «el mundo vale». La partida arranca. | ✅ |
+| **`tool_use` y `tool_result` sin id** (`sin-id`; es también lo que hace `motor-falso-qa.mjs`) | Sale la línea «valida el mundo», pero el contador se queda en 0 validaciones y no hay «aún no vale». Al final, el servidor valida por su cuenta y dice «el motor acabó, pero el mundo no vale», con el problema de la biblia. | Aceptable: Claude Code siempre lleva el id. La espera calla en vez de inventarse un «vale». |
+| **Respuesta repetida con el mismo id** de una validación ya contestada, con la `SKILL.md` dentro (`id-repetido`) | Se ignora: el id se borró al contestar la primera vez. El aviso de la biblia corta sigue. | ✅ |
+| **Validación denegada** («Claude requested permissions…», `is_error`) | No dice nada del mundo y el último problema se queda. Cuenta como validación («2 validaciones») aunque no corrió. | Menor (M3): ya pasaba en `main`. |
+| **Otro `Bash` (un `grep` de la skill) cuya salida trae «el mundo "<id>" vale»** | Se ignora. | ✅ |
+| **La carrera del aviso final** (la espera deja de preguntar al ver `fallido`): un cliente que pregunta sin parar a `/__mundos/<id>/progreso` mientras el motor muere | **`muere-sin-historia`: 0 de 51** respuestas `fallido` sin la línea «queda la biblia…». En ese camino, entre `fallido` y la línea solo hay microtareas (`existsSync` es síncrono), así que ningún `GET` se cuela.<br>**`muere-sin-nada`: 3 de 51** respuestas `fallido` sin la línea «… se borra»: el `rm` es E/S. Con la espera de verdad, que pregunta cada 1,5 s, la probabilidad es de milisegundos entre 1 500. | La línea que importa para la fase B (H2) **no se pierde**. La de «se borra» sí puede perderse (M4, ya en `main`). |
+| **Un `ya` en segunda persona por otra forma** (futuro, imperativo, «os», «vuestro», «usted») | Leí a mano las 20 frases y no hay ninguno.<br>Pero el guardia de `test/motor-de-mundos.test.ts` solo caza «tú/te/ti/tu/tus/tienes/has/llevas/sabes» y los pretéritos en -aste/-iste. «ya pagarás», «paga el peaje» o «ya os lo llevasteis» lo pasarían. | Menor (M5). Hoy no afecta: los dos mundos están limpios. |
+| **El menú entero a 390, 360 y 320 px** (menú, facciones, «El mundo», espera) | **A 390:** todo cabe y ningún título se corta.<br>**A 360 con templarios:** «Elige tu facción» se corta 12 px («ELIGE TU FACCIÓ…»).<br>**A 320:** se cortan «Heroes of Silence» y «Elige tu facción» (templarios, elfos, orkos). | Menor, regresión por debajo de 390 (M1). |
+
+## Hallazgos nuevos
+
+### Menores
+
+**M1. Por debajo de 390 px, el cambio de `#inicio` corta el título de la elección de facción.**
+
+- **Qué pasa:** con `grid-template-columns: minmax(0, 1fr)`, la sección ya no se ensancha, pero
+  `.titulo-de-inicio` sigue con `white-space: nowrap` y `overflow: hidden` fuera de «El mundo» y de
+  la espera. El título sobrante no se ve.
+- **Medido en 360×800, templarios**, con la regla de antes inyectada (`grid-template-columns: none`):
+  - antes, el marco llegaba a 356 px y el título cabía (286 de 286);
+  - ahora, el marco acaba en 344 y el `h1` mide 286 de 274;
+  - captura: `scratchpad/qa2/m360-templarios-facciones-ahora.png` frente a `…-antes.png`.
+- **Reproducción:** `pnpm dev` → ventana de 360 px → Nuevo juego → marcar templarios. El título se
+  lee «ELIGE TU FACCIÓ».
+- **A 320:** también se corta «Heroes of Silence» en el menú.
+- **Alcance:** a 390 no pasa (lo que pedía H9), pero 360 es un ancho de Android corriente.
+- **Qué esperaba quien juega:** leer el título entero. Valdría que parta la línea o encoja la letra,
+  como ya hacen los de «El mundo». El ingeniero mantuvo el `nowrap` de la lista de facciones para
+  que mida igual con cualquier tema; el que se corta es el título, no la lista.
+
+**M2. `medida.ts` se contradice en cómo cuenta los niveles.**
+
+- La documentación del campo `niveles` (l. 32) dice «del camino **más largo** desde el `inicio`».
+- `nivelesDe` (l. 94) dice, y hace, «el camino **más corto** al nodo más lejano», en anchura.
+- En un árbol dan lo mismo. Con una rama que vuelve al tronco, que es lo que pide la skill, no:
+  manda el código. Solo hay que corregir el comentario.
+- Además, `plan.md` §5 (l. 38) y §6 (l. 68) aún dicen «hondura». No es un fallo, porque §7, que es
+  lo que se medirá, ya dice niveles.
+
+**M3. El contador de validaciones y las respuestas no van a la par en dos casos raros.**
+
+- **Una validación denegada** cuenta como validación. Ya pasaba en `main`.
+- **Dos respuestas en un mismo mensaje:** la segunda se pierde, y su id se queda en `validando`.
+- Ninguno de los dos hace decir «vale» sin que lo diga el validador, que era H1.
+
+**M4. La línea «… no tenía ni biblia ni historia: se borra» puede no llegar a la espera.**
+
+- La carrera que reconoce el ingeniero existe, pero solo en este camino: el `rm` es E/S y un `GET`
+  puede caer entre `fallido` y la línea.
+- Medido con un sondeo sin pausa: 3 de 51.
+- La de «queda la biblia» no se pierde (0 de 51).
+- Ya pasaba en `main` con «no tenía historia: se borra». Lo que se pierde es solo una línea
+  informativa.
+
+**M5. El guardia del `ya` en segunda persona solo caza algunas formas.**
+
+- La expresión de «los mundos del repositorio describen el mundo» no caza futuro (-arás),
+  imperativo, «os» ni «vuestro».
+- Hoy los dos mundos están limpios, comprobado a mano. Pero el guardia dejaría pasar un `ya`
+  regenerado en la fase B como «ya os lo llevasteis».
+
+## Workarounds usados (vuelta 2)
+
+- **Motor falso en lugar de `claude -p`**, como en la vuelta 1: es una copia corregida (ids que
+  casan) con modos adversariales. No afecta a quien juega.
+- **Interceptar el `POST /__mundos` para añadir `semilla: 2026`**, como en la vuelta 1, para que la
+  historia copiada de `prueba` valga. El menú manda lo mismo de siempre.
+- **El progreso servido por `page.route` en las mediciones de móvil**, para tener lo más largo en
+  cada fase. Solo afecta a lo que se pinta, no al flujo.
+- **Un sondeo de `/__mundos/<id>/progreso` sin pausa** para ver la carrera. La espera de verdad
+  pregunta cada 1,5 s.
+- **Para comparar M1, la regla de `#inicio` de antes**, inyectada con `addStyleTag` en vez de
+  sacar otro árbol. Es solo la regla que cambió.
+
+## No probado
+
+- **El motor real**, sin cambios respecto a la vuelta 1 (fase B). Queda pendiente:
+  - comprobar de verdad que Claude Code repite el `id` de cada `tool_use` en su `tool_result`;
+  - si emite varios `tool_result` en un solo mensaje cuando valida en paralelo.
+
+  El motor falso lo imita, no lo prueba.
+- **`pnpm verify`**, **`verify:lento`**, **`capturas`**, **`qa`** y **`banco`**:
+  - `verify` es el mismo commit en verde;
+  - el cambio no toca `src/server/`, el contrato, el juego, el mapa ni el arte;
+  - `tools/qa/neutro.ts` lo corrió el ingeniero (4 diferencias del espectador que no son de este
+    cambio).
+
+## Veredicto (vuelta 2)
+
+**Apto** para la fase A.
+
+- Los siete hallazgos de «Se arregla» están resueltos y probados en el flujo real de la espera.
+- El más importante, H1, aguanta la pasada adversarial: ningún texto ajeno a la respuesta del
+  validador hace decir «vale».
+- H2 conserva la biblia y lo dice, y esa línea no se puede perder.
+- Los cinco menores nuevos no bloquean:
+  - M1 corta el título de la elección de facción entre 320 y 389 px;
+  - M2 es un comentario;
+  - M3 y M4 son líneas de la espera en casos raros, ya en `main`;
+  - M5 es un guardia estrecho.
+- Conviene arreglar **M1** y **M5** antes de la fase B. M5, porque la fase B regenera `ejemplo` y
+  el guardia es lo que vigilaría su `ya`.

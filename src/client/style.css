@@ -694,7 +694,10 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .titulo-de-inicio {
   margin: 0 0 1.1rem;
   text-align: center;
-  font: 600 1.8rem/2.4rem var(--letra-titulo);
+  /* En un teléfono estrecho la letra baja con el ancho para que quepa en una línea
+     (con la columna del menú al ancho de la pantalla, «Elige tu facción» se cortaba
+     a 360 px: M1 del QA de la trama); desde ~440 px, la de siempre. */
+  font: 600 min(1.8rem, 6.6vw)/2.4rem var(--letra-titulo);
   height: 2.4rem;
   white-space: nowrap;
   overflow: hidden;

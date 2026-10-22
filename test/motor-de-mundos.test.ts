@@ -223,7 +223,7 @@ describe('el motor de mundos', () => {
     // `prueba` es el ejemplo de formato que manda leer la skill, y el mundo es de los
     // dos: «ya pagaste el peaje» le sale también a quien no pagó.
     const aTi =
-      /(?<!\p{L})(tú|te|ti|tu|tus|tienes|has|llevas|sabes|\p{L}+(aste|iste|íste))(?!\p{L})/iu;
+      /(?<!\p{L})(tú|te|ti|tu|tus|tienes|has|llevas|sabes|os|vos|vuestr[oa]s?|\p{L}+(aste|iste|íste|[aeiodbr]rás|asteis|isteis))(?!\p{L})/iu;
     for (const id of ['prueba', 'ejemplo']) {
       const { marcas } = JSON.parse(
         readFileSync(`${RAIZ}/assets/mundos/${id}/historia.json`, 'utf8'),

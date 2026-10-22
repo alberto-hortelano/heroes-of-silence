@@ -29,8 +29,9 @@ export interface MedidaDePersona {
   /** Nodos de su diálogo. */
   readonly nodos: number;
   /**
-   * Los niveles del camino más largo desde el `inicio` por `ir`, sin mirar condiciones:
-   * el inicio es el nivel 1 (inicio → pregunta → respuesta, 3). Es como lo cuenta la
+   * A cuántos niveles del `inicio` queda el nodo más lejano, por el camino más corto
+   * por `ir` y sin mirar condiciones: el inicio es el nivel 1 (inicio → pregunta →
+   * respuesta, 3). Es como lo cuenta la
    * skill («tres niveles de hondo»); antes eran aristas y el mismo árbol daba 2 (H5 del
    * QA de la trama).
    */
