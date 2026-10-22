@@ -23,6 +23,13 @@ import { piezasPuestas } from '@core/hero/equipo.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
+import {
+  type ClimaDeLaPartida,
+  type ClimaDelSitio,
+  climaDeLaPartida,
+  sitioDeLaBatalla,
+  tiempoDelSitio,
+} from '@core/state/clima.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState, week } from '@core/state/game.js';
@@ -172,6 +179,8 @@ export interface BatallaEnCable extends Omit<BattleState, 'stacks'> {
 export interface VistaBatalla {
   readonly estado: BatallaEnCable;
   readonly dueños: Readonly<Record<Side, PlayerId | null>>;
+  /** El clima del sitio de la batalla (`sitioDeLaBatalla`), el que hereda su tablero. */
+  readonly tiempo: ClimaDelSitio;
 }
 
 export interface SpectatorView {
@@ -201,6 +210,12 @@ export interface SpectatorView {
   readonly directorLog: readonly string[];
   /** `null` la mayor parte de la partida: casi siempre no hay batalla. */
   readonly battle: VistaBatalla | null;
+  /**
+   * El clima de hoy de cada región (`climaDeLaPartida`), derivado aquí y no en el
+   * espectador: lo pedido por el narrador vive en el estado, y así el espectador
+   * ve lo mismo que la partida sin una segunda cuenta. Es JSON plano: viaja tal cual.
+   */
+  readonly clima: ClimaDeLaPartida;
 }
 
 /**
@@ -227,6 +242,7 @@ function vocesNarradas(state: GameState, t: Town): VozEnLaBase[] {
 
 export function construirVista(state: GameState, directorLog: readonly string[]): SpectatorView {
   const pending = state.pendingBattle;
+  const clima = climaDeLaPartida(state);
   const indice = (p: Point): number => p.y * state.map.width + p.x;
   return {
     seed: state.seed,
@@ -281,7 +297,9 @@ export function construirVista(state: GameState, directorLog: readonly string[])
         : {
             estado: { ...pending.battle, stacks: pending.battle.stacks.map(stackAlCable) },
             dueños: battleOwners(state, pending),
+            tiempo: tiempoDelSitio(clima, state.map, sitioDeLaBatalla(state, pending)),
           },
+    clima,
   };
 }
 

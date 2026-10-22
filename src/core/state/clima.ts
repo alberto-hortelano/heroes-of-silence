@@ -368,9 +368,9 @@ export function sitioDeLaBatalla(state: GameState, pending: PendingBattle): Poin
 /** Lo que manda el narrador para una región: un punto suyo y lo que pide. */
 export interface ClimaPedidoPorElAgente {
   readonly at: Point;
-  readonly weather?: string;
-  readonly night?: boolean;
-  readonly days?: number;
+  readonly weather?: string | undefined;
+  readonly night?: boolean | undefined;
+  readonly days?: number | undefined;
 }
 
 /** Lo que entró, por región, para contarlo en el veredicto. */

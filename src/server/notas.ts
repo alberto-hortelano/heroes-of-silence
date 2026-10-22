@@ -25,6 +25,7 @@ import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
 import { type AccionDelAgente, HIT_DE_GOLPE } from '@core/contract/vocabulario.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
+import type { ClimaPuesto } from '@core/state/clima.js';
 import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEvent } from '@core/state/events.js';
 import {
@@ -286,6 +287,33 @@ export function notaTurnoAventura(
     frases.push(`${cuantas} parcialmente, sin llegar: ${parciales.join('; ')}.`);
   }
   if (rechazos.length > 0) frases.push(consejoTrasRechazos(rechazos));
+  return frases.join(' ');
+}
+
+/**
+ * Lo que entró y lo que no del clima que pidió el narrador (`pedirClima`), en una
+ * frase que va detrás de la del turno; vacía si no pidió nada. Lo aceptado se
+ * dice con el nombre de su región y hasta qué día: es lo que verá quien mira.
+ */
+export function notaClima(puesto: ClimaPuesto | null): string {
+  if (puesto === null || (puesto.aceptados.length === 0 && puesto.rechazos.length === 0)) return '';
+  const frases: string[] = [];
+  if (puesto.aceptados.length > 0) {
+    const dichos = puesto.aceptados.map((a) => {
+      const que = [
+        ...(a.tiempo === undefined ? [] : [a.tiempo]),
+        ...(a.noche === undefined ? [] : [a.noche ? 'de noche' : 'de día']),
+      ].join(' y ');
+      return `${que} en ${a.nombre} hasta el día ${a.hasta}`;
+    });
+    frases.push(`Clima: ${dichos.join('; ')}.`);
+  }
+  if (puesto.rechazos.length > 0) {
+    const n = puesto.rechazos.length;
+    frases.push(
+      `${n === 1 ? 'Un pedido de clima descartado' : `${n} pedidos de clima descartados`} (el motivo, debajo, tras "weather").`,
+    );
+  }
   return frases.join(' ');
 }
 
