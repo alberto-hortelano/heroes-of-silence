@@ -24,8 +24,10 @@ import type { JuntasDeLadera } from '../../src/client/render/escenario/catalogo.
 import {
   CLIPS_DE_FIGURA,
   type ClipDeFigura,
+  clipsDeLasHojas,
   FIGURA,
   FILAS_DEL_ATLAS,
+  type HojaDeFigura,
 } from '../../src/shared/arte.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
 import type { GeometriaDeLadera } from './laderas.js';
@@ -90,7 +92,6 @@ export const ELEVACION_DEL_CADAVER = 64;
  */
 const FILAS_SIN_DISPARO = CLIPS_DE_FIGURA.length;
 const FILAS_CON_DISPARO = FILAS_DEL_ATLAS.length;
-const CLIPS = FILAS_DEL_ATLAS.map((clip) => ({ clip, ...RELOJ[clip] }));
 
 /** Umbral de alfa con el que se mide la altura: el mismo que en `personajes.ts`. */
 const ALFA_ALTURA = 40;
@@ -111,7 +112,12 @@ export interface ClipDerivado {
   readonly suelta?: number;
 }
 
-export interface AtlasDerivado {
+/**
+ * El JSON de una hoja derivada. `Fijos`, los clips que tiene seguro: el reposo, la
+ * marcha y el ataque en la tropa (la hoja de 6 o 7 filas); la gente del banco de NPC
+ * que solo está de pie y anda (`hojas: ['a']`) no tiene ataque.
+ */
+export interface AtlasDerivado<Fijos extends ClipDeFigura = 'idle' | 'walk' | 'attack'> {
   readonly imagen: string;
   readonly sha256: string;
   readonly cell: number;
@@ -121,8 +127,7 @@ export interface AtlasDerivado {
   /** Relativa al ancla del reposo: [izquierda, arriba, derecha, abajo]. */
   readonly cajaDeClic: readonly [number, number, number, number];
   readonly clips: Readonly<
-    Record<'idle' | 'walk' | 'attack', ClipDerivado> &
-      Partial<Record<'charge' | 'hurt' | 'death' | 'shoot', ClipDerivado>>
+    Record<Fijos, ClipDerivado> & Partial<Record<Exclude<ClipDeFigura, Fijos>, ClipDerivado>>
   >;
   /** El fotograma que se queda en el suelo al morir, si la hoja tiene muerte. */
   readonly cadaver?: { readonly clip: 'death'; readonly frame: number };
@@ -181,6 +186,22 @@ function mediana(v: readonly number[]): number {
   return s[Math.floor(s.length / 2)] as number;
 }
 
+/** Con qué se deriva una hoja (`derivarAtlas`). */
+export interface OpcionesDeDerivar {
+  readonly elevacionDeLaMuerte?: number;
+  readonly suelta?: number;
+  readonly ritmo?: Ritmo;
+  /**
+   * Los clips que se quedan con todas sus columnas, como el disparo: los de
+   * ida y vuelta (`ClipsDeManiqui.vaiven`), que repiten columnas a propósito
+   * y cuyo balanceo cambia poco el alfa. Recortados, el reposo del vampiro
+   * se quedaba en un fotograma en siete de sus ocho direcciones.
+   */
+  readonly enteros?: readonly ClipDeFigura[];
+  /** Las hojas que trae la imagen si no son las de la tropa (una figura del banco de NPC). */
+  readonly hojas?: readonly HojaDeFigura[];
+}
+
 /**
  * `suelta`: la columna en la que suelta la cuerda quien dispara (ver
  * `ClipDerivado.suelta`). Va con la séptima fila, el disparo, y solo con ella:
@@ -193,7 +214,21 @@ function mediana(v: readonly number[]): number {
  * `elevacionDeLaMuerte`: cuánto más arriba va la fila de la muerte en su celda.
  * Por defecto `ELEVACION_DEL_CADAVER`, la de las hojas pintadas; 0 para el
  * render crudo del Y Bot (`poses-8d.ts`), que la tiene donde la pone el maniquí.
+ *
+ * `hojas`: las hojas que trae la imagen, cuando no son las de la tropa (la A y la B,
+ * y la C si dispara): las de una figura del banco de NPC según sus acciones
+ * (`hojasDeLasAcciones`). Entonces la imagen tiene justo sus filas
+ * (`clipsDeLasHojas`), y sin la B no hay ataque ni cadáver. Sin `hojas`, una de 6 o
+ * 7: una hoja de tropa con tres filas es una a la que le falta la B.
  */
+export async function derivarAtlas(
+  rutaImagen: string,
+  opciones?: OpcionesDeDerivar & { readonly hojas?: undefined },
+): Promise<AtlasDerivado>;
+export async function derivarAtlas(
+  rutaImagen: string,
+  opciones: OpcionesDeDerivar,
+): Promise<AtlasDerivado<'idle' | 'walk'>>;
 export async function derivarAtlas(
   rutaImagen: string,
   {
@@ -201,19 +236,9 @@ export async function derivarAtlas(
     suelta,
     ritmo = {},
     enteros = [],
-  }: {
-    elevacionDeLaMuerte?: number;
-    suelta?: number;
-    ritmo?: Ritmo;
-    /**
-     * Los clips que se quedan con todas sus columnas, como el disparo: los de
-     * ida y vuelta (`ClipsDeManiqui.vaiven`), que repiten columnas a propósito
-     * y cuyo balanceo cambia poco el alfa. Recortados, el reposo del vampiro
-     * se quedaba en un fotograma en siete de sus ocho direcciones.
-     */
-    enteros?: readonly ClipDeFigura[];
-  } = {},
-): Promise<AtlasDerivado> {
+    hojas,
+  }: OpcionesDeDerivar = {},
+): Promise<AtlasDerivado<'idle' | 'walk'>> {
   for (const [clip, fps] of Object.entries(ritmo)) {
     if (!(clip in RELOJ) || !(fps > 0 && fps <= 30))
       throw new Error(`${rutaImagen}: el ritmo de «${clip}» es ${fps} fps; va de más de 0 a 30`);
@@ -227,12 +252,33 @@ export async function derivarAtlas(
   const { columnas } = FIGURA;
   const lado = info.width / columnas;
   const filas = info.height / lado;
-  if (!Number.isInteger(lado) || (filas !== FILAS_SIN_DISPARO && filas !== FILAS_CON_DISPARO)) {
+  const pedidas =
+    hojas === undefined
+      ? null
+      : {
+          clips: clipsDeLasHojas(hojas),
+          hojas: hojas.map((h) => h.toUpperCase()).join(' y '),
+        };
+  if (pedidas !== null) {
+    if (!Number.isInteger(lado) || filas !== pedidas.clips.length) {
+      throw new Error(
+        `${rutaImagen} mide ${info.width}×${info.height}: con las hojas ${pedidas.hojas} son ${columnas} columnas por ${pedidas.clips.length} filas (${pedidas.clips.join(', ')}), de celdas cuadradas`,
+      );
+    }
+  } else if (
+    !Number.isInteger(lado) ||
+    (filas !== FILAS_SIN_DISPARO && filas !== FILAS_CON_DISPARO)
+  ) {
     throw new Error(
       `${rutaImagen} mide ${info.width}×${info.height}: una hoja del taller son ${columnas} columnas ` +
         `por ${FILAS_SIN_DISPARO} filas, o ${FILAS_CON_DISPARO} con el disparo (una dirección de 8), de celdas cuadradas`,
     );
   }
+  // Cada fila con su clip y su reloj, en el orden de la imagen.
+  const relojes = (pedidas?.clips ?? FILAS_DEL_ATLAS.slice(0, filas)).map((clip) => ({
+    clip,
+    ...RELOJ[clip],
+  }));
   // La suelta va con la fila del disparo y solo con ella.
   if ((suelta !== undefined) !== (filas === FILAS_CON_DISPARO)) {
     throw new Error(
@@ -242,10 +288,10 @@ export async function derivarAtlas(
     );
   }
 
-  const clips = {} as Record<string, AtlasDerivado['clips']['idle']>;
+  const clips = {} as Record<string, ClipDerivado>;
   let cajaDeClic: [number, number, number, number] | null = null;
   let altura = 0;
-  for (const [fila, def] of CLIPS.slice(0, filas).entries()) {
+  for (const [fila, def] of relojes.entries()) {
     const celdas = Array.from({ length: columnas }, (_, col) =>
       celda(data, info.width, col, fila, lado),
     );
@@ -317,7 +363,7 @@ export async function derivarAtlas(
     columns: columnas,
     altura,
     cajaDeClic: cajaDeClic as [number, number, number, number],
-    clips: clips as AtlasDerivado['clips'],
+    clips: clips as AtlasDerivado<'idle' | 'walk'>['clips'],
     ...(clips.death === undefined
       ? {}
       : { cadaver: { clip: 'death' as const, frame: clips.death.frames - 1 } }),
@@ -332,8 +378,8 @@ export function rutaDelJson(rutaImagen: string): string {
 
 export async function escribirDerivado(
   rutaImagen: string,
-  opciones: Parameters<typeof derivarAtlas>[1] = {},
-): Promise<AtlasDerivado> {
+  opciones: OpcionesDeDerivar = {},
+): Promise<AtlasDerivado<'idle' | 'walk'>> {
   const derivado = await derivarAtlas(rutaImagen, opciones);
   await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(derivado, null, 2)}\n`);
   return derivado;

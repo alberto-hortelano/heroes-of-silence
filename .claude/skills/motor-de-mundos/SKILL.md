@@ -40,6 +40,10 @@ El argumento es el id del mundo (`<id>`). Con él:
      claves.
    - `lugares`: **de cuántos a cuántos lugares** lleva este mundo (`de`, `a`), los de su
      tamaño de mapa.
+   - `npcs`: **el banco de figuras de la gente** (ver «La gente y sus figuras»): las
+     `etiquetas` (cerradas, con su frase), las `acciones` que puede llevar una figura, el
+     `tope` de figuras nuevas por mundo, las `figuras` que ya hay y la `gente` de la base
+     de quien juega (sus ids, nombres, papeles y etiquetas).
 4. `.cache/mundos/<id>/mapa.png`: el mapa pintado, para verlo (el norte arriba). Las
    coordenadas buenas son las de la lectura, no las de los píxeles.
 5. `assets/mundos/prueba/historia.json`: **un ejemplo completo** del formato. Léelo. Su
@@ -87,16 +91,20 @@ historia.
     "fondo": { "plaza": "<facción>" },
     "estados": { "<id>": "nombre del estado" }, "estadoInicial": "<id>",
     "puntos": [ { "id": "<id>", "x": 0.5, "si": [ …condiciones ],
-                  "persona": { "nombre": "…", "papel": "…", "cuerpo": "<unidad>" } | "cosa": { "nombre": "…" },
+                  "persona": { "nombre": "…", "papel": "…", "figura": "<figura del banco>" } | "cosa": { "nombre": "…" },
                   "dialogo": "<id>" } ],
     "dialogos": { "<id>": { "inicio": "<nodo>", "nodos": { "<nodo>": {
         "texto": "lo que dice o lo que se ve",
         "opciones": [ { "texto": "…", "si": [ … ], "hace": [ …efectos ], "ir": "<nodo>" } ] } } } },
     "encuentros": { "<id>": { "nombre": "…", "tropa": [ { "creature": "<unidad>", "count": 3 } ],
                               "alGanar": [ … ], "alPerder": [ … ] } }
-  } ]
+  } ],
+  "figuras": { "<id nuevo>": { "descripcion": "…", "etiquetas": { … }, "talla": 1, "acciones": "reposo-y-marcha" } },
+  "base": { "<persona de la base>": "<figura>" }
 }
 ```
+
+`figuras` y `base` son opcionales (ver «La gente y sus figuras»).
 
 - Ids: minúsculas, cifras, `-` y `_`. Textos de una línea (sin saltos), en español.
 - `x` de un punto: dónde está en la escena lateral, de 0 (izquierda) a 1 (derecha).
@@ -217,6 +225,37 @@ los lugares**, y si elige un desenlace primero, el otro se le cierra a quien jue
 - La biblia dice, en `## Desenlaces`, qué encuentra quien llega tarde.
 - La IA del rival elige **la primera opción con premio** en el orden escrito: el desenlace
   que va primero es el que tomará si llega antes.
+
+## La gente y sus figuras
+
+Cada persona se pinta con una **figura del banco de NPC**: un muñeco pintado de cuerpo
+entero, de pie y andando, que reutilizan todos los mundos. El banco lo trae la lectura en
+`npcs.figuras`, cada una con su `descripcion` y sus `etiquetas` (oficio, sexo, edad,
+especie, facción, clase).
+
+- **Reutiliza antes de pedir.** Para cada persona, busca en `npcs.figuras` una con su
+  facción, especie y sexo, y que su descripción le pegue; nómbrala en
+  `"persona": { …, "figura": "<id>" }`. Una figura puede servir a varias personas de
+  lugares distintos. Si la que eliges aún no está pintada, el juego pinta a esa persona con
+  la más parecida hasta que llegue.
+- **Pide una nueva solo si ninguna le pega**, en `figuras` (como mucho `npcs.tope`, 4, y
+  cada una usada por alguien): un id nuevo (minúsculas, cifras y `-`, que no esté en el
+  banco) con
+  - `descripcion`: cómo es **de cuerpo entero**, una línea de hasta 400 caracteres: ropa,
+    colores, materiales, pelo, lo que lleva en las manos (pequeño: el muñeco va con las
+    manos vacías). Es lo que se le dice al pintor y lo que leerá el próximo mundo para
+    reutilizarla: nada de su historia, solo su aspecto.
+  - `etiquetas`: una palabra de cada lista de `npcs.etiquetas`.
+  - `talla`: 1 un adulto; un goblin 0,7, un troll 1,3 (de 0,5 a 2,5).
+  - `acciones`: `"reposo-y-marcha"` casi siempre. `"todas"` (ataque, daño y muerte) son 8
+    imágenes más que **hoy ninguna escena pinta**: pídelo solo si la historia lo necesita
+    de verdad.
+  Las figuras nuevas se pintan después, en segundo plano: el mundo se juega ya.
+- **La gente de la base de quien juega** (`npcs.gente`: el alcaide, los encargados de
+  cada edificio y los vecinos) puede llevar figura tuya en `base`, por el id de la
+  persona: `"base": { "alcaide": "<figura>", "encargado-tavern": "<figura>" }`. La que no
+  pongas la elige el juego del banco. Úsalo para que la base cuente tu historia (un alcaide
+  anciano, una tabernera con cicatrices), con las mismas reglas: reutiliza o pide.
 
 ## El bucle
 

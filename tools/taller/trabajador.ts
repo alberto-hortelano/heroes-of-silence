@@ -82,8 +82,14 @@ import {
 } from '../../src/client/render/escenario/catalogo.js';
 import type { Escena } from '../../src/client/render/escenario/colocar.js';
 import { HOJA_DEL_RECINTO } from '../../src/client/render/escenario/recinto.js';
+import { figuraDelBanco } from '../../src/core/npcs.js';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
-import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
+import {
+  type ClipDeFigura,
+  FIGURA,
+  HOJAS_DE_FIGURA,
+  NOMBRES_DE_DIRECCION,
+} from '../../src/shared/arte.js';
 import { disposicionDe } from '../../src/shared/base.js';
 import {
   CANDIDATOS_DEL_MUESTRARIO,
@@ -95,6 +101,8 @@ import {
   renderizarOchoDirecciones,
 } from '../art/poses.js';
 import { cutoutBackground } from '../gen/cutout.js';
+import { leerBancoDeDisco } from '../npcs/banco.js';
+import { esEncargoDeNpc, REINTENTOS_DE_NPC, reintentarSiQueda } from '../npcs/en-el-taller.js';
 import {
   encargoDeBajadas,
   escribirBajadasDerivadas,
@@ -104,7 +112,7 @@ import {
 import { ARTE_DE_LA_BASE, encargosDeLaBase, escribirFuentesDeLaBase } from './base.js';
 import { escribirCasas, vistaDeLasCasas } from './casas.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
-import { Cola } from './cola.js';
+import { colaDelTaller } from './cola.js';
 import {
   ELEVACION_DEL_CADAVER,
   escribirDerivado,
@@ -134,7 +142,7 @@ import {
   empaquetar,
   recortarAlContenido,
 } from './empaquetar.js';
-import { alturaDelReposo, type Encargo, filasDeAtlas, promptDe } from './encargo.js';
+import { alturaDelReposo, type Encargo, encargoSchema, filasDeAtlas, promptDe } from './encargo.js';
 import { encogerElTramo } from './encoger-base.js';
 import { escribirCatalogo } from './escenario/catalogo-disco.js';
 import { escenario, recortesDeSemilla } from './escenario/escenario.js';
@@ -163,7 +171,7 @@ import {
   type Variante,
 } from './experimento.js';
 import { generarConFal } from './fal.js';
-import { juntarDireccion } from './juntar.js';
+import { derivacionDeLaCarpeta, juntarDireccion } from './juntar.js';
 import { encargosDeLaderas, escribirGuiasDeLaderas, escribirLaderasDerivadas } from './laderas.js';
 import {
   ESTILOS_DE_MAPA,
@@ -176,18 +184,14 @@ import {
 } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
 import { escribirGuiaDelMuro, escribirMurosDerivados, esMuroNorteSur } from './muros.js';
+import { DIR_DEL_MANIQUI_CIVIL, encolarLoQueSigue, POSE_DE_LA_IDENTIDAD } from './npcs.js';
 import {
   encargosDeParedesYPuentes,
   escribirGuias,
   escribirPuenteDerivado,
   MATERIALES,
 } from './paredes-puentes.js';
-import {
-  derivacionDeUnidad,
-  escribirAtlasDePoses,
-  hojaDelReposo,
-  RUTA_DEL_ATLAS_8D,
-} from './poses-8d.js';
+import { escribirAtlasDePoses, hojaDelReposo, RUTA_DEL_ATLAS_8D } from './poses-8d.js';
 import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
 import { encargoDelRecinto, escribirGuiaDelRecinto, escribirRecintoDerivado } from './recinto.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
@@ -200,7 +204,7 @@ import {
   juegoDelYBot,
   unidad,
 } from './unidades.js';
-import { validar } from './validar.js';
+import { validarElEncargo } from './validar.js';
 import { carpetaDeFotogramas, generarConVideo } from './video.js';
 import { vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
 import { vista8d, vistaDeVersiones } from './vista-8d.js';
@@ -222,7 +226,7 @@ function faccionDe(arg: string | undefined, uso: string): FactionId {
  * transparente ni gris (el gris claro se confundía con el maniquí).
  */
 export const FONDO_DE_POSE = '#00b140';
-export const COLA = new Cola(join(RAIZ, 'tools/taller/cola'));
+export const COLA = colaDelTaller(RAIZ);
 
 const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 
@@ -413,13 +417,7 @@ async function postprocesar(
       }
     }
 
-    const informe = await validar(
-      final,
-      encargo.tipo,
-      encargo.fondo === 'opaco',
-      encargo.celda ?? FIGURA.celda,
-      encargo.tipo === 'atlas' ? filasDeAtlas(encargo) : undefined,
-    );
+    const informe = await validarElEncargo(final, encargo);
     if (informe.problemas.length > 0) {
       // El crudo se queda en `~/.codex`; se dice dónde para poder mirarlo.
       throw new Error(`${informe.problemas.join('; ')} (crudo: ${sinHome(gen.crudo)})`);
@@ -539,6 +537,19 @@ async function postprocesar(
       join(RAIZ, `${encargo.salida}.procedencia.json`),
       `${JSON.stringify(procedencia, null, 2)}\n`,
     );
+    // Una figura del banco de NPC se encadena sola (decisión del usuario, «se
+    // encadena sola»): la identidad pide el giro, el giro las hojas, y cada hoja
+    // nada más (las otras ya están en la cola). Sin revisión humana: una mala se
+    // rehace con `pnpm npcs rehacer`.
+    if (encargo.despues?.orden === 'encadenar-npc') {
+      const figura = figuraDelBanco(leerBancoDeDisco(), encargo.despues.npc);
+      if (figura === undefined)
+        throw new Error(
+          `«${encargo.despues.npc}» ya no está en el banco de NPC (data/npcs.json): no se encadena nada`,
+        );
+      const siguen = await encolarLoQueSigue(figura, RAIZ);
+      if (siguen.length > 0) console.log(`  · encadena ${siguen.join(', ')}`);
+    }
     return { hilo: gen.hilo, salida: relative(RAIZ, rutaSalida) };
   }
 }
@@ -607,12 +618,17 @@ async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
   };
 }
 
-async function trabajar(): Promise<void> {
+/**
+ * Vacía la cola. Con `soloNpc` (`pnpm npcs trabajar`, el que lanza `pnpm dev` al
+ * aceptar un mundo), solo los encargos del banco de NPC: acaba al vaciar esos y no
+ * se lleva lo que otro dejó en la cola.
+ */
+async function trabajar(soloNpc = false): Promise<void> {
   await COLA.preparar();
   let hechos = 0;
   let fallidos = 0;
   for (;;) {
-    const encargo = await COLA.tomar();
+    const encargo = await COLA.tomar(undefined, soloNpc ? esEncargoDeNpc : undefined);
     if (encargo === null) break;
     console.log(`→ ${encargo.id} (${encargo.tipo})`);
     const t0 = Date.now();
@@ -639,6 +655,24 @@ async function trabajar(): Promise<void> {
         ...(err instanceof FalloTrasGenerar ? { hilo: err.hilo, crudo: sinHome(err.crudo) } : {}),
       });
       console.log(`  ✘ ${motivo}`);
+      // Una figura del banco de NPC no se queda a medias por una tirada mala: se
+      // vuelve a pedir, con la cuenta en su ficha (QA del banco de NPC, H2). Si no se
+      // puede (otro `pnpm npcs trabajar` lo reintentó a la vez, H7), se dice y la cola
+      // sigue: tumbar el trabajador dejaría lo demás sin pintar.
+      let vez: number | null = null;
+      try {
+        vez = await reintentarSiQueda(COLA, encargo.id);
+      } catch (err) {
+        console.log(
+          `  ! no se reintenta ${encargo.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      if (vez !== null) {
+        console.log(
+          `  ↻ ${encargo.id} vuelve a pendiente/ (reintento ${vez} de ${REINTENTOS_DE_NPC})`,
+        );
+        continue;
+      }
       fallidos++;
     }
   }
@@ -665,9 +699,9 @@ async function reprocesar(id: string): Promise<void> {
   if (hilo === undefined || crudo === undefined) {
     throw new Error(`«${id}» falló antes de que Codex generara nada: devuélvelo a la cola`);
   }
-  await COLA.devolver(id, desde);
-  const encargo = await COLA.tomar(id);
-  if (encargo === null) throw new Error(`otro trabajador tomó «${id}» mientras se reprocesaba`);
+  // De `fallido/` a `en-curso/` de un golpe: por `pendiente/`, un trabajador vivo
+  // (el de la semilla del banco de NPC, p. ej.) podía llevárselo y pedirlo a Codex.
+  const encargo = encargoSchema.parse((await COLA.retomar(id, desde)).encargo);
   try {
     const r = await procesar(encargo, { hilo, crudo: crudo.replace(/^~/, homedir()), mensaje: '' });
     await COLA.cerrar(id, 'hecho', { cuando: new Date().toISOString(), ...r });
@@ -1018,11 +1052,39 @@ async function escribirRelieveDerivado(hojas?: readonly string[]): Promise<strin
   return escritas;
 }
 
+/**
+ * El maniquí de la gente del banco de NPC (`DIR_DEL_MANIQUI_CIVIL`): el juego
+ * `civil` del Y Bot, sin nada en las manos, en 8 direcciones y **con su
+ * profundidad** (la pose con que se pinta la tropa desde el 10-10-2026), y la pose
+ * de la identidad: el primer reposo de la dirección SE, solo en su celda, para que
+ * la lámina de identidad pinte una figura y no veintiuna. Se renderiza una vez:
+ * `_poses/civil-8d/`, el Y Bot sin profundidad con que el cliente pinta a quien no
+ * tiene figura, no se toca.
+ */
+async function renderizarElManiquiCivil(): Promise<string> {
+  const carpeta = await renderizarOchoDirecciones(
+    'civil',
+    join(RAIZ, dirname(DIR_DEL_MANIQUI_CIVIL)),
+    {
+      id: 'civil',
+      atrezo: null,
+      profundidad: true,
+    },
+  );
+  const { celda } = OCHO_DIRECCIONES;
+  const d = NOMBRES_DE_DIRECCION.indexOf('frente-derecha');
+  await sharp(join(carpeta, `d${d}-a.png`))
+    .extract({ left: 0, top: 0, width: celda, height: celda })
+    .png()
+    .toFile(join(RAIZ, POSE_DE_LA_IDENTIDAD));
+  return carpeta;
+}
+
 const [orden, ...resto] = process.argv.slice(2);
 switch (orden) {
   case undefined:
   case 'trabajar':
-    await trabajar();
+    await trabajar(resto.includes('--npcs'));
     break;
   case 'encolar':
     await encolar(resto);
@@ -1325,6 +1387,12 @@ switch (orden) {
     break;
   }
   case 'maniqui':
+    // El de la gente (el banco de NPC): el juego civil del Y Bot, sin armas, con
+    // su profundidad y la pose sola de la identidad.
+    if (resto.includes('--civil')) {
+      console.log(`→ ${relative(RAIZ, await renderizarElManiquiCivil())}`);
+      break;
+    }
     // El maniquí propio de cada unidad que lo declara (`maniqui` en unidades.ts).
     for (const id of resto.filter((r) => !r.startsWith('--'))) {
       const u = unidad(id);
@@ -1371,13 +1439,11 @@ switch (orden) {
   }
   case 'derivar':
     for (const r of resto) {
-      // Con la suelta del maniquí y el ritmo de su unidad, la carpeta de encima
-      // de `dN/`: `derivarAtlas` lanza si la hoja no tiene la fila del disparo
-      // que la unidad dispara, o al revés.
-      const d = await escribirDerivado(
-        r,
-        await derivacionDeUnidad(basename(dirname(dirname(resolve(r))))),
-      );
+      // Con la derivación de su carpeta (`derivacionDeLaCarpeta`): la suelta y el
+      // ritmo de su unidad, o las hojas de las acciones de una figura del banco de
+      // NPC. `derivarAtlas` lanza si la hoja no tiene la fila del disparo que la
+      // unidad dispara, o al revés.
+      const d = await escribirDerivado(r, await derivacionDeLaCarpeta(dirname(r)).derivar());
       console.log(
         `${r}: altura ${d.altura}, fotogramas ${Object.values(d.clips)
           .map((c) => c.frames)

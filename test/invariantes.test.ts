@@ -1608,6 +1608,68 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
   });
 
+  it('el banco de figuras de NPC lo lee y lo escribe solo `tools/npcs/banco.ts`', () => {
+    // El banco de NPC (22-10-2026): el núcleo es puro y recibe el banco como
+    // parámetro, la página lo pide a `/__npcs` y las herramientas lo leen y lo
+    // escriben por `banco.ts` (validado entero antes de escribir, de golpe). Quien
+    // lo importara metería el banco en el grafo de la página (y una figura nueva la
+    // recargaría a media partida); quien lo abriera por su ruta se saltaría la
+    // escritura atómica. La ruta se escribe una vez, `RUTA_DEL_BANCO` en
+    // `core/npcs.ts` (que la nombra en sus problemas y no la lee), y en las
+    // herramientas solo la usa la puerta. Rotos a mano: un `import b from
+    // '../../data/npcs.json'` en `session.ts`, un `readFileSync('data/npcs.json')` y
+    // un `jsonDe(RAIZ, RUTA_DEL_BANCO)` en `cli.ts`, salen rojos.
+    const PUERTA = 'tools/npcs/banco.ts';
+    const NOMBRE = 'src/core/npcs.ts';
+    const HERRAMIENTAS = ficheros('tools');
+    expect(
+      infractoresDeCodigo(
+        [...CORE, ...CLIENTE, ...SERVIDOR, ...HERRAMIENTAS],
+        importaDe(/[^'"]*npcs\.json/),
+      ),
+    ).toEqual([]);
+    // La ruta como literal entero (lo que se abre); dentro de una frase no es leerlo.
+    const ruta = /['"`](?:\.\.\/)*(?:\.\/)?data\/npcs\.json['"`]/;
+    expect(
+      infractoresDeCodigo(
+        [...CORE, ...SERVIDOR, ...CLIENTE, ...HERRAMIENTAS].filter((r) => r !== NOMBRE),
+        ruta,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([NOMBRE], ruta)).not.toEqual([]);
+    const usaLaRuta = /\bRUTA_DEL_BANCO\b/;
+    expect(
+      infractoresDeCodigo(
+        [...SERVIDOR, ...CLIENTE, ...HERRAMIENTAS].filter((r) => r !== PUERTA),
+        usaLaRuta,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], usaLaRuta)).not.toEqual([]);
+  });
+
+  it('una figura de gente no llega a una batalla: la batalla, el animador, la rueda y la arena no la pintan', () => {
+    // La gente del banco de NPC solo pinta estar de pie y andar (`ArteDeFigura.clips`):
+    // `arteDe`, lo que leen la batalla y el animador, lanza con ella (lo prueba
+    // `npcs.test.ts`), y la pinta solo quien la pinta de pie (`arteParaPintar`,
+    // `colocarFigura`). Aquí, que ninguna pantalla de pelea la nombre siquiera. Roto
+    // a mano: un `cuerpoDeGente` en `render/batalla.ts` sale rojo.
+    const PELEA = CLIENTE.filter(
+      (r) =>
+        r === 'src/client/render/batalla.ts' ||
+        r === 'src/client/anim.ts' ||
+        r.startsWith('src/client/rueda/') ||
+        r.startsWith('src/client/arena/') ||
+        r.startsWith('src/client/espectador/'),
+    );
+    expect(PELEA.length).toBeGreaterThan(5);
+    expect(
+      infractoresDeCodigo(
+        PELEA,
+        /\b(?:arteParaPintar|registrarGente|cuerpoDeGente|cuerpoDeLaPersona|ArteQueSePinta|AtlasQueSePinta)\b/,
+      ),
+    ).toEqual([]);
+  });
+
   it('un mundo leído lo produce solo su lectura', () => {
     // Simplify de la F1a del mapa vivo (H2, 22-10-2026): `newGame` juega un
     // `MundoLeido` sin juzgarlo otra vez, y eso vale porque el tipo lleva una

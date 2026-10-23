@@ -9,9 +9,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ARTE_RPG } from '../src/client/render/assets.js';
+import { CUERPO_DE_VECINO } from '../src/client/render/cuerpo-de-gente.js';
 import {
   arteDe,
-  CUERPO_DE_VECINO,
   comoDireccion8d,
   JUEGO_SIN_HOJA,
   juegosDelYBot,

@@ -20,6 +20,7 @@ import {
 import { type LecturaParaElMotor, lecturaParaElMotor } from '../../src/core/mundo/lectura.js';
 import { mundoNuevo, type PedidoDeMundo } from '../../src/core/mundo/partida.js';
 import { type CrudosDelMundo, leerMundo, problemasDelMundo } from '../../src/core/mundo/validar.js';
+import { leerBancoDeDisco } from '../npcs/banco.js';
 
 export const RAIZ = resolve(import.meta.dirname, '../..');
 export const DIR_MUNDOS = join(RAIZ, 'assets/mundos');
@@ -224,7 +225,7 @@ export async function leerMundoDeDisco(
       `el mundo "${id}" no se puede leer:\n${problemas.map(lineaDeProblema).join('\n')}`,
     );
   }
-  return { mundo: leerMundo(leido.crudos, id), biblia };
+  return { mundo: leerMundo(leido.crudos, id, leerBancoDeDisco()), biblia };
 }
 
 /**
@@ -267,7 +268,9 @@ export async function validarEnDisco(id: string): Promise<string[]> {
   const biblia = problemaDeLaBiblia(leido.biblia, id);
   return [
     ...(biblia === null ? [] : [biblia]),
-    ...('problemas' in leido ? leido.problemas : problemasDelMundo(leido.crudos, id)),
+    ...('problemas' in leido
+      ? leido.problemas
+      : problemasDelMundo(leido.crudos, id, leerBancoDeDisco())),
   ];
 }
 
@@ -348,7 +351,7 @@ export async function escribirLectura(
   const plan = JSON.parse(await readFile(rutaDelFichero(id, 'plan.json'), 'utf8')) as MapPlan;
   // Un mapa para la lectura y para el PNG: construirlo es lo más caro de leer.
   const hecho = buildMap(plan);
-  const lectura = lecturaParaElMotor(mundo, plan, hecho);
+  const lectura = lecturaParaElMotor(mundo, plan, leerBancoDeDisco(), hecho);
   const salida = lecturaDe(id);
   await mkdir(salida, { recursive: true });
   await writeFile(join(salida, 'lectura.json'), `${JSON.stringify(lectura, null, 2)}\n`);

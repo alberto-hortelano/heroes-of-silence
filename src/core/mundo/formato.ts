@@ -18,7 +18,7 @@
  */
 import type { GrupoDeTropa } from '../data.js';
 import { type MapPlan, REGIONES_POR_BANDO } from '../map/generate.js';
-import type { Persona } from '../town/voces.js';
+import type { PeticionDeFigura } from '../npcs.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
 import { esIdDePieza, esIdDeUnidad } from '../validar.js';
 
@@ -264,6 +264,18 @@ export interface Dialogo {
   readonly nodos: Readonly<Record<string, NodoDeDialogo>>;
 }
 
+/**
+ * Una persona de un lugar: su nombre, su papel y su figura del banco de NPC
+ * (`data/npcs.json`), una que ya está o una que el mundo pide (`Historia.figuras`).
+ * Hasta el 22-10-2026 llevaba un `cuerpo` del catálogo de unidades, y se pintaba un
+ * soldado con sus armas: se retiró (decisión del usuario sobre el plan del banco).
+ */
+export interface PersonaDelLugar {
+  readonly nombre: string;
+  readonly papel: string;
+  readonly figura: string;
+}
+
 /** Un punto de interés de la escena del lugar: alguien con quien hablar o algo que mirar. */
 export interface Punto {
   readonly id: string;
@@ -272,8 +284,8 @@ export interface Punto {
   /** Si no se cumple, el punto no está. */
   readonly si?: readonly Condicion[];
   readonly dialogo: string;
-  /** Una persona (con la forma de la gente de la base) o una cosa: uno de los dos. */
-  readonly persona?: Persona;
+  /** Una persona o una cosa: uno de los dos. */
+  readonly persona?: PersonaDelLugar;
   readonly cosa?: { readonly nombre: string };
 }
 
@@ -305,6 +317,19 @@ export interface Historia {
   readonly resumen: string;
   readonly marcas: Readonly<Record<string, Marca>>;
   readonly lugares: readonly Lugar[];
+  /**
+   * Las figuras nuevas que pide el mundo, por su id (como mucho
+   * `FIGURAS_NUEVAS_POR_MUNDO`, y cada una usada). Al aceptar el mundo pasan al banco
+   * (`aceptarElMundo`, `tools/npcs/banco.ts`) y la historia se reescribe sin ellas:
+   * mientras tanto, solo una historia recién escrita por el motor las lleva.
+   */
+  readonly figuras?: Readonly<Record<string, PeticionDeFigura>>;
+  /**
+   * La figura de la gente de la base de quien juega, por el id de la persona
+   * (`personasDeLaFaccion`: `alcaide`, `encargado-<sitio>`, `vecino-<id>`). La que no
+   * esté, la elige el reparto (`figurasDeLaGente`).
+   */
+  readonly base?: Readonly<Record<string, string>>;
 }
 
 declare const MARCA_DE_LEIDO: unique symbol;

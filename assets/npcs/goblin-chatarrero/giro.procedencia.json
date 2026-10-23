@@ -1,0 +1,45 @@
+{
+  "encargo": "npc-goblin-chatarrero-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-22T19:02:46.894Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a164fd-5e19-7000-99c3-b5b0d7e96dcb",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn goblin chatarrero: pequeño, flaco y astuto, piel verde amarillenta, orejas enormes y nariz larga, gafas de latón sobre la frente, chaleco de remiendos lleno de bolsillos, mandil de cuero quemado, una llave inglesa tosca al cinto y trastos de hierro colgando de una cuerda.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/giro.png",
+      "papel": "pose",
+      "sha256": "36b6b21af5b818e42836ec50f2c538687e49b6dcdccdc83ba8dca5ded770f0aa"
+    },
+    {
+      "ruta": "assets/npcs/goblin-chatarrero/identidad.webp",
+      "papel": "identidad",
+      "sha256": "281cfa4acc8ab8f48c7e989cf766001e92bd5713ca7b9f85e2efc2633b7fa1d1"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a164fd-5e19-7000-99c3-b5b0d7e96dcb/exec-ded8a950-f74d-40ef-8218-a01a42bec6e6.png",
+    "sha256": "ab11879dddc78ce6ab4fd4c1b4d13d79ecec45833d59bc65a68cc9d607cf31ba",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.24324248291499662,
+    "opacos": 0.9728789644274946,
+    "haloSuelto": 0.000017348210387530108,
+    "ancho": 1603,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/npcs/goblin-chatarrero/giro.webp",
+    "sha256": "d24d26b6d13589e54b2a510659778405c74eaf4e3beed7b15844620d5ca83f0e"
+  }
+}

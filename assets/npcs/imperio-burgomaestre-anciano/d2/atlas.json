@@ -1,0 +1,46 @@
+{
+  "imagen": "atlas.webp",
+  "sha256": "f85bc69bf46868090571056a4a825170842b0b65243b6dd9290b91a012945aad",
+  "cell": 384,
+  "columns": 7,
+  "altura": 164,
+  "cajaDeClic": [
+    -43,
+    -163,
+    41,
+    0
+  ],
+  "clips": {
+    "idle": {
+      "row": 0,
+      "frames": 7,
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        192,
+        342
+      ]
+    },
+    "walk": {
+      "row": 1,
+      "frames": 7,
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        192,
+        342
+      ]
+    },
+    "charge": {
+      "row": 2,
+      "frames": 7,
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        192,
+        342
+      ]
+    }
+  },
+  "derivadoPor": "tools/taller/derivar.ts"
+}

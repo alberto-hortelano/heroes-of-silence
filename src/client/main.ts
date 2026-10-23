@@ -27,6 +27,7 @@ import { mundoPedido } from './mundo/cargar.js';
 import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
+import { genteCargada } from './render/gente.js';
 import { ajustarLienzo } from './render/lienzo.js';
 import { repartirClic } from './reparto-del-clic.js';
 import { DialogoDeLaRueda } from './rueda/dialogo.js';
@@ -129,7 +130,15 @@ function abrePartida(
   combate: ReglasDelCombate,
   soloHeroe: boolean,
 ): Session {
-  const abierta = new Session(seed, faccion ?? undefined, heroe, combate, soloHeroe);
+  const abierta = new Session(
+    seed,
+    faccion ?? undefined,
+    heroe,
+    combate,
+    soloHeroe,
+    undefined,
+    genteCargada(),
+  );
   aLaBarra((url) => {
     url.searchParams.set('seed', String(seed));
     url.searchParams.set('faccion', abierta.jugador.faction);
@@ -160,7 +169,15 @@ function abrePartidaDelMundo(
   combate: ReglasDelCombate,
   soloHeroe: boolean,
 ): Session {
-  const abierta = new Session(mundo.mundo.semilla, undefined, undefined, combate, soloHeroe, mundo);
+  const abierta = new Session(
+    mundo.mundo.semilla,
+    undefined,
+    undefined,
+    combate,
+    soloHeroe,
+    mundo,
+    genteCargada(),
+  );
   aLaBarra((url) => combateALaURL(url, abierta.state.combate, abierta.soloRuedaDelHeroe));
   return prepararLaPartida(
     abierta,

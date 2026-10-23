@@ -12,8 +12,8 @@
  *
  * Del mismo reloj sale cuándo suelta la cuerda quien dispara (`msDeSuelta`).
  */
-import { type CharacterClip, msDelClip } from './render/character.js';
-import { arteDe, hojaDe, MIRADA_DE_PRESENTACION } from './render/personajes.js';
+import { type CharacterClip, infoDelClip, msDelClip } from './render/character.js';
+import { arteDe, arteParaPintar, hojaDe, MIRADA_DE_PRESENTACION } from './render/personajes.js';
 
 /**
  * Lo que avanza el Y Bot en un ciclo de su marcha y de su carga, en alturas de
@@ -66,7 +66,8 @@ export function msPorCasilla(body: string, clip: CharacterClip, alto: number): n
   }
   if (!(alto > 0)) throw new Error(`una figura de ${alto} de alto no puede andar`);
   // El reloj es el mismo en las ocho direcciones: se lee de la de presentación.
-  const info = hojaDe(arteDe(body), MIRADA_DE_PRESENTACION).clips[clip];
+  // Con `arteParaPintar`: anda también la gente del banco de NPC (el alcaide de la base).
+  const info = infoDelClip(hojaDe(arteParaPintar(body, clip), MIRADA_DE_PRESENTACION), clip);
   return msDelClip(info) / (ZANCADA[clip] * alto * PRISA_DE_LA_MARCHA);
 }
 

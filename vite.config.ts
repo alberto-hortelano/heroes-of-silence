@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, type Plugin, type Rollup, type ViteDevServer } from 'vite';
 import { RUTA_DE_MURALLAS } from './src/core/arena-murallas.js';
 import { RUTA_DEL_CATALOGO_DE_EQUIPO } from './src/core/data.js';
+import { CARPETA_DE_LAS_FIGURAS, RUTA_DEL_BANCO } from './src/core/npcs.js';
 import { RUTA_DEL_CATALOGO_DE_UNIDADES } from './src/core/unidad.js';
 import { puertoEspectadores } from './src/server/entorno.js';
 import { copiarPublico } from './tools/build/publico.js';
@@ -40,6 +41,61 @@ function responder(res: ServerResponse, estado: number, cuerpo: unknown): void {
 
 /** La frase de un fallo, para la respuesta. */
 const motivoDe = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
+/**
+ * Una lista leída del disco que sirve `pnpm dev` y emite `vite build`: la de hojas
+ * de la arena y el banco de NPC. Son decenas de `dN/atlas.json` síncronos y en cada
+ * recarga de la página bloqueaban el bucle de vite, así que **se lee una vez** y se
+ * olvida cuando cambia lo que la hace (`olvidaCon`). Lo que va a medias —el taller
+ * pintando— se avisa al leerla, en `pnpm dev` y en el build, que **avisa y no
+ * falla** (#140): está, a medias, y no se monta ni se pinta.
+ */
+function listaDelDisco(l: {
+  /** La ruta que la sirve, que es también el fichero que emite el build (sin la `/`). */
+  readonly url: string;
+  /** Lo que se vigila (absoluto) y si un cambio en `ruta` la olvida. */
+  readonly vigila: readonly string[];
+  readonly olvidaCon: (ruta: string) => boolean;
+  /** La lee: lo que se sirve y lo que va a medias. */
+  readonly leer: () => Promise<{ readonly servida: unknown; readonly avisos: readonly string[] }>;
+}): {
+  readonly servir: (server: ViteDevServer) => void;
+  readonly emitir: (ctx: Rollup.PluginContext) => Promise<void>;
+} {
+  let texto: string | null = null;
+  const leida = async (avisar: (aviso: string) => void): Promise<string> => {
+    if (texto === null) {
+      const { servida, avisos } = await l.leer();
+      for (const aviso of avisos) avisar(aviso);
+      texto = JSON.stringify(servida);
+    }
+    return texto;
+  };
+  return {
+    servir(server) {
+      server.watcher.add([...l.vigila]);
+      server.watcher.on('all', (_evento, ruta) => {
+        if (l.olvidaCon(ruta)) texto = null;
+      });
+      // Si no carga, el error va a vite, que responde 500 y lo escribe: la página lo dice.
+      server.middlewares.use(`/${l.url}`, (_req, res, next) => {
+        leida((aviso) => server.config.logger.warn(aviso))
+          .then((t) => {
+            res.setHeader('content-type', 'application/json');
+            res.end(t);
+          })
+          .catch(next);
+      });
+    },
+    async emitir(ctx) {
+      ctx.emitFile({
+        type: 'asset',
+        fileName: l.url,
+        source: await leida((aviso) => ctx.warn(aviso)),
+      });
+    },
+  };
+}
 
 /** El lado de disco de la arena (`tools/arena/borrador.ts`), que esto carga a demanda. */
 type Borrador = typeof import('./tools/arena/borrador.js');
@@ -123,45 +179,33 @@ function arena(): Plugin {
   /** Lo que escribió «Guardar» en cada fichero, por su ruta absoluta. */
   const escritoAlGuardar = new Map<string, string>();
   /**
-   * La lista de hojas, leída una vez: son decenas de `dN/atlas.json` síncronos,
-   * y en cada recarga de la página bloqueaban el bucle de vite. Se olvida cuando cambia
-   * algo bajo `assets/unidades/`, que es cuando el taller publica una hoja.
-   *
-   * Una unidad con su arte a medias —el taller generándola— va en la lista
-   * como incompleta, con su motivo, y se avisa al leerla (#140). En `vite build`
-   * también: **avisa y no falla**. Fallar tumbaba el build de todo por una
-   * unidad en obras, y quitarla de la lista la escondería; así la arena
-   * construida dice lo mismo que `pnpm arena`: está, a medias, y no se monta.
+   * La lista de hojas (`listaDelDisco`): se olvida cuando cambia algo bajo
+   * `assets/unidades/`, que es cuando el taller publica una hoja. Una unidad con su
+   * arte a medias va en la lista como incompleta, con su motivo: fallar tumbaba el
+   * build de todo por una unidad en obras, y quitarla de la lista la escondería;
+   * así la arena construida dice lo mismo que `pnpm arena`.
    */
-  let hojas: string | null = null;
-  const lista = async (avisar: (aviso: string) => void): Promise<string> => {
-    if (hojas === null) {
+  const unidades = resolve(raiz, 'assets/unidades');
+  const hojas = listaDelDisco({
+    url: '__arena/hojas',
+    vigila: [unidades],
+    olvidaCon: (ruta) => ruta.startsWith(unidades),
+    leer: async () => {
       const leidas = (await borrador()).hojasDelTaller(raiz);
-      for (const h of leidas)
-        if (h.incompleta !== null) avisar(`[arena] se lista sin montarla: ${h.incompleta}`);
-      hojas = JSON.stringify(leidas);
-    }
-    return hojas;
-  };
+      return {
+        servida: leidas,
+        avisos: leidas.flatMap((h) =>
+          h.incompleta === null ? [] : [`[arena] se lista sin montarla: ${h.incompleta}`],
+        ),
+      };
+    },
+  });
   return {
     name: 'heroes-arena',
     configureServer(server) {
       borrador = async () =>
         (await server.ssrLoadModule(resolve(raiz, 'tools/arena/borrador.ts'))) as Borrador;
-      const unidades = resolve(raiz, 'assets/unidades');
-      server.watcher.add(unidades);
-      server.watcher.on('all', (_evento, ruta) => {
-        if (ruta.startsWith(unidades)) hojas = null;
-      });
-      // Si no carga, el error va a vite, que responde 500 y lo escribe.
-      server.middlewares.use('/__arena/hojas', (_req, res, next) => {
-        lista((aviso) => server.config.logger.warn(aviso))
-          .then((texto) => {
-            res.setHeader('content-type', 'application/json');
-            res.end(texto);
-          })
-          .catch(next);
-      });
+      hojas.servir(server);
       server.middlewares.use(
         '/__arena/unidades',
         servirBorrador({
@@ -210,14 +254,65 @@ function arena(): Plugin {
       return undefined;
     },
     async generateBundle() {
-      this.emitFile({
-        type: 'asset',
-        fileName: '__arena/hojas',
-        source: await lista((aviso) => this.warn(aviso)),
-      });
+      await hojas.emitir(this);
       for (const fileName of ['__arena/unidades', '__arena/murallas']) {
         this.emitFile({ type: 'asset', fileName, source: JSON.stringify({ guardado: false }) });
       }
+    },
+  };
+}
+
+/**
+ * El banco de figuras de NPC (`/__npcs`): el banco crudo de `data/npcs.json` y, por
+ * figura, sus ocho `dN/atlas.json` si está pintada o por qué aún no
+ * (`tools/npcs/banco.ts`, `loQueSeSirve`). La página lo juzga con la regla del
+ * núcleo (`leerBanco`) y registra las pintadas (`render/gente.ts`).
+ *
+ * Una lista del disco (`listaDelDisco`), como la de hojas de la arena: se olvida al
+ * cambiar el banco, el atlas de una dirección (`dN/atlas.json` o `atlas.webp`, lo
+ * único que mira del arte; el taller escribe hojas y crudos en segundo plano mientras
+ * se juega, y la figura nueva sale al recargar) o un encargo de NPC de la cola del
+ * taller (lo que se dice de una sin pintar: si se pinta o se quedó a medias). El banco no lo importa ningún módulo
+ * de la página, así que escribirlo no recarga nada. El lado de disco se carga a
+ * demanda (`ssrLoadModule`), por la misma razón que el de la arena.
+ */
+function npcs(): Plugin {
+  const raiz = __dirname;
+  let banco = (): Promise<typeof import('./tools/npcs/banco.js')> =>
+    import('./tools/npcs/banco.js');
+  const arte = resolve(raiz, CARPETA_DE_LAS_FIGURAS);
+  const fichero = resolve(raiz, RUTA_DEL_BANCO);
+  // La cola del taller: de ella sale si una figura sin pintar se está pintando o se
+  // quedó a medias (`fotoDelTaller`), así que un encargo de NPC que se mueve la olvida.
+  const cola = resolve(raiz, 'tools/taller/cola');
+  const lista = listaDelDisco({
+    url: '__npcs',
+    vigila: [arte, fichero, cola],
+    olvidaCon: (ruta) =>
+      ruta === fichero ||
+      (ruta.startsWith(arte) && /[/\\]d[0-7][/\\]atlas\.(?:json|webp)$/.test(ruta)) ||
+      (ruta.startsWith(cola) && /[/\\]npc-[^/\\]+\.json$/.test(ruta)),
+    leer: async () => {
+      const leido = (await banco()).loQueSeSirve(raiz);
+      return {
+        servida: leido,
+        avisos: Object.entries(leido.hojas).flatMap(([id, h]) =>
+          h.incompleta === null ? [] : [`[npcs] ${id} se sirve sin pintar: ${h.incompleta}`],
+        ),
+      };
+    },
+  });
+  return {
+    name: 'heroes-npcs',
+    configureServer(server) {
+      banco = async () =>
+        (await server.ssrLoadModule(
+          resolve(raiz, 'tools/npcs/banco.ts'),
+        )) as typeof import('./tools/npcs/banco.js');
+      lista.servir(server);
+    },
+    async generateBundle() {
+      await lista.emitir(this);
     },
   };
 }
@@ -405,7 +500,7 @@ function publico(): Plugin {
 
 export default defineConfig(({ command }) => ({
   root: 'src/client',
-  plugins: [arena(), marcas(), mundos(), sinDesarrollo(), publico()],
+  plugins: [arena(), npcs(), marcas(), mundos(), sinDesarrollo(), publico()],
   publicDir: resolve(__dirname, 'assets'),
   resolve: {
     alias: { '@core': resolve(__dirname, 'src/core') },

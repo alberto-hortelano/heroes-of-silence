@@ -15,6 +15,8 @@
  */
 import { type ChildProcess, spawn } from 'node:child_process';
 import { randomInt } from 'node:crypto';
+import { closeSync, mkdirSync, openSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { type Progreso, terminada } from '../../src/client/desarrollo/progreso.js';
 import { tipoDeHeroePorDefecto } from '../../src/core/data.js';
 import { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
@@ -22,6 +24,7 @@ import { type PedidoDelMenu, pedidoBlocker } from '../../src/core/mundo/partida.
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
 import { ordenDelMotor } from '../../src/server/entorno.js';
+import { aceptarElMundo } from '../npcs/banco.js';
 import { matarGrupo } from '../qa/grupo.js';
 import {
   borrarMundoGenerado,
@@ -253,6 +256,16 @@ async function generar(
     const problemas = await validarEnDisco(id);
     if (problemas.length === 0) {
       linea(g, `el mundo "${id}" vale`);
+      // Las figuras que pidió pasan al banco y se encargan al taller: el mundo se
+      // juega ya y llegan después (decisión del usuario, «jugar ya, llegan después»).
+      const { figuras } = await aceptarElMundo(id);
+      if (figuras.length > 0) {
+        linea(
+          g,
+          `${figuras.length} ${figuras.length === 1 ? 'figura nueva encargada' : 'figuras nuevas encargadas'} al taller: ${figuras.map((f) => f.id).join(', ')}`,
+        );
+        linea(g, lanzarElTaller());
+      }
       poner(g, { fase: 'listo' });
       return;
     }
@@ -296,6 +309,36 @@ export function dichoDeLoQueQueda(id: string, quedan: readonly FicheroDelMotor[]
   return quedan.length === 1
     ? `queda ${que} en assets/mundos/${id}/ para mirarla`
     : `quedan ${que} en assets/mundos/${id}/ para mirarlas`;
+}
+
+/** El trabajador del taller que lanzó este servidor, mientras viva: uno a la vez. */
+let taller: ChildProcess | null = null;
+
+/**
+ * Lanza el trabajador de los encargos de NPC (`pnpm npcs trabajar`) en segundo plano
+ * y devuelve qué ha hecho, dicho para la persona. **En su propio grupo**
+ * (`detached`) y sin atarlo a `pnpm dev`: acaba solo al vaciar lo de NPC, y matarlo
+ * al cerrar el servidor dejaría encargos a medias en `en-curso/`. Su salida va a
+ * `.cache/taller/npcs-<fecha>.log`. Si ya hay uno vivo, no lanza otro: ese toma
+ * también lo que se acaba de encolar.
+ */
+export function lanzarElTaller(): string {
+  if (taller !== null && taller.exitCode === null && taller.signalCode === null) {
+    return `el taller ya está pintando (pid ${taller.pid}): toma también estas`;
+  }
+  const dir = join(RAIZ, '.cache/taller');
+  mkdirSync(dir, { recursive: true });
+  const log = join(dir, `npcs-${new Date().toISOString().replaceAll(':', '-')}.log`);
+  const salida = openSync(log, 'a');
+  const p = spawn('pnpm', ['npcs', 'trabajar'], {
+    cwd: RAIZ,
+    detached: true,
+    stdio: ['ignore', salida, salida],
+  });
+  closeSync(salida);
+  p.unref();
+  taller = p;
+  return `el taller pinta en segundo plano (pid ${p.pid}, grupo propio); su registro, ${relative(RAIZ, log)}`;
 }
 
 /** Los argumentos de `claude -p` para un mundo: la skill, sus permisos y nada más. */

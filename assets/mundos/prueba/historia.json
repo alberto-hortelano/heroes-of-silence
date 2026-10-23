@@ -1,6 +1,7 @@
 {
   "titulo": "El paso de la Hoya",
   "resumen": "Mundo de prueba escrito a mano para los tests y el navegador: un puente con su guardián viejo y un pozo con algo dentro, junto a la base del Imperio.",
+  "base": { "alcaide": "imperio-burgomaestre-anciano", "encargado-tavern": "imperio-posadera" },
   "marcas": {
     "peaje-pagado": {
       "falta": "nadie ha pagado aún el peaje del puente",
@@ -46,7 +47,7 @@
           "persona": {
             "nombre": "Corvo",
             "papel": "soldado del puente",
-            "cuerpo": "imperio-alabardero"
+            "figura": "imperio-armero"
           },
           "dialogo": "corvo"
         }

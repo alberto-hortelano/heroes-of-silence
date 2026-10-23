@@ -32,6 +32,7 @@ import {
   pintarSobreLaCabeza,
 } from '../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
+import { CUERPO_DE_VECINO } from '../src/client/render/cuerpo-de-gente.js';
 import type { Volumen } from '../src/client/render/escenario/pintar.js';
 import {
   asientoDeLaInicial,
@@ -43,7 +44,6 @@ import {
 } from '../src/client/render/mapa.js';
 import { dondeEsperaEnLaMorada } from '../src/client/render/morada/fila.js';
 import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/client/render/palette.js';
-import { CUERPO_DE_VECINO } from '../src/client/render/personajes.js';
 import {
   ALTO_DE_FIGURA,
   centroDeStack,

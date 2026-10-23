@@ -78,6 +78,7 @@ import type { MapObject, PathStep } from '@core/map/map.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
 import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
+import { type BancoPintado, SIN_BANCO } from '@core/npcs.js';
 import { createRng, type Rng } from '@core/rng.js';
 import {
   type AsaltantesALaVista,
@@ -133,9 +134,10 @@ import {
 import { type RentaDelDia, rentaDelDia } from '@core/state/renta.js';
 import { newGame } from '@core/state/setup.js';
 import { building } from '@core/town/buildings.js';
+import { figurasDeLaGente } from '@core/town/figuras.js';
 import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
 import type { Town } from '@core/town/town.js';
-import { alcaideDe, vecinosDeLaBase, vozDe } from '@core/town/voces.js';
+import { alcaideDe, ID_DEL_ALCAIDE, vecinosDeLaBase, vozDe } from '@core/town/voces.js';
 import {
   esHueco,
   type FactionId,
@@ -151,6 +153,7 @@ import { quienesDe } from './desenlace.js';
 import { EnElLugar, type TrasElegir } from './lugar/sesion.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
+import { cuerpoDeLaPersona } from './render/cuerpo-de-gente.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
 
 /**
@@ -964,6 +967,7 @@ export class Session implements ControlDeBatalla {
     () => this.state,
     (a) => this.aplicarEnElLugar(a),
     () => this.tocar(),
+    () => this.gente,
   );
 
   /**
@@ -980,6 +984,8 @@ export class Session implements ControlDeBatalla {
    *   de siempre (7 / 7). Una que no vale la rechaza el núcleo (`createGame`).
    * @param soloRuedaDelHeroe si la persona lleva solo la rueda de su héroe
    *   (`?solo-heroe=1`); se puede cambiar en la batalla (`soloRuedaDelHeroe`).
+   * @param gente el banco de figuras de NPC y lo pintado de él (`render/gente.ts`):
+   *   de ahí sale la figura de la gente de la base y de los lugares; sin él, el Y Bot.
    */
   constructor(
     seed: number,
@@ -988,6 +994,7 @@ export class Session implements ControlDeBatalla {
     combate?: ReglasDelCombate,
     soloRuedaDelHeroe = false,
     mundo?: MundoLeido,
+    readonly gente: BancoPintado = SIN_BANCO,
   ) {
     this.soloRuedaDelHeroe = soloRuedaDelHeroe;
     // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
@@ -1710,8 +1717,8 @@ export class Session implements ControlDeBatalla {
 
   /** El clima del lugar abierto (la región de su casilla), o `null` sin lugar abierto. */
   get climaDelLugar(): ClimaDelSitio | null {
-    const vista = this.lugar.vista();
-    return vista === null ? null : climaDelSitio(this.clima, this.state.map, vista.at);
+    const at = this.lugar.casilla();
+    return at === null ? null : climaDelSitio(this.clima, this.state.map, at);
   }
 
   /** El castillo abierto ahora mismo, o `null` si no hay ninguno. */
@@ -1746,6 +1753,8 @@ export class Session implements ControlDeBatalla {
     const semana = week(this.state);
     const heroe = this.heroeEnLaBase();
     const alcaide = alcaideDe(town.faction);
+    const figuras = this.figurasDeLaGente(town.faction);
+    const cuerpo = (persona: string): string => cuerpoDeLaPersona(figuras.get(persona) ?? null);
     const vista: VistaDeLaBase = {
       faccion: town.faction,
       townId: town.id,
@@ -1760,17 +1769,39 @@ export class Session implements ControlDeBatalla {
         papel: v.papel,
         sitio: v.sitio,
         clave: v.clave,
+        cuerpo: cuerpo(v.id),
         linea: vozDe(town, v.id, semana, this.state.day),
       })),
       caminante:
         heroe === null
-          ? { id: `alcaide-${town.id}`, nombre: alcaide.nombre, cuerpo: alcaide.cuerpo }
+          ? {
+              id: `alcaide-${town.id}`,
+              nombre: alcaide.nombre,
+              cuerpo: cuerpo(ID_DEL_ALCAIDE),
+            }
           : { id: heroe.id, nombre: heroe.name, cuerpo: figuraDelHeroe(heroe) },
     };
     this.cacheDeLaBase = { version: this.version, townId: town.id, vista };
     return vista;
   }
   private cacheDeLaBase: { version: number; townId: string; vista: VistaDeLaBase } | null = null;
+
+  /**
+   * La figura de cada persona de la gente de `faccion`, del banco de NPC
+   * (`figurasDeLaGente`; sin ninguna de su facción, el Y Bot civil). Una vez por
+   * facción: no depende de la partida que se juega, sino de la semilla, el mundo y
+   * el banco, que no cambian en una sesión.
+   */
+  private figurasDeLaGente(faccion: FactionId): ReadonlyMap<string, string | null> {
+    let figuras = this.figurasPorFaccion.get(faccion);
+    if (figuras === undefined) {
+      figuras = figurasDeLaGente(this.state, faccion, this.gente);
+      this.figurasPorFaccion.set(faccion, figuras);
+    }
+    return figuras;
+  }
+
+  private readonly figurasPorFaccion = new Map<FactionId, ReadonlyMap<string, string | null>>();
 
   build(buildingId: string): void {
     if (this.openTownId === null) return;

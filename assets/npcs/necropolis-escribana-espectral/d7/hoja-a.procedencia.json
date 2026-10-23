@@ -1,0 +1,58 @@
+{
+  "encargo": "npc-necropolis-escribana-espectral-d7-a",
+  "tipo": "atlas",
+  "fecha": "2026-10-22T20:05:26.150Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a16536-c6f8-7df3-8914-07863b6a4904",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna escribana espectral de una necrópolis: figura de mujer translúcida y pálida, de un gris azulado, con el pelo largo flotando, vestido negro y morado de cuello alto que se deshace en jirones de niebla por abajo, un libro de cuentas apretado contra el pecho y una pluma tras la oreja.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/d7-a.profundidad.png",
+      "papel": "pose-profundidad",
+      "sha256": "c4b6b31db9fcac459099a1cc567e4d029054c5e1b9020dbd1811440a44e3799f"
+    },
+    {
+      "ruta": "assets/npcs/necropolis-escribana-espectral/giro.webp",
+      "papel": "identidad",
+      "sha256": "9c27696804fe990e5fa793e91299840a4b01f386ed73552c1d71ed2c52e212f1"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a16536-c6f8-7df3-8914-07863b6a4904/exec-45eb452e-b6a3-41c7-a07d-4fad0fed44de.png",
+    "sha256": "dabe7e3e7f5ec03f56e1f30eacb2a450f00259243f53eae2e1db5f1bc9dee5c5",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.6581, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/npcs/necropolis-escribana-espectral/d7/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.04329136439732143,
+    "opacos": 0.8931557942635485,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      192,
+      286
+    ],
+    "posicion": false
+  },
+  "salida": {
+    "ruta": "assets/npcs/necropolis-escribana-espectral/d7/hoja-a.webp",
+    "sha256": "0d99684490b29ff9d6767ed776970f0b105d1e71c7f3ffd62bdadf8cc73ead69"
+  }
+}

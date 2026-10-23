@@ -8,8 +8,7 @@
  * Aparte de `vite.config.ts` para que los tests lo ejerzan contra una carpeta
  * temporal sin arrancar vite.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
@@ -41,14 +40,9 @@ import {
   validarCatalogo,
   validarHojas,
 } from '../../src/core/unidad.js';
-import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
-import {
-  arteEnOchoDirecciones,
-  HEROES,
-  juegoDelYBot,
-  perfilDeUnidad,
-  UNIDADES,
-} from '../taller/unidades.js';
+import { type AEscribir, comentarioDe, escribirAtomico, jsonDe } from '../json.js';
+import { direccionesDe } from '../taller/arte-en-disco.js';
+import { HEROES, juegoDelYBot, perfilDeUnidad, UNIDADES } from '../taller/unidades.js';
 import { VELOCIDAD_DEL_CUERPO } from './velocidades.js';
 
 /**
@@ -63,26 +57,6 @@ function velocidadDelCuerpo(personaje: string): number {
     );
   }
   return fila[0];
-}
-
-/**
- * El arte propio de una unidad tal como lo lee la arena: sus ocho
- * `dN/atlas.json`, o `null` sin ninguno (sale con el Y Bot), y si lo tiene a
- * medias, el motivo en `incompleta` (#140). Una unidad a medias no lanza —el
- * taller la está generando, y la lista de la arena y `vite build` caían con
- * ella— pero tampoco se pinta con el Y Bot: la arena la lista y no la monta.
- */
-export function direccionesDe(raiz: string, id: string): Pick<Hoja, 'direcciones' | 'incompleta'> {
-  const arte = arteEnOchoDirecciones(raiz, id);
-  if (arte.hecho === 'ninguno') return { direcciones: null, incompleta: null };
-  if (arte.hecho === 'a-medias') return { direcciones: null, incompleta: arte.motivo };
-  const direcciones = NOMBRES_DE_DIRECCION.map(
-    (_, d) =>
-      JSON.parse(
-        readFileSync(join(raiz, 'assets/unidades', id, `d${d}`, 'atlas.json'), 'utf8'),
-      ) as unknown,
-  );
-  return { direcciones, incompleta: null };
 }
 
 /**
@@ -140,30 +114,6 @@ interface Revisado<T, I> {
 }
 
 /**
- * El JSON de `ruta` (relativa a `raiz`), o `undefined` si el archivo no existe.
- * Lanza si no es JSON: ahí no hay nada que leer, y guardar encima lo borraría.
- */
-function jsonDe(raiz: string, ruta: string): unknown {
-  const donde = join(raiz, ruta);
-  if (!existsSync(donde)) return undefined;
-  try {
-    return JSON.parse(readFileSync(donde, 'utf8')) as unknown;
-  } catch (err) {
-    throw new Error(`${ruta} no es JSON: ${err instanceof Error ? err.message : err}`);
-  }
-}
-
-/**
- * El `_comment` de un archivo leído, si trae uno, y si no `porDefecto`. **Guardar
- * conserva el comentario del disco**: es el que se edita a mano (lo que dice qué es
- * el fichero y por qué cada cifra), y la arena no lo pisa con el suyo.
- */
-function comentarioDe(json: unknown, porDefecto: string): string {
-  const c = (json as { _comment?: unknown } | undefined)?._comment;
-  return typeof c === 'string' && c.trim() !== '' ? c : porDefecto;
-}
-
-/**
  * El catálogo de unidades en disco, con las piezas `eq`: las del catálogo de
  * equipo en disco al leerlo, y las que se van a escribir con él al guardar. Se
  * **lee** como lo lee la página: una unidad cuya pieza no está sale como «no
@@ -211,9 +161,7 @@ function escribir<T, I extends { readonly crudo: unknown }>(
 }
 
 /** Lo que se va a escribir en un fichero de la arena: dónde, qué, y cuántos de cada. */
-interface Preparado {
-  readonly ruta: string;
-  readonly contenido: unknown;
+interface Preparado extends AEscribir {
   readonly escritas: number;
   readonly conservadas: number;
 }
@@ -260,21 +208,6 @@ function preparar<T, I extends { readonly crudo: unknown }>(
     escritas: validas.length,
     conservadas: conservadas.length,
   };
-}
-
-/**
- * Un temporal por archivo y luego los `rename`: un guardado a medias dejaría un
- * JSON roto, y con dos archivos, todos los temporales se escriben antes de que
- * ninguno pise al suyo.
- */
-function escribirAtomico(listos: readonly Preparado[]): void {
-  const temporales = listos.map(({ ruta, contenido }) => {
-    mkdirSync(dirname(ruta), { recursive: true });
-    const temporal = `${ruta}.${process.pid}.tmp`;
-    writeFileSync(temporal, `${JSON.stringify(contenido, null, 2)}\n`);
-    return { temporal, ruta };
-  });
-  for (const { temporal, ruta } of temporales) renameSync(temporal, ruta);
 }
 
 /**

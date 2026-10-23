@@ -3,7 +3,12 @@
  *
  * Toda figura tiene 8 direcciones y las 6 acciones (decisión del usuario,
  * 03-10-2026: «la imagen por defecto debería ser el Y Bot, el arte antiguo se
- * elimina»). Dos niveles y un respaldo:
+ * elimina»), **salvo la gente** del banco de NPC (22-10-2026): la de la base y la de
+ * los lugares, que no pelea y solo está de pie y anda (cuerpos `npc:<id>`,
+ * `registrarGente`). Cada arte dice qué clips pinta (`ArteDeFigura.clips`): `arteDe`,
+ * lo que leen la batalla, el animador y la rueda, lanza con el que no tiene los de
+ * pelea, y lo que se pinta de pie lo pide con su clip (`arteParaPintar`). Para el
+ * resto, dos niveles y un respaldo:
  *
  *  1. **Su arte propio**: una unidad de `assets/unidades/<id>/` con sus ocho
  *     `dN/atlas.webp` (los templarios, hoy). Se registra a demanda
@@ -29,18 +34,31 @@ import atlasDePoses from '../../../assets/unidades/_poses/atlas-8d.json';
 import {
   type CLIPS_DE_FIGURA,
   CLIPS_OPCIONALES,
+  clipsDeLasHojas,
   FILAS_DEL_ATLAS,
   hojaDeLaFila,
+  hojasDeLasAcciones,
   JUEGO_POR_DEFECTO,
   NOMBRES_DE_DIRECCION,
 } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
-import type { CharacterAtlas, ClipInfo } from './character.js';
+import type { AtlasQueSePinta, CharacterAtlas, CharacterClip, ClipInfo } from './character.js';
+import { CUERPO_DE_VECINO, cuerpoDeGente, esCuerpoDeGente } from './cuerpo-de-gente.js';
 
-/** Una figura entera: sus ocho direcciones y con qué se escala. */
-export interface ArteDeFigura {
+/**
+ * Una figura entera: sus ocho direcciones y con qué se escala. `A`, el atlas de
+ * cada dirección: el de toda figura que pelea (`CharacterAtlas`, las siete
+ * acciones) o, en lo que solo se pinta de pie, el de los clips que lleve.
+ */
+export interface ArteDeFigura<A extends AtlasQueSePinta = CharacterAtlas> {
   /** Las 8 direcciones, en el orden de `NOMBRES_DE_DIRECCION` (0 de frente). */
-  readonly direcciones: readonly CharacterAtlas[];
+  readonly direcciones: readonly A[];
+  /**
+   * Los clips que pinta en sus ocho direcciones: los siete en toda figura que pelea
+   * (el disparo, el suyo o su ataque), los de estar de pie y andar en la gente del
+   * banco de NPC. Es la pregunta de `arteDe` y de `arteParaPintar`.
+   */
+  readonly clips: ReadonlySet<CharacterClip>;
   /** `false` para el Y Bot: hay que teñirlo, porque no dice qué es. */
   readonly propio: boolean;
   /** Quién es, para decirlo en un aviso: `la unidad <id>` o `el Y Bot «<juego>»`. */
@@ -49,7 +67,8 @@ export interface ArteDeFigura {
    * Si su arte pinta el disparo (`shoot`) en sus ocho direcciones. Lo pinta el Y
    * Bot de quien dispara; no lo pinta quien golpea, ni el arte pintado antes de
    * que existiera la hoja C, ni el bastón del liche: a esos su `shoot` es su
-   * `attack` (`figuraDe`).
+   * `attack` (`figuraDe`). No es `clips.has('shoot')`: el disparo lo pinta toda
+   * figura que pelea, con su ataque si no es suyo.
    */
   readonly dispara: boolean;
   /** Lo que mide la figura en su propia hoja: para encajarla sola en una miniatura. */
@@ -60,6 +79,9 @@ export interface ArteDeFigura {
    */
   readonly imagenes: readonly string[];
 }
+
+/** Lo que se pinta de pie (`colocarFigura`): una figura que pelea o una de la gente. */
+export type ArteQueSePinta = ArteDeFigura<AtlasQueSePinta>;
 
 /**
  * La dirección de vista (`direccion.ts`) de cada hoja, en el orden de las hojas:
@@ -105,15 +127,20 @@ export interface DireccionComprobada extends Omit<CharacterAtlas, 'clips'> {
   readonly altura: number;
 }
 
+/** Una dirección comprobada con otros clips que los de toda figura (`comoDireccion8d`). */
+type DireccionLeida = AtlasQueSePinta & { readonly altura: number };
+
 const OPCIONAL = new Set<string>(CLIPS_OPCIONALES);
 
 /** La fila de un atlas (`FILAS_DEL_ATLAS`), resuelta a su imagen y a la fila dentro de ella. */
 type ImagenDeFila = (fila: number) => { readonly imagen: string; readonly row: number };
 
 /**
- * Un JSON de una dirección, comprobado como atlas de 6 acciones y, si lo trae,
- * el disparo. Lanza diciendo qué le falta: un clip sin ancla pintaría la figura
- * en la esquina sin que nada se pusiera rojo. El del Y Bot se comprueba al
+ * Un JSON de una dirección, comprobado como atlas de `clips`: por defecto las 6
+ * acciones de toda figura y, si lo trae, el disparo; la gente del banco de NPC, las
+ * de estar de pie y andar (lo demás que traiga se ignora). El cadáver, solo si
+ * lleva la muerte. Lanza diciendo qué le falta: un clip sin ancla pintaría la
+ * figura en la esquina sin que nada se pusiera rojo. El del Y Bot se comprueba al
  * importar el módulo, así que un JSON roto rompe el arranque y
  * `personajes.test.ts`, no una batalla a mitad.
  */
@@ -121,7 +148,19 @@ export function comoDireccion8d(
   valor: unknown,
   nombre: string,
   imagenDeFila: ImagenDeFila,
-): DireccionComprobada {
+): DireccionComprobada;
+export function comoDireccion8d(
+  valor: unknown,
+  nombre: string,
+  imagenDeFila: ImagenDeFila,
+  clips: readonly CharacterClip[],
+): DireccionLeida;
+export function comoDireccion8d(
+  valor: unknown,
+  nombre: string,
+  imagenDeFila: ImagenDeFila,
+  clips: readonly CharacterClip[] = FILAS_DEL_ATLAS,
+): DireccionLeida {
   const a = valor as
     | {
         cell?: unknown;
@@ -137,8 +176,8 @@ export function comoDireccion8d(
   if (typeof a.altura !== 'number' || !(a.altura > 0)) {
     throw new Error(`el atlas ${nombre} no dice cuánto mide su figura (altura)`);
   }
-  const clips: Partial<Record<string, ClipInfo>> = {};
-  for (const clip of FILAS_DEL_ATLAS) {
+  const leidos: Partial<Record<CharacterClip, ClipInfo>> = {};
+  for (const clip of clips) {
     const c = a.clips?.[clip];
     if (c === undefined && OPCIONAL.has(clip)) continue;
     if (
@@ -168,7 +207,7 @@ export function comoDireccion8d(
         `el atlas ${nombre} pone la suelta del clip "${clip}" en la columna ${suelta}: solo el disparo la tiene, entre la 1 y la ${c.frames - 1}`,
       );
     }
-    clips[clip] = {
+    leidos[clip] = {
       ...imagenDeFila(c.row),
       frames: c.frames,
       fps: c.fps,
@@ -177,19 +216,15 @@ export function comoDireccion8d(
       ...(suelta === undefined ? {} : { suelta }),
     };
   }
+  const leida = { cell: a.cell, columns: a.columns, clips: leidos, altura: a.altura };
+  // El cadáver va con la muerte: sin ella (la gente) no hay de qué.
+  const muerte = leidos.death;
+  if (muerte === undefined) return leida;
   const frame = a.cadaver?.frame;
-  const muerte = clips.death as ClipInfo;
   if (a.cadaver?.clip !== 'death' || typeof frame !== 'number' || frame >= muerte.frames) {
     throw new Error(`el atlas ${nombre} no dice qué fotograma de la muerte es el cadáver`);
   }
-  return {
-    cell: a.cell,
-    columns: a.columns,
-    // Las seis de `CLIPS_DE_FIGURA` están: el bucle ha lanzado con la que faltara.
-    clips: clips as DireccionComprobada['clips'],
-    cadaver: { clip: 'death', frame },
-    altura: a.altura,
-  };
+  return { ...leida, cadaver: { clip: 'death', frame } };
 }
 
 /**
@@ -197,13 +232,14 @@ export function comoDireccion8d(
  * ninguna: con él en unas sí y en otras no, la figura dispararía según hacia
  * dónde mire. Quien no lo pinta dispara con su ataque: su `shoot` es su
  * `attack`, puesto aquí una vez para que ningún lector de clips tenga que
- * preguntar si está. Quien lo note lo dice el animador (`anim.ts`).
+ * preguntar si está. Quien lo note lo dice el animador (`anim.ts`). Quien no
+ * tiene ataque (la gente) tampoco dispara.
  */
 function figuraDe(
-  direcciones: readonly DireccionComprobada[],
+  direcciones: readonly DireccionLeida[],
   propio: boolean,
   nombre: string,
-): ArteDeFigura {
+): ArteQueSePinta {
   if (direcciones.length !== NOMBRES_DE_DIRECCION.length) {
     throw new Error(
       `${nombre} trae ${direcciones.length} direcciones y una figura tiene ${NOMBRES_DE_DIRECCION.length}: con menos se mezclarían luces de dos artes`,
@@ -216,19 +252,42 @@ function figuraDe(
       `${nombre} trae el disparo en ${conDisparo} de sus ${direcciones.length} direcciones (le falta en ${sin.join(', ')}): en todas o en ninguna`,
     );
   }
-  const completas: CharacterAtlas[] = direcciones.map((d) => ({
-    ...d,
-    clips: { ...d.clips, shoot: d.clips.shoot ?? d.clips.attack },
-  }));
+  const completas: AtlasQueSePinta[] = direcciones.map((d) =>
+    d.clips.attack === undefined
+      ? d
+      : { ...d, clips: { ...d.clips, shoot: d.clips.shoot ?? d.clips.attack } },
+  );
+  // Las ocho llevan los mismos: `comoDireccion8d` los pide a todas, y el disparo, arriba.
+  const clips = new Set(Object.keys((completas[0] as AtlasQueSePinta).clips) as CharacterClip[]);
   return {
     direcciones: completas,
+    clips,
     propio,
     nombre,
     dispara: conDisparo > 0,
-    alturaPropia: (direcciones[INDICE_DE_HOJA[MIRADA_DE_PRESENTACION]] as DireccionComprobada)
-      .altura,
-    imagenes: [...new Set(completas.flatMap((d) => FILAS_DEL_ATLAS.map((c) => d.clips[c].imagen)))],
+    alturaPropia: (direcciones[INDICE_DE_HOJA[MIRADA_DE_PRESENTACION]] as DireccionLeida).altura,
+    imagenes: [
+      ...new Set(
+        completas.flatMap((d) => FILAS_DEL_ATLAS.flatMap((c) => d.clips[c]?.imagen ?? [])),
+      ),
+    ],
   };
+}
+
+/**
+ * `arte` si pelea —pinta las siete acciones de la batalla—, o lanza diciéndolo: la
+ * gente del banco de NPC no llega a una batalla, ni a la rueda, ni al animador
+ * (decisión del usuario, 22-10-2026). `quien`, el cuerpo que la pidió.
+ */
+function dePelea(arte: ArteQueSePinta, quien: string): ArteDeFigura {
+  const faltan = FILAS_DEL_ATLAS.filter((c) => !arte.clips.has(c));
+  if (faltan.length > 0) {
+    throw new Error(
+      `«${quien}» es ${arte.nombre}: no pelea (no tiene ${faltan.join(', ')}), solo se pinta de pie`,
+    );
+  }
+  // Con los siete clips, cada dirección los trae y la muerte, su cadáver (`comoDireccion8d`).
+  return arte as ArteDeFigura;
 }
 
 /** Los juegos de armas con Y Bot en 8 direcciones: las claves de `atlas-8d.json`. */
@@ -238,15 +297,18 @@ export type JuegoDelYBot = keyof typeof atlasDePoses.juegos;
 const YBOT: ReadonlyMap<string, ArteDeFigura> = new Map(
   Object.entries(atlasDePoses.juegos as Record<string, unknown[]>).map(([juego, dirs]) => [
     juego,
-    figuraDe(
-      dirs.map((d, n) =>
-        comoDireccion8d(d, `_poses/${juego}-8d/d${n}`, (filaDelAtlas) => {
-          const { hoja, fila } = hojaDeLaFila(filaDelAtlas);
-          return { imagen: `/unidades/_poses/${juego}-8d/d${n}-${hoja}.png`, row: fila };
-        }),
+    dePelea(
+      figuraDe(
+        dirs.map((d, n) =>
+          comoDireccion8d(d, `_poses/${juego}-8d/d${n}`, (filaDelAtlas) => {
+            const { hoja, fila } = hojaDeLaFila(filaDelAtlas);
+            return { imagen: `/unidades/_poses/${juego}-8d/d${n}-${hoja}.png`, row: fila };
+          }),
+        ),
+        false,
+        `el Y Bot «${juego}»`,
       ),
-      false,
-      `el Y Bot «${juego}»`,
+      juego,
     ),
   ]),
 );
@@ -267,15 +329,6 @@ function ybot(juego: string): ArteDeFigura {
 }
 
 /**
- * El cuerpo con que se pinta la gente de la base (encargados y vecinos): el Y Bot
- * sin armas y en reposo de civil (`civil`). Su `cuerpo` de `data/vecinos.json`
- * —una criatura de la facción— se queda para cuando haya figuras propias; con
- * el Y Bot de esa criatura, un vecino que habla en la plaza estaba en guardia con
- * el arma en la mano (ajuste tras la vuelta 2 de la base caminable).
- */
-export const CUERPO_DE_VECINO = 'vecino-de-la-base';
-
-/**
  * El juego de armas de lo que se pinta **sin hoja de unidad**: el héroe, el
  * personaje y la gente de la base. Las tropas no van aquí: desde el 19-10-2026
  * (F3 de `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`) toda tropa
@@ -292,10 +345,11 @@ export const JUEGO_SIN_HOJA: Readonly<Record<string, JuegoDelYBot>> = {
 /**
  * La tabla de cuerpos que se lee al pintar: la del juego y, encima, las hojas de
  * `assets/unidades/` que se registran al arrancar (`registrarLasHojas`: la
- * partida, el espectador y la arena). Una sola tabla: con dos, cada lector de
- * figuras tenía que acordarse de las dos.
+ * partida, el espectador y la arena) y la gente del banco de NPC
+ * (`registrarGente`). Una sola tabla: con dos, cada lector de figuras tenía que
+ * acordarse de las dos.
  */
-const CUERPOS = new Map<string, ArteDeFigura>(
+const CUERPOS = new Map<string, ArteQueSePinta>(
   Object.entries(JUEGO_SIN_HOJA).map(([cuerpo, juego]) => [cuerpo, ybot(juego)]),
 );
 
@@ -318,15 +372,18 @@ export function registrarUnidad(
   const arte =
     hoja.direcciones === null
       ? ybot(hoja.juego)
-      : figuraDe(
-          hoja.direcciones.map((d, n) =>
-            comoDireccion8d(d, `unidades/${id}/d${n}`, (fila) => ({
-              imagen: `/unidades/${id}/d${n}/atlas.webp`,
-              row: fila,
-            })),
+      : dePelea(
+          figuraDe(
+            hoja.direcciones.map((d, n) =>
+              comoDireccion8d(d, `unidades/${id}/d${n}`, (fila) => ({
+                imagen: `/unidades/${id}/d${n}/atlas.webp`,
+                row: fila,
+              })),
+            ),
+            true,
+            `la unidad ${id}`,
           ),
-          true,
-          `la unidad ${id}`,
+          id,
         );
   CUERPOS.set(id, arte);
   return arte;
@@ -339,7 +396,61 @@ export function registrarUnidad(
  * registró).
  */
 export function arteDe(body: string): ArteDeFigura {
-  return CUERPOS.get(body) ?? ybot(JUEGO_POR_DEFECTO);
+  return dePelea(arteDelCuerpo(body), body);
+}
+
+/** El arte de un cuerpo: el registrado o el de la tabla; si no, el Y Bot por defecto. */
+function arteDelCuerpo(body: string): ArteQueSePinta {
+  const arte = CUERPOS.get(body);
+  if (arte !== undefined) return arte;
+  // La gente no cae al Y Bot de espada: solo se nombra la que está pintada.
+  if (esCuerpoDeGente(body)) throw new Error(`la figura de gente «${body}» no está registrada`);
+  return ybot(JUEGO_POR_DEFECTO);
+}
+
+/**
+ * El arte con que se pinta `body` de pie en el clip `clip`. **Lanza** si su arte no
+ * pinta ese clip (la gente atacando o muriendo: no pelea) o si es gente sin registrar.
+ */
+export function arteParaPintar(body: string, clip: CharacterClip): ArteQueSePinta {
+  const arte = arteDelCuerpo(body);
+  if (!arte.clips.has(clip)) {
+    throw new Error(
+      `«${body}» es ${arte.nombre}: no tiene el clip "${clip}", solo ${[...arte.clips].join(', ')}`,
+    );
+  }
+  return arte;
+}
+
+// ---------------------------------------------------------------- la gente
+
+/**
+ * Los clips con que se registra la gente: los de estar de pie y andar
+ * (`reposo-y-marcha`), aunque su figura lleve `todas`. Hoy ninguna escena pinta la
+ * hoja B de nadie que no pelea, y con ella la gente pasaría por tropa en `arteDe`.
+ */
+const CLIPS_DE_LA_GENTE = clipsDeLasHojas(hojasDeLasAcciones('reposo-y-marcha'));
+
+/**
+ * Registra la figura `id` del banco de NPC con sus ocho `dN/atlas.json` (los de
+ * `/__npcs`). Lanza si no son ocho o si una no trae sus acciones: con siete se
+ * mezclarían luces de dos artes. No se tiñe (`propio`): dice quién es por sí misma.
+ */
+export function registrarGente(id: string, direcciones: readonly unknown[]): ArteQueSePinta {
+  const arte = figuraDe(
+    direcciones.map((d, n) =>
+      comoDireccion8d(
+        d,
+        `npcs/${id}/d${n}`,
+        (fila) => ({ imagen: `/npcs/${id}/d${n}/atlas.webp`, row: fila }),
+        CLIPS_DE_LA_GENTE,
+      ),
+    ),
+    true,
+    `la figura de gente ${id}`,
+  );
+  CUERPOS.set(cuerpoDeGente(id), arte);
+  return arte;
 }
 
 /**
@@ -385,8 +496,8 @@ export async function registrarLasHojas(): Promise<readonly Hoja[]> {
 }
 
 /** El atlas de la dirección en la que mira la figura. No se espeja nunca. */
-export function hojaDe(arte: ArteDeFigura, mira: Direccion): CharacterAtlas {
-  return arte.direcciones[INDICE_DE_HOJA[mira]] as CharacterAtlas;
+export function hojaDe<A>(arte: { readonly direcciones: readonly A[] }, mira: Direccion): A {
+  return arte.direcciones[INDICE_DE_HOJA[mira]] as A;
 }
 
 /**
@@ -394,7 +505,10 @@ export function hojaDe(arte: ArteDeFigura, mira: Direccion): CharacterAtlas {
  * un lado y a otro: el respaldo de una dirección cuya imagen aún no ha llegado
  * es la más parecida que ya esté, no el marcador.
  */
-export function hojasPorCercania(arte: ArteDeFigura, mira: Direccion): CharacterAtlas[] {
+export function hojasPorCercania<A>(
+  arte: { readonly direcciones: readonly A[] },
+  mira: Direccion,
+): A[] {
   const n = arte.direcciones.length;
   const i = INDICE_DE_HOJA[mira];
   const orden = [i];
@@ -402,5 +516,5 @@ export function hojasPorCercania(arte: ArteDeFigura, mira: Direccion): Character
     orden.push((i + k) % n);
     if (k < n / 2) orden.push((i - k + n) % n);
   }
-  return orden.map((j) => arte.direcciones[j] as CharacterAtlas);
+  return orden.map((j) => arte.direcciones[j] as A);
 }

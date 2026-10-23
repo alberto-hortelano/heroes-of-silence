@@ -3,14 +3,15 @@
  * prompt que dice el papel de cada referencia, el recorte del halo, el
  * empaquetado en rejilla y la derivación del JSON de una hoja.
  */
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FIGURA } from '../src/shared/arte.js';
 import { leerEventos } from '../tools/taller/codex.js';
-import { Cola } from '../tools/taller/cola.js';
+import { Cola, NoEstaEn, trabajadorDe, YaEnLaCola } from '../tools/taller/cola.js';
 import { derivarAtlas } from '../tools/taller/derivar.js';
 import { empaquetar, enFilas, fundirSobrantes } from '../tools/taller/empaquetar.js';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
@@ -71,6 +72,120 @@ describe('la cola en disco', () => {
     await expect(cola.encolar(UNO)).rejects.toThrow(/ya está en pendiente/);
     // Y no deja temporales a medio escribir.
     expect((await readdir(dir)).filter((f) => f.startsWith('.'))).toEqual([]);
+  });
+
+  // QA del banco de NPC, H7: dos procesos que miran la cola y encolan lo mismo a la vez.
+  it('dos que encolan lo mismo a la vez: uno entra y al otro le llega `YaEnLaCola`, sin temporales', async () => {
+    const res = await Promise.allSettled([new Cola(dir).encolar(UNO), new Cola(dir).encolar(UNO)]);
+    expect(res.filter((x) => x.status === 'fulfilled')).toHaveLength(1);
+    const [rechazo] = res.filter((x) => x.status === 'rejected');
+    expect((rechazo as PromiseRejectedResult).reason).toBeInstanceOf(YaEnLaCola);
+    expect((await new Cola(dir).estado()).pendiente).toEqual(['prueba-uno']);
+    expect((await readdir(dir)).filter((f) => f.startsWith('.'))).toEqual([]);
+  });
+
+  it('dos que mueven el mismo encargo a la vez: uno gana y al otro le llega `NoEstaEn`', async () => {
+    const cola = new Cola(dir);
+    await cola.encolar(UNO);
+    await cola.tomar();
+    await cola.cerrar('prueba-uno', 'fallido', { cuando: 'ahora', motivo: 'sin imagen' });
+    const res = await Promise.allSettled([
+      cola.reintentar('prueba-uno'),
+      new Cola(dir).reintentar('prueba-uno'),
+    ]);
+    expect(res.filter((x) => x.status === 'fulfilled')).toHaveLength(1);
+    const [rechazo] = res.filter((x) => x.status === 'rejected');
+    expect((rechazo as PromiseRejectedResult).reason).toBeInstanceOf(NoEstaEn);
+    expect((await cola.leer('pendiente', 'prueba-uno')).fallos).toHaveLength(1);
+    expect((await readdir(dir)).filter((f) => f.startsWith('.'))).toEqual([]);
+  });
+});
+
+/** Un pid que no vive: el de un hijo que ya acabó (y que `spawnSync` ya recogió). */
+const pidMuerto = (): number => {
+  const { pid } = spawnSync(process.execPath, ['-e', '']);
+  if (pid === undefined) throw new Error('el hijo no arrancó');
+  return pid;
+};
+
+/** Le pone a la ficha en curso de `id` el pid `pid` (o se lo quita): quien la tomó. */
+async function conPid(id: string, pid: number | undefined): Promise<void> {
+  const ruta = join(dir, 'en-curso', `${id}.json`);
+  const { pid: _, ...ficha } = JSON.parse(await readFile(ruta, 'utf8'));
+  await writeFile(ruta, JSON.stringify(pid === undefined ? ficha : { ...ficha, pid }));
+}
+
+// QA del banco de NPC, H6: un encargo en curso cuyo trabajador murió se quedaba ahí para siempre.
+describe('un encargo en curso sabe quién lo lleva', () => {
+  it('al tomarlo apunta el pid de quien lo toma, y al cerrarlo se va', async () => {
+    const cola = new Cola(dir);
+    await cola.encolar(UNO);
+    await cola.tomar();
+    const ficha = await cola.leer('en-curso', 'prueba-uno');
+    expect(ficha.pid).toBe(process.pid);
+    expect(trabajadorDe(ficha)).toEqual({ vivo: true, pid: process.pid });
+    await cola.cerrar('prueba-uno', 'hecho', { cuando: 'ahora' });
+    expect((await cola.leer('hecho', 'prueba-uno')).pid).toBeUndefined();
+  });
+
+  it('un pid que ya no vive es un huérfano: vuelve a la cola con sus fallos; vivo o sin pid, no se toca', async () => {
+    const cola = new Cola(dir);
+    for (const id of ['a-huerfano', 'b-vivo', 'c-sin-pid'])
+      await cola.encolar({ ...UNO, id, salida: `assets/prueba/${id}` });
+    for (const id of ['a-huerfano', 'b-vivo', 'c-sin-pid']) {
+      await cola.tomar(id);
+      await cola.cerrar(id, 'fallido', { cuando: 'ahora', motivo: 'tirada mala' });
+      await cola.reintentar(id);
+      await cola.tomar(id);
+    }
+    const muerto = pidMuerto();
+    await conPid('a-huerfano', muerto);
+    await conPid('c-sin-pid', undefined);
+    expect(cola.trabajadorAhora('a-huerfano')).toEqual({ vivo: false, pid: muerto });
+    expect(cola.trabajadorAhora('b-vivo')).toEqual({ vivo: true, pid: process.pid });
+    // Sin pid lo tomó un trabajador de antes, que quizá lo está pintando: no se le roba.
+    expect(cola.trabajadorAhora('c-sin-pid')).toEqual({ vivo: true, pid: undefined });
+
+    expect(await cola.devolverHuerfanos()).toEqual(['a-huerfano']);
+    expect(await cola.estado()).toMatchObject({
+      pendiente: ['a-huerfano'],
+      'en-curso': ['b-vivo', 'c-sin-pid'],
+    });
+    // No falló otra vez: conserva la cuenta, y en pendiente/ no lleva pid.
+    const devuelta = await cola.leer('pendiente', 'a-huerfano');
+    expect(devuelta.fallos?.map((f) => f.motivo)).toEqual(['tirada mala']);
+    expect(devuelta.pid).toBeUndefined();
+    // Dos rescates a la vez no lo devuelven dos veces.
+    await cola.tomar('a-huerfano');
+    await conPid('a-huerfano', muerto);
+    const [uno, otro] = await Promise.all([
+      cola.devolverHuerfanos(),
+      new Cola(dir).devolverHuerfanos(),
+    ]);
+    expect([...uno, ...otro]).toEqual(['a-huerfano']);
+  });
+
+  it('un pid que no es un proceso (0, negativo, decimal) lanza: no se pregunta a un grupo entero', () => {
+    for (const pid of [0, -5, 1.5])
+      expect(() => trabajadorDe({ encargo: { ...UNO, id: 'x' } as never, pid })).toThrow(
+        /lleva un pid que no vale/,
+      );
+  });
+
+  // QA del banco de NPC, H8: reprocesar dejaba la cuenta a cero y el agotado se volvía a pedir a Codex.
+  it('retomar (reprocesar) conserva los fallos y apunta su pid', async () => {
+    const cola = new Cola(dir);
+    await cola.encolar(UNO);
+    for (const vez of [1, 2]) {
+      await cola.tomar();
+      await cola.cerrar('prueba-uno', 'fallido', { cuando: 'ahora', motivo: `fallo ${vez}` });
+      if (vez === 1) await cola.reintentar('prueba-uno');
+    }
+    await cola.retomar('prueba-uno', 'fallido');
+    const enCurso = await cola.leer('en-curso', 'prueba-uno');
+    expect(enCurso.fallos?.map((f) => f.motivo)).toEqual(['fallo 1']);
+    expect(enCurso.resultado).toBeUndefined();
+    expect(enCurso.pid).toBe(process.pid);
   });
 });
 

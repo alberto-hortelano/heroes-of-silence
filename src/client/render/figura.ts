@@ -18,16 +18,24 @@ import { temaDelLienzo } from '../temas.js';
 import { type PiesDeLaFigura, piesEn } from './aro.js';
 import { cargarHojaDeFigura, figuraEnCamino, hayFiguraCargada, imagenDeFigura } from './assets.js';
 import {
-  type CharacterAtlas,
+  type AtlasQueSePinta,
   type CharacterClip,
   type CharacterFrame,
   celdaDe,
   clipFrame,
   fotogramaDeCaida,
+  infoDelClip,
 } from './character.js';
 import { CacheDeLienzos } from './copias.js';
 import { densidadDe } from './lienzo.js';
-import { type ArteDeFigura, arteDe, arteSabido, hojaDe, hojasPorCercania } from './personajes.js';
+import {
+  type ArteQueSePinta,
+  arteDe,
+  arteParaPintar,
+  arteSabido,
+  hojaDe,
+  hojasPorCercania,
+} from './personajes.js';
 import { pintarSombra } from './sombra.js';
 
 /** Hasta cuándo hay alguna figura en marcha, en el reloj de `performance.now()`. */
@@ -169,7 +177,7 @@ function copiarCelda(c: CanvasRenderingContext2D, celda: CharacterFrame, w: numb
 
 /** Lo que se pinta de una figura y dónde, o `null` si no ha llegado ninguna de sus hojas. */
 interface Colocada {
-  readonly arte: ArteDeFigura;
+  readonly arte: ArteQueSePinta;
   readonly celda: CharacterFrame;
   /** La URL de la imagen de la celda: la clave de las cachés. */
   readonly imagen: string;
@@ -200,14 +208,14 @@ export interface FiguraColocada {
  * quieta que verla desaparecer. Sin ninguna, `null`: el marcador.
  */
 function hojaQueSePinta(
-  arte: ArteDeFigura,
+  arte: ArteQueSePinta,
   f: Figura,
-): { atlas: CharacterAtlas; clip: CharacterClip; url: string; imagen: HTMLImageElement } | null {
+): { atlas: AtlasQueSePinta; clip: CharacterClip; url: string; imagen: HTMLImageElement } | null {
   const hojas = hojasPorCercania(arte, f.mira);
-  pedir((hojas[0] as CharacterAtlas).clips[f.clip].imagen);
+  pedir(infoDelClip(hojas[0] as AtlasQueSePinta, f.clip).imagen);
   for (const clip of [f.clip, 'idle'] as const) {
     for (const atlas of hojas) {
-      const url = atlas.clips[clip].imagen;
+      const url = infoDelClip(atlas, clip).imagen;
       const imagen = imagenDeFigura(url);
       if (imagen !== null) return { atlas, clip, url, imagen };
     }
@@ -220,17 +228,18 @@ export function colocarFigura(f: Figura): FiguraColocada {
   // Sin la lista de hojas aún, el marcador: no el Y Bot de quien todavía no se
   // sabe qué hoja lleva (`arteSabido`).
   if (!arteSabido(f.body)) return { f, p: null, cargando: true };
-  const arte = arteDe(f.body);
+  // La gente del banco de NPC lanza aquí con un clip que no es suyo (un ataque).
+  const arte = arteParaPintar(f.body, f.clip);
   const hoja = hojaQueSePinta(arte, f);
   if (hoja === null) {
-    const pedida = (hojasPorCercania(arte, f.mira)[0] as CharacterAtlas).clips[f.clip].imagen;
+    const pedida = infoDelClip(hojasPorCercania(arte, f.mira)[0] as AtlasQueSePinta, f.clip).imagen;
     return { f, p: null, cargando: figuraEnCamino(pedida) };
   }
   const { atlas, clip, url, imagen } = hoja;
   const frame =
     clip === 'death'
       ? fotogramaDeCaida(atlas, f.tiempo)
-      : clipFrame(atlas, clip, relojDeFigura(atlas.clips[clip], f.tiempo, f.id));
+      : clipFrame(atlas, clip, relojDeFigura(infoDelClip(atlas, clip), f.tiempo, f.id));
   const celda = celdaDe(imagen, atlas, clip, frame);
   // La celda se escala para que un ADULTO mida `alto`, y no la figura de esta
   // hoja: el Y Bot y las `dN` comparten píxeles por metro (`FIGURA_8D`), así que

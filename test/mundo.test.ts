@@ -9,9 +9,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
-import { mundoDeLaUrl } from '../src/client/mundo/cargar.js';
+import { cargarElMundoPedido, mundoDeLaUrl, mundoPedido } from '../src/client/mundo/cargar.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { hariaAlgoEn, jugadaEnElLugar } from '../src/core/ai/lugares.js';
@@ -51,6 +51,10 @@ import {
 import { NOMBRE_DE_FACCION } from '../src/core/types.js';
 import { leerCrudos, RAIZ, validarEnDisco } from '../tools/mundo/disco.js';
 import { medirMundo } from '../tools/mundo/medida.js';
+import { leerBancoDeDisco } from '../tools/npcs/banco.js';
+
+/** El banco de figuras de NPC del repo: contra él se miran las figuras de los mundos. */
+const BANCO = leerBancoDeDisco();
 
 /** Los tres JSON de un mundo, como los lee `pnpm mundo validar` (`leerCrudos`). */
 async function crudosDe(id: string): Promise<CrudosDelMundo> {
@@ -80,7 +84,7 @@ function prueba(
 function conHistoria(
   cambio: (h: { lugares: Record<string, unknown>[] } & Record<string, unknown>) => void,
 ): string[] {
-  return problemasDelMundo(prueba(cambio), 'prueba');
+  return problemasDelMundo(prueba(cambio), 'prueba', BANCO);
 }
 
 /** El primer lugar de la historia, para tocarlo. */
@@ -123,8 +127,8 @@ function conElArcon(
 
 describe('la validación de un mundo', () => {
   it('el mundo de prueba (a mano) y el de ejemplo (del motor) no tienen problemas', () => {
-    expect(problemasDelMundo(crudos('prueba'), 'prueba')).toEqual([]);
-    expect(problemasDelMundo(crudos('ejemplo'), 'ejemplo')).toEqual([]);
+    expect(problemasDelMundo(crudos('prueba'), 'prueba', BANCO)).toEqual([]);
+    expect(problemasDelMundo(crudos('ejemplo'), 'ejemplo', BANCO)).toEqual([]);
   });
 
   it('un mundo de otra versión o con dos rivales se rechaza diciéndolo', () => {
@@ -133,7 +137,7 @@ describe('la validación de un mundo', () => {
     } & CrudosDelMundo;
     c.mundo.version = 2;
     c.mundo.rivales = 2;
-    const p = problemasDelMundo(c, 'prueba');
+    const p = problemasDelMundo(c, 'prueba', BANCO);
     expect(p).toContainEqual(
       expect.stringContaining('mundo.json: version: es 2 y este juego lee la 1'),
     );
@@ -141,7 +145,7 @@ describe('la validación de un mundo', () => {
   });
 
   it('el id de la carpeta y el del mundo tienen que coincidir', () => {
-    expect(problemasDelMundo(crudos('prueba'), 'otro')).toContainEqual(
+    expect(problemasDelMundo(crudos('prueba'), 'otro', BANCO)).toContainEqual(
       expect.stringContaining('mundo.json: id: dice "prueba" y el mundo está en la carpeta "otro"'),
     );
   });
@@ -158,10 +162,10 @@ describe('la validación de un mundo', () => {
   it('lo que el plan ya sabe no se escribe en el mundo.json: la facción es la de su base', () => {
     const c = crudos('prueba') as { mundo: { jugador: Record<string, unknown> } } & CrudosDelMundo;
     c.mundo.jugador.faccion = 'imperio';
-    expect(problemasDelMundo(c, 'prueba')).toEqual([
+    expect(problemasDelMundo(c, 'prueba', BANCO)).toEqual([
       'mundo.json: jugador: «faccion» no es un campo; valen heroe',
     ]);
-    expect(leerMundo(crudos('prueba'), 'prueba').faccion).toBe('imperio');
+    expect(leerMundo(crudos('prueba'), 'prueba', BANCO).faccion).toBe('imperio');
   });
 
   it('un nodo al que no se llega desde el inicio', () => {
@@ -306,12 +310,12 @@ describe('la validación de un mundo', () => {
     } & CrudosDelMundo;
     c.mundo.version = 2;
     c.mundo.rivales = 3;
-    expect(() => leerMundo(c, 'prueba')).toThrow(/no se puede jugar \(2 problemas\)/);
+    expect(() => leerMundo(c, 'prueba', BANCO)).toThrow(/no se puede jugar \(2 problemas\)/);
   });
 });
 
 describe('la partida de un mundo', () => {
-  const leido = leerMundo(crudos('prueba'), 'prueba');
+  const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
 
   it('pone sus lugares en el mapa y su estado en la partida', () => {
     const state = partidaDelMundo(leido);
@@ -328,8 +332,8 @@ describe('la partida de un mundo', () => {
 });
 
 describe('la lectura para el motor', () => {
-  const leido = leerMundo(crudos('prueba'), 'prueba');
-  const lectura = lecturaParaElMotor(leido.mundo, leido.plan);
+  const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
+  const lectura = lecturaParaElMotor(leido.mundo, leido.plan, BANCO);
 
   it('la facción de quien juega sale del plan', () => {
     expect(lectura.jugador).toMatchObject({ id: 0, faccion: 'imperio', heroe: 'duelista' });
@@ -377,7 +381,7 @@ describe('la lectura para el motor', () => {
 });
 
 describe('elegir en un lugar', () => {
-  const leido = leerMundo(crudos('prueba'), 'prueba');
+  const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
   const ctx = { rng: createRng(7) };
 
   /** Una partida del mundo de prueba con el héroe del jugador 0 plantado en `lugar`. */
@@ -469,6 +473,7 @@ describe('elegir en un lugar', () => {
         puente(h).dialogos.corvo!.nodos.alto!.opciones[1]!.si = [{ faccion: 'orkos' }];
       }),
       'prueba',
+      BANCO,
     );
     const ref = { lugar: 'puente-de-corvo', punto: 'corvo', nodo: 'muerto', opcion: 0 };
     for (const [mundo, motivo] of [
@@ -562,6 +567,7 @@ describe('elegir en un lugar', () => {
       };
     }),
     'prueba',
+    BANCO,
   );
   /** Una partida de `conElPozoDelQA` con el héroe del jugador 0 en el pozo. */
   function enElPozoDelQA(): { state: GameState; hero: string } {
@@ -649,6 +655,7 @@ describe('elegir en un lugar', () => {
     const conArcon = leerMundo(
       prueba((h) => conElArcon(h)),
       'prueba',
+      BANCO,
     );
     const { state, yo, rival } = losDosEnElPuente(conArcon);
     expect(nodoDeEntrada(corvoDe(state, yo.id).a, corvoDe(state, yo.id).corvo)).toBe('alto');
@@ -804,6 +811,7 @@ describe('elegir en un lugar', () => {
         ];
       }),
       'prueba',
+      BANCO,
     );
     const state = partidaDelMundo(conPremio);
     const hero = state.heroes.find((h) => h.owner === 0)!;
@@ -879,11 +887,52 @@ describe('el mundo en la URL', () => {
     expect(() => mundoDeLaUrl('?mundo=../plan')).toThrow('no es el id de un mundo');
     expect(() => mundoDeLaUrl('?mundo=a&mundo=b')).toThrow('«mundo» va 2 veces en la URL');
   });
+
+  it('sin el banco de figuras, el mundo dice que no se cargó el banco y por qué, no que sus figuras no existen', async () => {
+    // La página: `/__npcs` responde 500 (H3 del QA del banco de NPC) y lo del mundo, de `assets/`.
+    const avisos: string[] = [];
+    vi.spyOn(console, 'warn').mockImplementation((m: string) => avisos.push(m));
+    vi.stubGlobal('fetch', async (url: string) =>
+      url === '/__npcs'
+        ? new Response('<h1>500</h1>', { status: 500 })
+        : new Response(readFileSync(join(import.meta.dirname, '../assets', url)), {
+            headers: { 'content-type': 'application/json' },
+          }),
+    );
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+    vi.resetModules();
+    const { cargarLaGente } = await import('../src/client/render/gente.js');
+    const gente = cargarLaGente();
+    expect((await gente).sinBanco).toBe('/__npcs responde 500 y no es JSON');
+    // El aviso de la consola no dice lo contrario que la página: la base, con el Y Bot; un mundo, no.
+    expect(avisos).toEqual([
+      '[npcs] sin banco de figuras (/__npcs responde 500 y no es JSON): la gente de la base sale con el Y Bot, y un mundo (?mundo=) no se puede jugar sin él',
+    ]);
+    await expect(cargarElMundoPedido('?mundo=prueba', gente)).rejects.toThrow(
+      new Error(
+        'el mundo "prueba" no se puede jugar: no se pudo cargar el banco de figuras de NPC (/__npcs responde 500 y no es JSON), y las personas del mundo llevan figuras de ese banco. Sin «?mundo=» la partida se juega, con la gente en el Y Bot',
+      ),
+    );
+    // Con el banco cargado y sin esas figuras, sí es el mundo el que no vale: la frase de siempre.
+    const vacio = { banco: { figuras: [] }, pintadas: new Set<string>(), sinBanco: null };
+    await expect(cargarElMundoPedido('?mundo=prueba', Promise.resolve(vacio))).rejects.toThrow(
+      /"imperio-armero" no es una figura del banco de NPC/,
+    );
+    // Y con el banco del repo, carga.
+    await cargarElMundoPedido(
+      '?mundo=prueba',
+      Promise.resolve({ banco: BANCO, pintadas: new Set<string>(), sinBanco: null }),
+    );
+    expect(mundoPedido()).not.toBeNull();
+  });
 });
 
 describe('la IA de reglas en un lugar', () => {
   it('elige la primera opción que hace algo, hasta que no queda ninguna, y cada premio una vez', () => {
-    const leido = leerMundo(crudos('prueba'), 'prueba');
+    const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
     const state = partidaDelMundo(leido, { 0: 'ai', 1: 'ai' });
     const hero = state.heroes.find((h) => h.owner === 0)!;
     hero.at = { x: 10, y: 12 };
@@ -914,6 +963,7 @@ describe('la IA de reglas en un lugar', () => {
         puente(h).dialogos.corvo!.nodos.alto!.opciones[2]!.si = [{ faccion: 'orkos' }];
       }),
       'prueba',
+      BANCO,
     );
     const state = partidaDelMundo(sinPelea, { 0: 'ai', 1: 'ai' });
     const hero = state.heroes.find((h) => h.owner === 0)!;
@@ -970,6 +1020,7 @@ describe('la IA de reglas en un lugar', () => {
         };
       }),
       'prueba',
+      BANCO,
     );
     const state = partidaDelMundo(conPalanca, { 0: 'ai', 1: 'ai' });
     const hero = state.heroes.find((h) => h.owner === 0)!;
@@ -1020,18 +1071,18 @@ describe('los desenlaces excluyentes de la skill', () => {
   });
 
   it('vale con el validador de verdad', () => {
-    expect(problemasDelMundo(conElSello, 'prueba')).toEqual([]);
+    expect(problemasDelMundo(conElSello, 'prueba', BANCO)).toEqual([]);
   });
 
   it('«pnpm mundo medir» lo ve: dos desenlaces que se excluyen y una marca que cruza al pozo', () => {
-    const m = medirMundo(leerMundo(conElSello, 'prueba'), null);
+    const m = medirMundo(leerMundo(conElSello, 'prueba', BANCO), null);
     expect(m.exclusiones).toEqual([['sello-a-la-orden', 'sello-a-los-orkos']]);
     expect(m.marcasQueCruzan).toEqual(['sello-a-los-orkos']);
     expect(m.encadenados).toBe(2);
   });
 
   it('elegir un desenlace cierra el otro con el «ya» del mundo, y el otro lugar lo lee', () => {
-    const state = partidaDelMundo(leerMundo(conElSello, 'prueba'));
+    const state = partidaDelMundo(leerMundo(conElSello, 'prueba', BANCO));
     const hero = state.heroes.find((h) => h.owner === 0)!;
     const sello = (opcion: number) => ({
       lugar: 'puente-de-corvo',
@@ -1061,5 +1112,108 @@ describe('los desenlaces excluyentes de la skill', () => {
       'el sello del abad ya está en manos de los orkos',
     );
     expect(estandarte()).toBe(true);
+  });
+});
+
+describe('las figuras de la gente de un mundo (el banco de NPC)', () => {
+  /** Una petición que vale: la de una figura del banco sin su id ni quién la pidió. */
+  const PETICION = {
+    descripcion: 'Un barquero viejo: capa de hule, gorro de lana, botas altas y una pértiga corta.',
+    etiquetas: {
+      oficio: 'vagabundo',
+      sexo: 'hombre',
+      edad: 'anciano',
+      especie: 'humano',
+      faccion: 'imperio',
+      clase: 'baja',
+    },
+    talla: 1,
+    acciones: 'reposo-y-marcha',
+  };
+  const corvo = (h: { lugares: Record<string, unknown>[] }) =>
+    (h.lugares[0] as { puntos: { id: string; persona?: Record<string, unknown> }[] }).puntos.find(
+      (p) => p.id === 'corvo',
+    )!.persona!;
+
+  it('una persona nombra una figura del banco o una de las que pide; otra cosa se dice', () => {
+    expect(conHistoria((h) => (corvo(h).figura = 'imperio-alabardero'))).toContainEqual(
+      expect.stringMatching(
+        /^historia\.json: lugares\[0\]\.puntos\[1\]\.persona\.figura: "imperio-alabardero" no es una figura del banco de NPC/,
+      ),
+    );
+    expect(
+      conHistoria((h) => {
+        corvo(h).figura = 'barquero';
+        h.figuras = { barquero: PETICION };
+      }),
+    ).toEqual([]);
+    // El cuerpo del catálogo se retiró: ya no vale.
+    expect(
+      conHistoria((h) => {
+        corvo(h).cuerpo = 'imperio-alabardero';
+      }),
+    ).toContainEqual(expect.stringMatching(/persona: .*cuerpo/));
+  });
+
+  it('lo que pide: un id libre en el banco, que valga como petición, usado y como mucho cuatro', () => {
+    const pide = (figuras: Record<string, unknown>) =>
+      conHistoria((h) => {
+        h.figuras = figuras;
+        corvo(h).figura = Object.keys(figuras)[0];
+      });
+    expect(pide({ 'imperio-armero': PETICION })).toContainEqual(
+      'historia.json: figuras.imperio-armero: "imperio-armero" ya es una figura del banco: nómbrala sin pedirla',
+    );
+    expect(pide({ barquero: { ...PETICION, talla: 0 } })).toContainEqual(
+      expect.stringMatching(/^historia\.json: figuras\.barquero\.talla: tiene que ser un número/),
+    );
+    expect(pide({ barquero: PETICION, sobra: PETICION })).toContainEqual(
+      'historia.json: figuras.sobra: no la nombra ninguna persona ni la gente de la base: una figura pedida se pinta para alguien',
+    );
+    const cinco = Object.fromEntries(['a', 'b', 'c', 'd', 'e'].map((k) => [`fig-${k}`, PETICION]));
+    expect(pide(cinco)).toContainEqual(
+      'historia.json: figuras: pide 5 figuras y un mundo pide como mucho 4: reutiliza las del banco que se parezcan',
+    );
+  });
+
+  it('«base» asigna figura a la gente de la base de quien juega, y a nadie más', () => {
+    expect(
+      conHistoria((h) => {
+        h.base = { 'encargado-hall': 'imperio-posadera', 'vecino-pregonero': 'imperio-armero' };
+      }),
+    ).toEqual([]);
+    expect(
+      conHistoria((h) => {
+        h.base = { 'vecino-tamborilero': 'imperio-armero' };
+      }),
+    ).toContainEqual(
+      expect.stringMatching(
+        /^historia\.json: base\.vecino-tamborilero: "vecino-tamborilero" no es de la gente de la base de quien juega \(imperio\)/,
+      ),
+    );
+    expect(
+      conHistoria((h) => {
+        h.base = { alcaide: 'nadie' };
+      }),
+    ).toContainEqual(
+      expect.stringMatching(/^historia\.json: base\.alcaide: "nadie" no es una figura/),
+    );
+  });
+
+  it('la lectura para el motor trae el banco: etiquetas, tope, figuras y la gente de su base', () => {
+    const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
+    const { npcs } = lecturaParaElMotor(leido.mundo, leido.plan, BANCO);
+    expect(npcs.tope).toBe(4);
+    expect(Object.keys(npcs.etiquetas)).toEqual([
+      'oficio',
+      'sexo',
+      'edad',
+      'especie',
+      'faccion',
+      'clase',
+    ]);
+    expect(npcs.figuras.map((f) => f.id)).toContain('imperio-armero');
+    expect(npcs.gente[0]).toMatchObject({ id: 'alcaide', nombre: 'Konrad', especie: 'humano' });
+    expect(npcs.gente.map((p) => p.id)).toContain('vecino-pregonero');
   });
 });

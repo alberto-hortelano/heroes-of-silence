@@ -1,0 +1,58 @@
+{
+  "encargo": "npc-orko-jefe-viejo-d6-a",
+  "tipo": "atlas",
+  "fecha": "2026-10-22T20:53:35.298Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a16562-c7f6-7c33-9d00-0eaa1d9f914e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn viejo jefe orko de un campamento: grande y encorvado, piel verde oscura llena de cicatrices, colmillos amarillos, una oreja mordida, trenzas grises, capa de piel de lobo sobre los hombros, chaleco de cuero tachonado, collar de dientes, taparrabos de piel y botas de cuero burdas.\nEn la lámina de giro (imagen 2), la figura 7 en orden de lectura es la que mira hacia «izquierda», como esta hoja: así se ve el personaje desde este lado.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 176 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/d6-a.profundidad.png",
+      "papel": "pose-profundidad",
+      "sha256": "c23271d938b56aa3b45fb9c99575e4f26fa20dfc503ba0c1d1ae38dece1dd2eb"
+    },
+    {
+      "ruta": "assets/npcs/orko-jefe-viejo/giro.webp",
+      "papel": "identidad",
+      "sha256": "6316bd7db86e9cc507bec804754d109e711869d386570f32d832dcf8d1456249"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a16562-c7f6-7c33-9d00-0eaa1d9f914e/exec-565320ff-416d-44ab-a761-5347df63c234.png",
+    "sha256": "f9e669da479cc88a3678ba1b3095f55e10e2bdd2900c75345ca1450220f4ff79",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7365, pies en y=342, reposo a 176 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/npcs/orko-jefe-viejo/d6/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.055802602616567464,
+    "opacos": 0.9603581080690058,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.1733333333333333,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      189,
+      280
+    ],
+    "posicion": false
+  },
+  "salida": {
+    "ruta": "assets/npcs/orko-jefe-viejo/d6/hoja-a.webp",
+    "sha256": "09f9a6546d5361853cafcebf404a62fa41ceae9bc34cb50db5733723f7d05b3e"
+  }
+}

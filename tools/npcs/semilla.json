@@ -1,0 +1,92 @@
+{
+  "templario-anciano-alcaide": {
+    "descripcion": "Un anciano alcaide de una villa templaria: barba blanca recortada, rostro curtido y severo, gambesón acolchado pardo bajo una sobrevesta blanca gastada con una cruz roja, cinturón ancho con un manojo de llaves, botas de cuero viejas, capa corta de lana gris.",
+    "etiquetas": { "oficio": "autoridad", "sexo": "hombre", "edad": "anciano", "especie": "humano", "faccion": "templarios", "clase": "media" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "templario-herrero": {
+    "descripcion": "Un herrero de una villa templaria: hombre fornido de brazos fuertes, barba castaña corta, camisa de lino arremangada y sucia de hollín, mandil de cuero quemado, calzas pardas, botas gruesas, un martillo pequeño colgado del cinto y una cruz roja de tela cosida en el hombro.",
+    "etiquetas": { "oficio": "artesano", "sexo": "hombre", "edad": "adulto", "especie": "humano", "faccion": "templarios", "clase": "baja" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "templaria-tabernera": {
+    "descripcion": "Una tabernera de una villa templaria: mujer robusta de mediana edad, pelo castaño recogido bajo una toca blanca, vestido de lana verde oscuro con las mangas remangadas, delantal blanco manchado, un paño al hombro y una bolsa de cuero al cinto.",
+    "etiquetas": { "oficio": "tabernero", "sexo": "mujer", "edad": "adulto", "especie": "humano", "faccion": "templarios", "clase": "media" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "necropolis-guardian-viejo": {
+    "descripcion": "Un viejo guardián zombi de una necrópolis: carne grisácea y reseca, ojos hundidos con un brillo verde pálido, pocos pelos blancos, túnica negra larga y raída con ribetes morados, cadena de hierro con un farol apagado al cinto, pies envueltos en vendas sucias.",
+    "etiquetas": { "oficio": "autoridad", "sexo": "hombre", "edad": "anciano", "especie": "zombi", "faccion": "no-muertos", "clase": "media" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "necropolis-forjador-esqueleto": {
+    "descripcion": "Un esqueleto herrero de una necrópolis: huesos amarillentos y pelados, cuencas con una lumbre azul tenue, mandil de cuero negro chamuscado sobre las costillas, brazales de hierro negro, jirones de una camisa gris, unas tenazas pequeñas al cinto.",
+    "etiquetas": { "oficio": "artesano", "sexo": "hombre", "edad": "adulto", "especie": "esqueleto", "faccion": "no-muertos", "clase": "baja" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "necropolis-escribana-espectral": {
+    "descripcion": "Una escribana espectral de una necrópolis: figura de mujer translúcida y pálida, de un gris azulado, con el pelo largo flotando, vestido negro y morado de cuello alto que se deshace en jirones de niebla por abajo, un libro de cuentas apretado contra el pecho y una pluma tras la oreja.",
+    "etiquetas": { "oficio": "escribano", "sexo": "mujer", "edad": "adulto", "especie": "espectro", "faccion": "no-muertos", "clase": "media" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "imperio-burgomaestre-anciano": {
+    "descripcion": "Un anciano burgomaestre de una ciudad imperial: bigote y patillas blancas, sombrero de ala ancha negro con una pluma roja, jubón acuchillado amarillo y negro, gorguera blanca, cadena de oro de su cargo sobre el pecho, calzas rojas, zapatos de hebilla y un bastón corto con pomo de latón.",
+    "etiquetas": { "oficio": "autoridad", "sexo": "hombre", "edad": "anciano", "especie": "humano", "faccion": "imperio", "clase": "alta" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "imperio-armero": {
+    "descripcion": "Un armero de una ciudad imperial: hombre de mediana edad, bigote espeso y castaño, gorro de fieltro rojo, camisa blanca con las mangas acuchilladas arremangadas, jubón de cuero sin mangas, mandil de cuero oscuro, calzas a rayas amarillas y negras, botas altas y una lima al cinto.",
+    "etiquetas": { "oficio": "artesano", "sexo": "hombre", "edad": "adulto", "especie": "humano", "faccion": "imperio", "clase": "media" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "imperio-posadera": {
+    "descripcion": "Una posadera de una ciudad imperial: mujer rubia de trenzas recogidas, cofia blanca, corpiño rojo atado sobre una camisa blanca de mangas abullonadas, falda azul larga, delantal blanco con bordes verdes y un manojo de llaves al cinto.",
+    "etiquetas": { "oficio": "tabernero", "sexo": "mujer", "edad": "adulto", "especie": "humano", "faccion": "imperio", "clase": "media" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "elfo-consejero-anciano": {
+    "descripcion": "Un anciano consejero elfo de un claro del bosque: alto y delgado, orejas largas, pelo plateado muy largo y liso, diadema fina de plata con una hoja, túnica larga verde oscuro bordada con hojas doradas, manto pardo, cinturón de cuero trenzado y un cayado de madera blanca.",
+    "etiquetas": { "oficio": "autoridad", "sexo": "hombre", "edad": "anciano", "especie": "elfo", "faccion": "elfos", "clase": "alta" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "elfo-tallador": {
+    "descripcion": "Un tallador de madera elfo: joven adulto esbelto, orejas largas, pelo castaño atado en una coleta, camisa de lino crudo, chaleco de cuero verde musgo, calzas pardas, botas blandas, un cuchillo curvo de tallar y unas virutas pegadas al delantal corto.",
+    "etiquetas": { "oficio": "artesano", "sexo": "hombre", "edad": "adulto", "especie": "elfo", "faccion": "elfos", "clase": "media" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "elfa-curandera": {
+    "descripcion": "Una curandera elfa: mujer esbelta de orejas largas, pelo rojizo trenzado con hojas, vestido largo verde claro con un fajín pardo, capa corta de hojas tejidas, bolsas de hierbas colgadas del cinto y un collar de semillas.",
+    "etiquetas": { "oficio": "sacerdote", "sexo": "mujer", "edad": "adulto", "especie": "elfo", "faccion": "elfos", "clase": "media" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  },
+  "orko-jefe-viejo": {
+    "descripcion": "Un viejo jefe orko de un campamento: grande y encorvado, piel verde oscura llena de cicatrices, colmillos amarillos, una oreja mordida, trenzas grises, capa de piel de lobo sobre los hombros, chaleco de cuero tachonado, collar de dientes, taparrabos de piel y botas de cuero burdas.",
+    "etiquetas": { "oficio": "autoridad", "sexo": "hombre", "edad": "anciano", "especie": "orko", "faccion": "orkos", "clase": "media" },
+    "talla": 1.1,
+    "acciones": "reposo-y-marcha"
+  },
+  "goblin-chatarrero": {
+    "descripcion": "Un goblin chatarrero: pequeño, flaco y astuto, piel verde amarillenta, orejas enormes y nariz larga, gafas de latón sobre la frente, chaleco de remiendos lleno de bolsillos, mandil de cuero quemado, una llave inglesa tosca al cinto y trastos de hierro colgando de una cuerda.",
+    "etiquetas": { "oficio": "artesano", "sexo": "hombre", "edad": "adulto", "especie": "goblin", "faccion": "orkos", "clase": "baja" },
+    "talla": 0.7,
+    "acciones": "reposo-y-marcha"
+  },
+  "orka-tabernera": {
+    "descripcion": "Una tabernera orka: robusta, piel verde grisácea, colmillos pequeños, pelo negro en una trenza gruesa, pinturas blancas en la cara, blusa de lana basta sin mangas, falda de pieles, delantal de cuero manchado de cerveza, brazaletes de hueso y un cucharón al cinto.",
+    "etiquetas": { "oficio": "tabernero", "sexo": "mujer", "edad": "adulto", "especie": "orko", "faccion": "orkos", "clase": "baja" },
+    "talla": 1,
+    "acciones": "reposo-y-marcha"
+  }
+}

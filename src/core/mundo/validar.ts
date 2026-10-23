@@ -15,7 +15,7 @@
  * de zod salen en inglés y el trozo de la página no lo necesita. Las piezas son
  * las del núcleo que devuelven el motivo (`core/validar.ts`), que aquí se acumula.
  */
-import { problemasDeGrupo, unidadDelJuegoSiExiste } from '../catalogo.js';
+import { problemasDeGrupo } from '../catalogo.js';
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../combate.js';
 import { motivoDeLinea } from '../contract/linea.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
@@ -23,7 +23,14 @@ import { piezaSiExiste } from '../hero/equipo.js';
 import { basesDelPlan, buildMap, type MapPlan, validateMapPlan } from '../map/generate.js';
 import { type GameMap, inBounds, isEnterable, type MapObject, terrainAt } from '../map/map.js';
 import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
+import {
+  type Banco,
+  FIGURAS_NUEVAS_POR_MUNDO,
+  figuraDelBanco,
+  problemasDePeticiones,
+} from '../npcs.js';
 import { problemasDeGrupoNeutral, regionDeCasilla } from '../state/asaltantes.js';
+import { personasDeLaFaccion } from '../town/voces.js';
 import { FACTION_IDS, type FactionId, type Point } from '../types.js';
 import {
   deLaListaBlocker,
@@ -256,6 +263,7 @@ export interface CrudosDelMundo {
 function juzgarMundo(
   crudos: CrudosDelMundo,
   idEsperado: string,
+  banco: Banco,
 ): { readonly problemas: readonly string[]; readonly leido: MundoLeido | null } {
   const delPlan: string[] = [];
   const plan = juzgarPlan(crudos.plan, delPlan);
@@ -266,7 +274,7 @@ function juzgarMundo(
     ...(malId === null ? [] : [malId]),
     ...delMundo,
     ...delPlan,
-    ...problemasDeLaHistoria(crudos.historia, plan?.map ?? null),
+    ...problemasDeLaHistoria(crudos.historia, plan?.map ?? null, banco, plan?.faccion ?? null),
   ];
   const leido =
     problemas.length === 0 && mundo !== null && plan !== null
@@ -280,17 +288,25 @@ function juzgarMundo(
   return { problemas, leido };
 }
 
-/** Todos los problemas de un mundo, con su fichero y su ruta. Vacío: se juega. */
-export function problemasDelMundo(crudos: CrudosDelMundo, idEsperado: string): string[] {
-  return [...juzgarMundo(crudos, idEsperado).problemas];
+/**
+ * Todos los problemas de un mundo, con su fichero y su ruta. Vacío: se juega.
+ * `banco`: el banco de figuras de NPC, contra el que se miran las figuras que nombra
+ * y las que pide (el núcleo no lee el fichero: lo pasa quien lo lee).
+ */
+export function problemasDelMundo(
+  crudos: CrudosDelMundo,
+  idEsperado: string,
+  banco: Banco,
+): string[] {
+  return [...juzgarMundo(crudos, idEsperado, banco).problemas];
 }
 
 /**
  * El mundo leído, o lanza con todos sus problemas (la página lo pinta:
  * `arranque.ts`). **La única que da un `MundoLeido`.**
  */
-export function leerMundo(crudos: CrudosDelMundo, idEsperado: string): MundoLeido {
-  const { problemas, leido } = juzgarMundo(crudos, idEsperado);
+export function leerMundo(crudos: CrudosDelMundo, idEsperado: string, banco: Banco): MundoLeido {
+  const { problemas, leido } = juzgarMundo(crudos, idEsperado, banco);
   if (leido === null) {
     throw new Error(
       `el mundo "${idEsperado}" no se puede jugar (${problemas.length} problema${problemas.length === 1 ? '' : 's'}):\n- ${problemas.join('\n- ')}`,
@@ -388,6 +404,10 @@ interface DelLugar {
 interface Apuntes {
   readonly marcas: ReadonlySet<string>;
   readonly marcasPuestas: Set<string>;
+  /** Las figuras que se pueden nombrar: las del banco y las que pide la historia. */
+  readonly figuraBlocker: (id: unknown) => string | null;
+  /** Las figuras pedidas que alguien nombra: una pedida sin usar se pintaría para nada. */
+  readonly figurasUsadas: Set<string>;
 }
 
 /**
@@ -395,9 +415,14 @@ interface Apuntes {
  * depende del mapa (la casilla de cada lugar); sin él (el plan no se pudo
  * construir), solo lo suyo.
  */
-function problemasDeLaHistoria(crudo: unknown, map: GameMap | null): string[] {
+function problemasDeLaHistoria(
+  crudo: unknown,
+  map: GameMap | null,
+  banco: Banco,
+  faccionDeQuienJuega: FactionId | null,
+): string[] {
   const j = new Juez('historia.json');
-  const o = objeto(j, crudo, '', ['titulo', 'resumen', 'marcas', 'lugares']);
+  const o = objeto(j, crudo, '', ['titulo', 'resumen', 'marcas', 'lugares'], ['figuras', 'base']);
   if (o === null) return j.problemas;
   texto(j, o.titulo, 'titulo', LARGO.titulo);
   texto(j, o.resumen, 'resumen', LARGO.resumen);
@@ -411,7 +436,17 @@ function problemasDeLaHistoria(crudo: unknown, map: GameMap | null): string[] {
     }
     marcas.add(k);
   }
-  const apuntes: Apuntes = { marcas, marcasPuestas: new Set() };
+  const pedidas = juzgarFigurasPedidas(j, o.figuras, banco);
+  const apuntes: Apuntes = {
+    marcas,
+    marcasPuestas: new Set(),
+    figuraBlocker: (id) =>
+      typeof id === 'string' && (figuraDelBanco(banco, id) !== undefined || pedidas.has(id))
+        ? null
+        : `${JSON.stringify(id)} no es una figura del banco de NPC (\`npcs.figuras\` de la lectura) ni una de las que pides en «figuras»`,
+    figurasUsadas: new Set(),
+  };
+  juzgarLaBase(j, o.base, apuntes, faccionDeQuienJuega);
 
   const lugares = lista(j, o.lugares, 'lugares');
   if (Array.isArray(o.lugares) && lugares.length === 0) {
@@ -437,6 +472,14 @@ function problemasDeLaHistoria(crudo: unknown, map: GameMap | null): string[] {
     colocados.push({ at: hecho.at, name: hecho.nombre });
   });
 
+  for (const id of pedidas) {
+    if (!apuntes.figurasUsadas.has(id)) {
+      j.mal(
+        `figuras.${id}`,
+        'no la nombra ninguna persona ni la gente de la base: una figura pedida se pinta para alguien',
+      );
+    }
+  }
   for (const m of marcas) {
     if (!apuntes.marcasPuestas.has(m)) {
       j.mal(
@@ -446,6 +489,44 @@ function problemasDeLaHistoria(crudo: unknown, map: GameMap | null): string[] {
     }
   }
   return j.problemas;
+}
+
+/**
+ * Las figuras nuevas que pide la historia (`figuras`), con la regla de unas
+ * peticiones del banco (`problemasDePeticiones`: cada una, un id libre y como mucho
+ * `FIGURAS_NUEVAS_POR_MUNDO`), la misma con que las acepta el banco al pasar el
+ * mundo (`tools/npcs/banco.ts`). Devuelve los ids pedidos.
+ */
+function juzgarFigurasPedidas(j: Juez, v: unknown, banco: Banco): ReadonlySet<string> {
+  if (v === undefined) return new Set();
+  for (const m of problemasDePeticiones(v, banco, 'figuras', FIGURAS_NUEVAS_POR_MUNDO))
+    j.mal('', m);
+  return new Set(esObjeto(v) ? Object.keys(v) : []);
+}
+
+/**
+ * La figura de la gente de la base de quien juega (`base`): cada clave, una persona
+ * de su facción (`personasDeLaFaccion`), y cada valor, una figura que existe.
+ */
+function juzgarLaBase(j: Juez, v: unknown, apuntes: Apuntes, faccion: FactionId | null): void {
+  if (v === undefined) return;
+  if (!esObjeto(v)) {
+    j.mal('base', 'tiene que ser un objeto {"<persona>": "<figura>"}');
+    return;
+  }
+  // Sin el plan no se sabe de qué facción es la base: el plan ya dice su problema.
+  const personas = faccion === null ? null : personasDeLaFaccion(faccion).map((p) => p.id);
+  for (const [k, id] of Object.entries(v)) {
+    if (personas !== null && !personas.includes(k)) {
+      j.mal(
+        `base.${k}`,
+        `"${k}" no es de la gente de la base de quien juega (${faccion}): ${personas.join(', ')}`,
+      );
+    }
+    const malo = apuntes.figuraBlocker(id);
+    if (malo !== null) j.mal(`base.${k}`, malo);
+    else apuntes.figurasUsadas.add(id as string);
+  }
 }
 
 function juzgarLugar(
@@ -544,16 +625,13 @@ function juzgarLugar(
     if ('persona' in op === 'cosa' in op) {
       j.mal(r, 'lleva «persona» o «cosa», una de las dos');
     } else if ('persona' in op) {
-      const per = objeto(j, op.persona, `${r}.persona`, ['nombre', 'papel', 'cuerpo']);
+      const per = objeto(j, op.persona, `${r}.persona`, ['nombre', 'papel', 'figura']);
       if (per !== null) {
         texto(j, per.nombre, `${r}.persona.nombre`, LARGO.nombre);
         texto(j, per.papel, `${r}.persona.papel`, LARGO.nombre);
-        if (typeof per.cuerpo !== 'string' || unidadDelJuegoSiExiste(per.cuerpo) === null) {
-          j.mal(
-            `${r}.persona.cuerpo`,
-            `${JSON.stringify(per.cuerpo)} no es una unidad del catálogo: su figura sale de ahí`,
-          );
-        }
+        const malo = apuntes.figuraBlocker(per.figura);
+        if (malo !== null) j.mal(`${r}.persona.figura`, malo);
+        else apuntes.figurasUsadas.add(per.figura as string);
       }
     } else {
       const cosa = objeto(j, op.cosa, `${r}.cosa`, ['nombre']);

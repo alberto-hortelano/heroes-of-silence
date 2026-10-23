@@ -11,7 +11,6 @@
  * al núcleo (`invariantes.test.ts`). Las preguntas (qué puntos están, qué
  * opciones valen y por qué no) son las del núcleo (`core/mundo/reglas.ts`).
  */
-import { hojaDeUnidad } from '@core/catalogo.js';
 import { figuraDelHeroe } from '@core/data.js';
 import { nombreDelPunto } from '@core/mundo/formato.js';
 import {
@@ -25,8 +24,10 @@ import {
   opcionesDe,
   puntosDe,
 } from '@core/mundo/reglas.js';
+import { type BancoPintado, figuraQueSePinta, SIN_BANCO } from '@core/npcs.js';
 import type { AdventureAction, GameState } from '@core/state/game.js';
 import type { FactionId, PlayerId, Point } from '@core/types.js';
+import { cuerpoDeLaPersona } from '../render/cuerpo-de-gente.js';
 
 /** Un punto de interés como lo pinta la escena y lo lista el panel. */
 export interface PuntoALaVista {
@@ -36,7 +37,10 @@ export interface PuntoALaVista {
   readonly nombre: string;
   /** El papel de una persona; `null`, una cosa. */
   readonly papel: string | null;
-  /** La hoja con que se pinta una persona (`hojaDeUnidad` de su cuerpo); `null`, una cosa. */
+  /**
+   * Con qué se pinta una persona: su figura del banco de NPC, la más parecida
+   * mientras se pinta (`figuraQueSePinta`) o el Y Bot civil; `null`, una cosa.
+   */
   readonly cuerpo: string | null;
 }
 
@@ -83,6 +87,8 @@ export class EnElLugar {
     private readonly aplicar: (a: AdventureAction) => boolean,
     /** Avisa de que algo que se ve ha cambiado (sube la versión de la sesión). */
     private readonly tocar: () => void,
+    /** El banco de figuras de NPC y lo pintado de él: la figura de cada persona. */
+    private readonly gente: () => BancoPintado = () => SIN_BANCO,
   ) {}
 
   /** Cuántas veces se ha abierto un lugar: lo que cambia al empezar de nuevo. */
@@ -119,10 +125,16 @@ export class EnElLugar {
     return 'motivo' in a ? null : a;
   }
 
+  /** La casilla del lugar abierto, o `null`: lo que lee su clima en cada fotograma, sin la vista entera. */
+  casilla(): Point | null {
+    return this.ante()?.lugar.at ?? null;
+  }
+
   vista(): VistaDelLugar | null {
     const a = this.ante();
     if (a === null) return null;
     const l = a.lugar;
+    const gente = this.gente();
     return {
       lugar: l.id,
       nombre: l.nombre,
@@ -135,7 +147,17 @@ export class EnElLugar {
         x: p.x,
         nombre: nombreDelPunto(p),
         papel: p.persona?.papel ?? null,
-        cuerpo: p.persona === undefined ? null : hojaDeUnidad(p.persona.cuerpo),
+        cuerpo:
+          p.persona === undefined
+            ? null
+            : cuerpoDeLaPersona(
+                figuraQueSePinta(
+                  gente,
+                  p.persona.figura,
+                  `${this.estado().seed}|${l.id}|${p.id}`,
+                  a.mundo.historia.figuras,
+                ),
+              ),
       })),
       caminante: { id: a.hero.id, nombre: a.hero.name, cuerpo: figuraDelHeroe(a.hero) },
       apertura: this.aperturas,

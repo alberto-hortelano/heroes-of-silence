@@ -1,0 +1,45 @@
+{
+  "encargo": "npc-imperio-armero-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-22T19:16:24.526Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a16509-eeab-7401-b341-80d6b25464c1",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn armero de una ciudad imperial: hombre de mediana edad, bigote espeso y castaño, gorro de fieltro rojo, camisa blanca con las mangas acuchilladas arremangadas, jubón de cuero sin mangas, mandil de cuero oscuro, calzas a rayas amarillas y negras, botas altas y una lima al cinto.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/giro.png",
+      "papel": "pose",
+      "sha256": "36b6b21af5b818e42836ec50f2c538687e49b6dcdccdc83ba8dca5ded770f0aa"
+    },
+    {
+      "ruta": "assets/npcs/imperio-armero/identidad.webp",
+      "papel": "identidad",
+      "sha256": "4431239723cef2cce3f1d41733f1141c823091e58fcb753858bf0ed80dd312a2"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a16509-eeab-7401-b341-80d6b25464c1/exec-757a6211-6faf-4278-9789-560ae6eedca0.png",
+    "sha256": "27a5e0a64a7c544591a90a60060689735c70545f1c1c417b4e5bdcda48ecf732",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.19200504705386134,
+    "opacos": 0.9744212503835877,
+    "haloSuelto": 0,
+    "ancho": 1569,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/npcs/imperio-armero/giro.webp",
+    "sha256": "64f4e9ff81e1fed621db0722882b1e52f793648c959a7343aa68bcce21a5262e"
+  }
+}
