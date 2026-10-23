@@ -1,0 +1,58 @@
+{
+  "encargo": "npc-orka-tabernera-d2-a",
+  "tipo": "atlas",
+  "fecha": "2026-10-22T20:36:28.146Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a16553-4933-7113-86a1-53fc0489e6e9",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna tabernera orka: robusta, piel verde grisácea, colmillos pequeños, pelo negro en una trenza gruesa, pinturas blancas en la cara, blusa de lana basta sin mangas, falda de pieles, delantal de cuero manchado de cerveza, brazaletes de hueso y un cucharón al cinto.\nEn la lámina de giro (imagen 2), la figura 3 en orden de lectura es la que mira hacia «derecha», como esta hoja: así se ve el personaje desde este lado.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/d2-a.profundidad.png",
+      "papel": "pose-profundidad",
+      "sha256": "1622e536141adf800f38ab574ad25c7ec0f5793e85c6eb998ceaf19d1e9e16aa"
+    },
+    {
+      "ruta": "assets/npcs/orka-tabernera/giro.webp",
+      "papel": "identidad",
+      "sha256": "1329551df6827678cc87231ebf4322dda875f003fcf6216ec02e0d50ca9f75f7"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a16553-4933-7113-86a1-53fc0489e6e9/exec-48004f94-1934-49b6-b0f0-5310847ecedc.png",
+    "sha256": "9e40c520baf4d2d3df5fb7abad5d0ed33cf29da03911954c2021e3531a83c477",
+    "ancho": 1916,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.6152, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/npcs/orka-tabernera/d2/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.043548099578373016,
+    "opacos": 0.9560474601408973,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      193,
+      274
+    ],
+    "posicion": false
+  },
+  "salida": {
+    "ruta": "assets/npcs/orka-tabernera/d2/hoja-a.webp",
+    "sha256": "9af0a52aeb9dde95fe21ac78f46630c2afd47e7755f357b679fb7b017392d43c"
+  }
+}
