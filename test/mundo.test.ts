@@ -22,6 +22,7 @@ import {
   CLAVES_DE_CONDICION,
   CLAVES_DE_EFECTO,
   inicialDelNombre,
+  lugaresDelPlan,
   lugarSiExiste,
   VOCABULARIO,
 } from '../src/core/mundo/formato.js';
@@ -32,6 +33,7 @@ import {
   nodoDeEntrada,
   opcionBlocker,
   opcionesDe,
+  puntosDe,
 } from '../src/core/mundo/reglas.js';
 import {
   type CrudosDelMundo,
@@ -47,15 +49,17 @@ import {
   settleBattle,
 } from '../src/core/state/game.js';
 import { NOMBRE_DE_FACCION } from '../src/core/types.js';
-import { leerCrudos } from '../tools/mundo/disco.js';
+import { leerCrudos, RAIZ, validarEnDisco } from '../tools/mundo/disco.js';
+import { medirMundo } from '../tools/mundo/medida.js';
 import { leerBancoDeDisco } from '../tools/npcs/banco.js';
 
 /** El banco de figuras de NPC del repo: contra él se miran las figuras de los mundos. */
 const BANCO = leerBancoDeDisco();
 
-/** Los tres ficheros de un mundo, como los lee `pnpm mundo validar` (`leerCrudos`). */
+/** Los tres JSON de un mundo, como los lee `pnpm mundo validar` (`leerCrudos`). */
 async function crudosDe(id: string): Promise<CrudosDelMundo> {
   const leido = await leerCrudos(id);
+  if ('sinMundo' in leido) throw new Error(leido.sinMundo);
   if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
   return leido.crudos;
 }
@@ -361,6 +365,15 @@ describe('la lectura para el motor', () => {
     ]);
   });
 
+  it('dice cuántos lugares lleva el mundo: los de su tamaño', () => {
+    expect(lectura.lugares).toEqual({ de: 4, a: 5 });
+    expect(lugaresDelPlan(10)).toEqual({ de: 5, a: 6 });
+    expect(lugaresDelPlan(14)).toEqual({ de: 6, a: 8 });
+    expect(() => lugaresDelPlan(9)).toThrow(
+      'el plan tiene 9 regiones: ningún tamaño del menú (4, 5, 7 por bando, el doble en el plan)',
+    );
+  });
+
   it('el vocabulario dice cada clave de condición y de efecto', () => {
     expect(Object.keys(VOCABULARIO.condiciones).sort()).toEqual([...CLAVES_DE_CONDICION].sort());
     expect(Object.keys(VOCABULARIO.efectos).sort()).toEqual([...CLAVES_DE_EFECTO].sort());
@@ -410,9 +423,9 @@ describe('elegir en un lugar', () => {
     ]);
     expect(state.heroes.find((h) => h.id === hero)!.mochila).toContain('lanza_de_jinete');
     const ref = { lugar: 'puente-de-corvo', punto: 'garita', nodo: 'dentro', opcion: 1 };
-    expect(opcionBlocker(state, hero, ref)).toBe('ya te llevaste la lanza');
+    expect(opcionBlocker(state, hero, ref)).toBe('la lanza ya no cuelga en la garita');
     expect(() => elegir(state, hero, 'puente-de-corvo', 'garita', 'dentro', 1)).toThrow(
-      'no se puede elegir eso: ya te llevaste la lanza',
+      'no se puede elegir eso: la lanza ya no cuelga en la garita',
     );
   });
 
@@ -683,7 +696,7 @@ describe('elegir en un lugar', () => {
     );
     const lanza = { lugar: 'puente-de-corvo', punto: 'garita', nodo: 'dentro', opcion: 1 };
     // A quien la cogió, la frase del motor; al otro, quién se la llevó.
-    expect(opcionBlocker(state, rival.id, lanza)).toBe('ya te llevaste la lanza');
+    expect(opcionBlocker(state, rival.id, lanza)).toBe('la lanza ya no cuelga en la garita');
     state.current = 0;
     const faccion = NOMBRE_DE_FACCION[state.players[1]!.faction];
     expect(opcionBlocker(state, yo.id, lanza)).toBe(
@@ -1015,6 +1028,90 @@ describe('la IA de reglas en un lugar', () => {
     expect(jugadaEnElLugar(state, hero)).toBeNull();
     const pozo = state.mundo!.historia.lugares[1]!;
     expect(hariaAlgoEn(state, hero, pozo, 1_000_000)).toBe(false);
+  });
+});
+
+describe('los mundos del repositorio en disco', () => {
+  it('«prueba» y «ejemplo» valen con su biblia, como los ve «pnpm mundo validar»', async () => {
+    expect(await validarEnDisco('prueba')).toEqual([]);
+    expect(await validarEnDisco('ejemplo')).toEqual([]);
+  });
+});
+
+/**
+ * El patrón de dos desenlaces excluyentes que enseña la skill del motor
+ * (`## Desenlaces excluyentes`): el fragmento **tal como está escrito en ella**,
+ * metido en `prueba`, vale con el validador de verdad y, jugado, elegir uno cierra el
+ * otro con el `ya` que describe el mundo, y otro lugar lo lee. Si alguien toca el
+ * fragmento y deja de valer, el motor gastaría vueltas copiándolo: cae aquí.
+ */
+describe('los desenlaces excluyentes de la skill', () => {
+  const skill = readFileSync(join(RAIZ, '.claude/skills/motor-de-mundos/SKILL.md'), 'utf8');
+  const seccion = skill.slice(skill.indexOf('## Desenlaces excluyentes'));
+  const bloque = /```json\n([\s\S]*?)\n```/.exec(seccion)?.[1];
+  if (bloque === undefined) throw new Error('la skill no trae el fragmento de los desenlaces');
+  const fragmento = JSON.parse(bloque) as {
+    marcas: Record<string, unknown>;
+    nodo: { texto: string; opciones: Record<string, unknown>[] };
+    enOtroLugar: { punto: Record<string, unknown> & { id: string }; dialogo: unknown };
+  };
+  const conElSello = prueba((h) => {
+    Object.assign(h.marcas as Record<string, unknown>, fragmento.marcas);
+    // El nodo, en la garita del puente: se llega desde su inicio por una opción sin «hace».
+    const garita = puente(h).dialogos.garita!;
+    garita.nodos.sello = fragmento.nodo;
+    garita.nodos.dentro!.opciones.push({ texto: 'Preguntar por el sello', ir: 'sello' });
+    // El punto que lo lee, en el pozo.
+    const pozo = h.lugares[1] as unknown as {
+      puntos: unknown[];
+      dialogos: Record<string, unknown>;
+    };
+    pozo.puntos.push(fragmento.enOtroLugar.punto);
+    pozo.dialogos[fragmento.enOtroLugar.punto.dialogo as string] = fragmento.enOtroLugar.dialogo;
+  });
+
+  it('vale con el validador de verdad', () => {
+    expect(problemasDelMundo(conElSello, 'prueba', BANCO)).toEqual([]);
+  });
+
+  it('«pnpm mundo medir» lo ve: dos desenlaces que se excluyen y una marca que cruza al pozo', () => {
+    const m = medirMundo(leerMundo(conElSello, 'prueba', BANCO), null);
+    expect(m.exclusiones).toEqual([['sello-a-la-orden', 'sello-a-los-orkos']]);
+    expect(m.marcasQueCruzan).toEqual(['sello-a-los-orkos']);
+    expect(m.encadenados).toBe(2);
+  });
+
+  it('elegir un desenlace cierra el otro con el «ya» del mundo, y el otro lugar lo lee', () => {
+    const state = partidaDelMundo(leerMundo(conElSello, 'prueba', BANCO));
+    const hero = state.heroes.find((h) => h.owner === 0)!;
+    const sello = (opcion: number) => ({
+      lugar: 'puente-de-corvo',
+      punto: 'garita',
+      nodo: 'sello',
+      opcion,
+    });
+    const estandarte = () => {
+      hero.at = { x: 16, y: 13 };
+      const a = anteDelHeroe(state, hero.id);
+      if ('motivo' in a) throw new Error(a.motivo);
+      return puntosDe(a).some((p) => p.id === 'estandarte');
+    };
+    expect(estandarte()).toBe(false);
+    hero.at = { x: 10, y: 12 };
+    expect(opcionBlocker(state, hero.id, sello(0))).toBeNull();
+    const oro = state.players[0]!.oro;
+    applyAdventureAction(
+      state,
+      { type: 'elegir_en_lugar', hero: hero.id, ...sello(1) },
+      { rng: createRng(7) },
+      0,
+    );
+    expect(state.players[0]!.oro).toBe(oro + 400);
+    // La otra se cierra diciendo cómo está el mundo, no quién lo hizo.
+    expect(opcionBlocker(state, hero.id, sello(0))).toBe(
+      'el sello del abad ya está en manos de los orkos',
+    );
+    expect(estandarte()).toBe(true);
   });
 });
 

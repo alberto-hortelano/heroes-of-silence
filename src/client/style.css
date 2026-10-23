@@ -659,13 +659,17 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 /* Con su propio desplazamiento: `html, body` no se desplazan (la partida mide
    la ventana), y en un teléfono de 375×812 la elección mide 886 px, así que con
    `min-height` a secas «Empezar» quedaba debajo, sin forma de llegar (QA, H1). La
-   rejilla centra lo que cabe; lo que no, sale por abajo y se baja hasta ello. */
+   rejilla centra lo que cabe; lo que no, sale por abajo y se baja hasta ello. Su
+   columna no pasa del ancho de la pantalla: con `auto`, un título que no parte la
+   línea la ensanchaba, y en 390 px el marco de la espera del mundo salía por la
+   derecha (H9 del QA de la trama, hasta 136 px con el tema templario). */
 #inicio {
   box-sizing: border-box;
   height: 100dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 16px;
   background: var(--bg);
@@ -690,7 +694,10 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .titulo-de-inicio {
   margin: 0 0 1.1rem;
   text-align: center;
-  font: 600 1.8rem/2.4rem var(--letra-titulo);
+  /* En un teléfono estrecho la letra baja con el ancho para que quepa en una línea
+     (con la columna del menú al ancho de la pantalla, «Elige tu facción» se cortaba
+     a 360 px: M1 del QA de la trama); desde ~440 px, la de siempre. */
+  font: 600 min(1.8rem, 6.6vw)/2.4rem var(--letra-titulo);
   height: 2.4rem;
   white-space: nowrap;
   overflow: hidden;
@@ -774,6 +781,17 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   opacity: 0.7;
   cursor: not-allowed;
 }
+/* Los títulos de «El mundo» y de su espera parten la línea («Leyendo y pintando el
+   mapa para el motor» no cabe en un teléfono): no son la lista de facciones, que
+   tiene que medir lo mismo con cualquier tema. Y lo que dice el motor, también las
+   palabras largas (un id, una ruta del repositorio). */
+.eleccion-del-mundo .titulo-de-inicio,
+.espera-del-mundo .titulo-de-inicio {
+  height: auto;
+  white-space: normal;
+  text-wrap: balance;
+}
+.espera-del-mundo { overflow-wrap: anywhere; }
 .lineas-del-motor { font-size: 0.85em; color: var(--ink-dim); max-height: 18rem; overflow: auto; }
 .motivo-del-mundo, .problemas-del-mundo { color: var(--rechazo); }
 /* La complejidad del combate (22-10-2026): el tope de tropa y la rueda, cada uno

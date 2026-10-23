@@ -3,16 +3,22 @@
   "resumen": "Mundo de prueba escrito a mano para los tests y el navegador: un puente con su guardián viejo y un pozo con algo dentro, junto a la base del Imperio.",
   "base": { "alcaide": "imperio-burgomaestre-anciano", "encargado-tavern": "imperio-posadera" },
   "marcas": {
-    "peaje-pagado": { "falta": "aún no has pagado el peaje", "ya": "ya pagaste el peaje" },
-    "carta-leida": {
-      "falta": "no tienes nada con que convencerle",
-      "ya": "ya has leído la carta del capitán"
+    "peaje-pagado": {
+      "falta": "nadie ha pagado aún el peaje del puente",
+      "ya": "el peaje del puente ya está pagado"
     },
-    "lanza-cogida": { "falta": "no has cogido la lanza", "ya": "ya te llevaste la lanza" },
-    "cubo-sacado": { "falta": "no has sacado el cubo", "ya": "el cubo ya está fuera, vacío" },
+    "carta-leida": {
+      "falta": "la carta del capitán sigue cerrada en la garita",
+      "ya": "la carta del capitán ya está abierta"
+    },
+    "lanza-cogida": {
+      "falta": "la lanza sigue colgada en la garita",
+      "ya": "la lanza ya no cuelga en la garita"
+    },
+    "cubo-sacado": { "falta": "el cubo sigue en el fondo del pozo", "ya": "el cubo ya está fuera, vacío" },
     "derrota-en-el-pozo": {
       "falta": "nada ha salido aún del pozo",
-      "ya": "lo del pozo ya te venció una vez"
+      "ya": "lo del pozo ya ha vencido a alguien"
     }
   },
   "lugares": [

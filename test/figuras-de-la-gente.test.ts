@@ -6,13 +6,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
-import { leerMundo } from '../src/core/mundo/validar.js';
 import { type Banco, type FiguraDeNpc, laMasParecida, leerBanco } from '../src/core/npcs.js';
 import { createRng, hashDeTexto } from '../src/core/rng.js';
 import { figurasDeLaGente } from '../src/core/town/figuras.js';
 import { personasDeLaFaccion } from '../src/core/town/voces.js';
 import type { FactionId } from '../src/core/types.js';
-import { leerCrudos } from '../tools/mundo/disco.js';
+import { leerMundoDeDisco } from '../tools/mundo/disco.js';
 import { leerBancoDeDisco } from '../tools/npcs/banco.js';
 
 const figura = (
@@ -230,10 +229,8 @@ describe('la base en la sesión', () => {
 
 describe('la gente de un lugar (el mundo de prueba)', () => {
   it('Corvo se pinta con su figura si está pintada; si no, con la más parecida de su facción, o el Y Bot', async () => {
-    const leido = await leerCrudos('prueba');
-    if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
     const real = leerBancoDeDisco();
-    const mundo = leerMundo(leido.crudos, 'prueba', real);
+    const { mundo } = await leerMundoDeDisco('prueba');
     const corvoCon = (pintadas: string[]): string | null => {
       const s = new Session(0, undefined, undefined, undefined, false, mundo, {
         banco: real,
@@ -250,10 +247,8 @@ describe('la gente de un lugar (el mundo de prueba)', () => {
   });
 
   it('en el mundo de prueba, «base» viste al alcaide y a la posadera de quien juega', async () => {
-    const leido = await leerCrudos('prueba');
-    if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
     const real = leerBancoDeDisco();
-    const mundo = leerMundo(leido.crudos, 'prueba', real);
+    const { mundo } = await leerMundoDeDisco('prueba');
     const imperio = real.figuras.filter((f) => f.etiquetas.faccion === 'imperio').map((f) => f.id);
     const s = new Session(0, undefined, undefined, undefined, false, mundo, {
       banco: real,

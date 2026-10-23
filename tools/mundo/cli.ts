@@ -8,13 +8,26 @@
  *       .cache/mundos/<id>/lectura.json y mapa.png: el mapa por regiones, las
  *       casillas que admiten un lugar, el vocabulario y el catálogo
  *   pnpm mundo validar <id>
- *       la misma validación que la página; sale 1 con los problemas
+ *       la misma validación que la página y, además, la biblia (`biblia.md`, que la
+ *       página no carga); sale 1 con los problemas
+ *   pnpm mundo medir <id>…
+ *       cuánta trama lleva cada mundo: lugares y regiones, marcas que cruzan,
+ *       lugares encadenados, desenlaces que se excluyen y, por persona, nodos y
+ *       niveles de su conversación (el inicio es el 1). Una medida, no una regla: no exige la biblia,
+ *       para medir también los mundos de antes
  */
 import { REGIONES_POR_BANDO } from '../../src/core/map/generate.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
 import { bandera } from '../argumentos.js';
-import { escribirLectura, escribirMundoNuevo, validarEnDisco } from './disco.js';
+import {
+  escribirLectura,
+  escribirMundoNuevo,
+  leerMundoDeDisco,
+  lineaDeProblema,
+  validarEnDisco,
+} from './disco.js';
+import { describirMedida, medirMundo } from './medida.js';
 
 function entero(texto: string | undefined, nombre: string, defecto: number): number {
   if (texto === undefined) return defecto;
@@ -26,7 +39,7 @@ function entero(texto: string | undefined, nombre: string, defecto: number): num
 async function main(argv: readonly string[]): Promise<number> {
   const [orden, id, ...resto] = argv;
   if (id === undefined || orden === undefined) {
-    console.error('uso: pnpm mundo nuevo|leer|validar <id> (mira tools/mundo/cli.ts)');
+    console.error('uso: pnpm mundo nuevo|leer|validar|medir <id> (mira tools/mundo/cli.ts)');
     return 2;
   }
   switch (orden) {
@@ -63,11 +76,18 @@ async function main(argv: readonly string[]): Promise<number> {
       console.log(
         `el mundo "${id}" tiene ${problemas.length} problema${problemas.length === 1 ? '' : 's'}:`,
       );
-      for (const p of problemas) console.log(`- ${p}`);
+      for (const p of problemas) console.log(lineaDeProblema(p));
       return 1;
     }
+    case 'medir': {
+      for (const uno of [id, ...resto]) {
+        const { mundo, biblia } = await leerMundoDeDisco(uno);
+        for (const l of describirMedida(uno, medirMundo(mundo, biblia))) console.log(l);
+      }
+      return 0;
+    }
     default:
-      console.error(`orden desconocida «${orden}»: nuevo, leer o validar`);
+      console.error(`orden desconocida «${orden}»: nuevo, leer, validar o medir`);
       return 2;
   }
 }

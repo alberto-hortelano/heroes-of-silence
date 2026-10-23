@@ -76,16 +76,45 @@ export function esIdDeHistoria(id: string): boolean {
 /**
  * Los tamaños de mapa con que se pide un mundo nuevo desde el menú, en regiones
  * por bando, con su nombre: los que admiten el menú y el servidor que lo genera.
+ * Con cuántos lugares (`lugares`, de cuántos a cuántos) los pide la skill al motor
+ * por la lectura (`lugaresDelPlan`) y el menú lo enseña; **el validador no lo mira**
+ * (admite de 1 a `LUGARES_MAXIMOS`: `prueba`, a mano, lleva 2). Decisión de la trama
+ * de los mundos (22-10-2026): con 2-4 lugares cortos el mundo salía plano.
  */
 export const TAMAÑOS_DE_UN_MUNDO = [
-  { regiones: 4, nombre: 'Pequeño', que: 'cuatro regiones por bando' },
+  { regiones: 4, nombre: 'Pequeño', que: 'cuatro regiones por bando', lugares: { de: 4, a: 5 } },
   {
     regiones: REGIONES_POR_BANDO,
     nombre: 'Mediano',
     que: 'cinco regiones por bando, el de siempre',
+    lugares: { de: 5, a: 6 },
   },
-  { regiones: 7, nombre: 'Grande', que: 'siete regiones por bando' },
+  { regiones: 7, nombre: 'Grande', que: 'siete regiones por bando', lugares: { de: 6, a: 8 } },
 ] as const;
+
+/** Los tamaños del menú dichos, en regiones por bando («4, 5, 7»): los mensajes de un tamaño que no es ninguno. */
+export const TAMAÑOS_DICHOS = TAMAÑOS_DE_UN_MUNDO.map((t) => t.regiones).join(', ');
+
+/** De cuántos a cuántos lugares lleva un mundo de un tamaño. */
+export interface LugaresDeUnMundo {
+  readonly de: number;
+  readonly a: number;
+}
+
+/**
+ * Cuántos lugares lleva un mundo cuyo plan tiene `regionesDelPlan` regiones (las de
+ * los dos bandos): las de su tamaño del menú. Lanza con un plan que no es de ningún
+ * tamaño: un mundo se pide desde el menú o con `pnpm mundo nuevo`, con sus tamaños.
+ */
+export function lugaresDelPlan(regionesDelPlan: number): LugaresDeUnMundo {
+  const t = TAMAÑOS_DE_UN_MUNDO.find((x) => x.regiones * 2 === regionesDelPlan);
+  if (t === undefined) {
+    throw new Error(
+      `el plan tiene ${regionesDelPlan} regiones: ningún tamaño del menú (${TAMAÑOS_DICHOS} por bando, el doble en el plan)`,
+    );
+  }
+  return t.lugares;
+}
 
 /** El tamaño que el menú trae marcado: el del procedimental de siempre. */
 export const TAMAÑO_POR_DEFECTO = REGIONES_POR_BANDO;
@@ -208,9 +237,12 @@ export const VOCABULARIO: {
 
 /** Una marca del mundo, con lo que se dice cuando falta y cuando ya está. */
 export interface Marca {
-  /** Por qué una opción que pide la marca sale apagada: «aún no conoces al capitán». */
+  /** Por qué una opción que pide la marca sale apagada: «la carta del capitán sigue cerrada». */
   readonly falta: string;
-  /** Por qué una opción que pide que NO esté sale apagada: «ya le has pagado el peaje». */
+  /**
+   * Por qué una opción que pide que NO esté sale apagada: «el peaje ya está pagado».
+   * Describe el mundo, que es de los dos: puede haberla puesto el rival.
+   */
   readonly ya: string;
 }
 

@@ -56,6 +56,8 @@ let pedido: MundoLeido | null = null;
  * problemas. Las figuras que nombra se miran contra el banco de NPC (`gente`), que
  * se carga a la vez que sus ficheros (`entrada.ts`); sin él, lanza diciendo que no se
  * cargó el banco, y por qué (`sinBanco`), no que el mundo nombre figuras que no existen.
+ * La biblia no se pide: el juego no la lee; la exigen `pnpm mundo validar` y el servidor
+ * que genera.
  */
 export async function cargarElMundoPedido(
   search: string,

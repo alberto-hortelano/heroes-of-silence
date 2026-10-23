@@ -3,22 +3,25 @@
  * el final y cuenta los hechos de los lugares de cada bando (F1a del mapa vivo,
  * C6). No es un test ni una medida de equilibrio: es ver que la IA de reglas
  * entra en los lugares, que cada premio se cobra una vez y que la partida acaba.
+ *
+ * Con el tiempo de la partida y por día (la trama de los mundos, 22-10-2026): la IA
+ * prueba en cada turno las jugadas de cada lugar (`hariaAlgoEn`), y un mundo con
+ * más lugares y más opciones la encarece. Una medida para comparar mundos, no una
+ * regla: incluye la batalla y todo lo demás del turno.
  */
 import { playAiGame } from '../../src/core/ai/turn.js';
 import { partidaDelMundo } from '../../src/core/mundo/partida.js';
-import { leerMundo } from '../../src/core/mundo/validar.js';
 import { createRng } from '../../src/core/rng.js';
-import { leerCrudos } from '../mundo/disco.js';
-import { leerBancoDeDisco } from '../npcs/banco.js';
+import { leerMundoDeDisco } from '../mundo/disco.js';
 
 const LUGAR = new Set(['place_state', 'world_mark', 'gold_paid', 'item_given', 'troops_joined']);
 
 for (const id of process.argv.slice(2).length > 0 ? process.argv.slice(2) : ['prueba']) {
-  const leido = await leerCrudos(id);
-  if ('problemas' in leido) throw new Error(leido.problemas.join('\n'));
-  const mundo = leerMundo(leido.crudos, id, leerBancoDeDisco());
+  const { mundo } = await leerMundoDeDisco(id);
   const state = partidaDelMundo(mundo, { 0: 'ai', 1: 'ai' }, 300);
+  const t0 = performance.now();
   const fin = await playAiGame(state, { rng: createRng(mundo.mundo.semilla ^ 0x5eed) });
+  const ms = performance.now() - t0;
   const porBando = new Map<number, Map<string, number>>();
   let delLugar = 0;
   for (const e of state.log) {
@@ -34,7 +37,7 @@ for (const id of process.argv.slice(2).length > 0 ? process.argv.slice(2) : ['pr
     porBando.set(e.actor, m);
   }
   console.log(
-    `${id}: gana ${fin.winner ?? 'nadie'} el día ${state.day}; ${delLugar} hechos de lugares`,
+    `${id}: gana ${fin.winner ?? 'nadie'} el día ${state.day}; ${delLugar} hechos de lugares; ${Math.round(ms)} ms la partida, ${Math.round(ms / state.day)} ms por día`,
   );
   for (const [bando, m] of [...porBando].sort((a, b) => a[0] - b[0])) {
     console.log(`  jugador ${bando}: ${[...m].map(([k, n]) => `${k} ×${n}`).join(', ')}`);

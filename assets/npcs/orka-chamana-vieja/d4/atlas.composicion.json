@@ -1,0 +1,15 @@
+{
+  "atlas": "atlas.webp",
+  "sha256": "e8b5df61f928c72ab859b55ce68cae05d32c33db51d58f168a9747e66c25f444",
+  "hojas": [
+    {
+      "imagen": "hoja-a.webp",
+      "sha256": "df87aab01f6f58e5dbdd9a3a644568f38602375a786007b9c5b25579f510ae08",
+      "filas": [
+        "idle",
+        "walk",
+        "charge"
+      ]
+    }
+  ]
+}
