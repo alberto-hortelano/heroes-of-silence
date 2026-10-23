@@ -376,8 +376,8 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   uso —`arma` (cuerpo a cuerpo), `distancia` (con lo que se dispara), `lanza` (la carga), `armadura`
   y `escudo` (`HUECOS`)—, por individuo y por héroe, y una sola clase de piezas
   (`data/equipo.json`, que edita la arena): ni calidades, ni accesorio, ni PV. Una pieza suma
-  ataque, defensa, daño (`danio`) y armadura, y su velocidad puede restar (la de un escudo,
-  siempre); `conEquipo` es la única suma, y el nivel la ve. **Un arma a dos manos (`manos: 2`) no
+  ataque, defensa, daño (`danio`) y armadura, y su velocidad puede restar (la de un escudo
+  no suma: 0 o menos, `problemasDePieza`; 0 vale desde el 23-10-2026); `conEquipo` es la única suma, y el nivel la ve. **Un arma a dos manos (`manos: 2`) no
   admite escudo** (`manosBlocker`, 12-10-2026). Cada pieza cuesta un número de oro y dice de dónde
   sale (`seConsigue`; precios inventados): la armería vende las que no van sobre otra salvo la maza
   y el pavés; el botín de asaltantes y ciudades neutrales (con su propia corriente de azar) da las

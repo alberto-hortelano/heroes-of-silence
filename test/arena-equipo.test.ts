@@ -175,9 +175,9 @@ describe('el catálogo de equipo en la arena', () => {
     );
   });
 
-  it('muerde con la regla de una pieza del catálogo: el escudo resta, las manos son de un arma, el daño en orden', () => {
+  it('muerde con la regla de una pieza del catálogo: el escudo no suma, las manos son de un arma, el daño en orden', () => {
     expect(() => validarPieza({ ...pieza('escudo'), velocidad: 1 })).toThrow(
-      '«Escudo» es un escudo y tiene que restar velocidad (un número negativo), y es 1',
+      '«Escudo» es un escudo y no puede sumar velocidad (0 o un número negativo), y es 1',
     );
     expect(() => validarPieza({ ...pieza('brigantina'), manos: 2 })).toThrow(
       'solo un arma se lleva a dos manos',
@@ -201,12 +201,14 @@ describe('el catálogo de equipo en la arena', () => {
     );
   });
 
-  it('cambiar el hueco rehace lo que el hueco exige: el escudo resta y las manos son de un arma', () => {
+  it('cambiar el hueco rehace lo que el hueco exige: el escudo no suma y las manos son de un arma', () => {
     const arma = { ...(piezaNueva('arma', EQUIPO_DEL_JUEGO) as Pieza), manos: 2 as const };
     const escudo = validarPieza(enElHueco(arma, 'escudo')) as Pieza;
-    expect(escudo).toMatchObject({ hueco: 'escudo', velocidad: -1 });
+    expect(escudo).toMatchObject({ hueco: 'escudo', velocidad: 0 });
     expect(escudo.manos).toBeUndefined();
-    // Lo que ya restaba se queda; lo que el escudo exigía se va con él: de vuelta
+    // Lo que sumaba se queda en 0 al pasar a escudo (23-10-2026: 0 vale).
+    expect(enElHueco({ ...arma, velocidad: 2 }, 'escudo').velocidad).toBe(0);
+    // Lo que ya restaba se queda; lo que restaba el escudo se va con él: de vuelta
     // al arma no resta. Un arma que ya restaba sin ser escudo, sigue restando.
     expect(enElHueco({ ...escudo, velocidad: -2 }, 'escudo').velocidad).toBe(-2);
     expect((validarPieza(enElHueco(escudo, 'arma')) as Pieza).velocidad).toBe(0);
@@ -214,7 +216,7 @@ describe('el catálogo de equipo en la arena', () => {
     // Lo que el hueco nuevo no suma se queda en 0 (18-10-2026): un arma que pasa a
     // escudo deja su ataque y su daño, y a armadura, también su rueda.
     const maza = pieza('maza');
-    expect(enElHueco(maza, 'escudo')).toMatchObject({ ataque: 0, velocidad: -1 });
+    expect(enElHueco(maza, 'escudo')).toMatchObject({ ataque: 0, velocidad: 0 });
     expect(enElHueco(maza, 'escudo')).not.toHaveProperty('danio');
     expect(enElHueco(maza, 'armadura')).not.toHaveProperty('rueda');
     expect(enElHueco(maza, 'lanza').rueda).toEqual(maza.rueda);
@@ -223,7 +225,8 @@ describe('el catálogo de equipo en la arena', () => {
   it('«Nueva pieza» y «Duplicar» dan un id libre', () => {
     const escudo = piezaNueva('escudo', EQUIPO_DEL_JUEGO) as Pieza;
     expect(escudo).toMatchObject({ id: 'escudo-2', nombre: 'Escudo 2' });
-    expect(escudo.velocidad).toBeLessThan(0);
+    // En blanco no frena: un escudo no suma, y 0 vale (23-10-2026).
+    expect(escudo.velocidad).toBe(0);
     const eq = catalogoCon(escudo);
     expect(piezaNueva('escudo', eq).id).toBe('escudo-3');
     // La copia lo es todo, también de dónde se consigue.
@@ -318,7 +321,7 @@ describe('cambiar una pieza no deja sin valer a nadie del catálogo', () => {
     expect(motivoDelCambio(catalogoCon(nueva), sin, [arquero()])).toBeNull();
     expect(
       motivoDelCambio(EQUIPO_DEL_JUEGO, conMala({ ...pieza('escudo'), velocidad: 1 }), []),
-    ).toMatch(/es un escudo y tiene que restar velocidad/);
+    ).toMatch(/es un escudo y no puede sumar velocidad/);
     // Ni deja el catálogo sin nada que caiga como botín, que el juego no cargaría.
     expect(
       motivoDelCambio(

@@ -1032,7 +1032,7 @@ function problemasDeDondeSeConsigue(v: unknown, q: string): string[] {
  * campos que existen (`CAMPOS_DE_PIEZA`: un `pv` no es uno, ninguna pieza da PV),
  * el id (`esIdDePieza`), el nombre, el hueco que existe, de dónde se consigue, las
  * cifras enteras ≥ 0 y solo las de su hueco (`camposDelHueco`), la armadura con
- * tope (`ARMADURA_MAXIMA_DE_PIEZA`), el escudo que resta velocidad, el daño
+ * tope (`ARMADURA_MAXIMA_DE_PIEZA`), el escudo que no suma velocidad, el daño
  * `[mín, máx]`, las manos solo en un arma, una rueda con sus seis niveles en
  * cada arma que golpea en ella (`problemasDeNiveles`) y el precio, solo en oro.
  * **La regla de una pieza, en un sitio**: la leen el cargador del catálogo
@@ -1070,13 +1070,13 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   } else if (typeof p.armadura === 'number' && p.armadura > ARMADURA_MAXIMA_DE_PIEZA) {
     problemas.push(`${q}: la armadura va de 0 a ${ARMADURA_MAXIMA_DE_PIEZA} y es ${p.armadura}`);
   }
-  // La velocidad puede restar: es lo que hace un escudo, y el escudo TIENE que
-  // restarla.
+  // La velocidad puede restar: es lo que hace un escudo, que no puede sumarla (0
+  // vale: un escudo ligero que no frena; 23-10-2026, decisión del usuario).
   if (!enteroDesde(p.velocidad, Number.MIN_SAFE_INTEGER)) {
     problemas.push(`${q}: velocidad tiene que ser un entero y ${comoSeLee(p.velocidad)}`);
-  } else if (p.hueco === 'escudo' && (p.velocidad as number) >= 0) {
+  } else if (p.hueco === 'escudo' && (p.velocidad as number) > 0) {
     problemas.push(
-      `${q} es un escudo y tiene que restar velocidad (un número negativo), y es ${p.velocidad}`,
+      `${q} es un escudo y no puede sumar velocidad (0 o un número negativo), y es ${p.velocidad}`,
     );
   }
   if (p.danio !== undefined) {

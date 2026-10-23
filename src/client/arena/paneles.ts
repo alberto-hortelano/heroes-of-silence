@@ -1529,7 +1529,7 @@ const CASILLAS_DE_LA_CIFRA: Readonly<
       rotulo: NOMBRE_DE_CIFRA.velocidad,
       de: (x) => x.velocidad ?? 0,
       ...(hueco === 'escudo'
-        ? { limites: { maximo: -1 }, nota: 'Un escudo siempre resta: −1 escalón o más.' }
+        ? { limites: { maximo: 0 }, nota: 'Un escudo no suma: 0 o restar escalones.' }
         : { limites: {}, nota: 'En escalones de velocidad; puede restar.' }),
     },
   ],

@@ -170,8 +170,8 @@ describe('el catálogo de equipo, en datos (C2)', () => {
       /"brigantina" va en el hueco armadura y dice manos/,
     );
     expect(con((ps) => (id(ps, 'mandoble').manos = 3))).toThrow(/manos es 1 o 2, y es 3/);
-    expect(con((ps) => (id(ps, 'escudo').velocidad = 0))).toThrow(
-      /"escudo" es un escudo y tiene que restar velocidad/,
+    expect(con((ps) => (id(ps, 'escudo').velocidad = 1))).toThrow(
+      /"escudo" es un escudo y no puede sumar velocidad/,
     );
     expect(con((ps) => (id(ps, 'arco').manos = 2))).toThrow(
       /"arco" va en el hueco distancia y dice manos/,
@@ -223,9 +223,11 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     const escudo = { ...pieza('escudo') };
     expect(problemasDePieza(escudo)).toEqual([]);
     expect(piezaBlocker(escudo)).toBeNull();
-    expect(piezaBlocker({ ...escudo, velocidad: 0 })).toBe(
-      '"escudo" es un escudo y tiene que restar velocidad (un número negativo), y es 0',
+    expect(piezaBlocker({ ...escudo, velocidad: 1 })).toBe(
+      '"escudo" es un escudo y no puede sumar velocidad (0 o un número negativo), y es 1',
     );
+    // Un escudo que no frena vale (23-10-2026): no suma, pero no tiene por qué restar.
+    expect(piezaBlocker({ ...escudo, velocidad: 0 })).toBeNull();
     expect(problemasDePieza({ ...pieza('brigantina'), manos: 2, ataque: -1 })).toEqual([
       '"brigantina": ataque tiene que ser un entero ≥ 0 y es -1',
       '"brigantina" va en el hueco armadura, que no suma ataque: en él una pieza suma defensa, armadura, velocidad',

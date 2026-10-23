@@ -263,11 +263,11 @@ function primeraBaseQue(
 
 /**
  * `p` en el hueco `hueco`, con lo que el hueco exige y nada de lo que no admite
- * (`camposDelHueco`): un escudo resta velocidad (al menos −1), solo un arma de
+ * (`camposDelHueco`): un escudo no suma velocidad (como mucho 0), solo un arma de
  * cuerpo a cuerpo se lleva a dos manos, solo ella y la lanza llevan rueda (y la
  * llevan: si no la traía, la de la Espada, `nivelesDeLaEspada`), y las
  * cifras que el hueco no suma se quedan en 0 —un arma que pasa a escudo deja su
- * ataque y su daño—. Lo que el escudo exigía se va con él: un escudo que pasa a
+ * ataque y su daño—. Lo que restaba el escudo se va con él: un escudo que pasa a
  * otro hueco deja de restar (velocidad 0), que si no un arma recién cambiada
  * restaba sin que nadie lo hubiera pedido. Lo demás se queda como estaba. Lo leen
  * la pieza nueva en blanco (`piezaNueva`) y el cambio de hueco de la ficha.
@@ -279,7 +279,7 @@ export function enElHueco(p: Pieza, hueco: Hueco): Pieza {
   const velocidad = !admite('velocidad')
     ? 0
     : hueco === 'escudo'
-      ? Math.min(p.velocidad, -1)
+      ? Math.min(p.velocidad, 0)
       : p.hueco === 'escudo'
         ? Math.max(p.velocidad, 0)
         : p.velocidad;
